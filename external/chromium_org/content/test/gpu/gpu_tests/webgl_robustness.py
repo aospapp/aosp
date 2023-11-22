@@ -1,12 +1,10 @@
 # Copyright 2013 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-from telemetry import test
+from telemetry import benchmark
 from telemetry.page import page
 from telemetry.page import page_set
 from telemetry.page import page_test
-# pylint: disable=W0401,W0614
-from telemetry.page.actions.all_page_actions import *
 
 from webgl_conformance import WebglConformanceValidator
 from webgl_conformance import conformance_harness_script
@@ -60,7 +58,7 @@ class WebglRobustnessPage(page.Page):
     action_runner.NavigateToPage(self)
     action_runner.WaitForJavaScriptCondition('webglTestHarness._finished')
 
-class WebglRobustness(test.Test):
+class WebglRobustness(benchmark.Benchmark):
   test = WebglConformanceValidator
 
   def CreatePageSet(self, options):

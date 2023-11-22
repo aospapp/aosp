@@ -6,8 +6,9 @@
 
 #include <set>
 
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
+#include "base/json/json_file_value_serializer.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop/message_loop.h"
 #include "base/stl_util.h"
@@ -17,13 +18,14 @@
 #include "chrome/common/importer/firefox_importer_utils.h"
 #include "chrome/common/importer/imported_bookmark_entry.h"
 #include "chrome/common/importer/imported_favicon_usage.h"
+#include "chrome/common/importer/importer_autofill_form_data_entry.h"
 #include "chrome/common/importer/importer_bridge.h"
 #include "chrome/common/importer/importer_url_row.h"
+#include "chrome/grit/generated_resources.h"
 #include "chrome/utility/importer/bookmark_html_reader.h"
 #include "chrome/utility/importer/favicon_reencode.h"
 #include "chrome/utility/importer/nss_decryptor.h"
 #include "components/autofill/core/common/password_form.h"
-#include "grit/generated_resources.h"
 #include "sql/connection.h"
 #include "sql/statement.h"
 #include "url/gurl.h"
@@ -138,6 +140,11 @@ void FirefoxImporter::StartImport(
     bridge_->NotifyItemStarted(importer::PASSWORDS);
     ImportPasswords();
     bridge_->NotifyItemEnded(importer::PASSWORDS);
+  }
+  if ((items & importer::AUTOFILL_FORM_DATA) && !cancelled()) {
+    bridge_->NotifyItemStarted(importer::AUTOFILL_FORM_DATA);
+    ImportAutofillFormData();
+    bridge_->NotifyItemEnded(importer::AUTOFILL_FORM_DATA);
   }
   bridge_->NotifyEnded();
 }
@@ -381,14 +388,50 @@ void FirefoxImporter::ImportHomepage() {
   }
 }
 
-void FirefoxImporter::GetSearchEnginesXMLData(
-    std::vector<std::string>* search_engine_data) {
-  // TODO(mpawlowski): This may no longer work, search engines are stored in
-  // search.json since Firefox 3.5, not in search.sqlite. XML definitions are
-  // still necessary. http://crbug.com/329175
-  base::FilePath file = source_path_.AppendASCII("search.sqlite");
+void FirefoxImporter::ImportAutofillFormData() {
+  base::FilePath file = source_path_.AppendASCII("formhistory.sqlite");
   if (!base::PathExists(file))
     return;
+
+  sql::Connection db;
+  if (!db.Open(file))
+    return;
+
+  const char query[] =
+      "SELECT fieldname, value, timesUsed, firstUsed, lastUsed FROM "
+      "moz_formhistory";
+
+  sql::Statement s(db.GetUniqueStatement(query));
+
+  std::vector<ImporterAutofillFormDataEntry> form_entries;
+  while (s.Step() && !cancelled()) {
+    ImporterAutofillFormDataEntry form_entry;
+    form_entry.name = s.ColumnString16(0);
+    form_entry.value = s.ColumnString16(1);
+    form_entry.times_used = s.ColumnInt(2);
+    form_entry.first_used = base::Time::FromTimeT(s.ColumnInt64(3) / 1000000);
+    form_entry.last_used = base::Time::FromTimeT(s.ColumnInt64(4) / 1000000);
+
+    // Don't import search bar history.
+    if (base::UTF16ToUTF8(form_entry.name) == "searchbar-history")
+      continue;
+
+    form_entries.push_back(form_entry);
+  }
+
+  if (!form_entries.empty() && !cancelled())
+    bridge_->SetAutofillFormData(form_entries);
+}
+
+void FirefoxImporter::GetSearchEnginesXMLData(
+    std::vector<std::string>* search_engine_data) {
+  base::FilePath file = source_path_.AppendASCII("search.sqlite");
+  if (!base::PathExists(file)) {
+    // Since Firefox 3.5, search engines are no longer stored in search.sqlite.
+    // Instead, search.json is used for storing search engines.
+    GetSearchEnginesXMLDataFromJSON(search_engine_data);
+    return;
+  }
 
   sql::Connection db;
   if (!db.Open(file))
@@ -473,6 +516,118 @@ void FirefoxImporter::GetSearchEnginesXMLData(
     std::string file_data;
     base::ReadFileToString(file, &file_data);
     search_engine_data->push_back(file_data);
+  }
+}
+
+void FirefoxImporter::GetSearchEnginesXMLDataFromJSON(
+    std::vector<std::string>* search_engine_data) {
+  // search-metadata.json contains keywords for search engines. This
+  // file exists only if the user has set keywords for search engines.
+  base::FilePath search_metadata_json_file =
+      source_path_.AppendASCII("search-metadata.json");
+  JSONFileValueSerializer metadata_serializer(search_metadata_json_file);
+  scoped_ptr<base::Value> metadata_root(
+      metadata_serializer.Deserialize(NULL, NULL));
+  const base::DictionaryValue* search_metadata_root = NULL;
+  if (metadata_root)
+    metadata_root->GetAsDictionary(&search_metadata_root);
+
+  // search.json contains information about search engines to import.
+  base::FilePath search_json_file = source_path_.AppendASCII("search.json");
+  if (!base::PathExists(search_json_file))
+    return;
+
+  JSONFileValueSerializer serializer(search_json_file);
+  scoped_ptr<base::Value> root(serializer.Deserialize(NULL, NULL));
+  const base::DictionaryValue* search_root = NULL;
+  if (!root || !root->GetAsDictionary(&search_root))
+    return;
+
+  const std::string kDirectories("directories");
+  const base::DictionaryValue* search_directories = NULL;
+  if (!search_root->GetDictionary(kDirectories, &search_directories))
+    return;
+
+  // Dictionary |search_directories| contains a list of search engines
+  // (default and installed). The list can be found from key <engines>
+  // of the dictionary. Key <engines> is a grandchild of key <directories>.
+  // However, key <engines> parent's key is dynamic which depends on
+  // operating systems. For example,
+  //   Ubuntu (for default search engine):
+  //     /usr/lib/firefox/distribution/searchplugins/locale/en-US
+  //   Ubuntu (for installed search engines):
+  //     /home/<username>/.mozilla/firefox/lcd50n4n.default/searchplugins
+  //   Windows (for default search engine):
+  //     C:\\Program Files (x86)\\Mozilla Firefox\\browser\\searchplugins
+  // Therefore, it needs to be retrieved by searching.
+
+  for (base::DictionaryValue::Iterator it(*search_directories); !it.IsAtEnd();
+       it.Advance()) {
+    // The key of |it| may contains dot (.) which cannot be used as <key>
+    // for retrieving <engines>. Hence, it is needed to get |it| as dictionary.
+    // The resulted dictionary can be used for retrieving <engines>.
+    const std::string kEngines("engines");
+    const base::DictionaryValue* search_directory = NULL;
+    if (!it.value().GetAsDictionary(&search_directory))
+      continue;
+
+    const base::ListValue* search_engines = NULL;
+    if (!search_directory->GetList(kEngines, &search_engines))
+      continue;
+
+    const std::string kFilePath("filePath");
+    const std::string kHidden("_hidden");
+    for (size_t i = 0; i < search_engines->GetSize(); ++i) {
+      const base::DictionaryValue* engine_info = NULL;
+      if (!search_engines->GetDictionary(i, &engine_info))
+        continue;
+
+      bool is_hidden = false;
+      std::string file_path;
+      if (!engine_info->GetBoolean(kHidden, &is_hidden) ||
+          !engine_info->GetString(kFilePath, &file_path))
+        continue;
+
+      if (!is_hidden) {
+        const std::string kAppPrefix("[app]/");
+        const std::string kProfilePrefix("[profile]/");
+        base::FilePath xml_file = base::FilePath::FromUTF8Unsafe(file_path);
+
+        // If |file_path| contains [app] or [profile] then they need to be
+        // replaced with the actual app or profile path.
+        size_t index = file_path.find(kAppPrefix);
+        if (index != std::string::npos) {
+          // Replace '[app]/' with actual app path.
+          xml_file = app_path_.AppendASCII("searchplugins").AppendASCII(
+              file_path.substr(index + kAppPrefix.length()));
+        } else if ((index = file_path.find(kProfilePrefix)) !=
+                   std::string::npos) {
+          // Replace '[profile]/' with actual profile path.
+          xml_file = source_path_.AppendASCII("searchplugins").AppendASCII(
+              file_path.substr(index + kProfilePrefix.length()));
+        }
+
+        std::string file_data;
+        base::ReadFileToString(xml_file, &file_data);
+
+        // If a keyword is mentioned for this search engine, then add
+        // it to the XML string as an <Alias> element and use this updated
+        // string.
+        const base::DictionaryValue* search_xml_path = NULL;
+        if (search_metadata_root && search_metadata_root->HasKey(file_path) &&
+            search_metadata_root->GetDictionaryWithoutPathExpansion(
+                file_path, &search_xml_path)) {
+          std::string alias;
+          search_xml_path->GetString("alias", &alias);
+
+          // Add <Alias> element as the last child element.
+          size_t end_of_parent = file_data.find("</SearchPlugin>");
+          if (end_of_parent != std::string::npos && !alias.empty())
+            file_data.insert(end_of_parent, "<Alias>" + alias + "</Alias> \n");
+        }
+        search_engine_data->push_back(file_data);
+      }
+    }
   }
 }
 

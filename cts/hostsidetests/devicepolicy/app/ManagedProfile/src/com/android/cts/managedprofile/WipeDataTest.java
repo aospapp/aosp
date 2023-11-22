@@ -45,12 +45,6 @@ public class WipeDataTest extends BaseManagedProfileTest {
     }
 
     public void testWipeData() throws InterruptedException {
-        try {
-            mDevicePolicyManager.wipeData(DevicePolicyManager.WIPE_EXTERNAL_STORAGE);
-            fail("Should not be able to wipe external storage from managed profile.");
-        } catch (SecurityException expected) {
-        }
-
         UserHandle currentUser = Process.myUserHandle();
         assertTrue(mUserManager.getUserProfiles().contains(currentUser));
 

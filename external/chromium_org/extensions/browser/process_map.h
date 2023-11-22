@@ -10,12 +10,14 @@
 
 #include "base/basictypes.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "extensions/common/features/feature.h"
 
 namespace content {
 class BrowserContext;
 }
 
 namespace extensions {
+class Extension;
 
 // Contains information about which extensions are assigned to which processes.
 //
@@ -66,6 +68,10 @@ namespace extensions {
 //    RenderProcessHost::FromID() and check the profile of the resulting object.
 //
 // TODO(aa): The above warnings suggest this class could use improvement :).
+//
+// TODO(kalman): This class is not threadsafe, but is used on both the UI and
+//               IO threads. Somebody should fix that, either make it
+//               threadsafe or enforce single thread. Investigation required.
 class ProcessMap : public KeyedService {
  public:
   ProcessMap();
@@ -88,6 +94,37 @@ class ProcessMap : public KeyedService {
   bool Contains(int process_id) const;
 
   std::set<std::string> GetExtensionsInProcess(int process_id) const;
+
+  // Gets the most likely context type for the process with ID |process_id|
+  // which hosts Extension |extension|, if any (may be NULL). Context types are
+  // renderer (JavaScript) concepts but the browser can do a decent job in
+  // guessing what the process hosts.
+  //
+  // |extension| is the funky part - unfortunately we need to trust the
+  // caller of this method to be correct that indeed the context does feature
+  // an extension. This matters for iframes, where an extension could be
+  // hosted in another extension's process (privilege level needs to be
+  // downgraded) or in a web page's process (privilege level needs to be
+  // upgraded).
+  //
+  // The latter of these is slightly problematic from a security perspective;
+  // if a web page renderer gets owned it could try to pretend it's an
+  // extension and get access to some unprivileged APIs. Luckly, when OOP
+  // iframes lauch, it won't be an issue.
+  //
+  // Anyhow, the expected behaviour is:
+  //   - For hosted app processes, this will be blessed_web_page.
+  //   - For other extension processes, this will be blessed_extension.
+  //   - For WebUI processes, this will be a webui.
+  //   - For any other extension we have the choice of unblessed_extension or
+  //     content_script. Since content scripts are more common, guess that.
+  //     We *could* in theory track which web processes have extension frames
+  //     in them, and those would be unblessed_extension, but we don't at the
+  //     moment, and once OOP iframes exist then there won't even be such a
+  //     thing as an unblessed_extension context.
+  //   - For anything else, web_page.
+  Feature::Context GetMostLikelyContextType(const Extension* extension,
+                                            int process_id) const;
 
  private:
   struct Item;

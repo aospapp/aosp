@@ -20,6 +20,7 @@ package com.android.mail.preferences;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.support.annotation.StringDef;
+import android.text.TextUtils;
 
 import com.android.mail.R;
 import com.android.mail.providers.Account;
@@ -112,9 +113,31 @@ public final class MailPrefs extends VersionedPrefs {
 
         public static final String CONVERSATION_OVERVIEW_MODE = "conversation-overview-mode";
 
+        public static final String ALWAYS_LAUNCH_GMAIL_FROM_EMAIL_TOMBSTONE =
+                "always-launch-gmail-from-email-tombstone";
+
         public static final String SNAP_HEADER_MODE = "snap-header-mode";
 
         public static final String RECENT_ACCOUNTS = "recent-accounts";
+
+        public static final String REQUIRED_SANITIZER_VERSION_NUMBER =
+                "required-sanitizer-version-number";
+
+        public static final String MIGRATION_STATE = "migration-state";
+
+        /**
+         * The time in epoch ms when the number of accounts in the app was reported to analytics.
+         */
+        public static final String ANALYTICS_NB_ACCOUNT_LATEST_REPORT =
+                "analytics-send-nb_accounts-epoch";
+
+        // State indicating that no migration has yet occurred.
+        public static final int MIGRATION_STATE_NONE = 0;
+        // State indicating that we have migrated imap and pop accounts, but not
+        // Exchange accounts.
+        public static final int MIGRATION_STATE_IMAP_POP = 1;
+        // State indicating that we have migrated all accounts.
+        public static final int MIGRATION_STATE_ALL = 2;
 
         public static final ImmutableSet<String> BACKUP_KEYS =
                 new ImmutableSet.Builder<String>()
@@ -143,17 +166,17 @@ public final class MailPrefs extends VersionedPrefs {
     @Retention(RetentionPolicy.SOURCE)
     @StringDef({
             RemovalActions.ARCHIVE,
-            RemovalActions.ARCHIVE_AND_DELETE,
             RemovalActions.DELETE
     })
     public @interface RemovalActionTypes {}
     public static final class RemovalActions {
         public static final String ARCHIVE = "archive";
         public static final String DELETE = "delete";
+        @Deprecated
         public static final String ARCHIVE_AND_DELETE = "archive-and-delete";
     }
 
-    public static MailPrefs get(final Context c) {
+    public static synchronized MailPrefs get(final Context c) {
         if (sInstance == null) {
             sInstance = new MailPrefs(c, PREFS_NAME);
         }
@@ -243,8 +266,13 @@ public final class MailPrefs extends VersionedPrefs {
         }
 
         final SharedPreferences sharedPreferences = getSharedPreferences();
+        final String removalAction =
+                sharedPreferences.getString(PreferenceKeys.REMOVAL_ACTION, null);
+        if (TextUtils.equals(removalAction, RemovalActions.ARCHIVE_AND_DELETE)) {
+            return RemovalActions.ARCHIVE;
+        }
         return sharedPreferences.getString(PreferenceKeys.REMOVAL_ACTION,
-                RemovalActions.ARCHIVE_AND_DELETE);
+                RemovalActions.ARCHIVE);
     }
 
     /**
@@ -501,6 +529,18 @@ public final class MailPrefs extends VersionedPrefs {
         return getSharedPreferences().contains(PreferenceKeys.CONVERSATION_OVERVIEW_MODE);
     }
 
+    public void setAlwaysLaunchGmailFromEmailTombstone(final boolean alwaysLaunchGmail) {
+        getEditor()
+                .putBoolean(PreferenceKeys.ALWAYS_LAUNCH_GMAIL_FROM_EMAIL_TOMBSTONE,
+                        alwaysLaunchGmail)
+                .apply();
+    }
+
+    public boolean getAlwaysLaunchGmailFromEmailTombstone() {
+        return getSharedPreferences()
+                .getBoolean(PreferenceKeys.ALWAYS_LAUNCH_GMAIL_FROM_EMAIL_TOMBSTONE, false);
+    }
+
     public void setSnapHeaderMode(final int snapHeaderMode) {
         getEditor().putInt(PreferenceKeys.SNAP_HEADER_MODE, snapHeaderMode).apply();
     }
@@ -514,11 +554,54 @@ public final class MailPrefs extends VersionedPrefs {
         return mSnapHeaderDefault;
     }
 
+    public int getMigrationState() {
+        return getSharedPreferences()
+                .getInt(PreferenceKeys.MIGRATION_STATE, PreferenceKeys.MIGRATION_STATE_NONE);
+    }
+
+    public void setMigrationState(final int state) {
+        getEditor().putInt(PreferenceKeys.MIGRATION_STATE, state).apply();
+    }
+
     public Set<String> getRecentAccounts() {
         return getSharedPreferences().getStringSet(PreferenceKeys.RECENT_ACCOUNTS, null);
     }
 
     public void setRecentAccounts(Set<String> recentAccounts) {
         getEditor().putStringSet(PreferenceKeys.RECENT_ACCOUNTS, recentAccounts).apply();
+    }
+
+    /**
+     * Returns the minimum version number of the {@link com.android.mail.utils.HtmlSanitizer} which
+     * is trusted. If the version of the HtmlSanitizer does not meet or exceed this value,
+     * sanitization will be deemed untrustworthy and emails will be displayed in a sandbox that does
+     * not allow script execution.
+     */
+    public int getRequiredSanitizerVersionNumber() {
+        return getSharedPreferences().getInt(PreferenceKeys.REQUIRED_SANITIZER_VERSION_NUMBER, 1);
+    }
+
+    /**
+     * @param versionNumber the minimum version number of the
+     *      {@link com.android.mail.utils.HtmlSanitizer} which produces trusted output
+     */
+    public void setRequiredSanitizerVersionNumber(int versionNumber) {
+        getEditor().putInt(PreferenceKeys.REQUIRED_SANITIZER_VERSION_NUMBER, versionNumber).apply();
+    }
+
+    /**
+     * Returns the latest time the number of accounts in the application was sent to Analyitcs.
+     * @return the datetime in epoch milliseconds.
+     */
+    public long getNbAccountsLatestReport() {
+        return getSharedPreferences().getLong(PreferenceKeys.ANALYTICS_NB_ACCOUNT_LATEST_REPORT, 0);
+    }
+
+    /**
+     * Set the latest time the number of accounts in the application was sent to Analytics.
+     */
+    public void setNbAccountsLatestReport(long timeMs) {
+        getEditor().putLong(
+                PreferenceKeys.ANALYTICS_NB_ACCOUNT_LATEST_REPORT, timeMs);
     }
 }

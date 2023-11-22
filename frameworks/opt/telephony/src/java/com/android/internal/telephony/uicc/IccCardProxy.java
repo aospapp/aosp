@@ -43,7 +43,6 @@ import com.android.internal.telephony.TelephonyIntents;
 import com.android.internal.telephony.IccCardConstants.State;
 import com.android.internal.telephony.cdma.CdmaSubscriptionSourceManager;
 import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.Subscription;
 import com.android.internal.telephony.SubscriptionController;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppState;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.PersoSubState;
@@ -53,12 +52,6 @@ import com.android.internal.telephony.uicc.UiccController;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
-
-import static com.android.internal.telephony.TelephonyProperties.PROPERTY_ICC_OPERATOR_ALPHA;
-import static com.android.internal.telephony.TelephonyProperties.PROPERTY_ICC_OPERATOR_NUMERIC;
-import static com.android.internal.telephony.TelephonyProperties.PROPERTY_ICC_OPERATOR_ISO_COUNTRY;
-import static com.android.internal.telephony.TelephonyProperties.PROPERTY_SIM_STATE;
-
 
 /**
  * @Deprecated use {@link UiccController}.getUiccCard instead.
@@ -98,13 +91,12 @@ public class IccCardProxy extends Handler implements IccCard {
     private static final int EVENT_SUBSCRIPTION_DEACTIVATED = 502;
     private static final int EVENT_CARRIER_PRIVILIGES_LOADED = 503;
 
-    // FIXME Rename mCardIndex to mSlotId.
-    private Integer mCardIndex = null;
-    private Subscription mSubscriptionData = null;
+    private Integer mPhoneId = null;
 
     private final Object mLock = new Object();
     private Context mContext;
     private CommandsInterface mCi;
+    private TelephonyManager mTelephonyManager;
 
     private RegistrantList mAbsentRegistrants = new RegistrantList();
     private RegistrantList mPinLockedRegistrants = new RegistrantList();
@@ -122,23 +114,21 @@ public class IccCardProxy extends Handler implements IccCard {
     private boolean mInitialized = false;
     private State mExternalState = State.UNKNOWN;
 
-    public IccCardProxy(Context context, CommandsInterface ci) {
-        log("Creating");
+    public static final String ACTION_INTERNAL_SIM_STATE_CHANGED = "android.intent.action.internal_sim_state_changed";
+
+    public IccCardProxy(Context context, CommandsInterface ci, int phoneId) {
+        if (DBG) log("ctor: ci=" + ci + " phoneId=" + phoneId);
         mContext = context;
         mCi = ci;
+        mPhoneId = phoneId;
+        mTelephonyManager = (TelephonyManager) mContext.getSystemService(
+                Context.TELEPHONY_SERVICE);
         mCdmaSSM = CdmaSubscriptionSourceManager.getInstance(context,
                 ci, this, EVENT_CDMA_SUBSCRIPTION_SOURCE_CHANGED, null);
         mUiccController = UiccController.getInstance();
         mUiccController.registerForIccChanged(this, EVENT_ICC_CHANGED, null);
         ci.registerForOn(this,EVENT_RADIO_ON, null);
         ci.registerForOffOrNotAvailable(this, EVENT_RADIO_OFF_OR_UNAVAILABLE, null);
-        setExternalState(State.NOT_READY);
-    }
-
-    public IccCardProxy(Context context, CommandsInterface ci, int cardIndex) {
-        this(context, ci);
-
-        mCardIndex = cardIndex;
 
         resetProperties();
         setExternalState(State.NOT_READY, false);
@@ -199,6 +189,12 @@ public class IccCardProxy extends Handler implements IccCard {
                 newQuietMode = (cdmaSource == Phone.CDMA_SUBSCRIPTION_NV)
                         && (mCurrentAppType == UiccController.APP_FAM_3GPP2)
                         && !isLteOnCdmaMode;
+                if (DBG) {
+                    log("updateQuietMode: cdmaSource=" + cdmaSource
+                            + " mCurrentAppType=" + mCurrentAppType
+                            + " isLteOnCdmaMode=" + isLteOnCdmaMode
+                            + " newQuietMode=" + newQuietMode);
+                }
             }
 
             if (mQuietMode == false && newQuietMode == true) {
@@ -214,6 +210,8 @@ public class IccCardProxy extends Handler implements IccCard {
                 }
                 mQuietMode = newQuietMode;
                 setExternalState(mExternalState, true);
+            } else {
+                if (DBG) log("updateQuietMode: no changes don't setExternalState");
             }
             if (DBG) {
                 log("updateQuietMode: QuietMode is " + mQuietMode + " (app_type="
@@ -256,30 +254,21 @@ public class IccCardProxy extends Handler implements IccCard {
                 setExternalState(State.READY);
                 break;
             case EVENT_RECORDS_LOADED:
+                // Update the MCC/MNC.
                 if (mIccRecords != null) {
                     String operator = mIccRecords.getOperatorNumeric();
-                    int slotId = mCardIndex;
-
-                    log("operator = " + operator + " slotId = " + slotId);
+                    log("operator=" + operator + " mPhoneId=" + mPhoneId);
 
                     if (operator != null) {
                         log("update icc_operator_numeric=" + operator);
-                        setSystemProperty(PROPERTY_ICC_OPERATOR_NUMERIC, slotId, operator);
+                        mTelephonyManager.setSimOperatorNumericForPhone(mPhoneId, operator);
                         String countryCode = operator.substring(0,3);
                         if (countryCode != null) {
-                            setSystemProperty(PROPERTY_ICC_OPERATOR_ISO_COUNTRY, slotId,
+                            mTelephonyManager.setSimCountryIsoForPhone(mPhoneId,
                                     MccTable.countryCodeForMcc(Integer.parseInt(countryCode)));
                         } else {
                             loge("EVENT_RECORDS_LOADED Country code is null");
                         }
-
-                        long[] subId = SubscriptionController.getInstance().getSubId(slotId);
-                        // Update MCC MNC device configuration information only for default sub.
-                        if (subId[0] == SubscriptionController.getInstance().getDefaultSubId()) {
-                            log("update mccmnc=" + operator + " config for default subscription.");
-                            MccTable.updateMccMncConfiguration(mContext, operator, false);
-                        }
-                        SubscriptionController.getInstance().setMccMnc(operator, subId[0]);
                     } else {
                         loge("EVENT_RECORDS_LOADED Operator name is null");
                     }
@@ -313,12 +302,11 @@ public class IccCardProxy extends Handler implements IccCard {
 
             case EVENT_ICC_RECORD_EVENTS:
                 if ((mCurrentAppType == UiccController.APP_FAM_3GPP) && (mIccRecords != null)) {
-                    int slotId = mCardIndex;
                     AsyncResult ar = (AsyncResult)msg.obj;
                     int eventCode = (Integer) ar.result;
                     if (eventCode == SIMRecords.EVENT_SPN) {
-                        setSystemProperty(PROPERTY_ICC_OPERATOR_ALPHA, slotId,
-                                mIccRecords.getServiceProviderName());
+                        mTelephonyManager.setSimOperatorNameForPhone(
+                                mPhoneId, mIccRecords.getServiceProviderName());
                     }
                 }
                 break;
@@ -338,26 +326,23 @@ public class IccCardProxy extends Handler implements IccCard {
     }
 
     private void onSubscriptionActivated() {
-        //mSubscriptionData = SubscriptionManager.getCurrentSubscription(mCardIndex);
-
         updateIccAvailability();
         updateStateProperty();
     }
 
     private void onSubscriptionDeactivated() {
         resetProperties();
-        mSubscriptionData = null;
         updateIccAvailability();
         updateStateProperty();
     }
 
     private void onRecordsLoaded() {
-        broadcastIccStateChangedIntent(IccCardConstants.INTENT_VALUE_ICC_LOADED, null);
+        broadcastInternalIccStateChangedIntent(IccCardConstants.INTENT_VALUE_ICC_LOADED, null);
     }
 
     private void updateIccAvailability() {
         synchronized (mLock) {
-            UiccCard newCard = mUiccController.getUiccCard(mCardIndex);
+            UiccCard newCard = mUiccController.getUiccCard(mPhoneId);
             CardState state = CardState.CARDSTATE_ABSENT;
             UiccCardApplication newApp = null;
             IccRecords newRecords = null;
@@ -385,9 +370,9 @@ public class IccCardProxy extends Handler implements IccCard {
     void resetProperties() {
         if (mCurrentAppType == UiccController.APP_FAM_3GPP) {
             log("update icc_operator_numeric=" + "");
-            setSystemProperty(PROPERTY_ICC_OPERATOR_NUMERIC, mCardIndex, "");
-            setSystemProperty(PROPERTY_ICC_OPERATOR_ISO_COUNTRY, mCardIndex, "");
-            setSystemProperty(PROPERTY_ICC_OPERATOR_ALPHA, mCardIndex, "");
+            mTelephonyManager.setSimOperatorNumericForPhone(mPhoneId, "");
+            mTelephonyManager.setSimCountryIsoForPhone(mPhoneId, "");
+            mTelephonyManager.setSimOperatorNameForPhone(mPhoneId, "");
          }
     }
 
@@ -470,49 +455,83 @@ public class IccCardProxy extends Handler implements IccCard {
     }
 
     private void updateStateProperty() {
-        setSystemProperty(PROPERTY_SIM_STATE, mCardIndex,getState().toString());
+        mTelephonyManager.setSimStateForPhone(mPhoneId, getState().toString());
     }
 
     private void broadcastIccStateChangedIntent(String value, String reason) {
         synchronized (mLock) {
-            if (mCardIndex == null) {
-                loge("broadcastIccStateChangedIntent: Card Index is not set; Return!!");
+            if (mPhoneId == null || !SubscriptionManager.isValidSlotId(mPhoneId)) {
+                loge("broadcastIccStateChangedIntent: mPhoneId=" + mPhoneId
+                        + " is invalid; Return!!");
                 return;
             }
 
             if (mQuietMode) {
-                log("QuietMode: NOT Broadcasting intent ACTION_SIM_STATE_CHANGED " +  value
-                        + " reason " + reason);
+                log("broadcastIccStateChangedIntent: QuietMode"
+                        + " NOT Broadcasting intent ACTION_SIM_STATE_CHANGED "
+                        + " value=" +  value + " reason=" + reason);
                 return;
             }
 
             Intent intent = new Intent(TelephonyIntents.ACTION_SIM_STATE_CHANGED);
-            intent.addFlags(Intent.FLAG_RECEIVER_REPLACE_PENDING);
+            // TODO - we'd like this intent to have a single snapshot of all sim state,
+            // but until then this should not use REPLACE_PENDING or we may lose
+            // information
+            // intent.addFlags(Intent.FLAG_RECEIVER_REPLACE_PENDING
+            intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
             intent.putExtra(PhoneConstants.PHONE_NAME_KEY, "Phone");
             intent.putExtra(IccCardConstants.INTENT_KEY_ICC_STATE, value);
             intent.putExtra(IccCardConstants.INTENT_KEY_LOCKED_REASON, reason);
-            SubscriptionManager.putPhoneIdAndSubIdExtra(intent, mCardIndex);
-            log("Broadcasting intent ACTION_SIM_STATE_CHANGED " +  value
-                + " reason " + reason + " for mCardIndex : " + mCardIndex);
+            SubscriptionManager.putPhoneIdAndSubIdExtra(intent, mPhoneId);
+            log("broadcastIccStateChangedIntent intent ACTION_SIM_STATE_CHANGED value=" + value
+                + " reason=" + reason + " for mPhoneId=" + mPhoneId);
             ActivityManagerNative.broadcastStickyIntent(intent, READ_PHONE_STATE,
                     UserHandle.USER_ALL);
         }
     }
 
+    private void broadcastInternalIccStateChangedIntent(String value, String reason) {
+        synchronized (mLock) {
+            if (mPhoneId == null) {
+                loge("broadcastInternalIccStateChangedIntent: Card Index is not set; Return!!");
+                return;
+            }
+
+            Intent intent = new Intent(ACTION_INTERNAL_SIM_STATE_CHANGED);
+            intent.addFlags(Intent.FLAG_RECEIVER_REPLACE_PENDING
+                    | Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
+            intent.putExtra(PhoneConstants.PHONE_NAME_KEY, "Phone");
+            intent.putExtra(IccCardConstants.INTENT_KEY_ICC_STATE, value);
+            intent.putExtra(IccCardConstants.INTENT_KEY_LOCKED_REASON, reason);
+            intent.putExtra(PhoneConstants.PHONE_KEY, mPhoneId);  // SubId may not be valid.
+            log("Sending intent ACTION_INTERNAL_SIM_STATE_CHANGED" + " for mPhoneId : " + mPhoneId);
+            ActivityManagerNative.broadcastStickyIntent(intent, null, UserHandle.USER_ALL);
+        }
+    }
+
     private void setExternalState(State newState, boolean override) {
         synchronized (mLock) {
-            if (mCardIndex == null) {
-                loge("setExternalState: Card Index is not set; Return!!");
+            if (mPhoneId == null || !SubscriptionManager.isValidSlotId(mPhoneId)) {
+                loge("setExternalState: mPhoneId=" + mPhoneId + " is invalid; Return!!");
                 return;
             }
 
             if (!override && newState == mExternalState) {
+                loge("setExternalState: !override and newstate unchanged from " + newState);
                 return;
             }
             mExternalState = newState;
-            setSystemProperty(PROPERTY_SIM_STATE, mCardIndex, getState().toString());
-            broadcastIccStateChangedIntent(getIccStateIntentString(mExternalState),
-                    getIccStateReason(mExternalState));
+            loge("setExternalState: set mPhoneId=" + mPhoneId + " mExternalState=" + mExternalState);
+            mTelephonyManager.setSimStateForPhone(mPhoneId, getState().toString());
+
+            // For locked states, we should be sending internal broadcast.
+            if (IccCardConstants.INTENT_VALUE_ICC_LOCKED.equals(getIccStateIntentString(mExternalState))) {
+                broadcastInternalIccStateChangedIntent(getIccStateIntentString(mExternalState),
+                        getIccStateReason(mExternalState));
+            } else {
+                broadcastIccStateChangedIntent(getIccStateIntentString(mExternalState),
+                        getIccStateReason(mExternalState));
+            }
             // TODO: Need to notify registrants for other states as well.
             if ( State.ABSENT == mExternalState) {
                 mAbsentRegistrants.notifyRegistrants();
@@ -877,11 +896,13 @@ public class IccCardProxy extends Handler implements IccCard {
         }
     }
 
-    private void setSystemProperty(String property, int slotId, String value) {
-        long[] subId = SubscriptionController.getInstance().getSubId(slotId);
-        TelephonyManager.setTelephonyProperty(property, subId[0], value);
+    private void setSystemProperty(String property, String value) {
+        TelephonyManager.setTelephonyProperty(mPhoneId, property, value);
     }
 
+    public IccRecords getIccRecord() {
+        return mIccRecords;
+    }
     private void log(String s) {
         Rlog.d(LOG_TAG, s);
     }

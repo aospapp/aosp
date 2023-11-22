@@ -20,7 +20,7 @@ scoped_refptr<FakePicturePileImpl> FakePicturePileImpl::CreateFilledPile(
     const gfx::Size& tile_size,
     const gfx::Size& layer_bounds) {
   scoped_refptr<FakePicturePileImpl> pile(new FakePicturePileImpl());
-  pile->tiling().SetTilingRect(gfx::Rect(layer_bounds));
+  pile->tiling().SetTilingSize(layer_bounds);
   pile->tiling().SetMaxTextureSize(tile_size);
   pile->SetTileGridSize(ImplSidePaintingSettings().default_tile_size);
   pile->recorded_viewport_ = gfx::Rect(layer_bounds);
@@ -36,7 +36,7 @@ scoped_refptr<FakePicturePileImpl> FakePicturePileImpl::CreateEmptyPile(
     const gfx::Size& tile_size,
     const gfx::Size& layer_bounds) {
   scoped_refptr<FakePicturePileImpl> pile(new FakePicturePileImpl());
-  pile->tiling().SetTilingRect(gfx::Rect(layer_bounds));
+  pile->tiling().SetTilingSize(layer_bounds);
   pile->tiling().SetMaxTextureSize(tile_size);
   pile->SetTileGridSize(ImplSidePaintingSettings().default_tile_size);
   pile->recorded_viewport_ = gfx::Rect();
@@ -49,7 +49,7 @@ FakePicturePileImpl::CreateEmptyPileThatThinksItHasRecordings(
     const gfx::Size& tile_size,
     const gfx::Size& layer_bounds) {
   scoped_refptr<FakePicturePileImpl> pile(new FakePicturePileImpl());
-  pile->tiling().SetTilingRect(gfx::Rect(layer_bounds));
+  pile->tiling().SetTilingSize(layer_bounds);
   pile->tiling().SetMaxTextureSize(tile_size);
   pile->SetTileGridSize(ImplSidePaintingSettings().default_tile_size);
   // This simulates a false positive for this flag.
@@ -63,8 +63,7 @@ FakePicturePileImpl::CreateInfiniteFilledPile() {
   scoped_refptr<FakePicturePileImpl> pile(new FakePicturePileImpl());
   gfx::Size size(std::numeric_limits<int>::max(),
                  std::numeric_limits<int>::max());
-  pile->SetTilingRect(gfx::Rect(size));
-  pile->tiling().SetTilingRect(gfx::Rect(size));
+  pile->tiling().SetTilingSize(size);
   pile->tiling().SetMaxTextureSize(size);
   pile->SetTileGridSize(size);
   pile->recorded_viewport_ = gfx::Rect(size);
@@ -85,7 +84,7 @@ void FakePicturePileImpl::AddRecordingAt(int x, int y) {
   bounds.Inset(-buffer_pixels(), -buffer_pixels());
 
   scoped_refptr<Picture> picture(Picture::Create(
-      bounds, &client_, tile_grid_info_, true, 0, Picture::RECORD_NORMALLY));
+      bounds, &client_, tile_grid_info_, true, Picture::RECORD_NORMALLY));
   picture_map_[std::pair<int, int>(x, y)].SetPicture(picture);
   EXPECT_TRUE(HasRecordingAt(x, y));
 

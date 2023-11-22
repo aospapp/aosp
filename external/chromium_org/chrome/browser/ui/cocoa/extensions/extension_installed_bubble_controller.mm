@@ -24,7 +24,6 @@
 #include "chrome/browser/ui/cocoa/browser_window_controller.h"
 #include "chrome/browser/ui/cocoa/extensions/browser_actions_controller.h"
 #include "chrome/browser/ui/cocoa/hover_close_button.h"
-#import "chrome/browser/ui/cocoa/hyperlink_text_view.h"
 #include "chrome/browser/ui/cocoa/info_bubble_view.h"
 #include "chrome/browser/ui/cocoa/location_bar/location_bar_view_mac.h"
 #include "chrome/browser/ui/cocoa/new_tab_button.h"
@@ -37,14 +36,15 @@
 #include "chrome/common/extensions/api/omnibox/omnibox_handler.h"
 #include "chrome/common/extensions/sync_helper.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_source.h"
 #include "extensions/common/extension.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
 #import "skia/ext/skia_utils_mac.h"
 #import "third_party/google_toolbox_for_mac/src/AppKit/GTMUILocalizerAndLayoutTweaker.h"
+#import "ui/base/cocoa/controls/hyperlink_text_view.h"
 #include "ui/base/l10n/l10n_util.h"
 
 using content::BrowserThread;
@@ -61,10 +61,11 @@ class ExtensionLoadedNotificationObserver
       ExtensionInstalledBubbleController* controller, Profile* profile)
           : controller_(controller) {
     registrar_.Add(this,
-                   chrome::NOTIFICATION_EXTENSION_LOADED_DEPRECATED,
+                   extensions::NOTIFICATION_EXTENSION_LOADED_DEPRECATED,
                    content::Source<Profile>(profile));
-    registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED,
-        content::Source<Profile>(profile));
+    registrar_.Add(this,
+                   extensions::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED,
+                   content::Source<Profile>(profile));
   }
 
  private:
@@ -74,7 +75,7 @@ class ExtensionLoadedNotificationObserver
       int type,
       const content::NotificationSource& source,
       const content::NotificationDetails& details) OVERRIDE {
-    if (type == chrome::NOTIFICATION_EXTENSION_LOADED_DEPRECATED) {
+    if (type == extensions::NOTIFICATION_EXTENSION_LOADED_DEPRECATED) {
       const Extension* extension =
           content::Details<const Extension>(details).ptr();
       if (extension == [controller_ extension]) {
@@ -82,7 +83,7 @@ class ExtensionLoadedNotificationObserver
                                       withObject:controller_
                                    waitUntilDone:NO];
       }
-    } else if (type == chrome::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED) {
+    } else if (type == extensions::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED) {
       const Extension* extension =
           content::Details<const UnloadedExtensionInfo>(details)->extension;
       if (extension == [controller_ extension]) {

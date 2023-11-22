@@ -13,10 +13,11 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/crx_file/id_util.h"
+#include "extensions/browser/api_test_utils.h"
 #include "extensions/browser/extension_function.h"
 #include "extensions/browser/extension_function_dispatcher.h"
 #include "extensions/common/extension.h"
-#include "extensions/common/id_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using content::WebContents;
@@ -55,20 +56,18 @@ base::Value* ParseJSON(const std::string& data) {
 }
 
 base::ListValue* ParseList(const std::string& data) {
-  scoped_ptr<base::Value> result(ParseJSON(data));
-  if (result.get() && result->IsType(base::Value::TYPE_LIST))
-    return static_cast<base::ListValue*>(result.release());
-  else
-    return NULL;
+  base::Value* result = ParseJSON(data);
+  base::ListValue* list = NULL;
+  result->GetAsList(&list);
+  return list;
 }
 
 base::DictionaryValue* ParseDictionary(
     const std::string& data) {
-  scoped_ptr<base::Value> result(ParseJSON(data));
-  if (result.get() && result->IsType(base::Value::TYPE_DICTIONARY))
-    return static_cast<base::DictionaryValue*>(result.release());
-  else
-    return NULL;
+  base::Value* result = ParseJSON(data);
+  base::DictionaryValue* dict = NULL;
+  result->GetAsDictionary(&dict);
+  return dict;
 }
 
 bool GetBoolean(base::DictionaryValue* val, const std::string& key) {
@@ -104,23 +103,11 @@ base::ListValue* ToList(base::Value* val) {
   return static_cast<base::ListValue*>(val);
 }
 
-scoped_refptr<Extension> CreateEmptyExtension() {
-  return CreateEmptyExtensionWithLocation(Manifest::INTERNAL);
-}
-
 scoped_refptr<Extension> CreateEmptyExtensionWithLocation(
     Manifest::Location location) {
   scoped_ptr<base::DictionaryValue> test_extension_value(
       ParseDictionary("{\"name\": \"Test\", \"version\": \"1.0\"}"));
   return CreateExtension(location, test_extension_value.get(), std::string());
-}
-
-scoped_refptr<Extension> CreateEmptyExtension(
-    const std::string& id_input) {
-  scoped_ptr<base::DictionaryValue> test_extension_value(
-      ParseDictionary("{\"name\": \"Test\", \"version\": \"1.0\"}"));
-  return CreateExtension(Manifest::INTERNAL, test_extension_value.get(),
-                         id_input);
 }
 
 scoped_refptr<Extension> CreateExtension(
@@ -137,7 +124,7 @@ scoped_refptr<Extension> CreateExtension(
   const base::FilePath test_extension_path;
   std::string id;
   if (!id_input.empty())
-    id = extensions::id_util::GenerateId(id_input);
+    id = crx_file::id_util::GenerateId(id_input);
   scoped_refptr<Extension> extension(Extension::Create(
       test_extension_path,
       location,
@@ -243,31 +230,28 @@ bool RunFunction(UIThreadExtensionFunction* function,
                  const std::string& args,
                  Browser* browser,
                  RunFunctionFlags flags) {
-  SendResponseDelegate response_delegate;
-  function->set_test_delegate(&response_delegate);
   scoped_ptr<base::ListValue> parsed_args(ParseList(args));
-  EXPECT_TRUE(parsed_args.get()) <<
-      "Could not parse extension function arguments: " << args;
-  function->SetArgs(parsed_args.get());
+  EXPECT_TRUE(parsed_args.get())
+      << "Could not parse extension function arguments: " << args;
+  return RunFunction(function, parsed_args.Pass(), browser, flags);
+}
 
+bool RunFunction(UIThreadExtensionFunction* function,
+                 scoped_ptr<base::ListValue> args,
+                 Browser* browser,
+                 RunFunctionFlags flags) {
   TestFunctionDispatcherDelegate dispatcher_delegate(browser);
-  extensions::ExtensionFunctionDispatcher dispatcher(browser->profile(),
-                                                     &dispatcher_delegate);
-  function->set_dispatcher(dispatcher.AsWeakPtr());
-
-  function->set_browser_context(browser->profile());
-  function->set_include_incognito(flags & INCLUDE_INCOGNITO);
-  function->Run()->Execute();
-
-  // If the RunAsync of |function| didn't already call SendResponse, run the
-  // message loop until they do.
-  if (!response_delegate.HasResponse()) {
-    response_delegate.set_should_post_quit(true);
-    content::RunMessageLoop();
-  }
-
-  EXPECT_TRUE(response_delegate.HasResponse());
-  return response_delegate.GetResponse();
+  scoped_ptr<extensions::ExtensionFunctionDispatcher> dispatcher(
+      new extensions::ExtensionFunctionDispatcher(browser->profile(),
+                                                  &dispatcher_delegate));
+  // TODO(yoz): The cast is a hack; these flags should be defined in
+  // only one place.  See crbug.com/394840.
+  return extensions::api_test_utils::RunFunction(
+      function,
+      args.Pass(),
+      browser->profile(),
+      dispatcher.Pass(),
+      static_cast<extensions::api_test_utils::RunFunctionFlags>(flags));
 }
 
 } // namespace extension_function_test_utils

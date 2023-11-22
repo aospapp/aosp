@@ -12,16 +12,14 @@
 #include "base/message_loop/message_loop.h"
 #include "base/stl_util.h"
 #include "components/invalidation/fake_invalidation_state_tracker.h"
+#include "components/invalidation/invalidation_util.h"
+#include "components/invalidation/object_id_invalidation_map.h"
 #include "components/invalidation/push_client_channel.h"
 #include "components/invalidation/sync_invalidation_listener.h"
+#include "components/invalidation/unacked_invalidation_set_test_util.h"
 #include "google/cacheinvalidation/include/invalidation-client.h"
 #include "google/cacheinvalidation/include/types.h"
 #include "jingle/notifier/listener/fake_push_client.h"
-#include "sync/internal_api/public/util/weak_handle.h"
-#include "sync/notifier/dropped_invalidation_tracker.h"
-#include "sync/notifier/invalidation_util.h"
-#include "sync/notifier/object_id_invalidation_map.h"
-#include "sync/notifier/unacked_invalidation_set_test_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace syncer {
@@ -138,8 +136,7 @@ class FakeInvalidationClient : public invalidation::InvalidationClient {
 class FakeDelegate : public SyncInvalidationListener::Delegate {
  public:
   explicit FakeDelegate(SyncInvalidationListener* listener)
-      : state_(TRANSIENT_INVALIDATION_ERROR),
-        drop_handlers_deleter_(&drop_handlers_) {}
+      : state_(TRANSIENT_INVALIDATION_ERROR) {}
   virtual ~FakeDelegate() {}
 
   size_t GetInvalidationCount(const ObjectId& id) const {
@@ -195,17 +192,6 @@ class FakeDelegate : public SyncInvalidationListener::Delegate {
     return state_;
   }
 
-  DroppedInvalidationTracker* GetDropTrackerForObject(const ObjectId& id) {
-    DropHandlers::iterator it = drop_handlers_.find(id);
-    if (it == drop_handlers_.end()) {
-      drop_handlers_.insert(
-          std::make_pair(id, new DroppedInvalidationTracker(id)));
-      return drop_handlers_.find(id)->second;
-    } else {
-      return it->second;
-    }
-  }
-
   void AcknowledgeNthInvalidation(const ObjectId& id, size_t n) {
     List& list = invalidations_[id];
     List::iterator it = list.begin() + n;
@@ -220,15 +206,19 @@ class FakeDelegate : public SyncInvalidationListener::Delegate {
   }
 
   void DropNthInvalidation(const ObjectId& id, size_t n) {
-    DroppedInvalidationTracker* drop_tracker = GetDropTrackerForObject(id);
     List& list = invalidations_[id];
     List::iterator it = list.begin() + n;
-    it->Drop(drop_tracker);
+    it->Drop();
+    dropped_invalidations_map_.erase(id);
+    dropped_invalidations_map_.insert(std::make_pair(id, *it));
   }
 
   void RecoverFromDropEvent(const ObjectId& id) {
-    DroppedInvalidationTracker* drop_tracker = GetDropTrackerForObject(id);
-    drop_tracker->RecordRecoveryFromDropEvent();
+    DropMap::iterator it = dropped_invalidations_map_.find(id);
+    if (it != dropped_invalidations_map_.end()) {
+      it->second.Acknowledge();
+      dropped_invalidations_map_.erase(it);
+    }
   }
 
   // SyncInvalidationListener::Delegate implementation.
@@ -250,14 +240,11 @@ class FakeDelegate : public SyncInvalidationListener::Delegate {
  private:
   typedef std::vector<Invalidation> List;
   typedef std::map<ObjectId, List, ObjectIdLessThan> Map;
-  typedef std::map<ObjectId,
-                   DroppedInvalidationTracker*,
-                   ObjectIdLessThan> DropHandlers;
+  typedef std::map<ObjectId, Invalidation, ObjectIdLessThan> DropMap;
 
   Map invalidations_;
   InvalidatorState state_;
-  DropHandlers drop_handlers_;
-  STLValueDeleter<DropHandlers> drop_handlers_deleter_;
+  DropMap dropped_invalidations_map_;
 };
 
 invalidation::InvalidationClient* CreateFakeInvalidationClient(
@@ -304,12 +291,15 @@ class SyncInvalidationListenerTest : public testing::Test {
 
   void StartClient() {
     fake_invalidation_client_ = NULL;
-    listener_.Start(base::Bind(&CreateFakeInvalidationClient,
-                               &fake_invalidation_client_),
-                    kClientId, kClientInfo, kState,
-                    fake_tracker_.GetSavedInvalidations(),
-                    MakeWeakHandle(fake_tracker_.AsWeakPtr()),
-                    &fake_delegate_);
+    listener_.Start(
+        base::Bind(&CreateFakeInvalidationClient, &fake_invalidation_client_),
+        kClientId,
+        kClientInfo,
+        kState,
+        fake_tracker_.GetSavedInvalidations(),
+        fake_tracker_.AsWeakPtr(),
+        base::MessageLoopProxy::current(),
+        &fake_delegate_);
     DCHECK(fake_invalidation_client_);
   }
 
@@ -388,7 +378,10 @@ class SyncInvalidationListenerTest : public testing::Test {
       return SingleObjectInvalidationSet();
     }
     ObjectIdInvalidationMap map;
-    it->second.ExportInvalidations(WeakHandle<AckHandler>(), &map);
+    it->second.ExportInvalidations(
+        base::WeakPtr<AckHandler>(),
+        scoped_refptr<base::SingleThreadTaskRunner>(),
+        &map);
     if (map.Empty()) {
       return SingleObjectInvalidationSet();
     } else  {

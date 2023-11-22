@@ -69,7 +69,7 @@ public abstract class SensorCtsTestActivity extends BaseSensorTestActivity {
     protected void activitySetUp() throws InterruptedException {
         PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
         mWakeLock =  powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "SensorCtsTests");
-        mScreenManipulator = new SensorTestScreenManipulator(getApplicationContext());
+        mScreenManipulator = new SensorTestScreenManipulator(this);
         mScreenManipulator.initialize(this);
 
         SensorTestLogger logger = getTestLogger();
@@ -80,6 +80,7 @@ public abstract class SensorCtsTestActivity extends BaseSensorTestActivity {
         // automated CTS tests run with the USB connected, so the AP doesn't go to sleep
         // here we are not connected to USB, so we need to hold a wake-lock to avoid going to sleep
         mWakeLock.acquire();
+
         mScreenManipulator.turnScreenOff();
     }
 

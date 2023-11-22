@@ -16,7 +16,7 @@
 #include <sys/filio.h>
 #endif
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/threading/thread_restrictions.h"
 
@@ -94,6 +94,19 @@ bool SyncSocket::CreatePair(SyncSocket* socket_a, SyncSocket* socket_b) {
   socket_b->handle_ = handles[1];
 
   return true;
+}
+
+// static
+SyncSocket::Handle SyncSocket::UnwrapHandle(
+    const TransitDescriptor& descriptor) {
+  return descriptor.fd;
+}
+
+bool SyncSocket::PrepareTransitDescriptor(ProcessHandle peer_process_handle,
+                                          TransitDescriptor* descriptor) {
+  descriptor->fd = handle();
+  descriptor->auto_close = false;
+  return descriptor->fd != kInvalidHandle;
 }
 
 bool SyncSocket::Close() {

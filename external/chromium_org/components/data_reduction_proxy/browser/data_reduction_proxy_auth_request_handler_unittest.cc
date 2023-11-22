@@ -5,161 +5,314 @@
 
 #include "components/data_reduction_proxy/browser/data_reduction_proxy_auth_request_handler.h"
 
+#include "base/md5.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/run_loop.h"
 #include "base/strings/string16.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
+#include "components/data_reduction_proxy/browser/data_reduction_proxy_params_test_utils.h"
 #include "components/data_reduction_proxy/browser/data_reduction_proxy_settings_test_utils.h"
 #include "net/base/auth.h"
+#include "net/base/host_port_pair.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-
-namespace data_reduction_proxy {
+#include "url/gurl.h"
 
 namespace {
+const char kChromeProxyHeader[] = "chrome-proxy";
+const char kOtherProxy[] = "testproxy:17";
 
-const char kInvalidTestRealm[] = "invalid-test-realm";
-const char kTestChallenger[] = "https://test-challenger.com:443";
-const char kTestRealm[] = "test-realm";
-const char kTestToken[] = "test-token";
-const char kTestUser[] = "fw-cookie";
 
+#if defined(OS_ANDROID)
+  const char kClient[] = "android";
+#elif defined(OS_IOS)
+  const char kClient[] = "ios";
+#else
+  const char kClient[] = "";
+#endif
+const char kVersion[] = "0.1.2.3";
+const char kExpectedBuild[] = "2";
+const char kExpectedPatch[] = "3";
+const char kBogusVersion[] = "0.0";
+const char kTestKey[] = "test-key";
+const char kExpectedCredentials[] = "96bd72ec4a050ba60981743d41787768";
+const char kExpectedSession[] = "0-1633771873-1633771873-1633771873";
+
+const char kTestKey2[] = "test-key2";
+const char kExpectedCredentials2[] = "c911fdb402f578787562cf7f00eda972";
+const char kExpectedSession2[] = "0-1633771873-1633771873-1633771873";
+#if defined(OS_ANDROID)
+const char kExpectedHeader2[] =
+    "ps=0-1633771873-1633771873-1633771873, "
+    "sid=c911fdb402f578787562cf7f00eda972, b=2, p=3, c=android";
+const char kExpectedHeader3[] =
+    "ps=86401-1633771873-1633771873-1633771873, "
+    "sid=d7c1c34ef6b90303b01c48a6c1db6419, b=2, p=3, c=android";
+const char kExpectedHeader4[] =
+    "ps=0-1633771873-1633771873-1633771873, "
+    "sid=c911fdb402f578787562cf7f00eda972, c=android";
+#elif defined(OS_IOS)
+const char kExpectedHeader2[] =
+    "ps=0-1633771873-1633771873-1633771873, "
+    "sid=c911fdb402f578787562cf7f00eda972, b=2, p=3, c=ios";
+const char kExpectedHeader3[] =
+    "ps=86401-1633771873-1633771873-1633771873, "
+    "sid=d7c1c34ef6b90303b01c48a6c1db6419, b=2, p=3, c=ios";
+const char kExpectedHeader4[] =
+    "ps=0-1633771873-1633771873-1633771873, "
+    "sid=c911fdb402f578787562cf7f00eda972, c=ios";
+#else
+const char kExpectedHeader2[] =
+    "ps=0-1633771873-1633771873-1633771873, "
+    "sid=c911fdb402f578787562cf7f00eda972, b=2, p=3";
+const char kExpectedHeader3[] =
+    "ps=86401-1633771873-1633771873-1633771873, "
+    "sid=d7c1c34ef6b90303b01c48a6c1db6419, b=2, p=3";
+const char kExpectedHeader4[] =
+    "ps=0-1633771873-1633771873-1633771873, "
+    "sid=c911fdb402f578787562cf7f00eda972";
+#endif
+
+const char kDataReductionProxyKey[] = "12345";
 }  // namespace
 
-// Test class that overrides underlying calls to see if an auth challenge is
-// acceptible for the data reduction proxy, and to get a valid token if so.
+
+namespace data_reduction_proxy {
+namespace {
 class TestDataReductionProxyAuthRequestHandler
     : public DataReductionProxyAuthRequestHandler {
  public:
-  TestDataReductionProxyAuthRequestHandler(int time_step_ms,
-                                           int64 initial_time_ms,
-                                           DataReductionProxySettings* settings)
-      : DataReductionProxyAuthRequestHandler(settings),
-        time_step_ms_(time_step_ms),
-        now_(base::TimeTicks() +
-             base::TimeDelta::FromMilliseconds(initial_time_ms)) {}
- protected:
-  // Test implementation.
-  virtual bool IsAcceptableAuthChallenge(
-      net::AuthChallengeInfo* auth_info) OVERRIDE {
-    if (net::HostPortPair::FromString(
-        kTestChallenger).Equals(auth_info->challenger) &&
-        auth_info->realm == kTestRealm) {
-    return true;
+  TestDataReductionProxyAuthRequestHandler(
+      const std::string& client,
+      const std::string& version,
+      DataReductionProxyParams* params,
+      base::MessageLoopProxy* loop_proxy)
+      : DataReductionProxyAuthRequestHandler(
+            client, version, params, loop_proxy) {}
+
+  virtual std::string GetDefaultKey() const OVERRIDE {
+    return kTestKey;
+  }
+
+  virtual base::Time Now() const OVERRIDE {
+    return base::Time::UnixEpoch() + now_offset_;
+  }
+
+  virtual void RandBytes(void* output, size_t length) OVERRIDE {
+    char* c =  static_cast<char*>(output);
+    for (size_t i = 0; i < length; ++i) {
+      c[i] = 'a';
     }
-    return false;
   }
 
-  // Test implementation.
-  virtual base::string16 GetTokenForAuthChallenge(
-      net::AuthChallengeInfo* auth_info) OVERRIDE {
-    return base::ASCIIToUTF16(kTestToken);
+  // Time after the unix epoch that Now() reports.
+  void set_offset(const base::TimeDelta& now_offset) {
+    now_offset_ = now_offset;
   }
 
-  virtual base::TimeTicks Now() OVERRIDE {
-    now_ += base::TimeDelta::FromMilliseconds(time_step_ms_);
-    return now_;
-  }
-  int time_step_ms_;
-  base::TimeTicks now_;
+ private:
+  base::TimeDelta now_offset_;
 };
+
+}  // namespace
 
 class DataReductionProxyAuthRequestHandlerTest : public testing::Test {
  public:
-
-  virtual void SetUp() OVERRIDE {
-    DataReductionProxySettingsTestBase::AddTestProxyToCommandLine();
-    settings_.reset(
-        new MockDataReductionProxySettings<DataReductionProxySettings>(
-            DataReductionProxyParams::kAllowed |
-            DataReductionProxyParams::kFallbackAllowed |
-            DataReductionProxyParams::kPromoAllowed));
+  DataReductionProxyAuthRequestHandlerTest()
+      : loop_proxy_(base::MessageLoopProxy::current().get()) {
   }
-
-  // Checks that |PROCEED| was returned with expected user and password.
-  void ExpectProceed(
-      DataReductionProxyAuthRequestHandler::TryHandleResult result,
-      const base::string16& user,
-      const base::string16& password) {
-    base::string16 expected_user = base::ASCIIToUTF16(kTestUser);
-    base::string16 expected_password = base::ASCIIToUTF16(kTestToken);
-    EXPECT_EQ(DataReductionProxyAuthRequestHandler::TRY_HANDLE_RESULT_PROCEED,
-              result);
-    EXPECT_EQ(expected_user, user);
-    EXPECT_EQ(expected_password, password);
-  }
-
-  // Checks that |CANCEL| was returned.
-  void ExpectCancel(
-      DataReductionProxyAuthRequestHandler::TryHandleResult result,
-      const base::string16& user,
-      const base::string16& password) {
-    EXPECT_EQ(DataReductionProxyAuthRequestHandler::TRY_HANDLE_RESULT_CANCEL,
-              result);
-    EXPECT_EQ(base::string16(), user);
-    EXPECT_EQ(base::string16(), password);
-  }
-
-  // Checks that |IGNORE| was returned.
-  void ExpectIgnore(
-      DataReductionProxyAuthRequestHandler::TryHandleResult result,
-      const base::string16& user,
-      const base::string16& password) {
-    EXPECT_EQ(DataReductionProxyAuthRequestHandler::TRY_HANDLE_RESULT_IGNORE,
-              result);
-    EXPECT_EQ(base::string16(), user);
-    EXPECT_EQ(base::string16(), password);
-  }
-
-  scoped_ptr<DataReductionProxySettings> settings_;
+  // Required for MessageLoopProxy::current().
+  base::MessageLoopForUI loop_;
+  base::MessageLoopProxy* loop_proxy_;
 };
 
-TEST_F(DataReductionProxyAuthRequestHandlerTest,
-       CancelAfterSuccessiveAuthAttempts) {
-  DataReductionProxyAuthRequestHandler::auth_request_timestamp_ = 0;
-  DataReductionProxyAuthRequestHandler::back_to_back_failure_count_ = 0;
-  DataReductionProxyAuthRequestHandler::auth_token_invalidation_timestamp_ = 0;
-  scoped_refptr<net::AuthChallengeInfo> auth_info(new net::AuthChallengeInfo);
-  auth_info->realm =  kTestRealm;
-  auth_info->challenger = net::HostPortPair::FromString(kTestChallenger);
-  TestDataReductionProxyAuthRequestHandler handler(
-      499, 3600001, settings_.get());
-  base::string16 user, password;
-  DataReductionProxyAuthRequestHandler::TryHandleResult result =
-      handler.TryHandleAuthentication(auth_info.get(), &user, &password);
-  ExpectProceed(result, user, password);
+TEST_F(DataReductionProxyAuthRequestHandlerTest, AuthorizationOnIO) {
+  scoped_ptr<TestDataReductionProxyParams> params;
+  params.reset(
+      new TestDataReductionProxyParams(
+          DataReductionProxyParams::kAllowed |
+          DataReductionProxyParams::kFallbackAllowed |
+          DataReductionProxyParams::kPromoAllowed,
+          TestDataReductionProxyParams::HAS_EVERYTHING &
+          ~TestDataReductionProxyParams::HAS_DEV_ORIGIN &
+          ~TestDataReductionProxyParams::HAS_DEV_FALLBACK_ORIGIN));
+  // loop_proxy_ is just the current message loop. This means loop_proxy_
+  // is the network thread used by DataReductionProxyAuthRequestHandler.
+  TestDataReductionProxyAuthRequestHandler auth_handler(kClient,
+                                                        kVersion,
+                                                        params.get(),
+                                                        loop_proxy_);
+  auth_handler.Init();
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(auth_handler.client_, kClient);
+  EXPECT_EQ(kExpectedBuild, auth_handler.build_number_);
+  EXPECT_EQ(kExpectedPatch, auth_handler.patch_number_);
+  EXPECT_EQ(auth_handler.key_, kTestKey);
+  EXPECT_EQ(kExpectedCredentials, auth_handler.credentials_);
+  EXPECT_EQ(kExpectedSession, auth_handler.session_);
 
-  // Successive retries should also succeed up to a maximum count.
-  for (int i = 0; i < 5; ++i) {
-    user = base::string16();
-    password = base::string16();
-    result = handler.TryHandleAuthentication(auth_info.get(), &user, &password);
-    ExpectProceed(result, user, password);
-  }
+  // Now set a key.
+  auth_handler.InitAuthentication(kTestKey2);
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(kTestKey2, auth_handler.key_);
+  EXPECT_EQ(kExpectedCredentials2, auth_handler.credentials_);
+  EXPECT_EQ(kExpectedSession2, auth_handler.session_);
 
-  // Then another retry should fail.
-  user = base::string16();
-  password = base::string16();
-  result = handler.TryHandleAuthentication(auth_info.get(), &user, &password);
-  ExpectCancel(result, user, password);
+  // Don't write headers if the proxy is invalid.
+  net::HttpRequestHeaders headers;
+  auth_handler.MaybeAddRequestHeader(NULL, net::ProxyServer(), &headers);
+  EXPECT_FALSE(headers.HasHeader(kChromeProxyHeader));
 
-  // After canceling, the next one should proceed.
-  user = base::string16();
-  password = base::string16();
-  result = handler.TryHandleAuthentication(auth_info.get(), &user, &password);
-  ExpectProceed(result, user, password);
+  // Don't write headers with a valid proxy, that's not a data reduction proxy.
+  auth_handler.MaybeAddRequestHeader(
+      NULL,
+      net::ProxyServer::FromURI(kOtherProxy, net::ProxyServer::SCHEME_HTTP),
+      &headers);
+  EXPECT_FALSE(headers.HasHeader(kChromeProxyHeader));
+
+  // Don't write headers with a valid data reduction ssl proxy.
+  auth_handler.MaybeAddRequestHeader(
+      NULL,
+      net::ProxyServer::FromURI(
+          net::HostPortPair::FromURL(
+              GURL(params->DefaultSSLOrigin())).ToString(),
+          net::ProxyServer::SCHEME_HTTP),
+      &headers);
+  EXPECT_FALSE(headers.HasHeader(kChromeProxyHeader));
+
+  // Write headers with a valid data reduction proxy.
+  auth_handler.MaybeAddRequestHeader(
+      NULL,
+      net::ProxyServer::FromURI(
+          net::HostPortPair::FromURL(GURL(params->DefaultOrigin())).ToString(),
+          net::ProxyServer::SCHEME_HTTP),
+      &headers);
+  EXPECT_TRUE(headers.HasHeader(kChromeProxyHeader));
+  std::string header_value;
+  headers.GetHeader(kChromeProxyHeader, &header_value);
+  EXPECT_EQ(kExpectedHeader2, header_value);
+
+  // Write headers with a valid data reduction ssl proxy when one is expected.
+  net::HttpRequestHeaders ssl_headers;
+  auth_handler.MaybeAddProxyTunnelRequestHandler(
+      net::HostPortPair::FromURL(GURL(params->DefaultSSLOrigin())),
+      &ssl_headers);
+  EXPECT_TRUE(ssl_headers.HasHeader(kChromeProxyHeader));
+  std::string ssl_header_value;
+  ssl_headers.GetHeader(kChromeProxyHeader, &ssl_header_value);
+  EXPECT_EQ(kExpectedHeader2, ssl_header_value);
+
+  // Fast forward 24 hours. The header should be the same.
+  auth_handler.set_offset(base::TimeDelta::FromSeconds(24 * 60 * 60));
+  net::HttpRequestHeaders headers2;
+  // Write headers with a valid data reduction proxy.
+  auth_handler.MaybeAddRequestHeader(
+      NULL,
+      net::ProxyServer::FromURI(
+          net::HostPortPair::FromURL(GURL(params->DefaultOrigin())).ToString(),
+          net::ProxyServer::SCHEME_HTTP),
+      &headers2);
+  EXPECT_TRUE(headers2.HasHeader(kChromeProxyHeader));
+  std::string header_value2;
+  headers2.GetHeader(kChromeProxyHeader, &header_value2);
+  EXPECT_EQ(kExpectedHeader2, header_value2);
+
+  // Fast forward one more second. The header should be new.
+  auth_handler.set_offset(base::TimeDelta::FromSeconds(24 * 60 * 60 + 1));
+  net::HttpRequestHeaders headers3;
+  // Write headers with a valid data reduction proxy.
+  auth_handler.MaybeAddRequestHeader(
+      NULL,
+      net::ProxyServer::FromURI(
+          net::HostPortPair::FromURL(GURL(params->DefaultOrigin())).ToString(),
+          net::ProxyServer::SCHEME_HTTP),
+      &headers3);
+  EXPECT_TRUE(headers3.HasHeader(kChromeProxyHeader));
+  std::string header_value3;
+  headers3.GetHeader(kChromeProxyHeader, &header_value3);
+  EXPECT_EQ(kExpectedHeader3, header_value3);
 }
 
-TEST_F(DataReductionProxyAuthRequestHandlerTest, Ignore) {
-  scoped_refptr<net::AuthChallengeInfo> auth_info(new net::AuthChallengeInfo);
-  auth_info->realm =  kInvalidTestRealm;
-  auth_info->challenger = net::HostPortPair::FromString(kTestChallenger);
-  TestDataReductionProxyAuthRequestHandler handler(
-      100, 3600001, settings_.get());
-  base::string16 user, password;
-  DataReductionProxyAuthRequestHandler::TryHandleResult result =
-      handler.TryHandleAuthentication(auth_info.get(), &user, &password);
-  ExpectIgnore(result, user, password);
+TEST_F(DataReductionProxyAuthRequestHandlerTest, AuthorizationIgnoresEmptyKey) {
+scoped_ptr<TestDataReductionProxyParams> params;
+  params.reset(
+      new TestDataReductionProxyParams(
+          DataReductionProxyParams::kAllowed |
+          DataReductionProxyParams::kFallbackAllowed |
+          DataReductionProxyParams::kPromoAllowed,
+          TestDataReductionProxyParams::HAS_EVERYTHING &
+          ~TestDataReductionProxyParams::HAS_DEV_ORIGIN &
+          ~TestDataReductionProxyParams::HAS_DEV_FALLBACK_ORIGIN));
+  // loop_proxy_ is just the current message loop. This means loop_proxy_
+  // is the network thread used by DataReductionProxyAuthRequestHandler.
+  TestDataReductionProxyAuthRequestHandler auth_handler(kClient,
+                                                        kVersion,
+                                                        params.get(),
+                                                        loop_proxy_);
+  auth_handler.Init();
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(auth_handler.client_, kClient);
+  EXPECT_EQ(kExpectedBuild, auth_handler.build_number_);
+  EXPECT_EQ(kExpectedPatch, auth_handler.patch_number_);
+  EXPECT_EQ(auth_handler.key_, kTestKey);
+  EXPECT_EQ(kExpectedCredentials, auth_handler.credentials_);
+  EXPECT_EQ(kExpectedSession, auth_handler.session_);
+
+  // Now set an empty key. The auth handler should ignore that, and the key
+  // remains |kTestKey|.
+  auth_handler.InitAuthentication("");
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(auth_handler.key_, kTestKey);
+  EXPECT_EQ(kExpectedCredentials, auth_handler.credentials_);
+  EXPECT_EQ(kExpectedSession, auth_handler.session_);
+}
+
+TEST_F(DataReductionProxyAuthRequestHandlerTest, AuthorizationBogusVersion) {
+  scoped_ptr<TestDataReductionProxyParams> params;
+  params.reset(
+      new TestDataReductionProxyParams(
+          DataReductionProxyParams::kAllowed |
+          DataReductionProxyParams::kFallbackAllowed |
+          DataReductionProxyParams::kPromoAllowed,
+          TestDataReductionProxyParams::HAS_EVERYTHING &
+          ~TestDataReductionProxyParams::HAS_DEV_ORIGIN &
+          ~TestDataReductionProxyParams::HAS_DEV_FALLBACK_ORIGIN));
+  TestDataReductionProxyAuthRequestHandler auth_handler(kClient,
+                                                        kBogusVersion,
+                                                        params.get(),
+                                                        loop_proxy_);
+  EXPECT_TRUE(auth_handler.build_number_.empty());
+  EXPECT_TRUE(auth_handler.patch_number_.empty());
+
+  // Now set a key.
+  auth_handler.InitAuthentication(kTestKey2);
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(kTestKey2, auth_handler.key_);
+  EXPECT_EQ(kExpectedCredentials2, auth_handler.credentials_);
+  EXPECT_EQ(kExpectedSession2, auth_handler.session_);
+
+  net::HttpRequestHeaders headers;
+  // Write headers with a valid data reduction proxy;
+  auth_handler.MaybeAddRequestHeader(
+      NULL,
+      net::ProxyServer::FromURI(
+          net::HostPortPair::FromURL(GURL(params->DefaultOrigin())).ToString(),
+          net::ProxyServer::SCHEME_HTTP),
+      &headers);
+  EXPECT_TRUE(headers.HasHeader(kChromeProxyHeader));
+  std::string header_value;
+  headers.GetHeader(kChromeProxyHeader, &header_value);
+  EXPECT_EQ(kExpectedHeader4, header_value);
+}
+
+TEST_F(DataReductionProxyAuthRequestHandlerTest, AuthHashForSalt) {
+  std::string salt = "8675309"; // Jenny's number to test the hash generator.
+  std::string salted_key = salt + kDataReductionProxyKey + salt;
+  base::string16 expected_hash = base::UTF8ToUTF16(base::MD5String(salted_key));
+  EXPECT_EQ(expected_hash,
+            DataReductionProxyAuthRequestHandler::AuthHashForSalt(
+                8675309, kDataReductionProxyKey));
 }
 
 }  // namespace data_reduction_proxy

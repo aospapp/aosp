@@ -105,16 +105,18 @@ public class ManifestTestListAdapter extends TestListAdapter {
 
     private String mTestParent;
 
-    public ManifestTestListAdapter(Context context, String testParent) {
+    public ManifestTestListAdapter(Context context, String testParent, String[] disabledTestArray) {
         super(context);
         mContext = context;
         mTestParent = testParent;
-
-        String[] disabledTestArray = context.getResources().getStringArray(R.array.disabled_tests);
         mDisabledTests = new HashSet<>(disabledTestArray.length);
         for (int i = 0; i < disabledTestArray.length; i++) {
             mDisabledTests.add(disabledTestArray[i]);
         }
+    }
+
+    public ManifestTestListAdapter(Context context, String testParent) {
+        this(context, testParent, context.getResources().getStringArray(R.array.disabled_tests));
     }
 
     @Override
@@ -305,11 +307,8 @@ public class ManifestTestListAdapter extends TestListAdapter {
     List<TestListItem> filterTests(List<TestListItem> tests) {
         List<TestListItem> filteredTests = new ArrayList<TestListItem>();
         for (TestListItem test : tests) {
-            String[] excludedFeatures = test.excludedFeatures;
-            String[] requiredFeatures = test.requiredFeatures;
-            String[] applicableFeatures = test.applicableFeatures;
-            if (!hasAnyFeature(excludedFeatures) && hasAllFeatures(requiredFeatures)) {
-                if (hasAnyFeature(applicableFeatures) || hasAllFeatures(applicableFeatures)) {
+            if (!hasAnyFeature(test.excludedFeatures) && hasAllFeatures(test.requiredFeatures)) {
+                if (test.applicableFeatures == null || hasAnyFeature(test.applicableFeatures)) {
                     filteredTests.add(test);
                 }
             }

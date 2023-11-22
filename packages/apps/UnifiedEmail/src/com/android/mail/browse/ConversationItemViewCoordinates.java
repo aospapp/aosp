@@ -31,7 +31,6 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import com.android.mail.R;
-import com.android.mail.ui.ViewMode;
 import com.android.mail.utils.Utils;
 import com.android.mail.utils.ViewUtils;
 import com.google.common.base.Objects;
@@ -48,11 +47,6 @@ import com.google.common.base.Objects;
 public class ConversationItemViewCoordinates {
     private static final int SINGLE_LINE = 1;
 
-    // Modes
-    static final int MODE_COUNT = 2;
-    static final int WIDE_MODE = 0;
-    static final int NORMAL_MODE = 1;
-
     // Left-side gadget modes
     static final int GADGET_NONE = 0;
     static final int GADGET_CONTACT_PHOTO = 1;
@@ -65,7 +59,6 @@ public class ConversationItemViewCoordinates {
      */
     public static final class Config {
         private int mWidth;
-        private int mViewMode = ViewMode.UNKNOWN;
         private int mGadgetMode = GADGET_NONE;
         private int mLayoutDirection = View.LAYOUT_DIRECTION_LTR;
         private boolean mShowFolders = false;
@@ -73,11 +66,6 @@ public class ConversationItemViewCoordinates {
         private boolean mShowColorBlock = false;
         private boolean mShowPersonalIndicator = false;
         private boolean mUseFullMargins = false;
-
-        public Config setViewMode(int viewMode) {
-            mViewMode = viewMode;
-            return this;
-        }
 
         public Config withGadget(int gadget) {
             mGadgetMode = gadget;
@@ -113,10 +101,6 @@ public class ConversationItemViewCoordinates {
             return mWidth;
         }
 
-        public int getViewMode() {
-            return mViewMode;
-        }
-
         public int getGadgetMode() {
             return mGadgetMode;
         }
@@ -139,7 +123,7 @@ public class ConversationItemViewCoordinates {
 
         private int getCacheKey() {
             // hash the attributes that contribute to item height and child view geometry
-            return Objects.hashCode(mWidth, mViewMode, mGadgetMode, mShowFolders, mShowReplyState,
+            return Objects.hashCode(mWidth, mGadgetMode, mShowFolders, mShowReplyState,
                     mShowPersonalIndicator, mLayoutDirection, mUseFullMargins);
         }
 
@@ -184,11 +168,6 @@ public class ConversationItemViewCoordinates {
         }
     }
 
-    /**
-     * One of either NORMAL_MODE or WIDE_MODE.
-     */
-    private final int mMode;
-
     final int height;
 
     // Star.
@@ -224,10 +203,8 @@ public class ConversationItemViewCoordinates {
     final int foldersLeft;
     final int foldersRight;
     final int foldersY;
-    final int foldersHeight;
     final Typeface foldersTypeface;
     final float foldersFontSize;
-    final int foldersTextBottomPadding;
 
     // Info icon
     final int infoIconX;
@@ -264,19 +241,10 @@ public class ConversationItemViewCoordinates {
     final int contactImagesX;
     final int contactImagesY;
 
-
-    /**
-     * The smallest item width for which we use the "wide" layout.
-     */
-    private final int mMinListWidthForWide;
-
     private ConversationItemViewCoordinates(final Context context, final Config config,
             final CoordinatesCache cache) {
         Utils.traceBeginSection("CIV coordinates constructor");
         final Resources res = context.getResources();
-        mMinListWidthForWide = res.getDimensionPixelSize(R.dimen.list_min_width_is_wide);
-
-        mMode = calculateMode(res, config);
 
         final int layoutId = R.layout.conversation_item_view;
 
@@ -377,22 +345,16 @@ public class ConversationItemViewCoordinates {
         snippetFontSize = snippet.getTextSize();
 
         if (config.areFoldersVisible()) {
-            // vertically align folders min left edge with subject
             foldersLeft = getX(folders);
             foldersRight = foldersLeft + folders.getWidth();
-            foldersY = getY(folders) + sendersTopAdjust;
-            foldersHeight = folders.getHeight();
+            foldersY = getY(folders);
             foldersTypeface = folders.getTypeface();
-            foldersTextBottomPadding = res
-                    .getDimensionPixelSize(R.dimen.folders_text_bottom_padding);
             foldersFontSize = folders.getTextSize();
         } else {
             foldersLeft = 0;
             foldersRight = 0;
             foldersY = 0;
-            foldersHeight = 0;
             foldersTypeface = null;
-            foldersTextBottomPadding = 0;
             foldersFontSize = 0;
         }
 
@@ -457,10 +419,6 @@ public class ConversationItemViewCoordinates {
         }
     }
 
-    public int getMode() {
-        return mMode;
-    }
-
     /**
      * Returns a negative corrective value that you can apply to a TextView's vertical dimensions
      * that will nudge the first line of text upwards such that uppercase Latin characters are
@@ -473,22 +431,6 @@ public class ConversationItemViewCoordinates {
     private static int getLatinTopAdjustment(TextView t) {
         final FontMetricsInt fmi = t.getPaint().getFontMetricsInt();
         return (fmi.top - fmi.ascent);
-    }
-
-    /**
-     * Returns the mode of the header view (Wide/Normal).
-     */
-    private int calculateMode(Resources res, Config config) {
-        switch (config.getViewMode()) {
-            case ViewMode.CONVERSATION_LIST:
-                return config.getWidth() >= mMinListWidthForWide ? WIDE_MODE : NORMAL_MODE;
-
-            case ViewMode.SEARCH_RESULTS_LIST:
-                return res.getInteger(R.integer.conversation_list_search_header_mode);
-
-            default:
-                return res.getInteger(R.integer.conversation_header_mode);
-        }
     }
 
     /**
@@ -518,12 +460,12 @@ public class ConversationItemViewCoordinates {
     /**
      * Returns the length (maximum of characters) of subject in this mode.
      */
-    public static int getSendersLength(Context context, int mode, boolean hasAttachments) {
+    public static int getSendersLength(Context context, boolean hasAttachments) {
         final Resources res = context.getResources();
         if (hasAttachments) {
-            return res.getIntArray(R.array.senders_with_attachment_lengths)[mode];
+            return res.getInteger(R.integer.senders_with_attachment_lengths);
         } else {
-            return res.getIntArray(R.array.senders_lengths)[mode];
+            return res.getInteger(R.integer.senders_lengths);
         }
     }
 

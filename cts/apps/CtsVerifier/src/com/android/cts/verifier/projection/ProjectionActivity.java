@@ -150,6 +150,8 @@ public abstract class ProjectionActivity extends PassFailButtons.Activity
     public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
         Log.i(TAG, "onSurfaceTextureSizeChanged " + surface.toString() + "w: " + width + " h: "
                 + height);
+        mWidth = width;
+        mHeight = height;
     }
 
     @Override

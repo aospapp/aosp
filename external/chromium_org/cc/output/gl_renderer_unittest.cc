@@ -8,14 +8,12 @@
 
 #include "cc/base/math_util.h"
 #include "cc/output/compositor_frame_metadata.h"
-#include "cc/resources/prioritized_resource_manager.h"
 #include "cc/resources/resource_provider.h"
 #include "cc/test/fake_impl_proxy.h"
 #include "cc/test/fake_layer_tree_host_impl.h"
 #include "cc/test/fake_output_surface.h"
 #include "cc/test/fake_output_surface_client.h"
 #include "cc/test/fake_renderer_client.h"
-#include "cc/test/mock_quad_culler.h"
 #include "cc/test/pixel_test.h"
 #include "cc/test/render_pass_test_common.h"
 #include "cc/test/render_pass_test_utils.h"
@@ -25,7 +23,6 @@
 #include "gpu/command_buffer/client/context_support.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/khronos/GLES2/gl2.h"
 #include "third_party/skia/include/core/SkImageFilter.h"
 #include "third_party/skia/include/core/SkMatrix.h"
 #include "third_party/skia/include/effects/SkColorFilterImageFilter.h"
@@ -156,10 +153,13 @@ class GLRendererWithDefaultHarnessTest : public GLRendererTest {
     CHECK(output_surface_->BindToClient(&output_surface_client_));
 
     shared_bitmap_manager_.reset(new TestSharedBitmapManager());
-    resource_provider_ =
-        ResourceProvider::Create(
-            output_surface_.get(), shared_bitmap_manager_.get(), 0, false, 1,
-            false).Pass();
+    resource_provider_ = ResourceProvider::Create(output_surface_.get(),
+                                                  shared_bitmap_manager_.get(),
+                                                  NULL,
+                                                  0,
+                                                  false,
+                                                  1,
+                                                  false).Pass();
     renderer_ = make_scoped_ptr(new FakeRendererGL(&renderer_client_,
                                                    &settings_,
                                                    output_surface_.get(),
@@ -189,10 +189,13 @@ class GLRendererShaderTest : public GLRendererTest {
     CHECK(output_surface_->BindToClient(&output_surface_client_));
 
     shared_bitmap_manager_.reset(new TestSharedBitmapManager());
-    resource_provider_ =
-        ResourceProvider::Create(
-            output_surface_.get(), shared_bitmap_manager_.get(), 0, false, 1,
-            false).Pass();
+    resource_provider_ = ResourceProvider::Create(output_surface_.get(),
+                                                  shared_bitmap_manager_.get(),
+                                                  NULL,
+                                                  0,
+                                                  false,
+                                                  1,
+                                                  false).Pass();
     renderer_.reset(new FakeRendererGL(&renderer_client_,
                                        &settings_,
                                        output_surface_.get(),
@@ -317,7 +320,7 @@ TEST_F(GLRendererWithDefaultHarnessTest,
   EXPECT_EQ(1, renderer_client_.set_full_root_layer_damage_count());
 
   AddRenderPass(&render_passes_in_draw_order_,
-                RenderPass::Id(1, 0),
+                RenderPassId(1, 0),
                 viewport_rect,
                 gfx::Transform());
 
@@ -340,7 +343,7 @@ TEST_F(GLRendererWithDefaultHarnessTest, ExternalStencil) {
   output_surface_->set_has_external_stencil_test(true);
 
   TestRenderPass* root_pass = AddRenderPass(&render_passes_in_draw_order_,
-                                            RenderPass::Id(1, 0),
+                                            RenderPassId(1, 0),
                                             viewport_rect,
                                             gfx::Transform());
   root_pass->has_transparent_background = false;
@@ -478,8 +481,14 @@ TEST_F(GLRendererTest, InitializationDoesNotMakeSynchronousCalls) {
 
   scoped_ptr<SharedBitmapManager> shared_bitmap_manager(
       new TestSharedBitmapManager());
-  scoped_ptr<ResourceProvider> resource_provider(ResourceProvider::Create(
-      output_surface.get(), shared_bitmap_manager.get(), 0, false, 1, false));
+  scoped_ptr<ResourceProvider> resource_provider(
+      ResourceProvider::Create(output_surface.get(),
+                               shared_bitmap_manager.get(),
+                               NULL,
+                               0,
+                               false,
+                               1,
+                               false));
 
   LayerTreeSettings settings;
   FakeRendererClient renderer_client;
@@ -514,8 +523,14 @@ TEST_F(GLRendererTest, InitializationWithQuicklyLostContextDoesNotAssert) {
 
   scoped_ptr<SharedBitmapManager> shared_bitmap_manager(
       new TestSharedBitmapManager());
-  scoped_ptr<ResourceProvider> resource_provider(ResourceProvider::Create(
-      output_surface.get(), shared_bitmap_manager.get(), 0, false, 1, false));
+  scoped_ptr<ResourceProvider> resource_provider(
+      ResourceProvider::Create(output_surface.get(),
+                               shared_bitmap_manager.get(),
+                               NULL,
+                               0,
+                               false,
+                               1,
+                               false));
 
   LayerTreeSettings settings;
   FakeRendererClient renderer_client;
@@ -547,8 +562,14 @@ TEST_F(GLRendererTest, OpaqueBackground) {
 
   scoped_ptr<SharedBitmapManager> shared_bitmap_manager(
       new TestSharedBitmapManager());
-  scoped_ptr<ResourceProvider> resource_provider(ResourceProvider::Create(
-      output_surface.get(), shared_bitmap_manager.get(), 0, false, 1, false));
+  scoped_ptr<ResourceProvider> resource_provider(
+      ResourceProvider::Create(output_surface.get(),
+                               shared_bitmap_manager.get(),
+                               NULL,
+                               0,
+                               false,
+                               1,
+                               false));
 
   LayerTreeSettings settings;
   FakeRendererClient renderer_client;
@@ -559,7 +580,7 @@ TEST_F(GLRendererTest, OpaqueBackground) {
 
   gfx::Rect viewport_rect(1, 1);
   TestRenderPass* root_pass = AddRenderPass(&render_passes_in_draw_order_,
-                                            RenderPass::Id(1, 0),
+                                            RenderPassId(1, 0),
                                             viewport_rect,
                                             gfx::Transform());
   root_pass->has_transparent_background = false;
@@ -593,8 +614,14 @@ TEST_F(GLRendererTest, TransparentBackground) {
 
   scoped_ptr<SharedBitmapManager> shared_bitmap_manager(
       new TestSharedBitmapManager());
-  scoped_ptr<ResourceProvider> resource_provider(ResourceProvider::Create(
-      output_surface.get(), shared_bitmap_manager.get(), 0, false, 1, false));
+  scoped_ptr<ResourceProvider> resource_provider(
+      ResourceProvider::Create(output_surface.get(),
+                               shared_bitmap_manager.get(),
+                               NULL,
+                               0,
+                               false,
+                               1,
+                               false));
 
   LayerTreeSettings settings;
   FakeRendererClient renderer_client;
@@ -605,7 +632,7 @@ TEST_F(GLRendererTest, TransparentBackground) {
 
   gfx::Rect viewport_rect(1, 1);
   TestRenderPass* root_pass = AddRenderPass(&render_passes_in_draw_order_,
-                                            RenderPass::Id(1, 0),
+                                            RenderPassId(1, 0),
                                             viewport_rect,
                                             gfx::Transform());
   root_pass->has_transparent_background = true;
@@ -632,8 +659,14 @@ TEST_F(GLRendererTest, OffscreenOutputSurface) {
 
   scoped_ptr<SharedBitmapManager> shared_bitmap_manager(
       new TestSharedBitmapManager());
-  scoped_ptr<ResourceProvider> resource_provider(ResourceProvider::Create(
-      output_surface.get(), shared_bitmap_manager.get(), 0, false, 1, false));
+  scoped_ptr<ResourceProvider> resource_provider(
+      ResourceProvider::Create(output_surface.get(),
+                               shared_bitmap_manager.get(),
+                               NULL,
+                               0,
+                               false,
+                               1,
+                               false));
 
   LayerTreeSettings settings;
   FakeRendererClient renderer_client;
@@ -644,7 +677,7 @@ TEST_F(GLRendererTest, OffscreenOutputSurface) {
 
   gfx::Rect viewport_rect(1, 1);
   AddRenderPass(&render_passes_in_draw_order_,
-                RenderPass::Id(1, 0),
+                RenderPassId(1, 0),
                 viewport_rect,
                 gfx::Transform());
 
@@ -713,8 +746,14 @@ TEST_F(GLRendererTest, VisibilityChangeIsLastCall) {
 
   scoped_ptr<SharedBitmapManager> shared_bitmap_manager(
       new TestSharedBitmapManager());
-  scoped_ptr<ResourceProvider> resource_provider(ResourceProvider::Create(
-      output_surface.get(), shared_bitmap_manager.get(), 0, false, 1, false));
+  scoped_ptr<ResourceProvider> resource_provider(
+      ResourceProvider::Create(output_surface.get(),
+                               shared_bitmap_manager.get(),
+                               NULL,
+                               0,
+                               false,
+                               1,
+                               false));
 
   LayerTreeSettings settings;
   FakeRendererClient renderer_client;
@@ -725,7 +764,7 @@ TEST_F(GLRendererTest, VisibilityChangeIsLastCall) {
 
   gfx::Rect viewport_rect(1, 1);
   AddRenderPass(&render_passes_in_draw_order_,
-                RenderPass::Id(1, 0),
+                RenderPassId(1, 0),
                 viewport_rect,
                 gfx::Transform());
 
@@ -750,6 +789,7 @@ class TextureStateTrackingContext : public TestWebGraphicsContext3D {
     test_capabilities_.gpu.egl_image_external = true;
   }
 
+  MOCK_METHOD1(waitSyncPoint, void(unsigned sync_point));
   MOCK_METHOD3(texParameteri, void(GLenum target, GLenum pname, GLint param));
   MOCK_METHOD4(drawElements,
                void(GLenum mode, GLsizei count, GLenum type, GLintptr offset));
@@ -777,8 +817,14 @@ TEST_F(GLRendererTest, ActiveTextureState) {
 
   scoped_ptr<SharedBitmapManager> shared_bitmap_manager(
       new TestSharedBitmapManager());
-  scoped_ptr<ResourceProvider> resource_provider(ResourceProvider::Create(
-      output_surface.get(), shared_bitmap_manager.get(), 0, false, 1, false));
+  scoped_ptr<ResourceProvider> resource_provider(
+      ResourceProvider::Create(output_surface.get(),
+                               shared_bitmap_manager.get(),
+                               NULL,
+                               0,
+                               false,
+                               1,
+                               false));
 
   LayerTreeSettings settings;
   FakeRendererClient renderer_client;
@@ -790,11 +836,11 @@ TEST_F(GLRendererTest, ActiveTextureState) {
   // During initialization we are allowed to set any texture parameters.
   EXPECT_CALL(*context, texParameteri(_, _, _)).Times(AnyNumber());
 
-  RenderPass::Id id(1, 1);
+  RenderPassId id(1, 1);
   TestRenderPass* root_pass = AddRenderPass(
       &render_passes_in_draw_order_, id, gfx::Rect(100, 100), gfx::Transform());
   root_pass->AppendOneOfEveryQuadType(resource_provider.get(),
-                                      RenderPass::Id(2, 1));
+                                      RenderPassId(2, 1));
 
   renderer.DecideRenderPassAllocationsForFrame(render_passes_in_draw_order_);
 
@@ -803,6 +849,12 @@ TEST_F(GLRendererTest, ActiveTextureState) {
   Mock::VerifyAndClearExpectations(context);
   {
     InSequence sequence;
+
+    // The sync points for all quads are waited on first. This sync point is
+    // for a texture quad drawn later in the frame.
+    EXPECT_CALL(*context,
+                waitSyncPoint(TestRenderPass::kSyncPointForMailboxTextureQuad))
+        .Times(1);
 
     // yuv_quad is drawn with the default linear filter.
     EXPECT_CALL(*context, drawElements(_, _, _, _));
@@ -825,7 +877,7 @@ TEST_F(GLRendererTest, ActiveTextureState) {
 
     // The remaining quads also use GL_LINEAR because nearest neighbor
     // filtering is currently only used with tile quads.
-    EXPECT_CALL(*context, drawElements(_, _, _, _)).Times(6);
+    EXPECT_CALL(*context, drawElements(_, _, _, _)).Times(7);
   }
 
   gfx::Rect viewport_rect(100, 100);
@@ -856,8 +908,14 @@ TEST_F(GLRendererTest, ShouldClearRootRenderPass) {
 
   scoped_ptr<SharedBitmapManager> shared_bitmap_manager(
       new TestSharedBitmapManager());
-  scoped_ptr<ResourceProvider> resource_provider(ResourceProvider::Create(
-      output_surface.get(), shared_bitmap_manager.get(), 0, false, 1, false));
+  scoped_ptr<ResourceProvider> resource_provider(
+      ResourceProvider::Create(output_surface.get(),
+                               shared_bitmap_manager.get(),
+                               NULL,
+                               0,
+                               false,
+                               1,
+                               false));
 
   LayerTreeSettings settings;
   settings.should_clear_root_render_pass = false;
@@ -870,14 +928,14 @@ TEST_F(GLRendererTest, ShouldClearRootRenderPass) {
 
   gfx::Rect viewport_rect(10, 10);
 
-  RenderPass::Id root_pass_id(1, 0);
+  RenderPassId root_pass_id(1, 0);
   TestRenderPass* root_pass = AddRenderPass(&render_passes_in_draw_order_,
                                             root_pass_id,
                                             viewport_rect,
                                             gfx::Transform());
   AddQuad(root_pass, viewport_rect, SK_ColorGREEN);
 
-  RenderPass::Id child_pass_id(2, 0);
+  RenderPassId child_pass_id(2, 0);
   TestRenderPass* child_pass = AddRenderPass(&render_passes_in_draw_order_,
                                              child_pass_id,
                                              viewport_rect,
@@ -948,8 +1006,14 @@ TEST_F(GLRendererTest, ScissorTestWhenClearing) {
 
   scoped_ptr<SharedBitmapManager> shared_bitmap_manager(
       new TestSharedBitmapManager());
-  scoped_ptr<ResourceProvider> resource_provider(ResourceProvider::Create(
-      output_surface.get(), shared_bitmap_manager.get(), 0, false, 1, false));
+  scoped_ptr<ResourceProvider> resource_provider(
+      ResourceProvider::Create(output_surface.get(),
+                               shared_bitmap_manager.get(),
+                               NULL,
+                               0,
+                               false,
+                               1,
+                               false));
 
   LayerTreeSettings settings;
   FakeRendererClient renderer_client;
@@ -962,7 +1026,7 @@ TEST_F(GLRendererTest, ScissorTestWhenClearing) {
   gfx::Rect viewport_rect(1, 1);
 
   gfx::Rect grand_child_rect(25, 25);
-  RenderPass::Id grand_child_pass_id(3, 0);
+  RenderPassId grand_child_pass_id(3, 0);
   TestRenderPass* grand_child_pass =
       AddRenderPass(&render_passes_in_draw_order_,
                     grand_child_pass_id,
@@ -971,14 +1035,14 @@ TEST_F(GLRendererTest, ScissorTestWhenClearing) {
   AddClippedQuad(grand_child_pass, grand_child_rect, SK_ColorYELLOW);
 
   gfx::Rect child_rect(50, 50);
-  RenderPass::Id child_pass_id(2, 0);
+  RenderPassId child_pass_id(2, 0);
   TestRenderPass* child_pass = AddRenderPass(&render_passes_in_draw_order_,
                                              child_pass_id,
                                              child_rect,
                                              gfx::Transform());
   AddQuad(child_pass, child_rect, SK_ColorBLUE);
 
-  RenderPass::Id root_pass_id(1, 0);
+  RenderPassId root_pass_id(1, 0);
   TestRenderPass* root_pass = AddRenderPass(&render_passes_in_draw_order_,
                                             root_pass_id,
                                             viewport_rect,
@@ -1041,8 +1105,14 @@ TEST_F(GLRendererTest, NoDiscardOnPartialUpdates) {
 
   scoped_ptr<SharedBitmapManager> shared_bitmap_manager(
       new TestSharedBitmapManager());
-  scoped_ptr<ResourceProvider> resource_provider(ResourceProvider::Create(
-      output_surface.get(), shared_bitmap_manager.get(), 0, false, 1, false));
+  scoped_ptr<ResourceProvider> resource_provider(
+      ResourceProvider::Create(output_surface.get(),
+                               shared_bitmap_manager.get(),
+                               NULL,
+                               0,
+                               false,
+                               1,
+                               false));
 
   LayerTreeSettings settings;
   settings.partial_swap_enabled = true;
@@ -1058,7 +1128,7 @@ TEST_F(GLRendererTest, NoDiscardOnPartialUpdates) {
 
   {
     // Partial frame, should not discard.
-    RenderPass::Id root_pass_id(1, 0);
+    RenderPassId root_pass_id(1, 0);
     TestRenderPass* root_pass = AddRenderPass(&render_passes_in_draw_order_,
                                               root_pass_id,
                                               viewport_rect,
@@ -1077,7 +1147,7 @@ TEST_F(GLRendererTest, NoDiscardOnPartialUpdates) {
   }
   {
     // Full frame, should discard.
-    RenderPass::Id root_pass_id(1, 0);
+    RenderPassId root_pass_id(1, 0);
     TestRenderPass* root_pass = AddRenderPass(&render_passes_in_draw_order_,
                                               root_pass_id,
                                               viewport_rect,
@@ -1097,7 +1167,7 @@ TEST_F(GLRendererTest, NoDiscardOnPartialUpdates) {
   {
     // Full frame, external scissor is set, should not discard.
     output_surface->set_has_external_stencil_test(true);
-    RenderPass::Id root_pass_id(1, 0);
+    RenderPassId root_pass_id(1, 0);
     TestRenderPass* root_pass = AddRenderPass(&render_passes_in_draw_order_,
                                               root_pass_id,
                                               viewport_rect,
@@ -1119,7 +1189,7 @@ TEST_F(GLRendererTest, NoDiscardOnPartialUpdates) {
   {
     // Full frame, clipped, should not discard.
     clip_rect = gfx::Rect(10, 10, 10, 10);
-    RenderPass::Id root_pass_id(1, 0);
+    RenderPassId root_pass_id(1, 0);
     TestRenderPass* root_pass = AddRenderPass(&render_passes_in_draw_order_,
                                               root_pass_id,
                                               viewport_rect,
@@ -1139,7 +1209,7 @@ TEST_F(GLRendererTest, NoDiscardOnPartialUpdates) {
   {
     // Full frame, doesn't cover the surface, should not discard.
     viewport_rect = gfx::Rect(10, 10, 10, 10);
-    RenderPass::Id root_pass_id(1, 0);
+    RenderPassId root_pass_id(1, 0);
     TestRenderPass* root_pass = AddRenderPass(&render_passes_in_draw_order_,
                                               root_pass_id,
                                               viewport_rect,
@@ -1160,7 +1230,7 @@ TEST_F(GLRendererTest, NoDiscardOnPartialUpdates) {
     // Full frame, doesn't cover the surface (no offset), should not discard.
     clip_rect = gfx::Rect(100, 100);
     viewport_rect = gfx::Rect(50, 50);
-    RenderPass::Id root_pass_id(1, 0);
+    RenderPassId root_pass_id(1, 0);
     TestRenderPass* root_pass = AddRenderPass(&render_passes_in_draw_order_,
                                               root_pass_id,
                                               viewport_rect,
@@ -1226,8 +1296,14 @@ TEST_F(GLRendererTest, ScissorAndViewportWithinNonreshapableSurface) {
 
   scoped_ptr<SharedBitmapManager> shared_bitmap_manager(
       new TestSharedBitmapManager());
-  scoped_ptr<ResourceProvider> resource_provider(ResourceProvider::Create(
-      output_surface.get(), shared_bitmap_manager.get(), 0, false, 1, false));
+  scoped_ptr<ResourceProvider> resource_provider(
+      ResourceProvider::Create(output_surface.get(),
+                               shared_bitmap_manager.get(),
+                               NULL,
+                               0,
+                               false,
+                               1,
+                               false));
 
   LayerTreeSettings settings;
   FakeRendererClient renderer_client;
@@ -1241,7 +1317,7 @@ TEST_F(GLRendererTest, ScissorAndViewportWithinNonreshapableSurface) {
   gfx::Rect viewport_rect(device_viewport_rect.size());
   gfx::Rect quad_rect = gfx::Rect(20, 20, 20, 20);
 
-  RenderPass::Id root_pass_id(1, 0);
+  RenderPassId root_pass_id(1, 0);
   TestRenderPass* root_pass = AddRenderPass(&render_passes_in_draw_order_,
                                             root_pass_id,
                                             viewport_rect,
@@ -1260,16 +1336,16 @@ TEST_F(GLRendererShaderTest, DrawRenderPassQuadShaderPermutations) {
   gfx::Rect viewport_rect(1, 1);
 
   gfx::Rect child_rect(50, 50);
-  RenderPass::Id child_pass_id(2, 0);
+  RenderPassId child_pass_id(2, 0);
   TestRenderPass* child_pass;
 
-  RenderPass::Id root_pass_id(1, 0);
+  RenderPassId root_pass_id(1, 0);
   TestRenderPass* root_pass;
 
   ResourceProvider::ResourceId mask = resource_provider_->CreateResource(
       gfx::Size(20, 12),
       GL_CLAMP_TO_EDGE,
-      ResourceProvider::TextureUsageAny,
+      ResourceProvider::TextureHintImmutable,
       resource_provider_->best_texture_format());
   resource_provider_->AllocateForTesting(mask);
 
@@ -1490,11 +1566,11 @@ TEST_F(GLRendererShaderTest, DrawRenderPassQuadShaderPermutations) {
 // project incorrectly by the given transform, because of w<0 clipping.
 TEST_F(GLRendererShaderTest, DrawRenderPassQuadSkipsAAForClippingTransform) {
   gfx::Rect child_rect(50, 50);
-  RenderPass::Id child_pass_id(2, 0);
+  RenderPassId child_pass_id(2, 0);
   TestRenderPass* child_pass;
 
   gfx::Rect viewport_rect(1, 1);
-  RenderPass::Id root_pass_id(1, 0);
+  RenderPassId root_pass_id(1, 0);
   TestRenderPass* root_pass;
 
   gfx::Transform transform_preventing_aa;
@@ -1535,7 +1611,7 @@ TEST_F(GLRendererShaderTest, DrawRenderPassQuadSkipsAAForClippingTransform) {
 
 TEST_F(GLRendererShaderTest, DrawSolidColorShader) {
   gfx::Rect viewport_rect(1, 1);
-  RenderPass::Id root_pass_id(1, 0);
+  RenderPassId root_pass_id(1, 0);
   TestRenderPass* root_pass;
 
   gfx::Transform pixel_aligned_transform_causing_aa;
@@ -1600,10 +1676,13 @@ class MockOutputSurfaceTest : public GLRendererTest {
     CHECK(output_surface_.BindToClient(&output_surface_client_));
 
     shared_bitmap_manager_.reset(new TestSharedBitmapManager());
-    resource_provider_ =
-        ResourceProvider::Create(
-            &output_surface_, shared_bitmap_manager_.get(), 0, false, 1, false)
-            .Pass();
+    resource_provider_ = ResourceProvider::Create(&output_surface_,
+                                                  shared_bitmap_manager_.get(),
+                                                  NULL,
+                                                  0,
+                                                  false,
+                                                  1,
+                                                  false).Pass();
 
     renderer_.reset(new FakeRendererGL(&renderer_client_,
                                        &settings_,
@@ -1615,7 +1694,7 @@ class MockOutputSurfaceTest : public GLRendererTest {
 
   void DrawFrame(float device_scale_factor,
                  const gfx::Rect& device_viewport_rect) {
-    RenderPass::Id render_pass_id(1, 0);
+    RenderPassId render_pass_id(1, 0);
     TestRenderPass* render_pass = AddRenderPass(&render_passes_in_draw_order_,
                                                 render_pass_id,
                                                 device_viewport_rect,
@@ -1643,8 +1722,8 @@ class MockOutputSurfaceTest : public GLRendererTest {
 
   OutputSurfaceMockContext* Context() {
     return static_cast<OutputSurfaceMockContext*>(
-        static_cast<TestContextProvider*>(
-            output_surface_.context_provider().get())->TestContext3d());
+        static_cast<TestContextProvider*>(output_surface_.context_provider())
+            ->TestContext3d());
   }
 
   LayerTreeSettings settings_;

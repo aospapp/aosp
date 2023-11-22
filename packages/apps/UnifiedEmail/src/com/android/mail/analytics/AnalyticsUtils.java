@@ -20,19 +20,6 @@ package com.android.mail.analytics;
 import com.android.mail.R;
 
 public class AnalyticsUtils {
-
-    /**
-     * Map of email address suffixes to tags sent to analytics.
-     */
-    private static final String[][] SUFFIX_ACCOUNT_TYPES = {
-        {"@gmail.com", "gmail"},
-        {"@googlemail.com", "gmail"},
-        {"@google.com", "google-corp"},
-        {"@hotmail.com", "hotmail"},
-        {"@outlook.com", "outlook"},
-        {"@yahoo.com", "yahoo"},
-    };
-
     // individual apps should chain this method call with their own lookup tables if they have
     // app-specific menu items
     public static String getMenuItemString(int id) {
@@ -59,12 +46,12 @@ public class AnalyticsUtils {
             s = "report_spam";
         } else if (id == R.id.mark_not_spam) {
             s = "mark_not_spam";
-        } else if (id == R.id.report_phishing) {
-            s = "report_phishing";
         } else if (id == R.id.compose) {
             s = "compose";
         } else if (id == R.id.refresh) {
             s = "refresh";
+        } else if (id == R.id.toggle_drawer) {
+            s = "toggle_drawer";
         } else if (id == R.id.settings) {
             s = "settings";
         } else if (id == R.id.help_info_menu_item) {
@@ -89,6 +76,8 @@ public class AnalyticsUtils {
             s = "mark_read";
         } else if (id == R.id.unread) {
             s = "mark_unread";
+        } else if (id == R.id.toggle_read_unread) {
+            s = "toggle_read_unread";
         } else if (id == R.id.show_original) {
             s = "show_original";
         } else if (id == R.id.add_file_attachment) {
@@ -144,20 +133,4 @@ public class AnalyticsUtils {
         }
         return s;
     }
-
-    public static String getAccountTypeForAccount(String name) {
-        if (name == null) {
-            return "unknown";
-        }
-
-        for (int i = 0; i < SUFFIX_ACCOUNT_TYPES.length; i++) {
-            final String[] row = SUFFIX_ACCOUNT_TYPES[i];
-            if (name.endsWith(row[0])) {
-                return row[1];
-            }
-        }
-
-        return "other";
-    }
-
 }

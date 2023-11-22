@@ -20,7 +20,10 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
+
+#if defined(ENABLE_EXTENSIONS)
 #include "extensions/browser/process_map.h"
+#endif
 
 #if defined(ENABLE_PLUGINS)
 #include "chrome/browser/metrics/plugin_metrics_provider.h"
@@ -123,15 +126,28 @@ void ChromeStabilityMetricsProvider::ProvideStabilityMetrics(
   }
 }
 
+void ChromeStabilityMetricsProvider::ClearSavedStabilityMetrics() {
+  PrefService* local_state = g_browser_process->local_state();
+
+  // Clear all the prefs used in this class in UMA reports (which doesn't
+  // include |kUninstallMetricsPageLoadCount| as it's not sent up by UMA).
+  local_state->SetInteger(prefs::kStabilityChildProcessCrashCount, 0);
+  local_state->SetInteger(prefs::kStabilityExtensionRendererCrashCount, 0);
+  local_state->SetInteger(prefs::kStabilityPageLoadCount, 0);
+  local_state->SetInteger(prefs::kStabilityRendererCrashCount, 0);
+  local_state->SetInteger(prefs::kStabilityRendererHangCount, 0);
+}
+
 // static
 void ChromeStabilityMetricsProvider::RegisterPrefs(
     PrefRegistrySimple* registry) {
-  registry->RegisterIntegerPref(prefs::kStabilityPageLoadCount, 0);
-  registry->RegisterIntegerPref(prefs::kStabilityRendererCrashCount, 0);
+  registry->RegisterIntegerPref(prefs::kStabilityChildProcessCrashCount, 0);
   registry->RegisterIntegerPref(prefs::kStabilityExtensionRendererCrashCount,
                                 0);
+  registry->RegisterIntegerPref(prefs::kStabilityPageLoadCount, 0);
+  registry->RegisterIntegerPref(prefs::kStabilityRendererCrashCount, 0);
   registry->RegisterIntegerPref(prefs::kStabilityRendererHangCount, 0);
-  registry->RegisterIntegerPref(prefs::kStabilityChildProcessCrashCount, 0);
+
   registry->RegisterInt64Pref(prefs::kUninstallMetricsPageLoadCount, 0);
 }
 
@@ -184,7 +200,8 @@ void ChromeStabilityMetricsProvider::BrowserChildProcessCrashed(
 void ChromeStabilityMetricsProvider::LogLoadStarted(
     content::WebContents* web_contents) {
   content::RecordAction(base::UserMetricsAction("PageLoad"));
-  HISTOGRAM_ENUMERATION("Chrome.UmaPageloadCounter", 1, 2);
+  // TODO(asvitkine): Check if this is used for anything and if not, remove.
+  LOCAL_HISTOGRAM_BOOLEAN("Chrome.UmaPageloadCounter", true);
   IncrementPrefValue(prefs::kStabilityPageLoadCount);
   IncrementLongPrefsValue(prefs::kUninstallMetricsPageLoadCount);
   // We need to save the prefs, as page load count is a critical stat, and it
@@ -195,9 +212,12 @@ void ChromeStabilityMetricsProvider::LogRendererCrash(
     content::RenderProcessHost* host,
     base::TerminationStatus status,
     int exit_code) {
-  bool was_extension_process =
-      extensions::ProcessMap::Get(host->GetBrowserContext())
-          ->Contains(host->GetID());
+  bool was_extension_process = false;
+#if defined(ENABLE_EXTENSIONS)
+  was_extension_process =
+      extensions::ProcessMap::Get(host->GetBrowserContext())->Contains(
+          host->GetID());
+#endif
   if (status == base::TERMINATION_STATUS_PROCESS_CRASHED ||
       status == base::TERMINATION_STATUS_ABNORMAL_TERMINATION) {
     if (was_extension_process) {

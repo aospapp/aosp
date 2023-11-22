@@ -12,9 +12,8 @@
 #include "base/run_loop.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/chromeos/login/users/user.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
-#include "chrome/browser/chromeos/login/users/user_manager_impl.h"
+#include "chrome/browser/chromeos/login/users/chrome_user_manager_impl.h"
+#include "chrome/browser/chromeos/login/users/scoped_user_manager_enabler.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/chromeos/settings/device_settings_service.h"
 #include "chrome/browser/chromeos/settings/stub_cros_settings_provider.h"
@@ -24,9 +23,10 @@
 #include "chrome/test/base/testing_profile.h"
 #include "chromeos/chromeos_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
-#include "chromeos/dbus/fake_dbus_thread_manager.h"
 #include "chromeos/settings/cros_settings_names.h"
 #include "chromeos/settings/cros_settings_provider.h"
+#include "components/user_manager/user.h"
+#include "components/user_manager/user_manager.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/test_browser_thread_bundle.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -79,9 +79,7 @@ class UserManagerTest : public testing::Test {
     TestingBrowserProcess::GetGlobal()->SetProfileManager(
         new UnittestProfileManager(temp_dir_.path()));
 
-    chromeos::FakeDBusThreadManager* dbus_manager =
-        new chromeos::FakeDBusThreadManager();
-    chromeos::DBusThreadManager::InitializeForTesting(dbus_manager);
+    chromeos::DBusThreadManager::Initialize();
 
     ResetUserManager();
   }
@@ -103,37 +101,42 @@ class UserManagerTest : public testing::Test {
     chromeos::DBusThreadManager::Shutdown();
   }
 
-  UserManagerImpl* GetUserManagerImpl() const {
-    return static_cast<UserManagerImpl*>(UserManager::Get());
+  ChromeUserManagerImpl* GetChromeUserManager() const {
+    return static_cast<ChromeUserManagerImpl*>(
+        user_manager::UserManager::Get());
   }
 
   bool GetUserManagerEphemeralUsersEnabled() const {
-    return GetUserManagerImpl()->ephemeral_users_enabled_;
+    return GetChromeUserManager()->GetEphemeralUsersEnabled();
   }
 
   void SetUserManagerEphemeralUsersEnabled(bool ephemeral_users_enabled) {
-    GetUserManagerImpl()->ephemeral_users_enabled_ = ephemeral_users_enabled;
+    GetChromeUserManager()->SetEphemeralUsersEnabled(ephemeral_users_enabled);
   }
 
   const std::string& GetUserManagerOwnerEmail() const {
-    return GetUserManagerImpl()-> owner_email_;
+    return GetChromeUserManager()->GetOwnerEmail();
   }
 
   void SetUserManagerOwnerEmail(const std::string& owner_email) {
-    GetUserManagerImpl()->owner_email_ = owner_email;
+    GetChromeUserManager()->SetOwnerEmail(owner_email);
   }
 
   void ResetUserManager() {
     // Reset the UserManager singleton.
     user_manager_enabler_.reset();
-    // Initialize the UserManager singleton to a fresh UserManagerImpl instance.
+    // Initialize the UserManager singleton to a fresh ChromeUserManagerImpl
+    // instance.
     user_manager_enabler_.reset(
-        new ScopedUserManagerEnabler(new UserManagerImpl));
+        new ScopedUserManagerEnabler(new ChromeUserManagerImpl));
+
+    // ChromeUserManagerImpl ctor posts a task to reload policies.
+    base::RunLoop().RunUntilIdle();
   }
 
   void SetDeviceSettings(bool ephemeral_users_enabled,
                          const std::string &owner,
-                         bool locally_managed_users_enabled) {
+                         bool supervised_users_enabled) {
     base::FundamentalValue
         ephemeral_users_enabled_value(ephemeral_users_enabled);
     stub_settings_provider_.Set(kAccountsPrefEphemeralUsersEnabled,
@@ -141,11 +144,11 @@ class UserManagerTest : public testing::Test {
     base::StringValue owner_value(owner);
     stub_settings_provider_.Set(kDeviceOwner, owner_value);
     stub_settings_provider_.Set(kAccountsPrefSupervisedUsersEnabled,
-        base::FundamentalValue(locally_managed_users_enabled));
+        base::FundamentalValue(supervised_users_enabled));
   }
 
   void RetrieveTrustedDevicePolicies() {
-    GetUserManagerImpl()->RetrieveTrustedDevicePolicies();
+    GetChromeUserManager()->RetrieveTrustedDevicePolicies();
   }
 
  protected:
@@ -175,17 +178,18 @@ TEST_F(UserManagerTest, RetrieveTrustedDevicePolicies) {
 }
 
 TEST_F(UserManagerTest, RemoveAllExceptOwnerFromList) {
-  UserManager::Get()->UserLoggedIn(
+  user_manager::UserManager::Get()->UserLoggedIn(
       "owner@invalid.domain", "owner@invalid.domain", false);
   ResetUserManager();
-  UserManager::Get()->UserLoggedIn(
+  user_manager::UserManager::Get()->UserLoggedIn(
       "user0@invalid.domain", "owner@invalid.domain", false);
   ResetUserManager();
-  UserManager::Get()->UserLoggedIn(
+  user_manager::UserManager::Get()->UserLoggedIn(
       "user1@invalid.domain", "owner@invalid.domain", false);
   ResetUserManager();
 
-  const UserList* users = &UserManager::Get()->GetUsers();
+  const user_manager::UserList* users =
+      &user_manager::UserManager::Get()->GetUsers();
   ASSERT_EQ(3U, users->size());
   EXPECT_EQ((*users)[0]->email(), "user1@invalid.domain");
   EXPECT_EQ((*users)[1]->email(), "user0@invalid.domain");
@@ -194,7 +198,7 @@ TEST_F(UserManagerTest, RemoveAllExceptOwnerFromList) {
   SetDeviceSettings(true, "owner@invalid.domain", false);
   RetrieveTrustedDevicePolicies();
 
-  users = &UserManager::Get()->GetUsers();
+  users = &user_manager::UserManager::Get()->GetUsers();
   EXPECT_EQ(1U, users->size());
   EXPECT_EQ((*users)[0]->email(), "owner@invalid.domain");
 }
@@ -203,14 +207,15 @@ TEST_F(UserManagerTest, RegularUserLoggedInAsEphemeral) {
   SetDeviceSettings(true, "owner@invalid.domain", false);
   RetrieveTrustedDevicePolicies();
 
-  UserManager::Get()->UserLoggedIn(
+  user_manager::UserManager::Get()->UserLoggedIn(
       "owner@invalid.domain", "user0@invalid.domain", false);
   ResetUserManager();
-  UserManager::Get()->UserLoggedIn(
+  user_manager::UserManager::Get()->UserLoggedIn(
       "user0@invalid.domain", "user0@invalid.domain", false);
   ResetUserManager();
 
-  const UserList* users = &UserManager::Get()->GetUsers();
+  const user_manager::UserList* users =
+      &user_manager::UserManager::Get()->GetUsers();
   EXPECT_EQ(1U, users->size());
   EXPECT_EQ((*users)[0]->email(), "owner@invalid.domain");
 }

@@ -2,20 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <iomanip>
 #include <windows.h>
-#include <winspool.h>
 #include <setupapi.h>  // Must be included after windows.h
+#include <winspool.h>
+#include <iomanip>
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/file_version_info_win.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/logging.h"
 #include "base/path_service.h"
-#include "base/process/process.h"
 #include "base/process/launch.h"
+#include "base/process/process.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_util.h"
 #include "base/win/registry.h"
@@ -147,7 +147,7 @@ HRESULT RegisterPortMonitor(bool install, const base::FilePath& install_path) {
 
   DWORD exit_code = S_OK;
   if (install) {
-    if (!GetExitCodeProcess(regsvr32_handle, &exit_code)) {
+    if (!GetExitCodeProcess(regsvr32_handle.Get(), &exit_code)) {
       LOG(ERROR) << "Unable to get regsvr32.exe exit code.";
       return GetLastHResult();
     }
@@ -210,6 +210,7 @@ UINT CALLBACK CabinetCallback(PVOID data,
 }
 
 void ReadyDriverDependencies(const base::FilePath& destination) {
+  base::FilePath destination_copy(destination);
   if (base::win::GetVersion() >= base::win::VERSION_VISTA) {
     // GetCorePrinterDrivers and GetPrinterDriverPackagePath only exist on
     // Vista and later. Winspool.drv must be delayloaded so these calls don't
@@ -221,15 +222,14 @@ void ReadyDriverDependencies(const base::FilePath& destination) {
                           1, &driver);
     GetPrinterDriverPackagePath(NULL, NULL, NULL, driver.szPackageID,
                                 package_path, MAX_PATH, &size);
-    SetupIterateCabinet(package_path, 0, &CabinetCallback,
-                        &base::FilePath(destination));
+    SetupIterateCabinet(package_path, 0, &CabinetCallback, &destination_copy);
   } else {
     // Driver files are in the sp3 cab.
     base::FilePath package_path;
     PathService::Get(base::DIR_WINDOWS, &package_path);
     package_path = package_path.Append(L"Driver Cache\\i386\\sp3.cab");
     SetupIterateCabinet(package_path.value().c_str(), 0, &CabinetCallback,
-                        &base::FilePath(destination));
+                        &destination_copy);
 
     // Copy the rest from the driver cache or system dir.
     base::FilePath driver_cache_path;
@@ -345,7 +345,7 @@ HRESULT InstallPrinter(void) {
   base::string16 port_name;
   printer_info.pPortName = const_cast<LPWSTR>(kPortName);
   printer_info.Attributes = PRINTER_ATTRIBUTE_DIRECT|PRINTER_ATTRIBUTE_LOCAL;
-  printer_info.pPrintProcessor = L"winprint";
+  printer_info.pPrintProcessor = const_cast<LPWSTR>(L"winprint");
   HANDLE handle = AddPrinter(NULL, 2, reinterpret_cast<BYTE*>(&printer_info));
   if (handle == NULL) {
     HRESULT result = GetLastHResult();

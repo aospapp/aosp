@@ -10,6 +10,7 @@
 #include "chromeos/network/network_state.h"
 #include "chromeos/network/network_state_handler.h"
 #include "chromeos/network/onc/onc_signature.h"
+#include "chromeos/network/onc/onc_translation_tables.h"
 #include "chromeos/network/onc/onc_translator.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 
@@ -146,8 +147,9 @@ scoped_ptr<base::DictionaryValue> TranslateNetworkStateToONC(
   network->GetStateProperties(&shill_dictionary);
 
   scoped_ptr<base::DictionaryValue> onc_dictionary =
-      TranslateShillServiceToONCPart(
-          shill_dictionary, &onc::kNetworkWithStateSignature);
+      TranslateShillServiceToONCPart(shill_dictionary,
+                                     ::onc::ONC_SOURCE_UNKNOWN,
+                                     &onc::kNetworkWithStateSignature);
   return onc_dictionary.Pass();
 }
 
@@ -173,14 +175,20 @@ scoped_ptr<base::ListValue> TranslateNetworkListToONC(
       onc_dictionary->SetBoolean("connectable", (*it)->connectable());
       onc_dictionary->SetBoolean("visible", (*it)->visible());
       onc_dictionary->SetString("profile_path", (*it)->profile_path());
-      std::string onc_source = (*it)->ui_data().GetONCSourceAsString();
-      if (!onc_source.empty())
-        onc_dictionary->SetString("onc_source", onc_source);
+      onc_dictionary->SetString("service_path", (*it)->path());
     }
 
     network_properties_list->Append(onc_dictionary.release());
   }
   return network_properties_list.Pass();
+}
+
+std::string TranslateONCTypeToShill(const std::string& onc_type) {
+  if (onc_type == ::onc::network_type::kEthernet)
+    return shill::kTypeEthernet;
+  std::string shill_type;
+  onc::TranslateStringToShill(onc::kNetworkTypeTable, onc_type, &shill_type);
+  return shill_type;
 }
 
 }  // namespace network_util

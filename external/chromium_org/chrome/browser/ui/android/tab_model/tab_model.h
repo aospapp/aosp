@@ -6,10 +6,10 @@
 #define CHROME_BROWSER_UI_ANDROID_TAB_MODEL_TAB_MODEL_H_
 
 #include "base/memory/scoped_ptr.h"
-#include "chrome/browser/sessions/session_id.h"
 #include "chrome/browser/sync/glue/synced_window_delegate.h"
 #include "chrome/browser/ui/toolbar/toolbar_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_model_delegate.h"
+#include "components/sessions/session_id.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 
@@ -38,6 +38,7 @@ class TabModel : public content::NotificationObserver {
   virtual int GetTabCount() const = 0;
   virtual int GetActiveIndex() const = 0;
   virtual content::WebContents* GetWebContentsAt(int index) const = 0;
+  // This will return NULL if the tab has not yet been initialized.
   virtual TabAndroid* GetTabAt(int index) const = 0;
 
   virtual void SetActiveIndex(int index) = 0;

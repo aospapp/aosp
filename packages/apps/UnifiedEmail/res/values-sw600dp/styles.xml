@@ -16,13 +16,7 @@
      limitations under the License.
 -->
 <resources>
-    <style name="VacationResponderStyle">
-        <item name="android:paddingLeft">@dimen/vacation_responder_padding_horizontal_wide</item>
-        <item name="android:paddingRight">@dimen/vacation_responder_padding_horizontal_wide</item>
-    </style>
-
-    <style name="VacationResponderScrollViewStyle">
-        <item name="android:layout_width">@dimen/vacation_responder_width</item>
-        <item name="android:layout_height">match_parent</item>
+    <style name="ComposeAreaWrapper">
+        <item name="android:background">@color/holo_light_background_color</item>
     </style>
 </resources>

@@ -9,7 +9,7 @@
 #include "remoting/base/constants.h"
 #include "remoting/protocol/content_description.h"
 #include "remoting/protocol/name_value_map.h"
-#include "third_party/libjingle/source/talk/xmllite/xmlelement.h"
+#include "third_party/webrtc/libjingle/xmllite/xmlelement.h"
 
 using buzz::QName;
 using buzz::XmlElement;
@@ -77,7 +77,7 @@ bool ParseCandidate(const buzz::XmlElement* element,
 
   candidate->name = name;
 
-  candidate->candidate.set_address(talk_base::SocketAddress(address, port));
+  candidate->candidate.set_address(rtc::SocketAddress(address, port));
   candidate->candidate.set_type(type);
   candidate->candidate.set_protocol(protocol);
   candidate->candidate.set_username(username);

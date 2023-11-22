@@ -76,9 +76,6 @@
     'command_buffer/service/gl_state_restorer_impl.cc',
     'command_buffer/service/gl_state_restorer_impl.h',
     'command_buffer/service/gl_utils.h',
-    'command_buffer/service/gpu_control_service.cc',
-    'command_buffer/service/gpu_control_service.h',
-    'command_buffer/service/gpu_memory_buffer_manager.h',
     'command_buffer/service/gpu_scheduler.cc',
     'command_buffer/service/gpu_scheduler.h',
     'command_buffer/service/gpu_scheduler_mock.h',
@@ -142,12 +139,5 @@
         'command_buffer/service/async_pixel_transfer_manager_egl.h',
       ],
     }],
-    ['OS=="android"', {
-      'configurations': {
-        'Release': {
-          'cflags': ['-O2']
-        }
-      }
-    }]
   ],
 }

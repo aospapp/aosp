@@ -13,7 +13,6 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/threading/non_thread_safe.h"
 #include "base/timer/timer.h"
-#include "remoting/jingle_glue/signal_strategy.h"
 #include "remoting/proto/internal.pb.h"
 #include "remoting/protocol/clipboard_filter.h"
 #include "remoting/protocol/errors.h"
@@ -21,7 +20,9 @@
 #include "remoting/protocol/message_reader.h"
 #include "remoting/protocol/monitored_video_stub.h"
 #include "remoting/protocol/session.h"
+#include "remoting/protocol/session_config.h"
 #include "remoting/protocol/session_manager.h"
+#include "remoting/signaling/signal_strategy.h"
 
 namespace remoting {
 
@@ -41,7 +42,7 @@ class HostStub;
 class InputStub;
 class SessionConfig;
 class TransportFactory;
-class VideoReader;
+class ClientVideoDispatcher;
 class VideoStub;
 
 class ConnectionToHost : public SignalStrategy::Listener,
@@ -80,8 +81,12 @@ class ConnectionToHost : public SignalStrategy::Listener,
                                 const protocol::TransportRoute& route) = 0;
   };
 
-  ConnectionToHost(bool allow_nat_traversal);
+  ConnectionToHost();
   virtual ~ConnectionToHost();
+
+  // Allows to set a custom protocol configuration (e.g. for tests). Cannot be
+  // called after Connect().
+  void set_candidate_config(scoped_ptr<CandidateSessionConfig> config);
 
   // Set the stubs which will handle messages from the host.
   // The caller must ensure that stubs out-live the connection.
@@ -104,7 +109,6 @@ class ConnectionToHost : public SignalStrategy::Listener,
                        scoped_ptr<TransportFactory> transport_factory,
                        scoped_ptr<Authenticator> authenticator,
                        const std::string& host_jid,
-                       const std::string& host_public_key,
                        HostEventCallback* event_callback);
 
   // Returns the session configuration that was negotiated with the host.
@@ -151,13 +155,13 @@ class ConnectionToHost : public SignalStrategy::Listener,
 
   void SetState(State state, ErrorCode error);
 
-  bool allow_nat_traversal_;
-
   std::string host_jid_;
   std::string host_public_key_;
   scoped_ptr<Authenticator> authenticator_;
 
   HostEventCallback* event_callback_;
+
+  scoped_ptr<CandidateSessionConfig> candidate_config_;
 
   // Stub for incoming messages.
   ClientStub* client_stub_;
@@ -169,7 +173,7 @@ class ConnectionToHost : public SignalStrategy::Listener,
   scoped_ptr<Session> session_;
   scoped_ptr<MonitoredVideoStub> monitored_video_stub_;
 
-  scoped_ptr<VideoReader> video_reader_;
+  scoped_ptr<ClientVideoDispatcher> video_dispatcher_;
   scoped_ptr<AudioReader> audio_reader_;
   scoped_ptr<ClientControlDispatcher> control_dispatcher_;
   scoped_ptr<ClientEventDispatcher> event_dispatcher_;

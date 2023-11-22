@@ -181,7 +181,7 @@ public class AppSecurityTests extends DeviceTestCase implements IAbiReceiver, IB
                     true /* reinstall */, options);
             assertNotNull("app upgrade with different cert than existing app installed " +
                     "successfully", installResult);
-            assertEquals("INSTALL_PARSE_FAILED_INCONSISTENT_CERTIFICATES", installResult);
+            assertEquals("INSTALL_FAILED_UPDATE_INCOMPATIBLE", installResult);
         }
         finally {
             getDevice().uninstallPackage(SIMPLE_APP_PKG);

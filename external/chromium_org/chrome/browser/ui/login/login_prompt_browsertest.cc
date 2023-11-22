@@ -13,6 +13,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/login/login_prompt.h"
+#include "chrome/browser/ui/login/login_prompt_test_utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -24,6 +25,7 @@
 #include "content/public/test/test_navigation_observer.h"
 #include "net/base/auth.h"
 #include "net/dns/mock_host_resolver.h"
+#include "net/test/spawned_test_server/spawned_test_server.h"
 
 using content::NavigationController;
 using content::OpenURLParams;
@@ -60,6 +62,9 @@ class LoginPromptBrowserTest : public InProcessBrowserTest {
 
   void SetAuthFor(LoginHandler* handler);
 
+  void TestCrossOriginPrompt(const GURL& visit_url,
+                             const std::string& landing_host) const;
+
   AuthMap auth_map_;
   std::string bad_password_;
   std::string bad_username_;
@@ -79,122 +84,6 @@ void LoginPromptBrowserTest::SetAuthFor(LoginHandler* handler) {
     handler->SetAuth(base::UTF8ToUTF16(info.username_),
                      base::UTF8ToUTF16(info.password_));
   }
-}
-
-// Maintains a set of LoginHandlers that are currently active and
-// keeps a count of the notifications that were observed.
-class LoginPromptBrowserTestObserver : public content::NotificationObserver {
- public:
-  LoginPromptBrowserTestObserver()
-      : auth_needed_count_(0),
-        auth_supplied_count_(0),
-        auth_cancelled_count_(0) {}
-
-  virtual void Observe(int type,
-                       const content::NotificationSource& source,
-                       const content::NotificationDetails& details) OVERRIDE;
-
-  void AddHandler(LoginHandler* handler);
-
-  void RemoveHandler(LoginHandler* handler);
-
-  void Register(const content::NotificationSource& source);
-
-  std::list<LoginHandler*> handlers_;
-
-  // The exact number of notifications we receive is depedent on the
-  // number of requests that were dispatched and is subject to a
-  // number of factors that we don't directly control here.  The
-  // values below should only be used qualitatively.
-  int auth_needed_count_;
-  int auth_supplied_count_;
-  int auth_cancelled_count_;
-
- private:
-  content::NotificationRegistrar registrar_;
-
-  DISALLOW_COPY_AND_ASSIGN(LoginPromptBrowserTestObserver);
-};
-
-void LoginPromptBrowserTestObserver::Observe(
-    int type,
-    const content::NotificationSource& source,
-    const content::NotificationDetails& details) {
-  if (type == chrome::NOTIFICATION_AUTH_NEEDED) {
-    LoginNotificationDetails* login_details =
-        content::Details<LoginNotificationDetails>(details).ptr();
-    AddHandler(login_details->handler());
-    auth_needed_count_++;
-  } else if (type == chrome::NOTIFICATION_AUTH_SUPPLIED) {
-    AuthSuppliedLoginNotificationDetails* login_details =
-        content::Details<AuthSuppliedLoginNotificationDetails>(details).ptr();
-    RemoveHandler(login_details->handler());
-    auth_supplied_count_++;
-  } else if (type == chrome::NOTIFICATION_AUTH_CANCELLED) {
-    LoginNotificationDetails* login_details =
-        content::Details<LoginNotificationDetails>(details).ptr();
-    RemoveHandler(login_details->handler());
-    auth_cancelled_count_++;
-  }
-}
-
-void LoginPromptBrowserTestObserver::AddHandler(LoginHandler* handler) {
-  std::list<LoginHandler*>::iterator i = std::find(handlers_.begin(),
-                                                   handlers_.end(),
-                                                   handler);
-  EXPECT_TRUE(i == handlers_.end());
-  if (i == handlers_.end())
-    handlers_.push_back(handler);
-}
-
-void LoginPromptBrowserTestObserver::RemoveHandler(LoginHandler* handler) {
-  std::list<LoginHandler*>::iterator i = std::find(handlers_.begin(),
-                                                   handlers_.end(),
-                                                   handler);
-  EXPECT_TRUE(i != handlers_.end());
-  if (i != handlers_.end())
-    handlers_.erase(i);
-}
-
-void LoginPromptBrowserTestObserver::Register(
-    const content::NotificationSource& source) {
-  registrar_.Add(this, chrome::NOTIFICATION_AUTH_NEEDED, source);
-  registrar_.Add(this, chrome::NOTIFICATION_AUTH_SUPPLIED, source);
-  registrar_.Add(this, chrome::NOTIFICATION_AUTH_CANCELLED, source);
-}
-
-template <int T>
-class WindowedNavigationObserver
-    : public content::WindowedNotificationObserver {
- public:
-  explicit WindowedNavigationObserver(NavigationController* controller)
-      : content::WindowedNotificationObserver(
-          T, content::Source<NavigationController>(controller)) {}
-};
-
-// LOAD_STOP observer is special since we want to be able to wait for
-// multiple LOAD_STOP events.
-class WindowedLoadStopObserver
-    : public WindowedNavigationObserver<content::NOTIFICATION_LOAD_STOP> {
- public:
-  WindowedLoadStopObserver(NavigationController* controller,
-                           int notification_count)
-      : WindowedNavigationObserver<content::NOTIFICATION_LOAD_STOP>(controller),
-        remaining_notification_count_(notification_count) {}
- protected:
-  virtual void Observe(int type,
-                       const content::NotificationSource& source,
-                       const content::NotificationDetails& details) OVERRIDE;
- private:
-  int remaining_notification_count_;  // Number of notifications remaining.
-};
-
-void WindowedLoadStopObserver::Observe(
-    int type,
-    const content::NotificationSource& source,
-    const content::NotificationDetails& details) {
-  if (--remaining_notification_count_ == 0)
-    WindowedNotificationObserver::Observe(type, source, details);
 }
 
 class InterstitialObserver : public content::WebContentsObserver {
@@ -232,15 +121,6 @@ void WaitForInterstitialAttach(content::WebContents* web_contents) {
   if (!content::InterstitialPage::GetInterstitialPage(web_contents))
     interstitial_attach_loop_runner->Run();
 }
-
-typedef WindowedNavigationObserver<chrome::NOTIFICATION_AUTH_NEEDED>
-    WindowedAuthNeededObserver;
-
-typedef WindowedNavigationObserver<chrome::NOTIFICATION_AUTH_CANCELLED>
-    WindowedAuthCancelledObserver;
-
-typedef WindowedNavigationObserver<chrome::NOTIFICATION_AUTH_SUPPLIED>
-    WindowedAuthSuppliedObserver;
 
 const char kPrefetchAuthPage[] = "files/login/prefetch.html";
 
@@ -299,11 +179,11 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, PrefetchAuthCancels) {
 
   WindowedLoadStopObserver load_stop_waiter(controller, 1);
   browser()->OpenURL(OpenURLParams(
-      test_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+      test_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
       false));
 
   load_stop_waiter.Wait();
-  EXPECT_TRUE(observer.handlers_.empty());
+  EXPECT_TRUE(observer.handlers().empty());
   EXPECT_TRUE(test_server()->Stop());
 }
 
@@ -322,16 +202,16 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, TestBasicAuth) {
   {
     WindowedAuthNeededObserver auth_needed_waiter(controller);
     browser()->OpenURL(OpenURLParams(
-        test_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        test_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     auth_needed_waiter.Wait();
   }
 
-  ASSERT_FALSE(observer.handlers_.empty());
+  ASSERT_FALSE(observer.handlers().empty());
   {
     WindowedAuthNeededObserver auth_needed_waiter(controller);
     WindowedAuthSuppliedObserver auth_supplied_waiter(controller);
-    LoginHandler* handler = *observer.handlers_.begin();
+    LoginHandler* handler = *observer.handlers().begin();
 
     ASSERT_TRUE(handler);
     handler->SetAuth(base::UTF8ToUTF16(bad_username_),
@@ -344,9 +224,9 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, TestBasicAuth) {
     auth_needed_waiter.Wait();
   }
 
-  ASSERT_EQ(1u, observer.handlers_.size());
+  ASSERT_EQ(1u, observer.handlers().size());
   WindowedAuthSuppliedObserver auth_supplied_waiter(controller);
-  LoginHandler* handler = *observer.handlers_.begin();
+  LoginHandler* handler = *observer.handlers().begin();
   SetAuthFor(handler);
   auth_supplied_waiter.Wait();
 
@@ -372,16 +252,16 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, TestDigestAuth) {
   {
     WindowedAuthNeededObserver auth_needed_waiter(controller);
     browser()->OpenURL(OpenURLParams(
-        test_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        test_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     auth_needed_waiter.Wait();
   }
 
-  ASSERT_FALSE(observer.handlers_.empty());
+  ASSERT_FALSE(observer.handlers().empty());
   {
     WindowedAuthNeededObserver auth_needed_waiter(controller);
     WindowedAuthSuppliedObserver auth_supplied_waiter(controller);
-    LoginHandler* handler = *observer.handlers_.begin();
+    LoginHandler* handler = *observer.handlers().begin();
 
     ASSERT_TRUE(handler);
     handler->SetAuth(base::UTF8ToUTF16(bad_username_),
@@ -394,9 +274,9 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, TestDigestAuth) {
     auth_needed_waiter.Wait();
   }
 
-  ASSERT_EQ(1u, observer.handlers_.size());
+  ASSERT_EQ(1u, observer.handlers().size());
   WindowedAuthSuppliedObserver auth_supplied_waiter(controller);
-  LoginHandler* handler = *observer.handlers_.begin();
+  LoginHandler* handler = *observer.handlers().begin();
 
   base::string16 username(base::UTF8ToUTF16(username_digest_));
   base::string16 password(base::UTF8ToUTF16(password_));
@@ -435,7 +315,7 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, TestTwoAuths) {
     WindowedAuthNeededObserver auth_needed_waiter(controller1);
     contents1->OpenURL(OpenURLParams(
         test_server()->GetURL(kAuthBasicPage), Referrer(),
-        CURRENT_TAB, content::PAGE_TRANSITION_TYPED, false));
+        CURRENT_TAB, ui::PAGE_TRANSITION_TYPED, false));
     auth_needed_waiter.Wait();
   }
 
@@ -443,14 +323,14 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, TestTwoAuths) {
     WindowedAuthNeededObserver auth_needed_waiter(controller2);
     contents2->OpenURL(OpenURLParams(
         test_server()->GetURL(kAuthDigestPage), Referrer(),
-        CURRENT_TAB, content::PAGE_TRANSITION_TYPED, false));
+        CURRENT_TAB, ui::PAGE_TRANSITION_TYPED, false));
     auth_needed_waiter.Wait();
   }
 
-  ASSERT_EQ(2u, observer.handlers_.size());
+  ASSERT_EQ(2u, observer.handlers().size());
 
-  LoginHandler* handler1 = *observer.handlers_.begin();
-  LoginHandler* handler2 = *(++(observer.handlers_.begin()));
+  LoginHandler* handler1 = *observer.handlers().begin();
+  LoginHandler* handler2 = *(++(observer.handlers().begin()));
 
   base::string16 expected_title1 = ExpectedTitleFromAuth(
       base::UTF8ToUTF16(username_basic_), base::UTF8ToUTF16(password_));
@@ -494,16 +374,16 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, TestCancelAuth) {
     WindowedLoadStopObserver load_stop_waiter(controller, 2);
     WindowedAuthNeededObserver auth_needed_waiter(controller);
     browser()->OpenURL(OpenURLParams(
-        auth_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        auth_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     auth_needed_waiter.Wait();
     WindowedAuthCancelledObserver auth_cancelled_waiter(controller);
     browser()->OpenURL(OpenURLParams(
-        no_auth_page_2, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        no_auth_page_2, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     auth_cancelled_waiter.Wait();
     load_stop_waiter.Wait();
-    EXPECT_TRUE(observer.handlers_.empty());
+    EXPECT_TRUE(observer.handlers().empty());
   }
 
   // Try navigating backwards.
@@ -512,7 +392,7 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, TestCancelAuth) {
     WindowedLoadStopObserver load_stop_waiter(controller, 2);
     WindowedAuthNeededObserver auth_needed_waiter(controller);
     browser()->OpenURL(OpenURLParams(
-        auth_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        auth_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     auth_needed_waiter.Wait();
     WindowedAuthCancelledObserver auth_cancelled_waiter(controller);
@@ -520,7 +400,7 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, TestCancelAuth) {
     chrome::GoBack(browser(), CURRENT_TAB);
     auth_cancelled_waiter.Wait();
     load_stop_waiter.Wait();
-    EXPECT_TRUE(observer.handlers_.empty());
+    EXPECT_TRUE(observer.handlers().empty());
   }
 
   // Now add a page and go back, so we have something to go forward to.
@@ -536,7 +416,7 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, TestCancelAuth) {
     WindowedLoadStopObserver load_stop_waiter(controller, 2);
     WindowedAuthNeededObserver auth_needed_waiter(controller);
     browser()->OpenURL(OpenURLParams(
-        auth_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        auth_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     auth_needed_waiter.Wait();
     WindowedAuthCancelledObserver auth_cancelled_waiter(controller);
@@ -544,7 +424,7 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, TestCancelAuth) {
     chrome::GoForward(browser(), CURRENT_TAB);  // Should take us to page 3
     auth_cancelled_waiter.Wait();
     load_stop_waiter.Wait();
-    EXPECT_TRUE(observer.handlers_.empty());
+    EXPECT_TRUE(observer.handlers().empty());
   }
 
   // Now test that cancelling works as expected.
@@ -552,16 +432,16 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, TestCancelAuth) {
     WindowedLoadStopObserver load_stop_waiter(controller, 1);
     WindowedAuthNeededObserver auth_needed_waiter(controller);
     browser()->OpenURL(OpenURLParams(
-        auth_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        auth_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     auth_needed_waiter.Wait();
     WindowedAuthCancelledObserver auth_cancelled_waiter(controller);
-    LoginHandler* handler = *observer.handlers_.begin();
+    LoginHandler* handler = *observer.handlers().begin();
     ASSERT_TRUE(handler);
     handler->CancelAuth();
     auth_cancelled_waiter.Wait();
     load_stop_waiter.Wait();
-    EXPECT_TRUE(observer.handlers_.empty());
+    EXPECT_TRUE(observer.handlers().empty());
   }
 }
 
@@ -586,7 +466,7 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, MultipleRealmCancellation) {
   {
     WindowedAuthNeededObserver auth_needed_waiter(controller);
     browser()->OpenURL(OpenURLParams(
-        test_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        test_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     auth_needed_waiter.Wait();
   }
@@ -596,9 +476,9 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, MultipleRealmCancellation) {
   while (n_handlers < kMultiRealmTestRealmCount) {
     WindowedAuthNeededObserver auth_needed_waiter(controller);
 
-    while (!observer.handlers_.empty()) {
+    while (!observer.handlers().empty()) {
       WindowedAuthCancelledObserver auth_cancelled_waiter(controller);
-      LoginHandler* handler = *observer.handlers_.begin();
+      LoginHandler* handler = *observer.handlers().begin();
 
       ASSERT_TRUE(handler);
       n_handlers++;
@@ -613,9 +493,9 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, MultipleRealmCancellation) {
   load_stop_waiter.Wait();
 
   EXPECT_EQ(kMultiRealmTestRealmCount, n_handlers);
-  EXPECT_EQ(0, observer.auth_supplied_count_);
-  EXPECT_LT(0, observer.auth_needed_count_);
-  EXPECT_LT(0, observer.auth_cancelled_count_);
+  EXPECT_EQ(0, observer.auth_supplied_count());
+  EXPECT_LT(0, observer.auth_needed_count());
+  EXPECT_LT(0, observer.auth_cancelled_count());
   EXPECT_TRUE(test_server()->Stop());
 }
 
@@ -639,7 +519,7 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, MultipleRealmConfirmation) {
     WindowedAuthNeededObserver auth_needed_waiter(controller);
 
     browser()->OpenURL(OpenURLParams(
-        test_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        test_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     auth_needed_waiter.Wait();
   }
@@ -647,9 +527,9 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, MultipleRealmConfirmation) {
   while (n_handlers < kMultiRealmTestRealmCount) {
     WindowedAuthNeededObserver auth_needed_waiter(controller);
 
-    while (!observer.handlers_.empty()) {
+    while (!observer.handlers().empty()) {
       WindowedAuthSuppliedObserver auth_supplied_waiter(controller);
-      LoginHandler* handler = *observer.handlers_.begin();
+      LoginHandler* handler = *observer.handlers().begin();
 
       ASSERT_TRUE(handler);
       n_handlers++;
@@ -664,9 +544,9 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, MultipleRealmConfirmation) {
   load_stop_waiter.Wait();
 
   EXPECT_EQ(kMultiRealmTestRealmCount, n_handlers);
-  EXPECT_LT(0, observer.auth_needed_count_);
-  EXPECT_LT(0, observer.auth_supplied_count_);
-  EXPECT_EQ(0, observer.auth_cancelled_count_);
+  EXPECT_LT(0, observer.auth_needed_count());
+  EXPECT_LT(0, observer.auth_supplied_count());
+  EXPECT_EQ(0, observer.auth_cancelled_count());
   EXPECT_TRUE(test_server()->Stop());
 }
 
@@ -686,17 +566,17 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, IncorrectConfirmation) {
   {
     WindowedAuthNeededObserver auth_needed_waiter(controller);
     browser()->OpenURL(OpenURLParams(
-        test_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        test_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     auth_needed_waiter.Wait();
   }
 
-  EXPECT_FALSE(observer.handlers_.empty());
+  EXPECT_FALSE(observer.handlers().empty());
 
-  if (!observer.handlers_.empty()) {
+  if (!observer.handlers().empty()) {
     WindowedAuthNeededObserver auth_needed_waiter(controller);
     WindowedAuthSuppliedObserver auth_supplied_waiter(controller);
-    LoginHandler* handler = *observer.handlers_.begin();
+    LoginHandler* handler = *observer.handlers().begin();
 
     ASSERT_TRUE(handler);
     handler->SetAuth(base::UTF8ToUTF16(bad_username_),
@@ -714,9 +594,9 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, IncorrectConfirmation) {
   while (n_handlers < 1) {
     WindowedAuthNeededObserver auth_needed_waiter(controller);
 
-    while (!observer.handlers_.empty()) {
+    while (!observer.handlers().empty()) {
       WindowedAuthSuppliedObserver auth_supplied_waiter(controller);
-      LoginHandler* handler = *observer.handlers_.begin();
+      LoginHandler* handler = *observer.handlers().begin();
 
       ASSERT_TRUE(handler);
       n_handlers++;
@@ -731,9 +611,9 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, IncorrectConfirmation) {
   // The single realm test has only one realm, and thus only one login
   // prompt.
   EXPECT_EQ(1, n_handlers);
-  EXPECT_LT(0, observer.auth_needed_count_);
-  EXPECT_EQ(0, observer.auth_cancelled_count_);
-  EXPECT_EQ(observer.auth_needed_count_, observer.auth_supplied_count_);
+  EXPECT_LT(0, observer.auth_needed_count());
+  EXPECT_EQ(0, observer.auth_cancelled_count());
+  EXPECT_EQ(observer.auth_needed_count(), observer.auth_supplied_count());
   EXPECT_TRUE(test_server()->Stop());
 }
 
@@ -759,7 +639,7 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, NoLoginPromptForFavicon) {
     GURL test_page = test_server()->GetURL(kFaviconTestPage);
     WindowedLoadStopObserver load_stop_waiter(controller, 1);
     browser()->OpenURL(OpenURLParams(
-        test_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        test_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     load_stop_waiter.Wait();
   }
@@ -771,14 +651,14 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, NoLoginPromptForFavicon) {
     WindowedLoadStopObserver load_stop_waiter(controller, 1);
     WindowedAuthNeededObserver auth_needed_waiter(controller);
     browser()->OpenURL(OpenURLParams(
-        test_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        test_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     auth_needed_waiter.Wait();
-    ASSERT_EQ(1u, observer.handlers_.size());
+    ASSERT_EQ(1u, observer.handlers().size());
 
-    while (!observer.handlers_.empty()) {
+    while (!observer.handlers().empty()) {
       WindowedAuthCancelledObserver auth_cancelled_waiter(controller);
-      LoginHandler* handler = *observer.handlers_.begin();
+      LoginHandler* handler = *observer.handlers().begin();
 
       ASSERT_TRUE(handler);
       handler->CancelAuth();
@@ -788,9 +668,9 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, NoLoginPromptForFavicon) {
     load_stop_waiter.Wait();
   }
 
-  EXPECT_EQ(0, observer.auth_supplied_count_);
-  EXPECT_EQ(1, observer.auth_needed_count_);
-  EXPECT_EQ(1, observer.auth_cancelled_count_);
+  EXPECT_EQ(0, observer.auth_supplied_count());
+  EXPECT_EQ(1, observer.auth_needed_count());
+  EXPECT_EQ(1, observer.auth_cancelled_count());
   EXPECT_TRUE(test_server()->Stop());
 }
 
@@ -824,12 +704,12 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
 
     WindowedLoadStopObserver load_stop_waiter(controller, 1);
     browser()->OpenURL(OpenURLParams(
-        test_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        test_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     load_stop_waiter.Wait();
   }
 
-  EXPECT_EQ(0, observer.auth_needed_count_);
+  EXPECT_EQ(0, observer.auth_needed_count());
 
   // Now request the same page, but from the same origin.
   // There should be one login prompt.
@@ -846,14 +726,14 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
 
     WindowedAuthNeededObserver auth_needed_waiter(controller);
     browser()->OpenURL(OpenURLParams(
-        test_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        test_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     auth_needed_waiter.Wait();
-    ASSERT_EQ(1u, observer.handlers_.size());
+    ASSERT_EQ(1u, observer.handlers().size());
 
-    while (!observer.handlers_.empty()) {
+    while (!observer.handlers().empty()) {
       WindowedAuthCancelledObserver auth_cancelled_waiter(controller);
-      LoginHandler* handler = *observer.handlers_.begin();
+      LoginHandler* handler = *observer.handlers().begin();
 
       ASSERT_TRUE(handler);
       handler->CancelAuth();
@@ -861,7 +741,7 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
     }
   }
 
-  EXPECT_EQ(1, observer.auth_needed_count_);
+  EXPECT_EQ(1, observer.auth_needed_count());
   EXPECT_TRUE(test_server()->Stop());
 }
 
@@ -894,20 +774,20 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
 
     WindowedAuthNeededObserver auth_needed_waiter(controller);
     browser()->OpenURL(OpenURLParams(
-        test_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        test_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     auth_needed_waiter.Wait();
-    ASSERT_EQ(1u, observer.handlers_.size());
+    ASSERT_EQ(1u, observer.handlers().size());
 
-    while (!observer.handlers_.empty()) {
+    while (!observer.handlers().empty()) {
       WindowedAuthCancelledObserver auth_cancelled_waiter(controller);
-      LoginHandler* handler = *observer.handlers_.begin();
+      LoginHandler* handler = *observer.handlers().begin();
 
       ASSERT_TRUE(handler);
       // When a cross origin iframe displays a login prompt, the blank
       // interstitial shouldn't be displayed and the omnibox should show the
       // main frame's url, not the iframe's.
-      EXPECT_EQ(new_host, contents->GetURL().host());
+      EXPECT_EQ(new_host, contents->GetVisibleURL().host());
 
       handler->CancelAuth();
       auth_cancelled_waiter.Wait();
@@ -915,9 +795,9 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
   }
 
   // Should stay on the main frame's url once the prompt the iframe is closed.
-  EXPECT_EQ("www.a.com", contents->GetURL().host());
+  EXPECT_EQ("www.a.com", contents->GetVisibleURL().host());
 
-  EXPECT_EQ(1, observer.auth_needed_count_);
+  EXPECT_EQ(1, observer.auth_needed_count());
   EXPECT_TRUE(test_server()->Stop());
 }
 
@@ -954,23 +834,23 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, SupplyRedundantAuths) {
         test_server()->GetURL("auth-basic/1"),
         content::Referrer(),
         CURRENT_TAB,
-        content::PAGE_TRANSITION_TYPED,
+        ui::PAGE_TRANSITION_TYPED,
         false));
     contents_2->OpenURL(OpenURLParams(
         test_server()->GetURL("auth-basic/2"),
         content::Referrer(),
         CURRENT_TAB,
-        content::PAGE_TRANSITION_TYPED,
+        ui::PAGE_TRANSITION_TYPED,
         false));
     auth_needed_waiter_1.Wait();
     auth_needed_waiter_2.Wait();
 
-    ASSERT_EQ(2U, observer.handlers_.size());
+    ASSERT_EQ(2U, observer.handlers().size());
 
     // Supply auth in one of the tabs.
     WindowedAuthSuppliedObserver auth_supplied_waiter_1(controller_1);
     WindowedAuthSuppliedObserver auth_supplied_waiter_2(controller_2);
-    LoginHandler* handler_1 = *observer.handlers_.begin();
+    LoginHandler* handler_1 = *observer.handlers().begin();
     ASSERT_TRUE(handler_1);
     SetAuthFor(handler_1);
 
@@ -979,9 +859,9 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, SupplyRedundantAuths) {
     auth_supplied_waiter_2.Wait();
   }
 
-  EXPECT_EQ(2, observer.auth_needed_count_);
-  EXPECT_EQ(2, observer.auth_supplied_count_);
-  EXPECT_EQ(0, observer.auth_cancelled_count_);
+  EXPECT_EQ(2, observer.auth_needed_count());
+  EXPECT_EQ(2, observer.auth_supplied_count());
+  EXPECT_EQ(0, observer.auth_cancelled_count());
   EXPECT_TRUE(test_server()->Stop());
 }
 
@@ -1018,23 +898,23 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, CancelRedundantAuths) {
         test_server()->GetURL("auth-basic/1"),
         content::Referrer(),
         CURRENT_TAB,
-        content::PAGE_TRANSITION_TYPED,
+        ui::PAGE_TRANSITION_TYPED,
         false));
     contents_2->OpenURL(OpenURLParams(
         test_server()->GetURL("auth-basic/2"),
         content::Referrer(),
         CURRENT_TAB,
-        content::PAGE_TRANSITION_TYPED,
+        ui::PAGE_TRANSITION_TYPED,
         false));
     auth_needed_waiter_1.Wait();
     auth_needed_waiter_2.Wait();
 
-    ASSERT_EQ(2U, observer.handlers_.size());
+    ASSERT_EQ(2U, observer.handlers().size());
 
     // Cancel auth in one of the tabs.
     WindowedAuthCancelledObserver auth_cancelled_waiter_1(controller_1);
     WindowedAuthCancelledObserver auth_cancelled_waiter_2(controller_2);
-    LoginHandler* handler_1 = *observer.handlers_.begin();
+    LoginHandler* handler_1 = *observer.handlers().begin();
     ASSERT_TRUE(handler_1);
     handler_1->CancelAuth();
 
@@ -1043,9 +923,9 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest, CancelRedundantAuths) {
     auth_cancelled_waiter_2.Wait();
   }
 
-  EXPECT_EQ(2, observer.auth_needed_count_);
-  EXPECT_EQ(0, observer.auth_supplied_count_);
-  EXPECT_EQ(2, observer.auth_cancelled_count_);
+  EXPECT_EQ(2, observer.auth_needed_count());
+  EXPECT_EQ(0, observer.auth_supplied_count());
+  EXPECT_EQ(2, observer.auth_cancelled_count());
   EXPECT_TRUE(test_server()->Stop());
 }
 
@@ -1083,23 +963,23 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
         test_server()->GetURL("auth-basic/1"),
         content::Referrer(),
         CURRENT_TAB,
-        content::PAGE_TRANSITION_TYPED,
+        ui::PAGE_TRANSITION_TYPED,
         false));
     contents_incognito->OpenURL(OpenURLParams(
         test_server()->GetURL("auth-basic/2"),
         content::Referrer(),
         CURRENT_TAB,
-        content::PAGE_TRANSITION_TYPED,
+        ui::PAGE_TRANSITION_TYPED,
         false));
     auth_needed_waiter.Wait();
     auth_needed_waiter_incognito.Wait();
 
-    ASSERT_EQ(1U, observer.handlers_.size());
-    ASSERT_EQ(1U, observer_incognito.handlers_.size());
+    ASSERT_EQ(1U, observer.handlers().size());
+    ASSERT_EQ(1U, observer_incognito.handlers().size());
 
     // Supply auth in regular tab.
     WindowedAuthSuppliedObserver auth_supplied_waiter(controller);
-    LoginHandler* handler = *observer.handlers_.begin();
+    LoginHandler* handler = *observer.handlers().begin();
     ASSERT_TRUE(handler);
     SetAuthFor(handler);
 
@@ -1113,12 +993,12 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
     content::RunAllPendingInMessageLoop();
   }
 
-  EXPECT_EQ(1, observer.auth_needed_count_);
-  EXPECT_EQ(1, observer.auth_supplied_count_);
-  EXPECT_EQ(0, observer.auth_cancelled_count_);
-  EXPECT_EQ(1, observer_incognito.auth_needed_count_);
-  EXPECT_EQ(0, observer_incognito.auth_supplied_count_);
-  EXPECT_EQ(0, observer_incognito.auth_cancelled_count_);
+  EXPECT_EQ(1, observer.auth_needed_count());
+  EXPECT_EQ(1, observer.auth_supplied_count());
+  EXPECT_EQ(0, observer.auth_cancelled_count());
+  EXPECT_EQ(1, observer_incognito.auth_needed_count());
+  EXPECT_EQ(0, observer_incognito.auth_supplied_count());
+  EXPECT_EQ(0, observer_incognito.auth_cancelled_count());
   EXPECT_TRUE(test_server()->Stop());
 }
 
@@ -1143,7 +1023,7 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
     GURL test_page = test_server()->GetURL(kXHRTestPage);
     WindowedLoadStopObserver load_stop_waiter(controller, 1);
     browser()->OpenURL(OpenURLParams(
-        test_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        test_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     load_stop_waiter.Wait();
   }
@@ -1151,9 +1031,9 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
   base::string16 expected_title(base::UTF8ToUTF16("status=401"));
 
   EXPECT_EQ(expected_title, contents->GetTitle());
-  EXPECT_EQ(0, observer.auth_supplied_count_);
-  EXPECT_EQ(0, observer.auth_needed_count_);
-  EXPECT_EQ(0, observer.auth_cancelled_count_);
+  EXPECT_EQ(0, observer.auth_supplied_count());
+  EXPECT_EQ(0, observer.auth_needed_count());
+  EXPECT_EQ(0, observer.auth_cancelled_count());
   EXPECT_TRUE(test_server()->Stop());
 }
 
@@ -1178,7 +1058,7 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
     GURL test_page = test_server()->GetURL(kXHRTestPage);
     WindowedLoadStopObserver load_stop_waiter(controller, 1);
     browser()->OpenURL(OpenURLParams(
-        test_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        test_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     load_stop_waiter.Wait();
   }
@@ -1186,9 +1066,9 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
   base::string16 expected_title(base::UTF8ToUTF16("status=200"));
 
   EXPECT_EQ(expected_title, contents->GetTitle());
-  EXPECT_EQ(0, observer.auth_supplied_count_);
-  EXPECT_EQ(0, observer.auth_needed_count_);
-  EXPECT_EQ(0, observer.auth_cancelled_count_);
+  EXPECT_EQ(0, observer.auth_supplied_count());
+  EXPECT_EQ(0, observer.auth_needed_count());
+  EXPECT_EQ(0, observer.auth_cancelled_count());
   EXPECT_TRUE(test_server()->Stop());
 }
 
@@ -1213,16 +1093,16 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
     GURL test_page = test_server()->GetURL(kXHRTestPage);
     WindowedAuthNeededObserver auth_needed_waiter(controller);
     browser()->OpenURL(OpenURLParams(
-        test_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        test_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     auth_needed_waiter.Wait();
   }
 
-  ASSERT_FALSE(observer.handlers_.empty());
+  ASSERT_FALSE(observer.handlers().empty());
   {
     WindowedAuthNeededObserver auth_needed_waiter(controller);
     WindowedAuthSuppliedObserver auth_supplied_waiter(controller);
-    LoginHandler* handler = *observer.handlers_.begin();
+    LoginHandler* handler = *observer.handlers().begin();
 
     ASSERT_TRUE(handler);
     handler->SetAuth(base::UTF8ToUTF16(bad_username_),
@@ -1235,9 +1115,9 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
     auth_needed_waiter.Wait();
   }
 
-  ASSERT_EQ(1u, observer.handlers_.size());
+  ASSERT_EQ(1u, observer.handlers().size());
   WindowedAuthSuppliedObserver auth_supplied_waiter(controller);
-  LoginHandler* handler = *observer.handlers_.begin();
+  LoginHandler* handler = *observer.handlers().begin();
 
   base::string16 username(base::UTF8ToUTF16(username_digest_));
   base::string16 password(base::UTF8ToUTF16(password_));
@@ -1250,9 +1130,9 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
   base::string16 expected_title(base::UTF8ToUTF16("status=200"));
 
   EXPECT_EQ(expected_title, contents->GetTitle());
-  EXPECT_EQ(2, observer.auth_supplied_count_);
-  EXPECT_EQ(2, observer.auth_needed_count_);
-  EXPECT_EQ(0, observer.auth_cancelled_count_);
+  EXPECT_EQ(2, observer.auth_supplied_count());
+  EXPECT_EQ(2, observer.auth_needed_count());
+  EXPECT_EQ(0, observer.auth_cancelled_count());
   EXPECT_TRUE(test_server()->Stop());
 }
 
@@ -1277,14 +1157,14 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
     GURL test_page = test_server()->GetURL(kXHRTestPage);
     WindowedAuthNeededObserver auth_needed_waiter(controller);
     browser()->OpenURL(OpenURLParams(
-        test_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        test_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
     auth_needed_waiter.Wait();
   }
 
-  ASSERT_EQ(1u, observer.handlers_.size());
+  ASSERT_EQ(1u, observer.handlers().size());
   WindowedAuthCancelledObserver auth_cancelled_waiter(controller);
-  LoginHandler* handler = *observer.handlers_.begin();
+  LoginHandler* handler = *observer.handlers().begin();
 
   handler->CancelAuth();
   auth_cancelled_waiter.Wait();
@@ -1295,20 +1175,17 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
   base::string16 expected_title(base::UTF8ToUTF16("status=401"));
 
   EXPECT_EQ(expected_title, contents->GetTitle());
-  EXPECT_EQ(0, observer.auth_supplied_count_);
-  EXPECT_EQ(1, observer.auth_needed_count_);
-  EXPECT_EQ(1, observer.auth_cancelled_count_);
+  EXPECT_EQ(0, observer.auth_supplied_count());
+  EXPECT_EQ(1, observer.auth_needed_count());
+  EXPECT_EQ(1, observer.auth_cancelled_count());
   EXPECT_TRUE(test_server()->Stop());
 }
 
 // If a cross origin navigation triggers a login prompt, the destination URL
 // should be shown in the omnibox.
-IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
-                       ShowCorrectUrlForCrossOriginMainFrameRequests) {
-  const char* kTestPage = "files/login/cross_origin.html";
-  host_resolver()->AddRule("www.a.com", "127.0.0.1");
-  ASSERT_TRUE(test_server()->Start());
-
+void LoginPromptBrowserTest::TestCrossOriginPrompt(
+    const GURL& visit_url,
+    const std::string& auth_host) const {
   content::WebContents* contents =
       browser()->tab_strip_model()->GetActiveWebContents();
   NavigationController* controller = &contents->GetController();
@@ -1316,27 +1193,24 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
 
   observer.Register(content::Source<NavigationController>(controller));
 
-  // Load a page which navigates to a cross origin page with a login prompt.
+  // Load a page which will trigger a login prompt.
   {
-    GURL test_page = test_server()->GetURL(kTestPage);
-    ASSERT_EQ("127.0.0.1", test_page.host());
-
     WindowedAuthNeededObserver auth_needed_waiter(controller);
     browser()->OpenURL(OpenURLParams(
-        test_page, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED,
+        visit_url, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
         false));
-    ASSERT_EQ("127.0.0.1", contents->GetURL().host());
+    ASSERT_EQ(visit_url.host(), contents->GetVisibleURL().host());
     auth_needed_waiter.Wait();
-    ASSERT_EQ(1u, observer.handlers_.size());
+    ASSERT_EQ(1u, observer.handlers().size());
     WaitForInterstitialAttach(contents);
 
     // The omnibox should show the correct origin for the new page when the
     // login prompt is shown.
-    EXPECT_EQ("www.a.com", contents->GetURL().host());
+    EXPECT_EQ(auth_host, contents->GetVisibleURL().host());
     EXPECT_TRUE(contents->ShowingInterstitialPage());
 
     // Cancel and wait for the interstitial to detach.
-    LoginHandler* handler = *observer.handlers_.begin();
+    LoginHandler* handler = *observer.handlers().begin();
     scoped_refptr<content::MessageLoopRunner> loop_runner(
         new content::MessageLoopRunner);
     InterstitialObserver interstitial_observer(contents,
@@ -1345,7 +1219,90 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
     handler->CancelAuth();
     if (content::InterstitialPage::GetInterstitialPage(contents))
       loop_runner->Run();
-    EXPECT_EQ("www.a.com", contents->GetURL().host());
+    EXPECT_EQ(auth_host, contents->GetVisibleURL().host());
+    EXPECT_FALSE(contents->ShowingInterstitialPage());
+  }
+}
+
+// If a cross origin direct navigation triggers a login prompt, the login
+// interstitial should be shown.
+IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
+                       ShowCorrectUrlForCrossOriginMainFrameRequests) {
+  ASSERT_TRUE(test_server()->Start());
+
+  GURL test_page = test_server()->GetURL(kAuthBasicPage);
+  ASSERT_EQ("127.0.0.1", test_page.host());
+  std::string auth_host("127.0.0.1");
+  TestCrossOriginPrompt(test_page, auth_host);
+}
+
+// If a cross origin redirect triggers a login prompt, the destination URL
+// should be shown in the omnibox when the auth dialog is displayed.
+IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
+                       ShowCorrectUrlForCrossOriginMainFrameRedirects) {
+  host_resolver()->AddRule("www.a.com", "127.0.0.1");
+  ASSERT_TRUE(test_server()->Start());
+
+  const char* kTestPage = "files/login/cross_origin.html";
+  GURL test_page = test_server()->GetURL(kTestPage);
+  ASSERT_EQ("127.0.0.1", test_page.host());
+  std::string auth_host("www.a.com");
+  TestCrossOriginPrompt(test_page, auth_host);
+}
+
+IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
+                       LoginInterstitialShouldReplaceExistingInterstitial) {
+  net::SpawnedTestServer https_server(
+      net::SpawnedTestServer::TYPE_HTTPS,
+      net::SpawnedTestServer::SSLOptions(
+          net::SpawnedTestServer::SSLOptions::CERT_EXPIRED),
+      base::FilePath());
+  ASSERT_TRUE(https_server.Start());
+
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  NavigationController* controller = &contents->GetController();
+  LoginPromptBrowserTestObserver observer;
+
+  observer.Register(content::Source<NavigationController>(controller));
+
+  // Load a page which triggers an SSL interstitial. Proceeding through it
+  // should show the login page with the blank interstitial.
+  {
+    GURL test_page = https_server.GetURL(kAuthBasicPage);
+    ASSERT_EQ("127.0.0.1", test_page.host());
+
+    WindowedAuthNeededObserver auth_needed_waiter(controller);
+    browser()->OpenURL(OpenURLParams(
+        test_page, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
+        false));
+    ASSERT_EQ("127.0.0.1", contents->GetURL().host());
+    WaitForInterstitialAttach(contents);
+
+    // An overrideable SSL interstitial is now being displayed. Proceed through
+    // the interstitial to see the login prompt.
+    contents->GetInterstitialPage()->Proceed();
+    auth_needed_waiter.Wait();
+    ASSERT_EQ(1u, observer.handlers().size());
+    WaitForInterstitialAttach(contents);
+
+    // The omnibox should show the correct origin while the login prompt is
+    // being displayed.
+    EXPECT_EQ("127.0.0.1", contents->GetVisibleURL().host());
+    EXPECT_TRUE(contents->ShowingInterstitialPage());
+
+    // Cancelling the login prompt should detach the interstitial while keeping
+    // the correct origin.
+    LoginHandler* handler = *observer.handlers().begin();
+    scoped_refptr<content::MessageLoopRunner> loop_runner(
+        new content::MessageLoopRunner);
+    InterstitialObserver interstitial_observer(contents,
+                                               base::Closure(),
+                                               loop_runner->QuitClosure());
+    handler->CancelAuth();
+    if (content::InterstitialPage::GetInterstitialPage(contents))
+      loop_runner->Run();
+    EXPECT_EQ("127.0.0.1", contents->GetVisibleURL().host());
     EXPECT_FALSE(contents->ShowingInterstitialPage());
   }
 }

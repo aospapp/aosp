@@ -183,6 +183,7 @@ VAStatus psb_surface_create_for_userptr(
     psb_surface->chroma_offset = chroma_u_offset;
     psb_surface->size = size;
     psb_surface->extra_info[4] = VA_FOURCC_NV12;
+    psb_surface->extra_info[8] = VA_FOURCC_NV12;
 
     ret = psb_buffer_create(driver_data, psb_surface->size, psb_bt_cpu_vpu_shared, &psb_surface->buf);
 
@@ -231,6 +232,7 @@ VAStatus psb_surface_create_from_kbuf(
     psb_surface->chroma_offset = chroma_u_offset;
     psb_surface->size = size;
     psb_surface->extra_info[4] = VA_FOURCC_NV12;
+    psb_surface->extra_info[8] = VA_FOURCC_NV12;
 
     ret = psb_kbuffer_reference(driver_data, &psb_surface->buf, kbuf_handle);
 

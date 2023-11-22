@@ -54,6 +54,8 @@ class ExtensionGCMAppHandler : public gcm::GCMAppHandler,
   virtual void OnSendError(
       const std::string& app_id,
       const gcm::GCMClient::SendErrorDetails& send_error_details) OVERRIDE;
+  virtual void OnSendAcknowledged(const std::string& app_id,
+                                  const std::string& message_id) OVERRIDE;
 
  protected:
   // Could be overridden by testing purpose.
@@ -74,8 +76,10 @@ private:
       content::BrowserContext* browser_context,
       const Extension* extension,
       UnloadedExtensionInfo::Reason reason) OVERRIDE;
-  virtual void OnExtensionUninstalled(content::BrowserContext* browser_context,
-                                      const Extension* extension) OVERRIDE;
+  virtual void OnExtensionUninstalled(
+      content::BrowserContext* browser_context,
+      const Extension* extension,
+      extensions::UninstallReason reason) OVERRIDE;
 
   void AddDummyAppHandler();
   void RemoveDummyAppHandler();
@@ -90,9 +94,7 @@ private:
   ScopedObserver<ExtensionRegistry, ExtensionRegistryObserver>
       extension_registry_observer_;
 
-#if !defined(OS_ANDROID)
   scoped_ptr<extensions::GcmJsEventRouter> js_event_router_;
-#endif
 
   base::WeakPtrFactory<ExtensionGCMAppHandler> weak_factory_;
 

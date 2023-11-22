@@ -38,7 +38,8 @@ class PasswordStoreMac : public password_manager::PasswordStore {
 
   // Initializes |thread_|.
   virtual bool Init(
-      const syncer::SyncableService::StartSyncFlare& flare) OVERRIDE;
+      const syncer::SyncableService::StartSyncFlare& flare,
+      const std::string& sync_username) OVERRIDE;
 
   // Stops |thread_|.
   virtual void Shutdown() OVERRIDE;
@@ -50,7 +51,7 @@ class PasswordStoreMac : public password_manager::PasswordStore {
       GetBackgroundTaskRunner() OVERRIDE;
 
  private:
-  virtual void ReportMetricsImpl() OVERRIDE;
+  virtual void ReportMetricsImpl(const std::string& sync_username) OVERRIDE;
   virtual password_manager::PasswordStoreChangeList AddLoginImpl(
       const autofill::PasswordForm& form) OVERRIDE;
   virtual password_manager::PasswordStoreChangeList UpdateLoginImpl(
@@ -84,11 +85,6 @@ class PasswordStoreMac : public password_manager::PasswordStore {
   bool DatabaseHasFormMatchingKeychainForm(
       const autofill::PasswordForm& form);
 
-  // Returns all the Keychain entries that we own but no longer have
-  // corresponding metadata for in our database.
-  // Caller is responsible for deleting the forms.
-  std::vector<autofill::PasswordForm*> GetUnusedKeychainForms();
-
   // Removes the given forms from the database.
   void RemoveDatabaseForms(
       const std::vector<autofill::PasswordForm*>& forms);
@@ -96,6 +92,11 @@ class PasswordStoreMac : public password_manager::PasswordStore {
   // Removes the given forms from the Keychain.
   void RemoveKeychainForms(
       const std::vector<autofill::PasswordForm*>& forms);
+
+  // Searches the database for forms without a corresponding entry in the
+  // keychain. Removes those forms from the database, and returns them in
+  // |forms|. Ownership of |forms| is passed to the caller.
+  void CleanOrphanedForms(std::vector<autofill::PasswordForm*>* forms);
 
   scoped_ptr<crypto::AppleKeychain> keychain_;
   scoped_ptr<password_manager::LoginDatabase> login_metadata_db_;

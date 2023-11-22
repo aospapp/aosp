@@ -24,6 +24,10 @@ enum State {
   // A password is pending, but we don't need to pop up a bubble.
   PENDING_PASSWORD_STATE,
 
+  // A password has been saved and we wish to display UI confirming the save
+  // to the user.
+  CONFIRMATION_STATE,
+
   // A password has been autofilled, or has just been saved. The icon needs
   // to be visible, in the management state.
   MANAGE_STATE,
@@ -33,8 +37,25 @@ enum State {
   BLACKLIST_STATE,
 };
 
+// The position of a password item in a list of credentials.
+enum PasswordItemPosition {
+  // The password item is the first in the list.
+  FIRST_ITEM,
+
+  // The password item is not the first item in the list.
+  SUBSEQUENT_ITEM,
+};
+
 // Returns true if |state| represents a pending password.
 bool IsPendingState(State state);
+
+// Returns true if this state show cause the bubble to be shown without user
+// interaction.
+bool IsAutomaticDisplayState(State state);
+
+// Returns the state that the bubble should be in after the automatic display
+// occurs.
+State GetEndStateForAutomaticState(State state);
 
 }  // namespace ui
 

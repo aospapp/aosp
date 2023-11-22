@@ -22,6 +22,8 @@ import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.TestSensorEvent;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -98,11 +100,13 @@ public class JitterVerificationTest extends TestCase {
         assertEquals(3.0, jitterValues.get(3));
     }
 
-    private JitterVerification getVerification(int threshold, long ... timestamps) {
-        JitterVerification verification = new JitterVerification(threshold);
+    private static JitterVerification getVerification(int threshold, long ... timestamps) {
+        Collection<TestSensorEvent> events = new ArrayList<>(timestamps.length);
         for (long timestamp : timestamps) {
-            verification.addSensorEvent(new TestSensorEvent(null, timestamp, 0, null));
+            events.add(new TestSensorEvent(null, timestamp, 0, null));
         }
+        JitterVerification verification = new JitterVerification(threshold);
+        verification.addSensorEvents(events);
         return verification;
     }
 

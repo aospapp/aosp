@@ -17,9 +17,6 @@
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_ui.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
-#include "ui/base/l10n/l10n_util.h"
 
 namespace {
 
@@ -38,8 +35,8 @@ NewTabPageHandler::NewTabPageHandler() : page_switch_count_(0) {
 }
 
 NewTabPageHandler::~NewTabPageHandler() {
-  HISTOGRAM_COUNTS_100("NewTabPage.SingleSessionPageSwitches",
-                       page_switch_count_);
+  LOCAL_HISTOGRAM_COUNTS_100("NewTabPage.SingleSessionPageSwitches",
+                             page_switch_count_);
 }
 
 void NewTabPageHandler::RegisterMessages() {

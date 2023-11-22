@@ -4097,48 +4097,6 @@
       type="mms"
   />
 
-  <apn carrier="BiBoB Internet profil"
-      mcc="238"
-      mnc="02"
-      apn="internet.bibob.dk"
-      type="default,supl"
-      mvno_type="spn"
-      mvno_match_data="BiBoB"
-  />
-
-  <apn carrier="BiBoB"
-      mcc="238"
-      mnc="02"
-      apn="mms.bibob.dk"
-      mmsproxy="212.88.64.8"
-      mmsport="8080"
-      mmsc="http://mms.telenor.dk"
-      type="mms"
-      mvno_type="spn"
-      mvno_match_data="BiBoB"
-  />
-
-  <apn carrier="CBB Internet"
-      mcc="238"
-      mnc="02"
-      apn="internet"
-      type="default,supl"
-      mvno_type="spn"
-      mvno_match_data="CBB Mobil"
-  />
-
-  <apn carrier="CBB MMS"
-      mcc="238"
-      mnc="02"
-      apn="telenor"
-      mmsproxy="212.88.64.8"
-      mmsport="8080"
-      mmsc="http://mms.telenor.dk"
-      type="mms"
-      mvno_type="spn"
-      mvno_match_data="CBB Mobil"
-  />
-
   <apn carrier="3"
       mcc="238"
       mnc="06"
@@ -4431,15 +4389,38 @@
       type="mms"
   />
 
-  <apn carrier="Tele2"
+  <apn carrier="Tele2 Internet"
       mcc="240"
       mnc="07"
-      apn="internet.tele2.no"
-      mmsc="http://mmsc.tele2.no"
-      mmsproxy="193.12.40.14"
+      apn="4g.tele2.se"
+      type="default,supl"
+  />
+
+  <apn carrier="Tele2 MMS"
+      mcc="240"
+      mnc="07"
+      apn="4g.tele2.se"
+      mmsc="http://mmsc.tele2.se"
+      mmsproxy="130.244.202.30"
       mmsport="8080"
-      protocol="IP"
-      type="default,supl,mms"
+      type="mms"
+  />
+
+  <apn carrier="Tele2 Internet 3G"
+      mcc="240"
+      mnc="07"
+      apn="internet.tele2.se"
+      type="default,supl"
+  />
+
+  <apn carrier="Tele2 MMS 3G"
+      mcc="240"
+      mnc="07"
+      apn="internet.tele2.se"
+      mmsc="http://mmsc.tele2.se"
+      mmsproxy="130.244.202.30"
+      mmsport="8080"
+      type="mms"
   />
 
   <apn carrier="Tele2 Internet"
@@ -5831,9 +5812,7 @@
       mcc="260"
       mnc="06"
       apn="mms"
-      mmsc="http://10.10.28.164/mms/wapenc"
-      mmsproxy="10.10.25.5"
-      mmsport="8080"
+      mmsc="http://mmsc.play.pl/mms/wapenc"
       type="mms"
   />
 
@@ -5995,8 +5974,6 @@
       user="vodafone"
       password="vodafone"
       authtype="1"
-      proxy="iproxy.vodafone.pt"
-      port="80"
       mmsc="http://mms.vodafone.pt/servlets/mms"
       mmsproxy="iproxy.vodafone.pt"
       mmsport="80"
@@ -6009,39 +5986,6 @@
       apn="internet.vodafone.pt"
       authtype="0"
       type="dun"
-  />
-
-  <apn carrier="ZON Internet"
-      mcc="268"
-      mnc="01"
-      apn=""
-      type="ia"
-      mvno_match_data="ZON"
-      mvno_type="spn"
-  />
-
-  <apn carrier="ZON Internet"
-      mcc="268"
-      mnc="01"
-      apn="internet.zon.pt"
-      type="default,supl"
-      mvno_match_data="ZON"
-      mvno_type="spn"
-  />
-
-  <apn carrier="ZON MMS"
-      mcc="268"
-      mnc="01"
-      apn="vas.zon.pt"
-      user="vas"
-      password="vas"
-      authtype="1"
-      mmsc="http://mms/servlets/mms"
-      mmsproxy="213.30.27.63"
-      mmsport="8799"
-      type="mms"
-      mvno_match_data="ZON"
-      mvno_type="spn"
   />
 
   <apn carrier="PortalOptimus"
@@ -6134,11 +6078,11 @@
       type="mms"
   />
 
-  <apn carrier="Vox Mobile"
+  <apn carrier="Orange"
       mcc="270"
       mnc="99"
-      apn="vox.lu"
-      mmsc="http://mms.vox.lu"
+      apn="orange.lu"
+      mmsc="http://mms.orange.lu"
       mmsproxy="212.88.139.44"
       mmsport="8080"
       type="default,supl,mms"
@@ -7085,7 +7029,7 @@
 
   <apn carrier="Verizon CDMA HRPD"
      mcc="310"
-     mnc="00"
+     mnc="000"
      mmsc="http://mms.vzwreseller.com/servlets/mms"
      type="default,mms,hipri,dun,supl"
      mvno_type="spn"
@@ -9820,6 +9764,16 @@
       mcc="310"
       mnc="410"
       apn="nxtgenphone"
+      type="default,mms,supl,fota,hipri"
+      mmsc="http://mmsc.mobile.att.net"
+      mmsproxy="proxy.mobile.att.net"
+      mmsport="80"
+  />
+
+  <apn carrier="ATT Phone"
+      mcc="310"
+      mnc="410"
+      apn="phone"
       type="default,mms,supl,fota,hipri"
       mmsc="http://mmsc.mobile.att.net"
       mmsproxy="proxy.mobile.att.net"
@@ -27770,6 +27724,24 @@
       type="mms"
   />
 
+  <apn carrier="China Unicom 3G"
+      apn="3gnet"
+      mcc="460"
+      mnc="09"
+      port="80"
+      type="default, supl"/>
+
+  <apn carrier="China Unicom wap"
+      apn="3gwap"
+      mcc="460"
+      mnc="09"
+      proxy="10.0.0.172"
+      port="80"
+      mmsproxy="10.0.0.172"
+      mmsport="80"
+      mmsc="http://mmsc.myuni.com.cn"
+      type="default, mms"/>
+
   <apn carrier="遠傳電信(Far EasTone) (MMS)"
       mcc="466"
       mnc="01"
@@ -32983,7 +32955,7 @@
       mvno_type="spn"
   />
 
-  <apn carrier="Internet Éito"
+  <apn carrier="Internet Éxito"
       mcc="732"
       mnc="103"
       apn="movilexito.net.co"
@@ -33050,7 +33022,7 @@
       mvno_type="spn"
   />
 
-  <apn carrier="Internet Éito"
+  <apn carrier="Internet Éxito"
       mcc="732"
       mnc="111"
       apn="movilexito.net.co"
@@ -33119,6 +33091,14 @@
       mcc="732"
       mnc="130"
       apn="lte.avantel.com.co"
+      authtype="0"
+      type="default"
+  />
+
+  <apn carrier="ETB 4G"
+      mcc="732"
+      mnc="187"
+      apn="internetmovil.etb.net.co"
       authtype="0"
       type="default"
   />

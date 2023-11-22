@@ -28,6 +28,8 @@ from pylib.linker import setup as linker_setup
 from pylib.host_driven import setup as host_driven_setup
 from pylib.instrumentation import setup as instrumentation_setup
 from pylib.instrumentation import test_options as instrumentation_test_options
+from pylib.junit import setup as junit_setup
+from pylib.junit import test_dispatcher as junit_dispatcher
 from pylib.monkey import setup as monkey_setup
 from pylib.monkey import test_options as monkey_test_options
 from pylib.perf import setup as perf_setup
@@ -35,6 +37,7 @@ from pylib.perf import test_options as perf_test_options
 from pylib.perf import test_runner as perf_test_runner
 from pylib.uiautomator import setup as uiautomator_setup
 from pylib.uiautomator import test_options as uiautomator_test_options
+from pylib.utils import apk_helper
 from pylib.utils import command_option_parser
 from pylib.utils import report_results
 from pylib.utils import reraiser_thread
@@ -174,21 +177,21 @@ def AddJavaTestOptions(option_parser):
       '-E', '--exclude-annotation', dest='exclude_annotation_str',
       help=('Comma-separated list of annotations. Exclude tests with these '
             'annotations.'))
-  option_parser.add_option('--screenshot', dest='screenshot_failures',
-                           action='store_true',
-                           help='Capture screenshots of test failures')
-  option_parser.add_option('--save-perf-json', action='store_true',
-                           help='Saves the JSON file for each UI Perf test.')
-  option_parser.add_option('--official-build', action='store_true',
-                           help='Run official build tests.')
-  option_parser.add_option('--test_data', action='append', default=[],
-                           help=('Each instance defines a directory of test '
-                                 'data that should be copied to the target(s) '
-                                 'before running the tests. The argument '
-                                 'should be of the form <target>:<source>, '
-                                 '<target> is relative to the device data'
-                                 'directory, and <source> is relative to the '
-                                 'chromium build directory.'))
+  option_parser.add_option(
+      '--screenshot', dest='screenshot_failures', action='store_true',
+      help='Capture screenshots of test failures')
+  option_parser.add_option(
+      '--save-perf-json', action='store_true',
+      help='Saves the JSON file for each UI Perf test.')
+  option_parser.add_option(
+      '--official-build', action='store_true', help='Run official build tests.')
+  option_parser.add_option(
+      '--test_data', '--test-data', action='append', default=[],
+      help=('Each instance defines a directory of test data that should be '
+            'copied to the target(s) before running the tests. The argument '
+            'should be of the form <target>:<source>, <target> is relative to '
+            'the device data directory, and <source> is relative to the '
+            'chromium build directory.'))
 
 
 def ProcessJavaTestOptions(options):
@@ -200,7 +203,7 @@ def ProcessJavaTestOptions(options):
     options.annotations = []
   else:
     options.annotations = ['Smoke', 'SmallTest', 'MediumTest', 'LargeTest',
-                           'EnormousTest']
+                           'EnormousTest', 'IntegrationTest']
 
   if options.exclude_annotation_str:
     options.exclude_annotations = options.exclude_annotation_str.split(',')
@@ -236,6 +239,9 @@ def AddInstrumentationTestOptions(option_parser):
   option_parser.add_option('--coverage-dir',
                            help=('Directory in which to place all generated '
                                  'EMMA coverage files.'))
+  option_parser.add_option('--device-flags', dest='device_flags', default='',
+                           help='The relative filepath to a file containing '
+                                'command-line flags to set on the device')
 
 
 def ProcessInstrumentationOptions(options, error_func):
@@ -269,13 +275,18 @@ def ProcessInstrumentationOptions(options, error_func):
     error_func('--test-apk must be specified.')
 
 
-  options.test_apk_path = os.path.join(constants.GetOutDirectory(),
-                                       constants.SDK_BUILD_APKS_DIR,
-                                       '%s.apk' % options.test_apk)
+  options.test_apk_path = os.path.join(
+      constants.GetOutDirectory(),
+      constants.SDK_BUILD_APKS_DIR,
+      '%s.apk' % options.test_apk)
   options.test_apk_jar_path = os.path.join(
       constants.GetOutDirectory(),
       constants.SDK_BUILD_TEST_JAVALIB_DIR,
       '%s.jar' %  options.test_apk)
+  options.test_support_apk_path = '%sSupport%s' % (
+      os.path.splitext(options.test_apk_path))
+
+  options.test_runner = apk_helper.GetInstrumentationName(options.test_apk_path)
 
   return instrumentation_test_options.InstrumentationOptions(
       options.tool,
@@ -291,7 +302,11 @@ def ProcessInstrumentationOptions(options, error_func):
       options.coverage_dir,
       options.test_apk,
       options.test_apk_path,
-      options.test_apk_jar_path)
+      options.test_apk_jar_path,
+      options.test_runner,
+      options.test_support_apk_path,
+      options.device_flags
+      )
 
 
 def AddUIAutomatorTestOptions(option_parser):
@@ -364,6 +379,36 @@ def ProcessUIAutomatorOptions(options, error_func):
       options.uiautomator_jar,
       options.uiautomator_info_jar,
       options.package)
+
+
+def AddJUnitTestOptions(option_parser):
+  """Adds junit test options to |option_parser|."""
+  option_parser.usage = '%prog junit -s [test suite name]'
+  option_parser.commands_dict = {}
+
+  option_parser.add_option(
+      '-s', '--test-suite', dest='test_suite',
+      help=('JUnit test suite to run.'))
+  option_parser.add_option(
+      '-f', '--test-filter', dest='test_filter',
+      help='Filters tests googletest-style.')
+  option_parser.add_option(
+      '--package-filter', dest='package_filter',
+      help='Filters tests by package.')
+  option_parser.add_option(
+      '--runner-filter', dest='runner_filter',
+      help='Filters tests by runner class. Must be fully qualified.')
+  option_parser.add_option(
+      '--sdk-version', dest='sdk_version', type="int",
+      help='The Android SDK version.')
+  AddCommonOptions(option_parser)
+
+
+def ProcessJUnitTestOptions(options, error_func):
+  """Processes all JUnit test options."""
+  if not options.test_suite:
+    error_func('No test suite specified.')
+  return options
 
 
 def AddMonkeyTestOptions(option_parser):
@@ -588,6 +633,10 @@ def _RunInstrumentationTests(options, error_func, devices):
       if test_exit_code and exit_code != constants.ERROR_EXIT_CODE:
         exit_code = test_exit_code
 
+  if options.device_flags:
+    options.device_flags = os.path.join(constants.DIR_SOURCE_ROOT,
+                                        options.device_flags)
+
   report_results.LogFull(
       results=results,
       test_type='Instrumentation',
@@ -614,6 +663,15 @@ def _RunUIAutomatorTests(options, error_func, devices):
       test_package=os.path.basename(options.test_jar),
       annotation=options.annotations,
       flakiness_server=options.flakiness_dashboard_server)
+
+  return exit_code
+
+
+def _RunJUnitTests(options, error_func):
+  """Subcommand of RunTestsCommand which runs junit tests."""
+  junit_options = ProcessJUnitTestOptions(options, error_func)
+  runner_factory, tests = junit_setup.Setup(junit_options)
+  _, exit_code = junit_dispatcher.RunTests(tests, runner_factory)
 
   return exit_code
 
@@ -741,6 +799,8 @@ def RunTestsCommand(command, options, args, option_parser):
     return _RunInstrumentationTests(options, option_parser.error, devices)
   elif command == 'uiautomator':
     return _RunUIAutomatorTests(options, option_parser.error, devices)
+  elif command == 'junit':
+    return _RunJUnitTests(options, option_parser.error)
   elif command == 'monkey':
     return _RunMonkeyTests(options, option_parser.error, devices)
   elif command == 'perf':
@@ -801,6 +861,8 @@ VALID_COMMANDS = {
         AddInstrumentationTestOptions, RunTestsCommand),
     'uiautomator': CommandFunctionTuple(
         AddUIAutomatorTestOptions, RunTestsCommand),
+    'junit': CommandFunctionTuple(
+        AddJUnitTestOptions, RunTestsCommand),
     'monkey': CommandFunctionTuple(
         AddMonkeyTestOptions, RunTestsCommand),
     'perf': CommandFunctionTuple(

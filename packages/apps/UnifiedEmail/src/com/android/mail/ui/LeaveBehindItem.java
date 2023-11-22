@@ -103,9 +103,6 @@ public class LeaveBehindItem extends FrameLayout implements OnClickListener, Swi
                     cursor.undo(getContext(), mAccount.undoUri);
                 }
             }
-        } else if (id == R.id.undo_descriptionview) {
-            // Essentially, makes sure that tapping description view doesn't highlight
-            // either the undo button icon or text.
         }
     }
 
@@ -122,7 +119,7 @@ public class LeaveBehindItem extends FrameLayout implements OnClickListener, Swi
         // and button text as selected since they set duplicateParentState to true
         mSwipeableContent.setOnClickListener(this);
         mSwipeableContent.setAlpha(TRANSPARENT);
-        mText = ((TextView) findViewById(R.id.undo_descriptionview));
+        mText = ((TextView) findViewById(R.id.undo_description_text));
         mText.setText(Utils.convertHtmlToPlainText(mUndoOp
                 .getSingularDescription(getContext(), folder)));
         mText.setOnClickListener(this);
@@ -164,10 +161,7 @@ public class LeaveBehindItem extends FrameLayout implements OnClickListener, Swi
 
     /**
      * Animate shrinking the height of this view.
-     * @param item the conversation to animate
      * @param listener the method to call when the animation is done
-     * @param undo true if an operation is being undone. We animate the item
-     *            away during delete. Undoing populates the item.
      */
     public void startShrinkAnimation(AnimatorListener listener) {
         if (!mAnimating) {

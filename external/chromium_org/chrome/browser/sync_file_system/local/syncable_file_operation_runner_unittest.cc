@@ -5,11 +5,12 @@
 #include <string>
 
 #include "base/basictypes.h"
-#include "base/file_util.h"
 #include "base/files/file.h"
+#include "base/files/file_util.h"
 #include "base/location.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop/message_loop.h"
+#include "base/thread_task_runner_handle.h"
 #include "chrome/browser/sync_file_system/local/canned_syncable_file_system.h"
 #include "chrome/browser/sync_file_system/local/local_file_change_tracker.h"
 #include "chrome/browser/sync_file_system/local/local_file_sync_context.h"
@@ -20,14 +21,14 @@
 #include "chrome/browser/sync_file_system/syncable_file_system_util.h"
 #include "content/public/test/mock_blob_url_request_context.h"
 #include "content/public/test/test_browser_thread_bundle.h"
+#include "storage/browser/fileapi/file_system_context.h"
+#include "storage/browser/fileapi/file_system_operation_runner.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/leveldatabase/src/helpers/memenv/memenv.h"
 #include "third_party/leveldatabase/src/include/leveldb/env.h"
-#include "webkit/browser/fileapi/file_system_context.h"
-#include "webkit/browser/fileapi/file_system_operation_runner.h"
 
-using fileapi::FileSystemOperation;
-using fileapi::FileSystemURL;
+using storage::FileSystemOperation;
+using storage::FileSystemURL;
 using content::MockBlobURLRequestContext;
 using content::ScopedTextBlob;
 using base::File;
@@ -53,8 +54,8 @@ class SyncableFileOperationRunnerTest : public testing::Test {
         in_memory_env_(leveldb::NewMemEnv(leveldb::Env::Default())),
         file_system_(GURL("http://example.com"),
                      in_memory_env_.get(),
-                     base::MessageLoopProxy::current().get(),
-                     base::MessageLoopProxy::current().get()),
+                     base::ThreadTaskRunnerHandle::Get().get(),
+                     base::ThreadTaskRunnerHandle::Get().get()),
         callback_count_(0),
         write_status_(File::FILE_ERROR_FAILED),
         write_bytes_(0),
@@ -69,8 +70,8 @@ class SyncableFileOperationRunnerTest : public testing::Test {
     sync_context_ = new LocalFileSyncContext(
         dir_.path(),
         in_memory_env_.get(),
-        base::MessageLoopProxy::current().get(),
-        base::MessageLoopProxy::current().get());
+        base::ThreadTaskRunnerHandle::Get().get(),
+        base::ThreadTaskRunnerHandle::Get().get());
     ASSERT_EQ(
         SYNC_STATUS_OK,
         file_system_.MaybeInitializeFileSystemContext(sync_context_.get()));
@@ -136,7 +137,6 @@ class SyncableFileOperationRunnerTest : public testing::Test {
     return base::CreateTemporaryFileInDir(dir_.path(), path);
   }
 
-  ScopedEnableSyncFSDirectoryOperation enable_directory_operation_;
   content::TestBrowserThreadBundle thread_bundle_;
 
   base::ScopedTempDir dir_;
@@ -249,13 +249,15 @@ TEST_F(SyncableFileOperationRunnerTest, CopyAndMove) {
   // (since the source directory is in syncing).
   ResetCallbackStatus();
   file_system_.operation_runner()->Copy(
-      URL(kDir), URL("dest-copy"),
-      fileapi::FileSystemOperation::OPTION_NONE,
-      fileapi::FileSystemOperationRunner::CopyProgressCallback(),
+      URL(kDir),
+      URL("dest-copy"),
+      storage::FileSystemOperation::OPTION_NONE,
+      storage::FileSystemOperationRunner::CopyProgressCallback(),
       ExpectStatus(FROM_HERE, File::FILE_OK));
   file_system_.operation_runner()->Move(
-      URL(kDir), URL("dest-move"),
-      fileapi::FileSystemOperation::OPTION_NONE,
+      URL(kDir),
+      URL("dest-move"),
+      storage::FileSystemOperation::OPTION_NONE,
       ExpectStatus(FROM_HERE, File::FILE_OK));
   base::MessageLoop::current()->RunUntilIdle();
   EXPECT_EQ(1, callback_count_);
@@ -272,9 +274,10 @@ TEST_F(SyncableFileOperationRunnerTest, CopyAndMove) {
   // Now the destination is also locked copying kDir should be queued.
   ResetCallbackStatus();
   file_system_.operation_runner()->Copy(
-      URL(kDir), URL("dest-copy2"),
-      fileapi::FileSystemOperation::OPTION_NONE,
-      fileapi::FileSystemOperationRunner::CopyProgressCallback(),
+      URL(kDir),
+      URL("dest-copy2"),
+      storage::FileSystemOperation::OPTION_NONE,
+      storage::FileSystemOperationRunner::CopyProgressCallback(),
       ExpectStatus(FROM_HERE, File::FILE_OK));
   base::MessageLoop::current()->RunUntilIdle();
   EXPECT_EQ(0, callback_count_);
@@ -396,10 +399,9 @@ TEST_F(SyncableFileOperationRunnerTest, Cancel) {
 
   // Run Truncate and immediately cancel. This shouldn't crash.
   ResetCallbackStatus();
-  fileapi::FileSystemOperationRunner::OperationID id =
+  storage::FileSystemOperationRunner::OperationID id =
       file_system_.operation_runner()->Truncate(
-          URL(kFile), 10,
-          ExpectStatus(FROM_HERE, File::FILE_OK));
+          URL(kFile), 10, ExpectStatus(FROM_HERE, File::FILE_OK));
   file_system_.operation_runner()->Cancel(
       id, ExpectStatus(FROM_HERE, File::FILE_ERROR_INVALID_OPERATION));
   base::MessageLoop::current()->RunUntilIdle();

@@ -18,47 +18,25 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:clickable="true"
     android:orientation="horizontal">
+
     <TextView
-        android:id="@+id/undo_descriptionview"
-        android:layout_width="0dip"
+        android:id="@+id/undo_description_text"
+        android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
         android:ellipsize="end"
         android:singleLine="true"
-        android:textColor="@android:color/white"
-        android:textAppearance="?android:attr/textAppearanceMedium"
-        android:clickable="true"
         android:gravity="center_vertical"
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
         style="@style/UndoDescriptionStyle" />
-
-    <View
-        android:id="@+id/undo_separator"
-        android:layout_width="1dip"
-        android:layout_height="match_parent"
-        android:background="@android:color/white"
-        android:layout_marginTop="16dp"
-        android:layout_marginBottom="16dp" />
-
-    <ImageView
-        android:id="@+id/undo_icon"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:src="@drawable/ic_menu_revert_holo_dark"
-        android:background="?android:attr/selectableItemBackground"
-        android:duplicateParentState="true"
-        style="@style/UndoIconStyle" />
 
     <TextView
         android:id="@+id/undo_text"
-        style="@style/UndoTextStyle"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
-        android:text="@string/undo"
-        android:textAllCaps="true"
         android:gravity="center_vertical"
-        android:textColor="@android:color/white"
-        android:background="?android:attr/selectableItemBackground"
-        android:duplicateParentState="true"/>
+        style="@style/UndoTextStyle" />
+
 </LinearLayout>

@@ -16,6 +16,7 @@
 
 namespace content {
 class MockResourceContext;
+class SSLHostStateDelegate;
 }
 
 namespace history {
@@ -33,7 +34,7 @@ class ProfilePolicyConnector;
 class SchemaRegistryService;
 }
 
-namespace quota {
+namespace storage {
 class SpecialStoragePolicy;
 }
 
@@ -83,19 +84,18 @@ class TestingProfile : public Profile {
         BrowserContextKeyedServiceFactory* service_factory,
         BrowserContextKeyedServiceFactory::TestingFactoryFunction callback);
 
+#if defined(ENABLE_EXTENSIONS)
     // Sets the ExtensionSpecialStoragePolicy to be returned by
     // GetExtensionSpecialStoragePolicy().
     void SetExtensionSpecialStoragePolicy(
         scoped_refptr<ExtensionSpecialStoragePolicy> policy);
+#endif
 
     // Sets the path to the directory to be used to hold profile data.
     void SetPath(const base::FilePath& path);
 
     // Sets the PrefService to be used by this profile.
     void SetPrefService(scoped_ptr<PrefServiceSyncable> prefs);
-
-    // Makes the Profile being built an incognito profile.
-    void SetIncognito();
 
     // Makes the Profile being built a guest profile.
     void SetGuestSession();
@@ -110,16 +110,22 @@ class TestingProfile : public Profile {
     // Creates the TestingProfile using previously-set settings.
     scoped_ptr<TestingProfile> Build();
 
+    // Build an incognito profile, owned by |original_profile|. Note: unless you
+    // need to customize the Builder, or access TestingProfile member functions,
+    // you can use original_profile->GetOffTheRecordProfile().
+    TestingProfile* BuildIncognito(TestingProfile* original_profile);
+
    private:
     // If true, Build() has already been called.
     bool build_called_;
 
     // Various staging variables where values are held until Build() is invoked.
     scoped_ptr<PrefServiceSyncable> pref_service_;
+#if defined(ENABLE_EXTENSIONS)
     scoped_refptr<ExtensionSpecialStoragePolicy> extension_policy_;
+#endif
     base::FilePath path_;
     Delegate* delegate_;
-    bool incognito_;
     bool guest_session_;
     std::string supervised_user_id_;
     scoped_ptr<policy::PolicyService> policy_service_;
@@ -145,9 +151,11 @@ class TestingProfile : public Profile {
   // Callers should use Builder::Build() instead of invoking this constructor.
   TestingProfile(const base::FilePath& path,
                  Delegate* delegate,
+#if defined(ENABLE_EXTENSIONS)
                  scoped_refptr<ExtensionSpecialStoragePolicy> extension_policy,
+#endif
                  scoped_ptr<PrefServiceSyncable> prefs,
-                 bool incognito,
+                 TestingProfile* parent,
                  bool guest_session,
                  const std::string& supervised_user_id,
                  scoped_ptr<policy::PolicyService> policy_service,
@@ -202,6 +210,11 @@ class TestingProfile : public Profile {
 
   TestingPrefServiceSyncable* GetTestingPrefService();
 
+  // Called on the parent of an incognito |profile|. Usually called from the
+  // constructor of an incognito TestingProfile, but can also be used by tests
+  // to provide an OffTheRecordProfileImpl instance.
+  void SetOffTheRecordProfile(scoped_ptr<Profile> profile);
+
   // content::BrowserContext
   virtual base::FilePath GetPath() const OVERRIDE;
   virtual scoped_refptr<base::SequencedTaskRunner> GetIOTaskRunner() OVERRIDE;
@@ -216,8 +229,9 @@ class TestingProfile : public Profile {
       int renderer_child_id) OVERRIDE;
   virtual content::ResourceContext* GetResourceContext() OVERRIDE;
   virtual content::BrowserPluginGuestManager* GetGuestManager() OVERRIDE;
-  virtual quota::SpecialStoragePolicy* GetSpecialStoragePolicy() OVERRIDE;
+  virtual storage::SpecialStoragePolicy* GetSpecialStoragePolicy() OVERRIDE;
   virtual content::PushMessagingService* GetPushMessagingService() OVERRIDE;
+  virtual content::SSLHostStateDelegate* GetSSLHostStateDelegate() OVERRIDE;
 
   virtual TestingProfile* AsTestingProfile() OVERRIDE;
 
@@ -242,17 +256,15 @@ class TestingProfile : public Profile {
     force_incognito_ = force_incognito;
   }
 
-  // Assumes ownership.
-  virtual void SetOffTheRecordProfile(scoped_ptr<Profile> profile);
-  virtual void SetOriginalProfile(Profile* profile);
   virtual Profile* GetOffTheRecordProfile() OVERRIDE;
   virtual void DestroyOffTheRecordProfile() OVERRIDE {}
   virtual bool HasOffTheRecordProfile() OVERRIDE;
   virtual Profile* GetOriginalProfile() OVERRIDE;
   virtual bool IsSupervised() OVERRIDE;
-  virtual ExtensionService* GetExtensionService() OVERRIDE;
+#if defined(ENABLE_EXTENSIONS)
   void SetExtensionSpecialStoragePolicy(
       ExtensionSpecialStoragePolicy* extension_special_storage_policy);
+#endif
   virtual ExtensionSpecialStoragePolicy*
       GetExtensionSpecialStoragePolicy() OVERRIDE;
   // TODO(ajwong): Remove this API in favor of directly retrieving the
@@ -314,9 +326,6 @@ class TestingProfile : public Profile {
   virtual void ClearNetworkingHistorySince(
       base::Time time,
       const base::Closure& completion) OVERRIDE;
-  virtual void ClearDomainReliabilityMonitor(
-      domain_reliability::DomainReliabilityClearMode mode,
-      const base::Closure& completion) OVERRIDE;
   virtual GURL GetHomePage() OVERRIDE;
 
   virtual PrefService* GetOffTheRecordPrefs() OVERRIDE;
@@ -344,6 +353,10 @@ class TestingProfile : public Profile {
   // Creates a TestingPrefService and associates it with the TestingProfile.
   void CreateTestingPrefService();
 
+  // Initializes |prefs_| for an incognito profile, derived from
+  // |original_profile_|.
+  void CreateIncognitoPrefService();
+
   // Creates a ProfilePolicyConnector that the ProfilePolicyConnectorFactory
   // maps to this profile.
   void CreateProfilePolicyConnector();
@@ -352,10 +365,9 @@ class TestingProfile : public Profile {
   // request context. Currently, only the CookieMonster is hooked up.
   scoped_refptr<net::URLRequestContextGetter> extensions_request_context_;
 
-  bool incognito_;
   bool force_incognito_;
   scoped_ptr<Profile> incognito_profile_;
-  Profile* original_profile_;
+  TestingProfile* original_profile_;
 
   bool guest_session_;
 
@@ -369,8 +381,10 @@ class TestingProfile : public Profile {
   base::FilePath last_selected_directory_;
   scoped_refptr<history::TopSites> top_sites_;  // For history and thumbnails.
 
+#if defined(ENABLE_EXTENSIONS)
   scoped_refptr<ExtensionSpecialStoragePolicy>
       extension_special_storage_policy_;
+#endif
 
   // The proxy prefs tracker.
   scoped_ptr<PrefProxyConfigTracker> pref_proxy_config_tracker_;

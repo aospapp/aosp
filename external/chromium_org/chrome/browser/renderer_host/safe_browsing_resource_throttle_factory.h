@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_RENDERER_HOST_SAFE_BROWSING_RESOURCE_THROTTLE_FACTORY_H_
 
 #include "base/basictypes.h"
+#include "content/public/common/resource_type.h"
 
 class SafeBrowsingService;
 
@@ -18,25 +19,21 @@ namespace net {
 class URLRequest;
 }
 
-// Factory for creating a SafeBrowsingResourceThrottle. When FULL_SAFE_BROWSING
-// is enabled, creates a SafeBrowsingResourceThrottle. When MOBILE_SAFE_BROWSING
-// is enabled, the default implementation creates a null resource throttle,
-// therefore, a factory has to be registered before using this.
+// Factory for creating a SafeBrowsingResourceThrottle. If a factory is
+// registered, the factory's CreateResourceThrottle() is called.  Otherwise,
+// when FULL_SAFE_BROWSING is enabled, a new SafeBrowsingResourceThrottle is
+// returned, or NULL if MOBILE_SAFE_BROWSING is enabled.
 class SafeBrowsingResourceThrottleFactory {
  public:
-#if defined(FULL_SAFE_BROWSING) || defined(MOBILE_SAFE_BROWSING)
   // Registers a factory. Does not take the ownership of the factory. The
   // caller has to make sure the factory stays alive and properly destroyed.
-  static void RegisterFactory(SafeBrowsingResourceThrottleFactory* factory) {
-    factory_ = factory;
-  }
-#endif
+  static void RegisterFactory(SafeBrowsingResourceThrottleFactory* factory);
 
   // Creates a new resource throttle for safe browsing
   static content::ResourceThrottle* Create(
       net::URLRequest* request,
       content::ResourceContext* resource_context,
-      bool is_subresource,
+      content::ResourceType resource_type,
       SafeBrowsingService* service);
 
  protected:
@@ -46,7 +43,7 @@ class SafeBrowsingResourceThrottleFactory {
   virtual content::ResourceThrottle* CreateResourceThrottle(
       net::URLRequest* request,
       content::ResourceContext* resource_context,
-      bool is_subresource,
+      content::ResourceType resource_type,
       SafeBrowsingService* service) = 0;
 
  private:

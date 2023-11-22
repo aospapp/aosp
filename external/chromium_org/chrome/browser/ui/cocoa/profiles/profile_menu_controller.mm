@@ -19,7 +19,8 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_list_observer.h"
 #include "chrome/browser/ui/cocoa/last_active_browser_cocoa.h"
-#include "grit/generated_resources.h"
+#include "chrome/grit/generated_resources.h"
+#include "components/signin/core/common/profile_management_switches.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "ui/gfx/image/image.h"
 
@@ -69,7 +70,7 @@ class Observer : public chrome::BrowserListObserver,
     mainMenuItem_ = item;
 
     base::scoped_nsobject<NSMenu> menu([[NSMenu alloc] initWithTitle:
-            l10n_util::GetNSStringWithFixup(IDS_PROFILES_OPTIONS_GROUP_NAME)]);
+        l10n_util::GetNSStringWithFixup(IDS_PROFILES_OPTIONS_GROUP_NAME)]);
     [mainMenuItem_ setSubmenu:menu];
 
     // This object will be constructed as part of nib loading, which happens
@@ -190,13 +191,13 @@ class Observer : public chrome::BrowserListObserver,
   [[self menu] addItem:[NSMenuItem separatorItem]];
 
   NSMenuItem* item = [self createItemWithTitle:
-          l10n_util::GetNSStringWithFixup(IDS_PROFILES_CUSTOMIZE_PROFILE)
+      l10n_util::GetNSStringWithFixup(IDS_PROFILES_MANAGE_BUTTON_LABEL)
                                         action:@selector(editProfile:)];
   [[self menu] addItem:item];
 
   [[self menu] addItem:[NSMenuItem separatorItem]];
   item = [self createItemWithTitle:l10n_util::GetNSStringWithFixup(
-                                       IDS_PROFILES_CREATE_NEW_PROFILE_OPTION)
+      IDS_PROFILES_CREATE_NEW_PROFILE_OPTION)
                             action:@selector(newProfile:)];
   [[self menu] addItem:item];
 

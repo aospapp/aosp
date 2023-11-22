@@ -16,25 +16,39 @@
 
 package android.hardware.camera2.cts;
 
-import static android.hardware.camera2.cts.CameraTestUtils.*;
-
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.BitmapRegionDecoder;
+import android.graphics.Color;
 import android.graphics.ImageFormat;
-import android.hardware.camera2.CameraDevice;
+import android.graphics.Matrix;
+import android.graphics.Rect;
+import android.graphics.RectF;
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
-import android.util.Size;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
+import android.hardware.camera2.cts.rs.BitmapUtils;
 import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
+import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
 import android.os.ConditionVariable;
 import android.util.Log;
+import android.util.Size;
 import android.view.Surface;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+
+import static android.hardware.camera2.cts.CameraTestUtils.CAPTURE_RESULT_TIMEOUT_MS;
+import static android.hardware.camera2.cts.CameraTestUtils.SimpleCaptureCallback;
+import static android.hardware.camera2.cts.CameraTestUtils.SimpleImageReaderListener;
+import static android.hardware.camera2.cts.CameraTestUtils.dumpFile;
+import static android.hardware.camera2.cts.CameraTestUtils.getValueNotNull;
 
 /**
  * <p>Basic test for ImageReader APIs. It uses CameraDevice as producer, camera
@@ -49,10 +63,16 @@ import java.util.List;
 public class ImageReaderTest extends Camera2AndroidTestCase {
     private static final String TAG = "ImageReaderTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
+    private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
+
     // number of frame (for streaming requests) to be verified.
     private static final int NUM_FRAME_VERIFIED = 2;
     // Max number of images can be accessed simultaneously from ImageReader.
     private static final int MAX_NUM_IMAGES = 5;
+    // Max difference allowed between YUV and JPEG patches. This tolerance is intentionally very
+    // generous to avoid false positives due to punch/saturation operations vendors apply to the
+    // JPEG outputs.
+    private static final double IMAGE_DIFFERENCE_TOLERANCE = 30;
 
     private SimpleImageListener mListener;
 
@@ -88,10 +108,6 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
             try {
                 Log.v(TAG, "Testing jpeg capture for Camera " + id);
                 openDevice(id);
-                if (mStaticInfo.isHardwareLevelLegacy()) {
-                    Log.i(TAG, "Skipping test on legacy devices");
-                    continue;
-                }
                 bufferFormatTestByCamera(ImageFormat.JPEG, /*repeating*/false);
             } finally {
                 closeDevice(id);
@@ -117,10 +133,6 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
             try {
                 Log.v(TAG, "Testing repeating jpeg capture for Camera " + id);
                 openDevice(id);
-                if (mStaticInfo.isHardwareLevelLegacy()) {
-                    Log.i(TAG, "Skipping test on legacy devices");
-                    continue;
-                }
                 bufferFormatTestByCamera(ImageFormat.JPEG, /*repeating*/true);
             } finally {
                 closeDevice(id);
@@ -141,9 +153,29 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
         }
     }
 
-    public void testInvalidAccessTest() {
-        // TODO: test invalid access case, see if we can receive expected
-        // exceptions
+    /**
+     * Test invalid access of image byte buffers: when an image is closed, further access
+     * of the image byte buffers will get an IllegalStateException. The basic assumption of
+     * this test is that the ImageReader always gives direct byte buffer, which is always true
+     * for camera case. For if the produced image byte buffer is not direct byte buffer, there
+     * is no guarantee to get an ISE for this invalid access case.
+     */
+    public void testInvalidAccessTest() throws Exception {
+        // Test byte buffer access after an image is released, it should throw ISE.
+        for (String id : mCameraIds) {
+            try {
+                Log.v(TAG, "Testing invalid image access for Camera " + id);
+                openDevice(id);
+                bufferAccessAfterRelease();
+                fail("ImageReader should throw IllegalStateException when accessing a byte buffer"
+                        + " after the image is closed");
+            } catch (IllegalStateException e) {
+                // Expected.
+            } finally {
+                closeDevice(id);
+            }
+        }
+
     }
 
     /**
@@ -156,10 +188,7 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
             try {
                 Log.v(TAG, "YUV and JPEG testing for camera " + id);
                 openDevice(id);
-                if (mStaticInfo.isHardwareLevelLegacy()) {
-                    Log.i(TAG, "Skipping test on legacy devices");
-                    continue;
-                }
+
                 bufferFormatWithYuvTestByCamera(ImageFormat.JPEG);
             } finally {
                 closeDevice(id);
@@ -184,6 +213,302 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
         }
     }
 
+    /**
+     * Check that the center patches for YUV and JPEG outputs for the same frame match for each YUV
+     * resolution and format supported.
+     */
+    public void testAllOutputYUVResolutions() throws Exception {
+        for (String id : mCameraIds) {
+            try {
+                Log.v(TAG, "Testing all YUV image resolutions for camera " + id);
+                openDevice(id);
+
+                // Skip warmup on FULL mode devices.
+                int warmupCaptureNumber = (mStaticInfo.isHardwareLevelLegacy()) ?
+                        MAX_NUM_IMAGES - 1 : 0;
+
+                // NV21 isn't supported by ImageReader.
+                final int[] YUVFormats = new int[] {ImageFormat.YUV_420_888, ImageFormat.YV12};
+
+                CameraCharacteristics.Key<StreamConfigurationMap> key =
+                        CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP;
+                StreamConfigurationMap config = mStaticInfo.getValueFromKeyNonNull(key);
+                int[] supportedFormats = config.getOutputFormats();
+                List<Integer> supportedYUVFormats = new ArrayList<>();
+                for (int format : YUVFormats) {
+                    if (CameraTestUtils.contains(supportedFormats, format)) {
+                        supportedYUVFormats.add(format);
+                    }
+                }
+
+                Size[] jpegSizes = mStaticInfo.getAvailableSizesForFormatChecked(ImageFormat.JPEG,
+                        StaticMetadata.StreamDirection.Output);
+                assertFalse("JPEG output not supported for camera " + id +
+                        ", at least one JPEG output is required.", jpegSizes.length == 0);
+
+                Size maxJpegSize = CameraTestUtils.getMaxSize(jpegSizes);
+
+                for (int format : supportedYUVFormats) {
+                    Size[] targetCaptureSizes =
+                            mStaticInfo.getAvailableSizesForFormatChecked(format,
+                            StaticMetadata.StreamDirection.Output);
+
+                    for (Size captureSz : targetCaptureSizes) {
+                        if (VERBOSE) {
+                            Log.v(TAG, "Testing yuv size " + captureSz + " and jpeg size "
+                                    + maxJpegSize + " for camera " + mCamera.getId());
+                        }
+
+                        ImageReader jpegReader = null;
+                        ImageReader yuvReader = null;
+                        try {
+                            // Create YUV image reader
+                            SimpleImageReaderListener yuvListener = new SimpleImageReaderListener();
+                            yuvReader = createImageReader(captureSz, format, MAX_NUM_IMAGES,
+                                    yuvListener);
+                            Surface yuvSurface = yuvReader.getSurface();
+
+                            // Create JPEG image reader
+                            SimpleImageReaderListener jpegListener =
+                                    new SimpleImageReaderListener();
+                            jpegReader = createImageReader(maxJpegSize,
+                                    ImageFormat.JPEG, MAX_NUM_IMAGES, jpegListener);
+                            Surface jpegSurface = jpegReader.getSurface();
+
+                            // Setup session
+                            List<Surface> outputSurfaces = new ArrayList<Surface>();
+                            outputSurfaces.add(yuvSurface);
+                            outputSurfaces.add(jpegSurface);
+                            createSession(outputSurfaces);
+
+                            // Warm up camera preview (mainly to give legacy devices time to do 3A).
+                            CaptureRequest.Builder warmupRequest =
+                                    mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+                            warmupRequest.addTarget(yuvSurface);
+                            assertNotNull("Fail to get CaptureRequest.Builder", warmupRequest);
+                            SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
+
+                            for (int i = 0; i < warmupCaptureNumber; i++) {
+                                startCapture(warmupRequest.build(), /*repeating*/false,
+                                        resultListener, mHandler);
+                            }
+                            for (int i = 0; i < warmupCaptureNumber; i++) {
+                                resultListener.getCaptureResult(CAPTURE_WAIT_TIMEOUT_MS);
+                                Image image = yuvListener.getImage(CAPTURE_WAIT_TIMEOUT_MS);
+                                image.close();
+                            }
+
+                            // Capture image.
+                            CaptureRequest.Builder mainRequest =
+                                    mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+                            for (Surface s : outputSurfaces) {
+                                mainRequest.addTarget(s);
+                            }
+
+                            startCapture(mainRequest.build(), /*repeating*/false, resultListener,
+                                    mHandler);
+
+                            // Verify capture result and images
+                            resultListener.getCaptureResult(CAPTURE_WAIT_TIMEOUT_MS);
+
+                            Image yuvImage = yuvListener.getImage(CAPTURE_WAIT_TIMEOUT_MS);
+                            Image jpegImage = jpegListener.getImage(CAPTURE_WAIT_TIMEOUT_MS);
+
+                            //Validate captured images.
+                            CameraTestUtils.validateImage(yuvImage, captureSz.getWidth(),
+                                    captureSz.getHeight(), format, /*filePath*/null);
+                            CameraTestUtils.validateImage(jpegImage, maxJpegSize.getWidth(),
+                                    maxJpegSize.getHeight(), ImageFormat.JPEG, /*filePath*/null);
+
+                            // Compare the image centers.
+                            RectF jpegDimens = new RectF(0, 0, jpegImage.getWidth(),
+                                    jpegImage.getHeight());
+                            RectF yuvDimens = new RectF(0, 0, yuvImage.getWidth(),
+                                    yuvImage.getHeight());
+
+                            // Find scale difference between YUV and JPEG output
+                            Matrix m = new Matrix();
+                            m.setRectToRect(yuvDimens, jpegDimens, Matrix.ScaleToFit.START);
+                            RectF scaledYuv = new RectF();
+                            m.mapRect(scaledYuv, yuvDimens);
+                            float scale = scaledYuv.width() / yuvDimens.width();
+
+                            final int PATCH_DIMEN = 40; // pixels in YUV
+
+                            // Find matching square patch of pixels in YUV and JPEG output
+                            RectF tempPatch = new RectF(0, 0, PATCH_DIMEN, PATCH_DIMEN);
+                            tempPatch.offset(yuvDimens.centerX() - tempPatch.centerX(),
+                                    yuvDimens.centerY() - tempPatch.centerY());
+                            Rect yuvPatch = new Rect();
+                            tempPatch.roundOut(yuvPatch);
+
+                            tempPatch.set(0, 0, PATCH_DIMEN * scale, PATCH_DIMEN * scale);
+                            tempPatch.offset(jpegDimens.centerX() - tempPatch.centerX(),
+                                    jpegDimens.centerY() - tempPatch.centerY());
+                            Rect jpegPatch = new Rect();
+                            tempPatch.roundOut(jpegPatch);
+
+                            // Decode center patches
+                            int[] yuvColors = convertPixelYuvToRgba(yuvPatch.width(),
+                                    yuvPatch.height(), yuvPatch.left, yuvPatch.top, yuvImage);
+                            Bitmap yuvBmap = Bitmap.createBitmap(yuvColors, yuvPatch.width(),
+                                    yuvPatch.height(), Bitmap.Config.ARGB_8888);
+
+                            byte[] compressedJpegData = CameraTestUtils.getDataFromImage(jpegImage);
+                            BitmapRegionDecoder decoder = BitmapRegionDecoder.newInstance(
+                                    compressedJpegData, /*offset*/0, compressedJpegData.length,
+                                    /*isShareable*/true);
+                            BitmapFactory.Options opt = new BitmapFactory.Options();
+                            opt.inPreferredConfig = Bitmap.Config.ARGB_8888;
+                            Bitmap fullSizeJpegBmap = decoder.decodeRegion(jpegPatch, opt);
+                            Bitmap jpegBmap = Bitmap.createScaledBitmap(fullSizeJpegBmap,
+                                    yuvPatch.width(), yuvPatch.height(), /*filter*/true);
+
+                            // Compare two patches using average of per-pixel differences
+                            double difference = BitmapUtils.calcDifferenceMetric(yuvBmap, jpegBmap);
+
+                            Log.i(TAG, "Difference for resolution " + captureSz + " is: " +
+                                    difference);
+                            if (difference > IMAGE_DIFFERENCE_TOLERANCE) {
+                                // Dump files if running in verbose mode
+                                if (DEBUG) {
+                                    String jpegFileName = DEBUG_FILE_NAME_BASE + "/" + captureSz +
+                                            "_jpeg.jpg";
+                                    dumpFile(jpegFileName, jpegBmap);
+                                    String fullSizeJpegFileName = DEBUG_FILE_NAME_BASE + "/" +
+                                            captureSz + "_full_jpeg.jpg";
+                                    dumpFile(fullSizeJpegFileName, compressedJpegData);
+                                    String yuvFileName = DEBUG_FILE_NAME_BASE + "/" + captureSz +
+                                            "_yuv.jpg";
+                                    dumpFile(yuvFileName, yuvBmap);
+                                    String fullSizeYuvFileName = DEBUG_FILE_NAME_BASE + "/" +
+                                            captureSz + "_full_yuv.jpg";
+                                    int[] fullYUVColors = convertPixelYuvToRgba(yuvImage.getWidth(),
+                                            yuvImage.getHeight(), 0, 0, yuvImage);
+                                    Bitmap fullYUVBmap = Bitmap.createBitmap(fullYUVColors,
+                                            yuvImage.getWidth(), yuvImage.getHeight(),
+                                            Bitmap.Config.ARGB_8888);
+                                    dumpFile(fullSizeYuvFileName, fullYUVBmap);
+                                }
+                                fail("Camera " + mCamera.getId() + ": YUV and JPEG image at " +
+                                        "capture size " + captureSz + " for the same frame are " +
+                                        "not similar, center patches have difference metric of " +
+                                        difference);
+                            }
+
+                            // Stop capture, delete the streams.
+                            stopCapture(/*fast*/false);
+                        } finally {
+                            closeImageReader(jpegReader);
+                            jpegReader = null;
+                            closeImageReader(yuvReader);
+                            yuvReader = null;
+                        }
+                    }
+                }
+
+            } finally {
+                closeDevice(id);
+            }
+        }
+    }
+
+    /**
+     * Convert a rectangular patch in a YUV image to an ARGB color array.
+     *
+     * @param w width of the patch.
+     * @param h height of the patch.
+     * @param wOffset offset of the left side of the patch.
+     * @param hOffset offset of the top of the patch.
+     * @param yuvImage a YUV image to select a patch from.
+     * @return the image patch converted to RGB as an ARGB color array.
+     */
+    private static int[] convertPixelYuvToRgba(int w, int h, int wOffset, int hOffset,
+                                               Image yuvImage) {
+        final int CHANNELS = 3; // yuv
+        final float COLOR_RANGE = 255f;
+
+        assertTrue("Invalid argument to convertPixelYuvToRgba",
+                w > 0 && h > 0 && wOffset >= 0 && hOffset >= 0);
+        assertNotNull(yuvImage);
+
+        int imageFormat = yuvImage.getFormat();
+        assertTrue("YUV image must have YUV-type format",
+                imageFormat == ImageFormat.YUV_420_888 || imageFormat == ImageFormat.YV12 ||
+                        imageFormat == ImageFormat.NV21);
+
+        int height = yuvImage.getHeight();
+        int width = yuvImage.getWidth();
+
+        Rect imageBounds = new Rect(/*left*/0, /*top*/0, /*right*/width, /*bottom*/height);
+        Rect crop = new Rect(/*left*/wOffset, /*top*/hOffset, /*right*/wOffset + w,
+                /*bottom*/hOffset + h);
+        assertTrue("Output rectangle" + crop + " must lie within image bounds " + imageBounds,
+                imageBounds.contains(crop));
+        Image.Plane[] planes = yuvImage.getPlanes();
+
+        Image.Plane yPlane = planes[0];
+        Image.Plane cbPlane = planes[1];
+        Image.Plane crPlane = planes[2];
+
+        ByteBuffer yBuf = yPlane.getBuffer();
+        int yPixStride = yPlane.getPixelStride();
+        int yRowStride = yPlane.getRowStride();
+        ByteBuffer cbBuf = cbPlane.getBuffer();
+        int cbPixStride = cbPlane.getPixelStride();
+        int cbRowStride = cbPlane.getRowStride();
+        ByteBuffer crBuf = crPlane.getBuffer();
+        int crPixStride = crPlane.getPixelStride();
+        int crRowStride = crPlane.getRowStride();
+
+        int[] output = new int[w * h];
+
+        // TODO: Optimize this with renderscript intrinsics
+        byte[] yRow = new byte[yPixStride * w];
+        byte[] cbRow = new byte[cbPixStride * w / 2];
+        byte[] crRow = new byte[crPixStride * w / 2];
+        yBuf.mark();
+        cbBuf.mark();
+        crBuf.mark();
+        int initialYPos = yBuf.position();
+        int initialCbPos = cbBuf.position();
+        int initialCrPos = crBuf.position();
+        int outputPos = 0;
+        for (int i = hOffset; i < hOffset + h; i++) {
+            yBuf.position(initialYPos + i * yRowStride + wOffset * yPixStride);
+            yBuf.get(yRow);
+            if ((i & 1) == (hOffset & 1)) {
+                cbBuf.position(initialCbPos + (i / 2) * cbRowStride + wOffset * cbPixStride / 2);
+                cbBuf.get(cbRow);
+                crBuf.position(initialCrPos + (i / 2) * crRowStride + wOffset * crPixStride / 2);
+                crBuf.get(crRow);
+            }
+            for (int j = 0, yPix = 0, crPix = 0, cbPix = 0; j < w; j++, yPix += yPixStride) {
+                float y = yRow[yPix] & 0xFF;
+                float cb = cbRow[cbPix] & 0xFF;
+                float cr = crRow[crPix] & 0xFF;
+
+                // convert YUV -> RGB (from JFIF's "Conversion to and from RGB" section)
+                int r = (int) Math.max(0.0f, Math.min(COLOR_RANGE, y + 1.402f * (cr - 128)));
+                int g = (int) Math.max(0.0f,
+                        Math.min(COLOR_RANGE, y - 0.34414f * (cb - 128) - 0.71414f * (cr - 128)));
+                int b = (int) Math.max(0.0f, Math.min(COLOR_RANGE, y + 1.772f * (cb - 128)));
+
+                // Convert to ARGB pixel color (use opaque alpha)
+                output[outputPos++] = Color.rgb(r, g, b);
+
+                if ((j & 1) == 1) {
+                    crPix += crPixStride;
+                    cbPix += cbPixStride;
+                }
+            }
+        }
+        yBuf.rewind();
+        cbBuf.rewind();
+        crBuf.rewind();
+
+        return output;
+    }
 
     /**
      * Test capture a given format stream with yuv stream simultaneously.
@@ -267,6 +592,36 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
                 closeImageReader(yuvReader);
                 yuvReader = null;
             }
+        }
+    }
+
+    /**
+     * Test buffer access after release, YUV420_888 single capture is tested. This method
+     * should throw ISE.
+     */
+    private void bufferAccessAfterRelease() throws Exception {
+        final int FORMAT = ImageFormat.YUV_420_888;
+        Size[] availableSizes = mStaticInfo.getAvailableSizesForFormatChecked(FORMAT,
+                StaticMetadata.StreamDirection.Output);
+
+        try {
+            // Create ImageReader.
+            mListener = new SimpleImageListener();
+            createDefaultImageReader(availableSizes[0], FORMAT, MAX_NUM_IMAGES, mListener);
+
+            // Start capture.
+            CaptureRequest request = prepareCaptureRequest();
+            SimpleCaptureCallback listener = new SimpleCaptureCallback();
+            startCapture(request, /* repeating */false, listener, mHandler);
+
+            mListener.waitForAnyImageAvailable(CAPTURE_WAIT_TIMEOUT_MS);
+            Image img = mReader.acquireNextImage();
+            ByteBuffer buffer = img.getPlanes()[0].getBuffer();
+            img.close();
+
+            byte data = buffer.get(); // An ISE should be thrown here.
+        } finally {
+            closeDefaultImageReader();
         }
     }
 

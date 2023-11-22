@@ -6,9 +6,9 @@ import collections
 
 from measurements import startup
 from metrics import cpu
-from metrics import histogram_util
 from metrics import startup_metric
 from telemetry.core import util
+from telemetry.value import histogram_util
 
 
 class SessionRestore(startup.Startup):
@@ -67,7 +67,7 @@ class SessionRestore(startup.Startup):
     self._cpu_metric = cpu.CpuMetric(browser)
     self._cpu_metric.Start(None, None)
 
-  def MeasurePage(self, page, tab, results):
+  def ValidateAndMeasurePage(self, page, tab, results):
     tab.WaitForDocumentReadyStateToBeComplete()
 
     # Record CPU usage from browser start to when the foreground page is loaded.
@@ -75,3 +75,5 @@ class SessionRestore(startup.Startup):
     self._cpu_metric.AddResults(tab, results, 'cpu_utilization')
 
     startup_metric.StartupMetric().AddResults(tab, results)
+
+    # TODO(jeremy): Measure time to load - first, last and frontmost tab here.

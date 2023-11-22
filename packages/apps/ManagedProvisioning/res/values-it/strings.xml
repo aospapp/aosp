@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Impossibile utilizzare l\'app dell\'amministratore per componenti mancanti o danneggiati. Contatta il tuo reparto IT."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Impossibile installare l\'app di amministrazione"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"L\'app di amministrazione non è stata installata sul tuo dispositivo"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Interrompere la configurazione?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Vuoi interrompere la configurazione?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"No"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Sì"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Annullamento in corso..."</string>
 </resources>

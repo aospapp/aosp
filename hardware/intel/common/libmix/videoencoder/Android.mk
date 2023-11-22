@@ -46,8 +46,6 @@ LOCAL_SHARED_LIBRARIES := \
     libva \
     libva-android \
     libva-tpi \
-    libui \
-    libutils \
     libhardware \
     libintelmetadatabuffer
 

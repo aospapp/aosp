@@ -7,13 +7,13 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/chromium_strings.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/signin/core/common/profile_management_switches.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test_utils.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
 class UserManagerUIBrowserTest : public InProcessBrowserTest,
@@ -22,13 +22,13 @@ class UserManagerUIBrowserTest : public InProcessBrowserTest,
   UserManagerUIBrowserTest() {}
 
  protected:
-   virtual void SetUp() OVERRIDE {
+  virtual void SetUp() OVERRIDE {
     InProcessBrowserTest::SetUp();
-    DCHECK(switches::IsNewProfileManagement());
+    DCHECK(switches::IsNewAvatarMenu());
   }
 
   virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
-    switches::EnableNewProfileManagementForTesting(command_line);
+    switches::EnableNewAvatarMenuForTesting(command_line);
   }
 };
 
@@ -39,7 +39,7 @@ IN_PROC_BROWSER_TEST_F(UserManagerUIBrowserTest, PageLoads) {
       browser()->tab_strip_model()->GetActiveWebContents();
 
   base::string16 title = web_contents->GetTitle();
-  EXPECT_EQ(l10n_util::GetStringUTF16(IDS_USER_MANAGER_SCREEN_TITLE), title);
+  EXPECT_EQ(l10n_util::GetStringUTF16(IDS_PRODUCT_NAME), title);
 
   // If the page has loaded correctly, then there should be an account picker.
   int num_account_pickers = -1;

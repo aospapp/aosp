@@ -26,34 +26,31 @@
     android:layout_marginBottom="@dimen/widget_margin_bottom"
     android:orientation="vertical">
 
-    <RelativeLayout
+    <LinearLayout
         android:id="@+id/widget_header"
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:paddingLeft="16dp"
-        android:paddingRight="16dp"
-        android:background="@color/widget_header_bg_color">
-        <ImageButton
-            android:id="@+id/widget_compose"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@drawable/ic_widget_compose_wht_24dp"
-            android:background="?android:attr/selectableItemBackground"
-            android:paddingLeft="16dp"
-            android:layout_alignParentRight="true"
-            android:layout_centerVertical="true"
-            android:contentDescription="@string/compose" />
+        android:background="@color/widget_header_bg_color"
+        style="@style/WidgetHeaderStartMargin">
         <TextView
             android:id="@+id/widget_folder"
-            style="@style/WidgetTitle"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_gravity="center_vertical"
             android:freezesText="true"
-            android:layout_toLeftOf="@id/widget_compose"
-            android:layout_alignParentLeft="true"
-            android:layout_centerVertical="true"
-            android:includeFontPadding="false" />
-    </RelativeLayout>
+            android:textAlignment="viewStart"
+            android:includeFontPadding="false"
+            style="@style/WidgetTitle"/>
+        <ImageButton
+            android:id="@+id/widget_compose"
+            android:layout_width="56dp"
+            android:layout_height="match_parent"
+            android:scaleType="center"
+            android:src="@drawable/ic_pencil_wht_24dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:contentDescription="@string/compose" />
+    </LinearLayout>
 
     <LinearLayout
         android:id="@+id/widget_configuration"
@@ -83,7 +80,7 @@
         android:layout_weight="1"
         android:cacheColorHint="#00000000"
         android:background="@drawable/gradient_bg_widget_holo"
-        style="@style/ConversationListFade" />
+        style="@style/WidgetConversationListFade" />
     <TextView
         android:id="@+id/empty_conversation_list"
         android:layout_width="match_parent"

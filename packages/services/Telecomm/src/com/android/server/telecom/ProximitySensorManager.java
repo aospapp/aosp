@@ -42,7 +42,7 @@ public class ProximitySensorManager extends CallsManagerListenerBase {
     @Override
     public void onCallRemoved(Call call) {
         if (CallsManager.getInstance().getCalls().isEmpty()) {
-            Log.v(this, "all calls removed, resetting proximity sensor to default state");
+            Log.i(this, "All calls removed, resetting proximity sensor to default state");
             turnOff(true);
         }
         super.onCallRemoved(call);

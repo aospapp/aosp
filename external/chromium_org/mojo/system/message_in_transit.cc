@@ -38,25 +38,25 @@ STATIC_CONST_MEMBER_DEFINITION const size_t MessageInTransit::kMessageAlignment;
 
 struct MessageInTransit::PrivateStructForCompileAsserts {
   // The size of |Header| must be a multiple of the alignment.
-  COMPILE_ASSERT(sizeof(Header) % kMessageAlignment == 0,
-                 sizeof_MessageInTransit_Header_invalid);
+  static_assert(sizeof(Header) % kMessageAlignment == 0,
+                "sizeof(MessageInTransit::Header) invalid");
   // Avoid dangerous situations, but making sure that the size of the "header" +
   // the size of the data fits into a 31-bit number.
-  COMPILE_ASSERT(static_cast<uint64_t>(sizeof(Header)) + kMaxMessageNumBytes <=
-                     0x7fffffffULL,
-                 kMaxMessageNumBytes_too_big);
+  static_assert(static_cast<uint64_t>(sizeof(Header)) + kMaxMessageNumBytes <=
+                    0x7fffffffULL,
+                "kMaxMessageNumBytes too big");
 
   // We assume (to avoid extra rounding code) that the maximum message (data)
   // size is a multiple of the alignment.
-  COMPILE_ASSERT(kMaxMessageNumBytes % kMessageAlignment == 0,
-                 kMessageAlignment_not_a_multiple_of_alignment);
+  static_assert(kMaxMessageNumBytes % kMessageAlignment == 0,
+                "kMessageAlignment not a multiple of alignment");
 };
 
 MessageInTransit::View::View(size_t message_size, const void* buffer)
     : buffer_(buffer) {
   size_t next_message_size = 0;
-  DCHECK(MessageInTransit::GetNextMessageSize(buffer_, message_size,
-                                              &next_message_size));
+  DCHECK(MessageInTransit::GetNextMessageSize(
+      buffer_, message_size, &next_message_size));
   DCHECK_EQ(message_size, next_message_size);
   // This should be equivalent.
   DCHECK_EQ(message_size, total_size());
@@ -90,34 +90,34 @@ MessageInTransit::MessageInTransit(Type type,
                                    uint32_t num_bytes,
                                    const void* bytes)
     : main_buffer_size_(RoundUpMessageAlignment(sizeof(Header) + num_bytes)),
-      main_buffer_(static_cast<char*>(base::AlignedAlloc(main_buffer_size_,
-                                                         kMessageAlignment))) {
-  DCHECK_LE(num_bytes, kMaxMessageNumBytes);
-
-  // |total_size| is updated below, from the other values.
-  header()->type = type;
-  header()->subtype = subtype;
-  header()->source_id = kInvalidEndpointId;
-  header()->destination_id = kInvalidEndpointId;
-  header()->num_bytes = num_bytes;
-  header()->unused = 0;
-  // Note: If dispatchers are subsequently attached, then |total_size| will have
-  // to be adjusted.
-  UpdateTotalSize();
-
+      main_buffer_(static_cast<char*>(
+          base::AlignedAlloc(main_buffer_size_, kMessageAlignment))) {
+  ConstructorHelper(type, subtype, num_bytes);
   if (bytes) {
     memcpy(MessageInTransit::bytes(), bytes, num_bytes);
-    memset(static_cast<char*>(MessageInTransit::bytes()) + num_bytes, 0,
+    memset(static_cast<char*>(MessageInTransit::bytes()) + num_bytes,
+           0,
            main_buffer_size_ - sizeof(Header) - num_bytes);
   } else {
     memset(MessageInTransit::bytes(), 0, main_buffer_size_ - sizeof(Header));
   }
 }
 
+MessageInTransit::MessageInTransit(Type type,
+                                   Subtype subtype,
+                                   uint32_t num_bytes,
+                                   UserPointer<const void> bytes)
+    : main_buffer_size_(RoundUpMessageAlignment(sizeof(Header) + num_bytes)),
+      main_buffer_(static_cast<char*>(
+          base::AlignedAlloc(main_buffer_size_, kMessageAlignment))) {
+  ConstructorHelper(type, subtype, num_bytes);
+  bytes.GetArray(MessageInTransit::bytes(), num_bytes);
+}
+
 MessageInTransit::MessageInTransit(const View& message_view)
     : main_buffer_size_(message_view.main_buffer_size()),
-      main_buffer_(static_cast<char*>(base::AlignedAlloc(main_buffer_size_,
-                                                         kMessageAlignment))) {
+      main_buffer_(static_cast<char*>(
+          base::AlignedAlloc(main_buffer_size_, kMessageAlignment))) {
   DCHECK_GE(main_buffer_size_, sizeof(Header));
   DCHECK_EQ(main_buffer_size_ % kMessageAlignment, 0u);
 
@@ -129,7 +129,7 @@ MessageInTransit::MessageInTransit(const View& message_view)
 MessageInTransit::~MessageInTransit() {
   if (dispatchers_) {
     for (size_t i = 0; i < dispatchers_->size(); i++) {
-      if (!(*dispatchers_)[i])
+      if (!(*dispatchers_)[i].get())
         continue;
 
       DCHECK((*dispatchers_)[i]->HasOneRef());
@@ -146,8 +146,9 @@ bool MessageInTransit::GetNextMessageSize(const void* buffer,
   if (!buffer_size)
     return false;
   DCHECK(buffer);
-  DCHECK_EQ(reinterpret_cast<uintptr_t>(buffer) %
-                MessageInTransit::kMessageAlignment, 0u);
+  DCHECK_EQ(
+      reinterpret_cast<uintptr_t>(buffer) % MessageInTransit::kMessageAlignment,
+      0u);
 
   if (buffer_size < sizeof(Header))
     return false;
@@ -167,7 +168,7 @@ void MessageInTransit::SetDispatchers(
   dispatchers_ = dispatchers.Pass();
 #ifndef NDEBUG
   for (size_t i = 0; i < dispatchers_->size(); i++)
-    DCHECK(!(*dispatchers_)[i] || (*dispatchers_)[i]->HasOneRef());
+    DCHECK(!(*dispatchers_)[i].get() || (*dispatchers_)[i]->HasOneRef());
 #endif
 }
 
@@ -190,6 +191,23 @@ void MessageInTransit::SerializeAndCloseDispatchers(Channel* channel) {
   transport_data_.reset(new TransportData(dispatchers_.Pass(), channel));
 
   // Update the sizes in the message header.
+  UpdateTotalSize();
+}
+
+void MessageInTransit::ConstructorHelper(Type type,
+                                         Subtype subtype,
+                                         uint32_t num_bytes) {
+  DCHECK_LE(num_bytes, kMaxMessageNumBytes);
+
+  // |total_size| is updated below, from the other values.
+  header()->type = type;
+  header()->subtype = subtype;
+  header()->source_id = kInvalidEndpointId;
+  header()->destination_id = kInvalidEndpointId;
+  header()->num_bytes = num_bytes;
+  header()->unused = 0;
+  // Note: If dispatchers are subsequently attached, then |total_size| will have
+  // to be adjusted.
   UpdateTotalSize();
 }
 

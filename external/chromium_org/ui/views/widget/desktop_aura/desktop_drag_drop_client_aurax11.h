@@ -6,6 +6,7 @@
 #define UI_VIEWS_WIDGET_DESKTOP_AURA_DESKTOP_DRAG_DROP_CLIENT_AURAX11_H_
 
 #include <set>
+#include <vector>
 #include <X11/Xlib.h>
 
 #include "base/compiler_specific.h"
@@ -18,8 +19,7 @@
 #include "ui/gfx/point.h"
 #include "ui/gfx/x/x11_atom_cache.h"
 #include "ui/views/views_export.h"
-#include "ui/views/widget/desktop_aura/x11_whole_screen_move_loop.h"
-#include "ui/views/widget/desktop_aura/x11_whole_screen_move_loop_delegate.h"
+#include "ui/views/widget/desktop_aura/x11_move_loop_delegate.h"
 #include "ui/wm/public/drag_drop_client.h"
 
 namespace aura {
@@ -29,6 +29,7 @@ class DragDropDelegate;
 }
 
 namespace gfx {
+class ImageSkia;
 class Point;
 }
 
@@ -42,6 +43,8 @@ class SelectionFormatMap;
 
 namespace views {
 class DesktopNativeCursorManager;
+class Widget;
+class X11MoveLoop;
 
 // Implements drag and drop on X11 for aura. On one side, this class takes raw
 // X11 events forwarded from DesktopWindowTreeHostLinux, while on the other, it
@@ -49,7 +52,7 @@ class DesktopNativeCursorManager;
 class VIEWS_EXPORT DesktopDragDropClientAuraX11
     : public aura::client::DragDropClient,
       public aura::WindowObserver,
-      public X11WholeScreenMoveLoopDelegate {
+      public X11MoveLoopDelegate {
  public:
   DesktopDragDropClientAuraX11(
       aura::Window* root_window,
@@ -62,6 +65,8 @@ class VIEWS_EXPORT DesktopDragDropClientAuraX11
   // their ::Windows. We do this so that we're able to short circuit sending
   // X11 messages to windows in our process.
   static DesktopDragDropClientAuraX11* GetForWindow(::Window window);
+
+  void Init();
 
   // These methods handle the various X11 client messages from the platform.
   void OnXdndEnter(const XClientMessageEvent& event);
@@ -99,6 +104,10 @@ class VIEWS_EXPORT DesktopDragDropClientAuraX11
 
  protected:
   // The following methods are virtual for the sake of testing.
+
+  // Creates a move loop.
+  virtual scoped_ptr<X11MoveLoop> CreateMoveLoop(
+      X11MoveLoopDelegate* delegate);
 
   // Finds the topmost X11 window at |screen_point| and returns it if it is
   // Xdnd aware. Returns NULL otherwise.
@@ -177,9 +186,16 @@ class VIEWS_EXPORT DesktopDragDropClientAuraX11
                         unsigned long event_time);
   void SendXdndDrop(::Window dest_window);
 
+  // Creates a widget for the user to drag around.
+  void CreateDragWidget(const gfx::ImageSkia& image);
+
+  // Returns true if |image| has any visible regions (defined as having a pixel
+  // with alpha > 32).
+  bool IsValidDragImage(const gfx::ImageSkia& image);
+
   // A nested message loop that notifies this object of events through the
-  // X11WholeScreenMoveLoopDelegate interface.
-  X11WholeScreenMoveLoop move_loop_;
+  // X11MoveLoopDelegate interface.
+  scoped_ptr<X11MoveLoop> move_loop_;
 
   aura::Window* root_window_;
 
@@ -246,6 +262,12 @@ class VIEWS_EXPORT DesktopDragDropClientAuraX11
   // Ends the move loop if the target is too slow to respond after the mouse is
   // released.
   base::OneShotTimer<DesktopDragDropClientAuraX11> end_move_loop_timer_;
+
+  // Widget that the user drags around. May be NULL.
+  scoped_ptr<Widget> drag_widget_;
+
+  // The offset of |drag_widget_| relative to the mouse position.
+  gfx::Vector2d drag_widget_offset_;
 
   // We use these cursors while dragging.
   gfx::NativeCursor grab_cursor_;

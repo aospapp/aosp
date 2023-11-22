@@ -80,6 +80,7 @@ public class SingleFolderSelectionDialog extends FolderSelectionDialog {
                         // The number of view types changes here, so we have to reset the ListView's
                         // adapter.
                         dialog.getListView().setAdapter(null);
+                        dialog.getListView().setDivider(null);
 
                         mAdapter.clearSections();
 

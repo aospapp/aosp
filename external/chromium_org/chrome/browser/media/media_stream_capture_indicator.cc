@@ -12,53 +12,47 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/status_icons/status_icon.h"
 #include "chrome/browser/status_icons/status_tray.h"
 #include "chrome/browser/tab_contents/tab_util.h"
-#include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/chromium_strings.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/invalidate_type.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
-#include "extensions/common/extension.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "net/base/net_util.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image_skia.h"
 
+#if defined(ENABLE_EXTENSIONS)
+#include "chrome/common/extensions/extension_constants.h"
+#include "extensions/browser/extension_registry.h"
+#include "extensions/common/extension.h"
+#endif
+
 using content::BrowserThread;
 using content::WebContents;
 
 namespace {
 
+#if defined(ENABLE_EXTENSIONS)
 const extensions::Extension* GetExtension(WebContents* web_contents) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   if (!web_contents)
     return NULL;
 
-  Profile* profile =
-      Profile::FromBrowserContext(web_contents->GetBrowserContext());
-  if (!profile)
-    return NULL;
-
-  ExtensionService* extension_service = profile->GetExtensionService();
-  if (!extension_service)
-    return NULL;
-
-  return extension_service->extensions()->GetExtensionOrAppByURL(
+  extensions::ExtensionRegistry* registry =
+      extensions::ExtensionRegistry::Get(web_contents->GetBrowserContext());
+  return registry->enabled_extensions().GetExtensionOrAppByURL(
       web_contents->GetURL());
 }
-
-#if !defined(OS_ANDROID)
 
 bool IsWhitelistedExtension(const extensions::Extension* extension) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
@@ -74,8 +68,7 @@ bool IsWhitelistedExtension(const extensions::Extension* extension) {
 
   return false;
 }
-
-#endif  // !defined(OS_ANDROID)
+#endif  // defined(ENABLE_EXTENSIONS)
 
 // Gets the security originator of the tab. It returns a string with no '/'
 // at the end to display in the UI.
@@ -103,9 +96,11 @@ base::string16 GetTitle(WebContents* web_contents) {
   if (!web_contents)
     return base::string16();
 
+#if defined(ENABLE_EXTENSIONS)
   const extensions::Extension* const extension = GetExtension(web_contents);
   if (extension)
     return base::UTF8ToUTF16(extension->name());
+#endif
 
   base::string16 tab_title = web_contents->GetTitle();
 
@@ -433,7 +428,7 @@ void MediaStreamCaptureIndicator::UpdateNotificationUserInterface() {
     // The audio/video icon is shown only for non-whitelisted extensions or on
     // Android. For regular tabs on desktop, we show an indicator in the tab
     // icon.
-#if !defined(OS_ANDROID)
+#if defined(ENABLE_EXTENSIONS)
     const extensions::Extension* extension = GetExtension(web_contents);
     if (!extension || IsWhitelistedExtension(extension))
       continue;

@@ -51,6 +51,7 @@ class SYNC_EXPORT Cryptographer {
  public:
   // Does not take ownership of |encryptor|.
   explicit Cryptographer(Encryptor* encryptor);
+  explicit Cryptographer(const Cryptographer& other);
   ~Cryptographer();
 
   // |restored_bootstrap_token| can be provided via this method to bootstrap
@@ -176,9 +177,12 @@ class SYNC_EXPORT Cryptographer {
   // and/or has a different default key.
   bool KeybagIsStale(const sync_pb::EncryptedData& keybag) const;
 
+  // Returns the name of the Nigori key currently used for encryption.
+  std::string GetDefaultNigoriKeyName() const;
+
   // Returns a serialized sync_pb::NigoriKey version of current default
   // encryption key.
-  std::string GetDefaultNigoriKey() const;
+  std::string GetDefaultNigoriKeyData() const;
 
   // Generates a new Nigori from |serialized_nigori_key|, and if successful
   // installs the new nigori as the default key.
@@ -203,13 +207,14 @@ class SYNC_EXPORT Cryptographer {
 
   // The Nigoris we know about, mapped by key name.
   NigoriMap nigoris_;
+
   // The key name associated with the default nigori. If non-empty, must
   // correspond to a nigori within |nigoris_|.
   std::string default_nigori_name_;
 
   scoped_ptr<sync_pb::EncryptedData> pending_keys_;
 
-  DISALLOW_COPY_AND_ASSIGN(Cryptographer);
+  DISALLOW_ASSIGN(Cryptographer);
 };
 
 }  // namespace syncer

@@ -4,9 +4,33 @@
 
 body {
   -webkit-user-select: none;
-  font-family: Open Sans, Droid Sans Fallback, sans-serif;
+  font-family: Noto Sans UI, sans-serif;
   font-size: 84%;
   margin: 0;
+}
+
+input:focus, button:focus {
+  outline: 1px solid rgb(77, 144, 254);
+}
+
+input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+  background: -webkit-image-set(
+      url(../../file_manager/foreground/images/common/checkbox_white_unchecked.png) 1x,
+      url(../../file_manager/foreground/images/common/2x/checkbox_white_unchecked.png) 2x)
+      -1px -1px;
+  -webkit-appearance: none;
+  display: inline-block;
+  margin: 1px 6px 1px 1px;
+  vertical-align: text-bottom;
+}
+
+input[type='checkbox']:checked {
+  background: -webkit-image-set(
+      url(../../file_manager/foreground/images/common/checkbox_white_checked.png) 1x,
+      url(../../file_manager/foreground/images/common/2x/checkbox_white_checked.png) 2x)
+      -1px -1px;
 }
 
 .gallery,
@@ -22,40 +46,6 @@ body {
 /* Common background for both mosaic and slide mode. */
 .gallery .content {
   background-color: black;
-}
-
-/* Close button */
-
-/* We actually want (left,top) to be (0,0) but for some weird reason
-   this triggers :hover style on page reload which is ugly. */
-.gallery > .back-button {
-  cursor: pointer;
-  left: 1px;
-  position: absolute;
-  top: 1px;
-  z-index: 200;
-}
-
-/* The close icon is in a nested div so that its opacity can be manipulated
-   independently from its parent (which can be dimmed when the crop frame
-   overlaps it) */
-.gallery > .back-button div {
-  background-image: -webkit-image-set(
-      url(../images/100/back_to_files.png) 1x,
-      url(../images/200/back_to_files.png) 2x);
-  background-position: center center;
-  background-repeat: no-repeat;
-  height: 40px;
-  opacity: 0;
-  width: 64px;
-}
-
-.gallery[tools] > .back-button div {
-  opacity: 0.5;
-}
-
-.gallery[tools] > .back-button div:hover {
-  opacity: 1;
 }
 
 /* Image container and canvas elements */
@@ -152,11 +142,6 @@ body {
     max-height: 100%;
     max-width: 100%;
   }
-
-  /* Print video at the center of the page */
-  .gallery .image-container > video.image {
-    position: auto !important;
-  }
 }
 
 /* Toolbar */
@@ -167,7 +152,7 @@ body {
   -webkit-box-orient: horizontal;
   -webkit-box-pack: start;
   background-color: rgba(30, 30, 30, 0.8);
-  display: -webkit-box;
+  display: flex;
   left: 0;
   opacity: 0;
   padding: 0 10px;
@@ -195,7 +180,7 @@ body {
   border-top: 1px solid rgba(50, 50, 50, 0.8);
   bottom: 0;
   height: 55px;
-  min-width: 800px;
+  overflow: hidden;
 }
 
 .gallery[tools]:not([slideshow]) > .header,
@@ -298,10 +283,12 @@ body {
 /* Filename */
 
 .gallery .filename-spacer {
+  flex: 0 1 auto;
   height: 100%;
+  min-width: 140px;
   overflow: hidden;
   position: relative;
-  width: 270px;
+  width: 252px;
 }
 
 .gallery .filename-spacer > * {
@@ -407,17 +394,13 @@ body {
   pointer-events: none;
 }
 
-.gallery .filename-spacer .overwrite-original input {
-  margin-bottom: -2px;
-  margin-right: 6px;
-}
-
 .gallery .filename-spacer .saved[highlighted] {
   -webkit-transform: scaleX(1.1) scaleY(1.1) rotate(0);
   opacity: 1;
 }
 
 /* Bubble */
+
 .gallery .toolbar .bubble {
   bottom: 65px;
   font-size: 85%;
@@ -430,31 +413,32 @@ body {
   display: none;
 }
 
+/* Middle spacer */
+
+.gallery .middle-spacer {
+  align-items: center;
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+}
+
 /* Toolbar buttons */
 
 .gallery .button-spacer {
-  -webkit-box-flex: 1;
-  display: -webkit-box;
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  width: 252px; /* 42px button x 6 */
 }
 
 /* Thumbnails */
 
 .gallery .ribbon-spacer {
-  -webkit-box-align: center;
-  -webkit-box-orient: horizontal;
-  -webkit-box-pack: center;
-  display: -webkit-box;
-  height: 100%;
-  left: 280px;
-  position: absolute;
-  right: 280px;
+  height: 55px;
+  margin-bottom: -55px;
 }
 
 .gallery .toolbar .ribbon {
-  -webkit-box-flex: 0;
-  -webkit-box-orient: horizontal;
-  -webkit-box-pack: start;
-  display: -webkit-box;
   height: 100%;
   overflow: hidden;
   transition: opacity 180ms linear, visibility 0 linear;
@@ -468,12 +452,9 @@ body {
 }
 
 .gallery .ribbon-image {
-  -webkit-box-align: center;
-  -webkit-box-orient: horizontal;
-  -webkit-box-pack: center;
   border: 2px solid rgba(255, 255, 255, 0);  /* transparent white */
   cursor: pointer;
-  display: -webkit-box;
+  display: inline-block;
   height: 47px;
   margin: 2px;
   overflow: hidden;
@@ -490,7 +471,7 @@ body {
 }
 
 .gallery .ribbon-image[selected] {
-  border: 2px solid rgba(255, 233, 168, 1);
+  border: 2px solid rgb(77, 144, 254);
 }
 
 .gallery .toolbar .ribbon.fade-left {
@@ -537,10 +518,10 @@ body {
   height: 100%;
   left: 280px;
   opacity: 0;
-  position: absolute;
   right: 280px;
   transition: opacity 180ms linear, visibility 0 linear 180ms;
   visibility: hidden;
+  margin-bottom: -55px;
 }
 
 .gallery .toolbar .edit-main {
@@ -563,10 +544,6 @@ body {
 .gallery .toolbar button,
 .gallery .header button[disabled],
 .gallery .toolbar button[disabled] {
-  -webkit-box-align: center;
-  -webkit-box-flex: 0;
-  -webkit-box-orient: horizontal;
-  -webkit-box-pack: end;
   background-color: rgba(0, 0, 0, 0);
   background-position: center;
   background-repeat: no-repeat;
@@ -574,7 +551,8 @@ body {
   box-shadow: none;
   color: white;
   cursor: pointer;
-  display: -webkit-box;
+  display: inline-block;
+  flex: none;
   opacity: 0.99;  /* Workaround for http://crosbug.com/21065 */
   padding: 1px;  /* Instead of a border. */
   position: relative;
@@ -587,6 +565,10 @@ body {
   margin: 6px 0;
   min-width: 40px;  /* Reset. */
   width: 40px;
+}
+
+.gallery .toolbar button:focus {
+  z-index: 11;
 }
 
 /* By default, labels are hidden. */
@@ -730,95 +712,95 @@ body {
   display: none;
 }
 
-.gallery[mode='slide'] > .toolbar > button.mode {
+.gallery[mode='slide'] > .toolbar button.mode {
   background-image: -webkit-image-set(
       url(../images/100/icon_mosaic.png) 1x,
       url(../images/200/icon_mosaic.png) 2x);
 }
 
-.gallery[mode='slide'] > .toolbar > button.mode:active {
+.gallery[mode='slide'] > .toolbar button.mode:active {
   background-image: -webkit-image-set(
       url(../images/100/icon_mosaic_selected.png) 1x,
       url(../images/200/icon_mosaic_selected.png) 2x);
 }
 
-.gallery[mode='mosaic'] > .toolbar > button.mode {
+.gallery[mode='mosaic'] > .toolbar button.mode {
   background-image: -webkit-image-set(
       url(../images/100/icon_1up.png) 1x,
       url(../images/200/icon_1up.png) 2x);
 }
 
-.gallery[mode='mosaic'] > .toolbar > button.mode:active {
+.gallery[mode='mosaic'] > .toolbar button.mode:active {
   background-image: -webkit-image-set(
       url(../images/100/icon_1up_selected.png) 1x,
       url(../images/200/icon_1up_selected.png) 2x);
 }
 
-.gallery > .toolbar > button.slideshow {
+.gallery > .toolbar button.slideshow {
   background-image: -webkit-image-set(
       url(../images/100/icon_slideshow.png) 1x,
       url(../images/200/icon_slideshow.png) 2x);
 }
 
-.gallery > .toolbar > button.slideshow:active,
-.gallery > .toolbar > button.slideshow[pressed] {
+.gallery > .toolbar button.slideshow:active,
+.gallery > .toolbar button.slideshow[pressed] {
   background-image: -webkit-image-set(
       url(../images/100/icon_slideshow_selected.png) 1x,
       url(../images/200/icon_slideshow_selected.png) 2x);
 }
 
-.gallery > .toolbar > button.delete {
+.gallery > .toolbar button.delete {
   background-image: -webkit-image-set(
       url(../images/100/icon_delete.png) 1x,
       url(../images/200/icon_delete.png) 2x);
 }
 
-.gallery > .toolbar > button.delete:active {
+.gallery > .toolbar button.delete:active {
   background-image: -webkit-image-set(
       url(../images/100/icon_delete_selected.png) 1x,
       url(../images/200/icon_delete_selected.png) 2x);
 }
 
-.gallery > .toolbar > button.edit {
+.gallery > .toolbar button.edit {
   background-image: -webkit-image-set(
       url(../images/100/icon_edit.png) 1x,
       url(../images/200/icon_edit.png) 2x);
 }
 
-.gallery > .toolbar > button.edit:active,
-.gallery > .toolbar > button.edit[pressed] {
+.gallery > .toolbar button.edit:active,
+.gallery > .toolbar button.edit[pressed] {
   background-image: -webkit-image-set(
       url(../images/100/icon_edit_selected.png) 1x,
       url(../images/200/icon_edit_selected.png) 2x);
 }
 
-.gallery > .toolbar > button.print {
+.gallery > .toolbar button.print {
   background-image: -webkit-image-set(
       url(../images/100/icon_print.png) 1x,
       url(../images/200/icon_print.png) 2x);
 }
 
-.gallery > .toolbar > button.print:active,
-.gallery > .toolbar > button.print[pressed] {
+.gallery > .toolbar button.print:active,
+.gallery > .toolbar button.print[pressed] {
   background-image: -webkit-image-set(
       url(../images/100/icon_print_selected.png) 1x,
       url(../images/200/icon_print_selected.png) 2x);
 }
 
-.gallery > .toolbar > button.share {
+.gallery > .toolbar button.share {
   background-image: -webkit-image-set(
       url(../images/100/icon_share.png) 1x,
       url(../images/200/icon_share.png) 2x);
 }
 
-.gallery > .toolbar > button.share:active,
-.gallery > .toolbar > button.share[pressed] {
+.gallery > .toolbar button.share:active,
+.gallery > .toolbar button.share[pressed] {
   background-image: -webkit-image-set(
       url(../images/100/icon_share_selected.png) 1x,
       url(../images/200/icon_share_selected.png) 2x);
 }
 
-.gallery > .toolbar > button.share[disabled] {
+.gallery > .toolbar button.share[disabled] {
   display: none;
 }
 
@@ -846,7 +828,6 @@ body {
   background-color: rgba(0, 0, 0, 0.75);
   color: white;
   display: -webkit-box;
-  padding-right: 5px;
   pointer-events: auto;
 }
 
@@ -875,11 +856,49 @@ body {
   margin-left: 15px;
 }
 
+.gallery .edit-modal button {
+  background: transparent;
+  border: 0 none;
+  border-image: none;
+  box-sizing: border-box;
+  color: #fff;
+  height: 100%;
+  min-width: 0;
+  padding: 8px 16px;
+}
+
+.gallery .edit-modal button * {
+  pointer-events: none;
+}
+
+.gallery .edit-modal button:hover {
+  background: #1f1f1f;
+  color: #fff;
+}
+
+.gallery .edit-modal button.selected,
+.gallery .edit-modal button:active {
+  background: #f0f0f0;
+  color: black;
+}
+
 .gallery .edit-modal .range {
   -webkit-appearance: none !important;
-  height: 3px;
+  background: transparent;
+  height: 29px;
   margin-right: 10px;
-  margin-top: 1px;
+  position: relative;
+}
+
+.gallery .edit-modal .range::before {
+  background: #fff;
+  content: '';
+  display: block;
+  height: 3px;
+  left: 3px;
+  position: absolute;
+  right: 3px;
+  top: 13px;
 }
 
 .gallery .edit-modal .range::-webkit-slider-thumb {
@@ -996,7 +1015,7 @@ body {
   display: none;
 }
 
-.gallery .prompt-wrapper > div.dimmable {
+.dimmable {
   opacity: 1;
   transition: opacity 220ms ease;
 }
@@ -1028,24 +1047,6 @@ body {
 
 .gallery .prompt-wrapper[pos=top] .prompt {
   padding-right: 10px;
-}
-
-.gallery .prompt .back-button {
-  background-image: -webkit-image-set(
-      url(../images/100/butterbar_close_button.png) 1x,
-      url(../images/200/butterbar_close_button.png) 2x);
-  background-position: center center;
-  background-repeat: no-repeat;
-  height: 16px;
-  margin-left: 16px;
-  opacity: 0.65;
-  pointer-events: auto;
-  width: 16px;
-}
-
-.gallery .prompt .back-button:hover {
-  background-color: rgba(81, 81, 81, 1);
-  opacity: 1.0;
 }
 
 .gallery .share-menu {
@@ -1127,8 +1128,8 @@ body {
   -webkit-box-pack: center;
   background-color: rgba(24, 24, 24, 1);
   background-image: -webkit-image-set(
-      url(../../file_manager/foreground/images/media/error.png) 1x,
-      url(../../file_manager/foreground/images/media/2x/error.png) 2x);
+      url(../images/100/error.png) 1x,
+      url(../images/200/error.png) 2x);
   background-position: 25px center;
   background-repeat: no-repeat;
   color: white;
@@ -1139,52 +1140,6 @@ body {
 }
 
 .gallery:not([error]) .error-banner {
-  display: none;
-}
-
-/* Video playback support. */
-
-.gallery video {
-  height: 100%;
-  position: absolute;
-  width: 100%;
-}
-
-.gallery .video-controls-spacer {
-  -webkit-box-align: center;
-  -webkit-box-orient: horizontal;
-  -webkit-box-pack: center;
-  bottom: 60px;  /* Just above the toolbar */
-  display: -webkit-box;
-  height: 30px;
-  left: 0;
-  opacity: 0;
-  pointer-events: none;
-  position: absolute;
-  right: 0;
-}
-
-.gallery[video] .video-controls-spacer {
-  /* Animate opacity on 'tools' attribute toggle. */
-  /* Change opacity immediately on 'video' attribute change. */
-  transition: opacity 280ms ease;
-}
-
-.gallery[video][tools] .video-controls-spacer {
-  opacity: 1;
-}
-
-.gallery .video-controls {
-  display: none;
-  max-width: 800px;
-}
-
-.gallery[video] .video-controls {
-  -webkit-box-flex: 1;
-  display: -webkit-box;
-}
-
-.gallery[video] > .toolbar .edit-main {
   display: none;
 }
 
@@ -1220,6 +1175,7 @@ body {
   /* Tile's zoom factor is animated on hover. We apply the transform to
   the entire tile so that the image outline is included into the animation. */
   transition: -webkit-transform 150ms linear;
+  z-index: 50;
 }
 
 /* Mosaic tile's opacity is controlled by |visible| attribute which changes
@@ -1252,11 +1208,6 @@ body {
 /* Selected and hover state are only visible when zoom transition is over. */
 .mosaic[visible='normal'] .mosaic-tile[selected] .img-border {
   outline-color: rgb(51, 153, 255);
-}
-
-.mosaic[visible='normal'].hover-visible .mosaic-tile:hover {
-  -webkit-transform: scale(1.05);
-  z-index: 50;
 }
 
 .mosaic[visible='normal'].hover-visible

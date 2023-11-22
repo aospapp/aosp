@@ -37,13 +37,8 @@ class PersistedLogs {
     END_RECALL_STATUS       // Number of bins to use to create the histogram.
   };
 
-  enum StoreType {
-    NORMAL_STORE,       // A standard store operation.
-    PROVISIONAL_STORE,  // A store operation that can be easily reverted later.
-  };
-
   // Constructs a PersistedLogs that stores data in |local_state| under the
-  // preference |pref_name| and also reads from legacy pref |old_pref_name|.
+  // preference |pref_name|.
   // Calling code is responsible for ensuring that the lifetime of |local_state|
   // is longer than the lifetime of PersistedLogs.
   //
@@ -51,17 +46,16 @@ class PersistedLogs {
   // at least |min_log_bytes| bytes of logs, whichever is greater.
   //
   // If the optional |max_log_size| parameter is non-zero, all logs larger than
-  // that limit will be dropped before logs are written to disk.
+  // that limit will be skipped when writing to disk.
   PersistedLogs(PrefService* local_state,
                 const char* pref_name,
-                const char* old_pref_name,
                 size_t min_log_count,
                 size_t min_log_bytes,
                 size_t max_log_size);
   ~PersistedLogs();
 
   // Write list to storage.
-  void SerializeLogs();
+  void SerializeLogs() const;
 
   // Reads the list from the preference.
   LogReadStatus DeserializeLogs();
@@ -76,35 +70,19 @@ class PersistedLogs {
   // Remove the staged log.
   void DiscardStagedLog();
 
-  // Saves the staged log, then clears staged_log().
-  // If |store_type| is PROVISIONAL_STORE, it can be dropped from storage with
-  // a later call to DiscardLastProvisionalStore (if it hasn't already been
-  // staged again).
-  // This is intended to be used when logs are being saved while an upload is in
-  // progress, in case the upload later succeeds.
-  // This can only be called if has_staged_log() is true.
-  void StoreStagedLogAsUnsent(StoreType store_type);
-
-  // Discards the last log stored with StoreStagedLogAsUnsent with |store_type|
-  // set to PROVISIONAL_STORE, as long as it hasn't already been re-staged. If
-  // the log is no longer present, this is a no-op.
-  void DiscardLastProvisionalStore();
-
   // True if a log has been staged.
-  bool has_staged_log() const {
-    return !staged_log_.compressed_log_data.empty();
-  }
+  bool has_staged_log() const { return staged_log_index_ != -1; }
 
   // Returns the element in the front of the list.
   const std::string& staged_log() const {
     DCHECK(has_staged_log());
-    return staged_log_.compressed_log_data;
+    return list_[staged_log_index_].compressed_log_data;
   }
 
   // Returns the element in the front of the list.
   const std::string& staged_log_hash() const {
     DCHECK(has_staged_log());
-    return staged_log_.hash;
+    return list_[staged_log_index_].hash;
   }
 
   // The number of elements currently stored.
@@ -115,14 +93,10 @@ class PersistedLogs {
 
  private:
   // Writes the list to the ListValue.
-  void WriteLogsToPrefList(base::ListValue* list);
+  void WriteLogsToPrefList(base::ListValue* list) const;
 
   // Reads the list from the ListValue.
   LogReadStatus ReadLogsFromPrefList(const base::ListValue& list);
-
-  // Reads the list from the old pref's ListValue.
-  // TODO(asvitkine): Remove the old pref in M39.
-  LogReadStatus ReadLogsFromOldPrefList(const base::ListValue& list);
 
   // A weak pointer to the PrefService object to read and write the preference
   // from.  Calling code should ensure this object continues to exist for the
@@ -131,10 +105,6 @@ class PersistedLogs {
 
   // The name of the preference to serialize logs to/from.
   const char* pref_name_;
-
-  // The name of the preference to serialize logs from.
-  // TODO(asvitkine): Remove the old pref in M39.
-  const char* old_pref_name_;
 
   // We will keep at least this |min_log_count_| logs or |min_log_bytes_| bytes
   // of logs, whichever is greater, when writing to disk.  These apply after
@@ -149,12 +119,6 @@ class PersistedLogs {
     // Initializes the members based on uncompressed |log_data|.
     void Init(const std::string& log_data);
 
-    // Clears the struct members.
-    void Clear();
-
-    // Swap both log and hash from another LogHashPair.
-    void Swap(LogHashPair* input);
-
     // Compressed log data - a serialized protobuf that's been gzipped.
     std::string compressed_log_data;
 
@@ -165,16 +129,9 @@ class PersistedLogs {
   // corruption while they are stored in memory.
   std::vector<LogHashPair> list_;
 
-  // The log staged for upload.
-  LogHashPair staged_log_;
-
-  // The index and type of the last provisional store. If nothing has been
-  // provisionally stored, or the last provisional store has already been
-  // re-staged, the index will be -1;
-  // This is necessary because during an upload there are two logs (staged
-  // and current) and a client might store them in either order, so it's
-  // not necessarily the case that the provisional store is the last store.
-  int last_provisional_store_index_;
+  // The index and type of the log staged for upload. If nothing has been
+  // staged, the index will be -1.
+  int staged_log_index_;
 
   DISALLOW_COPY_AND_ASSIGN(PersistedLogs);
 };

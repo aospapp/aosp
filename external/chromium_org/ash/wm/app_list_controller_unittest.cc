@@ -11,9 +11,9 @@
 #include "base/memory/scoped_ptr.h"
 #include "ui/app_list/app_list_switches.h"
 #include "ui/app_list/views/app_list_view.h"
-#include "ui/aura/test/event_generator.h"
 #include "ui/aura/test/test_windows.h"
 #include "ui/aura/window.h"
+#include "ui/events/test/event_generator.h"
 
 namespace ash {
 
@@ -55,7 +55,7 @@ bool AppListControllerTest::IsCentered() const {
 
 // Tests that app launcher hides when focus moves to a normal window.
 TEST_P(AppListControllerTest, HideOnFocusOut) {
-  Shell::GetInstance()->ToggleAppList(NULL);
+  Shell::GetInstance()->ShowAppList(NULL);
   EXPECT_TRUE(Shell::GetInstance()->GetAppListTargetVisibility());
 
   scoped_ptr<aura::Window> window(CreateTestWindowInShellWithId(0));
@@ -67,7 +67,7 @@ TEST_P(AppListControllerTest, HideOnFocusOut) {
 // Tests that app launcher remains visible when focus is moved to a different
 // window in kShellWindowId_AppListContainer.
 TEST_P(AppListControllerTest, RemainVisibleWhenFocusingToApplistContainer) {
-  Shell::GetInstance()->ToggleAppList(NULL);
+  Shell::GetInstance()->ShowAppList(NULL);
   EXPECT_TRUE(Shell::GetInstance()->GetAppListTargetVisibility());
 
   aura::Window* applist_container = Shell::GetContainer(
@@ -82,12 +82,11 @@ TEST_P(AppListControllerTest, RemainVisibleWhenFocusingToApplistContainer) {
 // Tests that clicking outside the app-list bubble closes it.
 TEST_P(AppListControllerTest, ClickOutsideBubbleClosesBubble) {
   Shell* shell = Shell::GetInstance();
-  shell->ToggleAppList(NULL);
+  shell->ShowAppList(NULL);
 
   aura::Window* app_window = shell->GetAppListWindow();
   ASSERT_TRUE(app_window);
-  aura::test::EventGenerator generator(shell->GetPrimaryRootWindow(),
-                                       app_window);
+  ui::test::EventGenerator generator(shell->GetPrimaryRootWindow(), app_window);
   // Click on the bubble itself. The bubble should remain visible.
   generator.ClickLeftButton();
   EXPECT_TRUE(shell->GetAppListTargetVisibility());
@@ -106,13 +105,13 @@ TEST_P(AppListControllerTest, ClickOutsideBubbleClosesBubble) {
 // Tests that clicking outside the app-list bubble closes it.
 TEST_P(AppListControllerTest, TapOutsideBubbleClosesBubble) {
   Shell* shell = Shell::GetInstance();
-  shell->ToggleAppList(NULL);
+  shell->ShowAppList(NULL);
 
   aura::Window* app_window = shell->GetAppListWindow();
   ASSERT_TRUE(app_window);
   gfx::Rect app_window_bounds = app_window->GetBoundsInRootWindow();
 
-  aura::test::EventGenerator generator(shell->GetPrimaryRootWindow());
+  ui::test::EventGenerator generator(shell->GetPrimaryRootWindow());
   // Click on the bubble itself. The bubble should remain visible.
   generator.GestureTapAt(app_window_bounds.CenterPoint());
   EXPECT_TRUE(shell->GetAppListTargetVisibility());
@@ -140,7 +139,7 @@ TEST_P(AppListControllerTest, NonPrimaryDisplay) {
   aura::Window* secondary_window = root_windows[1];
   EXPECT_EQ("800,0 800x600", secondary_window->GetBoundsInScreen().ToString());
 
-  Shell::GetInstance()->ToggleAppList(secondary_window);
+  Shell::GetInstance()->ShowAppList(secondary_window);
   EXPECT_TRUE(Shell::GetInstance()->GetAppListTargetVisibility());
 
   // Remove the secondary display. Shouldn't crash (http://crbug.com/368990).
@@ -167,7 +166,7 @@ TEST_P(AppListControllerTest, TinyDisplay) {
   // Set up a screen with a tiny display (height smaller than the app list).
   UpdateDisplay("400x300");
 
-  Shell::GetInstance()->ToggleAppList(NULL);
+  Shell::GetInstance()->ShowAppList(NULL);
   EXPECT_TRUE(Shell::GetInstance()->GetAppListTargetVisibility());
 
   // The top of the app list should be on-screen (even if the bottom is not).

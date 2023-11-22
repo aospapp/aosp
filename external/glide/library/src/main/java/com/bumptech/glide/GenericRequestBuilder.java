@@ -550,47 +550,6 @@ public class GenericRequestBuilder<ModelType, DataType, ResourceType, TranscodeT
         return into(glide.buildImageViewTarget(view, transcodeClass));
     }
 
-    private Request buildRequest(Target<TranscodeType> target) {
-        final Request result;
-
-        if (priority == null) {
-            priority = Priority.NORMAL;
-        }
-
-        if (thumbnailRequestBuilder != null) {
-            ThumbnailRequestCoordinator requestCoordinator = new ThumbnailRequestCoordinator();
-            Request fullRequest = buildRequest(target, sizeMultiplier, priority, requestCoordinator);
-
-            if (thumbnailRequestBuilder.animationFactory.equals(NoAnimation.getFactory())) {
-                thumbnailRequestBuilder.animationFactory = animationFactory;
-            }
-
-            if (thumbnailRequestBuilder.requestListener == null && requestListener != null) {
-                thumbnailRequestBuilder.requestListener = requestListener;
-            }
-
-            if (thumbnailRequestBuilder.priority == null) {
-                thumbnailRequestBuilder.priority = getThumbnailPriority();
-            }
-
-            Request thumbnailRequest = thumbnailRequestBuilder.buildRequest(target,
-                    thumbnailRequestBuilder.sizeMultiplier, thumbnailRequestBuilder.priority, requestCoordinator);
-
-            requestCoordinator.setRequests(fullRequest, thumbnailRequest);
-            result = requestCoordinator;
-        } else if (thumbSizeMultiplier != null) {
-            ThumbnailRequestCoordinator requestCoordinator = new ThumbnailRequestCoordinator();
-            Request fullRequest = buildRequest(target, sizeMultiplier, priority, requestCoordinator);
-            Request thumbnailRequest = buildRequest(target, thumbSizeMultiplier, getThumbnailPriority(),
-                    requestCoordinator);
-            requestCoordinator.setRequests(fullRequest, thumbnailRequest);
-            result = requestCoordinator;
-        } else {
-            result = buildRequest(target, sizeMultiplier, priority, null);
-        }
-        return result;
-    }
-
     private Priority getThumbnailPriority() {
         final Priority result;
         if (priority == Priority.LOW) {
@@ -603,18 +562,53 @@ public class GenericRequestBuilder<ModelType, DataType, ResourceType, TranscodeT
         return result;
     }
 
-    private Request buildRequest(Target<TranscodeType> target, float sizeMultiplier, Priority priority,
-            RequestCoordinator requestCoordinator) {
-        if (model == null) {
-            return buildRequestForDataType(target, loadProvider, sizeMultiplier, priority, null);
+    private Request buildRequest(Target<TranscodeType> target) {
+        if (priority == null) {
+            priority = Priority.NORMAL;
+        }
+        return buildRequestRecursive(target, null);
+    }
+
+    private Request buildRequestRecursive(Target<TranscodeType> target, ThumbnailRequestCoordinator parentCoordinator) {
+        if (thumbnailRequestBuilder != null) {
+            // Recursive case: contains a potentially recursive thumbnail request builder.
+            if (thumbnailRequestBuilder.animationFactory.equals(NoAnimation.getFactory())) {
+                thumbnailRequestBuilder.animationFactory = animationFactory;
+            }
+
+            if (thumbnailRequestBuilder.requestListener == null && requestListener != null) {
+                thumbnailRequestBuilder.requestListener = requestListener;
+            }
+
+            if (thumbnailRequestBuilder.priority == null) {
+                thumbnailRequestBuilder.priority = getThumbnailPriority();
+            }
+
+            ThumbnailRequestCoordinator coordinator = new ThumbnailRequestCoordinator(parentCoordinator);
+            Request fullRequest = obtainRequest(target, sizeMultiplier, priority, coordinator);
+            // Recursively generate thumbnail requests.
+            Request thumbRequest = thumbnailRequestBuilder.buildRequestRecursive(target, coordinator);
+            coordinator.setRequests(fullRequest, thumbRequest);
+            return coordinator;
+        } else if (thumbSizeMultiplier != null) {
+            // Base case: thumbnail multiplier generates a thumbnail request, but cannot recurse.
+            ThumbnailRequestCoordinator coordinator = new ThumbnailRequestCoordinator(parentCoordinator);
+            Request fullRequest = obtainRequest(target, sizeMultiplier, priority, coordinator);
+            Request thumbnailRequest = obtainRequest(target, thumbSizeMultiplier, getThumbnailPriority(), coordinator);
+            coordinator.setRequests(fullRequest, thumbnailRequest);
+            return coordinator;
         } else {
-            return buildRequestForDataType(target, loadProvider, sizeMultiplier, priority, requestCoordinator);
+            // Base case: no thumbnail.
+            return obtainRequest(target, sizeMultiplier, priority, parentCoordinator);
         }
     }
 
-    private <Z> Request buildRequestForDataType(Target<TranscodeType> target,
-            LoadProvider<ModelType, Z, ResourceType, TranscodeType> loadProvider, float sizeMultiplier,
-            Priority priority, RequestCoordinator requestCoordinator) {
+    private <Z> Request obtainRequest(Target<TranscodeType> target, float sizeMultiplier, Priority priority,
+            RequestCoordinator requestCoordinator) {
+        if (model == null) {
+            requestCoordinator = null;
+        }
+
         return GenericRequest.obtain(
                 loadProvider,
                 model,

@@ -24,9 +24,11 @@ page.title=Sample Rate Conversion
   </div>
 </div>
 
+<h2 id="srcIntro">Introduction</h2>
+
 <p>
 See the Wikipedia article
-<a class="external-link" href="http://en.wikipedia.org/wiki/Resampling_(audio)" target="_android">Resampling (audio)</a>
+<a href="http://en.wikipedia.org/wiki/Resampling_(audio)">Resampling (audio)</a>
 for a generic definition of sample rate conversion, also known as "resampling."
 The remainder of this article describes resampling within Android.
 </p>
@@ -83,49 +85,6 @@ Section <a href="#srcResamplers">Resampler implementations</a>
 below lists the available resamplers, summarizes their characteristics,
 and identifies where they should typically be used.
 </p>
-
-<h2 id="srcTerms">Terminology</h2>
-
-<dl>
-
-<dt>downsample</dt>
-<dd>to resample, where sink sample rate &lt; source sample rate</dd>
-
-<dt>Nyquist frequency</dt>
-<dd>
-The Nyquist frequency, equal to 1/2 of a given sample rate, is the
-maximum frequency component that can be represented by a discretized
-signal at that sample rate.  For example, the human hearing range is
-typically assumed to extend up to approximately 20 kHz, and so a digital
-audio signal must have a sample rate of at least 40 kHz to represent that
-range.  In practice, sample rates of 44.1 kHz and 48 kHz are commonly
-used, with Nyquist frequencies of 22.05 kHz and 24 kHz respectively.
-See the Wikipedia articles
-<a class="external-link" href="http://en.wikipedia.org/wiki/Nyquist_frequency" target="_android">Nyquist frequency</a>
-and
-<a class="external-link" href="http://en.wikipedia.org/wiki/Hearing_range" target="_android">Hearing range</a>
-for more information.
-</dd>
-
-<dt>resampler</dt>
-<dd>synonym for sample rate converter</dd>
-
-<dt>resampling</dt>
-<dd>the process of converting sample rate</dd>
-
-<dt>sample rate converter</dt>
-<dd>a module that resamples</dd>
-
-<dt>sink</dt>
-<dd>the output of a resampler</dd>
-
-<dt>source</dt>
-<dd>the input to a resampler</dd>
-
-<dt>upsample</dt>
-<dd>to resample, where sink sample rate &gt; source sample rate</dd>
-
-</dl>
 
 <h2 id="srcResamplers">Resampler implementations</h2>
 

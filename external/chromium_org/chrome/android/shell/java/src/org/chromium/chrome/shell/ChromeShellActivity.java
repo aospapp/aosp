@@ -13,16 +13,18 @@ import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Toast;
-
-import com.google.common.annotations.VisibleForTesting;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.BaseSwitches;
 import org.chromium.base.CommandLine;
+import org.chromium.base.ContentUriUtils;
 import org.chromium.base.MemoryPressureListener;
+import org.chromium.base.VisibleForTesting;
 import org.chromium.base.library_loader.ProcessInitException;
 import org.chromium.chrome.browser.DevToolsServer;
+import org.chromium.chrome.browser.FileProviderHelper;
 import org.chromium.chrome.browser.appmenu.AppMenuHandler;
 import org.chromium.chrome.browser.appmenu.AppMenuPropertiesDelegate;
 import org.chromium.chrome.browser.dom_distiller.DomDistillerTabUtils;
@@ -35,7 +37,6 @@ import org.chromium.content.browser.ActivityContentVideoViewClient;
 import org.chromium.content.browser.BrowserStartupController;
 import org.chromium.content.browser.ContentViewCore;
 import org.chromium.content.browser.DeviceUtils;
-import org.chromium.content.common.ContentSwitches;
 import org.chromium.printing.PrintManagerDelegateImpl;
 import org.chromium.printing.PrintingController;
 import org.chromium.sync.signin.AccountManagerHelper;
@@ -48,7 +49,6 @@ import org.chromium.ui.base.WindowAndroid;
  */
 public class ChromeShellActivity extends Activity implements AppMenuPropertiesDelegate {
     private static final String TAG = "ChromeShellActivity";
-    private static final String CHROME_DISTILLER_SCHEME = "chrome-distiller";
 
     /**
      * Factory used to set up a mock ActivityWindowAndroid for testing.
@@ -140,18 +140,14 @@ public class ChromeShellActivity extends Activity implements AppMenuPropertiesDe
             public boolean onShowCustomView(View view) {
                 if (mTabManager == null) return false;
                 boolean success = super.onShowCustomView(view);
-                if (!CommandLine.getInstance().hasSwitch(
-                        ContentSwitches.DISABLE_OVERLAY_FULLSCREEN_VIDEO_SUBTITLE)) {
-                    mTabManager.setOverlayVideoMode(true);
-                }
+                mTabManager.setOverlayVideoMode(true);
                 return success;
             }
 
             @Override
             public void onDestroyContentVideoView() {
                 super.onDestroyContentVideoView();
-                if (mTabManager != null && !CommandLine.getInstance().hasSwitch(
-                        ContentSwitches.DISABLE_OVERLAY_FULLSCREEN_VIDEO_SUBTITLE)) {
+                if (mTabManager != null) {
                     mTabManager.setOverlayVideoMode(false);
                 }
             }
@@ -166,7 +162,8 @@ public class ChromeShellActivity extends Activity implements AppMenuPropertiesDe
         mToolbar.setMenuHandler(mAppMenuHandler);
 
         mDevToolsServer = new DevToolsServer("chrome_shell");
-        mDevToolsServer.setRemoteDebuggingEnabled(true);
+        mDevToolsServer.setRemoteDebuggingEnabled(
+                true, DevToolsServer.Security.ALLOW_DEBUG_PERMISSION);
 
         mPrintingController = PrintingControllerFactory.create(this);
 
@@ -174,6 +171,7 @@ public class ChromeShellActivity extends Activity implements AppMenuPropertiesDe
         // In case this method is called after the first onStart(), we need to inform the
         // SyncController that we have started.
         mSyncController.onStart();
+        ContentUriUtils.setFileProviderUtil(new FileProviderHelper());
     }
 
     @Override
@@ -279,15 +277,23 @@ public class ChromeShellActivity extends Activity implements AppMenuPropertiesDe
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_MENU && event.getRepeatCount() == 0) {
+            if (mToolbar != null) mToolbar.hideSuggestions();
             mAppMenuHandler.showAppMenu(findViewById(R.id.menu_button), true, false);
             return true;
         }
         return super.onKeyDown(keyCode, event);
     }
 
+    @SuppressWarnings("deprecation")
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         ChromeShellTab activeTab = getActiveTab();
+        if (activeTab != null) {
+            ViewGroup containerView = activeTab.getContentViewCore().getContainerView();
+            if (containerView.isFocusable() && containerView.isFocusableInTouchMode()) {
+                containerView.requestFocus();
+            }
+        }
         switch (item.getItemId()) {
             case R.id.signin:
                 if (ChromeSigninController.get(this).isSignedIn()) {
@@ -323,7 +329,8 @@ public class ChromeShellActivity extends Activity implements AppMenuPropertiesDe
             case R.id.share_menu_id:
             case R.id.direct_share_menu_id:
                 ShareHelper.share(item.getItemId() == R.id.direct_share_menu_id, this,
-                        activeTab.getTitle(), activeTab.getUrl(), null);
+                        activeTab.getTitle(), activeTab.getUrl(), null,
+                        Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET);
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -375,8 +382,7 @@ public class ChromeShellActivity extends Activity implements AppMenuPropertiesDe
         MenuItem distillPageItem = menu.findItem(R.id.distill_page);
         if (CommandLine.getInstance().hasSwitch(ChromeShellSwitches.ENABLE_DOM_DISTILLER)) {
             String url = activeTab != null ? activeTab.getUrl() : null;
-            distillPageItem.setEnabled(!DomDistillerUrlUtils.isUrlReportable(
-                    CHROME_DISTILLER_SCHEME, url));
+            distillPageItem.setEnabled(!DomDistillerUrlUtils.isDistilledPage(url));
             distillPageItem.setVisible(true);
         } else {
             distillPageItem.setVisible(false);

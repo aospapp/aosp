@@ -25,9 +25,14 @@
 #include "base/synchronization/lock.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/sys_info.h"
+#include "base/threading/platform_thread.h"
 #include "base/time/time.h"
+#include "blink/public/resources/grit/blink_resources.h"
+#include "content/app/resources/grit/content_resources.h"
+#include "content/app/strings/grit/content_strings.h"
+#include "content/child/child_thread.h"
 #include "content/child/content_child_helpers.h"
-#include "content/child/fling_curve_configuration.h"
+#include "content/child/touch_fling_gesture_curve.h"
 #include "content/child/web_discardable_memory_impl.h"
 #include "content/child/web_socket_stream_handle_impl.h"
 #include "content/child/web_url_loader_impl.h"
@@ -35,20 +40,19 @@
 #include "content/child/webthread_impl.h"
 #include "content/child/worker_task_runner.h"
 #include "content/public/common/content_client.h"
-#include "grit/blink_resources.h"
-#include "grit/webkit_resources.h"
-#include "grit/webkit_strings.h"
 #include "net/base/data_url.h"
 #include "net/base/mime_util.h"
 #include "net/base/net_errors.h"
+#include "net/base/net_util.h"
 #include "third_party/WebKit/public/platform/WebConvertableToTraceFormat.h"
 #include "third_party/WebKit/public/platform/WebData.h"
 #include "third_party/WebKit/public/platform/WebString.h"
+#include "third_party/WebKit/public/platform/WebURL.h"
 #include "third_party/WebKit/public/platform/WebWaitableEvent.h"
+#include "third_party/WebKit/public/web/WebSecurityOrigin.h"
 #include "ui/base/layout.h"
 
 #if defined(OS_ANDROID)
-#include "base/android/sys_utils.h"
 #include "content/child/fling_animator_impl_android.h"
 #endif
 
@@ -151,6 +155,13 @@ class ConvertableToTraceFormatWrapper
   blink::WebConvertableToTraceFormat convertable_;
 };
 
+bool isHostnameReservedIPAddress(const std::string& host) {
+  net::IPAddressNumber address;
+  if (!net::ParseURLHostnameToNumber(host, &address))
+    return false;
+  return net::IsIPAddressReserved(address);
+}
+
 }  // namespace
 
 static int ToMessageID(WebLocalizedString::Name name) {
@@ -159,6 +170,14 @@ static int ToMessageID(WebLocalizedString::Name name) {
       return IDS_AX_AM_PM_FIELD_TEXT;
     case WebLocalizedString::AXButtonActionVerb:
       return IDS_AX_BUTTON_ACTION_VERB;
+    case WebLocalizedString::AXCalendarShowMonthSelector:
+      return IDS_AX_CALENDAR_SHOW_MONTH_SELECTOR;
+    case WebLocalizedString::AXCalendarShowNextMonth:
+      return IDS_AX_CALENDAR_SHOW_NEXT_MONTH;
+    case WebLocalizedString::AXCalendarShowPreviousMonth:
+      return IDS_AX_CALENDAR_SHOW_PREVIOUS_MONTH;
+    case WebLocalizedString::AXCalendarWeekDescription:
+      return IDS_AX_CALENDAR_WEEK_DESCRIPTION;
     case WebLocalizedString::AXCheckedCheckBoxActionVerb:
       return IDS_AX_CHECKED_CHECK_BOX_ACTION_VERB;
     case WebLocalizedString::AXDateTimeFieldEmptyValueText:
@@ -209,6 +228,10 @@ static int ToMessageID(WebLocalizedString::Name name) {
       return IDS_AX_MEDIA_SHOW_CLOSED_CAPTIONS_BUTTON;
     case WebLocalizedString::AXMediaHideClosedCaptionsButton:
       return IDS_AX_MEDIA_HIDE_CLOSED_CAPTIONS_BUTTON;
+    case WebLocalizedString::AxMediaCastOffButton:
+      return IDS_AX_MEDIA_CAST_OFF_BUTTON;
+    case WebLocalizedString::AxMediaCastOnButton:
+      return IDS_AX_MEDIA_CAST_ON_BUTTON;
     case WebLocalizedString::AXMediaAudioElementHelp:
       return IDS_AX_MEDIA_AUDIO_ELEMENT_HELP;
     case WebLocalizedString::AXMediaVideoElementHelp:
@@ -239,6 +262,10 @@ static int ToMessageID(WebLocalizedString::Name name) {
       return IDS_AX_MEDIA_SHOW_CLOSED_CAPTIONS_BUTTON_HELP;
     case WebLocalizedString::AXMediaHideClosedCaptionsButtonHelp:
       return IDS_AX_MEDIA_HIDE_CLOSED_CAPTIONS_BUTTON_HELP;
+    case WebLocalizedString::AxMediaCastOffButtonHelp:
+      return IDS_AX_MEDIA_CAST_OFF_BUTTON_HELP;
+    case WebLocalizedString::AxMediaCastOnButtonHelp:
+      return IDS_AX_MEDIA_CAST_ON_BUTTON_HELP;
     case WebLocalizedString::AXMillisecondFieldText:
       return IDS_AX_MILLISECOND_FIELD_TEXT;
     case WebLocalizedString::AXMinuteFieldText:
@@ -395,14 +422,17 @@ BlinkPlatformImpl::BlinkPlatformImpl()
       shared_timer_fire_time_(0.0),
       shared_timer_fire_time_was_set_while_suspended_(false),
       shared_timer_suspended_(0),
-      fling_curve_configuration_(new FlingCurveConfiguration),
       current_thread_slot_(&DestroyCurrentThread) {}
 
 BlinkPlatformImpl::~BlinkPlatformImpl() {
 }
 
 WebURLLoader* BlinkPlatformImpl::createURLLoader() {
-  return new WebURLLoaderImpl;
+  ChildThread* child_thread = ChildThread::current();
+  // There may be no child thread in RenderViewTests.  These tests can still use
+  // data URLs to bypass the ResourceDispatcher.
+  return new WebURLLoaderImpl(
+      child_thread ? child_thread->resource_dispatcher() : NULL);
 }
 
 WebSocketStreamHandle* BlinkPlatformImpl::createSocketStreamHandle() {
@@ -435,6 +465,15 @@ WebURLError BlinkPlatformImpl::cancelledError(
   return WebURLLoaderImpl::CreateError(unreachableURL, false, net::ERR_ABORTED);
 }
 
+bool BlinkPlatformImpl::isReservedIPAddress(
+    const blink::WebSecurityOrigin& securityOrigin) const {
+  return isHostnameReservedIPAddress(securityOrigin.host().utf8());
+}
+
+bool BlinkPlatformImpl::isReservedIPAddress(const blink::WebURL& url) const {
+  return isHostnameReservedIPAddress(GURL(url).host());
+}
+
 blink::WebThread* BlinkPlatformImpl::createThread(const char* name) {
   return new WebThreadImpl(name);
 }
@@ -453,6 +492,10 @@ blink::WebThread* BlinkPlatformImpl::currentThread() {
   thread = new WebThreadImplForMessageLoop(message_loop.get());
   current_thread_slot_.Set(thread);
   return thread;
+}
+
+void BlinkPlatformImpl::yieldCurrentThread() {
+  base::PlatformThread::YieldCurrentThread();
 }
 
 blink::WebWaitableEvent* BlinkPlatformImpl::createWaitableEvent() {
@@ -731,6 +774,10 @@ const DataResource kDataResources[] = {
     IDR_MEDIAPLAYER_FULLSCREEN_BUTTON_HOVER, ui::SCALE_FACTOR_100P },
   { "mediaplayerFullscreenDown",
     IDR_MEDIAPLAYER_FULLSCREEN_BUTTON_DOWN, ui::SCALE_FACTOR_100P },
+  { "mediaplayerCastOff",
+    IDR_MEDIAPLAYER_CAST_BUTTON_OFF, ui::SCALE_FACTOR_100P },
+  { "mediaplayerCastOn",
+    IDR_MEDIAPLAYER_CAST_BUTTON_ON, ui::SCALE_FACTOR_100P },
   { "mediaplayerFullscreenDisabled",
     IDR_MEDIAPLAYER_FULLSCREEN_BUTTON_DISABLED, ui::SCALE_FACTOR_100P },
   { "mediaplayerOverlayPlay",
@@ -750,6 +797,71 @@ const DataResource kDataResources[] = {
   { "generatePassword", IDR_PASSWORD_GENERATION_ICON, ui::SCALE_FACTOR_100P },
   { "generatePasswordHover",
     IDR_PASSWORD_GENERATION_ICON_HOVER, ui::SCALE_FACTOR_100P },
+  { "html.css", IDR_UASTYLE_HTML_CSS, ui::SCALE_FACTOR_NONE },
+  { "quirks.css", IDR_UASTYLE_QUIRKS_CSS, ui::SCALE_FACTOR_NONE },
+  { "view-source.css", IDR_UASTYLE_VIEW_SOURCE_CSS, ui::SCALE_FACTOR_NONE },
+  { "themeChromium.css", IDR_UASTYLE_THEME_CHROMIUM_CSS,
+    ui::SCALE_FACTOR_NONE },
+#if defined(OS_ANDROID)
+  { "themeChromiumAndroid.css", IDR_UASTYLE_THEME_CHROMIUM_ANDROID_CSS,
+    ui::SCALE_FACTOR_NONE },
+  { "mediaControlsAndroid.css", IDR_UASTYLE_MEDIA_CONTROLS_ANDROID_CSS,
+    ui::SCALE_FACTOR_NONE },
+#endif
+#if !defined(OS_WIN)
+  { "themeChromiumLinux.css", IDR_UASTYLE_THEME_CHROMIUM_LINUX_CSS,
+    ui::SCALE_FACTOR_NONE },
+#endif
+  { "themeChromiumSkia.css", IDR_UASTYLE_THEME_CHROMIUM_SKIA_CSS,
+    ui::SCALE_FACTOR_NONE },
+  { "themeInputMultipleFields.css",
+    IDR_UASTYLE_THEME_INPUT_MULTIPLE_FIELDS_CSS, ui::SCALE_FACTOR_NONE },
+#if defined(OS_MACOSX)
+  { "themeMac.css", IDR_UASTYLE_THEME_MAC_CSS, ui::SCALE_FACTOR_NONE },
+#endif
+  { "themeWin.css", IDR_UASTYLE_THEME_WIN_CSS, ui::SCALE_FACTOR_NONE },
+  { "themeWinQuirks.css", IDR_UASTYLE_THEME_WIN_QUIRKS_CSS,
+    ui::SCALE_FACTOR_NONE },
+  { "svg.css", IDR_UASTYLE_SVG_CSS, ui::SCALE_FACTOR_NONE},
+  { "navigationTransitions.css", IDR_UASTYLE_NAVIGATION_TRANSITIONS_CSS,
+    ui::SCALE_FACTOR_NONE },
+  { "mathml.css", IDR_UASTYLE_MATHML_CSS, ui::SCALE_FACTOR_NONE},
+  { "mediaControls.css", IDR_UASTYLE_MEDIA_CONTROLS_CSS,
+    ui::SCALE_FACTOR_NONE },
+  { "fullscreen.css", IDR_UASTYLE_FULLSCREEN_CSS, ui::SCALE_FACTOR_NONE},
+  { "xhtmlmp.css", IDR_UASTYLE_XHTMLMP_CSS, ui::SCALE_FACTOR_NONE},
+  { "viewportAndroid.css", IDR_UASTYLE_VIEWPORT_ANDROID_CSS,
+    ui::SCALE_FACTOR_NONE},
+  { "InspectorOverlayPage.html", IDR_INSPECTOR_OVERLAY_PAGE_HTML,
+    ui::SCALE_FACTOR_NONE },
+  { "InjectedScriptCanvasModuleSource.js",
+    IDR_INSPECTOR_INJECTED_SCRIPT_CANVAS_MODULE_SOURCE_JS,
+    ui::SCALE_FACTOR_NONE },
+  { "InjectedScriptSource.js", IDR_INSPECTOR_INJECTED_SCRIPT_SOURCE_JS,
+    ui::SCALE_FACTOR_NONE },
+  { "DebuggerScriptSource.js", IDR_INSPECTOR_DEBUGGER_SCRIPT_SOURCE_JS,
+    ui::SCALE_FACTOR_NONE },
+  { "DocumentXMLTreeViewer.js", IDR_PRIVATE_SCRIPT_DOCUMENTXMLTREEVIEWER_JS,
+    ui::SCALE_FACTOR_NONE },
+  { "HTMLMarqueeElement.js", IDR_PRIVATE_SCRIPT_HTMLMARQUEEELEMENT_JS,
+    ui::SCALE_FACTOR_NONE },
+  { "PluginPlaceholderElement.js",
+    IDR_PRIVATE_SCRIPT_PLUGINPLACEHOLDERELEMENT_JS, ui::SCALE_FACTOR_NONE },
+  { "PrivateScriptRunner.js", IDR_PRIVATE_SCRIPT_PRIVATESCRIPTRUNNER_JS,
+    ui::SCALE_FACTOR_NONE },
+#ifdef IDR_PICKER_COMMON_JS
+  { "pickerCommon.js", IDR_PICKER_COMMON_JS, ui::SCALE_FACTOR_NONE },
+  { "pickerCommon.css", IDR_PICKER_COMMON_CSS, ui::SCALE_FACTOR_NONE },
+  { "calendarPicker.js", IDR_CALENDAR_PICKER_JS, ui::SCALE_FACTOR_NONE },
+  { "calendarPicker.css", IDR_CALENDAR_PICKER_CSS, ui::SCALE_FACTOR_NONE },
+  { "pickerButton.css", IDR_PICKER_BUTTON_CSS, ui::SCALE_FACTOR_NONE },
+  { "suggestionPicker.js", IDR_SUGGESTION_PICKER_JS, ui::SCALE_FACTOR_NONE },
+  { "suggestionPicker.css", IDR_SUGGESTION_PICKER_CSS, ui::SCALE_FACTOR_NONE },
+  { "colorSuggestionPicker.js",
+    IDR_COLOR_SUGGESTION_PICKER_JS, ui::SCALE_FACTOR_NONE },
+  { "colorSuggestionPicker.css",
+    IDR_COLOR_SUGGESTION_PICKER_CSS, ui::SCALE_FACTOR_NONE },
+#endif
 };
 
 }  // namespace
@@ -885,12 +997,7 @@ blink::WebGestureCurve* BlinkPlatformImpl::createFlingAnimationCurve(
       cumulative_scroll);
 #endif
 
-  if (device_source == blink::WebGestureDeviceTouchscreen)
-    return fling_curve_configuration_->CreateForTouchScreen(velocity,
-                                                            cumulative_scroll);
-
-  return fling_curve_configuration_->CreateForTouchPad(velocity,
-                                                       cumulative_scroll);
+  return TouchFlingGestureCurve::Create(velocity, cumulative_scroll);
 }
 
 void BlinkPlatformImpl::didStartWorkerRunLoop(
@@ -906,7 +1013,6 @@ void BlinkPlatformImpl::didStopWorkerRunLoop(
 }
 
 blink::WebCrypto* BlinkPlatformImpl::crypto() {
-  WebCryptoImpl::EnsureInit();
   return &web_crypto_;
 }
 
@@ -1054,7 +1160,7 @@ BlinkPlatformImpl::allocateAndLockDiscardableMemory(size_t bytes) {
 
 size_t BlinkPlatformImpl::maxDecodedImageBytes() {
 #if defined(OS_ANDROID)
-  if (base::android::SysUtils::IsLowEndDevice()) {
+  if (base::SysInfo::IsLowEndDevice()) {
     // Limit image decoded size to 3M pixels on low end devices.
     // 4 is maximum number of bytes per pixel.
     return 3 * 1024 * 1024 * 4;
@@ -1070,12 +1176,6 @@ size_t BlinkPlatformImpl::maxDecodedImageBytes() {
 #else
   return noDecodedImageByteLimit;
 #endif
-}
-
-void BlinkPlatformImpl::SetFlingCurveParameters(
-    const std::vector<float>& new_touchpad,
-    const std::vector<float>& new_touchscreen) {
-  fling_curve_configuration_->SetCurveParameters(new_touchpad, new_touchscreen);
 }
 
 void BlinkPlatformImpl::SuspendSharedTimer() {

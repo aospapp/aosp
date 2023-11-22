@@ -5,12 +5,14 @@
 #include "chrome/browser/content_settings/local_shared_objects_container.h"
 
 #include "chrome/browser/browsing_data/browsing_data_appcache_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_channel_id_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_cookie_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_database_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_file_system_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_indexed_db_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_local_storage_helper.h"
-#include "chrome/browser/browsing_data/browsing_data_server_bound_cert_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_service_worker_helper.h"
+#include "chrome/browser/browsing_data/canonical_cookie_hash.h"
 #include "chrome/browser/browsing_data/cookies_tree_model.h"
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/browser/storage_partition.h"
@@ -32,6 +34,7 @@ bool SameDomainOrHost(const GURL& gurl1, const GURL& gurl2) {
 
 LocalSharedObjectsContainer::LocalSharedObjectsContainer(Profile* profile)
     : appcaches_(new CannedBrowsingDataAppCacheHelper(profile)),
+      channel_ids_(new CannedBrowsingDataChannelIDHelper()),
       cookies_(new CannedBrowsingDataCookieHelper(
           profile->GetRequestContext())),
       databases_(new CannedBrowsingDataDatabaseHelper(profile)),
@@ -40,7 +43,9 @@ LocalSharedObjectsContainer::LocalSharedObjectsContainer(Profile* profile)
           content::BrowserContext::GetDefaultStoragePartition(profile)->
               GetIndexedDBContext())),
       local_storages_(new CannedBrowsingDataLocalStorageHelper(profile)),
-      server_bound_certs_(new CannedBrowsingDataServerBoundCertHelper()),
+      service_workers_(new CannedBrowsingDataServiceWorkerHelper(
+          content::BrowserContext::GetDefaultStoragePartition(profile)->
+              GetServiceWorkerContext())),
       session_storages_(new CannedBrowsingDataLocalStorageHelper(profile)) {
 }
 
@@ -49,24 +54,26 @@ LocalSharedObjectsContainer::~LocalSharedObjectsContainer() {
 
 void LocalSharedObjectsContainer::Reset() {
   appcaches_->Reset();
+  channel_ids_->Reset();
   cookies_->Reset();
   databases_->Reset();
   file_systems_->Reset();
   indexed_dbs_->Reset();
   local_storages_->Reset();
-  server_bound_certs_->Reset();
+  service_workers_->Reset();
   session_storages_->Reset();
 }
 
 size_t LocalSharedObjectsContainer::GetObjectCount() const {
   size_t count = 0;
   count += appcaches()->GetAppCacheCount();
+  count += channel_ids()->GetChannelIDCount();
   count += cookies()->GetCookieCount();
   count += databases()->GetDatabaseCount();
   count += file_systems()->GetFileSystemCount();
   count += indexed_dbs()->GetIndexedDBCount();
   count += local_storages()->GetLocalStorageCount();
-  count += server_bound_certs()->GetCertCount();
+  count += service_workers()->GetServiceWorkerCount();
   count += session_storages()->GetLocalStorageCount();
   return count;
 }
@@ -80,16 +87,15 @@ size_t LocalSharedObjectsContainer::GetObjectCountForDomain(
   // to be a third party regarding the domain of the provided |origin|.
   // E.g. if the origin is "http://foo.com" then all cookies with domain foo.com,
   // a.foo.com, b.a.foo.com or *.foo.com will be counted.
-  typedef CannedBrowsingDataCookieHelper::OriginCookieListMap
-      OriginCookieListMap;
-  const OriginCookieListMap& origin_cookies_list_map =
-      cookies()->origin_cookie_list_map();
-  for (OriginCookieListMap::const_iterator it =
-          origin_cookies_list_map.begin();
-      it != origin_cookies_list_map.end();
-      ++it) {
-    const net::CookieList* cookie_list = it->second;
-    for (net::CookieList::const_iterator cookie = cookie_list->begin();
+  typedef CannedBrowsingDataCookieHelper::OriginCookieSetMap OriginCookieSetMap;
+  const OriginCookieSetMap& origin_cookies_set_map =
+      cookies()->origin_cookie_set_map();
+  for (OriginCookieSetMap::const_iterator it = origin_cookies_set_map.begin();
+       it != origin_cookies_set_map.end();
+       ++it) {
+    const canonical_cookie::CookieHashSet* cookie_list = it->second;
+    for (canonical_cookie::CookieHashSet::const_iterator cookie =
+             cookie_list->begin();
          cookie != cookie_list->end();
          ++cookie) {
       // Strip leading '.'s.
@@ -137,6 +143,19 @@ size_t LocalSharedObjectsContainer::GetObjectCountForDomain(
       ++count;
   }
 
+  // Count service workers for the domain of the given |origin|.
+  typedef CannedBrowsingDataServiceWorkerHelper::PendingServiceWorkerUsageInfo
+      ServiceWorkerInfo;
+  const std::set<ServiceWorkerInfo>& service_worker_info =
+      service_workers()->GetServiceWorkerUsageInfo();
+  for (std::set<ServiceWorkerInfo>::const_iterator it =
+          service_worker_info.begin();
+      it != service_worker_info.end();
+      ++it) {
+    if (SameDomainOrHost(origin, it->origin))
+      ++count;
+  }
+
   // Count filesystems for the domain of the given |origin|.
   typedef BrowsingDataFileSystemHelper::FileSystemInfo FileSystemInfo;
   typedef std::list<FileSystemInfo> FileSystemInfoList;
@@ -168,8 +187,8 @@ size_t LocalSharedObjectsContainer::GetObjectCountForDomain(
   for (OriginAppCacheInfoMap::const_iterator it = map.begin();
        it != map.end();
        ++it) {
-    const appcache::AppCacheInfoVector& info_vector = it->second;
-    for (appcache::AppCacheInfoVector::const_iterator info =
+    const content::AppCacheInfoVector& info_vector = it->second;
+    for (content::AppCacheInfoVector::const_iterator info =
              info_vector.begin();
          info != info_vector.end();
          ++info) {
@@ -192,7 +211,8 @@ LocalSharedObjectsContainer::CreateCookiesTreeModel() const {
       indexed_dbs(),
       file_systems(),
       NULL,
-      server_bound_certs(),
+      channel_ids(),
+      service_workers(),
       NULL);
 
   return make_scoped_ptr(new CookiesTreeModel(container, NULL, true));

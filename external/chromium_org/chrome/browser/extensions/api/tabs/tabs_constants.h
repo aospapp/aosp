@@ -52,14 +52,12 @@ extern const char kWindowClosing[];
 extern const char kWindowIdKey[];
 extern const char kWindowTypeKey[];
 extern const char kWindowTypeLongKey[];
+extern const char kZoomSettingsMode[];
+extern const char kZoomSettingsScope[];
 
 // Value consts.
 extern const char kCanOnlyMoveTabsWithinNormalWindowsError[];
 extern const char kCanOnlyMoveTabsWithinSameProfileError[];
-extern const char kFormatValueJpeg[];
-extern const char kFormatValuePng[];
-extern const char kMimeTypeJpeg[];
-extern const char kMimeTypePng[];
 extern const char kShowStateValueNormal[];
 extern const char kShowStateValueMinimized[];
 extern const char kShowStateValueMaximized[];
@@ -73,9 +71,11 @@ extern const char kWindowTypeValueDetachedPanel[];
 extern const char kWindowTypeValueApp[];
 
 // Error messages.
+extern const char kCannotZoomDisabledTabError[];
 extern const char kNoCrashBrowserError[];
 extern const char kNoCurrentWindowError[];
 extern const char kNoLastFocusedWindowError[];
+extern const char kPerOriginOnlyInAutomaticError[];
 extern const char kWindowNotFoundError[];
 extern const char kTabIndexNotFoundError[];
 extern const char kTabNotFoundError[];
@@ -93,9 +93,6 @@ extern const char kInvalidWindowTypeError[];
 extern const char kInvalidWindowStateError[];
 extern const char kScreenshotsDisabled[];
 
-extern const char kNoCodeOrFileToExecuteError[];
-extern const char kMoreThanOneValuesError[];
-extern const char kLoadFileError[];
 extern const char kCannotDetermineLanguageOfUnloadedTab[];
 
 };  // namespace tabs_constants

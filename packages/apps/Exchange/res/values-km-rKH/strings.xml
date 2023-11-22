@@ -27,7 +27,6 @@
     <string name="meeting_recurring" msgid="2752008481765880928">"ពេលវេលា​៖ <xliff:g id="EVENTDATE">%s</xliff:g> (កើតឡើង​ច្រើន​ដង)"</string>
     <string name="meeting_allday" msgid="7251209063071628040">"ពេល​វេលា៖ <xliff:g id="EVENTDATE">%s</xliff:g> (ពេញ​មួយ​ថ្ងៃ)"</string>
     <string name="meeting_allday_recurring" msgid="4545762363537362545">"ពេលវេលា​៖ <xliff:g id="EVENTDATE">%s</xliff:g> (ពេញ​មួយ​ថ្ងៃ ​កើតឡើង​ច្រើន​ដង)"</string>
-    <string name="notification_exchange_calendar_added" msgid="8998454267739748113">"​បាន​បន្ថែម​ការ​ផ្លាស់​ប្ដូរ​ប្រតិទិន"</string>
     <string name="app_name" msgid="1707639359526090662">"សេវាកម្ម​ផ្លាស់ប្ដូរ"</string>
     <string name="exception_cancel" msgid="8972887597771126871">"ព្រឹត្តិការណ៍​នេះ​ត្រូវ​បាន​បោះបង់​ចោល​សម្រាប់៖ <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="exception_updated" msgid="329192591551400871">"ព័ត៌មាន​លម្អិត​នៃ​ព្រឹត្តិការណ៍​នេះ​ត្រូវ​បាន​ប្ដូរ​សម្រាប់៖ <xliff:g id="DATE">%s</xliff:g>"</string>

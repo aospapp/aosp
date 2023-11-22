@@ -4,79 +4,129 @@
 
 #include "chrome/browser/chromeos/login/users/fake_user_manager.h"
 
+#include "base/task_runner.h"
 #include "chrome/browser/chromeos/login/users/fake_supervised_user_manager.h"
+#include "chrome/browser/chromeos/profiles/profile_helper.h"
+#include "chrome/grit/theme_resources.h"
+#include "components/user_manager/user_image/user_image.h"
+#include "components/user_manager/user_type.h"
+#include "ui/base/resource/resource_bundle.h"
 
 namespace {
 
-// As defined in /chromeos/dbus/cryptohome_client.cc.
-static const char kUserIdHashSuffix[] = "-hash";
+class FakeTaskRunner : public base::TaskRunner {
+ public:
+  virtual bool PostDelayedTask(const tracked_objects::Location& from_here,
+                               const base::Closure& task,
+                               base::TimeDelta delay) OVERRIDE {
+    task.Run();
+    return true;
+  }
+  virtual bool RunsTasksOnCurrentThread() const OVERRIDE { return true; }
+
+ protected:
+  virtual ~FakeTaskRunner() {}
+};
 
 }  // namespace
 
 namespace chromeos {
 
 FakeUserManager::FakeUserManager()
-    : supervised_user_manager_(new FakeSupervisedUserManager),
+    : ChromeUserManager(new FakeTaskRunner(), new FakeTaskRunner()),
+      supervised_user_manager_(new FakeSupervisedUserManager),
       primary_user_(NULL),
-      multi_profile_user_controller_(NULL) {}
+      multi_profile_user_controller_(NULL) {
+}
 
 FakeUserManager::~FakeUserManager() {
   // Can't use STLDeleteElements because of the private destructor of User.
-  for (UserList::iterator it = user_list_.begin(); it != user_list_.end();
+  for (user_manager::UserList::iterator it = user_list_.begin();
+       it != user_list_.end();
        it = user_list_.erase(it)) {
     delete *it;
   }
 }
 
-const User* FakeUserManager::AddUser(const std::string& email) {
-  User* user = User::CreateRegularUser(email);
-  user->set_username_hash(email + kUserIdHashSuffix);
-  user->SetStubImage(User::kProfileImageIndex, false);
+const user_manager::User* FakeUserManager::AddUser(const std::string& email) {
+  user_manager::User* user = user_manager::User::CreateRegularUser(email);
+  user->set_username_hash(
+      ProfileHelper::GetUserIdHashByUserIdForTesting(email));
+  user->SetStubImage(user_manager::UserImage(
+                         *ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+                             IDR_PROFILE_PICTURE_LOADING)),
+                     user_manager::User::USER_IMAGE_PROFILE,
+                     false);
+  user_list_.push_back(user);
+  return user;
+}
+
+const user_manager::User* FakeUserManager::AddPublicAccountUser(
+    const std::string& email) {
+  user_manager::User* user = user_manager::User::CreatePublicAccountUser(email);
+  user->set_username_hash(
+      ProfileHelper::GetUserIdHashByUserIdForTesting(email));
+  user->SetStubImage(user_manager::UserImage(
+                         *ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+                             IDR_PROFILE_PICTURE_LOADING)),
+                     user_manager::User::USER_IMAGE_PROFILE,
+                     false);
   user_list_.push_back(user);
   return user;
 }
 
 void FakeUserManager::AddKioskAppUser(const std::string& kiosk_app_username) {
-  User* user = User::CreateKioskAppUser(kiosk_app_username);
-  user->set_username_hash(kiosk_app_username + kUserIdHashSuffix);
+  user_manager::User* user =
+      user_manager::User::CreateKioskAppUser(kiosk_app_username);
+  user->set_username_hash(
+      ProfileHelper::GetUserIdHashByUserIdForTesting(kiosk_app_username));
   user_list_.push_back(user);
 }
 
+void FakeUserManager::RemoveUserFromList(const std::string& email) {
+  user_manager::UserList::iterator it = user_list_.begin();
+  while (it != user_list_.end() && (*it)->email() != email) ++it;
+  if (it != user_list_.end()) {
+    delete *it;
+    user_list_.erase(it);
+  }
+}
+
 void FakeUserManager::LoginUser(const std::string& email) {
-  UserLoggedIn(email, email + kUserIdHashSuffix, false);
+  UserLoggedIn(
+      email, ProfileHelper::GetUserIdHashByUserIdForTesting(email), false);
 }
 
-void FakeUserManager::SetProfileForUser(const User* user, Profile* profile) {
-  user_to_profile_[user] = profile;
-}
-
-const UserList& FakeUserManager::GetUsers() const {
+const user_manager::UserList& FakeUserManager::GetUsers() const {
   return user_list_;
 }
 
-UserList FakeUserManager::GetUsersAdmittedForMultiProfile() const {
-  UserList result;
-  for (UserList::const_iterator it = user_list_.begin();
+user_manager::UserList FakeUserManager::GetUsersAdmittedForMultiProfile()
+    const {
+  user_manager::UserList result;
+  for (user_manager::UserList::const_iterator it = user_list_.begin();
        it != user_list_.end();
        ++it) {
-    if ((*it)->GetType() == User::USER_TYPE_REGULAR && !(*it)->is_logged_in())
+    if ((*it)->GetType() == user_manager::USER_TYPE_REGULAR &&
+        !(*it)->is_logged_in())
       result.push_back(*it);
   }
   return result;
 }
 
-const UserList& FakeUserManager::GetLoggedInUsers() const {
+const user_manager::UserList& FakeUserManager::GetLoggedInUsers() const {
   return logged_in_users_;
 }
 
 void FakeUserManager::UserLoggedIn(const std::string& email,
                                    const std::string& username_hash,
                                    bool browser_restart) {
-  for (UserList::const_iterator it = user_list_.begin();
+  for (user_manager::UserList::const_iterator it = user_list_.begin();
        it != user_list_.end();
        ++it) {
     if ((*it)->username_hash() == username_hash) {
       (*it)->set_is_logged_in(true);
+      (*it)->set_profile_is_created();
       logged_in_users_.push_back(*it);
 
       if (!primary_user_)
@@ -86,11 +136,12 @@ void FakeUserManager::UserLoggedIn(const std::string& email,
   }
 }
 
-User* FakeUserManager::GetActiveUserInternal() const {
+user_manager::User* FakeUserManager::GetActiveUserInternal() const {
   if (user_list_.size()) {
     if (!active_user_id_.empty()) {
-      for (UserList::const_iterator it = user_list_.begin();
-           it != user_list_.end(); ++it) {
+      for (user_manager::UserList::const_iterator it = user_list_.begin();
+           it != user_list_.end();
+           ++it) {
         if ((*it)->email() == active_user_id_)
           return *it;
       }
@@ -100,23 +151,26 @@ User* FakeUserManager::GetActiveUserInternal() const {
   return NULL;
 }
 
-const User* FakeUserManager::GetActiveUser() const {
+const user_manager::User* FakeUserManager::GetActiveUser() const {
   return GetActiveUserInternal();
 }
 
-User* FakeUserManager::GetActiveUser() {
+user_manager::User* FakeUserManager::GetActiveUser() {
   return GetActiveUserInternal();
 }
 
 void FakeUserManager::SwitchActiveUser(const std::string& email) {
   active_user_id_ = email;
+  ProfileHelper::Get()->ActiveUserHashChanged(
+      ProfileHelper::GetUserIdHashByUserIdForTesting(email));
 }
 
 void FakeUserManager::SaveUserDisplayName(
     const std::string& username,
     const base::string16& display_name) {
-  for (UserList::iterator it = user_list_.begin();
-       it != user_list_.end(); ++it) {
+  for (user_manager::UserList::iterator it = user_list_.begin();
+       it != user_list_.end();
+       ++it) {
     if ((*it)->email() == username) {
       (*it)->set_display_name(display_name);
       return;
@@ -137,15 +191,15 @@ UserImageManager* FakeUserManager::GetUserImageManager(
   return NULL;
 }
 
-const UserList& FakeUserManager::GetLRULoggedInUsers() {
+const user_manager::UserList& FakeUserManager::GetLRULoggedInUsers() const {
   return user_list_;
 }
 
-UserList FakeUserManager::GetUnlockUsers() const {
+user_manager::UserList FakeUserManager::GetUnlockUsers() const {
   return user_list_;
 }
 
-const std::string& FakeUserManager::GetOwnerEmail() {
+const std::string& FakeUserManager::GetOwnerEmail() const {
   return owner_email_;
 }
 
@@ -153,45 +207,33 @@ bool FakeUserManager::IsKnownUser(const std::string& email) const {
   return true;
 }
 
-const User* FakeUserManager::FindUser(const std::string& email) const {
-  const UserList& users = GetUsers();
-  for (UserList::const_iterator it = users.begin(); it != users.end(); ++it) {
+const user_manager::User* FakeUserManager::FindUser(
+    const std::string& email) const {
+  const user_manager::UserList& users = GetUsers();
+  for (user_manager::UserList::const_iterator it = users.begin();
+       it != users.end();
+       ++it) {
     if ((*it)->email() == email)
       return *it;
   }
   return NULL;
 }
 
-User* FakeUserManager::FindUserAndModify(const std::string& email) {
+user_manager::User* FakeUserManager::FindUserAndModify(
+    const std::string& email) {
   return NULL;
 }
 
-const User* FakeUserManager::GetLoggedInUser() const {
+const user_manager::User* FakeUserManager::GetLoggedInUser() const {
   return NULL;
 }
 
-User* FakeUserManager::GetLoggedInUser() {
+user_manager::User* FakeUserManager::GetLoggedInUser() {
   return NULL;
 }
 
-const User* FakeUserManager::GetPrimaryUser() const {
+const user_manager::User* FakeUserManager::GetPrimaryUser() const {
   return primary_user_;
-}
-
-User* FakeUserManager::GetUserByProfile(Profile* profile) const {
-  const std::string& user_name = profile->GetProfileName();
-  for (UserList::const_iterator it = user_list_.begin();
-       it != user_list_.end(); ++it) {
-    if ((*it)->email() == user_name)
-      return *it;
-  }
-  return primary_user_;
-}
-
-Profile* FakeUserManager::GetProfileByUser(const User* user) const {
-  std::map<const User*, Profile*>::const_iterator it =
-      user_to_profile_.find(user);
-  return it == user_to_profile_.end() ? NULL : it->second;
 }
 
 base::string16 FakeUserManager::GetUserDisplayName(
@@ -240,15 +282,15 @@ bool FakeUserManager::IsLoggedInAsGuest() const {
   return false;
 }
 
-bool FakeUserManager::IsLoggedInAsLocallyManagedUser() const {
+bool FakeUserManager::IsLoggedInAsSupervisedUser() const {
   return false;
 }
 
 bool FakeUserManager::IsLoggedInAsKioskApp() const {
-  const User* active_user = GetActiveUser();
-  return active_user ?
-      active_user->GetType() == User::USER_TYPE_KIOSK_APP :
-      false;
+  const user_manager::User* active_user = GetActiveUser();
+  return active_user
+             ? active_user->GetType() == user_manager::USER_TYPE_KIOSK_APP
+             : false;
 }
 
 bool FakeUserManager::IsLoggedInAsStub() const {
@@ -256,14 +298,6 @@ bool FakeUserManager::IsLoggedInAsStub() const {
 }
 
 bool FakeUserManager::IsSessionStarted() const {
-  return false;
-}
-
-bool FakeUserManager::UserSessionsRestored() const {
-  return false;
-}
-
-bool FakeUserManager::HasBrowserRestarted() const {
   return false;
 }
 
@@ -280,25 +314,37 @@ UserFlow* FakeUserManager::GetUserFlow(const std::string& email) const {
   return NULL;
 }
 
-bool FakeUserManager::GetAppModeChromeClientOAuthInfo(
-    std::string* chrome_client_id,
-    std::string* chrome_client_secret) {
-  return false;
-}
-
-bool FakeUserManager::AreLocallyManagedUsersAllowed() const {
+bool FakeUserManager::AreSupervisedUsersAllowed() const {
   return true;
 }
 
-base::FilePath FakeUserManager::GetUserProfileDir(
-    const std::string&email) const {
-  return base::FilePath();
+bool FakeUserManager::AreEphemeralUsersEnabled() const {
+  return false;
 }
 
-bool FakeUserManager::RespectLocalePreference(
-    Profile* profile,
-    const User* user,
-    scoped_ptr<locale_util::SwitchLanguageCallback> callback) const {
+const std::string& FakeUserManager::GetApplicationLocale() const {
+  static const std::string default_locale("en-US");
+  return default_locale;
+}
+
+PrefService* FakeUserManager::GetLocalState() const {
+  return NULL;
+}
+
+bool FakeUserManager::IsEnterpriseManaged() const {
+  return false;
+}
+
+bool FakeUserManager::IsDemoApp(const std::string& user_id) const {
+  return false;
+}
+
+bool FakeUserManager::IsKioskApp(const std::string& user_id) const {
+  return false;
+}
+
+bool FakeUserManager::IsPublicAccountMarkedForRemoval(
+    const std::string& user_id) const {
   return false;
 }
 

@@ -28,6 +28,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 
+import com.android.tv.settings.accessories.BluetoothConnectionsManager;
 import com.android.tv.settings.connectivity.ConnectivityListener;
 
 import java.util.Locale;
@@ -38,26 +39,16 @@ import java.util.Locale;
 public class MainSettings extends MenuActivity implements OnAccountsUpdateListener,
         ConnectivityListener.Listener {
 
+    private static MainSettings sInstance;
+
     private BrowseInfo mBrowseInfo;
     private AccountManager mAccountManager;
     private Locale mCurrentLocale;
-    private IntentFilter mAdapterIntentFilter;
     private ConnectivityListener mConnectivityListener;
 
-    // Broadcast Receiver for Bluetooth related events
-    private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-            if (action == BluetoothDevice.ACTION_ACL_CONNECTED) {
-                mBrowseInfo.bluetoothDeviceConnected(device);
-            } else if (action == BluetoothDevice.ACTION_ACL_DISCONNECTED) {
-                mBrowseInfo.bluetoothDeviceDisconnected(device);
-            }
-            mBrowseInfo.updateAccessories();
-        }
-    };
+    public static synchronized MainSettings getInstance() {
+        return sInstance;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,14 +56,7 @@ public class MainSettings extends MenuActivity implements OnAccountsUpdateListen
         mBrowseInfo.init();
         mCurrentLocale = Locale.getDefault();
         mAccountManager = AccountManager.get(this);
-        mAdapterIntentFilter = new IntentFilter();
 
-        mAdapterIntentFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
-        mAdapterIntentFilter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
-        mAdapterIntentFilter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
-        mAdapterIntentFilter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
-
-        registerReceiver(mBroadcastReceiver, mAdapterIntentFilter);
         super.onCreate(savedInstanceState);
 
         mConnectivityListener = new ConnectivityListener(this, this);
@@ -90,7 +74,19 @@ public class MainSettings extends MenuActivity implements OnAccountsUpdateListen
     @Override
     protected void onResume() {
         super.onResume();
+        sInstance = this;
+        updateAccessories();
         mBrowseInfo.checkForDeveloperOptionUpdate();
+
+        // Update network item forcefully here
+        // because mBrowseInfo doesn't have information regarding Ethernet availability.
+        mBrowseInfo.updateWifi(mConnectivityListener.isEthernetAvailable());
+    }
+
+    @Override
+    protected void onPause() {
+        sInstance = null;
+        super.onPause();
     }
 
     @Override
@@ -103,13 +99,12 @@ public class MainSettings extends MenuActivity implements OnAccountsUpdateListen
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        unregisterReceiver(mBroadcastReceiver);
         mAccountManager.removeOnAccountsUpdatedListener(this);
     }
 
     @Override
     public void onConnectivityChange(Intent intent) {
-        mBrowseInfo.updateWifi();
+        mBrowseInfo.updateWifi(mConnectivityListener.isEthernetAvailable());
     }
 
     @Override
@@ -136,5 +131,9 @@ public class MainSettings extends MenuActivity implements OnAccountsUpdateListen
     @Override
     public void onAccountsUpdated(Account[] accounts) {
         mBrowseInfo.updateAccounts();
+    }
+
+    public void updateAccessories() {
+        mBrowseInfo.updateAccessories();
     }
 }

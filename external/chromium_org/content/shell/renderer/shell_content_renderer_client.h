@@ -15,6 +15,10 @@ class WebPlugin;
 struct WebPluginParams;
 }
 
+namespace web_cache {
+class WebCacheRenderProcessObserver;
+}
+
 namespace content {
 
 class MockWebClipboardImpl;
@@ -46,10 +50,14 @@ class ShellContentRendererClient : public ContentRendererClient {
       double sample_rate) OVERRIDE;
   virtual blink::WebClipboard* OverrideWebClipboard() OVERRIDE;
   virtual blink::WebThemeEngine* OverrideThemeEngine() OVERRIDE;
+  virtual bool IsPluginAllowedToUseCompositorAPI(const GURL& url) OVERRIDE;
+  virtual bool IsPluginAllowedToUseVideoDecodeAPI(const GURL& url) OVERRIDE;
+  virtual bool IsPluginAllowedToUseDevChannelAPIs() OVERRIDE;
 
  private:
   void WebTestProxyCreated(RenderView* render_view, WebTestProxyBase* proxy);
 
+  scoped_ptr<web_cache::WebCacheRenderProcessObserver> web_cache_observer_;
   scoped_ptr<ShellRenderProcessObserver> shell_observer_;
   scoped_ptr<MockWebClipboardImpl> clipboard_;
 };

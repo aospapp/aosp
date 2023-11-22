@@ -19,6 +19,12 @@
           '<(PRODUCT_DIR)/libclearkeycdm.so',
           '<(PRODUCT_DIR)/libclearkeycdmadapter.so',
           '<(PRODUCT_DIR)/libppapi_tests.so',
+        ],
+      },
+    }],
+    ['OS=="linux" and use_ozone==0', {
+      'variables': {
+        'isolate_dependency_tracked': [
           '<(PRODUCT_DIR)/xdisplaycheck<(EXECUTABLE_SUFFIX)',
         ],
       },
@@ -30,22 +36,10 @@
         ],
       },
     }],
-    ['OS=="linux" or OS=="mac"', {
-      'variables': {
-        'isolate_dependency_tracked': [
-          'browser/nacl_host/test/debug_stub_browser_tests.py',
-          'browser/nacl_host/test/gdb_rsp.py',
-        ],
-      },
-    }],
     ['OS=="linux" or OS=="mac" or OS=="win"', {
       'variables': {
         'isolate_dependency_tracked': [
-          '../media/test/data/90rotation.mp4',
-          '../media/test/data/bear-320x240-multitrack.webm',
-          '../media/test/data/id3_png_test.mp3',
-          '../media/test/data/no_streams.webm',
-          '../media/test/data/sfx.ogg',
+          '../media/test/data/',
           '../ppapi/tests/test_case.html',
           '../ppapi/tests/test_page.css',
           '../testing/test_env.py',
@@ -60,16 +54,13 @@
           '<(PRODUCT_DIR)/test_page.css',
           'browser/policy/test/asn1der.py',
           'browser/policy/test/policy_testserver.py',
-          'browser/safe_browsing/safe_browsing_testserver.py',
-          'common/extensions/docs/examples/apps/calculator/app/controller.js',
-          'common/extensions/docs/examples/apps/calculator/app/model.js',
-          'common/extensions/docs/examples/apps/calculator/app/view.js',
         ],
         'isolate_dependency_untracked': [
           '../content/test/data/',
+          '../google_apis/test/',
+          '../media/test/data/',
           '../net/data/',
           '../net/tools/testserver/',
-          '../third_party/WebKit/Tools/Scripts/',
           '../third_party/pyftpdlib/',
           '../third_party/pywebsocket/',
           '../third_party/safe_browsing/',
@@ -79,10 +70,10 @@
           '<(PRODUCT_DIR)/pnacl/',
           '<(PRODUCT_DIR)/pseudo_locales/',
           '<(PRODUCT_DIR)/pyproto/',
-          '<(PRODUCT_DIR)/test_data/chrome/',
-          '<(PRODUCT_DIR)/test_data/ppapi/',
+          '<(PRODUCT_DIR)/remoting/unittests/',
+          '<(PRODUCT_DIR)/test_data/',
           '<(PRODUCT_DIR)/test_url_loader_data/',
-          'common/extensions/docs/examples/apps/calculator/tests/',
+          'common/extensions/docs/examples/apps/calculator/',
           'test/data/',
           'third_party/mock4js/',
         ],
@@ -93,14 +84,19 @@
       'variables': {
         'isolate_dependency_tracked': [
           '<(PRODUCT_DIR)/mock_nacl_gdb<(EXECUTABLE_SUFFIX)',
-          '<(PRODUCT_DIR)/ppapi_nacl_tests_glibc_x64.nexe',
-          '<(PRODUCT_DIR)/ppapi_nacl_tests_newlib_x64.nexe',
-          '<(PRODUCT_DIR)/ppapi_nacl_tests_pnacl_newlib_x64.nexe',
         ],
         'isolate_dependency_untracked': [
           '../third_party/bidichecker/',
+        ],
+      },
+    }],
+    ['OS=="win" or (OS=="linux" and target_arch=="x64")', {
+      'variables': {
+        'isolate_dependency_tracked': [
           '<(PRODUCT_DIR)/lib64/',
-          '<(PRODUCT_DIR)/plugins/',
+          '<(PRODUCT_DIR)/ppapi_nacl_tests_glibc_x64.nexe',
+          '<(PRODUCT_DIR)/ppapi_nacl_tests_newlib_x64.nexe',
+          '<(PRODUCT_DIR)/ppapi_nacl_tests_pnacl_newlib_x64.nexe',
         ],
       },
     }],
@@ -108,17 +104,24 @@
       'variables': {
         'isolate_dependency_tracked': [
           '<(PRODUCT_DIR)/clearkeycdmadapter.plugin',
+          '<(PRODUCT_DIR)/content_shell.pak',
           '<(PRODUCT_DIR)/libclearkeycdm.dylib',
           '<(PRODUCT_DIR)/osmesa.so',
-          '<(PRODUCT_DIR)/ppapi_nacl_tests_glibc_x32.nexe',
-          '<(PRODUCT_DIR)/ppapi_nacl_tests_newlib_x32.nexe',
-          '<(PRODUCT_DIR)/ppapi_nacl_tests_pnacl_newlib_x32.nexe',
           '<(PRODUCT_DIR)/ppapi_tests.plugin/Contents/MacOS/ppapi_tests',
         ],
         'isolate_dependency_untracked': [
-          '<(PRODUCT_DIR)/lib32/',
           '<(PRODUCT_DIR)/plugins/npapi_test_plugin.plugin/',
           '<(PRODUCT_DIR)/plugins/test_netscape_plugin.plugin/',
+        ],
+      },
+    }],
+    ['OS=="mac" and target_arch=="ia32"', {
+      'variables': {
+        'isolate_dependency_tracked': [
+          '<(PRODUCT_DIR)/lib32/',
+          '<(PRODUCT_DIR)/ppapi_nacl_tests_glibc_x32.nexe',
+          '<(PRODUCT_DIR)/ppapi_nacl_tests_newlib_x32.nexe',
+          '<(PRODUCT_DIR)/ppapi_nacl_tests_pnacl_newlib_x32.nexe',
         ],
       },
     }],
@@ -142,8 +145,14 @@
           'tools/build/repack_locales.py',
         ],
         'isolate_dependency_untracked': [
-          '../third_party/npapi/npspy/extern/plugin/',
-          '../third_party/psyco_win32/psyco/',
+          '<(PRODUCT_DIR)/plugins/',
+        ],
+      },
+    }],
+    ['OS=="win" and (fastbuild==0 or fastbuild==1)', {
+      'variables': {
+        'isolate_dependency_untracked': [
+          '<(PRODUCT_DIR)/browser_tests.exe.pdb',
         ],
       },
     }],
@@ -156,8 +165,21 @@
     }],
     ['chromeos==1', {
       'variables': {
+        'isolate_dependency_tracked': [
+          '<(PRODUCT_DIR)/content_shell.pak',
+          '<(PRODUCT_DIR)/keyboard_resources.pak',
+          '<(PRODUCT_DIR)/libexif.so',
+          '<(PRODUCT_DIR)/nacl_helper',
+          '<(PRODUCT_DIR)/nacl_irt_x86_64.nexe',
+          'browser/chromeos/login/test/https_forwarder.py',
+        ],
         'isolate_dependency_untracked': [
+          '../chromeos/test/data/',
+          '../ui/file_manager/file_manager/',
+          '../ui/webui/resources/js/',
           '<(PRODUCT_DIR)/chromevox_test_data/',
+          '<(PRODUCT_DIR)/locales/',
+          '<(PRODUCT_DIR)/resources/chromeos/',
         ],
       },
     }],

@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Не може да се користи администраторската апликација. Ѝ недостасуваат компоненти или е оштетена. Контактирајте со одделот за ИТ."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Не можеше да се инсталира апликацијата за администратор"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Апликацијата за администратор не е инсталирана на уредот"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Да прекине поставувањето?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Дали сигурно сакате да го прекинете поставувањето?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Не"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Да"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Се откажува..."</string>
 </resources>

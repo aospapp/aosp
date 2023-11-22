@@ -11,15 +11,16 @@
 #include "base/basictypes.h"
 #include "base/callback.h"
 #include "base/memory/scoped_vector.h"
+#include "base/memory/weak_ptr.h"
 #include "base/task/cancelable_task_tracker.h"
 #include "base/time/time.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/sessions/base_session_service.h"
-#include "chrome/browser/sessions/session_id.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list_observer.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "components/sessions/session_id.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "ui/base/ui_base_types.h"
@@ -492,6 +493,8 @@ class SessionService : public BaseSessionService,
   // For browser_tests, since we want to simulate the browser shutting down
   // without quitting.
   bool force_browser_not_alive_with_no_windows_;
+
+  base::WeakPtrFactory<SessionService> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(SessionService);
 };

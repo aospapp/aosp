@@ -24,12 +24,48 @@
     android:background="@color/background_dialpad"
     android:clickable="true" >
 
+    <!-- Text field where call rate is displayed for ILD calls. -->
+    <LinearLayout
+        android:id="@+id/rate_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/ild_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="@dimen/ild_margin_height"
+            android:layout_marginBottom="@dimen/ild_margin_height">
+
+            <TextView android:id="@+id/ild_country"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+            <TextView android:id="@+id/ild_rate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#e3e3e3" />
+
+    </LinearLayout>
+
     <!-- Text field and possibly soft menu button above the keypad where
      the digits are displayed. -->
     <LinearLayout
         android:id="@+id/digits_container"
         android:layout_width="match_parent"
-        android:layout_height="@dimen/dialpad_digits_height"
+        android:layout_height="@dimen/dialpad_digits_adjustable_height"
         android:orientation="horizontal">
 
         <ImageButton android:id="@+id/dialpad_overflow"
@@ -56,13 +92,13 @@
             android:gravity="center"
             android:background="@android:color/transparent"
             android:maxLines="1"
-            android:textSize="@dimen/dialpad_digits_text_size"
+            android:textSize="@dimen/dialpad_digits_adjustable_text_size"
             android:freezesText="true"
             android:focusableInTouchMode="true"
             android:cursorVisible="false"
             android:textColor="@color/dialpad_digits_text_color"
             android:textCursorDrawable="@null"
-            android:fontFamily="sans-serif-light"
+            android:fontFamily="sans-serif"
             android:textStyle="normal"
             ex:resizing_text_min_size="@dimen/dialpad_digits_text_min_size" />
 

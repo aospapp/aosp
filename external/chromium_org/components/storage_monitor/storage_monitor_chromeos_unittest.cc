@@ -4,7 +4,7 @@
 
 #include "components/storage_monitor/storage_monitor_chromeos.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
@@ -205,7 +205,8 @@ void StorageMonitorCrosTest::MountDevice(
         device_size_in_bytes,
         false /* is_parent */,
         true /* has_media */,
-        false /* on_boot_device */);
+        false /* on_boot_device */,
+        true /* on_removable_device */);
   }
   monitor_->OnMountEvent(DiskMountManager::MOUNTING, error_code, mount_info);
   WaitForFileThread();

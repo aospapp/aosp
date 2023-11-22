@@ -31,6 +31,7 @@ import com.android.contacts.common.list.ContactListItemView;
 import com.android.contacts.common.list.OnPhoneNumberPickerActionListener;
 import com.android.contacts.common.list.PhoneNumberPickerFragment;
 import com.android.contacts.common.util.ViewUtil;
+import com.android.contacts.commonbind.analytics.AnalyticsUtil;
 import com.android.dialer.DialtactsActivity;
 import com.android.dialer.R;
 import com.android.dialer.util.DialerUtils;
@@ -69,7 +70,6 @@ public class SearchFragment extends PhoneNumberPickerFragment {
         setDarkTheme(false);
         setPhotoPosition(ContactListItemView.getDefaultPhotoPosition(false /* opposite */));
         setUseCallableUri(true);
-        sendScreenView();
 
         try {
             mActivityScrollListener = (OnListFragmentScrolledListener) activity;

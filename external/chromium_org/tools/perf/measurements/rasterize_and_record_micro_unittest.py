@@ -5,15 +5,14 @@
 import logging
 
 from measurements import rasterize_and_record_micro
-from telemetry import test
 from telemetry.core import wpr_modes
-from telemetry.page import page_measurement_unittest_base
 from telemetry.page import page_test
 from telemetry.unittest import options_for_unittests
+from telemetry.unittest import page_test_test_case
+from telemetry.unittest import test
 
 
-class RasterizeAndRecordMicroUnitTest(
-      page_measurement_unittest_base.PageMeasurementUnitTestBase):
+class RasterizeAndRecordMicroUnitTest(page_test_test_case.PageTestTestCase):
   """Smoke test for rasterize_and_record_micro measurement
 
      Runs rasterize_and_record_micro measurement on a simple page and verifies
@@ -29,7 +28,7 @@ class RasterizeAndRecordMicroUnitTest(
     self._options.start_wait_time = 0.0
     self._options.report_detailed_results = True
 
-  @test.Disabled('win')
+  @test.Disabled('win', 'chromeos')
   def testRasterizeAndRecordMicro(self):
     ps = self.CreatePageSetFromFileInUnittestDataDir('blank.html')
     measurement = rasterize_and_record_micro.RasterizeAndRecordMicro()

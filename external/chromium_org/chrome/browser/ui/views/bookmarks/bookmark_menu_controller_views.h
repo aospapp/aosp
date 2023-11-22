@@ -46,9 +46,10 @@ class BookmarkMenuController : public BaseBookmarkModelObserver,
                          content::PageNavigator* page_navigator,
                          views::Widget* parent,
                          const BookmarkNode* node,
-                         int start_child_index);
+                         int start_child_index,
+                         bool for_drop);
 
-  void RunMenuAt(BookmarkBarView* bookmark_bar, bool for_drop);
+  void RunMenuAt(BookmarkBarView* bookmark_bar);
 
   void clear_bookmark_bar() {
     bookmark_bar_ = NULL;
@@ -127,7 +128,7 @@ class BookmarkMenuController : public BaseBookmarkModelObserver,
   const BookmarkNode* node_;
 
   // Data for the drop.
-  BookmarkNodeData drop_data_;
+  bookmarks::BookmarkNodeData drop_data_;
 
   // The observer, may be null.
   BookmarkMenuControllerObserver* observer_;

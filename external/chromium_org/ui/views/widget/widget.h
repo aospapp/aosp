@@ -248,7 +248,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
     // |parent|. If you pass a RootWindow to |context|, we ask that RootWindow
     // where it wants your window placed.) NULL is not allowed if you are using
     // aura.
-    gfx::NativeView context;
+    gfx::NativeWindow context;
     // If true, forces the window to be shown in the taskbar, even for window
     // types that do not appear in the taskbar by default (popup and bubble).
     bool force_show_in_taskbar;
@@ -283,9 +283,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   // Creates a decorated window Widget in the same desktop context as |context|.
   static Widget* CreateWindowWithContext(WidgetDelegate* delegate,
-                                         gfx::NativeView context);
+                                         gfx::NativeWindow context);
   static Widget* CreateWindowWithContextAndBounds(WidgetDelegate* delegate,
-                                                  gfx::NativeView context,
+                                                  gfx::NativeWindow context,
                                                   const gfx::Rect& bounds);
 
   // Closes all Widgets that aren't identified as "secondary widgets". Called
@@ -732,6 +732,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // Whether the widget supports translucency.
   bool IsTranslucentWindowOpacitySupported() const;
 
+  // Called when the delegate's CanResize or CanMaximize changes.
+  void OnSizeConstraintsChanged();
+
   // Notification that our owner is closing.
   // NOTE: this is not invoked for aura as it's currently not needed there.
   // Under aura menus close by way of activation getting reset when the owner
@@ -756,6 +759,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   virtual gfx::Size GetMaximumSize() const OVERRIDE;
   virtual void OnNativeWidgetMove() OVERRIDE;
   virtual void OnNativeWidgetSizeChanged(const gfx::Size& new_size) OVERRIDE;
+  virtual void OnNativeWidgetWindowShowStateChanged() OVERRIDE;
   virtual void OnNativeWidgetBeginUserBoundsChange() OVERRIDE;
   virtual void OnNativeWidgetEndUserBoundsChange() OVERRIDE;
   virtual bool HasFocusManager() const OVERRIDE;
@@ -799,6 +803,12 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // TODO(beng): remove once we fold those objects onto this one.
   void DestroyRootView();
 
+  // Notification that a drag will start. Default implementation does nothing.
+  virtual void OnDragWillStart();
+
+  // Notification that the drag performed by RunShellDrag() has completed.
+  virtual void OnDragComplete();
+
  private:
   friend class ComboboxTest;
   friend class TextfieldTest;
@@ -810,6 +820,11 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // Persists the window's restored position and "show" state using the
   // window delegate.
   void SaveWindowPlacement();
+
+  // Invokes SaveWindowPlacement() if the native widget has been initialized.
+  // This is called at times when the native widget may not have been
+  // initialized.
+  void SaveWindowPlacementIfInitialized();
 
   // Sizes and positions the window just after it is created.
   void SetInitialBounds(const gfx::Rect& bounds);
@@ -909,8 +924,8 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // If true, the mouse is currently down.
   bool is_mouse_button_pressed_;
 
-  // If true, a touch device is currently down.
-  bool is_touch_down_;
+  // True if capture losses should be ignored.
+  bool ignore_capture_loss_;
 
   // TODO(beng): Remove NativeWidgetGtk's dependence on these:
   // The following are used to detect duplicate mouse move events and not

@@ -10,27 +10,36 @@ cr.define('print_preview', function() {
    * @param {!print_preview.ticket_items.MediaSize} ticketItem Used to read and
    *     write the media size ticket item.
    * @constructor
-   * @extends {print_preview.Component}
+   * @extends {print_preview.SettingsSection}
    */
   function MediaSizeSettings(ticketItem) {
-    print_preview.Component.call(this);
+    print_preview.SettingsSection.call(this);
 
     /** @private {!print_preview.ticket_items.MediaSize} */
     this.ticketItem_ = ticketItem;
   };
 
   MediaSizeSettings.prototype = {
-    __proto__: print_preview.Component.prototype,
+    __proto__: print_preview.SettingsSection.prototype,
 
-    /** @param {boolean} isEnabled Whether this component is enabled. */
+    /** @override */
+    isAvailable: function() {
+      return this.ticketItem_.isCapabilityAvailable();
+    },
+
+    /** @override */
+    hasCollapsibleContent: function() {
+      return this.isAvailable();
+    },
+
+    /** @override */
     set isEnabled(isEnabled) {
       this.select_.disabled = !isEnabled;
     },
 
     /** @override */
     enterDocument: function() {
-      print_preview.Component.prototype.enterDocument.call(this);
-      fadeOutOption(this.getElement(), true);
+      print_preview.SettingsSection.prototype.enterDocument.call(this);
       this.tracker.add(this.select_, 'change', this.onSelectChange_.bind(this));
       this.tracker.add(
           this.ticketItem_,
@@ -54,7 +63,7 @@ cr.define('print_preview', function() {
      */
     updateSelect_: function() {
       var select = this.select_;
-      if (!this.ticketItem_.isCapabilityAvailable()) {
+      if (!this.isAvailable()) {
         select.innerHTML = '';
         return;
       }
@@ -70,7 +79,26 @@ cr.define('print_preview', function() {
         // TODO: Better heuristics for the display name and options grouping.
         this.ticketItem_.capability.option.forEach(function(option, index) {
           var selectOption = document.createElement('option');
-          selectOption.text = option.custom_display_name || option.name;
+          var displayName = option.custom_display_name;
+          if (!displayName && option.custom_display_name_localized) {
+            var getLocaleToCompare = function(locale, languageOnly) {
+              var code = languageOnly ? locale.split('-')[0] : locale;
+              return code.toLowerCase();
+            };
+            var getItemForLocale = function(items, locale, languageOnly) {
+              locale = getLocaleToCompare(locale, languageOnly);
+              for (var i = 0; i < items.length; i++) {
+                if (getLocaleToCompare(items[i].locale) == locale)
+                  return items[i].value;
+              }
+              return '';
+            };
+            var items = option.custom_display_name_localized;
+            displayName =
+                getItemForLocale(items, navigator.language, false) ||
+                getItemForLocale(items, navigator.language, true);
+          }
+          selectOption.text = displayName || option.name;
           selectOption.value = JSON.stringify(option);
           select.add(selectOption);
           if (option.is_default) {
@@ -106,12 +134,8 @@ cr.define('print_preview', function() {
      * @private
      */
     onTicketItemChange_: function() {
-      if (this.ticketItem_.isCapabilityAvailable()) {
-        this.updateSelect_();
-        fadeInOption(this.getElement());
-      } else {
-        fadeOutOption(this.getElement());
-      }
+      this.updateSelect_();
+      this.updateUiStateInternal();
     }
   };
 

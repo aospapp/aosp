@@ -1,5 +1,5 @@
 {
-  'TOOLS': ['bionic', 'newlib', 'glibc', 'pnacl', 'win', 'linux'],
+  'TOOLS': ['newlib', 'glibc',  'bionic', 'pnacl', 'win', 'linux'],
   'SEARCH': [
       '../../../../ppapi/cpp',
       '../../../../ppapi/cpp/dev',
@@ -114,6 +114,7 @@
         'logging.h',
         'media_stream_audio_track.h',
         'media_stream_video_track.h',
+        'message_handler.h',
         'message_loop.h',
         'module_embedder.h',
         'module.h',

@@ -6,10 +6,11 @@ import sys
 import time
 
 from telemetry.core.util import TimeoutException
-from telemetry.page import page_measurement
 from telemetry.page import page_test
+from telemetry.value import scalar
 
-class RasterizeAndRecordMicro(page_measurement.PageMeasurement):
+
+class RasterizeAndRecordMicro(page_test.PageTest):
   def __init__(self):
     super(RasterizeAndRecordMicro, self).__init__('')
     self._chrome_branch_number = None
@@ -39,7 +40,6 @@ class RasterizeAndRecordMicro(page_measurement.PageMeasurement):
   def CustomizeBrowserOptions(self, options):
     options.AppendExtraBrowserArgs([
         '--enable-impl-side-painting',
-        '--force-compositing-mode',
         '--enable-threaded-compositing',
         '--enable-gpu-benchmarking'
     ])
@@ -55,9 +55,9 @@ class RasterizeAndRecordMicro(page_measurement.PageMeasurement):
           'rasterize_and_record_micro requires Chrome branch 1713 '
           'or later. Skipping measurement.')
 
-  def MeasurePage(self, page, tab, results):
+  def ValidateAndMeasurePage(self, page, tab, results):
     try:
-      tab.WaitForJavaScriptExpression("document.readyState == 'complete'", 10)
+      tab.WaitForDocumentReadyStateToBeComplete()
     except TimeoutException:
       pass
     time.sleep(self.options.start_wait_time)
@@ -82,7 +82,7 @@ class RasterizeAndRecordMicro(page_measurement.PageMeasurement):
 
     benchmark_id = tab.EvaluateJavaScript('window.benchmark_results.id')
     if (not benchmark_id):
-      raise page_measurement.MeasurementFailure(
+      raise page_test.MeasurementFailure(
           'Failed to schedule rasterize_and_record_micro')
 
     tab.WaitForJavaScriptExpression(
@@ -95,10 +95,14 @@ class RasterizeAndRecordMicro(page_measurement.PageMeasurement):
     pixels_rasterized = data['pixels_rasterized']
     rasterize_time = data['rasterize_time_ms']
 
-    results.Add('pixels_recorded', 'pixels', pixels_recorded)
-    results.Add('record_time', 'ms', record_time)
-    results.Add('pixels_rasterized', 'pixels', pixels_rasterized)
-    results.Add('rasterize_time', 'ms', rasterize_time)
+    results.AddValue(scalar.ScalarValue(
+        results.current_page, 'pixels_recorded', 'pixels', pixels_recorded))
+    results.AddValue(scalar.ScalarValue(
+        results.current_page, 'record_time', 'ms', record_time))
+    results.AddValue(scalar.ScalarValue(
+        results.current_page, 'pixels_rasterized', 'pixels', pixels_rasterized))
+    results.AddValue(scalar.ScalarValue(
+        results.current_page, 'rasterize_time', 'ms', rasterize_time))
 
     # TODO(skyostil): Remove this temporary workaround when reference build has
     # been updated to branch 1931 or later.
@@ -107,11 +111,15 @@ class RasterizeAndRecordMicro(page_measurement.PageMeasurement):
       record_time_sk_null_canvas = data['record_time_sk_null_canvas_ms']
       record_time_painting_disabled = data['record_time_painting_disabled_ms']
       record_time_skrecord = data['record_time_skrecord_ms']
-      results.Add('record_time_sk_null_canvas', 'ms',
-          record_time_sk_null_canvas)
-      results.Add('record_time_painting_disabled', 'ms',
-          record_time_painting_disabled)
-      results.Add('record_time_skrecord', 'ms', record_time_skrecord)
+      results.AddValue(scalar.ScalarValue(
+          results.current_page, 'record_time_sk_null_canvas', 'ms',
+          record_time_sk_null_canvas))
+      results.AddValue(scalar.ScalarValue(
+          results.current_page, 'record_time_painting_disabled', 'ms',
+          record_time_painting_disabled))
+      results.AddValue(scalar.ScalarValue(
+          results.current_page, 'record_time_skrecord', 'ms',
+          record_time_skrecord))
 
     if self.options.report_detailed_results:
       pixels_rasterized_with_non_solid_color = \
@@ -125,13 +133,20 @@ class RasterizeAndRecordMicro(page_measurement.PageMeasurement):
       total_picture_layers_off_screen = \
           data['total_picture_layers_off_screen']
 
-      results.Add('pixels_rasterized_with_non_solid_color', 'pixels',
-          pixels_rasterized_with_non_solid_color)
-      results.Add('pixels_rasterized_as_opaque', 'pixels',
-          pixels_rasterized_as_opaque)
-      results.Add('total_layers', 'count', total_layers)
-      results.Add('total_picture_layers', 'count', total_picture_layers)
-      results.Add('total_picture_layers_with_no_content', 'count',
-          total_picture_layers_with_no_content)
-      results.Add('total_picture_layers_off_screen', 'count',
-          total_picture_layers_off_screen)
+      results.AddValue(scalar.ScalarValue(
+          results.current_page, 'pixels_rasterized_with_non_solid_color',
+          'pixels', pixels_rasterized_with_non_solid_color))
+      results.AddValue(scalar.ScalarValue(
+          results.current_page, 'pixels_rasterized_as_opaque', 'pixels',
+          pixels_rasterized_as_opaque))
+      results.AddValue(scalar.ScalarValue(
+          results.current_page, 'total_layers', 'count', total_layers))
+      results.AddValue(scalar.ScalarValue(
+          results.current_page, 'total_picture_layers', 'count',
+          total_picture_layers))
+      results.AddValue(scalar.ScalarValue(
+          results.current_page, 'total_picture_layers_with_no_content', 'count',
+          total_picture_layers_with_no_content))
+      results.AddValue(scalar.ScalarValue(
+          results.current_page, 'total_picture_layers_off_screen', 'count',
+          total_picture_layers_off_screen))

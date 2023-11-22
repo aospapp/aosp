@@ -24,17 +24,16 @@
 #include "chrome/common/chrome_version_info.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
+#include "chrome/grit/google_chrome_strings.h"
 #include "components/google/core/browser/google_util.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_ui.h"
-#include "content/public/browser/web_ui_data_source.h"
 #include "content/public/common/user_agent.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
-#include "grit/google_chrome_strings.h"
+#include "grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/resource/resource_bundle.h"
 #include "v8/include/v8.h"
 
 #if defined(OS_MACOSX)
@@ -46,45 +45,21 @@
 #include "base/i18n/time_formatting.h"
 #include "base/prefs/pref_service.h"
 #include "base/sys_info.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/help/help_utils_chromeos.h"
+#include "chrome/browser/ui/webui/help/version_updater_chromeos.h"
 #include "chromeos/chromeos_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/power_manager_client.h"
-#include "content/public/browser/browser_thread.h"
+#include "components/user_manager/user_manager.h"
 #endif
 
 using base::ListValue;
 using content::BrowserThread;
 
 namespace {
-
-// Returns the browser version as a string.
-base::string16 BuildBrowserVersionString() {
-  chrome::VersionInfo version_info;
-  DCHECK(version_info.is_valid());
-
-  std::string browser_version = version_info.Version();
-  std::string version_modifier =
-      chrome::VersionInfo::GetVersionStringModifier();
-  if (!version_modifier.empty())
-    browser_version += " " + version_modifier;
-
-#if !defined(GOOGLE_CHROME_BUILD)
-  browser_version += " (";
-  browser_version += version_info.LastChange();
-  browser_version += ")";
-#endif
-
-#if defined(ARCH_CPU_64_BITS)
-  browser_version += " (64-bit)";
-#endif
-
-  return base::UTF8ToUTF16(browser_version);
-}
 
 #if defined(OS_CHROMEOS)
 
@@ -119,14 +94,15 @@ bool CanChangeChannel() {
       return false;
     // Get the currently logged in user and strip the domain part only.
     std::string domain = "";
-    std::string user = chromeos::UserManager::Get()->GetLoggedInUser()->email();
+    std::string user =
+        user_manager::UserManager::Get()->GetLoggedInUser()->email();
     size_t at_pos = user.find('@');
     if (at_pos != std::string::npos && at_pos + 1 < user.length())
       domain = user.substr(user.find('@') + 1);
     policy::BrowserPolicyConnectorChromeOS* connector =
         g_browser_process->platform_part()->browser_policy_connector_chromeos();
     return domain == connector->GetEnterpriseDomain();
-  } else if (chromeos::UserManager::Get()->IsCurrentUserOwner()) {
+  } else if (user_manager::UserManager::Get()->IsCurrentUserOwner()) {
     // On non managed machines we have local owner who is the only one to change
     // anything. Ensure that ReleaseChannelDelegated is false.
     return !value;
@@ -146,7 +122,7 @@ HelpHandler::HelpHandler()
 HelpHandler::~HelpHandler() {
 }
 
-void HelpHandler::GetLocalizedValues(content::WebUIDataSource* source) {
+void HelpHandler::GetLocalizedValues(base::DictionaryValue* localized_strings) {
   struct L10nResources {
     const char* name;
     int ids;
@@ -169,6 +145,7 @@ void HelpHandler::GetLocalizedValues(content::WebUIDataSource* source) {
     { "upToDate", IDS_UPGRADE_UP_TO_DATE },
     { "updating", IDS_UPGRADE_UPDATING },
 #if defined(OS_CHROMEOS)
+    { "updateButton", IDS_UPGRADE_BUTTON },
     { "updatingChannelSwitch", IDS_UPGRADE_UPDATING_CHANNEL_SWITCH },
 #endif
     { "updateAlmostDone", IDS_UPGRADE_SUCCESSFUL_RELAUNCH },
@@ -221,25 +198,27 @@ void HelpHandler::GetLocalizedValues(content::WebUIDataSource* source) {
   };
 
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(resources); ++i) {
-    source->AddString(resources[i].name,
-                      l10n_util::GetStringUTF16(resources[i].ids));
+    localized_strings->SetString(resources[i].name,
+                                 l10n_util::GetStringUTF16(resources[i].ids));
   }
 
 #if defined(OS_MACOSX)
-  source->AddString("updateObsoleteSystem",
-                    ObsoleteSystemMac::LocalizedObsoleteSystemString());
-  source->AddString("updateObsoleteSystemURL",
-                    chrome::kMac32BitDeprecationURL);
+  localized_strings->SetString(
+      "updateObsoleteSystem",
+      ObsoleteSystemMac::LocalizedObsoleteSystemString());
+  localized_strings->SetString(
+      "updateObsoleteSystemURL",
+      chrome::kMac32BitDeprecationURL);
 #endif
 
-  source->AddString(
+  localized_strings->SetString(
       "browserVersion",
       l10n_util::GetStringFUTF16(IDS_ABOUT_PRODUCT_VERSION,
                                  BuildBrowserVersionString()));
 
   base::Time::Exploded exploded_time;
   base::Time::Now().LocalExplode(&exploded_time);
-  source->AddString(
+  localized_strings->SetString(
       "productCopyright",
        l10n_util::GetStringFUTF16(IDS_ABOUT_VERSION_COPYRIGHT,
                                   base::IntToString16(exploded_time.year)));
@@ -248,21 +227,21 @@ void HelpHandler::GetLocalizedValues(content::WebUIDataSource* source) {
       IDS_ABOUT_VERSION_LICENSE,
       base::ASCIIToUTF16(chrome::kChromiumProjectURL),
       base::ASCIIToUTF16(chrome::kChromeUICreditsURL));
-  source->AddString("productLicense", license);
+  localized_strings->SetString("productLicense", license);
 
 #if defined(OS_CHROMEOS)
   base::string16 os_license = l10n_util::GetStringFUTF16(
       IDS_ABOUT_CROS_VERSION_LICENSE,
       base::ASCIIToUTF16(chrome::kChromeUIOSCreditsURL));
-  source->AddString("productOsLicense", os_license);
+  localized_strings->SetString("productOsLicense", os_license);
 
   base::string16 product_name = l10n_util::GetStringUTF16(IDS_PRODUCT_OS_NAME);
-  source->AddString(
+  localized_strings->SetString(
       "channelChangePageDelayedChangeMessage",
       l10n_util::GetStringFUTF16(
           IDS_ABOUT_PAGE_CHANNEL_CHANGE_PAGE_DELAYED_CHANGE_MESSAGE,
           product_name));
-  source->AddString(
+  localized_strings->SetString(
       "channelChangePageUnstableMessage",
       l10n_util::GetStringFUTF16(
           IDS_ABOUT_PAGE_CHANNEL_CHANGE_PAGE_UNSTABLE_MESSAGE,
@@ -270,24 +249,24 @@ void HelpHandler::GetLocalizedValues(content::WebUIDataSource* source) {
 
   if (CommandLine::ForCurrentProcess()->
       HasSwitch(chromeos::switches::kDisableNewChannelSwitcherUI)) {
-    source->AddBoolean("disableNewChannelSwitcherUI", true);
+    localized_strings->SetBoolean("disableNewChannelSwitcherUI", true);
   }
 #endif
 
   base::string16 tos = l10n_util::GetStringFUTF16(
       IDS_ABOUT_TERMS_OF_SERVICE, base::UTF8ToUTF16(chrome::kChromeUITermsURL));
-  source->AddString("productTOS", tos);
+  localized_strings->SetString("productTOS", tos);
 
-  source->AddString("webkitVersion", content::GetWebKitVersion());
+  localized_strings->SetString("webkitVersion", content::GetWebKitVersion());
 
-  source->AddString("jsEngine", "V8");
-  source->AddString("jsEngineVersion", v8::V8::GetVersion());
+  localized_strings->SetString("jsEngine", "V8");
+  localized_strings->SetString("jsEngineVersion", v8::V8::GetVersion());
 
-  source->AddString("userAgentInfo", GetUserAgent());
+  localized_strings->SetString("userAgentInfo", GetUserAgent());
 
   CommandLine::StringType command_line =
       CommandLine::ForCurrentProcess()->GetCommandLineString();
-  source->AddString("commandLineInfo", command_line);
+  localized_strings->SetString("commandLineInfo", command_line);
 }
 
 void HelpHandler::RegisterMessages() {
@@ -307,6 +286,8 @@ void HelpHandler::RegisterMessages() {
       base::Bind(&HelpHandler::SetChannel, base::Unretained(this)));
   web_ui()->RegisterMessageCallback("relaunchAndPowerwash",
       base::Bind(&HelpHandler::RelaunchAndPowerwash, base::Unretained(this)));
+  web_ui()->RegisterMessageCallback("requestUpdate",
+      base::Bind(&HelpHandler::RequestUpdate, base::Unretained(this)));
 #endif
 #if defined(OS_MACOSX)
   web_ui()->RegisterMessageCallback("promoteUpdater",
@@ -320,17 +301,30 @@ void HelpHandler::Observe(int type, const content::NotificationSource& source,
     case chrome::NOTIFICATION_UPGRADE_RECOMMENDED: {
       // A version update is installed and ready to go. Refresh the UI so the
       // correct state will be shown.
-      version_updater_->CheckForUpdate(
-          base::Bind(&HelpHandler::SetUpdateStatus, base::Unretained(this))
-#if defined(OS_MACOSX)
-          , base::Bind(&HelpHandler::SetPromotionState, base::Unretained(this))
-#endif
-          );
+      RequestUpdate(NULL);
       break;
     }
     default:
       NOTREACHED();
   }
+}
+
+// static
+base::string16 HelpHandler::BuildBrowserVersionString() {
+  chrome::VersionInfo version_info;
+  DCHECK(version_info.is_valid());
+
+  std::string version = version_info.Version();
+
+  std::string modifier = chrome::VersionInfo::GetVersionStringModifier();
+  if (!modifier.empty())
+    version += " " + modifier;
+
+#if defined(ARCH_CPU_64_BITS)
+  version += " (64-bit)";
+#endif
+
+  return base::UTF8ToUTF16(version);
 }
 
 void HelpHandler::OnPageLoaded(const base::ListValue* args) {
@@ -354,12 +348,13 @@ void HelpHandler::OnPageLoaded(const base::ListValue* args) {
                                    base::StringValue(build_date));
 #endif  // defined(OS_CHROMEOS)
 
-  version_updater_->CheckForUpdate(
-      base::Bind(&HelpHandler::SetUpdateStatus, base::Unretained(this))
-#if defined(OS_MACOSX)
-      , base::Bind(&HelpHandler::SetPromotionState, base::Unretained(this))
+  // On Chrome OS, do not check for an update automatically.
+#if defined(OS_CHROMEOS)
+  static_cast<VersionUpdaterCros*>(version_updater_.get())->GetUpdateStatus(
+      base::Bind(&HelpHandler::SetUpdateStatus, base::Unretained(this)));
+#else
+  RequestUpdate(NULL);
 #endif
-      );
 
 #if defined(OS_MACOSX)
   web_ui()->CallJavascriptFunction(
@@ -431,7 +426,7 @@ void HelpHandler::SetChannel(const base::ListValue* args) {
 
   version_updater_->SetChannel(base::UTF16ToUTF8(channel),
                                is_powerwash_allowed);
-  if (chromeos::UserManager::Get()->IsCurrentUserOwner()) {
+  if (user_manager::UserManager::Get()->IsCurrentUserOwner()) {
     // Check for update after switching release channel.
     version_updater_->CheckForUpdate(base::Bind(&HelpHandler::SetUpdateStatus,
                                                 base::Unretained(this)));
@@ -454,6 +449,15 @@ void HelpHandler::RelaunchAndPowerwash(const base::ListValue* args) {
 }
 
 #endif  // defined(OS_CHROMEOS)
+
+void HelpHandler::RequestUpdate(const base::ListValue* args) {
+  version_updater_->CheckForUpdate(
+      base::Bind(&HelpHandler::SetUpdateStatus, base::Unretained(this))
+#if defined(OS_MACOSX)
+      , base::Bind(&HelpHandler::SetPromotionState, base::Unretained(this))
+#endif
+      );
+}
 
 void HelpHandler::SetUpdateStatus(VersionUpdater::Status status,
                                   int progress, const base::string16& message) {

@@ -31,6 +31,7 @@ import com.android.mail.providers.UIProvider.Swipe;
 import com.android.mail.utils.LogTag;
 import com.android.mail.utils.LogUtils;
 import com.android.mail.utils.Utils;
+import com.google.android.mail.common.base.Strings;
 import com.google.common.base.Objects;
 
 import org.json.JSONException;
@@ -164,7 +165,8 @@ public class Settings implements Parcelable {
     }
 
     public Settings(Cursor cursor) {
-        signature = cursor.getString(cursor.getColumnIndex(SettingsColumns.SIGNATURE));
+        signature = Strings.nullToEmpty(
+                cursor.getString(cursor.getColumnIndex(SettingsColumns.SIGNATURE)));
         mAutoAdvance = cursor.getInt(cursor.getColumnIndex(SettingsColumns.AUTO_ADVANCE));
         snapHeaders = cursor.getInt(cursor.getColumnIndex(SettingsColumns.SNAP_HEADERS));
         replyBehavior = cursor.getInt(cursor.getColumnIndex(SettingsColumns.REPLY_BEHAVIOR));
@@ -174,8 +176,8 @@ public class Settings implements Parcelable {
         confirmSend = cursor.getInt(cursor.getColumnIndex(SettingsColumns.CONFIRM_SEND)) != 0;
         defaultInbox = Utils.getValidUri(
                 cursor.getString(cursor.getColumnIndex(SettingsColumns.DEFAULT_INBOX)));
-        defaultInboxName =
-                cursor.getString(cursor.getColumnIndex(SettingsColumns.DEFAULT_INBOX_NAME));
+        defaultInboxName = Strings.nullToEmpty(
+                cursor.getString(cursor.getColumnIndex(SettingsColumns.DEFAULT_INBOX_NAME)));
         forceReplyFromDefault = cursor.getInt(
                 cursor.getColumnIndex(SettingsColumns.FORCE_REPLY_FROM_DEFAULT)) != 0;
         maxAttachmentSize =
@@ -189,8 +191,8 @@ public class Settings implements Parcelable {
                 cursor.getString(cursor.getColumnIndex(SettingsColumns.SETUP_INTENT_URI)));
         conversationViewMode =
                 cursor.getInt(cursor.getColumnIndex(SettingsColumns.CONVERSATION_VIEW_MODE));
-        veiledAddressPattern =
-                cursor.getString(cursor.getColumnIndex(SettingsColumns.VEILED_ADDRESS_PATTERN));
+        veiledAddressPattern = Strings.nullToEmpty(
+                cursor.getString(cursor.getColumnIndex(SettingsColumns.VEILED_ADDRESS_PATTERN)));
         moveToInbox = Utils.getValidUri(
                 cursor.getString(cursor.getColumnIndex(SettingsColumns.MOVE_TO_INBOX)));
         showImages = cursor.getInt(cursor.getColumnIndex(SettingsColumns.SHOW_IMAGES));

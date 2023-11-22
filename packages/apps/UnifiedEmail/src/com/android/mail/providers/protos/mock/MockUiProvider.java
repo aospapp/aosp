@@ -318,7 +318,7 @@ public final class MockUiProvider extends ContentProvider {
                         AccountCapabilities.MUTE |
                         AccountCapabilities.SERVER_SEARCH |
                         AccountCapabilities.FOLDER_SERVER_SEARCH |
-                        AccountCapabilities.SANITIZED_HTML |
+                        AccountCapabilities.SERVER_SANITIZED_HTML |
                         AccountCapabilities.DRAFT_SYNCHRONIZATION |
                         AccountCapabilities.MULTIPLE_FROM_ADDRESSES |
                         AccountCapabilities.SMART_REPLY |

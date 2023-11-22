@@ -40,7 +40,7 @@ struct EGLContext_t {
     const char*         vendorString;
     const char*         rendererString;
     const char*         extensionString;
-
+    EGLint              deletePending;
     GLClientState * getClientState(){ return clientState; }
     GLSharedGroupPtr getSharedGroup(){ return sharedGroup; }
 private:

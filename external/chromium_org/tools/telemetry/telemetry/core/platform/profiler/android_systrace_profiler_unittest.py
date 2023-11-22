@@ -6,13 +6,13 @@ import shutil
 import tempfile
 import zipfile
 
-from telemetry import test
+from telemetry import benchmark
 from telemetry.core.platform.profiler import android_systrace_profiler
 from telemetry.unittest import tab_test_case
 
 
 class TestAndroidSystraceProfiler(tab_test_case.TabTestCase):
-  @test.Enabled('android')
+  @benchmark.Enabled('android')
   def testSystraceProfiler(self):
     try:
       out_dir = tempfile.mkdtemp()
@@ -23,8 +23,9 @@ class TestAndroidSystraceProfiler(tab_test_case.TabTestCase):
           os.path.join(out_dir, 'systrace'),
           {})
       result = profiler.CollectProfile()[0]
-      assert zipfile.is_zipfile(result)
+      self.assertTrue(zipfile.is_zipfile(result))
       with zipfile.ZipFile(result) as z:
         self.assertEquals(len(z.namelist()), 2)
+        self.assertIn('sched_wakeup', z.open('systrace').read())
     finally:
       shutil.rmtree(out_dir)

@@ -22,14 +22,14 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.hardware.cts.helpers.SensorStats;
+import android.hardware.cts.helpers.reporting.ISensorTestNode;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 
 import java.util.concurrent.TimeUnit;
 
 /**
- * An {@link ISensorOperation} which performs another {@link ISensorOperation} and then wakes up
+ * An {@link SensorOperation} which performs another {@link SensorOperation} and then wakes up
  * after a specified period of time and waits for the child operation to complete.
  * <p>
  * This operation can be used to allow the device to go to sleep and wake it up after a specified
@@ -40,11 +40,11 @@ import java.util.concurrent.TimeUnit;
  * but wake the device one time at the specified period.
  * </p>
  */
-public class AlarmOperation extends AbstractSensorOperation {
+public class AlarmOperation extends SensorOperation {
     private static final String ACTION = "AlarmOperationAction";
     private static final String WAKE_LOCK_TAG = "AlarmOperationWakeLock";
 
-    private final ISensorOperation mOperation;
+    private final SensorOperation mOperation;
     private final Context mContext;
     private final long mSleepDuration;
     private final TimeUnit mTimeUnit;
@@ -55,13 +55,17 @@ public class AlarmOperation extends AbstractSensorOperation {
     /**
      * Constructor for {@link DelaySensorOperation}
      *
-     * @param operation the child {@link ISensorOperation} to perform after the delay
+     * @param operation the child {@link SensorOperation} to perform after the delay
      * @param context the context used to access the alarm manager
      * @param sleepDuration the amount of time to sleep
      * @param timeUnit the unit of the duration
      */
-    public AlarmOperation(ISensorOperation operation, Context context, long sleepDuration,
+    public AlarmOperation(
+            SensorOperation operation,
+            Context context,
+            long sleepDuration,
             TimeUnit timeUnit) {
+        super(operation.getStats());
         mOperation = operation;
         mContext = context;
         mSleepDuration = sleepDuration;
@@ -72,7 +76,7 @@ public class AlarmOperation extends AbstractSensorOperation {
      * {@inheritDoc}
      */
     @Override
-    public void execute() throws InterruptedException {
+    public void execute(ISensorTestNode parent) throws InterruptedException {
         // Start alarm
         IntentFilter intentFilter = new IntentFilter(ACTION);
         BroadcastReceiver receiver = new BroadcastReceiver() {
@@ -92,18 +96,10 @@ public class AlarmOperation extends AbstractSensorOperation {
 
         // Execute operation
         try {
-            mOperation.execute();
+            mOperation.execute(asTestNode(parent));
         } finally {
             releaseWakeLock();
         }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public SensorStats getStats() {
-        return mOperation.getStats();
     }
 
     /**
@@ -120,7 +116,7 @@ public class AlarmOperation extends AbstractSensorOperation {
      */
     private synchronized void acquireWakeLock() {
         // Don't acquire wake lock if the operation has already completed.
-        if (mCompleted == true || mWakeLock != null) {
+        if (mCompleted || mWakeLock != null) {
             return;
         }
         PowerManager pm = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);

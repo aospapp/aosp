@@ -38,18 +38,34 @@ def CommonChecks(input_api, output_api):
   output.extend(input_api.canned_checks.RunPylint(
       input_api,
       output_api,
-      black_list=[r'pylib/symbols/.*\.py$', r'gyp/.*\.py$'],
+      black_list=[r'pylib/symbols/.*\.py$', r'gyp/.*\.py$', r'gn/.*\.py'],
       extra_paths_list=[
           J(), J('..', '..', 'third_party', 'android_testrunner'),
           J('buildbot')]))
   output.extend(input_api.canned_checks.RunPylint(
       input_api,
       output_api,
-      white_list=[r'gyp/.*\.py$'],
-      extra_paths_list=[J('gyp')]))
+      white_list=[r'gyp/.*\.py$', r'gn/.*\.py'],
+      extra_paths_list=[J('gyp'), J('gn')]))
 
-  output.extend(input_api.canned_checks.RunUnitTestsInDirectory(
-      input_api, output_api, J('buildbot', 'tests')))
+  # Disabled due to http://crbug.com/410936
+  #output.extend(input_api.canned_checks.RunUnitTestsInDirectory(
+  #input_api, output_api, J('buildbot', 'tests')))
+
+  pylib_test_env = dict(input_api.environ)
+  pylib_test_env.update({
+      'PYTHONPATH': input_api.PresubmitLocalPath(),
+      'PYTHONDONTWRITEBYTECODE': '1',
+  })
+  output.extend(input_api.canned_checks.RunUnitTests(
+      input_api,
+      output_api,
+      unit_tests=[
+          J('pylib', 'device', 'device_utils_test.py'),
+          J('pylib', 'gtest', 'test_package_test.py'),
+          J('pylib', 'instrumentation', 'test_runner_test.py'),
+      ],
+      env=pylib_test_env))
   output.extend(_CheckDeletionsOnlyFiles(input_api, output_api))
   return output
 

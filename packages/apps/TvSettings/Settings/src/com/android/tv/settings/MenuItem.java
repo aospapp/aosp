@@ -41,6 +41,15 @@ public class MenuItem {
         private UriGetter mImageUriGetter;
         private Intent mIntent;
 
+        public Builder from(MenuItem item) {
+            mId = item.mId;
+            mTitle = item.mDisplayName;
+            mDescriptionGetter = item.mDisplayDescriptionTextGetter;
+            mImageUriGetter = item.mImageUriGetter;
+            mIntent = item.mIntent;
+            return this;
+        }
+
         public Builder id(int id) {
             mId = id;
             return this;
@@ -129,7 +138,7 @@ public class MenuItem {
         mIntent = intent;
     }
 
-    public long getId() {
+    public int getId() {
         return mId;
     }
 

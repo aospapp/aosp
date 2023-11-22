@@ -8,7 +8,7 @@ from telemetry.page import test_expectations
 #
 # Operating systems:
 #     win, xp, vista, win7, mac, leopard, snowleopard, lion, mountainlion,
-#     linux, chromeos, android
+#     mavericks, yosemite, linux, chromeos, android
 #
 # GPU vendors:
 #     amd, arm, broadcom, hisilicon, intel, imagination, nvidia, qualcomm,
@@ -25,14 +25,20 @@ class WebGLConformanceExpectations(test_expectations.TestExpectations):
     #     ['mac', 'amd', ('nvidia', 0x1234)], bug=123)
 
     # Fails on all platforms
-    self.Fail('conformance/glsl/misc/shaders-with-mis-matching-uniforms.html',
+    self.Fail('conformance/glsl/misc/shaders-with-uniform-structs.html',
         bug=351396)
 
     # Flaky on Win
     self.Fail('conformance/extensions/webgl-draw-buffers.html',
         ['win'], bug=369349)
-    self.Fail('conformance/context/context-lost-restored.html',
-        ['win'], bug=374378)
+
+    # Win failures
+    self.Fail('conformance/glsl/misc/struct-equals.html',
+        ['win'], bug=391957)
+    self.Fail('conformance/glsl/bugs/conditional-discard-in-loop.html',
+        ['win'], bug=402195)
+    self.Fail('conformance/attribs/gl-bindAttribLocation-matrix.html',
+        ['win'], bug=415688)
 
     # Win7 / Intel failures
     self.Fail('conformance/rendering/gl-scissor-test.html',
@@ -46,10 +52,6 @@ class WebGLConformanceExpectations(test_expectations.TestExpectations):
     self.Fail('conformance/glsl/misc/shader-with-array-of-structs-uniform.html',
         ['win7', 'intel', 'nvidia'], bug=373972)
 
-    # Mac failures
-    self.Fail('conformance/glsl/misc/shader-struct-scope.html',
-        ['mac'], bug=368910)
-
     # Mac / Intel failures
     # Radar 13499466
     self.Fail('conformance/limits/gl-max-texture-dimensions.html',
@@ -62,7 +64,8 @@ class WebGLConformanceExpectations(test_expectations.TestExpectations):
     self.Skip('conformance/ogles/GL/control_flow/control_flow_009_to_010.html',
         ['mac', ('intel', 0x116)], bug=322795)
     # Radar 13499677
-    self.Fail('conformance/glsl/functions/glsl-function-smoothstep-gentype.html',
+    self.Fail('conformance/glsl/functions/' +
+        'glsl-function-smoothstep-gentype.html',
         ['mac', ('intel', 0x116)], bug=225642)
     self.Fail('conformance/extensions/webgl-draw-buffers.html',
         ['mac', ('intel', 0x116)], bug=369349)
@@ -73,6 +76,12 @@ class WebGLConformanceExpectations(test_expectations.TestExpectations):
     self.Fail('conformance/ogles/GL/operators/operators_009_to_016.html',
         ['mountainlion', ('intel', 0x116)], bug=322795)
 
+    # Mac 10.9 / Intel HD 3000 failures
+    self.Fail('conformance/ogles/GL/operators/operators_009_to_016.html',
+        ['mavericks', ('intel', 0x116)], bug=417415)
+    self.Fail('conformance/rendering/gl-scissor-test.html',
+        ['mavericks', ('intel', 0x116)], bug=417415)
+
     # Mac Retina failures
     self.Fail(
         'conformance/glsl/bugs/array-of-struct-with-int-first-position.html',
@@ -80,7 +89,8 @@ class WebGLConformanceExpectations(test_expectations.TestExpectations):
 
     # Mac 10.8 / ATI failures
     self.Fail(
-        'conformance/rendering/point-with-gl-pointcoord-in-fragment-shader.html',
+        'conformance/rendering/' +
+        'point-with-gl-pointcoord-in-fragment-shader.html',
         ['mountainlion', 'amd'])
 
     # Mac 10.7 / Intel failures
@@ -114,6 +124,11 @@ class WebGLConformanceExpectations(test_expectations.TestExpectations):
         ['lion', 'intel'], bug=323736)
     self.Skip('conformance/ogles/GL/tan/tan_001_to_006.html',
         ['lion', 'intel'], bug=323736)
+    # Two flaky tests.
+    self.Fail('conformance/ogles/GL/functions/functions_049_to_056.html',
+        ['lion', 'intel'], bug=393331)
+    self.Fail('conformance/extensions/webgl-compressed-texture-size-limit.html',
+        ['lion', 'intel'], bug=393331)
 
     # Android failures
     # The following test is very slow and therefore times out on Android bot.
@@ -129,11 +144,14 @@ class WebGLConformanceExpectations(test_expectations.TestExpectations):
     # The following tests are disabled due to security issues.
     self.Fail('conformance/textures/tex-image-and-sub-image-2d-with-video.html',
         ['android'], bug=334204)
-    self.Fail('conformance/textures/tex-image-and-sub-image-2d-with-video-rgb565.html',
+    self.Fail('conformance/textures/' +
+        'tex-image-and-sub-image-2d-with-video-rgb565.html',
         ['android'], bug=334204)
-    self.Fail('conformance/textures/tex-image-and-sub-image-2d-with-video-rgba4444.html',
+    self.Fail('conformance/textures/' +
+        'tex-image-and-sub-image-2d-with-video-rgba4444.html',
         ['android'], bug=334204)
-    self.Fail('conformance/textures/tex-image-and-sub-image-2d-with-video-rgba5551.html',
+    self.Fail('conformance/textures/' +
+        'tex-image-and-sub-image-2d-with-video-rgba5551.html',
         ['android'], bug=334204)
     self.Fail('conformance/textures/texture-npot-video.html',
         ['android'], bug=334204)

@@ -12,8 +12,8 @@
 #include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
@@ -28,12 +28,9 @@
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/extensions/extension_action.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/search_engines/template_url_service.h"
-#include "chrome/browser/search_engines/template_url_service_test_util.h"
 #include "chrome/browser/ui/app_modal_dialogs/app_modal_dialog.h"
 #include "chrome/browser/ui/app_modal_dialogs/app_modal_dialog_queue.h"
 #include "chrome/browser/ui/browser.h"
@@ -46,13 +43,14 @@
 #include "chrome/browser/ui/find_bar/find_notification_details.h"
 #include "chrome/browser/ui/find_bar/find_tab_helper.h"
 #include "chrome/browser/ui/host_desktop.h"
-#include "chrome/browser/ui/omnibox/location_bar.h"
+#include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/find_in_page_observer.h"
 #include "components/bookmarks/browser/bookmark_model.h"
+#include "components/search_engines/template_url_service.h"
 #include "content/public/browser/dom_operation_notification_details.h"
 #include "content/public/browser/download_item.h"
 #include "content/public/browser/download_manager.h"
@@ -171,7 +169,7 @@ void NavigateToURL(chrome::NavigateParams* params) {
 
 void NavigateToURLWithPost(Browser* browser, const GURL& url) {
   chrome::NavigateParams params(browser, url,
-                                content::PAGE_TRANSITION_FORM_SUBMIT);
+                                ui::PAGE_TRANSITION_FORM_SUBMIT);
   params.uses_post = true;
   NavigateToURL(&params);
 }
@@ -207,7 +205,7 @@ static void NavigateToURLWithDispositionBlockUntilNavigationsComplete(
       content::NotificationService::AllSources());
 
   browser->OpenURL(OpenURLParams(
-      url, Referrer(), disposition, content::PAGE_TRANSITION_TYPED, false));
+      url, Referrer(), disposition, ui::PAGE_TRANSITION_TYPED, false));
   if (browser_test_flags & BROWSER_TEST_WAIT_FOR_BROWSER)
     browser = WaitForBrowserNotInSet(initial_browsers);
   if (browser_test_flags & BROWSER_TEST_WAIT_FOR_TAB)
@@ -267,13 +265,6 @@ void NavigateToURLBlockUntilNavigationsComplete(Browser* browser,
       number_of_navigations,
       CURRENT_TAB,
       BROWSER_TEST_WAIT_FOR_NAVIGATION);
-}
-
-void WaitUntilDevToolsWindowLoaded(DevToolsWindow* window) {
-  scoped_refptr<content::MessageLoopRunner> runner =
-      new content::MessageLoopRunner;
-  window->SetLoadCompletedCallback(runner->QuitClosure());
-  runner->Run();
 }
 
 base::FilePath GetTestFilePath(const base::FilePath& dir,
@@ -571,12 +562,12 @@ HistoryEnumerator::HistoryEnumerator(Profile* profile) {
 
   HistoryService* hs = HistoryServiceFactory::GetForProfile(
       profile, Profile::EXPLICIT_ACCESS);
-  hs->QueryHistory(
-      base::string16(),
-      history::QueryOptions(),
-      &consumer_,
-      base::Bind(&HistoryEnumerator::HistoryQueryComplete,
-                 base::Unretained(this), message_loop_runner->QuitClosure()));
+  hs->QueryHistory(base::string16(),
+                   history::QueryOptions(),
+                   base::Bind(&HistoryEnumerator::HistoryQueryComplete,
+                              base::Unretained(this),
+                              message_loop_runner->QuitClosure()),
+                   &tracker_);
   message_loop_runner->Run();
 }
 
@@ -584,7 +575,6 @@ HistoryEnumerator::~HistoryEnumerator() {}
 
 void HistoryEnumerator::HistoryQueryComplete(
     const base::Closure& quit_task,
-    HistoryService::Handle request_handle,
     history::QueryResults* results) {
   for (size_t i = 0; i < results->size(); ++i)
     urls_.push_back((*results)[i].url());

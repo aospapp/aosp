@@ -8,13 +8,11 @@ import sys
 
 import webgl_conformance_expectations
 
-from telemetry import test as test_module
+from telemetry import benchmark as benchmark_module
 from telemetry.core import util
 from telemetry.page import page_set
 from telemetry.page import page as page_module
 from telemetry.page import page_test
-# pylint: disable=W0401,W0614
-from telemetry.page.actions.all_page_actions import *
 
 
 conformance_path = os.path.join(
@@ -55,10 +53,7 @@ conformance_harness_script = r"""
   window.parent.webglTestHarness = testHarness;
   window.console.log = testHarness.log;
   window.onerror = function(message, url, line) {
-    testHarness._failures++;
-    if (message) {
-      testHarness.log(message);
-    }
+    testHarness.reportResults(null, false, message);
     testHarness.notifyFinished(null);
   };
 """
@@ -71,9 +66,9 @@ def _WebGLTestMessages(tab):
 
 class WebglConformanceValidator(page_test.PageTest):
   def __init__(self):
-    super(WebglConformanceValidator, self).__init__(attempts=1, max_errors=10)
+    super(WebglConformanceValidator, self).__init__(attempts=1, max_failures=10)
 
-  def ValidatePage(self, page, tab, results):
+  def ValidateAndMeasurePage(self, page, tab, results):
     if not _DidWebGLTestSucceed(tab):
       raise page_test.Failure(_WebGLTestMessages(tab))
 
@@ -97,10 +92,10 @@ class WebglConformancePage(page_module.Page):
   def RunNavigateSteps(self, action_runner):
     action_runner.NavigateToPage(self)
     action_runner.WaitForJavaScriptCondition(
-        'webglTestHarness._finished', timeout=120)
+        'webglTestHarness._finished', timeout_in_seconds=180)
 
 
-class WebglConformance(test_module.Test):
+class WebglConformance(benchmark_module.Benchmark):
   """Conformance with Khronos WebGL Conformance Tests"""
   test = WebglConformanceValidator
 

@@ -125,7 +125,7 @@ static void OneU4(const RsForEachStubParamStruct *p, uint32_t x, uchar4 *out,
                 convert_float4(py4[x2]) * coeff[22] +
                 convert_float4(py4[x3]) * coeff[23] +
                 convert_float4(py4[x4]) * coeff[24];
-    px = clamp(px, 0.f, 255.f);
+    px = clamp(px + 0.5f, 0.f, 255.f);
     *out = convert_uchar4(px);
 }
 
@@ -168,7 +168,7 @@ static void OneU2(const RsForEachStubParamStruct *p, uint32_t x, uchar2 *out,
                 convert_float2(py4[x2]) * coeff[22] +
                 convert_float2(py4[x3]) * coeff[23] +
                 convert_float2(py4[x4]) * coeff[24];
-    px = clamp(px, 0.f, 255.f);
+    px = clamp(px + 0.5f, 0.f, 255.f);
     *out = convert_uchar2(px);
 }
 
@@ -211,7 +211,7 @@ static void OneU1(const RsForEachStubParamStruct *p, uint32_t x, uchar *out,
                (float)(py4[x2]) * coeff[22] +
                (float)(py4[x3]) * coeff[23] +
                (float)(py4[x4]) * coeff[24];
-    px = clamp(px, 0.f, 255.f);
+    px = clamp(px + 0.5f, 0.f, 255.f);
     *out = px;
 }
 

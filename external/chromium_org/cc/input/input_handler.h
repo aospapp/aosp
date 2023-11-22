@@ -35,7 +35,8 @@ class CC_EXPORT InputHandlerClient {
   // Called when scroll deltas reaching the root scrolling layer go unused.
   // The accumulated overscroll is scoped by the most recent call to
   // InputHandler::ScrollBegin.
-  virtual void DidOverscroll(const gfx::Vector2dF& accumulated_overscroll,
+  virtual void DidOverscroll(const gfx::PointF& causal_event_viewport_point,
+                             const gfx::Vector2dF& accumulated_overscroll,
                              const gfx::Vector2dF& latest_overscroll_delta) = 0;
 
  protected:
@@ -75,6 +76,9 @@ class CC_EXPORT InputHandler {
   // scrolled at the given coordinates.
   virtual ScrollStatus ScrollBegin(const gfx::Point& viewport_point,
                                    ScrollInputType type) = 0;
+
+  virtual ScrollStatus ScrollAnimated(const gfx::Point& viewport_point,
+                                      const gfx::Vector2dF& scroll_delta) = 0;
 
   // Scroll the selected layer starting at the given position. If the scroll
   // type given to ScrollBegin was a gesture, then the scroll point and delta
@@ -118,11 +122,6 @@ class CC_EXPORT InputHandler {
   virtual void PinchGestureUpdate(float magnify_delta,
                                   const gfx::Point& anchor) = 0;
   virtual void PinchGestureEnd() = 0;
-
-  virtual void StartPageScaleAnimation(const gfx::Vector2d& target_offset,
-                                       bool anchor_point,
-                                       float page_scale,
-                                       base::TimeDelta duration) = 0;
 
   // Request another callback to InputHandlerClient::Animate().
   virtual void SetNeedsAnimate() = 0;

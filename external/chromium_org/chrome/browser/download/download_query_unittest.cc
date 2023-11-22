@@ -100,13 +100,13 @@ class DownloadQueryTest : public testing::Test {
 
 template<> void DownloadQueryTest::AddFilter(
     DownloadQuery::FilterType name, bool cpp_value) {
-  scoped_ptr<base::Value> value(base::Value::CreateBooleanValue(cpp_value));
+  scoped_ptr<base::Value> value(new base::FundamentalValue(cpp_value));
   CHECK(query_.AddFilter(name, *value.get()));
 }
 
 template<> void DownloadQueryTest::AddFilter(
     DownloadQuery::FilterType name, int cpp_value) {
-  scoped_ptr<base::Value> value(base::Value::CreateIntegerValue(cpp_value));
+  scoped_ptr<base::Value> value(new base::FundamentalValue(cpp_value));
   CHECK(query_.AddFilter(name, *value.get()));
 }
 
@@ -158,7 +158,7 @@ TEST_F(DownloadQueryTest, DownloadQueryTest_ZeroItems) {
 }
 
 TEST_F(DownloadQueryTest, DownloadQueryTest_InvalidFilter) {
-  scoped_ptr<base::Value> value(base::Value::CreateIntegerValue(0));
+  scoped_ptr<base::Value> value(new base::FundamentalValue(0));
   EXPECT_FALSE(query()->AddFilter(
       static_cast<DownloadQuery::FilterType>(kint32max),
       *value.get()));

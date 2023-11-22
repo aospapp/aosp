@@ -20,7 +20,12 @@ import com.android.cts.verifier.ManifestTestListAdapter;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 
+import android.bluetooth.BluetoothAdapter;
 import android.os.Bundle;
+import android.widget.Toast;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class BluetoothTestActivity extends PassFailButtons.TestListActivity {
 
@@ -31,6 +36,32 @@ public class BluetoothTestActivity extends PassFailButtons.TestListActivity {
         setPassFailButtonClickListeners();
         setInfoResources(R.string.bluetooth_test, R.string.bluetooth_test_info, -1);
 
-        setTestListAdapter(new ManifestTestListAdapter(this, getClass().getName()));
+        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (bluetoothAdapter == null) {
+            Toast.makeText(this, "bluetooth not supported", Toast.LENGTH_SHORT);
+            return;
+        }
+
+        List<String> disabledTestArray = new ArrayList<String>();
+        for (String s : this.getResources().getStringArray(R.array.disabled_tests)) {
+            disabledTestArray.add(s);
+        }
+        if (!this.getPackageManager().hasSystemFeature("android.hardware.bluetooth_le")) {
+            disabledTestArray.add(
+                  "com.android.cts.verifier.bluetooth.BleAdvertiserTestActivity");
+            disabledTestArray.add(
+                  "com.android.cts.verifier.bluetooth.BleScannerTestActivity");
+            disabledTestArray.add(
+                  "com.android.cts.verifier.bluetooth.BleClientTestActivity");
+            disabledTestArray.add(
+                  "com.android.cts.verifier.bluetooth.BleServerStartActivity");
+        } else if (!bluetoothAdapter.isMultipleAdvertisementSupported()) {
+            disabledTestArray.add(
+                  "com.android.cts.verifier.bluetooth.BleAdvertiserTestActivity");
+            disabledTestArray.add(
+                  "com.android.cts.verifier.bluetooth.BleServerStartActivity");
+        }
+        setTestListAdapter(new ManifestTestListAdapter(this, getClass().getName(),
+                disabledTestArray.toArray(new String[disabledTestArray.size()])));
     }
 }

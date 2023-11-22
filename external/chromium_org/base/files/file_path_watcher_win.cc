@@ -5,9 +5,9 @@
 #include "base/files/file_path_watcher.h"
 
 #include "base/bind.h"
-#include "base/file_util.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
 #include "base/message_loop/message_loop_proxy.h"
@@ -233,7 +233,6 @@ bool FilePathWatcherImpl::SetupWatchHandle(const FilePath& dir,
       error_code != ERROR_ACCESS_DENIED &&
       error_code != ERROR_SHARING_VIOLATION &&
       error_code != ERROR_DIRECTORY) {
-    using ::operator<<; // Pick the right operator<< below.
     DPLOG(ERROR) << "FindFirstChangeNotification failed for "
                  << dir.value();
     return false;

@@ -2,11 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
+#include "components/search_engines/search_terms_data.h"
+#include "components/search_engines/template_url_service.h"
+#include "components/search_engines/template_url_service_client.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 
@@ -25,7 +27,7 @@ TEST_F(BookmarkTest, DetachedBookmarkBarOnCustomNTP) {
       content::WebContents::CreateParams(browser()->profile()));
   web_contents->GetController().LoadURL(GURL(url::kAboutBlankURL),
                                         content::Referrer(),
-                                        content::PAGE_TRANSITION_LINK,
+                                        ui::PAGE_TRANSITION_LINK,
                                         std::string());
 
   // Give it a NTP virtual URL.
@@ -57,7 +59,10 @@ class BookmarkInstantExtendedTest : public BrowserWithTestWindowTest {
  private:
   static KeyedService* CreateTemplateURLService(
       content::BrowserContext* profile) {
-    return new TemplateURLService(static_cast<Profile*>(profile));
+    return new TemplateURLService(
+        static_cast<Profile*>(profile)->GetPrefs(),
+        make_scoped_ptr(new SearchTermsData), NULL,
+        scoped_ptr<TemplateURLServiceClient>(), NULL, NULL, base::Closure());
   }
 
   DISALLOW_COPY_AND_ASSIGN(BookmarkInstantExtendedTest);

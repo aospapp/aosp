@@ -24,6 +24,7 @@ import android.content.SyncResult;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
@@ -149,11 +150,8 @@ public abstract class EasOperation {
 
     protected final Context mContext;
 
-    /** The provider id for the account this operation is on. */
-    private final long mAccountId;
-
     /** The cached {@link Account} state; can be null if it hasn't been loaded yet. */
-    protected Account mAccount;
+    protected final Account mAccount;
 
     /** The connection to use for this operation. This is created when {@link #mAccount} is set. */
     protected EasServerConnection mConnection;
@@ -164,30 +162,18 @@ public abstract class EasOperation {
         }
     }
 
-    @VisibleForTesting
-    public void replaceEasServerConnection(EasServerConnection connection) {
-        mConnection = connection;
-    }
-
     public static boolean isFatal(int result) {
         return result < RESULT_MIN_OK_RESULT;
     }
 
-    /**
-     * Constructor which defers loading of account and connection info.
-     * @param context
-     * @param accountId
-     */
-    protected EasOperation(final Context context, final long accountId) {
-        mContext = context;
-        mAccountId = accountId;
-    }
-
-    protected EasOperation(final Context context, final Account account,
+    protected EasOperation(final Context context, @NonNull final Account account,
             final EasServerConnection connection) {
-        this(context, account.mId);
+        mContext = context;
         mAccount = account;
         mConnection = connection;
+        if (account == null) {
+            throw new IllegalStateException("Null account in EasOperation");
+        }
     }
 
     protected EasOperation(final Context context, final Account account, final HostAuth hostAuth) {
@@ -205,59 +191,21 @@ public abstract class EasOperation {
      */
     protected EasOperation(final EasOperation parentOperation) {
         mContext = parentOperation.mContext;
-        mAccountId = parentOperation.mAccountId;
         mAccount = parentOperation.mAccount;
         mConnection = parentOperation.mConnection;
     }
 
     /**
-     * Some operations happen before the account exists (e.g. account validation).
-     * These operations cannot use {@link #init}, so instead we make a dummy account and
-     * supply a temporary {@link HostAuth}.
-     * @param hostAuth
+     * This will always be called at the begining of performOperation and can be overridden
+     * to do whatever setup is needed.
+     * @return true if initialization succeeded, false otherwise.
      */
-    protected final void setDummyAccount(final HostAuth hostAuth) {
-        mAccount = new Account();
-        mAccount.mEmailAddress = hostAuth.mLogin;
-        mConnection = new EasServerConnection(mContext, mAccount, hostAuth);
-    }
-
-    /**
-     * Loads (or reloads) the {@link Account} for this operation, and sets up our connection to the
-     * server. This can be overridden to add additional functionality, but child implementations
-     * should always call super().
-     * @param allowReload If false, do not perform a load if we already have an {@link Account}
-     *                    (i.e. just keep the existing one); otherwise allow replacement of the
-     *                    account. Note that this can result in a valid Account being replaced with
-     *                    null if the account no longer exists.
-     * @return Whether we now have a valid {@link Account} object.
-     */
-    public boolean init(final boolean allowReload) {
-        if (mAccount == null || allowReload) {
-            mAccount = Account.restoreAccountWithId(mContext, getAccountId());
-            if (mAccount != null) {
-                mConnection = new EasServerConnection(mContext, mAccount,
-                        mAccount.getOrCreateHostAuthRecv(mContext));
-            }
-        }
-        return (mAccount != null);
-    }
-
-    /**
-     * Sets the account. This is for use in cases where the account is not available upon
-     * construction. This will also create the EasServerConnection.
-     * @param account
-     * @param hostAuth
-     */
-    protected void setAccount(final Account account, final HostAuth hostAuth) {
-        mAccount = account;
-        if (mAccount != null) {
-            mConnection = new EasServerConnection(mContext, mAccount, hostAuth);
-        }
+    public boolean init() {
+        return true;
     }
 
     public final long getAccountId() {
-        return mAccountId;
+        return mAccount.getId();
     }
 
     public final Account getAccount() {
@@ -307,13 +255,19 @@ public abstract class EasOperation {
      * @return A result code for the outcome of this operation, as described above.
      */
     public int performOperation() {
-        // Make sure the account is loaded if it hasn't already been.
-        if (!init(false)) {
+        if (!init()) {
             LogUtils.i(LOG_TAG, "Failed to initialize %d before sending request for operation %s",
                     getAccountId(), getCommand());
             return RESULT_INITIALIZATION_FAILURE;
         }
+        try {
+            return performOperationInternal();
+        } finally {
+            onRequestComplete();
+        }
+    }
 
+    private int performOperationInternal() {
         // We handle server redirects by looping, but we need to protect against too much looping.
         int redirectCount = 0;
 
@@ -452,6 +406,13 @@ public abstract class EasOperation {
     protected void onRequestMade() {
         // This can be overridden to do any cleanup that must happen after the request has
         // been sent. It will always be called, regardless of the status of the request.
+    }
+
+    protected void onRequestComplete() {
+        // This can be overridden to do any cleanup that must happen after the request has
+        // finished. (i.e. either the response has come back and been processed, or some error
+        // has occurred and we have given up.
+        // It will always be called, regardless of the status of the response.
     }
 
     protected int handleHttpError(final int httpStatus) {

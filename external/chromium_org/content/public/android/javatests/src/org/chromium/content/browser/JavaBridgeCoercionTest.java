@@ -22,9 +22,9 @@ import org.chromium.base.test.util.Feature;
  */
 public class JavaBridgeCoercionTest extends JavaBridgeTestBase {
     private class TestObject extends Controller {
-        private Object objectInstance;
-        private CustomType customTypeInstance;
-        private CustomType2 customType2Instance;
+        private Object mObjectInstance;
+        private CustomType mCustomTypeInstance;
+        private CustomType2 mCustomType2Instance;
 
         private boolean mBooleanValue;
         private byte mByteValue;
@@ -39,19 +39,19 @@ public class JavaBridgeCoercionTest extends JavaBridgeTestBase {
         private CustomType mCustomTypeValue;
 
         public TestObject() {
-            objectInstance = new Object();
-            customTypeInstance = new CustomType();
-            customType2Instance = new CustomType2();
+            mObjectInstance = new Object();
+            mCustomTypeInstance = new CustomType();
+            mCustomType2Instance = new CustomType2();
         }
 
         public Object getObjectInstance() {
-            return objectInstance;
+            return mObjectInstance;
         }
         public CustomType getCustomTypeInstance() {
-            return customTypeInstance;
+            return mCustomTypeInstance;
         }
         public CustomType2 getCustomType2Instance() {
-            return customType2Instance;
+            return mCustomType2Instance;
         }
 
         public synchronized void setBooleanValue(boolean x) {
@@ -153,11 +153,39 @@ public class JavaBridgeCoercionTest extends JavaBridgeTestBase {
 
     private TestObject mTestObject;
 
+    private class TestController extends Controller {
+        private boolean mBooleanValue;
+
+        public synchronized void setBooleanValue(boolean x) {
+            mBooleanValue = x;
+            notifyResultIsReady();
+        }
+        public synchronized boolean waitForBooleanValue() {
+            waitForResult();
+            return mBooleanValue;
+        }
+    }
+
+    TestController mTestController;
+
+    // Note that this requires that we can pass a JavaScript boolean to Java.
+    private void assertRaisesException(String script) throws Throwable {
+        executeJavaScript("try {" +
+                          script + ";" +
+                          "  testController.setBooleanValue(false);" +
+                          "} catch (exception) {" +
+                          "  testController.setBooleanValue(true);" +
+                          "}");
+        assertTrue(mTestController.waitForBooleanValue());
+    }
+
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         mTestObject = new TestObject();
         setUpContentView(mTestObject, "testObject");
+        mTestController = new TestController();
+        setUpContentView(mTestController, "testController");
     }
 
     // Test passing a 32-bit integer JavaScript number to a method of an
@@ -539,14 +567,11 @@ public class JavaBridgeCoercionTest extends JavaBridgeTestBase {
         executeJavaScript("testObject.setObjectValue(testObject.getCustomTypeInstance());");
         assertTrue(mTestObject.getCustomTypeInstance() == mTestObject.waitForObjectValue());
 
-        executeJavaScript("testObject.setCustomTypeValue(testObject.getObjectInstance());");
-        assertTrue(mTestObject.getObjectInstance() == mTestObject.waitForCustomTypeValue());
+        assertRaisesException("testObject.setCustomTypeValue(testObject.getObjectInstance());");
         executeJavaScript("testObject.setCustomTypeValue(testObject.getCustomTypeInstance());");
         assertTrue(mTestObject.getCustomTypeInstance() == mTestObject.waitForCustomTypeValue());
-        // LIVECONNECT_COMPLIANCE: Should raise a JavaScript exception, as the types are unrelated.
-        executeJavaScript("testObject.setCustomTypeValue(testObject.getCustomType2Instance());");
-        assertTrue(mTestObject.getCustomType2Instance() ==
-                (Object)mTestObject.waitForCustomTypeValue());
+        assertRaisesException(
+                "testObject.setCustomTypeValue(testObject.getCustomType2Instance());");
 
         // LIVECONNECT_COMPLIANCE: Should call toString() on object.
         executeJavaScript("testObject.setStringValue(testObject.getObjectInstance());");

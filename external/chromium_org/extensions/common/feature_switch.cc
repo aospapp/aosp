@@ -23,13 +23,6 @@ class CommonSwitches {
         force_dev_mode_highlighting(
             switches::kForceDevModeHighlighting,
             FeatureSwitch::DEFAULT_DISABLED),
-        global_commands(
-            switches::kGlobalCommands,
-#if defined(OS_CHROMEOS)
-            FeatureSwitch::DEFAULT_DISABLED),
-#else
-            FeatureSwitch::DEFAULT_ENABLED),
-#endif
         prompt_for_external_extensions(
             NULL,
 #if defined(OS_WIN)
@@ -43,15 +36,24 @@ class CommonSwitches {
         enable_override_bookmarks_ui(
             switches::kEnableOverrideBookmarksUI,
             FeatureSwitch::DEFAULT_DISABLED),
+        extension_action_redesign(
+            switches::kExtensionActionRedesign,
+            FeatureSwitch::DEFAULT_DISABLED),
         scripts_require_action(switches::kScriptsRequireAction,
-                               FeatureSwitch::DEFAULT_DISABLED) {}
+                               FeatureSwitch::DEFAULT_DISABLED),
+        embedded_extension_options(
+            switches::kEmbeddedExtensionOptions,
+            FeatureSwitch::DEFAULT_DISABLED),
+        app_view(switches::kAppView,
+                 FeatureSwitch::DEFAULT_DISABLED),
+        mime_handler_view(switches::kMimeHandlerView,
+                          FeatureSwitch::DEFAULT_DISABLED) {}
 
   // Enables extensions to be easily installed from sites other than the web
   // store.
   FeatureSwitch easy_off_store_install;
 
   FeatureSwitch force_dev_mode_highlighting;
-  FeatureSwitch global_commands;
 
   // Should we prompt the user before allowing external extensions to install?
   // Default is yes.
@@ -59,7 +61,11 @@ class CommonSwitches {
 
   FeatureSwitch error_console;
   FeatureSwitch enable_override_bookmarks_ui;
+  FeatureSwitch extension_action_redesign;
   FeatureSwitch scripts_require_action;
+  FeatureSwitch embedded_extension_options;
+  FeatureSwitch app_view;
+  FeatureSwitch mime_handler_view;
 };
 
 base::LazyInstance<CommonSwitches> g_common_switches =
@@ -73,9 +79,6 @@ FeatureSwitch* FeatureSwitch::force_dev_mode_highlighting() {
 FeatureSwitch* FeatureSwitch::easy_off_store_install() {
   return &g_common_switches.Get().easy_off_store_install;
 }
-FeatureSwitch* FeatureSwitch::global_commands() {
-  return &g_common_switches.Get().global_commands;
-}
 FeatureSwitch* FeatureSwitch::prompt_for_external_extensions() {
   return &g_common_switches.Get().prompt_for_external_extensions;
 }
@@ -85,9 +88,20 @@ FeatureSwitch* FeatureSwitch::error_console() {
 FeatureSwitch* FeatureSwitch::enable_override_bookmarks_ui() {
   return &g_common_switches.Get().enable_override_bookmarks_ui;
 }
-
+FeatureSwitch* FeatureSwitch::extension_action_redesign() {
+  return &g_common_switches.Get().extension_action_redesign;
+}
 FeatureSwitch* FeatureSwitch::scripts_require_action() {
   return &g_common_switches.Get().scripts_require_action;
+}
+FeatureSwitch* FeatureSwitch::embedded_extension_options() {
+  return &g_common_switches.Get().embedded_extension_options;
+}
+FeatureSwitch* FeatureSwitch::app_view() {
+  return &g_common_switches.Get().app_view;
+}
+FeatureSwitch* FeatureSwitch::mime_handler_view() {
+  return &g_common_switches.Get().mime_handler_view;
 }
 
 FeatureSwitch::ScopedOverride::ScopedOverride(FeatureSwitch* feature,

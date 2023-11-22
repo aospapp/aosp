@@ -13,12 +13,13 @@
 #include "base/memory/weak_ptr.h"
 #include "base/sequenced_task_runner_helpers.h"
 #include "base/time/time.h"
-#include "chrome/browser/chromeos/login/auth/login_status_consumer.h"
-#include "chrome/browser/chromeos/login/auth/user_context.h"
 #include "chrome/browser/chromeos/login/help_app_launcher.h"
 #include "chrome/browser/chromeos/login/lock/screen_locker_delegate.h"
 #include "chrome/browser/chromeos/login/ui/login_display.h"
-#include "chrome/browser/chromeos/login/users/user.h"
+#include "chromeos/ime/input_method_manager.h"
+#include "chromeos/login/auth/auth_status_consumer.h"
+#include "chromeos/login/auth/user_context.h"
+#include "components/user_manager/user.h"
 #include "ui/base/accelerators/accelerator.h"
 
 namespace content {
@@ -33,7 +34,7 @@ namespace chromeos {
 
 class Authenticator;
 class ExtendedAuthenticator;
-class LoginFailure;
+class AuthFailure;
 class ScreenlockIconProvider;
 
 namespace test {
@@ -45,9 +46,9 @@ class WebUIScreenLockerTester;
 // ScreenLocker creates a ScreenLockerDelegate which will display the lock UI.
 // As well, it takes care of authenticating the user and managing a global
 // instance of itself which will be deleted when the system is unlocked.
-class ScreenLocker : public LoginStatusConsumer {
+class ScreenLocker : public AuthStatusConsumer {
  public:
-  explicit ScreenLocker(const UserList& users);
+  explicit ScreenLocker(const user_manager::UserList& users);
 
   // Returns the default instance if it has been created.
   static ScreenLocker* default_screen_locker() {
@@ -59,9 +60,9 @@ class ScreenLocker : public LoginStatusConsumer {
   // Initialize and show the screen locker.
   void Init();
 
-  // LoginStatusConsumer:
-  virtual void OnLoginFailure(const chromeos::LoginFailure& error) OVERRIDE;
-  virtual void OnLoginSuccess(const UserContext& user_context) OVERRIDE;
+  // AuthStatusConsumer:
+  virtual void OnAuthFailure(const chromeos::AuthFailure& error) OVERRIDE;
+  virtual void OnAuthSuccess(const UserContext& user_context) OVERRIDE;
 
   // Does actual unlocking once authentication is successful and all blocking
   // animations are done.
@@ -90,11 +91,11 @@ class ScreenLocker : public LoginStatusConsumer {
   ScreenLockerDelegate* delegate() const { return delegate_.get(); }
 
   // Returns the users to authenticate.
-  const UserList& users() const { return users_; }
+  const user_manager::UserList& users() const { return users_; }
 
-  // Allow a LoginStatusConsumer to listen for
+  // Allow a AuthStatusConsumer to listen for
   // the same login events that ScreenLocker does.
-  void SetLoginStatusConsumer(chromeos::LoginStatusConsumer* consumer);
+  void SetLoginStatusConsumer(chromeos::AuthStatusConsumer* consumer);
 
   // Returns WebUI associated with screen locker implementation or NULL if
   // there isn't one.
@@ -144,13 +145,13 @@ class ScreenLocker : public LoginStatusConsumer {
   bool IsUserLoggedIn(const std::string& username);
 
   // Looks up user in unlock user list.
-  const User* FindUnlockUser(const std::string& user_id);
+  const user_manager::User* FindUnlockUser(const std::string& user_id);
 
   // ScreenLockerDelegate instance in use.
   scoped_ptr<ScreenLockerDelegate> delegate_;
 
   // Users that can unlock the device.
-  UserList users_;
+  user_manager::UserList users_;
 
   // Used to authenticate the user to unlock.
   scoped_refptr<Authenticator> authenticator_;
@@ -174,7 +175,7 @@ class ScreenLocker : public LoginStatusConsumer {
 
   // Delegate to forward all login status events to.
   // Tests can use this to receive login status events.
-  LoginStatusConsumer* login_status_consumer_;
+  AuthStatusConsumer* auth_status_consumer_;
 
   // Number of bad login attempts in a row.
   int incorrect_passwords_count_;
@@ -185,6 +186,8 @@ class ScreenLocker : public LoginStatusConsumer {
 
   // Provider for button icon set by the screenlockPrivate API.
   scoped_ptr<ScreenlockIconProvider> screenlock_icon_provider_;
+
+  scoped_refptr<input_method::InputMethodManager::State> saved_ime_state_;
 
   base::WeakPtrFactory<ScreenLocker> weak_factory_;
 

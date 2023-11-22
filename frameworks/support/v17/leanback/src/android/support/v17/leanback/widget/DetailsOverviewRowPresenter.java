@@ -467,7 +467,7 @@ public class DetailsOverviewRowPresenter extends RowPresenter {
             getDefaultBackgroundColor(vh.mOverviewView.getContext());
 
         if (useMargin) {
-            layoutParams.leftMargin = horizontalMargin;
+            layoutParams.setMarginStart(horizontalMargin);
             layoutParams.topMargin = layoutParams.bottomMargin = verticalMargin;
             RoundedRectHelper.getInstance().setRoundedRectBackground(vh.mOverviewFrame, bgColor);
             vh.mRightPanel.setBackground(null);
@@ -528,6 +528,24 @@ public class DetailsOverviewRowPresenter extends RowPresenter {
             ViewHolder vh = (ViewHolder) holder;
             int dimmedColor = vh.mColorDimmer.getPaint().getColor();
             ((ColorDrawable) vh.mOverviewFrame.getForeground().mutate()).setColor(dimmedColor);
+        }
+    }
+
+    @Override
+    protected void onRowViewAttachedToWindow(RowPresenter.ViewHolder vh) {
+        super.onRowViewAttachedToWindow(vh);
+        if (mDetailsPresenter != null) {
+            mDetailsPresenter.onViewAttachedToWindow(
+                    ((ViewHolder) vh).mDetailsDescriptionViewHolder);
+        }
+    }
+
+    @Override
+    protected void onRowViewDetachedFromWindow(RowPresenter.ViewHolder vh) {
+        super.onRowViewDetachedFromWindow(vh);
+        if (mDetailsPresenter != null) {
+            mDetailsPresenter.onViewDetachedFromWindow(
+                    ((ViewHolder) vh).mDetailsDescriptionViewHolder);
         }
     }
 }

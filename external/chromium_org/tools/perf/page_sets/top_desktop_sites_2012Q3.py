@@ -1,8 +1,6 @@
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-# pylint: disable=W0401,W0614
-from telemetry.page.actions.all_page_actions import *
 from telemetry.page import page_set
 from telemetry.page import page
 
@@ -16,12 +14,15 @@ class Top2012Q3Page(page.Page):
     self.archive_data_file = 'data/2012Q3.json'
 
   def ReloadAndGc(self, action_runner):
-    action_runner.RunAction(ReloadAction())
+    action_runner.ReloadPage()
     action_runner.Wait(1)
     action_runner.ForceGarbageCollection()
 
   def RunSmoothness(self, action_runner):
-    action_runner.RunAction(ScrollAction())
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
 
   def RunStressMemory(self, action_runner):
     for _ in xrange(3):

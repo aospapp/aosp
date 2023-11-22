@@ -665,14 +665,14 @@ define void @rsGetElementAtImpl_double4(<4 x double>* noalias nocapture sret %ag
 }
 
 
-define void @__rsAllocationVLoadXImpl_long4(<4 x i64>* noalias nocapture sret %agg.result, %struct.rs_allocation* nocapture readonly %a, i32 %x, i32 %y, i32 %z) #0 {
+define void @__rsAllocationVLoadXImpl_long4(<4 x i64>* noalias nocapture sret %agg.result, %struct.rs_allocation* nocapture readonly %a, i32 %x, i32 %y, i32 %z) #1 {
   %1 = tail call i8* @rsOffsetNs(%struct.rs_allocation* %a, i32 %x, i32 %y, i32 %z) #2
   %2 = bitcast i8* %1 to <4 x i64>*
   %3 = load <4 x i64>* %2, align 8
   store <4 x i64> %3, <4 x i64>* %agg.result
   ret void
 }
-define void @__rsAllocationVLoadXImpl_long3(<3 x i64>* noalias nocapture sret %agg.result, %struct.rs_allocation* nocapture readonly %a, i32 %x, i32 %y, i32 %z) #0 {
+define void @__rsAllocationVLoadXImpl_long3(<3 x i64>* noalias nocapture sret %agg.result, %struct.rs_allocation* nocapture readonly %a, i32 %x, i32 %y, i32 %z) #1 {
   %1 = tail call i8* @rsOffsetNs(%struct.rs_allocation* %a, i32 %x, i32 %y, i32 %z) #2
   %2 = bitcast i8* %1 to <3 x i64>*
   %3 = load <3 x i64>* %2, align 8
@@ -686,14 +686,14 @@ define <2 x i64> @__rsAllocationVLoadXImpl_long2(%struct.rs_allocation* nocaptur
   ret <2 x i64> %3
 }
 
-define void @__rsAllocationVLoadXImpl_ulong4(<4 x i64>* noalias nocapture sret %agg.result, %struct.rs_allocation* nocapture readonly %a, i32 %x, i32 %y, i32 %z) #0 {
+define void @__rsAllocationVLoadXImpl_ulong4(<4 x i64>* noalias nocapture sret %agg.result, %struct.rs_allocation* nocapture readonly %a, i32 %x, i32 %y, i32 %z) #1 {
   %1 = tail call i8* @rsOffsetNs(%struct.rs_allocation* %a, i32 %x, i32 %y, i32 %z) #2
   %2 = bitcast i8* %1 to <4 x i64>*
   %3 = load <4 x i64>* %2, align 8
   store <4 x i64> %3, <4 x i64>* %agg.result
   ret void
 }
-define void @__rsAllocationVLoadXImpl_ulong3(<3 x i64>* noalias nocapture sret %agg.result, %struct.rs_allocation* nocapture readonly %a, i32 %x, i32 %y, i32 %z) #0 {
+define void @__rsAllocationVLoadXImpl_ulong3(<3 x i64>* noalias nocapture sret %agg.result, %struct.rs_allocation* nocapture readonly %a, i32 %x, i32 %y, i32 %z) #1 {
   %1 = tail call i8* @rsOffsetNs(%struct.rs_allocation* %a, i32 %x, i32 %y, i32 %z) #2
   %2 = bitcast i8* %1 to <3 x i64>*
   %3 = load <3 x i64>* %2, align 8
@@ -840,14 +840,14 @@ define <2 x float> @__rsAllocationVLoadXImpl_float2(%struct.rs_allocation* nocap
   ret <2 x float> %3
 }
 
-define void @__rsAllocationVLoadXImpl_double4(<4 x double>* noalias nocapture sret %agg.result, %struct.rs_allocation* nocapture readonly %a, i32 %x, i32 %y, i32 %z) #0 {
+define void @__rsAllocationVLoadXImpl_double4(<4 x double>* noalias nocapture sret %agg.result, %struct.rs_allocation* nocapture readonly %a, i32 %x, i32 %y, i32 %z) #1 {
   %1 = tail call i8* @rsOffsetNs(%struct.rs_allocation* %a, i32 %x, i32 %y, i32 %z) #2
   %2 = bitcast i8* %1 to <4 x double>*
   %3 = load <4 x double>* %2, align 8
   store <4 x double> %3, <4 x double>* %agg.result
   ret void
 }
-define void @__rsAllocationVLoadXImpl_double3(<3 x double>* noalias nocapture sret %agg.result, %struct.rs_allocation* nocapture readonly %a, i32 %x, i32 %y, i32 %z) #0 {
+define void @__rsAllocationVLoadXImpl_double3(<3 x double>* noalias nocapture sret %agg.result, %struct.rs_allocation* nocapture readonly %a, i32 %x, i32 %y, i32 %z) #1 {
   %1 = tail call i8* @rsOffsetNs(%struct.rs_allocation* %a, i32 %x, i32 %y, i32 %z) #2
   %2 = bitcast i8* %1 to <3 x double>*
   %3 = load <3 x double>* %2, align 8

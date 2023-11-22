@@ -6,7 +6,6 @@ import logging
 import os
 
 from telemetry import decorators
-
 from telemetry.core import exceptions
 from telemetry.core import forwarders
 from telemetry.core import util
@@ -16,15 +15,13 @@ from telemetry.core.forwarders import cros_forwarder
 
 
 class CrOSBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
-  def __init__(self, browser_type, browser_options, cri, is_guest,
-               extensions_to_load):
+  def __init__(self, browser_options, cri, is_guest, extensions_to_load):
     super(CrOSBrowserBackend, self).__init__(
-        is_content_shell=False, supports_extensions=not is_guest,
+        supports_tab_control=True, supports_extensions=not is_guest,
         browser_options=browser_options,
         output_profile_path=None, extensions_to_load=extensions_to_load)
 
     # Initialize fields so that an explosion during init doesn't break in Close.
-    self._browser_type = browser_type
     self._cri = cri
     self._is_guest = is_guest
     self._forwarder = None
@@ -67,35 +64,31 @@ class CrOSBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
                    self.profile_directory)
       cri.Chown(self.profile_directory)
 
-    self._SetBranchNumber(self._GetChromeVersion())
-
   def GetBrowserStartupArgs(self):
     args = super(CrOSBrowserBackend, self).GetBrowserStartupArgs()
     args.extend([
             '--enable-smooth-scrolling',
             '--enable-threaded-compositing',
             '--enable-per-tile-painting',
-            '--force-compositing-mode',
             # Disables the start page, as well as other external apps that can
             # steal focus or make measurements inconsistent.
             '--disable-default-apps',
-            # Skip user image selection screen, and post login screens.
-            '--oobe-skip-postlogin',
             # Allow devtools to connect to chrome.
             '--remote-debugging-port=%i' % self._remote_debugging_port,
             # Open a maximized window.
             '--start-maximized',
+            # Skip user image selection screen, and post login screens.
+            '--oobe-skip-postlogin',
             # Debug logging.
             '--vmodule=*/chromeos/net/*=2,*/chromeos/login/*=2'])
 
-    return args
+    # Disable GAIA services unless we're using GAIA login, or if there's an
+    # explicit request for it.
+    if (self.browser_options.disable_gaia_services and
+        not self.browser_options.gaia_login):
+      args.append('--disable-gaia-services')
 
-  def _GetChromeVersion(self):
-    result = util.WaitFor(self._cri.GetChromeProcess, timeout=30)
-    assert result and result['path']
-    (version, _) = self._cri.RunCmdOnDevice([result['path'], '--version'])
-    assert version
-    return version
+    return args
 
   @property
   def pid(self):
@@ -145,7 +138,6 @@ class CrOSBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
 
     # Wait for oobe.
     self._WaitForBrowserToComeUp(wait_for_extensions=False)
-    self._PostBrowserStartupInitialization()
     util.WaitFor(lambda: self.oobe_exists, 10)
 
     if self.browser_options.auto_login:
@@ -172,6 +164,7 @@ class CrOSBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
 
     if self._cri:
       self._cri.RestartUI(False) # Logs out.
+      self._cri.CloseConnection()
 
     util.WaitFor(lambda: not self._IsCryptohomeMounted(), 30)
 
@@ -242,7 +235,7 @@ class CrOSBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
     # Workaround for crbug.com/374462 - the bug doesn't manifest in the guest
     # session, which also starts with an open browser tab.
     retries = 3
-    while not self._is_guest:
+    while not self._is_guest and not self.browser_options.gaia_login:
       try:
         # Open a new window/tab.
         tab = self.tab_list_backend.New(timeout=30)

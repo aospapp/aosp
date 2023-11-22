@@ -36,9 +36,10 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/browser_test_utils.h"
-#include "content/test/net/url_request_mock_http_job.h"
+#include "extensions/browser/extension_registry.h"
 #include "extensions/common/constants.h"
 #include "net/base/net_util.h"
+#include "net/test/url_request/url_request_mock_http_job.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/hit_test.h"
 #include "ui/events/event_utils.h"
@@ -521,11 +522,8 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, AnimateBounds) {
   // Set bounds with animation.
   gfx::Rect bounds = gfx::Rect(10, 20, 150, 160);
   panel->SetPanelBounds(bounds);
-  // There is no animation on Linux, by design.
-#if !defined(OS_LINUX)
   EXPECT_TRUE(panel_testing->IsAnimatingBounds());
   WaitForBoundsAnimationFinished(panel);
-#endif
   EXPECT_FALSE(panel_testing->IsAnimatingBounds());
   EXPECT_EQ(bounds, panel->GetBounds());
 
@@ -1421,12 +1419,11 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest,
       content::Source<Panel>(panel1));
 
   // Send unload notification on the first extension.
-  extensions::UnloadedExtensionInfo details(
+  extensions::ExtensionRegistry* registry =
+      extensions::ExtensionRegistry::Get(browser()->profile());
+  registry->RemoveEnabled(extension->id());
+  registry->TriggerOnUnloaded(
       extension.get(), extensions::UnloadedExtensionInfo::REASON_UNINSTALL);
-  content::NotificationService::current()->Notify(
-      chrome::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED,
-      content::Source<Profile>(browser()->profile()),
-      content::Details<extensions::UnloadedExtensionInfo>(&details));
 
   // Wait for the panels opened by the first extension to close.
   signal.Wait();
@@ -1727,14 +1724,8 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest,
   EXPECT_TRUE(panel_testing->IsWindowVisible());
 
   // Panel should become hidden when entering full-screen mode.
-  // Note that this is not needed on Linux because the full-screen window will
-  // be always placed above any other windows.
   mock_display_settings_provider()->EnableFullScreenMode(true);
-#if defined(OS_LINUX)
-  EXPECT_TRUE(panel_testing->IsWindowVisible());
-#else
   EXPECT_FALSE(panel_testing->IsWindowVisible());
-#endif
 
   // Panel should become visible when leaving full-screen mode.
   mock_display_settings_provider()->EnableFullScreenMode(false);

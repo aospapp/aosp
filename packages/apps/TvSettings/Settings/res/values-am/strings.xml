@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"ምትክ ያስቀምጡና የነበረበት ይመልሱ"</string>
     <string name="device_reset" msgid="2827002349560023125">"የፋብሪካ ውሂብ ዳግም አስጀምር"</string>
     <string name="device_calibration" msgid="8632962533376605191">"መዘወግ"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"የወረዱ መተግበሪያዎች"</string>
     <string name="apps_system" msgid="2499191125802829425">"የስርዓት መተግበሪያዎች"</string>
     <string name="apps_running" msgid="6430310491739956228">"በመሄድ ላይ ያሉ መተግበሪያዎች"</string>
@@ -90,12 +94,12 @@
     <string name="bluetooth_pin_values_hint" msgid="2319900367581543300">"አብዛኛውን ጊዜ 0000 ወይም 1234"</string>
     <string name="bluetooth_pair" msgid="7836818609620478122">"አጣምር"</string>
     <string name="bluetooth_cancel" msgid="4152153558528588479">"ይቅር"</string>
-    <string name="system_cast" msgid="6421567823845207156">"Google ውሰድ"</string>
+    <string name="system_cast" msgid="6421567823845207156">"Google Cast"</string>
     <string name="system_date_time" msgid="8898457978560618950">"ቀን እና ሰዓት"</string>
     <string name="system_language" msgid="2337138146114609247">"ቋንቋ"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"የቁልፍ ሰሌዳ"</string>
     <string name="system_search" msgid="2837264654143247611">"ፍለጋ"</string>
-    <string name="system_security" msgid="4190058778883258927">"ደህንነትና ገደቦች"</string>
+    <string name="system_security" msgid="8230080273993484407">"ደህንነት እና ገደቦች"</string>
     <string name="system_speech" msgid="8128688499687306982">"ንግግር"</string>
     <string name="system_inputs" msgid="2413907183796651102">"ግብዓቶች"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"ተደራሽነት"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"የስርዓት ዝማኔ"</string>
     <string name="about_preference" msgid="4131396784531360434">"ስለ"</string>
     <string name="device_name" msgid="2670488158531273028">"የመሣሪያ ስም"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"እንደገና ጀምር"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"የህግ መረጃ"</string>
     <string name="about_warranty" msgid="5736003473060436384">"ዋስትና"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"የክፍት ምንጭ ፈቃዶች"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"የአገልግሎት ውል ይመልከቱ"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"የግላዊነት መመሪያ ይመልከቱ"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"ተጨማሪ ውሎች ይመልከቱ"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Google ህግ ነክ"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"የፈቃድ ውሂብ አይገኝም"</string>
     <string name="about_model" msgid="6625269442206323995">"ሞዴል"</string>
     <string name="about_version" msgid="1177287676732287266">"ሥሪት"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"ቀን"</string>
     <string name="system_time" msgid="6726022312605226285">"ጊዜ"</string>
     <string name="system_set_date" msgid="2437586307768561116">"ቀን ያዘጋጁ"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"የውሂብ ቅርፀት ምረጥ"</string>
     <string name="system_set_time" msgid="4661804115501057452">"ሰዓት ያዘጋጁ"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"የሰዓት ሰቅ ያዘጋጁ"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"የ24 ሰዓት ቅርፀት ተጠቀም"</string>

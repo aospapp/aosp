@@ -128,6 +128,7 @@ struct GSC_HANDLE {
     void            *op_mutex;
     void            *obj_mutex[NUM_OF_GSC_HW];
     void            *cur_obj_mutex;
+    bool             destroy_cur_obj_mutex;
     bool             flag_local_path;
     bool             flag_exclusive_open;
     struct media_device *media0;

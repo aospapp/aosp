@@ -147,10 +147,6 @@ void AwContentRendererClient::RenderViewCreated(
   new autofill::AutofillAgent(render_view, password_autofill_agent, NULL);
 }
 
-std::string AwContentRendererClient::GetDefaultEncoding() {
-  return AwResource::GetDefaultTextEncoding();
-}
-
 bool AwContentRendererClient::HasErrorPage(int http_status_code,
                           std::string* error_domain) {
   return http_status_code >= 400;
@@ -199,6 +195,14 @@ bool AwContentRendererClient::IsLinkVisited(unsigned long long link_hash) {
 void AwContentRendererClient::AddKeySystems(
     std::vector<content::KeySystemInfo>* key_systems) {
   AwAddKeySystems(key_systems);
+}
+
+bool AwContentRendererClient::ShouldOverridePageVisibilityState(
+    const content::RenderFrame* render_frame,
+    blink::WebPageVisibilityState* override_state) {
+  // webview is always visible due to rendering requirements.
+  *override_state = blink::WebPageVisibilityStateVisible;
+  return true;
 }
 
 }  // namespace android_webview

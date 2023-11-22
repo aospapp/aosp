@@ -27,6 +27,8 @@ Document.prototype.webkitIsFullScreen;
 /** @type {boolean} */
 Document.prototype.webkitHidden;
 
+/** @type {Element} */
+Document.prototype.firstElementChild;
 
 /** @type {number} */
 Element.ALLOW_KEYBOARD_INPUT;
@@ -37,6 +39,12 @@ Element.prototype.webkitRequestFullScreen = function(flags) {};
 
 /** @type {boolean} */
 Element.prototype.hidden;
+
+/** @type {string} */
+Element.prototype.localName;
+
+/** @type {string} */
+Element.prototype.textContent;
 
 
 /** @constructor
@@ -184,8 +192,8 @@ MediaSource.prototype.addSourceBuffer = function(format) {}
 var Promise = function (init) {};
 
 /**
- * @param {function(*) : void} onFulfill
- * @param {function(*) : void} onReject
+ * @param {function(?=) : (Promise|void)} onFulfill
+ * @param {function(?=) : (Promise|void)=} onReject
  * @return {Promise}
  */
 Promise.prototype.then = function (onFulfill, onReject) {};
@@ -209,13 +217,43 @@ Promise.prototype.race = function (promises) {}
 Promise.prototype.all = function (promises) {};
 
 /**
- * @param {*} reason
+ * @param {*=} reason
  * @return {Promise}
  */
 Promise.reject = function (reason) {};
 
 /**
- * @param {*} value
+ * @param {*=} value
  * @return {Promise}
  */
 Promise.resolve = function (value) {};
+
+/**
+ * @param {string} type
+ * @param {boolean} canBubble
+ * @param {boolean} cancelable
+ * @param {Window} view
+ * @param {number} detail
+ * @param {number} screenX
+ * @param {number} screenY
+ * @param {number} clientX
+ * @param {number} clientY
+ * @param {boolean} ctrlKey
+ * @param {boolean} altKey
+ * @param {boolean} shiftKey
+ * @param {boolean} metaKey
+ * @param {number} button
+ * @param {EventTarget} relatedTarget
+ */
+Event.prototype.initMouseEvent = function(
+    type, canBubble, cancelable, view, detail,
+    screenX, screenY, clientX, clientY,
+    ctrlKey, altKey, shiftKey, metaKey,
+    button, relatedTarget) {};
+
+/**
+ * @param {number} begin
+ * @param {number=} end
+ * @return {ArrayBuffer}
+ */
+ArrayBuffer.prototype.slice = function(begin, end) {};

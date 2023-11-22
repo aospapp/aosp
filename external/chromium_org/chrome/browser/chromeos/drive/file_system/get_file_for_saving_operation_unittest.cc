@@ -5,14 +5,16 @@
 #include "chrome/browser/chromeos/drive/file_system/get_file_for_saving_operation.h"
 
 #include "base/callback.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/run_loop.h"
 #include "base/task_runner_util.h"
 #include "chrome/browser/chromeos/drive/drive.pb.h"
+#include "chrome/browser/chromeos/drive/file_change.h"
 #include "chrome/browser/chromeos/drive/file_errors.h"
 #include "chrome/browser/chromeos/drive/file_system/operation_test_base.h"
 #include "chrome/browser/chromeos/drive/file_write_watcher.h"
+#include "content/public/test/test_utils.h"
 #include "google_apis/drive/test_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -23,28 +25,25 @@ namespace {
 
 // If OnCacheFileUploadNeededByOperation is called, records the local ID and
 // calls |quit_closure|.
-class TestObserver : public OperationObserver {
+class TestDelegate : public OperationDelegate {
  public:
   void set_quit_closure(const base::Closure& quit_closure) {
     quit_closure_ = quit_closure;
   }
 
-  const std::string& observerd_local_id() const {
-    return observed_local_id_;
+  const std::string& updated_local_id() const {
+    return updated_local_id_;
   }
 
-  // OperationObserver overrides.
-  virtual void OnDirectoryChangedByOperation(
-      const base::FilePath& path) OVERRIDE {}
-
+  // OperationDelegate overrides.
   virtual void OnEntryUpdatedByOperation(const std::string& local_id) OVERRIDE {
-    observed_local_id_ = local_id;
+    updated_local_id_ = local_id;
     if (!quit_closure_.is_null())
       quit_closure_.Run();
   }
 
  private:
-  std::string observed_local_id_;
+  std::string updated_local_id_;
   base::Closure quit_closure_;
 };
 
@@ -61,12 +60,12 @@ class GetFileForSavingOperationTest : public OperationTestBase {
     OperationTestBase::SetUp();
 
     operation_.reset(new GetFileForSavingOperation(
-        logger(), blocking_task_runner(), &observer_, scheduler(), metadata(),
+        logger(), blocking_task_runner(), &delegate_, scheduler(), metadata(),
         cache(), temp_dir()));
     operation_->file_write_watcher_for_testing()->DisableDelayForTesting();
   }
 
-  TestObserver observer_;
+  TestDelegate delegate_;
   scoped_ptr<GetFileForSavingOperation> operation_;
 };
 
@@ -83,7 +82,7 @@ TEST_F(GetFileForSavingOperationTest, GetFileForSaving_Exist) {
       drive_path,
       google_apis::test_util::CreateCopyResultCallback(
           &error, &local_path, &entry));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
 
   // Checks that the file is retrieved.
   EXPECT_EQ(FILE_ERROR_OK, error);
@@ -97,10 +96,10 @@ TEST_F(GetFileForSavingOperationTest, GetFileForSaving_Exist) {
   // Write something to the cache and checks that the event is reported.
   {
     base::RunLoop run_loop;
-    observer_.set_quit_closure(run_loop.QuitClosure());
+    delegate_.set_quit_closure(run_loop.QuitClosure());
     google_apis::test_util::WriteStringToFile(local_path, "hello");
     run_loop.Run();
-    EXPECT_EQ(GetLocalId(drive_path), observer_.observerd_local_id());
+    EXPECT_EQ(GetLocalId(drive_path), delegate_.updated_local_id());
   }
 }
 
@@ -118,7 +117,7 @@ TEST_F(GetFileForSavingOperationTest, GetFileForSaving_NotExist) {
       drive_path,
       google_apis::test_util::CreateCopyResultCallback(
           &error, &local_path, &entry));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
 
   // Checks that the file is created and retrieved.
   EXPECT_EQ(FILE_ERROR_OK, error);
@@ -142,7 +141,7 @@ TEST_F(GetFileForSavingOperationTest, GetFileForSaving_Directory) {
       drive_path,
       google_apis::test_util::CreateCopyResultCallback(
           &error, &local_path, &entry));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
 
   // Checks that an error is returned.
   EXPECT_EQ(FILE_ERROR_EXISTS, error);

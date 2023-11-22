@@ -12,15 +12,16 @@
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/search_engines/search_provider_install_data.h"
-#include "chrome/browser/search_engines/template_url.h"
-#include "chrome/browser/search_engines/template_url_prepopulate_data.h"
-#include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_test_util.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_pref_service_syncable.h"
 #include "chrome/test/base/testing_profile.h"
+#include "components/search_engines/search_terms_data.h"
+#include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_prepopulate_data.h"
+#include "components/search_engines/template_url_service.h"
+#include "content/public/browser/browser_thread.h"
 #include "content/public/test/mock_render_process_host.h"
-#include "content/public/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread_bundle.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using content::BrowserThread;
@@ -122,7 +123,6 @@ class SearchProviderInstallDataTest : public testing::Test {
   virtual void SetUp() OVERRIDE;
   virtual void TearDown() OVERRIDE;
 
- protected:
   TemplateURL* AddNewTemplateURL(const std::string& url,
                                  const base::string16& keyword);
 
@@ -130,6 +130,11 @@ class SearchProviderInstallDataTest : public testing::Test {
   // |SearchProviderInstallData| to process the update.
   void SetGoogleBaseURLAndProcessOnIOThread(GURL base_url);
 
+  TemplateURLServiceTestUtil* util() { return &util_; }
+  SearchProviderInstallData* install_data() { return install_data_; }
+
+ private:
+  content::TestBrowserThreadBundle thread_bundle_;  // To set up BrowserThreads.
   TemplateURLServiceTestUtil util_;
 
   // Provides the search provider install state on the I/O thread. It must be
@@ -153,10 +158,10 @@ void SearchProviderInstallDataTest::SetUp() {
   TemplateURLPrepopulateData::InitCountryCode(
       std::string() /* unknown country code */);
 #endif
-  util_.SetUp();
   process_.reset(new content::MockRenderProcessHost(util_.profile()));
-  install_data_ =
-      new SearchProviderInstallData(util_.profile(), process_.get());
+  install_data_ = new SearchProviderInstallData(
+      util_.model(), SearchTermsData().GoogleBaseURLValue(), NULL,
+      process_.get());
 }
 
 void SearchProviderInstallDataTest::TearDown() {
@@ -167,7 +172,6 @@ void SearchProviderInstallDataTest::TearDown() {
   // It doesn't matter that this happens after install_data_ is deleted.
   process_.reset();
 
-  util_.TearDown();
   testing::Test::TearDown();
 }
 
@@ -201,7 +205,7 @@ void SearchProviderInstallDataTest::SetGoogleBaseURLAndProcessOnIOThread(
 
 TEST_F(SearchProviderInstallDataTest, GetInstallState) {
   // Set up the database.
-  util_.ChangeModelToLoadState();
+  util()->ChangeModelToLoadState();
   std::string host = "www.unittest.com";
   AddNewTemplateURL("http://" + host + "/path", base::ASCIIToUTF16("unittest"));
 
@@ -209,7 +213,7 @@ TEST_F(SearchProviderInstallDataTest, GetInstallState) {
   base::RunLoop().RunUntilIdle();
 
   // Verify the search providers install state (with no default set).
-  TestGetInstallState test_get_install_state(install_data_);
+  TestGetInstallState test_get_install_state(install_data());
   test_get_install_state.RunTests(host, std::string());
 
   // Set-up a default and try it all one more time.
@@ -217,19 +221,19 @@ TEST_F(SearchProviderInstallDataTest, GetInstallState) {
   TemplateURL* default_url =
       AddNewTemplateURL("http://" + default_host + "/",
                         base::ASCIIToUTF16("mmm"));
-  util_.model()->SetUserSelectedDefaultSearchProvider(default_url);
+  util()->model()->SetUserSelectedDefaultSearchProvider(default_url);
   test_get_install_state.RunTests(host, default_host);
 }
 
 TEST_F(SearchProviderInstallDataTest, ManagedDefaultSearch) {
   // Set up the database.
-  util_.ChangeModelToLoadState();
+  util()->ChangeModelToLoadState();
   std::string host = "www.unittest.com";
   AddNewTemplateURL("http://" + host + "/path", base::ASCIIToUTF16("unittest"));
 
   // Set a managed preference that establishes a default search provider.
   std::string host2 = "www.managedtest.com";
-  util_.SetManagedDefaultSearchPreferences(
+  util()->SetManagedDefaultSearchPreferences(
       true,
       "managed",
       "managed",
@@ -240,22 +244,22 @@ TEST_F(SearchProviderInstallDataTest, ManagedDefaultSearch) {
       std::string(),
       std::string());
 
-  EXPECT_TRUE(util_.model()->is_default_search_managed());
+  EXPECT_TRUE(util()->model()->is_default_search_managed());
 
   // Wait for the changes to be saved.
   base::RunLoop().RunUntilIdle();
 
   // Verify the search providers install state.  The default search should be
   // the managed one we previously set.
-  TestGetInstallState test_get_install_state(install_data_);
+  TestGetInstallState test_get_install_state(install_data());
   test_get_install_state.RunTests(host, host2);
 }
 
 TEST_F(SearchProviderInstallDataTest, GoogleBaseUrlChange) {
-  TestGetInstallState test_get_install_state(install_data_);
+  TestGetInstallState test_get_install_state(install_data());
 
   // Set up the database.
-  util_.ChangeModelToLoadState();
+  util()->ChangeModelToLoadState();
   std::string google_host = "w.com";
   SetGoogleBaseURLAndProcessOnIOThread(GURL("http://" + google_host + "/"));
 
@@ -263,7 +267,7 @@ TEST_F(SearchProviderInstallDataTest, GoogleBaseUrlChange) {
                     base::ASCIIToUTF16("t"));
   TemplateURL* default_url =
       AddNewTemplateURL("http://d.com/", base::ASCIIToUTF16("d"));
-  util_.model()->SetUserSelectedDefaultSearchProvider(default_url);
+  util()->model()->SetUserSelectedDefaultSearchProvider(default_url);
 
   // Wait for the changes to be saved.
   base::RunLoop().RunUntilIdle();

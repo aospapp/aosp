@@ -22,7 +22,6 @@ import android.net.Uri;
 import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
 import android.telecom.ConnectionService;
-import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telephony.PhoneNumberUtils;
@@ -48,19 +47,33 @@ import java.util.Objects;
  * Service for making GSM and CDMA connections.
  */
 public class TelephonyConnectionService extends ConnectionService {
-    private final GsmConferenceController mGsmConferenceController =
-            new GsmConferenceController(this);
+    private final TelephonyConferenceController mTelephonyConferenceController =
+            new TelephonyConferenceController(this);
     private final CdmaConferenceController mCdmaConferenceController =
             new CdmaConferenceController(this);
+    private final ImsConferenceController mImsConferenceController =
+            new ImsConferenceController(this);
     private ComponentName mExpectedComponentName = null;
     private EmergencyCallHelper mEmergencyCallHelper;
     private EmergencyTonePlayer mEmergencyTonePlayer;
+
+    /**
+     * A listener to actionable events specific to the TelephonyConnection.
+     */
+    private final TelephonyConnection.TelephonyConnectionListener mTelephonyConnectionListener =
+            new TelephonyConnection.TelephonyConnectionListener() {
+        @Override
+        public void onOriginalConnectionConfigured(TelephonyConnection c) {
+            addConnectionToConferenceController(c);
+        }
+    };
 
     @Override
     public void onCreate() {
         super.onCreate();
         mExpectedComponentName = new ComponentName(this, this.getClass());
         mEmergencyTonePlayer = new EmergencyTonePlayer(this);
+        TelecomAccountRegistry.getInstance(this).setTelephonyConnectionService(this);
     }
 
     @Override
@@ -88,7 +101,7 @@ public class TelephonyConnectionService extends ConnectionService {
                 Log.d(this, "onCreateOutgoingConnection, phone is null");
                 return Connection.createFailedConnection(
                         DisconnectCauseUtil.toTelecomDisconnectCause(
-                                android.telephony.DisconnectCause.OUTGOING_FAILURE,
+                                android.telephony.DisconnectCause.OUT_OF_SERVICE,
                                 "Phone is null"));
             }
             number = phone.getVoiceMailNumber();
@@ -129,10 +142,15 @@ public class TelephonyConnectionService extends ConnectionService {
             Log.d(this, "onCreateOutgoingConnection, phone is null");
             return Connection.createFailedConnection(
                     DisconnectCauseUtil.toTelecomDisconnectCause(
-                            android.telephony.DisconnectCause.OUTGOING_FAILURE, "Phone is null"));
+                            android.telephony.DisconnectCause.OUT_OF_SERVICE, "Phone is null"));
         }
 
+        // Check both voice & data RAT to enable normal CS call,
+        // when voice RAT is OOS but Data RAT is present.
         int state = phone.getServiceState().getState();
+        if (state == ServiceState.STATE_OUT_OF_SERVICE) {
+            state = phone.getServiceState().getDataRegState();
+        }
         boolean useEmergencyCallHelper = false;
 
         if (isEmergencyNumber) {
@@ -345,27 +363,27 @@ public class TelephonyConnectionService extends ConnectionService {
             Phone phone,
             com.android.internal.telephony.Connection originalConnection,
             boolean isOutgoing) {
+        TelephonyConnection returnConnection = null;
         int phoneType = phone.getPhoneType();
         if (phoneType == TelephonyManager.PHONE_TYPE_GSM) {
-            GsmConnection connection = new GsmConnection(originalConnection);
-            mGsmConferenceController.add(connection);
-            return connection;
+            returnConnection = new GsmConnection(originalConnection);
         } else if (phoneType == TelephonyManager.PHONE_TYPE_CDMA) {
             boolean allowMute = allowMute(phone);
-            CdmaConnection connection = new CdmaConnection(
+            returnConnection = new CdmaConnection(
                     originalConnection, mEmergencyTonePlayer, allowMute, isOutgoing);
-            mCdmaConferenceController.add(connection);
-            return connection;
-        } else {
-            return null;
         }
+        if (returnConnection != null) {
+            // Listen to Telephony specific callbacks from the connection
+            returnConnection.addTelephonyConnectionListener(mTelephonyConnectionListener);
+        }
+        return returnConnection;
     }
 
     private boolean isOriginalConnectionKnown(
             com.android.internal.telephony.Connection originalConnection) {
         for (Connection connection : getAllConnections()) {
-            TelephonyConnection telephonyConnection = (TelephonyConnection) connection;
             if (connection instanceof TelephonyConnection) {
+                TelephonyConnection telephonyConnection = (TelephonyConnection) connection;
                 if (telephonyConnection.getOriginalConnection() == originalConnection) {
                     return true;
                 }
@@ -375,22 +393,62 @@ public class TelephonyConnectionService extends ConnectionService {
     }
 
     private Phone getPhoneForAccount(PhoneAccountHandle accountHandle, boolean isEmergency) {
-        if (isEmergency) {
-            return PhoneFactory.getDefaultPhone();
-        }
-
         if (Objects.equals(mExpectedComponentName, accountHandle.getComponentName())) {
             if (accountHandle.getId() != null) {
                 try {
                     int phoneId = SubscriptionController.getInstance().getPhoneId(
-                            Long.parseLong(accountHandle.getId()));
+                            Integer.parseInt(accountHandle.getId()));
                     return PhoneFactory.getPhone(phoneId);
                 } catch (NumberFormatException e) {
                     Log.w(this, "Could not get subId from account: " + accountHandle.getId());
                 }
             }
         }
+
+        if (isEmergency) {
+            // If this is an emergency number and we've been asked to dial it using a PhoneAccount
+            // which does not exist, then default to whatever subscription is available currently.
+            return getFirstPhoneForEmergencyCall();
+        }
+
         return null;
+    }
+
+    private Phone getFirstPhoneForEmergencyCall() {
+        Phone selectPhone = null;
+        for (int i = 0; i < TelephonyManager.getDefault().getSimCount(); i++) {
+            int[] subIds = SubscriptionController.getInstance().getSubIdUsingSlotId(i);
+            if (subIds.length == 0)
+                continue;
+
+            int phoneId = SubscriptionController.getInstance().getPhoneId(subIds[0]);
+            Phone phone = PhoneFactory.getPhone(phoneId);
+            if (phone == null)
+                continue;
+
+            if (ServiceState.STATE_IN_SERVICE == phone.getServiceState().getState()) {
+                // the slot is radio on & state is in service
+                Log.d(this, "pickBestPhoneForEmergencyCall, radio on & in service, slotId:" + i);
+                return phone;
+            } else if (ServiceState.STATE_POWER_OFF != phone.getServiceState().getState()) {
+                // the slot is radio on & with SIM card inserted.
+                if (TelephonyManager.getDefault().hasIccCard(i)) {
+                    Log.d(this, "pickBestPhoneForEmergencyCall," +
+                            "radio on and SIM card inserted, slotId:" + i);
+                    selectPhone = phone;
+                } else if (selectPhone == null) {
+                    Log.d(this, "pickBestPhoneForEmergencyCall, radio on, slotId:" + i);
+                    selectPhone = phone;
+                }
+            }
+        }
+
+        if (selectPhone == null) {
+            Log.d(this, "pickBestPhoneForEmergencyCall, return default phone");
+            selectPhone = PhoneFactory.getDefaultPhone();
+        }
+
+        return selectPhone;
     }
 
     /**
@@ -413,5 +471,41 @@ public class TelephonyConnectionService extends ConnectionService {
         }
 
         return true;
+    }
+
+    @Override
+    public void removeConnection(Connection connection) {
+        super.removeConnection(connection);
+        if (connection instanceof TelephonyConnection) {
+            TelephonyConnection telephonyConnection = (TelephonyConnection) connection;
+            telephonyConnection.removeTelephonyConnectionListener(mTelephonyConnectionListener);
+        }
+    }
+
+    /**
+     * When a {@link TelephonyConnection} has its underlying original connection configured,
+     * we need to add it to the correct conference controller.
+     *
+     * @param connection The connection to be added to the controller
+     */
+    public void addConnectionToConferenceController(TelephonyConnection connection) {
+        // TODO: Do we need to handle the case of the original connection changing
+        // and triggering this callback multiple times for the same connection?
+        // If that is the case, we might want to remove this connection from all
+        // conference controllers first before re-adding it.
+        if (connection.isImsConnection()) {
+            Log.d(this, "Adding IMS connection to conference controller: " + connection);
+            mImsConferenceController.add(connection);
+        } else {
+            int phoneType = connection.getCall().getPhone().getPhoneType();
+            if (phoneType == TelephonyManager.PHONE_TYPE_GSM) {
+                Log.d(this, "Adding GSM connection to conference controller: " + connection);
+                mTelephonyConferenceController.add(connection);
+            } else if (phoneType == TelephonyManager.PHONE_TYPE_CDMA &&
+                    connection instanceof CdmaConnection) {
+                Log.d(this, "Adding CDMA connection to conference controller: " + connection);
+                mCdmaConferenceController.add((CdmaConnection)connection);
+            }
+        }
     }
 }

@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_SYSTEM_IMPL_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_SYSTEM_IMPL_H_
 
+#include "base/memory/scoped_vector.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/common/one_shot_event.h"
 
@@ -13,10 +14,12 @@ class Profile;
 namespace extensions {
 
 class ContentVerifier;
+class DeclarativeUserScriptMaster;
 class ExtensionSystemSharedFactory;
 class ExtensionWarningBadgeService;
 class NavigationObserver;
-class StandardManagementPolicyProvider;
+class SharedUserScriptMaster;
+class StateStoreNotificationObserver;
 
 // The ExtensionSystem for ProfileImpl and OffTheRecordProfileImpl.
 // Implementation details: non-shared services are owned by
@@ -36,7 +39,8 @@ class ExtensionSystemImpl : public ExtensionSystem {
   virtual ExtensionService* extension_service() OVERRIDE;  // shared
   virtual RuntimeData* runtime_data() OVERRIDE;  // shared
   virtual ManagementPolicy* management_policy() OVERRIDE;  // shared
-  virtual UserScriptMaster* user_script_master() OVERRIDE;  // shared
+  // shared
+  virtual SharedUserScriptMaster* shared_user_script_master() OVERRIDE;
   virtual ProcessManager* process_manager() OVERRIDE;
   virtual StateStore* state_store() OVERRIDE;  // shared
   virtual StateStore* rules_store() OVERRIDE;  // shared
@@ -44,7 +48,7 @@ class ExtensionSystemImpl : public ExtensionSystem {
       OVERRIDE;  // shared
   virtual InfoMap* info_map() OVERRIDE; // shared
   virtual EventRouter* event_router() OVERRIDE;  // shared
-  virtual ExtensionWarningService* warning_service() OVERRIDE;
+  virtual WarningService* warning_service() OVERRIDE;
   virtual Blacklist* blacklist() OVERRIDE;  // shared
   virtual ErrorConsole* error_console() OVERRIDE;
   virtual InstallVerifier* install_verifier() OVERRIDE;
@@ -61,6 +65,10 @@ class ExtensionSystemImpl : public ExtensionSystem {
   virtual ContentVerifier* content_verifier() OVERRIDE;  // shared
   virtual scoped_ptr<ExtensionSet> GetDependentExtensions(
       const Extension* extension) OVERRIDE;
+
+  virtual DeclarativeUserScriptMaster*
+      GetDeclarativeUserScriptMasterByExtension(
+          const ExtensionId& extension_id) OVERRIDE;  // shared
 
  private:
   friend class ExtensionSystemSharedFactory;
@@ -86,17 +94,20 @@ class ExtensionSystemImpl : public ExtensionSystem {
     ExtensionService* extension_service();
     RuntimeData* runtime_data();
     ManagementPolicy* management_policy();
-    UserScriptMaster* user_script_master();
+    SharedUserScriptMaster* shared_user_script_master();
     Blacklist* blacklist();
     InfoMap* info_map();
     LazyBackgroundTaskQueue* lazy_background_task_queue();
     EventRouter* event_router();
-    ExtensionWarningService* warning_service();
+    WarningService* warning_service();
     ErrorConsole* error_console();
     InstallVerifier* install_verifier();
     QuotaService* quota_service();
     const OneShotEvent& ready() const { return ready_; }
     ContentVerifier* content_verifier();
+
+    DeclarativeUserScriptMaster* GetDeclarativeUserScriptMasterByExtension(
+        const ExtensionId& extension_id);
 
    private:
     Profile* profile_;
@@ -104,24 +115,29 @@ class ExtensionSystemImpl : public ExtensionSystem {
     // The services that are shared between normal and incognito profiles.
 
     scoped_ptr<StateStore> state_store_;
+    scoped_ptr<StateStoreNotificationObserver>
+        state_store_notification_observer_;
     scoped_ptr<StateStore> rules_store_;
     // LazyBackgroundTaskQueue is a dependency of
     // MessageService and EventRouter.
     scoped_ptr<LazyBackgroundTaskQueue> lazy_background_task_queue_;
     scoped_ptr<EventRouter> event_router_;
     scoped_ptr<NavigationObserver> navigation_observer_;
-    scoped_refptr<UserScriptMaster> user_script_master_;
+    // Shared memory region manager for scripts statically declared in extension
+    // manifests. This region is shared between all extensions.
+    scoped_ptr<SharedUserScriptMaster> shared_user_script_master_;
+    // Shared memory region manager for programmatically declared scripts, one
+    // per extension. Managers are instantiated the first time the declarative
+    // API is used by an extension to request content scripts.
+    ScopedVector<DeclarativeUserScriptMaster> declarative_user_script_masters_;
     scoped_ptr<Blacklist> blacklist_;
-    // StandardManagementPolicyProvider depends on Blacklist.
-    scoped_ptr<StandardManagementPolicyProvider>
-        standard_management_policy_provider_;
     scoped_ptr<RuntimeData> runtime_data_;
     // ExtensionService depends on StateStore, Blacklist and RuntimeData.
     scoped_ptr<ExtensionService> extension_service_;
     scoped_ptr<ManagementPolicy> management_policy_;
     // extension_info_map_ needs to outlive process_manager_.
     scoped_refptr<InfoMap> extension_info_map_;
-    scoped_ptr<ExtensionWarningService> extension_warning_service_;
+    scoped_ptr<WarningService> warning_service_;
     scoped_ptr<ExtensionWarningBadgeService> extension_warning_badge_service_;
     scoped_ptr<ErrorConsole> error_console_;
     scoped_ptr<InstallVerifier> install_verifier_;

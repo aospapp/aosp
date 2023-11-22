@@ -798,6 +798,14 @@ EVENT_TYPE(URL_REQUEST_REDIRECT_JOB)
 //     "reason": <Reason for the redirect, as a string>,
 //   }
 
+EVENT_TYPE(URL_REQUEST_FAKE_RESPONSE_HEADERS_CREATED)
+// This event is logged when a URLRequestRedirectJob creates the fake response
+// headers for a request, prior to returning them.
+// The following parameters are attached:
+//   {
+//     "headers": <The list of header:value pairs>,
+//   }
+
 // ------------------------------------------------------------------------
 // HttpCache
 // ------------------------------------------------------------------------
@@ -1350,6 +1358,12 @@ EVENT_TYPE(QUIC_SESSION)
 //     "net_error": <Net error code for the closure>,
 //   }
 EVENT_TYPE(QUIC_SESSION_CLOSE_ON_ERROR)
+
+// Session verified a certificate from the server.
+//   {
+//     "subjects": <list of DNS names that the certificate is valid for>,
+//   }
+EVENT_TYPE(QUIC_SESSION_CERTIFICATE_VERIFIED)
 
 // Session received a QUIC packet.
 //   {

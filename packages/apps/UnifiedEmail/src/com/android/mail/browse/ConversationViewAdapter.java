@@ -20,7 +20,6 @@ package com.android.mail.browse;
 import android.app.FragmentManager;
 import android.app.LoaderManager;
 import android.content.Context;
-import android.support.annotation.IdRes;
 import android.support.annotation.IntDef;
 import android.support.v4.text.BidiFormatter;
 import android.view.Gravity;
@@ -54,6 +53,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * A specialized adapter that contains overlay views to draw on top of the underlying conversation
@@ -141,9 +141,6 @@ public class ConversationViewAdapter extends BaseAdapter {
             v.setStarred(mConversation.starred);
             v.setTag(OVERLAY_ITEM_ROOT_TAG);
 
-            // Register the onkey listener for all relevant views
-            registerOnKeyListeners(v, v.findViewById(R.id.subject_and_folder_view));
-
             return v;
         }
 
@@ -151,7 +148,6 @@ public class ConversationViewAdapter extends BaseAdapter {
         public void bindView(View v, boolean measureOnly) {
             ConversationViewHeader header = (ConversationViewHeader) v;
             header.bind(this);
-            mRootView = v;
         }
 
         @Override
@@ -355,6 +351,9 @@ public class ConversationViewAdapter extends BaseAdapter {
         @Override
         public void setMessage(ConversationMessage message) {
             mMessage = message;
+            // setMessage signifies an in-place update to the message, so let's clear out recipient
+            // summary text so the view will refresh it on the next render.
+            recipientSummaryText = null;
         }
 
         public CharSequence getTimestampShort() {
@@ -721,7 +720,13 @@ public class ConversationViewAdapter extends BaseAdapter {
             LogUtils.e(LOG_TAG, "not enough items in the adapter. count: %s", count);
             return null;
         }
-        return (ConversationFooterItem) mItems.get(count - 1);
+        final ConversationOverlayItem item = mItems.get(count - 1);
+        try {
+            return (ConversationFooterItem) item;
+        } catch (ClassCastException e) {
+            LogUtils.e(LOG_TAG, "Last item is not a conversation footer. type: %s", item.getType());
+            return null;
+        }
     }
 
     /**
@@ -738,87 +743,60 @@ public class ConversationViewAdapter extends BaseAdapter {
 
     // This should be a safe call since all containers should have at least a conv header and a
     // message header.
-    // TODO: what to do when the first header is off the screen and recycled?
-    public void focusFirstMessageHeader() {
+    public boolean focusFirstMessageHeader() {
         if (mItems.size() > 1) {
             final View v = mItems.get(1).getFocusableView();
-            if (v != null) {
+            if (v != null && v.isShown() && v.isFocusable()) {
                 v.requestFocus();
+                return true;
             }
         }
-    }
-
-    /**
-     * Try to find the position of the provided view (or it's view container) in the adapter.
-     */
-    public int getViewPosition(View v) {
-        // First find the root view of the overlay item
-        while (v.getTag() != OVERLAY_ITEM_ROOT_TAG) {
-            final ViewParent parent = v.getParent();
-            if (parent != null && parent instanceof View) {
-                v = (View) parent;
-            } else {
-                return -1;
-            }
-        }
-        // Find the position of the root view
-        for (int i = 0; i < mItems.size(); i++) {
-            if (mItems.get(i).mRootView == v) {
-                return i;
-            }
-        }
-        return -1;
+        return false;
     }
 
     /**
      * Find the next view that should grab focus with respect to the current position.
      */
-    public View getNextOverlayView(int position, boolean isDown) {
-        if (isDown && position >= 0) {
-            while (++position < mItems.size()) {
-                final View v = mItems.get(position).getFocusableView();
-                if (v != null && v.isFocusable()) {
-                    return v;
-                }
-            }
-        } else {
-            while (--position >= 0) {
-                final View v = mItems.get(position).getFocusableView();
-                if (v != null && v.isFocusable()) {
-                    return v;
-                }
+    public View getNextOverlayView(View curr, boolean isDown, Set<View> scraps) {
+        // First find the root view of the overlay item
+        while (curr.getTag() != OVERLAY_ITEM_ROOT_TAG) {
+            final ViewParent parent = curr.getParent();
+            if (parent != null && parent instanceof View) {
+                curr = (View) parent;
+            } else {
+                return null;
             }
         }
-        // Special case two end points
-        if ((position == 0 && !isDown) || (position == mItems.size() - 1 && isDown)) {
 
+        // Find the position of the root view
+        for (int i = 0; i < mItems.size(); i++) {
+            if (mItems.get(i).mRootView == curr) {
+                // Found view, now find the next applicable view
+                if (isDown && i >= 0) {
+                    while (++i < mItems.size()) {
+                        final ConversationOverlayItem item = mItems.get(i);
+                        final View next = item.getFocusableView();
+                        if (item.mRootView != null && !scraps.contains(item.mRootView) &&
+                                next != null && next.isFocusable()) {
+                            return next;
+                        }
+                    }
+                } else {
+                    while (--i >= 0) {
+                        final ConversationOverlayItem item = mItems.get(i);
+                        final View next = item.getFocusableView();
+                        if (item.mRootView != null && !scraps.contains(item.mRootView) &&
+                                next != null && next.isFocusable()) {
+                            return next;
+                        }
+                    }
+                }
+                return null;
+            }
         }
         return null;
     }
 
-    public boolean shouldInterceptLeftRightEvents(@IdRes int id, boolean isLeft, boolean isRight,
-            boolean twoPaneLand) {
-        return twoPaneLand && (id == R.id.conversation_header ||
-                id == R.id.subject_and_folder_view ||
-                id == R.id.upper_header ||
-                id == R.id.super_collapsed_block ||
-                id == R.id.message_footer ||
-                (id == R.id.overflow && isRight) ||
-                (id == R.id.reply_button && isLeft) ||
-                (id == R.id.forward_button && isRight));
-    }
-
-    // Indicates if the direction with the provided id should navigate away from the conversation
-    // view. Note that this is only applicable in two-pane landscape mode.
-    public boolean shouldNavigateAway(@IdRes int id, boolean isLeft, boolean twoPaneLand) {
-        return twoPaneLand && isLeft &&
-                (id == R.id.conversation_header ||
-                id == R.id.subject_and_folder_view ||
-                id == R.id.upper_header ||
-                id == R.id.super_collapsed_block ||
-                id == R.id.message_footer ||
-                id == R.id.reply_button);
-    }
 
     public BidiFormatter getBidiFormatter() {
         return mBidiFormatter;

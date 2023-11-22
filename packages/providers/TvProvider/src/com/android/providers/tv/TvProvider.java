@@ -82,14 +82,18 @@ public class TvProvider extends ContentProvider {
     private static final String OP_UPDATE = "update";
     private static final String OP_DELETE = "delete";
 
-    private static final int DATABASE_VERSION = 21;
+    private static final int DATABASE_VERSION = 23;
     private static final String DATABASE_NAME = "tv.db";
     private static final String CHANNELS_TABLE = "channels";
     private static final String PROGRAMS_TABLE = "programs";
     private static final String WATCHED_PROGRAMS_TABLE = "watched_programs";
-    // This table stores deleted channels, so that when the same channel is added back,
-    // TvProvider can restore the locked & browsable state.
-    private static final String DELETED_CHANNELS_TABLE = "deleted_channels";
+    private static final String DELETED_CHANNELS_TABLE = "deleted_channels";  // Deprecated
+    private static final String PROGRAMS_TABLE_PACKAGE_NAME_INDEX = "programs_package_name_index";
+    private static final String PROGRAMS_TABLE_CHANNEL_ID_INDEX = "programs_channel_id_index";
+    private static final String PROGRAMS_TABLE_START_TIME_INDEX = "programs_start_time_index";
+    private static final String PROGRAMS_TABLE_END_TIME_INDEX = "programs_end_time_index";
+    private static final String WATCHED_PROGRAMS_TABLE_CHANNEL_ID_INDEX =
+            "watched_programs_channel_id_index";
     private static final String DEFAULT_CHANNELS_SORT_ORDER = Channels.COLUMN_DISPLAY_NUMBER
             + " ASC";
     private static final String DEFAULT_PROGRAMS_SORT_ORDER = Programs.COLUMN_START_TIME_UTC_MILLIS
@@ -273,11 +277,8 @@ public class TvProvider extends ContentProvider {
                     + Channels.COLUMN_INTERNAL_PROVIDER_DATA + " BLOB,"
                     + CHANNELS_COLUMN_LOGO + " BLOB,"
                     + Channels.COLUMN_VERSION_NUMBER + " INTEGER,"
-                    + "UNIQUE(" + Channels._ID + "," + Channels.COLUMN_PACKAGE_NAME + "),"
-                    + "UNIQUE(" + Channels.COLUMN_INPUT_ID + ","
-                            + Channels.COLUMN_ORIGINAL_NETWORK_ID + ","
-                            + Channels.COLUMN_TRANSPORT_STREAM_ID + ","
-                            + Channels.COLUMN_SERVICE_ID + ")"
+                    // Needed for foreign keys in other tables.
+                    + "UNIQUE(" + Channels._ID + "," + Channels.COLUMN_PACKAGE_NAME + ")"
                     + ");");
             db.execSQL("CREATE TABLE " + PROGRAMS_TABLE + " ("
                     + Programs._ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -307,6 +308,14 @@ public class TvProvider extends ContentProvider {
                             + Channels._ID + "," + Channels.COLUMN_PACKAGE_NAME
                             + ") ON UPDATE CASCADE ON DELETE CASCADE"
                     + ");");
+            db.execSQL("CREATE INDEX " + PROGRAMS_TABLE_PACKAGE_NAME_INDEX + " ON " + PROGRAMS_TABLE
+                    + "(" + Programs.COLUMN_PACKAGE_NAME + ");");
+            db.execSQL("CREATE INDEX " + PROGRAMS_TABLE_CHANNEL_ID_INDEX + " ON " + PROGRAMS_TABLE
+                    + "(" + Programs.COLUMN_CHANNEL_ID + ");");
+            db.execSQL("CREATE INDEX " + PROGRAMS_TABLE_START_TIME_INDEX + " ON " + PROGRAMS_TABLE
+                    + "(" + Programs.COLUMN_START_TIME_UTC_MILLIS + ");");
+            db.execSQL("CREATE INDEX " + PROGRAMS_TABLE_END_TIME_INDEX + " ON " + PROGRAMS_TABLE
+                    + "(" + Programs.COLUMN_END_TIME_UTC_MILLIS + ");");
             db.execSQL("CREATE TABLE " + WATCHED_PROGRAMS_TABLE + " ("
                     + WatchedPrograms._ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
                     + WatchedPrograms.COLUMN_PACKAGE_NAME + " TEXT NOT NULL,"
@@ -329,39 +338,18 @@ public class TvProvider extends ContentProvider {
                             + Channels._ID + "," + Channels.COLUMN_PACKAGE_NAME
                             + ") ON UPDATE CASCADE ON DELETE CASCADE"
                     + ");");
-            db.execSQL("CREATE TABLE " + DELETED_CHANNELS_TABLE + " ("
-                    + Channels.COLUMN_INPUT_ID + " TEXT NOT NULL,"
-                    + Channels.COLUMN_ORIGINAL_NETWORK_ID + " INTEGER NOT NULL,"
-                    + Channels.COLUMN_TRANSPORT_STREAM_ID + " INTEGER NOT NULL,"
-                    + Channels.COLUMN_SERVICE_ID + " INTEGER NOT NULL,"
-                    + Channels.COLUMN_LOCKED + " INTEGER NOT NULL,"
-                    + Channels.COLUMN_BROWSABLE + " INTEGER NOT NULL,"
-                    + "UNIQUE(" + Channels.COLUMN_INPUT_ID + ","
-                    + Channels.COLUMN_ORIGINAL_NETWORK_ID + ","
-                    + Channels.COLUMN_TRANSPORT_STREAM_ID + "," + Channels.COLUMN_SERVICE_ID + ")"
-                    + ");");
+            db.execSQL("CREATE INDEX " + WATCHED_PROGRAMS_TABLE_CHANNEL_ID_INDEX + " ON "
+                    + WATCHED_PROGRAMS_TABLE + "(" + WatchedPrograms.COLUMN_CHANNEL_ID + ");");
         }
 
         @Override
         public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-            if (DEBUG) {
-                Log.d(TAG, "Upgrading database from " + oldVersion + " to " + newVersion);
-            }
-
-            // Default upgrade case.
+            Log.i(TAG, "Upgrading from version " + oldVersion + " to " + newVersion
+                    + ", data will be lost!");
             db.execSQL("DROP TABLE IF EXISTS " + DELETED_CHANNELS_TABLE);
             db.execSQL("DROP TABLE IF EXISTS " + WATCHED_PROGRAMS_TABLE);
             db.execSQL("DROP TABLE IF EXISTS " + PROGRAMS_TABLE);
             db.execSQL("DROP TABLE IF EXISTS " + CHANNELS_TABLE);
-
-            // Clear legacy logo directory
-            File logoPath = new File(mContext.getFilesDir(), "logo");
-            if (logoPath.exists()) {
-                for (File file : logoPath.listFiles()) {
-                    file.delete();
-                }
-                logoPath.delete();
-            }
 
             onCreate(db);
         }
@@ -404,6 +392,7 @@ public class TvProvider extends ContentProvider {
         buildGenreMap(R.array.genre_mapping_atsc);
         buildGenreMap(R.array.genre_mapping_dvb);
         buildGenreMap(R.array.genre_mapping_isdb);
+        buildGenreMap(R.array.genre_mapping_isdb_br);
     }
 
     @SuppressLint("DefaultLocale")
@@ -504,46 +493,11 @@ public class TvProvider extends ContentProvider {
         }
     }
 
-    private static void restoreChannelState(SQLiteDatabase db, ContentValues values) {
-        String inputId = values.getAsString(Channels.COLUMN_INPUT_ID);
-        Integer onid = values.getAsInteger(Channels.COLUMN_ORIGINAL_NETWORK_ID);
-        Integer tsid = values.getAsInteger(Channels.COLUMN_TRANSPORT_STREAM_ID);
-        Integer serviceId = values.getAsInteger(Channels.COLUMN_SERVICE_ID);
-        if (onid == null) { onid = 0; }
-        if (tsid == null) { tsid = 0; }
-        if (serviceId == null) { serviceId = 0; }
-
-        SqlParams params = new SqlParams(DELETED_CHANNELS_TABLE,
-                "(" + Channels.COLUMN_INPUT_ID + "=?) AND ("
-                + Channels.COLUMN_ORIGINAL_NETWORK_ID + "=?) AND ("
-                + Channels.COLUMN_TRANSPORT_STREAM_ID + "=?) AND ("
-                + Channels.COLUMN_SERVICE_ID + "=?)",
-                inputId, Integer.toString(onid), Integer.toString(tsid),
-                Integer.toString(serviceId));
-
-        SQLiteQueryBuilder queryBuilder = new SQLiteQueryBuilder();
-        queryBuilder.setTables(params.getTables());
-        final String[] projection = { Channels.COLUMN_LOCKED, Channels.COLUMN_BROWSABLE };
-        try (Cursor cursor = queryBuilder.query(db, projection, params.getSelection(),
-                params.getSelectionArgs(), null, null, null)) {
-            if (cursor != null && cursor.moveToNext()) {
-                if (!values.containsKey(Channels.COLUMN_LOCKED)) {
-                    values.put(Channels.COLUMN_LOCKED, cursor.getInt(0));
-                }
-                if (!values.containsKey(Channels.COLUMN_BROWSABLE)) {
-                    values.put(Channels.COLUMN_BROWSABLE, cursor.getInt(1));
-                }
-                db.delete(params.getTables(), params.getSelection(), params.getSelectionArgs());
-            }
-        }
-    }
-
     private Uri insertChannel(Uri uri, ContentValues values) {
         // Mark the owner package of this channel.
         values.put(Channels.COLUMN_PACKAGE_NAME, getCallingPackage_());
 
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
-        restoreChannelState(db, values);
         long rowId = db.insert(CHANNELS_TABLE, null, values);
         if (rowId > 0) {
             Uri channelUri = TvContract.buildChannelUri(rowId);
@@ -603,35 +557,31 @@ public class TvProvider extends ContentProvider {
                 + " COLUMN_WATCH_END_TIME_UTC_MILLIS should be specified");
     }
 
-    private static void storeChannelStates(SqlParams params, SQLiteDatabase db) {
-        SQLiteQueryBuilder queryBuilder = new SQLiteQueryBuilder();
-        queryBuilder.setTables(params.getTables());
-        try (Cursor cursor = queryBuilder.query(db,
-                new String[] { Channels.COLUMN_INPUT_ID, Channels.COLUMN_ORIGINAL_NETWORK_ID,
-                Channels.COLUMN_TRANSPORT_STREAM_ID, Channels.COLUMN_SERVICE_ID,
-                Channels.COLUMN_LOCKED, Channels.COLUMN_BROWSABLE },
-                params.getSelection(), params.getSelectionArgs(), null, null, null)) {
-            ContentValues values = new ContentValues();
-            while (cursor != null && cursor.moveToNext()) {
-                values.put(Channels.COLUMN_INPUT_ID, cursor.getString(0));
-                values.put(Channels.COLUMN_ORIGINAL_NETWORK_ID, cursor.getInt(1));
-                values.put(Channels.COLUMN_TRANSPORT_STREAM_ID, cursor.getInt(2));
-                values.put(Channels.COLUMN_SERVICE_ID, cursor.getInt(3));
-                values.put(Channels.COLUMN_LOCKED, cursor.getInt(4));
-                values.put(Channels.COLUMN_BROWSABLE, cursor.getInt(5));
-                db.insert(DELETED_CHANNELS_TABLE, null, values);
-            }
-        }
-    }
-
     @Override
     public int delete(Uri uri, String selection, String[] selectionArgs) {
         SqlParams params = createSqlParams(OP_DELETE, uri, selection, selectionArgs);
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
-        if (params.getTables().equals(CHANNELS_TABLE)) {
-            storeChannelStates(params, db);
+        int count = 0;
+        switch (sUriMatcher.match(uri)) {
+            case MATCH_CHANNEL_ID_LOGO:
+                ContentValues values = new ContentValues();
+                values.putNull(CHANNELS_COLUMN_LOGO);
+                count = db.update(params.getTables(), values, params.getSelection(),
+                        params.getSelectionArgs());
+                break;
+            case MATCH_CHANNEL:
+            case MATCH_PROGRAM:
+            case MATCH_WATCHED_PROGRAM:
+            case MATCH_CHANNEL_ID:
+            case MATCH_PASSTHROUGH_ID:
+            case MATCH_PROGRAM_ID:
+            case MATCH_WATCHED_PROGRAM_ID:
+                count = db.delete(params.getTables(), params.getSelection(),
+                        params.getSelectionArgs());
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown URI " + uri);
         }
-        int count = db.delete(params.getTables(), params.getSelection(), params.getSelectionArgs());
         if (count > 0) {
             notifyChange(uri);
         }
@@ -731,6 +681,12 @@ public class TvProvider extends ContentProvider {
                 params.appendWhere(WATCHED_PROGRAMS_COLUMN_CONSOLIDATED + "=?", "1");
                 break;
             case MATCH_CHANNEL_ID_LOGO:
+                if (operation.equals(OP_DELETE)) {
+                    params.setTables(CHANNELS_TABLE);
+                    params.appendWhere(Channels._ID + "=?", uri.getPathSegments().get(1));
+                    break;
+                }
+                // fall-through
             case MATCH_PASSTHROUGH_ID:
                 throw new UnsupportedOperationException("Cannot " + operation + " that URI: "
                         + uri);
@@ -815,6 +771,26 @@ public class TvProvider extends ContentProvider {
         }
     }
 
+    @Override
+    public int bulkInsert(Uri uri, ContentValues[] values) {
+        setBatchNotificationsSet(Sets.<Uri>newHashSet());
+        Context context = getContext();
+        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+        db.beginTransaction();
+        try {
+            int result = super.bulkInsert(uri, values);
+            db.setTransactionSuccessful();
+            return result;
+        } finally {
+            db.endTransaction();
+            final Set<Uri> notifications = getBatchNotificationsSet();
+            setBatchNotificationsSet(null);
+            for (final Uri notificationUri : notifications) {
+                context.getContentResolver().notifyChange(notificationUri, null);
+            }
+        }
+    }
+
     private void notifyChange(Uri uri) {
         final Set<Uri> batchNotifications = getBatchNotificationsSet();
         if (batchNotifications != null) {
@@ -882,7 +858,11 @@ public class TvProvider extends ContentProvider {
         if (mode.equals("r")) {
             String sql = queryBuilder.buildQuery(new String[] { CHANNELS_COLUMN_LOGO },
                     params.getSelection(), null, null, null, null);
-            return DatabaseUtils.blobFileDescriptorForQuery(db, sql, params.getSelectionArgs());
+            ParcelFileDescriptor fd = DatabaseUtils.blobFileDescriptorForQuery(db, sql, params.getSelectionArgs());
+            if (fd == null) {
+                throw new FileNotFoundException(uri.toString());
+            }
+            return fd;
         } else {
             try (Cursor cursor = queryBuilder.query(db, new String[] { Channels._ID },
                     params.getSelection(), params.getSelectionArgs(), null, null, null)) {

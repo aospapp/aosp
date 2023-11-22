@@ -35,6 +35,9 @@
             </intent-filter>
         </activity>
 
+        <activity android:name="android.accounts.cts.AccountRemovalDummyActivity" >
+        </activity>
+
         <service android:name="MockAccountService" android:exported="true"
                  android:process="android.accounts.cts">
             <intent-filter>

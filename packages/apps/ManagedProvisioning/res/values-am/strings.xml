@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"የአስተዳዳሪ መተግበሪያውን መጠቀም አይቻልም። ክፍሎች ይጎድሉታል ወይም ተበላሽቷል። የአይቲ መምሪያዎን ያነጋግሩ።"</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"የአስተዳዳሪ መተግበሪያውን መጫን አልተቻለም"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"የአስተዳዳር መተግበሪያው በመሣሪያዎ ላይ አልተጫነም"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"ማዋቀር ይቁም?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"እርግጠኛ ነዎት ማዋቀር ማቆም ይፈልጋሉ?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"አይ"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"አዎ"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"በመሰረዝ ላይ..."</string>
 </resources>

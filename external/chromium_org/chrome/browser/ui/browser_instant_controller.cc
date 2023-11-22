@@ -5,15 +5,14 @@
 #include "chrome/browser/ui/browser_instant_controller.h"
 
 #include "base/bind.h"
-#include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/extensions/extension_web_ui.h"
+#include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/instant_service.h"
 #include "chrome/browser/search/instant_service_factory.h"
 #include "chrome/browser/search/search.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/omnibox/location_bar.h"
+#include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/search/instant_search_prerenderer.h"
@@ -162,6 +161,13 @@ void BrowserInstantController::DefaultSearchProviderChanged() {
     // renderer.
     if (!instant_service->IsInstantProcess(rph->GetID()))
       continue;
+
     contents->GetController().Reload(false);
+
+    // As the reload was not triggered by the user we don't want to close any
+    // infobars. We have to tell the InfoBarService after the reload, otherwise
+    // it would ignore this call when
+    // WebContentsObserver::DidStartNavigationToPendingEntry is invoked.
+    InfoBarService::FromWebContents(contents)->set_ignore_next_reload();
   }
 }

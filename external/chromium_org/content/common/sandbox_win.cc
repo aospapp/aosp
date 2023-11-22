@@ -10,7 +10,7 @@
 #include "base/command_line.h"
 #include "base/debug/profiler.h"
 #include "base/debug/trace_event.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/hash.h"
 #include "base/metrics/field_trial.h"
 #include "base/path_service.h"
@@ -18,6 +18,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/win/iat_patch_function.h"
+#include "base/win/registry.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/scoped_process_information.h"
 #include "base/win/windows_version.h"
@@ -43,10 +44,10 @@ namespace {
 // For more information about how this list is generated, and how to get off
 // of it, see:
 // https://sites.google.com/a/chromium.org/dev/Home/third-party-developers
-// If the size of this list exceeds 64, change kTroublesomeDllsMaxCount.
 const wchar_t* const kTroublesomeDlls[] = {
   L"adialhk.dll",                 // Kaspersky Internet Security.
   L"acpiz.dll",                   // Unknown.
+  L"airfoilinject3.dll",          // Airfoil.
   L"akinsofthook32.dll",          // Akinsoft Software Engineering.
   L"assistant_x64.dll",           // Unknown.
   L"avcuf64.dll",                 // Bit Defender Internet Security x64.
@@ -243,7 +244,7 @@ base::string16 PrependWindowsSessionPath(const base::char16* object) {
 }
 
 // Checks if the sandbox should be let to run without a job object assigned.
-bool ShouldSetJobLevel(const CommandLine& cmd_line) {
+bool ShouldSetJobLevel(const base::CommandLine& cmd_line) {
   if (!cmd_line.HasSwitch(switches::kAllowNoSandboxJob))
     return true;
 
@@ -349,7 +350,18 @@ bool AddPolicyForSandboxedProcess(sandbox::TargetPolicy* policy) {
 
   // Win8+ adds a device DeviceApi that we don't need.
   if (base::win::GetVersion() > base::win::VERSION_WIN7)
-    policy->AddKernelObjectToClose(L"File", L"\\Device\\DeviceApi");
+    result = policy->AddKernelObjectToClose(L"File", L"\\Device\\DeviceApi");
+  if (result != sandbox::SBOX_ALL_OK)
+    return false;
+
+  // Close the proxy settings on XP.
+  if (base::win::GetVersion() <= base::win::VERSION_SERVER_2003)
+    result = policy->AddKernelObjectToClose(L"Key",
+                 L"HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\" \
+                     L"CurrentVersion\\Internet Settings");
+  if (result != sandbox::SBOX_ALL_OK)
+    return false;
+
 
   sandbox::TokenLevel initial_token = sandbox::USER_UNPROTECTED;
   if (base::win::GetVersion() > base::win::VERSION_XP) {
@@ -361,6 +373,7 @@ bool AddPolicyForSandboxedProcess(sandbox::TargetPolicy* policy) {
   policy->SetTokenLevel(initial_token, sandbox::USER_LOCKDOWN);
   // Prevents the renderers from manipulating low-integrity processes.
   policy->SetDelayedIntegrityLevel(sandbox::INTEGRITY_LEVEL_UNTRUSTED);
+  policy->SetIntegrityLevel(sandbox::INTEGRITY_LEVEL_LOW);
 
   if (sandbox::SBOX_ALL_OK !=  policy->SetAlternateDesktop(true)) {
     DLOG(WARNING) << "Failed to apply desktop security to the renderer";
@@ -372,8 +385,9 @@ bool AddPolicyForSandboxedProcess(sandbox::TargetPolicy* policy) {
 // Updates the command line arguments with debug-related flags. If debug flags
 // have been used with this process, they will be filtered and added to
 // command_line as needed.
-void ProcessDebugFlags(CommandLine* command_line) {
-  const CommandLine& current_cmd_line = *CommandLine::ForCurrentProcess();
+void ProcessDebugFlags(base::CommandLine* command_line) {
+  const base::CommandLine& current_cmd_line =
+      *base::CommandLine::ForCurrentProcess();
   std::string type = command_line->GetSwitchValueASCII(switches::kProcessType);
   if (current_cmd_line.HasSwitch(switches::kWaitForDebuggerChildren)) {
     // Look to pass-on the kWaitForDebugger flag.
@@ -430,8 +444,8 @@ void CheckDuplicateHandle(HANDLE handle) {
       kDuplicateHandleWarning;
 
   if (0 == _wcsicmp(type_info->Name.Buffer, L"Process")) {
-    const ACCESS_MASK kDangerousMask = ~(PROCESS_QUERY_LIMITED_INFORMATION |
-                                         SYNCHRONIZE);
+    const ACCESS_MASK kDangerousMask =
+        ~static_cast<DWORD>(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE);
     CHECK(!(basic_info.GrantedAccess & kDangerousMask)) <<
         kDuplicateHandleWarning;
   }
@@ -468,7 +482,7 @@ BOOL WINAPI DuplicateHandlePatch(HANDLE source_process_handle,
                                         PROCESS_QUERY_INFORMATION,
                                         FALSE, 0));
       base::win::ScopedHandle process(temp_handle);
-      CHECK(::IsProcessInJob(process, NULL, &is_in_job));
+      CHECK(::IsProcessInJob(process.Get(), NULL, &is_in_job));
     }
   }
 
@@ -484,7 +498,7 @@ BOOL WINAPI DuplicateHandlePatch(HANDLE source_process_handle,
     base::win::ScopedHandle handle(temp_handle);
 
     // Callers use CHECK macro to make sure we get the right stack.
-    CheckDuplicateHandle(handle);
+    CheckDuplicateHandle(handle.Get());
   }
 
   return TRUE;
@@ -493,7 +507,7 @@ BOOL WINAPI DuplicateHandlePatch(HANDLE source_process_handle,
 
 }  // namespace
 
-void SetJobLevel(const CommandLine& cmd_line,
+void SetJobLevel(const base::CommandLine& cmd_line,
                  sandbox::JobLevel job_level,
                  uint32 ui_exceptions,
                  sandbox::TargetPolicy* policy) {
@@ -579,7 +593,8 @@ bool ShouldUseDirectWrite() {
   }
 
   // If forced off, don't use it.
-  const CommandLine& command_line = *CommandLine::ForCurrentProcess();
+  const base::CommandLine& command_line =
+      *base::CommandLine::ForCurrentProcess();
   if (command_line.HasSwitch(switches::kDisableDirectWrite))
     return false;
 
@@ -589,6 +604,20 @@ bool ShouldUseDirectWrite() {
     return true;
 #endif
 
+  // We have logic in renderer_font_platform_win.cc for falling back to safe
+  // font list if machine has more than 1750 fonts installed. Users have
+  // complained about this as safe font list is usually not sufficient.
+  // We now disable direct write (gdi) if we encounter more number
+  // of fonts than a threshold (currently 1750).
+  // Refer: crbug.com/421305
+  const wchar_t kWindowsFontsRegistryKey[] =
+      L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Fonts";
+  base::win::RegistryValueIterator reg_iterator(HKEY_LOCAL_MACHINE,
+                                                kWindowsFontsRegistryKey);
+  const DWORD kMaxAllowedFontsBeforeFallbackToGDI = 1750;
+  if (reg_iterator.ValueCount() >= kMaxAllowedFontsBeforeFallbackToGDI)
+    return false;
+
   // Otherwise, check the field trial.
   const std::string group_name =
       base::FieldTrialList::FindFullName("DirectWrite");
@@ -597,8 +626,9 @@ bool ShouldUseDirectWrite() {
 
 base::ProcessHandle StartSandboxedProcess(
     SandboxedProcessLauncherDelegate* delegate,
-    CommandLine* cmd_line) {
-  const CommandLine& browser_command_line = *CommandLine::ForCurrentProcess();
+    base::CommandLine* cmd_line) {
+  const base::CommandLine& browser_command_line =
+      *base::CommandLine::ForCurrentProcess();
   std::string type_str = cmd_line->GetSwitchValueASCII(switches::kProcessType);
 
   TRACE_EVENT_BEGIN_ETW("StartProcessWithAccess", 0, type_str);
@@ -738,6 +768,7 @@ base::ProcessHandle StartSandboxedProcess(
     delegate->PostSpawnTarget(target.process_handle());
 
   ResumeThread(target.thread_handle());
+  TRACE_EVENT_END_ETW("StartProcessWithAccess", 0, type_str);
   return target.TakeProcessHandle();
 }
 
@@ -768,7 +799,7 @@ bool BrokerDuplicateHandle(HANDLE source_handle,
                                     target_process_id));
   if (target_process.IsValid()) {
     return !!::DuplicateHandle(::GetCurrentProcess(), source_handle,
-                                target_process, target_handle,
+                                target_process.Get(), target_handle,
                                 desired_access, FALSE, options);
   }
 

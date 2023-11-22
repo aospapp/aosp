@@ -27,8 +27,10 @@ package org.apache.harmony.jpda.tests.jdwp.ThreadGroupReference;
 
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
+import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
+import org.apache.harmony.jpda.tests.jdwp.share.JDWPTestConstants;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 
@@ -125,6 +127,72 @@ public class ChildrenTest extends JDWPSyncTestCase {
         assertString("Invalid group name,", NameDebuggee.CHILD_GROUP, groupName);
 
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
+    }
+
+    /**
+     * This testcase exercises ThreadGroupReference.Children command.
+     * <BR>At first the test starts NameDebuggee.
+     * <BR> Then the test with help of the ThreadGroupReference.Children command
+     * checks that INVALID_OBJECT error is returned for the null object id.
+     *
+     */
+    public void testChildren_NullObject() {
+        logWriter.println("wait for SGNL_READY");
+        synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
+
+        checkCommandError(JDWPTestConstants.NULL_OBJECT_ID,
+                          JDWPConstants.Error.INVALID_OBJECT);
+
+        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
+    }
+
+    /**
+     * This testcase exercises ThreadGroupReference.Children command.
+     * <BR>At first the test starts NameDebuggee.
+     * <BR> Then the test with help of the ThreadGroupReference.Children command
+     * checks that INVALID_OBJECT error is returned for an invalid object id.
+     *
+     */
+    public void testChildren_InvalidObject() {
+        logWriter.println("wait for SGNL_READY");
+        synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
+
+        checkCommandError(JDWPTestConstants.INVALID_OBJECT_ID,
+                          JDWPConstants.Error.INVALID_OBJECT);
+
+        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
+    }
+
+    /**
+     * This testcase exercises ThreadGroupReference.Children command.
+     * <BR>At first the test starts NameDebuggee.
+     * <BR> Then the test with help of the ThreadGroupReference.Children command
+     * checks that INVALID_THREAD_GROUP error is returned for an object that is
+     * not a java.lang.ThreadGroup.
+     *
+     */
+    public void testChildren_InvalidThreadGroup() {
+        logWriter.println("wait for SGNL_READY");
+        synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
+
+        long threadID = debuggeeWrapper.vmMirror.getThreadID(NameDebuggee.TESTED_THREAD);
+
+        checkCommandError(threadID, JDWPConstants.Error.INVALID_THREAD_GROUP);
+
+        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
+    }
+
+    private void checkCommandError(long groupID, int expectedError) {
+        logWriter.println("Send ThreadGroupReference.Children command with id " + groupID);
+
+        CommandPacket packet = new CommandPacket(
+                JDWPCommands.ThreadGroupReferenceCommandSet.CommandSetID,
+                JDWPCommands.ThreadGroupReferenceCommandSet.ChildrenCommand);
+        packet.setNextValueAsThreadGroupID(groupID);
+        ReplyPacket reply = debuggeeWrapper.vmMirror.performCommand(packet);
+
+        checkReplyPacket(reply, "ThreadGroupReference::Name command",
+                         expectedError);
     }
 
 }

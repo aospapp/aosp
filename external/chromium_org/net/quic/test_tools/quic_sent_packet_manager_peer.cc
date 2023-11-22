@@ -33,6 +33,13 @@ const LossDetectionInterface* QuicSentPacketManagerPeer::GetLossAlgorithm(
 }
 
 // static
+const SendAlgorithmInterface*
+    QuicSentPacketManagerPeer::GetCongestionControlAlgorithm(
+    const QuicSentPacketManager& sent_packet_manager) {
+  return sent_packet_manager.send_algorithm_.get();
+}
+
+// static
 void QuicSentPacketManagerPeer::SetLossAlgorithm(
     QuicSentPacketManager* sent_packet_manager,
     LossDetectionInterface* loss_detector) {
@@ -82,7 +89,7 @@ bool QuicSentPacketManagerPeer::IsRetransmission(
   DCHECK(sent_packet_manager->HasRetransmittableFrames(sequence_number));
   return sent_packet_manager->HasRetransmittableFrames(sequence_number) &&
       sent_packet_manager->unacked_packets_.GetTransmissionInfo(
-          sequence_number).all_transmissions->size() > 1;
+          sequence_number).all_transmissions != NULL;
 }
 
 // static
@@ -113,7 +120,7 @@ size_t QuicSentPacketManagerPeer::GetNumRetransmittablePackets(
   for (QuicUnackedPacketMap::const_iterator it =
            sent_packet_manager->unacked_packets_.begin();
        it != sent_packet_manager->unacked_packets_.end(); ++it) {
-    if (it->second.retransmittable_frames != NULL) {
+    if (it->retransmittable_frames != NULL) {
       ++num_unacked_packets;
     }
   }
@@ -124,6 +131,19 @@ size_t QuicSentPacketManagerPeer::GetNumRetransmittablePackets(
 QuicByteCount QuicSentPacketManagerPeer::GetBytesInFlight(
     const QuicSentPacketManager* sent_packet_manager) {
   return sent_packet_manager->unacked_packets_.bytes_in_flight();
+}
+
+// static
+QuicSentPacketManager::NetworkChangeVisitor*
+    QuicSentPacketManagerPeer::GetNetworkChangeVisitor(
+        const QuicSentPacketManager* sent_packet_manager) {
+  return sent_packet_manager->network_change_visitor_;
+}
+
+// static
+QuicSustainedBandwidthRecorder& QuicSentPacketManagerPeer::GetBandwidthRecorder(
+    QuicSentPacketManager* sent_packet_manager) {
+  return sent_packet_manager->sustained_bandwidth_recorder_;
 }
 
 }  // namespace test

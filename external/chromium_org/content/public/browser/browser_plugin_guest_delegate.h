@@ -8,6 +8,7 @@
 #include "base/callback_forward.h"
 #include "base/process/kill.h"
 #include "content/common/content_export.h"
+#include "content/public/browser/web_contents.h"
 
 namespace base {
 class DictionaryValue;
@@ -19,8 +20,6 @@ class Size;
 
 namespace content {
 
-class WebContents;
-
 // Objects implement this interface to get notified about changes in the guest
 // WebContents and to provide necessary functionality.
 class CONTENT_EXPORT BrowserPluginGuestDelegate {
@@ -28,16 +27,28 @@ class CONTENT_EXPORT BrowserPluginGuestDelegate {
   virtual ~BrowserPluginGuestDelegate() {}
 
   // Notification that the embedder will begin attachment. This is called
-  // prior to resuming resource loads.
+  // prior to resuming resource loads. |element_instance_id| uniquely identifies
+  // the element that will serve as a container for the guest.
   virtual void WillAttach(content::WebContents* embedder_web_contents,
-                          const base::DictionaryValue& extra_params) {}
+                          int element_instance_id) {}
 
-  // Notification that the embedder has completed attachment.
-  virtual void DidAttach() {}
+  virtual WebContents* CreateNewGuestWindow(
+      const WebContents::CreateParams& create_params);
 
-  // Notifies that the content size of the guest has changed in autosize mode.
-  virtual void SizeChanged(const gfx::Size& old_size,
-                           const gfx::Size& new_size) {}
+  // Notification that the embedder has completed attachment. The
+  // |guest_proxy_routing_id| is the routing ID for the RenderView in the
+  // embedder that will serve as a contentWindow proxy for the guest.
+  virtual void DidAttach(int guest_proxy_routing_id) {}
+
+  // Notification that the BrowserPlugin has resized.
+  virtual void ElementSizeChanged(const gfx::Size& old_size,
+                                  const gfx::Size& new_size) {}
+
+  // Notifies that the content size of the guest has changed.
+  // Note: In autosize mode, it si possible that the guest size may not match
+  // the element size.
+  virtual void GuestSizeChanged(const gfx::Size& old_size,
+                                const gfx::Size& new_size) {}
 
   // Asks the delegate if the given guest can lock the pointer.
   // Invoking the |callback| synchronously is OK.

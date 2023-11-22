@@ -27,7 +27,7 @@
 //twice
 #define MAX_SCALE_FACTOR 16
 #define MIN_SCALE_FACTOR 0.0625
-
+#define MAX_LAYERS_FOR_ABC 2
 namespace qhwc {
 
 class CopyBit {
@@ -49,12 +49,46 @@ public:
 
     void setReleaseFd(int fd);
 
+    void setReleaseFdSync(int fd);
+
+    bool prepareOverlap(hwc_context_t *ctx, hwc_display_contents_1_t *list);
+
+    int drawOverlap(hwc_context_t *ctx, hwc_display_contents_1_t *list);
+
 private:
+    /* cached data */
+    struct LayerCache {
+      int layerCount;
+      buffer_handle_t hnd[MAX_NUM_APP_LAYERS];
+      /* c'tor */
+      LayerCache();
+      /* clear caching info*/
+      void reset();
+      void updateCounts(hwc_context_t *ctx, hwc_display_contents_1_t *list,
+              int dpy);
+    };
+    /* framebuffer cache*/
+    struct FbCache {
+      hwc_rect_t  FbdirtyRect[NUM_RENDER_BUFFERS];
+      int FbIndex;
+      FbCache();
+      void reset();
+      void insertAndUpdateFbCache(hwc_rect_t dirtyRect);
+      int getUnchangedFbDRCount(hwc_rect_t dirtyRect);
+    };
+
     // holds the copybit device
     struct copybit_device_t *mEngine;
+    bool drawUsingAppBufferComposition(hwc_context_t *ctx,
+                                hwc_display_contents_1_t *list,
+                                int dpy, int *fd);
     // Helper functions for copybit composition
     int  drawLayerUsingCopybit(hwc_context_t *dev, hwc_layer_1_t *layer,
                           private_handle_t *renderBuffer, bool isFG);
+    // Helper function to draw copybit layer for PTOR comp
+    int drawRectUsingCopybit(hwc_context_t *dev, hwc_layer_1_t *layer,
+                          private_handle_t *renderBuffer, hwc_rect_t overlap,
+                          hwc_rect_t destRect);
     int fillColorUsingCopybit(hwc_layer_1_t *layer,
                           private_handle_t *renderBuffer);
     bool canUseCopybitForYUV (hwc_context_t *ctx);
@@ -89,8 +123,16 @@ private:
 
     //Dynamic composition threshold for deciding copybit usage.
     double mDynThreshold;
-    int mAlignedFBWidth;
-    int mAlignedFBHeight;
+    bool mSwapRectEnable;
+    int mAlignedWidth;
+    int mAlignedHeight;
+    int mDirtyLayerIndex;
+    LayerCache mLayerCache;
+    FbCache mFbCache;
+    int getLayersChanging(hwc_context_t *ctx, hwc_display_contents_1_t *list,
+                  int dpy);
+    int checkDirtyRect(hwc_context_t *ctx, hwc_display_contents_1_t *list,
+                  int dpy);
 };
 
 }; //namespace qhwc

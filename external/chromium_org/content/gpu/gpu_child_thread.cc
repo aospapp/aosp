@@ -20,8 +20,8 @@
 #include "ui/gl/gl_implementation.h"
 
 #if defined(USE_OZONE)
-#include "ui/ozone/ozone_platform.h"
 #include "ui/ozone/public/gpu_platform_support.h"
+#include "ui/ozone/public/ozone_platform.h"
 #endif
 
 namespace content {
@@ -61,7 +61,7 @@ GpuChildThread::GpuChildThread(GpuWatchdogThread* watchdog_thread,
 }
 
 GpuChildThread::GpuChildThread(const std::string& channel_id)
-    : ChildThread(channel_id),
+    : ChildThread(Options(channel_id, false)),
       dead_on_arrival_(false),
       in_browser_process_(true) {
 #if defined(OS_WIN)
@@ -163,7 +163,8 @@ void GpuChildThread::OnInitialize() {
       new GpuChannelManager(GetRouter(),
                             watchdog_thread_.get(),
                             ChildProcess::current()->io_message_loop_proxy(),
-                            ChildProcess::current()->GetShutDownEvent()));
+                            ChildProcess::current()->GetShutDownEvent(),
+                            channel()));
 
 #if defined(USE_OZONE)
   ui::OzonePlatform::GetInstance()
@@ -197,6 +198,9 @@ void GpuChildThread::OnCollectGraphicsInfo() {
     case gpu::kCollectInfoNonFatalFailure:
       VLOG(1) << "gpu::CollectGraphicsInfo failed (non-fatal).";
       break;
+    case gpu::kCollectInfoNone:
+      NOTREACHED();
+      break;
     case gpu::kCollectInfoSuccess:
       break;
   }
@@ -207,7 +211,7 @@ void GpuChildThread::OnCollectGraphicsInfo() {
   // and GpuDataManager prevents us from sending multiple collecting requests,
   // so it's OK to be blocking.
   gpu::GetDxDiagnostics(&gpu_info_.dx_diagnostics);
-  gpu_info_.finalized = true;
+  gpu_info_.dx_diagnostics_info_state = gpu::kCollectInfoSuccess;
 #endif  // OS_WIN
 
   Send(new GpuHostMsg_GraphicsInfoCollected(gpu_info_));

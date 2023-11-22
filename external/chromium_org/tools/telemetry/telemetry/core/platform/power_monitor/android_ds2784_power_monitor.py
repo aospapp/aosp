@@ -6,8 +6,8 @@ import logging
 import os
 
 from telemetry import decorators
+from telemetry.core.platform.power_monitor import sysfs_power_monitor
 from telemetry.core.platform.profiler import android_prebuilt_profiler_helper
-import telemetry.core.platform.power_monitor as power_monitor
 
 
 SAMPLE_RATE_HZ = 2 # The data is collected from the ds2784 fuel gauge chip
@@ -18,18 +18,17 @@ CURRENT = os.path.join(FUEL_GAUGE_PATH, 'current_now')
 VOLTAGE = os.path.join(FUEL_GAUGE_PATH, 'voltage_now')
 
 
-class DS2784PowerMonitor(power_monitor.PowerMonitor):
-  def __init__(self, device):
-    super(DS2784PowerMonitor, self).__init__()
+class DS2784PowerMonitor(sysfs_power_monitor.SysfsPowerMonitor):
+  def __init__(self, device, platform_backend):
+    super(DS2784PowerMonitor, self).__init__(platform_backend)
     self._device = device
     self._powermonitor_process_port = None
     self._file_poller_binary = android_prebuilt_profiler_helper.GetDevicePath(
         'file_poller')
 
-
   @decorators.Cache
   def _HasFuelGauge(self):
-    return self._device.old_interface.FileExistsOnDevice(CHARGE_COUNTER)
+    return self._device.FileExists(CHARGE_COUNTER)
 
   def CanMonitorPower(self):
     if not self._HasFuelGauge():
@@ -42,6 +41,7 @@ class DS2784PowerMonitor(power_monitor.PowerMonitor):
   def StartMonitoringPower(self, browser):
     assert not self._powermonitor_process_port, (
         'Must call StopMonitoringPower().')
+    super(DS2784PowerMonitor, self).StartMonitoringPower(browser)
     android_prebuilt_profiler_helper.InstallOnDevice(
         self._device, 'file_poller')
     self._powermonitor_process_port = int(
@@ -53,11 +53,13 @@ class DS2784PowerMonitor(power_monitor.PowerMonitor):
     assert self._powermonitor_process_port, (
         'StartMonitoringPower() not called.')
     try:
+      cpu_stats = super(DS2784PowerMonitor, self).StopMonitoringPower()
       result = '\n'.join(self._device.RunShellCommand(
           '%s %d' % (self._file_poller_binary,
                      self._powermonitor_process_port)))
       assert result, 'PowerMonitor produced no output'
-      return DS2784PowerMonitor.ParseSamplingOutput(result)
+      return super(DS2784PowerMonitor, self).CombineResults(
+          cpu_stats, DS2784PowerMonitor.ParseSamplingOutput(result))
     finally:
       self._powermonitor_process_port = None
 

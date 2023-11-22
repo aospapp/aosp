@@ -33,6 +33,7 @@
 #include <vector>
 
 #include "base/gtest_prod_util.h"
+#include "base/task/cancelable_task_tracker.h"
 #include "base/time/time.h"
 #include "chrome/browser/history/history_service.h"
 #include "chrome/browser/safe_browsing/ui_manager.h"
@@ -52,6 +53,12 @@ class InterstitialPage;
 class WebContents;
 }
 
+#if defined(ENABLE_EXTENSIONS)
+namespace extensions {
+class ExperienceSamplingEvent;
+}
+#endif
+
 class SafeBrowsingBlockingPage : public content::InterstitialPageDelegate {
  public:
   typedef SafeBrowsingUIManager::UnsafeResource UnsafeResource;
@@ -59,6 +66,13 @@ class SafeBrowsingBlockingPage : public content::InterstitialPageDelegate {
   typedef std::map<content::WebContents*, UnsafeResourceList> UnsafeResourceMap;
 
   virtual ~SafeBrowsingBlockingPage();
+
+  // Creates a blocking page. Use ShowBlockingPage if you don't need to access
+  // the blocking page directly.
+  static SafeBrowsingBlockingPage* CreateBlockingPage(
+      SafeBrowsingUIManager* ui_manager,
+      content::WebContents* web_contents,
+      const UnsafeResource& unsafe_resource);
 
   // Shows a blocking page warning the user about phishing/malware for a
   // specific resource.
@@ -68,30 +82,31 @@ class SafeBrowsingBlockingPage : public content::InterstitialPageDelegate {
   static void ShowBlockingPage(
       SafeBrowsingUIManager* ui_manager, const UnsafeResource& resource);
 
-  // Makes the passed |factory| the factory used to instanciate
+  // Makes the passed |factory| the factory used to instantiate
   // SafeBrowsingBlockingPage objects. Useful for tests.
   static void RegisterFactory(SafeBrowsingBlockingPageFactory* factory) {
     factory_ = factory;
   }
 
   // InterstitialPageDelegate method:
+  virtual std::string GetHTMLContents() OVERRIDE;
+  virtual void OnProceed() OVERRIDE;
+  virtual void OnDontProceed() OVERRIDE;
   virtual void CommandReceived(const std::string& command) OVERRIDE;
   virtual void OverrideRendererPrefs(
       content::RendererPreferences* prefs) OVERRIDE;
-  virtual void OnProceed() OVERRIDE;
-  virtual void OnDontProceed() OVERRIDE;
 
  protected:
-  template <class TestSBInterstitialPage>
   friend class SafeBrowsingBlockingPageTest;
-  template <class TestSBInterstitialPage>
   FRIEND_TEST_ALL_PREFIXES(SafeBrowsingBlockingPageTest,
                            ProceedThenDontProceed);
 
+  void DontCreateViewForTesting();
+  void Show();
   void SetReportingPreference(bool report);
   void UpdateReportingPref();  // Used for the transition from old to new pref.
 
-  // Don't instanciate this class directly, use ShowBlockingPage instead.
+  // Don't instantiate this class directly, use ShowBlockingPage instead.
   SafeBrowsingBlockingPage(SafeBrowsingUIManager* ui_manager,
                            content::WebContents* web_contents,
                            const UnsafeResourceList& unsafe_resources);
@@ -105,34 +120,35 @@ class SafeBrowsingBlockingPage : public content::InterstitialPageDelegate {
     return interstitial_page_;
   }
 
-  template <class TestSBInterstitialPage>
   FRIEND_TEST_ALL_PREFIXES(SafeBrowsingBlockingPageTest,
       MalwareReportsTransitionDisabled);
-  template <class TestSBInterstitialPage>
   FRIEND_TEST_ALL_PREFIXES(SafeBrowsingBlockingPageTest,
       MalwareReportsToggling);
 
-  enum BlockingPageEvent {
+  // These enums are used for histograms.  Don't reorder, delete, or insert
+  // elements.  New elements should be added before MAX_ACTION only.
+  enum Decision {
     SHOW,
     PROCEED,
     DONT_PROCEED,
+    PROCEEDING_DISABLED,
+    MAX_DECISION
+  };
+  enum Interaction {
+    TOTAL_VISITS,
     SHOW_ADVANCED,
+    SHOW_PRIVACY_POLICY,
+    SHOW_DIAGNOSTIC,
+    SHOW_LEARN_MORE,
+    MAX_INTERACTION
   };
 
-  // Records a user action for this interstitial, using the form
-  // SBInterstitial[Phishing|Malware|Multiple][Show|Proceed|DontProceed].
-  void RecordUserAction(BlockingPageEvent event);
+  // Record a user decision or interaction to the appropriate UMA histogram.
+  void RecordUserDecision(Decision decision);
+  void RecordUserInteraction(Interaction interaction);
 
   // Used to query the HistoryService to see if the URL is in history. For UMA.
-  void OnGotHistoryCount(HistoryService::Handle handle,
-                         bool success,
-                         int num_visits,
-                         base::Time first_visit);
-
-  // Records the time it took for the user to react to the
-  // interstitial.  We won't double-count if this method is called
-  // multiple times.
-  void RecordUserReactionTime(const std::string& command);
+  void OnGotHistoryCount(bool success, int num_visits, base::Time first_visit);
 
   // Checks if we should even show the malware details option. For example, we
   // don't show it in incognito mode.
@@ -194,115 +210,37 @@ class SafeBrowsingBlockingPage : public content::InterstitialPageDelegate {
   GURL url_;
   content::InterstitialPage* interstitial_page_;  // Owns us
 
-  // Time when the interstitial was show.  This variable is set in
-  // GetHTMLContents() which is called right before the interstitial
-  // is shown to the user. Will return is_null() once we reported the
-  // user action.
-  base::TimeTicks interstitial_show_time_;
-
-  // Whether the user has expanded the "see more" section of the page already
-  // during this interstitial page.
-  bool has_expanded_see_more_section_;
-
-  // Whether the user has left the reporting checkbox checked.
-  bool reporting_checkbox_checked_;
+  // Whether the interstitial should create a view.
+  bool create_view_;
 
   // Which type of interstitial this is.
   enum {
     TYPE_MALWARE,
+    TYPE_HARMFUL,
     TYPE_PHISHING,
-    TYPE_MALWARE_AND_PHISHING,
   } interstitial_type_;
 
-  // The factory used to instanciate SafeBrowsingBlockingPage objects.
+  // The factory used to instantiate SafeBrowsingBlockingPage objects.
   // Usefull for tests, so they can provide their own implementation of
   // SafeBrowsingBlockingPage.
   static SafeBrowsingBlockingPageFactory* factory_;
 
   // How many times is this same URL in history? Used for histogramming.
   int num_visits_;
-  CancelableRequestConsumer request_consumer_;
-
-  DISALLOW_COPY_AND_ASSIGN(SafeBrowsingBlockingPage);
-};
-
-class SafeBrowsingBlockingPageV1 : public SafeBrowsingBlockingPage {
- public:
-  // Don't instanciate this class directly, use ShowBlockingPage instead.
-  SafeBrowsingBlockingPageV1(SafeBrowsingUIManager* ui_manager,
-                             content::WebContents* web_contents,
-                             const UnsafeResourceList& unsafe_resources);
-
-  // InterstitialPageDelegate method:
-  virtual std::string GetHTMLContents() OVERRIDE;
-
- private:
-  // Fills the passed dictionary with the strings passed to JS Template when
-  // creating the HTML.
-  void PopulateMultipleThreatStringDictionary(base::DictionaryValue* strings);
-  void PopulateMalwareStringDictionary(base::DictionaryValue* strings);
-  void PopulatePhishingStringDictionary(base::DictionaryValue* strings);
-
-  // A helper method used by the Populate methods above used to populate common
-  // fields.
-  void PopulateStringDictionary(base::DictionaryValue* strings,
-                                const base::string16& title,
-                                const base::string16& headline,
-                                const base::string16& description1,
-                                const base::string16& description2,
-                                const base::string16& description3);
-
-  DISALLOW_COPY_AND_ASSIGN(SafeBrowsingBlockingPageV1);
-};
-
-class SafeBrowsingBlockingPageV2 : public SafeBrowsingBlockingPage {
- public:
-  // Don't instanciate this class directly, use ShowBlockingPage instead.
-  SafeBrowsingBlockingPageV2(SafeBrowsingUIManager* ui_manager,
-                             content::WebContents* web_contents,
-                             const UnsafeResourceList& unsafe_resources);
-
-  // InterstitialPageDelegate method:
-  virtual std::string GetHTMLContents() OVERRIDE;
-
- private:
-  // Fills the passed dictionary with the strings passed to JS Template when
-  // creating the HTML.
-  void PopulateMultipleThreatStringDictionary(base::DictionaryValue* strings);
-  void PopulateMalwareStringDictionary(base::DictionaryValue* strings);
-  void PopulatePhishingStringDictionary(base::DictionaryValue* strings);
-
-  // A helper method used by the Populate methods above used to populate common
-  // fields.
-  void PopulateStringDictionary(base::DictionaryValue* strings,
-                                const base::string16& title,
-                                const base::string16& headline,
-                                const base::string16& description1,
-                                const base::string16& description2,
-                                const base::string16& description3);
-
-  DISALLOW_COPY_AND_ASSIGN(SafeBrowsingBlockingPageV2);
-};
-
-class SafeBrowsingBlockingPageV3 : public SafeBrowsingBlockingPage {
- public:
-  SafeBrowsingBlockingPageV3(SafeBrowsingUIManager* ui_manager,
-                             content::WebContents* web_contents,
-                             const UnsafeResourceList& unsafe_resources);
-
-  // InterstitialPageDelegate method:
-  virtual std::string GetHTMLContents() OVERRIDE;
+  base::CancelableTaskTracker request_tracker_;
 
  private:
   // Fills the passed dictionary with the values to be passed to the template
   // when creating the HTML.
   void PopulateMalwareLoadTimeData(base::DictionaryValue* load_time_data);
+  void PopulateHarmfulLoadTimeData(base::DictionaryValue* load_time_data);
   void PopulatePhishingLoadTimeData(base::DictionaryValue* load_time_data);
 
-  // For the M37 FieldTrial: this contains the name of the condition.
-  std::string trial_condition_;
+#if defined(ENABLE_EXTENSIONS)
+  scoped_ptr<extensions::ExperienceSamplingEvent> sampling_event_;
+#endif
 
-  DISALLOW_COPY_AND_ASSIGN(SafeBrowsingBlockingPageV3);
+  DISALLOW_COPY_AND_ASSIGN(SafeBrowsingBlockingPage);
 };
 
 // Factory for creating SafeBrowsingBlockingPage.  Useful for tests.

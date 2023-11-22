@@ -826,6 +826,14 @@ malloc_init_hard(void)
 		else
 			opt_narenas = 1;
 	}
+#if defined(ANDROID_MAX_ARENAS)
+	/* Never create more than MAX_ARENAS arenas regardless of num_cpus.
+	 * Extra arenas use more PSS and are not very useful unless
+	 * lots of threads are allocing/freeing at the same time.
+	 */
+	if (opt_narenas > ANDROID_MAX_ARENAS)
+		opt_narenas = ANDROID_MAX_ARENAS;
+#endif
 	narenas_auto = opt_narenas;
 	/*
 	 * Make sure that the arenas array can be allocated.  In practice, this

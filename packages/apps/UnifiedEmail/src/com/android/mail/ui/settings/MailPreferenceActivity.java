@@ -17,6 +17,7 @@
 
 package com.android.mail.ui.settings;
 
+import android.app.ActionBar;
 import android.app.Fragment;
 import android.app.LoaderManager.LoaderCallbacks;
 import android.content.CursorLoader;
@@ -49,6 +50,13 @@ public class MailPreferenceActivity extends PreferenceActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        final ActionBar actionBar = getActionBar();
+        if (actionBar != null) {
+            // Hide the app icon.
+            actionBar.setIcon(android.R.color.transparent);
+            actionBar.setDisplayUseLogoEnabled(false);
+        }
 
         getLoaderManager().initLoader(ACCOUNT_LOADER_ID, null, new AccountLoaderCallbacks());
     }

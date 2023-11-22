@@ -45,6 +45,18 @@ int XKeyEventType(ui::EventType type) {
   }
 }
 
+// Converts EventType to XI2 event type.
+int XIKeyEventType(ui::EventType type) {
+  switch (type) {
+    case ui::ET_KEY_PRESSED:
+      return XI_KeyPress;
+    case ui::ET_KEY_RELEASED:
+      return XI_KeyRelease;
+    default:
+      return 0;
+  }
+}
+
 int XIButtonEventType(ui::EventType type) {
   switch (type) {
     case ui::ET_MOUSEWHEEL:
@@ -57,17 +69,6 @@ int XIButtonEventType(ui::EventType type) {
       NOTREACHED();
       return 0;
   }
-}
-
-// Converts KeyboardCode to XKeyEvent keycode.
-unsigned int XKeyEventKeyCode(ui::KeyboardCode key_code,
-                              int flags,
-                              XDisplay* display) {
-  // XKeyEvent keycode is hardware keycode which doesn't consider SHIFT state.
-  // There are bugs in XKeysymToKeycode that it returns wrong keycode for keysym
-  // with SHIFT state. e.g. XK_less should return 59 but returns 94;
-  // XK_parenright should return 19 but returns 188; etc.
-  return XKeysymToKeycode(display, XKeysymForWindowsKeyCode(key_code, false));
 }
 
 // Converts Aura event type and flag to X button event.
@@ -89,7 +90,7 @@ unsigned int XButtonEventButton(ui::EventType type,
 }
 
 void InitValuatorsForXIDeviceEvent(XIDeviceEvent* xiev) {
-  int valuator_count = ui::DeviceDataManager::DT_LAST_ENTRY;
+  int valuator_count = ui::DeviceDataManagerX11::DT_LAST_ENTRY;
   xiev->valuators.mask_len = (valuator_count / 8) + 1;
   xiev->valuators.mask = new unsigned char[xiev->valuators.mask_len];
   memset(xiev->valuators.mask, 0, xiev->valuators.mask_len);
@@ -165,8 +166,25 @@ void ScopedXI2Event::InitKeyEvent(EventType type,
   event_->xkey.x_root = 0;
   event_->xkey.y_root = 0;
   event_->xkey.state = XEventState(flags);
-  event_->xkey.keycode = XKeyEventKeyCode(key_code, flags, display);
+  event_->xkey.keycode = XKeyCodeForWindowsKeyCode(key_code, flags, display);
   event_->xkey.same_screen = 1;
+}
+
+void ScopedXI2Event::InitGenericKeyEvent(int deviceid,
+                                         int sourceid,
+                                         EventType type,
+                                         KeyboardCode key_code,
+                                         int flags) {
+  event_.reset(
+      CreateXInput2Event(deviceid, XIKeyEventType(type), 0, gfx::Point()));
+  XIDeviceEvent* xievent = static_cast<XIDeviceEvent*>(event_->xcookie.data);
+  CHECK_NE(0, xievent->evtype);
+  XDisplay* display = gfx::GetXDisplay();
+  event_->xgeneric.display = display;
+  xievent->display = display;
+  xievent->mods.effective = XEventState(flags);
+  xievent->detail = XKeyCodeForWindowsKeyCode(key_code, flags, display);
+  xievent->sourceid = sourceid;
 }
 
 void ScopedXI2Event::InitGenericButtonEvent(int deviceid,
@@ -202,11 +220,11 @@ void ScopedXI2Event::InitScrollEvent(int deviceid,
   event_.reset(CreateXInput2Event(deviceid, XI_Motion, 0, gfx::Point()));
 
   Valuator valuators[] = {
-    Valuator(DeviceDataManager::DT_CMT_SCROLL_X, x_offset),
-    Valuator(DeviceDataManager::DT_CMT_SCROLL_Y, y_offset),
-    Valuator(DeviceDataManager::DT_CMT_ORDINAL_X, x_offset_ordinal),
-    Valuator(DeviceDataManager::DT_CMT_ORDINAL_Y, y_offset_ordinal),
-    Valuator(DeviceDataManager::DT_CMT_FINGER_COUNT, finger_count)
+    Valuator(DeviceDataManagerX11::DT_CMT_SCROLL_X, x_offset),
+    Valuator(DeviceDataManagerX11::DT_CMT_SCROLL_Y, y_offset),
+    Valuator(DeviceDataManagerX11::DT_CMT_ORDINAL_X, x_offset_ordinal),
+    Valuator(DeviceDataManagerX11::DT_CMT_ORDINAL_Y, y_offset_ordinal),
+    Valuator(DeviceDataManagerX11::DT_CMT_FINGER_COUNT, finger_count)
   };
   SetUpValuators(
       std::vector<Valuator>(valuators, valuators + arraysize(valuators)));
@@ -221,11 +239,11 @@ void ScopedXI2Event::InitFlingScrollEvent(int deviceid,
   event_.reset(CreateXInput2Event(deviceid, XI_Motion, deviceid, gfx::Point()));
 
   Valuator valuators[] = {
-    Valuator(DeviceDataManager::DT_CMT_FLING_STATE, is_cancel ? 1 : 0),
-    Valuator(DeviceDataManager::DT_CMT_FLING_Y, y_velocity),
-    Valuator(DeviceDataManager::DT_CMT_ORDINAL_Y, y_velocity_ordinal),
-    Valuator(DeviceDataManager::DT_CMT_FLING_X, x_velocity),
-    Valuator(DeviceDataManager::DT_CMT_ORDINAL_X, x_velocity_ordinal)
+    Valuator(DeviceDataManagerX11::DT_CMT_FLING_STATE, is_cancel ? 1 : 0),
+    Valuator(DeviceDataManagerX11::DT_CMT_FLING_Y, y_velocity),
+    Valuator(DeviceDataManagerX11::DT_CMT_ORDINAL_Y, y_velocity_ordinal),
+    Valuator(DeviceDataManagerX11::DT_CMT_FLING_X, x_velocity),
+    Valuator(DeviceDataManagerX11::DT_CMT_ORDINAL_X, x_velocity_ordinal)
   };
 
   SetUpValuators(
@@ -241,7 +259,8 @@ void ScopedXI2Event::InitTouchEvent(int deviceid,
 
   // If a timestamp was specified, setup the event.
   for (size_t i = 0; i < valuators.size(); ++i) {
-    if (valuators[i].data_type == DeviceDataManager::DT_TOUCH_RAW_TIMESTAMP) {
+    if (valuators[i].data_type ==
+        DeviceDataManagerX11::DT_TOUCH_RAW_TIMESTAMP) {
       SetUpValuators(valuators);
       return;
     }
@@ -250,7 +269,7 @@ void ScopedXI2Event::InitTouchEvent(int deviceid,
   // No timestamp was specified. Use |ui::EventTimeForNow()|.
   std::vector<Valuator> valuators_with_time = valuators;
   valuators_with_time.push_back(
-      Valuator(DeviceDataManager::DT_TOUCH_RAW_TIMESTAMP,
+      Valuator(DeviceDataManagerX11::DT_TOUCH_RAW_TIMESTAMP,
                (ui::EventTimeForNow()).InMicroseconds()));
   SetUpValuators(valuators_with_time);
 }
@@ -260,7 +279,7 @@ void ScopedXI2Event::SetUpValuators(const std::vector<Valuator>& valuators) {
   CHECK_EQ(GenericEvent, event_->type);
   XIDeviceEvent* xiev = static_cast<XIDeviceEvent*>(event_->xcookie.data);
   InitValuatorsForXIDeviceEvent(xiev);
-  ui::DeviceDataManager* manager = ui::DeviceDataManager::GetInstance();
+  ui::DeviceDataManagerX11* manager = ui::DeviceDataManagerX11::GetInstance();
   for (size_t i = 0; i < valuators.size(); ++i) {
     manager->SetValuatorDataForTest(xiev, valuators[i].data_type,
                                     valuators[i].value);
@@ -272,13 +291,13 @@ void SetUpTouchPadForTest(unsigned int deviceid) {
   device_list.push_back(deviceid);
 
   TouchFactory::GetInstance()->SetPointerDeviceForTest(device_list);
-  ui::DeviceDataManager* manager = ui::DeviceDataManager::GetInstance();
+  ui::DeviceDataManagerX11* manager = ui::DeviceDataManagerX11::GetInstance();
   manager->SetDeviceListForTest(std::vector<unsigned int>(), device_list);
 }
 
 void SetUpTouchDevicesForTest(const std::vector<unsigned int>& devices) {
   TouchFactory::GetInstance()->SetTouchDeviceForTest(devices);
-  ui::DeviceDataManager* manager = ui::DeviceDataManager::GetInstance();
+  ui::DeviceDataManagerX11* manager = ui::DeviceDataManagerX11::GetInstance();
   manager->SetDeviceListForTest(devices, std::vector<unsigned int>());
 }
 

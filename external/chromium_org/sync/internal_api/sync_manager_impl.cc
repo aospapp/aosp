@@ -15,11 +15,13 @@
 #include "base/metrics/histogram.h"
 #include "base/observer_list.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/thread_task_runner_handle.h"
 #include "base/values.h"
 #include "sync/engine/sync_scheduler.h"
 #include "sync/engine/syncer_types.h"
 #include "sync/internal_api/change_reorder_buffer.h"
 #include "sync/internal_api/public/base/cancelation_signal.h"
+#include "sync/internal_api/public/base/invalidation_interface.h"
 #include "sync/internal_api/public/base/model_type.h"
 #include "sync/internal_api/public/base_node.h"
 #include "sync/internal_api/public/configure_reason.h"
@@ -28,18 +30,15 @@
 #include "sync/internal_api/public/internal_components_factory.h"
 #include "sync/internal_api/public/read_node.h"
 #include "sync/internal_api/public/read_transaction.h"
-#include "sync/internal_api/public/sync_core_proxy.h"
+#include "sync/internal_api/public/sync_context.h"
+#include "sync/internal_api/public/sync_context_proxy.h"
 #include "sync/internal_api/public/user_share.h"
 #include "sync/internal_api/public/util/experiments.h"
 #include "sync/internal_api/public/write_node.h"
 #include "sync/internal_api/public/write_transaction.h"
-#include "sync/internal_api/sync_core.h"
-#include "sync/internal_api/sync_core_proxy_impl.h"
+#include "sync/internal_api/sync_context_proxy_impl.h"
 #include "sync/internal_api/syncapi_internal.h"
 #include "sync/internal_api/syncapi_server_connection_manager.h"
-#include "sync/notifier/invalidation_util.h"
-#include "sync/notifier/invalidator.h"
-#include "sync/notifier/object_id_invalidation_map.h"
 #include "sync/protocol/proto_value_conversions.h"
 #include "sync/protocol/sync.pb.h"
 #include "sync/sessions/directory_type_debug_info_emitter.h"
@@ -51,6 +50,8 @@
 using base::TimeDelta;
 using sync_pb::GetUpdatesCallerInfo;
 
+class GURL;
+
 namespace syncer {
 
 using sessions::SyncSessionContext;
@@ -59,12 +60,6 @@ using syncable::SPECIFICS;
 using syncable::UNIQUE_POSITION;
 
 namespace {
-
-// Delays for syncer nudges.
-static const int kDefaultNudgeDelayMilliseconds = 200;
-static const int kPreferencesNudgeDelayMilliseconds = 2000;
-static const int kSyncRefreshDelayMsec = 500;
-static const int kSyncSchedulerDelayMsec = 250;
 
 GetUpdatesCallerInfo::GetUpdatesSource GetSourceFromReason(
     ConfigureReason reason) {
@@ -78,6 +73,8 @@ GetUpdatesCallerInfo::GetUpdatesSource GetSourceFromReason(
     case CONFIGURE_REASON_NEWLY_ENABLED_DATA_TYPE:
     case CONFIGURE_REASON_CRYPTO:
       return GetUpdatesCallerInfo::NEWLY_SUPPORTED_DATATYPE;
+    case CONFIGURE_REASON_PROGRAMMATIC:
+      return GetUpdatesCallerInfo::PROGRAMMATIC;
     default:
       NOTREACHED();
   }
@@ -86,89 +83,11 @@ GetUpdatesCallerInfo::GetUpdatesSource GetSourceFromReason(
 
 }  // namespace
 
-// A class to calculate nudge delays for types.
-class NudgeStrategy {
- public:
-  static TimeDelta GetNudgeDelayTimeDelta(const ModelType& model_type,
-                                          SyncManagerImpl* core) {
-    NudgeDelayStrategy delay_type = GetNudgeDelayStrategy(model_type);
-    return GetNudgeDelayTimeDeltaFromType(delay_type,
-                                          model_type,
-                                          core);
-  }
-
- private:
-  // Possible types of nudge delay for datatypes.
-  // Note: These are just hints. If a sync happens then all dirty entries
-  // would be committed as part of the sync.
-  enum NudgeDelayStrategy {
-    // Sync right away.
-    IMMEDIATE,
-
-    // Sync this change while syncing another change.
-    ACCOMPANY_ONLY,
-
-    // The datatype does not use one of the predefined wait times but defines
-    // its own wait time logic for nudge.
-    CUSTOM,
-  };
-
-  static NudgeDelayStrategy GetNudgeDelayStrategy(const ModelType& type) {
-    switch (type) {
-     case AUTOFILL:
-       return ACCOMPANY_ONLY;
-     case PREFERENCES:
-     case SESSIONS:
-     case FAVICON_IMAGES:
-     case FAVICON_TRACKING:
-       return CUSTOM;
-     default:
-       return IMMEDIATE;
-    }
-  }
-
-  static TimeDelta GetNudgeDelayTimeDeltaFromType(
-      const NudgeDelayStrategy& delay_type, const ModelType& model_type,
-      const SyncManagerImpl* core) {
-    CHECK(core);
-    TimeDelta delay = TimeDelta::FromMilliseconds(
-       kDefaultNudgeDelayMilliseconds);
-    switch (delay_type) {
-     case IMMEDIATE:
-       delay = TimeDelta::FromMilliseconds(
-           kDefaultNudgeDelayMilliseconds);
-       break;
-     case ACCOMPANY_ONLY:
-       delay = TimeDelta::FromSeconds(kDefaultShortPollIntervalSeconds);
-       break;
-     case CUSTOM:
-       switch (model_type) {
-         case PREFERENCES:
-           delay = TimeDelta::FromMilliseconds(
-               kPreferencesNudgeDelayMilliseconds);
-           break;
-         case SESSIONS:
-         case FAVICON_IMAGES:
-         case FAVICON_TRACKING:
-           delay = core->scheduler()->GetSessionsCommitDelay();
-           break;
-         default:
-           NOTREACHED();
-       }
-       break;
-     default:
-       NOTREACHED();
-    }
-    return delay;
-  }
-};
-
 SyncManagerImpl::SyncManagerImpl(const std::string& name)
     : name_(name),
       change_delegate_(NULL),
       initialized_(false),
       observing_network_connectivity_changes_(false),
-      invalidator_state_(DEFAULT_INVALIDATION_ERROR),
       report_unrecoverable_error_function_(NULL),
       weak_ptr_factory_(this) {
   // Pre-fill |notification_info_map_|.
@@ -228,6 +147,10 @@ bool SyncManagerImpl::VisiblePropertiesDiffer(
                          b.ref(syncable::SPECIFICS))) {
     return true;
   }
+  if (!AreAttachmentMetadataEqual(a.ref(syncable::ATTACHMENT_METADATA),
+                                  b.ref(syncable::ATTACHMENT_METADATA))) {
+    return true;
+  }
   // We only care if the name has changed if neither specifics is encrypted
   // (encrypted nodes blow away the NON_UNIQUE_NAME).
   if (!a_specifics.has_encrypted() && !b_specifics.has_encrypted() &&
@@ -267,6 +190,7 @@ void SyncManagerImpl::ConfigureSyncer(
   DCHECK(thread_checker_.CalledOnValidThread());
   DCHECK(!ready_task.is_null());
   DCHECK(!retry_task.is_null());
+  DCHECK(initialized_);
 
   DVLOG(1) << "Configuring -"
            << "\n\t" << "current types: "
@@ -299,54 +223,38 @@ void SyncManagerImpl::ConfigureSyncer(
   scheduler_->ScheduleConfiguration(params);
 }
 
-void SyncManagerImpl::Init(
-    const base::FilePath& database_location,
-    const WeakHandle<JsEventHandler>& event_handler,
-    const std::string& sync_server_and_path,
-    int port,
-    bool use_ssl,
-    scoped_ptr<HttpPostProviderFactory> post_factory,
-    const std::vector<scoped_refptr<ModelSafeWorker> >& workers,
-    ExtensionsActivity* extensions_activity,
-    SyncManager::ChangeDelegate* change_delegate,
-    const SyncCredentials& credentials,
-    const std::string& invalidator_client_id,
-    const std::string& restored_key_for_bootstrapping,
-    const std::string& restored_keystore_key_for_bootstrapping,
-    InternalComponentsFactory* internal_components_factory,
-    Encryptor* encryptor,
-    scoped_ptr<UnrecoverableErrorHandler> unrecoverable_error_handler,
-    ReportUnrecoverableErrorFunction report_unrecoverable_error_function,
-    CancelationSignal* cancelation_signal) {
+void SyncManagerImpl::Init(InitArgs* args) {
   CHECK(!initialized_);
   DCHECK(thread_checker_.CalledOnValidThread());
-  DCHECK(post_factory.get());
-  DCHECK(!credentials.email.empty());
-  DCHECK(!credentials.sync_token.empty());
-  DCHECK(cancelation_signal);
+  DCHECK(args->post_factory.get());
+  DCHECK(!args->credentials.email.empty());
+  DCHECK(!args->credentials.sync_token.empty());
+  DCHECK(!args->credentials.scope_set.empty());
+  DCHECK(args->cancelation_signal);
   DVLOG(1) << "SyncManager starting Init...";
 
   weak_handle_this_ = MakeWeakHandle(weak_ptr_factory_.GetWeakPtr());
 
-  change_delegate_ = change_delegate;
+  change_delegate_ = args->change_delegate;
 
   AddObserver(&js_sync_manager_observer_);
-  SetJsEventHandler(event_handler);
+  SetJsEventHandler(args->event_handler);
 
   AddObserver(&debug_info_event_listener_);
 
-  database_path_ = database_location.Append(
+  database_path_ = args->database_location.Append(
       syncable::Directory::kSyncDatabaseFilename);
-  unrecoverable_error_handler_ = unrecoverable_error_handler.Pass();
-  report_unrecoverable_error_function_ = report_unrecoverable_error_function;
+  unrecoverable_error_handler_ = args->unrecoverable_error_handler.Pass();
+  report_unrecoverable_error_function_ =
+      args->report_unrecoverable_error_function;
 
   allstatus_.SetHasKeystoreKey(
-      !restored_keystore_key_for_bootstrapping.empty());
+      !args->restored_keystore_key_for_bootstrapping.empty());
   sync_encryption_handler_.reset(new SyncEncryptionHandlerImpl(
       &share_,
-      encryptor,
-      restored_key_for_bootstrapping,
-      restored_keystore_key_for_bootstrapping));
+      args->encryptor,
+      args->restored_key_for_bootstrapping,
+      args->restored_keystore_key_for_bootstrapping));
   sync_encryption_handler_->AddObserver(this);
   sync_encryption_handler_->AddObserver(&debug_info_event_listener_);
   sync_encryption_handler_->AddObserver(&js_sync_encryption_handler_observer_);
@@ -355,11 +263,11 @@ void SyncManagerImpl::Init(
   DCHECK(absolute_db_path.IsAbsolute());
 
   scoped_ptr<syncable::DirectoryBackingStore> backing_store =
-      internal_components_factory->BuildDirectoryBackingStore(
-          credentials.email, absolute_db_path).Pass();
+      args->internal_components_factory->BuildDirectoryBackingStore(
+          InternalComponentsFactory::STORAGE_ON_DISK,
+          args->credentials.email, absolute_db_path).Pass();
 
   DCHECK(backing_store.get());
-  const std::string& username = credentials.email;
   share_.directory.reset(
       new syncable::Directory(
           backing_store.release(),
@@ -367,7 +275,13 @@ void SyncManagerImpl::Init(
           report_unrecoverable_error_function_,
           sync_encryption_handler_.get(),
           sync_encryption_handler_->GetCryptographerUnsafe()));
+  share_.sync_credentials = args->credentials;
 
+  // UserShare is accessible to a lot of code that doesn't need access to the
+  // sync token so clear sync_token from the UserShare.
+  share_.sync_credentials.sync_token = "";
+
+  const std::string& username = args->credentials.email;
   DVLOG(1) << "Username: " << username;
   if (!OpenDirectory(username)) {
     NotifyInitializationFailure();
@@ -376,8 +290,11 @@ void SyncManagerImpl::Init(
   }
 
   connection_manager_.reset(new SyncAPIServerConnectionManager(
-      sync_server_and_path, port, use_ssl,
-      post_factory.release(), cancelation_signal));
+      args->service_url.host() + args->service_url.path(),
+      args->service_url.EffectiveIntPort(),
+      args->service_url.SchemeIsSecure(),
+      args->post_factory.release(),
+      args->cancelation_signal));
   connection_manager_->set_client_id(directory()->cache_guid());
   connection_manager_->AddListener(this);
 
@@ -385,37 +302,39 @@ void SyncManagerImpl::Init(
 
   DVLOG(1) << "Setting sync client ID: " << sync_id;
   allstatus_.SetSyncId(sync_id);
-  DVLOG(1) << "Setting invalidator client ID: " << invalidator_client_id;
-  allstatus_.SetInvalidatorClientId(invalidator_client_id);
+  DVLOG(1) << "Setting invalidator client ID: " << args->invalidator_client_id;
+  allstatus_.SetInvalidatorClientId(args->invalidator_client_id);
 
-  model_type_registry_.reset(new ModelTypeRegistry(workers, directory()));
+  model_type_registry_.reset(
+      new ModelTypeRegistry(args->workers, directory(), this));
+  sync_encryption_handler_->AddObserver(model_type_registry_.get());
 
-  sync_core_.reset(new SyncCore(model_type_registry_.get()));
-
-  // Bind the SyncCore WeakPtr to this thread.  This helps us crash earlier if
-  // the pointer is misused in debug mode.
-  base::WeakPtr<SyncCore> weak_core = sync_core_->AsWeakPtr();
+  // Bind the SyncContext WeakPtr to this thread.  This helps us crash earlier
+  // if the pointer is misused in debug mode.
+  base::WeakPtr<SyncContext> weak_core = model_type_registry_->AsWeakPtr();
   weak_core.get();
 
-  sync_core_proxy_.reset(
-      new SyncCoreProxyImpl(base::MessageLoopProxy::current(), weak_core));
+  sync_context_proxy_.reset(
+      new SyncContextProxyImpl(base::ThreadTaskRunnerHandle::Get(), weak_core));
 
   // Build a SyncSessionContext and store the worker in it.
   DVLOG(1) << "Sync is bringing up SyncSessionContext.";
   std::vector<SyncEngineEventListener*> listeners;
   listeners.push_back(&allstatus_);
   listeners.push_back(this);
-  session_context_ = internal_components_factory->BuildContext(
-      connection_manager_.get(),
-      directory(),
-      extensions_activity,
-      listeners,
-      &debug_info_event_listener_,
-      model_type_registry_.get(),
-      invalidator_client_id).Pass();
-  session_context_->set_account_name(credentials.email);
-  scheduler_ = internal_components_factory->BuildScheduler(
-      name_, session_context_.get(), cancelation_signal).Pass();
+  session_context_ =
+      args->internal_components_factory->BuildContext(
+                                             connection_manager_.get(),
+                                             directory(),
+                                             args->extensions_activity,
+                                             listeners,
+                                             &debug_info_event_listener_,
+                                             model_type_registry_.get(),
+                                             args->invalidator_client_id)
+          .Pass();
+  session_context_->set_account_name(args->credentials.email);
+  scheduler_ = args->internal_components_factory->BuildScheduler(
+      name_, session_context_.get(), args->cancelation_signal).Pass();
 
   scheduler_->Start(SyncScheduler::CONFIGURATION_MODE);
 
@@ -425,7 +344,7 @@ void SyncManagerImpl::Init(
   net::NetworkChangeNotifier::AddConnectionTypeObserver(this);
   observing_network_connectivity_changes_ = true;
 
-  UpdateCredentials(credentials);
+  UpdateCredentials(args->credentials);
 
   NotifyInitializationSuccess();
 }
@@ -578,6 +497,7 @@ void SyncManagerImpl::UpdateCredentials(const SyncCredentials& credentials) {
   DCHECK(initialized_);
   DCHECK(!credentials.email.empty());
   DCHECK(!credentials.sync_token.empty());
+  DCHECK(!credentials.scope_set.empty());
 
   observing_network_connectivity_changes_ = true;
   if (!connection_manager_->SetAuthToken(credentials.sync_token))
@@ -598,7 +518,7 @@ void SyncManagerImpl::RemoveObserver(SyncManager::Observer* observer) {
   observers_.RemoveObserver(observer);
 }
 
-void SyncManagerImpl::ShutdownOnSyncThread() {
+void SyncManagerImpl::ShutdownOnSyncThread(ShutdownReason reason) {
   DCHECK(thread_checker_.CalledOnValidThread());
 
   // Prevent any in-flight method calls from running.  Also
@@ -608,6 +528,10 @@ void SyncManagerImpl::ShutdownOnSyncThread() {
 
   scheduler_.reset();
   session_context_.reset();
+
+  if (model_type_registry_)
+    sync_encryption_handler_->RemoveObserver(model_type_registry_.get());
+
   model_type_registry_.reset();
 
   if (sync_encryption_handler_) {
@@ -874,23 +798,27 @@ void SyncManagerImpl::HandleCalculateChangesChangeEventFromSyncer(
   }
 }
 
-TimeDelta SyncManagerImpl::GetNudgeDelayTimeDelta(
-    const ModelType& model_type) {
-  return NudgeStrategy::GetNudgeDelayTimeDelta(model_type, this);
-}
-
 void SyncManagerImpl::RequestNudgeForDataTypes(
     const tracked_objects::Location& nudge_location,
     ModelTypeSet types) {
   debug_info_event_listener_.OnNudgeFromDatatype(types.First().Get());
 
-  // TODO(lipalani) : Calculate the nudge delay based on all types.
-  base::TimeDelta nudge_delay = NudgeStrategy::GetNudgeDelayTimeDelta(
-      types.First().Get(),
-      this);
-  scheduler_->ScheduleLocalNudge(nudge_delay,
-                                 types,
-                                 nudge_location);
+  scheduler_->ScheduleLocalNudge(types, nudge_location);
+}
+
+void SyncManagerImpl::NudgeForInitialDownload(syncer::ModelType type) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  scheduler_->ScheduleInitialSyncNudge(type);
+}
+
+void SyncManagerImpl::NudgeForCommit(syncer::ModelType type) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  RequestNudgeForDataTypes(FROM_HERE, ModelTypeSet(type));
+}
+
+void SyncManagerImpl::NudgeForRefresh(syncer::ModelType type) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  RefreshTypes(ModelTypeSet(type));
 }
 
 void SyncManagerImpl::OnSyncCycleEvent(const SyncCycleEvent& event) {
@@ -955,48 +883,30 @@ scoped_ptr<base::ListValue> SyncManagerImpl::GetAllNodesForType(
     // when it doesn't really know which types are enabled or disabled.
     DLOG(WARNING) << "Asked to return debug info for invalid type "
                   << ModelTypeToString(type);
-    return scoped_ptr<base::ListValue>();
+    return scoped_ptr<base::ListValue>(new base::ListValue());
   }
 
   return it->second->GetAllNodes();
 }
 
-void SyncManagerImpl::OnInvalidatorStateChange(InvalidatorState state) {
+void SyncManagerImpl::SetInvalidatorEnabled(bool invalidator_enabled) {
   DCHECK(thread_checker_.CalledOnValidThread());
 
-  const std::string& state_str = InvalidatorStateToString(state);
-  invalidator_state_ = state;
-  DVLOG(1) << "Invalidator state changed to: " << state_str;
-  const bool notifications_enabled =
-      (invalidator_state_ == INVALIDATIONS_ENABLED);
-  allstatus_.SetNotificationsEnabled(notifications_enabled);
-  scheduler_->SetNotificationsEnabled(notifications_enabled);
+  DVLOG(1) << "Invalidator enabled state is now: " << invalidator_enabled;
+  allstatus_.SetNotificationsEnabled(invalidator_enabled);
+  scheduler_->SetNotificationsEnabled(invalidator_enabled);
 }
 
 void SyncManagerImpl::OnIncomingInvalidation(
-    const ObjectIdInvalidationMap& invalidation_map) {
+    syncer::ModelType type,
+    scoped_ptr<InvalidationInterface> invalidation) {
   DCHECK(thread_checker_.CalledOnValidThread());
 
-  // We should never receive IDs from non-sync objects.
-  ObjectIdSet ids = invalidation_map.GetObjectIds();
-  for (ObjectIdSet::const_iterator it = ids.begin(); it != ids.end(); ++it) {
-    ModelType type;
-    if (!ObjectIdToRealModelType(*it, &type)) {
-      DLOG(WARNING) << "Notification has invalid id: " << ObjectIdToString(*it);
-    }
-  }
-
-  if (invalidation_map.Empty()) {
-    LOG(WARNING) << "Sync received invalidation without any type information.";
-  } else {
-    scheduler_->ScheduleInvalidationNudge(
-        TimeDelta::FromMilliseconds(kSyncSchedulerDelayMsec),
-        invalidation_map, FROM_HERE);
-    debug_info_event_listener_.OnIncomingNotification(invalidation_map);
-  }
+  scheduler_->ScheduleInvalidationNudge(
+      type,
+      invalidation.Pass(),
+      FROM_HERE);
 }
-
-std::string SyncManagerImpl::GetOwnerName() const { return "SyncManagerImpl"; }
 
 void SyncManagerImpl::RefreshTypes(ModelTypeSet types) {
   DCHECK(thread_checker_.CalledOnValidThread());
@@ -1004,7 +914,6 @@ void SyncManagerImpl::RefreshTypes(ModelTypeSet types) {
     LOG(WARNING) << "Sync received refresh request with no types specified.";
   } else {
     scheduler_->ScheduleLocalRefreshRequest(
-        TimeDelta::FromMilliseconds(kSyncRefreshDelayMsec),
         types, FROM_HERE);
   }
 }
@@ -1022,9 +931,9 @@ UserShare* SyncManagerImpl::GetUserShare() {
   return &share_;
 }
 
-syncer::SyncCoreProxy* SyncManagerImpl::GetSyncCoreProxy() {
+syncer::SyncContextProxy* SyncManagerImpl::GetSyncContextProxy() {
   DCHECK(initialized_);
-  return sync_core_proxy_.get();
+  return sync_context_proxy_.get();
 }
 
 const std::string SyncManagerImpl::cache_guid() {
@@ -1136,16 +1045,6 @@ bool SyncManagerImpl::HasDirectoryTypeDebugInfoObserver(
 
 void SyncManagerImpl::RequestEmitDebugInfo() {
   model_type_registry_->RequestEmitDebugInfo();
-}
-
-// static.
-int SyncManagerImpl::GetDefaultNudgeDelay() {
-  return kDefaultNudgeDelayMilliseconds;
-}
-
-// static.
-int SyncManagerImpl::GetPreferencesNudgeDelay() {
-  return kPreferencesNudgeDelayMilliseconds;
 }
 
 }  // namespace syncer

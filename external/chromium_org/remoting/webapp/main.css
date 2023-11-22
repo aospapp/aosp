@@ -389,13 +389,12 @@ section {
   background-repeat: no-repeat;
   background-position: top __MSG_@@bidi_start_edge__;
   padding-__MSG_@@bidi_start_edge__: 30px;
-  padding-top: 5px;
   color: #900;
-}
 
-.error-state.multi-line-error-state {
-  padding-top: 0;
-  min-height: 22px;
+  /* Vertical align the text*/
+  display: table-cell;
+  vertical-align: middle;
+  height: 24px;
 }
 
 .expiring {
@@ -620,6 +619,7 @@ button {
   top: 200px;
   left: 0;
   width: 100%;
+  z-index: 2;
 }
 
 .dialog-screen {
@@ -630,6 +630,7 @@ button {
   height: 100%;
   background-color: #fff;
   opacity: 0.75;
+  z-index: 1;
 }
 
 /* TODO(jamiewalch): crbug.com/252796: Remove these once crbug.com/240772
@@ -645,7 +646,6 @@ button {
 html.apps-v2.scrollable {
   overflow: scroll;
 }
-
 
 /* TODO(jamiewalch): Reinstate this if we're able to get translations for
  *     "Why is this safe?" that don't overflow in any language.
@@ -748,6 +748,12 @@ html.apps-v2.scrollable {
   width: 100%;
 }
 
+/* Override full-height class until connected, otherwise it takes up 100% of
+ * the window height in addition to the home-screen UI. */
+body:not(.connected) #session-mode {
+  height: auto;
+}
+
 /* video-container needs relative position so that mediasource-video-output can
  * be positioned relative to the parent with position:absolute. */
 #video-container {
@@ -755,13 +761,13 @@ html.apps-v2.scrollable {
 }
 
 /* mediasource-video-output is hidden by default. */
-#mediasource-video-output {
+#video-container video {
   display: none;
 }
 
 /* Use absolute positioning for mediasource-video-output so that it's rendered
  * at the same position as the plugin. */
-#video-container.mediasource-rendering #mediasource-video-output {
+#video-container.mediasource-rendering video {
   display: block;
   position: absolute;
   left: 0;
@@ -776,11 +782,15 @@ html.apps-v2.scrollable {
  * TODO(sergeyu): This is temporary solution. Ideally mouse and keyboard events
  * should be captured on JS level and passed to the plugin.
  */
-#video-container.mediasource-rendering #client-plugin-container {
+#video-container.mediasource-rendering .client-plugin-container {
   opacity: 0;
 }
 
 .mouse-cursor-overlay {
   position: absolute;
   pointer-events: none;
-};
+}
+
+body.hangout-remote-desktop .home-screen {
+  display: none;
+}

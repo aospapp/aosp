@@ -207,6 +207,9 @@ public class ThermalManager {
 
     public static final int INVALID_TEMP = 0xDEADBEEF;
 
+    /* Absolute zero in millidegree C */
+    public static final int ABS_ZERO = -273000;
+
     /* base sysfs path for sensors */
     public static final String sSysfsSensorBasePath = "/sys/class/thermal/thermal_zone";
 

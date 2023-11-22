@@ -21,7 +21,7 @@ void FakeDesktopMediaList::AddSource(int id) {
 
 void FakeDesktopMediaList::RemoveSource(int index) {
   sources_.erase(sources_.begin() + index);
-  observer_->OnSourceRemoved(sources_.size() - 1);
+  observer_->OnSourceRemoved(index);
 }
 
 void FakeDesktopMediaList::MoveSource(int old_index, int new_index) {
@@ -52,8 +52,7 @@ void FakeDesktopMediaList::StartUpdating(DesktopMediaListObserver* observer) {
   observer_ = observer;
 
   SkBitmap bitmap;
-  bitmap.setConfig(SkBitmap::kARGB_8888_Config, 150, 150);
-  bitmap.allocPixels();
+  bitmap.allocN32Pixels(150, 150);
   bitmap.eraseARGB(255, 0, 255, 0);
   thumbnail_ = gfx::ImageSkia::CreateFrom1xBitmap(bitmap);
 }

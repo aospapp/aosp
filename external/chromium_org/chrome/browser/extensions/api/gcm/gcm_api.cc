@@ -69,7 +69,7 @@ const char* GcmResultToError(gcm::GCMClient::Result result) {
 }
 
 bool IsMessageKeyValid(const std::string& key) {
-  std::string lower = StringToLowerASCII(key);
+  std::string lower = base::StringToLowerASCII(key);
   return !key.empty() &&
          key.compare(0, arraysize(kCollapseKey) - 1, kCollapseKey) != 0 &&
          lower.compare(0,
@@ -116,7 +116,7 @@ bool GcmRegisterFunction::DoWork() {
   EXTENSION_FUNCTION_VALIDATE(params.get());
 
   GetGCMDriver()->Register(
-      GetExtension()->id(),
+      extension()->id(),
       params->sender_ids,
       base::Bind(&GcmRegisterFunction::CompleteFunctionWithResult, this));
 
@@ -139,7 +139,7 @@ bool GcmUnregisterFunction::DoWork() {
   UMA_HISTOGRAM_BOOLEAN("GCM.APICallUnregister", true);
 
   GetGCMDriver()->Unregister(
-      GetExtension()->id(),
+      extension()->id(),
       base::Bind(&GcmUnregisterFunction::CompleteFunctionWithResult, this));
 
   return true;
@@ -169,7 +169,7 @@ bool GcmSendFunction::DoWork() {
     outgoing_message.time_to_live = *params->message.time_to_live;
 
   GetGCMDriver()->Send(
-      GetExtension()->id(),
+      extension()->id(),
       params->message.destination_id,
       outgoing_message,
       base::Bind(&GcmSendFunction::CompleteFunctionWithResult, this));

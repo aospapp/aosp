@@ -187,8 +187,6 @@ public class MonitorInfoTest extends JDWPSyncTestCase {
         logWriter.println("=> CHECK 1: PASSED - expected monitor info is received");
         checkedReply = null;
 
-        logWriter.println("\n=> Send VirtualMachine::Resume command ...");
-
         resumeDebuggee();
 
         logWriter.println("=> Send to Debuggee signal to continue and to enter in synchronized block ...");

@@ -33,6 +33,7 @@ import com.android.mail.browse.ConversationMessage;
 import com.android.mail.browse.ConversationViewHeader;
 import com.android.mail.browse.MessageCursor;
 import com.android.mail.browse.MessageHeaderView;
+import com.android.mail.compose.ComposeActivity;
 import com.android.mail.content.ObjectCursor;
 import com.android.mail.providers.Account;
 import com.android.mail.providers.Conversation;
@@ -289,5 +290,21 @@ public class SecureConversationViewFragment extends AbstractConversationViewFrag
     @Override
     protected void printConversation() {
         mViewController.printMessage();
+    }
+
+    @Override
+    protected void handleReply() {
+        final ConversationMessage msg = mViewController.getMessage();
+        if (msg != null) {
+            ComposeActivity.reply(getActivity(), mAccount, msg);
+        }
+    }
+
+    @Override
+    protected void handleReplyAll() {
+        final ConversationMessage msg = mViewController.getMessage();
+        if (msg != null) {
+            ComposeActivity.replyAll(getActivity(), mAccount, msg);
+        }
     }
 }

@@ -16,6 +16,10 @@
 #include "extensions/common/extension_set.h"
 #include "extensions/common/permissions/api_permission.h"
 
+namespace base {
+class FilePath;
+}
+
 namespace extensions {
 class ContentVerifier;
 class Extension;
@@ -33,9 +37,7 @@ class InfoMap : public base::RefCountedThreadSafe<InfoMap> {
   }
 
   // Information about which extensions are assigned to which render processes.
-  const extensions::ProcessMap& process_map() const;
-  // Information about which extensions are assigned to which worker processes.
-  const extensions::ProcessMap& worker_process_map() const;
+  const ProcessMap& process_map() const { return process_map_; }
 
   // Callback for when new extensions are loaded.
   void AddExtension(const extensions::Extension* extension,
@@ -69,14 +71,6 @@ class InfoMap : public base::RefCountedThreadSafe<InfoMap> {
                                   int site_instance_id);
   void UnregisterAllExtensionsInProcess(int process_id);
 
-  // Adds an entry to worker_process_map_.
-  void RegisterExtensionWorkerProcess(const std::string& extension_id,
-                                      int process_id,
-                                      int site_instance_id);
-
-  // Removes an entry from worker_process_map_.
-  void UnregisterExtensionWorkerProcess(int process_id);
-
   // Returns the subset of extensions which has the same |origin| in
   // |process_id| with the specified |permission|.
   void GetExtensionsWithAPIPermissionForSecurityOrigin(
@@ -92,6 +86,13 @@ class InfoMap : public base::RefCountedThreadSafe<InfoMap> {
                                       extensions::APIPermission::ID permission)
       const;
 
+  // Maps a |file_url| to a |file_path| on the local filesystem, including
+  // resources in extensions. Returns true on success. See NaClBrowserDelegate
+  // for full details.
+  bool MapUrlToLocalFilePath(const GURL& file_url,
+                             bool use_blocking_api,
+                             base::FilePath* file_path);
+
   // Returns the IO thread QuotaService. Creates the instance on first call.
   QuotaService* GetQuotaService();
 
@@ -106,7 +107,7 @@ class InfoMap : public base::RefCountedThreadSafe<InfoMap> {
   bool AreNotificationsDisabled(const std::string& extension_id) const;
 
   void SetContentVerifier(ContentVerifier* verifier);
-  ContentVerifier* content_verifier() { return content_verifier_; }
+  ContentVerifier* content_verifier() { return content_verifier_.get(); }
 
  private:
   friend class base::RefCountedThreadSafe<InfoMap>;
@@ -131,9 +132,6 @@ class InfoMap : public base::RefCountedThreadSafe<InfoMap> {
 
   // Assignment of extensions to renderer processes.
   extensions::ProcessMap process_map_;
-
-  // Assignment of extensions to worker processes.
-  extensions::ProcessMap worker_process_map_;
 
   int signin_process_id_;
 

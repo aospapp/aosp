@@ -41,7 +41,7 @@ class NetworkStateNotifierTest : public AshTestBase {
   virtual ~NetworkStateNotifierTest() {}
 
   virtual void SetUp() OVERRIDE {
-    DBusThreadManager::InitializeWithStub();
+    DBusThreadManager::Initialize();
     chromeos::LoginState::Initialize();
     SetupDefaultShillState();
     chromeos::NetworkHandler::Initialize();
@@ -71,8 +71,8 @@ class NetworkStateNotifierTest : public AshTestBase {
         DBusThreadManager::Get()->GetShillServiceClient()->GetTestInterface();
     service_test->ClearServices();
     const bool add_to_visible = true;
-    // Create wifi and cellular networks and set to online.
-    service_test->AddService("wifi1", "wifi1",
+    // Create a wifi network and set to online.
+    service_test->AddService("/service/wifi1", "wifi1_guid", "wifi1",
                              shill::kTypeWifi, shill::kStateIdle,
                              add_to_visible);
     service_test->SetServiceProperty("wifi1",
@@ -93,7 +93,7 @@ class NetworkStateNotifierTest : public AshTestBase {
 
 TEST_F(NetworkStateNotifierTest, ConnectionFailure) {
   EXPECT_FALSE(GetSystemTray()->HasNotificationBubble());
-  ash::network_connect::ConnectToNetwork("wifi1", NULL /* owning_window */);
+  ash::network_connect::ConnectToNetwork("wifi1");
   RunAllPendingInMessageLoop();
   // Failure should spawn a notification.
   message_center::MessageCenter* message_center =

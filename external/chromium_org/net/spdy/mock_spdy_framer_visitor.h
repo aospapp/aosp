@@ -56,6 +56,12 @@ class MockSpdyFramerVisitor : public SpdyFramerVisitorInterface {
                               base::StringPiece protocol_id,
                               base::StringPiece host,
                               base::StringPiece origin));
+  MOCK_METHOD4(OnPriority,
+               void(SpdyStreamId stream_id,
+                    SpdyStreamId parent_stream_id,
+                    uint8 weight,
+                    bool exclusive));
+  MOCK_METHOD2(OnUnknownFrame, bool(SpdyStreamId stream_id, int frame_type));
 };
 
 }  // namespace test

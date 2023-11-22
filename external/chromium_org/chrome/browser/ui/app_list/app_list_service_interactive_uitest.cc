@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/app_list/test/chrome_app_list_test_support.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/host_desktop.h"
+#include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
@@ -34,24 +35,7 @@ class AppListServiceInteractiveTest : public InProcessBrowserTest {
   AppListServiceInteractiveTest()
     : profile2_(NULL) {}
 
-  void InitSecondProfile() {
-    ProfileManager* profile_manager = g_browser_process->profile_manager();
-    base::FilePath temp_profile_dir =
-        profile_manager->user_data_dir().AppendASCII("Profile 1");
-    profile_manager->CreateProfileAsync(
-        temp_profile_dir,
-        base::Bind(&AppListServiceInteractiveTest::OnProfileCreated,
-                   this),
-        base::string16(), base::string16(), std::string());
-    content::RunMessageLoop();  // Will stop in OnProfileCreated().
-  }
-
-  void OnProfileCreated(Profile* profile, Profile::CreateStatus status) {
-    if (status == Profile::CREATE_STATUS_INITIALIZED) {
-      profile2_ = profile;
-      base::MessageLoop::current()->Quit();
-    }
-  }
+  void InitSecondProfile() { profile2_ = test::CreateSecondProfileAsync(); }
 
  protected:
   Profile* profile2_;
@@ -69,12 +53,14 @@ class AppListServiceInteractiveTest : public InProcessBrowserTest {
     DISABLED_SwitchAppListProfilesDuringSearch
 #define MAYBE_ShowAppListNonDefaultProfile \
     DISABLED_ShowAppListNonDefaultProfile
+#define MAYBE_DeleteShowingAppList DISABLED_DeleteShowingAppList
 #else
 #define MAYBE_ShowAndDismiss ShowAndDismiss
 #define MAYBE_SwitchAppListProfiles SwitchAppListProfiles
 #define MAYBE_SwitchAppListProfilesDuringSearch \
     SwitchAppListProfilesDuringSearch
 #define MAYBE_ShowAppListNonDefaultProfile ShowAppListNonDefaultProfile
+#define MAYBE_DeleteShowingAppList DeleteShowingAppList
 #endif
 
 // Show the app list, then dismiss it.
@@ -168,17 +154,39 @@ class ShowAppListInteractiveTest : public InProcessBrowserTest {
 };
 
 // Test showing the app list using the command line switch.
-IN_PROC_BROWSER_TEST_F(ShowAppListInteractiveTest, ShowAppListFlag) {
+#if defined(OS_CHROMEOS)
+// http://crbug.com/396499
+#define MAYBE_ShowAppListFlag DISABLED_ShowAppListFlag
+#else
+#define MAYBE_ShowAppListFlag ShowAppListFlag
+#endif
+IN_PROC_BROWSER_TEST_F(ShowAppListInteractiveTest, MAYBE_ShowAppListFlag) {
   AppListService* service = test::GetAppListService();
   // The app list should already be shown because we passed
   // switches::kShowAppList.
-  ASSERT_TRUE(service->IsAppListVisible());
+  EXPECT_TRUE(service->IsAppListVisible());
 
   // Create a browser to prevent shutdown when we dismiss the app list.  We
   // need to do this because switches::kShowAppList suppresses the creation of
   // any browsers.
-  CreateBrowser(service->GetCurrentAppListProfile());
+  Profile* profile = service->GetCurrentAppListProfile();
+  CreateBrowser(profile);
+
   service->DismissAppList();
+  EXPECT_FALSE(service->IsAppListVisible());
+
+  // With Chrome still running, test receiving a second --show-app-list request
+  // via the process singleton. ChromeOS has no process singleton so exclude it.
+#if !defined(OS_CHROMEOS)
+  CommandLine command_line(CommandLine::NO_PROGRAM);
+  command_line.AppendSwitch(switches::kShowAppList);
+  StartupBrowserCreator::ProcessCommandLineAlreadyRunning(
+      command_line, base::FilePath(), profile->GetPath());
+
+  EXPECT_TRUE(service->IsAppListVisible());
+  service->DismissAppList();
+  EXPECT_FALSE(service->IsAppListVisible());
+#endif
 }
 
 // Interactive UI test that creates a non-default profile and configures it for
@@ -236,4 +244,27 @@ IN_PROC_BROWSER_TEST_F(ShowAppListNonDefaultInteractiveTest,
   EXPECT_EQ(2u, profile_manager->GetNumberOfProfiles());
 
   service->DismissAppList();
+}
+
+// Test showing the app list for a profile then deleting that profile while the
+// app list is visible.
+IN_PROC_BROWSER_TEST_F(ShowAppListNonDefaultInteractiveTest,
+                       MAYBE_DeleteShowingAppList) {
+  AppListService* service = test::GetAppListService();
+  EXPECT_TRUE(service->IsAppListVisible());
+  EXPECT_EQ(second_profile_name_.value(),
+            service->GetCurrentAppListProfile()->GetPath().BaseName().value());
+
+  ProfileManager* profile_manager = g_browser_process->profile_manager();
+
+  // Create a browser for the Default profile.
+  CreateBrowser(profile_manager->GetLastUsedProfile());
+
+  // Delete the profile being used by the app list.
+  profile_manager->ScheduleProfileForDeletion(
+      service->GetCurrentAppListProfile()->GetPath(),
+      ProfileManager::CreateCallback());
+
+  // App Launcher should get closed immediately and nothing should explode.
+  EXPECT_FALSE(service->IsAppListVisible());
 }

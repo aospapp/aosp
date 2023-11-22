@@ -4,23 +4,11 @@ include_rules = [
   # chrome/browser/extensions, the restriction of not being able
   # to depend on apps will be lifted.
   "-apps",
-  "+apps/app_window.h",
-  "+apps/app_window_registry.h",
   "-chrome/browser/apps",
-
-  # TODO(tfarina): Remove all these. crbug.com/125846.
-  # DO NOT ADD ANY MORE ITEMS TO THE LIST BELOW!
-  "!chrome/browser/ui/views/extensions/extension_view_views.h",
-  # DO NOT ADD ANY MORE ITEMS TO THE ABOVE LIST!
+  "+components/crx_file",
+  "+components/user_manager",
+  "+extensions/strings/grit/extensions_strings.h",
 
   # For access to testing command line switches.
   "+ppapi/shared_impl",
 ]
-
-specific_include_rules = {
-  # The extensions client interface is the master arbiter of which
-  # API functions exist, so it needs to know about app APIs.
-  "chrome_extensions_browser_client\.cc": [
-     "+apps/common/api/generated_api.h",
-  ],
-}

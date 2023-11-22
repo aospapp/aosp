@@ -17,8 +17,6 @@
 -->
 
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:state_pressed="true" android:drawable="@drawable/list_pressed_holo" />
-    <item android:state_activated="true" android:drawable="@color/mail_app_blue" />
-    <item android:state_focused="true" android:drawable="@drawable/list_focused_holo" />
+    <item android:state_activated="true" android:drawable="@color/drawer_item_activated_background_color" />
     <item android:drawable="@android:color/transparent" />
 </selector>

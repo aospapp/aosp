@@ -4,6 +4,7 @@
 
 #include "components/autofill/content/renderer/password_form_conversion_utils.h"
 
+#include "base/strings/string_util.h"
 #include "components/autofill/content/renderer/form_autofill_util.h"
 #include "components/autofill/core/common/password_form.h"
 #include "third_party/WebKit/public/platform/WebString.h"
@@ -21,42 +22,78 @@ using blink::WebVector;
 namespace autofill {
 namespace {
 
-// Maximum number of password fields we will observe before throwing our
-// hands in the air and giving up with a given form.
-static const size_t kMaxPasswords = 3;
+// Checks in a case-insensitive way if the autocomplete attribute for the given
+// |element| is present and has the specified |value_in_lowercase|.
+bool HasAutocompleteAttributeValue(const WebInputElement& element,
+                                   const char* value_in_lowercase) {
+  return LowerCaseEqualsASCII(element.getAttribute("autocomplete"),
+                              value_in_lowercase);
+}
 
-// Helper to determine which password is the main one, and which is
-// an old password (e.g on a "make new password" form), if any.
+// Helper to determine which password is the main (current) one, and which is
+// the new password (e.g., on a sign-up or change password form), if any.
 bool LocateSpecificPasswords(std::vector<WebInputElement> passwords,
-                             WebInputElement* password,
-                             WebInputElement* old_password) {
+                             WebInputElement* current_password,
+                             WebInputElement* new_password) {
+  DCHECK(current_password && current_password->isNull());
+  DCHECK(new_password && new_password->isNull());
+
+  // First, look for elements marked with either autocomplete='current-password'
+  // or 'new-password' -- if we find any, take the hint, and treat the first of
+  // each kind as the element we are looking for.
+  for (std::vector<WebInputElement>::const_iterator it = passwords.begin();
+       it != passwords.end(); it++) {
+    if (HasAutocompleteAttributeValue(*it, "current-password") &&
+        current_password->isNull()) {
+      *current_password = *it;
+    } else if (HasAutocompleteAttributeValue(*it, "new-password") &&
+        new_password->isNull()) {
+      *new_password = *it;
+    }
+  }
+
+  // If we have seen an element with either of autocomplete attributes above,
+  // take that as a signal that the page author must have intentionally left the
+  // rest of the password fields unmarked. Perhaps they are used for other
+  // purposes, e.g., PINs, OTPs, and the like. So we skip all the heuristics we
+  // normally do, and ignore the rest of the password fields.
+  if (!current_password->isNull() || !new_password->isNull())
+    return true;
+
   switch (passwords.size()) {
     case 1:
       // Single password, easy.
-      *password = passwords[0];
+      *current_password = passwords[0];
       break;
     case 2:
       if (passwords[0].value() == passwords[1].value()) {
-        // Treat two identical passwords as a single password.
-        *password = passwords[0];
+        // Two identical passwords: assume we are seeing a new password with a
+        // confirmation. This can be either a sign-up form or a password change
+        // form that does not ask for the old password.
+        *new_password = passwords[0];
       } else {
         // Assume first is old password, second is new (no choice but to guess).
-        *old_password = passwords[0];
-        *password = passwords[1];
+        *current_password = passwords[0];
+        *new_password = passwords[1];
       }
       break;
     case 3:
-      if (passwords[0].value() == passwords[1].value() &&
+      if (!passwords[0].value().isEmpty() &&
+          passwords[0].value() == passwords[1].value() &&
           passwords[0].value() == passwords[2].value()) {
-        // All three passwords the same? Just treat as one and hope.
-        *password = passwords[0];
-      } else if (passwords[0].value() == passwords[1].value()) {
-        // Two the same and one different -> old password is duplicated one.
-        *old_password = passwords[0];
-        *password = passwords[2];
+        // All three passwords are the same and non-empty? This does not make
+        // any sense, give up.
+        return false;
       } else if (passwords[1].value() == passwords[2].value()) {
-        *old_password = passwords[0];
-        *password = passwords[1];
+        // New password is the duplicated one, and comes second; or empty form
+        // with 3 password fields, in which case we will assume this layout.
+        *current_password = passwords[0];
+        *new_password = passwords[1];
+      } else if (passwords[0].value() == passwords[1].value()) {
+        // It is strange that the new password comes first, but trust more which
+        // fields are duplicated than the ordering of fields.
+        *current_password = passwords[2];
+        *new_password = passwords[0];
       } else {
         // Three different passwords, or first and last match with middle
         // different. No idea which is which, so no luck.
@@ -69,10 +106,13 @@ bool LocateSpecificPasswords(std::vector<WebInputElement> passwords,
   return true;
 }
 
-// Get information about a login form that encapsulated in the
-// PasswordForm struct.
+// Get information about a login form encapsulated in a PasswordForm struct.
 void GetPasswordForm(const WebFormElement& form, PasswordForm* password_form) {
   WebInputElement latest_input_element;
+  WebInputElement username_element;
+  // Caches whether |username_element| is marked with autocomplete='username'.
+  // Needed for performance reasons to avoid recalculating this multiple times.
+  bool has_seen_element_with_autocomplete_username_before = false;
   std::vector<WebInputElement> passwords;
   std::vector<base::string16> other_possible_usernames;
 
@@ -88,31 +128,70 @@ void GetPasswordForm(const WebFormElement& form, PasswordForm* password_form) {
     if (!input_element || !input_element->isEnabled())
       continue;
 
-    if ((passwords.size() < kMaxPasswords) &&
-        input_element->isPasswordField()) {
-      // We assume that the username element is the input element before the
-      // first password element.
-      if (passwords.empty() && !latest_input_element.isNull()) {
-        password_form->username_element =
-            latest_input_element.nameForAutofill();
-        password_form->username_value = latest_input_element.value();
-        // Remove the selected username from other_possible_usernames.
-        if (!other_possible_usernames.empty() &&
-            !latest_input_element.value().isEmpty())
-          other_possible_usernames.resize(other_possible_usernames.size() - 1);
-      }
+    if (input_element->isPasswordField()) {
       passwords.push_back(*input_element);
+      // If we have not yet considered any element to be the username so far,
+      // provisionally select the input element just before the first password
+      // element to be the username. This choice will be overruled if we later
+      // find an element with autocomplete='username'.
+      if (username_element.isNull() && !latest_input_element.isNull()) {
+        username_element = latest_input_element;
+        // Remove the selected username from other_possible_usernames.
+        if (!latest_input_element.value().isEmpty()) {
+          DCHECK(!other_possible_usernames.empty());
+          DCHECK_EQ(base::string16(latest_input_element.value()),
+                    other_possible_usernames.back());
+          other_possible_usernames.pop_back();
+        }
+      }
     }
 
     // Various input types such as text, url, email can be a username field.
     if (input_element->isTextField() && !input_element->isPasswordField()) {
-      latest_input_element = *input_element;
-      // We ignore elements that have no value. Unlike username_element,
-      // other_possible_usernames is used only for autofill, not for form
-      // identification, and blank autofill entries are not useful.
-      if (!input_element->value().isEmpty())
-        other_possible_usernames.push_back(input_element->value());
+      if (HasAutocompleteAttributeValue(*input_element, "username")) {
+        if (has_seen_element_with_autocomplete_username_before) {
+          // A second or subsequent element marked with autocomplete='username'.
+          // This makes us less confident that we have understood the form. We
+          // will stick to our choice that the first such element was the real
+          // username, but will start collecting other_possible_usernames from
+          // the extra elements marked with autocomplete='username'. Note that
+          // unlike username_element, other_possible_usernames is used only for
+          // autofill, not for form identification, and blank autofill entries
+          // are not useful, so we do not collect empty strings.
+          if (!input_element->value().isEmpty())
+            other_possible_usernames.push_back(input_element->value());
+        } else {
+          // The first element marked with autocomplete='username'. Take the
+          // hint and treat it as the username (overruling the tentative choice
+          // we might have made before). Furthermore, drop all other possible
+          // usernames we have accrued so far: they come from fields not marked
+          // with the autocomplete attribute, making them unlikely alternatives.
+          username_element = *input_element;
+          has_seen_element_with_autocomplete_username_before = true;
+          other_possible_usernames.clear();
+        }
+      } else {
+        if (has_seen_element_with_autocomplete_username_before) {
+          // Having seen elements with autocomplete='username', elements without
+          // this attribute are no longer interesting. No-op.
+        } else {
+          // No elements marked with autocomplete='username' so far whatsoever.
+          // If we have not yet selected a username element even provisionally,
+          // then remember this element for the case when the next field turns
+          // out to be a password. Save a non-empty username as a possible
+          // alternative, at least for now.
+          if (username_element.isNull())
+            latest_input_element = *input_element;
+          if (!input_element->value().isEmpty())
+            other_possible_usernames.push_back(input_element->value());
+        }
+      }
     }
+  }
+
+  if (!username_element.isNull()) {
+    password_form->username_element = username_element.nameForAutofill();
+    password_form->username_value = username_element.value();
   }
 
   // Get the document URL
@@ -127,8 +206,8 @@ void GetPasswordForm(const WebFormElement& form, PasswordForm* password_form) {
     return;
 
   WebInputElement password;
-  WebInputElement old_password;
-  if (!LocateSpecificPasswords(passwords, &password, &old_password))
+  WebInputElement new_password;
+  if (!LocateSpecificPasswords(passwords, &password, &new_password))
     return;
 
   // We want to keep the path but strip any authentication data, as well as
@@ -151,9 +230,9 @@ void GetPasswordForm(const WebFormElement& form, PasswordForm* password_form) {
     password_form->password_value = password.value();
     password_form->password_autocomplete_set = password.autoComplete();
   }
-  if (!old_password.isNull()) {
-    password_form->old_password_element = old_password.nameForAutofill();
-    password_form->old_password_value = old_password.value();
+  if (!new_password.isNull()) {
+    password_form->new_password_element = new_password.nameForAutofill();
+    password_form->new_password_value = new_password.value();
   }
 
   password_form->scheme = PasswordForm::SCHEME_HTML;

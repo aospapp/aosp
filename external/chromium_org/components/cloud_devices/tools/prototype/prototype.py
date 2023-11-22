@@ -20,6 +20,7 @@ import base64
 import datetime
 import json
 import os
+import random
 import subprocess
 import time
 import traceback
@@ -35,41 +36,42 @@ from tornado.ioloop import IOLoop
 
 _OAUTH_SCOPE = 'https://www.googleapis.com/auth/clouddevices'
 
-_API_CLIENT_FILE = 'config.json'
+_CONFIG_FILE = 'config.json'
 _API_DISCOVERY_FILE = 'discovery.json'
 _DEVICE_STATE_FILE = 'device_state.json'
 
-_DEVICE_SETUP_SSID = 'GCDPrototype.camera.privet'
+_DEVICE_SETUP_SSID = 'GCD Prototype %02d..Bcamprv'
 _DEVICE_NAME = 'GCD Prototype'
-_DEVICE_TYPE = 'camera'
+_DEVICE_TYPE = 'vendor'
 _DEVICE_PORT = 8080
 
 DEVICE_DRAFT = {
     'systemName': 'LEDFlasher',
     'deviceKind': 'vendor',
-    'displayName': 'LED Flasher',
+    'displayName': _DEVICE_NAME,
     'channel': {
         'supportedType': 'xmpp'
     },
-    'commands': {
+    'commandDefs': {
         'base': {
-            'vendorCommands': [{
-                'name': 'flashLED',
-                'parameter': [{
-                    'name': 'times',
-                    'type': 'string'
-                }]
-            }]
+# TODO(vitalybuka): find new format for custom commands.
+#            'vendorCommands': [{
+#                'name': 'flashLED',
+#                'parameter': [{
+#                    'name': 'times',
+#                    'type': 'string'
+#                }]
+#            }]
         }
     }
 }
 
-wpa_supplicant_cmd = 'wpa_supplicant -Dwext -iwlan0 -cwpa_supplicant.conf'
-ifconfig_cmd = 'ifconfig wlan0 192.168.0.3'
+wpa_supplicant_cmd = 'wpa_supplicant -Dwext -i%s -cwpa_supplicant.conf'
+ifconfig_cmd = 'ifconfig %s 192.168.0.3'
 hostapd_cmd = 'hostapd hostapd-min.conf'
-dhclient_release = 'dhclient -r wlan0'
-dhclient_renew = 'dhclient wlan0'
-dhcpd_cmd = 'udhcpd -f /etc/udhcpd.conf'
+dhclient_release = 'dhclient -r %s'
+dhclient_renew = 'dhclient %s'
+dhcpd_cmd = 'udhcpd -f udhcpd.conf'
 
 wpa_supplicant_conf = 'wpa_supplicant.conf'
 
@@ -84,8 +86,22 @@ network={
   psk="%s"
 }"""
 
-led_path = '/sys/class/leds/ath9k_htc-phy0/'
+hostapd_conf = 'hostapd-min.conf'
 
+hostapd_template = """
+interface=%s
+driver=nl80211
+ssid=%s
+channel=1
+"""
+
+udhcpd_conf = 'udhcpd.conf'
+
+udhcpd_template = """
+start        192.168.0.20
+end          192.168.0.254
+interface    %s
+"""
 
 class DeviceUnregisteredError(Exception):
   pass
@@ -105,7 +121,7 @@ class CommandWrapperReal(object):
   """Command wrapper that executs shell commands."""
 
   def __init__(self, cmd):
-    if type(cmd) == str:
+    if type(cmd) in [str, unicode]:
       cmd = cmd.split()
     self.cmd = cmd
     self.cmd_str = ' '.join(cmd)
@@ -160,8 +176,9 @@ class CloudCommandHandlerFake(object):
 class CloudCommandHandlerReal(object):
   """Executes device commands."""
 
-  def __init__(self, ioloop):
+  def __init__(self, ioloop, led_path):
     self.ioloop = ioloop
+    self.led_path = led_path
 
   def handle_command(self, command_name, args):
     if command_name == 'flashLED':
@@ -180,7 +197,7 @@ class CloudCommandHandlerReal(object):
     if not times:
       return
 
-    file_trigger = open(os.path.join(led_path, 'brightness'), 'w')
+    file_trigger = open(os.path.join(self.led_path, 'brightness'), 'w')
 
     if value:
       file_trigger.write('1')
@@ -202,10 +219,12 @@ class WifiHandler(object):
       """Token is optional, and all delegates should support it being None."""
       raise Exception('Unhandled condition: WiFi connected')
 
-  def __init__(self, ioloop, state, delegate):
+  def __init__(self, ioloop, state, config, setup_ssid, delegate):
     self.ioloop = ioloop
     self.state = state
     self.delegate = delegate
+    self.setup_ssid = setup_ssid
+    self.interface = config['wireless_interface']
 
   def start(self):
     raise Exception('Start not implemented!')
@@ -221,13 +240,18 @@ class WifiHandlerReal(WifiHandler):
      devices for testing the wifi-specific logic.
   """
 
-  def __init__(self, ioloop, state, delegate):
-    super(WifiHandlerReal, self).__init__(ioloop, state, delegate)
+  def __init__(self, ioloop, state, config, setup_ssid, delegate):
+    super(WifiHandlerReal, self).__init__(ioloop, state, config,
+                                          setup_ssid, delegate)
 
-    self.command_wrapper = CommandWrapperReal
-    self.hostapd = self.CommandWrapper(hostapd_cmd)
-    self.wpa_supplicant = self.CommandWrapper(wpa_supplicant_cmd)
-    self.dhcpd = self.CommandWrapper(dhcpd_cmd)
+    if config['simulate_commands']:
+      self.command_wrapper = CommandWrapperFake
+    else:
+      self.command_wrapper = CommandWrapperReal
+    self.hostapd = self.command_wrapper(hostapd_cmd)
+    self.wpa_supplicant = self.command_wrapper(
+      wpa_supplicant_cmd % self.interface)
+    self.dhcpd = self.command_wrapper(dhcpd_cmd)
 
   def start(self):
     if self.state.has_wifi():
@@ -236,21 +260,30 @@ class WifiHandlerReal(WifiHandler):
       self.start_hostapd()
 
   def start_hostapd(self):
+    hostapd_config = open(hostapd_conf, 'w')
+    hostapd_config.write(hostapd_template % (self.interface, self.setup_ssid))
+    hostapd_config.close()
+
     self.hostapd.start()
     time.sleep(3)
-    self.run_command(ifconfig_cmd)
+    self.run_command(ifconfig_cmd % self.interface)
     self.dhcpd.start()
 
   def switch_to_wifi(self, ssid, passwd, token):
     try:
+      udhcpd_config = open(udhcpd_conf, 'w')
+      udhcpd_config.write(udhcpd_template % self.interface)
+      udhcpd_config.close()
+
       wpa_config = open(wpa_supplicant_conf, 'w')
       wpa_config.write(wpa_supplicant_template % (ssid, passwd))
       wpa_config.close()
+
       self.hostapd.end()
       self.dhcpd.end()
       self.wpa_supplicant.start()
-      self.run_command(dhclient_release)
-      self.run_command(dhclient_renew)
+      self.run_command(dhclient_release % self.interface)
+      self.run_command(dhclient_renew % self.interface)
 
       self.state.set_wifi(ssid, passwd)
       self.delegate.on_wifi_connected(token)
@@ -276,8 +309,9 @@ class WifiHandlerReal(WifiHandler):
 class WifiHandlerPassthrough(WifiHandler):
   """Passthrough wifi handler."""
 
-  def __init__(self, ioloop, state, delegate):
-    super(WifiHandlerPassthrough, self).__init__(ioloop, state, delegate)
+  def __init__(self, ioloop, state, config, setup_ssid, delegate):
+    super(WifiHandlerPassthrough, self).__init__(ioloop, state, config,
+                                                 setup_ssid, delegate)
 
   def start(self):
     self.delegate.on_wifi_connected(None)
@@ -373,6 +407,33 @@ class State(object):
     return self.device_id_
 
 
+class Config(object):
+  """Configuration parameters (should not change)"""
+  def __init__(self):
+    if not os.path.isfile(_CONFIG_FILE):
+      config = {
+          'oauth_client_id': '',
+          'oauth_secret': '',
+          'api_key': '',
+          'wireless_interface': ''
+      }
+      config_f = open(_CONFIG_FILE + '.sample', 'w')
+      config_f.write(json.dumps(credentials, sort_keys=True,
+                                     indent=2, separators=(',', ': ')))
+      config_f.close()
+      raise Exception('Missing ' + _CONFIG_FILE)
+
+    config_f = open(_CONFIG_FILE)
+    config = json.load(config_f)
+    config_f.close()
+
+    self.config = config
+
+  def __getitem__(self, item):
+    if item in self.config:
+      return self.config[item]
+    return None
+
 class MDnsWrapper(object):
   """Handles mDNS requests to device."""
 
@@ -432,28 +493,13 @@ class CloudDevice(object):
     def on_device_stopped(self):
       raise Exception('Not implemented: Device stopped')
 
-  def __init__(self, ioloop, state, command_wrapper, delegate):
+  def __init__(self, ioloop, state, config, command_wrapper, delegate):
     self.state = state
     self.http = httplib2.Http()
-    if not os.path.isfile(_API_CLIENT_FILE):
-      credentials = {
-          'oauth_client_id': '',
-          'oauth_secret': '',
-          'api_key': ''
-      }
-      credentials_f = open(_API_CLIENT_FILE + '.samlpe', 'w')
-      credentials_f.write(json.dumps(credentials, sort_keys=True,
-                                     indent=2, separators=(',', ': ')))
-      credentials_f.close()
-      raise Exception('Missing ' + _API_CLIENT_FILE)
 
-    credentials_f = open(_API_CLIENT_FILE)
-    credentials = json.load(credentials_f)
-    credentials_f.close()
-
-    self.oauth_client_id = credentials['oauth_client_id']
-    self.oauth_secret = credentials['oauth_secret']
-    self.api_key = credentials['api_key']
+    self.oauth_client_id = config['oauth_client_id']
+    self.oauth_secret = config['oauth_secret']
+    self.api_key = config['api_key']
 
     if not os.path.isfile(_API_DISCOVERY_FILE):
       raise Exception('Download https://developers.google.com/'
@@ -470,7 +516,7 @@ class CloudDevice(object):
     self.device_id = None
     self.credentials = None
     self.delegate = delegate
-    self.command_handler = command_wrapper(ioloop)
+    self.command_handler = command_wrapper
 
   def try_start(self, token):
     """Tries start or register device."""
@@ -682,31 +728,42 @@ class WebRequestHandler(WifiHandler.Delegate, CloudDevice.Delegate):
       return 'complete'
 
   def __init__(self, ioloop, state):
-    if os.path.exists('on_real_device'):
+    self.config = Config()
+
+    if self.config['on_real_device']:
       mdns_wrappers = CommandWrapperReal
-      cloud_wrapper = CloudCommandHandlerReal
       wifi_handler = WifiHandlerReal
-      self.setup_real()
     else:
       mdns_wrappers = CommandWrapperReal
-      cloud_wrapper = CloudCommandHandlerFake
       wifi_handler = WifiHandlerPassthrough
+
+
+    if self.config['led_path']:
+      cloud_wrapper = CloudCommandHandlerReal(ioloop,
+                                                      self.config['led_path'])
+      self.setup_real(self.config['led_path'])
+    else:
+      cloud_wrapper = CloudCommandHandlerFake(ioloop)
       self.setup_fake()
 
-    self.cloud_device = CloudDevice(ioloop, state, cloud_wrapper, self)
-    self.wifi_handler = wifi_handler(ioloop, state, self)
+    self.setup_ssid = _DEVICE_SETUP_SSID % random.randint(0,99)
+    self.cloud_device = CloudDevice(ioloop, state, self.config,
+                                    cloud_wrapper, self)
+    self.wifi_handler = wifi_handler(ioloop, state, self.config,
+                                     self.setup_ssid, self)
     self.mdns_wrapper = MDnsWrapper(mdns_wrappers)
     self.on_wifi = False
     self.registered = False
     self.in_session = False
     self.ioloop = ioloop
+
     self.handlers = {
         '/internal/ping': self.do_ping,
         '/privet/info': self.do_info,
         '/deprecated/wifi/switch': self.do_wifi_switch,
         '/privet/v3/session/handshake': self.do_session_handshake,
         '/privet/v3/session/cancel': self.do_session_cancel,
-        '/privet/v3/session/call': self.do_session_call,
+        '/privet/v3/session/request': self.do_session_call,
         '/privet/v3/setup/start':
             self.get_insecure_api_handler(self.do_secure_setup_start),
         '/privet/v3/setup/cancel':
@@ -733,14 +790,14 @@ class WebRequestHandler(WifiHandler.Delegate, CloudDevice.Delegate):
     print 'Skipping device setup'
 
   @staticmethod
-  def setup_real():
+  def setup_real(led_path):
     file_trigger = open(os.path.join(led_path, 'trigger'), 'w')
     file_trigger.write('none')
     file_trigger.close()
 
   def start(self):
     self.wifi_handler.start()
-    self.mdns_wrapper.set_setup_name(_DEVICE_SETUP_SSID)
+    self.mdns_wrapper.set_setup_name(self.setup_ssid)
     self.mdns_wrapper.start()
 
   @get_only
@@ -754,7 +811,6 @@ class WebRequestHandler(WifiHandler.Delegate, CloudDevice.Delegate):
         'stype': self.session_handlers.keys()}.items())
     response_func(200, info)
 
-  @post_provisioning
   @get_only
   def do_info(self, unused_request, response_func):
     specific_info = {
@@ -793,7 +849,10 @@ class WebRequestHandler(WifiHandler.Delegate, CloudDevice.Delegate):
       stype = data['keyExchangeType']
       step = data['step']
       package = base64.b64decode(data['package'])
-      session_id = data['sessionID']
+      if 'sessionID' in data:
+        session_id = data['sessionID']
+      else:
+        session_id = "dummy"
     except (KeyError, TypeError):
       traceback.print_exc()
       print 'Malformed content: ' + repr(data)
@@ -958,8 +1017,8 @@ class WebRequestHandler(WifiHandler.Delegate, CloudDevice.Delegate):
       else:
         response_func(400, {'error': 'invalidParams'})
         return
-    except HttpError:
-      pass  # TODO(noamsml): store error message in this case
+    except HttpError as e:
+      print e  # TODO(noamsml): store error message in this case
 
     self.do_secure_status(unused_request, response_func, params)
 

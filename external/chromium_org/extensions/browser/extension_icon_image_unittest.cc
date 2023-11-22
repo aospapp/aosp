@@ -4,14 +4,18 @@
 
 #include "extensions/browser/extension_icon_image.h"
 
+#include <vector>
+
 #include "base/json/json_file_value_serializer.h"
 #include "base/message_loop/message_loop.h"
 #include "base/path_service.h"
-#include "chrome/common/chrome_paths.h"
-#include "chrome/test/base/testing_profile.h"
+#include "content/public/browser/notification_service.h"
+#include "content/public/test/test_browser_context.h"
 #include "content/public/test/test_browser_thread.h"
+#include "extensions/browser/extensions_test.h"
 #include "extensions/browser/image_loader.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/extension_paths.h"
 #include "extensions/common/manifest.h"
 #include "extensions/common/manifest_handlers/icons_handler.h"
 #include "skia/ext/image_operations.h"
@@ -21,19 +25,15 @@
 #include "ui/gfx/skia_util.h"
 
 using content::BrowserThread;
-using extensions::Extension;
-using extensions::IconImage;
-using extensions::Manifest;
 
+namespace extensions {
 namespace {
 
 SkBitmap CreateBlankBitmapForScale(int size_dip, ui::ScaleFactor scale_factor) {
   SkBitmap bitmap;
   const float scale = ui::GetScaleForScaleFactor(scale_factor);
-  bitmap.setConfig(SkBitmap::kARGB_8888_Config,
-                   static_cast<int>(size_dip * scale),
-                   static_cast<int>(size_dip * scale));
-  bitmap.allocPixels();
+  bitmap.allocN32Pixels(static_cast<int>(size_dip * scale),
+                        static_cast<int>(size_dip * scale));
   bitmap.eraseColor(SkColorSetARGB(0, 0, 0, 0));
   return bitmap;
 }
@@ -109,12 +109,12 @@ class TestImageLoader {
   bool waiting_;
   bool image_loaded_;
   gfx::Image image_;
-  extensions::ImageLoader image_loader_;
+  ImageLoader image_loader_;
 
   DISALLOW_COPY_AND_ASSIGN(TestImageLoader);
 };
 
-class ExtensionIconImageTest : public testing::Test,
+class ExtensionIconImageTest : public ExtensionsTest,
                                public IconImage::Observer {
  public:
   ExtensionIconImageTest()
@@ -122,8 +122,8 @@ class ExtensionIconImageTest : public testing::Test,
         quit_in_image_loaded_(false),
         ui_thread_(BrowserThread::UI, &ui_loop_),
         file_thread_(BrowserThread::FILE),
-        io_thread_(BrowserThread::IO) {
-  }
+        io_thread_(BrowserThread::IO),
+        notification_service_(content::NotificationService::Create()) {}
 
   virtual ~ExtensionIconImageTest() {}
 
@@ -143,14 +143,14 @@ class ExtensionIconImageTest : public testing::Test,
                                            Manifest::Location location) {
     // Create and load an extension.
     base::FilePath test_file;
-    if (!PathService::Get(chrome::DIR_TEST_DATA, &test_file)) {
+    if (!PathService::Get(DIR_TEST_DATA, &test_file)) {
       EXPECT_FALSE(true);
       return NULL;
     }
-    test_file = test_file.AppendASCII("extensions").AppendASCII(name);
+    test_file = test_file.AppendASCII(name);
     int error_code = 0;
     std::string error;
-    JSONFileValueSerializer serializer(test_file.AppendASCII("app.json"));
+    JSONFileValueSerializer serializer(test_file.AppendASCII("manifest.json"));
     scoped_ptr<base::DictionaryValue> valid_value(
         static_cast<base::DictionaryValue*>(serializer.Deserialize(&error_code,
                                                                    &error)));
@@ -199,6 +199,7 @@ class ExtensionIconImageTest : public testing::Test,
   content::TestBrowserThread ui_thread_;
   content::TestBrowserThread file_thread_;
   content::TestBrowserThread io_thread_;
+  scoped_ptr<content::NotificationService> notification_service_;
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionIconImageTest);
 };
@@ -210,7 +211,6 @@ TEST_F(ExtensionIconImageTest, Basic) {
   supported_factors.push_back(ui::SCALE_FACTOR_100P);
   supported_factors.push_back(ui::SCALE_FACTOR_200P);
   ui::test::ScopedSetSupportedScaleFactors scoped_supported(supported_factors);
-  scoped_ptr<content::BrowserContext> profile(new TestingProfile());
   scoped_refptr<Extension> extension(CreateExtension(
       "extension_icon_image", Manifest::INVALID_LOCATION));
   ASSERT_TRUE(extension.get() != NULL);
@@ -228,9 +228,9 @@ TEST_F(ExtensionIconImageTest, Basic) {
       GetTestBitmap(extension.get(), "48.png", 32);
   ASSERT_FALSE(bitmap_48_resized_to_32.empty());
 
-  IconImage image(profile.get(),
+  IconImage image(browser_context(),
                   extension.get(),
-                  extensions::IconsInfo::GetIcons(extension.get()),
+                  IconsInfo::GetIcons(extension.get()),
                   16,
                   default_icon,
                   this);
@@ -284,7 +284,6 @@ TEST_F(ExtensionIconImageTest, FallbackToSmallerWhenNoBigger) {
   supported_factors.push_back(ui::SCALE_FACTOR_100P);
   supported_factors.push_back(ui::SCALE_FACTOR_200P);
   ui::test::ScopedSetSupportedScaleFactors scoped_supported(supported_factors);
-  scoped_ptr<content::BrowserContext> profile(new TestingProfile());
   scoped_refptr<Extension> extension(CreateExtension(
       "extension_icon_image", Manifest::INVALID_LOCATION));
   ASSERT_TRUE(extension.get() != NULL);
@@ -296,9 +295,9 @@ TEST_F(ExtensionIconImageTest, FallbackToSmallerWhenNoBigger) {
   SkBitmap bitmap_48 = GetTestBitmap(extension.get(), "48.png", 48);
   ASSERT_FALSE(bitmap_48.empty());
 
-  IconImage image(profile.get(),
+  IconImage image(browser_context(),
                   extension.get(),
-                  extensions::IconsInfo::GetIcons(extension.get()),
+                  IconsInfo::GetIcons(extension.get()),
                   32,
                   default_icon,
                   this);
@@ -320,10 +319,8 @@ TEST_F(ExtensionIconImageTest, FallbackToSmallerWhenNoBigger) {
 }
 
 // There is no resource with exact size, but there is a smaller and a bigger
-// one. Requested size is smaller than 32 though, so the smaller resource should
-// be loaded.
-TEST_F(ExtensionIconImageTest, FallbackToSmaller) {
-  scoped_ptr<content::BrowserContext> profile(new TestingProfile());
+// one. The bigger resource should be loaded.
+TEST_F(ExtensionIconImageTest, FallbackToBigger) {
   scoped_refptr<Extension> extension(CreateExtension(
       "extension_icon_image", Manifest::INVALID_LOCATION));
   ASSERT_TRUE(extension.get() != NULL);
@@ -332,12 +329,12 @@ TEST_F(ExtensionIconImageTest, FallbackToSmaller) {
 
   // Load images we expect to find as representations in icon_image, so we
   // can later use them to validate icon_image.
-  SkBitmap bitmap_16 = GetTestBitmap(extension.get(), "16.png", 16);
-  ASSERT_FALSE(bitmap_16.empty());
+  SkBitmap bitmap_24 = GetTestBitmap(extension.get(), "24.png", 24);
+  ASSERT_FALSE(bitmap_24.empty());
 
-  IconImage image(profile.get(),
+  IconImage image(browser_context(),
                   extension.get(),
-                  extensions::IconsInfo::GetIcons(extension.get()),
+                  IconsInfo::GetIcons(extension.get()),
                   17,
                   default_icon,
                   this);
@@ -350,17 +347,16 @@ TEST_F(ExtensionIconImageTest, FallbackToSmaller) {
 
   representation = image.image_skia().GetRepresentation(1.0f);
 
-  // We should have loaded smaller (resized) resource.
+  // We should have loaded the smallest bigger (resized) resource.
   EXPECT_EQ(1.0f, representation.scale());
   EXPECT_EQ(17, representation.pixel_width());
   EXPECT_TRUE(gfx::BitmapsAreEqual(representation.sk_bitmap(),
-                                   EnsureBitmapSize(bitmap_16, 17)));
+                                   EnsureBitmapSize(bitmap_24, 17)));
 }
 
 // If resource set is empty, |GetRepresentation| should synchronously return
 // default icon, without notifying observer of image change.
 TEST_F(ExtensionIconImageTest, NoResources) {
-  scoped_ptr<content::BrowserContext> profile(new TestingProfile());
   scoped_refptr<Extension> extension(CreateExtension(
       "extension_icon_image", Manifest::INVALID_LOCATION));
   ASSERT_TRUE(extension.get() != NULL);
@@ -369,7 +365,7 @@ TEST_F(ExtensionIconImageTest, NoResources) {
   gfx::ImageSkia default_icon = GetDefaultIcon();
 
   const int kRequestedSize = 24;
-  IconImage image(profile.get(),
+  IconImage image(browser_context(),
                   extension.get(),
                   empty_icon_set,
                   kRequestedSize,
@@ -399,7 +395,6 @@ TEST_F(ExtensionIconImageTest, NoResources) {
 // the observer should be notified when it's done. |GetRepresentation| should
 // return the default icon representation once image load is done.
 TEST_F(ExtensionIconImageTest, InvalidResource) {
-  scoped_ptr<content::BrowserContext> profile(new TestingProfile());
   scoped_refptr<Extension> extension(CreateExtension(
       "extension_icon_image", Manifest::INVALID_LOCATION));
   ASSERT_TRUE(extension.get() != NULL);
@@ -410,7 +405,7 @@ TEST_F(ExtensionIconImageTest, InvalidResource) {
 
   gfx::ImageSkia default_icon = GetDefaultIcon();
 
-  IconImage image(profile.get(),
+  IconImage image(browser_context(),
                   extension.get(),
                   invalid_icon_set,
                   kInvalidIconSize,
@@ -438,7 +433,6 @@ TEST_F(ExtensionIconImageTest, InvalidResource) {
 // Test that IconImage works with lazily (but synchronously) created default
 // icon when IconImage returns synchronously.
 TEST_F(ExtensionIconImageTest, LazyDefaultIcon) {
-  scoped_ptr<content::BrowserContext> profile(new TestingProfile());
   scoped_refptr<Extension> extension(CreateExtension(
       "extension_icon_image", Manifest::INVALID_LOCATION));
   ASSERT_TRUE(extension.get() != NULL);
@@ -450,7 +444,7 @@ TEST_F(ExtensionIconImageTest, LazyDefaultIcon) {
   ExtensionIconSet empty_icon_set;
 
   const int kRequestedSize = 128;
-  IconImage image(profile.get(),
+  IconImage image(browser_context(),
                   extension.get(),
                   empty_icon_set,
                   kRequestedSize,
@@ -476,7 +470,6 @@ TEST_F(ExtensionIconImageTest, LazyDefaultIcon) {
 // Test that IconImage works with lazily (but synchronously) created default
 // icon when IconImage returns asynchronously.
 TEST_F(ExtensionIconImageTest, LazyDefaultIcon_AsyncIconImage) {
-  scoped_ptr<content::BrowserContext> profile(new TestingProfile());
   scoped_refptr<Extension> extension(CreateExtension(
       "extension_icon_image", Manifest::INVALID_LOCATION));
   ASSERT_TRUE(extension.get() != NULL);
@@ -489,7 +482,7 @@ TEST_F(ExtensionIconImageTest, LazyDefaultIcon_AsyncIconImage) {
   ExtensionIconSet invalid_icon_set;
   invalid_icon_set.Add(kInvalidIconSize, "invalid.png");
 
-  IconImage image(profile.get(),
+  IconImage image(browser_context(),
                   extension.get(),
                   invalid_icon_set,
                   kInvalidIconSize,
@@ -520,7 +513,6 @@ TEST_F(ExtensionIconImageTest, LazyDefaultIcon_AsyncIconImage) {
 // representation was not loaded while IconImage host was around, transparent
 // representations should be returned.
 TEST_F(ExtensionIconImageTest, IconImageDestruction) {
-  scoped_ptr<content::BrowserContext> profile(new TestingProfile());
   scoped_refptr<Extension> extension(CreateExtension(
       "extension_icon_image", Manifest::INVALID_LOCATION));
   ASSERT_TRUE(extension.get() != NULL);
@@ -533,9 +525,9 @@ TEST_F(ExtensionIconImageTest, IconImageDestruction) {
   ASSERT_FALSE(bitmap_16.empty());
 
   scoped_ptr<IconImage> image(
-      new IconImage(profile.get(),
+      new IconImage(browser_context(),
                     extension.get(),
-                    extensions::IconsInfo::GetIcons(extension.get()),
+                    IconsInfo::GetIcons(extension.get()),
                     16,
                     default_icon,
                     this));
@@ -569,3 +561,5 @@ TEST_F(ExtensionIconImageTest, IconImageDestruction) {
   EXPECT_EQ(16, representation.GetHeight());
   EXPECT_EQ(2.0f, representation.scale());
 }
+
+}  // namespace extensions

@@ -6,18 +6,18 @@
 
 #include "base/bind.h"
 #include "base/debug/trace_event.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/numerics/safe_conversions.h"
-#include "base/path_service.h"
 #include "base/rand_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/time/time.h"
-#include "chrome/browser/component_updater/component_updater_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
+#include "components/component_updater/component_updater_service.h"
 #include "content/public/browser/browser_thread.h"
 #include "net/cert/crl_set.h"
+#include "net/cert/crl_set_storage.h"
 #include "net/ssl/ssl_config_service.h"
 
 using component_updater::ComponentUpdateService;
@@ -25,19 +25,20 @@ using content::BrowserThread;
 
 CRLSetFetcher::CRLSetFetcher() : cus_(NULL) {}
 
-bool CRLSetFetcher::GetCRLSetFilePath(base::FilePath* path) const {
-  bool ok = PathService::Get(chrome::DIR_USER_DATA, path);
-  if (!ok) {
-    NOTREACHED();
-    return false;
-  }
-  *path = path->Append(chrome::kCRLSetFilename);
-  return true;
+void CRLSetFetcher::SetCRLSetFilePath(const base::FilePath& path) {
+  crl_path_ = path.Append(chrome::kCRLSetFilename);
 }
 
-void CRLSetFetcher::StartInitialLoad(ComponentUpdateService* cus) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+base::FilePath CRLSetFetcher::GetCRLSetFilePath() const {
+  return crl_path_;
+}
 
+void CRLSetFetcher::StartInitialLoad(ComponentUpdateService* cus,
+                                     const base::FilePath& path) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  if (path.empty())
+    return;
+  SetCRLSetFilePath(path);
   cus_ = cus;
 
   if (!BrowserThread::PostTask(
@@ -47,9 +48,12 @@ void CRLSetFetcher::StartInitialLoad(ComponentUpdateService* cus) {
   }
 }
 
-void CRLSetFetcher::DeleteFromDisk() {
+void CRLSetFetcher::DeleteFromDisk(const base::FilePath& path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
+  if (path.empty())
+    return;
+  SetCRLSetFilePath(path);
   if (!BrowserThread::PostTask(
           BrowserThread::FILE, FROM_HERE,
           base::Bind(&CRLSetFetcher::DoDeleteFromDisk, this))) {
@@ -60,11 +64,7 @@ void CRLSetFetcher::DeleteFromDisk() {
 void CRLSetFetcher::DoInitialLoadFromDisk() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
 
-  base::FilePath crl_set_file_path;
-  if (!GetCRLSetFilePath(&crl_set_file_path))
-    return;
-
-  LoadFromDisk(crl_set_file_path, &crl_set_);
+  LoadFromDisk(GetCRLSetFilePath(), &crl_set_);
 
   uint32 sequence_of_loaded_crl = 0;
   if (crl_set_.get())
@@ -95,7 +95,7 @@ void CRLSetFetcher::LoadFromDisk(base::FilePath path,
       return;
   }
 
-  if (!net::CRLSet::Parse(crl_set_bytes, out_crl_set)) {
+  if (!net::CRLSetStorage::Parse(crl_set_bytes, out_crl_set)) {
     LOG(WARNING) << "Failed to parse CRL set from " << path.MaybeAsASCII();
     return;
   }
@@ -159,11 +159,7 @@ void CRLSetFetcher::RegisterComponent(uint32 sequence_of_loaded_crl) {
 void CRLSetFetcher::DoDeleteFromDisk() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
 
-  base::FilePath crl_set_file_path;
-  if (!GetCRLSetFilePath(&crl_set_file_path))
-    return;
-
-  DeleteFile(crl_set_file_path, false /* not recursive */);
+  DeleteFile(GetCRLSetFilePath(), false /* not recursive */);
 }
 
 void CRLSetFetcher::OnUpdateError(int error) {
@@ -175,9 +171,7 @@ bool CRLSetFetcher::Install(const base::DictionaryValue& manifest,
                             const base::FilePath& unpack_path) {
   base::FilePath crl_set_file_path =
       unpack_path.Append(FILE_PATH_LITERAL("crl-set"));
-  base::FilePath save_to;
-  if (!GetCRLSetFilePath(&save_to))
-    return true;
+  base::FilePath save_to = GetCRLSetFilePath();
 
   std::string crl_set_bytes;
   if (!base::ReadFileToString(crl_set_file_path, &crl_set_bytes)) {
@@ -186,13 +180,13 @@ bool CRLSetFetcher::Install(const base::DictionaryValue& manifest,
   }
 
   bool is_delta;
-  if (!net::CRLSet::GetIsDeltaUpdate(crl_set_bytes, &is_delta)) {
+  if (!net::CRLSetStorage::GetIsDeltaUpdate(crl_set_bytes, &is_delta)) {
     LOG(WARNING) << "GetIsDeltaUpdate failed on CRL set from update CRX";
     return false;
   }
 
   if (!is_delta) {
-    if (!net::CRLSet::Parse(crl_set_bytes, &crl_set_)) {
+    if (!net::CRLSetStorage::Parse(crl_set_bytes, &crl_set_)) {
       LOG(WARNING) << "Failed to parse CRL set from update CRX";
       return false;
     }
@@ -205,13 +199,15 @@ bool CRLSetFetcher::Install(const base::DictionaryValue& manifest,
     }
   } else {
     scoped_refptr<net::CRLSet> new_crl_set;
-    if (!crl_set_->ApplyDelta(crl_set_bytes, &new_crl_set)) {
+    if (!net::CRLSetStorage::ApplyDelta(
+            crl_set_.get(), crl_set_bytes, &new_crl_set)) {
       LOG(WARNING) << "Failed to parse delta CRL set";
       return false;
     }
     VLOG(1) << "Applied CRL set delta #" << crl_set_->sequence()
             << "->#" << new_crl_set->sequence();
-    const std::string new_crl_set_bytes = new_crl_set->Serialize();
+    const std::string new_crl_set_bytes =
+        net::CRLSetStorage::Serialize(new_crl_set.get());
     int size = base::checked_cast<int>(new_crl_set_bytes.size());
     if (base::WriteFile(save_to, new_crl_set_bytes.data(), size) != size) {
       LOG(WARNING) << "Failed to save new CRL set to disk";

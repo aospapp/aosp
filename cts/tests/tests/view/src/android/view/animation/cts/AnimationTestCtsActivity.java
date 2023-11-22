@@ -20,11 +20,41 @@ import com.android.cts.view.R;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.util.Log;
+
+import java.util.concurrent.TimeUnit;
 
 public class AnimationTestCtsActivity extends Activity {
+    final static long VISIBLE_TIMEOUT = TimeUnit.SECONDS.toNanos(3);
+    private boolean mIsVisible;
+
+    public boolean isVisible() {
+        return mIsVisible;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.anim_layout);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mIsVisible = true;
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mIsVisible = false;
+    }
+
+    public boolean waitUntilVisible() throws InterruptedException {
+        long start = System.nanoTime();
+        while (!mIsVisible && (System.nanoTime() - start) < VISIBLE_TIMEOUT) {
+            Thread.sleep(100);
+        }
+        return mIsVisible;
     }
 }

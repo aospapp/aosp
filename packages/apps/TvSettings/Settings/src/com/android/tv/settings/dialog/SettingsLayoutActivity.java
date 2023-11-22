@@ -17,6 +17,7 @@
 package com.android.tv.settings.dialog;
 
 import android.app.Activity;
+import android.app.FragmentManager;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -24,7 +25,6 @@ import android.content.res.Resources;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.util.Log;
 
 import com.android.tv.settings.dialog.SettingsLayoutFragment;
 import com.android.tv.settings.dialog.Layout;
@@ -42,21 +42,25 @@ public abstract class SettingsLayoutActivity extends Activity implements
         SettingsLayoutFragment.Listener, SettingsLayoutAdapter.OnFocusListener {
 
     private SettingsLayoutFragment mSettingsLayoutFragment;
-    private Layout mLayout;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        mLayout = createLayout();
-        mLayout.navigateToRoot();
-        mSettingsLayoutFragment = new SettingsLayoutFragment.Builder()
-                .title(mLayout.getTitle())
-                .breadcrumb(mLayout.getBreadcrumb())
-                .icon(mLayout.getIcon())
-                .iconBackgroundColor(getResources().getColor(R.color.icon_background))
-                .layout(mLayout).build();
-        SettingsLayoutFragment.add(getFragmentManager(), mSettingsLayoutFragment);
+        final Layout layout = createLayout();
+        layout.navigateToRoot();
+        final FragmentManager fm = getFragmentManager();
+        mSettingsLayoutFragment = (SettingsLayoutFragment) fm.findFragmentByTag(
+                SettingsLayoutFragment.TAG_LEAN_BACK_DIALOG_FRAGMENT);
+        if (mSettingsLayoutFragment == null) {
+            mSettingsLayoutFragment = new SettingsLayoutFragment.Builder()
+                    .title(layout.getTitle())
+                    .breadcrumb(layout.getBreadcrumb())
+                    .icon(layout.getIcon())
+                    .iconBackgroundColor(getResources().getColor(R.color.icon_background))
+                    .build();
+            SettingsLayoutFragment.add(fm, mSettingsLayoutFragment);
+        }
+        mSettingsLayoutFragment.setLayout(layout);
     }
 
     @Override

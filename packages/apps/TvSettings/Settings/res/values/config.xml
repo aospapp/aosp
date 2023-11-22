@@ -14,7 +14,6 @@
      limitations under the License.
 -->
 <resources>
-    <bool name="multiple_accounts_enabled">false</bool>
     <integer name="settings_fade_in_duration">350</integer>
     <integer name="settings_fade_out_duration">350</integer>
     <integer name="action_title_max_lines">3</integer>

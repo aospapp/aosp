@@ -9,6 +9,7 @@
 
 #include "base/files/file_path.h"
 #include "base/logging.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_tokenizer.h"
 #include "base/strings/string_util.h"
@@ -140,21 +141,27 @@ bool GetNetworkList(NetworkInterfaceList* networks, int policy) {
     CHECK(base::StringToUint(network_tokenizer.token(), &index));
 
     networks->push_back(
-        NetworkInterface(name, name, index,
+        NetworkInterface(name,
+                         name,
+                         index,
                          NetworkChangeNotifier::CONNECTION_UNKNOWN,
-                         address, network_prefix));
+                         address,
+                         network_prefix,
+                         IP_ADDRESS_ATTRIBUTE_NONE));
   }
   return true;
 #else
   // getifaddrs() may require IO operations.
   base::ThreadRestrictions::AssertIOAllowed();
 
+#if defined(OS_MACOSX) && !defined(OS_IOS)
   int ioctl_socket = -1;
   if (policy & INCLUDE_ONLY_TEMP_IPV6_ADDRESS_IF_POSSIBLE) {
     // we need a socket to query information about temporary address.
     ioctl_socket = socket(AF_INET6, SOCK_DGRAM, 0);
     DCHECK_GT(ioctl_socket, 0);
   }
+#endif
 
   ifaddrs *interfaces;
   if (getifaddrs(&interfaces) < 0) {
@@ -245,17 +252,23 @@ bool GetNetworkList(NetworkInterfaceList* networks, int policy) {
           net_mask = MaskPrefixLength(netmask.address());
         }
       }
-      network_info.interface = NetworkInterface(
-          name, name, if_nametoindex(name.c_str()),
-          connection_type, address.address(), net_mask);
+      network_info.interface = NetworkInterface(name,
+                                                name,
+                                                if_nametoindex(name.c_str()),
+                                                connection_type,
+                                                address.address(),
+                                                net_mask,
+                                                IP_ADDRESS_ATTRIBUTE_NONE);
 
       network_infos.push_back(NetworkInterfaceInfo(network_info));
     }
   }
   freeifaddrs(interfaces);
+#if defined(OS_MACOSX) && !defined(OS_IOS)
   if (ioctl_socket >= 0) {
     close(ioctl_socket);
   }
+#endif
 
   if (policy & INCLUDE_ONLY_TEMP_IPV6_ADDRESS_IF_POSSIBLE) {
     RemovePermanentIPv6AddressesWhereTemporaryExists(&network_infos);
@@ -271,5 +284,10 @@ bool GetNetworkList(NetworkInterfaceList* networks, int policy) {
 WifiPHYLayerProtocol GetWifiPHYLayerProtocol() {
   return WIFI_PHY_LAYER_PROTOCOL_UNKNOWN;
 }
+
+scoped_ptr<ScopedWifiOptions> SetWifiOptions(int options) {
+  return scoped_ptr<ScopedWifiOptions>();
+}
+
 
 }  // namespace net

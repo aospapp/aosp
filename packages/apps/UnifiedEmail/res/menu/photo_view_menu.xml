@@ -21,7 +21,8 @@
         <item
             android:id="@+id/menu_save"
             android:showAsAction="never"
-            android:title="@string/save_attachment"/>
+            android:title="@string/save_attachment"
+            android:alphabeticShortcut="@string/trigger_save_char" />
         <item
             android:id="@+id/menu_save_all"
             android:showAsAction="never"
@@ -41,7 +42,8 @@
         <item
             android:id="@+id/menu_print"
             android:showAsAction="never"
-            android:title="@string/menu_photo_print"/>
+            android:title="@string/menu_photo_print"
+            android:alphabeticShortcut="@string/trigger_print_char" />
         <item
             android:id="@+id/menu_download_again"
             android:showAsAction="never"

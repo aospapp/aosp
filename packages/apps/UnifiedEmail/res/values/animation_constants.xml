@@ -21,7 +21,7 @@
     <integer name="dialog_animationDefaultDur">220</integer>
     <integer name="dialog_animationShortDur">150</integer>
     <integer name="shrink_animation_duration">200</integer>
-    <integer name="slide_animation_duration">320</integer>
+    <integer name="slide_animation_duration">200</integer>
     <integer name="fade_in_animation_duration">300</integer>
 
     <!-- Swipe constants -->

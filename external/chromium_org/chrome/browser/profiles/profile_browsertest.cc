@@ -5,14 +5,20 @@
 #include "chrome/browser/profiles/profile.h"
 
 #include "base/command_line.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/json/json_reader.h"
+#include "base/metrics/field_trial.h"
 #include "base/prefs/pref_service.h"
+#include "base/sequenced_task_runner.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/values.h"
 #include "base/version.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/profiles/chrome_version_service.h"
 #include "chrome/browser/profiles/profile_impl.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/startup_task_runner_service.h"
 #include "chrome/browser/profiles/startup_task_runner_service_factory.h"
 #include "chrome/common/chrome_constants.h"
@@ -42,20 +48,6 @@ void CreatePrefsFileInDirectory(const base::FilePath& directory_path) {
   ASSERT_TRUE(base::WriteFile(pref_path, data.c_str(), data.size()));
 }
 
-scoped_ptr<Profile> CreateProfile(
-    const base::FilePath& path,
-    Profile::Delegate* delegate,
-    Profile::CreateMode create_mode) {
-  scoped_ptr<Profile> profile(Profile::CreateProfile(
-      path, delegate, create_mode));
-  EXPECT_TRUE(profile.get());
-  // This is necessary to avoid a memleak from BookmarkModel::Load.
-  // Unfortunately, this also results in warnings during debug runs.
-  StartupTaskRunnerServiceFactory::GetForProfile(profile.get())->
-      StartDeferredTaskRunners();
-  return profile.Pass();
-}
-
 void CheckChromeVersion(Profile *profile, bool is_new) {
   std::string created_by_version;
   if (is_new) {
@@ -75,6 +67,16 @@ void BlockThread(
     base::WaitableEvent* unblock) {
   is_blocked->Signal();
   unblock->Wait();
+}
+
+void FlushTaskRunner(base::SequencedTaskRunner* runner) {
+  ASSERT_TRUE(runner);
+  base::WaitableEvent unblock(false, false);
+
+  runner->PostTask(FROM_HERE,
+      base::Bind(&base::WaitableEvent::Signal, base::Unretained(&unblock)));
+
+  unblock.Wait();
 }
 
 void SpinThreads() {
@@ -97,14 +99,32 @@ class ProfileBrowserTest : public InProcessBrowserTest {
         chromeos::switches::kIgnoreUserProfileMappingForTests);
 #endif
   }
+
+  scoped_ptr<Profile> CreateProfile(
+      const base::FilePath& path,
+      Profile::Delegate* delegate,
+      Profile::CreateMode create_mode) {
+    scoped_ptr<Profile> profile(Profile::CreateProfile(
+        path, delegate, create_mode));
+    EXPECT_TRUE(profile.get());
+
+    // Store the Profile's IO task runner so we can wind it down.
+    profile_io_task_runner_ = profile->GetIOTaskRunner();
+
+    return profile.Pass();
+  }
+
+  void FlushIoTaskRunnerAndSpinThreads() {
+    FlushTaskRunner(profile_io_task_runner_.get());
+    SpinThreads();
+  }
+
+  scoped_refptr<base::SequencedTaskRunner> profile_io_task_runner_;
 };
 
 // Test OnProfileCreate is called with is_new_profile set to true when
 // creating a new profile synchronously.
-//
-// Flaky (sometimes timeout): http://crbug.com/141141
-IN_PROC_BROWSER_TEST_F(ProfileBrowserTest,
-                       DISABLED_CreateNewProfileSynchronous) {
+IN_PROC_BROWSER_TEST_F(ProfileBrowserTest, CreateNewProfileSynchronous) {
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
 
@@ -117,14 +137,12 @@ IN_PROC_BROWSER_TEST_F(ProfileBrowserTest,
     CheckChromeVersion(profile.get(), true);
   }
 
-  SpinThreads();
+  FlushIoTaskRunnerAndSpinThreads();
 }
 
 // Test OnProfileCreate is called with is_new_profile set to false when
 // creating a profile synchronously with an existing prefs file.
-// Flaky: http://crbug.com/141517
-IN_PROC_BROWSER_TEST_F(ProfileBrowserTest,
-                       DISABLED_CreateOldProfileSynchronous) {
+IN_PROC_BROWSER_TEST_F(ProfileBrowserTest, CreateOldProfileSynchronous) {
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
   CreatePrefsFileInDirectory(temp_dir.path());
@@ -138,12 +156,12 @@ IN_PROC_BROWSER_TEST_F(ProfileBrowserTest,
     CheckChromeVersion(profile.get(), false);
   }
 
-  SpinThreads();
+  FlushIoTaskRunnerAndSpinThreads();
 }
 
+// Flaky: http://crbug.com/393177
 // Test OnProfileCreate is called with is_new_profile set to true when
 // creating a new profile asynchronously.
-// This test is flaky on Linux, Win and Mac.  See crbug.com/142787
 IN_PROC_BROWSER_TEST_F(ProfileBrowserTest,
                        DISABLED_CreateNewProfileAsynchronous) {
   base::ScopedTempDir temp_dir;
@@ -165,12 +183,13 @@ IN_PROC_BROWSER_TEST_F(ProfileBrowserTest,
     CheckChromeVersion(profile.get(), true);
   }
 
-  SpinThreads();
+  FlushIoTaskRunnerAndSpinThreads();
 }
 
+
+// Flaky: http://crbug.com/393177
 // Test OnProfileCreate is called with is_new_profile set to false when
 // creating a profile asynchronously with an existing prefs file.
-// Flaky: http://crbug.com/141517
 IN_PROC_BROWSER_TEST_F(ProfileBrowserTest,
                        DISABLED_CreateOldProfileAsynchronous) {
   base::ScopedTempDir temp_dir;
@@ -193,11 +212,11 @@ IN_PROC_BROWSER_TEST_F(ProfileBrowserTest,
     CheckChromeVersion(profile.get(), false);
   }
 
-  SpinThreads();
+  FlushIoTaskRunnerAndSpinThreads();
 }
 
+// Flaky: http://crbug.com/393177
 // Test that a README file is created for profiles that didn't have it.
-// Flaky: http://crbug.com/140882
 IN_PROC_BROWSER_TEST_F(ProfileBrowserTest, DISABLED_ProfileReadmeCreated) {
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
@@ -227,7 +246,7 @@ IN_PROC_BROWSER_TEST_F(ProfileBrowserTest, DISABLED_ProfileReadmeCreated) {
         temp_dir.path().Append(chrome::kReadmeFilename)));
   }
 
-  SpinThreads();
+  FlushIoTaskRunnerAndSpinThreads();
 }
 
 // Test that Profile can be deleted before README file is created.
@@ -262,17 +281,11 @@ IN_PROC_BROWSER_TEST_F(ProfileBrowserTest, ProfileDeletedBeforeReadmeCreated) {
   // task for README creation).
   unblock->Signal();
 
-  SpinThreads();
+  FlushIoTaskRunnerAndSpinThreads();
 }
 
 // Test that repeated setting of exit type is handled correctly.
-#if defined(OS_WIN)
-// Flaky on Windows: http://crbug.com/163713
-#define MAYBE_ExitType DISABLED_ExitType
-#else
-#define MAYBE_ExitType ExitType
-#endif
-IN_PROC_BROWSER_TEST_F(ProfileBrowserTest, MAYBE_ExitType) {
+IN_PROC_BROWSER_TEST_F(ProfileBrowserTest, ExitType) {
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
 
@@ -302,5 +315,149 @@ IN_PROC_BROWSER_TEST_F(ProfileBrowserTest, MAYBE_ExitType) {
     EXPECT_EQ(crash_value, final_value);
   }
 
-  SpinThreads();
+  FlushIoTaskRunnerAndSpinThreads();
 }
+
+// The EndSession IO synchronization is only critical on Windows, but also
+// happens under the USE_X11 define. See BrowserProcessImpl::EndSession.
+#if defined(USE_X11) || defined(OS_WIN)
+
+namespace {
+
+std::string GetExitTypePreferenceFromDisk(Profile* profile) {
+  base::FilePath prefs_path =
+      profile->GetPath().Append(chrome::kPreferencesFilename);
+  std::string prefs;
+  if (!base::ReadFileToString(prefs_path, &prefs))
+    return std::string();
+
+  scoped_ptr<base::Value> value(base::JSONReader::Read(prefs));
+  if (!value)
+    return std::string();
+
+  base::DictionaryValue* dict = NULL;
+  if (!value->GetAsDictionary(&dict) || !dict)
+    return std::string();
+
+  std::string exit_type;
+  if (!dict->GetString("profile.exit_type", &exit_type))
+    return std::string();
+
+  return exit_type;
+}
+
+}  // namespace
+
+IN_PROC_BROWSER_TEST_F(ProfileBrowserTest,
+                       WritesProfilesSynchronouslyOnEndSession) {
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+
+  ProfileManager* profile_manager = g_browser_process->profile_manager();
+  ASSERT_TRUE(profile_manager);
+  std::vector<Profile*> loaded_profiles = profile_manager->GetLoadedProfiles();
+
+  ASSERT_NE(loaded_profiles.size(), 0UL);
+  Profile* profile = loaded_profiles[0];
+
+  // This retry loop reduces flakiness due to the fact that this ultimately
+  // tests whether or not a code path hits a timed wait.
+  bool succeeded = false;
+  for (size_t retries = 0; !succeeded && retries < 3; ++retries) {
+    // Flush the profile data to disk for all loaded profiles.
+    profile->SetExitType(Profile::EXIT_CRASHED);
+    FlushTaskRunner(profile->GetIOTaskRunner().get());
+
+    // Make sure that the prefs file was written with the expected key/value.
+    ASSERT_EQ(GetExitTypePreferenceFromDisk(profile), "Crashed");
+
+    // The blocking wait in EndSession has a timeout.
+    base::Time start = base::Time::Now();
+
+    // This must not return until the profile data has been written to disk.
+    // If this test flakes, then logoff on Windows has broken again.
+    g_browser_process->EndSession();
+
+    base::Time end = base::Time::Now();
+
+    // The EndSession timeout is 10 seconds. If we take more than half that,
+    // go around again, as we may have timed out on the wait.
+    // This helps against flakes, and also ensures that if the IO thread starts
+    // blocking systemically for that length of time (e.g. deadlocking or such),
+    // we'll get a consistent test failure.
+    if (end - start > base::TimeDelta::FromSeconds(5))
+      continue;
+
+    // Make sure that the prefs file was written with the expected key/value.
+    ASSERT_EQ(GetExitTypePreferenceFromDisk(profile), "SessionEnded");
+
+    // Mark the success.
+    succeeded = true;
+  }
+
+  ASSERT_TRUE(succeeded) << "profile->EndSession() timed out too often.";
+}
+
+IN_PROC_BROWSER_TEST_F(ProfileBrowserTest,
+                       EndSessionBrokenSynchronizationExperiment) {
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+
+  // Select into the field trial group.
+  base::FieldTrialList::CreateFieldTrial("WindowsLogoffRace",
+                                         "BrokenSynchronization");
+
+  ProfileManager* profile_manager = g_browser_process->profile_manager();
+  ASSERT_TRUE(profile_manager);
+  std::vector<Profile*> loaded_profiles = profile_manager->GetLoadedProfiles();
+
+  ASSERT_NE(loaded_profiles.size(), 0UL);
+  Profile* profile = loaded_profiles[0];
+
+  bool mis_wrote = false;
+  // This retry loop reduces flakiness due to the fact that this ultimately
+  // tests whether or not a code path hits a timed wait.
+  for (size_t retries = 0; retries < 3; ++retries) {
+    // Flush the profile data to disk for all loaded profiles.
+    profile->SetExitType(Profile::EXIT_CRASHED);
+    FlushTaskRunner(profile->GetIOTaskRunner().get());
+
+    // Make sure that the prefs file was written with the expected key/value.
+    ASSERT_EQ(GetExitTypePreferenceFromDisk(profile), "Crashed");
+
+    base::WaitableEvent is_blocked(false, false);
+    base::WaitableEvent* unblock = new base::WaitableEvent(false, false);
+
+    // Block the profile's IO thread.
+    profile->GetIOTaskRunner()->PostTask(FROM_HERE,
+        base::Bind(&BlockThread, &is_blocked, base::Owned(unblock)));
+    // Wait for the IO thread to actually be blocked.
+    is_blocked.Wait();
+
+    // The blocking wait in EndSession has a timeout, so a non-write can only be
+    // concluded if it happens in less time than the timeout.
+    base::Time start = base::Time::Now();
+
+    // With the broken synchronization this is expected to return without
+    // blocking for the Profile's IO thread.
+    g_browser_process->EndSession();
+
+    base::Time end = base::Time::Now();
+
+    // The EndSession timeout is 10 seconds, we take a 5 second run-through as
+    // sufficient proof that we didn't hit the timed wait.
+    if (end - start < base::TimeDelta::FromSeconds(5)) {
+      // Make sure that the prefs file is unmodified with the expected
+      // key/value.
+      EXPECT_EQ(GetExitTypePreferenceFromDisk(profile), "Crashed");
+      mis_wrote = true;
+    }
+
+    // Release the IO thread thread.
+    unblock->Signal();
+  }
+
+  ASSERT_TRUE(mis_wrote);
+}
+
+#endif  // defined(USE_X11) || defined(OS_WIN)

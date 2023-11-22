@@ -22,6 +22,9 @@
 #include <nativebridge/native_bridge.h>
 #include <gtest/gtest.h>
 
+constexpr const char* kNativeBridgeLibrary = "libnativebridge-dummy.so";
+constexpr const char* kCodeCache = "./code_cache";
+
 namespace android {
 
 class NativeBridgeTest : public testing::Test {

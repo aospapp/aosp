@@ -19,10 +19,6 @@ class Time;
 
 namespace drive {
 
-// Function which converts the given resource ID into the desired format.
-typedef base::Callback<std::string(
-    const std::string& resource_id)> ResourceIdCanonicalizer;
-
 // Observer interface for DriveServiceInterface.
 class DriveServiceObserver {
  public:
@@ -113,10 +109,6 @@ class DriveServiceInterface {
 
   // True if ready to send requests.
   virtual bool CanSendRequest() const = 0;
-
-  // Returns a function which converts the given resource ID into the desired
-  // format.
-  virtual ResourceIdCanonicalizer GetResourceIdCanonicalizer() const = 0;
 
   // Authentication service:
 
@@ -297,15 +289,6 @@ class DriveServiceInterface {
       const base::Time& last_modified,
       const base::Time& last_viewed_by_me,
       const google_apis::FileResourceCallback& callback) = 0;
-
-  // Renames a document or collection identified by its |resource_id|
-  // to the UTF-8 encoded |new_title|. Upon completion,
-  // invokes |callback| with results on the calling thread.
-  // |callback| must not be null.
-  virtual google_apis::CancelCallback RenameResource(
-      const std::string& resource_id,
-      const std::string& new_title,
-      const google_apis::EntryActionCallback& callback) = 0;
 
   // Adds a resource (document, file, or collection) identified by its
   // |resource_id| to a collection represented by the |parent_resource_id|.

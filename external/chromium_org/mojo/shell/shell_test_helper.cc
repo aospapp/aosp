@@ -5,27 +5,15 @@
 #include "mojo/shell/shell_test_helper.h"
 
 #include "base/command_line.h"
+#include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
+#include "base/path_service.h"
 #include "mojo/shell/init.h"
+#include "net/base/filename_util.h"
 
 namespace mojo {
 namespace shell {
-
-class ShellTestHelper::TestServiceProvider : public ServiceProvider {
- public:
-  TestServiceProvider() {}
-  virtual ~TestServiceProvider() {}
-
-  // ServiceProvider:
-  virtual void ConnectToService(
-      const mojo::String& service_url,
-      const mojo::String& service_name,
-      ScopedMessagePipeHandle client_handle,
-      const mojo::String& requestor_url) OVERRIDE {}
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(TestServiceProvider);
-};
 
 ShellTestHelper::ShellTestHelper() {
   base::CommandLine::Init(0, NULL);
@@ -36,16 +24,18 @@ ShellTestHelper::~ShellTestHelper() {
 }
 
 void ShellTestHelper::Init() {
-  context_.reset(new Context);
-  test_api_.reset(new ServiceManager::TestAPI(context_->service_manager()));
-  local_service_provider_.reset(new TestServiceProvider);
-  service_provider_.Bind(test_api_->GetServiceProviderHandle().Pass());
-  service_provider_.set_client(local_service_provider_.get());
+  context_.Init();
+  test_api_.reset(
+      new ApplicationManager::TestAPI(context_.application_manager()));
+  base::FilePath service_dir;
+  CHECK(PathService::Get(base::DIR_MODULE, &service_dir));
+  context_.mojo_url_resolver()->SetBaseURL(
+      net::FilePathToFileURL(service_dir));
 }
 
-void ShellTestHelper::SetLoaderForURL(scoped_ptr<ServiceLoader> loader,
+void ShellTestHelper::SetLoaderForURL(scoped_ptr<ApplicationLoader> loader,
                                       const GURL& url) {
-  context_->service_manager()->SetLoaderForURL(loader.Pass(), url);
+  context_.application_manager()->SetLoaderForURL(loader.Pass(), url);
 }
 
 }  // namespace shell

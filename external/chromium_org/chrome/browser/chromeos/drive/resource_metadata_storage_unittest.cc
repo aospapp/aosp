@@ -6,11 +6,11 @@
 
 #include <algorithm>
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/strings/string_split.h"
 #include "chrome/browser/chromeos/drive/drive.pb.h"
 #include "chrome/browser/chromeos/drive/test_util.h"
-#include "chrome/browser/drive/drive_api_util.h"
 #include "content/public/test/test_browser_thread_bundle.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/leveldatabase/src/include/leveldb/db.h"
@@ -199,8 +199,7 @@ TEST_F(ResourceMetadataStorageTest, GetIdByResourceId) {
 TEST_F(ResourceMetadataStorageTest, GetChildren) {
   const std::string parents_id[] = { "mercury", "venus", "mars", "jupiter",
                                      "saturn" };
-  std::vector<std::vector<std::pair<std::string, std::string> > >
-      children_name_id(arraysize(parents_id));
+  std::vector<base::StringPairs> children_name_id(arraysize(parents_id));
   // Skip children_name_id[0/1] here because Mercury and Venus have no moon.
   children_name_id[2].push_back(std::make_pair("phobos", "mars_i"));
   children_name_id[2].push_back(std::make_pair("deimos", "mars_ii"));
@@ -309,8 +308,7 @@ TEST_F(ResourceMetadataStorageTest, IncompatibleDB_M29) {
 
   // Upgrade and reopen.
   storage_.reset();
-  EXPECT_TRUE(ResourceMetadataStorage::UpgradeOldDB(
-      temp_dir_.path(), base::Bind(&util::CanonicalizeResourceId)));
+  EXPECT_TRUE(ResourceMetadataStorage::UpgradeOldDB(temp_dir_.path()));
   storage_.reset(new ResourceMetadataStorage(
       temp_dir_.path(), base::MessageLoopProxy::current().get()));
   ASSERT_TRUE(storage_->Initialize());
@@ -362,8 +360,7 @@ TEST_F(ResourceMetadataStorageTest, IncompatibleDB_M32) {
 
   // Upgrade and reopen.
   storage_.reset();
-  EXPECT_TRUE(ResourceMetadataStorage::UpgradeOldDB(
-      temp_dir_.path(), base::Bind(&util::CanonicalizeResourceId)));
+  EXPECT_TRUE(ResourceMetadataStorage::UpgradeOldDB(temp_dir_.path()));
   storage_.reset(new ResourceMetadataStorage(
       temp_dir_.path(), base::MessageLoopProxy::current().get()));
   ASSERT_TRUE(storage_->Initialize());
@@ -424,8 +421,7 @@ TEST_F(ResourceMetadataStorageTest, IncompatibleDB_M33) {
 
   // Upgrade and reopen.
   storage_.reset();
-  EXPECT_TRUE(ResourceMetadataStorage::UpgradeOldDB(
-      temp_dir_.path(), base::Bind(&util::CanonicalizeResourceId)));
+  EXPECT_TRUE(ResourceMetadataStorage::UpgradeOldDB(temp_dir_.path()));
   storage_.reset(new ResourceMetadataStorage(
       temp_dir_.path(), base::MessageLoopProxy::current().get()));
   ASSERT_TRUE(storage_->Initialize());
@@ -463,8 +459,7 @@ TEST_F(ResourceMetadataStorageTest, IncompatibleDB_Unknown) {
   // Set newer version, upgrade and reopen DB.
   SetDBVersion(ResourceMetadataStorage::kDBVersion + 1);
   storage_.reset();
-  EXPECT_FALSE(ResourceMetadataStorage::UpgradeOldDB(
-      temp_dir_.path(), base::Bind(&util::CanonicalizeResourceId)));
+  EXPECT_FALSE(ResourceMetadataStorage::UpgradeOldDB(temp_dir_.path()));
   storage_.reset(new ResourceMetadataStorage(
       temp_dir_.path(), base::MessageLoopProxy::current().get()));
   ASSERT_TRUE(storage_->Initialize());
@@ -497,8 +492,7 @@ TEST_F(ResourceMetadataStorageTest, DeleteUnusedIDEntries) {
 
   // Upgrade and reopen.
   storage_.reset();
-  EXPECT_TRUE(ResourceMetadataStorage::UpgradeOldDB(
-      temp_dir_.path(), base::Bind(&util::CanonicalizeResourceId)));
+  EXPECT_TRUE(ResourceMetadataStorage::UpgradeOldDB(temp_dir_.path()));
   storage_.reset(new ResourceMetadataStorage(
       temp_dir_.path(), base::MessageLoopProxy::current().get()));
   ASSERT_TRUE(storage_->Initialize());

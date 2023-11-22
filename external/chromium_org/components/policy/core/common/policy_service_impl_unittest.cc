@@ -49,17 +49,22 @@ void AddTestPolicies(PolicyBundle* bundle,
                      PolicyScope scope) {
   PolicyMap* policy_map =
       &bundle->Get(PolicyNamespace(POLICY_DOMAIN_CHROME, std::string()));
-  policy_map->Set(kSameLevelPolicy, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-                  base::Value::CreateStringValue(value), NULL);
-  policy_map->Set(kDiffLevelPolicy, level, scope,
-                  base::Value::CreateStringValue(value), NULL);
+  policy_map->Set(kSameLevelPolicy,
+                  POLICY_LEVEL_MANDATORY,
+                  POLICY_SCOPE_USER,
+                  new base::StringValue(value),
+                  NULL);
+  policy_map->Set(
+      kDiffLevelPolicy, level, scope, new base::StringValue(value), NULL);
   policy_map =
       &bundle->Get(PolicyNamespace(POLICY_DOMAIN_EXTENSIONS, kExtension));
-  policy_map->Set(kSameLevelPolicy, POLICY_LEVEL_MANDATORY,
-                  POLICY_SCOPE_USER, base::Value::CreateStringValue(value),
+  policy_map->Set(kSameLevelPolicy,
+                  POLICY_LEVEL_MANDATORY,
+                  POLICY_SCOPE_USER,
+                  new base::StringValue(value),
                   NULL);
-  policy_map->Set(kDiffLevelPolicy, level, scope,
-                  base::Value::CreateStringValue(value), NULL);
+  policy_map->Set(
+      kDiffLevelPolicy, level, scope, new base::StringValue(value), NULL);
 }
 
 // Observer class that changes the policy in the passed provider when the
@@ -74,8 +79,11 @@ class ChangePolicyObserver : public PolicyService::Observer {
                                const PolicyMap& previous,
                                const PolicyMap& current) OVERRIDE {
     PolicyMap new_policy;
-    new_policy.Set("foo", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-                   base::Value::CreateIntegerValue(14), NULL);
+    new_policy.Set("foo",
+                   POLICY_LEVEL_MANDATORY,
+                   POLICY_SCOPE_USER,
+                   new base::FundamentalValue(14),
+                   NULL);
     provider_->UpdateChromePolicy(new_policy);
     observer_invoked_ = true;
   }
@@ -104,8 +112,11 @@ class PolicyServiceTest : public testing::Test {
     provider1_.Init();
     provider2_.Init();
 
-    policy0_.Set("pre", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-                 base::Value::CreateIntegerValue(13), NULL);
+    policy0_.Set("pre",
+                 POLICY_LEVEL_MANDATORY,
+                 POLICY_SCOPE_USER,
+                 new base::FundamentalValue(13),
+                 NULL);
     provider0_.UpdateChromePolicy(policy0_);
 
     PolicyServiceImpl::Providers providers;
@@ -153,8 +164,11 @@ class PolicyServiceTest : public testing::Test {
 
 TEST_F(PolicyServiceTest, LoadsPoliciesBeforeProvidersRefresh) {
   PolicyMap expected;
-  expected.Set("pre", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-               base::Value::CreateIntegerValue(13), NULL);
+  expected.Set("pre",
+               POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER,
+               new base::FundamentalValue(13),
+               NULL);
   EXPECT_TRUE(VerifyPolicies(
       PolicyNamespace(POLICY_DOMAIN_CHROME, std::string()), expected));
 }
@@ -164,15 +178,24 @@ TEST_F(PolicyServiceTest, NotifyObservers) {
   policy_service_->AddObserver(POLICY_DOMAIN_CHROME, &observer);
 
   PolicyMap expectedPrevious;
-  expectedPrevious.Set("pre", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-                       base::Value::CreateIntegerValue(13), NULL);
+  expectedPrevious.Set("pre",
+                       POLICY_LEVEL_MANDATORY,
+                       POLICY_SCOPE_USER,
+                       new base::FundamentalValue(13),
+                       NULL);
 
   PolicyMap expectedCurrent;
   expectedCurrent.CopyFrom(expectedPrevious);
-  expectedCurrent.Set("aaa", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-                      base::Value::CreateIntegerValue(123), NULL);
-  policy0_.Set("aaa", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-               base::Value::CreateIntegerValue(123), NULL);
+  expectedCurrent.Set("aaa",
+                      POLICY_LEVEL_MANDATORY,
+                      POLICY_SCOPE_USER,
+                      new base::FundamentalValue(123),
+                      NULL);
+  policy0_.Set("aaa",
+               POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER,
+               new base::FundamentalValue(123),
+               NULL);
   EXPECT_CALL(observer, OnPolicyUpdated(PolicyNamespace(POLICY_DOMAIN_CHROME,
                                                         std::string()),
                                         PolicyEquals(&expectedPrevious),
@@ -189,10 +212,16 @@ TEST_F(PolicyServiceTest, NotifyObservers) {
 
   // New policy.
   expectedPrevious.CopyFrom(expectedCurrent);
-  expectedCurrent.Set("bbb", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-                      base::Value::CreateIntegerValue(456), NULL);
-  policy0_.Set("bbb", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-               base::Value::CreateIntegerValue(456), NULL);
+  expectedCurrent.Set("bbb",
+                      POLICY_LEVEL_MANDATORY,
+                      POLICY_SCOPE_USER,
+                      new base::FundamentalValue(456),
+                      NULL);
+  policy0_.Set("bbb",
+               POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER,
+               new base::FundamentalValue(456),
+               NULL);
   EXPECT_CALL(observer, OnPolicyUpdated(PolicyNamespace(POLICY_DOMAIN_CHROME,
                                                         std::string()),
                                         PolicyEquals(&expectedPrevious),
@@ -213,10 +242,16 @@ TEST_F(PolicyServiceTest, NotifyObservers) {
 
   // Changed policy.
   expectedPrevious.CopyFrom(expectedCurrent);
-  expectedCurrent.Set("aaa", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-                      base::Value::CreateIntegerValue(789), NULL);
-  policy0_.Set("aaa", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-               base::Value::CreateIntegerValue(789), NULL);
+  expectedCurrent.Set("aaa",
+                      POLICY_LEVEL_MANDATORY,
+                      POLICY_SCOPE_USER,
+                      new base::FundamentalValue(789),
+                      NULL);
+  policy0_.Set("aaa",
+               POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER,
+               new base::FundamentalValue(789),
+               NULL);
 
   EXPECT_CALL(observer, OnPolicyUpdated(PolicyNamespace(POLICY_DOMAIN_CHROME,
                                                         std::string()),
@@ -245,12 +280,18 @@ TEST_F(PolicyServiceTest, NotifyObserversInMultipleNamespaces) {
   policy_service_->AddObserver(POLICY_DOMAIN_EXTENSIONS, &extension_observer);
 
   PolicyMap previous_policy_map;
-  previous_policy_map.Set("pre", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-                          base::Value::CreateIntegerValue(13), NULL);
+  previous_policy_map.Set("pre",
+                          POLICY_LEVEL_MANDATORY,
+                          POLICY_SCOPE_USER,
+                          new base::FundamentalValue(13),
+                          NULL);
   PolicyMap policy_map;
   policy_map.CopyFrom(previous_policy_map);
-  policy_map.Set("policy", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-                 base::Value::CreateStringValue("value"), NULL);
+  policy_map.Set("policy",
+                 POLICY_LEVEL_MANDATORY,
+                 POLICY_SCOPE_USER,
+                 new base::StringValue("value"),
+                 NULL);
 
   scoped_ptr<PolicyBundle> bundle(new PolicyBundle());
   // The initial setup includes a policy for chrome that is now changing.
@@ -288,8 +329,11 @@ TEST_F(PolicyServiceTest, NotifyObserversInMultipleNamespaces) {
   bundle.reset(new PolicyBundle());
   bundle->Get(PolicyNamespace(POLICY_DOMAIN_CHROME, std::string()))
       .CopyFrom(policy_map);
-  policy_map.Set("policy", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-                 base::Value::CreateStringValue("another value"), NULL);
+  policy_map.Set("policy",
+                 POLICY_LEVEL_MANDATORY,
+                 POLICY_SCOPE_USER,
+                 new base::StringValue("another value"),
+                 NULL);
   bundle->Get(PolicyNamespace(POLICY_DOMAIN_EXTENSIONS, kExtension1))
       .CopyFrom(policy_map);
   bundle->Get(PolicyNamespace(POLICY_DOMAIN_EXTENSIONS, kExtension2))
@@ -324,10 +368,16 @@ TEST_F(PolicyServiceTest, NotifyObserversInMultipleNamespaces) {
 TEST_F(PolicyServiceTest, ObserverChangesPolicy) {
   ChangePolicyObserver observer(&provider0_);
   policy_service_->AddObserver(POLICY_DOMAIN_CHROME, &observer);
-  policy0_.Set("aaa", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-               base::Value::CreateIntegerValue(123), NULL);
-  policy0_.Set("bbb", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-               base::Value::CreateIntegerValue(1234), NULL);
+  policy0_.Set("aaa",
+               POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER,
+               new base::FundamentalValue(123),
+               NULL);
+  policy0_.Set("bbb",
+               POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER,
+               new base::FundamentalValue(1234),
+               NULL);
   // Should not crash.
   provider0_.UpdateChromePolicy(policy0_);
   policy_service_->RemoveObserver(POLICY_DOMAIN_CHROME, &observer);
@@ -336,33 +386,57 @@ TEST_F(PolicyServiceTest, ObserverChangesPolicy) {
 
 TEST_F(PolicyServiceTest, Priorities) {
   PolicyMap expected;
-  expected.Set("pre", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-               base::Value::CreateIntegerValue(13), NULL);
-  expected.Set("aaa", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-               base::Value::CreateIntegerValue(0), NULL);
-  policy0_.Set("aaa", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-               base::Value::CreateIntegerValue(0), NULL);
-  policy1_.Set("aaa", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-               base::Value::CreateIntegerValue(1), NULL);
-  policy2_.Set("aaa", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-               base::Value::CreateIntegerValue(2), NULL);
+  expected.Set("pre",
+               POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER,
+               new base::FundamentalValue(13),
+               NULL);
+  expected.Set("aaa",
+               POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER,
+               new base::FundamentalValue(0),
+               NULL);
+  policy0_.Set("aaa",
+               POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER,
+               new base::FundamentalValue(0),
+               NULL);
+  policy1_.Set("aaa",
+               POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER,
+               new base::FundamentalValue(1),
+               NULL);
+  policy2_.Set("aaa",
+               POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER,
+               new base::FundamentalValue(2),
+               NULL);
   provider0_.UpdateChromePolicy(policy0_);
   provider1_.UpdateChromePolicy(policy1_);
   provider2_.UpdateChromePolicy(policy2_);
   EXPECT_TRUE(VerifyPolicies(
       PolicyNamespace(POLICY_DOMAIN_CHROME, std::string()), expected));
 
-  expected.Set("aaa", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-               base::Value::CreateIntegerValue(1), NULL);
+  expected.Set("aaa",
+               POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER,
+               new base::FundamentalValue(1),
+               NULL);
   policy0_.Erase("aaa");
   provider0_.UpdateChromePolicy(policy0_);
   EXPECT_TRUE(VerifyPolicies(
       PolicyNamespace(POLICY_DOMAIN_CHROME, std::string()), expected));
 
-  expected.Set("aaa", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-               base::Value::CreateIntegerValue(2), NULL);
-  policy1_.Set("aaa", POLICY_LEVEL_RECOMMENDED, POLICY_SCOPE_USER,
-               base::Value::CreateIntegerValue(1), NULL);
+  expected.Set("aaa",
+               POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER,
+               new base::FundamentalValue(2),
+               NULL);
+  policy1_.Set("aaa",
+               POLICY_LEVEL_RECOMMENDED,
+               POLICY_SCOPE_USER,
+               new base::FundamentalValue(1),
+               NULL);
   provider1_.UpdateChromePolicy(policy1_);
   EXPECT_TRUE(VerifyPolicies(
       PolicyNamespace(POLICY_DOMAIN_CHROME, std::string()), expected));
@@ -511,12 +585,18 @@ TEST_F(PolicyServiceTest, NamespaceMerge) {
   PolicyMap expected;
   // For policies of the same level and scope, the first provider takes
   // precedence, on every namespace.
-  expected.Set(kSameLevelPolicy, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-               base::Value::CreateStringValue("bundle0"), NULL);
+  expected.Set(kSameLevelPolicy,
+               POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER,
+               new base::StringValue("bundle0"),
+               NULL);
   // For policies with different levels and scopes, the highest priority
   // level/scope combination takes precedence, on every namespace.
-  expected.Set(kDiffLevelPolicy, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_MACHINE,
-               base::Value::CreateStringValue("bundle2"), NULL);
+  expected.Set(kDiffLevelPolicy,
+               POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_MACHINE,
+               new base::StringValue("bundle2"),
+               NULL);
   EXPECT_TRUE(policy_service_->GetPolicies(
       PolicyNamespace(POLICY_DOMAIN_CHROME, std::string())).Equals(expected));
   EXPECT_TRUE(policy_service_->GetPolicies(
@@ -611,21 +691,31 @@ TEST_F(PolicyServiceTest, FixDeprecatedPolicies) {
   PolicyMap& policy_map = policy_bundle->Get(chrome_namespace);
   // Individual proxy policy values in the Chrome namespace should be collected
   // into a dictionary.
-  policy_map.Set(key::kProxyServerMode, POLICY_LEVEL_MANDATORY,
-                 POLICY_SCOPE_USER, base::Value::CreateIntegerValue(3), NULL);
+  policy_map.Set(key::kProxyServerMode,
+                 POLICY_LEVEL_MANDATORY,
+                 POLICY_SCOPE_USER,
+                 new base::FundamentalValue(3),
+                 NULL);
 
   // Both these policies should be ignored, since there's a higher priority
   // policy available.
-  policy_map.Set(key::kProxyMode, POLICY_LEVEL_RECOMMENDED, POLICY_SCOPE_USER,
-                 base::Value::CreateStringValue("pac_script"), NULL);
-  policy_map.Set(key::kProxyPacUrl, POLICY_LEVEL_RECOMMENDED, POLICY_SCOPE_USER,
-                 base::Value::CreateStringValue("http://example.com/wpad.dat"),
+  policy_map.Set(key::kProxyMode,
+                 POLICY_LEVEL_RECOMMENDED,
+                 POLICY_SCOPE_USER,
+                 new base::StringValue("pac_script"),
+                 NULL);
+  policy_map.Set(key::kProxyPacUrl,
+                 POLICY_LEVEL_RECOMMENDED,
+                 POLICY_SCOPE_USER,
+                 new base::StringValue("http://example.com/wpad.dat"),
                  NULL);
 
   // Add a value to a non-Chrome namespace.
-  policy_bundle->Get(extension_namespace)
-      .Set(key::kProxyServerMode, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-           base::Value::CreateIntegerValue(3), NULL);
+  policy_bundle->Get(extension_namespace).Set(key::kProxyServerMode,
+                                              POLICY_LEVEL_MANDATORY,
+                                              POLICY_SCOPE_USER,
+                                              new base::FundamentalValue(3),
+                                              NULL);
 
   // The resulting Chrome namespace map should have the collected policy.
   PolicyMap expected_chrome;
@@ -636,8 +726,10 @@ TEST_F(PolicyServiceTest, FixDeprecatedPolicies) {
 
   // The resulting Extensions namespace map shouldn't have been modified.
   PolicyMap expected_extension;
-  expected_extension.Set(key::kProxyServerMode, POLICY_LEVEL_MANDATORY,
-                         POLICY_SCOPE_USER, base::Value::CreateIntegerValue(3),
+  expected_extension.Set(key::kProxyServerMode,
+                         POLICY_LEVEL_MANDATORY,
+                         POLICY_SCOPE_USER,
+                         new base::FundamentalValue(3),
                          NULL);
 
   provider0_.UpdatePolicy(policy_bundle.Pass());

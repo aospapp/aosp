@@ -33,7 +33,6 @@ LOCAL_CFLAGS := \
 
 LOCAL_C_INCLUDES := \
     $(call include-path-for, libhardware)/hardware \
-    $(call include-path-for, frameworks-base) \
     $(TARGET_OUT_HEADERS)/libva \
     $(TARGET_OUT_HEADERS)/libttm \
     $(TARGET_OUT_HEADERS)/libwsbm \
@@ -43,7 +42,7 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/hwdefs
 
 LOCAL_SHARED_LIBRARIES += libdl libdrm libwsbm libcutils \
-                libui libutils libbinder libhardware liblog
+    libutils libbinder libhardware liblog
 
 LOCAL_SRC_FILES := \
     object_heap.c \
@@ -94,12 +93,27 @@ LOCAL_SRC_FILES += \
     tng_jpegES.c \
     tng_slotorder.c \
     tng_hostair.c \
-    tng_trace.c \
+    tng_trace.c
+
+ifeq ($(TARGET_HAS_ISV),true)
+LOCAL_SRC_FILES += \
+    vsp_VPP.c \
+    vsp_cmdbuf.c \
+    vsp_vp8.c \
+    vsp_compose.c
+
+LOCAL_CFLAGS += \
+    -DPSBVIDEO_MRFL_VPP \
+    -DPSBVIDEO_VPP_TILING
+endif
+
+ifeq ($(TARGET_HAS_VPP),true)
+LOCAL_SRC_FILES += \
     vsp_VPP.c \
     vsp_vp8.c \
     vsp_cmdbuf.c \
-    vsp_compose.c \
-
+    vsp_compose.c
+endif
 
 ifeq ($(TARGET_HAS_VPP),true)
 LOCAL_C_INCLUDES += \
@@ -111,7 +125,6 @@ ifeq ($(TARGET_HAS_VPP),true)
 LOCAL_SHARED_LIBRARIES += libvpp_setting
 LOCAL_CFLAGS += DPSBVIDEO_MRFL_VPP_SETTING
 endif
-
 
 ifeq ($(TARGET_HAS_VPP),true)
 LOCAL_CFLAGS += \
@@ -142,6 +155,7 @@ LOCAL_CFLAGS += -DTARGET_HAS_MULTIPLE_DISPLAY
 LOCAL_SHARED_LIBRARIES += libmultidisplay
 endif
 LOCAL_CFLAGS += -Werror
+
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := pvr_drv_video
 

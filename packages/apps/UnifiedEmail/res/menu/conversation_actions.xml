@@ -15,7 +15,7 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<!-- Action bar items for the tablet when viewing a conversation -->
+<!-- Action bar items when viewing a conversation -->
 
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
       xmlns:app="http://schemas.android.com/apk/res-auto">
@@ -25,22 +25,23 @@
         android:title="@string/archive"
         app:showAsAction="always"
         android:icon="@drawable/ic_archive_wht_24dp"
-        android:alphabeticShortcut="@string/trigger_y_char" />
+        android:alphabeticShortcut="@string/trigger_archive_char" />
 
     <item
         android:id="@+id/remove_folder"
         android:title="@string/remove_folder"
         app:showAsAction="always"
         android:icon="@drawable/ic_remove_label_wht_24dp"
-        android:alphabeticShortcut="@string/trigger_y_char"
-        android:visible="false" />
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_archive_char" />
 
     <!-- Depends on FolderCapabilities.DELETE -->
     <item
         android:id="@+id/delete"
         android:title="@string/delete"
         app:showAsAction="always"
-        android:icon="@drawable/ic_delete_wht_24dp" />
+        android:icon="@drawable/ic_delete_wht_24dp"
+        android:alphabeticShortcut="@string/trigger_delete_char" />
 
     <!-- Depends on the user viewing a draft label, and the above menu item not being shown -->
     <item
@@ -48,35 +49,38 @@
         android:title="@string/discard_drafts"
         app:showAsAction="always"
         android:icon="@drawable/ic_delete_wht_24dp"
-        android:visible="false" />
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_delete_char" />
     <!-- Depends on the user viewing a outbox label and the setting supports delete -->
     <item
         android:id="@+id/discard_outbox"
         android:title="@string/discard_failed"
         app:showAsAction="always"
         android:icon="@drawable/ic_delete_wht_24dp"
-        android:visible="false" />
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_delete_char" />
 
     <!-- Always available -->
     <item
         android:id="@+id/inside_conversation_unread"
         android:title="@string/mark_unread"
         app:showAsAction="always"
-        android:icon="@drawable/ic_menu_mark_unread_wht_24dp" />
+        android:icon="@drawable/ic_mark_unread_wht_24dp" />
 
     <!-- Always available -->
     <item
         android:id="@+id/move_to"
         android:title="@string/menu_move_to"
-        app:showAsAction="never"
-        android:icon="@drawable/ic_menu_move_to_holo_light" />
+        app:showAsAction="@string/menu_move_to_state"
+        android:icon="@drawable/ic_move_to_wht_24dp" />
 
     <!-- Always available -->
     <item
         android:id="@+id/change_folders"
         android:title="@string/menu_change_folders"
         app:showAsAction="never"
-        android:icon="@drawable/ic_change_labels_wht_24dp" />
+        android:icon="@drawable/ic_change_labels_wht_24dp"
+        android:alphabeticShortcut="@string/trigger_change_label_char" />
 
     <item
         android:id="@+id/move_to_inbox"
@@ -101,8 +105,9 @@
         android:title="@string/mute" />
 
     <item android:id="@+id/print_all"
-          android:title="@string/print_all"
-          android:visible="false" />
+        android:title="@string/print_all"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_print_char" />
 
     <item
         android:id="@+id/show_original"
@@ -122,5 +127,48 @@
         android:id="@+id/report_phishing"
         android:title="@string/report_phishing"
         android:visible="false" />
+
+    <!-- These invisible menu items are used to enable keyboard shortcuts -->
+    <item
+        android:id="@+id/compose"
+        android:title="@string/menu_compose"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_compose_char" />
+
+    <item
+        android:id="@+id/reply"
+        android:title="@string/reply"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_reply_char" />
+
+    <item
+        android:id="@+id/reply_all"
+        android:title="@string/reply_all"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_reply_all_char" />
+
+    <item
+        android:id="@+id/toggle_read_unread"
+        android:title="@string/toggle_read_unread"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_toggle_read_unread_char" />
+
+    <item
+        android:id="@+id/toggle_drawer"
+        android:title="@string/menu_toggle_drawer"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_toggle_drawer_char" />
+
+    <item
+        android:id="@+id/settings"
+        android:title="@string/menu_settings"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_settings_char" />
+
+    <item
+        android:id="@+id/help_info_menu_item"
+        android:title="@string/help_and_feedback"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_help_char" />
 
 </menu>

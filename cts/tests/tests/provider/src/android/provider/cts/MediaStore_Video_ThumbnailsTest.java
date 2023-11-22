@@ -22,6 +22,7 @@ import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.cts.util.FileCopyHelper;
+import android.cts.util.MediaUtils;
 import android.database.Cursor;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
@@ -38,32 +39,13 @@ import java.io.IOException;
 
 public class MediaStore_Video_ThumbnailsTest extends AndroidTestCase {
     private static final String TAG = "MediaStore_Video_ThumbnailsTest";
-    private static final String MIME_TYPE = "video/3gpp";
 
     private ContentResolver mResolver;
 
     private FileCopyHelper mFileHelper;
 
-    // TODO: Make a public method selectCodec() in common libraries (e.g. cts/libs/), to avoid
-    // redundant function definitions in this and other media related test files.
-    private static boolean hasCodec(String mimeType) {
-        int numCodecs = MediaCodecList.getCodecCount();
-
-        for (int i = 0; i < numCodecs; i++) {
-            MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
-
-            if (!codecInfo.isEncoder()) {
-                continue;
-            }
-
-            String[] types = codecInfo.getSupportedTypes();
-            for (int j = 0; j < types.length; j++) {
-                if (types[j].equalsIgnoreCase(mimeType)) {
-                    return true;
-                }
-            }
-        }
-        return false;
+    private boolean hasCodec() {
+        return MediaUtils.hasCodecForResourceAndDomain(mContext, R.raw.testvideo, "video/");
     }
 
     @Override
@@ -98,10 +80,10 @@ public class MediaStore_Video_ThumbnailsTest extends AndroidTestCase {
         int count = getThumbnailCount(Thumbnails.EXTERNAL_CONTENT_URI);
 
         // Don't run the test if the codec isn't supported.
-        if (!hasCodec(MIME_TYPE)) {
+        if (!hasCodec()) {
             // Calling getThumbnail should not generate a new thumbnail.
             assertNull(Thumbnails.getThumbnail(mResolver, videoId, Thumbnails.MINI_KIND, null));
-            Log.w(TAG, "Codec " + MIME_TYPE + " not supported. Return from testGetThumbnail.");
+            Log.i(TAG, "SKIPPING testGetThumbnail(): codec not supported");
             return;
         }
 

@@ -21,7 +21,6 @@ import static android.hardware.camera2.cts.RobustnessTest.MaxOutputSizes.*;
 
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
-import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
@@ -29,21 +28,20 @@ import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.params.StreamConfigurationMap;
-import android.hardware.camera2.cts.CameraTestUtils;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
 import android.media.CamcorderProfile;
+import android.media.Image;
 import android.media.ImageReader;
 import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
 
-import com.android.ex.camera2.blocking.BlockingSessionCallback;
-
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 
+import static junit.framework.Assert.assertTrue;
 import static org.mockito.Mockito.*;
 
 /**
@@ -52,11 +50,14 @@ import static org.mockito.Mockito.*;
 public class RobustnessTest extends Camera2AndroidTestCase {
     private static final String TAG = "RobustnessTest";
 
-    private static final int FAILED_CONFIGURE_TIMEOUT = 5000; //ms
+    private static final int CONFIGURE_TIMEOUT = 5000; //ms
+    private static final int CAPTURE_TIMEOUT = 1000; //ms
 
     /**
-     * Test that a {@link CameraCaptureSession} configured with a {@link Surface} with invalid
-     * dimensions fails gracefully.
+     * Test that a {@link CameraCaptureSession} can be configured with a {@link Surface} containing
+     * a dimension other than one of the supported output dimensions.  The buffers produced into
+     * this surface are expected have the dimensions of the closest possible buffer size in the
+     * available stream configurations for a surface with this format.
      */
     public void testBadSurfaceDimensions() throws Exception {
         for (String id : mCameraIds) {
@@ -64,9 +65,25 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                 Log.i(TAG, "Testing Camera " + id);
                 openDevice(id);
 
-                // Setup Surface with unconfigured dimensions.
-                SurfaceTexture surfaceTexture = new SurfaceTexture(0);
-                Surface surface = new Surface(surfaceTexture);
+                // Find some size not supported by the camera
+                Size weirdSize = new Size(643, 577);
+                int count = 0;
+                while(mOrderedPreviewSizes.contains(weirdSize)) {
+                    // Really, they can't all be supported...
+                    weirdSize = new Size(weirdSize.getWidth() + 1, weirdSize.getHeight() + 1);
+                    count++;
+                    assertTrue("Too many exotic YUV_420_888 resolutions supported.", count < 100);
+                }
+
+                // Setup imageReader with invalid dimension
+                ImageReader imageReader = ImageReader.newInstance(weirdSize.getWidth(),
+                        weirdSize.getHeight(), ImageFormat.YUV_420_888, 3);
+
+                // Setup ImageReaderListener
+                SimpleImageReaderListener imageListener = new SimpleImageReaderListener();
+                imageReader.setOnImageAvailableListener(imageListener, mHandler);
+
+                Surface surface = imageReader.getSurface();
                 List<Surface> surfaces = new ArrayList<>();
                 surfaces.add(surface);
 
@@ -74,19 +91,38 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                 CaptureRequest.Builder request =
                         mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
                 request.addTarget(surface);
-                CameraCaptureSession.CaptureCallback mockCaptureListener =
-                        mock(CameraCaptureSession.CaptureCallback.class);
 
                 // Check that correct session callback is hit.
                 CameraCaptureSession.StateCallback sessionListener =
                         mock(CameraCaptureSession.StateCallback.class);
-                mCamera.createCaptureSession(surfaces, sessionListener, mHandler);
-                verify(sessionListener, timeout(FAILED_CONFIGURE_TIMEOUT).atLeastOnce()).
-                        onConfigureFailed(any(CameraCaptureSession.class));
-                verify(sessionListener, never()).onConfigured(any(CameraCaptureSession.class));
+                CameraCaptureSession session = CameraTestUtils.configureCameraSession(mCamera,
+                        surfaces, sessionListener, mHandler);
+
+                verify(sessionListener, timeout(CONFIGURE_TIMEOUT).atLeastOnce()).
+                        onConfigured(any(CameraCaptureSession.class));
+                verify(sessionListener, timeout(CONFIGURE_TIMEOUT).atLeastOnce()).
+                        onReady(any(CameraCaptureSession.class));
+                verify(sessionListener, never()).onConfigureFailed(any(CameraCaptureSession.class));
                 verify(sessionListener, never()).onActive(any(CameraCaptureSession.class));
-                verify(sessionListener, never()).onReady(any(CameraCaptureSession.class));
                 verify(sessionListener, never()).onClosed(any(CameraCaptureSession.class));
+
+                CameraCaptureSession.CaptureCallback captureListener =
+                        mock(CameraCaptureSession.CaptureCallback.class);
+                session.capture(request.build(), captureListener, mHandler);
+
+                verify(captureListener, timeout(CAPTURE_TIMEOUT).atLeastOnce()).
+                        onCaptureCompleted(any(CameraCaptureSession.class),
+                                any(CaptureRequest.class), any(TotalCaptureResult.class));
+                verify(captureListener, never()).onCaptureFailed(any(CameraCaptureSession.class),
+                        any(CaptureRequest.class), any(CaptureFailure.class));
+
+                Image image = imageListener.getImage(CAPTURE_TIMEOUT);
+                int imageWidth = image.getWidth();
+                int imageHeight = image.getHeight();
+                Size actualSize = new Size(imageWidth, imageHeight);
+
+                assertTrue("Camera does not contain outputted image resolution " + actualSize,
+                        mOrderedPreviewSizes.contains(actualSize));
             } finally {
                 closeDevice(id);
             }
@@ -128,10 +164,13 @@ public class RobustnessTest extends Camera2AndroidTestCase {
             {YUV , PREVIEW,  YUV,  PREVIEW,  JPEG, MAXIMUM }  // Two-input in-app processing with still capture.
         };
 
-        final int[][] FULL_COMBINATIONS = {
+        final int[][] BURST_COMBINATIONS = {
             {PRIV, PREVIEW,  PRIV, MAXIMUM }, // Maximum-resolution GPU processing with preview.
             {PRIV, PREVIEW,  YUV,  MAXIMUM }, // Maximum-resolution in-app processing with preview.
             {YUV,  PREVIEW,  YUV,  MAXIMUM }, // Maximum-resolution two-input in-app processsing.
+        };
+
+        final int[][] FULL_COMBINATIONS = {
             {PRIV, PREVIEW,  PRIV, PREVIEW,  JPEG, MAXIMUM }, //Video recording with maximum-size video snapshot.
             {YUV,  VGA,      PRIV, PREVIEW,  YUV,  MAXIMUM }, // Standard video recording plus maximum-resolution in-app processing.
             {YUV,  VGA,      YUV,  PREVIEW,  YUV,  MAXIMUM } // Preview plus two-input maximum-resolution in-app processing.
@@ -149,7 +188,7 @@ public class RobustnessTest extends Camera2AndroidTestCase {
         };
 
         final int[][][] TABLES =
-                { LEGACY_COMBINATIONS, LIMITED_COMBINATIONS, FULL_COMBINATIONS, RAW_COMBINATIONS };
+            { LEGACY_COMBINATIONS, LIMITED_COMBINATIONS, BURST_COMBINATIONS, FULL_COMBINATIONS, RAW_COMBINATIONS };
 
         // Sanity check the tables
         int tableIdx = 0;
@@ -185,11 +224,6 @@ public class RobustnessTest extends Camera2AndroidTestCase {
 
             final StaticMetadata staticInfo = new StaticMetadata(cc);
 
-            if (staticInfo.isHardwareLevelLegacy()) {
-                Log.i(TAG, "Skipping test on legacy devices");
-                continue;
-            }
-
             openDevice(id);
 
             // Always run legacy-level tests
@@ -208,7 +242,14 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                     testOutputCombination(id, config, maxSizes);
                 }
 
-                // Check for FULL and RAW and run those if appropriate
+                // Check for BURST_CAPTURE, FULL and RAW and run those if appropriate
+
+                if (staticInfo.isCapabilitySupported(
+                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BURST_CAPTURE)) {
+                    for (int[] config : BURST_COMBINATIONS) {
+                        testOutputCombination(id, config, maxSizes);
+                    }
+                }
 
                 if (staticInfo.isHardwareLevelFull()) {
                     for (int[] config : FULL_COMBINATIONS) {
@@ -330,9 +371,11 @@ public class RobustnessTest extends Camera2AndroidTestCase {
         Log.i(TAG, String.format("Testing Camera %s, config %s",
                         cameraId, MaxOutputSizes.configToString(config)));
 
-        final int TIMEOUT_FOR_RESULT_MS = 1000;
+        // Timeout is relaxed by 500ms for LEGACY devices to reduce false positive rate in CTS
+        final int TIMEOUT_FOR_RESULT_MS = (mStaticInfo.isHardwareLevelLegacy()) ? 1500 : 1000;
         final int MIN_RESULT_COUNT = 3;
 
+        ImageDropperListener imageDropperListener = new ImageDropperListener();
         // Set up outputs
         List<Object> outputTargets = new ArrayList<>();
         List<Surface> outputSurfaces = new ArrayList<>();
@@ -358,6 +401,7 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                     Size targetSize = maxSizes.maxJpegSizes[sizeLimit];
                     ImageReader target = ImageReader.newInstance(
                         targetSize.getWidth(), targetSize.getHeight(), JPEG, MIN_RESULT_COUNT);
+                    target.setOnImageAvailableListener(imageDropperListener, mHandler);
                     outputTargets.add(target);
                     outputSurfaces.add(target.getSurface());
                     jpegTargets.add(target);
@@ -367,6 +411,7 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                     Size targetSize = maxSizes.maxYuvSizes[sizeLimit];
                     ImageReader target = ImageReader.newInstance(
                         targetSize.getWidth(), targetSize.getHeight(), YUV, MIN_RESULT_COUNT);
+                    target.setOnImageAvailableListener(imageDropperListener, mHandler);
                     outputTargets.add(target);
                     outputSurfaces.add(target.getSurface());
                     yuvTargets.add(target);
@@ -376,6 +421,7 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                     Size targetSize = maxSizes.maxRawSize;
                     ImageReader target = ImageReader.newInstance(
                         targetSize.getWidth(), targetSize.getHeight(), RAW, MIN_RESULT_COUNT);
+                    target.setOnImageAvailableListener(imageDropperListener, mHandler);
                     outputTargets.add(target);
                     outputSurfaces.add(target.getSurface());
                     rawTargets.add(target);

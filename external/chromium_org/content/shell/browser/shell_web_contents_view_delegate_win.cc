@@ -38,7 +38,7 @@ enum {
 
 void MakeContextMenuItem(HMENU menu,
                          int menu_index,
-                         LPTSTR text,
+                         LPCTSTR text,
                          UINT id,
                          bool enabled) {
   MENUITEMINFO mii = {0};
@@ -47,7 +47,7 @@ void MakeContextMenuItem(HMENU menu,
   mii.fState = enabled ? MFS_ENABLED : (MF_DISABLED | MFS_GRAYED);
   mii.fType = MFT_STRING;
   mii.wID = id;
-  mii.dwTypeData = text;
+  mii.dwTypeData = const_cast<LPTSTR>(text);
 
   InsertMenuItem(menu, menu_index, TRUE, &mii);
 }
@@ -232,24 +232,17 @@ void ShellWebContentsViewDelegate::MenuItemSelected(int selection) {
   }
 }
 
-WebDragDestDelegate* ShellWebContentsViewDelegate::GetDragDestDelegate() {
-  return NULL;
+#if defined(TOOLKIT_VIEWS)
+void ShellWebContentsViewDelegate::ShowDisambiguationPopup(
+    const gfx::Rect& target_rect,
+    const SkBitmap& zoomed_bitmap,
+    const gfx::NativeView content,
+    const base::Callback<void(ui::GestureEvent*)>& gesture_cb,
+    const base::Callback<void(ui::MouseEvent*)>& mouse_cb) {
 }
 
-void ShellWebContentsViewDelegate::StoreFocus() {
+void ShellWebContentsViewDelegate::HideDisambiguationPopup() {
 }
-
-void ShellWebContentsViewDelegate::RestoreFocus() {
-}
-
-bool ShellWebContentsViewDelegate::Focus() {
-  return false;
-}
-
-void ShellWebContentsViewDelegate::TakeFocus(bool reverse) {
-}
-
-void ShellWebContentsViewDelegate::SizeChanged(const gfx::Size& size) {
-}
+#endif
 
 }  // namespace content

@@ -19,7 +19,6 @@
 #include "base/prefs/pref_member.h"
 #include "base/strings/string16.h"
 #include "chrome/browser/devtools/devtools_toggle_action.h"
-#include "chrome/browser/sessions/session_id.h"
 #include "chrome/browser/ui/bookmarks/bookmark_bar.h"
 #include "chrome/browser/ui/bookmarks/bookmark_tab_helper_delegate.h"
 #include "chrome/browser/ui/browser_navigator.h"
@@ -31,14 +30,15 @@
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/toolbar/toolbar_model.h"
 #include "chrome/browser/ui/zoom/zoom_observer.h"
-#include "chrome/common/content_settings.h"
-#include "chrome/common/content_settings_types.h"
+#include "components/content_settings/core/common/content_settings.h"
+#include "components/content_settings/core/common/content_settings_types.h"
+#include "components/sessions/session_id.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/page_navigator.h"
 #include "content/public/browser/web_contents_delegate.h"
-#include "content/public/common/page_transition_types.h"
 #include "content/public/common/page_zoom.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/rect.h"
@@ -91,6 +91,7 @@ class WebDialogDelegate;
 }
 
 namespace web_modal {
+class PopupManager;
 class WebContentsModalDialogHost;
 }
 
@@ -242,6 +243,9 @@ class Browser : public TabStripModelObserver,
     toolbar_model->swap(toolbar_model_);
   }
 #endif
+  web_modal::PopupManager* popup_manager() {
+    return popup_manager_.get();
+  }
   TabStripModel* tab_strip_model() const { return tab_strip_model_.get(); }
   chrome::BrowserCommandController* command_controller() {
     return command_controller_.get();
@@ -389,7 +393,7 @@ class Browser : public TabStripModelObserver,
   // Called by chrome::Navigate() when a navigation has occurred in a tab in
   // this Browser. Updates the UI for the start of this navigation.
   void UpdateUIForNavigationInTab(content::WebContents* contents,
-                                  content::PageTransition transition,
+                                  ui::PageTransition transition,
                                   bool user_initiated);
 
   // Interface implementations ////////////////////////////////////////////////
@@ -446,6 +450,10 @@ class Browser : public TabStripModelObserver,
   virtual bool PreHandleGestureEvent(
       content::WebContents* source,
       const blink::WebGestureEvent& event) OVERRIDE;
+  virtual bool CanDragEnter(
+      content::WebContents* source,
+      const content::DropData& data,
+      blink::WebDragOperationsMask operations_allowed) OVERRIDE;
 
   bool is_type_tabbed() const { return type_ == TYPE_TABBED; }
   bool is_type_popup() const { return type_ == TYPE_POPUP; }
@@ -532,8 +540,9 @@ class Browser : public TabStripModelObserver,
   virtual content::WebContents* OpenURLFromTab(
       content::WebContents* source,
       const content::OpenURLParams& params) OVERRIDE;
-  virtual void NavigationStateChanged(const content::WebContents* source,
-                                      unsigned changed_flags) OVERRIDE;
+  virtual void NavigationStateChanged(
+      const content::WebContents* source,
+      content::InvalidateTypes changed_flags) OVERRIDE;
   virtual void VisibleSSLStateChanged(
       const content::WebContents* source) OVERRIDE;
   virtual void AddNewContents(content::WebContents* source,
@@ -551,7 +560,7 @@ class Browser : public TabStripModelObserver,
                             const gfx::Rect& pos) OVERRIDE;
   virtual bool IsPopupOrPanel(
       const content::WebContents* source) const OVERRIDE;
-  virtual void UpdateTargetURL(content::WebContents* source, int32 page_id,
+  virtual void UpdateTargetURL(content::WebContents* source,
                                const GURL& url) OVERRIDE;
   virtual void ContentsMouseEvent(content::WebContents* source,
                                   const gfx::Point& location,
@@ -616,6 +625,10 @@ class Browser : public TabStripModelObserver,
                                        const std::string& protocol,
                                        const GURL& url,
                                        bool user_gesture) OVERRIDE;
+  virtual void UnregisterProtocolHandler(content::WebContents* web_contents,
+                                         const std::string& protocol,
+                                         const GURL& url,
+                                         bool user_gesture) OVERRIDE;
   virtual void UpdatePreferredSize(content::WebContents* source,
                                    const gfx::Size& pref_size) OVERRIDE;
   virtual void ResizeDueToAutoResize(content::WebContents* source,
@@ -634,6 +647,10 @@ class Browser : public TabStripModelObserver,
       content::WebContents* web_contents,
       const content::MediaStreamRequest& request,
       const content::MediaResponseCallback& callback) OVERRIDE;
+  virtual bool CheckMediaAccessPermission(
+      content::WebContents* web_contents,
+      const GURL& security_origin,
+      content::MediaStreamType type) OVERRIDE;
   virtual bool RequestPpapiBrokerPermission(
       content::WebContents* web_contents,
       const GURL& url,
@@ -678,8 +695,8 @@ class Browser : public TabStripModelObserver,
                                  bool starred) OVERRIDE;
 
   // Overridden from ZoomObserver:
-  virtual void OnZoomChanged(content::WebContents* source,
-                             bool can_show_bubble) OVERRIDE;
+  virtual void OnZoomChanged(
+      const ZoomController::ZoomChangedEventData& data) OVERRIDE;
 
   // Overridden from SelectFileDialog::Listener:
   virtual void FileSelected(const base::FilePath& path,
@@ -754,8 +771,10 @@ class Browser : public TabStripModelObserver,
   // Assorted utility functions ///////////////////////////////////////////////
 
   // Sets the specified browser as the delegate of the WebContents and all the
-  // associated tab helpers that are needed.
-  void SetAsDelegate(content::WebContents* web_contents, Browser* delegate);
+  // associated tab helpers that are needed. If |set_delegate| is true, this
+  // browser object is set as a delegate for |web_contents| components, else
+  // is is removed as a delegate.
+  void SetAsDelegate(content::WebContents* web_contents, bool set_delegate);
 
   // Shows the Find Bar, optionally selecting the next entry that matches the
   // existing search string for that Tab. |forward_direction| controls the
@@ -816,6 +835,10 @@ class Browser : public TabStripModelObserver,
 
   // This Browser's window.
   BrowserWindow* window_;
+
+  // Manages popup windows (bubbles, tab-modals) visible overlapping this
+  // window. JS alerts are not handled by this manager.
+  scoped_ptr<web_modal::PopupManager> popup_manager_;
 
   scoped_ptr<TabStripModelDelegate> tab_strip_model_delegate_;
   scoped_ptr<TabStripModel> tab_strip_model_;
@@ -931,12 +954,12 @@ class Browser : public TabStripModelObserver,
   // The following factory is used for chrome update coalescing.
   base::WeakPtrFactory<Browser> chrome_updater_factory_;
 
-  // The following factory is used to close the frame at a later time.
-  base::WeakPtrFactory<Browser> weak_factory_;
-
   scoped_ptr<BrowserContentTranslateDriverObserver> translate_driver_observer_;
 
   scoped_ptr<chrome::ValidationMessageBubble> validation_message_bubble_;
+
+  // The following factory is used to close the frame at a later time.
+  base::WeakPtrFactory<Browser> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(Browser);
 };

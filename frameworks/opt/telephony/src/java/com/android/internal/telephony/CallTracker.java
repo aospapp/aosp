@@ -25,6 +25,7 @@ import com.android.internal.telephony.CommandException;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 
 
 /**
@@ -41,7 +42,7 @@ public abstract class CallTracker extends Handler {
     protected int mPendingOperations;
     protected boolean mNeedsPoll;
     protected Message mLastRelevantPoll;
-    protected Connection mHandoverConnection;
+    protected ArrayList<Connection> mHandoverConnections = new ArrayList<Connection>();
 
     public CommandsInterface mCi;
 
@@ -93,12 +94,34 @@ public abstract class CallTracker extends Handler {
 
     protected abstract void handlePollCalls(AsyncResult ar);
 
-    protected void notifySrvccState(Call.SrvccState state, Connection c) {
-        if (state == Call.SrvccState.STARTED) {
-            mHandoverConnection = c;
-        } else if (state != Call.SrvccState.COMPLETED) {
-            mHandoverConnection = null;
+    protected Connection getHoConnection(DriverCall dc) {
+        for (Connection hoConn : mHandoverConnections) {
+            log("getHoConnection - compare number: hoConn= " + hoConn.toString());
+            if (hoConn.getAddress() != null && hoConn.getAddress().contains(dc.number)) {
+                log("getHoConnection: Handover connection match found = " + hoConn.toString());
+                return hoConn;
+            }
         }
+        for (Connection hoConn : mHandoverConnections) {
+            log("getHoConnection: compare state hoConn= " + hoConn.toString());
+            if (hoConn.getStateBeforeHandover() == Call.stateFromDCState(dc.state)) {
+                log("getHoConnection: Handover connection match found = " + hoConn.toString());
+                return hoConn;
+            }
+        }
+        return null;
+    }
+
+    protected void notifySrvccState(Call.SrvccState state, ArrayList<Connection> c) {
+        if (state == Call.SrvccState.STARTED && c != null) {
+            // SRVCC started. Prepare handover connections list
+            mHandoverConnections.addAll(c);
+        } else if (state != Call.SrvccState.COMPLETED) {
+            // SRVCC FAILED/CANCELED. Clear the handover connections list
+            // Individual connections will be removed from the list in handlePollCalls()
+            mHandoverConnections.clear();
+        }
+        log("notifySrvccState: mHandoverConnections= " + mHandoverConnections.toString());
     }
 
     protected void handleRadioAvailable() {
@@ -191,6 +214,7 @@ public abstract class CallTracker extends Handler {
         String[] entry;
         String[] tmpArray;
         String outNumber = "";
+        boolean needConvert = false;
         for(String convertMap : convertMaps) {
             log("convertNumberIfNecessary: " + convertMap);
             entry = convertMap.split(":");
@@ -199,25 +223,35 @@ public abstract class CallTracker extends Handler {
                 if (!TextUtils.isEmpty(entry[0]) && dialNumber.equals(entry[0])) {
                     if (tmpArray.length >= 2 && !TextUtils.isEmpty(tmpArray[1])) {
                         if (compareGid1(phoneBase, tmpArray[1])) {
-                            mNumberConverted = true;
+                            needConvert = true;
                         }
                     } else if (outNumber.isEmpty()) {
-                        mNumberConverted = true;
+                        needConvert = true;
                     }
-                    if (mNumberConverted) {
+
+                    if (needConvert) {
                         if(!TextUtils.isEmpty(tmpArray[0]) && tmpArray[0].endsWith("MDN")) {
-                            String prefix = tmpArray[0].substring(0, tmpArray[0].length() -3);
-                            outNumber = prefix + phoneBase.getLine1Number();
+                            String mdn = phoneBase.getLine1Number();
+                            if (!TextUtils.isEmpty(mdn) ) {
+                                if (mdn.startsWith("+")) {
+                                    outNumber = mdn;
+                                } else {
+                                    outNumber = tmpArray[0].substring(0, tmpArray[0].length() -3)
+                                            + mdn;
+                                }
+                            }
                         } else {
                             outNumber = tmpArray[0];
                         }
+                        needConvert = false;
                     }
                 }
             }
         }
 
-        if (mNumberConverted) {
+        if (!TextUtils.isEmpty(outNumber)) {
             log("convertNumberIfNecessary: convert service number");
+            mNumberConverted = true;
             return outNumber;
         }
 
@@ -251,7 +285,7 @@ public abstract class CallTracker extends Handler {
     public abstract void unregisterForVoiceCallStarted(Handler h);
     public abstract void registerForVoiceCallEnded(Handler h, int what, Object obj);
     public abstract void unregisterForVoiceCallEnded(Handler h);
-
+    public abstract PhoneConstants.State getState();
     protected abstract void log(String msg);
 
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {

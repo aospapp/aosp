@@ -28,6 +28,8 @@ class OMXVideoEncoderVP8 : public OMXVideoEncoderBase {
 
         OMX_VIDEO_PARAM_VP8TYPE mParamVp8;
         OMX_VIDEO_VP8REFERENCEFRAMETYPE mConfigVideoVp8ReferenceFrame;
+        // Last input buffer timestamp
+        OMX_TICKS mLastTimestamp;
 };
 
 #endif /* OMX_VIDEO_ENCODER_VP8_H */

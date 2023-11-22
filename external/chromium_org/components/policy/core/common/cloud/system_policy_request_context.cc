@@ -17,7 +17,7 @@ SystemPolicyRequestContext::SystemPolicyRequestContext(
     const std::string& user_agent)
     : system_context_getter_(system_context_getter),
       http_user_agent_settings_("*", user_agent) {
-  DCHECK(system_context_getter);
+  DCHECK(system_context_getter.get());
 }
 
 SystemPolicyRequestContext::~SystemPolicyRequestContext() {
@@ -57,7 +57,7 @@ SystemPolicyRequestContext::GetURLRequestContext() {
     context_->set_http_transaction_factory(http_transaction_factory_.get());
 
     // No cookies, please. We also don't track channel IDs (no
-    // ServerBoundCertService).
+    // ChannelIDService).
     context_->set_cookie_store(new net::CookieMonster(NULL, NULL));
   }
 

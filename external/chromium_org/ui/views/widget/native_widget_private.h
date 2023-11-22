@@ -71,9 +71,6 @@ class VIEWS_EXPORT NativeWidgetPrivate : public NativeWidget {
   // Returns true if any mouse button is currently down.
   static bool IsMouseButtonDown();
 
-  // Returns true if any touch device is currently down.
-  static bool IsTouchDown();
-
   static gfx::FontList GetWindowTitleFontList();
 
   // Initializes the NativeWidget.
@@ -226,8 +223,9 @@ class VIEWS_EXPORT NativeWidgetPrivate : public NativeWidget {
   virtual void EndMoveLoop() = 0;
   virtual void SetVisibilityChangedAnimationsEnabled(bool value) = 0;
   virtual ui::NativeTheme* GetNativeTheme() const = 0;
-  virtual void OnRootViewLayout() const = 0;
+  virtual void OnRootViewLayout() = 0;
   virtual bool IsTranslucentWindowOpacitySupported() const = 0;
+  virtual void OnSizeConstraintsChanged() = 0;
 
   // Repost an unhandled event to the native widget for default OS processing.
   virtual void RepostNativeEvent(gfx::NativeEvent native_event) = 0;

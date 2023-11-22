@@ -17,7 +17,15 @@
 
 package com.android.mail.browse;
 
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.Dialog;
+import android.app.DialogFragment;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.DialogInterface;
+import android.os.Bundle;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -39,7 +47,8 @@ import com.android.mail.utils.Utils;
  * there is enough room to fit both without wrapping. If they overlap, it
  * adjusts the layout to position the folders below the subject.
  */
-public class ConversationViewHeader extends LinearLayout implements OnClickListener {
+public class ConversationViewHeader extends LinearLayout implements OnClickListener,
+        View.OnLongClickListener {
 
     public interface ConversationViewHeaderCallbacks {
         /**
@@ -53,6 +62,8 @@ public class ConversationViewHeader extends LinearLayout implements OnClickListe
          * @param newHeight the new height in px
          */
         void onConversationViewHeaderHeightChange(int newHeight);
+
+        Activity getActivity();
     }
 
     private static final String LOG_TAG = LogTag.getLogTag();
@@ -82,6 +93,7 @@ public class ConversationViewHeader extends LinearLayout implements OnClickListe
 
         mSubjectAndFolderView =
                 (SubjectAndFolderView) findViewById(R.id.subject_and_folder_view);
+        mSubjectAndFolderView.setOnLongClickListener(this);
         mStarView = (StarView) findViewById(R.id.conversation_header_star);
         mStarView.setOnClickListener(this);
     }
@@ -104,7 +116,9 @@ public class ConversationViewHeader extends LinearLayout implements OnClickListe
 
     public void setStarred(boolean isStarred) {
         mStarView.setStarred(isStarred);
-        mStarView.setVisibility(View.VISIBLE);
+        boolean showStar = mConversation != null && !mConversation.isInTrash();
+        mStarView.setStarred(isStarred);
+        mStarView.setVisibility(showStar ? View.VISIBLE : View.INVISIBLE);
     }
 
     public void bind(ConversationHeaderItem headerItem) {
@@ -113,7 +127,7 @@ public class ConversationViewHeader extends LinearLayout implements OnClickListe
         if (mSubjectAndFolderView != null) {
             mSubjectAndFolderView.bind(headerItem);
         }
-        mStarView.setVisibility(mConversation != null ? View.VISIBLE : View.INVISIBLE);
+        setStarred(mConversation.starred);
     }
 
     private int measureHeight() {
@@ -154,6 +168,52 @@ public class ConversationViewHeader extends LinearLayout implements OnClickListe
             mConversationUpdater.updateConversation(Conversation.listOf(mConversation),
                     UIProvider.ConversationColumns.STARRED, mConversation.starred);
         }
+    }
 
+    @Override
+    public boolean onLongClick(View v) {
+        final DialogFragment frag =
+                CopySubjectDialog.newInstance(mSubjectAndFolderView.getSubject());
+        frag.show(mCallbacks.getActivity().getFragmentManager(), CopySubjectDialog.TAG);
+        return true;
+    }
+
+    public static class CopySubjectDialog extends DialogFragment
+            implements DialogInterface.OnClickListener {
+
+        public static final String TAG = "copy-subject-dialog";
+
+        private static final String ARG_SUBJECT = "subject";
+
+        private String mSubject;
+
+        public static CopySubjectDialog newInstance(String subject) {
+            final CopySubjectDialog frag = new CopySubjectDialog();
+            final Bundle args = new Bundle(1);
+            args.putString(ARG_SUBJECT, subject);
+            frag.setArguments(args);
+            return frag;
+        }
+
+        public CopySubjectDialog() {}
+
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+            mSubject = getArguments().getString(ARG_SUBJECT);
+            return new AlertDialog.Builder(getActivity())
+                    .setMessage(mSubject)
+                    .setPositiveButton(R.string.contextmenu_copy, this)
+                    .setNegativeButton(R.string.cancel, this)
+                    .create();
+        }
+
+        @Override
+        public void onClick(DialogInterface dialog, int which) {
+            if (which == DialogInterface.BUTTON_POSITIVE) {
+                final ClipboardManager clipboard = (ClipboardManager)
+                        getActivity().getSystemService(Context.CLIPBOARD_SERVICE);
+                clipboard.setPrimaryClip(ClipData.newPlainText(null, mSubject));
+            }
+        }
     }
 }

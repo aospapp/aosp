@@ -14,9 +14,9 @@
 #include "base/at_exit.h"
 #include "base/basictypes.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/file_version_info.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
@@ -1207,16 +1207,7 @@ bool HandleNonInstallCmdLineOptions(const InstallationState& original_state,
     }
   } else if (cmd_line.HasSwitch(installer::switches::kReenableAutoupdates)) {
     // setup.exe has been asked to attempt to reenable updates for Chrome.
-    // Figure out whether we should do so for the multi binaries or the main
-    // Chrome product.
-    BrowserDistribution::Type dist_type = BrowserDistribution::CHROME_BROWSER;
-    if (installer_state->is_multi_install())
-      dist_type = BrowserDistribution::CHROME_BINARIES;
-
-    BrowserDistribution* dist =
-        BrowserDistribution::GetSpecificDistribution(dist_type);
-    bool updates_enabled =
-        GoogleUpdateSettings::ReenableAutoupdatesForApp(dist->GetAppGuid());
+    bool updates_enabled = GoogleUpdateSettings::ReenableAutoupdates();
     *exit_code = updates_enabled ? installer::REENABLE_UPDATES_SUCCEEDED :
                                    installer::REENABLE_UPDATES_FAILED;
   } else {
@@ -1637,16 +1628,6 @@ InstallStatus InstallProductsHelper(
         if (chrome != NULL) {
           DCHECK_NE(chrome_exe, base::string16());
           RemoveChromeLegacyRegistryKeys(chrome->distribution(), chrome_exe);
-        }
-      }
-
-      if (prefs.install_chrome_app_launcher() &&
-          InstallUtil::GetInstallReturnCode(install_status) == 0) {
-        std::string webstore_item(google_update::GetUntrustedDataValue(
-            kInstallFromWebstore));
-        if (!webstore_item.empty()) {
-          bool success = InstallFromWebstore(webstore_item);
-          VLOG_IF(1, !success) << "Failed to launch app installation.";
         }
       }
     }

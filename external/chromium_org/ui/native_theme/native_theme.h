@@ -90,7 +90,7 @@ class NATIVE_THEME_EXPORT NativeTheme {
     kHovered  = 1,
     kNormal   = 2,
     kPressed  = 3,
-    kMaxState = 4,
+    kNumStates = kPressed + 1,
   };
 
   // Each structure below holds extra information needed when painting a given
@@ -256,8 +256,9 @@ class NATIVE_THEME_EXPORT NativeTheme {
     kColorId_ButtonHoverBackgroundColor,
     kColorId_BlueButtonEnabledColor,
     kColorId_BlueButtonDisabledColor,
-    kColorId_BlueButtonHighlightColor,
+    kColorId_BlueButtonPressedColor,
     kColorId_BlueButtonHoverColor,
+    kColorId_BlueButtonShadowColor,
     // MenuItem
     kColorId_EnabledMenuItemForegroundColor,
     kColorId_DisabledMenuItemForegroundColor,
@@ -319,6 +320,8 @@ class NATIVE_THEME_EXPORT NativeTheme {
     kColorId_ResultsTableHoveredDivider,
     kColorId_ResultsTableSelectedDivider,
     // TODO(benrg): move other hardcoded colors here.
+
+    kColorId_NumColors,
   };
 
   // Return a color from the system theme.

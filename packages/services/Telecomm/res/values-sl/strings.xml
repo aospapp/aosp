@@ -34,10 +34,10 @@
     <string name="respond_via_sms_setting_title_2" msgid="6104662227299493906">"Urejanje hitrih odgovorov"</string>
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Hiter odgovor"</string>
-    <string name="respond_via_sms_menu_reset_default_activity" msgid="1461742052902053466">"Ponastavi privzeto aplikacijo"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"SMS poslan na številko <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
-    <string name="outgoing_call_not_allowed" msgid="1434784869685645427">"Temu uporabniku ni dovoljeno telefoniranje, razen klicev v sili"</string>
-    <string name="outgoing_call_error_no_phone_number_supplied" msgid="4987143284589568716">"Klic ni bil poslan, veljavna številka ni vnesena."</string>
+    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"Lastnik naprave dovoljuje samo opravljanje klicev v sili"</string>
+    <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"Če želite opraviti klic, vnesite veljavno številko."</string>
+    <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"Klica trenutno ni mogoče dodati."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"Manjkajoča številka glasovne pošte"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Na kartici SIM ni shranjena številka glasovne pošte."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Dodaj številko"</string>

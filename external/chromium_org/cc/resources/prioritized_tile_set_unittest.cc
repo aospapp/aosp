@@ -55,11 +55,13 @@ class PrioritizedTileSetTest : public testing::Test {
     CHECK(output_surface_->BindToClient(&output_surface_client_));
 
     shared_bitmap_manager_.reset(new TestSharedBitmapManager());
-    resource_provider_ =
-        ResourceProvider::Create(
-            output_surface_.get(), shared_bitmap_manager_.get(), 0, false, 1,
-            false)
-            .Pass();
+    resource_provider_ = ResourceProvider::Create(output_surface_.get(),
+                                                  shared_bitmap_manager_.get(),
+                                                  NULL,
+                                                  0,
+                                                  false,
+                                                  1,
+                                                  false).Pass();
     resource_pool_ = ResourcePool::Create(
         resource_provider_.get(), GL_TEXTURE_2D, RGBA_8888);
     tile_manager_.reset(
@@ -71,11 +73,19 @@ class PrioritizedTileSetTest : public testing::Test {
     return tile_manager_->CreateTile(picture_pile_.get(),
                                      settings_.default_tile_size,
                                      gfx::Rect(),
-                                     gfx::Rect(),
                                      1.0,
                                      0,
                                      0,
                                      0);
+  }
+  void ReleaseTiles(std::vector<scoped_refptr<Tile> >* tiles) {
+    for (std::vector<scoped_refptr<Tile> >::iterator it = tiles->begin();
+         it != tiles->end();
+         it++) {
+      Tile* tile = it->get();
+      tile->SetPriority(ACTIVE_TREE, TilePriority());
+      tile->SetPriority(PENDING_TREE, TilePriority());
+    }
   }
 
  private:
@@ -103,7 +113,7 @@ TEST_F(PrioritizedTileSetTest, EmptyIterator) {
 TEST_F(PrioritizedTileSetTest, NonEmptyIterator) {
   PrioritizedTileSet set;
   scoped_refptr<Tile> tile = CreateTile();
-  set.InsertTile(tile, NOW_BIN);
+  set.InsertTile(tile.get(), NOW_BIN);
 
   PrioritizedTileSet::Iterator it(&set, true);
   EXPECT_TRUE(it);
@@ -129,7 +139,7 @@ TEST_F(PrioritizedTileSetTest, NowAndReadyToDrawBin) {
       tile->SetPriority(ACTIVE_TREE, priorities[priority]);
       tile->SetPriority(PENDING_TREE, priorities[priority]);
       tiles.push_back(tile);
-      set.InsertTile(tile, NOW_AND_READY_TO_DRAW_BIN);
+      set.InsertTile(tile.get(), NOW_AND_READY_TO_DRAW_BIN);
     }
   }
 
@@ -142,6 +152,8 @@ TEST_F(PrioritizedTileSetTest, NowAndReadyToDrawBin) {
     ++i;
   }
   EXPECT_EQ(20, i);
+
+  ReleaseTiles(&tiles);
 }
 
 TEST_F(PrioritizedTileSetTest, NowBin) {
@@ -161,7 +173,7 @@ TEST_F(PrioritizedTileSetTest, NowBin) {
       tile->SetPriority(ACTIVE_TREE, priorities[priority]);
       tile->SetPriority(PENDING_TREE, priorities[priority]);
       tiles.push_back(tile);
-      set.InsertTile(tile, NOW_BIN);
+      set.InsertTile(tile.get(), NOW_BIN);
     }
   }
 
@@ -176,6 +188,8 @@ TEST_F(PrioritizedTileSetTest, NowBin) {
     ++i;
   }
   EXPECT_EQ(20, i);
+
+  ReleaseTiles(&tiles);
 }
 
 TEST_F(PrioritizedTileSetTest, SoonBin) {
@@ -195,7 +209,7 @@ TEST_F(PrioritizedTileSetTest, SoonBin) {
       tile->SetPriority(ACTIVE_TREE, priorities[priority]);
       tile->SetPriority(PENDING_TREE, priorities[priority]);
       tiles.push_back(tile);
-      set.InsertTile(tile, SOON_BIN);
+      set.InsertTile(tile.get(), SOON_BIN);
     }
   }
 
@@ -210,6 +224,8 @@ TEST_F(PrioritizedTileSetTest, SoonBin) {
     ++i;
   }
   EXPECT_EQ(20, i);
+
+  ReleaseTiles(&tiles);
 }
 
 TEST_F(PrioritizedTileSetTest, SoonBinNoPriority) {
@@ -230,7 +246,7 @@ TEST_F(PrioritizedTileSetTest, SoonBinNoPriority) {
       tile->SetPriority(ACTIVE_TREE, priorities[priority]);
       tile->SetPriority(PENDING_TREE, priorities[priority]);
       tiles.push_back(tile);
-      set.InsertTile(tile, SOON_BIN);
+      set.InsertTile(tile.get(), SOON_BIN);
     }
   }
 
@@ -242,6 +258,8 @@ TEST_F(PrioritizedTileSetTest, SoonBinNoPriority) {
     ++i;
   }
   EXPECT_EQ(20, i);
+
+  ReleaseTiles(&tiles);
 }
 
 TEST_F(PrioritizedTileSetTest, EventuallyAndActiveBin) {
@@ -261,7 +279,7 @@ TEST_F(PrioritizedTileSetTest, EventuallyAndActiveBin) {
       tile->SetPriority(ACTIVE_TREE, priorities[priority]);
       tile->SetPriority(PENDING_TREE, priorities[priority]);
       tiles.push_back(tile);
-      set.InsertTile(tile, EVENTUALLY_AND_ACTIVE_BIN);
+      set.InsertTile(tile.get(), EVENTUALLY_AND_ACTIVE_BIN);
     }
   }
 
@@ -276,6 +294,8 @@ TEST_F(PrioritizedTileSetTest, EventuallyAndActiveBin) {
     ++i;
   }
   EXPECT_EQ(20, i);
+
+  ReleaseTiles(&tiles);
 }
 
 TEST_F(PrioritizedTileSetTest, EventuallyBin) {
@@ -295,7 +315,7 @@ TEST_F(PrioritizedTileSetTest, EventuallyBin) {
       tile->SetPriority(ACTIVE_TREE, priorities[priority]);
       tile->SetPriority(PENDING_TREE, priorities[priority]);
       tiles.push_back(tile);
-      set.InsertTile(tile, EVENTUALLY_BIN);
+      set.InsertTile(tile.get(), EVENTUALLY_BIN);
     }
   }
 
@@ -310,6 +330,8 @@ TEST_F(PrioritizedTileSetTest, EventuallyBin) {
     ++i;
   }
   EXPECT_EQ(20, i);
+
+  ReleaseTiles(&tiles);
 }
 
 TEST_F(PrioritizedTileSetTest, AtLastAndActiveBin) {
@@ -329,7 +351,7 @@ TEST_F(PrioritizedTileSetTest, AtLastAndActiveBin) {
       tile->SetPriority(ACTIVE_TREE, priorities[priority]);
       tile->SetPriority(PENDING_TREE, priorities[priority]);
       tiles.push_back(tile);
-      set.InsertTile(tile, AT_LAST_AND_ACTIVE_BIN);
+      set.InsertTile(tile.get(), AT_LAST_AND_ACTIVE_BIN);
     }
   }
 
@@ -344,6 +366,8 @@ TEST_F(PrioritizedTileSetTest, AtLastAndActiveBin) {
     ++i;
   }
   EXPECT_EQ(20, i);
+
+  ReleaseTiles(&tiles);
 }
 
 TEST_F(PrioritizedTileSetTest, AtLastBin) {
@@ -363,7 +387,7 @@ TEST_F(PrioritizedTileSetTest, AtLastBin) {
       tile->SetPriority(ACTIVE_TREE, priorities[priority]);
       tile->SetPriority(PENDING_TREE, priorities[priority]);
       tiles.push_back(tile);
-      set.InsertTile(tile, AT_LAST_BIN);
+      set.InsertTile(tile.get(), AT_LAST_BIN);
     }
   }
 
@@ -378,6 +402,8 @@ TEST_F(PrioritizedTileSetTest, AtLastBin) {
     ++i;
   }
   EXPECT_EQ(20, i);
+
+  ReleaseTiles(&tiles);
 }
 
 TEST_F(PrioritizedTileSetTest, TilesForEachBin) {
@@ -393,13 +419,13 @@ TEST_F(PrioritizedTileSetTest, TilesForEachBin) {
   scoped_refptr<Tile> at_last_and_active_bin = CreateTile();
 
   PrioritizedTileSet set;
-  set.InsertTile(soon_bin, SOON_BIN);
-  set.InsertTile(at_last_and_active_bin, AT_LAST_AND_ACTIVE_BIN);
-  set.InsertTile(eventually_bin, EVENTUALLY_BIN);
-  set.InsertTile(now_bin, NOW_BIN);
-  set.InsertTile(eventually_and_active_bin, EVENTUALLY_AND_ACTIVE_BIN);
-  set.InsertTile(at_last_bin, AT_LAST_BIN);
-  set.InsertTile(now_and_ready_to_draw_bin, NOW_AND_READY_TO_DRAW_BIN);
+  set.InsertTile(soon_bin.get(), SOON_BIN);
+  set.InsertTile(at_last_and_active_bin.get(), AT_LAST_AND_ACTIVE_BIN);
+  set.InsertTile(eventually_bin.get(), EVENTUALLY_BIN);
+  set.InsertTile(now_bin.get(), NOW_BIN);
+  set.InsertTile(eventually_and_active_bin.get(), EVENTUALLY_AND_ACTIVE_BIN);
+  set.InsertTile(at_last_bin.get(), AT_LAST_BIN);
+  set.InsertTile(now_and_ready_to_draw_bin.get(), NOW_AND_READY_TO_DRAW_BIN);
 
   // Tiles should appear in order.
   PrioritizedTileSet::Iterator it(&set, true);
@@ -453,13 +479,13 @@ TEST_F(PrioritizedTileSetTest, ManyTilesForEachBin) {
       at_last_bins.push_back(tile);
       at_last_and_active_bins.push_back(tile);
 
-      set.InsertTile(tile, NOW_AND_READY_TO_DRAW_BIN);
-      set.InsertTile(tile, NOW_BIN);
-      set.InsertTile(tile, SOON_BIN);
-      set.InsertTile(tile, EVENTUALLY_AND_ACTIVE_BIN);
-      set.InsertTile(tile, EVENTUALLY_BIN);
-      set.InsertTile(tile, AT_LAST_BIN);
-      set.InsertTile(tile, AT_LAST_AND_ACTIVE_BIN);
+      set.InsertTile(tile.get(), NOW_AND_READY_TO_DRAW_BIN);
+      set.InsertTile(tile.get(), NOW_BIN);
+      set.InsertTile(tile.get(), SOON_BIN);
+      set.InsertTile(tile.get(), EVENTUALLY_AND_ACTIVE_BIN);
+      set.InsertTile(tile.get(), EVENTUALLY_BIN);
+      set.InsertTile(tile.get(), AT_LAST_BIN);
+      set.InsertTile(tile.get(), AT_LAST_AND_ACTIVE_BIN);
     }
   }
 
@@ -470,14 +496,14 @@ TEST_F(PrioritizedTileSetTest, ManyTilesForEachBin) {
   for (vector_it = now_and_ready_to_draw_bins.begin();
        vector_it != now_and_ready_to_draw_bins.end();
        ++vector_it) {
-    EXPECT_TRUE(*vector_it == *it);
+    EXPECT_TRUE(vector_it->get() == *it);
     ++it;
   }
 
   // Now bins are sorted.
   std::sort(now_bins.begin(), now_bins.end(), BinComparator());
   for (vector_it = now_bins.begin(); vector_it != now_bins.end(); ++vector_it) {
-    EXPECT_TRUE(*vector_it == *it);
+    EXPECT_TRUE(vector_it->get() == *it);
     ++it;
   }
 
@@ -485,7 +511,7 @@ TEST_F(PrioritizedTileSetTest, ManyTilesForEachBin) {
   std::sort(soon_bins.begin(), soon_bins.end(), BinComparator());
   for (vector_it = soon_bins.begin(); vector_it != soon_bins.end();
        ++vector_it) {
-    EXPECT_TRUE(*vector_it == *it);
+    EXPECT_TRUE(vector_it->get() == *it);
     ++it;
   }
 
@@ -496,7 +522,7 @@ TEST_F(PrioritizedTileSetTest, ManyTilesForEachBin) {
   for (vector_it = eventually_and_active_bins.begin();
        vector_it != eventually_and_active_bins.end();
        ++vector_it) {
-    EXPECT_TRUE(*vector_it == *it);
+    EXPECT_TRUE(vector_it->get() == *it);
     ++it;
   }
 
@@ -504,7 +530,7 @@ TEST_F(PrioritizedTileSetTest, ManyTilesForEachBin) {
   std::sort(eventually_bins.begin(), eventually_bins.end(), BinComparator());
   for (vector_it = eventually_bins.begin(); vector_it != eventually_bins.end();
        ++vector_it) {
-    EXPECT_TRUE(*vector_it == *it);
+    EXPECT_TRUE(vector_it->get() == *it);
     ++it;
   }
 
@@ -515,7 +541,7 @@ TEST_F(PrioritizedTileSetTest, ManyTilesForEachBin) {
   for (vector_it = at_last_and_active_bins.begin();
        vector_it != at_last_and_active_bins.end();
        ++vector_it) {
-    EXPECT_TRUE(*vector_it == *it);
+    EXPECT_TRUE(vector_it->get() == *it);
     ++it;
   }
 
@@ -523,11 +549,19 @@ TEST_F(PrioritizedTileSetTest, ManyTilesForEachBin) {
   std::sort(at_last_bins.begin(), at_last_bins.end(), BinComparator());
   for (vector_it = at_last_bins.begin(); vector_it != at_last_bins.end();
        ++vector_it) {
-    EXPECT_TRUE(*vector_it == *it);
+    EXPECT_TRUE(vector_it->get() == *it);
     ++it;
   }
 
   EXPECT_FALSE(it);
+
+  ReleaseTiles(&now_and_ready_to_draw_bins);
+  ReleaseTiles(&now_bins);
+  ReleaseTiles(&soon_bins);
+  ReleaseTiles(&eventually_and_active_bins);
+  ReleaseTiles(&eventually_bins);
+  ReleaseTiles(&at_last_bins);
+  ReleaseTiles(&at_last_and_active_bins);
 }
 
 TEST_F(PrioritizedTileSetTest, ManyTilesForEachBinDisablePriority) {
@@ -564,13 +598,13 @@ TEST_F(PrioritizedTileSetTest, ManyTilesForEachBinDisablePriority) {
       at_last_bins.push_back(tile);
       at_last_and_active_bins.push_back(tile);
 
-      set.InsertTile(tile, NOW_AND_READY_TO_DRAW_BIN);
-      set.InsertTile(tile, NOW_BIN);
-      set.InsertTile(tile, SOON_BIN);
-      set.InsertTile(tile, EVENTUALLY_AND_ACTIVE_BIN);
-      set.InsertTile(tile, EVENTUALLY_BIN);
-      set.InsertTile(tile, AT_LAST_BIN);
-      set.InsertTile(tile, AT_LAST_AND_ACTIVE_BIN);
+      set.InsertTile(tile.get(), NOW_AND_READY_TO_DRAW_BIN);
+      set.InsertTile(tile.get(), NOW_BIN);
+      set.InsertTile(tile.get(), SOON_BIN);
+      set.InsertTile(tile.get(), EVENTUALLY_AND_ACTIVE_BIN);
+      set.InsertTile(tile.get(), EVENTUALLY_BIN);
+      set.InsertTile(tile.get(), AT_LAST_BIN);
+      set.InsertTile(tile.get(), AT_LAST_AND_ACTIVE_BIN);
     }
   }
 
@@ -581,14 +615,14 @@ TEST_F(PrioritizedTileSetTest, ManyTilesForEachBinDisablePriority) {
   for (vector_it = now_and_ready_to_draw_bins.begin();
        vector_it != now_and_ready_to_draw_bins.end();
        ++vector_it) {
-    EXPECT_TRUE(*vector_it == *it);
+    EXPECT_TRUE(vector_it->get() == *it);
     ++it;
   }
 
   // Now bins are sorted.
   std::sort(now_bins.begin(), now_bins.end(), BinComparator());
   for (vector_it = now_bins.begin(); vector_it != now_bins.end(); ++vector_it) {
-    EXPECT_TRUE(*vector_it == *it);
+    EXPECT_TRUE(vector_it->get() == *it);
     ++it;
   }
 
@@ -596,7 +630,7 @@ TEST_F(PrioritizedTileSetTest, ManyTilesForEachBinDisablePriority) {
   std::sort(soon_bins.begin(), soon_bins.end(), BinComparator());
   for (vector_it = soon_bins.begin(); vector_it != soon_bins.end();
        ++vector_it) {
-    EXPECT_TRUE(*vector_it == *it);
+    EXPECT_TRUE(vector_it->get() == *it);
     ++it;
   }
 
@@ -610,14 +644,14 @@ TEST_F(PrioritizedTileSetTest, ManyTilesForEachBinDisablePriority) {
   for (vector_it = eventually_and_active_bins.begin();
        vector_it != eventually_and_active_bins.end();
        ++vector_it) {
-    EXPECT_TRUE(*vector_it == *it);
+    EXPECT_TRUE(vector_it->get() == *it);
     ++it;
   }
 
   // Eventually bins are not sorted.
   for (vector_it = eventually_bins.begin(); vector_it != eventually_bins.end();
        ++vector_it) {
-    EXPECT_TRUE(*vector_it == *it);
+    EXPECT_TRUE(vector_it->get() == *it);
     ++it;
   }
 
@@ -625,18 +659,26 @@ TEST_F(PrioritizedTileSetTest, ManyTilesForEachBinDisablePriority) {
   for (vector_it = at_last_and_active_bins.begin();
        vector_it != at_last_and_active_bins.end();
        ++vector_it) {
-    EXPECT_TRUE(*vector_it == *it);
+    EXPECT_TRUE(vector_it->get() == *it);
     ++it;
   }
 
   // At last bins are not sorted.
   for (vector_it = at_last_bins.begin(); vector_it != at_last_bins.end();
        ++vector_it) {
-    EXPECT_TRUE(*vector_it == *it);
+    EXPECT_TRUE(vector_it->get() == *it);
     ++it;
   }
 
   EXPECT_FALSE(it);
+
+  ReleaseTiles(&now_and_ready_to_draw_bins);
+  ReleaseTiles(&now_bins);
+  ReleaseTiles(&soon_bins);
+  ReleaseTiles(&eventually_and_active_bins);
+  ReleaseTiles(&eventually_bins);
+  ReleaseTiles(&at_last_bins);
+  ReleaseTiles(&at_last_and_active_bins);
 }
 
 TEST_F(PrioritizedTileSetTest, TilesForFirstAndLastBins) {
@@ -647,8 +689,8 @@ TEST_F(PrioritizedTileSetTest, TilesForFirstAndLastBins) {
   scoped_refptr<Tile> at_last_bin = CreateTile();
 
   PrioritizedTileSet set;
-  set.InsertTile(at_last_bin, AT_LAST_BIN);
-  set.InsertTile(now_and_ready_to_draw_bin, NOW_AND_READY_TO_DRAW_BIN);
+  set.InsertTile(at_last_bin.get(), AT_LAST_BIN);
+  set.InsertTile(now_and_ready_to_draw_bin.get(), NOW_AND_READY_TO_DRAW_BIN);
 
   // Only two tiles should appear and they should appear in order.
   PrioritizedTileSet::Iterator it(&set, true);
@@ -669,11 +711,11 @@ TEST_F(PrioritizedTileSetTest, MultipleIterators) {
   scoped_refptr<Tile> at_last_bin = CreateTile();
 
   PrioritizedTileSet set;
-  set.InsertTile(soon_bin, SOON_BIN);
-  set.InsertTile(eventually_bin, EVENTUALLY_BIN);
-  set.InsertTile(now_bin, NOW_BIN);
-  set.InsertTile(at_last_bin, AT_LAST_BIN);
-  set.InsertTile(now_and_ready_to_draw_bin, NOW_AND_READY_TO_DRAW_BIN);
+  set.InsertTile(soon_bin.get(), SOON_BIN);
+  set.InsertTile(eventually_bin.get(), EVENTUALLY_BIN);
+  set.InsertTile(now_bin.get(), NOW_BIN);
+  set.InsertTile(at_last_bin.get(), AT_LAST_BIN);
+  set.InsertTile(now_and_ready_to_draw_bin.get(), NOW_AND_READY_TO_DRAW_BIN);
 
   // Tiles should appear in order.
   PrioritizedTileSet::Iterator it(&set, true);

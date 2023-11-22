@@ -24,11 +24,23 @@ public abstract class CameraStateHolder {
     private static final Log.Tag TAG = new Log.Tag("CamStateHolder");
 
     private int mState;
+    private boolean mInvalid;
 
+    /**
+     * Construct a new instance of @{link CameraStateHolder} with an initial state.
+     *
+     * @param state The initial state.
+     */
     public CameraStateHolder(int state) {
         setState(state);
+        mInvalid = false;
     }
 
+    /**
+     * Change to a new state.
+     *
+     * @param state The new state.
+     */
     public synchronized void setState(int state) {
         if (mState != state) {
             Log.v(TAG, "setState - state = " + Integer.toBinaryString(state));
@@ -37,8 +49,29 @@ public abstract class CameraStateHolder {
         this.notifyAll();
     }
 
+    /**
+     * Obtain the current state.
+     *
+     * @return The current state.
+     */
     public synchronized int getState() {
         return mState;
+    }
+
+    /**
+     * Change the state to be invalid. Once invalidated, the state will be invalid forever.
+     */
+    public synchronized void invalidate() {
+        mInvalid = true;
+    }
+
+    /**
+     * Whether the state is invalid.
+     *
+     * @return True if the state is invalid.
+     */
+    public synchronized boolean isInvalid() {
+        return mInvalid;
     }
 
     private static interface ConditionChecker {

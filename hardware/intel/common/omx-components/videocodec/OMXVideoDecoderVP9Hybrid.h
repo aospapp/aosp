@@ -38,6 +38,7 @@ protected:
             OMX_BUFFERHEADERTYPE ***pBuffers,
             buffer_retain_t *retains,
             OMX_U32 numberBuffers);
+    virtual OMX_ERRORTYPE ProcessorReset(void);
 
     virtual OMX_ERRORTYPE ProcessorPreFillBuffer(OMX_BUFFERHEADERTYPE* buffer);
     virtual bool IsAllBufferAvailable(void);
@@ -47,26 +48,35 @@ protected:
 
     virtual OMX_ERRORTYPE BuildHandlerList(void);
 
-    virtual OMX_ERRORTYPE FillRenderBuffer(OMX_BUFFERHEADERTYPE **pBuffer,  buffer_retain_t *retain, OMX_U32 inportBufferFlags);
+    virtual OMX_ERRORTYPE FillRenderBuffer(OMX_BUFFERHEADERTYPE **pBuffer,  buffer_retain_t *retain, OMX_U32 inportBufferFlags, OMX_BOOL *isResolutionChange);
 
     virtual OMX_COLOR_FORMATTYPE GetOutputColorFormat(int width);
     virtual OMX_ERRORTYPE GetDecoderOutputCropSpecific(OMX_PTR pStructure);
     virtual OMX_ERRORTYPE GetNativeBufferUsageSpecific(OMX_PTR pStructure);
     virtual OMX_ERRORTYPE SetNativeBufferModeSpecific(OMX_PTR pStructure);
-
+    virtual OMX_ERRORTYPE HandleFormatChange(void);
     DECLARE_HANDLER(OMXVideoDecoderVP9Hybrid, ParamVideoVp9);
 
 private:
+    bool isReallocateNeeded(const uint8_t *data, uint32_t data_sz);
     void *mCtx;
     void *mHybridCtx;
     void *mLibHandle;
+    // These members are for Adaptive playback
+    uint32_t mDecodedImageWidth;
+    uint32_t mDecodedImageHeight;
+    uint32_t mDecodedImageNewWidth;
+    uint32_t mDecodedImageNewHeight;
     typedef bool (*OpenFunc)(void ** , void **);
-    typedef bool (*InitFunc)(void *,unsigned int, unsigned int, int, unsigned int *);
+    typedef bool (*InitFunc)(void *,uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,  bool, uint32_t *);
     typedef bool (*CloseFunc)(void *, void *);
-    typedef bool (*SingalRenderDoneFunc)(unsigned int);
-    typedef bool (*DecodeFunc)(void *, void *, unsigned char *, unsigned int);
-    typedef bool (*IsBufferAvailableFunc)();	
-    typedef int (*GetOutputFunc)(void *);
+    typedef bool (*SingalRenderDoneFunc)(void *, unsigned int);
+    typedef int (*DecodeFunc)(void *, void *, unsigned char *, unsigned int, bool);
+    typedef bool (*IsBufferAvailableFunc)(void *);
+    typedef int (*GetOutputFunc)(void*, void *, unsigned int *, unsigned int *);
+    typedef int (*GetRawDataOutputFunc)(void*, void *, unsigned char *, int, int);
+    typedef void (*DeinitFunc)(void *);
+    typedef bool (*GetFrameResolutionFunc)(const uint8_t *, uint32_t , uint32_t *, uint32_t *);
     OpenFunc mOpenDecoder;
     InitFunc mInitDecoder;
     CloseFunc mCloseDecoder;
@@ -74,12 +84,16 @@ private:
     DecodeFunc mDecoderDecode;
     IsBufferAvailableFunc mCheckBufferAvailable;
     GetOutputFunc mGetOutput;
+    GetRawDataOutputFunc mGetRawDataOutput;
+    GetFrameResolutionFunc mGetFrameResolution;
+    DeinitFunc mDeinitDecoder;
+    int64_t mLastTimeStamp;
     enum {
         // OMX_PARAM_PORTDEFINITIONTYPE
         INPORT_MIN_BUFFER_COUNT = 1,
         INPORT_ACTUAL_BUFFER_COUNT = 5,
         INPORT_BUFFER_SIZE = 1382400,
-        OUTPORT_NATIVE_BUFFER_COUNT = 12, // 8 reference + 1 current + 3 for asynchronized mode
+        OUTPORT_NATIVE_BUFFER_COUNT = 15, // 8 reference + 2 current + 4 for asynchronized mode + 1 free buffer
     };
 
 };

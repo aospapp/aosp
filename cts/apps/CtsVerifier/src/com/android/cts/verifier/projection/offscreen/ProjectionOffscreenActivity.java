@@ -35,6 +35,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.RemoteException;
 import android.os.SystemClock;
+import android.os.Vibrator;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -75,7 +76,7 @@ public class ProjectionOffscreenActivity extends PassFailButtons.Activity
         public void run() {
             try {
                 mService.onKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_DOWN));
-                mTimeKeyEventSent = SystemClock.uptimeMillis();
+                mTimeKeyEventSent = SystemClock.elapsedRealtime();
             } catch (RemoteException e) {
                 Log.e(TAG, "Error running onKeyEvent", e);
             }
@@ -89,6 +90,7 @@ public class ProjectionOffscreenActivity extends PassFailButtons.Activity
             Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
             Ringtone r = RingtoneManager.getRingtone(getApplicationContext(), notification);
             r.play();
+            ((Vibrator) getSystemService(VIBRATOR_SERVICE)).vibrate(1000);
         }
     };
 
@@ -101,11 +103,11 @@ public class ProjectionOffscreenActivity extends PassFailButtons.Activity
             handler.postDelayed(
                     sendKeyEventRunnable, DELAYED_RUNNABLE_TIME);
             mStatusView.setText("Running test...");
-            mTimeScreenTurnedOff = SystemClock.uptimeMillis();
+            mTimeScreenTurnedOff = SystemClock.elapsedRealtime();
             // Notify user its safe to turn screen back on after 5s + fudge factor
             handler.postDelayed(playNotificationRunnable, TIME_SCREEN_OFF + 500);
         } else if (intent.getAction().equals(Intent.ACTION_SCREEN_ON)) {
-            if (SystemClock.uptimeMillis() - mTimeScreenTurnedOff < TIME_SCREEN_OFF) {
+            if (SystemClock.elapsedRealtime() - mTimeScreenTurnedOff < TIME_SCREEN_OFF) {
                 mStatusView.setText("ERROR: Turned on screen too early");
                 getPassButton().setEnabled(false);
                 mTestStatus = TestStatus.FAILED;
@@ -196,7 +198,7 @@ public class ProjectionOffscreenActivity extends PassFailButtons.Activity
 
         if (mTimeKeyEventSent != 0
                 && mTestStatus == TestStatus.RUNNING
-                && mTimeKeyEventSent + RENDERER_DELAY_THRESHOLD < SystemClock.uptimeMillis()) {
+                && mTimeKeyEventSent + RENDERER_DELAY_THRESHOLD < SystemClock.elapsedRealtime()) {
             mTestStatus = TestStatus.FAILED;
             mStatusView.setText("Failed: took too long to render");
         }

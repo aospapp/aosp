@@ -31,7 +31,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.text.TextUtils;
-import android.util.Log;
 import android.util.Pair;
 
 import com.android.tv.settings.dialog.SettingsLayoutActivity;
@@ -53,46 +52,72 @@ import java.util.List;
  * Activity to manage network settings.
  */
 public class NetworkActivity extends SettingsLayoutActivity implements
-        ConnectivityListener.Listener {
+        ConnectivityListener.Listener, ConnectivityListener.WifiNetworkListener {
 
-    private static final boolean DEBUG = false;
-    private static final String TAG = "NetworkActivity";
     private static final int REQUEST_CODE_ADVANCED_OPTIONS = 1;
-    private static final int WIFI_REFRESH_INTERVAL_CAP_MILLIS = 15 * 1000;
+    private static final int WIFI_SCAN_INTERVAL_CAP_MILLIS = 10 * 1000;
+    private static final int WIFI_UI_REFRESH_INTERVAL_CAP_MILLIS = 15 * 1000;
 
     private ConnectivityListener mConnectivityListener;
     private Resources mRes;
     private Handler mHandler = new Handler();
+    private final Runnable mRefreshWifiAccessPoints = new Runnable() {
+        @Override
+        public void run() {
+            mConnectivityListener.scanWifiAccessPoints(NetworkActivity.this);
+            mHandler.removeCallbacks(mRefreshWifiAccessPoints);
+            mHandler.postDelayed(mRefreshWifiAccessPoints, WIFI_SCAN_INTERVAL_CAP_MILLIS);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         mRes = getResources();
         mConnectivityListener = new ConnectivityListener(this, this);
+        // The ConectivityListenter must be started before calling "super.OnCreate(.)" to ensure
+        // that connectivity status is available before the layout is constructed.
         mConnectivityListener.start();
         super.onCreate(savedInstanceState);
     }
 
     @Override
-    protected void onDestroy(){
-        super.onDestroy();
-        mConnectivityListener.stop();
+    public void onResume() {
+        mConnectivityListener.start();
+        mHandler.removeCallbacks(mRefreshWifiAccessPoints);
+        mHandler.post(mRefreshWifiAccessPoints);
+        onConnectivityChange(null);
+
+        // TODO(lanechr): It's an anti-pattern that we have to notify Layout here; see b/18889239.
+        mWifiAdvancedLayout.refreshView();
+
+        super.onResume();
     }
 
+    @Override
+    protected void onPause() {
+        mHandler.removeCallbacks(mRefreshWifiAccessPoints);
+        mConnectivityListener.stop();
+        super.onPause();
+    }
+
+    @Override
+    protected void onDestroy(){
+        mConnectivityListener = null;
+        super.onDestroy();
+    }
+
+    // ConnectivityListener.Listener overrides.
     @Override
     public void onConnectivityChange(Intent intent) {
         mEthernetConnectedDescription.refreshView();
         mWifiConnectedDescription.refreshView();
+        onWifiListChanged();
     }
 
     @Override
-    public void onResume() {
-        if (mWifiShortListLayout != null) {
-            mWifiShortListLayout.onWifiListInvalidated();
-        }
-        if (mWifiAllListLayout != null) {
-            mWifiAllListLayout.onWifiListInvalidated();
-        }
-        super.onResume();
+    public void onWifiListChanged() {
+        mWifiShortListLayout.onWifiListChanged();
+        mWifiAllListLayout.onWifiListChanged();
     }
 
     StringGetter mEthernetConnectedDescription = new StringGetter() {
@@ -224,46 +249,6 @@ public class NetworkActivity extends SettingsLayoutActivity implements
 
     private final Context mContext = this;
 
-    private int getCurrentNetworkIconResourceId(
-            ScanResult scanResult, int signalLevel) {
-        int resourceId = 0;
-        if (scanResult != null) {
-            WifiSecurity security = WifiSecurity.getSecurity(scanResult);
-            if (security.isOpen()) {
-                switch (signalLevel) {
-                    case 0:
-                        resourceId = R.drawable.ic_settings_wifi_active_1;
-                        break;
-                    case 1:
-                        resourceId = R.drawable.ic_settings_wifi_active_2;
-                        break;
-                    case 2:
-                        resourceId = R.drawable.ic_settings_wifi_active_3;
-                        break;
-                    case 3:
-                        resourceId = R.drawable.ic_settings_wifi_active_4;
-                        break;
-                }
-            } else {
-                switch (signalLevel) {
-                    case 0:
-                        resourceId = R.drawable.ic_settings_wifi_secure_active_1;
-                        break;
-                    case 1:
-                        resourceId = R.drawable.ic_settings_wifi_secure_active_2;
-                        break;
-                    case 2:
-                        resourceId = R.drawable.ic_settings_wifi_secure_active_3;
-                        break;
-                    case 3:
-                        resourceId = R.drawable.ic_settings_wifi_secure_active_4;
-                        break;
-                }
-            }
-        }
-        return resourceId;
-    }
-
     private String getSignalStrength() {
         String[] signalLevels = mRes.getStringArray(R.array.wifi_signal_strength);
         int strength = mConnectivityListener.getWifiSignalStrength(signalLevels.length);
@@ -330,10 +315,37 @@ public class NetworkActivity extends SettingsLayoutActivity implements
         }
     };
 
-    private void addWifiConnectedHeader(Layout layout, String SSID) {
+    LayoutGetter mWifiLayout = new LayoutGetter() {
+        public Layout get() {
+            return new Layout()
+                .add(new Static.Builder(mRes)
+                        .title(R.string.wifi_setting_available_networks)
+                        .build())
+                .add(mWifiShortListLayout)
+                .add(new Header.Builder(mRes)
+                        .title(R.string.wifi_setting_see_all)
+                        .build()
+                    .add(mWifiAllListLayout)
+                )
+                .add(new Static.Builder(mRes)
+                        .title(R.string.wifi_setting_header_other_options)
+                        .build())
+                .add(new Action.Builder(mRes,
+                         new Intent(NetworkActivity.this, WpsConnectionActivity.class))
+                        .title(R.string.wifi_setting_other_options_wps)
+                        .build())
+                .add(new Action.Builder(mRes,
+                        new Intent(NetworkActivity.this, AddWifiNetworkActivity.class))
+                        .title(R.string.wifi_setting_other_options_add_network)
+                        .build());
+        }
+    };
+
+    private void addWifiConnectedHeader(Layout layout, String SSID, int iconResId) {
         layout
             .add(new Header.Builder(mRes)
                     .title(SSID)
+                    .icon(iconResId)
                     .description(R.string.connected).build()
                 .add(new Header.Builder(mRes)
                         .title(R.string.wifi_action_status_info).build()
@@ -353,8 +365,7 @@ public class NetworkActivity extends SettingsLayoutActivity implements
             );
     }
 
-    private class WifiListLayout extends LayoutGetter implements
-            ConnectivityListener.WifiNetworkListener {
+    private class WifiListLayout extends LayoutGetter {
         private final boolean mTop3EntriesOnly;
         private String mSelectedTitle;
         private long mLastWifiRefresh = 0;
@@ -376,24 +387,20 @@ public class NetworkActivity extends SettingsLayoutActivity implements
 
         @Override
         public Layout get() {
-            mConnectivityListener.startScanningWifi(this);
             mLastWifiRefresh = SystemClock.elapsedRealtime();
             mHandler.removeCallbacks(mRefreshViewRunnable);
             return initAvailableWifiNetworks(mTop3EntriesOnly, mSelectedTitle).
                     setSelectedByTitle(mSelectedTitle);
         }
 
-        @Override
-        public void onMovedOffScreen() {
-            mHandler.removeCallbacks(mRefreshViewRunnable);
-            mConnectivityListener.stopScanningWifi(this);
-        }
-
-        @Override
+        /**
+         * Wifi network list has changed and an eventual refresh of the UI is required.
+         * Rate limit the UI refresh to once per WIFI_UI_REFRESH_INTERVAL_CAP_MILLIS.
+         */
         public void onWifiListChanged() {
             long now = SystemClock.elapsedRealtime();
             long millisToNextRefreshView =
-                    WIFI_REFRESH_INTERVAL_CAP_MILLIS - now + mLastWifiRefresh;
+                    WIFI_UI_REFRESH_INTERVAL_CAP_MILLIS - now + mLastWifiRefresh;
             mHandler.removeCallbacks(mRefreshViewRunnable);
             mHandler.postDelayed(mRefreshViewRunnable, millisToNextRefreshView);
         }
@@ -403,8 +410,8 @@ public class NetworkActivity extends SettingsLayoutActivity implements
          * networks is required.
          */
         public void onWifiListInvalidated() {
-            mLastWifiRefresh = 0;
-            onWifiListChanged();
+            mHandler.removeCallbacks(mRefreshViewRunnable);
+            mHandler.post(mRefreshViewRunnable);
         }
 
         /**
@@ -448,29 +455,20 @@ public class NetworkActivity extends SettingsLayoutActivity implements
                 for (ScanResult network : displayList) {
                     if (network != null) {
                         WifiSecurity security = WifiSecurity.getSecurity(network);
-
-                        String networkDescription =
-                            security.isOpen() ? "" : security.getName(mContext);
-                        Intent intent =
-                            WifiConnectionActivity.createIntent(mContext, network, security);
                         int signalLevel = WifiManager.calculateSignalLevel(
                                 network.level, NUMBER_SIGNAL_LEVELS);
-                        //TODO implement signal dependent list icon.
-                        /*
-                        int imageResourceId = getNetworkIconResourceId(network, signalLevel);
-                        if (WifiConfigHelper.areSameNetwork(mWifiManager, network,
-                                currentConnection)) {
-                            networkDescription = getString(R.string.connected);
-                            signalLevel = WifiManager.calculateSignalLevel(
-                                    currentConnection.getRssi(), NUMBER_SIGNAL_LEVELS);
-                            imageResourceId = getCurrentNetworkIconResourceId(network, signalLevel);
-                        } */
+                        int imageResourceId = getNetworkIconRes(security.isOpen(), signalLevel);
 
                         if (isConnected) {
-                            addWifiConnectedHeader(layout, network.SSID);
+                            addWifiConnectedHeader(layout, network.SSID, imageResourceId);
                         } else {
+                            Intent intent =
+                                WifiConnectionActivity.createIntent(mContext, network, security);
+                            String networkDescription =
+                                security.isOpen() ? "" : security.getName(mContext);
                             layout.add(new Action.Builder(mRes, intent)
                                     .title(network.SSID)
+                                    .icon(imageResourceId)
                                     .description(networkDescription).build());
                         }
                     }
@@ -490,46 +488,39 @@ public class NetworkActivity extends SettingsLayoutActivity implements
 
     @Override
     public Layout createLayout() {
-        return
-            new Layout()
+        // Note: This only updates the layout the activity is loaded,
+        //       not if the user plugs/unplugs in an adapter.
+        if (mConnectivityListener.isEthernetAvailable()) {
+            return new Layout()
                 .breadcrumb(getString(R.string.header_category_device))
                 .add(new Header.Builder(mRes)
                         .icon(R.drawable.ic_settings_wifi_4)
                         .title(R.string.connectivity_network)
                         .description(mWifiConnectedDescription)
                         .build()
-                    .add(new Header.Builder(mRes).title(R.string.connectivity_wifi)
+                    .add(new Header.Builder(mRes)
+                            .title(R.string.connectivity_wifi)
                             .contentIconRes(R.drawable.ic_settings_wifi_4)
-                            .description(mWifiConnectedDescription).build()
-                        .add(new Static.Builder(mRes)
-                                .title(R.string.wifi_setting_available_networks)
-                                .build())
-                        .add(mWifiShortListLayout)
-                        .add(new Header.Builder(mRes)
-                                .title(R.string.wifi_setting_see_all)
-                                .build()
-                            .add(mWifiAllListLayout)
-                        )
-                        .add(new Static.Builder(mRes)
-                                .title(R.string.wifi_setting_header_other_options)
-                                .build())
-                        .add(new Action.Builder(mRes,
-                                 new Intent(this, WpsConnectionActivity.class))
-                                .title(R.string.wifi_setting_other_options_wps)
-                                .build())
-                        .add(new Action.Builder(mRes,
-                                new Intent(this, AddWifiNetworkActivity.class))
-                                .title(R.string.wifi_setting_other_options_add_network)
-                                .build())
-                    )
+                            .description(mWifiConnectedDescription)
+                            .build()
+                        .add(mWifiLayout))
                     .add(new Header.Builder(mRes)
                             .title(R.string.connectivity_ethernet)
                             .contentIconRes(R.drawable.ic_settings_ethernet)
                             .description(mEthernetConnectedDescription)
                             .build()
-                        .add(mEthernetLayout)
-                     )
-                 );
+                        .add(mEthernetLayout)));
+        } else {
+            // Only Wifi is available.
+            return new Layout()
+                .breadcrumb(getString(R.string.header_category_device))
+                .add(new Header.Builder(mRes)
+                        .icon(R.drawable.ic_settings_wifi_4)
+                        .title(R.string.connectivity_wifi)
+                        .description(mWifiConnectedDescription)
+                        .build()
+                    .add(mWifiLayout));
+        }
     }
 
     @Override
@@ -590,5 +581,43 @@ public class NetworkActivity extends SettingsLayoutActivity implements
                 break;
             }
         }
+    }
+
+    private int getNetworkIconRes(boolean isOpen, int signalLevel) {
+        int resourceId = R.drawable.ic_settings_wifi_not_connected;
+
+        if (isOpen) {
+            switch (signalLevel) {
+                case 0:
+                    resourceId = R.drawable.ic_settings_wifi_1;
+                    break;
+                case 1:
+                    resourceId = R.drawable.ic_settings_wifi_2;
+                    break;
+                case 2:
+                    resourceId = R.drawable.ic_settings_wifi_3;
+                    break;
+                case 3:
+                    resourceId = R.drawable.ic_settings_wifi_4;
+                    break;
+            }
+        } else {
+            switch (signalLevel) {
+                case 0:
+                    resourceId = R.drawable.ic_settings_wifi_secure_1;
+                    break;
+                case 1:
+                    resourceId = R.drawable.ic_settings_wifi_secure_2;
+                    break;
+                case 2:
+                    resourceId = R.drawable.ic_settings_wifi_secure_3;
+                    break;
+                case 3:
+                    resourceId = R.drawable.ic_settings_wifi_secure_4;
+                    break;
+            }
+        }
+
+        return resourceId;
     }
 }

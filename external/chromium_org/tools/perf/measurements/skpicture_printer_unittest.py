@@ -6,13 +6,12 @@ import shutil
 import tempfile
 
 from measurements import skpicture_printer
-from telemetry import test
-from telemetry.page import page_measurement_unittest_base
 from telemetry.unittest import options_for_unittests
+from telemetry.unittest import page_test_test_case
+from telemetry.unittest import test
 
 
-class SkpicturePrinterUnitTest(
-      page_measurement_unittest_base.PageMeasurementUnitTestBase):
+class SkpicturePrinterUnitTest(page_test_test_case.PageTestTestCase):
   def setUp(self):
     self._options = options_for_unittests.GetCopy()
     self._options.skp_outdir = tempfile.mkdtemp('_skp_test')
@@ -28,7 +27,7 @@ class SkpicturePrinterUnitTest(
 
     # Picture printing is not supported on all platforms.
     if results.failures:
-      assert 'not supported' in results.failures[0][1]
+      assert 'not supported' in results.failures[0].exc_info[1].message
       return
 
     saved_picture_count = results.FindAllPageSpecificValuesNamed(

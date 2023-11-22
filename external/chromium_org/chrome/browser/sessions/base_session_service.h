@@ -15,8 +15,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/task/cancelable_task_tracker.h"
 #include "base/threading/sequenced_worker_pool.h"
-#include "chrome/browser/common/cancelable_request.h"
-#include "chrome/browser/sessions/session_id.h"
+#include "components/sessions/session_id.h"
 #include "url/gurl.h"
 
 class Profile;
@@ -31,7 +30,7 @@ class SerializedNavigationEntry;
 // session service. It contains commonality needed by both, in particular
 // it manages a set of SessionCommands that are periodically sent to a
 // SessionBackend.
-class BaseSessionService : public CancelableRequestProvider {
+class BaseSessionService {
  public:
   // Identifies the type of session service this is. This is used by the
   // backend to determine the name of the files.
@@ -157,7 +156,7 @@ class BaseSessionService : public CancelableRequestProvider {
 
   // This posts the task to the SequencedWorkerPool, or run immediately
   // if the SequencedWorkerPool has been shutdown.
-  bool RunTaskOnBackendThread(const tracked_objects::Location& from_here,
+  void RunTaskOnBackendThread(const tracked_objects::Location& from_here,
                               const base::Closure& task);
 
   // Max number of navigation entries in each direction we'll persist.
@@ -172,9 +171,6 @@ class BaseSessionService : public CancelableRequestProvider {
   // The backend.
   scoped_refptr<SessionBackend> backend_;
 
-  // Used to invoke Save.
-  base::WeakPtrFactory<BaseSessionService> weak_factory_;
-
   // Commands we need to send over to the backend.
   std::vector<SessionCommand*>  pending_commands_;
 
@@ -187,6 +183,9 @@ class BaseSessionService : public CancelableRequestProvider {
 
   // A token to make sure that all tasks will be serialized.
   base::SequencedWorkerPool::SequenceToken sequence_token_;
+
+  // Used to invoke Save.
+  base::WeakPtrFactory<BaseSessionService> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(BaseSessionService);
 };

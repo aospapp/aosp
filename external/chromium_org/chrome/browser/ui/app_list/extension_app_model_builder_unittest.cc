@@ -23,6 +23,8 @@
 #include "chrome/test/base/testing_profile.h"
 #include "extensions/browser/app_sorting.h"
 #include "extensions/browser/extension_prefs.h"
+#include "extensions/browser/uninstall_reason.h"
+#include "extensions/common/constants.h"
 #include "extensions/common/extension_set.h"
 #include "extensions/common/manifest.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -155,7 +157,7 @@ TEST_F(ExtensionAppModelBuilderTest, HideWebStore) {
       MakeApp("webstore",
               "0.0",
               "http://google.com",
-              std::string(extension_misc::kWebStoreAppId));
+              std::string(extensions::kWebStoreAppId));
   service_->AddExtension(store.get());
 
   // Install an "enterprise web store" app.
@@ -170,20 +172,29 @@ TEST_F(ExtensionAppModelBuilderTest, HideWebStore) {
   app_list::AppListModel model1;
   ExtensionAppModelBuilder builder1(controller_.get());
   builder1.InitializeWithProfile(profile_.get(), &model1);
-  std::string content = GetModelContent(&model1);
-  EXPECT_NE(std::string::npos, content.find("webstore"));
-  EXPECT_NE(std::string::npos, content.find("enterprise_webstore"));
+  EXPECT_TRUE(model1.FindItem(store->id()));
+  EXPECT_TRUE(model1.FindItem(enterprise_store->id()));
 
   // Activate the HideWebStoreIcon policy.
   profile_->GetPrefs()->SetBoolean(prefs::kHideWebStoreIcon, true);
 
-  // Web stores should NOT be in the AppListModel.
+  // Now the web stores should not be present anymore.
+  EXPECT_FALSE(model1.FindItem(store->id()));
+  EXPECT_FALSE(model1.FindItem(enterprise_store->id()));
+
+  // Build a new AppListModel; web stores should NOT be present.
   app_list::AppListModel model2;
   ExtensionAppModelBuilder builder2(controller_.get());
   builder2.InitializeWithProfile(profile_.get(), &model2);
-  content = GetModelContent(&model2);
-  EXPECT_EQ(std::string::npos, content.find("webstore"));
-  EXPECT_EQ(std::string::npos, content.find("enterprise_webstore"));
+  EXPECT_FALSE(model2.FindItem(store->id()));
+  EXPECT_FALSE(model2.FindItem(enterprise_store->id()));
+
+  // Deactivate the HideWebStoreIcon policy again.
+  profile_->GetPrefs()->SetBoolean(prefs::kHideWebStoreIcon, false);
+
+  // Now the web stores should have appeared.
+  EXPECT_TRUE(model2.FindItem(store->id()));
+  EXPECT_TRUE(model2.FindItem(enterprise_store->id()));
 }
 
 TEST_F(ExtensionAppModelBuilderTest, DisableAndEnable) {
@@ -196,7 +207,10 @@ TEST_F(ExtensionAppModelBuilderTest, DisableAndEnable) {
 }
 
 TEST_F(ExtensionAppModelBuilderTest, Uninstall) {
-  service_->UninstallExtension(kPackagedApp2Id, false, NULL);
+  service_->UninstallExtension(kPackagedApp2Id,
+                               extensions::UNINSTALL_REASON_FOR_TESTING,
+                               base::Bind(&base::DoNothing),
+                               NULL);
   EXPECT_EQ(std::string("Packaged App 1,Hosted App"),
             GetModelContent(model_.get()));
 
@@ -211,7 +225,10 @@ TEST_F(ExtensionAppModelBuilderTest, UninstallTerminatedApp) {
   // Simulate an app termination.
   service_->TrackTerminatedExtensionForTest(app);
 
-  service_->UninstallExtension(kPackagedApp2Id, false, NULL);
+  service_->UninstallExtension(kPackagedApp2Id,
+                               extensions::UNINSTALL_REASON_FOR_TESTING,
+                               base::Bind(&base::DoNothing),
+                               NULL);
   EXPECT_EQ(std::string("Packaged App 1,Hosted App"),
             GetModelContent(model_.get()));
 
@@ -223,7 +240,7 @@ TEST_F(ExtensionAppModelBuilderTest, Reinstall) {
 
   // Install kPackagedApp1Id again should not create a new entry.
   extensions::InstallTracker* tracker =
-      extensions::InstallTrackerFactory::GetForProfile(profile_.get());
+      extensions::InstallTrackerFactory::GetForBrowserContext(profile_.get());
   extensions::InstallObserver::ExtensionInstallParams params(
       kPackagedApp1Id, "", gfx::ImageSkia(), true, true);
   tracker->OnBeginExtensionInstall(params);
@@ -288,7 +305,7 @@ TEST_F(ExtensionAppModelBuilderTest, InvalidOrdinal) {
   scoped_prefs->UpdateExtensionPref(
       kHostedAppId,
       "page_ordinal",
-      base::Value::CreateStringValue("a corrupted ordinal"));
+      new base::StringValue("a corrupted ordinal"));
 
   // This should not assert or crash.
   CreateBuilder();

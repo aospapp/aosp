@@ -56,17 +56,17 @@ int AwBrowserMainParts::PreCreateThreads() {
   // fail) just to create the ResourceBundle instance. We should refactor
   // ResourceBundle/GetApplicationLocale to not require an instance to be
   // initialized.
-  ui::ResourceBundle::InitSharedInstanceLocaleOnly(
-      l10n_util::GetDefaultLocale(), NULL);
+  ui::ResourceBundle::InitSharedInstanceWithLocale(
+      l10n_util::GetDefaultLocale(),
+      NULL,
+      ui::ResourceBundle::DO_NOT_LOAD_COMMON_RESOURCES);
   std::string locale = l10n_util::GetApplicationLocale(std::string()) + ".pak";
   if (AwAssets::OpenAsset(locale, &pak_fd, &pak_off, &pak_len)) {
     VLOG(0) << "Load from apk succesful, fd=" << pak_fd << " off=" << pak_off
             << " len=" << pak_len;
     ui::ResourceBundle::CleanupSharedInstance();
     ui::ResourceBundle::InitSharedInstanceWithPakFileRegion(
-        base::File(pak_fd),
-        base::MemoryMappedFile::Region(pak_off, pak_len),
-        /*should_load_common_resources=*/false);
+        base::File(pak_fd), base::MemoryMappedFile::Region(pak_off, pak_len));
   } else {
     LOG(WARNING) << "Failed to load " << locale << ".pak from the apk too. "
                     "Bringing up WebView without any locale";

@@ -76,7 +76,9 @@ const char kUsageMessage[] =
   "  --host-config=<config>   - Specifies the host configuration.\n"
   "  --help, -?               - Print this message.\n"
   "  --type                   - Specifies process type.\n"
-  "  --version                - Prints the host version and exits.\n";
+  "  --version                - Prints the host version and exits.\n"
+  "  --window-id=<id>         - Specifies a window to remote,"
+                                " instead of the whole desktop.\n";
 
 void Usage(const base::FilePath& program_name) {
   printf(kUsageMessage, program_name.MaybeAsASCII().c_str());
@@ -237,3 +239,9 @@ int HostMain(int argc, char** argv) {
 }
 
 }  // namespace remoting
+
+#if !defined(OS_WIN)
+int main(int argc, char** argv) {
+  return remoting::HostMain(argc, argv);
+}
+#endif  // !defined(OS_WIN)

@@ -23,7 +23,6 @@
 #include "gpu/config/gpu_info.h"
 
 class GURL;
-struct WebPreferences;
 
 namespace base {
 class CommandLine;
@@ -32,6 +31,7 @@ class CommandLine;
 namespace content {
 
 class GpuDataManagerImplPrivate;
+struct WebPreferences;
 
 class CONTENT_EXPORT GpuDataManagerImpl
     : public NON_EXPORTED_BASE(GpuDataManager) {
@@ -67,10 +67,12 @@ class CONTENT_EXPORT GpuDataManagerImpl
       const GetGpuProcessHandlesCallback& callback) const OVERRIDE;
   virtual bool GpuAccessAllowed(std::string* reason) const OVERRIDE;
   virtual void RequestCompleteGpuInfoIfNeeded() OVERRIDE;
+  virtual bool IsEssentialGpuInfoAvailable() const OVERRIDE;
   virtual bool IsCompleteGpuInfoAvailable() const OVERRIDE;
   virtual void RequestVideoMemoryUsageStatsUpdate() const OVERRIDE;
   virtual bool ShouldUseSwiftShader() const OVERRIDE;
   virtual void RegisterSwiftShaderPath(const base::FilePath& path) OVERRIDE;
+  virtual bool ShouldUseWarp() const OVERRIDE;
   virtual void AddObserver(GpuDataManagerObserver* observer) OVERRIDE;
   virtual void RemoveObserver(GpuDataManagerObserver* observer) OVERRIDE;
   virtual void UnblockDomainFrom3DAPIs(const GURL& url) OVERRIDE;

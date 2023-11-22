@@ -20,6 +20,7 @@
 #include "nacl_io/kernel_wrap_real.h"
 #include "nacl_io/node.h"
 #include "nacl_io/osunistd.h"
+#include "nacl_io/passthroughfs/real_node.h"
 #include "nacl_io/pepper_interface.h"
 #include "sdk_util/auto_lock.h"
 
@@ -32,24 +33,6 @@
 namespace nacl_io {
 
 namespace {
-
-class RealNode : public Node {
- public:
-  RealNode(Filesystem* filesystem, int fd);
-
-  virtual Error Read(const HandleAttr& attr,
-                     void* buf,
-                     size_t count,
-                     int* out_bytes);
-  virtual Error Write(const HandleAttr& attr,
-                      const void* buf,
-                      size_t count,
-                      int* out_bytes);
-  virtual Error GetStat(struct stat* stat);
-
- protected:
-  int fd_;
-};
 
 class NullNode : public CharNode {
  public:
@@ -125,44 +108,6 @@ class FsNode : public Node {
   Filesystem* other_fs_;
 };
 
-RealNode::RealNode(Filesystem* filesystem, int fd) : Node(filesystem), fd_(fd) {
-  SetType(S_IFCHR);
-}
-
-Error RealNode::Read(const HandleAttr& attr,
-                     void* buf,
-                     size_t count,
-                     int* out_bytes) {
-  *out_bytes = 0;
-
-  size_t readcnt;
-  int err = _real_read(fd_, buf, count, &readcnt);
-  if (err)
-    return err;
-
-  *out_bytes = static_cast<int>(readcnt);
-  return 0;
-}
-
-Error RealNode::Write(const HandleAttr& attr,
-                      const void* buf,
-                      size_t count,
-                      int* out_bytes) {
-  *out_bytes = 0;
-
-  size_t writecnt;
-  int err = _real_write(fd_, buf, count, &writecnt);
-  if (err)
-    return err;
-
-  *out_bytes = static_cast<int>(writecnt);
-  return 0;
-}
-
-Error RealNode::GetStat(struct stat* stat) {
-  return _real_fstat(fd_, stat);
-}
-
 Error NullNode::Read(const HandleAttr& attr,
                      void* buf,
                      size_t count,
@@ -189,16 +134,21 @@ Error ConsoleNode::Write(const HandleAttr& attr,
                          int* out_bytes) {
   *out_bytes = 0;
 
-  ConsoleInterface* con_intr = filesystem_->ppapi()->GetConsoleInterface();
-  VarInterface* var_intr = filesystem_->ppapi()->GetVarInterface();
+  ConsoleInterface* con_iface = filesystem_->ppapi()->GetConsoleInterface();
+  VarInterface* var_iface = filesystem_->ppapi()->GetVarInterface();
 
-  if (!(var_intr && con_intr))
+  if (!(var_iface && con_iface)) {
+    LOG_ERROR("Got NULL interface(s): %s%s",
+              con_iface ? "" : "Console ",
+              var_iface ? "" : "Var");
     return ENOSYS;
+  }
 
   const char* var_data = static_cast<const char*>(buf);
   uint32_t len = static_cast<uint32_t>(count);
-  struct PP_Var val = var_intr->VarFromUtf8(var_data, len);
-  con_intr->Log(filesystem_->ppapi()->GetInstance(), level_, val);
+  struct PP_Var val = var_iface->VarFromUtf8(var_data, len);
+  con_iface->Log(filesystem_->ppapi()->GetInstance(), level_, val);
+  var_iface->Release(val);
 
   *out_bytes = count;
   return 0;
@@ -241,8 +191,10 @@ Error UrandomNode::Read(const HandleAttr& attr,
   *out_bytes = 0;
 
 #if defined(__native_client__)
-  if (!interface_ok_)
+  if (!interface_ok_) {
+    LOG_ERROR("NACL_IRT_RANDOM_v0_1 interface not avaiable.");
     return EBADF;
+  }
 
   size_t nread;
   int error = (*random_interface_.get_random_bytes)(buf, count, &nread);
@@ -288,55 +240,52 @@ Error FsNode::VIoctl(int request, va_list args) {
 
 }  // namespace
 
-Error DevFs::Access(const Path& path, int a_mode) {
-  ScopedNode node;
-  int error = root_->FindChild(path.Join(), &node);
-  if (error)
-    return error;
-
-  // Don't allow execute access.
-  if (a_mode & X_OK)
-    return EACCES;
-
-  return 0;
-}
-
-Error DevFs::Open(const Path& path, int open_flags, ScopedNode* out_node) {
+Error DevFs::OpenWithMode(const Path& path, int open_flags,
+                          mode_t mode, ScopedNode* out_node) {
   out_node->reset(NULL);
   int error;
   if (path.Part(1) == "fs") {
-    if (path.Size() == 3)
+    if (path.Size() == 3) {
       error = fs_dir_->FindChild(path.Part(2), out_node);
-    else
+    } else {
+      LOG_TRACE("Bad devfs path: %s", path.Join().c_str());
       error = ENOENT;
+    }
   } else {
     error = root_->FindChild(path.Join(), out_node);
   }
 
   // Only return EACCES when trying to create a node that does not exist.
-  if ((error == ENOENT) && (open_flags & O_CREAT))
+  if ((error == ENOENT) && (open_flags & O_CREAT)) {
+    LOG_TRACE("Cannot create devfs node: %s", path.Join().c_str());
     return EACCES;
+  }
 
   return error;
 }
 
 Error DevFs::Unlink(const Path& path) {
+  LOG_ERROR("unlink not supported.");
   return EPERM;
 }
 
 Error DevFs::Mkdir(const Path& path, int permissions) {
+  LOG_ERROR("mkdir not supported.");
   return EPERM;
 }
 
 Error DevFs::Rmdir(const Path& path) {
+  LOG_ERROR("rmdir not supported.");
   return EPERM;
 }
 
 Error DevFs::Remove(const Path& path) {
+  LOG_ERROR("remove not supported.");
   return EPERM;
 }
 
 Error DevFs::Rename(const Path& path, const Path& newpath) {
+  LOG_ERROR("rename not supported.");
   return EPERM;
 }
 

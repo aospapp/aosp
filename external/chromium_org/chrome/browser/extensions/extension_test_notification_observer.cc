@@ -5,10 +5,12 @@
 #include "chrome/browser/extensions/extension_test_notification_observer.h"
 
 #include "base/callback_list.h"
+#include "chrome/browser/extensions/extension_action_test_util.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_view_host.h"
@@ -21,19 +23,15 @@ using extensions::Extension;
 
 namespace {
 
-bool HasExtensionPageActionCountReachedTarget(LocationBarTesting* location_bar,
-                                              int target_page_action_count) {
-  VLOG(1) << "Number of page actions: " << location_bar->PageActionCount();
-  return location_bar->PageActionCount() == target_page_action_count;
-}
+// A callback that returns true if the condition has been met and takes no
+// arguments.
+typedef base::Callback<bool(void)> ConditionCallback;
 
-bool HasExtensionPageActionVisibilityReachedTarget(
-    LocationBarTesting* location_bar,
-    int target_visible_page_action_count) {
-  VLOG(1) << "Number of visible page actions: "
-          << location_bar->PageActionVisibleCount();
-  return location_bar->PageActionVisibleCount() ==
-         target_visible_page_action_count;
+bool HasPageActionVisibilityReachedTarget(
+    Browser* browser, size_t target_visible_page_action_count) {
+  return extensions::extension_action_test_util::GetVisiblePageActionCount(
+      browser->tab_strip_model()->GetActiveWebContents()) ==
+      target_visible_page_action_count;
 }
 
 bool HaveAllExtensionRenderViewHostsFinishedLoading(
@@ -48,7 +46,13 @@ bool HaveAllExtensionRenderViewHostsFinishedLoading(
   return true;
 }
 
-class NotificationSet : public content::NotificationObserver {
+}  // namespace
+
+////////////////////////////////////////////////////////////////////////////////
+// ExtensionTestNotificationObserver::NotificationSet
+
+class ExtensionTestNotificationObserver::NotificationSet
+    : public content::NotificationObserver {
  public:
   void Add(int type, const content::NotificationSource& source);
   void Add(int type);
@@ -69,52 +73,25 @@ class NotificationSet : public content::NotificationObserver {
   base::CallbackList<void()> callback_list_;
 };
 
-void NotificationSet::Add(
+void ExtensionTestNotificationObserver::NotificationSet::Add(
     int type,
     const content::NotificationSource& source) {
   notification_registrar_.Add(this, type, source);
 }
 
-void NotificationSet::Add(int type) {
+void ExtensionTestNotificationObserver::NotificationSet::Add(int type) {
   Add(type, content::NotificationService::AllSources());
 }
 
-void NotificationSet::Observe(
+void ExtensionTestNotificationObserver::NotificationSet::Observe(
     int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
   callback_list_.Notify();
 }
 
-void MaybeQuit(content::MessageLoopRunner* runner,
-               const base::Callback<bool(void)>& condition) {
-  if (condition.Run())
-    runner->Quit();
-}
-
-void WaitForCondition(
-    const base::Callback<bool(void)>& condition,
-    NotificationSet* notification_set) {
-  if (condition.Run())
-    return;
-
-  scoped_refptr<content::MessageLoopRunner> runner(
-      new content::MessageLoopRunner);
-  scoped_ptr<base::CallbackList<void()>::Subscription> subscription =
-      notification_set->callback_list().Add(
-          base::Bind(&MaybeQuit, base::Unretained(runner.get()), condition));
-  runner->Run();
-}
-
-void WaitForCondition(
-    const base::Callback<bool(void)>& condition,
-    int type) {
-  NotificationSet notification_set;
-  notification_set.Add(type);
-  WaitForCondition(condition, &notification_set);
-}
-
-}  // namespace
+////////////////////////////////////////////////////////////////////////////////
+// ExtensionTestNotificationObserver
 
 ExtensionTestNotificationObserver::ExtensionTestNotificationObserver(
     Browser* browser)
@@ -149,25 +126,14 @@ void ExtensionTestNotificationObserver::WaitForNotification(
       notification_type, content::NotificationService::AllSources()).Wait();
 }
 
-bool ExtensionTestNotificationObserver::WaitForPageActionCountChangeTo(
-    int count) {
-  LocationBarTesting* location_bar =
-      browser_->window()->GetLocationBar()->GetLocationBarForTesting();
-  WaitForCondition(
-      base::Bind(
-          &HasExtensionPageActionCountReachedTarget, location_bar, count),
-      chrome::NOTIFICATION_EXTENSION_PAGE_ACTION_COUNT_CHANGED);
-  return true;
-}
-
 bool ExtensionTestNotificationObserver::WaitForPageActionVisibilityChangeTo(
     int count) {
-  LocationBarTesting* location_bar =
-      browser_->window()->GetLocationBar()->GetLocationBarForTesting();
+  extensions::ExtensionActionAPI::Get(GetProfile())->AddObserver(this);
   WaitForCondition(
-      base::Bind(
-          &HasExtensionPageActionVisibilityReachedTarget, location_bar, count),
-      chrome::NOTIFICATION_EXTENSION_PAGE_ACTION_VISIBILITY_CHANGED);
+      base::Bind(&HasPageActionVisibilityReachedTarget, browser_, count),
+      NULL);
+  extensions::ExtensionActionAPI::Get(GetProfile())->
+      RemoveObserver(this);
   return true;
 }
 
@@ -185,20 +151,21 @@ bool ExtensionTestNotificationObserver::WaitForExtensionViewsToLoad() {
 
 bool ExtensionTestNotificationObserver::WaitForExtensionInstall() {
   int before = extension_installs_observed_;
-  WaitForNotification(chrome::NOTIFICATION_EXTENSION_INSTALLED_DEPRECATED);
+  WaitForNotification(
+      extensions::NOTIFICATION_EXTENSION_WILL_BE_INSTALLED_DEPRECATED);
   return extension_installs_observed_ == (before + 1);
 }
 
 bool ExtensionTestNotificationObserver::WaitForExtensionInstallError() {
   int before = extension_installs_observed_;
   content::WindowedNotificationObserver(
-      chrome::NOTIFICATION_EXTENSION_INSTALL_ERROR,
+      extensions::NOTIFICATION_EXTENSION_INSTALL_ERROR,
       content::NotificationService::AllSources()).Wait();
   return extension_installs_observed_ == before;
 }
 
 void ExtensionTestNotificationObserver::WaitForExtensionLoad() {
-  WaitForNotification(chrome::NOTIFICATION_EXTENSION_LOADED_DEPRECATED);
+  WaitForNotification(extensions::NOTIFICATION_EXTENSION_LOADED_DEPRECATED);
 }
 
 void ExtensionTestNotificationObserver::WaitForExtensionAndViewLoad() {
@@ -208,7 +175,7 @@ void ExtensionTestNotificationObserver::WaitForExtensionAndViewLoad() {
 
 bool ExtensionTestNotificationObserver::WaitForExtensionLoadError() {
   int before = extension_load_errors_observed_;
-  WaitForNotification(chrome::NOTIFICATION_EXTENSION_LOAD_ERROR);
+  WaitForNotification(extensions::NOTIFICATION_EXTENSION_LOAD_ERROR);
   return extension_load_errors_observed_ != before;
 }
 
@@ -222,14 +189,14 @@ bool ExtensionTestNotificationObserver::WaitForExtensionCrash(
     return true;
   }
   content::WindowedNotificationObserver(
-      chrome::NOTIFICATION_EXTENSION_PROCESS_TERMINATED,
+      extensions::NOTIFICATION_EXTENSION_PROCESS_TERMINATED,
       content::NotificationService::AllSources()).Wait();
   return (service->GetExtensionById(extension_id, true) == NULL);
 }
 
 bool ExtensionTestNotificationObserver::WaitForCrxInstallerDone() {
   int before = crx_installers_done_observed_;
-  WaitForNotification(chrome::NOTIFICATION_CRX_INSTALLER_DONE);
+  WaitForNotification(extensions::NOTIFICATION_CRX_INSTALLER_DONE);
   return crx_installers_done_observed_ == (before + 1);
 }
 
@@ -253,13 +220,13 @@ void ExtensionTestNotificationObserver::Observe(
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
   switch (type) {
-    case chrome::NOTIFICATION_EXTENSION_LOADED_DEPRECATED:
+    case extensions::NOTIFICATION_EXTENSION_LOADED_DEPRECATED:
       last_loaded_extension_id_ =
         content::Details<const Extension>(details).ptr()->id();
       VLOG(1) << "Got EXTENSION_LOADED notification.";
       break;
 
-    case chrome::NOTIFICATION_CRX_INSTALLER_DONE:
+    case extensions::NOTIFICATION_CRX_INSTALLER_DONE:
       VLOG(1) << "Got CRX_INSTALLER_DONE notification.";
       {
           const Extension* extension =
@@ -272,12 +239,12 @@ void ExtensionTestNotificationObserver::Observe(
       ++crx_installers_done_observed_;
       break;
 
-    case chrome::NOTIFICATION_EXTENSION_INSTALLED_DEPRECATED:
+    case extensions::NOTIFICATION_EXTENSION_WILL_BE_INSTALLED_DEPRECATED:
       VLOG(1) << "Got EXTENSION_INSTALLED notification.";
       ++extension_installs_observed_;
       break;
 
-    case chrome::NOTIFICATION_EXTENSION_LOAD_ERROR:
+    case extensions::NOTIFICATION_EXTENSION_LOAD_ERROR:
       VLOG(1) << "Got EXTENSION_LOAD_ERROR notification.";
       ++extension_load_errors_observed_;
       break;
@@ -286,4 +253,37 @@ void ExtensionTestNotificationObserver::Observe(
       NOTREACHED();
       break;
   }
+}
+
+void ExtensionTestNotificationObserver::OnPageActionsUpdated(
+    content::WebContents* web_contents) {
+  MaybeQuit();
+}
+
+void ExtensionTestNotificationObserver::WaitForCondition(
+    const ConditionCallback& condition,
+    NotificationSet* notification_set) {
+  if (condition.Run())
+    return;
+  condition_ = condition;
+
+  scoped_refptr<content::MessageLoopRunner> runner(
+      new content::MessageLoopRunner);
+  quit_closure_ = runner->QuitClosure();
+
+  scoped_ptr<base::CallbackList<void()>::Subscription> subscription;
+  if (notification_set) {
+    subscription = notification_set->callback_list().Add(
+        base::Bind(&ExtensionTestNotificationObserver::MaybeQuit,
+                   base::Unretained(this)));
+  }
+  runner->Run();
+
+  condition_.Reset();
+  quit_closure_.Reset();
+}
+
+void ExtensionTestNotificationObserver::MaybeQuit() {
+  if (condition_.Run())
+    quit_closure_.Run();
 }

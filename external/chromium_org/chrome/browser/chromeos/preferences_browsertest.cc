@@ -14,6 +14,7 @@
 #include "chrome/browser/chromeos/login/startup_utils.h"
 #include "chrome/browser/chromeos/login/ui/user_adding_screen.h"
 #include "chrome/browser/chromeos/preferences.h"
+#include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/chromeos/settings/stub_cros_settings_provider.h"
 #include "chrome/browser/chromeos/system/fake_input_device_settings.h"
@@ -22,6 +23,7 @@
 #include "chromeos/chromeos_switches.h"
 #include "chromeos/ime/fake_ime_keyboard.h"
 #include "components/feedback/tracing_manager.h"
+#include "components/user_manager/user_manager.h"
 #include "content/public/test/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/events/event_utils.h"
@@ -101,9 +103,11 @@ class PreferencesTest : public LoginManagerTest {
               (int)rate.initial_delay_in_ms);
     EXPECT_EQ(prefs->GetInteger(prefs::kLanguageXkbAutoRepeatInterval),
               (int)rate.repeat_interval_in_ms);
-    EXPECT_EQ(
-        prefs->GetString(prefs::kLanguageCurrentInputMethod),
-        input_method::InputMethodManager::Get()->GetCurrentInputMethod().id());
+    EXPECT_EQ(prefs->GetString(prefs::kLanguageCurrentInputMethod),
+              input_method::InputMethodManager::Get()
+                  ->GetActiveIMEState()
+                  ->GetCurrentInputMethod()
+                  .id());
   }
 
   void CheckLocalStateCorrespondsToPrefs(PrefService* prefs) {
@@ -137,13 +141,14 @@ IN_PROC_BROWSER_TEST_F(PreferencesTest, PRE_MultiProfiles) {
 }
 
 IN_PROC_BROWSER_TEST_F(PreferencesTest, MultiProfiles) {
-  UserManager* user_manager = UserManager::Get();
+  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
 
   // Add first user and init its preferences. Check that corresponding
   // settings has been changed.
   LoginUser(kTestUsers[0]);
-  const User* user1 = user_manager->FindUser(kTestUsers[0]);
-  PrefService* prefs1 = user_manager->GetProfileByUser(user1)->GetPrefs();
+  const user_manager::User* user1 = user_manager->FindUser(kTestUsers[0]);
+  PrefService* prefs1 =
+      ProfileHelper::Get()->GetProfileByUserUnsafe(user1)->GetPrefs();
   SetPrefs(prefs1, false);
   content::RunAllPendingInMessageLoop();
   CheckSettingsCorrespondToPrefs(prefs1);
@@ -154,9 +159,10 @@ IN_PROC_BROWSER_TEST_F(PreferencesTest, MultiProfiles) {
   DisableAnimations();
   AddUser(kTestUsers[1]);
   content::RunAllPendingInMessageLoop();
-  const User* user2 = user_manager->FindUser(kTestUsers[1]);
+  const user_manager::User* user2 = user_manager->FindUser(kTestUsers[1]);
   EXPECT_TRUE(user2->is_active());
-  PrefService* prefs2 = user_manager->GetProfileByUser(user2)->GetPrefs();
+  PrefService* prefs2 =
+      ProfileHelper::Get()->GetProfileByUserUnsafe(user2)->GetPrefs();
   SetPrefs(prefs2, true);
 
   // Check that settings were changed accordingly.

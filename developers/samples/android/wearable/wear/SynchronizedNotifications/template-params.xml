@@ -20,12 +20,12 @@
 <sample>
     <name>SynchronizedNotifications</name>
     <group>Wearable</group>
-    <package>com.example.android.synchronizednotifications</package>
+    <package>com.example.android.wearable.synchronizednotifications</package>
 
 
 
     <!-- change minSdk if needed-->
-    <minSdk>20</minSdk>
+    <minSdk>18</minSdk>
 
 
     <strings>
@@ -39,8 +39,79 @@
 
     <template src="base"/>
     <template src="SimpleView"/>
-    <template src="Wear"/>
+    <template src="WearPlusShared"/>
     <common src="logger"/>
     <common src="activities"/>
 
+    <metadata>
+        <status>PUBLISHED</status>
+        <categories>Wearable</categories>
+        <technologies>Android</technologies>
+        <languages>Java</languages>
+        <solutions>Mobile</solutions>
+        <level>INTERMEDIATE</level>
+        <icon>screenshots/web-icon.png</icon>
+        <screenshots>
+            <img>screenshots/different_notifications_phone.png</img>
+            <img>screenshots/different_notifications_wearable.png</img>
+            <img>screenshots/notification_options.png</img>
+            <img>screenshots/watch_only_notification.png</img>
+        </screenshots>
+        <api_refs>
+            <android>com.google.android.gms.wearable.DataApi</android>
+            <android>com.google.android.gms.wearable.Wearable</android>
+            <android>com.google.android.gms.wearable.WearableListenerService</android>
+        </api_refs>
+
+        <description>
+<![CDATA[
+A basic sample showing how to use simple or synchronized notifications.
+This allows users to dismiss events from either their phone or wearable device simultaneously.
+]]>
+        </description>
+
+        <intro>
+<![CDATA[
+The [DataAPI][1] exposes an API for components to read or write data items and assets between
+the handhelds and wearables. A [DataItem][2] is synchronized across all devices in an Android Wear network.
+It is possible to set data items while not connected to any nodes. Those data items will be synchronized
+when the nodes eventually come online.
+
+This example presents three buttons that would trigger three different combinations of
+notifications on the handset and the watch:
+
+1. The first button builds a simple local-only notification on the handset.
+2. The second one creates a wearable-only notification by putting a data item in the shared data
+store and having a [com.google.android.gms.wearable.WearableListenerService][3] listen for
+that on the wearable.
+3. The third one creates a local notification and a wearable notification by combining the above
+two. It, however, demonstrates how one can set things up so that the dismissal of one
+notification results in the dismissal of the other one.
+
+In the #2 and #3 items, the following code is used to synchronize the data between the handheld
+and the wearable devices using DataAPI.
+
+```java
+PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(path);
+putDataMapRequest.getDataMap().putString(Constants.KEY_CONTENT, content);
+putDataMapRequest.getDataMap().putString(Constants.KEY_TITLE, title);
+PutDataRequest request = putDataMapRequest.asPutDataRequest();
+Wearable.DataApi.putDataItem(mGoogleApiClient, request)
+        .setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
+            @Override
+            public void onResult(DataApi.DataItemResult dataItemResult) {
+                if (!dataItemResult.getStatus().isSuccess()) {
+                    Log.e(TAG, "buildWatchOnlyNotification(): Failed to set the data, "
+                            + "status: " + dataItemResult.getStatus().getStatusCode());
+                }
+            }
+        });
+```
+
+[1]: http://developer.android.com/reference/com/google/android/gms/wearable/DataApi.html#putDataItem(com.google.android.gms.common.api.GoogleApiClient%2C%20com.google.android.gms.wearable.PutDataRequest)
+[2]: http://developer.android.com/reference/com/google/android/gms/wearable/DataItem.html
+[3]: https://developer.android.com/reference/com/google/android/gms/wearable/WearableListenerService.html
+]]>
+        </intro>
+    </metadata>
 </sample>

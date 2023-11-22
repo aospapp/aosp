@@ -21,13 +21,18 @@ import com.android.cts.media.R;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
+import android.content.res.Resources.NotFoundException;
+import android.cts.util.MediaUtils;
+import android.graphics.Rect;
 import android.graphics.ImageFormat;
+import android.media.cts.CodecUtils;
 import android.media.Image;
 import android.media.Image.Plane;
 import android.media.ImageReader;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
+import android.media.MediaCodecInfo.VideoCapabilities;
 import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
@@ -38,9 +43,15 @@ import android.test.AndroidTestCase;
 import android.util.Log;
 import android.view.Surface;
 
+import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible;
+
+import java.io.File;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -62,12 +73,16 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
     private static final long WAIT_FOR_IMAGE_TIMEOUT_MS = 1000;
     private static final String DEBUG_FILE_NAME_BASE = "/sdcard/";
     private static final int NUM_FRAME_DECODED = 100;
-    private static final int MAX_NUM_IMAGES = 3;
+    // video decoders only support a single outstanding image with the consumer
+    private static final int MAX_NUM_IMAGES = 1;
+    private static final float COLOR_STDEV_ALLOWANCE = 5f;
+    private static final float COLOR_DELTA_ALLOWANCE = 5f;
+
+    private final static int MODE_IMAGEREADER = 0;
+    private final static int MODE_IMAGE       = 1;
 
     private Resources mResources;
     private MediaCodec.BufferInfo mBufferInfo = new MediaCodec.BufferInfo();
-    private ByteBuffer[] mInputBuffers;
-    private ByteBuffer[] mOutputBuffers;
     private ImageReader mReader;
     private Surface mReaderSurface;
     private HandlerThread mHandlerThread;
@@ -95,31 +110,322 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
         mHandler = null;
     }
 
-    /**
-     * Test ImageReader with 480x360 hw AVC decoding for flexible yuv format, which is mandatory
-     * to be supported by hw decoder.
-     */
-    public void testHwAVCDecode360pForFlexibleYuv() throws Exception {
-        try {
-            int format = ImageFormat.YUV_420_888;
-            videoDecodeToSurface(
-                    R.raw.video_480x360_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz,
-                    /* width */480, /* height */ 360, format, /* useHw */ true);
-        } finally {
-            closeImageReader();
+    static class MediaAsset {
+        public MediaAsset(int resource, int width, int height) {
+            mResource = resource;
+            mWidth = width;
+            mHeight = height;
+        }
+
+        public int getWidth() {
+            return mWidth;
+        }
+
+        public int getHeight() {
+            return mHeight;
+        }
+
+        public int getResource() {
+            return mResource;
+        }
+
+        private final int mResource;
+        private final int mWidth;
+        private final int mHeight;
+    }
+
+    static class MediaAssets {
+        public MediaAssets(String mime, MediaAsset... assets) {
+            mMime = mime;
+            mAssets = assets;
+        }
+
+        public String getMime() {
+            return mMime;
+        }
+
+        public MediaAsset[] getAssets() {
+            return mAssets;
+        }
+
+        private final String mMime;
+        private final MediaAsset[] mAssets;
+    }
+
+    private static MediaAssets H263_ASSETS = new MediaAssets(
+            MediaFormat.MIMETYPE_VIDEO_H263,
+            new MediaAsset(R.raw.swirl_176x144_h263, 176, 144),
+            new MediaAsset(R.raw.swirl_352x288_h263, 352, 288),
+            new MediaAsset(R.raw.swirl_128x96_h263, 128, 96));
+
+    private static MediaAssets MPEG4_ASSETS = new MediaAssets(
+            MediaFormat.MIMETYPE_VIDEO_MPEG4,
+            new MediaAsset(R.raw.swirl_128x128_mpeg4, 128, 128),
+            new MediaAsset(R.raw.swirl_144x136_mpeg4, 144, 136),
+            new MediaAsset(R.raw.swirl_136x144_mpeg4, 136, 144),
+            new MediaAsset(R.raw.swirl_132x130_mpeg4, 132, 130),
+            new MediaAsset(R.raw.swirl_130x132_mpeg4, 130, 132));
+
+    private static MediaAssets H264_ASSETS = new MediaAssets(
+            MediaFormat.MIMETYPE_VIDEO_AVC,
+            new MediaAsset(R.raw.swirl_128x128_h264, 128, 128),
+            new MediaAsset(R.raw.swirl_144x136_h264, 144, 136),
+            new MediaAsset(R.raw.swirl_136x144_h264, 136, 144),
+            new MediaAsset(R.raw.swirl_132x130_h264, 132, 130),
+            new MediaAsset(R.raw.swirl_130x132_h264, 130, 132));
+
+    private static MediaAssets H265_ASSETS = new MediaAssets(
+            MediaFormat.MIMETYPE_VIDEO_HEVC,
+            new MediaAsset(R.raw.swirl_128x128_h265, 128, 128),
+            new MediaAsset(R.raw.swirl_144x136_h265, 144, 136),
+            new MediaAsset(R.raw.swirl_136x144_h265, 136, 144),
+            new MediaAsset(R.raw.swirl_132x130_h265, 132, 130),
+            new MediaAsset(R.raw.swirl_130x132_h265, 130, 132));
+
+    private static MediaAssets VP8_ASSETS = new MediaAssets(
+            MediaFormat.MIMETYPE_VIDEO_VP8,
+            new MediaAsset(R.raw.swirl_128x128_vp8, 128, 128),
+            new MediaAsset(R.raw.swirl_144x136_vp8, 144, 136),
+            new MediaAsset(R.raw.swirl_136x144_vp8, 136, 144),
+            new MediaAsset(R.raw.swirl_132x130_vp8, 132, 130),
+            new MediaAsset(R.raw.swirl_130x132_vp8, 130, 132));
+
+    private static MediaAssets VP9_ASSETS = new MediaAssets(
+            MediaFormat.MIMETYPE_VIDEO_VP9,
+            new MediaAsset(R.raw.swirl_128x128_vp9, 128, 128),
+            new MediaAsset(R.raw.swirl_144x136_vp9, 144, 136),
+            new MediaAsset(R.raw.swirl_136x144_vp9, 136, 144),
+            new MediaAsset(R.raw.swirl_132x130_vp9, 132, 130),
+            new MediaAsset(R.raw.swirl_130x132_vp9, 130, 132));
+
+    static final float SWIRL_FPS = 12.f;
+
+    class Decoder {
+        final private String mName;
+        final private String mMime;
+        final private VideoCapabilities mCaps;
+        final private ArrayList<MediaAsset> mAssets;
+
+        boolean isFlexibleFormatSupported(CodecCapabilities caps) {
+            for (int c : caps.colorFormats) {
+                if (c == COLOR_FormatYUV420Flexible) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        Decoder(String name, MediaAssets assets, CodecCapabilities caps) {
+            mName = name;
+            mMime = assets.getMime();
+            mCaps = caps.getVideoCapabilities();
+            mAssets = new ArrayList<MediaAsset>();
+
+            for (MediaAsset asset : assets.getAssets()) {
+                if (mCaps.areSizeAndRateSupported(asset.getWidth(), asset.getHeight(), SWIRL_FPS)
+                        && isFlexibleFormatSupported(caps)) {
+                    mAssets.add(asset);
+                }
+            }
+        }
+
+        public boolean videoDecode(int mode, boolean checkSwirl) {
+            boolean skipped = true;
+            for (MediaAsset asset: mAssets) {
+                // TODO: loop over all supported image formats
+                int imageFormat = ImageFormat.YUV_420_888;
+                int colorFormat = COLOR_FormatYUV420Flexible;
+                videoDecode(asset, imageFormat, colorFormat, mode, checkSwirl);
+                skipped = false;
+            }
+            return skipped;
+        }
+
+        private void videoDecode(
+                MediaAsset asset, int imageFormat, int colorFormat, int mode, boolean checkSwirl) {
+            int video = asset.getResource();
+            int width = asset.getWidth();
+            int height = asset.getHeight();
+
+            if (DEBUG) Log.d(TAG, "videoDecode " + mName + " " + width + "x" + height);
+
+            MediaCodec decoder = null;
+            AssetFileDescriptor vidFD = null;
+
+            MediaExtractor extractor = null;
+            File tmpFile = null;
+            InputStream is = null;
+            FileOutputStream os = null;
+            MediaFormat mediaFormat = null;
+            try {
+                extractor = new MediaExtractor();
+
+                try {
+                    vidFD = mResources.openRawResourceFd(video);
+                    extractor.setDataSource(
+                            vidFD.getFileDescriptor(), vidFD.getStartOffset(), vidFD.getLength());
+                } catch (NotFoundException e) {
+                    // resource is compressed, uncompress locally
+                    String tmpName = "tempStream";
+                    tmpFile = File.createTempFile(tmpName, null, mContext.getCacheDir());
+                    is = mResources.openRawResource(video);
+                    os = new FileOutputStream(tmpFile);
+                    byte[] buf = new byte[1024];
+                    int len;
+                    while ((len = is.read(buf, 0, buf.length)) > 0) {
+                        os.write(buf, 0, len);
+                    }
+                    os.close();
+                    is.close();
+
+                    extractor.setDataSource(tmpFile.getAbsolutePath());
+                }
+
+                mediaFormat = extractor.getTrackFormat(0);
+                mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat);
+
+                // Create decoder
+                decoder = MediaCodec.createByCodecName(mName);
+                assertNotNull("couldn't create decoder" + mName, decoder);
+
+                decodeFramesToImage(
+                        decoder, extractor, mediaFormat,
+                        width, height, imageFormat, mode, checkSwirl);
+
+                decoder.stop();
+                if (vidFD != null) {
+                    vidFD.close();
+                }
+            } catch (Throwable e) {
+                throw new RuntimeException("while " + mName + " decoding "
+                        + mResources.getResourceEntryName(video) + ": " + mediaFormat, e);
+            } finally {
+                if (decoder != null) {
+                    decoder.release();
+                }
+                if (extractor != null) {
+                    extractor.release();
+                }
+                if (tmpFile != null) {
+                    tmpFile.delete();
+                }
+            }
         }
     }
 
+    private Decoder[] decoders(MediaAssets assets, boolean goog) {
+        String mime = assets.getMime();
+        MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+        ArrayList<Decoder> result = new ArrayList<Decoder>();
+
+        for (MediaCodecInfo info : mcl.getCodecInfos()) {
+            if (info.isEncoder()
+                    || info.getName().toLowerCase().startsWith("omx.google.") != goog) {
+                continue;
+            }
+            CodecCapabilities caps = null;
+            try {
+                caps = info.getCapabilitiesForType(mime);
+            } catch (IllegalArgumentException e) { // mime is not supported
+                continue;
+            }
+            assertNotNull(info.getName() + " capabilties for " + mime + " returned null", caps);
+            result.add(new Decoder(info.getName(), assets, caps));
+        }
+        return result.toArray(new Decoder[result.size()]);
+    }
+
+    private Decoder[] goog(MediaAssets assets) {
+        return decoders(assets, true /* goog */);
+    }
+
+    private Decoder[] other(MediaAssets assets) {
+        return decoders(assets, false /* goog */);
+    }
+
+    private Decoder[] googH265()  { return goog(H265_ASSETS); }
+    private Decoder[] googH264()  { return goog(H264_ASSETS); }
+    private Decoder[] googH263()  { return goog(H263_ASSETS); }
+    private Decoder[] googMpeg4() { return goog(MPEG4_ASSETS); }
+    private Decoder[] googVP8()   { return goog(VP8_ASSETS); }
+    private Decoder[] googVP9()   { return goog(VP9_ASSETS); }
+
+    private Decoder[] otherH265()  { return other(H265_ASSETS); }
+    private Decoder[] otherH264()  { return other(H264_ASSETS); }
+    private Decoder[] otherH263()  { return other(H263_ASSETS); }
+    private Decoder[] otherMpeg4() { return other(MPEG4_ASSETS); }
+    private Decoder[] otherVP8()   { return other(VP8_ASSETS); }
+    private Decoder[] otherVP9()   { return other(VP9_ASSETS); }
+
+    public void testGoogH265Image()   { swirlTest(googH265(),   MODE_IMAGE); }
+    public void testGoogH264Image()   { swirlTest(googH264(),   MODE_IMAGE); }
+    public void testGoogH263Image()   { swirlTest(googH263(),   MODE_IMAGE); }
+    public void testGoogMpeg4Image()  { swirlTest(googMpeg4(),  MODE_IMAGE); }
+    public void testGoogVP8Image()    { swirlTest(googVP8(),    MODE_IMAGE); }
+    public void testGoogVP9Image()    { swirlTest(googVP9(),    MODE_IMAGE); }
+
+    public void testOtherH265Image()  { swirlTest(otherH265(),  MODE_IMAGE); }
+    public void testOtherH264Image()  { swirlTest(otherH264(),  MODE_IMAGE); }
+    public void testOtherH263Image()  { swirlTest(otherH263(),  MODE_IMAGE); }
+    public void testOtherMpeg4Image() { swirlTest(otherMpeg4(), MODE_IMAGE); }
+    public void testOtherVP8Image()   { swirlTest(otherVP8(),   MODE_IMAGE); }
+    public void testOtherVP9Image()   { swirlTest(otherVP9(),   MODE_IMAGE); }
+
+    public void testGoogH265ImageReader()   { swirlTest(googH265(),   MODE_IMAGEREADER); }
+    public void testGoogH264ImageReader()   { swirlTest(googH264(),   MODE_IMAGEREADER); }
+    public void testGoogH263ImageReader()   { swirlTest(googH263(),   MODE_IMAGEREADER); }
+    public void testGoogMpeg4ImageReader()  { swirlTest(googMpeg4(),  MODE_IMAGEREADER); }
+    public void testGoogVP8ImageReader()    { swirlTest(googVP8(),    MODE_IMAGEREADER); }
+    public void testGoogVP9ImageReader()    { swirlTest(googVP9(),    MODE_IMAGEREADER); }
+
+    public void testOtherH265ImageReader()  { swirlTest(otherH265(),  MODE_IMAGEREADER); }
+    public void testOtherH264ImageReader()  { swirlTest(otherH264(),  MODE_IMAGEREADER); }
+    public void testOtherH263ImageReader()  { swirlTest(otherH263(),  MODE_IMAGEREADER); }
+    public void testOtherMpeg4ImageReader() { swirlTest(otherMpeg4(), MODE_IMAGEREADER); }
+    public void testOtherVP8ImageReader()   { swirlTest(otherVP8(),   MODE_IMAGEREADER); }
+    public void testOtherVP9ImageReader()   { swirlTest(otherVP9(),   MODE_IMAGEREADER); }
+
     /**
-     * Test ImageReader with 480x360 sw AVC decoding for flexible yuv format, which is mandatory
-     * to be supported by sw decoder.
+     * Test ImageReader with 480x360 non-google AVC decoding for flexible yuv format
+     */
+    public void testHwAVCDecode360pForFlexibleYuv() throws Exception {
+        Decoder[] decoders = other(new MediaAssets(
+                MediaFormat.MIMETYPE_VIDEO_AVC,
+                new MediaAsset(
+                        R.raw.video_480x360_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz,
+                        480 /* width */, 360 /* height */)));
+
+        decodeTest(decoders, MODE_IMAGEREADER, false /* checkSwirl */);
+    }
+
+    /**
+     * Test ImageReader with 480x360 google (SW) AVC decoding for flexible yuv format
      */
     public void testSwAVCDecode360pForFlexibleYuv() throws Exception {
+        Decoder[] decoders = goog(new MediaAssets(
+                MediaFormat.MIMETYPE_VIDEO_AVC,
+                new MediaAsset(
+                        R.raw.video_480x360_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz,
+                        480 /* width */, 360 /* height */)));
+
+        decodeTest(decoders, MODE_IMAGEREADER, false /* checkSwirl */);
+    }
+
+    private void swirlTest(Decoder[] decoders, int mode) {
+        decodeTest(decoders, mode, true /* checkSwirl */);
+    }
+
+    private void decodeTest(Decoder[] decoders, int mode, boolean checkSwirl) {
         try {
-            int format = ImageFormat.YUV_420_888;
-            videoDecodeToSurface(
-                    R.raw.video_480x360_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz,
-                    /* width */ 480, /* height */ 360, format, /* useHw */ false);
+            boolean skipped = true;
+            for (Decoder codec : decoders) {
+                if (codec.videoDecode(mode, checkSwirl)) {
+                    skipped = false;
+                }
+            }
+            if (skipped) {
+                MediaUtils.skipTest("decoder does not any of the input files");
+            }
         } finally {
             closeImageReader();
         }
@@ -152,57 +458,26 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
         }
     }
 
-    private void videoDecodeToSurface(int video, int width,
-            int height, int imageFormat, boolean useHw) throws Exception {
-        MediaCodec decoder = null;
-        MediaExtractor extractor;
-        int outputBufferIndex;
-        ByteBuffer[] decoderInputBuffers;
-        ByteBuffer[] decoderOutputBuffers;
-
-        AssetFileDescriptor vidFD = mResources.openRawResourceFd(video);
-
-        extractor = new MediaExtractor();
-        extractor.setDataSource(vidFD.getFileDescriptor(), vidFD.getStartOffset(),
-                vidFD.getLength());
-
-        MediaFormat mediaFmt = extractor.getTrackFormat(0);
-        mediaFmt.setInteger(MediaFormat.KEY_COLOR_FORMAT,
-                            CodecCapabilities.COLOR_FormatYUV420Flexible);
-        String mime = mediaFmt.getString(MediaFormat.KEY_MIME);
-        try {
-            // Create decoder
-            decoder = createDecoder(mime, useHw);
-            assertNotNull("couldn't find decoder", decoder);
-            if (VERBOSE) Log.v(TAG, "using decoder: " + decoder.getName());
-
-            decodeFramesToImageReader(width, height, imageFormat, decoder,
-                    extractor, mediaFmt, mime);
-
-            decoder.stop();
-        } finally {
-            decoder.release();
-        }
-
-    }
-
     /**
      * Decode video frames to image reader.
      */
-    private void decodeFramesToImageReader(int width, int height, int imageFormat,
-            MediaCodec decoder, MediaExtractor extractor, MediaFormat mediaFmt, String mime)
-            throws Exception, InterruptedException {
+    private void decodeFramesToImage(
+            MediaCodec decoder, MediaExtractor extractor, MediaFormat mediaFormat,
+            int width, int height, int imageFormat, int mode, boolean checkSwirl)
+            throws InterruptedException {
         ByteBuffer[] decoderInputBuffers;
         ByteBuffer[] decoderOutputBuffers;
-        if (!imageFormatSupported(decoder, imageFormat, mime)) {
-            // TODO: SKIPPING TEST
-            return;
-        }
-        createImageReader(width, height, imageFormat, MAX_NUM_IMAGES, mImageListener);
 
         // Configure decoder.
-        if (VERBOSE) Log.v(TAG, "stream format: " + mediaFmt);
-        decoder.configure(mediaFmt, mReaderSurface, /*crypto*/null, /*flags*/0);
+        if (VERBOSE) Log.v(TAG, "stream format: " + mediaFormat);
+        if (mode == MODE_IMAGEREADER) {
+            createImageReader(width, height, imageFormat, MAX_NUM_IMAGES, mImageListener);
+            decoder.configure(mediaFormat, mReaderSurface, null /* crypto */, 0 /* flags */);
+        } else {
+            assertEquals(mode, MODE_IMAGE);
+            decoder.configure(mediaFormat, null /* surface */, null /* crypto */, 0 /* flags */);
+        }
+
         decoder.start();
         decoderInputBuffers = decoder.getInputBuffers();
         decoderOutputBuffers = decoder.getOutputBuffers();
@@ -267,63 +542,53 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
                 // Should be decoding error.
                 fail("unexpected result from deocder.dequeueOutputBuffer: " + res);
             } else {
+                if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                    sawOutputEOS = true;
+                }
+
                 // res >= 0: normal decoding case, copy the output buffer.
                 // Will use it as reference to valid the ImageReader output
                 // Some decoders output a 0-sized buffer at the end. Ignore those.
-                outputFrameCount++;
                 boolean doRender = (info.size != 0);
 
-                decoder.releaseOutputBuffer(res, doRender);
                 if (doRender) {
-                    // Read image and verify
-                    Image image = mImageListener.getImage(WAIT_FOR_IMAGE_TIMEOUT_MS);
-                    Plane[] imagePlanes = image.getPlanes();
+                    outputFrameCount++;
+                    String fileName = DEBUG_FILE_NAME_BASE + MediaUtils.getTestName()
+                            + (mode == MODE_IMAGE ? "_image_" : "_reader_")
+                            + width + "x" + height + "_" + outputFrameCount + ".yuv";
 
-                    //Verify
-                    String fileName = DEBUG_FILE_NAME_BASE + width + "x" + height + "_"
-                            + outputFrameCount + ".yuv";
-                    validateImage(image, width, height, imageFormat, fileName);
+                    Image image = null;
+                    try {
+                        if (mode == MODE_IMAGE) {
+                            image = decoder.getOutputImage(res);
+                        } else {
+                            decoder.releaseOutputBuffer(res, doRender);
+                            res = -1;
+                            // Read image and verify
+                            image = mImageListener.getImage(WAIT_FOR_IMAGE_TIMEOUT_MS);
+                        }
+                        validateImage(image, width, height, imageFormat, fileName);
 
-                    if (VERBOSE) {
-                        Log.v(TAG, "Image " + outputFrameCount + " Info:");
-                        Log.v(TAG, "first plane pixelstride " + imagePlanes[0].getPixelStride());
-                        Log.v(TAG, "first plane rowstride " + imagePlanes[0].getRowStride());
-                        Log.v(TAG, "Image timestamp:" + image.getTimestamp());
+                        if (checkSwirl) {
+                            try {
+                                validateSwirl(image);
+                            } catch (Throwable e) {
+                                dumpFile(fileName, getDataFromImage(image));
+                                throw e;
+                            }
+                        }
+                    } finally {
+                        if (image != null) {
+                            image.close();
+                        }
                     }
-                    image.close();
+                }
+
+                if (res >= 0) {
+                    decoder.releaseOutputBuffer(res, false /* render */);
                 }
             }
         }
-    }
-
-    private boolean imageFormatSupported(MediaCodec decoder, int imageFormat, String mime) {
-        MediaCodecInfo codecInfo = decoder.getCodecInfo();
-        if (codecInfo == null) {
-            return false;
-        }
-        MediaCodecInfo.CodecCapabilities capabilities = codecInfo.getCapabilitiesForType(mime);
-        for (int colorFormat : capabilities.colorFormats) {
-            if (colorFormat == CodecCapabilities.COLOR_FormatYUV420Flexible
-                    && imageFormat == ImageFormat.YUV_420_888) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private MediaCodec createDecoder(String mime, boolean useHw) throws Exception {
-        if (!useHw) {
-            if (mime.contains("avc")) {
-                return MediaCodec.createByCodecName("OMX.google.h264.decoder");
-            } else if (mime.contains("3gpp")) {
-                return MediaCodec.createByCodecName("OMX.google.h263.decoder");
-            } else if (mime.contains("mp4v")) {
-                return MediaCodec.createByCodecName("OMX.google.mpeg4.decoder");
-            } else if (mime.contains("vp8")) {
-                return MediaCodec.createByCodecName("OMX.google.vpx.decoder");
-            }
-        }
-        return MediaCodec.createDecoderByType(mime);
     }
 
     /**
@@ -335,22 +600,103 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
      * @param format The image format.
      * @param filePath The debug dump file path, null if don't want to dump to file.
      */
-    public static void validateImage(Image image, int width, int height, int format,
-            String filePath) {
+    public static void validateImage(
+            Image image, int width, int height, int format, String filePath) {
+        if (VERBOSE) {
+            Plane[] imagePlanes = image.getPlanes();
+            Log.v(TAG, "Image " + filePath + " Info:");
+            Log.v(TAG, "first plane pixelstride " + imagePlanes[0].getPixelStride());
+            Log.v(TAG, "first plane rowstride " + imagePlanes[0].getRowStride());
+            Log.v(TAG, "Image timestamp:" + image.getTimestamp());
+        }
+
         assertNotNull("Input image is invalid", image);
         assertEquals("Format doesn't match", format, image.getFormat());
-        assertEquals("Width doesn't match", width, image.getWidth());
-        assertEquals("Height doesn't match", height, image.getHeight());
+        assertEquals("Width doesn't match", width, image.getCropRect().width());
+        assertEquals("Height doesn't match", height, image.getCropRect().height());
 
         if(VERBOSE) Log.v(TAG, "validating Image");
         byte[] data = getDataFromImage(image);
         assertTrue("Invalid image data", data != null && data.length > 0);
 
-        validateYuvData(data, width, height, format, image.getTimestamp(), filePath);
+        validateYuvData(data, width, height, format, image.getTimestamp());
+
+        if (VERBOSE && filePath != null) {
+            dumpFile(filePath, data);
+        }
+    }
+
+    private static void validateSwirl(Image image) {
+        Rect crop = image.getCropRect();
+        final int NUM_SIDES = 4;
+        final int step = 8;      // the width of the layers
+        long[][] rawStats = new long[NUM_SIDES][10];
+        int[][] colors = new int[][] {
+            { 111, 96, 204 }, { 178, 27, 174 }, { 100, 192, 92 }, { 106, 117, 62 }
+        };
+
+        // successively accumulate statistics for each layer of the swirl
+        // by using overlapping rectangles, and the observation that
+        // layer_i = rectangle_i - rectangle_(i+1)
+        int lastLayer = 0;
+        int layer = 0;
+        boolean lastLayerValid = false;
+        for (int pos = 0; ; pos += step) {
+            Rect area = new Rect(pos - step, pos, crop.width() / 2, crop.height() + 2 * step - pos);
+            if (area.isEmpty()) {
+                break;
+            }
+            area.offset(crop.left, crop.top);
+            area.intersect(crop);
+            for (int lr = 0; lr < 2; ++lr) {
+                long[] oneStat = CodecUtils.getRawStats(image, area);
+                if (VERBOSE) Log.v(TAG, "area=" + area + ", layer=" + layer + ", last="
+                                    + lastLayer + ": " + Arrays.toString(oneStat));
+                for (int i = 0; i < oneStat.length; i++) {
+                    rawStats[layer][i] += oneStat[i];
+                    if (lastLayerValid) {
+                        rawStats[lastLayer][i] -= oneStat[i];
+                    }
+                }
+                if (VERBOSE && lastLayerValid) {
+                    Log.v(TAG, "layer-" + lastLayer + ": " + Arrays.toString(rawStats[lastLayer]));
+                    Log.v(TAG, Arrays.toString(CodecUtils.Raw2YUVStats(rawStats[lastLayer])));
+                }
+                // switch to the opposite side
+                layer ^= 2;      // NUM_SIDES / 2
+                lastLayer ^= 2;  // NUM_SIDES / 2
+                area.offset(crop.centerX() - area.left, 2 * (crop.centerY() - area.centerY()));
+            }
+
+            lastLayer = layer;
+            lastLayerValid = true;
+            layer = (layer + 1) % NUM_SIDES;
+        }
+
+        for (layer = 0; layer < NUM_SIDES; ++layer) {
+            float[] stats = CodecUtils.Raw2YUVStats(rawStats[layer]);
+            if (DEBUG) Log.d(TAG, "layer-" + layer + ": " + Arrays.toString(stats));
+            if (VERBOSE) Log.v(TAG, Arrays.toString(rawStats[layer]));
+
+            // check layer uniformity
+            for (int i = 0; i < 3; i++) {
+                assertTrue("color of layer-" + layer + " is not uniform: "
+                        + Arrays.toString(stats),
+                        stats[3 + i] < COLOR_STDEV_ALLOWANCE);
+            }
+
+            // check layer color
+            for (int i = 0; i < 3; i++) {
+                assertTrue("color of layer-" + layer + " mismatches target "
+                        + Arrays.toString(colors[layer]) + " vs "
+                        + Arrays.toString(Arrays.copyOf(stats, 3)),
+                        Math.abs(stats[i] - colors[layer][i]) < COLOR_DELTA_ALLOWANCE);
+            }
+        }
     }
 
     private static void validateYuvData(byte[] yuvData, int width, int height, int format,
-            long ts, String fileName) {
+            long ts) {
 
         assertTrue("YUV format must be one of the YUV_420_888, NV21, or YV12",
                 format == ImageFormat.YUV_420_888 ||
@@ -360,10 +706,6 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
         if (VERBOSE) Log.v(TAG, "Validating YUV data");
         int expectedSize = width * height * ImageFormat.getBitsPerPixel(format) / 8;
         assertEquals("Yuv data doesn't match", expectedSize, yuvData.length);
-
-        if (DEBUG && fileName != null) {
-            dumpFile(fileName, yuvData);
-        }
     }
 
     private static void checkYuvFormat(int format) {
@@ -408,9 +750,10 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
      */
     private static byte[] getDataFromImage(Image image) {
         assertNotNull("Invalid image:", image);
+        Rect crop = image.getCropRect();
         int format = image.getFormat();
-        int width = image.getWidth();
-        int height = image.getHeight();
+        int width = crop.width();
+        int height = crop.height();
         int rowStride, pixelStride;
         byte[] data = null;
 
@@ -428,6 +771,7 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
         byte[] rowData = new byte[planes[0].getRowStride()];
         if(VERBOSE) Log.v(TAG, "get data from " + planes.length + " planes");
         for (int i = 0; i < planes.length; i++) {
+            int shift = (i == 0) ? 0 : 1;
             buffer = planes[i].getBuffer();
             assertNotNull("Fail to get bytebuffer from plane", buffer);
             rowStride = planes[i].getRowStride();
@@ -440,26 +784,31 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
                 Log.v(TAG, "height " + height);
             }
             // For multi-planar yuv images, assuming yuv420 with 2x2 chroma subsampling.
-            int w = (i == 0) ? width : width / 2;
-            int h = (i == 0) ? height : height / 2;
+            int w = crop.width() >> shift;
+            int h = crop.height() >> shift;
+            buffer.position(rowStride * (crop.top >> shift) + pixelStride * (crop.left >> shift));
             assertTrue("rowStride " + rowStride + " should be >= width " + w , rowStride >= w);
             for (int row = 0; row < h; row++) {
                 int bytesPerPixel = ImageFormat.getBitsPerPixel(format) / 8;
+                int length;
                 if (pixelStride == bytesPerPixel) {
                     // Special case: optimized read of the entire row
-                    int length = w * bytesPerPixel;
+                    length = w * bytesPerPixel;
                     buffer.get(data, offset, length);
-                    // Advance buffer the remainder of the row stride
-                    buffer.position(buffer.position() + rowStride - length);
                     offset += length;
                 } else {
                     // Generic case: should work for any pixelStride but slower.
                     // Use intermediate buffer to avoid read byte-by-byte from
                     // DirectByteBuffer, which is very bad for performance
-                    buffer.get(rowData, 0, rowStride);
+                    length = (w - 1) * pixelStride + bytesPerPixel;
+                    buffer.get(rowData, 0, length);
                     for (int col = 0; col < w; col++) {
                         data[offset++] = rowData[col * pixelStride];
                     }
+                }
+                // Advance buffer the remainder of the row stride
+                if (row < h - 1) {
+                    buffer.position(buffer.position() + rowStride - length);
                 }
             }
             if (VERBOSE) Log.v(TAG, "Finished reading data from plane " + i);
@@ -487,8 +836,9 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
         }
     }
 
-    private void createImageReader(int width, int height, int format, int maxNumImages,
-            ImageReader.OnImageAvailableListener listener) throws Exception {
+    private void createImageReader(
+            int width, int height, int format, int maxNumImages,
+            ImageReader.OnImageAvailableListener listener)  {
         closeImageReader();
 
         mReader = ImageReader.newInstance(width, height, format, maxNumImages);

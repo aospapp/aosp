@@ -19,22 +19,61 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/chrome_extensions_client.h"
+#include "components/crx_file/id_util.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/common/extension.h"
 #include "ipc/ipc_message.h"
 
+#if defined(OS_WIN)
+#include "extensions/browser/app_window/app_window.h"
+#include "extensions/browser/app_window/app_window_registry.h"
+#include "extensions/browser/extension_registry.h"
+#include "extensions/browser/extension_util.h"
+#endif
+
 using content::BrowserThread;
+
+namespace extensions {
 
 namespace {
 
 void PrintPackExtensionMessage(const std::string& message) {
-  printf("%s\n", message.c_str());
+  VLOG(1) << message;
+}
+
+// On Windows, the jumplist action for installing an ephemeral app has to use
+// the --install-ephemeral-app-from-webstore command line arg to initiate an
+// install.
+scoped_refptr<WebstoreStandaloneInstaller> CreateEphemeralAppInstaller(
+    Profile* profile,
+    const std::string& app_id,
+    WebstoreStandaloneInstaller::Callback callback) {
+  scoped_refptr<WebstoreStandaloneInstaller> installer;
+
+#if defined(OS_WIN)
+  ExtensionRegistry* registry = ExtensionRegistry::Get(profile);
+  DCHECK(registry);
+  if (!registry->GetExtensionById(app_id, ExtensionRegistry::EVERYTHING) ||
+      !util::IsEphemeralApp(app_id, profile)) {
+    return installer;
+  }
+
+  AppWindowRegistry* app_window_registry = AppWindowRegistry::Get(profile);
+  DCHECK(app_window_registry);
+  AppWindow* app_window =
+      app_window_registry->GetCurrentAppWindowForApp(app_id);
+  if (!app_window)
+    return installer;
+
+  installer = new WebstoreInstallWithPrompt(
+      app_id, profile, app_window->GetNativeWindow(), callback);
+#endif
+
+  return installer;
 }
 
 }  // namespace
-
-namespace extensions {
 
 StartupHelper::StartupHelper() : pack_job_succeeded_(false) {
   ExtensionsClient::Set(ChromeExtensionsClient::GetInstance());
@@ -213,7 +252,9 @@ class AppInstallHelper {
 
  private:
   WebstoreStandaloneInstaller::Callback Callback();
-  void OnAppInstallComplete(bool success, const std::string& error);
+  void OnAppInstallComplete(bool success,
+                            const std::string& error,
+                            webstore_install::Result result);
 
   DoneCallback done_callback_;
 
@@ -243,35 +284,33 @@ void AppInstallHelper::BeginInstall(
   WebstoreStandaloneInstaller::Callback callback =
       base::Bind(&AppInstallHelper::OnAppInstallComplete,
                  base::Unretained(this));
-  installer_ = new WebstoreStartupInstaller(
-      id,
-      profile,
-      show_prompt,
-      callback);
-  installer_->BeginInstall();
+
+  installer_ = CreateEphemeralAppInstaller(profile, id, callback);
+  if (installer_.get()) {
+    installer_->BeginInstall();
+  } else {
+    error_ = "Not a supported ephemeral app installation.";
+    done_callback_.Run();
+  }
 }
 
 void AppInstallHelper::OnAppInstallComplete(bool success,
-                                            const std::string& error) {
+                                            const std::string& error,
+                                            webstore_install::Result result) {
   success_ = success;
   error_= error;
   done_callback_.Run();
 }
 
-void DeleteHelperAndRunCallback(AppInstallHelper* helper,
-                                base::Callback<void()> callback) {
-  delete helper;
-  callback.Run();
-}
-
 }  // namespace
 
-bool StartupHelper::InstallFromWebstore(const CommandLine& cmd_line,
+bool StartupHelper::InstallEphemeralApp(const CommandLine& cmd_line,
                                         Profile* profile) {
-  std::string id = cmd_line.GetSwitchValueASCII(switches::kInstallFromWebstore);
-  if (!Extension::IdIsValid(id)) {
-    LOG(ERROR) << "Invalid id for " << switches::kInstallFromWebstore
-               << " : '" << id << "'";
+  std::string id =
+      cmd_line.GetSwitchValueASCII(switches::kInstallEphemeralAppFromWebstore);
+  if (!crx_file::id_util::IdIsValid(id)) {
+    LOG(ERROR) << "Invalid id for "
+        << switches::kInstallEphemeralAppFromWebstore << " : '" << id << "'";
     return false;
   }
 
@@ -283,36 +322,6 @@ bool StartupHelper::InstallFromWebstore(const CommandLine& cmd_line,
   if (!helper.success())
     LOG(ERROR) << "InstallFromWebstore failed with error: " << helper.error();
   return helper.success();
-}
-
-void StartupHelper::LimitedInstallFromWebstore(
-    const CommandLine& cmd_line,
-    Profile* profile,
-    base::Callback<void()> done_callback) {
-  std::string id = WebStoreIdFromLimitedInstallCmdLine(cmd_line);
-  if (!Extension::IdIsValid(id)) {
-    LOG(ERROR) << "Invalid index for " << switches::kLimitedInstallFromWebstore;
-    done_callback.Run();
-    return;
-  }
-
-  AppInstallHelper* helper = new AppInstallHelper();
-  helper->BeginInstall(profile, id, false /*show_prompt*/,
-                       base::Bind(&DeleteHelperAndRunCallback,
-                                  helper, done_callback));
-}
-
-std::string StartupHelper::WebStoreIdFromLimitedInstallCmdLine(
-    const CommandLine& cmd_line) {
-  std::string index = cmd_line.GetSwitchValueASCII(
-      switches::kLimitedInstallFromWebstore);
-  std::string id;
-  if (index == "1") {
-    id = "nckgahadagoaajjgafhacjanaoiihapd";
-  } else if (index == "2") {
-    id = "ecglahbcnmdpdciemllbhojghbkagdje";
-  }
-  return id;
 }
 
 StartupHelper::~StartupHelper() {

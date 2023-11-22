@@ -81,6 +81,12 @@ do
       echo "LOCAL_MODULE_CLASS := APPS" >> ${APK_MAKEFILE}
       echo "LOCAL_SRC_FILES := \$(LOCAL_MODULE).apk" >> ${APK_MAKEFILE}
       echo "LOCAL_CERTIFICATE := PRESIGNED" >> ${APK_MAKEFILE}
+
+      if [[ ${TMP_ONE_FILE_NAME} == "LeanbackLauncher" ]]
+      then
+        echo "LOCAL_OVERRIDES_PACKAGES := Launcher2" >> ${APK_MAKEFILE}
+      fi
+
       echo "include \$(BUILD_PREBUILT)" >> ${APK_MAKEFILE}
       echo "" >> ${APK_MAKEFILE}
     fi
@@ -91,6 +97,18 @@ do
     then
       chmod a+x $FILEDIR_NEW/$(basename $ONE_FILE) || echo \ \ \ \ Error chmoding $ONE_FILE
     fi
+
+    ONE_FILE_BASE=$(basename $ONE_FILE)
+    if [[ $ONE_FILE_BASE == *atmel-a432-*-shamu-p1.tdat ]]
+    then
+      ATMEL_FILE=$(ls $FILEDIR_NEW/$ONE_FILE_BASE | cut -f6 -d'/')
+      sed -i "s/$ONE_FILE_BASE/$ATMEL_FILE/" moto/staging/device-partial.mk
+    elif [[ $ONE_FILE_BASE == *atmel-a432-*-shamu.tdat ]]
+    then
+      ATMEL_FILE=$(ls $FILEDIR_NEW/$ONE_FILE_BASE | cut -f6 -d'/')
+      sed -i "s/$ONE_FILE_BASE/$ATMEL_FILE/" moto/staging/device-partial.mk
+    fi
+
   done
   echo \ \ Setting up $COMPANY-specific makefiles
   cp -R $COMPANY/staging/* tmp/vendor/$COMPANY/$DEVICE || echo \ \ \ \ Error copying makefiles

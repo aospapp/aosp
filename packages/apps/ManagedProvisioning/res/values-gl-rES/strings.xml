@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Non se pode utilizar a aplicación de administración. Fáltanlle compoñentes ou está danada. Ponte en contacto co departamento de TI."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Non se puido instalar a aplicación de administración"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"A aplicación de administración non está instalada no teu dispositivo"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Queres deter a configuración?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Estás seguro de que queres deter a configuración?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Non"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Si"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Cancelando..."</string>
 </resources>

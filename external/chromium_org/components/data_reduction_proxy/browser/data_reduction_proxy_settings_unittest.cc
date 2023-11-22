@@ -20,18 +20,9 @@
 
 namespace {
 
-const char kDataReductionProxy[] = "https://foo.com:443/";
-const char kDataReductionProxyDev[] = "http://foo-dev.com:80";
-const char kDataReductionProxyFallback[] = "http://bar.com:80";
-const char kDataReductionProxyKey[] = "12345";
-const char kDataReductionProxyAlt[] = "https://alt.com:443/";
-const char kDataReductionProxyAltFallback[] = "http://alt2.com:80";
-const char kDataReductionProxySSL[] = "http://ssl.com:80";
-
 const char kProbeURLWithOKResponse[] = "http://ok.org/";
 const char kProbeURLWithBadResponse[] = "http://bad.org/";
 const char kProbeURLWithNoResponse[] = "http://no.org/";
-const char kWarmupURLWithNoContentResponse[] = "http://warm.org/";
 
 }  // namespace
 
@@ -42,105 +33,80 @@ class DataReductionProxySettingsTest
           DataReductionProxySettings> {
 };
 
-
-TEST_F(DataReductionProxySettingsTest, TestAuthenticationInit) {
-  net::HttpAuthCache cache;
-  DataReductionProxyParams drp_params(
-      DataReductionProxyParams::kAllowed |
-      DataReductionProxyParams::kFallbackAllowed |
-      DataReductionProxyParams::kPromoAllowed);
-  drp_params.set_key(kDataReductionProxyKey);
-  DataReductionProxySettings::InitDataReductionAuthentication(
-      &cache, &drp_params);
-  DataReductionProxyParams::DataReductionProxyList proxies =
-      drp_params.GetAllowedProxies();
-  for (DataReductionProxyParams::DataReductionProxyList::iterator it =
-           proxies.begin();  it != proxies.end(); ++it) {
-    net::HttpAuthCache::Entry* entry = cache.LookupByPath(*it,
-                                                          std::string("/"));
-    EXPECT_TRUE(entry != NULL);
-    EXPECT_EQ(net::HttpAuth::AUTH_SCHEME_SPDYPROXY, entry->scheme());
-    EXPECT_EQ("SpdyProxy", entry->auth_challenge().substr(0,9));
-  }
-  GURL bad_server = GURL("https://bad.proxy.com/");
-  net::HttpAuthCache::Entry* entry =
-      cache.LookupByPath(bad_server, std::string());
-  EXPECT_TRUE(entry == NULL);
-}
-
 TEST_F(DataReductionProxySettingsTest, TestGetDataReductionProxyOrigin) {
   // SetUp() adds the origin to the command line, which should be returned here.
   std::string result =
       settings_->params()->origin().spec();
-  EXPECT_EQ(GURL(kDataReductionProxy), GURL(result));
+  EXPECT_EQ(GURL(expected_params_->DefaultOrigin()), GURL(result));
 }
 
 TEST_F(DataReductionProxySettingsTest, TestGetDataReductionProxyDevOrigin) {
   CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-      switches::kDataReductionProxyDev, kDataReductionProxyDev);
-  ResetSettings(true, true, false, true);
+      switches::kDataReductionProxyDev, expected_params_->DefaultDevOrigin());
+  ResetSettings(true, true, false, true, false);
   std::string result =
       settings_->params()->origin().spec();
-  EXPECT_EQ(GURL(kDataReductionProxyDev), GURL(result));
+  EXPECT_EQ(GURL(expected_params_->DefaultDevOrigin()), GURL(result));
 }
 
 
 TEST_F(DataReductionProxySettingsTest, TestGetDataReductionProxies) {
-  DataReductionProxyParams drp_params(
-      DataReductionProxyParams::kAllowed |
-      DataReductionProxyParams::kFallbackAllowed |
-      DataReductionProxyParams::kPromoAllowed);
   DataReductionProxyParams::DataReductionProxyList proxies =
-      drp_params.GetAllowedProxies();
+      expected_params_->GetAllowedProxies();
 
   unsigned int expected_proxy_size = 2u;
   EXPECT_EQ(expected_proxy_size, proxies.size());
 
-  // Command line proxies have precedence, so even if there were other values
-  // compiled in, these should be the ones in the list.
-  EXPECT_EQ("foo.com", proxies[0].host());
-  EXPECT_EQ(443 ,proxies[0].EffectiveIntPort());
-  EXPECT_EQ("bar.com", proxies[1].host());
-  EXPECT_EQ(80, proxies[1].EffectiveIntPort());
-}
-
-TEST_F(DataReductionProxySettingsTest, TestAuthHashGeneration) {
-  std::string salt = "8675309";  // Jenny's number to test the hash generator.
-  std::string salted_key = salt + kDataReductionProxyKey + salt;
-  base::string16 expected_hash = base::UTF8ToUTF16(base::MD5String(salted_key));
-  EXPECT_EQ(expected_hash,
-            DataReductionProxySettings::AuthHashForSalt(
-                8675309, kDataReductionProxyKey));
+  net::HostPortPair expected_origin =
+      net::HostPortPair::FromURL(GURL(expected_params_->DefaultOrigin()));
+  net::HostPortPair expected_fallback_origin =
+      net::HostPortPair::FromURL(
+          GURL(expected_params_->DefaultFallbackOrigin()));
+  EXPECT_EQ(expected_origin.host(), proxies[0].host());
+  EXPECT_EQ(expected_origin.port() ,proxies[0].EffectiveIntPort());
+  EXPECT_EQ(expected_fallback_origin.host(), proxies[1].host());
+  EXPECT_EQ(expected_fallback_origin.port(), proxies[1].EffectiveIntPort());
 }
 
 TEST_F(DataReductionProxySettingsTest, TestSetProxyConfigs) {
+  TestDataReductionProxyParams drp_params(
+      DataReductionProxyParams::kAllowed |
+      DataReductionProxyParams::kFallbackAllowed |
+      DataReductionProxyParams::kPromoAllowed,
+      TestDataReductionProxyParams::HAS_EVERYTHING &
+      ~TestDataReductionProxyParams::HAS_DEV_ORIGIN &
+      ~TestDataReductionProxyParams::HAS_DEV_FALLBACK_ORIGIN);
   CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-      switches::kDataReductionProxyAlt, kDataReductionProxyAlt);
+      switches::kDataReductionProxyAlt, drp_params.DefaultAltOrigin());
   CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-      switches::kDataReductionProxyAltFallback, kDataReductionProxyAltFallback);
+      switches::kDataReductionProxyAltFallback,
+      drp_params.DefaultAltFallbackOrigin());
   CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-      switches::kDataReductionSSLProxy, kDataReductionProxySSL);
-  ResetSettings(true, true, true, true);
+      switches::kDataReductionSSLProxy, drp_params.DefaultSSLOrigin());
+  ResetSettings(true, true, true, true, false);
   TestDataReductionProxyConfig* config =
       static_cast<TestDataReductionProxyConfig*>(
           settings_->configurator());
 
   settings_->SetProxyConfigs(true, true, false, false);
   EXPECT_TRUE(config->enabled_);
-  EXPECT_TRUE(net::HostPortPair::FromString(kDataReductionProxyAlt).Equals(
-                  net::HostPortPair::FromString(config->origin_)));
-  EXPECT_TRUE(
-      net::HostPortPair::FromString(kDataReductionProxyAltFallback).Equals(
+  EXPECT_TRUE(net::HostPortPair::FromString(
+      expected_params_->DefaultAltOrigin()).Equals(
+          net::HostPortPair::FromString(config->origin_)));
+  EXPECT_TRUE(net::HostPortPair::FromString(
+      expected_params_->DefaultAltFallbackOrigin()).Equals(
           net::HostPortPair::FromString(config->fallback_origin_)));
-  EXPECT_TRUE(net::HostPortPair::FromString(kDataReductionProxySSL).Equals(
-                  net::HostPortPair::FromString(config->ssl_origin_)));
+  EXPECT_TRUE(net::HostPortPair::FromString(
+      expected_params_->DefaultSSLOrigin()).Equals(
+          net::HostPortPair::FromString(config->ssl_origin_)));
 
   settings_->SetProxyConfigs(true, false, false, false);
   EXPECT_TRUE(config->enabled_);
-  EXPECT_TRUE(net::HostPortPair::FromString(kDataReductionProxy).Equals(
-                  net::HostPortPair::FromString(config->origin_)));
-  EXPECT_TRUE(net::HostPortPair::FromString(kDataReductionProxyFallback).Equals(
-                  net::HostPortPair::FromString(config->fallback_origin_)));
+  EXPECT_TRUE(net::HostPortPair::FromString(drp_params.DefaultOrigin()).Equals(
+      net::HostPortPair::FromString(config->origin_)));
+  EXPECT_TRUE(net::HostPortPair::FromString(
+      drp_params.DefaultFallbackOrigin()).Equals(
+          net::HostPortPair::FromString(config->fallback_origin_)));
   EXPECT_EQ("", config->ssl_origin_);
 
   settings_->SetProxyConfigs(false, true, false, false);
@@ -150,6 +116,20 @@ TEST_F(DataReductionProxySettingsTest, TestSetProxyConfigs) {
   EXPECT_EQ("", config->ssl_origin_);
 
   settings_->SetProxyConfigs(false, false, false, false);
+  EXPECT_FALSE(config->enabled_);
+  EXPECT_EQ("", config->origin_);
+  EXPECT_EQ("", config->fallback_origin_);
+  EXPECT_EQ("", config->ssl_origin_);
+}
+
+TEST_F(DataReductionProxySettingsTest, TestSetProxyConfigsHoldback) {
+  ResetSettings(true, true, true, true, true);
+  TestDataReductionProxyConfig* config =
+      static_cast<TestDataReductionProxyConfig*>(
+          settings_->configurator());
+
+   // Holdback.
+  settings_->SetProxyConfigs(true, true, false, false);
   EXPECT_FALSE(config->enabled_);
   EXPECT_EQ("", config->origin_);
   EXPECT_EQ("", config->fallback_origin_);
@@ -175,61 +155,6 @@ TEST_F(DataReductionProxySettingsTest, TestIsProxyEnabledOrManaged) {
   EXPECT_TRUE(settings_->IsDataReductionProxyManaged());
 
   base::MessageLoop::current()->RunUntilIdle();
-}
-
-TEST_F(DataReductionProxySettingsTest, TestAcceptableChallenges) {
-  typedef struct {
-    std::string host;
-    std::string realm;
-    bool expected_to_succeed;
-  } challenge_test;
-
-  challenge_test tests[] = {
-    {"foo.com:443", "", false},                 // 0. No realm.
-    {"foo.com:443", "xxx", false},              // 1. Wrong realm.
-    {"foo.com:443", "spdyproxy", false},        // 2. Case matters.
-    {"foo.com:443", "SpdyProxy", true},         // 3. OK.
-    {"foo.com:443", "SpdyProxy1234567", true},  // 4. OK
-    {"bar.com:80", "SpdyProxy1234567", true},   // 5. OK.
-    {"foo.com:443", "SpdyProxyxxx", true},      // 6. OK
-    {"", "SpdyProxy1234567", false},            // 7. No challenger.
-    {"xxx.net:443", "SpdyProxy1234567", false}, // 8. Wrong host.
-    {"foo.com", "SpdyProxy1234567", false},     // 9. No port.
-    {"foo.com:80", "SpdyProxy1234567", false},  // 10.Wrong port.
-    {"bar.com:81", "SpdyProxy1234567", false},  // 11.Wrong port.
-  };
-
-  for (int i = 0; i <= 11; ++i) {
-    scoped_refptr<net::AuthChallengeInfo> auth_info(new net::AuthChallengeInfo);
-    auth_info->challenger = net::HostPortPair::FromString(tests[i].host);
-    auth_info->realm = tests[i].realm;
-    EXPECT_EQ(tests[i].expected_to_succeed,
-              settings_->IsAcceptableAuthChallenge(auth_info.get()));
-  }
-}
-
-TEST_F(DataReductionProxySettingsTest, TestChallengeTokens) {
-  typedef struct {
-    std::string realm;
-    bool expected_empty_token;
-  } token_test;
-
-  token_test tests[] = {
-    {"", true},                  // 0. No realm.
-    {"xxx", true},               // 1. realm too short.
-    {"spdyproxy", true},         // 2. no salt.
-    {"SpdyProxyxxx", true},      // 3. Salt not an int.
-    {"SpdyProxy1234567", false}, // 4. OK
-  };
-
-  for (int i = 0; i <= 4; ++i) {
-    scoped_refptr<net::AuthChallengeInfo> auth_info(new net::AuthChallengeInfo);
-    auth_info->challenger =
-        net::HostPortPair::FromString(kDataReductionProxy);
-    auth_info->realm = tests[i].realm;
-    base::string16 token = settings_->GetTokenForAuthChallenge(auth_info.get());
-    EXPECT_EQ(tests[i].expected_empty_token, token.empty());
-  }
 }
 
 TEST_F(DataReductionProxySettingsTest, TestResetDataReductionStatistics) {
@@ -314,7 +239,6 @@ TEST_F(DataReductionProxySettingsTest, TestMaybeActivateDataReductionProxy) {
   // Request succeeded but with bad response, expect proxy to be restricted.
   CheckProbe(true,
              kProbeURLWithBadResponse,
-             kWarmupURLWithNoContentResponse,
              "Bad",
              true,
              true,
@@ -323,7 +247,6 @@ TEST_F(DataReductionProxySettingsTest, TestMaybeActivateDataReductionProxy) {
   // Request succeeded with valid response, expect proxy to be unrestricted.
   CheckProbe(true,
              kProbeURLWithOKResponse,
-             kWarmupURLWithNoContentResponse,
              "OK",
              true,
              true,
@@ -332,7 +255,6 @@ TEST_F(DataReductionProxySettingsTest, TestMaybeActivateDataReductionProxy) {
   // Request failed, expect proxy to be enabled but restricted.
   CheckProbe(true,
              kProbeURLWithNoResponse,
-             kWarmupURLWithNoContentResponse,
              "",
              false,
              true,
@@ -342,7 +264,6 @@ TEST_F(DataReductionProxySettingsTest, TestMaybeActivateDataReductionProxy) {
   // state.
   CheckProbe(false,
              kProbeURLWithOKResponse,
-             kWarmupURLWithNoContentResponse,
              "OK",
              true,
              false,
@@ -366,28 +287,56 @@ TEST_F(DataReductionProxySettingsTest, TestOnIPAddressChanged) {
   // IP address change triggers a probe that succeeds. Proxy remains
   // unrestricted.
   CheckProbeOnIPChange(kProbeURLWithOKResponse,
-                       kWarmupURLWithNoContentResponse,
                        "OK",
                        true,
                        false,
                        false);
   // IP address change triggers a probe that fails. Proxy is restricted.
   CheckProbeOnIPChange(kProbeURLWithBadResponse,
-                       kWarmupURLWithNoContentResponse,
                        "Bad",
                        true,
                        true,
                        false);
   // IP address change triggers a probe that fails. Proxy remains restricted.
   CheckProbeOnIPChange(kProbeURLWithBadResponse,
-                       kWarmupURLWithNoContentResponse,
                        "Bad",
                        true,
                        true,
                        false);
-  // IP address change triggers a probe that succeed. Proxy is unrestricted.
-  CheckProbeOnIPChange(kProbeURLWithBadResponse,
-                       kWarmupURLWithNoContentResponse,
+  // IP address change triggers a probe that succeeds. Proxy is unrestricted.
+  CheckProbeOnIPChange(kProbeURLWithOKResponse,
+                       "OK",
+                       true,
+                       false,
+                       false);
+  // Simulate a VPN connection. The proxy should be disabled.
+  MockSettings* settings = static_cast<MockSettings*>(settings_.get());
+  settings->network_interfaces_.reset(new net::NetworkInterfaceList());
+  settings->network_interfaces_->push_back(net::NetworkInterface(
+      "tun0", /* network interface name */
+      "tun0", /* network interface friendly name */
+      0,      /* interface index */
+      net::NetworkChangeNotifier::CONNECTION_WIFI,
+      net::IPAddressNumber(),        /* IP address */
+      0,                             /* network prefix */
+      net::IP_ADDRESS_ATTRIBUTE_NONE /* ip address attribute */
+      ));
+  settings_->OnIPAddressChanged();
+  base::MessageLoop::current()->RunUntilIdle();
+  CheckProxyConfigs(false, false, false);
+
+  // Check that the proxy is re-enabled if a non-VPN connection is later used.
+  settings->network_interfaces_.reset(new net::NetworkInterfaceList());
+  settings->network_interfaces_->push_back(net::NetworkInterface(
+      "eth0", /* network interface name */
+      "eth0", /* network interface friendly name */
+      0,      /* interface index */
+      net::NetworkChangeNotifier::CONNECTION_WIFI,
+      net::IPAddressNumber(),
+      0,                             /* network prefix */
+      net::IP_ADDRESS_ATTRIBUTE_NONE /* ip address attribute */
+      ));
+  CheckProbeOnIPChange(kProbeURLWithOKResponse,
                        "OK",
                        true,
                        false,
@@ -424,7 +373,7 @@ TEST_F(DataReductionProxySettingsTest, TestInitDataReductionProxyOff) {
   CheckInitDataReductionProxy(false);
 }
 
-TEST_F(DataReductionProxySettingsTest, TestSetProxyFromCommandLine) {
+TEST_F(DataReductionProxySettingsTest, TestEnableProxyFromCommandLine) {
   MockSettings* settings = static_cast<MockSettings*>(settings_.get());
   EXPECT_CALL(*settings, RecordStartupState(PROXY_ENABLED));
 
@@ -454,19 +403,23 @@ TEST_F(DataReductionProxySettingsTest, CheckInitMetricsWhenNotAllowed) {
   // Clear the command line. Setting flags can force the proxy to be allowed.
   CommandLine::ForCurrentProcess()->InitFromArgv(0, NULL);
 
-  ResetSettings(false, false, false, false);
+  ResetSettings(false, false, false, false, false);
   MockSettings* settings = static_cast<MockSettings*>(settings_.get());
   EXPECT_FALSE(settings->params()->allowed());
   EXPECT_CALL(*settings, RecordStartupState(PROXY_NOT_AVAILABLE));
 
   scoped_ptr<DataReductionProxyConfigurator> configurator(
       new TestDataReductionProxyConfig());
-  settings_->SetProxyConfigurator(configurator.Pass());
+  settings_->SetProxyConfigurator(configurator.get());
   scoped_refptr<net::TestURLRequestContextGetter> request_context =
       new net::TestURLRequestContextGetter(base::MessageLoopProxy::current());
-  settings_->InitDataReductionProxySettings(&pref_service_,
-                                            &pref_service_,
-                                            request_context.get());
+  settings_->InitDataReductionProxySettings(
+      &pref_service_,
+      request_context.get());
+  settings_->SetOnDataReductionEnabledCallback(
+      base::Bind(&DataReductionProxySettingsTestBase::
+                 RegisterSyntheticFieldTrialCallback,
+                 base::Unretained(this)));
 
   base::MessageLoop::current()->RunUntilIdle();
 }

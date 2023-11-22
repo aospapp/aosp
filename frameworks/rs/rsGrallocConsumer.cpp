@@ -30,11 +30,16 @@
 namespace android {
 namespace renderscript {
 
-GrallocConsumer::GrallocConsumer(Allocation *a, const sp<IGraphicBufferConsumer>& bq) :
+GrallocConsumer::GrallocConsumer(Allocation *a, const sp<IGraphicBufferConsumer>& bq, int flags) :
     ConsumerBase(bq, true)
 {
     mAlloc = a;
-    mConsumer->setConsumerUsageBits(GRALLOC_USAGE_SW_READ_OFTEN);
+    if (flags == 0) {
+        flags = GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_RENDERSCRIPT;
+    } else {
+        flags |= GRALLOC_USAGE_RENDERSCRIPT;
+    }
+    mConsumer->setConsumerUsageBits(flags);
     mConsumer->setMaxAcquiredBufferCount(2);
 
     uint32_t y = a->mHal.drvState.lod[0].dimY;

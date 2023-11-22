@@ -15,7 +15,7 @@ DataPipeConsumerDispatcher::DataPipeConsumerDispatcher() {
 }
 
 void DataPipeConsumerDispatcher::Init(scoped_refptr<DataPipe> data_pipe) {
-  DCHECK(data_pipe);
+  DCHECK(data_pipe.get());
   data_pipe_ = data_pipe;
 }
 
@@ -25,7 +25,7 @@ Dispatcher::Type DataPipeConsumerDispatcher::GetType() const {
 
 DataPipeConsumerDispatcher::~DataPipeConsumerDispatcher() {
   // |Close()|/|CloseImplNoLock()| should have taken care of the pipe.
-  DCHECK(!data_pipe_);
+  DCHECK(!data_pipe_.get());
 }
 
 void DataPipeConsumerDispatcher::CancelAllWaitersNoLock() {
@@ -36,7 +36,7 @@ void DataPipeConsumerDispatcher::CancelAllWaitersNoLock() {
 void DataPipeConsumerDispatcher::CloseImplNoLock() {
   lock().AssertAcquired();
   data_pipe_->ConsumerClose();
-  data_pipe_ = NULL;
+  data_pipe_ = nullptr;
 }
 
 scoped_refptr<Dispatcher>
@@ -46,52 +46,43 @@ DataPipeConsumerDispatcher::CreateEquivalentDispatcherAndCloseImplNoLock() {
   scoped_refptr<DataPipeConsumerDispatcher> rv =
       new DataPipeConsumerDispatcher();
   rv->Init(data_pipe_);
-  data_pipe_ = NULL;
+  data_pipe_ = nullptr;
   return scoped_refptr<Dispatcher>(rv.get());
 }
 
 MojoResult DataPipeConsumerDispatcher::ReadDataImplNoLock(
-    void* elements,
-    uint32_t* num_bytes,
+    UserPointer<void> elements,
+    UserPointer<uint32_t> num_bytes,
     MojoReadDataFlags flags) {
   lock().AssertAcquired();
-
-  if (!VerifyUserPointer<uint32_t>(num_bytes))
-    return MOJO_RESULT_INVALID_ARGUMENT;
 
   if ((flags & MOJO_READ_DATA_FLAG_DISCARD)) {
     // These flags are mutally exclusive.
     if ((flags & MOJO_READ_DATA_FLAG_QUERY))
       return MOJO_RESULT_INVALID_ARGUMENT;
-    DVLOG_IF(2, elements) << "Discard mode: ignoring non-null |elements|";
+    DVLOG_IF(2, !elements.IsNull())
+        << "Discard mode: ignoring non-null |elements|";
     return data_pipe_->ConsumerDiscardData(
         num_bytes, (flags & MOJO_READ_DATA_FLAG_ALL_OR_NONE));
   }
 
   if ((flags & MOJO_READ_DATA_FLAG_QUERY)) {
     DCHECK(!(flags & MOJO_READ_DATA_FLAG_DISCARD));  // Handled above.
-    DVLOG_IF(2, elements) << "Query mode: ignoring non-null |elements|";
+    DVLOG_IF(2, !elements.IsNull())
+        << "Query mode: ignoring non-null |elements|";
     return data_pipe_->ConsumerQueryData(num_bytes);
   }
-
-  // Only verify |elements| if we're neither discarding nor querying.
-  if (!VerifyUserPointerWithSize<1>(elements, *num_bytes))
-    return MOJO_RESULT_INVALID_ARGUMENT;
 
   return data_pipe_->ConsumerReadData(
       elements, num_bytes, (flags & MOJO_READ_DATA_FLAG_ALL_OR_NONE));
 }
 
 MojoResult DataPipeConsumerDispatcher::BeginReadDataImplNoLock(
-    const void** buffer,
-    uint32_t* buffer_num_bytes,
+    UserPointer<const void*> buffer,
+    UserPointer<uint32_t> buffer_num_bytes,
     MojoReadDataFlags flags) {
   lock().AssertAcquired();
 
-  if (!VerifyUserPointerWithCount<const void*>(buffer, 1))
-    return MOJO_RESULT_INVALID_ARGUMENT;
-  if (!VerifyUserPointer<uint32_t>(buffer_num_bytes))
-    return MOJO_RESULT_INVALID_ARGUMENT;
   // These flags may not be used in two-phase mode.
   if ((flags & MOJO_READ_DATA_FLAG_DISCARD) ||
       (flags & MOJO_READ_DATA_FLAG_QUERY))
@@ -108,17 +99,26 @@ MojoResult DataPipeConsumerDispatcher::EndReadDataImplNoLock(
   return data_pipe_->ConsumerEndReadData(num_bytes_read);
 }
 
+HandleSignalsState DataPipeConsumerDispatcher::GetHandleSignalsStateImplNoLock()
+    const {
+  lock().AssertAcquired();
+  return data_pipe_->ConsumerGetHandleSignalsState();
+}
+
 MojoResult DataPipeConsumerDispatcher::AddWaiterImplNoLock(
     Waiter* waiter,
     MojoHandleSignals signals,
-    uint32_t context) {
+    uint32_t context,
+    HandleSignalsState* signals_state) {
   lock().AssertAcquired();
-  return data_pipe_->ConsumerAddWaiter(waiter, signals, context);
+  return data_pipe_->ConsumerAddWaiter(waiter, signals, context, signals_state);
 }
 
-void DataPipeConsumerDispatcher::RemoveWaiterImplNoLock(Waiter* waiter) {
+void DataPipeConsumerDispatcher::RemoveWaiterImplNoLock(
+    Waiter* waiter,
+    HandleSignalsState* signals_state) {
   lock().AssertAcquired();
-  data_pipe_->ConsumerRemoveWaiter(waiter);
+  data_pipe_->ConsumerRemoveWaiter(waiter, signals_state);
 }
 
 bool DataPipeConsumerDispatcher::IsBusyNoLock() const {

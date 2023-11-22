@@ -5,11 +5,12 @@
 #include <windows.h>
 
 #include "base/base_paths.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
 #include "base/strings/string_util.h"
+#include "base/test/test_reg_util_win.h"
 #include "base/win/registry.h"
 #include "chrome/installer/util/conditional_work_item_list.h"
 #include "chrome/installer/util/work_item.h"
@@ -27,25 +28,16 @@ const wchar_t kName[] = L"name";
 class WorkItemListTest : public testing::Test {
  protected:
   virtual void SetUp() {
-    // Create a temporary key for testing
-    RegKey key(HKEY_CURRENT_USER, L"", KEY_ALL_ACCESS);
-    key.DeleteKey(kTestRoot);
-    ASSERT_NE(ERROR_SUCCESS, key.Open(HKEY_CURRENT_USER, kTestRoot, KEY_READ));
-    ASSERT_EQ(ERROR_SUCCESS,
-        key.Create(HKEY_CURRENT_USER, kTestRoot, KEY_READ));
-
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+    registry_override_manager_.OverrideRegistry(HKEY_CURRENT_USER);
   }
 
   virtual void TearDown() {
     logging::CloseLogFile();
-
-    // Clean up the temporary key
-    RegKey key(HKEY_CURRENT_USER, L"", KEY_ALL_ACCESS);
-    ASSERT_EQ(ERROR_SUCCESS, key.DeleteKey(kTestRoot));
   }
 
   base::ScopedTempDir temp_dir_;
+  registry_util::RegistryOverrideManager registry_override_manager_;
 };
 
 }  // namespace

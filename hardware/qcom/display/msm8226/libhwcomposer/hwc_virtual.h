@@ -22,6 +22,7 @@
 #define HWC_VIRTUAL
 
 #include <hwc_utils.h>
+#include <virtual.h>
 
 namespace qhwc {
 namespace ovutils = overlay::utils;
@@ -32,18 +33,20 @@ public:
     explicit HWCVirtualBase(){};
     virtual ~HWCVirtualBase(){};
     // instantiates and returns the pointer to VDS or V4L2 object.
-    static HWCVirtualBase* getObject();
+    static HWCVirtualBase* getObject(bool isVDSEnabled);
     virtual int prepare(hwc_composer_device_1 *dev,
                           hwc_display_contents_1_t* list) = 0;
     virtual int set(hwc_context_t *ctx, hwc_display_contents_1_t *list) = 0;
     virtual void init(hwc_context_t *ctx) = 0;
     virtual void destroy(hwc_context_t *ctx, size_t numDisplays,
                        hwc_display_contents_1_t** displays) = 0;
+    virtual void pause(hwc_context_t* ctx, int dpy) = 0;
+    virtual void resume(hwc_context_t* ctx, int dpy) = 0;
 };
 
 class HWCVirtualVDS : public HWCVirtualBase {
 public:
-    explicit HWCVirtualVDS(){};
+    explicit HWCVirtualVDS();
     virtual ~HWCVirtualVDS(){};
     // Chooses composition type and configures pipe for each layer in virtual
     // display list
@@ -59,6 +62,14 @@ public:
     // during virtual display disconnect.
     virtual void destroy(hwc_context_t *ctx, size_t numDisplays,
                        hwc_display_contents_1_t** displays);
+    virtual void pause(hwc_context_t* ctx, int dpy);
+    virtual void resume(hwc_context_t* ctx, int dpy);
+private:
+    // If WFD is enabled through VDS solution
+    // we can dump the frame buffer and WB
+    // output buffer by setting the property
+    // debug.hwc.enable_vds_dump
+    bool mVDSDumpEnabled;
 };
 
 class HWCVirtualV4L2 : public HWCVirtualBase {
@@ -80,6 +91,8 @@ public:
     // during virtual display disconnect. This function is no-op for V4L2 design
     virtual void destroy(hwc_context_t *, size_t ,
                        hwc_display_contents_1_t** ) {};
+    virtual void pause(hwc_context_t* ctx, int dpy);
+    virtual void resume(hwc_context_t* ctx, int dpy);
 };
 
 }; //namespace

@@ -209,6 +209,7 @@ void LoaderController::Unlock() {
 
 AboutResourceLoader::AboutResourceLoader(JobScheduler* scheduler)
     : scheduler_(scheduler),
+      current_update_task_id_(-1),
       weak_ptr_factory_(this) {
 }
 
@@ -218,6 +219,12 @@ void AboutResourceLoader::GetAboutResource(
     const google_apis::AboutResourceCallback& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!callback.is_null());
+
+  // If the latest UpdateAboutResource task is still running. Wait for it,
+  if (pending_callbacks_.count(current_update_task_id_)) {
+    pending_callbacks_[current_update_task_id_].push_back(callback);
+    return;
+  }
 
   if (cached_about_resource_) {
     base::MessageLoopProxy::current()->PostTask(
@@ -237,34 +244,47 @@ void AboutResourceLoader::UpdateAboutResource(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!callback.is_null());
 
+  ++current_update_task_id_;
+  pending_callbacks_[current_update_task_id_].push_back(callback);
+
   scheduler_->GetAboutResource(
       base::Bind(&AboutResourceLoader::UpdateAboutResourceAfterGetAbout,
                  weak_ptr_factory_.GetWeakPtr(),
-                 callback));
+                 current_update_task_id_));
 }
 
 void AboutResourceLoader::UpdateAboutResourceAfterGetAbout(
-    const google_apis::AboutResourceCallback& callback,
+    int task_id,
     google_apis::GDataErrorCode status,
     scoped_ptr<google_apis::AboutResource> about_resource) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(!callback.is_null());
   FileError error = GDataToFileError(status);
 
-  if (error == FILE_ERROR_OK) {
-    if (cached_about_resource_ &&
-        cached_about_resource_->largest_change_id() >
-        about_resource->largest_change_id()) {
-      LOG(WARNING) << "Local cached about resource is fresher than server, "
-                   << "local = " << cached_about_resource_->largest_change_id()
-                   << ", server = " << about_resource->largest_change_id();
-    }
+  const std::vector<google_apis::AboutResourceCallback> callbacks =
+      pending_callbacks_[task_id];
+  pending_callbacks_.erase(task_id);
 
-    cached_about_resource_.reset(
-        new google_apis::AboutResource(*about_resource));
+  if (error != FILE_ERROR_OK) {
+    for (size_t i = 0; i < callbacks.size(); ++i)
+      callbacks[i].Run(status, scoped_ptr<google_apis::AboutResource>());
+    return;
   }
 
-  callback.Run(status, about_resource.Pass());
+  // Updates the cache when the resource is successfully obtained.
+  if (cached_about_resource_ &&
+      cached_about_resource_->largest_change_id() >
+      about_resource->largest_change_id()) {
+    LOG(WARNING) << "Local cached about resource is fresher than server, "
+                 << "local = " << cached_about_resource_->largest_change_id()
+                 << ", server = " << about_resource->largest_change_id();
+  }
+  cached_about_resource_.reset(new google_apis::AboutResource(*about_resource));
+
+  for (size_t i = 0; i < callbacks.size(); ++i) {
+    callbacks[i].Run(
+        status,
+        make_scoped_ptr(new google_apis::AboutResource(*about_resource)));
+  }
 }
 
 ChangeListLoader::ChangeListLoader(
@@ -307,6 +327,17 @@ void ChangeListLoader::CheckForUpdates(const FileOperationCallback& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!callback.is_null());
 
+  // We only start to check for updates iff the load is done.
+  // I.e., we ignore checking updates if not loaded to avoid starting the
+  // load without user's explicit interaction (such as opening Drive).
+  if (!loaded_ && !IsRefreshing())
+    return;
+
+  // For each CheckForUpdates() request, always refresh the changestamp info.
+  about_resource_loader_->UpdateAboutResource(
+      base::Bind(&ChangeListLoader::OnAboutResourceUpdated,
+                 weak_ptr_factory_.GetWeakPtr()));
+
   if (IsRefreshing()) {
     // There is in-flight loading. So keep the callback here, and check for
     // updates when the in-flight loading is completed.
@@ -314,13 +345,9 @@ void ChangeListLoader::CheckForUpdates(const FileOperationCallback& callback) {
     return;
   }
 
-  if (loaded_) {
-    // We only start to check for updates iff the load is done.
-    // I.e., we ignore checking updates if not loaded to avoid starting the
-    // load without user's explicit interaction (such as opening Drive).
-    logger_->Log(logging::LOG_INFO, "Checking for updates");
-    Load(callback);
-  }
+  DCHECK(loaded_);
+  logger_->Log(logging::LOG_INFO, "Checking for updates");
+  Load(callback);
 }
 
 void ChangeListLoader::LoadIfNeeded(const FileOperationCallback& callback) {
@@ -328,7 +355,7 @@ void ChangeListLoader::LoadIfNeeded(const FileOperationCallback& callback) {
   DCHECK(!callback.is_null());
 
   // If the metadata is not yet loaded, start loading.
-  if (!loaded_)
+  if (!loaded_ && !IsRefreshing())
     Load(callback);
 }
 
@@ -350,7 +377,7 @@ void ChangeListLoader::Load(const FileOperationCallback& callback) {
   // Check the current status of local metadata, and start loading if needed.
   int64* local_changestamp = new int64(0);
   base::PostTaskAndReplyWithResult(
-      blocking_task_runner_,
+      blocking_task_runner_.get(),
       FROM_HERE,
       base::Bind(&ResourceMetadata::GetLargestChangestamp,
                  base::Unretained(resource_metadata_),
@@ -382,7 +409,7 @@ void ChangeListLoader::LoadAfterGetLargestChangestamp(
         base::Bind(&util::EmptyFileOperationCallback));
   }
 
-  about_resource_loader_->UpdateAboutResource(
+  about_resource_loader_->GetAboutResource(
       base::Bind(&ChangeListLoader::LoadAfterGetAboutResource,
                  weak_ptr_factory_.GetWeakPtr(),
                  *local_changestamp));
@@ -441,6 +468,22 @@ void ChangeListLoader::OnChangeListLoadComplete(FileError error) {
   if (!pending_update_check_callback_.is_null()) {
     Load(base::ResetAndReturn(&pending_update_check_callback_));
   }
+}
+
+void ChangeListLoader::OnAboutResourceUpdated(
+    google_apis::GDataErrorCode error,
+    scoped_ptr<google_apis::AboutResource> resource) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  if (drive::GDataToFileError(error) != drive::FILE_ERROR_OK) {
+    logger_->Log(logging::LOG_ERROR,
+                 "Failed to update the about resource: %s",
+                 google_apis::GDataErrorCodeToString(error).c_str());
+    return;
+  }
+  logger_->Log(logging::LOG_INFO,
+               "About resource updated to: %s",
+               base::Int64ToString(resource->largest_change_id()).c_str());
 }
 
 void ChangeListLoader::LoadChangeListFromServer(int64 start_changestamp) {
@@ -523,13 +566,9 @@ void ChangeListLoader::LoadChangeListFromServerAfterUpdate(
                base::Int64ToString(elapsed.InMilliseconds()).c_str());
 
   if (should_notify_changed_directories) {
-    for (std::set<base::FilePath>::iterator dir_iter =
-            change_list_processor->changed_dirs().begin();
-        dir_iter != change_list_processor->changed_dirs().end();
-        ++dir_iter) {
-      FOR_EACH_OBSERVER(ChangeListLoaderObserver, observers_,
-                        OnDirectoryChanged(*dir_iter));
-    }
+    FOR_EACH_OBSERVER(ChangeListLoaderObserver,
+                      observers_,
+                      OnFileChanged(change_list_processor->changed_files()));
   }
 
   OnChangeListLoadComplete(error);

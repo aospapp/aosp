@@ -53,7 +53,7 @@ public class Blend extends TestBase {
                     currentIntrinsic = pos;
                     if (mRS != null) {
                         runTest();
-                        act.updateDisplay();
+                        act.mProcessor.update();
                     }
                 }
 

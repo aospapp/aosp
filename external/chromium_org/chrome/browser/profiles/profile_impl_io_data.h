@@ -10,12 +10,11 @@
 #include "base/containers/hash_tables.h"
 #include "base/memory/ref_counted.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry.h"
+#include "chrome/browser/net/chrome_url_request_context_getter.h"
 #include "chrome/browser/profiles/profile_io_data.h"
-#include "components/domain_reliability/clear_mode.h"
 #include "content/public/browser/cookie_store_factory.h"
 
 namespace chrome_browser_net {
-class HttpServerPropertiesManager;
 class Predictor;
 }  // namespace chrome_browser_net
 
@@ -30,13 +29,15 @@ class DomainReliabilityMonitor;
 namespace net {
 class FtpTransactionFactory;
 class HttpServerProperties;
+class HttpServerPropertiesManager;
 class HttpTransactionFactory;
+class ProxyConfig;
 class SDCHManager;
 }  // namespace net
 
-namespace quota {
+namespace storage {
 class SpecialStoragePolicy;
-}  // namespace quota
+}  // namespace storage
 
 class ProfileImplIOData : public ProfileIOData {
  public:
@@ -47,19 +48,28 @@ class ProfileImplIOData : public ProfileIOData {
 
     // Init() must be called before ~Handle(). It records most of the
     // parameters needed to construct a ChromeURLRequestContextGetter.
-    void Init(const base::FilePath& cookie_path,
-              const base::FilePath& server_bound_cert_path,
-              const base::FilePath& cache_path,
-              int cache_max_size,
-              const base::FilePath& media_cache_path,
-              int media_cache_max_size,
-              const base::FilePath& extensions_cookie_path,
-              const base::FilePath& profile_path,
-              const base::FilePath& infinite_cache_path,
-              chrome_browser_net::Predictor* predictor,
-              content::CookieStoreConfig::SessionCookieMode
-                  session_cookie_mode,
-              quota::SpecialStoragePolicy* special_storage_policy);
+    void Init(
+        const base::FilePath& cookie_path,
+        const base::FilePath& channel_id_path,
+        const base::FilePath& cache_path,
+        int cache_max_size,
+        const base::FilePath& media_cache_path,
+        int media_cache_max_size,
+        const base::FilePath& extensions_cookie_path,
+        const base::FilePath& profile_path,
+        const base::FilePath& infinite_cache_path,
+        chrome_browser_net::Predictor* predictor,
+        content::CookieStoreConfig::SessionCookieMode session_cookie_mode,
+        storage::SpecialStoragePolicy* special_storage_policy,
+        scoped_ptr<domain_reliability::DomainReliabilityMonitor>
+            domain_reliability_monitor,
+        const base::Callback<void(bool)>& data_reduction_proxy_unavailable,
+        scoped_ptr<DataReductionProxyChromeConfigurator>
+            data_reduction_proxy_chrome_configurator,
+        scoped_ptr<data_reduction_proxy::DataReductionProxyParams>
+            data_reduction_proxy_params,
+        scoped_ptr<data_reduction_proxy::DataReductionProxyStatisticsPrefs>
+            data_reduction_proxy_statistics_prefs);
 
     // These Create*ContextGetter() functions are only exposed because the
     // circular relationship between Profile, ProfileIOData::Handle, and the
@@ -101,14 +111,6 @@ class ProfileImplIOData : public ProfileIOData {
     void ClearNetworkingHistorySince(base::Time time,
                                      const base::Closure& completion);
 
-    // Clears part or all of the state of the Domain Reliability Monitor. If
-    // |clear_contexts| is true, clears the (site-provided) contexts, which are
-    // cookie-esque; if it is false, clears only the (logged) beacons within
-    // them, which are history-esque.
-    void ClearDomainReliabilityMonitor(
-        domain_reliability::DomainReliabilityClearMode mode,
-        const base::Closure& completion);
-
    private:
     typedef std::map<StoragePartitionDescriptor,
                      scoped_refptr<ChromeURLRequestContextGetter>,
@@ -122,12 +124,13 @@ class ProfileImplIOData : public ProfileIOData {
     // on the UI thread from being unnecessarily initialized.
     void LazyInitialize() const;
 
-    // Ordering is important here. Do not reorder unless you know what you're
-    // doing. We need to release |io_data_| *before* the getters, because we
-    // want to make sure that the last reference for |io_data_| is on the IO
-    // thread. The getters will be deleted on the IO thread, so they will
-    // release their refs to their contexts, which will release the last refs to
-    // the ProfileIOData on the IO thread.
+    // Collect references to context getters in reverse order, i.e. last item
+    // will be main request getter. This list is passed to |io_data_|
+    // for invalidation on IO thread.
+    scoped_ptr<ChromeURLRequestContextGetterVector> GetAllContextGetters();
+
+    // The getters will be invalidated on the IO thread before
+    // ProfileIOData instance is deleted.
     mutable scoped_refptr<ChromeURLRequestContextGetter>
         main_request_context_getter_;
     mutable scoped_refptr<ChromeURLRequestContextGetter>
@@ -155,7 +158,7 @@ class ProfileImplIOData : public ProfileIOData {
 
     // All of these parameters are intended to be read on the IO thread.
     base::FilePath cookie_path;
-    base::FilePath server_bound_cert_path;
+    base::FilePath channel_id_path;
     base::FilePath cache_path;
     int cache_max_size;
     base::FilePath media_cache_path;
@@ -163,7 +166,7 @@ class ProfileImplIOData : public ProfileIOData {
     base::FilePath extensions_cookie_path;
     base::FilePath infinite_cache_path;
     content::CookieStoreConfig::SessionCookieMode session_cookie_mode;
-    scoped_refptr<quota::SpecialStoragePolicy> special_storage_policy;
+    scoped_refptr<storage::SpecialStoragePolicy> special_storage_policy;
   };
 
   ProfileImplIOData();
@@ -176,30 +179,30 @@ class ProfileImplIOData : public ProfileIOData {
           const OVERRIDE;
   virtual void InitializeExtensionsRequestContext(
       ProfileParams* profile_params) const OVERRIDE;
-  virtual ChromeURLRequestContext* InitializeAppRequestContext(
-      ChromeURLRequestContext* main_context,
+  virtual net::URLRequestContext* InitializeAppRequestContext(
+      net::URLRequestContext* main_context,
       const StoragePartitionDescriptor& partition_descriptor,
       scoped_ptr<ProtocolHandlerRegistry::JobInterceptorFactory>
           protocol_handler_interceptor,
       content::ProtocolHandlerMap* protocol_handlers,
       content::URLRequestInterceptorScopedVector request_interceptors)
           const OVERRIDE;
-  virtual ChromeURLRequestContext* InitializeMediaRequestContext(
-      ChromeURLRequestContext* original_context,
+  virtual net::URLRequestContext* InitializeMediaRequestContext(
+      net::URLRequestContext* original_context,
       const StoragePartitionDescriptor& partition_descriptor) const OVERRIDE;
-  virtual ChromeURLRequestContext*
+  virtual net::URLRequestContext*
       AcquireMediaRequestContext() const OVERRIDE;
-  virtual ChromeURLRequestContext* AcquireIsolatedAppRequestContext(
-      ChromeURLRequestContext* main_context,
+  virtual net::URLRequestContext* AcquireIsolatedAppRequestContext(
+      net::URLRequestContext* main_context,
       const StoragePartitionDescriptor& partition_descriptor,
       scoped_ptr<ProtocolHandlerRegistry::JobInterceptorFactory>
           protocol_handler_interceptor,
       content::ProtocolHandlerMap* protocol_handlers,
       content::URLRequestInterceptorScopedVector request_interceptors)
           const OVERRIDE;
-  virtual ChromeURLRequestContext*
+  virtual net::URLRequestContext*
       AcquireIsolatedMediaRequestContext(
-          ChromeURLRequestContext* app_context,
+          net::URLRequestContext* app_context,
           const StoragePartitionDescriptor& partition_descriptor)
               const OVERRIDE;
 
@@ -210,10 +213,6 @@ class ProfileImplIOData : public ProfileIOData {
   void ClearNetworkingHistorySinceOnIOThread(base::Time time,
                                              const base::Closure& completion);
 
-  void ClearDomainReliabilityMonitorOnIOThread(
-      domain_reliability::DomainReliabilityClearMode mode,
-      const base::Closure& completion);
-
   // Lazy initialization params.
   mutable scoped_ptr<LazyParams> lazy_params_;
 
@@ -222,12 +221,11 @@ class ProfileImplIOData : public ProfileIOData {
 
   // Same as |ProfileIOData::http_server_properties_|, owned there to maintain
   // destruction ordering.
-  mutable chrome_browser_net::HttpServerPropertiesManager*
-    http_server_properties_manager_;
+  mutable net::HttpServerPropertiesManager* http_server_properties_manager_;
 
   mutable scoped_ptr<chrome_browser_net::Predictor> predictor_;
 
-  mutable scoped_ptr<ChromeURLRequestContext> media_request_context_;
+  mutable scoped_ptr<net::URLRequestContext> media_request_context_;
 
   mutable scoped_ptr<net::URLRequestJobFactory> main_job_factory_;
   mutable scoped_ptr<net::URLRequestJobFactory> extensions_job_factory_;

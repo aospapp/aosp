@@ -14,11 +14,11 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "components/invalidation/invalidation_service.h"
+#include "components/invalidation/object_id_invalidation_map.h"
 #include "components/policy/core/common/cloud/cloud_policy_client.h"
 #include "components/policy/core/common/cloud/cloud_policy_refresh_scheduler.h"
 #include "components/policy/core/common/cloud/enterprise_metrics.h"
 #include "policy/policy_constants.h"
-#include "sync/notifier/object_id_invalidation_map.h"
 
 namespace policy {
 
@@ -31,10 +31,13 @@ const int CloudPolicyInvalidator::kUnknownVersionIgnorePeriod = 30;
 const int CloudPolicyInvalidator::kMaxInvalidationTimeDelta = 300;
 
 CloudPolicyInvalidator::CloudPolicyInvalidator(
+    enterprise_management::DeviceRegisterRequest::Type type,
     CloudPolicyCore* core,
     const scoped_refptr<base::SequencedTaskRunner>& task_runner,
-    scoped_ptr<base::Clock> clock)
+    scoped_ptr<base::Clock> clock,
+    int64 highest_handled_invalidation_version)
     : state_(UNINITIALIZED),
+      type_(type),
       core_(core),
       task_runner_(task_runner),
       clock_(clock.Pass()),
@@ -45,11 +48,23 @@ CloudPolicyInvalidator::CloudPolicyInvalidator(
       invalid_(false),
       invalidation_version_(0),
       unknown_version_invalidation_count_(0),
-      weak_factory_(this),
+      highest_handled_invalidation_version_(
+          highest_handled_invalidation_version),
       max_fetch_delay_(kMaxFetchDelayDefault),
-      policy_hash_value_(0) {
+      policy_hash_value_(0),
+      weak_factory_(this) {
   DCHECK(core);
   DCHECK(task_runner.get());
+  // |highest_handled_invalidation_version_| indicates the highest actual
+  // invalidation version handled. Since actual invalidations can have only
+  // positive versions, this member may be zero (no versioned invalidation
+  // handled yet) or positive. Negative values are not allowed:
+  //
+  // Negative version numbers are used internally by CloudPolicyInvalidator to
+  // keep track of unversioned invalidations. When such an invalidation is
+  // handled, |highest_handled_invalidation_version_| remains unchanged and does
+  // not become negative.
+  DCHECK_LE(0, highest_handled_invalidation_version_);
 }
 
 CloudPolicyInvalidator::~CloudPolicyInvalidator() {
@@ -141,16 +156,27 @@ void CloudPolicyInvalidator::OnStoreLoaded(CloudPolicyStore* store) {
   bool policy_changed = IsPolicyChanged(store->policy());
 
   if (is_registered_) {
-    // Update the kMetricPolicyRefresh histogram.
-    UMA_HISTOGRAM_ENUMERATION(
-        kMetricPolicyRefresh,
-        GetPolicyRefreshMetric(policy_changed),
-        METRIC_POLICY_REFRESH_SIZE);
+    // Update the kMetricDevicePolicyRefresh/kMetricUserPolicyRefresh histogram.
+    if (type_ == enterprise_management::DeviceRegisterRequest::DEVICE) {
+      UMA_HISTOGRAM_ENUMERATION(kMetricDevicePolicyRefresh,
+                                GetPolicyRefreshMetric(policy_changed),
+                                METRIC_POLICY_REFRESH_SIZE);
+    } else {
+      UMA_HISTOGRAM_ENUMERATION(kMetricUserPolicyRefresh,
+                                GetPolicyRefreshMetric(policy_changed),
+                                METRIC_POLICY_REFRESH_SIZE);
+    }
+
+    const int64 store_invalidation_version = store->invalidation_version();
 
     // If the policy was invalid and the version stored matches the latest
     // invalidation version, acknowledge the latest invalidation.
-    if (invalid_ && store->invalidation_version() == invalidation_version_)
+    if (invalid_ && store_invalidation_version == invalidation_version_)
       AcknowledgeInvalidation();
+
+    // Update the highest invalidation version that was handled already.
+    if (store_invalidation_version > highest_handled_invalidation_version_)
+      highest_handled_invalidation_version_ = store_invalidation_version;
   }
 
   UpdateRegistration(store->policy());
@@ -165,6 +191,14 @@ void CloudPolicyInvalidator::HandleInvalidation(
   if (invalid_ &&
       !invalidation.is_unknown_version() &&
       invalidation.version() <= invalidation_version_) {
+    return;
+  }
+
+  if (!invalidation.is_unknown_version() &&
+      invalidation.version() <= highest_handled_invalidation_version_) {
+    // If this invalidation version was handled already, acknowledge the
+    // invalidation but ignore it otherwise.
+    invalidation.Acknowledge();
     return;
   }
 
@@ -189,10 +223,18 @@ void CloudPolicyInvalidator::HandleInvalidation(
 
   // Ignore the invalidation if it is expired.
   bool is_expired = IsInvalidationExpired(version);
-  UMA_HISTOGRAM_ENUMERATION(
-      kMetricPolicyInvalidations,
-      GetInvalidationMetric(payload.empty(), is_expired),
-      POLICY_INVALIDATION_TYPE_SIZE);
+
+  if (type_ == enterprise_management::DeviceRegisterRequest::DEVICE) {
+    UMA_HISTOGRAM_ENUMERATION(
+        kMetricDevicePolicyInvalidations,
+        GetInvalidationMetric(payload.empty(), is_expired),
+        POLICY_INVALIDATION_TYPE_SIZE);
+  } else {
+    UMA_HISTOGRAM_ENUMERATION(
+        kMetricUserPolicyInvalidations,
+        GetInvalidationMetric(payload.empty(), is_expired),
+        POLICY_INVALIDATION_TYPE_SIZE);
+  }
   if (is_expired) {
     invalidation.Acknowledge();
     return;

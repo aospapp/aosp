@@ -3,6 +3,11 @@
   {{?display_name}}
   <h3 id="{{id}}">{{display_name}}</h3>
   {{/display_name}}
+  {{?availability}}
+  <p class="availability">
+    {{+availability.partial content:availability item:type/}}
+  </p>
+  {{/availability}}
   <table>
     {{^is_object}}
     {{?enum_values}}

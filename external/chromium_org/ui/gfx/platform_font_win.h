@@ -63,6 +63,7 @@ class GFX_EXPORT PlatformFontWin : public PlatformFont {
   virtual std::string GetFontName() const OVERRIDE;
   virtual std::string GetActualFontNameForTesting() const OVERRIDE;
   virtual int GetFontSize() const OVERRIDE;
+  virtual const FontRenderParams& GetFontRenderParams() const OVERRIDE;
   virtual NativeFont GetNativeFont() const OVERRIDE;
 
  private:
@@ -76,7 +77,7 @@ class GFX_EXPORT PlatformFontWin : public PlatformFont {
   // HFontRef is reference counted. Upon deletion, it deletes the HFONT.
   // By making HFontRef maintain the reference to the HFONT, multiple
   // HFontRefs can share the same HFONT, and Font can provide value semantics.
-  class HFontRef : public base::RefCounted<HFontRef> {
+  class GFX_EXPORT HFontRef : public base::RefCounted<HFontRef> {
    public:
     // This constructor takes control of the HFONT, and will delete it when
     // the HFontRef is deleted.
@@ -141,6 +142,14 @@ class GFX_EXPORT PlatformFontWin : public PlatformFont {
 
   // Creates and returns a new HFONTRef from the specified HFONT.
   static HFontRef* CreateHFontRef(HFONT font);
+
+  // Creates and returns a new HFONTRef from the specified HFONT. Uses provided
+  // |font_metrics| instead of calculating new one.
+  static HFontRef* CreateHFontRef(HFONT font, const TEXTMETRIC& font_metrics);
+
+  // Returns a largest derived Font whose height does not exceed the height of
+  // |base_font|.
+  static Font DeriveWithCorrectedSize(HFONT base_font);
 
   // Creates a new PlatformFontWin with the specified HFontRef. Used when
   // constructing a Font from a HFONT we don't want to copy.

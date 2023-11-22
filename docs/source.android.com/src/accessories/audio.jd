@@ -2,7 +2,7 @@ page.title=Building Audio Accessories
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2014 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -16,33 +16,40 @@ page.title=Building Audio Accessories
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-<p>In building an audio accessory, such as an audio dock or other playback device, you should
-consider how your accessory will connect with Android devices. In particular, you should decide
-if your accessory will use Universal Serial Bus (USB) or a Bluetooth connection to stream music or
-other audio content.</p>
+<div id="qv-wrapper">
+  <div id="qv">
+    <h2>In this document</h2>
+    <ol id="auto-toc">
+    </ol>
+  </div>
+</div>
+
+<p>In implementing an audio accessory, such as a headset, headphone amplifier,
+microphone, DAC/ADC, or dock, you should consider how your accessory will
+connect with Android devices. In particular, you should decide
+if your accessory will use wired a 3.5 mm headset connector, Universal Serial
+Bus (USB), or a Bluetooth connection to stream music or other audio content.</p>
+<h2 id="audio-over-35mm">Audio over 3.5 mm headset connector</h2>
+<p>Many Android-based devices include a 3.5 mm (“mini”) headset connector. In
+addition to the traditional stereo output and mono input features, the <a
+href="headset-spec.html">Wired audio headset specification</a> defines standard
+impedances and functions so a range of Android devices and headsets can inter-operate.</p>
+
 <h2 id="audio-over-usb">Audio over USB</h2>
-<p>An accessory that connects with Android over USB connection must use the Android Open
-Accessory (AOA) protocol version 2.0. This version of the AOA protocol is supported on Android 4.1
-(API Level 16) and higher. Once an Android device connects to an accessory that supports this
-protocol, the Android system treats it as a standard audio output device and routes all audio to
-that accessory. No secondary software application is required on the Android device.</p>
-<p><strong>Note:</strong> Due to the low power output of Android devices, the Android Open Accessory
-Protocol requires that accessories act as a USB host, which means that the connecting accessory
-must power the bus.</p>
-<h3 id="next-steps">Next steps</h3>
-<p>To get started on building an audio accessory that uses a USB connection:</p>
-<ul>
-<li>Select a hardware platform or build a hardware device that can support USB host mode.</li>
-<li>Review the <a href="{@docRoot}accessories/aoa2.html">AOA 2.0 protocol</a> specification to understand
-  how to implement this protocol on your accessory hardware.</li>
-<li>Review the ADK 2012 <a href="http://developer.android.com/tools/adk/adk2.html#src-download">firmware source code</a>
-  (<code>&lt;adk-src&gt;/adk2012/board/library/ADK2/</code>), which includes an example implementation
-  of an audio playback accessory using a USB connection.</li>
-</ul>
-<p><strong>Note:</strong> The AOA 2.0 protocol also supports the
-<a href="{@docRoot}accessories/aoa2.html#hid-support">human interface device</a> (HID) protocol through a USB
-connection, enabling accessories such as audio docks to provide hardware play back controls such
-as pause, fast-forward or volume buttons.</p>
+<p>Android can use USB in several modes:</p>
+  <ul>
+    <li>debug
+    <li>accessory
+    <li>host
+  </ul>
+<p>In the traditional debug mode, there is no audio capability.</p>
+<p>Accessory mode is provided by the Open Accessory (AOA) protocol version 2.0.
+There is limited audio capability in accessory mode, as described in <a
+href="custom.html#audio-over-usb">Connecting custom audio over USB</a>.</p>
+<p>Host mode enables the Android device to drive the USB bus and operate with a
+wide range of USB-based peripherals, including audio interfaces. Host mode
+audio is described in <a href="{@docRoot}devices/audio_usb.html">USB Digital Audio</a>
+
 <h2 id="audio-over-bluetooth">Audio over Bluetooth</h2>
 <p>An accessory that connects with Android over Bluetooth can use an Advanced Audio Distribution
 Profile (A2DP) connection stream music for playback. Playing audio over a Bluetooth with A2DP is
@@ -67,4 +74,3 @@ class.</p>
 <p><strong>Note:</strong> The ADK 2012 source code includes an open source Bluetooth stack that
 is built for the Texas Instruments CC2564 chip, but can work with any Bluetooth chip that
 implements a standard Host/Controller Interface (HCI).</p>
-

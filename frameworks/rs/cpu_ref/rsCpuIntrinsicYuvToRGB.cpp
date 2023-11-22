@@ -161,8 +161,8 @@ void RsdCpuScriptIntrinsicYuvToRGB::kernel(const RsForEachStubParamStruct *p,
         out++;
         x1++;
     }
-// reenable for ARM64 when intrinsic is fixed
-#if defined(ARCH_ARM_USE_INTRINSICS) && !defined(ARCH_ARM64_USE_INTRINSICS)
+
+#if defined(ARCH_ARM_USE_INTRINSICS)
     if((x2 > x1) && gArchUseSIMD) {
         int32_t len = x2 - x1;
         if (cstep == 1) {

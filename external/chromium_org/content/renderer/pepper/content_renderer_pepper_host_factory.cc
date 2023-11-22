@@ -16,7 +16,6 @@
 #include "content/renderer/pepper/pepper_graphics_2d_host.h"
 #include "content/renderer/pepper/pepper_media_stream_video_track_host.h"
 #include "content/renderer/pepper/pepper_plugin_instance_impl.h"
-#include "content/renderer/pepper/pepper_truetype_font_host.h"
 #include "content/renderer/pepper/pepper_url_loader_host.h"
 #include "content/renderer/pepper/pepper_video_capture_host.h"
 #include "content/renderer/pepper/pepper_video_decoder_host.h"
@@ -36,14 +35,13 @@
 #include "third_party/WebKit/public/web/WebPluginContainer.h"
 
 using ppapi::host::ResourceHost;
-using ppapi::proxy::SerializedTrueTypeFontDesc;
 using ppapi::UnpackMessage;
 
 namespace content {
 
-#if defined(ENABLE_WEBRTC)
 namespace {
 
+#if defined(ENABLE_WEBRTC)
 bool CanUseMediaStreamAPI(const RendererPpapiHost* host, PP_Instance instance) {
   blink::WebPluginContainer* container =
       host->GetContainerForInstance(instance);
@@ -55,9 +53,35 @@ bool CanUseMediaStreamAPI(const RendererPpapiHost* host, PP_Instance instance) {
       GetContentClient()->renderer();
   return content_renderer_client->AllowPepperMediaStreamAPI(document_url);
 }
+#endif  // defined(ENABLE_WEBRTC)
+
+bool CanUseCompositorAPI(const RendererPpapiHost* host, PP_Instance instance) {
+  blink::WebPluginContainer* container =
+      host->GetContainerForInstance(instance);
+  if (!container)
+    return false;
+
+  GURL document_url = container->element().document().url();
+  ContentRendererClient* content_renderer_client =
+      GetContentClient()->renderer();
+  return content_renderer_client->IsPluginAllowedToUseCompositorAPI(
+      document_url);
+}
+
+bool CanUseVideoDecodeAPI(const RendererPpapiHost* host, PP_Instance instance) {
+  blink::WebPluginContainer* container =
+      host->GetContainerForInstance(instance);
+  if (!container)
+    return false;
+
+  GURL document_url = container->element().document().url();
+  ContentRendererClient* content_renderer_client =
+      GetContentClient()->renderer();
+  return content_renderer_client->IsPluginAllowedToUseVideoDecodeAPI(
+      document_url);
+}
 
 }  // namespace
-#endif  // defined(ENABLE_WEBRTC)
 
 ContentRendererPepperHostFactory::ContentRendererPepperHostFactory(
     RendererPpapiHostImpl* host)
@@ -84,9 +108,11 @@ scoped_ptr<ResourceHost> ContentRendererPepperHostFactory::CreateResourceHost(
   // Public interfaces.
   switch (message.type()) {
     case PpapiHostMsg_Compositor_Create::ID: {
-        return scoped_ptr<ResourceHost>(
-            new PepperCompositorHost(host_, instance, params.pp_resource()));
-      }
+      if (!CanUseCompositorAPI(host_, instance))
+        return scoped_ptr<ResourceHost>();
+      return scoped_ptr<ResourceHost>(
+          new PepperCompositorHost(host_, instance, params.pp_resource()));
+    }
     case PpapiHostMsg_FileRef_CreateForFileAPI::ID: {
       PP_Resource file_system;
       std::string internal_path;
@@ -129,9 +155,12 @@ scoped_ptr<ResourceHost> ContentRendererPepperHostFactory::CreateResourceHost(
     case PpapiHostMsg_URLLoader_Create::ID:
       return scoped_ptr<ResourceHost>(new PepperURLLoaderHost(
           host_, false, instance, params.pp_resource()));
-    case PpapiHostMsg_VideoDecoder_Create::ID:
+    case PpapiHostMsg_VideoDecoder_Create::ID: {
+      if (!CanUseVideoDecodeAPI(host_, instance))
+        return scoped_ptr<ResourceHost>();
       return scoped_ptr<ResourceHost>(
           new PepperVideoDecoderHost(host_, instance, params.pp_resource()));
+    }
     case PpapiHostMsg_WebSocket_Create::ID:
       return scoped_ptr<ResourceHost>(
           new PepperWebSocketHost(host_, instance, params.pp_resource()));
@@ -162,20 +191,6 @@ scoped_ptr<ResourceHost> ContentRendererPepperHostFactory::CreateResourceHost(
       case PpapiHostMsg_FileChooser_Create::ID:
         return scoped_ptr<ResourceHost>(
             new PepperFileChooserHost(host_, instance, params.pp_resource()));
-      case PpapiHostMsg_TrueTypeFont_Create::ID: {
-        SerializedTrueTypeFontDesc desc;
-        if (!UnpackMessage<PpapiHostMsg_TrueTypeFont_Create>(message, &desc)) {
-          NOTREACHED();
-          return scoped_ptr<ResourceHost>();
-        }
-        // Check that the family name is valid UTF-8 before passing it to the
-        // host OS.
-        if (base::IsStringUTF8(desc.family)) {
-          return scoped_ptr<ResourceHost>(new PepperTrueTypeFontHost(
-              host_, instance, params.pp_resource(), desc));
-        }
-        break;  // Drop through and return null host.
-      }
       case PpapiHostMsg_VideoCapture_Create::ID: {
         PepperVideoCaptureHost* host =
             new PepperVideoCaptureHost(host_, instance, params.pp_resource());

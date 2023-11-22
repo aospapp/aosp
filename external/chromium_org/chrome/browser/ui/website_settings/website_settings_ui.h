@@ -10,8 +10,8 @@
 
 #include "base/strings/string16.h"
 #include "chrome/browser/ui/website_settings/website_settings.h"
-#include "chrome/common/content_settings.h"
-#include "chrome/common/content_settings_types.h"
+#include "components/content_settings/core/common/content_settings.h"
+#include "components/content_settings/core/common/content_settings_types.h"
 #include "content/public/common/signed_certificate_timestamp_id_and_status.h"
 #include "ui/gfx/native_widget_types.h"
 
@@ -95,6 +95,12 @@ class WebsiteSettingsUI {
     // Textual description of the site's connection status that is displayed to
     // the user.
     std::string connection_status_description;
+    // Set when the user has explicitly bypassed an SSL error for this host and
+    // has a flag set to remember ssl decisions (explicit flag or in the
+    // experimental group).  When |show_ssl_decision_revoke_button| is true, the
+    // connection area of the page info will include an option for the user to
+    // revoke their decision to bypass the SSL error for this host.
+    bool show_ssl_decision_revoke_button;
   };
 
   typedef std::vector<CookieInfo> CookieInfoList;

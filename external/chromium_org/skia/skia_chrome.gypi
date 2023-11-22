@@ -19,8 +19,17 @@
       'ext',
     ],
   },
-
+  'variables': {
+    # TODO(scottmg): http://crbug.com/177306
+    'clang_warning_flags_unset': [
+      # Don't warn about string->bool used in asserts.
+      '-Wstring-conversion',
+    ],
+  },
   'sources': [
+    'config/SkUserConfig.h',
+
+    # Note: file list duplicated in GN build.
     'ext/analysis_canvas.cc',
     'ext/analysis_canvas.h',
     'ext/benchmarking_canvas.cc',
@@ -96,18 +105,6 @@
       ],
       'dependencies!': [
         'skia_chrome_opts',
-      ],
-    }],
-    # TODO(scottmg): http://crbug.com/177306
-    ['clang==1', {
-      'xcode_settings': {
-        'WARNING_CFLAGS!': [
-          # Don't warn about string->bool used in asserts.
-          '-Wstring-conversion',
-        ],
-      },
-      'cflags!': [
-        '-Wstring-conversion',
       ],
     }],
     [ 'OS != "android" and (OS != "linux" or use_cairo==1)', {

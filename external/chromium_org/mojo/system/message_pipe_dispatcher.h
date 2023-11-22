@@ -5,17 +5,16 @@
 #ifndef MOJO_SYSTEM_MESSAGE_PIPE_DISPATCHER_H_
 #define MOJO_SYSTEM_MESSAGE_PIPE_DISPATCHER_H_
 
-#include <utility>
-
-#include "base/basictypes.h"
-#include "base/compiler_specific.h"
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "mojo/system/dispatcher.h"
+#include "mojo/system/memory.h"
 #include "mojo/system/system_impl_export.h"
 
 namespace mojo {
 namespace system {
 
+class ChannelEndpoint;
 class MessagePipe;
 class MessagePipeDispatcherTransport;
 
@@ -37,7 +36,7 @@ class MOJO_SYSTEM_IMPL_EXPORT MessagePipeDispatcher : public Dispatcher {
   // |MojoCreateMessagePipeOptions| and will be entirely overwritten on success
   // (it may be partly overwritten on failure).
   static MojoResult ValidateCreateOptions(
-      const MojoCreateMessagePipeOptions* in_options,
+      UserPointer<const MojoCreateMessagePipeOptions> in_options,
       MojoCreateMessagePipeOptions* out_options);
 
   // Must be called before any other methods. (This method is not thread-safe.)
@@ -51,8 +50,8 @@ class MOJO_SYSTEM_IMPL_EXPORT MessagePipeDispatcher : public Dispatcher {
   // the message pipe, port 0).
   // TODO(vtl): This currently uses |kDefaultCreateOptions|, which is okay since
   // there aren't any options, but eventually options should be plumbed through.
-  static std::pair<scoped_refptr<MessagePipeDispatcher>,
-                   scoped_refptr<MessagePipe> > CreateRemoteMessagePipe();
+  static scoped_refptr<MessagePipeDispatcher> CreateRemoteMessagePipe(
+      scoped_refptr<ChannelEndpoint>* channel_endpoint);
 
   // The "opposite" of |SerializeAndClose()|. (Typically this is called by
   // |Dispatcher::Deserialize()|.)
@@ -79,19 +78,24 @@ class MOJO_SYSTEM_IMPL_EXPORT MessagePipeDispatcher : public Dispatcher {
   virtual scoped_refptr<Dispatcher>
       CreateEquivalentDispatcherAndCloseImplNoLock() OVERRIDE;
   virtual MojoResult WriteMessageImplNoLock(
-      const void* bytes,
+      UserPointer<const void> bytes,
       uint32_t num_bytes,
       std::vector<DispatcherTransport>* transports,
       MojoWriteMessageFlags flags) OVERRIDE;
-  virtual MojoResult ReadMessageImplNoLock(void* bytes,
-                                           uint32_t* num_bytes,
+  virtual MojoResult ReadMessageImplNoLock(UserPointer<void> bytes,
+                                           UserPointer<uint32_t> num_bytes,
                                            DispatcherVector* dispatchers,
                                            uint32_t* num_dispatchers,
                                            MojoReadMessageFlags flags) OVERRIDE;
-  virtual MojoResult AddWaiterImplNoLock(Waiter* waiter,
-                                         MojoHandleSignals signals,
-                                         uint32_t context) OVERRIDE;
-  virtual void RemoveWaiterImplNoLock(Waiter* waiter) OVERRIDE;
+  virtual HandleSignalsState GetHandleSignalsStateImplNoLock() const OVERRIDE;
+  virtual MojoResult AddWaiterImplNoLock(
+      Waiter* waiter,
+      MojoHandleSignals signals,
+      uint32_t context,
+      HandleSignalsState* signals_state) OVERRIDE;
+  virtual void RemoveWaiterImplNoLock(
+      Waiter* waiter,
+      HandleSignalsState* signals_state) OVERRIDE;
   virtual void StartSerializeImplNoLock(Channel* channel,
                                         size_t* max_size,
                                         size_t* max_platform_handles) OVERRIDE;

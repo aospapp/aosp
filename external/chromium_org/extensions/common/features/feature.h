@@ -44,6 +44,9 @@ class Feature {
     // will be via the installation of a hosted app, so this may host an
     // extension. This is not affected by the URL matching pattern.
     BLESSED_WEB_PAGE_CONTEXT,
+
+    // A page within webui.
+    WEBUI_CONTEXT,
   };
 
   // The platforms the feature is supported in.
@@ -103,19 +106,13 @@ class Feature {
 
   const std::string& name() const { return name_; }
   void set_name(const std::string& name) { name_ = name; }
-  const std::set<std::string>& dependencies() const { return dependencies_; }
   bool no_parent() const { return no_parent_; }
 
   // Gets the platform the code is currently running on.
   static Platform GetCurrentPlatform();
 
-  virtual std::set<Context>* GetContexts() = 0;
-
   // Tests whether this is an internal API or not.
   virtual bool IsInternal() const = 0;
-
-  // Returns True for features excluded from service worker backed contexts.
-  virtual bool IsBlockedInServiceWorker() const = 0;
 
   // Returns true if the feature is available to be parsed into a new extension
   // manifest.
@@ -157,7 +154,6 @@ class Feature {
 
  protected:
   std::string name_;
-  std::set<std::string> dependencies_;
   bool no_parent_;
 };
 

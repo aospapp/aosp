@@ -31,6 +31,7 @@ public interface ImageCanvas {
         public int width;
         public int height;
         public float scale;
+        public float fontSize;
 
         public static final float SCALE_ONE = 1.0f;
         public static final float SCALE_HALF = 0.5f;
@@ -40,9 +41,14 @@ public interface ImageCanvas {
         }
 
         public Dimensions(int w, int h, float s) {
-            width = w;
-            height = h;
-            scale = s;
+            this(w, h, s, -1f);
+        }
+
+        public Dimensions(int width, int height, float scale, float fontSize) {
+            this.width = width;
+            this.height = height;
+            this.scale = scale;
+            this.fontSize = fontSize;
         }
 
         @Override

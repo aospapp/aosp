@@ -127,7 +127,7 @@ public class KeyChainActivity extends Activity {
             case UNLOCK_CANCELED:
                 // User wanted to cancel the request, so exit.
                 mState = State.INITIAL;
-                finish();
+                finish(null);
                 return;
             default:
                 throw new AssertionError();

@@ -16,17 +16,15 @@
 
 package com.android.phone;
 
-import android.app.PendingIntent;
-import android.content.Context;
-import android.content.Intent;
-
 import com.android.phone.PhoneGlobals;
 
 public class ImsUtil {
+
+    private static boolean sImsPhoneSupported = false;
+
     private ImsUtil() {
     }
 
-    private static boolean sImsPhoneSupported = false;
     static {
         PhoneGlobals app = PhoneGlobals.getInstance();
         sImsPhoneSupported = true;
@@ -37,5 +35,6 @@ public class ImsUtil {
      */
     static boolean isImsPhoneSupported() {
         return sImsPhoneSupported;
+
     }
 }

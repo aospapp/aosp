@@ -8,13 +8,12 @@
 #include <vector>
 
 #include "apps/app_load_service.h"
-#include "apps/app_restore_service.h"
 #include "apps/saved_files_service.h"
 #include "base/files/file_path.h"
+#include "chrome/grit/generated_resources.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/permissions/api_permission.h"
 #include "extensions/common/permissions/permissions_data.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/label.h"
@@ -121,7 +120,7 @@ void AppInfoPermissionsPanel::CreateActivePermissionsControl() {
     active_permissions_heading_ = CreateHeading(l10n_util::GetStringUTF16(
         IDS_APPLICATION_INFO_ACTIVE_PERMISSIONS_TEXT));
     active_permissions_list_ =
-        CreateBulletedListView(permission_strings, true, gfx::TRUNCATE);
+        CreateBulletedListView(permission_strings, true, gfx::NO_ELIDE);
   }
 }
 
@@ -210,11 +209,7 @@ AppInfoPermissionsPanel::GetRetainedFilePaths() const {
 
 void AppInfoPermissionsPanel::RevokeFilePermissions() {
   apps::SavedFilesService::Get(profile_)->ClearQueue(app_);
-
-  // TODO(benwells): Fix this to call something like
-  // AppLoadService::RestartApplicationIfRunning.
-  if (apps::AppRestoreService::Get(profile_)->IsAppRestorable(app_->id()))
-    apps::AppLoadService::Get(profile_)->RestartApplication(app_->id());
+  apps::AppLoadService::Get(profile_)->RestartApplicationIfRunning(app_->id());
 
   GetWidget()->Close();
 }

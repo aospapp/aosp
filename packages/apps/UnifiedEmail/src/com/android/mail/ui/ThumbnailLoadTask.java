@@ -48,8 +48,17 @@ public class ThumbnailLoadTask extends AsyncTask<Uri, Void, Bitmap> {
     private final int mWidth;
     private final int mHeight;
 
-    public static void setupThumbnailPreview(final AttachmentBitmapHolder holder,
-            final Attachment attachment, final Attachment prevAttachment) {
+    public static void setupThumbnailPreview(AttachmentTile.AttachmentPreviewCache cache,
+            AttachmentBitmapHolder holder, Attachment attachment, Attachment prevAttachment) {
+        // Check cache first
+        if (cache != null) {
+            final Bitmap cached = cache.get(attachment);
+            if (cached != null) {
+                holder.setThumbnail(cached);
+                return;
+            }
+        }
+
         final int width = holder.getThumbnailWidth();
         final int height = holder.getThumbnailHeight();
         if (attachment == null || width == 0 || height == 0
@@ -60,7 +69,7 @@ public class ThumbnailLoadTask extends AsyncTask<Uri, Void, Bitmap> {
 
         final Uri thumbnailUri = attachment.thumbnailUri;
         final Uri contentUri = attachment.contentUri;
-        final Uri uri = (prevAttachment == null) ? null : prevAttachment.getIdentifierUri();
+        final Uri uri = attachment.getIdentifierUri();
         final Uri prevUri = (prevAttachment == null) ? null : prevAttachment.getIdentifierUri();
         // begin loading a thumbnail if this is an image and either the thumbnail or the original
         // content is ready (and different from any existing image)

@@ -83,7 +83,7 @@ CmdBufferImageTransportFactory::CmdBufferImageTransportFactory() {
                                                 limits,
                                                 NULL));
   context_->setContextLostCallback(context_lost_listener_.get());
-  if (context_->makeContextCurrent())
+  if (context_->InitializeOnCurrentThread())
     context_->pushGroupMarkerEXT(
         base::StringPrintf("CmdBufferImageTransportFactory-%p",
                            context_.get()).c_str());
@@ -102,6 +102,20 @@ GLHelper* CmdBufferImageTransportFactory::GetGLHelper() {
 }
 
 }  // anonymous namespace
+
+// static
+void ImageTransportFactoryAndroid::InitializeForUnitTests(
+    scoped_ptr<ImageTransportFactoryAndroid> test_factory) {
+  DCHECK(!g_factory);
+  g_factory = test_factory.release();
+}
+
+// static
+void ImageTransportFactoryAndroid::TerminateForUnitTests() {
+  DCHECK(g_factory);
+  delete g_factory;
+  g_factory = NULL;
+}
 
 // static
 ImageTransportFactoryAndroid* ImageTransportFactoryAndroid::GetInstance() {

@@ -36,6 +36,9 @@ import java.lang.CharSequence;
 import java.lang.String;
 
 public class SettingsUtil {
+    private static final String DEFAULT_NOTIFICATION_URI_STRING =
+            Settings.System.DEFAULT_NOTIFICATION_URI.toString();
+
     /**
      * Obtain the setting for "vibrate when ringing" setting.
      *
@@ -58,15 +61,11 @@ public class SettingsUtil {
      * @param context The application context.
      * @param handler The handler, which takes the name of the ringtone as a String as a parameter.
      * @param type The type of sound.
-     * @param preference The preference being updated.
+     * @param key The key to the shared preferences entry being updated.
      * @param msg An integer identifying the message sent to the handler.
      */
     public static void updateRingtoneName(
-            Context context, Handler handler, int type, Preference preference, int msg) {
-        if (preference == null) {
-            return;
-        }
-
+            Context context, Handler handler, int type, String key, int msg) {
         final Uri ringtoneUri;
         boolean defaultRingtone = false;
         if (type == RingtoneManager.TYPE_RINGTONE) {
@@ -76,12 +75,12 @@ public class SettingsUtil {
         } else {
             final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
             // For voicemail notifications, we use the value saved in Phone's shared preferences.
-            String uriString = prefs.getString(preference.getKey(), null);
+            String uriString = prefs.getString(key, DEFAULT_NOTIFICATION_URI_STRING);
             if (TextUtils.isEmpty(uriString)) {
                 // silent ringtone
                 ringtoneUri = null;
             } else {
-                if (uriString.equals(Settings.System.DEFAULT_NOTIFICATION_URI.toString())) {
+                if (uriString.equals(DEFAULT_NOTIFICATION_URI_STRING)) {
                     // If it turns out that the voicemail notification is set to the system
                     // default notification, we retrieve the actual URI to prevent it from showing
                     // up as "Unknown Ringtone".

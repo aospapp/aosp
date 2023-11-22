@@ -20,9 +20,14 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "content/public/common/page_zoom.h"
 #include "content/public/common/url_constants.h"
+#include "extensions/common/manifest_constants.h"
+#include "extensions/common/test_util.h"
+#include "net/test/spawned_test_server/spawned_test_server.h"
 #include "ui/gfx/rect.h"
 
 namespace extensions {
@@ -42,7 +47,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, GetWindow) {
 
   // Invalid window ID error.
   scoped_refptr<WindowsGetFunction> function = new WindowsGetFunction();
-  scoped_refptr<Extension> extension(utils::CreateEmptyExtension());
+  scoped_refptr<Extension> extension(test_util::CreateEmptyExtension());
   function->set_extension(extension.get());
   EXPECT_TRUE(MatchPattern(
       utils::RunFunctionAndReturnError(
@@ -144,7 +149,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, GetCurrentWindow) {
   // Get the current window using new_browser.
   scoped_refptr<WindowsGetCurrentFunction> function =
       new WindowsGetCurrentFunction();
-  scoped_refptr<Extension> extension(utils::CreateEmptyExtension());
+  scoped_refptr<Extension> extension(test_util::CreateEmptyExtension());
   function->set_extension(extension.get());
   scoped_ptr<base::DictionaryValue> result(utils::ToDictionary(
       utils::RunFunctionAndReturnSingleResult(function.get(),
@@ -184,7 +189,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, GetAllWindows) {
   }
 
   scoped_refptr<WindowsGetAllFunction> function = new WindowsGetAllFunction();
-  scoped_refptr<Extension> extension(utils::CreateEmptyExtension());
+  scoped_refptr<Extension> extension(test_util::CreateEmptyExtension());
   function->set_extension(extension.get());
   scoped_ptr<base::ListValue> result(utils::ToList(
       utils::RunFunctionAndReturnSingleResult(function.get(),
@@ -233,7 +238,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, UpdateNoPermissions) {
   // tab data in the function result.
   scoped_refptr<TabsUpdateFunction> update_tab_function(
       new TabsUpdateFunction());
-  scoped_refptr<Extension> empty_extension(utils::CreateEmptyExtension());
+  scoped_refptr<Extension> empty_extension(test_util::CreateEmptyExtension());
   update_tab_function->set_extension(empty_extension.get());
   // Without a callback the function will not generate a result.
   update_tab_function->set_has_callback(true);
@@ -257,7 +262,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest,
                                       IncognitoModePrefs::FORCED);
   // Run without an explicit "incognito" param.
   scoped_refptr<WindowsCreateFunction> function(new WindowsCreateFunction());
-  scoped_refptr<Extension> extension(utils::CreateEmptyExtension());
+  scoped_refptr<Extension> extension(test_util::CreateEmptyExtension());
   function->set_extension(extension.get());
   scoped_ptr<base::DictionaryValue> result(utils::ToDictionary(
       utils::RunFunctionAndReturnSingleResult(
@@ -298,7 +303,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest,
                                       IncognitoModePrefs::FORCED);
   // Run without an explicit "incognito" param.
   scoped_refptr<WindowsCreateFunction> function = new WindowsCreateFunction();
-  scoped_refptr<Extension> extension(utils::CreateEmptyExtension());
+  scoped_refptr<Extension> extension(test_util::CreateEmptyExtension());
   function->set_extension(extension.get());
   scoped_ptr<base::DictionaryValue> result(utils::ToDictionary(
       utils::RunFunctionAndReturnSingleResult(function.get(),
@@ -339,7 +344,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest,
 
   // Run with an explicit "incognito" param.
   scoped_refptr<WindowsCreateFunction> function = new WindowsCreateFunction();
-  scoped_refptr<Extension> extension(utils::CreateEmptyExtension());
+  scoped_refptr<Extension> extension(test_util::CreateEmptyExtension());
   function->set_extension(extension.get());
   EXPECT_TRUE(MatchPattern(
       utils::RunFunctionAndReturnError(function.get(),
@@ -370,7 +375,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest,
                                       IncognitoModePrefs::DISABLED);
   // Run in normal window.
   scoped_refptr<WindowsCreateFunction> function = new WindowsCreateFunction();
-  scoped_refptr<Extension> extension(utils::CreateEmptyExtension());
+  scoped_refptr<Extension> extension(test_util::CreateEmptyExtension());
   function->set_extension(extension.get());
   EXPECT_TRUE(MatchPattern(
       utils::RunFunctionAndReturnError(function.get(),
@@ -394,12 +399,12 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, QueryCurrentWindowTabs) {
     CreateBrowser(browser()->profile());
 
   GURL url(url::kAboutBlankURL);
-  AddTabAtIndexToBrowser(browser(), 0, url, content::PAGE_TRANSITION_LINK);
+  AddTabAtIndexToBrowser(browser(), 0, url, ui::PAGE_TRANSITION_LINK);
   int window_id = ExtensionTabUtil::GetWindowId(browser());
 
   // Get tabs in the 'current' window called from non-focused browser.
   scoped_refptr<TabsQueryFunction> function = new TabsQueryFunction();
-  function->set_extension(utils::CreateEmptyExtension().get());
+  function->set_extension(test_util::CreateEmptyExtension().get());
   scoped_ptr<base::ListValue> result(utils::ToList(
       utils::RunFunctionAndReturnSingleResult(function.get(),
                                               "[{\"currentWindow\":true}]",
@@ -416,7 +421,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, QueryCurrentWindowTabs) {
 
   // Get tabs NOT in the 'current' window called from non-focused browser.
   function = new TabsQueryFunction();
-  function->set_extension(utils::CreateEmptyExtension().get());
+  function->set_extension(test_util::CreateEmptyExtension().get());
   result.reset(utils::ToList(
       utils::RunFunctionAndReturnSingleResult(function.get(),
                                               "[{\"currentWindow\":false}]",
@@ -444,7 +449,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DontCreateTabInClosingPopupWindow) {
 
   scoped_refptr<TabsCreateFunction> create_tab_function(
       new TabsCreateFunction());
-  create_tab_function->set_extension(utils::CreateEmptyExtension().get());
+  create_tab_function->set_extension(test_util::CreateEmptyExtension().get());
   // Without a callback the function will not generate a result.
   create_tab_function->set_has_callback(true);
 
@@ -466,7 +471,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, InvalidUpdateWindowState) {
   static const char kArgsMinimizedWithFocus[] =
       "[%u, {\"state\": \"minimized\", \"focused\": true}]";
   scoped_refptr<WindowsUpdateFunction> function = new WindowsUpdateFunction();
-  scoped_refptr<Extension> extension(utils::CreateEmptyExtension());
+  scoped_refptr<Extension> extension(test_util::CreateEmptyExtension());
   function->set_extension(extension.get());
   EXPECT_TRUE(MatchPattern(
       utils::RunFunctionAndReturnError(
@@ -513,7 +518,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DuplicateTab) {
   content::OpenURLParams params(GURL(url::kAboutBlankURL),
                                 content::Referrer(),
                                 NEW_FOREGROUND_TAB,
-                                content::PAGE_TRANSITION_LINK,
+                                ui::PAGE_TRANSITION_LINK,
                                 false);
   content::WebContents* web_contents = browser()->OpenURL(params);
   int tab_id = ExtensionTabUtil::GetTabId(web_contents);
@@ -557,7 +562,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DuplicateTabNoPermission) {
   content::OpenURLParams params(GURL(url::kAboutBlankURL),
                                 content::Referrer(),
                                 NEW_FOREGROUND_TAB,
-                                content::PAGE_TRANSITION_LINK,
+                                ui::PAGE_TRANSITION_LINK,
                                 false);
   content::WebContents* web_contents = browser()->OpenURL(params);
   int tab_id = ExtensionTabUtil::GetTabId(web_contents);
@@ -568,7 +573,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DuplicateTabNoPermission) {
 
   scoped_refptr<TabsDuplicateFunction> duplicate_tab_function(
       new TabsDuplicateFunction());
-  scoped_refptr<Extension> empty_extension(utils::CreateEmptyExtension());
+  scoped_refptr<Extension> empty_extension(test_util::CreateEmptyExtension());
   duplicate_tab_function->set_extension(empty_extension.get());
   duplicate_tab_function->set_has_callback(true);
 
@@ -589,6 +594,331 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DuplicateTabNoPermission) {
   // The test empty extension has no permissions, therefore |duplicate_result|
   // should not contain url, title, and faviconUrl in the function result.
   EXPECT_FALSE(utils::HasPrivacySensitiveFields(duplicate_result.get()));
+}
+
+// Tester class for the tabs.zoom* api functions.
+class ExtensionTabsZoomTest : public ExtensionTabsTest {
+ public:
+  virtual void SetUpOnMainThread() OVERRIDE;
+
+  // Runs chrome.tabs.setZoom().
+  bool RunSetZoom(int tab_id, double zoom_factor);
+
+  // Runs chrome.tabs.getZoom().
+  testing::AssertionResult RunGetZoom(int tab_id, double* zoom_factor);
+
+  // Runs chrome.tabs.setZoomSettings().
+  bool RunSetZoomSettings(int tab_id, const char* mode, const char* scope);
+
+  // Runs chrome.tabs.getZoomSettings().
+  testing::AssertionResult RunGetZoomSettings(int tab_id,
+                                              std::string* mode,
+                                              std::string* scope);
+
+  // Runs chrome.tabs.setZoom(), expecting an error.
+  std::string RunSetZoomExpectError(int tab_id,
+                                    double zoom_factor);
+
+  // Runs chrome.tabs.setZoomSettings(), expecting an error.
+  std::string RunSetZoomSettingsExpectError(int tab_id,
+                                            const char* mode,
+                                            const char* scope);
+
+  content::WebContents* OpenUrlAndWaitForLoad(const GURL& url);
+
+ private:
+  scoped_refptr<Extension> extension_;
+};
+
+void ExtensionTabsZoomTest::SetUpOnMainThread() {
+  ExtensionTabsTest::SetUpOnMainThread();
+  extension_ = test_util::CreateEmptyExtension();
+}
+
+bool ExtensionTabsZoomTest::RunSetZoom(int tab_id, double zoom_factor) {
+  scoped_refptr<TabsSetZoomFunction> set_zoom_function(
+      new TabsSetZoomFunction());
+  set_zoom_function->set_extension(extension_.get());
+  set_zoom_function->set_has_callback(true);
+
+  return utils::RunFunction(
+      set_zoom_function.get(),
+      base::StringPrintf("[%u, %lf]", tab_id, zoom_factor),
+      browser(),
+      extension_function_test_utils::NONE);
+}
+
+testing::AssertionResult ExtensionTabsZoomTest::RunGetZoom(
+    int tab_id,
+    double* zoom_factor) {
+  scoped_refptr<TabsGetZoomFunction> get_zoom_function(
+      new TabsGetZoomFunction());
+  get_zoom_function->set_extension(extension_.get());
+  get_zoom_function->set_has_callback(true);
+
+  scoped_ptr<base::Value> get_zoom_result(
+      utils::RunFunctionAndReturnSingleResult(
+          get_zoom_function.get(),
+          base::StringPrintf("[%u]", tab_id),
+          browser()));
+
+  if (!get_zoom_result)
+    return testing::AssertionFailure() << "no result";
+  if (!get_zoom_result->GetAsDouble(zoom_factor))
+    return testing::AssertionFailure() << "result was not a double";
+
+  return testing::AssertionSuccess();
+}
+
+bool ExtensionTabsZoomTest::RunSetZoomSettings(int tab_id,
+                                               const char* mode,
+                                               const char* scope) {
+  scoped_refptr<TabsSetZoomSettingsFunction> set_zoom_settings_function(
+      new TabsSetZoomSettingsFunction());
+  set_zoom_settings_function->set_extension(extension_.get());
+
+  std::string args;
+  if (scope) {
+    args = base::StringPrintf("[%u, {\"mode\": \"%s\", \"scope\": \"%s\"}]",
+                              tab_id, mode, scope);
+  } else {
+    args = base::StringPrintf("[%u, {\"mode\": \"%s\"}]", tab_id, mode);
+  }
+
+  return utils::RunFunction(set_zoom_settings_function.get(),
+                            args,
+                            browser(),
+                            extension_function_test_utils::NONE);
+}
+
+testing::AssertionResult ExtensionTabsZoomTest::RunGetZoomSettings(
+    int tab_id,
+    std::string* mode,
+    std::string* scope) {
+  DCHECK(mode);
+  DCHECK(scope);
+  scoped_refptr<TabsGetZoomSettingsFunction> get_zoom_settings_function(
+      new TabsGetZoomSettingsFunction());
+  get_zoom_settings_function->set_extension(extension_.get());
+  get_zoom_settings_function->set_has_callback(true);
+
+  scoped_ptr<base::DictionaryValue> get_zoom_settings_result(
+      utils::ToDictionary(utils::RunFunctionAndReturnSingleResult(
+          get_zoom_settings_function.get(),
+          base::StringPrintf("[%u]", tab_id),
+          browser())));
+
+  if (!get_zoom_settings_result)
+    return testing::AssertionFailure() << "no result";
+
+  *mode = utils::GetString(get_zoom_settings_result.get(), "mode");
+  *scope = utils::GetString(get_zoom_settings_result.get(), "scope");
+
+  return testing::AssertionSuccess();
+}
+
+std::string ExtensionTabsZoomTest::RunSetZoomExpectError(int tab_id,
+                                                         double zoom_factor) {
+  scoped_refptr<TabsSetZoomFunction> set_zoom_function(
+      new TabsSetZoomFunction());
+  set_zoom_function->set_extension(extension_.get());
+  set_zoom_function->set_has_callback(true);
+
+  return utils::RunFunctionAndReturnError(
+      set_zoom_function.get(),
+      base::StringPrintf("[%u, %lf]", tab_id, zoom_factor),
+      browser());
+}
+
+std::string ExtensionTabsZoomTest::RunSetZoomSettingsExpectError(
+    int tab_id,
+    const char* mode,
+    const char* scope) {
+  scoped_refptr<TabsSetZoomSettingsFunction> set_zoom_settings_function(
+      new TabsSetZoomSettingsFunction());
+  set_zoom_settings_function->set_extension(extension_.get());
+
+  return utils::RunFunctionAndReturnError(set_zoom_settings_function.get(),
+                                          base::StringPrintf(
+                                              "[%u, {\"mode\": \"%s\", "
+                                              "\"scope\": \"%s\"}]",
+                                              tab_id,
+                                              mode,
+                                              scope),
+                                          browser());
+}
+
+content::WebContents* ExtensionTabsZoomTest::OpenUrlAndWaitForLoad(
+    const GURL& url) {
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(),
+      url,
+      NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+  return  browser()->tab_strip_model()->GetActiveWebContents();
+}
+
+namespace {
+
+double GetZoomLevel(const content::WebContents* web_contents) {
+  return ZoomController::FromWebContents(web_contents)->GetZoomLevel();
+}
+
+content::OpenURLParams GetOpenParams(const char* url) {
+  return content::OpenURLParams(GURL(url),
+                                content::Referrer(),
+                                NEW_FOREGROUND_TAB,
+                                ui::PAGE_TRANSITION_LINK,
+                                false);
+}
+
+}  // namespace
+
+IN_PROC_BROWSER_TEST_F(ExtensionTabsZoomTest, SetAndGetZoom) {
+  content::OpenURLParams params(GetOpenParams(url::kAboutBlankURL));
+  content::WebContents* web_contents = OpenUrlAndWaitForLoad(params.url);
+  int tab_id = ExtensionTabUtil::GetTabId(web_contents);
+
+  // Test default values before we set anything.
+  double zoom_factor = -1;
+  EXPECT_TRUE(RunGetZoom(tab_id, &zoom_factor));
+  EXPECT_EQ(1.0, zoom_factor);
+
+  // Test chrome.tabs.setZoom().
+  const double kZoomLevel = 0.8;
+  EXPECT_TRUE(RunSetZoom(tab_id, kZoomLevel));
+  EXPECT_EQ(kZoomLevel,
+            content::ZoomLevelToZoomFactor(GetZoomLevel(web_contents)));
+
+  // Test chrome.tabs.getZoom().
+  zoom_factor = -1;
+  EXPECT_TRUE(RunGetZoom(tab_id, &zoom_factor));
+  EXPECT_EQ(kZoomLevel, zoom_factor);
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionTabsZoomTest, ZoomSettings) {
+  // In this test we need two URLs that (1) represent real pages (i.e. they
+  // load without causing an error page load), (2) have different domains, and
+  // (3) are zoomable by the extension API (this last condition rules out
+  // chrome:// urls). We achieve this by noting that about:blank meets these
+  // requirements, allowing us to spin up a spawned http server on localhost to
+  // get the other domain.
+  net::SpawnedTestServer http_server(
+      net::SpawnedTestServer::TYPE_HTTP,
+      net::SpawnedTestServer::kLocalhost,
+      base::FilePath(FILE_PATH_LITERAL("chrome/test/data")));
+  ASSERT_TRUE(http_server.Start());
+
+  GURL url_A = http_server.GetURL("files/simple.html");
+  GURL url_B("about:blank");
+
+  // Tabs A1 and A2 are navigated to the same origin, while B is navigated
+  // to a different one.
+  content::WebContents* web_contents_A1 = OpenUrlAndWaitForLoad(url_A);
+  content::WebContents* web_contents_A2 = OpenUrlAndWaitForLoad(url_A);
+  content::WebContents* web_contents_B = OpenUrlAndWaitForLoad(url_B);
+
+  int tab_id_A1 = ExtensionTabUtil::GetTabId(web_contents_A1);
+  int tab_id_A2 = ExtensionTabUtil::GetTabId(web_contents_A2);
+  int tab_id_B = ExtensionTabUtil::GetTabId(web_contents_B);
+
+  ASSERT_FLOAT_EQ(
+      1.f, content::ZoomLevelToZoomFactor(GetZoomLevel(web_contents_A1)));
+  ASSERT_FLOAT_EQ(
+      1.f, content::ZoomLevelToZoomFactor(GetZoomLevel(web_contents_A2)));
+  ASSERT_FLOAT_EQ(
+      1.f, content::ZoomLevelToZoomFactor(GetZoomLevel(web_contents_B)));
+
+  // Test per-origin automatic zoom settings.
+  EXPECT_TRUE(RunSetZoom(tab_id_B, 1.f));
+  EXPECT_TRUE(RunSetZoom(tab_id_A2, 1.1f));
+  EXPECT_FLOAT_EQ(
+      1.1f, content::ZoomLevelToZoomFactor(GetZoomLevel(web_contents_A1)));
+  EXPECT_FLOAT_EQ(
+      1.1f, content::ZoomLevelToZoomFactor(GetZoomLevel(web_contents_A2)));
+  EXPECT_FLOAT_EQ(1.f,
+                  content::ZoomLevelToZoomFactor(GetZoomLevel(web_contents_B)));
+
+  // Test per-tab automatic zoom settings.
+  EXPECT_TRUE(RunSetZoomSettings(tab_id_A1, "automatic", "per-tab"));
+  EXPECT_TRUE(RunSetZoom(tab_id_A1, 1.2f));
+  EXPECT_FLOAT_EQ(
+      1.2f, content::ZoomLevelToZoomFactor(GetZoomLevel(web_contents_A1)));
+  EXPECT_FLOAT_EQ(
+      1.1f, content::ZoomLevelToZoomFactor(GetZoomLevel(web_contents_A2)));
+
+  // Test 'manual' mode.
+  EXPECT_TRUE(RunSetZoomSettings(tab_id_A1, "manual", NULL));
+  EXPECT_TRUE(RunSetZoom(tab_id_A1, 1.3f));
+  EXPECT_FLOAT_EQ(
+      1.3f, content::ZoomLevelToZoomFactor(GetZoomLevel(web_contents_A1)));
+  EXPECT_FLOAT_EQ(
+      1.1f, content::ZoomLevelToZoomFactor(GetZoomLevel(web_contents_A2)));
+
+  // Test 'disabled' mode, which will reset A1's zoom to 1.f.
+  EXPECT_TRUE(RunSetZoomSettings(tab_id_A1, "disabled", NULL));
+  std::string error = RunSetZoomExpectError(tab_id_A1, 1.4f);
+  EXPECT_TRUE(MatchPattern(error, keys::kCannotZoomDisabledTabError));
+  EXPECT_FLOAT_EQ(
+      1.f, content::ZoomLevelToZoomFactor(GetZoomLevel(web_contents_A1)));
+  // We should still be able to zoom A2 though.
+  EXPECT_TRUE(RunSetZoom(tab_id_A2, 1.4f));
+  EXPECT_FLOAT_EQ(
+      1.4f, content::ZoomLevelToZoomFactor(GetZoomLevel(web_contents_A2)));
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionTabsZoomTest, GetZoomSettings) {
+  content::OpenURLParams params(GetOpenParams(url::kAboutBlankURL));
+  content::WebContents* web_contents = OpenUrlAndWaitForLoad(params.url);
+  int tab_id = ExtensionTabUtil::GetTabId(web_contents);
+
+  std::string mode;
+  std::string scope;
+
+  EXPECT_TRUE(RunGetZoomSettings(tab_id, &mode, &scope));
+  EXPECT_EQ("automatic", mode);
+  EXPECT_EQ("per-origin", scope);
+
+  EXPECT_TRUE(RunSetZoomSettings(tab_id, "automatic", "per-tab"));
+  EXPECT_TRUE(RunGetZoomSettings(tab_id, &mode, &scope));
+
+  EXPECT_EQ("automatic", mode);
+  EXPECT_EQ("per-tab", scope);
+
+  std::string error =
+      RunSetZoomSettingsExpectError(tab_id, "manual", "per-origin");
+  EXPECT_TRUE(MatchPattern(error,
+                           keys::kPerOriginOnlyInAutomaticError));
+  error =
+      RunSetZoomSettingsExpectError(tab_id, "disabled", "per-origin");
+  EXPECT_TRUE(MatchPattern(error,
+                           keys::kPerOriginOnlyInAutomaticError));
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionTabsZoomTest, CannotZoomInvalidTab) {
+  content::OpenURLParams params(GetOpenParams(url::kAboutBlankURL));
+  content::WebContents* web_contents = OpenUrlAndWaitForLoad(params.url);
+  int tab_id = ExtensionTabUtil::GetTabId(web_contents);
+
+  int bogus_id = tab_id + 100;
+  std::string error = RunSetZoomExpectError(bogus_id, 3.14159);
+  EXPECT_TRUE(MatchPattern(error, keys::kTabNotFoundError));
+
+  error = RunSetZoomSettingsExpectError(bogus_id, "manual", "per-tab");
+  EXPECT_TRUE(MatchPattern(error, keys::kTabNotFoundError));
+
+  const char kNewTestTabArgs[] = "chrome://version";
+  params = GetOpenParams(kNewTestTabArgs);
+  web_contents = browser()->OpenURL(params);
+  tab_id = ExtensionTabUtil::GetTabId(web_contents);
+
+  // Test chrome.tabs.setZoom().
+  error = RunSetZoomExpectError(tab_id, 3.14159);
+  EXPECT_TRUE(MatchPattern(error, manifest_errors::kCannotAccessChromeUrl));
+
+  // chrome.tabs.setZoomSettings().
+  error = RunSetZoomSettingsExpectError(tab_id, "manual", "per-tab");
+  EXPECT_TRUE(MatchPattern(error, manifest_errors::kCannotAccessChromeUrl));
 }
 
 }  // namespace extensions

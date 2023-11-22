@@ -363,12 +363,24 @@ TEST_F(MCSClientTest, SendMessageRMQWhileDisconnected) {
   mcs_client()->SendMessage(message);
   PumpLoop();         // Wait for the queuing to happen.
   EXPECT_EQ(MCSClient::QUEUED, message_send_status());
+  EXPECT_EQ("X", sent_message_id());
   EXPECT_FALSE(GetFakeHandler()->AllOutgoingMessagesReceived());
   GetFakeHandler()->set_fail_send(false);
   clock()->Advance(base::TimeDelta::FromSeconds(kTTLValue - 1));
   connection_factory()->Connect();
   WaitForMCSEvent();  // Wait for the login to finish.
   PumpLoop();         // Wait for the send to happen.
+
+  // Receive the ack.
+  scoped_ptr<mcs_proto::IqStanza> ack = BuildStreamAck();
+  ack->set_last_stream_id_received(2);
+  GetFakeHandler()->ReceiveMessage(
+      MCSMessage(kIqStanzaTag,
+                 ack.PassAs<const google::protobuf::MessageLite>()));
+  WaitForMCSEvent();
+
+  EXPECT_EQ(MCSClient::SENT, message_send_status());
+  EXPECT_EQ("X", sent_message_id());
   EXPECT_TRUE(GetFakeHandler()->AllOutgoingMessagesReceived());
 }
 
@@ -544,6 +556,83 @@ TEST_F(MCSClientTest, SendMessageRMQPartialAckOnReconnect) {
       MCSMessage(kIqStanzaTag,
                  ack.PassAs<const google::protobuf::MessageLite>()));
   WaitForMCSEvent();
+  PumpLoop();
+  EXPECT_TRUE(GetFakeHandler()->AllOutgoingMessagesReceived());
+}
+
+// Handle a selective ack that only acks some messages. The remaining unacked
+// messages should be resent. On restart, those same unacked messages should be
+// resent, and any pending acks for incoming messages should also be resent.
+TEST_F(MCSClientTest, SelectiveAckMidStream) {
+  BuildMCSClient();
+  InitializeClient();
+  LoginClient(std::vector<std::string>());
+
+  // Server stream id 2 ("s1").
+  // Acks client stream id 0 (login).
+  MCSMessage sMessage1(BuildDataMessage(
+      "from", "category", "X", 0, "s1", kTTLValue, 1, 0, "", 0));
+  GetFakeHandler()->ReceiveMessage(sMessage1);
+  WaitForMCSEvent();
+  PumpLoop();
+
+  // Client stream id 1 ("1").
+  // Acks server stream id 2 ("s1").
+  MCSMessage cMessage1(BuildDataMessage(
+      "from", "category", "Y", 2, "1", kTTLValue, 1, 0, "", 0));
+  GetFakeHandler()->ExpectOutgoingMessage(cMessage1);
+  mcs_client()->SendMessage(cMessage1);
+  PumpLoop();
+  EXPECT_TRUE(GetFakeHandler()->AllOutgoingMessagesReceived());
+
+  // Server stream id 3 ("s2").
+  // Acks client stream id 1 ("1").
+  // Confirms ack of server stream id 2 ("s1").
+  MCSMessage sMessage2(BuildDataMessage(
+      "from", "category", "X", 1, "s2", kTTLValue, 1, 0, "", 0));
+  GetFakeHandler()->ReceiveMessage(sMessage2);
+  WaitForMCSEvent();
+  PumpLoop();
+
+  // Client Stream id 2 ("2").
+  // Acks server stream id 3 ("s2").
+  MCSMessage cMessage2(BuildDataMessage(
+      "from", "category", "Y", 3, "2", kTTLValue, 1, 0, "", 0));
+  GetFakeHandler()->ExpectOutgoingMessage(cMessage2);
+  mcs_client()->SendMessage(cMessage2);
+  PumpLoop();
+  EXPECT_TRUE(GetFakeHandler()->AllOutgoingMessagesReceived());
+
+  // Simulate the last message being dropped by having the server selectively
+  // ack client message "1".
+  // Client message "2" should be resent, acking server stream id 4 (selective
+  // ack).
+  MCSMessage cMessage3(BuildDataMessage(
+      "from", "category", "Y", 4, "2", kTTLValue, 1, 0, "", 0));
+  GetFakeHandler()->ExpectOutgoingMessage(cMessage3);
+  std::vector<std::string> acked_ids(1, "1");
+  scoped_ptr<mcs_proto::IqStanza> ack(BuildSelectiveAck(acked_ids));
+  GetFakeHandler()->ReceiveMessage(
+      MCSMessage(kIqStanzaTag,
+                 ack.PassAs<const google::protobuf::MessageLite>()));
+  WaitForMCSEvent();
+  PumpLoop();
+  EXPECT_TRUE(GetFakeHandler()->AllOutgoingMessagesReceived());
+
+  // Rebuild the client without any further acks from server. Note that this
+  // resets the stream ids.
+  // Sever message "s2" should be acked as part of login.
+  // Client message "2" should be resent.
+  StoreCredentials();
+  BuildMCSClient();
+  InitializeClient();
+
+  acked_ids[0] = "s2";
+  LoginClient(acked_ids);
+
+  MCSMessage cMessage4(BuildDataMessage(
+      "from", "category", "Y", 1, "2", kTTLValue, 1, 0, "", 0));
+  GetFakeHandler()->ExpectOutgoingMessage(cMessage4);
   PumpLoop();
   EXPECT_TRUE(GetFakeHandler()->AllOutgoingMessagesReceived());
 }

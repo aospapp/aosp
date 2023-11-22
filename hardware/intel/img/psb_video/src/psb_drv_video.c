@@ -217,10 +217,10 @@ VAStatus psb_QueryConfigEntrypoints(
             i == VAEntrypointVideoProc) {
                 entrypoints++;
                 *entrypoint_list++ = i;
-	} else
+        } else
 #endif
 #endif
-	if (profile != VAProfileNone && driver_data->profile2Format[profile][i]) {
+        if (profile != VAProfileNone && driver_data->profile2Format[profile][i]) {
                 entrypoints++;
                 *entrypoint_list++ = i;
         }
@@ -440,26 +440,26 @@ VAStatus psb_CreateConfig(
     CHECK_VASTATUS();
 
     if ((IS_MFLD(driver_data)) &&
-        ((VAEntrypointEncPicture == entrypoint)
-	|| (VAEntrypointEncSlice == entrypoint))) {
-	int active_slc, active_pic;
+            ((VAEntrypointEncPicture == entrypoint)
+                    || (VAEntrypointEncSlice == entrypoint))) {
+        int active_slc, active_pic;
         /* Only allow one encoding entrypoint at the sametime.
-	 * But if video encoding request comes when process JPEG encoding,
-	 * it will wait until current JPEG picture encoding finish.
-	 * Further JPEG encoding should fall back to software path.*/
-	active_slc = psb_get_active_entrypoint_number(ctx, VAEntrypointEncSlice);
-	active_pic = psb_get_active_entrypoint_number(ctx, VAEntrypointEncPicture);
+         * But if video encoding request comes when process JPEG encoding,
+         * it will wait until current JPEG picture encoding finish.
+         * Further JPEG encoding should fall back to software path.*/
+        active_slc = psb_get_active_entrypoint_number(ctx, VAEntrypointEncSlice);
+        active_pic = psb_get_active_entrypoint_number(ctx, VAEntrypointEncPicture);
 
-	if (active_slc > 0) {
-	    drv_debug_msg(VIDEO_DEBUG_ERROR, "There already is a active video encoding entrypoint."
-		   "Entrypoint %d isn't available.\n", entrypoint);
-	    return VA_STATUS_ERROR_HW_BUSY;
-	}
-	else if (active_pic > 0 && VAEntrypointEncPicture == entrypoint) {
-	    drv_debug_msg(VIDEO_DEBUG_ERROR, "There already is a active picture encoding entrypoint."
-		   "Entrypoint %d isn't available.\n", entrypoint);
-	    return VA_STATUS_ERROR_HW_BUSY;
-	}
+        if (active_slc > 0) {
+            drv_debug_msg(VIDEO_DEBUG_ERROR, "There already is a active video encoding entrypoint."
+                    "Entrypoint %d isn't available.\n", entrypoint);
+            return VA_STATUS_ERROR_HW_BUSY;
+        }
+        else if (active_pic > 0 && VAEntrypointEncPicture == entrypoint) {
+            drv_debug_msg(VIDEO_DEBUG_ERROR, "There already is a active picture encoding entrypoint."
+                    "Entrypoint %d isn't available.\n", entrypoint);
+            return VA_STATUS_ERROR_HW_BUSY;
+        }
     }
 
     configID = object_heap_allocate(&driver_data->config_heap);
@@ -510,11 +510,11 @@ VAStatus psb_CreateConfig(
     }
 
     if (profile == VAProfileVP8Version0_3 ||
-	profile == VAProfileH264Baseline ||
-	profile == VAProfileH264Main ||
-	profile == VAProfileH264High ||
-	profile == VAProfileH264ConstrainedBaseline)
-		driver_data->ec_enabled = 1;
+        profile == VAProfileH264Baseline ||
+        profile == VAProfileH264Main ||
+        profile == VAProfileH264High ||
+        profile == VAProfileH264ConstrainedBaseline)
+                driver_data->ec_enabled = 1;
 
     if (!IS_MRFL(driver_data)) {
         if (profile == VAProfileMPEG4Simple ||
@@ -589,9 +589,9 @@ void psb__destroy_surface(psb_driver_data_p driver_data, object_surface_p obj_su
         /* delete subpicture association */
         psb_SurfaceDeassociateSubpict(driver_data, obj_surface);
 
-	obj_surface->is_ref_surface = 0;
+        obj_surface->is_ref_surface = 0;
 
-	psb_surface_sync(obj_surface->psb_surface);
+        psb_surface_sync(obj_surface->psb_surface);
         psb_surface_destroy(obj_surface->psb_surface);
 
         if (obj_surface->out_loop_surface) {
@@ -701,6 +701,7 @@ VAStatus psb_CreateSurfaces2(
     unsigned long fourcc;
     unsigned int flags = 0;
     int memory_type = -1;
+    unsigned int initalized_info_flag = 1;
     VASurfaceAttribExternalBuffers  *pExternalBufDesc = NULL;
     PsbSurfaceAttributeTPI attribute_tpi;
 
@@ -767,6 +768,19 @@ VAStatus psb_CreateSurfaces2(
                     }
                 }
                 break;
+            case VASurfaceAttribUsageHint:
+                {
+                    /* Share info is to be initialized when created sufaces by default (for the data producer)
+                     * VPP Read indicate we do not NOT touch share info (for data consumer, which share buffer with data
+                     * producer, such as of VPP).
+                     */
+                    drv_debug_msg(VIDEO_DEBUG_GENERAL, "VASurfaceAttribUsageHint.\n");
+                    if ((attrib_list->value.value.i & VA_SURFACE_ATTRIB_USAGE_HINT_VPP_READ)!= 0){
+                        initalized_info_flag = 0;
+                        drv_debug_msg(VIDEO_DEBUG_GENERAL, "explicat not initialized share info.\n");
+                    }
+                }
+                break;
             default:
                 drv_debug_msg(VIDEO_DEBUG_ERROR, "Unsupported attribute.\n");
                 return VA_STATUS_ERROR_INVALID_PARAMETER;
@@ -780,6 +794,8 @@ VAStatus psb_CreateSurfaces2(
     }
     else if(memory_type !=-1 && pExternalBufDesc != NULL) {
         attribute_tpi.type = memory_type;
+        //set initialized share info in reserverd 1, by default we will initialized share_info
+        attribute_tpi.reserved[2] = (unsigned int)initalized_info_flag;
         vaStatus = psb_CreateSurfacesWithAttribute(ctx, width, height, format, num_surfaces, surface_list, (VASurfaceAttributeTPI *)&attribute_tpi);
         pExternalBufDesc->private_data = (void *)(attribute_tpi.reserved[1]);
         if (attribute_tpi.buffers) free(attribute_tpi.buffers);
@@ -804,7 +820,7 @@ VAStatus psb_CreateSurfaces2(
     height_origin = height;
     height = (height + 0x1f) & ~0x1f;
 
-    
+
     for (i = 0; i < num_surfaces; i++) {
         int surfaceID;
         object_surface_p obj_surface;
@@ -865,6 +881,7 @@ VAStatus psb_CreateSurfaces2(
         buffer_stride = psb_surface->stride;
         /* by default, surface fourcc is NV12 */
         psb_surface->extra_info[4] = fourcc;
+        psb_surface->extra_info[8] = fourcc;
         obj_surface->psb_surface = psb_surface;
     }
 
@@ -1036,12 +1053,12 @@ VAStatus psb_CreateContext(
     object_config_p obj_config;
     int cmdbuf_num, encode = 0, proc = 0;
     int i;
-    drv_debug_msg(VIDEO_DEBUG_INIT, "CreateContext config_id:%d, pic_w:%d, pic_h:%d, flag:%d, num_render_targets:%d.\n",
+    drv_debug_msg(VIDEO_DEBUG_ERROR, "CreateContext config_id:%d, pic_w:%d, pic_h:%d, flag:%d, num_render_targets:%d.\n",
         config_id, picture_width, picture_height, flag, num_render_targets);
 
-    CHECK_INVALID_PARAM(num_render_targets <= 0);
+    //CHECK_INVALID_PARAM(num_render_targets <= 0);
 
-    CHECK_SURFACE(render_targets);
+    //CHECK_SURFACE(render_targets);
     CHECK_CONTEXT(context);
 
     vaStatus = psb__checkSurfaceDimensions(driver_data, picture_width, picture_height);
@@ -1081,14 +1098,17 @@ VAStatus psb_CreateContext(
 #endif
     obj_context->scaling_width = 0;
     obj_context->scaling_height = 0;
-    obj_context->render_targets = (VASurfaceID *) calloc(1, num_render_targets * sizeof(VASurfaceID));
-    if (obj_context->render_targets == NULL) {
-        vaStatus = VA_STATUS_ERROR_ALLOCATION_FAILED;
-        DEBUG_FAILURE;
 
-        object_heap_free(&driver_data->context_heap, (object_base_p) obj_context);
+    if (num_render_targets > 0) {
+        obj_context->render_targets = (VASurfaceID *) calloc(1, num_render_targets * sizeof(VASurfaceID));
+        if (obj_context->render_targets == NULL) {
+            vaStatus = VA_STATUS_ERROR_ALLOCATION_FAILED;
+            DEBUG_FAILURE;
 
-        return vaStatus;
+            object_heap_free(&driver_data->context_heap, (object_base_p) obj_context);
+
+            return vaStatus;
+        }
     }
 
     /* allocate buffer points for vaRenderPicture */
@@ -1098,7 +1118,8 @@ VAStatus psb_CreateContext(
         vaStatus = VA_STATUS_ERROR_ALLOCATION_FAILED;
         DEBUG_FAILURE;
 
-        free(obj_context->render_targets);
+        if (NULL != obj_context->render_targets)
+            free(obj_context->render_targets);
         object_heap_free(&driver_data->context_heap, (object_base_p) obj_context);
 
         return vaStatus;
@@ -1131,28 +1152,29 @@ VAStatus psb_CreateContext(
     else
         cmdbuf_num = PSB_MAX_CMDBUFS;
 
-    for (i = 0; i < num_render_targets; i++) {
-        object_surface_p obj_surface = SURFACE(render_targets[i]);
-        psb_surface_p psb_surface;
+    if (num_render_targets > 0) {
+        for (i = 0; i < num_render_targets; i++) {
+            object_surface_p obj_surface = SURFACE(render_targets[i]);
+            psb_surface_p psb_surface;
 
-        if (NULL == obj_surface) {
-            vaStatus = VA_STATUS_ERROR_INVALID_SURFACE;
-            DEBUG_FAILURE;
-            break;
-        }
+            if (NULL == obj_surface) {
+                vaStatus = VA_STATUS_ERROR_INVALID_SURFACE;
+                DEBUG_FAILURE;
+                break;
+            }
 
-        if (!driver_data->protected && obj_surface->share_info)
-            obj_surface->share_info->force_output_method = 0;
+            if (!driver_data->protected && obj_surface->share_info)
+                obj_surface->share_info->force_output_method = 0;
 
-        psb_surface = obj_surface->psb_surface;
+            psb_surface = obj_surface->psb_surface;
 
-        /* Clear format specific surface info */
-        obj_context->render_targets[i] = render_targets[i];
-        obj_surface->context_id = contextID; /* Claim ownership of surface */
+            /* Clear format specific surface info */
+            obj_context->render_targets[i] = render_targets[i];
+            obj_surface->context_id = contextID; /* Claim ownership of surface */
 #ifdef PSBVIDEO_MSVDX_DEC_TILING
-        if (GET_SURFACE_INFO_tiling(psb_surface))
+            if (GET_SURFACE_INFO_tiling(psb_surface))
 #ifdef BAYTRAIL
-            obj_context->msvdx_tile = psb__tile_stride_log2_512(obj_surface->width);
+                obj_context->msvdx_tile = psb__tile_stride_log2_512(obj_surface->width);
 #else
             if (obj_config->entrypoint == VAEntrypointVideoProc && obj_config->profile == VAProfileNone)
                 // It's for two pass rotation case
@@ -1166,12 +1188,13 @@ VAStatus psb_CreateContext(
         }
 #endif
 #if 0
-        /* for decode, move the surface into |TT */
-        if ((encode == 0) && /* decode */
-            ((psb_surface->buf.pl_flags & DRM_PSB_FLAG_MEM_RAR) == 0)) /* surface not in RAR */
-            psb_buffer_setstatus(&obj_surface->psb_surface->buf,
-                                 WSBM_PL_FLAG_TT | WSBM_PL_FLAG_SHARED, DRM_PSB_FLAG_MEM_MMU);
+            /* for decode, move the surface into |TT */
+            if ((encode == 0) && /* decode */
+                    ((psb_surface->buf.pl_flags & DRM_PSB_FLAG_MEM_RAR) == 0)) /* surface not in RAR */
+                psb_buffer_setstatus(&obj_surface->psb_surface->buf,
+                        WSBM_PL_FLAG_TT | WSBM_PL_FLAG_SHARED, DRM_PSB_FLAG_MEM_MMU);
 #endif
+        }
     }
 
     obj_context->va_flags = flag;
@@ -1188,7 +1211,8 @@ VAStatus psb_CreateContext(
         obj_context->config_id = -1;
         obj_context->picture_width = 0;
         obj_context->picture_height = 0;
-        free(obj_context->render_targets);
+        if (NULL != obj_context->render_targets)
+            free(obj_context->render_targets);
         free(obj_context->buffer_list);
         obj_context->num_buffers = 0;
         obj_context->render_targets = NULL;
@@ -1342,7 +1366,7 @@ VAStatus psb_CreateContext(
                 free(obj_context->tng_cmdbuf_list[i]);
                 obj_context->tng_cmdbuf_list[i] = NULL;
             }
-#endif            
+#endif
             if (obj_context->cmdbuf_list[i]) {
                 psb_cmdbuf_destroy(obj_context->cmdbuf_list[i]);
                 free(obj_context->cmdbuf_list[i]);
@@ -1366,14 +1390,15 @@ VAStatus psb_CreateContext(
         obj_context->config_id = -1;
         obj_context->picture_width = 0;
         obj_context->picture_height = 0;
-        free(obj_context->render_targets);
+        if (NULL != obj_context->render_targets)
+            free(obj_context->render_targets);
         free(obj_context->buffer_list);
         obj_context->num_buffers = 0;
         obj_context->render_targets = NULL;
         obj_context->num_render_targets = 0;
         obj_context->va_flags = 0;
         object_heap_free(&driver_data->context_heap, (object_base_p) obj_context);
-    } 
+    }
     obj_context->ctp_type = (((obj_config->profile << 8) |
                              obj_config->entrypoint | driver_data->protected) & 0xffff);
 
@@ -2039,7 +2064,7 @@ VAStatus psb_BeginPicture(
 
     obj_context = CONTEXT(context);
     CHECK_CONTEXT(obj_context);
-    
+
     /* Must not be within BeginPicture / EndPicture already */
     ASSERT(obj_context->current_render_target == NULL);
 
@@ -2064,7 +2089,7 @@ VAStatus psb_BeginPicture(
         vaStatus = obj_context->format_vtable->beginPicture(obj_context);
     }
 
-#ifdef ANDROID    
+#ifdef ANDROID
     /* want msvdx to do rotate
      * but check per-context stream type: interlace or not
      */
@@ -2080,13 +2105,15 @@ VAStatus psb_BeginPicture(
     if (obj_context->interlaced_stream || driver_data->disable_msvdx_rotate) {
         int i;
         obj_context->msvdx_rotate = 0;
-        for (i = 0; i < obj_context->num_render_targets; i++) {
-            object_surface_p obj_surface = SURFACE(obj_context->render_targets[i]);
-            /*we invalidate all surfaces's rotate buffer share info here.*/
-            if (obj_surface && obj_surface->share_info) {
-                obj_surface->share_info->surface_rotate = 0;
+        if (obj_context->num_render_targets > 0) {
+            for (i = 0; i < obj_context->num_render_targets; i++) {
+                object_surface_p obj_surface = SURFACE(obj_context->render_targets[i]);
+                /*we invalidate all surfaces's rotate buffer share info here.*/
+                if (obj_surface && obj_surface->share_info) {
+                    obj_surface->share_info->surface_rotate = 0;
+                }
             }
-	}
+        }
     }
     else
         obj_context->msvdx_rotate = driver_data->msvdx_rotate_want;
@@ -2117,7 +2144,7 @@ VAStatus psb_BeginPicture(
             }
         } else
 #endif
-	vaStatus = psb_CreateRotateSurface(obj_context, obj_surface, obj_context->msvdx_rotate);
+        vaStatus = psb_CreateRotateSurface(obj_context, obj_surface, obj_context->msvdx_rotate);
         if (VA_STATUS_SUCCESS !=vaStatus)
             ALOGE("%s: fail to allocate out loop surface", __func__);
 
@@ -2366,7 +2393,7 @@ VAStatus psb_SyncSurface(
                 vaStatus = psb_surface_sync(obj_surface->out_loop_surface);
             else
                 vaStatus = psb_surface_sync(obj_surface->psb_surface);
-	} else
+        } else
 #endif
         vaStatus = psb_surface_sync(obj_surface->psb_surface);
     }
@@ -2553,10 +2580,10 @@ VAStatus psb_QuerySurfaceError(
         arg.value = (uint64_t)((unsigned long)decode_status);
         ret = drmCommandWriteRead(driver_data->drm_fd, driver_data->getParamIoctlOffset,
                                   &arg, sizeof(arg));
-	if (ret != 0) {
-		drv_debug_msg(VIDEO_DEBUG_GENERAL,"return value is %d drmCommandWriteRead\n",ret);
-		return VA_STATUS_ERROR_UNKNOWN;
-	}
+        if (ret != 0) {
+                drv_debug_msg(VIDEO_DEBUG_GENERAL,"return value is %d drmCommandWriteRead\n",ret);
+                return VA_STATUS_ERROR_UNKNOWN;
+        }
 #ifndef _FOR_FPGA_
         if (decode_status->num_region > MAX_MB_ERRORS) {
             drv_debug_msg(VIDEO_DEBUG_GENERAL, "too much mb errors are reported.\n");
@@ -2623,8 +2650,8 @@ VAStatus psb_QuerySurfaceAttributes(VADriverContextP ctx,
     if (obj_config->entrypoint == VAEntrypointEncSlice && obj_config->profile == VAProfileVP8Version0_3) {
         attribs[i].value.value.i = VA_SURFACE_ATTRIB_MEM_TYPE_VA |
             VA_SURFACE_ATTRIB_MEM_TYPE_KERNEL_DRM |
-	    VA_SURFACE_ATTRIB_MEM_TYPE_ANDROID_GRALLOC |
-	    VA_SURFACE_ATTRIB_MEM_TYPE_ANDROID_ION;
+            VA_SURFACE_ATTRIB_MEM_TYPE_ANDROID_GRALLOC |
+            VA_SURFACE_ATTRIB_MEM_TYPE_ANDROID_ION;
     } else {
         attribs[i].value.value.i = VA_SURFACE_ATTRIB_MEM_TYPE_VA |
             VA_SURFACE_ATTRIB_MEM_TYPE_KERNEL_DRM |
@@ -3137,7 +3164,7 @@ EXPORT VAStatus __vaDriverInit_0_31(VADriverContextP ctx)
     ctx->vtable->vaCreateConfig = psb_CreateConfig;
     ctx->vtable->vaDestroyConfig = psb_DestroyConfig;
     ctx->vtable->vaGetConfigAttributes = psb_GetConfigAttributes;
-    ctx->vtable->vaCreateSurfaces2 = psb_CreateSurfaces2; 
+    ctx->vtable->vaCreateSurfaces2 = psb_CreateSurfaces2;
     ctx->vtable->vaCreateSurfaces = psb_CreateSurfaces;
     ctx->vtable->vaGetSurfaceAttributes = psb_GetSurfaceAttributes;
     ctx->vtable->vaDestroySurfaces = psb_DestroySurfaces;
@@ -3196,7 +3223,7 @@ EXPORT VAStatus __vaDriverInit_0_31(VADriverContextP ctx)
     tpi = (struct VADriverVTableTPI *)ctx->vtable_tpi;
     tpi->vaCreateSurfacesWithAttribute = psb_CreateSurfacesWithAttribute;
     tpi->vaPutSurfaceBuf = psb_PutSurfaceBuf;
-	tpi->vaSetTimestampForSurface = psb_SetTimestampForSurface;
+        tpi->vaSetTimestampForSurface = psb_SetTimestampForSurface;
 
     ctx->vtable_egl = calloc(1, sizeof(struct VADriverVTableEGL));
     if (NULL == ctx->vtable_egl)
@@ -3303,7 +3330,7 @@ EXPORT VAStatus __vaDriverInit_0_31(VADriverContextP ctx)
 #ifdef PSBVIDEO_VXD392
     if (IS_MRFL(driver_data) || IS_BAYTRAIL(driver_data)) {
         drv_debug_msg(VIDEO_DEBUG_GENERAL, "merrifield VXD392 decoder\n");
-	driver_data->profile2Format[VAProfileVP8Version0_3][VAEntrypointVLD] = &tng_VP8_vtable;
+        driver_data->profile2Format[VAProfileVP8Version0_3][VAEntrypointVLD] = &tng_VP8_vtable;
         driver_data->profile2Format[VAProfileJPEGBaseline][VAEntrypointVLD] = &tng_JPEG_vtable;
 
         driver_data->profile2Format[VAProfileMPEG4Simple][VAEntrypointVLD] = &pnw_MPEG4_vtable;
@@ -3400,7 +3427,7 @@ EXPORT VAStatus __vaDriverInit_0_31(VADriverContextP ctx)
     {
         if (IS_LEXINGTON(driver_data))
             ctx->str_vendor = PSB_STR_VENDOR_LEXINGTON;
-        else   
+        else
             ctx->str_vendor = PSB_STR_VENDOR_MFLD;
     }
     else

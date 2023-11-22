@@ -868,14 +868,17 @@ arena_run_alloc_small(arena_t *arena, size_t size, size_t binind)
 static inline void
 arena_maybe_purge(arena_t *arena)
 {
+#if !defined(ANDROID_ALWAYS_PURGE)
 	size_t npurgeable, threshold;
 
 	/* Don't purge if the option is disabled. */
 	if (opt_lg_dirty_mult < 0)
 		return;
+#endif
 	/* Don't purge if all dirty pages are already being purged. */
 	if (arena->ndirty <= arena->npurgatory)
 		return;
+#if !defined(ANDROID_ALWAYS_PURGE)
 	npurgeable = arena->ndirty - arena->npurgatory;
 	threshold = (arena->nactive >> opt_lg_dirty_mult);
 	/*
@@ -884,6 +887,7 @@ arena_maybe_purge(arena_t *arena)
 	 */
 	if (npurgeable <= threshold)
 		return;
+#endif
 
 	arena_purge(arena, false);
 }

@@ -16,16 +16,21 @@
 
 package com.android.server.telecom.tests.unit;
 
+import android.os.UserHandle;
 import com.android.internal.util.FastXmlSerializer;
 import com.android.server.telecom.Log;
 import com.android.server.telecom.PhoneAccountRegistrar;
+import com.android.server.telecom.tests.R;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlSerializer;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.Parcel;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.test.AndroidTestCase;
@@ -36,9 +41,11 @@ import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.util.Arrays;
 
 public class PhoneAccountRegistrarTest extends AndroidTestCase {
 
+    private static final int MAX_VERSION = Integer.MAX_VALUE;
     private static final String FILE_NAME = "phone-account-registrar-test.xml";
     private PhoneAccountRegistrar mRegistrar;
 
@@ -55,12 +62,12 @@ public class PhoneAccountRegistrarTest extends AndroidTestCase {
 
     public void testPhoneAccountHandle() throws Exception {
         PhoneAccountHandle input = new PhoneAccountHandle(new ComponentName("pkg0", "cls0"), "id0");
-        PhoneAccountHandle result = roundTrip(this, input,
+        PhoneAccountHandle result = roundTripXml(this, input,
                 PhoneAccountRegistrar.sPhoneAccountHandleXml, mContext);
         assertPhoneAccountHandleEquals(input, result);
 
         PhoneAccountHandle inputN = new PhoneAccountHandle(new ComponentName("pkg0", "cls0"), null);
-        PhoneAccountHandle resultN = roundTrip(this, inputN,
+        PhoneAccountHandle resultN = roundTripXml(this, inputN,
                 PhoneAccountRegistrar.sPhoneAccountHandleXml, mContext);
         Log.i(this, "inputN = %s, resultN = %s", inputN, resultN);
         assertPhoneAccountHandleEquals(inputN, resultN);
@@ -71,14 +78,15 @@ public class PhoneAccountRegistrarTest extends AndroidTestCase {
                 .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
                 .addSupportedUriScheme(PhoneAccount.SCHEME_VOICEMAIL)
                 .build();
-        PhoneAccount result = roundTrip(this, input, PhoneAccountRegistrar.sPhoneAccountXml,
+        PhoneAccount result = roundTripXml(this, input, PhoneAccountRegistrar.sPhoneAccountXml,
                 mContext);
         assertPhoneAccountEquals(input, result);
     }
 
     public void testState() throws Exception {
         PhoneAccountRegistrar.State input = makeQuickState();
-        PhoneAccountRegistrar.State result = roundTrip(this, input, PhoneAccountRegistrar.sStateXml,
+        PhoneAccountRegistrar.State result = roundTripXml(this, input,
+                PhoneAccountRegistrar.sStateXml,
                 mContext);
         assertStateEquals(input, result);
     }
@@ -181,21 +189,52 @@ public class PhoneAccountRegistrarTest extends AndroidTestCase {
         assertNull(mRegistrar.getDefaultOutgoingPhoneAccount(PhoneAccount.SCHEME_TEL));
     }
 
+    public void testPhoneAccountParceling() throws Exception {
+        PhoneAccountHandle handle = makeQuickAccountHandle("foo");
+        roundTripPhoneAccount(new PhoneAccount.Builder(handle, null).build());
+        roundTripPhoneAccount(new PhoneAccount.Builder(handle, "foo").build());
+        roundTripPhoneAccount(
+                new PhoneAccount.Builder(handle, "foo")
+                        .setAddress(Uri.parse("tel:123456"))
+                        .setCapabilities(23)
+                        .setHighlightColor(0xf0f0f0)
+                        .setIcon(
+                                "com.android.server.telecom.tests",
+                                R.drawable.stat_sys_phone_call,
+                                0xfefefe)
+                        .setShortDescription("short description")
+                        .setSubscriptionAddress(Uri.parse("tel:2345678"))
+                        .setSupportedUriSchemes(Arrays.asList("tel", "sip"))
+                        .build());
+        roundTripPhoneAccount(
+                new PhoneAccount.Builder(handle, "foo")
+                        .setAddress(Uri.parse("tel:123456"))
+                        .setCapabilities(23)
+                        .setHighlightColor(0xf0f0f0)
+                        .setIcon(
+                                BitmapFactory.decodeResource(
+                                        getContext().getResources(),
+                                        R.drawable.stat_sys_phone_call))
+                        .setShortDescription("short description")
+                        .setSubscriptionAddress(Uri.parse("tel:2345678"))
+                        .setSupportedUriSchemes(Arrays.asList("tel", "sip"))
+                        .build());
+    }
+
     private static PhoneAccountHandle makeQuickAccountHandle(String id) {
         return new PhoneAccountHandle(
                 new ComponentName(
                         "com.android.server.telecom.tests",
                         "com.android.server.telecom.tests.MockConnectionService"
                 ),
-                id
-        );
+                id,
+                new UserHandle(5));
     }
 
     private PhoneAccount.Builder makeQuickAccountBuilder(String id, int idx) {
         return new PhoneAccount.Builder(
                 makeQuickAccountHandle(id),
-                "label" + idx
-        );
+                "label" + idx);
     }
 
     private PhoneAccount makeQuickAccount(String id, int idx) {
@@ -203,12 +242,26 @@ public class PhoneAccountRegistrarTest extends AndroidTestCase {
                 .setAddress(Uri.parse("http://foo.com/" + idx))
                 .setSubscriptionAddress(Uri.parse("tel:555-000" + idx))
                 .setCapabilities(idx)
-                .setIconResId(idx)
+                .setIcon("com.android.server.telecom.tests", R.drawable.stat_sys_phone_call)
                 .setShortDescription("desc" + idx)
                 .build();
     }
 
-    private static <T> T roundTrip(
+    private static void roundTripPhoneAccount(PhoneAccount original) throws Exception {
+        PhoneAccount copy = null;
+
+        {
+            Parcel parcel = Parcel.obtain();
+            parcel.writeParcelable(original, 0);
+            parcel.setDataPosition(0);
+            copy = parcel.readParcelable(PhoneAccountRegistrarTest.class.getClassLoader());
+            parcel.recycle();
+        }
+
+        assertPhoneAccountEquals(original, copy);
+    }
+
+    private static <T> T roundTripXml(
             Object self,
             T input,
             PhoneAccountRegistrar.XmlSerialization<T> xml,
@@ -221,7 +274,7 @@ public class PhoneAccountRegistrarTest extends AndroidTestCase {
             XmlSerializer serializer = new FastXmlSerializer();
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             serializer.setOutput(new BufferedOutputStream(baos), "utf-8");
-            xml.writeToXml(input, serializer);
+            xml.writeToXml(input, serializer, context);
             serializer.flush();
             data = baos.toByteArray();
         }
@@ -233,7 +286,7 @@ public class PhoneAccountRegistrarTest extends AndroidTestCase {
             XmlPullParser parser = Xml.newPullParser();
             parser.setInput(new BufferedInputStream(new ByteArrayInputStream(data)), null);
             parser.nextTag();
-            result = xml.readFromXml(parser, 0, context);
+            result = xml.readFromXml(parser, MAX_VERSION, context);
         }
 
         Log.d(self, "result = " + result);
@@ -260,9 +313,28 @@ public class PhoneAccountRegistrarTest extends AndroidTestCase {
             assertEquals(a.getSubscriptionAddress(), b.getSubscriptionAddress());
             assertEquals(a.getCapabilities(), b.getCapabilities());
             assertEquals(a.getIconResId(), b.getIconResId());
+            assertEquals(a.getIconPackageName(), b.getIconPackageName());
+            assertBitmapEquals(a.getIconBitmap(), b.getIconBitmap());
+            assertEquals(a.getIconTint(), b.getIconTint());
+            assertEquals(a.getHighlightColor(), b.getHighlightColor());
             assertEquals(a.getLabel(), b.getLabel());
             assertEquals(a.getShortDescription(), b.getShortDescription());
             assertEquals(a.getSupportedUriSchemes(), b.getSupportedUriSchemes());
+        }
+    }
+
+    private static void assertBitmapEquals(Bitmap a, Bitmap b) {
+        if (a == null || b == null) {
+            assertEquals(null, a);
+            assertEquals(null, b);
+        } else {
+            assertEquals(a.getWidth(), b.getWidth());
+            assertEquals(a.getHeight(), b.getHeight());
+            for (int x = 0; x < a.getWidth(); x++) {
+                for (int y = 0; y < a.getHeight(); y++) {
+                    assertEquals(a.getPixel(x, y), b.getPixel(x, y));
+                }
+            }
         }
     }
 

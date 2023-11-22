@@ -145,6 +145,10 @@ base::ProcessId ChannelNacl::GetPeerPID() const {
   return -1;
 }
 
+base::ProcessId ChannelNacl::GetSelfPID() const {
+  return -1;
+}
+
 bool ChannelNacl::Connect() {
   if (pipe_ == -1) {
     DLOG(WARNING) << "Channel creation failed: " << pipe_name_;
@@ -274,7 +278,7 @@ bool ChannelNacl::ProcessOutgoingMessages() {
     int fds[FileDescriptorSet::kMaxDescriptorsPerMessage];
     const size_t num_fds = msg->file_descriptor_set()->size();
     DCHECK(num_fds <= FileDescriptorSet::kMaxDescriptorsPerMessage);
-    msg->file_descriptor_set()->GetDescriptors(fds);
+    msg->file_descriptor_set()->PeekDescriptors(fds);
 
     NaClAbiNaClImcMsgIoVec iov = {
       const_cast<void*>(msg->data()), msg->size()
@@ -348,8 +352,8 @@ bool ChannelNacl::WillDispatchInputMessage(Message* msg) {
   // The shenaniganery below with &foo.front() requires input_fds_ to have
   // contiguous underlying storage (such as a simple array or a std::vector).
   // This is why the header warns not to make input_fds_ a deque<>.
-  msg->file_descriptor_set()->SetDescriptors(&input_fds_.front(),
-                                             header_fds);
+  msg->file_descriptor_set()->AddDescriptorsToOwn(&input_fds_.front(),
+                                                  header_fds);
   input_fds_.clear();
   return true;
 }

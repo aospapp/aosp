@@ -34,22 +34,6 @@ LOCAL_PACKAGE_NAME := CtsSecurityTestCases
 
 LOCAL_SDK_VERSION := current
 
-intermediates.COMMON := $(call intermediates-dir-for,APPS,$(LOCAL_PACKAGE_NAME),,COMMON)
-
-sepolicy_asset_dir := $(intermediates.COMMON)/assets
-
-LOCAL_ASSET_DIR := $(sepolicy_asset_dir)
-
 include $(BUILD_CTS_PACKAGE)
-
-selinux_policy.xml := $(sepolicy_asset_dir)/selinux_policy.xml
-selinux_policy_parser := cts/tools/selinux/src/gen_SELinux_CTS.py
-general_sepolicy_policy.conf := $(call intermediates-dir-for,ETC,general_sepolicy.conf)/general_sepolicy.conf
-$(selinux_policy.xml): PRIVATE_POLICY_PARSER := $(selinux_policy_parser)
-$(selinux_policy.xml): $(general_sepolicy_policy.conf) $(selinux_policy_parser)
-	mkdir -p $(dir $@)
-	$(PRIVATE_POLICY_PARSER) $< $@ neverallow_only=t
-
-$(R_file_stamp): $(selinux_policy.xml)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))

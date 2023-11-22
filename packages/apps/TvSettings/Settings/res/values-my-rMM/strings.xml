@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"ဘက်အာပ် လုပ်ခြင်း &amp; ပြန်လည်ဖေါ်ထုတ်ခြင်း"</string>
     <string name="device_reset" msgid="2827002349560023125">"စက်ရုံအတိုင်း ပြန်ညှိရန်"</string>
     <string name="device_calibration" msgid="8632962533376605191">"စံကိုက်ညှိမှု"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"ဒေါင်းလုဒ် လုပ်ထားသည့် Appများ"</string>
     <string name="apps_system" msgid="2499191125802829425">"စနစ် Appများ"</string>
     <string name="apps_running" msgid="6430310491739956228">"ဖွင့်သုံးနေသည့် Appများ"</string>
@@ -74,7 +78,7 @@
     <string name="accessory_unpair" msgid="8242725516604465355">"တွဲချိတ်မှုဖြုတ်ရန်"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"ကိရိယာကို တွဲထားမှုမှ ဖြုတ်နေ…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"ချိတ်ဆက်ထား"</string>
-    <string name="accessories_add_title" msgid="6940361421891873321">"အသုံးအဆောင် ပစ္စည်းများကို ရှာကြည့်နေ…"</string>
+    <string name="accessories_add_title" msgid="6940361421891873321">"အသုံးအဆောင်များကို ရှာဖွေနေ…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"သင်၏ ဘလူးတုသ် ကိရိယာများကို မချိတ်တွဲမီ၊ ၎င်းတို့ ချိတ်တွဲရေး မုဒ် ထဲမှာ ရှိနေတာကို စစ်ကြည့်ပါ"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"ကိရိယာ တစ်ခုကို တွေ့ရှိခဲ့ရာ <xliff:g id="COUNTDOWN">%1$s</xliff:g> စက္ကန့် အတွင်းမှာ အလိုအလျောက် ချိတ်တွဲလိမ့်မည်"</string>
     <string name="accessories_add_title_multiple" msgid="8455249961819802466">"ကိရိယာ အများအပြားကို ရှာတွေ့ခဲ့"</string>
@@ -95,7 +99,7 @@
     <string name="system_language" msgid="2337138146114609247">"ဘာသာစကား"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"ကီးဘုတ်"</string>
     <string name="system_search" msgid="2837264654143247611">"ရှာဖွေရန်"</string>
-    <string name="system_security" msgid="4190058778883258927">"လုံခြုံရေး &amp; ကန့်သတ်ချက်များ"</string>
+    <string name="system_security" msgid="8230080273993484407">"လုံခြုံရေး &amp; ကန့်သတ်ချက်များ"</string>
     <string name="system_speech" msgid="8128688499687306982">"နှုတ်စကား"</string>
     <string name="system_inputs" msgid="2413907183796651102">"ထည့်သွင်းမှုများ"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"ရယူသုံးနိုင်မှု"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"စနစ် မွမ်းမံမှု"</string>
     <string name="about_preference" msgid="4131396784531360434">"အကြောင်း"</string>
     <string name="device_name" msgid="2670488158531273028">"ကိရိယာ အမည်"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"အစက ပြန်စရန်"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"ဥပဒေဆိုင်ရာ အချက်အလက်များ"</string>
     <string name="about_warranty" msgid="5736003473060436384">"အာမခံ"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"အခမဲ့ ရင်းမြစ် လိုင်စင်များ"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"ဝန်ဆောင်မှု စည်းကမ်းချက်များ ကြည့်ရန်"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"ကိုယ်ရေး မူဝါဒကို ကြည့်ရန်"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"စည်းကမ်းချက် အပိုကို ကြည့်ရန်"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Google၏ ဥပဒေရေးရာ"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"လိုင်စင် ဒေတာကို ရှာမရ"</string>
     <string name="about_model" msgid="6625269442206323995">"မော်ဒယ်"</string>
     <string name="about_version" msgid="1177287676732287266">"ဗားရှင်း"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"ရက်စွဲ"</string>
     <string name="system_time" msgid="6726022312605226285">"အချိန်"</string>
     <string name="system_set_date" msgid="2437586307768561116">"ရက်စွဲ  သတ်မှတ်ရန်"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"ရက်စွဲ ပုံစံ ရွေးရန်"</string>
     <string name="system_set_time" msgid="4661804115501057452">"အချိန် သတ်မှတ်ရန်"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"အချိန် ဇုန်ကို သတ်မှတ်ရန်"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"၂၄ နာရီပုံစံကို သုံးမည်"</string>

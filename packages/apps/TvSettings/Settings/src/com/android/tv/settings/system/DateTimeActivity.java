@@ -43,9 +43,7 @@ import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
 import android.text.format.DateFormat;
 import android.util.Log;
-import android.view.View;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -164,34 +162,8 @@ public class DateTimeActivity extends BaseSettingsActivity implements ActionAdap
         }
     }
 
-    private String[] getFormattedDates() {
-        String[] dateFormats = getResources().getStringArray(R.array.date_format_values);
-        String[] formattedDates = new String[dateFormats.length];
-
-        for (int i = 0; i < formattedDates.length; i++) {
-            String formatted = DateFormat.getDateFormatForSetting(this, dateFormats[i])
-                    .format(mDummyDate.getTime());
-
-            if (dateFormats[i].length() == 0) {
-                formattedDates[i] = getString(R.string.normal_date_format, formatted);
-            } else {
-                formattedDates[i] = formatted;
-            }
-        }
-        return formattedDates;
-    }
-
     private boolean isTimeFormat24h() {
         return DateFormat.is24HourFormat(this);
-    }
-
-    private String getDateFormat() {
-        return Settings.System.getString(getContentResolver(),
-                Settings.System.DATE_FORMAT);
-    }
-
-    private void setDateFormat(String s) {
-        Settings.System.putString(getContentResolver(), Settings.System.DATE_FORMAT, s);
     }
 
     private void setTime24Hour(boolean is24Hour) {
@@ -238,11 +210,6 @@ public class DateTimeActivity extends BaseSettingsActivity implements ActionAdap
          */
         final String key = action.getKey();
         switch ((ActionType) mState) {
-            case DATE_CHOOSE_FORMAT:
-                setDateFormat(key);
-                updateTimeAndDateStrings();
-                goBack();
-                return;
             case TIME_SET_TIME_ZONE:
                 setTimeZone(key);
                 updateTimeAndDateStrings();
@@ -264,7 +231,6 @@ public class DateTimeActivity extends BaseSettingsActivity implements ActionAdap
         switch (type) {
             case DATE:
             case TIME:
-            case DATE_CHOOSE_FORMAT:
             case TIME_CHOOSE_FORMAT:
             case DATE_SET_DATE:
             case TIME_SET_TIME:
@@ -302,22 +268,6 @@ public class DateTimeActivity extends BaseSettingsActivity implements ActionAdap
         return ActionType.DATE_TIME_OVERVIEW;
     }
 
-    private String getDateFormatExampleString() {
-        // Display a default example date.
-        // TODO: Check with UX on exactly what we should display here, a sample date
-        // or a standard (but localized) format descriptor.
-        String setFormat = getDateFormat();
-        String formatted = DateFormat.getDateFormatForSetting(this, getDateFormat())
-                .format(mDummyDate.getTime());
-        String displayText;
-        if (setFormat == null || setFormat.isEmpty()) {
-            displayText = getString(R.string.normal_date_format, formatted);
-        } else {
-            displayText = formatted;
-        }
-        return displayText;
-    }
-
     // Updates the Date and Time entries in the current view, without resetting the
     // Action fragment, so we don't trigger an animation.
     protected void updateTimeAndDateDisplay() {
@@ -339,8 +289,6 @@ public class DateTimeActivity extends BaseSettingsActivity implements ActionAdap
                         break;
                     case DATE:
                         mActions.add(ActionType.DATE_SET_DATE.toAction(mResources, mNowDate));
-                        mActions.add(ActionType.DATE_CHOOSE_FORMAT.toAction(mResources,
-                                getDateFormatExampleString()));
                         break;
                     case TIME:
                         mActions.add(ActionType.TIME_SET_TIME.toAction(mResources, mNowTime));
@@ -372,9 +320,6 @@ public class DateTimeActivity extends BaseSettingsActivity implements ActionAdap
                 break;
             case DATE:
                 mActions.add(ActionType.DATE_SET_DATE.toAction(mResources, mNowDate, !autoTime));
-
-                mActions.add(ActionType.DATE_CHOOSE_FORMAT.toAction(mResources,
-                        getDateFormatExampleString()));
                 break;
             case TIME:
                 mActions.add(ActionType.TIME_SET_TIME.toAction(mResources, mNowTime, !autoTime));
@@ -382,14 +327,6 @@ public class DateTimeActivity extends BaseSettingsActivity implements ActionAdap
                         mResources, getCurrentTimeZoneName()));
                 mActions.add(ActionType.TIME_CHOOSE_FORMAT.toAction(
                         mResources, getTimeFormatDescription()));
-                break;
-            case DATE_CHOOSE_FORMAT:
-                String[] formats = mResources.getStringArray(R.array.date_format_values);
-                String currentFormat = getDateFormat();
-                mActions = Action.createActionsFromArrays(formats, getFormattedDates());
-                for (Action action : mActions) {
-                    action.setChecked(action.getKey().equalsIgnoreCase(currentFormat));
-                }
                 break;
             case TIME_CHOOSE_FORMAT:
                 mActions.add(ActionBehavior.ON.toAction(ActionBehavior.getOnKey(

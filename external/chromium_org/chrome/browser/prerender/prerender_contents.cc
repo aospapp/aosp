@@ -8,12 +8,10 @@
 #include <functional>
 #include <utility>
 
-#include "apps/ui/web_contents_sizer.h"
 #include "base/bind.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/history/history_tab_helper.h"
-#include "chrome/browser/history/history_types.h"
 #include "chrome/browser/prerender/prerender_field_trial.h"
 #include "chrome/browser/prerender/prerender_final_status.h"
 #include "chrome/browser/prerender/prerender_handle.h"
@@ -24,9 +22,11 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tab_helpers.h"
+#include "chrome/browser/ui/web_contents_sizer.h"
 #include "chrome/common/prerender_messages.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/common/url_constants.h"
+#include "components/history/core/browser/history_types.h"
 #include "content/public/browser/browser_child_process_host.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
@@ -38,8 +38,8 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/common/frame_navigate_params.h"
-#include "content/public/common/page_transition_types.h"
 #include "net/url_request/url_request_context_getter.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/gfx/rect.h"
 
 using content::BrowserThread;
@@ -47,6 +47,7 @@ using content::DownloadItem;
 using content::OpenURLParams;
 using content::RenderViewHost;
 using content::ResourceRedirectDetails;
+using content::ResourceType;
 using content::SessionStorageNamespace;
 using content::WebContents;
 
@@ -239,7 +240,6 @@ PrerenderContents::PrerenderContents(
       origin_(origin),
       experiment_id_(experiment_id),
       creator_child_id_(-1),
-      main_frame_id_(0),
       cookie_status_(0),
       cookie_send_type_(COOKIE_SEND_TYPE_NONE),
       network_bytes_(0) {
@@ -333,7 +333,7 @@ void PrerenderContents::StartPrerendering(
   web_contents_delegate_.reset(new WebContentsDelegateImpl(this));
   prerender_contents_.get()->SetDelegate(web_contents_delegate_.get());
   // Set the size of the prerender WebContents.
-  apps::ResizeWebContents(prerender_contents_.get(), size_);
+  ResizeWebContents(prerender_contents_.get(), size_);
 
   child_id_ = GetRenderViewHost()->GetProcess()->GetID();
   route_id_ = GetRenderViewHost()->GetRoutingID();
@@ -382,15 +382,15 @@ void PrerenderContents::StartPrerendering(
   content::NavigationController::LoadURLParams load_url_params(
       prerender_url_);
   load_url_params.referrer = referrer_;
-  load_url_params.transition_type = content::PAGE_TRANSITION_LINK;
+  load_url_params.transition_type = ui::PAGE_TRANSITION_LINK;
   if (origin_ == ORIGIN_OMNIBOX) {
-    load_url_params.transition_type = content::PageTransitionFromInt(
-        content::PAGE_TRANSITION_TYPED |
-        content::PAGE_TRANSITION_FROM_ADDRESS_BAR);
+    load_url_params.transition_type = ui::PageTransitionFromInt(
+        ui::PAGE_TRANSITION_TYPED |
+        ui::PAGE_TRANSITION_FROM_ADDRESS_BAR);
   } else if (origin_ == ORIGIN_INSTANT) {
-    load_url_params.transition_type = content::PageTransitionFromInt(
-        content::PAGE_TRANSITION_GENERATED |
-        content::PAGE_TRANSITION_FROM_ADDRESS_BAR);
+    load_url_params.transition_type = ui::PageTransitionFromInt(
+        ui::PAGE_TRANSITION_GENERATED |
+        ui::PAGE_TRANSITION_FROM_ADDRESS_BAR);
   }
   load_url_params.override_user_agent =
       prerender_manager_->config().is_overriding_user_agent ?
@@ -619,21 +619,17 @@ void PrerenderContents::DidStopLoading(
 }
 
 void PrerenderContents::DocumentLoadedInFrame(
-    int64 frame_id,
-    RenderViewHost* render_view_host) {
-  if (frame_id == main_frame_id_)
+    content::RenderFrameHost* render_frame_host) {
+  if (!render_frame_host->GetParent())
     NotifyPrerenderDomContentLoaded();
 }
 
 void PrerenderContents::DidStartProvisionalLoadForFrame(
-    int64 frame_id,
-    int64 parent_frame_id,
-    bool is_main_frame,
+    content::RenderFrameHost* render_frame_host,
     const GURL& validated_url,
     bool is_error_page,
-    bool is_iframe_srcdoc,
-    RenderViewHost* render_view_host) {
-  if (is_main_frame) {
+    bool is_iframe_srcdoc) {
+  if (!render_frame_host->GetParent()) {
     if (!CheckURL(validated_url))
       return;
 
@@ -647,23 +643,10 @@ void PrerenderContents::DidStartProvisionalLoadForFrame(
   }
 }
 
-void PrerenderContents::DidCommitProvisionalLoadForFrame(
-      int64 frame_id,
-      const base::string16& frame_unique_name,
-      bool is_main_frame,
-      const GURL& url,
-      content::PageTransition transition_type,
-      RenderViewHost* render_view_host) {
-  if (is_main_frame) {
-    main_frame_id_ = frame_id;
-  }
-}
-
-void PrerenderContents::DidFinishLoad(int64 frame_id,
-                                      const GURL& validated_url,
-                                      bool is_main_frame,
-                                      RenderViewHost* render_view_host) {
-  if (is_main_frame)
+void PrerenderContents::DidFinishLoad(
+    content::RenderFrameHost* render_frame_host,
+    const GURL& validated_url) {
+  if (!render_frame_host->GetParent())
     has_finished_loading_ = true;
 }
 
@@ -701,7 +684,7 @@ void PrerenderContents::DidGetRedirectForResourceRequest(
   // it's a redirect on the top-level resource, the name needs to be remembered
   // for future matching, and if it redirects to an https resource, it needs to
   // be canceled. If a subresource is redirected, nothing changes.
-  if (details.resource_type != ResourceType::MAIN_FRAME)
+  if (details.resource_type != content::RESOURCE_TYPE_MAIN_FRAME)
     return;
   CheckURL(details.new_url);
 }
@@ -765,7 +748,7 @@ void PrerenderContents::DestroyWhenUsingTooManyResources() {
 WebContents* PrerenderContents::ReleasePrerenderContents() {
   prerender_contents_->SetDelegate(NULL);
   content::WebContentsObserver::Observe(NULL);
-  if (alias_session_storage_namespace)
+  if (alias_session_storage_namespace.get())
     alias_session_storage_namespace->RemoveTransactionLogProcessId(child_id_);
   return prerender_contents_.release();
 }

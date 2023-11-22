@@ -21,6 +21,8 @@ import static android.support.v17.leanback.widget.BaseGridView.WINDOW_ALIGN_OFFS
 
 import static android.support.v7.widget.RecyclerView.HORIZONTAL;
 
+import android.view.View;
+
 /**
  * Maintains Window Alignment information of two axis.
  */
@@ -64,6 +66,8 @@ class WindowAlignment {
         private int mPaddingLow;
 
         private int mPaddingHigh;
+
+        private boolean mReversedFlow;
 
         private String mName; // for debugging
 
@@ -194,19 +198,30 @@ class WindowAlignment {
             return mSize - mPaddingLow - mPaddingHigh;
         }
 
-        final public int getSystemScrollPos(boolean isFirst, boolean isLast) {
-            return getSystemScrollPos((int) mScrollCenter, isFirst, isLast);
+        final public int getSystemScrollPos(boolean isAtMin, boolean isAtMax) {
+            return getSystemScrollPos((int) mScrollCenter, isAtMin, isAtMax);
         }
 
-        final public int getSystemScrollPos(int scrollCenter, boolean isFirst, boolean isLast) {
+        final public int getSystemScrollPos(int scrollCenter, boolean isAtMin, boolean isAtMax) {
             int middlePosition;
-            if (mWindowAlignmentOffset >= 0) {
-                middlePosition = mWindowAlignmentOffset - mPaddingLow;
+            if (!mReversedFlow) {
+                if (mWindowAlignmentOffset >= 0) {
+                    middlePosition = mWindowAlignmentOffset - mPaddingLow;
+                } else {
+                    middlePosition = mSize + mWindowAlignmentOffset - mPaddingLow;
+                }
+                if (mWindowAlignmentOffsetPercent != WINDOW_ALIGN_OFFSET_PERCENT_DISABLED) {
+                    middlePosition += (int) (mSize * mWindowAlignmentOffsetPercent / 100);
+                }
             } else {
-                middlePosition = mSize + mWindowAlignmentOffset - mPaddingLow;
-            }
-            if (mWindowAlignmentOffsetPercent != WINDOW_ALIGN_OFFSET_PERCENT_DISABLED) {
-                middlePosition += (int) (mSize * mWindowAlignmentOffsetPercent / 100);
+                if (mWindowAlignmentOffset >= 0) {
+                    middlePosition = mSize - mWindowAlignmentOffset - mPaddingLow;
+                } else {
+                    middlePosition = - mWindowAlignmentOffset - mPaddingLow;
+                }
+                if (mWindowAlignmentOffsetPercent != WINDOW_ALIGN_OFFSET_PERCENT_DISABLED) {
+                    middlePosition -= (int) (mSize * mWindowAlignmentOffsetPercent / 100);
+                }
             }
             int clientSize = getClientSize();
             int afterMiddlePosition = clientSize - middlePosition;
@@ -216,28 +231,35 @@ class WindowAlignment {
                     (mWindowAlignment & WINDOW_ALIGN_BOTH_EDGE) == WINDOW_ALIGN_BOTH_EDGE) {
                 if (mMaxEdge - mMinEdge <= clientSize) {
                     // total children size is less than view port and we want to align
-                    // both edge:  align first child to left edge of view port
-                    return mMinEdge - mPaddingLow;
+                    // both edge:  align first child to start edge of view port
+                    return mReversedFlow ? mMaxEdge - mPaddingLow - clientSize
+                            : mMinEdge - mPaddingLow;
                 }
             }
             if (!isMinUnknown) {
-                if ((mWindowAlignment & WINDOW_ALIGN_LOW_EDGE) != 0 &&
-                        (isFirst || scrollCenter - mMinEdge <= middlePosition)) {
-                    // scroll center is within half of view port size: align the left edge
-                    // of first child to the left edge of view port
+                if ((!mReversedFlow ? (mWindowAlignment & WINDOW_ALIGN_LOW_EDGE) != 0
+                     : (mWindowAlignment & WINDOW_ALIGN_HIGH_EDGE) != 0)
+                        && (isAtMin || scrollCenter - mMinEdge <= middlePosition)) {
+                    // scroll center is within half of view port size: align the start edge
+                    // of first child to the start edge of view port
                     return mMinEdge - mPaddingLow;
                 }
             }
             if (!isMaxUnknown) {
-                if ((mWindowAlignment & WINDOW_ALIGN_HIGH_EDGE) != 0 &&
-                        (isLast || mMaxEdge - scrollCenter <= afterMiddlePosition)) {
-                    // scroll center is very close to the right edge of view port : align the
-                    // right edge of last children (plus expanded size) to view port's right
-                    return mMaxEdge -mPaddingLow - (clientSize);
+                if ((!mReversedFlow ? (mWindowAlignment & WINDOW_ALIGN_HIGH_EDGE) != 0
+                        : (mWindowAlignment & WINDOW_ALIGN_LOW_EDGE) != 0)
+                        && (isAtMax || mMaxEdge - scrollCenter <= afterMiddlePosition)) {
+                    // scroll center is very close to the end edge of view port : align the
+                    // end edge of last children (plus expanded size) to view port's end
+                    return mMaxEdge - mPaddingLow - clientSize;
                 }
             }
             // else put scroll center in middle of view port
             return scrollCenter - middlePosition - mPaddingLow;
+        }
+
+        final public void setReversedFlow(boolean reversedFlow) {
+            mReversedFlow = reversedFlow;
         }
 
         @Override
@@ -289,7 +311,7 @@ class WindowAlignment {
     public String toString() {
         return new StringBuffer().append("horizontal=")
                 .append(horizontal.toString())
-                .append("vertical=")
+                .append("; vertical=")
                 .append(vertical.toString())
                 .toString();
     }

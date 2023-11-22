@@ -4,8 +4,8 @@
 
 #include "chrome/browser/chromeos/net/cert_verify_proc_chromeos.h"
 
-#include "crypto/nss_util.h"
 #include "crypto/nss_util_internal.h"
+#include "crypto/scoped_test_nss_chromeos_user.h"
 #include "net/base/net_errors.h"
 #include "net/base/test_data_directory.h"
 #include "net/cert/cert_verify_proc.h"
@@ -60,9 +60,9 @@ class CertVerifyProcChromeOSTest : public testing::Test {
     // The chains:
     //   1. A (end-entity) -> B -> C -> D (self-signed root)
     //   2. A (end-entity) -> B -> C2 -> E (self-signed root)
-    ASSERT_TRUE(certs_1_[0]->Equals(certs_2_[0]));
-    ASSERT_TRUE(certs_1_[1]->Equals(certs_2_[1]));
-    ASSERT_FALSE(certs_1_[2]->Equals(certs_2_[2]));
+    ASSERT_TRUE(certs_1_[0]->Equals(certs_2_[0].get()));
+    ASSERT_TRUE(certs_1_[1]->Equals(certs_2_[1].get()));
+    ASSERT_FALSE(certs_1_[2]->Equals(certs_2_[2].get()));
     ASSERT_EQ("C CA", certs_1_[2]->subject().common_name);
     ASSERT_EQ("C CA", certs_2_[2]->subject().common_name);
 
@@ -167,7 +167,7 @@ TEST_F(CertVerifyProcChromeOSTest, TestChainVerify) {
   EXPECT_EQ("CN=E Root CA", verify_root);
 
   // Delete D root.
-  EXPECT_TRUE(db_1_->DeleteCertAndKey(root_1_[0]));
+  EXPECT_TRUE(db_1_->DeleteCertAndKey(root_1_[0].get()));
   EXPECT_EQ(net::ERR_CERT_AUTHORITY_INVALID,
             Verify(verify_proc_default_.get(), server.get(), &verify_root));
   // User 1 should now fail to verify.
@@ -178,7 +178,7 @@ TEST_F(CertVerifyProcChromeOSTest, TestChainVerify) {
   EXPECT_EQ("CN=E Root CA", verify_root);
 
   // Delete E root.
-  EXPECT_TRUE(db_2_->DeleteCertAndKey(root_2_[0]));
+  EXPECT_TRUE(db_2_->DeleteCertAndKey(root_2_[0].get()));
   EXPECT_EQ(net::ERR_CERT_AUTHORITY_INVALID,
             Verify(verify_proc_default_.get(), server.get(), &verify_root));
   // User 1 should still fail to verify.
@@ -286,7 +286,8 @@ class CertVerifyProcChromeOSOrderingTest
 // Test a variety of different combinations of (maybe) verifying / (maybe)
 // importing / verifying again, to try to find any cases where caching might
 // affect the results.
-TEST_P(CertVerifyProcChromeOSOrderingTest, TrustThenVerify) {
+// http://crbug.com/396501
+TEST_P(CertVerifyProcChromeOSOrderingTest, DISABLED_TrustThenVerify) {
   const ParamType& param = GetParam();
   const bool verify_first = std::tr1::get<0>(param);
   const int trust_bitmask = std::tr1::get<1>(param);

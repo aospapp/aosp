@@ -19,6 +19,44 @@ const std::string VideoCaptureDevice::Name::GetNameAndModel() const {
   return device_name_ + suffix;
 }
 
+VideoCaptureDevice::Name::Name() {}
+
+VideoCaptureDevice::Name::Name(const std::string& name, const std::string& id)
+    : device_name_(name), unique_id_(id) {}
+
+#if defined(OS_WIN)
+VideoCaptureDevice::Name::Name(const std::string& name,
+                               const std::string& id,
+                               const CaptureApiType api_type)
+    : device_name_(name),
+      unique_id_(id),
+      capture_api_class_(api_type),
+      capabilities_id_(id) {}
+#endif
+
+#if defined(OS_MACOSX)
+VideoCaptureDevice::Name::Name(const std::string& name,
+                               const std::string& id,
+                               const CaptureApiType api_type)
+    : device_name_(name),
+      unique_id_(id),
+      capture_api_class_(api_type),
+      transport_type_(OTHER_TRANSPORT),
+      is_blacklisted_(false) {}
+
+VideoCaptureDevice::Name::Name(const std::string& name,
+                               const std::string& id,
+                               const CaptureApiType api_type,
+                               const TransportType transport_type)
+    : device_name_(name),
+      unique_id_(id),
+      capture_api_class_(api_type),
+      transport_type_(transport_type),
+      is_blacklisted_(false) {}
+#endif
+
+VideoCaptureDevice::Name::~Name() {}
+
 VideoCaptureDevice::~VideoCaptureDevice() {}
 
 int VideoCaptureDevice::GetPowerLineFrequencyForLocation() const {

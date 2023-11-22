@@ -24,6 +24,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.RemoteException;
+import android.os.UserHandle;
 import android.telecom.AudioState;
 import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
@@ -67,7 +68,7 @@ final class ConnectionServiceWrapper extends ServiceBinder<IConnectionService> {
     private static final int MSG_SET_DISCONNECTED = 5;
     private static final int MSG_SET_ON_HOLD = 6;
     private static final int MSG_SET_RINGBACK_REQUESTED = 7;
-    private static final int MSG_SET_CALL_CAPABILITIES = 8;
+    private static final int MSG_SET_CONNECTION_CAPABILITIES = 8;
     private static final int MSG_SET_IS_CONFERENCED = 9;
     private static final int MSG_ADD_CONFERENCE_CALL = 10;
     private static final int MSG_REMOVE_CALL = 11;
@@ -80,6 +81,8 @@ final class ConnectionServiceWrapper extends ServiceBinder<IConnectionService> {
     private static final int MSG_SET_CALLER_DISPLAY_NAME = 18;
     private static final int MSG_SET_VIDEO_STATE = 19;
     private static final int MSG_SET_CONFERENCEABLE_CONNECTIONS = 20;
+    private static final int MSG_ADD_EXISTING_CONNECTION = 21;
+    private static final int MSG_ON_POST_DIAL_CHAR = 22;
 
     private final Handler mHandler = new Handler() {
         @Override
@@ -155,13 +158,13 @@ final class ConnectionServiceWrapper extends ServiceBinder<IConnectionService> {
                     }
                     break;
                 }
-                case MSG_SET_CALL_CAPABILITIES: {
+                case MSG_SET_CONNECTION_CAPABILITIES: {
                     call = mCallIdMapper.getCall(msg.obj);
                     if (call != null) {
-                        call.setCallCapabilities(msg.arg1);
+                        call.setConnectionCapabilities(msg.arg1);
                     } else {
                         //Log.w(ConnectionServiceWrapper.this,
-                        //      "setCallCapabilities, unknown call id: %s", msg.obj);
+                        //      "setConnectionCapabilities, unknown call id: %s", msg.obj);
                     }
                     break;
                 }
@@ -208,19 +211,26 @@ final class ConnectionServiceWrapper extends ServiceBinder<IConnectionService> {
                                 hasValidCalls = true;
                             }
                         }
-                        if (!hasValidCalls) {
+                        // But don't bail out if the connection count is 0, because that is a valid
+                        // IMS conference state.
+                        if (!hasValidCalls && parcelableConference.getConnectionIds().size() > 0) {
                             Log.d(this, "Attempting to add a conference with no valid calls");
                             break;
                         }
 
                         // need to create a new Call
+                        PhoneAccountHandle phAcc = null;
+                        if (parcelableConference != null &&
+                                parcelableConference.getPhoneAccount() != null) {
+                            phAcc = parcelableConference.getPhoneAccount();
+                        }
                         Call conferenceCall = mCallsManager.createConferenceCall(
-                                null, parcelableConference);
+                                phAcc, parcelableConference);
                         mCallIdMapper.addCall(conferenceCall, id);
                         conferenceCall.setConnectionService(ConnectionServiceWrapper.this);
 
-                        Log.d(this, "adding children to conference %s",
-                                parcelableConference.getConnectionIds());
+                        Log.d(this, "adding children to conference %s phAcc %s",
+                                parcelableConference.getConnectionIds(), phAcc);
                         for (String callId : parcelableConference.getConnectionIds()) {
                             Call childCall = mCallIdMapper.getCall(callId);
                             Log.d(this, "found child: %s", callId);
@@ -236,7 +246,7 @@ final class ConnectionServiceWrapper extends ServiceBinder<IConnectionService> {
                 case MSG_REMOVE_CALL: {
                     call = mCallIdMapper.getCall(msg.obj);
                     if (call != null) {
-                        if (call.isActive()) {
+                        if (call.isAlive()) {
                             mCallsManager.markCallAsDisconnected(
                                     call, new DisconnectCause(DisconnectCause.REMOTE));
                         } else {
@@ -254,6 +264,21 @@ final class ConnectionServiceWrapper extends ServiceBinder<IConnectionService> {
                             call.onPostDialWait(remaining);
                         } else {
                             //Log.w(this, "onPostDialWait, unknown call id: %s", args.arg1);
+                        }
+                    } finally {
+                        args.recycle();
+                    }
+                    break;
+                }
+                case MSG_ON_POST_DIAL_CHAR: {
+                    SomeArgs args = (SomeArgs) msg.obj;
+                    try {
+                        call = mCallIdMapper.getCall(args.arg1);
+                        if (call != null) {
+                            char nextChar = (char) args.argi1;
+                            call.onPostDialChar(nextChar);
+                        } else {
+                            //Log.w(this, "onPostDialChar, unknown call id: %s", args.arg1);
                         }
                     } finally {
                         args.recycle();
@@ -350,6 +375,19 @@ final class ConnectionServiceWrapper extends ServiceBinder<IConnectionService> {
                     }
                     break;
                 }
+                case MSG_ADD_EXISTING_CONNECTION: {
+                    SomeArgs args = (SomeArgs) msg.obj;
+                    try {
+                        String callId = (String)args.arg1;
+                        ParcelableConnection connection = (ParcelableConnection)args.arg2;
+                        Call existingCall = mCallsManager.createCallForExistingConnection(callId,
+                                connection);
+                        mCallIdMapper.addCall(existingCall, callId);
+                        existingCall.setConnectionService(ConnectionServiceWrapper.this);
+                    } finally {
+                        args.recycle();
+                    }
+                }
             }
         }
     };
@@ -445,10 +483,10 @@ final class ConnectionServiceWrapper extends ServiceBinder<IConnectionService> {
         }
 
         @Override
-        public void setCallCapabilities(String callId, int callCapabilities) {
-            logIncoming("setCallCapabilities %s %d", callId, callCapabilities);
+        public void setConnectionCapabilities(String callId, int connectionCapabilities) {
+            logIncoming("setConnectionCapabilities %s %d", callId, connectionCapabilities);
             if (mCallIdMapper.isValidCallId(callId) || mCallIdMapper.isValidConferenceId(callId)) {
-                mHandler.obtainMessage(MSG_SET_CALL_CAPABILITIES, callCapabilities, 0, callId)
+                mHandler.obtainMessage(MSG_SET_CONNECTION_CAPABILITIES, connectionCapabilities, 0, callId)
                         .sendToTarget();
             } else {
                 Log.w(this, "ID not valid for setCallCapabilities");
@@ -458,12 +496,10 @@ final class ConnectionServiceWrapper extends ServiceBinder<IConnectionService> {
         @Override
         public void setIsConferenced(String callId, String conferenceCallId) {
             logIncoming("setIsConferenced %s %s", callId, conferenceCallId);
-            if (mCallIdMapper.isValidCallId(callId)) {
-                SomeArgs args = SomeArgs.obtain();
-                args.arg1 = callId;
-                args.arg2 = conferenceCallId;
-                mHandler.obtainMessage(MSG_SET_IS_CONFERENCED, args).sendToTarget();
-            }
+            SomeArgs args = SomeArgs.obtain();
+            args.arg1 = callId;
+            args.arg2 = conferenceCallId;
+            mHandler.obtainMessage(MSG_SET_IS_CONFERENCED, args).sendToTarget();
         }
 
         @Override
@@ -485,6 +521,17 @@ final class ConnectionServiceWrapper extends ServiceBinder<IConnectionService> {
                 args.arg1 = callId;
                 args.arg2 = remaining;
                 mHandler.obtainMessage(MSG_ON_POST_DIAL_WAIT, args).sendToTarget();
+            }
+        }
+
+        @Override
+        public void onPostDialChar(String callId, char nextChar) throws RemoteException {
+            logIncoming("onPostDialChar %s %s", callId, nextChar);
+            if (mCallIdMapper.isValidCallId(callId)) {
+                SomeArgs args = SomeArgs.obtain();
+                args.arg1 = callId;
+                args.argi1 = nextChar;
+                mHandler.obtainMessage(MSG_ON_POST_DIAL_CHAR, args).sendToTarget();
             }
         }
 
@@ -558,6 +605,15 @@ final class ConnectionServiceWrapper extends ServiceBinder<IConnectionService> {
                 mHandler.obtainMessage(MSG_SET_CONFERENCEABLE_CONNECTIONS, args).sendToTarget();
             }
         }
+
+        @Override
+        public void addExistingConnection(String callId, ParcelableConnection connection) {
+            logIncoming("addExistingConnection  %s %s", callId, connection);
+            SomeArgs args = SomeArgs.obtain();
+            args.arg1 = callId;
+            args.arg2 = connection;
+            mHandler.obtainMessage(MSG_ADD_EXISTING_CONNECTION, args).sendToTarget();
+        }
     }
 
     private final Adapter mAdapter = new Adapter();
@@ -584,13 +640,15 @@ final class ConnectionServiceWrapper extends ServiceBinder<IConnectionService> {
      * @param connectionServiceRepository Connection service repository.
      * @param phoneAccountRegistrar Phone account registrar
      * @param context The context.
+     * @param userHandle The {@link UserHandle} to use when binding.
      */
     ConnectionServiceWrapper(
             ComponentName componentName,
             ConnectionServiceRepository connectionServiceRepository,
             PhoneAccountRegistrar phoneAccountRegistrar,
-            Context context) {
-        super(ConnectionService.SERVICE_INTERFACE, componentName, context);
+            Context context,
+            UserHandle userHandle) {
+        super(ConnectionService.SERVICE_INTERFACE, componentName, context, userHandle);
         mConnectionServiceRepository = connectionServiceRepository;
         phoneAccountRegistrar.addListener(new PhoneAccountRegistrar.Listener() {
             // TODO -- Upon changes to PhoneAccountRegistrar, need to re-wire connections
@@ -950,7 +1008,8 @@ final class ConnectionServiceWrapper extends ServiceBinder<IConnectionService> {
             PhoneAccount account = mPhoneAccountRegistrar.getPhoneAccount(handle);
             if ((account.getCapabilities() & PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION) != 0) {
                 ConnectionServiceWrapper service =
-                        mConnectionServiceRepository.getService(handle.getComponentName());
+                        mConnectionServiceRepository.getService(handle.getComponentName(),
+                                handle.getUserHandle());
                 if (service != null) {
                     simServices.add(service);
                 }

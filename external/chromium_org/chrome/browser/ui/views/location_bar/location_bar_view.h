@@ -9,11 +9,9 @@
 #include <vector>
 
 #include "base/compiler_specific.h"
-#include "base/memory/weak_ptr.h"
 #include "base/prefs/pref_member.h"
 #include "chrome/browser/extensions/extension_context_menu_model.h"
-#include "chrome/browser/search_engines/template_url_service_observer.h"
-#include "chrome/browser/ui/omnibox/location_bar.h"
+#include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_controller.h"
 #include "chrome/browser/ui/search/search_model_observer.h"
 #include "chrome/browser/ui/toolbar/toolbar_model.h"
@@ -21,8 +19,7 @@
 #include "chrome/browser/ui/views/dropdown_bar_host_delegate.h"
 #include "chrome/browser/ui/views/extensions/extension_popup.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
-#include "content/public/browser/notification_observer.h"
-#include "content/public/browser/notification_registrar.h"
+#include "components/search_engines/template_url_service_observer.h"
 #include "ui/gfx/animation/animation_delegate.h"
 #include "ui/gfx/font.h"
 #include "ui/gfx/rect.h"
@@ -30,7 +27,6 @@
 #include "ui/views/drag_controller.h"
 
 class ActionBoxButtonView;
-class AddToAppLauncherView;
 class CommandUpdater;
 class ContentSettingBubbleModelDelegate;
 class ContentSettingImageView;
@@ -87,7 +83,6 @@ class LocationBarView : public LocationBar,
                         public DropdownBarHostDelegate,
                         public gfx::AnimationDelegate,
                         public TemplateURLServiceObserver,
-                        public content::NotificationObserver,
                         public SearchModelObserver {
  public:
   // The location bar view's class name.
@@ -321,16 +316,8 @@ class LocationBarView : public LocationBar,
   // Updates |manage_passwords_icon_view_|. Returns true if visibility changed.
   bool RefreshManagePasswordsIconView();
 
-  // Shows the manage passwords bubble if there is a savable password.
-  void ShowManagePasswordsBubbleIfNeeded();
-
   // Helper to show the first run info bubble.
   void ShowFirstRunBubbleInternal();
-
-  // Handles a request to change the value of this text field from software
-  // using an accessibility API (typically automation software, screen readers
-  // don't normally use this). Sets the value and clears the selection.
-  void AccessibilitySetValue(const base::string16& new_value);
 
   // Returns true if the suggest text is valid.
   bool HasValidSuggestText() const;
@@ -355,13 +342,16 @@ class LocationBarView : public LocationBar,
   virtual void ShowFirstRunBubble() OVERRIDE;
   virtual GURL GetDestinationURL() const OVERRIDE;
   virtual WindowOpenDisposition GetWindowOpenDisposition() const OVERRIDE;
-  virtual content::PageTransition GetPageTransition() const OVERRIDE;
+  virtual ui::PageTransition GetPageTransition() const OVERRIDE;
   virtual void AcceptInput() OVERRIDE;
   virtual void FocusSearch() OVERRIDE;
   virtual void UpdateContentSettingsIcons() OVERRIDE;
   virtual void UpdateManagePasswordsIconAndBubble() OVERRIDE;
   virtual void UpdatePageActions() OVERRIDE;
   virtual void InvalidatePageActions() OVERRIDE;
+  virtual void UpdateBookmarkStarVisibility() OVERRIDE;
+  virtual bool ShowPageActionPopup(const extensions::Extension* extension,
+                                   bool grant_active_tab) OVERRIDE;
   virtual void UpdateOpenPDFInReaderPrompt() OVERRIDE;
   virtual void UpdateGeneratedCreditCardView() OVERRIDE;
   virtual void SaveStateToContents(content::WebContents* contents) OVERRIDE;
@@ -415,11 +405,6 @@ class LocationBarView : public LocationBar,
 
   // TemplateURLServiceObserver:
   virtual void OnTemplateURLServiceChanged() OVERRIDE;
-
-  // content::NotificationObserver:
-  virtual void Observe(int type,
-                       const content::NotificationSource& source,
-                       const content::NotificationDetails& details) OVERRIDE;
 
   // SearchModelObserver:
   virtual void ModelChanged(const SearchModel::State& old_state,
@@ -496,9 +481,6 @@ class LocationBarView : public LocationBar,
   // The icon for Translate.
   TranslateIconView* translate_icon_view_;
 
-  // The view to add pages to the app launcher.
-  AddToAppLauncherView* add_to_app_launcher_view_;
-
   // The star.
   StarView* star_view_;
 
@@ -565,12 +547,6 @@ class LocationBarView : public LocationBar,
   // from the width of the hostname to the ending value.
   int current_omnibox_width_;
   int ending_omnibox_width_;
-
-  // Used to register for notifications received by NotificationObserver.
-  content::NotificationRegistrar registrar_;
-
-  // Used to bind callback functions to this object.
-  base::WeakPtrFactory<LocationBarView> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(LocationBarView);
 };

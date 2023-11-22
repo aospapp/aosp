@@ -6,7 +6,7 @@
 
 #include "chrome/common/prefetch_messages.h"
 #include "content/public/renderer/render_frame.h"
-#include "third_party/WebKit/public/web/WebFrame.h"
+#include "third_party/WebKit/public/web/WebLocalFrame.h"
 #include "third_party/WebKit/public/web/WebURLLoaderOptions.h"
 
 namespace prefetch {
@@ -33,7 +33,7 @@ bool PrefetchHelper::OnMessageReceived(
 void PrefetchHelper::OnPrefetch(const GURL& url) {
   blink::WebFrame* frame = render_frame()->GetWebFrame();
   blink::WebURLRequest request(url);
-  request.setTargetType(blink::WebURLRequest::TargetIsPrefetch);
+  request.setRequestContext(blink::WebURLRequest::RequestContextPrefetch);
   request.setPriority(blink::WebURLRequest::PriorityVeryLow);
   blink::WebURLLoaderOptions options;
   options.allowCredentials = true;

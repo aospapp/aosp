@@ -9,8 +9,10 @@
 #include "base/prefs/testing_pref_service.h"
 #include "base/test/scoped_path_override.h"
 #include "chrome/browser/chrome_notification_types.h"
+#include "chrome/browser/chromeos/app_mode/kiosk_app_manager.h"
 #include "chrome/browser/chromeos/customization_document.h"
 #include "chrome/browser/chromeos/login/users/fake_user_manager.h"
+#include "chrome/browser/chromeos/login/users/scoped_user_manager_enabler.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_service_test_base.h"
 #include "chrome/common/chrome_paths.h"
@@ -75,6 +77,7 @@ class ExternalProviderImplChromeOSTest : public ExtensionServiceTestBase {
   }
 
   virtual void TearDown() OVERRIDE {
+    chromeos::KioskAppManager::Shutdown();
     chromeos::system::StatisticsProvider::SetTestProvider(NULL);
     TestingBrowserProcess::GetGlobal()->SetLocalState(NULL);
   }
@@ -97,7 +100,7 @@ TEST_F(ExternalProviderImplChromeOSTest, Normal) {
 
   service_->CheckForExternalUpdates();
   content::WindowedNotificationObserver(
-      chrome::NOTIFICATION_CRX_INSTALLER_DONE,
+      extensions::NOTIFICATION_CRX_INSTALLER_DONE,
       content::NotificationService::AllSources()).Wait();
 
   EXPECT_TRUE(service_->GetInstalledExtension(kExternalAppId));

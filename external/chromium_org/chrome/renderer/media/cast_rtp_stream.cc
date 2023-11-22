@@ -8,6 +8,7 @@
 #include "base/debug/trace_event.h"
 #include "base/logging.h"
 #include "base/memory/weak_ptr.h"
+#include "base/strings/stringprintf.h"
 #include "base/sys_info.h"
 #include "chrome/renderer/media/cast_session.h"
 #include "chrome/renderer/media/cast_udp_transport.h"
@@ -24,7 +25,7 @@
 #include "media/cast/cast_config.h"
 #include "media/cast/cast_defines.h"
 #include "media/cast/cast_sender.h"
-#include "media/cast/transport/cast_transport_config.h"
+#include "media/cast/net/cast_transport_config.h"
 #include "third_party/WebKit/public/platform/WebMediaStreamSource.h"
 #include "ui/gfx/geometry/size.h"
 
@@ -49,31 +50,34 @@ const int kBufferAudioData = 2;
 
 CastRtpPayloadParams DefaultOpusPayload() {
   CastRtpPayloadParams payload;
-  payload.ssrc = 1;
-  payload.feedback_ssrc = 2;
   payload.payload_type = 127;
   payload.max_latency_ms = media::cast::kDefaultRtpMaxDelayMs;
-  payload.codec_name = kCodecNameOpus;
-  payload.clock_rate = 48000;
-  payload.channels = 2;
+  payload.ssrc = 1;
+  payload.feedback_ssrc = 2;
+  payload.clock_rate = media::cast::kDefaultAudioSamplingRate;
   // The value is 0 which means VBR.
   payload.min_bitrate = payload.max_bitrate =
       media::cast::kDefaultAudioEncoderBitrate;
+  payload.channels = 2;
+  payload.max_frame_rate = 100;  // 10 ms audio frames
+  payload.codec_name = kCodecNameOpus;
   return payload;
 }
 
 CastRtpPayloadParams DefaultVp8Payload() {
   CastRtpPayloadParams payload;
-  payload.ssrc = 11;
-  payload.feedback_ssrc = 12;
   payload.payload_type = 96;
   payload.max_latency_ms = media::cast::kDefaultRtpMaxDelayMs;
-  payload.codec_name = kCodecNameVp8;
-  payload.clock_rate = 90000;
+  payload.ssrc = 11;
+  payload.feedback_ssrc = 12;
+  payload.clock_rate = media::cast::kVideoFrequency;
+  payload.max_bitrate = 2000;
+  payload.min_bitrate = 50;
+  payload.channels = 1;
+  payload.max_frame_rate = media::cast::kDefaultMaxFrameRate;
   payload.width = 1280;
   payload.height = 720;
-  payload.min_bitrate = 50;
-  payload.max_bitrate = 2000;
+  payload.codec_name = kCodecNameVp8;
   return payload;
 }
 
@@ -81,16 +85,18 @@ CastRtpPayloadParams DefaultH264Payload() {
   CastRtpPayloadParams payload;
   // TODO(hshi): set different ssrc/rtpPayloadType values for H264 and VP8
   // once b/13696137 is fixed.
-  payload.ssrc = 11;
-  payload.feedback_ssrc = 12;
   payload.payload_type = 96;
   payload.max_latency_ms = media::cast::kDefaultRtpMaxDelayMs;
-  payload.codec_name = kCodecNameH264;
-  payload.clock_rate = 90000;
+  payload.ssrc = 11;
+  payload.feedback_ssrc = 12;
+  payload.clock_rate = media::cast::kVideoFrequency;
+  payload.max_bitrate = 2000;
+  payload.min_bitrate = 50;
+  payload.channels = 1;
+  payload.max_frame_rate = media::cast::kDefaultMaxFrameRate;
   payload.width = 1280;
   payload.height = 720;
-  payload.min_bitrate = 50;
-  payload.max_bitrate = 2000;
+  payload.codec_name = kCodecNameH264;
   return payload;
 }
 
@@ -150,50 +156,85 @@ std::vector<CastRtpParams> SupportedVideoParams() {
 
 bool ToAudioSenderConfig(const CastRtpParams& params,
                          AudioSenderConfig* config) {
-  config->rtp_config.ssrc = params.payload.ssrc;
+  config->ssrc = params.payload.ssrc;
   config->incoming_feedback_ssrc = params.payload.feedback_ssrc;
-  config->rtp_config.payload_type = params.payload.payload_type;
-  config->rtp_config.max_delay_ms = params.payload.max_latency_ms;
-  config->rtp_config.aes_key = params.payload.aes_key;
-  config->rtp_config.aes_iv_mask = params.payload.aes_iv_mask;
+  if (config->ssrc == config->incoming_feedback_ssrc)
+    return false;
+  config->min_playout_delay =
+      base::TimeDelta::FromMilliseconds(
+          params.payload.min_latency_ms ?
+          params.payload.min_latency_ms :
+          params.payload.max_latency_ms);
+  config->max_playout_delay =
+      base::TimeDelta::FromMilliseconds(params.payload.max_latency_ms);
+  if (config->min_playout_delay <= base::TimeDelta())
+    return false;
+  if (config->min_playout_delay > config->max_playout_delay)
+    return false;
+  config->rtp_payload_type = params.payload.payload_type;
   config->use_external_encoder = false;
   config->frequency = params.payload.clock_rate;
+  if (config->frequency < 8000)
+    return false;
   config->channels = params.payload.channels;
+  if (config->channels < 1)
+    return false;
   config->bitrate = params.payload.max_bitrate * kBitrateMultiplier;
-  config->codec = media::cast::transport::kPcm16;
   if (params.payload.codec_name == kCodecNameOpus)
-    config->codec = media::cast::transport::kOpus;
+    config->codec = media::cast::CODEC_AUDIO_OPUS;
   else
     return false;
+  config->aes_key = params.payload.aes_key;
+  config->aes_iv_mask = params.payload.aes_iv_mask;
   return true;
 }
 
 bool ToVideoSenderConfig(const CastRtpParams& params,
                          VideoSenderConfig* config) {
-  config->rtp_config.ssrc = params.payload.ssrc;
+  config->ssrc = params.payload.ssrc;
   config->incoming_feedback_ssrc = params.payload.feedback_ssrc;
-  config->rtp_config.payload_type = params.payload.payload_type;
-  config->rtp_config.max_delay_ms = params.payload.max_latency_ms;
-  config->rtp_config.aes_key = params.payload.aes_key;
-  config->rtp_config.aes_iv_mask = params.payload.aes_iv_mask;
-  config->use_external_encoder = false;
+  if (config->ssrc == config->incoming_feedback_ssrc)
+    return false;
+  config->min_playout_delay =
+      base::TimeDelta::FromMilliseconds(
+          params.payload.min_latency_ms ?
+          params.payload.min_latency_ms :
+          params.payload.max_latency_ms);
+  config->max_playout_delay =
+      base::TimeDelta::FromMilliseconds(params.payload.max_latency_ms);
+  if (config->min_playout_delay <= base::TimeDelta())
+    return false;
+  if (config->min_playout_delay > config->max_playout_delay)
+    return false;
+  config->rtp_payload_type = params.payload.payload_type;
   config->width = params.payload.width;
   config->height = params.payload.height;
+  if (config->width < 2 || config->height < 2)
+    return false;
   config->min_bitrate = config->start_bitrate =
       params.payload.min_bitrate * kBitrateMultiplier;
   config->max_bitrate = params.payload.max_bitrate * kBitrateMultiplier;
+  if (config->min_bitrate > config->max_bitrate)
+    return false;
+  config->start_bitrate = config->min_bitrate;
+  config->max_frame_rate = static_cast<int>(
+      std::max(1.0, params.payload.max_frame_rate) + 0.5);
+  if (config->max_frame_rate > 120)
+    return false;
   if (params.payload.codec_name == kCodecNameVp8) {
     config->use_external_encoder = IsHardwareVP8EncodingSupported();
-    config->codec = media::cast::transport::kVp8;
+    config->codec = media::cast::CODEC_VIDEO_VP8;
   } else if (params.payload.codec_name == kCodecNameH264) {
     config->use_external_encoder = IsHardwareH264EncodingSupported();
-    config->codec = media::cast::transport::kH264;
+    config->codec = media::cast::CODEC_VIDEO_H264;
   } else {
     return false;
   }
   if (!config->use_external_encoder) {
     config->number_of_encode_threads = NumberOfEncodeThreads();
   }
+  config->aes_key = params.payload.aes_key;
+  config->aes_iv_mask = params.payload.aes_iv_mask;
   return true;
 }
 
@@ -209,14 +250,14 @@ class CastVideoSink : public base::SupportsWeakPtr<CastVideoSink>,
                       public content::MediaStreamVideoSink {
  public:
   // |track| provides data for this sink.
-  // |expected_coded_size| is the expected dimension of the video frame.
+  // |expected_natural_size| is the expected dimension of the video frame.
   // |error_callback| is called if video formats don't match.
   CastVideoSink(const blink::WebMediaStreamTrack& track,
-                const gfx::Size& expected_coded_size,
+                const gfx::Size& expected_natural_size,
                 const CastRtpStream::ErrorCallback& error_callback)
       : track_(track),
         sink_added_(false),
-        expected_coded_size_(expected_coded_size),
+        expected_natural_size_(expected_natural_size),
         error_callback_(error_callback) {}
 
   virtual ~CastVideoSink() {
@@ -227,15 +268,21 @@ class CastVideoSink : public base::SupportsWeakPtr<CastVideoSink>,
   // This static method is used to forward video frames to |frame_input|.
   static void OnVideoFrame(
       // These parameters are already bound when callback is created.
-      const gfx::Size& expected_coded_size,
+      const gfx::Size& expected_natural_size,
       const CastRtpStream::ErrorCallback& error_callback,
       const scoped_refptr<media::cast::VideoFrameInput> frame_input,
       // These parameters are passed for each frame.
       const scoped_refptr<media::VideoFrame>& frame,
       const media::VideoCaptureFormat& format,
       const base::TimeTicks& estimated_capture_time) {
-    if (frame->coded_size() != expected_coded_size) {
-      error_callback.Run("Video frame resolution does not match config.");
+    if (frame->natural_size() != expected_natural_size) {
+      error_callback.Run(
+          base::StringPrintf("Video frame resolution does not match config."
+                             " Expected %dx%d. Got %dx%d.",
+                             expected_natural_size.width(),
+                             expected_natural_size.height(),
+                             frame->natural_size().width(),
+                             frame->natural_size().height()));
       return;
     }
 
@@ -264,7 +311,7 @@ class CastVideoSink : public base::SupportsWeakPtr<CastVideoSink>,
         this,
         base::Bind(
             &CastVideoSink::OnVideoFrame,
-            expected_coded_size_,
+            expected_natural_size_,
             error_callback_,
             frame_input),
         track_);
@@ -273,7 +320,7 @@ class CastVideoSink : public base::SupportsWeakPtr<CastVideoSink>,
  private:
   blink::WebMediaStreamTrack track_;
   bool sink_added_;
-  gfx::Size expected_coded_size_;
+  gfx::Size expected_natural_size_;
   CastRtpStream::ErrorCallback error_callback_;
 
   DISALLOW_COPY_AND_ASSIGN(CastVideoSink);
@@ -431,12 +478,14 @@ CastCodecSpecificParams::~CastCodecSpecificParams() {}
 CastRtpPayloadParams::CastRtpPayloadParams()
     : payload_type(0),
       max_latency_ms(0),
+      min_latency_ms(0),
       ssrc(0),
       feedback_ssrc(0),
       clock_rate(0),
       max_bitrate(0),
       min_bitrate(0),
       channels(0),
+      max_frame_rate(0.0),
       width(0),
       height(0) {}
 
@@ -465,7 +514,7 @@ void CastRtpStream::Start(const CastRtpParams& params,
                           const base::Closure& start_callback,
                           const base::Closure& stop_callback,
                           const ErrorCallback& error_callback) {
-  VLOG(1) << "CastRtpStream::Start =  " << (IsAudio() ? "audio" : "video");
+  VLOG(1) << "CastRtpStream::Start = " << (IsAudio() ? "audio" : "video");
   stop_callback_ = stop_callback;
   error_callback_ = error_callback;
 
@@ -512,7 +561,7 @@ void CastRtpStream::Start(const CastRtpParams& params,
 }
 
 void CastRtpStream::Stop() {
-  VLOG(1) << "CastRtpStream::Stop =  " << (IsAudio() ? "audio" : "video");
+  VLOG(1) << "CastRtpStream::Stop = " << (IsAudio() ? "audio" : "video");
   audio_sink_.reset();
   video_sink_.reset();
   if (!stop_callback_.is_null())
@@ -520,17 +569,23 @@ void CastRtpStream::Stop() {
 }
 
 void CastRtpStream::ToggleLogging(bool enable) {
+  VLOG(1) << "CastRtpStream::ToggleLogging(" << enable << ") = "
+          << (IsAudio() ? "audio" : "video");
   cast_session_->ToggleLogging(IsAudio(), enable);
 }
 
 void CastRtpStream::GetRawEvents(
     const base::Callback<void(scoped_ptr<base::BinaryValue>)>& callback,
     const std::string& extra_data) {
+  VLOG(1) << "CastRtpStream::GetRawEvents = "
+          << (IsAudio() ? "audio" : "video");
   cast_session_->GetEventLogsAndReset(IsAudio(), extra_data, callback);
 }
 
 void CastRtpStream::GetStats(
     const base::Callback<void(scoped_ptr<base::DictionaryValue>)>& callback) {
+  VLOG(1) << "CastRtpStream::GetStats = "
+          << (IsAudio() ? "audio" : "video");
   cast_session_->GetStatsAndReset(IsAudio(), callback);
 }
 
@@ -539,6 +594,8 @@ bool CastRtpStream::IsAudio() const {
 }
 
 void CastRtpStream::DidEncounterError(const std::string& message) {
+  VLOG(1) << "CastRtpStream::DidEncounterError(" << message << ") = "
+          << (IsAudio() ? "audio" : "video");
   // Save the WeakPtr first because the error callback might delete this object.
   base::WeakPtr<CastRtpStream> ptr = weak_factory_.GetWeakPtr();
   error_callback_.Run(message);

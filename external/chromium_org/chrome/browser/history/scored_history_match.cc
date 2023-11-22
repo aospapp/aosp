@@ -17,10 +17,10 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/autocomplete/history_url_provider.h"
-#include "chrome/browser/omnibox/omnibox_field_trial.h"
-#include "components/autocomplete/url_prefix.h"
 #include "components/bookmarks/browser/bookmark_utils.h"
 #include "components/history/core/browser/history_client.h"
+#include "components/omnibox/omnibox_field_trial.h"
+#include "components/omnibox/url_prefix.h"
 #include "content/public/browser/browser_thread.h"
 
 namespace history {
@@ -69,8 +69,8 @@ ScoredHistoryMatch::ScoredHistoryMatch(
   // so that we can score as well as provide autocomplete highlighting.
   base::OffsetAdjuster::Adjustments adjustments;
   base::string16 url =
-      bookmark_utils::CleanUpUrlForMatching(gurl, languages, &adjustments);
-  base::string16 title = bookmark_utils::CleanUpTitleForMatching(row.title());
+      bookmarks::CleanUpUrlForMatching(gurl, languages, &adjustments);
+  base::string16 title = bookmarks::CleanUpTitleForMatching(row.title());
   int term_num = 0;
   for (String16Vector::const_iterator iter = terms.begin(); iter != terms.end();
        ++iter, ++term_num) {
@@ -531,7 +531,7 @@ float ScoredHistoryMatch::GetFrequency(const base::Time& now,
   float summed_visit_points = 0;
   for (size_t i = 0; i < std::min(visits.size(), kMaxVisitsToScore); ++i) {
     int value_of_transition =
-        (visits[i].second == content::PAGE_TRANSITION_TYPED) ? 20 : 1;
+        (visits[i].second == ui::PAGE_TRANSITION_TYPED) ? 20 : 1;
     if (bookmarked)
       value_of_transition = std::max(value_of_transition, bookmark_value_);
     const float bucket_weight =

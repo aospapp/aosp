@@ -7,15 +7,14 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/logging.h"
 #include "base/message_loop/message_loop.h"
-#include "base/message_loop/message_loop_proxy.h"
 #include "chrome/browser/sync_file_system/local/canned_syncable_file_system.h"
 #include "chrome/browser/sync_file_system/local/local_file_sync_context.h"
+#include "storage/browser/fileapi/external_mount_points.h"
+#include "storage/common/fileapi/file_system_types.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "webkit/browser/fileapi/external_mount_points.h"
-#include "webkit/common/fileapi/file_system_types.h"
 
-using fileapi::ExternalMountPoints;
-using fileapi::FileSystemURL;
+using storage::ExternalMountPoints;
+using storage::FileSystemURL;
 
 namespace sync_file_system {
 

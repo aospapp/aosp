@@ -5,76 +5,23 @@
 #include "ppapi/tests/test_instance_deprecated.h"
 
 #include <assert.h>
-#include <iostream>
 
 #include "ppapi/c/ppb_var.h"
 #include "ppapi/cpp/module.h"
-#include "ppapi/cpp/dev/scriptable_object_deprecated.h"
 #include "ppapi/tests/testing_instance.h"
-
-namespace {
 
 static const char kSetValueFunction[] = "SetValue";
 static const char kSetExceptionFunction[] = "SetException";
 static const char kReturnValueFunction[] = "ReturnValue";
 
-// ScriptableObject used by instance.
-class InstanceSO : public pp::deprecated::ScriptableObject {
- public:
-  explicit InstanceSO(TestInstance* i);
-  virtual ~InstanceSO();
-
-  // pp::deprecated::ScriptableObject overrides.
-  bool HasMethod(const pp::Var& name, pp::Var* exception);
-  pp::Var Call(const pp::Var& name,
-               const std::vector<pp::Var>& args,
-               pp::Var* exception);
-
- private:
-  TestInstance* test_instance_;
-  // For out-of-process, the InstanceSO might be deleted after the instance was
-  // already destroyed, so we can't rely on test_instance_->testing_interface()
-  // being valid. Therefore we store our own.
-  const PPB_Testing_Private* testing_interface_;
-};
-
 InstanceSO::InstanceSO(TestInstance* i)
     : test_instance_(i),
       testing_interface_(i->testing_interface()) {
-  // Set up a post-condition for the test so that we can ensure our destructor
-  // is called. This only works reliably in-process. Out-of-process, it only
-  // can work when the renderer stays alive a short while after the plugin
-  // instance is destroyed. If the renderer is being shut down, too much happens
-  // asynchronously for the out-of-process case to work reliably. In
-  // particular:
-  //   - The Var ReleaseObject message is asynchronous.
-  //   - The PPB_Var_Deprecated host-side proxy posts a task to actually release
-  //     the object when the ReleaseObject message is received.
-  //   - The PPP_Class Deallocate message is asynchronous.
-  // At time of writing this comment, if you modify the code so that the above
-  // happens synchronously, and you remove the restriction that the plugin can't
-  // be unblocked by a sync message, then this check actually passes reliably
-  // for out-of-process. But we don't want to make any of those changes, so we
-  // just skip the check.
-  if (testing_interface_->IsOutOfProcess() == PP_FALSE) {
-    i->instance()->AddPostCondition(
-      "window.document.getElementById('container').instance_object_destroyed"
-      );
-  }
 }
 
 InstanceSO::~InstanceSO() {
-  if (testing_interface_->IsOutOfProcess() == PP_FALSE) {
-    // TODO(dmichael): It would probably be best to make in-process consistent
-    //                 with out-of-process. That would mean that the instance
-    //                 would already be destroyed at this point.
-    pp::Var ret = test_instance_->instance()->ExecuteScript(
-        "document.getElementById('container').instance_object_destroyed=true;");
-  } else {
-    // Out-of-process, this destructor might not actually get invoked. See the
-    // comment in InstanceSO's constructor for an explanation. Also, instance()
-    // has already been destroyed :-(. So we can't really do anything here.
-  }
+  if (test_instance_)
+    test_instance_->clear_instance_so();
 }
 
 bool InstanceSO::HasMethod(const pp::Var& name, pp::Var* exception) {
@@ -95,7 +42,7 @@ pp::Var InstanceSO::Call(const pp::Var& method_name,
   if (name == kSetValueFunction) {
     if (args.size() != 1 || !args[0].is_string())
       *exception = pp::Var("Bad argument to SetValue(<string>)");
-    else
+    else if (test_instance_)
       test_instance_->set_string(args[0].AsString());
   } else if (name == kSetExceptionFunction) {
     if (args.size() != 1 || !args[0].is_string())
@@ -114,18 +61,45 @@ pp::Var InstanceSO::Call(const pp::Var& method_name,
   return pp::Var();
 }
 
-}  // namespace
-
 REGISTER_TEST_CASE(Instance);
 
-TestInstance::TestInstance(TestingInstance* instance) : TestCase(instance) {
-}
+TestInstance::TestInstance(TestingInstance* instance)
+    : TestCase(instance),
+      instance_so_(NULL) {}
 
 bool TestInstance::Init() {
   return true;
 }
 
 TestInstance::~TestInstance() {
+  ResetTestObject();
+  if (testing_interface_->IsOutOfProcess() == PP_FALSE) {
+    // This should cause the instance object's descructor to be called.
+    testing_interface_->RunV8GC(instance_->pp_instance());
+
+    // Test a post-condition which ensures the instance objects destructor is
+    // called. This only works reliably in-process. Out-of-process, it only
+    // can work when the renderer stays alive a short while after the plugin
+    // instance is destroyed. If the renderer is being shut down, too much
+    // happens asynchronously for the out-of-process case to work reliably. In
+    // particular:
+    //   - The Var ReleaseObject message is asynchronous.
+    //   - The PPB_Var_Deprecated host-side proxy posts a task to actually
+    //     release the object when the ReleaseObject message is received.
+    //   - The PPP_Class Deallocate message is asynchronous.
+    // At time of writing this comment, if you modify the code so that the above
+    // happens synchronously, and you remove the restriction that the plugin
+    // can't be unblocked by a sync message, then this check actually passes
+    // reliably for out-of-process. But we don't want to make any of those
+    // changes so we just skip the check.
+    PP_DCHECK(!instance_so_);
+  } else {
+    // Out-of-process, this destructor might not actually get invoked. Clear
+    // the InstanceSOs reference to the instance so there is no UAF.
+    if (instance_so_)
+      instance_so_->clear_test_instance();
+  }
+
   // Save the fact that we were destroyed in sessionStorage. This tests that
   // we can ExecuteScript at instance destruction without crashing. It also
   // allows us to check that ExecuteScript will run and succeed in certain
@@ -154,7 +128,9 @@ void TestInstance::LeakReferenceAndIgnore(const pp::Var& leaked) {
 }
 
 pp::deprecated::ScriptableObject* TestInstance::CreateTestObject() {
-  return new InstanceSO(this);
+  if (!instance_so_)
+    instance_so_ = new InstanceSO(this);
+  return instance_so_;
 }
 
 std::string TestInstance::TestExecuteScript() {
@@ -218,8 +194,17 @@ class ObjectWithChildren : public pp::deprecated::ScriptableObject {
 };
 
 std::string TestInstance::TestRecursiveObjects() {
-  // These should be deleted when we exit scope, so should not leak.
-  pp::VarPrivate not_leaked(instance(), new ObjectWithChildren(this, 50));
+  const int kNumChildren = 20;
+  {
+    // These should be deleted when we exit scope, so should not leak.
+    pp::VarPrivate not_leaked(instance(), new ObjectWithChildren(this,
+                                                                 kNumChildren));
+  }
+  // We need to run the GC multiple times until all of the vars are released.
+  // Each GC invocation will result in releasing a var, which will result in its
+  // children not having any references, allowing them also to be collected.
+  for (int i = 0; i < kNumChildren; ++i)
+    testing_interface_->RunV8GC(instance_->pp_instance());
 
   // Leak some, but tell TestCase to ignore the leaks. This test is run and then
   // reloaded (see ppapi_uitest.cc). If these aren't cleaned up when the first
@@ -229,7 +214,8 @@ std::string TestInstance::TestRecursiveObjects() {
   //       destructor is not run.
   pp::VarPrivate leaked(
       instance(),
-      new ObjectWithChildren(this, 50, ObjectWithChildren::IgnoreLeaks()));
+      new ObjectWithChildren(this, kNumChildren,
+                             ObjectWithChildren::IgnoreLeaks()));
   // Now leak a reference to the root object. This should force the root and
   // all its descendents to stay in the tracker.
   LeakReferenceAndIgnore(leaked);

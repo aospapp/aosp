@@ -75,9 +75,10 @@ public class RawThermalZone extends ThermalZone {
             }
         } else {
             //zone temp is max of all sensor temp
-            for (ThermalSensor ts : getThermalSensorList()) {
-                if (ts != null && ts.getSensorActiveStatus()) {
-                    curTemp = ts.getCurrTemp();
+            for (int i = 0; i < mThermalSensors.size(); i++) {
+                if (mThermalSensors.get(i) != null &&
+                        mThermalSensors.get(i).getSensorActiveStatus()) {
+                    curTemp = mThermalSensors.get(i).getCurrTemp();
                     if (curTemp > maxCurTemp) {
                         maxCurTemp = curTemp;
                     }

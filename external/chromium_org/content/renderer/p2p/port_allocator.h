@@ -43,9 +43,7 @@ class P2PPortAllocator : public cricket::BasicPortAllocator {
       bool secure;
     };
 
-    // STUN server address and port.
-    std::string stun_server;
-    int stun_server_port;
+    std::set<rtc::SocketAddress> stun_servers;
 
     std::vector<RelayServerConfig> relays;
 
@@ -56,8 +54,8 @@ class P2PPortAllocator : public cricket::BasicPortAllocator {
 
   P2PPortAllocator(blink::WebFrame* web_frame,
                    P2PSocketDispatcher* socket_dispatcher,
-                   talk_base::NetworkManager* network_manager,
-                   talk_base::PacketSocketFactory* socket_factory,
+                   rtc::NetworkManager* network_manager,
+                   rtc::PacketSocketFactory* socket_factory,
                    const Config& config);
   virtual ~P2PPortAllocator();
 
@@ -115,7 +113,7 @@ class P2PPortAllocatorSession : public cricket::BasicPortAllocatorSession,
   scoped_ptr<blink::WebURLLoader> relay_session_request_;
   int relay_session_attempts_;
   std::string relay_session_response_;
-  talk_base::SocketAddress relay_ip_;
+  rtc::SocketAddress relay_ip_;
   int relay_udp_port_;
   int relay_tcp_port_;
   int relay_ssltcp_port_;

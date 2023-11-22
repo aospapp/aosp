@@ -13,8 +13,8 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/sequenced_worker_pool.h"
 #include "chrome/browser/media/desktop_media_list_observer.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/browser_thread.h"
-#include "grit/generated_resources.h"
 #include "media/base/video_util.h"
 #include "third_party/libyuv/include/libyuv/scale_argb.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -46,10 +46,7 @@ gfx::ImageSkia ScaleDesktopFrame(scoped_ptr<webrtc::DesktopFrame> frame,
       gfx::Size(frame->size().width(), frame->size().height()));
 
   SkBitmap result;
-  result.setConfig(SkBitmap::kARGB_8888_Config,
-                   scaled_rect.width(), scaled_rect.height(), 0,
-                   kOpaque_SkAlphaType);
-  result.allocPixels();
+  result.allocN32Pixels(scaled_rect.width(), scaled_rect.height(), true);
   result.lockPixels();
 
   uint8* pixels_data = reinterpret_cast<uint8*>(result.getPixels());

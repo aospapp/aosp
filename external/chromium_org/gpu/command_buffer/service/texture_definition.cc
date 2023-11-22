@@ -15,7 +15,6 @@
 #include "ui/gl/scoped_binders.h"
 
 #if !defined(OS_MACOSX)
-#include "ui/gl/gl_fence_egl.h"
 #include "ui/gl/gl_surface_egl.h"
 #endif
 
@@ -30,15 +29,20 @@ class GLImageSync : public gfx::GLImage {
                        const gfx::Size& size);
 
   // Implement GLImage.
-  virtual void Destroy() OVERRIDE;
+  virtual void Destroy(bool have_context) OVERRIDE;
   virtual gfx::Size GetSize() OVERRIDE;
   virtual bool BindTexImage(unsigned target) OVERRIDE;
   virtual void ReleaseTexImage(unsigned target) OVERRIDE;
+  virtual bool CopyTexImage(unsigned target) OVERRIDE;
   virtual void WillUseTexImage() OVERRIDE;
   virtual void WillModifyTexImage() OVERRIDE;
   virtual void DidModifyTexImage() OVERRIDE;
-
   virtual void DidUseTexImage() OVERRIDE;
+  virtual bool ScheduleOverlayPlane(gfx::AcceleratedWidget widget,
+                                    int z_order,
+                                    gfx::OverlayTransform transform,
+                                    const gfx::Rect& bounds_rect,
+                                    const gfx::RectF& crop_rect) OVERRIDE;
   virtual void SetReleaseAfterUse() OVERRIDE;
 
  protected:
@@ -54,16 +58,17 @@ class GLImageSync : public gfx::GLImage {
 GLImageSync::GLImageSync(const scoped_refptr<NativeImageBuffer>& buffer,
                          const gfx::Size& size)
     : buffer_(buffer), size_(size) {
-  if (buffer)
+  if (buffer.get())
     buffer->AddClient(this);
 }
 
 GLImageSync::~GLImageSync() {
-  if (buffer_)
+  if (buffer_.get())
     buffer_->RemoveClient(this);
 }
 
-void GLImageSync::Destroy() {}
+void GLImageSync::Destroy(bool have_context) {
+}
 
 gfx::Size GLImageSync::GetSize() {
   return size_;
@@ -78,24 +83,29 @@ void GLImageSync::ReleaseTexImage(unsigned target) {
   NOTREACHED();
 }
 
+bool GLImageSync::CopyTexImage(unsigned target) {
+  return false;
+}
+
 void GLImageSync::WillUseTexImage() {
-  if (buffer_)
-    buffer_->WillRead(this);
 }
 
 void GLImageSync::DidUseTexImage() {
-  if (buffer_)
-    buffer_->DidRead(this);
 }
 
 void GLImageSync::WillModifyTexImage() {
-  if (buffer_)
-    buffer_->WillWrite(this);
 }
 
 void GLImageSync::DidModifyTexImage() {
-  if (buffer_)
-    buffer_->DidWrite(this);
+}
+
+bool GLImageSync::ScheduleOverlayPlane(gfx::AcceleratedWidget widget,
+                                       int z_order,
+                                       gfx::OverlayTransform transform,
+                                       const gfx::Rect& bounds_rect,
+                                       const gfx::RectF& crop_rect) {
+  NOTREACHED();
+  return false;
 }
 
 void GLImageSync::SetReleaseAfterUse() {
@@ -114,12 +124,6 @@ class NativeImageBufferEGL : public NativeImageBuffer {
   virtual void RemoveClient(gfx::GLImage* client) OVERRIDE;
   virtual bool IsClient(gfx::GLImage* client) OVERRIDE;
   virtual void BindToTexture(GLenum target) OVERRIDE;
-  virtual void WillRead(gfx::GLImage* client) OVERRIDE;
-  virtual void WillWrite(gfx::GLImage* client) OVERRIDE;
-  virtual void DidRead(gfx::GLImage* client) OVERRIDE;
-  virtual void DidWrite(gfx::GLImage* client) OVERRIDE;
-
-  void ClearCompletedReadFencesLocked();
 
   EGLDisplay egl_display_;
   EGLImageKHR egl_image_;
@@ -132,10 +136,8 @@ class NativeImageBufferEGL : public NativeImageBuffer {
 
     gfx::GLImage* client;
     bool needs_wait_before_read;
-    linked_ptr<gfx::GLFence> read_fence;
   };
   std::list<ClientInfo> client_infos_;
-  scoped_ptr<gfx::GLFence> write_fence_;
   gfx::GLImage* write_client_;
 
   DISALLOW_COPY_AND_ASSIGN(NativeImageBufferEGL);
@@ -152,8 +154,7 @@ scoped_refptr<NativeImageBufferEGL> NativeImageBufferEGL::Create(
 
   DCHECK(gfx::g_driver_egl.ext.b_EGL_KHR_image_base &&
          gfx::g_driver_egl.ext.b_EGL_KHR_gl_texture_2D_image &&
-         gfx::g_driver_gl.ext.b_GL_OES_EGL_image &&
-         gfx::g_driver_egl.ext.b_EGL_KHR_fence_sync);
+         gfx::g_driver_gl.ext.b_GL_OES_EGL_image);
 
   const EGLint egl_attrib_list[] = {
       EGL_GL_TEXTURE_LEVEL_KHR, 0, EGL_IMAGE_PRESERVED_KHR, EGL_TRUE, EGL_NONE};
@@ -179,7 +180,6 @@ NativeImageBufferEGL::NativeImageBufferEGL(EGLDisplay display,
     : NativeImageBuffer(),
       egl_display_(display),
       egl_image_(image),
-      write_fence_(new gfx::GLFenceEGL(true)),
       write_client_(NULL) {
   DCHECK(egl_display_ != EGL_NO_DISPLAY);
   DCHECK(egl_image_ != EGL_NO_IMAGE_KHR);
@@ -204,12 +204,7 @@ void NativeImageBufferEGL::RemoveClient(gfx::GLImage* client) {
        it != client_infos_.end();
        it++) {
     if (it->client == client) {
-      if (it->read_fence.get()) {
-        it->client = NULL;
-      } else {
-        client_infos_.erase(it);
-      }
-      ClearCompletedReadFencesLocked();
+      client_infos_.erase(it);
       return;
     }
   }
@@ -234,78 +229,6 @@ void NativeImageBufferEGL::BindToTexture(GLenum target) {
   DCHECK_EQ(static_cast<GLenum>(GL_NO_ERROR), glGetError());
 }
 
-void NativeImageBufferEGL::WillRead(gfx::GLImage* client) {
-  base::AutoLock lock(lock_);
-  if (!write_fence_.get() || write_client_ == client)
-    return;
-
-  for (std::list<ClientInfo>::iterator it = client_infos_.begin();
-       it != client_infos_.end();
-       it++) {
-    if (it->client == client) {
-      if (it->needs_wait_before_read) {
-        it->needs_wait_before_read = false;
-        write_fence_->ServerWait();
-      }
-      return;
-    }
-  }
-  NOTREACHED();
-}
-
-void NativeImageBufferEGL::WillWrite(gfx::GLImage* client) {
-  base::AutoLock lock(lock_);
-  if (write_client_ != client)
-    write_fence_->ServerWait();
-
-  ClearCompletedReadFencesLocked();
-  for (std::list<ClientInfo>::iterator it = client_infos_.begin();
-       it != client_infos_.end();
-       it++) {
-    if (it->read_fence.get() && it->client != client)
-      it->read_fence->ServerWait();
-  }
-}
-
-void NativeImageBufferEGL::DidRead(gfx::GLImage* client) {
-  base::AutoLock lock(lock_);
-  ClearCompletedReadFencesLocked();
-  for (std::list<ClientInfo>::iterator it = client_infos_.begin();
-       it != client_infos_.end();
-       it++) {
-    if (it->client == client) {
-      it->read_fence = make_linked_ptr(new gfx::GLFenceEGL(true));
-      return;
-    }
-  }
-  NOTREACHED();
-}
-
-void NativeImageBufferEGL::DidWrite(gfx::GLImage* client) {
-  base::AutoLock lock(lock_);
-  // Sharing semantics require the client to flush in order to make changes
-  // visible to other clients.
-  write_fence_.reset(new gfx::GLFenceEGL(false));
-  write_client_ = client;
-  for (std::list<ClientInfo>::iterator it = client_infos_.begin();
-       it != client_infos_.end();
-       it++) {
-    it->needs_wait_before_read = true;
-  }
-}
-
-void NativeImageBufferEGL::ClearCompletedReadFencesLocked() {
-  lock_.AssertAcquired();
-  std::list<ClientInfo>::iterator it = client_infos_.begin();
-  while (it != client_infos_.end()) {
-    if (!it->client && it->read_fence->HasCompleted()) {
-      it = client_infos_.erase(it);
-    } else {
-      it++;
-    }
-  }
-}
-
 #endif
 
 class NativeImageBufferStub : public NativeImageBuffer {
@@ -318,10 +241,6 @@ class NativeImageBufferStub : public NativeImageBuffer {
   virtual void RemoveClient(gfx::GLImage* client) OVERRIDE {}
   virtual bool IsClient(gfx::GLImage* client) OVERRIDE { return true; }
   virtual void BindToTexture(GLenum target) OVERRIDE {}
-  virtual void WillRead(gfx::GLImage* client) OVERRIDE {}
-  virtual void WillWrite(gfx::GLImage* client) OVERRIDE {}
-  virtual void DidRead(gfx::GLImage* client) OVERRIDE {}
-  virtual void DidWrite(gfx::GLImage* client) OVERRIDE {}
 
   DISALLOW_COPY_AND_ASSIGN(NativeImageBufferStub);
 };
@@ -371,15 +290,15 @@ TextureDefinition::TextureDefinition(
     const scoped_refptr<NativeImageBuffer>& image_buffer)
     : version_(version),
       target_(target),
-      image_buffer_(image_buffer ? image_buffer : NativeImageBuffer::Create(
-                                                      texture->service_id())),
+      image_buffer_(image_buffer.get()
+                        ? image_buffer
+                        : NativeImageBuffer::Create(texture->service_id())),
       min_filter_(texture->min_filter()),
       mag_filter_(texture->mag_filter()),
       wrap_s_(texture->wrap_s()),
       wrap_t_(texture->wrap_t()),
       usage_(texture->usage()),
       immutable_(texture->IsImmutable()) {
-
   // TODO
   DCHECK(!texture->level_infos_.empty());
   DCHECK(!texture->level_infos_[0].empty());
@@ -391,7 +310,7 @@ TextureDefinition::TextureDefinition(
       new GLImageSync(image_buffer_,
                       gfx::Size(texture->level_infos_[0][0].width,
                                 texture->level_infos_[0][0].height)));
-  texture->SetLevelImage(NULL, target, 0, gl_image);
+  texture->SetLevelImage(NULL, target, 0, gl_image.get());
 
   // TODO: all levels
   level_infos_.clear();
@@ -414,7 +333,7 @@ TextureDefinition::~TextureDefinition() {
 }
 
 Texture* TextureDefinition::CreateTexture() const {
-  if (!image_buffer_)
+  if (!image_buffer_.get())
     return NULL;
 
   GLuint texture_id;
@@ -432,7 +351,7 @@ void TextureDefinition::UpdateTexture(Texture* texture) const {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mag_filter_);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap_s_);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap_t_);
-  if (image_buffer_)
+  if (image_buffer_.get())
     image_buffer_->BindToTexture(target_);
   // We have to make sure the changes are visible to other clients in this share
   // group. As far as the clients are concerned, the mailbox semantics only
@@ -464,7 +383,7 @@ void TextureDefinition::UpdateTexture(Texture* texture) const {
                             info.cleared);
     }
   }
-  if (image_buffer_) {
+  if (image_buffer_.get()) {
     texture->SetLevelImage(
         NULL,
         target_,
@@ -493,7 +412,7 @@ bool TextureDefinition::Matches(const Texture* texture) const {
   }
 
   // All structural changes should have orphaned the texture.
-  if (image_buffer_ && !texture->GetLevelImage(texture->target(), 0))
+  if (image_buffer_.get() && !texture->GetLevelImage(texture->target(), 0))
     return false;
 
   return true;

@@ -61,16 +61,11 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
                 Log.d(TAG, "Service state changed! " + newState + " Full: " + serviceState +
                         " Current state=" + mServiceState);
                 mServiceState = newState;
-                if (newState == ServiceState.STATE_IN_SERVICE ||
-                        newState == ServiceState.STATE_EMERGENCY_ONLY) {
+                if (((newState == ServiceState.STATE_IN_SERVICE) ||
+                        (newState == ServiceState.STATE_EMERGENCY_ONLY)) &&
+                        (UserHandle.myUserId() == UserHandle.USER_OWNER)) {
                     startConfigService(context.getApplicationContext());
                 }
-            }
-        } else if (Intent.ACTION_AIRPLANE_MODE_CHANGED.equals(action)) {
-            boolean airplaneModeOn = intent.getBooleanExtra("state", false);
-            if (DBG) log("airplaneModeOn: " + airplaneModeOn);
-            if (!airplaneModeOn) {
-                startConfigService(context);
             }
         } else if (Telephony.Sms.Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION.equals(action) ||
                 Telephony.Sms.Intents.SMS_CB_RECEIVED_ACTION.equals(action)) {

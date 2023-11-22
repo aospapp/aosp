@@ -2,23 +2,27 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/speech/tts_extension_loader_chromeos.h"
 #include "chrome/browser/speech/tts_platform.h"
 
 // Chrome OS doesn't have native TTS, instead it includes a built-in
 // component extension that provides speech synthesis. This class includes
 // an implementation of LoadBuiltInTtsExtension and dummy implementations of
 // everything else.
-class TtsPlatformImplChromeOs
-    : public TtsPlatformImpl {
+
+class TtsPlatformImplChromeOs : public TtsPlatformImpl {
  public:
   // TtsPlatformImpl overrides:
   virtual bool PlatformImplAvailable() OVERRIDE {
     return false;
   }
 
-  virtual bool LoadBuiltInTtsExtension(Profile* profile) OVERRIDE {
-    return TtsExtensionLoaderChromeOs::GetInstance(profile)->LoadTtsExtension();
+  virtual bool LoadBuiltInTtsExtension(
+      content::BrowserContext* browser_context) OVERRIDE {
+    TtsEngineDelegate* tts_engine_delegate =
+        TtsController::GetInstance()->GetTtsEngineDelegate();
+    if (tts_engine_delegate)
+      return tts_engine_delegate->LoadBuiltInTtsExtension(browser_context);
+    return false;
   }
 
   virtual bool Speak(

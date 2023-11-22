@@ -16,12 +16,18 @@
 
 package android.media.cts;
 
+import com.android.cts.media.R;
+
+import android.content.Context;
 import android.media.audiofx.AudioEffect;
 import android.media.AudioFormat;
 import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.media.audiofx.Visualizer;
+import android.media.audiofx.Visualizer.MeasurementPeakRms;
 import android.os.Looper;
 import android.test.AndroidTestCase;
+import java.util.UUID;
 import android.util.Log;
 
 public class VisualizerTest extends PostProcTestBase {
@@ -126,7 +132,7 @@ public class VisualizerTest extends PostProcTestBase {
     // 2 - check capture
     //----------------------------------
 
-    //Test case 2.0: test cature in polling mode
+    //Test case 2.0: test capture in polling mode
     public void test2_0PollingCapture() throws Exception {
         if (!hasAudioOutput()) {
             return;
@@ -212,6 +218,203 @@ public class VisualizerTest extends PostProcTestBase {
             fail("sleep() interrupted");
         } finally {
             terminateListenerLooper();
+            releaseVisualizer();
+        }
+    }
+
+    //-----------------------------------------------------------------
+    // 3 - check measurement mode MEASUREMENT_MODE_NONE
+    //----------------------------------
+
+    //Test case 3.0: test setting NONE measurement mode
+    public void test3_0MeasurementModeNone() throws Exception {
+        try {
+            getVisualizer(0);
+            mVisualizer.setEnabled(true);
+            assertTrue("visualizer not enabled", mVisualizer.getEnabled());
+            Thread.sleep(100);
+
+            int status = mVisualizer.setMeasurementMode(Visualizer.MEASUREMENT_MODE_NONE);
+            assertEquals("setMeasurementMode for NONE doesn't report success",
+                    Visualizer.SUCCESS, status);
+
+            int mode = mVisualizer.getMeasurementMode();
+            assertEquals("getMeasurementMode reports NONE",
+                    Visualizer.MEASUREMENT_MODE_NONE, mode);
+
+        } catch (IllegalStateException e) {
+            fail("method called in wrong state");
+        } catch (InterruptedException e) {
+            fail("sleep() interrupted");
+        } finally {
+            releaseVisualizer();
+        }
+    }
+
+    //-----------------------------------------------------------------
+    // 4 - check measurement mode MEASUREMENT_MODE_PEAK_RMS
+    //----------------------------------
+
+    //Test case 4.0: test setting peak / RMS measurement mode
+    public void test4_0MeasurementModePeakRms() throws Exception {
+        try {
+            getVisualizer(0);
+            mVisualizer.setEnabled(true);
+            assertTrue("visualizer not enabled", mVisualizer.getEnabled());
+            Thread.sleep(100);
+
+            int status = mVisualizer.setMeasurementMode(Visualizer.MEASUREMENT_MODE_PEAK_RMS);
+            assertEquals("setMeasurementMode for PEAK_RMS doesn't report success",
+                    Visualizer.SUCCESS, status);
+
+            int mode = mVisualizer.getMeasurementMode();
+            assertEquals("getMeasurementMode doesn't report PEAK_RMS",
+                    Visualizer.MEASUREMENT_MODE_PEAK_RMS, mode);
+
+        } catch (IllegalStateException e) {
+            fail("method called in wrong state");
+        } catch (InterruptedException e) {
+            fail("sleep() interrupted");
+        } finally {
+            releaseVisualizer();
+        }
+    }
+
+    //Test case 4.1: test measurement of peak / RMS
+    public void test4_1MeasurePeakRms() throws Exception {
+        AudioEffect vc = null;
+        try {
+            // this test will play a 1kHz sine wave with peaks at -40dB
+            MediaPlayer mp = MediaPlayer.create(getContext(), R.raw.sine1khzm40db);
+            final int EXPECTED_PEAK_MB = -4015;
+            final int EXPECTED_RMS_MB =  -4300;
+            final int MAX_MEASUREMENT_ERROR_MB = 2000;
+            assertNotNull("null MediaPlayer", mp);
+
+            // creating a volume controller on output mix ensures that ro.audio.silent mutes
+            // audio after the effects and not before
+            vc = new AudioEffect(
+                    AudioEffect.EFFECT_TYPE_NULL,
+                    UUID.fromString(BUNDLE_VOLUME_EFFECT_UUID),
+                    0,
+                    mp.getAudioSessionId());
+            vc.setEnabled(true);
+
+            AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+            assertNotNull("null AudioManager", am);
+            int originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+            am.setStreamVolume(AudioManager.STREAM_MUSIC,
+                    am.getStreamMaxVolume(AudioManager.STREAM_MUSIC), 0);
+            getVisualizer(mp.getAudioSessionId());
+            mp.setLooping(true);
+            mp.start();
+
+            mVisualizer.setEnabled(true);
+            assertTrue("visualizer not enabled", mVisualizer.getEnabled());
+            Thread.sleep(100);
+            int status = mVisualizer.setMeasurementMode(Visualizer.MEASUREMENT_MODE_PEAK_RMS);
+            assertEquals("setMeasurementMode() for PEAK_RMS doesn't report success",
+                    Visualizer.SUCCESS, status);
+            // make sure we're playing long enough so the measurement is valid
+            int currentPosition = mp.getCurrentPosition();
+            final int maxTry = 100;
+            int tryCount = 0;
+            while (currentPosition < 200 && tryCount < maxTry) {
+                Thread.sleep(50);
+                currentPosition = mp.getCurrentPosition();
+                tryCount++;
+            }
+            assertTrue("MediaPlayer not ready", tryCount < maxTry);
+
+            MeasurementPeakRms measurement = new MeasurementPeakRms();
+            status = mVisualizer.getMeasurementPeakRms(measurement);
+            mp.stop();
+            mp.release();
+            am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0);
+            assertEquals("getMeasurementPeakRms() reports failure",
+                    Visualizer.SUCCESS, status);
+            Log.i("VisTest", "peak="+measurement.mPeak+"  rms="+measurement.mRms);
+            int deltaPeak = Math.abs(measurement.mPeak - EXPECTED_PEAK_MB);
+            int deltaRms =  Math.abs(measurement.mRms - EXPECTED_RMS_MB);
+            assertTrue("peak deviation in mB=" + deltaPeak, deltaPeak < MAX_MEASUREMENT_ERROR_MB);
+            assertTrue("RMS deviation in mB=" + deltaRms, deltaRms < MAX_MEASUREMENT_ERROR_MB);
+
+        } catch (IllegalStateException e) {
+            fail("method called in wrong state");
+        } catch (InterruptedException e) {
+            fail("sleep() interrupted");
+        } finally {
+            if (vc != null)
+                vc.release();
+            releaseVisualizer();
+        }
+    }
+
+    //Test case 4.2: test measurement of peak / RMS in Long MP3
+    public void test4_2MeasurePeakRmsLongMP3() throws Exception {
+        AudioEffect vc = null;
+        try {
+            // this test will play a 1kHz sine wave with peaks at -40dB
+            MediaPlayer mp = MediaPlayer.create(getContext(), R.raw.sine1khzs40dblong);
+            final int EXPECTED_PEAK_MB = -4015;
+            final int EXPECTED_RMS_MB =  -4300;
+            final int MAX_MEASUREMENT_ERROR_MB = 2000;
+            assertNotNull("null MediaPlayer", mp);
+
+            // creating a volume controller on output mix ensures that ro.audio.silent mutes
+            // audio after the effects and not before
+            vc = new AudioEffect(
+                    AudioEffect.EFFECT_TYPE_NULL,
+                    UUID.fromString(BUNDLE_VOLUME_EFFECT_UUID),
+                    0,
+                    mp.getAudioSessionId());
+            vc.setEnabled(true);
+
+            AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+            assertNotNull("null AudioManager", am);
+            int originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+            am.setStreamVolume(AudioManager.STREAM_MUSIC,
+                    am.getStreamMaxVolume(AudioManager.STREAM_MUSIC), 0);
+            getVisualizer(mp.getAudioSessionId());
+            mp.start();
+
+            mVisualizer.setEnabled(true);
+            assertTrue("visualizer not enabled", mVisualizer.getEnabled());
+            Thread.sleep(100);
+            int status = mVisualizer.setMeasurementMode(Visualizer.MEASUREMENT_MODE_PEAK_RMS);
+            assertEquals("setMeasurementMode() for PEAK_RMS doesn't report success",
+                    Visualizer.SUCCESS, status);
+            // make sure we're playing long enough so the measurement is valid
+            int currentPosition = mp.getCurrentPosition();
+            final int maxTry = 100;
+            int tryCount = 0;
+            while (currentPosition < 400 && tryCount < maxTry) {
+                Thread.sleep(50);
+                currentPosition = mp.getCurrentPosition();
+                tryCount++;
+            }
+            assertTrue("MediaPlayer not ready", tryCount < maxTry);
+
+            MeasurementPeakRms measurement = new MeasurementPeakRms();
+            status = mVisualizer.getMeasurementPeakRms(measurement);
+            mp.stop();
+            mp.release();
+            am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0);
+            assertEquals("getMeasurementPeakRms() reports failure",
+                    Visualizer.SUCCESS, status);
+            Log.i("VisTest", "peak="+measurement.mPeak+"  rms="+measurement.mRms);
+            int deltaPeak = Math.abs(measurement.mPeak - EXPECTED_PEAK_MB);
+            int deltaRms =  Math.abs(measurement.mRms - EXPECTED_RMS_MB);
+            assertTrue("peak deviation in mB=" + deltaPeak, deltaPeak < MAX_MEASUREMENT_ERROR_MB);
+            assertTrue("RMS deviation in mB=" + deltaRms, deltaRms < MAX_MEASUREMENT_ERROR_MB);
+
+        } catch (IllegalStateException e) {
+            fail("method called in wrong state");
+        } catch (InterruptedException e) {
+            fail("sleep() interrupted");
+        } finally {
+            if (vc != null)
+                vc.release();
             releaseVisualizer();
         }
     }

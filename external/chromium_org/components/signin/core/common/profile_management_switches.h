@@ -15,7 +15,8 @@ class CommandLine;
 
 namespace switches {
 
-// Checks whether account consistency is enabled.
+// Checks whether account consistency is enabled. If enabled, the account
+// management UI is available in the avatar bubble.
 bool IsEnableAccountConsistency();
 
 // Enables the web-based sign in flow on Chrome desktop.
@@ -42,6 +43,8 @@ bool IsNewProfileManagement();
 bool IsNewProfileManagementPreviewEnabled();
 
 // Called in tests to force enabling different modes.
+void EnableNewAvatarMenuForTesting(base::CommandLine* command_line);
+void DisableNewAvatarMenuForTesting(base::CommandLine* command_line);
 void EnableNewProfileManagementForTesting(base::CommandLine* command_line);
 void EnableAccountConsistencyForTesting(base::CommandLine* command_line);
 

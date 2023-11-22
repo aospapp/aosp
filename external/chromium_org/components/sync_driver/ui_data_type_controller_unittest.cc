@@ -10,15 +10,16 @@
 #include "base/tracked_objects.h"
 #include "components/sync_driver/data_type_controller_mock.h"
 #include "components/sync_driver/fake_generic_change_processor.h"
-#include "sync/api/attachments/attachment_service_impl.h"
 #include "sync/api/fake_syncable_service.h"
+#include "sync/internal_api/public/attachments/attachment_service_impl.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using testing::_;
+using testing::Invoke;
 using testing::InvokeWithoutArgs;
 using testing::Return;
 
-namespace browser_sync {
+namespace sync_driver {
 namespace {
 
 // TODO(zea): Expand this to make the dtc type paramterizable. This will let us
@@ -30,17 +31,13 @@ class SyncUIDataTypeControllerTest : public testing::Test,
  public:
   SyncUIDataTypeControllerTest()
       : type_(syncer::PREFERENCES),
-        change_processor_(NULL),
-        disable_callback_invoked_(false) {}
+        change_processor_(NULL) {}
 
   virtual void SetUp() {
     preference_dtc_ =
         new UIDataTypeController(
             base::MessageLoopProxy::current(),
             base::Closure(),
-            base::Bind(&SyncUIDataTypeControllerTest::DisableTypeCallback,
-                       base::Unretained(this),
-                       type_),
             type_,
             this);
     SetStartExpectations();
@@ -59,6 +56,8 @@ class SyncUIDataTypeControllerTest : public testing::Test,
   }
 
   virtual scoped_ptr<syncer::AttachmentService> CreateAttachmentService(
+      const scoped_refptr<syncer::AttachmentStore>& attachment_store,
+      const syncer::UserShare& user_share,
       syncer::AttachmentService::Delegate* delegate) OVERRIDE {
     return syncer::AttachmentServiceImpl::CreateForTest();
   }
@@ -66,7 +65,7 @@ class SyncUIDataTypeControllerTest : public testing::Test,
  protected:
   void SetStartExpectations() {
     scoped_ptr<FakeGenericChangeProcessor> p(
-        new FakeGenericChangeProcessor(this));
+        new FakeGenericChangeProcessor(type_, this));
     change_processor_ = p.get();
     scoped_ptr<GenericChangeProcessorFactory> f(
         new FakeGenericChangeProcessorFactory(p.Pass()));
@@ -87,13 +86,6 @@ class SyncUIDataTypeControllerTest : public testing::Test,
     message_loop_.RunUntilIdle();
   }
 
-  void DisableTypeCallback(syncer::ModelType type,
-                           const tracked_objects::Location& location,
-                           const std::string& message) {
-    disable_callback_invoked_ = true;
-    preference_dtc_->Stop();
-  }
-
   base::MessageLoopForUI message_loop_;
   const syncer::ModelType type_;
   StartCallbackMock start_callback_;
@@ -101,7 +93,6 @@ class SyncUIDataTypeControllerTest : public testing::Test,
   scoped_refptr<UIDataTypeController> preference_dtc_;
   FakeGenericChangeProcessor* change_processor_;
   syncer::FakeSyncableService syncable_service_;
-  bool disable_callback_invoked_;
 };
 
 // Start the DTC. Verify that the callback is called with OK, the
@@ -195,12 +186,15 @@ TEST_F(SyncUIDataTypeControllerTest, OnSingleDatatypeUnrecoverableError) {
   EXPECT_FALSE(syncable_service_.syncing());
   Start();
   EXPECT_TRUE(syncable_service_.syncing());
-  preference_dtc_->OnSingleDatatypeUnrecoverableError(FROM_HERE, "Test");
-  PumpLoop();
-  EXPECT_EQ(DataTypeController::NOT_RUNNING, preference_dtc_->state());
-  EXPECT_TRUE(disable_callback_invoked_);
-  EXPECT_FALSE(syncable_service_.syncing());
+
+  testing::Mock::VerifyAndClearExpectations(&start_callback_);
+  EXPECT_CALL(model_load_callback_, Run(_, _));
+  syncer::SyncError error(FROM_HERE,
+                          syncer::SyncError::DATATYPE_ERROR,
+                          "error",
+                          syncer::PREFERENCES);
+  preference_dtc_->OnSingleDataTypeUnrecoverableError(error);
 }
 
 }  // namespace
-}  // namespace browser_sync
+}  // namespace sync_driver

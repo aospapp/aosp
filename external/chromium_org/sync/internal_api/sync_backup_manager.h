@@ -8,6 +8,7 @@
 #include <set>
 
 #include "sync/internal_api/sync_rollback_manager_base.h"
+#include "url/gurl.h"
 
 namespace syncer {
 
@@ -20,28 +21,10 @@ class SYNC_EXPORT_PRIVATE SyncBackupManager : public SyncRollbackManagerBase {
   virtual ~SyncBackupManager();
 
   // SyncManager implementation.
-  virtual void Init(
-      const base::FilePath& database_location,
-      const WeakHandle<JsEventHandler>& event_handler,
-      const std::string& sync_server_and_path,
-      int sync_server_port,
-      bool use_ssl,
-      scoped_ptr<HttpPostProviderFactory> post_factory,
-      const std::vector<scoped_refptr<ModelSafeWorker> >& workers,
-      ExtensionsActivity* extensions_activity,
-      SyncManager::ChangeDelegate* change_delegate,
-      const SyncCredentials& credentials,
-      const std::string& invalidator_client_id,
-      const std::string& restored_key_for_bootstrapping,
-      const std::string& restored_keystore_key_for_bootstrapping,
-      InternalComponentsFactory* internal_components_factory,
-      Encryptor* encryptor,
-      scoped_ptr<UnrecoverableErrorHandler> unrecoverable_error_handler,
-      ReportUnrecoverableErrorFunction
-          report_unrecoverable_error_function,
-      CancelationSignal* cancelation_signal) OVERRIDE;
+  virtual void Init(InitArgs* args) OVERRIDE;
   virtual void SaveChanges() OVERRIDE;
   virtual SyncStatus GetDetailedStatus() const OVERRIDE;
+  virtual void ShutdownOnSyncThread(ShutdownReason reason) OVERRIDE;
 
   // DirectoryChangeDelegate implementation.
   virtual ModelTypeSet HandleTransactionEndingChangeEvent(

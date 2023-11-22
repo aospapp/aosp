@@ -99,6 +99,7 @@ class CONTENT_EXPORT WebRtcAudioRenderer
   // Accessors to the sink audio parameters.
   int channels() const { return sink_params_.channels(); }
   int sample_rate() const { return sink_params_.sample_rate(); }
+  int frames_per_buffer() const { return sink_params_.frames_per_buffer(); }
 
  private:
   // MediaStreamAudioRenderer implementation.  This is private since we want
@@ -228,6 +229,10 @@ class CONTENT_EXPORT WebRtcAudioRenderer
   // state objects lies with the renderers and they must leave the playing state
   // before being destructed (PlayingState object goes out of scope).
   SourcePlayingStates source_playing_states_;
+
+  // Used for triggering new UMA histogram. Counts number of render
+  // callbacks modulo |kNumCallbacksBetweenRenderTimeHistograms|.
+  int render_callback_count_;
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(WebRtcAudioRenderer);
 };

@@ -10,9 +10,11 @@
 #include "android_webview/browser/aw_contents_client_bridge_base.h"
 #include "android_webview/browser/aw_contents_io_thread_client.h"
 #include "android_webview/browser/aw_cookie_access_policy.h"
+#include "android_webview/browser/aw_dev_tools_manager_delegate.h"
 #include "android_webview/browser/aw_quota_permission_context.h"
 #include "android_webview/browser/aw_web_preferences_populater.h"
 #include "android_webview/browser/jni_dependency_factory.h"
+#include "android_webview/browser/net/aw_url_request_context_getter.h"
 #include "android_webview/browser/net_disk_cache_remover.h"
 #include "android_webview/browser/renderer_host/aw_resource_dispatcher_host_delegate.h"
 #include "android_webview/common/render_view_messages.h"
@@ -28,15 +30,16 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
-#include "grit/ui_resources.h"
+#include "content/public/common/web_preferences.h"
 #include "net/android/network_library.h"
 #include "net/ssl/ssl_cert_request_info.h"
 #include "net/ssl/ssl_info.h"
 #include "ui/base/l10n/l10n_util_android.h"
 #include "ui/base/resource/resource_bundle.h"
-#include "webkit/common/webpreferences.h"
+#include "ui/resources/grit/ui_resources.h"
 
 using content::BrowserThread;
+using content::ResourceType;
 
 namespace android_webview {
 namespace {
@@ -167,7 +170,7 @@ std::string AwContentBrowserClient::GetAcceptLangsImpl() {
 
   // If we're not en-US, add in en-US which will be
   // used with a lower q-value.
-  if (StringToLowerASCII(langs) != "en-us") {
+  if (base::StringToLowerASCII(langs) != "en-us") {
     langs += ",en-US";
   }
   return langs;
@@ -235,7 +238,7 @@ net::URLRequestContextGetter* AwContentBrowserClient::CreateRequestContext(
     content::BrowserContext* browser_context,
     content::ProtocolHandlerMap* protocol_handlers,
     content::URLRequestInterceptorScopedVector request_interceptors) {
-  DCHECK(browser_context_.get() == browser_context);
+  DCHECK_EQ(browser_context_.get(), browser_context);
   return browser_context_->CreateRequestContext(protocol_handlers,
                                                 request_interceptors.Pass());
 }
@@ -247,7 +250,7 @@ AwContentBrowserClient::CreateRequestContextForStoragePartition(
     bool in_memory,
     content::ProtocolHandlerMap* protocol_handlers,
     content::URLRequestInterceptorScopedVector request_interceptors) {
-  DCHECK(browser_context_.get() == browser_context);
+  DCHECK_EQ(browser_context_.get(), browser_context);
   // TODO(mkosiba,kinuko): request_interceptors should be hooked up in the
   // downstream. (crbug.com/350286)
   return browser_context_->CreateRequestContextForStoragePartition(
@@ -331,12 +334,13 @@ bool AwContentBrowserClient::AllowWorkerDatabase(
   return false;
 }
 
-bool AwContentBrowserClient::AllowWorkerFileSystem(
+void AwContentBrowserClient::AllowWorkerFileSystem(
     const GURL& url,
     content::ResourceContext* context,
-    const std::vector<std::pair<int, int> >& render_frames) {
+    const std::vector<std::pair<int, int> >& render_frames,
+    base::Callback<void(bool)> callback) {
   // Android WebView does not yet support web workers.
-  return false;
+  callback.Run(false);
 }
 
 bool AwContentBrowserClient::AllowWorkerIndexedDB(
@@ -359,9 +363,10 @@ void AwContentBrowserClient::AllowCertificateError(
     int cert_error,
     const net::SSLInfo& ssl_info,
     const GURL& request_url,
-    ResourceType::Type resource_type,
+    ResourceType resource_type,
     bool overridable,
     bool strict_enforcement,
+    bool expired_previous_decision,
     const base::Callback<void(bool)>& callback,
     content::CertificateRequestResultType* result) {
   AwContentsClientBridgeBase* client =
@@ -392,19 +397,19 @@ void AwContentBrowserClient::SelectClientCertificate(
   }
 }
 
-blink::WebNotificationPresenter::Permission
+blink::WebNotificationPermission
     AwContentBrowserClient::CheckDesktopNotificationPermission(
         const GURL& source_url,
         content::ResourceContext* context,
         int render_process_id) {
   // Android WebView does not support notifications, so return Denied here.
-  return blink::WebNotificationPresenter::PermissionDenied;
+  return blink::WebNotificationPermissionDenied;
 }
 
 void AwContentBrowserClient::ShowDesktopNotification(
     const content::ShowDesktopNotificationHostMsgParams& params,
     content::RenderFrameHost* render_frame_host,
-    content::DesktopNotificationDelegate* delegate,
+    scoped_ptr<content::DesktopNotificationDelegate> delegate,
     base::Closure* cancel_callback) {
   NOTREACHED() << "Android WebView does not support desktop notifications.";
 }
@@ -500,20 +505,12 @@ bool AwContentBrowserClient::CanCreateWindow(
   return true;
 }
 
-std::string AwContentBrowserClient::GetWorkerProcessTitle(const GURL& url,
-                                          content::ResourceContext* context) {
-  NOTREACHED() << "Android WebView does not yet support web workers.";
-  return std::string();
-}
-
-
 void AwContentBrowserClient::ResourceDispatcherHostCreated() {
   AwResourceDispatcherHostDelegate::ResourceDispatcherHostCreated();
 }
 
 net::NetLog* AwContentBrowserClient::GetNetLog() {
-  // TODO(boliu): Implement AwNetLog.
-  return NULL;
+  return browser_context_->GetAwURLRequestContext()->GetNetLog();
 }
 
 content::AccessTokenStore* AwContentBrowserClient::CreateAccessTokenStore() {
@@ -524,14 +521,6 @@ bool AwContentBrowserClient::IsFastShutdownPossible() {
   NOTREACHED() << "Android WebView is single process, so IsFastShutdownPossible"
                << " should never be called";
   return false;
-}
-
-void AwContentBrowserClient::UpdateInspectorSetting(
-    content::RenderViewHost* rvh,
-    const std::string& key,
-    const std::string& value) {
-  // TODO(boliu): Implement persisting inspector settings.
-  NOTIMPLEMENTED();
 }
 
 void AwContentBrowserClient::ClearCache(content::RenderViewHost* rvh) {
@@ -572,9 +561,10 @@ bool AwContentBrowserClient::AllowPepperSocketAPI(
   return false;
 }
 
-void AwContentBrowserClient::OverrideWebkitPrefs(content::RenderViewHost* rvh,
-                                                 const GURL& url,
-                                                 WebPreferences* web_prefs) {
+void AwContentBrowserClient::OverrideWebkitPrefs(
+    content::RenderViewHost* rvh,
+    const GURL& url,
+    content::WebPreferences* web_prefs) {
   if (!preferences_populater_.get()) {
     preferences_populater_ = make_scoped_ptr(native_factory_->
         CreateWebPreferencesPopulater());
@@ -590,5 +580,10 @@ AwContentBrowserClient::OverrideCreateExternalVideoSurfaceContainer(
   return native_factory_->CreateExternalVideoSurfaceContainer(web_contents);
 }
 #endif
+
+content::DevToolsManagerDelegate*
+AwContentBrowserClient::GetDevToolsManagerDelegate() {
+  return new AwDevToolsManagerDelegate();
+}
 
 }  // namespace android_webview

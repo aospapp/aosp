@@ -5,6 +5,7 @@
 #include "extensions/common/permissions/permission_message_util.h"
 
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_split.h"
 #include "base/strings/utf_string_conversions.h"
 #include "extensions/common/permissions/permission_message.h"
 #include "extensions/common/permissions/permission_set.h"
@@ -13,6 +14,7 @@
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/url_constants.h"
+#include "base/strings/string_split.h"
 
 using extensions::PermissionMessage;
 using extensions::PermissionSet;
@@ -38,57 +40,52 @@ bool RcdBetterThan(const std::string& a, const std::string& b) {
 namespace permission_message_util {
 
 PermissionMessage CreateFromHostList(const std::set<std::string>& hosts) {
-  std::vector<std::string> host_list(hosts.begin(), hosts.end());
+  typedef std::pair<PermissionMessage::ID, int> MsgPair;
+  const MsgPair kMessagesList[] = {
+      std::make_pair(PermissionMessage::kHosts1,
+                     IDS_EXTENSION_PROMPT_WARNING_1_HOST),
+      std::make_pair(PermissionMessage::kHosts2,
+                     IDS_EXTENSION_PROMPT_WARNING_2_HOSTS),
+      std::make_pair(PermissionMessage::kHosts3,
+                     IDS_EXTENSION_PROMPT_WARNING_3_HOSTS),
+      std::make_pair(PermissionMessage::kHosts4OrMore,
+                     IDS_EXTENSION_PROMPT_WARNING_HOSTS_LIST)};
+
+  int host_msg_id = hosts.size() < arraysize(kMessagesList)
+                        ? IDS_EXTENSION_PROMPT_WARNING_HOST_AND_SUBDOMAIN
+                        : IDS_EXTENSION_PROMPT_WARNING_HOST_AND_SUBDOMAIN_LIST;
+  std::vector<base::string16> host_list;
+  for (std::set<std::string>::const_iterator it = hosts.begin();
+       it != hosts.end();
+       ++it) {
+    std::string host = *it;
+    host_list.push_back(
+        host[0] == '*' && host[1] == '.'
+            ? l10n_util::GetStringFUTF16(host_msg_id,
+                                         base::UTF8ToUTF16(host.erase(0, 2)))
+            : base::UTF8ToUTF16(host));
+  }
   DCHECK(host_list.size());
-  PermissionMessage::ID message_id;
-  base::string16 message;
-  base::string16 details;
 
-  switch (host_list.size()) {
-    case 1:
-      message_id = PermissionMessage::kHosts1;
-      message = l10n_util::GetStringFUTF16(IDS_EXTENSION_PROMPT_WARNING_1_HOST,
-                                           base::UTF8ToUTF16(host_list[0]));
-      break;
-    case 2:
-      message_id = PermissionMessage::kHosts2;
-      message = l10n_util::GetStringFUTF16(IDS_EXTENSION_PROMPT_WARNING_2_HOSTS,
-                                           base::UTF8ToUTF16(host_list[0]),
-                                           base::UTF8ToUTF16(host_list[1]));
-      break;
-    case 3:
-      message_id = PermissionMessage::kHosts3;
-      message = l10n_util::GetStringFUTF16(IDS_EXTENSION_PROMPT_WARNING_3_HOSTS,
-                                           base::UTF8ToUTF16(host_list[0]),
-                                           base::UTF8ToUTF16(host_list[1]),
-                                           base::UTF8ToUTF16(host_list[2]));
-      break;
-    default:
-      message_id = PermissionMessage::kHosts4OrMore;
-
-      const int kRetainedFilesMessageIDs[6] = {
-          IDS_EXTENSION_PROMPT_WARNING_HOSTS_DEFAULT,
-          IDS_EXTENSION_PROMPT_WARNING_HOST_SINGULAR,
-          IDS_EXTENSION_PROMPT_WARNING_HOSTS_ZERO,
-          IDS_EXTENSION_PROMPT_WARNING_HOSTS_TWO,
-          IDS_EXTENSION_PROMPT_WARNING_HOSTS_FEW,
-          IDS_EXTENSION_PROMPT_WARNING_HOSTS_MANY, };
-      std::vector<int> message_ids;
-      for (size_t i = 0; i < arraysize(kRetainedFilesMessageIDs); i++) {
-        message_ids.push_back(kRetainedFilesMessageIDs[i]);
-      }
-      message = l10n_util::GetPluralStringFUTF16(message_ids, host_list.size());
-
-      for (size_t i = 0; i < host_list.size(); ++i) {
-        if (i > 0)
-          details += base::ASCIIToUTF16("\n");
-        details += l10n_util::GetStringFUTF16(
-            IDS_EXTENSION_PROMPT_WARNING_HOST_LIST_ENTRY,
-            base::UTF8ToUTF16(host_list[i]));
-      }
+  if (host_list.size() < arraysize(kMessagesList)) {
+    return PermissionMessage(
+        kMessagesList[host_list.size() - 1].first,
+        l10n_util::GetStringFUTF16(
+            kMessagesList[host_list.size() - 1].second, host_list, NULL));
   }
 
-  return PermissionMessage(message_id, message, details);
+  base::string16 details;
+  for (size_t i = 0; i < host_list.size(); ++i) {
+    if (i > 0)
+      details += base::ASCIIToUTF16("\n");
+    details += l10n_util::GetStringFUTF16(
+        IDS_EXTENSION_PROMPT_WARNING_HOST_LIST_ENTRY, host_list[i]);
+  }
+  return PermissionMessage(
+      kMessagesList[arraysize(kMessagesList) - 1].first,
+      l10n_util::GetStringUTF16(
+          kMessagesList[arraysize(kMessagesList) - 1].second),
+      details);
 }
 
 std::set<std::string> GetDistinctHosts(const URLPatternSet& host_patterns,
@@ -97,7 +94,7 @@ std::set<std::string> GetDistinctHosts(const URLPatternSet& host_patterns,
   // Use a vector to preserve order (also faster than a map on small sets).
   // Each item is a host split into two parts: host without RCDs and
   // current best RCD.
-  typedef std::vector<std::pair<std::string, std::string> > HostVector;
+  typedef base::StringPairs HostVector;
   HostVector hosts_best_rcd;
   for (URLPatternSet::const_iterator i = host_patterns.begin();
        i != host_patterns.end();

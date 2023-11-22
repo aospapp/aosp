@@ -35,6 +35,7 @@ const char kOptionsKey[] = "options";
 // Type keys.
 const char kAppCacheKey[] = "appcache";
 const char kCacheKey[] = "cache";
+const char kChannelIDsKey[] = "serverBoundCertificates";
 const char kCookiesKey[] = "cookies";
 const char kDownloadsKey[] = "downloads";
 const char kFileSystemsKey[] = "fileSystems";
@@ -42,9 +43,9 @@ const char kFormDataKey[] = "formData";
 const char kHistoryKey[] = "history";
 const char kIndexedDBKey[] = "indexedDB";
 const char kLocalStorageKey[] = "localStorage";
-const char kServerBoundCertsKey[] = "serverBoundCertificates";
 const char kPasswordsKey[] = "passwords";
 const char kPluginDataKey[] = "pluginData";
+const char kServiceWorkersKey[] = "serviceWorkers";
 const char kWebSQLKey[] = "webSQL";
 
 // Option keys.
@@ -86,12 +87,15 @@ int MaskForKey(const char* key) {
   if (strcmp(key, extension_browsing_data_api_constants::kLocalStorageKey) == 0)
     return BrowsingDataRemover::REMOVE_LOCAL_STORAGE;
   if (strcmp(key,
-             extension_browsing_data_api_constants::kServerBoundCertsKey) == 0)
-    return BrowsingDataRemover::REMOVE_SERVER_BOUND_CERTS;
+             extension_browsing_data_api_constants::kChannelIDsKey) == 0)
+    return BrowsingDataRemover::REMOVE_CHANNEL_IDS;
   if (strcmp(key, extension_browsing_data_api_constants::kPasswordsKey) == 0)
     return BrowsingDataRemover::REMOVE_PASSWORDS;
   if (strcmp(key, extension_browsing_data_api_constants::kPluginDataKey) == 0)
     return BrowsingDataRemover::REMOVE_PLUGIN_DATA;
+  if (strcmp(key, extension_browsing_data_api_constants::kServiceWorkersKey) ==
+      0)
+    return BrowsingDataRemover::REMOVE_SERVICE_WORKERS;
   if (strcmp(key, extension_browsing_data_api_constants::kWebSQLKey) == 0)
     return BrowsingDataRemover::REMOVE_WEBSQL;
 
@@ -171,8 +175,11 @@ bool BrowsingDataSettingsFunction::RunSync() {
              extension_browsing_data_api_constants::kWebSQLKey,
              delete_site_data);
   SetDetails(selected.get(), permitted.get(),
-      extension_browsing_data_api_constants::kServerBoundCertsKey,
+      extension_browsing_data_api_constants::kChannelIDsKey,
       delete_site_data);
+  SetDetails(selected.get(), permitted.get(),
+             extension_browsing_data_api_constants::kServiceWorkersKey,
+             delete_site_data);
 
   SetDetails(selected.get(), permitted.get(),
       extension_browsing_data_api_constants::kPluginDataKey,
@@ -384,7 +391,7 @@ int BrowsingDataRemoveCacheFunction::GetRemovalMask() {
 
 int BrowsingDataRemoveCookiesFunction::GetRemovalMask() {
   return BrowsingDataRemover::REMOVE_COOKIES |
-         BrowsingDataRemover::REMOVE_SERVER_BOUND_CERTS;
+         BrowsingDataRemover::REMOVE_CHANNEL_IDS;
 }
 
 int BrowsingDataRemoveDownloadsFunction::GetRemovalMask() {
@@ -417,6 +424,10 @@ int BrowsingDataRemovePluginDataFunction::GetRemovalMask() {
 
 int BrowsingDataRemovePasswordsFunction::GetRemovalMask() {
   return BrowsingDataRemover::REMOVE_PASSWORDS;
+}
+
+int BrowsingDataRemoveServiceWorkersFunction::GetRemovalMask() {
+  return BrowsingDataRemover::REMOVE_SERVICE_WORKERS;
 }
 
 int BrowsingDataRemoveWebSQLFunction::GetRemovalMask() {

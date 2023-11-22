@@ -20,12 +20,12 @@
 <sample>
     <name>FindMyPhone</name>
     <group>Wearable</group>
-    <package>com.example.android.findphone</package>
+    <package>com.example.android.wearable.findphone</package>
 
 
 
     <!-- change minSdk if needed-->
-    <minSdk>20</minSdk>
+    <minSdk>18</minSdk>
 
 
     <strings>
@@ -41,7 +41,5 @@
 
     <template src="base"/>
     <template src="Wear"/>
-    <common src="logger"/>
-    <common src="activities"/>
 
 </sample>

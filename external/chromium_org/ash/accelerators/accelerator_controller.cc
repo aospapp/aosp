@@ -147,9 +147,9 @@ bool ToggleOverview(const ui::Accelerator& accelerator) {
   return true;
 }
 
-bool HandleFocusLauncher() {
+bool HandleFocusShelf() {
   Shell* shell = Shell::GetInstance();
-  base::RecordAction(base::UserMetricsAction("Accel_Focus_Launcher"));
+  base::RecordAction(base::UserMetricsAction("Accel_Focus_Shelf"));
   return shell->focus_cycler()->FocusWidget(
       Shelf::ForPrimaryDisplay()->shelf_widget());
 }
@@ -229,7 +229,7 @@ bool HandleNewWindow() {
   return true;
 }
 
-bool HandleNextIme(ImeControlDelegate* ime_control_delegate,
+void HandleNextIme(ImeControlDelegate* ime_control_delegate,
                    ui::EventType previous_event_type,
                    ui::KeyboardCode previous_key_code) {
   // This check is necessary e.g. not to process the Shift+Alt+
@@ -247,12 +247,11 @@ bool HandleNextIme(ImeControlDelegate* ime_control_delegate,
       previous_key_code != ui::VKEY_SPACE) {
     // We totally ignore this accelerator.
     // TODO(mazda): Fix crbug.com/158217
-    return false;
+    return;
   }
   base::RecordAction(UserMetricsAction("Accel_Next_Ime"));
   if (ime_control_delegate)
-    return ime_control_delegate->HandleNextIme();
-  return false;
+    ime_control_delegate->HandleNextIme();
 }
 
 bool HandleOpenFeedbackPage() {
@@ -783,6 +782,8 @@ void AcceleratorController::Init() {
     actions_allowed_at_lock_screen_.insert(kActionsAllowedAtLockScreen[i]);
   for (size_t i = 0; i < kActionsAllowedAtModalWindowLength; ++i)
     actions_allowed_at_modal_window_.insert(kActionsAllowedAtModalWindow[i]);
+  for (size_t i = 0; i < kPreferredActionsLength; ++i)
+    preferred_actions_.insert(kPreferredActions[i]);
   for (size_t i = 0; i < kReservedActionsLength; ++i)
     reserved_actions_.insert(kReservedActions[i]);
   for (size_t i = 0; i < kNonrepeatableActionsLength; ++i)
@@ -841,7 +842,20 @@ bool AcceleratorController::IsRegistered(
   return accelerator_manager_->GetCurrentTarget(accelerator) != NULL;
 }
 
-bool AcceleratorController::IsReservedAccelerator(
+bool AcceleratorController::IsPreferred(
+    const ui::Accelerator& accelerator) const {
+  const ui::Accelerator remapped_accelerator = ime_control_delegate_.get() ?
+      ime_control_delegate_->RemapAccelerator(accelerator) : accelerator;
+
+  std::map<ui::Accelerator, int>::const_iterator iter =
+      accelerators_.find(remapped_accelerator);
+  if (iter == accelerators_.end())
+    return false;  // not an accelerator.
+
+  return preferred_actions_.find(iter->second) != preferred_actions_.end();
+}
+
+bool AcceleratorController::IsReserved(
     const ui::Accelerator& accelerator) const {
   const ui::Accelerator remapped_accelerator = ime_control_delegate_.get() ?
       ime_control_delegate_->RemapAccelerator(accelerator) : accelerator;
@@ -857,36 +871,10 @@ bool AcceleratorController::IsReservedAccelerator(
 bool AcceleratorController::PerformAction(int action,
                                           const ui::Accelerator& accelerator) {
   ash::Shell* shell = ash::Shell::GetInstance();
-  if (!shell->session_state_delegate()->IsActiveUserSessionStarted() &&
-      actions_allowed_at_login_screen_.find(action) ==
-      actions_allowed_at_login_screen_.end()) {
-    return false;
-  }
-  if (shell->session_state_delegate()->IsScreenLocked() &&
-      actions_allowed_at_lock_screen_.find(action) ==
-      actions_allowed_at_lock_screen_.end()) {
-    return false;
-  }
-  if (shell->IsSystemModalWindowOpen() &&
-      actions_allowed_at_modal_window_.find(action) ==
-      actions_allowed_at_modal_window_.end()) {
-    // Note: we return true. This indicates the shortcut is handled
-    // and will not be passed to the modal window. This is important
-    // for things like Alt+Tab that would cause an undesired effect
-    // in the modal window by cycling through its window elements.
-    return true;
-  }
-  if (shell->delegate()->IsRunningInForcedAppMode() &&
-      actions_allowed_in_app_mode_.find(action) ==
-      actions_allowed_in_app_mode_.end()) {
-    return false;
-  }
-  if (MruWindowTracker::BuildWindowList(false).empty() &&
-      actions_needing_window_.find(action) != actions_needing_window_.end()) {
-    Shell::GetInstance()->accessibility_delegate()->TriggerAccessibilityAlert(
-        A11Y_ALERT_WINDOW_NEEDED);
-    return true;
-  }
+  AcceleratorProcessingRestriction restriction =
+      GetAcceleratorProcessingRestriction(action);
+  if (restriction != RESTRICTION_NONE)
+    return restriction == RESTRICTION_PREVENT_PROCESSING_AND_PROPAGATION;
 
   const ui::KeyboardCode key_code = accelerator.key_code();
   // PerformAction() is performed from gesture controllers and passes
@@ -1018,8 +1006,8 @@ bool AcceleratorController::PerformAction(int action,
           shell->system_tray_delegate()->GetVolumeControlDelegate();
       return volume_delegate && volume_delegate->HandleVolumeUp(accelerator);
     }
-    case FOCUS_LAUNCHER:
-      return HandleFocusLauncher();
+    case FOCUS_SHELF:
+      return HandleFocusShelf();
     case FOCUS_NEXT_PANE:
       return HandleRotatePaneFocus(Shell::FORWARD);
     case FOCUS_PREVIOUS_PANE:
@@ -1034,8 +1022,11 @@ bool AcceleratorController::PerformAction(int action,
     case SHOW_TASK_MANAGER:
       return HandleShowTaskManager();
     case NEXT_IME:
-      return HandleNextIme(
+      HandleNextIme(
           ime_control_delegate_.get(), previous_event_type, previous_key_code);
+      // NEXT_IME is bound to Alt-Shift key up event. To be consistent with
+      // Windows behavior, do not consume the key event here.
+      return false;
     case PREVIOUS_IME:
       return HandlePreviousIme(ime_control_delegate_.get(), accelerator);
     case PRINT_UI_HIERARCHIES:
@@ -1138,6 +1129,47 @@ bool AcceleratorController::PerformAction(int action,
       NOTREACHED() << "Unhandled action " << action;
   }
   return false;
+}
+
+AcceleratorController::AcceleratorProcessingRestriction
+AcceleratorController::GetCurrentAcceleratorRestriction() {
+  return GetAcceleratorProcessingRestriction(-1);
+}
+
+AcceleratorController::AcceleratorProcessingRestriction
+AcceleratorController::GetAcceleratorProcessingRestriction(int action) {
+  ash::Shell* shell = ash::Shell::GetInstance();
+  if (!shell->session_state_delegate()->IsActiveUserSessionStarted() &&
+      actions_allowed_at_login_screen_.find(action) ==
+          actions_allowed_at_login_screen_.end()) {
+    return RESTRICTION_PREVENT_PROCESSING;
+  }
+  if (shell->session_state_delegate()->IsScreenLocked() &&
+      actions_allowed_at_lock_screen_.find(action) ==
+          actions_allowed_at_lock_screen_.end()) {
+    return RESTRICTION_PREVENT_PROCESSING;
+  }
+  if (shell->IsSystemModalWindowOpen() &&
+      actions_allowed_at_modal_window_.find(action) ==
+          actions_allowed_at_modal_window_.end()) {
+    // Note we prevent the shortcut from propagating so it will not
+    // be passed to the modal window. This is important for things like
+    // Alt+Tab that would cause an undesired effect in the modal window by
+    // cycling through its window elements.
+    return RESTRICTION_PREVENT_PROCESSING_AND_PROPAGATION;
+  }
+  if (shell->delegate()->IsRunningInForcedAppMode() &&
+      actions_allowed_in_app_mode_.find(action) ==
+          actions_allowed_in_app_mode_.end()) {
+    return RESTRICTION_PREVENT_PROCESSING;
+  }
+  if (MruWindowTracker::BuildWindowList(false).empty() &&
+      actions_needing_window_.find(action) != actions_needing_window_.end()) {
+    Shell::GetInstance()->accessibility_delegate()->TriggerAccessibilityAlert(
+        A11Y_ALERT_WINDOW_NEEDED);
+    return RESTRICTION_PREVENT_PROCESSING_AND_PROPAGATION;
+  }
+  return RESTRICTION_NONE;
 }
 
 void AcceleratorController::SetBrightnessControlDelegate(

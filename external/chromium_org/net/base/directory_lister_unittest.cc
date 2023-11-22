@@ -5,8 +5,8 @@
 #include <list>
 #include <utility>
 
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/i18n/file_util_icu.h"
 #include "base/message_loop/message_loop.h"
@@ -50,7 +50,7 @@ class ListerDelegate : public DirectoryLister::DirectoryListerDelegate {
       for (size_t previous = 0, current = 1;
            current < file_list_.size();
            previous++, current++) {
-        EXPECT_TRUE(file_util::LocaleAwareCompareFilenames(
+        EXPECT_TRUE(base::i18n::LocaleAwareCompareFilenames(
             paths_[previous], paths_[current]));
       }
     }
@@ -71,7 +71,7 @@ class ListerDelegate : public DirectoryLister::DirectoryListerDelegate {
                   file_list_[current].GetName().BaseName().value());
         EXPECT_EQ(file_list_[previous].IsDirectory(),
                   file_list_[current].IsDirectory());
-        EXPECT_TRUE(file_util::LocaleAwareCompareFilenames(
+        EXPECT_TRUE(base::i18n::LocaleAwareCompareFilenames(
             file_list_[previous].GetName(),
             file_list_[current].GetName()));
       }

@@ -9,14 +9,17 @@
 #include "base/values.h"
 #include "chrome/browser/extensions/api/signed_in_devices/id_mapping_helper.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/sync/glue/device_info.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/common/extensions/api/signed_in_devices.h"
+#include "components/sync_driver/device_info_tracker.h"
+#include "components/sync_driver/local_device_info_provider.h"
 #include "extensions/browser/extension_prefs.h"
 
 using base::DictionaryValue;
-using browser_sync::DeviceInfo;
+using sync_driver::DeviceInfo;
+using sync_driver::DeviceInfoTracker;
+using sync_driver::LocalDeviceInfoProvider;
 
 namespace extensions {
 
@@ -46,13 +49,14 @@ const base::DictionaryValue* GetIdMappingDictionary(
 }
 
 // Helper routine to get all signed in devices. The helper takes in
-// the pointers for |ProfileSyncService| and |Extensionprefs|. This
+// the pointers for |DeviceInfoTracker| and |Extensionprefs|. This
 // makes it easier to test by passing mock values for these pointers.
 ScopedVector<DeviceInfo> GetAllSignedInDevices(
     const std::string& extension_id,
-    ProfileSyncService* pss,
+    DeviceInfoTracker* device_tracker,
     ExtensionPrefs* extension_prefs) {
-  ScopedVector<DeviceInfo> devices = pss->GetAllSignedInDevices();
+  DCHECK(device_tracker);
+  ScopedVector<DeviceInfo> devices = device_tracker->GetAllDeviceInfo();
   const base::DictionaryValue* mapping_dictionary = GetIdMappingDictionary(
       extension_prefs,
       extension_id);
@@ -76,14 +80,18 @@ ScopedVector<DeviceInfo> GetAllSignedInDevices(
 ScopedVector<DeviceInfo> GetAllSignedInDevices(
     const std::string& extension_id,
     Profile* profile) {
-  // Get the profile sync service and extension prefs pointers
+  // Get the device tracker and extension prefs pointers
   // and call the helper.
-  ProfileSyncService* pss = ProfileSyncServiceFactory::GetForProfile(profile);
+  DeviceInfoTracker* device_tracker =
+      ProfileSyncServiceFactory::GetForProfile(profile)->GetDeviceInfoTracker();
+  if (device_tracker == NULL) {
+    // Devices are not sync'ing.
+    return ScopedVector<DeviceInfo>().Pass();
+  }
+
   ExtensionPrefs* extension_prefs = ExtensionPrefs::Get(profile);
 
-  return GetAllSignedInDevices(extension_id,
-                               pss,
-                               extension_prefs);
+  return GetAllSignedInDevices(extension_id, device_tracker, extension_prefs);
 }
 
 scoped_ptr<DeviceInfo> GetLocalDeviceInfo(const std::string& extension_id,
@@ -92,7 +100,10 @@ scoped_ptr<DeviceInfo> GetLocalDeviceInfo(const std::string& extension_id,
   if (!pss) {
     return scoped_ptr<DeviceInfo>();
   }
-  std::string guid = pss->GetLocalSyncCacheGUID();
+
+  LocalDeviceInfoProvider* local_device = pss->GetLocalDeviceInfoProvider();
+  DCHECK(local_device);
+  std::string guid = local_device->GetLocalSyncCacheGUID();
   scoped_ptr<DeviceInfo> device = GetDeviceInfoForClientId(guid,
                                                            extension_id,
                                                            profile);

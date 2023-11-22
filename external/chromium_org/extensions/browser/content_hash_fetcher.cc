@@ -7,21 +7,21 @@
 #include <algorithm>
 
 #include "base/base64.h"
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/memory/ref_counted.h"
-#include "base/stl_util.h"
+#include "base/metrics/histogram.h"
 #include "base/synchronization/lock.h"
 #include "base/task_runner_util.h"
+#include "base/timer/elapsed_timer.h"
 #include "base/version.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
-#include "crypto/secure_hash.h"
 #include "crypto/sha2.h"
 #include "extensions/browser/computed_hashes.h"
 #include "extensions/browser/content_hash_tree.h"
-#include "extensions/browser/extension_registry.h"
+#include "extensions/browser/content_verifier_delegate.h"
 #include "extensions/browser/verified_contents.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
@@ -49,7 +49,7 @@ class ContentHashFetcherJob
  public:
   typedef base::Callback<void(ContentHashFetcherJob*)> CompletionCallback;
   ContentHashFetcherJob(net::URLRequestContextGetter* request_context,
-                        ContentVerifierKey key,
+                        const ContentVerifierKey& key,
                         const std::string& extension_id,
                         const base::FilePath& extension_path,
                         const GURL& fetch_url,
@@ -83,6 +83,13 @@ class ContentHashFetcherJob
  private:
   friend class base::RefCountedThreadSafe<ContentHashFetcherJob>;
   virtual ~ContentHashFetcherJob();
+
+  // Tries to load a verified_contents.json file at |path|. On successfully
+  // reading and validing the file, the verified_contents_ member variable will
+  // be set and this function will return true. If the file does not exist, or
+  // exists but is invalid, it will return false. Also, any invalid
+  // file will be removed from disk and
+  bool LoadVerifiedContents(const base::FilePath& path);
 
   // Callback for when we're done doing file I/O to see if we already have
   // a verified contents file. If we don't, this will kick off a network
@@ -133,6 +140,10 @@ class ContentHashFetcherJob
   // The key used to validate verified_contents.json.
   ContentVerifierKey key_;
 
+  // The parsed contents of the verified_contents.json file, either read from
+  // disk or fetched from the network and then written to disk.
+  scoped_ptr<VerifiedContents> verified_contents_;
+
   // Whether this job succeeded.
   bool success_;
 
@@ -154,7 +165,7 @@ class ContentHashFetcherJob
 
 ContentHashFetcherJob::ContentHashFetcherJob(
     net::URLRequestContextGetter* request_context,
-    ContentVerifierKey key,
+    const ContentVerifierKey& key,
     const std::string& extension_id,
     const base::FilePath& extension_path,
     const GURL& fetch_url,
@@ -183,7 +194,9 @@ void ContentHashFetcherJob::Start() {
   base::PostTaskAndReplyWithResult(
       content::BrowserThread::GetBlockingPool(),
       FROM_HERE,
-      base::Bind(&base::PathExists, verified_contents_path),
+      base::Bind(&ContentHashFetcherJob::LoadVerifiedContents,
+                 this,
+                 verified_contents_path),
       base::Bind(&ContentHashFetcherJob::DoneCheckingForVerifiedContents,
                  this));
 }
@@ -200,6 +213,19 @@ bool ContentHashFetcherJob::IsCancelled() {
 }
 
 ContentHashFetcherJob::~ContentHashFetcherJob() {
+}
+
+bool ContentHashFetcherJob::LoadVerifiedContents(const base::FilePath& path) {
+  if (!base::PathExists(path))
+    return false;
+  verified_contents_.reset(new VerifiedContents(key_.data, key_.size));
+  if (!verified_contents_->InitFrom(path, false)) {
+    verified_contents_.reset();
+    if (!base::DeleteFile(path, false))
+      LOG(WARNING) << "Failed to delete " << path.value();
+    return false;
+  }
+  return true;
 }
 
 void ContentHashFetcherJob::DoneCheckingForVerifiedContents(bool found) {
@@ -311,17 +337,21 @@ void ContentHashFetcherJob::MaybeCreateHashes() {
 }
 
 bool ContentHashFetcherJob::CreateHashes(const base::FilePath& hashes_file) {
+  base::ElapsedTimer timer;
   if (IsCancelled())
     return false;
   // Make sure the directory exists.
   if (!base::CreateDirectoryAndGetError(hashes_file.DirName(), NULL))
     return false;
 
-  base::FilePath verified_contents_path =
-      file_util::GetVerifiedContentsPath(extension_path_);
-  VerifiedContents verified_contents(key_.data, key_.size);
-  if (!verified_contents.InitFrom(verified_contents_path, false))
-    return false;
+  if (!verified_contents_.get()) {
+    base::FilePath verified_contents_path =
+        file_util::GetVerifiedContentsPath(extension_path_);
+    verified_contents_.reset(new VerifiedContents(key_.data, key_.size));
+    if (!verified_contents_->InitFrom(verified_contents_path, false))
+      return false;
+    verified_contents_.reset();
+  }
 
   base::FileEnumerator enumerator(extension_path_,
                                   true, /* recursive */
@@ -347,10 +377,9 @@ bool ContentHashFetcherJob::CreateHashes(const base::FilePath& hashes_file) {
     const base::FilePath& full_path = *i;
     base::FilePath relative_path;
     extension_path_.AppendRelativePath(full_path, &relative_path);
+    relative_path = relative_path.NormalizePathSeparatorsTo('/');
 
-    const std::string* expected_root =
-        verified_contents.GetTreeHashRoot(relative_path);
-    if (!expected_root)
+    if (!verified_contents_->HasTreeHashRoot(relative_path))
       continue;
 
     std::string contents;
@@ -362,29 +391,10 @@ bool ContentHashFetcherJob::CreateHashes(const base::FilePath& hashes_file) {
     // Iterate through taking the hash of each block of size (block_size_) of
     // the file.
     std::vector<std::string> hashes;
-    size_t offset = 0;
-    while (offset < contents.size()) {
-      if (IsCancelled())
-        return false;
-      const char* block_start = contents.data() + offset;
-      size_t bytes_to_read =
-          std::min(contents.size() - offset, static_cast<size_t>(block_size_));
-      DCHECK(bytes_to_read > 0);
-      scoped_ptr<crypto::SecureHash> hash(
-          crypto::SecureHash::Create(crypto::SecureHash::SHA256));
-      hash->Update(block_start, bytes_to_read);
-
-      hashes.push_back(std::string());
-      std::string* buffer = &hashes.back();
-      buffer->resize(crypto::kSHA256Length);
-      hash->Finish(string_as_array(buffer), buffer->size());
-
-      // Get ready for next iteration.
-      offset += bytes_to_read;
-    }
+    ComputedHashes::ComputeHashesForContent(contents, block_size_, &hashes);
     std::string root =
         ComputeTreeHashRoot(hashes, block_size_ / crypto::kSHA256Length);
-    if (expected_root && *expected_root != root) {
+    if (!verified_contents_->TreeHashRootEquals(relative_path, root)) {
       VLOG(1) << "content mismatch for " << relative_path.AsUTF8Unsafe();
       hash_mismatch_paths_.insert(relative_path);
       continue;
@@ -392,7 +402,10 @@ bool ContentHashFetcherJob::CreateHashes(const base::FilePath& hashes_file) {
 
     writer.AddHashes(relative_path, block_size_, hashes);
   }
-  return writer.WriteToFile(hashes_file);
+  bool result = writer.WriteToFile(hashes_file);
+  UMA_HISTOGRAM_TIMES("ExtensionContentHashFetcher.CreateHashesTime",
+                      timer.Elapsed());
+  return result;
 }
 
 void ContentHashFetcherJob::DispatchCallback() {
@@ -412,7 +425,6 @@ ContentHashFetcher::ContentHashFetcher(content::BrowserContext* context,
     : context_(context),
       delegate_(delegate),
       fetch_callback_(callback),
-      observer_(this),
       weak_ptr_factory_(this) {
 }
 
@@ -422,14 +434,8 @@ ContentHashFetcher::~ContentHashFetcher() {
   }
 }
 
-void ContentHashFetcher::Start() {
-  ExtensionRegistry* registry = ExtensionRegistry::Get(context_);
-  observer_.Add(registry);
-}
-
 void ContentHashFetcher::DoFetch(const Extension* extension, bool force) {
-  if (!extension || !delegate_->ShouldBeVerified(*extension))
-    return;
+  DCHECK(extension);
 
   IdAndVersion key(extension->id(), extension->version()->GetString());
   JobMap::iterator found = jobs_.find(key);
@@ -465,17 +471,12 @@ void ContentHashFetcher::DoFetch(const Extension* extension, bool force) {
   job->Start();
 }
 
-void ContentHashFetcher::OnExtensionLoaded(
-    content::BrowserContext* browser_context,
-    const Extension* extension) {
+void ContentHashFetcher::ExtensionLoaded(const Extension* extension) {
   CHECK(extension);
   DoFetch(extension, false);
 }
 
-void ContentHashFetcher::OnExtensionUnloaded(
-    content::BrowserContext* browser_context,
-    const Extension* extension,
-    UnloadedExtensionInfo::Reason reason) {
+void ContentHashFetcher::ExtensionUnloaded(const Extension* extension) {
   CHECK(extension);
   IdAndVersion key(extension->id(), extension->version()->GetString());
   JobMap::iterator found = jobs_.find(key);

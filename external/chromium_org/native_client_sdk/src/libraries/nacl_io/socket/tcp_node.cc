@@ -11,6 +11,7 @@
 #include <algorithm>
 
 #include "nacl_io/kernel_handle.h"
+#include "nacl_io/log.h"
 #include "nacl_io/pepper_interface.h"
 #include "nacl_io/socket/tcp_node.h"
 #include "nacl_io/stream/stream_fs.h"
@@ -29,7 +30,9 @@ class TcpWork : public StreamFs::Work {
         emitter_(emitter),
         data_(NULL) {}
 
-  ~TcpWork() { delete[] data_; }
+  ~TcpWork() {
+    free(data_);
+  }
 
   TCPSocketInterface* TCPInterface() {
     return filesystem()->ppapi()->GetTCPSocketInterface();
@@ -62,7 +65,10 @@ class TcpSendWork : public TcpWork {
     if (capped_len == 0)
       return false;
 
-    data_ = new char[capped_len];
+    data_ = (char*)malloc(capped_len);
+    assert(data_);
+    if (data_ == NULL)
+      return false;
     emitter_->ReadOut_Locked(data_, capped_len);
 
     int err = TCPInterface()->Write(node_->socket_resource(),
@@ -125,7 +131,10 @@ class TcpRecvWork : public TcpWork {
     if (capped_len == 0)
       return false;
 
-    data_ = new char[capped_len];
+    data_ = (char*)malloc(capped_len);
+    assert(data_);
+    if (data_ == NULL)
+      return false;
     int err = TCPInterface()->Read(stream->socket_resource(),
                                    data_,
                                    capped_len,
@@ -287,8 +296,10 @@ Error TcpNode::Init(int open_flags) {
   if (err != 0)
     return err;
 
-  if (TCPInterface() == NULL)
+  if (TCPInterface() == NULL) {
+    LOG_ERROR("Got NULL interface: TCP");
     return EACCES;
+  }
 
   if (socket_resource_ != 0) {
     // TCP sockets that are contructed with an existing socket_resource_
@@ -299,8 +310,10 @@ Error TcpNode::Init(int open_flags) {
   } else {
     socket_resource_ =
         TCPInterface()->Create(filesystem_->ppapi()->GetInstance());
-    if (0 == socket_resource_)
+    if (0 == socket_resource_) {
+      LOG_ERROR("Unable to create TCP resource.");
       return EACCES;
+    }
     SetStreamFlags(SSF_CAN_CONNECT);
   }
 
@@ -475,6 +488,12 @@ Error TcpNode::Connect(const HandleAttr& attr,
     return err;
   }
 
+  // Make sure the connection succeeded.
+  if (last_errno_ != 0) {
+    ConnectFailed_Locked();
+    return last_errno_;
+  }
+
   ConnectDone_Locked();
   return 0;
 }
@@ -483,6 +502,7 @@ Error TcpNode::Shutdown(int how) {
   AUTO_LOCK(node_lock_);
   if (!IsConnected())
     return ENOTCONN;
+
   {
     AUTO_LOCK(emitter_->GetLock());
     emitter_->SetError_Locked();

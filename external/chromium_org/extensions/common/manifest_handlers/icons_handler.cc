@@ -4,7 +4,7 @@
 
 #include "extensions/common/manifest_handlers/icons_handler.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/strings/string_number_conversions.h"
@@ -37,7 +37,7 @@ ExtensionResource IconsInfo::GetIconResource(
     const Extension* extension,
     int size,
     ExtensionIconSet::MatchType match_type) {
-  std::string path = GetIcons(extension).Get(size, match_type);
+  const std::string& path = GetIcons(extension).Get(size, match_type);
   return path.empty() ? ExtensionResource() : extension->GetResource(path);
 }
 
@@ -45,7 +45,7 @@ ExtensionResource IconsInfo::GetIconResource(
 GURL IconsInfo::GetIconURL(const Extension* extension,
                            int size,
                            ExtensionIconSet::MatchType match_type) {
-  std::string path = GetIcons(extension).Get(size, match_type);
+  const std::string& path = GetIcons(extension).Get(size, match_type);
   return path.empty() ? GURL() : extension->GetResourceURL(path);
 }
 

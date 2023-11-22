@@ -36,6 +36,7 @@ import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.method.DialerKeyListener;
+import android.text.style.TtsSpan;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MenuItem;
@@ -87,7 +88,6 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
     private static final String LOG_TAG = "EmergencyDialer";
 
     private StatusBarManager mStatusBarManager;
-    private AccessibilityManager mAccessibilityManager;
 
     /** The length of DTMF tones in milliseconds */
     private static final int TONE_LENGTH_MS = 150;
@@ -154,6 +154,7 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         }
 
         updateDialAndDeleteButtonStateEnabledAttr();
+        updateTtsSpans();
     }
 
     @Override
@@ -161,7 +162,6 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         super.onCreate(icicle);
 
         mStatusBarManager = (StatusBarManager) getSystemService(Context.STATUS_BAR_SERVICE);
-        mAccessibilityManager = (AccessibilityManager) getSystemService(ACCESSIBILITY_SERVICE);
 
         // Allow this activity to be displayed in front of the keyguard / lockscreen.
         WindowManager.LayoutParams lp = getWindow().getAttributes();
@@ -180,10 +180,6 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         mDigits.setOnClickListener(this);
         mDigits.setOnKeyListener(this);
         mDigits.setLongClickable(false);
-        if (mAccessibilityManager.isEnabled()) {
-            // The text view must be selected to send accessibility events.
-            mDigits.setSelected(true);
-        }
         maybeAddNumberFormatting();
 
         // Check for the presence of the keypad
@@ -442,13 +438,10 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         switch (id) {
             case R.id.deleteButton: {
                 mDigits.getText().clear();
-                // TODO: The framework forgets to clear the pressed
-                // status of disabled button. Until this is fixed,
-                // clear manually the pressed status. b/2133127
-                mDelete.setPressed(false);
                 return true;
             }
             case R.id.zero: {
+                removePreviousDigitIfPossible();
                 keyPressed(KeyEvent.KEYCODE_PLUS);
                 return true;
             }
@@ -524,14 +517,12 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
             intent.setData(Uri.fromParts(PhoneAccount.SCHEME_TEL, mLastNumber, null));
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
-            finish();
         } else {
             if (DBG) Log.d(LOG_TAG, "rejecting bad requested number " + mLastNumber);
 
-            // erase the number and throw up an alert dialog.
-            mDigits.getText().delete(0, mDigits.getText().length());
             showDialog(BAD_EMERGENCY_NUMBER_DIALOG);
         }
+        mDigits.getText().delete(0, mDigits.getText().length());
     }
 
     /**
@@ -624,5 +615,27 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         final boolean notEmpty = mDigits.length() != 0;
 
         mDelete.setEnabled(notEmpty);
+    }
+
+    /**
+     * Remove the digit just before the current position. Used by various long pressed callbacks
+     * to remove the digit that was populated as a result of the short click.
+     */
+    private void removePreviousDigitIfPossible() {
+        final int currentPosition = mDigits.getSelectionStart();
+        if (currentPosition > 0) {
+            mDigits.setSelection(currentPosition);
+            mDigits.getText().delete(currentPosition - 1, currentPosition);
+        }
+    }
+
+    /**
+     * Update the text-to-speech annotations in the edit field.
+     */
+    private void updateTtsSpans() {
+        for (Object o : mDigits.getText().getSpans(0, mDigits.getText().length(), TtsSpan.class)) {
+            mDigits.getText().removeSpan(o);
+        }
+        PhoneNumberUtils.ttsSpanAsPhoneNumber(mDigits.getText(), 0, mDigits.getText().length());
     }
 }

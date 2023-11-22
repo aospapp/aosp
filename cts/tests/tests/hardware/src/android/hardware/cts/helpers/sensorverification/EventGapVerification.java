@@ -63,19 +63,14 @@ public class EventGapVerification extends AbstractSensorVerification {
     public void verify(TestSensorEnvironment environment, SensorStats stats) {
         if (environment.isSensorSamplingRateOverloaded()) {
             // the verification is not reliable on environments under load
-            stats.addValue(PASSED_KEY, true);
+            stats.addValue(PASSED_KEY, "skipped (under load)");
             return;
         }
 
         final int count = mEventGaps.size();
         stats.addValue(PASSED_KEY, count == 0);
         stats.addValue(SensorStats.EVENT_GAP_COUNT_KEY, count);
-
-        final int[] indices = new int[count];
-        for (int i = 0; i < indices.length; i++) {
-            indices[i] = mEventGaps.get(i).index;
-        }
-        stats.addValue(SensorStats.EVENT_GAP_POSITIONS_KEY, indices);
+        stats.addValue(SensorStats.EVENT_GAP_POSITIONS_KEY, getIndexArray(mEventGaps));
 
         if (count > 0) {
             StringBuilder sb = new StringBuilder();

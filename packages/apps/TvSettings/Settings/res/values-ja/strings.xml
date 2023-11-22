@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"バックアップと復元"</string>
     <string name="device_reset" msgid="2827002349560023125">"データの初期化"</string>
     <string name="device_calibration" msgid="8632962533376605191">"キャリブレーション"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"ダウンロードしたアプリ"</string>
     <string name="apps_system" msgid="2499191125802829425">"システムアプリ"</string>
     <string name="apps_running" msgid="6430310491739956228">"実行中のアプリ"</string>
@@ -95,7 +99,7 @@
     <string name="system_language" msgid="2337138146114609247">"言語"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"キーボード"</string>
     <string name="system_search" msgid="2837264654143247611">"検索"</string>
-    <string name="system_security" msgid="4190058778883258927">"セキュリティ＆制限"</string>
+    <string name="system_security" msgid="8230080273993484407">"セキュリティと制限"</string>
     <string name="system_speech" msgid="8128688499687306982">"音声"</string>
     <string name="system_inputs" msgid="2413907183796651102">"入力"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"ユーザー補助"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"システムアップデート"</string>
     <string name="about_preference" msgid="4131396784531360434">"端末情報"</string>
     <string name="device_name" msgid="2670488158531273028">"端末名"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"再起動"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"法的情報"</string>
     <string name="about_warranty" msgid="5736003473060436384">"保証書"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"オープンソースライセンス"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"利用規約を表示"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"プライバシーポリシーを表示"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"追加規約を表示"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Google利用規約"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"ライセンスデータは使用できません"</string>
     <string name="about_model" msgid="6625269442206323995">"モデル"</string>
     <string name="about_version" msgid="1177287676732287266">"バージョン"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"日付"</string>
     <string name="system_time" msgid="6726022312605226285">"時刻"</string>
     <string name="system_set_date" msgid="2437586307768561116">"日付の設定"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"日付形式の選択"</string>
     <string name="system_set_time" msgid="4661804115501057452">"時刻の設定"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"タイムゾーンの設定"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"24時間表示の使用"</string>

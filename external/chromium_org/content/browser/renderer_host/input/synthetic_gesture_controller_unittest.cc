@@ -430,7 +430,7 @@ class SyntheticGestureControllerTest : public testing::Test {
 TEST_F(SyntheticGestureControllerTest, SingleGesture) {
   CreateControllerAndTarget<MockSyntheticGestureTarget>();
 
-  bool finished;
+  bool finished = false;
   scoped_ptr<MockSyntheticGesture> gesture(
       new MockSyntheticGesture(&finished, 3));
   QueueSyntheticGesture(gesture.PassAs<SyntheticGesture>());
@@ -444,7 +444,7 @@ TEST_F(SyntheticGestureControllerTest, SingleGesture) {
 TEST_F(SyntheticGestureControllerTest, GestureFailed) {
   CreateControllerAndTarget<MockSyntheticGestureTarget>();
 
-  bool finished;
+  bool finished = false;
   scoped_ptr<MockSyntheticGesture> gesture(
       new MockSyntheticGesture(&finished, 0));
   QueueSyntheticGesture(gesture.PassAs<SyntheticGesture>());
@@ -458,9 +458,10 @@ TEST_F(SyntheticGestureControllerTest, GestureFailed) {
 TEST_F(SyntheticGestureControllerTest, SuccessiveGestures) {
   CreateControllerAndTarget<MockSyntheticGestureTarget>();
 
-  bool finished_1, finished_2;
+  bool finished_1 = false;
   scoped_ptr<MockSyntheticGesture> gesture_1(
       new MockSyntheticGesture(&finished_1, 2));
+  bool finished_2 = false;
   scoped_ptr<MockSyntheticGesture> gesture_2(
       new MockSyntheticGesture(&finished_2, 4));
 
@@ -484,9 +485,10 @@ TEST_F(SyntheticGestureControllerTest, SuccessiveGestures) {
 TEST_F(SyntheticGestureControllerTest, TwoGesturesInFlight) {
   CreateControllerAndTarget<MockSyntheticGestureTarget>();
 
-  bool finished_1, finished_2;
+  bool finished_1 = false;
   scoped_ptr<MockSyntheticGesture> gesture_1(
       new MockSyntheticGesture(&finished_1, 2));
+  bool finished_2 = false;
   scoped_ptr<MockSyntheticGesture> gesture_2(
       new MockSyntheticGesture(&finished_2, 4));
 
@@ -568,9 +570,8 @@ TEST_F(SyntheticGestureControllerTest, SingleScrollGestureTouchVertical) {
       static_cast<MockScrollGestureTarget*>(target_);
   EXPECT_EQ(1, num_success_);
   EXPECT_EQ(0, num_failure_);
-  // TODO(dominikg): Remove adjustment when crbug.com/332418 is fixed.
   EXPECT_EQ(AddTouchSlopToVector(params.distances[0], target_),
-            scroll_target->start_to_end_distance() - gfx::Vector2dF(0, 0.001f));
+            scroll_target->start_to_end_distance());
 }
 
 TEST_F(SyntheticGestureControllerTest, SingleScrollGestureTouchHorizontal) {
@@ -590,15 +591,8 @@ TEST_F(SyntheticGestureControllerTest, SingleScrollGestureTouchHorizontal) {
       static_cast<MockScrollGestureTarget*>(target_);
   EXPECT_EQ(1, num_success_);
   EXPECT_EQ(0, num_failure_);
-  // TODO(dominikg): Use vector comparison when crbug.com/332418 is fixed.
-  //EXPECT_EQ(AddTouchSlopToVector(params.distances[0], target_),
-  //          scroll_target->start_to_end_distance());
-  EXPECT_EQ(AddTouchSlopToVector(params.distances[0], target_).x(),
-            scroll_target->start_to_end_distance().x());
-  EXPECT_LT(AddTouchSlopToVector(params.distances[0], target_).y(),
-            scroll_target->start_to_end_distance().y());
-  EXPECT_GE(AddTouchSlopToVector(params.distances[0], target_).y(),
-            scroll_target->start_to_end_distance().y() - 0.001f);
+  EXPECT_EQ(AddTouchSlopToVector(params.distances[0], target_),
+            scroll_target->start_to_end_distance());
 }
 
 void CheckIsWithinRangeSingle(float scroll_distance,
@@ -888,14 +882,13 @@ TEST_F(SyntheticGestureControllerTest, MultiScrollGestureTouchVertical) {
       static_cast<MockScrollGestureTarget*>(target_);
   EXPECT_EQ(1, num_success_);
   EXPECT_EQ(0, num_failure_);
-  // TODO(dominikg): Remove adjustment when crbug.com/332418 is fixed.
   EXPECT_FLOAT_EQ(
       params.distances[0].Length() + params.distances[1].Length() +
           target_->GetTouchSlopInDips(),
-      scroll_target->total_abs_scroll_distance_length() - 0.001f);
+      scroll_target->total_abs_scroll_distance_length());
   EXPECT_EQ(AddTouchSlopToVector(params.distances[0] + params.distances[1],
                                  target_),
-            scroll_target->start_to_end_distance() - gfx::Vector2dF(0, 0.001f));
+            scroll_target->start_to_end_distance());
 }
 
 TEST_F(SyntheticGestureControllerTest, PinchGestureTouchZoomIn) {

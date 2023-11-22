@@ -43,7 +43,7 @@
         android:layout_marginTop="6dp"
         android:layout_toStartOf="@id/upper_date"
         android:layout_toLeftOf="@id/upper_date"
-        android:src="@drawable/ic_attach_file_20dp"
+        android:src="@drawable/ic_attach_file_18dp"
         style="@style/AttachmentIconStyle" />
 
     <TextView
@@ -59,6 +59,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/sender_name"
+        android:ellipsize="end"
         style="@style/MessageHeaderSubtitleStyle" />
 
     <TextView

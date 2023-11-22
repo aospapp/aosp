@@ -52,7 +52,6 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/common/content_switches.h"
-#include "content/public/common/page_transition_types.h"
 #include "content/public/common/referrer.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/browser_test_utils.h"
@@ -62,6 +61,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/WebKit/public/web/WebInputEvent.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 
@@ -81,7 +81,6 @@ namespace {
 
 using testing::Return;
 using testing::_;
-using ::i18n::addressinput::AddressValidator;
 
 void MockCallback(AutofillClient::RequestAutocompleteResult,
                   const base::string16& message,
@@ -132,8 +131,8 @@ class TestAutofillDialogController : public AutofillDialogControllerImpl {
                 GetRequestContext(), this, form_data.origin),
         message_loop_runner_(runner),
         use_validation_(false),
-        weak_ptr_factory_(this),
-        sign_in_user_index_(0U) {
+        sign_in_user_index_(0U),
+        weak_ptr_factory_(this) {
     test_manager_.Init(
         NULL,
         Profile::FromBrowserContext(contents->GetBrowserContext())->GetPrefs(),
@@ -262,11 +261,11 @@ class TestAutofillDialogController : public AutofillDialogControllerImpl {
   // This is used to control what |CurrentNotifications()| returns for testing.
   std::vector<DialogNotification> notifications_;
 
-  // Allows generation of WeakPtrs, so controller liveness can be tested.
-  base::WeakPtrFactory<TestAutofillDialogController> weak_ptr_factory_;
-
   // The user index that is assigned in IsSignInContinueUrl().
   size_t sign_in_user_index_;
+
+  // Allows generation of WeakPtrs, so controller liveness can be tested.
+  base::WeakPtrFactory<TestAutofillDialogController> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(TestAutofillDialogController);
 };
@@ -348,7 +347,6 @@ class AutofillDialogControllerTest : public InProcessBrowserTest {
 
     FormData form;
     form.name = ASCIIToUTF16("TestForm");
-    form.method = ASCIIToUTF16("POST");
     form.user_submitted = true;
 
     FormFieldData field;
@@ -672,11 +670,15 @@ IN_PROC_BROWSER_TEST_F(AutofillDialogControllerTest, FillInputFromAutofill) {
   full_profile.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, formatted_phone);
   controller()->GetTestingManager()->AddTestingProfile(&full_profile);
 
+  // Dialog is already asking for a new billing address.
+  EXPECT_TRUE(controller()->IsManuallyEditingSection(SECTION_BILLING));
+
   // Select "Add new shipping address...".
   ui::MenuModel* model = controller()->MenuModelForSection(SECTION_SHIPPING);
   model->ActivatedAt(model->GetItemCount() - 2);
   ASSERT_TRUE(controller()->IsManuallyEditingSection(SECTION_SHIPPING));
 
+  // Enter something in a shipping input.
   const DetailInputs& inputs =
       controller()->RequestedFieldsForSection(SECTION_SHIPPING);
   const ServerFieldType triggering_type = inputs[0].type;
@@ -698,6 +700,21 @@ IN_PROC_BROWSER_TEST_F(AutofillDialogControllerTest, FillInputFromAutofill) {
     // Double check the correct formatting is used for the phone number.
     if (inputs[i].type == PHONE_HOME_WHOLE_NUMBER)
       EXPECT_EQ(formatted_phone, view->GetTextContentsOfInput(inputs[i].type));
+  }
+
+  // Inputs from the other section (billing) should be left alone.
+  const DetailInputs& other_section_inputs =
+      controller()->RequestedFieldsForSection(SECTION_BILLING);
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    base::string16 input_value =
+        view->GetTextContentsOfInput(other_section_inputs[i].type);
+    // If there's a combobox, the string should be non-empty.
+    if (controller()->ComboboxModelForAutofillType(
+            other_section_inputs[i].type)) {
+      EXPECT_NE(base::string16(), input_value);
+    } else {
+      EXPECT_EQ(base::string16(), input_value);
+    }
   }
 
   // Now simulate some user edits and try again.
@@ -1183,12 +1200,12 @@ IN_PROC_BROWSER_TEST_F(AutofillDialogControllerTest, SimulateSuccessfulSignIn) {
   content::OpenURLParams params(wallet::GetSignInContinueUrl(),
                                 content::Referrer(),
                                 CURRENT_TAB,
-                                content::PAGE_TRANSITION_LINK,
+                                ui::PAGE_TRANSITION_LINK,
                                 true);
 
   sign_in_contents->GetDelegate()->OpenURLFromTab(sign_in_contents, params);
 
-  EXPECT_CALL(*controller()->GetTestingWalletClient(), GetWalletItems());
+  EXPECT_CALL(*controller()->GetTestingWalletClient(), GetWalletItems(_, _));
   continue_page_observer.Wait();
   content::RunAllPendingInMessageLoop();
 
@@ -1260,11 +1277,11 @@ IN_PROC_BROWSER_TEST_F(AutofillDialogControllerTest, AddAccount) {
   content::OpenURLParams params(wallet::GetSignInContinueUrl(),
                                 content::Referrer(),
                                 CURRENT_TAB,
-                                content::PAGE_TRANSITION_LINK,
+                                ui::PAGE_TRANSITION_LINK,
                                 true);
   sign_in_contents->GetDelegate()->OpenURLFromTab(sign_in_contents, params);
 
-  EXPECT_CALL(*controller()->GetTestingWalletClient(), GetWalletItems());
+  EXPECT_CALL(*controller()->GetTestingWalletClient(), GetWalletItems(_, _));
   continue_page_observer.Wait();
   content::RunAllPendingInMessageLoop();
 
@@ -1404,7 +1421,7 @@ IN_PROC_BROWSER_TEST_F(AutofillDialogControllerTest,
   content::OpenURLParams params(GURL("http://google.com"),
                                 content::Referrer(),
                                 CURRENT_TAB,
-                                content::PAGE_TRANSITION_LINK,
+                                ui::PAGE_TRANSITION_LINK,
                                 true);
   params.user_gesture = true;
 
@@ -1416,8 +1433,8 @@ IN_PROC_BROWSER_TEST_F(AutofillDialogControllerTest,
 IN_PROC_BROWSER_TEST_F(AutofillDialogControllerTest, RefreshOnManageTabClose) {
   ASSERT_TRUE(browser()->is_type_tabbed());
 
-  // GetWalletItems() is called when controller() is created in SetUp().
-  EXPECT_CALL(*controller()->GetTestingWalletClient(), GetWalletItems());
+  // GetWalletItems(_, _) is called when controller() is created in SetUp().
+  EXPECT_CALL(*controller()->GetTestingWalletClient(), GetWalletItems(_, _));
   controller()->OnDidFetchWalletCookieValue(std::string());
   controller()->OnDidGetWalletItems(
       wallet::GetTestWalletItems(wallet::AMEX_DISALLOWED));
@@ -1435,7 +1452,7 @@ IN_PROC_BROWSER_TEST_F(AutofillDialogControllerTest, RefreshOnManageTabClose) {
   // Closing the tab opened by "Manage my shipping details..." should refresh
   // the dialog.
   controller()->ClearLastWalletItemsFetchTimestampForTesting();
-  EXPECT_CALL(*controller()->GetTestingWalletClient(), GetWalletItems());
+  EXPECT_CALL(*controller()->GetTestingWalletClient(), GetWalletItems(_, _));
   GetActiveWebContents()->Close();
 }
 
@@ -1671,15 +1688,16 @@ IN_PROC_BROWSER_TEST_F(AutofillDialogControllerTest,
   ASSERT_EQ(ASCIIToUTF16("United States"),
             view->GetTextContentsOfInput(ADDRESS_HOME_COUNTRY));
 
-  base::string16 name = full_profile.GetRawInfo(NAME_FULL);
-  view->SetTextContentsOfInput(NAME_FULL, name.substr(0, name.size() / 2));
-  view->ActivateInput(NAME_FULL);
-  ASSERT_EQ(NAME_FULL, controller()->popup_input_type());
+  const ServerFieldType input_type = EMAIL_ADDRESS;
+  base::string16 name = full_profile.GetRawInfo(input_type);
+  view->SetTextContentsOfInput(input_type, name.substr(0, name.size() / 2));
+  view->ActivateInput(input_type);
+  ASSERT_EQ(input_type, controller()->popup_input_type());
   controller()->DidAcceptSuggestion(base::string16(), 0);
 
   EXPECT_EQ(ASCIIToUTF16("Germany"),
             view->GetTextContentsOfInput(ADDRESS_BILLING_COUNTRY));
-  EXPECT_EQ(ASCIIToUTF16("Germany"),
+  EXPECT_EQ(ASCIIToUTF16("United States"),
             view->GetTextContentsOfInput(ADDRESS_HOME_COUNTRY));
 }
 
@@ -1738,6 +1756,20 @@ IN_PROC_BROWSER_TEST_F(AutofillDialogControllerTest, RulesLoaded) {
   // Cancelling the dialog causes additional validation to see if the user
   // cancelled with invalid fields, so verify and clear here.
   testing::Mock::VerifyAndClearExpectations(controller()->GetMockValidator());
+}
+
+IN_PROC_BROWSER_TEST_F(AutofillDialogControllerTest,
+                       TransactionAmount) {
+  std::string html(
+      "<input type='number' step='0.01'"
+      "   autocomplete='transaction-amount' value='24'>"
+      "<input autocomplete='transaction-currency' value='USD'>"
+      "<input autocomplete='cc-csc'>");
+  AutofillDialogControllerImpl* controller = SetUpHtmlAndInvoke(html);
+  ASSERT_TRUE(controller);
+
+  EXPECT_EQ(ASCIIToUTF16("24"), controller->transaction_amount_);
+  EXPECT_EQ(ASCIIToUTF16("USD"), controller->transaction_currency_);
 }
 
 }  // namespace autofill

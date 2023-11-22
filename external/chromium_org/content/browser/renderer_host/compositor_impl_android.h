@@ -8,17 +8,18 @@
 #include "base/basictypes.h"
 #include "base/cancelable_callback.h"
 #include "base/compiler_specific.h"
-#include "base/containers/scoped_ptr_hash_map.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "cc/resources/ui_resource_client.h"
 #include "cc/trees/layer_tree_host_client.h"
 #include "cc/trees/layer_tree_host_single_thread_client.h"
 #include "content/browser/android/ui_resource_provider_impl.h"
 #include "content/browser/renderer_host/image_transport_factory_android.h"
 #include "content/common/content_export.h"
+#include "content/common/gpu/client/context_provider_command_buffer.h"
 #include "content/public/browser/android/compositor.h"
+#include "gpu/command_buffer/common/capabilities.h"
 #include "third_party/khronos/GLES2/gl2.h"
+#include "ui/base/android/system_ui_resource_manager.h"
 #include "ui/base/android/window_android_compositor.h"
 
 class SkBitmap;
@@ -55,10 +56,11 @@ class CONTENT_EXPORT CompositorImpl
   // Destroy all surface textures associated with |child_process_id|.
   static void DestroyAllSurfaceTextures(int child_process_id);
 
+  void PopulateGpuCapabilities(gpu::Capabilities gpu_capabilities);
+
  private:
   // Compositor implementation.
   virtual void SetRootLayer(scoped_refptr<cc::Layer> root) OVERRIDE;
-  virtual void SetWindowSurface(ANativeWindow* window) OVERRIDE;
   virtual void SetSurface(jobject surface) OVERRIDE;
   virtual void SetVisible(bool visible) OVERRIDE;
   virtual void setDeviceScaleFactor(float factor) OVERRIDE;
@@ -70,12 +72,13 @@ class CONTENT_EXPORT CompositorImpl
   // LayerTreeHostClient implementation.
   virtual void WillBeginMainFrame(int frame_id) OVERRIDE {}
   virtual void DidBeginMainFrame() OVERRIDE {}
-  virtual void Animate(base::TimeTicks frame_begin_time) OVERRIDE {}
+  virtual void BeginMainFrame(const cc::BeginFrameArgs& args) OVERRIDE {}
   virtual void Layout() OVERRIDE;
-  virtual void ApplyScrollAndScale(const gfx::Vector2d& scroll_delta,
-                                   float page_scale) OVERRIDE {}
-  virtual scoped_ptr<cc::OutputSurface> CreateOutputSurface(bool fallback)
-      OVERRIDE;
+  virtual void ApplyViewportDeltas(
+      const gfx::Vector2d& scroll_delta,
+      float page_scale,
+      float top_controls_delta) OVERRIDE {}
+  virtual void RequestNewOutputSurface(bool fallback) OVERRIDE;
   virtual void DidInitializeOutputSurface() OVERRIDE {}
   virtual void WillCommit() OVERRIDE {}
   virtual void DidCommit() OVERRIDE;
@@ -98,6 +101,9 @@ class CONTENT_EXPORT CompositorImpl
   virtual void OnVSync(base::TimeTicks frame_time,
                        base::TimeDelta vsync_period) OVERRIDE;
   virtual void SetNeedsAnimate() OVERRIDE;
+  virtual ui::SystemUIResourceManager& GetSystemUIResourceManager() OVERRIDE;
+
+  void SetWindowSurface(ANativeWindow* window);
 
   enum CompositingTrigger {
     DO_NOT_COMPOSITE,
@@ -106,6 +112,7 @@ class CONTENT_EXPORT CompositorImpl
   };
   void PostComposite(CompositingTrigger trigger);
   void Composite(CompositingTrigger trigger);
+  void CreateOutputSurface(bool fallback);
 
   bool WillCompositeThisFrame() const {
     return current_composite_task_ &&
@@ -127,9 +134,6 @@ class CONTENT_EXPORT CompositorImpl
     composite_on_vsync_trigger_ = DO_NOT_COMPOSITE;
     will_composite_immediately_ = false;
   }
-  cc::UIResourceId GenerateUIResourceFromUIResourceBitmap(
-      const cc::UIResourceBitmap& bitmap,
-      bool is_transient);
   void OnGpuChannelEstablished();
 
   // root_layer_ is the persistent internal root layer, while subroot_layer_

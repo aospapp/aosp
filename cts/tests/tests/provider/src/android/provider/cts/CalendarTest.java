@@ -352,6 +352,7 @@ public class CalendarTest extends InstrumentationTestCase {
             Events.SYNC_DATA2,
             Events.SYNC_DATA3,
             Events.SYNC_DATA4,
+            Events.MUTATORS,
         };
         // @formatter:on
 
@@ -3273,6 +3274,67 @@ public class CalendarTest extends InstrumentationTestCase {
         assertEquals("Column uid_2445 has unexpected value.", uid, cursor.getString(0));
 
         CalendarHelper.deleteCalendarByAccount(mContentResolver, account);
+    }
+
+    @MediumTest
+    public void testMutatorSetCorrectly() {
+        String account = "ec_account";
+        String packageName = "com.android.cts.provider";
+        int seed = 0;
+
+        // Clean up just in case
+        CalendarHelper.deleteCalendarByAccount(mContentResolver, account);
+
+        String mutator;
+        Cursor cursor;
+        ContentValues values = new ContentValues();
+        final long calendarId = createAndVerifyCalendar(account, seed++, null);
+
+        // Verify mutator is set to the package, via:
+        // Create:
+        final long eventId = createAndVerifyEvent(account, seed, calendarId, false, null);
+        final Uri uri = ContentUris.withAppendedId(Events.CONTENT_URI, eventId);
+        cursor = mContentResolver.query(uri, new String[] {Events.MUTATORS}, null, null, null);
+        cursor.moveToFirst();
+        mutator = cursor.getString(0);
+        cursor.close();
+        assertEquals(packageName, mutator);
+
+        // Edit:
+        // First clear the mutator column
+        values.clear();
+        values.putNull(Events.MUTATORS);
+        mContentResolver.update(asSyncAdapter(uri, account, CTS_TEST_TYPE), values, null, null);
+        cursor = mContentResolver.query(uri, new String[] {Events.MUTATORS}, null, null, null);
+        cursor.moveToFirst();
+        mutator = cursor.getString(0);
+        cursor.close();
+        assertNull(mutator);
+        // Now edit the event and verify the mutator column
+        values.clear();
+        values.put(Events.TITLE, "New title");
+        mContentResolver.update(uri, values, null, null);
+        cursor = mContentResolver.query(uri, new String[] {Events.MUTATORS}, null, null, null);
+        cursor.moveToFirst();
+        mutator = cursor.getString(0);
+        cursor.close();
+        assertEquals(packageName, mutator);
+
+        // Clean up the event
+        assertEquals(1, EventHelper.deleteEventAsSyncAdapter(mContentResolver, uri, account));
+
+        // Delete:
+        // First create as sync adapter
+        final long eventId2 = createAndVerifyEvent(account, seed, calendarId, true, null);
+        final Uri uri2 = ContentUris.withAppendedId(Events.CONTENT_URI, eventId2);
+        // Now delete the event and verify
+        values.clear();
+        values.put(Events.MUTATORS, packageName);
+        removeAndVerifyEvent(uri2, values, account);
+
+
+        // delete the calendar
+        removeAndVerifyCalendar(account, calendarId);
     }
 
     /**

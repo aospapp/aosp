@@ -21,9 +21,9 @@
         bulk operation. -->
     <!-- Do Not Translate. Unused string. -->
 
-    <!-- Name of Microsoft Exchange account type; used by AccountManager -->
-    <string name="exchange_name">Corporate</string>
-    <!-- Name of Microsoft Exchange account type; used by AccountManager -->
+    <!-- Short name of Microsoft Exchange account type; used by AccountManager -->
+    <string name="exchange_eas_name" translatable="false">Exchange</string>
+    <!-- Long name of Microsoft Exchange account type; used by AccountManager -->
     <string name="exchange_name_alternate">Microsoft Exchange ActiveSync</string>
 
     <!-- Message subject for meeting accepted response. This will be followed
@@ -95,10 +95,6 @@
         <xliff:g id="eventdate" example="Tue, Mar 10, 2010 ">%s</xliff:g>
         (all day, recurring)
     </string>
-
-    <!-- Notification message in notifications window when calendar sync is
-        automatically enabled for pre-existing Exchange accounts on upgrade -->
-    <string name="notification_exchange_calendar_added">Exchange calendar added</string>
 
     <!-- The name of this APK as shown in manage applications settings. [CHAR LIMIT=30] -->
     <string name="app_name" >Exchange Services</string>

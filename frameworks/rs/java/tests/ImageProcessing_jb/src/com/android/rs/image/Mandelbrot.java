@@ -18,12 +18,6 @@ package com.android.rs.imagejb;
 
 import java.lang.Math;
 
-import android.renderscript.Allocation;
-import android.renderscript.Element;
-import android.renderscript.RenderScript;
-import android.renderscript.Script;
-import android.renderscript.ScriptC;
-import android.renderscript.Type;
 import android.util.Log;
 import android.widget.SeekBar;
 import android.widget.TextView;

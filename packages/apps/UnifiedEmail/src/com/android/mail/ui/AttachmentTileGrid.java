@@ -114,7 +114,7 @@ public class AttachmentTileGrid extends FrameLayout implements AttachmentPreview
         final int photoIndex = indexOfChild(source);
 
         MailPhotoViewActivity.startMailPhotoViewActivity(getContext(), mAccount.getEmailAddress(),
-                mMessage, photoIndex);
+                mAccount.getType(), mMessage, photoIndex);
     }
 
     @Override

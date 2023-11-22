@@ -4,6 +4,7 @@
 
 import telemetry.timeline.event_container as event_container
 
+
 # Doesn't inherit from TimelineEvent because its only a temporary wrapper of a
 # counter sample into an event. During stable operation, the samples are stored
 # a dense array of values rather than in the long-form done by an Event.
@@ -59,11 +60,20 @@ class Counter(event_container.TimelineEventContainer):
     self.max_total = 0
 
   def IterChildContainers(self):
-    return iter([])
+    return
+    yield # pylint: disable=W0101
 
-  def IterEventsInThisContainer(self):
-    for i in range(len(self.timestamps)):
-      yield CounterSample(self, i)
+  def IterEventsInThisContainer(self, event_type_predicate, event_predicate):
+    if not event_type_predicate(CounterSample) or not self.timestamps:
+      return
+
+    # Pass event_predicate a reused CounterSample instance to avoid
+    # creating a ton of garbage for rejected samples.
+    test_sample = CounterSample(self, 0)
+    for i in xrange(len(self.timestamps)):
+      test_sample._sample_index = i
+      if event_predicate(test_sample):
+        yield CounterSample(self, i)
 
   @property
   def num_series(self):

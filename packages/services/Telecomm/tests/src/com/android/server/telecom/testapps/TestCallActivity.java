@@ -50,7 +50,7 @@ public class TestCallActivity extends Activity {
         final Uri data = intent != null ? intent.getData() : null;
         if (ACTION_NEW_INCOMING_CALL.equals(action) && data != null) {
             CallNotificationReceiver.sendIncomingCallIntent(this, data, false);
-        } if (ACTION_NEW_UNKNOWN_CALL.equals(action) && data != null) {
+        } else if (ACTION_NEW_UNKNOWN_CALL.equals(action) && data != null) {
             CallNotificationReceiver.addNewUnknownCall(this, data, intent.getExtras());
         } else {
             CallServiceNotifier.getInstance().updateNotification(this);

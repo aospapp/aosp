@@ -20,15 +20,15 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_ui.h"
-#include "grit/generated_resources.h"
-#include "ui/base/l10n/l10n_util.h"
 
 namespace options {
 
 ResetProfileSettingsHandler::ResetProfileSettingsHandler()
-    : automatic_profile_resetter_(NULL), has_shown_confirmation_dialog_(false) {
+    : automatic_profile_resetter_(NULL),
+      has_shown_confirmation_dialog_(false) {
   google_brand::GetBrand(&brandcode_);
 }
 
@@ -46,8 +46,9 @@ void ResetProfileSettingsHandler::InitializePage() {
       "ResetProfileSettingsOverlay.setResettingState",
       base::FundamentalValue(resetter_->IsActive()));
   if (automatic_profile_resetter_ &&
-      automatic_profile_resetter_->ShouldShowResetBanner())
+      automatic_profile_resetter_->ShouldShowResetBanner()) {
     web_ui()->CallJavascriptFunction("ResetProfileSettingsBanner.show");
+  }
 }
 
 void ResetProfileSettingsHandler::Uninitialize() {

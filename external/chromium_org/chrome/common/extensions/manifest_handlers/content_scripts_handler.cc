@@ -4,13 +4,14 @@
 
 #include "chrome/common/extensions/manifest_handlers/content_scripts_handler.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/common/url_constants.h"
 #include "extensions/common/error_utils.h"
 #include "extensions/common/extension.h"
@@ -20,7 +21,6 @@
 #include "extensions/common/permissions/permissions_data.h"
 #include "extensions/common/url_pattern.h"
 #include "extensions/common/url_pattern_set.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
 
@@ -31,9 +31,6 @@ namespace values = manifest_values;
 namespace errors = manifest_errors;
 
 namespace {
-
-// The globally-unique id for a user script.
-int64 g_next_user_script_id = 0;
 
 // Helper method that loads either the include_globs or exclude_globs list
 // from an entry in the content_script lists of the manifest.
@@ -428,7 +425,7 @@ bool ContentScriptsHandler::Parse(Extension* extension, base::string16* error) {
       // Greasemonkey matches all frames.
       user_script.set_match_all_frames(true);
     }
-    user_script.set_id(g_next_user_script_id++);
+    user_script.set_id(UserScript::GenerateUserScriptID());
     content_scripts_info->content_scripts.push_back(user_script);
   }
   extension->SetManifestData(keys::kContentScripts,

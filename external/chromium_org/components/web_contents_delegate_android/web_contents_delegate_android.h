@@ -58,8 +58,9 @@ class WebContentsDelegateAndroid : public content::WebContentsDelegate {
       content::WebContents* source,
       SkColor color,
       const std::vector<content::ColorSuggestion>& suggestions) OVERRIDE;
-  virtual void NavigationStateChanged(const content::WebContents* source,
-                                      unsigned changed_flags) OVERRIDE;
+  virtual void NavigationStateChanged(
+      const content::WebContents* source,
+      content::InvalidateTypes changed_flags) OVERRIDE;
   virtual void VisibleSSLStateChanged(
       const content::WebContents* source) OVERRIDE;
   virtual void ActivateContents(content::WebContents* contents) OVERRIDE;
@@ -79,7 +80,6 @@ class WebContentsDelegateAndroid : public content::WebContentsDelegate {
                                    int32 line_no,
                                    const base::string16& source_id) OVERRIDE;
   virtual void UpdateTargetURL(content::WebContents* source,
-                               int32 page_id,
                                const GURL& url) OVERRIDE;
   virtual void HandleKeyboardEvent(
       content::WebContents* source,

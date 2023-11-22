@@ -141,7 +141,8 @@ def CheckTodos(input_api, output_api):
 
   if errors:
     return [output_api.PresubmitError(
-      'All TODO comments should be of the form TODO(name).',
+      'All TODO comments should be of the form TODO(name). ' +
+      'Use TODO instead of FIX' + 'ME',
       items=errors)]
   return []
 
@@ -293,7 +294,7 @@ def CheckChangeOnUpload(input_api, output_api):
 
 def GetPreferredTryMasters(project, change):
   return {
-    'tryserver.chromium': {
+    'tryserver.blink': {
       'linux_blink_rel': set(['defaulttests']),
     },
     'tryserver.chromium.gpu': {

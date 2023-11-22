@@ -12,22 +12,10 @@
 #include "base/memory/weak_ptr.h"
 #include "base/values.h"
 #include "third_party/dom_distiller_js/dom_distiller.pb.h"
+#include "ui/gfx/size.h"
 #include "url/gurl.h"
 
 namespace dom_distiller {
-
-struct DistilledPageInfo {
-  std::string title;
-  std::string html;
-  std::string next_page_url;
-  std::string prev_page_url;
-  std::vector<std::string> image_urls;
-  DistilledPageInfo();
-  ~DistilledPageInfo();
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(DistilledPageInfo);
-};
 
 class SourcePageHandle {
  public:
@@ -41,9 +29,9 @@ class SourcePageHandle {
 // thrown away without ever being used.
 class DistillerPage {
  public:
-  typedef base::Callback<void(scoped_ptr<DistilledPageInfo> distilled_page,
-                              bool distillation_successful)>
-      DistillerPageCallback;
+  typedef base::Callback<
+      void(scoped_ptr<proto::DomDistillerResult> distilled_page,
+           bool distillation_successful)> DistillerPageCallback;
 
   DistillerPage();
   virtual ~DistillerPage();
@@ -53,7 +41,7 @@ class DistillerPage {
   // for a given |url| and |options|, any DistillerPage implementation will
   // extract the same content.
   void DistillPage(const GURL& url,
-                   const dom_distiller::proto::DomDistillerOptions options,
+                   const proto::DomDistillerOptions options,
                    const DistillerPageCallback& callback);
 
   // Called when the JavaScript execution completes. |page_url| is the url of
@@ -81,7 +69,8 @@ class DistillerPageFactory {
   // Constructs and returns a new DistillerPage. The implementation of this
   // should be very cheap, since the pages can be thrown away without being
   // used.
-  virtual scoped_ptr<DistillerPage> CreateDistillerPage() const = 0;
+  virtual scoped_ptr<DistillerPage> CreateDistillerPage(
+      const gfx::Size& render_view_size) const = 0;
   virtual scoped_ptr<DistillerPage> CreateDistillerPageWithHandle(
       scoped_ptr<SourcePageHandle> handle) const = 0;
 };

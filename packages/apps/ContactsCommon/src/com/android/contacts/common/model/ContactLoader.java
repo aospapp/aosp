@@ -63,9 +63,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -316,7 +318,7 @@ public class ContactLoader extends AsyncTaskLoader<Contact> {
                 resultIsCached = true;
             } else {
                 if (uriCurrentFormat.getLastPathSegment().equals(Constants.LOOKUP_URI_ENCODED)) {
-                    result = loadEncodedContactEntity(uriCurrentFormat);
+                    result = loadEncodedContactEntity(uriCurrentFormat, mLookupUri);
                 } else {
                     result = loadContactEntity(resolver, uriCurrentFormat);
                 }
@@ -349,7 +351,22 @@ public class ContactLoader extends AsyncTaskLoader<Contact> {
         }
     }
 
-    private Contact loadEncodedContactEntity(Uri uri) throws JSONException {
+    /**
+     * Parses a {@link Contact} stored as a JSON string in a lookup URI.
+     *
+     * @param lookupUri The contact information to parse .
+     * @return The parsed {@code Contact} information.
+     * @throws JSONException
+     */
+    public static Contact parseEncodedContactEntity(Uri lookupUri)  {
+        try {
+            return loadEncodedContactEntity(lookupUri, lookupUri);
+        } catch (JSONException je) {
+            return null;
+        }
+    }
+
+    private static Contact loadEncodedContactEntity(Uri uri, Uri lookupUri) throws JSONException {
         final String jsonString = uri.getEncodedFragment();
         final JSONObject json = new JSONObject(jsonString);
 
@@ -363,7 +380,7 @@ public class ContactLoader extends AsyncTaskLoader<Contact> {
         final String photoUri = json.optString(Contacts.PHOTO_URI, null);
         final Contact contact = new Contact(
                 uri, uri,
-                mLookupUri,
+                lookupUri,
                 directoryId,
                 null /* lookupKey */,
                 -1 /* id */,
@@ -423,7 +440,7 @@ public class ContactLoader extends AsyncTaskLoader<Contact> {
         return contact;
     }
 
-    private void processOneRecord(RawContact rawContact, JSONObject item, String mimetype)
+    private static void processOneRecord(RawContact rawContact, JSONObject item, String mimetype)
             throws JSONException {
         final ContentValues itemValues = new ContentValues();
         itemValues.put(Data.MIMETYPE, mimetype);
@@ -758,6 +775,34 @@ public class ContactLoader extends AsyncTaskLoader<Contact> {
         }
     }
 
+    static private class AccountKey {
+        private final String mAccountName;
+        private final String mAccountType;
+        private final String mDataSet;
+
+        public AccountKey(String accountName, String accountType, String dataSet) {
+            mAccountName = accountName;
+            mAccountType = accountType;
+            mDataSet = dataSet;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(mAccountName, mAccountType, mDataSet);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (!(obj instanceof AccountKey)) {
+                return false;
+            }
+            final AccountKey other = (AccountKey) obj;
+            return Objects.equals(mAccountName, other.mAccountName)
+                && Objects.equals(mAccountType, other.mAccountType)
+                && Objects.equals(mDataSet, other.mDataSet);
+        }
+    }
+
     /**
      * Loads groups meta-data for all groups associated with all constituent raw contacts'
      * accounts.
@@ -765,11 +810,15 @@ public class ContactLoader extends AsyncTaskLoader<Contact> {
     private void loadGroupMetaData(Contact result) {
         StringBuilder selection = new StringBuilder();
         ArrayList<String> selectionArgs = new ArrayList<String>();
+        final HashSet<AccountKey> accountsSeen = new HashSet<>();
         for (RawContact rawContact : result.getRawContacts()) {
             final String accountName = rawContact.getAccountName();
             final String accountType = rawContact.getAccountTypeString();
             final String dataSet = rawContact.getDataSet();
-            if (accountName != null && accountType != null) {
+            final AccountKey accountKey = new AccountKey(accountName, accountType, dataSet);
+            if (accountName != null && accountType != null &&
+                    !accountsSeen.contains(accountKey)) {
+                accountsSeen.add(accountKey);
                 if (selection.length() != 0) {
                     selection.append(" OR ");
                 }

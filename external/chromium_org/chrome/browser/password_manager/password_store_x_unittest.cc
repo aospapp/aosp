@@ -5,7 +5,7 @@
 #include "base/basictypes.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/prefs/pref_service.h"
 #include "base/run_loop.h"
@@ -285,7 +285,7 @@ TEST_P(PasswordStoreXTest, Notifications) {
                          base::MessageLoopProxy::current(),
                          login_db_.release(),
                          GetBackend()));
-  store->Init(syncer::SyncableService::StartSyncFlare());
+  store->Init(syncer::SyncableService::StartSyncFlare(), "");
 
   password_manager::PasswordFormData form_data = {
       PasswordForm::SCHEME_HTML,       "http://bar.example.com",
@@ -386,7 +386,7 @@ TEST_P(PasswordStoreXTest, NativeMigration) {
                          base::MessageLoopProxy::current(),
                          login_db_.release(),
                          GetBackend()));
-  store->Init(syncer::SyncableService::StartSyncFlare());
+  store->Init(syncer::SyncableService::StartSyncFlare(), "");
 
   MockPasswordStoreConsumer consumer;
 

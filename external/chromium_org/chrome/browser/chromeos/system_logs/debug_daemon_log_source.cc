@@ -6,18 +6,18 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
-#include "chrome/browser/chromeos/login/users/user.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/common/chrome_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/debug_daemon_client.h"
+#include "components/user_manager/user.h"
+#include "components/user_manager/user_manager.h"
 #include "content/public/browser/browser_thread.h"
 
 const char kNotAvailable[] = "<not available>";
@@ -136,10 +136,10 @@ void DebugDaemonLogSource::OnGetUserLogFiles(
   if (succeeded) {
     SystemLogsResponse* response = new SystemLogsResponse;
 
-    const chromeos::UserList& users =
-        chromeos::UserManager::Get()->GetLoggedInUsers();
+    const user_manager::UserList& users =
+        user_manager::UserManager::Get()->GetLoggedInUsers();
     std::vector<base::FilePath> profile_dirs;
-    for (chromeos::UserList::const_iterator it = users.begin();
+    for (user_manager::UserList::const_iterator it = users.begin();
          it != users.end();
          ++it) {
       if ((*it)->username_hash().empty())

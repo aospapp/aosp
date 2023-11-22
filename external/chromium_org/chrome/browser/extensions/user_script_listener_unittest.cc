@@ -2,8 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/json/json_file_value_serializer.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/message_loop/message_loop.h"
 #include "base/threading/thread.h"
 #include "chrome/browser/chrome_notification_types.h"
@@ -27,6 +28,7 @@
 
 using content::ResourceController;
 using content::ResourceThrottle;
+using content::ResourceType;
 
 namespace extensions {
 
@@ -159,19 +161,21 @@ class UserScriptListenerTest : public ExtensionServiceTestBase {
   }
 
  protected:
-  net::TestURLRequest* StartTestRequest(net::URLRequest::Delegate* delegate,
-                                        const std::string& url_string,
-                                        net::TestURLRequestContext* context) {
+  scoped_ptr<net::URLRequest> StartTestRequest(
+      net::URLRequest::Delegate* delegate,
+      const std::string& url_string,
+      net::TestURLRequestContext* context) {
     GURL url(url_string);
-    net::TestURLRequest* request =
-        new net::TestURLRequest(url, net::DEFAULT_PRIORITY, delegate, context);
+    scoped_ptr<net::URLRequest> request(context->CreateRequest(
+        url, net::DEFAULT_PRIORITY, delegate, NULL));
 
-    ResourceThrottle* throttle =
-        listener_->CreateResourceThrottle(url, ResourceType::MAIN_FRAME);
+    ResourceThrottle* throttle = listener_->CreateResourceThrottle(
+        url, content::RESOURCE_TYPE_MAIN_FRAME);
 
     bool defer = false;
     if (throttle) {
-      request->SetUserData(NULL, new ThrottleController(request, throttle));
+      request->SetUserData(NULL,
+                           new ThrottleController(request.get(), throttle));
 
       throttle->WillStartRequest(&defer);
     }
@@ -179,7 +183,7 @@ class UserScriptListenerTest : public ExtensionServiceTestBase {
     if (!defer)
       request->Start();
 
-    return request;
+    return request.Pass();
   }
 
   void LoadTestExtension() {
@@ -211,12 +215,12 @@ TEST_F(UserScriptListenerTest, DelayAndUpdate) {
 
   net::TestDelegate delegate;
   net::TestURLRequestContext context;
-  scoped_ptr<net::TestURLRequest> request(
+  scoped_ptr<net::URLRequest> request(
       StartTestRequest(&delegate, kMatchingUrl, &context));
   ASSERT_FALSE(request->is_pending());
 
   content::NotificationService::current()->Notify(
-      chrome::NOTIFICATION_USER_SCRIPTS_UPDATED,
+      extensions::NOTIFICATION_USER_SCRIPTS_UPDATED,
       content::Source<Profile>(profile_.get()),
       content::NotificationService::NoDetails());
   base::MessageLoop::current()->RunUntilIdle();
@@ -229,7 +233,7 @@ TEST_F(UserScriptListenerTest, DelayAndUnload) {
 
   net::TestDelegate delegate;
   net::TestURLRequestContext context;
-  scoped_ptr<net::TestURLRequest> request(
+  scoped_ptr<net::URLRequest> request(
       StartTestRequest(&delegate, kMatchingUrl, &context));
   ASSERT_FALSE(request->is_pending());
 
@@ -241,7 +245,7 @@ TEST_F(UserScriptListenerTest, DelayAndUnload) {
   ASSERT_FALSE(request->is_pending());
 
   content::NotificationService::current()->Notify(
-      chrome::NOTIFICATION_USER_SCRIPTS_UPDATED,
+      extensions::NOTIFICATION_USER_SCRIPTS_UPDATED,
       content::Source<Profile>(profile_.get()),
       content::NotificationService::NoDetails());
   base::MessageLoop::current()->RunUntilIdle();
@@ -251,7 +255,7 @@ TEST_F(UserScriptListenerTest, DelayAndUnload) {
 TEST_F(UserScriptListenerTest, NoDelayNoExtension) {
   net::TestDelegate delegate;
   net::TestURLRequestContext context;
-  scoped_ptr<net::TestURLRequest> request(
+  scoped_ptr<net::URLRequest> request(
       StartTestRequest(&delegate, kMatchingUrl, &context));
 
   // The request should be started immediately.
@@ -267,9 +271,8 @@ TEST_F(UserScriptListenerTest, NoDelayNotMatching) {
 
   net::TestDelegate delegate;
   net::TestURLRequestContext context;
-  scoped_ptr<net::TestURLRequest> request(StartTestRequest(&delegate,
-                                                           kNotMatchingUrl,
-                                                           &context));
+  scoped_ptr<net::URLRequest> request(
+      StartTestRequest(&delegate, kNotMatchingUrl, &context));
 
   // The request should be started immediately.
   ASSERT_TRUE(request->is_pending());
@@ -293,20 +296,20 @@ TEST_F(UserScriptListenerTest, MultiProfile) {
   extensions::ExtensionRegistry::Get(&profile2)->AddEnabled(extension);
 
   content::NotificationService::current()->Notify(
-      chrome::NOTIFICATION_EXTENSION_LOADED_DEPRECATED,
+      extensions::NOTIFICATION_EXTENSION_LOADED_DEPRECATED,
       content::Source<Profile>(&profile2),
       content::Details<Extension>(extension.get()));
 
   net::TestDelegate delegate;
   net::TestURLRequestContext context;
-  scoped_ptr<net::TestURLRequest> request(
+  scoped_ptr<net::URLRequest> request(
       StartTestRequest(&delegate, kMatchingUrl, &context));
   ASSERT_FALSE(request->is_pending());
 
   // When the first profile's user scripts are ready, the request should still
   // be blocked waiting for profile2.
   content::NotificationService::current()->Notify(
-      chrome::NOTIFICATION_USER_SCRIPTS_UPDATED,
+      extensions::NOTIFICATION_USER_SCRIPTS_UPDATED,
       content::Source<Profile>(profile_.get()),
       content::NotificationService::NoDetails());
   base::MessageLoop::current()->RunUntilIdle();
@@ -315,7 +318,7 @@ TEST_F(UserScriptListenerTest, MultiProfile) {
 
   // After profile2 is ready, the request should proceed.
   content::NotificationService::current()->Notify(
-      chrome::NOTIFICATION_USER_SCRIPTS_UPDATED,
+      extensions::NOTIFICATION_USER_SCRIPTS_UPDATED,
       content::Source<Profile>(&profile2),
       content::NotificationService::NoDetails());
   base::MessageLoop::current()->RunUntilIdle();
@@ -331,18 +334,18 @@ TEST_F(UserScriptListenerTest, ResumeBeforeStart) {
   net::TestDelegate delegate;
   net::TestURLRequestContext context;
   GURL url(kMatchingUrl);
-  scoped_ptr<net::TestURLRequest> request(
-      new net::TestURLRequest(url, net::DEFAULT_PRIORITY, &delegate, &context));
+  scoped_ptr<net::URLRequest> request(context.CreateRequest(
+      url, net::DEFAULT_PRIORITY, &delegate, NULL));
 
   ResourceThrottle* throttle =
-      listener_->CreateResourceThrottle(url, ResourceType::MAIN_FRAME);
+      listener_->CreateResourceThrottle(url, content::RESOURCE_TYPE_MAIN_FRAME);
   ASSERT_TRUE(throttle);
   request->SetUserData(NULL, new ThrottleController(request.get(), throttle));
 
   ASSERT_FALSE(request->is_pending());
 
   content::NotificationService::current()->Notify(
-      chrome::NOTIFICATION_USER_SCRIPTS_UPDATED,
+      extensions::NOTIFICATION_USER_SCRIPTS_UPDATED,
       content::Source<Profile>(profile_.get()),
       content::NotificationService::NoDetails());
   base::MessageLoop::current()->RunUntilIdle();

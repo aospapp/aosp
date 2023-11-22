@@ -25,7 +25,6 @@ class AwContentRendererClient : public content::ContentRendererClient {
   virtual void RenderThreadStarted() OVERRIDE;
   virtual void RenderFrameCreated(content::RenderFrame* render_frame) OVERRIDE;
   virtual void RenderViewCreated(content::RenderView* render_view) OVERRIDE;
-  virtual std::string GetDefaultEncoding() OVERRIDE;
   virtual bool HasErrorPage(int http_status_code,
                             std::string* error_domain) OVERRIDE;
   virtual void GetNavigationErrorStrings(
@@ -49,6 +48,9 @@ class AwContentRendererClient : public content::ContentRendererClient {
                                 blink::WebNavigationType type,
                                 blink::WebNavigationPolicy default_policy,
                                 bool is_redirect) OVERRIDE;
+  virtual bool ShouldOverridePageVisibilityState(
+      const content::RenderFrame* render_frame,
+      blink::WebPageVisibilityState* override_state) OVERRIDE;
 
  private:
   scoped_ptr<AwRenderProcessObserver> aw_render_process_observer_;

@@ -50,6 +50,9 @@ static EGLClient_glesInterface * s_gl = NULL;
 //GL extensions
 void glEGLImageTargetTexture2DOES(void * self, GLenum target, GLeglImageOES image)
 {
+    (void)self;
+    (void)target;
+
     DBG("glEGLImageTargetTexture2DOES v2 target=%#x img=%p\n", target, image);
     //TODO: check error - we don't have a way to set gl error
     android_native_buffer_t* native_buffer = (android_native_buffer_t*)image;
@@ -74,6 +77,9 @@ void glEGLImageTargetTexture2DOES(void * self, GLenum target, GLeglImageOES imag
 
 void glEGLImageTargetRenderbufferStorageOES(void *self, GLenum target, GLeglImageOES image)
 {
+    (void)self;
+    (void)target;
+
     DBG("glEGLImageTargetRenderbufferStorageOES v2 image=%p\n", image);
     //TODO: check error - we don't have a way to set gl error
     android_native_buffer_t* native_buffer = (android_native_buffer_t*)image;
@@ -110,6 +116,8 @@ void finish()
 
 const GLubyte *my_glGetString (void *self, GLenum name)
 {
+    (void)self;
+
     if (s_egl) {
         return (const GLubyte*)s_egl->getGLString(name);
     }
@@ -119,9 +127,9 @@ const GLubyte *my_glGetString (void *self, GLenum name)
 void init()
 {
     GET_CONTEXT;
-    ctx->set_glEGLImageTargetTexture2DOES(glEGLImageTargetTexture2DOES);
-    ctx->set_glEGLImageTargetRenderbufferStorageOES(glEGLImageTargetRenderbufferStorageOES);
-    ctx->set_glGetString(my_glGetString);
+    ctx->glEGLImageTargetTexture2DOES = &glEGLImageTargetTexture2DOES;
+    ctx->glEGLImageTargetRenderbufferStorageOES = &glEGLImageTargetRenderbufferStorageOES;
+    ctx->glGetString = &my_glGetString;
 }
 
 extern "C" {

@@ -8,7 +8,7 @@
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
-#include "chrome/browser/extensions/extension_test_message_listener.h"
+#include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -18,8 +18,13 @@
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/notification_service.h"
+#include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/common/extension.h"
+#include "extensions/common/extension_set.h"
 #include "extensions/common/permissions/permissions_data.h"
+#include "extensions/test/extension_test_message_listener.h"
+#include "extensions/test/result_catcher.h"
 
 #if defined(OS_WIN)
 #include "ui/views/win/hwnd_util.h"
@@ -94,7 +99,7 @@ IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, TestOpenPopup) {
     new_browser = chrome::FindBrowserWithWebContents(
         browser()->OpenURL(content::OpenURLParams(
             GURL("about:"), content::Referrer(), NEW_WINDOW,
-            content::PAGE_TRANSITION_TYPED, false)));
+            ui::PAGE_TRANSITION_TYPED, false)));
 #if defined(OS_WIN)
     // Hide all the buttons to test that it opens even when browser action is
     // in the overflow bucket.
@@ -199,7 +204,7 @@ IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest,
       service->GetExtensionById(last_loaded_extension_id(), false)
           ->permissions_data()
           ->HasAPIPermissionForTab(
-              SessionID::IdForTab(
+              SessionTabHelper::IdForTab(
                   browser()->tab_strip_model()->GetActiveWebContents()),
               APIPermission::kTab));
 }
@@ -263,6 +268,31 @@ IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, TabSwitchClosesPopup) {
   EXPECT_FALSE(BrowserActionTestUtil(browser()).HasPopup());
 }
 
+IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest,
+                       DeleteBrowserActionWithPopupOpen) {
+  if (!ShouldRunPopupTest())
+    return;
+
+  // First, we open a popup.
+  OpenExtensionPopupViaAPI();
+  BrowserActionTestUtil browser_action_test_util(browser());
+  EXPECT_TRUE(browser_action_test_util.HasPopup());
+
+  // Then, find the extension that created it.
+  content::WebContents* active_web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(active_web_contents);
+  GURL url = active_web_contents->GetLastCommittedURL();
+  const Extension* extension = ExtensionRegistry::Get(browser()->profile())->
+      enabled_extensions().GetExtensionOrAppByURL(url);
+  ASSERT_TRUE(extension);
+
+  // Finally, uninstall the extension, which causes the view to be deleted and
+  // the popup to go away. This should not crash.
+  UninstallExtension(extension->id());
+  EXPECT_FALSE(browser_action_test_util.HasPopup());
+}
+
 #if defined(TOOLKIT_VIEWS)
 // Test closing the browser while inspecting an extension popup with dev tools.
 IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, CloseBrowserWithDevTools) {
@@ -290,7 +320,9 @@ IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, CloseBrowserWithDevTools) {
 
 #if defined(OS_WIN)
 // Test that forcibly closing the browser and popup HWND does not cause a crash.
-IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, DestroyHWNDDoesNotCrash) {
+// http://crbug.com/400646
+IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest,
+                       DISABLED_DestroyHWNDDoesNotCrash) {
   if (!ShouldRunPopupTest())
     return;
 
@@ -307,7 +339,7 @@ IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, DestroyHWNDDoesNotCrash) {
   Browser* new_browser = chrome::FindBrowserWithWebContents(
       browser()->OpenURL(content::OpenURLParams(
           GURL("about:"), content::Referrer(), NEW_WINDOW,
-          content::PAGE_TRANSITION_TYPED, false)));
+          ui::PAGE_TRANSITION_TYPED, false)));
 
   // Forcibly closing the browser HWND should not cause a crash.
   EXPECT_EQ(TRUE, ::CloseWindow(hwnd));

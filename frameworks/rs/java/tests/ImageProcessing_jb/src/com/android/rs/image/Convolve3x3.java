@@ -40,15 +40,26 @@ public class Convolve3x3 extends TestBase {
         mUseIntrinsic = useIntrinsic;
     }
 
+    private float blend(float v1, float v2, float p) {
+        return (v2 * p) + (v1 * (1.f-p));
+    }
+
+    private float[] updateMatrix(float str) {
+        float f[] = new float[9];
+        float cf1 = blend(1.f / 9.f, 0.f, str);
+        float cf2 = blend(1.f / 9.f, -1.f, str);
+        float cf3 = blend(1.f / 9.f, 5.f, str);
+        f[0] =  cf1;  f[1] = cf2;   f[2] = cf1;
+        f[3] =  cf2;  f[4] = cf3;   f[5] = cf2;
+        f[6] =  cf1;  f[7] = cf2;   f[8] = cf1;
+        return f;
+    }
+
     public void createTest(android.content.res.Resources res) {
         mWidth = mInPixelsAllocation.getType().getX();
         mHeight = mInPixelsAllocation.getType().getY();
 
-        float f[] = new float[9];
-        f[0] =  0.f;    f[1] = -1.f;    f[2] =  0.f;
-        f[3] = -1.f;    f[4] =  5.f;    f[5] = -1.f;
-        f[6] =  0.f;    f[7] = -1.f;    f[8] =  0.f;
-
+        float f[] = updateMatrix(1.f);
         if (mUseIntrinsic) {
             mIntrinsic = ScriptIntrinsicConvolve3x3.create(mRS, Element.U8_4(mRS));
             mIntrinsic.setCoefficients(f);
@@ -59,6 +70,15 @@ public class Convolve3x3 extends TestBase {
             mScript.set_gIn(mInPixelsAllocation);
             mScript.set_gWidth(mWidth);
             mScript.set_gHeight(mHeight);
+        }
+    }
+
+    public void animateBars(float time) {
+        float f[] = updateMatrix(time % 1.f);
+        if (mUseIntrinsic) {
+            mIntrinsic.setCoefficients(f);
+        } else {
+            mScript.set_gCoeffs(f);
         }
     }
 

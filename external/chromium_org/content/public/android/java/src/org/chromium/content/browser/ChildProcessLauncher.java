@@ -6,16 +6,16 @@ package org.chromium.content.browser;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
+import android.os.RemoteException;
 import android.util.Log;
 import android.util.Pair;
 import android.view.Surface;
-
-import com.google.common.annotations.VisibleForTesting;
 
 import org.chromium.base.CalledByNative;
 import org.chromium.base.JNINamespace;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
+import org.chromium.base.VisibleForTesting;
 import org.chromium.base.library_loader.Linker;
 import org.chromium.content.app.ChildProcessService;
 import org.chromium.content.app.ChromiumLinkerParams;
@@ -49,7 +49,7 @@ public class ChildProcessLauncher {
     // classes and PrivilegedProcessServiceX classes declared in this package and defined as
     // services in the embedding application's manifest file.
     // (See {@link ChildProcessService} for more details on defining the services.)
-    /* package */ static final int MAX_REGISTERED_SANDBOXED_SERVICES = 13;
+    /* package */ static final int MAX_REGISTERED_SANDBOXED_SERVICES = 20;
     /* package */ static final int MAX_REGISTERED_PRIVILEGED_SERVICES = 3;
 
     private static class ChildConnectionAllocator {
@@ -92,13 +92,16 @@ public class ChildProcessLauncher {
                 ChromiumLinkerParams chromiumLinkerParams) {
             synchronized (mConnectionLock) {
                 if (mFreeConnectionIndices.isEmpty()) {
-                    Log.w(TAG, "Ran out of service.");
+                    Log.e(TAG, "Ran out of services to allocate.");
+                    assert false;
                     return null;
                 }
                 int slot = mFreeConnectionIndices.remove(0);
                 assert mChildProcessConnections[slot] == null;
                 mChildProcessConnections[slot] = new ChildProcessConnectionImpl(context, slot,
                         mInSandbox, deathCallback, mChildClass, chromiumLinkerParams);
+                Log.d(TAG, "Allocator allocated a connection, sandbox: " + mInSandbox +
+                        ", slot: " + slot);
                 return mChildProcessConnections[slot];
             }
         }
@@ -116,6 +119,8 @@ public class ChildProcessLauncher {
                     mChildProcessConnections[slot] = null;
                     assert !mFreeConnectionIndices.contains(slot);
                     mFreeConnectionIndices.add(slot);
+                    Log.d(TAG, "Allocator freed a connection, sandbox: " + mInSandbox +
+                            ", slot: " + slot);
                 }
             }
         }
@@ -528,6 +533,23 @@ public class ChildProcessLauncher {
     @VisibleForTesting
     static int connectedServicesCountForTesting() {
         return sServiceMap.size();
+    }
+
+    /**
+     * Kills the child process for testing.
+     * @return true iff the process was killed as expected
+     */
+    @VisibleForTesting
+    public static boolean crashProcessForTesting(int pid) {
+        if (sServiceMap.get(pid) == null) return false;
+
+        try {
+            ((ChildProcessConnectionImpl) sServiceMap.get(pid)).crashServiceForTesting();
+        } catch (RemoteException ex) {
+            return false;
+        }
+
+        return true;
     }
 
     private static native void nativeOnChildProcessStarted(long clientContext, int pid);

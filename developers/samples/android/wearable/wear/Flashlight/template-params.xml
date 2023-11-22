@@ -20,12 +20,12 @@
 <sample>
     <name>Flashlight</name>
     <group>Wearable</group>
-    <package>com.example.android.flashlight</package>
+    <package>com.example.android.wearable.flashlight</package>
 
 
 
     <!-- change minSdk if needed-->
-    <minSdk>20</minSdk>
+    <minSdk>18</minSdk>
 
 
     <strings>
@@ -41,5 +41,4 @@
     <template src="Wear"/>
     <common src="logger"/>
     <common src="activities"/>
-
 </sample>

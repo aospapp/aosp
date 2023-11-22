@@ -13,7 +13,6 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/extensions/api/bookmark_manager_private/bookmark_manager_private_api.h"
-#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/favicon/favicon_service.h"
@@ -27,7 +26,6 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/common/bindings_policy.h"
-#include "content/public/common/page_transition_types.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/image_loader.h"
 #include "extensions/common/extension.h"
@@ -37,6 +35,7 @@
 #include "extensions/common/manifest_handlers/incognito_info.h"
 #include "net/base/file_stream.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/favicon_size.h"
 #include "ui/gfx/image/image_skia.h"
@@ -82,7 +81,7 @@ void UnregisterAndReplaceOverrideForWebContents(const std::string& page,
   // NavigationController has.
   web_contents->GetController().LoadURL(
       url, content::Referrer(url, blink::WebReferrerPolicyDefault),
-      content::PAGE_TRANSITION_RELOAD, std::string());
+      ui::PAGE_TRANSITION_RELOAD, std::string());
 }
 
 // Run favicon callbck with image result. If no favicon was available then
@@ -155,9 +154,8 @@ ExtensionWebUI::ExtensionWebUI(content::WebUI* web_ui, const GURL& url)
     : WebUIController(web_ui),
       url_(url) {
   Profile* profile = Profile::FromWebUI(web_ui);
-  ExtensionService* service = profile->GetExtensionService();
-  const Extension* extension =
-      service->extensions()->GetExtensionOrAppByURL(url);
+  const Extension* extension = extensions::ExtensionRegistry::Get(
+      profile)->enabled_extensions().GetExtensionOrAppByURL(url);
   DCHECK(extension);
 
   // The base class defaults to enabling WebUI bindings, but we don't need
@@ -172,7 +170,7 @@ ExtensionWebUI::ExtensionWebUI(content::WebUI* web_ui, const GURL& url)
         new extensions::BookmarkManagerPrivateDragEventRouter(
             profile, web_ui->GetWebContents()));
 
-    web_ui->SetLinkTransitionType(content::PAGE_TRANSITION_AUTO_BOOKMARK);
+    web_ui->SetLinkTransitionType(ui::PAGE_TRANSITION_AUTO_BOOKMARK);
   }
 }
 
@@ -407,14 +405,8 @@ void ExtensionWebUI::GetFaviconForURL(
     Profile* profile,
     const GURL& page_url,
     const favicon_base::FaviconResultsCallback& callback) {
-  // Even when the extensions service is enabled by default, it's still
-  // disabled in incognito mode.
-  ExtensionService* service = profile->GetExtensionService();
-  if (!service) {
-    RunFaviconCallbackAsync(callback, gfx::Image());
-    return;
-  }
-  const Extension* extension = service->extensions()->GetByID(page_url.host());
+  const Extension* extension = extensions::ExtensionRegistry::Get(
+      profile)->enabled_extensions().GetByID(page_url.host());
   if (!extension) {
     RunFaviconCallbackAsync(callback, gfx::Image());
     return;

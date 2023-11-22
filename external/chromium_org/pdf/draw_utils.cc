@@ -51,9 +51,22 @@ inline uint8 ProcessColor(uint8 src_color, uint8 dest_color, uint8 alpha) {
   return static_cast<uint8>((processed / 0xFF) & 0xFF);
 }
 
-bool AlphaBlend(const pp::ImageData& src, const pp::Rect& src_rc,
+inline bool ImageDataContainsRect(const pp::ImageData& image_data,
+                                  const pp::Rect& rect) {
+  return rect.width() >= 0 && rect.height() >= 0 &&
+      pp::Rect(image_data.size()).Contains(rect);
+}
+
+void AlphaBlend(const pp::ImageData& src, const pp::Rect& src_rc,
                 pp::ImageData* dest, const pp::Point& dest_origin,
                 uint8 alpha_adjustment) {
+  if (src_rc.IsEmpty() || !ImageDataContainsRect(src, src_rc))
+    return;
+
+  pp::Rect dest_rc(dest_origin, src_rc.size());
+  if (dest_rc.IsEmpty() || !ImageDataContainsRect(*dest, dest_rc))
+    return;
+
   const uint32_t* src_origin_pixel = src.GetAddr32(src_rc.point());
   uint32_t* dest_origin_pixel = dest->GetAddr32(dest_origin);
 
@@ -80,7 +93,6 @@ bool AlphaBlend(const pp::ImageData& src, const pp::Rect& src_rc,
     dest_origin_pixel = reinterpret_cast<uint32_t*>(
         reinterpret_cast<char*>(dest_origin_pixel) + dest->stride());
   }
-  return true;
 }
 
 void GradientFill(pp::ImageData* image, const pp::Rect& rc,
@@ -145,8 +157,13 @@ void GradientFill(pp::Instance* instance,
 void CopyImage(const pp::ImageData& src, const pp::Rect& src_rc,
                pp::ImageData* dest, const pp::Rect& dest_rc,
                bool stretch) {
-  DCHECK(src_rc.width() <= dest_rc.width() &&
-      src_rc.height() <= dest_rc.height());
+  if (src_rc.IsEmpty() || !ImageDataContainsRect(src, src_rc))
+    return;
+
+  pp::Rect stretched_rc(dest_rc.point(),
+                        stretch ? dest_rc.size() : src_rc.size());
+  if (stretched_rc.IsEmpty() || !ImageDataContainsRect(*dest, stretched_rc))
+    return;
 
   const uint32_t* src_origin_pixel = src.GetAddr32(src_rc.point());
   uint32_t* dest_origin_pixel = dest->GetAddr32(dest_rc.point());

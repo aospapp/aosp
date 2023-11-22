@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"ബാക്കപ്പുചെയ്യലും പുനഃസ്ഥാപിക്കലും"</string>
     <string name="device_reset" msgid="2827002349560023125">"ഫാക്‌ടറി ഡാറ്റ പുനഃസജ്ജീകരണം"</string>
     <string name="device_calibration" msgid="8632962533376605191">"കാലിബ്രേഷൻ"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"ഡൗൺലോഡുചെയ്ത അപ്ലിക്കേഷനുകൾ"</string>
     <string name="apps_system" msgid="2499191125802829425">"സിസ്‌റ്റം അപ്ലിക്കേഷനുകൾ"</string>
     <string name="apps_running" msgid="6430310491739956228">"പ്രവർത്തിക്കുന്ന അപ്ലിക്കേഷനുകൾ"</string>
@@ -74,7 +78,7 @@
     <string name="accessory_unpair" msgid="8242725516604465355">"ജോടിയാക്കിയത് മാറ്റുക"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"ഉപകരണം ജോടിയാക്കിയത് മാറ്റുന്നു…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"കണക്‌റ്റുചെയ്‌തു"</string>
-    <string name="accessories_add_title" msgid="6940361421891873321">"ആക്‌‌സ്സസറികൾക്കായി തിരയുന്നു…"</string>
+    <string name="accessories_add_title" msgid="6940361421891873321">"ആക്‌‌സ്സസറികൾക്ക് തിരയുന്നു…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"നിങ്ങളുടെ ബ്ലൂടൂത്ത് ഉപകരണങ്ങൾ ജോടിയാക്കുന്നതിനു മുമ്പ്, അവ ജോടിയാക്കൽ മോഡിലാണ് ഉള്ളതെന്ന് ഉറപ്പുവരുത്തുക"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"ഒരു ഉപകരണം കണ്ടെത്തി, അത് <xliff:g id="COUNTDOWN">%1$s</xliff:g> സെക്കന്റിനുള്ളിൽ യാന്ത്രികമായി ജോടിയാകും"</string>
     <string name="accessories_add_title_multiple" msgid="8455249961819802466">"ഒന്നിലധികം ഉപകരണങ്ങൾ കണ്ടെത്തി"</string>
@@ -95,7 +99,7 @@
     <string name="system_language" msgid="2337138146114609247">"ഭാഷ"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"കീബോർഡ്"</string>
     <string name="system_search" msgid="2837264654143247611">"തിരയുക"</string>
-    <string name="system_security" msgid="4190058778883258927">"സുരക്ഷയും നിയന്ത്രണങ്ങളും"</string>
+    <string name="system_security" msgid="8230080273993484407">"സുരക്ഷയും നിയന്ത്രണങ്ങളും"</string>
     <string name="system_speech" msgid="8128688499687306982">"സംഭാഷണം"</string>
     <string name="system_inputs" msgid="2413907183796651102">"ഇൻപുട്ടുകൾ"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"പ്രവേശനക്ഷമത"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"സിസ്റ്റം അപ്ഡേറ്റ്"</string>
     <string name="about_preference" msgid="4131396784531360434">"ആമുഖം"</string>
     <string name="device_name" msgid="2670488158531273028">"ഉപകരണത്തിന്റെ പേര്"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"പുനരാരംഭിക്കുക"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"നിയമ വിവരം"</string>
     <string name="about_warranty" msgid="5736003473060436384">"വാറന്റി"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"ഓപ്പൺ സോഴ്‌സ് ലൈസൻസുകൾ"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"സേവന നിബന്ധനകൾ കാണുക"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"സ്വകാര്യതാ നയം കാണുക"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"അധിക നിബന്ധനകൾ കാണുക"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Google ലീഗൽ"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"ലൈസൻസ് ഡാറ്റ ലഭ്യമല്ല"</string>
     <string name="about_model" msgid="6625269442206323995">"മോഡല്‍"</string>
     <string name="about_version" msgid="1177287676732287266">"പതിപ്പ്"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"തീയതി"</string>
     <string name="system_time" msgid="6726022312605226285">"സമയം"</string>
     <string name="system_set_date" msgid="2437586307768561116">"തീയതി സജ്ജീകരിക്കുക"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"തീയതി ഫോർമാറ്റ് തിരഞ്ഞെടുക്കുക"</string>
     <string name="system_set_time" msgid="4661804115501057452">"സമയം സജ്ജീകരിക്കുക"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"സമയ മേഖല സജ്ജീകരിക്കുക"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"24 മണിക്കൂർ ഫോർമാറ്റ് ഉപയോഗിക്കുക"</string>

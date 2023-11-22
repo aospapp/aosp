@@ -47,22 +47,26 @@
     <item android:id="@+id/send"
         android:icon="@drawable/ic_send_wht_24dp"
         android:title="@string/send"
-        app:showAsAction="always" />
+        app:showAsAction="always"
+        android:alphabeticShortcut="@string/trigger_send_char" />
 
     <item android:id="@+id/save"
         android:title="@string/save_draft"
-        app:showAsAction="never" />
+        app:showAsAction="never"
+        android:alphabeticShortcut="@string/trigger_save_char" />
 
     <item android:id="@+id/discard"
         android:title="@string/discard"
-        app:showAsAction="never" />
+        app:showAsAction="never"
+        android:alphabeticShortcut="@string/trigger_delete_char" />
 
     <item android:id="@+id/settings"
         android:title="@string/menu_settings"
-        app:showAsAction="never" />
+        app:showAsAction="never"
+        android:alphabeticShortcut="@string/trigger_settings_char" />
 
-    <item
-        android:id="@+id/help_info_menu_item"
-        android:title="@string/help_and_feedback" />
+    <item android:id="@+id/help_info_menu_item"
+        android:title="@string/help_and_feedback"
+        android:alphabeticShortcut="@string/trigger_help_char" />
 
 </menu>

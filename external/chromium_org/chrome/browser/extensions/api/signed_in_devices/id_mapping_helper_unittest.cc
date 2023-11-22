@@ -9,11 +9,11 @@
 #include "base/memory/scoped_vector.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/api/signed_in_devices/id_mapping_helper.h"
-#include "chrome/browser/sync/glue/device_info.h"
+#include "components/sync_driver/device_info.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-using browser_sync::DeviceInfo;
+using sync_driver::DeviceInfo;
 
 namespace extensions {
 bool VerifyDictionary(
@@ -31,13 +31,19 @@ bool VerifyDictionary(
 TEST(IdMappingHelperTest, SetIdsForDevices) {
   ScopedVector<DeviceInfo> devices;
 
-  devices.push_back(new DeviceInfo(
-      base::GenerateGUID(), "abc Device", "XYZ v1", "XYZ SyncAgent v1",
-      sync_pb::SyncEnums_DeviceType_TYPE_LINUX));
+  devices.push_back(new DeviceInfo(base::GenerateGUID(),
+                                   "abc Device",
+                                   "XYZ v1",
+                                   "XYZ SyncAgent v1",
+                                   sync_pb::SyncEnums_DeviceType_TYPE_LINUX,
+                                   "device_id1"));
 
-  devices.push_back(new DeviceInfo(
-      base::GenerateGUID(), "def Device", "XYZ v1", "XYZ SyncAgent v1",
-      sync_pb::SyncEnums_DeviceType_TYPE_LINUX));
+  devices.push_back(new DeviceInfo(base::GenerateGUID(),
+                                   "def Device",
+                                   "XYZ v1",
+                                   "XYZ SyncAgent v1",
+                                   sync_pb::SyncEnums_DeviceType_TYPE_LINUX,
+                                   "device_id2"));
 
   base::DictionaryValue dictionary;
 
@@ -52,9 +58,12 @@ TEST(IdMappingHelperTest, SetIdsForDevices) {
   EXPECT_NE(public_id1, public_id2);
 
   // Now add a third device.
-  devices.push_back(new DeviceInfo(
-      base::GenerateGUID(), "ghi Device", "XYZ v1", "XYZ SyncAgent v1",
-      sync_pb::SyncEnums_DeviceType_TYPE_LINUX));
+  devices.push_back(new DeviceInfo(base::GenerateGUID(),
+                                   "ghi Device",
+                                   "XYZ v1",
+                                   "XYZ SyncAgent v1",
+                                   sync_pb::SyncEnums_DeviceType_TYPE_LINUX,
+                                   "device_id3"));
 
   CreateMappingForUnmappedDevices(&(devices.get()), &dictionary);
 

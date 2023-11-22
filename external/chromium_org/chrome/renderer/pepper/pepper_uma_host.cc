@@ -21,6 +21,8 @@
 #include "ppapi/host/ppapi_host.h"
 #include "ppapi/proxy/ppapi_messages.h"
 
+#include "widevine_cdm_version.h"  // In SHARED_INTERMEDIATE_DIR.
+
 namespace {
 
 const char* const kPredefinedAllowedUMAOrigins[] = {
@@ -29,12 +31,15 @@ const char* const kPredefinedAllowedUMAOrigins[] = {
 };
 
 const char* const kWhitelistedHistogramPrefixes[] = {
-    "22F67DA2061FFC4DC9A4974036348D9C38C22919",  // see http://crbug.com/390221
-    "CD190EA2B764EDF0BB97552A638D32072F3CFD41",  // see http://crbug.com/317833
+    "22F67DA2061FFC4DC9A4974036348D9C38C22919"  // see http://crbug.com/390221
 };
 
 const char* const kWhitelistedPluginBaseNames[] = {
-    "libwidevinecdmadapter.so"  // see http://crbug.com/368743
+#if defined(WIDEVINE_CDM_AVAILABLE) && defined(ENABLE_PEPPER_CDMS)
+    kWidevineCdmAdapterFileName,  // see http://crbug.com/368743
+                                  // and http://crbug.com/410630
+#endif
+    "libpdf.so"                   // see http://crbug.com/405305
 };
 
 std::string HashPrefix(const std::string& histogram) {
@@ -84,8 +89,12 @@ int32_t PepperUMAHost::OnResourceMessageReceived(
 }
 
 bool PepperUMAHost::IsPluginWhitelisted() {
+#if defined(ENABLE_EXTENSIONS)
   return ChromeContentRendererClient::IsExtensionOrSharedModuleWhitelisted(
       document_url_, allowed_origins_);
+#else
+  return false;
+#endif
 }
 
 bool PepperUMAHost::IsHistogramAllowed(const std::string& histogram) {

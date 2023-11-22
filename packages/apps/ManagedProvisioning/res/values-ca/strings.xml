@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"No es pot fer servir l\'aplicació d\'administració perquè està malmesa o hi falten components. Contacta amb el departament de TI."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"No s\'ha pogut instal·lar l\'aplicació d\'administració."</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"L\'aplicació d\'administració no està instal·lada al dispositiu."</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Vols aturar la configuració?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Confirmes que vols aturar la configuració?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"No"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Sí"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"S\'està cancel·lant..."</string>
 </resources>

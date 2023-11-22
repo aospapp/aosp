@@ -11,11 +11,11 @@
 #include "base/prefs/pref_service.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
-#include "chrome/browser/omnibox/omnibox_field_trial.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/chrome_version_info.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/common/variations/uniformity_field_trials.h"
+#include "components/metrics/metrics_pref_names.h"
+#include "components/omnibox/omnibox_field_trial.h"
 
 #if defined(OS_ANDROID) || defined(OS_IOS)
 #include "chrome/browser/chrome_browser_field_trials_mobile.h"
@@ -31,9 +31,8 @@ ChromeBrowserFieldTrials::ChromeBrowserFieldTrials(
 ChromeBrowserFieldTrials::~ChromeBrowserFieldTrials() {
 }
 
-void ChromeBrowserFieldTrials::SetupFieldTrials(PrefService* local_state) {
-  const base::Time install_time = base::Time::FromTimeT(
-      local_state->GetInt64(prefs::kInstallDate));
+void ChromeBrowserFieldTrials::SetupFieldTrials(const base::Time& install_time,
+                                                PrefService* local_state) {
   DCHECK(!install_time.is_null());
 
   // Field trials that are shared by all platforms.
@@ -41,27 +40,21 @@ void ChromeBrowserFieldTrials::SetupFieldTrials(PrefService* local_state) {
   InstantiateDynamicTrials();
 
 #if defined(OS_ANDROID) || defined(OS_IOS)
-  chrome::SetupMobileFieldTrials(
-      parsed_command_line_, install_time, local_state);
+  chrome::SetupMobileFieldTrials(parsed_command_line_);
 #else
   chrome::SetupDesktopFieldTrials(
-      parsed_command_line_, install_time, local_state);
+      parsed_command_line_, local_state);
 #endif
 }
 
 void ChromeBrowserFieldTrials::InstantiateDynamicTrials() {
-  // Call |FindValue()| on the trials below, which may come from the server, to
-  // ensure they get marked as "used" for the purposes of data reporting.
-  base::FieldTrialList::FindValue("UMA-Dynamic-Binary-Uniformity-Trial");
-  base::FieldTrialList::FindValue("UMA-Dynamic-Uniformity-Trial");
-  base::FieldTrialList::FindValue("InstantDummy");
-  base::FieldTrialList::FindValue("InstantChannel");
-  base::FieldTrialList::FindValue("Test0PercentDefault");
   // The following trials are used from renderer process.
   // Mark here so they will be sync-ed.
   base::FieldTrialList::FindValue("CLD1VsCLD2");
   base::FieldTrialList::FindValue("MouseEventPreconnect");
   base::FieldTrialList::FindValue("UnauthorizedPluginInfoBar");
+  base::FieldTrialList::FindValue("DisplayList2dCanvas");
+  base::FieldTrialList::FindValue("V8ScriptStreaming");
   // Activate the autocomplete dynamic field trials.
   OmniboxFieldTrial::ActivateDynamicTrials();
 }

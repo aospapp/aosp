@@ -101,7 +101,7 @@
     <!-- In-call screen: call failure reason (incorrect username or password) -->
     <string name="callFailed_invalid_credentials">Incorrect username or password</string>
     <!-- In-call screen: call failure reason (calling from out of network is not allowed) -->
-    <string name="callFailed_out_of_network">Called from out-of-network</string>
+    <string name="callFailed_out_of_network">Out\u2011of\u2011network call</string>
     <!-- In-call screen: call failure reason (server error) -->
     <string name="callFailed_server_error">Server error. Try again later.</string>
     <!-- In-call screen: call failure reason (no signal) -->
@@ -113,17 +113,17 @@
     <!-- In-call screen: call failure reason (SIM error) -->
     <string name="callFailed_simError">No SIM or SIM error</string>
     <!-- In-call screen: call failure reason (out of service) -->
-    <string name="callFailed_outOfService">Mobile network not available</string>
+    <string name="callFailed_outOfService">Cellular network not available</string>
     <!-- In-call screen: call failure reason (call denied because of current FDN setting) -->
     <string name="callFailed_fdn_only">Outgoing calls are restricted by FDN.</string>
     <!-- In-call screen: call failure reason (call denied because call barring is on) -->
-    <string name="callFailed_cb_enabled">You can\'t make outgoing calls while call barring is on.</string>
+    <string name="callFailed_cb_enabled">Can\'t make outgoing calls while call barring is on.</string>
     <!-- In-call screen: call failure reason (call denied because domain specific access control is on) -->
-    <string name="callFailed_dsac_restricted">All calls are restricted by access control.</string>
+    <string name="callFailed_dsac_restricted">Calls restricted by access control.</string>
     <!-- In-call screen: call failure reason (Emergency call denied because domain specific access control is on)-->
-    <string name="callFailed_dsac_restricted_emergency">Emergency calls are restricted by access control.</string>
+    <string name="callFailed_dsac_restricted_emergency">Emergency calls restricted by access control.</string>
     <!-- In-call screen: call failure reason (Normal call denied because domain specific access control is on)-->
-    <string name="callFailed_dsac_restricted_normal">Normal calls are restricted by access control.</string>
+    <string name="callFailed_dsac_restricted_normal">Normal calls restricted by access control.</string>
     <!-- In-call screen: call failure reason (Dialed number doesn't exist) -->
     <string name="callFailed_unobtainable_number">Invalid number</string>
     <!-- In-call screen: message displayed in an error dialog -->

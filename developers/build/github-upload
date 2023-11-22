@@ -6,29 +6,34 @@
 ##
 ##############################################################################
 
-#replace with auth token for google-automerger GitHub account
-TOKEN=herpderp 
+##replace with auth token for google-automerger GitHub account
+TOKEN=herpderp
 
-#get list of existing GH repos
-EXISTING=`curl -s https://api.github.com/users/googlesamples/repos  | grep full_name`
+##iterate through samples
 
-#iterate through samples
 cd ./prebuilts/gradle
-
 for i in $(ls);
 
 ##for testing
 #foo="ActionBarCompat-Basic"
-#foo="ActionBarCompat-Basic ActionBarCompat-ListPopupMenu"
+#foo="ActionBarCompat-Basic ActionBarCompat-ListPopupMenu FooBar"
+#foo="ActionBarCompat-Basic Notifications"
 #for i in $foo;
 
 do
-echo $i
- #checking to see if they're in the list
- if [[ "$EXISTING" =~ "$i" ]]; then
+echo "
+$i"
+
+URL=https://github.com/googlesamples/android-$i
+
+result=$(curl -o /dev/null --silent --head --write-out '%{http_code}' "$URL")
+#echo "$result $URL"
+
+##checking to see if the repo already exists
+if [ "$result" != "404" ]; then
    echo "$i already exists as a repo"
  else
-   echo "A repo for $i does not exist yet" 
+   echo "A repo for $i does not exist yet"
 
 repoName="googlesamples/android-$i"
 
@@ -40,9 +45,11 @@ repoName="googlesamples/android-$i"
 CREATE="curl -H 'Authorization: token '$TOKEN \
      -d '{\"name\":\"android-'$i'\", \"team_id\":889859}' \
      https://api.github.com/orgs/googlesamples/repos"
+
 #echo "
 #Create Script:
 #"$CREATE
+
 eval $CREATE
 
 #add secondary team permissions (robots)
@@ -50,9 +57,11 @@ ADDTEAM="curl -X PUT \
 -H 'Authorization: token '$TOKEN \
 -H 'Content-Length: 0' \
 https://api.github.com/teams/889856/repos/$repoName"
+
 #echo "
 #Add Team Robots:
 #"$ADDTEAM
+
 eval $ADDTEAM
 
 

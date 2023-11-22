@@ -22,7 +22,9 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_ui_util.h"
 #include "chrome/browser/extensions/extension_uninstall_dialog.h"
+#include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/launch_util.h"
+#include "chrome/browser/extensions/window_controller.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_dialogs.h"
@@ -30,9 +32,9 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
-#include "chrome/common/chrome_switches.h"
-#include "chrome/common/chrome_utility_messages.h"
+#include "chrome/browser/ui/webui/ntp/core_app_launcher_handler.h"
 #include "chrome/common/extensions/api/management.h"
+#include "chrome/common/extensions/chrome_utility_extensions_messages.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
 #include "chrome/common/extensions/manifest_url_handler.h"
@@ -43,20 +45,17 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/management_policy.h"
+#include "extensions/browser/uninstall_reason.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/error_utils.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_icon_set.h"
 #include "extensions/common/manifest_handlers/icons_handler.h"
 #include "extensions/common/manifest_handlers/offline_enabled_info.h"
+#include "extensions/common/manifest_handlers/options_page_info.h"
 #include "extensions/common/permissions/permission_set.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "extensions/common/url_pattern.h"
-#include "ui/gfx/favicon_size.h"
-
-#if !defined(OS_ANDROID)
-#include "chrome/browser/ui/webui/ntp/core_app_launcher_handler.h"
-#endif
 
 using base::IntToString;
 using content::BrowserThread;
@@ -108,8 +107,7 @@ std::vector<management::LaunchType> GetAvailableLaunchTypes(
   launch_type_list.push_back(management::LAUNCH_TYPE_OPEN_AS_WINDOW);
 #endif
 
-  if (!CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableStreamlinedHostedApps)) {
+  if (!util::IsStreamlinedHostedAppsEnabled()) {
     launch_type_list.push_back(management::LAUNCH_TYPE_OPEN_AS_PINNED_TAB);
     launch_type_list.push_back(management::LAUNCH_TYPE_OPEN_FULL_SCREEN);
   }
@@ -129,7 +127,7 @@ scoped_ptr<management::ExtensionInfo> CreateExtensionInfo(
   info->offline_enabled = OfflineEnabledInfo::IsOfflineEnabled(&extension);
   info->version = extension.VersionString();
   info->description = extension.description();
-  info->options_url = ManifestURL::GetOptionsPage(&extension).spec();
+  info->options_url = OptionsPageInfo::GetOptionsPage(&extension).spec();
   info->homepage_url.reset(new std::string(
       ManifestURL::GetHomepageURL(&extension).spec()));
   info->may_disable = system->management_policy()->
@@ -284,14 +282,14 @@ void AddExtensionInfo(const ExtensionSet& extensions,
   }
 }
 
-} // namespace
+}  // namespace
 
 ExtensionService* ManagementFunction::service() {
-  return GetProfile()->GetExtensionService();
+  return ExtensionSystem::Get(GetProfile())->extension_service();
 }
 
 ExtensionService* AsyncManagementFunction::service() {
-  return GetProfile()->GetExtensionService();
+  return ExtensionSystem::Get(GetProfile())->extension_service();
 }
 
 bool ManagementGetAllFunction::RunSync() {
@@ -324,6 +322,14 @@ bool ManagementGetFunction::RunSync() {
 
   scoped_ptr<management::ExtensionInfo> info =
       CreateExtensionInfo(*extension, ExtensionSystem::Get(GetProfile()));
+  results_ = management::Get::Results::Create(*info);
+
+  return true;
+}
+
+bool ManagementGetSelfFunction::RunSync() {
+  scoped_ptr<management::ExtensionInfo> info =
+      CreateExtensionInfo(*extension_, ExtensionSystem::Get(GetProfile()));
   results_ = management::Get::Results::Create(*info);
 
   return true;
@@ -504,11 +510,9 @@ bool ManagementLaunchAppFunction::RunSync() {
       GetLaunchContainer(ExtensionPrefs::Get(GetProfile()), extension);
   OpenApplication(AppLaunchParams(
       GetProfile(), extension, launch_container, NEW_FOREGROUND_TAB));
-#if !defined(OS_ANDROID)
   CoreAppLauncherHandler::RecordAppLaunchType(
       extension_misc::APP_LAUNCH_EXTENSION_API,
       extension->GetType());
-#endif
 
   return true;
 }
@@ -554,7 +558,7 @@ bool ManagementSetEnabledFunction::RunAsync() {
         error_ = keys::kGestureNeededForEscalationError;
         return false;
       }
-      AddRef(); // Matched in InstallUIProceed/InstallUIAbort
+      AddRef();  // Matched in InstallUIProceed/InstallUIAbort
       install_prompt_.reset(
           new ExtensionInstallPrompt(GetAssociatedWebContents()));
       install_prompt_->ConfirmReEnable(this, extension);
@@ -596,7 +600,8 @@ bool ManagementUninstallFunctionBase::Uninstall(
     bool show_confirm_dialog) {
   extension_id_ = target_extension_id;
   const Extension* target_extension =
-      service()->GetExtensionById(extension_id_, true);
+      extensions::ExtensionRegistry::Get(browser_context())->
+          GetExtensionById(extension_id_, ExtensionRegistry::EVERYTHING);
   if (!target_extension ||
       ui_util::ShouldNotBeVisible(target_extension, browser_context())) {
     error_ = ErrorUtils::FormatErrorMessage(
@@ -614,12 +619,15 @@ bool ManagementUninstallFunctionBase::Uninstall(
 
   if (auto_confirm_for_test == DO_NOT_SKIP) {
     if (show_confirm_dialog) {
-      AddRef(); // Balanced in ExtensionUninstallAccepted/Canceled
+      AddRef();  // Balanced in ExtensionUninstallAccepted/Canceled
+      extensions::WindowController* controller = GetExtensionWindowController();
       extension_uninstall_dialog_.reset(ExtensionUninstallDialog::Create(
-          GetProfile(), GetCurrentBrowser(), this));
+          GetProfile(),
+          controller ? controller->window()->GetNativeWindow() : NULL,
+          this));
       if (extension_id() != target_extension_id) {
         extension_uninstall_dialog_->ConfirmProgrammaticUninstall(
-            target_extension, GetExtension());
+            target_extension, extension());
       } else {
         // If this is a self uninstall, show the generic uninstall dialog.
         extension_uninstall_dialog_->ConfirmUninstall(target_extension);
@@ -652,10 +660,11 @@ void ManagementUninstallFunctionBase::Finish(bool should_uninstall) {
                                               extension_id_);
       SendResponse(false);
     } else {
-      bool success =
-          service()->UninstallExtension(extension_id_,
-                                        false, /* external uninstall */
-                                        NULL);
+      bool success = service()->UninstallExtension(
+          extension_id_,
+          extensions::UNINSTALL_REASON_MANAGEMENT_API,
+          base::Bind(&base::DoNothing),
+          NULL);
 
       // TODO set error_ if !success
       SendResponse(success);
@@ -665,7 +674,6 @@ void ManagementUninstallFunctionBase::Finish(bool should_uninstall) {
         keys::kUninstallCanceledError, extension_id_);
     SendResponse(false);
   }
-
 }
 
 void ManagementUninstallFunctionBase::ExtensionUninstallAccepted() {
@@ -687,7 +695,7 @@ ManagementUninstallFunction::~ManagementUninstallFunction() {
 bool ManagementUninstallFunction::RunAsync() {
   scoped_ptr<management::Uninstall::Params> params(
       management::Uninstall::Params::Create(*args_));
-  EXTENSION_FUNCTION_VALIDATE(extension_);
+  EXTENSION_FUNCTION_VALIDATE(extension_.get());
   EXTENSION_FUNCTION_VALIDATE(params.get());
 
   bool show_confirm_dialog = true;
@@ -921,8 +929,7 @@ bool ManagementGenerateAppForLinkFunction::RunAsync() {
   launch_url_ = launch_url;
 
   favicon_service->GetFaviconImageForPageURL(
-      FaviconService::FaviconForPageURLParams(
-          launch_url, favicon_base::FAVICON, gfx::kFaviconSize),
+      launch_url,
       base::Bind(&ManagementGenerateAppForLinkFunction::OnFaviconForApp, this),
       &cancelable_task_tracker_);
 
@@ -955,13 +962,15 @@ void ManagementEventRouter::OnExtensionUnloaded(
 
 void ManagementEventRouter::OnExtensionInstalled(
     content::BrowserContext* browser_context,
-    const Extension* extension) {
+    const Extension* extension,
+    bool is_update) {
   BroadcastEvent(extension, management::OnInstalled::kEventName);
 }
 
 void ManagementEventRouter::OnExtensionUninstalled(
     content::BrowserContext* browser_context,
-    const Extension* extension) {
+    const Extension* extension,
+    extensions::UninstallReason reason) {
   BroadcastEvent(extension, management::OnUninstalled::kEventName);
 }
 

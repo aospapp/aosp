@@ -78,7 +78,7 @@ page.title=Audio
     and that you must implement to have your audio hardware function correctly. The audio HAL
     interfaces are located in
 <code>hardware/libhardware/include/hardware</code>. See <a
-href="http://source.android.com/devices/reference/audio_8h_source.html">audio.h</a> for additional details.
+href="{@docRoot}devices/halref/audio_8h_source.html">audio.h</a> for additional details.
   </dd>
   <dt>
     Kernel Driver

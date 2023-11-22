@@ -18,13 +18,7 @@ package com.android.rs.imagejb;
 
 import java.lang.Math;
 
-import android.renderscript.Allocation;
-import android.renderscript.Element;
-import android.renderscript.RenderScript;
 import android.renderscript.Matrix3f;
-import android.renderscript.Script;
-import android.renderscript.ScriptC;
-import android.renderscript.Type;
 import android.util.Log;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -139,6 +133,12 @@ public class LevelsV4 extends TestBase {
         mOutWhite = (float)progress + 127.0f;
         setLevels();
     }
+
+    public void animateBars(float time) {
+        mSaturation = time % 2.f;
+        setSaturation();
+    }
+
 
     public void createTest(android.content.res.Resources res) {
         mScriptR = new ScriptC_levels_relaxed(mRS);

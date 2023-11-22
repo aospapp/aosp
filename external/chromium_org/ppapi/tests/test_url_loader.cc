@@ -142,6 +142,7 @@ void TestURLLoader::RunTests(const std::string& filter) {
   RUN_CALLBACK_TEST(TestURLLoader, AbortCalls, filter);
   RUN_CALLBACK_TEST(TestURLLoader, UntendedLoad, filter);
   RUN_CALLBACK_TEST(TestURLLoader, PrefetchBufferThreshold, filter);
+  RUN_CALLBACK_TEST(TestURLLoader, XRequestedWithHeader, filter);
   // These tests connect to localhost with privacy mode enabled:
   RUN_CALLBACK_TEST(TestURLLoader, UntrustedSameOriginRestriction, filter);
   RUN_CALLBACK_TEST(TestURLLoader, UntrustedCrossOriginRequest, filter);
@@ -593,9 +594,8 @@ std::string TestURLLoader::TestUntrustedHttpRequests() {
     ASSERT_EQ(PP_ERROR_NOACCESS, OpenUntrusted("GET", "Content-Length:\n"));
     ASSERT_EQ(PP_ERROR_NOACCESS, OpenUntrusted("GET", "Cookie:\n"));
     ASSERT_EQ(PP_ERROR_NOACCESS, OpenUntrusted("GET", "Cookie2:\n"));
-    ASSERT_EQ(PP_ERROR_NOACCESS,
-              OpenUntrusted("GET", "Content-Transfer-Encoding:\n"));
     ASSERT_EQ(PP_ERROR_NOACCESS, OpenUntrusted("GET", "Date:\n"));
+    ASSERT_EQ(PP_ERROR_NOACCESS, OpenUntrusted("GET", "Dnt:\n"));
     ASSERT_EQ(PP_ERROR_NOACCESS, OpenUntrusted("GET", "Expect:\n"));
     ASSERT_EQ(PP_ERROR_NOACCESS, OpenUntrusted("GET", "Host:\n"));
     ASSERT_EQ(PP_ERROR_NOACCESS, OpenUntrusted("GET", "Keep-Alive:\n"));
@@ -859,6 +859,18 @@ std::string TestURLLoader::TestPrefetchBufferThreshold() {
   }
 
   PASS();
+}
+
+// TODO(viettrungluu): This test properly belongs elsewhere. It tests that
+// Chrome properly tags URL requests made on behalf of Pepper plugins (with an
+// X-Requested-With header), but this isn't, strictly speaking, a PPAPI
+// behavior.
+std::string TestURLLoader::TestXRequestedWithHeader() {
+  pp::URLRequestInfo request(instance_);
+  request.SetURL("/echoheader?X-Requested-With");
+  // The name and version of the plugin is set from the command-line (see
+  // chrome/test/ppapi/ppapi_test.cc.
+  return LoadAndCompareBody(request, "PPAPITests/1.2.3");
 }
 
 // TODO(viettrungluu): Add tests for  Get{Upload,Download}Progress, Close

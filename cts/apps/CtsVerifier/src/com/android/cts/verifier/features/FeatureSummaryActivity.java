@@ -220,6 +220,9 @@ public class FeatureSummaryActivity extends PassFailButtons.ListActivity {
             new Feature(PackageManager.FEATURE_SENSOR_RELATIVE_HUMIDITY, false),
             new Feature(PackageManager.FEATURE_VERIFIED_BOOT, false),
 
+            // Features explicitly made optional in L
+            new Feature(PackageManager.FEATURE_LOCATION_NETWORK, false),
+
             // New hidden features in L
             new Feature("android.hardware.ethernet", false),
             new Feature("android.hardware.hdmi.cec", false),
@@ -238,6 +241,7 @@ public class FeatureSummaryActivity extends PassFailButtons.ListActivity {
         // features
         boolean hasWifi = false;
         boolean hasTelephony = false;
+        boolean hasBluetooth = false;
         boolean hasIllegalFeature = false;
 
         // get list of all features device thinks it has, & store in a HashMap
@@ -304,6 +308,7 @@ public class FeatureSummaryActivity extends PassFailButtons.ListActivity {
                 // device reports it -- yay! set the happy icon
                 hasWifi = hasWifi || PackageManager.FEATURE_WIFI.equals(f.name);
                 hasTelephony = hasTelephony || PackageManager.FEATURE_TELEPHONY.equals(f.name);
+                hasBluetooth = hasBluetooth || PackageManager.FEATURE_BLUETOOTH.equals(f.name);
                 statusIcon = R.drawable.fs_good;
                 actualFeatures.remove(f.name);
             } else if (!present && f.required) {
@@ -388,9 +393,11 @@ public class FeatureSummaryActivity extends PassFailButtons.ListActivity {
         if (hasIllegalFeature) {
             sb.append(getResources().getString(R.string.fs_disallowed)).append("\n");
         }
-        if (!hasWifi && !hasTelephony) {
+
+        if (!hasWifi && !hasTelephony && !hasBluetooth) {
             sb.append(getResources().getString(R.string.fs_missing_wifi_telephony)).append("\n");
         }
+
         String warnings = sb.toString().trim();
         if (warnings == null || "".equals(warnings)) {
             ((TextView) (findViewById(R.id.fs_warnings))).setVisibility(View.GONE);

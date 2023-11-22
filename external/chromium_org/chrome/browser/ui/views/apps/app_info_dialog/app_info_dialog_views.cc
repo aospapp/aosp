@@ -4,38 +4,43 @@
 
 #include "chrome/browser/ui/views/apps/app_info_dialog/app_info_dialog_views.h"
 
+#include "base/bind.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/metrics/histogram.h"
 #include "chrome/browser/ui/app_list/app_list_controller_delegate.h"
-#include "chrome/browser/ui/views/app_list/app_list_dialog_contents_view.h"
+#include "chrome/browser/ui/views/app_list/app_list_dialog_container.h"
 #include "chrome/browser/ui/views/apps/app_info_dialog/app_info_footer_panel.h"
 #include "chrome/browser/ui/views/apps/app_info_dialog/app_info_header_panel.h"
 #include "chrome/browser/ui/views/apps/app_info_dialog/app_info_permissions_panel.h"
 #include "chrome/browser/ui/views/apps/app_info_dialog/app_info_summary_panel.h"
-#include "chrome/browser/ui/views/constrained_window_views.h"
+#include "extensions/common/extension.h"
+#include "extensions/common/manifest.h"
 #include "ui/app_list/app_list_constants.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/scroll_view.h"
 #include "ui/views/layout/box_layout.h"
-#include "ui/views/layout/grid_layout.h"
 #include "ui/views/layout/layout_constants.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/window/dialog_delegate.h"
 
-void ShowAppInfoDialog(AppListControllerDelegate* app_list_controller_delegate,
+void ShowAppInfoDialog(gfx::NativeWindow parent,
+                       const gfx::Rect& bounds,
                        Profile* profile,
-                       const extensions::Extension* app) {
-  gfx::NativeWindow app_list_window =
-      app_list_controller_delegate->GetAppListWindow();
-  DCHECK(app_list_window);
-  gfx::Rect app_list_bounds = app_list_controller_delegate->GetAppListBounds();
+                       const extensions::Extension* app,
+                       const base::Closure& close_callback) {
+  UMA_HISTOGRAM_ENUMERATION("Apps.AppInfoDialogOpenedForType",
+                            app->GetType(),
+                            extensions::Manifest::NUM_LOAD_TYPES);
+  UMA_HISTOGRAM_ENUMERATION("Apps.AppInfoDialogOpenedForLocation",
+                            app->location(),
+                            extensions::Manifest::NUM_LOCATIONS);
 
-  views::View* app_info_view = new AppInfoDialog(app_list_window, profile, app);
-  views::Widget* dialog_widget = AppListDialogContentsView::CreateDialogWidget(
-      app_list_window,
-      app_list_bounds,
-      new AppListDialogContentsView(app_list_controller_delegate,
-                                    app_info_view));
+  views::View* app_info_view = new AppInfoDialog(parent, profile, app);
+  views::Widget* dialog_widget = views::DialogDelegate::CreateDialogWidget(
+      new AppListDialogContainer(app_info_view, close_callback), NULL, parent);
+  dialog_widget->SetBounds(bounds);
   dialog_widget->Show();
 }
 
@@ -43,18 +48,9 @@ AppInfoDialog::AppInfoDialog(gfx::NativeWindow parent_window,
                              Profile* profile,
                              const extensions::Extension* app)
     : dialog_header_(NULL), dialog_body_(NULL), dialog_footer_(NULL) {
-  views::GridLayout* layout = new views::GridLayout(this);
+  views::BoxLayout* layout =
+      new views::BoxLayout(views::BoxLayout::kVertical, 0, 0, 0);
   SetLayoutManager(layout);
-
-  // Create one column that fills the whole dialog.
-  int kColumnSetId = 1;
-  views::ColumnSet* column_set = layout->AddColumnSet(kColumnSetId);
-  column_set->AddColumn(views::GridLayout::FILL,
-                        views::GridLayout::FILL,
-                        1,  // Stretch the column to the width of the dialog.
-                        views::GridLayout::USE_PREF,
-                        0,
-                        0);
 
   const int kHorizontalSeparatorHeight = 1;
   dialog_header_ = new AppInfoHeaderPanel(profile, app);
@@ -64,6 +60,11 @@ AppInfoDialog::AppInfoDialog(gfx::NativeWindow parent_window,
   dialog_footer_ = new AppInfoFooterPanel(parent_window, profile, app);
   dialog_footer_->SetBorder(views::Border::CreateSolidSidedBorder(
       kHorizontalSeparatorHeight, 0, 0, 0, app_list::kDialogSeparatorColor));
+  if (!dialog_footer_->has_children()) {
+    // If there are no controls in the footer, don't add it to the dialog.
+    delete dialog_footer_;
+    dialog_footer_ = NULL;
+  }
 
   // Make a vertically stacked view of all the panels we want to display in the
   // dialog.
@@ -86,14 +87,13 @@ AppInfoDialog::AppInfoDialog(gfx::NativeWindow parent_window,
   dialog_body_->ClipHeightTo(kMaxDialogHeight, kMaxDialogHeight);
   dialog_body_->SetContents(dialog_body_contents);
 
-  layout->StartRow(0, kColumnSetId);
-  layout->AddView(dialog_header_);
+  AddChildView(dialog_header_);
 
-  layout->StartRow(1, kColumnSetId);
-  layout->AddView(dialog_body_);
+  AddChildView(dialog_body_);
+  layout->SetFlexForView(dialog_body_, 1);
 
-  layout->StartRow(0, kColumnSetId);
-  layout->AddView(dialog_footer_);
+  if (dialog_footer_)
+    AddChildView(dialog_footer_);
 }
 
 AppInfoDialog::~AppInfoDialog() {

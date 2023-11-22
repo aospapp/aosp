@@ -2745,7 +2745,7 @@ public final class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
         // Remove only the peer we failed to connect to so that other devices discovered
         // that have not timed out still remain in list for connection
         boolean peersChanged = mPeers.remove(mPeersLostDuringConnection);
-        if (mSavedPeerConfig.deviceAddress != null &&
+        if (TextUtils.isEmpty(mSavedPeerConfig.deviceAddress) == false &&
                 mPeers.remove(mSavedPeerConfig.deviceAddress) != null) {
             peersChanged = true;
         }

@@ -95,6 +95,12 @@ limitations under the License.
     Island
   </message>
   <message
+      name="IDS_LIBADDRESSINPUT_OBLAST"
+      desc="Administrative Area for certain countries (e.g., Russia's
+            Leningrad).">
+    Oblast
+  </message>
+  <message
       name="IDS_LIBADDRESSINPUT_PARISH"
       desc="Administrative Area for certain countries (e.g., Andorra's
             Canillo).">
@@ -115,6 +121,13 @@ limitations under the License.
       name="IDS_LIBADDRESSINPUT_STATE"
       desc="Administrative Area for certain countries (e.g., US' California).">
     State
+  </message>
+  <message
+      name="IDS_LIBADDRESSINPUT_ORGANIZATION_LABEL"
+      desc="Label for the field of organization, firm, company, or institution
+            in an address. Examples of values in this field: Google,
+            Department of Transportation, University of Cambridge.">
+    Organization
   </message>
   <message
       name="IDS_LIBADDRESSINPUT_RECIPIENT_LABEL"

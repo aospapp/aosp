@@ -33,12 +33,15 @@ import android.telecom.VideoProfile;
 import android.telephony.CellLocation;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.ServiceState;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 
 import com.android.ims.ImsManager;
 import com.android.internal.telephony.CallTracker;
+
 import android.text.TextUtils;
 import android.telephony.Rlog;
+import android.util.Log;
 
 import static com.android.internal.telephony.CommandsInterface.CF_ACTION_DISABLE;
 import static com.android.internal.telephony.CommandsInterface.CF_ACTION_ENABLE;
@@ -51,7 +54,6 @@ import static com.android.internal.telephony.CommandsInterface.CF_REASON_NOT_REA
 import static com.android.internal.telephony.CommandsInterface.CF_REASON_BUSY;
 import static com.android.internal.telephony.CommandsInterface.CF_REASON_UNCONDITIONAL;
 import static com.android.internal.telephony.CommandsInterface.SERVICE_CLASS_VOICE;
-import static com.android.internal.telephony.TelephonyProperties.PROPERTY_BASEBAND_VERSION;
 
 import com.android.internal.telephony.dataconnection.DcTracker;
 import com.android.internal.telephony.Call;
@@ -61,14 +63,13 @@ import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.Connection;
 import com.android.internal.telephony.IccPhoneBookInterfaceManager;
 import com.android.internal.telephony.MmiCode;
+import com.android.internal.telephony.OperatorInfo;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneBase;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.PhoneNotifier;
 import com.android.internal.telephony.PhoneProxy;
 import com.android.internal.telephony.PhoneSubInfo;
-
-import android.telephony.SubscriptionManager;
 import com.android.internal.telephony.TelephonyProperties;
 import com.android.internal.telephony.UUSInfo;
 import com.android.internal.telephony.imsphone.ImsPhone;
@@ -82,14 +83,11 @@ import com.android.internal.telephony.ServiceStateTracker;
 import com.android.internal.telephony.uicc.IsimRecords;
 import com.android.internal.telephony.uicc.IsimUiccRecords;
 
-
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.android.internal.telephony.PhoneConstants.EVENT_SUBSCRIPTION_ACTIVATED;
-import static com.android.internal.telephony.PhoneConstants.EVENT_SUBSCRIPTION_DEACTIVATED;
 
 /**
  * {@hide}
@@ -131,7 +129,7 @@ public class GSMPhone extends PhoneBase {
 
     private IsimUiccRecords mIsimUiccRecords;
 
-    // Create Cfu (Call forward unconditional) so that dialling number &
+    // Create Cfu (Call forward unconditional) so that dialing number &
     // mOnComplete (Message object passed by client) can be packed &
     // given as a single Cfu object as user data to RIL.
     private static class Cfu {
@@ -147,12 +145,7 @@ public class GSMPhone extends PhoneBase {
     // Constructors
 
     public
-    GSMPhone (Context context, CommandsInterface ci, PhoneNotifier notifier) {
-        this(context,ci,notifier, false);
-    }
-
-    public
-    GSMPhone (Context context, CommandsInterface ci, PhoneNotifier notifier, boolean unitTestMode) {
+    GSMPhone(Context context, CommandsInterface ci, PhoneNotifier notifier, boolean unitTestMode) {
         super("GSM", notifier, context, ci, unitTestMode);
 
         if (ci instanceof SimulatedRadioControl) {
@@ -176,16 +169,17 @@ public class GSMPhone extends PhoneBase {
         mCi.setOnUSSD(this, EVENT_USSD, null);
         mCi.setOnSuppServiceNotification(this, EVENT_SSN, null);
         mSST.registerForNetworkAttached(this, EVENT_REGISTERED_TO_NETWORK, null);
+        mCi.setOnSs(this, EVENT_SS, null);
         setProperties();
     }
 
     public
-    GSMPhone (Context context, CommandsInterface ci, PhoneNotifier notifier, int phoneId) {
+    GSMPhone(Context context, CommandsInterface ci, PhoneNotifier notifier, int phoneId) {
         this(context, ci, notifier, false, phoneId);
     }
 
     public
-    GSMPhone (Context context, CommandsInterface ci,
+    GSMPhone(Context context, CommandsInterface ci,
             PhoneNotifier notifier, boolean unitTestMode, int phoneId) {
         super("GSM", notifier, context, ci, unitTestMode, phoneId);
 
@@ -210,6 +204,7 @@ public class GSMPhone extends PhoneBase {
         mCi.setOnUSSD(this, EVENT_USSD, null);
         mCi.setOnSuppServiceNotification(this, EVENT_SSN, null);
         mSST.registerForNetworkAttached(this, EVENT_REGISTERED_TO_NETWORK, null);
+        mCi.setOnSs(this, EVENT_SS, null);
         setProperties();
 
         log("GSMPhone: constructor: sub = " + mPhoneId);
@@ -218,8 +213,7 @@ public class GSMPhone extends PhoneBase {
     }
 
     protected void setProperties() {
-        TelephonyManager.setTelephonyProperty(TelephonyProperties.CURRENT_ACTIVE_PHONE,
-                getSubId(), new Integer(PhoneConstants.PHONE_TYPE_GSM).toString());
+        TelephonyManager.from(mContext).setPhoneType(getPhoneId(), PhoneConstants.PHONE_TYPE_GSM);
     }
 
     @Override
@@ -235,6 +229,7 @@ public class GSMPhone extends PhoneBase {
             mSST.unregisterForNetworkAttached(this); //EVENT_REGISTERED_TO_NETWORK
             mCi.unSetOnUSSD(this);
             mCi.unSetOnSuppServiceNotification(this);
+            mCi.unSetOnSs(this);
 
             mPendingMMIs.clear();
 
@@ -264,36 +259,14 @@ public class GSMPhone extends PhoneBase {
         if(LOCAL_DEBUG) Rlog.d(LOG_TAG, "GSMPhone finalized");
     }
 
-
-    private void onSubscriptionActivated() {
-        //mSubscriptionData = SubscriptionManager.getCurrentSubscription(mSubscription);
-
-        log("SUBSCRIPTION ACTIVATED : slotId : " + mSubscriptionData.slotId
-                + " appid : " + mSubscriptionData.m3gppIndex
-                + " subId : " + mSubscriptionData.subId
-                + " subStatus : " + mSubscriptionData.subStatus);
-
-        // Make sure properties are set for proper subscription.
-        setProperties();
-
-        onUpdateIccAvailability();
-        mSST.sendMessage(mSST.obtainMessage(ServiceStateTracker.EVENT_ICC_CHANGED));
-        ((DcTracker)mDcTracker).updateRecords();
-    }
-
-    private void onSubscriptionDeactivated() {
-        log("SUBSCRIPTION DEACTIVATED");
-        mSubscriptionData = null;
-        resetSubSpecifics();
-    }
-
     @Override
     public ServiceState
     getServiceState() {
         if (mSST == null || mSST.mSS.getState() != ServiceState.STATE_IN_SERVICE) {
-            if (mImsPhone != null &&
-                    mImsPhone.getServiceState().getState() == ServiceState.STATE_IN_SERVICE) {
-                return mImsPhone.getServiceState();
+            if (mImsPhone != null) {
+                return ServiceState.mergeServiceStates(
+                        (mSST == null) ? new ServiceState() : mSST.mSS,
+                        mImsPhone.getServiceState());
             }
         }
 
@@ -312,6 +285,13 @@ public class GSMPhone extends PhoneBase {
 
     @Override
     public PhoneConstants.State getState() {
+        if (mImsPhone != null) {
+            PhoneConstants.State imsState = mImsPhone.getState();
+            if (imsState != PhoneConstants.State.IDLE) {
+                return imsState;
+            }
+        }
+
         return mCT.mState;
     }
 
@@ -328,6 +308,23 @@ public class GSMPhone extends PhoneBase {
     @Override
     public CallTracker getCallTracker() {
         return mCT;
+    }
+
+    // pending voice mail count updated after phone creation
+    private void updateVoiceMail() {
+        int countVoiceMessages = 0;
+        IccRecords r = mIccRecords.get();
+        if (r != null) {
+            // get voice mail count from SIM
+            countVoiceMessages = r.getVoiceMessageCount();
+        }
+        int countVoiceMessagesStored = getStoredVoiceMessageCount();
+        if (countVoiceMessages == -1 && countVoiceMessagesStored != 0) {
+            countVoiceMessages = countVoiceMessagesStored;
+        }
+        Rlog.d(LOG_TAG, "updateVoiceMail countVoiceMessages = " + countVoiceMessages
+                +" subId "+getSubId());
+        setVoiceMessageCount(countVoiceMessages);
     }
 
     @Override
@@ -479,7 +476,7 @@ public class GSMPhone extends PhoneBase {
     @Override
     public void
     setSystemProperty(String property, String value) {
-        TelephonyManager.setTelephonyProperty(property, getSubId(), value);
+        TelephonyManager.setTelephonyProperty(mPhoneId, property, value);
     }
 
     @Override
@@ -809,13 +806,22 @@ public class GSMPhone extends PhoneBase {
         ImsPhone imsPhone = mImsPhone;
 
         boolean imsUseEnabled =
-                ImsManager.isEnhanced4gLteModeSettingEnabledByPlatform(mContext) &&
-                ImsManager.isEnhanced4gLteModeSettingEnabledByUser(mContext);
+                ImsManager.isVolteEnabledByPlatform(mContext) &&
+                ImsManager.isEnhanced4gLteModeSettingEnabledByUser(mContext) &&
+                ImsManager.isNonTtyOrTtyOnVolteEnabled(mContext);
         if (!imsUseEnabled) {
             Rlog.w(LOG_TAG, "IMS is disabled: forced to CS");
         }
 
-        if (imsUseEnabled && imsPhone != null
+        if (LOCAL_DEBUG) {
+            Rlog.d(LOG_TAG, "imsUseEnabled=" + imsUseEnabled + ", imsPhone=" + imsPhone
+                    + ", imsPhone.isVolteEnabled()="
+                    + ((imsPhone != null) ? imsPhone.isVolteEnabled() : "N/A")
+                    + ", imsPhone.getServiceState().getState()="
+                    + ((imsPhone != null) ? imsPhone.getServiceState().getState() : "N/A"));
+        }
+
+        if (imsUseEnabled && imsPhone != null && imsPhone.isVolteEnabled()
                 && ((imsPhone.getServiceState().getState() == ServiceState.STATE_IN_SERVICE
                 && !PhoneNumberUtils.isEmergencyNumber(dialString))
                 || (PhoneNumberUtils.isEmergencyNumber(dialString)
@@ -825,7 +831,8 @@ public class GSMPhone extends PhoneBase {
                 if (LOCAL_DEBUG) Rlog.d(LOG_TAG, "Trying IMS PS call");
                 return imsPhone.dial(dialString, videoState);
             } catch (CallStateException e) {
-                if (LOCAL_DEBUG) Rlog.d(LOG_TAG, "IMS PS call exception " + e);
+                if (LOCAL_DEBUG) Rlog.d(LOG_TAG, "IMS PS call exception " + e +
+                        "imsUseEnabled =" + imsUseEnabled + ", imsPhone =" + imsPhone);
                 if (!ImsPhone.CS_FALLBACK.equals(e.getMessage())) {
                     CallStateException ce = new CallStateException(e.getMessage());
                     ce.setStackTrace(e.getStackTrace());
@@ -1037,6 +1044,15 @@ public class GSMPhone extends PhoneBase {
     }
 
     @Override
+    public String getNai() {
+        IccRecords r = mUiccController.getIccRecords(mPhoneId, UiccController.APP_FAM_3GPP2);
+        if (Log.isLoggable(LOG_TAG, Log.VERBOSE)) {
+            Rlog.v(LOG_TAG, "IccRecords is " + r);
+        }
+        return (r != null) ? r.getNAI() : null;
+    }
+
+    @Override
     public String getSubscriberId() {
         IccRecords r = mIccRecords.get();
         return (r != null) ? r.getIMSI() : null;
@@ -1067,10 +1083,13 @@ public class GSMPhone extends PhoneBase {
     }
 
     @Override
-    public void setLine1Number(String alphaTag, String number, Message onComplete) {
+    public boolean setLine1Number(String alphaTag, String number, Message onComplete) {
         IccRecords r = mIccRecords.get();
         if (r != null) {
             r.setMsisdnNumber(alphaTag, number, onComplete);
+            return true;
+        } else {
+            return false;
         }
     }
 
@@ -1102,11 +1121,12 @@ public class GSMPhone extends PhoneBase {
         }
     }
 
+    @Override
     public String getSystemProperty(String property, String defValue) {
         if(getUnitTestMode()) {
             return null;
         }
-        return TelephonyManager.getTelephonyProperty(property, getSubId(), defValue);
+        return TelephonyManager.getTelephonyProperty(mPhoneId, property, defValue);
     }
 
     private boolean isValidCommandInterfaceCFAction (int commandInterfaceCFAction) {
@@ -1240,6 +1260,13 @@ public class GSMPhone extends PhoneBase {
     }
 
     @Override
+    public void setUiTTYMode(int uiTtyMode, Message onComplete) {
+       if (mImsPhone != null) {
+           mImsPhone.setUiTTYMode(uiTtyMode, onComplete);
+       }
+    }
+
+    @Override
     public void setMute(boolean muted) {
         mCT.setMute(muted);
     }
@@ -1301,7 +1328,7 @@ public class GSMPhone extends PhoneBase {
          * The exception is cancellation of an incoming USSD-REQUEST, which is
          * not on the list.
          */
-        if (mPendingMMIs.remove(mmi) || mmi.isUssdRequest()) {
+        if (mPendingMMIs.remove(mmi) || mmi.isUssdRequest() || mmi.isSsInfo()) {
             mMmiCompleteRegistrants.notifyRegistrants(
                 new AsyncResult(null, mmi, null));
         }
@@ -1320,6 +1347,7 @@ public class GSMPhone extends PhoneBase {
     onIncomingUSSD (int ussdMode, String ussdMessage) {
         boolean isUssdError;
         boolean isUssdRequest;
+        boolean isUssdRelease;
 
         isUssdRequest
             = (ussdMode == CommandsInterface.USSD_MODE_REQUEST);
@@ -1327,6 +1355,8 @@ public class GSMPhone extends PhoneBase {
         isUssdError
             = (ussdMode != CommandsInterface.USSD_MODE_NOTIFY
                 && ussdMode != CommandsInterface.USSD_MODE_REQUEST);
+
+        isUssdRelease = (ussdMode == CommandsInterface.USSD_MODE_NW_RELEASE);
 
         // See comments in GsmMmiCode.java
         // USSD requests aren't finished until one
@@ -1342,7 +1372,9 @@ public class GSMPhone extends PhoneBase {
         if (found != null) {
             // Complete pending USSD
 
-            if (isUssdError) {
+            if (isUssdRelease) {
+                found.onUssdRelease();
+            } else if (isUssdError) {
                 found.onUssdFinishedError();
             } else {
                 found.onUssdFinished(ussdMessage, isUssdRequest);
@@ -1379,6 +1411,17 @@ public class GSMPhone extends PhoneBase {
         AsyncResult ar;
         Message onComplete;
 
+        // messages to be handled whether or not the phone is being destroyed
+        // should only include messages which are being re-directed and do not use
+        // resources of the phone being destroyed
+        switch (msg.what) {
+            // handle the select network completion callbacks.
+            case EVENT_SET_NETWORK_MANUAL_COMPLETE:
+            case EVENT_SET_NETWORK_AUTOMATIC_COMPLETE:
+                super.handleMessage(msg);
+                return;
+        }
+
         if (!mIsTheCurrentActivePhone) {
             Rlog.e(LOG_TAG, "Received message " + msg +
                     "[" + msg.what + "] while being destroyed. Ignoring.");
@@ -1391,6 +1434,7 @@ public class GSMPhone extends PhoneBase {
 
                 mCi.getIMEI(obtainMessage(EVENT_GET_IMEI_DONE));
                 mCi.getIMEISV(obtainMessage(EVENT_GET_IMEISV_DONE));
+                mCi.getRadioCapability(obtainMessage(EVENT_GET_RADIO_CAPABILITY));
             }
             break;
 
@@ -1415,6 +1459,7 @@ public class GSMPhone extends PhoneBase {
                 }
 
                 mSimRecordsLoadedRegistrants.notifyRegistrants();
+                updateVoiceMail();
             break;
 
             case EVENT_GET_BASEBAND_VERSION_DONE:
@@ -1425,7 +1470,8 @@ public class GSMPhone extends PhoneBase {
                 }
 
                 if (LOCAL_DEBUG) Rlog.d(LOG_TAG, "Baseband version: " + ar.result);
-                setSystemProperty(PROPERTY_BASEBAND_VERSION, (String)ar.result);
+                TelephonyManager.from(mContext).setBasebandVersionForPhone(getPhoneId(),
+                        (String)ar.result);
             break;
 
             case EVENT_GET_IMEI_DONE:
@@ -1477,6 +1523,7 @@ public class GSMPhone extends PhoneBase {
                 if (imsPhone != null) {
                     imsPhone.getServiceState().setStateOff();
                 }
+                mRadioOffOrNotAvailableRegistrants.notifyRegistrants();
                 break;
             }
 
@@ -1554,14 +1601,14 @@ public class GSMPhone extends PhoneBase {
                 }
                 break;
 
-            case EVENT_SUBSCRIPTION_ACTIVATED:
-                log("EVENT_SUBSCRIPTION_ACTIVATED");
-                onSubscriptionActivated();
-                break;
-
-            case EVENT_SUBSCRIPTION_DEACTIVATED:
-                log("EVENT_SUBSCRIPTION_DEACTIVATED");
-                onSubscriptionDeactivated();
+            case EVENT_SS:
+                ar = (AsyncResult)msg.obj;
+                Rlog.d(LOG_TAG, "Event EVENT_SS received");
+                // SS data is already being handled through MMI codes.
+                // So, this result if processed as MMI response would help
+                // in re-using the existing functionality.
+                GsmMmiCode mmi = new GsmMmiCode(this, mUiccApplication.get());
+                mmi.processSsData(ar);
                 break;
 
              default:
@@ -1570,7 +1617,7 @@ public class GSMPhone extends PhoneBase {
     }
 
     protected UiccCardApplication getUiccCardApplication() {
-            return  ((UiccController) mUiccController).getUiccCardApplication(mPhoneId,
+            return  mUiccController.getUiccCardApplication(mPhoneId,
                     UiccController.APP_FAM_3GPP);
     }
 
@@ -1618,13 +1665,10 @@ public class GSMPhone extends PhoneBase {
             case IccRecords.EVENT_CFI:
                 notifyCallForwardingIndicator();
                 break;
-            case IccRecords.EVENT_MWI:
-                notifyMessageWaitingIndicator();
-                break;
         }
     }
 
-   /**
+    /**
      * Sets the "current" field in the telephony provider according to the SIM's operator
      *
      * @return true for success; false otherwise.
@@ -1742,6 +1786,58 @@ public class GSMPhone extends PhoneBase {
         return (r != null) ? r.isCspPlmnEnabled() : false;
     }
 
+    boolean isManualNetSelAllowed() {
+
+        int nwMode = Phone.PREFERRED_NT_MODE;
+        int subId = getSubId();
+
+        nwMode = android.provider.Settings.Global.getInt(mContext.getContentResolver(),
+                    android.provider.Settings.Global.PREFERRED_NETWORK_MODE + subId, nwMode);
+
+        Rlog.d(LOG_TAG, "isManualNetSelAllowed in mode = " + nwMode);
+        /*
+         *  For multimode targets in global mode manual network
+         *  selection is disallowed
+         */
+        if (isManualSelProhibitedInGlobalMode()
+                && ((nwMode == Phone.NT_MODE_LTE_CDMA_EVDO_GSM_WCDMA)
+                        || (nwMode == Phone.NT_MODE_GLOBAL)) ){
+            Rlog.d(LOG_TAG, "Manual selection not supported in mode = " + nwMode);
+            return false;
+        } else {
+            Rlog.d(LOG_TAG, "Manual selection is supported in mode = " + nwMode);
+        }
+
+        /*
+         *  Single mode phone with - GSM network modes/global mode
+         *  LTE only for 3GPP
+         *  LTE centric + 3GPP Legacy
+         *  Note: the actual enabling/disabling manual selection for these
+         *  cases will be controlled by csp
+         */
+        return true;
+    }
+
+    private boolean isManualSelProhibitedInGlobalMode() {
+        boolean isProhibited = false;
+        final String configString = getContext().getResources().getString(com.android.internal.
+                                            R.string.prohibit_manual_network_selection_in_gobal_mode);
+
+        if (!TextUtils.isEmpty(configString)) {
+            String[] configArray = configString.split(";");
+
+            if (configArray != null &&
+                    ((configArray.length == 1 && configArray[0].equalsIgnoreCase("true")) ||
+                        (configArray.length == 2 && !TextUtils.isEmpty(configArray[1]) &&
+                            configArray[0].equalsIgnoreCase("true") &&
+                            configArray[1].equalsIgnoreCase(getGroupIdLevel1())))) {
+                            isProhibited = true;
+            }
+        }
+        Rlog.d(LOG_TAG, "isManualNetSelAllowedInGlobal in current carrier is " + isProhibited);
+        return isProhibited;
+    }
+
     private void registerForSimRecordEvents() {
         IccRecords r = mIccRecords.get();
         if (r == null) {
@@ -1790,7 +1886,7 @@ public class GSMPhone extends PhoneBase {
             return false;
         }
 
-        UiccCard card = mUiccController.getUiccCard();
+        UiccCard card = mUiccController.getUiccCard(getPhoneId());
         if (card == null) {
             return false;
         }
@@ -1801,8 +1897,8 @@ public class GSMPhone extends PhoneBase {
         if (status) {
             IccRecords iccRecords = mIccRecords.get();
             if (iccRecords != null) {
-                SystemProperties.set(TelephonyProperties.PROPERTY_ICC_OPERATOR_ALPHA,
-                        iccRecords.getServiceProviderName());
+                TelephonyManager.from(mContext).setSimOperatorNameForPhone(
+                        getPhoneId(), iccRecords.getServiceProviderName());
             }
             if (mSST != null) {
                 mSST.pollState();
@@ -1854,15 +1950,31 @@ public class GSMPhone extends PhoneBase {
      * @param what User-defined message code
      * @param obj placed in Message.obj
      */
+    @Override
     public void registerForEcmTimerReset(Handler h, int what, Object obj) {
         mEcmTimerResetRegistrants.addUnique(h, what, obj);
     }
 
+    @Override
     public void unregisterForEcmTimerReset(Handler h) {
         mEcmTimerResetRegistrants.remove(h);
     }
 
-    public void resetSubSpecifics() {
+    /**
+     * Sets the SIM voice message waiting indicator records.
+     * @param line GSM Subscriber Profile Number, one-based. Only '1' is supported
+     * @param countWaiting The number of messages waiting, if known. Use
+     *                     -1 to indicate that an unknown number of
+     *                      messages are waiting
+     */
+    @Override
+    public void setVoiceMessageWaiting(int line, int countWaiting) {
+        IccRecords r = mIccRecords.get();
+        if (r != null) {
+            r.setVoiceMessageWaiting(line, countWaiting);
+        } else {
+            log("SIM Records not found, MWI not updated");
+        }
     }
 
     protected void log(String s) {

@@ -34,10 +34,8 @@
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
-#include "grit/generated_resources.h"
 #include "jni/AutofillDialogControllerAndroid_jni.h"
 #include "ui/base/android/window_android.h"
-#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/combobox_model.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/gfx/android/java_bitmap.h"
@@ -115,10 +113,14 @@ void FillOutputForSectionWithComparator(
                  g_browser_process->GetApplicationLocale());
 
   std::vector<ServerFieldType> types = common::TypesFromInputs(inputs);
-  form_structure.FillFields(types,
-                            compare,
-                            get_info,
-                            g_browser_process->GetApplicationLocale());
+  form_structure.FillFields(
+      types,
+      compare,
+      get_info,
+      section == SECTION_CC_BILLING
+          ? full_wallet->billing_address()->language_code()
+          : full_wallet->shipping_address()->language_code(),
+      g_browser_process->GetApplicationLocale());
 }
 
 void FillOutputForSection(
@@ -345,6 +347,7 @@ void AutofillDialogControllerAndroid::Show() {
         common::TypesFromInputs(inputs),
         base::Bind(common::ServerTypeMatchesField, SECTION_SHIPPING),
         base::Bind(NullGetInfo),
+        std::string(),
         g_browser_process->GetApplicationLocale());
   }
 
@@ -511,8 +514,8 @@ AutofillDialogControllerAndroid::AutofillDialogControllerAndroid(
       source_url_(source_url),
       callback_(callback),
       cares_about_shipping_(true),
-      weak_ptr_factory_(this),
-      was_ui_latency_logged_(false) {
+      was_ui_latency_logged_(false),
+      weak_ptr_factory_(this) {
   DCHECK(!callback_.is_null());
 }
 

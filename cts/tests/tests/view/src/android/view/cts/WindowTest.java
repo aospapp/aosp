@@ -370,7 +370,9 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
     public void testSetBackgroundDrawable() throws Throwable {
         // DecorView holds the background
         View decor = mWindow.getDecorView();
-        assertEquals(PixelFormat.OPAQUE, decor.getBackground().getOpacity());
+        if (!mWindow.hasFeature(Window.FEATURE_SWIPE_TO_DISMISS)) {
+            assertEquals(PixelFormat.OPAQUE, decor.getBackground().getOpacity());
+        }
         runTestOnUiThread(new Runnable() {
             public void run() {
                 // setBackgroundDrawableResource(int resId) has the same

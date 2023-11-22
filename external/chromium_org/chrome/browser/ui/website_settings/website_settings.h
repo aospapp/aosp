@@ -7,12 +7,12 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "base/strings/string16.h"
+#include "base/task/cancelable_task_tracker.h"
 #include "base/time/time.h"
-#include "chrome/browser/common/cancelable_request.h"
 #include "chrome/browser/content_settings/tab_specific_content_settings.h"
 #include "chrome/browser/history/history_service.h"
-#include "chrome/common/content_settings.h"
-#include "chrome/common/content_settings_types.h"
+#include "components/content_settings/core/common/content_settings.h"
+#include "components/content_settings/core/common/content_settings_types.h"
 #include "content/public/common/signed_certificate_timestamp_id_and_status.h"
 #include "ui/gfx/native_widget_types.h"
 #include "url/gurl.h"
@@ -22,6 +22,7 @@ class CertStore;
 struct SSLStatus;
 }
 
+class ChromeSSLHostStateDelegate;
 class InfoBarService;
 class HostContentSettingsMap;
 class Profile;
@@ -65,6 +66,9 @@ class WebsiteSettings : public TabSpecificContentSettings::SiteDataObserver {
     // The profile has accessed data using an administrator-provided
     // certificate, so the site might be able to intercept data.
     SITE_IDENTITY_STATUS_ADMIN_PROVIDED_CERT,
+    // The website provided a valid certificate, but the certificate or chain
+    // is using a deprecated signature algorithm.
+    SITE_IDENTITY_STATUS_DEPRECATED_SIGNATURE_ALGORITHM,
   };
 
   // Creates a WebsiteSettings for the passed |url| using the given |ssl| status
@@ -85,18 +89,22 @@ class WebsiteSettings : public TabSpecificContentSettings::SiteDataObserver {
 
   // Callback used for requests to fetch the number of page visits from history
   // service and the time of the first visit.
-  void OnGotVisitCountToHost(HistoryService::Handle handle,
-                             bool found_visits,
+  void OnGotVisitCountToHost(bool found_visits,
                              int visit_count,
                              base::Time first_visit);
 
   // This method is called by the UI when the UI is closing.
   void OnUIClosing();
 
+  // This method is called when the revoke SSL error bypass button is pressed.
+  void OnRevokeSSLErrorBypassButtonPressed();
+
   // Accessors.
   SiteConnectionStatus site_connection_status() const {
     return site_connection_status_;
   }
+
+  const GURL& site_url() const { return site_url_; }
 
   SiteIdentityStatus site_identity_status() const {
     return site_identity_status_;
@@ -179,6 +187,14 @@ class WebsiteSettings : public TabSpecificContentSettings::SiteDataObserver {
   // This string will be displayed in the UI.
   base::string16 site_identity_details_;
 
+  // Set when the user has explicitly bypassed an SSL error for this host or
+  // explicitly denied it (the latter of which is not currently possible in the
+  // Chrome UI) and has a flag set to remember ssl decisions (explicit flag or
+  // in the experimental group).  When |show_ssl_decision_revoke_button| is
+  // true, the connection area of the page info will include an option for the
+  // user to revoke their decision to bypass the SSL error for this host.
+  bool show_ssl_decision_revoke_button_;
+
   // Details about the connection to the website. In case of an encrypted
   // connection |site_connection_details_| contains encryption details, like
   // encryption strength and ssl protocol version. This string will be
@@ -199,7 +215,13 @@ class WebsiteSettings : public TabSpecificContentSettings::SiteDataObserver {
   HostContentSettingsMap* content_settings_;
 
   // Used to request the number of page visits.
-  CancelableRequestConsumer visit_count_request_consumer_;
+  base::CancelableTaskTracker visit_count_task_tracker_;
+
+  // Service for managing SSL error page bypasses. Used to revoke bypass
+  // decisions by users.
+  ChromeSSLHostStateDelegate* chrome_ssl_host_state_delegate_;
+
+  bool did_revoke_user_ssl_decisions_;
 
   DISALLOW_COPY_AND_ASSIGN(WebsiteSettings);
 };

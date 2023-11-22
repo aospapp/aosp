@@ -252,18 +252,6 @@ class CtsBuilder(object):
 
     plan = tools.TestPlan(packages)
     plan.Exclude('.*')
-    plan.Include(r'android\.core\.tests\.libcore\.')
-    plan.Include(r'android\.jdwp')
-    for package, test_list in small_tests.iteritems():
-      plan.Exclude(package+'$')
-    for package, test_list in medium_tests.iteritems():
-      plan.Exclude(package+'$')
-    for package, tests_list in new_test_packages.iteritems():
-      plan.Exclude(package+'$')
-    self.__WritePlan(plan, 'CTS-ART')
-
-    plan = tools.TestPlan(packages)
-    plan.Exclude('.*')
     plan.Include(r'com\.drawelements\.')
     self.__WritePlan(plan, 'CTS-DEQP')
 

@@ -17,11 +17,11 @@ package android.mediastress.cts;
 
 import android.app.Instrumentation;
 import android.content.Intent;
+import android.cts.util.MediaUtils;
 import android.media.CamcorderProfile;
+import android.media.MediaFormat;
 import android.media.MediaRecorder.AudioEncoder;
 import android.media.MediaRecorder.VideoEncoder;
-import android.media.MediaCodecInfo;
-import android.media.MediaCodecList;
 import android.os.Environment;
 import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
@@ -30,30 +30,10 @@ import junit.framework.Assert;
 
 public class NativeMediaTest extends ActivityInstrumentationTestCase2<NativeMediaActivity> {
     private static final String TAG = "NativeMediaTest";
-    private static final String MIME_TYPE = "video/h264";
+    private static final String MIME_TYPE = MediaFormat.MIMETYPE_VIDEO_AVC;
     private static final int VIDEO_CODEC = VideoEncoder.H264;
     private static final int NUMBER_PLAY_PAUSE_REPEATITIONS = 10;
     private static final long PLAY_WAIT_TIME_MS = 4000;
-
-    private static boolean hasCodec(String mimeType) {
-        int numCodecs = MediaCodecList.getCodecCount();
-
-        for (int i = 0; i < numCodecs; i++) {
-            MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
-
-            if (!codecInfo.isEncoder()) {
-                continue;
-            }
-
-            String[] types = codecInfo.getSupportedTypes();
-            for (int j = 0; j < types.length; j++) {
-                if (types[j].equalsIgnoreCase(mimeType)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
 
     public NativeMediaTest() {
         super(NativeMediaActivity.class);
@@ -77,9 +57,8 @@ public class NativeMediaTest extends ActivityInstrumentationTestCase2<NativeMedi
 
     private void runPlayTest(int quality) throws InterruptedException {
         // Don't run the test if the codec isn't supported.
-        if (!hasCodec(MIME_TYPE)) {
-            Log.w(TAG, "Codec " + MIME_TYPE + " not supported.");
-            return;
+        if (!MediaUtils.checkDecoder(MIME_TYPE)) {
+            return; // skip
         }
         // Don't run the test if the quality level isn't supported.
         if (quality != 0) {

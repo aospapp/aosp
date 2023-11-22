@@ -6,6 +6,7 @@
 #define COMPONENTS_GCM_DRIVER_GCM_CLIENT_IMPL_H_
 
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -64,7 +65,8 @@ class GCMInternalsBuilder {
   virtual scoped_ptr<ConnectionFactory> BuildConnectionFactory(
       const std::vector<GURL>& endpoints,
       const net::BackoffEntry::Policy& backoff_policy,
-      scoped_refptr<net::HttpNetworkSession> network_session,
+      const scoped_refptr<net::HttpNetworkSession>& gcm_network_session,
+      const scoped_refptr<net::HttpNetworkSession>& http_network_session,
       net::NetLog* net_log,
       GCMStatsRecorder* recorder);
 };
@@ -101,6 +103,11 @@ class GCMClientImpl
   virtual void SetRecording(bool recording) OVERRIDE;
   virtual void ClearActivityLogs() OVERRIDE;
   virtual GCMStatistics GetStatistics() const OVERRIDE;
+  virtual void SetAccountsForCheckin(
+      const std::map<std::string, std::string>& account_tokens) OVERRIDE;
+  virtual void UpdateAccountMapping(
+      const AccountMapping& account_mapping) OVERRIDE;
+  virtual void RemoveAccountMapping(const std::string& account_id) OVERRIDE;
 
   // GCMStatsRecorder::Delegate implemenation.
   virtual void OnActivityRecorded() OVERRIDE;
@@ -127,17 +134,27 @@ class GCMClientImpl
     READY,
   };
 
-  // The check-in info for the user. Returned by the server.
+  // The check-in info for the device.
+  // TODO(fgorski): Convert to a class with explicit getters/setters.
   struct CheckinInfo {
-    CheckinInfo() : android_id(0), secret(0) {}
+    CheckinInfo();
+    ~CheckinInfo();
     bool IsValid() const { return android_id != 0 && secret != 0; }
-    void Reset() {
-      android_id = 0;
-      secret = 0;
-    }
+    void SnapshotCheckinAccounts();
+    void Reset();
 
+    // Android ID of the device as assigned by the server.
     uint64 android_id;
+    // Security token of the device as assigned by the server.
     uint64 secret;
+    // True if accounts were already provided through SetAccountsForCheckin(),
+    // or when |last_checkin_accounts| was loaded as empty.
+    bool accounts_set;
+    // Map of account email addresses and OAuth2 tokens that will be sent to the
+    // checkin server on a next checkin.
+    std::map<std::string, std::string> account_tokens;
+    // As set of accounts last checkin was completed with.
+    std::set<std::string> last_checkin_accounts;
   };
 
   // Collection of pending registration requests. Keys are app IDs, while values
@@ -181,7 +198,7 @@ class GCMClientImpl
   void ResetState();
   // Sets state to ready. This will initiate the MCS login and notify the
   // delegates.
-  void OnReady();
+  void OnReady(const std::vector<AccountMapping>& account_mappings);
 
   // Starts a first time device checkin.
   void StartCheckin();
@@ -199,14 +216,18 @@ class GCMClientImpl
   void SchedulePeriodicCheckin();
   // Gets the time until next checkin.
   base::TimeDelta GetTimeToNextCheckin() const;
-  // Callback for setting last checkin time in the |gcm_store_|.
-  void SetLastCheckinTimeCallback(bool success);
+  // Callback for setting last checkin information in the |gcm_store_|.
+  void SetLastCheckinInfoCallback(bool success);
 
   // Callback for persisting device credentials in the |gcm_store_|.
   void SetDeviceCredentialsCallback(bool success);
 
   // Callback for persisting registration info in the |gcm_store_|.
   void UpdateRegistrationCallback(bool success);
+
+  // Callback for all store operations that do not try to recover, if write in
+  // |gcm_store_| fails.
+  void DefaultStoreCallback(bool success);
 
   // Completes the registration request.
   void OnRegisterCompleted(const std::string& app_id,

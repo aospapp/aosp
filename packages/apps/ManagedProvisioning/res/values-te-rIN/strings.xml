@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"నిర్వాహక అనువర్తనాన్ని ఉపయోగించడం సాధ్యపడదు. ఇందులో కొన్ని భాగాలు లేవు లేదా పాడైంది. మీ IT విభాగాన్ని సంప్రదించండి."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"నిర్వాహక అనువర్తనాన్ని ఇన్‌స్టాల్ చేయడం సాధ్యపడలేదు"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"మీ పరికరంలో నిర్వాహక అనువర్తనం ఇన్‌స్టాల్ చేయబడలేదు"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"సెటప్ చేయడం ఆపివేయాలా?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"మీరు ఖచ్చితంగా సెటప్ చేయడాన్ని ఆపివేయాలనుకుంటున్నారా?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"కాదు"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"అవును"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"రద్దు చేస్తోంది..."</string>
 </resources>

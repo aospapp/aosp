@@ -27,11 +27,11 @@ namespace extensions {
 
 class Blacklist;
 class ContentVerifier;
+class DeclarativeUserScriptMaster;
 class ErrorConsole;
 class EventRouter;
 class Extension;
 class ExtensionSet;
-class ExtensionWarningService;
 class InfoMap;
 class InstallVerifier;
 class LazyBackgroundTaskQueue;
@@ -40,8 +40,9 @@ class OneShotEvent;
 class ProcessManager;
 class QuotaService;
 class RuntimeData;
+class SharedUserScriptMaster;
 class StateStore;
-class UserScriptMaster;
+class WarningService;
 
 // ExtensionSystem manages the lifetime of many of the services used by the
 // extensions and apps system, and it handles startup and shutdown as needed.
@@ -72,8 +73,8 @@ class ExtensionSystem : public KeyedService {
   // The ManagementPolicy is created at startup.
   virtual ManagementPolicy* management_policy() = 0;
 
-  // The UserScriptMaster is created at startup.
-  virtual UserScriptMaster* user_script_master() = 0;
+  // The SharedUserScriptMaster is created at startup.
+  virtual SharedUserScriptMaster* shared_user_script_master() = 0;
 
   // The ProcessManager is created at startup.
   virtual ProcessManager* process_manager() = 0;
@@ -93,8 +94,8 @@ class ExtensionSystem : public KeyedService {
   // The EventRouter is created at startup.
   virtual EventRouter* event_router() = 0;
 
-  // The ExtensionWarningService is created at startup.
-  virtual ExtensionWarningService* warning_service() = 0;
+  // The WarningService is created at startup.
+  virtual WarningService* warning_service() = 0;
 
   // The blacklist is created at startup.
   virtual Blacklist* blacklist() = 0;
@@ -135,6 +136,11 @@ class ExtensionSystem : public KeyedService {
   // so it can be retrieved from ExtensionSystem directly.
   virtual scoped_ptr<ExtensionSet> GetDependentExtensions(
       const Extension* extension) = 0;
+
+  // Get the user script master for declarative scripts, if any.
+  virtual DeclarativeUserScriptMaster*
+      GetDeclarativeUserScriptMasterByExtension(
+          const ExtensionId& extension_id) = 0;
 };
 
 }  // namespace extensions

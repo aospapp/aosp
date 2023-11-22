@@ -8,7 +8,7 @@
 #include "chrome/browser/ui/cocoa/find_bar/find_bar_text_field.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
-#include "chrome/browser/ui/omnibox/location_bar.h"
+#include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
 
@@ -25,7 +25,7 @@ bool FindBarHasFocus(Browser* browser) {
 typedef InProcessBrowserTest FindBarBrowserTest;
 
 IN_PROC_BROWSER_TEST_F(FindBarBrowserTest, FocusOnTabSwitch) {
-  AddTabAtIndex(1, GURL("about:blank"), content::PAGE_TRANSITION_LINK);
+  AddTabAtIndex(1, GURL("about:blank"), ui::PAGE_TRANSITION_LINK);
   browser()->GetFindBarController()->Show();
 
   // Verify that if the find bar has focus then switching tabs and changing

@@ -395,4 +395,132 @@ public class TvContractTest extends AndroidTestCase {
         verifyOverlap(programEndMillis + hour, programEndMillis + hour * 2, 0,
                 channelId, channelUri);
     }
+
+    private void verifyQueryWithSortOrder(Uri uri, final String[] projection,
+            String sortOrder) throws Exception {
+        try {
+            getContext().getContentResolver().query(uri, projection, null, null, sortOrder);
+            fail("Setting sortOrder should fail without ACCESS_ALL_EPG_DATA permission for " + uri);
+        } catch (SecurityException e) {
+            // Expected exception
+        }
+    }
+
+    private void verifyQueryWithSelection(Uri uri, final String[] projection,
+            String selection) throws Exception {
+        try {
+            getContext().getContentResolver().query(uri, projection, selection, null, null);
+            fail("Setting selection should fail without ACCESS_ALL_EPG_DATA permission for " + uri);
+        } catch (SecurityException e) {
+            // Expected exception
+        }
+    }
+
+    private void verifyUpdateWithSelection(Uri uri, String selection) throws Exception {
+        try {
+            ContentValues values = new ContentValues();
+            getContext().getContentResolver().update(uri, values, selection, null);
+            fail("Setting selection should fail without ACCESS_ALL_EPG_DATA permission for " + uri);
+        } catch (SecurityException e) {
+            // Expected exception
+        }
+    }
+
+    private void verifyDeleteWithSelection(Uri uri, String selection) throws Exception {
+        try {
+            getContext().getContentResolver().delete(uri, selection, null);
+            fail("Setting selection should fail without ACCESS_ALL_EPG_DATA permission for " + uri);
+        } catch (SecurityException e) {
+            // Expected exception
+        }
+    }
+
+    public void testAllEpgPermissionBlocksSortOrderOnQuery_Channels() throws Exception {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        final String[] projection = { TvContract.Channels._ID };
+        verifyQueryWithSortOrder(TvContract.Channels.CONTENT_URI, projection,
+                TvContract.Channels._ID + " ASC");
+    }
+
+    public void testAllEpgPermissionBlocksSelectionOnQuery_Channels() throws Exception {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        final String[] projection = { TvContract.Channels._ID };
+        verifyQueryWithSelection(TvContract.Channels.CONTENT_URI, projection,
+                TvContract.Channels._ID + ">0");
+    }
+
+    public void testAllEpgPermissionBlocksSelectionOnUpdate_Channels() throws Exception {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        verifyUpdateWithSelection(TvContract.Channels.CONTENT_URI,
+                TvContract.Channels._ID + ">0");
+    }
+
+    public void testAllEpgPermissionBlocksSelectionOnDelete_Channels() throws Exception {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        verifyDeleteWithSelection(TvContract.Channels.CONTENT_URI,
+                TvContract.Channels._ID + ">0");
+    }
+
+    public void testAllEpgPermissionBlocksSortOrderOnQuery_Programs() throws Exception {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        final String[] projection = { TvContract.Programs._ID };
+        verifyQueryWithSortOrder(TvContract.Programs.CONTENT_URI, projection,
+                TvContract.Programs._ID + " ASC");
+    }
+
+    public void testAllEpgPermissionBlocksSelectionOnQuery_Programs() throws Exception {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        final String[] projection = { TvContract.Channels._ID };
+        verifyQueryWithSelection(TvContract.Programs.CONTENT_URI, projection,
+                TvContract.Programs._ID + ">0");
+    }
+
+    public void testAllEpgPermissionBlocksSelectionOnUpdate_Programs() throws Exception {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        verifyUpdateWithSelection(TvContract.Programs.CONTENT_URI,
+                TvContract.Programs._ID + ">0");
+    }
+
+    public void testAllEpgPermissionBlocksSelectionOnDelete_Programs() throws Exception {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        verifyDeleteWithSelection(TvContract.Programs.CONTENT_URI,
+                TvContract.Programs._ID + ">0");
+    }
+
+    public void testDefaultValues() throws Exception {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        ContentValues values = new ContentValues();
+        values.put(TvContract.Channels.COLUMN_INPUT_ID, mInputId);
+        Uri channelUri = mContentResolver.insert(mChannelsUri, values);
+        assertNotNull(channelUri);
+        long channelId = ContentUris.parseId(channelUri);
+        try (Cursor cursor = mContentResolver.query(
+                channelUri, CHANNELS_PROJECTION, null, null, null)) {
+            cursor.moveToNext();
+            assertEquals(TvContract.Channels.TYPE_OTHER,
+                    cursor.getString(cursor.getColumnIndex(TvContract.Channels.COLUMN_TYPE)));
+            assertEquals(TvContract.Channels.SERVICE_TYPE_AUDIO_VIDEO,
+                    cursor.getString(cursor.getColumnIndex(
+                            TvContract.Channels.COLUMN_SERVICE_TYPE)));
+        }
+        values.clear();
+    }
 }

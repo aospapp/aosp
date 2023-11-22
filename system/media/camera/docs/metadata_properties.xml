@@ -336,10 +336,10 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           <details>
             This key lists the valid modes for android.colorCorrection.aberrationMode.  If no
             aberration correction modes are available for a device, this list will solely include
-            OFF mode.
+            OFF mode. All camera devices will support either OFF or FAST mode.
 
-            For FULL capability device (android.info.supportedHardwareLevel `==` FULL), OFF is
-            always included.
+            Camera devices that support the MANUAL_POST_PROCESSING capability will always list
+            OFF mode. This includes all FULL level devices.
 
             LEGACY devices will always only support FAST mode.
           </details>
@@ -375,7 +375,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               <notes>
                 The camera device will automatically adapt its
                 antibanding routine to the current illumination
-                conditions. This is the default.
+                condition. This is the default mode if AUTO is
+                available on given camera device.
               </notes>
             </value>
           </enum>
@@ -409,8 +410,10 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
             android.control.aeAvailableAntibandingModes key contains
             the available modes for a given camera device.
 
-            The default mode is AUTO, which is supported by all
-            camera devices.
+            AUTO mode is the default if it is available on given
+            camera device. When AUTO mode is not available, the
+            default will be either 50HZ or 60HZ, and both 50HZ
+            and 60HZ will be available.
 
             If manual exposure control is enabled (by setting
             android.control.aeMode or android.control.mode to OFF),
@@ -421,8 +424,9 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           </details>
           <hal_details>
             For all capture request templates, this field must be set
-            to AUTO.  AUTO is the only mode that must supported;
-            OFF, 50HZ, 60HZ are all optional.
+            to AUTO if AUTO mode is available. If AUTO is not available,
+            the default must be either 50HZ or 60HZ, and both 50HZ and
+            60HZ must be available.
 
             If manual exposure control is enabled (by setting
             android.control.aeMode or android.control.mode to OFF),
@@ -523,6 +527,15 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
                 android.sensor.frameDuration are used by the camera
                 device, along with android.flash.* fields, if there's
                 a flash unit for this camera device.
+
+                Note that auto-white balance (AWB) and auto-focus (AF)
+                behavior is device dependent when AE is in OFF mode.
+                To have consistent behavior across different devices,
+                it is recommended to either set AWB and AF to OFF mode
+                or lock AWB and AF before setting AE to OFF.
+                See android.control.awbMode, android.control.afMode,
+                android.control.awbLock, and android.control.afTrigger
+                for more details.
 
                 LEGACY devices do not support the OFF mode and will
                 override attempts to use this value to ON.
@@ -692,10 +705,10 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           metering sequence when it processes this request.</description>
           <details>This entry is normally set to IDLE, or is not
           included at all in the request settings. When included and
-          set to START, the camera device will trigger the autoexposure
+          set to START, the camera device will trigger the auto-exposure (AE)
           precapture metering sequence.
 
-          The precapture sequence should triggered before starting a
+          The precapture sequence should be triggered before starting a
           high-quality still capture for final metering decisions to
           be made, and for firing pre-capture flash pulses to estimate
           scene brightness and required final capture flash power, when
@@ -704,6 +717,15 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           Normally, this entry should be set to START for only a
           single request, and the application should wait until the
           sequence completes before starting a new one.
+
+          When a precapture metering sequence is finished, the camera device
+          may lock the auto-exposure routine internally to be able to accurately expose the
+          subsequent still capture image (`android.control.captureIntent == STILL_CAPTURE`).
+          For this case, the AE may not resume normal scan if no subsequent still capture is
+          submitted. To ensure that the AE routine restarts normal scan, the application should
+          submit a request with `android.control.aeLock == true`, followed by a request
+          with `android.control.aeLock == false`, if the application decides not to submit a
+          still capture request after the precapture sequence completes.
 
           The exact effect of auto-exposure (AE) precapture trigger
           depends on the current AE mode and state; see
@@ -807,7 +829,10 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           mode it is set to.</description>
           <range>android.control.afAvailableModes</range>
           <details>Only effective if android.control.mode = AUTO and the lens is not fixed focus
-          (i.e. `android.lens.info.minimumFocusDistance &gt; 0`).
+          (i.e. `android.lens.info.minimumFocusDistance &gt; 0`). Also note that
+          when android.control.aeMode is OFF, the behavior of AF is device
+          dependent. It is recommended to lock AF by using android.control.afTrigger before
+          setting android.control.aeMode to OFF, or set AF mode to OFF when AE is OFF.
 
           If the lens is controlled by the camera device auto-focus algorithm,
           the camera device will report the current AF status in android.control.afState
@@ -1107,7 +1132,10 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           When set to the ON mode, the camera device's auto-white balance
           routine is enabled, overriding the application's selected
           android.colorCorrection.transform, android.colorCorrection.gains and
-          android.colorCorrection.mode.
+          android.colorCorrection.mode. Note that when android.control.aeMode
+          is OFF, the behavior of AWB is device dependent. It is recommened to
+          also set AWB mode to OFF or lock AWB by using android.control.awbLock before
+          setting AE mode to OFF.
 
           When set to the OFF mode, the camera device's auto-white balance
           routine is disabled. The application manually controls the white
@@ -1555,12 +1583,45 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               the application avoids unnecessary scene mode switch as much as possible.
               </notes>
             </value>
-            <value optional="true" hidden="true">HDR
+            <value optional="true">HDR
               <notes>
-              Turn on custom high dynamic range (HDR) mode.
+              Turn on a device-specific high dynamic range (HDR) mode.
 
-              This is intended for LEGACY mode devices only;
-              HAL3+ camera devices should not implement this mode.
+              In this scene mode, the camera device captures images
+              that keep a larger range of scene illumination levels
+              visible in the final image. For example, when taking a
+              picture of a object in front of a bright window, both
+              the object and the scene through the window may be
+              visible when using HDR mode, while in normal AUTO mode,
+              one or the other may be poorly exposed. As a tradeoff,
+              HDR mode generally takes much longer to capture a single
+              image, has no user control, and may have other artifacts
+              depending on the HDR method used.
+
+              Therefore, HDR captures operate at a much slower rate
+              than regular captures.
+
+              In this mode, on LIMITED or FULL devices, when a request
+              is made with a android.control.captureIntent of
+              STILL_CAPTURE, the camera device will capture an image
+              using a high dynamic range capture technique.  On LEGACY
+              devices, captures that target a JPEG-format output will
+              be captured with HDR, and the capture intent is not
+              relevant.
+
+              The HDR capture may involve the device capturing a burst
+              of images internally and combining them into one, or it
+              may involve the device using specialized high dynamic
+              range capture hardware. In all cases, a single image is
+              produced in response to a capture request submitted
+              while in HDR mode.
+
+              Since substantial post-processing is generally needed to
+              produce an HDR image, only YUV and JPEG outputs are
+              supported for LIMITED/FULL device HDR captures, and only
+              JPEG outputs are supported for LEGACY HDR
+              captures. Using a RAW output for HDR capture is not
+              supported.
               </notes>
             </value>
           </enum>
@@ -1650,8 +1711,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
             supported by a given camera device. This field lists the
             valid anti-banding modes that the application may request
             for this camera device with the
-            android.control.aeAntibandingMode control. This list
-            always includes AUTO.
+            android.control.aeAntibandingMode control.
           </details>
           <tag id="BC" />
         </entry>
@@ -1712,9 +1772,16 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           android.control.aeExposureCompensation, in counts of android.control.aeCompensationStep,
           that are supported by this camera device.</description>
           <range>
+            Range [0,0] indicates that exposure compensation is not supported.
+
+            For LIMITED and FULL devices, range must follow below requirements if exposure
+            compensation is supported (`range != [0, 0]`):
+
             `Min.exposure compensation * android.control.aeCompensationStep &lt;= -2 EV`
 
             `Max.exposure compensation * android.control.aeCompensationStep &gt;= 2 EV`
+
+            LEGACY devices may support a smaller range than this.
           </range>
           <tag id="BC" />
         </entry>
@@ -3939,6 +4006,48 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               * The maximum available resolution for RAW_OPAQUE streams
                 (both input/output) will match the maximum available
                 resolution of JPEG streams.
+              </notes>
+            </value>
+            <value optional="true">READ_SENSOR_SETTINGS
+              <notes>
+              The camera device supports accurately reporting the sensor settings for many of
+              the sensor controls while the built-in 3A algorithm is running.  This allows
+              reporting of sensor settings even when these settings cannot be manually changed.
+
+              The values reported for the following controls are guaranteed to be available
+              in the CaptureResult, including when 3A is enabled:
+
+              * Exposure control
+                  * android.sensor.exposureTime
+              * Sensitivity control
+                  * android.sensor.sensitivity
+              * Lens controls (if the lens is adjustable)
+                  * android.lens.focusDistance
+                  * android.lens.aperture
+
+              This capability is a subset of the MANUAL_SENSOR control capability, and will
+              always be included if the MANUAL_SENSOR capability is available.
+              </notes>
+            </value>
+            <value optional="true">BURST_CAPTURE
+              <notes>
+              The camera device supports capturing maximum-resolution
+              images at &gt;= 20 frames per second, in at least the
+              uncompressed YUV format, when post-processing settings
+              are set to FAST.
+
+              More specifically, this means that a size matching the
+              camera device's active array size is listed as a
+              supported size for the YUV_420_888 format in
+              android.scaler.streamConfigurationMap, the minimum frame
+              duration for that format and size is &lt;= 1/20 s, and
+              the android.control.aeAvailableTargetFpsRanges entry
+              lists at least one FPS range where the minimum FPS is
+              &gt;= 1 / minimumFrameDuration for the maximum-size
+              YUV_420_888 format.
+
+              In addition, the android.sync.maxLatency field is
+              guaranted to have a value between 0 and 4, inclusive.
               </notes>
             </value>
           </enum>
@@ -6877,12 +6986,16 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
 
           A FULL device will support below capabilities:
 
-          * 30fps at maximum resolution (== sensor resolution) is preferred, more than 20fps is required.
+          * 30fps operation at maximum resolution (== sensor resolution) is preferred, more than
+            20fps is required, for at least uncompressed YUV
+            output. (android.request.availableCapabilities contains BURST_CAPTURE)
           * Per frame control (android.sync.maxLatency `==` PER_FRAME_CONTROL)
           * Manual sensor control (android.request.availableCapabilities contains MANUAL_SENSOR)
-          * Manual post-processing control (android.request.availableCapabilities contains MANUAL_POST_PROCESSING)
+          * Manual post-processing control (android.request.availableCapabilities contains
+            MANUAL_POST_PROCESSING)
           * Arbitrary cropping region (android.scaler.croppingType `==` FREEFORM)
-          * At least 3 processed (but not stalling) format output streams (android.request.maxNumOutputProc `&gt;=` 3)
+          * At least 3 processed (but not stalling) format output streams
+            (android.request.maxNumOutputProc `&gt;=` 3)
           * The required stream configuration defined in android.scaler.availableStreamConfigurations
           * The required exposure time range defined in android.sensor.info.exposureTimeRange
           * The required maxFrameDuration defined in android.sensor.info.maxFrameDuration

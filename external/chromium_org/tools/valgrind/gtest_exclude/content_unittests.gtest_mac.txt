@@ -57,3 +57,12 @@ AppCacheStorageImplTest.*
 AppCacheStorageImplTest.*
 AppCacheUpdateJobTest.AlreadyChecking
 AppCacheUpdateJobTest.ManifestMissingMimeTypeTest
+
+# http://crbug.com/391513
+GamepadServiceTest.*
+
+# http://crbug.com/412903
+HostVarTrackerTest.DeleteObjectVarWithInstance
+
+# http://crbug.com/417582
+OneWriterSeqLockTest.ManyThreads

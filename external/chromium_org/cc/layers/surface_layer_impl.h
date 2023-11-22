@@ -25,7 +25,8 @@ class CC_EXPORT SurfaceLayerImpl : public LayerImpl {
   virtual scoped_ptr<LayerImpl> CreateLayerImpl(LayerTreeImpl* tree_impl)
       OVERRIDE;
   virtual void PushPropertiesTo(LayerImpl* layer) OVERRIDE;
-  virtual void AppendQuads(QuadSink* quad_sink,
+  virtual void AppendQuads(RenderPass* render_pass,
+                           const OcclusionTracker<LayerImpl>& occlusion_tracker,
                            AppendQuadsData* append_quads_data) OVERRIDE;
 
  protected:
@@ -34,7 +35,7 @@ class CC_EXPORT SurfaceLayerImpl : public LayerImpl {
  private:
   virtual void GetDebugBorderProperties(SkColor* color,
                                         float* width) const OVERRIDE;
-  virtual void AsValueInto(base::DictionaryValue* dict) const OVERRIDE;
+  virtual void AsValueInto(base::debug::TracedValue* dict) const OVERRIDE;
   virtual const char* LayerTypeAsString() const OVERRIDE;
 
   SurfaceId surface_id_;

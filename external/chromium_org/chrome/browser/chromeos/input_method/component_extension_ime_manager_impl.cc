@@ -4,9 +4,14 @@
 
 #include "chrome/browser/chromeos/input_method/component_extension_ime_manager_impl.h"
 
-#include "base/file_util.h"
+#include <algorithm>
+
+#include "base/files/file_util.h"
+#include "base/json/json_string_value_serializer.h"
 #include "base/logging.h"
 #include "base/path_service.h"
+#include "base/strings/string_util.h"
+#include "base/sys_info.h"
 #include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
@@ -14,6 +19,8 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/extension_file_util.h"
+#include "chrome/grit/browser_resources.h"
+#include "chrome/grit/generated_resources.h"
 #include "chromeos/ime/extension_ime_util.h"
 #include "content/public/browser/browser_thread.h"
 #include "extensions/browser/extension_system.h"
@@ -22,6 +29,7 @@
 #include "extensions/common/file_util.h"
 #include "extensions/common/manifest_constants.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/resource/resource_bundle.h"
 
 namespace chromeos {
 
@@ -29,150 +37,297 @@ namespace {
 
 struct WhitelistedComponentExtensionIME {
   const char* id;
-  const char* path;
+  int manifest_resource_id;
 } whitelisted_component_extension[] = {
-  {
-    // ChromeOS Hangul Input.
-    extension_ime_util::kHangulExtensionId,
-    "/usr/share/chromeos-assets/input_methods/hangul",
-  },
-#if defined(OFFICIAL_BUILD)
-  {
-    // Official Google XKB Input.
-    extension_ime_util::kXkbExtensionId,
-    "/usr/share/chromeos-assets/input_methods/google_xkb",
-  },
-  {
-    // Google input tools.
-    extension_ime_util::kT13nExtensionId,
-    "/usr/share/chromeos-assets/input_methods/input_tools",
-  },
+      {// ChromeOS Hangul Input.
+       extension_ime_util::kHangulExtensionId, IDR_HANGUL_MANIFEST,
+      },
+#if defined(GOOGLE_CHROME_BUILD)
+      {// Official Google XKB Input.
+       extension_ime_util::kXkbExtensionId, IDR_GOOGLE_XKB_MANIFEST,
+      },
+      {// Google input tools.
+       extension_ime_util::kT13nExtensionId, IDR_GOOGLE_INPUT_TOOLS_MANIFEST,
+      },
 #else
-  {
-    // Open-sourced ChromeOS xkb extension.
-    extension_ime_util::kXkbExtensionId,
-    "/usr/share/chromeos-assets/input_methods/xkb",
-  },
-  {
-    // Open-sourced ChromeOS Keyboards extension.
-    extension_ime_util::kM17nExtensionId,
-    "/usr/share/chromeos-assets/input_methods/keyboard_layouts",
-  },
-  {
-    // Open-sourced Pinyin Chinese Input Method.
-    extension_ime_util::kChinesePinyinExtensionId,
-    "/usr/share/chromeos-assets/input_methods/pinyin",
-  },
-  {
-    // Open-sourced Zhuyin Chinese Input Method.
-    extension_ime_util::kChineseZhuyinExtensionId,
-    "/usr/share/chromeos-assets/input_methods/zhuyin",
-  },
-  {
-    // Open-sourced Cangjie Chinese Input Method.
-    extension_ime_util::kChineseCangjieExtensionId,
-    "/usr/share/chromeos-assets/input_methods/cangjie",
-  },
-  {
-    // Japanese Mozc Input.
-    extension_ime_util::kMozcExtensionId,
-    "/usr/share/chromeos-assets/input_methods/nacl_mozc",
-  },
+      {// Open-sourced ChromeOS xkb extension.
+       extension_ime_util::kXkbExtensionId, IDR_XKB_MANIFEST,
+      },
+      {// Open-sourced ChromeOS Keyboards extension.
+       extension_ime_util::kM17nExtensionId, IDR_M17N_MANIFEST,
+      },
+      {// Open-sourced Pinyin Chinese Input Method.
+       extension_ime_util::kChinesePinyinExtensionId, IDR_PINYIN_MANIFEST,
+      },
+      {// Open-sourced Zhuyin Chinese Input Method.
+       extension_ime_util::kChineseZhuyinExtensionId, IDR_ZHUYIN_MANIFEST,
+      },
+      {// Open-sourced Cangjie Chinese Input Method.
+       extension_ime_util::kChineseCangjieExtensionId, IDR_CANGJIE_MANIFEST,
+      },
+      {// Japanese Mozc Input.
+       extension_ime_util::kMozcExtensionId, IDR_MOZC_MANIFEST,
+      },
 #endif
-  {
-    // Braille hardware keyboard IME that works together with ChromeVox.
-    extension_misc::kBrailleImeExtensionId,
-    extension_misc::kBrailleImeExtensionPath,
-  },
+      {// Braille hardware keyboard IME that works together with ChromeVox.
+       extension_misc::kBrailleImeExtensionId, IDR_BRAILLE_MANIFEST,
+      },
 };
 
-extensions::ComponentLoader* GetComponentLoader() {
-  // TODO(skuhne, nkostylev): At this time the only thing which makes sense here
-  // is to use the active profile. Nkostylev is working on getting IME settings
-  // to work for multi user by collecting all settings from all users. Once that
-  // is done we might have to re-visit this decision.
-  Profile* profile = ProfileManager::GetActiveUserProfile();
+const struct InputMethodNameMap {
+  const char* message_name;
+  int resource_id;
+  bool operator<(const InputMethodNameMap& other) const {
+    return strcmp(message_name, other.message_name) < 0;
+  }
+} kInputMethodNameMap[] = {
+      {"__MSG_INPUTMETHOD_ARRAY__", IDS_IME_NAME_INPUTMETHOD_ARRAY},
+      {"__MSG_INPUTMETHOD_CANGJIE__", IDS_IME_NAME_INPUTMETHOD_CANGJIE},
+      {"__MSG_INPUTMETHOD_DAYI__", IDS_IME_NAME_INPUTMETHOD_DAYI},
+      {"__MSG_INPUTMETHOD_HANGUL_2_SET__",
+       IDS_IME_NAME_INPUTMETHOD_HANGUL_2_SET},
+      {"__MSG_INPUTMETHOD_HANGUL_3_SET_390__",
+       IDS_IME_NAME_INPUTMETHOD_HANGUL_3_SET_390},
+      {"__MSG_INPUTMETHOD_HANGUL_3_SET_FINAL__",
+       IDS_IME_NAME_INPUTMETHOD_HANGUL_3_SET_FINAL},
+      {"__MSG_INPUTMETHOD_HANGUL_3_SET_NO_SHIFT__",
+       IDS_IME_NAME_INPUTMETHOD_HANGUL_3_SET_NO_SHIFT},
+      {"__MSG_INPUTMETHOD_HANGUL_AHNMATAE__",
+       IDS_IME_NAME_INPUTMETHOD_HANGUL_AHNMATAE},
+      {"__MSG_INPUTMETHOD_HANGUL_ROMAJA__",
+       IDS_IME_NAME_INPUTMETHOD_HANGUL_ROMAJA},
+      {"__MSG_INPUTMETHOD_MOZC_JP__", IDS_IME_NAME_INPUTMETHOD_MOZC_JP},
+      {"__MSG_INPUTMETHOD_MOZC_US__", IDS_IME_NAME_INPUTMETHOD_MOZC_US},
+      {"__MSG_INPUTMETHOD_PINYIN__", IDS_IME_NAME_INPUTMETHOD_PINYIN},
+      {"__MSG_INPUTMETHOD_QUICK__", IDS_IME_NAME_INPUTMETHOD_QUICK},
+      {"__MSG_INPUTMETHOD_TRADITIONAL_PINYIN__",
+       IDS_IME_NAME_INPUTMETHOD_TRADITIONAL_PINYIN},
+      {"__MSG_INPUTMETHOD_WUBI__", IDS_IME_NAME_INPUTMETHOD_WUBI},
+      {"__MSG_INPUTMETHOD_ZHUYIN__", IDS_IME_NAME_INPUTMETHOD_ZHUYIN},
+      {"__MSG_KEYBOARD_ARABIC__", IDS_IME_NAME_KEYBOARD_ARABIC},
+      {"__MSG_KEYBOARD_ARMENIAN_PHONETIC__",
+       IDS_IME_NAME_KEYBOARD_ARMENIAN_PHONETIC},
+      {"__MSG_KEYBOARD_BELARUSIAN__", IDS_IME_NAME_KEYBOARD_BELARUSIAN},
+      {"__MSG_KEYBOARD_BELGIAN__", IDS_IME_NAME_KEYBOARD_BELGIAN},
+      {"__MSG_KEYBOARD_BENGALI_PHONETIC__",
+       IDS_IME_NAME_KEYBOARD_BENGALI_PHONETIC},
+      {"__MSG_KEYBOARD_BRAZILIAN__", IDS_IME_NAME_KEYBOARD_BRAZILIAN},
+      {"__MSG_KEYBOARD_BULGARIAN_PHONETIC__",
+       IDS_IME_NAME_KEYBOARD_BULGARIAN_PHONETIC},
+      {"__MSG_KEYBOARD_BULGARIAN__", IDS_IME_NAME_KEYBOARD_BULGARIAN},
+      {"__MSG_KEYBOARD_CANADIAN_ENGLISH__",
+       IDS_IME_NAME_KEYBOARD_CANADIAN_ENGLISH},
+      {"__MSG_KEYBOARD_CANADIAN_FRENCH__",
+       IDS_IME_NAME_KEYBOARD_CANADIAN_FRENCH},
+      {"__MSG_KEYBOARD_CANADIAN_MULTILINGUAL__",
+       IDS_IME_NAME_KEYBOARD_CANADIAN_MULTILINGUAL},
+      {"__MSG_KEYBOARD_CATALAN__", IDS_IME_NAME_KEYBOARD_CATALAN},
+      {"__MSG_KEYBOARD_CROATIAN__", IDS_IME_NAME_KEYBOARD_CROATIAN},
+      {"__MSG_KEYBOARD_CZECH_QWERTY__", IDS_IME_NAME_KEYBOARD_CZECH_QWERTY},
+      {"__MSG_KEYBOARD_CZECH__", IDS_IME_NAME_KEYBOARD_CZECH},
+      {"__MSG_KEYBOARD_DANISH__", IDS_IME_NAME_KEYBOARD_DANISH},
+      {"__MSG_KEYBOARD_DEVANAGARI_PHONETIC__",
+       IDS_IME_NAME_KEYBOARD_DEVANAGARI_PHONETIC},
+      {"__MSG_KEYBOARD_ESTONIAN__", IDS_IME_NAME_KEYBOARD_ESTONIAN},
+      {"__MSG_KEYBOARD_ETHIOPIC__", IDS_IME_NAME_KEYBOARD_ETHIOPIC},
+      {"__MSG_KEYBOARD_FINNISH__", IDS_IME_NAME_KEYBOARD_FINNISH},
+      {"__MSG_KEYBOARD_FRENCH__", IDS_IME_NAME_KEYBOARD_FRENCH},
+      {"__MSG_KEYBOARD_GEORGIAN__", IDS_IME_NAME_KEYBOARD_GEORGIAN},
+      {"__MSG_KEYBOARD_GERMAN_NEO_2__", IDS_IME_NAME_KEYBOARD_GERMAN_NEO_2},
+      {"__MSG_KEYBOARD_GERMAN__", IDS_IME_NAME_KEYBOARD_GERMAN},
+      {"__MSG_KEYBOARD_GREEK__", IDS_IME_NAME_KEYBOARD_GREEK},
+      {"__MSG_KEYBOARD_GUJARATI_PHONETIC__",
+       IDS_IME_NAME_KEYBOARD_GUJARATI_PHONETIC},
+      {"__MSG_KEYBOARD_HEBREW__", IDS_IME_NAME_KEYBOARD_HEBREW},
+      {"__MSG_KEYBOARD_HUNGARIAN__", IDS_IME_NAME_KEYBOARD_HUNGARIAN},
+      {"__MSG_KEYBOARD_ICELANDIC__", IDS_IME_NAME_KEYBOARD_ICELANDIC},
+      {"__MSG_KEYBOARD_IRISH__", IDS_IME_NAME_KEYBOARD_IRISH},
+      {"__MSG_KEYBOARD_ITALIAN__", IDS_IME_NAME_KEYBOARD_ITALIAN},
+      {"__MSG_KEYBOARD_JAPANESE__", IDS_IME_NAME_KEYBOARD_JAPANESE},
+      {"__MSG_KEYBOARD_KANNADA_PHONETIC__",
+       IDS_IME_NAME_KEYBOARD_KANNADA_PHONETIC},
+      {"__MSG_KEYBOARD_KHMER__", IDS_IME_NAME_KEYBOARD_KHMER},
+      {"__MSG_KEYBOARD_LAO__", IDS_IME_NAME_KEYBOARD_LAO},
+      {"__MSG_KEYBOARD_LATIN_AMERICAN__", IDS_IME_NAME_KEYBOARD_LATIN_AMERICAN},
+      {"__MSG_KEYBOARD_LATVIAN__", IDS_IME_NAME_KEYBOARD_LATVIAN},
+      {"__MSG_KEYBOARD_LITHUANIAN__", IDS_IME_NAME_KEYBOARD_LITHUANIAN},
+      {"__MSG_KEYBOARD_MALAYALAM_PHONETIC__",
+       IDS_IME_NAME_KEYBOARD_MALAYALAM_PHONETIC},
+      {"__MSG_KEYBOARD_MONGOLIAN__", IDS_IME_NAME_KEYBOARD_MONGOLIAN},
+      {"__MSG_KEYBOARD_MYANMAR_MYANSAN__",
+       IDS_IME_NAME_KEYBOARD_MYANMAR_MYANSAN},
+      {"__MSG_KEYBOARD_MYANMAR__", IDS_IME_NAME_KEYBOARD_MYANMAR},
+      {"__MSG_KEYBOARD_NEPALI_INSCRIPT__",
+       IDS_IME_NAME_KEYBOARD_NEPALI_INSCRIPT},
+      {"__MSG_KEYBOARD_NEPALI_PHONETIC__",
+       IDS_IME_NAME_KEYBOARD_NEPALI_PHONETIC},
+      {"__MSG_KEYBOARD_NORWEGIAN__", IDS_IME_NAME_KEYBOARD_NORWEGIAN},
+      {"__MSG_KEYBOARD_PERSIAN__", IDS_IME_NAME_KEYBOARD_PERSIAN},
+      {"__MSG_KEYBOARD_POLISH__", IDS_IME_NAME_KEYBOARD_POLISH},
+      {"__MSG_KEYBOARD_PORTUGUESE__", IDS_IME_NAME_KEYBOARD_PORTUGUESE},
+      {"__MSG_KEYBOARD_ROMANIAN__", IDS_IME_NAME_KEYBOARD_ROMANIAN},
+      {"__MSG_KEYBOARD_RUSSIAN_PHONETIC__",
+       IDS_IME_NAME_KEYBOARD_RUSSIAN_PHONETIC},
+      {"__MSG_KEYBOARD_RUSSIAN__", IDS_IME_NAME_KEYBOARD_RUSSIAN},
+      {"__MSG_KEYBOARD_SERBIAN__", IDS_IME_NAME_KEYBOARD_SERBIAN},
+      {"__MSG_KEYBOARD_SINHALA__", IDS_IME_NAME_KEYBOARD_SINHALA},
+      {"__MSG_KEYBOARD_SLOVAKIAN__", IDS_IME_NAME_KEYBOARD_SLOVAKIAN},
+      {"__MSG_KEYBOARD_SLOVENIAN__", IDS_IME_NAME_KEYBOARD_SLOVENIAN},
+      {"__MSG_KEYBOARD_SORANIKURDISH_AR__",
+       IDS_IME_NAME_KEYBOARD_SORANIKURDISH_AR},
+      {"__MSG_KEYBOARD_SORANIKURDISH_EN__",
+       IDS_IME_NAME_KEYBOARD_SORANIKURDISH_EN},
+      {"__MSG_KEYBOARD_SPANISH__", IDS_IME_NAME_KEYBOARD_SPANISH},
+      {"__MSG_KEYBOARD_SWEDISH__", IDS_IME_NAME_KEYBOARD_SWEDISH},
+      {"__MSG_KEYBOARD_SWISS_FRENCH__", IDS_IME_NAME_KEYBOARD_SWISS_FRENCH},
+      {"__MSG_KEYBOARD_SWISS__", IDS_IME_NAME_KEYBOARD_SWISS},
+      {"__MSG_KEYBOARD_TAMIL_INSCRIPT__", IDS_IME_NAME_KEYBOARD_TAMIL_INSCRIPT},
+      {"__MSG_KEYBOARD_TAMIL_ITRANS__", IDS_IME_NAME_KEYBOARD_TAMIL_ITRANS},
+      {"__MSG_KEYBOARD_TAMIL_PHONETIC__", IDS_IME_NAME_KEYBOARD_TAMIL_PHONETIC},
+      {"__MSG_KEYBOARD_TAMIL_TAMIL99__", IDS_IME_NAME_KEYBOARD_TAMIL_TAMIL99},
+      {"__MSG_KEYBOARD_TAMIL_TYPEWRITER__",
+       IDS_IME_NAME_KEYBOARD_TAMIL_TYPEWRITER},
+      {"__MSG_KEYBOARD_TELUGU_PHONETIC__",
+       IDS_IME_NAME_KEYBOARD_TELUGU_PHONETIC},
+      {"__MSG_KEYBOARD_THAI_KEDMANEE__", IDS_IME_NAME_KEYBOARD_THAI_KEDMANEE},
+      {"__MSG_KEYBOARD_THAI_PATTACHOTE__",
+       IDS_IME_NAME_KEYBOARD_THAI_PATTACHOTE},
+      {"__MSG_KEYBOARD_THAI_TIS__", IDS_IME_NAME_KEYBOARD_THAI_TIS},
+      {"__MSG_KEYBOARD_TURKISH__", IDS_IME_NAME_KEYBOARD_TURKISH},
+      {"__MSG_KEYBOARD_UKRAINIAN__", IDS_IME_NAME_KEYBOARD_UKRAINIAN},
+      {"__MSG_KEYBOARD_UK_DVORAK__", IDS_IME_NAME_KEYBOARD_UK_DVORAK},
+      {"__MSG_KEYBOARD_UK__", IDS_IME_NAME_KEYBOARD_UK},
+      {"__MSG_KEYBOARD_US_COLEMAK__", IDS_IME_NAME_KEYBOARD_US_COLEMAK},
+      {"__MSG_KEYBOARD_US_DVORAK__", IDS_IME_NAME_KEYBOARD_US_DVORAK},
+      {"__MSG_KEYBOARD_US_EXTENDED__", IDS_IME_NAME_KEYBOARD_US_EXTENDED},
+      {"__MSG_KEYBOARD_US_INTERNATIONAL__",
+       IDS_IME_NAME_KEYBOARD_US_INTERNATIONAL},
+      {"__MSG_KEYBOARD_US__", IDS_IME_NAME_KEYBOARD_US},
+      {"__MSG_KEYBOARD_VIETNAMESE_TCVN__",
+       IDS_IME_NAME_KEYBOARD_VIETNAMESE_TCVN},
+      {"__MSG_KEYBOARD_VIETNAMESE_TELEX__",
+       IDS_IME_NAME_KEYBOARD_VIETNAMESE_TELEX},
+      {"__MSG_KEYBOARD_VIETNAMESE_VIQR__",
+       IDS_IME_NAME_KEYBOARD_VIETNAMESE_VIQR},
+      {"__MSG_KEYBOARD_VIETNAMESE_VNI__", IDS_IME_NAME_KEYBOARD_VIETNAMESE_VNI},
+      {"__MSG_TRANSLITERATION_AM__", IDS_IME_NAME_TRANSLITERATION_AM},
+      {"__MSG_TRANSLITERATION_AR__", IDS_IME_NAME_TRANSLITERATION_AR},
+      {"__MSG_TRANSLITERATION_BN__", IDS_IME_NAME_TRANSLITERATION_BN},
+      {"__MSG_TRANSLITERATION_EL__", IDS_IME_NAME_TRANSLITERATION_EL},
+      {"__MSG_TRANSLITERATION_FA__", IDS_IME_NAME_TRANSLITERATION_FA},
+      {"__MSG_TRANSLITERATION_GU__", IDS_IME_NAME_TRANSLITERATION_GU},
+      {"__MSG_TRANSLITERATION_HE__", IDS_IME_NAME_TRANSLITERATION_HE},
+      {"__MSG_TRANSLITERATION_HI__", IDS_IME_NAME_TRANSLITERATION_HI},
+      {"__MSG_TRANSLITERATION_KN__", IDS_IME_NAME_TRANSLITERATION_KN},
+      {"__MSG_TRANSLITERATION_ML__", IDS_IME_NAME_TRANSLITERATION_ML},
+      {"__MSG_TRANSLITERATION_MR__", IDS_IME_NAME_TRANSLITERATION_MR},
+      {"__MSG_TRANSLITERATION_NE__", IDS_IME_NAME_TRANSLITERATION_NE},
+      {"__MSG_TRANSLITERATION_OR__", IDS_IME_NAME_TRANSLITERATION_OR},
+      {"__MSG_TRANSLITERATION_PA__", IDS_IME_NAME_TRANSLITERATION_PA},
+      {"__MSG_TRANSLITERATION_SA__", IDS_IME_NAME_TRANSLITERATION_SA},
+      {"__MSG_TRANSLITERATION_SR__", IDS_IME_NAME_TRANSLITERATION_SR},
+      {"__MSG_TRANSLITERATION_TA__", IDS_IME_NAME_TRANSLITERATION_TA},
+      {"__MSG_TRANSLITERATION_TE__", IDS_IME_NAME_TRANSLITERATION_TE},
+      {"__MSG_TRANSLITERATION_TI__", IDS_IME_NAME_TRANSLITERATION_TI},
+      {"__MSG_TRANSLITERATION_UR__", IDS_IME_NAME_TRANSLITERATION_UR},
+};
+
+const char kImePathKeyName[] = "ime_path";
+
+extensions::ComponentLoader* GetComponentLoader(Profile* profile) {
   extensions::ExtensionSystem* extension_system =
       extensions::ExtensionSystem::Get(profile);
   ExtensionService* extension_service = extension_system->extension_service();
   return extension_service->component_loader();
 }
+
+void DoLoadExtension(Profile* profile,
+                     const std::string& extension_id,
+                     const std::string& manifest,
+                     const base::FilePath& file_path) {
+  extensions::ExtensionSystem* extension_system =
+      extensions::ExtensionSystem::Get(profile);
+  ExtensionService* extension_service = extension_system->extension_service();
+  if (extension_service->GetExtensionById(extension_id, false))
+    return;
+  const std::string loaded_extension_id =
+      GetComponentLoader(profile)->Add(manifest, file_path);
+  DCHECK_EQ(loaded_extension_id, extension_id);
+}
+
+bool CheckFilePath(const base::FilePath* file_path) {
+  return base::PathExists(*file_path);
+}
+
+void OnFilePathChecked(Profile* profile,
+                       const std::string* extension_id,
+                       const std::string* manifest,
+                       const base::FilePath* file_path,
+                       bool result) {
+  if (result)
+    DoLoadExtension(profile, *extension_id, *manifest, *file_path);
+  else
+    LOG(ERROR) << "IME extension file path not exists: " << file_path->value();
+}
+
 }  // namespace
 
-ComponentExtensionIMEManagerImpl::ComponentExtensionIMEManagerImpl()
-    : is_initialized_(false),
-      weak_ptr_factory_(this) {
+ComponentExtensionIMEManagerImpl::ComponentExtensionIMEManagerImpl() {
+  ReadComponentExtensionsInfo(&component_extension_list_);
 }
 
 ComponentExtensionIMEManagerImpl::~ComponentExtensionIMEManagerImpl() {
 }
 
 std::vector<ComponentExtensionIME> ComponentExtensionIMEManagerImpl::ListIME() {
-  DCHECK(thread_checker_.CalledOnValidThread());
   return component_extension_list_;
 }
 
-bool ComponentExtensionIMEManagerImpl::Load(const std::string& extension_id,
+void ComponentExtensionIMEManagerImpl::Load(Profile* profile,
+                                            const std::string& extension_id,
                                             const std::string& manifest,
                                             const base::FilePath& file_path) {
-  DCHECK(thread_checker_.CalledOnValidThread());
-  Profile* profile = ProfileManager::GetActiveUserProfile();
-  extensions::ExtensionSystem* extension_system =
-      extensions::ExtensionSystem::Get(profile);
-  ExtensionService* extension_service = extension_system->extension_service();
-  if (extension_service->GetExtensionById(extension_id, false))
-    return false;
-  const std::string loaded_extension_id =
-      GetComponentLoader()->Add(manifest, file_path);
-  DCHECK_EQ(loaded_extension_id, extension_id);
-  return true;
+  if (base::SysInfo::IsRunningOnChromeOS()) {
+    // In the case of real Chrome OS device, the no need to check the file path
+    // for preinstalled files existence.
+    DoLoadExtension(profile, extension_id, manifest, file_path);
+    return;
+  }
+  // If current environment is linux_chromeos, check the existence of file path
+  // to avoid unnecessary extension loading and InputMethodEngine creation, so
+  // that the virtual keyboard web content url won't be override by IME
+  // component extensions.
+  base::FilePath* copied_file_path = new base::FilePath(file_path);
+  content::BrowserThread::PostTaskAndReplyWithResult(
+      content::BrowserThread::FILE,
+      FROM_HERE,
+      base::Bind(&CheckFilePath,
+                 base::Unretained(copied_file_path)),
+      base::Bind(&OnFilePathChecked,
+                 base::Unretained(profile),
+                 base::Owned(new std::string(extension_id)),
+                 base::Owned(new std::string(manifest)),
+                 base::Owned(copied_file_path)));
 }
 
-void ComponentExtensionIMEManagerImpl::Unload(const std::string& extension_id,
+void ComponentExtensionIMEManagerImpl::Unload(Profile* profile,
+                                              const std::string& extension_id,
                                               const base::FilePath& file_path) {
-  DCHECK(thread_checker_.CalledOnValidThread());
   // Remove(extension_id) does nothing when the extension has already been
   // removed or not been registered.
-  GetComponentLoader()->Remove(extension_id);
+  GetComponentLoader(profile)->Remove(extension_id);
 }
 
 scoped_ptr<base::DictionaryValue> ComponentExtensionIMEManagerImpl::GetManifest(
-    const base::FilePath& file_path) {
-  DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::FILE));
+    const std::string& manifest_string) {
   std::string error;
-  scoped_ptr<base::DictionaryValue> manifest(
-      extensions::file_util::LoadManifest(file_path, &error));
+  JSONStringValueSerializer serializer(manifest_string);
+  scoped_ptr<base::Value> manifest(serializer.Deserialize(NULL, &error));
   if (!manifest.get())
     LOG(ERROR) << "Failed at getting manifest";
-  if (!extension_l10n_util::LocalizeExtension(file_path,
-                                              manifest.get(),
-                                              &error))
-    LOG(ERROR) << "Localization failed";
 
-  return manifest.Pass();
-}
-
-void ComponentExtensionIMEManagerImpl::InitializeAsync(
-    const base::Closure& callback) {
-  DCHECK(!is_initialized_);
-  DCHECK(thread_checker_.CalledOnValidThread());
-
-  std::vector<ComponentExtensionIME>* component_extension_ime_list
-      = new std::vector<ComponentExtensionIME>;
-  content::BrowserThread::PostTaskAndReply(
-      content::BrowserThread::FILE,
-      FROM_HERE,
-      base::Bind(&ComponentExtensionIMEManagerImpl::ReadComponentExtensionsInfo,
-                 base::Unretained(component_extension_ime_list)),
-      base::Bind(
-          &ComponentExtensionIMEManagerImpl::OnReadComponentExtensionsInfo,
-          weak_ptr_factory_.GetWeakPtr(),
-          base::Owned(component_extension_ime_list),
-          callback));
-}
-
-bool ComponentExtensionIMEManagerImpl::IsInitialized() {
-  return is_initialized_;
+  return scoped_ptr<base::DictionaryValue>(
+             static_cast<base::DictionaryValue*>(manifest.release())).Pass();
 }
 
 // static
@@ -180,7 +335,6 @@ bool ComponentExtensionIMEManagerImpl::ReadEngineComponent(
     const ComponentExtensionIME& component_extension,
     const base::DictionaryValue& dict,
     ComponentExtensionEngine* out) {
-  DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::FILE));
   DCHECK(out);
   std::string type;
   if (!dict.GetString(extensions::manifest_keys::kType, &type))
@@ -191,6 +345,19 @@ bool ComponentExtensionIMEManagerImpl::ReadEngineComponent(
     return false;
   if (!dict.GetString(extensions::manifest_keys::kName, &out->display_name))
     return false;
+
+  // Localizes the input method name.
+  if (out->display_name.find("__MSG_") == 0) {
+    const InputMethodNameMap* map = kInputMethodNameMap;
+    size_t map_size = arraysize(kInputMethodNameMap);
+    std::string name = StringToUpperASCII(out->display_name);
+    const InputMethodNameMap map_key = {name.c_str(), 0};
+    const InputMethodNameMap* p =
+        std::lower_bound(map, map + map_size, map_key);
+    if (p != map + map_size && name == p->message_name)
+      out->display_name = l10n_util::GetStringUTF8(p->resource_id);
+  }
+  DCHECK(out->display_name.find("__MSG_") == std::string::npos);
 
   std::set<std::string> languages;
   const base::Value* language_value = NULL;
@@ -256,10 +423,12 @@ bool ComponentExtensionIMEManagerImpl::ReadExtensionInfo(
     const base::DictionaryValue& manifest,
     const std::string& extension_id,
     ComponentExtensionIME* out) {
-  DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::FILE));
   if (!manifest.GetString(extensions::manifest_keys::kDescription,
                           &out->description))
     return false;
+  std::string path;
+  if (manifest.GetString(kImePathKeyName, &path))
+    out->path = base::FilePath(path);
   std::string url_string;
   if (manifest.GetString(extensions::manifest_keys::kOptionsPage,
                          &url_string)) {
@@ -277,31 +446,19 @@ bool ComponentExtensionIMEManagerImpl::ReadExtensionInfo(
 // static
 void ComponentExtensionIMEManagerImpl::ReadComponentExtensionsInfo(
     std::vector<ComponentExtensionIME>* out_imes) {
-  DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::FILE));
   DCHECK(out_imes);
   for (size_t i = 0; i < arraysize(whitelisted_component_extension); ++i) {
     ComponentExtensionIME component_ime;
-    component_ime.path = base::FilePath(
-        whitelisted_component_extension[i].path);
-
-    if (!component_ime.path.IsAbsolute()) {
-      base::FilePath resources_path;
-      if (!PathService::Get(chrome::DIR_RESOURCES, &resources_path))
-        NOTREACHED();
-      component_ime.path = resources_path.Append(component_ime.path);
-    }
-    const base::FilePath manifest_path =
-        component_ime.path.Append("manifest.json");
-
-    if (!base::PathExists(component_ime.path) ||
-        !base::PathExists(manifest_path))
-      continue;
-
-    if (!base::ReadFileToString(manifest_path, &component_ime.manifest))
+    ResourceBundle& rb = ResourceBundle::GetSharedInstance();
+    component_ime.manifest =
+        rb.GetRawDataResource(
+               whitelisted_component_extension[i].manifest_resource_id)
+            .as_string();
+    if (component_ime.manifest.empty())
       continue;
 
     scoped_ptr<base::DictionaryValue> manifest =
-        GetManifest(component_ime.path);
+        GetManifest(component_ime.manifest);
     if (!manifest.get())
       continue;
 
@@ -310,6 +467,13 @@ void ComponentExtensionIMEManagerImpl::ReadComponentExtensionsInfo(
                            &component_ime))
       continue;
     component_ime.id = whitelisted_component_extension[i].id;
+
+    if (!component_ime.path.IsAbsolute()) {
+      base::FilePath resources_path;
+      if (!PathService::Get(chrome::DIR_RESOURCES, &resources_path))
+        NOTREACHED();
+      component_ime.path = resources_path.Append(component_ime.path);
+    }
 
     const base::ListValue* component_list;
     if (!manifest->GetList(extensions::manifest_keys::kInputComponents,
@@ -327,16 +491,6 @@ void ComponentExtensionIMEManagerImpl::ReadComponentExtensionsInfo(
     }
     out_imes->push_back(component_ime);
   }
-}
-
-void ComponentExtensionIMEManagerImpl::OnReadComponentExtensionsInfo(
-    std::vector<ComponentExtensionIME>* result,
-    const base::Closure& callback) {
-  DCHECK(thread_checker_.CalledOnValidThread());
-  DCHECK(result);
-  component_extension_list_ = *result;
-  is_initialized_ = true;
-  callback.Run();
 }
 
 }  // namespace chromeos

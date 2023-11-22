@@ -156,8 +156,8 @@ public class GyroscopeMeasurementTestActivity extends SensorCtsVerifierTestActiv
                 getApplicationContext(),
                 Sensor.TYPE_GYROSCOPE,
                 SensorManager.SENSOR_DELAY_FASTEST);
-        TestSensorOperation sensorOperation =
-                new TestSensorOperation(environment, ROTATION_COLLECTION_SEC, TimeUnit.SECONDS);
+        TestSensorOperation sensorOperation = TestSensorOperation
+                .createOperation(environment, ROTATION_COLLECTION_SEC, TimeUnit.SECONDS);
 
         int gyroscopeAxes = environment.getSensorAxesCount();
         int[] expectationsDeg = getExpectationsDeg(gyroscopeAxes, rotationAxis, expectationDeg);
@@ -167,7 +167,7 @@ public class GyroscopeMeasurementTestActivity extends SensorCtsVerifierTestActiv
         sensorOperation.addVerification(integrationVerification);
 
         try {
-            sensorOperation.execute();
+            sensorOperation.execute(getCurrentTestNode());
         } finally {
             playSound();
         }

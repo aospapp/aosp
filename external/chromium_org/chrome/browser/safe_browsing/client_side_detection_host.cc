@@ -40,6 +40,7 @@
 using content::BrowserThread;
 using content::NavigationEntry;
 using content::ResourceRequestDetails;
+using content::ResourceType;
 using content::WebContents;
 
 namespace safe_browsing {
@@ -322,8 +323,8 @@ ClientSideDetectionHost::ClientSideDetectionHost(WebContents* tab)
       should_extract_malware_features_(true),
       should_classify_for_malware_(false),
       pageload_complete_(false),
-      weak_factory_(this),
-      unsafe_unique_page_id_(-1) {
+      unsafe_unique_page_id_(-1),
+      weak_factory_(this) {
   DCHECK(tab);
   // Note: csd_service_ and sb_service will be NULL here in testing.
   csd_service_ = g_browser_process->safe_browsing_detection_service();
@@ -643,7 +644,7 @@ void ClientSideDetectionHost::MaybeShowMalwareWarning(GURL original_url,
 
 void ClientSideDetectionHost::FeatureExtractionDone(
     bool success,
-    ClientPhishingRequest* request) {
+    scoped_ptr<ClientPhishingRequest> request) {
   DCHECK(request);
   DVLOG(2) << "Feature extraction done (success:" << success << ") for URL: "
            << request->url() << ". Start sending client phishing request.";
@@ -656,7 +657,7 @@ void ClientSideDetectionHost::FeatureExtractionDone(
   }
   // Send ping even if the browser feature extraction failed.
   csd_service_->SendClientReportPhishingRequest(
-      request,  // The service takes ownership of the request object.
+      request.release(),  // The service takes ownership of the request object.
       callback);
 }
 
@@ -677,12 +678,11 @@ void ClientSideDetectionHost::MalwareFeatureExtractionDone(
   }
 }
 
-void ClientSideDetectionHost::UpdateIPUrlMap(
-    const std::string& ip,
-    const std::string& url,
-    const std::string& method,
-    const std::string& referrer,
-    const ResourceType::Type resource_type) {
+void ClientSideDetectionHost::UpdateIPUrlMap(const std::string& ip,
+                                             const std::string& url,
+                                             const std::string& method,
+                                             const std::string& referrer,
+                                             const ResourceType resource_type) {
   if (ip.empty() || url.empty())
     return;
 

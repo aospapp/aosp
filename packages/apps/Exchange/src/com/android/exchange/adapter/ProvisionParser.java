@@ -22,6 +22,7 @@ import android.os.Environment;
 import android.support.v4.content.ContextCompat;
 
 import com.android.emailcommon.provider.Policy;
+import com.android.emailcommon.service.PolicyServiceProxy;
 import com.android.exchange.Eas;
 import com.android.exchange.R;
 import com.android.exchange.eas.EasProvision;
@@ -152,7 +153,16 @@ public class ProvisionParser extends Parser {
                     policy.mPasswordHistory = getValueInt();
                     break;
                 case Tags.PROVISION_ALLOW_CAMERA:
+                    // We need to check to see if it's possible to disable the camera. It's not
+                    // possible on devices with managed profiles.
                     policy.mDontAllowCamera = (getValueInt() == 0);
+                    if (policy.mDontAllowCamera) {
+                        // See if it's possible to disable the camera.
+                        if (!PolicyServiceProxy.canDisableCamera(mContext)) {
+                            tagIsSupported = false;
+                            policy.mDontAllowCamera = false;
+                        }
+                    }
                     break;
                 case Tags.PROVISION_ALLOW_SIMPLE_DEVICE_PASSWORD:
                     // Ignore this unless there's any MSFT documentation for what this means

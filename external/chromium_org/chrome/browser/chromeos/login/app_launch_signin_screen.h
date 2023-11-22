@@ -8,12 +8,12 @@
 #include <string>
 
 #include "base/memory/ref_counted.h"
-#include "chrome/browser/chromeos/login/auth/authenticator.h"
-#include "chrome/browser/chromeos/login/auth/login_status_consumer.h"
-#include "chrome/browser/chromeos/login/users/user.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/signin/screenlock_bridge.h"
 #include "chrome/browser/ui/webui/chromeos/login/signin_screen_handler.h"
+#include "chromeos/login/auth/auth_status_consumer.h"
+#include "chromeos/login/auth/authenticator.h"
+#include "components/user_manager/user.h"
+#include "components/user_manager/user_manager.h"
 
 namespace chromeos {
 
@@ -27,9 +27,8 @@ class OobeUI;
 // TODO(tengs): This class doesn't quite follow the idiom of the other
 // screen classes, as SigninScreenHandler is very tightly coupled with
 // the login screen. We should do some refactoring in this area.
-class AppLaunchSigninScreen
-    : public SigninScreenHandlerDelegate,
-      public LoginStatusConsumer {
+class AppLaunchSigninScreen : public SigninScreenHandlerDelegate,
+                              public AuthStatusConsumer {
  public:
   class Delegate {
    public:
@@ -44,22 +43,20 @@ class AppLaunchSigninScreen
 
   void Show();
 
-  static void SetUserManagerForTesting(UserManager* user_manager);
+  static void SetUserManagerForTesting(user_manager::UserManager* user_manager);
 
  private:
   void InitOwnerUserList();
-  UserManager* GetUserManager();
+  user_manager::UserManager* GetUserManager();
 
   // SigninScreenHandlerDelegate implementation:
   virtual void CancelPasswordChangedFlow() OVERRIDE;
   virtual void CancelUserAdding() OVERRIDE;
   virtual void CreateAccount() OVERRIDE;
   virtual void CompleteLogin(const UserContext& user_context) OVERRIDE;
-  virtual void Login(const UserContext& user_context) OVERRIDE;
-  virtual void LoginAsRetailModeUser() OVERRIDE;
-  virtual void LoginAsGuest() OVERRIDE;
+  virtual void Login(const UserContext& user_context,
+                     const SigninSpecifics& specifics) OVERRIDE;
   virtual void MigrateUserData(const std::string& old_password) OVERRIDE;
-  virtual void LoginAsPublicAccount(const std::string& username) OVERRIDE;
   virtual void LoadWallpaper(const std::string& username) OVERRIDE;
   virtual void LoadSigninWallpaper() OVERRIDE;
   virtual void OnSigninScreenReady() OVERRIDE;
@@ -73,15 +70,13 @@ class AppLaunchSigninScreen
       LoginDisplayWebUIHandler* webui_handler) OVERRIDE;
   virtual void ShowSigninScreenForCreds(const std::string& username,
                                         const std::string& password);
-  virtual const UserList& GetUsers() const OVERRIDE;
+  virtual const user_manager::UserList& GetUsers() const OVERRIDE;
   virtual bool IsShowGuest() const OVERRIDE;
   virtual bool IsShowUsers() const OVERRIDE;
   virtual bool IsSigninInProgress() const OVERRIDE;
   virtual bool IsUserSigninCompleted() const OVERRIDE;
   virtual void SetDisplayEmail(const std::string& email) OVERRIDE;
   virtual void Signout() OVERRIDE;
-  virtual void LoginAsKioskApp(const std::string& app_id,
-                               bool diagnostic_mode) OVERRIDE;
   virtual void HandleGetUsers() OVERRIDE;
   virtual void SetAuthType(
       const std::string& username,
@@ -89,9 +84,9 @@ class AppLaunchSigninScreen
   virtual ScreenlockBridge::LockHandler::AuthType GetAuthType(
       const std::string& username) const OVERRIDE;
 
-  // LoginStatusConsumer implementation:
-  virtual void OnLoginFailure(const LoginFailure& error) OVERRIDE;
-  virtual void OnLoginSuccess(const UserContext& user_context) OVERRIDE;
+  // AuthStatusConsumer implementation:
+  virtual void OnAuthFailure(const AuthFailure& error) OVERRIDE;
+  virtual void OnAuthSuccess(const UserContext& user_context) OVERRIDE;
 
   OobeUI* oobe_ui_;
   Delegate* delegate_;
@@ -99,9 +94,9 @@ class AppLaunchSigninScreen
   scoped_refptr<Authenticator> authenticator_;
 
   // This list should have at most one user, and that user should be the owner.
-  UserList owner_user_list_;
+  user_manager::UserList owner_user_list_;
 
-  static UserManager* test_user_manager_;
+  static user_manager::UserManager* test_user_manager_;
 
   DISALLOW_COPY_AND_ASSIGN(AppLaunchSigninScreen);
 };

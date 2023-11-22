@@ -25,8 +25,8 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_resource.h"
 #include "extensions/common/manifest_handlers/icons_handler.h"
+#include "extensions/grit/extensions_browser_resources.h"
 #include "grit/component_extension_resources_map.h"
-#include "grit/theme_resources.h"
 #include "skia/ext/image_operations.h"
 #include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -134,7 +134,7 @@ void ExtensionIconSource::StartDataRequest(
 
   ExtensionIconRequest* request = GetData(next_id);
   ExtensionResource icon = IconsInfo::GetIconResource(
-      request->extension, request->size, request->match);
+      request->extension.get(), request->size, request->match);
 
   if (icon.relative_path().empty()) {
     LoadIconFailed(next_id);
@@ -203,7 +203,8 @@ void ExtensionIconSource::LoadExtensionImage(const ExtensionResource& icon,
                                              int request_id) {
   ExtensionIconRequest* request = GetData(request_id);
   ImageLoader::Get(profile_)->LoadImageAsync(
-      request->extension, icon,
+      request->extension.get(),
+      icon,
       gfx::Size(request->size, request->size),
       base::Bind(&ExtensionIconSource::OnImageLoaded, AsWeakPtr(), request_id));
 }
@@ -218,11 +219,11 @@ void ExtensionIconSource::LoadFaviconImage(int request_id) {
   }
 
   GURL favicon_url =
-      AppLaunchInfo::GetFullLaunchURL(GetData(request_id)->extension);
+      AppLaunchInfo::GetFullLaunchURL(GetData(request_id)->extension.get());
   favicon_service->GetRawFaviconForPageURL(
-      FaviconService::FaviconForPageURLParams(
-          favicon_url, favicon_base::FAVICON, gfx::kFaviconSize),
-      1.0f,
+      favicon_url,
+      favicon_base::FAVICON,
+      gfx::kFaviconSize,
       base::Bind(&ExtensionIconSource::OnFaviconDataAvailable,
                  base::Unretained(this),
                  request_id),
@@ -262,7 +263,7 @@ void ExtensionIconSource::OnImageLoaded(int request_id,
 void ExtensionIconSource::LoadIconFailed(int request_id) {
   ExtensionIconRequest* request = GetData(request_id);
   ExtensionResource icon = IconsInfo::GetIconResource(
-      request->extension, request->size, request->match);
+      request->extension.get(), request->size, request->match);
 
   if (request->size == extension_misc::EXTENSION_ICON_BITTY)
     LoadFaviconImage(request_id);
@@ -275,7 +276,7 @@ bool ExtensionIconSource::ParseData(
     int request_id,
     const content::URLDataSource::GotDataCallback& callback) {
   // Extract the parameters from the path by lower casing and splitting.
-  std::string path_lower = StringToLowerASCII(path);
+  std::string path_lower = base::StringToLowerASCII(path);
   std::vector<std::string> path_parts;
 
   base::SplitString(path_lower, '/', &path_parts);

@@ -16,6 +16,8 @@
 
 package com.android.cts.verifier;
 
+import com.android.compatibility.common.util.ReportLog;
+
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -30,6 +32,9 @@ import android.widget.BaseAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -65,6 +70,9 @@ public abstract class TestListAdapter extends BaseAdapter {
 
     /** Map from test name to test details. */
     private final Map<String, String> mTestDetails = new HashMap<String, String>();
+
+    /** Map from test name to {@link ReportLog}. */
+    private final Map<String, ReportLog> mReportLogs = new HashMap<String, ReportLog>();
 
     private final LayoutInflater mLayoutInflater;
 
@@ -168,7 +176,7 @@ public abstract class TestListAdapter extends BaseAdapter {
 
     public void setTestResult(TestResult testResult) {
         new SetTestResultTask(testResult.getName(), testResult.getResult(),
-                testResult.getDetails()).execute();
+                testResult.getDetails(), testResult.getReportLog()).execute();
     }
 
     class RefreshTestResultsTask extends AsyncTask<Void, Void, RefreshResult> {
@@ -187,6 +195,8 @@ public abstract class TestListAdapter extends BaseAdapter {
             mTestResults.putAll(result.mResults);
             mTestDetails.clear();
             mTestDetails.putAll(result.mDetails);
+            mReportLogs.clear();
+            mReportLogs.putAll(result.mReportLogs);
             notifyDataSetChanged();
         }
     }
@@ -195,12 +205,17 @@ public abstract class TestListAdapter extends BaseAdapter {
         List<TestListItem> mItems;
         Map<String, Integer> mResults;
         Map<String, String> mDetails;
+        Map<String, ReportLog> mReportLogs;
 
-        RefreshResult(List<TestListItem> items, Map<String, Integer> results,
-                Map<String, String> details) {
+        RefreshResult(
+                List<TestListItem> items,
+                Map<String, Integer> results,
+                Map<String, String> details,
+                Map<String, ReportLog> reportLogs) {
             mItems = items;
             mResults = results;
             mDetails = details;
+            mReportLogs = reportLogs;
         }
     }
 
@@ -211,11 +226,13 @@ public abstract class TestListAdapter extends BaseAdapter {
         TestResultsProvider.COLUMN_TEST_NAME,
         TestResultsProvider.COLUMN_TEST_RESULT,
         TestResultsProvider.COLUMN_TEST_DETAILS,
+        TestResultsProvider.COLUMN_TEST_METRICS,
     };
 
     RefreshResult getRefreshResults(List<TestListItem> items) {
         Map<String, Integer> results = new HashMap<String, Integer>();
         Map<String, String> details = new HashMap<String, String>();
+        Map<String, ReportLog> reportLogs = new HashMap<String, ReportLog>();
         ContentResolver resolver = mContext.getContentResolver();
         Cursor cursor = null;
         try {
@@ -226,8 +243,10 @@ public abstract class TestListAdapter extends BaseAdapter {
                     String testName = cursor.getString(1);
                     int testResult = cursor.getInt(2);
                     String testDetails = cursor.getString(3);
+                    ReportLog reportLog = (ReportLog) deserialize(cursor.getBlob(4));
                     results.put(testName, testResult);
                     details.put(testName, testDetails);
+                    reportLogs.put(testName, reportLog);
                 } while (cursor.moveToNext());
             }
         } finally {
@@ -235,7 +254,7 @@ public abstract class TestListAdapter extends BaseAdapter {
                 cursor.close();
             }
         }
-        return new RefreshResult(items, results, details);
+        return new RefreshResult(items, results, details, reportLogs);
     }
 
     class ClearTestResultsTask extends AsyncTask<Void, Void, Void> {
@@ -256,15 +275,22 @@ public abstract class TestListAdapter extends BaseAdapter {
 
         private final String mDetails;
 
-        SetTestResultTask(String testName, int result, String details) {
+        private final ReportLog mReportLog;
+
+        SetTestResultTask(
+                String testName,
+                int result,
+                String details,
+                ReportLog reportLog) {
             mTestName = testName;
             mResult = result;
             mDetails = details;
+            mReportLog = reportLog;
         }
 
         @Override
         protected Void doInBackground(Void... params) {
-            TestResultsProvider.setTestResult(mContext, mTestName, mResult, mDetails);
+            TestResultsProvider.setTestResult(mContext, mTestName, mResult, mDetails, mReportLog);
             return null;
         }
     }
@@ -329,6 +355,13 @@ public abstract class TestListAdapter extends BaseAdapter {
         TestListItem item = getItem(position);
         return mTestDetails.containsKey(item.testName)
                 ? mTestDetails.get(item.testName)
+                : null;
+    }
+
+    public ReportLog getReportLog(int position) {
+        TestListItem item = getItem(position);
+        return mReportLogs.containsKey(item.testName)
+                ? mReportLogs.get(item.testName)
                 : null;
     }
 
@@ -398,6 +431,31 @@ public abstract class TestListAdapter extends BaseAdapter {
             default:
                 throw new IllegalArgumentException("Illegal view type: " + viewType);
 
+        }
+    }
+
+    private static Object deserialize(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) {
+            return null;
+        }
+        ByteArrayInputStream byteStream = new ByteArrayInputStream(bytes);
+        ObjectInputStream objectInput = null;
+        try {
+            objectInput = new ObjectInputStream(byteStream);
+            return objectInput.readObject();
+        } catch (IOException e) {
+            return null;
+        } catch (ClassNotFoundException e) {
+            return null;
+        } finally {
+            try {
+                if (objectInput != null) {
+                    objectInput.close();
+                }
+                byteStream.close();
+            } catch (IOException e) {
+                // Ignore close exception.
+            }
         }
     }
 }

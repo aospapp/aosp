@@ -74,10 +74,12 @@ class DriveAppProvider : public drive::DriveAppRegistryObserver,
   // extensions::ExtensionRegistryObserver overrides:
   virtual void OnExtensionInstalled(
       content::BrowserContext* browser_context,
-      const extensions::Extension* extension) OVERRIDE;
+      const extensions::Extension* extension,
+      bool is_update) OVERRIDE;
   virtual void OnExtensionUninstalled(
       content::BrowserContext* browser_context,
-      const extensions::Extension* extension) OVERRIDE;
+      const extensions::Extension* extension,
+      extensions::UninstallReason reason) OVERRIDE;
 
   Profile* profile_;
 

@@ -29,6 +29,7 @@
 .cproject
 .gdb_history
 .gdbinit
+.landmines
 .metadata
 .project
 .pydevproject
@@ -107,6 +108,7 @@ v8.log
 /chrome/sync_integration_tests_run.xml
 /chrome/test/chromeos/autotest/files/client/deps/chrome_test/test_src/
 /chrome/test/chromeos/autotest/files/client/deps/page_cycler_dep/test_src/
+/chrome/test/chromeos/autotest/files/client/deps/perf_data_dep/test_src/
 /chrome/test/chromeos/autotest/files/client/deps/pyauto_dep/test_src/
 /chrome/test/chromeos/autotest/files/client/deps/telemetry_dep/test_src/
 /chrome/test/data/extensions/api_test/permissions/nacl_enabled/bin
@@ -157,13 +159,13 @@ v8.log
 /media/yuv_convert_simd_x86.xml
 /metro_driver
 /mojo/hello_world_service.xml
+/mojo/mojo_application_manager_unittests.xml
 /mojo/mojo_gles2_bindings.xml
 /mojo/mojo_launcher_bindings.xml
 /mojo/mojo_native_viewport_bindings.xml
 /mojo/mojo_public_bindings_unittests.xml
 /mojo/mojo_public_unittests.xml
 /mojo/mojo_sample_service.xml
-/mojo/mojo_service_manager_unittests.xml
 /mojo/mojo_shell_bindings.xml
 /mojo/mojo_view_manager_bindings.xml
 /mojo/mojom_test.xml
@@ -213,11 +215,12 @@ v8.log
 /third_party/adobe/flash/binaries
 /third_party/adobe/flash/symbols
 /third_party/amd/
+/third_party/android_protobuf/src
 /third_party/android_tools/
 /third_party/android_tools_internal/
+/third_party/android_webview_glue/src
 /third_party/angle
 /third_party/angle_dx11
-/third_party/aosp
 /third_party/apache-mime4j
 /third_party/apache-win32/bin/*.exe
 /third_party/apache-win32/bin/*.dll
@@ -227,15 +230,13 @@ v8.log
 /third_party/asan
 /third_party/bidichecker
 /third_party/bison
+/third_party/boringssl/src
 /third_party/brotli/src
 /third_party/cacheinvalidation/cacheinvalidation_unittests_run.xml
 /third_party/cacheinvalidation/src
 /third_party/chromeos_login_manager
 /third_party/chromeos_text_input
 /third_party/chromite
-/third_party/clang_format/bin/*/*
-/third_party/clang_format/script
-!/third_party/clang_format/bin/*/*.sha1
 /third_party/cld_2/src
 /third_party/colorama/src
 /third_party/cros
@@ -258,7 +259,6 @@ v8.log
 /third_party/google_toolbox_for_mac/src
 /third_party/googlemac
 /third_party/gperf
-/third_party/guava/src
 /third_party/httpcomponents-client
 /third_party/httpcomponents-core
 /third_party/hunspell
@@ -267,6 +267,7 @@ v8.log
 /third_party/jarjar
 /third_party/jsoncpp/source
 /third_party/jsr-305/src
+/third_party/junit/src
 /third_party/leveldatabase/src
 /third_party/leveldb
 /third_party/libaddressinput/src
@@ -292,11 +293,9 @@ v8.log
 /third_party/mesa/src
 /third_party/mingw-w64
 /third_party/mkl
-/third_party/mt19937ar
 /third_party/nacl_sdk_binaries/
 /third_party/nss
 /third_party/openmax_dl/
-/third_party/openssl
 /third_party/opus/src
 /third_party/ots
 /third_party/pdfsqueeze
@@ -306,6 +305,7 @@ v8.log
 /third_party/platformsdk_win7
 /third_party/platformsdk_win8
 /third_party/polymer
+/third_party/polymer_legacy
 /third_party/ppapi
 /third_party/psyco_win32
 /third_party/pthreads-win32
@@ -323,7 +323,6 @@ v8.log
 /third_party/skia
 /third_party/smhasher
 /third_party/snappy/src
-/third_party/speex
 /third_party/swiftshader/include/
 /third_party/swig
 /third_party/syzygy

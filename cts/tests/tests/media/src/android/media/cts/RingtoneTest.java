@@ -16,16 +16,18 @@
 
 package android.media.cts;
 
-
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.media.AudioManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.provider.Settings;
 import android.test.AndroidTestCase;
+import android.util.Log;
 
 public class RingtoneTest extends AndroidTestCase {
+    private static final String TAG = "RingtoneTest";
 
     private Context mContext;
     private Ringtone mRingtone;
@@ -73,7 +75,16 @@ public class RingtoneTest extends AndroidTestCase {
         super.tearDown();
     }
 
+    private boolean hasAudioOutput() {
+        return getContext().getPackageManager()
+            .hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT);
+    }
+
     public void testRingtone() {
+        if (!hasAudioOutput()) {
+            Log.i(TAG, "Skipping testRingtone(): device doesn't have audio output.");
+            return;
+        }
 
         assertNotNull(mRingtone.getTitle(mContext));
         assertTrue(mOriginalStreamType >= 0);

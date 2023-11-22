@@ -1833,9 +1833,9 @@ supported by this camera device.<wbr/></p>
             <td class="entry_details" colspan="5">
               <p>This key lists the valid modes for <a href="#controls_android.colorCorrection.aberrationMode">android.<wbr/>color<wbr/>Correction.<wbr/>aberration<wbr/>Mode</a>.<wbr/>  If no
 aberration correction modes are available for a device,<wbr/> this list will solely include
-OFF mode.<wbr/></p>
-<p>For FULL capability device (<a href="#static_android.info.supportedHardwareLevel">android.<wbr/>info.<wbr/>supported<wbr/>Hardware<wbr/>Level</a> <code>==</code> FULL),<wbr/> OFF is
-always included.<wbr/></p>
+OFF mode.<wbr/> All camera devices will support either OFF or FAST mode.<wbr/></p>
+<p>Camera devices that support the MANUAL_<wbr/>POST_<wbr/>PROCESSING capability will always list
+OFF mode.<wbr/> This includes all FULL level devices.<wbr/></p>
 <p>LEGACY devices will always only support FAST mode.<wbr/></p>
             </td>
           </tr>
@@ -1913,7 +1913,8 @@ sources.<wbr/></p></span>
                     <span class="entry_type_enum_name">AUTO</span>
                     <span class="entry_type_enum_notes"><p>The camera device will automatically adapt its
 antibanding routine to the current illumination
-conditions.<wbr/> This is the default.<wbr/></p></span>
+condition.<wbr/> This is the default mode if AUTO is
+available on given camera device.<wbr/></p></span>
                   </li>
                 </ul>
 
@@ -1962,8 +1963,10 @@ control.<wbr/></p>
 options for the antibanding mode.<wbr/> The
 <a href="#static_android.control.aeAvailableAntibandingModes">android.<wbr/>control.<wbr/>ae<wbr/>Available<wbr/>Antibanding<wbr/>Modes</a> key contains
 the available modes for a given camera device.<wbr/></p>
-<p>The default mode is AUTO,<wbr/> which is supported by all
-camera devices.<wbr/></p>
+<p>AUTO mode is the default if it is available on given
+camera device.<wbr/> When AUTO mode is not available,<wbr/> the
+default will be either 50HZ or 60HZ,<wbr/> and both 50HZ
+and 60HZ will be available.<wbr/></p>
 <p>If manual exposure control is enabled (by setting
 <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a> or <a href="#controls_android.control.mode">android.<wbr/>control.<wbr/>mode</a> to OFF),<wbr/>
 then this setting has no effect,<wbr/> and the application must
@@ -1979,8 +1982,9 @@ the application in this.<wbr/></p>
           <tr class="entry_cont">
             <td class="entry_details" colspan="5">
               <p>For all capture request templates,<wbr/> this field must be set
-to AUTO.<wbr/>  AUTO is the only mode that must supported;
-OFF,<wbr/> 50HZ,<wbr/> 60HZ are all optional.<wbr/></p>
+to AUTO if AUTO mode is available.<wbr/> If AUTO is not available,<wbr/>
+the default must be either 50HZ or 60HZ,<wbr/> and both 50HZ and
+60HZ must be available.<wbr/></p>
 <p>If manual exposure control is enabled (by setting
 <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a> or <a href="#controls_android.control.mode">android.<wbr/>control.<wbr/>mode</a> to OFF),<wbr/>
 then the exposure values provided by the application must not be
@@ -2175,6 +2179,14 @@ any flicker during the switch,<wbr/> the following procedure is recommended:</p>
 <a href="#controls_android.sensor.frameDuration">android.<wbr/>sensor.<wbr/>frame<wbr/>Duration</a> are used by the camera
 device,<wbr/> along with android.<wbr/>flash.<wbr/>* fields,<wbr/> if there's
 a flash unit for this camera device.<wbr/></p>
+<p>Note that auto-white balance (AWB) and auto-focus (AF)
+behavior is device dependent when AE is in OFF mode.<wbr/>
+To have consistent behavior across different devices,<wbr/>
+it is recommended to either set AWB and AF to OFF mode
+or lock AWB and AF before setting AE to OFF.<wbr/>
+See <a href="#controls_android.control.awbMode">android.<wbr/>control.<wbr/>awb<wbr/>Mode</a>,<wbr/> <a href="#controls_android.control.afMode">android.<wbr/>control.<wbr/>af<wbr/>Mode</a>,<wbr/>
+<a href="#controls_android.control.awbLock">android.<wbr/>control.<wbr/>awb<wbr/>Lock</a>,<wbr/> and <a href="#controls_android.control.afTrigger">android.<wbr/>control.<wbr/>af<wbr/>Trigger</a>
+for more details.<wbr/></p>
 <p>LEGACY devices do not support the OFF mode and will
 override attempts to use this value to ON.<wbr/></p></span>
                   </li>
@@ -2479,9 +2491,9 @@ metering sequence when it processes this request.<wbr/></p>
             <td class="entry_details" colspan="5">
               <p>This entry is normally set to IDLE,<wbr/> or is not
 included at all in the request settings.<wbr/> When included and
-set to START,<wbr/> the camera device will trigger the autoexposure
+set to START,<wbr/> the camera device will trigger the auto-exposure (AE)
 precapture metering sequence.<wbr/></p>
-<p>The precapture sequence should triggered before starting a
+<p>The precapture sequence should be triggered before starting a
 high-quality still capture for final metering decisions to
 be made,<wbr/> and for firing pre-capture flash pulses to estimate
 scene brightness and required final capture flash power,<wbr/> when
@@ -2489,6 +2501,14 @@ the flash is enabled.<wbr/></p>
 <p>Normally,<wbr/> this entry should be set to START for only a
 single request,<wbr/> and the application should wait until the
 sequence completes before starting a new one.<wbr/></p>
+<p>When a precapture metering sequence is finished,<wbr/> the camera device
+may lock the auto-exposure routine internally to be able to accurately expose the
+subsequent still capture image (<code><a href="#controls_android.control.captureIntent">android.<wbr/>control.<wbr/>capture<wbr/>Intent</a> == STILL_<wbr/>CAPTURE</code>).<wbr/>
+For this case,<wbr/> the AE may not resume normal scan if no subsequent still capture is
+submitted.<wbr/> To ensure that the AE routine restarts normal scan,<wbr/> the application should
+submit a request with <code><a href="#controls_android.control.aeLock">android.<wbr/>control.<wbr/>ae<wbr/>Lock</a> == true</code>,<wbr/> followed by a request
+with <code><a href="#controls_android.control.aeLock">android.<wbr/>control.<wbr/>ae<wbr/>Lock</a> == false</code>,<wbr/> if the application decides not to submit a
+still capture request after the precapture sequence completes.<wbr/></p>
 <p>The exact effect of auto-exposure (AE) precapture trigger
 depends on the current AE mode and state; see
 <a href="#dynamic_android.control.aeState">android.<wbr/>control.<wbr/>ae<wbr/>State</a> for AE precapture state transition
@@ -2632,7 +2652,10 @@ mode it is set to.<wbr/></p>
           <tr class="entry_cont">
             <td class="entry_details" colspan="5">
               <p>Only effective if <a href="#controls_android.control.mode">android.<wbr/>control.<wbr/>mode</a> = AUTO and the lens is not fixed focus
-(i.<wbr/>e.<wbr/> <code><a href="#static_android.lens.info.minimumFocusDistance">android.<wbr/>lens.<wbr/>info.<wbr/>minimum<wbr/>Focus<wbr/>Distance</a> &gt; 0</code>).<wbr/></p>
+(i.<wbr/>e.<wbr/> <code><a href="#static_android.lens.info.minimumFocusDistance">android.<wbr/>lens.<wbr/>info.<wbr/>minimum<wbr/>Focus<wbr/>Distance</a> &gt; 0</code>).<wbr/> Also note that
+when <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a> is OFF,<wbr/> the behavior of AF is device
+dependent.<wbr/> It is recommended to lock AF by using <a href="#controls_android.control.afTrigger">android.<wbr/>control.<wbr/>af<wbr/>Trigger</a> before
+setting <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a> to OFF,<wbr/> or set AF mode to OFF when AE is OFF.<wbr/></p>
 <p>If the lens is controlled by the camera device auto-focus algorithm,<wbr/>
 the camera device will report the current AF status in <a href="#dynamic_android.control.afState">android.<wbr/>control.<wbr/>af<wbr/>State</a>
 in result metadata.<wbr/></p>
@@ -3073,7 +3096,10 @@ is.<wbr/></p>
 <p>When set to the ON mode,<wbr/> the camera device's auto-white balance
 routine is enabled,<wbr/> overriding the application's selected
 <a href="#controls_android.colorCorrection.transform">android.<wbr/>color<wbr/>Correction.<wbr/>transform</a>,<wbr/> <a href="#controls_android.colorCorrection.gains">android.<wbr/>color<wbr/>Correction.<wbr/>gains</a> and
-<a href="#controls_android.colorCorrection.mode">android.<wbr/>color<wbr/>Correction.<wbr/>mode</a>.<wbr/></p>
+<a href="#controls_android.colorCorrection.mode">android.<wbr/>color<wbr/>Correction.<wbr/>mode</a>.<wbr/> Note that when <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a>
+is OFF,<wbr/> the behavior of AWB is device dependent.<wbr/> It is recommened to
+also set AWB mode to OFF or lock AWB by using <a href="#controls_android.control.awbLock">android.<wbr/>control.<wbr/>awb<wbr/>Lock</a> before
+setting AE mode to OFF.<wbr/></p>
 <p>When set to the OFF mode,<wbr/> the camera device's auto-white balance
 routine is disabled.<wbr/> The application manually controls the white
 balance by <a href="#controls_android.colorCorrection.transform">android.<wbr/>color<wbr/>Correction.<wbr/>transform</a>,<wbr/> <a href="#controls_android.colorCorrection.gains">android.<wbr/>color<wbr/>Correction.<wbr/>gains</a>
@@ -3695,10 +3721,38 @@ the application avoids unnecessary scene mode switch as much as possible.<wbr/><
                   <li>
                     <span class="entry_type_enum_name">HDR</span>
                     <span class="entry_type_enum_optional">[optional]</span>
-                    <span class="entry_type_enum_optional">[hidden]</span>
-                    <span class="entry_type_enum_notes"><p>Turn on custom high dynamic range (HDR) mode.<wbr/></p>
-<p>This is intended for LEGACY mode devices only;
-HAL3+ camera devices should not implement this mode.<wbr/></p></span>
+                    <span class="entry_type_enum_notes"><p>Turn on a device-specific high dynamic range (HDR) mode.<wbr/></p>
+<p>In this scene mode,<wbr/> the camera device captures images
+that keep a larger range of scene illumination levels
+visible in the final image.<wbr/> For example,<wbr/> when taking a
+picture of a object in front of a bright window,<wbr/> both
+the object and the scene through the window may be
+visible when using HDR mode,<wbr/> while in normal AUTO mode,<wbr/>
+one or the other may be poorly exposed.<wbr/> As a tradeoff,<wbr/>
+HDR mode generally takes much longer to capture a single
+image,<wbr/> has no user control,<wbr/> and may have other artifacts
+depending on the HDR method used.<wbr/></p>
+<p>Therefore,<wbr/> HDR captures operate at a much slower rate
+than regular captures.<wbr/></p>
+<p>In this mode,<wbr/> on LIMITED or FULL devices,<wbr/> when a request
+is made with a <a href="#controls_android.control.captureIntent">android.<wbr/>control.<wbr/>capture<wbr/>Intent</a> of
+STILL_<wbr/>CAPTURE,<wbr/> the camera device will capture an image
+using a high dynamic range capture technique.<wbr/>  On LEGACY
+devices,<wbr/> captures that target a JPEG-format output will
+be captured with HDR,<wbr/> and the capture intent is not
+relevant.<wbr/></p>
+<p>The HDR capture may involve the device capturing a burst
+of images internally and combining them into one,<wbr/> or it
+may involve the device using specialized high dynamic
+range capture hardware.<wbr/> In all cases,<wbr/> a single image is
+produced in response to a capture request submitted
+while in HDR mode.<wbr/></p>
+<p>Since substantial post-processing is generally needed to
+produce an HDR image,<wbr/> only YUV and JPEG outputs are
+supported for LIMITED/<wbr/>FULL device HDR captures,<wbr/> and only
+JPEG outputs are supported for LEGACY HDR
+captures.<wbr/> Using a RAW output for HDR capture is not
+supported.<wbr/></p></span>
                   </li>
                 </ul>
 
@@ -3913,8 +3967,7 @@ supported by this camera device.<wbr/></p>
 supported by a given camera device.<wbr/> This field lists the
 valid anti-banding modes that the application may request
 for this camera device with the
-<a href="#controls_android.control.aeAntibandingMode">android.<wbr/>control.<wbr/>ae<wbr/>Antibanding<wbr/>Mode</a> control.<wbr/> This list
-always includes AUTO.<wbr/></p>
+<a href="#controls_android.control.aeAntibandingMode">android.<wbr/>control.<wbr/>ae<wbr/>Antibanding<wbr/>Mode</a> control.<wbr/></p>
             </td>
           </tr>
 
@@ -4079,8 +4132,12 @@ that are supported by this camera device.<wbr/></p>
             </td>
 
             <td class="entry_range">
-              <p><code>Min.<wbr/>exposure compensation * <a href="#static_android.control.aeCompensationStep">android.<wbr/>control.<wbr/>ae<wbr/>Compensation<wbr/>Step</a> &lt;= -2 EV</code></p>
+              <p>Range [0,<wbr/>0] indicates that exposure compensation is not supported.<wbr/></p>
+<p>For LIMITED and FULL devices,<wbr/> range must follow below requirements if exposure
+compensation is supported (<code>range != [0,<wbr/> 0]</code>):</p>
+<p><code>Min.<wbr/>exposure compensation * <a href="#static_android.control.aeCompensationStep">android.<wbr/>control.<wbr/>ae<wbr/>Compensation<wbr/>Step</a> &lt;= -2 EV</code></p>
 <p><code>Max.<wbr/>exposure compensation * <a href="#static_android.control.aeCompensationStep">android.<wbr/>control.<wbr/>ae<wbr/>Compensation<wbr/>Step</a> &gt;= 2 EV</code></p>
+<p>LEGACY devices may support a smaller range than this.<wbr/></p>
             </td>
 
             <td class="entry_tags">
@@ -4990,7 +5047,8 @@ sources.<wbr/></p></span>
                     <span class="entry_type_enum_name">AUTO</span>
                     <span class="entry_type_enum_notes"><p>The camera device will automatically adapt its
 antibanding routine to the current illumination
-conditions.<wbr/> This is the default.<wbr/></p></span>
+condition.<wbr/> This is the default mode if AUTO is
+available on given camera device.<wbr/></p></span>
                   </li>
                 </ul>
 
@@ -5039,8 +5097,10 @@ control.<wbr/></p>
 options for the antibanding mode.<wbr/> The
 <a href="#static_android.control.aeAvailableAntibandingModes">android.<wbr/>control.<wbr/>ae<wbr/>Available<wbr/>Antibanding<wbr/>Modes</a> key contains
 the available modes for a given camera device.<wbr/></p>
-<p>The default mode is AUTO,<wbr/> which is supported by all
-camera devices.<wbr/></p>
+<p>AUTO mode is the default if it is available on given
+camera device.<wbr/> When AUTO mode is not available,<wbr/> the
+default will be either 50HZ or 60HZ,<wbr/> and both 50HZ
+and 60HZ will be available.<wbr/></p>
 <p>If manual exposure control is enabled (by setting
 <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a> or <a href="#controls_android.control.mode">android.<wbr/>control.<wbr/>mode</a> to OFF),<wbr/>
 then this setting has no effect,<wbr/> and the application must
@@ -5056,8 +5116,9 @@ the application in this.<wbr/></p>
           <tr class="entry_cont">
             <td class="entry_details" colspan="5">
               <p>For all capture request templates,<wbr/> this field must be set
-to AUTO.<wbr/>  AUTO is the only mode that must supported;
-OFF,<wbr/> 50HZ,<wbr/> 60HZ are all optional.<wbr/></p>
+to AUTO if AUTO mode is available.<wbr/> If AUTO is not available,<wbr/>
+the default must be either 50HZ or 60HZ,<wbr/> and both 50HZ and
+60HZ must be available.<wbr/></p>
 <p>If manual exposure control is enabled (by setting
 <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a> or <a href="#controls_android.control.mode">android.<wbr/>control.<wbr/>mode</a> to OFF),<wbr/>
 then the exposure values provided by the application must not be
@@ -5252,6 +5313,14 @@ any flicker during the switch,<wbr/> the following procedure is recommended:</p>
 <a href="#controls_android.sensor.frameDuration">android.<wbr/>sensor.<wbr/>frame<wbr/>Duration</a> are used by the camera
 device,<wbr/> along with android.<wbr/>flash.<wbr/>* fields,<wbr/> if there's
 a flash unit for this camera device.<wbr/></p>
+<p>Note that auto-white balance (AWB) and auto-focus (AF)
+behavior is device dependent when AE is in OFF mode.<wbr/>
+To have consistent behavior across different devices,<wbr/>
+it is recommended to either set AWB and AF to OFF mode
+or lock AWB and AF before setting AE to OFF.<wbr/>
+See <a href="#controls_android.control.awbMode">android.<wbr/>control.<wbr/>awb<wbr/>Mode</a>,<wbr/> <a href="#controls_android.control.afMode">android.<wbr/>control.<wbr/>af<wbr/>Mode</a>,<wbr/>
+<a href="#controls_android.control.awbLock">android.<wbr/>control.<wbr/>awb<wbr/>Lock</a>,<wbr/> and <a href="#controls_android.control.afTrigger">android.<wbr/>control.<wbr/>af<wbr/>Trigger</a>
+for more details.<wbr/></p>
 <p>LEGACY devices do not support the OFF mode and will
 override attempts to use this value to ON.<wbr/></p></span>
                   </li>
@@ -5556,9 +5625,9 @@ metering sequence when it processes this request.<wbr/></p>
             <td class="entry_details" colspan="5">
               <p>This entry is normally set to IDLE,<wbr/> or is not
 included at all in the request settings.<wbr/> When included and
-set to START,<wbr/> the camera device will trigger the autoexposure
+set to START,<wbr/> the camera device will trigger the auto-exposure (AE)
 precapture metering sequence.<wbr/></p>
-<p>The precapture sequence should triggered before starting a
+<p>The precapture sequence should be triggered before starting a
 high-quality still capture for final metering decisions to
 be made,<wbr/> and for firing pre-capture flash pulses to estimate
 scene brightness and required final capture flash power,<wbr/> when
@@ -5566,6 +5635,14 @@ the flash is enabled.<wbr/></p>
 <p>Normally,<wbr/> this entry should be set to START for only a
 single request,<wbr/> and the application should wait until the
 sequence completes before starting a new one.<wbr/></p>
+<p>When a precapture metering sequence is finished,<wbr/> the camera device
+may lock the auto-exposure routine internally to be able to accurately expose the
+subsequent still capture image (<code><a href="#controls_android.control.captureIntent">android.<wbr/>control.<wbr/>capture<wbr/>Intent</a> == STILL_<wbr/>CAPTURE</code>).<wbr/>
+For this case,<wbr/> the AE may not resume normal scan if no subsequent still capture is
+submitted.<wbr/> To ensure that the AE routine restarts normal scan,<wbr/> the application should
+submit a request with <code><a href="#controls_android.control.aeLock">android.<wbr/>control.<wbr/>ae<wbr/>Lock</a> == true</code>,<wbr/> followed by a request
+with <code><a href="#controls_android.control.aeLock">android.<wbr/>control.<wbr/>ae<wbr/>Lock</a> == false</code>,<wbr/> if the application decides not to submit a
+still capture request after the precapture sequence completes.<wbr/></p>
 <p>The exact effect of auto-exposure (AE) precapture trigger
 depends on the current AE mode and state; see
 <a href="#dynamic_android.control.aeState">android.<wbr/>control.<wbr/>ae<wbr/>State</a> for AE precapture state transition
@@ -5976,7 +6053,10 @@ mode it is set to.<wbr/></p>
           <tr class="entry_cont">
             <td class="entry_details" colspan="5">
               <p>Only effective if <a href="#controls_android.control.mode">android.<wbr/>control.<wbr/>mode</a> = AUTO and the lens is not fixed focus
-(i.<wbr/>e.<wbr/> <code><a href="#static_android.lens.info.minimumFocusDistance">android.<wbr/>lens.<wbr/>info.<wbr/>minimum<wbr/>Focus<wbr/>Distance</a> &gt; 0</code>).<wbr/></p>
+(i.<wbr/>e.<wbr/> <code><a href="#static_android.lens.info.minimumFocusDistance">android.<wbr/>lens.<wbr/>info.<wbr/>minimum<wbr/>Focus<wbr/>Distance</a> &gt; 0</code>).<wbr/> Also note that
+when <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a> is OFF,<wbr/> the behavior of AF is device
+dependent.<wbr/> It is recommended to lock AF by using <a href="#controls_android.control.afTrigger">android.<wbr/>control.<wbr/>af<wbr/>Trigger</a> before
+setting <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a> to OFF,<wbr/> or set AF mode to OFF when AE is OFF.<wbr/></p>
 <p>If the lens is controlled by the camera device auto-focus algorithm,<wbr/>
 the camera device will report the current AF status in <a href="#dynamic_android.control.afState">android.<wbr/>control.<wbr/>af<wbr/>State</a>
 in result metadata.<wbr/></p>
@@ -6955,7 +7035,10 @@ is.<wbr/></p>
 <p>When set to the ON mode,<wbr/> the camera device's auto-white balance
 routine is enabled,<wbr/> overriding the application's selected
 <a href="#controls_android.colorCorrection.transform">android.<wbr/>color<wbr/>Correction.<wbr/>transform</a>,<wbr/> <a href="#controls_android.colorCorrection.gains">android.<wbr/>color<wbr/>Correction.<wbr/>gains</a> and
-<a href="#controls_android.colorCorrection.mode">android.<wbr/>color<wbr/>Correction.<wbr/>mode</a>.<wbr/></p>
+<a href="#controls_android.colorCorrection.mode">android.<wbr/>color<wbr/>Correction.<wbr/>mode</a>.<wbr/> Note that when <a href="#controls_android.control.aeMode">android.<wbr/>control.<wbr/>ae<wbr/>Mode</a>
+is OFF,<wbr/> the behavior of AWB is device dependent.<wbr/> It is recommened to
+also set AWB mode to OFF or lock AWB by using <a href="#controls_android.control.awbLock">android.<wbr/>control.<wbr/>awb<wbr/>Lock</a> before
+setting AE mode to OFF.<wbr/></p>
 <p>When set to the OFF mode,<wbr/> the camera device's auto-white balance
 routine is disabled.<wbr/> The application manually controls the white
 balance by <a href="#controls_android.colorCorrection.transform">android.<wbr/>color<wbr/>Correction.<wbr/>transform</a>,<wbr/> <a href="#controls_android.colorCorrection.gains">android.<wbr/>color<wbr/>Correction.<wbr/>gains</a>
@@ -7763,10 +7846,38 @@ the application avoids unnecessary scene mode switch as much as possible.<wbr/><
                   <li>
                     <span class="entry_type_enum_name">HDR</span>
                     <span class="entry_type_enum_optional">[optional]</span>
-                    <span class="entry_type_enum_optional">[hidden]</span>
-                    <span class="entry_type_enum_notes"><p>Turn on custom high dynamic range (HDR) mode.<wbr/></p>
-<p>This is intended for LEGACY mode devices only;
-HAL3+ camera devices should not implement this mode.<wbr/></p></span>
+                    <span class="entry_type_enum_notes"><p>Turn on a device-specific high dynamic range (HDR) mode.<wbr/></p>
+<p>In this scene mode,<wbr/> the camera device captures images
+that keep a larger range of scene illumination levels
+visible in the final image.<wbr/> For example,<wbr/> when taking a
+picture of a object in front of a bright window,<wbr/> both
+the object and the scene through the window may be
+visible when using HDR mode,<wbr/> while in normal AUTO mode,<wbr/>
+one or the other may be poorly exposed.<wbr/> As a tradeoff,<wbr/>
+HDR mode generally takes much longer to capture a single
+image,<wbr/> has no user control,<wbr/> and may have other artifacts
+depending on the HDR method used.<wbr/></p>
+<p>Therefore,<wbr/> HDR captures operate at a much slower rate
+than regular captures.<wbr/></p>
+<p>In this mode,<wbr/> on LIMITED or FULL devices,<wbr/> when a request
+is made with a <a href="#controls_android.control.captureIntent">android.<wbr/>control.<wbr/>capture<wbr/>Intent</a> of
+STILL_<wbr/>CAPTURE,<wbr/> the camera device will capture an image
+using a high dynamic range capture technique.<wbr/>  On LEGACY
+devices,<wbr/> captures that target a JPEG-format output will
+be captured with HDR,<wbr/> and the capture intent is not
+relevant.<wbr/></p>
+<p>The HDR capture may involve the device capturing a burst
+of images internally and combining them into one,<wbr/> or it
+may involve the device using specialized high dynamic
+range capture hardware.<wbr/> In all cases,<wbr/> a single image is
+produced in response to a capture request submitted
+while in HDR mode.<wbr/></p>
+<p>Since substantial post-processing is generally needed to
+produce an HDR image,<wbr/> only YUV and JPEG outputs are
+supported for LIMITED/<wbr/>FULL device HDR captures,<wbr/> and only
+JPEG outputs are supported for LEGACY HDR
+captures.<wbr/> Using a RAW output for HDR capture is not
+supported.<wbr/></p></span>
                   </li>
                 </ul>
 
@@ -13750,6 +13861,53 @@ raw sensor images.<wbr/></p>
   (both input/<wbr/>output) will match the maximum available
   resolution of JPEG streams.<wbr/></li>
 </ul></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">READ_SENSOR_SETTINGS</span>
+                    <span class="entry_type_enum_optional">[optional]</span>
+                    <span class="entry_type_enum_notes"><p>The camera device supports accurately reporting the sensor settings for many of
+the sensor controls while the built-in 3A algorithm is running.<wbr/>  This allows
+reporting of sensor settings even when these settings cannot be manually changed.<wbr/></p>
+<p>The values reported for the following controls are guaranteed to be available
+in the CaptureResult,<wbr/> including when 3A is enabled:</p>
+<ul>
+<li>Exposure control<ul>
+<li><a href="#controls_android.sensor.exposureTime">android.<wbr/>sensor.<wbr/>exposure<wbr/>Time</a></li>
+</ul>
+</li>
+<li>Sensitivity control<ul>
+<li><a href="#controls_android.sensor.sensitivity">android.<wbr/>sensor.<wbr/>sensitivity</a></li>
+</ul>
+</li>
+<li>Lens controls (if the lens is adjustable)<ul>
+<li><a href="#controls_android.lens.focusDistance">android.<wbr/>lens.<wbr/>focus<wbr/>Distance</a></li>
+<li><a href="#controls_android.lens.aperture">android.<wbr/>lens.<wbr/>aperture</a></li>
+</ul>
+</li>
+</ul>
+<p>This capability is a subset of the MANUAL_<wbr/>SENSOR control capability,<wbr/> and will
+always be included if the MANUAL_<wbr/>SENSOR capability is available.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">BURST_CAPTURE</span>
+                    <span class="entry_type_enum_optional">[optional]</span>
+                    <span class="entry_type_enum_notes"><p>The camera device supports capturing maximum-resolution
+images at &gt;= 20 frames per second,<wbr/> in at least the
+uncompressed YUV format,<wbr/> when post-processing settings
+are set to FAST.<wbr/></p>
+<p>More specifically,<wbr/> this means that a size matching the
+camera device's active array size is listed as a
+supported size for the YUV_<wbr/>420_<wbr/>888 format in
+<a href="#static_android.scaler.streamConfigurationMap">android.<wbr/>scaler.<wbr/>stream<wbr/>Configuration<wbr/>Map</a>,<wbr/> the minimum frame
+duration for that format and size is &lt;= 1/<wbr/>20 s,<wbr/> and
+the <a href="#static_android.control.aeAvailableTargetFpsRanges">android.<wbr/>control.<wbr/>ae<wbr/>Available<wbr/>Target<wbr/>Fps<wbr/>Ranges</a> entry
+lists at least one FPS range where the minimum FPS is</p>
+<blockquote>
+<p>= 1 /<wbr/> minimumFrameDuration for the maximum-size
+YUV_<wbr/>420_<wbr/>888 format.<wbr/></p>
+</blockquote>
+<p>In addition,<wbr/> the <a href="#static_android.sync.maxLatency">android.<wbr/>sync.<wbr/>max<wbr/>Latency</a> field is
+guaranted to have a value between 0 and 4,<wbr/> inclusive.<wbr/></p></span>
                   </li>
                 </ul>
 
@@ -22594,12 +22752,16 @@ doesn't violate the above rules.<wbr/></p>
               <p>Camera devices will come in three flavors: LEGACY,<wbr/> LIMITED and FULL.<wbr/></p>
 <p>A FULL device will support below capabilities:</p>
 <ul>
-<li>30fps at maximum resolution (== sensor resolution) is preferred,<wbr/> more than 20fps is required.<wbr/></li>
+<li>30fps operation at maximum resolution (== sensor resolution) is preferred,<wbr/> more than
+  20fps is required,<wbr/> for at least uncompressed YUV
+  output.<wbr/> (<a href="#static_android.request.availableCapabilities">android.<wbr/>request.<wbr/>available<wbr/>Capabilities</a> contains BURST_<wbr/>CAPTURE)</li>
 <li>Per frame control (<a href="#static_android.sync.maxLatency">android.<wbr/>sync.<wbr/>max<wbr/>Latency</a> <code>==</code> PER_<wbr/>FRAME_<wbr/>CONTROL)</li>
 <li>Manual sensor control (<a href="#static_android.request.availableCapabilities">android.<wbr/>request.<wbr/>available<wbr/>Capabilities</a> contains MANUAL_<wbr/>SENSOR)</li>
-<li>Manual post-processing control (<a href="#static_android.request.availableCapabilities">android.<wbr/>request.<wbr/>available<wbr/>Capabilities</a> contains MANUAL_<wbr/>POST_<wbr/>PROCESSING)</li>
+<li>Manual post-processing control (<a href="#static_android.request.availableCapabilities">android.<wbr/>request.<wbr/>available<wbr/>Capabilities</a> contains
+  MANUAL_<wbr/>POST_<wbr/>PROCESSING)</li>
 <li>Arbitrary cropping region (<a href="#static_android.scaler.croppingType">android.<wbr/>scaler.<wbr/>cropping<wbr/>Type</a> <code>==</code> FREEFORM)</li>
-<li>At least 3 processed (but not stalling) format output streams (<a href="#static_android.request.maxNumOutputProc">android.<wbr/>request.<wbr/>max<wbr/>Num<wbr/>Output<wbr/>Proc</a> <code>&gt;=</code> 3)</li>
+<li>At least 3 processed (but not stalling) format output streams
+  (<a href="#static_android.request.maxNumOutputProc">android.<wbr/>request.<wbr/>max<wbr/>Num<wbr/>Output<wbr/>Proc</a> <code>&gt;=</code> 3)</li>
 <li>The required stream configuration defined in <a href="#static_android.scaler.availableStreamConfigurations">android.<wbr/>scaler.<wbr/>available<wbr/>Stream<wbr/>Configurations</a></li>
 <li>The required exposure time range defined in <a href="#static_android.sensor.info.exposureTimeRange">android.<wbr/>sensor.<wbr/>info.<wbr/>exposure<wbr/>Time<wbr/>Range</a></li>
 <li>The required maxFrameDuration defined in <a href="#static_android.sensor.info.maxFrameDuration">android.<wbr/>sensor.<wbr/>info.<wbr/>max<wbr/>Frame<wbr/>Duration</a></li>

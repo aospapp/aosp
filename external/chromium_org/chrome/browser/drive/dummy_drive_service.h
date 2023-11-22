@@ -22,7 +22,6 @@ class DummyDriveService : public DriveServiceInterface {
   virtual void AddObserver(DriveServiceObserver* observer) OVERRIDE;
   virtual void RemoveObserver(DriveServiceObserver* observer) OVERRIDE;
   virtual bool CanSendRequest() const OVERRIDE;
-  virtual ResourceIdCanonicalizer GetResourceIdCanonicalizer() const OVERRIDE;
   virtual bool HasAccessToken() const OVERRIDE;
   virtual void RequestAccessToken(
       const google_apis::AuthStatusCallback& callback) OVERRIDE;
@@ -88,10 +87,6 @@ class DummyDriveService : public DriveServiceInterface {
       const base::Time& last_modified,
       const base::Time& last_viewed_by_me,
       const google_apis::FileResourceCallback& callback) OVERRIDE;
-  virtual google_apis::CancelCallback RenameResource(
-      const std::string& resource_id,
-      const std::string& new_title,
-      const google_apis::EntryActionCallback& callback) OVERRIDE;
   virtual google_apis::CancelCallback AddResourceToDirectory(
       const std::string& parent_resource_id,
       const std::string& resource_id,

@@ -177,13 +177,6 @@ class ExtensionPrefs : public ExtensionScopedPrefs, public KeyedService {
   ExtensionIdList GetToolbarOrder();
   void SetToolbarOrder(const ExtensionIdList& extension_ids);
 
-  // Gets the set of known disabled extension IDs into |id_set_out|. Returns
-  // false iff the set of known disabled extension IDs hasn't been set yet.
-  bool GetKnownDisabled(ExtensionIdSet* id_set_out);
-
-  // Sets the set of known disabled extension IDs.
-  void SetKnownDisabled(const ExtensionIdSet& extension_ids);
-
   // Called when an extension is installed, so that prefs get created.
   // If |page_ordinal| is invalid then a page will be found for the App.
   // |install_flags| are a bitmask of extension::InstallFlags.
@@ -353,11 +346,6 @@ class ExtensionPrefs : public ExtensionScopedPrefs, public KeyedService {
   // Subsequent calls return true. It's not possible through an API to ever
   // reset it. Don't call it unless you mean it!
   bool SetAlertSystemFirstRun();
-
-  // Checks if extensions are blacklisted by default, by policy.
-  // The ManagementPolicy::Provider methods also take this into account, and
-  // should be used instead when the extension ID is known.
-  bool ExtensionsBlacklistedByDefault() const;
 
   // Returns the last value set via SetLastPingDay. If there isn't such a
   // pref, the returned Time will return true for is_null().
@@ -541,10 +529,6 @@ class ExtensionPrefs : public ExtensionScopedPrefs, public KeyedService {
   // The underlying AppSorting.
   AppSorting* app_sorting() const { return app_sorting_.get(); }
 
-  // Describes the URLs that are able to install extensions. See
-  // pref_names::kAllowedInstallSites for more information.
-  URLPatternSet GetAllowedInstallSites();
-
   // Schedules garbage collection of an extension's on-disk data on the next
   // start of this ExtensionService. Applies only to extensions with isolated
   // storage.
@@ -567,6 +551,11 @@ class ExtensionPrefs : public ExtensionScopedPrefs, public KeyedService {
   std::string GetInstallParam(const std::string& extension_id) const;
   void SetInstallParam(const std::string& extension_id,
                        const std::string& install_parameter);
+
+  // The total number of times we've disabled an extension due to corrupted
+  // contents.
+  int GetCorruptedDisableCount();
+  void IncrementCorruptedDisableCount();
 
  private:
   friend class ExtensionPrefsBlacklistedExtensions;  // Unit test.

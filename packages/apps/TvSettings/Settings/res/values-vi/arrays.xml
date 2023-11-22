@@ -90,8 +90,8 @@
     <item msgid="5333047169042840730">"Không có"</item>
     <item msgid="7663488423233018922">"Viền ngoài"</item>
     <item msgid="7891048730741670843">"Bóng đổ"</item>
-    <item msgid="6613725572146700438">"Tăng"</item>
-    <item msgid="1007736533206905292">"Giảm"</item>
+    <item msgid="6613725572146700438">"Nổi"</item>
+    <item msgid="1007736533206905292">"Chìm"</item>
   </string-array>
   <string-array name="captioning_opacity_selector_titles">
     <item msgid="7311196539184412021">"25%"</item>

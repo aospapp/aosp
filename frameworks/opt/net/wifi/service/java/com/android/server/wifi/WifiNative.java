@@ -254,6 +254,10 @@ public class WifiNative {
         return doStringCommand("LIST_NETWORKS");
     }
 
+    public String listNetworks(int last_id) {
+        return doStringCommand("LIST_NETWORKS LAST_ID=" + last_id);
+    }
+
     public int addNetwork() {
         return doIntCommand("ADD_NETWORK");
     }
@@ -1134,6 +1138,7 @@ public class WifiNative {
     private static int sP2p0Index = -1;
 
     private static boolean sHalIsStarted = false;
+    private static boolean sHalFailed = false;
 
     private static native boolean startHalNative();
     private static native void stopHalNative();
@@ -1151,14 +1156,16 @@ public class WifiNative {
         synchronized (mLock) {
             if (sHalIsStarted)
                 return true;
-            if (startHalNative()) {
-                getInterfaces();
+            if (sHalFailed)
+                return false;
+            if (startHalNative() && (getInterfaces() != 0) && (sWlan0Index != -1)) {
                 new MonitorThread().start();
                 sHalIsStarted = true;
                 return true;
             } else {
                 Log.i(TAG, "Could not start hal");
                 sHalIsStarted = false;
+                sHalFailed = true;
                 return false;
             }
         }
@@ -1277,15 +1284,21 @@ public class WifiNative {
         if (DBG) Log.i(TAG, "Got a full scan results event, ssid = " + result.SSID + ", " +
                 "num = " + bytes.length);
 
+        if (sScanEventHandler == null) {
+            return;
+        }
+
         int num = 0;
         for (int i = 0; i < bytes.length; ) {
-            num++;
-            int type  = (int) bytes[i] & 0xFF;
-            int len = (int) bytes[i + 1] & 0xFF;
-            if (len < 0) {
-                Log.e(TAG, "bad length; returning");
-                return;
+            int type  = bytes[i] & 0xFF;
+            int len = bytes[i + 1] & 0xFF;
+
+            if (i + len + 2 > bytes.length) {
+                Log.w(TAG, "bad length " + len + " of IE " + type + " from " + result.BSSID);
+                Log.w(TAG, "ignoring the rest of the IEs");
+                break;
             }
+            num++;
             i += len + 2;
             if (DBG) Log.i(TAG, "bytes[" + i + "] = [" + type + ", " + len + "]" + ", " +
                     "next = " + i);
@@ -1293,8 +1306,8 @@ public class WifiNative {
 
         ScanResult.InformationElement elements[] = new ScanResult.InformationElement[num];
         for (int i = 0, index = 0; i < num; i++) {
-            int type  = (int) bytes[index] & 0xFF;
-            int len = (int) bytes[index + 1] & 0xFF;
+            int type  = bytes[index] & 0xFF;
+            int len = bytes[index + 1] & 0xFF;
             if (DBG) Log.i(TAG, "index = " + index + ", type = " + type + ", len = " + len);
             ScanResult.InformationElement elem = new ScanResult.InformationElement();
             elem.id = type;
@@ -1307,9 +1320,7 @@ public class WifiNative {
         }
 
         result.informationElements = elements;
-        if (sScanEventHandler  != null) {
-            sScanEventHandler.onFullScanResult(result);
-        }
+        sScanEventHandler.onFullScanResult(result);
     }
 
     private static int sScanCmdId = 0;

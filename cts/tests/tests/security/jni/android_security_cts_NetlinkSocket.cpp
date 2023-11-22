@@ -32,7 +32,7 @@ static void android_security_cts_NetlinkSocket_create(JNIEnv* env, jclass,
     int sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
     if (sock == -1) {
         ALOGE("Can't create socket %s", strerror(errno));
-        jclass SocketException = env->FindClass("java/security/SocketException");
+        jclass SocketException = env->FindClass("java/net/SocketException");
         env->ThrowNew(SocketException, "Can't create socket");
         return;
     }

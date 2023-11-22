@@ -3,10 +3,12 @@
 // found in the LICENSE file.
 
 #include "base/strings/utf_string_conversions.h"
+#include "base/time/time.h"
 #include "content/common/frame_messages.h"
 #include "content/common/view_message_enums.h"
 #include "content/public/test/render_view_test.h"
 #include "content/renderer/accessibility/renderer_accessibility_complete.h"
+#include "content/renderer/render_frame_impl.h"
 #include "content/renderer/render_view_impl.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/WebKit/public/platform/WebSize.h"
@@ -22,8 +24,8 @@ namespace content {
 
 class TestRendererAccessibilityComplete : public RendererAccessibilityComplete {
  public:
-  explicit TestRendererAccessibilityComplete(RenderViewImpl* render_view)
-    : RendererAccessibilityComplete(render_view) {
+  explicit TestRendererAccessibilityComplete(RenderFrameImpl* render_frame)
+    : RendererAccessibilityComplete(render_frame) {
   }
 
   void SendPendingAccessibilityEvents() {
@@ -49,7 +51,7 @@ class RendererAccessibilityTest : public RenderViewTest {
   }
 
   void SetMode(AccessibilityMode mode) {
-    view()->OnSetAccessibilityMode(mode);
+    frame()->OnSetAccessibilityMode(mode);
   }
 
   void GetLastAccEvent(
@@ -57,7 +59,7 @@ class RendererAccessibilityTest : public RenderViewTest {
     const IPC::Message* message =
         sink_->GetUniqueMessageMatching(AccessibilityHostMsg_Events::ID);
     ASSERT_TRUE(message);
-    Tuple1<std::vector<AccessibilityHostMsg_EventParams> > param;
+    Tuple2<std::vector<AccessibilityHostMsg_EventParams>, int> param;
     AccessibilityHostMsg_Events::Read(message, &param);
     ASSERT_GE(param.a.size(), 1U);
     *params = param.a[0];
@@ -239,7 +241,7 @@ TEST_F(RendererAccessibilityTest, SendFullAccessibilityTreeOnReload) {
   // Creating a RendererAccessibilityComplete should sent the tree
   // to the browser.
   scoped_ptr<TestRendererAccessibilityComplete> accessibility(
-      new TestRendererAccessibilityComplete(view()));
+      new TestRendererAccessibilityComplete(frame()));
   accessibility->SendPendingAccessibilityEvents();
   EXPECT_EQ(4, CountAccessibilityNodesSentToBrowser());
 
@@ -309,7 +311,7 @@ TEST_F(RendererAccessibilityTest,
   // Creating a RendererAccessibilityComplete should send the tree
   // to the browser.
   scoped_ptr<TestRendererAccessibilityComplete> accessibility(
-      new TestRendererAccessibilityComplete(view()));
+      new TestRendererAccessibilityComplete(frame()));
   accessibility->SendPendingAccessibilityEvents();
   EXPECT_EQ(5, CountAccessibilityNodesSentToBrowser());
 
@@ -322,7 +324,7 @@ TEST_F(RendererAccessibilityTest,
   accessibility->HandleAXEvent(
       root_obj,
       ui::AX_EVENT_VALUE_CHANGED);
-  view()->main_render_frame()->OnSwapOut(kProxyRoutingId);
+  view()->GetMainRenderFrame()->OnSwapOut(kProxyRoutingId);
   accessibility->SendPendingAccessibilityEvents();
   EXPECT_FALSE(sink_->GetUniqueMessageMatching(
       AccessibilityHostMsg_Events::ID));
@@ -335,11 +337,12 @@ TEST_F(RendererAccessibilityTest,
   FrameMsg_Navigate_Params nav_params;
   nav_params.url = GURL("data:text/html,<p>Hello, again.</p>");
   nav_params.navigation_type = FrameMsg_Navigate_Type::NORMAL;
-  nav_params.transition = PAGE_TRANSITION_TYPED;
+  nav_params.transition = ui::PAGE_TRANSITION_TYPED;
   nav_params.current_history_list_length = 1;
   nav_params.current_history_list_offset = 0;
   nav_params.pending_history_list_offset = 1;
   nav_params.page_id = -1;
+  nav_params.browser_navigation_start = base::TimeTicks::FromInternalValue(1);
   frame()->OnNavigate(nav_params);
   accessibility->SendPendingAccessibilityEvents();
   EXPECT_TRUE(sink_->GetUniqueMessageMatching(
@@ -362,7 +365,7 @@ TEST_F(RendererAccessibilityTest, HideAccessibilityObject) {
   LoadHTML(html.c_str());
 
   scoped_ptr<TestRendererAccessibilityComplete> accessibility(
-      new TestRendererAccessibilityComplete(view()));
+      new TestRendererAccessibilityComplete(frame()));
   accessibility->SendPendingAccessibilityEvents();
   EXPECT_EQ(4, CountAccessibilityNodesSentToBrowser());
 
@@ -414,7 +417,7 @@ TEST_F(RendererAccessibilityTest, ShowAccessibilityObject) {
   LoadHTML(html.c_str());
 
   scoped_ptr<TestRendererAccessibilityComplete> accessibility(
-      new TestRendererAccessibilityComplete(view()));
+      new TestRendererAccessibilityComplete(frame()));
   accessibility->SendPendingAccessibilityEvents();
   EXPECT_EQ(3, CountAccessibilityNodesSentToBrowser());
 
@@ -458,7 +461,7 @@ TEST_F(RendererAccessibilityTest, DetachAccessibilityObject) {
   LoadHTML(html.c_str());
 
   scoped_ptr<TestRendererAccessibilityComplete> accessibility(
-      new TestRendererAccessibilityComplete(view()));
+      new TestRendererAccessibilityComplete(frame()));
   accessibility->SendPendingAccessibilityEvents();
   EXPECT_EQ(7, CountAccessibilityNodesSentToBrowser());
 
@@ -526,7 +529,7 @@ TEST_F(RendererAccessibilityTest, EventOnObjectNotInTree) {
   LoadHTML(html.c_str());
 
   scoped_ptr<TestRendererAccessibilityComplete> accessibility(
-      new TestRendererAccessibilityComplete(view()));
+      new TestRendererAccessibilityComplete(frame()));
   accessibility->SendPendingAccessibilityEvents();
   EXPECT_EQ(3, CountAccessibilityNodesSentToBrowser());
 
@@ -546,7 +549,7 @@ TEST_F(RendererAccessibilityTest, EventOnObjectNotInTree) {
   const IPC::Message* message =
       sink_->GetUniqueMessageMatching(AccessibilityHostMsg_Events::ID);
   ASSERT_TRUE(message);
-  Tuple1<std::vector<AccessibilityHostMsg_EventParams> > param;
+  Tuple2<std::vector<AccessibilityHostMsg_EventParams>, int> param;
   AccessibilityHostMsg_Events::Read(message, &param);
   ASSERT_EQ(0U, param.a.size());
 }

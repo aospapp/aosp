@@ -26,6 +26,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.SystemClock;
 
+import com.android.internal.util.IndentingPrintWriter;
+
 import java.util.List;
 
 /**
@@ -244,30 +246,33 @@ public class BluetoothManager {
         mBluetoothConnectionPending = false;
     }
 
-    private void dumpBluetoothState() {
-        Log.d(this, "============== dumpBluetoothState() =============");
-        Log.d(this, "= isBluetoothAvailable: " + isBluetoothAvailable());
-        Log.d(this, "= isBluetoothAudioConnected: " + isBluetoothAudioConnected());
-        Log.d(this, "= isBluetoothAudioConnectedOrPending: " +
-                isBluetoothAudioConnectedOrPending());
-        Log.d(this, "=");
+    /**
+     * Dumps the state of the {@link BluetoothManager}.
+     *
+     * @param pw The {@code IndentingPrintWriter} to write the state to.
+     */
+    public void dump(IndentingPrintWriter pw) {
+        pw.println("isBluetoothAvailable: " + isBluetoothAvailable());
+        pw.println("isBluetoothAudioConnected: " + isBluetoothAudioConnected());
+        pw.println("isBluetoothAudioConnectedOrPending: " + isBluetoothAudioConnectedOrPending());
+
         if (mBluetoothAdapter != null) {
             if (mBluetoothHeadset != null) {
                 List<BluetoothDevice> deviceList = mBluetoothHeadset.getConnectedDevices();
 
                 if (deviceList.size() > 0) {
                     BluetoothDevice device = deviceList.get(0);
-                    Log.d(this, "= BluetoothHeadset.getCurrentDevice: " + device);
-                    Log.d(this, "= BluetoothHeadset.State: "
-                        + mBluetoothHeadset.getConnectionState(device));
-                    Log.d(this, "= BluetoothHeadset audio connected: " +
-                        mBluetoothHeadset.isAudioConnected(device));
+                    pw.println("BluetoothHeadset.getCurrentDevice: " + device);
+                    pw.println("BluetoothHeadset.State: "
+                            + mBluetoothHeadset.getConnectionState(device));
+                    pw.println("BluetoothHeadset audio connected: " +
+                            mBluetoothHeadset.isAudioConnected(device));
                 }
             } else {
-                Log.d(this, "= mBluetoothHeadset is null");
+                pw.println("mBluetoothHeadset is null");
             }
         } else {
-            Log.d(this, "= mBluetoothAdapter is null; device is not BT capable");
+            pw.println("mBluetoothAdapter is null; device is not BT capable");
         }
     }
 }

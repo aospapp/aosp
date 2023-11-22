@@ -8,9 +8,13 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
 #include "chrome/browser/supervised_user/supervised_user_service.h"
+#include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
+
+#if defined(ENABLE_EXTENSIONS)
 #include "extensions/browser/extension_system_provider.h"
 #include "extensions/browser/extensions_browser_client.h"
+#endif
 
 // static
 SupervisedUserService* SupervisedUserServiceFactory::GetForProfile(
@@ -33,9 +37,12 @@ SupervisedUserServiceFactory::SupervisedUserServiceFactory()
     : BrowserContextKeyedServiceFactory(
         "SupervisedUserService",
         BrowserContextDependencyManager::GetInstance()) {
+#if defined(ENABLE_EXTENSIONS)
   DependsOn(
       extensions::ExtensionsBrowserClient::Get()->GetExtensionSystemFactory());
+#endif
   DependsOn(ProfileOAuth2TokenServiceFactory::GetInstance());
+  DependsOn(ProfileSyncServiceFactory::GetInstance());
 }
 
 SupervisedUserServiceFactory::~SupervisedUserServiceFactory() {}

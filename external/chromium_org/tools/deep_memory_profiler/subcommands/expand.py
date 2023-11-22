@@ -5,7 +5,6 @@
 import logging
 import sys
 
-from lib.bucket import BUCKET_ID, COMMITTED, ALLOC_COUNT, FREE_COUNT
 from lib.policy import PolicySet
 from lib.subcommand import SubCommand
 
@@ -92,9 +91,8 @@ class ExpandCommand(SubCommand):
     if not rule:
       pass
     elif rule.allocator_type == 'malloc':
-      for line in dump.iter_stacktrace:
-        words = line.split()
-        bucket = bucket_set.get(int(words[BUCKET_ID]))
+      for bucket_id, _, committed, allocs, frees in dump.iter_stacktrace:
+        bucket = bucket_set.get(bucket_id)
         if not bucket or bucket.allocator_type == 'malloc':
           component_match = policy.find_malloc(bucket)
         elif bucket.allocator_type == 'mmap':
@@ -103,13 +101,12 @@ class ExpandCommand(SubCommand):
           assert False
         if component_match == component_name:
           precedence = ''
-          precedence += '(alloc=%d) ' % int(words[ALLOC_COUNT])
-          precedence += '(free=%d) ' % int(words[FREE_COUNT])
+          precedence += '(alloc=%d) ' % allocs
+          precedence += '(free=%d) ' % frees
           if bucket.typeinfo:
             precedence += '(type=%s) ' % bucket.symbolized_typeinfo
             precedence += '(type.name=%s) ' % bucket.typeinfo_name
-          ExpandCommand._add_size(precedence, bucket, depth,
-                                  int(words[COMMITTED]), sizes)
+          ExpandCommand._add_size(precedence, bucket, depth, committed, sizes)
     elif rule.allocator_type == 'mmap':
       for _, region in dump.iter_map:
         if region[0] != 'hooked':
@@ -118,3 +115,24 @@ class ExpandCommand(SubCommand):
         if component_match == component_name:
           ExpandCommand._add_size('', bucket, depth,
                                   region[1]['committed'], sizes)
+    elif rule.allocator_type == 'unhooked':
+      for addr, region in dump.iter_map:
+        if region[0] != 'unhooked':
+          continue
+        component_match = policy.find_unhooked(region)
+        if component_match == component_name:
+          precedence = ''
+          precedence += '%s-' % hex(addr[0])[2:]
+          precedence += '%s' % hex(addr[1])[2:]
+          precedence += ' %s' % region[1]['vma']['readable']
+          precedence += '%s' % region[1]['vma']['writable']
+          precedence += '%s' % region[1]['vma']['executable']
+          precedence += '%s' % region[1]['vma']['private']
+          precedence += ' %s' % region[1]['vma']['offset']
+          precedence += ' %s:' % region[1]['vma']['major']
+          precedence += '%s' % region[1]['vma']['minor']
+          precedence += ' %s' % region[1]['vma']['inode']
+          precedence += '   %s' % region[1]['vma']['name']
+          if not precedence in sizes:
+            sizes[precedence] = 0
+          sizes[precedence] += region[1]['committed']

@@ -16,6 +16,7 @@
 #include "gin/per_isolate_data.h"
 #include "gin/public/wrapper_info.h"
 #include "gin/wrappable.h"
+#include "mojo/bindings/js/drain_data.h"
 #include "mojo/bindings/js/handle.h"
 
 namespace mojo {
@@ -44,13 +45,37 @@ MojoResult WaitMany(
 }
 
 gin::Dictionary CreateMessagePipe(const gin::Arguments& args) {
+  gin::Dictionary dictionary = gin::Dictionary::CreateEmpty(args.isolate());
+  dictionary.Set("result", MOJO_RESULT_INVALID_ARGUMENT);
+
   MojoHandle handle0 = MOJO_HANDLE_INVALID;
   MojoHandle handle1 = MOJO_HANDLE_INVALID;
-  // TODO(vtl): Add support for the options struct.
-  MojoResult result = MojoCreateMessagePipe(NULL, &handle0, &handle1);
-  CHECK(result == MOJO_RESULT_OK);
+  MojoResult result = MOJO_RESULT_OK;
 
-  gin::Dictionary dictionary = gin::Dictionary::CreateEmpty(args.isolate());
+  v8::Handle<v8::Value> options_value = args.PeekNext();
+  if (options_value.IsEmpty() || options_value->IsNull() ||
+      options_value->IsUndefined()) {
+    result = MojoCreateMessagePipe(NULL, &handle0, &handle1);
+  } else if (options_value->IsObject()) {
+    gin::Dictionary options_dict(args.isolate(), options_value->ToObject());
+    MojoCreateMessagePipeOptions options;
+    // For future struct_size, we can probably infer that from the presence of
+    // properties in options_dict. For now, it's always 8.
+    options.struct_size = 8;
+    // Ideally these would be optional. But the interface makes it hard to
+    // typecheck them then.
+    if (!options_dict.Get("flags", &options.flags)) {
+      return dictionary;
+    }
+
+    result = MojoCreateMessagePipe(&options, &handle0, &handle1);
+  } else {
+      return dictionary;
+  }
+
+  CHECK_EQ(MOJO_RESULT_OK, result);
+
+  dictionary.Set("result", result);
   dictionary.Set("handle0", mojo::Handle(handle0));
   dictionary.Set("handle1", mojo::Handle(handle1));
   return dictionary;
@@ -118,8 +143,7 @@ gin::Dictionary ReadMessage(const gin::Arguments& args,
   return dictionary;
 }
 
-gin::Dictionary CreateDataPipe(const gin::Arguments& args,
-                               v8::Handle<v8::Value> options_value) {
+gin::Dictionary CreateDataPipe(const gin::Arguments& args) {
   gin::Dictionary dictionary = gin::Dictionary::CreateEmpty(args.isolate());
   dictionary.Set("result", MOJO_RESULT_INVALID_ARGUMENT);
 
@@ -127,7 +151,11 @@ gin::Dictionary CreateDataPipe(const gin::Arguments& args,
   MojoHandle consumer_handle = MOJO_HANDLE_INVALID;
   MojoResult result = MOJO_RESULT_OK;
 
-  if (options_value->IsObject()) {
+  v8::Handle<v8::Value> options_value = args.PeekNext();
+  if (options_value.IsEmpty() || options_value->IsNull() ||
+      options_value->IsUndefined()) {
+    result = MojoCreateDataPipe(NULL, &producer_handle, &consumer_handle);
+  } else if (options_value->IsObject()) {
     gin::Dictionary options_dict(args.isolate(), options_value->ToObject());
     MojoCreateDataPipeOptions options;
     // For future struct_size, we can probably infer that from the presence of
@@ -142,8 +170,6 @@ gin::Dictionary CreateDataPipe(const gin::Arguments& args,
     }
 
     result = MojoCreateDataPipe(&options, &producer_handle, &consumer_handle);
-  } else if (options_value->IsNull() || options_value->IsUndefined()) {
-    result = MojoCreateDataPipe(NULL, &producer_handle, &consumer_handle);
   } else {
     return dictionary;
   }
@@ -196,6 +222,18 @@ gin::Dictionary ReadData(const gin::Arguments& args,
   return dictionary;
 }
 
+// Asynchronously read all of the data available for the specified data pipe
+// consumer handle until the remote handle is closed or an error occurs. A
+// Promise is returned whose settled value is an object like this:
+// {result: core.RESULT_OK, buffer: dataArrayBuffer}. If the read failed,
+// then the Promise is rejected, the result will be the actual error code,
+// and the buffer will contain whatever was read before the error occurred.
+// The drainData data pipe handle argument is closed automatically.
+
+v8::Handle<v8::Value> DoDrainData(gin::Arguments* args, mojo::Handle handle) {
+  return (new DrainData(args->isolate(), handle))->GetPromise();
+}
+
 gin::WrapperInfo g_wrapper_info = { gin::kEmbedderNativeGin };
 
 }  // namespace
@@ -220,6 +258,7 @@ v8::Local<v8::Value> Core::GetModule(v8::Isolate* isolate) {
         .SetMethod("createDataPipe", CreateDataPipe)
         .SetMethod("writeData", WriteData)
         .SetMethod("readData", ReadData)
+        .SetMethod("drainData", DoDrainData)
 
         .SetValue("RESULT_OK", MOJO_RESULT_OK)
         .SetValue("RESULT_CANCELLED", MOJO_RESULT_CANCELLED)
@@ -244,7 +283,10 @@ v8::Local<v8::Value> Core::GetModule(v8::Isolate* isolate) {
 
         .SetValue("HANDLE_SIGNAL_NONE", MOJO_HANDLE_SIGNAL_NONE)
         .SetValue("HANDLE_SIGNAL_READABLE", MOJO_HANDLE_SIGNAL_READABLE)
-        .SetValue("HANDLE_SIGNAL_READABLE", MOJO_HANDLE_SIGNAL_READABLE)
+        .SetValue("HANDLE_SIGNAL_WRITABLE", MOJO_HANDLE_SIGNAL_WRITABLE)
+
+        .SetValue("CREATE_MESSAGE_PIPE_OPTIONS_FLAG_NONE",
+                  MOJO_CREATE_MESSAGE_PIPE_OPTIONS_FLAG_NONE)
 
         .SetValue("WRITE_MESSAGE_FLAG_NONE", MOJO_WRITE_MESSAGE_FLAG_NONE)
 

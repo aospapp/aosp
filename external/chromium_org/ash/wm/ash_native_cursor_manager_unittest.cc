@@ -23,8 +23,8 @@
 #endif
 
 #if defined(USE_X11)
-#include "grit/ui_resources.h"
 #include "ui/base/cursor/cursor_loader_x11.h"
+#include "ui/resources/grit/ui_resources.h"
 #endif
 
 namespace ash {
@@ -146,6 +146,17 @@ TEST_F(AshNativeCursorManagerTest, SetDeviceScaleFactorAndRotation) {
   EXPECT_EQ(gfx::Display::ROTATE_270, test_api.GetCurrentCursorRotation());
 }
 
+#if defined(OS_CHROMEOS)
+// TODO(oshima): crbug.com/143619
+TEST_F(AshNativeCursorManagerTest, FractionalScale) {
+  ::wm::CursorManager* cursor_manager = Shell::GetInstance()->cursor_manager();
+  CursorManagerTestApi test_api(cursor_manager);
+  // Cursor should use the resource scale factor.
+  UpdateDisplay("800x100*1.25");
+  EXPECT_EQ(1.0f, test_api.GetCurrentCursor().device_scale_factor());
+}
+#endif
+
 TEST_F(AshNativeCursorManagerTest, UIScaleShouldNotChangeCursor) {
   int64 display_id = Shell::GetScreen()->GetPrimaryDisplay().id();
   gfx::Display::SetInternalDisplayId(display_id);
@@ -154,20 +165,12 @@ TEST_F(AshNativeCursorManagerTest, UIScaleShouldNotChangeCursor) {
   CursorManagerTestApi test_api(cursor_manager);
   DisplayManager* display_manager = Shell::GetInstance()->display_manager();
 
-  DisplayInfo::SetAllowUpgradeToHighDPI(false);
   display_manager->SetDisplayUIScale(display_id, 0.5f);
   EXPECT_EQ(1.0f,
             Shell::GetScreen()->GetPrimaryDisplay().device_scale_factor());
   EXPECT_EQ(1.0f, test_api.GetCurrentCursor().device_scale_factor());
 
   display_manager->SetDisplayUIScale(display_id, 1.0f);
-
-  DisplayInfo::SetAllowUpgradeToHighDPI(true);
-  // 1x display should keep using 1x cursor even if the DSF is upgraded to 2x.
-  display_manager->SetDisplayUIScale(display_id, 0.5f);
-  EXPECT_EQ(2.0f,
-            Shell::GetScreen()->GetPrimaryDisplay().device_scale_factor());
-  EXPECT_EQ(1.0f, test_api.GetCurrentCursor().device_scale_factor());
 
   // 2x display should keep using 2x cursor regardless of the UI scale.
   UpdateDisplay("800x800*2");

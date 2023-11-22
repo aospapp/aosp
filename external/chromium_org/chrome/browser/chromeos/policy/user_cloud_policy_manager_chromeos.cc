@@ -25,6 +25,7 @@
 #include "components/policy/core/common/policy_map.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/policy/core/common/policy_types.h"
+#include "components/user_manager/user_manager.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "policy/policy_constants.h"
 #include "url/gurl.h"
@@ -63,7 +64,7 @@ void OnWildcardCheckCompleted(const std::string& username,
     // logged-in session is not possible. Fix this either by delaying the
     // cryptohome deletion operation or by getting rid of the in-session
     // wildcard check.
-    chromeos::UserManager::Get()->RemoveUserFromList(username);
+    user_manager::UserManager::Get()->RemoveUserFromList(username);
     chrome::AttemptUserExit();
   }
 }
@@ -91,7 +92,7 @@ UserCloudPolicyManagerChromeOS::UserCloudPolicyManagerChromeOS(
       wait_for_policy_fetch_(wait_for_policy_fetch),
       policy_fetch_timeout_(false, false) {
   time_init_started_ = base::Time::Now();
-  if (wait_for_policy_fetch_) {
+  if (wait_for_policy_fetch_ && !initial_policy_fetch_timeout.is_max()) {
     policy_fetch_timeout_.Start(
         FROM_HERE,
         initial_policy_fetch_timeout,
@@ -111,7 +112,7 @@ void UserCloudPolicyManagerChromeOS::Connect(
   DCHECK(local_state);
   local_state_ = local_state;
   scoped_refptr<net::URLRequestContextGetter> request_context;
-  if (system_request_context) {
+  if (system_request_context.get()) {
     // |system_request_context| can be null for tests.
     // Use the system request context here instead of a context derived
     // from the Profile because Connect() is called before the profile is
@@ -279,15 +280,12 @@ void UserCloudPolicyManagerChromeOS::OnComponentCloudPolicyUpdated() {
 void UserCloudPolicyManagerChromeOS::GetChromePolicy(PolicyMap* policy_map) {
   CloudPolicyManager::GetChromePolicy(policy_map);
 
-  // Default multi-profile behavior for managed accounts to not-allowed.
-  if (store()->has_policy() &&
-      !policy_map->Get(key::kChromeOsMultiProfileUserBehavior)) {
-    policy_map->Set(key::kChromeOsMultiProfileUserBehavior,
-                    POLICY_LEVEL_MANDATORY,
-                    POLICY_SCOPE_USER,
-                    new base::StringValue("not-allowed"),
-                    NULL);
-  }
+  // If the store has a verified policy blob received from the server then apply
+  // the defaults for policies that haven't been configured by the administrator
+  // given that this is an enterprise user.
+  if (!store()->has_policy())
+    return;
+  SetEnterpriseUsersDefaults(policy_map);
 }
 
 void UserCloudPolicyManagerChromeOS::FetchPolicyOAuthTokenUsingSigninProfile() {

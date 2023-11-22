@@ -5,14 +5,14 @@
 #include "chrome/browser/extensions/updater/local_extension_cache.h"
 
 #include "base/bind.h"
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/sequenced_task_runner.h"
 #include "base/strings/string_util.h"
 #include "base/sys_info.h"
 #include "base/version.h"
+#include "components/crx_file/id_util.h"
 #include "content/public/browser/browser_thread.h"
-#include "extensions/common/extension.h"
 
 namespace extensions {
 namespace {
@@ -305,8 +305,8 @@ void LocalExtensionCache::BackendCheckCacheContentsInternal(
     }
 
     // Enforce a lower-case id.
-    id = StringToLowerASCII(id);
-    if (!extensions::Extension::IdIsValid(id)) {
+    id = base::StringToLowerASCII(id);
+    if (!crx_file::id_util::IdIsValid(id)) {
       LOG(ERROR) << "Bad extension id in cache: " << id;
       id.clear();
     }

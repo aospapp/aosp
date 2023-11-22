@@ -11,6 +11,7 @@
 #include "sync/internal_api/public/base/model_type.h"
 #include "sync/protocol/sync.pb.h"
 #include "sync/test/fake_server/fake_server_entity.h"
+#include "sync/test/fake_server/permanent_entity.h"
 
 using std::string;
 
@@ -21,20 +22,17 @@ namespace fake_server {
 UniqueClientEntity::~UniqueClientEntity() { }
 
 // static
-FakeServerEntity* UniqueClientEntity::CreateNew(
+FakeServerEntity* UniqueClientEntity::Create(
     const sync_pb::SyncEntity& client_entity) {
   CHECK(client_entity.has_client_defined_unique_tag())
       << "A UniqueClientEntity must have a client-defined unique tag.";
   ModelType model_type =
       syncer::GetModelTypeFromSpecifics(client_entity.specifics());
-  string id = client_entity.version() == 0 ?
-      FakeServerEntity::CreateId(model_type, base::GenerateGUID()) :
-      client_entity.id_string();
+  string id = EffectiveIdForClientTaggedEntity(client_entity);
   return new UniqueClientEntity(id,
                                 model_type,
                                 client_entity.version(),
                                 client_entity.name(),
-                                client_entity.parent_id_string(),
                                 client_entity.client_defined_unique_tag(),
                                 client_entity.specifics(),
                                 client_entity.ctime(),
@@ -42,18 +40,11 @@ FakeServerEntity* UniqueClientEntity::CreateNew(
 }
 
 // static
-FakeServerEntity* UniqueClientEntity::CreateUpdatedVersion(
-    const sync_pb::SyncEntity& client_entity,
-    FakeServerEntity* current_server_entity) {
-  return new UniqueClientEntity(client_entity.id_string(),
-                                current_server_entity->GetModelType(),
-                                client_entity.version(),
-                                client_entity.name(),
-                                client_entity.parent_id_string(),
-                                client_entity.client_defined_unique_tag(),
-                                client_entity.specifics(),
-                                client_entity.ctime(),
-                                client_entity.mtime());
+std::string UniqueClientEntity::EffectiveIdForClientTaggedEntity(
+    const sync_pb::SyncEntity& entity) {
+  return FakeServerEntity::CreateId(
+      syncer::GetModelTypeFromSpecifics(entity.specifics()),
+      entity.client_defined_unique_tag());
 }
 
 UniqueClientEntity::UniqueClientEntity(
@@ -61,13 +52,11 @@ UniqueClientEntity::UniqueClientEntity(
     const ModelType& model_type,
     int64 version,
     const string& name,
-    const string& parent_id,
     const string& client_defined_unique_tag,
     const sync_pb::EntitySpecifics& specifics,
     int64 creation_time,
     int64 last_modified_time)
     : FakeServerEntity(id, model_type, version, name),
-      parent_id_(parent_id),
       client_defined_unique_tag_(client_defined_unique_tag),
       specifics_(specifics),
       creation_time_(creation_time),
@@ -76,22 +65,19 @@ UniqueClientEntity::UniqueClientEntity(
 string UniqueClientEntity::GetParentId() const {
   // The parent ID for this type of entity should always be its ModelType's
   // root node.
-  return parent_id_;
+  return FakeServerEntity::GetTopLevelId(model_type_);
 }
 
-sync_pb::SyncEntity* UniqueClientEntity::SerializeAsProto() {
-  sync_pb::SyncEntity* sync_entity = new sync_pb::SyncEntity();
-  FakeServerEntity::SerializeBaseProtoFields(sync_entity);
+void UniqueClientEntity::SerializeAsProto(sync_pb::SyncEntity* proto) {
+  FakeServerEntity::SerializeBaseProtoFields(proto);
 
-  sync_pb::EntitySpecifics* specifics = sync_entity->mutable_specifics();
+  sync_pb::EntitySpecifics* specifics = proto->mutable_specifics();
   specifics->CopyFrom(specifics_);
 
-  sync_entity->set_parent_id_string(parent_id_);
-  sync_entity->set_client_defined_unique_tag(client_defined_unique_tag_);
-  sync_entity->set_ctime(creation_time_);
-  sync_entity->set_mtime(last_modified_time_);
-
-  return sync_entity;
+  proto->set_parent_id_string(GetParentId());
+  proto->set_client_defined_unique_tag(client_defined_unique_tag_);
+  proto->set_ctime(creation_time_);
+  proto->set_mtime(last_modified_time_);
 }
 
 bool UniqueClientEntity::IsDeleted() const {

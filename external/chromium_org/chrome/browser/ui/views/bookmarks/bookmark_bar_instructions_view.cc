@@ -10,7 +10,7 @@
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/bookmarks/bookmark_bar_instructions_delegate.h"
-#include "grit/generated_resources.h"
+#include "chrome/grit/generated_resources.h"
 #include "ui/accessibility/ax_view_state.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/theme_provider.h"
@@ -99,7 +99,7 @@ void BookmarkBarInstructionsView::ViewHierarchyChanged(
 
 void BookmarkBarInstructionsView::GetAccessibleState(
     ui::AXViewState* state) {
-  state->role = ui::AX_ROLE_GROUP;
+  instructions_->GetAccessibleState(state);
 }
 
 void BookmarkBarInstructionsView::LinkClicked(views::Link* source,

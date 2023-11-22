@@ -4,9 +4,8 @@
 
 #include "chrome/browser/ui/website_settings/website_settings_ui.h"
 
-#include "grit/generated_resources.h"
+#include "chrome/grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/ui_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image.h"
@@ -83,7 +82,8 @@ WebsiteSettingsUI::PermissionInfo::PermissionInfo()
 WebsiteSettingsUI::IdentityInfo::IdentityInfo()
     : identity_status(WebsiteSettings::SITE_IDENTITY_STATUS_UNKNOWN),
       cert_id(0),
-      connection_status(WebsiteSettings::SITE_CONNECTION_STATUS_UNKNOWN) {
+      connection_status(WebsiteSettings::SITE_CONNECTION_STATUS_UNKNOWN),
+      show_ssl_decision_revoke_button(false) {
 }
 
 WebsiteSettingsUI::IdentityInfo::~IdentityInfo() {}
@@ -272,6 +272,9 @@ int WebsiteSettingsUI::GetIdentityIconID(
       break;
     case WebsiteSettings::SITE_IDENTITY_STATUS_ADMIN_PROVIDED_CERT:
       resource_id = IDR_PAGEINFO_ENTERPRISE_MANAGED;
+      break;
+    case WebsiteSettings::SITE_IDENTITY_STATUS_DEPRECATED_SIGNATURE_ALGORITHM:
+      resource_id = IDR_PAGEINFO_WARNING_MINOR;
       break;
     default:
       NOTREACHED();

@@ -26,13 +26,11 @@
 #include "chrome/browser/ui/views/theme_image_mapper.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/signin/core/common/profile_management_switches.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_contents.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/ui_resources.h"
 #include "ui/accessibility/ax_view_state.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -44,6 +42,7 @@
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/path.h"
 #include "ui/gfx/rect_conversions.h"
+#include "ui/resources/grit/ui_resources.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
@@ -141,7 +140,7 @@ OpaqueBrowserFrameView::OpaqueBrowserFrameView(BrowserFrame* frame,
       gfx::FontList(BrowserFrame::GetTitleFontList()));
   window_title_->SetVisible(browser_view->ShouldShowWindowTitle());
   window_title_->SetEnabledColor(SK_ColorWHITE);
-  window_title_->set_subpixel_rendering_enabled(false);
+  window_title_->SetSubpixelRenderingEnabled(false);
   window_title_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   window_title_->set_id(VIEW_ID_WINDOW_TITLE);
   AddChildView(window_title_);
@@ -286,49 +285,11 @@ void OpaqueBrowserFrameView::UpdateWindowTitle() {
     window_title_->SchedulePaint();
 }
 
+void OpaqueBrowserFrameView::SizeConstraintsChanged() {
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // OpaqueBrowserFrameView, views::View overrides:
-
-bool OpaqueBrowserFrameView::HitTestRect(const gfx::Rect& rect) const {
-  if (!views::View::HitTestRect(rect)) {
-    // |rect| is outside OpaqueBrowserFrameView's bounds.
-    return false;
-  }
-
-  // If the rect is outside the bounds of the client area, claim it.
-  gfx::RectF rect_in_client_view_coords_f(rect);
-  View::ConvertRectToTarget(this, frame()->client_view(),
-      &rect_in_client_view_coords_f);
-  gfx::Rect rect_in_client_view_coords = gfx::ToEnclosingRect(
-      rect_in_client_view_coords_f);
-  if (!frame()->client_view()->HitTestRect(rect_in_client_view_coords))
-    return true;
-
-  // Otherwise, claim |rect| only if it is above the bottom of the tabstrip in
-  // a non-tab portion.
-  TabStrip* tabstrip = browser_view()->tabstrip();
-  if (!tabstrip || !browser_view()->IsTabStripVisible())
-    return false;
-
-  gfx::RectF rect_in_tabstrip_coords_f(rect);
-  View::ConvertRectToTarget(this, tabstrip, &rect_in_tabstrip_coords_f);
-  gfx::Rect rect_in_tabstrip_coords = gfx::ToEnclosingRect(
-      rect_in_tabstrip_coords_f);
-  if (rect_in_tabstrip_coords.bottom() > tabstrip->GetLocalBounds().bottom()) {
-    // |rect| is below the tabstrip.
-    return false;
-  }
-
-  if (tabstrip->HitTestRect(rect_in_tabstrip_coords)) {
-    // Claim |rect| if it is in a non-tab portion of the tabstrip.
-    return tabstrip->IsRectInWindowCaption(rect_in_tabstrip_coords);
-  }
-
-  // We claim |rect| because it is above the bottom of the tabstrip, but
-  // not in the tabstrip itself. In particular, the avatar label/button is left
-  // of the tabstrip and the window controls are right of the tabstrip.
-  return true;
-}
 
 void OpaqueBrowserFrameView::GetAccessibleState(
     ui::AXViewState* state) {
@@ -358,13 +319,13 @@ void OpaqueBrowserFrameView::ButtonPressed(views::Button* sender,
 void OpaqueBrowserFrameView::OnMenuButtonClicked(views::View* source,
                                                  const gfx::Point& point) {
 #if defined(OS_LINUX)
-  views::MenuRunner menu_runner(frame()->GetSystemMenuModel());
+  views::MenuRunner menu_runner(frame()->GetSystemMenuModel(),
+                                views::MenuRunner::HAS_MNEMONICS);
   ignore_result(menu_runner.RunMenuAt(browser_view()->GetWidget(),
                                       window_icon_,
                                       window_icon_->GetBoundsInScreen(),
                                       views::MENU_ANCHOR_TOPLEFT,
-                                      ui::MENU_SOURCE_MOUSE,
-                                      views::MenuRunner::HAS_MNEMONICS));
+                                      ui::MENU_SOURCE_MOUSE));
 #endif
 }
 
@@ -520,6 +481,50 @@ void OpaqueBrowserFrameView::OnPaint(gfx::Canvas* canvas) {
 
 ///////////////////////////////////////////////////////////////////////////////
 // OpaqueBrowserFrameView, private:
+
+// views::NonClientFrameView:
+bool OpaqueBrowserFrameView::DoesIntersectRect(const views::View* target,
+                                               const gfx::Rect& rect) const {
+  CHECK_EQ(target, this);
+  if (!views::ViewTargeterDelegate::DoesIntersectRect(this, rect)) {
+    // |rect| is outside OpaqueBrowserFrameView's bounds.
+    return false;
+  }
+
+  // If the rect is outside the bounds of the client area, claim it.
+  gfx::RectF rect_in_client_view_coords_f(rect);
+  View::ConvertRectToTarget(this, frame()->client_view(),
+      &rect_in_client_view_coords_f);
+  gfx::Rect rect_in_client_view_coords = gfx::ToEnclosingRect(
+      rect_in_client_view_coords_f);
+  if (!frame()->client_view()->HitTestRect(rect_in_client_view_coords))
+    return true;
+
+  // Otherwise, claim |rect| only if it is above the bottom of the tabstrip in
+  // a non-tab portion.
+  TabStrip* tabstrip = browser_view()->tabstrip();
+  if (!tabstrip || !browser_view()->IsTabStripVisible())
+    return false;
+
+  gfx::RectF rect_in_tabstrip_coords_f(rect);
+  View::ConvertRectToTarget(this, tabstrip, &rect_in_tabstrip_coords_f);
+  gfx::Rect rect_in_tabstrip_coords = gfx::ToEnclosingRect(
+      rect_in_tabstrip_coords_f);
+  if (rect_in_tabstrip_coords.bottom() > tabstrip->GetLocalBounds().bottom()) {
+    // |rect| is below the tabstrip.
+    return false;
+  }
+
+  if (tabstrip->HitTestRect(rect_in_tabstrip_coords)) {
+    // Claim |rect| if it is in a non-tab portion of the tabstrip.
+    return tabstrip->IsRectInWindowCaption(rect_in_tabstrip_coords);
+  }
+
+  // We claim |rect| because it is above the bottom of the tabstrip, but
+  // not in the tabstrip itself. In particular, the avatar label/button is left
+  // of the tabstrip and the window controls are right of the tabstrip.
+  return true;
+}
 
 views::ImageButton* OpaqueBrowserFrameView::InitWindowCaptionButton(
     int normal_image_id,

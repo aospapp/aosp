@@ -14,7 +14,7 @@ namespace cc {
 
 class CC_EXPORT SolidColorDrawQuad : public DrawQuad {
  public:
-  static scoped_ptr<SolidColorDrawQuad> Create();
+  SolidColorDrawQuad();
 
   void SetNew(const SharedQuadState* shared_quad_state,
               const gfx::Rect& rect,
@@ -39,8 +39,7 @@ class CC_EXPORT SolidColorDrawQuad : public DrawQuad {
   static const SolidColorDrawQuad* MaterialCast(const DrawQuad*);
 
  private:
-  SolidColorDrawQuad();
-  virtual void ExtendValue(base::DictionaryValue* value) const OVERRIDE;
+  virtual void ExtendValue(base::debug::TracedValue* value) const OVERRIDE;
 };
 
 }  // namespace cc

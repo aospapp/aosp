@@ -22,6 +22,7 @@
 #include "base/prefs/pref_service.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread_restrictions.h"
 #include "chrome/browser/apps/install_chrome_app.h"
@@ -32,14 +33,13 @@
 #include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/extensions/extension_creator.h"
-#include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/launch_util.h"
 #include "chrome/browser/extensions/pack_extension_job.h"
 #include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/net/predictor.h"
 #include "chrome/browser/notifications/desktop_notification_service.h"
-#include "chrome/browser/performance_monitor/startup_timer.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile.h"
@@ -79,6 +79,7 @@
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/locale_settings.h"
 #include "chrome/installer/util/browser_distribution.h"
 #include "components/google/core/browser/google_util.h"
 #include "content/public/browser/child_process_security_policy.h"
@@ -89,13 +90,10 @@
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
-#include "extensions/browser/extension_system.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_set.h"
-#include "grit/locale_settings.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/resource/resource_bundle.h"
 
 #if defined(OS_MACOSX)
 #include "base/mac/mac_util.h"
@@ -188,9 +186,8 @@ bool GetAppLaunchContainer(
     const Extension** out_extension,
     extensions::LaunchContainer* out_launch_container) {
 
-  ExtensionService* extensions_service = profile->GetExtensionService();
-  const Extension* extension =
-      extensions_service->GetExtensionById(app_id, false);
+  const Extension* extension = extensions::ExtensionRegistry::Get(
+      profile)->enabled_extensions().GetByID(app_id);
   // The extension with id |app_id| may have been uninstalled.
   if (!extension)
     return false;
@@ -204,8 +201,7 @@ bool GetAppLaunchContainer(
   extensions::LaunchContainer launch_container = extensions::GetLaunchContainer(
       extensions::ExtensionPrefs::Get(profile), extension);
 
-  if (!CommandLine::ForCurrentProcess()->HasSwitch(
-           switches::kEnableStreamlinedHostedApps) &&
+  if (!extensions::util::IsStreamlinedHostedAppsEnabled() &&
       !extensions::HasPreferredLaunchContainer(
            extensions::ExtensionPrefs::Get(profile), extension)) {
     launch_container = extensions::LAUNCH_CONTAINER_WINDOW;
@@ -224,7 +220,7 @@ void RecordCmdLineAppHistogram(extensions::Manifest::Type app_type) {
 
 void RecordAppLaunches(Profile* profile,
                        const std::vector<GURL>& cmd_line_urls,
-                       StartupTabs& autolaunch_tabs) {
+                       const StartupTabs& autolaunch_tabs) {
   const extensions::ExtensionSet& extensions =
       extensions::ExtensionRegistry::Get(profile)->enabled_extensions();
   for (size_t i = 0; i < cmd_line_urls.size(); ++i) {
@@ -333,12 +329,10 @@ bool StartupBrowserCreatorImpl::Launch(Profile* profile,
 
   if (command_line_.HasSwitch(switches::kDnsLogDetails))
     chrome_browser_net::EnablePredictorDetailedLog(true);
-  if (command_line_.HasSwitch(switches::kDnsPrefetchDisable) &&
-      profile->GetNetworkPredictor()) {
-    profile->GetNetworkPredictor()->EnablePredictor(false);
-  }
 
-  AppListService::InitAll(profile);
+  if (AppListService::HandleLaunchCommandLine(command_line_, profile))
+    return true;
+
   if (command_line_.HasSwitch(switches::kAppId)) {
     std::string app_id = command_line_.GetSwitchValueASCII(switches::kAppId);
     const Extension* extension = GetPlatformApp(profile, app_id);
@@ -356,12 +350,6 @@ bool StartupBrowserCreatorImpl::Launch(Profile* profile,
       OpenApplicationWithReenablePrompt(params);
       return true;
     }
-  } else if (command_line_.HasSwitch(switches::kShowAppList)) {
-    // This switch is used for shortcuts on the native desktop.
-    AppListService::RecordShowTimings(command_line_);
-    AppListService::Get(chrome::HOST_DESKTOP_TYPE_NATIVE)->
-        ShowForProfile(profile);
-    return true;
   }
 
   // Open the required browser windows and tabs. First, see if
@@ -645,18 +633,11 @@ bool StartupBrowserCreatorImpl::ProcessStartupURLs(
     }
 #endif
 
-    // Pause the StartupTimer. Since the restore here is synchronous, we can
-    // keep these two metrics (browser startup time and session restore time)
-    // separate.
-    performance_monitor::StartupTimer::PauseTimer();
-
     // The startup code only executes for browsers launched in desktop mode.
     // i.e. HOST_DESKTOP_TYPE_NATIVE. Ash should never get here.
     Browser* browser = SessionRestore::RestoreSession(
         profile_, NULL, desktop_type, restore_behavior,
         urls_to_open);
-
-    performance_monitor::StartupTimer::UnpauseTimer();
 
     AddInfoBarsIfNecessary(browser, chrome::startup::IS_PROCESS_STARTUP);
     return true;
@@ -774,7 +755,7 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(
 
   bool first_tab = true;
   ProtocolHandlerRegistry* registry = profile_ ?
-      ProtocolHandlerRegistryFactory::GetForProfile(profile_) : NULL;
+      ProtocolHandlerRegistryFactory::GetForBrowserContext(profile_) : NULL;
   for (size_t i = 0; i < tabs.size(); ++i) {
     // We skip URLs that we'd have to launch an external protocol handler for.
     // This avoids us getting into an infinite loop asking ourselves to open
@@ -792,7 +773,7 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(
       add_types |= TabStripModel::ADD_PINNED;
 
     chrome::NavigateParams params(browser, tabs[i].url,
-                                  content::PAGE_TRANSITION_AUTO_TOPLEVEL);
+                                  ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
     params.disposition = first_tab ? NEW_FOREGROUND_TAB : NEW_BACKGROUND_TAB;
     params.tabstrip_add_types = add_types;
     params.extension_app_id = tabs[i].app_id;

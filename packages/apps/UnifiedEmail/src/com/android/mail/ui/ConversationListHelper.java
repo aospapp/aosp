@@ -33,25 +33,26 @@ public class ConversationListHelper {
      */
     public ArrayList<ConversationSpecialItemView> makeConversationListSpecialViews(
             final Context context, final ControllableActivity activity, final Account account) {
+        // Note that these teasers have to be added in the order of importance because it's a stack,
+        // thus the last teaser added will appear on top.
+
+        // Sync disabled teaser view
         final ConversationSyncDisabledTipView conversationSyncDisabledTipView =
-                (ConversationSyncDisabledTipView) LayoutInflater.from(context)
-                        .inflate(R.layout.conversation_sync_disabled_tip_view, null);
+                new ConversationSyncDisabledTipView(context);
         conversationSyncDisabledTipView.bindAccount(account, activity);
 
+        // Message in outbox teaser view
         final ConversationsInOutboxTipView conversationsInOutboxTipView =
-                (ConversationsInOutboxTipView) LayoutInflater.from(context)
-                        .inflate(R.layout.conversation_outbox_tip_view, null);
+                new ConversationsInOutboxTipView(context);
         conversationsInOutboxTipView.bind(account, activity.getFolderSelector());
 
         // Conversation photo teaser view
         final ConversationPhotoTeaserView conversationPhotoTeaser =
-                (ConversationPhotoTeaserView) LayoutInflater.from(context)
-                        .inflate(R.layout.conversation_photo_teaser_view, null);
+                new ConversationPhotoTeaserView(context);
 
         // Long press to select tip
         final ConversationLongPressTipView conversationLongPressTipView =
-                (ConversationLongPressTipView) LayoutInflater.from(context)
-                        .inflate(R.layout.conversation_long_press_to_select_tip_view, null);
+                new ConversationLongPressTipView(context);
 
         final NestedFolderTeaserView nestedFolderTeaserView =
                 (NestedFolderTeaserView) LayoutInflater.from(context)

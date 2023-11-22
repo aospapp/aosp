@@ -81,8 +81,11 @@ public class JoinContactListFragment extends ContactEntryListFragment<JoinContac
                     break;
                 }
                 case JoinContactListAdapter.PARTITION_ALL_CONTACTS: {
-                    Cursor suggestionsCursor = ((JoinContactLoaderResult) data).suggestionCursor;
-                    onContactListLoaded(suggestionsCursor, data);
+                    if (data != null) {
+                        final Cursor suggestionsCursor =
+                                ((JoinContactLoaderResult) data).suggestionCursor;
+                        onContactListLoaded(suggestionsCursor, data);
+                    }
                     break;
                 }
             }
@@ -126,7 +129,9 @@ public class JoinContactListFragment extends ContactEntryListFragment<JoinContac
     private void showTargetContactName(String displayName) {
         Activity activity = getActivity();
         TextView blurbView = (TextView) activity.findViewById(R.id.join_contact_blurb);
-        String blurb = activity.getString(R.string.blurbJoinContactDataWith, displayName);
+        final String name = !TextUtils.isEmpty(displayName) ? displayName
+            : activity.getString(R.string.missing_name);
+        String blurb = activity.getString(R.string.blurbJoinContactDataWith, name);
         blurbView.setText(blurb);
     }
 

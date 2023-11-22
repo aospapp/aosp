@@ -45,7 +45,6 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "extensions/browser/extension_system.h"
-#include "grit/generated_resources.h"
 #include "net/base/filename_util.h"
 #include "ui/base/l10n/time_format.h"
 #include "ui/gfx/image/image.h"
@@ -118,6 +117,11 @@ base::DictionaryValue* CreateDownloadItemValue(
   // progress. The difference currently only matters to Drive downloads and
   // those don't show up on the downloads page, but should.
   DownloadItemModel download_model(download_item);
+
+  // The items which are to be written into file_value are also described in
+  // chrome/browser/resources/downloads/downloads.js in @typedef for
+  // BackendDownloadObject. Please update it whenever you add or remove
+  // any keys in file_value.
   base::DictionaryValue* file_value = new base::DictionaryValue();
 
   file_value->SetInteger(

@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 from data_source_registry import CreateDataSources
-from third_party.handlebar import Handlebar
+from third_party.motemplate import Motemplate
 from url_constants import GITHUB_BASE, EXTENSIONS_SAMPLES
 
 
@@ -27,8 +27,8 @@ class TemplateRenderer(object):
     Specify |additional_context| to inject additional template context when
     rendering the template.
     '''
-    assert isinstance(template, Handlebar), type(template)
-    render_context = self._CreateDataSources(request)
+    assert isinstance(template, Motemplate), type(template)
+    render_context = CreateDataSources(self._server_instance, request)
     if data_sources is not None:
       render_context = dict((name, d) for name, d in render_context.iteritems()
                             if name in data_sources)
@@ -36,21 +36,8 @@ class TemplateRenderer(object):
       'apps_samples_url': GITHUB_BASE,
       'base_path': self._server_instance.base_path,
       'extensions_samples_url': EXTENSIONS_SAMPLES,
-      # TODO(kalman): Figure out where "pepperversion" comes from. It's used
-      # internally in pepper and unfortunately the syntax appears to be
-      # {{pepperversion}} for some reason.
-      'pepperversion': '',
       'static': self._server_instance.base_path + 'static',
     })
-    if additional_context:
-      render_context.update(additional_context)
+    render_context.update(additional_context or {})
     render_data = template.Render(render_context)
     return render_data.text, render_data.errors
-
-  def _CreateDataSources(self, request):
-    server_instance = self._server_instance
-    data_sources = CreateDataSources(server_instance, request=request)
-    data_sources.update({
-      'samples': server_instance.samples_data_source_factory.Create(request),
-    })
-    return data_sources

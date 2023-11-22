@@ -111,6 +111,15 @@ public interface ConversationUpdater extends ConversationListCallbacks {
             byte[] originalConversationInfo);
 
     /**
+     * Mark a single conversation 'seen', which is a combination of 'viewed' and 'read'. In some
+     * configurations (peek mode), this operation may be prevented and the method will return false.
+     *
+     * @param conv the conversation to mark seen
+     * @return true if the operation was a success
+     */
+    boolean markConversationSeen(Conversation conv);
+
+    /**
      * Star a single message within a conversation. This method requires a
      * {@link ConversationMessage} to propagate the change to the owning {@link Conversation}.
      *

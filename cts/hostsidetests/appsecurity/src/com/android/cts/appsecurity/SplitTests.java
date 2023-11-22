@@ -57,7 +57,13 @@ public class SplitTests extends DeviceTestCase implements IAbiReceiver, IBuildRe
     private static final String APK_mips64 = "CtsSplitApp_mips64.apk";
     private static final String APK_mips = "CtsSplitApp_mips.apk";
 
+    private static final String APK_DIFF_REVISION = "CtsSplitAppDiffRevision.apk";
+    private static final String APK_DIFF_REVISION_v7 = "CtsSplitAppDiffRevision_v7.apk";
+
+    private static final String APK_DIFF_VERSION = "CtsSplitAppDiffVersion.apk";
     private static final String APK_DIFF_VERSION_v7 = "CtsSplitAppDiffVersion_v7.apk";
+
+    private static final String APK_DIFF_CERT = "CtsSplitAppDiffCert.apk";
     private static final String APK_DIFF_CERT_v7 = "CtsSplitAppDiffCert_v7.apk";
 
     private static final String APK_FEATURE = "CtsSplitAppFeature.apk";
@@ -218,8 +224,6 @@ public class SplitTests extends DeviceTestCase implements IAbiReceiver, IBuildRe
 
     public void testDiffCertInherit() throws Exception {
         new InstallMultiple().addApk(APK).run();
-        // TODO: remove this once we fix 17900178
-        runDeviceTests(PKG, ".SplitAppTest", "testSingleBase");
         new InstallMultiple().inheritFrom(PKG).addApk(APK_DIFF_CERT_v7).runExpectingFailure();
     }
 
@@ -229,9 +233,31 @@ public class SplitTests extends DeviceTestCase implements IAbiReceiver, IBuildRe
 
     public void testDiffVersionInherit() throws Exception {
         new InstallMultiple().addApk(APK).run();
-        // TODO: remove this once we fix 17900178
-        runDeviceTests(PKG, ".SplitAppTest", "testSingleBase");
         new InstallMultiple().inheritFrom(PKG).addApk(APK_DIFF_VERSION_v7).runExpectingFailure();
+    }
+
+    public void testDiffRevision() throws Exception {
+        new InstallMultiple().addApk(APK).addApk(APK_DIFF_REVISION_v7).run();
+        runDeviceTests(PKG, ".SplitAppTest", "testRevision0_12");
+    }
+
+    public void testDiffRevisionInheritBase() throws Exception {
+        new InstallMultiple().addApk(APK).addApk(APK_v7).run();
+        runDeviceTests(PKG, ".SplitAppTest", "testRevision0_0");
+        new InstallMultiple().inheritFrom(PKG).addApk(APK_DIFF_REVISION_v7).run();
+        runDeviceTests(PKG, ".SplitAppTest", "testRevision0_12");
+    }
+
+    public void testDiffRevisionInheritSplit() throws Exception {
+        new InstallMultiple().addApk(APK).addApk(APK_v7).run();
+        runDeviceTests(PKG, ".SplitAppTest", "testRevision0_0");
+        new InstallMultiple().inheritFrom(PKG).addApk(APK_DIFF_REVISION).run();
+        runDeviceTests(PKG, ".SplitAppTest", "testRevision12_0");
+    }
+
+    public void testDiffRevisionDowngrade() throws Exception {
+        new InstallMultiple().addApk(APK).addApk(APK_DIFF_REVISION_v7).run();
+        new InstallMultiple().inheritFrom(PKG).addApk(APK_v7).runExpectingFailure();
     }
 
     public void testFeatureBase() throws Exception {
@@ -250,6 +276,16 @@ public class SplitTests extends DeviceTestCase implements IAbiReceiver, IBuildRe
 
     public void testInheritUpdatedSplit() throws Exception {
         // TODO: flesh out this test
+    }
+
+    /**
+     * Verify that installing a new version of app wipes code cache.
+     */
+    public void testClearCodeCache() throws Exception {
+        new InstallMultiple().addApk(APK).run();
+        runDeviceTests(PKG, ".SplitAppTest", "testCodeCacheWrite");
+        new InstallMultiple().addArg("-r").addApk(APK_DIFF_VERSION).run();
+        runDeviceTests(PKG, ".SplitAppTest", "testCodeCacheRead");
     }
 
     class InstallMultiple {

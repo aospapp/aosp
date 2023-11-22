@@ -30,6 +30,7 @@ import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.CheckedTextView;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListPopupWindow;
 import android.widget.ListView;
@@ -115,6 +116,9 @@ public class GroupMembershipView extends LinearLayout
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
             final View itemView = super.getView(position, convertView, parent);
+            if (itemView == null) {
+                return null;
+            }
 
             // Hide the checkable drawable.  This assumes that the item views
             // are CheckedTextView objects
@@ -122,6 +126,7 @@ public class GroupMembershipView extends LinearLayout
             if (!getItemIsCheckable(position)) {
                 checkedTextView.setCheckMarkDrawable(null);
             }
+            checkedTextView.setTextColor(mPrimaryTextColor);
 
             return checkedTextView;
         }
@@ -144,7 +149,7 @@ public class GroupMembershipView extends LinearLayout
 
     private String mNoGroupString;
     private int mPrimaryTextColor;
-    private int mSecondaryTextColor;
+    private int mHintTextColor;
 
     public GroupMembershipView(Context context) {
         super(context);
@@ -159,7 +164,7 @@ public class GroupMembershipView extends LinearLayout
         super.onFinishInflate();
         Resources resources = mContext.getResources();
         mPrimaryTextColor = resources.getColor(R.color.primary_text_color);
-        mSecondaryTextColor = resources.getColor(R.color.secondary_text_color);
+        mHintTextColor = resources.getColor(R.color.editor_disabled_text_color);
         mNoGroupString = mContext.getString(R.string.group_edit_field_hint_text);
     }
 
@@ -173,8 +178,8 @@ public class GroupMembershipView extends LinearLayout
 
     public void setKind(DataKind kind) {
         mKind = kind;
-        TextView kindTitle = (TextView) findViewById(R.id.kind_title);
-        kindTitle.setText(getResources().getString(kind.titleRes).toUpperCase());
+        final ImageView imageView = (ImageView) findViewById(R.id.kind_icon);
+        imageView.setContentDescription(getResources().getString(kind.titleRes));
     }
 
     public void setGroupMetaData(Cursor groupMetaData) {
@@ -265,7 +270,7 @@ public class GroupMembershipView extends LinearLayout
         mGroupList.setEnabled(isEnabled());
         if (sb.length() == 0) {
             mGroupList.setText(mNoGroupString);
-            mGroupList.setTextColor(mSecondaryTextColor);
+            mGroupList.setTextColor(mHintTextColor);
         } else {
             mGroupList.setText(sb);
             mGroupList.setTextColor(mPrimaryTextColor);

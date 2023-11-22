@@ -17,19 +17,22 @@
 //#define LOG_NDEBUG 0
 #define LOG_TAG "OMXVideoDecoder"
 #include <wrs_omxil_core/log.h>
-#include "OMXVideoDecoderBase.h"
+
+#include <hardware/gralloc.h>
 #include <va/va_android.h>
+
+#include "OMXVideoDecoderBase.h"
 
 static const char* VA_RAW_MIME_TYPE = "video/x-raw-va";
 static const uint32_t VA_COLOR_FORMAT = 0x7FA00E00;
 
 OMXVideoDecoderBase::OMXVideoDecoderBase()
     : mRotationDegrees(0),
-      mVideoDecoder(NULL),
-      mNativeBufferCount(OUTPORT_NATIVE_BUFFER_COUNT),
-#ifdef TARGET_HAS_VPP
+#ifdef TARGET_HAS_ISV
       mVppBufferNum(0),
 #endif
+      mVideoDecoder(NULL),
+      mNativeBufferCount(OUTPORT_NATIVE_BUFFER_COUNT),
       mWorkingMode(RAWDATA_MODE),
       mErrorReportEnabled (false) {
       mOMXBufferHeaderTypePtrNum = 0;
@@ -219,7 +222,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorDeinit(void) {
     mOMXBufferHeaderTypePtrNum = 0;
     memset(&mGraphicBufferParam, 0, sizeof(mGraphicBufferParam));
     mRotationDegrees = 0;
-#ifdef TARGET_HAS_VPP
+#ifdef TARGET_HAS_ISV
     mVppBufferNum = 0;
 #endif
     return OMXComponentCodecBase::ProcessorDeinit();
@@ -474,7 +477,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::PrepareConfigBuffer(VideoConfigBuffer *p) {
     }
 
     p->rotationDegrees = mRotationDegrees;
-#ifdef TARGET_HAS_VPP
+#ifdef TARGET_HAS_ISV
     p->vppBufferNum = mVppBufferNum;
 #endif
     p->width = paramPortDefinitionInput->format.video.nFrameWidth;
@@ -631,8 +634,9 @@ OMX_ERRORTYPE OMXVideoDecoderBase::HandleFormatChange(void) {
     uint32_t strideCropped = widthCropped;
     uint32_t sliceHeightCropped = heightCropped;
     int force_realloc = 0;
+    bool isVP8 = false;
 
-#ifdef TARGET_HAS_VPP
+#ifdef TARGET_HAS_ISV
     LOGI("============== mVppBufferNum = %d\n", mVppBufferNum);
     if (paramPortDefinitionOutput.nBufferCountActual - mVppBufferNum < formatInfo->actualBufferNeeded) {
 #else
@@ -652,6 +656,10 @@ OMX_ERRORTYPE OMXVideoDecoderBase::HandleFormatChange(void) {
         paramPortDefinitionInput.format.video.nFrameWidth,
         paramPortDefinitionInput.format.video.nFrameHeight,
         width, height, widthCropped, heightCropped);
+
+    if (paramPortDefinitionInput.format.video.eCompressionFormat == OMX_VIDEO_CodingVP8) {
+        isVP8 = true;
+    }
 
     if (!force_realloc &&
         widthCropped == paramPortDefinitionOutput.format.video.nFrameWidth &&
@@ -681,11 +689,11 @@ OMX_ERRORTYPE OMXVideoDecoderBase::HandleFormatChange(void) {
             return OMX_ErrorNone;
         }
 
-        if (width > formatInfo->surfaceWidth ||  height > formatInfo->surfaceHeight) {
+        if (isVP8 || width > formatInfo->surfaceWidth ||  height > formatInfo->surfaceHeight) {
             // update the real decoded resolution to outport instead of display resolution for graphic buffer reallocation
             // when the width and height parsed from ES are larger than allocated graphic buffer in outport,
             paramPortDefinitionOutput.format.video.nFrameWidth = width;
-            paramPortDefinitionOutput.format.video.nFrameHeight = (height + 0x1f) & ~0x1f;
+            paramPortDefinitionOutput.format.video.nFrameHeight = height;
             paramPortDefinitionOutput.format.video.eColorFormat = GetOutputColorFormat(
                     paramPortDefinitionOutput.format.video.nFrameWidth);
             paramPortDefinitionOutput.format.video.nStride = stride;
@@ -703,6 +711,9 @@ OMX_ERRORTYPE OMXVideoDecoderBase::HandleFormatChange(void) {
     if (mWorkingMode == GRAPHICBUFFER_MODE) {
         // Make sure va_destroySurface is called before graphicbuffer is freed in case of port setting changed
         mVideoDecoder->freeSurfaceBuffers();
+
+        // Also make sure all the reference frames are flushed
+        ProcessorFlush(INPORT_INDEX);
     }
     this->ports[OUTPORT_INDEX]->ReportPortSettingsChanged();
     return OMX_ErrorNone;
@@ -761,7 +772,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::BuildHandlerList(void) {
     AddHandler(static_cast<OMX_INDEXTYPE>(OMX_IndexExtUseNativeBuffer), GetNativeBuffer, SetNativeBuffer);
     AddHandler(static_cast<OMX_INDEXTYPE>(OMX_IndexExtEnableNativeBuffer), GetNativeBufferMode, SetNativeBufferMode);
     AddHandler(static_cast<OMX_INDEXTYPE>(OMX_IndexExtRotationDegrees), GetDecoderRotation, SetDecoderRotation);
-#ifdef TARGET_HAS_VPP
+#ifdef TARGET_HAS_ISV
     AddHandler(static_cast<OMX_INDEXTYPE>(OMX_IndexExtVppBufferNum), GetDecoderVppBufferNum, SetDecoderVppBufferNum);
 #endif
     AddHandler(OMX_IndexConfigCommonOutputCrop, GetDecoderOutputCrop, SetDecoderOutputCrop);
@@ -873,16 +884,25 @@ OMX_ERRORTYPE OMXVideoDecoderBase::SetNativeBufferModeSpecific(OMX_PTR pStructur
     CHECK_TYPE_HEADER(param);
     CHECK_PORT_INDEX_RANGE(param);
     CHECK_SET_PARAM_STATE();
-    if (!param->enable) {
-        mWorkingMode = RAWDATA_MODE;
-        return OMX_ErrorNone;
-    }
-    mWorkingMode = GRAPHICBUFFER_MODE;
+
     PortVideo *port = NULL;
     port = static_cast<PortVideo *>(this->ports[OUTPORT_INDEX]);
-
     OMX_PARAM_PORTDEFINITIONTYPE port_def;
     memcpy(&port_def,port->GetPortDefinition(),sizeof(port_def));
+
+    if (!param->enable) {
+        mWorkingMode = RAWDATA_MODE;
+        // If it is fallback from native mode the color format has been
+        // already set to INTEL format.
+        // We need to set back the default color format and Native stuff.
+        port_def.format.video.eColorFormat = OMX_COLOR_FormatYUV420SemiPlanar;
+        port_def.format.video.pNativeRender = NULL;
+        port_def.format.video.pNativeWindow = NULL;
+        port->SetPortDefinition(&port_def,true);
+        return OMX_ErrorNone;
+    }
+
+    mWorkingMode = GRAPHICBUFFER_MODE;
     port_def.nBufferCountMin = mNativeBufferCount;
     if (mEnableAdaptivePlayback) {
         SetMaxOutputBufferCount(&port_def);
@@ -916,8 +936,8 @@ OMX_ERRORTYPE OMXVideoDecoderBase::SetDecoderRotation(OMX_PTR pStructure) {
     }
 }
 
-#ifdef TARGET_HAS_VPP
-OMX_ERRORTYPE OMXVideoDecoderBase::GetDecoderVppBufferNum(OMX_PTR pStructure) {
+#ifdef TARGET_HAS_ISV
+OMX_ERRORTYPE OMXVideoDecoderBase::GetDecoderVppBufferNum(OMX_PTR) {
     return OMX_ErrorBadParameter;
 }
 OMX_ERRORTYPE OMXVideoDecoderBase::SetDecoderVppBufferNum(OMX_PTR pStructure) {

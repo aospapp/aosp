@@ -5,6 +5,7 @@
 #include "chrome/common/extensions/features/chrome_channel_feature_filter.h"
 
 #include <map>
+#include <string>
 
 #include "base/lazy_instance.h"
 #include "base/strings/stringprintf.h"
@@ -53,7 +54,10 @@ chrome::VersionInfo::Channel GetChannelValue(const std::string& name) {
 }  // namespace
 
 ChromeChannelFeatureFilter::ChromeChannelFeatureFilter(SimpleFeature* feature)
-    : SimpleFeatureFilter(feature), channel_has_been_set_(false) {}
+    : SimpleFeatureFilter(feature),
+      channel_has_been_set_(false),
+      channel_(chrome::VersionInfo::CHANNEL_UNKNOWN) {
+}
 
 ChromeChannelFeatureFilter::~ChromeChannelFeatureFilter() {}
 
@@ -67,7 +71,8 @@ std::string ChromeChannelFeatureFilter::Parse(
   // The "trunk" channel uses VersionInfo::CHANNEL_UNKNOWN, so we need to keep
   // track of whether the channel has been set or not separately.
   channel_has_been_set_ |= value->HasKey(kFeatureChannelKey);
-  if (!channel_has_been_set_ && feature()->dependencies().empty()) {
+
+  if (!channel_has_been_set_ && !feature()->HasDependencies()) {
     return feature()->name() +
            ": Must supply a value for channel or dependencies.";
   }

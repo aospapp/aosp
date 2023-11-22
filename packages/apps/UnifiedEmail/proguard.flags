@@ -28,4 +28,3 @@
 -keepclasseswithmembers class * extends com.android.mail.ui.ConversationSpecialItemView {
   *** setAnimatedHeight(...);
 }
-

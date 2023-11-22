@@ -50,6 +50,7 @@ TEST_F(CookiesDetailsTest, CreateForCookie) {
   EXPECT_FALSE([details.get() shouldShowLocalStoragePromptDetailsView]);
   EXPECT_FALSE([details.get() shouldShowDatabasePromptDetailsView]);
   EXPECT_FALSE([details.get() shouldShowAppCachePromptDetailsView]);
+  EXPECT_FALSE([details.get() shouldShowServiceWorkerTreeDetailsView]);
 }
 
 TEST_F(CookiesDetailsTest, CreateForTreeDatabase) {
@@ -60,8 +61,11 @@ TEST_F(CookiesDetailsTest, CreateForTreeDatabase) {
   int64 size = 1234;
   base::Time last_modified = base::Time::Now();
   BrowsingDataDatabaseHelper::DatabaseInfo info(
-      webkit_database::DatabaseIdentifier::CreateFromOrigin(origin),
-      database_name, description, size, last_modified);
+      storage::DatabaseIdentifier::CreateFromOrigin(origin),
+      database_name,
+      description,
+      size,
+      last_modified);
   details.reset([[CocoaCookieDetails alloc] initWithDatabase:&info]);
 
   EXPECT_EQ([details.get() type], kCocoaCookieDetailsTypeTreeDatabase);
@@ -77,6 +81,7 @@ TEST_F(CookiesDetailsTest, CreateForTreeDatabase) {
   EXPECT_FALSE([details.get() shouldShowLocalStoragePromptDetailsView]);
   EXPECT_FALSE([details.get() shouldShowDatabasePromptDetailsView]);
   EXPECT_FALSE([details.get() shouldShowAppCachePromptDetailsView]);
+  EXPECT_FALSE([details.get() shouldShowServiceWorkerTreeDetailsView]);
 }
 
 TEST_F(CookiesDetailsTest, CreateForTreeLocalStorage) {
@@ -101,13 +106,14 @@ TEST_F(CookiesDetailsTest, CreateForTreeLocalStorage) {
   EXPECT_FALSE([details.get() shouldShowLocalStoragePromptDetailsView]);
   EXPECT_FALSE([details.get() shouldShowDatabasePromptDetailsView]);
   EXPECT_FALSE([details.get() shouldShowAppCachePromptDetailsView]);
+  EXPECT_FALSE([details.get() shouldShowServiceWorkerTreeDetailsView]);
 }
 
 TEST_F(CookiesDetailsTest, CreateForTreeAppCache) {
   base::scoped_nsobject<CocoaCookieDetails> details;
 
   GURL url("http://chromium.org/stuff.manifest");
-  appcache::AppCacheInfo info;
+  content::AppCacheInfo info;
   info.creation_time = base::Time::Now();
   info.last_update_time = base::Time::Now();
   info.last_access_time = base::Time::Now();
@@ -130,6 +136,7 @@ TEST_F(CookiesDetailsTest, CreateForTreeAppCache) {
   EXPECT_FALSE([details.get() shouldShowLocalStoragePromptDetailsView]);
   EXPECT_FALSE([details.get() shouldShowDatabasePromptDetailsView]);
   EXPECT_FALSE([details.get() shouldShowAppCachePromptDetailsView]);
+  EXPECT_FALSE([details.get() shouldShowServiceWorkerTreeDetailsView]);
 }
 
 TEST_F(CookiesDetailsTest, CreateForTreeIndexedDB) {
@@ -160,6 +167,7 @@ TEST_F(CookiesDetailsTest, CreateForTreeIndexedDB) {
   EXPECT_FALSE([details.get() shouldShowLocalStoragePromptDetailsView]);
   EXPECT_FALSE([details.get() shouldShowDatabasePromptDetailsView]);
   EXPECT_FALSE([details.get() shouldShowAppCachePromptDetailsView]);
+  EXPECT_FALSE([details.get() shouldShowServiceWorkerTreeDetailsView]);
 }
 
 TEST_F(CookiesDetailsTest, CreateForPromptDatabase) {
@@ -186,6 +194,7 @@ TEST_F(CookiesDetailsTest, CreateForPromptDatabase) {
   EXPECT_FALSE([details.get() shouldShowLocalStoragePromptDetailsView]);
   EXPECT_TRUE([details.get() shouldShowDatabasePromptDetailsView]);
   EXPECT_FALSE([details.get() shouldShowAppCachePromptDetailsView]);
+  EXPECT_FALSE([details.get() shouldShowServiceWorkerTreeDetailsView]);
 }
 
 TEST_F(CookiesDetailsTest, CreateForPromptLocalStorage) {
@@ -210,6 +219,7 @@ TEST_F(CookiesDetailsTest, CreateForPromptLocalStorage) {
   EXPECT_TRUE([details.get() shouldShowLocalStoragePromptDetailsView]);
   EXPECT_FALSE([details.get() shouldShowDatabasePromptDetailsView]);
   EXPECT_FALSE([details.get() shouldShowAppCachePromptDetailsView]);
+  EXPECT_FALSE([details.get() shouldShowServiceWorkerTreeDetailsView]);
 }
 
 TEST_F(CookiesDetailsTest, CreateForPromptAppCache) {
@@ -230,6 +240,37 @@ TEST_F(CookiesDetailsTest, CreateForPromptAppCache) {
   EXPECT_FALSE([details.get() shouldShowLocalStoragePromptDetailsView]);
   EXPECT_FALSE([details.get() shouldShowDatabasePromptDetailsView]);
   EXPECT_TRUE([details.get() shouldShowAppCachePromptDetailsView]);
+  EXPECT_FALSE([details.get() shouldShowServiceWorkerTreeDetailsView]);
 }
 
+TEST_F(CookiesDetailsTest, CreateForTreeServiceWorker) {
+  base::scoped_nsobject<CocoaCookieDetails> details;
+
+  GURL origin("https://example.com/");
+  std::vector<GURL> scopes;
+  scopes.push_back(GURL("https://example.com/app1/*"));
+  scopes.push_back(GURL("https://example.com/app2/*"));
+  content::ServiceWorkerUsageInfo info(origin,
+                                       scopes);
+
+  details.reset(
+      [[CocoaCookieDetails alloc] initWithServiceWorkerUsageInfo:&info]);
+
+  EXPECT_EQ([details.get() type], kCocoaCookieDetailsTypeTreeServiceWorker);
+  EXPECT_NSEQ(@"https://example.com/", [details.get() domain]);
+  EXPECT_NSEQ(@"https://example.com/app1/*,https://example.com/app2/*", [details.get() scopes]);
+  // TODO(jsbell): Plumb these through.
+  EXPECT_NSEQ(nil, [details.get() fileSize]);
+  EXPECT_NSEQ(nil, [details.get() lastModified]);
+
+  EXPECT_TRUE([details.get() shouldHideCookieDetailsView]);
+  EXPECT_FALSE([details.get() shouldShowLocalStorageTreeDetailsView]);
+  EXPECT_FALSE([details.get() shouldShowDatabaseTreeDetailsView]);
+  EXPECT_FALSE([details.get() shouldShowAppCacheTreeDetailsView]);
+  EXPECT_FALSE([details.get() shouldShowIndexedDBTreeDetailsView]);
+  EXPECT_FALSE([details.get() shouldShowLocalStoragePromptDetailsView]);
+  EXPECT_FALSE([details.get() shouldShowDatabasePromptDetailsView]);
+  EXPECT_FALSE([details.get() shouldShowAppCachePromptDetailsView]);
+  EXPECT_TRUE([details.get() shouldShowServiceWorkerTreeDetailsView]);
+}
 }

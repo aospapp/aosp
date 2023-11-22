@@ -25,12 +25,11 @@ class DataTypeDebugInfoListener;
 template <typename T> class WeakHandle;
 }
 
-namespace browser_sync {
+namespace sync_driver {
 
 class DataTypeController;
 class DataTypeEncryptionHandler;
 class DataTypeManagerObserver;
-class FailedDataTypesHandler;
 
 // List of data types grouped by priority and ordered from high priority to
 // low priority.
@@ -46,13 +45,14 @@ class DataTypeManagerImpl : public DataTypeManager,
       const DataTypeController::TypeMap* controllers,
       const DataTypeEncryptionHandler* encryption_handler,
       BackendDataTypeConfigurer* configurer,
-      DataTypeManagerObserver* observer,
-      FailedDataTypesHandler* failed_data_types_handler);
+      DataTypeManagerObserver* observer);
   virtual ~DataTypeManagerImpl();
 
   // DataTypeManager interface.
   virtual void Configure(syncer::ModelTypeSet desired_types,
                          syncer::ConfigureReason reason) OVERRIDE;
+  virtual void ReenableType(syncer::ModelType type) OVERRIDE;
+  virtual void ResetDataTypeErrors() OVERRIDE;
 
   // Needed only for backend migration.
   virtual void PurgeForMigration(
@@ -68,7 +68,9 @@ class DataTypeManagerImpl : public DataTypeManager,
       const syncer::DataTypeAssociationStats& association_stats) OVERRIDE;
   virtual void OnModelAssociationDone(
       const DataTypeManager::ConfigureResult& result) OVERRIDE;
-  virtual void OnSingleDataTypeWillStop(syncer::ModelType type) OVERRIDE;
+  virtual void OnSingleDataTypeWillStop(
+      syncer::ModelType type,
+      const syncer::SyncError& error) OVERRIDE;
 
   // Used by unit tests. TODO(sync) : This would go away if we made
   // this class be able to do Dependency injection. crbug.com/129212.
@@ -80,8 +82,7 @@ class DataTypeManagerImpl : public DataTypeManager,
   friend class TestDataTypeManager;
 
   // Abort configuration and stop all data types due to configuration errors.
-  void Abort(ConfigureStatus status,
-             const syncer::SyncError& error);
+  void Abort(ConfigureStatus status);
 
   // Returns the priority types (control + priority user types).
   // Virtual for overriding during tests.
@@ -161,7 +162,7 @@ class DataTypeManagerImpl : public DataTypeManager,
 
   // For querying failed data types (having unrecoverable error) when
   // configuring backend.
-  browser_sync::FailedDataTypesHandler* failed_data_types_handler_;
+  DataTypeStatusTable data_type_status_table_;
 
   // Types waiting to be downloaded.
   TypeSetPriorityList download_types_queue_;
@@ -182,7 +183,7 @@ class DataTypeManagerImpl : public DataTypeManager,
 
   // The encryption handler lets the DataTypeManager know the state of sync
   // datatype encryption.
-  const browser_sync::DataTypeEncryptionHandler* encryption_handler_;
+  const DataTypeEncryptionHandler* encryption_handler_;
 
   // Association and time stats of data type configuration.
   std::vector<syncer::DataTypeConfigurationStats> configuration_stats_;
@@ -194,6 +195,6 @@ class DataTypeManagerImpl : public DataTypeManager,
   DISALLOW_COPY_AND_ASSIGN(DataTypeManagerImpl);
 };
 
-}  // namespace browser_sync
+}  // namespace sync_driver
 
 #endif  // COMPONENTS_SYNC_DRIVER_DATA_TYPE_MANAGER_IMPL_H__

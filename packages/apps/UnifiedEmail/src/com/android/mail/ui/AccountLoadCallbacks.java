@@ -38,8 +38,7 @@ public class AccountLoadCallbacks implements LoaderManager.LoaderCallbacks<Objec
     public Loader<ObjectCursor<Account>> onCreateLoader(int id, Bundle args) {
         final String[] projection = UIProvider.ACCOUNTS_PROJECTION;
         final CursorCreator<Account> factory = Account.FACTORY;
-        return new ObjectCursorLoader<Account>(
-                mContext, mAccountUri, projection, factory);
+        return new ObjectCursorLoader<Account>(mContext, mAccountUri, projection, factory);
     }
 
     @Override

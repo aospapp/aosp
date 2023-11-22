@@ -24,17 +24,17 @@
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:paddingLeft="@dimen/content_fragment_left_padding"
-        android:paddingRight="@dimen/content_fragment_delimiter_padding" >
+        android:paddingStart="@dimen/content_fragment_start_padding"
+        android:paddingEnd="@dimen/content_fragment_delimiter_padding" >
 
         <ImageView
             android:id="@+id/icon"
             style="@style/Canvas.Image.Dialog.Content.Icon"
             android:layout_width="@dimen/content_fragment_icon_width"
             android:layout_height="wrap_content"
-            android:layout_alignParentRight="true"
+            android:layout_alignParentEnd="true"
             android:layout_centerVertical="true"
-            android:layout_marginLeft="@dimen/content_fragment_delimiter_padding"
+            android:layout_marginStart="@dimen/content_fragment_delimiter_padding"
             android:padding="@dimen/icon_padding"
             android:scaleType="fitCenter"
             tools:ignore="ContentDescription" />
@@ -46,9 +46,9 @@
             android:layout_height="wrap_content"
             android:layout_alignWithParentIfMissing="true"
             android:layout_centerVertical="true"
-            android:layout_toLeftOf="@id/icon"
+            android:layout_toStartOf="@id/icon"
             android:ellipsize="end"
-            android:gravity="right"
+            android:gravity="end"
             android:maxLines="2" />
 
         <TextView
@@ -58,7 +58,7 @@
             android:layout_height="wrap_content"
             android:layout_above="@id/title"
             android:layout_alignWithParentIfMissing="true"
-            android:layout_toLeftOf="@id/icon"
+            android:layout_toStartOf="@id/icon"
             android:ellipsize="end"
             android:singleLine="true" />
 
@@ -69,7 +69,7 @@
             android:layout_height="wrap_content"
             android:layout_alignWithParentIfMissing="true"
             android:layout_below="@id/title"
-            android:layout_toLeftOf="@id/icon"
+            android:layout_toStartOf="@id/icon"
             android:ellipsize="end"
             android:maxLines="6" />
     </RelativeLayout>

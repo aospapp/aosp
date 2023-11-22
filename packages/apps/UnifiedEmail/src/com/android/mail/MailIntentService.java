@@ -21,7 +21,7 @@ import android.content.Intent;
 import android.net.Uri;
 
 import com.android.mail.analytics.Analytics;
-import com.android.mail.photo.ContactPhotoFetcher;
+import com.android.mail.photo.ContactFetcher;
 import com.android.mail.providers.Account;
 import com.android.mail.providers.Folder;
 import com.android.mail.utils.FolderUri;
@@ -74,7 +74,7 @@ public class MailIntentService extends IntentService {
 
         if (Intent.ACTION_LOCALE_CHANGED.equals(action)) {
             NotificationUtils.cancelAndResendNotificationsOnLocaleChange(
-                    this, getContactPhotoFetcher());
+                    this, getContactFetcher());
         } else if (ACTION_CLEAR_NEW_MAIL_NOTIFICATIONS.equals(action)) {
             final Account account = intent.getParcelableExtra(Utils.EXTRA_ACCOUNT);
             final Folder folder = intent.getParcelableExtra(Utils.EXTRA_FOLDER);
@@ -84,10 +84,13 @@ public class MailIntentService extends IntentService {
                     null, 0);
         } else if (ACTION_RESEND_NOTIFICATIONS.equals(action)) {
             final Uri accountUri = intent.getParcelableExtra(Utils.EXTRA_ACCOUNT_URI);
-            final Uri folderUri = intent.getParcelableExtra(Utils.EXTRA_FOLDER_URI);
 
-            NotificationUtils.resendNotifications(this, false, accountUri,
-                    new FolderUri(folderUri), getContactPhotoFetcher());
+            final Uri extraFolderUri = intent.getParcelableExtra(Utils.EXTRA_FOLDER_URI);
+            final FolderUri folderUri =
+                    extraFolderUri == null ? null : new FolderUri(extraFolderUri);
+
+            NotificationUtils.resendNotifications(
+                    this, false, accountUri, folderUri, getContactFetcher());
         } else if (ACTION_RESEND_NOTIFICATIONS_WEAR.equals(action)) {
             final Account account = intent.getParcelableExtra(Utils.EXTRA_ACCOUNT);
             final Folder folder = intent.getParcelableExtra(Utils.EXTRA_FOLDER);
@@ -97,7 +100,7 @@ public class MailIntentService extends IntentService {
             // when user replies to a conversation remotely from a Wear device.
             NotificationUtils.markConversationAsReadAndSeen(this, conversationUri);
             NotificationUtils.resendNotifications(this, false, account.uri,
-                    folder.folderUri, getContactPhotoFetcher());
+                    folder.folderUri, getContactFetcher());
         } else if (ACTION_SEND_SET_NEW_EMAIL_INDICATOR.equals(action)) {
             final int unreadCount = intent.getIntExtra(NotificationUtils.EXTRA_UNREAD_COUNT, 0);
             final int unseenCount = intent.getIntExtra(NotificationUtils.EXTRA_UNSEEN_COUNT, 0);
@@ -107,7 +110,7 @@ public class MailIntentService extends IntentService {
                     intent.getBooleanExtra(NotificationUtils.EXTRA_GET_ATTENTION, false);
 
             NotificationUtils.setNewEmailIndicator(this, unreadCount, unseenCount,
-                    account, folder, getAttention, getContactPhotoFetcher());
+                    account, folder, getAttention, getContactFetcher());
         } else if (Intent.ACTION_DEVICE_STORAGE_LOW.equals(action)) {
             // The storage_low state is recorded centrally even though
             // no handler might be present to change application state
@@ -120,15 +123,16 @@ public class MailIntentService extends IntentService {
 
     public static void broadcastBackupDataChanged(final Context context) {
         final Intent intent = new Intent(ACTION_BACKUP_DATA_CHANGED);
+        intent.setPackage(context.getPackageName());
         context.startService(intent);
     }
 
     /**
-     * Derived classes should override this method if they wish to provide their
-     * own photo loading behavior separate from the ContactProvider-based default.
-     * The default behavior of this method returns null.
+     * Derived classes should override this method if they wish to provide their own contact loading
+     * behavior separate from the ContactProvider-based default. The default behavior of this method
+     * returns null.
      */
-    public ContactPhotoFetcher getContactPhotoFetcher() {
+    public ContactFetcher getContactFetcher() {
         return null;
     }
 }

@@ -109,6 +109,10 @@ void InitializeChromeElf() {
       base::TimeDelta::FromSeconds(kBlacklistReportingDelaySec));
 }
 
+// Note that running multiple chrome instances with distinct user data
+// directories could lead to deletion (and/or replacement) of the finch
+// blacklist registry data in one instance before the second has a chance to
+// read those values.
 void AddFinchBlacklistToRegistry() {
   base::win::RegKey finch_blacklist_registry_key(
       HKEY_CURRENT_USER, blacklist::kRegistryFinchListPath, KEY_SET_VALUE);
@@ -117,8 +121,13 @@ void AddFinchBlacklistToRegistry() {
   if (!finch_blacklist_registry_key.Valid())
     return;
 
+  // Delete and recreate the key to clear the registry.
+  finch_blacklist_registry_key.DeleteKey(L"");
+  finch_blacklist_registry_key.Create(
+      HKEY_CURRENT_USER, blacklist::kRegistryFinchListPath, KEY_SET_VALUE);
+
   std::map<std::string, std::string> params;
-  chrome_variations::GetVariationParams(kBrowserBlacklistTrialName, &params);
+  variations::GetVariationParams(kBrowserBlacklistTrialName, &params);
 
   for (std::map<std::string, std::string>::iterator it = params.begin();
        it != params.end();

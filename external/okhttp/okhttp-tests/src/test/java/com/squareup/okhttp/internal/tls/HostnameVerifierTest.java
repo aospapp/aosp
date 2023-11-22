@@ -293,6 +293,7 @@ public final class HostnameVerifierTest {
     assertTrue(verifier.verify("www.foo.com", session));
     assertTrue(verifier.verify("\u82b1\u5b50.foo.com", session));
     assertFalse(verifier.verify("a.b.foo.com", session));
+    assertFalse(verifier.verify("foo.com.au", session));
   }
 
   @Test public void verifyWilcardCnOnTld() throws Exception {

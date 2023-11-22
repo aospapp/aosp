@@ -63,7 +63,7 @@ incremental application of SELinux to an ever-increasing portion of the system.
 Per-domain permissive mode also enables policy development for new services
 while keeping the rest of the system enforcing.</p>
 
-<p>In the L release, Android moves to full enforcement of SELinux. This builds
+<p>In the Android 5.0 (L) release, Android moves to full enforcement of SELinux. This builds
 upon the permissive release of 4.3 and the partial enforcement of 4.4. In
 short, Android is shifting from enforcement on a limited set of crucial domains
 (<code>installd</code>, <code>netd</code>, <code>vold</code> and <code>zygote</code>) to everything (more than 60 domains). This means manufacturers will have to
@@ -71,7 +71,7 @@ better understand and scale their SELinux implementations to provide compatible
 devices. Understand that:</p>
 
 <ul>
-  <li> Everything is in enforcing mode in the L release
+  <li> Everything is in enforcing mode in the 5.0 release
   <li> No processes other than <code>init</code> should run in the <code>init</code> domain
   <li> Any generic denial (for a block_device, socket_device, default_service, etc.)
 indicates that device needs a special domain
@@ -81,7 +81,7 @@ indicates that device needs a special domain
 
 <p>See the documentation below for details on constructing useful policies:</p>
 
-<p><a href="https://seandroid.bitbucket.org/PapersandPresentations.html">https://seandroid.bitbucket.org/PapersandPresentations.html</a></p>
+<p><a href="http://seandroid.bitbucket.org/PapersandPresentations.html">http://seandroid.bitbucket.org/PapersandPresentations.html</a></p>
 
 <p><a href="https://www.codeproject.com/Articles/806904/Android-Security-Customization-with-SEAndroid">https://www.codeproject.com/Articles/806904/Android-Security-Customization-with-SEAndroid</a></p>
 
@@ -93,7 +93,7 @@ indicates that device needs a special domain
 
 <p><a href="https://www.gnu.org/software/m4/manual/index.html">https://www.gnu.org/software/m4/manual/index.html</a></p>
 
-<p><a href="https://freecomputerbooks.com/books/The_SELinux_Notebook-4th_Edition.pdf">https://freecomputerbooks.com/books/The_SELinux_Notebook-4th_Edition.pdf</a></p>
+<p><a href="http://freecomputerbooks.com/books/The_SELinux_Notebook-4th_Edition.pdf">http://freecomputerbooks.com/books/The_SELinux_Notebook-4th_Edition.pdf</a></p>
 
 <h2 id=help>Help</h2>
 

@@ -146,6 +146,12 @@ class CHROMEOS_EXPORT Validator : public Mapper {
   bool ValidateRecommendedField(const OncValueSignature& object_signature,
                                 base::DictionaryValue* result);
 
+  // Validates the ClientCert* fields in a VPN or EAP object. Only if
+  // |allow_cert_type_none| is true, the value "None" is allowed as
+  // ClientCertType.
+  bool ValidateClientCertFields(bool allow_cert_type_none,
+                                base::DictionaryValue* result);
+
   bool ValidateToplevelConfiguration(base::DictionaryValue* result);
   bool ValidateNetworkConfiguration(base::DictionaryValue* result);
   bool ValidateEthernet(base::DictionaryValue* result);
@@ -161,9 +167,10 @@ class CHROMEOS_EXPORT Validator : public Mapper {
   bool ValidateEAP(base::DictionaryValue* result);
   bool ValidateCertificate(base::DictionaryValue* result);
 
-  bool FieldExistsAndHasNoValidValue(const base::DictionaryValue& object,
-                                     const std::string &field_name,
-                                     const char** valid_values);
+  bool FieldExistsAndHasNoValidValue(
+      const base::DictionaryValue& object,
+      const std::string& field_name,
+      const std::vector<const char*>& valid_values);
 
   bool FieldExistsAndIsNotInRange(const base::DictionaryValue& object,
                                   const std::string &field_name,

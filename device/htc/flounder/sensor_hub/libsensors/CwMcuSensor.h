@@ -106,7 +106,6 @@ class CwMcuSensor : public SensorBase {
         bool offset_reset[numSensors];
         uint64_t last_mcu_timestamp[numSensors];
         uint64_t last_cpu_timestamp[numSensors];
-        uint64_t last_timestamp[numSensors];
         pthread_t sync_time_thread;
 
         bool init_trigger_done;

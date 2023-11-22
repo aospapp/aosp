@@ -30,8 +30,8 @@ import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import javax.net.ssl.SSLSocket;
 
-import com.android.org.conscrypt.OpenSSLSocketImpl;
 import com.squareup.okhttp.Protocol;
+
 import okio.ByteString;
 
 /**
@@ -43,6 +43,25 @@ public final class Platform {
     public static Platform get() {
         return PLATFORM;
     }
+
+    /** setUseSessionTickets(boolean) */
+    private static final OptionalMethod<Socket> SET_USE_SESSION_TICKETS =
+            new OptionalMethod<Socket>(null, "setUseSessionTickets", Boolean.TYPE);
+    /** setHostname(String) */
+    private static final OptionalMethod<Socket> SET_HOSTNAME =
+            new OptionalMethod<Socket>(null, "setHostname", String.class);
+    /** byte[] getAlpnSelectedProtocol() */
+    private static final OptionalMethod<Socket> GET_ALPN_SELECTED_PROTOCOL =
+            new OptionalMethod<Socket>(byte[].class, "getAlpnSelectedProtocol");
+    /** setAlpnSelectedProtocol(byte[]) */
+    private static final OptionalMethod<Socket> SET_ALPN_PROTOCOLS =
+            new OptionalMethod<Socket>(null, "setAlpnProtocols", byte[].class );
+    /** byte[] getNpnSelectedProtocol() */
+    private static final OptionalMethod<Socket> GET_NPN_SELECTED_PROTOCOL =
+            new OptionalMethod<Socket>(byte[].class, "getNpnSelectedProtocol");
+    /** setNpnSelectedProtocol(byte[]) */
+    private static final OptionalMethod<Socket> SET_NPN_PROTOCOLS =
+            new OptionalMethod<Socket>(null, "setNpnProtocols", byte[].class);
 
     public void logW(String warning) {
         System.logW(warning);
@@ -61,11 +80,8 @@ public final class Platform {
     }
 
     public void enableTlsExtensions(SSLSocket socket, String uriHost) {
-        if (socket instanceof OpenSSLSocketImpl) {
-            OpenSSLSocketImpl openSSLSocket = (OpenSSLSocketImpl) socket;
-            openSSLSocket.setUseSessionTickets(true);
-            openSSLSocket.setHostname(uriHost);
-        }
+        SET_USE_SESSION_TICKETS.invokeOptionalWithoutCheckedException(socket, true);
+        SET_HOSTNAME.invokeOptionalWithoutCheckedException(socket, uriHost);
     }
 
     public void supportTlsIntolerantServer(SSLSocket socket) {
@@ -97,18 +113,28 @@ public final class Platform {
      * Returns the negotiated protocol, or null if no protocol was negotiated.
      */
     public ByteString getNpnSelectedProtocol(SSLSocket socket) {
-        if (!(socket instanceof OpenSSLSocketImpl)) {
+        boolean alpnSupported = GET_ALPN_SELECTED_PROTOCOL.isSupported(socket);
+        boolean npnSupported = GET_NPN_SELECTED_PROTOCOL.isSupported(socket);
+        if (!(alpnSupported || npnSupported)) {
             return null;
         }
 
-        OpenSSLSocketImpl socketImpl = (OpenSSLSocketImpl) socket;
         // Prefer ALPN's result if it is present.
-        byte[] alpnResult = socketImpl.getAlpnSelectedProtocol();
-        if (alpnResult != null) {
-            return ByteString.of(alpnResult);
+        if (alpnSupported) {
+            byte[] alpnResult =
+                (byte[]) GET_ALPN_SELECTED_PROTOCOL.invokeWithoutCheckedException(socket);
+            if (alpnResult != null) {
+                return ByteString.of(alpnResult);
+            }
         }
-        byte[] npnResult = socketImpl.getNpnSelectedProtocol();
-        return npnResult == null ? null : ByteString.of(npnResult);
+        if (npnSupported) {
+            byte[] npnResult =
+                (byte[]) GET_NPN_SELECTED_PROTOCOL.invokeWithoutCheckedException(socket);
+            if (npnResult != null) {
+                return ByteString.of(npnResult);
+            }
+        }
+        return null;
     }
 
     /**
@@ -116,11 +142,20 @@ public final class Platform {
      * protocols are only sent if the socket implementation supports NPN.
      */
     public void setNpnProtocols(SSLSocket socket, List<Protocol> npnProtocols) {
-        if (socket instanceof OpenSSLSocketImpl) {
-            OpenSSLSocketImpl socketImpl = (OpenSSLSocketImpl) socket;
-            byte[] protocols = concatLengthPrefixed(npnProtocols);
-            socketImpl.setAlpnProtocols(protocols);
-            socketImpl.setNpnProtocols(protocols);
+        boolean alpnSupported = SET_ALPN_PROTOCOLS.isSupported(socket);
+        boolean npnSupported = SET_NPN_PROTOCOLS.isSupported(socket);
+        if (!(alpnSupported || npnSupported)) {
+            return;
+        }
+
+        byte[] protocols = concatLengthPrefixed(npnProtocols);
+        if (alpnSupported) {
+            SET_ALPN_PROTOCOLS.invokeWithoutCheckedException(
+                socket, new Object[] { protocols });
+        }
+        if (npnSupported) {
+            SET_NPN_PROTOCOLS.invokeWithoutCheckedException(
+                socket, new Object[] { protocols });
         }
     }
 

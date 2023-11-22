@@ -5,15 +5,15 @@
 #include "remoting/protocol/jingle_session_manager.h"
 
 #include "base/bind.h"
-#include "remoting/jingle_glue/iq_sender.h"
-#include "remoting/jingle_glue/signal_strategy.h"
 #include "remoting/protocol/authenticator.h"
 #include "remoting/protocol/content_description.h"
 #include "remoting/protocol/jingle_messages.h"
 #include "remoting/protocol/jingle_session.h"
 #include "remoting/protocol/transport.h"
-#include "third_party/libjingle/source/talk/base/socketaddress.h"
-#include "third_party/libjingle/source/talk/xmllite/xmlelement.h"
+#include "remoting/signaling/iq_sender.h"
+#include "remoting/signaling/signal_strategy.h"
+#include "third_party/webrtc/base/socketaddress.h"
+#include "third_party/webrtc/libjingle/xmllite/xmlelement.h"
 
 using buzz::QName;
 

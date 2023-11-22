@@ -7,6 +7,7 @@
 #include "cc/output/software_frame_data.h"
 #include "content/browser/compositor/software_output_device_ozone.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/skia/include/core/SkDevice.h"
 #include "third_party/skia/include/core/SkSurface.h"
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/test/context_factories_for_test.h"
@@ -48,12 +49,6 @@ class MockSurfaceFactoryOzone : public ui::SurfaceFactoryOzone {
   MockSurfaceFactoryOzone() {}
   virtual ~MockSurfaceFactoryOzone() {}
 
-  virtual HardwareState InitializeHardware() OVERRIDE {
-    return SurfaceFactoryOzone::INITIALIZED;
-  }
-
-  virtual void ShutdownHardware() OVERRIDE {}
-  virtual gfx::AcceleratedWidget GetAcceleratedWidget() OVERRIDE { return 1; }
   virtual bool LoadEGLGLES2Bindings(
       AddGLLibraryCallback add_gl_library,
       SetGLGetProcAddressProcCallback set_gl_get_proc_address) OVERRIDE {
@@ -105,9 +100,11 @@ void SoftwareOutputDeviceOzoneTest::SetUp() {
   surface_factory_.reset(new MockSurfaceFactoryOzone());
 
   const gfx::Size size(500, 400);
-  compositor_.reset(new ui::Compositor(
-      ui::SurfaceFactoryOzone::GetInstance()->GetAcceleratedWidget(),
-      context_factory));
+  const gfx::AcceleratedWidget kTestAcceleratedWidget = 1;
+  compositor_.reset(
+      new ui::Compositor(kTestAcceleratedWidget,
+                         context_factory,
+                         base::MessageLoopProxy::current()));
   compositor_->SetScaleAndSize(1.0f, size);
 
   output_device_.reset(new content::SoftwareOutputDeviceOzone(

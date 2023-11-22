@@ -34,25 +34,37 @@
     "channel": "stable",
     "extension_types": ["legacy_packaged_app", "hosted_app"]
   },
-  "app.service_worker": {
-    "channel": "trunk",  // When changing update tests: http://crbug.com/353209
-    "extension_types": ["platform_app"]
-  },
   "author": {
     "channel": "stable",
     "extension_types": "all"
   },
   "automation": {
-    "channel": "trunk",
+    "channel": "dev",
     "extension_types": ["extension", "legacy_packaged_app"]
   },
-  "bluetooth": {
+  "bluetooth": [{
     // Note: The "bluetooth" manifest permission is used by the
     // chrome.bluetooth, chrome.bluetoothSocket and chrome.bluetoothLowEnergy
     // APIs.
     "channel": "stable",
-    "extension_types": ["platform_app"]
-  },
+    "extension_types": ["platform_app"],
+    "platforms": ["chromeos", "win", "mac"]
+  }, {
+    "channel": "stable",
+    "extension_types": ["platform_app"],
+    "platforms": ["linux"],
+    "whitelist": [
+      "9E287A8257E58EFB13E89C86A4B75A3AC4B058D8",  // unit_tests browser_tests
+      "1C93BD3CF875F4A73C0B2A163BB8FBDA8B8B3D80",  // http://crbug.com/396117
+      "A3BC37E2148AC4E99BE4B16AF9D42DD1E592BBBE",  // http://crbug.com/396117
+      "E703483CEF33DEC18B4B6DD84B5C776FB9182BDB",  // http://crbug.com/396117
+      "307E96539209F95A1A8740C713E6998A73657D96",  // http://crbug.com/396117
+      "4F25792AF1AA7483936DE29C07806F203C7170A0",  // http://crbug.com/407693
+      "BD8781D757D830FC2E85470A1B6E8A718B7EE0D9",  // http://crbug.com/407693
+      "4AC2B6C63C6480D150DFDA13E4A5956EB1D0DDBB",  // http://crbug.com/407693
+      "81986D4F846CEDDDB962643FA501D1780DD441BB"   // http://crbug.com/407693
+    ]
+  }],
   "browser_action": {
     "channel": "stable",
     "extension_types": ["extension"]
@@ -107,10 +119,6 @@
     "channel": "stable",
     "extension_types": "all"
   },
-  "description": {
-    "channel": "stable",
-    "extension_types": "all"
-  },
   "devtools_page": {
     "channel": "stable",
     "extension_types": ["extension", "legacy_packaged_app"]
@@ -162,12 +170,6 @@
       "extension_types": ["shared_module"]
     }
   ],
-  "externally_connectable": {
-    "channel": "stable",
-    "extension_types": [
-      "extension", "hosted_app", "legacy_packaged_app", "platform_app"
-    ]
-  },
   "file_browser_handlers": [
     {
       "channel": "stable",
@@ -179,26 +181,9 @@
       "location": "component"
     }
   ],
-  "file_handlers": [
-  {
-    "channel": "stable",
-    "extension_types": ["platform_app"]
-  }, {
-    "channel": "stable",
-    "extension_types": [ "extension"],
-    "whitelist": [
-      "2FC374607C2DF285634B67C64A2E356C607091C3",  // Quickoffice
-      "3727DD3E564B6055387425027AD74C58784ACC15",  // Quickoffice internal
-      "12E618C3C6E97495AAECF2AC12DEB082353241C6"   // QO component extension
-    ]
-  }],
   "homepage_url": {
     "channel": "stable",
     "extension_types": ["extension", "legacy_packaged_app"]
-  },
-  "icons": {
-    "channel": "stable",
-    "extension_types": "all"
   },
   "import": {
     "channel": "stable",
@@ -209,10 +194,6 @@
     "extension_types": ["extension", "legacy_packaged_app"]
   },
   "key": {
-    "channel": "stable",
-    "extension_types": "all"
-  },
-  "manifest_version": {
     "channel": "stable",
     "extension_types": "all"
   },
@@ -246,16 +227,6 @@
       "extension", "legacy_packaged_app", "hosted_app", "platform_app"
     ]
   },
-  "nacl_modules": {
-    "channel": "stable",
-    "extension_types": [
-      "extension", "legacy_packaged_app", "hosted_app", "platform_app"
-    ]
-  },
-  "name": {
-    "channel": "stable",
-    "extension_types": "all"
-  },
   "oauth2": {
     "channel": "stable",
     "extension_types": [
@@ -274,7 +245,12 @@
       "4B1D0E19C6C43C008C44A8278C8B5BFE15ABEB3C",
       "F7FA7ABC1ECB89BA8EE6656847EFABBF43BB9BCA",
       "1A26E32DE447A17CBE5E9750CDBA78F58539B39C",  // TODO(rockot): Kill these.
-      "E61F841D8210B6A9891E5384CB665FBED31FCD7B"   // http://crbug.com/281715
+      "E61F841D8210B6A9891E5384CB665FBED31FCD7B",  // http://crbug.com/281715
+
+      // TODO(joaodasilva): remove these two once we have the new policy to
+      // grant auto approval by ID. http://crbug.com/399392
+      "A8208CCC87F8261AFAEB6B85D5E8D47372DDEA6B",
+      "A4577D8C2AF4CF26F40CBCA83FFA4251D6F6C8F8"
     ]
   },
   "omnibox": {
@@ -377,9 +353,5 @@
   "url_handlers": {
     "channel": "stable",
     "extension_types": ["platform_app"]
-  },
-  "version": {
-    "channel": "stable",
-    "extension_types": "all"
   }
 }

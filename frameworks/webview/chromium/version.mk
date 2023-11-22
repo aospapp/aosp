@@ -34,7 +34,7 @@
 #        and running them in emulation.
 
 # TODO(torne): get this from Chromium automatically.
-version_milestone := 37
+version_milestone := 39
 version_offset_milestone := $(shell echo $(version_milestone) \
                               | awk '{print $$1 - 36}')
 

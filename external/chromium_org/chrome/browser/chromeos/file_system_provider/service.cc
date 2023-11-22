@@ -16,10 +16,9 @@
 #include "chrome/browser/chromeos/file_system_provider/service_factory.h"
 #include "chrome/common/pref_names.h"
 #include "components/pref_registry/pref_registry_syncable.h"
-#include "extensions/browser/event_router.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
-#include "webkit/browser/fileapi/external_mount_points.h"
+#include "storage/browser/fileapi/external_mount_points.h"
 
 namespace chromeos {
 namespace file_system_provider {
@@ -28,19 +27,19 @@ namespace {
 // Maximum number of file systems to be mounted in the same time, per profile.
 const size_t kMaxFileSystems = 16;
 
-// Default factory for provided file systems. The |event_router| must not be
-// NULL.
+// Default factory for provided file systems. |profile| must not be NULL.
 ProvidedFileSystemInterface* CreateProvidedFileSystem(
-    extensions::EventRouter* event_router,
+    Profile* profile,
     const ProvidedFileSystemInfo& file_system_info) {
-  DCHECK(event_router);
-  return new ProvidedFileSystem(event_router, file_system_info);
+  DCHECK(profile);
+  return new ProvidedFileSystem(profile, file_system_info);
 }
 
 }  // namespace
 
 const char kPrefKeyFileSystemId[] = "file-system-id";
-const char kPrefKeyFileSystemName[] = "file-system-name";
+const char kPrefKeyDisplayName[] = "display-name";
+const char kPrefKeyWritable[] = "writable";
 
 void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterDictionaryPref(
@@ -59,8 +58,11 @@ Service::Service(Profile* profile,
 
 Service::~Service() {
   extension_registry_->RemoveObserver(this);
-  RememberFileSystems();
 
+  // Provided file systems should be already unmounted because of receiving
+  // OnExtensionUnload calls for each installed extension. However, for tests
+  // we may still have mounted extensions.
+  // TODO(mtomasz): Create a TestingService class and remove this code.
   ProvidedFileSystemMap::iterator it = file_system_map_.begin();
   while (it != file_system_map_.end()) {
     const std::string file_system_id =
@@ -68,7 +70,9 @@ Service::~Service() {
     const std::string extension_id =
         it->second->GetFileSystemInfo().extension_id();
     ++it;
-    UnmountFileSystem(extension_id, file_system_id);
+    const bool unmount_result = UnmountFileSystem(
+        extension_id, file_system_id, UNMOUNT_REASON_SHUTDOWN);
+    DCHECK(unmount_result);
   }
 
   DCHECK_EQ(0u, file_system_map_.size());
@@ -98,7 +102,8 @@ void Service::SetFileSystemFactoryForTesting(
 
 bool Service::MountFileSystem(const std::string& extension_id,
                               const std::string& file_system_id,
-                              const std::string& file_system_name) {
+                              const std::string& display_name,
+                              bool writable) {
   DCHECK(thread_checker_.CalledOnValidThread());
 
   // If already exists a file system provided by the same extension with this
@@ -121,8 +126,8 @@ bool Service::MountFileSystem(const std::string& extension_id,
     return false;
   }
 
-  fileapi::ExternalMountPoints* const mount_points =
-      fileapi::ExternalMountPoints::GetSystemInstance();
+  storage::ExternalMountPoints* const mount_points =
+      storage::ExternalMountPoints::GetSystemInstance();
   DCHECK(mount_points);
 
   // The mount point path and name are unique per system, since they are system
@@ -132,8 +137,8 @@ bool Service::MountFileSystem(const std::string& extension_id,
   const std::string mount_point_name = mount_path.BaseName().AsUTF8Unsafe();
 
   if (!mount_points->RegisterFileSystem(mount_point_name,
-                                        fileapi::kFileSystemTypeProvided,
-                                        fileapi::FileSystemMountOption(),
+                                        storage::kFileSystemTypeProvided,
+                                        storage::FileSystemMountOption(),
                                         mount_path)) {
     FOR_EACH_OBSERVER(
         Observer,
@@ -146,21 +151,20 @@ bool Service::MountFileSystem(const std::string& extension_id,
   // Store the file system descriptor. Use the mount point name as the file
   // system provider file system id.
   // Examples:
-  //   file_system_id = 41
-  //   mount_point_name =  b33f1337-41-5aa5
-  //   mount_path = /provided/b33f1337-41-5aa5
+  //   file_system_id = hello_world
+  //   mount_point_name =  b33f1337-hello_world-5aa5
+  //   writable = false
+  //   mount_path = /provided/b33f1337-hello_world-5aa5
   ProvidedFileSystemInfo file_system_info(
-      extension_id, file_system_id, file_system_name, mount_path);
-
-  // The event router may be NULL for unit tests.
-  extensions::EventRouter* router = extensions::EventRouter::Get(profile_);
+      extension_id, file_system_id, display_name, writable, mount_path);
 
   ProvidedFileSystemInterface* file_system =
-      file_system_factory_.Run(router, file_system_info);
+      file_system_factory_.Run(profile_, file_system_info);
   DCHECK(file_system);
   file_system_map_[FileSystemKey(extension_id, file_system_id)] = file_system;
   mount_point_name_to_key_map_[mount_point_name] =
       FileSystemKey(extension_id, file_system_id);
+  RememberFileSystem(file_system_info);
 
   FOR_EACH_OBSERVER(
       Observer,
@@ -171,7 +175,8 @@ bool Service::MountFileSystem(const std::string& extension_id,
 }
 
 bool Service::UnmountFileSystem(const std::string& extension_id,
-                                const std::string& file_system_id) {
+                                const std::string& file_system_id,
+                                UnmountReason reason) {
   DCHECK(thread_checker_.CalledOnValidThread());
 
   const ProvidedFileSystemMap::iterator file_system_it =
@@ -186,8 +191,8 @@ bool Service::UnmountFileSystem(const std::string& extension_id,
     return false;
   }
 
-  fileapi::ExternalMountPoints* const mount_points =
-      fileapi::ExternalMountPoints::GetSystemInstance();
+  storage::ExternalMountPoints* const mount_points =
+      storage::ExternalMountPoints::GetSystemInstance();
   DCHECK(mount_points);
 
   const ProvidedFileSystemInfo& file_system_info =
@@ -210,6 +215,11 @@ bool Service::UnmountFileSystem(const std::string& extension_id,
       OnProvidedFileSystemUnmount(file_system_info, base::File::FILE_OK));
 
   mount_point_name_to_key_map_.erase(mount_point_name);
+
+  if (reason == UNMOUNT_REASON_USER) {
+    ForgetFileSystem(file_system_info.extension_id(),
+                     file_system_info.file_system_id());
+  }
 
   delete file_system_it->second;
   file_system_map_.erase(file_system_it);
@@ -262,11 +272,6 @@ void Service::OnExtensionUnloaded(
     content::BrowserContext* browser_context,
     const extensions::Extension* extension,
     extensions::UnloadedExtensionInfo::Reason reason) {
-  // If the reason is not a profile shutdown, then forget the mounted file
-  // systems from preferences.
-  if (reason != extensions::UnloadedExtensionInfo::REASON_PROFILE_SHUTDOWN)
-    ForgetFileSystems(extension->id());
-
   // Unmount all of the provided file systems associated with this extension.
   ProvidedFileSystemMap::iterator it = file_system_map_.begin();
   while (it != file_system_map_.end()) {
@@ -276,9 +281,13 @@ void Service::OnExtensionUnloaded(
     // by the UnmountFileSystem() call.
     ++it;
     if (file_system_info.extension_id() == extension->id()) {
-      bool result = UnmountFileSystem(file_system_info.extension_id(),
-                                      file_system_info.file_system_id());
-      DCHECK(result);
+      const bool unmount_result = UnmountFileSystem(
+          file_system_info.extension_id(),
+          file_system_info.file_system_id(),
+          reason == extensions::UnloadedExtensionInfo::REASON_PROFILE_SHUTDOWN
+              ? UNMOUNT_REASON_SHUTDOWN
+              : UNMOUNT_REASON_USER);
+      DCHECK(unmount_result);
     }
   }
 }
@@ -318,82 +327,105 @@ void Service::OnRequestUnmountStatus(
   }
 }
 
-void Service::RememberFileSystems() {
-  base::DictionaryValue extensions;
-  const std::vector<ProvidedFileSystemInfo> file_system_info_list =
-      GetProvidedFileSystemInfoList();
+void Service::RememberFileSystem(
+    const ProvidedFileSystemInfo& file_system_info) {
+  base::DictionaryValue* file_system = new base::DictionaryValue();
+  file_system->SetStringWithoutPathExpansion(kPrefKeyFileSystemId,
+                                             file_system_info.file_system_id());
+  file_system->SetStringWithoutPathExpansion(kPrefKeyDisplayName,
+                                             file_system_info.display_name());
+  file_system->SetBooleanWithoutPathExpansion(kPrefKeyWritable,
+                                              file_system_info.writable());
 
-  for (std::vector<ProvidedFileSystemInfo>::const_iterator it =
-           file_system_info_list.begin();
-       it != file_system_info_list.end();
-       ++it) {
-    base::ListValue* file_systems = NULL;
-    if (!extensions.GetList(it->extension_id(), &file_systems)) {
-      file_systems = new base::ListValue();
-      extensions.Set(it->extension_id(), file_systems);
-    }
+  PrefService* const pref_service = profile_->GetPrefs();
+  DCHECK(pref_service);
 
-    base::DictionaryValue* file_system = new base::DictionaryValue();
-    file_system->SetString(kPrefKeyFileSystemId, it->file_system_id());
-    file_system->SetString(kPrefKeyFileSystemName, it->file_system_name());
-    file_systems->Append(file_system);
+  DictionaryPrefUpdate dict_update(pref_service,
+                                   prefs::kFileSystemProviderMounted);
+
+  base::DictionaryValue* file_systems_per_extension = NULL;
+  if (!dict_update->GetDictionaryWithoutPathExpansion(
+          file_system_info.extension_id(), &file_systems_per_extension)) {
+    file_systems_per_extension = new base::DictionaryValue();
+    dict_update->SetWithoutPathExpansion(file_system_info.extension_id(),
+                                         file_systems_per_extension);
   }
 
-  PrefService* pref_service = profile_->GetPrefs();
-  DCHECK(pref_service);
-  pref_service->Set(prefs::kFileSystemProviderMounted, extensions);
-  pref_service->CommitPendingWrite();
+  file_systems_per_extension->SetWithoutPathExpansion(
+      file_system_info.file_system_id(), file_system);
 }
 
-void Service::ForgetFileSystems(const std::string& extension_id) {
-  PrefService* pref_service = profile_->GetPrefs();
+void Service::ForgetFileSystem(const std::string& extension_id,
+                               const std::string& file_system_id) {
+  PrefService* const pref_service = profile_->GetPrefs();
   DCHECK(pref_service);
 
-  DictionaryPrefUpdate update(pref_service, prefs::kFileSystemProviderMounted);
-  base::DictionaryValue* extensions = update.Get();
-  DCHECK(extensions);
+  DictionaryPrefUpdate dict_update(pref_service,
+                                   prefs::kFileSystemProviderMounted);
 
-  extensions->Remove(extension_id, NULL);
+  base::DictionaryValue* file_systems_per_extension = NULL;
+  if (!dict_update->GetDictionaryWithoutPathExpansion(
+          extension_id, &file_systems_per_extension))
+    return;  // Nothing to forget.
+
+  file_systems_per_extension->RemoveWithoutPathExpansion(file_system_id, NULL);
+  if (!file_systems_per_extension->size())
+    dict_update->Remove(extension_id, NULL);
 }
 
 void Service::RestoreFileSystems(const std::string& extension_id) {
-  PrefService* pref_service = profile_->GetPrefs();
+  PrefService* const pref_service = profile_->GetPrefs();
   DCHECK(pref_service);
 
-  const base::DictionaryValue* extensions =
+  const base::DictionaryValue* const file_systems =
       pref_service->GetDictionary(prefs::kFileSystemProviderMounted);
-  DCHECK(extensions);
+  DCHECK(file_systems);
 
-  const base::ListValue* file_systems = NULL;
+  const base::DictionaryValue* file_systems_per_extension = NULL;
+  if (!file_systems->GetDictionaryWithoutPathExpansion(
+          extension_id, &file_systems_per_extension))
+    return;  // Nothing to restore.
 
-  if (!extensions->GetList(extension_id, &file_systems))
-    return;
+  // Use a copy of the dictionary, since the original one may be modified while
+  // iterating over it.
+  scoped_ptr<const base::DictionaryValue> file_systems_per_extension_copy(
+      file_systems_per_extension->DeepCopy());
 
-  for (size_t i = 0; i < file_systems->GetSize(); ++i) {
+  for (base::DictionaryValue::Iterator it(*file_systems_per_extension_copy);
+       !it.IsAtEnd();
+       it.Advance()) {
+    const base::Value* file_system_value = NULL;
     const base::DictionaryValue* file_system = NULL;
-    file_systems->GetDictionary(i, &file_system);
-    DCHECK(file_system);
+    file_systems_per_extension_copy->GetWithoutPathExpansion(
+        it.key(), &file_system_value);
+    DCHECK(file_system_value);
 
     std::string file_system_id;
-    file_system->GetString(kPrefKeyFileSystemId, &file_system_id);
-    DCHECK(!file_system_id.empty());
+    std::string display_name;
+    bool writable;
 
-    std::string file_system_name;
-    file_system->GetString(kPrefKeyFileSystemName, &file_system_name);
-    DCHECK(!file_system_name.empty());
-
-    if (file_system_id.empty() || file_system_name.empty()) {
+    if (!file_system_value->GetAsDictionary(&file_system) ||
+        !file_system->GetStringWithoutPathExpansion(kPrefKeyFileSystemId,
+                                                    &file_system_id) ||
+        !file_system->GetStringWithoutPathExpansion(kPrefKeyDisplayName,
+                                                    &display_name) ||
+        !file_system->GetBooleanWithoutPathExpansion(kPrefKeyWritable,
+                                                     &writable) ||
+        file_system_id.empty() || display_name.empty()) {
       LOG(ERROR)
           << "Malformed provided file system information in preferences.";
       continue;
     }
 
     const bool result =
-        MountFileSystem(extension_id, file_system_id, file_system_name);
+        MountFileSystem(extension_id, file_system_id, display_name, writable);
     if (!result) {
       LOG(ERROR) << "Failed to restore a provided file system from "
                  << "preferences: " << extension_id << ", " << file_system_id
-                 << ", " << file_system_name << ".";
+                 << ", " << display_name << ".";
+      // Since remounting of the file system failed, then remove it from
+      // preferences to avoid remounting it over and over again with a failure.
+      ForgetFileSystem(extension_id, file_system_id);
     }
   }
 }

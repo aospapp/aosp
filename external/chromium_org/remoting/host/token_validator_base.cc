@@ -120,6 +120,9 @@ void TokenValidatorBase::OnCertificateRequested(
   client_cert_store = new net::ClientCertStoreWin();
 #elif defined(OS_MACOSX)
   client_cert_store = new net::ClientCertStoreMac();
+#elif defined(USE_OPENSSL)
+    // OpenSSL does not use the ClientCertStore infrastructure.
+  client_cert_store = NULL;
 #else
 #error Unknown platform.
 #endif
@@ -143,7 +146,7 @@ void TokenValidatorBase::OnCertificatesSelected(
     for (size_t i = 0; i < selected_certs->size(); ++i) {
       if (issuer == kCertIssuerWildCard ||
           issuer == (*selected_certs)[i]->issuer().common_name) {
-        request_->ContinueWithCertificate((*selected_certs)[i]);
+        request_->ContinueWithCertificate((*selected_certs)[i].get());
         return;
       }
     }

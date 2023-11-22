@@ -23,13 +23,8 @@ GestureProviderAura::GestureProviderAura(GestureProviderAuraClient* client)
 GestureProviderAura::~GestureProviderAura() {}
 
 bool GestureProviderAura::OnTouchEvent(const TouchEvent& event) {
-  bool pointer_id_is_active = false;
-  for (size_t i = 0; i < pointer_state_.GetPointerCount(); ++i) {
-    if (event.touch_id() != pointer_state_.GetPointerId(i))
-      continue;
-    pointer_id_is_active = true;
-    break;
-  }
+  int index = pointer_state_.FindPointerIndexOfId(event.touch_id());
+  bool pointer_id_is_active = index != -1;
 
   if (event.type() == ET_TOUCH_PRESSED && pointer_id_is_active) {
     // Ignore touch press events if we already believe the pointer is down.
@@ -41,7 +36,14 @@ bool GestureProviderAura::OnTouchEvent(const TouchEvent& event) {
     return false;
   }
 
-  last_touch_event_flags_ = event.flags();
+  // If this is a touchmove event, and it isn't different from the last
+  // event, ignore it.
+  if (event.type() == ET_TOUCH_MOVED &&
+      event.x() == pointer_state_.GetX(index) &&
+      event.y() == pointer_state_.GetY(index)) {
+    return false;
+  }
+
   last_touch_event_latency_info_ = *event.latency();
   pointer_state_.OnTouch(event);
 
@@ -61,6 +63,7 @@ void GestureProviderAura::OnTouchEventAck(bool event_consumed) {
 void GestureProviderAura::OnGestureEvent(
     const GestureEventData& gesture) {
   GestureEventDetails details = gesture.details;
+  details.set_oldest_touch_id(gesture.motion_event_id);
 
   if (gesture.type() == ET_GESTURE_TAP) {
     int tap_count = 1;
@@ -77,18 +80,11 @@ void GestureProviderAura::OnGestureEvent(
   }
 
   scoped_ptr<ui::GestureEvent> event(
-      new ui::GestureEvent(gesture.type(),
-                           gesture.x,
+      new ui::GestureEvent(gesture.x,
                            gesture.y,
-                           last_touch_event_flags_,
+                           gesture.flags,
                            gesture.time - base::TimeTicks(),
-                           details,
-                           // ui::GestureEvent stores a bitfield indicating the
-                           // ids of active touch points. This is currently only
-                           // used when one finger is down, and will eventually
-                           // be cleaned up. See crbug.com/366707.
-                           1 << gesture.motion_event_id));
-
+                           details));
 
   ui::LatencyInfo* gesture_latency = event->latency();
 

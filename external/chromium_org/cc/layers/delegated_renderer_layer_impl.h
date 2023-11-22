@@ -28,13 +28,14 @@ class CC_EXPORT DelegatedRendererLayerImpl : public LayerImpl {
       OVERRIDE;
   virtual bool HasDelegatedContent() const OVERRIDE;
   virtual bool HasContributingDelegatedRenderPasses() const OVERRIDE;
-  virtual RenderPass::Id FirstContributingRenderPassId() const OVERRIDE;
-  virtual RenderPass::Id NextContributingRenderPassId(
-      RenderPass::Id previous) const OVERRIDE;
+  virtual RenderPassId FirstContributingRenderPassId() const OVERRIDE;
+  virtual RenderPassId NextContributingRenderPassId(
+      RenderPassId previous) const OVERRIDE;
   virtual void ReleaseResources() OVERRIDE;
   virtual bool WillDraw(DrawMode draw_mode,
                         ResourceProvider* resource_provider) OVERRIDE;
-  virtual void AppendQuads(QuadSink* quad_sink,
+  virtual void AppendQuads(RenderPass* render_pass,
+                           const OcclusionTracker<LayerImpl>& occlusion_tracker,
                            AppendQuadsData* append_quads_data) OVERRIDE;
   virtual void PushPropertiesTo(LayerImpl* layer) OVERRIDE;
 
@@ -56,7 +57,7 @@ class CC_EXPORT DelegatedRendererLayerImpl : public LayerImpl {
   DelegatedRendererLayerImpl(LayerTreeImpl* tree_impl, int id);
 
   int ChildIdForTesting() const { return child_id_; }
-  const ScopedPtrVector<RenderPass>& RenderPassesInDrawOrderForTesting() const {
+  const RenderPassList& RenderPassesInDrawOrderForTesting() const {
     return render_passes_in_draw_order_;
   }
   const ResourceProvider::ResourceIdArray& ResourcesForTesting() const {
@@ -66,21 +67,20 @@ class CC_EXPORT DelegatedRendererLayerImpl : public LayerImpl {
  private:
   void ClearChildId();
 
-  void AppendRainbowDebugBorder(QuadSink* quad_sink,
+  void AppendRainbowDebugBorder(RenderPass* render_pass,
                                 AppendQuadsData* append_quads_data);
 
-  void SetRenderPasses(
-      ScopedPtrVector<RenderPass>* render_passes_in_draw_order);
+  void SetRenderPasses(RenderPassList* render_passes_in_draw_order);
   void ClearRenderPasses();
 
   // Returns |true| if the delegated_render_pass_id is part of the current
   // frame and can be converted.
-  bool ConvertDelegatedRenderPassId(
-      RenderPass::Id delegated_render_pass_id,
-      RenderPass::Id* output_render_pass_id) const;
+  bool ConvertDelegatedRenderPassId(RenderPassId delegated_render_pass_id,
+                                    RenderPassId* output_render_pass_id) const;
 
   void AppendRenderPassQuads(
-      QuadSink* quad_sink,
+      RenderPass* render_pass,
+      const OcclusionTracker<LayerImpl>& occlusion_tracker,
       AppendQuadsData* append_quads_data,
       const RenderPass* delegated_render_pass,
       const gfx::Size& frame_size) const;
@@ -90,8 +90,8 @@ class CC_EXPORT DelegatedRendererLayerImpl : public LayerImpl {
 
   bool have_render_passes_to_push_;
   float inverse_device_scale_factor_;
-  ScopedPtrVector<RenderPass> render_passes_in_draw_order_;
-  base::hash_map<RenderPass::Id, int> render_passes_index_by_id_;
+  RenderPassList render_passes_in_draw_order_;
+  base::hash_map<RenderPassId, int> render_passes_index_by_id_;
   ResourceProvider::ResourceIdArray resources_;
 
   int child_id_;

@@ -14,7 +14,7 @@ namespace cc {
 
 class CC_EXPORT StreamVideoDrawQuad : public DrawQuad {
  public:
-  static scoped_ptr<StreamVideoDrawQuad> Create();
+  StreamVideoDrawQuad();
 
   void SetNew(const SharedQuadState* shared_quad_state,
               const gfx::Rect& rect,
@@ -40,8 +40,7 @@ class CC_EXPORT StreamVideoDrawQuad : public DrawQuad {
   static const StreamVideoDrawQuad* MaterialCast(const DrawQuad*);
 
  private:
-  StreamVideoDrawQuad();
-  virtual void ExtendValue(base::DictionaryValue* value) const OVERRIDE;
+  virtual void ExtendValue(base::debug::TracedValue* value) const OVERRIDE;
 };
 
 }  // namespace cc

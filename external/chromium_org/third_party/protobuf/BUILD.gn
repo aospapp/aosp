@@ -89,7 +89,10 @@ source_set("protobuf_lite") {
 
   configs -= [ "//build/config/compiler:chromium_code" ]
   configs += [ "//build/config/compiler:no_chromium_code" ]
-  direct_dependent_configs = [ ":protobuf_config" ]
+  if (is_win) {
+    configs -= [ "//build/config/win:lean_and_mean" ]
+  }
+  public_configs = [ ":protobuf_config" ]
 
   cflags = protobuf_lite_cflags
 
@@ -102,7 +105,8 @@ source_set("protobuf_lite") {
 # into that category. Do not use in Chrome code.
 
 source_set("protobuf_full") {
-  visibility = ":*"  # Prevent people from depending on this outside our file.
+  # Prevent people from depending on this outside our file.
+  visibility = [ ":*" ]
 
   sources = protobuf_lite_sources
   sources += [
@@ -162,7 +166,10 @@ source_set("protobuf_full") {
 
   configs -= [ "//build/config/compiler:chromium_code" ]
   configs += [ "//build/config/compiler:no_chromium_code" ]
-  direct_dependent_configs = [ ":protobuf_config" ]
+  if (is_win) {
+    configs -= [ "//build/config/win:lean_and_mean" ]
+  }
+  public_configs = [ ":protobuf_config" ]
 
   cflags = protobuf_lite_cflags
 }

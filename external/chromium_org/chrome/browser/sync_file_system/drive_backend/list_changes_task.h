@@ -48,6 +48,8 @@ class ListChangesTask : public SyncTask {
   SyncEngineContext* sync_context_;
   ScopedVector<google_apis::ChangeResource> change_list_;
 
+  std::vector<std::string> file_ids_;
+
   base::WeakPtrFactory<ListChangesTask> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(ListChangesTask);

@@ -67,23 +67,27 @@ void ExtensionRegistry::TriggerOnWillBeInstalled(const Extension* extension,
           browser_context_, extension, is_update, from_ephemeral, old_name));
 }
 
-void ExtensionRegistry::TriggerOnInstalled(const Extension* extension) {
+void ExtensionRegistry::TriggerOnInstalled(const Extension* extension,
+                                           bool is_update) {
   DCHECK(GenerateInstalledExtensionsSet()->Contains(extension->id()));
   FOR_EACH_OBSERVER(ExtensionRegistryObserver,
                     observers_,
-                    OnExtensionInstalled(browser_context_, extension));
+                    OnExtensionInstalled(
+                        browser_context_, extension, is_update));
 }
 
-void ExtensionRegistry::TriggerOnUninstalled(const Extension* extension) {
+void ExtensionRegistry::TriggerOnUninstalled(const Extension* extension,
+                                             UninstallReason reason) {
   DCHECK(!GenerateInstalledExtensionsSet()->Contains(extension->id()));
-  FOR_EACH_OBSERVER(ExtensionRegistryObserver,
-                    observers_,
-                    OnExtensionUninstalled(browser_context_, extension));
+  FOR_EACH_OBSERVER(
+      ExtensionRegistryObserver,
+      observers_,
+      OnExtensionUninstalled(browser_context_, extension, reason));
 }
 
 const Extension* ExtensionRegistry::GetExtensionById(const std::string& id,
                                                      int include_mask) const {
-  std::string lowercase_id = StringToLowerASCII(id);
+  std::string lowercase_id = base::StringToLowerASCII(id);
   if (include_mask & ENABLED) {
     const Extension* extension = enabled_extensions_.GetByID(lowercase_id);
     if (extension)

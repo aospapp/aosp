@@ -5,9 +5,9 @@
 #include "chrome/browser/search/search_terms_tracker.h"
 
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/search_engines/template_url.h"
-#include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_service.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/notification_details.h"
@@ -112,7 +112,7 @@ bool SearchTermsTracker::FindMostRecentSearch(
 
     // Do not consider any navigations that precede a non-web-triggerable
     // navigation as they are not related to those terms.
-    if (!content::PageTransitionIsWebTriggerable(
+    if (!ui::PageTransitionIsWebTriggerable(
             entry->GetTransitionType())) {
       break;
     }

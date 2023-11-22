@@ -186,6 +186,18 @@ public final class Palette {
                 }, bitmap);
     }
 
+    /**
+     * Generate a {@link Palette} from the pre-generated list of {@link Palette.Swatch} swatches.
+     * This is useful for testing, or if you want to resurrect a {@link Palette} instance from a
+     * list of swatches. Will return null if the {@code swatches} is null.
+     */
+    public static Palette from(List<Swatch> swatches) {
+        if (swatches == null) {
+            return null;
+        }
+        return new Palette(swatches);
+    }
+
     private Palette(List<Swatch> swatches) {
         mSwatches = swatches;
         mHighestPopulation = findMaxPopulation();
@@ -540,11 +552,11 @@ public final class Palette {
 
         private float[] mHsl;
 
-        Swatch(int rgbColor, int population) {
-            mRed = Color.red(rgbColor);
-            mGreen = Color.green(rgbColor);
-            mBlue = Color.blue(rgbColor);
-            mRgb = rgbColor;
+        public Swatch(int color, int population) {
+            mRed = Color.red(color);
+            mGreen = Color.green(color);
+            mBlue = Color.blue(color);
+            mRgb = color;
             mPopulation = population;
         }
 
@@ -605,10 +617,37 @@ public final class Palette {
 
         private void ensureTextColorsGenerated() {
             if (!mGeneratedTextColors) {
-                mTitleTextColor = ColorUtils.getTextColorForBackground(mRgb,
-                        MIN_CONTRAST_TITLE_TEXT);
-                mBodyTextColor = ColorUtils.getTextColorForBackground(mRgb,
-                        MIN_CONTRAST_BODY_TEXT);
+                // First check white, as most colors will be dark
+                final int lightBody = ColorUtils.getTextColorForBackground(
+                        mRgb, Color.WHITE,  MIN_CONTRAST_BODY_TEXT);
+                final int lightTitle = ColorUtils.getTextColorForBackground(
+                        mRgb, Color.WHITE, MIN_CONTRAST_TITLE_TEXT);
+
+                if (lightBody != -1 && lightTitle != -1) {
+                    // If we found valid light values, use them and return
+                    mBodyTextColor = lightBody;
+                    mTitleTextColor = lightTitle;
+                    mGeneratedTextColors = true;
+                    return;
+                }
+
+                final int darkBody = ColorUtils.getTextColorForBackground(
+                        mRgb, Color.BLACK, MIN_CONTRAST_BODY_TEXT);
+                final int darkTitle = ColorUtils.getTextColorForBackground(
+                        mRgb, Color.BLACK, MIN_CONTRAST_TITLE_TEXT);
+
+                if (darkBody != -1 && darkBody != -1) {
+                    // If we found valid dark values, use them and return
+                    mBodyTextColor = darkBody;
+                    mTitleTextColor = darkTitle;
+                    mGeneratedTextColors = true;
+                    return;
+                }
+
+                // If we reach here then we can not find title and body values which use the same
+                // lightness, we need to use mismatched values
+                mBodyTextColor = lightBody != -1 ? lightBody : darkBody;
+                mTitleTextColor = lightTitle != -1 ? lightTitle : darkTitle;
                 mGeneratedTextColors = true;
             }
         }

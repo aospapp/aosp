@@ -19,7 +19,8 @@ struct FormData {
   FormData(const FormData& data);
   ~FormData();
 
-  // Used in testing.
+  // Used in testing, and in recording metrics and setting preferences, where
+  // false positives/negatives aren't super important.
   bool operator==(const FormData& form) const;
   bool operator!=(const FormData& form) const;
 
@@ -28,8 +29,6 @@ struct FormData {
 
   // The name of the form.
   base::string16 name;
-  // GET or POST.
-  base::string16 method;
   // The URL (minus query parameters) containing the form.
   GURL origin;
   // The action target of the form.

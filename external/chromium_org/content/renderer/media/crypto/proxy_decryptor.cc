@@ -102,21 +102,25 @@ bool ProxyDecryptor::GenerateKeyRequest(const std::string& content_type,
   const char kPrefixedApiPersistentSessionHeader[] = "PERSISTENT|";
   const char kPrefixedApiLoadSessionHeader[] = "LOAD_SESSION|";
 
-  bool loadSession =
-      HasHeader(init_data, init_data_length, kPrefixedApiLoadSessionHeader);
-  bool persistent = HasHeader(
-      init_data, init_data_length, kPrefixedApiPersistentSessionHeader);
+  SessionCreationType session_creation_type = TemporarySession;
+  if (HasHeader(init_data, init_data_length, kPrefixedApiLoadSessionHeader)) {
+    session_creation_type = LoadSession;
+  } else if (HasHeader(init_data,
+                       init_data_length,
+                       kPrefixedApiPersistentSessionHeader)) {
+    session_creation_type = PersistentSession;
+  }
 
   scoped_ptr<media::NewSessionCdmPromise> promise(
       new media::NewSessionCdmPromise(
           base::Bind(&ProxyDecryptor::SetSessionId,
                      weak_ptr_factory_.GetWeakPtr(),
-                     persistent || loadSession),
+                     session_creation_type),
           base::Bind(&ProxyDecryptor::OnSessionError,
                      weak_ptr_factory_.GetWeakPtr(),
                      std::string())));  // No session id until created.
 
-  if (loadSession) {
+  if (session_creation_type == LoadSession) {
     media_keys_->LoadSession(
         std::string(reinterpret_cast<const char*>(
                         init_data + strlen(kPrefixedApiLoadSessionHeader)),
@@ -126,10 +130,23 @@ bool ProxyDecryptor::GenerateKeyRequest(const std::string& content_type,
   }
 
   media::MediaKeys::SessionType session_type =
-      persistent ? media::MediaKeys::PERSISTENT_SESSION
-                 : media::MediaKeys::TEMPORARY_SESSION;
-  media_keys_->CreateSession(
-      content_type, init_data, init_data_length, session_type, promise.Pass());
+      session_creation_type == PersistentSession
+          ? media::MediaKeys::PERSISTENT_SESSION
+          : media::MediaKeys::TEMPORARY_SESSION;
+
+  // Convert MIME types used in the prefixed implementation.
+  std::string init_data_type;
+  if (content_type == "audio/mp4" || content_type == "video/mp4") {
+    init_data_type = "cenc";
+  } else if (content_type == "audio/webm" || content_type == "video/webm") {
+    init_data_type = "webm";
+  } else {
+    NOTREACHED();
+    init_data_type = content_type;
+  }
+
+  media_keys_->CreateSession(init_data_type, init_data, init_data_length,
+                             session_type, promise.Pass());
   return true;
 }
 
@@ -201,7 +218,7 @@ void ProxyDecryptor::CancelKeyRequest(const std::string& web_session_id) {
                                   base::Bind(&ProxyDecryptor::OnSessionError,
                                              weak_ptr_factory_.GetWeakPtr(),
                                              web_session_id)));
-  media_keys_->ReleaseSession(web_session_id, promise.Pass());
+  media_keys_->RemoveSession(web_session_id, promise.Pass());
 }
 
 scoped_ptr<media::MediaKeys> ProxyDecryptor::CreateMediaKeys(
@@ -223,6 +240,10 @@ scoped_ptr<media::MediaKeys> ProxyDecryptor::CreateMediaKeys(
       base::Bind(&ProxyDecryptor::OnSessionClosed,
                  weak_ptr_factory_.GetWeakPtr()),
       base::Bind(&ProxyDecryptor::OnSessionError,
+                 weak_ptr_factory_.GetWeakPtr()),
+      base::Bind(&ProxyDecryptor::OnSessionKeysChange,
+                 weak_ptr_factory_.GetWeakPtr()),
+      base::Bind(&ProxyDecryptor::OnSessionExpirationUpdate,
                  weak_ptr_factory_.GetWeakPtr()));
 }
 
@@ -230,7 +251,29 @@ void ProxyDecryptor::OnSessionMessage(const std::string& web_session_id,
                                       const std::vector<uint8>& message,
                                       const GURL& destination_url) {
   // Assumes that OnSessionCreated() has been called before this.
+
+  // For ClearKey, convert the message from JSON into just passing the key
+  // as the message. If unable to extract the key, return the message unchanged.
+  if (is_clear_key_) {
+    std::vector<uint8> key;
+    if (media::ExtractFirstKeyIdFromLicenseRequest(message, &key)) {
+      key_message_cb_.Run(web_session_id, key, destination_url);
+      return;
+    }
+  }
+
   key_message_cb_.Run(web_session_id, message, destination_url);
+}
+
+void ProxyDecryptor::OnSessionKeysChange(const std::string& web_session_id,
+                                         bool has_additional_usable_key) {
+  // EME v0.1b doesn't support this event.
+}
+
+void ProxyDecryptor::OnSessionExpirationUpdate(
+    const std::string& web_session_id,
+    const base::Time& new_expiry_time) {
+  // EME v0.1b doesn't support this event.
 }
 
 void ProxyDecryptor::OnSessionReady(const std::string& web_session_id) {
@@ -286,9 +329,16 @@ void ProxyDecryptor::OnSessionError(const std::string& web_session_id,
   key_error_cb_.Run(web_session_id, error_code, system_code);
 }
 
-void ProxyDecryptor::SetSessionId(bool persistent,
+void ProxyDecryptor::SetSessionId(SessionCreationType session_type,
                                   const std::string& web_session_id) {
-  active_sessions_.insert(std::make_pair(web_session_id, persistent));
+  // Loaded sessions are considered persistent.
+  bool is_persistent =
+      session_type == PersistentSession || session_type == LoadSession;
+  active_sessions_.insert(std::make_pair(web_session_id, is_persistent));
+
+  // For LoadSession(), generate the SessionReady event.
+  if (session_type == LoadSession)
+    OnSessionReady(web_session_id);
 }
 
 }  // namespace content

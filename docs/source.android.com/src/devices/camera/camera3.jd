@@ -39,18 +39,19 @@ Android, be aware that there are significant changes in the camera pipeline.</p>
   capable front-facing camera with version 1 of the HAL and a more advanced 
   back-facing camera with version 3 of the HAL. Version 2 was a stepping stone to 
   version 3 and is not supported.</p>
+
 <p>
 There is only one camera HAL module (with its own version number, currently 1, 2,
 or 2.1), which lists multiple independent camera devices that each have
 their own version. Camera module v2 or newer is required to support devices v2 or newer, and such
 camera modules can have a mix of camera device versions. This is what we mean
-when we say we Android supports implementing both HALs.
+when we say Android supports implementing both HALs.
 </p>
-<p><strong>Note:</strong> The new camera HAL is in active development and can change at any 
-  time. This document describes at a high level the design of the camera subsystem 
-  and omits many details. Stay tuned for more updates to the PDK repository and 
-  look out for updates to the Camera HAL and reference implementation for more 
-  information.</p>
+
+<p class="note"><strong>Note:</strong> The new camera HAL is in active
+development and can change at any time. This document describes at a high level
+the design of the camera subsystem and omits many details. See <a
+href="versioning.html">Camera version support</a> for our plans.</p>
 
 <h2 id="overview">Overview</h2>
 

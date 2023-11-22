@@ -4,20 +4,31 @@
 
 #include "chrome/browser/search/suggestions/suggestions_service_factory.h"
 
+#include "base/memory/scoped_ptr.h"
 #include "base/prefs/pref_service.h"
 #include "chrome/browser/profiles/incognito_helpers.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/search/suggestions/suggestions_service.h"
-#include "chrome/browser/search/suggestions/suggestions_store.h"
-#include "chrome/common/pref_names.h"
+#include "chrome/browser/search/suggestions/image_manager_impl.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
+#include "components/leveldb_proto/proto_database.h"
+#include "components/leveldb_proto/proto_database_impl.h"
 #include "components/pref_registry/pref_registry_syncable.h"
+#include "components/suggestions/blacklist_store.h"
+#include "components/suggestions/image_manager.h"
+#include "components/suggestions/proto/suggestions.pb.h"
+#include "components/suggestions/suggestions_service.h"
+#include "components/suggestions/suggestions_store.h"
+#include "content/public/browser/browser_context.h"
+#include "content/public/browser/browser_thread.h"
+
+using content::BrowserThread;
 
 namespace suggestions {
 
 // static
 SuggestionsService* SuggestionsServiceFactory::GetForProfile(Profile* profile) {
-  if (!SuggestionsService::IsEnabled()) return NULL;
+  if (!SuggestionsService::IsEnabled() || profile->IsOffTheRecord())
+    return NULL;
 
   return static_cast<SuggestionsService*>(
       GetInstance()->GetServiceForBrowserContext(profile, true));
@@ -44,10 +55,29 @@ content::BrowserContext* SuggestionsServiceFactory::GetBrowserContextToUse(
 
 KeyedService* SuggestionsServiceFactory::BuildServiceInstanceFor(
     content::BrowserContext* profile) const {
+  scoped_refptr<base::SequencedTaskRunner> background_task_runner =
+      BrowserThread::GetBlockingPool()->GetSequencedTaskRunner(
+          BrowserThread::GetBlockingPool()->GetSequenceToken());
+
   Profile* the_profile = static_cast<Profile*>(profile);
   scoped_ptr<SuggestionsStore> suggestions_store(
       new SuggestionsStore(the_profile->GetPrefs()));
-  return new SuggestionsService(the_profile, suggestions_store.Pass());
+  scoped_ptr<BlacklistStore> blacklist_store(
+      new BlacklistStore(the_profile->GetPrefs()));
+
+  scoped_ptr<leveldb_proto::ProtoDatabaseImpl<ImageData> > db(
+      new leveldb_proto::ProtoDatabaseImpl<ImageData>(
+          background_task_runner));
+
+  base::FilePath database_dir(
+      the_profile->GetPath().Append(FILE_PATH_LITERAL("Thumbnails")));
+
+  scoped_ptr<ImageManagerImpl> thumbnail_manager(new ImageManagerImpl(
+      the_profile->GetRequestContext(),
+      db.PassAs<leveldb_proto::ProtoDatabase<ImageData> >(), database_dir));
+  return new SuggestionsService(
+      the_profile->GetRequestContext(), suggestions_store.Pass(),
+      thumbnail_manager.PassAs<ImageManager>(), blacklist_store.Pass());
 }
 
 void SuggestionsServiceFactory::RegisterProfilePrefs(

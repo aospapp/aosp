@@ -517,6 +517,13 @@ Decode_Status VideoDecoderAVC::updateReferenceFrames(vbp_picture_data_h264 *picD
     VAPictureH264 *dpb = picParam->ReferenceFrames;
     VAPictureH264 *refFrame = NULL;
 
+    for(int i = 0; i < picParam->num_ref_frames; i++) {
+        dpb->picture_id = findSurface(dpb);
+        dpb++;
+    }
+
+    return DECODE_SUCCESS;
+
     // invalidate DPB in the picture buffer
     memset(picParam->ReferenceFrames, 0xFF, sizeof(picParam->ReferenceFrames));
     picParam->num_ref_frames = 0;

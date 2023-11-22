@@ -13,7 +13,6 @@
 #include "base/memory/weak_ptr.h"
 #include "cc/base/cc_export.h"
 #include "cc/base/rolling_time_delta_history.h"
-#include "cc/output/begin_frame_args.h"
 #include "cc/output/context_provider.h"
 #include "cc/output/overlay_candidate_validator.h"
 #include "cc/output/software_output_device.h"
@@ -48,11 +47,12 @@ class CC_EXPORT OutputSurface {
     DEFAULT_MAX_FRAMES_PENDING = 2
   };
 
-  explicit OutputSurface(scoped_refptr<ContextProvider> context_provider);
+  explicit OutputSurface(
+      const scoped_refptr<ContextProvider>& context_provider);
 
   explicit OutputSurface(scoped_ptr<SoftwareOutputDevice> software_device);
 
-  OutputSurface(scoped_refptr<ContextProvider> context_provider,
+  OutputSurface(const scoped_refptr<ContextProvider>& context_provider,
                 scoped_ptr<SoftwareOutputDevice> software_device);
 
   virtual ~OutputSurface();
@@ -87,9 +87,7 @@ class CC_EXPORT OutputSurface {
   // surface. Either of these may return a null pointer, but not both.
   // In the event of a lost context, the entire output surface should be
   // recreated.
-  scoped_refptr<ContextProvider> context_provider() const {
-    return context_provider_.get();
-  }
+  ContextProvider* context_provider() const { return context_provider_.get(); }
   SoftwareOutputDevice* software_device() const {
     return software_device_.get();
   }
@@ -104,9 +102,6 @@ class CC_EXPORT OutputSurface {
   // in order to release the ContextProvider. Only used with
   // deferred_gl_initialization capability.
   void ReleaseContextProvider();
-
-  // Enable or disable vsync.
-  void SetThrottleFrameProduction(bool enable);
 
   virtual void EnsureBackbuffer();
   virtual void DiscardBackbuffer();
@@ -183,11 +178,11 @@ class CC_EXPORT OutputSurface {
 
   bool external_stencil_test_enabled_;
 
-  base::WeakPtrFactory<OutputSurface> weak_ptr_factory_;
-
   std::deque<unsigned> available_gpu_latency_query_ids_;
   std::deque<unsigned> pending_gpu_latency_query_ids_;
   RollingTimeDeltaHistory gpu_latency_history_;
+
+  base::WeakPtrFactory<OutputSurface> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(OutputSurface);
 };

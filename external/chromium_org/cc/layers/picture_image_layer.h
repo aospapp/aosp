@@ -22,16 +22,17 @@ class CC_EXPORT PictureImageLayer : public PictureLayer, ContentLayerClient {
   // Layer implementation.
   virtual scoped_ptr<LayerImpl> CreateLayerImpl(
       LayerTreeImpl* tree_impl) OVERRIDE;
-  virtual bool DrawsContent() const OVERRIDE;
 
   // ContentLayerClient implementation.
   virtual void PaintContents(
       SkCanvas* canvas,
       const gfx::Rect& clip,
-      gfx::RectF* opaque,
       ContentLayerClient::GraphicsContextStatus gc_status) OVERRIDE;
   virtual void DidChangeLayerCanUseLCDText() OVERRIDE {}
   virtual bool FillsBoundsCompletely() const OVERRIDE;
+
+ protected:
+  virtual bool HasDrawableContent() const OVERRIDE;
 
  private:
   PictureImageLayer();

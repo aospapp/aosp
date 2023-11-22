@@ -8,10 +8,10 @@ import os
 import sys
 
 from telemetry.core import browser
+from telemetry.core import platform as platform_module
 from telemetry.core import possible_browser
 from telemetry.core import util
 from telemetry.core.backends.webdriver import webdriver_ie_backend
-from telemetry.core.platform import factory
 from telemetry.util import support_binaries
 
 # Try to import the selenium python lib which may be not available.
@@ -22,16 +22,6 @@ try:
 except ImportError:
   webdriver = None
 
-ALL_BROWSER_TYPES = []
-if webdriver:
-  ALL_BROWSER_TYPES = [
-      'internet-explorer',
-      'internet-explorer-x64']
-else:
-  logging.warning('Webdriver backend is unsupported without selenium pylib. '
-                  'For installation of selenium pylib, please refer to '
-                  'https://code.google.com/p/selenium/wiki/PythonBindings.')
-
 
 class PossibleWebDriverBrowser(possible_browser.PossibleBrowser):
   """A browser that can be controlled through webdriver API."""
@@ -39,20 +29,32 @@ class PossibleWebDriverBrowser(possible_browser.PossibleBrowser):
   def __init__(self, browser_type, finder_options):
     target_os = sys.platform.lower()
     super(PossibleWebDriverBrowser, self).__init__(browser_type, target_os,
-        finder_options)
-    assert browser_type in ALL_BROWSER_TYPES, \
-        'Please add %s to ALL_BROWSER_TYPES' % browser_type
-
-  @property
-  def _platform_backend(self):
-    return factory.GetPlatformBackendForCurrentOS()
+        finder_options, False)
+    assert browser_type in FindAllBrowserTypes(finder_options), \
+        ('Please add %s to webdriver_desktop_browser_finder.FindAllBrowserTypes'
+         % browser_type)
 
   def CreateWebDriverBackend(self, platform_backend):
     raise NotImplementedError()
 
+  def _InitPlatformIfNeeded(self):
+    if self._platform:
+      return
+
+    self._platform = platform_module.GetHostPlatform()
+
+    # pylint: disable=W0212
+    self._platform_backend = self._platform._platform_backend
+
   def Create(self):
+    self._InitPlatformIfNeeded()
     backend = self.CreateWebDriverBackend(self._platform_backend)
-    return browser.Browser(backend, self._platform_backend)
+    return browser.Browser(backend,
+                           self._platform_backend,
+                           self._archive_path,
+                           self._append_to_existing_wpr,
+                           self._make_javascript_deterministic,
+                           self._credentials_path)
 
   def SupportsOptions(self, finder_options):
     if len(finder_options.extensions_to_load) != 0:
@@ -84,6 +86,17 @@ class PossibleDesktopIE(PossibleWebDriverBrowser):
 def SelectDefaultBrowser(_):
   return None
 
+def FindAllBrowserTypes(_):
+  if webdriver:
+    return [
+        'internet-explorer',
+        'internet-explorer-x64']
+  else:
+    logging.warning('Webdriver backend is unsupported without selenium pylib. '
+                    'For installation of selenium pylib, please refer to '
+                    'https://code.google.com/p/selenium/wiki/PythonBindings.')
+  return []
+
 def FindAllAvailableBrowsers(finder_options):
   """Finds all the desktop browsers available on this machine."""
   browsers = []
@@ -93,16 +106,15 @@ def FindAllAvailableBrowsers(finder_options):
   # Look for the IE browser in the standard location.
   if sys.platform.startswith('win'):
     ie_path = os.path.join('Internet Explorer', 'iexplore.exe')
-    win_search_paths = {
-        '32' : { 'path' : os.getenv('PROGRAMFILES(X86)'),
-                 'type' : 'internet-explorer'},
-        '64' : { 'path' : os.getenv('PROGRAMFILES'),
-                 'type' : 'internet-explorer-x64'}}
-    for architecture, ie_info in win_search_paths.iteritems():
-      if not ie_info['path']:
+    search_paths = (
+        (32, os.getenv('PROGRAMFILES(X86)'), 'internet-explorer'),
+        (64, os.getenv('PROGRAMFILES'), 'internet-explorer-x64'),
+    )
+    for architecture, search_path, browser_type in search_paths:
+      if not search_path:
         continue
-      if os.path.exists(os.path.join(ie_info['path'], ie_path)):
+      if os.path.exists(os.path.join(search_path, ie_path)):
         browsers.append(
-            PossibleDesktopIE(ie_info['type'], finder_options, architecture))
+            PossibleDesktopIE(browser_type, finder_options, architecture))
 
   return browsers

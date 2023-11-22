@@ -15,8 +15,10 @@ BUILD_ANDROID_DIR = os.path.join(os.path.dirname(__file__),
                                  'build',
                                  'android')
 sys.path.append(BUILD_ANDROID_DIR)
+from pylib import android_commands
 from pylib import constants
 from pylib import flag_changer
+from pylib.device import device_errors
 from pylib.device import device_utils
 
 # Browser Constants
@@ -85,7 +87,12 @@ def main(argv):
   package = package_info.package
   activity = package_info.activity
 
-  device = device_utils.DeviceUtils(None)
+  devices = android_commands.GetAttachedDevices()
+  if not devices:
+    raise device_errors.NoDevicesError()
+  elif len(devices) > 1:
+    logging.warning('Multiple devices attached. Using %s.' % devices[0])
+  device = device_utils.DeviceUtils(devices[0])
 
   try:
     device.EnableRoot()
@@ -98,7 +105,8 @@ def main(argv):
   if ENABLE_TEST_INTENTS_FLAG not in flags.Get():
     flags.AddFlags([ENABLE_TEST_INTENTS_FLAG])
 
-  device.old_interface.StartActivity(package, activity, action=action)
+  device.StartActivity(intent.Intent(package=package, activity=activity,
+                                     action=action))
 
 if __name__ == '__main__':
   sys.exit(main(sys.argv))

@@ -22,6 +22,9 @@ import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.TestSensorEvent;
 
+import java.util.ArrayList;
+import java.util.Collection;
+
 /**
  * Tests for {@link MeanVerification}.
  */
@@ -89,12 +92,14 @@ public class MeanVerificationTest extends TestCase {
         verifyStats(stats, false, new float[]{2.0f, 3.0f, 6.0f});
     }
 
-    private MeanVerification getVerification(float[] expected, float[] threshold,
+    private static MeanVerification getVerification(float[] expected, float[] threshold,
             float[] ... values) {
-        MeanVerification verification = new MeanVerification(expected, threshold);
+        Collection<TestSensorEvent> events = new ArrayList<>(values.length);
         for (float[] value : values) {
-            verification.addSensorEvent(new TestSensorEvent(null, 0, 0, value));
+            events.add(new TestSensorEvent(null, 0, 0, value));
         }
+        MeanVerification verification = new MeanVerification(expected, threshold);
+        verification.addSensorEvents(events);
         return verification;
     }
 

@@ -4,7 +4,7 @@
 
 #include "remoting/host/desktop_session_agent.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/memory/shared_memory.h"
 #include "ipc/ipc_channel_proxy.h"
@@ -25,8 +25,9 @@
 #include "remoting/proto/event.pb.h"
 #include "remoting/protocol/clipboard_stub.h"
 #include "remoting/protocol/input_event_tracker.h"
-#include "third_party/webrtc/modules/desktop_capture/desktop_geometry.h"
 #include "third_party/webrtc/modules/desktop_capture/desktop_frame.h"
+#include "third_party/webrtc/modules/desktop_capture/desktop_geometry.h"
+#include "third_party/webrtc/modules/desktop_capture/mouse_cursor.h"
 #include "third_party/webrtc/modules/desktop_capture/shared_memory.h"
 
 namespace remoting {
@@ -119,10 +120,10 @@ DesktopSessionAgent::DesktopSessionAgent(
       input_task_runner_(input_task_runner),
       io_task_runner_(io_task_runner),
       video_capture_task_runner_(video_capture_task_runner),
-      control_factory_(this),
       next_shared_buffer_id_(1),
       shared_buffers_(0),
-      started_(false) {
+      started_(false),
+      weak_factory_(this) {
   DCHECK(caller_task_runner_->BelongsToCurrentThread());
 }
 
@@ -239,6 +240,13 @@ void DesktopSessionAgent::SetDisableInputs(bool disable_inputs) {
   NOTREACHED();
 }
 
+void DesktopSessionAgent::ResetVideoPipeline() {
+  DCHECK(caller_task_runner_->BelongsToCurrentThread());
+
+  // This method is only used by HostExtensionSessions in the network process.
+  NOTREACHED();
+}
+
 void DesktopSessionAgent::OnStartSessionAgent(
     const std::string& authenticated_jid,
     const ScreenResolution& resolution,
@@ -260,7 +268,7 @@ void DesktopSessionAgent::OnStartSessionAgent(
 
   // Create a desktop environment for the new session.
   desktop_environment_ = delegate_->desktop_environment_factory().Create(
-      control_factory_.GetWeakPtr());
+      weak_factory_.GetWeakPtr());
 
   // Create the session controller and set the initial screen resolution.
   screen_controls_ = desktop_environment_->CreateScreenControls();
@@ -291,10 +299,12 @@ void DesktopSessionAgent::OnStartSessionAgent(
         FROM_HERE, base::Bind(&DesktopSessionAgent::StartAudioCapturer, this));
   }
 
-  // Start the video capturer.
+  // Start the video capturer and mouse cursor monitor.
   video_capturer_ = desktop_environment_->CreateVideoCapturer();
+  mouse_cursor_monitor_ = desktop_environment_->CreateMouseCursorMonitor();
   video_capture_task_runner_->PostTask(
-      FROM_HERE, base::Bind(&DesktopSessionAgent::StartVideoCapturer, this));
+      FROM_HERE, base::Bind(
+          &DesktopSessionAgent::StartVideoCapturerAndMouseMonitor, this));
 }
 
 void DesktopSessionAgent::OnCaptureCompleted(webrtc::DesktopFrame* frame) {
@@ -320,14 +330,20 @@ void DesktopSessionAgent::OnCaptureCompleted(webrtc::DesktopFrame* frame) {
       new ChromotingDesktopNetworkMsg_CaptureCompleted(serialized_frame));
 }
 
-void DesktopSessionAgent::OnCursorShapeChanged(
-    webrtc::MouseCursorShape* cursor_shape) {
+void DesktopSessionAgent::OnMouseCursor(webrtc::MouseCursor* cursor) {
   DCHECK(video_capture_task_runner_->BelongsToCurrentThread());
 
-  scoped_ptr<webrtc::MouseCursorShape> owned_cursor(cursor_shape);
+  scoped_ptr<webrtc::MouseCursor> owned_cursor(cursor);
 
-  SendToNetwork(new ChromotingDesktopNetworkMsg_CursorShapeChanged(
-      *cursor_shape));
+  SendToNetwork(
+      new ChromotingDesktopNetworkMsg_MouseCursor(*owned_cursor));
+}
+
+void DesktopSessionAgent::OnMouseCursorPosition(
+    webrtc::MouseCursorMonitor::CursorState state,
+    const webrtc::DesktopVector& position) {
+  // We're not subscribing to mouse position changes.
+  NOTREACHED();
 }
 
 void DesktopSessionAgent::InjectClipboardEvent(
@@ -391,7 +407,7 @@ void DesktopSessionAgent::Stop() {
     started_ = false;
 
     // Ignore any further callbacks.
-    control_factory_.InvalidateWeakPtrs();
+    weak_factory_.InvalidateWeakPtrs();
     client_jid_.clear();
 
     remote_input_filter_.reset();
@@ -410,7 +426,8 @@ void DesktopSessionAgent::Stop() {
 
     // Stop the video capturer.
     video_capture_task_runner_->PostTask(
-        FROM_HERE, base::Bind(&DesktopSessionAgent::StopVideoCapturer, this));
+        FROM_HERE, base::Bind(
+            &DesktopSessionAgent::StopVideoCapturerAndMouseMonitor, this));
   }
 }
 
@@ -422,11 +439,13 @@ void DesktopSessionAgent::OnCaptureFrame() {
     return;
   }
 
-  // webrtc::ScreenCapturer supports a very few (currently 2) outstanding
+  mouse_cursor_monitor_->Capture();
+
+  // webrtc::DesktopCapturer supports a very few (currently 2) outstanding
   // capture requests. The requests are serialized on
   // |video_capture_task_runner()| task runner. If the client issues more
   // requests, pixel data in captured frames will likely be corrupted but
-  // stability of webrtc::ScreenCapturer will not be affected.
+  // stability of webrtc::DesktopCapturer will not be affected.
   video_capturer_->Capture(webrtc::DesktopRegion());
 }
 
@@ -538,20 +557,24 @@ void DesktopSessionAgent::StopAudioCapturer() {
   audio_capturer_.reset();
 }
 
-void DesktopSessionAgent::StartVideoCapturer() {
+void DesktopSessionAgent::StartVideoCapturerAndMouseMonitor() {
   DCHECK(video_capture_task_runner_->BelongsToCurrentThread());
 
   if (video_capturer_) {
-    video_capturer_->SetMouseShapeObserver(this);
     video_capturer_->Start(this);
+  }
+
+  if (mouse_cursor_monitor_) {
+    mouse_cursor_monitor_->Init(this, webrtc::MouseCursorMonitor::SHAPE_ONLY);
   }
 }
 
-void DesktopSessionAgent::StopVideoCapturer() {
+void DesktopSessionAgent::StopVideoCapturerAndMouseMonitor() {
   DCHECK(video_capture_task_runner_->BelongsToCurrentThread());
 
   video_capturer_.reset();
   last_frame_.reset();
+  mouse_cursor_monitor_.reset();
 
   // Video capturer must delete all buffers.
   DCHECK_EQ(shared_buffers_, 0);

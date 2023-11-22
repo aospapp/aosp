@@ -4,8 +4,8 @@
 
 #include "chrome/browser/chromeos/login/users/supervised_user_manager_impl.h"
 
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/prefs/pref_registry_simple.h"
 #include "base/prefs/pref_service.h"
 #include "base/prefs/scoped_user_pref_update.h"
@@ -15,13 +15,15 @@
 #include "base/threading/sequenced_worker_pool.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/chromeos/login/managed/locally_managed_user_constants.h"
-#include "chrome/browser/chromeos/login/managed/supervised_user_authentication.h"
-#include "chrome/browser/chromeos/login/users/user_manager_impl.h"
+#include "chrome/browser/chromeos/login/supervised/supervised_user_authentication.h"
+#include "chrome/browser/chromeos/login/supervised/supervised_user_constants.h"
+#include "chrome/browser/chromeos/login/users/chrome_user_manager_impl.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/supervised_user/supervised_user_service.h"
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
+#include "chromeos/login/user_names.h"
 #include "chromeos/settings/cros_settings_names.h"
+#include "components/user_manager/user_type.h"
 #include "content/public/browser/browser_thread.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 
@@ -30,36 +32,32 @@ using content::BrowserThread;
 namespace {
 
 // Names for pref keys in Local State.
-// A map from locally managed user local user id to sync user id.
-const char kSupervisedUserSyncId[] =
-    "ManagedUserSyncId";
+// A map from supervised user local user id to sync user id.
+const char kSupervisedUserSyncId[] = "ManagedUserSyncId";
 
-// A map from locally managed user id to manager user id.
-const char kSupervisedUserManagers[] =
-    "ManagedUserManagers";
+// A map from supervised user id to manager user id.
+const char kSupervisedUserManagers[] = "ManagedUserManagers";
 
-// A map from locally managed user id to manager display name.
-const char kSupervisedUserManagerNames[] =
-    "ManagedUserManagerNames";
+// A map from supervised user id to manager display name.
+const char kSupervisedUserManagerNames[] = "ManagedUserManagerNames";
 
-// A map from locally managed user id to manager display e-mail.
+// A map from supervised user id to manager display e-mail.
 const char kSupervisedUserManagerDisplayEmails[] =
     "ManagedUserManagerDisplayEmails";
 
-// A vector pref of the locally managed accounts defined on this device, that
-// had not logged in yet.
-const char kLocallyManagedUsersFirstRun[] = "LocallyManagedUsersFirstRun";
+// A vector pref of the supervised accounts defined on this device, that had
+// not logged in yet.
+const char kSupervisedUsersFirstRun[] = "LocallyManagedUsersFirstRun";
 
-// A pref of the next id for locally managed users generation.
-const char kLocallyManagedUsersNextId[] =
-    "LocallyManagedUsersNextId";
+// A pref of the next id for supervised users generation.
+const char kSupervisedUsersNextId[] = "LocallyManagedUsersNextId";
 
-// A pref of the next id for locally managed users generation.
-const char kLocallyManagedUserCreationTransactionDisplayName[] =
+// A pref of the next id for supervised users generation.
+const char kSupervisedUserCreationTransactionDisplayName[] =
     "LocallyManagedUserCreationTransactionDisplayName";
 
-// A pref of the next id for locally managed users generation.
-const char kLocallyManagedUserCreationTransactionUserId[] =
+// A pref of the next id for supervised users generation.
+const char kSupervisedUserCreationTransactionUserId[] =
     "LocallyManagedUserCreationTransactionUserId";
 
 // A map from user id to password schema id.
@@ -112,12 +110,12 @@ const int kMinPasswordRevision = 1;
 
 // static
 void SupervisedUserManager::RegisterPrefs(PrefRegistrySimple* registry) {
-  registry->RegisterListPref(kLocallyManagedUsersFirstRun);
-  registry->RegisterIntegerPref(kLocallyManagedUsersNextId, 0);
+  registry->RegisterListPref(kSupervisedUsersFirstRun);
+  registry->RegisterIntegerPref(kSupervisedUsersNextId, 0);
   registry->RegisterStringPref(
-      kLocallyManagedUserCreationTransactionDisplayName, "");
+      kSupervisedUserCreationTransactionDisplayName, "");
   registry->RegisterStringPref(
-      kLocallyManagedUserCreationTransactionUserId, "");
+      kSupervisedUserCreationTransactionUserId, "");
   registry->RegisterDictionaryPref(kSupervisedUserSyncId);
   registry->RegisterDictionaryPref(kSupervisedUserManagers);
   registry->RegisterDictionaryPref(kSupervisedUserManagerNames);
@@ -131,9 +129,9 @@ void SupervisedUserManager::RegisterPrefs(PrefRegistrySimple* registry) {
   registry->RegisterDictionaryPref(kSupervisedUserIncompleteKey);
 }
 
-SupervisedUserManagerImpl::SupervisedUserManagerImpl(UserManagerImpl* owner)
-    : owner_(owner),
-      cros_settings_(CrosSettings::Get()) {
+SupervisedUserManagerImpl::SupervisedUserManagerImpl(
+    ChromeUserManagerImpl* owner)
+    : owner_(owner), cros_settings_(CrosSettings::Get()) {
   // SupervisedUserManager instance should be used only on UI thread.
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   authentication_.reset(new SupervisedUserAuthentication(this));
@@ -144,12 +142,12 @@ SupervisedUserManagerImpl::~SupervisedUserManagerImpl() {
 
 std::string SupervisedUserManagerImpl::GenerateUserId() {
   int counter = g_browser_process->local_state()->
-      GetInteger(kLocallyManagedUsersNextId);
+      GetInteger(kSupervisedUsersNextId);
   std::string id;
   bool user_exists;
   do {
-    id = base::StringPrintf("%d@%s", counter,
-        UserManager::kLocallyManagedUserDomain);
+    id = base::StringPrintf(
+        "%d@%s", counter, chromeos::login::kSupervisedUserDomain);
     counter++;
     user_exists = (NULL != owner_->FindUser(id));
     DCHECK(!user_exists);
@@ -159,7 +157,7 @@ std::string SupervisedUserManagerImpl::GenerateUserId() {
   } while (user_exists);
 
   g_browser_process->local_state()->
-      SetInteger(kLocallyManagedUsersNextId, counter);
+      SetInteger(kSupervisedUsersNextId, counter);
 
   g_browser_process->local_state()->CommitPendingWrite();
   return id;
@@ -167,9 +165,11 @@ std::string SupervisedUserManagerImpl::GenerateUserId() {
 
 bool SupervisedUserManagerImpl::HasSupervisedUsers(
       const std::string& manager_id) const {
-  const UserList& users = owner_->GetUsers();
-  for (UserList::const_iterator it = users.begin(); it != users.end(); ++it) {
-    if ((*it)->GetType() == User::USER_TYPE_LOCALLY_MANAGED) {
+  const user_manager::UserList& users = owner_->GetUsers();
+  for (user_manager::UserList::const_iterator it = users.begin();
+       it != users.end();
+       ++it) {
+    if ((*it)->GetType() == user_manager::USER_TYPE_SUPERVISED) {
       if (manager_id == GetManagerUserId((*it)->email()))
         return true;
     }
@@ -177,26 +177,27 @@ bool SupervisedUserManagerImpl::HasSupervisedUsers(
   return false;
 }
 
-const User* SupervisedUserManagerImpl::CreateUserRecord(
-      const std::string& manager_id,
-      const std::string& local_user_id,
-      const std::string& sync_user_id,
-      const base::string16& display_name) {
-  const User* user = FindByDisplayName(display_name);
+const user_manager::User* SupervisedUserManagerImpl::CreateUserRecord(
+    const std::string& manager_id,
+    const std::string& local_user_id,
+    const std::string& sync_user_id,
+    const base::string16& display_name) {
+  const user_manager::User* user = FindByDisplayName(display_name);
   DCHECK(!user);
   if (user)
     return user;
-  const User* manager = owner_->FindUser(manager_id);
+  const user_manager::User* manager = owner_->FindUser(manager_id);
   CHECK(manager);
 
   PrefService* local_state = g_browser_process->local_state();
 
-  User* new_user = User::CreateLocallyManagedUser(local_user_id);
+  user_manager::User* new_user =
+      user_manager::User::CreateSupervisedUser(local_user_id);
 
   owner_->AddUserRecord(new_user);
 
   ListPrefUpdate prefs_new_users_update(local_state,
-                                        kLocallyManagedUsersFirstRun);
+                                        kSupervisedUsersFirstRun);
   DictionaryPrefUpdate sync_id_update(local_state, kSupervisedUserSyncId);
   DictionaryPrefUpdate manager_update(local_state, kSupervisedUserManagers);
   DictionaryPrefUpdate manager_name_update(local_state,
@@ -354,12 +355,14 @@ void SupervisedUserManagerImpl::SetUserBooleanValue(const std::string& user_id,
   update->SetBooleanWithoutPathExpansion(user_id, value);
 }
 
-const User* SupervisedUserManagerImpl::FindByDisplayName(
+const user_manager::User* SupervisedUserManagerImpl::FindByDisplayName(
     const base::string16& display_name) const {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  const UserList& users = owner_->GetUsers();
-  for (UserList::const_iterator it = users.begin(); it != users.end(); ++it) {
-    if (((*it)->GetType() == User::USER_TYPE_LOCALLY_MANAGED) &&
+  const user_manager::UserList& users = owner_->GetUsers();
+  for (user_manager::UserList::const_iterator it = users.begin();
+       it != users.end();
+       ++it) {
+    if (((*it)->GetType() == user_manager::USER_TYPE_SUPERVISED) &&
         ((*it)->display_name() == display_name)) {
       return *it;
     }
@@ -367,12 +370,14 @@ const User* SupervisedUserManagerImpl::FindByDisplayName(
   return NULL;
 }
 
-const User* SupervisedUserManagerImpl::FindBySyncId(
+const user_manager::User* SupervisedUserManagerImpl::FindBySyncId(
     const std::string& sync_id) const {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  const UserList& users = owner_->GetUsers();
-  for (UserList::const_iterator it = users.begin(); it != users.end(); ++it) {
-    if (((*it)->GetType() == User::USER_TYPE_LOCALLY_MANAGED) &&
+  const user_manager::UserList& users = owner_->GetUsers();
+  for (user_manager::UserList::const_iterator it = users.begin();
+       it != users.end();
+       ++it) {
+    if (((*it)->GetType() == user_manager::USER_TYPE_SUPERVISED) &&
         (GetUserSyncId((*it)->email()) == sync_id)) {
       return *it;
     }
@@ -383,7 +388,7 @@ const User* SupervisedUserManagerImpl::FindBySyncId(
 void SupervisedUserManagerImpl::StartCreationTransaction(
       const base::string16& display_name) {
   g_browser_process->local_state()->
-      SetString(kLocallyManagedUserCreationTransactionDisplayName,
+      SetString(kSupervisedUserCreationTransactionDisplayName,
                 base::UTF16ToASCII(display_name));
   g_browser_process->local_state()->CommitPendingWrite();
 }
@@ -391,22 +396,22 @@ void SupervisedUserManagerImpl::StartCreationTransaction(
 void SupervisedUserManagerImpl::SetCreationTransactionUserId(
       const std::string& email) {
   g_browser_process->local_state()->
-      SetString(kLocallyManagedUserCreationTransactionUserId,
+      SetString(kSupervisedUserCreationTransactionUserId,
                 email);
   g_browser_process->local_state()->CommitPendingWrite();
 }
 
 void SupervisedUserManagerImpl::CommitCreationTransaction() {
   g_browser_process->local_state()->
-      ClearPref(kLocallyManagedUserCreationTransactionDisplayName);
+      ClearPref(kSupervisedUserCreationTransactionDisplayName);
   g_browser_process->local_state()->
-      ClearPref(kLocallyManagedUserCreationTransactionUserId);
+      ClearPref(kSupervisedUserCreationTransactionUserId);
   g_browser_process->local_state()->CommitPendingWrite();
 }
 
 bool SupervisedUserManagerImpl::HasFailedUserCreationTransaction() {
   return !(g_browser_process->local_state()->
-               GetString(kLocallyManagedUserCreationTransactionDisplayName).
+               GetString(kSupervisedUserCreationTransactionDisplayName).
                    empty());
 }
 
@@ -414,40 +419,40 @@ void SupervisedUserManagerImpl::RollbackUserCreationTransaction() {
   PrefService* prefs = g_browser_process->local_state();
 
   std::string display_name = prefs->
-      GetString(kLocallyManagedUserCreationTransactionDisplayName);
+      GetString(kSupervisedUserCreationTransactionDisplayName);
   std::string user_id = prefs->
-      GetString(kLocallyManagedUserCreationTransactionUserId);
+      GetString(kSupervisedUserCreationTransactionUserId);
 
   LOG(WARNING) << "Cleaning up transaction for "
                << display_name << "/" << user_id;
 
   if (user_id.empty()) {
     // Not much to do - just remove transaction.
-    prefs->ClearPref(kLocallyManagedUserCreationTransactionDisplayName);
+    prefs->ClearPref(kSupervisedUserCreationTransactionDisplayName);
     prefs->CommitPendingWrite();
     return;
   }
 
   if (gaia::ExtractDomainName(user_id) !=
-          UserManager::kLocallyManagedUserDomain) {
-    LOG(WARNING) << "Clean up transaction for  non-locally managed user found :"
+      chromeos::login::kSupervisedUserDomain) {
+    LOG(WARNING) << "Clean up transaction for  non-supervised user found :"
                  << user_id << ", will not remove data";
-    prefs->ClearPref(kLocallyManagedUserCreationTransactionDisplayName);
-    prefs->ClearPref(kLocallyManagedUserCreationTransactionUserId);
+    prefs->ClearPref(kSupervisedUserCreationTransactionDisplayName);
+    prefs->ClearPref(kSupervisedUserCreationTransactionUserId);
     prefs->CommitPendingWrite();
     return;
   }
   owner_->RemoveNonOwnerUserInternal(user_id, NULL);
 
-  prefs->ClearPref(kLocallyManagedUserCreationTransactionDisplayName);
-  prefs->ClearPref(kLocallyManagedUserCreationTransactionUserId);
+  prefs->ClearPref(kSupervisedUserCreationTransactionDisplayName);
+  prefs->ClearPref(kSupervisedUserCreationTransactionUserId);
   prefs->CommitPendingWrite();
 }
 
 void SupervisedUserManagerImpl::RemoveNonCryptohomeData(
     const std::string& user_id) {
   PrefService* prefs = g_browser_process->local_state();
-  ListPrefUpdate prefs_new_users_update(prefs, kLocallyManagedUsersFirstRun);
+  ListPrefUpdate prefs_new_users_update(prefs, kSupervisedUsersFirstRun);
   prefs_new_users_update->Remove(base::StringValue(user_id), NULL);
 
   CleanPref(user_id, kSupervisedUserSyncId);
@@ -470,7 +475,7 @@ void SupervisedUserManagerImpl::CleanPref(const std::string& user_id,
 
 bool SupervisedUserManagerImpl::CheckForFirstRun(const std::string& user_id) {
   ListPrefUpdate prefs_new_users_update(g_browser_process->local_state(),
-                                        kLocallyManagedUsersFirstRun);
+                                        kSupervisedUsersFirstRun);
   return prefs_new_users_update->Remove(base::StringValue(user_id), NULL);
 }
 
@@ -505,7 +510,7 @@ void SupervisedUserManagerImpl::LoadSupervisedUserToken(
     const LoadTokenCallback& callback) {
   // TODO(antrim): use profile->GetPath() once we sure it is safe.
   base::FilePath profile_dir = ProfileHelper::GetProfilePathByUserIdHash(
-      UserManager::Get()->GetUserByProfile(profile)->username_hash());
+      ProfileHelper::Get()->GetUserByProfile(profile)->username_hash());
   PostTaskAndReplyWithResult(
       content::BrowserThread::GetBlockingPool(),
       FROM_HERE,

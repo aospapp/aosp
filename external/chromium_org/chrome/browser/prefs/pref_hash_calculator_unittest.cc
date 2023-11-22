@@ -6,11 +6,9 @@
 
 #include <string>
 
-#include "base/bind.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/strings/string_util.h"
 #include "base/values.h"
-#include "chrome/browser/prefs/tracked/pref_hash_calculator_helper.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 TEST(PrefHashCalculatorTest, TestCurrentAlgorithm) {
@@ -81,13 +79,12 @@ TEST(PrefHashCalculatorTest, CatchHashChanges) {
   static const char kDeviceId[] = "test_device_id1";
 
   scoped_ptr<base::Value> null_value(base::Value::CreateNullValue());
-  scoped_ptr<base::Value> bool_value(base::Value::CreateBooleanValue(false));
-  scoped_ptr<base::Value> int_value(
-      base::Value::CreateIntegerValue(1234567890));
+  scoped_ptr<base::Value> bool_value(new base::FundamentalValue(false));
+  scoped_ptr<base::Value> int_value(new base::FundamentalValue(1234567890));
   scoped_ptr<base::Value> double_value(
-      base::Value::CreateDoubleValue(123.0987654321));
-  scoped_ptr<base::Value> string_value(base::Value::CreateStringValue(
-      "testing with special chars:\n<>{}:^^@#$\\/"));
+      new base::FundamentalValue(123.0987654321));
+  scoped_ptr<base::Value> string_value(
+      new base::StringValue("testing with special chars:\n<>{}:^^@#$\\/"));
 
   // For legacy reasons, we have to support pruning of empty lists/dictionaries
   // and nested empty ists/dicts in the hash generation algorithm.
@@ -127,43 +124,43 @@ TEST(PrefHashCalculatorTest, CatchHashChanges) {
   // Test every value type independently. Intentionally omits TYPE_BINARY which
   // isn't even allowed in JSONWriter's input.
   static const char kExpectedNullValue[] =
-      "C2871D0AC76176E39948C50A9A562B863E610FDA90C675A6A8AD16B4DC4F53DC";
+      "82A9F3BBC7F9FF84C76B033C854E79EEB162783FA7B3E99FF9372FA8E12C44F7";
   EXPECT_EQ(PrefHashCalculator::VALID,
             PrefHashCalculator(kSeed, kDeviceId).Validate(
                 "pref.path", null_value.get(), kExpectedNullValue));
 
   static const char kExpectedBooleanValue[] =
-      "A326E2F405CFE05D08289CDADD9DB4F529592F0945A8CE204289E4C930D8AA43";
+      "A520D8F43EA307B0063736DC9358C330539D0A29417580514C8B9862632C4CCC";
   EXPECT_EQ(PrefHashCalculator::VALID,
             PrefHashCalculator(kSeed, kDeviceId).Validate(
                 "pref.path", bool_value.get(), kExpectedBooleanValue));
 
   static const char kExpectedIntegerValue[] =
-      "4B69938F802A2A26D69467F3E1E4A474F6323C64EFC54DBDB4A5708A7D005042";
+      "8D60DA1F10BF5AA29819D2D66D7CCEF9AABC5DA93C11A0D2BD21078D63D83682";
   EXPECT_EQ(PrefHashCalculator::VALID,
             PrefHashCalculator(kSeed, kDeviceId).Validate(
                 "pref.path", int_value.get(), kExpectedIntegerValue));
 
   static const char kExpectedDoubleValue[] =
-      "1734C9C745B9C92D896B9A710994BF1B56D55BFB0F00C207EC995152AF02F08F";
+      "C9D94772516125BEEDAE68C109D44BC529E719EE020614E894CC7FB4098C545D";
   EXPECT_EQ(PrefHashCalculator::VALID,
             PrefHashCalculator(kSeed, kDeviceId).Validate(
                 "pref.path", double_value.get(), kExpectedDoubleValue));
 
   static const char kExpectedStringValue[] =
-      "154D15522C856AA944BFA5A9E3FFB46925BF2B95A10199564651CA1C13E98433";
+      "05ACCBD3B05C45C36CD06190F63EC577112311929D8380E26E5F13182EB68318";
   EXPECT_EQ(PrefHashCalculator::VALID,
             PrefHashCalculator(kSeed, kDeviceId).Validate(
                 "pref.path", string_value.get(), kExpectedStringValue));
 
   static const char kExpectedDictValue[] =
-      "597CECCBF930AF1FFABAC6AF3851C062867C134B4D5A06BDB3B03B988A182CBB";
+      "7A84DCC710D796C771F789A4DA82C952095AA956B6F1667EE42D0A19ECAA3C4A";
   EXPECT_EQ(PrefHashCalculator::VALID,
             PrefHashCalculator(kSeed, kDeviceId).Validate(
                 "pref.path", dict_value.get(), kExpectedDictValue));
 
   static const char kExpectedListValue[] =
-      "4E2CC0A9B8DF8C5049C53E8B139007792EC6295239545BC99BBF9CDE8A2F5E30";
+      "8D5A25972DF5AE20D041C780E7CA54E40F614AD53513A0724EE8D62D4F992740";
   EXPECT_EQ(PrefHashCalculator::VALID,
             PrefHashCalculator(kSeed, kDeviceId).Validate(
                 "pref.path", list_value.get(), kExpectedListValue));
@@ -178,13 +175,13 @@ TEST(PrefHashCalculatorTest, CatchHashChanges) {
   everything.Set("list", list_value.release());
   everything.Set("dict", dict_value.release());
   static const char kExpectedEverythingValue[] =
-      "5A9D15E4D2FA909007EDE6A18605735E3EB712E2EDE83D6735CE5DD96A5AFBAA";
+      "B97D09BE7005693574DCBDD03D8D9E44FB51F4008B73FB56A49A9FA671A1999B";
   EXPECT_EQ(PrefHashCalculator::VALID,
             PrefHashCalculator(kSeed, kDeviceId).Validate(
                 "pref.path", &everything, kExpectedEverythingValue));
 }
 
-TEST(PrefHashCalculatorTest, TestCompatibilityWithPrefMetricsService) {
+TEST(PrefHashCalculatorTest, TestCompatibilityWithLegacyPrefMetricsServiceId) {
   static const char kSeed[] = {
     0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
     0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
@@ -203,70 +200,7 @@ TEST(PrefHashCalculatorTest, TestCompatibilityWithPrefMetricsService) {
   base::ListValue startup_urls;
   startup_urls.Set(0, new base::StringValue("http://www.chromium.org/"));
 
-  EXPECT_EQ(PrefHashCalculator::VALID,
+  EXPECT_EQ(PrefHashCalculator::VALID_SECURE_LEGACY,
             PrefHashCalculator(std::string(kSeed, arraysize(kSeed)), kDeviceId).
             Validate("session.startup_urls", &startup_urls, kExpectedValue));
-}
-
-TEST(PrefHashCalculatorTest, TestLegacyNoDeviceIdNoPathAlgorithm) {
-  static const char kTestedLegacyHash[] =
-      "C503FB7C65EEFD5C07185F616A0AA67923C069909933F362022B1F187E73E9A2";
-  static const char kDeviceId[] = "not_used";
-
-  base::DictionaryValue dict;
-  dict.Set("a", new base::StringValue("foo"));
-  dict.Set("d", new base::StringValue("bad"));
-  dict.Set("b", new base::StringValue("bar"));
-  dict.Set("c", new base::StringValue("baz"));
-
-  // 32 NULL bytes is the seed that was used to generate the legacy hash.
-  EXPECT_EQ(PrefHashCalculator::VALID_WEAK_LEGACY,
-            PrefHashCalculator(std::string(32u, 0), kDeviceId).Validate(
-                "unused_path", &dict, kTestedLegacyHash));
-}
-
-std::string MockGetLegacyDeviceId(const std::string& modern_device_id) {
-  if (modern_device_id.empty())
-    return std::string();
-  return modern_device_id + "_LEGACY";
-}
-
-TEST(PrefHashCalculatorTest, TestLegacyDeviceIdAlgorithm) {
-  // The full algorithm should kick in when the device id is non-empty and we
-  // should thus get VALID_SECURE_LEGACY on verification.
-  static const char kDeviceId[] = "DEVICE_ID";
-  static const char kSeed[] = "01234567890123456789012345678901";
-  static const char kPrefPath[] = "test.pref";
-  static const char kPrefValue[] = "http://example.com/";
-  // Test hash based on the mock legacy id (based on kDeviceId) + kPrefPath +
-  // kPrefValue under kSeed.
-  static const char kTestedHash[] =
-      "09ABD84B13E4366B24DFF898C8C4614E033514B4E2EF3C6810F50B63273C83AD";
-
-  const base::StringValue string_value(kPrefValue);
-  EXPECT_EQ(PrefHashCalculator::VALID_SECURE_LEGACY,
-            PrefHashCalculator(kSeed, kDeviceId,
-                               base::Bind(&MockGetLegacyDeviceId)).Validate(
-                kPrefPath, &string_value, kTestedHash));
-}
-
-TEST(PrefHashCalculatorTest, TestLegacyDeviceIdAlgorithmOnEmptyDeviceId) {
-  // MockGetLegacyDeviceId will return a legacy device ID that is the same
-  // (empty) as the modern device ID here. So this MAC will be valid using
-  // either ID. The PrefHashCalculator should return VALID, not
-  // VALID_SECURE_LEGACY, in this case.
-  static const char kEmptyDeviceId[] = "";
-  static const char kSeed[] = "01234567890123456789012345678901";
-  static const char kPrefPath[] = "test.pref";
-  static const char kPrefValue[] = "http://example.com/";
-  // Test hash based on an empty legacy device id + kPrefPath + kPrefValue under
-  // kSeed.
-  static const char kTestedHash[] =
-      "842C71283B9C3D86AA934CD639FDB0428BF0E2B6EC8537A21575CC4C4FA0A615";
-
-  const base::StringValue string_value(kPrefValue);
-  EXPECT_EQ(PrefHashCalculator::VALID,
-            PrefHashCalculator(kSeed, kEmptyDeviceId,
-                               base::Bind(&MockGetLegacyDeviceId)).Validate(
-                kPrefPath, &string_value, kTestedHash));
 }

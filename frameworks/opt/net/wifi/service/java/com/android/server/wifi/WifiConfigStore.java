@@ -80,6 +80,8 @@ import java.text.DateFormat;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.*;
+import java.util.zip.Checksum;
+import java.util.zip.CRC32;
 
 /**
  * This class provides the API to manage configured
@@ -150,6 +152,21 @@ public class WifiConfigStore extends IpConfigStore {
     private HashMap<Integer, Integer> mNetworkIds =
             new HashMap<Integer, Integer>();
 
+    /**
+     * Framework keeps a list of (the CRC32 hashes of) all SSIDs that where deleted by user,
+     * so as, framework knows not to re-add those SSIDs automatically to the Saved networks
+     */
+    private Set<Long> mDeletedSSIDs = new HashSet<Long>();
+
+    /**
+     * Framework keeps a list of ephemeral SSIDs that where deleted by user,
+     * so as, framework knows not to autojoin again those SSIDs based on scorer input.
+     * The list is never cleared up.
+     *
+     * The SSIDs are encoded in a String as per definition of WifiConfiguration.SSID field.
+     */
+    public Set<String> mDeletedEphemeralSSIDs = new HashSet<String>();
+
     /* Tracks the highest priority of configured networks */
     private int mLastPriority = -1;
 
@@ -196,9 +213,13 @@ public class WifiConfigStore extends IpConfigStore {
     private static final String NUM_AUTH_FAILURES_KEY = "AUTH_FAILURES:  ";
     private static final String SCORER_OVERRIDE_KEY = "SCORER_OVERRIDE:  ";
     private static final String SCORER_OVERRIDE_AND_SWITCH_KEY = "SCORER_OVERRIDE_AND_SWITCH:  ";
-    private static final String NO_INTERNET_ACCESS_KEY = "NO_INTERNET_ACCESS:  ";
+    private static final String VALIDATED_INTERNET_ACCESS_KEY = "VALIDATED_INTERNET_ACCESS:  ";
+    private static final String NO_INTERNET_ACCESS_REPORTS_KEY = "NO_INTERNET_ACCESS_REPORTS :   ";
     private static final String EPHEMERAL_KEY = "EPHEMERAL:   ";
     private static final String NUM_ASSOCIATION_KEY = "NUM_ASSOCIATION:  ";
+    private static final String DELETED_CRC32_KEY = "DELETED_CRC32:  ";
+    private static final String DELETED_EPHEMERAL_KEY = "DELETED_EPHEMERAL:  ";
+
     private static final String JOIN_ATTEMPT_BOOST_KEY = "JOIN_ATTEMPT_BOOST:  ";
     private static final String THRESHOLD_INITIAL_AUTO_JOIN_ATTEMPT_RSSI_MIN_5G_KEY
             = "THRESHOLD_INITIAL_AUTO_JOIN_ATTEMPT_RSSI_MIN_5G:  ";
@@ -321,6 +342,10 @@ public class WifiConfigStore extends IpConfigStore {
 
     public int associatedPartialScanPeriodMilli;
 
+    // Sane value for roam blacklisting (not switching to a network if already associated)
+    // 2 days
+    public int networkSwitchingBlackListPeriodMilli = 2 * 24 * 60 * 60 * 1000;
+
     public int bandPreferenceBoostFactor5 = 5; // Boost by 5 dB per dB above threshold
     public int bandPreferencePenaltyFactor5 = 2; // Penalize by 2 dB per dB below threshold
     public int bandPreferencePenaltyThreshold5 = WifiConfiguration.G_BAND_PREFERENCE_RSSI_THRESHOLD;
@@ -334,6 +359,9 @@ public class WifiConfigStore extends IpConfigStore {
     public int maxAuthErrorsToBlacklist = 4;
     public int maxConnectionErrorsToBlacklist = 4;
     public int wifiConfigBlacklistMinTimeMilli = 1000 * 60 * 5;
+
+    // How long a disconnected config remain considered as the last user selection
+    public int wifiConfigLastSelectionHysteresis = 1000 * 60 * 3;
 
     // Boost RSSI values of associated networks
     public int associatedHysteresisHigh = +14;
@@ -361,6 +389,11 @@ public class WifiConfigStore extends IpConfigStore {
     public boolean enableLinkDebouncing = true;
     public boolean enable5GHzPreference = true;
     public boolean enableWifiCellularHandoverUserTriggeredAdjustment = true;
+
+    public int currentNetworkBoost = 25;
+    public int scanResultRssiLevelPatchUp = -85;
+
+    public static final int maxNumScanCacheEntries = 128;
 
     /**
      * Regex pattern for extracting a connect choice.
@@ -513,6 +546,15 @@ public class WifiConfigStore extends IpConfigStore {
 
         enableAutoJoinWhenAssociated = mContext.getResources().getBoolean(
                 R.bool.config_wifi_framework_enable_associated_network_selection);
+
+        currentNetworkBoost = mContext.getResources().getInteger(
+                R.integer.config_wifi_framework_current_network_boost);
+
+        scanResultRssiLevelPatchUp = mContext.getResources().getInteger(
+                R.integer.config_wifi_framework_scan_result_rssi_level_patchup_value);
+
+        networkSwitchingBlackListPeriodMilli = mContext.getResources().getInteger(
+                R.integer.config_wifi_network_switching_blacklist_time);
     }
 
     void enableVerboseLogging(int verbose) {
@@ -564,7 +606,9 @@ public class WifiConfigStore extends IpConfigStore {
         List<WifiConfiguration> networks = new ArrayList<>();
         for(WifiConfiguration config : mConfiguredNetworks.values()) {
             WifiConfiguration newConfig = new WifiConfiguration(config);
-            if (config.autoJoinStatus == WifiConfiguration.AUTO_JOIN_DELETED) {
+            // When updating this condition, update WifiStateMachine's CONNECT_NETWORK handler to
+            // correctly handle updating existing configs that are filtered out here.
+            if (config.autoJoinStatus == WifiConfiguration.AUTO_JOIN_DELETED || config.ephemeral) {
                 // Do not enumerate and return this configuration to any one,
                 // for instance WiFi Picker.
                 // instead treat it as unknown. the configuration can still be retrieved
@@ -619,10 +663,10 @@ public class WifiConfigStore extends IpConfigStore {
      * @return List of networks
      */
     List<WifiConfiguration> getRecentConfiguredNetworks(int milli, boolean copy) {
-        List<WifiConfiguration> networks = null;
+        List<WifiConfiguration> networks = new ArrayList<WifiConfiguration>();
 
         for (WifiConfiguration config : mConfiguredNetworks.values()) {
-            if (config.autoJoinStatus == WifiConfiguration.AUTO_JOIN_DELETED) {
+            if (config.autoJoinStatus == WifiConfiguration.AUTO_JOIN_DELETED || config.ephemeral) {
                 // Do not enumerate and return this configuration to any one,
                 // instead treat it as unknown. the configuration can still be retrieved
                 // directly by the key or networkId
@@ -638,8 +682,6 @@ public class WifiConfigStore extends IpConfigStore {
                     config.visibility.rssi24 == WifiConfiguration.INVALID_RSSI) {
                 continue;
             }
-            if (networks == null)
-                networks = new ArrayList<WifiConfiguration>();
             if (copy) {
                 networks.add(new WifiConfiguration(config));
             } else {
@@ -715,11 +757,11 @@ public class WifiConfigStore extends IpConfigStore {
 
         for(WifiConfiguration config : mConfiguredNetworks.values()) {
 
-            if(config != null && config.status == Status.DISABLED
+            if(config != null && config.status == Status.DISABLED && !config.ephemeral
                     && (config.autoJoinStatus
                     <= WifiConfiguration.AUTO_JOIN_DISABLED_ON_AUTH_FAILURE)) {
 
-                // Wait for 20 minutes before reenabling config that have known, repeated connection
+                // Wait for 5 minutes before reenabling config that have known, repeated connection
                 // or DHCP failures
                 if (config.disableReason == WifiConfiguration.DISABLED_DHCP_FAILURE
                         || config.disableReason == WifiConfiguration.DISABLED_ASSOCIATION_REJECT
@@ -819,6 +861,15 @@ public class WifiConfigStore extends IpConfigStore {
                     + " Uid=" + Integer.toString(config.creatorUid)
                     + "/" + Integer.toString(config.lastUpdateUid));
         }
+
+        if (mDeletedEphemeralSSIDs.remove(config.SSID)) {
+            if (VDBG) {
+                loge("WifiConfigStore: removed from ephemeral blacklist: " + config.SSID);
+            }
+            // NOTE: This will be flushed to disk as part of the addOrUpdateNetworkNative call
+            // below, since we're creating/modifying a config.
+        }
+
         boolean newNetwork = (config.networkId == INVALID_NETWORK_ID);
         NetworkUpdateResult result = addOrUpdateNetworkNative(config, uid);
         int netId = result.getNetworkId();
@@ -884,6 +935,19 @@ public class WifiConfigStore extends IpConfigStore {
         }
     }
 
+    void noteRoamingFailure(WifiConfiguration config, int reason) {
+        if (config == null) return;
+        config.lastRoamingFailure = System.currentTimeMillis();
+        config.roamingFailureBlackListTimeMilli
+                = 2 * (config.roamingFailureBlackListTimeMilli + 1000);
+        if (config.roamingFailureBlackListTimeMilli
+                > networkSwitchingBlackListPeriodMilli) {
+            config.roamingFailureBlackListTimeMilli =
+                    networkSwitchingBlackListPeriodMilli;
+        }
+        config.lastRoamingFailureReason = reason;
+    }
+
     void saveWifiConfigBSSID(WifiConfiguration config) {
         // Sanity check the config is valid
         if (config == null || (config.networkId == INVALID_NETWORK_ID &&
@@ -934,6 +998,42 @@ public class WifiConfigStore extends IpConfigStore {
                     break;
             }
         }
+    }
+
+
+    /**
+     * Disable an ephemeral SSID for the purpose of auto-joining thru scored.
+     * This SSID will never be scored anymore.
+     * The only way to "un-disable it" is if the user create a network for that SSID and then
+     * forget it.
+     *
+     * @param SSID caller must ensure that the SSID passed thru this API match
+     *            the WifiConfiguration.SSID rules, and thus be surrounded by quotes.
+     * @return the {@link WifiConfiguration} corresponding to this SSID, if any, so that we can
+     *         disconnect if this is the current network.
+     */
+    WifiConfiguration disableEphemeralNetwork(String SSID) {
+        if (SSID == null) {
+            return null;
+        }
+
+        WifiConfiguration foundConfig = null;
+
+        mDeletedEphemeralSSIDs.add(SSID);
+        loge("Forget ephemeral SSID " + SSID + " num=" + mDeletedEphemeralSSIDs.size());
+
+        for (WifiConfiguration config : mConfiguredNetworks.values()) {
+            if (SSID.equals(config.SSID) && config.ephemeral) {
+                loge("Found ephemeral config in disableEphemeralNetwork: " + config.networkId);
+                foundConfig = config;
+            }
+        }
+
+        // Force a write, because the mDeletedEphemeralSSIDs list has changed even though the
+        // configurations may not have.
+        writeKnownNetworkHistory(true);
+
+        return foundConfig;
     }
 
     /**
@@ -1005,7 +1105,6 @@ public class WifiConfigStore extends IpConfigStore {
     }
 
     private boolean removeConfigAndSendBroadcastIfNeeded(int netId) {
-        boolean remove = true;
         WifiConfiguration config = mConfiguredNetworks.get(netId);
         if (config != null) {
             if (VDBG) {
@@ -1025,65 +1124,28 @@ public class WifiConfigStore extends IpConfigStore {
 
             if (config.selfAdded || config.linkedConfigurations != null
                     || config.allowedKeyManagement.get(KeyMgmt.WPA_PSK)) {
-                remove = false;
-                loge("removeNetwork " + Integer.toString(netId)
-                        + " key=" + config.configKey()
-                        + " config.id=" + Integer.toString(config.networkId)
-                        + " -> mark as deleted");
+                if (!TextUtils.isEmpty(config.SSID)) {
+                    /* Remember that we deleted this PSK SSID */
+                    Checksum csum = new CRC32();
+                    if (config.SSID != null) {
+                        csum.update(config.SSID.getBytes(), 0, config.SSID.getBytes().length);
+                        mDeletedSSIDs.add(csum.getValue());
+                    }
+                    loge("removeNetwork " + Integer.toString(netId)
+                            + " key=" + config.configKey()
+                            + " config.id=" + Integer.toString(config.networkId)
+                            + "  crc=" + csum.getValue());
+                }
             }
 
-            if (remove) {
-                mConfiguredNetworks.remove(netId);
-                mNetworkIds.remove(configKey(config));
-            } else {
-                /**
-                 * We can't directly remove the configuration since we could re-add it ourselves,
-                 * and that would look weird to the user.
-                 * Instead mark it as deleted and completely hide it from the rest of the system.
-                 */
-                config.setAutoJoinStatus(WifiConfiguration.AUTO_JOIN_DELETED);
-                // Disable
-                mWifiNative.disableNetwork(config.networkId);
-                config.status = WifiConfiguration.Status.DISABLED;
-                // Since we don't delete the configuration, clean it up and loose the history
-                config.linkedConfigurations = null;
-                config.scanResultCache = null;
-                config.connectChoices = null;
-                config.defaultGwMacAddress = null;
-                config.setIpConfiguration(new IpConfiguration());
-                // Loose the PSK
-                if (!mWifiNative.setNetworkVariable(
-                        config.networkId,
-                        WifiConfiguration.pskVarName,
-                        "\"" + DELETED_CONFIG_PSK + "\"")) {
-                    loge("removeNetwork, failed to clear PSK, nid=" + config.networkId);
-                }
-                // Loose the BSSID
-                config.BSSID = null;
-                config.autoJoinBSSID = null;
-                if (!mWifiNative.setNetworkVariable(
-                        config.networkId,
-                        WifiConfiguration.bssidVarName,
-                        "any")) {
-                    loge("removeNetwork, failed to remove BSSID");
-                }
-                // Loose the hiddenSSID flag
-                config.hiddenSSID = false;
-                if (!mWifiNative.setNetworkVariable(
-                        config.networkId,
-                        WifiConfiguration.hiddenSSIDVarName,
-                        Integer.toString(0))) {
-                    loge("removeNetwork, failed to remove hiddenSSID");
-                }
-
-                mWifiNative.saveConfig();
-            }
+            mConfiguredNetworks.remove(netId);
+            mNetworkIds.remove(configKey(config));
 
             writeIpAndProxyConfigurations();
             sendConfiguredNetworksChangedBroadcast(config, WifiManager.CHANGE_REASON_REMOVED);
-            writeKnownNetworkHistory();
+            writeKnownNetworkHistory(true);
         }
-        return remove;
+        return true;
     }
 
     /**
@@ -1177,17 +1239,19 @@ public class WifiConfigStore extends IpConfigStore {
         /* Only change the reason if the network was not previously disabled
         /* and the reason is not DISABLED_BY_WIFI_MANAGER, that is, if a 3rd party
          * set its configuration as disabled, then leave it disabled */
-        if (config != null && config.status != Status.DISABLED
+        if (config != null) {
+            if (config.status != Status.DISABLED
                 && config.disableReason != WifiConfiguration.DISABLED_BY_WIFI_MANAGER) {
-            config.status = Status.DISABLED;
-            config.disableReason = reason;
-            network = config;
-        }
-        if (reason == WifiConfiguration.DISABLED_BY_WIFI_MANAGER) {
-            // Make sure autojoin wont reenable this configuration without further user
-            // intervention
-            config.status = Status.DISABLED;
-            config.autoJoinStatus = WifiConfiguration.AUTO_JOIN_DISABLED_USER_ACTION;
+                config.status = Status.DISABLED;
+                config.disableReason = reason;
+                network = config;
+            }
+            if (reason == WifiConfiguration.DISABLED_BY_WIFI_MANAGER) {
+                // Make sure autojoin wont reenable this configuration without further user
+                // intervention
+                config.status = Status.DISABLED;
+                config.autoJoinStatus = WifiConfiguration.AUTO_JOIN_DISABLED_USER_ACTION;
+            }
         }
         if (network != null) {
             sendConfiguredNetworksChangedBroadcast(network,
@@ -1346,76 +1410,84 @@ public class WifiConfigStore extends IpConfigStore {
     }
 
     void loadConfiguredNetworks() {
-        String listStr = mWifiNative.listNetworks();
+
         mLastPriority = 0;
 
         mConfiguredNetworks.clear();
         mNetworkIds.clear();
 
-        if (listStr == null)
-            return;
+        int last_id = -1;
+        boolean done = false;
+        while (!done) {
 
-        String[] lines = listStr.split("\n");
+            String listStr = mWifiNative.listNetworks(last_id);
+            if (listStr == null)
+                return;
 
-        if (showNetworks) {
-            localLog("WifiConfigStore: loadConfiguredNetworks:  ");
-            for (String net : lines) {
-                localLog(net);
-            }
-        }
+            String[] lines = listStr.split("\n");
 
-        // Skip the first line, which is a header
-        for (int i = 1; i < lines.length; i++) {
-            String[] result = lines[i].split("\t");
-            // network-id | ssid | bssid | flags
-            WifiConfiguration config = new WifiConfiguration();
-            try {
-                config.networkId = Integer.parseInt(result[0]);
-            } catch(NumberFormatException e) {
-                loge("Failed to read network-id '" + result[0] + "'");
-                continue;
-            }
-            if (result.length > 3) {
-                if (result[3].indexOf("[CURRENT]") != -1)
-                    config.status = WifiConfiguration.Status.CURRENT;
-                else if (result[3].indexOf("[DISABLED]") != -1)
-                    config.status = WifiConfiguration.Status.DISABLED;
-                else
-                    config.status = WifiConfiguration.Status.ENABLED;
-            } else {
-                config.status = WifiConfiguration.Status.ENABLED;
-            }
-
-            readNetworkVariables(config);
-
-            String psk = readNetworkVariableFromSupplicantFile(config.SSID, "psk");
-            if (psk!= null && psk.equals(DELETED_CONFIG_PSK)) {
-                // This is a config we previously deleted, ignore it
-                if (showNetworks) {
-                    localLog("found deleted network " + config.SSID + " ", config.networkId);
+            if (showNetworks) {
+                localLog("WifiConfigStore: loadConfiguredNetworks:  ");
+                for (String net : lines) {
+                    localLog(net);
                 }
-                config.setAutoJoinStatus(WifiConfiguration.AUTO_JOIN_DELETED);
-                config.priority = 0;
             }
 
-            if (config.priority > mLastPriority) {
-                mLastPriority = config.priority;
+            // Skip the first line, which is a header
+            for (int i = 1; i < lines.length; i++) {
+                String[] result = lines[i].split("\t");
+                // network-id | ssid | bssid | flags
+                WifiConfiguration config = new WifiConfiguration();
+                try {
+                    config.networkId = Integer.parseInt(result[0]);
+                    last_id = config.networkId;
+                } catch(NumberFormatException e) {
+                    loge("Failed to read network-id '" + result[0] + "'");
+                    continue;
+                }
+                if (result.length > 3) {
+                    if (result[3].indexOf("[CURRENT]") != -1)
+                        config.status = WifiConfiguration.Status.CURRENT;
+                    else if (result[3].indexOf("[DISABLED]") != -1)
+                        config.status = WifiConfiguration.Status.DISABLED;
+                    else
+                        config.status = WifiConfiguration.Status.ENABLED;
+                } else {
+                    config.status = WifiConfiguration.Status.ENABLED;
+                }
+
+                readNetworkVariables(config);
+
+                Checksum csum = new CRC32();
+                if (config.SSID != null) {
+                    csum.update(config.SSID.getBytes(), 0, config.SSID.getBytes().length);
+                    long d = csum.getValue();
+                    if (mDeletedSSIDs.contains(d)) {
+                        loge(" got CRC for SSID " + config.SSID + " -> " + d + ", was deleted");
+                    }
+                }
+
+                if (config.priority > mLastPriority) {
+                    mLastPriority = config.priority;
+                }
+
+                config.setIpAssignment(IpAssignment.DHCP);
+                config.setProxySettings(ProxySettings.NONE);
+
+                if (mNetworkIds.containsKey(configKey(config))) {
+                    // That SSID is already known, just ignore this duplicate entry
+                    if (showNetworks) localLog("discarded duplicate network ", config.networkId);
+                } else if(config.isValid()){
+                    mConfiguredNetworks.put(config.networkId, config);
+                    mNetworkIds.put(configKey(config), config.networkId);
+                    if (showNetworks) localLog("loaded configured network", config.networkId);
+                } else {
+                    if (showNetworks) log("Ignoring loaded configured for network " + config.networkId
+                        + " because config are not valid");
+                }
             }
 
-            config.setIpAssignment(IpAssignment.DHCP);
-            config.setProxySettings(ProxySettings.NONE);
-
-            if (mNetworkIds.containsKey(configKey(config))) {
-                // That SSID is already known, just ignore this duplicate entry
-                if (showNetworks) localLog("discarded duplicate network ", config.networkId);
-            } else if(config.isValid()){
-                mConfiguredNetworks.put(config.networkId, config);
-                mNetworkIds.put(configKey(config), config.networkId);
-                if (showNetworks) localLog("loaded configured network", config.networkId);
-            } else {
-                if (showNetworks) log("Ignoring loaded configured for network " + config.networkId
-                    + " because config are not valid");
-            }
+            done = (lines.length == 1);
         }
 
         readIpAndProxyConfigurations();
@@ -1508,8 +1580,14 @@ public class WifiConfigStore extends IpConfigStore {
     }
 
     private String readNetworkVariableFromSupplicantFile(String ssid, String key) {
+        long start = SystemClock.elapsedRealtimeNanos();
         Map<String, String> data = readNetworkVariablesFromSupplicantFile(key);
-        if (VDBG) loge("readNetworkVariableFromSupplicantFile ssid=[" + ssid + "] key=" + key);
+        long end = SystemClock.elapsedRealtimeNanos();
+
+        if (VDBG) {
+            loge("readNetworkVariableFromSupplicantFile ssid=[" + ssid + "] key=" + key
+                    + " duration=" + (long)(end - start));
+        }
         return data.get(ssid);
     }
 
@@ -1549,14 +1627,15 @@ public class WifiConfigStore extends IpConfigStore {
         return false;
     }
 
-    public void writeKnownNetworkHistory() {
-        boolean needUpdate = false;
+    public void writeKnownNetworkHistory(boolean force) {
+        boolean needUpdate = force;
 
         /* Make a copy */
         final List<WifiConfiguration> networks = new ArrayList<WifiConfiguration>();
         for (WifiConfiguration config : mConfiguredNetworks.values()) {
             networks.add(new WifiConfiguration(config));
             if (config.dirty == true) {
+                loge(" rewrite network history for " + config.configKey());
                 config.dirty = false;
                 needUpdate = true;
             }
@@ -1627,8 +1706,11 @@ public class WifiConfigStore extends IpConfigStore {
                             + SEPARATOR_KEY);
                     out.writeUTF(DID_SELF_ADD_KEY + Boolean.toString(config.didSelfAdd)
                             + SEPARATOR_KEY);
-                    out.writeUTF(NO_INTERNET_ACCESS_KEY
-                            + Boolean.toString(config.noInternetAccess)
+                    out.writeUTF(NO_INTERNET_ACCESS_REPORTS_KEY
+                            + Integer.toString(config.numNoInternetAccessReports)
+                            + SEPARATOR_KEY);
+                    out.writeUTF(VALIDATED_INTERNET_ACCESS_KEY
+                            + Boolean.toString(config.validatedInternetAccess)
                             + SEPARATOR_KEY);
                     out.writeUTF(EPHEMERAL_KEY
                             + Boolean.toString(config.ephemeral)
@@ -1720,13 +1802,26 @@ public class WifiConfigStore extends IpConfigStore {
                     out.writeUTF(SEPARATOR_KEY);
                     out.writeUTF(SEPARATOR_KEY);
                 }
+                if (mDeletedSSIDs != null && mDeletedSSIDs.size() > 0) {
+                    for (Long i : mDeletedSSIDs) {
+                        out.writeUTF(DELETED_CRC32_KEY);
+                        out.writeUTF(String.valueOf(i));
+                        out.writeUTF(SEPARATOR_KEY);
+                    }
+                }
+                if (mDeletedEphemeralSSIDs != null && mDeletedEphemeralSSIDs.size() > 0) {
+                    for (String ssid : mDeletedEphemeralSSIDs) {
+                        out.writeUTF(DELETED_EPHEMERAL_KEY);
+                        out.writeUTF(ssid);
+                        out.writeUTF(SEPARATOR_KEY);
+                    }
+                }
             }
-
         });
     }
 
     public void setLastSelectedConfiguration(int netId) {
-        if (DBG) {
+        if (VDBG) {
             loge("setLastSelectedConfiguration " + Integer.toString(netId));
         }
         if (netId == WifiConfiguration.INVALID_NETWORK_ID) {
@@ -1740,6 +1835,7 @@ public class WifiConfigStore extends IpConfigStore {
                 selected.numConnectionFailures = 0;
                 selected.numIpConfigFailures = 0;
                 selected.numAuthFailures = 0;
+                selected.numNoInternetAccessReports = 0;
                 if (VDBG) {
                     loge("setLastSelectedConfiguration now: " + lastSelectedConfiguration);
                 }
@@ -1857,10 +1953,16 @@ public class WifiConfigStore extends IpConfigStore {
                         config.didSelfAdd = Boolean.parseBoolean(didSelfAdd);
                     }
 
-                    if (key.startsWith(NO_INTERNET_ACCESS_KEY)) {
-                        String access = key.replace(NO_INTERNET_ACCESS_KEY, "");
+                    if (key.startsWith(NO_INTERNET_ACCESS_REPORTS_KEY)) {
+                        String access = key.replace(NO_INTERNET_ACCESS_REPORTS_KEY, "");
                         access = access.replace(SEPARATOR_KEY, "");
-                        config.noInternetAccess = Boolean.parseBoolean(access);
+                        config.numNoInternetAccessReports = Integer.parseInt(access);
+                    }
+
+                    if (key.startsWith(VALIDATED_INTERNET_ACCESS_KEY)) {
+                        String access = key.replace(VALIDATED_INTERNET_ACCESS_KEY, "");
+                        access = access.replace(SEPARATOR_KEY, "");
+                        config.validatedInternetAccess = Boolean.parseBoolean(access);
                     }
 
                     if (key.startsWith(EPHEMERAL_KEY)) {
@@ -2024,7 +2126,6 @@ public class WifiConfigStore extends IpConfigStore {
                         }
 
                         if (key.startsWith(BSSID_KEY_END)) {
-
                             if ((bssid != null) && (ssid != null)) {
 
                                 if (config.scanResultCache == null) {
@@ -2036,6 +2137,19 @@ public class WifiConfigStore extends IpConfigStore {
                                 result.seen = seen;
                                 config.scanResultCache.put(bssid, result);
                                 result.autoJoinStatus = status;
+                            }
+                        }
+
+                        if (key.startsWith(DELETED_CRC32_KEY)) {
+                            String crc = key.replace(DELETED_CRC32_KEY, "");
+                            Long c = Long.parseLong(crc);
+                            mDeletedSSIDs.add(c);
+                        }
+                        if (key.startsWith(DELETED_EPHEMERAL_KEY)) {
+                            String s = key.replace(DELETED_EPHEMERAL_KEY, "");
+                            if (!TextUtils.isEmpty(s)) {
+                                s = s.replace(SEPARATOR_KEY, "");
+                                mDeletedEphemeralSSIDs.add(s);
                             }
                         }
                     }
@@ -2474,7 +2588,7 @@ public class WifiConfigStore extends IpConfigStore {
     private void readIpAndProxyConfigurations() {
         SparseArray<IpConfiguration> networks = super.readIpAndProxyConfigurations(ipConfigFile);
 
-        if (networks.size() == 0) {
+        if (networks == null || networks.size() == 0) {
             // IpConfigStore.readIpAndProxyConfigurations has already logged an error.
             return;
         }
@@ -2484,7 +2598,8 @@ public class WifiConfigStore extends IpConfigStore {
             WifiConfiguration config = mConfiguredNetworks.get(mNetworkIds.get(id));
 
 
-            if (config == null || config.autoJoinStatus == WifiConfiguration.AUTO_JOIN_DELETED) {
+            if (config == null || config.autoJoinStatus == WifiConfiguration.AUTO_JOIN_DELETED ||
+                    config.ephemeral) {
                 loge("configuration found for missing network, nid=" + id
                         +", ignored, networks.size=" + Integer.toString(networks.size()));
             } else {
@@ -2829,6 +2944,14 @@ public class WifiConfigStore extends IpConfigStore {
             currentConfig.setAutoJoinStatus(WifiConfiguration.AUTO_JOIN_ENABLED);
         }
 
+        if (currentConfig.configKey().equals(getLastSelectedConfiguration()) &&
+                currentConfig.ephemeral) {
+            // Make the config non-ephemeral since the user just explicitly clicked it.
+            currentConfig.ephemeral = false;
+            if (DBG) loge("remove ephemeral status netId=" + Integer.toString(netId)
+                    + " " + currentConfig.configKey());
+        }
+
         if (DBG) loge("will read network variables netId=" + Integer.toString(netId));
 
         readNetworkVariables(currentConfig);
@@ -2840,7 +2963,7 @@ public class WifiConfigStore extends IpConfigStore {
         result.setIsNewNetwork(newNetwork);
         result.setNetworkId(netId);
 
-        writeKnownNetworkHistory();
+        writeKnownNetworkHistory(false);
 
         return result;
     }
@@ -2867,7 +2990,7 @@ public class WifiConfigStore extends IpConfigStore {
                 continue;
             }
 
-            if (link.autoJoinStatus == WifiConfiguration.AUTO_JOIN_DELETED) {
+            if (link.autoJoinStatus == WifiConfiguration.AUTO_JOIN_DELETED || link.ephemeral) {
                 continue;
             }
 
@@ -2983,6 +3106,7 @@ public class WifiConfigStore extends IpConfigStore {
      *
      */
     public WifiConfiguration associateWithConfiguration(ScanResult result) {
+        boolean doNotAdd = false;
         String configKey = WifiConfiguration.configKey(result);
         if (configKey == null) {
             if (DBG) loge("associateWithConfiguration(): no config key " );
@@ -2996,11 +3120,18 @@ public class WifiConfigStore extends IpConfigStore {
             loge("associateWithConfiguration(): try " + configKey);
         }
 
+        Checksum csum = new CRC32();
+        csum.update(SSID.getBytes(), 0, SSID.getBytes().length);
+        if (mDeletedSSIDs.contains(csum.getValue())) {
+            doNotAdd = true;
+        }
+
         WifiConfiguration config = null;
         for (WifiConfiguration link : mConfiguredNetworks.values()) {
             boolean doLink = false;
 
-            if (link.autoJoinStatus == WifiConfiguration.AUTO_JOIN_DELETED || link.selfAdded) {
+            if (link.autoJoinStatus == WifiConfiguration.AUTO_JOIN_DELETED || link.selfAdded ||
+                    link.ephemeral) {
                 if (VVDBG) loge("associateWithConfiguration(): skip selfadd " + link.configKey() );
                 // Make sure we dont associate the scan result to a deleted config
                 continue;
@@ -3017,7 +3148,7 @@ public class WifiConfigStore extends IpConfigStore {
                 return link; // Found it exactly
             }
 
-            if ((link.scanResultCache != null) && (link.scanResultCache.size() <= 6)) {
+            if (!doNotAdd && (link.scanResultCache != null) && (link.scanResultCache.size() <= 6)) {
                 for (String bssid : link.scanResultCache.keySet()) {
                     if (result.BSSID.regionMatches(true, 0, bssid, 0, 16)
                             && SSID.regionMatches(false, 0, link.SSID, 0, 4)) {
@@ -3038,8 +3169,9 @@ public class WifiConfigStore extends IpConfigStore {
                 // Try to make a non verified WifiConfiguration, but only if the original
                 // configuration was not self already added
                 if (VDBG) {
-                    loge("associateWithConfiguration: will create " +
-                            result.SSID + " and associate it with: " + link.SSID);
+                    loge("associateWithConfiguration: try to create " +
+                            result.SSID + " and associate it with: " + link.SSID
+                            + " key " + link.configKey());
                 }
                 config = wifiConfigurationFromScanResult(result);
                 if (config != null) {
@@ -3049,6 +3181,10 @@ public class WifiConfigStore extends IpConfigStore {
                     config.peerWifiConfiguration = link.configKey();
                     if (config.allowedKeyManagement.equals(link.allowedKeyManagement) &&
                             config.allowedKeyManagement.get(KeyMgmt.WPA_PSK)) {
+                        if (VDBG && config != null) {
+                            loge("associateWithConfiguration: got a config from beacon"
+                                    + config.SSID + " key " + config.configKey());
+                        }
                         // Transfer the credentials from the configuration we are linking from
                         String psk = readNetworkVariableFromSupplicantFile(link.SSID, "psk");
                         if (psk != null) {
@@ -3067,6 +3203,11 @@ public class WifiConfigStore extends IpConfigStore {
                             }
                             link.linkedConfigurations.put(config.configKey(), Integer.valueOf(1));
                             config.linkedConfigurations.put(link.configKey(), Integer.valueOf(1));
+
+                            // Carry over the Ip configuration
+                            if (link.getIpConfiguration() != null) {
+                                config.setIpConfiguration(link.getIpConfiguration());
+                            }
                         } else {
                             config = null;
                         }
@@ -3074,6 +3215,10 @@ public class WifiConfigStore extends IpConfigStore {
                         config = null;
                     }
                     if (config != null) break;
+                }
+                if (VDBG && config != null) {
+                    loge("associateWithConfiguration: success, created: " + config.SSID
+                            + " key " + config.configKey());
                 }
             }
         }
@@ -3227,6 +3372,36 @@ public class WifiConfigStore extends IpConfigStore {
                     scanResult.numIpConfigFailures = result.numIpConfigFailures;
                     scanResult.numConnection = result.numConnection;
                     scanResult.isAutoJoinCandidate = result.isAutoJoinCandidate;
+                }
+
+                if (config.ephemeral) {
+                    // For an ephemeral Wi-Fi config, the ScanResult should be considered
+                    // untrusted.
+                    scanResult.untrusted = true;
+                }
+
+                if (config.scanResultCache.size() > (maxNumScanCacheEntries + 64)) {
+                    long now_dbg = 0;
+                    if (VVDBG) {
+                        loge(" Will trim config " + config.configKey()
+                                + " size " + config.scanResultCache.size());
+
+                        for (ScanResult r : config.scanResultCache.values()) {
+                            loge("     " + result.BSSID + " " + result.seen);
+                        }
+                        now_dbg = SystemClock.elapsedRealtimeNanos();
+                    }
+                    // Trim the scan result cache to maxNumScanCacheEntries entries max
+                    // Since this operation is expensive, make sure it is not performed
+                    // until the cache has grown significantly above the trim treshold
+                    config.trimScanResultsCache(maxNumScanCacheEntries);
+                    if (VVDBG) {
+                        long diff = SystemClock.elapsedRealtimeNanos() - now_dbg;
+                        loge(" Finished trimming config, time(ns) " + diff);
+                        for (ScanResult r : config.scanResultCache.values()) {
+                            loge("     " + r.BSSID + " " + r.seen);
+                        }
+                    }
                 }
 
                 // Add the scan result to this WifiConfiguration

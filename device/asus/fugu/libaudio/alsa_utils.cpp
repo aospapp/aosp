@@ -307,7 +307,7 @@ void HDMIAudioCaps::getFmtsForAF(String8& fmts) {
 #endif /* ALSA_UTILS_PRINT_FORMATS */
 }
 
-void HDMIAudioCaps::getChannelMasksForAF(String8& masks, bool skipStereo) {
+void HDMIAudioCaps::getChannelMasksForAF(String8& masks) {
     Mutex::Autolock _l(mLock);
     masks.clear();
 
@@ -315,13 +315,9 @@ void HDMIAudioCaps::getChannelMasksForAF(String8& masks, bool skipStereo) {
     if (!mBasicAudioSupported)
         return;
 
-    // Don't list stereo modes if the caller requests it.  This is mostly to
-    // support the hack which ends up routing multichannel audio to the special
-    // multichannel audio stream out, but not native stereo tracks.
-    if (!skipStereo)
-        masks.append("AUDIO_CHANNEL_OUT_STEREO");
+    masks.append("AUDIO_CHANNEL_OUT_STEREO");
 
-    // To keep things simple, only report mode information for the PCM mode
+    // To keep things simple, only report mode information for the mode
     // which supports the maximum number of channels.
     ssize_t ndx = getMaxChModeNdx_l();
     if (ndx < 0)
@@ -342,8 +338,8 @@ ssize_t HDMIAudioCaps::getMaxChModeNdx_l() {
     uint32_t max_ch = 0;
 
     for (size_t i = 0; i < mModes.size(); ++i) {
-        if ((mModes[i].fmt == kFmtLPCM) && (max_ch < mModes[i].max_ch)) {
-            max_ch < mModes[i].max_ch;
+        if (max_ch < mModes[i].max_ch) {
+            max_ch = mModes[i].max_ch;
             max_ch_ndx = i;
         }
     }

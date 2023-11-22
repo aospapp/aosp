@@ -3,7 +3,8 @@
 # found in the LICENSE file.
 from measurements import smooth_gesture_util
 
-from telemetry.core.backends.chrome import tracing_backend
+from telemetry.core.platform import tracing_category_filter
+from telemetry.core.platform import tracing_options
 from telemetry.timeline.model import TimelineModel
 from telemetry.page.actions import action_runner
 from telemetry.web_perf import timeline_interaction_record as tir_module
@@ -15,27 +16,31 @@ RUN_SMOOTH_ACTIONS = 'RunSmoothAllActions'
 class TimelineController(object):
   def __init__(self):
     super(TimelineController, self).__init__()
-    self.trace_categories = tracing_backend.DEFAULT_TRACE_CATEGORIES
+    self.trace_categories = None
     self._model = None
     self._renderer_process = None
     self._smooth_records = []
     self._interaction = None
 
-  def Start(self, page, tab):
+  def SetUp(self, page, tab):
     """Starts gathering timeline data.
 
     """
     # Resets these member variables incase this object is reused.
     self._model = None
     self._renderer_process = None
-    if not tab.browser.supports_tracing:
+    if not tab.browser.platform.tracing_controller.IsChromeTracingSupported(
+      tab.browser):
       raise Exception('Not supported')
-    if self.trace_categories:
-      categories = [self.trace_categories] + \
-          page.GetSyntheticDelayCategories()
-    else:
-      categories = page.GetSyntheticDelayCategories()
-    tab.browser.StartTracing(','.join(categories))
+    category_filter = tracing_category_filter.TracingCategoryFilter(
+        filter_string=self.trace_categories)
+    for delay in page.GetSyntheticDelayCategories():
+      category_filter.AddSyntheticDelay(delay)
+    options = tracing_options.TracingOptions()
+    options.enable_chrome_trace = True
+    tab.browser.platform.tracing_controller.Start(options, category_filter)
+
+  def Start(self, tab):
     # Start the smooth marker for all actions.
     runner = action_runner.ActionRunner(tab)
     self._interaction = runner.BeginInteraction(
@@ -45,7 +50,7 @@ class TimelineController(object):
     # End the smooth marker for all actions.
     self._interaction.End()
     # Stop tracing.
-    timeline_data = tab.browser.StopTracing()
+    timeline_data = tab.browser.platform.tracing_controller.Stop()
     self._model = TimelineModel(timeline_data)
     self._renderer_process = self._model.GetRendererProcessFromTabId(tab.id)
     renderer_thread = self.model.GetRendererThreadFromTabId(tab.id)
@@ -56,7 +61,7 @@ class TimelineController(object):
       if not tir_module.IsTimelineInteractionRecord(event.name):
         continue
       r = tir_module.TimelineInteractionRecord.FromAsyncEvent(event)
-      if r.logical_name == RUN_SMOOTH_ACTIONS:
+      if r.label == RUN_SMOOTH_ACTIONS:
         assert run_smooth_actions_record is None, (
           'TimelineController cannot issue more than 1 %s record' %
           RUN_SMOOTH_ACTIONS)
@@ -75,8 +80,8 @@ class TimelineController(object):
 
 
   def CleanUp(self, tab):
-    if tab.browser.is_tracing_running:
-      tab.browser.StopTracing()
+    if tab.browser.platform.tracing_controller.is_tracing_running:
+      tab.browser.platform.tracing_controller.Stop()
 
   @property
   def model(self):

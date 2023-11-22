@@ -1,12 +1,12 @@
 #Common headers
-common_includes := hardware/qcom/display/msm8226/libgralloc
-common_includes += hardware/qcom/display/msm8226/liboverlay
-common_includes += hardware/qcom/display/msm8226/libcopybit
-common_includes += hardware/qcom/display/msm8226/libqdutils
-common_includes += hardware/qcom/display/msm8226/libhwcomposer
-common_includes += hardware/qcom/display/msm8226/libexternal
-common_includes += hardware/qcom/display/msm8226/libqservice
-common_includes += hardware/qcom/display/msm8226/libvirtual
+common_includes := $(LOCAL_PATH)/../libgralloc
+common_includes += $(LOCAL_PATH)/../liboverlay
+common_includes += $(LOCAL_PATH)/../libcopybit
+common_includes += $(LOCAL_PATH)/../libqdutils
+common_includes += $(LOCAL_PATH)/../libhwcomposer
+common_includes += $(LOCAL_PATH)/../libexternal
+common_includes += $(LOCAL_PATH)/../libqservice
+common_includes += $(LOCAL_PATH)/../libvirtual
 
 ifeq ($(TARGET_USES_POST_PROCESSING),true)
     common_flags     += -DUSES_POST_PROCESSING
@@ -27,8 +27,8 @@ ifeq ($(ARCH_ARM_HAVE_NEON),true)
     common_flags += -D__ARM_HAVE_NEON
 endif
 
-ifeq ($(call is-board-platform-in-list, msm8226 msm8610 apq8084 \
-        mpq8092 msm_bronze msm8916), true)
+ifeq ($(call is-board-platform-in-list, msm8974 msm8226 msm8610 apq8084 \
+        mpq8092 msm_bronze msm8916 msm8994), true)
     common_flags += -DVENUS_COLOR_FORMAT
     common_flags += -DMDSS_TARGET
 endif

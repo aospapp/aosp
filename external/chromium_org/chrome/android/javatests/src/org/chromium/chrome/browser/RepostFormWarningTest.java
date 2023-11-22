@@ -6,12 +6,11 @@ package org.chromium.chrome.browser;
 
 import android.app.AlertDialog;
 import android.test.suitebuilder.annotation.MediumTest;
+import android.test.suitebuilder.annotation.SmallTest;
 
-import org.chromium.base.test.util.EnormousTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.shell.ChromeShellTab;
 import org.chromium.chrome.shell.ChromeShellTestBase;
-import org.chromium.chrome.test.util.TabUtils;
 import org.chromium.chrome.test.util.TestHttpServerClient;
 import org.chromium.content.browser.test.util.TestCallbackHelperContainer;
 
@@ -31,7 +30,7 @@ public class RepostFormWarningTest extends ChromeShellTestBase {
         super.setUp();
 
         mTab = launchChromeShellWithBlankPage().getActiveTab();
-        mCallbackHelper = TabUtils.getTestCallbackHelperContainer(mTab);
+        mCallbackHelper = new TestCallbackHelperContainer(mTab.getContentViewCore());
 
         // Wait for the initial load of about://blank to finish.
         mCallbackHelper.getOnPageFinishedHelper().waitForCallback(0);
@@ -62,7 +61,7 @@ public class RepostFormWarningTest extends ChromeShellTestBase {
         // Trigger a reload and wait for the warning to be displayed.
         reload();
         getInstrumentation().waitForIdleSync();
-        AlertDialog dialog = (AlertDialog)RepostFormWarningDialog.getCurrentDialog();
+        AlertDialog dialog = (AlertDialog) RepostFormWarningDialog.getCurrentDialog();
         assertNotNull("Form resubmission warning not shown upon reload.", dialog);
 
         // Click "Continue" and verify that the page is reloaded.
@@ -79,7 +78,7 @@ public class RepostFormWarningTest extends ChromeShellTestBase {
      * after the "Cancel" button is clicked to verify that the load was not triggered, which blocks
      * for CallbackHelper's default timeout upon each execution.
      */
-    @EnormousTest
+    @SmallTest
     @Feature({"Navigation"})
     public void testFormResubmissionCancel() throws Throwable {
         // Load the url posting data for the first time.
@@ -89,7 +88,7 @@ public class RepostFormWarningTest extends ChromeShellTestBase {
         // Trigger a reload and wait for the warning to be displayed.
         reload();
         getInstrumentation().waitForIdleSync();
-        AlertDialog dialog = (AlertDialog)RepostFormWarningDialog.getCurrentDialog();
+        AlertDialog dialog = (AlertDialog) RepostFormWarningDialog.getCurrentDialog();
         assertNotNull("Form resubmission warning not shown upon reload.", dialog);
 
         // Click "Cancel" and verify that the page is not reloaded.

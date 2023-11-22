@@ -4,7 +4,10 @@
 
 from collections import defaultdict
 
+from telemetry.value import failure
 from telemetry.value import merge_values
+from telemetry.value import skip
+
 
 class Summary(object):
   """Computes summary values from the per-page-run values produced by a test.
@@ -32,8 +35,10 @@ class Summary(object):
       ]
 
   """
-  def __init__(self, all_page_specific_values, had_errors_or_failures):
-    self.had_errors_or_failures = had_errors_or_failures
+  def __init__(self, all_page_specific_values):
+    had_failures = any(isinstance(v, failure.FailureValue) for v in
+        all_page_specific_values)
+    self.had_failures = had_failures
     self._computed_per_page_values = []
     self._computed_summary_values = []
     self._interleaved_computed_per_page_values_and_summaries = []
@@ -58,7 +63,9 @@ class Summary(object):
     return self._interleaved_computed_per_page_values_and_summaries
 
   def _ComputePerPageValues(self, all_page_specific_values):
-    all_successful_page_values = all_page_specific_values
+    all_successful_page_values = [
+        v for v in all_page_specific_values if not (isinstance(
+            v, failure.FailureValue) or isinstance(v, skip.SkipValue))]
 
     # We will later need to determine how many values were originally created
     # for each value name, to apply a workaround meant to clean up the printf
@@ -100,7 +107,7 @@ class Summary(object):
     # value name so that we can find them when printing out value names in
     # alphabetical order.
     merged_pages_value_by_value_name = {}
-    if not self.had_errors_or_failures:
+    if not self.had_failures:
       for value in merge_values.MergeLikeValuesFromDifferentPages(
           all_successful_page_values):
         assert value.name not in merged_pages_value_by_value_name
@@ -142,7 +149,7 @@ class Summary(object):
     # Note: this branch is structured less-densely to improve legibility.
     if num_successful_pages_for_this_value_name > 1:
       should_print = True
-    elif (self.had_errors_or_failures and
+    elif (self.had_failures and
          num_successful_pages_for_this_value_name == 1):
       should_print = True
     else:

@@ -8,39 +8,50 @@
 #include "base/logging.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/metrics/field_trial.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/search/instant_io_context.h"
 #include "chrome/browser/search/search.h"
-#include "chrome/browser/search_engines/template_url_prepopulate_data.h"
-#include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/generated_resources.h"
+#include "components/search_engines/template_url_prepopulate_data.h"
+#include "components/search_engines/template_url_service.h"
 #include "grit/browser_resources.h"
-#include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/ui_resources.h"
 #include "net/url_request/url_request.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/webui/jstemplate_builder.h"
 #include "ui/base/webui/web_ui_util.h"
+#include "ui/resources/grit/ui_resources.h"
 #include "url/gurl.h"
 
 namespace {
+
+// Constants related to the Material Design NTP field trial.
+const char kMaterialDesignNTPFieldTrialName[] = "MaterialDesignNTP";
+const char kMaterialDesignNTPFieldTrialEnabledPrefix[] = "Enabled";
+
+// Names of NTP designs in local resources, also used in CSS.
+const char kClassicalNTPName[] = "classical";
+const char kMaterialDesignNTPName[] = "md";
 
 // Signifies a locally constructed resource, i.e. not from grit/.
 const int kLocalResource = -1;
 
 const char kConfigDataFilename[] = "config.js";
+const char kLocalNTPFilename[] = "local-ntp.html";
 
 const struct Resource{
   const char* filename;
   int identifier;
   const char* mime_type;
 } kResources[] = {
-  { "local-ntp.html", IDR_LOCAL_NTP_HTML, "text/html" },
+  { kLocalNTPFilename, IDR_LOCAL_NTP_HTML, "text/html" },
   { "local-ntp.js", IDR_LOCAL_NTP_JS, "application/javascript" },
   { kConfigDataFilename, kLocalResource, "application/javascript" },
   { "local-ntp.css", IDR_LOCAL_NTP_CSS, "text/css" },
@@ -48,9 +59,11 @@ const struct Resource{
   { "images/close_2_hover.png", IDR_CLOSE_2_H, "image/png" },
   { "images/close_2_active.png", IDR_CLOSE_2_P, "image/png" },
   { "images/close_2_white.png", IDR_CLOSE_2_MASK, "image/png" },
+  { "images/close_3_mask.png", IDR_CLOSE_3_MASK, "image/png" },
   { "images/google_logo.png", IDR_LOCAL_NTP_IMAGES_LOGO_PNG, "image/png" },
   { "images/white_google_logo.png",
     IDR_LOCAL_NTP_IMAGES_WHITE_LOGO_PNG, "image/png" },
+  { "images/ntp_default_favicon.png", IDR_NTP_DEFAULT_FAVICON, "image/png" },
 };
 
 // Strips any query parameters from the specified path.
@@ -75,6 +88,14 @@ bool DefaultSearchProviderIsGoogle(Profile* profile) {
        SEARCH_ENGINE_GOOGLE);
 }
 
+// Returns whether the user is part of a group where the Material Design NTP is
+// enabled.
+bool IsMaterialDesignEnabled() {
+  return StartsWithASCII(
+      base::FieldTrialList::FindFullName(kMaterialDesignNTPFieldTrialName),
+      kMaterialDesignNTPFieldTrialEnabledPrefix, true);
+}
+
 // Adds a localized string keyed by resource id to the dictionary.
 void AddString(base::DictionaryValue* dictionary,
                const std::string& key,
@@ -82,8 +103,17 @@ void AddString(base::DictionaryValue* dictionary,
   dictionary->SetString(key, l10n_util::GetStringUTF16(resource_id));
 }
 
-// Populates |translated_strings| dictionary for the local NTP.
-scoped_ptr<base::DictionaryValue> GetTranslatedStrings() {
+// Adds a localized string for the Google searchbox placeholder text.
+void AddGoogleSearchboxPlaceholderString(base::DictionaryValue* dictionary) {
+  base::string16 placeholder = l10n_util::GetStringFUTF16(
+      IDS_OMNIBOX_EMPTY_HINT_WITH_DEFAULT_SEARCH_PROVIDER,
+      base::ASCIIToUTF16("Google"));
+  dictionary->SetString("searchboxPlaceholder", placeholder);
+}
+
+// Populates |translated_strings| dictionary for the local NTP. |is_google|
+// indicates that this page is the Google Local NTP.
+scoped_ptr<base::DictionaryValue> GetTranslatedStrings(bool is_google) {
   scoped_ptr<base::DictionaryValue> translated_strings(
       new base::DictionaryValue());
 
@@ -98,6 +128,8 @@ scoped_ptr<base::DictionaryValue> GetTranslatedStrings() {
   AddString(translated_strings.get(), "attributionIntro",
             IDS_NEW_TAB_ATTRIBUTION_INTRO);
   AddString(translated_strings.get(), "title", IDS_NEW_TAB_TITLE);
+  if (is_google)
+    AddGoogleSearchboxPlaceholderString(translated_strings.get());
 
   return translated_strings.Pass();
 }
@@ -105,10 +137,16 @@ scoped_ptr<base::DictionaryValue> GetTranslatedStrings() {
 // Returns a JS dictionary of configuration data for the local NTP.
 std::string GetConfigData(Profile* profile) {
   base::DictionaryValue config_data;
-  config_data.Set("translatedStrings", GetTranslatedStrings().release());
-  config_data.SetBoolean("isGooglePage",
-                         DefaultSearchProviderIsGoogle(profile) &&
-                         chrome::ShouldShowGoogleLocalNTP());
+  bool is_google = DefaultSearchProviderIsGoogle(profile) &&
+      chrome::ShouldShowGoogleLocalNTP();
+  config_data.Set("translatedStrings",
+                  GetTranslatedStrings(is_google).release());
+  config_data.SetBoolean("isGooglePage", is_google);
+  if (IsMaterialDesignEnabled()) {
+    scoped_ptr<base::Value> design_value(
+        new base::StringValue(kMaterialDesignNTPName));
+    config_data.Set("ntpDesignName", design_value.release());
+  }
 
   // Serialize the dictionary.
   std::string js_text;
@@ -148,6 +186,13 @@ void LocalNtpSource::StartDataRequest(
   if (stripped_path == kConfigDataFilename) {
     std::string config_data_js = GetConfigData(profile_);
     callback.Run(base::RefCountedString::TakeString(&config_data_js));
+    return;
+  }
+  if (stripped_path == kLocalNTPFilename) {
+    SendResourceWithClass(
+        IDR_LOCAL_NTP_HTML,
+        IsMaterialDesignEnabled() ? kMaterialDesignNTPName : kClassicalNTPName,
+        callback);
     return;
   }
   float scale = 1.0f;
@@ -198,4 +243,15 @@ std::string LocalNtpSource::GetContentSecurityPolicyFrameSrc() const {
   // Allow embedding of most visited iframes.
   return base::StringPrintf("frame-src %s;",
                             chrome::kChromeSearchMostVisitedUrl);
+}
+
+void LocalNtpSource::SendResourceWithClass(
+    int resource_id,
+    const std::string& class_name,
+    const content::URLDataSource::GotDataCallback& callback) {
+  base::StringPiece resource_data =
+      ResourceBundle::GetSharedInstance().GetRawDataResource(resource_id);
+  std::string response(resource_data.as_string());
+  ReplaceFirstSubstringAfterOffset(&response, 0, "{{CLASS}}", class_name);
+  callback.Run(base::RefCountedString::TakeString(&response));
 }

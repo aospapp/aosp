@@ -41,7 +41,7 @@ int RenderProcessHostCount() {
   return count;
 }
 
-RenderViewHost* FindFirstDevToolsHost() {
+WebContents* FindFirstDevToolsContents() {
   scoped_ptr<content::RenderWidgetHostIterator> widgets(
       RenderWidgetHost::GetRenderWidgetHosts());
   while (content::RenderWidgetHost* widget = widgets->GetNextHost()) {
@@ -53,7 +53,7 @@ RenderViewHost* FindFirstDevToolsHost() {
     WebContents* contents = WebContents::FromRenderViewHost(host);
     GURL url = contents->GetURL();
     if (url.SchemeIs(content::kChromeDevToolsScheme))
-      return host;
+      return contents;
   }
   return NULL;
 }
@@ -265,9 +265,14 @@ IN_PROC_BROWSER_TEST_F(ChromeRenderProcessHostTest, ProcessPerTab) {
 
 // We don't change process priorities on Mac or Posix because the user lacks the
 // permission to raise a process' priority even after lowering it.
-// flaky, disabling on branch
 #if defined(OS_WIN) || defined(OS_LINUX)
-IN_PROC_BROWSER_TEST_F(ChromeRenderProcessHostTest, DISABLED_Backgrounding) {
+#if defined(OS_WIN)
+// Flaky test: crbug.com/394368
+#define MAYBE_Backgrounding DISABLED_Backgrounding
+#else
+#define MAYBE_Backgrounding Backgrounding
+#endif
+IN_PROC_BROWSER_TEST_F(ChromeRenderProcessHostTest, MAYBE_Backgrounding) {
   if (!base::Process::CanBackgroundProcesses()) {
     LOG(ERROR) << "Can't background processes";
     return;
@@ -363,7 +368,7 @@ IN_PROC_BROWSER_TEST_F(ChromeRenderProcessHostTest,
   EXPECT_EQ(tab_count, browser()->tab_strip_model()->count());
   EXPECT_EQ(host_count, RenderProcessHostCount());
 
-  RenderViewHost* devtools = FindFirstDevToolsHost();
+  WebContents* devtools = FindFirstDevToolsContents();
   DCHECK(devtools);
 
   // DevTools start in a separate process.
@@ -375,7 +380,7 @@ IN_PROC_BROWSER_TEST_F(ChromeRenderProcessHostTest,
   // close docked devtools
   content::WindowedNotificationObserver close_observer(
       content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
-      content::Source<WebContents>(WebContents::FromRenderViewHost(devtools)));
+      content::Source<WebContents>(devtools));
 
   chrome::ToggleDevToolsWindow(browser(), DevToolsToggleAction::Toggle());
   close_observer.Wait();
@@ -410,7 +415,7 @@ IN_PROC_BROWSER_TEST_F(ChromeRenderProcessHostTest,
   EXPECT_EQ(tab_count, browser()->tab_strip_model()->count());
   EXPECT_EQ(host_count, RenderProcessHostCount());
 
-  RenderViewHost* devtools = FindFirstDevToolsHost();
+  WebContents* devtools = FindFirstDevToolsContents();
   DCHECK(devtools);
 
   // DevTools start in a separate process.
@@ -422,8 +427,7 @@ IN_PROC_BROWSER_TEST_F(ChromeRenderProcessHostTest,
   // close docked devtools
   content::WindowedNotificationObserver close_observer(
       content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
-      content::Source<content::WebContents>(
-          WebContents::FromRenderViewHost(devtools)));
+      content::Source<content::WebContents>(devtools));
   chrome::ToggleDevToolsWindow(browser(), DevToolsToggleAction::Toggle());
   close_observer.Wait();
 }

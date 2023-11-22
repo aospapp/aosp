@@ -6,10 +6,10 @@
 
 #include "base/bind.h"
 #include "base/message_loop/message_loop.h"
+#include "chrome/browser/apps/scoped_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/app_list/app_list_shower_delegate.h"
 #include "chrome/browser/ui/app_list/app_list_view_delegate.h"
-#include "chrome/browser/ui/app_list/scoped_keep_alive.h"
 #include "ui/app_list/views/app_list_view.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/screen.h"
@@ -61,7 +61,10 @@ void AppListShower::DismissAppList() {
   if (HasView()) {
     Hide();
     delegate_->OnViewDismissed();
-    keep_alive_.reset();
+    // This can be reached by pressing the dismiss accelerator. To prevent
+    // events from being processed with a destroyed dispatcher, delay the reset
+    // of the keep alive.
+    ResetKeepAliveSoon();
   }
 }
 
@@ -78,13 +81,7 @@ void AppListShower::HandleViewBeingDestroyed() {
   // correctly been destroyed before ending the keep alive so that
   // CloseAllSecondaryWidgets() won't attempt to delete the AppList's Widget
   // again.
-  if (base::MessageLoop::current()) {  // NULL in tests.
-    base::MessageLoop::current()->PostTask(
-        FROM_HERE,
-        base::Bind(&AppListShower::ResetKeepAlive, base::Unretained(this)));
-    return;
-  }
-  keep_alive_.reset();
+  ResetKeepAliveSoon();
 }
 
 bool AppListShower::IsAppListVisible() const {
@@ -102,11 +99,9 @@ bool AppListShower::HasView() const {
 }
 
 app_list::AppListView* AppListShower::MakeViewForCurrentProfile() {
-  // The view delegate will be owned by the app list view. The app list view
-  // manages its own lifetime.
-  AppListViewDelegate* view_delegate = new AppListViewDelegate(
-      profile_, delegate_->GetControllerDelegateForCreate());
-  app_list::AppListView* view = new app_list::AppListView(view_delegate);
+  // The app list view manages its own lifetime.
+  app_list::AppListView* view =
+      new app_list::AppListView(delegate_->GetViewDelegateForCreate());
   gfx::Point cursor = gfx::Screen::GetNativeScreen()->GetCursorScreenPoint();
   view->InitAsBubbleAtFixedLocation(NULL,
                                     0,
@@ -131,6 +126,16 @@ void AppListShower::Show() {
 
 void AppListShower::Hide() {
   app_list_->GetWidget()->Hide();
+}
+
+void AppListShower::ResetKeepAliveSoon() {
+  if (base::MessageLoop::current()) {  // NULL in tests.
+    base::MessageLoop::current()->PostTask(
+        FROM_HERE,
+        base::Bind(&AppListShower::ResetKeepAlive, base::Unretained(this)));
+    return;
+  }
+  ResetKeepAlive();
 }
 
 void AppListShower::ResetKeepAlive() {

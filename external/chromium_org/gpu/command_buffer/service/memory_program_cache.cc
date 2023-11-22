@@ -21,12 +21,12 @@
 namespace {
 
 size_t GetCacheSizeBytes() {
-  size_t size;
   const CommandLine* command_line = CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(switches::kGpuProgramCacheSizeKb) &&
-      base::StringToSizeT(command_line->GetSwitchValueNative(
-          switches::kGpuProgramCacheSizeKb),
-          &size)) {
+  if (command_line->HasSwitch(switches::kGpuProgramCacheSizeKb)) {
+    size_t size;
+    if (base::StringToSizeT(
+        command_line->GetSwitchValueNative(switches::kGpuProgramCacheSizeKb),
+        &size))
       return size * 1024;
   }
   return gpu::kDefaultMaxProgramCacheMemoryBytes;
@@ -130,12 +130,12 @@ ProgramCache::ProgramLoadResult MemoryProgramCache::LoadLinkedProgram(
     const ShaderCacheCallback& shader_callback) {
   char a_sha[kHashLength];
   char b_sha[kHashLength];
-  DCHECK(shader_a && shader_a->signature_source() &&
-         shader_b && shader_b->signature_source());
+  DCHECK(shader_a && !shader_a->signature_source().empty() &&
+         shader_b && !shader_b->signature_source().empty());
   ComputeShaderHash(
-      *shader_a->signature_source(), translator_a, a_sha);
+      shader_a->signature_source(), translator_a, a_sha);
   ComputeShaderHash(
-      *shader_b->signature_source(), translator_b, b_sha);
+      shader_b->signature_source(), translator_b, b_sha);
 
   char sha[kHashLength];
   ComputeProgramHash(a_sha,
@@ -206,12 +206,12 @@ void MemoryProgramCache::SaveLinkedProgram(
 
   char a_sha[kHashLength];
   char b_sha[kHashLength];
-  DCHECK(shader_a && shader_a->signature_source() &&
-         shader_b && shader_b->signature_source());
+  DCHECK(shader_a && !shader_a->signature_source().empty() &&
+         shader_b && !shader_b->signature_source().empty());
   ComputeShaderHash(
-      *shader_a->signature_source(), translator_a, a_sha);
+      shader_a->signature_source(), translator_a, a_sha);
   ComputeShaderHash(
-      *shader_b->signature_source(), translator_b, b_sha);
+      shader_b->signature_source(), translator_b, b_sha);
 
   char sha[kHashLength];
   ComputeProgramHash(a_sha,

@@ -1005,7 +1005,7 @@ public class Stubs {
     // need to make sure value is valid XML
     String value = makeXMLcompliant(fi.constantLiteralValue());
 
-    String fullTypeName = makeXMLcompliant(fi.type().qualifiedTypeName()) + fi.type().dimension();
+    String fullTypeName = makeXMLcompliant(fi.type().fullName());
 
     xmlWriter.println("<field name=\"" + fi.name() + "\"\n" + " type=\"" + fullTypeName + "\"\n"
         + " transient=\"" + fi.isTransient() + "\"\n" + " volatile=\"" + fi.isVolatile() + "\"\n"
@@ -1358,7 +1358,7 @@ public class Stubs {
     }
 
     apiWriter.print(" ");
-    apiWriter.print(fi.type().qualifiedTypeName() + fi.type().dimension());
+    apiWriter.print(fi.type().fullName());
 
     apiWriter.print(" ");
     apiWriter.print(fi.name());

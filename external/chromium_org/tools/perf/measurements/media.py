@@ -6,10 +6,10 @@ from metrics import cpu
 from metrics import media
 from metrics import system_memory
 from metrics import power
-from telemetry.page import page_measurement
+from telemetry.page import page_test
 
 
-class Media(page_measurement.PageMeasurement):
+class Media(page_test.PageTest):
   """The MediaMeasurement class gathers media-related metrics on a page set.
 
   Media metrics recorded are controlled by metrics/media.js.  At the end of the
@@ -23,11 +23,10 @@ class Media(page_measurement.PageMeasurement):
     self._add_browser_metrics = False
     self._cpu_metric = None
     self._memory_metric = None
-    self._power_metric = power.PowerMetric()
+    self._power_metric = None
 
-  def results_are_the_same_on_every_page(self):
-    """Results can vary from page to page based on media events taking place."""
-    return False
+  def WillStartBrowser(self, platform):
+    self._power_metric = power.PowerMetric(platform)
 
   def CustomizeBrowserOptions(self, options):
     # Needed to run media actions in JS on touch-based devices as on Android.
@@ -51,7 +50,7 @@ class Media(page_measurement.PageMeasurement):
       self._memory_metric.Start(page, tab)
       self._power_metric.Start(page, tab)
 
-  def MeasurePage(self, page, tab, results):
+  def ValidateAndMeasurePage(self, page, tab, results):
     """Measure the page's performance."""
     self._media_metric.Stop(page, tab)
     trace_name = self._media_metric.AddResults(tab, results)
@@ -67,4 +66,3 @@ class Media(page_measurement.PageMeasurement):
                                      trace_name=trace_name,
                                      exclude_metrics=exclude_metrics)
       self._power_metric.AddResults(tab, results)
-

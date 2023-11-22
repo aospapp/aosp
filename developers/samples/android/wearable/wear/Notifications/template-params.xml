@@ -18,14 +18,14 @@
 
 
 <sample>
-    <name>Notifications</name>
+    <name>Wearable Notifications</name>
     <group>Wearable</group>
-    <package>com.example.android.notifications</package>
+    <package>com.example.android.support.wearable.notifications</package>
 
 
 
     <!-- change minSdk if needed-->
-    <minSdk>20</minSdk>
+    <minSdk>18</minSdk>
 
 
     <strings>
@@ -41,7 +41,42 @@ notifications are displayed, both in a phone\'s notification shade and on the we
 
     <template src="base"/>
     <template src="Wear"/>
-    <common src="logger"/>
-    <common src="activities"/>
+    <metadata>
+        <status>PUBLISHED</status>
+        <categories>Wearable</categories>
+        <technologies>Android</technologies>
+        <languages>Java</languages>
+        <solutions>Mobile</solutions>
+        <level>INTERMEDIATE</level>
+        <icon>screenshots/ic_launcher.png</icon>
+        <screenshots>
+            <img>screenshots/companion-content-action.png</img>
+            <img>screenshots/content-action</img>
+            <img>screenshots/content-icon-menu</img>
+        </screenshots>
+        <api_refs>
+            <android>android.app.Notification</android>
+            <android>android.support.v4.app.NotificationCompat</android>
+            <android>android.support.v4.app.NotificationManagerCompat</android>
+            <android>android.support.v4.app.RemoteInput</android>
+            <android>android.support.wearable.view.WearableListView</android>
+        </api_refs>
+        <description>
+This sample showcases the available notification styles on a device and wearable.
+        </description>
+        <intro>
+This sample app enables the user to choose a notification type (the selection is done on the phone),
+which it then displays on the phone and wearable. The notification is built using
+[NotificationCompat.Builder][1] and [NotificationCompat.WearableExtender][2].
 
+See [Creating a Notification][3] for all the details on how to create a notification with wearable features.
+
+On the wearable side, the sample also shows how to create a custom layout using [WearableListView][4].
+
+[1]: http://developer.android.com/reference/android/support/v4/app/NotificationCompat.Builder.html
+[2]: https://developer.android.com/reference/android/support/v4/app/NotificationCompat.WearableExtender.html
+[3]: https://developer.android.com/training/wearables/notifications/creating.html
+[4]: https://developer.android.com/training/wearables/apps/layouts.html#UiLibrary
+        </intro>
+    </metadata>
 </sample>

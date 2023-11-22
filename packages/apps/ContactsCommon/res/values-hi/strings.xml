@@ -161,7 +161,8 @@
     <string name="listSingleContact" msgid="8525131203887307088">"एकल संपर्क"</string>
     <string name="dialog_new_contact_account" msgid="4107520273478326011">"खाते के अंतर्गत संपर्क बनाएं"</string>
     <string name="import_from_sim" msgid="4749894687871835873">"सिम कार्ड से आयात करें"</string>
-    <string name="import_from_sim_number" msgid="1232500923375370101">"सिम कार्ड #<xliff:g id="SIM_NUMBER">%d</xliff:g> से आयात करें"</string>
+    <string name="import_from_sim_summary" msgid="2306434118233541675">"<xliff:g id="SIM_NAME">^1</xliff:g> - <xliff:g id="SIM_NUMBER">^2</xliff:g> सिम से आयात करें"</string>
+    <string name="import_from_sim_summary_no_number" msgid="8498561004799710237">"<xliff:g id="SIM_NAME">%1$s</xliff:g> सिम से आयात करें"</string>
     <string name="import_from_sdcard" product="default" msgid="6423964533801496764">"मेमोरी से आयात करें"</string>
     <string name="cancel_import_confirmation_message" msgid="7764915400478970495">"<xliff:g id="FILENAME">%s</xliff:g> का आयात रहने दें?"</string>
     <string name="cancel_export_confirmation_message" msgid="4063783315931861656">"<xliff:g id="FILENAME">%s</xliff:g> का निर्यात रहने दें?"</string>
@@ -205,7 +206,6 @@
     <string name="vcard_export_request_rejected_message" msgid="8044599716727705282">"vCard निर्यात अनुरोध अस्‍वीकार हो गया था. बाद में पुन: प्रयास करें."</string>
     <string name="vcard_unknown_filename" msgid="4832657686149881554">"संपर्क"</string>
     <string name="caching_vcard_message" msgid="6635485116655518520">"vCard को स्‍थानीय अस्‍थायी मेमोरी में संचित कर रहा है. वास्‍तविक आयात जल्‍दी ही प्रारंभ होगा."</string>
-    <string name="percentage" msgid="6699653515463625488">"<xliff:g id="PERCENTAGE">%s</xliff:g><xliff:g id="PERCENTSIGN">%%</xliff:g>"</string>
     <string name="vcard_import_failed" msgid="4105296876768072508">"vCard आयात नहीं कर सका."</string>
     <string name="import_failure_no_vcard_file" product="nosdcard" msgid="2066107150525521097">"मेमोरी में कोई vCard फ़ाइल नहीं मिली."</string>
     <string name="import_failure_no_vcard_file" product="default" msgid="1748300468382501403">"SD कार्ड पर कोई vCard फ़ाइल नहीं मिली."</string>
@@ -251,4 +251,7 @@
     <string name="action_menu_back_from_search" msgid="1138551123844019647">"खोजना बंद करें"</string>
     <string name="description_clear_search" msgid="3893511425518852086">"खोज साफ़ करें"</string>
     <string name="settings_contact_display_options_title" msgid="1020420603072835628">"संपर्क प्रदर्शन विकल्प"</string>
+    <string name="select_account_dialog_title" msgid="5509088895267310568">"खाता"</string>
+    <string name="set_default_account" msgid="3865970860434642695">"कॉल के लिए हमेशा इसका उपयोग करें"</string>
+    <string name="select_phone_account_for_calls" msgid="933905607702811164">"इस सिम से कॉल करें"</string>
 </resources>

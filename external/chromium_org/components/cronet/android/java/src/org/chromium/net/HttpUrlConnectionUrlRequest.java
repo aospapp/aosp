@@ -14,10 +14,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.ProtocolException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
@@ -55,6 +57,8 @@ class HttpUrlConnectionUrlRequest implements HttpUrlRequest {
 
     private int mContentLength;
 
+    private int mUploadContentLength;
+
     private long mContentLengthLimit;
 
     private boolean mCancelIfContentLengthOverLimit;
@@ -78,6 +82,8 @@ class HttpUrlConnectionUrlRequest implements HttpUrlRequest {
     private boolean mStarted;
 
     private boolean mCanceled;
+
+    private String mMethod;
 
     private InputStream mResponseStream;
 
@@ -160,11 +166,23 @@ class HttpUrlConnectionUrlRequest implements HttpUrlRequest {
 
     @Override
     public void setUploadChannel(String contentType,
-            ReadableByteChannel channel) {
+            ReadableByteChannel channel, long contentLength) {
         validateNotStarted();
+        if (contentLength > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException(
+                "Upload contentLength is too big.");
+        }
+        mUploadContentLength = (int) contentLength;
         mPostContentType = contentType;
         mPostDataChannel = channel;
         mPostData = null;
+    }
+
+
+    @Override
+    public void setHttpMethod(String method) {
+        validateNotStarted();
+        mMethod = method;
     }
 
     @Override
@@ -187,7 +205,17 @@ class HttpUrlConnectionUrlRequest implements HttpUrlRequest {
             }
 
             URL url = new URL(mUrl);
-            mConnection = (HttpURLConnection)url.openConnection();
+            mConnection = (HttpURLConnection) url.openConnection();
+            // If configured, use the provided http verb.
+            if (mMethod != null) {
+                try {
+                    mConnection.setRequestMethod(mMethod);
+                } catch (ProtocolException e) {
+                    // Since request hasn't started earlier, it
+                    // must be an illegal HTTP verb.
+                    throw new IllegalArgumentException(e);
+                }
+            }
             mConnection.setConnectTimeout(CONNECT_TIMEOUT);
             mConnection.setReadTimeout(READ_TIMEOUT);
             mConnection.setInstanceFollowRedirects(true);
@@ -290,7 +318,7 @@ class HttpUrlConnectionUrlRequest implements HttpUrlRequest {
                 uploadStream = mConnection.getOutputStream();
                 uploadStream.write(mPostData);
             } else {
-                mConnection.setChunkedStreamingMode(MAX_CHUNK_SIZE);
+                mConnection.setFixedLengthStreamingMode(mUploadContentLength);
                 uploadStream = mConnection.getOutputStream();
                 byte[] bytes = new byte[MAX_CHUNK_SIZE];
                 ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
@@ -353,13 +381,13 @@ class HttpUrlConnectionUrlRequest implements HttpUrlRequest {
                     continue;
                 } else {
                     mSkippingToOffset = false;
-                    start = (int)(mOffset - (mSize - size));
+                    start = (int) (mOffset - (mSize - size));
                     count -= start;
                 }
             }
 
             if (mContentLengthLimit != 0 && mSize > mContentLengthLimit) {
-                count -= (int)(mSize - mContentLengthLimit);
+                count -= (int) (mSize - mContentLengthLimit);
                 if (count > 0) {
                     mSink.write(ByteBuffer.wrap(buffer, start, count));
                 }
@@ -387,6 +415,11 @@ class HttpUrlConnectionUrlRequest implements HttpUrlRequest {
         synchronized (mLock) {
             return mCanceled;
         }
+    }
+
+    @Override
+    public String getNegotiatedProtocol() {
+        return "";
     }
 
     @Override
@@ -426,12 +459,12 @@ class HttpUrlConnectionUrlRequest implements HttpUrlRequest {
      */
     @Override
     public ByteBuffer getByteBuffer() {
-        return ((ChunkedWritableByteChannel)mSink).getByteBuffer();
+        return ((ChunkedWritableByteChannel) mSink).getByteBuffer();
     }
 
     @Override
     public byte[] getResponseAsBytes() {
-        return ((ChunkedWritableByteChannel)mSink).getBytes();
+        return ((ChunkedWritableByteChannel) mSink).getBytes();
     }
 
     @Override
@@ -444,13 +477,27 @@ class HttpUrlConnectionUrlRequest implements HttpUrlRequest {
         return mContentType;
     }
 
-
     @Override
     public String getHeader(String name) {
         if (mConnection == null) {
             throw new IllegalStateException("Response headers not available");
         }
-        return mConnection.getHeaderField(name);
+        Map<String, List<String>> headerFields = mConnection.getHeaderFields();
+        if (headerFields != null) {
+            List<String> headerValues = headerFields.get(name);
+            if (headerValues != null) {
+                return TextUtils.join(", ", headerValues);
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public Map<String, List<String>> getAllHeaders() {
+        if (mConnection == null) {
+            throw new IllegalStateException("Response headers not available");
+        }
+        return mConnection.getHeaderFields();
     }
 
     private void validateNotStarted() {

@@ -9,9 +9,10 @@
 
 #include "base/base64.h"
 #include "base/basictypes.h"
+#include "base/bind.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_file.h"
 #include "base/format_macros.h"
 #include "base/json/json_reader.h"
@@ -32,6 +33,8 @@
 #include "chrome/test/chromedriver/chrome/chrome_finder.h"
 #include "chrome/test/chromedriver/chrome/chrome_remote_impl.h"
 #include "chrome/test/chromedriver/chrome/device_manager.h"
+#include "chrome/test/chromedriver/chrome/devtools_client_impl.h"
+#include "chrome/test/chromedriver/chrome/devtools_event_listener.h"
 #include "chrome/test/chromedriver/chrome/devtools_http_client.h"
 #include "chrome/test/chromedriver/chrome/embedded_automation_extension.h"
 #include "chrome/test/chromedriver/chrome/status.h"
@@ -190,6 +193,40 @@ Status WaitForDevToolsAndCheckVersion(
   return Status(kUnknownError, "unable to discover open pages");
 }
 
+Status CreateBrowserwideDevToolsClientAndConnect(
+    const NetAddress& address,
+    const PerfLoggingPrefs& perf_logging_prefs,
+    const SyncWebSocketFactory& socket_factory,
+    ScopedVector<DevToolsEventListener>& devtools_event_listeners,
+    scoped_ptr<DevToolsClient>* browser_client) {
+  scoped_ptr<DevToolsClient> client(new DevToolsClientImpl(
+      socket_factory, base::StringPrintf("ws://%s/devtools/browser/",
+                                         address.ToString().c_str()),
+      DevToolsClientImpl::kBrowserwideDevToolsClientId));
+  for (ScopedVector<DevToolsEventListener>::const_iterator it =
+          devtools_event_listeners.begin();
+      it != devtools_event_listeners.end();
+      ++it) {
+    // Only add listeners that subscribe to the browser-wide |DevToolsClient|.
+    // Otherwise, listeners will think this client is associated with a webview,
+    // and will send unrecognized commands to it.
+    if ((*it)->subscribes_to_browser())
+      client->AddListener(*it);
+  }
+  // Provide the client regardless of whether it connects, so that Chrome always
+  // has a valid |devtools_websocket_client_|. If not connected, no listeners
+  // will be notified, and client will just return kDisconnected errors if used.
+  *browser_client = client.Pass();
+  // To avoid unnecessary overhead, only connect if tracing is enabled, since
+  // the browser-wide client is currently only used for tracing.
+  if (!perf_logging_prefs.trace_categories.empty()) {
+    Status status = (*browser_client)->ConnectIfNecessary();
+    if (status.IsError())
+      return status;
+  }
+  return Status(kOk);
+}
+
 Status LaunchRemoteChromeSession(
     URLRequestContextGetter* context_getter,
     const SyncWebSocketFactory& socket_factory,
@@ -197,16 +234,27 @@ Status LaunchRemoteChromeSession(
     ScopedVector<DevToolsEventListener>& devtools_event_listeners,
     scoped_ptr<Chrome>* chrome) {
   Status status(kOk);
-  scoped_ptr<DevToolsHttpClient> devtools_client;
+  scoped_ptr<DevToolsHttpClient> devtools_http_client;
   status = WaitForDevToolsAndCheckVersion(
       capabilities.debugger_address, context_getter, socket_factory,
-      NULL, &devtools_client);
+      NULL, &devtools_http_client);
   if (status.IsError()) {
     return Status(kUnknownError, "cannot connect to chrome at " +
                       capabilities.debugger_address.ToString(),
                   status);
   }
-  chrome->reset(new ChromeRemoteImpl(devtools_client.Pass(),
+
+  scoped_ptr<DevToolsClient> devtools_websocket_client;
+  status = CreateBrowserwideDevToolsClientAndConnect(
+      capabilities.debugger_address, capabilities.perf_logging_prefs,
+      socket_factory, devtools_event_listeners, &devtools_websocket_client);
+  if (status.IsError()) {
+    LOG(WARNING) << "Browser-wide DevTools client failed to connect: "
+                 << status.message();
+  }
+
+  chrome->reset(new ChromeRemoteImpl(devtools_http_client.Pass(),
+                                     devtools_websocket_client.Pass(),
                                      devtools_event_listeners));
   return Status(kOk);
 }
@@ -282,10 +330,10 @@ Status LaunchDesktopChrome(
   if (!base::LaunchProcess(command, options, &process))
     return Status(kUnknownError, "chrome failed to start");
 
-  scoped_ptr<DevToolsHttpClient> devtools_client;
+  scoped_ptr<DevToolsHttpClient> devtools_http_client;
   status = WaitForDevToolsAndCheckVersion(
       NetAddress(port), context_getter, socket_factory, &capabilities,
-      &devtools_client);
+      &devtools_http_client);
 
   if (status.IsError()) {
     int exit_code;
@@ -321,8 +369,19 @@ Status LaunchDesktopChrome(
     }
     return status;
   }
+
+  scoped_ptr<DevToolsClient> devtools_websocket_client;
+  status = CreateBrowserwideDevToolsClientAndConnect(
+      NetAddress(port), capabilities.perf_logging_prefs, socket_factory,
+      devtools_event_listeners, &devtools_websocket_client);
+  if (status.IsError()) {
+    LOG(WARNING) << "Browser-wide DevTools client failed to connect: "
+                 << status.message();
+  }
+
   scoped_ptr<ChromeDesktopImpl> chrome_desktop(
-      new ChromeDesktopImpl(devtools_client.Pass(),
+      new ChromeDesktopImpl(devtools_http_client.Pass(),
+                            devtools_websocket_client.Pass(),
                             devtools_event_listeners,
                             port_reservation.Pass(),
                             process,
@@ -381,18 +440,28 @@ Status LaunchAndroidChrome(
     return status;
   }
 
-  scoped_ptr<DevToolsHttpClient> devtools_client;
+  scoped_ptr<DevToolsHttpClient> devtools_http_client;
   status = WaitForDevToolsAndCheckVersion(NetAddress(port),
                                           context_getter,
                                           socket_factory,
                                           &capabilities,
-                                          &devtools_client);
+                                          &devtools_http_client);
   if (status.IsError()) {
     device->TearDown();
     return status;
   }
 
-  chrome->reset(new ChromeAndroidImpl(devtools_client.Pass(),
+  scoped_ptr<DevToolsClient> devtools_websocket_client;
+  status = CreateBrowserwideDevToolsClientAndConnect(
+      NetAddress(port), capabilities.perf_logging_prefs, socket_factory,
+      devtools_event_listeners, &devtools_websocket_client);
+  if (status.IsError()) {
+    LOG(WARNING) << "Browser-wide DevTools client failed to connect: "
+                 << status.message();
+  }
+
+  chrome->reset(new ChromeAndroidImpl(devtools_http_client.Pass(),
+                                      devtools_websocket_client.Pass(),
                                       devtools_event_listeners,
                                       port_reservation.Pass(),
                                       device.Pass()));
@@ -469,7 +538,8 @@ void ConvertHexadecimalToIDAlphabet(std::string* id) {
 std::string GenerateExtensionId(const std::string& input) {
   uint8 hash[16];
   crypto::SHA256HashString(input, hash, sizeof(hash));
-  std::string output = StringToLowerASCII(base::HexEncode(hash, sizeof(hash)));
+  std::string output =
+      base::StringToLowerASCII(base::HexEncode(hash, sizeof(hash)));
   ConvertHexadecimalToIDAlphabet(&output);
   return output;
 }

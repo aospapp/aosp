@@ -3,8 +3,10 @@
 // found in the LICENSE file.
 
 #include "cloud_print/virtual_driver/win/port_monitor/port_monitor.h"
+
 #include <winspool.h>
-#include "base/file_util.h"
+
+#include "base/files/file_util.h"
 #include "base/path_service.h"
 #include "base/strings/string16.h"
 #include "base/win/registry.h"
@@ -236,7 +238,8 @@ TEST_F(PortMonitorTest, FlowTest) {
   EXPECT_TRUE(monitor2->pfnEndDocPort != NULL);
 
   // These functions should fail if we have not impersonated the user.
-  EXPECT_FALSE(monitor2->pfnStartDocPort(port_handle, L"", 0, 0, NULL));
+  EXPECT_FALSE(monitor2->pfnStartDocPort(
+      port_handle, const_cast<wchar_t*>(L""), 0, 0, NULL));
   EXPECT_FALSE(monitor2->pfnWritePort(port_handle,
                                      buffer,
                                      kBufferSize,
@@ -251,7 +254,8 @@ TEST_F(PortMonitorTest, FlowTest) {
 
   // Now impersonate so we can test the success case.
   ASSERT_TRUE(ImpersonateSelf(SecurityImpersonation));
-  EXPECT_TRUE(monitor2->pfnStartDocPort(port_handle, L"", 0, 0, NULL));
+  EXPECT_TRUE(monitor2->pfnStartDocPort(
+      port_handle, const_cast<wchar_t*>(L""), 0, 0, NULL));
   EXPECT_TRUE(monitor2->pfnWritePort(port_handle,
                                      buffer,
                                      kBufferSize,

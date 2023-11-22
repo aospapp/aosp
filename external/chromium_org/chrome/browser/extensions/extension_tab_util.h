@@ -8,11 +8,12 @@
 #include <string>
 
 #include "base/callback.h"
-#include "chrome/common/extensions/api/tabs.h"
 #include "ui/base/window_open_disposition.h"
 
 class Browser;
+class ChromeExtensionFunctionDetails;
 class ChromeUIThreadExtensionFunction;
+class ExtensionFunction;
 class GURL;
 class Profile;
 class TabStripModel;
@@ -23,6 +24,7 @@ class ListValue;
 }
 
 namespace content {
+class BrowserContext;
 class WebContents;
 }
 
@@ -31,8 +33,15 @@ class Rect;
 }
 
 namespace extensions {
+
 class Extension;
 class WindowController;
+
+namespace api {
+namespace tabs {
+struct Tab;
+}
+}
 
 // Provides various utility functions that help manipulate tabs.
 class ExtensionTabUtil {
@@ -65,8 +74,17 @@ class ExtensionTabUtil {
   static int GetWindowIdOfTab(const content::WebContents* web_contents);
   static base::ListValue* CreateTabList(const Browser* browser,
                                         const Extension* extension);
+
+  // DEPRECATED: Please consider using ChromeExtensionFunctionDetails instead
+  // of the deprecated ChromeUIThreadExtensionFunction and use the overload
+  // below
   static Browser* GetBrowserFromWindowID(
       ChromeUIThreadExtensionFunction* function,
+      int window_id,
+      std::string* error_message);
+
+  static Browser* GetBrowserFromWindowID(
+      const ChromeExtensionFunctionDetails& details,
       int window_id,
       std::string* error_message);
 
@@ -117,7 +135,9 @@ class ExtensionTabUtil {
                             int* tab_id);
   // Any out parameter (|browser|, |tab_strip|, |contents|, & |tab_index|) may
   // be NULL and will not be set within the function.
-  static bool GetTabById(int tab_id, Profile* profile, bool incognito_enabled,
+  static bool GetTabById(int tab_id,
+                         content::BrowserContext* browser_context,
+                         bool incognito_enabled,
                          Browser** browser,
                          TabStripModel** tab_strip,
                          content::WebContents** contents,

@@ -31,7 +31,7 @@ class LoginDatabase {
   bool Init(const base::FilePath& db_path);
 
   // Reports usage metrics to UMA.
-  void ReportMetrics();
+  void ReportMetrics(const std::string& sync_username);
 
   // Adds |form| to the list of remembered password forms. Returns the list of
   // changes applied ({}, {ADD}, {REMOVE, ADD}). If it returns {REMOVE, ADD}
@@ -62,13 +62,13 @@ class LoginDatabase {
 
   // Loads a list of matching password forms into the specified vector |forms|.
   // The list will contain all possibly relevant entries to the observed |form|,
-  // including blacklisted matches.
+  // including blacklisted matches. The caller owns |forms| after the call.
   bool GetLogins(const autofill::PasswordForm& form,
                  std::vector<autofill::PasswordForm*>* forms) const;
 
   // Loads all logins created from |begin| onwards (inclusive) and before |end|.
   // You may use a null Time value to do an unbounded search in either
-  // direction.
+  // direction. The caller owns |forms| after the call.
   bool GetLoginsCreatedBetween(
       base::Time begin,
       base::Time end,
@@ -76,18 +76,19 @@ class LoginDatabase {
 
   // Loads all logins synced from |begin| onwards (inclusive) and before |end|.
   // You may use a null Time value to do an unbounded search in either
-  // direction.
+  // direction. The caller owns |forms| after the call.
   bool GetLoginsSyncedBetween(
       base::Time begin,
       base::Time end,
       std::vector<autofill::PasswordForm*>* forms) const;
 
   // Loads the complete list of autofillable password forms (i.e., not blacklist
-  // entries) into |forms|.
+  // entries) into |forms|. The caller owns |forms| after the call.
   bool GetAutofillableLogins(
       std::vector<autofill::PasswordForm*>* forms) const;
 
-  // Loads the complete list of blacklist forms into |forms|.
+  // Loads the complete list of blacklist forms into |forms|. The caller owns
+  // |forms| after the call.
   bool GetBlacklistLogins(
       std::vector<autofill::PasswordForm*>* forms) const;
 
@@ -145,8 +146,6 @@ class LoginDatabase {
   base::FilePath db_path_;
   mutable sql::Connection db_;
   sql::MetaTable meta_table_;
-
-  PSLMatchingHelper psl_helper_;
 
   DISALLOW_COPY_AND_ASSIGN(LoginDatabase);
 };

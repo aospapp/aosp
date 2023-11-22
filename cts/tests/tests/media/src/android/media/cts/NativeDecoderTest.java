@@ -20,6 +20,7 @@ import com.android.cts.media.R;
 
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
+import android.cts.util.MediaUtils;
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCodecInfo;
@@ -91,7 +92,7 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
 
         testExtractor(R.raw.video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz);
         testExtractor(R.raw.video_1280x720_webm_vp8_333kbps_25fps_vorbis_stereo_128kbps_44100hz);
-        testExtractor(R.raw.video_1280x720_webm_vp9_309kbps_25fps_vorbis_stereo_128kbps_44100hz);
+        testExtractor(R.raw.video_1280x720_webm_vp9_309kbps_25fps_vorbis_stereo_128kbps_48000hz);
         testExtractor(R.raw.video_176x144_3gp_h263_300kbps_12fps_aac_mono_24kbps_11025hz);
         testExtractor(R.raw.video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz);
 
@@ -183,22 +184,29 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
 
 
     public void testDecoder() throws Exception {
-        testDecoder(R.raw.sinesweepogg);
-        testDecoder(R.raw.sinesweepmp3lame);
-        testDecoder(R.raw.sinesweepmp3smpb);
-        testDecoder(R.raw.sinesweepm4a);
-        testDecoder(R.raw.sinesweepflac);
-        testDecoder(R.raw.sinesweepwav);
+        int testsRun =
+            testDecoder(R.raw.sinesweepogg) +
+            testDecoder(R.raw.sinesweepmp3lame) +
+            testDecoder(R.raw.sinesweepmp3smpb) +
+            testDecoder(R.raw.sinesweepm4a) +
+            testDecoder(R.raw.sinesweepflac) +
+            testDecoder(R.raw.sinesweepwav) +
 
-        testDecoder(R.raw.video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz);
-        testDecoder(R.raw.video_1280x720_webm_vp8_333kbps_25fps_vorbis_stereo_128kbps_44100hz);
-        testDecoder(R.raw.video_1280x720_webm_vp9_309kbps_25fps_vorbis_stereo_128kbps_44100hz);
-        testDecoder(R.raw.video_176x144_3gp_h263_300kbps_12fps_aac_mono_24kbps_11025hz);
-        testDecoder(R.raw.video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz);
-
+            testDecoder(R.raw.video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz) +
+            testDecoder(R.raw.video_1280x720_webm_vp8_333kbps_25fps_vorbis_stereo_128kbps_44100hz) +
+            testDecoder(R.raw.video_1280x720_webm_vp9_309kbps_25fps_vorbis_stereo_128kbps_48000hz) +
+            testDecoder(R.raw.video_176x144_3gp_h263_300kbps_12fps_aac_mono_24kbps_11025hz) +
+            testDecoder(R.raw.video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz);
+        if (testsRun == 0) {
+            MediaUtils.skipTest("no decoders found");
+        }
     }
 
-    private void testDecoder(int res) throws Exception {
+    private int testDecoder(int res) throws Exception {
+        if (!MediaUtils.hasCodecsForResource(mContext, res)) {
+            return 0; // skip
+        }
+
         AssetFileDescriptor fd = mResources.openRawResourceFd(res);
 
         int[] jdata = getDecodedData(
@@ -211,6 +219,7 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
         Log.i("@@@", Arrays.toString(ndata));
         assertEquals("number of samples differs", jdata.length, ndata.length);
         assertTrue("different decoded data", Arrays.equals(jdata, ndata));
+        return 1;
     }
 
     private static int[] getDecodedData(FileDescriptor fd, long offset, long size)
@@ -331,6 +340,10 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
             }
         }
 
+        for (int i = 0; i < codec.length; i++) {
+            codec[i].release();
+        }
+
         return trackbytes;
     }
 
@@ -374,19 +387,33 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
             throws IOException;
 
     public void testVideoPlayback() throws Exception {
-        testVideoPlayback(R.raw.video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz);
-        testVideoPlayback(R.raw.video_1280x720_webm_vp8_333kbps_25fps_vorbis_stereo_128kbps_44100hz);
-        testVideoPlayback(R.raw.video_1280x720_webm_vp9_309kbps_25fps_vorbis_stereo_128kbps_44100hz);
-        testVideoPlayback(R.raw.video_176x144_3gp_h263_300kbps_12fps_aac_mono_24kbps_11025hz);
-        testVideoPlayback(R.raw.video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz);
+        int testsRun =
+            testVideoPlayback(
+                    R.raw.video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz) +
+            testVideoPlayback(
+                    R.raw.video_1280x720_webm_vp8_333kbps_25fps_vorbis_stereo_128kbps_44100hz) +
+            testVideoPlayback(
+                    R.raw.video_1280x720_webm_vp9_309kbps_25fps_vorbis_stereo_128kbps_48000hz) +
+            testVideoPlayback(
+                    R.raw.video_176x144_3gp_h263_300kbps_12fps_aac_mono_24kbps_11025hz) +
+            testVideoPlayback(
+                    R.raw.video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz);
+        if (testsRun == 0) {
+            MediaUtils.skipTest("no decoders found");
+        }
     }
 
-    private void testVideoPlayback(int res) throws Exception {
+    private int testVideoPlayback(int res) throws Exception {
+        if (!MediaUtils.checkCodecsForResource(mContext, res)) {
+            return 0; // skip
+        }
+
         AssetFileDescriptor fd = mResources.openRawResourceFd(res);
 
         boolean ret = testPlaybackNative(mActivity.getSurfaceHolder().getSurface(),
                 fd.getParcelFileDescriptor().getFd(), fd.getStartOffset(), fd.getLength());
         assertTrue("native playback error", ret);
+        return 1;
     }
 
     private static native boolean testPlaybackNative(Surface surface,
@@ -397,6 +424,10 @@ public class NativeDecoderTest extends MediaPlayerTestBase {
     }
 
     private void testMuxer(int res, boolean webm) throws Exception {
+        if (!MediaUtils.checkCodecsForResource(mContext, res)) {
+            return; // skip
+        }
+
         AssetFileDescriptor infd = mResources.openRawResourceFd(res);
 
         File base = mContext.getExternalFilesDir(null);

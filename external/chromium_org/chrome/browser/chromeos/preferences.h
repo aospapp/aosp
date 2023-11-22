@@ -12,8 +12,9 @@
 #include "base/compiler_specific.h"
 #include "base/prefs/pref_member.h"
 #include "chrome/browser/chromeos/language_preferences.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/prefs/pref_service_syncable_observer.h"
+#include "chromeos/ime/input_method_manager.h"
+#include "components/user_manager/user_manager.h"
 
 class PrefRegistrySimple;
 class PrefService;
@@ -39,7 +40,7 @@ class InputMethodManager;
 // When the preferences change, we change the settings to reflect the new value.
 class Preferences : public PrefServiceSyncableObserver,
                     public ash::ShellObserver,
-                    public UserManager::UserSessionStateObserver {
+                    public user_manager::UserManager::UserSessionStateObserver {
  public:
   Preferences();
   explicit Preferences(
@@ -52,9 +53,12 @@ class Preferences : public PrefServiceSyncableObserver,
 
   // This method will initialize Chrome OS settings to values in user prefs.
   // |user| is the user owning this preferences.
-  void Init(PrefServiceSyncable* prefs, const User* user);
+  void Init(Profile* profile, const user_manager::User* user);
 
-  void InitUserPrefsForTesting(PrefServiceSyncable* prefs, const User* user);
+  void InitUserPrefsForTesting(
+      PrefServiceSyncable* prefs,
+      const user_manager::User* user,
+      scoped_refptr<input_method::InputMethodManager::State> ime_state);
   void SetInputMethodListForTesting();
 
  private:
@@ -102,8 +106,11 @@ class Preferences : public PrefServiceSyncableObserver,
   // Overriden from ash::ShellObserver.
   virtual void OnTouchHudProjectionToggled(bool enabled) OVERRIDE;
 
-  // Overriden form UserManager::UserSessionStateObserver.
-  virtual void ActiveUserChanged(const User* active_user) OVERRIDE;
+  // Overriden form user_manager::UserManager::UserSessionStateObserver.
+  virtual void ActiveUserChanged(
+      const user_manager::User* active_user) OVERRIDE;
+
+  void ActivateInputMethods(const user_manager::User* active_user);
 
   PrefServiceSyncable* prefs_;
 
@@ -134,10 +141,13 @@ class Preferences : public PrefServiceSyncableObserver,
   IntegerPrefMember xkb_auto_repeat_interval_pref_;
 
   // User owning these preferences.
-  const User* user_;
+  const user_manager::User* user_;
 
   // Whether user is a primary user.
   bool user_is_primary_;
+
+  // Input Methods state for this user.
+  scoped_refptr<input_method::InputMethodManager::State> ime_state_;
 
   DISALLOW_COPY_AND_ASSIGN(Preferences);
 };

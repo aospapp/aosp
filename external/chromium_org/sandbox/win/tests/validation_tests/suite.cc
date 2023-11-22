@@ -80,19 +80,19 @@ TEST(ValidationSuite, TestFileSystem) {
   ASSERT_TRUE(VolumeSupportsACLs(L"%AppData%\\"));
 
   TestRunner runner;
-  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(L"OpenFile %SystemDrive%"));
-  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(L"OpenFile %SystemRoot%"));
-  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(L"OpenFile %ProgramFiles%"));
+  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(L"OpenFileCmd %SystemDrive%"));
+  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(L"OpenFileCmd %SystemRoot%"));
+  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(L"OpenFileCmd %ProgramFiles%"));
   EXPECT_EQ(SBOX_TEST_DENIED,
-      runner.RunTest(L"OpenFile %SystemRoot%\\System32"));
+      runner.RunTest(L"OpenFileCmd %SystemRoot%\\System32"));
   EXPECT_EQ(SBOX_TEST_DENIED,
-      runner.RunTest(L"OpenFile %SystemRoot%\\explorer.exe"));
+      runner.RunTest(L"OpenFileCmd %SystemRoot%\\explorer.exe"));
   EXPECT_EQ(SBOX_TEST_DENIED,
-      runner.RunTest(L"OpenFile %SystemRoot%\\Cursors\\arrow_i.cur"));
+      runner.RunTest(L"OpenFileCmd %SystemRoot%\\Cursors\\arrow_i.cur"));
   EXPECT_EQ(SBOX_TEST_DENIED,
-      runner.RunTest(L"OpenFile %AllUsersProfile%"));
-  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(L"OpenFile %Temp%"));
-  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(L"OpenFile %AppData%"));
+      runner.RunTest(L"OpenFileCmd %AllUsersProfile%"));
+  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(L"OpenFileCmd %Temp%"));
+  EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(L"OpenFileCmd %AppData%"));
 }
 
 // Tests if the registry is correctly protected by the sandbox.
@@ -112,6 +112,7 @@ TEST(ValidationSuite, TestRegistry) {
 TEST(ValidationSuite, TestDesktop) {
   TestRunner runner;
   runner.GetPolicy()->SetAlternateDesktop(true);
+  runner.GetPolicy()->SetIntegrityLevel(INTEGRITY_LEVEL_LOW);
   EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(L"OpenInteractiveDesktop NULL"));
   EXPECT_EQ(SBOX_TEST_DENIED, runner.RunTest(L"SwitchToSboxDesktop NULL"));
 }
@@ -129,7 +130,7 @@ TEST(ValidationSuite, TestAlternateDesktop) {
   wchar_t command[1024] = {0};
   runner.SetTimeout(3600000);
   runner.GetPolicy()->SetAlternateDesktop(true);
-  runner.GetPolicy()->SetDelayedIntegrityLevel(INTEGRITY_LEVEL_UNTRUSTED);
+  runner.GetPolicy()->SetIntegrityLevel(INTEGRITY_LEVEL_LOW);
   base::string16 desktop_name = runner.GetPolicy()->GetAlternateDesktop();
   desktop_name = desktop_name.substr(desktop_name.find('\\') + 1);
   wsprintf(command, L"OpenAlternateDesktop %lS", desktop_name.c_str());

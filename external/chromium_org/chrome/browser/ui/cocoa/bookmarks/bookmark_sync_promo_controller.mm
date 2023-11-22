@@ -8,10 +8,10 @@
 #include "chrome/browser/signin/signin_promo.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/chrome_style.h"
-#import "chrome/browser/ui/cocoa/hyperlink_text_view.h"
-#include "grit/generated_resources.h"
+#include "chrome/grit/generated_resources.h"
 #include "skia/ext/skia_utils_mac.h"
 #include "third_party/skia/include/core/SkColor.h"
+#import "ui/base/cocoa/controls/hyperlink_text_view.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 
@@ -96,7 +96,7 @@ const int kFontSize = 11;
                           font:font
                   messageColor:gfx::SkColorToDeviceNSColor(kTextColor)
                      linkColor:linkColor];
-  [textView_ setAcceptsFirstResponder:NO];
+  [textView_ setRefusesFirstResponder:YES];
   [[textView_ textContainer] setLineFragmentPadding:0.0];
   RemoveUnderlining(textView_, offset, linkText.size());
   [textView_ setDelegate:self];

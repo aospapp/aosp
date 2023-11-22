@@ -40,6 +40,7 @@ public interface Editor {
          */
         public void onRequest(int request);
 
+        public static final int REQUEST_PICK_PRIMARY_PHOTO = 0;
         public static final int REQUEST_PICK_PHOTO = 1;
         public static final int FIELD_CHANGED = 2;
         public static final int FIELD_TURNED_EMPTY = 3;
@@ -48,6 +49,9 @@ public interface Editor {
         // The editor has switched between different representations of the same
         // data, e.g. from full name to structured name
         public static final int EDITOR_FORM_CHANGED = 5;
+
+        // Focus has changed inside the editor.
+        public static final int EDITOR_FOCUS_CHANGED = 6;
     }
 
     /**

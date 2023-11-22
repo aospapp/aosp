@@ -333,6 +333,7 @@ public abstract class JDWPTestCase extends JDWPRawTestCase {
      * Helper function for resuming debuggee.
      */
     protected void resumeDebuggee() {
+        logWriter.println("=> Resume debuggee");
         CommandPacket packet = new CommandPacket(
                 JDWPCommands.VirtualMachineCommandSet.CommandSetID,
                 JDWPCommands.VirtualMachineCommandSet.ResumeCommand);

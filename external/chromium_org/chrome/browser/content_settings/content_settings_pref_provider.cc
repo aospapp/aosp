@@ -14,18 +14,18 @@
 #include "base/metrics/histogram.h"
 #include "base/prefs/pref_service.h"
 #include "base/prefs/scoped_user_pref_update.h"
-#include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/content_settings/content_settings_rule.h"
+#include "base/strings/string_split.h"
+#include "base/time/clock.h"
+#include "base/time/default_clock.h"
 #include "chrome/browser/content_settings/content_settings_utils.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/content_settings.h"
-#include "chrome/common/content_settings_pattern.h"
 #include "chrome/common/pref_names.h"
+#include "components/content_settings/core/browser/content_settings_rule.h"
+#include "components/content_settings/core/common/content_settings.h"
+#include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/browser/notification_details.h"
-#include "content/public/browser/notification_source.h"
 #include "content/public/browser/user_metrics.h"
 #include "url/gurl.h"
 
@@ -40,6 +40,7 @@ typedef std::map<std::string, std::string> StringMap;
 const char kPerPluginPrefName[] = "per_plugin";
 const char kAudioKey[] = "audio";
 const char kVideoKey[] = "video";
+const char kLastUsed[] = "last_used";
 
 ContentSetting FixObsoleteCookiePromptMode(ContentSettingsType content_type,
                                            ContentSetting setting) {
@@ -83,11 +84,11 @@ void PrefProvider::RegisterProfilePrefs(
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
 }
 
-PrefProvider::PrefProvider(PrefService* prefs,
-                           bool incognito)
-  : prefs_(prefs),
-    is_incognito_(incognito),
-    updating_preferences_(false) {
+PrefProvider::PrefProvider(PrefService* prefs, bool incognito)
+    : prefs_(prefs),
+      clock_(new base::DefaultClock()),
+      is_incognito_(incognito),
+      updating_preferences_(false) {
   DCHECK(prefs_);
   // Verify preferences version.
   if (!prefs_->HasPrefPath(prefs::kContentSettingsVersion)) {
@@ -290,6 +291,7 @@ void PrefProvider::UpdatePref(
         if (value == NULL) {
           settings_dictionary->RemoveWithoutPathExpansion(setting_path,
                                                           NULL);
+          settings_dictionary->RemoveWithoutPathExpansion(kLastUsed, NULL);
         } else {
           settings_dictionary->SetWithoutPathExpansion(
               setting_path, value->DeepCopy());
@@ -335,7 +337,7 @@ void PrefProvider::MigrateObsoleteMediaContentSetting() {
                         it->secondary_pattern,
                         CONTENT_SETTINGS_TYPE_MEDIASTREAM_MIC,
                         std::string(),
-                        base::Value::CreateIntegerValue(CONTENT_SETTING_ALLOW));
+                        new base::FundamentalValue(CONTENT_SETTING_ALLOW));
     }
     // Add the exception to the new camera content setting.
     if (!video_device.empty()) {
@@ -343,7 +345,7 @@ void PrefProvider::MigrateObsoleteMediaContentSetting() {
                         it->secondary_pattern,
                         CONTENT_SETTINGS_TYPE_MEDIASTREAM_CAMERA,
                         std::string(),
-                        base::Value::CreateIntegerValue(CONTENT_SETTING_ALLOW));
+                        new base::FundamentalValue(CONTENT_SETTING_ALLOW));
     }
 
     // Remove the old exception in CONTENT_SETTINGS_TYPE_MEDIASTREAM.
@@ -429,7 +431,7 @@ void PrefProvider::ReadContentSettingsFromPref(bool overwrite) {
                                 pattern_pair.second,
                                 content_type,
                                 resource_identifier,
-                                base::Value::CreateIntegerValue(setting));
+                                new base::FundamentalValue(setting));
           }
         }
       }
@@ -449,7 +451,7 @@ void PrefProvider::ReadContentSettingsFromPref(bool overwrite) {
           DCHECK_NE(CONTENT_SETTING_DEFAULT, setting);
           setting = FixObsoleteCookiePromptMode(content_type,
                                                 ContentSetting(setting));
-          value = base::Value::CreateIntegerValue(setting);
+          value = new base::FundamentalValue(setting);
         }
       }
 
@@ -508,7 +510,7 @@ void PrefProvider::CanonicalizeContentSettingsExceptions(
   DCHECK(all_settings_dictionary);
 
   std::vector<std::string> remove_items;
-  std::vector<std::pair<std::string, std::string> > move_items;
+  base::StringPairs move_items;
   for (base::DictionaryValue::Iterator i(*all_settings_dictionary);
        !i.IsAtEnd();
        i.Advance()) {
@@ -566,12 +568,95 @@ void PrefProvider::ShutdownOnUIThread() {
   prefs_ = NULL;
 }
 
+void PrefProvider::UpdateLastUsage(
+    const ContentSettingsPattern& primary_pattern,
+    const ContentSettingsPattern& secondary_pattern,
+    ContentSettingsType content_type) {
+  // Don't write if in incognito.
+  if (is_incognito_) {
+    return;
+  }
+
+  // Ensure that |lock_| is not held by this thread, since this function will
+  // send out notifications (by |~DictionaryPrefUpdate|).
+  AssertLockNotHeld();
+
+  base::AutoReset<bool> auto_reset(&updating_preferences_, true);
+  {
+    DictionaryPrefUpdate update(prefs_, prefs::kContentSettingsPatternPairs);
+    base::DictionaryValue* pattern_pairs_settings = update.Get();
+
+    std::string pattern_str(
+        CreatePatternString(primary_pattern, secondary_pattern));
+    base::DictionaryValue* settings_dictionary = NULL;
+    bool found = pattern_pairs_settings->GetDictionaryWithoutPathExpansion(
+        pattern_str, &settings_dictionary);
+
+    if (!found) {
+      settings_dictionary = new base::DictionaryValue;
+      pattern_pairs_settings->SetWithoutPathExpansion(pattern_str,
+                                                      settings_dictionary);
+    }
+
+    base::DictionaryValue* last_used_dictionary = NULL;
+    found = settings_dictionary->GetDictionaryWithoutPathExpansion(
+        kLastUsed, &last_used_dictionary);
+
+    if (!found) {
+      last_used_dictionary = new base::DictionaryValue;
+      settings_dictionary->SetWithoutPathExpansion(kLastUsed,
+                                                   last_used_dictionary);
+    }
+
+    std::string settings_path = GetTypeName(content_type);
+    last_used_dictionary->Set(
+        settings_path, new base::FundamentalValue(clock_->Now().ToDoubleT()));
+  }
+}
+
+base::Time PrefProvider::GetLastUsage(
+    const ContentSettingsPattern& primary_pattern,
+    const ContentSettingsPattern& secondary_pattern,
+    ContentSettingsType content_type) {
+  const base::DictionaryValue* pattern_pairs_settings =
+      prefs_->GetDictionary(prefs::kContentSettingsPatternPairs);
+  std::string pattern_str(
+      CreatePatternString(primary_pattern, secondary_pattern));
+
+  const base::DictionaryValue* settings_dictionary = NULL;
+  bool found = pattern_pairs_settings->GetDictionaryWithoutPathExpansion(
+      pattern_str, &settings_dictionary);
+
+  if (!found)
+    return base::Time();
+
+  const base::DictionaryValue* last_used_dictionary = NULL;
+  found = settings_dictionary->GetDictionaryWithoutPathExpansion(
+      kLastUsed, &last_used_dictionary);
+
+  if (!found)
+    return base::Time();
+
+  double last_used_time;
+  found = last_used_dictionary->GetDoubleWithoutPathExpansion(
+      GetTypeName(content_type), &last_used_time);
+
+  if (!found)
+    return base::Time();
+
+  return base::Time::FromDoubleT(last_used_time);
+}
+
 void PrefProvider::AssertLockNotHeld() const {
 #if !defined(NDEBUG)
   // |Lock::Acquire()| will assert if the lock is held by this thread.
   lock_.Acquire();
   lock_.Release();
 #endif
+}
+
+void PrefProvider::SetClockForTesting(scoped_ptr<base::Clock> clock) {
+  clock_ = clock.Pass();
 }
 
 }  // namespace content_settings

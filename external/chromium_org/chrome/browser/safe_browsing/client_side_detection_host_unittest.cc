@@ -45,6 +45,7 @@ using ::testing::SetArgumentPointee;
 using ::testing::StrictMock;
 using content::BrowserThread;
 using content::RenderViewHostTester;
+using content::ResourceType;
 using content::WebContents;
 
 namespace {
@@ -91,12 +92,10 @@ ACTION(QuitUIMessageLoop) {
   base::MessageLoopForUI::current()->Quit();
 }
 
-// It's kind of insane that InvokeArgument doesn't work with callbacks, but it
-// doesn't seem like it.
-ACTION_TEMPLATE(InvokeCallbackArgument,
-                HAS_1_TEMPLATE_PARAMS(int, k),
-                AND_2_VALUE_PARAMS(p0, p1)) {
-  ::std::tr1::get<k>(args).Run(p0, p1);
+ACTION_P(InvokeDoneCallback, verdict) {
+  scoped_ptr<ClientPhishingRequest> request(::std::tr1::get<1>(args));
+  request->CopyFrom(*verdict);
+  ::std::tr1::get<2>(args).Run(true, request.Pass());
 }
 
 ACTION_P(InvokeMalwareCallback, verdict) {
@@ -251,7 +250,7 @@ class ClientSideDetectionHostTest : public ChromeRenderViewHostTestHarness {
   }
 
   void UpdateIPUrlMap(const std::string& ip, const std::string& host) {
-    csd_host_->UpdateIPUrlMap(ip, host, "", "", ResourceType::OBJECT);
+    csd_host_->UpdateIPUrlMap(ip, host, "", "", content::RESOURCE_TYPE_OBJECT);
   }
 
   BrowseInfo* GetBrowseInfo() {
@@ -381,7 +380,7 @@ class ClientSideDetectionHostTest : public ChromeRenderViewHostTestHarness {
   void NavigateWithSBHitAndCommit(const GURL& url) {
     // Create a pending navigation.
     controller().LoadURL(
-        url, content::Referrer(), content::PAGE_TRANSITION_LINK, std::string());
+        url, content::Referrer(), ui::PAGE_TRANSITION_LINK, std::string());
 
     ASSERT_TRUE(pending_rvh());
     if (web_contents()->GetRenderViewHost()->GetProcess()->GetID() ==
@@ -416,7 +415,7 @@ class ClientSideDetectionHostTest : public ChromeRenderViewHostTestHarness {
 
   void NavigateWithoutSBHitAndCommit(const GURL& safe_url) {
     controller().LoadURL(
-        safe_url, content::Referrer(), content::PAGE_TRANSITION_LINK,
+        safe_url, content::Referrer(), ui::PAGE_TRANSITION_LINK,
         std::string());
 
     ASSERT_TRUE(pending_rvh());
@@ -482,12 +481,11 @@ TEST_F(ClientSideDetectionHostTest, OnPhishingDetectionDoneNotPhishing) {
   verdict.set_is_phishing(true);
 
   EXPECT_CALL(*mock_extractor, ExtractFeatures(_, _, _))
-      .WillOnce(DoAll(DeleteArg<1>(),
-                      InvokeCallbackArgument<2>(true, &verdict)));
+      .WillOnce(InvokeDoneCallback(&verdict));
   EXPECT_CALL(*csd_service_,
               SendClientReportPhishingRequest(
                   Pointee(PartiallyEqualVerdict(verdict)), _))
-      .WillOnce(SaveArg<1>(&cb));
+      .WillOnce(DoAll(DeleteArg<0>(), SaveArg<1>(&cb)));
   OnPhishingDetectionDone(verdict.SerializeAsString());
   EXPECT_TRUE(Mock::VerifyAndClear(csd_host_.get()));
   ASSERT_FALSE(cb.is_null());
@@ -515,12 +513,11 @@ TEST_F(ClientSideDetectionHostTest, OnPhishingDetectionDoneDisabled) {
   verdict.set_is_phishing(true);
 
   EXPECT_CALL(*mock_extractor, ExtractFeatures(_, _, _))
-      .WillOnce(DoAll(DeleteArg<1>(),
-                      InvokeCallbackArgument<2>(true, &verdict)));
+      .WillOnce(InvokeDoneCallback(&verdict));
   EXPECT_CALL(*csd_service_,
               SendClientReportPhishingRequest(
                   Pointee(PartiallyEqualVerdict(verdict)), _))
-      .WillOnce(SaveArg<1>(&cb));
+      .WillOnce(DoAll(DeleteArg<0>(), SaveArg<1>(&cb)));
   OnPhishingDetectionDone(verdict.SerializeAsString());
   EXPECT_TRUE(Mock::VerifyAndClear(csd_host_.get()));
   ASSERT_FALSE(cb.is_null());
@@ -549,12 +546,11 @@ TEST_F(ClientSideDetectionHostTest, OnPhishingDetectionDoneShowInterstitial) {
   verdict.set_is_phishing(true);
 
   EXPECT_CALL(*mock_extractor, ExtractFeatures(_, _, _))
-      .WillOnce(DoAll(DeleteArg<1>(),
-                      InvokeCallbackArgument<2>(true, &verdict)));
+      .WillOnce(InvokeDoneCallback(&verdict));
   EXPECT_CALL(*csd_service_,
               SendClientReportPhishingRequest(
                   Pointee(PartiallyEqualVerdict(verdict)), _))
-      .WillOnce(SaveArg<1>(&cb));
+      .WillOnce(DoAll(DeleteArg<0>(), SaveArg<1>(&cb)));
   OnPhishingDetectionDone(verdict.SerializeAsString());
   EXPECT_TRUE(Mock::VerifyAndClear(csd_host_.get()));
   EXPECT_TRUE(Mock::VerifyAndClear(csd_service_.get()));
@@ -604,12 +600,11 @@ TEST_F(ClientSideDetectionHostTest, OnPhishingDetectionDoneMultiplePings) {
   verdict.set_is_phishing(true);
 
   EXPECT_CALL(*mock_extractor, ExtractFeatures(_, _, _))
-      .WillOnce(DoAll(DeleteArg<1>(),
-                      InvokeCallbackArgument<2>(true, &verdict)));
+      .WillOnce(InvokeDoneCallback(&verdict));
   EXPECT_CALL(*csd_service_,
               SendClientReportPhishingRequest(
                   Pointee(PartiallyEqualVerdict(verdict)), _))
-      .WillOnce(SaveArg<1>(&cb));
+      .WillOnce(DoAll(DeleteArg<0>(), SaveArg<1>(&cb)));
   OnPhishingDetectionDone(verdict.SerializeAsString());
   EXPECT_TRUE(Mock::VerifyAndClear(csd_host_.get()));
   EXPECT_TRUE(Mock::VerifyAndClear(csd_service_.get()));
@@ -841,7 +836,8 @@ TEST_F(ClientSideDetectionHostTest, UpdateIPUrlMap) {
   std::vector<IPUrlInfo> expected_urls;
   for (int i = 0; i < 20; i++) {
     std::string url = base::StringPrintf("http://%d.com/", i);
-    expected_urls.push_back(IPUrlInfo(url, "", "", ResourceType::OBJECT));
+    expected_urls.push_back(
+        IPUrlInfo(url, "", "", content::RESOURCE_TYPE_OBJECT));
     UpdateIPUrlMap("250.10.10.10", url);
   }
   ASSERT_EQ(1U, browse_info->ips.size());
@@ -860,8 +856,8 @@ TEST_F(ClientSideDetectionHostTest, UpdateIPUrlMap) {
   for (int i = 0; i < 199; i++) {
     std::string ip = base::StringPrintf("%d.%d.%d.256", i, i, i);
     expected_urls.clear();
-    expected_urls.push_back(IPUrlInfo("test.com/", "", "",
-                            ResourceType::OBJECT));
+    expected_urls.push_back(
+        IPUrlInfo("test.com/", "", "", content::RESOURCE_TYPE_OBJECT));
     UpdateIPUrlMap(ip, "test.com/");
     ASSERT_EQ(1U, browse_info->ips[ip].size());
     CheckIPUrlEqual(expected_urls,
@@ -879,8 +875,10 @@ TEST_F(ClientSideDetectionHostTest, UpdateIPUrlMap) {
   UpdateIPUrlMap("100.100.100.256", "more.com/");
   ASSERT_EQ(2U, browse_info->ips["100.100.100.256"].size());
   expected_urls.clear();
-  expected_urls.push_back(IPUrlInfo("test.com/", "", "", ResourceType::OBJECT));
-  expected_urls.push_back(IPUrlInfo("more.com/", "", "", ResourceType::OBJECT));
+  expected_urls.push_back(
+      IPUrlInfo("test.com/", "", "", content::RESOURCE_TYPE_OBJECT));
+  expected_urls.push_back(
+      IPUrlInfo("more.com/", "", "", content::RESOURCE_TYPE_OBJECT));
   CheckIPUrlEqual(expected_urls,
                   browse_info->ips["100.100.100.256"]);
 }

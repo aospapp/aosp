@@ -7,6 +7,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/macros.h"
+#include "base/memory/weak_ptr.h"
 #include "device/hid/device_monitor_linux.h"
 #include "device/hid/hid_device_info.h"
 #include "device/hid/hid_service.h"
@@ -20,7 +21,7 @@ class HidConnection;
 class HidServiceLinux : public HidService,
                         public DeviceMonitorLinux::Observer {
  public:
-  HidServiceLinux();
+  HidServiceLinux(scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner);
 
   virtual scoped_refptr<HidConnection> Connect(const HidDeviceId& device_id)
       OVERRIDE;
@@ -32,7 +33,14 @@ class HidServiceLinux : public HidService,
  private:
   virtual ~HidServiceLinux();
 
-  static bool FindHidrawDevNode(udev_device* parent, std::string* result);
+  void OnRequestAccessComplete(
+      const std::string& path,
+      scoped_ptr<HidDeviceInfo> device_info,
+      bool success);
+
+  scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner_;
+
+  base::WeakPtrFactory<HidServiceLinux> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(HidServiceLinux);
 };

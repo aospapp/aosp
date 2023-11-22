@@ -27,6 +27,16 @@ SBFullHash SBFullHashForString(const base::StringPiece& str) {
   return h;
 }
 
+// SBCachedFullHashResult ------------------------------------------------------
+
+SBCachedFullHashResult::SBCachedFullHashResult() {}
+
+SBCachedFullHashResult::SBCachedFullHashResult(
+    const base::Time& in_expire_after)
+    : expire_after(in_expire_after) {}
+
+SBCachedFullHashResult::~SBCachedFullHashResult() {}
+
 // SBChunkData -----------------------------------------------------------------
 
 // TODO(shess): Right now this contains a scoped_ptr<ChunkData> so that the
@@ -163,8 +173,16 @@ bool IsKnownList(const std::string& name) {
 namespace safe_browsing_util {
 
 // Listnames that browser can process.
+// TODO(shess): This shouldn't be OS-driven <http://crbug.com/394379>
+#if defined(OS_ANDROID)
+// NOTE(shess): This difference is also reflected in the store name in
+// safe_browsing_database.cc.
+const char kMalwareList[] = "goog-mobilemalware-shavar";
+const char kPhishingList[] = "goog-mobilephish-shavar";
+#else
 const char kMalwareList[] = "goog-malware-shavar";
 const char kPhishingList[] = "goog-phish-shavar";
+#endif
 const char kBinUrlList[] = "goog-badbinurl-shavar";
 const char kCsdWhiteList[] = "goog-csdwhite-sha256";
 const char kDownloadWhiteList[] = "goog-downloadwhite-digest256";

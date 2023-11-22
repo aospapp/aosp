@@ -3,10 +3,10 @@
 # found in the LICENSE file.
 
 from measurements import smoothness_controller
-from telemetry.page import page_measurement
+from telemetry.page import page_test
 
 
-class Repaint(page_measurement.PageMeasurement):
+class Repaint(page_test.PageTest):
   def __init__(self):
     super(Repaint, self).__init__('RunRepaint', False)
     self._smoothness_controller = None
@@ -35,7 +35,8 @@ class Repaint(page_measurement.PageMeasurement):
   def WillRunActions(self, page, tab):
     tab.WaitForDocumentReadyStateToBeComplete()
     self._smoothness_controller = smoothness_controller.SmoothnessController()
-    self._smoothness_controller.Start(page, tab)
+    self._smoothness_controller.SetUp(page, tab)
+    self._smoothness_controller.Start(tab)
     # Rasterize only what's visible.
     tab.ExecuteJavaScript(
         'chrome.gpuBenchmarking.setRasterizeOnlyVisibleContent();')
@@ -61,7 +62,7 @@ class Repaint(page_measurement.PageMeasurement):
     self._micro_benchmark_id = tab.EvaluateJavaScript(
         'window.benchmark_results.id')
     if (not self._micro_benchmark_id):
-      raise page_measurement.MeasurementFailure(
+      raise page_test.MeasurementFailure(
           'Failed to schedule invalidation_benchmark.')
 
   def DidRunActions(self, page, tab):
@@ -74,7 +75,7 @@ class Repaint(page_measurement.PageMeasurement):
     """)
     self._smoothness_controller.Stop(tab)
 
-  def MeasurePage(self, page, tab, results):
+  def ValidateAndMeasurePage(self, page, tab, results):
     self._smoothness_controller.AddResults(tab, results)
 
   def CleanUpAfterPage(self, _, tab):

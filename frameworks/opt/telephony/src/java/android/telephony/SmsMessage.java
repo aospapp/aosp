@@ -16,8 +16,8 @@
 
 package android.telephony;
 
+import android.os.Binder;
 import android.os.Parcel;
-import android.telephony.Rlog;
 import android.content.res.Resources;
 import android.text.TextUtils;
 
@@ -103,13 +103,13 @@ public class SmsMessage {
      *
      * @hide
      */
-    private long mSubId = 0;
+    private int mSubId = 0;
 
     /** set Subscription information
      *
      * @hide
      */
-    public void setSubId(long subId) {
+    public void setSubId(int subId) {
         mSubId = subId;
     }
 
@@ -117,7 +117,7 @@ public class SmsMessage {
      *
      * @hide
      */
-    public long getSubId() {
+    public int getSubId() {
         return mSubId;
     }
 
@@ -297,7 +297,8 @@ public class SmsMessage {
     public static int[] calculateLength(CharSequence msgBody, boolean use7bitOnly) {
         // this function is for MO SMS
         TextEncodingDetails ted = (useCdmaFormatForMoSms()) ?
-            com.android.internal.telephony.cdma.SmsMessage.calculateLength(msgBody, use7bitOnly) :
+            com.android.internal.telephony.cdma.SmsMessage.calculateLength(msgBody, use7bitOnly,
+                    true) :
             com.android.internal.telephony.gsm.SmsMessage.calculateLength(msgBody, use7bitOnly);
         int ret[] = new int[4];
         ret[0] = ted.msgCount;
@@ -320,7 +321,7 @@ public class SmsMessage {
     public static ArrayList<String> fragmentText(String text) {
         // This function is for MO SMS
         TextEncodingDetails ted = (useCdmaFormatForMoSms()) ?
-            com.android.internal.telephony.cdma.SmsMessage.calculateLength(text, false) :
+            com.android.internal.telephony.cdma.SmsMessage.calculateLength(text, false, true) :
             com.android.internal.telephony.gsm.SmsMessage.calculateLength(text, false);
 
         // TODO(cleanup): The code here could be rolled into the logic
@@ -772,8 +773,15 @@ public class SmsMessage {
             return true;
         }
 
-        String simOperator = TelephonyManager.getDefault().getSimOperator();
-        String gid = TelephonyManager.getDefault().getGroupIdLevel1();
+        String simOperator;
+        String gid;
+        final long identity = Binder.clearCallingIdentity();
+        try {
+            simOperator = TelephonyManager.getDefault().getSimOperatorNumeric();
+            gid = TelephonyManager.getDefault().getGroupIdLevel1();
+        } finally {
+            Binder.restoreCallingIdentity(identity);
+        }
 
         for (NoEmsSupportConfig currentConfig : mNoEmsSupportConfigList) {
             if (simOperator.startsWith(currentConfig.mOperatorNumber) &&
@@ -795,8 +803,16 @@ public class SmsMessage {
             return false;
         }
 
-        String simOperator = TelephonyManager.getDefault().getSimOperator();
-        String gid = TelephonyManager.getDefault().getGroupIdLevel1();
+        String simOperator;
+        String gid;
+        final long identity = Binder.clearCallingIdentity();
+        try {
+            simOperator = TelephonyManager.getDefault().getSimOperatorNumeric();
+            gid = TelephonyManager.getDefault().getGroupIdLevel1();
+        } finally {
+            Binder.restoreCallingIdentity(identity);
+        }
+
         for (NoEmsSupportConfig currentConfig : mNoEmsSupportConfigList) {
             if (simOperator.startsWith(currentConfig.mOperatorNumber) &&
                 (TextUtils.isEmpty(currentConfig.mGid1) ||

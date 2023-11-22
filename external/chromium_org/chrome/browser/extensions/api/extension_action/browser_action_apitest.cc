@@ -3,8 +3,7 @@
 // found in the LICENSE file.
 
 #include "build/build_config.h"
-
-#include "chrome/browser/chrome_notification_types.h"
+#include "chrome/browser/extensions/api/extension_action/extension_action_api.h"
 #include "chrome/browser/extensions/browser_action_test_util.h"
 #include "chrome/browser/extensions/extension_action.h"
 #include "chrome/browser/extensions/extension_action_icon_factory.h"
@@ -24,7 +23,9 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test_utils.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/notification_types.h"
 #include "extensions/common/feature_switch.h"
+#include "extensions/test/result_catcher.h"
 #include "grit/theme_resources.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image_skia.h"
@@ -116,9 +117,8 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiTest, Basic) {
   ui_test_utils::NavigateToURL(browser(),
       test_server()->GetURL("files/extensions/test_file.txt"));
 
-  ExtensionToolbarModel* toolbar_model = ExtensionToolbarModel::Get(
-      browser()->profile());
-  toolbar_model->ExecuteBrowserAction(extension, browser(), NULL, true);
+  ExtensionActionAPI::Get(browser()->profile())->ExecuteExtensionAction(
+      extension, browser(), true);
 
   ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
 }
@@ -553,7 +553,7 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiTest, IncognitoDragging) {
   // ABC -> CAB
   ExtensionToolbarModel* toolbar_model = ExtensionToolbarModel::Get(
       browser()->profile());
-  toolbar_model->MoveBrowserAction(extension_c, 0);
+  toolbar_model->MoveExtensionIcon(extension_c, 0);
 
   EXPECT_EQ(kTooltipC, GetBrowserActionsBar().GetTooltip(0));
   EXPECT_EQ(kTooltipA, GetBrowserActionsBar().GetTooltip(1));
@@ -563,7 +563,7 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiTest, IncognitoDragging) {
   EXPECT_EQ(kTooltipA, incognito_bar.GetTooltip(1));
 
   // CAB -> CBA
-  toolbar_model->MoveBrowserAction(extension_b, 1);
+  toolbar_model->MoveExtensionIcon(extension_b, 1);
 
   EXPECT_EQ(kTooltipC, GetBrowserActionsBar().GetTooltip(0));
   EXPECT_EQ(kTooltipB, GetBrowserActionsBar().GetTooltip(1));
@@ -593,14 +593,16 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiTest, IncognitoSplit) {
             BrowserActionTestUtil(incognito_browser).NumberOfBrowserActions());
 
   // A click in the regular profile should open a tab in the regular profile.
-  ExtensionToolbarModel* toolbar_model = ExtensionToolbarModel::Get(
-      browser()->profile());
-  toolbar_model->ExecuteBrowserAction(extension, browser(), NULL, true);
+  ExtensionActionAPI* extension_action_api =
+      ExtensionActionAPI::Get(browser()->profile());
+  extension_action_api->ExecuteExtensionAction(
+      extension, browser(), true);
   ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
 
   // A click in the incognito profile should open a tab in the
   // incognito profile.
-  toolbar_model->ExecuteBrowserAction(extension, incognito_browser, NULL, true);
+  extension_action_api->ExecuteExtensionAction(
+      extension, incognito_browser, true);
   ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
 }
 
@@ -619,13 +621,12 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiTest, DISABLED_CloseBackgroundPage) {
   ASSERT_EQ("", action->GetBadgeText(ExtensionAction::kDefaultTabId));
 
   content::WindowedNotificationObserver host_destroyed_observer(
-      chrome::NOTIFICATION_EXTENSION_HOST_DESTROYED,
+      extensions::NOTIFICATION_EXTENSION_HOST_DESTROYED,
       content::NotificationService::AllSources());
 
   // Click the browser action.
-  ExtensionToolbarModel* toolbar_model = ExtensionToolbarModel::Get(
-      browser()->profile());
-  toolbar_model->ExecuteBrowserAction(extension, browser(), NULL, true);
+  ExtensionActionAPI::Get(browser()->profile())->ExecuteExtensionAction(
+      extension, browser(), true);
 
   // It can take a moment for the background page to actually get destroyed
   // so we wait for the notification before checking that it's really gone

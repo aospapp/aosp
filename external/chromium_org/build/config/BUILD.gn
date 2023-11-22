@@ -31,28 +31,9 @@ config("feature_flags") {
   # TODO(brettw) most of these need to be parameterized.
   defines = [
       "CHROMIUM_BUILD",
-      "ENABLE_ONE_CLICK_SIGNIN",
-      "ENABLE_REMOTING=1",
-      "ENABLE_CONFIGURATION_POLICY",
-      "ENABLE_NOTIFICATIONS",
       "ENABLE_EGLIMAGE=1",
-      "ENABLE_TASK_MANAGER=1",
-      "ENABLE_EXTENSIONS=1",
-      "ENABLE_PLUGIN_INSTALLATION=1",
-      "ENABLE_SESSION_SERVICE=1",
-      "ENABLE_THEMES=1",
-      "ENABLE_AUTOFILL_DIALOG=1",
       "ENABLE_BACKGROUND=1",
-      "ENABLE_GOOGLE_NOW=1",
-      "ENABLE_CAPTIVE_PORTAL_DETECTION=1",
-      "ENABLE_APP_LIST=1",
-      "ENABLE_SETTINGS_APP=1",
-      "ENABLE_MANAGED_USERS=1",
-      "ENABLE_SERVICE_DISCOVERY=1",
-      "USE_MOJO=1",
       "V8_DEPRECATION_WARNINGS",  # Don't use deprecated V8 APIs anywhere.
-      # Temporary suppression until Blink code can be removed.
-      "BLINK_SCALE_FILTERS_AT_RECORD_TIME",
   ]
 
   if (cld_version > 0) {
@@ -61,16 +42,23 @@ config("feature_flags") {
   if (enable_mdns) {
     defines += [ "ENABLE_MDNS=1" ]
   }
+  if (enable_notifications) {
+    defines += [ "ENABLE_NOTIFICATIONS" ]
+  }
   if (enable_pepper_cdms) {
     # TODO(brettw) should probably be "=1"
     defines += [ "ENABLE_PEPPER_CDMS" ]
   }
+  if (enable_browser_cdms) {
+    # TODO(brettw) should probably be "=1"
+    defines += [ "ENABLE_BROWSER_CDMS" ]
+  }
   if (enable_plugins) {
     defines += [ "ENABLE_PLUGINS=1" ]
   }
-  if (enable_printing > 0) {
+  if (printing_mode > 0) {
     defines += [ "ENABLE_PRINTING=1" ]
-    if (enable_printing < 2) {
+    if (printing_mode < 2) {
       defines += [ "ENABLE_FULL_PRINTING=1" ]
     }
   }
@@ -138,6 +126,69 @@ config("feature_flags") {
   if (disable_ftp_support) {
     defines += [ "DISABLE_FTP_SUPPORT=1" ]
   }
+  if (!enable_nacl) {
+    defines += [ "DISABLE_NACL" ]
+  }
+  if (enable_extensions) {
+    defines += [ "ENABLE_EXTENSIONS=1" ]
+  }
+  if (enable_configuration_policy) {
+    defines += [ "ENABLE_CONFIGURATION_POLICY" ]
+  }
+  if (enable_task_manager) {
+    defines += [ "ENABLE_TASK_MANAGER=1" ]
+  }
+  if (enable_themes) {
+    defines += [ "ENABLE_THEMES=1" ]
+  }
+  if (enable_captive_portal_detection) {
+    defines += [ "ENABLE_CAPTIVE_PORTAL_DETECTION=1" ]
+  }
+  if (enable_session_service) {
+    defines += [ "ENABLE_SESSION_SERVICE=1" ]
+  }
+  if (enable_rlz) {
+    defines += [ "ENABLE_RLZ" ]
+  }
+  if (enable_plugin_installation) {
+    defines += [ "ENABLE_PLUGIN_INSTALLATION=1" ]
+  }
+  if (enable_app_list) {
+    defines += [ "ENABLE_APP_LIST=1" ]
+  }
+  if (enable_settings_app) {
+    defines += [ "ENABLE_SETTINGS_APP=1" ]
+  }
+  if (enable_managed_users) {
+    defines += [ "ENABLE_MANAGED_USERS=1" ]
+  }
+  if (enable_service_discovery) {
+    defines += [ "ENABLE_SERVICE_DISCOVERY=1" ]
+  }
+  if (enable_autofill_dialog) {
+    defines += [ "ENABLE_AUTOFILL_DIALOG=1" ]
+  }
+  if (enable_wifi_bootstrapping) {
+    defines += [ "ENABLE_WIFI_BOOTSTRAPPING=1" ]
+  }
+  if (enable_image_loader_extension) {
+    defines += [ "IMAGE_LOADER_EXTENSION=1" ]
+  }
+  if (enable_remoting) {
+    defines += [ "ENABLE_REMOTING=1" ]
+  }
+  if (enable_google_now) {
+    defines += [ "ENABLE_GOOGLE_NOW=1" ]
+  }
+  if (enable_one_click_signin) {
+    defines += [ "ENABLE_ONE_CLICK_SIGNIN" ]
+  }
+  if (use_athena) {
+    defines += [ "USE_ATHENA=1" ]
+  }
+  if (enable_hidpi) {
+    defines += [ "ENABLE_HIDPI=1" ]
+  }
 }
 
 # Debug/release ----------------------------------------------------------------
@@ -165,6 +216,9 @@ config("debug") {
 }
 
 config("release") {
+  defines = [
+    "NDEBUG",
+  ]
 }
 
 # Default libraries ------------------------------------------------------------

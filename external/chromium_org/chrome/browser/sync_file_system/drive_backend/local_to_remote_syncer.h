@@ -13,7 +13,6 @@
 #include "chrome/browser/sync_file_system/drive_backend/sync_task.h"
 #include "chrome/browser/sync_file_system/file_change.h"
 #include "chrome/browser/sync_file_system/sync_action.h"
-#include "chrome/browser/sync_file_system/sync_callbacks.h"
 #include "chrome/browser/sync_file_system/sync_file_metadata.h"
 #include "google_apis/drive/gdata_errorcode.h"
 
@@ -33,6 +32,7 @@ class RemoteChangeProcessor;
 
 namespace drive_backend {
 
+class FileDetails;
 class FileTracker;
 class FolderCreator;
 class MetadataDatabase;
@@ -40,16 +40,17 @@ class SyncEngineContext;
 
 class LocalToRemoteSyncer : public SyncTask {
  public:
+  typedef base::Callback<void(scoped_ptr<SyncTaskToken>)> Continuation;
+
   LocalToRemoteSyncer(SyncEngineContext* sync_context,
                       const SyncFileMetadata& local_metadata,
                       const FileChange& local_change,
                       const base::FilePath& local_path,
-                      const fileapi::FileSystemURL& url);
+                      const storage::FileSystemURL& url);
   virtual ~LocalToRemoteSyncer();
   virtual void RunPreflight(scoped_ptr<SyncTaskToken> token) OVERRIDE;
-  void RunExclusive(scoped_ptr<SyncTaskToken> token);
 
-  const fileapi::FileSystemURL& url() const { return url_; }
+  const storage::FileSystemURL& url() const { return url_; }
   const base::FilePath& target_path() const { return target_path_; }
   SyncAction sync_action() const { return sync_action_; }
   bool needs_remote_change_listing() const {
@@ -57,26 +58,28 @@ class LocalToRemoteSyncer : public SyncTask {
   }
 
  private:
+  void MoveToBackground(const Continuation& continuation,
+                        scoped_ptr<SyncTaskToken> token);
+  void ContinueAsBackgroundTask(const Continuation& continuation,
+                                scoped_ptr<SyncTaskToken> token);
   void SyncCompleted(scoped_ptr<SyncTaskToken> token,
                      SyncStatusCode status);
 
   void HandleConflict(scoped_ptr<SyncTaskToken> token);
   void HandleExistingRemoteFile(scoped_ptr<SyncTaskToken> token);
 
-  void DeleteRemoteFile(const SyncStatusCallback& callback);
-  void DidDeleteRemoteFile(const SyncStatusCallback& callback,
+  void UpdateTrackerForReusedFolder(const FileDetails& details,
+                                    scoped_ptr<SyncTaskToken> token);
+
+  void DeleteRemoteFile(scoped_ptr<SyncTaskToken> token);
+  void DidDeleteRemoteFile(scoped_ptr<SyncTaskToken> token,
                            google_apis::GDataErrorCode error);
 
   void UploadExistingFile(scoped_ptr<SyncTaskToken> token);
-  void DidGetMD5ForUpload(scoped_ptr<SyncTaskToken> token,
-                          const std::string& local_file_md5);
   void DidUploadExistingFile(scoped_ptr<SyncTaskToken> token,
                              google_apis::GDataErrorCode error,
                              const GURL&,
                              scoped_ptr<google_apis::FileResource>);
-  void DidUpdateDatabaseForUploadExistingFile(
-      scoped_ptr<SyncTaskToken> token,
-      SyncStatusCode status);
   void UpdateRemoteMetadata(const std::string& file_id,
                             scoped_ptr<SyncTaskToken> token);
   void DidGetRemoteMetadata(const std::string& file_id,
@@ -102,21 +105,20 @@ class LocalToRemoteSyncer : public SyncTask {
   drive::DriveUploaderInterface* drive_uploader();
   MetadataDatabase* metadata_database();
 
-  void CompleteWithRetryStatus(scoped_ptr<SyncTaskToken> token,
-                               SyncStatusCode status);
-
   SyncEngineContext* sync_context_;  // Not owned.
 
   FileChange local_change_;
   bool local_is_missing_;
   base::FilePath local_path_;
-  fileapi::FileSystemURL url_;
+  storage::FileSystemURL url_;
   SyncAction sync_action_;
 
   scoped_ptr<FileTracker> remote_file_tracker_;
   scoped_ptr<FileTracker> remote_parent_folder_tracker_;
   base::FilePath target_path_;
+  int64 remote_file_change_id_;
 
+  bool retry_on_success_;
   bool needs_remote_change_listing_;
 
   scoped_ptr<FolderCreator> folder_creator_;

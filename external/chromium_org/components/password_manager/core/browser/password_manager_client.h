@@ -8,11 +8,13 @@
 #include "base/metrics/field_trial.h"
 #include "components/autofill/core/common/password_form.h"
 #include "components/autofill/core/common/password_form_fill_data.h"
+#include "components/password_manager/core/browser/password_store.h"
 
 class PrefService;
 
 namespace password_manager {
 
+struct CredentialInfo;
 class PasswordFormManager;
 class PasswordManagerDriver;
 class PasswordStore;
@@ -30,10 +32,34 @@ class PasswordManagerClient {
   // The default return value is false.
   virtual bool IsAutomaticPasswordSavingEnabled() const;
 
+  // If the password manager should work for the current page. Default
+  // always returns true.
+  virtual bool IsPasswordManagerEnabledForCurrentPage() const;
+
+  // Return true if |form| should not be available for autofill.
+  virtual bool ShouldFilterAutofillResult(
+      const autofill::PasswordForm& form) = 0;
+
+  // Returns true if |username| and |origin| correspond to the account which is
+  // syncing.
+  virtual bool IsSyncAccountCredential(
+      const std::string& username, const std::string& origin) const = 0;
+
+  // Called when all autofill results have been computed. Client can use
+  // this signal to report statistics. Default implementation is a noop.
+  virtual void AutofillResultsComputed() {}
+
   // Informs the embedder of a password form that can be saved if the user
   // allows it. The embedder is not required to prompt the user if it decides
   // that this form doesn't need to be saved.
-  virtual void PromptUserToSavePassword(PasswordFormManager* form_to_save) = 0;
+  // Returns true if the prompt was indeed displayed.
+  virtual bool PromptUserToSavePassword(
+      scoped_ptr<PasswordFormManager> form_to_save) = 0;
+
+  // Called when a password is saved in an automated fashion. Embedder may
+  // inform the user that this save has occured.
+  virtual void AutomaticPasswordSave(
+      scoped_ptr<PasswordFormManager> saved_form_manager) = 0;
 
   // Called when a password is autofilled. |best_matches| contains the
   // PasswordForm into which a password was filled: the client may choose to
@@ -84,6 +110,29 @@ class PasswordManagerClient {
   // Returns true if logs recorded via LogSavePasswordProgress will be
   // displayed, and false otherwise.
   virtual bool IsLoggingActive() const;
+
+  // Returns the authorization prompt policy to be used with the given form.
+  // Only relevant on OSX.
+  virtual PasswordStore::AuthorizationPromptPolicy GetAuthorizationPromptPolicy(
+      const autofill::PasswordForm& form);
+
+  // Called in response to an IPC from the renderer, triggered by a page's call
+  // to 'navigator.credentials.notifyFailedSignIn'.
+  virtual void OnNotifyFailedSignIn(int request_id, const CredentialInfo&) {}
+
+  // Called in response to an IPC from the renderer, triggered by a page's call
+  // to 'navigator.credentials.notifySignedIn'.
+  virtual void OnNotifySignedIn(int request_id, const CredentialInfo&) {}
+
+  // Called in response to an IPC from the renderer, triggered by a page's call
+  // to 'navigator.credentials.notifySignedOut'.
+  virtual void OnNotifySignedOut(int request_id) {}
+
+  // Called in response to an IPC from the renderer, triggered by a page's call
+  // to 'navigator.credentials.request'.
+  virtual void OnRequestCredential(int request_id,
+                                   bool zero_click_only,
+                                   const std::vector<GURL>& federations) {}
 
  private:
   DISALLOW_COPY_AND_ASSIGN(PasswordManagerClient);

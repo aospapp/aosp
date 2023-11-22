@@ -6,25 +6,27 @@
 #include "cc/debug/benchmark_instrumentation.h"
 
 namespace cc {
+namespace benchmark_instrumentation {
 
 // Please do not change the trace events in this file without updating
 // tools/perf/measurements/rendering_stats.py accordingly.
 // The benchmarks search for events and their arguments by name.
 
-void BenchmarkInstrumentation::IssueMainThreadRenderingStatsEvent(
-    const MainThreadRenderingStats& stats) {
+void IssueMainThreadRenderingStatsEvent(
+    const RenderingStats::MainThreadRenderingStats& stats) {
   TRACE_EVENT_INSTANT1("benchmark",
                        "BenchmarkInstrumentation::MainThreadRenderingStats",
                        TRACE_EVENT_SCOPE_THREAD,
                        "data", stats.AsTraceableData());
 }
 
-void BenchmarkInstrumentation::IssueImplThreadRenderingStatsEvent(
-    const ImplThreadRenderingStats& stats) {
+void IssueImplThreadRenderingStatsEvent(
+    const RenderingStats::ImplThreadRenderingStats& stats) {
   TRACE_EVENT_INSTANT1("benchmark",
                        "BenchmarkInstrumentation::ImplThreadRenderingStats",
                        TRACE_EVENT_SCOPE_THREAD,
                        "data", stats.AsTraceableData());
 }
 
+}  // namespace benchmark_instrumentation
 }  // namespace cc

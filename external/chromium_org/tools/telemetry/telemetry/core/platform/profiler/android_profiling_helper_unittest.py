@@ -1,14 +1,15 @@
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-import glob
+
 import os
 import pickle
 import re
 import shutil
 import tempfile
+import unittest
 
-from telemetry import test
+from telemetry import benchmark
 from telemetry.core import util
 from telemetry.core.platform.profiler import android_profiling_helper
 from telemetry.unittest import simple_mock
@@ -19,7 +20,7 @@ def _GetLibrariesMappedIntoProcesses(device, pids):
   libs = set()
   for pid in pids:
     maps_file = '/proc/%d/maps' % pid
-    maps = device.old_interface.GetProtectedFileContents(maps_file)
+    maps = device.ReadFile(maps_file, as_root=True)
     for map_line in maps:
       lib = re.match(r'.*\s(/.*[.]so)$', map_line)
       if lib:
@@ -27,15 +28,7 @@ def _GetLibrariesMappedIntoProcesses(device, pids):
   return libs
 
 
-class TestAndroidProfilingHelper(tab_test_case.TabTestCase):
-  def setUp(self):
-    super(TestAndroidProfilingHelper, self).setUp()
-    # pylint: disable=W0212
-    browser_backend = self._browser._browser_backend
-    try:
-      self._device = browser_backend.adb.device()
-    except AttributeError:
-      pass
+class TestAndroidProfilingHelper(unittest.TestCase):
 
   def testGetRequiredLibrariesForPerfProfile(self):
     perf_output = os.path.join(
@@ -63,7 +56,7 @@ class TestAndroidProfilingHelper(tab_test_case.TabTestCase):
     finally:
       android_profiling_helper.subprocess = real_subprocess
 
-  @test.Enabled('android')
+  @benchmark.Enabled('android')
   def testGetRequiredLibrariesForVTuneProfile(self):
     vtune_db_output = os.path.join(
         util.GetUnittestDataDir(), 'sample_vtune_db_output')
@@ -94,7 +87,16 @@ class TestAndroidProfilingHelper(tab_test_case.TabTestCase):
     finally:
       android_profiling_helper.sqlite3 = real_sqlite3
 
-  @test.Enabled('android')
+
+class TestAndroidProfilingHelperTabTestCase(tab_test_case.TabTestCase):
+
+  def setUp(self):
+    super(TestAndroidProfilingHelperTabTestCase, self).setUp()
+    # pylint: disable=W0212
+    browser_backend = self._browser._browser_backend
+    self._device = browser_backend._adb.device()
+
+  @benchmark.Enabled('android')
   def testCreateSymFs(self):
     # pylint: disable=W0212
     browser_pid = self._browser._browser_backend.pid
@@ -108,26 +110,27 @@ class TestAndroidProfilingHelper(tab_test_case.TabTestCase):
       kallsyms = android_profiling_helper.CreateSymFs(self._device, symfs_dir,
                                                       libs)
 
-      # Make sure we found at least one unstripped library.
-      unstripped_libs = glob.glob(os.path.join(symfs_dir,
-                                               'data', 'app-lib', '*', '*.so'))
-      assert unstripped_libs
-
       # Check that we have kernel symbols.
       assert os.path.exists(kallsyms)
 
+      is_unstripped = re.compile('^/data/app/.*\.so$')
+      has_unstripped = False
+
       # Check that all requested libraries are present.
       for lib in libs:
+        has_unstripped = has_unstripped or is_unstripped.match(lib)
         assert os.path.exists(os.path.join(symfs_dir, lib[1:])), \
             '%s not found in symfs' % lib
+
+      # Make sure we found at least one unstripped library.
+      assert has_unstripped
     finally:
       shutil.rmtree(symfs_dir)
 
-  @test.Enabled('android')
+  @benchmark.Enabled('android')
   def testGetToolchainBinaryPath(self):
     with tempfile.NamedTemporaryFile() as libc:
-      self._device.old_interface.PullFileFromDevice('/system/lib/libc.so',
-                                                    libc.name)
+      self._device.PullFile('/system/lib/libc.so', libc.name)
       path = android_profiling_helper.GetToolchainBinaryPath(libc.name,
                                                              'objdump')
       assert os.path.exists(path)

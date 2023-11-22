@@ -270,9 +270,10 @@ class CryptoServerTest : public ::testing::TestWithParam<TestParams> {
   void CheckRejectReasons(
       const HandshakeFailureReason* expected_handshake_failures,
       size_t expected_count) {
-    const QuicTag* reject_reason_tags;
+    const uint32* reject_reasons;
     size_t num_reject_reasons;
-    QuicErrorCode error_code = out_.GetTaglist(kRREJ, &reject_reason_tags,
+    COMPILE_ASSERT(sizeof(QuicTag) == sizeof(uint32), header_out_of_sync);
+    QuicErrorCode error_code = out_.GetTaglist(kRREJ, &reject_reasons,
                                                &num_reject_reasons);
     if (!FLAGS_send_quic_crypto_reject_reason) {
       ASSERT_EQ(QUIC_CRYPTO_MESSAGE_PARAMETER_NOT_FOUND, error_code);
@@ -286,7 +287,7 @@ class CryptoServerTest : public ::testing::TestWithParam<TestParams> {
       EXPECT_EQ(expected_count, num_reject_reasons);
     }
     for (size_t i = 0; i < num_reject_reasons; ++i) {
-      EXPECT_EQ(expected_handshake_failures[i], reject_reason_tags[i]);
+      EXPECT_EQ(expected_handshake_failures[i], reject_reasons[i]);
     }
   }
 
@@ -364,7 +365,7 @@ TEST_F(CryptoServerTest, DISABLED_DefaultCert) {
   EXPECT_NE(0u, cert.size());
   EXPECT_NE(0u, proof.size());
   const HandshakeFailureReason kRejectReasons[] = {
-    CLIENT_NONCE_UNKNOWN_FAILURE
+    CLIENT_NONCE_INVALID_TIME_FAILURE
   };
   CheckRejectReasons(kRejectReasons, arraysize(kRejectReasons));
 }
@@ -550,7 +551,7 @@ TEST_P(CryptoServerTest, ReplayProtection) {
   ASSERT_EQ(kREJ, out_.tag());
 
   const HandshakeFailureReason kRejectReasons[] = {
-    CLIENT_NONCE_UNKNOWN_FAILURE
+    CLIENT_NONCE_INVALID_TIME_FAILURE
   };
   CheckRejectReasons(kRejectReasons, arraysize(kRejectReasons));
 
@@ -651,7 +652,7 @@ TEST_P(CryptoServerTestNoConfig, DontCrash) {
       NULL));
 
   const HandshakeFailureReason kRejectReasons[] = {
-    CLIENT_NONCE_UNKNOWN_FAILURE
+    SERVER_CONFIG_INCHOATE_HELLO_FAILURE
   };
   CheckRejectReasons(kRejectReasons, arraysize(kRejectReasons));
 }

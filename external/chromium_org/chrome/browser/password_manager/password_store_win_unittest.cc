@@ -17,12 +17,12 @@
 #include "base/synchronization/waitable_event.h"
 #include "base/time/time.h"
 #include "chrome/browser/password_manager/password_store_win.h"
-#include "chrome/browser/webdata/logins_table.h"
-#include "chrome/browser/webdata/web_data_service.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/os_crypt/ie7_password_win.h"
 #include "components/password_manager/core/browser/password_form_data.h"
 #include "components/password_manager/core/browser/password_store_consumer.h"
+#include "components/password_manager/core/browser/webdata/logins_table.h"
+#include "components/password_manager/core/browser/webdata/password_web_data_service_win.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/webdata/common/web_database_service.h"
 #include "content/public/test/test_browser_thread.h"
@@ -52,7 +52,7 @@ class MockPasswordStoreConsumer : public PasswordStoreConsumer {
 class MockWebDataServiceConsumer : public WebDataServiceConsumer {
 public:
   MOCK_METHOD2(OnWebDataServiceRequestDone,
-               void(WebDataService::Handle, const WDTypedResult*));
+               void(PasswordWebDataService::Handle, const WDTypedResult*));
 };
 
 }  // anonymous namespace
@@ -125,8 +125,10 @@ class PasswordStoreWinTest : public testing::Test {
     // Need to add at least one table so the database gets created.
     wdbs_->AddTable(scoped_ptr<WebDatabaseTable>(new LoginsTable()));
     wdbs_->LoadDatabase();
-    wds_ = new WebDataService(wdbs_,
-                              WebDataServiceBase::ProfileErrorCallback());
+    wds_ = new PasswordWebDataService(
+        wdbs_,
+        BrowserThread::GetMessageLoopProxyForThread(BrowserThread::UI),
+        WebDataServiceBase::ProfileErrorCallback());
     wds_->Init();
   }
 
@@ -163,7 +165,7 @@ class PasswordStoreWinTest : public testing::Test {
   base::ScopedTempDir temp_dir_;
   scoped_ptr<TestingProfile> profile_;
   scoped_ptr<LoginDatabase> login_db_;
-  scoped_refptr<WebDataService> wds_;
+  scoped_refptr<PasswordWebDataService> wds_;
   scoped_refptr<WebDatabaseService> wdbs_;
   scoped_refptr<PasswordStore> store_;
 };
@@ -203,7 +205,7 @@ TEST_F(PasswordStoreWinTest, DISABLED_ConvertIE7Login) {
   done.Wait();
 
   store_ = CreatePasswordStore();
-  EXPECT_TRUE(store_->Init(syncer::SyncableService::StartSyncFlare()));
+  EXPECT_TRUE(store_->Init(syncer::SyncableService::StartSyncFlare(), ""));
 
   MockPasswordStoreConsumer consumer;
 
@@ -256,7 +258,7 @@ TEST_F(PasswordStoreWinTest, DISABLED_ConvertIE7Login) {
 // Crashy.  http://crbug.com/86558
 TEST_F(PasswordStoreWinTest, DISABLED_OutstandingWDSQueries) {
   store_ = CreatePasswordStore();
-  EXPECT_TRUE(store_->Init(syncer::SyncableService::StartSyncFlare()));
+  EXPECT_TRUE(store_->Init(syncer::SyncableService::StartSyncFlare(), ""));
 
   PasswordFormData form_data = {
     PasswordForm::SCHEME_HTML,
@@ -299,7 +301,7 @@ TEST_F(PasswordStoreWinTest, DISABLED_MultipleWDSQueriesOnDifferentThreads) {
   done.Wait();
 
   store_ = CreatePasswordStore();
-  EXPECT_TRUE(store_->Init(syncer::SyncableService::StartSyncFlare()));
+  EXPECT_TRUE(store_->Init(syncer::SyncableService::StartSyncFlare(), ""));
 
   MockPasswordStoreConsumer password_consumer;
   // Make sure we quit the MessageLoop even if the test fails.
@@ -361,7 +363,7 @@ TEST_F(PasswordStoreWinTest, DISABLED_MultipleWDSQueriesOnDifferentThreads) {
 
 TEST_F(PasswordStoreWinTest, EmptyLogins) {
   store_ = CreatePasswordStore();
-  store_->Init(syncer::SyncableService::StartSyncFlare());
+  store_->Init(syncer::SyncableService::StartSyncFlare(), "");
 
   PasswordFormData form_data = {
     PasswordForm::SCHEME_HTML,
@@ -395,7 +397,7 @@ TEST_F(PasswordStoreWinTest, EmptyLogins) {
 
 TEST_F(PasswordStoreWinTest, EmptyBlacklistLogins) {
   store_ = CreatePasswordStore();
-  store_->Init(syncer::SyncableService::StartSyncFlare());
+  store_->Init(syncer::SyncableService::StartSyncFlare(), "");
 
   MockPasswordStoreConsumer consumer;
 
@@ -416,7 +418,7 @@ TEST_F(PasswordStoreWinTest, EmptyBlacklistLogins) {
 
 TEST_F(PasswordStoreWinTest, EmptyAutofillableLogins) {
   store_ = CreatePasswordStore();
-  store_->Init(syncer::SyncableService::StartSyncFlare());
+  store_->Init(syncer::SyncableService::StartSyncFlare(), "");
 
   MockPasswordStoreConsumer consumer;
 

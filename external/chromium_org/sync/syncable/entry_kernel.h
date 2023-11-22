@@ -164,6 +164,7 @@ enum {
 
 enum AttachmentMetadataField {
   ATTACHMENT_METADATA = ATTACHMENT_METADATA_FIELDS_BEGIN,
+  SERVER_ATTACHMENT_METADATA,
   ATTACHMENT_METADATA_FIELDS_END
 };
 
@@ -341,6 +342,7 @@ struct SYNC_EXPORT_PRIVATE EntryKernel {
   ModelType GetModelType() const;
   ModelType GetServerModelType() const;
   bool ShouldMaintainPosition() const;
+  bool ShouldMaintainHierarchy() const;
 
   // Dumps all kernel info into a DictionaryValue and returns it.
   // Transfers ownership of the DictionaryValue to the caller.

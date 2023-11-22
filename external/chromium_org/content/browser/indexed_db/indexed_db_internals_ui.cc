@@ -11,6 +11,7 @@
 #include "base/threading/platform_thread.h"
 #include "base/values.h"
 #include "content/browser/indexed_db/indexed_db_context_impl.h"
+#include "content/grit/content_resources.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/download_manager.h"
@@ -20,10 +21,9 @@
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "content/public/common/url_constants.h"
-#include "grit/content_resources.h"
+#include "storage/common/database/database_identifier.h"
 #include "third_party/zlib/google/zip.h"
 #include "ui/base/text/bytes_formatting.h"
-#include "webkit/common/database/database_identifier.h"
 
 namespace content {
 
@@ -87,15 +87,19 @@ void IndexedDBInternalsUI::GetAllOriginsOnIndexedDBThread(
     const base::FilePath& context_path) {
   DCHECK(context->TaskRunner()->RunsTasksOnCurrentThread());
 
-  scoped_ptr<base::ListValue> info_list(static_cast<IndexedDBContextImpl*>(
-      context.get())->GetAllOriginsDetails());
+  IndexedDBContextImpl* context_impl =
+      static_cast<IndexedDBContextImpl*>(context.get());
 
-  BrowserThread::PostTask(BrowserThread::UI,
-                          FROM_HERE,
-                          base::Bind(&IndexedDBInternalsUI::OnOriginsReady,
-                                     base::Unretained(this),
-                                     base::Passed(&info_list),
-                                     context_path));
+  scoped_ptr<base::ListValue> info_list(context_impl->GetAllOriginsDetails());
+  bool is_incognito = context_impl->is_incognito();
+
+  BrowserThread::PostTask(
+      BrowserThread::UI,
+      FROM_HERE,
+      base::Bind(&IndexedDBInternalsUI::OnOriginsReady,
+                 base::Unretained(this),
+                 base::Passed(&info_list),
+                 is_incognito ? base::FilePath() : context_path));
 }
 
 void IndexedDBInternalsUI::OnOriginsReady(scoped_ptr<base::ListValue> origins,
@@ -148,7 +152,7 @@ bool IndexedDBInternalsUI::GetOriginContext(
       base::Bind(&FindContext, path, &result_partition, context);
   BrowserContext::ForEachStoragePartition(browser_context, cb);
 
-  if (!result_partition || !(*context))
+  if (!result_partition || !(context->get()))
     return false;
 
   return true;
@@ -163,7 +167,7 @@ void IndexedDBInternalsUI::DownloadOriginData(const base::ListValue* args) {
   if (!GetOriginData(args, &partition_path, &origin_url, &context))
     return;
 
-  DCHECK(context);
+  DCHECK(context.get());
   context->TaskRunner()->PostTask(
       FROM_HERE,
       base::Bind(&IndexedDBInternalsUI::DownloadOriginDataOnIndexedDBThread,
@@ -213,7 +217,7 @@ void IndexedDBInternalsUI::DownloadOriginDataOnIndexedDBThread(
   // has completed.
   base::FilePath temp_path = temp_dir.Take();
 
-  std::string origin_id = webkit_database::GetIdentifierFromOrigin(origin_url);
+  std::string origin_id = storage::GetIdentifierFromOrigin(origin_url);
   base::FilePath zip_path =
       temp_path.AppendASCII(origin_id).AddExtension(FILE_PATH_LITERAL("zip"));
 

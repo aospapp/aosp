@@ -26,14 +26,18 @@ class RequestHeaders(object):
 class Request(object):
   '''Request data.
   '''
-  def __init__(self, path, host, headers):
+  def __init__(self, path, host, headers, arguments={}):
     self.path = path.lstrip('/')
     self.host = host.rstrip('/')
     self.headers = RequestHeaders(headers)
+    self.arguments = arguments
 
   @staticmethod
-  def ForTest(path, host=None, headers=None):
-    return Request(path, host or 'http://developer.chrome.com', headers or {})
+  def ForTest(path, host=None, headers=None, arguments=None):
+    return Request(path,
+                   host or 'http://developer.chrome.com',
+                   headers or {},
+                   arguments or {})
 
   def __repr__(self):
     return 'Request(path=%s, host=%s, headers=%s)' % (
@@ -106,6 +110,12 @@ class Response(object):
     '''Returns an internal error (500) response.
     '''
     return Response(content=content, headers=headers, status=500)
+
+  @staticmethod
+  def ThrottledError(content, headers=None):
+    '''Returns an HTTP throttle error (429) response.
+    '''
+    return Response(content=content, headers=headers, status=429)
 
   def Append(self, content):
     '''Appends |content| to the response content.

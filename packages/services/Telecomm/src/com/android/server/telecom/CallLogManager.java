@@ -98,10 +98,10 @@ final class CallLogManager extends CallsManagerListenerBase {
 
     @Override
     public void onCallStateChanged(Call call, int oldState, int newState) {
+        int disconnectCause = call.getDisconnectCause().getCode();
         boolean isNewlyDisconnected =
                 newState == CallState.DISCONNECTED || newState == CallState.ABORTED;
-        boolean isCallCanceled = isNewlyDisconnected &&
-                call.getDisconnectCause().getCode() == DisconnectCause.CANCELED;
+        boolean isCallCanceled = isNewlyDisconnected && disconnectCause == DisconnectCause.CANCELED;
 
         // Log newly disconnected calls only if:
         // 1) It was not in the "choose account" phase when disconnected
@@ -114,7 +114,7 @@ final class CallLogManager extends CallsManagerListenerBase {
             int type;
             if (!call.isIncoming()) {
                 type = Calls.OUTGOING_TYPE;
-            } else if (oldState == CallState.RINGING) {
+            } else if (disconnectCause == DisconnectCause.MISSED) {
                 type = Calls.MISSED_TYPE;
             } else {
                 type = Calls.INCOMING_TYPE;
@@ -140,13 +140,12 @@ final class CallLogManager extends CallsManagerListenerBase {
 
         Log.d(TAG, "logNumber set to: %s", Log.pii(logNumber));
 
-        final int presentation = getPresentation(call);
         final PhoneAccountHandle accountHandle = call.getTargetPhoneAccount();
 
         // TODO(vt): Once data usage is available, wire it up here.
         int callFeatures = getCallFeatures(call.getVideoStateHistory());
-        logCall(call.getCallerInfo(), logNumber, presentation, callLogType, callFeatures,
-                accountHandle, creationTime, age, null);
+        logCall(call.getCallerInfo(), logNumber, call.getHandlePresentation(),
+                callLogType, callFeatures, accountHandle, creationTime, age, null);
     }
 
     /**
@@ -229,21 +228,6 @@ final class CallLogManager extends CallsManagerListenerBase {
             handleString = PhoneNumberUtils.stripSeparators(handleString);
         }
         return handleString;
-    }
-
-    /**
-     * Gets the presentation from the {@link Call}.
-     *
-     * TODO: There needs to be a way to pass information from
-     * Connection.getNumberPresentation() into a {@link Call} object. Until then, always return
-     * PhoneConstants.PRESENTATION_ALLOWED. On top of that, we might need to introduce
-     * getNumberPresentation to the ContactInfo object as well.
-     *
-     * @param call The call object to retrieve caller details from.
-     * @return The number presentation constant to insert into the call logs.
-     */
-    private int getPresentation(Call call) {
-        return PhoneConstants.PRESENTATION_ALLOWED;
     }
 
     /**

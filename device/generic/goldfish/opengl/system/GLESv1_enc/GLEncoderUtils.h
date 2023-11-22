@@ -16,7 +16,8 @@
 #ifndef GL_ENCODER_UTILS_H
 #define GL_ENCLODER_UTILS_H
 
-extern "C" {
+namespace glesv1_enc {
     size_t pixelDataSize(void *self, GLsizei width, GLsizei height, GLenum format, GLenum type, int pack);
 };
+
 #endif

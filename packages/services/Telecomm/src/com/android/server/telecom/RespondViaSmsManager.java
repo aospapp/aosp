@@ -18,6 +18,7 @@ package com.android.server.telecom;
 
 // TODO: Needed for move to system service: import com.android.internal.R;
 import com.android.internal.os.SomeArgs;
+import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.SmsApplication;
 
 import android.content.ComponentName;
@@ -29,6 +30,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Message;
 import android.telecom.Response;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.widget.Toast;
 
@@ -108,7 +110,8 @@ public class RespondViaSmsManager extends CallsManagerListenerBase {
                 QuickResponseUtils.maybeMigrateLegacyQuickResponses(context);
 
                 final SharedPreferences prefs = context.getSharedPreferences(
-                        QuickResponseUtils.SHARED_PREFERENCES_NAME, Context.MODE_PRIVATE);
+                        QuickResponseUtils.SHARED_PREFERENCES_NAME,
+                        Context.MODE_PRIVATE | Context.MODE_MULTI_PROCESS);
                 final Resources res = context.getResources();
 
                 final ArrayList<String> textMessages = new ArrayList<>(
@@ -139,10 +142,13 @@ public class RespondViaSmsManager extends CallsManagerListenerBase {
 
     @Override
     public void onIncomingCallRejected(Call call, boolean rejectWithMessage, String textMessage) {
-        if (rejectWithMessage) {
-
+        if (rejectWithMessage && call.getHandle() != null) {
+            PhoneAccountRegistrar phoneAccountRegistrar =
+                    CallsManager.getInstance().getPhoneAccountRegistrar();
+            int subId = phoneAccountRegistrar.getSubscriptionIdForPhoneAccount(
+                    call.getTargetPhoneAccount());
             rejectCallWithMessage(call.getContext(), call.getHandle().getSchemeSpecificPart(),
-                    textMessage);
+                    textMessage, subId);
         }
     }
 
@@ -175,7 +181,8 @@ public class RespondViaSmsManager extends CallsManagerListenerBase {
     /**
      * Reject the call with the specified message. If message is null this call is ignored.
      */
-    private void rejectCallWithMessage(Context context, String phoneNumber, String textMessage) {
+    private void rejectCallWithMessage(Context context, String phoneNumber, String textMessage,
+            int subId) {
         if (textMessage != null) {
             final ComponentName component =
                     SmsApplication.getDefaultRespondViaMessageApplication(context,
@@ -185,6 +192,9 @@ public class RespondViaSmsManager extends CallsManagerListenerBase {
                 final Uri uri = Uri.fromParts(Constants.SCHEME_SMSTO, phoneNumber, null);
                 final Intent intent = new Intent(TelephonyManager.ACTION_RESPOND_VIA_MESSAGE, uri);
                 intent.putExtra(Intent.EXTRA_TEXT, textMessage);
+                if (SubscriptionManager.isValidSubscriptionId(subId)) {
+                    intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
+                }
 
                 SomeArgs args = SomeArgs.obtain();
                 args.arg1 = phoneNumber;

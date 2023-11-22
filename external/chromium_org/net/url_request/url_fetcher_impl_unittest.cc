@@ -8,7 +8,7 @@
 #include <string>
 
 #include "base/bind.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/message_loop/message_loop_proxy.h"
 #include "base/strings/stringprintf.h"
@@ -41,7 +41,7 @@ namespace {
 
 // TODO(akalin): Move all the test data to somewhere under net/.
 const base::FilePath::CharType kDocRoot[] =
-    FILE_PATH_LITERAL("chrome/test/data");
+    FILE_PATH_LITERAL("net/data/url_fetcher_impl_unittest");
 const char kTestServerFilePrefix[] = "files/";
 
 class ThrottlingTestURLRequestContext : public TestURLRequestContext {

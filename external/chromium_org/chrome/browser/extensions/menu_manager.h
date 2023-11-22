@@ -25,10 +25,10 @@
 #include "extensions/browser/extension_registry_observer.h"
 #include "extensions/common/url_pattern_set.h"
 
-class Profile;
 class SkBitmap;
 
 namespace content {
+class BrowserContext;
 class WebContents;
 struct ContextMenuParams;
 }
@@ -94,7 +94,9 @@ class MenuItem {
     VIDEO = 64,
     AUDIO = 128,
     FRAME = 256,
-    LAUNCHER = 512
+    LAUNCHER = 512,
+    BROWSER_ACTION = 1024,
+    PAGE_ACTION = 2048
   };
 
   // An item can be only one of these types.
@@ -167,7 +169,7 @@ class MenuItem {
   const Id& id() const { return id_; }
   Id* parent_id() const { return parent_id_.get(); }
   int child_count() const { return children_.size(); }
-  ContextList contexts() const { return contexts_; }
+  const ContextList& contexts() const { return contexts_; }
   Type type() const { return type_; }
   bool checked() const { return checked_; }
   bool enabled() const { return enabled_; }
@@ -275,11 +277,11 @@ class MenuManager : public content::NotificationObserver,
   static const char kOnContextMenus[];
   static const char kOnWebviewContextMenus[];
 
-  MenuManager(Profile* profile, StateStore* store_);
+  MenuManager(content::BrowserContext* context, StateStore* store_);
   virtual ~MenuManager();
 
-  // Convenience function to get the MenuManager for a Profile.
-  static MenuManager* Get(Profile* profile);
+  // Convenience function to get the MenuManager for a browser context.
+  static MenuManager* Get(content::BrowserContext* context);
 
   // Returns the keys of extensions which have menu items registered.
   std::set<MenuItem::ExtensionKey> ExtensionIds();
@@ -327,7 +329,7 @@ class MenuManager : public content::NotificationObserver,
   bool ItemUpdated(const MenuItem::Id& id);
 
   // Called when a menu item is clicked on by the user.
-  void ExecuteCommand(Profile* profile,
+  void ExecuteCommand(content::BrowserContext* context,
                       content::WebContents* web_contents,
                       const content::ContextMenuParams& params,
                       const MenuItem::Id& menu_item_id);
@@ -395,7 +397,7 @@ class MenuManager : public content::NotificationObserver,
 
   ExtensionIconManager icon_manager_;
 
-  Profile* profile_;
+  content::BrowserContext* browser_context_;
 
   // Owned by ExtensionSystem.
   StateStore* store_;

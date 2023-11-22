@@ -5,87 +5,98 @@
 #include "cc/surfaces/surface.h"
 
 #include "cc/output/compositor_frame.h"
-#include "cc/surfaces/surface_manager.h"
+#include "cc/output/copy_output_request.h"
+#include "cc/surfaces/surface_factory.h"
 
 namespace cc {
 
-Surface::Surface(SurfaceManager* manager,
-                 SurfaceClient* client,
-                 const gfx::Size& size)
-    : manager_(manager),
-      client_(client),
-      size_(size) {
-  surface_id_ = manager_->RegisterAndAllocateIdForSurface(this);
+// The frame index starts at 2 so that empty frames will be treated as
+// completely damaged the first time they're drawn from.
+static const int kFrameIndexStart = 2;
+
+Surface::Surface(SurfaceId id, const gfx::Size& size, SurfaceFactory* factory)
+    : surface_id_(id),
+      size_(size),
+      factory_(factory),
+      frame_index_(kFrameIndexStart) {
 }
 
 Surface::~Surface() {
-  manager_->DeregisterSurface(surface_id_);
+  for (ScopedPtrVector<CopyOutputRequest>::iterator it = copy_requests_.begin();
+       it != copy_requests_.end();
+       ++it) {
+    (*it)->SendEmptyResult();
+  }
+  copy_requests_.clear();
+  if (current_frame_) {
+    ReturnedResourceArray current_resources;
+    TransferableResource::ReturnResources(
+        current_frame_->delegated_frame_data->resource_list,
+        &current_resources);
+    factory_->UnrefResources(current_resources);
+  }
 }
 
-void Surface::QueueFrame(scoped_ptr<CompositorFrame> frame) {
+void Surface::QueueFrame(scoped_ptr<CompositorFrame> frame,
+                         const base::Closure& callback) {
+  for (ScopedPtrVector<CopyOutputRequest>::iterator it = copy_requests_.begin();
+       it != copy_requests_.end();
+       ++it) {
+    (*it)->SendEmptyResult();
+  }
+  copy_requests_.clear();
+
+  TakeLatencyInfo(&frame->metadata.latency_info);
   scoped_ptr<CompositorFrame> previous_frame = current_frame_.Pass();
   current_frame_ = frame.Pass();
-  ReceiveResourcesFromClient(
+  factory_->ReceiveFromChild(
       current_frame_->delegated_frame_data->resource_list);
+  ++frame_index_;
+
   if (previous_frame) {
     ReturnedResourceArray previous_resources;
     TransferableResource::ReturnResources(
         previous_frame->delegated_frame_data->resource_list,
         &previous_resources);
-    UnrefResources(previous_resources);
+    factory_->UnrefResources(previous_resources);
   }
+  if (!draw_callback_.is_null())
+    draw_callback_.Run();
+  draw_callback_ = callback;
 }
 
-CompositorFrame* Surface::GetEligibleFrame() { return current_frame_.get(); }
-
-void Surface::ReturnUnusedResourcesToClient() {
-  client_->ReturnResources(resources_available_to_return_);
-  resources_available_to_return_.clear();
+void Surface::RequestCopyOfOutput(scoped_ptr<CopyOutputRequest> copy_request) {
+  copy_requests_.push_back(copy_request.Pass());
 }
 
-void Surface::RefCurrentFrameResources() {
+void Surface::TakeCopyOutputRequests(
+    ScopedPtrVector<CopyOutputRequest>* copy_requests) {
+  DCHECK(copy_requests->empty());
+  copy_requests->swap(copy_requests_);
+}
+
+const CompositorFrame* Surface::GetEligibleFrame() {
+  return current_frame_.get();
+}
+
+void Surface::TakeLatencyInfo(std::vector<ui::LatencyInfo>* latency_info) {
   if (!current_frame_)
     return;
-  const TransferableResourceArray& current_frame_resources =
-      current_frame_->delegated_frame_data->resource_list;
-  for (size_t i = 0; i < current_frame_resources.size(); ++i) {
-    const TransferableResource& resource = current_frame_resources[i];
-    ResourceIdCountMap::iterator it =
-        resource_id_use_count_map_.find(resource.id);
-    DCHECK(it != resource_id_use_count_map_.end());
-    it->second.refs_holding_resource_alive++;
+  if (latency_info->empty()) {
+    current_frame_->metadata.latency_info.swap(*latency_info);
+    return;
   }
+  std::copy(current_frame_->metadata.latency_info.begin(),
+            current_frame_->metadata.latency_info.end(),
+            std::back_inserter(*latency_info));
+  current_frame_->metadata.latency_info.clear();
 }
 
-Surface::ResourceRefs::ResourceRefs()
-    : refs_received_from_child(0), refs_holding_resource_alive(0) {
-}
-
-void Surface::ReceiveResourcesFromClient(
-    const TransferableResourceArray& resources) {
-  for (TransferableResourceArray::const_iterator it = resources.begin();
-       it != resources.end();
-       ++it) {
-    ResourceRefs& ref = resource_id_use_count_map_[it->id];
-    ref.refs_holding_resource_alive++;
-    ref.refs_received_from_child++;
-  }
-}
-
-void Surface::UnrefResources(const ReturnedResourceArray& resources) {
-  for (ReturnedResourceArray::const_iterator it = resources.begin();
-       it != resources.end();
-       ++it) {
-    ResourceProvider::ResourceId id = it->id;
-    ResourceIdCountMap::iterator count_it = resource_id_use_count_map_.find(id);
-    DCHECK(count_it != resource_id_use_count_map_.end());
-    count_it->second.refs_holding_resource_alive -= it->count;
-    if (count_it->second.refs_holding_resource_alive == 0) {
-      resources_available_to_return_.push_back(*it);
-      resources_available_to_return_.back().count =
-          count_it->second.refs_received_from_child;
-      resource_id_use_count_map_.erase(count_it);
-    }
+void Surface::RunDrawCallbacks() {
+  if (!draw_callback_.is_null()) {
+    base::Closure callback = draw_callback_;
+    draw_callback_ = base::Closure();
+    callback.Run();
   }
 }
 

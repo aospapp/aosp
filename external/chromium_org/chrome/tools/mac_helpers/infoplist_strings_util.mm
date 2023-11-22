@@ -11,8 +11,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/mac/scoped_nsautorelease_pool.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/strings/string_number_conversions.h"
@@ -20,7 +20,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
-#include "grit/chromium_strings.h"
+#include "chrome/grit/chromium_strings.h"
 #include "ui/base/resource/data_pack.h"
 
 namespace {

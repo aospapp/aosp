@@ -33,17 +33,28 @@ import android.preference.PreferenceManager;
 import android.provider.ContactsContract.PhoneLookup;
 import android.provider.Settings;
 import android.telecom.PhoneAccount;
+import android.telecom.PhoneAccountHandle;
+import android.telecom.TelecomManager;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.ServiceState;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 import android.text.TextUtils;
+import android.util.ArrayMap;
 import android.util.Log;
 import android.widget.Toast;
 
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneBase;
 import com.android.internal.telephony.TelephonyCapabilities;
+import com.android.phone.settings.VoicemailNotificationSettingsUtil;
+import com.android.phone.settings.VoicemailProviderSettingsUtil;
 
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * NotificationManager-related utility code for the Phone app.
@@ -55,7 +66,7 @@ import java.util.List;
  * @see PhoneGlobals.notificationMgr
  */
 public class NotificationMgr {
-    private static final String LOG_TAG = "NotificationMgr";
+    private static final String LOG_TAG = NotificationMgr.class.getSimpleName();
     private static final boolean DBG =
             (PhoneGlobals.DBG_LEVEL >= 1) && (SystemProperties.getInt("ro.debuggable", 0) == 1);
     // Do not check in with VDBG = true, since that may write PII to the system log.
@@ -80,16 +91,17 @@ public class NotificationMgr {
     private StatusBarManager mStatusBarManager;
     private UserManager mUserManager;
     private Toast mToast;
+    private SubscriptionManager mSubscriptionManager;
+    private TelecomManager mTelecomManager;
+    private TelephonyManager mTelephonyManager;
 
     public StatusBarHelper statusBarHelper;
 
     // used to track the notification of selected network unavailable
     private boolean mSelectedUnavailableNotify = false;
 
-    // Retry params for the getVoiceMailNumber() call; see updateMwi().
-    private static final int MAX_VM_NUMBER_RETRIES = 5;
-    private static final int VM_NUMBER_RETRY_DELAY_MILLIS = 10000;
-    private int mVmNumberRetriesRemaining = MAX_VM_NUMBER_RETRIES;
+    // used to track whether the message waiting indicator is visible, per subscription id.
+    private ArrayMap<Integer, Boolean> mMwiVisible = new ArrayMap<Integer, Boolean>();
 
     /**
      * Private constructor (this is a singleton).
@@ -103,8 +115,11 @@ public class NotificationMgr {
         mStatusBarManager =
                 (StatusBarManager) app.getSystemService(Context.STATUS_BAR_SERVICE);
         mUserManager = (UserManager) app.getSystemService(Context.USER_SERVICE);
-        mPhone = app.phone;  // TODO: better style to use mCM.getDefaultPhone() everywhere instead
+        mPhone = app.mCM.getDefaultPhone();
         statusBarHelper = new StatusBarHelper();
+        mSubscriptionManager = SubscriptionManager.from(mContext);
+        mTelecomManager = TelecomManager.from(mContext);
+        mTelephonyManager = (TelephonyManager) app.getSystemService(Context.TELEPHONY_SERVICE);
     }
 
     /**
@@ -151,7 +166,7 @@ public class NotificationMgr {
         private boolean mIsExpandedViewEnabled = true;
         private boolean mIsSystemBarNavigationEnabled = true;
 
-        private StatusBarHelper () {
+        private StatusBarHelper() {
         }
 
         /**
@@ -229,14 +244,73 @@ public class NotificationMgr {
     };
 
     /**
+     * Re-creates the message waiting indicator (voicemail) notification if it is showing.  Used to
+     * refresh the voicemail intent on the indicator when the user changes it via the voicemail
+     * settings screen.  The voicemail notification sound is suppressed.
+     *
+     * @param subId The subscription Id.
+     */
+    /* package */ void refreshMwi(int subId) {
+        // In a single-sim device, subId can be -1 which means "no sub id".  In this case we will
+        // reference the single subid stored in the mMwiVisible map.
+        if (subId == SubscriptionInfoHelper.NO_SUB_ID) {
+            if (mMwiVisible.keySet().size() == 1) {
+                Set<Integer> keySet = mMwiVisible.keySet();
+                Iterator<Integer> keyIt = keySet.iterator();
+                if (!keyIt.hasNext()) {
+                    return;
+                }
+                subId = keyIt.next();
+            }
+        }
+        if (mMwiVisible.containsKey(subId)) {
+            boolean mwiVisible = mMwiVisible.get(subId);
+            if (mwiVisible) {
+                updateMwi(subId, mwiVisible, false /* enableNotificationSound */);
+            }
+        }
+    }
+
+    /**
      * Updates the message waiting indicator (voicemail) notification.
      *
      * @param visible true if there are messages waiting
      */
-    /* package */ void updateMwi(boolean visible) {
-        if (DBG) log("updateMwi(): " + visible);
+    /* package */ void updateMwi(int subId, boolean visible) {
+        updateMwi(subId, visible, true /* enableNotificationSound */);
+    }
+
+    /**
+     * Updates the message waiting indicator (voicemail) notification.
+     *
+     * @param subId the subId to update.
+     * @param visible true if there are messages waiting
+     * @param enableNotificationSound {@code true} if the notification sound should be played.
+     */
+    void updateMwi(int subId, boolean visible, boolean enableNotificationSound) {
+        if (!PhoneGlobals.sVoiceCapable) {
+            // Do not show the message waiting indicator on devices which are not voice capable.
+            // These events *should* be blocked at the telephony layer for such devices.
+            Log.w(LOG_TAG, "Called updateMwi() on non-voice-capable device! Ignoring...");
+            return;
+        }
+
+        Log.i(LOG_TAG, "updateMwi(): subId " + subId + " update to " + visible);
+        mMwiVisible.put(subId, visible);
 
         if (visible) {
+            Phone phone = PhoneGlobals.getPhone(subId);
+            if (phone == null) {
+                Log.w(LOG_TAG, "Found null phone for: " + subId);
+                return;
+            }
+
+            SubscriptionInfo subInfo = mSubscriptionManager.getActiveSubscriptionInfo(subId);
+            if (subInfo == null) {
+                Log.w(LOG_TAG, "Found null subscription info for: " + subId);
+                return;
+            }
+
             int resId = android.R.drawable.stat_notify_voicemail;
 
             // This Notification can get a lot fancier once we have more
@@ -250,83 +324,69 @@ public class NotificationMgr {
             // notification.
 
             String notificationTitle = mContext.getString(R.string.notification_voicemail_title);
-            String vmNumber = mPhone.getVoiceMailNumber();
+            String vmNumber = phone.getVoiceMailNumber();
             if (DBG) log("- got vm number: '" + vmNumber + "'");
 
-            // Watch out: vmNumber may be null, for two possible reasons:
-            //
-            //   (1) This phone really has no voicemail number
-            //
-            //   (2) This phone *does* have a voicemail number, but
-            //       the SIM isn't ready yet.
-            //
-            // Case (2) *does* happen in practice if you have voicemail
-            // messages when the device first boots: we get an MWI
-            // notification as soon as we register on the network, but the
-            // SIM hasn't finished loading yet.
-            //
-            // So handle case (2) by retrying the lookup after a short
-            // delay.
-
-            if ((vmNumber == null) && !mPhone.getIccRecordsLoaded()) {
+            // The voicemail number may be null because:
+            //   (1) This phone has no voicemail number.
+            //   (2) This phone has a voicemail number, but the SIM isn't ready yet. This may
+            //       happen when the device first boots if we get a MWI notification when we
+            //       register on the network before the SIM has loaded. In this case, the
+            //       SubscriptionListener in CallNotifier will update this once the SIM is loaded.
+            if ((vmNumber == null) && !phone.getIccRecordsLoaded()) {
                 if (DBG) log("- Null vm number: SIM records not loaded (yet)...");
-
-                // TODO: rather than retrying after an arbitrary delay, it
-                // would be cleaner to instead just wait for a
-                // SIM_RECORDS_LOADED notification.
-                // (Unfortunately right now there's no convenient way to
-                // get that notification in phone app code.  We'd first
-                // want to add a call like registerForSimRecordsLoaded()
-                // to Phone.java and GSMPhone.java, and *then* we could
-                // listen for that in the CallNotifier class.)
-
-                // Limit the number of retries (in case the SIM is broken
-                // or missing and can *never* load successfully.)
-                if (mVmNumberRetriesRemaining-- > 0) {
-                    if (DBG) log("  - Retrying in " + VM_NUMBER_RETRY_DELAY_MILLIS + " msec...");
-                    mApp.notifier.sendMwiChangedDelayed(VM_NUMBER_RETRY_DELAY_MILLIS);
-                    return;
-                } else {
-                    Log.w(LOG_TAG, "NotificationMgr.updateMwi: getVoiceMailNumber() failed after "
-                          + MAX_VM_NUMBER_RETRIES + " retries; giving up.");
-                    // ...and continue with vmNumber==null, just as if the
-                    // phone had no VM number set up in the first place.
-                }
+                return;
             }
 
-            if (TelephonyCapabilities.supportsVoiceMessageCount(mPhone)) {
-                int vmCount = mPhone.getVoiceMessageCount();
+            if (TelephonyCapabilities.supportsVoiceMessageCount(phone)) {
+                int vmCount = phone.getVoiceMessageCount();
                 String titleFormat = mContext.getString(R.string.notification_voicemail_title_count);
                 notificationTitle = String.format(titleFormat, vmCount);
             }
 
+            // This pathway only applies to PSTN accounts; only SIMS have subscription ids.
+            PhoneAccountHandle phoneAccountHandle = PhoneUtils.makePstnPhoneAccountHandle(phone);
+
+            Intent intent;
             String notificationText;
             if (TextUtils.isEmpty(vmNumber)) {
                 notificationText = mContext.getString(
                         R.string.notification_voicemail_no_vm_number);
+
+                // If the voicemail number if unknown, instead of calling voicemail, take the user
+                // to the voicemail settings.
+                notificationText = mContext.getString(
+                        R.string.notification_voicemail_no_vm_number);
+                intent = new Intent(CallFeaturesSetting.ACTION_ADD_VOICEMAIL);
+                intent.putExtra(CallFeaturesSetting.SETUP_VOICEMAIL_EXTRA, true);
+                intent.putExtra(SubscriptionInfoHelper.SUB_ID_EXTRA, subId);
+                intent.setClass(mContext, CallFeaturesSetting.class);
             } else {
-                notificationText = String.format(
-                        mContext.getString(R.string.notification_voicemail_text_format),
-                        PhoneNumberUtils.formatNumber(vmNumber));
+                if (mTelephonyManager.getPhoneCount() > 1) {
+                    notificationText = subInfo.getDisplayName().toString();
+                } else {
+                    notificationText = String.format(
+                            mContext.getString(R.string.notification_voicemail_text_format),
+                            PhoneNumberUtils.formatNumber(vmNumber));
+                }
+                intent = new Intent(
+                        Intent.ACTION_CALL, Uri.fromParts(PhoneAccount.SCHEME_VOICEMAIL, "",
+                        null));
+                intent.putExtra(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, phoneAccountHandle);
             }
 
-            Intent intent = new Intent(Intent.ACTION_CALL,
-                    Uri.fromParts(PhoneAccount.SCHEME_VOICEMAIL, "", null));
-            PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, intent, 0);
+            PendingIntent pendingIntent =
+                    PendingIntent.getActivity(mContext, subId /* requestCode */, intent, 0);
+            Uri ringtoneUri = null;
 
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(mContext);
-            Uri ringtoneUri;
-            String uriString = prefs.getString(
-                    CallFeaturesSetting.BUTTON_VOICEMAIL_NOTIFICATION_RINGTONE_KEY, null);
-            if (!TextUtils.isEmpty(uriString)) {
-                ringtoneUri = Uri.parse(uriString);
-            } else {
-                ringtoneUri = Settings.System.DEFAULT_NOTIFICATION_URI;
+            if (enableNotificationSound) {
+                ringtoneUri = VoicemailNotificationSettingsUtil.getRingtoneUri(mPhone);
             }
 
             Notification.Builder builder = new Notification.Builder(mContext);
             builder.setSmallIcon(resId)
                     .setWhen(System.currentTimeMillis())
+                    .setColor(subInfo.getIconTint())
                     .setContentTitle(notificationTitle)
                     .setContentText(notificationText)
                     .setContentIntent(pendingIntent)
@@ -334,10 +394,7 @@ public class NotificationMgr {
                     .setColor(mContext.getResources().getColor(R.color.dialer_theme_color))
                     .setOngoing(true);
 
-            CallFeaturesSetting.migrateVoicemailVibrationSettingsIfNeeded(prefs);
-            final boolean vibrate = prefs.getBoolean(
-                    CallFeaturesSetting.BUTTON_VOICEMAIL_NOTIFICATION_VIBRATE_KEY, false);
-            if (vibrate) {
+            if (VoicemailNotificationSettingsUtil.isVibrationEnabled(phone)) {
                 builder.setDefaults(Notification.DEFAULT_VIBRATE);
             }
 
@@ -350,12 +407,17 @@ public class NotificationMgr {
                         UserManager.DISALLOW_OUTGOING_CALLS, userHandle)
                             && !user.isManagedProfile()) {
                     mNotificationManager.notifyAsUser(
-                            null /* tag */, VOICEMAIL_NOTIFICATION, notification, userHandle);
+                            Integer.toString(subId) /* tag */,
+                            VOICEMAIL_NOTIFICATION,
+                            notification,
+                            userHandle);
                 }
             }
         } else {
             mNotificationManager.cancelAsUser(
-                    null /* tag */, VOICEMAIL_NOTIFICATION, UserHandle.ALL);
+                    Integer.toString(subId) /* tag */,
+                    VOICEMAIL_NOTIFICATION,
+                    UserHandle.ALL);
         }
     }
 
@@ -364,7 +426,7 @@ public class NotificationMgr {
      *
      * @param visible true if there are messages waiting
      */
-    /* package */ void updateCfi(boolean visible) {
+    /* package */ void updateCfi(int subId, boolean visible) {
         if (DBG) log("updateCfi(): " + visible);
         if (visible) {
             // If Unconditional Call Forwarding (forward all calls) for VOICE
@@ -378,28 +440,54 @@ public class NotificationMgr {
             // effort though, since there are multiple layers of messages that
             // will need to propagate that information.
 
+            SubscriptionInfo subInfo = mSubscriptionManager.getActiveSubscriptionInfo(subId);
+            if (subInfo == null) {
+                Log.w(LOG_TAG, "Found null subscription info for: " + subId);
+                return;
+            }
+
+            String notificationTitle;
+            if (mTelephonyManager.getPhoneCount() > 1) {
+                notificationTitle = subInfo.getDisplayName().toString();
+            } else {
+                notificationTitle = mContext.getString(R.string.labelCF);
+            }
+
             Notification.Builder builder = new Notification.Builder(mContext)
                     .setSmallIcon(R.drawable.stat_sys_phone_call_forward)
-                    .setContentTitle(mContext.getString(R.string.labelCF))
+                    .setColor(subInfo.getIconTint())
+                    .setContentTitle(notificationTitle)
                     .setContentText(mContext.getString(R.string.sum_cfu_enabled_indicator))
                     .setShowWhen(false)
                     .setOngoing(true);
 
             Intent intent = new Intent(Intent.ACTION_MAIN);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             intent.setClassName("com.android.phone", "com.android.phone.CallFeaturesSetting");
-            PendingIntent contentIntent = PendingIntent.getActivity(mContext, 0, intent, 0);
+            SubscriptionInfoHelper.addExtrasToIntent(
+                    intent, mSubscriptionManager.getActiveSubscriptionInfo(subId));
+            PendingIntent contentIntent =
+                    PendingIntent.getActivity(mContext, subId /* requestCode */, intent, 0);
 
             List<UserInfo> users = mUserManager.getUsers(true);
             for (int i = 0; i < users.size(); i++) {
-                UserHandle userHandle = users.get(i).getUserHandle();
+                final UserInfo user = users.get(i);
+                if (user.isManagedProfile()) {
+                    continue;
+                }
+                UserHandle userHandle = user.getUserHandle();
                 builder.setContentIntent(userHandle.isOwner() ? contentIntent : null);
-                    mNotificationManager.notifyAsUser(
-                            null /* tag */, CALL_FORWARD_NOTIFICATION, builder.build(), userHandle);
+                mNotificationManager.notifyAsUser(
+                        Integer.toString(subId) /* tag */,
+                        CALL_FORWARD_NOTIFICATION,
+                        builder.build(),
+                        userHandle);
             }
         } else {
             mNotificationManager.cancelAsUser(
-                    null /* tag */, CALL_FORWARD_NOTIFICATION, UserHandle.ALL);
+                    Integer.toString(subId) /* tag */,
+                    CALL_FORWARD_NOTIFICATION,
+                    UserHandle.ALL);
         }
     }
 
@@ -425,7 +513,11 @@ public class NotificationMgr {
 
         List<UserInfo> users = mUserManager.getUsers(true);
         for (int i = 0; i < users.size(); i++) {
-            UserHandle userHandle = users.get(i).getUserHandle();
+            final UserInfo user = users.get(i);
+            if (user.isManagedProfile()) {
+                continue;
+            }
+            UserHandle userHandle = user.getUserHandle();
             builder.setContentIntent(userHandle.isOwner() ? contentIntent : null);
             final Notification notif =
                     new Notification.BigTextStyle(builder).bigText(contentText).build();
@@ -468,7 +560,11 @@ public class NotificationMgr {
 
         List<UserInfo> users = mUserManager.getUsers(true);
         for (int i = 0; i < users.size(); i++) {
-            UserHandle userHandle = users.get(i).getUserHandle();
+            final UserInfo user = users.get(i);
+            if (user.isManagedProfile()) {
+                continue;
+            }
+            UserHandle userHandle = user.getUserHandle();
             builder.setContentIntent(userHandle.isOwner() ? contentIntent : null);
             mNotificationManager.notifyAsUser(
                     null /* tag */,
@@ -494,32 +590,38 @@ public class NotificationMgr {
      */
     void updateNetworkSelection(int serviceState) {
         if (TelephonyCapabilities.supportsNetworkSelection(mPhone)) {
-            // get the shared preference of network_selection.
-            // empty is auto mode, otherwise it is the operator alpha name
-            // in case there is no operator name, check the operator numeric
-            SharedPreferences sp =
-                    PreferenceManager.getDefaultSharedPreferences(mContext);
-            String networkSelection =
-                    sp.getString(PhoneBase.NETWORK_SELECTION_NAME_KEY, "");
-            if (TextUtils.isEmpty(networkSelection)) {
-                networkSelection =
-                        sp.getString(PhoneBase.NETWORK_SELECTION_KEY, "");
-            }
+            int subId = mPhone.getSubId();
+            if (SubscriptionManager.isValidSubscriptionId(subId)) {
+                // get the shared preference of network_selection.
+                // empty is auto mode, otherwise it is the operator alpha name
+                // in case there is no operator name, check the operator numeric
+                SharedPreferences sp =
+                        PreferenceManager.getDefaultSharedPreferences(mContext);
+                String networkSelection =
+                        sp.getString(PhoneBase.NETWORK_SELECTION_NAME_KEY + subId, "");
+                if (TextUtils.isEmpty(networkSelection)) {
+                    networkSelection =
+                            sp.getString(PhoneBase.NETWORK_SELECTION_KEY + subId, "");
+                }
 
-            if (DBG) log("updateNetworkSelection()..." + "state = " +
-                    serviceState + " new network " + networkSelection);
+                if (DBG) log("updateNetworkSelection()..." + "state = " +
+                        serviceState + " new network " + networkSelection);
 
-            if (serviceState == ServiceState.STATE_OUT_OF_SERVICE
-                    && !TextUtils.isEmpty(networkSelection)) {
-                if (!mSelectedUnavailableNotify) {
-                    showNetworkSelection(networkSelection);
-                    mSelectedUnavailableNotify = true;
+                if (serviceState == ServiceState.STATE_OUT_OF_SERVICE
+                        && !TextUtils.isEmpty(networkSelection)) {
+                    if (!mSelectedUnavailableNotify) {
+                        showNetworkSelection(networkSelection);
+                        mSelectedUnavailableNotify = true;
+                    }
+                } else {
+                    if (mSelectedUnavailableNotify) {
+                        cancelNetworkSelection();
+                        mSelectedUnavailableNotify = false;
+                    }
                 }
             } else {
-                if (mSelectedUnavailableNotify) {
-                    cancelNetworkSelection();
-                    mSelectedUnavailableNotify = false;
-                }
+                if (DBG) log("updateNetworkSelection()..." + "state = " +
+                        serviceState + " not updating network due to invalid subId " + subId);
             }
         }
     }

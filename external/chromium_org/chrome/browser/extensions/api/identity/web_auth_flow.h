@@ -7,10 +7,10 @@
 
 #include <string>
 
-#include "apps/app_window_registry.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "extensions/browser/app_window/app_window_registry.h"
 #include "ui/gfx/rect.h"
 #include "url/gurl.h"
 
@@ -45,7 +45,7 @@ namespace extensions {
 // a window. If a window would be required, the flow fails.
 class WebAuthFlow : public content::NotificationObserver,
                     public content::WebContentsObserver,
-                    public apps::AppWindowRegistry::Observer {
+                    public AppWindowRegistry::Observer {
  public:
   enum Mode {
     INTERACTIVE,  // Show UI to the user if necessary.
@@ -92,8 +92,8 @@ class WebAuthFlow : public content::NotificationObserver,
   friend class ::WebAuthFlowTest;
 
   // ::AppWindowRegistry::Observer implementation.
-  virtual void OnAppWindowAdded(apps::AppWindow* app_window) OVERRIDE;
-  virtual void OnAppWindowRemoved(apps::AppWindow* app_window) OVERRIDE;
+  virtual void OnAppWindowAdded(AppWindow* app_window) OVERRIDE;
+  virtual void OnAppWindowRemoved(AppWindow* app_window) OVERRIDE;
 
   // NotificationObserver implementation.
   virtual void Observe(int type,
@@ -108,21 +108,15 @@ class WebAuthFlow : public content::NotificationObserver,
       const content::FrameNavigateParams& params) OVERRIDE;
   virtual void RenderProcessGone(base::TerminationStatus status) OVERRIDE;
   virtual void DidStartProvisionalLoadForFrame(
-      int64 frame_id,
-      int64 parent_frame_id,
-      bool is_main_frame,
+      content::RenderFrameHost* render_frame_host,
       const GURL& validated_url,
       bool is_error_page,
-      bool is_iframe_srcdoc,
-      content::RenderViewHost* render_view_host) OVERRIDE;
-  virtual void DidFailProvisionalLoad(int64 frame_id,
-                                      const base::string16& frame_unique_name,
-                                      bool is_main_frame,
-                                      const GURL& validated_url,
-                                      int error_code,
-                                      const base::string16& error_description,
-                                      content::RenderViewHost* render_view_host)
-      OVERRIDE;
+      bool is_iframe_srcdoc) OVERRIDE;
+  virtual void DidFailProvisionalLoad(
+      content::RenderFrameHost* render_frame_host,
+      const GURL& validated_url,
+      int error_code,
+      const base::string16& error_description) OVERRIDE;
 
   void BeforeUrlLoaded(const GURL& url);
   void AfterUrlLoaded();
@@ -132,7 +126,7 @@ class WebAuthFlow : public content::NotificationObserver,
   GURL provider_url_;
   Mode mode_;
 
-  apps::AppWindow* app_window_;
+  AppWindow* app_window_;
   std::string app_window_key_;
   bool embedded_window_created_;
 

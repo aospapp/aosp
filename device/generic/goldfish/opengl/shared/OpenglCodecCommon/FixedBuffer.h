@@ -20,7 +20,7 @@ class FixedBuffer {
 public:
     FixedBuffer(size_t initialSize = 0) {
         m_buffer = NULL;
-        m_bufferLen = 0;
+        m_bufferLen = initialSize;
         alloc(m_bufferLen);
     }
 

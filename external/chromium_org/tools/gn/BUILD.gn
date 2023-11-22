@@ -26,7 +26,9 @@ static_library("gn_lib") {
     "command_check.cc",
     "command_desc.cc",
     "command_gen.cc",
+    "command_format.cc",
     "command_help.cc",
+    "command_ls.cc",
     "command_refs.cc",
     "commands.cc",
     "commands.h",
@@ -40,12 +42,12 @@ static_library("gn_lib") {
     "config_values_generator.h",
     "copy_target_generator.cc",
     "copy_target_generator.h",
+    "deps_iterator.cc",
+    "deps_iterator.h",
     "err.cc",
     "err.h",
     "escape.cc",
     "escape.h",
-    "file_template.cc",
-    "file_template.h",
     "filesystem_utils.cc",
     "filesystem_utils.h",
     "functions.cc",
@@ -80,6 +82,8 @@ static_library("gn_lib") {
     "item.h",
     "label.cc",
     "label.h",
+    "label_pattern.cc",
+    "label_pattern.h",
     "label_ptr.h",
     "loader.cc",
     "loader.h",
@@ -95,8 +99,8 @@ static_library("gn_lib") {
     "ninja_copy_target_writer.h",
     "ninja_group_target_writer.cc",
     "ninja_group_target_writer.h",
-    "ninja_helper.cc",
-    "ninja_helper.h",
+    "ninja_utils.cc",
+    "ninja_utils.h",
     "ninja_target_writer.cc",
     "ninja_target_writer.h",
     "ninja_toolchain_writer.cc",
@@ -105,6 +109,7 @@ static_library("gn_lib") {
     "ninja_writer.h",
     "operators.cc",
     "operators.h",
+    "output_file.cc",
     "output_file.h",
     "parse_tree.cc",
     "parse_tree.h",
@@ -128,10 +133,20 @@ static_library("gn_lib") {
     "source_dir.h",
     "source_file.cc",
     "source_file.h",
+    "source_file_type.cc",
+    "source_file_type.h",
     "standard_out.cc",
     "standard_out.h",
     "string_utils.cc",
     "string_utils.h",
+    "substitution_list.cc",
+    "substitution_list.h",
+    "substitution_pattern.cc",
+    "substitution_pattern.h",
+    "substitution_type.cc",
+    "substitution_type.h",
+    "substitution_writer.cc",
+    "substitution_writer.h",
     "target.cc",
     "target.h",
     "target_generator.cc",
@@ -141,11 +156,14 @@ static_library("gn_lib") {
     "token.cc",
     "token.h",
     "tokenizer.cc",
+    "tool.cc",
+    "tool.h",
     "tokenizer.h",
     "toolchain.cc",
     "toolchain.h",
     "trace.cc",
     "trace.h",
+    "unique_vector.h",
     "value.cc",
     "value.h",
     "value_extractors.cc",
@@ -162,6 +180,22 @@ static_library("gn_lib") {
   ]
 }
 
+action("last_commit_position") {
+  script = "last_commit_position.py"
+
+  # This dependency forces a re-run when the code is synced.
+  inputs = [ "//build/util/LASTCHANGE" ]
+
+  outfile = "$target_gen_dir/last_commit_position.h"
+  outputs = [ outfile ]
+
+  args = [
+    rebase_path("//", root_build_dir),
+    rebase_path(outfile, root_build_dir),
+    "TOOLS_GN_LAST_COMMIT_POSITION_H_",
+  ]
+}
+
 executable("gn") {
   sources = [
     "gn_main.cc",
@@ -169,34 +203,39 @@ executable("gn") {
 
   deps = [
     ":gn_lib",
-    "//build/util:last_change",
+    ":last_commit_position",
   ]
 }
 
 test("gn_unittests") {
   sources = [
+    "action_target_generator_unittest.cc",
     "builder_unittest.cc",
     "c_include_iterator_unittest.cc",
+    "command_format_unittest.cc",
     "config_values_extractors_unittest.cc",
     "escape_unittest.cc",
     "filesystem_utils_unittest.cc",
-    "file_template_unittest.cc",
     "function_foreach_unittest.cc",
     "function_get_label_info_unittest.cc",
     "function_get_path_info_unittest.cc",
     "function_get_target_outputs_unittest.cc",
+    "function_process_file_template_unittest.cc",
     "function_rebase_path_unittest.cc",
     "function_write_file_unittest.cc",
+    "functions_target_unittest.cc",
     "functions_unittest.cc",
     "header_checker_unittest.cc",
     "input_conversion_unittest.cc",
+    "label_pattern_unittest.cc",
     "label_unittest.cc",
     "loader_unittest.cc",
     "ninja_action_target_writer_unittest.cc",
     "ninja_binary_target_writer_unittest.cc",
     "ninja_copy_target_writer_unittest.cc",
-    "ninja_helper_unittest.cc",
+    "ninja_group_target_writer_unittest.cc",
     "ninja_target_writer_unittest.cc",
+    "ninja_toolchain_writer_unittest.cc",
     "operators_unittest.cc",
     "parse_tree_unittest.cc",
     "parser_unittest.cc",
@@ -207,12 +246,15 @@ test("gn_unittests") {
     "scope_unittest.cc",
     "source_dir_unittest.cc",
     "string_utils_unittest.cc",
+    "substitution_pattern_unittest.cc",
+    "substitution_writer_unittest.cc",
     "target_generator_unittest.cc",
     "target_unittest.cc",
     "template_unittest.cc",
     "test_with_scope.cc",
     "test_with_scope.h",
     "tokenizer_unittest.cc",
+    "unique_vector_unittest.cc",
     "value_unittest.cc",
     "visibility_unittest.cc",
   ]

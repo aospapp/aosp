@@ -15,10 +15,11 @@
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/infobars/core/infobar.h"
 #include "content/public/browser/notification_source.h"
+#include "extensions/browser/extension_system.h"
 #include "extensions/common/extension.h"
-#include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -51,7 +52,8 @@ void ThemeInstalledInfoBarDelegate::Create(
   scoped_ptr<infobars::InfoBar> new_infobar(
       ConfirmInfoBarDelegate::CreateInfoBar(scoped_ptr<ConfirmInfoBarDelegate>(
           new ThemeInstalledInfoBarDelegate(
-              profile->GetExtensionService(), theme_service, new_theme,
+              extensions::ExtensionSystem::Get(profile)->extension_service(),
+              theme_service, new_theme,
               previous_theme_id, previous_using_system_theme))));
 
   // If there's a previous theme infobar, just replace that instead of adding a

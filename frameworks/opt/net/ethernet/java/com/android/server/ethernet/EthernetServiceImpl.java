@@ -18,36 +18,24 @@ package com.android.server.ethernet;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
-import com.android.internal.util.IndentingPrintWriter;
-import android.net.ConnectivityManager;
 import android.net.IEthernetManager;
+import android.net.IEthernetServiceListener;
 import android.net.IpConfiguration;
 import android.net.IpConfiguration.IpAssignment;
 import android.net.IpConfiguration.ProxySettings;
-import android.net.LinkAddress;
-import android.net.NetworkAgent;
-import android.net.NetworkInfo;
-import android.net.NetworkRequest;
-import android.net.RouteInfo;
-import android.net.StaticIpConfiguration;
 import android.os.Binder;
-import android.os.IBinder;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.os.Looper;
-import android.os.Message;
-import android.os.Messenger;
-import android.os.INetworkManagementService;
+import android.os.RemoteCallbackList;
 import android.os.RemoteException;
-import android.os.ServiceManager;
-import android.text.TextUtils;
 import android.util.Log;
 import android.util.PrintWriterPrinter;
+
+import com.android.internal.util.IndentingPrintWriter;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 
 /**
  * EthernetServiceImpl handles remote Ethernet operation requests by implementing
@@ -60,14 +48,13 @@ public class EthernetServiceImpl extends IEthernetManager.Stub {
 
     private final Context mContext;
     private final EthernetConfigStore mEthernetConfigStore;
-    private final INetworkManagementService mNMService;
     private final AtomicBoolean mStarted = new AtomicBoolean(false);
     private IpConfiguration mIpConfiguration;
-    private ConnectivityManager mCM;
 
     private Handler mHandler;
-    private NetworkInfo mNetworkInfo;
     private final EthernetNetworkFactory mTracker;
+    private final RemoteCallbackList<IEthernetServiceListener> mListeners =
+            new RemoteCallbackList<IEthernetServiceListener>();
 
     public EthernetServiceImpl(Context context) {
         mContext = context;
@@ -77,10 +64,7 @@ public class EthernetServiceImpl extends IEthernetManager.Stub {
 
         Log.i(TAG, "Read stored IP configuration: " + mIpConfiguration);
 
-        IBinder b = ServiceManager.getService(Context.NETWORKMANAGEMENT_SERVICE);
-        mNMService = INetworkManagementService.Stub.asInterface(b);
-
-        mTracker = new EthernetNetworkFactory();
+        mTracker = new EthernetNetworkFactory(mListeners);
     }
 
     private void enforceAccessPermission() {
@@ -103,7 +87,6 @@ public class EthernetServiceImpl extends IEthernetManager.Stub {
 
     public void start() {
         Log.i(TAG, "Starting Ethernet service");
-        mCM = (ConnectivityManager) mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
 
         HandlerThread handlerThread = new HandlerThread("EthernetServiceThread");
         handlerThread.start();
@@ -118,6 +101,7 @@ public class EthernetServiceImpl extends IEthernetManager.Stub {
      * Get Ethernet configuration
      * @return the Ethernet Configuration, contained in {@link IpConfiguration}.
      */
+    @Override
     public IpConfiguration getConfiguration() {
         enforceAccessPermission();
 
@@ -129,6 +113,7 @@ public class EthernetServiceImpl extends IEthernetManager.Stub {
     /**
      * Set Ethernet configuration
      */
+    @Override
     public void setConfiguration(IpConfiguration config) {
         if (!mStarted.get()) {
             Log.w(TAG, "System isn't ready enough to change ethernet configuration");
@@ -148,6 +133,40 @@ public class EthernetServiceImpl extends IEthernetManager.Stub {
                 mTracker.start(mContext, mHandler);
             }
         }
+    }
+
+    /**
+     * Indicates whether the system currently has one or more
+     * Ethernet interfaces.
+     */
+    @Override
+    public boolean isAvailable() {
+        enforceAccessPermission();
+        return mTracker.isTrackingInterface();
+    }
+
+    /**
+     * Addes a listener.
+     * @param listener A {@link IEthernetServiceListener} to add.
+     */
+    public void addListener(IEthernetServiceListener listener) {
+        if (listener == null) {
+            throw new IllegalArgumentException("listener must not be null");
+        }
+        enforceAccessPermission();
+        mListeners.register(listener);
+    }
+
+    /**
+     * Removes a listener.
+     * @param listener A {@link IEthernetServiceListener} to remove.
+     */
+    public void removeListener(IEthernetServiceListener listener) {
+        if (listener == null) {
+            throw new IllegalArgumentException("listener must not be null");
+        }
+        enforceAccessPermission();
+        mListeners.unregister(listener);
     }
 
     @Override

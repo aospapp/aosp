@@ -4,14 +4,32 @@
 
 #include "extensions/test/test_extensions_client.h"
 
+#include "extensions/common/api/generated_schemas.h"
 #include "extensions/common/common_manifest_handlers.h"
+#include "extensions/common/extension_urls.h"
+#include "extensions/common/features/api_feature.h"
+#include "extensions/common/features/base_feature_provider.h"
 #include "extensions/common/features/feature_provider.h"
 #include "extensions/common/features/json_feature_provider_source.h"
+#include "extensions/common/features/manifest_feature.h"
+#include "extensions/common/features/permission_feature.h"
 #include "extensions/common/manifest_handler.h"
+#include "extensions/common/permissions/extensions_api_permissions.h"
+#include "extensions/common/permissions/permissions_info.h"
 #include "extensions/common/url_pattern_set.h"
 #include "extensions/test/test_permission_message_provider.h"
+#include "grit/extensions_resources.h"
 
 namespace extensions {
+
+namespace {
+
+template <class FeatureClass>
+SimpleFeature* CreateFeature() {
+  return new FeatureClass;
+}
+
+}  // namespace
 
 TestExtensionsClient::TestExtensionsClient() {
 }
@@ -26,6 +44,10 @@ void TestExtensionsClient::Initialize() {
     RegisterCommonManifestHandlers();
     ManifestHandler::FinalizeRegistration();
   }
+
+  // Allow the core API permissions.
+  static ExtensionsAPIPermissions extensions_api_permissions;
+  PermissionsInfo::GetInstance()->AddProvider(extensions_api_permissions);
 }
 
 const PermissionMessageProvider&
@@ -34,17 +56,46 @@ TestExtensionsClient::GetPermissionMessageProvider() const {
   return provider;
 }
 
-// TODO(yoz): Implement something reasonable here.
-scoped_ptr<FeatureProvider> TestExtensionsClient::CreateFeatureProvider(
-    const std::string& name) const {
-  return scoped_ptr<FeatureProvider>();
+const std::string TestExtensionsClient::GetProductName() {
+  return "extensions_test";
 }
 
-// TODO(yoz): Implement something reasonable here.
+scoped_ptr<FeatureProvider> TestExtensionsClient::CreateFeatureProvider(
+    const std::string& name) const {
+  scoped_ptr<FeatureProvider> provider;
+  scoped_ptr<JSONFeatureProviderSource> source(
+      CreateFeatureProviderSource(name));
+  if (name == "api") {
+    provider.reset(new BaseFeatureProvider(source->dictionary(),
+                                           CreateFeature<APIFeature>));
+  } else if (name == "manifest") {
+    provider.reset(new BaseFeatureProvider(source->dictionary(),
+                                           CreateFeature<ManifestFeature>));
+  } else if (name == "permission") {
+    provider.reset(new BaseFeatureProvider(source->dictionary(),
+                                           CreateFeature<PermissionFeature>));
+  } else {
+    NOTREACHED();
+  }
+  return provider.Pass();
+}
+
 scoped_ptr<JSONFeatureProviderSource>
 TestExtensionsClient::CreateFeatureProviderSource(
     const std::string& name) const {
-  return scoped_ptr<JSONFeatureProviderSource>();
+  scoped_ptr<JSONFeatureProviderSource> source(
+      new JSONFeatureProviderSource(name));
+  if (name == "api") {
+    source->LoadJSON(IDR_EXTENSION_API_FEATURES);
+  } else if (name == "manifest") {
+    source->LoadJSON(IDR_EXTENSION_MANIFEST_FEATURES);
+  } else if (name == "permission") {
+    source->LoadJSON(IDR_EXTENSION_PERMISSION_FEATURES);
+  } else {
+    NOTREACHED();
+    source.reset();
+  }
+  return source.Pass();
 }
 
 void TestExtensionsClient::FilterHostPermissions(
@@ -77,18 +128,30 @@ bool TestExtensionsClient::IsScriptableURL(const GURL& url,
 
 bool TestExtensionsClient::IsAPISchemaGenerated(
     const std::string& name) const {
-  return false;
+  return core_api::GeneratedSchemas::IsGenerated(name);
 }
 
 base::StringPiece TestExtensionsClient::GetAPISchema(
     const std::string& name) const {
-  return base::StringPiece();
+  return core_api::GeneratedSchemas::Get(name);
 }
 
 void TestExtensionsClient::RegisterAPISchemaResources(ExtensionAPI* api) const {
 }
 
 bool TestExtensionsClient::ShouldSuppressFatalErrors() const {
+  return true;
+}
+
+std::string TestExtensionsClient::GetWebstoreBaseURL() const {
+  return extension_urls::kChromeWebstoreBaseURL;
+}
+
+std::string TestExtensionsClient::GetWebstoreUpdateURL() const {
+  return extension_urls::kChromeWebstoreUpdateURL;
+}
+
+bool TestExtensionsClient::IsBlacklistUpdateURL(const GURL& url) const {
   return true;
 }
 

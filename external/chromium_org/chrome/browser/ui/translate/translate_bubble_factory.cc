@@ -12,11 +12,11 @@ namespace {
 void ShowDefault(BrowserWindow* window,
                  content::WebContents* web_contents,
                  translate::TranslateStep step,
-                 TranslateErrors::Type error_type) {
+                 translate::TranslateErrors::Type error_type) {
   // |window| might be null when testing.
   if (!window)
     return;
-  window->ShowTranslateBubble(web_contents, step, error_type);
+  window->ShowTranslateBubble(web_contents, step, error_type, false);
 }
 
 }  // namespace
@@ -28,7 +28,7 @@ TranslateBubbleFactory::~TranslateBubbleFactory() {
 void TranslateBubbleFactory::Show(BrowserWindow* window,
                                   content::WebContents* web_contents,
                                   translate::TranslateStep step,
-                                  TranslateErrors::Type error_type) {
+                                  translate::TranslateErrors::Type error_type) {
   if (current_factory_) {
     current_factory_->ShowImplementation(
         window, web_contents, step, error_type);

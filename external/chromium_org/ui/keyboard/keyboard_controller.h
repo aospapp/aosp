@@ -27,8 +27,12 @@ class TextInputClient;
 namespace keyboard {
 
 class CallbackAnimationObserver;
+class WindowBoundsChangeObserver;
 class KeyboardControllerObserver;
 class KeyboardControllerProxy;
+
+// Animation distance.
+const int kAnimationDistance = 30;
 
 // Provides control of the virtual keyboard, including providing a container
 // and controlling visibility.
@@ -92,11 +96,19 @@ class KEYBOARD_EXPORT KeyboardController : public ui::InputMethodObserver,
   // Returns true if keyboard is currently visible.
   bool keyboard_visible() { return keyboard_visible_; }
 
+  bool show_on_resize() { return show_on_resize_; }
+
   // Returns the current keyboard bounds. When the keyboard is not shown,
   // an empty rectangle will get returned.
   const gfx::Rect& current_keyboard_bounds() {
     return current_keyboard_bounds_;
   }
+
+  // Determines whether a particular window should have insets for overscroll.
+  bool ShouldEnableInsets(aura::Window* window);
+
+  // Updates insets on web content window
+  void UpdateWindowInsets(aura::Window* window);
 
  private:
   // For access to Observer methods for simulation.
@@ -133,25 +145,33 @@ class KEYBOARD_EXPORT KeyboardController : public ui::InputMethodObserver,
   void ShowAnimationFinished();
   void HideAnimationFinished();
 
+  // Adds an observer for tracking changes to a window size or
+  // position while the keyboard is displayed. Any window repositioning
+  // invalidates insets for overscrolling.
+  void AddBoundsChangedObserver(aura::Window* window);
+
   scoped_ptr<KeyboardControllerProxy> proxy_;
   scoped_ptr<aura::Window> container_;
   // CallbackAnimationObserver should destructed before container_ because it
   // uses container_'s animator.
   scoped_ptr<CallbackAnimationObserver> animation_observer_;
 
+  scoped_ptr<WindowBoundsChangeObserver> window_bounds_observer_;
+
   ui::InputMethod* input_method_;
   bool keyboard_visible_;
+  bool show_on_resize_;
   bool lock_keyboard_;
   ui::TextInputType type_;
 
   ObserverList<KeyboardControllerObserver> observer_list_;
 
-  base::WeakPtrFactory<KeyboardController> weak_factory_;
-
   // The currently used keyboard position.
   gfx::Rect current_keyboard_bounds_;
 
   static KeyboardController* instance_;
+
+  base::WeakPtrFactory<KeyboardController> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(KeyboardController);
 };

@@ -30,8 +30,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:fontFamily="sans-serif-condensed"
-        android:paddingEnd="@dimen/setting_text_padding_right"
-        android:paddingStart="@dimen/setting_text_padding_left"
+        android:paddingEnd="@dimen/setting_text_padding_end"
+        android:paddingStart="@dimen/setting_text_padding_start"
         android:textColor="@color/setting_text_title_color"
         android:textSize="@dimen/setting_text_title_size" />
 
@@ -40,8 +40,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:fontFamily="sans-serif"
-        android:paddingEnd="@dimen/setting_text_padding_right"
-        android:paddingStart="@dimen/setting_text_padding_left"
+        android:paddingEnd="@dimen/setting_text_padding_end"
+        android:paddingStart="@dimen/setting_text_padding_start"
         android:textColor="@color/setting_text_value_color"
         android:textSize="@dimen/setting_text_value_size" />
 

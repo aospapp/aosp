@@ -107,6 +107,11 @@
     <!-- Preference which sets the device's display calibration. [CHAR LIMIT=50] -->
     <string name="device_calibration">Calibration</string>
 
+        <!-- Title of dialog asking user to confirm before clearing all caches. [CHAR LIMIT=48] -->
+    <string name="device_storage_clear_cache_title">Clear cached data?</string>
+    <!-- Message of dialog asking user to confirm before clearing all caches. [CHAR LIMIT=48] -->
+    <string name="device_storage_clear_cache_message">This will clear cached data for all apps.</string>
+
     <!-- Browse Header for downloaded apps under device settings. [CHAR LIMIT=50] -->
     <string name="apps_downloaded">Downloaded apps</string>
     <!-- Browse Header for all apps under device settings. [CHAR LIMIT=50] -->
@@ -195,7 +200,7 @@
     <!-- Preference which manages search and google now settings. [CHAR LIMIT=50] -->
     <string name="system_search">Search</string>
     <!-- Preference which manages security settings. [CHAR LIMIT=50] -->
-    <string name="system_security">Security &amp; Restrictions</string>
+    <string name="system_security">Security &amp; restrictions</string>
     <!-- Preference which manages speech recognition settings. [CHAR LIMIT=50] -->
     <string name="system_speech">Speech</string>
     <!-- Preference which manages TV inputs. [CHAR LIMIT=50] -->
@@ -215,18 +220,16 @@
     <string name="about_preference">About</string>
     <!-- Preference which shows name of device as it will appear when being accessed remotely [CHAR LIMIT=50] -->
     <string name="device_name">Device name</string>
+    <!-- Button to reboot the device [CHAR LIMIT=40] -->
+    <string name="restart_button_label">Restart</string>
     <!-- Preference which shows legal info. [CHAR LIMIT=50] -->
     <string name="about_legal_info">Legal information</string>
     <!-- Preference which shows warranty info. [CHAR LIMIT=50] -->
     <string name="about_warranty">Warranty</string>
     <!-- Preference which shows open source licenses [CHAR LIMIT=50]-->
     <string name="about_legal_license">Open source licenses</string>
-    <!-- Preference which shows additional terms [CHAR LIMIT=50]-->
-    <string name="about_terms_of_service">View Terms of Service</string>
-    <!-- Preference which shows additional terms [CHAR LIMIT=50]-->
-    <string name="about_privacy_policy">View Privacy Policy</string>
-    <!-- Preference which shows additional terms [CHAR LIMIT=50]-->
-    <string name="about_additional_terms">View Additional Terms</string>
+    <!-- Preference which shows terms of service and privacy info [CHAR LIMIT=50]-->
+    <string name="about_terms_of_service">Google legal</string>
     <!-- Toast message displayed if the license data is unavailable [CHAR LIMIT=100] -->
     <string name="about_license_activity_unavailable">License data is unavailable</string>
     <!-- Preference which shows model. [CHAR LIMIT=50] -->
@@ -581,8 +584,6 @@
     <string name="system_time">Time</string>
     <!-- Title for Set Date in System Settings Date Time [CHAR LIMIT=50] -->
     <string name="system_set_date">Set date</string>
-    <!-- Title for Set date format in System Settings Date Time [CHAR LIMIT=50] -->
-    <string name="system_choose_date_format">Choose date format</string>
     <!-- Title for Set Time in System Settings Date Time [CHAR LIMIT=50] -->
     <string name="system_set_time">Set time</string>
     <!-- Title for Set Time Zone in System Settings Date Time [CHAR LIMIT=50] -->
@@ -861,14 +862,6 @@
     <!-- Description for profile GPU rendering in System Settings Developer options [CHAR LIMIT=100] -->
     <string name="system_desc_profile_gpu_rendering">Measure rendering time in adb shell dumpsys gfxinfo</string>
 
-    <!-- There is a setting to control the format of dates displayed throughout the system.  This is in the Date & Time Settings screen.  These will be adjusted to use punctuation appropriate to the user's locale. -->
-    <string-array name="date_format_values" translatable="false">
-        <!-- The blank item means to use whatever the locale calls for. -->
-        <item></item>
-        <item>MM-dd-yyyy</item>
-        <item>dd-MM-yyyy</item>
-        <item>yyyy-MM-dd</item>
-    </string-array>
     <!-- The option in the date-format picker for using the normal format
          called for by the user's locale. -->
     <string name="normal_date_format">Regional (<xliff:g id="date" example="12-31-2009">%s</xliff:g>)</string>

@@ -10,6 +10,7 @@
 #include "chrome/browser/chromeos/drive/file_errors.h"
 #include "chrome/browser/chromeos/drive/file_system/operation_test_base.h"
 #include "chrome/browser/chromeos/drive/resource_metadata.h"
+#include "content/public/test/test_utils.h"
 #include "google_apis/drive/test_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -20,7 +21,7 @@ typedef OperationTestBase TouchOperationTest;
 
 TEST_F(TouchOperationTest, TouchFile) {
   TouchOperation operation(blocking_task_runner(),
-                           observer(),
+                           delegate(),
                            metadata());
 
   const base::FilePath kTestPath(FILE_PATH_LITERAL("drive/root/File 1.txt"));
@@ -37,7 +38,7 @@ TEST_F(TouchOperationTest, TouchFile) {
       base::Time::FromUTCExploded(kLastAccessTime),
       base::Time::FromUTCExploded(kLastModifiedTime),
       google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_OK, error);
 
   ResourceEntry entry;
@@ -48,11 +49,11 @@ TEST_F(TouchOperationTest, TouchFile) {
             base::Time::FromInternalValue(entry.file_info().last_modified()));
   EXPECT_EQ(ResourceEntry::DIRTY, entry.metadata_edit_state());
 
-  EXPECT_EQ(1U, observer()->get_changed_paths().size());
-  EXPECT_TRUE(observer()->get_changed_paths().count(kTestPath.DirName()));
+  EXPECT_EQ(1U, delegate()->get_changed_files().size());
+  EXPECT_TRUE(delegate()->get_changed_files().count(kTestPath));
 
-  EXPECT_EQ(1U, observer()->updated_local_ids().size());
-  EXPECT_TRUE(observer()->updated_local_ids().count(entry.local_id()));
+  EXPECT_EQ(1U, delegate()->updated_local_ids().size());
+  EXPECT_TRUE(delegate()->updated_local_ids().count(entry.local_id()));
 }
 
 }  // namespace file_system

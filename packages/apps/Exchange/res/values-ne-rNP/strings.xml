@@ -27,7 +27,6 @@
     <string name="meeting_recurring" msgid="2752008481765880928">"जब: <xliff:g id="EVENTDATE">%s</xliff:g> (पुनरावर्ती)"</string>
     <string name="meeting_allday" msgid="7251209063071628040">"जब: <xliff:g id="EVENTDATE">%s</xliff:g> (सबै दिन)"</string>
     <string name="meeting_allday_recurring" msgid="4545762363537362545">"जब: <xliff:g id="EVENTDATE">%s</xliff:g> (सबै दिन, पुनरावर्ती)"</string>
-    <string name="notification_exchange_calendar_added" msgid="8998454267739748113">"एक्स्चेन्ञ पात्रो थपियो"</string>
     <string name="app_name" msgid="1707639359526090662">"सेवाहरु परिवर्तन गर्नुहोस्"</string>
     <string name="exception_cancel" msgid="8972887597771126871">"<xliff:g id="DATE">%s</xliff:g> को लागि यस घटना रद्द भयो:"</string>
     <string name="exception_updated" msgid="329192591551400871">"<xliff:g id="DATE">%s</xliff:g> को लागि यस घटनाको पूर्ण विवरण परिवर्तन भयो:"</string>
@@ -41,7 +40,7 @@
     <string name="policy_dont_allow_html" msgid="3909470006782362967">"HTML इमेललाई अनुमति नदिनुहोस्"</string>
     <string name="policy_dont_allow_browser" msgid="241728112385525092">"ब्राउजरहरुलाई अनुमति नदिनुहोस्"</string>
     <string name="policy_dont_allow_consumer_email" msgid="2473755560531860915">"उपभोक्ता इ-मेललाई अनुमति नदिनुहोस्"</string>
-    <string name="policy_dont_allow_internet_sharing" msgid="8926902533477728994">"ईन्टरनेट साझेदारी अनुमति नदिनुहोस्"</string>
+    <string name="policy_dont_allow_internet_sharing" msgid="8926902533477728994">"इन्टरनेट साझेदारी अनुमति नदिनुहोस्"</string>
     <string name="policy_require_smime" msgid="6445017199744800426">"SMIME सान्देशहरुको आवश्यकता छ"</string>
     <string name="policy_bluetooth_restricted" msgid="2877695021606992022">"ब्लूटूथ उपयोग प्रतिबन्धित गर्नुहोस्"</string>
     <string name="policy_app_blacklist" msgid="6955451921925210944">"निर्दिष्ट अनुप्रयोगहरू अस्वीकार गर्नुहोस्"</string>

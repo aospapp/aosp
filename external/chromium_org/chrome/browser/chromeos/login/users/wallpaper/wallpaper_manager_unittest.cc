@@ -12,15 +12,15 @@
 #include "ash/test/display_manager_test_api.h"
 #include "ash/test/test_user_wallpaper_delegate.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/prefs/pref_service.h"
 #include "base/prefs/testing_pref_service.h"
 #include "chrome/browser/chromeos/login/startup_utils.h"
 #include "chrome/browser/chromeos/login/users/fake_user_manager.h"
-#include "chrome/browser/chromeos/login/users/user_manager_impl.h"
+#include "chrome/browser/chromeos/login/users/scoped_user_manager_enabler.h"
 #include "chrome/browser/chromeos/login/users/wallpaper/wallpaper_manager.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/chromeos/settings/device_settings_service.h"
@@ -29,9 +29,7 @@
 #include "chromeos/chromeos_switches.h"
 #include "chromeos/settings/cros_settings_names.h"
 #include "chromeos/settings/cros_settings_provider.h"
-#include "grit/ash_resources.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image.h"
 
 using namespace ash;
@@ -57,8 +55,7 @@ class WallpaperManagerCacheTest : public test::AshTestBase {
   // Creates a test image of size 1x1.
   gfx::ImageSkia CreateTestImage(SkColor color) {
     SkBitmap bitmap;
-    bitmap.setConfig(SkBitmap::kARGB_8888_Config, 1, 1);
-    bitmap.allocPixels();
+    bitmap.allocN32Pixels(1, 1);
     bitmap.eraseColor(color);
     return gfx::ImageSkia::CreateFrom1xBitmap(bitmap);
   }

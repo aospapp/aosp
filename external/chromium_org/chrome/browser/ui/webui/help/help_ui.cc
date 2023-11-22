@@ -21,8 +21,7 @@ content::WebUIDataSource* CreateAboutPageHTMLSource() {
   source->SetJsonPath("strings.js");
   source->SetUseJsonJSFormatV2();
   source->AddResourcePath("help.js", IDR_HELP_JS);
-  source->AddResourcePath("help_focus_manager.js", IDR_HELP_FOCUS_MANAGER_JS);
-  source->AddResourcePath("help_base_page.js", IDR_HELP_BASE_PAGE_JS);
+  source->AddResourcePath("help_page.js", IDR_HELP_PAGE_JS);
   source->AddResourcePath("channel_change_page.js", IDR_CHANNEL_CHANGE_PAGE_JS);
   source->SetDefaultResource(IDR_HELP_HTML);
   source->DisableDenyXFrameOptions();
@@ -37,7 +36,9 @@ HelpUI::HelpUI(content::WebUI* web_ui)
   content::WebUIDataSource* source = CreateAboutPageHTMLSource();
 
   HelpHandler* handler = new HelpHandler();
-  handler->GetLocalizedValues(source);
+  base::DictionaryValue localized_strings;
+  HelpHandler::GetLocalizedValues(&localized_strings);
+  source->AddLocalizedStrings(localized_strings);
   content::WebUIDataSource::Add(profile, source);
   web_ui->AddMessageHandler(handler);
 }

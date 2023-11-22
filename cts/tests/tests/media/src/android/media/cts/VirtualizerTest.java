@@ -16,13 +16,17 @@
 
 package android.media.cts;
 
+import android.content.Context;
 import android.media.audiofx.AudioEffect;
 import android.media.AudioFormat;
-import android.media.AudioManager;
 import android.media.audiofx.Virtualizer;
 import android.os.Looper;
 import android.test.AndroidTestCase;
 import android.util.Log;
+
+import com.android.cts.media.R;
+
+import java.util.Arrays;
 
 public class VirtualizerTest extends PostProcTestBase {
 
@@ -288,6 +292,256 @@ public class VirtualizerTest extends PostProcTestBase {
     }
 
     //-----------------------------------------------------------------
+    // 4 virtualizer capabilities
+    //----------------------------------
+
+    //Test case 4.0: test virtualization format / mode query: at least one of the following
+    //   combinations must be supported, otherwise the effect doesn't really qualify as
+    //   a virtualizer: AudioFormat.CHANNEL_OUT_STEREO or the quad and 5.1 side/back variants,
+    //   in VIRTUALIZATION_MODE_BINAURAL or VIRTUALIZATION_MODE_TRANSAURAL
+    public void test4_0FormatModeQuery() throws Exception {
+        if (!isVirtualizerAvailable()) {
+            return;
+        }
+        getVirtualizer(getSessionId());
+        try {
+            boolean isAtLeastOneConfigSupported = false;
+            boolean isConfigSupported = false;
+
+            // testing combinations of input channel mask and virtualization mode
+            for (int m = 0 ; m < VIRTUALIZATION_MODES.length ; m++) {
+                for (int i = 0 ; i < CHANNEL_MASKS.length ; i++) {
+                    isConfigSupported = mVirtualizer.canVirtualize(CHANNEL_MASKS[i],
+                            VIRTUALIZATION_MODES[m]);
+                    isAtLeastOneConfigSupported |= isConfigSupported;
+                    // optional logging
+                    String channelMask = Integer.toHexString(CHANNEL_MASKS[i]).toUpperCase();
+                    String nativeChannelMask =
+                            Integer.toHexString(CHANNEL_MASKS[i] >> 2).toUpperCase();
+                    Log.d(TAG, "content channel mask: 0x" + channelMask + " (native 0x"
+                            + nativeChannelMask
+                            + ") mode: " + VIRTUALIZATION_MODES[m]
+                            + " supported=" + isConfigSupported);
+                }
+            }
+
+            assertTrue("no valid configuration supported", isAtLeastOneConfigSupported);
+        } catch (IllegalArgumentException e) {
+            fail("bad parameter value");
+        } catch (UnsupportedOperationException e) {
+            fail("command not supported");
+        } catch (IllegalStateException e) {
+            fail("command called in wrong state");
+        } finally {
+            releaseVirtualizer();
+        }
+    }
+
+    //Test case 4.1: test that the capabilities reported by Virtualizer.canVirtualize(int,int)
+    //   matches those returned by Virtualizer.getSpeakerAngles(int, int, int[])
+    public void test4_1SpeakerAnglesCapaMatchesFormatModeCapa() throws Exception {
+        if (!isVirtualizerAvailable()) {
+            return;
+        }
+        getVirtualizer(getSessionId());
+        try {
+            // 3: see size requirement in Virtualizer.getSpeakerAngles(int, int, int[])
+            // 6: for number of channels of 5.1 masks in CHANNEL_MASKS
+            int[] angles = new int[3*6];
+            for (int m = 0 ; m < VIRTUALIZATION_MODES.length ; m++) {
+                for (int i = 0 ; i < CHANNEL_MASKS.length ; i++) {
+                    Arrays.fill(angles,AudioFormat.CHANNEL_INVALID);
+                    boolean canVirtualize = mVirtualizer.canVirtualize(CHANNEL_MASKS[i],
+                            VIRTUALIZATION_MODES[m]);
+                    boolean canGetAngles = mVirtualizer.getSpeakerAngles(CHANNEL_MASKS[i],
+                            VIRTUALIZATION_MODES[m], angles);
+                    assertTrue("mismatch capability between canVirtualize() and getSpeakerAngles()",
+                            canVirtualize == canGetAngles);
+                    if(canGetAngles) {
+                        //check if the number of angles matched the expected number of channels for
+                        //each CHANNEL_MASKS
+                        int expectedChannelCount = CHANNEL_MASKS_CHANNEL_COUNT[i];
+                        for(int k=0; k<expectedChannelCount; k++) {
+                            int speakerIdentification = angles[k*3];
+                            assertTrue("found unexpected speaker identification or channel count",
+                                    speakerIdentification !=AudioFormat.CHANNEL_INVALID );
+                        }
+                    }
+                }
+            }
+        } catch (IllegalArgumentException e) {
+            fail("bad parameter value");
+        } catch (UnsupportedOperationException e) {
+            fail("command not supported");
+        } catch (IllegalStateException e) {
+            fail("command called in wrong state");
+        } finally {
+            releaseVirtualizer();
+        }
+    }
+
+    //Test case 4.2: test forcing virtualization mode: at least binaural or transaural must be
+    //   supported
+    public void test4_2VirtualizationMode() throws Exception {
+        if (!isVirtualizerAvailable()) {
+            return;
+        }
+        getVirtualizer(getSessionId());
+        try {
+            mVirtualizer.setEnabled(true);
+            assertTrue("invalid state from getEnabled", mVirtualizer.getEnabled());
+            // testing binaural
+            boolean binauralSupported =
+                    mVirtualizer.forceVirtualizationMode(Virtualizer.VIRTUALIZATION_MODE_BINAURAL);
+            // testing transaural
+            boolean transauralSupported = mVirtualizer
+                    .forceVirtualizationMode(Virtualizer.VIRTUALIZATION_MODE_TRANSAURAL);
+            // testing at least one supported
+            assertTrue("doesn't support binaural nor transaural",
+                    binauralSupported || transauralSupported);
+        } catch (IllegalArgumentException e) {
+            fail("bad parameter value");
+        } catch (UnsupportedOperationException e) {
+            fail("command not supported");
+        } catch (IllegalStateException e) {
+            fail("command called in wrong state");
+        } finally {
+            releaseVirtualizer();
+        }
+    }
+
+    //Test case 4.3: test disabling virtualization maps to VIRTUALIZATION_MODE_OFF
+    public void test4_3DisablingVirtualizationOff() throws Exception {
+        if (!isVirtualizerAvailable()) {
+            return;
+        }
+        getVirtualizer(getSessionId());
+        try {
+            mVirtualizer.setEnabled(false);
+            assertFalse("invalid state from getEnabled", mVirtualizer.getEnabled());
+            int virtMode = mVirtualizer.getVirtualizationMode();
+            assertTrue("disabled virtualization isn't reported as OFF",
+                    virtMode == Virtualizer.VIRTUALIZATION_MODE_OFF);
+        } catch (IllegalArgumentException e) {
+            fail("bad parameter value");
+        } catch (UnsupportedOperationException e) {
+            fail("command not supported");
+        } catch (IllegalStateException e) {
+            fail("command called in wrong state");
+        } finally {
+            releaseVirtualizer();
+        }
+    }
+
+    //Test case 4.4: test forcing virtualization mode to AUTO
+    public void test4_4VirtualizationModeAuto() throws Exception {
+        if (!isVirtualizerAvailable()) {
+            return;
+        }
+        getVirtualizer(getSessionId());
+        try {
+            mVirtualizer.setEnabled(true);
+            assertTrue("invalid state from getEnabled", mVirtualizer.getEnabled());
+            boolean forceRes =
+                    mVirtualizer.forceVirtualizationMode(Virtualizer.VIRTUALIZATION_MODE_AUTO);
+            assertTrue("can't set virtualization to AUTO", forceRes);
+
+        } catch (IllegalArgumentException e) {
+            fail("bad parameter value");
+        } catch (UnsupportedOperationException e) {
+            fail("command not supported");
+        } catch (IllegalStateException e) {
+            fail("command called in wrong state");
+        } finally {
+            releaseVirtualizer();
+        }
+    }
+
+    //Test case 4.5: test for consistent capabilities if virtualizer is enabled or disabled
+    public void test4_5ConsistentCapabilitiesWithEnabledDisabled() throws Exception {
+        if (!isVirtualizerAvailable()) {
+            return;
+        }
+        getVirtualizer(getSessionId());
+        try {
+            // 3: see size requirement in Virtualizer.getSpeakerAngles(int, int, int[])
+            // 6: for number of channels of 5.1 masks in CHANNEL_MASKS
+            int[] angles = new int[3*6];
+            boolean[][] values = new boolean[VIRTUALIZATION_MODES.length][CHANNEL_MASKS.length];
+            mVirtualizer.setEnabled(true);
+            assertTrue("invalid state from getEnabled", mVirtualizer.getEnabled());
+            for (int m = 0 ; m < VIRTUALIZATION_MODES.length ; m++) {
+                for (int i = 0 ; i < CHANNEL_MASKS.length ; i++) {
+                    Arrays.fill(angles,AudioFormat.CHANNEL_INVALID);
+                    boolean canVirtualize = mVirtualizer.canVirtualize(CHANNEL_MASKS[i],
+                            VIRTUALIZATION_MODES[m]);
+                    boolean canGetAngles = mVirtualizer.getSpeakerAngles(CHANNEL_MASKS[i],
+                            VIRTUALIZATION_MODES[m], angles);
+                    assertTrue("mismatch capability between canVirtualize() and getSpeakerAngles()",
+                            canVirtualize == canGetAngles);
+                    values[m][i] = canVirtualize;
+                }
+            }
+
+            mVirtualizer.setEnabled(false);
+            assertTrue("invalid state from getEnabled", !mVirtualizer.getEnabled());
+            for (int m = 0 ; m < VIRTUALIZATION_MODES.length ; m++) {
+                for (int i = 0 ; i < CHANNEL_MASKS.length ; i++) {
+                    Arrays.fill(angles,AudioFormat.CHANNEL_INVALID);
+                    boolean canVirtualize = mVirtualizer.canVirtualize(CHANNEL_MASKS[i],
+                            VIRTUALIZATION_MODES[m]);
+                    boolean canGetAngles = mVirtualizer.getSpeakerAngles(CHANNEL_MASKS[i],
+                            VIRTUALIZATION_MODES[m], angles);
+                    assertTrue("mismatch capability between canVirtualize() and getSpeakerAngles()",
+                            canVirtualize == canGetAngles);
+                    assertTrue("mismatch capability between enabled and disabled virtualizer",
+                            canVirtualize == values[m][i]);
+                }
+            }
+
+        } catch (IllegalArgumentException e) {
+            fail("bad parameter value");
+        } catch (UnsupportedOperationException e) {
+            fail("command not supported");
+        } catch (IllegalStateException e) {
+            fail("command called in wrong state");
+        } finally {
+            releaseVirtualizer();
+        }
+    }
+
+    //-----------------------------------------------------------------
+    // private data
+    //----------------------------------
+    // channel masks to test at input of virtualizer
+    private static final int[] CHANNEL_MASKS = {
+            AudioFormat.CHANNEL_OUT_STEREO, //2 channels
+            AudioFormat.CHANNEL_OUT_QUAD, //4 channels
+            //AudioFormat.CHANNEL_OUT_QUAD_SIDE (definition is not public)
+            (AudioFormat.CHANNEL_OUT_FRONT_LEFT | AudioFormat.CHANNEL_OUT_FRONT_RIGHT |
+                    AudioFormat.CHANNEL_OUT_SIDE_LEFT | AudioFormat.CHANNEL_OUT_SIDE_RIGHT), //4 channels
+            AudioFormat.CHANNEL_OUT_5POINT1, //6 channels
+            //AudioFormat.CHANNEL_OUT_5POINT1_SIDE (definition is not public)
+            (AudioFormat.CHANNEL_OUT_FRONT_LEFT | AudioFormat.CHANNEL_OUT_FRONT_RIGHT |
+                    AudioFormat.CHANNEL_OUT_FRONT_CENTER |
+                    AudioFormat.CHANNEL_OUT_LOW_FREQUENCY |
+                    AudioFormat.CHANNEL_OUT_SIDE_LEFT | AudioFormat.CHANNEL_OUT_SIDE_RIGHT) //6 channels
+    };
+
+    private static final int[] CHANNEL_MASKS_CHANNEL_COUNT = {
+        2,
+        4,
+        4,
+        6,
+        6
+    };
+
+    private static final int[] VIRTUALIZATION_MODES = {
+            Virtualizer.VIRTUALIZATION_MODE_BINAURAL,
+            Virtualizer.VIRTUALIZATION_MODE_TRANSAURAL
+    };
+
+    //-----------------------------------------------------------------
     // private methods
     //----------------------------------
 
@@ -362,7 +616,6 @@ public class VirtualizerTest extends PostProcTestBase {
                 mLooper = Looper.myLooper();
 
                 mVirtualizer2 = new Virtualizer(0, 0);
-                assertNotNull("could not create virtualizer2", mVirtualizer2);
 
                 synchronized(mLock) {
                     if (mControl) {

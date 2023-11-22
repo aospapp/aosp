@@ -31,12 +31,12 @@ class ResourceEntry;
 
 namespace file_system {
 
-class OperationObserver;
+class OperationDelegate;
 
 class TouchOperation {
  public:
   TouchOperation(base::SequencedTaskRunner* blocking_task_runner,
-                 OperationObserver* observer,
+                 OperationDelegate* delegate,
                  internal::ResourceMetadata* metadata);
   ~TouchOperation();
 
@@ -52,11 +52,12 @@ class TouchOperation {
   // Part of TouchFile(). Runs after updating the local state.
   void TouchFileAfterUpdateLocalState(const base::FilePath& file_path,
                                       const FileOperationCallback& callback,
+                                      const ResourceEntry* entry,
                                       const std::string* local_id,
                                       FileError error);
 
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;
-  OperationObserver* observer_;
+  OperationDelegate* delegate_;
   internal::ResourceMetadata* metadata_;
 
   // Note: This should remain the last member so it'll be destroyed and

@@ -1,12 +1,8 @@
-# $MirOS: src/bin/mksh/check.t,v 1.629 2013/08/14 20:26:15 tg Exp $
-# $OpenBSD: bksl-nl.t,v 1.2 2001/01/28 23:04:56 niklas Exp $
-# $OpenBSD: history.t,v 1.5 2001/01/28 23:04:56 niklas Exp $
-# $OpenBSD: read.t,v 1.3 2003/03/10 03:48:16 david Exp $
-# $OpenBSD: regress.t,v 1.15 2013/07/01 17:25:27 jca Exp $
-# $OpenBSD: obsd-regress.t,v 1.5 2013/07/01 17:25:27 jca Exp $
+# $MirOS: src/bin/mksh/check.t,v 1.661 2014/10/07 15:22:14 tg Exp $
+# OpenBSD src/regress/bin/ksh updated: 2013/12/02 20:39:44
 #-
 # Copyright © 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-#	      2011, 2012, 2013
+#	      2011, 2012, 2013, 2014
 #	Thorsten Glaser <tg@mirbsd.org>
 #
 # Provided that these terms and disclaimer and all copyright notices
@@ -31,7 +27,7 @@
 # http://www.freebsd.org/cgi/cvsweb.cgi/src/tools/regression/bin/test/regress.sh?rev=HEAD
 
 expected-stdout:
-	@(#)MIRBSD KSH R48 2013/08/14
+	@(#)MIRBSD KSH R50 2014/10/07
 description:
 	Check version of shell.
 stdin:
@@ -40,7 +36,7 @@ name: KSH_VERSION
 category: shell:legacy-no
 ---
 expected-stdout:
-	@(#)LEGACY KSH R48 2013/08/14
+	@(#)LEGACY KSH R50 2014/10/07
 description:
 	Check version of legacy shell.
 stdin:
@@ -73,6 +69,18 @@ stdin:
 	echo "<$ENV>"
 expected-stdout:
 	<fnord>
+---
+name: selftest-exec
+description:
+	Ensure that the test run directory (default /tmp but can be changed
+	with check.pl flag -T or test.sh $TMPDIR) is not mounted noexec, as
+	we execute scripts from the scratch directory during several tests.
+stdin:
+	print '#!'"$__progname"'\necho tf' >lq
+	chmod +x lq
+	./lq
+expected-stdout:
+	tf
 ---
 name: selftest-env
 description:
@@ -1640,6 +1648,14 @@ expected-stdout:
 	1=02.
 	2=02.
 ---
+name: expand-number-1
+description:
+	Check that positional arguments do not overflow
+stdin:
+	echo "1 ${12345678901234567890} ."
+expected-stdout:
+	1  .
+---
 name: eglob-bad-1
 description:
 	Check that globbing isn't done when glob has syntax error
@@ -2071,12 +2087,18 @@ stdin:
 	echo [!-ab]*
 	echo [!ab]*
 	echo []ab]*
+	:>'./!bc'
+	:>'./^bc'
+	echo [^ab]*
+	echo [!ab]*
 expected-stdout:
 	-bc abc bbc
 	-bc abc bbc
 	cbc
 	-bc cbc
 	abc bbc
+	^bc abc bbc
+	!bc -bc ^bc cbc
 ---
 name: glob-range-2
 description:
@@ -2125,6 +2147,18 @@ stdin:
 	echo [a-c-e]*
 expected-stdout:
 	-bc abc bbc cbc ebc
+---
+name: glob-trim-1
+description:
+	Check against a regression from fixing IFS-subst-2
+stdin:
+	x='#foo'
+	print -r "before='$x'"
+	x=${x%%#*}
+	print -r "after ='$x'"
+expected-stdout:
+	before='#foo'
+	after =''
 ---
 name: heredoc-1
 description:
@@ -3689,6 +3723,428 @@ expected-stdout:
 	12: [A] [B] [] [D]
 	 <13> <A> <B> <> <D>
 ---
+name: IFS-subst-2
+description:
+	Check leading whitespace after trim does not make a field
+stdin:
+	showargs() { for i; do echo -n " <$i>"; done; echo; }
+	x="X 1 2"
+	showargs 1 shift ${x#X}
+expected-stdout:
+	 <1> <shift> <1> <2>
+---
+name: IFS-subst-3
+description:
+	Check leading IFS non-whitespace after trim does make a field
+	but leading IFS whitespace does not, nor empty replacements
+stdin:
+	showargs() { for i; do echo -n " <$i>"; done; echo; }
+	showargs 0 ${-+}
+	IFS=:
+	showargs 1 ${-+:foo:bar}
+	IFS=' '
+	showargs 2 ${-+ foo bar}
+expected-stdout:
+	 <0>
+	 <1> <> <foo> <bar>
+	 <2> <foo> <bar>
+---
+name: IFS-subst-4-1
+description:
+	reported by mikeserv
+stdin:
+	a='space divded  argument
+	here'
+	IFS=\  ; set -- $a
+	IFS= ; q="$*" ; nq=$*
+	printf '<%s>\n' "$*" $* "$q" "$nq"
+	[ "$q" = "$nq" ] && echo =true || echo =false
+expected-stdout:
+	<spacedivdedargument
+	here>
+	<space>
+	<divded>
+	<argument
+	here>
+	<spacedivdedargument
+	here>
+	<spacedivdedargument
+	here>
+	=true
+---
+name: IFS-subst-4-2
+description:
+	extended testsuite based on problem by mikeserv
+stdin:
+	a='space divded  argument
+	here'
+	IFS=\  ; set -- $a
+	IFS= ; q="$@" ; nq=$@
+	printf '<%s>\n' "$*" $* "$q" "$nq"
+	[ "$q" = "$nq" ] && echo =true || echo =false
+expected-stdout:
+	<spacedivdedargument
+	here>
+	<space>
+	<divded>
+	<argument
+	here>
+	<space divded argument
+	here>
+	<space divded argument
+	here>
+	=true
+---
+name: IFS-subst-4-3
+description:
+	extended testsuite based on problem by mikeserv
+stdin:
+	a='space divded  argument
+	here'
+	IFS=\ ; set -- $a; IFS=
+	qs="$*"
+	nqs=$*
+	qk="$@"
+	nqk=$@
+	printf '= qs '; printf '<%s>\n' "$qs"
+	printf '=nqs '; printf '<%s>\n' "$nqs"
+	printf '= qk '; printf '<%s>\n' "$qk"
+	printf '=nqk '; printf '<%s>\n' "$nqk"
+	printf '~ qs '; printf '<%s>\n' "$*"
+	printf '~nqs '; printf '<%s>\n' $*
+	printf '~ qk '; printf '<%s>\n' "$@"
+	printf '~nqk '; printf '<%s>\n' $@
+expected-stdout:
+	= qs <spacedivdedargument
+	here>
+	=nqs <spacedivdedargument
+	here>
+	= qk <space divded argument
+	here>
+	=nqk <space divded argument
+	here>
+	~ qs <spacedivdedargument
+	here>
+	~nqs <space>
+	<divded>
+	<argument
+	here>
+	~ qk <space>
+	<divded>
+	<argument
+	here>
+	~nqk <space>
+	<divded>
+	<argument
+	here>
+---
+name: IFS-subst-4-4
+description:
+	extended testsuite based on problem by mikeserv
+stdin:
+	a='space divded  argument
+	here'
+	IFS=\ ; set -- $a; IFS=
+	qs="$*"
+	printf '= qs '; printf '<%s>\n' "$qs"
+	printf '~ qs '; printf '<%s>\n' "$*"
+	nqs=$*
+	printf '=nqs '; printf '<%s>\n' "$nqs"
+	printf '~nqs '; printf '<%s>\n' $*
+	qk="$@"
+	printf '= qk '; printf '<%s>\n' "$qk"
+	printf '~ qk '; printf '<%s>\n' "$@"
+	nqk=$@
+	printf '=nqk '; printf '<%s>\n' "$nqk"
+	printf '~nqk '; printf '<%s>\n' $@
+expected-stdout:
+	= qs <spacedivdedargument
+	here>
+	~ qs <spacedivdedargument
+	here>
+	=nqs <spacedivdedargument
+	here>
+	~nqs <space>
+	<divded>
+	<argument
+	here>
+	= qk <space divded argument
+	here>
+	~ qk <space>
+	<divded>
+	<argument
+	here>
+	=nqk <space divded argument
+	here>
+	~nqk <space>
+	<divded>
+	<argument
+	here>
+---
+name: IFS-subst-4-4p
+description:
+	extended testsuite based on problem by mikeserv
+stdin:
+	a='space divded  argument
+	here'
+	IFS=\ ; set -- $a; IFS=
+	unset v
+	qs=${v:-"$*"}
+	printf '= qs '; printf '<%s>\n' "$qs"
+	printf '~ qs '; printf '<%s>\n' ${v:-"$*"}
+	nqs=${v:-$*}
+	printf '=nqs '; printf '<%s>\n' "$nqs"
+	printf '~nqs '; printf '<%s>\n' ${v:-$*}
+	qk=${v:-"$@"}
+	printf '= qk '; printf '<%s>\n' "$qk"
+	printf '~ qk '; printf '<%s>\n' ${v:-"$@"}
+	nqk=${v:-$@}
+	printf '=nqk '; printf '<%s>\n' "$nqk"
+	printf '~nqk '; printf '<%s>\n' ${v:-$@}
+expected-stdout:
+	= qs <spacedivdedargument
+	here>
+	~ qs <spacedivdedargument
+	here>
+	=nqs <spacedivdedargument
+	here>
+	~nqs <space>
+	<divded>
+	<argument
+	here>
+	= qk <space divded argument
+	here>
+	~ qk <space>
+	<divded>
+	<argument
+	here>
+	=nqk <space divded argument
+	here>
+	~nqk <space>
+	<divded>
+	<argument
+	here>
+---
+name: IFS-subst-4-5
+description:
+	extended testsuite based on problem by mikeserv
+stdin:
+	a='space divded  argument
+	here'
+	IFS=\ ; set -- $a; IFS=,
+	qs="$*"
+	printf '= qs '; printf '<%s>\n' "$qs"
+	printf '~ qs '; printf '<%s>\n' "$*"
+	nqs=$*
+	printf '=nqs '; printf '<%s>\n' "$nqs"
+	printf '~nqs '; printf '<%s>\n' $*
+	qk="$@"
+	printf '= qk '; printf '<%s>\n' "$qk"
+	printf '~ qk '; printf '<%s>\n' "$@"
+	nqk=$@
+	printf '=nqk '; printf '<%s>\n' "$nqk"
+	printf '~nqk '; printf '<%s>\n' $@
+expected-stdout:
+	= qs <space,divded,argument
+	here>
+	~ qs <space,divded,argument
+	here>
+	=nqs <space,divded,argument
+	here>
+	~nqs <space>
+	<divded>
+	<argument
+	here>
+	= qk <space divded argument
+	here>
+	~ qk <space>
+	<divded>
+	<argument
+	here>
+	=nqk <space divded argument
+	here>
+	~nqk <space>
+	<divded>
+	<argument
+	here>
+---
+name: IFS-subst-4-5p
+description:
+	extended testsuite based on problem by mikeserv
+stdin:
+	a='space divded  argument
+	here'
+	IFS=\ ; set -- $a; IFS=,
+	unset v
+	qs=${v:-"$*"}
+	printf '= qs '; printf '<%s>\n' "$qs"
+	printf '~ qs '; printf '<%s>\n' ${v:-"$*"}
+	nqs=${v:-$*}
+	printf '=nqs '; printf '<%s>\n' "$nqs"
+	printf '~nqs '; printf '<%s>\n' ${v:-$*}
+	qk=${v:-"$@"}
+	printf '= qk '; printf '<%s>\n' "$qk"
+	printf '~ qk '; printf '<%s>\n' ${v:-"$@"}
+	nqk=${v:-$@}
+	printf '=nqk '; printf '<%s>\n' "$nqk"
+	printf '~nqk '; printf '<%s>\n' ${v:-$@}
+expected-stdout:
+	= qs <space,divded,argument
+	here>
+	~ qs <space,divded,argument
+	here>
+	=nqs <space,divded,argument
+	here>
+	~nqs <space>
+	<divded>
+	<argument
+	here>
+	= qk <space divded argument
+	here>
+	~ qk <space>
+	<divded>
+	<argument
+	here>
+	=nqk <space divded argument
+	here>
+	~nqk <space>
+	<divded>
+	<argument
+	here>
+---
+name: IFS-subst-5
+description:
+	extended testsuite based on IFS-subst-3
+	differs slightly from ksh93:
+	- omit trailing field in a3zna, a7ina (unquoted $@ expansion)
+	- has extra middle fields in b5ins, b7ina (IFS_NWS unquoted expansion)
+	differs slightly from bash:
+	- omit leading field in a5ins, a7ina (IFS_NWS unquoted expansion)
+	differs slightly from zsh:
+	- differs in assignment, not expansion; probably zsh bug
+	- has extra middle fields in b5ins, b7ina (IFS_NWS unquoted expansion)
+	'emulate sh' zsh has extra fields in
+	- a5ins (IFS_NWS unquoted $*)
+	- b5ins, matching mksh’s
+stdin:
+	"$__progname" -c 'IFS=; set -- "" 2 ""; printf "[%s]\n" $*; x=$*; printf "<%s>\n" "$x"'
+	echo '=a1zns'
+	"$__progname" -c 'IFS=; set -- "" 2 ""; printf "[%s]\n" "$*"; x="$*"; printf "<%s>\n" "$x"'
+	echo '=a2zqs'
+	"$__progname" -c 'IFS=; set -- "" 2 ""; printf "[%s]\n" $@; x=$@; printf "<%s>\n" "$x"'
+	echo '=a3zna'
+	"$__progname" -c 'IFS=; set -- "" 2 ""; printf "[%s]\n" "$@"; x="$@"; printf "<%s>\n" "$x"'
+	echo '=a4zqa'
+	"$__progname" -c 'IFS=,; set -- "" 2 ""; printf "[%s]\n" $*; x=$*; printf "<%s>\n" "$x"'
+	echo '=a5ins'
+	"$__progname" -c 'IFS=,; set -- "" 2 ""; printf "[%s]\n" "$*"; x="$*"; printf "<%s>\n" "$x"'
+	echo '=a6iqs'
+	"$__progname" -c 'IFS=,; set -- "" 2 ""; printf "[%s]\n" $@; x=$@; printf "<%s>\n" "$x"'
+	echo '=a7ina'
+	"$__progname" -c 'IFS=,; set -- "" 2 ""; printf "[%s]\n" "$@"; x="$@"; printf "<%s>\n" "$x"'
+	echo '=a8iqa'
+	"$__progname" -c 'IFS=; set -- A B "" "" C; printf "[%s]\n" $*; x=$*; printf "<%s>\n" "$x"'
+	echo '=b1zns'
+	"$__progname" -c 'IFS=; set -- A B "" "" C; printf "[%s]\n" "$*"; x="$*"; printf "<%s>\n" "$x"'
+	echo '=b2zqs'
+	"$__progname" -c 'IFS=; set -- A B "" "" C; printf "[%s]\n" $@; x=$@; printf "<%s>\n" "$x"'
+	echo '=b3zna'
+	"$__progname" -c 'IFS=; set -- A B "" "" C; printf "[%s]\n" "$@"; x="$@"; printf "<%s>\n" "$x"'
+	echo '=b4zqa'
+	"$__progname" -c 'IFS=,; set -- A B "" "" C; printf "[%s]\n" $*; x=$*; printf "<%s>\n" "$x"'
+	echo '=b5ins'
+	"$__progname" -c 'IFS=,; set -- A B "" "" C; printf "[%s]\n" "$*"; x="$*"; printf "<%s>\n" "$x"'
+	echo '=b6iqs'
+	"$__progname" -c 'IFS=,; set -- A B "" "" C; printf "[%s]\n" $@; x=$@; printf "<%s>\n" "$x"'
+	echo '=b7ina'
+	"$__progname" -c 'IFS=,; set -- A B "" "" C; printf "[%s]\n" "$@"; x="$@"; printf "<%s>\n" "$x"'
+	echo '=b8iqa'
+expected-stdout:
+	[2]
+	<2>
+	=a1zns
+	[2]
+	<2>
+	=a2zqs
+	[2]
+	< 2 >
+	=a3zna
+	[]
+	[2]
+	[]
+	< 2 >
+	=a4zqa
+	[2]
+	<,2,>
+	=a5ins
+	[,2,]
+	<,2,>
+	=a6iqs
+	[2]
+	< 2 >
+	=a7ina
+	[]
+	[2]
+	[]
+	< 2 >
+	=a8iqa
+	[A]
+	[B]
+	[C]
+	<ABC>
+	=b1zns
+	[ABC]
+	<ABC>
+	=b2zqs
+	[A]
+	[B]
+	[C]
+	<A B   C>
+	=b3zna
+	[A]
+	[B]
+	[]
+	[]
+	[C]
+	<A B   C>
+	=b4zqa
+	[A]
+	[B]
+	[]
+	[]
+	[C]
+	<A,B,,,C>
+	=b5ins
+	[A,B,,,C]
+	<A,B,,,C>
+	=b6iqs
+	[A]
+	[B]
+	[]
+	[]
+	[C]
+	<A B   C>
+	=b7ina
+	[A]
+	[B]
+	[]
+	[]
+	[C]
+	<A B   C>
+	=b8iqa
+---
+name: IFS-arith-1
+description:
+	http://austingroupbugs.net/view.php?id=832
+stdin:
+	${ZSH_VERSION+false} || emulate sh
+	${BASH_VERSION+set -o posix}
+	showargs() { for x in "$@"; do echo -n "<$x> "; done; echo .; }
+	IFS=0
+	showargs $((1230456))
+expected-stdout:
+	<123> <456> .
+---
 name: integer-base-err-1
 description:
 	Can't have 0 base (causes shell to exit)
@@ -4806,11 +5262,12 @@ description:
 	them exit 0. The POSIX behaviour is needed by BSD make.
 stdin:
 	set -e
-	echo `false; echo hi`
+	echo `false; echo hi` $(<this-file-does-not-exist)
 	echo $?
 expected-stdout:
 	
 	0
+expected-stderr-pattern: /this-file-does-not-exist/
 ---
 name: regression-40
 description:
@@ -5425,6 +5882,18 @@ expected-stdout:
 	2 .
 expected-stderr-pattern:
 	/read-only/
+---
+name: readonly-4
+description:
+	Do not permit bypassing readonly for first array item
+stdin:
+	set -A arr -- foo bar
+	readonly arr
+	arr=baz
+	print -r -- "${arr[@]}"
+expected-exit: e != 0
+expected-stderr-pattern:
+	/read[ -]?only/
 ---
 name: syntax-1
 description:
@@ -6444,6 +6913,7 @@ stdin:
 	echo 6 "$("$__progname" -c '! (exit 23) | (exit 42) | :; echo $?')" .
 	echo 7 "$("$__progname" -o pipefail -c '(exit 23) | (exit 42) | :; echo $?')" .
 	echo 8 "$("$__progname" -o pipefail -c '! (exit 23) | (exit 42) | :; echo $?')" .
+	echo 9 "$("$__progname" -o pipefail -c 'x=$( (exit 23) | (exit 42) | :); echo $?')" .
 expected-stdout:
 	1 42 .
 	2 0 .
@@ -6453,6 +6923,7 @@ expected-stdout:
 	6 1 .
 	7 42 .
 	8 0 .
+	9 42 .
 ---
 name: persist-history-1
 description:
@@ -6733,7 +7204,6 @@ expected-stdout:
 	r='fc -e -'
 	source='PATH=$PATH:. command .'
 	stop='kill -STOP'
-	suspend='kill -STOP $$'
 	type='whence -v'
 ---
 name: aliases-1-hartz4
@@ -6802,7 +7272,6 @@ expected-stdout:
 	r='fc -e -'
 	source='PATH=$PATH:. command .'
 	stop='kill -STOP'
-	suspend='kill -STOP $$'
 	type='whence -v'
 ---
 name: aliases-3b
@@ -6826,7 +7295,6 @@ expected-stdout:
 	r='fc -e -'
 	source='PATH=$PATH:. command .'
 	stop='kill -STOP'
-	suspend='kill -STOP $$'
 	type='whence -v'
 ---
 name: aliases-2b-hartz4
@@ -7000,12 +7468,19 @@ stdin:
 	v="c d"
 	set -A foo -- [1]=\$v [2]="$v" [4]='$v' [0]=a [5]=b
 	echo "${#foo[*]}|${foo[0]}|${foo[1]}|${foo[2]}|${foo[3]}|${foo[4]}|${foo[5]}|"
+	# we don't want this at all:
+	#	5|a|$v|c d||$v|b|
+	set -A arr "[5]=meh"
+	echo "<${arr[0]}><${arr[5]}>"
 expected-stdout:
-	5|a|$v|c d||$v|b|
+	5|[1]=$v|[2]=c d|[4]=$v|[0]=a|[5]=b||
+	<[5]=meh><>
 ---
 name: arrays-5
 description:
 	Check if bash-style arrays with specified indices work as expected
+	(taken out temporarily to fix arrays-4; see also arrays-9a comment)
+category: disabled
 stdin:
 	v="c d"
 	foo=([1]=\$v [2]="$v" [4]='$v' [0]=a [5]=b)
@@ -7013,10 +7488,17 @@ stdin:
 	x=([128]=foo bar baz)
 	echo k= ${!x[*]} .
 	echo v= ${x[*]} .
+	# Check that we do not break this by globbing
+	:>b=blah
+	bleh=5
+	typeset -a arr
+	arr+=([bleh]=blah)
+	echo "<${arr[0]}><${arr[5]}>"
 expected-stdout:
 	5|a|$v|c d||$v|b|
 	k= 128 129 130 .
 	v= foo bar baz .
+	<><blah>
 ---
 name: arrays-6
 description:
@@ -7078,15 +7560,15 @@ stdin:
 	echo !arz[0]: ${!arz[0]}
 	echo !arz[1]: ${!arz[1]}
 expected-stdout:
-	!arz: 0
-	!arz[0]:
-	!arz[1]:
 	!arz: arz
-	!arz[0]: 0
-	!arz[1]:
-	!arz: 0
-	!arz[0]:
-	!arz[1]:
+	!arz[0]: arz[0]
+	!arz[1]: arz[1]
+	!arz: arz
+	!arz[0]: arz[0]
+	!arz[1]: arz[1]
+	!arz: arz
+	!arz[0]: arz[0]
+	!arz[1]: arz[1]
 ---
 name: arrays-8
 description:
@@ -7177,11 +7659,11 @@ description:
 stdin:
 	unset foo; foo=(bar); foo+=(baz); echo 1 ${!foo[*]} : ${foo[*]} .
 	unset foo; foo=(foo bar); foo+=(baz); echo 2 ${!foo[*]} : ${foo[*]} .
-	unset foo; foo=([2]=foo [0]=bar); foo+=(baz [5]=quux); echo 3 ${!foo[*]} : ${foo[*]} .
+#	unset foo; foo=([2]=foo [0]=bar); foo+=(baz [5]=quux); echo 3 ${!foo[*]} : ${foo[*]} .
 expected-stdout:
 	1 0 1 : bar baz .
 	2 0 1 2 : foo bar baz .
-	3 0 2 3 5 : bar foo baz quux .
+#	3 0 2 3 5 : bar foo baz quux .
 ---
 name: arrays-9b
 description:
@@ -7660,14 +8142,9 @@ stdin:
 	typeset -i8 foo=10
 	bar=baz
 	unset baz
-	bla=foo
 	print ${foo@#} ${bar@#} ${baz@#} .
-	print ${foo@#123} ${bar@#456} ${baz@#789} .
-	print ${foo@#bla} ${bar@#bar} ${baz@#OPTIND} .
 expected-stdout:
-	D50219A0 20E5DB5B 00000000 .
-	554A1C76 004A212E CB209562 .
-	6B21CF91 20E5DB5B 124EA49D .
+	9B15FBFB CFBDD32B 00000000 .
 ---
 name: varexpand-special-quote
 description:
@@ -7713,6 +8190,17 @@ stdin:
 	echo .
 expected-stdout:
 	<1> <> <2> <> <+> <> <3> <> <+> <> .
+---
+name: varexpand-null-3
+description:
+	Ensure concatenating behaviour matches other shells
+	although the line 2<> is probably wrong? XNULLSUB case.
+stdin:
+	x=; printf "1<%s>\n" "$x$@"
+	set A; printf "2<%s>\n" "${@:+}"
+expected-stdout:
+	1<>
+	2<>
 ---
 name: print-funny-chars
 description:
@@ -8772,7 +9260,7 @@ expected-stdout:
 ---
 name: oksh-eval
 description:
-	$OpenBSD: eval.sh,v 1.1 2010/03/24 08:29:44 fgsch Exp $
+	Check expansions.
 stdin:
 	a=
 	for n in ${a#*=}; do echo 1hu ${n} .; done
@@ -8932,8 +9420,7 @@ stdin:
 ---
 name: oksh-varfunction-mod1
 description:
-	$OpenBSD: varfunction.sh,v 1.1 2003/12/15 05:28:40 otto Exp $
-	Calling
+	(Inspired by PR 2450 on OpenBSD.) Calling
 		FOO=bar f
 	where f is a ksh style function, should not set FOO in the current
 	env. If f is a Bourne style function, FOO should be set. Furthermore,
@@ -8941,7 +9428,6 @@ description:
 	from oksh, setting FOO in the function itself must change the value in
 	setting FOO in the function itself should not change the value in
 	global environment.
-	Inspired by PR 2450.
 stdin:
 	print '#!'"$__progname"'\nunset RANDOM\nexport | while IFS= read -r' \
 	    'RANDOM; do eval '\''print -r -- "$RANDOM=$'\''"$RANDOM"'\'\"\'\; \
@@ -10502,7 +10988,7 @@ expected-stdout:
 	ir2: ir2
 	s1: ir2=ind
 	s2: typeset -n ir2
-	!ind[1]: 1
+	!ind[1]: blub[1]
 	!ir2: ir2
 	ind[1]: e2
 	ir2: e3

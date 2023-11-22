@@ -5,14 +5,17 @@
 {
   'variables': {
     'conditions': [
-      ['((OS=="android" or chromeos==1) and target_arch=="arm") or (OS=="ios" and target_arch=="armv7")', {
+      ['target_arch=="arm" or target_arch=="armv7" or target_arch=="arm64"', {
         'use_opus_fixed_point%': 1,
-        'use_opus_arm_optimization%': 1,
       }, {
         'use_opus_fixed_point%': 0,
+      }],
+      ['target_arch=="arm" or target_arch=="armv7"', {
+        'use_opus_arm_optimization%': 1,
+      }, {
         'use_opus_arm_optimization%': 0,
       }],
-      ['(OS=="android" or chromeos==1) and target_arch=="arm"', {
+      ['target_arch=="arm"', {
         'use_opus_rtcd%': 1,
       }, {
         'use_opus_rtcd%': 0,
@@ -38,6 +41,7 @@
         ],
       },
       'includes': ['opus_srcs.gypi', ],
+      'sources': ['<@(opus_common_sources)'],
       'conditions': [
         ['OS!="win"', {
           'defines': [
@@ -55,7 +59,12 @@
             4334,  # Disable 32-bit shift warning in src/opus_encoder.c .
           ],
         }],
-        [ 'os_posix==1 and OS!="android"', {
+        ['os_posix==1', {
+          'link_settings': {
+            'libraries': [ '-lm' ],
+          },
+        }],
+        ['os_posix==1 and OS!="android"', {
           # Suppress a warning given by opus_decoder.c that tells us
           # optimizations are turned off.
           'cflags': [
@@ -75,9 +84,7 @@
           'include_dirs': [
             'src/silk/float',
           ],
-          'sources/': [
-            ['exclude', '/fixed/[^/]*_FIX.(h|c)$'],
-          ],
+          'sources': ['<@(opus_float_sources)'],
         }, {
           'defines': [
             'FIXED_POINT',
@@ -85,9 +92,7 @@
           'include_dirs': [
             'src/silk/fixed',
           ],
-          'sources/': [
-            ['exclude', '/float/[^/]*_FLP.(h|c)$'],
-          ],
+          'sources': ['<@(opus_fixed_sources)'],
           'conditions': [
             ['use_opus_arm_optimization==1', {
               'defines': [
@@ -134,6 +139,9 @@
               '-llog',
             ],
           },
+        }],
+        ['clang==1', {
+          'cflags': [ '-Wno-absolute-value' ],
         }]
       ],
       'sources': [

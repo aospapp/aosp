@@ -80,7 +80,7 @@ class TestAdapter extends BaseAdapter {
         if (convertView != null) {
             vg = (ViewGroup) convertView;
         } else {
-            vg = (ViewGroup) inflater.inflate(R.layout.ble_server_start_item, null);
+            vg = (ViewGroup) inflater.inflate(R.layout.ble_test_item, null);
         }
 
         Test test = tests.get(position);

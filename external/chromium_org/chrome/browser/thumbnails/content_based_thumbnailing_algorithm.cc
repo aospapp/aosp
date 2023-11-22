@@ -143,7 +143,7 @@ SkBitmap ContentBasedThumbnailingAlgorithm::PrepareSourceBitmap(
   // idependent.
   if (clipped_bitmap.width() == result_bitmap.width() &&
       clipped_bitmap.height() == result_bitmap.height()) {
-    clipped_bitmap.copyTo(&result_bitmap, kPMColor_SkColorType);
+    clipped_bitmap.copyTo(&result_bitmap, kN32_SkColorType);
   }
 #endif
 
@@ -179,9 +179,13 @@ void ContentBasedThumbnailingAlgorithm::CreateRetargetedThumbnail(
         thumbnail, thumbnail_size.width(), thumbnail_size.height());
   }
 
-  HISTOGRAM_TIMES(
-      processing_failed ? kFailureHistogramName : kThumbnailHistogramName,
-      base::TimeTicks::Now() - begin_compute_thumbnail);
+  if (processing_failed) {
+    LOCAL_HISTOGRAM_TIMES(kFailureHistogramName,
+                          base::TimeTicks::Now() - begin_compute_thumbnail);
+  } else {
+    LOCAL_HISTOGRAM_TIMES(kThumbnailHistogramName,
+                          base::TimeTicks::Now() - begin_compute_thumbnail);
+  }
   context->score.boring_score =
         SimpleThumbnailCrop::CalculateBoringScore(source_bitmap);
   if (!processing_failed)

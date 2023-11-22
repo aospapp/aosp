@@ -2,13 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// MSVC++ requires this to be set before any other includes to get M_PI.
-#define _USE_MATH_DEFINES
-
 #include "ui/events/gesture_detection/gesture_config_helper.h"
 
 #include <cmath>
 
+#include "base/command_line.h"
+#include "ui/events/event_switches.h"
 #include "ui/events/gestures/gesture_configuration.h"
 #include "ui/gfx/screen.h"
 
@@ -34,8 +33,7 @@ GestureDetector::Config DefaultGestureDetectorConfig() {
   config.swipe_enabled = true;
   config.minimum_swipe_velocity = GestureConfiguration::min_swipe_speed();
   config.maximum_swipe_deviation_angle =
-      atan2(1.f, GestureConfiguration::max_swipe_deviation_ratio()) * 180.0f /
-      static_cast<float>(M_PI);
+      GestureConfiguration::max_swipe_deviation_angle();
   config.two_finger_tap_enabled = true;
   config.two_finger_tap_max_separation =
       GestureConfiguration::max_distance_for_two_finger_tap_in_pixels();
@@ -48,12 +46,17 @@ GestureDetector::Config DefaultGestureDetectorConfig() {
 
 ScaleGestureDetector::Config DefaultScaleGestureDetectorConfig() {
   ScaleGestureDetector::Config config;
+  double min_pinch_update_distance =
+      CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kCompensateForUnstablePinchZoom)
+          ? GestureConfiguration::min_pinch_update_distance_in_pixels()
+          : 0;
 
-  config.gesture_detector_config = DefaultGestureDetectorConfig();
+  config.span_slop =
+      GestureConfiguration::max_touch_move_in_pixels_for_click() * 2;
   config.min_scaling_touch_major = GestureConfiguration::default_radius() * 2;
   config.min_scaling_span = GestureConfiguration::min_scaling_span_in_pixels();
-  config.min_pinch_update_span_delta =
-      GestureConfiguration::min_pinch_update_distance_in_pixels();
+  config.min_pinch_update_span_delta = min_pinch_update_distance;
   return config;
 }
 
@@ -61,7 +64,10 @@ ScaleGestureDetector::Config DefaultScaleGestureDetectorConfig() {
 
 GestureProvider::Config DefaultGestureProviderConfig() {
   GestureProvider::Config config;
-  config.display = gfx::Screen::GetNativeScreen()->GetPrimaryDisplay();
+  gfx::Screen* screen = gfx::Screen::GetScreenByType(gfx::SCREEN_TYPE_NATIVE);
+  // |screen| is sometimes NULL during tests.
+  if (screen)
+    config.display = screen->GetPrimaryDisplay();
   config.gesture_detector_config = DefaultGestureDetectorConfig();
   config.scale_gesture_detector_config = DefaultScaleGestureDetectorConfig();
   config.gesture_begin_end_types_enabled = true;

@@ -4,14 +4,16 @@
 
 #include "chrome/browser/chromeos/drive/file_system/download_operation.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/task_runner_util.h"
 #include "chrome/browser/chromeos/drive/fake_free_disk_space_getter.h"
 #include "chrome/browser/chromeos/drive/file_cache.h"
+#include "chrome/browser/chromeos/drive/file_change.h"
 #include "chrome/browser/chromeos/drive/file_system/operation_test_base.h"
 #include "chrome/browser/chromeos/drive/file_system_util.h"
 #include "chrome/browser/chromeos/drive/job_scheduler.h"
 #include "chrome/browser/drive/fake_drive_service.h"
+#include "content/public/test/test_utils.h"
 #include "google_apis/drive/test_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/cros_system_api/constants/cryptohome.h"
@@ -25,7 +27,7 @@ class DownloadOperationTest : public OperationTestBase {
     OperationTestBase::SetUp();
 
     operation_.reset(new DownloadOperation(
-        blocking_task_runner(), observer(), scheduler(), metadata(), cache(),
+        blocking_task_runner(), delegate(), scheduler(), metadata(), cache(),
         temp_dir()));
   }
 
@@ -53,7 +55,7 @@ TEST_F(DownloadOperationTest,
       google_apis::GetContentCallback(),
       google_apis::test_util::CreateCopyResultCallback(
           &error, &file_path, &entry));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
 
   EXPECT_EQ(FILE_ERROR_OK, error);
   ASSERT_TRUE(entry);
@@ -61,8 +63,8 @@ TEST_F(DownloadOperationTest,
 
   // The transfered file is cached and the change of "offline available"
   // attribute is notified.
-  EXPECT_EQ(1U, observer()->get_changed_paths().size());
-  EXPECT_EQ(1U, observer()->get_changed_paths().count(file_in_root.DirName()));
+  EXPECT_EQ(1U, delegate()->get_changed_files().size());
+  EXPECT_EQ(1U, delegate()->get_changed_files().count(file_in_root));
 }
 
 TEST_F(DownloadOperationTest,
@@ -82,7 +84,7 @@ TEST_F(DownloadOperationTest,
       google_apis::GetContentCallback(),
       google_apis::test_util::CreateCopyResultCallback(
           &error, &file_path, &entry));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
 
   EXPECT_EQ(FILE_ERROR_NO_LOCAL_SPACE, error);
 }
@@ -108,7 +110,7 @@ TEST_F(DownloadOperationTest,
       google_apis::GetContentCallback(),
       google_apis::test_util::CreateCopyResultCallback(
           &error, &file_path, &entry));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_OK, error);
   ASSERT_TRUE(entry);
   EXPECT_TRUE(entry->file_specific_info().cache_state().is_present());
@@ -127,7 +129,7 @@ TEST_F(DownloadOperationTest,
       google_apis::GetContentCallback(),
       google_apis::test_util::CreateCopyResultCallback(
           &error, &file_path, &entry));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
 
   EXPECT_EQ(FILE_ERROR_OK, error);
   ASSERT_TRUE(entry);
@@ -135,8 +137,9 @@ TEST_F(DownloadOperationTest,
 
   // The transfered file is cached and the change of "offline available"
   // attribute is notified.
-  EXPECT_EQ(1U, observer()->get_changed_paths().size());
-  EXPECT_EQ(1U, observer()->get_changed_paths().count(file_in_root.DirName()));
+  EXPECT_EQ(2U, delegate()->get_changed_files().size());
+  EXPECT_TRUE(delegate()->get_changed_files().count(file_in_root));
+  EXPECT_TRUE(delegate()->get_changed_files().count(cached_file));
 
   // The cache for the other file should be removed in order to free up space.
   ResourceEntry cached_file_entry;
@@ -172,7 +175,7 @@ TEST_F(DownloadOperationTest,
       google_apis::GetContentCallback(),
       google_apis::test_util::CreateCopyResultCallback(
           &error, &file_path, &entry));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
 
   EXPECT_EQ(FILE_ERROR_NO_LOCAL_SPACE, error);
 }
@@ -197,7 +200,7 @@ TEST_F(DownloadOperationTest, EnsureFileDownloadedByPath_FromCache) {
                  temp_file,
                  internal::FileCache::FILE_OPERATION_COPY),
       google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_OK, error);
 
   base::FilePath file_path;
@@ -209,7 +212,7 @@ TEST_F(DownloadOperationTest, EnsureFileDownloadedByPath_FromCache) {
       google_apis::GetContentCallback(),
       google_apis::test_util::CreateCopyResultCallback(
           &error, &file_path, &entry));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
 
   EXPECT_EQ(FILE_ERROR_OK, error);
   ASSERT_TRUE(entry);
@@ -230,7 +233,7 @@ TEST_F(DownloadOperationTest, EnsureFileDownloadedByPath_HostedDocument) {
       google_apis::GetContentCallback(),
       google_apis::test_util::CreateCopyResultCallback(
           &error, &file_path, &entry));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
 
   EXPECT_EQ(FILE_ERROR_OK, error);
   ASSERT_TRUE(entry);
@@ -258,7 +261,7 @@ TEST_F(DownloadOperationTest, EnsureFileDownloadedByLocalId) {
       google_apis::GetContentCallback(),
       google_apis::test_util::CreateCopyResultCallback(
           &error, &file_path, &entry));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
 
   EXPECT_EQ(FILE_ERROR_OK, error);
   ASSERT_TRUE(entry);
@@ -266,8 +269,8 @@ TEST_F(DownloadOperationTest, EnsureFileDownloadedByLocalId) {
 
   // The transfered file is cached and the change of "offline available"
   // attribute is notified.
-  EXPECT_EQ(1U, observer()->get_changed_paths().size());
-  EXPECT_EQ(1U, observer()->get_changed_paths().count(file_in_root.DirName()));
+  EXPECT_EQ(1U, delegate()->get_changed_files().size());
+  EXPECT_EQ(1U, delegate()->get_changed_files().count(file_in_root));
 }
 
 TEST_F(DownloadOperationTest,
@@ -288,7 +291,7 @@ TEST_F(DownloadOperationTest,
         get_content_callback.callback(),
         google_apis::test_util::CreateCopyResultCallback(
             &completion_error, &local_path_dontcare, &entry_dontcare));
-    test_util::RunBlockingPoolTask();
+    content::RunAllBlockingPoolTasksUntilIdle();
 
     // For the first time, file is downloaded from the remote server.
     // In this case, |local_path| is empty.
@@ -303,9 +306,8 @@ TEST_F(DownloadOperationTest,
 
     // The transfered file is cached and the change of "offline available"
     // attribute is notified.
-    EXPECT_EQ(1U, observer()->get_changed_paths().size());
-    EXPECT_EQ(1U,
-              observer()->get_changed_paths().count(file_in_root.DirName()));
+    EXPECT_EQ(1U, delegate()->get_changed_files().size());
+    EXPECT_EQ(1U, delegate()->get_changed_files().count(file_in_root));
   }
 
   {
@@ -322,7 +324,7 @@ TEST_F(DownloadOperationTest,
         get_content_callback.callback(),
         google_apis::test_util::CreateCopyResultCallback(
             &completion_error, &local_path_dontcare, &entry_dontcare));
-    test_util::RunBlockingPoolTask();
+    content::RunAllBlockingPoolTasksUntilIdle();
 
     // Try second download. In this case, the file should be cached, so
     // |local_path| should not be empty.
@@ -359,7 +361,7 @@ TEST_F(DownloadOperationTest, EnsureFileDownloadedByLocalId_FromCache) {
                  temp_file,
                  internal::FileCache::FILE_OPERATION_COPY),
       google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_OK, error);
 
   // The file is obtained from the cache.
@@ -375,7 +377,7 @@ TEST_F(DownloadOperationTest, EnsureFileDownloadedByLocalId_FromCache) {
       google_apis::GetContentCallback(),
       google_apis::test_util::CreateCopyResultCallback(
           &error, &file_path, &entry));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
 
   EXPECT_EQ(FILE_ERROR_OK, error);
   ASSERT_TRUE(entry);
@@ -406,7 +408,7 @@ TEST_F(DownloadOperationTest, EnsureFileDownloadedByPath_DirtyCache) {
                  dirty_file,
                  internal::FileCache::FILE_OPERATION_COPY),
       google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_OK, error);
 
   // Record values passed to GetFileContentInitializedCallback().
@@ -423,7 +425,7 @@ TEST_F(DownloadOperationTest, EnsureFileDownloadedByPath_DirtyCache) {
       google_apis::GetContentCallback(),
       google_apis::test_util::CreateCopyResultCallback(
           &error, &file_path, &entry));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
 
   EXPECT_EQ(FILE_ERROR_OK, error);
   // Check that the result of local modification is propagated.
@@ -451,7 +453,7 @@ TEST_F(DownloadOperationTest, EnsureFileDownloadedByPath_LocallyCreatedFile) {
                  new_file,
                  &local_id),
       google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_OK, error);
 
   // Empty cache file should be returned.
@@ -464,7 +466,7 @@ TEST_F(DownloadOperationTest, EnsureFileDownloadedByPath_LocallyCreatedFile) {
       google_apis::GetContentCallback(),
       google_apis::test_util::CreateCopyResultCallback(
           &error, &cache_file_path, &entry));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_OK, error);
 
   int64 cache_file_size = 0;
@@ -494,7 +496,7 @@ TEST_F(DownloadOperationTest, CancelBeforeDownloadStarts) {
   // Cancel immediately.
   ASSERT_FALSE(cancel_closure.is_null());
   cancel_closure.Run();
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
 
   EXPECT_EQ(FILE_ERROR_ABORT, error);
 }

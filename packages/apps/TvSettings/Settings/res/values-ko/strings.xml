@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"백업 및 복원"</string>
     <string name="device_reset" msgid="2827002349560023125">"초기화"</string>
     <string name="device_calibration" msgid="8632962533376605191">"보정"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"다운로드한 앱"</string>
     <string name="apps_system" msgid="2499191125802829425">"시스템 앱"</string>
     <string name="apps_running" msgid="6430310491739956228">"실행 중인 앱"</string>
@@ -95,7 +99,7 @@
     <string name="system_language" msgid="2337138146114609247">"언어"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"키보드"</string>
     <string name="system_search" msgid="2837264654143247611">"검색"</string>
-    <string name="system_security" msgid="4190058778883258927">"보안 및 제한"</string>
+    <string name="system_security" msgid="8230080273993484407">"보안 및 제한"</string>
     <string name="system_speech" msgid="8128688499687306982">"음성"</string>
     <string name="system_inputs" msgid="2413907183796651102">"입력"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"접근성"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"시스템 업데이트"</string>
     <string name="about_preference" msgid="4131396784531360434">"정보"</string>
     <string name="device_name" msgid="2670488158531273028">"기기 이름"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"다시 시작"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"법적 정보"</string>
     <string name="about_warranty" msgid="5736003473060436384">"품질 보증"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"오픈소스 라이선스"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"서비스 약관 보기"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"개인정보취급방침 보기"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"추가 약관 보기"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Google 법적 고지"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"라이선스 데이터를 사용할 수 없습니다."</string>
     <string name="about_model" msgid="6625269442206323995">"모델"</string>
     <string name="about_version" msgid="1177287676732287266">"버전"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"날짜"</string>
     <string name="system_time" msgid="6726022312605226285">"시간"</string>
     <string name="system_set_date" msgid="2437586307768561116">"날짜 설정"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"날짜 형식 선택"</string>
     <string name="system_set_time" msgid="4661804115501057452">"시간 설정"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"시간대 설정"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"24시간 형식 사용"</string>

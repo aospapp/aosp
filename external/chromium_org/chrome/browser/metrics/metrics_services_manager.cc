@@ -4,12 +4,16 @@
 
 #include "chrome/browser/metrics/metrics_services_manager.h"
 
+#include <string>
+
 #include "base/command_line.h"
+#include "base/logging.h"
 #include "base/prefs/pref_service.h"
 #include "chrome/browser/metrics/chrome_metrics_service_client.h"
 #include "chrome/browser/metrics/variations/variations_service.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/installer/util/google_update_settings.h"
 #include "components/metrics/metrics_service.h"
 #include "components/metrics/metrics_state_manager.h"
 #include "components/rappor/rappor_service.h"
@@ -26,7 +30,7 @@ MetricsServicesManager::MetricsServicesManager(PrefService* local_state)
 MetricsServicesManager::~MetricsServicesManager() {
 }
 
-MetricsService* MetricsServicesManager::GetMetricsService() {
+metrics::MetricsService* MetricsServicesManager::GetMetricsService() {
   DCHECK(thread_checker_.CalledOnValidThread());
   return GetChromeMetricsServiceClient()->metrics_service();
 }
@@ -34,7 +38,7 @@ MetricsService* MetricsServicesManager::GetMetricsService() {
 rappor::RapporService* MetricsServicesManager::GetRapporService() {
   DCHECK(thread_checker_.CalledOnValidThread());
   if (!rappor_service_)
-    rappor_service_.reset(new rappor::RapporService);
+    rappor_service_.reset(new rappor::RapporService(local_state_));
   return rappor_service_.get();
 }
 
@@ -70,7 +74,9 @@ metrics::MetricsStateManager* MetricsServicesManager::GetMetricsStateManager() {
     metrics_state_manager_ = metrics::MetricsStateManager::Create(
         local_state_,
         base::Bind(&MetricsServicesManager::IsMetricsReportingEnabled,
-                   base::Unretained(this)));
+                   base::Unretained(this)),
+        base::Bind(&GoogleUpdateSettings::StoreMetricsClientInfo),
+        base::Bind(&GoogleUpdateSettings::LoadMetricsClientInfo));
   }
   return metrics_state_manager_.get();
 }

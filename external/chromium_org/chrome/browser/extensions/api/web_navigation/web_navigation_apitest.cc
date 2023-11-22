@@ -37,16 +37,18 @@
 #include "content/public/browser/resource_throttle.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/context_menu_params.h"
+#include "content/public/common/resource_type.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/browser_test_utils.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/common/switches.h"
+#include "extensions/test/result_catcher.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "third_party/WebKit/public/web/WebContextMenuData.h"
 #include "third_party/WebKit/public/web/WebInputEvent.h"
-#include "webkit/common/resource_type.h"
 
+using content::ResourceType;
 using content::WebContents;
 
 namespace extensions {
@@ -93,7 +95,7 @@ class TestNavigationListener
   // Needs to be invoked on the IO thread.
   content::ResourceThrottle* CreateResourceThrottle(
       const GURL& url,
-      ResourceType::Type resource_type) {
+      ResourceType resource_type) {
     DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
     if (urls_to_delay_.find(url) == urls_to_delay_.end())
       return NULL;
@@ -176,13 +178,10 @@ class DelayLoadStartAndExecuteJavascript
   }
 
   virtual void DidStartProvisionalLoadForFrame(
-      int64 frame_id,
-      int64 parent_frame_id,
-      bool is_main_frame,
+      content::RenderFrameHost* render_frame_host,
       const GURL& validated_url,
       bool is_error_page,
-      bool is_iframe_srcdoc,
-      content::RenderViewHost* render_view_host) OVERRIDE {
+      bool is_iframe_srcdoc) OVERRIDE {
     if (validated_url != delay_url_ || !rvh_)
       return;
 
@@ -191,17 +190,14 @@ class DelayLoadStartAndExecuteJavascript
   }
 
   virtual void DidCommitProvisionalLoadForFrame(
-      int64 frame_id,
-      const base::string16& frame_unique_name,
-      bool is_main_frame,
+      content::RenderFrameHost* render_frame_host,
       const GURL& url,
-      content::PageTransition transition_type,
-      content::RenderViewHost* render_view_host) OVERRIDE {
+      ui::PageTransition transition_type) OVERRIDE {
     if (script_was_executed_ && EndsWith(url.spec(), until_url_suffix_, true)) {
       content::WebContentsObserver::Observe(NULL);
       test_navigation_listener_->ResumeAll();
     }
-    rvh_ = render_view_host;
+    rvh_ = render_frame_host->GetRenderViewHost();
   }
 
  private:
@@ -233,18 +229,14 @@ class TestResourceDispatcherHostDelegate
   virtual void RequestBeginning(
       net::URLRequest* request,
       content::ResourceContext* resource_context,
-      appcache::AppCacheService* appcache_service,
-      ResourceType::Type resource_type,
-      int child_id,
-      int route_id,
+      content::AppCacheService* appcache_service,
+      ResourceType resource_type,
       ScopedVector<content::ResourceThrottle>* throttles) OVERRIDE {
     ChromeResourceDispatcherHostDelegate::RequestBeginning(
         request,
         resource_context,
         appcache_service,
         resource_type,
-        child_id,
-        route_id,
         throttles);
     content::ResourceThrottle* throttle =
         test_navigation_listener_->CreateResourceThrottle(request->url(),
@@ -492,7 +484,7 @@ IN_PROC_BROWSER_TEST_F(WebNavigationApiTest, TargetBlank) {
   GURL url = embedded_test_server()->GetURL(
       "/extensions/api_test/webnavigation/targetBlank/a.html");
 
-  chrome::NavigateParams params(browser(), url, content::PAGE_TRANSITION_LINK);
+  chrome::NavigateParams params(browser(), url, ui::PAGE_TRANSITION_LINK);
   ui_test_utils::NavigateToURL(&params);
 
   // There's a link with target=_blank on a.html. Click on it to open it in a

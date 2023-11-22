@@ -77,7 +77,6 @@ AndroidVideoEncodeAccelerator::~AndroidVideoEncodeAccelerator() {
   DCHECK(thread_checker_.CalledOnValidThread());
 }
 
-// static
 std::vector<media::VideoEncodeAccelerator::SupportedProfile>
 AndroidVideoEncodeAccelerator::GetSupportedProfiles() {
   std::vector<MediaCodecBridge::CodecsInfo> codecs_info =
@@ -86,7 +85,7 @@ AndroidVideoEncodeAccelerator::GetSupportedProfiles() {
   std::vector<SupportedProfile> profiles;
 
 #if defined(ENABLE_WEBRTC)
-  const CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  const base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
   if (cmd_line->HasSwitch(switches::kDisableWebRtcHWEncoding))
     return profiles;
 #endif
@@ -100,13 +99,13 @@ AndroidVideoEncodeAccelerator::GetSupportedProfiles() {
       continue;
     }
     SupportedProfile profile;
-    profile.profile = media::VP8PROFILE_MAIN;
+    profile.profile = media::VP8PROFILE_ANY;
     // Wouldn't it be nice if MediaCodec exposed the maximum capabilities of the
     // encoder?  Sure would be.  Too bad it doesn't.  So we hard-code some
     // reasonable defaults.
     profile.max_resolution.SetSize(1920, 1088);
-    profile.max_framerate.numerator = 30;
-    profile.max_framerate.denominator = 1;
+    profile.max_framerate_numerator = 30;
+    profile.max_framerate_denominator = 1;
     profiles.push_back(profile);
   }
   return profiles;
@@ -129,7 +128,7 @@ bool AndroidVideoEncodeAccelerator::Initialize(
 
   if (!(media::MediaCodecBridge::SupportsSetParameters() &&
         format == VideoFrame::I420 &&
-        output_profile == media::VP8PROFILE_MAIN)) {
+        output_profile == media::VP8PROFILE_ANY)) {
     DLOG(ERROR) << "Unexpected combo: " << format << ", " << output_profile;
     return false;
   }

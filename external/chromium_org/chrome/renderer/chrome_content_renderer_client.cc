@@ -15,10 +15,9 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
-#include "chrome/common/chrome_content_client.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/content_settings_pattern.h"
+#include "chrome/common/chrome_version_info.h"
 #include "chrome/common/crash_keys.h"
 #include "chrome/common/extensions/chrome_extensions_client.h"
 #include "chrome/common/extensions/extension_constants.h"
@@ -27,17 +26,14 @@
 #include "chrome/common/pepper_permission_util.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/generated_resources.h"
+#include "chrome/grit/locale_settings.h"
+#include "chrome/grit/renderer_resources.h"
 #include "chrome/renderer/benchmarking_extension.h"
 #include "chrome/renderer/chrome_render_frame_observer.h"
 #include "chrome/renderer/chrome_render_process_observer.h"
 #include "chrome/renderer/chrome_render_view_observer.h"
 #include "chrome/renderer/content_settings_observer.h"
-#include "chrome/renderer/extensions/chrome_extension_helper.h"
-#include "chrome/renderer/extensions/chrome_extensions_dispatcher_delegate.h"
-#include "chrome/renderer/extensions/chrome_extensions_renderer_client.h"
-#include "chrome/renderer/extensions/extension_frame_helper.h"
-#include "chrome/renderer/extensions/renderer_permissions_policy_delegate.h"
-#include "chrome/renderer/extensions/resource_request_policy.h"
 #include "chrome/renderer/external_extension.h"
 #include "chrome/renderer/loadtimes_extension_bindings.h"
 #include "chrome/renderer/media/cast_ipc_dispatcher.h"
@@ -48,7 +44,6 @@
 #include "chrome/renderer/net_benchmarking_extension.h"
 #include "chrome/renderer/page_load_histograms.h"
 #include "chrome/renderer/pepper/pepper_helper.h"
-#include "chrome/renderer/pepper/ppb_pdf_impl.h"
 #include "chrome/renderer/playback_extension.h"
 #include "chrome/renderer/plugins/chrome_plugin_placeholder.h"
 #include "chrome/renderer/plugins/plugin_uma.h"
@@ -69,10 +64,15 @@
 #include "components/autofill/content/renderer/autofill_agent.h"
 #include "components/autofill/content/renderer/password_autofill_agent.h"
 #include "components/autofill/content/renderer/password_generation_agent.h"
+#include "components/content_settings/core/common/content_settings_pattern.h"
+#include "components/dom_distiller/core/url_constants.h"
 #include "components/nacl/renderer/ppb_nacl_private_impl.h"
+#include "components/password_manager/content/renderer/credential_manager_client.h"
+#include "components/pdf/renderer/ppb_pdf_impl.h"
 #include "components/plugins/renderer/mobile_youtube_plugin.h"
 #include "components/signin/core/common/profile_management_switches.h"
 #include "components/visitedlink/renderer/visitedlink_slave.h"
+#include "components/web_cache/renderer/web_cache_render_process_observer.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_thread.h"
@@ -83,12 +83,6 @@
 #include "extensions/common/extension_set.h"
 #include "extensions/common/extension_urls.h"
 #include "extensions/common/switches.h"
-#include "extensions/renderer/dispatcher.h"
-#include "extensions/renderer/extension_helper.h"
-#include "extensions/renderer/script_context.h"
-#include "grit/generated_resources.h"
-#include "grit/locale_settings.h"
-#include "grit/renderer_resources.h"
 #include "ipc/ipc_sync_channel.h"
 #include "net/base/net_errors.h"
 #include "ppapi/c/private/ppb_nacl_private.h"
@@ -113,11 +107,25 @@
 #include "widevine_cdm_version.h"  // In SHARED_INTERMEDIATE_DIR.
 
 #if !defined(DISABLE_NACL)
+#include "components/nacl/common/nacl_constants.h"
 #include "components/nacl/renderer/nacl_helper.h"
 #endif
 
 #if defined(ENABLE_EXTENSIONS)
-#include "chrome/renderer/extensions/chrome_extensions_render_frame_observer.h"
+#include "chrome/renderer/extensions/chrome_extensions_dispatcher_delegate.h"
+#include "chrome/renderer/extensions/chrome_extensions_renderer_client.h"
+#include "chrome/renderer/extensions/extension_frame_helper.h"
+#include "chrome/renderer/extensions/renderer_permissions_policy_delegate.h"
+#include "chrome/renderer/extensions/resource_request_policy.h"
+#include "extensions/renderer/dispatcher.h"
+#include "extensions/renderer/extension_helper.h"
+#include "extensions/renderer/extensions_render_frame_observer.h"
+#include "extensions/renderer/guest_view/guest_view_container.h"
+#include "extensions/renderer/script_context.h"
+#endif
+
+#if defined(ENABLE_FULL_PRINTING)
+#include "chrome/renderer/pepper/chrome_pdf_print_client.h"
 #endif
 
 #if defined(ENABLE_SPELLCHECK)
@@ -161,6 +169,18 @@ using blink::WebVector;
 namespace {
 
 ChromeContentRendererClient* g_current_client;
+
+#if defined(ENABLE_PLUGINS)
+const char* const kPredefinedAllowedCompositorOrigins[] = {
+  "6EAED1924DB611B6EEF2A664BD077BE7EAD33B8F",  // see crbug.com/383937
+  "4EB74897CB187C7633357C2FE832E0AD6A44883A"   // see crbug.com/383937
+};
+
+const char* const kPredefinedAllowedVideoDecodeOrigins[] = {
+  "6EAED1924DB611B6EEF2A664BD077BE7EAD33B8F",  // see crbug.com/383937
+  "4EB74897CB187C7633357C2FE832E0AD6A44883A"   // see crbug.com/383937
+};
+#endif
 
 static void AppendParams(const std::vector<base::string16>& additional_names,
                          const std::vector<base::string16>& additional_values,
@@ -216,9 +236,11 @@ bool ShouldUseJavaScriptSettingForPlugin(const WebPluginInfo& plugin) {
     return false;
   }
 
+#if !defined(DISABLE_NACL)
   // Treat Native Client invocations like JavaScript.
-  if (plugin.name == ASCIIToUTF16(ChromeContentClient::kNaClPluginName))
+  if (plugin.name == ASCIIToUTF16(nacl::kNaClPluginName))
     return true;
+#endif
 
 #if defined(WIDEVINE_CDM_AVAILABLE) && defined(ENABLE_PEPPER_CDMS)
   // Treat CDM invocations like JavaScript.
@@ -231,6 +253,16 @@ bool ShouldUseJavaScriptSettingForPlugin(const WebPluginInfo& plugin) {
   return false;
 }
 
+#if defined(ENABLE_EXTENSIONS)
+void IsGuestViewApiAvailableToScriptContext(
+    bool* api_is_available,
+    extensions::ScriptContext* context) {
+  if (context->GetAvailability("guestViewInternal").is_available()) {
+    *api_is_available = true;
+  }
+}
+#endif
+
 }  // namespace
 
 ChromeContentRendererClient::ChromeContentRendererClient() {
@@ -238,8 +270,17 @@ ChromeContentRendererClient::ChromeContentRendererClient() {
 
   extensions::ExtensionsClient::Set(
       extensions::ChromeExtensionsClient::GetInstance());
+#if defined(ENABLE_EXTENSIONS)
   extensions::ExtensionsRendererClient::Set(
       ChromeExtensionsRendererClient::GetInstance());
+#endif
+#if defined(ENABLE_PLUGINS)
+  for (size_t i = 0; i < arraysize(kPredefinedAllowedCompositorOrigins); ++i)
+    allowed_compositor_origins_.insert(kPredefinedAllowedCompositorOrigins[i]);
+  for (size_t i = 0; i < arraysize(kPredefinedAllowedVideoDecodeOrigins); ++i)
+    allowed_video_decode_origins_.insert(
+        kPredefinedAllowedVideoDecodeOrigins[i]);
+#endif
 }
 
 ChromeContentRendererClient::~ChromeContentRendererClient() {
@@ -250,7 +291,9 @@ void ChromeContentRendererClient::RenderThreadStarted() {
   RenderThread* thread = RenderThread::Get();
 
   chrome_observer_.reset(new ChromeRenderProcessObserver(this));
+  web_cache_observer_.reset(new web_cache::WebCacheRenderProcessObserver());
 
+#if defined(ENABLE_EXTENSIONS)
   extension_dispatcher_delegate_.reset(
       new ChromeExtensionsDispatcherDelegate());
   // ChromeRenderViewTest::SetUp() creates its own ExtensionDispatcher and
@@ -262,6 +305,8 @@ void ChromeContentRendererClient::RenderThreadStarted() {
   permissions_policy_delegate_.reset(
       new extensions::RendererPermissionsPolicyDelegate(
           extension_dispatcher_.get()));
+#endif
+
   prescient_networking_dispatcher_.reset(new PrescientNetworkingDispatcher());
   net_predictor_.reset(new RendererNetPredictor());
 #if defined(ENABLE_SPELLCHECK)
@@ -284,7 +329,10 @@ void ChromeContentRendererClient::RenderThreadStarted() {
   search_bouncer_.reset(new SearchBouncer());
 
   thread->AddObserver(chrome_observer_.get());
+  thread->AddObserver(web_cache_observer_.get());
+#if defined(ENABLE_EXTENSIONS)
   thread->AddObserver(extension_dispatcher_.get());
+#endif
 #if defined(FULL_SAFE_BROWSING)
   thread->AddObserver(phishing_classifier_.get());
 #endif
@@ -316,7 +364,7 @@ void ChromeContentRendererClient::RenderThreadStarted() {
 
   // TODO(guohui): needs to forward the new-profile-management switch to
   // renderer processes.
-  if (switches::IsNewProfileManagement())
+  if (switches::IsEnableAccountConsistency())
     thread->RegisterExtension(extensions_v8::PrincipalsExtension::Get());
 
   // chrome:, chrome-search:, chrome-devtools:, and chrome-distiller: pages
@@ -335,13 +383,14 @@ void ChromeContentRendererClient::RenderThreadStarted() {
   WebString dev_tools_scheme(ASCIIToUTF16(content::kChromeDevToolsScheme));
   WebSecurityPolicy::registerURLSchemeAsDisplayIsolated(dev_tools_scheme);
 
-  WebString dom_distiller_scheme(ASCIIToUTF16(chrome::kDomDistillerScheme));
+  WebString dom_distiller_scheme(
+      ASCIIToUTF16(dom_distiller::kDomDistillerScheme));
   // TODO(nyquist): Add test to ensure this happens when the flag is set.
   WebSecurityPolicy::registerURLSchemeAsDisplayIsolated(dom_distiller_scheme);
 
 #if defined(OS_CHROMEOS)
-  WebString drive_scheme(ASCIIToUTF16(chrome::kDriveScheme));
-  WebSecurityPolicy::registerURLSchemeAsLocal(drive_scheme);
+  WebString external_file_scheme(ASCIIToUTF16(chrome::kExternalFileScheme));
+  WebSecurityPolicy::registerURLSchemeAsLocal(external_file_scheme);
 #endif
 
   // chrome: and chrome-search: pages should not be accessible by bookmarklets
@@ -384,24 +433,31 @@ void ChromeContentRendererClient::RenderThreadStarted() {
   if (blacklist::IsBlacklistInitialized())
     UMA_HISTOGRAM_BOOLEAN("Blacklist.PatchedInRenderer", true);
 #endif
+#if defined(ENABLE_FULL_PRINTING)
+  pdf_print_client_.reset(new ChromePDFPrintClient());
+  pdf::PPB_PDF_Impl::SetPrintClient(pdf_print_client_.get());
+#endif
 }
 
 void ChromeContentRendererClient::RenderFrameCreated(
     content::RenderFrame* render_frame) {
   new ChromeRenderFrameObserver(render_frame);
 
+  extensions::Dispatcher* ext_dispatcher = NULL;
+#if defined(ENABLE_EXTENSIONS)
+  ext_dispatcher = extension_dispatcher_.get();
+#endif
   ContentSettingsObserver* content_settings =
-      new ContentSettingsObserver(render_frame, extension_dispatcher_.get());
+      new ContentSettingsObserver(render_frame, ext_dispatcher);
   if (chrome_observer_.get()) {
     content_settings->SetContentSettingRules(
         chrome_observer_->content_setting_rules());
   }
 
 #if defined(ENABLE_EXTENSIONS)
-  new extensions::ChromeExtensionsRenderFrameObserver(render_frame);
+  new extensions::ExtensionsRenderFrameObserver(render_frame);
+  new extensions::ExtensionFrameHelper(render_frame, ext_dispatcher);
 #endif
-  new extensions::ExtensionFrameHelper(render_frame,
-                                       extension_dispatcher_.get());
 
 #if defined(ENABLE_PLUGINS)
   new PepperHelper(render_frame);
@@ -433,8 +489,10 @@ void ChromeContentRendererClient::RenderFrameCreated(
 
 void ChromeContentRendererClient::RenderViewCreated(
     content::RenderView* render_view) {
+#if defined(ENABLE_EXTENSIONS)
   new extensions::ExtensionHelper(render_view, extension_dispatcher_.get());
-  new extensions::ChromeExtensionHelper(render_view);
+  extension_dispatcher_->OnRenderViewCreated(render_view);
+#endif
   new PageLoadHistograms(render_view);
 #if defined(ENABLE_PRINTING)
   new printing::PrintWebViewHelper(render_view);
@@ -459,7 +517,9 @@ void ChromeContentRendererClient::RenderViewCreated(
   if (command_line->HasSwitch(switches::kInstantProcess))
     new SearchBox(render_view);
 
-  new ChromeRenderViewObserver(render_view, chrome_observer_.get());
+  new ChromeRenderViewObserver(render_view, web_cache_observer_.get());
+
+  new password_manager::CredentialManagerClient(render_view);
 }
 
 void ChromeContentRendererClient::SetNumberOfViews(int number_of_views) {
@@ -477,10 +537,7 @@ SkBitmap* ChromeContentRendererClient::GetSadWebViewBitmap() {
       GetImageNamed(IDR_SAD_WEBVIEW).ToSkBitmap());
 }
 
-std::string ChromeContentRendererClient::GetDefaultEncoding() {
-  return l10n_util::GetStringUTF8(IDS_DEFAULT_ENCODING);
-}
-
+#if defined(ENABLE_EXTENSIONS)
 const Extension* ChromeContentRendererClient::GetExtensionByOrigin(
     const WebSecurityOrigin& origin) const {
   if (!EqualsASCII(origin.protocol(), extensions::kExtensionScheme))
@@ -489,6 +546,7 @@ const Extension* ChromeContentRendererClient::GetExtensionByOrigin(
   const std::string extension_id = origin.host().utf8().data();
   return extension_dispatcher_->extensions()->GetByID(extension_id);
 }
+#endif
 
 bool ChromeContentRendererClient::OverrideCreatePlugin(
     content::RenderFrame* render_frame,
@@ -496,20 +554,17 @@ bool ChromeContentRendererClient::OverrideCreatePlugin(
     const WebPluginParams& params,
     WebPlugin** plugin) {
   std::string orig_mime_type = params.mimeType.utf8();
+#if defined(ENABLE_EXTENSIONS)
   if (orig_mime_type == content::kBrowserPluginMimeType) {
-    WebDocument document = frame->document();
-    const Extension* extension =
-        GetExtensionByOrigin(document.securityOrigin());
-    if (extension) {
-      const extensions::APIPermission::ID perms[] = {
-        extensions::APIPermission::kWebView,
-      };
-      for (size_t i = 0; i < arraysize(perms); ++i) {
-        if (extension->permissions_data()->HasAPIPermission(perms[i]))
-          return false;
-      }
-    }
+    bool guest_view_api_available = false;
+    extension_dispatcher_->script_context_set().ForEach(
+        render_frame->GetRenderView(),
+        base::Bind(&IsGuestViewApiAvailableToScriptContext,
+                   &guest_view_api_available));
+    if (guest_view_api_available)
+      return false;
   }
+#endif
 
   ChromeViewHostMsg_GetPluginInfo_Output output;
 #if defined(ENABLE_PLUGINS)
@@ -650,12 +705,13 @@ WebPlugin* ChromeContentRendererClient::CreatePlugin(
         break;
       }
       case ChromeViewHostMsg_GetPluginInfo_Status::kAllowed: {
+#if !defined(DISABLE_NACL)
         const bool is_nacl_plugin =
-            plugin.name == ASCIIToUTF16(ChromeContentClient::kNaClPluginName);
+            plugin.name == ASCIIToUTF16(nacl::kNaClPluginName);
         const bool is_nacl_mime_type =
-            actual_mime_type == "application/x-nacl";
+            actual_mime_type == nacl::kNaClPluginMimeType;
         const bool is_pnacl_mime_type =
-            actual_mime_type == "application/x-pnacl";
+            actual_mime_type == nacl::kPnaclPluginMimeType;
         if (is_nacl_plugin || is_nacl_mime_type || is_pnacl_mime_type) {
           bool is_nacl_unrestricted = false;
           if (is_nacl_mime_type) {
@@ -663,9 +719,7 @@ WebPlugin* ChromeContentRendererClient::CreatePlugin(
                 CommandLine::ForCurrentProcess()->HasSwitch(
                     switches::kEnableNaCl);
           } else if (is_pnacl_mime_type) {
-            is_nacl_unrestricted =
-                !CommandLine::ForCurrentProcess()->HasSwitch(
-                    switches::kDisablePnacl);
+            is_nacl_unrestricted = true;
           }
           GURL manifest_url;
           GURL app_url;
@@ -716,6 +770,7 @@ WebPlugin* ChromeContentRendererClient::CreatePlugin(
             break;
           }
         }
+#endif  // !defined(DISABLE_NACL)
 
         // Delay loading plugins if prerendering.
         // TODO(mmenke):  In the case of prerendering, feed into
@@ -1043,11 +1098,13 @@ void ChromeContentRendererClient::GetNavigationErrorStrings(
   const GURL failed_url = error.unreachableURL;
   const Extension* extension = NULL;
 
+#if defined(ENABLE_EXTENSIONS)
   if (failed_url.is_valid() &&
       !failed_url.SchemeIs(extensions::kExtensionScheme)) {
     extension = extension_dispatcher_->extensions()->GetExtensionOrAppByURL(
         failed_url);
   }
+#endif
 
   bool is_post = EqualsASCII(failed_request.httpMethod(), "POST");
 
@@ -1090,10 +1147,15 @@ void ChromeContentRendererClient::GetNavigationErrorStrings(
 }
 
 bool ChromeContentRendererClient::RunIdleHandlerWhenWidgetsHidden() {
+#if defined(ENABLE_EXTENSIONS)
   return !extension_dispatcher_->is_extension_process();
+#else
+  return true;
+#endif
 }
 
 bool ChromeContentRendererClient::AllowPopup() {
+#if defined(ENABLE_EXTENSIONS)
   extensions::ScriptContext* current_context =
       extension_dispatcher_->script_context_set().GetCurrent();
   if (!current_context || !current_context->extension())
@@ -1103,6 +1165,7 @@ bool ChromeContentRendererClient::AllowPopup() {
     case extensions::Feature::UNSPECIFIED_CONTEXT:
     case extensions::Feature::WEB_PAGE_CONTEXT:
     case extensions::Feature::UNBLESSED_EXTENSION_CONTEXT:
+    case extensions::Feature::WEBUI_CONTEXT:
       return false;
     case extensions::Feature::BLESSED_EXTENSION_CONTEXT:
     case extensions::Feature::CONTENT_SCRIPT_CONTEXT:
@@ -1111,6 +1174,7 @@ bool ChromeContentRendererClient::AllowPopup() {
       return !current_context->web_frame()->parent();
   }
   NOTREACHED();
+#endif
   return false;
 }
 
@@ -1161,6 +1225,7 @@ bool ChromeContentRendererClient::ShouldFork(WebFrame* frame,
     return true;
   }
 
+#if defined(ENABLE_EXTENSIONS)
   const extensions::ExtensionSet* extensions =
       extension_dispatcher_->extensions();
 
@@ -1203,18 +1268,20 @@ bool ChromeContentRendererClient::ShouldFork(WebFrame* frame,
     if (is_extension_url != extension_dispatcher_->is_extension_process())
       return true;
   }
+#endif  // defined(ENABLE_EXTENSIONS)
 
   return false;
 }
 
 bool ChromeContentRendererClient::WillSendRequest(
     blink::WebFrame* frame,
-    content::PageTransition transition_type,
+    ui::PageTransition transition_type,
     const GURL& url,
     const GURL& first_party_for_cookies,
     GURL* new_url) {
   // Check whether the request should be allowed. If not allowed, we reset the
   // URL to something invalid to prevent the request and cause an error.
+#if defined(ENABLE_EXTENSIONS)
   if (url.SchemeIs(extensions::kExtensionScheme) &&
       !extensions::ResourceRequestPolicy::CanRequestResource(
           url,
@@ -1232,6 +1299,7 @@ bool ChromeContentRendererClient::WillSendRequest(
     *new_url = GURL(chrome::kExtensionResourceInvalidRequestURL);
     return true;
   }
+#endif
 
   const content::RenderView* render_view =
       content::RenderView::FromWebView(frame->view());
@@ -1249,8 +1317,10 @@ bool ChromeContentRendererClient::WillSendRequest(
 void ChromeContentRendererClient::DidCreateScriptContext(
     WebFrame* frame, v8::Handle<v8::Context> context, int extension_group,
     int world_id) {
+#if defined(ENABLE_EXTENSIONS)
   extension_dispatcher_->DidCreateScriptContext(
       frame, context, extension_group, world_id);
+#endif
 }
 
 unsigned long long ChromeContentRendererClient::VisitedLinkHash(
@@ -1277,6 +1347,7 @@ bool ChromeContentRendererClient::ShouldOverridePageVisibilityState(
   return true;
 }
 
+#if defined(ENABLE_EXTENSIONS)
 void ChromeContentRendererClient::SetExtensionDispatcherForTest(
     extensions::Dispatcher* extension_dispatcher) {
   extension_dispatcher_.reset(extension_dispatcher);
@@ -1329,6 +1400,7 @@ bool ChromeContentRendererClient::CrossesExtensionExtents(
   return extensions::CrossesExtensionProcessBoundary(
       extensions, old_url, new_url, should_consider_workaround);
 }
+#endif  // defined(ENABLE_EXTENSIONS)
 
 #if defined(ENABLE_SPELLCHECK)
 void ChromeContentRendererClient::SetSpellcheck(SpellCheck* spellcheck) {
@@ -1345,8 +1417,12 @@ void ChromeContentRendererClient::SetSpellcheck(SpellCheck* spellcheck) {
 
 // static
 bool ChromeContentRendererClient::WasWebRequestUsedBySomeExtensions() {
-  return g_current_client->extension_dispatcher_delegate_
+#if defined(ENABLE_EXTENSIONS)
+  return g_current_client->extension_dispatcher_
       ->WasWebRequestUsedBySomeExtensions();
+#else
+  return false;
+#endif
 }
 
 const void* ChromeContentRendererClient::CreatePPAPIInterface(
@@ -1357,7 +1433,7 @@ const void* ChromeContentRendererClient::CreatePPAPIInterface(
     return nacl::GetNaClPrivateInterface();
 #endif  // DISABLE_NACL
   if (interface_name == PPB_PDF_INTERFACE)
-    return PPB_PDF_Impl::GetInterface();
+    return pdf::PPB_PDF_Impl::GetInterface();
 #endif
   return NULL;
 }
@@ -1370,6 +1446,7 @@ bool ChromeContentRendererClient::IsExternalPepperPlugin(
   return module_name == "Native Client";
 }
 
+#if defined(ENABLE_PLUGINS) && defined(ENABLE_EXTENSIONS)
 bool ChromeContentRendererClient::IsExtensionOrSharedModuleWhitelisted(
     const GURL& url, const std::set<std::string>& whitelist) {
   const extensions::ExtensionSet* extension_set =
@@ -1377,6 +1454,7 @@ bool ChromeContentRendererClient::IsExtensionOrSharedModuleWhitelisted(
   return chrome::IsExtensionOrSharedModuleWhitelisted(url, extension_set,
       whitelist);
 }
+#endif
 
 blink::WebSpeechSynthesizer*
 ChromeContentRendererClient::OverrideSpeechSynthesizer(
@@ -1432,4 +1510,66 @@ ChromeContentRendererClient::CreateWorkerPermissionClientProxy(
     content::RenderFrame* render_frame,
     blink::WebFrame* frame) {
   return new WorkerPermissionClientProxy(render_frame, frame);
+}
+
+bool ChromeContentRendererClient::IsPluginAllowedToUseDevChannelAPIs() {
+#if defined(ENABLE_PLUGINS)
+  // Allow access for tests.
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnablePepperTesting)) {
+    return true;
+  }
+
+  chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
+  // Allow dev channel APIs to be used on "Canary", "Dev", and "Unknown"
+  // releases of Chrome. Permitting "Unknown" allows these APIs to be used on
+  // Chromium builds as well.
+  return channel <= chrome::VersionInfo::CHANNEL_DEV;
+#else
+  return false;
+#endif
+}
+
+bool ChromeContentRendererClient::IsPluginAllowedToUseCompositorAPI(
+    const GURL& url) {
+#if defined(ENABLE_PLUGINS) && defined(ENABLE_EXTENSIONS)
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnablePepperTesting))
+    return true;
+  if (IsExtensionOrSharedModuleWhitelisted(url, allowed_compositor_origins_))
+    return true;
+
+  chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
+  return channel <= chrome::VersionInfo::CHANNEL_DEV;
+#else
+  return false;
+#endif
+}
+
+bool ChromeContentRendererClient::IsPluginAllowedToUseVideoDecodeAPI(
+    const GURL& url) {
+#if defined(ENABLE_PLUGINS) && defined(ENABLE_EXTENSIONS)
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnablePepperTesting))
+    return true;
+
+  if (IsExtensionOrSharedModuleWhitelisted(url, allowed_video_decode_origins_))
+    return true;
+
+  chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
+  return channel <= chrome::VersionInfo::CHANNEL_DEV;
+#else
+  return false;
+#endif
+}
+
+content::BrowserPluginDelegate*
+ChromeContentRendererClient::CreateBrowserPluginDelegate(
+    content::RenderFrame* render_frame,
+    const std::string& mime_type) {
+#if defined(ENABLE_EXTENSIONS)
+  return new extensions::GuestViewContainer(render_frame, mime_type);
+#else
+  return NULL;
+#endif
 }

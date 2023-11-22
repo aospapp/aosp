@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Приложението за администриране не може да се използва. В него липсват компоненти или то е повредено. Свържете се с отдела си за информационни технологии."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Приложението за администриране не можа да се инсталира"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Приложението за администриране не е инсталирано на устройството ви"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Да се спре ли настройването?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Наистина ли искате да спрете настройването?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Не"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Да"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Анулира се..."</string>
 </resources>

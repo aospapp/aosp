@@ -45,7 +45,8 @@ public abstract class BaseEmulatorActivity extends PassFailButtons.Activity {
             PrefixPaymentService2.COMPONENT,
             PrefixTransportService1.COMPONENT,
             PrefixTransportService2.COMPONENT,
-            PrefixAccessService.COMPONENT)
+            PrefixAccessService.COMPONENT,
+            LargeNumAidsService.COMPONENT)
     );
 
     @Override

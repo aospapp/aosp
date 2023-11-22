@@ -6,8 +6,8 @@
 
 #include "base/bind.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/message_loop/message_loop.h"
 #include "base/process/kill.h"
@@ -36,8 +36,6 @@ InputDeviceSettings* g_test_instance_;
 const char kDeviceTypeTouchpad[] = "touchpad";
 const char kDeviceTypeMouse[] = "mouse";
 const char kInputControl[] = "/opt/google/input/inputcontrol";
-
-const char kRemoraRequisition[] = "remora";
 
 typedef base::RefCountedData<bool> RefCountedBool;
 
@@ -247,8 +245,8 @@ bool InputDeviceSettingsImpl::ForceKeyboardDrivenUINavigation() {
   if (!policy_manager)
     return false;
 
-  if (base::strcasecmp(policy_manager->GetDeviceRequisition().c_str(),
-                       kRemoraRequisition) == 0) {
+  if (policy_manager->IsRemoraRequisition() ||
+      policy_manager->IsSharkRequisition()) {
     return true;
   }
 
@@ -355,7 +353,10 @@ bool TouchpadSettings::Update(const TouchpadSettings& settings,
     if (argv)
       AddTPControlArguments("tapdrag", tap_dragging_.value(), argv);
   }
-  if (natural_scroll_.Update(settings.natural_scroll_)) {
+  natural_scroll_.Update(settings.natural_scroll_);
+  // Always send natural scrolling to the shell command, as a workaround.
+  // See crbug.com/406480
+  if (natural_scroll_.is_set()) {
     updated = true;
     if (argv)
       AddTPControlArguments("australian_scrolling", natural_scroll_.value(),

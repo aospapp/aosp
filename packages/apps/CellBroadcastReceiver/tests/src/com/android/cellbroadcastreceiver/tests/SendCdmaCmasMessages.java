@@ -16,9 +16,12 @@
 
 package com.android.cellbroadcastreceiver.tests;
 
+import android.Manifest;
 import android.app.Activity;
+import android.app.AppOpsManager;
 import android.content.Intent;
 import android.os.Parcel;
+import android.os.UserHandle;
 import android.provider.Telephony;
 import android.telephony.SmsCbCmasInfo;
 import android.telephony.SmsCbLocation;
@@ -70,7 +73,9 @@ public class SendCdmaCmasMessages {
 
         Intent intent = new Intent(Telephony.Sms.Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION);
         intent.putExtra("message", cbMessage);
-        activity.sendOrderedBroadcast(intent, "android.permission.RECEIVE_SMS");
+        activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
+                Manifest.permission.RECEIVE_EMERGENCY_BROADCAST,
+                AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
     public static void testSendCmasExtremeAlert(Activity activity, int messageId) {
@@ -82,7 +87,9 @@ public class SendCdmaCmasMessages {
 
         Intent intent = new Intent(Telephony.Sms.Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION);
         intent.putExtra("message", cbMessage);
-        activity.sendOrderedBroadcast(intent, "android.permission.RECEIVE_SMS");
+        activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
+                Manifest.permission.RECEIVE_EMERGENCY_BROADCAST,
+                AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
     public static void testSendCmasSevereAlert(Activity activity, int messageId) {
@@ -94,7 +101,9 @@ public class SendCdmaCmasMessages {
 
         Intent intent = new Intent(Telephony.Sms.Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION);
         intent.putExtra("message", cbMessage);
-        activity.sendOrderedBroadcast(intent, "android.permission.RECEIVE_SMS");
+        activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
+                Manifest.permission.RECEIVE_EMERGENCY_BROADCAST,
+                AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
     public static void testSendCmasAmberAlert(Activity activity, int messageId) {
@@ -106,7 +115,9 @@ public class SendCdmaCmasMessages {
 
         Intent intent = new Intent(Telephony.Sms.Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION);
         intent.putExtra("message", cbMessage);
-        activity.sendOrderedBroadcast(intent, "android.permission.RECEIVE_SMS");
+        activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
+                Manifest.permission.RECEIVE_EMERGENCY_BROADCAST,
+                AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
     public static void testSendCmasMonthlyTest(Activity activity, int messageId) {
@@ -118,7 +129,9 @@ public class SendCdmaCmasMessages {
 
         Intent intent = new Intent(Telephony.Sms.Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION);
         intent.putExtra("message", cbMessage);
-        activity.sendOrderedBroadcast(intent, "android.permission.RECEIVE_SMS");
+        activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
+                Manifest.permission.RECEIVE_EMERGENCY_BROADCAST,
+                AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
     /**

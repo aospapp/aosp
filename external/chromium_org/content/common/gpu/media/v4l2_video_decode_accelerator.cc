@@ -224,8 +224,8 @@ bool V4L2VideoDecodeAccelerator::Initialize(media::VideoCodecProfile profile,
     case media::H264PROFILE_HIGH:
       DVLOG(2) << "Initialize(): profile H264PROFILE_HIGH";
       break;
-    case media::VP8PROFILE_MAIN:
-      DVLOG(2) << "Initialize(): profile VP8PROFILE_MAIN";
+    case media::VP8PROFILE_ANY:
+      DVLOG(2) << "Initialize(): profile VP8PROFILE_ANY";
       break;
     default:
       DLOG(ERROR) << "Initialize(): unsupported profile=" << profile;
@@ -1092,7 +1092,9 @@ void V4L2VideoDecodeAccelerator::Dequeue() {
       DVLOG(3) << "Dequeue(): returning input_id=" << dqbuf.timestamp.tv_sec
                << " as picture_id=" << output_record.picture_id;
       const media::Picture& picture =
-          media::Picture(output_record.picture_id, dqbuf.timestamp.tv_sec);
+          media::Picture(output_record.picture_id,
+                         dqbuf.timestamp.tv_sec,
+                         gfx::Rect(frame_buffer_size_));
       pending_picture_ready_.push(
           PictureRecord(output_record.cleared, picture));
       SendPictureReady();

@@ -108,6 +108,7 @@ public class PhoneticNameEditorView extends TextFieldsEditorView {
             entry = new PhoneticValuesDelta(entry);
         }
         super.setValues(kind, entry, state, readOnly, vig);
+        updateEmptiness();
     }
 
     @Override
@@ -149,5 +150,13 @@ public class PhoneticNameEditorView extends TextFieldsEditorView {
 
         return !TextUtils.isEmpty(family) || !TextUtils.isEmpty(middle)
                 || !TextUtils.isEmpty(given);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected void onFinishInflate() {
+        super.onFinishInflate();
+        // Remove padding below this view.
+        setPadding(getPaddingLeft(), getPaddingTop(), getPaddingRight(), 0);
     }
 }

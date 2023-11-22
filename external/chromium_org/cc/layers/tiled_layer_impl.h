@@ -28,7 +28,8 @@ class CC_EXPORT TiledLayerImpl : public LayerImpl {
 
   virtual bool WillDraw(DrawMode draw_mode,
                         ResourceProvider* resource_provider) OVERRIDE;
-  virtual void AppendQuads(QuadSink* quad_sink,
+  virtual void AppendQuads(RenderPass* render_pass,
+                           const OcclusionTracker<LayerImpl>& occlusion_tracker,
                            AppendQuadsData* append_quads_data) OVERRIDE;
 
   virtual ResourceProvider::ResourceId ContentsResourceId() const OVERRIDE;
@@ -38,11 +39,10 @@ class CC_EXPORT TiledLayerImpl : public LayerImpl {
   void PushTileProperties(int i,
                           int j,
                           ResourceProvider::ResourceId resource,
-                          const gfx::Rect& opaque_rect,
                           bool contents_swizzled);
   void PushInvalidTile(int i, int j);
 
-  virtual Region VisibleContentOpaqueRegion() const OVERRIDE;
+  virtual SimpleEnclosedRegion VisibleContentOpaqueRegion() const OVERRIDE;
   virtual void ReleaseResources() OVERRIDE;
 
   const LayerTilingData* TilingForTesting() const { return tiler_.get(); }
@@ -57,7 +57,7 @@ class CC_EXPORT TiledLayerImpl : public LayerImpl {
 
   virtual void GetDebugBorderProperties(SkColor* color, float* width) const
       OVERRIDE;
-  virtual void AsValueInto(base::DictionaryValue* state) const OVERRIDE;
+  virtual void AsValueInto(base::debug::TracedValue* dict) const OVERRIDE;
 
  private:
   virtual const char* LayerTypeAsString() const OVERRIDE;

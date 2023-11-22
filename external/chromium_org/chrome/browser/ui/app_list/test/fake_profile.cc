@@ -64,11 +64,15 @@ content::BrowserPluginGuestManager* FakeProfile::GetGuestManager() {
   return NULL;
 }
 
-quota::SpecialStoragePolicy* FakeProfile::GetSpecialStoragePolicy() {
+storage::SpecialStoragePolicy* FakeProfile::GetSpecialStoragePolicy() {
   return NULL;
 }
 
 content::PushMessagingService* FakeProfile::GetPushMessagingService() {
+  return NULL;
+}
+
+content::SSLHostStateDelegate* FakeProfile::GetSSLHostStateDelegate() {
   return NULL;
 }
 
@@ -100,10 +104,6 @@ history::TopSites* FakeProfile::GetTopSites() {
 }
 
 history::TopSites* FakeProfile::GetTopSitesWithoutCreating() {
-  return NULL;
-}
-
-ExtensionService* FakeProfile::GetExtensionService() {
   return NULL;
 }
 
@@ -185,11 +185,6 @@ DevToolsNetworkController* FakeProfile::GetDevToolsNetworkController() {
 
 void FakeProfile::ClearNetworkingHistorySince(
     base::Time time,
-    const base::Closure& completion) {
-}
-
-void FakeProfile::ClearDomainReliabilityMonitor(
-    domain_reliability::DomainReliabilityClearMode mode,
     const base::Closure& completion) {
 }
 

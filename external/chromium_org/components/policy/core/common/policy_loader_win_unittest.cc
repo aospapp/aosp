@@ -15,8 +15,8 @@
 
 #include "base/base_paths.h"
 #include "base/callback.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/json/json_writer.h"
 #include "base/path_service.h"
@@ -805,7 +805,8 @@ TEST_F(PolicyLoaderWinTest, HKLMOverHKCU) {
       .Set(test_keys::kKeyString,
            POLICY_LEVEL_MANDATORY,
            POLICY_SCOPE_MACHINE,
-           base::Value::CreateStringValue("hklm"), NULL);
+           new base::StringValue("hklm"),
+           NULL);
   EXPECT_TRUE(Matches(expected));
 }
 
@@ -855,15 +856,26 @@ TEST_F(PolicyLoaderWinTest, Merge3rdPartyPolicies) {
 
   PolicyBundle expected;
   PolicyMap& expected_policy = expected.Get(ns);
-  expected_policy.Set("a", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_MACHINE,
-                      base::Value::CreateStringValue(kMachineMandatory), NULL);
-  expected_policy.Set("b", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-                      base::Value::CreateStringValue(kUserMandatory), NULL);
-  expected_policy.Set("c", POLICY_LEVEL_RECOMMENDED, POLICY_SCOPE_MACHINE,
-                      base::Value::CreateStringValue(kMachineRecommended),
+  expected_policy.Set("a",
+                      POLICY_LEVEL_MANDATORY,
+                      POLICY_SCOPE_MACHINE,
+                      new base::StringValue(kMachineMandatory),
                       NULL);
-  expected_policy.Set("d", POLICY_LEVEL_RECOMMENDED, POLICY_SCOPE_USER,
-                      base::Value::CreateStringValue(kUserRecommended), NULL);
+  expected_policy.Set("b",
+                      POLICY_LEVEL_MANDATORY,
+                      POLICY_SCOPE_USER,
+                      new base::StringValue(kUserMandatory),
+                      NULL);
+  expected_policy.Set("c",
+                      POLICY_LEVEL_RECOMMENDED,
+                      POLICY_SCOPE_MACHINE,
+                      new base::StringValue(kMachineRecommended),
+                      NULL);
+  expected_policy.Set("d",
+                      POLICY_LEVEL_RECOMMENDED,
+                      POLICY_SCOPE_USER,
+                      new base::StringValue(kUserRecommended),
+                      NULL);
   EXPECT_TRUE(Matches(expected));
 }
 

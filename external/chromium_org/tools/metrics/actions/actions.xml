@@ -79,6 +79,7 @@ should be able to be added at any place in this file.
 <action name="AboutFlags_disable-pnacl">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>This flag no longer exists.</obsolete>
 </action>
 
 <action name="AboutFlags_disable-print-preview">
@@ -347,8 +348,11 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Accel_Focus_Launcher">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>kuscher@chromium.org</owner>
+  <description>Keyboard accelerator to focus the app shelf.</description>
+  <obsolete>
+    Deprecated 09/2014 in issue 248353 and replaced by Accel_Focus_Shelf.
+  </obsolete>
 </action>
 
 <action name="Accel_Focus_Location">
@@ -369,6 +373,11 @@ should be able to be added at any place in this file.
 <action name="Accel_Focus_Search">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="Accel_Focus_Shelf">
+  <owner>kuscher@chromium.org</owner>
+  <description>Keyboard accelerator to focus the app shelf.</description>
 </action>
 
 <action name="Accel_Focus_Toolbar">
@@ -792,18 +801,30 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="AutomaticSettingsReset_WebUIBanner_BannerShown">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>gab@chromium.org</owner>
+  <description>
+    User opened chrome://settings less than 5 days after a settings hardening
+    event and was automatically shown this banner.
+  </description>
 </action>
 
 <action name="AutomaticSettingsReset_WebUIBanner_LearnMoreClicked">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>gab@chromium.org</owner>
+  <description>
+    User clicked the Learn More link on the AutomaticSettingsReset banner.
+  </description>
 </action>
 
 <action name="AutomaticSettingsReset_WebUIBanner_ManuallyClosed">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>gab@chromium.org</owner>
+  <description>User dismissed the AutomaticSettingsReset banner.</description>
+</action>
+
+<action name="AutomaticSettingsReset_WebUIBanner_ResetClicked">
+  <owner>gab@chromium.org</owner>
+  <description>
+    User clicked the reset button on the AutomaticSettingsReset banner.
+  </description>
 </action>
 
 <action name="Back">
@@ -1841,6 +1862,11 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="ClearBrowsingData_ChannelIDs">
+  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <description>Please enter the description of the metric.</description>
+</action>
+
 <action name="ClearBrowsingData_ContentLicenses">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
@@ -1914,6 +1940,7 @@ should be able to be added at any place in this file.
 <action name="ClearBrowsingData_ServerBoundCerts">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>This has been renamed ClearBrowsingData_ChannelIDs.</obsolete>
 </action>
 
 <action name="ClearBrowsingData_ShaderCache">
@@ -2016,9 +2043,38 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="CloseTab_AudioIndicator">
+  <owner>miu@chromium.org</owner>
+  <description>
+    User clicked the close tab button; the audio indicator was showing.
+  </description>
+</action>
+
 <action name="CloseTab_Mouse">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="CloseTab_MuteToggleAvailable">
+  <owner>miu@chromium.org</owner>
+  <description>
+    User clicked the close tab button; the audio mute toggle button was enabled.
+  </description>
+</action>
+
+<action name="CloseTab_NoMediaIndicator">
+  <owner>miu@chromium.org</owner>
+  <description>
+    User clicked the close tab button; the media indicator was not showing.
+  </description>
+</action>
+
+<action name="CloseTab_RecordingIndicator">
+  <owner>miu@chromium.org</owner>
+  <description>
+    User clicked the close tab button; the recording/capture indicator was
+    showing.
+  </description>
 </action>
 
 <action name="CloseWebApp">
@@ -2439,6 +2495,26 @@ should be able to be added at any place in this file.
 <action name="DockingWindow_Top">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="DomDistiller_DistilledPageOpened">
+  <owner>smaslo@chromium.org</owner>
+  <owner>yfriedman@chromium.org</owner>
+  <description>User opens a distilled page.</description>
+</action>
+
+<action name="DomDistiller_DistilledPagePrefsOpened">
+  <owner>smaslo@chromium.org</owner>
+  <owner>yfriedman@chromium.org</owner>
+  <description>User opens distilled page preferences.</description>
+</action>
+
+<action name="DomDistiller_ViewOriginal">
+  <owner>yfriedman@chromium.org</owner>
+  <description>
+    Records clicks on the &quot;View Original&quot; link in the distilled page
+    viewer.
+  </description>
 </action>
 
 <action name="Duplicate">
@@ -2877,18 +2953,25 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="GoogleNow.ButtonClicked0">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>robliao@chromium.org</owner>
+  <owner>skare@chromium.org</owner>
+  <description>
+    User clicked button index 0 (0-based) of a Now Notification.
+  </description>
 </action>
 
 <action name="GoogleNow.ButtonClicked1">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>robliao@chromium.org</owner>
+  <owner>skare@chromium.org</owner>
+  <description>
+    User clicked button index 1 (0-based) of a Now Notification.
+  </description>
 </action>
 
 <action name="GoogleNow.Dismissed">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>robliao@chromium.org</owner>
+  <owner>skare@chromium.org</owner>
+  <description>User dismissed a Now Notification.</description>
 </action>
 
 <action name="GoogleNow.MessageCenter.NotificationPoppedUp">
@@ -2900,23 +2983,36 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="GoogleNow.MessageClicked">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>robliao@chromium.org</owner>
+  <owner>skare@chromium.org</owner>
+  <description>
+    User clicked on the message text of a Now notification.
+  </description>
 </action>
 
 <action name="GoogleNow.WelcomeToastClickedNo">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>robliao@chromium.org</owner>
+  <owner>skare@chromium.org</owner>
+  <description>
+    User dismissed the Now Notifications welcome toast via the &quot;don't show
+    me notifications&quot; button.
+  </description>
 </action>
 
 <action name="GoogleNow.WelcomeToastClickedYes">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>robliao@chromium.org</owner>
+  <owner>skare@chromium.org</owner>
+  <description>
+    User dismissed the Now Notifications welcome toast via the ok button.
+  </description>
 </action>
 
 <action name="GoogleNow.WelcomeToastDismissed">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>robliao@chromium.org</owner>
+  <owner>skare@chromium.org</owner>
+  <description>
+    User dismissed the Now Notifications welcome toast via the x.
+  </description>
 </action>
 
 <action name="GpuAccelerationDisabled">
@@ -7005,6 +7101,27 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="MediaIndicatorButton_Dragged">
+  <owner>miu@chromium.org</owner>
+  <description>
+    User dragged the tab media indicator button; perhaps meant to drag the tab.
+  </description>
+</action>
+
+<action name="MediaIndicatorButton_Mute">
+  <owner>miu@chromium.org</owner>
+  <description>
+    User clicked the tab media indicator button to mute the tab.
+  </description>
+</action>
+
+<action name="MediaIndicatorButton_Unmute">
+  <owner>miu@chromium.org</owner>
+  <description>
+    User clicked the tab media indicator button to unmute the tab.
+  </description>
+</action>
+
 <action name="Menu_Take_Screenshot">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
@@ -7520,23 +7637,34 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="MobileUsingMenuByHwButtonDragging">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>kkimlabs@chromium.org</owner>
+  <description>
+    Only for Android. Menu is shown by dragging from hardware menu button.
+  </description>
+  <obsolete>
+    Deprecated as of 06/2014. We removed this feature http://crbug.com/366154 .
+  </obsolete>
 </action>
 
 <action name="MobileUsingMenuByHwButtonTap">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>kkimlabs@chromium.org</owner>
+  <description>
+    Only for Android. Menu is shown by tapping hardware menu button.
+  </description>
 </action>
 
 <action name="MobileUsingMenuBySwButtonDragging">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>kkimlabs@chromium.org</owner>
+  <description>
+    Only for Android. Menu is shown by dragging from software menu button.
+  </description>
 </action>
 
 <action name="MobileUsingMenuBySwButtonTap">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>kkimlabs@chromium.org</owner>
+  <description>
+    Only for Android. Menu is shown by tapping software menu button.
+  </description>
 </action>
 
 <action name="MostVisited0">
@@ -8250,8 +8378,10 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Options_DefaultMIDISysExSettingChanged">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>toyoshim@chromium.org</owner>
+  <description>
+    Triggers when the default decision for Midi SysEx permissions is changed.
+  </description>
 </action>
 
 <action name="Options_DefaultMediaStreamMicSettingChanged">
@@ -8287,6 +8417,13 @@ should be able to be added at any place in this file.
 <action name="Options_DefaultPopupsSettingChanged">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="Options_DefaultPushMessagingSettingChanged">
+  <owner>miguelg@chromium.org</owner>
+  <description>
+    Triggers when the default decision for push message permissions is changed.
+  </description>
 </action>
 
 <action name="Options_DictionaryLanguage">
@@ -8333,7 +8470,10 @@ should be able to be added at any place in this file.
 
 <action name="Options_DisplaySetResolution">
   <owner>stevenjb@chromium.org</owner>
-  <description>Settings: Device: Display settings: Resolution</description>
+  <description>
+    Settings: Device: Display settings: Display mode (i.e. resolution, UI-scale,
+    and device scale factor).
+  </description>
 </action>
 
 <action name="Options_DisplayToggleMirroring">
@@ -8530,6 +8670,26 @@ should be able to be added at any place in this file.
 <action name="Options_JavaCheckbox_Enable">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="Options_KeyboardAutoRepeat_Delay">
+  <owner>michaelpg@chromium.org</owner>
+  <description>Settings: Keyboard settings: Auto-repeat delay</description>
+</action>
+
+<action name="Options_KeyboardAutoRepeat_Disable">
+  <owner>michaelpg@chromium.org</owner>
+  <description>Settings: Keyboard settings: Disable auto-repeat</description>
+</action>
+
+<action name="Options_KeyboardAutoRepeat_Enable">
+  <owner>michaelpg@chromium.org</owner>
+  <description>Settings: Keyboard settings: Enable auto-repeat</description>
+</action>
+
+<action name="Options_KeyboardAutoRepeat_Interval">
+  <owner>michaelpg@chromium.org</owner>
+  <description>Settings: Keyboard settings: Auto-repeat interval</description>
 </action>
 
 <action name="Options_KeyboardRemapAltKey">
@@ -9560,6 +9720,24 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="PasswordManager_SyncCredentialShown">
+  <owner>gcasto@chromium.org</owner>
+  <owner>vabr@chromium.org</owner>
+  <description>
+    Counts the number of times a user views the saved credentials for their sync
+    account.
+  </description>
+</action>
+
+<action name="PasswordManager_SyncCredentialUsed">
+  <owner>gcasto@chromium.org</owner>
+  <owner>vabr@chromium.org</owner>
+  <description>
+    Counts the number of times a user submits an autofilled credential which
+    matches their sync account.
+  </description>
+</action>
+
 <action name="Paste">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
@@ -9797,183 +9975,220 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="SBInterstitialMalwareDontProceed">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMalwareDontProceed_V1">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMalwareDontProceed_V2">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMalwareForcedDontProceed">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMalwareForcedDontProceed_V1">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMalwareForcedDontProceed_V2">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMalwareProceed">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMalwareProceed_V1">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMalwareProceed_V2">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMalwareShow">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMalwareShow_V1">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMalwareShow_V2">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMultipleDontProceed">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMultipleDontProceed_V1">
+  <owner>felt@chromium.org</owner>
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMultipleDontProceed_V2">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMultipleForcedDontProceed">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMultipleForcedDontProceed_V1">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMultipleForcedDontProceed_V2">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMultipleProceed">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMultipleProceed_V1">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMultipleProceed_V2">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMultipleShow">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMultipleShow_V1">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialMultipleShow_V2">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialPhishingDontProceed">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialPhishingDontProceed_V1">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialPhishingDontProceed_V2">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialPhishingForcedDontProceed">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialPhishingForcedDontProceed_V1">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialPhishingForcedDontProceed_V2">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialPhishingProceed">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialPhishingProceed_V1">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialPhishingProceed_V2">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialPhishingShow">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialPhishingShow_V1">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SBInterstitialPhishingShow_V2">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <owner>felt@chromium.org</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Replaced by the histogram SB2.InterstitialAction</obsolete>
 </action>
 
 <action name="SSL.DisplayedInsecureContent">
@@ -10119,6 +10334,13 @@ should be able to be added at any place in this file.
 <action name="SelectTab7">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="ServiceWorker.ControlledPageLoad">
+  <owner>nhiroki@chromium.org</owner>
+  <description>
+    Counts the number of page loads controlled by a Service Worker.
+  </description>
 </action>
 
 <action name="SettingsResetBubble.LearnMore">
@@ -10646,6 +10868,13 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="TabContextMenu_MuteTabs">
+  <owner>miu@chromium.org</owner>
+  <description>
+    User muted one or more tabs via the tab context menu.
+  </description>
+</action>
+
 <action name="TabContextMenu_NewTab">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
@@ -10676,6 +10905,13 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="TabContextMenu_UnmuteTabs">
+  <owner>miu@chromium.org</owner>
+  <description>
+    User unmuted one or more tabs via the tab context menu.
+  </description>
+</action>
+
 <action name="TabContextMenu_UseDestinationsTab_Off">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
@@ -10689,6 +10925,13 @@ should be able to be added at any place in this file.
 <action name="TabContextMenu_UseVerticalTabs">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="TabMediaIndicator_Clicked">
+  <owner>miu@chromium.org</owner>
+  <description>
+    User clicked the tab media indicator; this will have no effect.
+  </description>
 </action>
 
 <action name="TabOverview_DetachCell">
@@ -10919,46 +11162,58 @@ should be able to be added at any place in this file.
 <action name="UpgradeCheck_AlreadyUpToDate">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Removed from codebase; see GoogleUpdate.UpgradeResult.</obsolete>
 </action>
 
 <action name="UpgradeCheck_AlreadyUpgraded">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Removed from codebase; see GoogleUpdate.UpgradeResult.</obsolete>
 </action>
 
 <action name="UpgradeCheck_Done">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Not present in codebase.</obsolete>
 </action>
 
 <action name="UpgradeCheck_Error">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>
+    Removed from codebase; see GoogleUpdate.UpgradeResult,
+    GoogleUpdate.UpdateErrorCode, and GoogleUpdate.ErrorHresult.
+  </obsolete>
 </action>
 
 <action name="UpgradeCheck_Started">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Removed from codebase; see GoogleUpdate.UpgradeResult.</obsolete>
 </action>
 
 <action name="UpgradeCheck_TimedOut">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Not present in codebase.</obsolete>
 </action>
 
 <action name="UpgradeCheck_UpgradeIsAvailable">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Removed from codebase; see GoogleUpdate.UpgradeResult.</obsolete>
 </action>
 
 <action name="UpgradeCheck_Upgraded">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Removed from codebase; see GoogleUpdate.UpgradeResult.</obsolete>
 </action>
 
 <action name="Upgrade_Started">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+  <obsolete>Removed from codebase; see GoogleUpdate.UpgradeResult.</obsolete>
 </action>
 
 <action name="ViewAboutConflicts">
@@ -11182,14 +11437,36 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="Win7ASHRestart">
+  <owner>cpu@chromium.org</owner>
+  <owner>ananta@chromium.org</owner>
+  <owner>shrikant@chromium.org</owner>
+  <description>Tracks when Chrome was restarted on Win7 in Ash.</description>
+</action>
+
+<action name="Win7DesktopRestart">
+  <owner>cpu@chromium.org</owner>
+  <owner>ananta@chromium.org</owner>
+  <owner>shrikant@chromium.org</owner>
+  <description>
+    Tracks when Chrome was restarted on Win7 in desktop.
+  </description>
+</action>
+
 <action name="Win8DesktopRestart">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>cpu@chromium.org</owner>
+  <owner>ananta@chromium.org</owner>
+  <owner>shrikant@chromium.org</owner>
+  <description>
+    Tracks when Chrome was restarted on Win8 in desktop.
+  </description>
 </action>
 
 <action name="Win8MetroRestart">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>cpu@chromium.org</owner>
+  <owner>ananta@chromium.org</owner>
+  <owner>shrikant@chromium.org</owner>
+  <description>Tracks when Chrome was restarted on Win8 in metro.</description>
 </action>
 
 <action name="WindowBorder_ClickTogglesSingleAxisMaximize">
@@ -11314,18 +11591,24 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="webapps.AddShortcut.AppShortcut">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>dfalcantara@chromium.org</owner>
+  <description>
+    Shortcut added to the homescreen for a page containing the
+    mobile-webapp-capable meta tag.
+  </description>
 </action>
 
 <action name="webapps.AddShortcut.AppShortcutApple">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>dfalcantara@chromium.org</owner>
+  <description>
+    Shortcut added to the homescreen for a page containing only the
+    apple-mobile-webapp-capable meta tag.
+  </description>
 </action>
 
 <action name="webapps.AddShortcut.Bookmark">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>dfalcantara@chromium.org</owner>
+  <description>Shortcut added to the homescreen for a bookmark.</description>
 </action>
 
 </actions>

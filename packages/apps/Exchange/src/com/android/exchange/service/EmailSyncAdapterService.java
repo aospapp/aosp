@@ -38,25 +38,6 @@ public class EmailSyncAdapterService extends AbstractSyncAdapterService {
 
     private static final String TAG = Eas.LOG_TAG;
 
-    // The call to ServiceConnection.onServiceConnected is asynchronous to bindService. It's
-    // possible for that to be delayed if, in which case, a call to onPerformSync
-    // could occur before we have a connection to the service.
-    // In onPerformSync, if we don't yet have our EasService, we will wait for up to 10
-    // seconds for it to appear. If it takes longer than that, we will fail the sync.
-    private static final long MAX_WAIT_FOR_SERVICE_MS = 10 * DateUtils.SECOND_IN_MILLIS;
-
-    // TODO: Do we need to use this?
-    private static final long SYNC_ERROR_BACKOFF_MILLIS = 5 * DateUtils.MINUTE_IN_MILLIS;
-
-    /**
-     * TODO: restore this functionality.
-     * The amount of time between periodic syncs intended to ensure that push hasn't died.
-     */
-    private static final long KICK_SYNC_INTERVAL =
-            DateUtils.HOUR_IN_MILLIS / DateUtils.SECOND_IN_MILLIS;
-    /** Controls whether we do a periodic "kick" to restart the ping. */
-    private static final boolean SCHEDULE_KICK = true;
-
     private static final Object sSyncAdapterLock = new Object();
     private static AbstractThreadedSyncAdapter sSyncAdapter = null;
 

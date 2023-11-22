@@ -22,6 +22,7 @@ import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Point;
 import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Shader;
@@ -50,17 +51,11 @@ public class SweepTests extends ActivityTestBase {
     public static final int MULTIPLY_COLOR = 0xFF668844;
     public static final int SCREEN_COLOR = 0xFFFFEEFF;
 
-    public static final int FILTER_COLOR = 0xFFBB0000;
-    public static final int RECT0_COLOR = 0x33808080;
-    public static final int RECT1_COLOR = 0x66808080;
-    public static final int RECT2_COLOR = 0x99808080;
-    public static final int RECT3_COLOR = 0xCC808080;
-
     // These points are in pairs, the first being the lower left corner, the second is only in the
     // Destination bitmap, the third is the intersection of the two bitmaps, and the fourth is in
     // the Source bitmap.
     private final static Point[] XFERMODE_TEST_POINTS = new Point[] {
-            new Point(1, 160), new Point(50, 50), new Point(70, 70), new Point(140, 140)
+            new Point(1, 80), new Point(25, 25), new Point(35, 35), new Point(70, 70)
     };
 
     /**
@@ -128,8 +123,8 @@ public class SweepTests extends ActivityTestBase {
     };
 
     private final static DisplayModifier XFERMODE_MODIFIER = new DisplayModifier() {
-        private final RectF mSrcRect = new RectF(60, 60, 160, 160);
-        private final RectF mDstRect = new RectF(20, 20, 120, 120);
+        private final RectF mSrcRect = new RectF(30, 30, 80, 80);
+        private final RectF mDstRect = new RectF(10, 10, 60, 60);
         private final Bitmap mSrcBitmap = createSrc();
         private final Bitmap mDstBitmap = createDst();
 
@@ -144,8 +139,7 @@ public class SweepTests extends ActivityTestBase {
         }
 
         private Bitmap createSrc() {
-            Bitmap srcB = Bitmap.createBitmap(MODIFIER_WIDTH, MODIFIER_HEIGHT,
-                    Bitmap.Config.ARGB_8888);
+            Bitmap srcB = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Bitmap.Config.ARGB_8888);
             Canvas srcCanvas = new Canvas(srcB);
             Paint srcPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
             srcPaint.setColor(SRC_COLOR);
@@ -154,8 +148,7 @@ public class SweepTests extends ActivityTestBase {
         }
 
         private Bitmap createDst() {
-            Bitmap dstB = Bitmap.createBitmap(MODIFIER_WIDTH, MODIFIER_HEIGHT,
-                    Bitmap.Config.ARGB_8888);
+            Bitmap dstB = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Bitmap.Config.ARGB_8888);
             Canvas dstCanvas = new Canvas(dstB);
             Paint dstPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
             dstPaint.setColor(DST_COLOR);
@@ -164,18 +157,22 @@ public class SweepTests extends ActivityTestBase {
         }
     };
 
-
     // We care about one point in each of the four rectangles of different alpha values, as well as
     // the area outside the rectangles
     private final static Point[] COLOR_FILTER_ALPHA_POINTS = new Point[] {
-            new Point(15, 90), new Point(45, 90), new Point(75, 90), new Point(105, 90),
-            new Point(135, 90)
+            new Point(9, 45),
+            new Point(27, 45),
+            new Point(45, 45),
+            new Point(63, 45),
+            new Point(81, 45)
     };
 
-    private final Map<PorterDuff.Mode, int[]> COLOR_FILTER_ALPHA_MAP = new LinkedHashMap<PorterDuff.Mode, int[]>() {
+    public static final int FILTER_COLOR = 0xFFBB0000;
+    private final Map<PorterDuff.Mode, int[]> COLOR_FILTER_ALPHA_MAP
+            = new LinkedHashMap<PorterDuff.Mode, int[]>() {
         {
             put(PorterDuff.Mode.SRC, new int[] {
-                FILTER_COLOR, FILTER_COLOR, FILTER_COLOR, FILTER_COLOR, FILTER_COLOR
+                    FILTER_COLOR, FILTER_COLOR, FILTER_COLOR, FILTER_COLOR, FILTER_COLOR
             });
 
             put(PorterDuff.Mode.DST, new int[] {
@@ -228,10 +225,17 @@ public class SweepTests extends ActivityTestBase {
         }
     };
 
+    /**
+     * Draws 5 blocks of different color/opacity to be blended against
+     */
     private final static DisplayModifier COLOR_FILTER_ALPHA_MODIFIER = new DisplayModifier() {
-        private final static int mBlockWidths = 30;
-        private final int[] mColorValues = new int[] {RECT0_COLOR, RECT1_COLOR, RECT2_COLOR,
-                RECT3_COLOR};
+        private final int[] BLOCK_COLORS = new int[] {
+                0x33808080,
+                0x66808080,
+                0x99808080,
+                0xCC808080,
+                0x00000000
+        };
 
         private final Bitmap mBitmap = createQuadRectBitmap();
 
@@ -240,13 +244,15 @@ public class SweepTests extends ActivityTestBase {
         }
 
         private Bitmap createQuadRectBitmap() {
-            Bitmap bitmap = Bitmap.createBitmap(MODIFIER_WIDTH, MODIFIER_HEIGHT,
-                    Bitmap.Config.ARGB_8888);
+            Bitmap bitmap = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Bitmap.Config.ARGB_8888);
             Canvas canvas = new Canvas(bitmap);
             Paint paint = new Paint();
-            for (int i = 0 ; i < 4 ; i++) {
-                paint.setColor(mColorValues[i]);
-                canvas.drawRect(i * mBlockWidths, 0, (i + 1) * mBlockWidths, MODIFIER_HEIGHT, paint);
+            paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC));
+            final int blockCount = BLOCK_COLORS.length;
+            final int blockWidth = TEST_WIDTH / blockCount;
+            for (int i = 0 ; i < blockCount; i++) {
+                paint.setColor(BLOCK_COLORS[i]);
+                canvas.drawRect(i * blockWidth, 0, (i + 1) * blockWidth, TEST_HEIGHT, paint);
             }
             return bitmap;
         }
@@ -266,10 +272,9 @@ public class SweepTests extends ActivityTestBase {
         }
 
         private Bitmap createGradient() {
-            LinearGradient gradient = new LinearGradient(30, 90, 150, 90, mColors, null,
+            LinearGradient gradient = new LinearGradient(15, 45, 75, 45, mColors, null,
                     Shader.TileMode.REPEAT);
-            Bitmap bitmap = Bitmap.createBitmap(MODIFIER_WIDTH, MODIFIER_HEIGHT,
-                    Bitmap.Config.ARGB_8888);
+            Bitmap bitmap = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Bitmap.Config.ARGB_8888);
             Paint p = new Paint();
             p.setShader(gradient);
             Canvas c = new Canvas(bitmap);
@@ -281,9 +286,7 @@ public class SweepTests extends ActivityTestBase {
     public static final DisplayModifier mCircleDrawModifier = new DisplayModifier() {
         @Override
         public void modifyDrawing(Paint paint, Canvas canvas) {
-            canvas.drawCircle(ActivityTestBase.TEST_WIDTH / 2,
-                    ActivityTestBase.TEST_HEIGHT / 2,
-                    ActivityTestBase.TEST_HEIGHT / 2, paint);
+            canvas.drawCircle(TEST_WIDTH / 2, TEST_HEIGHT / 2, TEST_HEIGHT / 2, paint);
         }
     };
 
@@ -343,16 +346,15 @@ public class SweepTests extends ActivityTestBase {
     }
 
     /*
-     * TODO: fix this test for L MR1
     @SmallTest
     public void testShaderSweeps() {
-        int mask = DisplayModifier.Accessor.AA_MASK |
-                DisplayModifier.Accessor.SHADER_MASK |
-                DisplayModifier.Accessor.XFERMODE_MASK |
-                DisplayModifier.Accessor.SHAPES_MASK;
+        int mask = DisplayModifier.Accessor.AA_MASK
+                | DisplayModifier.Accessor.SHADER_MASK
+                | DisplayModifier.Accessor.XFERMODE_MASK
+                | DisplayModifier.Accessor.SHAPES_MASK;
         sweepModifiersForMask(mask, null, DEFAULT_MSSIM_COMPARER, null);
     }
-     */
+    */
 
     protected void sweepModifiersForMask(int mask, final DisplayModifier drawOp,
             BitmapComparer[] bitmapComparers, BitmapVerifier[] bitmapVerifiers) {

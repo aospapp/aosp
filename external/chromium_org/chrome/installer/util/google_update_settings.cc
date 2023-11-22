@@ -5,7 +5,6 @@
 #include "chrome/installer/util/google_update_settings.h"
 
 #include <algorithm>
-#include <string>
 
 #include "base/command_line.h"
 #include "base/files/file_path.h"
@@ -53,9 +52,9 @@ GoogleUpdateSettings::kDefaultUpdatePolicy =
 
 namespace {
 
-bool ReadGoogleUpdateStrKey(const wchar_t* const name, std::wstring* value) {
+bool ReadGoogleUpdateStrKey(const wchar_t* const name, base::string16* value) {
   BrowserDistribution* dist = BrowserDistribution::GetDistribution();
-  std::wstring reg_path = dist->GetStateKey();
+  base::string16 reg_path = dist->GetStateKey();
   RegKey key(HKEY_CURRENT_USER, reg_path.c_str(), KEY_READ | KEY_WOW64_32KEY);
   if (key.ReadValue(name, value) != ERROR_SUCCESS) {
     RegKey hklm_key(
@@ -72,8 +71,7 @@ bool ReadGoogleUpdateStrKey(const wchar_t* const name, std::wstring* value) {
 bool WriteGoogleUpdateStrKeyInternal(const AppRegistrationData& app_reg_data,
                                      bool system_install,
                                      const wchar_t* const name,
-                                     // presubmit: allow wstring
-                                     const std::wstring& value,
+                                     const base::string16& value,
                                      const wchar_t* const aggregate) {
   const REGSAM kAccess = KEY_SET_VALUE | KEY_WOW64_32KEY;
   if (system_install) {
@@ -81,7 +79,7 @@ bool WriteGoogleUpdateStrKeyInternal(const AppRegistrationData& app_reg_data,
     // Machine installs require each OS user to write a unique key under a
     // named key in HKLM as well as an "aggregation" function that describes
     // how the values of multiple users are to be combined.
-    std::wstring uniquename;  // presubmit: allow wstring
+    base::string16 uniquename;
     if (!base::win::GetUserSidString(&uniquename)) {
       NOTREACHED();
       return false;
@@ -101,7 +99,7 @@ bool WriteGoogleUpdateStrKeyInternal(const AppRegistrationData& app_reg_data,
 }
 
 bool WriteGoogleUpdateStrKey(const wchar_t* const name,
-                             const std::wstring& value) {
+                             const base::string16& value) {
   BrowserDistribution* dist = BrowserDistribution::GetDistribution();
   return WriteGoogleUpdateStrKeyInternal(
       dist->GetAppRegistrationData(), false, name, value, NULL);
@@ -109,11 +107,11 @@ bool WriteGoogleUpdateStrKey(const wchar_t* const name,
 
 bool ClearGoogleUpdateStrKey(const wchar_t* const name) {
   BrowserDistribution* dist = BrowserDistribution::GetDistribution();
-  std::wstring reg_path = dist->GetStateKey();
+  base::string16 reg_path = dist->GetStateKey();
   RegKey key(HKEY_CURRENT_USER,
              reg_path.c_str(),
              KEY_READ | KEY_WRITE | KEY_WOW64_32KEY);
-  std::wstring value;
+  base::string16 value;
   if (key.ReadValue(name, &value) != ERROR_SUCCESS)
     return false;
   return (key.WriteValue(name, L"") == ERROR_SUCCESS);
@@ -121,7 +119,7 @@ bool ClearGoogleUpdateStrKey(const wchar_t* const name) {
 
 bool RemoveGoogleUpdateStrKey(const wchar_t* const name) {
   BrowserDistribution* dist = BrowserDistribution::GetDistribution();
-  std::wstring reg_path = dist->GetStateKey();
+  base::string16 reg_path = dist->GetStateKey();
   RegKey key(HKEY_CURRENT_USER,
              reg_path.c_str(),
              KEY_READ | KEY_WRITE | KEY_WOW64_32KEY);
@@ -281,7 +279,7 @@ bool GoogleUpdateSettings::SetCollectStatsConsentAtLevel(bool system_install,
 
   // Write to ClientStateMedium for system-level; ClientState otherwise.
   HKEY root_key = system_install ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER;
-  std::wstring reg_path =
+  base::string16 reg_path =
       system_install ? dist->GetStateMediumKey() : dist->GetStateKey();
   RegKey key;
   LONG result = key.Create(
@@ -298,16 +296,43 @@ bool GoogleUpdateSettings::SetCollectStatsConsentAtLevel(bool system_install,
   return (result == ERROR_SUCCESS);
 }
 
-bool GoogleUpdateSettings::GetMetricsId(std::string* metrics_id) {
-  std::wstring metrics_id_w;
-  bool rv = ReadGoogleUpdateStrKey(google_update::kRegMetricsId, &metrics_id_w);
-  *metrics_id = base::WideToUTF8(metrics_id_w);
-  return rv;
+scoped_ptr<metrics::ClientInfo> GoogleUpdateSettings::LoadMetricsClientInfo() {
+  base::string16 client_id_16;
+  if (!ReadGoogleUpdateStrKey(google_update::kRegMetricsId, &client_id_16) ||
+      client_id_16.empty()) {
+    return scoped_ptr<metrics::ClientInfo>();
+  }
+
+  scoped_ptr<metrics::ClientInfo> client_info(new metrics::ClientInfo);
+  client_info->client_id = base::UTF16ToUTF8(client_id_16);
+
+  base::string16 installation_date_str;
+  if (ReadGoogleUpdateStrKey(google_update::kRegMetricsIdInstallDate,
+                             &installation_date_str)) {
+    base::StringToInt64(installation_date_str, &client_info->installation_date);
+  }
+
+  base::string16 reporting_enbaled_date_date_str;
+  if (ReadGoogleUpdateStrKey(google_update::kRegMetricsIdEnabledDate,
+                             &reporting_enbaled_date_date_str)) {
+    base::StringToInt64(reporting_enbaled_date_date_str,
+                        &client_info->reporting_enabled_date);
+  }
+
+  return client_info.Pass();
 }
 
-bool GoogleUpdateSettings::SetMetricsId(const std::string& metrics_id) {
-  std::wstring metrics_id_w = base::UTF8ToWide(metrics_id);
-  return WriteGoogleUpdateStrKey(google_update::kRegMetricsId, metrics_id_w);
+void GoogleUpdateSettings::StoreMetricsClientInfo(
+    const metrics::ClientInfo& client_info) {
+  // Attempt a best-effort at backing |client_info| in the registry (but don't
+  // handle/report failures).
+  WriteGoogleUpdateStrKey(google_update::kRegMetricsId,
+                          base::UTF8ToUTF16(client_info.client_id));
+  WriteGoogleUpdateStrKey(google_update::kRegMetricsIdInstallDate,
+                          base::Int64ToString16(client_info.installation_date));
+  WriteGoogleUpdateStrKey(
+      google_update::kRegMetricsIdEnabledDate,
+      base::Int64ToString16(client_info.reporting_enabled_date));
 }
 
 // EULA consent is only relevant for system-level installs.
@@ -318,7 +343,7 @@ bool GoogleUpdateSettings::SetEULAConsent(
   DCHECK(dist);
   const DWORD eula_accepted = consented ? 1 : 0;
   const REGSAM kAccess = KEY_SET_VALUE | KEY_WOW64_32KEY;
-  std::wstring reg_path = dist->GetStateMediumKey();
+  base::string16 reg_path = dist->GetStateMediumKey();
   bool succeeded = true;
   RegKey key;
 
@@ -351,7 +376,7 @@ bool GoogleUpdateSettings::SetEULAConsent(
 }
 
 int GoogleUpdateSettings::GetLastRunTime() {
-  std::wstring time_s;
+  base::string16 time_s;
   if (!ReadGoogleUpdateStrKey(google_update::kRegLastRunTimeField, &time_s))
     return -1;
   int64 time_i;
@@ -372,32 +397,32 @@ bool GoogleUpdateSettings::RemoveLastRunTime() {
   return RemoveGoogleUpdateStrKey(google_update::kRegLastRunTimeField);
 }
 
-bool GoogleUpdateSettings::GetBrowser(std::wstring* browser) {
+bool GoogleUpdateSettings::GetBrowser(base::string16* browser) {
   return ReadGoogleUpdateStrKey(google_update::kRegBrowserField, browser);
 }
 
-bool GoogleUpdateSettings::GetLanguage(std::wstring* language) {
+bool GoogleUpdateSettings::GetLanguage(base::string16* language) {
   return ReadGoogleUpdateStrKey(google_update::kRegLangField, language);
 }
 
-bool GoogleUpdateSettings::GetBrand(std::wstring* brand) {
+bool GoogleUpdateSettings::GetBrand(base::string16* brand) {
   return ReadGoogleUpdateStrKey(google_update::kRegRLZBrandField, brand);
 }
 
-bool GoogleUpdateSettings::GetReactivationBrand(std::wstring* brand) {
+bool GoogleUpdateSettings::GetReactivationBrand(base::string16* brand) {
   return ReadGoogleUpdateStrKey(google_update::kRegRLZReactivationBrandField,
                                 brand);
 }
 
-bool GoogleUpdateSettings::GetClient(std::wstring* client) {
+bool GoogleUpdateSettings::GetClient(base::string16* client) {
   return ReadGoogleUpdateStrKey(google_update::kRegClientField, client);
 }
 
-bool GoogleUpdateSettings::SetClient(const std::wstring& client) {
+bool GoogleUpdateSettings::SetClient(const base::string16& client) {
   return WriteGoogleUpdateStrKey(google_update::kRegClientField, client);
 }
 
-bool GoogleUpdateSettings::GetReferral(std::wstring* referral) {
+bool GoogleUpdateSettings::GetReferral(base::string16* referral) {
   return ReadGoogleUpdateStrKey(google_update::kRegReferralField, referral);
 }
 
@@ -439,14 +464,14 @@ bool GoogleUpdateSettings::GetChromeChannelAndModifiers(
 
 void GoogleUpdateSettings::UpdateInstallStatus(bool system_install,
     installer::ArchiveType archive_type, int install_return_code,
-    const std::wstring& product_guid) {
+    const base::string16& product_guid) {
   DCHECK(archive_type != installer::UNKNOWN_ARCHIVE_TYPE ||
          install_return_code != 0);
   HKEY reg_root = (system_install) ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER;
 
   RegKey key;
   installer::ChannelInfo channel_info;
-  std::wstring reg_key(google_update::kRegPathClientState);
+  base::string16 reg_key(google_update::kRegPathClientState);
   reg_key.append(L"\\");
   reg_key.append(product_guid);
   LONG result = key.Open(reg_root,
@@ -537,7 +562,7 @@ void GoogleUpdateSettings::UpdateProfileCounts(int profiles_active,
 
 int GoogleUpdateSettings::DuplicateGoogleUpdateSystemClientKey() {
   BrowserDistribution* dist = BrowserDistribution::GetDistribution();
-  std::wstring reg_path = dist->GetStateKey();
+  base::string16 reg_path = dist->GetStateKey();
 
   // Minimum access needed is to be able to write to this key.
   RegKey reg_key(
@@ -555,7 +580,7 @@ int GoogleUpdateSettings::DuplicateGoogleUpdateSystemClientKey() {
 }
 
 bool GoogleUpdateSettings::WriteGoogleUpdateSystemClientKey(
-    int handle, const std::wstring& key, const std::wstring& value) {
+    int handle, const base::string16& key, const base::string16& value) {
   HKEY reg_key = reinterpret_cast<HKEY>(reinterpret_cast<void*>(handle));
   DWORD size = static_cast<DWORD>(value.size()) * sizeof(wchar_t);
   LSTATUS status = RegSetValueEx(reg_key, key.c_str(), 0, REG_SZ,
@@ -564,7 +589,7 @@ bool GoogleUpdateSettings::WriteGoogleUpdateSystemClientKey(
 }
 
 GoogleUpdateSettings::UpdatePolicy GoogleUpdateSettings::GetAppUpdatePolicy(
-    const std::wstring& app_guid,
+    const base::string16& app_guid,
     bool* is_overridden) {
   bool found_override = false;
   UpdatePolicy update_policy = kDefaultUpdatePolicy;
@@ -600,8 +625,8 @@ GoogleUpdateSettings::UpdatePolicy GoogleUpdateSettings::GetAppUpdatePolicy(
 }
 
 // static
-bool GoogleUpdateSettings::AreAutoupdatesEnabled(
-    const base::string16& app_guid) {
+bool GoogleUpdateSettings::AreAutoupdatesEnabled() {
+#if defined(GOOGLE_CHROME_BUILD)
   // Check the auto-update check period override. If it is 0 or exceeds the
   // maximum timeout, then for all intents and purposes auto updates are
   // disabled.
@@ -615,47 +640,78 @@ bool GoogleUpdateSettings::AreAutoupdatesEnabled(
     return false;
   }
 
-  UpdatePolicy policy = GetAppUpdatePolicy(app_guid, NULL);
-  return (policy == AUTOMATIC_UPDATES || policy == AUTO_UPDATES_ONLY);
+  // Auto updates are subtly broken when Chrome and the binaries have different
+  // overrides in place. If this Chrome cannot possibly be multi-install by
+  // virtue of being a side-by-side installation, simply check Chrome's policy.
+  BrowserDistribution* dist = BrowserDistribution::GetDistribution();
+  UpdatePolicy app_policy = GetAppUpdatePolicy(dist->GetAppGuid(), nullptr);
+  if (InstallUtil::IsChromeSxSProcess())
+    return app_policy == AUTOMATIC_UPDATES || app_policy == AUTO_UPDATES_ONLY;
+
+  // Otherwise, check for consistency between Chrome and the binaries regardless
+  // of whether or not this Chrome is multi-install since the next update likely
+  // will attempt to migrate it to such.
+  BrowserDistribution* binaries = BrowserDistribution::GetSpecificDistribution(
+      BrowserDistribution::CHROME_BINARIES);
+  return (GetAppUpdatePolicy(binaries->GetAppGuid(), nullptr) == app_policy &&
+          (app_policy == AUTOMATIC_UPDATES || app_policy == AUTO_UPDATES_ONLY));
+#else  // defined(GOOGLE_CHROME_BUILD)
+  // Chromium does not auto update.
+  return false;
+#endif  // !defined(GOOGLE_CHROME_BUILD)
 }
 
 // static
-bool GoogleUpdateSettings::ReenableAutoupdatesForApp(
-    const base::string16& app_guid) {
+bool GoogleUpdateSettings::ReenableAutoupdates() {
 #if defined(GOOGLE_CHROME_BUILD)
   int needs_reset_count = 0;
   int did_reset_count = 0;
+
+  // Reset overrides for Chrome and for the binaries if this Chrome supports
+  // multi-install.
+  std::vector<base::string16> app_guids;
+  app_guids.push_back(BrowserDistribution::GetDistribution()->GetAppGuid());
+  if (!InstallUtil::IsChromeSxSProcess()) {
+    app_guids.push_back(BrowserDistribution::GetSpecificDistribution(
+        BrowserDistribution::CHROME_BINARIES)->GetAppGuid());
+  }
 
   UpdatePolicy update_policy = kDefaultUpdatePolicy;
   RegKey policy_key;
   if (policy_key.Open(HKEY_LOCAL_MACHINE, kPoliciesKey,
                       KEY_SET_VALUE | KEY_QUERY_VALUE) == ERROR_SUCCESS) {
-    // First check the app-specific override value and reset that if needed.
-    // Note that this intentionally sets the override to AUTOMATIC_UPDATES
-    // even if it was previously AUTO_UPDATES_ONLY. The thinking is that
-    // AUTOMATIC_UPDATES is marginally more likely to let a user update and this
-    // code is only called when a stuck user asks for updates.
-    base::string16 app_update_override(kUpdateOverrideValuePrefix);
-    app_update_override.append(app_guid);
+    // Set to true while app-specific overrides are present that allow automatic
+    // updates. When this is the case, the defaults are irrelevant and don't
+    // need to be checked or reset.
+    bool automatic_updates_allowed_by_overrides = true;
     DWORD value = 0;
-    bool has_app_update_override =
-        policy_key.ReadValueDW(app_update_override.c_str(),
-                               &value) == ERROR_SUCCESS;
-    if (has_app_update_override &&
-        (!GetUpdatePolicyFromDword(value, &update_policy) ||
-         update_policy != GoogleUpdateSettings::AUTOMATIC_UPDATES)) {
-      ++needs_reset_count;
-      if (policy_key.WriteValue(
-              app_update_override.c_str(),
-              static_cast<DWORD>(GoogleUpdateSettings::AUTOMATIC_UPDATES)) ==
-                  ERROR_SUCCESS) {
-        ++did_reset_count;
+    for (const base::string16& app_guid : app_guids) {
+      // First check the app-specific override value and reset that if needed.
+      // Note that this intentionally sets the override to AUTOMATIC_UPDATES
+      // even if it was previously AUTO_UPDATES_ONLY. The thinking is that
+      // AUTOMATIC_UPDATES is marginally more likely to let a user update and
+      // this code is only called when a stuck user asks for updates.
+      base::string16 app_update_override(kUpdateOverrideValuePrefix);
+      app_update_override.append(app_guid);
+      if (policy_key.ReadValueDW(app_update_override.c_str(),
+                                 &value) != ERROR_SUCCESS) {
+        automatic_updates_allowed_by_overrides = false;
+      } else if (!GetUpdatePolicyFromDword(value, &update_policy) ||
+                 update_policy != GoogleUpdateSettings::AUTOMATIC_UPDATES) {
+        automatic_updates_allowed_by_overrides = false;
+        ++needs_reset_count;
+        if (policy_key.WriteValue(
+                app_update_override.c_str(),
+                static_cast<DWORD>(GoogleUpdateSettings::AUTOMATIC_UPDATES)) ==
+            ERROR_SUCCESS) {
+          ++did_reset_count;
+        }
       }
     }
 
-    // If there was no app-specific override policy see if there's a global
+    // If there were no app-specific override policies, see if there's a global
     // policy preventing updates and delete it if so.
-    if (!has_app_update_override &&
+    if (!automatic_updates_allowed_by_overrides &&
         policy_key.ReadValueDW(kUpdatePolicyValue, &value) == ERROR_SUCCESS &&
         (!GetUpdatePolicyFromDword(value, &update_policy) ||
          update_policy != GoogleUpdateSettings::AUTOMATIC_UPDATES)) {
@@ -681,7 +737,7 @@ bool GoogleUpdateSettings::ReenableAutoupdatesForApp(
     // For some reason we couldn't open the policy key with the desired
     // permissions to make changes (the most likely reason is that there is no
     // policy set). Simply return whether or not we think updates are enabled.
-    return AreAutoupdatesEnabled(app_guid);
+    return AreAutoupdatesEnabled();
   }
 
 #endif

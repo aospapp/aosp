@@ -150,8 +150,8 @@ void EventBindings::AttachEvent(
   std::string extension_id = context()->GetExtensionID();
   EventListenerCounts& listener_counts = g_listener_counts.Get()[extension_id];
   if (++listener_counts[event_name] == 1) {
-    content::RenderThread::Get()->Send(
-        new ExtensionHostMsg_AddListener(extension_id, event_name));
+    content::RenderThread::Get()->Send(new ExtensionHostMsg_AddListener(
+        extension_id, context()->GetURL(), event_name));
   }
 
   // This is called the first time the page has added a listener. Since
@@ -177,8 +177,8 @@ void EventBindings::DetachEvent(
   EventListenerCounts& listener_counts = g_listener_counts.Get()[extension_id];
 
   if (--listener_counts[event_name] == 0) {
-    content::RenderThread::Get()->Send(
-        new ExtensionHostMsg_RemoveListener(extension_id, event_name));
+    content::RenderThread::Get()->Send(new ExtensionHostMsg_RemoveListener(
+        extension_id, context()->GetURL(), event_name));
   }
 
   // DetachEvent is called when the last listener for the context is
@@ -210,10 +210,6 @@ void EventBindings::AttachFilteredEvent(
     return;
 
   std::string extension_id = context()->GetExtensionID();
-  if (extension_id.empty()) {
-    args.GetReturnValue().Set(static_cast<int32_t>(-1));
-    return;
-  }
 
   scoped_ptr<base::DictionaryValue> filter;
   scoped_ptr<content::V8ValueConverter> converter(
@@ -256,8 +252,6 @@ void EventBindings::DetachFilteredEvent(
   bool is_manual = args[1]->BooleanValue();
 
   std::string extension_id = context()->GetExtensionID();
-  if (extension_id.empty())
-    return;
 
   int matcher_id = args[0]->Int32Value();
   EventFilter& event_filter = g_event_filter.Get();

@@ -13,14 +13,14 @@ namespace metrics {
 const char TestMetricsServiceClient::kBrandForTesting[] = "brand_for_testing";
 
 TestMetricsServiceClient::TestMetricsServiceClient()
-    : install_date_(0),
-      version_string_("5.0.322.0-64-devel") {
+    : version_string_("5.0.322.0-64-devel") {
 }
 
 TestMetricsServiceClient::~TestMetricsServiceClient() {
 }
 
-void TestMetricsServiceClient::SetClientID(const std::string& client_id) {
+void TestMetricsServiceClient::SetMetricsClientId(
+    const std::string& client_id) {
   client_id_ = client_id;
 }
 
@@ -43,10 +43,6 @@ SystemProfileProto::Channel TestMetricsServiceClient::GetChannel() {
 
 std::string TestMetricsServiceClient::GetVersionString() {
   return version_string_;
-}
-
-int64 TestMetricsServiceClient::GetInstallDate() {
-  return install_date_;
 }
 
 void TestMetricsServiceClient::OnLogUploadComplete() {

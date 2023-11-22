@@ -42,6 +42,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/web_application_info.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/favicon_base/favicon_types.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_ui.h"
@@ -52,15 +53,13 @@
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/management_policy.h"
 #include "extensions/browser/pref_names.h"
+#include "extensions/browser/uninstall_reason.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_icon_set.h"
 #include "extensions/common/extension_set.h"
-#include "grit/browser_resources.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/webui/web_ui_util.h"
-#include "ui/gfx/favicon_size.h"
 #include "url/gurl.h"
 
 using content::WebContents;
@@ -161,14 +160,14 @@ void AppLauncherHandler::CreateAppInfo(
   value->SetBoolean("is_component",
                     extension->location() == extensions::Manifest::COMPONENT);
   value->SetBoolean("is_webstore",
-      extension->id() == extension_misc::kWebStoreAppId);
+      extension->id() == extensions::kWebStoreAppId);
 
   AppSorting* sorting = prefs->app_sorting();
   syncer::StringOrdinal page_ordinal = sorting->GetPageOrdinal(extension->id());
   if (!page_ordinal.IsValid()) {
     // Make sure every app has a page ordinal (some predate the page ordinal).
     // The webstore app should be on the first page.
-    page_ordinal = extension->id() == extension_misc::kWebStoreAppId ?
+    page_ordinal = extension->id() == extensions::kWebStoreAppId ?
         sorting->CreateFirstAppPageOrdinal() :
         sorting->GetNaturalAppPageOrdinal();
     sorting->SetPageOrdinal(extension->id(), page_ordinal);
@@ -182,7 +181,7 @@ void AppLauncherHandler::CreateAppInfo(
     // Make sure every app has a launch ordinal (some predate the launch
     // ordinal). The webstore's app launch ordinal is always set to the first
     // position.
-    app_launch_ordinal = extension->id() == extension_misc::kWebStoreAppId ?
+    app_launch_ordinal = extension->id() == extensions::kWebStoreAppId ?
         sorting->CreateFirstAppLaunchOrdinal(page_ordinal) :
         sorting->CreateNextAppLaunchOrdinal(page_ordinal);
     sorting->SetAppLaunchOrdinal(extension->id(), app_launch_ordinal);
@@ -254,7 +253,7 @@ void AppLauncherHandler::Observe(int type,
     return;
 
   switch (type) {
-    case chrome::NOTIFICATION_EXTENSION_LOADED_DEPRECATED: {
+    case extensions::NOTIFICATION_EXTENSION_LOADED_DEPRECATED: {
       const Extension* extension =
           content::Details<const Extension>(details).ptr();
       if (!extension->is_app())
@@ -271,22 +270,20 @@ void AppLauncherHandler::Observe(int type,
 
         ExtensionPrefs* prefs =
             ExtensionPrefs::Get(extension_service_->profile());
-        scoped_ptr<base::FundamentalValue> highlight(
-            base::Value::CreateBooleanValue(
-                prefs->IsFromBookmark(extension->id()) &&
-                attempted_bookmark_app_install_));
+        base::FundamentalValue highlight(
+            prefs->IsFromBookmark(extension->id()) &&
+            attempted_bookmark_app_install_);
         attempted_bookmark_app_install_ = false;
-        web_ui()->CallJavascriptFunction(
-            "ntp.appAdded", *app_info, *highlight);
+        web_ui()->CallJavascriptFunction("ntp.appAdded", *app_info, highlight);
       }
 
       break;
     }
-    case chrome::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED:
-    case chrome::NOTIFICATION_EXTENSION_UNINSTALLED_DEPRECATED: {
+    case extensions::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED:
+    case extensions::NOTIFICATION_EXTENSION_UNINSTALLED_DEPRECATED: {
       const Extension* extension = NULL;
       bool uninstalled = false;
-      if (type == chrome::NOTIFICATION_EXTENSION_UNINSTALLED_DEPRECATED) {
+      if (type == extensions::NOTIFICATION_EXTENSION_UNINSTALLED_DEPRECATED) {
         extension = content::Details<const Extension>(details).ptr();
         uninstalled = true;
       } else {  // NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED
@@ -313,16 +310,15 @@ void AppLauncherHandler::Observe(int type,
         if (uninstalled)
           visible_apps_.erase(extension->id());
 
-        scoped_ptr<base::FundamentalValue> uninstall_value(
-            base::Value::CreateBooleanValue(uninstalled));
-        scoped_ptr<base::FundamentalValue> from_page(
-            base::Value::CreateBooleanValue(!extension_id_prompting_.empty()));
         web_ui()->CallJavascriptFunction(
-            "ntp.appRemoved", *app_info, *uninstall_value, *from_page);
+            "ntp.appRemoved",
+            *app_info,
+            base::FundamentalValue(uninstalled),
+            base::FundamentalValue(!extension_id_prompting_.empty()));
       }
       break;
     }
-    case chrome::NOTIFICATION_EXTENSION_LAUNCHER_REORDERED: {
+    case chrome::NOTIFICATION_APP_LAUNCHER_REORDERED: {
       const std::string* id =
           content::Details<const std::string>(details).ptr();
       if (id) {
@@ -343,7 +339,7 @@ void AppLauncherHandler::Observe(int type,
       }
       break;
     }
-    case chrome::NOTIFICATION_EXTENSION_INSTALL_ERROR: {
+    case extensions::NOTIFICATION_EXTENSION_INSTALL_ERROR: {
       CrxInstaller* crx_installer = content::Source<CrxInstaller>(source).ptr();
       if (!Profile::FromWebUI(web_ui())->IsSameProfile(
               crx_installer->profile())) {
@@ -351,7 +347,7 @@ void AppLauncherHandler::Observe(int type,
       }
       // Fall through.
     }
-    case chrome::NOTIFICATION_EXTENSION_LOAD_ERROR: {
+    case extensions::NOTIFICATION_EXTENSION_LOAD_ERROR: {
       attempted_bookmark_app_install_ = false;
       break;
     }
@@ -459,21 +455,24 @@ void AppLauncherHandler::HandleGetApps(const base::ListValue* args) {
     extension_pref_change_registrar_.Add(prefs::kNtpAppPageNames, callback);
 
     registrar_.Add(this,
-                   chrome::NOTIFICATION_EXTENSION_LOADED_DEPRECATED,
-                   content::Source<Profile>(profile));
-    registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED,
-        content::Source<Profile>(profile));
-    registrar_.Add(this,
-                   chrome::NOTIFICATION_EXTENSION_UNINSTALLED_DEPRECATED,
+                   extensions::NOTIFICATION_EXTENSION_LOADED_DEPRECATED,
                    content::Source<Profile>(profile));
     registrar_.Add(this,
-                   chrome::NOTIFICATION_EXTENSION_LAUNCHER_REORDERED,
+                   extensions::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED,
+                   content::Source<Profile>(profile));
+    registrar_.Add(this,
+                   extensions::NOTIFICATION_EXTENSION_UNINSTALLED_DEPRECATED,
+                   content::Source<Profile>(profile));
+    registrar_.Add(this,
+                   chrome::NOTIFICATION_APP_LAUNCHER_REORDERED,
                    content::Source<AppSorting>(
                        ExtensionPrefs::Get(profile)->app_sorting()));
-    registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_INSTALL_ERROR,
-        content::Source<CrxInstaller>(NULL));
-    registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_LOAD_ERROR,
-        content::Source<Profile>(profile));
+    registrar_.Add(this,
+                   extensions::NOTIFICATION_EXTENSION_INSTALL_ERROR,
+                   content::Source<CrxInstaller>(NULL));
+    registrar_.Add(this,
+                   extensions::NOTIFICATION_EXTENSION_LOAD_ERROR,
+                   content::Source<Profile>(profile));
   }
 
   has_loaded_apps_ = true;
@@ -507,7 +506,7 @@ void AppLauncherHandler::HandleLaunchApp(const base::ListValue* args) {
 
   WindowOpenDisposition disposition = args->GetSize() > 3 ?
         webui::GetDispositionFromClick(args, 3) : CURRENT_TAB;
-  if (extension_id != extension_misc::kWebStoreAppId) {
+  if (extension_id != extensions::kWebStoreAppId) {
     CHECK_NE(launch_bucket, extension_misc::APP_LAUNCH_BUCKET_INVALID);
     CoreAppLauncherHandler::RecordAppLaunchType(launch_bucket,
                                                 extension->GetType());
@@ -701,8 +700,7 @@ void AppLauncherHandler::HandleGenerateAppForLink(const base::ListValue* args) {
   install_info->page_ordinal = page_ordinal;
 
   favicon_service->GetFaviconImageForPageURL(
-      FaviconService::FaviconForPageURLParams(
-          launch_url, favicon_base::FAVICON, gfx::kFaviconSize),
+      launch_url,
       base::Bind(&AppLauncherHandler::OnFaviconForApp,
                  base::Unretained(this),
                  base::Passed(&install_info)),
@@ -794,8 +792,11 @@ void AppLauncherHandler::ExtensionUninstallAccepted() {
   if (!extension)
     return;
 
-  extension_service_->UninstallExtension(extension_id_prompting_,
-                                         false /* external_uninstall */, NULL);
+  extension_service_->UninstallExtension(
+      extension_id_prompting_,
+      extensions::UNINSTALL_REASON_USER_INITIATED,
+      base::Bind(&base::DoNothing),
+      NULL);
   CleanupAfterUninstall();
 }
 
@@ -841,7 +842,9 @@ AppLauncherHandler::GetExtensionUninstallDialog() {
         web_ui()->GetWebContents());
     extension_uninstall_dialog_.reset(
         extensions::ExtensionUninstallDialog::Create(
-            extension_service_->profile(), browser, this));
+            extension_service_->profile(),
+            browser->window()->GetNativeWindow(),
+            this));
   }
   return extension_uninstall_dialog_.get();
 }

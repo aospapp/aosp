@@ -29,7 +29,7 @@ class DriveServiceInterface;
 class DriveUploaderInterface;
 }
 
-namespace fileapi {
+namespace storage {
 class FileSystemURL;
 }
 
@@ -73,22 +73,15 @@ class FakeSyncWorker : public SyncWorkerInterface {
   virtual scoped_ptr<base::ListValue> DumpFiles(const GURL& origin) OVERRIDE;
   virtual scoped_ptr<base::ListValue> DumpDatabase() OVERRIDE;
   virtual void SetSyncEnabled(bool enabled) OVERRIDE;
-  virtual void PromoteDemotedChanges() OVERRIDE;
-  virtual void ApplyLocalChange(
-      const FileChange& local_change,
-      const base::FilePath& local_path,
-      const SyncFileMetadata& local_metadata,
-      const fileapi::FileSystemURL& url,
-      const SyncStatusCallback& callback) OVERRIDE;
-  virtual void OnNotificationReceived() OVERRIDE;
-  virtual void OnReadyToSendRequests() OVERRIDE;
-  virtual void OnRefreshTokenInvalid() OVERRIDE;
-  virtual void OnNetworkChanged(
-      net::NetworkChangeNotifier::ConnectionType type) OVERRIDE;
-  virtual drive::DriveServiceInterface* GetDriveService() OVERRIDE;
-  virtual drive::DriveUploaderInterface* GetDriveUploader() OVERRIDE;
-  virtual MetadataDatabase* GetMetadataDatabase() OVERRIDE;
-  virtual SyncTaskManager* GetSyncTaskManager() OVERRIDE;
+  virtual void PromoteDemotedChanges(const base::Closure& callback) OVERRIDE;
+  virtual void ApplyLocalChange(const FileChange& local_change,
+                                const base::FilePath& local_path,
+                                const SyncFileMetadata& local_metadata,
+                                const storage::FileSystemURL& url,
+                                const SyncStatusCallback& callback) OVERRIDE;
+  virtual void ActivateService(RemoteServiceState service_state,
+                               const std::string& description) OVERRIDE;
+  virtual void DeactivateService(const std::string& description) OVERRIDE;
   virtual void DetachFromSequence() OVERRIDE;
   virtual void AddObserver(Observer* observer) OVERRIDE;
 
@@ -103,16 +96,11 @@ class FakeSyncWorker : public SyncWorkerInterface {
   };
   typedef std::map<GURL, AppStatus> StatusMap;
 
-  // TODO(peria): Change this method to be non-virtual.
-  virtual void SetHasRefreshToken(bool has_refresh_token) OVERRIDE;
-
   void UpdateServiceState(RemoteServiceState state,
                           const std::string& description);
 
   bool sync_enabled_;
   StatusMap status_map_;
-  bool has_refresh_token_;
-  bool network_available_;
 
   scoped_ptr<SyncEngineContext> sync_engine_context_;
 

@@ -28,21 +28,23 @@ import android.content.res.Resources;
 import android.net.Uri;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.os.Trace;
 import android.os.UserHandle;
 import android.telecom.AudioState;
 import android.telecom.CallProperties;
 import android.telecom.CallState;
+import android.telecom.Connection;
 import android.telecom.InCallService;
 import android.telecom.ParcelableCall;
-import android.telecom.PhoneCapabilities;
 import android.telecom.TelecomManager;
 import android.util.ArrayMap;
 
 // TODO: Needed for move to system service: import com.android.internal.R;
 import com.android.internal.telecom.IInCallService;
-import com.google.common.collect.ImmutableCollection;
+import com.android.internal.util.IndentingPrintWriter;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -74,7 +76,7 @@ public final class InCallController extends CallsManagerListenerBase {
 
     private final Call.Listener mCallListener = new Call.ListenerBase() {
         @Override
-        public void onCallCapabilitiesChanged(Call call) {
+        public void onConnectionCapabilitiesChanged(Call call) {
             updateCall(call);
         }
 
@@ -150,7 +152,7 @@ public final class InCallController extends CallsManagerListenerBase {
     @Override
     public void onCallAdded(Call call) {
         if (mInCallServices.isEmpty()) {
-            bind();
+            bind(call);
         } else {
             Log.i(this, "onCallAdded: %s", call);
             // Track the call if we don't already know about it.
@@ -208,6 +210,19 @@ public final class InCallController extends CallsManagerListenerBase {
         }
     }
 
+    @Override
+    public void onCanAddCallChanged(boolean canAddCall) {
+        if (!mInCallServices.isEmpty()) {
+            Log.i(this, "onCanAddCallChanged : %b", canAddCall);
+            for (IInCallService inCallService : mInCallServices.values()) {
+                try {
+                    inCallService.onCanAddCallChanged(canAddCall);
+                } catch (RemoteException ignored) {
+                }
+            }
+        }
+    }
+
     void onPostDialWait(Call call, String remaining) {
         if (!mInCallServices.isEmpty()) {
             Log.i(this, "Calling onPostDialWait, remaining = %s", remaining);
@@ -257,8 +272,10 @@ public final class InCallController extends CallsManagerListenerBase {
     /**
      * Binds to the in-call app if not already connected by binding directly to the saved
      * component name of the {@link IInCallService} implementation.
+     *
+     * @param call The newly added call that triggered the binding to the in-call services.
      */
-    private void bind() {
+    private void bind(Call call) {
         ThreadUtil.checkOnMainThread();
         if (mInCallServices.isEmpty()) {
             PackageManager packageManager = mContext.getPackageManager();
@@ -299,8 +316,21 @@ public final class InCallController extends CallsManagerListenerBase {
                         Intent intent = new Intent(InCallService.SERVICE_INTERFACE);
                         intent.setComponent(componentName);
 
-                        if (mContext.bindServiceAsUser(intent, inCallServiceConnection,
-                                Context.BIND_AUTO_CREATE, UserHandle.CURRENT)) {
+                        final int bindFlags;
+                        if (mInCallComponentName.equals(componentName)) {
+                            bindFlags = Context.BIND_AUTO_CREATE | Context.BIND_IMPORTANT;
+                            if (!call.isIncoming()) {
+                                intent.putExtra(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS,
+                                        call.getExtras());
+                                intent.putExtra(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE,
+                                        call.getTargetPhoneAccount());
+                            }
+                        } else {
+                            bindFlags = Context.BIND_AUTO_CREATE;
+                        }
+
+                        if (mContext.bindServiceAsUser(intent, inCallServiceConnection, bindFlags,
+                                UserHandle.CURRENT)) {
                             mServiceConnections.put(componentName, inCallServiceConnection);
                         }
                     }
@@ -319,7 +349,7 @@ public final class InCallController extends CallsManagerListenerBase {
      */
     private void onConnected(ComponentName componentName, IBinder service) {
         ThreadUtil.checkOnMainThread();
-
+        Trace.beginSection("onConnected: " + componentName);
         Log.i(this, "onConnected to %s", componentName);
 
         IInCallService inCallService = IInCallService.Stub.asInterface(service);
@@ -330,11 +360,12 @@ public final class InCallController extends CallsManagerListenerBase {
             mInCallServices.put(componentName, inCallService);
         } catch (RemoteException e) {
             Log.e(this, e, "Failed to set the in-call adapter.");
+            Trace.endSection();
             return;
         }
 
         // Upon successful connection, send the state of the world to the service.
-        ImmutableCollection<Call> calls = CallsManager.getInstance().getCalls();
+        Collection<Call> calls = CallsManager.getInstance().getCalls();
         if (!calls.isEmpty()) {
             Log.i(this, "Adding %s calls to InCallService after onConnected: %s", calls.size(),
                     componentName);
@@ -350,9 +381,11 @@ public final class InCallController extends CallsManagerListenerBase {
                 }
             }
             onAudioStateChanged(null, CallsManager.getInstance().getAudioState());
+            onCanAddCallChanged(CallsManager.getInstance().canAddCall());
         } else {
             unbind();
         }
+        Trace.endSection();
     }
 
     /**
@@ -406,7 +439,6 @@ public final class InCallController extends CallsManagerListenerBase {
                 IInCallService inCallService = entry.getValue();
                 ParcelableCall parcelableCall = toParcelableCall(call,
                         componentName.equals(mInCallComponentName) /* includeVideoProvider */);
-
                 Log.v(this, "updateCall %s ==> %s", call, parcelableCall);
                 try {
                     inCallService.updateCall(parcelableCall);
@@ -421,26 +453,35 @@ public final class InCallController extends CallsManagerListenerBase {
      *
      * @param call The {@link Call} to parcel.
      * @param includeVideoProvider When {@code true}, the {@link IVideoProvider} is included in the
-     *      parcelled call.  When {@code false}, the {@link IVideoProvider} is not included.
+     *      parceled call.  When {@code false}, the {@link IVideoProvider} is not included.
      * @return The {@link ParcelableCall} containing all call information from the {@link Call}.
      */
     private ParcelableCall toParcelableCall(Call call, boolean includeVideoProvider) {
         String callId = mCallIdMapper.getCallId(call);
 
-        int capabilities = call.getCallCapabilities();
-        if (CallsManager.getInstance().isAddCallCapable(call)) {
-            capabilities |= PhoneCapabilities.ADD_CALL;
-        }
-
-        // Disable mute and add call for emergency calls.
-        if (call.isEmergencyCall()) {
-            capabilities &= ~PhoneCapabilities.MUTE;
-            capabilities &= ~PhoneCapabilities.ADD_CALL;
-        }
-
-        int properties = call.isConference() ? CallProperties.CONFERENCE : 0;
-
         int state = call.getState();
+        int capabilities = convertConnectionToCallCapabilities(call.getConnectionCapabilities());
+
+        // If this is a single-SIM device, the "default SIM" will always be the only SIM.
+        boolean isDefaultSmsAccount =
+                CallsManager.getInstance().getPhoneAccountRegistrar().isUserSelectedSmsPhoneAccount(
+                        call.getTargetPhoneAccount());
+        if (call.isRespondViaSmsCapable() && isDefaultSmsAccount) {
+            capabilities |= android.telecom.Call.Details.CAPABILITY_RESPOND_VIA_TEXT;
+        }
+
+        if (call.isEmergencyCall()) {
+            capabilities = removeCapability(
+                    capabilities, android.telecom.Call.Details.CAPABILITY_MUTE);
+        }
+
+        if (state == CallState.DIALING) {
+            capabilities = removeCapability(
+                    capabilities, android.telecom.Call.Details.CAPABILITY_SUPPORTS_VT_LOCAL);
+            capabilities = removeCapability(
+                    capabilities, android.telecom.Call.Details.CAPABILITY_SUPPORTS_VT_REMOTE);
+        }
+
         if (state == CallState.ABORTED) {
             state = CallState.DISCONNECTED;
         }
@@ -459,17 +500,18 @@ public final class InCallController extends CallsManagerListenerBase {
         List<Call> childCalls = call.getChildCalls();
         List<String> childCallIds = new ArrayList<>();
         if (!childCalls.isEmpty()) {
-            connectTimeMillis = Long.MAX_VALUE;
+            long childConnectTimeMillis = Long.MAX_VALUE;
             for (Call child : childCalls) {
                 if (child.getConnectTimeMillis() > 0) {
-                    connectTimeMillis = Math.min(child.getConnectTimeMillis(), connectTimeMillis);
+                    childConnectTimeMillis = Math.min(child.getConnectTimeMillis(),
+                            childConnectTimeMillis);
                 }
                 childCallIds.add(mCallIdMapper.getCallId(child));
             }
-        }
 
-        if (call.isRespondViaSmsCapable()) {
-            capabilities |= PhoneCapabilities.RESPOND_VIA_TEXT;
+            if (childConnectTimeMillis != Long.MAX_VALUE) {
+                connectTimeMillis = childConnectTimeMillis;
+            }
         }
 
         Uri handle = call.getHandlePresentation() == TelecomManager.PRESENTATION_ALLOWED ?
@@ -486,6 +528,7 @@ public final class InCallController extends CallsManagerListenerBase {
             }
         }
 
+        int properties = call.isConference() ? CallProperties.CONFERENCE : 0;
         return new ParcelableCall(
                 callId,
                 state,
@@ -509,6 +552,63 @@ public final class InCallController extends CallsManagerListenerBase {
                 call.getExtras());
     }
 
+    private static final int[] CONNECTION_TO_CALL_CAPABILITY = new int[] {
+        Connection.CAPABILITY_HOLD,
+        android.telecom.Call.Details.CAPABILITY_HOLD,
+
+        Connection.CAPABILITY_SUPPORT_HOLD,
+        android.telecom.Call.Details.CAPABILITY_SUPPORT_HOLD,
+
+        Connection.CAPABILITY_MERGE_CONFERENCE,
+        android.telecom.Call.Details.CAPABILITY_MERGE_CONFERENCE,
+
+        Connection.CAPABILITY_SWAP_CONFERENCE,
+        android.telecom.Call.Details.CAPABILITY_SWAP_CONFERENCE,
+
+        Connection.CAPABILITY_UNUSED,
+        android.telecom.Call.Details.CAPABILITY_UNUSED,
+
+        Connection.CAPABILITY_RESPOND_VIA_TEXT,
+        android.telecom.Call.Details.CAPABILITY_RESPOND_VIA_TEXT,
+
+        Connection.CAPABILITY_MUTE,
+        android.telecom.Call.Details.CAPABILITY_MUTE,
+
+        Connection.CAPABILITY_MANAGE_CONFERENCE,
+        android.telecom.Call.Details.CAPABILITY_MANAGE_CONFERENCE,
+
+        Connection.CAPABILITY_SUPPORTS_VT_LOCAL,
+        android.telecom.Call.Details.CAPABILITY_SUPPORTS_VT_LOCAL,
+
+        Connection.CAPABILITY_SUPPORTS_VT_REMOTE,
+        android.telecom.Call.Details.CAPABILITY_SUPPORTS_VT_REMOTE,
+
+        Connection.CAPABILITY_HIGH_DEF_AUDIO,
+        android.telecom.Call.Details.CAPABILITY_HIGH_DEF_AUDIO,
+
+        Connection.CAPABILITY_VoWIFI,
+        android.telecom.Call.Details.CAPABILITY_VoWIFI,
+
+        Connection.CAPABILITY_SEPARATE_FROM_CONFERENCE,
+        android.telecom.Call.Details.CAPABILITY_SEPARATE_FROM_CONFERENCE,
+
+        Connection.CAPABILITY_DISCONNECT_FROM_CONFERENCE,
+        android.telecom.Call.Details.CAPABILITY_DISCONNECT_FROM_CONFERENCE,
+
+        Connection.CAPABILITY_GENERIC_CONFERENCE,
+        android.telecom.Call.Details.CAPABILITY_GENERIC_CONFERENCE
+    };
+
+    private static int convertConnectionToCallCapabilities(int connectionCapabilities) {
+        int callCapabilities = 0;
+        for (int i = 0; i < CONNECTION_TO_CALL_CAPABILITY.length; i += 2) {
+            if ((CONNECTION_TO_CALL_CAPABILITY[i] & connectionCapabilities) != 0) {
+                callCapabilities |= CONNECTION_TO_CALL_CAPABILITY[i + 1];
+            }
+        }
+        return callCapabilities;
+    }
+
     /**
      * Adds the call to the list of calls tracked by the {@link InCallController}.
      * @param call The call to add.
@@ -518,5 +618,33 @@ public final class InCallController extends CallsManagerListenerBase {
             mCallIdMapper.addCall(call);
             call.addListener(mCallListener);
         }
+    }
+
+    /**
+     * Removes the specified capability from the set of capabilities bits and returns the new set.
+     */
+    private static int removeCapability(int capabilities, int capability) {
+        return capabilities & ~capability;
+    }
+
+    /**
+     * Dumps the state of the {@link InCallController}.
+     *
+     * @param pw The {@code IndentingPrintWriter} to write the state to.
+     */
+    public void dump(IndentingPrintWriter pw) {
+        pw.println("mInCallServices (InCalls registered):");
+        pw.increaseIndent();
+        for (ComponentName componentName : mInCallServices.keySet()) {
+            pw.println(componentName);
+        }
+        pw.decreaseIndent();
+
+        pw.println("mServiceConnections (InCalls bound):");
+        pw.increaseIndent();
+        for (ComponentName componentName : mServiceConnections.keySet()) {
+            pw.println(componentName);
+        }
+        pw.decreaseIndent();
     }
 }

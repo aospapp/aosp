@@ -4,17 +4,18 @@
 
 #include "apps/launcher.h"
 
-#include "apps/browser/api/app_runtime/app_runtime_api.h"
-#include "apps/browser/file_handler_util.h"
-#include "apps/common/api/app_runtime.h"
+#include <set>
+#include <utility>
+
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/extensions/api/file_handlers/app_file_handler_util.h"
+#include "chrome/browser/extensions/api/file_handlers/mime_util.h"
 #include "chrome/browser/extensions/api/file_system/file_system_api.h"
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/browser/browser_thread.h"
@@ -22,40 +23,40 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/url_constants.h"
+#include "extensions/browser/api/app_runtime/app_runtime_api.h"
 #include "extensions/browser/event_router.h"
 #include "extensions/browser/extension_host.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/granted_file_entry.h"
 #include "extensions/browser/lazy_background_task_queue.h"
 #include "extensions/browser/process_manager.h"
+#include "extensions/common/api/app_runtime.h"
 #include "extensions/common/extension.h"
-#include "extensions/common/extension_messages.h"
 #include "extensions/common/manifest_handlers/kiosk_mode_info.h"
 #include "net/base/filename_util.h"
-#include "net/base/mime_sniffer.h"
-#include "net/base/mime_util.h"
 #include "net/base/net_util.h"
 #include "url/gurl.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/file_manager/filesystem_api_util.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
+#include "components/user_manager/user_manager.h"
 #endif
 
-namespace app_runtime = apps::api::app_runtime;
+namespace app_runtime = extensions::core_api::app_runtime;
 
-using apps::file_handler_util::GrantedFileEntry;
 using content::BrowserThread;
-using extensions::app_file_handler_util::PrepareFilesForWritableApp;
-using extensions::app_file_handler_util::FileHandlerForId;
-using extensions::app_file_handler_util::FileHandlerCanHandleFile;
-using extensions::app_file_handler_util::FirstFileHandlerForFile;
+using extensions::AppRuntimeEventRouter;
 using extensions::app_file_handler_util::CreateFileEntry;
+using extensions::app_file_handler_util::FileHandlerCanHandleFile;
+using extensions::app_file_handler_util::FileHandlerForId;
+using extensions::app_file_handler_util::FirstFileHandlerForFile;
 using extensions::app_file_handler_util::HasFileSystemWritePermission;
+using extensions::app_file_handler_util::PrepareFilesForWritableApp;
 using extensions::EventRouter;
 using extensions::Extension;
 using extensions::ExtensionHost;
 using extensions::ExtensionSystem;
+using extensions::GrantedFileEntry;
 
 namespace apps {
 
@@ -86,7 +87,7 @@ bool DoMakePathAbsolute(const base::FilePath& current_directory,
 // load or obtain file launch data.
 void LaunchPlatformAppWithNoData(Profile* profile, const Extension* extension) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  AppEventRouter::DispatchOnLaunchedEvent(profile, extension);
+  AppRuntimeEventRouter::DispatchOnLaunchedEvent(profile, extension);
 }
 
 // Class to handle launching of platform apps to open specific paths.
@@ -100,12 +101,15 @@ class PlatformAppPathLauncher
   PlatformAppPathLauncher(Profile* profile,
                           const Extension* extension,
                           const std::vector<base::FilePath>& file_paths)
-      : profile_(profile), extension_(extension), file_paths_(file_paths) {}
+      : profile_(profile),
+        extension_(extension),
+        file_paths_(file_paths),
+        collector_(profile) {}
 
   PlatformAppPathLauncher(Profile* profile,
                           const Extension* extension,
                           const base::FilePath& file_path)
-      : profile_(profile), extension_(extension) {
+      : profile_(profile), extension_(extension), collector_(profile) {
     if (!file_path.empty())
       file_paths_.push_back(file_path);
   }
@@ -126,12 +130,12 @@ class PlatformAppPathLauncher
           file_paths_,
           profile_,
           false,
-          base::Bind(&PlatformAppPathLauncher::OnFileValid, this),
-          base::Bind(&PlatformAppPathLauncher::OnFileInvalid, this));
+          base::Bind(&PlatformAppPathLauncher::OnFilesValid, this),
+          base::Bind(&PlatformAppPathLauncher::OnFilesInvalid, this));
       return;
     }
 
-    OnFileValid();
+    OnFilesValid();
   }
 
   void LaunchWithHandler(const std::string& handler_id) {
@@ -174,107 +178,14 @@ class PlatformAppPathLauncher
                             base::Bind(&PlatformAppPathLauncher::Launch, this));
   }
 
-  void OnFileValid() {
-    mime_types_.resize(file_paths_.size());
-#if defined(OS_CHROMEOS)
-    GetNextNonNativeMimeType();
-#else
-    BrowserThread::PostTask(
-        BrowserThread::FILE,
-        FROM_HERE,
-        base::Bind(&PlatformAppPathLauncher::GetMimeTypesAndLaunch, this));
-#endif
+  void OnFilesValid() {
+    collector_.CollectForLocalPaths(
+        file_paths_,
+        base::Bind(&PlatformAppPathLauncher::OnMimeTypesCollected, this));
   }
 
-  void OnFileInvalid(const base::FilePath& /* error_path */) {
+  void OnFilesInvalid(const base::FilePath& /* error_path */) {
     LaunchWithNoLaunchData();
-  }
-
-#if defined(OS_CHROMEOS)
-  void GetNextNonNativeMimeType() {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
-
-    bool any_native_files = false;
-    for (size_t i = 0; i < mime_types_.size(); ++i) {
-      if (!mime_types_[i].empty())
-        continue;
-      const base::FilePath& file_path = file_paths_[i];
-      if (file_manager::util::IsUnderNonNativeLocalPath(profile_, file_path)) {
-        file_manager::util::GetNonNativeLocalPathMimeType(
-            profile_,
-            file_path,
-            base::Bind(&PlatformAppPathLauncher::OnGotMimeType, this, i));
-        return;
-      }
-      any_native_files = true;
-    }
-
-    // If there are any native files, we need to call GetMimeTypesAndLaunch to
-    // obtain mime types for the files.
-    if (any_native_files) {
-      BrowserThread::PostTask(
-          BrowserThread::FILE,
-          FROM_HERE,
-          base::Bind(&PlatformAppPathLauncher::GetMimeTypesAndLaunch, this));
-      return;
-    }
-
-    // Otherwise, we can call LaunchWithMimeTypes directly.
-    LaunchWithMimeTypes();
-  }
-
-  void OnGotMimeType(size_t index, bool success, const std::string& mime_type) {
-    if (!success) {
-      LaunchWithNoLaunchData();
-      return;
-    }
-    mime_types_[index] = mime_type.empty() ? kFallbackMimeType : mime_type;
-    GetNextNonNativeMimeType();
-  }
-#endif
-
-  void GetMimeTypesAndLaunch() {
-    DCHECK_CURRENTLY_ON(BrowserThread::FILE);
-
-    for (size_t i = 0; i < mime_types_.size(); ++i) {
-      if (!this->mime_types_[i].empty())
-        continue;
-      const base::FilePath& file_path = file_paths_[i];
-
-      // If the file doesn't exist, or is a directory, launch with no launch
-      // data.
-      if (!base::PathExists(file_path) || base::DirectoryExists(file_path)) {
-        LOG(WARNING) << "No file exists with path " << file_path.value();
-        BrowserThread::PostTask(
-            BrowserThread::UI,
-            FROM_HERE,
-            base::Bind(&PlatformAppPathLauncher::LaunchWithNoLaunchData, this));
-        return;
-      }
-
-      std::string mime_type;
-      if (!net::GetMimeTypeFromFile(file_path, &mime_type)) {
-        // If MIME type of the file can't be determined by its path,
-        // try to sniff it by its content.
-        std::vector<char> content(net::kMaxBytesToSniff);
-        int bytes_read = base::ReadFile(file_path, &content[0], content.size());
-        if (bytes_read >= 0) {
-          net::SniffMimeType(&content[0],
-                             bytes_read,
-                             net::FilePathToFileURL(file_path),
-                             std::string(),  // type_hint (passes no hint)
-                             &mime_type);
-        }
-        if (mime_type.empty())
-          mime_type = kFallbackMimeType;
-      }
-      mime_types_[i] = mime_type;
-    }
-
-    BrowserThread::PostTask(
-        BrowserThread::UI,
-        FROM_HERE,
-        base::Bind(&PlatformAppPathLauncher::LaunchWithMimeTypes, this));
   }
 
   void LaunchWithNoLaunchData() {
@@ -282,8 +193,15 @@ class PlatformAppPathLauncher
     LaunchPlatformAppWithNoData(profile_, extension_);
   }
 
-  void LaunchWithMimeTypes() {
-    DCHECK(file_paths_.size() == mime_types_.size());
+  void OnMimeTypesCollected(scoped_ptr<std::vector<std::string> > mime_types) {
+    DCHECK(file_paths_.size() == mime_types->size());
+
+    // If fetching a mime type failed, then use a fallback one.
+    for (size_t i = 0; i < mime_types->size(); ++i) {
+      const std::string mime_type =
+          !(*mime_types)[i].empty() ? (*mime_types)[i] : kFallbackMimeType;
+      mime_types_.push_back(mime_type);
+    }
 
     // Find file handler from the platform app for the file being opened.
     const extensions::FileHandlerInfo* handler = NULL;
@@ -366,7 +284,7 @@ class PlatformAppPathLauncher
                           false));
     }
 
-    AppEventRouter::DispatchOnLaunchedEventWithFileEntries(
+    AppRuntimeEventRouter::DispatchOnLaunchedEventWithFileEntries(
         profile_, extension_, handler_id_, mime_types_, file_entries);
   }
 
@@ -382,6 +300,7 @@ class PlatformAppPathLauncher
   std::vector<std::string> mime_types_;
   // The ID of the file handler used to launch the app.
   std::string handler_id_;
+  extensions::app_file_handler_util::MimeTypeCollector collector_;
 
   DISALLOW_COPY_AND_ASSIGN(PlatformAppPathLauncher);
 };
@@ -398,7 +317,7 @@ void LaunchPlatformAppWithCommandLine(Profile* profile,
   if (extensions::KioskModeInfo::IsKioskOnly(extension)) {
     bool in_kiosk_mode = false;
 #if defined(OS_CHROMEOS)
-    chromeos::UserManager* user_manager = chromeos::UserManager::Get();
+    user_manager::UserManager* user_manager = user_manager::UserManager::Get();
     in_kiosk_mode = user_manager && user_manager->IsLoggedInAsKioskApp();
 #endif
     if (!in_kiosk_mode) {
@@ -464,7 +383,7 @@ void RestartPlatformApp(Profile* profile, const Extension* extension) {
                                 app_runtime::OnRestarted::kEventName);
 
   if (listening_to_restart) {
-    AppEventRouter::DispatchOnRestartedEvent(profile, extension);
+    AppRuntimeEventRouter::DispatchOnRestartedEvent(profile, extension);
     return;
   }
 
@@ -485,7 +404,7 @@ void LaunchPlatformAppWithUrl(Profile* profile,
                               const std::string& handler_id,
                               const GURL& url,
                               const GURL& referrer_url) {
-  AppEventRouter::DispatchOnLaunchedEventWithUrl(
+  AppRuntimeEventRouter::DispatchOnLaunchedEventWithUrl(
       profile, extension, handler_id, url, referrer_url);
 }
 

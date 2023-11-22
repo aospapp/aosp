@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"ব্যাকআপ ও পুনরুদ্ধার"</string>
     <string name="device_reset" msgid="2827002349560023125">"ফ্যাক্টরি ডেটা পুনঃসেট"</string>
     <string name="device_calibration" msgid="8632962533376605191">"ক্রমাঙ্কন"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"ডাউনলোড করা অ্যাপ্লিকেশানগুলি"</string>
     <string name="apps_system" msgid="2499191125802829425">"সিস্টেম অ্যাপ্লিকেশানগুলি"</string>
     <string name="apps_running" msgid="6430310491739956228">"চলতে থাকা অ্যাপ্লিকেশানগুলি"</string>
@@ -74,7 +78,7 @@
     <string name="accessory_unpair" msgid="8242725516604465355">"বিযুক্ত করুন"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"ডিভাইস বিযুক্ত করা হচ্ছে..."</string>
     <string name="accessory_connected" msgid="2156489304110030393">"সংযুক্ত হয়েছে"</string>
-    <string name="accessories_add_title" msgid="6940361421891873321">"আনুষঙ্গিক উপকরণের জন্য অনুসন্ধান করছে..."</string>
+    <string name="accessories_add_title" msgid="6940361421891873321">"অন্য উপকরণ খুঁজছে..."</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"আপনার Bluetooth ডিভাইসগুলি যুক্ত করার আগে, সেগুলি যুক্ত করার মোডে রয়েছে কিনা তা নিশ্চিত করুন"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"একটি ডিভাইস পাওয়া গেছে এবং <xliff:g id="COUNTDOWN">%1$s</xliff:g> সেকেন্ডের মধ্যে স্বয়ংক্রিয়ভাবে যুক্ত হবে"</string>
     <string name="accessories_add_title_multiple" msgid="8455249961819802466">"একাধিক ডিভাইস পাওয়া গেছে"</string>
@@ -90,12 +94,12 @@
     <string name="bluetooth_pin_values_hint" msgid="2319900367581543300">"সাধারণত ০০০০ বা ১২৩৪"</string>
     <string name="bluetooth_pair" msgid="7836818609620478122">"যুক্ত করুন"</string>
     <string name="bluetooth_cancel" msgid="4152153558528588479">"বাতিল করুন"</string>
-    <string name="system_cast" msgid="6421567823845207156">"Google কাস্ট"</string>
+    <string name="system_cast" msgid="6421567823845207156">"Google Cast"</string>
     <string name="system_date_time" msgid="8898457978560618950">"দিন ও তারিখ"</string>
     <string name="system_language" msgid="2337138146114609247">"ভাষা"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"কীবোর্ড"</string>
     <string name="system_search" msgid="2837264654143247611">"অনুসন্ধান করুন"</string>
-    <string name="system_security" msgid="4190058778883258927">"নিরাপত্তা &amp; বিধিনিষেধ"</string>
+    <string name="system_security" msgid="8230080273993484407">"নিরাপত্তা ও সীমাবদ্ধতাগুলি"</string>
     <string name="system_speech" msgid="8128688499687306982">"কথন"</string>
     <string name="system_inputs" msgid="2413907183796651102">"ইনপুট"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"অ্যাক্সেসযোগ্যতা"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"সিস্টেম আপডেট"</string>
     <string name="about_preference" msgid="4131396784531360434">"সম্পর্কে"</string>
     <string name="device_name" msgid="2670488158531273028">"ডিভাইস নাম"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"আবার শুরু করুন"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"আইনি তথ্য"</string>
     <string name="about_warranty" msgid="5736003473060436384">"ওয়্যারেন্টি"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"মুক্ত উৎস লাইসেন্সগুলি"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"পরিষেবার শর্তাবলি দেখুন"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"গোপনীয়তা নীতি দেখুন"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"অতিরিক্ত শর্তাবলী দেখুন"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Google আইনি"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"লাইসেন্স ডেটা অনুপলব্ধ"</string>
     <string name="about_model" msgid="6625269442206323995">"মডেল"</string>
     <string name="about_version" msgid="1177287676732287266">"সংস্করণ"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"তারিখ"</string>
     <string name="system_time" msgid="6726022312605226285">"সময়"</string>
     <string name="system_set_date" msgid="2437586307768561116">"তারিখ সেট করুন"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"তারিখের ফর্ম্যাট চয়ন করুন"</string>
     <string name="system_set_time" msgid="4661804115501057452">"সময় সেট করুন"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"সময় অঞ্চল সেট করুন"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"২৪ ঘন্টার ফর্ম্যাট ব্যবহার করুন"</string>

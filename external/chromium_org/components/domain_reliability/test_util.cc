@@ -87,14 +87,21 @@ void TestCallback::OnCalled() {
 }
 
 MockUploader::MockUploader(const UploadRequestCallback& callback)
-    : callback_(callback) {}
+    : callback_(callback),
+      discard_uploads_(true) {}
 
 MockUploader::~MockUploader() {}
+
+bool MockUploader::discard_uploads() const { return discard_uploads_; }
 
 void MockUploader::UploadReport(const std::string& report_json,
                                 const GURL& upload_url,
                                 const UploadCallback& callback) {
   callback_.Run(report_json, upload_url, callback);
+}
+
+void MockUploader::set_discard_uploads(bool discard_uploads) {
+  discard_uploads_ = discard_uploads;
 }
 
 MockTime::MockTime()
@@ -154,13 +161,18 @@ DomainReliabilityScheduler::Params MakeTestSchedulerParams() {
 }
 
 scoped_ptr<const DomainReliabilityConfig> MakeTestConfig() {
+  return MakeTestConfigWithDomain("example");
+}
+
+scoped_ptr<const DomainReliabilityConfig> MakeTestConfigWithDomain(
+    const std::string& domain) {
   DomainReliabilityConfig* config = new DomainReliabilityConfig();
   DomainReliabilityConfig::Resource* resource;
 
   resource = new DomainReliabilityConfig::Resource();
   resource->name = "always_report";
   resource->url_patterns.push_back(
-      new std::string("http://example/always_report"));
+      new std::string("http://*/always_report"));
   resource->success_sample_rate = 1.0;
   resource->failure_sample_rate = 1.0;
   config->resources.push_back(resource);
@@ -168,19 +180,19 @@ scoped_ptr<const DomainReliabilityConfig> MakeTestConfig() {
   resource = new DomainReliabilityConfig::Resource();
   resource->name = "never_report";
   resource->url_patterns.push_back(
-      new std::string("http://example/never_report"));
+      new std::string("http://*/never_report"));
   resource->success_sample_rate = 0.0;
   resource->failure_sample_rate = 0.0;
   config->resources.push_back(resource);
 
   DomainReliabilityConfig::Collector* collector;
   collector = new DomainReliabilityConfig::Collector();
-  collector->upload_url = GURL("https://example/upload");
+  collector->upload_url = GURL("https://exampleuploader/upload");
   config->collectors.push_back(collector);
 
   config->version = "1";
   config->valid_until = 1234567890.0;
-  config->domain = "example";
+  config->domain = domain;
 
   DCHECK(config->IsValid());
 

@@ -15,15 +15,39 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+<resources>
+    <!-- All shortcuts need to be combined with CTRL -->
 
-    <!-- Character, that when combined with CTRL, should cause a save action -->
+    <!-- open compose -->
+    <string name="trigger_compose_char" translatable="false">n</string>
+    <!-- archive, can also be remove folder when archive is not applicable -->
+    <string name="trigger_archive_char" translatable="false">d</string>
+    <!-- delete (\u0008 is BACKSPACE), can also be clear trash/spam -->
+    <!-- TODO: there is a separate ASCII for DEL, should we support that? -->
+    <string name="trigger_delete_char" translatable="false">\u0008</string>
+    <!-- send (TODO: looks like edittext is consuming this event) -->
+    <string name="trigger_send_char" translatable="false">\u000a</string>
+    <!-- save draft -->
     <string name="trigger_save_char" translatable="false">s</string>
-    <!-- Character, that when combined with CTRL, should open compose -->
-    <string name="trigger_compose_char" translatable="false">c</string>
-    <!-- Character, that when combined with CTRL, should trigger a refresh -->
+    <!-- manual refresh -->
     <string name="trigger_refresh_char" translatable="false">u</string>
-    <!-- Character, that when combined with CTRL, should trigger the Y button action (sometimes archive, sometimes delete, etc) -->
-    <string name="trigger_y_char" translatable="false">y</string>
+    <!-- open navigation drawer -->
+    <string name="trigger_toggle_drawer_char" translatable="false">m</string>
+    <!-- Settings -->
+    <string name="trigger_settings_char" translatable="false">,</string>
+    <!-- Help & Feedback -->
+    <string name="trigger_help_char" translatable="false">/</string>
+    <!-- reply TODO -->
+    <string name="trigger_reply_char" translatable="false">`</string>
+    <!-- reply all -->
+    <string name="trigger_reply_all_char" translatable="false">r</string>
+    <!-- mark as read/unread -->
+    <string name="trigger_toggle_read_unread_char" translatable="false">i</string>
+    <!-- change label -->
+    <string name="trigger_change_label_char" translatable="false">l</string>
+    <!-- print -->
+    <string name="trigger_print_char" translatable="false">p</string>
+    <!-- undo in snack bar TODO punted -->
+    <string name="trigger_undo_char" translatable="false">z</string>
 
 </resources>

@@ -436,17 +436,23 @@ public class StaticMetadata {
         int[] modes = getValueFromKeyNonNull(key);
 
         boolean foundAuto = false;
+        boolean found50Hz = false;
+        boolean found60Hz = false;
         for (int mode : modes) {
             checkTrueForKey(key, "mode value " + mode + " is out if range",
                     mode >= CameraMetadata.CONTROL_AE_ANTIBANDING_MODE_OFF ||
                     mode <= CameraMetadata.CONTROL_AE_ANTIBANDING_MODE_AUTO);
             if (mode == CameraMetadata.CONTROL_AE_ANTIBANDING_MODE_AUTO) {
                 foundAuto = true;
-                return modes;
+            } else if (mode == CameraMetadata.CONTROL_AE_ANTIBANDING_MODE_50HZ) {
+                found50Hz = true;
+            } else if (mode == CameraMetadata.CONTROL_AE_ANTIBANDING_MODE_60HZ) {
+                found60Hz = true;
             }
         }
-        // Must contain AUTO mode.
-        checkTrueForKey(key, "AUTO mode is missing", foundAuto);
+        // Must contain AUTO mode or one of 50/60Hz mode.
+        checkTrueForKey(key, "Either AUTO mode or both 50HZ/60HZ mode should present",
+                foundAuto || (found50Hz && found60Hz));
 
         return modes;
     }
@@ -660,8 +666,9 @@ public class StaticMetadata {
         List<Integer> modeList = Arrays.asList(CameraTestUtils.toObject(modes));
         checkTrueForKey(key, " Camera devices must always support FAST mode",
                 modeList.contains(CameraMetadata.TONEMAP_MODE_FAST));
-        if (isHardwareLevelFull()) {
-            checkTrueForKey(key, "Full-capability camera devices must support"
+        if (isCapabilitySupported(
+                CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_POST_PROCESSING)) {
+            checkTrueForKey(key, "MANUAL_POST_PROCESSING supported camera devices must support"
                     + "CONTRAST_CURVE mode",
                     modeList.contains(CameraMetadata.TONEMAP_MODE_CONTRAST_CURVE) &&
                     modeList.contains(CameraMetadata.TONEMAP_MODE_FAST));
@@ -1302,12 +1309,13 @@ public class StaticMetadata {
         final Range<Integer> DEFAULT_RANGE = Range.create(
                 (int)(CONTROL_AE_COMPENSATION_RANGE_DEFAULT_MIN / compensationStepF),
                 (int)(CONTROL_AE_COMPENSATION_RANGE_DEFAULT_MAX / compensationStepF));
+        final Range<Integer> ZERO_RANGE = Range.create(0, 0);
         if (compensationRange == null) {
-            return DEFAULT_RANGE;
+            return ZERO_RANGE;
         }
 
         // Legacy devices don't have a minimum range requirement
-        if (isHardwareLevelLimitedOrBetter()) {
+        if (isHardwareLevelLimitedOrBetter() && !compensationRange.equals(ZERO_RANGE)) {
             checkTrueForKey(key, " range value must be at least " + DEFAULT_RANGE
                     + ", actual " + compensationRange + ", compensation step " + compensationStep,
                    compensationRange.getLower() <= DEFAULT_RANGE.getLower() &&
@@ -1433,8 +1441,9 @@ public class StaticMetadata {
         }
 
         List<Integer> modeList = Arrays.asList(CameraTestUtils.toObject(modes));
-        checkTrueForKey(key, " Camera devices must always support OFF mode",
-                modeList.contains(CameraMetadata.COLOR_CORRECTION_ABERRATION_MODE_OFF));
+        checkTrueForKey(key, " Camera devices must always support either OFF or FAST mode",
+                modeList.contains(CameraMetadata.COLOR_CORRECTION_ABERRATION_MODE_OFF) ||
+                modeList.contains(CameraMetadata.COLOR_CORRECTION_ABERRATION_MODE_FAST));
         checkElementDistinct(key, modeList);
         checkArrayValuesInRange(key, modes,
                 CameraMetadata.COLOR_CORRECTION_ABERRATION_MODE_OFF,
@@ -1480,7 +1489,7 @@ public class StaticMetadata {
 
         checkArrayValuesInRange(key, availableCaps,
                 CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE,
-                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW);
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BURST_CAPTURE);
         capList = Arrays.asList(CameraTestUtils.toObject(availableCaps));
         return capList;
     }

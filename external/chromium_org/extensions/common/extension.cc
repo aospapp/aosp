@@ -20,10 +20,10 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "base/version.h"
+#include "components/crx_file/id_util.h"
 #include "content/public/common/url_constants.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/error_utils.h"
-#include "extensions/common/id_util.h"
 #include "extensions/common/manifest.h"
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/manifest_handler.h"
@@ -67,7 +67,7 @@ bool ContainsReservedCharacters(const base::FilePath& path) {
 
 }  // namespace
 
-const int Extension::kInitFromValueFlagBits = 11;
+const int Extension::kInitFromValueFlagBits = 13;
 
 const char Extension::kMimeType[] = "application/x-chrome-extension";
 
@@ -131,22 +131,6 @@ scoped_refptr<Extension> Extension::Create(const base::FilePath& path,
   }
 
   return extension;
-}
-
-// static
-bool Extension::IdIsValid(const std::string& id) {
-  // Verify that the id is legal.
-  if (id.size() != (id_util::kIdSize * 2))
-    return false;
-
-  // We only support lowercase IDs, because IDs can be used as URL components
-  // (where GURL will lowercase it).
-  std::string temp = StringToLowerASCII(id);
-  for (size_t i = 0; i < temp.size(); i++)
-    if (temp[i] < 'a' || temp[i] > 'p')
-      return false;
-
-  return true;
 }
 
 Manifest::Type Extension::GetType() const {
@@ -411,11 +395,11 @@ void Extension::AddInstallWarnings(
 }
 
 bool Extension::is_app() const {
-  return manifest_->is_app();
+  return manifest()->is_app();
 }
 
 bool Extension::is_platform_app() const {
-  return manifest_->is_platform_app();
+  return manifest()->is_platform_app();
 }
 
 bool Extension::is_hosted_app() const {
@@ -430,6 +414,14 @@ bool Extension::is_extension() const {
   return manifest()->is_extension();
 }
 
+bool Extension::is_shared_module() const {
+  return manifest()->is_shared_module();
+}
+
+bool Extension::is_theme() const {
+  return manifest()->is_theme();
+}
+
 bool Extension::can_be_incognito_enabled() const {
   // Only component platform apps are supported in incognito.
   return !is_platform_app() || location() == Manifest::COMPONENT;
@@ -441,10 +433,6 @@ void Extension::AddWebExtentPattern(const URLPattern& pattern) {
     return;
 
   extent_.AddPattern(pattern);
-}
-
-bool Extension::is_theme() const {
-  return manifest()->is_theme();
 }
 
 // static
@@ -466,7 +454,7 @@ bool Extension::InitExtensionID(extensions::Manifest* manifest,
       *error = base::ASCIIToUTF16(errors::kInvalidKey);
       return false;
     }
-    std::string extension_id = id_util::GenerateId(public_key_bytes);
+    std::string extension_id = crx_file::id_util::GenerateId(public_key_bytes);
     manifest->set_extension_id(extension_id);
     return true;
   }
@@ -478,7 +466,7 @@ bool Extension::InitExtensionID(extensions::Manifest* manifest,
     // If there is a path, we generate the ID from it. This is useful for
     // development mode, because it keeps the ID stable across restarts and
     // reloading the extension.
-    std::string extension_id = id_util::GenerateIdForPath(path);
+    std::string extension_id = crx_file::id_util::GenerateIdForPath(path);
     if (extension_id.empty()) {
       NOTREACHED() << "Could not create ID from path.";
       return false;
@@ -499,7 +487,7 @@ Extension::Extension(const base::FilePath& path,
       wants_file_access_(false),
       creation_flags_(0) {
   DCHECK(path.empty() || path.IsAbsolute());
-  path_ = id_util::MaybeNormalizePath(path);
+  path_ = crx_file::id_util::MaybeNormalizePath(path);
 }
 
 Extension::~Extension() {

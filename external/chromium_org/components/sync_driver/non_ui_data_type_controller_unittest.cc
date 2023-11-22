@@ -23,7 +23,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-namespace browser_sync {
+namespace sync_driver {
 
 namespace {
 
@@ -61,7 +61,7 @@ class SharedChangeProcessorMock : public SharedChangeProcessor {
   SharedChangeProcessorMock() {}
 
   MOCK_METHOD6(Connect, base::WeakPtr<syncer::SyncableService>(
-      browser_sync::SyncApiComponentFactory*,
+      SyncApiComponentFactory*,
       GenericChangeProcessorFactory*,
       syncer::UserShare*,
       DataTypeErrorHandler*,
@@ -93,15 +93,13 @@ class NonUIDataTypeControllerFake
     : public NonUIDataTypeController {
  public:
   NonUIDataTypeControllerFake(
-      browser_sync::SyncApiComponentFactory* sync_factory,
+      SyncApiComponentFactory* sync_factory,
       NonUIDataTypeControllerMock* mock,
       SharedChangeProcessor* change_processor,
-      const DisableTypeCallback& disable_callback,
       scoped_refptr<base::MessageLoopProxy> backend_loop)
       : NonUIDataTypeController(
           base::MessageLoopProxy::current(),
           base::Closure(),
-          disable_callback,
           sync_factory),
         blocked_(false),
         mock_(mock),
@@ -133,7 +131,7 @@ class NonUIDataTypeControllerFake
   }
 
   virtual SharedChangeProcessor* CreateSharedChangeProcessor() OVERRIDE {
-    return change_processor_;
+    return change_processor_.get();
   }
 
  protected:
@@ -159,7 +157,7 @@ class NonUIDataTypeControllerFake
   virtual void RecordAssociationTime(base::TimeDelta time) OVERRIDE {
     mock_->RecordAssociationTime(time);
   }
-  virtual void RecordStartFailure(DataTypeController::StartResult result)
+  virtual void RecordStartFailure(DataTypeController::ConfigureResult result)
       OVERRIDE {
     mock_->RecordStartFailure(result);
   }
@@ -188,22 +186,17 @@ class NonUIDataTypeControllerFake
 class SyncNonUIDataTypeControllerTest : public testing::Test {
  public:
   SyncNonUIDataTypeControllerTest()
-      : backend_thread_("dbthread"),
-        disable_callback_invoked_(false) {}
+      : backend_thread_("dbthread") {}
 
   virtual void SetUp() OVERRIDE {
     backend_thread_.Start();
     change_processor_ = new SharedChangeProcessorMock();
     // All of these are refcounted, so don't need to be released.
     dtc_mock_ = new StrictMock<NonUIDataTypeControllerMock>();
-    DataTypeController::DisableTypeCallback disable_callback =
-        base::Bind(&SyncNonUIDataTypeControllerTest::DisableTypeCallback,
-                   base::Unretained(this));
     non_ui_dtc_ =
         new NonUIDataTypeControllerFake(NULL,
                                         dtc_mock_.get(),
-                                        change_processor_,
-                                        disable_callback,
+                                        change_processor_.get(),
                                         backend_thread_.message_loop_proxy());
   }
 
@@ -243,7 +236,7 @@ class SyncNonUIDataTypeControllerTest : public testing::Test {
     EXPECT_CALL(*dtc_mock_.get(), RecordAssociationTime(_));
   }
 
-  void SetActivateExpectations(DataTypeController::StartResult result) {
+  void SetActivateExpectations(DataTypeController::ConfigureResult result) {
     EXPECT_CALL(start_callback_, Run(result,_,_));
   }
 
@@ -252,7 +245,7 @@ class SyncNonUIDataTypeControllerTest : public testing::Test {
     EXPECT_CALL(*change_processor_.get(), Disconnect()).WillOnce(Return(true));
   }
 
-  void SetStartFailExpectations(DataTypeController::StartResult result) {
+  void SetStartFailExpectations(DataTypeController::ConfigureResult result) {
     EXPECT_CALL(*dtc_mock_.get(), StopModels()).Times(AtLeast(1));
     EXPECT_CALL(*dtc_mock_.get(), RecordStartFailure(result));
     EXPECT_CALL(start_callback_, Run(result, _, _));
@@ -271,12 +264,6 @@ class SyncNonUIDataTypeControllerTest : public testing::Test {
     done->Signal();
   }
 
-  void DisableTypeCallback(const tracked_objects::Location& location,
-                           const std::string& message) {
-    disable_callback_invoked_ = true;
-    non_ui_dtc_->Stop();
-  }
-
   base::MessageLoopForUI message_loop_;
   base::Thread backend_thread_;
 
@@ -288,8 +275,6 @@ class SyncNonUIDataTypeControllerTest : public testing::Test {
   scoped_refptr<NonUIDataTypeControllerMock> dtc_mock_;
   scoped_refptr<SharedChangeProcessorMock> change_processor_;
   scoped_ptr<syncer::SyncChangeProcessor> saved_change_processor_;
-
-  bool disable_callback_invoked_;
 };
 
 TEST_F(SyncNonUIDataTypeControllerTest, StartOk) {
@@ -325,7 +310,6 @@ TEST_F(SyncNonUIDataTypeControllerTest, StartFirstRun) {
 TEST_F(SyncNonUIDataTypeControllerTest, AbortDuringStartModels) {
   EXPECT_CALL(*dtc_mock_.get(), StartModels()).WillOnce(Return(false));
   EXPECT_CALL(*dtc_mock_.get(), StopModels());
-  EXPECT_CALL(model_load_callback_, Run(_, _));
   EXPECT_EQ(DataTypeController::NOT_RUNNING, non_ui_dtc_->state());
   non_ui_dtc_->LoadModels(
       base::Bind(&ModelLoadCallbackMock::Run,
@@ -404,7 +388,6 @@ TEST_F(SyncNonUIDataTypeControllerTest, AbortDuringAssociation) {
   WaitableEvent pause_db_thread(false, false);
 
   SetStartExpectations();
-  SetStartFailExpectations(DataTypeController::ABORTED);
   EXPECT_CALL(*change_processor_.get(), Connect(_, _, _, _, _, _))
       .WillOnce(GetWeakPtrToSyncableService(&syncable_service_));
   EXPECT_CALL(*change_processor_.get(), CryptoReadyIfNecessary())
@@ -439,10 +422,6 @@ TEST_F(SyncNonUIDataTypeControllerTest, StartAfterSyncShutdown) {
   // We don't expect StopSyncing to be called because local_service_ will never
   // have been set.
   EXPECT_CALL(*change_processor_.get(), Disconnect()).WillOnce(Return(true));
-  EXPECT_CALL(*dtc_mock_.get(), StopModels());
-  EXPECT_CALL(*dtc_mock_.get(),
-              RecordStartFailure(DataTypeController::ABORTED));
-  EXPECT_CALL(start_callback_, Run(DataTypeController::ABORTED, _, _));
   EXPECT_EQ(DataTypeController::NOT_RUNNING, non_ui_dtc_->state());
   Start();
   non_ui_dtc_->Stop();
@@ -496,28 +475,29 @@ TEST_F(SyncNonUIDataTypeControllerTest, StopStart) {
   EXPECT_EQ(DataTypeController::RUNNING, non_ui_dtc_->state());
 }
 
-TEST_F(SyncNonUIDataTypeControllerTest,
-       OnSingleDatatypeUnrecoverableError) {
+TEST_F(SyncNonUIDataTypeControllerTest, OnSingleDataTypeUnrecoverableError) {
   SetStartExpectations();
   SetAssociateExpectations();
   SetActivateExpectations(DataTypeController::OK);
-  SetStopExpectations();
   EXPECT_EQ(DataTypeController::NOT_RUNNING, non_ui_dtc_->state());
   Start();
   WaitForDTC();
   EXPECT_EQ(DataTypeController::RUNNING, non_ui_dtc_->state());
-  // This should cause non_ui_dtc_->Stop() to be called.
+
+  testing::Mock::VerifyAndClearExpectations(&start_callback_);
+  EXPECT_CALL(model_load_callback_, Run(_, _));
+  syncer::SyncError error(FROM_HERE,
+                          syncer::SyncError::DATATYPE_ERROR,
+                          "error",
+                          non_ui_dtc_->type());
   backend_thread_.message_loop_proxy()->PostTask(FROM_HERE, base::Bind(
       &NonUIDataTypeControllerFake::
-          OnSingleDatatypeUnrecoverableError,
+          OnSingleDataTypeUnrecoverableError,
       non_ui_dtc_.get(),
-      FROM_HERE,
-      std::string("Test")));
+      error));
   WaitForDTC();
-  EXPECT_EQ(DataTypeController::NOT_RUNNING, non_ui_dtc_->state());
-  EXPECT_TRUE(disable_callback_invoked_);
 }
 
 }  // namespace
 
-}  // namespace browser_sync
+}  // namespace sync_driver

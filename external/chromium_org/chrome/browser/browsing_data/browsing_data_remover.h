@@ -16,12 +16,12 @@
 #include "base/task/cancelable_task_tracker.h"
 #include "base/time/time.h"
 #include "chrome/browser/pepper_flash_settings_manager.h"
-#include "chrome/browser/search_engines/template_url_service.h"
+#include "components/search_engines/template_url_service.h"
 #if defined(OS_CHROMEOS)
 #include "chromeos/dbus/dbus_method_call_status.h"
 #endif
+#include "storage/common/quota/quota_types.h"
 #include "url/gurl.h"
-#include "webkit/common/quota/quota_types.h"
 
 class ExtensionSpecialStoragePolicy;
 class IOThread;
@@ -44,7 +44,7 @@ namespace net {
 class URLRequestContextGetter;
 }
 
-namespace quota {
+namespace storage {
 class QuotaManager;
 }
 
@@ -87,10 +87,11 @@ class BrowsingDataRemover
     REMOVE_PLUGIN_DATA = 1 << 9,
     REMOVE_PASSWORDS = 1 << 10,
     REMOVE_WEBSQL = 1 << 11,
-    REMOVE_SERVER_BOUND_CERTS = 1 << 12,
+    REMOVE_CHANNEL_IDS = 1 << 12,
     REMOVE_CONTENT_LICENSES = 1 << 13,
+    REMOVE_SERVICE_WORKERS = 1 << 14,
 #if defined(OS_ANDROID)
-    REMOVE_APP_BANNER_DATA = 1 << 14,
+    REMOVE_APP_BANNER_DATA = 1 << 15,
 #endif
     // The following flag is used only in tests. In normal usage, hosted app
     // data is controlled by the REMOVE_COOKIES flag, applied to the
@@ -98,25 +99,22 @@ class BrowsingDataRemover
     REMOVE_HOSTED_APP_DATA_TESTONLY = 1 << 31,
 
     // "Site data" includes cookies, appcache, file systems, indexedDBs, local
-    // storage, webSQL, and plugin data.
-    REMOVE_SITE_DATA = REMOVE_APPCACHE |
-                       REMOVE_COOKIES |
-                       REMOVE_FILE_SYSTEMS |
+    // storage, webSQL, service workers, and plugin data.
+    REMOVE_SITE_DATA = REMOVE_APPCACHE | REMOVE_COOKIES | REMOVE_FILE_SYSTEMS |
                        REMOVE_INDEXEDDB |
                        REMOVE_LOCAL_STORAGE |
                        REMOVE_PLUGIN_DATA |
+                       REMOVE_SERVICE_WORKERS |
                        REMOVE_WEBSQL |
 #if defined(OS_ANDROID)
                        REMOVE_APP_BANNER_DATA |
 #endif
-                       REMOVE_SERVER_BOUND_CERTS,
+                       REMOVE_CHANNEL_IDS,
 
     // Includes all the available remove options. Meant to be used by clients
     // that wish to wipe as much data as possible from a Profile, to make it
     // look like a new Profile.
-    REMOVE_ALL = REMOVE_SITE_DATA |
-                 REMOVE_CACHE |
-                 REMOVE_DOWNLOADS |
+    REMOVE_ALL = REMOVE_SITE_DATA | REMOVE_CACHE | REMOVE_DOWNLOADS |
                  REMOVE_FORM_DATA |
                  REMOVE_HISTORY |
                  REMOVE_PASSWORDS |
@@ -352,18 +350,18 @@ class BrowsingDataRemover
   // Invoked on the IO thread to delete cookies.
   void ClearCookiesOnIOThread(net::URLRequestContextGetter* rq_context);
 
-  // Invoked on the IO thread to delete server bound certs.
-  void ClearServerBoundCertsOnIOThread(
+  // Invoked on the IO thread to delete channel IDs.
+  void ClearChannelIDsOnIOThread(
       net::URLRequestContextGetter* rq_context);
 
-  // Callback on IO Thread when server bound certs have been deleted. Clears SSL
-  // connection pool and posts to UI thread to run OnClearedServerBoundCerts.
-  void OnClearedServerBoundCertsOnIOThread(
+  // Callback on IO Thread when channel IDs have been deleted. Clears SSL
+  // connection pool and posts to UI thread to run OnClearedChannelIDs.
+  void OnClearedChannelIDsOnIOThread(
       net::URLRequestContextGetter* rq_context);
 
-  // Callback for when server bound certs have been deleted. Invokes
+  // Callback for when channel IDs have been deleted. Invokes
   // NotifyAndDeleteIfDone.
-  void OnClearedServerBoundCerts();
+  void OnClearedChannelIDs();
 
   // Callback from the above method.
   void OnClearedFormData();
@@ -387,9 +385,6 @@ class BrowsingDataRemover
 
   // Profile we're to remove from.
   Profile* profile_;
-
-  // 'Protected' origins are not subject to data removal.
-  scoped_refptr<ExtensionSpecialStoragePolicy> special_storage_policy_;
 
   // Start time to delete from.
   const base::Time delete_begin_;
@@ -426,6 +421,7 @@ class BrowsingDataRemover
   // These may only be accessed from UI thread in order to avoid races!
   bool waiting_for_clear_autofill_origin_urls_;
   bool waiting_for_clear_cache_;
+  bool waiting_for_clear_channel_ids_;
   bool waiting_for_clear_content_licenses_;
   // Non-zero if waiting for cookies to be cleared.
   int waiting_for_clear_cookies_count_;
@@ -441,7 +437,6 @@ class BrowsingDataRemover
   bool waiting_for_clear_platform_keys_;
   bool waiting_for_clear_plugin_data_;
   bool waiting_for_clear_pnacl_cache_;
-  bool waiting_for_clear_server_bound_certs_;
   bool waiting_for_clear_storage_partition_data_;
 #if defined(ENABLE_WEBRTC)
   bool waiting_for_clear_webrtc_logs_;

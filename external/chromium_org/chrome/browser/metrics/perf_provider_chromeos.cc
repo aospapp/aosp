@@ -13,6 +13,7 @@
 #include "base/rand_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/threading/sequenced_worker_pool.h"
+#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/metrics/perf_provider_chromeos.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -21,13 +22,13 @@
 #include "chrome/common/chrome_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/debug_daemon_client.h"
+#include "content/public/browser/notification_service.h"
 
 namespace {
 
 // Partition time since login into successive intervals of this size. In each
 // interval, pick a random time to collect a profile.
-// This interval is twenty-four hours.
-const size_t kPerfProfilingIntervalMs = 24 * 60 * 60 * 1000;
+const size_t kPerfProfilingIntervalMs = 3 * 60 * 60 * 1000;
 
 // Default time in seconds perf is run for.
 const size_t kPerfCommandDurationDefaultSeconds = 2;
@@ -41,6 +42,26 @@ const size_t kCachedPerfDataProtobufSizeThreshold = 4 * 1024 * 1024;
 // resume. To limit the number of profiles, collect one for 1 in 10 resumes.
 // Adjust this number as needed.
 const int kResumeSamplingFactor = 10;
+
+// There may be too many session restores to collect a profile each time. Limit
+// the collection rate by collecting one per 10 restores. Adjust this number as
+// needed.
+const int kRestoreSessionSamplingFactor = 10;
+
+// This is used to space out session restore collections in the face of several
+// notifications in a short period of time. There should be no less than this
+// much time between collections. The current value is 30 seconds.
+const int kMinIntervalBetweenSessionRestoreCollectionsMs = 30 * 1000;
+
+// If collecting after a resume, add a random delay before collecting. The delay
+// should be randomly selected between 0 and this value. Currently the value is
+// equal to 5 seconds.
+const int kMaxResumeCollectionDelayMs = 5 * 1000;
+
+// If collecting after a session restore, add a random delay before collecting.
+// The delay should be randomly selected between 0 and this value. Currently the
+// value is equal to 10 seconds.
+const int kMaxRestoreSessionCollectionDelayMs = 10 * 1000;
 
 // Enumeration representing success and various failure modes for collecting and
 // sending perf data.
@@ -64,12 +85,10 @@ void AddToPerfHistogram(GetPerfDataOutcome outcome) {
                             NUM_OUTCOMES);
 }
 
-// Returns true if a normal user is logged in. Returns false if logged in as an
-// guest or as a kiosk app.
+// Returns true if a normal user is logged in. Returns false otherwise (e.g. if
+// logged in as a guest or as a kiosk app).
 bool IsNormalUserLoggedIn() {
-  chromeos::LoginState* login_state = chromeos::LoginState::Get();
-  return (login_state->IsUserLoggedIn() && !login_state->IsGuestUser() &&
-          !login_state->IsKioskApp());
+  return chromeos::LoginState::Get()->IsUserAuthenticated();
 }
 
 }  // namespace
@@ -116,6 +135,13 @@ PerfProvider::PerfProvider()
   // Register as an observer of power manager events.
   chromeos::DBusThreadManager::Get()->GetPowerManagerClient()->
       AddObserver(this);
+
+  // Register as an observer of session restore.
+  // TODO(sque): clean this up to use something other than notifications.
+  session_restore_registrar_.Add(
+      this,
+      chrome::NOTIFICATION_SESSION_RESTORE_DONE,
+      content::NotificationService::AllBrowserContextsAndSources());
 
   // Check the login state. At the time of writing, this class is instantiated
   // before login. A subsequent login would activate the profiling. However,
@@ -171,19 +197,68 @@ void PerfProvider::SuspendDone(const base::TimeDelta& sleep_duration) {
   if (base::RandGenerator(kResumeSamplingFactor) != 0)
     return;
 
-  // Fill out a SampledProfile protobuf that will contain the collected data.
-  scoped_ptr<SampledProfile> sampled_profile(new SampledProfile);
-  sampled_profile->set_trigger_event(SampledProfile::RESUME_FROM_SUSPEND);
-  sampled_profile->set_suspend_duration_ms(sleep_duration.InMilliseconds());
-  // TODO(sque): Vary the time after resume at which to collect a profile.
-  // http://crbug.com/358778.
-  sampled_profile->set_ms_after_resume(0);
-  CollectIfNecessary(sampled_profile.Pass());
+  // Override any existing profiling.
+  if (timer_.IsRunning())
+    timer_.Stop();
+
+  // Randomly pick a delay before doing the collection.
+  base::TimeDelta collection_delay =
+      base::TimeDelta::FromMilliseconds(
+          base::RandGenerator(kMaxResumeCollectionDelayMs));
+  timer_.Start(FROM_HERE,
+               collection_delay,
+               base::Bind(&PerfProvider::CollectPerfDataAfterResume,
+                          weak_factory_.GetWeakPtr(),
+                          sleep_duration,
+                          collection_delay));
+}
+
+void PerfProvider::Observe(int type,
+                           const content::NotificationSource& source,
+                           const content::NotificationDetails& details) {
+  // Only handle session restore notifications.
+  DCHECK_EQ(type, chrome::NOTIFICATION_SESSION_RESTORE_DONE);
+
+  // Do not collect a profile unless logged in as a normal user.
+  if (!IsNormalUserLoggedIn())
+    return;
+
+  // Collect a profile only 1/|kRestoreSessionSamplingFactor| of the time, to
+  // avoid collecting too much data and potentially causing UI latency.
+  if (base::RandGenerator(kRestoreSessionSamplingFactor) != 0)
+    return;
+
+  const base::TimeDelta min_interval =
+      base::TimeDelta::FromMilliseconds(
+          kMinIntervalBetweenSessionRestoreCollectionsMs);
+  const base::TimeDelta time_since_last_collection =
+      (base::TimeTicks::Now() - last_session_restore_collection_time_);
+  // Do not collect if there hasn't been enough elapsed time since the last
+  // collection.
+  if (!last_session_restore_collection_time_.is_null() &&
+      time_since_last_collection < min_interval) {
+    return;
+  }
+
+  // Stop any existing scheduled collection.
+  if (timer_.IsRunning())
+    timer_.Stop();
+
+  // Randomly pick a delay before doing the collection.
+  base::TimeDelta collection_delay =
+      base::TimeDelta::FromMilliseconds(
+          base::RandGenerator(kMaxRestoreSessionCollectionDelayMs));
+  timer_.Start(
+      FROM_HERE,
+      collection_delay,
+      base::Bind(&PerfProvider::CollectPerfDataAfterSessionRestore,
+                 weak_factory_.GetWeakPtr(),
+                 collection_delay));
 }
 
 void PerfProvider::OnUserLoggedIn() {
   login_time_ = base::TimeTicks::Now();
-  ScheduleCollection();
+  ScheduleIntervalCollection();
 }
 
 void PerfProvider::Deactivate() {
@@ -191,7 +266,7 @@ void PerfProvider::Deactivate() {
   timer_.Stop();
 }
 
-void PerfProvider::ScheduleCollection() {
+void PerfProvider::ScheduleIntervalCollection() {
   DCHECK(CalledOnValidThread());
   if (timer_.IsRunning())
     return;
@@ -219,6 +294,12 @@ void PerfProvider::ScheduleCollection() {
 void PerfProvider::CollectIfNecessary(
     scoped_ptr<SampledProfile> sampled_profile) {
   DCHECK(CalledOnValidThread());
+
+  // Schedule another interval collection. This call makes sense regardless of
+  // whether or not the current collection was interval-triggered. If it had
+  // been another type of trigger event, the interval timer would have been
+  // halted, so it makes sense to reschedule a new interval collection.
+  ScheduleIntervalCollection();
 
   // Do not collect further data if we've already collected a substantial amount
   // of data, as indicated by |kCachedPerfDataProtobufSizeThreshold|.
@@ -259,7 +340,29 @@ void PerfProvider::DoPeriodicCollection() {
   sampled_profile->set_trigger_event(SampledProfile::PERIODIC_COLLECTION);
 
   CollectIfNecessary(sampled_profile.Pass());
-  ScheduleCollection();
+}
+
+void PerfProvider::CollectPerfDataAfterResume(
+    const base::TimeDelta& sleep_duration,
+    const base::TimeDelta& time_after_resume) {
+  // Fill out a SampledProfile protobuf that will contain the collected data.
+  scoped_ptr<SampledProfile> sampled_profile(new SampledProfile);
+  sampled_profile->set_trigger_event(SampledProfile::RESUME_FROM_SUSPEND);
+  sampled_profile->set_suspend_duration_ms(sleep_duration.InMilliseconds());
+  sampled_profile->set_ms_after_resume(time_after_resume.InMilliseconds());
+
+  CollectIfNecessary(sampled_profile.Pass());
+}
+
+void PerfProvider::CollectPerfDataAfterSessionRestore(
+    const base::TimeDelta& time_after_restore) {
+  // Fill out a SampledProfile protobuf that will contain the collected data.
+  scoped_ptr<SampledProfile> sampled_profile(new SampledProfile);
+  sampled_profile->set_trigger_event(SampledProfile::RESTORE_SESSION);
+  sampled_profile->set_ms_after_restore(time_after_restore.InMilliseconds());
+
+  CollectIfNecessary(sampled_profile.Pass());
+  last_session_restore_collection_time_ = base::TimeTicks::Now();
 }
 
 void PerfProvider::ParseProtoIfValid(

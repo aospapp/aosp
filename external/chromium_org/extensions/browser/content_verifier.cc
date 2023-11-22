@@ -6,76 +6,76 @@
 
 #include <algorithm>
 
-#include "base/command_line.h"
 #include "base/files/file_path.h"
-#include "base/metrics/field_trial.h"
+#include "base/stl_util.h"
+#include "base/strings/string_util.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/common/content_switches.h"
 #include "extensions/browser/content_hash_fetcher.h"
 #include "extensions/browser/content_hash_reader.h"
 #include "extensions/browser/content_verifier_delegate.h"
+#include "extensions/browser/content_verifier_io_data.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension_l10n_util.h"
-#include "extensions/common/switches.h"
-
-namespace {
-
-const char kExperimentName[] = "ExtensionContentVerification";
-
-}  // namespace
 
 namespace extensions {
 
 ContentVerifier::ContentVerifier(content::BrowserContext* context,
                                  ContentVerifierDelegate* delegate)
-    : mode_(GetMode()),
+    : shutdown_(false),
       context_(context),
       delegate_(delegate),
       fetcher_(new ContentHashFetcher(
           context,
           delegate,
-          base::Bind(&ContentVerifier::OnFetchComplete, this))) {
+          base::Bind(&ContentVerifier::OnFetchComplete, this))),
+      observer_(this),
+      io_data_(new ContentVerifierIOData) {
 }
 
 ContentVerifier::~ContentVerifier() {
 }
 
 void ContentVerifier::Start() {
-  if (mode_ >= BOOTSTRAP)
-    fetcher_->Start();
+  ExtensionRegistry* registry = ExtensionRegistry::Get(context_);
+  observer_.Add(registry);
 }
 
 void ContentVerifier::Shutdown() {
+  shutdown_ = true;
+  content::BrowserThread::PostTask(
+      content::BrowserThread::IO,
+      FROM_HERE,
+      base::Bind(&ContentVerifierIOData::Clear, io_data_));
+  observer_.RemoveAll();
   fetcher_.reset();
-  delegate_.reset();
 }
 
 ContentVerifyJob* ContentVerifier::CreateJobFor(
     const std::string& extension_id,
     const base::FilePath& extension_root,
     const base::FilePath& relative_path) {
-  if (mode_ < BOOTSTRAP || !delegate_)
-    return NULL;
+  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
 
-  ExtensionRegistry* registry = ExtensionRegistry::Get(context_);
-  const Extension* extension =
-      registry->GetExtensionById(extension_id, ExtensionRegistry::EVERYTHING);
+  const ContentVerifierIOData::ExtensionData* data =
+      io_data_->GetData(extension_id);
+  if (!data)
+    return NULL;
 
   std::set<base::FilePath> paths;
   paths.insert(relative_path);
-  if (!ShouldVerifyAnyPaths(extension, paths))
+  if (!ShouldVerifyAnyPaths(extension_id, extension_root, paths))
     return NULL;
 
   // TODO(asargent) - we can probably get some good performance wins by having
   // a cache of ContentHashReader's that we hold onto past the end of each job.
   return new ContentVerifyJob(
       new ContentHashReader(extension_id,
-                            *extension->version(),
+                            data->version,
                             extension_root,
                             relative_path,
                             delegate_->PublicKey()),
-      base::Bind(&ContentVerifier::VerifyFailed, this, extension->id()));
+      base::Bind(&ContentVerifier::VerifyFailed, this, extension_id));
 }
 
 void ContentVerifier::VerifyFailed(const std::string& extension_id,
@@ -87,23 +87,102 @@ void ContentVerifier::VerifyFailed(const std::string& extension_id,
         base::Bind(&ContentVerifier::VerifyFailed, this, extension_id, reason));
     return;
   }
+  if (shutdown_)
+    return;
 
   VLOG(1) << "VerifyFailed " << extension_id << " reason:" << reason;
 
-  if (!delegate_ || !fetcher_.get() || mode_ < ENFORCE)
+  ExtensionRegistry* registry = ExtensionRegistry::Get(context_);
+  const Extension* extension =
+      registry->GetExtensionById(extension_id, ExtensionRegistry::EVERYTHING);
+
+  if (!extension)
     return;
 
   if (reason == ContentVerifyJob::MISSING_ALL_HASHES) {
     // If we failed because there were no hashes yet for this extension, just
     // request some.
-    ExtensionRegistry* registry = ExtensionRegistry::Get(context_);
-    const Extension* extension =
-        registry->GetExtensionById(extension_id, ExtensionRegistry::EVERYTHING);
-    if (extension)
-      fetcher_->DoFetch(extension, true /* force */);
+    fetcher_->DoFetch(extension, true /* force */);
   } else {
-    delegate_->VerifyFailed(extension_id);
+    delegate_->VerifyFailed(extension_id, reason);
   }
+}
+
+static base::FilePath MakeImagePathRelative(const base::FilePath& path) {
+  if (path.ReferencesParent())
+    return base::FilePath();
+
+  std::vector<base::FilePath::StringType> parts;
+  path.GetComponents(&parts);
+  if (parts.empty())
+    return base::FilePath();
+
+  // Remove the first component if it is '.' or '/' or '//'.
+  const base::FilePath::StringType separators(
+      base::FilePath::kSeparators, base::FilePath::kSeparatorsLength);
+  if (!parts[0].empty() &&
+      (parts[0] == base::FilePath::kCurrentDirectory ||
+       parts[0].find_first_not_of(separators) == std::string::npos))
+    parts.erase(parts.begin());
+
+  // Note that elsewhere we always normalize path separators to '/' so this
+  // should work for all platforms.
+  return base::FilePath(JoinString(parts, '/'));
+}
+
+void ContentVerifier::OnExtensionLoaded(
+    content::BrowserContext* browser_context,
+    const Extension* extension) {
+  if (shutdown_)
+    return;
+
+  ContentVerifierDelegate::Mode mode = delegate_->ShouldBeVerified(*extension);
+  if (mode != ContentVerifierDelegate::NONE) {
+    // The browser image paths from the extension may not be relative (eg
+    // they might have leading '/' or './'), so we strip those to make
+    // comparing to actual relative paths work later on.
+    std::set<base::FilePath> original_image_paths =
+        delegate_->GetBrowserImagePaths(extension);
+
+    scoped_ptr<std::set<base::FilePath>> image_paths(
+        new std::set<base::FilePath>);
+    for (const auto& path : original_image_paths) {
+      image_paths->insert(MakeImagePathRelative(path));
+    }
+
+    scoped_ptr<ContentVerifierIOData::ExtensionData> data(
+        new ContentVerifierIOData::ExtensionData(
+            image_paths.Pass(),
+            extension->version() ? *extension->version() : base::Version()));
+    content::BrowserThread::PostTask(content::BrowserThread::IO,
+                                     FROM_HERE,
+                                     base::Bind(&ContentVerifierIOData::AddData,
+                                                io_data_,
+                                                extension->id(),
+                                                base::Passed(&data)));
+    fetcher_->ExtensionLoaded(extension);
+  }
+}
+
+void ContentVerifier::OnExtensionUnloaded(
+    content::BrowserContext* browser_context,
+    const Extension* extension,
+    UnloadedExtensionInfo::Reason reason) {
+  if (shutdown_)
+    return;
+  content::BrowserThread::PostTask(
+      content::BrowserThread::IO,
+      FROM_HERE,
+      base::Bind(
+          &ContentVerifierIOData::RemoveData, io_data_, extension->id()));
+  if (fetcher_)
+    fetcher_->ExtensionUnloaded(extension);
+}
+
+void ContentVerifier::OnFetchCompleteHelper(const std::string& extension_id,
+                                            bool shouldVerifyAnyPathsResult) {
+  if (shouldVerifyAnyPathsResult)
+    delegate_->VerifyFailed(extension_id, ContentVerifyJob::MISSING_ALL_HASHES);
 }
 
 void ContentVerifier::OnFetchComplete(
@@ -111,39 +190,50 @@ void ContentVerifier::OnFetchComplete(
     bool success,
     bool was_force_check,
     const std::set<base::FilePath>& hash_mismatch_paths) {
+  if (shutdown_)
+    return;
+
   VLOG(1) << "OnFetchComplete " << extension_id << " success:" << success;
-
-  if (!delegate_ || mode_ < ENFORCE)
-    return;
-
-  if (!success && mode_ < ENFORCE_STRICT)
-    return;
 
   ExtensionRegistry* registry = ExtensionRegistry::Get(context_);
   const Extension* extension =
       registry->GetExtensionById(extension_id, ExtensionRegistry::EVERYTHING);
-  if (!extension)
+  if (!delegate_ || !extension)
     return;
 
-  if ((was_force_check && !success) ||
-      ShouldVerifyAnyPaths(extension, hash_mismatch_paths))
-    delegate_->VerifyFailed(extension_id);
+  ContentVerifierDelegate::Mode mode = delegate_->ShouldBeVerified(*extension);
+  if (was_force_check && !success &&
+      mode == ContentVerifierDelegate::ENFORCE_STRICT) {
+    // We weren't able to get verified_contents.json or weren't able to compute
+    // hashes.
+    delegate_->VerifyFailed(extension_id, ContentVerifyJob::MISSING_ALL_HASHES);
+  } else {
+    content::BrowserThread::PostTaskAndReplyWithResult(
+        content::BrowserThread::IO,
+        FROM_HERE,
+        base::Bind(&ContentVerifier::ShouldVerifyAnyPaths,
+                   this,
+                   extension_id,
+                   extension->path(),
+                   hash_mismatch_paths),
+        base::Bind(
+            &ContentVerifier::OnFetchCompleteHelper, this, extension_id));
+  }
 }
 
 bool ContentVerifier::ShouldVerifyAnyPaths(
-    const Extension* extension,
+    const std::string& extension_id,
+    const base::FilePath& extension_root,
     const std::set<base::FilePath>& relative_paths) {
-  if (!extension || !extension->version() ||
-      !delegate_->ShouldBeVerified(*extension))
+  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
+  const ContentVerifierIOData::ExtensionData* data =
+      io_data_->GetData(extension_id);
+  if (!data)
     return false;
 
-  // Images used in the browser get transcoded during install, so skip
-  // checking them for now.  TODO(asargent) - see if we can cache this list
-  // for a given extension id/version pair.
-  std::set<base::FilePath> browser_images =
-      delegate_->GetBrowserImagePaths(extension);
+  const std::set<base::FilePath>& browser_images = *(data->browser_image_paths);
 
-  base::FilePath locales_dir = extension->path().Append(kLocaleFolder);
+  base::FilePath locales_dir = extension_root.Append(kLocaleFolder);
   scoped_ptr<std::set<std::string> > all_locales;
 
   for (std::set<base::FilePath>::const_iterator i = relative_paths.begin();
@@ -157,7 +247,7 @@ bool ContentVerifier::ShouldVerifyAnyPaths(
     if (ContainsKey(browser_images, relative_path))
       continue;
 
-    base::FilePath full_path = extension->path().Append(relative_path);
+    base::FilePath full_path = extension_root.Append(relative_path);
     if (locales_dir.IsParent(full_path)) {
       if (!all_locales) {
         // TODO(asargent) - see if we can cache this list longer to avoid
@@ -178,54 +268,6 @@ bool ContentVerifier::ShouldVerifyAnyPaths(
     return true;
   }
   return false;
-}
-
-// static
-ContentVerifier::Mode ContentVerifier::GetMode() {
-  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-
-  Mode experiment_value = NONE;
-  const std::string group = base::FieldTrialList::FindFullName(kExperimentName);
-  if (group == "EnforceStrict")
-    experiment_value = ENFORCE_STRICT;
-  else if (group == "Enforce")
-    experiment_value = ENFORCE;
-  else if (group == "Bootstrap")
-    experiment_value = BOOTSTRAP;
-
-  // The field trial value that normally comes from the server can be
-  // overridden on the command line, which we don't want to allow since malware
-  // can set chrome command line flags. There isn't currently a way to find out
-  // what the server-provided value is in this case, so we conservatively
-  // default to the strictest mode if we detect our experiment name being
-  // overridden.
-  if (command_line->HasSwitch(::switches::kForceFieldTrials)) {
-    std::string forced_trials =
-        command_line->GetSwitchValueASCII(::switches::kForceFieldTrials);
-    if (forced_trials.find(kExperimentName) != std::string::npos)
-      experiment_value = ENFORCE_STRICT;
-  }
-
-  Mode cmdline_value = NONE;
-  if (command_line->HasSwitch(switches::kExtensionContentVerification)) {
-    std::string switch_value = command_line->GetSwitchValueASCII(
-        switches::kExtensionContentVerification);
-    if (switch_value == switches::kExtensionContentVerificationBootstrap)
-      cmdline_value = BOOTSTRAP;
-    else if (switch_value == switches::kExtensionContentVerificationEnforce)
-      cmdline_value = ENFORCE;
-    else if (switch_value ==
-             switches::kExtensionContentVerificationEnforceStrict)
-      cmdline_value = ENFORCE_STRICT;
-    else
-      // If no value was provided (or the wrong one), just default to enforce.
-      cmdline_value = ENFORCE;
-  }
-
-  // We don't want to allow the command-line flags to eg disable enforcement if
-  // the experiment group says it should be on, or malware may just modify the
-  // command line flags. So return the more restrictive of the 2 values.
-  return std::max(experiment_value, cmdline_value);
 }
 
 }  // namespace extensions

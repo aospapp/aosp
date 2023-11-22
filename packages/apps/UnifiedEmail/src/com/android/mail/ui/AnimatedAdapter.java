@@ -34,6 +34,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.SimpleCursorAdapter;
+import android.widget.Space;
 
 import com.android.bitmap.BitmapCache;
 import com.android.mail.R;
@@ -86,7 +87,7 @@ public class AnimatedAdapter extends SimpleCursorAdapter {
     /** The current account */
     private Account mAccount;
     private final Context mContext;
-    private final ConversationSelectionSet mBatchConversations;
+    private final ConversationCheckedSet mBatchConversations;
     private Runnable mCountDown;
     private final Handler mHandler;
     protected long mLastLeaveBehind = -1;
@@ -162,8 +163,10 @@ public class AnimatedAdapter extends SimpleCursorAdapter {
         void onAnimationEnd(AnimatedAdapter adapter);
     }
 
+    private Space mDefaultFooter;
     private View mFooter;
-    private boolean mShowFooter;
+    // If true, the last list item will be mFooter, otherwise it's mDefaultFooter.
+    private boolean mShowCustomFooter;
     private List<View> mHeaders = Lists.newArrayList();
     private Folder mFolder;
     private final SwipeableListView mListView;
@@ -246,14 +249,16 @@ public class AnimatedAdapter extends SimpleCursorAdapter {
     private final ContactResolver mContactResolver;
 
     public AnimatedAdapter(Context context, ConversationCursor cursor,
-            ConversationSelectionSet batch, ControllableActivity activity,
+            ConversationCheckedSet batch, ControllableActivity activity,
             SwipeableListView listView, final List<ConversationSpecialItemView> specialViews) {
         super(context, -1, cursor, UIProvider.CONVERSATION_PROJECTION, null, 0);
         mContext = context;
         mBatchConversations = batch;
         setAccount(mAccountListener.initialize(activity.getAccountController()));
         mActivity = activity;
-        mShowFooter = false;
+        mDefaultFooter = (Space) LayoutInflater.from(context).inflate(
+                R.layout.conversation_list_default_footer, listView, false);
+        mShowCustomFooter = false;
         mListView = listView;
 
         mSendersImagesCache = mActivity.getSenderImageCache();
@@ -307,8 +312,19 @@ public class AnimatedAdapter extends SimpleCursorAdapter {
         // mSpecialViews only contains the views that are currently being displayed
         final int specialViewCount = mSpecialViews.size();
 
-        return super.getCount() + specialViewCount +
-                (mShowFooter ? 1 : 0) + mHeaders.size();
+        // Headers are not included in the content count because their availability is not affected
+        // by the underlying cursor.
+        //
+        // !! This count still includes the teasers since they are separate from headers. !!
+        int contentCount = super.getCount() + specialViewCount;
+        // If we have no content, the only possible thing to show is custom footer (e.g. loading)
+        if (contentCount == 0) {
+            contentCount += mShowCustomFooter ? 1 : 0;
+        } else {
+            // Only add header & footer is always visible when there are content
+            contentCount += 1 /* footer */ + mHeaders.size();
+        }
+        return contentCount;
     }
 
     /**
@@ -366,7 +382,7 @@ public class AnimatedAdapter extends SimpleCursorAdapter {
     public View createConversationItemView(SwipeableConversationItemView view, Context context,
             Conversation conv) {
         if (view == null) {
-            view = new SwipeableConversationItemView(context, mAccount.getEmailAddress());
+            view = new SwipeableConversationItemView(context, mAccount);
         }
         view.bind(conv, mActivity, mBatchConversations, mFolder, getCheckboxSetting(),
                 mSwipeEnabled, mImportanceMarkersEnabled, mShowChevronsEnabled, this);
@@ -390,7 +406,7 @@ public class AnimatedAdapter extends SimpleCursorAdapter {
         // Try to recycle views.
         if (mHeaders.size() > position) {
             return TYPE_VIEW_HEADER;
-        } else if (mShowFooter && position == getCount() - 1) {
+        } else if (position == getCount() - 1) {
             return TYPE_VIEW_FOOTER;
         } else if (hasLeaveBehinds() || isAnimating()) {
             // Setting as type -1 means the recycler won't take this view and
@@ -472,8 +488,8 @@ public class AnimatedAdapter extends SimpleCursorAdapter {
     public View getView(int position, View convertView, ViewGroup parent) {
         if (mHeaders.size() > position) {
             return mHeaders.get(position);
-        } else if (mShowFooter && position == getCount() - 1) {
-            return mFooter;
+        } else if (position == getCount() - 1) {
+            return mShowCustomFooter ? mFooter : mDefaultFooter;
         }
 
         // Check if this is a special view
@@ -699,7 +715,7 @@ public class AnimatedAdapter extends SimpleCursorAdapter {
 
     @Override
     public long getItemId(int position) {
-        if ((mHeaders.size() > position) || (mShowFooter && position == getCount() - 1)) {
+        if ((mHeaders.size() > position) || (position == getCount() - 1)) {
             return -1;
         }
 
@@ -759,7 +775,7 @@ public class AnimatedAdapter extends SimpleCursorAdapter {
 
     @Override
     public View newView(Context context, Cursor cursor, ViewGroup parent) {
-        return new SwipeableConversationItemView(context, mAccount.getEmailAddress());
+        return new SwipeableConversationItemView(context, mAccount);
     }
 
     @Override
@@ -790,8 +806,8 @@ public class AnimatedAdapter extends SimpleCursorAdapter {
                 getSpecialViewsPos(position));
         if (mHeaders.size() > position) {
             return mHeaders.get(position);
-        } else if (mShowFooter && position == getCount() - 1) {
-            return mFooter;
+        } else if (position == getCount() - 1) {
+            return mShowCustomFooter ? mFooter : mDefaultFooter;
         } else if (specialView != null) {
             return specialView;
         }
@@ -871,8 +887,8 @@ public class AnimatedAdapter extends SimpleCursorAdapter {
     }
 
     public void setFooterVisibility(boolean show) {
-        if (mShowFooter != show) {
-            mShowFooter = show;
+        if (mShowCustomFooter != show) {
+            mShowCustomFooter = show;
             notifyDataSetChanged();
         }
     }

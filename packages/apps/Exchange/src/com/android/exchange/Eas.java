@@ -35,13 +35,10 @@ public class Eas {
     public static final String LOG_TAG = "Exchange";
 
     // For debugging
-    public static boolean WAIT_DEBUG = false;   // DO NOT CHECK IN WITH THIS SET TO TRUE
     public static boolean DEBUG = false;         // DO NOT CHECK IN WITH THIS SET TO TRUE
 
     // The following two are for user logging (the second providing more detail)
     public static boolean USER_LOG = false;     // DO NOT CHECK IN WITH THIS SET TO TRUE
-    public static boolean PARSER_LOG = false;   // DO NOT CHECK IN WITH THIS SET TO TRUE
-    public static boolean FILE_LOG = false;     // DO NOT CHECK IN WITH THIS SET TO TRUE
 
     public static final String CLIENT_VERSION = "EAS-2.0";
     public static final String ACCOUNT_MAILBOX_PREFIX = "__eas";
@@ -128,20 +125,6 @@ public class Eas {
     public static final int FOLDER_STATUS_INVALID_KEY = 9;
 
     public static final int EXCHANGE_ERROR_NOTIFICATION = 0x10;
-
-    public static void setUserDebug(int state) {
-        // DEBUG takes precedence and is never true in a user build
-        if (!DEBUG) {
-            USER_LOG = (state & EmailServiceProxy.DEBUG_BIT) != 0;
-            PARSER_LOG = (state & EmailServiceProxy.DEBUG_VERBOSE_BIT) != 0;
-            FILE_LOG = (state & EmailServiceProxy.DEBUG_FILE_BIT) != 0;
-            if (FILE_LOG || PARSER_LOG) {
-                USER_LOG = true;
-            }
-            LogUtils.d("Eas Debug", "Logging: " + (USER_LOG ? "User " : "") +
-                    (PARSER_LOG ? "Parser " : "") + (FILE_LOG ? "File" : ""));
-        }
-    }
 
     static public Double getProtocolVersionDouble(String version) {
         if (SUPPORTED_PROTOCOL_EX2003.equals(version)) {

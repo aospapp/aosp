@@ -7,7 +7,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ui/website_settings/permission_menu_model.h"
 #include "chrome/browser/ui/website_settings/website_settings_ui.h"
-#include "grit/generated_resources.h"
+#include "chrome/grit/generated_resources.h"
 #include "ui/accessibility/ax_view_state.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/image/image.h"
@@ -45,7 +45,7 @@ class PermissionMenuButton : public views::MenuButton,
                        bool show_menu_marker);
   virtual ~PermissionMenuButton();
 
-  // Overridden from views::TextButton.
+  // Overridden from views::LabelButton.
   virtual void SetText(const base::string16& text) OVERRIDE;
 
   // Overridden from views::View.
@@ -98,7 +98,8 @@ void PermissionMenuButton::OnNativeThemeChanged(const ui::NativeTheme* theme) {
 
 void PermissionMenuButton::OnMenuButtonClicked(View* source,
                                                const gfx::Point& point) {
-  menu_runner_.reset(new views::MenuRunner(menu_model_));
+  menu_runner_.reset(
+      new views::MenuRunner(menu_model_, views::MenuRunner::HAS_MNEMONICS));
 
   gfx::Point p(point);
   p.Offset(-source->width(), 0);
@@ -106,8 +107,7 @@ void PermissionMenuButton::OnMenuButtonClicked(View* source,
                               this,
                               gfx::Rect(p, gfx::Size()),
                               views::MENU_ANCHOR_TOPLEFT,
-                              ui::MENU_SOURCE_NONE,
-                              views::MenuRunner::HAS_MNEMONICS) ==
+                              ui::MENU_SOURCE_NONE) ==
       views::MenuRunner::MENU_DELETED) {
     return;
   }

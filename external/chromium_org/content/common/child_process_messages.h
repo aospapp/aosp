@@ -82,6 +82,9 @@ IPC_STRUCT_TRAITS_BEGIN(gfx::GpuMemoryBufferHandle)
 #if defined(OS_ANDROID)
   IPC_STRUCT_TRAITS_MEMBER(surface_texture_id)
 #endif
+#if defined(USE_X11)
+  IPC_STRUCT_TRAITS_MEMBER(pixmap)
+#endif
 IPC_STRUCT_TRAITS_END()
 
 #undef IPC_MESSAGE_EXPORT
@@ -197,3 +200,8 @@ IPC_SYNC_MESSAGE_CONTROL4_1(ChildProcessHostMsg_SyncAllocateGpuMemoryBuffer,
                             uint32 /* internalformat */,
                             uint32 /* usage */,
                             gfx::GpuMemoryBufferHandle)
+
+// Informs the browser that the child deleted a gpu memory buffer.
+IPC_MESSAGE_CONTROL2(ChildProcessHostMsg_DeletedGpuMemoryBuffer,
+                     gfx::GpuMemoryBufferType,
+                     gfx::GpuMemoryBufferId)

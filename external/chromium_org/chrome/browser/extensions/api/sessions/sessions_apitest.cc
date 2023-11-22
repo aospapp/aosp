@@ -11,7 +11,9 @@
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_function_test_utils.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/sync/glue/local_device_info_provider_mock.h"
 #include "chrome/browser/sync/open_tabs_ui_delegate.h"
+#include "chrome/browser/sync/profile_sync_components_factory_mock.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/sync/profile_sync_service_mock.h"
@@ -21,9 +23,9 @@
 #include "chrome/test/base/test_switches.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "sync/api/attachments/attachment_id.h"
-#include "sync/api/attachments/attachment_service_proxy_for_test.h"
 #include "sync/api/fake_sync_change_processor.h"
 #include "sync/api/sync_error_factory_mock.h"
+#include "sync/internal_api/public/attachments/attachment_service_proxy_for_test.h"
 
 #if defined(OS_CHROMEOS)
 #include "chromeos/chromeos_switches.h"
@@ -85,6 +87,9 @@ class ExtensionSessionsTest : public InProcessBrowserTest {
   virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE;
   virtual void SetUpOnMainThread() OVERRIDE;
  protected:
+  static KeyedService* BuildProfileSyncService(
+      content::BrowserContext* profile);
+
   void CreateTestProfileSyncService();
   void CreateTestExtension();
   void CreateSessionModels();
@@ -113,6 +118,27 @@ void ExtensionSessionsTest::SetUpOnMainThread() {
   CreateTestExtension();
 }
 
+KeyedService* ExtensionSessionsTest::BuildProfileSyncService(
+    content::BrowserContext* profile) {
+
+  ProfileSyncComponentsFactoryMock* factory =
+      new ProfileSyncComponentsFactoryMock();
+
+  factory->SetLocalDeviceInfoProvider(
+      scoped_ptr<sync_driver::LocalDeviceInfoProvider>(
+          new browser_sync::LocalDeviceInfoProviderMock(
+              kSessionTags[0],
+              "machine name",
+              "Chromium 10k",
+              "Chrome 10k",
+              sync_pb::SyncEnums_DeviceType_TYPE_LINUX,
+              "device_id")));
+
+  return new ProfileSyncServiceMock(
+      scoped_ptr<ProfileSyncComponentsFactory>(factory),
+      static_cast<Profile*>(profile));
+}
+
 void ExtensionSessionsTest::CreateTestProfileSyncService() {
   ProfileManager* profile_manager = g_browser_process->profile_manager();
   base::FilePath path;
@@ -125,14 +151,14 @@ void ExtensionSessionsTest::CreateTestProfileSyncService() {
   profile_manager->RegisterTestingProfile(profile, true, false);
   ProfileSyncServiceMock* service = static_cast<ProfileSyncServiceMock*>(
       ProfileSyncServiceFactory::GetInstance()->SetTestingFactoryAndUse(
-      profile, &ProfileSyncServiceMock::BuildMockProfileSyncService));
+      profile, &ExtensionSessionsTest::BuildProfileSyncService));
   browser_ = new Browser(Browser::CreateParams(
       profile, chrome::HOST_DESKTOP_TYPE_NATIVE));
 
   syncer::ModelTypeSet preferred_types;
   preferred_types.Put(syncer::SESSIONS);
   GoogleServiceAuthError no_error(GoogleServiceAuthError::NONE);
-  ON_CALL(*service, IsSessionsDataTypeControllerRunning())
+  ON_CALL(*service, IsDataTypeControllerRunning(syncer::SESSIONS))
       .WillByDefault(testing::Return(true));
   ON_CALL(*service, GetRegisteredDataTypes())
       .WillByDefault(testing::Return(syncer::UserTypes()));
@@ -142,15 +168,7 @@ void ExtensionSessionsTest::CreateTestProfileSyncService() {
       testing::ReturnRef(no_error));
   ON_CALL(*service, GetActiveDataTypes()).WillByDefault(
       testing::Return(preferred_types));
-  ON_CALL(*service, GetLocalDeviceInfoMock()).WillByDefault(
-      testing::Return(new browser_sync::DeviceInfo(
-          std::string(kSessionTags[0]),
-          "machine name",
-          "Chromium 10k",
-          "Chrome 10k",
-          sync_pb::SyncEnums_DeviceType_TYPE_LINUX)));
-  ON_CALL(*service, GetLocalSyncCacheGUID()).WillByDefault(
-      testing::Return(std::string(kSessionTags[0])));
+
   EXPECT_CALL(*service, AddObserver(testing::_)).Times(testing::AnyNumber());
   EXPECT_CALL(*service, RemoveObserver(testing::_)).Times(testing::AnyNumber());
 

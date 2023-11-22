@@ -19,20 +19,52 @@
 #include "ash/wm/overview/window_selector_item.h"
 #include "ash/wm/window_state.h"
 #include "base/auto_reset.h"
+#include "base/command_line.h"
 #include "base/metrics/histogram.h"
+#include "third_party/skia/include/core/SkPaint.h"
+#include "third_party/skia/include/core/SkPath.h"
 #include "ui/aura/client/focus_client.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_event_dispatcher.h"
 #include "ui/aura/window_observer.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/events/event.h"
+#include "ui/gfx/canvas.h"
 #include "ui/gfx/screen.h"
+#include "ui/gfx/skia_util.h"
+#include "ui/views/border.h"
+#include "ui/views/controls/textfield/textfield.h"
+#include "ui/views/layout/box_layout.h"
 #include "ui/wm/core/window_util.h"
 #include "ui/wm/public/activation_client.h"
 
 namespace ash {
 
 namespace {
+
+// The proportion of screen width that the text filter takes.
+const float kTextFilterScreenProportion = 0.25;
+
+// The amount of padding surrounding the text in the text filtering textbox.
+const int kTextFilterHorizontalPadding = 8;
+
+// The distance between the top of the screen and the top edge of the
+// text filtering textbox.
+const int kTextFilterDistanceFromTop = 32;
+
+// The height of the text filtering textbox.
+const int kTextFilterHeight = 32;
+
+// The font style used for text filtering.
+static const ::ui::ResourceBundle::FontStyle kTextFilterFontStyle =
+    ::ui::ResourceBundle::FontStyle::MediumFont;
+
+// The alpha value for the background of the text filtering textbox.
+const unsigned char kTextFilterOpacity = 180;
+
+// The radius used for the rounded corners on the text filtering textbox.
+const int kTextFilterCornerRadius = 1;
 
 // A comparator for locating a grid with a given root window.
 struct RootWindowGridComparator
@@ -76,6 +108,42 @@ struct WindowSelectorItemForRoot
   const aura::Window* root_window;
 };
 
+// A View having rounded corners and a specified background color which is
+// only painted within the bounds defined by the rounded corners.
+// TODO(tdanderson): This duplicates code from RoundedImageView. Refactor these
+//                   classes and move into ui/views.
+class RoundedContainerView : public views::View {
+ public:
+  RoundedContainerView(int corner_radius, SkColor background)
+      : corner_radius_(corner_radius),
+        background_(background) {
+  }
+
+  virtual ~RoundedContainerView() {}
+
+  virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE {
+    views::View::OnPaint(canvas);
+
+    SkScalar radius = SkIntToScalar(corner_radius_);
+    const SkScalar kRadius[8] = {radius, radius, radius, radius,
+                                 radius, radius, radius, radius};
+    SkPath path;
+    gfx::Rect bounds(size());
+    path.addRoundRect(gfx::RectToSkRect(bounds), kRadius);
+
+    SkPaint paint;
+    paint.setAntiAlias(true);
+    canvas->ClipPath(path, true);
+    canvas->DrawColor(background_);
+  }
+
+ private:
+  int corner_radius_;
+  SkColor background_;
+
+  DISALLOW_COPY_AND_ASSIGN(RoundedContainerView);
+};
+
 // Triggers a shelf visibility update on all root window controllers.
 void UpdateShelfVisibility() {
   Shell::RootWindowControllerList root_window_controllers =
@@ -87,7 +155,63 @@ void UpdateShelfVisibility() {
   }
 }
 
+// Initializes the text filter on the top of the main root window and requests
+// focus on its textfield.
+views::Widget* CreateTextFilter(views::TextfieldController* controller,
+                                aura::Window* root_window) {
+  views::Widget* widget = new views::Widget;
+  views::Widget::InitParams params;
+  params.type = views::Widget::InitParams::TYPE_WINDOW_FRAMELESS;
+  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
+  params.opacity = views::Widget::InitParams::TRANSLUCENT_WINDOW;
+  params.parent =
+      Shell::GetContainer(root_window, ash::kShellWindowId_OverlayContainer);
+  params.accept_events = true;
+  params.bounds = gfx::Rect(
+      root_window->bounds().width() / 2 * (1 - kTextFilterScreenProportion),
+      kTextFilterDistanceFromTop,
+      root_window->bounds().width() * kTextFilterScreenProportion,
+      kTextFilterHeight);
+  widget->Init(params);
+
+  // Use |container| to specify the padding surrounding the text and to give
+  // the textfield rounded corners.
+  views::View* container = new RoundedContainerView(
+      kTextFilterCornerRadius, SkColorSetARGB(kTextFilterOpacity, 0, 0, 0));
+  ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
+  int text_height = bundle.GetFontList(kTextFilterFontStyle).GetHeight();
+  DCHECK(text_height);
+  int vertical_padding = (kTextFilterHeight - text_height) / 2;
+  container->SetLayoutManager(new views::BoxLayout(views::BoxLayout::kVertical,
+                                                   kTextFilterHorizontalPadding,
+                                                   vertical_padding,
+                                                   0));
+
+  views::Textfield* textfield = new views::Textfield;
+  textfield->set_controller(controller);
+  textfield->SetBackgroundColor(SK_ColorTRANSPARENT);
+  textfield->SetBorder(views::Border::NullBorder());
+  textfield->SetTextColor(SK_ColorWHITE);
+  textfield->SetFontList(bundle.GetFontList(kTextFilterFontStyle));
+
+  container->AddChildView(textfield);
+  widget->SetContentsView(container);
+
+  // The textfield initially contains no text, so shift its position to be
+  // outside the visible bounds of the screen.
+  gfx::Transform transform;
+  transform.Translate(0, -WindowSelector::kTextFilterBottomEdge);
+  widget->GetNativeWindow()->SetTransform(transform);
+  widget->Show();
+  textfield->RequestFocus();
+
+  return widget;
+}
+
 }  // namespace
+
+const int WindowSelector::kTextFilterBottomEdge =
+    kTextFilterDistanceFromTop + kTextFilterHeight;
 
 WindowSelector::WindowSelector(const WindowList& windows,
                                WindowSelectorDelegate* delegate)
@@ -98,7 +222,10 @@ WindowSelector::WindowSelector(const WindowList& windows,
       selected_grid_index_(0),
       overview_start_time_(base::Time::Now()),
       num_key_presses_(0),
-      num_items_(0) {
+      num_items_(0),
+      showing_selection_widget_(false),
+      text_filter_string_length_(0),
+      num_times_textfield_cleared_(0) {
   DCHECK(delegate_);
   Shell* shell = Shell::GetInstance();
   shell->OnOverviewModeStarting();
@@ -136,13 +263,11 @@ WindowSelector::WindowSelector(const WindowList& windows,
   DCHECK(!grid_list_.empty());
   UMA_HISTOGRAM_COUNTS_100("Ash.WindowSelector.Items", num_items_);
 
+  text_filter_widget_.reset(
+      CreateTextFilter(this, Shell::GetPrimaryRootWindow()));
+
   shell->activation_client()->AddObserver(this);
 
-  // Remove focus from active window before entering overview.
-  aura::client::GetFocusClient(
-      Shell::GetPrimaryRootWindow())->FocusWindow(NULL);
-
-  shell->PrependPreTargetHandler(this);
   shell->GetScreen()->AddObserver(this);
   shell->metrics()->RecordUserMetricsAction(UMA_WINDOW_OVERVIEW);
   HideAndTrackNonOverviewWindows();
@@ -177,7 +302,6 @@ WindowSelector::~WindowSelector() {
     (*iter)->Show();
   }
 
-  shell->RemovePreTargetHandler(this);
   shell->GetScreen()->RemoveObserver(this);
 
   size_t remaining_items = 0;
@@ -192,7 +316,21 @@ WindowSelector::~WindowSelector() {
   UMA_HISTOGRAM_MEDIUM_TIMES("Ash.WindowSelector.TimeInOverview",
                              base::Time::Now() - overview_start_time_);
 
-  // TODO(nsatragno): Change this to OnOverviewModeEnded and move it to when
+  // Record metrics related to text filtering.
+  UMA_HISTOGRAM_COUNTS_100("Ash.WindowSelector.TextFilteringStringLength",
+                           text_filter_string_length_);
+  UMA_HISTOGRAM_COUNTS_100("Ash.WindowSelector.TextFilteringTextfieldCleared",
+                           num_times_textfield_cleared_);
+  if (text_filter_string_length_) {
+    UMA_HISTOGRAM_MEDIUM_TIMES(
+        "Ash.WindowSelector.TimeInOverviewWithTextFiltering",
+        base::Time::Now() - overview_start_time_);
+    UMA_HISTOGRAM_COUNTS_100(
+        "Ash.WindowSelector.ItemsWhenTextFilteringUsed",
+        remaining_items);
+  }
+
+  // TODO(flackr): Change this to OnOverviewModeEnded and move it to when
   // everything is done.
   shell->OnOverviewModeEnding();
 
@@ -210,40 +348,42 @@ void WindowSelector::OnGridEmpty(WindowGrid* grid) {
       std::find(grid_list_.begin(), grid_list_.end(), grid);
   DCHECK(iter != grid_list_.end());
   grid_list_.erase(iter);
-  // TODO(nsatragno): Use the previous index for more than two displays.
+  // TODO(flackr): Use the previous index for more than two displays.
   selected_grid_index_ = 0;
   if (grid_list_.empty())
     CancelSelection();
 }
 
-void WindowSelector::OnKeyEvent(ui::KeyEvent* event) {
-  if (event->type() != ui::ET_KEY_PRESSED)
-    return;
+bool WindowSelector::HandleKeyEvent(views::Textfield* sender,
+                                    const ui::KeyEvent& key_event) {
+  if (key_event.type() != ui::ET_KEY_PRESSED)
+    return false;
 
-  switch (event->key_code()) {
+  switch (key_event.key_code()) {
     case ui::VKEY_ESCAPE:
       CancelSelection();
       break;
     case ui::VKEY_UP:
       num_key_presses_++;
-      Move(WindowSelector::UP);
+      Move(WindowSelector::UP, true);
       break;
     case ui::VKEY_DOWN:
       num_key_presses_++;
-      Move(WindowSelector::DOWN);
+      Move(WindowSelector::DOWN, true);
       break;
     case ui::VKEY_RIGHT:
+    case ui::VKEY_TAB:
       num_key_presses_++;
-      Move(WindowSelector::RIGHT);
+      Move(WindowSelector::RIGHT, true);
       break;
     case ui::VKEY_LEFT:
       num_key_presses_++;
-      Move(WindowSelector::LEFT);
+      Move(WindowSelector::LEFT, true);
       break;
     case ui::VKEY_RETURN:
       // Ignore if no item is selected.
       if (!grid_list_[selected_grid_index_]->is_selecting())
-        return;
+        return false;
       UMA_HISTOGRAM_COUNTS_100("Ash.WindowSelector.ArrowKeyPresses",
                                num_key_presses_);
       UMA_HISTOGRAM_CUSTOM_COUNTS(
@@ -255,17 +395,17 @@ void WindowSelector::OnKeyEvent(ui::KeyEvent* event) {
                          SelectedWindow()->SelectionWindow())->Activate();
       break;
     default:
-      // Not a key we are interested in.
-      return;
+      // Not a key we are interested in, allow the textfield to handle it.
+      return false;
   }
-  event->StopPropagation();
+  return true;
 }
 
 void WindowSelector::OnDisplayAdded(const gfx::Display& display) {
 }
 
 void WindowSelector::OnDisplayRemoved(const gfx::Display& display) {
-  // TODO(nsatragno): Keep window selection active on remaining displays.
+  // TODO(flackr): Keep window selection active on remaining displays.
   CancelSelection();
 }
 
@@ -299,8 +439,11 @@ void WindowSelector::OnWindowDestroying(aura::Window* window) {
 
 void WindowSelector::OnWindowActivated(aura::Window* gained_active,
                                        aura::Window* lost_active) {
-  if (ignore_activations_ || !gained_active)
+  if (ignore_activations_ ||
+      !gained_active ||
+      gained_active == text_filter_widget_->GetNativeWindow()) {
     return;
+  }
 
   ScopedVector<WindowGrid>::iterator grid =
       std::find_if(grid_list_.begin(), grid_list_.end(),
@@ -324,6 +467,50 @@ void WindowSelector::OnWindowActivated(aura::Window* gained_active,
 void WindowSelector::OnAttemptToReactivateWindow(aura::Window* request_active,
                                                  aura::Window* actual_active) {
   OnWindowActivated(request_active, actual_active);
+}
+
+void WindowSelector::ContentsChanged(views::Textfield* sender,
+                                     const base::string16& new_contents) {
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kAshDisableTextFilteringInOverviewMode)) {
+    return;
+  }
+
+  text_filter_string_length_ = new_contents.length();
+  if (!text_filter_string_length_)
+    num_times_textfield_cleared_++;
+
+  bool should_show_selection_widget = !new_contents.empty();
+  if (showing_selection_widget_ != should_show_selection_widget) {
+    ui::ScopedLayerAnimationSettings animation_settings(
+        text_filter_widget_->GetNativeWindow()->layer()->GetAnimator());
+    animation_settings.SetPreemptionStrategy(
+        ui::LayerAnimator::IMMEDIATELY_ANIMATE_TO_NEW_TARGET);
+    animation_settings.SetTweenType(showing_selection_widget_ ?
+        gfx::Tween::FAST_OUT_LINEAR_IN : gfx::Tween::LINEAR_OUT_SLOW_IN);
+
+    gfx::Transform transform;
+    if (should_show_selection_widget) {
+      transform.Translate(0, 0);
+      text_filter_widget_->GetNativeWindow()->layer()->SetOpacity(1);
+    } else {
+      transform.Translate(0, -kTextFilterBottomEdge);
+      text_filter_widget_->GetNativeWindow()->layer()->SetOpacity(0);
+    }
+
+    text_filter_widget_->GetNativeWindow()->SetTransform(transform);
+    showing_selection_widget_ = should_show_selection_widget;
+  }
+  for (ScopedVector<WindowGrid>::iterator iter = grid_list_.begin();
+       iter != grid_list_.end(); iter++) {
+    (*iter)->FilterItems(new_contents);
+  }
+
+  // If the selection widget is not active, execute a Move() command so that it
+  // shows up on the first undimmed item.
+  if (grid_list_[selected_grid_index_]->is_selecting())
+    return;
+  Move(WindowSelector::RIGHT, false);
 }
 
 void WindowSelector::PositionWindows(bool animate) {
@@ -388,16 +575,15 @@ void WindowSelector::ResetFocusRestoreWindow(bool focus) {
   restore_focus_window_ = NULL;
 }
 
-void WindowSelector::Move(Direction direction) {
-  bool overflowed = grid_list_[selected_grid_index_]->Move(direction);
-  if (overflowed) {
-    // The grid reported that the movement command corresponds to the next
-    // root window, identify it and call Move() on it to initialize the
-    // selection widget.
-    // TODO(nsatragno): If there are more than two monitors, move between grids
+void WindowSelector::Move(Direction direction, bool animate) {
+  // Keep calling Move() on the grids until one of them reports no overflow or
+  // we made a full cycle on all the grids.
+  for (size_t i = 0;
+      i <= grid_list_.size() &&
+      grid_list_[selected_grid_index_]->Move(direction, animate); i++) {
+    // TODO(flackr): If there are more than two monitors, move between grids
     // in the requested direction.
     selected_grid_index_ = (selected_grid_index_ + 1) % grid_list_.size();
-    grid_list_[selected_grid_index_]->Move(direction);
   }
 }
 

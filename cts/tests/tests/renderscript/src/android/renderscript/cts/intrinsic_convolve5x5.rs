@@ -66,7 +66,7 @@ uchar4 __attribute__((kernel)) convolve_U4(uint32_t x, uint32_t y) {
               + convert_float4(rsGetElementAt_uchar4(gIn, x3, y4)) * gCoeffs[23]
               + convert_float4(rsGetElementAt_uchar4(gIn, x4, y4)) * gCoeffs[24];
 
-    p0 = clamp(p0 + p1 + p2 + p3 + p4, 0.f, 255.f);
+    p0 = clamp(p0 + p1 + p2 + p3 + p4 + 0.5f, 0.f, 255.f);
     return convert_uchar4(p0);
 }
 
@@ -113,7 +113,7 @@ uchar3 __attribute__((kernel)) convolve_U3(uint32_t x, uint32_t y) {
               + convert_float3(rsGetElementAt_uchar3(gIn, x3, y4)) * gCoeffs[23]
               + convert_float3(rsGetElementAt_uchar3(gIn, x4, y4)) * gCoeffs[24];
 
-    p0 = clamp(p0 + p1 + p2 + p3 + p4, 0.f, 255.f);
+    p0 = clamp(p0 + p1 + p2 + p3 + p4 + 0.5f, 0.f, 255.f);
     return convert_uchar3(p0);
 }
 
@@ -160,7 +160,7 @@ uchar2 __attribute__((kernel)) convolve_U2(uint32_t x, uint32_t y) {
               + convert_float2(rsGetElementAt_uchar2(gIn, x3, y4)) * gCoeffs[23]
               + convert_float2(rsGetElementAt_uchar2(gIn, x4, y4)) * gCoeffs[24];
 
-    p0 = clamp(p0 + p1 + p2 + p3 + p4, 0.f, 255.f);
+    p0 = clamp(p0 + p1 + p2 + p3 + p4 + 0.5f, 0.f, 255.f);
     return convert_uchar2(p0);
 }
 
@@ -207,7 +207,7 @@ uchar __attribute__((kernel)) convolve_U1(uint32_t x, uint32_t y) {
              + (float)(rsGetElementAt_uchar(gIn, x3, y4)) * gCoeffs[23]
              + (float)(rsGetElementAt_uchar(gIn, x4, y4)) * gCoeffs[24];
 
-    return clamp(p0 + p1 + p2 + p3 + p4, 0.f, 255.f);
+    return clamp(p0 + p1 + p2 + p3 + p4 + 0.5f, 0.f, 255.f);
 }
 
 float4 __attribute__((kernel)) convolve_F4(uint32_t x, uint32_t y) {

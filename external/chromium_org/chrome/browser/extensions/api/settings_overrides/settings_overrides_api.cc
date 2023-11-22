@@ -9,11 +9,12 @@
 #include "chrome/browser/extensions/api/preference/preference_api.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/search_engines/template_url.h"
-#include "chrome/browser/search_engines/template_url_prepopulate_data.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/common/extensions/manifest_handlers/settings_overrides_handler.h"
 #include "chrome/common/pref_names.h"
+#include "components/search_engines/search_engines_pref_names.h"
+#include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_prepopulate_data.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_prefs_factory.h"
 #include "extensions/browser/extension_registry.h"
@@ -232,10 +233,12 @@ void SettingsOverridesAPI::OnExtensionUnloaded(
     }
     if (settings->search_engine) {
       DCHECK(url_service_);
-      if (url_service_->loaded())
-        url_service_->RemoveExtensionControlledTURL(extension->id());
-      else
+      if (url_service_->loaded()) {
+        url_service_->RemoveExtensionControlledTURL(
+            extension->id(), TemplateURL::NORMAL_CONTROLLED_BY_EXTENSION);
+      } else {
         pending_extensions_.erase(extension);
+      }
     }
   }
 }
@@ -249,7 +252,7 @@ void SettingsOverridesAPI::OnTemplateURLsLoaded() {
   template_url_sub_.reset();
   for (PendingExtensions::const_iterator i(pending_extensions_.begin());
        i != pending_extensions_.end(); ++i) {
-    RegisterSearchProvider(*i);
+    RegisterSearchProvider(i->get());
   }
   pending_extensions_.clear();
 }
@@ -261,8 +264,9 @@ void SettingsOverridesAPI::RegisterSearchProvider(
   const SettingsOverrides* settings = SettingsOverrides::Get(extension);
   DCHECK(settings);
   DCHECK(settings->search_engine);
-  scoped_ptr<AssociatedExtensionInfo> info(new AssociatedExtensionInfo);
-  info->extension_id = extension->id();
+  scoped_ptr<TemplateURL::AssociatedExtensionInfo> info(
+      new TemplateURL::AssociatedExtensionInfo(
+          TemplateURL::NORMAL_CONTROLLED_BY_EXTENSION, extension->id()));
   info->wants_to_be_default_engine = settings->search_engine->is_default;
   ExtensionPrefs* prefs = ExtensionPrefs::Get(profile_);
   info->install_time = prefs->GetInstallTime(extension->id());

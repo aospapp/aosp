@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Không thể sử dụng ứng dụng quản trị. Ứng dụng thiếu thành phần hoặc bị lỗi. Hãy liên hệ với bộ phận CNTT."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Không thể cài đặt ứng dụng quản trị"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Ứng dụng quản trị chưa được cài đặt trên thiết bị của bạn"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Dừng thiết lập?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Bạn có chắc chắn muốn dừng thiết lập không?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Không"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Có"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Đang hủy..."</string>
 </resources>

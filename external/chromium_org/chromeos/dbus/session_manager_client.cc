@@ -6,8 +6,8 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/location.h"
 #include "base/path_service.h"
 #include "base/strings/string_number_conversions.h"
@@ -525,6 +525,7 @@ class SessionManagerClientImpl : public SessionManagerClient {
   void OnGetServerBackedStateKeys(const StateKeysCallback& callback,
                                   dbus::Response* response) {
     std::vector<std::string> state_keys;
+    bool first_run = false;
     if (!response) {
       LOG(ERROR) << "Failed to call "
                  << login_manager::kSessionManagerStartSession;
@@ -547,10 +548,14 @@ class SessionManagerClientImpl : public SessionManagerClient {
               std::string(reinterpret_cast<const char*>(data), size));
         }
       }
+      if (!reader.PopBool(&first_run)) {
+        // TODO(tnagel): After 2014-11-19 turn this warning into an error.
+        LOG(WARNING) << "Chrome OS is too old. Defaulting to first_run=false.";
+      }
     }
 
     if (!callback.is_null())
-      callback.Run(state_keys);
+      callback.Run(state_keys, first_run);
   }
 
 
@@ -613,7 +618,7 @@ class SessionManagerClientStubImpl : public SessionManagerClient {
     base::FilePath device_policy_path =
         owner_key_path.DirName().AppendASCII("stub_device_policy");
     base::PostTaskAndReplyWithResult(
-        base::WorkerPool::GetTaskRunner(false),
+        base::WorkerPool::GetTaskRunner(false).get(),
         FROM_HERE,
         base::Bind(&GetFileContent, device_policy_path),
         callback);
@@ -622,7 +627,7 @@ class SessionManagerClientStubImpl : public SessionManagerClient {
       const std::string& username,
       const RetrievePolicyCallback& callback) OVERRIDE {
     base::PostTaskAndReplyWithResult(
-        base::WorkerPool::GetTaskRunner(false),
+        base::WorkerPool::GetTaskRunner(false).get(),
         FROM_HERE,
         base::Bind(&GetFileContent, GetUserFilePath(username, "stub_policy")),
         callback);
@@ -713,7 +718,7 @@ class SessionManagerClientStubImpl : public SessionManagerClient {
       state_keys.push_back(crypto::SHA256HashString(base::IntToString(i)));
 
     if (!callback.is_null())
-      callback.Run(state_keys);
+      callback.Run(state_keys, false);
   }
 
  private:

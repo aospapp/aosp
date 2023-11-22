@@ -1,15 +1,37 @@
 Android SlidingTabsColors Sample
-==============================
+===================================
 
 A more advanced sample which shows how to use SlidingTabLayout to display a custom
 ViewPager title strip, with custom coloring for each tab.
 
+Introduction
+------------
+
+This sample consists of a custom [HorizontalScrollView][1] called `SlidingTabLayout` that is used
+with a [ViewPager][2] to provide a tab indicator component which gives constant feedback as to
+the user's scroll progress.
+
+The colors can be customized in two ways. The first and simplest is to provide an
+array of colors and the alternative is via the `TabColorizer` interface which gives
+complete control over which color is used for any individual position.
+
+The views used as tabs can be customized by calling `setCustomTabView(int, int)` providing the
+layout ID of the custom layout.
+
+[1]: http://developer.android.com/reference/android/widget/HorizontalScrollView.html
+[2]: http://developer.android.com/reference/android/support/v4/view/ViewPager.html
+
 Pre-requisites
 --------------
 
-- Android SDK v20
-- Android Build Tools v20
+- Android SDK v21
+- Android Build Tools v21.1.1
 - Android Support Repository
+
+Screenshots
+-------------
+
+<img src="screenshots/1-pre.png" height="400" alt="Screenshot"/> <img src="screenshots/2-morph.png" height="400" alt="Screenshot"/> <img src="screenshots/3-post.png" height="400" alt="Screenshot"/> 
 
 Getting Started
 ---------------
@@ -41,7 +63,7 @@ file to you under the Apache License, Version 2.0 (the "License"); you may not
 use this file except in compliance with the License.  You may obtain a copy of
 the License at
 
-  http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS, WITHOUT

@@ -19,10 +19,7 @@
     <group>UI</group>
     <package>com.example.android.advancedimmersivemode</package>
 
-
-    <!-- change minSdk if needed-->
-    <minSdk>4</minSdk>
-    <compileSdkVersion>19</compileSdkVersion>
+    <minSdk>19</minSdk>
 
     <strings>
         <intro>
@@ -40,5 +37,46 @@
     <template src="FragmentView"/>
     <common src="logger"/>
     <common src="activities"/>
+    <metadata>
+        <status>PUBLISHED</status>
+        <categories>Window</categories>
+        <technologies>Android</technologies>
+        <languages>Java</languages>
+        <solutions>Mobile</solutions>
+        <level>INTERMEDIATE</level>
+        <icon>screenshots/icon-web.png</icon>
+        <screenshots>
+            <img>screenshots/immersion.png</img>
+            <img>screenshots/leanback.png</img>
+        </screenshots>
+        <api_refs>
+            <android>android.view.Window</android>
+        </api_refs>
 
+        <description>
+<![CDATA[
+Immersive Mode, added in Android 4.4, improves the "hide full screen" and
+"hide nav bar" modes by letting users swipe the bars in and out.  This sample
+lets the user experiment with immersive mode by seeing how it interacts
+with some of the other UI flags related to full-screen apps.
+]]>
+        </description>
+
+        <intro>
+<![CDATA[
+Android 4.4 (API Level 19) introduces a new `SYSTEM_UI_FLAG_IMMERSIVE`
+flag for [setSystemUiVisibility()][1] that lets your app go truly "full
+screen." This flag, when combined with the `SYSTEM_UI_FLAG_HIDE_NAVIGATION` and
+`SYSTEM_UI_FLAG_FULLSCREEN` flags, hides the navigation and status bars
+and lets your app capture all touch events on the screen.
+
+When immersive full-screen mode is enabled, your activity continues
+to receive all touch events. The user can reveal the system bars with
+an inward swipe along the region where the system bars normally
+appear.
+
+[1]: http://developer.android.com/reference/android/view/View.html#setSystemUiVisibility(int)
+]]>
+        </intro>
+    </metadata>
 </sample>

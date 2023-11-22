@@ -7,7 +7,7 @@
 
 #include "base/callback.h"
 #include "base/observer_list.h"
-#include "remoting/jingle_glue/signal_strategy.h"
+#include "remoting/signaling/signal_strategy.h"
 
 namespace base {
 class SingleThreadTaskRunner;
@@ -41,8 +41,6 @@ class DelegatingSignalStrategy : public SignalStrategy {
   SendIqCallback send_iq_callback_;
 
   ObserverList<Listener> listeners_;
-
-  int last_id_;
 
   DISALLOW_COPY_AND_ASSIGN(DelegatingSignalStrategy);
 };

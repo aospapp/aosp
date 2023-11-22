@@ -16,24 +16,38 @@
  * limitations under the License.
  */
 -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/DialogFragmentTextContainer">
 
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    style="@style/MainTextContainer">
+    <ScrollView
+        android:layout_weight="1"
+        android:layout_height="0dp"
+        style="@style/ScrollView">
 
-    <TextView
-        android:id="@+id/learn_more_text1"
-        style="@style/MainText"/>
+        <LinearLayout
+            android:layout_height="wrap_content"
+            android:layout_width="fill_parent"
+            android:orientation="vertical">
 
-    <TextView
-        android:id="@+id/learn_more_text2"
-        android:text="@string/contact_your_admin_for_more_info"
-        style="@style/MainText"/>
+            <TextView
+                android:id="@+id/learn_more_text1"
+                style="@style/MainText"/>
 
-    <TextView
-        android:id="@+id/learn_more_link"
-        android:textColor="@color/colored_button"
-        android:text="@string/learn_more_link"
-        style="@style/MainText"/>
+            <TextView
+                android:id="@+id/learn_more_text2"
+                android:text="@string/contact_your_admin_for_more_info"
+                style="@style/MainText"/>
+
+            <TextView
+                android:id="@+id/learn_more_link"
+                android:textColor="@color/colored_button"
+                android:text="@string/learn_more_link"
+                style="@style/MainText"/>
+
+        </LinearLayout>
+
+    </ScrollView>
 
     <RelativeLayout
         android:layout_width="fill_parent"

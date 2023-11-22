@@ -8,13 +8,13 @@
 #include <utility>
 
 #include "base/bind.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/lazy_instance.h"
 #include "base/stl_util.h"
 #include "base/values.h"
-#include "net/socket/unix_domain_socket_posix.h"
+#include "net/socket/unix_domain_listen_socket_posix.h"
 #include "remoting/base/logging.h"
 #include "remoting/host/gnubby_socket.h"
 #include "remoting/proto/control.pb.h"
@@ -53,10 +53,10 @@ class CompareSocket {
 
 // Socket authentication function that only allows connections from callers with
 // the current uid.
-bool MatchUid(uid_t user_id, gid_t) {
-  bool allowed = user_id == getuid();
+bool MatchUid(const net::UnixDomainServerSocket::Credentials& credentials) {
+  bool allowed = credentials.user_id == getuid();
   if (!allowed)
-    HOST_LOG << "Refused socket connection from uid " << user_id;
+    HOST_LOG << "Refused socket connection from uid " << credentials.user_id;
   return allowed;
 }
 
@@ -263,7 +263,7 @@ void GnubbyAuthHandlerPosix::CreateAuthorizationSocket() {
     HOST_LOG << "Listening for gnubby requests on "
              << g_gnubby_socket_name.Get().value();
 
-    auth_socket_ = net::UnixDomainSocket::CreateAndListen(
+    auth_socket_ = net::deprecated::UnixDomainListenSocket::CreateAndListen(
         g_gnubby_socket_name.Get().value(), this, base::Bind(MatchUid));
     if (!auth_socket_.get()) {
       LOG(ERROR) << "Failed to open socket for gnubby requests";

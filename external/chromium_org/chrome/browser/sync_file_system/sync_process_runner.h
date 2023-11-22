@@ -25,9 +25,49 @@ class SyncFileSystemService;
 // with each other.
 class SyncProcessRunner {
  public:
-  typedef base::Callback<void(const SyncStatusCallback&)> Task;
+  // Default delay when more changes are available.
+  static const int64 kSyncDelayInMilliseconds;
+
+  // Default delay when the previous change has had an error (but remote service
+  // is running).
+  static const int64 kSyncDelayWithSyncError;
+
+  // Default delay when there're more than 10 pending changes.
+  static const int64 kSyncDelayFastInMilliseconds;
+  static const int kPendingChangeThresholdForFastSync;
+
+  // Default delay when remote service is temporarily unavailable.
+  // The delay backs off exponentially from initial value on repeated failure.
+  static const int64 kSyncDelaySlowInMilliseconds;
+
+  // Default delay when there're no changes.
+  static const int64 kSyncDelayMaxInMilliseconds;
+
+  class Client {
+   public:
+    virtual ~Client() {}
+    virtual void OnSyncIdle() {}
+    virtual SyncServiceState GetSyncServiceState() = 0;
+    virtual SyncFileSystemService* GetSyncService() = 0;
+  };
+
+  class TimerHelper {
+   public:
+    virtual ~TimerHelper() {}
+    virtual bool IsRunning() = 0;
+    virtual void Start(const tracked_objects::Location& from_here,
+                       const base::TimeDelta& delay,
+                       const base::Closure& closure) = 0;
+    virtual base::TimeTicks Now() const = 0;
+
+   protected:
+    TimerHelper() {}
+  };
+
   SyncProcessRunner(const std::string& name,
-                    SyncFileSystemService* sync_service);
+                    Client* client,
+                    scoped_ptr<TimerHelper> timer_helper,
+                    size_t max_parallel_task);
   virtual ~SyncProcessRunner();
 
   // Subclass must implement this.
@@ -35,31 +75,45 @@ class SyncProcessRunner {
 
   // Schedules a new sync.
   void Schedule();
-  void ScheduleIfNotRunning();
 
   int64 pending_changes() const { return pending_changes_; }
-
- protected:
-  void OnChangesUpdated(int64 pending_changes);
-  SyncFileSystemService* sync_service() { return sync_service_; }
 
   // Returns the current service state.  Default implementation returns
   // sync_service()->GetSyncServiceState().
   virtual SyncServiceState GetServiceState();
 
+ protected:
+  void OnChangesUpdated(int64 pending_changes);
+  SyncFileSystemService* GetSyncService();
+
  private:
-  void Finished(SyncStatusCode status);
+  void Finished(const base::TimeTicks& start_time, SyncStatusCode status);
   void Run();
   void ScheduleInternal(int64 delay);
 
+  // Throttles new sync for |base_delay| milliseconds for an error case.
+  // If new sync is already throttled, back off the duration.
+  void ThrottleSync(int64 base_delay);
+
+  // Clears old throttling setting that is already over.
+  void ResetOldThrottling();
+  void ResetThrottling();
+
+  void CheckIfIdle();
+
   std::string name_;
-  SyncFileSystemService* sync_service_;
-  base::OneShotTimer<SyncProcessRunner> timer_;
-  base::Time last_scheduled_;
-  int64 current_delay_;
-  int64 last_delay_;
+  Client* client_;
+  size_t max_parallel_task_;
+  size_t running_tasks_;
+  scoped_ptr<TimerHelper> timer_helper_;
+  base::TimeTicks last_run_;
+  base::TimeTicks last_scheduled_;
+  SyncServiceState service_state_;
+
+  base::TimeTicks throttle_from_;
+  base::TimeTicks throttle_until_;
+
   int64 pending_changes_;
-  bool running_;
   base::WeakPtrFactory<SyncProcessRunner> factory_;
 
   DISALLOW_COPY_AND_ASSIGN(SyncProcessRunner);

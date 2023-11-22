@@ -4,7 +4,6 @@
 
 #include "components/sync_driver/sync_prefs.h"
 
-#include "base/command_line.h"
 #include "base/logging.h"
 #include "base/prefs/pref_member.h"
 #include "base/prefs/pref_service.h"
@@ -67,9 +66,11 @@ void SyncPrefs::RegisterProfilePrefs(
   // although they don't have sync representations.
   user_types.PutAll(syncer::ProxyTypes());
 
-  // Treat bookmarks specially.
+  // Treat bookmarks and device info specially.
   RegisterDataTypePreferredPref(registry, syncer::BOOKMARKS, true);
+  RegisterDataTypePreferredPref(registry, syncer::DEVICE_INFO, true);
   user_types.Remove(syncer::BOOKMARKS);
+  user_types.Remove(syncer::DEVICE_INFO);
 
   // These two prefs are set from sync experiment to enable enhanced bookmarks.
   registry->RegisterIntegerPref(
@@ -342,10 +343,12 @@ const char* SyncPrefs::GetPrefNameForDataType(syncer::ModelType data_type) {
       return prefs::kSyncArticles;
     case syncer::SUPERVISED_USER_SHARED_SETTINGS:
       return prefs::kSyncSupervisedUserSharedSettings;
+    case syncer::DEVICE_INFO:
+      return prefs::kSyncDeviceInfo;
     default:
       break;
   }
-  NOTREACHED();
+  NOTREACHED() << "Type is " << data_type;
   return NULL;
 }
 
@@ -423,8 +426,6 @@ void SyncPrefs::RegisterPrefGroups() {
   pref_groups_[syncer::PROXY_TABS].Put(syncer::FAVICON_IMAGES);
   pref_groups_[syncer::PROXY_TABS].Put(syncer::FAVICON_TRACKING);
 
-  pref_groups_[syncer::SUPERVISED_USER_SETTINGS].Put(syncer::SESSIONS);
-
   // TODO(zea): put favicons in the bookmarks group as well once it handles
   // those favicons.
 }
@@ -452,6 +453,11 @@ bool SyncPrefs::GetDataTypePreferred(syncer::ModelType type) const {
     NOTREACHED();
     return false;
   }
+
+  // Device info is always enabled.
+  if (pref_name == prefs::kSyncDeviceInfo)
+    return true;
+
   if (type == syncer::PROXY_TABS &&
       pref_service_->GetUserPrefValue(pref_name) == NULL &&
       pref_service_->IsUserModifiablePreference(pref_name)) {
@@ -471,6 +477,11 @@ void SyncPrefs::SetDataTypePreferred(syncer::ModelType type,
     NOTREACHED();
     return;
   }
+
+  // Device info is always preferred.
+  if (type == syncer::DEVICE_INFO)
+    return;
+
   pref_service_->SetBoolean(pref_name, is_preferred);
 }
 
@@ -502,4 +513,4 @@ void SyncPrefs::ClearFirstSyncTime() {
   pref_service_->ClearPref(prefs::kSyncFirstSyncTime);
 }
 
-}  // namespace browser_sync
+}  // namespace sync_driver

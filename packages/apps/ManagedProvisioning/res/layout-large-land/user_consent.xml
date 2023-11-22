@@ -29,21 +29,6 @@
             android:layout_weight="6"
             android:layout_width="0dp"
             android:layout_height="fill_parent"/>
-        <!-- Progress indicator that replaces main view during provisioning. -->
-        <LinearLayout
-            android:id="@+id/progress_container"
-            android:layout_weight="8"
-            android:layout_width="0dp"
-            android:layout_height="fill_parent"
-            android:visibility="gone"
-            style="@style/MainTextContainer" >
-            <TextView
-                android:text="@string/setting_up_workspace"
-                style="@style/MainText"/>
-            <ProgressBar
-                style="@style/ProgressBar"/>
-        </LinearLayout>
-        <!-- Main view -->
         <include layout="@layout/user_consent_main_text"
             android:layout_weight="8"
             android:layout_width="0dp"

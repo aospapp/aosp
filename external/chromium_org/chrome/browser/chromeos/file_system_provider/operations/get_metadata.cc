@@ -4,6 +4,7 @@
 
 #include "chrome/browser/chromeos/file_system_provider/operations/get_metadata.h"
 
+#include <algorithm>
 #include <string>
 
 #include "chrome/common/extensions/api/file_system_provider.h"
@@ -16,7 +17,7 @@ namespace {
 
 // Convert |value| into |output|. If parsing fails, then returns false.
 bool ConvertRequestValueToFileInfo(scoped_ptr<RequestValue> value,
-                                   base::File::Info* output) {
+                                   EntryMetadata* output) {
   using extensions::api::file_system_provider::EntryMetadata;
   using extensions::api::file_system_provider_internal::
       GetMetadataRequestedSuccess::Params;
@@ -25,9 +26,9 @@ bool ConvertRequestValueToFileInfo(scoped_ptr<RequestValue> value,
   if (!params)
     return false;
 
+  output->name = params->metadata.name;
   output->is_directory = params->metadata.is_directory;
   output->size = static_cast<int64>(params->metadata.size);
-  output->is_symbolic_link = false;  // Not supported.
 
   std::string input_modification_time;
   if (!params->metadata.modification_time.additional_properties.GetString(
@@ -38,7 +39,28 @@ bool ConvertRequestValueToFileInfo(scoped_ptr<RequestValue> value,
   // Allow to pass invalid modification time, since there is no way to verify
   // it easily on any earlier stage.
   base::Time::FromString(input_modification_time.c_str(),
-                         &output->last_modified);
+                         &output->modification_time);
+
+  if (params->metadata.mime_type.get())
+    output->mime_type = *params->metadata.mime_type.get();
+
+  if (params->metadata.thumbnail.get()) {
+    // Sanity check for the thumbnail format. Note, that another, more granural
+    // check is done in custom bindings. Note, this is an extra check only for
+    // the security reasons.
+    const std::string expected_prefix = "data:";
+    std::string thumbnail_prefix =
+        params->metadata.thumbnail.get()->substr(0, expected_prefix.size());
+    std::transform(thumbnail_prefix.begin(),
+                   thumbnail_prefix.end(),
+                   thumbnail_prefix.begin(),
+                   ::tolower);
+
+    if (expected_prefix != thumbnail_prefix)
+      return false;
+
+    output->thumbnail = *params->metadata.thumbnail.get();
+  }
 
   return true;
 }
@@ -49,9 +71,11 @@ GetMetadata::GetMetadata(
     extensions::EventRouter* event_router,
     const ProvidedFileSystemInfo& file_system_info,
     const base::FilePath& entry_path,
-    const fileapi::AsyncFileUtil::GetFileInfoCallback& callback)
+    ProvidedFileSystemInterface::MetadataFieldMask fields,
+    const ProvidedFileSystemInterface::GetMetadataCallback& callback)
     : Operation(event_router, file_system_info),
       entry_path_(entry_path),
+      fields_(fields),
       callback_(callback) {
 }
 
@@ -59,28 +83,44 @@ GetMetadata::~GetMetadata() {
 }
 
 bool GetMetadata::Execute(int request_id) {
-  scoped_ptr<base::DictionaryValue> values(new base::DictionaryValue);
-  values->SetString("entryPath", entry_path_.AsUTF8Unsafe());
+  using extensions::api::file_system_provider::GetMetadataRequestedOptions;
+
+  GetMetadataRequestedOptions options;
+  options.file_system_id = file_system_info_.file_system_id();
+  options.request_id = request_id;
+  options.entry_path = entry_path_.AsUTF8Unsafe();
+  options.thumbnail =
+      fields_ & ProvidedFileSystemInterface::METADATA_FIELD_THUMBNAIL;
+
   return SendEvent(
       request_id,
       extensions::api::file_system_provider::OnGetMetadataRequested::kEventName,
-      values.Pass());
+      extensions::api::file_system_provider::OnGetMetadataRequested::Create(
+          options));
 }
 
 void GetMetadata::OnSuccess(int /* request_id */,
                             scoped_ptr<RequestValue> result,
                             bool has_more) {
-  base::File::Info file_info;
+  scoped_ptr<EntryMetadata> metadata(new EntryMetadata);
   const bool convert_result =
-      ConvertRequestValueToFileInfo(result.Pass(), &file_info);
-  DCHECK(convert_result);
-  callback_.Run(base::File::FILE_OK, file_info);
+      ConvertRequestValueToFileInfo(result.Pass(), metadata.get());
+
+  if (!convert_result) {
+    LOG(ERROR) << "Failed to parse a response for the get metadata operation.";
+    callback_.Run(make_scoped_ptr<EntryMetadata>(NULL),
+                  base::File::FILE_ERROR_IO);
+    return;
+  }
+
+  callback_.Run(metadata.Pass(), base::File::FILE_OK);
 }
 
-void GetMetadata::OnError(int /* request_id */, base::File::Error error) {
-  callback_.Run(error, base::File::Info());
+void GetMetadata::OnError(int /* request_id */,
+                          scoped_ptr<RequestValue> /* result */,
+                          base::File::Error error) {
+  callback_.Run(make_scoped_ptr<EntryMetadata>(NULL), error);
 }
-
 }  // namespace operations
 }  // namespace file_system_provider
 }  // namespace chromeos

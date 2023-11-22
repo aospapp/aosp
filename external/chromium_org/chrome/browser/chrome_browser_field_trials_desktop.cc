@@ -13,7 +13,6 @@
 #include "base/strings/string_util.h"
 #include "chrome/browser/auto_launch_trial.h"
 #include "chrome/browser/google/google_brand.h"
-#include "chrome/browser/omnibox/omnibox_field_trial.h"
 #include "chrome/browser/prerender/prerender_field_trial.h"
 #include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/safe_browsing/safe_browsing_blocking_page.h"
@@ -27,10 +26,6 @@
 #include "content/public/common/content_constants.h"
 #include "net/spdy/spdy_session.h"
 #include "ui/base/layout.h"
-
-#if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/login/users/user_manager.h"
-#endif
 
 namespace chrome {
 
@@ -118,11 +113,9 @@ void SetupPreReadFieldTrial() {
 }  // namespace
 
 void SetupDesktopFieldTrials(const CommandLine& parsed_command_line,
-                             const base::Time& install_time,
                              PrefService* local_state) {
   prerender::ConfigurePrerender(parsed_command_line);
   AutoLaunchChromeFieldTrial();
-  OmniboxFieldTrial::ActivateStaticTrials();
   SetupInfiniteCacheFieldTrial();
   DisableShowProfileSwitcherTrialIfNecessary();
   SetupShowAppLauncherPromoFieldTrial(local_state);

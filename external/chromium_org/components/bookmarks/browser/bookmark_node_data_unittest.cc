@@ -18,13 +18,15 @@
 
 using base::ASCIIToUTF16;
 
+namespace bookmarks {
+
 class BookmarkNodeDataTest : public testing::Test {
  public:
   BookmarkNodeDataTest() {}
 
   virtual void SetUp() OVERRIDE {
     event_source_ = ui::PlatformEventSource::CreateDefault();
-    model_ = client_.CreateModel(false);
+    model_ = client_.CreateModel();
     test::WaitForBookmarkModelToLoad(model_.get());
     bool success = profile_dir_.CreateUniqueTempDir();
     ASSERT_TRUE(success);
@@ -43,7 +45,7 @@ class BookmarkNodeDataTest : public testing::Test {
 
  private:
   base::ScopedTempDir profile_dir_;
-  test::TestBookmarkClient client_;
+  TestBookmarkClient client_;
   scoped_ptr<BookmarkModel> model_;
   scoped_ptr<ui::PlatformEventSource> event_source_;
 
@@ -294,3 +296,5 @@ TEST_F(BookmarkNodeDataTest, MetaInfo) {
   EXPECT_EQ("somevalue", meta_info_map["somekey"]);
   EXPECT_EQ("someothervalue", meta_info_map["someotherkey"]);
 }
+
+}  // namespace bookmarks

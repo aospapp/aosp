@@ -18,7 +18,6 @@
 class AcceleratedPresenter;
 class BrowserProcessImpl;
 class HistogramSynchronizer;
-class MetricsService;
 class NativeBackendKWallet;
 class ScopedAllowWaitForLegacyWebViewApi;
 class TestingAutomationProvider;
@@ -47,7 +46,7 @@ class BrowserTestBase;
 class GLHelper;
 class GpuChannelHost;
 class NestedMessagePumpAndroid;
-class RenderWidgetHelper;
+class RenderWidgetResizeHelper;
 class ScopedAllowWaitForAndroidLayoutTests;
 class TextInputClientMac;
 }
@@ -60,6 +59,14 @@ class InFlightIO;
 }
 namespace media {
 class AudioOutputController;
+}
+namespace metrics {
+class MetricsService;
+}
+namespace mojo {
+namespace common {
+class WatcherThreadManager;
+}
 }
 namespace net {
 class FileStreamPosix;
@@ -180,12 +187,13 @@ class BASE_EXPORT ThreadRestrictions {
   friend class content::BrowserShutdownProfileDumper;
   friend class content::BrowserTestBase;
   friend class content::NestedMessagePumpAndroid;
-  friend class content::RenderWidgetHelper;
+  friend class content::RenderWidgetResizeHelper;
   friend class content::ScopedAllowWaitForAndroidLayoutTests;
   friend class ::HistogramSynchronizer;
   friend class ::ScopedAllowWaitForLegacyWebViewApi;
   friend class ::TestingAutomationProvider;
   friend class cc::CompletionEvent;
+  friend class mojo::common::WatcherThreadManager;
   friend class remoting::AutoThread;
   friend class MessagePumpDefault;
   friend class SequencedWorkerPool;
@@ -217,7 +225,7 @@ class BASE_EXPORT ThreadRestrictions {
   friend class net::internal::AddressTrackerLinux;  // http://crbug.com/125097
   friend class ::AcceleratedPresenter;            // http://crbug.com/125391
   friend class ::BrowserProcessImpl;              // http://crbug.com/125207
-  friend class ::MetricsService;                  // http://crbug.com/124954
+  friend class metrics::MetricsService;           // http://crbug.com/124954
   friend class ::NativeBackendKWallet;            // http://crbug.com/125331
   // END USAGE THAT NEEDS TO BE FIXED.
 

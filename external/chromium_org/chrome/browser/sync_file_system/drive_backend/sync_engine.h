@@ -22,7 +22,7 @@
 #include "net/base/network_change_notifier.h"
 
 class ExtensionServiceInterface;
-class ProfileOAuth2TokenService;
+class OAuth2TokenService;
 
 namespace base {
 class SequencedTaskRunner;
@@ -45,6 +45,7 @@ class URLRequestContextGetter;
 namespace sync_file_system {
 
 class RemoteChangeProcessor;
+class SyncFileSystemTest;
 
 namespace drive_backend {
 
@@ -64,6 +65,19 @@ class SyncEngine : public RemoteFileSyncService,
                    public SigninManagerBase::Observer {
  public:
   typedef RemoteFileSyncService::Observer SyncServiceObserver;
+
+  class DriveServiceFactory {
+   public:
+    DriveServiceFactory() {}
+    virtual ~DriveServiceFactory() {}
+    virtual scoped_ptr<drive::DriveServiceInterface> CreateDriveService(
+        OAuth2TokenService* oauth2_token_service,
+        net::URLRequestContextGetter* url_request_context_getter,
+        base::SequencedTaskRunner* blocking_task_runner);
+
+   private:
+    DISALLOW_COPY_AND_ASSIGN(DriveServiceFactory);
+  };
 
   static scoped_ptr<SyncEngine> CreateForBrowserContext(
       content::BrowserContext* context,
@@ -112,15 +126,14 @@ class SyncEngine : public RemoteFileSyncService,
                          const ListCallback& callback) OVERRIDE;
   virtual void DumpDatabase(const ListCallback& callback) OVERRIDE;
   virtual void SetSyncEnabled(bool enabled) OVERRIDE;
-  virtual void PromoteDemotedChanges() OVERRIDE;
+  virtual void PromoteDemotedChanges(const base::Closure& callback) OVERRIDE;
 
   // LocalChangeProcessor overrides.
-  virtual void ApplyLocalChange(
-      const FileChange& local_change,
-      const base::FilePath& local_path,
-      const SyncFileMetadata& local_metadata,
-      const fileapi::FileSystemURL& url,
-      const SyncStatusCallback& callback) OVERRIDE;
+  virtual void ApplyLocalChange(const FileChange& local_change,
+                                const base::FilePath& local_path,
+                                const SyncFileMetadata& local_metadata,
+                                const storage::FileSystemURL& url,
+                                const SyncStatusCallback& callback) OVERRIDE;
 
   // drive::DriveNotificationObserver overrides.
   virtual void OnNotificationReceived() OVERRIDE;
@@ -136,32 +149,35 @@ class SyncEngine : public RemoteFileSyncService,
 
   // SigninManagerBase::Observer overrides.
   virtual void GoogleSigninFailed(const GoogleServiceAuthError& error) OVERRIDE;
-  virtual void GoogleSigninSucceeded(const std::string& username,
+  virtual void GoogleSigninSucceeded(const std::string& account_id,
+                                     const std::string& username,
                                      const std::string& password) OVERRIDE;
-  virtual void GoogleSignedOut(const std::string& username) OVERRIDE;
+  virtual void GoogleSignedOut(const std::string& account_id,
+                               const std::string& username) OVERRIDE;
 
  private:
   class WorkerObserver;
 
   friend class DriveBackendSyncTest;
   friend class SyncEngineTest;
+  friend class sync_file_system::SyncFileSystemTest;
 
-  SyncEngine(base::SingleThreadTaskRunner* ui_task_runner,
-             base::SequencedTaskRunner* worker_task_runner,
-             base::SequencedTaskRunner* file_task_runner,
-             base::SequencedTaskRunner* drive_task_runner,
+  SyncEngine(const scoped_refptr<base::SingleThreadTaskRunner>& ui_task_runner,
+             const scoped_refptr<base::SequencedTaskRunner>& worker_task_runner,
+             const scoped_refptr<base::SequencedTaskRunner>& drive_task_runner,
              const base::FilePath& sync_file_system_dir,
              TaskLogger* task_logger,
              drive::DriveNotificationManager* notification_manager,
              ExtensionServiceInterface* extension_service,
              SigninManagerBase* signin_manager,
-             ProfileOAuth2TokenService* token_service,
+             OAuth2TokenService* token_service,
              net::URLRequestContextGetter* request_context,
+             scoped_ptr<DriveServiceFactory> drive_service_factory,
              leveldb::Env* env_override);
 
   // Called by WorkerObserver.
   void OnPendingFileListUpdated(int item_count);
-  void OnFileStatusChanged(const fileapi::FileSystemURL& url,
+  void OnFileStatusChanged(const storage::FileSystemURL& url,
                            SyncFileStatus file_status,
                            SyncAction sync_action,
                            SyncDirection direction);
@@ -172,7 +188,6 @@ class SyncEngine : public RemoteFileSyncService,
 
   scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner_;
   scoped_refptr<base::SequencedTaskRunner> worker_task_runner_;
-  scoped_refptr<base::SequencedTaskRunner> file_task_runner_;
   scoped_refptr<base::SequencedTaskRunner> drive_task_runner_;
 
   const base::FilePath sync_file_system_dir_;
@@ -185,9 +200,11 @@ class SyncEngine : public RemoteFileSyncService,
   drive::DriveNotificationManager* notification_manager_;
   ExtensionServiceInterface* extension_service_;
   SigninManagerBase* signin_manager_;
-  ProfileOAuth2TokenService* token_service_;
+  OAuth2TokenService* token_service_;
 
   scoped_refptr<net::URLRequestContextGetter> request_context_;
+
+  scoped_ptr<DriveServiceFactory> drive_service_factory_;
 
   scoped_ptr<drive::DriveServiceInterface> drive_service_;
   scoped_ptr<DriveServiceWrapper> drive_service_wrapper_;
@@ -200,6 +217,8 @@ class SyncEngine : public RemoteFileSyncService,
   scoped_ptr<RemoteChangeProcessorOnWorker> remote_change_processor_on_worker_;
 
   RemoteServiceState service_state_;
+  bool has_refresh_token_;
+  bool network_available_;
   bool sync_enabled_;
 
   // Delete them on worker.

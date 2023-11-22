@@ -13,7 +13,7 @@
 #include "ui/events/event_constants.h"
 #include "ui/events/event_utils.h"
 #include "ui/events/platform/platform_event_source.h"
-#include "ui/events/x/device_data_manager.h"
+#include "ui/events/x/device_data_manager_x11.h"
 
 // Enum type for CrOS gesture lib UMA
 enum UMACrosGestureMetricsType{
@@ -66,7 +66,7 @@ void DeviceUMA::CheckTouchpadEvent(XEvent* native_event) {
                             UMA_CROS_GESTURE_METRICS_COUNT);
 
   // Check for the CrOS touchpad metrics gesture
-  ui::DeviceDataManager *manager = ui::DeviceDataManager::GetInstance();
+  ui::DeviceDataManagerX11 *manager = ui::DeviceDataManagerX11::GetInstance();
   if (manager->IsCMTMetricsEvent(native_event)) {
     ui::GestureMetricsType type;
     float data1, data2;
@@ -85,9 +85,12 @@ void DeviceUMA::CheckTouchpadEvent(XEvent* native_event) {
 void DeviceUMA::CheckIncomingEvent(XEvent* event) {
   switch (event->type) {
     case GenericEvent: {
-      if (ui::DeviceDataManager::GetInstance()->IsXIDeviceEvent(event) &&
-          ui::IsTouchpadEvent(event))
+      ui::DeviceDataManagerX11* devices =
+          ui::DeviceDataManagerX11::GetInstance();
+      if (devices->IsXIDeviceEvent(event) &&
+          devices->IsTouchpadXInputEvent(event)) {
         CheckTouchpadEvent(event);
+      }
       break;
     }
     default:

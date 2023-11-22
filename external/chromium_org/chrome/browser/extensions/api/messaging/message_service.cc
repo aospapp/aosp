@@ -31,12 +31,10 @@
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_host.h"
 #include "extensions/browser/extension_system.h"
-#include "extensions/browser/extension_util.h"
 #include "extensions/browser/extensions_browser_client.h"
 #include "extensions/browser/lazy_background_task_queue.h"
 #include "extensions/browser/process_manager.h"
 #include "extensions/common/extension.h"
-#include "extensions/common/extension_messages.h"
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/manifest_handlers/background_info.h"
 #include "extensions/common/manifest_handlers/externally_connectable.h"
@@ -216,15 +214,6 @@ void MessageService::OpenChannelToExtension(
     return;
   }
 
-  // Only running ephemeral apps can receive messages. Idle cached ephemeral
-  // apps are invisible and should not be connectable.
-  if (util::IsEphemeralApp(target_extension_id, context) &&
-      util::IsExtensionIdle(target_extension_id, context)) {
-    DispatchOnDisconnect(
-        source, receiver_port_id, kReceivingEndDoesntExistError);
-    return;
-  }
-
   bool is_web_connection = false;
 
   if (source_extension_id != target_extension_id) {
@@ -330,10 +319,10 @@ void MessageService::OpenChannelToExtension(
   if (include_tls_channel_id) {
     pending_tls_channel_id_channels_[GET_CHANNEL_ID(params->receiver_port_id)]
         = PendingMessagesQueue();
-    property_provider_.GetDomainBoundCert(
+    property_provider_.GetChannelID(
         Profile::FromBrowserContext(context),
         source_url,
-        base::Bind(&MessageService::GotDomainBoundCert,
+        base::Bind(&MessageService::GotChannelID,
                    weak_factory_.GetWeakPtr(),
                    base::Passed(make_scoped_ptr(params))));
     return;
@@ -693,8 +682,8 @@ bool MessageService::MaybeAddPendingLazyBackgroundPageOpenChannelTask(
   return true;
 }
 
-void MessageService::GotDomainBoundCert(scoped_ptr<OpenChannelParams> params,
-                                        const std::string& tls_channel_id) {
+void MessageService::GotChannelID(scoped_ptr<OpenChannelParams> params,
+                                  const std::string& tls_channel_id) {
   params->tls_channel_id.assign(tls_channel_id);
   int channel_id = GET_CHANNEL_ID(params->receiver_port_id);
 

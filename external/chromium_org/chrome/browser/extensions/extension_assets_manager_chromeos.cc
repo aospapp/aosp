@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "base/command_line.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/memory/singleton.h"
 #include "base/prefs/pref_registry_simple.h"
 #include "base/prefs/pref_service.h"
@@ -16,14 +16,17 @@
 #include "base/sequenced_task_runner.h"
 #include "base/sys_info.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
+#include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/common/extensions/manifest_url_handler.h"
 #include "chromeos/chromeos_switches.h"
+#include "components/user_manager/user_manager.h"
 #include "content/public/browser/browser_thread.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/extension_urls.h"
 #include "extensions/common/file_util.h"
 #include "extensions/common/manifest.h"
 
@@ -142,7 +145,7 @@ void ExtensionAssetsManagerChromeOS::InstallExtension(
     const base::FilePath& local_install_dir,
     Profile* profile,
     InstallExtensionCallback callback) {
-  if (!CanShareAssets(extension)) {
+  if (!CanShareAssets(extension, unpacked_extension_root)) {
     InstallLocalExtension(extension->id(),
                           extension->VersionString(),
                           unpacked_extension_root,
@@ -187,6 +190,12 @@ base::FilePath ExtensionAssetsManagerChromeOS::GetSharedInstallDir() {
     return *g_shared_install_dir_override;
   else
     return base::FilePath(kSharedExtensionsDir);
+}
+
+// static
+bool ExtensionAssetsManagerChromeOS::IsSharedInstall(
+    const Extension* extension) {
+  return GetSharedInstallDir().IsParent(extension->path());
 }
 
 // static
@@ -242,9 +251,16 @@ base::SequencedTaskRunner* ExtensionAssetsManagerChromeOS::GetFileTaskRunner(
 
 // static
 bool ExtensionAssetsManagerChromeOS::CanShareAssets(
-    const Extension* extension) {
+    const Extension* extension,
+    const base::FilePath& unpacked_extension_root) {
   if (!CommandLine::ForCurrentProcess()->HasSwitch(
           chromeos::switches::kEnableExtensionAssetsSharing)) {
+    return false;
+  }
+
+  GURL update_url = ManifestURL::GetUpdateURL(extension);
+  if (!update_url.is_empty() &&
+      !extension_urls::IsWebstoreUpdateUrl(update_url)) {
     return false;
   }
 
@@ -265,7 +281,7 @@ void ExtensionAssetsManagerChromeOS::CheckSharedExtension(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   const std::string& user_id = profile->GetProfileName();
-  chromeos::UserManager* user_manager = chromeos::UserManager::Get();
+  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
   if (!user_manager) {
     NOTREACHED();
     return;
@@ -481,7 +497,7 @@ bool ExtensionAssetsManagerChromeOS::CleanUpExtension(
     const std::string& id,
     base::DictionaryValue* extension_info,
     std::multimap<std::string, base::FilePath>* live_extension_paths) {
-  chromeos::UserManager* user_manager = chromeos::UserManager::Get();
+  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
   if (!user_manager) {
     NOTREACHED();
     return false;
@@ -514,14 +530,15 @@ bool ExtensionAssetsManagerChromeOS::CleanUpExtension(
         NOTREACHED();
         return false;
       }
-      const chromeos::User* user = user_manager->FindUser(user_id);
+      const user_manager::User* user = user_manager->FindUser(user_id);
       bool not_used = false;
       if (!user) {
         not_used = true;
       } else if (user->is_logged_in()) {
         // For logged in user also check that this path is actually used as
         // installed extension or as delayed install.
-        Profile* profile = user_manager->GetProfileByUser(user);
+        Profile* profile =
+            chromeos::ProfileHelper::Get()->GetProfileByUserUnsafe(user);
         ExtensionPrefs* extension_prefs = ExtensionPrefs::Get(profile);
         if (!extension_prefs || extension_prefs->pref_service()->ReadOnly())
           return false;

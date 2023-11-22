@@ -11,11 +11,13 @@
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
+#include "base/thread_task_runner_handle.h"
 #include "chrome/browser/drive/drive_uploader.h"
 #include "chrome/browser/drive/fake_drive_service.h"
 #include "chrome/browser/sync_file_system/drive_backend/drive_backend_constants.h"
 #include "chrome/browser/sync_file_system/drive_backend/drive_backend_util.h"
 #include "chrome/browser/sync_file_system/drive_backend/fake_drive_service_helper.h"
+#include "chrome/browser/sync_file_system/drive_backend/leveldb_wrapper.h"
 #include "chrome/browser/sync_file_system/drive_backend/metadata_database.h"
 #include "chrome/browser/sync_file_system/drive_backend/metadata_database.pb.h"
 #include "chrome/browser/sync_file_system/drive_backend/sync_engine_context.h"
@@ -26,7 +28,6 @@
 #include "third_party/leveldatabase/src/helpers/memenv/memenv.h"
 #include "third_party/leveldatabase/src/include/leveldb/db.h"
 #include "third_party/leveldatabase/src/include/leveldb/env.h"
-#include "third_party/leveldatabase/src/include/leveldb/write_batch.h"
 
 namespace sync_file_system {
 namespace drive_backend {
@@ -51,7 +52,7 @@ class RegisterAppTaskTest : public testing::Test {
     scoped_ptr<drive::DriveUploaderInterface>
         drive_uploader(new drive::DriveUploader(
             fake_drive_service.get(),
-            base::MessageLoopProxy::current()));
+            base::ThreadTaskRunnerHandle::Get()));
 
     fake_drive_service_helper_.reset(new FakeDriveServiceHelper(
         fake_drive_service.get(), drive_uploader.get(),
@@ -62,9 +63,8 @@ class RegisterAppTaskTest : public testing::Test {
             fake_drive_service.PassAs<drive::DriveServiceInterface>(),
             drive_uploader.Pass(),
             NULL,
-            base::MessageLoopProxy::current(),
-            base::MessageLoopProxy::current(),
-            base::MessageLoopProxy::current()));
+            base::ThreadTaskRunnerHandle::Get(),
+            base::ThreadTaskRunnerHandle::Get()));
 
     ASSERT_EQ(google_apis::HTTP_CREATED,
               fake_drive_service_helper_->AddOrphanedFolder(
@@ -77,7 +77,7 @@ class RegisterAppTaskTest : public testing::Test {
   }
 
  protected:
-  scoped_ptr<leveldb::DB> OpenLevelDB() {
+  scoped_ptr<LevelDBWrapper> OpenLevelDB() {
     leveldb::DB* db = NULL;
     leveldb::Options options;
     options.create_if_missing = true;
@@ -85,10 +85,10 @@ class RegisterAppTaskTest : public testing::Test {
     leveldb::Status status =
         leveldb::DB::Open(options, database_dir_.path().AsUTF8Unsafe(), &db);
     EXPECT_TRUE(status.ok());
-    return make_scoped_ptr<leveldb::DB>(db);
+    return make_scoped_ptr(new LevelDBWrapper(make_scoped_ptr(db)));
   }
 
-  void SetUpInitialData(leveldb::DB* db) {
+  void SetUpInitialData(LevelDBWrapper* db) {
     ServiceMetadata service_metadata;
     service_metadata.set_largest_change_id(100);
     service_metadata.set_sync_root_tracker_id(kSyncRootTrackerID);
@@ -111,22 +111,21 @@ class RegisterAppTaskTest : public testing::Test {
     *sync_root_tracker.mutable_synced_details() = sync_root_details;
     sync_root_tracker.set_active(true);
 
-    leveldb::WriteBatch batch;
-    batch.Put(kDatabaseVersionKey,
-              base::Int64ToString(kCurrentDatabaseVersion));
-    PutServiceMetadataToBatch(service_metadata, &batch);
-    PutFileMetadataToBatch(sync_root_metadata, &batch);
-    PutFileTrackerToBatch(sync_root_tracker, &batch);
-    EXPECT_TRUE(db->Write(leveldb::WriteOptions(), &batch).ok());
+    db->Put(kDatabaseVersionKey,
+            base::Int64ToString(kCurrentDatabaseVersion));
+    PutServiceMetadataToDB(service_metadata, db);
+    PutFileMetadataToDB(sync_root_metadata, db);
+    PutFileTrackerToDB(sync_root_tracker, db);
+    EXPECT_TRUE(db->Commit().ok());
   }
 
-  void CreateMetadataDatabase(scoped_ptr<leveldb::DB> db) {
+  void CreateMetadataDatabase(scoped_ptr<LevelDBWrapper> db) {
     ASSERT_TRUE(db);
     ASSERT_FALSE(context_->GetMetadataDatabase());
     scoped_ptr<MetadataDatabase> metadata_db;
     ASSERT_EQ(SYNC_STATUS_OK,
               MetadataDatabase::CreateForTesting(
-                  db.Pass(), &metadata_db));
+                  db.Pass(), true /* enable_on_disk_index */, &metadata_db));
     context_->SetMetadataDatabase(metadata_db.Pass());
   }
 
@@ -140,7 +139,7 @@ class RegisterAppTaskTest : public testing::Test {
 
   void SetUpRegisteredAppRoot(
       const std::string& app_id,
-      leveldb::DB* db) {
+      LevelDBWrapper* db) {
     FileDetails details;
     details.set_title(app_id);
     details.set_file_kind(FILE_KIND_FOLDER);
@@ -159,14 +158,13 @@ class RegisterAppTaskTest : public testing::Test {
     *tracker.mutable_synced_details() = details;
     tracker.set_active(true);
 
-    leveldb::WriteBatch batch;
-    PutFileMetadataToBatch(metadata, &batch);
-    PutFileTrackerToBatch(tracker, &batch);
-    EXPECT_TRUE(db->Write(leveldb::WriteOptions(), &batch).ok());
+    PutFileMetadataToDB(metadata, db);
+    PutFileTrackerToDB(tracker, db);
+    EXPECT_TRUE(db->Commit().ok());
   }
 
   void SetUpUnregisteredAppRoot(const std::string& app_id,
-                                leveldb::DB* db) {
+                                LevelDBWrapper* db) {
     FileDetails details;
     details.set_title(app_id);
     details.set_file_kind(FILE_KIND_FOLDER);
@@ -184,10 +182,9 @@ class RegisterAppTaskTest : public testing::Test {
     *tracker.mutable_synced_details() = details;
     tracker.set_active(false);
 
-    leveldb::WriteBatch batch;
-    PutFileMetadataToBatch(metadata, &batch);
-    PutFileTrackerToBatch(tracker, &batch);
-    EXPECT_TRUE(db->Write(leveldb::WriteOptions(), &batch).ok());
+    PutFileMetadataToDB(metadata, db);
+    PutFileTrackerToDB(tracker, db);
+    EXPECT_TRUE(db->Commit().ok());
   }
 
   size_t CountRegisteredAppRoot() {
@@ -253,7 +250,7 @@ class RegisterAppTaskTest : public testing::Test {
 };
 
 TEST_F(RegisterAppTaskTest, AlreadyRegistered) {
-  scoped_ptr<leveldb::DB> db(OpenLevelDB());
+  scoped_ptr<LevelDBWrapper> db = OpenLevelDB();
   ASSERT_TRUE(db);
   SetUpInitialData(db.get());
 
@@ -268,7 +265,7 @@ TEST_F(RegisterAppTaskTest, AlreadyRegistered) {
 }
 
 TEST_F(RegisterAppTaskTest, CreateAppFolder) {
-  scoped_ptr<leveldb::DB> db(OpenLevelDB());
+  scoped_ptr<LevelDBWrapper> db = OpenLevelDB();
   ASSERT_TRUE(db);
   SetUpInitialData(db.get());
 
@@ -284,7 +281,7 @@ TEST_F(RegisterAppTaskTest, CreateAppFolder) {
 }
 
 TEST_F(RegisterAppTaskTest, RegisterExistingFolder) {
-  scoped_ptr<leveldb::DB> db(OpenLevelDB());
+  scoped_ptr<LevelDBWrapper> db = OpenLevelDB();
   ASSERT_TRUE(db);
   SetUpInitialData(db.get());
 
@@ -299,7 +296,7 @@ TEST_F(RegisterAppTaskTest, RegisterExistingFolder) {
 }
 
 TEST_F(RegisterAppTaskTest, RegisterExistingFolder_MultipleCandidate) {
-  scoped_ptr<leveldb::DB> db(OpenLevelDB());
+  scoped_ptr<LevelDBWrapper> db = OpenLevelDB();
   ASSERT_TRUE(db);
   SetUpInitialData(db.get());
 

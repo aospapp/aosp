@@ -5,39 +5,37 @@
 #include "base/basictypes.h"
 #include "base/bind.h"
 #include "base/run_loop.h"
-#include "mojo/public/cpp/application/application.h"
-#include "mojo/services/public/interfaces/view_manager/view_manager.mojom.h"
+#include "mojo/application/application_runner_chromium.h"
+#include "mojo/public/c/system/main.h"
+#include "mojo/public/cpp/application/application_connection.h"
+#include "mojo/public/cpp/application/application_delegate.h"
+#include "mojo/public/cpp/application/application_impl.h"
+#include "mojo/public/cpp/application/service_provider_impl.h"
+#include "mojo/public/interfaces/application/service_provider.mojom.h"
+#include "mojo/services/public/cpp/view_manager/view_manager.h"
+#include "mojo/services/public/cpp/view_manager/view_manager_context.h"
 
-namespace mojo {
 namespace examples {
 
-class DemoLauncher : public Application {
+class DemoLauncher : public mojo::ApplicationDelegate {
  public:
   DemoLauncher() {}
   virtual ~DemoLauncher() {}
 
  private:
-  // Overridden from Application:
-  virtual void Initialize() MOJO_OVERRIDE {
-    ConnectTo<view_manager::ViewManagerInitService>("mojo:mojo_view_manager",
-                                                    &view_manager_init_);
-    view_manager_init_->EmbedRoot("mojo:mojo_window_manager",
-                                  base::Bind(&DemoLauncher::OnConnect,
-                                             base::Unretained(this)));
+  virtual void Initialize(mojo::ApplicationImpl* app) MOJO_OVERRIDE {
+    context_.reset(new mojo::ViewManagerContext(app));
+    context_->Embed("mojo:mojo_window_manager");
   }
 
-  void OnConnect(bool success) {}
-
-  view_manager::ViewManagerInitServicePtr view_manager_init_;
+  scoped_ptr<mojo::ViewManagerContext> context_;
 
   DISALLOW_COPY_AND_ASSIGN(DemoLauncher);
 };
 
 }  // namespace examples
 
-// static
-Application* Application::Create() {
-  return new examples::DemoLauncher;
+MojoResult MojoMain(MojoHandle shell_handle) {
+  mojo::ApplicationRunnerChromium runner(new examples::DemoLauncher);
+  return runner.Run(shell_handle);
 }
-
-}  // namespace mojo

@@ -17,7 +17,7 @@
 #include "base/threading/thread.h"
 #include "content/browser/geolocation/location_provider_base.h"
 #include "content/browser/geolocation/network_location_request.h"
-#include "content/browser/geolocation/wifi_data_provider.h"
+#include "content/browser/geolocation/wifi_data_provider_manager.h"
 #include "content/common/content_export.h"
 #include "content/public/common/geoposition.h"
 
@@ -82,25 +82,25 @@ class NetworkLocationProvider
   // Satisfies a position request from cache or network.
   void RequestPosition();
 
-  // Called from a callback when new wifi data is available.
-  void WifiDataUpdateAvailable(WifiDataProvider* provider);
+  // Gets called when new wifi data is available.
+  void OnWifiDataUpdate();
 
-  // Internal helper used by WifiDataUpdateAvailable.
+  // Internal helper used by OnWifiDataUpdate.
   void OnWifiDataUpdated();
 
   bool IsStarted() const;
 
-  void LocationResponseAvailable(const Geoposition& position,
-                                 bool server_error,
-                                 const base::string16& access_token,
-                                 const WifiData& wifi_data);
+  void OnLocationResponse(const Geoposition& position,
+                          bool server_error,
+                          const base::string16& access_token,
+                          const WifiData& wifi_data);
 
   scoped_refptr<AccessTokenStore> access_token_store_;
 
   // The wifi data provider, acquired via global factories.
-  WifiDataProvider* wifi_data_provider_;
+  WifiDataProviderManager* wifi_data_provider_manager_;
 
-  WifiDataProvider::WifiDataUpdateCallback wifi_data_update_callback_;
+  WifiDataProviderManager::WifiDataUpdateCallback wifi_data_update_callback_;
 
   // The  wifi data and a flag to indicate if the data set is complete.
   WifiData wifi_data_;

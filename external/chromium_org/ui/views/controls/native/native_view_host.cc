@@ -38,8 +38,7 @@ void NativeViewHost::Attach(gfx::NativeView native_view) {
   // be seen as focused when the native view receives focus.
   if (!focus_view_)
     focus_view_ = this;
-  native_wrapper_->NativeViewWillAttach();
-  Widget::ReparentNativeView(native_view_, GetWidget()->GetNativeView());
+  native_wrapper_->AttachNativeView();
   Layout();
 
   Widget* widget = Widget::GetWidgetForNativeView(native_view);
@@ -132,7 +131,7 @@ void NativeViewHost::VisibilityChanged(View* starting_from, bool is_visible) {
   Layout();
 }
 
-bool NativeViewHost::NeedsNotificationWhenVisibleBoundsChange() const {
+bool NativeViewHost::GetNeedsNotificationWhenVisibleBoundsChange() const {
   // The native widget is placed relative to the root. As such, we need to
   // know when the position of any ancestor changes, or our visibility relative
   // to other views changed as it'll effect our position relative to the root.

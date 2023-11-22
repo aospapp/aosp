@@ -18,6 +18,7 @@
 #include "ui/events/platform/platform_event_dispatcher.h"
 #include "ui/gfx/insets.h"
 #include "ui/gfx/rect.h"
+#include "ui/gfx/size.h"
 #include "ui/gfx/x/x11_atom_cache.h"
 #include "ui/views/views_export.h"
 #include "ui/views/widget/desktop_aura/desktop_window_tree_host.h"
@@ -36,7 +37,6 @@ class DesktopDragDropClientAuraX11;
 class DesktopDispatcherClient;
 class DesktopWindowTreeHostObserverX11;
 class X11DesktopWindowMoveClient;
-class X11ScopedCapture;
 class X11WindowEventFilter;
 
 class VIEWS_EXPORT DesktopWindowTreeHostX11
@@ -100,7 +100,7 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11
   virtual void ShowMaximizedWithBounds(
       const gfx::Rect& restored_bounds) OVERRIDE;
   virtual bool IsVisible() const OVERRIDE;
-  virtual void SetSize(const gfx::Size& size) OVERRIDE;
+  virtual void SetSize(const gfx::Size& requested_size) OVERRIDE;
   virtual void StackAtTop() OVERRIDE;
   virtual void CenterWindow(const gfx::Size& size) OVERRIDE;
   virtual void GetWindowPlacement(
@@ -141,11 +141,12 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11
                               const gfx::ImageSkia& app_icon) OVERRIDE;
   virtual void InitModalType(ui::ModalType modal_type) OVERRIDE;
   virtual void FlashFrame(bool flash_frame) OVERRIDE;
-  virtual void OnRootViewLayout() const OVERRIDE;
+  virtual void OnRootViewLayout() OVERRIDE;
   virtual void OnNativeWidgetFocus() OVERRIDE;
   virtual void OnNativeWidgetBlur() OVERRIDE;
   virtual bool IsAnimatingClosed() const OVERRIDE;
   virtual bool IsTranslucentWindowOpacitySupported() const OVERRIDE;
+  virtual void SizeConstraintsChanged() OVERRIDE;
 
   // Overridden from aura::WindowTreeHost:
   virtual ui::EventSource* GetEventSource() OVERRIDE;
@@ -153,12 +154,11 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11
   virtual void Show() OVERRIDE;
   virtual void Hide() OVERRIDE;
   virtual gfx::Rect GetBounds() const OVERRIDE;
-  virtual void SetBounds(const gfx::Rect& bounds) OVERRIDE;
+  virtual void SetBounds(const gfx::Rect& requested_bounds) OVERRIDE;
   virtual gfx::Point GetLocationOnNativeScreen() const OVERRIDE;
   virtual void SetCapture() OVERRIDE;
   virtual void ReleaseCapture() OVERRIDE;
   virtual void PostNativeEvent(const base::NativeEvent& native_event) OVERRIDE;
-  virtual void OnDeviceScaleFactorChanged(float device_scale_factor) OVERRIDE;
   virtual void SetCursorNative(gfx::NativeCursor cursor) OVERRIDE;
   virtual void MoveCursorToNative(const gfx::Point& location) OVERRIDE;
   virtual void OnCursorVisibilityChangedNative(bool show) OVERRIDE;
@@ -175,11 +175,19 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11
   // along with all aura client objects that direct behavior.
   aura::WindowEventDispatcher* InitDispatcher(const Widget::InitParams& params);
 
+  // Adjusts |requested_size| to avoid the WM "feature" where setting the
+  // window size to the monitor size causes the WM to set the EWMH for
+  // fullscreen.
+  gfx::Size AdjustSize(const gfx::Size& requested_size);
+
   // Called when |xwindow_|'s _NET_WM_STATE property is updated.
   void OnWMStateUpdated();
 
   // Called when |xwindow_|'s _NET_FRAME_EXTENTS property is updated.
   void OnFrameExtentsUpdated();
+
+  // Updates |xwindow_|'s minimum and maximum size.
+  void UpdateMinAndMaxSize();
 
   // Updates |xwindow_|'s _NET_WM_USER_TIME if |xwindow_| is active.
   void UpdateWMUserTime(const ui::PlatformEvent& event);
@@ -193,10 +201,6 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11
 
   // Sets whether the window's borders are provided by the window manager.
   void SetUseNativeFrame(bool use_native_frame);
-
-  // Called when another DRWHL takes capture, or when capture is released
-  // entirely.
-  void OnCaptureReleased();
 
   // Dispatches a mouse event, taking mouse capture into account. If a
   // different host has capture, we translate the event to its coordinate space
@@ -236,8 +240,6 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11
 
   void DelayedResize(const gfx::Size& size);
 
-  base::WeakPtrFactory<DesktopWindowTreeHostX11> close_widget_factory_;
-
   // X11 things
   // The display and the native X window hosting the root window.
   XDisplay* xdisplay_;
@@ -265,6 +267,12 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11
   // The bounds of our window before we were maximized.
   gfx::Rect restored_bounds_;
 
+  // |xwindow_|'s minimum size.
+  gfx::Size min_size_;
+
+  // |xwindow_|'s maximum size.
+  gfx::Size max_size_;
+
   // The window manager state bits.
   std::set< ::Atom> window_properties_;
 
@@ -277,15 +285,13 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11
   // True if the window has title-bar / borders provided by the window manager.
   bool use_native_frame_;
 
+  // True if a Maximize() call should be done after mapping the window.
+  bool should_maximize_after_map_;
+
   // Whether we used an ARGB visual for our window.
   bool use_argb_visual_;
 
-  scoped_ptr<DesktopDispatcherClient> dispatcher_client_;
-
   DesktopDragDropClientAuraX11* drag_drop_client_;
-
-  // Current Aura cursor.
-  gfx::NativeCursor current_cursor_;
 
   scoped_ptr<ui::EventHandler> x11_non_client_event_filter_;
   scoped_ptr<X11DesktopWindowMoveClient> x11_window_move_client_;
@@ -314,18 +320,13 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11
   // The size of the window manager provided borders (if any).
   gfx::Insets native_window_frame_borders_;
 
-  // The current root window host that has capture. While X11 has something
-  // like Windows SetCapture()/ReleaseCapture(), it is entirely implicit and
-  // there are no notifications when this changes. We need to track this so we
-  // can notify widgets when they have lost capture, which controls a bunch of
-  // things in views like hiding menus.
+  // The current DesktopWindowTreeHostX11 which has capture. Set synchronously
+  // when capture is requested via SetCapture().
   static DesktopWindowTreeHostX11* g_current_capture;
 
   // A list of all (top-level) windows that have been created but not yet
   // destroyed.
   static std::list<XID>* open_windows_;
-
-  scoped_ptr<X11ScopedCapture> x11_capture_;
 
   base::string16 window_title_;
 
@@ -336,6 +337,8 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11
   bool urgency_hint_set_;
 
   base::CancelableCallback<void()> delayed_resize_task_;
+
+  base::WeakPtrFactory<DesktopWindowTreeHostX11> close_widget_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(DesktopWindowTreeHostX11);
 };

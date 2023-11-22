@@ -19,7 +19,9 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content" >
+    android:layout_height="wrap_content"
+    android:layout_marginTop="24dp"
+    android:background="@android:color/white" >
 
     <include layout="@layout/conversation_view_border" />
 
@@ -53,9 +55,8 @@
 
     </LinearLayout>
 
-    <View
+    <Space
         android:layout_width="match_parent"
-        android:layout_height="16dp"
-        android:background="@color/conversation_view_item_background_color" />
+        android:layout_height="48dp" />
 
 </com.android.mail.browse.ConversationFooterView>

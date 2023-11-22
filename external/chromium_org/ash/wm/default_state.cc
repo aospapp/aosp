@@ -305,6 +305,15 @@ bool DefaultState::ProcessWorkspaceEvents(WindowState* window_state,
       if (bounds.IsEmpty())
         return true;
 
+      // Only windows of type WINDOW_TYPE_NORMAL or WINDOW_TYPE_PANEL need to be
+      // adjusted to have minimum visibility, because they are positioned by the
+      // user and user should always be able to interact with them. Other
+      // windows are positioned programmatically.
+      if (window_state->window()->type() != ui::wm::WINDOW_TYPE_NORMAL &&
+          window_state->window()->type() != ui::wm::WINDOW_TYPE_PANEL) {
+        return true;
+      }
+
       // Use entire display instead of workarea because the workarea can
       // be further shrunk by the docked area. The logic ensures 30%
       // visibility which should be enough to see where the window gets
@@ -502,10 +511,22 @@ void DefaultState::UpdateBoundsFromState(WindowState* window_state,
     case WINDOW_STATE_TYPE_NORMAL: {
       gfx::Rect work_area_in_parent =
           ScreenUtil::GetDisplayWorkAreaBoundsInParent(window_state->window());
-      if (window_state->HasRestoreBounds())
+      if (window_state->HasRestoreBounds()) {
         bounds_in_parent = window_state->GetRestoreBoundsInParent();
-      else
+        // Check if the |window|'s restored size is bigger than the working area
+        // This may happen if a window was resized to maximized bounds or if the
+        // display resolution changed while the window was maximized.
+        if (previous_state_type == WINDOW_STATE_TYPE_MAXIMIZED &&
+            bounds_in_parent.width() >= work_area_in_parent.width() &&
+            bounds_in_parent.height() >= work_area_in_parent.height()) {
+          // Inset the bounds slightly so that they are not exactly same as
+          // the work area bounds and it is easier to resize the window.
+          bounds_in_parent = work_area_in_parent;
+          bounds_in_parent.Inset(10, 10, 10, 10);
+        }
+      } else {
         bounds_in_parent = window->bounds();
+      }
       // Make sure that part of the window is always visible.
       AdjustBoundsToEnsureMinimumWindowVisibility(
           work_area_in_parent, &bounds_in_parent);
@@ -522,7 +543,6 @@ void DefaultState::UpdateBoundsFromState(WindowState* window_state,
     case WINDOW_STATE_TYPE_MINIMIZED:
       break;
     case WINDOW_STATE_TYPE_INACTIVE:
-    case WINDOW_STATE_TYPE_DETACHED:
     case WINDOW_STATE_TYPE_END:
     case WINDOW_STATE_TYPE_AUTO_POSITIONED:
       return;

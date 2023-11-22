@@ -18,4 +18,6 @@
     <!-- Dimension used to possibly down-scale high-res photo into what is suitable
          for notification's large icon. -->
     <dimen name="notification_icon_size">64dp</dimen>
+
+    <dimen name="dialer_settings_actionbar_elevation">2dp</dimen>
 </resources>

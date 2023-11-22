@@ -6,7 +6,7 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "base/strings/stringprintf.h"
-#include "grit/generated_resources.h"
+#include "chrome/grit/generated_resources.h"
 #include "net/base/net_errors.h"
 #include "net/http/http_response_headers.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -21,7 +21,7 @@ SecurityFilterPeer::~SecurityFilterPeer() {
 // static
 SecurityFilterPeer*
 SecurityFilterPeer::CreateSecurityFilterPeerForDeniedRequest(
-    ResourceType::Type resource_type,
+    content::ResourceType resource_type,
     content::RequestPeer* peer,
     int os_error) {
   // Create a filter for SSL and CERT errors.
@@ -40,7 +40,7 @@ SecurityFilterPeer::CreateSecurityFilterPeerForDeniedRequest(
     case net::ERR_CERT_NAME_CONSTRAINT_VIOLATION:
     case net::ERR_INSECURE_RESPONSE:
     case net::ERR_SSL_PINNED_KEY_NOT_IN_CERT_CHAIN:
-      if (ResourceType::IsFrame(resource_type))
+      if (content::IsResourceTypeFrame(resource_type))
         return CreateSecurityFilterPeerForFrame(peer, os_error);
       // Any other content is entirely filtered-out.
       return new ReplaceContentPeer(peer, std::string(), std::string());
@@ -69,8 +69,7 @@ void SecurityFilterPeer::OnUploadProgress(uint64 position, uint64 size) {
 }
 
 bool SecurityFilterPeer::OnReceivedRedirect(
-    const GURL& new_url,
-    const GURL& new_first_party_for_cookies,
+    const net::RedirectInfo& redirect_info,
     const content::ResourceResponseInfo& info) {
   NOTREACHED();
   return false;

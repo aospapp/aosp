@@ -11,10 +11,12 @@
 #include "chrome/browser/ui/app_list/app_list_controller_delegate.h"
 #include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/host_desktop.h"
+#include "chrome/common/extensions/extension_constants.h"
+#include "chrome/grit/generated_resources.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/management_policy.h"
+#include "extensions/browser/uninstall_reason.h"
 #include "extensions/common/extension.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/events/event.h"
 #include "ui/views/controls/button/label_button.h"
@@ -113,7 +115,10 @@ void AppInfoFooterPanel::ButtonPressed(views::Button* sender,
 void AppInfoFooterPanel::ExtensionUninstallAccepted() {
   ExtensionService* service =
       extensions::ExtensionSystem::Get(profile_)->extension_service();
-  service->UninstallExtension(app_->id(), false, NULL);
+  service->UninstallExtension(app_->id(),
+                              extensions::UNINSTALL_REASON_USER_INITIATED,
+                              base::Bind(&base::DoNothing),
+                              NULL);
 
   // Close the App Info dialog as well (which will free the dialog too).
   GetWidget()->Close();
@@ -154,15 +159,20 @@ void AppInfoFooterPanel::SetPinnedToShelf(bool value) {
 bool AppInfoFooterPanel::CanSetPinnedToShelf() const {
   // Non-Ash platforms don't have a shelf.
   if (chrome::GetHostDesktopTypeForNativeWindow(parent_window_) !=
-      chrome::HOST_DESKTOP_TYPE_ASH)
+      chrome::HOST_DESKTOP_TYPE_ASH) {
     return false;
-  return ash::Shell::GetInstance()->GetShelfDelegate()->CanPin();
+  }
+
+  // The Chrome app can't be unpinned.
+  return app_->id() != extension_misc::kChromeAppId &&
+         ash::Shell::GetInstance()->GetShelfDelegate()->CanPin();
 }
 
 void AppInfoFooterPanel::UninstallApp() {
   DCHECK(CanUninstallApp());
   extension_uninstall_dialog_.reset(
-      extensions::ExtensionUninstallDialog::Create(profile_, NULL, this));
+      extensions::ExtensionUninstallDialog::Create(
+          profile_, GetWidget()->GetNativeWindow(), this));
   extension_uninstall_dialog_->ConfirmUninstall(app_);
 }
 

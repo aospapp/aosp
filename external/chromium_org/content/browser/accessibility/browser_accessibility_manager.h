@@ -13,7 +13,7 @@
 #include "content/common/content_export.h"
 #include "third_party/WebKit/public/web/WebAXEnums.h"
 #include "ui/accessibility/ax_node_data.h"
-#include "ui/accessibility/ax_tree.h"
+#include "ui/accessibility/ax_serializable_tree.h"
 #include "ui/accessibility/ax_tree_update.h"
 #include "ui/gfx/native_widget_types.h"
 
@@ -22,6 +22,7 @@ struct AccessibilityHostMsg_LocationChangeParams;
 
 namespace content {
 class BrowserAccessibility;
+class BrowserAccessibilityManager;
 #if defined(OS_ANDROID)
 class BrowserAccessibilityManagerAndroid;
 #endif
@@ -42,16 +43,22 @@ CONTENT_EXPORT ui::AXTreeUpdate MakeAXTreeUpdate(
     const ui::AXNodeData& node9 = ui::AXNodeData());
 
 // Class that can perform actions on behalf of the BrowserAccessibilityManager.
+// Note: BrowserAccessibilityManager should never cache any of the return
+// values from any of these interfaces, especially those that return pointers.
+// They may only be valid within this call stack. That policy eliminates any
+// concerns about ownership and lifecycle issues; none of these interfaces
+// transfer ownership and no return values are guaranteed to be valid outside
+// of the current call stack.
 class CONTENT_EXPORT BrowserAccessibilityDelegate {
  public:
   virtual ~BrowserAccessibilityDelegate() {}
   virtual void AccessibilitySetFocus(int acc_obj_id) = 0;
   virtual void AccessibilityDoDefaultAction(int acc_obj_id) = 0;
-  virtual void AccessibilityShowMenu(int acc_obj_id) = 0;
+  virtual void AccessibilityShowMenu(const gfx::Point& global_point) = 0;
   virtual void AccessibilityScrollToMakeVisible(
-      int acc_obj_id, gfx::Rect subfocus) = 0;
+      int acc_obj_id, const gfx::Rect& subfocus) = 0;
   virtual void AccessibilityScrollToPoint(
-      int acc_obj_id, gfx::Point point) = 0;
+      int acc_obj_id, const gfx::Point& point) = 0;
   virtual void AccessibilitySetTextSelection(
       int acc_obj_id, int start_offset, int end_offset) = 0;
   virtual bool AccessibilityViewHasFocus() const = 0;
@@ -61,6 +68,11 @@ class CONTENT_EXPORT BrowserAccessibilityDelegate {
   virtual void AccessibilityHitTest(
       const gfx::Point& point) = 0;
   virtual void AccessibilityFatalError() = 0;
+  virtual gfx::AcceleratedWidget AccessibilityGetAcceleratedWidget() = 0;
+  virtual gfx::NativeViewAccessible AccessibilityGetNativeViewAccessible() = 0;
+  virtual BrowserAccessibilityManager* AccessibilityGetChildFrame(
+      int accessibility_node_id) = 0;
+  virtual BrowserAccessibility* AccessibilityGetParentFrame() = 0;
 };
 
 class CONTENT_EXPORT BrowserAccessibilityFactory {
@@ -183,6 +195,12 @@ class CONTENT_EXPORT BrowserAccessibilityManager : public ui::AXTreeDelegate {
   virtual void OnRootChanged(ui::AXNode* new_root) OVERRIDE {}
 
   BrowserAccessibilityDelegate* delegate() const { return delegate_; }
+  void set_delegate(BrowserAccessibilityDelegate* delegate) {
+    delegate_ = delegate;
+  }
+
+  // Get a snapshot of the current tree as an AXTreeUpdate.
+  ui::AXTreeUpdate SnapshotAXTreeForTesting();
 
  protected:
   BrowserAccessibilityManager(
@@ -220,21 +238,6 @@ class CONTENT_EXPORT BrowserAccessibilityManager : public ui::AXTreeDelegate {
     OSK_ALLOWED
   };
 
-  // Update a set of nodes using data received from the renderer
-  // process.
-  bool UpdateNodes(const std::vector<ui::AXNodeData>& nodes);
-
-  // Update one node from the tree using data received from the renderer
-  // process. Returns true on success, false on fatal error.
-  bool UpdateNode(const ui::AXNodeData& src);
-
-  void SetRoot(BrowserAccessibility* root);
-
-  BrowserAccessibility* CreateNode(
-      BrowserAccessibility* parent,
-      int32 id,
-      int32 index_in_parent);
-
  protected:
   // The object that can perform actions on our behalf.
   BrowserAccessibilityDelegate* delegate_;
@@ -243,7 +246,7 @@ class CONTENT_EXPORT BrowserAccessibilityManager : public ui::AXTreeDelegate {
   scoped_ptr<BrowserAccessibilityFactory> factory_;
 
   // The underlying tree of accessibility objects.
-  scoped_ptr<ui::AXTree> tree_;
+  scoped_ptr<ui::AXSerializableTree> tree_;
 
   // The node that currently has focus.
   ui::AXNode* focus_;

@@ -22,9 +22,6 @@ class NotificationPresenter : public blink::WebNotificationPresenter {
   NotificationPresenter();
   virtual ~NotificationPresenter();
 
-  // Called by the TestRunner to simulate a user granting permission.
-  void GrantPermission(const std::string& origin, bool permission_granted);
-
   // Called by the TestRunner to simulate a user clicking on a notification.
   bool SimulateClick(const std::string& title);
 
@@ -39,16 +36,9 @@ class NotificationPresenter : public blink::WebNotificationPresenter {
   virtual void objectDestroyed(const blink::WebNotification& notification);
   virtual Permission checkPermission(
       const blink::WebSecurityOrigin& security_origin);
-  virtual void requestPermission(
-      const blink::WebSecurityOrigin& security_origin,
-      blink::WebNotificationPermissionCallback* callback);
 
  private:
   WebTestDelegate* delegate_;
-
-  // Map of known origins and whether they are allowed to show notifications.
-  typedef std::map<std::string, bool> KnownOriginMap;
-  KnownOriginMap known_origins_;
 
   // Map of currently active notifications.
   typedef std::map<std::string, blink::WebNotification> ActiveNotificationMap;

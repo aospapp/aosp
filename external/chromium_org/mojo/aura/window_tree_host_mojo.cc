@@ -61,19 +61,19 @@ class TreeHosts : public base::SupportsUserData::Data {
 ////////////////////////////////////////////////////////////////////////////////
 // WindowTreeHostMojo, public:
 
-WindowTreeHostMojo::WindowTreeHostMojo(view_manager::Node* node,
+WindowTreeHostMojo::WindowTreeHostMojo(View* view,
                                        WindowTreeHostMojoDelegate* delegate)
-    : node_(node),
-      bounds_(node->bounds()),
+    : view_(view),
+      bounds_(view->bounds()),
       delegate_(delegate) {
-  node_->AddObserver(this);
+  view_->AddObserver(this);
   CreateCompositor(GetAcceleratedWidget());
 
   TreeHosts::Get()->Add(this);
 }
 
 WindowTreeHostMojo::~WindowTreeHostMojo() {
-  node_->RemoveObserver(this);
+  view_->RemoveObserver(this);
   TreeHosts::Get()->Remove(this);
   DestroyCompositor();
   DestroyDispatcher();
@@ -137,11 +137,6 @@ void WindowTreeHostMojo::PostNativeEvent(
   NOTIMPLEMENTED();
 }
 
-void WindowTreeHostMojo::OnDeviceScaleFactorChanged(
-    float device_scale_factor) {
-  NOTIMPLEMENTED();
-}
-
 void WindowTreeHostMojo::SetCursorNative(gfx::NativeCursor cursor) {
   NOTIMPLEMENTED();
 }
@@ -162,13 +157,12 @@ ui::EventProcessor* WindowTreeHostMojo::GetEventProcessor() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// WindowTreeHostMojo, view_manager::NodeObserver implementation:
+// WindowTreeHostMojo, ViewObserver implementation:
 
-void WindowTreeHostMojo::OnNodeBoundsChange(
-    view_manager::Node* node,
+void WindowTreeHostMojo::OnViewBoundsChanged(
+    View* view,
     const gfx::Rect& old_bounds,
-    const gfx::Rect& new_bounds,
-    view_manager::NodeObserver::DispositionChangePhase phase) {
+    const gfx::Rect& new_bounds) {
   bounds_ = new_bounds;
   if (old_bounds.origin() != new_bounds.origin())
     OnHostMoved(bounds_.origin());

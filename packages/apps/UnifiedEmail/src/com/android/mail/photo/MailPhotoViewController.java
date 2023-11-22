@@ -68,6 +68,7 @@ public class MailPhotoViewController extends PhotoViewController {
 
     private static final String LOG_TAG = LogTag.getLogTag();
 
+    private String mAccountType;
     private MenuItem mSaveItem;
     private MenuItem mSaveAllItem;
     private MenuItem mShareItem;
@@ -97,6 +98,7 @@ public class MailPhotoViewController extends PhotoViewController {
         mActionHandler.initialize(mMailActivity.getFragmentManager());
 
         final Intent intent = mMailActivity.getIntent();
+        mAccountType = intent.getStringExtra(MailPhotoViewActivity.EXTRA_ACCOUNT_TYPE);
         final String account = intent.getStringExtra(MailPhotoViewActivity.EXTRA_ACCOUNT);
         final Message msg = intent.getParcelableExtra(MailPhotoViewActivity.EXTRA_MESSAGE);
         mHideExtraOptionOne = intent.getBooleanExtra(
@@ -176,12 +178,9 @@ public class MailPhotoViewController extends PhotoViewController {
             mShareItem.setEnabled(canShare);
             mPrintItem.setEnabled(canShare);
             mDownloadAgainItem.setEnabled(attachment.canSave() && attachment.isDownloading());
-            if (mHideExtraOptionOne) {
-                mExtraOption1Item.setVisible(false);
-            } else {
-                mExtraOption1Item.setEnabled(
-                        mActionHandler.shouldShowExtraOption1(attachment.getContentType()));
-            }
+            mExtraOption1Item.setVisible(!mHideExtraOptionOne &&
+                    mActionHandler.shouldShowExtraOption1(mAccountType,
+                            attachment.getContentType()));
         } else {
             if (mMenu != null) {
                 mMenu.setGroupEnabled(R.id.photo_view_menu_group, false);

@@ -16,6 +16,7 @@
 -->
 <sample>
     <name>BeamLargeFiles</name>
+    <group>Connectivity</group>
     <package>com.example.android.beamlargefiles</package>
 
 

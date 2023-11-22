@@ -6,15 +6,15 @@
 
 #include "base/bind.h"
 #include "base/logging.h"
-#include "cc/layers/quad_sink.h"
 #include "cc/layers/video_frame_provider_client_impl.h"
 #include "cc/quads/io_surface_draw_quad.h"
 #include "cc/quads/stream_video_draw_quad.h"
 #include "cc/quads/texture_draw_quad.h"
 #include "cc/quads/yuv_video_draw_quad.h"
 #include "cc/resources/resource_provider.h"
-#include "cc/resources/single_release_callback.h"
+#include "cc/resources/single_release_callback_impl.h"
 #include "cc/trees/layer_tree_impl.h"
+#include "cc/trees/occlusion_tracker.h"
 #include "cc/trees/proxy.h"
 #include "media/base/video_frame.h"
 
@@ -28,17 +28,21 @@ namespace cc {
 scoped_ptr<VideoLayerImpl> VideoLayerImpl::Create(
     LayerTreeImpl* tree_impl,
     int id,
-    VideoFrameProvider* provider) {
-  scoped_ptr<VideoLayerImpl> layer(new VideoLayerImpl(tree_impl, id));
+    VideoFrameProvider* provider,
+    media::VideoRotation video_rotation) {
+  scoped_ptr<VideoLayerImpl> layer(
+      new VideoLayerImpl(tree_impl, id, video_rotation));
   layer->SetProviderClientImpl(VideoFrameProviderClientImpl::Create(provider));
   DCHECK(tree_impl->proxy()->IsImplThread());
   DCHECK(tree_impl->proxy()->IsMainThreadBlocked());
   return layer.Pass();
 }
 
-VideoLayerImpl::VideoLayerImpl(LayerTreeImpl* tree_impl, int id)
-    : LayerImpl(tree_impl, id),
-      frame_(NULL) {}
+VideoLayerImpl::VideoLayerImpl(LayerTreeImpl* tree_impl,
+                               int id,
+                               media::VideoRotation video_rotation)
+    : LayerImpl(tree_impl, id), frame_(NULL), video_rotation_(video_rotation) {
+}
 
 VideoLayerImpl::~VideoLayerImpl() {
   if (!provider_client_impl_->Stopped()) {
@@ -55,7 +59,8 @@ VideoLayerImpl::~VideoLayerImpl() {
 
 scoped_ptr<LayerImpl> VideoLayerImpl::CreateLayerImpl(
     LayerTreeImpl* tree_impl) {
-  return scoped_ptr<LayerImpl>(new VideoLayerImpl(tree_impl, id()));
+  VideoLayerImpl* impl = new VideoLayerImpl(tree_impl, id(), video_rotation_);
+  return scoped_ptr<LayerImpl>(impl);
 }
 
 void VideoLayerImpl::PushPropertiesTo(LayerImpl* layer) {
@@ -117,30 +122,63 @@ bool VideoLayerImpl::WillDraw(DrawMode draw_mode,
   for (size_t i = 0; i < external_resources.mailboxes.size(); ++i) {
     unsigned resource_id = resource_provider->CreateResourceFromTextureMailbox(
         external_resources.mailboxes[i],
-        SingleReleaseCallback::Create(external_resources.release_callbacks[i]));
+        SingleReleaseCallbackImpl::Create(
+            external_resources.release_callbacks[i]));
     frame_resources_.push_back(resource_id);
   }
 
   return true;
 }
 
-void VideoLayerImpl::AppendQuads(QuadSink* quad_sink,
-                                 AppendQuadsData* append_quads_data) {
+void VideoLayerImpl::AppendQuads(
+    RenderPass* render_pass,
+    const OcclusionTracker<LayerImpl>& occlusion_tracker,
+    AppendQuadsData* append_quads_data) {
   DCHECK(frame_.get());
 
-  SharedQuadState* shared_quad_state = quad_sink->CreateSharedQuadState();
-  PopulateSharedQuadState(shared_quad_state);
+  gfx::Transform transform = draw_transform();
+  gfx::Size rotated_size = content_bounds();
+
+  switch (video_rotation_) {
+    case media::VIDEO_ROTATION_90:
+      rotated_size = gfx::Size(rotated_size.height(), rotated_size.width());
+      transform.Rotate(90.0);
+      transform.Translate(0.0, -rotated_size.height());
+      break;
+    case media::VIDEO_ROTATION_180:
+      transform.Rotate(180.0);
+      transform.Translate(-rotated_size.width(), -rotated_size.height());
+      break;
+    case media::VIDEO_ROTATION_270:
+      rotated_size = gfx::Size(rotated_size.height(), rotated_size.width());
+      transform.Rotate(270.0);
+      transform.Translate(-rotated_size.width(), 0);
+    case media::VIDEO_ROTATION_0:
+      break;
+  }
+
+  SharedQuadState* shared_quad_state =
+      render_pass->CreateAndAppendSharedQuadState();
+  shared_quad_state->SetAll(transform,
+                            rotated_size,
+                            visible_content_rect(),
+                            clip_rect(),
+                            is_clipped(),
+                            draw_opacity(),
+                            blend_mode(),
+                            sorting_context_id());
 
   AppendDebugBorderQuad(
-      quad_sink, content_bounds(), shared_quad_state, append_quads_data);
+      render_pass, rotated_size, shared_quad_state, append_quads_data);
 
-  gfx::Rect quad_rect(content_bounds());
+  gfx::Rect quad_rect(rotated_size);
   gfx::Rect opaque_rect(contents_opaque() ? quad_rect : gfx::Rect());
   gfx::Rect visible_rect = frame_->visible_rect();
   gfx::Size coded_size = frame_->coded_size();
 
-  gfx::Rect visible_quad_rect = quad_sink->UnoccludedContentRect(
-      quad_rect, draw_properties().target_space_transform);
+  gfx::Rect visible_quad_rect =
+      occlusion_tracker.GetCurrentOcclusionForLayer(transform)
+          .GetUnoccludedContentRect(quad_rect);
   if (visible_quad_rect.IsEmpty())
     return;
 
@@ -166,7 +204,8 @@ void VideoLayerImpl::AppendQuads(QuadSink* quad_sink,
       gfx::PointF uv_bottom_right(tex_width_scale, tex_height_scale);
       float opacity[] = {1.0f, 1.0f, 1.0f, 1.0f};
       bool flipped = false;
-      scoped_ptr<TextureDrawQuad> texture_quad = TextureDrawQuad::Create();
+      TextureDrawQuad* texture_quad =
+          render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
       texture_quad->SetNew(shared_quad_state,
                            quad_rect,
                            opaque_rect,
@@ -178,7 +217,6 @@ void VideoLayerImpl::AppendQuads(QuadSink* quad_sink,
                            SK_ColorTRANSPARENT,
                            opacity,
                            flipped);
-      quad_sink->Append(texture_quad.PassAs<DrawQuad>());
       break;
     }
     case VideoFrameExternalResources::YUV_RESOURCE: {
@@ -191,7 +229,8 @@ void VideoLayerImpl::AppendQuads(QuadSink* quad_sink,
               : YUVVideoDrawQuad::REC_601;
       gfx::RectF tex_coord_rect(
           tex_x_offset, tex_y_offset, tex_width_scale, tex_height_scale);
-      scoped_ptr<YUVVideoDrawQuad> yuv_video_quad = YUVVideoDrawQuad::Create();
+      YUVVideoDrawQuad* yuv_video_quad =
+          render_pass->CreateAndAppendDrawQuad<YUVVideoDrawQuad>();
       yuv_video_quad->SetNew(
           shared_quad_state,
           quad_rect,
@@ -203,7 +242,6 @@ void VideoLayerImpl::AppendQuads(QuadSink* quad_sink,
           frame_resources_[2],
           frame_resources_.size() > 3 ? frame_resources_[3] : 0,
           color_space);
-      quad_sink->Append(yuv_video_quad.PassAs<DrawQuad>());
       break;
     }
     case VideoFrameExternalResources::RGB_RESOURCE: {
@@ -215,7 +253,8 @@ void VideoLayerImpl::AppendQuads(QuadSink* quad_sink,
       gfx::PointF uv_bottom_right(tex_width_scale, tex_height_scale);
       float opacity[] = {1.0f, 1.0f, 1.0f, 1.0f};
       bool flipped = false;
-      scoped_ptr<TextureDrawQuad> texture_quad = TextureDrawQuad::Create();
+      TextureDrawQuad* texture_quad =
+          render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
       texture_quad->SetNew(shared_quad_state,
                            quad_rect,
                            opaque_rect,
@@ -227,7 +266,6 @@ void VideoLayerImpl::AppendQuads(QuadSink* quad_sink,
                            SK_ColorTRANSPARENT,
                            opacity,
                            flipped);
-      quad_sink->Append(texture_quad.PassAs<DrawQuad>());
       break;
     }
     case VideoFrameExternalResources::STREAM_TEXTURE_RESOURCE: {
@@ -236,8 +274,8 @@ void VideoLayerImpl::AppendQuads(QuadSink* quad_sink,
         break;
       gfx::Transform scale;
       scale.Scale(tex_width_scale, tex_height_scale);
-      scoped_ptr<StreamVideoDrawQuad> stream_video_quad =
-          StreamVideoDrawQuad::Create();
+      StreamVideoDrawQuad* stream_video_quad =
+          render_pass->CreateAndAppendDrawQuad<StreamVideoDrawQuad>();
       stream_video_quad->SetNew(
           shared_quad_state,
           quad_rect,
@@ -245,15 +283,14 @@ void VideoLayerImpl::AppendQuads(QuadSink* quad_sink,
           visible_quad_rect,
           frame_resources_[0],
           scale * provider_client_impl_->stream_texture_matrix());
-      quad_sink->Append(stream_video_quad.PassAs<DrawQuad>());
       break;
     }
     case VideoFrameExternalResources::IO_SURFACE: {
       DCHECK_EQ(frame_resources_.size(), 1u);
       if (frame_resources_.size() < 1u)
         break;
-      scoped_ptr<IOSurfaceDrawQuad> io_surface_quad =
-          IOSurfaceDrawQuad::Create();
+      IOSurfaceDrawQuad* io_surface_quad =
+          render_pass->CreateAndAppendDrawQuad<IOSurfaceDrawQuad>();
       io_surface_quad->SetNew(shared_quad_state,
                               quad_rect,
                               opaque_rect,
@@ -261,7 +298,6 @@ void VideoLayerImpl::AppendQuads(QuadSink* quad_sink,
                               visible_rect.size(),
                               frame_resources_[0],
                               IOSurfaceDrawQuad::UNFLIPPED);
-      quad_sink->Append(io_surface_quad.PassAs<DrawQuad>());
       break;
     }
 #if defined(VIDEO_HOLE)
@@ -273,8 +309,8 @@ void VideoLayerImpl::AppendQuads(QuadSink* quad_sink,
     // ycheo@chromium.org
     case VideoFrameExternalResources::HOLE: {
       DCHECK_EQ(frame_resources_.size(), 0u);
-      scoped_ptr<SolidColorDrawQuad> solid_color_draw_quad =
-          SolidColorDrawQuad::Create();
+      SolidColorDrawQuad* solid_color_draw_quad =
+          render_pass->CreateAndAppendDrawQuad<SolidColorDrawQuad>();
 
       // Create a solid color quad with transparent black and force no
       // blending / no anti-aliasing.
@@ -286,7 +322,6 @@ void VideoLayerImpl::AppendQuads(QuadSink* quad_sink,
                                     false,
                                     SK_ColorTRANSPARENT,
                                     true);
-      quad_sink->Append(solid_color_draw_quad.PassAs<DrawQuad>());
       break;
     }
 #endif  // defined(VIDEO_HOLE)
@@ -303,8 +338,10 @@ void VideoLayerImpl::DidDraw(ResourceProvider* resource_provider) {
 
   if (frame_resource_type_ ==
       VideoFrameExternalResources::SOFTWARE_RESOURCE) {
-    for (size_t i = 0; i < software_resources_.size(); ++i)
-      software_release_callback_.Run(0, false);
+    for (size_t i = 0; i < software_resources_.size(); ++i) {
+      software_release_callback_.Run(
+          0, false, layer_tree_impl()->BlockingMainThreadTaskRunner());
+    }
 
     software_resources_.clear();
     software_release_callback_.Reset();

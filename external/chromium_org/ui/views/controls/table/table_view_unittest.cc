@@ -198,10 +198,8 @@ class TableViewTest : public testing::Test {
 
   void TapOnRow(int row) {
     const int y = row * table_->row_height();
-    const ui::GestureEventDetails event_details(ui::ET_GESTURE_TAP,
-                                                .0f, .0f);
-    ui::GestureEvent tap(ui::ET_GESTURE_TAP, 0, y, 0, base::TimeDelta(),
-                         event_details, 1);
+    const ui::GestureEventDetails event_details(ui::ET_GESTURE_TAP);
+    ui::GestureEvent tap(0, y, 0, base::TimeDelta(), event_details);
     table_->OnGestureEvent(&tap);
   }
 
@@ -223,7 +221,7 @@ class TableViewTest : public testing::Test {
   }
 
   void PressKey(ui::KeyboardCode code) {
-    ui::KeyEvent event(ui::ET_KEY_PRESSED, code, 0, false);
+    ui::KeyEvent event(ui::ET_KEY_PRESSED, code, ui::EF_NONE);
     table_->OnKeyPressed(event);
   }
 
@@ -308,13 +306,19 @@ TEST_F(TableViewTest, ResizeViaGesture) {
   const int x = table_->visible_columns()[0].width;
   EXPECT_NE(0, x);
   // Drag the mouse 1 pixel to the left.
-  const ui::GestureEventDetails event_details(ui::ET_GESTURE_SCROLL_BEGIN,
-                                              .0f, .0f);
-  ui::GestureEvent scroll_begin(ui::ET_GESTURE_SCROLL_BEGIN, x, 0, 0,
-                                base::TimeDelta(), event_details, 1);
+  ui::GestureEvent scroll_begin(
+      x,
+      0,
+      0,
+      base::TimeDelta(),
+      ui::GestureEventDetails(ui::ET_GESTURE_SCROLL_BEGIN));
   helper_->header()->OnGestureEvent(&scroll_begin);
-  ui::GestureEvent scroll_update(ui::ET_GESTURE_SCROLL_UPDATE, x - 1, 0,
-                                 0, base::TimeDelta(), event_details, 1);
+  ui::GestureEvent scroll_update(
+      x - 1,
+      0,
+      0,
+      base::TimeDelta(),
+      ui::GestureEventDetails(ui::ET_GESTURE_SCROLL_UPDATE));
   helper_->header()->OnGestureEvent(&scroll_update);
 
   // This should shrink the first column and pull the second column in.

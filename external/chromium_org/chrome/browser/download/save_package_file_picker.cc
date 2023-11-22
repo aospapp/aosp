@@ -18,11 +18,11 @@
 #include "chrome/browser/ui/chrome_select_file_policy.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/download_manager.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/save_page_type.h"
 #include "content/public/browser/web_contents.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
 #if defined(OS_CHROMEOS)
@@ -76,8 +76,8 @@ void AddHtmlOnlyFileTypeInfo(
       l10n_util::GetStringUTF16(IDS_SAVE_PAGE_DESC_HTML_ONLY));
 
   std::vector<base::FilePath::StringType> extensions;
-  extensions.push_back(FILE_PATH_LITERAL("htm"));
   extensions.push_back(FILE_PATH_LITERAL("html"));
+  extensions.push_back(FILE_PATH_LITERAL("htm"));
   if (!extra_extension.empty())
     extensions.push_back(extra_extension);
   file_type_info->extensions.push_back(extensions);
@@ -255,7 +255,7 @@ void SavePackageFilePicker::FileSelected(
   }
 
   base::FilePath path_copy(path);
-  file_util::NormalizeFileNameEncoding(&path_copy);
+  base::i18n::NormalizeFileNameEncoding(&path_copy);
 
   download_prefs_->SetSaveFilePath(path_copy.DirName());
 

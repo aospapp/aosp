@@ -33,8 +33,6 @@ import android.net.ConnectivityManager;
 import android.net.LinkProperties;
 import android.net.NetworkCapabilities;
 import android.net.NetworkConfig;
-import android.net.NetworkFactory;
-import android.net.NetworkRequest;
 import android.net.NetworkUtils;
 import android.net.ProxyInfo;
 import android.net.Uri;
@@ -60,6 +58,7 @@ import android.telephony.cdma.CdmaCellLocation;
 import android.telephony.gsm.GsmCellLocation;
 import android.text.TextUtils;
 import android.util.EventLog;
+import android.util.SparseArray;
 import android.view.WindowManager;
 import android.telephony.Rlog;
 
@@ -83,7 +82,6 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.HashMap;
 import java.util.Objects;
 import java.lang.StringBuilder;
 
@@ -134,8 +132,8 @@ public final class DcTracker extends DcTrackerBase {
 
     private static final int PROVISIONING_SPINNER_TIMEOUT_MILLIS = 120 * 1000;
 
-    static final Uri PREFERAPN_NO_UPDATE_URI =
-                        Uri.parse("content://telephony/carriers/preferapn_no_update");
+    static final Uri PREFERAPN_NO_UPDATE_URI_USING_SUBID =
+                        Uri.parse("content://telephony/carriers/preferapn_no_update/subId/");
     static final String APN_ID = "apn_id";
 
     private boolean mCanSetPreferApn = false;
@@ -148,12 +146,6 @@ public final class DcTracker extends DcTrackerBase {
     private final String mProvisionActionName;
     private BroadcastReceiver mProvisionBroadcastReceiver;
     private ProgressDialog mProvisioningSpinner;
-
-    /** Used to send us NetworkRequests from ConnectivityService.  Remeber it so we can
-     * unregister on dispose. */
-    private Messenger mNetworkFactoryMessenger;
-    private NetworkFactory mNetworkFactory;
-    private NetworkCapabilities mNetworkFilter;
 
     public boolean mImsRegistrationState = false;
     private ApnContext mWaitCleanUpApnContext = null;
@@ -181,30 +173,6 @@ public final class DcTracker extends DcTrackerBase {
             mPhone.getContext().registerReceiver(mIntentReceiver, filter, null, mPhone);
         }
 
-        ConnectivityManager cm = (ConnectivityManager)p.getContext().getSystemService(
-                Context.CONNECTIVITY_SERVICE);
-
-        mNetworkFilter = new NetworkCapabilities();
-        mNetworkFilter.addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR);
-        mNetworkFilter.addCapability(NetworkCapabilities.NET_CAPABILITY_MMS);
-        mNetworkFilter.addCapability(NetworkCapabilities.NET_CAPABILITY_SUPL);
-        mNetworkFilter.addCapability(NetworkCapabilities.NET_CAPABILITY_DUN);
-        mNetworkFilter.addCapability(NetworkCapabilities.NET_CAPABILITY_FOTA);
-        mNetworkFilter.addCapability(NetworkCapabilities.NET_CAPABILITY_IMS);
-        mNetworkFilter.addCapability(NetworkCapabilities.NET_CAPABILITY_CBS);
-        mNetworkFilter.addCapability(NetworkCapabilities.NET_CAPABILITY_IA);
-        mNetworkFilter.addCapability(NetworkCapabilities.NET_CAPABILITY_RCS);
-        mNetworkFilter.addCapability(NetworkCapabilities.NET_CAPABILITY_XCAP);
-        mNetworkFilter.addCapability(NetworkCapabilities.NET_CAPABILITY_EIMS);
-        mNetworkFilter.addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED);
-        mNetworkFilter.addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
-
-        mNetworkFactory = new TelephonyNetworkFactory(this.getLooper(), p.getContext(),
-                "TelephonyNetworkFactory", mNetworkFilter);
-        mNetworkFactory.setScoreFilter(50);
-        mNetworkFactoryMessenger = new Messenger(mNetworkFactory);
-        cm.registerNetworkFactory(mNetworkFactoryMessenger, "Telephony");
-
         // Add Emergency APN to APN setting list by default to support EPDN in sim absent cases
         initEmergencyApnSetting();
         addEmergencyApnSetting();
@@ -218,6 +186,11 @@ public final class DcTracker extends DcTrackerBase {
                DctConstants.EVENT_RADIO_OFF_OR_NOT_AVAILABLE, null);
         mPhone.mCi.registerForDataNetworkStateChanged(this,
                DctConstants.EVENT_DATA_STATE_CHANGED, null);
+        // Note, this is fragile - the Phone is now presenting a merged picture
+        // of PS (volte) & CS and by diving into its internals you're just seeing
+        // the CS data.  This works well for the purposes this is currently used for
+        // but that may not always be the case.  Should probably be redesigned to
+        // accurately reflect what we're really interested in (registerForCSVoiceCallEnded).
         mPhone.getCallTracker().registerForVoiceCallEnded (this,
                DctConstants.EVENT_VOICE_CALL_ENDED, null);
         mPhone.getCallTracker().registerForVoiceCallStarted (this,
@@ -226,9 +199,9 @@ public final class DcTracker extends DcTrackerBase {
                DctConstants.EVENT_DATA_CONNECTION_ATTACHED, null);
         mPhone.getServiceStateTracker().registerForDataConnectionDetached(this,
                DctConstants.EVENT_DATA_CONNECTION_DETACHED, null);
-        mPhone.getServiceStateTracker().registerForRoamingOn(this,
+        mPhone.getServiceStateTracker().registerForDataRoamingOn(this,
                DctConstants.EVENT_ROAMING_ON, null);
-        mPhone.getServiceStateTracker().registerForRoamingOff(this,
+        mPhone.getServiceStateTracker().registerForDataRoamingOff(this,
                DctConstants.EVENT_ROAMING_OFF, null);
         mPhone.getServiceStateTracker().registerForPsRestrictedEnabled(this,
                 DctConstants.EVENT_PS_RESTRICT_ENABLED, null);
@@ -241,7 +214,7 @@ public final class DcTracker extends DcTrackerBase {
     }
     @Override
     public void dispose() {
-        if (DBG) log("GsmDCT.dispose");
+        if (DBG) log("DcTracker.dispose");
 
         if (mProvisionBroadcastReceiver != null) {
             mPhone.getContext().unregisterReceiver(mProvisionBroadcastReceiver);
@@ -251,11 +224,6 @@ public final class DcTracker extends DcTrackerBase {
             mProvisioningSpinner.dismiss();
             mProvisioningSpinner = null;
         }
-
-        ConnectivityManager cm = (ConnectivityManager)mPhone.getContext().getSystemService(
-                Context.CONNECTIVITY_SERVICE);
-        cm.unregisterNetworkFactory(mNetworkFactoryMessenger);
-        mNetworkFactoryMessenger = null;
 
         cleanUpAllConnections(true, null);
 
@@ -281,115 +249,50 @@ public final class DcTracker extends DcTrackerBase {
         mPhone.getCallTracker().unregisterForVoiceCallStarted(this);
         mPhone.getServiceStateTracker().unregisterForDataConnectionAttached(this);
         mPhone.getServiceStateTracker().unregisterForDataConnectionDetached(this);
-        mPhone.getServiceStateTracker().unregisterForRoamingOn(this);
-        mPhone.getServiceStateTracker().unregisterForRoamingOff(this);
+        mPhone.getServiceStateTracker().unregisterForDataRoamingOn(this);
+        mPhone.getServiceStateTracker().unregisterForDataRoamingOff(this);
         mPhone.getServiceStateTracker().unregisterForPsRestrictedEnabled(this);
         mPhone.getServiceStateTracker().unregisterForPsRestrictedDisabled(this);
         //SubscriptionManager.unregisterForDdsSwitch(this);
     }
 
-    private class TelephonyNetworkFactory extends NetworkFactory {
-        public TelephonyNetworkFactory(Looper l, Context c, String TAG, NetworkCapabilities nc) {
-            super(l, c, TAG, nc);
-        }
-
-        @Override
-        protected void needNetworkFor(NetworkRequest networkRequest, int score) {
-            // figure out the apn type and enable it
-            if (DBG) log("Cellular needs Network for " + networkRequest);
-            ApnContext apnContext = apnContextForNetworkRequest(networkRequest);
-            if (apnContext != null) apnContext.incRefCount();
-        }
-
-        @Override
-        protected void releaseNetworkFor(NetworkRequest networkRequest) {
-            if (DBG) log("Cellular releasing Network for " + networkRequest);
-            ApnContext apnContext = apnContextForNetworkRequest(networkRequest);
-            if (apnContext != null) apnContext.decRefCount();
+    @Override
+    public void incApnRefCount(String name) {
+        ApnContext apnContext = mApnContexts.get(name);
+        if (apnContext != null) {
+            apnContext.incRefCount();
         }
     }
 
-    private ApnContext apnContextForNetworkRequest(NetworkRequest nr) {
-        NetworkCapabilities nc = nr.networkCapabilities;
-        // for now, ignore the bandwidth stuff
-        if (nc.getTransportTypes().length > 0 &&
-                nc.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == false) {
-            return null;
+    @Override
+    public void decApnRefCount(String name) {
+        ApnContext apnContext = mApnContexts.get(name);
+        if (apnContext != null) {
+            apnContext.decRefCount();
         }
+    }
 
-        // in the near term just do 1-1 matches.
-        // TODO - actually try to match the set of capabilities
-        int type = -1;
-        String name = null;
-
-        boolean error = false;
-        if (nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
-            if (name != null) error = true;
-            name = PhoneConstants.APN_TYPE_DEFAULT;
-            type = ConnectivityManager.TYPE_MOBILE;
-        }
-        if (nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_MMS)) {
-            if (name != null) error = true;
-            name = PhoneConstants.APN_TYPE_MMS;
-            type = ConnectivityManager.TYPE_MOBILE_MMS;
-        }
-        if (nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_SUPL)) {
-            if (name != null) error = true;
-            name = PhoneConstants.APN_TYPE_SUPL;
-            type = ConnectivityManager.TYPE_MOBILE_SUPL;
-        }
-        if (nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_DUN)) {
-            if (name != null) error = true;
-            name = PhoneConstants.APN_TYPE_DUN;
-            type = ConnectivityManager.TYPE_MOBILE_DUN;
-        }
-        if (nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_FOTA)) {
-            if (name != null) error = true;
-            name = PhoneConstants.APN_TYPE_FOTA;
-            type = ConnectivityManager.TYPE_MOBILE_FOTA;
-        }
-        if (nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_IMS)) {
-            if (name != null) error = true;
-            name = PhoneConstants.APN_TYPE_IMS;
-            type = ConnectivityManager.TYPE_MOBILE_IMS;
-        }
-        if (nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_CBS)) {
-            if (name != null) error = true;
-            name = PhoneConstants.APN_TYPE_CBS;
-            type = ConnectivityManager.TYPE_MOBILE_CBS;
-        }
-        if (nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_IA)) {
-            if (name != null) error = true;
-            name = PhoneConstants.APN_TYPE_IA;
-            type = ConnectivityManager.TYPE_MOBILE_IA;
-        }
-        if (nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_RCS)) {
-            if (name != null) error = true;
-            name = null;
-            loge("RCS APN type not yet supported");
-        }
-        if (nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_XCAP)) {
-            if (name != null) error = true;
-            name = null;
-            loge("XCAP APN type not yet supported");
-        }
-        if (nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_EIMS)) {
-            if (name != null) error = true;
-            name = null;
-            loge("EIMS APN type not yet supported");
-        }
-        if (error) {
-            loge("Multiple apn types specified in request - result is unspecified!");
-        }
-        if (type == -1 || name == null) {
-            loge("Unsupported NetworkRequest in Telephony: " + nr);
-            return null;
+    @Override
+    public boolean isApnSupported(String name) {
+        if (name == null) {
+            loge("isApnSupported: name=null");
+            return false;
         }
         ApnContext apnContext = mApnContexts.get(name);
         if (apnContext == null) {
-            loge("Request for unsupported mobile type: " + type);
+            loge("Request for unsupported mobile name: " + name);
+            return false;
         }
-        return apnContext;
+        return true;
+    }
+
+    @Override
+    public int getApnPriority(String name) {
+        ApnContext apnContext = mApnContexts.get(name);
+        if (apnContext == null) {
+            loge("Request for unsupported mobile name: " + name);
+        }
+        return apnContext.priority;
     }
 
     // Turn telephony radio on or off.
@@ -492,12 +395,6 @@ public final class DcTracker extends DcTrackerBase {
     }
 
     protected void supplyMessenger() {
-       // Supply the data connection tracker messenger only if
-       // this is corresponding to the current DDS.
-       if (!isActiveDataSubscription()) {
-           return;
-       }
-
         ConnectivityManager cm = (ConnectivityManager)mPhone.getContext().getSystemService(
                 Context.CONNECTIVITY_SERVICE);
         cm.supplyMessenger(ConnectivityManager.TYPE_MOBILE, new Messenger(this));
@@ -811,7 +708,11 @@ public final class DcTracker extends DcTrackerBase {
         boolean attachedState = mAttached.get();
         boolean desiredPowerState = mPhone.getServiceStateTracker().getDesiredPowerState();
         IccRecords r = mIccRecords.get();
-        boolean recordsLoaded = (r != null) ? r.getRecordsLoaded() : false;
+        boolean recordsLoaded = false;
+        if (r != null) {
+            recordsLoaded = r.getRecordsLoaded();
+            if (DBG) log("isDataAllowed getRecordsLoaded=" + recordsLoaded);
+        }
 
         //FIXME always attach
         boolean psRestricted = mIsPsRestricted;
@@ -820,14 +721,27 @@ public final class DcTracker extends DcTrackerBase {
             attachedState = true;
             psRestricted = false;
         }
-
+        int dataSub = SubscriptionManager.getDefaultDataSubId();
+        boolean defaultDataSelected = SubscriptionManager.isValidSubscriptionId(dataSub);
+        PhoneConstants.State state = PhoneConstants.State.IDLE;
+        // Note this is explicitly not using mPhone.getState.  See b/19090488.
+        // mPhone.getState reports the merge of CS and PS (volte) voice call state
+        // but we only care about CS calls here for data/voice concurrency issues.
+        // Calling getCallTracker currently gives you just the CS side where the
+        // ImsCallTracker is held internally where applicable.
+        // This should be redesigned to ask explicitly what we want:
+        // voiceCallStateAllowDataCall, or dataCallAllowed or something similar.
+        if (mPhone.getCallTracker() != null) {
+            state = mPhone.getCallTracker().getState();
+        }
         boolean allowed =
                     (attachedState || mAutoAttachOnCreation) &&
                     recordsLoaded &&
-                    (mPhone.getState() == PhoneConstants.State.IDLE ||
+                    (state == PhoneConstants.State.IDLE ||
                      mPhone.getServiceStateTracker().isConcurrentVoiceAndDataAllowed()) &&
                     internalDataEnabled &&
-                    (!mPhone.getServiceState().getRoaming() || getDataOnRoamingEnabled()) &&
+                    defaultDataSelected &&
+                    (!mPhone.getServiceState().getDataRoaming() || getDataOnRoamingEnabled()) &&
                     //!mIsPsRestricted &&
                     !psRestricted &&
                     desiredPowerState;
@@ -837,13 +751,14 @@ public final class DcTracker extends DcTrackerBase {
                 reason += " - Attached= " + attachedState;
             }
             if (!recordsLoaded) reason += " - SIM not loaded";
-            if (mPhone.getState() != PhoneConstants.State.IDLE &&
+            if (state != PhoneConstants.State.IDLE &&
                     !mPhone.getServiceStateTracker().isConcurrentVoiceAndDataAllowed()) {
-                reason += " - PhoneState= " + mPhone.getState();
+                reason += " - PhoneState= " + state;
                 reason += " - Concurrent voice and data not allowed";
             }
             if (!internalDataEnabled) reason += " - mInternalDataEnabled= false";
-            if (mPhone.getServiceState().getRoaming() && !getDataOnRoamingEnabled()) {
+            if (!defaultDataSelected) reason += " - defaultDataSelected= false";
+            if (mPhone.getServiceState().getDataRoaming() && !getDataOnRoamingEnabled()) {
                 reason += " - Roaming and data roaming not enabled";
             }
             if (mIsPsRestricted) reason += " - mIsPsRestricted= true";
@@ -853,23 +768,59 @@ public final class DcTracker extends DcTrackerBase {
         return allowed;
     }
 
+    // arg for setupDataOnConnectableApns
+    private enum RetryFailures {
+        // retry failed networks always (the old default)
+        ALWAYS,
+        // retry only when a substantial change has occured.  Either:
+        // 1) we were restricted by voice/data concurrency and aren't anymore
+        // 2) our apn list has change
+        ONLY_ON_CHANGE
+    };
+
     private void setupDataOnConnectableApns(String reason) {
+        setupDataOnConnectableApns(reason, RetryFailures.ALWAYS);
+    }
+
+    private void setupDataOnConnectableApns(String reason, RetryFailures retryFailures) {
         if (DBG) log("setupDataOnConnectableApns: " + reason);
+        ArrayList<ApnSetting> waitingApns = null;
 
         for (ApnContext apnContext : mPrioritySortedApnContexts) {
             if (DBG) log("setupDataOnConnectableApns: apnContext " + apnContext);
             if (apnContext.getState() == DctConstants.State.FAILED) {
-                apnContext.setState(DctConstants.State.IDLE);
+                if (retryFailures == RetryFailures.ALWAYS) {
+                    apnContext.setState(DctConstants.State.IDLE);
+                } else if (apnContext.isConcurrentVoiceAndDataAllowed() == false &&
+                         mPhone.getServiceStateTracker().isConcurrentVoiceAndDataAllowed()) {
+                    // RetryFailures.ONLY_ON_CHANGE - check if voice concurrency has changed
+                    apnContext.setState(DctConstants.State.IDLE);
+                } else {
+                    // RetryFailures.ONLY_ON_CHANGE - check if the apns have changed
+                    int radioTech = mPhone.getServiceState().getRilDataRadioTechnology();
+                    ArrayList<ApnSetting> originalApns = apnContext.getOriginalWaitingApns();
+                    if (originalApns != null && originalApns.isEmpty() == false) {
+                        waitingApns = buildWaitingApns(apnContext.getApnType(), radioTech);
+                        if (originalApns.size() != waitingApns.size() ||
+                                originalApns.containsAll(waitingApns) == false) {
+                            apnContext.setState(DctConstants.State.IDLE);
+                        }
+                    }
+                }
             }
             if (apnContext.isConnectable()) {
                 log("setupDataOnConnectableApns: isConnectable() call trySetupData");
                 apnContext.setReason(reason);
-                trySetupData(apnContext);
+                trySetupData(apnContext, waitingApns);
             }
         }
     }
 
     private boolean trySetupData(ApnContext apnContext) {
+        return trySetupData(apnContext, null);
+    }
+
+    private boolean trySetupData(ApnContext apnContext, ArrayList<ApnSetting> waitingApns) {
         if (DBG) {
             log("trySetupData for type:" + apnContext.getApnType() +
                     " due to " + apnContext.getReason() + " apnContext=" + apnContext);
@@ -889,7 +840,8 @@ public final class DcTracker extends DcTrackerBase {
         // Allow SETUP_DATA request for E-APN to be completed during emergency call
         // and MOBILE DATA On/Off cases as well.
         boolean isEmergencyApn = apnContext.getApnType().equals(PhoneConstants.APN_TYPE_EMERGENCY);
-        boolean desiredPowerState = mPhone.getServiceStateTracker().getDesiredPowerState();
+        final ServiceStateTracker sst = mPhone.getServiceStateTracker();
+        boolean desiredPowerState = sst.getDesiredPowerState();
         boolean checkUserDataEnabled =
                     !(apnContext.getApnType().equals(PhoneConstants.APN_TYPE_IMS));
 
@@ -901,10 +853,11 @@ public final class DcTracker extends DcTrackerBase {
                 apnContext.setState(DctConstants.State.IDLE);
             }
             int radioTech = mPhone.getServiceState().getRilDataRadioTechnology();
+            apnContext.setConcurrentVoiceAndDataAllowed(sst.isConcurrentVoiceAndDataAllowed());
             if (apnContext.getState() == DctConstants.State.IDLE) {
-
-                ArrayList<ApnSetting> waitingApns = buildWaitingApns(apnContext.getApnType(),
-                        radioTech);
+                if (waitingApns == null) {
+                    waitingApns = buildWaitingApns(apnContext.getApnType(), radioTech);
+                }
                 if (waitingApns.isEmpty()) {
                     notifyNoData(DcFailCause.MISSING_UNKNOWN_APN, apnContext);
                     notifyOffApnsOfAvailability(apnContext.getReason());
@@ -1041,6 +994,10 @@ public final class DcTracker extends DcTrackerBase {
                 apnContext.setState(DctConstants.State.IDLE);
                 if (!apnContext.isReady()) {
                     if (dcac != null) {
+                        if (DBG) {
+                            log("cleanUpConnection: teardown, disconnected, !ready apnContext="
+                                    + apnContext);
+                        }
                         dcac.tearDown(apnContext, "", null);
                     }
                     apnContext.setDataConnectionAc(null);
@@ -1054,7 +1011,9 @@ public final class DcTracker extends DcTrackerBase {
                             // CAF_MSIM is this below condition required.
                             // if (PhoneConstants.APN_TYPE_DUN.equals(PhoneConstants.APN_TYPE_DEFAULT)) {
                             if (teardownForDun()) {
-                                if (DBG) log("tearing down dedicated DUN connection");
+                                if (DBG) {
+                                    log("cleanUpConnection: disconnectAll DUN connection");
+                                }
                                 // we need to tear it down - we brought it up just for dun and
                                 // other people are camped on it and now dun is done.  We need
                                 // to stop using it and let the normal apn list get used to find
@@ -1063,7 +1022,8 @@ public final class DcTracker extends DcTrackerBase {
                             }
                         }
                         if (DBG) {
-                            log("cleanUpConnection: tearing down" + (disconnectAll ? " all" :""));
+                            log("cleanUpConnection: tearing down" + (disconnectAll ? " all" :"")
+                                    + "apnContext=" + apnContext);
                         }
                         Message msg = obtainMessage(DctConstants.EVENT_DISCONNECT_DONE, apnContext);
                         if (disconnectAll) {
@@ -1402,8 +1362,12 @@ public final class DcTracker extends DcTrackerBase {
         if (DBG) log("onApnChanged: createAllApnList and cleanUpAllConnections");
         createAllApnList();
         setInitialAttachApn();
-        cleanUpAllConnections(!isDisconnected, Phone.REASON_APN_CHANGED);
-        setupDataOnConnectableApns(Phone.REASON_APN_CHANGED);
+        cleanUpConnectionsOnUpdatedApns(!isDisconnected);
+
+        // FIXME: See bug 17426028 maybe no conditional is needed.
+        if (mPhone.getSubId() == SubscriptionManager.getDefaultDataSubId()) {
+            setupDataOnConnectableApns(Phone.REASON_APN_CHANGED);
+        }
     }
 
     /**
@@ -1510,7 +1474,7 @@ public final class DcTracker extends DcTrackerBase {
         intent.putExtra(INTENT_RECONNECT_ALARM_EXTRA_TYPE, apnType);
 
         // Get current sub id.
-        long subId = SubscriptionManager.getDefaultDataSubId();
+        int subId = SubscriptionManager.getDefaultDataSubId();
         intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
 
         if (DBG) {
@@ -1554,6 +1518,7 @@ public final class DcTracker extends DcTrackerBase {
         if (DBG) log("onRecordsLoaded: createAllApnList");
         mAutoAttachOnCreationConfig = mPhone.getContext().getResources()
                 .getBoolean(com.android.internal.R.bool.config_auto_attach_data_on_creation);
+
         createAllApnList();
         setInitialAttachApn();
         if (mPhone.mCi.getRadioState().isOn()) {
@@ -1754,7 +1719,7 @@ public final class DcTracker extends DcTrackerBase {
     protected void onRoamingOff() {
         if (DBG) log("onRoamingOff");
 
-        if (mUserDataEnabled == false) return;
+        if (!mUserDataEnabled) return;
 
         if (getDataOnRoamingEnabled() == false) {
             notifyOffApnsOfAvailability(Phone.REASON_ROAMING_OFF);
@@ -1766,7 +1731,9 @@ public final class DcTracker extends DcTrackerBase {
 
     @Override
     protected void onRoamingOn() {
-        if (mUserDataEnabled == false) return;
+        if (DBG) log("onRoamingOn");
+
+        if (!mUserDataEnabled) return;
 
         if (getDataOnRoamingEnabled()) {
             if (DBG) log("onRoamingOn: setup data on roaming");
@@ -2167,6 +2134,8 @@ public final class DcTracker extends DcTrackerBase {
             mDisconnectPendingCount--;
 
         if (mDisconnectPendingCount == 0) {
+            apnContext.setConcurrentVoiceAndDataAllowed(
+                    mPhone.getServiceStateTracker().isConcurrentVoiceAndDataAllowed());
             notifyDataDisconnectComplete();
             notifyAllDataDisconnected();
         }
@@ -2565,15 +2534,17 @@ public final class DcTracker extends DcTrackerBase {
             return;
         }
 
+        String subId = Long.toString(mPhone.getSubId());
+        Uri uri = Uri.withAppendedPath(PREFERAPN_NO_UPDATE_URI_USING_SUBID, subId);
         log("setPreferredApn: delete");
         ContentResolver resolver = mPhone.getContext().getContentResolver();
-        resolver.delete(PREFERAPN_NO_UPDATE_URI, null, null);
+        resolver.delete(uri, null, null);
 
         if (pos >= 0) {
             log("setPreferredApn: insert");
             ContentValues values = new ContentValues();
             values.put(APN_ID, pos);
-            resolver.insert(PREFERAPN_NO_UPDATE_URI, values);
+            resolver.insert(uri, values);
         }
     }
 
@@ -2583,8 +2554,10 @@ public final class DcTracker extends DcTrackerBase {
             return null;
         }
 
+        String subId = Long.toString(mPhone.getSubId());
+        Uri uri = Uri.withAppendedPath(PREFERAPN_NO_UPDATE_URI_USING_SUBID, subId);
         Cursor cursor = mPhone.getContext().getContentResolver().query(
-                PREFERAPN_NO_UPDATE_URI, new String[] { "_id", "name", "apn" },
+                uri, new String[] { "_id", "name", "apn" },
                 null, null, Telephony.Carriers.DEFAULT_SORT_ORDER);
 
         if (cursor != null) {
@@ -2623,11 +2596,6 @@ public final class DcTracker extends DcTrackerBase {
 
         if (!mPhone.mIsTheCurrentActivePhone || mIsDisposed) {
             loge("handleMessage: Ignore GSM msgs since GSM phone is inactive");
-            return;
-        }
-
-        if (!isActiveDataSubscription()) {
-            loge("Ignore msgs since phone is not the current DDS");
             return;
         }
 
@@ -2729,7 +2697,8 @@ public final class DcTracker extends DcTrackerBase {
 
             case DctConstants.EVENT_DATA_RAT_CHANGED:
                 //May new Network allow setupData, so try it here
-                setupDataOnConnectableApns(Phone.REASON_NW_TYPE_CHANGED);
+                setupDataOnConnectableApns(Phone.REASON_NW_TYPE_CHANGED,
+                        RetryFailures.ONLY_ON_CHANGE);
                 break;
 
             case DctConstants.CMD_CLEAR_PROVISIONING_SPINNER:
@@ -2806,30 +2775,22 @@ public final class DcTracker extends DcTrackerBase {
         }
     }
 
-    // setAsCurrentDataConnectionTracker
     public void update() {
         log("update sub = " + mPhone.getSubId());
-        if (isActiveDataSubscription()) {
-            log("update(): Active DDS, register for all events now!");
-            registerForAllEvents();
-            onUpdateIcc();
+        log("update(): Active DDS, register for all events now!");
+        registerForAllEvents();
+        onUpdateIcc();
 
-            mUserDataEnabled = Settings.Global.getInt(mPhone.getContext().getContentResolver(),
-                    Settings.Global.MOBILE_DATA, 1) == 1;
+        mUserDataEnabled = getDataEnabled();
 
-            if (mPhone instanceof CDMALTEPhone) {
-                ((CDMALTEPhone)mPhone).updateCurrentCarrierInProvider();
-                supplyMessenger();
-            } else if (mPhone instanceof GSMPhone) {
-                ((GSMPhone)mPhone).updateCurrentCarrierInProvider();
-                supplyMessenger();
-            } else {
-                log("Phone object is not MultiSim. This should not hit!!!!");
-            }
-
+        if (mPhone instanceof CDMALTEPhone) {
+            ((CDMALTEPhone)mPhone).updateCurrentCarrierInProvider();
+            supplyMessenger();
+        } else if (mPhone instanceof GSMPhone) {
+            ((GSMPhone)mPhone).updateCurrentCarrierInProvider();
+            supplyMessenger();
         } else {
-            unregisterForAllEvents();
-            log("update(): NOT the active DDS, unregister for all events!");
+            log("Phone object is not MultiSim. This should not hit!!!!");
         }
     }
 
@@ -2839,9 +2800,7 @@ public final class DcTracker extends DcTrackerBase {
     }
 
     public void updateRecords() {
-        if (isActiveDataSubscription()) {
-            onUpdateIcc();
-        }
+        onUpdateIcc();
     }
 
     public void cleanUpAllConnections(String cause, Message disconnectAllCompleteMsg) {
@@ -2886,10 +2845,12 @@ public final class DcTracker extends DcTrackerBase {
 
     @Override
     protected void onSetInternalDataEnabled(boolean enable) {
+        if (DBG) log("onSetInternalDataEnabled: enabled=" + enable);
         onSetInternalDataEnabled(enable, null);
     }
 
     protected void onSetInternalDataEnabled(boolean enabled, Message onCompleteMsg) {
+        if (DBG) log("onSetInternalDataEnabled: enabled=" + enabled);
         boolean sendOnComplete = true;
 
         synchronized (mDataEnabledLock) {
@@ -2912,8 +2873,7 @@ public final class DcTracker extends DcTrackerBase {
     }
 
     public boolean setInternalDataEnabledFlag(boolean enable) {
-        if (DBG)
-            log("setInternalDataEnabledFlag(" + enable + ")");
+        if (DBG) log("setInternalDataEnabledFlag(" + enable + ")");
 
         if (mInternalDataEnabled != enable) {
             mInternalDataEnabled = enable;
@@ -2927,8 +2887,7 @@ public final class DcTracker extends DcTrackerBase {
     }
 
     public boolean setInternalDataEnabled(boolean enable, Message onCompleteMsg) {
-        if (DBG)
-            log("setInternalDataEnabled(" + enable + ")");
+        if (DBG) log("setInternalDataEnabled(" + enable + ")");
 
         Message msg = obtainMessage(DctConstants.EVENT_SET_INTERNAL_DATA_ENABLE, onCompleteMsg);
         msg.arg1 = (enable ? DctConstants.ENABLED : DctConstants.DISABLED);
@@ -2936,14 +2895,8 @@ public final class DcTracker extends DcTrackerBase {
         return true;
     }
 
-    /** Returns true if this is current DDS. */
-    protected boolean isActiveDataSubscription() {
-        // FIXME This should have code like
-        // return (mPhone.getSubId() == SubscriptionManager.getDefaultDataSubId());
-        return true;
-    }
-
     public void setDataAllowed(boolean enable, Message response) {
+         if (DBG) log("setDataAllowed: enable=" + enable);
          mIsCleanupRequired = !enable;
          mPhone.mCi.setDataAllowed(enable, response);
          mInternalDataEnabled = enable;
@@ -2961,7 +2914,7 @@ public final class DcTracker extends DcTrackerBase {
 
     @Override
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
-        pw.println("DataConnectionTracker extends:");
+        pw.println("DcTracker extends:");
         super.dump(fd, pw, args);
         pw.println(" mReregisterOnReconnectFailure=" + mReregisterOnReconnectFailure);
         pw.println(" canSetPreferApn=" + mCanSetPreferApn);
@@ -3068,6 +3021,56 @@ public final class DcTracker extends DcTrackerBase {
                     log("addEmergencyApnSetting - E-APN setting is already present");
                 }
             }
+        }
+    }
+
+    private void cleanUpConnectionsOnUpdatedApns(boolean tearDown) {
+        if (DBG) log("cleanUpConnectionsOnUpdatedApns: tearDown=" + tearDown);
+        if (mAllApnSettings.isEmpty()) {
+            cleanUpAllConnections(tearDown, Phone.REASON_APN_CHANGED);
+        } else {
+            for (ApnContext apnContext : mApnContexts.values()) {
+                if (VDBG) log("cleanUpConnectionsOnUpdatedApns for "+ apnContext);
+
+                boolean cleanUpApn = true;
+                ArrayList<ApnSetting> currentWaitingApns = apnContext.getWaitingApns();
+
+                if ((currentWaitingApns != null) && (!apnContext.isDisconnected())) {
+                    int radioTech = mPhone.getServiceState().getRilDataRadioTechnology();
+                    ArrayList<ApnSetting> waitingApns = buildWaitingApns(
+                            apnContext.getApnType(), radioTech);
+                    if (VDBG) log("new waitingApns:" + waitingApns);
+                    if (waitingApns.size() == currentWaitingApns.size()) {
+                        cleanUpApn = false;
+                        for (int i = 0; i < waitingApns.size(); i++) {
+                            if (!currentWaitingApns.get(i).equals(waitingApns.get(i))) {
+                                if (VDBG) log("new waiting apn is different at " + i);
+                                cleanUpApn = true;
+                                apnContext.setWaitingApns(waitingApns);
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (cleanUpApn) {
+                    apnContext.setReason(Phone.REASON_APN_CHANGED);
+                    cleanUpConnection(true, apnContext);
+                }
+            }
+        }
+
+        if (!isConnected()) {
+            stopNetStatPoll();
+            stopDataStallAlarm();
+        }
+
+        mRequestedApnType = PhoneConstants.APN_TYPE_DEFAULT;
+
+        if (DBG) log("mDisconnectPendingCount = " + mDisconnectPendingCount);
+        if (tearDown && mDisconnectPendingCount == 0) {
+            notifyDataDisconnectComplete();
+            notifyAllDataDisconnected();
         }
     }
 }

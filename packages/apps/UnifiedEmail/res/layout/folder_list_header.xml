@@ -27,7 +27,7 @@
         android:layout_width="match_parent"
         android:layout_height="@dimen/divider_height"
         android:layout_marginTop="8dp"
-        android:background="@color/divider_color" />
+        android:background="@color/folder_list_divider_color" />
 
     <TextView
         android:id="@+id/header_text"
@@ -37,10 +37,10 @@
         android:gravity="bottom"
         android:ellipsize="end"
         android:singleLine="true"
-        android:textAllCaps="true"
         android:textColor="@color/folder_list_heading_text_color"
         android:paddingLeft="@dimen/folder_list_heading_padding_side"
         android:paddingRight="@dimen/folder_list_heading_padding_side"
         android:paddingBottom="@dimen/folder_list_heading_padding_bottom"
-        android:paddingTop="@dimen/folder_list_heading_padding_top" />
+        android:paddingTop="@dimen/folder_list_heading_padding_top"
+        style="@style/DrawerFontStyle" />
 </LinearLayout>

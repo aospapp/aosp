@@ -6,8 +6,8 @@
 
 #include "base/command_line.h"
 #include "base/debug/leak_annotations.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/memory/linked_ptr.h"
 #include "base/process/process_metrics.h"
@@ -28,11 +28,6 @@
 #include "chrome/browser/chrome_browser_application_mac.h"
 #endif  // defined(OS_MACOSX)
 
-#if defined(OS_WIN)
-#include "content/public/app/startup_helper_win.h"
-#include "sandbox/win/src/sandbox_types.h"
-#endif  // defined(OS_WIN)
-
 #if defined(USE_AURA)
 #include "ui/aura/test/ui_controls_factory_aura.h"
 #include "ui/base/test/ui_controls_aura.h"
@@ -46,7 +41,7 @@
 #endif
 
 #if defined(OS_LINUX) || defined(OS_ANDROID)
-#include "chrome/app/chrome_breakpad_client.h"
+#include "chrome/app/chrome_crash_reporter_client.h"
 #endif
 
 namespace {
@@ -119,10 +114,10 @@ int LaunchChromeTests(int default_jobs,
 #if defined(OS_LINUX) || defined(OS_ANDROID)
   // We leak this pointer intentionally. The breakpad client needs to outlive
   // all other code.
-  chrome::ChromeBreakpadClient* breakpad_client =
-      new chrome::ChromeBreakpadClient();
-  ANNOTATE_LEAKING_OBJECT_PTR(breakpad_client);
-  breakpad::SetBreakpadClient(breakpad_client);
+  chrome::ChromeCrashReporterClient* crash_client =
+      new chrome::ChromeCrashReporterClient();
+  ANNOTATE_LEAKING_OBJECT_PTR(crash_client);
+  crash_reporter::SetCrashReporterClient(crash_client);
 #endif
 
   ChromeTestLauncherDelegate launcher_delegate(runner);

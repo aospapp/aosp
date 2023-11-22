@@ -8,10 +8,10 @@
 
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/autocomplete/autocomplete_input.h"
 #include "chrome/browser/autocomplete/history_provider.h"
 #include "chrome/common/url_constants.h"
 #include "components/metrics/proto/omnibox_input_type.pb.h"
+#include "components/omnibox/autocomplete_input.h"
 #include "components/url_fixer/url_fixer.h"
 
 namespace {
@@ -40,10 +40,8 @@ const char* const kChromeSettingsSubPages[] = {
 
 const int BuiltinProvider::kRelevance = 860;
 
-BuiltinProvider::BuiltinProvider(AutocompleteProviderListener* listener,
-                                 Profile* profile)
-    : AutocompleteProvider(listener, profile,
-          AutocompleteProvider::TYPE_BUILTIN) {
+BuiltinProvider::BuiltinProvider()
+    : AutocompleteProvider(AutocompleteProvider::TYPE_BUILTIN) {
   std::vector<std::string> builtins(
       chrome::kChromeHostURLs,
       chrome::kChromeHostURLs + chrome::kNumberOfChromeHostURLs);

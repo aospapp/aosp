@@ -28,7 +28,9 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewPropertyAnimator;
+import android.view.accessibility.AccessibilityManager;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -62,6 +64,10 @@ public class DialpadView extends LinearLayout {
     private ImageButton mDelete;
     private View mOverflowMenuButton;
     private ColorStateList mRippleColor;
+
+    private ViewGroup mRateContainer;
+    private TextView mIldCountry;
+    private TextView mIldRate;
 
     private boolean mCanDigitsBeEdited;
 
@@ -104,6 +110,16 @@ public class DialpadView extends LinearLayout {
         mDigits = (EditText) findViewById(R.id.digits);
         mDelete = (ImageButton) findViewById(R.id.deleteButton);
         mOverflowMenuButton = findViewById(R.id.dialpad_overflow);
+        mRateContainer = (ViewGroup) findViewById(R.id.rate_container);
+        mIldCountry = (TextView) mRateContainer.findViewById(R.id.ild_country);
+        mIldRate = (TextView) mRateContainer.findViewById(R.id.ild_rate);
+
+        AccessibilityManager accessibilityManager = (AccessibilityManager)
+                getContext().getSystemService(Context.ACCESSIBILITY_SERVICE);
+        if (accessibilityManager.isEnabled()) {
+            // The text view must be selected to send accessibility events.
+            mDigits.setSelected(true);
+        }
     }
 
     private void setupKeypad() {
@@ -182,6 +198,16 @@ public class DialpadView extends LinearLayout {
         digits.setCursorVisible(false);
 
         mCanDigitsBeEdited = canBeEdited;
+    }
+
+    public void setCallRateInformation(String countryName, String displayRate) {
+        if (TextUtils.isEmpty(countryName) && TextUtils.isEmpty(displayRate)) {
+            mRateContainer.setVisibility(View.GONE);
+            return;
+        }
+        mRateContainer.setVisibility(View.VISIBLE);
+        mIldCountry.setText(countryName);
+        mIldRate.setText(displayRate);
     }
 
     public boolean canDigitsBeEdited() {

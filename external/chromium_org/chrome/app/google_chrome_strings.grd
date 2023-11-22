@@ -182,29 +182,21 @@ Chrome supports. -->
           New window
         </message>
       </if>
-      <message name="IDS_CERT_ERROR_COMMON_NAME_INVALID_EXTRA_INFO_2" desc="2nd paragraph of extra information for an unsafe common name in an X509 certificate">
-        In this case, the address listed in the certificate does not match the address of the website your browser tried to go to. One possible reason for this is that your communications are being intercepted by an attacker who is presenting a certificate for a different website, which would cause a mismatch. Another possible reason is that the server is set up to return the same certificate for multiple websites, including the one you are attempting to visit, even though that certificate is not valid for all of those websites. Google Chrome can say for sure that you reached &lt;strong&gt;<ph name="DOMAIN2">$1<ex>paypal.com</ex></ph>&lt;/strong&gt;, but cannot verify that that is the same site as &lt;strong&gt;<ph name="DOMAIN">$2<ex>www.paypal.com</ex></ph>&lt;/strong&gt; which you intended to reach. If you proceed, Chrome will not check for any further name mismatches.
-      </message>
-      <message name="IDS_CERT_ERROR_EXPIRED_DETAILS" desc="Details for an expired X509 certificate">
-        You attempted to reach &lt;strong&gt;<ph name="DOMAIN">$1<ex>paypal.com</ex></ph>&lt;/strong&gt;, but the server presented an expired certificate. No information is available to indicate whether that certificate has been compromised since its expiration. This means Google Chrome cannot guarantee that you are communicating with &lt;strong&gt;<ph name="DOMAIN2">$2<ex>paypal.com</ex></ph>&lt;/strong&gt; and not an attacker. Your computer's clock is currently set to <ph name="CURRENT_TIME">$3<ex>Monday, July 18th, 2012 12:31PM</ex></ph>. Does that look right? If not, you should correct the error and refresh this page.
-      </message>
-      <message name="IDS_CERT_ERROR_NOT_YET_VALID_DETAILS" desc="Details for an X509 certificate that is not yet valid">
-        You attempted to reach &lt;strong&gt;<ph name="DOMAIN">$1<ex>paypal.com</ex></ph>&lt;/strong&gt;, but the server presented a certificate that is not yet valid. No information is available to indicate whether that certificate can be trusted. Google Chrome cannot reliably guarantee that you are communicating with &lt;strong&gt;<ph name="DOMAIN2">$2<ex>paypal.com</ex></ph>&lt;/strong&gt; and not an attacker. Your computer's clock is currently set to <ph name="CURRENT_TIME">$3<ex>Monday, July 18th, 2012 12:31PM</ex></ph>. Does that look right? If not, you should correct your system's clock and then refresh this page.
-      </message>
       <if expr="is_ios">
         <message name="IDS_CERT_ERROR_AUTHORITY_INVALID_DETAILS" desc="Details for an X509 certificate with an invalid authority">
-          You attempted to reach &lt;strong&gt;<ph
-name="DOMAIN">$1<ex>paypal.com</ex></ph>&lt;/strong&gt;, but the server presented a certificate issued by an entity that is not trusted by Google Chrome. This may mean that the server has generated its own security credentials, which Chrome cannot rely on for identity information, or an attacker may be trying to intercept your communications.
+          This server could not prove that it is <ph name="DOMAIN">&lt;strong&gt;$1<ex>paypal.com</ex>&lt;/strong&gt;</ph>; its security certificate is not trusted by Chrome. This may be caused by a misconfiguration or an attacker intercepting your connection.
         </message>
       </if>
-      <if expr="not is_ios">
+      <if expr="is_android">
         <message name="IDS_CERT_ERROR_AUTHORITY_INVALID_DETAILS" desc="Details for an X509 certificate with an invalid authority">
-          You attempted to reach &lt;strong&gt;<ph name="DOMAIN">$1<ex>paypal.com</ex></ph>&lt;/strong&gt;, but the server presented a certificate issued by an entity that is not trusted by your computer's operating system. This may mean that the server has generated its own security credentials, which Chrome cannot rely on for identity information, or an attacker may be trying to intercept your communications.
+          This server could not prove that it is <ph name="DOMAIN">&lt;strong&gt;$1<ex>paypal.com</ex>&lt;/strong&gt;</ph>; its security certificate is not trusted by your device's operating system. This may be caused by a misconfiguration or an attacker intercepting your connection.
         </message>
       </if>
-      <message name="IDS_CERT_ERROR_CONTAINS_ERRORS_DETAILS" desc="Details of the error page for an X509 certificate that contains errors">
-        You attempted to reach &lt;strong&gt;<ph name="DOMAIN">$1<ex>paypal.com</ex></ph>&lt;/strong&gt;, but the certificate that the server presented contains errors. Google Chrome cannot use a certificate with errors and cannot validate the identity of the site that you have attempted to connect to.
-      </message>
+      <if expr="not is_ios and not is_android">
+        <message name="IDS_CERT_ERROR_AUTHORITY_INVALID_DETAILS" desc="Details for an X509 certificate with an invalid authority">
+          This server could not prove that it is <ph name="DOMAIN">&lt;strong&gt;$1<ex>paypal.com</ex>&lt;/strong&gt;</ph>; its security certificate is not trusted by your computer's operating system. This may be caused by a misconfiguration or an attacker intercepting your connection.
+        </message>
+      </if>
       <message name="IDS_TASK_MANAGER_TITLE" desc="The title of the Task Manager window">
         Task Manager - Google Chrome
       </message>
@@ -257,12 +249,6 @@ name="DOMAIN">$1<ex>paypal.com</ex></ph>&lt;/strong&gt;, but the server presente
           This computer will soon stop receiving Google Chrome updates because its hardware is no longer supported.
         </message>
         <message name="IDS_MAC_32_BIT_OBSOLETE_NOW" desc="A message displayed on an at-launch infobar and About (Help) page warning the user that the computer they are using is no longer supported.">
-          This computer will no longer receive Google Chrome updates because its hardware is no longer supported.
-        </message>
-      </if>
-      <if expr="is_win">
-        <!-- Windows non-SSE2 deprecation -->
-        <message name="IDS_WIN_SSE_OBSOLETE_NOW" desc="A message displayed on an at-launch infobar and About (Help) page warning the user that the computer they are using is no longer supported.">
           This computer will no longer receive Google Chrome updates because its hardware is no longer supported.
         </message>
       </if>
@@ -330,7 +316,7 @@ name="DOMAIN">$1<ex>paypal.com</ex></ph>&lt;/strong&gt;, but the server presente
       </if>
       <if expr="chromeos">
         <message name="IDS_EXTERNAL_PROTOCOL_INFORMATION" desc="General information about what Chrome is trying to do when opening this external protocol">
-          Google ChromeOS does not support launching an external application to handle <ph name="SCHEME">$1<ex>acrobat:</ex></ph> links. The link requested is <ph name="PROTOLINK">$2<ex>acrobat:yourpdf</ex></ph>.
+          Google Chrome OS does not support launching an external application to handle <ph name="SCHEME">$1<ex>acrobat:</ex></ph> links. The link requested is <ph name="PROTOLINK">$2<ex>acrobat:yourpdf</ex></ph>.
         </message>
       </if>
       <!-- Strings used to warn that an OS is not supported -->
@@ -402,8 +388,12 @@ Google Chrome is unable to recover your settings.
           Whoa! Google Chrome has crashed. Relaunch now?
         </message>
       </if>
+      <!-- Password generation strings -->
+      <message name="IDS_PASSWORD_GENERATION_PROMPT" desc="Autofill dropdown text describing password generation. The text inside |bars| is link text.">
+        Chrome will store this in your |Google saved passwords| and autofill it for you so you don't have to remember it yourself.
+      </message>
       <message name="IDS_PASSWORD_GENERATION_SUGGESTION" desc="Text shown next to a generated password describing it as a suggestion.">
-        Suggested by Chrome
+        Use password generated by Chrome
       </message>
       <if expr="not is_android">
         <message name="IDS_PASSWORD_MANAGER_SAVE_PASSWORD_PROMPT" desc="Info bar message to save a password">
@@ -476,7 +466,7 @@ Google Chrome is unable to recover your settings.
       </message>
       <if expr="is_win">
         <message name="IDS_OEM_MAIN_SHORTCUT_NAME" desc="Name of the desktop shortcut to start the application for OEM pre-installations.">
-          Internet Browser
+          Web Browser
         </message>
         <message name="IDS_SHORTCUT_TOOLTIP" desc="Text for the hover-on tooltip for the Google Chrome shortcuts.">
           Access the Internet
@@ -547,6 +537,10 @@ Google Chrome is unable to recover your settings.
       <message name="IDS_PAGE_INFO_INTERNAL_PAGE" desc="Message to display in the page info bubble when the page you are on is a chrome:// page or about:something.">
         You are viewing a secure Google Chrome page.
       </message>
+      <message name="IDS_PAGE_INFO_SECURITY_TAB_DEPRECATED_SIGNATURE_ALGORITHM" desc="The text of the identity section when the site is using a certificate that will stop working in future versions of Chrome.">
+        The site is using outdated security settings that may prevent future versions of Chrome from being able to safely access it.
+      </message>
+
       <!-- Print Preview -->
       <message name="IDS_PRINT_PREVIEW_NO_PLUGIN" desc="Message to display when the PDF viewer is missing.">
         Google Chrome cannot show the print preview when the built-in PDF viewer is missing.
@@ -586,7 +580,7 @@ Google Chrome is unable to recover your settings.
       <!-- Quit all apps confirmation dialog -->
       <if expr="is_macosx">
         <message name="IDS_QUIT_WITH_APPS_TITLE" desc="Title for a notification explaining that Chrome is running in the background.">
-          Google Chrome is running in the background.
+          Google Chrome is in background mode.
         </message>
       </if>
 
@@ -764,17 +758,14 @@ For Google Chrome, processes used to display diagnostics information (such as th
       </message>
 
       <!-- Tutorial card in the avatar menu bubble -->
-      <message name="IDS_PROFILES_PREVIEW_ENABLED_TUTORIAL_CONTENT_TEXT" desc="The main content of the tutorial card in the avatar menu bubble view shown when user enables the new profile management preview.">
-        You can add your other Google Accounts and lock your Chromium below.
+      <message name="IDS_PROFILES_CONFIRM_SIGNIN_TUTORIAL_TITLE" desc="The title of the tutorial card in the avatar menu bubble view shown when a user signs in to Chrome.">
+        You're now signed in to Chrome
       </message>
-      <message name="IDS_PROFILES_PREVIEW_TUTORIAL_TITLE" desc="The title of the tutorial card in the avatar menu bubble view that asks the user to preview the new profile management UI.">
-        Preview the new Chrome
+      <message name="IDS_PROFILES_WELCOME_UPGRADE_TUTORIAL_TITLE" desc="Title of the tutorial card in the avatar menu bubble view that introduces an upgrade user to the new profile management UI.">
+        This is your Chrome
       </message>
-      <message name="IDS_PROFILES_PREVIEW_TUTORIAL_CONTENT_TEXT" desc="The main content of the tutorial card in the avatar menu bubble view that asks the user to preview the new profile management UI.">
-       Try the new way to use Chrome with your Google Account and on shared computers.
-      </message>
-      <message name="IDS_PROFILES_FEEDBACK_TUTORIAL_CONTENT_TEXT" desc="The main content of the tutorial card in the avatar menu bubble view that asks the user to send feedback about the new profile management UI.">
-       You're previewing the new Chrome.
+      <message name="IDS_PROFILES_WELCOME_UPGRADE_TUTORIAL_CONTENT_TEXT" desc="The main content of the tutorial card in the avatar menu bubble view that introduces an upgrade user to the new profile management UI.">
+        Share a computer? Now you can set up Chrome just the way you like it.
       </message>
 
       <!-- Account removal view in the avatar menu bubble -->
@@ -785,9 +776,9 @@ For Google Chrome, processes used to display diagnostics information (such as th
         You're using <ph name="PROFILE_EMAIL">$1<ex>jessica@gmail.com</ex></ph> to sync your Chrome stuff. To update your sync preference or to use Chrome without a Google account, visit <ph name="SETTINGS_LINK">$2<ex>settings</ex></ph>.
       </message>
 
-      <!-- End-preview view in the avatar menu bubble -->
-      <message name="IDS_PROFILES_END_PREVIEW_TEXT" desc="Main text of the end-preview view.">
-        Thanks for trying out the new Chrome. Chrome needs to restart to make sure you've saved any open work before continuing.
+      <!-- Switch user view in the avatar menu bubble -->
+      <message name="IDS_PROFILES_NOT_YOU_CONTENT_TEXT" desc="Main text of the switch user view. for an upgrade user">
+        If you share this computer with <ph name="PROFILE_NAME">$1<ex>Claire</ex></ph>, add yourself to Chrome to browse separately. Otherwise disconnect their Google Account.
       </message>
 
       <!-- One click sign-in infobar -->
@@ -842,6 +833,25 @@ Signing in anyway will merge Chrome information like bookmarks, history, and oth
         </message>
       </if>
 
+      <!-- SRT bubble messages -->
+      <if expr="is_win">
+        <if expr="use_titlecase">
+          <message name="IDS_SRT_MENU_ITEM" desc="In Title Case: Text for the Chrome menu option replacing Update required.">
+            Chrome Behaving Strangely?
+          </message>
+        </if>
+        <if expr="not use_titlecase">
+          <message name="IDS_SRT_MENU_ITEM" desc="Text for the Chrome menu option replacing Update required.">
+            Chrome behaving strangely?
+          </message>
+        </if>
+        <message name="IDS_SRT_BUBBLE_TITLE" desc="Text for the title of the software removal tool bubble view.">
+            Chrome behaving strangely?
+        </message>
+        <message name="IDS_SRT_BUBBLE_TEXT" desc="Text for the software removal tool bubble view full description.">
+          Chrome detected that your browser settings may have been changed by a program on your computer without your knowledge. You can use Google's Software Removal Tool to remove that program.
+        </message>
+      </if>
       <!-- Sync/sign-in error messages -->
       <if expr="not chromeos">
         <message name="IDS_SYNC_PASSPHRASE_ERROR_BUBBLE_VIEW_MESSAGE" desc="Message in the sync error bubble view when the user needs to update their sync passphrase.">
@@ -953,7 +963,7 @@ Signing in anyway will merge Chrome information like bookmarks, history, and oth
       <!-- Chrome OS keyboard overlay-->
       <if expr="chromeos">
         <message name="IDS_KEYBOARD_OVERLAY_SHOW_WRENCH_MENU" desc="The text in the keyboard overlay to explain the shortcut that opens the main Chrome menu.">
-          Show the Chrome menu
+          Show Chrome menu
         </message>
       </if>
 
@@ -973,6 +983,30 @@ Signing in anyway will merge Chrome information like bookmarks, history, and oth
         <message name="IDS_APP_LIST_SIGNIN_TEXT" desc="Text for when the launcher needs to sign in.">
           You need to be signed in to Chrome to use apps. This allows Chrome to sync your apps, bookmarks, history, passwords and other settings across devices.
         </message>
+        <if expr="not use_titlecase">
+          <if expr="is_macosx">
+            <message name="IDS_APP_LIST_EXTENSIONS_UNINSTALL" desc="Title text for the context menu item of a non-platform-app app list item that removes the app.">
+              Remove from Chrome
+            </message>
+          </if>
+          <if expr="not is_macosx">
+            <message name="IDS_APP_LIST_EXTENSIONS_UNINSTALL" desc="Title text for the context menu item of a non-platform-app app list item that removes the app.">
+              Remove from Chrome...
+            </message>
+          </if>
+        </if>
+        <if expr="use_titlecase">
+          <if expr="is_macosx">
+            <message name="IDS_APP_LIST_EXTENSIONS_UNINSTALL" desc="In Title Case: Title text for the context menu item of a non-platform-app app list item that removes the app.">
+              Remove From Chrome
+            </message>
+          </if>
+          <if expr="not is_macosx">
+            <message name="IDS_APP_LIST_EXTENSIONS_UNINSTALL" desc="In Title Case: Title text for the context menu item of a non-platform-app app list item that removes the app.">
+              Remove From Chrome...
+            </message>
+          </if>
+        </if>
       </if>
 
       <!-- App shortcuts -->
@@ -1115,6 +1149,26 @@ Signing in anyway will merge Chrome information like bookmarks, history, and oth
         </message>
       </if>
 
+      <!-- Contextual Search -->
+      <message name="IDS_CONTEXTUAL_SEARCH_HEADER" desc="Header shown at the top of the first run experience, to describe the Contextual Search feature.">
+        Search with one touch
+      </message>
+      <message name="IDS_CONTEXTUAL_SEARCH_PROMO_DESCRIPTION_1" desc="Part 1 of the description of the Contextual Search feature. Combined with FEATURE_NAME and DESCRIPTION_2 below, the whole should be a paragraph describing the feature. This line can be empty if it makes sense to start the sentence with FEATURE_NAME.">
+        Learn about topics on websites without leaving the page.
+      </message>
+      <message name="IDS_CONTEXTUAL_SEARCH_PROMO_FEATURE_NAME" desc="Name of the Contextual Search feature. See explanation in DESCRIPTION_1.">
+        Touch to Search
+      </message>
+      <message name="IDS_CONTEXTUAL_SEARCH_PROMO_DESCRIPTION_2" desc="Part 2 of the description of the Contextual Search feature. See explanation in DESCRIPTION_1.">
+        sends a word and its surrounding context to Google Search, returning definitions, pictures, search results, and other details.
+      </message>
+      <message name="IDS_CONTEXTUAL_SEARCH_PROMO_OPTIN" desc="Text for the button the user clicks to opt in.">
+        Accept &amp; Search
+      </message>
+      <message name="IDS_CONTEXTUAL_SEARCH_PROMO_OPTOUT" desc="Text for the button the user clicks to opt out.">
+        No Thanks
+      </message>
+
       <!-- Update bubble -->
       <message name="IDS_REINSTALL_APP" desc="Text for the button the user clicks to reinstall the app.">
         Reinstall Chrome
@@ -1146,6 +1200,51 @@ Signing in anyway will merge Chrome information like bookmarks, history, and oth
       <message name="IDS_FEEDBACK_SERVICE_DIALOG_EXPLANATION" desc="Explanation of the dialog asking whether the user wants to upload suspected malicious files for analysis">
         You can help make Chrome safer and easier to use by automatically reporting details of possible security incidents to Google.
       </message>
+
+      <!-- SSL Interstitial V2 strings -->
+      <if expr="is_android or is_ios">
+        <message name="IDS_SSL_CLOCK_ERROR" desc="Paragraph explaining that the SSL interstitial is probably caused by an incorrect clock.">
+          Chrome can't establish a private connection to &lt;strong&gt;<ph name="DOMAIN">$1<ex>paypal.com</ex></ph>&lt;/strong&gt;. This is probably because your device's date is set incorrectly. (Your device has the date set to <ph name="DATE">$2<ex>Jan 1, 1970</ex></ph>.) You should refresh this page after <ph name="BEGIN_LINK">&lt;a href="#" id="clock-link"&gt;</ph>you update your device's date and time<ph name="END_LINK">&lt;/a&gt;</ph>.
+        </message>
+        <message name="IDS_SSL_CLOCK_ERROR_EXPLANATION" desc="Body text for the explanation shown for when the computer's clock is wrong.">
+        To establish a secure network connection, your device needs a correct clock. This is because the certificates websites use to identify themselves when establishing a secure connection are only valid for a specific time period. Since your device's clock is wrong, Chrome cannot properly check certificates.
+        </message>
+      </if>
+      <if expr="not is_android and not is_ios">
+        <message name="IDS_SSL_CLOCK_ERROR" desc="Paragraph explaining that the SSL interstitial is probably caused by an incorrect clock.">
+          Chrome can't establish a private connection to &lt;strong&gt;<ph name="DOMAIN">$1<ex>paypal.com</ex></ph>&lt;/strong&gt;. This is probably because your computer's date is set incorrectly (Your computer has the date set to <ph name="DATE">$2<ex>Jan 1, 1970</ex></ph>.) You should refresh this page after <ph name="BEGIN_LINK">&lt;a href="#" id="clock-link"&gt;</ph>you update your computer's date and time<ph name="END_LINK">&lt;/a&gt;</ph>.
+        </message>
+        <message name="IDS_SSL_CLOCK_ERROR_EXPLANATION" desc="Body text for the explanation shown for when the computer's clock is wrong.">
+        To establish a secure network connection, your computer needs a correct clock. This is because the certificates websites use to identify themselves when establishing a secure connection are only valid for a specific time period. Since your computer's clock is wrong, Chrome cannot properly check certificates.
+        </message>
+      </if>
+      <message name="IDS_SSL_NONOVERRIDABLE_MORE_INVALID_SP3" desc="Body text for the explanation shown if the user clicks on the details windows, the certificate is invalid and the user has an old version of Windows (before WINDOWS XP SP3) running.">
+      Your computer is running an old version of Microsoft Windows that cannot process this website's security certificate. Because of this problem, Google Chrome can't tell whether the certificate came from <ph name="SITE">$1<ex>google.com</ex></ph> or from someone on your network pretending to be <ph name="SITE">$1<ex>google.com</ex></ph>. Please update your computer to a more recent version of Windows.
+      </message>
+
+      <!-- Offline interstitial  -->
+      <if expr="not is_android and not is_ios">
+        <message name="IDS_ERRORPAGES_SUMMARY_INTERNET_DISCONNECTED" desc="Summary of the error page when the network connection failed. May be followed by platform dependent instructions.">
+          Google Chrome can’t display the webpage because your computer isn’t connected to the Internet.
+        </message>
+      </if>
+
+      <!-- OOBE -->
+      <if expr="chromeos">
+        <message name="IDS_INSTALLING_UPDATE" desc="Label shown on the updates installation screen during OOBE">
+          Please wait while Chrome installs the latest system updates.
+        </message>
+        <message name="IDS_CHECKING_FOR_UPDATE_MSG" desc="Chrome OS OOBE: message shown during checking for update stage.">
+          Chrome updates automatically so you always have the freshest version.
+        </message>
+        <message name="IDS_UPDATE_MSG" desc="Chrome OS OOBE: message shown during update stage.">
+          Chrome updates automatically so you always have the freshest version. When this download completes, Chrome will restart and you'll be on your way.
+        </message>
+        <message name="IDS_EULA_SCREEN_ACCESSIBLE_TITLE" desc="Title to be spoken on opening the OOBE EULA screen">
+          Chrome OS terms
+        </message>
+      </if>
+
     </messages>
   </release>
 </grit>

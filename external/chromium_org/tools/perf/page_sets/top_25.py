@@ -1,8 +1,6 @@
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-# pylint: disable=W0401,W0614
-from telemetry.page.actions.all_page_actions import *
 from telemetry.page import page as page_module
 from telemetry.page import page_set as page_set_module
 
@@ -25,13 +23,13 @@ class Top25Page(page_module.Page):
     self.archive_data_file = 'data/top_25.json'
 
   def RunSmoothness(self, action_runner):
-    action_runner.RunAction(ScrollAction())
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
 
   def RunRepaint(self, action_runner):
-    action_runner.RunAction(RepaintContinuouslyAction(
-      {
-        'seconds': 5
-      }))
+    action_runner.RepaintContinuously(seconds=5)
 
 
 class GoogleWebSearchPage(Top25Page):
@@ -48,37 +46,58 @@ class GoogleWebSearchPage(Top25Page):
     action_runner.WaitForElement(text='Next')
 
   def RunStressMemory(self, action_runner):
-    action_runner.RunAction(ScrollAction())
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
     old_href = _GetCurrentLocation(action_runner)
     action_runner.ClickElement(text='Next')
     _WaitForLocationChange(action_runner, old_href)
     action_runner.WaitForElement(text='Next')
-    action_runner.RunAction(ScrollAction())
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
     old_href = _GetCurrentLocation(action_runner)
     action_runner.ClickElement(text='Next')
     _WaitForLocationChange(action_runner, old_href)
     action_runner.WaitForElement(text='Next')
-    action_runner.RunAction(ScrollAction())
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
     old_href = _GetCurrentLocation(action_runner)
     action_runner.ClickElement(text='Next')
     _WaitForLocationChange(action_runner, old_href)
     action_runner.WaitForElement(text='Previous')
-    action_runner.RunAction(ScrollAction())
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
     old_href = _GetCurrentLocation(action_runner)
     action_runner.ClickElement(text='Previous')
     _WaitForLocationChange(action_runner, old_href)
     action_runner.WaitForElement(text='Previous')
-    action_runner.RunAction(ScrollAction())
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
     old_href = _GetCurrentLocation(action_runner)
     action_runner.ClickElement(text='Previous')
     _WaitForLocationChange(action_runner, old_href)
     action_runner.WaitForElement(text='Previous')
-    action_runner.RunAction(ScrollAction())
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
     old_href = _GetCurrentLocation(action_runner)
     action_runner.ClickElement(text='Previous')
     _WaitForLocationChange(action_runner, old_href)
     action_runner.WaitForElement(text='Images')
-    action_runner.RunAction(ScrollAction())
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
     old_href = _GetCurrentLocation(action_runner)
     action_runner.ClickElement(text='Images')
     _WaitForLocationChange(action_runner, old_href)
@@ -113,15 +132,17 @@ class GmailPage(Top25Page):
     _WaitForLocationChange(action_runner, old_href)
 
   def RunSmoothness(self, action_runner):
-    action_runner.RunAction(ScrollAction(
-      {
-        'scrollable_element_function': '''
-          function(callback) {
-            gmonkey.load('2.0', function(api) {
-              callback(api.getScrollableElement());
-            });
-          }'''
-      }))
+    action_runner.ExecuteJavaScript('''
+        gmonkey.load('2.0', function(api) {
+          window.__scrollableElementForTelemetry = api.getScrollableElement();
+        });''')
+    action_runner.WaitForJavaScriptCondition(
+        'window.__scrollableElementForTelemetry != null')
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollElement(
+        element_function='window.__scrollableElementForTelemetry')
+    interaction.End()
 
 
 class GoogleCalendarPage(Top25Page):
@@ -175,13 +196,10 @@ class GoogleCalendarPage(Top25Page):
     action_runner.WaitForElement('div[class~="navBack"]')
 
   def RunSmoothness(self, action_runner):
-    action_runner.RunAction(ScrollAction(
-      {
-        'scrollable_element_function': '''
-          function(callback) {
-            callback(document.getElementById('scrolltimedeventswk'));
-          }'''
-      }))
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollElement(selector='#scrolltimedeventswk')
+    interaction.End()
 
 
 class GoogleImageSearchPage(Top25Page):
@@ -216,13 +234,10 @@ class GoogleDocPage(Top25Page):
         'document.getElementsByClassName("kix-appview-editor").length')
 
   def RunSmoothness(self, action_runner):
-    action_runner.RunAction(ScrollAction(
-      {
-        'scrollable_element_function': '''
-          function(callback) {
-            callback(document.getElementsByClassName('kix-appview-editor')[0]);
-          }'''
-      }))
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollElement(selector='.kix-appview-editor')
+    interaction.End()
 
 
 class GooglePlusPage(Top25Page):
@@ -258,10 +273,10 @@ class GooglePlusPage(Top25Page):
     action_runner.WaitForElement(text='Home')
 
   def RunSmoothness(self, action_runner):
-    action_runner.RunAction(ScrollAction(
-      {
-        "scroll_is_infinite": True
-      }))
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
 
 
 class YoutubePage(Top25Page):
@@ -298,13 +313,22 @@ class BlogspotPage(Top25Page):
   def RunStressMemory(self, action_runner):
     action_runner.ClickElement(text='accessibility')
     action_runner.WaitForNavigate()
-    action_runner.RunAction(ScrollAction())
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
     action_runner.ClickElement(text='advanced')
     action_runner.WaitForNavigate()
-    action_runner.RunAction(ScrollAction())
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
     action_runner.ClickElement(text='beginner')
     action_runner.WaitForNavigate()
-    action_runner.RunAction(ScrollAction())
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
     action_runner.ClickElement(text='Home')
     action_runner.WaitForNavigate()
 
@@ -327,18 +351,30 @@ class WordpressPage(Top25Page):
         'a[href="http://en.blog.wordpress.com/2012/08/30/new-themes-able-and-sight/"]')
 
   def RunStressMemory(self, action_runner):
-    action_runner.RunAction(ScrollAction())
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
     action_runner.ClickElement(
         # pylint: disable=C0301
         'a[href="http://en.blog.wordpress.com/2012/08/30/new-themes-able-and-sight/"]')
     action_runner.WaitForNavigate()
-    action_runner.RunAction(ScrollAction())
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
     action_runner.ClickElement(text='Features')
     action_runner.WaitForNavigate()
-    action_runner.RunAction(ScrollAction())
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
     action_runner.ClickElement(text='News')
     action_runner.WaitForNavigate()
-    action_runner.RunAction(ScrollAction())
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
 
 
 class FacebookPage(Top25Page):
@@ -371,10 +407,10 @@ class FacebookPage(Top25Page):
     action_runner.WaitForNavigate()
 
   def RunSmoothness(self, action_runner):
-    action_runner.RunAction(ScrollAction(
-      {
-        'scroll_is_infinite': True
-      }))
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
 
 
 class LinkedinPage(Top25Page):
@@ -414,10 +450,10 @@ class TwitterPage(Top25Page):
     action_runner.Wait(2)
 
   def RunSmoothness(self, action_runner):
-    action_runner.RunAction(ScrollAction(
-      {
-        'scroll_is_infinite': True
-      }))
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
 
 
 class PinterestPage(Top25Page):
@@ -431,10 +467,10 @@ class PinterestPage(Top25Page):
       name='Pinterest')
 
   def RunSmoothness(self, action_runner):
-    action_runner.RunAction(ScrollAction(
-      {
-        'scroll_is_infinite': True
-      }))
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage()
+    interaction.End()
 
 
 class ESPNPage(Top25Page):
@@ -448,10 +484,10 @@ class ESPNPage(Top25Page):
       name='ESPN')
 
   def RunSmoothness(self, action_runner):
-    action_runner.RunAction(ScrollAction(
-      {
-        'left_start_percentage': 0.1
-      }))
+    interaction = action_runner.BeginGestureInteraction(
+        'ScrollAction', is_smooth=True)
+    action_runner.ScrollPage(left_start_ratio=0.1)
+    interaction.End()
 
 
 class WeatherDotComPage(Top25Page):

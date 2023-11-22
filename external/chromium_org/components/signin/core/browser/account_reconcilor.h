@@ -17,6 +17,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/scoped_vector.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "components/signin/core/browser/signin_client.h"
 #include "components/signin/core/browser/signin_manager.h"
 #include "google_apis/gaia/gaia_auth_consumer.h"
 #include "google_apis/gaia/google_service_auth_error.h"
@@ -26,7 +27,6 @@
 class GaiaAuthFetcher;
 class ProfileOAuth2TokenService;
 class SigninClient;
-class SigninOAuthHelper;
 
 namespace net {
 class CanonicalCookie;
@@ -35,7 +35,6 @@ class CanonicalCookie;
 class AccountReconcilor : public KeyedService,
                           public GaiaAuthConsumer,
                           public MergeSessionHelper::Observer,
-                          public OAuth2TokenService::Consumer,
                           public OAuth2TokenService::Observer,
                           public SigninManagerBase::Observer {
  public:
@@ -61,44 +60,7 @@ class AccountReconcilor : public KeyedService,
   ProfileOAuth2TokenService* token_service() { return token_service_; }
   SigninClient* client() { return client_; }
 
- private:
-  // An std::set<> for use with email addresses that uses
-  // gaia::CanonicalizeEmail() during comparisons.
-  // TODO(rogerta): this is a workaround for the fact that SigninManager and
-  // SigninOAuthHelper use the gaia "email" property when adding accounts to
-  // the token service, whereas gaia::ParseListAccountsData() returns email
-  // addresses that have been passed through gaia::CanonicalizeEmail().  These
-  // two types of email addresses are not directly comparable.
-  class EmailLessFunc : public std::less<std::string> {
-   public:
-    bool operator()(const std::string& s1, const std::string& s2) const;
-  };
-  typedef std::set<std::string, EmailLessFunc> EmailSet;
-
-  class RefreshTokenFetcher;
-  class UserIdFetcher;
-
-  bool IsRegisteredWithTokenService() const {
-    return registered_with_token_service_;
-  }
-
-  bool AreGaiaAccountsSet() const { return are_gaia_accounts_set_; }
-
-  bool AreAllRefreshTokensChecked() const;
-
-  const std::vector<std::pair<std::string, bool> >& GetGaiaAccountsForTesting()
-      const {
-    return gaia_accounts_;
-  }
-
-  const EmailSet& GetValidChromeAccountsForTesting() const {
-    return valid_chrome_accounts_;
-  }
-
-  const EmailSet& GetInvalidChromeAccountsForTesting() const {
-    return invalid_chrome_accounts_;
-  }
-
+ protected:
   // Used during GetAccountsFromCookie.
   // Stores a callback for the next action to perform.
   typedef base::Callback<
@@ -106,28 +68,43 @@ class AccountReconcilor : public KeyedService,
            const std::vector<std::pair<std::string, bool> >&)>
       GetAccountsFromCookieCallback;
 
+  virtual void GetAccountsFromCookie(GetAccountsFromCookieCallback callback);
+
+ private:
+  bool IsRegisteredWithTokenService() const {
+    return registered_with_token_service_;
+  }
+
+  bool AreGaiaAccountsSet() const { return are_gaia_accounts_set_; }
+
+  const std::vector<std::pair<std::string, bool> >& GetGaiaAccountsForTesting()
+      const {
+    return gaia_accounts_;
+  }
+
+  // Virtual so that it can be overridden in tests.
+  virtual void StartFetchingExternalCcResult();
+
   friend class AccountReconcilorTest;
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest, SigninManagerRegistration);
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest, Reauth);
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest, ProfileAlreadyConnected);
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest, GetAccountsFromCookieSuccess);
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest, GetAccountsFromCookieFailure);
-  FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest, ValidateAccountsFromTokens);
-  FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest,
-                           ValidateAccountsFromTokensFailedUserInfo);
-  FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest,
-                           ValidateAccountsFromTokensFailedTokenRequest);
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest, StartReconcileNoop);
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest, StartReconcileNoopWithDots);
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest, StartReconcileNoopMultiple);
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest, StartReconcileAddToCookie);
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest,
+                           StartReconcileRemoveFromCookie);
+  FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest,
                            StartReconcileAddToCookieTwice);
-  FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest, StartReconcileAddToChrome);
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest, StartReconcileBadPrimary);
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest, StartReconcileOnlyOnce);
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest,
                            StartReconcileWithSessionInfoExpiredDefault);
+  FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest,
+                           MergeSessionCompletedWithBogusAccount);
 
   // Register and unregister with dependent services.
   void RegisterForCookieChanges();
@@ -139,24 +116,10 @@ class AccountReconcilor : public KeyedService,
 
   bool IsProfileConnected();
 
-  void DeleteFetchers();
-
   // All actions with side effects.  Virtual so that they can be overridden
   // in tests.
   virtual void PerformMergeAction(const std::string& account_id);
-  virtual void PerformAddToChromeAction(const std::string& account_id,
-                                        int session_index);
   virtual void PerformLogoutAllAccountsAction();
-  virtual void PerformAddAccountToTokenService(
-      const std::string& account_id,
-      const std::string& refresh_token);
-
-  // Used to remove an account from chrome and the cookie jar.
-  virtual void PerformStartRemoveAction(const std::string& account_id);
-  virtual void PerformFinishRemoveAction(
-      const std::string& account_id,
-      const GoogleServiceAuthError& error,
-      const std::vector<std::pair<std::string, bool> >& accounts);
 
   // Used during periodic reconciliation.
   void StartReconcile();
@@ -164,20 +127,13 @@ class AccountReconcilor : public KeyedService,
   void AbortReconcile();
   void CalculateIfReconcileIsDone();
   void ScheduleStartReconcileIfChromeAccountsChanged();
-  void HandleSuccessfulAccountIdCheck(const std::string& account_id);
-  void HandleFailedAccountIdCheck(const std::string& account_id);
-  void HandleRefreshTokenFetched(const std::string& account_id,
-                                 const std::string& refresh_token);
 
-  void GetAccountsFromCookie(GetAccountsFromCookieCallback callback);
   void ContinueReconcileActionAfterGetGaiaAccounts(
       const GoogleServiceAuthError& error,
       const std::vector<std::pair<std::string, bool> >& accounts);
   void ValidateAccountsFromTokenService();
   // Note internally that this |account_id| is added to the cookie jar.
-  void MarkAccountAsAddedToCookie(const std::string& account_id);
-  // Note internally that this |account_id| is added to the token service.
-  void MarkAccountAsAddedToChrome(const std::string& account_id);
+  bool MarkAccountAsAddedToCookie(const std::string& account_id);
 
   void OnCookieChanged(const net::CanonicalCookie* cookie);
 
@@ -191,22 +147,15 @@ class AccountReconcilor : public KeyedService,
                                      const GoogleServiceAuthError& error)
       OVERRIDE;
 
-  // Overriden from OAuth2TokenService::Consumer.
-  virtual void OnGetTokenSuccess(const OAuth2TokenService::Request* request,
-                                 const std::string& access_token,
-                                 const base::Time& expiration_time) OVERRIDE;
-  virtual void OnGetTokenFailure(const OAuth2TokenService::Request* request,
-                                 const GoogleServiceAuthError& error) OVERRIDE;
-
   // Overriden from OAuth2TokenService::Observer.
-  virtual void OnRefreshTokenAvailable(const std::string& account_id) OVERRIDE;
-  virtual void OnRefreshTokenRevoked(const std::string& account_id) OVERRIDE;
-  virtual void OnRefreshTokensLoaded() OVERRIDE;
+  virtual void OnEndBatchChanges() OVERRIDE;
 
   // Overriden from SigninManagerBase::Observer.
-  virtual void GoogleSigninSucceeded(const std::string& username,
+  virtual void GoogleSigninSucceeded(const std::string& account_id,
+                                     const std::string& username,
                                      const std::string& password) OVERRIDE;
-  virtual void GoogleSignedOut(const std::string& username) OVERRIDE;
+  virtual void GoogleSignedOut(const std::string& account_id,
+                               const std::string& username) OVERRIDE;
 
   void MayBeDoNextListAccounts();
 
@@ -231,7 +180,7 @@ class AccountReconcilor : public KeyedService,
   bool first_execution_;
 
   // Used during reconcile action.
-  // These members are used used to validate the gaia cookie.  |gaia_accounts_|
+  // These members are used to validate the gaia cookie.  |gaia_accounts_|
   // holds the state of google accounts in the gaia cookie.  Each element is
   // a pair that holds the email address of the account and a boolean that
   // indicates whether the account is valid or not.  The accounts in the vector
@@ -243,15 +192,12 @@ class AccountReconcilor : public KeyedService,
   // These members are used to validate the tokens in OAuth2TokenService.
   std::string primary_account_;
   std::vector<std::string> chrome_accounts_;
-  scoped_ptr<OAuth2TokenService::Request>* requests_;
-  ScopedVector<UserIdFetcher> user_id_fetchers_;
-  ScopedVector<SigninOAuthHelper> refresh_token_fetchers_;
-  EmailSet valid_chrome_accounts_;
-  EmailSet invalid_chrome_accounts_;
   std::vector<std::string> add_to_cookie_;
-  std::vector<std::pair<std::string, int> > add_to_chrome_;
 
   std::deque<GetAccountsFromCookieCallback> get_gaia_accounts_callbacks_;
+
+  scoped_ptr<SigninClient::CookieChangedCallbackList::Subscription>
+      cookie_changed_subscription_;
 
   DISALLOW_COPY_AND_ASSIGN(AccountReconcilor);
 };

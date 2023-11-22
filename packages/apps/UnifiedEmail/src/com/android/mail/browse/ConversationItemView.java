@@ -21,8 +21,6 @@ import android.animation.Animator;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.content.BroadcastReceiver;
-import android.content.ClipData;
-import android.content.ClipData.Item;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -31,15 +29,13 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.LinearGradient;
 import android.graphics.Paint;
-import android.graphics.Point;
 import android.graphics.Rect;
-import android.graphics.RectF;
-import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.InsetDrawable;
+import android.support.annotation.Nullable;
+import android.support.v4.text.BidiFormatter;
 import android.support.v4.text.TextUtilsCompat;
 import android.support.v4.view.ViewCompat;
 import android.text.Layout.Alignment;
@@ -57,7 +53,6 @@ import android.text.style.ForegroundColorSpan;
 import android.text.style.TextAppearanceSpan;
 import android.util.SparseArray;
 import android.util.TypedValue;
-import android.view.DragEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -70,6 +65,7 @@ import com.android.mail.analytics.Analytics;
 import com.android.mail.bitmap.CheckableContactFlipDrawable;
 import com.android.mail.bitmap.ContactDrawable;
 import com.android.mail.perf.Timer;
+import com.android.mail.providers.Account;
 import com.android.mail.providers.Conversation;
 import com.android.mail.providers.Folder;
 import com.android.mail.providers.UIProvider;
@@ -78,13 +74,11 @@ import com.android.mail.providers.UIProvider.ConversationListIcon;
 import com.android.mail.providers.UIProvider.FolderType;
 import com.android.mail.ui.AnimatedAdapter;
 import com.android.mail.ui.ControllableActivity;
-import com.android.mail.ui.ConversationSelectionSet;
+import com.android.mail.ui.ConversationCheckedSet;
 import com.android.mail.ui.ConversationSetObserver;
-import com.android.mail.ui.DividedImageCanvas.InvalidateCallback;
 import com.android.mail.ui.FolderDisplayer;
 import com.android.mail.ui.SwipeableItemView;
 import com.android.mail.ui.SwipeableListView;
-import com.android.mail.ui.ViewMode;
 import com.android.mail.utils.FolderUri;
 import com.android.mail.utils.HardwareLayerEnabler;
 import com.android.mail.utils.LogTag;
@@ -93,12 +87,11 @@ import com.android.mail.utils.Utils;
 import com.android.mail.utils.ViewUtils;
 import com.google.common.annotations.VisibleForTesting;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 public class ConversationItemView extends View
-        implements SwipeableItemView, ToggleableItem, InvalidateCallback, ConversationSetObserver,
+        implements SwipeableItemView, ToggleableItem, ConversationSetObserver,
         BadgeSpan.BadgeSpanDimensions {
 
     // Timer.
@@ -113,8 +106,12 @@ public class ConversationItemView extends View
     private static final String PERF_TAG_CALCULATE_COORDINATES = "CCHV.coordinates";
     private static final String LOG_TAG = LogTag.getLogTag();
 
+    private static final Typeface SANS_SERIF_BOLD = Typeface.create("sans-serif", Typeface.BOLD);
+
     private static final Typeface SANS_SERIF_LIGHT = Typeface.create("sans-serif-light",
             Typeface.NORMAL);
+
+    private static final int[] CHECKED_STATE = new int[] { android.R.attr.state_checked };
 
     // Static bitmaps.
     private static Bitmap STAR_OFF;
@@ -129,8 +126,7 @@ public class ConversationItemView extends View
     private static Bitmap STATE_FORWARDED;
     private static Bitmap STATE_REPLIED_AND_FORWARDED;
     private static Bitmap STATE_CALENDAR_INVITE;
-    private static Drawable VISIBLE_CONVERSATION_HIGHLIGHT;
-    private static Drawable RIGHT_EDGE_TABLET;
+    private static Drawable FOCUSED_CONVERSATION_HIGHLIGHT;
 
     private static String sSendersSplitToken;
     private static String sElidedPaddingToken;
@@ -146,8 +142,6 @@ public class ConversationItemView extends View
     private static int sCabAnimationDuration;
     private static int sBadgePaddingExtraWidth;
     private static int sBadgeRoundedCornerRadius;
-    private static int sFolderRoundedCornerRadius;
-    private static int sDividerColor;
 
     // Static paints.
     private static final TextPaint sPaint = new TextPaint();
@@ -155,7 +149,6 @@ public class ConversationItemView extends View
     private static final Paint sCheckBackgroundPaint = new Paint();
     private static final Paint sDividerPaint = new Paint();
 
-    private static int sDividerInset;
     private static int sDividerHeight;
 
     private static BroadcastReceiver sConfigurationChangedReceiver;
@@ -187,28 +180,24 @@ public class ConversationItemView extends View
 
     private final Context mContext;
 
-    public ConversationItemViewModel mHeader;
+    private ConversationItemViewModel mHeader;
     private boolean mDownEvent;
-    private boolean mSelected = false;
-    private ConversationSelectionSet mSelectedConversationSet;
+    private boolean mChecked = false;
+    private ConversationCheckedSet mCheckedConversationSet;
     private Folder mDisplayedFolder;
     private boolean mStarEnabled;
     private boolean mSwipeEnabled;
-    private int mLastTouchX;
-    private int mLastTouchY;
+    private boolean mDividerEnabled;
     private AnimatedAdapter mAdapter;
     private float mAnimatedHeightFraction = 1.0f;
-    private final String mAccount;
+    private final Account mAccount;
     private ControllableActivity mActivity;
     private final TextView mSendersTextView;
     private final TextView mSubjectTextView;
     private final TextView mSnippetTextView;
     private int mGadgetMode;
 
-    private static int sFoldersStartPadding;
-    private static int sFoldersInnerPadding;
     private static int sFoldersMaxCount;
-    private static int sFoldersOverflowGradientPadding;
     private static TextAppearanceSpan sSubjectTextUnreadSpan;
     private static TextAppearanceSpan sSubjectTextReadSpan;
     private static TextAppearanceSpan sBadgeTextSpan;
@@ -222,7 +211,7 @@ public class ConversationItemView extends View
     private int mBackgroundOverrideResId = -1;
     /** The bitmap to use, or <code>null</code> for the default */
     private Bitmap mPhotoBitmap = null;
-    private Rect mPhotoRect = null;
+    private Rect mPhotoRect = new Rect();
 
     /**
      * A listener for clicks on the various areas of a conversation item.
@@ -249,11 +238,24 @@ public class ConversationItemView extends View
      * Handles displaying folders in a conversation header view.
      */
     static class ConversationItemFolderDisplayer extends FolderDisplayer {
-
+        private final BidiFormatter mFormatter;
         private int mFoldersCount;
 
-        public ConversationItemFolderDisplayer(Context context) {
+        public ConversationItemFolderDisplayer(Context context, BidiFormatter formatter) {
             super(context);
+            mFormatter = formatter;
+        }
+
+        @Override
+        protected void initializeDrawableResources() {
+            super.initializeDrawableResources();
+            final Resources res = mContext.getResources();
+            mFolderDrawableResources.overflowGradientPadding =
+                    res.getDimensionPixelOffset(R.dimen.folder_tl_gradient_padding);
+            mFolderDrawableResources.folderHorizontalPadding =
+                    res.getDimensionPixelOffset(R.dimen.folder_tl_cell_content_padding);
+            mFolderDrawableResources.folderFontSize =
+                    res.getDimensionPixelOffset(R.dimen.folder_tl_font_size);
         }
 
         @Override
@@ -274,166 +276,81 @@ public class ConversationItemView extends View
         }
 
         /**
-         * Helper function to calculate exactly how much space the displayed folders should take.
-         * @return an array of integers that signifies the length in dp.
-         */
-        private MeasurementWrapper measureFolderDimen(ConversationItemViewCoordinates coordinates) {
-            // This signifies the absolute max for each folder cell, no exceptions.
-            final int maxCellWidth = coordinates.folderCellWidth;
-
-            final int numDisplayedFolders = Math.min(sFoldersMaxCount, mFoldersSortedSet.size());
-            if (numDisplayedFolders == 0) {
-                return new MeasurementWrapper(new int[0], new boolean[0]);
-            }
-
-            // This variable is calculated based on the number of folders we are displaying
-            final int maxAllowedCellSize = Math.min(maxCellWidth, (coordinates.folderLayoutWidth -
-                    (numDisplayedFolders - 1) * sFoldersStartPadding) / numDisplayedFolders);
-            final int[] measurements = new int[numDisplayedFolders];
-            final boolean[] overflow = new boolean[numDisplayedFolders];
-            final MeasurementWrapper result = new MeasurementWrapper(measurements, overflow);
-
-            int count = 0;
-            int missingWidth = 0;
-            int extraWidth = 0;
-            for (Folder f : mFoldersSortedSet) {
-                if (count > numDisplayedFolders - 1) {
-                    break;
-                }
-
-                final String folderString = f.name;
-                final int neededWidth = (int) sFoldersPaint.measureText(folderString) +
-                        2 * sFoldersInnerPadding;
-
-                if (neededWidth > maxAllowedCellSize) {
-                    // What we can take from others is the minimum of the width we need to borrow
-                    // and the width we are allowed to borrow.
-                    final int borrowedWidth = Math.min(neededWidth - maxAllowedCellSize,
-                            maxCellWidth - maxAllowedCellSize);
-                    final int extraWidthLeftover = extraWidth - borrowedWidth;
-                    if (extraWidthLeftover >= 0) {
-                        measurements[count] = Math.min(neededWidth, maxCellWidth);
-                        extraWidth = extraWidthLeftover;
-                    } else {
-                        measurements[count] = maxAllowedCellSize + extraWidth;
-                        extraWidth = 0;
-                    }
-                    missingWidth = -extraWidthLeftover;
-                    overflow[count] = neededWidth > measurements[count];
-                } else {
-                    extraWidth = maxAllowedCellSize - neededWidth;
-                    measurements[count] = neededWidth;
-                    if (missingWidth > 0) {
-                        if (extraWidth >= missingWidth) {
-                            measurements[count - 1] += missingWidth;
-                            extraWidth -= missingWidth;
-                            overflow[count - 1] = false;
-                        } else {
-                            measurements[count - 1] += extraWidth;
-                            extraWidth = 0;
-                        }
-                    }
-                    missingWidth = 0;
-                }
-
-                count++;
-            }
-
-            return result;
-        }
-
-        /**
          * @return how much total space the folders list requires.
          */
         private int measureFolders(ConversationItemViewCoordinates coordinates) {
-            int[] sizes = measureFolderDimen(coordinates).measurements;
-            return sumWidth(sizes);
+            final int[] measurements = measureFolderDimen(
+                    mFoldersSortedSet, coordinates.folderCellWidth, coordinates.folderLayoutWidth,
+                    mFolderDrawableResources.folderInBetweenPadding,
+                    mFolderDrawableResources.folderHorizontalPadding, sFoldersMaxCount,
+                    sFoldersPaint);
+            return sumWidth(measurements);
         }
 
         private int sumWidth(int[] arr) {
             int sum = 0;
-            for (int i = 0; i < arr.length; i++) {
-                sum += arr[i];
+            for (int i : arr) {
+                sum += i;
             }
-            return sum + (arr.length - 1) * sFoldersStartPadding;
+            return sum + (arr.length - 1) * mFolderDrawableResources.folderInBetweenPadding;
         }
 
-        public void drawFolders(
-                Canvas canvas, ConversationItemViewCoordinates coordinates, boolean isRtl) {
+        public void drawFolders(Canvas canvas, ConversationItemViewCoordinates coordinates,
+                boolean isRtl) {
             if (mFoldersCount == 0) {
                 return;
             }
 
-            final MeasurementWrapper wrapper = measureFolderDimen(coordinates);
-            final int[] measurements = wrapper.measurements;
-            final boolean[] overflow = wrapper.overflow;
+            final int[] measurements = measureFolderDimen(
+                    mFoldersSortedSet, coordinates.folderCellWidth, coordinates.folderLayoutWidth,
+                    mFolderDrawableResources.folderInBetweenPadding,
+                    mFolderDrawableResources.folderHorizontalPadding, sFoldersMaxCount,
+                    sFoldersPaint);
 
             final int right = coordinates.foldersRight;
             final int y = coordinates.foldersY;
-            final int height = coordinates.foldersHeight;
-            final int textBottomPadding = coordinates.foldersTextBottomPadding;
 
             sFoldersPaint.setTextSize(coordinates.foldersFontSize);
             sFoldersPaint.setTypeface(coordinates.foldersTypeface);
 
             // Initialize space and cell size based on the current mode.
+            final Paint.FontMetricsInt fm = sFoldersPaint.getFontMetricsInt();
             final int foldersCount = measurements.length;
             final int width = sumWidth(measurements);
-            int xLeft = (isRtl) ?  right - coordinates.folderLayoutWidth : right - width;
+            final int height = fm.bottom - fm.top;
+            int xStart = (isRtl) ? coordinates.snippetX + width : right - width;
 
             int index = 0;
-            for (Folder f : mFoldersSortedSet) {
+            for (Folder folder : mFoldersSortedSet) {
                 if (index > foldersCount - 1) {
                     break;
                 }
 
-                final String folderString = f.name;
-                final int fgColor = f.getForegroundColor(mDefaultFgColor);
-                final int bgColor = f.getBackgroundColor(mDefaultBgColor);
+                final int actualStart = isRtl ? xStart - measurements[index] : xStart;
+                drawFolder(canvas, actualStart, y, measurements[index], height, folder,
+                        mFolderDrawableResources, mFormatter, sFoldersPaint);
 
-                // Draw the box.
-                sFoldersPaint.setColor(bgColor);
-                sFoldersPaint.setStyle(Paint.Style.FILL);
-                final RectF rect =
-                        new RectF(xLeft, y, xLeft + measurements[index], y + height);
-                canvas.drawRoundRect(rect, sFolderRoundedCornerRadius, sFolderRoundedCornerRadius,
-                        sFoldersPaint);
-
-                // Draw the text.
-                sFoldersPaint.setColor(fgColor);
-                sFoldersPaint.setStyle(Paint.Style.FILL);
-                if (overflow[index]) {
-                    final int rightBorder = xLeft + measurements[index];
-                    final int x0 = (isRtl) ? xLeft + sFoldersOverflowGradientPadding :
-                            rightBorder - sFoldersOverflowGradientPadding;
-                    final int x1 = (isRtl) ?  xLeft + sFoldersInnerPadding :
-                            rightBorder - sFoldersInnerPadding;
-                    final Shader shader = new LinearGradient(x0, y, x1, y, fgColor,
-                            Utils.getTransparentColor(fgColor), Shader.TileMode.CLAMP);
-                    sFoldersPaint.setShader(shader);
-                }
-                canvas.drawText(folderString, xLeft + sFoldersInnerPadding,
-                        y + height - textBottomPadding, sFoldersPaint);
-                if (overflow[index]) {
-                    sFoldersPaint.setShader(null);
-                }
-
-                xLeft += measurements[index++] + sFoldersStartPadding;
+                // Increment the starting position accordingly for the next item
+                final int usedWidth = measurements[index++] +
+                        mFolderDrawableResources.folderInBetweenPadding;
+                xStart += (isRtl) ? -usedWidth : usedWidth;
             }
         }
 
-        private static class MeasurementWrapper {
-            final int[] measurements;
-            final boolean[] overflow;
-
-            public MeasurementWrapper(int[] m, boolean[] o) {
-                measurements = m;
-                overflow = o;
+        public @Nullable String getFoldersDesc() {
+            if (mFoldersSortedSet != null && !mFoldersSortedSet.isEmpty()) {
+                final StringBuilder builder = new StringBuilder();
+                final String comma = mContext.getString(R.string.enumeration_comma);
+                for (Folder f : mFoldersSortedSet) {
+                    builder.append(f.name).append(comma);
+                }
+                return builder.toString();
             }
+            return null;
         }
     }
 
-    public ConversationItemView(Context context, String account) {
+    public ConversationItemView(Context context, Account account) {
         super(context);
         Utils.traceBeginSection("CIVC constructor");
         setClickable(true);
@@ -441,7 +358,7 @@ public class ConversationItemView extends View
         mContext = context.getApplicationContext();
         final Resources res = mContext.getResources();
         mTabletDevice = Utils.useTabletUI(res);
-        mListCollapsible = res.getBoolean(R.bool.list_collapsible);
+        mListCollapsible = !res.getBoolean(R.bool.is_tablet_landscape);
         mAccount = account;
 
         getItemViewResources(mContext);
@@ -453,19 +370,26 @@ public class ConversationItemView extends View
 
         mSubjectTextView = new TextView(mContext);
         mSubjectTextView.setEllipsize(TextUtils.TruncateAt.END);
-        mSubjectTextView.setSingleLine(); // allow partial words to be elided
         mSubjectTextView.setIncludeFontPadding(false);
         ViewCompat.setLayoutDirection(mSubjectTextView, layoutDir);
         ViewUtils.setTextAlignment(mSubjectTextView, View.TEXT_ALIGNMENT_VIEW_START);
 
         mSnippetTextView = new TextView(mContext);
         mSnippetTextView.setEllipsize(TextUtils.TruncateAt.END);
-        mSnippetTextView.setSingleLine(); // allow partial words to be elided
         mSnippetTextView.setIncludeFontPadding(false);
         mSnippetTextView.setTypeface(SANS_SERIF_LIGHT);
         mSnippetTextView.setTextColor(getResources().getColor(R.color.snippet_text_color));
         ViewCompat.setLayoutDirection(mSnippetTextView, layoutDir);
         ViewUtils.setTextAlignment(mSnippetTextView, View.TEXT_ALIGNMENT_VIEW_START);
+
+        // hack for b/16345519. Root cause is b/17280038.
+        if (layoutDir == LAYOUT_DIRECTION_RTL) {
+            mSubjectTextView.setMaxLines(1);
+            mSnippetTextView.setMaxLines(1);
+        } else {
+            mSubjectTextView.setSingleLine();
+            mSnippetTextView.setSingleLine();
+        }
 
         mSendersImageView = new CheckableContactFlipDrawable(res, sCabAnimationDuration);
         mSendersImageView.setCallback(this);
@@ -490,7 +414,7 @@ public class ConversationItemView extends View
             // Initialize static bitmaps.
             STAR_OFF = BitmapFactory.decodeResource(res, R.drawable.ic_star_outline_20dp);
             STAR_ON = BitmapFactory.decodeResource(res, R.drawable.ic_star_20dp);
-            ATTACHMENT = BitmapFactory.decodeResource(res, R.drawable.ic_attach_file_20dp);
+            ATTACHMENT = BitmapFactory.decodeResource(res, R.drawable.ic_attach_file_18dp);
             ONLY_TO_ME = BitmapFactory.decodeResource(res, R.drawable.ic_email_caret_double);
             TO_ME_AND_OTHERS = BitmapFactory.decodeResource(res, R.drawable.ic_email_caret_single);
             IMPORTANT_ONLY_TO_ME = BitmapFactory.decodeResource(res,
@@ -507,9 +431,8 @@ public class ConversationItemView extends View
                     BitmapFactory.decodeResource(res, R.drawable.ic_badge_reply_forward_holo_light);
             STATE_CALENDAR_INVITE =
                     BitmapFactory.decodeResource(res, R.drawable.ic_badge_invite_holo_light);
-            VISIBLE_CONVERSATION_HIGHLIGHT = res.getDrawable(
+            FOCUSED_CONVERSATION_HIGHLIGHT = res.getDrawable(
                     R.drawable.visible_conversation_highlight);
-            RIGHT_EDGE_TABLET = res.getDrawable(R.drawable.list_edge_tablet);
 
             // Initialize colors.
             sActivatedTextSpan = CharacterStyle.wrap(new ForegroundColorSpan(
@@ -533,34 +456,27 @@ public class ConversationItemView extends View
             sSendersSplitToken = res.getString(R.string.senders_split_token);
             sElidedPaddingToken = res.getString(R.string.elided_padding_token);
             sScrollSlop = res.getInteger(R.integer.swipeScrollSlop);
-            sFoldersStartPadding = res.getDimensionPixelOffset(R.dimen.folders_start_padding);
-            sFoldersInnerPadding = res.getDimensionPixelOffset(R.dimen.folder_cell_content_padding);
             sFoldersMaxCount = res.getInteger(R.integer.conversation_list_max_folder_count);
-            sFoldersOverflowGradientPadding =
-                    res.getDimensionPixelOffset(R.dimen.folders_gradient_padding);
             sCabAnimationDuration = res.getInteger(R.integer.conv_item_view_cab_anim_duration);
             sBadgePaddingExtraWidth = res.getDimensionPixelSize(R.dimen.badge_padding_extra_width);
             sBadgeRoundedCornerRadius =
                     res.getDimensionPixelSize(R.dimen.badge_rounded_corner_radius);
-            sFolderRoundedCornerRadius =
-                    res.getDimensionPixelOffset(R.dimen.folder_rounded_corner_radius);
-            sDividerColor = res.getColor(R.color.conversation_list_divider_color);
-            sDividerInset = res.getDimensionPixelSize(R.dimen.conv_list_divider_inset);
+            sDividerPaint.setColor(res.getColor(R.color.divider_color));
             sDividerHeight = res.getDimensionPixelSize(R.dimen.divider_height);
         }
     }
 
     public void bind(final Conversation conversation, final ControllableActivity activity,
-            final ConversationSelectionSet set, final Folder folder,
+            final ConversationCheckedSet set, final Folder folder,
             final int checkboxOrSenderImage,
             final boolean swipeEnabled, final boolean importanceMarkersEnabled,
             final boolean showChevronsEnabled, final AnimatedAdapter adapter) {
         Utils.traceBeginSection("CIVC.bind");
-        bind(ConversationItemViewModel.forConversation(mAccount, conversation), activity,
-                null /* conversationItemAreaClickListener */,
+        bind(ConversationItemViewModel.forConversation(mAccount.getEmailAddress(), conversation),
+                activity, null /* conversationItemAreaClickListener */,
                 set, folder, checkboxOrSenderImage, swipeEnabled, importanceMarkersEnabled,
                 showChevronsEnabled, adapter, -1 /* backgroundOverrideResId */,
-                null /* photoBitmap */, false /* useFullMargins */);
+                null /* photoBitmap */, false /* useFullMargins */, true /* mDividerEnabled */);
         Utils.traceEndSection();
     }
 
@@ -573,35 +489,36 @@ public class ConversationItemView extends View
         bind(conversationItemViewModel, activity, conversationItemAreaClickListener, null /* set */,
                 folder, checkboxOrSenderImage, true /* swipeEnabled */,
                 false /* importanceMarkersEnabled */, false /* showChevronsEnabled */,
-                adapter, backgroundOverrideResId, photoBitmap, true /* useFullMargins */);
+                adapter, backgroundOverrideResId, photoBitmap, true /* useFullMargins */,
+                false /* mDividerEnabled */);
         Utils.traceEndSection();
     }
 
     private void bind(final ConversationItemViewModel header, final ControllableActivity activity,
             final ConversationItemAreaClickListener conversationItemAreaClickListener,
-            final ConversationSelectionSet set, final Folder folder,
+            final ConversationCheckedSet set, final Folder folder,
             final int checkboxOrSenderImage,
             boolean swipeEnabled, final boolean importanceMarkersEnabled,
             final boolean showChevronsEnabled, final AnimatedAdapter adapter,
             final int backgroundOverrideResId, final Bitmap photoBitmap,
-            final boolean useFullMargins) {
+            final boolean useFullMargins, final boolean dividerEnabled) {
         mBackgroundOverrideResId = backgroundOverrideResId;
         mPhotoBitmap = photoBitmap;
         mConversationItemAreaClickListener = conversationItemAreaClickListener;
+        mDividerEnabled = dividerEnabled;
 
         if (mHeader != null) {
             Utils.traceBeginSection("unbind");
             final boolean newlyBound = header.conversation.id != mHeader.conversation.id;
             // If this was previously bound to a different conversation, remove any contact photo
             // manager requests.
-            if (newlyBound || (mHeader.displayableNames != null && !mHeader
-                    .displayableNames.equals(header.displayableNames))) {
+            if (newlyBound || (!mHeader.displayableNames.equals(header.displayableNames))) {
                 mSendersImageView.getContactDrawable().unbind();
             }
 
             if (newlyBound) {
                 // Stop the photo flip animation
-                final boolean showSenders = !isSelected();
+                final boolean showSenders = !mChecked;
                 mSendersImageView.reset(showSenders);
             }
             Utils.traceEndSection();
@@ -609,9 +526,9 @@ public class ConversationItemView extends View
         mCoordinates = null;
         mHeader = header;
         mActivity = activity;
-        mSelectedConversationSet = set;
-        if (mSelectedConversationSet != null) {
-            mSelectedConversationSet.addObserver(this);
+        mCheckedConversationSet = set;
+        if (mCheckedConversationSet != null) {
+            mCheckedConversationSet.addObserver(this);
         }
         mDisplayedFolder = folder;
         mStarEnabled = folder != null && !folder.isTrash();
@@ -632,7 +549,8 @@ public class ConversationItemView extends View
         Utils.traceBeginSection("folder displayer");
         // Initialize folder displayer.
         if (mHeader.folderDisplayer == null) {
-            mHeader.folderDisplayer = new ConversationItemFolderDisplayer(mContext);
+            mHeader.folderDisplayer = new ConversationItemFolderDisplayer(mContext,
+                    mAdapter.getBidiFormatter());
         } else {
             mHeader.folderDisplayer.reset();
         }
@@ -705,8 +623,8 @@ public class ConversationItemView extends View
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
 
-        if (mSelectedConversationSet != null) {
-            mSelectedConversationSet.removeObserver(this);
+        if (mCheckedConversationSet != null) {
+            mCheckedConversationSet.removeObserver(this);
         }
     }
 
@@ -757,8 +675,7 @@ public class ConversationItemView extends View
         }
         mHeader.viewWidth = mViewWidth;
 
-        mConfig.updateWidth(wSize).setViewMode(currentMode)
-                .setLayoutDirection(ViewCompat.getLayoutDirection(this));
+        mConfig.updateWidth(wSize).setLayoutDirection(ViewCompat.getLayoutDirection(this));
 
         Resources res = getResources();
         mHeader.standardScaledDimen = res.getDimensionPixelOffset(R.dimen.standard_scaled_dimen);
@@ -767,8 +684,7 @@ public class ConversationItemView extends View
                 mAdapter.getCoordinatesCache());
 
         if (mPhotoBitmap != null) {
-            mPhotoRect = new Rect(0, 0, mCoordinates.contactImagesWidth,
-                    mCoordinates.contactImagesHeight);
+            mPhotoRect.set(0, 0, mCoordinates.contactImagesWidth, mCoordinates.contactImagesHeight);
         }
 
         final int h = (mAnimatedHeightFraction != 1.0f) ?
@@ -814,10 +730,15 @@ public class ConversationItemView extends View
     }
 
     private void setContentDescription() {
+        String foldersDesc = null;
+        if (mHeader != null && mHeader.folderDisplayer != null) {
+            foldersDesc = mHeader.folderDisplayer.getFoldersDesc();
+        }
+
         if (mActivity.isAccessibilityEnabled()) {
             mHeader.resetContentDescription();
-            setContentDescription(
-                    mHeader.getContentDescription(mContext, mDisplayedFolder.shouldShowRecipients()));
+            setContentDescription(mHeader.getContentDescription(
+                    mContext, mDisplayedFolder.shouldShowRecipients(), foldersDesc));
         }
     }
 
@@ -842,15 +763,12 @@ public class ConversationItemView extends View
     private void calculateTextsAndBitmaps() {
         startTimer(PERF_TAG_CALCULATE_TEXTS_BITMAPS);
 
-        if (mSelectedConversationSet != null) {
-            mSelected = mSelectedConversationSet.contains(mHeader.conversation);
+        if (mCheckedConversationSet != null) {
+            setChecked(mCheckedConversationSet.contains(mHeader.conversation));
         }
-        setSelected(mSelected);
         mHeader.gadgetMode = mGadgetMode;
 
         updateBackground();
-
-        mHeader.sendersDisplayText = new SpannableStringBuilder();
 
         mHeader.hasDraftMessage = mHeader.conversation.numDrafts() > 0;
 
@@ -863,21 +781,17 @@ public class ConversationItemView extends View
             Context context = getContext();
             mHeader.messageInfoString = SendersView
                     .createMessageInfo(context, mHeader.conversation, true);
-            int maxChars = ConversationItemViewCoordinates.getSendersLength(context,
-                    mCoordinates.getMode(), mHeader.conversation.hasAttachments);
-            mHeader.displayableEmails = new ArrayList<String>();
-            mHeader.displayableNames = new ArrayList<String>();
-            mHeader.styledNames = new ArrayList<SpannableString>();
+            final int maxChars = ConversationItemViewCoordinates.getSendersLength(context,
+                    mHeader.conversation.hasAttachments);
+
+            mHeader.mSenderAvatarModel.clear();
+            mHeader.displayableNames.clear();
+            mHeader.styledNames.clear();
 
             SendersView.format(context, mHeader.conversation.conversationInfo,
                     mHeader.messageInfoString.toString(), maxChars, mHeader.styledNames,
-                    mHeader.displayableNames, mHeader.displayableEmails, mAccount,
-                    mDisplayedFolder.shouldShowRecipients(), true);
-
-            if (mHeader.displayableEmails.isEmpty() && mHeader.hasDraftMessage) {
-                mHeader.displayableEmails.add(mAccount);
-                mHeader.displayableNames.add(mAccount);
-            }
+                    mHeader.displayableNames, mHeader.mSenderAvatarModel,
+                    mAccount, mDisplayedFolder.shouldShowRecipients(), true);
 
             // If we have displayable senders, load their thumbnails
             loadImages();
@@ -910,15 +824,13 @@ public class ConversationItemView extends View
     // is immutable.
     private void loadImages() {
         if (mGadgetMode != ConversationItemViewCoordinates.GADGET_CONTACT_PHOTO
-                || mHeader.displayableEmails == null
-                || mHeader.displayableEmails.isEmpty()) {
+                || mHeader.mSenderAvatarModel.isNotPopulated()) {
             return;
         }
         if (mCoordinates.contactImagesWidth <= 0 || mCoordinates.contactImagesHeight <= 0) {
             LogUtils.w(LOG_TAG,
-                    "Contact image width(%d) or height(%d) is 0 for mode: (%d).",
-                    mCoordinates.contactImagesWidth, mCoordinates.contactImagesHeight,
-                    mCoordinates.getMode());
+                    "Contact image width(%d) or height(%d) is 0",
+                    mCoordinates.contactImagesWidth, mCoordinates.contactImagesHeight);
             return;
         }
 
@@ -929,7 +841,8 @@ public class ConversationItemView extends View
         final ContactDrawable drawable = mSendersImageView.getContactDrawable();
         drawable.setDecodeDimensions(mCoordinates.contactImagesWidth,
                 mCoordinates.contactImagesHeight);
-        drawable.bind(mHeader.displayableNames.get(0), mHeader.displayableEmails.get(0));
+        drawable.bind(mHeader.mSenderAvatarModel.getName(),
+                mHeader.mSenderAvatarModel.getEmailAddress());
         Utils.traceEndSection();
     }
 
@@ -965,11 +878,11 @@ public class ConversationItemView extends View
     private void createSubject(final boolean isUnread) {
         final String badgeText = mHeader.badgeText == null ? "" : mHeader.badgeText;
         String subject = filterTag(getContext(), mHeader.conversation.subject);
+        subject = mAdapter.getBidiFormatter().unicodeWrap(subject);
         subject = Conversation.getSubjectForDisplay(mContext, badgeText, subject);
         final Spannable displayedStringBuilder = new SpannableString(subject);
 
-        // since spans affect text metrics, add spans to the string before measure/layout or fancy
-        // ellipsizing
+        // since spans affect text metrics, add spans to the string before measure/layout or eliding
 
         final int badgeTextLength = formatBadgeText(displayedStringBuilder, badgeText);
 
@@ -1105,21 +1018,18 @@ public class ConversationItemView extends View
         sPaint.setTextSize(mCoordinates.sendersFontSize);
         sPaint.setTypeface(Typeface.DEFAULT);
 
-        if (mHeader.styledNames != null) {
-            final SpannableStringBuilder participantText = elideParticipants(mHeader.styledNames);
-            layoutParticipantText(participantText);
-        } else {
-            // First pass to calculate width of each fragment.
-            if (mSendersWidth < 0) {
-                mSendersWidth = 0;
-            }
-
-            mHeader.sendersDisplayLayout = new StaticLayout(mHeader.sendersDisplayText, sPaint,
-                    mSendersWidth, Alignment.ALIGN_NORMAL, 1, 0, true);
-        }
-
+        // First pass to calculate width of each fragment.
         if (mSendersWidth < 0) {
             mSendersWidth = 0;
+        }
+
+        // sendersDisplayText is only set when preserveSendersText is true.
+        if (mHeader.preserveSendersText) {
+            mHeader.sendersDisplayLayout = new StaticLayout(mHeader.sendersDisplayText, sPaint,
+                    mSendersWidth, Alignment.ALIGN_NORMAL, 1, 0, true);
+        } else {
+            final SpannableStringBuilder participantText = elideParticipants(mHeader.styledNames);
+            layoutParticipantText(participantText);
         }
 
         pauseTimer(PERF_TAG_CALCULATE_COORDINATES);
@@ -1152,7 +1062,7 @@ public class ConversationItemView extends View
         }
 
         final SpannableStringBuilder messageInfoString = mHeader.messageInfoString;
-        if (messageInfoString.length() > 0) {
+        if (!TextUtils.isEmpty(messageInfoString)) {
             CharacterStyle[] spans = messageInfoString.getSpans(0, messageInfoString.length(),
                     CharacterStyle.class);
             // There is only 1 character style span; make sure we apply all the
@@ -1164,8 +1074,8 @@ public class ConversationItemView extends View
             float messageInfoWidth = sPaint.measureText(messageInfoString.toString());
             totalWidth += messageInfoWidth;
         }
-       SpannableString prevSender = null;
-       SpannableString ellipsizedText;
+        SpannableString prevSender = null;
+        SpannableString ellipsizedText;
         for (SpannableString sender : parts) {
             // There may be null sender strings if there were dupes we had to remove.
             if (sender == null) {
@@ -1183,17 +1093,16 @@ public class ConversationItemView extends View
             // If there are already senders present in this string, we need to
             // make sure we prepend the dividing token
             if (SendersView.sElidedString.equals(sender.toString())) {
-                prevSender = sender;
                 sender = copyStyles(spans, sElidedPaddingToken + sender + sElidedPaddingToken);
             } else if (!skipToHeader && builder.length() > 0
                     && (prevSender == null || !SendersView.sElidedString.equals(prevSender
                             .toString()))) {
-                prevSender = sender;
                 sender = copyStyles(spans, sSendersSplitToken + sender);
             } else {
-                prevSender = sender;
                 skipToHeader = false;
             }
+            prevSender = sender;
+
             if (spans.length > 0) {
                 spans[0].updateDrawState(sPaint);
             }
@@ -1221,7 +1130,9 @@ public class ConversationItemView extends View
             builder.append(fragmentDisplayText);
         }
         mHeader.styledMessageInfoStringOffset = builder.length();
-        builder.append(messageInfoString);
+        if (!TextUtils.isEmpty(messageInfoString)) {
+            builder.append(messageInfoString);
+        }
         return builder;
     }
 
@@ -1254,6 +1165,11 @@ public class ConversationItemView extends View
 
     @Override
     protected void onDraw(Canvas canvas) {
+        if (mCoordinates == null) {
+            LogUtils.e(LOG_TAG, "null coordinates in ConversationItemView#onDraw");
+            return;
+        }
+
         Utils.traceBeginSection("CIVC.draw");
 
         // Contact photo
@@ -1335,7 +1251,7 @@ public class ConversationItemView extends View
 
         // Date.
         sPaint.setTextSize(mCoordinates.dateFontSize);
-        sPaint.setTypeface(isUnread ? Typeface.SANS_SERIF : SANS_SERIF_LIGHT);
+        sPaint.setTypeface(isUnread ? SANS_SERIF_BOLD : SANS_SERIF_LIGHT);
         sPaint.setColor(isUnread ? sDateTextColorUnread : sDateTextColorRead);
         drawText(canvas, mHeader.dateText, mDateX, mCoordinates.dateYBaseline, sPaint);
 
@@ -1344,40 +1260,51 @@ public class ConversationItemView extends View
             canvas.drawBitmap(mHeader.paperclip, mPaperclipX, mCoordinates.paperclipY, sPaint);
         }
 
+        // Star.
         if (mStarEnabled) {
-            // Star.
             canvas.drawBitmap(getStarBitmap(), mCoordinates.starX, mCoordinates.starY, sPaint);
         }
 
-        // right-side edge effect when in tablet conversation mode and the list is not collapsed
-        if (Utils.getDisplayListRightEdgeEffect(mTabletDevice, mListCollapsible,
-                mConfig.getViewMode())) {
-            final boolean isRtl = ViewUtils.isViewRtl(this);
-            RIGHT_EDGE_TABLET.setBounds(
-                    (isRtl) ? 0 : getWidth() - RIGHT_EDGE_TABLET.getIntrinsicWidth(), 0,
-                    (isRtl) ? RIGHT_EDGE_TABLET.getIntrinsicWidth() : getWidth(), getHeight());
-            RIGHT_EDGE_TABLET.draw(canvas);
-
-            if (isActivated()) {
-                final int w = VISIBLE_CONVERSATION_HIGHLIGHT.getIntrinsicWidth();
-                VISIBLE_CONVERSATION_HIGHLIGHT.setBounds(
-                        (isRtl) ? getWidth() - w : 0, 0,
-                        (isRtl) ? getWidth() : w, getHeight());
-                VISIBLE_CONVERSATION_HIGHLIGHT.draw(canvas);
-            }
+        // Divider.
+        if (mDividerEnabled) {
+            final int dividerBottomY = getHeight();
+            final int dividerTopY = dividerBottomY - sDividerHeight;
+            canvas.drawRect(0, dividerTopY, getWidth(), dividerBottomY, sDividerPaint);
         }
 
-        // draw the inset divider
-        sDividerPaint.setColor(sDividerColor);
-        final int dividerBottomY = getHeight();
-        final int dividerTopY = dividerBottomY - sDividerHeight;
-        canvas.drawRect(sDividerInset, dividerTopY, getWidth(), dividerBottomY, sDividerPaint);
+        // The focused bar
+        final SwipeableListView listView = getListView();
+        if (listView != null && listView.isConversationSelected(getConversation())) {
+            final int w = FOCUSED_CONVERSATION_HIGHLIGHT.getIntrinsicWidth();
+            final boolean isRtl = ViewUtils.isViewRtl(this);
+            // This bar is on the right side of the conv list if it's RTL
+            FOCUSED_CONVERSATION_HIGHLIGHT.setBounds(
+                    (isRtl) ? getWidth() - w : 0, 0,
+                    (isRtl) ? getWidth() : w, getHeight());
+            FOCUSED_CONVERSATION_HIGHLIGHT.draw(canvas);
+        }
+
         Utils.traceEndSection();
+    }
+
+    @Override
+    public void setSelected(boolean selected) {
+        // We catch the selected event here instead of using ListView#setOnItemSelectedListener
+        // because when the framework changes selection due to keyboard events, it sets the selected
+        // state, re-draw the affected views, and then call onItemSelected. That approach won't work
+        // because the view won't know about the new selected position during the re-draw.
+        if (selected) {
+            final SwipeableListView listView = getListView();
+            if (listView != null) {
+                listView.setSelectedConversation(getConversation());
+            }
+        }
+        super.setSelected(selected);
     }
 
     private void drawSendersImage(final Canvas canvas) {
         if (!mSendersImageView.isFlipping()) {
-            final boolean showSenders = !isSelected();
+            final boolean showSenders = !mChecked;
             mSendersImageView.reset(showSenders);
         }
         canvas.translate(mCoordinates.contactImagesX, mCoordinates.contactImagesY);
@@ -1428,56 +1355,56 @@ public class ConversationItemView extends View
         if (mBackgroundOverrideResId > 0) {
             background = mBackgroundOverrideResId;
         } else {
-            background = R.drawable.conversation_item_background_selector;
+            background = R.drawable.conversation_item_background;
         }
         setBackgroundResource(background);
     }
 
-    /**
-     * Toggle the check mark on this view and update the conversation or begin
-     * drag, if drag is enabled.
-     */
     @Override
-    public boolean toggleSelectedStateOrBeginDrag() {
-        ViewMode mode = mActivity.getViewMode();
-        if (mTabletDevice && mode.isListMode()) {
-            return beginDragMode();
-        } else {
-            return toggleSelectedState("long_press");
+    protected int[] onCreateDrawableState(int extraSpace) {
+        final int[] curr = super.onCreateDrawableState(extraSpace + 1);
+        if (mChecked) {
+            mergeDrawableStates(curr, CHECKED_STATE);
         }
+        return curr;
+    }
+
+    private void setChecked(boolean checked) {
+        mChecked = checked;
+        refreshDrawableState();
     }
 
     @Override
-    public boolean toggleSelectedState() {
-        return toggleSelectedState(null);
+    public boolean toggleCheckedState() {
+        return toggleCheckedState(null);
     }
 
-    private boolean toggleSelectedState(final String sourceOpt) {
-        if (mHeader != null && mHeader.conversation != null && mSelectedConversationSet != null) {
-            mSelected = !mSelected;
-            setSelected(mSelected);
+    @Override
+    public boolean toggleCheckedState(final String sourceOpt) {
+        if (mHeader != null && mHeader.conversation != null && mCheckedConversationSet != null) {
+            setChecked(!mChecked);
             final Conversation conv = mHeader.conversation;
             // Set the list position of this item in the conversation
             final SwipeableListView listView = getListView();
 
             try {
-                conv.position = mSelected && listView != null ? listView.getPositionForView(this)
+                conv.position = mChecked && listView != null ? listView.getPositionForView(this)
                         : Conversation.NO_POSITION;
             } catch (final NullPointerException e) {
                 // TODO(skennedy) Remove this if we find the root cause b/9527863
             }
 
-            if (mSelectedConversationSet.isEmpty()) {
+            if (mCheckedConversationSet.isEmpty()) {
                 final String source = (sourceOpt != null) ? sourceOpt : "checkbox";
                 Analytics.getInstance().sendEvent("enter_cab_mode", source, null, 0);
             }
 
-            mSelectedConversationSet.toggle(conv);
-            if (mSelectedConversationSet.isEmpty()) {
+            mCheckedConversationSet.toggle(conv);
+            if (mCheckedConversationSet.isEmpty()) {
                 listView.commitDestructiveActions(true);
             }
 
-            final boolean front = !mSelected;
+            final boolean front = !mChecked;
             mSendersImageView.flipTo(front);
 
             // We update the background after the checked state has changed
@@ -1498,10 +1425,10 @@ public class ConversationItemView extends View
     }
 
     @Override
-    public void onSetPopulated(final ConversationSelectionSet set) { }
+    public void onSetPopulated(final ConversationCheckedSet set) { }
 
     @Override
-    public void onSetChanged(final ConversationSelectionSet set) { }
+    public void onSetChanged(final ConversationCheckedSet set) { }
 
     /**
      * Toggle the star on this view and update the conversation.
@@ -1530,7 +1457,7 @@ public class ConversationItemView extends View
 
         // Allow touching a little right of the contact photo when we're already in selection mode
         final float extra;
-        if (mSelectedConversationSet == null || mSelectedConversationSet.isEmpty()) {
+        if (mCheckedConversationSet == null || mCheckedConversationSet.isEmpty()) {
             extra = 0;
         } else {
             extra = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 16,
@@ -1603,8 +1530,6 @@ public class ConversationItemView extends View
 
         int x = (int) event.getX();
         int y = (int) event.getY();
-        mLastTouchX = x;
-        mLastTouchY = y;
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 if (isTouchInContactPhoto(x, y) || isTouchInInfoIcon(x, y) || isTouchInStar(x, y)) {
@@ -1621,7 +1546,7 @@ public class ConversationItemView extends View
                 if (mDownEvent) {
                     if (isTouchInContactPhoto(x, y)) {
                         // Touch on the check mark
-                        toggleSelectedState();
+                        toggleCheckedState();
                     } else if (isTouchInInfoIcon(x, y)) {
                         if (mConversationItemAreaClickListener != null) {
                             mConversationItemAreaClickListener.onInfoIconClicked();
@@ -1655,8 +1580,6 @@ public class ConversationItemView extends View
         Utils.traceBeginSection("on touch event");
         int x = (int) event.getX();
         int y = (int) event.getY();
-        mLastTouchX = x;
-        mLastTouchY = y;
         if (!mSwipeEnabled) {
             Utils.traceEndSection();
             return onTouchEventNoSwipe(event);
@@ -1675,7 +1598,7 @@ public class ConversationItemView extends View
                         // Touch on the check mark
                         Utils.traceEndSection();
                         mDownEvent = false;
-                        toggleSelectedState();
+                        toggleCheckedState();
                         Utils.traceEndSection();
                         return true;
                     } else if (isTouchInInfoIcon(x, y)) {
@@ -1848,105 +1771,12 @@ public class ConversationItemView extends View
         return SwipeableView.from(this);
     }
 
-    /**
-     * Begin drag mode. Keep the conversation selected (NOT toggle selection) and start drag.
-     */
-    private boolean beginDragMode() {
-        if (mLastTouchX < 0 || mLastTouchY < 0 ||  mSelectedConversationSet == null) {
-            return false;
-        }
-        // If this is already checked, don't bother unchecking it!
-        if (!mSelected) {
-            toggleSelectedState();
-        }
-
-        // Clip data has form: [conversations_uri, conversationId1,
-        // maxMessageId1, label1, conversationId2, maxMessageId2, label2, ...]
-        final int count = mSelectedConversationSet.size();
-        String description = Utils.formatPlural(mContext, R.plurals.move_conversation, count);
-
-        final ClipData data = ClipData.newUri(mContext.getContentResolver(), description,
-                Conversation.MOVE_CONVERSATIONS_URI);
-        for (Conversation conversation : mSelectedConversationSet.values()) {
-            data.addItem(new Item(String.valueOf(conversation.position)));
-        }
-        // Protect against non-existent views: only happens for monkeys
-        final int width = this.getWidth();
-        final int height = this.getHeight();
-        final boolean isDimensionNegative = (width < 0) || (height < 0);
-        if (isDimensionNegative) {
-            LogUtils.e(LOG_TAG, "ConversationItemView: dimension is negative: "
-                        + "width=%d, height=%d", width, height);
-            return false;
-        }
-        mActivity.startDragMode();
-        // Start drag mode
-        startDrag(data, new ShadowBuilder(this, count, mLastTouchX, mLastTouchY), null, 0);
-
-        return true;
-    }
-
-    /**
-     * Handles the drag event.
-     *
-     * @param event the drag event to be handled
-     */
-    @Override
-    public boolean onDragEvent(DragEvent event) {
-        switch (event.getAction()) {
-            case DragEvent.ACTION_DRAG_ENDED:
-                mActivity.stopDragMode();
-                return true;
-        }
-        return false;
-    }
-
-    private class ShadowBuilder extends DragShadowBuilder {
-        private final Drawable mBackground;
-
-        private final View mView;
-        private final String mDragDesc;
-        private final int mTouchX;
-        private final int mTouchY;
-        private int mDragDescX;
-        private int mDragDescY;
-
-        public ShadowBuilder(View view, int count, int touchX, int touchY) {
-            super(view);
-            mView = view;
-            mBackground = mView.getResources().getDrawable(R.drawable.list_pressed_holo);
-            mDragDesc = Utils.formatPlural(mView.getContext(), R.plurals.move_conversation, count);
-            mTouchX = touchX;
-            mTouchY = touchY;
-        }
-
-        @Override
-        public void onProvideShadowMetrics(Point shadowSize, Point shadowTouchPoint) {
-            final int width = mView.getWidth();
-            final int height = mView.getHeight();
-
-            sPaint.setTextSize(mCoordinates.subjectFontSize);
-            mDragDescX = mCoordinates.sendersX;
-            mDragDescY = (height - (int) mCoordinates.subjectFontSize) / 2 ;
-            shadowSize.set(width, height);
-            shadowTouchPoint.set(mTouchX, mTouchY);
-        }
-
-        @Override
-        public void onDrawShadow(Canvas canvas) {
-            mBackground.setBounds(0, 0, mView.getWidth(), mView.getHeight());
-            mBackground.draw(canvas);
-            sPaint.setTextSize(mCoordinates.subjectFontSize);
-            canvas.drawText(mDragDesc, mDragDescX, mDragDescY - sPaint.ascent(), sPaint);
-        }
-    }
-
     @Override
     public float getMinAllowScrollDistance() {
         return sScrollSlop;
     }
 
-    public String getAccount() {
-        return mAccount;
+    public String getAccountEmailAddress() {
+        return mAccount.getEmailAddress();
     }
 }

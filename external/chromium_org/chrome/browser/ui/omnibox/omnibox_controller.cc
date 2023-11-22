@@ -6,8 +6,6 @@
 
 #include "base/metrics/histogram.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier.h"
-#include "chrome/browser/autocomplete/autocomplete_match.h"
-#include "chrome/browser/autocomplete/search_provider.h"
 #include "chrome/browser/net/predictor.h"
 #include "chrome/browser/predictors/autocomplete_action_predictor.h"
 #include "chrome/browser/prerender/prerender_field_trial.h"
@@ -15,11 +13,15 @@
 #include "chrome/browser/prerender/prerender_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/search.h"
+#include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/common/instant_types.h"
+#include "components/omnibox/autocomplete_match.h"
+#include "components/omnibox/search_provider.h"
+#include "components/search/search.h"
 #include "extensions/common/constants.h"
 #include "ui/gfx/rect.h"
 
@@ -73,7 +75,8 @@ OmniboxController::OmniboxController(OmniboxEditModel* omnibox_edit_model,
     : omnibox_edit_model_(omnibox_edit_model),
       profile_(profile),
       popup_(NULL),
-      autocomplete_controller_(new AutocompleteController(profile, this,
+      autocomplete_controller_(new AutocompleteController(profile,
+          TemplateURLServiceFactory::GetForProfile(profile), this,
           AutocompleteClassifier::kDefaultOmniboxProviders)) {
 }
 

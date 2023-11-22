@@ -16,9 +16,9 @@
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "content/public/common/web_preferences.h"
 #include "content/shell/common/leak_detection_result.h"
 #include "ui/gfx/size.h"
-#include "webkit/common/webpreferences.h"
 
 #if defined(OS_ANDROID)
 #include "base/threading/thread_restrictions.h"
@@ -212,6 +212,7 @@ class WebKitTestController : public base::NonThreadSafe,
   NotificationRegistrar registrar_;
 
   const bool is_leak_detection_enabled_;
+  bool crash_when_leak_found_;
 
 #if defined(OS_ANDROID)
   // Because of the nested message pump implementation, Android needs to allow

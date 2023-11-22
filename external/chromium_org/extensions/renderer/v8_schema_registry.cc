@@ -52,6 +52,8 @@ scoped_ptr<NativeHandler> V8SchemaRegistry::AsNativeHandler() {
       new ScriptContext(GetOrCreateContext(v8::Isolate::GetCurrent()),
                         NULL,  // no frame
                         NULL,  // no extension
+                        Feature::UNSPECIFIED_CONTEXT,
+                        NULL,  // no effective extension
                         Feature::UNSPECIFIED_CONTEXT));
   return scoped_ptr<NativeHandler>(
       new SchemaRegistryNativeHandler(this, context.Pass()));
@@ -105,13 +107,13 @@ v8::Handle<v8::Context> V8SchemaRegistry::GetOrCreateContext(
     v8::Isolate* isolate) {
   // It's ok to create local handles in this function, since this is only called
   // when we have a HandleScope.
-  if (context_.IsEmpty()) {
-    v8::Handle<v8::Context> context = v8::Context::New(isolate);
-    context_.reset(context);
+  if (!context_holder_) {
+    context_holder_.reset(new gin::ContextHolder(isolate));
+    context_holder_->SetContext(v8::Context::New(isolate));
     schema_cache_.reset(new SchemaCache(isolate));
-    return context;
+    return context_holder_->context();
   }
-  return context_.NewHandle(isolate);
+  return context_holder_->context();
 }
 
 }  // namespace extensions

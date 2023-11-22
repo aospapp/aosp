@@ -26,11 +26,11 @@
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/signin/profile_identity_provider.h"
 #include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
 #include "chrome/browser/signin/signin_manager_factory.h"
+#include "chrome/browser/sync/glue/invalidation_helper.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/sync/test/integration/fake_server_invalidation_service.h"
@@ -57,6 +57,7 @@
 #include "components/invalidation/profile_invalidation_provider.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/os_crypt/os_crypt.h"
+#include "components/search_engines/template_url_service.h"
 #include "components/signin/core/browser/signin_manager.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/test_browser_thread.h"
@@ -64,6 +65,7 @@
 #include "net/base/escape.h"
 #include "net/base/load_flags.h"
 #include "net/base/network_change_notifier.h"
+#include "net/cookies/cookie_monster.h"
 #include "net/proxy/proxy_config.h"
 #include "net/proxy/proxy_config_service_fixed.h"
 #include "net/proxy/proxy_service.h"
@@ -132,6 +134,14 @@ class EncryptionChecker : public SingleClientStatusChangeChecker {
     return "Encryption";
   }
 };
+
+void SetupNetworkCallback(
+    base::WaitableEvent* done,
+    net::URLRequestContextGetter* url_request_context_getter) {
+  url_request_context_getter->GetURLRequestContext()->
+      set_cookie_store(new net::CookieMonster(NULL, NULL));
+  done->Signal();
+}
 
 void SetProxyConfigCallback(
     base::WaitableEvent* done,
@@ -383,6 +393,8 @@ void SyncTest::InitializeInstance(int index) {
   ProfileSyncService* profile_sync_service =
       ProfileSyncServiceFactory::GetForProfile(GetProfile(index));
 
+  SetupNetwork(GetProfile(index)->GetRequestContext());
+
   if (server_type_ == IN_PROCESS_FAKE_SERVER) {
     // TODO(pvalenzuela): Run the fake server via EmbeddedTestServer.
     profile_sync_service->OverrideNetworkResourcesForTest(
@@ -471,7 +483,7 @@ bool SyncTest::SetupSync() {
   return true;
 }
 
-void SyncTest::CleanUpOnMainThread() {
+void SyncTest::TearDownOnMainThread() {
   for (size_t i = 0; i < clients_.size(); ++i) {
     clients_[i]->service()->DisableForUser();
   }
@@ -835,15 +847,18 @@ bool SyncTest::EnableEncryption(int index) {
   bool sync_everything = synced_datatypes.Equals(syncer::ModelTypeSet::All());
   service->OnUserChoseDatatypes(sync_everything, synced_datatypes);
 
-  // Wait some time to let the enryption finish.
-  EncryptionChecker checker(service);
-  checker.Wait();
-
-  return !checker.TimedOut();
+  return AwaitEncryptionComplete(index);
 }
 
 bool SyncTest::IsEncryptionComplete(int index) {
   return ::IsEncryptionComplete(GetClient(index)->service());
+}
+
+bool SyncTest::AwaitEncryptionComplete(int index) {
+  ProfileSyncService* service = GetClient(index)->service();
+  EncryptionChecker checker(service);
+  checker.Wait();
+  return !checker.TimedOut();
 }
 
 bool SyncTest::AwaitQuiescence() {
@@ -1040,6 +1055,15 @@ void SyncTest::TriggerCreateSyncedBookmarks() {
             base::UTF16ToASCII(
                 browser()->tab_strip_model()->GetActiveWebContents()->
                     GetTitle()));
+}
+
+void SyncTest::SetupNetwork(net::URLRequestContextGetter* context_getter) {
+  base::WaitableEvent done(false, false);
+  BrowserThread::PostTask(
+      BrowserThread::IO, FROM_HERE,
+      base::Bind(&SetupNetworkCallback, &done,
+                 make_scoped_refptr(context_getter)));
+  done.Wait();
 }
 
 void SyncTest::SetProxyConfig(net::URLRequestContextGetter* context_getter,

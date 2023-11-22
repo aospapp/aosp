@@ -6,6 +6,7 @@
 
 #include "base/bind.h"
 #include "base/debug/trace_event.h"
+#include "base/thread_task_runner_handle.h"
 #include "chrome/browser/sync_file_system/drive_backend/sync_task_manager.h"
 #include "chrome/browser/sync_file_system/drive_backend/task_dependency_manager.h"
 
@@ -21,30 +22,35 @@ scoped_ptr<SyncTaskToken> SyncTaskToken::CreateForTesting(
     const SyncStatusCallback& callback) {
   return make_scoped_ptr(new SyncTaskToken(
       base::WeakPtr<SyncTaskManager>(),
+      base::ThreadTaskRunnerHandle::Get(),
       kTestingTaskTokenID,
-      scoped_ptr<BlockingFactor>(),
+      scoped_ptr<TaskBlocker>(),
       callback));
 }
 
 // static
 scoped_ptr<SyncTaskToken> SyncTaskToken::CreateForForegroundTask(
-    const base::WeakPtr<SyncTaskManager>& manager) {
+    const base::WeakPtr<SyncTaskManager>& manager,
+    base::SequencedTaskRunner* task_runner) {
   return make_scoped_ptr(new SyncTaskToken(
       manager,
+      task_runner,
       kForegroundTaskTokenID,
-      scoped_ptr<BlockingFactor>(),
+      scoped_ptr<TaskBlocker>(),
       SyncStatusCallback()));
 }
 
 // static
 scoped_ptr<SyncTaskToken> SyncTaskToken::CreateForBackgroundTask(
     const base::WeakPtr<SyncTaskManager>& manager,
+    base::SequencedTaskRunner* task_runner,
     int64 token_id,
-    scoped_ptr<BlockingFactor> blocking_factor) {
+    scoped_ptr<TaskBlocker> task_blocker) {
   return make_scoped_ptr(new SyncTaskToken(
       manager,
+      task_runner,
       token_id,
-      blocking_factor.Pass(),
+      task_blocker.Pass(),
       SyncStatusCallback()));
 }
 
@@ -62,15 +68,18 @@ SyncTaskToken::~SyncTaskToken() {
   // it must return the token to TaskManager.
   // Destroying a token with valid |client| indicates the token was
   // dropped by a task without returning.
-  if (manager_.get() && manager_->IsRunningTask(token_id_)) {
+  if (task_runner_.get() && task_runner_->RunsTasksOnCurrentThread() &&
+      manager_ && manager_->IsRunningTask(token_id_)) {
     NOTREACHED()
         << "Unexpected TaskToken deletion from: " << location_.ToString();
 
     // Reinitializes the token.
     SyncTaskManager::NotifyTaskDone(
-        make_scoped_ptr(new SyncTaskToken(
-            manager_, token_id_, blocking_factor_.Pass(),
-            SyncStatusCallback())),
+        make_scoped_ptr(new SyncTaskToken(manager_,
+                                          task_runner_.get(),
+                                          token_id_,
+                                          task_blocker_.Pass(),
+                                          SyncStatusCallback())),
         SYNC_STATUS_OK);
   }
 }
@@ -81,17 +90,17 @@ SyncStatusCallback SyncTaskToken::WrapToCallback(
   return base::Bind(&SyncTaskManager::NotifyTaskDone, base::Passed(&token));
 }
 
-void SyncTaskToken::set_blocking_factor(
-    scoped_ptr<BlockingFactor> blocking_factor) {
-  blocking_factor_ = blocking_factor.Pass();
+void SyncTaskToken::set_task_blocker(
+    scoped_ptr<TaskBlocker> task_blocker) {
+  task_blocker_ = task_blocker.Pass();
 }
 
-const BlockingFactor* SyncTaskToken::blocking_factor() const {
-  return blocking_factor_.get();
+const TaskBlocker* SyncTaskToken::task_blocker() const {
+  return task_blocker_.get();
 }
 
-void SyncTaskToken::clear_blocking_factor() {
-  blocking_factor_.reset();
+void SyncTaskToken::clear_task_blocker() {
+  task_blocker_.reset();
 }
 
 void SyncTaskToken::InitializeTaskLog(const std::string& task_description) {
@@ -129,14 +138,17 @@ scoped_ptr<TaskLogger::TaskLog> SyncTaskToken::PassTaskLog() {
   return task_log_.Pass();
 }
 
-SyncTaskToken::SyncTaskToken(const base::WeakPtr<SyncTaskManager>& manager,
-                             int64 token_id,
-                             scoped_ptr<BlockingFactor> blocking_factor,
-                             const SyncStatusCallback& callback)
+SyncTaskToken::SyncTaskToken(
+    const base::WeakPtr<SyncTaskManager>& manager,
+    const scoped_refptr<base::SequencedTaskRunner>& task_runner,
+    int64 token_id,
+    scoped_ptr<TaskBlocker> task_blocker,
+    const SyncStatusCallback& callback)
     : manager_(manager),
+      task_runner_(task_runner),
       token_id_(token_id),
       callback_(callback),
-      blocking_factor_(blocking_factor.Pass()) {
+      task_blocker_(task_blocker.Pass()) {
 }
 
 }  // namespace drive_backend

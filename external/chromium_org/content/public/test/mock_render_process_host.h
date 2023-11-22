@@ -40,9 +40,6 @@ class MockRenderProcessHost : public RenderProcessHost {
   virtual void RemoveRoute(int32 routing_id) OVERRIDE;
   virtual void AddObserver(RenderProcessHostObserver* observer) OVERRIDE;
   virtual void RemoveObserver(RenderProcessHostObserver* observer) OVERRIDE;
-  virtual bool WaitForBackingStoreMsg(int render_widget_id,
-                                      const base::TimeDelta& max_delay,
-                                      IPC::Message* msg) OVERRIDE;
   virtual void ReceivedBadMessage() OVERRIDE;
   virtual void WidgetRestored() OVERRIDE;
   virtual void WidgetHidden() OVERRIDE;
@@ -85,6 +82,7 @@ class MockRenderProcessHost : public RenderProcessHost {
   virtual void ResumeDeferredNavigation(const GlobalRequestID& request_id)
       OVERRIDE;
   virtual void NotifyTimezoneChange() OVERRIDE;
+  virtual ServiceRegistry* GetServiceRegistry() OVERRIDE;
 
   // IPC::Sender via RenderProcessHost.
   virtual bool Send(IPC::Message* msg) OVERRIDE;
@@ -105,6 +103,10 @@ class MockRenderProcessHost : public RenderProcessHost {
     is_isolated_guest_ = is_isolated_guest;
   }
 
+  void SetProcessHandle(scoped_ptr<base::ProcessHandle> new_handle) {
+    process_handle = new_handle.Pass();
+  }
+
  private:
   // Stores IPC messages that would have been sent to the renderer.
   IPC::TestSink sink_;
@@ -120,6 +122,7 @@ class MockRenderProcessHost : public RenderProcessHost {
   bool fast_shutdown_started_;
   bool deletion_callback_called_;
   bool is_isolated_guest_;
+  scoped_ptr<base::ProcessHandle> process_handle;
 
   DISALLOW_COPY_AND_ASSIGN(MockRenderProcessHost);
 };

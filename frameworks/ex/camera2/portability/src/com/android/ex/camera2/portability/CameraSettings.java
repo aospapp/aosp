@@ -58,7 +58,7 @@ public abstract class CameraSettings {
     protected boolean mAutoWhiteBalanceLocked;
     protected boolean mRecordingHintEnabled;
     protected GpsData mGpsData;
-    protected Size mExifThumbnailSize = new Size(0,0);
+    protected Size mExifThumbnailSize;
 
     /**
      * An immutable class storing GPS related information.
@@ -491,20 +491,22 @@ public abstract class CameraSettings {
     }
 
     /**
-     * Sets the size of the thumbnail in EXIF header.
+     * Sets the size of the thumbnail in EXIF header. To suppress thumbnail
+     * generation, set a size of (0,0).
      *
-     * @param s The size for the thumbnail. {@code null} will clear the size to
-     *          (0,0).
+     * @param s The size for the thumbnail. If {@code null}, agent will not
+     *          set a thumbnail size.
      */
     public void setExifThumbnailSize(Size s) {
-        if (s != null) {
-            mExifThumbnailSize = s;
-        } else {
-            mExifThumbnailSize = new Size(0,0);
-        }
+        mExifThumbnailSize = s;
     }
 
+    /**
+     * Gets the size of the thumbnail in EXIF header.
+     *
+     * @return desired thumbnail size, or null if no size was set
+     */
     public Size getExifThumbnailSize() {
-        return new Size(mExifThumbnailSize);
+        return (mExifThumbnailSize == null) ? null : new Size(mExifThumbnailSize);
     }
 }

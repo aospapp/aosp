@@ -33,13 +33,13 @@
 
         <View
             android:layout_width="match_parent"
-            android:layout_height="1dp"
+            android:layout_height="@dimen/divider_height"
             android:background="@color/conversation_view_border_color"/>
 
         <View
             android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="8dp"
+            android:layout_height="@dimen/divider_height"
+            android:layout_marginTop="4dp"
             android:background="@color/conversation_view_border_color"/>
 
     </LinearLayout>
@@ -52,6 +52,17 @@
         android:contentDescription="@null"
         android:gravity="center"
         android:textSize="@dimen/super_collapsed_text_size"
+        style="@style/MessageHeaderIconStyle" />
+
+    <ImageView
+        android:id="@+id/super_collapsed_progress"
+        android:layout_width="40sp"
+        android:layout_height="40sp"
+        android:background="@drawable/super_collapse_circle"
+        android:contentDescription="@null"
+        android:scaleType="center"
+        android:src="@drawable/ic_cv_loading_24dp"
+        android:visibility="gone"
         style="@style/MessageHeaderIconStyle" />
 
 </com.android.mail.browse.SuperCollapsedBlock>

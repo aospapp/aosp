@@ -10,8 +10,9 @@
 #include "chrome/browser/prefs/chrome_pref_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/web_ui.h"
-#include "grit/generated_resources.h"
+#include "grit/components_strings.h"
 
 namespace {
 
@@ -44,6 +45,8 @@ void AutomaticSettingsResetHandler::GetLocalizedValues(
   DCHECK(localized_strings);
 
   static const OptionsStringResource resources[] = {
+      { "automaticSettingsResetBannerResetButtonText",
+        IDS_AUTOMATIC_SETTINGS_RESET_BANNER_RESET_BUTTON_TEXT },
       { "automaticSettingsResetBannerText",
         IDS_AUTOMATIC_SETTINGS_RESET_BANNER_TEXT },
       { "automaticSettingsResetLearnMoreUrl",

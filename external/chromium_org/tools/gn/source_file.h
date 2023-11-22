@@ -5,6 +5,7 @@
 #ifndef TOOLS_GN_SOURCE_FILE_H_
 #define TOOLS_GN_SOURCE_FILE_H_
 
+#include <algorithm>
 #include <string>
 
 #include "base/containers/hash_tables.h"
@@ -18,10 +19,16 @@ class SourceDir;
 // ends in one.
 class SourceFile {
  public:
+  enum SwapIn { SWAP_IN };
+
   SourceFile();
 
   // Takes a known absolute source file. Always begins in a slash.
   explicit SourceFile(const base::StringPiece& p);
+
+  // Constructs from the given string by swapping in the contents of the given
+  // value. The value will be the empty string after this call.
+  SourceFile(SwapIn, std::string* value);
 
   ~SourceFile();
 
@@ -69,6 +76,10 @@ class SourceFile {
     return value_ < other.value_;
   }
 
+  void swap(SourceFile& other) {
+    value_.swap(other.value_);
+  }
+
  private:
   friend class SourceDir;
 
@@ -93,5 +104,9 @@ inline size_t hash_value(const SourceFile& v) {
 #endif  // COMPILER...
 
 }  // namespace BASE_HASH_NAMESPACE
+
+inline void swap(SourceFile& lhs, SourceFile& rhs) {
+  lhs.swap(rhs);
+}
 
 #endif  // TOOLS_GN_SOURCE_FILE_H_

@@ -32,6 +32,11 @@ bool DoesTopLevelNodeExist(syncer::UserShare* user_share,
     return node.InitTypeRoot(type) == syncer::BaseNode::INIT_OK;
 }
 
+bool IsUnready(const sync_driver::DataTypeStatusTable& data_type_status_table,
+               syncer::ModelType type) {
+  return data_type_status_table.GetUnreadyErrorTypes().Has(type);
+}
+
 IN_PROC_BROWSER_TEST_F(EnableDisableSingleClientTest, EnableOneAtATime) {
   ASSERT_TRUE(SetupClients());
 
@@ -39,8 +44,10 @@ IN_PROC_BROWSER_TEST_F(EnableDisableSingleClientTest, EnableOneAtATime) {
   ASSERT_TRUE(GetClient(0)->SetupSync(syncer::ModelTypeSet()));
 
   const syncer::ModelTypeSet registered_types =
-      GetSyncService((0))->GetRegisteredDataTypes();
-  syncer::UserShare* user_share = GetSyncService((0))->GetUserShare();
+      GetSyncService(0)->GetRegisteredDataTypes();
+  syncer::UserShare* user_share = GetSyncService(0)->GetUserShare();
+  const sync_driver::DataTypeStatusTable& data_type_status_table =
+      GetSyncService(0)->data_type_status_table();
   for (syncer::ModelTypeSet::Iterator it = registered_types.First();
        it.Good(); it.Inc()) {
     ASSERT_TRUE(GetClient(0)->EnableSyncForDatatype(it.Get()));
@@ -55,7 +62,8 @@ IN_PROC_BROWSER_TEST_F(EnableDisableSingleClientTest, EnableOneAtATime) {
     }
 
     if (!syncer::ProxyTypes().Has(it.Get())) {
-      ASSERT_TRUE(DoesTopLevelNodeExist(user_share, it.Get()))
+      ASSERT_TRUE(DoesTopLevelNodeExist(user_share, it.Get()) ||
+                  IsUnready(data_type_status_table, it.Get()))
           << syncer::ModelTypeToString(it.Get());
     }
 
@@ -78,15 +86,19 @@ IN_PROC_BROWSER_TEST_F(EnableDisableSingleClientTest, DisableOneAtATime) {
   ASSERT_TRUE(GetClient(0)->SetupSync());
 
   const syncer::ModelTypeSet registered_types =
-      GetSyncService((0))->GetRegisteredDataTypes();
+      GetSyncService(0)->GetRegisteredDataTypes();
 
-  syncer::UserShare* user_share = GetSyncService((0))->GetUserShare();
+  syncer::UserShare* user_share = GetSyncService(0)->GetUserShare();
+
+  const sync_driver::DataTypeStatusTable& data_type_status_table =
+      GetSyncService(0)->data_type_status_table();
 
   // Make sure all top-level nodes exist first.
   for (syncer::ModelTypeSet::Iterator it = registered_types.First();
        it.Good(); it.Inc()) {
     if (!syncer::ProxyTypes().Has(it.Get())) {
-      ASSERT_TRUE(DoesTopLevelNodeExist(user_share, it.Get()));
+      ASSERT_TRUE(DoesTopLevelNodeExist(user_share, it.Get()) ||
+                  IsUnready(data_type_status_table, it.Get()));
     }
   }
 
@@ -97,6 +109,10 @@ IN_PROC_BROWSER_TEST_F(EnableDisableSingleClientTest, DisableOneAtATime) {
         it.Get() == syncer::SUPERVISED_USER_SHARED_SETTINGS ||
         it.Get() == syncer::SYNCED_NOTIFICATIONS ||
         it.Get() == syncer::SYNCED_NOTIFICATION_APP_INFO)
+      continue;
+
+    // Device info cannot be disabled.
+    if (it.Get() == syncer::DEVICE_INFO)
       continue;
 
     ASSERT_TRUE(GetClient(0)->DisableSyncForDatatype(it.Get()));
@@ -117,7 +133,7 @@ IN_PROC_BROWSER_TEST_F(EnableDisableSingleClientTest, DisableOneAtATime) {
     }
 
     syncer::UserShare* user_share =
-        GetSyncService((0))->GetUserShare();
+        GetSyncService(0)->GetUserShare();
 
     ASSERT_FALSE(DoesTopLevelNodeExist(user_share, it.Get()))
         << syncer::ModelTypeToString(it.Get());

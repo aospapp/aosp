@@ -71,9 +71,15 @@
         <item name="android:fontFamily">sans-serif</item>
     </style>
 
+    <style name="TextAppearance.Leanback.PlaybackControlLabel">
+        <item name="android:textSize">@dimen/lb_control_button_text_size</item>
+        <item name="android:textColor">@color/lb_control_button_text</item>
+        <item name="android:fontFamily">sans-serif</item>
+    </style>
+
     <style name="TextAppearance.Leanback.ErrorMessage">
         <item name="android:textSize">@dimen/lb_error_message_text_size</item>
-        <item name="android:textColor">@color/lb_error_message_color_on_opaque</item>
+        <item name="android:textColor">@color/lb_error_message</item>
         <item name="android:fontFamily">sans-serif</item>
     </style>
 
@@ -98,13 +104,12 @@
 
     <style name="Widget.Leanback.Title.Text">
         <item name="android:singleLine">true</item>
-        <item name="android:gravity">right</item>
+        <item name="android:gravity">end</item>
         <item name="android:ellipsize">end</item>
         <item name="android:textAppearance">@style/TextAppearance.Leanback.Title</item>
     </style>
 
     <style name="Widget.Leanback.Title.Icon">
-        <item name="android:scaleType">fitEnd</item>
     </style>
 
     <!-- HeadersFragment -->
@@ -121,7 +126,7 @@
     <style name="Widget.Leanback.GridItems" />
 
     <style name="Widget.Leanback.Headers.VerticalGridView" >
-        <item name="android:paddingLeft">?attr/browsePaddingLeft</item>
+        <item name="android:paddingStart">?attr/browsePaddingStart</item>
         <item name="android:clipToPadding">false</item>
         <item name="focusOutFront">true</item>
         <item name="focusOutEnd">true</item>
@@ -150,8 +155,8 @@
         <item name="android:clipToPadding">false</item>
         <item name="android:focusable">true</item>
         <item name="android:focusableInTouchMode">true</item>
-        <item name="android:paddingLeft">?attr/browsePaddingLeft</item>
-        <item name="android:paddingRight">?attr/browsePaddingRight</item>
+        <item name="android:paddingStart">?attr/browsePaddingStart</item>
+        <item name="android:paddingEnd">?attr/browsePaddingEnd</item>
         <item name="android:paddingBottom">@dimen/lb_browse_item_vertical_margin</item>
         <item name="android:paddingTop">@dimen/lb_browse_item_vertical_margin</item>
         <item name="horizontalMargin">@dimen/lb_browse_item_horizontal_margin</item>
@@ -164,8 +169,8 @@
         <item name="android:clipToPadding">false</item>
         <item name="android:focusable">true</item>
         <item name="android:focusableInTouchMode">true</item>
-        <item name="android:paddingLeft">?attr/browsePaddingLeft</item>
-        <item name="android:paddingRight">?attr/browsePaddingRight</item>
+        <item name="android:paddingStart">?attr/browsePaddingStart</item>
+        <item name="android:paddingEnd">?attr/browsePaddingEnd</item>
         <item name="android:paddingBottom">@dimen/lb_vertical_grid_padding_bottom</item>
         <item name="android:paddingTop">?attr/browseRowsMarginTop</item>
         <item name="android:gravity">center_horizontal</item>
@@ -206,6 +211,10 @@
         <item name="android:maxLines">@integer/lb_details_description_title_max_lines</item>
         <item name="android:includeFontPadding">false</item>
         <item name="android:ellipsize">end</item>
+        <item name="resizeTrigger">maxLines</item>
+        <item name="resizedTextSize">@dimen/lb_details_description_title_resized_text_size</item>
+        <item name="resizedPaddingAdjustmentTop">@dimen/lb_details_description_title_padding_adjust_top</item>
+        <item name="resizedPaddingAdjustmentBottom">@dimen/lb_details_description_title_padding_adjust_bottom</item>
     </style>
 
     <style name="Widget.Leanback.DetailsDescriptionSubtitleStyle">
@@ -230,13 +239,17 @@
         <item name="android:drawablePadding">@dimen/lb_action_icon_margin</item>
         <item name="android:focusable">true</item>
         <item name="android:focusableInTouchMode">true</item>
-        <item name="android:paddingLeft">@dimen/lb_action_padding_horizontal</item>
-        <item name="android:paddingRight">@dimen/lb_action_padding_horizontal</item>
+        <item name="android:paddingStart">@dimen/lb_action_padding_horizontal</item>
+        <item name="android:paddingEnd">@dimen/lb_action_padding_horizontal</item>
     </style>
 
     <style name="Widget.Leanback.PlaybackControlsButtonStyle" >
         <item name="android:focusable">true</item>
         <item name="android:focusableInTouchMode">true</item>
+    </style>
+
+    <style name="Widget.Leanback.PlaybackControlLabelStyle">
+        <item name="android:textAppearance">@style/TextAppearance.Leanback.PlaybackControlLabel</item>
     </style>
 
     <style name="Widget.Leanback.PlaybackControlsTimeStyle">

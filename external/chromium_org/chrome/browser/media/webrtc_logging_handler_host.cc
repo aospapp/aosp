@@ -9,7 +9,7 @@
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/cpu.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/prefs/pref_service.h"
 #include "base/strings/string_number_conversions.h"
@@ -22,6 +22,7 @@
 #include "chrome/browser/media/webrtc_rtp_dump_handler.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/chrome_version_info.h"
 #include "chrome/common/media/webrtc_logging_messages.h"
 #include "chrome/common/partial_circular_buffer.h"
 #include "chrome/common/pref_names.h"
@@ -438,6 +439,11 @@ void WebRtcLoggingHandlerHost::LogInitialInfoOnIOThread(
     FormatMetaDataAsLogMessage(meta_data_, &info);
     LogToCircularBuffer(info);
   }
+
+  // Chrome version
+  chrome::VersionInfo version_info;
+  LogToCircularBuffer("Chrome version: " + version_info.Version() + " " +
+                      chrome::VersionInfo::GetVersionStringModifier());
 
   // OS
   LogToCircularBuffer(base::SysInfo::OperatingSystemName() + " " +

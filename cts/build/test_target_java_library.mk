@@ -44,3 +44,6 @@ $(cts_library_xml): $(TARGET_OUT_JAVA_LIBRARIES)/$(LOCAL_MODULE).jar $(CTS_EXPEC
 						-a $(CTS_TARGET_ARCH) \
 						-x "runtimeArgs->$(PRIVATE_RUNTIME_ARGS)" \
 						-o $@
+
+# Have the module name depend on the cts files; so the cts files get generated when you run mm/mmm/mma/mmma.
+$(my_register_name) : $(cts_library_jar) $(cts_library_xml)

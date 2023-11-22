@@ -9,9 +9,9 @@
 #include "base/callback.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/ref_counted.h"
-#include "chrome/browser/common/cancelable_request.h"
 #include "chrome/browser/history/history_service.h"
-#include "chrome/browser/history/history_types.h"
+#include "components/history/core/browser/history_types.h"
+#include "components/history/core/browser/top_sites_observer.h"
 #include "components/history/core/common/thumbnail_score.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/image/image.h"
@@ -39,7 +39,7 @@ class TopSites
     : public base::RefCountedThreadSafe<TopSites>,
       public content::NotificationObserver {
  public:
-  TopSites() {}
+  TopSites();
 
   // Initializes TopSites.
   static TopSites* Create(Profile* profile, const base::FilePath& db_name);
@@ -121,9 +121,9 @@ class TopSites
   virtual void Shutdown() = 0;
 
   // Query history service for the list of available thumbnails. Returns the
-  // handle for the request, or NULL if a request could not be made.
-  // Public only for testing purposes.
-  virtual CancelableRequestProvider::Handle StartQueryForMostVisited() = 0;
+  // task id for the request, or |base::CancelableTaskTracker::kBadTaskId| if a
+  // request could not be made. Public only for testing purposes.
+  virtual base::CancelableTaskTracker::TaskId StartQueryForMostVisited() = 0;
 
   // Returns true if the given URL is known to the top sites service.
   // This function also returns false if TopSites isn't loaded yet.
@@ -168,10 +168,20 @@ class TopSites
     // The best color to highlight the page (should roughly match favicon).
     SkColor color;
   };
+
+  // Add Observer to the list.
+  void AddObserver(TopSitesObserver* observer);
+
+  // Remove Observer from the list.
+  void RemoveObserver(TopSitesObserver* observer);
+
  protected:
-  virtual ~TopSites() {}
+  void NotifyTopSitesLoaded();
+  void NotifyTopSitesChanged();
+  virtual ~TopSites();
 
  private:
+  ObserverList<TopSitesObserver> observer_list_;
   friend class base::RefCountedThreadSafe<TopSites>;
 };
 

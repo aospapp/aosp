@@ -14,8 +14,7 @@ namespace mojo {
 namespace system {
 
 LocalMessagePipeEndpoint::LocalMessagePipeEndpoint()
-    : is_open_(true),
-      is_peer_open_(true) {
+    : is_open_(true), is_peer_open_(true) {
 }
 
 LocalMessagePipeEndpoint::~LocalMessagePipeEndpoint() {
@@ -63,30 +62,31 @@ void LocalMessagePipeEndpoint::CancelAllWaiters() {
   waiter_list_.CancelAllWaiters();
 }
 
-MojoResult LocalMessagePipeEndpoint::ReadMessage(void* bytes,
-                                                 uint32_t* num_bytes,
-                                                 DispatcherVector* dispatchers,
-                                                 uint32_t* num_dispatchers,
-                                                 MojoReadMessageFlags flags) {
+MojoResult LocalMessagePipeEndpoint::ReadMessage(
+    UserPointer<void> bytes,
+    UserPointer<uint32_t> num_bytes,
+    DispatcherVector* dispatchers,
+    uint32_t* num_dispatchers,
+    MojoReadMessageFlags flags) {
   DCHECK(is_open_);
   DCHECK(!dispatchers || dispatchers->empty());
 
-  const uint32_t max_bytes = num_bytes ? *num_bytes : 0;
+  const uint32_t max_bytes = num_bytes.IsNull() ? 0 : num_bytes.Get();
   const uint32_t max_num_dispatchers = num_dispatchers ? *num_dispatchers : 0;
 
   if (message_queue_.IsEmpty()) {
-    return is_peer_open_ ? MOJO_RESULT_SHOULD_WAIT :
-                           MOJO_RESULT_FAILED_PRECONDITION;
+    return is_peer_open_ ? MOJO_RESULT_SHOULD_WAIT
+                         : MOJO_RESULT_FAILED_PRECONDITION;
   }
 
   // TODO(vtl): If |flags & MOJO_READ_MESSAGE_FLAG_MAY_DISCARD|, we could pop
   // and release the lock immediately.
   bool enough_space = true;
   MessageInTransit* message = message_queue_.PeekMessage();
-  if (num_bytes)
-    *num_bytes = message->num_bytes();
+  if (!num_bytes.IsNull())
+    num_bytes.Put(message->num_bytes());
   if (message->num_bytes() <= max_bytes)
-    memcpy(bytes, message->bytes(), message->num_bytes());
+    bytes.PutArray(message->bytes(), message->num_bytes());
   else
     enough_space = false;
 
@@ -108,7 +108,7 @@ MojoResult LocalMessagePipeEndpoint::ReadMessage(void* bytes,
       *num_dispatchers = 0;
   }
 
-  message = NULL;
+  message = nullptr;
 
   if (enough_space || (flags & MOJO_READ_MESSAGE_FLAG_MAY_DISCARD)) {
     message_queue_.DiscardMessage();
@@ -127,27 +127,7 @@ MojoResult LocalMessagePipeEndpoint::ReadMessage(void* bytes,
   return MOJO_RESULT_OK;
 }
 
-MojoResult LocalMessagePipeEndpoint::AddWaiter(Waiter* waiter,
-                                               MojoHandleSignals signals,
-                                               uint32_t context) {
-  DCHECK(is_open_);
-
-  HandleSignalsState state = GetHandleSignalsState();
-  if (state.satisfies(signals))
-    return MOJO_RESULT_ALREADY_EXISTS;
-  if (!state.can_satisfy(signals))
-    return MOJO_RESULT_FAILED_PRECONDITION;
-
-  waiter_list_.AddWaiter(waiter, signals, context);
-  return MOJO_RESULT_OK;
-}
-
-void LocalMessagePipeEndpoint::RemoveWaiter(Waiter* waiter) {
-  DCHECK(is_open_);
-  waiter_list_.RemoveWaiter(waiter);
-}
-
-HandleSignalsState LocalMessagePipeEndpoint::GetHandleSignalsState() {
+HandleSignalsState LocalMessagePipeEndpoint::GetHandleSignalsState() const {
   HandleSignalsState rv;
   if (!message_queue_.IsEmpty()) {
     rv.satisfied_signals |= MOJO_HANDLE_SIGNAL_READABLE;
@@ -159,6 +139,37 @@ HandleSignalsState LocalMessagePipeEndpoint::GetHandleSignalsState() {
         MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_WRITABLE;
   }
   return rv;
+}
+
+MojoResult LocalMessagePipeEndpoint::AddWaiter(
+    Waiter* waiter,
+    MojoHandleSignals signals,
+    uint32_t context,
+    HandleSignalsState* signals_state) {
+  DCHECK(is_open_);
+
+  HandleSignalsState state = GetHandleSignalsState();
+  if (state.satisfies(signals)) {
+    if (signals_state)
+      *signals_state = state;
+    return MOJO_RESULT_ALREADY_EXISTS;
+  }
+  if (!state.can_satisfy(signals)) {
+    if (signals_state)
+      *signals_state = state;
+    return MOJO_RESULT_FAILED_PRECONDITION;
+  }
+
+  waiter_list_.AddWaiter(waiter, signals, context);
+  return MOJO_RESULT_OK;
+}
+
+void LocalMessagePipeEndpoint::RemoveWaiter(Waiter* waiter,
+                                            HandleSignalsState* signals_state) {
+  DCHECK(is_open_);
+  waiter_list_.RemoveWaiter(waiter);
+  if (signals_state)
+    *signals_state = GetHandleSignalsState();
 }
 
 }  // namespace system

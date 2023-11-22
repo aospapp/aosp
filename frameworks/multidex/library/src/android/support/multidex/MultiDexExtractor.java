@@ -243,9 +243,9 @@ final class MultiDexExtractor {
 
     private static SharedPreferences getMultiDexPreferences(Context context) {
         return context.getSharedPreferences(PREFS_FILE,
-                Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB
+                Build.VERSION.SDK_INT < 11 /* Build.VERSION_CODES.HONEYCOMB */
                         ? Context.MODE_PRIVATE
-                        : Context.MODE_PRIVATE | Context.MODE_MULTI_PROCESS);
+                        : Context.MODE_PRIVATE | 0x0004 /* Context.MODE_MULTI_PROCESS */);
     }
 
     /**
@@ -253,10 +253,12 @@ final class MultiDexExtractor {
      */
     private static void prepareDexDir(File dexDir, final String extractedFilePrefix)
             throws IOException {
-        dexDir.mkdirs();
-        if (!dexDir.isDirectory()) {
-            throw new IOException("Failed to create dex directory " + dexDir.getPath());
-        }
+        /* mkdirs() has some bugs, especially before jb-mr1 and we have only a maximum of one parent
+         * to create, lets stick to mkdir().
+         */
+        File cache = dexDir.getParentFile();
+        mkdirChecked(cache);
+        mkdirChecked(dexDir);
 
         // Clean possible old files
         FileFilter filter = new FileFilter() {
@@ -279,6 +281,24 @@ final class MultiDexExtractor {
             } else {
                 Log.i(TAG, "Deleted old file " + oldFile.getPath());
             }
+        }
+    }
+
+    private static void mkdirChecked(File dir) throws IOException {
+        dir.mkdir();
+        if (!dir.isDirectory()) {
+            File parent = dir.getParentFile();
+            if (parent == null) {
+                Log.e(TAG, "Failed to create dir " + dir.getPath() + ". Parent file is null.");
+            } else {
+                Log.e(TAG, "Failed to create dir " + dir.getPath() +
+                        ". parent file is a dir " + parent.isDirectory() +
+                        ", a file " + parent.isFile() +
+                        ", exists " + parent.exists() +
+                        ", readable " + parent.canRead() +
+                        ", writable " + parent.canWrite());
+            }
+            throw new IOException("Failed to create cache directory " + dir.getPath());
         }
     }
 

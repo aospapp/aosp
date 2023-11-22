@@ -16,17 +16,19 @@
 
 package com.android.mms.service;
 
-import com.android.mms.service.exception.MmsNetworkException;
-import com.android.mms.service.http.NameResolver;
-
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.net.NetworkInfo;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.Log;
+
+import com.android.mms.service.exception.MmsNetworkException;
+import com.android.okhttp.ConnectionPool;
+import com.android.okhttp.HostResolver;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -34,7 +36,7 @@ import java.net.UnknownHostException;
 /**
  * Manages the MMS network connectivity
  */
-public class MmsNetworkManager implements NameResolver {
+public class MmsNetworkManager implements HostResolver {
     // Timeout used to call ConnectivityManager.requestNetwork
     private static final int NETWORK_REQUEST_TIMEOUT_MILLIS = 60 * 1000;
     // Wait timeout for this class, a little bit longer than the above timeout
@@ -42,7 +44,16 @@ public class MmsNetworkManager implements NameResolver {
     private static final int NETWORK_ACQUIRE_TIMEOUT_MILLIS =
             NETWORK_REQUEST_TIMEOUT_MILLIS + (5 * 1000);
 
-    private Context mContext;
+    // Borrowed from {@link android.net.Network}
+    private static final boolean httpKeepAlive =
+            Boolean.parseBoolean(System.getProperty("http.keepAlive", "true"));
+    private static final int httpMaxConnections =
+            httpKeepAlive ? Integer.parseInt(System.getProperty("http.maxConnections", "5")) : 0;
+    private static final long httpKeepAliveDurationMs =
+            Long.parseLong(System.getProperty("http.keepAliveDuration", "300000"));  // 5 minutes.
+
+    private final Context mContext;
+
     // The requested MMS {@link android.net.Network} we are holding
     // We need this when we unbind from it. This is also used to indicate if the
     // MMS network is available.
@@ -50,31 +61,36 @@ public class MmsNetworkManager implements NameResolver {
     // The current count of MMS requests that require the MMS network
     // If mMmsRequestCount is 0, we should release the MMS network.
     private int mMmsRequestCount;
-
     // This is really just for using the capability
-    private NetworkRequest mNetworkRequest = new NetworkRequest.Builder()
-            .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_MMS)
-            .build();
-
+    private final NetworkRequest mNetworkRequest;
     // The callback to register when we request MMS network
     private ConnectivityManager.NetworkCallback mNetworkCallback;
 
-    private ConnectivityManager mConnectivityManager;
+    private volatile ConnectivityManager mConnectivityManager;
 
-    // TODO: we need to re-architect this when we support MSIM, like maybe one manager for each SIM?
-    public MmsNetworkManager(Context context) {
+    // The OkHttp's ConnectionPool used by the HTTP client associated with this network manager
+    private ConnectionPool mConnectionPool;
+
+    // The MMS HTTP client for this network
+    private MmsHttpClient mMmsHttpClient;
+
+    // The SIM ID which we use to connect
+    private final int mSubId;
+
+    public MmsNetworkManager(Context context, int subId) {
         mContext = context;
         mNetworkCallback = null;
         mNetwork = null;
         mMmsRequestCount = 0;
         mConnectivityManager = null;
-    }
-
-    public Network getNetwork() {
-        synchronized (this) {
-            return mNetwork;
-        }
+        mConnectionPool = null;
+        mMmsHttpClient = null;
+        mSubId = subId;
+        mNetworkRequest = new NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_MMS)
+                .setNetworkSpecifier(Integer.toString(mSubId))
+                .build();
     }
 
     /**
@@ -83,10 +99,6 @@ public class MmsNetworkManager implements NameResolver {
      * @throws com.android.mms.service.exception.MmsNetworkException if we fail to acquire it
      */
     public void acquireNetwork() throws MmsNetworkException {
-        if (inAirplaneMode()) {
-            // Fast fail airplane mode
-            throw new MmsNetworkException("In airplane mode");
-        }
         synchronized (this) {
             mMmsRequestCount += 1;
             if (mNetwork != null) {
@@ -114,8 +126,7 @@ public class MmsNetworkManager implements NameResolver {
             }
             // Timed out, so release the request and fail
             Log.d(MmsService.TAG, "MmsNetworkManager: timed out");
-            releaseRequest(mNetworkCallback);
-            resetLocked();
+            releaseRequestLocked(mNetworkCallback);
             throw new MmsNetworkException("Acquiring network timed out");
         }
     }
@@ -129,8 +140,7 @@ public class MmsNetworkManager implements NameResolver {
                 mMmsRequestCount -= 1;
                 Log.d(MmsService.TAG, "MmsNetworkManager: release, count=" + mMmsRequestCount);
                 if (mMmsRequestCount < 1) {
-                    releaseRequest(mNetworkCallback);
-                    resetLocked();
+                    releaseRequestLocked(mNetworkCallback);
                 }
             }
         }
@@ -157,10 +167,7 @@ public class MmsNetworkManager implements NameResolver {
                 super.onLost(network);
                 Log.d(MmsService.TAG, "NetworkCallbackListener.onLost: network=" + network);
                 synchronized (MmsNetworkManager.this) {
-                    releaseRequest(this);
-                    if (mNetworkCallback == this) {
-                        resetLocked();
-                    }
+                    releaseRequestLocked(this);
                     MmsNetworkManager.this.notifyAll();
                 }
             }
@@ -170,10 +177,7 @@ public class MmsNetworkManager implements NameResolver {
                 super.onUnavailable();
                 Log.d(MmsService.TAG, "NetworkCallbackListener.onUnavailable");
                 synchronized (MmsNetworkManager.this) {
-                    releaseRequest(this);
-                    if (mNetworkCallback == this) {
-                        resetLocked();
-                    }
+                    releaseRequestLocked(this);
                     MmsNetworkManager.this.notifyAll();
                 }
             }
@@ -187,11 +191,12 @@ public class MmsNetworkManager implements NameResolver {
      *
      * @param callback the {@link android.net.ConnectivityManager.NetworkCallback} to unregister
      */
-    private void releaseRequest(ConnectivityManager.NetworkCallback callback) {
+    private void releaseRequestLocked(ConnectivityManager.NetworkCallback callback) {
         if (callback != null) {
             final ConnectivityManager connectivityManager = getConnectivityManager();
             connectivityManager.unregisterNetworkCallback(callback);
         }
+        resetLocked();
     }
 
     /**
@@ -201,16 +206,25 @@ public class MmsNetworkManager implements NameResolver {
         mNetworkCallback = null;
         mNetwork = null;
         mMmsRequestCount = 0;
+        // Currently we follow what android.net.Network does with ConnectionPool,
+        // which is per Network object. So if Network changes, we should clear
+        // out the ConnectionPool and thus the MmsHttpClient (since it is linked
+        // to a specific ConnectionPool).
+        mConnectionPool = null;
+        mMmsHttpClient = null;
     }
 
+    private static final InetAddress[] EMPTY_ADDRESS_ARRAY = new InetAddress[0];
     @Override
     public InetAddress[] getAllByName(String host) throws UnknownHostException {
+        Network network = null;
         synchronized (this) {
-            if (mNetwork != null) {
-                return mNetwork.getAllByName(host);
+            if (mNetwork == null) {
+                return EMPTY_ADDRESS_ARRAY;
             }
-            return new InetAddress[0];
+            network = mNetwork;
         }
+        return network.getAllByName(host);
     }
 
     private ConnectivityManager getConnectivityManager() {
@@ -221,8 +235,55 @@ public class MmsNetworkManager implements NameResolver {
         return mConnectivityManager;
     }
 
-    private boolean inAirplaneMode() {
-        return Settings.System.getInt(mContext.getContentResolver(),
-                Settings.Global.AIRPLANE_MODE_ON, 0) != 0;
+    private ConnectionPool getOrCreateConnectionPoolLocked() {
+        if (mConnectionPool == null) {
+            mConnectionPool = new ConnectionPool(httpMaxConnections, httpKeepAliveDurationMs);
+        }
+        return mConnectionPool;
+    }
+
+    /**
+     * Get an MmsHttpClient for the current network
+     *
+     * @return The MmsHttpClient instance
+     */
+    public MmsHttpClient getOrCreateHttpClient() {
+        synchronized (this) {
+            if (mMmsHttpClient == null) {
+                if (mNetwork != null) {
+                    // Create new MmsHttpClient for the current Network
+                    mMmsHttpClient = new MmsHttpClient(
+                            mContext,
+                            mNetwork.getSocketFactory(),
+                            MmsNetworkManager.this,
+                            getOrCreateConnectionPoolLocked());
+                }
+            }
+            return mMmsHttpClient;
+        }
+    }
+
+    /**
+     * Get the APN name for the active network
+     *
+     * @return The APN name if available, otherwise null
+     */
+    public String getApnName() {
+        Network network = null;
+        synchronized (this) {
+            if (mNetwork == null) {
+                Log.d(MmsService.TAG, "MmsNetworkManager: getApnName: network not available");
+                return null;
+            }
+            network = mNetwork;
+        }
+        String apnName = null;
+        final ConnectivityManager connectivityManager = getConnectivityManager();
+        NetworkInfo mmsNetworkInfo = connectivityManager.getNetworkInfo(network);
+        if (mmsNetworkInfo != null) {
+            apnName = mmsNetworkInfo.getExtraInfo();
+        }
+        Log.d(MmsService.TAG, "MmsNetworkManager: getApnName: " + apnName);
+        return apnName;
     }
 }

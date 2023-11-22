@@ -17,22 +17,21 @@
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/character_encoding.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/webui/options/font_settings_utils.h"
-#include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/font_list_async.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_ui.h"
+#include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/common/extension.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
+#include "extensions/common/extension_urls.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
 
@@ -64,7 +63,8 @@ const char kAdvancedFontSettingsExtensionId[] =
 
 namespace options {
 
-FontSettingsHandler::FontSettingsHandler() {
+FontSettingsHandler::FontSettingsHandler()
+    : extension_registry_observer_(this) {
 }
 
 FontSettingsHandler::~FontSettingsHandler() {
@@ -113,11 +113,8 @@ void FontSettingsHandler::GetLocalizedValues(
 }
 
 void FontSettingsHandler::InitializeHandler() {
-  registrar_.Add(this,
-                 chrome::NOTIFICATION_EXTENSION_LOADED_DEPRECATED,
-                 content::NotificationService::AllSources());
-  registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED,
-                 content::NotificationService::AllSources());
+  Profile* profile = Profile::FromWebUI(web_ui());
+  extension_registry_observer_.Add(extensions::ExtensionRegistry::Get(profile));
 }
 
 void FontSettingsHandler::InitializePage() {
@@ -177,11 +174,16 @@ void FontSettingsHandler::RegisterMessages() {
                  base::Unretained(this)));
 }
 
-void FontSettingsHandler::Observe(int type,
-                                  const content::NotificationSource& source,
-                                  const content::NotificationDetails& details) {
-  DCHECK(type == chrome::NOTIFICATION_EXTENSION_LOADED_DEPRECATED ||
-         type == chrome::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED);
+void FontSettingsHandler::OnExtensionLoaded(
+    content::BrowserContext* browser_context,
+    const extensions::Extension* extension) {
+  NotifyAdvancedFontSettingsAvailability();
+}
+
+void FontSettingsHandler::OnExtensionUnloaded(
+    content::BrowserContext* browser_context,
+    const extensions::Extension* extension,
+    extensions::UnloadedExtensionInfo::Reason reason) {
   NotifyAdvancedFontSettingsAvailability();
 }
 

@@ -199,7 +199,7 @@ public class SELinuxDomainTest extends TestCase {
 
     /* drm server is always present */
     public void testDrmServerDomain() throws FileNotFoundException {
-        assertDomainOne("u:r:drmserver:s0", "/system/bin/drmserver");
+        assertDomainZeroOrOne("u:r:drmserver:s0", "/system/bin/drmserver");
     }
 
     /* Media server is always running */

@@ -55,8 +55,8 @@
     <dimen name="settings_list_padding_vertical">120dp</dimen>
     <dimen name="settings_list_fade_length">30dp</dimen>
     <dimen name="app_management_content_select_padding">10dp</dimen>
-    <dimen name="app_icon_margin_left">50dp</dimen>
-    <dimen name="app_icon_margin_right">40dp</dimen>
+    <dimen name="app_icon_margin_start">50dp</dimen>
+    <dimen name="app_icon_margin_end">40dp</dimen>
     <dimen name="app_icon_list_margin_bottom">10dp</dimen>
     <dimen name="network_list_height">192dp</dimen>
     <dimen name="network_list_width">128dp</dimen>
@@ -65,8 +65,8 @@
     <dimen name="device_storage_usage_indicator_width">32dip</dimen>
     <dimen name="device_storage_usage_indicator_height">32dip</dimen>
     <dimen name="action_min_height">80dp</dimen>
-    <dimen name="add_accessory_padding_left">50dp</dimen>
-    <dimen name="bt_secure_pair_hint_left_margin">5dp</dimen>
+    <dimen name="add_accessory_padding_start">50dp</dimen>
+    <dimen name="bt_secure_pair_hint_start_margin">5dp</dimen>
     <dimen name="bt_secure_pair_hint_top_margin">3dp</dimen>
 
     <integer name="captioning_preview_default_font_size">48</integer>
@@ -80,6 +80,7 @@
     <item name="legacy_app_item_unfocused_alpha" type="dimen">70%</item>
 
     <dimen name="browse_item_title_font_size">16sp</dimen>
+    <dimen name="browse_item_title_font_size_small">12sp</dimen>
     <dimen name="browse_item_description_font_size">14sp</dimen>
     <dimen name="browse_item_bottom_padding">12dp</dimen>
 
@@ -87,8 +88,8 @@
     <dimen name="lb_action_fragment_selector_min_height">8dp</dimen>
     <dimen name="lb_dialog_list_item_min_height">64dp</dimen>
     <dimen name="lb_dialog_list_item_vertical_padding">12dp</dimen>
-    <dimen name="lb_dialog_list_item_left_padding">20dp</dimen>
-    <dimen name="lb_dialog_list_item_right_padding">28dp</dimen>
+    <dimen name="lb_dialog_list_item_start_padding">20dp</dimen>
+    <dimen name="lb_dialog_list_item_end_padding">28dp</dimen>
     <dimen name="lb_dialog_list_item_checkmark_diameter">8dp</dimen>
     <dimen name="lb_dialog_list_item_delimiter_padding">4dp</dimen>
     <integer name="lb_dialog_action_title_min_lines">1</integer>
@@ -103,7 +104,7 @@
     <dimen name="lb_dialog_list_item_description_font_size">12sp</dimen>
     <dimen name="lb_content_fragment_title_text_bottom_padding">4dp</dimen>
     <dimen name="lb_content_section_width">576dp</dimen>
-    <dimen name="lb_content_fragment_left_padding">48dp</dimen>
+    <dimen name="lb_content_fragment_start_padding">48dp</dimen>
     <dimen name="lb_content_fragment_delimiter_padding">16dp</dimen>
     <dimen name="lb_content_fragment_max_icon_height">280dp</dimen>
     <dimen name="lb_content_fragment_title_text_top_padding">2dp</dimen>
@@ -159,7 +160,7 @@
     <dimen name="content_fragment_icon_height">140dp</dimen>
     <dimen name="content_fragment_badge_icon_width">48dp</dimen>
     <dimen name="content_fragment_badge_icon_height">48dp</dimen>
-    <dimen name="content_fragment_left_padding">48dp</dimen>
+    <dimen name="content_fragment_start_padding">48dp</dimen>
     <dimen name="content_fragment_max_icon_height">280dp</dimen>
     <dimen name="content_fragment_title_text_bottom_padding">4dp</dimen>
     <dimen name="content_fragment_title_text_size">36sp</dimen>
@@ -170,40 +171,41 @@
     <dimen name="indeterminate_bottom_padding">4dp</dimen>
 
     <dimen name="list_item_badge_icon_height">18dp</dimen>
-    <dimen name="list_item_badge_icon_margin_left">8dp</dimen>
+    <dimen name="list_item_badge_icon_margin_start">8dp</dimen>
     <dimen name="list_item_badge_icon_width">18dp</dimen>
     <dimen name="list_item_checkmark_diameter">8dp</dimen>
     <dimen name="list_item_delimiter_padding">4dp</dimen>
     <dimen name="list_item_description_font_size">12sp</dimen>
     <dimen name="list_item_height">48dp</dimen>
     <dimen name="list_item_icon_big_height">80dp</dimen>
-    <dimen name="list_item_icon_big_margin_right">8dp</dimen>
+    <dimen name="list_item_icon_big_margin_end">8dp</dimen>
     <dimen name="list_item_icon_big_width">80dp</dimen>
     <dimen name="list_item_icon_height">32dp</dimen>
     <dimen name="list_item_icon_size">32dp</dimen>
     <dimen name="list_item_icon_small_height">24dp</dimen>
     <dimen name="list_item_icon_small_width">24dp</dimen>
     <dimen name="list_item_icon_width">32dp</dimen>
-    <dimen name="list_item_left_padding">20dp</dimen>
+    <dimen name="list_item_start_padding">20dp</dimen>
     <dimen name="list_item_min_height">64dp</dimen>
-    <dimen name="list_item_right_padding">28dp</dimen>
+    <dimen name="list_item_end_padding">28dp</dimen>
     <dimen name="list_item_timestamp_font_size">12sp</dimen>
     <dimen name="list_item_title_font_size">18sp</dimen>
     <dimen name="list_item_vertical_padding">12dp</dimen>
 
-    <dimen name="pad_left_unsafe_action">56dp</dimen>
-    <dimen name="pad_left_unsafe_description">56dp</dimen>
-    <dimen name="pad_right_unsafe_action">56dp</dimen>
+    <dimen name="pad_start_unsafe_action">56dp</dimen>
+    <dimen name="pad_start_unsafe_description">56dp</dimen>
+    <dimen name="pad_end_unsafe_action">56dp</dimen>
     <dimen name="pad_top_unsafe_progress">32dp</dimen>
 
     <dimen name="picker_column_height">192dp</dimen>
     <dimen name="picker_column_horizontal_padding">8dp</dimen>
     <dimen name="picker_item_height">64dp</dimen>
-    <dimen name="picker_left_padding">24dp</dimen>
+    <dimen name="picker_start_padding">24dp</dimen>
     <dimen name="picker_separator_horizontal_padding">4dp</dimen>
 
     <dimen name="setup_activity_overscan_margin">48dp</dimen>
     <dimen name="setup_scroll_list_top_padding">0dp</dimen>
+    <dimen name="setup_list_item_icon_margin_end">8dp</dimen>
     <dimen name="setup_title_height">285dp</dimen>
     <dimen name="tos_webview_padding_without_progress_bar">40dp</dimen>
     <dimen name="tos_webview_padding_with_progress_bar">80dp</dimen>

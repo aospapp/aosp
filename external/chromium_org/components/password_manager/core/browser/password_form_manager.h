@@ -11,6 +11,7 @@
 #include "build/build_config.h"
 
 #include "base/stl_util.h"
+#include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/common/password_form.h"
 #include "components/password_manager/core/browser/password_manager_driver.h"
 #include "components/password_manager/core/browser/password_store.h"
@@ -40,20 +41,30 @@ class PasswordFormManager : public PasswordStoreConsumer {
                       bool ssl_valid);
   virtual ~PasswordFormManager();
 
-  enum ActionMatch {
-    ACTION_MATCH_REQUIRED,
-    ACTION_MATCH_NOT_REQUIRED
+  // Flags describing the result of comparing two forms as performed by
+  // DoesMatch. Individual flags are only relevant for HTML forms, but
+  // RESULT_COMPLETE_MATCH will also be returned to indicate non-HTML forms
+  // completely matching.
+  enum MatchResultFlags {
+    RESULT_NO_MATCH = 0,
+    RESULT_MANDATORY_ATTRIBUTES_MATCH = 1 << 0,  // Bare minimum to be a match.
+    RESULT_ACTION_MATCH = 1 << 1,                // Action URLs match too.
+    RESULT_COMPLETE_MATCH =
+        RESULT_MANDATORY_ATTRIBUTES_MATCH | RESULT_ACTION_MATCH
   };
+  // Use MatchResultMask to contain combinations of MatchResultFlags values.
+  // It's a signed int rather than unsigned to avoid signed/unsigned mismatch
+  // caused by the enum values implicitly converting to signed int.
+  typedef int MatchResultMask;
 
   enum OtherPossibleUsernamesAction {
     ALLOW_OTHER_POSSIBLE_USERNAMES,
     IGNORE_OTHER_POSSIBLE_USERNAMES
   };
 
-  // Compare basic data of observed_form_ with argument. Only check the action
-  // URL when action match is required.
-  bool DoesManage(const autofill::PasswordForm& form,
-                  ActionMatch action_match) const;
+  // Compares basic data of |observed_form_| with |form| and returns how much
+  // they match. The return value is a MatchResultMask bitmask.
+  MatchResultMask DoesManage(const autofill::PasswordForm& form) const;
 
   // Retrieves potential matching logins from the database.
   // |prompt_policy| indicates whether it's permissible to prompt the user to
@@ -89,8 +100,8 @@ class PasswordFormManager : public PasswordStoreConsumer {
   // form.
   bool IsPendingCredentialsPublicSuffixMatch();
 
-  // Checks if the form is a valid password form. Forms which lack either
-  // login or password field are not considered valid.
+  // Checks if the form is a valid password form. Forms which lack password
+  // field are not considered valid.
   bool HasValidPasswordForm();
 
   // These functions are used to determine if this form has had it's password
@@ -147,8 +158,12 @@ class PasswordFormManager : public PasswordStoreConsumer {
   }
 
   // Returns the best matches.
-  const autofill::PasswordFormMap best_matches() const {
+  const autofill::PasswordFormMap& best_matches() const {
     return best_matches_;
+  }
+
+  const autofill::PasswordForm* preferred_match() const {
+    return preferred_match_;
   }
 
   // Returns the realm URL for the form managed my this manager.
@@ -205,7 +220,7 @@ class PasswordFormManager : public PasswordStoreConsumer {
 
   // Helper for OnGetPasswordStoreResults to determine whether or not
   // the given result form is worth scoring.
-  bool IgnoreResult(const autofill::PasswordForm& form) const;
+  bool ShouldIgnoreResult(const autofill::PasswordForm& form) const;
 
   // Helper for Save in the case that best_matches.size() == 0, meaning
   // we have no prior record of this form/username/password and the user
@@ -249,6 +264,11 @@ class PasswordFormManager : public PasswordStoreConsumer {
   // duplicates.
   void SanitizePossibleUsernames(autofill::PasswordForm* form);
 
+  // Helper function to delegate uploading to the AutofillManager.
+  virtual void UploadPasswordForm(
+      const autofill::FormData& form_data,
+      const autofill::ServerFieldType& password_type);
+
   // Set of PasswordForms from the DB that best match the form
   // being managed by this. Use a map instead of vector, because we most
   // frequently require lookups by username value in IsNewLogin.
@@ -257,8 +277,8 @@ class PasswordFormManager : public PasswordStoreConsumer {
   // Cleans up when best_matches_ goes out of scope.
   STLValueDeleter<autofill::PasswordFormMap> best_matches_deleter_;
 
-  // The PasswordForm from the page or dialog managed by this.
-  autofill::PasswordForm observed_form_;
+  // The PasswordForm from the page or dialog managed by |this|.
+  const autofill::PasswordForm observed_form_;
 
   // The origin url path of observed_form_ tokenized, for convenience when
   // scoring.

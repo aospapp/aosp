@@ -27,7 +27,7 @@
 #include <X11/extensions/XInput2.h>
 #include <X11/Xlib.h>
 
-#include "ui/events/x/device_data_manager.h"
+#include "ui/events/x/device_data_manager_x11.h"
 #endif
 
 namespace ash {
@@ -73,10 +73,10 @@ int GetTrackingId(const ui::TouchEvent& event) {
   if (!event.HasNativeEvent())
     return 0;
 #if defined(USE_XI2_MT)
-  ui::DeviceDataManager* manager = ui::DeviceDataManager::GetInstance();
+  ui::DeviceDataManagerX11* manager = ui::DeviceDataManagerX11::GetInstance();
   double tracking_id;
   if (manager->GetEventData(*event.native_event(),
-                            ui::DeviceDataManager::DT_TOUCH_TRACKING_ID,
+                            ui::DeviceDataManagerX11::DT_TOUCH_TRACKING_ID,
                             &tracking_id)) {
     return static_cast<int>(tracking_id);
   }
@@ -352,8 +352,8 @@ TouchHudDebug::TouchHudDebug(aura::Window* initial_root)
   for (int i = 0; i < kMaxTouchPoints; ++i) {
     touch_labels_[i] = new views::Label;
     touch_labels_[i]->SetBackgroundColor(SkColorSetARGB(0, 255, 255, 255));
-    touch_labels_[i]->set_shadows(gfx::ShadowValues(1,
-        gfx::ShadowValue(gfx::Point(1, 1), 0, SK_ColorWHITE)));
+    touch_labels_[i]->SetShadows(gfx::ShadowValues(
+        1, gfx::ShadowValue(gfx::Point(1, 1), 0, SK_ColorWHITE)));
     label_container_->AddChildView(touch_labels_[i]);
   }
   label_container_->SetX(0);

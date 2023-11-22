@@ -18,7 +18,11 @@
 #include "components/signin/core/browser/signin_manager.h"
 #include "components/signin/core/common/profile_management_switches.h"
 #include "components/signin/core/common/signin_switches.h"
+#include "google_apis/gaia/gaia_auth_fetcher.h"
+#include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/gaia_constants.h"
+#include "google_apis/gaia/gaia_urls.h"
+#include "net/cookies/canonical_cookie.h"
 
 using base::Time;
 using namespace signin_internals_util;
@@ -51,6 +55,15 @@ void AddSectionEntry(base::ListValue* section_list,
   section_list->Append(entry.release());
 }
 
+void AddCookieEntry(base::ListValue* accounts_list,
+                     const std::string& field_email,
+                     const std::string& field_valid) {
+  scoped_ptr<base::DictionaryValue> entry(new base::DictionaryValue());
+  entry->SetString("email", field_email);
+  entry->SetString("valid", field_valid);
+  accounts_list->Append(entry.release());
+}
+
 std::string SigninStatusFieldToLabel(UntimedSigninStatusField field) {
   switch (field) {
     case USERNAME:
@@ -63,6 +76,7 @@ std::string SigninStatusFieldToLabel(UntimedSigninStatusField field) {
   return std::string();
 }
 
+#if !defined (OS_CHROMEOS)
 std::string SigninStatusFieldToLabel(TimedSigninStatusField field) {
   switch (field) {
     case SIGNIN_TYPE:
@@ -84,6 +98,7 @@ std::string SigninStatusFieldToLabel(TimedSigninStatusField field) {
   NOTREACHED();
   return "Error";
 }
+#endif // !defined (OS_CHROMEOS)
 
 }  // anonymous namespace
 
@@ -131,7 +146,7 @@ void AboutSigninInternals::NotifySigninValueChanged(
 
   Time now = Time::NowFromSystemTime();
   std::string time_as_str =
-      base::UTF16ToUTF8(base::TimeFormatFriendlyDate(now));
+      base::UTF16ToUTF8(base::TimeFormatShortDateAndTime(now));
   TimedSigninStatusValue timed_value(value, time_as_str);
 
   signin_status_.timed_signin_fields[field_index] = timed_value;
@@ -146,6 +161,15 @@ void AboutSigninInternals::NotifySigninValueChanged(
 }
 
 void AboutSigninInternals::RefreshSigninPrefs() {
+  // Since the AboutSigninInternals has a dependency on the SigninManager
+  // (as seen in the AboutSigninInternalsFactory) the SigninManager can have
+  // the AuthenticatedUsername set before AboutSigninInternals can observe it.
+  // For that scenario, read the AuthenticatedUsername if it exists.
+  if (signin_manager_->IsAuthenticated()) {
+    signin_status_.untimed_signin_fields[USERNAME] =
+        signin_manager_->GetAuthenticatedUsername();
+  }
+
   // Return if no client exists. Can occur in unit tests.
   if (!client_)
     return;
@@ -184,18 +208,23 @@ void AboutSigninInternals::Initialize(SigninClient* client) {
 
   signin_manager_->AddSigninDiagnosticsObserver(this);
   token_service_->AddDiagnosticsObserver(this);
+  cookie_changed_subscription_ = client_->AddCookieChangedCallback(
+     base::Bind(&AboutSigninInternals::OnCookieChanged,
+     base::Unretained(this)));
 }
 
 void AboutSigninInternals::Shutdown() {
   signin_manager_->RemoveSigninDiagnosticsObserver(this);
   token_service_->RemoveDiagnosticsObserver(this);
+  cookie_changed_subscription_.reset();
 }
 
 void AboutSigninInternals::NotifyObservers() {
+  scoped_ptr<base::DictionaryValue> signin_status_value =
+      signin_status_.ToValue(client_->GetProductVersion());
   FOR_EACH_OBSERVER(AboutSigninInternals::Observer,
                     signin_observers_,
-                    OnSigninStateChanged(
-                        signin_status_.ToValue(client_->GetProductVersion())));
+                    OnSigninStateChanged(signin_status_value.get()));
 }
 
 scoped_ptr<base::DictionaryValue> AboutSigninInternals::GetSigninStatus() {
@@ -254,6 +283,66 @@ void AboutSigninInternals::OnRefreshTokenReceived(std::string status) {
 
 void AboutSigninInternals::OnAuthenticationResultReceived(std::string status) {
   NotifySigninValueChanged(AUTHENTICATION_RESULT_RECEIVED, status);
+}
+
+void AboutSigninInternals::OnCookieChanged(
+    const net::CanonicalCookie* cookie) {
+  if (cookie->Name() == "LSID" &&
+      cookie->Domain() == GaiaUrls::GetInstance()->gaia_url().host() &&
+      cookie->IsSecure() &&
+      cookie->IsHttpOnly()) {
+    GetCookieAccountsAsync();
+  }
+}
+
+void AboutSigninInternals::GetCookieAccountsAsync() {
+  // Don't bother calling /ListAccounts if no one will observe the response.
+  if (!gaia_fetcher_ && signin_observers_.might_have_observers()) {
+    // There is no list account request in flight.
+    gaia_fetcher_.reset(new GaiaAuthFetcher(
+        this, GaiaConstants::kChromeSource, client_->GetURLRequestContext()));
+    gaia_fetcher_->StartListAccounts();
+  }
+}
+
+void AboutSigninInternals::OnListAccountsSuccess(const std::string& data) {
+  gaia_fetcher_.reset();
+
+  // Get account information from response data.
+  std::vector<std::pair<std::string, bool> > gaia_accounts;
+  bool valid_json = gaia::ParseListAccountsData(data, &gaia_accounts);
+  if (!valid_json) {
+    VLOG(1) << "AboutSigninInternals::OnListAccountsSuccess: parsing error";
+  } else {
+    OnListAccountsComplete(gaia_accounts);
+  }
+}
+
+void AboutSigninInternals::OnListAccountsFailure(
+    const GoogleServiceAuthError& error) {
+  gaia_fetcher_.reset();
+  VLOG(1) << "AboutSigninInternals::OnListAccountsFailure:" << error.ToString();
+}
+
+void AboutSigninInternals::OnListAccountsComplete(
+    std::vector<std::pair<std::string, bool> >& gaia_accounts) {
+  base::DictionaryValue signin_status;
+  base::ListValue* cookie_info = new base::ListValue();
+  signin_status.Set("cookie_info", cookie_info);
+
+  for (size_t i = 0; i < gaia_accounts.size(); ++i) {
+    AddCookieEntry(cookie_info,
+                   gaia_accounts[i].first,
+                   gaia_accounts[i].second ? "Valid" : "Invalid");
+  }
+
+  if (gaia_accounts.size() == 0)
+    AddCookieEntry(cookie_info, "No Accounts Present.", "");
+
+  // Update the observers that the cookie's accounts are updated.
+  FOR_EACH_OBSERVER(AboutSigninInternals::Observer,
+                    signin_observers_,
+                    OnCookieAccountsFetched(&signin_status));
 }
 
 AboutSigninInternals::TokenInfo::TokenInfo(
@@ -354,14 +443,10 @@ scoped_ptr<base::DictionaryValue> AboutSigninInternals::SigninStatus::ToValue(
   AddSectionEntry(basic_info, "Signin Status", signin_status_string);
   AddSectionEntry(basic_info, "Web Based Signin Enabled?",
       switches::IsEnableWebBasedSignin() == true ? "True" : "False");
-  AddSectionEntry(basic_info, "New Profile Management Enabled?",
-      switches::IsNewProfileManagement() == true ? "True" : "False");
   AddSectionEntry(basic_info, "New Avatar Menu Enabled?",
       switches::IsNewAvatarMenu() == true ? "True" : "False");
-  bool new_avatar_menu_flag =
-      CommandLine::ForCurrentProcess()->HasSwitch(switches::kNewAvatarMenu);
-  AddSectionEntry(basic_info, "New Avatar Menu Flag Set?",
-      new_avatar_menu_flag ? "True" : "False");
+  AddSectionEntry(basic_info, "New Profile Management Enabled?",
+      switches::IsNewProfileManagement() == true ? "True" : "False");
   AddSectionEntry(basic_info, "Account Consistency Enabled?",
       switches::IsEnableAccountConsistency() == true ? "True" : "False");
 
@@ -372,6 +457,7 @@ scoped_ptr<base::DictionaryValue> AboutSigninInternals::SigninStatus::ToValue(
                   field,
                   untimed_signin_fields[USERNAME - UNTIMED_FIELDS_BEGIN]);
 
+#if !defined(OS_CHROMEOS)
   // Time and status information of the possible sign in types.
   base::ListValue* detailed_info =
       AddSection(signin_info, "Last Signin Details");
@@ -384,6 +470,7 @@ scoped_ptr<base::DictionaryValue> AboutSigninInternals::SigninStatus::ToValue(
                     timed_signin_fields[i - TIMED_FIELDS_BEGIN].first,
                     timed_signin_fields[i - TIMED_FIELDS_BEGIN].second);
   }
+#endif // !defined(OS_CHROMEOS)
 
   // Token information for all services.
   base::ListValue* token_info = new base::ListValue();

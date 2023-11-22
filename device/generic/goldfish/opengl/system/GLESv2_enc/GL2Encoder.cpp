@@ -48,74 +48,80 @@ GL2Encoder::GL2Encoder(IOStream *stream) : gl2_encoder_context_t(stream)
     m_error = GL_NO_ERROR;
     m_num_compressedTextureFormats = 0;
     m_compressedTextureFormats = NULL;
+
     //overrides
-    m_glFlush_enc = set_glFlush(s_glFlush);
-    m_glPixelStorei_enc = set_glPixelStorei(s_glPixelStorei);
-    m_glGetString_enc = set_glGetString(s_glGetString);
-    m_glBindBuffer_enc = set_glBindBuffer(s_glBindBuffer);
-    m_glBufferData_enc = set_glBufferData(s_glBufferData);
-    m_glBufferSubData_enc = set_glBufferSubData(s_glBufferSubData);
-    m_glDeleteBuffers_enc = set_glDeleteBuffers(s_glDeleteBuffers);
-    m_glDrawArrays_enc = set_glDrawArrays(s_glDrawArrays);
-    m_glDrawElements_enc = set_glDrawElements(s_glDrawElements);
-    m_glGetIntegerv_enc = set_glGetIntegerv(s_glGetIntegerv);
-    m_glGetFloatv_enc = set_glGetFloatv(s_glGetFloatv);
-    m_glGetBooleanv_enc = set_glGetBooleanv(s_glGetBooleanv);
-    m_glVertexAttribPointer_enc = set_glVertexAttribPointer(s_glVertexAtrribPointer);
-    m_glEnableVertexAttribArray_enc = set_glEnableVertexAttribArray(s_glEnableVertexAttribArray);
-    m_glDisableVertexAttribArray_enc = set_glDisableVertexAttribArray(s_glDisableVertexAttribArray);
-    m_glGetVertexAttribiv_enc = set_glGetVertexAttribiv(s_glGetVertexAttribiv);
-    m_glGetVertexAttribfv_enc = set_glGetVertexAttribfv(s_glGetVertexAttribfv);
-    m_glGetVertexAttribPointerv = set_glGetVertexAttribPointerv(s_glGetVertexAttribPointerv);
-    set_glShaderSource(s_glShaderSource);
-    set_glFinish(s_glFinish);
-    m_glGetError_enc = set_glGetError(s_glGetError);
-    m_glLinkProgram_enc = set_glLinkProgram(s_glLinkProgram);
-    m_glDeleteProgram_enc = set_glDeleteProgram(s_glDeleteProgram);
-    m_glGetUniformiv_enc = set_glGetUniformiv(s_glGetUniformiv);
-    m_glGetUniformfv_enc = set_glGetUniformfv(s_glGetUniformfv);
-    m_glCreateProgram_enc = set_glCreateProgram(s_glCreateProgram);
-    m_glCreateShader_enc = set_glCreateShader(s_glCreateShader);
-    m_glDeleteShader_enc = set_glDeleteShader(s_glDeleteShader);
-    m_glAttachShader_enc = set_glAttachShader(s_glAttachShader);
-    m_glDetachShader_enc = set_glDetachShader(s_glDetachShader);
-    m_glGetAttachedShaders_enc = set_glGetAttachedShaders(s_glGetAttachedShaders);
-    m_glGetShaderSource_enc = set_glGetShaderSource(s_glGetShaderSource);
-    m_glGetShaderInfoLog_enc = set_glGetShaderInfoLog(s_glGetShaderInfoLog);
-    m_glGetProgramInfoLog_enc = set_glGetProgramInfoLog(s_glGetProgramInfoLog);
+#define OVERRIDE(name)  m_##name##_enc = this-> name ; this-> name = &s_##name
 
-    m_glGetUniformLocation_enc = set_glGetUniformLocation(s_glGetUniformLocation);
-    m_glUseProgram_enc = set_glUseProgram(s_glUseProgram);
+    OVERRIDE(glFlush);
+    OVERRIDE(glPixelStorei);
+    OVERRIDE(glGetString);
+    OVERRIDE(glBindBuffer);
+    OVERRIDE(glBufferData);
+    OVERRIDE(glBufferSubData);
+    OVERRIDE(glDeleteBuffers);
+    OVERRIDE(glDrawArrays);
+    OVERRIDE(glDrawElements);
+    OVERRIDE(glGetIntegerv);
+    OVERRIDE(glGetFloatv);
+    OVERRIDE(glGetBooleanv);
+    OVERRIDE(glVertexAttribPointer);
+    OVERRIDE(glEnableVertexAttribArray);
+    OVERRIDE(glDisableVertexAttribArray);
+    OVERRIDE(glGetVertexAttribiv);
+    OVERRIDE(glGetVertexAttribfv);
+    OVERRIDE(glGetVertexAttribPointerv);
 
-    m_glUniform1f_enc = set_glUniform1f(s_glUniform1f);
-    m_glUniform1fv_enc = set_glUniform1fv(s_glUniform1fv);
-    m_glUniform1i_enc = set_glUniform1i(s_glUniform1i);
-    m_glUniform1iv_enc = set_glUniform1iv(s_glUniform1iv);
-    m_glUniform2f_enc = set_glUniform2f(s_glUniform2f);
-    m_glUniform2fv_enc = set_glUniform2fv(s_glUniform2fv);
-    m_glUniform2i_enc = set_glUniform2i(s_glUniform2i);
-    m_glUniform2iv_enc = set_glUniform2iv(s_glUniform2iv);
-    m_glUniform3f_enc = set_glUniform3f(s_glUniform3f);
-    m_glUniform3fv_enc = set_glUniform3fv(s_glUniform3fv);
-    m_glUniform3i_enc = set_glUniform3i(s_glUniform3i);
-    m_glUniform3iv_enc = set_glUniform3iv(s_glUniform3iv);
-    m_glUniform4f_enc = set_glUniform4f(s_glUniform4f);
-    m_glUniform4fv_enc = set_glUniform4fv(s_glUniform4fv);
-    m_glUniform4i_enc = set_glUniform4i(s_glUniform4i);
-    m_glUniform4iv_enc = set_glUniform4iv(s_glUniform4iv);
-    m_glUniformMatrix2fv_enc = set_glUniformMatrix2fv(s_glUniformMatrix2fv);
-    m_glUniformMatrix3fv_enc = set_glUniformMatrix3fv(s_glUniformMatrix3fv);
-    m_glUniformMatrix4fv_enc = set_glUniformMatrix4fv(s_glUniformMatrix4fv);
+    this->glShaderSource = &s_glShaderSource;
+    this->glFinish = &s_glFinish;
 
-    m_glActiveTexture_enc = set_glActiveTexture(s_glActiveTexture);
-    m_glBindTexture_enc = set_glBindTexture(s_glBindTexture);
-    m_glDeleteTextures_enc = set_glDeleteTextures(s_glDeleteTextures);
-    m_glGetTexParameterfv_enc = set_glGetTexParameterfv(s_glGetTexParameterfv);
-    m_glGetTexParameteriv_enc = set_glGetTexParameteriv(s_glGetTexParameteriv);
-    m_glTexParameterf_enc = set_glTexParameterf(s_glTexParameterf);
-    m_glTexParameterfv_enc = set_glTexParameterfv(s_glTexParameterfv);
-    m_glTexParameteri_enc = set_glTexParameteri(s_glTexParameteri);
-    m_glTexParameteriv_enc = set_glTexParameteriv(s_glTexParameteriv);
+    OVERRIDE(glGetError);
+    OVERRIDE(glLinkProgram);
+    OVERRIDE(glDeleteProgram);
+    OVERRIDE(glGetUniformiv);
+    OVERRIDE(glGetUniformfv);
+    OVERRIDE(glCreateProgram);
+    OVERRIDE(glCreateShader);
+    OVERRIDE(glDeleteShader);
+    OVERRIDE(glAttachShader);
+    OVERRIDE(glDetachShader);
+    OVERRIDE(glGetAttachedShaders);
+    OVERRIDE(glGetShaderSource);
+    OVERRIDE(glGetShaderInfoLog);
+    OVERRIDE(glGetProgramInfoLog);
+
+    OVERRIDE(glGetUniformLocation);
+    OVERRIDE(glUseProgram);
+
+    OVERRIDE(glUniform1f);
+    OVERRIDE(glUniform1fv);
+    OVERRIDE(glUniform1i);
+    OVERRIDE(glUniform1iv);
+    OVERRIDE(glUniform2f);
+    OVERRIDE(glUniform2fv);
+    OVERRIDE(glUniform2i);
+    OVERRIDE(glUniform2iv);
+    OVERRIDE(glUniform3f);
+    OVERRIDE(glUniform3fv);
+    OVERRIDE(glUniform3i);
+    OVERRIDE(glUniform3iv);
+    OVERRIDE(glUniform4f);
+    OVERRIDE(glUniform4fv);
+    OVERRIDE(glUniform4i);
+    OVERRIDE(glUniform4iv);
+    OVERRIDE(glUniformMatrix2fv);
+    OVERRIDE(glUniformMatrix3fv);
+    OVERRIDE(glUniformMatrix4fv);
+
+    OVERRIDE(glActiveTexture);
+    OVERRIDE(glBindTexture);
+    OVERRIDE(glDeleteTextures);
+    OVERRIDE(glGetTexParameterfv);
+    OVERRIDE(glGetTexParameteriv);
+    OVERRIDE(glTexParameterf);
+    OVERRIDE(glTexParameterfv);
+    OVERRIDE(glTexParameteri);
+    OVERRIDE(glTexParameteriv);
+    OVERRIDE(glTexImage2D);
 }
 
 GL2Encoder::~GL2Encoder()
@@ -145,6 +151,8 @@ void GL2Encoder::s_glFlush(void *self)
 
 const GLubyte *GL2Encoder::s_glGetString(void *self, GLenum name)
 {
+    (void)self;
+
     GLubyte *retval =  (GLubyte *) "";
     switch(name) {
     case GL_VENDOR:
@@ -184,6 +192,7 @@ void GL2Encoder::s_glBindBuffer(void *self, GLenum target, GLuint id)
 void GL2Encoder::s_glBufferData(void * self, GLenum target, GLsizeiptr size, const GLvoid * data, GLenum usage)
 {
     GL2Encoder *ctx = (GL2Encoder *) self;
+    SET_ERROR_IF(!(target == GL_ARRAY_BUFFER || target == GL_ELEMENT_ARRAY_BUFFER), GL_INVALID_ENUM);
     GLuint bufferId = ctx->m_state->getBuffer(target);
     SET_ERROR_IF(bufferId==0, GL_INVALID_OPERATION);
     SET_ERROR_IF(size<0, GL_INVALID_VALUE);
@@ -195,6 +204,7 @@ void GL2Encoder::s_glBufferData(void * self, GLenum target, GLsizeiptr size, con
 void GL2Encoder::s_glBufferSubData(void * self, GLenum target, GLintptr offset, GLsizeiptr size, const GLvoid * data)
 {
     GL2Encoder *ctx = (GL2Encoder *) self;
+    SET_ERROR_IF(!(target == GL_ARRAY_BUFFER || target == GL_ELEMENT_ARRAY_BUFFER), GL_INVALID_ENUM);
     GLuint bufferId = ctx->m_state->getBuffer(target);
     SET_ERROR_IF(bufferId==0, GL_INVALID_OPERATION);
 
@@ -210,11 +220,12 @@ void GL2Encoder::s_glDeleteBuffers(void * self, GLsizei n, const GLuint * buffer
     SET_ERROR_IF(n<0, GL_INVALID_VALUE);
     for (int i=0; i<n; i++) {
         ctx->m_shared->deleteBufferData(buffers[i]);
+        ctx->m_state->unBindBuffer(buffers[i]);
         ctx->m_glDeleteBuffers_enc(self,1,&buffers[i]);
     }
 }
 
-void GL2Encoder::s_glVertexAtrribPointer(void *self, GLuint indx, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid * ptr)
+void GL2Encoder::s_glVertexAttribPointer(void *self, GLuint indx, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid * ptr)
 {
     GL2Encoder *ctx = (GL2Encoder *)self;
     assert(ctx->m_state != NULL);
@@ -353,6 +364,7 @@ void GL2Encoder::s_glGetBooleanv(void *self, GLenum param, GLboolean *ptr)
         if (!ctx->m_state->getClientStateParameter<GLboolean>(param, ptr)) {
             ctx->m_glGetBooleanv_enc(self, param, ptr);
         }
+        *ptr = (*ptr != 0) ? GL_TRUE : GL_FALSE;
         break;
     }
 }
@@ -397,6 +409,8 @@ void GL2Encoder::s_glGetVertexAttribPointerv(void *self, GLuint index, GLenum pn
 {
     GL2Encoder *ctx = (GL2Encoder *)self;
     if (ctx->m_state == NULL) return;
+
+    (void)pname;
 
     const GLClientState::VertexAttribState *va_state = ctx->m_state->getState(index);
     if (va_state != NULL) {
@@ -638,7 +652,7 @@ static bool replaceSamplerExternalWith2D(char* const str, ShaderData* const data
     return true;
 }
 
-void GL2Encoder::s_glShaderSource(void *self, GLuint shader, GLsizei count, const GLchar *const *string, const GLint *length)
+void GL2Encoder::s_glShaderSource(void *self, GLuint shader, GLsizei count, const GLchar * const *string, const GLint *length)
 {
     GL2Encoder* ctx = (GL2Encoder*)self;
     ShaderData* shaderData = ctx->m_shared->getShaderData(shader);
@@ -1197,6 +1211,23 @@ void GL2Encoder::s_glTexParameteri(void* self,
         ctx->m_glTexParameteri_enc(ctx, target, pname, param);
     }
 }
+
+void GL2Encoder::s_glTexImage2D(void* self, GLenum target, GLint level,
+        GLint internalformat, GLsizei width, GLsizei height, GLint border,
+        GLenum format, GLenum type, const GLvoid* pixels)
+{
+    GL2Encoder* ctx = (GL2Encoder*)self;
+    if (target == GL_TEXTURE_2D || target == GL_TEXTURE_EXTERNAL_OES) {
+        ctx->override2DTextureTarget(target);
+        ctx->m_glTexImage2D_enc(ctx, target, level, internalformat, width,
+                height, border, format, type, pixels);
+        ctx->restore2DTextureTarget();
+    } else {
+        ctx->m_glTexImage2D_enc(ctx, target, level, internalformat, width,
+                height, border, format, type, pixels);
+    }
+}
+
 
 void GL2Encoder::s_glTexParameteriv(void* self,
         GLenum target, GLenum pname, const GLint* params)

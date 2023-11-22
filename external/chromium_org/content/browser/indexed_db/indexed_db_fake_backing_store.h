@@ -10,7 +10,7 @@
 #include "content/browser/indexed_db/indexed_db_backing_store.h"
 
 namespace base {
-class TaskRunner;
+class SequencedTaskRunner;
 }
 
 namespace content {
@@ -21,7 +21,7 @@ class IndexedDBFakeBackingStore : public IndexedDBBackingStore {
  public:
   IndexedDBFakeBackingStore();
   IndexedDBFakeBackingStore(IndexedDBFactory* factory,
-                            base::TaskRunner* task_runner);
+                            base::SequencedTaskRunner* task_runner);
   virtual std::vector<base::string16> GetDatabaseNames(leveldb::Status* s)
       OVERRIDE;
   virtual leveldb::Status GetIDBDatabaseMetaData(const base::string16& name,
@@ -53,8 +53,8 @@ class IndexedDBFakeBackingStore : public IndexedDBBackingStore {
       int64 database_id,
       int64 object_store_id,
       const IndexedDBKey& key,
-      IndexedDBValue& value,
-      ScopedVector<webkit_blob::BlobDataHandle>* handles,
+      IndexedDBValue* value,
+      ScopedVector<storage::BlobDataHandle>* handles,
       RecordIdentifier* record) OVERRIDE;
 
   virtual leveldb::Status ClearObjectStore(Transaction*,
@@ -108,14 +108,14 @@ class IndexedDBFakeBackingStore : public IndexedDBBackingStore {
       int64 database_id,
       int64 object_store_id,
       const IndexedDBKeyRange& key_range,
-      indexed_db::CursorDirection,
+      blink::WebIDBCursorDirection,
       leveldb::Status*) OVERRIDE;
   virtual scoped_ptr<Cursor> OpenObjectStoreCursor(
       Transaction* transaction,
       int64 database_id,
       int64 object_store_id,
       const IndexedDBKeyRange& key_range,
-      indexed_db::CursorDirection,
+      blink::WebIDBCursorDirection,
       leveldb::Status*) OVERRIDE;
   virtual scoped_ptr<Cursor> OpenIndexKeyCursor(
       Transaction* transaction,
@@ -123,14 +123,14 @@ class IndexedDBFakeBackingStore : public IndexedDBBackingStore {
       int64 object_store_id,
       int64 index_id,
       const IndexedDBKeyRange& key_range,
-      indexed_db::CursorDirection,
+      blink::WebIDBCursorDirection,
       leveldb::Status*) OVERRIDE;
   virtual scoped_ptr<Cursor> OpenIndexCursor(Transaction* transaction,
                                              int64 database_id,
                                              int64 object_store_id,
                                              int64 index_id,
                                              const IndexedDBKeyRange& key_range,
-                                             indexed_db::CursorDirection,
+                                             blink::WebIDBCursorDirection,
                                              leveldb::Status*) OVERRIDE;
 
   class FakeTransaction : public IndexedDBBackingStore::Transaction {
@@ -152,6 +152,7 @@ class IndexedDBFakeBackingStore : public IndexedDBBackingStore {
   friend class base::RefCounted<IndexedDBFakeBackingStore>;
   virtual ~IndexedDBFakeBackingStore();
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(IndexedDBFakeBackingStore);
 };
 

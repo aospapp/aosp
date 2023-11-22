@@ -16,7 +16,7 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/containers/stack_container.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_file.h"
 #include "base/logging.h"
 #include "base/message_loop/message_loop.h"
@@ -675,7 +675,11 @@ bool VisitedLinkMaster::CreateURLTable(int32 num_entries, bool init_to_empty) {
   if (!shared_memory_)
     return false;
 
-  if (!shared_memory_->CreateAndMapAnonymous(alloc_size)) {
+  base::SharedMemoryCreateOptions options;
+  options.size = alloc_size;
+  options.share_read_only = true;
+
+  if (!shared_memory_->Create(options) || !shared_memory_->Map(alloc_size)) {
     delete shared_memory_;
     shared_memory_ = NULL;
     return false;

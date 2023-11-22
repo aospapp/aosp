@@ -7,8 +7,8 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
@@ -180,7 +180,7 @@ void NetInternalsTest::MessageHandler::GetTestServerURL(
   std::string path;
   ASSERT_TRUE(list_value->GetString(0, &path));
   GURL url = net_internals_test_->test_server()->GetURL(path);
-  scoped_ptr<base::Value> url_value(base::Value::CreateStringValue(url.spec()));
+  scoped_ptr<base::Value> url_value(new base::StringValue(url.spec()));
   RunJavascriptCallback(url_value.get());
 }
 

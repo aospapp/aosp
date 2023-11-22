@@ -22,13 +22,25 @@ typedef struct tcache_s tcache_t;
  *
  * This constant must be an even number.
  */
+#if defined(ANDROID_TCACHE_NSLOTS_SMALL_MAX)
+#define	TCACHE_NSLOTS_SMALL_MAX		ANDROID_TCACHE_NSLOTS_SMALL_MAX
+#else
 #define	TCACHE_NSLOTS_SMALL_MAX		200
+#endif
 
 /* Number of cache slots for large size classes. */
+#if defined(ANDROID_TCACHE_NSLOTS_LARGE)
+#define	TCACHE_NSLOTS_LARGE		ANDROID_TCACHE_NSLOTS_LARGE
+#else
 #define	TCACHE_NSLOTS_LARGE		20
+#endif
 
 /* (1U << opt_lg_tcache_max) is used to compute tcache_maxclass. */
+#if defined(ANDROID_LG_TCACHE_MAXCLASS_DEFAULT)
+#define	LG_TCACHE_MAXCLASS_DEFAULT	ANDROID_LG_TCACHE_MAXCLASS_DEFAULT
+#else
 #define	LG_TCACHE_MAXCLASS_DEFAULT	15
+#endif
 
 /*
  * TCACHE_GC_SWEEP is the approximate number of allocation events between

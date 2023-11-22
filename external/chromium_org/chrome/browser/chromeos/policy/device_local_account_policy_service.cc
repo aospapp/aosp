@@ -9,8 +9,8 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/message_loop/message_loop.h"
 #include "base/message_loop/message_loop_proxy.h"
@@ -35,6 +35,7 @@
 #include "components/policy/core/common/cloud/device_management_service.h"
 #include "components/policy/core/common/cloud/resource_cache.h"
 #include "components/policy/core/common/cloud/system_policy_request_context.h"
+#include "components/policy/core/common/policy_namespace.h"
 #include "components/policy/core/common/policy_switches.h"
 #include "content/public/browser/browser_thread.h"
 #include "net/url_request/url_request_context_getter.h"
@@ -273,7 +274,7 @@ DeviceLocalAccountPolicyService::DeviceLocalAccountPolicyService(
 }
 
 DeviceLocalAccountPolicyService::~DeviceLocalAccountPolicyService() {
-  DCHECK(!request_context_);
+  DCHECK(!request_context_.get());
   DCHECK(policy_brokers_.empty());
 }
 

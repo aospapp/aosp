@@ -12,17 +12,29 @@
 
 namespace mojo {
 
-template<>
-class MOJO_INPUT_EVENTS_EXPORT TypeConverter<EventPtr, ui::Event> {
- public:
-  static EventPtr ConvertFrom(const ui::Event& input);
+template <>
+struct MOJO_INPUT_EVENTS_EXPORT TypeConverter<EventType, ui::EventType> {
+  static EventType Convert(ui::EventType type);
 };
 
-template<>
-class MOJO_INPUT_EVENTS_EXPORT TypeConverter<EventPtr,
-                                             scoped_ptr<ui::Event> > {
- public:
-  static scoped_ptr<ui::Event> ConvertTo(const EventPtr& input);
+template <>
+struct MOJO_INPUT_EVENTS_EXPORT TypeConverter<ui::EventType, EventType> {
+  static ui::EventType Convert(EventType type);
+};
+
+template <>
+struct MOJO_INPUT_EVENTS_EXPORT TypeConverter<EventPtr, ui::Event> {
+  static EventPtr Convert(const ui::Event& input);
+};
+
+template <>
+struct MOJO_INPUT_EVENTS_EXPORT TypeConverter<EventPtr, ui::KeyEvent> {
+  static EventPtr Convert(const ui::KeyEvent& input);
+};
+
+template <>
+struct MOJO_INPUT_EVENTS_EXPORT TypeConverter<scoped_ptr<ui::Event>, EventPtr> {
+  static scoped_ptr<ui::Event> Convert(const EventPtr& input);
 };
 
 }  // namespace mojo

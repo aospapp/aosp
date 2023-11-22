@@ -126,12 +126,14 @@ IN_PROC_BROWSER_TEST_F(VirtualKeyboardBrowserTest, DISABLED_AttributesTest) {
           VirtualKeyboardBrowserTestConfig());
 }
 
-IN_PROC_BROWSER_TEST_F(VirtualKeyboardBrowserTest, TypingTest) {
+// crbug.com/387372. This test started failing at Blink r176582.
+IN_PROC_BROWSER_TEST_F(VirtualKeyboardBrowserTest, DISABLED_TypingTest) {
   RunTest(base::FilePath(FILE_PATH_LITERAL("typing_test.js")),
           VirtualKeyboardBrowserTestConfig());
 }
 
-IN_PROC_BROWSER_TEST_F(VirtualKeyboardBrowserTest, ControlKeysTest) {
+// crbug.com/387372. This test started failing at Blink r176582.
+IN_PROC_BROWSER_TEST_F(VirtualKeyboardBrowserTest, DISABLED_ControlKeysTest) {
   RunTest(base::FilePath(FILE_PATH_LITERAL("control_keys_test.js")),
           VirtualKeyboardBrowserTestConfig());
 }
@@ -141,7 +143,9 @@ IN_PROC_BROWSER_TEST_F(VirtualKeyboardBrowserTest, HideKeyboardKeyTest) {
           VirtualKeyboardBrowserTestConfig());
 }
 
-IN_PROC_BROWSER_TEST_F(VirtualKeyboardBrowserTest, KeysetTransitionTest) {
+// http://crbug.com/396326
+IN_PROC_BROWSER_TEST_F(VirtualKeyboardBrowserTest,
+                       DISABLED_KeysetTransitionTest) {
   RunTest(base::FilePath(FILE_PATH_LITERAL("keyset_transition_test.js")),
           VirtualKeyboardBrowserTestConfig());
 }

@@ -10,8 +10,6 @@
 #include "chrome/browser/chrome_notification_types.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "content/public/browser/notification_service.h"
-#include "grit/generated_resources.h"
-#include "ui/base/l10n/l10n_util.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/controls/menu/menu_model_adapter.h"
 #include "ui/views/controls/menu/menu_runner.h"
@@ -45,10 +43,12 @@ BookmarkContextMenu::BookmarkContextMenu(
           browser, profile, page_navigator, parent, selection)),
       parent_widget_(parent_widget),
       menu_(new views::MenuItemView(this)),
-      menu_runner_(new views::MenuRunner(menu_)),
+      menu_runner_(new views::MenuRunner(menu_,
+                                         views::MenuRunner::HAS_MNEMONICS |
+                                             views::MenuRunner::IS_NESTED |
+                                             views::MenuRunner::CONTEXT_MENU)),
       observer_(NULL),
       close_on_remove_(close_on_remove) {
-
   ui::SimpleMenuModel* menu_model = controller_->menu_model();
   for (int i = 0; i < menu_model->GetItemCount(); ++i) {
     views::MenuModelAdapter::AppendMenuItemFromModel(
@@ -66,15 +66,11 @@ void BookmarkContextMenu::RunMenuAt(const gfx::Point& point,
       content::Source<BookmarkContextMenu>(this),
       content::NotificationService::NoDetails());
   // width/height don't matter here.
-  if (menu_runner_->RunMenuAt(
-          parent_widget_,
-          NULL,
-          gfx::Rect(point.x(), point.y(), 0, 0),
-          views::MENU_ANCHOR_TOPLEFT,
-          source_type,
-          (views::MenuRunner::HAS_MNEMONICS | views::MenuRunner::IS_NESTED |
-           views::MenuRunner::CONTEXT_MENU)) ==
-      views::MenuRunner::MENU_DELETED) {
+  if (menu_runner_->RunMenuAt(parent_widget_,
+                              NULL,
+                              gfx::Rect(point.x(), point.y(), 0, 0),
+                              views::MENU_ANCHOR_TOPLEFT,
+                              source_type) == views::MenuRunner::MENU_DELETED) {
     return;
   }
 }

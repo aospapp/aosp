@@ -5,6 +5,7 @@
 #include "components/password_manager/core/browser/password_store.h"
 
 #include "base/bind.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop/message_loop.h"
 #include "base/message_loop/message_loop_proxy.h"
@@ -33,6 +34,14 @@ void MaybeCallConsumerCallback(base::WeakPtr<PasswordStoreConsumer> consumer,
     consumer->OnGetPasswordStoreResults(*result);
   else
     STLDeleteElements(result.get());
+}
+
+// http://crbug.com/404012. Let's see where the empty fields come from.
+void CheckForEmptyUsernameAndPassword(const PasswordForm& form) {
+  if (form.username_value.empty() &&
+      form.password_value.empty() &&
+      !form.blacklisted_by_user)
+    base::debug::DumpWithoutCrashing();
 }
 
 }  // namespace
@@ -78,8 +87,9 @@ PasswordStore::PasswordStore(
       observers_(new ObserverListThreadSafe<Observer>()),
       shutdown_called_(false) {}
 
-bool PasswordStore::Init(const syncer::SyncableService::StartSyncFlare& flare) {
-  ReportMetrics();
+bool PasswordStore::Init(const syncer::SyncableService::StartSyncFlare& flare,
+                         const std::string& sync_username) {
+  ReportMetrics(sync_username);
 #if defined(PASSWORD_MANAGER_ENABLE_SYNC)
   ScheduleTask(base::Bind(&PasswordStore::InitSyncableService, this, flare));
 #endif
@@ -87,12 +97,14 @@ bool PasswordStore::Init(const syncer::SyncableService::StartSyncFlare& flare) {
 }
 
 void PasswordStore::AddLogin(const PasswordForm& form) {
+  CheckForEmptyUsernameAndPassword(form);
   ScheduleTask(
       base::Bind(&PasswordStore::WrapModificationTask, this,
                  base::Bind(&PasswordStore::AddLoginImpl, this, form)));
 }
 
 void PasswordStore::UpdateLogin(const PasswordForm& form) {
+  CheckForEmptyUsernameAndPassword(form);
   ScheduleTask(
       base::Bind(&PasswordStore::WrapModificationTask, this,
                  base::Bind(&PasswordStore::UpdateLoginImpl, this, form)));
@@ -162,8 +174,9 @@ void PasswordStore::GetBlacklistLogins(PasswordStoreConsumer* consumer) {
   Schedule(&PasswordStore::GetBlacklistLoginsImpl, consumer);
 }
 
-void PasswordStore::ReportMetrics() {
-  ScheduleTask(base::Bind(&PasswordStore::ReportMetricsImpl, this));
+void PasswordStore::ReportMetrics(const std::string& sync_username) {
+  ScheduleTask(base::Bind(&PasswordStore::ReportMetricsImpl, this,
+                          sync_username));
 }
 
 void PasswordStore::AddObserver(Observer* observer) {
@@ -224,22 +237,6 @@ void PasswordStore::LogStatsForBulkDeletion(int num_deletions) {
                        num_deletions);
 }
 
-template<typename BackendFunc>
-void PasswordStore::Schedule(
-    BackendFunc func,
-    PasswordStoreConsumer* consumer) {
-  GetLoginsRequest* request = new GetLoginsRequest(consumer);
-  consumer->cancelable_task_tracker()->PostTask(
-      GetBackgroundTaskRunner(),
-      FROM_HERE,
-      base::Bind(func, this, base::Owned(request)));
-}
-
-void PasswordStore::WrapModificationTask(ModificationTask task) {
-  PasswordStoreChangeList changes = task.Run();
-  NotifyLoginsChanged(changes);
-}
-
 void PasswordStore::NotifyLoginsChanged(
     const PasswordStoreChangeList& changes) {
   DCHECK(GetBackgroundTaskRunner()->BelongsToCurrentThread());
@@ -250,6 +247,22 @@ void PasswordStore::NotifyLoginsChanged(
       syncable_service_->ActOnPasswordStoreChanges(changes);
 #endif
   }
+}
+
+template<typename BackendFunc>
+void PasswordStore::Schedule(
+    BackendFunc func,
+    PasswordStoreConsumer* consumer) {
+  GetLoginsRequest* request = new GetLoginsRequest(consumer);
+  consumer->cancelable_task_tracker()->PostTask(
+      GetBackgroundTaskRunner().get(),
+      FROM_HERE,
+      base::Bind(func, this, base::Owned(request)));
+}
+
+void PasswordStore::WrapModificationTask(ModificationTask task) {
+  PasswordStoreChangeList changes = task.Run();
+  NotifyLoginsChanged(changes);
 }
 
 #if defined(PASSWORD_MANAGER_ENABLE_SYNC)

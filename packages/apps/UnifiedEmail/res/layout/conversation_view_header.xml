@@ -20,10 +20,9 @@
     android:id="@+id/conversation_header"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@color/conversation_view_item_background_color"
+    android:background="@android:color/white"
     android:orientation="horizontal"
     android:minHeight="88sp"
-    android:nextFocusDown="@+id/upper_header"
     android:paddingTop="16dp"
     android:paddingBottom="16dp"
     style="@style/ConversationHeaderStyle" >
@@ -34,7 +33,6 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center_vertical"
         android:layout_weight="1"
-        android:nextFocusDown="@+id/upper_header"
         android:textAlignment="viewStart"
         style="@style/ConversationSubjectStyle" />
 
@@ -43,7 +41,7 @@
         android:layout_width="@dimen/conversation_header_star_size"
         android:layout_height="@dimen/conversation_header_star_size"
         android:layout_gravity="center_vertical"
-        android:background="?android:attr/selectableItemBackground"
+        android:background="?attr/selectableItemBackgroundBorderless"
         android:scaleType="center"
         android:visibility="invisible"
         android:src="@drawable/star" />

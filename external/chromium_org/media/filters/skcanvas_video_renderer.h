@@ -5,9 +5,12 @@
 #ifndef MEDIA_FILTERS_SKCANVAS_VIDEO_RENDERER_H_
 #define MEDIA_FILTERS_SKCANVAS_VIDEO_RENDERER_H_
 
+#include "base/memory/ref_counted.h"
 #include "base/time/time.h"
 #include "media/base/media_export.h"
+#include "media/base/video_rotation.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "third_party/skia/include/core/SkXfermode.h"
 #include "ui/gfx/rect.h"
 
 class SkCanvas;
@@ -15,6 +18,7 @@ class SkCanvas;
 namespace media {
 
 class VideoFrame;
+class VideoImageGenerator;
 
 // Handles rendering of VideoFrames to SkCanvases, doing any necessary YUV
 // conversion and caching of resulting RGB bitmaps.
@@ -27,12 +31,19 @@ class MEDIA_EXPORT SkCanvasVideoRenderer {
   // specified by |dest_rect|.
   //
   // Black will be painted on |canvas| if |video_frame| is null.
-  void Paint(media::VideoFrame* video_frame,
+  void Paint(const scoped_refptr<VideoFrame>& video_frame,
              SkCanvas* canvas,
              const gfx::RectF& dest_rect,
-             uint8 alpha);
+             uint8 alpha,
+             SkXfermode::Mode mode,
+             VideoRotation video_rotation);
+
+  // Copy |video_frame| on |canvas|.
+  void Copy(const scoped_refptr<VideoFrame>&, SkCanvas* canvas);
 
  private:
+  VideoImageGenerator* generator_;
+
   // An RGB bitmap and corresponding timestamp of the previously converted
   // video frame data.
   SkBitmap last_frame_;

@@ -5,12 +5,13 @@
 #include "chrome/browser/extensions/api/push_messaging/push_messaging_invalidation_handler.h"
 
 #include "base/basictypes.h"
+#include "base/callback.h"
 #include "base/memory/scoped_ptr.h"
 #include "chrome/browser/extensions/api/push_messaging/push_messaging_invalidation_handler_delegate.h"
 #include "components/invalidation/invalidation_logger.h"
 #include "components/invalidation/invalidation_service.h"
+#include "components/invalidation/object_id_invalidation_map.h"
 #include "google/cacheinvalidation/types.pb.h"
-#include "sync/notifier/object_id_invalidation_map.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 

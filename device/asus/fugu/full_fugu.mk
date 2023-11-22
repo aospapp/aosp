@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 $(call inherit-product, device/asus/fugu/device.mk)
-$(call inherit-product, $(SRC_TARGET_DIR)/product/aosp_base.mk)
+$(call inherit-product, device/google/atv/products/atv_base.mk)
 
 PRODUCT_NAME := full_fugu
 PRODUCT_DEVICE := fugu

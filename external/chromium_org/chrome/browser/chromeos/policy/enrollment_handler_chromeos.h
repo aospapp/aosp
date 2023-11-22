@@ -12,23 +12,25 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/chromeos/policy/device_cloud_policy_manager_chromeos.h"
+#include "chrome/browser/chromeos/policy/device_cloud_policy_initializer.h"
 #include "chrome/browser/chromeos/policy/device_cloud_policy_validator.h"
 #include "chrome/browser/chromeos/policy/enterprise_install_attributes.h"
 #include "components/policy/core/common/cloud/cloud_policy_client.h"
 #include "components/policy/core/common/cloud/cloud_policy_store.h"
 #include "google_apis/gaia/gaia_oauth_client.h"
+#include "policy/proto/device_management_backend.pb.h"
 
 namespace base {
 class SequencedTaskRunner;
 }
 
-namespace enterprise_management {
-class PolicyFetchResponse;
+namespace chromeos {
+class DeviceSettingsService;
 }
 
 namespace policy {
 
+class DeviceCloudPolicyStoreChromeOS;
 class ServerBackedStateKeysBroker;
 
 // Implements the logic that establishes enterprise enrollment for Chromium OS
@@ -46,9 +48,9 @@ class EnrollmentHandlerChromeOS : public CloudPolicyClient::Observer,
                                   public CloudPolicyStore::Observer,
                                   public gaia::GaiaOAuthClient::Delegate {
  public:
-  typedef DeviceCloudPolicyManagerChromeOS::AllowedDeviceModes
+  typedef DeviceCloudPolicyInitializer::AllowedDeviceModes
       AllowedDeviceModes;
-  typedef DeviceCloudPolicyManagerChromeOS::EnrollmentCallback
+  typedef DeviceCloudPolicyInitializer::EnrollmentCallback
       EnrollmentCallback;
 
   // |store| and |install_attributes| must remain valid for the life time of the
@@ -56,10 +58,12 @@ class EnrollmentHandlerChromeOS : public CloudPolicyClient::Observer,
   // are acceptable. If the mode specified by the server is not acceptable,
   // enrollment will fail with an EnrollmentStatus indicating
   // STATUS_REGISTRATION_BAD_MODE.
+  // |management_mode| should be either ENTERPRISE_MANAGED or CONSUMER_MANAGED.
   EnrollmentHandlerChromeOS(
       DeviceCloudPolicyStoreChromeOS* store,
       EnterpriseInstallAttributes* install_attributes,
       ServerBackedStateKeysBroker* state_keys_broker,
+      chromeos::DeviceSettingsService* device_settings_service,
       scoped_ptr<CloudPolicyClient> client,
       scoped_refptr<base::SequencedTaskRunner> background_task_runner,
       const std::string& auth_token,
@@ -67,6 +71,7 @@ class EnrollmentHandlerChromeOS : public CloudPolicyClient::Observer,
       bool is_auto_enrollment,
       const std::string& requisition,
       const AllowedDeviceModes& allowed_device_modes,
+      enterprise_management::PolicyData::ManagementMode management_mode,
       const EnrollmentCallback& completion_callback);
   virtual ~EnrollmentHandlerChromeOS();
 
@@ -109,38 +114,41 @@ class EnrollmentHandlerChromeOS : public CloudPolicyClient::Observer,
     STEP_ROBOT_AUTH_FETCH,    // Fetching device API auth code.
     STEP_ROBOT_AUTH_REFRESH,  // Fetching device API refresh token.
     STEP_LOCK_DEVICE,         // Writing installation-time attributes.
+    STEP_STORE_TOKEN_AND_ID,  // Storing DM token and virtual device ID.
     STEP_STORE_ROBOT_AUTH,    // Encrypting & writing robot refresh token.
     STEP_STORE_POLICY,        // Storing policy and API refresh token.
     STEP_FINISHED,            // Enrollment process finished, no further action.
   };
 
   // Handles the response to a request for server-backed state keys.
-  void CheckStateKeys(const std::vector<std::string>& state_keys);
+  void HandleStateKeysResult(const std::vector<std::string>& state_keys,
+                             bool first_boot);
 
   // Starts registration if the store is initialized.
-  void AttemptRegistration();
+  void StartRegistration();
 
-  // Handles the policy validation result, proceeding with installation-time
-  // attributes locking if successful.
-  void PolicyValidated(DeviceCloudPolicyValidator* validator);
+  // Handles the policy validation result, proceeding with device lock if
+  // successful.
+  void HandlePolicyValidationResult(DeviceCloudPolicyValidator* validator);
 
-  // Calls LockDevice() and proceeds to policy installation. If unsuccessful,
-  // reports the result. Actual installation or error report will be done in
-  // HandleLockDeviceResult().
-  void StartLockDevice(const std::string& user,
-                       DeviceMode device_mode,
-                       const std::string& device_id);
+  // Calls InstallAttributes::LockDevice() for enterprise enrollment and
+  // DeviceSettingsService::SetManagementSettings() for consumer
+  // enrollment.
+  void StartLockDevice();
 
-  // Helper for StartLockDevice(). It performs the actual action based on
-  // the result of LockDevice.
+  // Checks the status after SetManagementSettings() is done. Proceeds to
+  // robot auth code storing if successful.
+  void HandleSetManagementSettingsDone();
+
+  // Handle callback from InstallAttributes::LockDevice() and retry on failure.
   void HandleLockDeviceResult(
-      const std::string& user,
-      DeviceMode device_mode,
-      const std::string& device_id,
       EnterpriseInstallAttributes::LockResult lock_result);
 
+  // Initiates storing of robot auth token.
+  void StartStoreRobotAuth();
+
   // Handles completion of the robot token store operation.
-  void HandleRobotAuthTokenStored(bool result);
+  void HandleStoreRobotAuthTokenResult(bool result);
 
   // Drops any ongoing actions.
   void Stop();
@@ -151,6 +159,7 @@ class EnrollmentHandlerChromeOS : public CloudPolicyClient::Observer,
   DeviceCloudPolicyStoreChromeOS* store_;
   EnterpriseInstallAttributes* install_attributes_;
   ServerBackedStateKeysBroker* state_keys_broker_;
+  chromeos::DeviceSettingsService* device_settings_service_;
   scoped_ptr<CloudPolicyClient> client_;
   scoped_refptr<base::SequencedTaskRunner> background_task_runner_;
   scoped_ptr<gaia::GaiaOAuthClient> gaia_oauth_client_;
@@ -162,6 +171,7 @@ class EnrollmentHandlerChromeOS : public CloudPolicyClient::Observer,
   std::string current_state_key_;
   std::string refresh_token_;
   AllowedDeviceModes allowed_device_modes_;
+  enterprise_management::PolicyData::ManagementMode management_mode_;
   EnrollmentCallback completion_callback_;
 
   // The device mode as received in the registration request.
@@ -171,6 +181,7 @@ class EnrollmentHandlerChromeOS : public CloudPolicyClient::Observer,
   scoped_ptr<enterprise_management::PolicyFetchResponse> policy_;
   std::string username_;
   std::string device_id_;
+  std::string request_token_;
 
   // Current enrollment step.
   EnrollmentStep enrollment_step_;

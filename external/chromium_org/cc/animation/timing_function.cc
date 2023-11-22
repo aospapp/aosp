@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "base/logging.h"
+#include "base/memory/scoped_ptr.h"
 #include "cc/animation/timing_function.h"
 
 namespace cc {
@@ -10,10 +11,6 @@ namespace cc {
 TimingFunction::TimingFunction() {}
 
 TimingFunction::~TimingFunction() {}
-
-double TimingFunction::Duration() const {
-  return 1.0;
-}
 
 scoped_ptr<CubicBezierTimingFunction> CubicBezierTimingFunction::Create(
     double x1, double y1, double x2, double y2) {
@@ -32,9 +29,8 @@ float CubicBezierTimingFunction::GetValue(double x) const {
   return static_cast<float>(bezier_.Solve(x));
 }
 
-scoped_ptr<AnimationCurve> CubicBezierTimingFunction::Clone() const {
-  return make_scoped_ptr(
-      new CubicBezierTimingFunction(*this)).PassAs<AnimationCurve>();
+float CubicBezierTimingFunction::Velocity(double x) const {
+  return static_cast<float>(bezier_.Slope(x));
 }
 
 void CubicBezierTimingFunction::Range(float* min, float* max) const {
@@ -43,6 +39,11 @@ void CubicBezierTimingFunction::Range(float* min, float* max) const {
   bezier_.Range(&min_d, &max_d);
   *min = static_cast<float>(min_d);
   *max = static_cast<float>(max_d);
+}
+
+scoped_ptr<TimingFunction> CubicBezierTimingFunction::Clone() const {
+  return make_scoped_ptr(new CubicBezierTimingFunction(*this))
+      .PassAs<TimingFunction>();
 }
 
 // These numbers come from

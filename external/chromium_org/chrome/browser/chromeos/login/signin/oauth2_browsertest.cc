@@ -10,15 +10,11 @@
 #include "base/synchronization/waitable_event.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/chromeos/login/auth/key.h"
-#include "chrome/browser/chromeos/login/auth/user_context.h"
 #include "chrome/browser/chromeos/login/signin/oauth2_login_manager.h"
 #include "chrome/browser/chromeos/login/signin/oauth2_login_manager_factory.h"
+#include "chrome/browser/chromeos/login/signin_specifics.h"
 #include "chrome/browser/chromeos/login/test/oobe_base_test.h"
-#include "chrome/browser/chromeos/login/users/user.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/chromeos/login/wizard_controller.h"
-#include "chrome/browser/extensions/extension_test_message_listener.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
 #include "chrome/browser/ui/app_modal_dialogs/javascript_app_modal_dialog.h"
@@ -29,10 +25,16 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/chromeos/login/signin_screen_handler.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "chromeos/login/auth/key.h"
+#include "chromeos/login/auth/user_context.h"
 #include "components/signin/core/browser/profile_oauth2_token_service.h"
+#include "components/user_manager/user.h"
+#include "components/user_manager/user_manager.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/test/browser_test_utils.h"
 #include "extensions/browser/process_manager.h"
+#include "extensions/test/extension_test_message_listener.h"
+#include "extensions/test/result_catcher.h"
 #include "google_apis/gaia/gaia_constants.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "net/cookies/canonical_cookie.h"
@@ -168,7 +170,7 @@ class OAuth2Test : public OobeBaseTest {
     JsExpect("!!document.querySelector('#pod-row')");
 
     EXPECT_EQ(GetOAuthStatusFromLocalState(kTestAccountId),
-              User::OAUTH2_TOKEN_STATUS_VALID);
+              user_manager::User::OAUTH2_TOKEN_STATUS_VALID);
 
     EXPECT_TRUE(TryToLogin(kTestAccountId, kTestAccountPassword));
     Profile* profile = ProfileManager::GetPrimaryUserProfile();
@@ -182,7 +184,7 @@ class OAuth2Test : public OobeBaseTest {
     EXPECT_TRUE(token_service->RefreshTokenIsAvailable(kTestAccountId));
 
     EXPECT_EQ(GetOAuthStatusFromLocalState(kTestAccountId),
-              User::OAUTH2_TOKEN_STATUS_VALID);
+              user_manager::User::OAUTH2_TOKEN_STATUS_VALID);
   }
 
   bool TryToLogin(const std::string& username,
@@ -190,32 +192,34 @@ class OAuth2Test : public OobeBaseTest {
     if (!AddUserToSession(username, password))
       return false;
 
-    if (const User* active_user = UserManager::Get()->GetActiveUser())
+    if (const user_manager::User* active_user =
+            user_manager::UserManager::Get()->GetActiveUser()) {
       return active_user->email() == username;
+    }
 
     return false;
   }
 
-  User::OAuthTokenStatus GetOAuthStatusFromLocalState(
+  user_manager::User::OAuthTokenStatus GetOAuthStatusFromLocalState(
       const std::string& user_id) const {
     PrefService* local_state = g_browser_process->local_state();
     const base::DictionaryValue* prefs_oauth_status =
         local_state->GetDictionary("OAuthTokenStatus");
-    int oauth_token_status = User::OAUTH_TOKEN_STATUS_UNKNOWN;
+    int oauth_token_status = user_manager::User::OAUTH_TOKEN_STATUS_UNKNOWN;
     if (prefs_oauth_status &&
         prefs_oauth_status->GetIntegerWithoutPathExpansion(
             user_id, &oauth_token_status)) {
-      User::OAuthTokenStatus result =
-          static_cast<User::OAuthTokenStatus>(oauth_token_status);
+      user_manager::User::OAuthTokenStatus result =
+          static_cast<user_manager::User::OAuthTokenStatus>(oauth_token_status);
       return result;
     }
-    return User::OAUTH_TOKEN_STATUS_UNKNOWN;
+    return user_manager::User::OAUTH_TOKEN_STATUS_UNKNOWN;
   }
 
  protected:
   // OobeBaseTest overrides.
   virtual Profile* profile() OVERRIDE {
-    if (UserManager::Get()->GetActiveUser())
+    if (user_manager::UserManager::Get()->GetActiveUser())
       return ProfileManager::GetPrimaryUserProfile();
 
     return OobeBaseTest::profile();
@@ -232,13 +236,15 @@ class OAuth2Test : public OobeBaseTest {
 
     UserContext user_context(username);
     user_context.SetKey(Key(password));
-    controller->Login(user_context);
+    controller->Login(user_context, SigninSpecifics());
     content::WindowedNotificationObserver(
         chrome::NOTIFICATION_SESSION_STARTED,
         content::NotificationService::AllSources()).Wait();
-    const UserList& logged_users = UserManager::Get()->GetLoggedInUsers();
-    for (UserList::const_iterator it = logged_users.begin();
-         it != logged_users.end(); ++it) {
+    const user_manager::UserList& logged_users =
+        user_manager::UserManager::Get()->GetLoggedInUsers();
+    for (user_manager::UserList::const_iterator it = logged_users.begin();
+         it != logged_users.end();
+         ++it) {
       if ((*it)->email() == username)
         return true;
     }
@@ -406,7 +412,7 @@ IN_PROC_BROWSER_TEST_F(OAuth2Test, PRE_PRE_PRE_MergeSession) {
   EXPECT_TRUE(token_service->RefreshTokenIsAvailable(kTestAccountId));
 
   EXPECT_EQ(GetOAuthStatusFromLocalState(kTestAccountId),
-            User::OAUTH2_TOKEN_STATUS_VALID);
+            user_manager::User::OAUTH2_TOKEN_STATUS_VALID);
 
   scoped_refptr<CookieReader> cookie_reader(new CookieReader());
   cookie_reader->ReadCookies(profile());
@@ -448,7 +454,8 @@ IN_PROC_BROWSER_TEST_F(OAuth2Test, PRE_MergeSession) {
 // MergeSession test is attempting to merge session for an existing profile
 // that was generated in PRE_PRE_MergeSession test. This attempt should fail
 // since FakeGaia instance isn't configured to return relevant tokens/cookies.
-IN_PROC_BROWSER_TEST_F(OAuth2Test, MergeSession) {
+// This test is flaky, see: crbug.com/408867.
+IN_PROC_BROWSER_TEST_F(OAuth2Test, DISABLED_MergeSession) {
   SimulateNetworkOnline();
 
   content::WindowedNotificationObserver(
@@ -459,7 +466,7 @@ IN_PROC_BROWSER_TEST_F(OAuth2Test, MergeSession) {
   JsExpect("!!document.querySelector('#pod-row')");
 
   EXPECT_EQ(GetOAuthStatusFromLocalState(kTestAccountId),
-            User::OAUTH2_TOKEN_STATUS_VALID);
+            user_manager::User::OAUTH2_TOKEN_STATUS_VALID);
 
   EXPECT_TRUE(TryToLogin(kTestAccountId, kTestAccountPassword));
 
@@ -467,7 +474,7 @@ IN_PROC_BROWSER_TEST_F(OAuth2Test, MergeSession) {
   WaitForMergeSessionCompletion(OAuth2LoginManager::SESSION_RESTORE_FAILED);
 
   EXPECT_EQ(GetOAuthStatusFromLocalState(kTestAccountId),
-            User::OAUTH2_TOKEN_STATUS_INVALID);
+            user_manager::User::OAUTH2_TOKEN_STATUS_INVALID);
 }
 
 
@@ -739,7 +746,7 @@ IN_PROC_BROWSER_TEST_F(MergeSessionTest, XHRThrottle) {
 
   // Run background page tests. The tests will just wait for XHR request
   // to complete.
-  ResultCatcher catcher;
+  extensions::ResultCatcher catcher;
 
   scoped_ptr<ExtensionTestMessageListener> non_google_xhr_listener(
       new ExtensionTestMessageListener("non-google-xhr-received", false));

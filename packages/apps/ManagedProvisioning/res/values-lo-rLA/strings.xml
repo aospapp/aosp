@@ -35,7 +35,7 @@
     <string name="default_managed_profile_name" msgid="5370257687074907055">"​ໂປຣ​ໄຟລ໌​ບ່ອນ​ເຮັດ​ວຽກ"</string>
     <string name="managed_profile_already_present" msgid="888277922880582498">"ທ່ານ​ມີ​ໂ​ປຣ​ໄຟລ໌​ບ່ອນ​ເຮັດ​ວຽກ​ໃນ​ອຸ​ປະ​ກອນ​ຂອງ​ທ່ານ​ຢູ່​ແລ້ວ. ທ່ານ​​ຕ້ອງ​ການ​ລຶບ​ອອກບໍ່?"</string>
     <string name="sure_you_want_to_delete_profile" msgid="3612824117836349973">"​ທ່ານ​ແນ່​ໃຈ​ບໍ່​ວ່າ​​ຕ້ອງ​ການ​ລຶບ​ໂປຣ​ໄຟລ໌​ບ່ອນ​ເຮັດ​ວຽກ​ນີ້​ອອກ? ຂໍ້​ມູ​ນ​ທັງ​ໝົດ​ຂອງ​ມັນ​ຈະ​ຖືກ​ລຶບ​ອອກ."</string>
-    <string name="delete_profile" msgid="7107020982626129151">"ລຶບ​"</string>
+    <string name="delete_profile" msgid="7107020982626129151">"ລຶບ"</string>
     <string name="cancel_delete_profile" msgid="5155447537894046036">"​ຍົກ​ເລີກ"</string>
     <string name="encrypt_device_text" msgid="6762208577171389053">"​ເພື່ອ​ສືບ​ຕໍ່​ຕັ້ງ​ຄ່າ​ໂປຣ​ໄຟລ໌​ບ່ອນ​ເຮັດ​ວຽກ​ຂອງ​ທ່ານ, ທ່ານ​ຈະ​ຕ້ອງ​ເຂົ້າ​ລະ​ຫັດ​ອຸ​ປະ​ກອນ​ຂອງ​ທ່ານ​ກ່ອນ. ຂັ້ນ​ຕອນ​ນີ້​ຈະ​ໃຊ້​ເວ​ລາ​ໄລ​ຍະ​ນຶ່ງ."</string>
     <string name="encrypt_device_cancel" msgid="5644516574936584926">"​ຍົກ​ເລີກ"</string>
@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"ບໍ່​ສາ​ມາດ​ໃຊ້​ແອັບຯ​ຜູ່​ເບິ່ງ​ແຍງ​ລະ​ບົບ​ໄດ້. ມັນ​ຂາດ​ອົງ​ປະ​ກອບທີ່​ຕ້ອງ​ໃຊ້ ຫຼື​​ໄຟລ໌​ມີ​ບັນ​ຫາ. ໃຫ້​ຕິດ​ຕໍ່​ພະ​ແນກ​ຂອງ​ທ່ານ."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"ບໍ່​ສາ​ມາດ​ຕິດ​ຕັ້ງ​ແອັບຯ​ຜູ່​ເບິ່ງ​ແຍງ​ລະ​ບົບ​ໄດ້"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"​​ບໍ່​ມີ​ແອັບຯ​ຜູ່​ເບ​ິ່ງ​ແຍງ​ລະ​ບົບ​ຕິດ​ຕັ້ງ​ໃນ​ອຸ​ປະ​ກອນ​ຂອງ​ທ່ານ"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"ຢຸດ​ການ​ຕິດ​ຕັ້ງ​ຫຼື​ບໍ່?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"​ທ່ານ​ແນ່​ໃຈ​ບໍ່​ວ່າ​ທ່ານ​ຕ້ອງ​ການ​ຢຸດ​ການ​ຕິດ​ຕັ້ງ?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"ບໍ່"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"​ແມ່ນ​ແລ້ວ"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"​ກຳ​ລັງ​ຍົກ​ເລີກ..."</string>
 </resources>

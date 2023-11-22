@@ -16,12 +16,10 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/menu_manager_factory.h"
-#include "chrome/browser/extensions/state_store.h"
 #include "chrome/browser/extensions/tab_helper.h"
-#include "chrome/browser/guest_view/web_view/web_view_guest.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/common/extensions/api/chrome_web_view_internal.h"
 #include "chrome/common/extensions/api/context_menus.h"
-#include "chrome/common/extensions/api/webview.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
@@ -30,6 +28,8 @@
 #include "extensions/browser/event_router.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/guest_view/web_view/web_view_guest.h"
+#include "extensions/browser/state_store.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/manifest_handlers/background_info.h"
 #include "ui/gfx/favicon_size.h"
@@ -41,7 +41,7 @@ using extensions::ExtensionSystem;
 namespace extensions {
 
 namespace context_menus = api::context_menus;
-namespace webview = api::webview;
+namespace chrome_web_view = api::chrome_web_view_internal;
 
 namespace {
 
@@ -178,7 +178,7 @@ base::string16 MenuItem::TitleWithReplacement(const base::string16& selection,
   ReplaceSubstringsAfterOffset(&result, 0, base::ASCIIToUTF16("%s"), selection);
 
   if (result.length() > max_length)
-    result = gfx::TruncateString(result, max_length);
+    result = gfx::TruncateString(result, max_length, gfx::WORD_BREAK);
   return result;
 }
 
@@ -300,11 +300,14 @@ bool MenuItem::PopulateURLPatterns(
 
 // static
 const char MenuManager::kOnContextMenus[] = "contextMenus";
-const char MenuManager::kOnWebviewContextMenus[] = "webview.contextMenus";
+const char MenuManager::kOnWebviewContextMenus[] =
+    "webViewInternal.contextMenus";
 
-MenuManager::MenuManager(Profile* profile, StateStore* store)
-    : extension_registry_observer_(this), profile_(profile), store_(store) {
-  extension_registry_observer_.Add(ExtensionRegistry::Get(profile_));
+MenuManager::MenuManager(content::BrowserContext* context, StateStore* store)
+    : extension_registry_observer_(this),
+      browser_context_(context),
+      store_(store) {
+  extension_registry_observer_.Add(ExtensionRegistry::Get(browser_context_));
   registrar_.Add(this, chrome::NOTIFICATION_PROFILE_DESTROYED,
                  content::NotificationService::AllSources());
   if (store_)
@@ -319,8 +322,8 @@ MenuManager::~MenuManager() {
 }
 
 // static
-MenuManager* MenuManager::Get(Profile* profile) {
-  return MenuManagerFactory::GetForProfile(profile);
+MenuManager* MenuManager::Get(content::BrowserContext* context) {
+  return MenuManagerFactory::GetForBrowserContext(context);
 }
 
 std::set<MenuItem::ExtensionKey> MenuManager::ExtensionIds() {
@@ -363,7 +366,7 @@ bool MenuManager::AddContextItem(const Extension* extension, MenuItem* item) {
 
   // If this is the first item for this extension, start loading its icon.
   if (first_item)
-    icon_manager_.LoadIcon(profile_, extension);
+    icon_manager_.LoadIcon(browser_context_, extension);
 
   return true;
 }
@@ -601,11 +604,11 @@ static void AddURLProperty(base::DictionaryValue* dictionary,
     dictionary->SetString(key, url.possibly_invalid_spec());
 }
 
-void MenuManager::ExecuteCommand(Profile* profile,
+void MenuManager::ExecuteCommand(content::BrowserContext* context,
                                  WebContents* web_contents,
                                  const content::ContextMenuParams& params,
                                  const MenuItem::Id& menu_item_id) {
-  EventRouter* event_router = EventRouter::Get(profile);
+  EventRouter* event_router = EventRouter::Get(context);
   if (!event_router)
     return;
 
@@ -615,7 +618,7 @@ void MenuManager::ExecuteCommand(Profile* profile,
 
   // ExtensionService/Extension can be NULL in unit tests :(
   ExtensionService* service =
-      ExtensionSystem::Get(profile_)->extension_service();
+      ExtensionSystem::Get(browser_context_)->extension_service();
   const Extension* extension =
       service ? service->extensions()->GetByID(item->extension_id()) : NULL;
 
@@ -654,7 +657,7 @@ void MenuManager::ExecuteCommand(Profile* profile,
 
   WebViewGuest* webview_guest = WebViewGuest::FromWebContents(web_contents);
   if (webview_guest) {
-    // This is used in webview_custom_bindings.js.
+    // This is used in web_view_internalcustom_bindings.js.
     // The property is not exposed to developer API.
     properties->SetInteger("webviewInstanceId",
                            webview_guest->view_instance_id());
@@ -702,17 +705,17 @@ void MenuManager::ExecuteCommand(Profile* profile,
         new Event(webview_guest ? kOnWebviewContextMenus
                                 : kOnContextMenus,
                   scoped_ptr<base::ListValue>(args->DeepCopy())));
-    event->restrict_to_browser_context = profile;
+    event->restrict_to_browser_context = context;
     event->user_gesture = EventRouter::USER_GESTURE_ENABLED;
     event_router->DispatchEventToExtension(item->extension_id(), event.Pass());
   }
   {
     // Dispatch to .contextMenus.onClicked handler.
     scoped_ptr<Event> event(
-        new Event(webview_guest ? webview::OnClicked::kEventName
+        new Event(webview_guest ? chrome_web_view::OnClicked::kEventName
                                 : context_menus::OnClicked::kEventName,
                   args.Pass()));
-    event->restrict_to_browser_context = profile;
+    event->restrict_to_browser_context = context;
     event->user_gesture = EventRouter::USER_GESTURE_ENABLED;
     if (webview_guest)
       event->filter_info.SetInstanceID(webview_guest->view_instance_id());
@@ -801,9 +804,10 @@ void MenuManager::WriteToStorage(const Extension* extension,
 
 void MenuManager::ReadFromStorage(const std::string& extension_id,
                                   scoped_ptr<base::Value> value) {
-  const Extension* extension =
-      ExtensionSystem::Get(profile_)->extension_service()->extensions()->
-          GetByID(extension_id);
+  const Extension* extension = ExtensionSystem::Get(browser_context_)
+                                   ->extension_service()
+                                   ->extensions()
+                                   ->GetByID(extension_id);
   if (!extension)
     return;
 
@@ -856,7 +860,7 @@ void MenuManager::Observe(int type,
   // We cannot use profile_->HasOffTheRecordProfile as it may already be
   // false at this point, if for example the incognito profile was destroyed
   // using DestroyOffTheRecordProfile.
-  if (profile->GetOriginalProfile() == profile_ &&
+  if (profile->GetOriginalProfile() == browser_context_ &&
       profile->GetOriginalProfile() != profile) {
     RemoveAllIncognitoContextItems();
   }

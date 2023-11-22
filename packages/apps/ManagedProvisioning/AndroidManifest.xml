@@ -21,6 +21,8 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.MANAGE_USERS" />
+    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
+    <uses-permission android:name="android.permission.MANAGE_ACCOUNTS" />
     <uses-permission android:name="android.permission.INSTALL_PACKAGES"/>
     <uses-permission android:name="android.permission.DELETE_PACKAGES"/>
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
@@ -48,6 +50,7 @@
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
 
     <uses-permission android:name="android.permission.PERFORM_CDMA_PROVISIONING" />
+    <uses-permission android:name="android.permission.ACCESS_PDB_STATE" />
 
     <application
         android:allowClearUserData="false"
@@ -64,54 +67,58 @@
             android:excludeFromRecents="true"
             android:immersive="true"
             android:launchMode="singleTop"
-            android:theme="@style/SetupWorkSpaceTheme"
-            android:screenOrientation="locked">
-            <intent-filter>
+            android:theme="@style/SetupWorkSpaceTheme">
+            <intent-filter android:priority="10">
                 <action android:name="android.nfc.action.NDEF_DISCOVERED" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="application/com.android.managedprovisioning" />
             </intent-filter>
             <!-- Do not change the following action. -->
-            <intent-filter>
+            <intent-filter android:priority="10">
                 <action android:name="com.android.managedprovisioning.ACTION_PROVISION_MANAGED_DEVICE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
         <activity
-            android:name="ManagedProvisioningActivity"
+            android:name="ProfileOwnerPreProvisioningActivity"
             android:excludeFromRecents="true"
             android:immersive="true"
             android:launchMode="singleTop"
-            android:theme="@style/SetupWorkSpaceTheme"
-            android:screenOrientation="locked">
-            <intent-filter>
+            android:theme="@style/SetupWorkSpaceTheme">
+            <intent-filter android:priority="10">
                 <action android:name="android.app.action.PROVISION_MANAGED_PROFILE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <activity
+            android:name="ProfileOwnerProvisioningActivity"
+            android:excludeFromRecents="true"
+            android:immersive="true"
+            android:launchMode="singleTop"
+            android:theme="@style/SetupWorkSpaceTheme">
+        </activity>
         <activity-alias
-            android:name="ManagedProvisioningActivityNoCallerCheck"
-            android:targetActivity="ManagedProvisioningActivity"
+            android:name="ProfileOwnerProvisioningActivityNoCallerCheck"
+            android:targetActivity="ProfileOwnerPreProvisioningActivity"
             android:permission="android.permission.MANAGE_USERS"
             android:exported="true">
         </activity-alias>
         <activity
-            android:name="UserConsentActivity"
-            android:immersive="true"
-            android:launchMode="singleTop"
-            android:theme="@style/SetupWorkSpaceTheme"
-            android:screenOrientation="locked">
-        </activity>
-        <activity
             android:name="EncryptDeviceActivity"
             android:immersive="true"
             android:launchMode="singleTop"
-            android:theme="@style/SetupWorkSpaceTheme"
-            android:screenOrientation="locked">
+            android:theme="@style/SetupWorkSpaceTheme">
+        </activity>
+
+        <activity
+            android:name="WebActivity"
+            android:immersive="true"
+            android:launchMode="singleTop"
+            android:theme="@style/SetupWorkSpaceTheme">
         </activity>
 
         <service
-            android:name="ManagedProvisioningService" >
+            android:name="ProfileOwnerProvisioningService" >
         </service>
         <service
             android:name="DeviceOwnerProvisioningService" >

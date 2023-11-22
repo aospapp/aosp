@@ -11,6 +11,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/browsing_data/browsing_data_appcache_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_channel_id_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_cookie_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_database_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_file_system_helper.h"
@@ -18,18 +19,17 @@
 #include "chrome/browser/browsing_data/browsing_data_indexed_db_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_local_storage_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_quota_helper.h"
-#include "chrome/browser/browsing_data/browsing_data_server_bound_cert_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_service_worker_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/cookies_tree_model_util.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_ui.h"
-#include "grit/generated_resources.h"
-#include "ui/base/l10n/l10n_util.h"
 
-namespace fileapi {
+namespace storage {
 class FileSystemContext;
 }
 
@@ -67,6 +67,8 @@ void CookiesViewHandler::GetLocalizedValues(
     { "label_indexed_db_last_modified",
       IDS_COOKIES_LOCAL_STORAGE_LAST_MODIFIED_LABEL },
     { "label_indexed_db_origin", IDS_COOKIES_LOCAL_STORAGE_ORIGIN_LABEL },
+    { "label_service_worker_origin", IDS_COOKIES_LOCAL_STORAGE_ORIGIN_LABEL },
+    { "label_service_worker_scopes", IDS_COOKIES_SERVICE_WORKER_SCOPES_LABEL },
     { "label_app_cache_manifest",
       IDS_COOKIES_APPLICATION_CACHE_MANIFEST_LABEL },
     { "label_cookie_last_accessed", IDS_COOKIES_LAST_ACCESSED_LABEL },
@@ -78,6 +80,7 @@ void CookiesViewHandler::GetLocalizedValues(
     { "cookie_indexed_db", IDS_COOKIES_INDEXED_DB },
     { "cookie_local_storage", IDS_COOKIES_LOCAL_STORAGE },
     { "cookie_app_cache", IDS_COOKIES_APPLICATION_CACHE },
+    { "cookie_service_worker", IDS_COOKIES_SERVICE_WORKER },
     { "cookie_flash_lso", IDS_COOKIES_FLASH_LSO },
     { "search_cookies", IDS_COOKIES_SEARCH_COOKIES },
     { "remove_cookie", IDS_COOKIES_REMOVE_LABEL },
@@ -89,15 +92,15 @@ void CookiesViewHandler::GetLocalizedValues(
       IDS_COOKIES_FILE_SYSTEM_TEMPORARY_USAGE_LABEL },
     { "label_file_system_persistent_usage",
       IDS_COOKIES_FILE_SYSTEM_PERSISTENT_USAGE_LABEL },
-    { "cookie_server_bound_cert", IDS_COOKIES_SERVER_BOUND_CERT },
-    { "label_server_bound_cert_server_id",
-      IDS_COOKIES_SERVER_BOUND_CERT_ORIGIN_LABEL },
-    { "label_server_bound_cert_type",
-      IDS_COOKIES_SERVER_BOUND_CERT_TYPE_LABEL },
-    { "label_server_bound_cert_created",
-      IDS_COOKIES_SERVER_BOUND_CERT_CREATED_LABEL },
-    { "label_server_bound_cert_expires",
-      IDS_COOKIES_SERVER_BOUND_CERT_EXPIRES_LABEL },
+    { "cookie_channel_id", IDS_COOKIES_CHANNEL_ID },
+    { "label_channel_id_server_id",
+      IDS_COOKIES_CHANNEL_ID_ORIGIN_LABEL },
+    { "label_channel_id_type",
+      IDS_COOKIES_CHANNEL_ID_TYPE_LABEL },
+    { "label_channel_id_created",
+      IDS_COOKIES_CHANNEL_ID_CREATED_LABEL },
+    { "label_channel_id_expires",
+      IDS_COOKIES_CHANNEL_ID_EXPIRES_LABEL },
     { "label_protected_by_apps",
       IDS_GEOLOCATION_SET_BY_HOVER },  // TODO(bauerb): Use a better string
   };
@@ -187,7 +190,9 @@ void CookiesViewHandler::EnsureCookiesTreeModelCreated() {
         content::BrowserContext::GetDefaultStoragePartition(profile);
     content::IndexedDBContext* indexed_db_context =
         storage_partition->GetIndexedDBContext();
-    fileapi::FileSystemContext* file_system_context =
+    content::ServiceWorkerContext* service_worker_context =
+        storage_partition->GetServiceWorkerContext();
+    storage::FileSystemContext* file_system_context =
         storage_partition->GetFileSystemContext();
     LocalDataContainer* container = new LocalDataContainer(
         new BrowsingDataCookieHelper(profile->GetRequestContext()),
@@ -198,7 +203,8 @@ void CookiesViewHandler::EnsureCookiesTreeModelCreated() {
         new BrowsingDataIndexedDBHelper(indexed_db_context),
         BrowsingDataFileSystemHelper::Create(file_system_context),
         BrowsingDataQuotaHelper::Create(profile),
-        BrowsingDataServerBoundCertHelper::Create(profile),
+        BrowsingDataChannelIDHelper::Create(profile->GetRequestContext()),
+        new BrowsingDataServiceWorkerHelper(service_worker_context),
         BrowsingDataFlashLSOHelper::Create(profile));
     cookies_tree_model_.reset(
         new CookiesTreeModel(container,

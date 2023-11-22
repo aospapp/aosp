@@ -2,11 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// ASAN internally uses some syscalls which non-SFI NaCl disallows.
-// Seccomp-BPF tests die under TSAN v2. See http://crbug.com/356588
-#if !defined(ADDRESS_SANITIZER) && !defined(THREAD_SANITIZER)
+// Sanitizers internally use some syscalls which non-SFI NaCl disallows.
+#if !defined(ADDRESS_SANITIZER) && !defined(THREAD_SANITIZER) && \
+    !defined(MEMORY_SANITIZER) && !defined(LEAK_SANITIZER)
 
 #include "components/nacl/loader/nonsfi/nonsfi_sandbox.h"
+
+#include <sys/syscall.h>
+#include <unistd.h>
 
 #include "sandbox/linux/seccomp-bpf-helpers/sigsys_handlers.h"
 #include "sandbox/linux/seccomp-bpf/bpf_tests.h"
@@ -319,7 +322,6 @@ RESTRICT_SYSCALL_DEATH_TEST(oldstat);
 RESTRICT_SYSCALL_DEATH_TEST(olduname);
 #endif
 RESTRICT_SYSCALL_DEATH_TEST(open_by_handle_at);
-RESTRICT_SYSCALL_DEATH_TEST(openat);
 RESTRICT_SYSCALL_DEATH_TEST(pause);
 #if defined(__arm__)
 RESTRICT_SYSCALL_DEATH_TEST(pciconfig_iobase);
@@ -613,4 +615,5 @@ RESTRICT_ARM_SYSCALL_DEATH_TEST(set_tls);
 
 }  // namespace
 
-#endif  // !ADDRESS_SANITIZER && !THREAD_SANITIZER
+#endif  // !ADDRESS_SANITIZER && !THREAD_SANITIZER &&
+        // !MEMORY_SANITIZER && !LEAK_SANITIZER

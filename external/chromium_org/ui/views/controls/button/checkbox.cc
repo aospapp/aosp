@@ -4,9 +4,9 @@
 
 #include "ui/views/controls/button/checkbox.h"
 
-#include "grit/ui_resources.h"
 #include "ui/accessibility/ax_view_state.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/resources/grit/ui_resources.h"
 #include "ui/views/controls/button/label_button_border.h"
 #include "ui/views/painter.h"
 
@@ -67,7 +67,7 @@ Checkbox::Checkbox(const base::string16& label)
 
   // Limit the checkbox height to match the legacy appearance.
   const gfx::Size preferred_size(LabelButton::GetPreferredSize());
-  set_min_size(gfx::Size(0, preferred_size.height() + 4));
+  SetMinSize(gfx::Size(0, preferred_size.height() + 4));
 }
 
 Checkbox::~Checkbox() {

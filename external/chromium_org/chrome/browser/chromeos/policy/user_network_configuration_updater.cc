@@ -9,21 +9,16 @@
 #include "base/logging.h"
 #include "base/values.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/chromeos/login/users/user.h"
 #include "chrome/browser/chromeos/net/onc_utils.h"
 #include "chrome/browser/net/nss_context.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chromeos/network/managed_network_configuration_handler.h"
 #include "chromeos/network/onc/onc_certificate_importer_impl.h"
+#include "components/user_manager/user.h"
+#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_source.h"
 #include "net/cert/x509_certificate.h"
 #include "policy/policy_constants.h"
-
-namespace {
-
-bool skip_certificate_importer_creation_for_test = false;
-
-}  // namespace
 
 namespace policy {
 
@@ -34,7 +29,7 @@ scoped_ptr<UserNetworkConfigurationUpdater>
 UserNetworkConfigurationUpdater::CreateForUserPolicy(
     Profile* profile,
     bool allow_trusted_certs_from_policy,
-    const chromeos::User& user,
+    const user_manager::User& user,
     PolicyService* policy_service,
     chromeos::ManagedNetworkConfigurationHandler* network_config_handler) {
   scoped_ptr<UserNetworkConfigurationUpdater> updater(
@@ -60,7 +55,7 @@ void UserNetworkConfigurationUpdater::RemoveTrustedCertsObserver(
 UserNetworkConfigurationUpdater::UserNetworkConfigurationUpdater(
     Profile* profile,
     bool allow_trusted_certs_from_policy,
-    const chromeos::User& user,
+    const user_manager::User& user,
     PolicyService* policy_service,
     chromeos::ManagedNetworkConfigurationHandler* network_config_handler)
     : NetworkConfigurationUpdater(onc::ONC_SOURCE_USER_POLICY,
@@ -74,12 +69,10 @@ UserNetworkConfigurationUpdater::UserNetworkConfigurationUpdater(
   // responsible for creating it. This requires |GetNSSCertDatabaseForProfile|
   // call, which is not safe before the profile initialization is finalized.
   // Thus, listen for PROFILE_ADDED notification, on which |cert_importer_|
-  // creation should start. This behaviour can be disabled in tests.
-  if (!skip_certificate_importer_creation_for_test) {
-    registrar_.Add(this,
-                   chrome::NOTIFICATION_PROFILE_ADDED,
-                   content::Source<Profile>(profile));
-  }
+  // creation should start.
+  registrar_.Add(this,
+                 chrome::NOTIFICATION_PROFILE_ADDED,
+                 content::Source<Profile>(profile));
 }
 
 void UserNetworkConfigurationUpdater::SetCertificateImporterForTest(
@@ -87,15 +80,18 @@ void UserNetworkConfigurationUpdater::SetCertificateImporterForTest(
   SetCertificateImporter(certificate_importer.Pass());
 }
 
-// static
-void UserNetworkConfigurationUpdater::
-SetSkipCertificateImporterCreationForTest(bool skip) {
-  skip_certificate_importer_creation_for_test = skip;
-}
-
 void UserNetworkConfigurationUpdater::GetWebTrustedCertificates(
     net::CertificateList* certs) const {
   *certs = web_trust_certs_;
+}
+
+void UserNetworkConfigurationUpdater::OnCertificatesImported(
+    bool /* unused success */,
+    const net::CertificateList& onc_trusted_certificates) {
+  web_trust_certs_.clear();
+  if (allow_trusted_certificates_from_policy_)
+    web_trust_certs_ = onc_trusted_certificates;
+  NotifyTrustAnchorsChanged();
 }
 
 void UserNetworkConfigurationUpdater::ImportCertificates(
@@ -107,13 +103,11 @@ void UserNetworkConfigurationUpdater::ImportCertificates(
     return;
   }
 
-  web_trust_certs_.clear();
   certificate_importer_->ImportCertificates(
       certificates_onc,
       onc_source_,
-      allow_trusted_certificates_from_policy_ ? &web_trust_certs_ : NULL);
-
-  NotifyTrustAnchorsChanged();
+      base::Bind(&UserNetworkConfigurationUpdater::OnCertificatesImported,
+                 base::Unretained(this)));
 }
 
 void UserNetworkConfigurationUpdater::ApplyNetworkPolicy(
@@ -135,9 +129,6 @@ void UserNetworkConfigurationUpdater::Observe(
   DCHECK_EQ(type, chrome::NOTIFICATION_PROFILE_ADDED);
   Profile* profile = content::Source<Profile>(source).ptr();
 
-  if (skip_certificate_importer_creation_for_test)
-    return;
-
   GetNSSCertDatabaseForProfile(
       profile,
       base::Bind(
@@ -149,7 +140,10 @@ void UserNetworkConfigurationUpdater::CreateAndSetCertificateImporter(
     net::NSSCertDatabase* database) {
   DCHECK(database);
   SetCertificateImporter(scoped_ptr<chromeos::onc::CertificateImporter>(
-      new chromeos::onc::CertificateImporterImpl(database)));
+      new chromeos::onc::CertificateImporterImpl(
+          content::BrowserThread::GetMessageLoopProxyForThread(
+              content::BrowserThread::IO),
+          database)));
 }
 
 void UserNetworkConfigurationUpdater::SetCertificateImporter(

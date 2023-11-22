@@ -21,9 +21,9 @@ import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.Message;
 import android.telecom.AudioState;
+import android.telecom.ConferenceParticipant;
 import android.telecom.Connection;
 import android.telecom.PhoneAccount;
-import android.telecom.PhoneCapabilities;
 
 import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallStateException;
@@ -32,7 +32,11 @@ import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.imsphone.ImsPhoneConnection;
 
 import java.lang.Override;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Base class for CDMA and GSM connections.
@@ -56,7 +60,14 @@ abstract class TelephonyConnection extends Connection {
                     AsyncResult ar = (AsyncResult) msg.obj;
                     com.android.internal.telephony.Connection connection =
                          (com.android.internal.telephony.Connection) ar.result;
-                    setOriginalConnection(connection);
+                    if ((connection.getAddress() != null &&
+                                    mOriginalConnection.getAddress() != null &&
+                            mOriginalConnection.getAddress().contains(connection.getAddress())) ||
+                            connection.getStateBeforeHandover() == mOriginalConnection.getState()) {
+                        Log.d(TelephonyConnection.this, "SettingOriginalConnection " +
+                                mOriginalConnection.toString() + " with " + connection.toString());
+                        setOriginalConnection(connection);
+                    }
                     break;
                 case MSG_RINGBACK_TONE:
                     Log.v(TelephonyConnection.this, "MSG_RINGBACK_TONE");
@@ -76,12 +87,29 @@ abstract class TelephonyConnection extends Connection {
         }
     };
 
+    /**
+     * A listener/callback mechanism that is specific communication from TelephonyConnections
+     * to TelephonyConnectionService (for now). It is more specific that Connection.Listener
+     * because it is only exposed in Telephony.
+     */
+    public abstract static class TelephonyConnectionListener {
+        public void onOriginalConnectionConfigured(TelephonyConnection c) {}
+    }
+
     private final PostDialListener mPostDialListener = new PostDialListener() {
         @Override
         public void onPostDialWait() {
             Log.v(TelephonyConnection.this, "onPostDialWait");
             if (mOriginalConnection != null) {
                 setPostDialWait(mOriginalConnection.getRemainingPostDialString());
+            }
+        }
+
+        @Override
+        public void onPostDialChar(char c) {
+            Log.v(TelephonyConnection.this, "onPostDialChar: %s", c);
+            if (mOriginalConnection != null) {
+                setNextPostDialWaitChar(c);
             }
         }
     };
@@ -139,43 +167,73 @@ abstract class TelephonyConnection extends Connection {
         public void onAudioQualityChanged(int audioQuality) {
             setAudioQuality(audioQuality);
         }
+
+        /**
+         * Handles a change in the state of conference participant(s), as reported by the
+         * {@link com.android.internal.telephony.Connection}.
+         *
+         * @param participants The participant(s) which changed.
+         */
+        @Override
+        public void onConferenceParticipantsChanged(List<ConferenceParticipant> participants) {
+            updateConferenceParticipants(participants);
+        }
     };
 
     private com.android.internal.telephony.Connection mOriginalConnection;
     private Call.State mOriginalConnectionState = Call.State.IDLE;
 
+    private boolean mWasImsConnection;
+
+    /**
+     * Tracks the multiparty state of the ImsCall so that changes in the bit state can be detected.
+     */
+    private boolean mIsMultiParty = false;
+
     /**
      * Determines if the {@link TelephonyConnection} has local video capabilities.
-     * This is used when {@link TelephonyConnection#updateCallCapabilities()}} is called,
-     * ensuring the appropriate {@link PhoneCapabilities} are set.  Since {@link PhoneCapabilities}
+     * This is used when {@link TelephonyConnection#updateConnectionCapabilities()}} is called,
+     * ensuring the appropriate capabilities are set.  Since capabilities
      * can be rebuilt at any time it is necessary to track the video capabilities between rebuild.
-     * The {@link PhoneCapabilities} (including video capabilities) are communicated to the telecom
+     * The capabilities (including video capabilities) are communicated to the telecom
      * layer.
      */
     private boolean mLocalVideoCapable;
 
     /**
      * Determines if the {@link TelephonyConnection} has remote video capabilities.
-     * This is used when {@link TelephonyConnection#updateCallCapabilities()}} is called,
-     * ensuring the appropriate {@link PhoneCapabilities} are set.  Since {@link PhoneCapabilities}
-     * can be rebuilt at any time it is necessary to track the video capabilities between rebuild.
-     * The {@link PhoneCapabilities} (including video capabilities) are communicated to the telecom
-     * layer.
+     * This is used when {@link TelephonyConnection#updateConnectionCapabilities()}} is called,
+     * ensuring the appropriate capabilities are set.  Since capabilities can be rebuilt at any time
+     * it is necessary to track the video capabilities between rebuild. The capabilities (including
+     * video capabilities) are communicated to the telecom layer.
      */
     private boolean mRemoteVideoCapable;
 
     /**
      * Determines the current audio quality for the {@link TelephonyConnection}.
-     * This is used when {@link TelephonyConnection#updateCallCapabilities}} is called to indicate
-     * whether a call has the {@link android.telecom.CallCapabilities#VoLTE} capability.
+     * This is used when {@link TelephonyConnection#updateConnectionCapabilities}} is called to
+     * indicate whether a call has the {@link Connection#CAPABILITY_HIGH_DEF_AUDIO} capability.
      */
     private int mAudioQuality;
+
+    /**
+     * Listeners to our TelephonyConnection specific callbacks
+     */
+    private final Set<TelephonyConnectionListener> mTelephonyListeners = Collections.newSetFromMap(
+            new ConcurrentHashMap<TelephonyConnectionListener, Boolean>(8, 0.9f, 1));
 
     protected TelephonyConnection(com.android.internal.telephony.Connection originalConnection) {
         if (originalConnection != null) {
             setOriginalConnection(originalConnection);
         }
     }
+
+    /**
+     * Creates a clone of the current {@link TelephonyConnection}.
+     *
+     * @return The clone.
+     */
+    public abstract TelephonyConnection cloneConnection();
 
     @Override
     public void onAudioStateChanged(AudioState audioState) {
@@ -194,6 +252,23 @@ abstract class TelephonyConnection extends Connection {
     public void onDisconnect() {
         Log.v(this, "onDisconnect");
         hangup(android.telephony.DisconnectCause.LOCAL);
+    }
+
+    /**
+     * Notifies this Connection of a request to disconnect a participant of the conference managed
+     * by the connection.
+     *
+     * @param endpoint the {@link Uri} of the participant to disconnect.
+     */
+    @Override
+    public void onDisconnectConferenceParticipant(Uri endpoint) {
+        Log.v(this, "onDisconnectConferenceParticipant %s", endpoint);
+
+        if (mOriginalConnection == null) {
+            return;
+        }
+
+        mOriginalConnection.onDisconnectConferenceParticipant(endpoint);
     }
 
     @Override
@@ -322,23 +397,50 @@ abstract class TelephonyConnection extends Connection {
         }
     }
 
-    public void performConference(TelephonyConnection otherConnection) {}
+    public void performConference(TelephonyConnection otherConnection) {
+        Log.d(this, "performConference - %s", this);
+        if (getPhone() != null) {
+            try {
+                // We dont use the "other" connection because there is no concept of that in the
+                // implementation of calls inside telephony. Basically, you can "conference" and it
+                // will conference with the background call.  We know that otherConnection is the
+                // background call because it would never have called setConferenceableConnections()
+                // otherwise.
+                getPhone().conference();
+            } catch (CallStateException e) {
+                Log.e(this, e, "Failed to conference call.");
+            }
+        }
+    }
 
-    protected abstract int buildCallCapabilities();
+    /**
+     * Builds call capabilities common to all TelephonyConnections. Namely, apply IMS-based
+     * capabilities.
+     */
+    protected int buildConnectionCapabilities() {
+        int callCapabilities = 0;
+        if (isImsConnection()) {
+            callCapabilities |= CAPABILITY_SUPPORT_HOLD;
+            if (getState() == STATE_ACTIVE || getState() == STATE_HOLDING) {
+                callCapabilities |= CAPABILITY_HOLD;
+            }
+        }
+        return callCapabilities;
+    }
 
-    protected final void updateCallCapabilities() {
-        int newCallCapabilities = buildCallCapabilities();
-        newCallCapabilities = applyVideoCapabilities(newCallCapabilities);
-        newCallCapabilities = applyAudioQualityCapabilities(newCallCapabilities);
-        newCallCapabilities = applyConferenceTerminationCapabilities(newCallCapabilities);
+    protected final void updateConnectionCapabilities() {
+        int newCapabilities = buildConnectionCapabilities();
+        newCapabilities = applyVideoCapabilities(newCapabilities);
+        newCapabilities = applyAudioQualityCapabilities(newCapabilities);
+        newCapabilities = applyConferenceTerminationCapabilities(newCapabilities);
 
-        if (getCallCapabilities() != newCallCapabilities) {
-            setCallCapabilities(newCallCapabilities);
+        if (getConnectionCapabilities() != newCapabilities) {
+            setConnectionCapabilities(newCapabilities);
         }
     }
 
     protected final void updateAddress() {
-        updateCallCapabilities();
+        updateConnectionCapabilities();
         if (mOriginalConnection != null) {
             Uri address = getAddressFromNumber(mOriginalConnection.getAddress());
             int presentation = mOriginalConnection.getNumberPresentation();
@@ -364,12 +466,8 @@ abstract class TelephonyConnection extends Connection {
 
     void setOriginalConnection(com.android.internal.telephony.Connection originalConnection) {
         Log.v(this, "new TelephonyConnection, originalConnection: " + originalConnection);
-        if (mOriginalConnection != null) {
-            getPhone().unregisterForPreciseCallStateChanged(mHandler);
-            getPhone().unregisterForRingbackTone(mHandler);
-            getPhone().unregisterForHandoverStateChanged(mHandler);
-            getPhone().unregisterForDisconnect(mHandler);
-        }
+        clearOriginalConnection();
+
         mOriginalConnection = originalConnection;
         getPhone().registerForPreciseCallStateChanged(
                 mHandler, MSG_PRECISE_CALL_STATE_CHANGED, null);
@@ -387,7 +485,26 @@ abstract class TelephonyConnection extends Connection {
         setVideoProvider(mOriginalConnection.getVideoProvider());
         setAudioQuality(mOriginalConnection.getAudioQuality());
 
+        if (isImsConnection()) {
+            mWasImsConnection = true;
+        }
+        mIsMultiParty = mOriginalConnection.isMultiparty();
+
+        fireOnOriginalConnectionConfigured();
         updateAddress();
+    }
+
+    /**
+     * Un-sets the underlying radio connection.
+     */
+    void clearOriginalConnection() {
+        if (mOriginalConnection != null) {
+            getPhone().unregisterForPreciseCallStateChanged(mHandler);
+            getPhone().unregisterForRingbackTone(mHandler);
+            getPhone().unregisterForHandoverStateChanged(mHandler);
+            getPhone().unregisterForDisconnect(mHandler);
+            mOriginalConnection = null;
+        }
     }
 
     protected void hangup(int telephonyDisconnectCode) {
@@ -520,8 +637,26 @@ abstract class TelephonyConnection extends Connection {
                     break;
             }
         }
-        updateCallCapabilities();
+        updateConnectionCapabilities();
         updateAddress();
+        updateMultiparty();
+    }
+
+    /**
+     * Checks for changes to the multiparty bit.  If a conference has started, informs listeners.
+     */
+    private void updateMultiparty() {
+        if (mOriginalConnection == null) {
+            return;
+        }
+
+        if (mIsMultiParty != mOriginalConnection.isMultiparty()) {
+            mIsMultiParty = mOriginalConnection.isMultiparty();
+
+            if (mIsMultiParty) {
+                notifyConferenceStarted();
+            }
+        }
     }
 
     private void setActiveInternal() {
@@ -570,38 +705,37 @@ abstract class TelephonyConnection extends Connection {
         int currentCapabilities = capabilities;
         if (mRemoteVideoCapable) {
             currentCapabilities = applyCapability(currentCapabilities,
-                    PhoneCapabilities.SUPPORTS_VT_REMOTE);
+                    CAPABILITY_SUPPORTS_VT_REMOTE);
         } else {
             currentCapabilities = removeCapability(currentCapabilities,
-                    PhoneCapabilities.SUPPORTS_VT_REMOTE);
+                    CAPABILITY_SUPPORTS_VT_REMOTE);
         }
 
         if (mLocalVideoCapable) {
             currentCapabilities = applyCapability(currentCapabilities,
-                    PhoneCapabilities.SUPPORTS_VT_LOCAL);
+                    CAPABILITY_SUPPORTS_VT_LOCAL);
         } else {
             currentCapabilities = removeCapability(currentCapabilities,
-                    PhoneCapabilities.SUPPORTS_VT_LOCAL);
+                    CAPABILITY_SUPPORTS_VT_LOCAL);
         }
         return currentCapabilities;
     }
 
     /**
      * Applies the audio capabilities to the {@code CallCapabilities} bit-mask.  A call with high
-     * definition audio is considered to have the {@code VoLTE} call capability as VoLTE uses high
-     * definition audio.
+     * definition audio is considered to have the {@code HIGH_DEF_AUDIO} call capability.
      *
-     * @param callCapabilities The {@code CallCapabilities} bit-mask.
+     * @param capabilities The {@code CallCapabilities} bit-mask.
      * @return The capabilities with the audio capabilities applied.
      */
-    private int applyAudioQualityCapabilities(int callCapabilities) {
-        int currentCapabilities = callCapabilities;
+    private int applyAudioQualityCapabilities(int capabilities) {
+        int currentCapabilities = capabilities;
 
         if (mAudioQuality ==
                 com.android.internal.telephony.Connection.AUDIO_QUALITY_HIGH_DEFINITION) {
-            currentCapabilities = applyCapability(currentCapabilities, PhoneCapabilities.VoLTE);
+            currentCapabilities = applyCapability(currentCapabilities, CAPABILITY_HIGH_DEF_AUDIO);
         } else {
-            currentCapabilities = removeCapability(currentCapabilities, PhoneCapabilities.VoLTE);
+            currentCapabilities = removeCapability(currentCapabilities, CAPABILITY_HIGH_DEF_AUDIO);
         }
 
         return currentCapabilities;
@@ -611,18 +745,17 @@ abstract class TelephonyConnection extends Connection {
      * Applies capabilities specific to conferences termination to the
      * {@code CallCapabilities} bit-mask.
      *
-     * @param callCapabilities The {@code CallCapabilities} bit-mask.
+     * @param capabilities The {@code CallCapabilities} bit-mask.
      * @return The capabilities with the IMS conference capabilities applied.
      */
-    private int applyConferenceTerminationCapabilities(int callCapabilities) {
-        int currentCapabilities = callCapabilities;
+    private int applyConferenceTerminationCapabilities(int capabilities) {
+        int currentCapabilities = capabilities;
 
-        // An IMS call cannot be individually disconnected or separated from its parent conference
-        boolean isImsCall = getOriginalConnection() instanceof ImsPhoneConnection;
-        if (!isImsCall) {
-            currentCapabilities |=
-                    PhoneCapabilities.DISCONNECT_FROM_CONFERENCE
-                    | PhoneCapabilities.SEPARATE_FROM_CONFERENCE;
+        // An IMS call cannot be individually disconnected or separated from its parent conference.
+        // If the call was IMS, even if it hands over to GMS, these capabilities are not supported.
+        if (!mWasImsConnection) {
+            currentCapabilities |= CAPABILITY_DISCONNECT_FROM_CONFERENCE;
+            currentCapabilities |= CAPABILITY_SEPARATE_FROM_CONFERENCE;
         }
 
         return currentCapabilities;
@@ -648,35 +781,35 @@ abstract class TelephonyConnection extends Connection {
 
     /**
      * Sets whether video capability is present locally.  Used during rebuild of the
-     * {@link PhoneCapabilities} to set the video call capabilities.
+     * capabilities to set the video call capabilities.
      *
      * @param capable {@code True} if video capable.
      */
     public void setLocalVideoCapable(boolean capable) {
         mLocalVideoCapable = capable;
-        updateCallCapabilities();
+        updateConnectionCapabilities();
     }
 
     /**
      * Sets whether video capability is present remotely.  Used during rebuild of the
-     * {@link PhoneCapabilities} to set the video call capabilities.
+     * capabilities to set the video call capabilities.
      *
      * @param capable {@code True} if video capable.
      */
     public void setRemoteVideoCapable(boolean capable) {
         mRemoteVideoCapable = capable;
-        updateCallCapabilities();
+        updateConnectionCapabilities();
     }
 
     /**
-     * Sets the current call audio quality.  Used during rebuild of the
-     * {@link PhoneCapabilities} to set or unset the {@link PhoneCapabilities#VoLTE} capability.
+     * Sets the current call audio quality.  Used during rebuild of the capabilities
+     * to set or unset the {@link Connection#CAPABILITY_HIGH_DEF_AUDIO} capability.
      *
      * @param audioQuality The audio quality.
      */
     public void setAudioQuality(int audioQuality) {
         mAudioQuality = audioQuality;
-        updateCallCapabilities();
+        updateConnectionCapabilities();
     }
 
     /**
@@ -700,6 +833,24 @@ abstract class TelephonyConnection extends Connection {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Whether the original connection is an IMS connection.
+     * @return {@code True} if the original connection is an IMS connection, {@code false}
+     *     otherwise.
+     */
+    protected boolean isImsConnection() {
+        return getOriginalConnection() instanceof ImsPhoneConnection;
+    }
+
+    /**
+     * Whether the original connection was ever an IMS connection, either before or now.
+     * @return {@code True} if the original connection was ever an IMS connection, {@code false}
+     *     otherwise.
+     */
+    public boolean wasImsConnection() {
+        return mWasImsConnection;
     }
 
     private static Uri getAddressFromNumber(String number) {
@@ -732,5 +883,80 @@ abstract class TelephonyConnection extends Connection {
     private int removeCapability(int capabilities, int capability) {
         int newCapabilities = capabilities & ~capability;
         return newCapabilities;
+    }
+
+    /**
+     * Register a listener for {@link TelephonyConnection} specific triggers.
+     * @param l The instance of the listener to add
+     * @return The connection being listened to
+     */
+    public final TelephonyConnection addTelephonyConnectionListener(TelephonyConnectionListener l) {
+        mTelephonyListeners.add(l);
+        // If we already have an original connection, let's call back immediately.
+        // This would be the case for incoming calls.
+        if (mOriginalConnection != null) {
+            fireOnOriginalConnectionConfigured();
+        }
+        return this;
+    }
+
+    /**
+     * Remove a listener for {@link TelephonyConnection} specific triggers.
+     * @param l The instance of the listener to remove
+     * @return The connection being listened to
+     */
+    public final TelephonyConnection removeTelephonyConnectionListener(
+            TelephonyConnectionListener l) {
+        if (l != null) {
+            mTelephonyListeners.remove(l);
+        }
+        return this;
+    }
+
+    /**
+     * Fire a callback to the various listeners for when the original connection is
+     * set in this {@link TelephonyConnection}
+     */
+    private final void fireOnOriginalConnectionConfigured() {
+        for (TelephonyConnectionListener l : mTelephonyListeners) {
+            l.onOriginalConnectionConfigured(this);
+        }
+    }
+
+    /**
+     * Creates a string representation of this {@link TelephonyConnection}.  Primarily intended for
+     * use in log statements.
+     *
+     * @return String representation of the connection.
+     */
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("[TelephonyConnection objId:");
+        sb.append(System.identityHashCode(this));
+        sb.append(" type:");
+        if (isImsConnection()) {
+            sb.append("ims");
+        } else if (this instanceof com.android.services.telephony.GsmConnection) {
+            sb.append("gsm");
+        } else if (this instanceof CdmaConnection) {
+            sb.append("cdma");
+        }
+        sb.append(" state:");
+        sb.append(Connection.stateToString(getState()));
+        sb.append(" capabilities:");
+        sb.append(capabilitiesToString(getConnectionCapabilities()));
+        sb.append(" address:");
+        sb.append(Log.pii(getAddress()));
+        sb.append(" originalConnection:");
+        sb.append(mOriginalConnection);
+        sb.append(" partOfConf:");
+        if (getConference() == null) {
+            sb.append("N");
+        } else {
+            sb.append("Y");
+        }
+        sb.append("]");
+        return sb.toString();
     }
 }

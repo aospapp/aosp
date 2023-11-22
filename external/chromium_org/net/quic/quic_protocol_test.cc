@@ -18,10 +18,10 @@ TEST(QuicProtocolTest, AdjustErrorForVersion) {
 
   EXPECT_EQ(QUIC_STREAM_NO_ERROR,
             AdjustErrorForVersion(QUIC_RST_FLOW_CONTROL_ACCOUNTING,
-                                  QUIC_VERSION_17));
+                                  QUIC_VERSION_16));
   EXPECT_EQ(QUIC_RST_FLOW_CONTROL_ACCOUNTING, AdjustErrorForVersion(
       QUIC_RST_FLOW_CONTROL_ACCOUNTING,
-      static_cast<QuicVersion>(QUIC_VERSION_17 + 1)));
+      QUIC_VERSION_18));
 }
 
 TEST(QuicProtocolTest, MakeQuicTag) {
@@ -35,23 +35,23 @@ TEST(QuicProtocolTest, MakeQuicTag) {
 }
 
 TEST(QuicProtocolTest, IsAawaitingPacket) {
-  ReceivedPacketInfo received_info;
-  received_info.largest_observed = 10u;
-  EXPECT_TRUE(IsAwaitingPacket(received_info, 11u));
-  EXPECT_FALSE(IsAwaitingPacket(received_info, 1u));
+  QuicAckFrame ack_frame;
+  ack_frame.largest_observed = 10u;
+  EXPECT_TRUE(IsAwaitingPacket(ack_frame, 11u));
+  EXPECT_FALSE(IsAwaitingPacket(ack_frame, 1u));
 
-  received_info.missing_packets.insert(10);
-  EXPECT_TRUE(IsAwaitingPacket(received_info, 10u));
+  ack_frame.missing_packets.insert(10);
+  EXPECT_TRUE(IsAwaitingPacket(ack_frame, 10u));
 }
 
 TEST(QuicProtocolTest, InsertMissingPacketsBetween) {
-  ReceivedPacketInfo received_info;
-  InsertMissingPacketsBetween(&received_info, 4u, 10u);
-  EXPECT_EQ(6u, received_info.missing_packets.size());
+  QuicAckFrame ack_frame;
+  InsertMissingPacketsBetween(&ack_frame, 4u, 10u);
+  EXPECT_EQ(6u, ack_frame.missing_packets.size());
 
   QuicPacketSequenceNumber i = 4;
-  for (SequenceNumberSet::iterator it = received_info.missing_packets.begin();
-       it != received_info.missing_packets.end(); ++it, ++i) {
+  for (SequenceNumberSet::iterator it = ack_frame.missing_packets.begin();
+       it != ack_frame.missing_packets.end(); ++it, ++i) {
     EXPECT_EQ(i, *it);
   }
 }

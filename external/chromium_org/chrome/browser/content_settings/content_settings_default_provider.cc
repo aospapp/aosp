@@ -14,11 +14,11 @@
 #include "base/prefs/pref_service.h"
 #include "base/prefs/scoped_user_pref_update.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/content_settings/content_settings_rule.h"
 #include "chrome/browser/content_settings/content_settings_utils.h"
-#include "chrome/common/content_settings.h"
-#include "chrome/common/content_settings_pattern.h"
 #include "chrome/common/pref_names.h"
+#include "components/content_settings/core/browser/content_settings_rule.h"
+#include "components/content_settings/core/common/content_settings.h"
+#include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_details.h"
@@ -51,6 +51,8 @@ const ContentSetting kDefaultSettings[] = {
   CONTENT_SETTING_ASK,      // CONTENT_SETTINGS_TYPE_PPAPI_BROKER
   CONTENT_SETTING_ASK,      // CONTENT_SETTINGS_TYPE_AUTOMATIC_DOWNLOADS
   CONTENT_SETTING_ASK,      // CONTENT_SETTINGS_TYPE_MIDI_SYSEX
+  CONTENT_SETTING_ASK,      // CONTENT_SETTINGS_TYPE_PUSH_MESSAGING
+  CONTENT_SETTING_ALLOW,    // CONTENT_SETTINGS_TYPE_SSL_CERT_DECISIONS
 #if defined(OS_WIN)
   CONTENT_SETTING_ASK,      // CONTENT_SETTINGS_TYPE_METRO_SWITCH_TO_DESKTOP
 #elif defined(OS_ANDROID) || defined(OS_CHROMEOS)
@@ -168,6 +170,11 @@ DefaultProvider::DefaultProvider(PrefService* prefs, bool incognito)
       ValueToContentSetting(
           default_settings_[CONTENT_SETTINGS_TYPE_MIDI_SYSEX].get()),
       CONTENT_SETTING_NUM_SETTINGS);
+  UMA_HISTOGRAM_ENUMERATION(
+      "ContentSettings.DefaultPushMessagingSetting",
+      ValueToContentSetting(
+          default_settings_[CONTENT_SETTINGS_TYPE_PUSH_MESSAGING].get()),
+      CONTENT_SETTING_NUM_SETTINGS);
 
   pref_change_registrar_.Init(prefs_);
   PrefChangeRegistrar::NamedChangeCallback callback = base::Bind(
@@ -217,7 +224,7 @@ bool DefaultProvider::SetWebsiteSetting(
       // If |value| is NULL we need to reset the default setting the the
       // hardcoded default.
       default_settings_[content_type].reset(
-          base::Value::CreateIntegerValue(kDefaultSettings[content_type]));
+          new base::FundamentalValue(kDefaultSettings[content_type]));
 
       // Remove the corresponding pref entry since the hardcoded default value
       // is used.
@@ -309,7 +316,7 @@ void DefaultProvider::ForceDefaultsToBeExplicit() {
     if (!default_settings_[type].get() &&
         kDefaultSettings[i] != CONTENT_SETTING_DEFAULT) {
       default_settings_[type].reset(
-          base::Value::CreateIntegerValue(kDefaultSettings[i]));
+          new base::FundamentalValue(kDefaultSettings[i]));
     }
   }
 }
@@ -325,7 +332,7 @@ void DefaultProvider::GetSettingsFromDictionary(
         bool is_integer = i.value().GetAsInteger(&int_value);
         DCHECK(is_integer);
         default_settings_[ContentSettingsType(type)].reset(
-            base::Value::CreateIntegerValue(int_value));
+            new base::FundamentalValue(int_value));
         break;
       }
     }
@@ -335,7 +342,7 @@ void DefaultProvider::GetSettingsFromDictionary(
           default_settings_[CONTENT_SETTINGS_TYPE_COOKIES].get()) ==
               CONTENT_SETTING_ASK) {
     default_settings_[CONTENT_SETTINGS_TYPE_COOKIES].reset(
-        base::Value::CreateIntegerValue(CONTENT_SETTING_BLOCK));
+        new base::FundamentalValue(CONTENT_SETTING_BLOCK));
   }
 }
 

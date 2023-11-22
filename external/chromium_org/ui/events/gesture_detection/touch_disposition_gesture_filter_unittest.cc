@@ -11,6 +11,11 @@
 using ui::test::MockMotionEvent;
 
 namespace ui {
+namespace {
+
+const int kDefaultEventFlags = EF_ALT_DOWN | EF_SHIFT_DOWN;
+
+}  // namespace
 
 class TouchDispositionGestureFilterTest
     : public testing::Test,
@@ -23,6 +28,7 @@ class TouchDispositionGestureFilterTest
   // testing::Test
   virtual void SetUp() OVERRIDE {
     queue_.reset(new TouchDispositionGestureFilter(this));
+    touch_event_.set_flags(kDefaultEventFlags);
   }
 
   virtual void TearDown() OVERRIDE {
@@ -32,14 +38,14 @@ class TouchDispositionGestureFilterTest
   // TouchDispositionGestureFilterClient
   virtual void ForwardGestureEvent(const GestureEventData& event) OVERRIDE {
     ++sent_gesture_count_;
-    last_sent_gesture_time_ = event.time;
+    last_sent_gesture_.reset(new GestureEventData(event));
     sent_gestures_.push_back(event.type());
-    last_sent_gesture_location_ = gfx::PointF(event.x, event.y);
-    last_sent_gesture_raw_location_ = gfx::PointF(event.raw_x, event.raw_y);
+    if (event.type() == ET_GESTURE_SHOW_PRESS)
+      show_press_bounding_box_ = event.details.bounding_box();
     if (cancel_after_next_gesture_) {
+      cancel_after_next_gesture_ = false;
       CancelTouchPoint();
       SendTouchNotConsumedAck();
-      cancel_after_next_gesture_ = false;
     }
   }
 
@@ -101,7 +107,7 @@ class TouchDispositionGestureFilterTest
   }
 
   void SendTouchGestures() {
-    touch_event_.SetTime(base::TimeTicks::Now());
+    touch_event_.set_event_time(base::TimeTicks::Now());
     EXPECT_EQ(TouchDispositionGestureFilter::SUCCESS,
               SendTouchGestures(touch_event_, pending_gesture_packet_));
     GestureEventDataPacket gesture_packet;
@@ -141,13 +147,19 @@ class TouchDispositionGestureFilterTest
     pending_gesture_packet_.Push(CreateGesture(type));
   }
 
+  void PushGesture(EventType type, float x, float y, float diameter) {
+    pending_gesture_packet_.Push(CreateGesture(type, x, y, diameter));
+  }
+
   void PressTouchPoint(int x, int y) {
     touch_event_.PressPoint(x, y);
+    touch_event_.SetRawOffset(raw_offset_.x(), raw_offset_.y());
     SendTouchGestures();
   }
 
   void MoveTouchPoint(size_t index, int x, int y) {
     touch_event_.MovePoint(index, x, y);
+    touch_event_.SetRawOffset(raw_offset_.x(), raw_offset_.y());
     SendTouchGestures();
   }
 
@@ -162,7 +174,7 @@ class TouchDispositionGestureFilterTest
   }
 
   void SetRawTouchOffset(const gfx::Vector2dF& raw_offset) {
-    touch_event_.SetRawOffset(raw_offset.x(), raw_offset.y());
+    raw_offset_ = raw_offset;
   }
 
   void ResetTouchPoints() { touch_event_ = MockMotionEvent(); }
@@ -170,7 +182,8 @@ class TouchDispositionGestureFilterTest
   bool GesturesSent() const { return !sent_gestures_.empty(); }
 
   base::TimeTicks LastSentGestureTime() const {
-    return last_sent_gesture_time_;
+    CHECK(last_sent_gesture_);
+    return last_sent_gesture_->time;
   }
 
   base::TimeTicks CurrentTouchTime() const {
@@ -185,12 +198,23 @@ class TouchDispositionGestureFilterTest
     return sent_gestures;
   }
 
-  const gfx::PointF& LastSentGestureLocation() const {
-    return last_sent_gesture_location_;
+  gfx::PointF LastSentGestureLocation() const {
+    CHECK(last_sent_gesture_);
+    return gfx::PointF(last_sent_gesture_->x, last_sent_gesture_->y);
   }
 
-  const gfx::PointF& LastSentGestureRawLocation() const {
-    return last_sent_gesture_raw_location_;
+  gfx::PointF LastSentGestureRawLocation() const {
+    CHECK(last_sent_gesture_);
+    return gfx::PointF(last_sent_gesture_->raw_x, last_sent_gesture_->raw_y);
+  }
+
+  int LastSentGestureFlags() const {
+    CHECK(last_sent_gesture_);
+    return last_sent_gesture_->flags;
+  }
+
+  const gfx::RectF& ShowPressBoundingBox() const {
+    return show_press_bounding_box_;
   }
 
   void SetCancelAfterNextGesture(bool cancel_after_next_gesture) {
@@ -198,15 +222,25 @@ class TouchDispositionGestureFilterTest
   }
 
   GestureEventData CreateGesture(EventType type) {
-    return GestureEventData(GestureEventDetails(type, 0, 0),
-                            0,
-                            base::TimeTicks(),
-                            touch_event_.GetX(0),
-                            touch_event_.GetY(0),
-                            touch_event_.GetRawX(0),
-                            touch_event_.GetRawY(0),
-                            1,
-                            gfx::RectF(0, 0, 0, 0));
+    return CreateGesture(type, 0, 0, 0);
+  }
+
+  GestureEventData CreateGesture(EventType type,
+                                 float x,
+                                 float y,
+                                 float diameter) {
+    return GestureEventData(
+        GestureEventDetails(type),
+        0,
+        MotionEvent::TOOL_TYPE_FINGER,
+        base::TimeTicks(),
+        touch_event_.GetX(0),
+        touch_event_.GetY(0),
+        touch_event_.GetRawX(0),
+        touch_event_.GetRawY(0),
+        1,
+        gfx::RectF(x - diameter / 2, y - diameter / 2, diameter, diameter),
+        kDefaultEventFlags);
   }
 
  private:
@@ -215,10 +249,10 @@ class TouchDispositionGestureFilterTest
   MockMotionEvent touch_event_;
   GestureEventDataPacket pending_gesture_packet_;
   size_t sent_gesture_count_;
-  base::TimeTicks last_sent_gesture_time_;
   GestureList sent_gestures_;
-  gfx::PointF last_sent_gesture_location_;
-  gfx::PointF last_sent_gesture_raw_location_;
+  gfx::Vector2dF raw_offset_;
+  scoped_ptr<GestureEventData> last_sent_gesture_;
+  gfx::RectF show_press_bounding_box_;
 };
 
 TEST_F(TouchDispositionGestureFilterTest, BasicNoGestures) {
@@ -575,6 +609,7 @@ TEST_F(TouchDispositionGestureFilterTest, MultipleTouchSequences) {
 TEST_F(TouchDispositionGestureFilterTest, FlingCancelledOnNewTouchSequence) {
   const gfx::Vector2dF raw_offset(1.3f, 3.7f);
   SetRawTouchOffset(raw_offset);
+
   // Simulate a fling.
   PushGesture(ET_GESTURE_TAP_DOWN);
   PushGesture(ET_GESTURE_SCROLL_BEGIN);
@@ -719,9 +754,10 @@ TEST_F(TouchDispositionGestureFilterTest, TapCancelledWhenTouchConsumed) {
   PushGesture(ET_GESTURE_SCROLL_BEGIN);
   MoveTouchPoint(0, 2, 2);
   SendTouchConsumedAck();
-  EXPECT_TRUE(GesturesMatch(Gestures(ET_GESTURE_TAP_CANCEL),
-                            GetAndResetSentGestures()));
-  EXPECT_EQ(LastSentGestureLocation(), gfx::PointF(2, 2));
+  EXPECT_TRUE(
+      GesturesMatch(Gestures(ET_GESTURE_TAP_CANCEL, ET_GESTURE_SCROLL_BEGIN),
+                    GetAndResetSentGestures()));
+  EXPECT_EQ(LastSentGestureLocation(), gfx::PointF(1, 1));
 }
 
 TEST_F(TouchDispositionGestureFilterTest,
@@ -908,6 +944,7 @@ TEST_F(TouchDispositionGestureFilterTest, ShowPressNotInsertedIfAlreadySent) {
 TEST_F(TouchDispositionGestureFilterTest, TapAndScrollCancelledOnTouchCancel) {
   const gfx::Vector2dF raw_offset(1.3f, 3.7f);
   SetRawTouchOffset(raw_offset);
+
   PushGesture(ET_GESTURE_TAP_DOWN);
   PressTouchPoint(1, 1);
   SendTouchNotConsumedAck();
@@ -962,7 +999,7 @@ TEST_F(TouchDispositionGestureFilterTest,
   PushGesture(ET_GESTURE_END);
   ReleaseTouchPoint();
   SendTouchNotConsumedAck();
-  EXPECT_TRUE(GesturesMatch(Gestures(ET_GESTURE_END, ET_GESTURE_SCROLL_END),
+  EXPECT_TRUE(GesturesMatch(Gestures(ET_GESTURE_SCROLL_END, ET_GESTURE_END),
                             GetAndResetSentGestures()));
   EXPECT_EQ(LastSentGestureLocation(), gfx::PointF(2, 2));
 
@@ -1032,16 +1069,18 @@ TEST_F(TouchDispositionGestureFilterTest, TestDisallowedMultiFingerSwipe) {
   PushGesture(ET_GESTURE_SCROLL_BEGIN);
   MoveTouchPoint(0, 0, 0);
   SendTouchConsumedAck();
-  EXPECT_FALSE(GesturesSent());
+  EXPECT_TRUE(GesturesMatch(Gestures(ET_GESTURE_SCROLL_BEGIN),
+                            GetAndResetSentGestures()));
 
   PushGesture(ET_GESTURE_PINCH_BEGIN);
   PressTouchPoint(1, 1);
   SendTouchNotConsumedAck();
-  EXPECT_FALSE(GesturesSent());
+  EXPECT_TRUE(GesturesMatch(Gestures(ET_GESTURE_PINCH_BEGIN),
+                            GetAndResetSentGestures()));
 
   PushGesture(ET_GESTURE_SWIPE);
   PressTouchPoint(1, 1);
-  SendTouchNotConsumedAck();
+  SendTouchConsumedAck();
   EXPECT_FALSE(GesturesSent());
 }
 
@@ -1056,6 +1095,59 @@ TEST_F(TouchDispositionGestureFilterTest, TapCancelOnSecondFingerDown) {
   SendTouchNotConsumedAck();
   EXPECT_TRUE(GesturesMatch(Gestures(ET_GESTURE_TAP_CANCEL),
                             GetAndResetSentGestures()));
+}
+
+TEST_F(TouchDispositionGestureFilterTest, ShowPressBoundingBox) {
+  PushGesture(ET_GESTURE_TAP_DOWN, 9, 9, 8);
+  PressTouchPoint(9, 9);
+  SendTouchNotConsumedAck();
+  EXPECT_TRUE(
+      GesturesMatch(Gestures(ET_GESTURE_TAP_DOWN), GetAndResetSentGestures()));
+
+  PushGesture(ET_GESTURE_TAP, 10, 10, 10);
+  ReleaseTouchPoint();
+  SendTouchNotConsumedAck();
+  EXPECT_TRUE(GesturesMatch(Gestures(ET_GESTURE_SHOW_PRESS, ET_GESTURE_TAP),
+                            GetAndResetSentGestures()));
+  EXPECT_EQ(gfx::RectF(5, 5, 10, 10), ShowPressBoundingBox());
+}
+
+TEST_F(TouchDispositionGestureFilterTest, TapCancelledBeforeGestureEnd) {
+  PushGesture(ET_GESTURE_BEGIN);
+  PushGesture(ET_GESTURE_TAP_DOWN);
+  PressTouchPoint(1, 1);
+  SendTouchNotConsumedAck();
+  EXPECT_TRUE(GesturesMatch(Gestures(ET_GESTURE_BEGIN, ET_GESTURE_TAP_DOWN),
+                            GetAndResetSentGestures()));
+  SendTimeoutGesture(ET_GESTURE_SHOW_PRESS);
+  EXPECT_TRUE(GesturesMatch(Gestures(ET_GESTURE_SHOW_PRESS),
+                            GetAndResetSentGestures()));
+
+  SendTimeoutGesture(ET_GESTURE_LONG_PRESS);
+  EXPECT_TRUE(GesturesMatch(Gestures(ET_GESTURE_LONG_PRESS),
+                            GetAndResetSentGestures()));
+  PushGesture(ET_GESTURE_END);
+  CancelTouchPoint();
+  SendTouchNotConsumedAck();
+  EXPECT_TRUE(GesturesMatch(Gestures(ET_GESTURE_TAP_CANCEL, ET_GESTURE_END),
+                            GetAndResetSentGestures()));
+}
+
+TEST_F(TouchDispositionGestureFilterTest, EventFlagPropagation) {
+  // Real gestures should propagate flags from their causal touches.
+  PushGesture(ET_GESTURE_TAP_DOWN);
+  PressTouchPoint(1, 1);
+  SendTouchNotConsumedAck();
+  EXPECT_TRUE(
+      GesturesMatch(Gestures(ET_GESTURE_TAP_DOWN), GetAndResetSentGestures()));
+  EXPECT_EQ(kDefaultEventFlags, LastSentGestureFlags());
+
+  // Synthetic gestures lack flags.
+  PressTouchPoint(1, 1);
+  SendTouchNotConsumedAck();
+  EXPECT_TRUE(GesturesMatch(Gestures(ET_GESTURE_TAP_CANCEL),
+                            GetAndResetSentGestures()));
+  EXPECT_EQ(0, LastSentGestureFlags());
 }
 
 }  // namespace ui

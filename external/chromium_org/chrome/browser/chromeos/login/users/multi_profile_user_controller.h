@@ -30,8 +30,8 @@ class UserManager;
 // user login and checks if the meaning of the value is respected.
 class MultiProfileUserController {
  public:
-  // Return value of IsUserAllowedInSession().
-  enum UserAllowedInSessionResult {
+  // Second return value of IsUserAllowedInSession().
+  enum UserAllowedInSessionReason {
     // User is allowed in multi-profile session.
     ALLOWED,
 
@@ -65,10 +65,15 @@ class MultiProfileUserController {
   // Returns the cached policy value for |user_email|.
   std::string GetCachedValue(const std::string& user_email) const;
 
-  // Returns UserAllowedInSessionResult enum that describe whether the user is
-  // allowed to be in the current session.
-  UserAllowedInSessionResult IsUserAllowedInSession(
-      const std::string& user_email) const;
+  // Returns primary user policy (only ALLOW,
+  // NOT_ALLOWED_PRIMARY_POLICY_CERT_TAINTED,
+  // NOT_ALLOWED_PRIMARY_USER_POLICY_FORBIDS)
+  static UserAllowedInSessionReason GetPrimaryUserPolicy();
+
+  // Returns true if user allowed to be in the current session. If |reason| not
+  // null stores UserAllowedInSessionReason enum that describes actual reason.
+  bool IsUserAllowedInSession(const std::string& user_email,
+                              UserAllowedInSessionReason* reason) const;
 
   // Starts to observe the multiprofile user behavior pref of the given profile.
   void StartObserving(Profile* user_profile);

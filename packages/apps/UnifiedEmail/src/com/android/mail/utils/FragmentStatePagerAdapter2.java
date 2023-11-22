@@ -43,7 +43,7 @@ import java.util.ArrayList;
  * </ul>
  */
 public abstract class FragmentStatePagerAdapter2 extends PagerAdapter {
-    private static final String TAG = "FragmentStatePagerAdapter";
+    private static final String TAG = "FSPA"; // the support lib's tag is too long and crashes :)
     private static final boolean DEBUG = false;
 
     private final FragmentManager mFragmentManager;

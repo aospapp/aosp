@@ -38,6 +38,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.IOException;
+import java.util.TimeZone;
 
 import javax.imageio.ImageIO;
 
@@ -288,6 +289,13 @@ public class TestDeviceFuncTest extends DeviceTestCase {
             FileOutputStream stream = new FileOutputStream(tmpFile);
             stream.write(testString.getBytes());
             stream.close();
+
+            // adjust 1st file's last-modified timestamp according to persist.sys.timezone
+            String deviceTimezone = mTestDevice.getProperty("persist.sys.timezone");
+            if (deviceTimezone != null) {
+                TimeZone tz = TimeZone.getTimeZone(deviceTimezone);
+                tmpFile.setLastModified(tmpFile.lastModified() + tz.getRawOffset());
+            }
 
             assertTrue(mTestDevice.syncFiles(tmpDir, externalStorePath));
             String tmpFileContents = mTestDevice.executeShellCommand(String.format("cat %s",

@@ -11,8 +11,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/autocomplete/autocomplete_input.h"
-#include "chrome/browser/autocomplete/autocomplete_match.h"
+#include "chrome/browser/autocomplete/chrome_autocomplete_scheme_classifier.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/search/search.h"
 #include "chrome/browser/ui/cocoa/location_bar/autocomplete_text_field_cell.h"
@@ -21,13 +20,15 @@
 #include "chrome/browser/ui/omnibox/omnibox_edit_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_model.h"
+#include "chrome/grit/generated_resources.h"
+#include "components/omnibox/autocomplete_input.h"
+#include "components/omnibox/autocomplete_match.h"
+#include "components/omnibox/omnibox_field_trial.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/common/constants.h"
-#include "grit/generated_resources.h"
-#include "grit/theme_resources.h"
 #import "third_party/mozilla/NSPasteboard+Utils.h"
-#import "ui/base/cocoa/cocoa_base_utils.h"
 #include "ui/base/clipboard/clipboard.h"
+#import "ui/base/cocoa/cocoa_base_utils.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/font.h"
 #include "ui/gfx/font_list.h"
@@ -209,17 +210,8 @@ void OmniboxViewMac::OnTabChanged(const WebContents* web_contents) {
 }
 
 void OmniboxViewMac::Update() {
-  if (chrome::ShouldDisplayOriginChip()) {
-    NSDictionary* placeholder_attributes = @{
-      NSFontAttributeName : GetFieldFont(gfx::Font::NORMAL),
-      NSForegroundColorAttributeName : [NSColor disabledControlTextColor]
-    };
-    base::scoped_nsobject<NSMutableAttributedString> placeholder_text(
-        [[NSMutableAttributedString alloc]
-            initWithString:base::SysUTF16ToNSString(GetHintText())
-                attributes:placeholder_attributes]);
-    [[field_ cell] setPlaceholderAttributedString:placeholder_text];
-  }
+  UpdatePlaceholderText();
+
   if (model()->UpdatePermanentText()) {
     // Something visibly changed.  Re-enable URL replacement.
     controller()->GetToolbarModel()->set_url_replacement_enabled(true);
@@ -238,6 +230,21 @@ void OmniboxViewMac::Update() {
     // security level.  Dig in and figure out why this isn't a no-op
     // that should go away.
     EmphasizeURLComponents();
+  }
+}
+
+void OmniboxViewMac::UpdatePlaceholderText() {
+  if (chrome::ShouldDisplayOriginChip() ||
+      OmniboxFieldTrial::DisplayHintTextWhenPossible()) {
+    NSDictionary* placeholder_attributes = @{
+      NSFontAttributeName : GetFieldFont(gfx::Font::NORMAL),
+      NSForegroundColorAttributeName : [NSColor disabledControlTextColor]
+    };
+    base::scoped_nsobject<NSMutableAttributedString> placeholder_text(
+        [[NSMutableAttributedString alloc]
+            initWithString:base::SysUTF16ToNSString(GetHintText())
+                attributes:placeholder_attributes]);
+    [[field_ cell] setPlaceholderAttributedString:placeholder_text];
   }
 }
 
@@ -496,7 +503,8 @@ void OmniboxViewMac::ApplyTextAttributes(const base::string16& display_text,
 
   url::Component scheme, host;
   AutocompleteInput::ParseForEmphasizeComponents(
-      display_text, &scheme, &host);
+      display_text, ChromeAutocompleteSchemeClassifier(profile()),
+      &scheme, &host);
   bool grey_out_url = display_text.substr(scheme.begin, scheme.len) ==
       base::UTF8ToUTF16(extensions::kExtensionScheme);
   if (model()->CurrentTextIsURL() &&

@@ -71,7 +71,7 @@ typedef enum OMX_INTELINDEXEXTTYPE {
     OMX_IndexExtRequestBlackFramePointer,           /**<reference: OMX_VIDEO_INTEL_REQUEST_BALCK_FRAME_POINTER*/
 
     // Index for VPP must always be put at the end
-#ifdef TARGET_HAS_VPP
+#ifdef TARGET_HAS_ISV
     OMX_IndexExtVppBufferNum,                       /**<reference: vpp buffer number*/
 #endif
     OMX_IntelIndexExtMax = 0x7FFFFFFF

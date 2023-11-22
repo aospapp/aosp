@@ -149,6 +149,16 @@ Decode_Status VideoDecoderAVCSecure::processModularInputBuffer(VideoDecodeBuffer
 
             VTRACE("nalu_type = 0x%x, nalu_size = %d, nalu_offset = 0x%x", nalu_type, nalu_size, nalu_offset);
 
+            // FIXME: this is a w/a to handle the case when two frame data was wrongly packed into one buffer
+            // especially IDR + Slice. let it gracefully quit.
+            if ((naluType == h264_NAL_UNIT_TYPE_SLICE) && (i > 0)) {
+                uint8_t former_naluType = pFrameInfo->nalus[i-1].type & NALU_TYPE_MASK;
+                if (former_naluType == h264_NAL_UNIT_TYPE_IDR) {
+                    ETRACE("Invalid parameter: IDR slice + SLICE in one buffer");
+                    break; // abandon this slice
+                }
+            }
+
             if (naluType >= h264_NAL_UNIT_TYPE_SLICE && naluType <= h264_NAL_UNIT_TYPE_IDR) {
 
                 mIsEncryptData = 1;
@@ -381,14 +391,18 @@ Decode_Status VideoDecoderAVCSecure::decodeFrame(VideoDecodeBuffer *buffer, vbp_
     CHECK_STATUS("acquireSurfaceBuffer");
 
     if (mModularMode) {
-        parseModularSliceHeader(data);
+        status = parseModularSliceHeader(data);
     }
     else {
-        parseClassicSliceHeader(data);
+        status = parseClassicSliceHeader(data);
     }
 
     if (status != DECODE_SUCCESS) {
         endDecodingFrame(true);
+        if (status == DECODE_PARSER_FAIL) {
+            ETRACE("parse frame failed with DECODE_PARSER_FAIL");
+            status = DECODE_INVALID_DATA;
+        }
         return status;
     }
 

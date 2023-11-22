@@ -10,7 +10,12 @@
 #include "base/threading/non_thread_safe.h"
 #include "chrome/browser/browser_process_platform_part_base.h"
 
+namespace base {
+class CommandLine;
+}
+
 namespace chromeos {
+class ChromeUserManager;
 class OomPriorityManager;
 class ProfileHelper;
 }
@@ -26,6 +31,12 @@ class BrowserPolicyConnector;
 class BrowserPolicyConnectorChromeOS;
 }
 
+namespace session_manager {
+class SessionManager;
+}
+
+class Profile;
+
 class BrowserProcessPlatformPart : public BrowserProcessPlatformPartBase,
                                    public base::NonThreadSafe {
  public:
@@ -34,6 +45,19 @@ class BrowserProcessPlatformPart : public BrowserProcessPlatformPartBase,
 
   void InitializeAutomaticRebootManager();
   void ShutdownAutomaticRebootManager();
+
+  void InitializeChromeUserManager();
+  void DestroyChromeUserManager();
+
+  void InitializeSessionManager(const base::CommandLine& parsed_command_line,
+                                Profile* profile,
+                                bool is_running_test);
+  void ShutdownSessionManager();
+
+  // Returns the SessionManager instance that is used to initialize and
+  // start user sessions as well as responsible on launching pre-session UI like
+  // out-of-box or login.
+  virtual session_manager::SessionManager* SessionManager();
 
   // Returns the out-of-memory priority manager.
   // Virtual for testing (see TestingBrowserProcessPlatformPart).
@@ -49,6 +73,10 @@ class BrowserProcessPlatformPart : public BrowserProcessPlatformPartBase,
 
   policy::BrowserPolicyConnectorChromeOS* browser_policy_connector_chromeos();
 
+  chromeos::ChromeUserManager* user_manager() {
+    return chrome_user_manager_.get();
+  }
+
   // Overridden from BrowserProcessPlatformPartBase:
   virtual void StartTearDown() OVERRIDE;
 
@@ -58,6 +86,8 @@ class BrowserProcessPlatformPart : public BrowserProcessPlatformPartBase,
  private:
   void CreateProfileHelper();
 
+  scoped_ptr<session_manager::SessionManager> session_manager_;
+
   bool created_profile_helper_;
   scoped_ptr<chromeos::ProfileHelper> profile_helper_;
 
@@ -65,6 +95,8 @@ class BrowserProcessPlatformPart : public BrowserProcessPlatformPartBase,
 
   scoped_ptr<chromeos::system::AutomaticRebootManager>
       automatic_reboot_manager_;
+
+  scoped_ptr<chromeos::ChromeUserManager> chrome_user_manager_;
 
   DISALLOW_COPY_AND_ASSIGN(BrowserProcessPlatformPart);
 };

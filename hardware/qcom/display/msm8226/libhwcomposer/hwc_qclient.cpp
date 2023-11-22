@@ -31,6 +31,7 @@
 #include <IQService.h>
 #include <hwc_utils.h>
 #include <mdp_version.h>
+#include <hwc_mdpcomp.h>
 
 #define QCLIENT_DEBUG 0
 
@@ -108,8 +109,13 @@ static void getDisplayAttributes(hwc_context_t* ctx, const Parcel* inParcel,
         Parcel* outParcel) {
     int dpy = inParcel->readInt32();
     outParcel->writeInt32(ctx->dpyAttr[dpy].vsync_period);
-    outParcel->writeInt32(ctx->dpyAttr[dpy].xres);
-    outParcel->writeInt32(ctx->dpyAttr[dpy].yres);
+    if (ctx->dpyAttr[dpy].customFBSize) {
+        outParcel->writeInt32(ctx->dpyAttr[dpy].xres_new);
+        outParcel->writeInt32(ctx->dpyAttr[dpy].yres_new);
+    } else {
+        outParcel->writeInt32(ctx->dpyAttr[dpy].xres);
+        outParcel->writeInt32(ctx->dpyAttr[dpy].yres);
+    }
     outParcel->writeFloat(ctx->dpyAttr[dpy].xdpi);
     outParcel->writeFloat(ctx->dpyAttr[dpy].ydpi);
     //XXX: Need to check what to return for HDMI
@@ -157,6 +163,9 @@ static status_t getDisplayVisibleRegion(hwc_context_t* ctx, int dpy,
 }
 
 static void pauseWFD(hwc_context_t *ctx, uint32_t pause) {
+    /* TODO: Will remove pauseWFD once all the clients start using
+     * setWfdStatus to indicate the status of WFD display
+     */
     int dpy = HWC_DISPLAY_VIRTUAL;
     if(pause) {
         //WFD Pause
@@ -164,6 +173,64 @@ static void pauseWFD(hwc_context_t *ctx, uint32_t pause) {
     } else {
         //WFD Resume
         handle_resume(ctx, dpy);
+    }
+}
+
+static void setWfdStatus(hwc_context_t *ctx, uint32_t wfdStatus) {
+
+    ALOGD_IF(HWC_WFDDISPSYNC_LOG,
+             "%s: Received a binder call that WFD state is %s",
+             __FUNCTION__,getExternalDisplayState(wfdStatus));
+    int dpy = HWC_DISPLAY_VIRTUAL;
+
+    if(wfdStatus == EXTERNAL_OFFLINE) {
+        ctx->mWfdSyncLock.lock();
+        ctx->mWfdSyncLock.signal();
+        ctx->mWfdSyncLock.unlock();
+    } else if(wfdStatus == EXTERNAL_PAUSE) {
+        handle_pause(ctx, dpy);
+    } else if(wfdStatus == EXTERNAL_RESUME) {
+        handle_resume(ctx, dpy);
+    }
+}
+
+
+static status_t setViewFrame(hwc_context_t* ctx, const Parcel* inParcel) {
+    int dpy = inParcel->readInt32();
+    if(dpy >= HWC_DISPLAY_PRIMARY && dpy <= HWC_DISPLAY_VIRTUAL) {
+        Locker::Autolock _sl(ctx->mDrawLock);
+        ctx->mViewFrame[dpy].left   = inParcel->readInt32();
+        ctx->mViewFrame[dpy].top    = inParcel->readInt32();
+        ctx->mViewFrame[dpy].right  = inParcel->readInt32();
+        ctx->mViewFrame[dpy].bottom = inParcel->readInt32();
+        ALOGD_IF(QCLIENT_DEBUG, "%s: mViewFrame[%d] = [%d %d %d %d]",
+            __FUNCTION__, dpy,
+            ctx->mViewFrame[dpy].left, ctx->mViewFrame[dpy].top,
+            ctx->mViewFrame[dpy].right, ctx->mViewFrame[dpy].bottom);
+        return NO_ERROR;
+    } else {
+        ALOGE("In %s: invalid dpy index %d", __FUNCTION__, dpy);
+        return BAD_VALUE;
+    }
+}
+
+static void toggleDynamicDebug(hwc_context_t* ctx, const Parcel* inParcel) {
+    int debug_type = inParcel->readInt32();
+    bool enable = !!inParcel->readInt32();
+    ALOGD("%s: debug_type: %d enable:%d",
+            __FUNCTION__, debug_type, enable);
+    Locker::Autolock _sl(ctx->mDrawLock);
+    switch (debug_type) {
+        //break is ignored for DEBUG_ALL to toggle all of them at once
+        case IQService::DEBUG_ALL:
+        case IQService::DEBUG_MDPCOMP:
+            qhwc::MDPComp::dynamicDebug(enable);
+            if (debug_type != IQService::DEBUG_ALL)
+                break;
+        case IQService::DEBUG_VSYNC:
+            ctx->vstate.debug = enable;
+            if (debug_type != IQService::DEBUG_ALL)
+                break;
     }
 }
 
@@ -199,15 +266,23 @@ status_t QClient::notifyCallback(uint32_t command, const Parcel* inParcel,
             break;
         case IQService::SET_HSIC_DATA:
             setHSIC(inParcel);
+            break;
         case IQService::PAUSE_WFD:
             pauseWFD(mHwcContext, inParcel->readInt32());
+            break;
+        case IQService::SET_WFD_STATUS:
+            setWfdStatus(mHwcContext,inParcel->readInt32());
+            break;
+        case IQService::SET_VIEW_FRAME:
+            setViewFrame(mHwcContext, inParcel);
+            break;
+        case IQService::DYNAMIC_DEBUG:
+            toggleDynamicDebug(mHwcContext, inParcel);
             break;
         default:
             ret = NO_ERROR;
     }
     return ret;
 }
-
-
 
 }

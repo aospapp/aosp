@@ -129,7 +129,7 @@ public class GridLayoutManager extends LinearLayoutManager {
             return;
         }
         LayoutParams glp = (LayoutParams) lp;
-        int spanGroupIndex = getSpanGroupIndex(recycler, state, glp.getViewPosition());
+        int spanGroupIndex = getSpanGroupIndex(recycler, state, glp.getViewLayoutPosition());
         if (mOrientation == HORIZONTAL) {
             info.setCollectionItemInfo(AccessibilityNodeInfoCompat.CollectionItemInfoCompat.obtain(
                     glp.getSpanIndex(), glp.getSpanSize(),
@@ -164,7 +164,7 @@ public class GridLayoutManager extends LinearLayoutManager {
         final int childCount = getChildCount();
         for (int i = 0; i < childCount; i++) {
             final LayoutParams lp = (LayoutParams) getChildAt(i).getLayoutParams();
-            final int viewPosition = lp.getViewPosition();
+            final int viewPosition = lp.getViewLayoutPosition();
             mPreLayoutSpanSizeCache.put(viewPosition, lp.getSpanSize());
             mPreLayoutSpanIndexCache.put(viewPosition, lp.getSpanIndex());
         }
@@ -753,6 +753,10 @@ public class GridLayoutManager extends LinearLayoutManager {
 
     /**
      * LayoutParams used by GridLayoutManager.
+     * <p>
+     * Note that if the orientation is {@link #VERTICAL}, the width parameter is ignored and if the
+     * orientation is {@link #HORIZONTAL} the height parameter is ignored because child view is
+     * expected to fill all of the space given to it.
      */
     public static class LayoutParams extends RecyclerView.LayoutParams {
 

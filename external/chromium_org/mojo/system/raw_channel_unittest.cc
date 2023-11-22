@@ -17,6 +17,7 @@
 #include "base/rand_util.h"
 #include "base/synchronization/lock.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/test/test_io_thread.h"
 #include "base/threading/platform_thread.h"  // For |Sleep()|.
 #include "base/threading/simple_thread.h"
 #include "base/time/time.h"
@@ -40,7 +41,8 @@ scoped_ptr<MessageInTransit> MakeTestMessage(uint32_t num_bytes) {
   return make_scoped_ptr(
       new MessageInTransit(MessageInTransit::kTypeMessagePipeEndpoint,
                            MessageInTransit::kSubtypeMessagePipeEndpointData,
-                           num_bytes, bytes.empty() ? NULL : &bytes[0]));
+                           num_bytes,
+                           bytes.empty() ? nullptr : &bytes[0]));
 }
 
 bool CheckMessageData(const void* bytes, uint32_t num_bytes) {
@@ -70,7 +72,7 @@ bool WriteTestMessageToHandle(const embedder::PlatformHandle& handle,
 
 class RawChannelTest : public testing::Test {
  public:
-  RawChannelTest() : io_thread_(test::TestIOThread::kManualStart) {}
+  RawChannelTest() : io_thread_(base::TestIOThread::kManualStart) {}
   virtual ~RawChannelTest() {}
 
   virtual void SetUp() OVERRIDE {
@@ -87,12 +89,12 @@ class RawChannelTest : public testing::Test {
   }
 
  protected:
-  test::TestIOThread* io_thread() { return &io_thread_; }
+  base::TestIOThread* io_thread() { return &io_thread_; }
 
   embedder::ScopedPlatformHandle handles[2];
 
  private:
-  test::TestIOThread io_thread_;
+  base::TestIOThread io_thread_;
 
   DISALLOW_COPY_AND_ASSIGN(RawChannelTest);
 };
@@ -110,9 +112,9 @@ class WriteOnlyRawChannelDelegate : public RawChannel::Delegate {
       embedder::ScopedPlatformHandleVectorPtr /*platform_handles*/) OVERRIDE {
     CHECK(false);  // Should not get called.
   }
-  virtual void OnFatalError(FatalError fatal_error) OVERRIDE {
-    // We'll get a read error when the connection is closed.
-    CHECK_EQ(fatal_error, FATAL_ERROR_READ);
+  virtual void OnError(Error error) OVERRIDE {
+    // We'll get a read (shutdown) error when the connection is closed.
+    CHECK_EQ(error, ERROR_READ_SHUTDOWN);
   }
 
  private:
@@ -133,8 +135,8 @@ class TestMessageReaderAndChecker {
 
     for (size_t i = 0; i < kMessageReaderMaxPollIterations;) {
       size_t read_size = 0;
-      CHECK(mojo::test::NonBlockingRead(handle_, buffer, sizeof(buffer),
-                                        &read_size));
+      CHECK(mojo::test::NonBlockingRead(
+          handle_, buffer, sizeof(buffer), &read_size));
 
       // Append newly-read data to |bytes_|.
       bytes_.insert(bytes_.end(), buffer, buffer + read_size);
@@ -142,7 +144,7 @@ class TestMessageReaderAndChecker {
       // If we have the header....
       size_t message_size;
       if (MessageInTransit::GetNextMessageSize(
-              bytes_.empty() ? NULL : &bytes_[0],
+              bytes_.empty() ? nullptr : &bytes_[0],
               bytes_.size(),
               &message_size)) {
         // If we've read the whole message....
@@ -163,8 +165,7 @@ class TestMessageReaderAndChecker {
 
           // Erase message data.
           bytes_.erase(bytes_.begin(),
-                       bytes_.begin() +
-                           message_view.main_buffer_size());
+                       bytes_.begin() + message_view.main_buffer_size());
           return rv;
         }
       }
@@ -194,9 +195,9 @@ TEST_F(RawChannelTest, WriteMessage) {
   WriteOnlyRawChannelDelegate delegate;
   scoped_ptr<RawChannel> rc(RawChannel::Create(handles[0].Pass()));
   TestMessageReaderAndChecker checker(handles[1].get());
-  io_thread()->PostTaskAndWait(FROM_HERE,
-                               base::Bind(&InitOnIOThread, rc.get(),
-                                          base::Unretained(&delegate)));
+  io_thread()->PostTaskAndWait(
+      FROM_HERE,
+      base::Bind(&InitOnIOThread, rc.get(), base::Unretained(&delegate)));
 
   // Write and read, for a variety of sizes.
   for (uint32_t size = 1; size < 5 * 1000 * 1000; size += size / 2 + 1) {
@@ -210,18 +211,15 @@ TEST_F(RawChannelTest, WriteMessage) {
   for (uint32_t size = 1; size < 5 * 1000 * 1000; size += size / 2 + 1)
     EXPECT_TRUE(checker.ReadAndCheckNextMessage(size)) << size;
 
-  io_thread()->PostTaskAndWait(FROM_HERE,
-                               base::Bind(&RawChannel::Shutdown,
-                                          base::Unretained(rc.get())));
+  io_thread()->PostTaskAndWait(
+      FROM_HERE, base::Bind(&RawChannel::Shutdown, base::Unretained(rc.get())));
 }
 
 // RawChannelTest.OnReadMessage ------------------------------------------------
 
 class ReadCheckerRawChannelDelegate : public RawChannel::Delegate {
  public:
-  ReadCheckerRawChannelDelegate()
-      : done_event_(false, false),
-        position_(0) {}
+  ReadCheckerRawChannelDelegate() : done_event_(false, false), position_(0) {}
   virtual ~ReadCheckerRawChannelDelegate() {}
 
   // |RawChannel::Delegate| implementation (called on the I/O thread):
@@ -245,22 +243,21 @@ class ReadCheckerRawChannelDelegate : public RawChannel::Delegate {
 
     EXPECT_EQ(expected_size, message_view.num_bytes()) << position;
     if (message_view.num_bytes() == expected_size) {
-      EXPECT_TRUE(CheckMessageData(message_view.bytes(),
-                  message_view.num_bytes())) << position;
+      EXPECT_TRUE(
+          CheckMessageData(message_view.bytes(), message_view.num_bytes()))
+          << position;
     }
 
     if (should_signal)
       done_event_.Signal();
   }
-  virtual void OnFatalError(FatalError fatal_error) OVERRIDE {
-    // We'll get a read error when the connection is closed.
-    CHECK_EQ(fatal_error, FATAL_ERROR_READ);
+  virtual void OnError(Error error) OVERRIDE {
+    // We'll get a read (shutdown) error when the connection is closed.
+    CHECK_EQ(error, ERROR_READ_SHUTDOWN);
   }
 
   // Waits for all the messages (of sizes |expected_sizes_|) to be seen.
-  void Wait() {
-    done_event_.Wait();
-  }
+  void Wait() { done_event_.Wait(); }
 
   void SetExpectedSizes(const std::vector<uint32_t>& expected_sizes) {
     base::AutoLock locker(lock_);
@@ -283,9 +280,9 @@ class ReadCheckerRawChannelDelegate : public RawChannel::Delegate {
 TEST_F(RawChannelTest, OnReadMessage) {
   ReadCheckerRawChannelDelegate delegate;
   scoped_ptr<RawChannel> rc(RawChannel::Create(handles[0].Pass()));
-  io_thread()->PostTaskAndWait(FROM_HERE,
-                               base::Bind(&InitOnIOThread, rc.get(),
-                                          base::Unretained(&delegate)));
+  io_thread()->PostTaskAndWait(
+      FROM_HERE,
+      base::Bind(&InitOnIOThread, rc.get(), base::Unretained(&delegate)));
 
   // Write and read, for a variety of sizes.
   for (uint32_t size = 1; size < 5 * 1000 * 1000; size += size / 2 + 1) {
@@ -306,9 +303,8 @@ TEST_F(RawChannelTest, OnReadMessage) {
     EXPECT_TRUE(WriteTestMessageToHandle(handles[1].get(), size));
   delegate.Wait();
 
-  io_thread()->PostTaskAndWait(FROM_HERE,
-                               base::Bind(&RawChannel::Shutdown,
-                                          base::Unretained(rc.get())));
+  io_thread()->PostTaskAndWait(
+      FROM_HERE, base::Bind(&RawChannel::Shutdown, base::Unretained(rc.get())));
 }
 
 // RawChannelTest.WriteMessageAndOnReadMessage ---------------------------------
@@ -318,12 +314,9 @@ class RawChannelWriterThread : public base::SimpleThread {
   RawChannelWriterThread(RawChannel* raw_channel, size_t write_count)
       : base::SimpleThread("raw_channel_writer_thread"),
         raw_channel_(raw_channel),
-        left_to_write_(write_count) {
-  }
+        left_to_write_(write_count) {}
 
-  virtual ~RawChannelWriterThread() {
-    Join();
-  }
+  virtual ~RawChannelWriterThread() { Join(); }
 
  private:
   virtual void Run() OVERRIDE {
@@ -344,9 +337,7 @@ class RawChannelWriterThread : public base::SimpleThread {
 class ReadCountdownRawChannelDelegate : public RawChannel::Delegate {
  public:
   explicit ReadCountdownRawChannelDelegate(size_t expected_count)
-      : done_event_(false, false),
-        expected_count_(expected_count),
-        count_(0) {}
+      : done_event_(false, false), expected_count_(expected_count), count_(0) {}
   virtual ~ReadCountdownRawChannelDelegate() {}
 
   // |RawChannel::Delegate| implementation (called on the I/O thread):
@@ -358,21 +349,19 @@ class ReadCountdownRawChannelDelegate : public RawChannel::Delegate {
     EXPECT_LT(count_, expected_count_);
     count_++;
 
-    EXPECT_TRUE(CheckMessageData(message_view.bytes(),
-                message_view.num_bytes()));
+    EXPECT_TRUE(
+        CheckMessageData(message_view.bytes(), message_view.num_bytes()));
 
     if (count_ >= expected_count_)
       done_event_.Signal();
   }
-  virtual void OnFatalError(FatalError fatal_error) OVERRIDE {
-    // We'll get a read error when the connection is closed.
-    CHECK_EQ(fatal_error, FATAL_ERROR_READ);
+  virtual void OnError(Error error) OVERRIDE {
+    // We'll get a read (shutdown) error when the connection is closed.
+    CHECK_EQ(error, ERROR_READ_SHUTDOWN);
   }
 
   // Waits for all the messages to have been seen.
-  void Wait() {
-    done_event_.Wait();
-  }
+  void Wait() { done_event_.Wait(); }
 
  private:
   base::WaitableEvent done_event_;
@@ -389,14 +378,16 @@ TEST_F(RawChannelTest, WriteMessageAndOnReadMessage) {
   WriteOnlyRawChannelDelegate writer_delegate;
   scoped_ptr<RawChannel> writer_rc(RawChannel::Create(handles[0].Pass()));
   io_thread()->PostTaskAndWait(FROM_HERE,
-                               base::Bind(&InitOnIOThread, writer_rc.get(),
+                               base::Bind(&InitOnIOThread,
+                                          writer_rc.get(),
                                           base::Unretained(&writer_delegate)));
 
-  ReadCountdownRawChannelDelegate reader_delegate(
-      kNumWriterThreads * kNumWriteMessagesPerThread);
+  ReadCountdownRawChannelDelegate reader_delegate(kNumWriterThreads *
+                                                  kNumWriteMessagesPerThread);
   scoped_ptr<RawChannel> reader_rc(RawChannel::Create(handles[1].Pass()));
   io_thread()->PostTaskAndWait(FROM_HERE,
-                               base::Bind(&InitOnIOThread, reader_rc.get(),
+                               base::Bind(&InitOnIOThread,
+                                          reader_rc.get(),
                                           base::Unretained(&reader_delegate)));
 
   {
@@ -416,93 +407,103 @@ TEST_F(RawChannelTest, WriteMessageAndOnReadMessage) {
   // Wait for reading to finish.
   reader_delegate.Wait();
 
-  io_thread()->PostTaskAndWait(FROM_HERE,
-                               base::Bind(&RawChannel::Shutdown,
-                                          base::Unretained(reader_rc.get())));
+  io_thread()->PostTaskAndWait(
+      FROM_HERE,
+      base::Bind(&RawChannel::Shutdown, base::Unretained(reader_rc.get())));
 
-  io_thread()->PostTaskAndWait(FROM_HERE,
-                               base::Bind(&RawChannel::Shutdown,
-                                          base::Unretained(writer_rc.get())));
+  io_thread()->PostTaskAndWait(
+      FROM_HERE,
+      base::Bind(&RawChannel::Shutdown, base::Unretained(writer_rc.get())));
 }
 
-// RawChannelTest.OnFatalError -------------------------------------------------
+// RawChannelTest.OnError ------------------------------------------------------
 
-class FatalErrorRecordingRawChannelDelegate
+class ErrorRecordingRawChannelDelegate
     : public ReadCountdownRawChannelDelegate {
  public:
-  FatalErrorRecordingRawChannelDelegate(size_t expected_read_count,
-                                        bool expect_read_error,
-                                        bool expect_write_error)
+  ErrorRecordingRawChannelDelegate(size_t expected_read_count,
+                                   bool expect_read_error,
+                                   bool expect_write_error)
       : ReadCountdownRawChannelDelegate(expected_read_count),
-        got_read_fatal_error_event_(false, false),
-        got_write_fatal_error_event_(false, false),
+        got_read_error_event_(false, false),
+        got_write_error_event_(false, false),
         expecting_read_error_(expect_read_error),
-        expecting_write_error_(expect_write_error) {
-  }
+        expecting_write_error_(expect_write_error) {}
 
-  virtual ~FatalErrorRecordingRawChannelDelegate() {}
+  virtual ~ErrorRecordingRawChannelDelegate() {}
 
-  virtual void OnFatalError(FatalError fatal_error) OVERRIDE {
-    switch (fatal_error) {
-      case FATAL_ERROR_READ:
+  virtual void OnError(Error error) OVERRIDE {
+    switch (error) {
+      case ERROR_READ_SHUTDOWN:
         ASSERT_TRUE(expecting_read_error_);
         expecting_read_error_ = false;
-        got_read_fatal_error_event_.Signal();
+        got_read_error_event_.Signal();
         break;
-      case FATAL_ERROR_WRITE:
+      case ERROR_READ_BROKEN:
+        // TODO(vtl): Test broken connections.
+        CHECK(false);
+        break;
+      case ERROR_READ_BAD_MESSAGE:
+        // TODO(vtl): Test reception/detection of bad messages.
+        CHECK(false);
+        break;
+      case ERROR_READ_UNKNOWN:
+        // TODO(vtl): Test however it is we might get here.
+        CHECK(false);
+        break;
+      case ERROR_WRITE:
         ASSERT_TRUE(expecting_write_error_);
         expecting_write_error_ = false;
-        got_write_fatal_error_event_.Signal();
+        got_write_error_event_.Signal();
         break;
     }
   }
 
-  void WaitForReadFatalError() { got_read_fatal_error_event_.Wait(); }
-  void WaitForWriteFatalError() { got_write_fatal_error_event_.Wait(); }
+  void WaitForReadError() { got_read_error_event_.Wait(); }
+  void WaitForWriteError() { got_write_error_event_.Wait(); }
 
  private:
-  base::WaitableEvent got_read_fatal_error_event_;
-  base::WaitableEvent got_write_fatal_error_event_;
+  base::WaitableEvent got_read_error_event_;
+  base::WaitableEvent got_write_error_event_;
 
   bool expecting_read_error_;
   bool expecting_write_error_;
 
-  DISALLOW_COPY_AND_ASSIGN(FatalErrorRecordingRawChannelDelegate);
+  DISALLOW_COPY_AND_ASSIGN(ErrorRecordingRawChannelDelegate);
 };
 
-// Tests fatal errors.
-TEST_F(RawChannelTest, OnFatalError) {
-  FatalErrorRecordingRawChannelDelegate delegate(0, true, true);
+// Tests (fatal) errors.
+TEST_F(RawChannelTest, OnError) {
+  ErrorRecordingRawChannelDelegate delegate(0, true, true);
   scoped_ptr<RawChannel> rc(RawChannel::Create(handles[0].Pass()));
-  io_thread()->PostTaskAndWait(FROM_HERE,
-                               base::Bind(&InitOnIOThread, rc.get(),
-                                          base::Unretained(&delegate)));
+  io_thread()->PostTaskAndWait(
+      FROM_HERE,
+      base::Bind(&InitOnIOThread, rc.get(), base::Unretained(&delegate)));
 
   // Close the handle of the other end, which should make writing fail.
   handles[1].reset();
 
   EXPECT_FALSE(rc->WriteMessage(MakeTestMessage(1)));
 
-  // We should get a write fatal error.
-  delegate.WaitForWriteFatalError();
+  // We should get a write error.
+  delegate.WaitForWriteError();
 
-  // We should also get a read fatal error.
-  delegate.WaitForReadFatalError();
+  // We should also get a read error.
+  delegate.WaitForReadError();
 
   EXPECT_FALSE(rc->WriteMessage(MakeTestMessage(2)));
 
-  // Sleep a bit, to make sure we don't get another |OnFatalError()|
-  // notification. (If we actually get another one, |OnFatalError()| crashes.)
+  // Sleep a bit, to make sure we don't get another |OnError()|
+  // notification. (If we actually get another one, |OnError()| crashes.)
   base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(20));
 
-  io_thread()->PostTaskAndWait(FROM_HERE,
-                               base::Bind(&RawChannel::Shutdown,
-                                          base::Unretained(rc.get())));
+  io_thread()->PostTaskAndWait(
+      FROM_HERE, base::Bind(&RawChannel::Shutdown, base::Unretained(rc.get())));
 }
 
-// RawChannelTest.ReadUnaffectedByWriteFatalError ------------------------------
+// RawChannelTest.ReadUnaffectedByWriteError -----------------------------------
 
-TEST_F(RawChannelTest, ReadUnaffectedByWriteFatalError) {
+TEST_F(RawChannelTest, ReadUnaffectedByWriteError) {
   const size_t kMessageCount = 5;
 
   // Write a few messages into the other end.
@@ -516,26 +517,25 @@ TEST_F(RawChannelTest, ReadUnaffectedByWriteFatalError) {
 
   // Only start up reading here. The system buffer should still contain the
   // messages that were written.
-  FatalErrorRecordingRawChannelDelegate delegate(kMessageCount, true, true);
+  ErrorRecordingRawChannelDelegate delegate(kMessageCount, true, true);
   scoped_ptr<RawChannel> rc(RawChannel::Create(handles[0].Pass()));
-  io_thread()->PostTaskAndWait(FROM_HERE,
-                               base::Bind(&InitOnIOThread, rc.get(),
-                                          base::Unretained(&delegate)));
+  io_thread()->PostTaskAndWait(
+      FROM_HERE,
+      base::Bind(&InitOnIOThread, rc.get(), base::Unretained(&delegate)));
 
   EXPECT_FALSE(rc->WriteMessage(MakeTestMessage(1)));
 
-  // We should definitely get a write fatal error.
-  delegate.WaitForWriteFatalError();
+  // We should definitely get a write error.
+  delegate.WaitForWriteError();
 
   // Wait for reading to finish. A writing failure shouldn't affect reading.
   delegate.Wait();
 
-  // And then we should get a read fatal error.
-  delegate.WaitForReadFatalError();
+  // And then we should get a read error.
+  delegate.WaitForReadError();
 
-  io_thread()->PostTaskAndWait(FROM_HERE,
-                               base::Bind(&RawChannel::Shutdown,
-                                          base::Unretained(rc.get())));
+  io_thread()->PostTaskAndWait(
+      FROM_HERE, base::Bind(&RawChannel::Shutdown, base::Unretained(rc.get())));
 }
 
 // RawChannelTest.WriteMessageAfterShutdown ------------------------------------
@@ -545,12 +545,11 @@ TEST_F(RawChannelTest, ReadUnaffectedByWriteFatalError) {
 TEST_F(RawChannelTest, WriteMessageAfterShutdown) {
   WriteOnlyRawChannelDelegate delegate;
   scoped_ptr<RawChannel> rc(RawChannel::Create(handles[0].Pass()));
-  io_thread()->PostTaskAndWait(FROM_HERE,
-                               base::Bind(&InitOnIOThread, rc.get(),
-                                          base::Unretained(&delegate)));
-  io_thread()->PostTaskAndWait(FROM_HERE,
-                               base::Bind(&RawChannel::Shutdown,
-                                          base::Unretained(rc.get())));
+  io_thread()->PostTaskAndWait(
+      FROM_HERE,
+      base::Bind(&InitOnIOThread, rc.get(), base::Unretained(&delegate)));
+  io_thread()->PostTaskAndWait(
+      FROM_HERE, base::Bind(&RawChannel::Shutdown, base::Unretained(rc.get())));
 
   EXPECT_FALSE(rc->WriteMessage(MakeTestMessage(1)));
 }
@@ -571,13 +570,13 @@ class ShutdownOnReadMessageRawChannelDelegate : public RawChannel::Delegate {
       embedder::ScopedPlatformHandleVectorPtr platform_handles) OVERRIDE {
     EXPECT_FALSE(platform_handles);
     EXPECT_FALSE(did_shutdown_);
-    EXPECT_TRUE(CheckMessageData(message_view.bytes(),
-                message_view.num_bytes()));
+    EXPECT_TRUE(
+        CheckMessageData(message_view.bytes(), message_view.num_bytes()));
     raw_channel_->Shutdown();
     did_shutdown_ = true;
     done_event_.Signal();
   }
-  virtual void OnFatalError(FatalError /*fatal_error*/) OVERRIDE {
+  virtual void OnError(Error /*error*/) OVERRIDE {
     CHECK(false);  // Should not get called.
   }
 
@@ -602,25 +601,25 @@ TEST_F(RawChannelTest, ShutdownOnReadMessage) {
 
   scoped_ptr<RawChannel> rc(RawChannel::Create(handles[0].Pass()));
   ShutdownOnReadMessageRawChannelDelegate delegate(rc.get());
-  io_thread()->PostTaskAndWait(FROM_HERE,
-                               base::Bind(&InitOnIOThread, rc.get(),
-                                          base::Unretained(&delegate)));
+  io_thread()->PostTaskAndWait(
+      FROM_HERE,
+      base::Bind(&InitOnIOThread, rc.get(), base::Unretained(&delegate)));
 
   // Wait for the delegate, which will shut the |RawChannel| down.
   delegate.Wait();
 }
 
-// RawChannelTest.ShutdownOnFatalError{Read, Write} ----------------------------
+// RawChannelTest.ShutdownOnError{Read, Write} ---------------------------------
 
-class ShutdownOnFatalErrorRawChannelDelegate : public RawChannel::Delegate {
+class ShutdownOnErrorRawChannelDelegate : public RawChannel::Delegate {
  public:
-  ShutdownOnFatalErrorRawChannelDelegate(RawChannel* raw_channel,
-                                         FatalError shutdown_on_error_type)
+  ShutdownOnErrorRawChannelDelegate(RawChannel* raw_channel,
+                                    Error shutdown_on_error_type)
       : raw_channel_(raw_channel),
         shutdown_on_error_type_(shutdown_on_error_type),
         done_event_(false, false),
         did_shutdown_(false) {}
-  virtual ~ShutdownOnFatalErrorRawChannelDelegate() {}
+  virtual ~ShutdownOnErrorRawChannelDelegate() {}
 
   // |RawChannel::Delegate| implementation (called on the I/O thread):
   virtual void OnReadMessage(
@@ -628,9 +627,9 @@ class ShutdownOnFatalErrorRawChannelDelegate : public RawChannel::Delegate {
       embedder::ScopedPlatformHandleVectorPtr /*platform_handles*/) OVERRIDE {
     CHECK(false);  // Should not get called.
   }
-  virtual void OnFatalError(FatalError fatal_error) OVERRIDE {
+  virtual void OnError(Error error) OVERRIDE {
     EXPECT_FALSE(did_shutdown_);
-    if (fatal_error != shutdown_on_error_type_)
+    if (error != shutdown_on_error_type_)
       return;
     raw_channel_->Shutdown();
     did_shutdown_ = true;
@@ -645,20 +644,20 @@ class ShutdownOnFatalErrorRawChannelDelegate : public RawChannel::Delegate {
 
  private:
   RawChannel* const raw_channel_;
-  const FatalError shutdown_on_error_type_;
+  const Error shutdown_on_error_type_;
   base::WaitableEvent done_event_;
   bool did_shutdown_;
 
-  DISALLOW_COPY_AND_ASSIGN(ShutdownOnFatalErrorRawChannelDelegate);
+  DISALLOW_COPY_AND_ASSIGN(ShutdownOnErrorRawChannelDelegate);
 };
 
-TEST_F(RawChannelTest, ShutdownOnFatalErrorRead) {
+TEST_F(RawChannelTest, ShutdownOnErrorRead) {
   scoped_ptr<RawChannel> rc(RawChannel::Create(handles[0].Pass()));
-  ShutdownOnFatalErrorRawChannelDelegate delegate(
-      rc.get(), RawChannel::Delegate::FATAL_ERROR_READ);
-  io_thread()->PostTaskAndWait(FROM_HERE,
-                               base::Bind(&InitOnIOThread, rc.get(),
-                                          base::Unretained(&delegate)));
+  ShutdownOnErrorRawChannelDelegate delegate(
+      rc.get(), RawChannel::Delegate::ERROR_READ_SHUTDOWN);
+  io_thread()->PostTaskAndWait(
+      FROM_HERE,
+      base::Bind(&InitOnIOThread, rc.get(), base::Unretained(&delegate)));
 
   // Close the handle of the other end, which should stuff fail.
   handles[1].reset();
@@ -667,13 +666,13 @@ TEST_F(RawChannelTest, ShutdownOnFatalErrorRead) {
   delegate.Wait();
 }
 
-TEST_F(RawChannelTest, ShutdownOnFatalErrorWrite) {
+TEST_F(RawChannelTest, ShutdownOnErrorWrite) {
   scoped_ptr<RawChannel> rc(RawChannel::Create(handles[0].Pass()));
-  ShutdownOnFatalErrorRawChannelDelegate delegate(
-      rc.get(), RawChannel::Delegate::FATAL_ERROR_WRITE);
-  io_thread()->PostTaskAndWait(FROM_HERE,
-                               base::Bind(&InitOnIOThread, rc.get(),
-                                          base::Unretained(&delegate)));
+  ShutdownOnErrorRawChannelDelegate delegate(rc.get(),
+                                             RawChannel::Delegate::ERROR_WRITE);
+  io_thread()->PostTaskAndWait(
+      FROM_HERE,
+      base::Bind(&InitOnIOThread, rc.get(), base::Unretained(&delegate)));
 
   // Close the handle of the other end, which should stuff fail.
   handles[1].reset();

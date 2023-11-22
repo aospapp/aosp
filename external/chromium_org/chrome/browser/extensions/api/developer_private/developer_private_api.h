@@ -23,9 +23,9 @@
 #include "extensions/browser/browser_context_keyed_api_factory.h"
 #include "extensions/browser/event_router.h"
 #include "extensions/browser/extension_registry_observer.h"
+#include "storage/browser/fileapi/file_system_context.h"
+#include "storage/browser/fileapi/file_system_operation.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
-#include "webkit/browser/fileapi/file_system_context.h"
-#include "webkit/browser/fileapi/file_system_operation.h"
 
 class Profile;
 
@@ -88,8 +88,10 @@ class DeveloperPrivateEventRouter : public content::NotificationObserver,
       bool is_update,
       bool from_ephemeral,
       const std::string& old_name) OVERRIDE;
-  virtual void OnExtensionUninstalled(content::BrowserContext* browser_context,
-                                      const Extension* extension) OVERRIDE;
+  virtual void OnExtensionUninstalled(
+      content::BrowserContext* browser_context,
+      const Extension* extension,
+      extensions::UninstallReason reason) OVERRIDE;
 
   // ErrorConsole::Observer implementation.
   virtual void OnErrorAdded(const ExtensionError* error) OVERRIDE;
@@ -410,16 +412,18 @@ class DeveloperPrivateLoadDirectoryFunction
   // ExtensionFunction:
   virtual bool RunAsync() OVERRIDE;
 
+  bool LoadByFileSystemAPI(const storage::FileSystemURL& directory_url);
+
   void ClearExistingDirectoryContent(const base::FilePath& project_path);
 
-  void ReadSyncFileSystemDirectory(const base::FilePath& project_path,
-                                   const base::FilePath& destination_path);
+  void ReadDirectoryByFileSystemAPI(const base::FilePath& project_path,
+                                    const base::FilePath& destination_path);
 
-  void ReadSyncFileSystemDirectoryCb(
+  void ReadDirectoryByFileSystemAPICb(
       const base::FilePath& project_path,
       const base::FilePath& destination_path,
       base::File::Error result,
-      const fileapi::FileSystemOperation::FileEntryList& file_list,
+      const storage::FileSystemOperation::FileEntryList& file_list,
       bool has_more);
 
   void SnapshotFileCallback(
@@ -427,23 +431,20 @@ class DeveloperPrivateLoadDirectoryFunction
       base::File::Error result,
       const base::File::Info& file_info,
       const base::FilePath& platform_path,
-      const scoped_refptr<webkit_blob::ShareableFileReference>& file_ref);
+      const scoped_refptr<storage::ShareableFileReference>& file_ref);
 
   void CopyFile(const base::FilePath& src_path,
                 const base::FilePath& dest_path);
 
   void Load();
 
-  scoped_refptr<fileapi::FileSystemContext> context_;
+  scoped_refptr<storage::FileSystemContext> context_;
 
   // syncfs url representing the root of the folder to be copied.
   std::string project_base_url_;
 
   // physical path on disc of the folder to be copied.
   base::FilePath project_base_path_;
-
-  // Path of the current folder to be copied.
-  base::FilePath current_path_;
 
  private:
   int pending_copy_operations_count_;

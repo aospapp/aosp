@@ -48,13 +48,19 @@ class DomainReliabilityMonitorTest : public testing::Test {
   typedef DomainReliabilityMonitor::RequestInfo RequestInfo;
 
   DomainReliabilityMonitorTest()
-      : network_task_runner_(new base::TestSimpleTaskRunner()),
+      : pref_task_runner_(new base::TestSimpleTaskRunner()),
+        network_task_runner_(new base::TestSimpleTaskRunner()),
         url_request_context_getter_(
             new net::TestURLRequestContextGetter(network_task_runner_)),
         time_(new MockTime()),
-        monitor_("test-reporter", scoped_ptr<MockableTime>(time_)),
+        monitor_("test-reporter",
+                 pref_task_runner_,
+                 network_task_runner_,
+                 scoped_ptr<MockableTime>(time_)),
         context_(NULL) {
-    monitor_.Init(url_request_context_getter_);
+    monitor_.MoveToNetworkThread();
+    monitor_.InitURLRequestContext(url_request_context_getter_);
+    monitor_.SetDiscardUploads(false);
     context_ = monitor_.AddContextForTesting(MakeTestConfig());
   }
 
@@ -78,22 +84,37 @@ class DomainReliabilityMonitorTest : public testing::Test {
     monitor_.OnRequestLegComplete(info);
   }
 
-  size_t CountPendingBeacons(size_t index) {
+  size_t CountPendingBeacons() {
     BeaconVector beacons;
-    context_->GetQueuedDataForTesting(index, &beacons, NULL, NULL);
+    context_->GetQueuedBeaconsForTesting(&beacons);
     return beacons.size();
   }
 
   bool CheckRequestCounts(size_t index,
                           uint32 expected_successful,
                           uint32 expected_failed) {
+    return CheckRequestCounts(context_,
+                              index,
+                              expected_successful,
+                              expected_failed);
+  }
+
+  bool CheckRequestCounts(DomainReliabilityContext* context,
+                          size_t index,
+                          uint32 expected_successful,
+                          uint32 expected_failed) {
     uint32 successful, failed;
-    context_->GetQueuedDataForTesting(index, NULL, &successful, &failed);
+    context->GetRequestCountsForTesting(index, &successful, &failed);
     EXPECT_EQ(expected_successful, successful);
     EXPECT_EQ(expected_failed, failed);
     return expected_successful == successful && expected_failed == failed;
   }
 
+  DomainReliabilityContext* CreateAndAddContext(const std::string& domain) {
+    return monitor_.AddContextForTesting(MakeTestConfigWithDomain(domain));
+  }
+
+  scoped_refptr<base::TestSimpleTaskRunner> pref_task_runner_;
   scoped_refptr<base::TestSimpleTaskRunner> network_task_runner_;
   scoped_refptr<net::URLRequestContextGetter> url_request_context_getter_;
   MockTime* time_;
@@ -105,9 +126,8 @@ class DomainReliabilityMonitorTest : public testing::Test {
 namespace {
 
 TEST_F(DomainReliabilityMonitorTest, Create) {
-  EXPECT_EQ(0u, CountPendingBeacons(kAlwaysReportIndex));
+  EXPECT_EQ(0u, CountPendingBeacons());
   EXPECT_TRUE(CheckRequestCounts(kAlwaysReportIndex, 0u, 0u));
-  EXPECT_EQ(0u, CountPendingBeacons(kNeverReportIndex));
   EXPECT_TRUE(CheckRequestCounts(kNeverReportIndex, 0u, 0u));
 }
 
@@ -116,9 +136,8 @@ TEST_F(DomainReliabilityMonitorTest, NoContext) {
   request.url = GURL("http://no-context/");
   OnRequestLegComplete(request);
 
-  EXPECT_EQ(0u, CountPendingBeacons(kAlwaysReportIndex));
+  EXPECT_EQ(0u, CountPendingBeacons());
   EXPECT_TRUE(CheckRequestCounts(kAlwaysReportIndex, 0u, 0u));
-  EXPECT_EQ(0u, CountPendingBeacons(kNeverReportIndex));
   EXPECT_TRUE(CheckRequestCounts(kNeverReportIndex, 0u, 0u));
 }
 
@@ -127,7 +146,7 @@ TEST_F(DomainReliabilityMonitorTest, NotReported) {
   request.url = GURL("http://example/never_report");
   OnRequestLegComplete(request);
 
-  EXPECT_EQ(0u, CountPendingBeacons(kNeverReportIndex));
+  EXPECT_EQ(0u, CountPendingBeacons());
   EXPECT_TRUE(CheckRequestCounts(kNeverReportIndex, 1u, 0u));
 }
 
@@ -139,7 +158,7 @@ TEST_F(DomainReliabilityMonitorTest, NetworkFailure) {
   request.response_info.headers = NULL;
   OnRequestLegComplete(request);
 
-  EXPECT_EQ(1u, CountPendingBeacons(kAlwaysReportIndex));
+  EXPECT_EQ(1u, CountPendingBeacons());
   EXPECT_TRUE(CheckRequestCounts(kAlwaysReportIndex, 0u, 1u));
 }
 
@@ -150,7 +169,7 @@ TEST_F(DomainReliabilityMonitorTest, ServerFailure) {
       MakeHttpResponseHeaders("HTTP/1.1 500 :(\n\n");
   OnRequestLegComplete(request);
 
-  EXPECT_EQ(1u, CountPendingBeacons(kAlwaysReportIndex));
+  EXPECT_EQ(1u, CountPendingBeacons());
   EXPECT_TRUE(CheckRequestCounts(kAlwaysReportIndex, 0u, 1u));
 }
 
@@ -161,7 +180,7 @@ TEST_F(DomainReliabilityMonitorTest, NotReportedFailure) {
   request.status.set_error(net::ERR_CONNECTION_RESET);
   OnRequestLegComplete(request);
 
-  EXPECT_EQ(0u, CountPendingBeacons(kNeverReportIndex));
+  EXPECT_EQ(0u, CountPendingBeacons());
   EXPECT_TRUE(CheckRequestCounts(kNeverReportIndex, 0u, 1u));
 }
 
@@ -170,7 +189,7 @@ TEST_F(DomainReliabilityMonitorTest, Request) {
   request.url = GURL("http://example/always_report");
   OnRequestLegComplete(request);
 
-  EXPECT_EQ(1u, CountPendingBeacons(kAlwaysReportIndex));
+  EXPECT_EQ(1u, CountPendingBeacons());
   EXPECT_TRUE(CheckRequestCounts(kAlwaysReportIndex, 1u, 0u));
 }
 
@@ -181,7 +200,7 @@ TEST_F(DomainReliabilityMonitorTest, DidNotAccessNetwork) {
   request.response_info.network_accessed = false;
   OnRequestLegComplete(request);
 
-  EXPECT_EQ(0u, CountPendingBeacons(kAlwaysReportIndex));
+  EXPECT_EQ(0u, CountPendingBeacons());
   EXPECT_TRUE(CheckRequestCounts(kAlwaysReportIndex, 0u, 0u));
 }
 
@@ -192,7 +211,7 @@ TEST_F(DomainReliabilityMonitorTest, DoNotSendCookies) {
   request.load_flags = net::LOAD_DO_NOT_SEND_COOKIES;
   OnRequestLegComplete(request);
 
-  EXPECT_EQ(0u, CountPendingBeacons(kAlwaysReportIndex));
+  EXPECT_EQ(0u, CountPendingBeacons());
   EXPECT_TRUE(CheckRequestCounts(kAlwaysReportIndex, 0u, 0u));
 }
 
@@ -203,7 +222,7 @@ TEST_F(DomainReliabilityMonitorTest, IsUpload) {
   request.is_upload = true;
   OnRequestLegComplete(request);
 
-  EXPECT_EQ(0u, CountPendingBeacons(kAlwaysReportIndex));
+  EXPECT_EQ(0u, CountPendingBeacons());
   EXPECT_TRUE(CheckRequestCounts(kAlwaysReportIndex, 0u, 0u));
 }
 
@@ -215,7 +234,7 @@ TEST_F(DomainReliabilityMonitorTest, LocalError) {
   request.status.set_error(net::ERR_PROXY_CONNECTION_FAILED);
   OnRequestLegComplete(request);
 
-  EXPECT_EQ(0u, CountPendingBeacons(kAlwaysReportIndex));
+  EXPECT_EQ(0u, CountPendingBeacons());
   EXPECT_TRUE(CheckRequestCounts(kAlwaysReportIndex, 0u, 0u));
 }
 
@@ -228,14 +247,16 @@ TEST_F(DomainReliabilityMonitorTest, WasFetchedViaProxy) {
   request.response_info.was_fetched_via_proxy = true;
   OnRequestLegComplete(request);
 
-  EXPECT_EQ(1u, CountPendingBeacons(kAlwaysReportIndex));
-  EXPECT_TRUE(CheckRequestCounts(kAlwaysReportIndex, 1u, 0u));
-
   BeaconVector beacons;
-  context_->GetQueuedDataForTesting(kAlwaysReportIndex, &beacons, NULL, NULL);
+  context_->GetQueuedBeaconsForTesting(&beacons);
+  EXPECT_EQ(1u, beacons.size());
   EXPECT_TRUE(beacons[0].server_ip.empty());
+
+  EXPECT_TRUE(CheckRequestCounts(kAlwaysReportIndex, 1u, 0u));
 }
 
+// Will fail when baked-in configs expire, as a reminder to update them.
+// (Contact ttuttle@chromium.org if this starts failing.)
 TEST_F(DomainReliabilityMonitorTest, AddBakedInConfigs) {
   // AddBakedInConfigs DCHECKs that the baked-in configs parse correctly, so
   // this unittest will fail if someone tries to add an invalid config to the
@@ -255,9 +276,8 @@ TEST_F(DomainReliabilityMonitorTest, AddBakedInConfigs) {
 TEST_F(DomainReliabilityMonitorTest, ClearBeacons) {
   // Initially the monitor should have just the test context, with no beacons.
   EXPECT_EQ(1u, monitor_.contexts_size_for_testing());
-  EXPECT_EQ(0u, CountPendingBeacons(kAlwaysReportIndex));
+  EXPECT_EQ(0u, CountPendingBeacons());
   EXPECT_TRUE(CheckRequestCounts(kAlwaysReportIndex, 0u, 0u));
-  EXPECT_EQ(0u, CountPendingBeacons(kNeverReportIndex));
   EXPECT_TRUE(CheckRequestCounts(kNeverReportIndex, 0u, 0u));
 
   // Add a beacon.
@@ -266,16 +286,15 @@ TEST_F(DomainReliabilityMonitorTest, ClearBeacons) {
   OnRequestLegComplete(request);
 
   // Make sure it was added.
-  EXPECT_EQ(1u, CountPendingBeacons(kAlwaysReportIndex));
+  EXPECT_EQ(1u, CountPendingBeacons());
   EXPECT_TRUE(CheckRequestCounts(kAlwaysReportIndex, 1u, 0u));
 
   monitor_.ClearBrowsingData(CLEAR_BEACONS);
 
   // Make sure the beacon was cleared, but not the contexts.
   EXPECT_EQ(1u, monitor_.contexts_size_for_testing());
-  EXPECT_EQ(0u, CountPendingBeacons(kAlwaysReportIndex));
+  EXPECT_EQ(0u, CountPendingBeacons());
   EXPECT_TRUE(CheckRequestCounts(kAlwaysReportIndex, 0u, 0u));
-  EXPECT_EQ(0u, CountPendingBeacons(kNeverReportIndex));
   EXPECT_TRUE(CheckRequestCounts(kNeverReportIndex, 0u, 0u));
 }
 
@@ -295,12 +314,76 @@ TEST_F(DomainReliabilityMonitorTest, IgnoreSuccessError) {
   request.status.set_error(net::ERR_QUIC_PROTOCOL_ERROR);
   OnRequestLegComplete(request);
 
-  EXPECT_EQ(1u, CountPendingBeacons(kAlwaysReportIndex));
-  EXPECT_TRUE(CheckRequestCounts(kAlwaysReportIndex, 1u, 0u));
-
   BeaconVector beacons;
-  context_->GetQueuedDataForTesting(kAlwaysReportIndex, &beacons, NULL, NULL);
+  context_->GetQueuedBeaconsForTesting(&beacons);
+  EXPECT_EQ(1u, beacons.size());
   EXPECT_EQ(net::OK, beacons[0].chrome_error);
+
+  EXPECT_TRUE(CheckRequestCounts(kAlwaysReportIndex, 1u, 0u));
+}
+
+TEST_F(DomainReliabilityMonitorTest, WildcardMatchesSelf) {
+  DomainReliabilityContext* context = CreateAndAddContext("*.wildcard");
+
+  RequestInfo request = MakeRequestInfo();
+  request.url = GURL("http://wildcard/always_report");
+  OnRequestLegComplete(request);
+  EXPECT_TRUE(CheckRequestCounts(context, kAlwaysReportIndex, 1u, 0u));
+}
+
+TEST_F(DomainReliabilityMonitorTest, WildcardMatchesSubdomain) {
+  DomainReliabilityContext* context = CreateAndAddContext("*.wildcard");
+
+  RequestInfo request = MakeRequestInfo();
+  request.url = GURL("http://test.wildcard/always_report");
+  OnRequestLegComplete(request);
+  EXPECT_TRUE(CheckRequestCounts(context, kAlwaysReportIndex, 1u, 0u));
+}
+
+TEST_F(DomainReliabilityMonitorTest, WildcardDoesntMatchSubsubdomain) {
+  DomainReliabilityContext* context = CreateAndAddContext("*.wildcard");
+
+  RequestInfo request = MakeRequestInfo();
+  request.url = GURL("http://test.test.wildcard/always_report");
+  OnRequestLegComplete(request);
+  EXPECT_TRUE(CheckRequestCounts(context, kAlwaysReportIndex, 0u, 0u));
+}
+
+TEST_F(DomainReliabilityMonitorTest, WildcardPrefersSelfToSelfWildcard) {
+  DomainReliabilityContext* context1 = CreateAndAddContext("wildcard");
+  DomainReliabilityContext* context2 = CreateAndAddContext("*.wildcard");
+
+  RequestInfo request = MakeRequestInfo();
+  request.url = GURL("http://wildcard/always_report");
+  OnRequestLegComplete(request);
+
+  EXPECT_TRUE(CheckRequestCounts(context1, kAlwaysReportIndex, 1u, 0u));
+  EXPECT_TRUE(CheckRequestCounts(context2, kAlwaysReportIndex, 0u, 0u));
+}
+
+TEST_F(DomainReliabilityMonitorTest, WildcardPrefersSelfToParentWildcard) {
+  DomainReliabilityContext* context1 = CreateAndAddContext("test.wildcard");
+  DomainReliabilityContext* context2 = CreateAndAddContext("*.wildcard");
+
+  RequestInfo request = MakeRequestInfo();
+  request.url = GURL("http://test.wildcard/always_report");
+  OnRequestLegComplete(request);
+
+  EXPECT_TRUE(CheckRequestCounts(context1, kAlwaysReportIndex, 1u, 0u));
+  EXPECT_TRUE(CheckRequestCounts(context2, kAlwaysReportIndex, 0u, 0u));
+}
+
+TEST_F(DomainReliabilityMonitorTest,
+    WildcardPrefersSelfWildcardToParentWildcard) {
+  DomainReliabilityContext* context1 = CreateAndAddContext("*.test.wildcard");
+  DomainReliabilityContext* context2 = CreateAndAddContext("*.wildcard");
+
+  RequestInfo request = MakeRequestInfo();
+  request.url = GURL("http://test.wildcard/always_report");
+  OnRequestLegComplete(request);
+
+  EXPECT_TRUE(CheckRequestCounts(context1, kAlwaysReportIndex, 1u, 0u));
+  EXPECT_TRUE(CheckRequestCounts(context2, kAlwaysReportIndex, 0u, 0u));
 }
 
 }  // namespace

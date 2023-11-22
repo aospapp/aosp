@@ -174,8 +174,9 @@ class BrowserTestWithProfileShortcutManager : public InProcessBrowserTest {
 };
 
 // Check that the window properties on Windows are properly set.
+// http://crbug.com/396344
 IN_PROC_BROWSER_TEST_F(BrowserTestWithProfileShortcutManager,
-                       WindowProperties) {
+                       DISABLED_WindowProperties) {
   // Disable this test in Metro+Ash where Windows window properties aren't used.
   if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kAshBrowserTests))
     return;
@@ -224,7 +225,8 @@ IN_PROC_BROWSER_TEST_F(BrowserTestWithProfileShortcutManager,
                  cache.GetNameOfProfileAtIndex(profile2_index)));
 }
 
-IN_PROC_BROWSER_TEST_F(BrowserWindowPropertyManagerTest, HostedApp) {
+// http://crbug.com/396344
+IN_PROC_BROWSER_TEST_F(BrowserWindowPropertyManagerTest, DISABLED_HostedApp) {
 #if defined(USE_ASH)
   // Disable this test in Metro+Ash where Windows window properties aren't used.
   if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kAshBrowserTests))

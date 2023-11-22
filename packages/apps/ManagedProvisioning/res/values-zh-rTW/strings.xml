@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"管理應用程式因缺少部分元件或已毀損而無法使用，請與您的 IT 部門聯絡。"</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"無法安裝管理應用程式"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"您的裝置尚未安裝管理應用程式"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"停止設定？"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"您確定要停止設定嗎？"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"否"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"是"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"取消中..."</string>
 </resources>

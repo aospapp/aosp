@@ -26,6 +26,7 @@ namespace extensions {
 
 class ChromeComponentExtensionResourceManager;
 class ChromeExtensionsAPIClient;
+class ChromeProcessManagerDelegate;
 class ContentSettingsPrefsObserver;
 
 // Implementation of extensions::BrowserClient for Chrome, which includes
@@ -59,7 +60,6 @@ class ChromeExtensionsBrowserClient : public ExtensionsBrowserClient {
   virtual bool CanExtensionCrossIncognito(
       const extensions::Extension* extension,
       content::BrowserContext* context) const OVERRIDE;
-  virtual bool IsWebViewRequest(net::URLRequest* request) const OVERRIDE;
   virtual net::URLRequestJob* MaybeCreateResourceBundleRequestJob(
       net::URLRequest* request,
       net::NetworkDelegate* network_delegate,
@@ -76,10 +76,7 @@ class ChromeExtensionsBrowserClient : public ExtensionsBrowserClient {
   virtual void GetEarlyExtensionPrefsObservers(
       content::BrowserContext* context,
       std::vector<ExtensionPrefsObserver*>* observers) const OVERRIDE;
-  virtual bool DeferLoadingBackgroundHosts(
-      content::BrowserContext* context) const OVERRIDE;
-  virtual bool IsBackgroundPageAllowed(
-      content::BrowserContext* context) const OVERRIDE;
+  virtual ProcessManagerDelegate* GetProcessManagerDelegate() const OVERRIDE;
   virtual scoped_ptr<ExtensionHostDelegate> CreateExtensionHostDelegate()
       OVERRIDE;
   virtual bool DidVersionUpdate(content::BrowserContext* context) OVERRIDE;
@@ -95,6 +92,10 @@ class ChromeExtensionsBrowserClient : public ExtensionsBrowserClient {
       content::BrowserContext* context) const OVERRIDE;
   virtual ComponentExtensionResourceManager*
   GetComponentExtensionResourceManager() OVERRIDE;
+  virtual void BroadcastEventToRenderers(
+      const std::string& event_name,
+      scoped_ptr<base::ListValue> args) OVERRIDE;
+  virtual net::NetLog* GetNetLog() OVERRIDE;
 
  private:
   friend struct base::DefaultLazyInstanceTraits<ChromeExtensionsBrowserClient>;
@@ -102,10 +103,11 @@ class ChromeExtensionsBrowserClient : public ExtensionsBrowserClient {
   // Observer for Chrome-specific notifications.
   ChromeNotificationObserver notification_observer_;
 
-#if defined(ENABLE_EXTENSIONS)
+  // Support for ProcessManager.
+  scoped_ptr<ChromeProcessManagerDelegate> process_manager_delegate_;
+
   // Client for API implementations.
   scoped_ptr<ChromeExtensionsAPIClient> api_client_;
-#endif
 
   scoped_ptr<ChromeComponentExtensionResourceManager> resource_manager_;
 

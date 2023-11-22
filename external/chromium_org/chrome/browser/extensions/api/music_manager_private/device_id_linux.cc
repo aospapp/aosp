@@ -12,9 +12,9 @@
 #include <map>
 
 #include "base/bind.h"
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/threading/thread_restrictions.h"
@@ -124,7 +124,7 @@ class MacAddressProcessor {
 
     // Got one!
     found_mac_address_ =
-        StringToLowerASCII(base::HexEncode(mac_address, MAC_LENGTH));
+        base::StringToLowerASCII(base::HexEncode(mac_address, MAC_LENGTH));
     return false;
   }
 

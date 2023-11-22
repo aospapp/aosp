@@ -11,7 +11,6 @@ import org.chromium.base.JNINamespace;
  */
 @JNINamespace("dom_distiller::url_utils::android")
 public final class DomDistillerUrlUtils {
-
     private DomDistillerUrlUtils() {
     }
 
@@ -36,11 +35,34 @@ public final class DomDistillerUrlUtils {
         return nativeGetOriginalUrlFromDistillerUrl(url);
     }
 
-    public static boolean isUrlReportable(String scheme, String url) {
-        return nativeIsUrlReportable(scheme, url);
+    /**
+     * Returns whether the url is for a distilled page.
+     *
+     * @param url The url of the page.
+     * @return whether the url is for a distilled page.
+     */
+    public static boolean isDistilledPage(String url) {
+        return nativeIsDistilledPage(url);
+    }
+
+    public static boolean isUrlDistillable(String url) {
+        return nativeIsUrlDistillable(url);
+    }
+
+    // TODO(yfriedman): Change method so that it takes in a WebContents and a
+    // callback.
+    public static String getIsDistillableJs() {
+        return nativeGetIsDistillableJs();
+    }
+
+    public static String getValueForKeyInUrl(String url, String key) {
+        return nativeGetValueForKeyInUrl(url, key);
     }
 
     private static native String nativeGetDistillerViewUrlFromUrl(String scheme, String url);
+    private static native String nativeGetIsDistillableJs();
     private static native String nativeGetOriginalUrlFromDistillerUrl(String viewerUrl);
-    private static native boolean nativeIsUrlReportable(String scheme, String url);
+    private static native boolean nativeIsDistilledPage(String url);
+    private static native boolean nativeIsUrlDistillable(String url);
+    private static native String nativeGetValueForKeyInUrl(String url, String key);
 }

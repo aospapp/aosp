@@ -37,6 +37,7 @@ public class ThermalUtils {
 
     /* Native methods to access Sysfs Interfaces */
     private native static String native_readSysfs(String path);
+    private native static int native_readSysfsTemp(String path);
     private native static int native_writeSysfs(String path, int val);
     private native static int native_getThermalZoneIndex(String name);
     private native static int native_getThermalZoneIndexContains(String name);
@@ -51,6 +52,15 @@ public class ThermalUtils {
         } catch (UnsatisfiedLinkError e) {
             Log.w(TAG, "caught UnsatisfiedLinkError in readSysfs");
             return null;
+        }
+    }
+
+    public static int readSysfsTemp(String path) {
+        try {
+            return native_readSysfsTemp(path);
+        } catch (UnsatisfiedLinkError e) {
+            Log.i(TAG, "caught UnsatisfiedLinkError in readSysfsTemp");
+            return INVALID_TEMP;
         }
     }
 
@@ -143,22 +153,11 @@ public class ThermalUtils {
     }
 
     public static void getTjMax() {
-        String temp_tjmax;
-
-        temp_tjmax = readSysfs(ThermalManager.TJMAX_PATH);
-        if (temp_tjmax != null) {
-            try {
-                ThermalManager.sTjMaxTemp = Integer.parseInt(temp_tjmax);
-                Log.i(TAG, "TjMax temp = " + ThermalManager.sTjMaxTemp);
-            } catch (NumberFormatException e) {
-                ThermalManager.sTjMaxTemp = ThermalManager.sDefaultTjMax;
-                Log.i(TAG, "TjMax value invalid, Default TjMax value =" +
-                        ThermalManager.sTjMaxTemp);
-            }
-        } else {
-            ThermalManager.sTjMaxTemp = ThermalManager.sDefaultTjMax;
+        ThermalManager.sTjMaxTemp = readSysfsTemp(ThermalManager.TJMAX_PATH);
+        if (ThermalManager.sTjMaxTemp <= ThermalManager.ABS_ZERO) {
             Log.i(TAG, "TjMax temp read failed, Default TjMax value =" +
                     ThermalManager.sTjMaxTemp);
+            ThermalManager.sTjMaxTemp = ThermalManager.sDefaultTjMax;
         }
     }
 

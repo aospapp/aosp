@@ -2,21 +2,23 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "testing/gmock/include/gmock/gmock.h"
-#include "testing/gtest/include/gtest/gtest.h"
+#include "chrome/browser/password_manager/password_store_mac.h"
 
 #include "base/basictypes.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/memory/scoped_vector.h"
 #include "base/path_service.h"
+#include "base/scoped_observer.h"
 #include "base/stl_util.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/password_manager/password_store_mac.h"
 #include "chrome/browser/password_manager/password_store_mac_internal.h"
 #include "chrome/common/chrome_paths.h"
 #include "components/password_manager/core/browser/password_store_consumer.h"
 #include "content/public/test/test_browser_thread.h"
 #include "crypto/mock_apple_keychain.h"
+#include "testing/gmock/include/gmock/gmock.h"
+#include "testing/gtest/include/gtest/gtest.h"
 
 using autofill::PasswordForm;
 using base::ASCIIToUTF16;
@@ -201,11 +203,15 @@ static PasswordForm* CreatePasswordFormFromData(
     form->password_element = WideToUTF16(form_data.password_element);
   if (form_data.username_value) {
     form->username_value = WideToUTF16(form_data.username_value);
+    form->display_name = form->username_value;
+    form->is_zero_click = true;
     if (form_data.password_value)
       form->password_value = WideToUTF16(form_data.password_value);
   } else {
     form->blacklisted_by_user = true;
   }
+  form->avatar_url = GURL("https://accounts.google.com/Avatar");
+  form->federation_url = GURL("https://accounts.google.com/login");
   return form;
 }
 
@@ -248,6 +254,9 @@ static void CheckFormsAgainstExpectations(
     if (expectation->username_value) {
       EXPECT_EQ(WideToUTF16(expectation->username_value),
                 form->username_value) << test_label;
+      EXPECT_EQ(WideToUTF16(expectation->username_value),
+                form->display_name) << test_label;
+      EXPECT_TRUE(form->is_zero_click) << test_label;
       EXPECT_EQ(WideToUTF16(expectation->password_value),
                 form->password_value) << test_label;
     } else {
@@ -260,6 +269,8 @@ static void CheckFormsAgainstExpectations(
     base::Time created = base::Time::FromDoubleT(expectation->creation_time);
     EXPECT_EQ(created + base::TimeDelta::FromDays(1),
               form->date_synced) << test_label;
+    EXPECT_EQ(GURL("https://accounts.google.com/Avatar"), form->avatar_url);
+    EXPECT_EQ(GURL("https://accounts.google.com/login"), form->federation_url);
   }
 }
 
@@ -500,15 +511,7 @@ TEST_F(PasswordStoreMacInternalsTest, TestKeychainExactSearch) {
     scoped_ptr<PasswordForm> base_form(CreatePasswordFormFromData(
         base_form_data[i]));
     EXPECT_TRUE(keychain_adapter.HasPasswordsMergeableWithForm(*base_form));
-    PasswordForm* match =
-        keychain_adapter.PasswordExactlyMatchingForm(*base_form);
-    EXPECT_TRUE(match != NULL);
-    if (match) {
-      EXPECT_EQ(base_form->scheme, match->scheme);
-      EXPECT_EQ(base_form->origin, match->origin);
-      EXPECT_EQ(base_form->username_value, match->username_value);
-      delete match;
-    }
+    EXPECT_TRUE(keychain_adapter.HasPasswordExactlyMatchingForm(*base_form));
 
     // Make sure that the matching isn't looser than it should be by checking
     // that slightly altered forms don't match.
@@ -536,10 +539,10 @@ TEST_F(PasswordStoreMacInternalsTest, TestKeychainExactSearch) {
     }
 
     for (unsigned int j = 0; j < modified_forms.size(); ++j) {
-      PasswordForm* match =
-          keychain_adapter.PasswordExactlyMatchingForm(*modified_forms[j]);
-      EXPECT_EQ(NULL, match) << "In modified version " << j << " of base form "
-                             << i;
+      bool match = keychain_adapter.HasPasswordExactlyMatchingForm(
+          *modified_forms[j]);
+      EXPECT_FALSE(match) << "In modified version " << j
+          << " of base form " << i;
     }
     STLDeleteElements(&modified_forms);
   }
@@ -587,14 +590,8 @@ TEST_F(PasswordStoreMacInternalsTest, TestKeychainAdd) {
     if (add_succeeded) {
       EXPECT_TRUE(owned_keychain_adapter.HasPasswordsMergeableWithForm(
           *in_form));
-      scoped_ptr<PasswordForm> out_form(
-          owned_keychain_adapter.PasswordExactlyMatchingForm(*in_form));
-      EXPECT_TRUE(out_form.get() != NULL);
-      EXPECT_EQ(out_form->scheme, in_form->scheme);
-      EXPECT_EQ(out_form->signon_realm, in_form->signon_realm);
-      EXPECT_EQ(out_form->origin, in_form->origin);
-      EXPECT_EQ(out_form->username_value, in_form->username_value);
-      EXPECT_EQ(out_form->password_value, in_form->password_value);
+      EXPECT_TRUE(owned_keychain_adapter.HasPasswordExactlyMatchingForm(
+          *in_form));
     }
   }
 
@@ -649,11 +646,8 @@ TEST_F(PasswordStoreMacInternalsTest, TestKeychainRemove) {
               owned_keychain_adapter.RemovePassword(*form));
 
     MacKeychainPasswordFormAdapter keychain_adapter(keychain_);
-    PasswordForm* match = keychain_adapter.PasswordExactlyMatchingForm(*form);
-    EXPECT_EQ(test_data[i].should_succeed, match == NULL);
-    if (match) {
-      delete match;
-    }
+    bool match = keychain_adapter.HasPasswordExactlyMatchingForm(*form);
+    EXPECT_EQ(test_data[i].should_succeed, !match);
   }
 }
 
@@ -1071,12 +1065,12 @@ class PasswordStoreMacTest : public testing::Test {
         base::MessageLoopProxy::current(),
         keychain_,
         login_db_);
-    ASSERT_TRUE(store_->Init(syncer::SyncableService::StartSyncFlare()));
+    ASSERT_TRUE(store_->Init(syncer::SyncableService::StartSyncFlare(), ""));
   }
 
   virtual void TearDown() {
     store_->Shutdown();
-    EXPECT_FALSE(store_->GetBackgroundTaskRunner());
+    EXPECT_FALSE(store_->GetBackgroundTaskRunner().get());
   }
 
   void WaitForStoreUpdate() {
@@ -1087,6 +1081,10 @@ class PasswordStoreMacTest : public testing::Test {
     store_->GetLogins(PasswordForm(), PasswordStore::ALLOW_PROMPT, &consumer);
     base::MessageLoop::current()->Run();
   }
+
+  TestPasswordStoreMac* store() { return store_.get(); }
+
+  MockAppleKeychain* keychain() { return keychain_; }
 
  protected:
   base::MessageLoopForUI message_loop_;
@@ -1253,4 +1251,195 @@ TEST_F(PasswordStoreMacTest, TestDBKeychainAssociation) {
   EXPECT_EQ(0u, matching_items.size());
   login_db_->GetLogins(m_form, &matching_items);
   EXPECT_EQ(0u, matching_items.size());
+}
+
+namespace {
+
+class PasswordsChangeObserver :
+    public password_manager::PasswordStore::Observer {
+public:
+  PasswordsChangeObserver(TestPasswordStoreMac* store) : observer_(this) {
+    observer_.Add(store);
+  }
+
+  void WaitAndVerify(PasswordStoreMacTest* test) {
+    test->WaitForStoreUpdate();
+    ::testing::Mock::VerifyAndClearExpectations(this);
+  }
+
+  // password_manager::PasswordStore::Observer:
+  MOCK_METHOD1(OnLoginsChanged,
+               void(const password_manager::PasswordStoreChangeList& changes));
+
+private:
+  ScopedObserver<password_manager::PasswordStore,
+                PasswordsChangeObserver> observer_;
+};
+
+password_manager::PasswordStoreChangeList GetAddChangeList(
+    const PasswordForm& form) {
+  password_manager::PasswordStoreChange change(
+      password_manager::PasswordStoreChange::ADD, form);
+  return password_manager::PasswordStoreChangeList(1, change);
+}
+
+// Tests RemoveLoginsCreatedBetween or RemoveLoginsSyncedBetween depending on
+// |check_created|.
+void CheckRemoveLoginsBetween(PasswordStoreMacTest* test, bool check_created) {
+  PasswordFormData www_form_data_facebook = {
+      PasswordForm::SCHEME_HTML, "http://www.facebook.com/",
+      "http://www.facebook.com/index.html", "login", L"submit", L"username",
+      L"password", L"joe_user", L"sekrit", true, false, 0 };
+  // The old form doesn't have elements names.
+  PasswordFormData www_form_data_facebook_old = {
+      PasswordForm::SCHEME_HTML, "http://www.facebook.com/",
+      "http://www.facebook.com/index.html", "login", L"", L"",
+      L"", L"joe_user", L"oldsekrit", true, false, 0 };
+  PasswordFormData www_form_data_other = {
+      PasswordForm::SCHEME_HTML, "http://different.com/",
+      "http://different.com/index.html", "login", L"submit", L"username",
+      L"password", L"different_joe_user", L"sekrit", true, false, 0 };
+  scoped_ptr<PasswordForm> form_facebook(
+      CreatePasswordFormFromData(www_form_data_facebook));
+  scoped_ptr<PasswordForm> form_facebook_old(
+      CreatePasswordFormFromData(www_form_data_facebook_old));
+  scoped_ptr<PasswordForm> form_other(
+      CreatePasswordFormFromData(www_form_data_other));
+  base::Time now = base::Time::Now();
+  // TODO(vasilii): remove the next line once crbug/374132 is fixed.
+  now = base::Time::FromTimeT(now.ToTimeT());
+  base::Time next_day = now + base::TimeDelta::FromDays(1);
+  if (check_created) {
+    form_facebook_old->date_created = now;
+    form_facebook->date_created = next_day;
+    form_other->date_created = next_day;
+  } else {
+    form_facebook_old->date_synced = now;
+    form_facebook->date_synced = next_day;
+    form_other->date_synced = next_day;
+  }
+
+  PasswordsChangeObserver observer(test->store());
+  test->store()->AddLogin(*form_facebook_old);
+  test->store()->AddLogin(*form_facebook);
+  test->store()->AddLogin(*form_other);
+  EXPECT_CALL(observer, OnLoginsChanged(GetAddChangeList(*form_facebook_old)));
+  EXPECT_CALL(observer, OnLoginsChanged(GetAddChangeList(*form_facebook)));
+  EXPECT_CALL(observer, OnLoginsChanged(GetAddChangeList(*form_other)));
+  observer.WaitAndVerify(test);
+
+  // Check the keychain content.
+  MacKeychainPasswordFormAdapter owned_keychain_adapter(test->keychain());
+  owned_keychain_adapter.SetFindsOnlyOwnedItems(false);
+  ScopedVector<PasswordForm> matching_items;
+  matching_items.get() = owned_keychain_adapter.PasswordsFillingForm(
+      form_facebook->signon_realm, form_facebook->scheme);
+  EXPECT_EQ(1u, matching_items.size());
+  matching_items.clear();
+  matching_items.get() = owned_keychain_adapter.PasswordsFillingForm(
+      form_other->signon_realm, form_other->scheme);
+  EXPECT_EQ(1u, matching_items.size());
+  matching_items.clear();
+
+  // Remove facebook.
+  void (PasswordStore::*method)(base::Time, base::Time) =
+      check_created ? &PasswordStore::RemoveLoginsCreatedBetween
+                    : &PasswordStore::RemoveLoginsSyncedBetween;
+  (test->store()->*method)(base::Time(), next_day);
+  password_manager::PasswordStoreChangeList list;
+  form_facebook_old->password_value.clear();
+  form_facebook->password_value.clear();
+  list.push_back(password_manager::PasswordStoreChange(
+      password_manager::PasswordStoreChange::REMOVE, *form_facebook_old));
+  list.push_back(password_manager::PasswordStoreChange(
+      password_manager::PasswordStoreChange::REMOVE, *form_facebook));
+  EXPECT_CALL(observer, OnLoginsChanged(list));
+  list.clear();
+  observer.WaitAndVerify(test);
+
+  matching_items.get() = owned_keychain_adapter.PasswordsFillingForm(
+      form_facebook->signon_realm, form_facebook->scheme);
+  EXPECT_EQ(0u, matching_items.size());
+  matching_items.get() = owned_keychain_adapter.PasswordsFillingForm(
+      form_other->signon_realm, form_other->scheme);
+  EXPECT_EQ(1u, matching_items.size());
+  matching_items.clear();
+
+  // Remove form_other.
+  (test->store()->*method)(next_day, base::Time());
+  form_other->password_value.clear();
+  list.push_back(password_manager::PasswordStoreChange(
+      password_manager::PasswordStoreChange::REMOVE, *form_other));
+  EXPECT_CALL(observer, OnLoginsChanged(list));
+  observer.WaitAndVerify(test);
+  matching_items.get() = owned_keychain_adapter.PasswordsFillingForm(
+      form_other->signon_realm, form_other->scheme);
+  EXPECT_EQ(0u, matching_items.size());
+}
+
+}  // namespace
+
+TEST_F(PasswordStoreMacTest, TestRemoveLoginsCreatedBetween) {
+  CheckRemoveLoginsBetween(this, true);
+}
+
+TEST_F(PasswordStoreMacTest, TestRemoveLoginsSyncedBetween) {
+  CheckRemoveLoginsBetween(this, false);
+}
+
+TEST_F(PasswordStoreMacTest, TestRemoveLoginsMultiProfile) {
+  // Make sure that RemoveLoginsCreatedBetween does affect only the correct
+  // profile.
+
+  // Add a third-party password.
+  MockAppleKeychain::KeychainTestData keychain_data = {
+      kSecAuthenticationTypeHTMLForm, "some.domain.com",
+      kSecProtocolTypeHTTP, "/insecure.html", 0, NULL, "20020601171500Z",
+      "joe_user", "sekrit", false };
+  keychain_->AddTestItem(keychain_data);
+
+  // Add a password through the adapter. It has the "Chrome" creator tag.
+  // However, it's not referenced by the password database.
+  MacKeychainPasswordFormAdapter owned_keychain_adapter(keychain_);
+  owned_keychain_adapter.SetFindsOnlyOwnedItems(true);
+  PasswordFormData www_form_data1 = {
+      PasswordForm::SCHEME_HTML, "http://www.facebook.com/",
+      "http://www.facebook.com/index.html", "login", L"username", L"password",
+      L"submit", L"joe_user", L"sekrit", true, false, 1 };
+  scoped_ptr<PasswordForm> www_form(CreatePasswordFormFromData(www_form_data1));
+  EXPECT_TRUE(owned_keychain_adapter.AddPassword(*www_form));
+
+  // Add a password from the current profile.
+  PasswordFormData www_form_data2 = {
+      PasswordForm::SCHEME_HTML, "http://www.facebook.com/",
+      "http://www.facebook.com/index.html", "login", L"username", L"password",
+      L"submit", L"not_joe_user", L"12345", true, false, 1 };
+  www_form.reset(CreatePasswordFormFromData(www_form_data2));
+  store_->AddLogin(*www_form);
+  WaitForStoreUpdate();
+
+  ScopedVector<PasswordForm> matching_items;
+  login_db_->GetLogins(*www_form, &matching_items.get());
+  EXPECT_EQ(1u, matching_items.size());
+  matching_items.clear();
+
+  store_->RemoveLoginsCreatedBetween(base::Time(), base::Time());
+  WaitForStoreUpdate();
+
+  // Check the second facebook form is gone.
+  login_db_->GetLogins(*www_form, &matching_items.get());
+  EXPECT_EQ(0u, matching_items.size());
+
+  // Check the first facebook form is still there.
+  matching_items.get() = owned_keychain_adapter.PasswordsFillingForm(
+      www_form->signon_realm, www_form->scheme);
+  ASSERT_EQ(1u, matching_items.size());
+  EXPECT_EQ(ASCIIToUTF16("joe_user"), matching_items[0]->username_value);
+  matching_items.clear();
+
+  // Check the third-party password is still there.
+  owned_keychain_adapter.SetFindsOnlyOwnedItems(false);
+  matching_items.get() = owned_keychain_adapter.PasswordsFillingForm(
+      "http://some.domain.com/insecure.html", PasswordForm::SCHEME_HTML);
+  ASSERT_EQ(1u, matching_items.size());
 }

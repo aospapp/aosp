@@ -26,6 +26,7 @@ extern const char kCheckedKey[];
 extern const char kHasSubmenuKey[];
 extern const char kMessageKey[];
 extern const char kStringValueKey[];
+extern const char kBoundsKey[];
 
 // Types of controls that can receive accessibility events.
 extern const char kTypeAlert[];
@@ -38,12 +39,22 @@ extern const char kTypeMenu[];
 extern const char kTypeMenuItem[];
 extern const char kTypeRadioButton[];
 extern const char kTypeSlider[];
+extern const char kTypeStaticText[];
 extern const char kTypeTab[];
 extern const char kTypeTextBox[];
 extern const char kTypeTree[];
 extern const char kTypeTreeItem[];
 extern const char kTypeVolume[];
 extern const char kTypeWindow[];
+
+// ScreenRect fields.
+extern const char kLeft[];
+extern const char kTop[];
+extern const char kWidth[];
+extern const char kHeight[];
+
+// Errors.
+extern const char kErrorNotSupported[];
 
 };  // namespace extension_accessibility_api_constants
 

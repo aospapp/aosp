@@ -10,7 +10,7 @@
 #include "chrome/browser/chromeos/file_system_provider/operations/operation.h"
 #include "chrome/browser/chromeos/file_system_provider/provided_file_system_info.h"
 #include "chrome/browser/chromeos/file_system_provider/request_value.h"
-#include "webkit/browser/fileapi/async_file_util.h"
+#include "storage/browser/fileapi/async_file_util.h"
 
 namespace base {
 class FilePath;
@@ -31,7 +31,7 @@ class ReadDirectory : public Operation {
   ReadDirectory(extensions::EventRouter* event_router,
                 const ProvidedFileSystemInfo& file_system_info,
                 const base::FilePath& directory_path,
-                const fileapi::AsyncFileUtil::ReadDirectoryCallback& callback);
+                const storage::AsyncFileUtil::ReadDirectoryCallback& callback);
   virtual ~ReadDirectory();
 
   // Operation overrides.
@@ -39,11 +39,13 @@ class ReadDirectory : public Operation {
   virtual void OnSuccess(int request_id,
                          scoped_ptr<RequestValue> result,
                          bool has_more) OVERRIDE;
-  virtual void OnError(int request_id, base::File::Error error) OVERRIDE;
+  virtual void OnError(int request_id,
+                       scoped_ptr<RequestValue> result,
+                       base::File::Error error) OVERRIDE;
 
  private:
   base::FilePath directory_path_;
-  const fileapi::AsyncFileUtil::ReadDirectoryCallback callback_;
+  const storage::AsyncFileUtil::ReadDirectoryCallback callback_;
 
   DISALLOW_COPY_AND_ASSIGN(ReadDirectory);
 };

@@ -16,6 +16,7 @@
 
 package com.android.server.wifi;
 
+import android.Manifest;
 import android.app.ActivityManager;
 import android.app.AppOpsManager;
 import android.bluetooth.BluetoothAdapter;
@@ -387,6 +388,30 @@ public final class WifiServiceImpl extends IWifiManager.Stub {
         }
     }
 
+    // Start a location scan.
+    // L release: A location scan is implemented as a normal scan and avoids scanning DFS channels
+    public void startLocationRestrictedScan(WorkSource workSource) {
+        enforceChangePermission();
+        enforceLocationHardwarePermission();
+        List<WifiChannel> channels = getChannelList();
+        if (channels == null) {
+            Slog.e(TAG, "startLocationRestrictedScan cant get channels");
+            return;
+        }
+        ScanSettings settings = new ScanSettings();
+        for (WifiChannel channel : channels) {
+            if (!channel.isDFS) {
+                settings.channelSet.add(channel);
+            }
+        }
+        if (workSource == null) {
+            // Make sure we always have a workSource indicating the origin of the scan
+            // hence if there is none, pick an internal WifiStateMachine one
+            workSource = new WorkSource(WifiStateMachine.DFS_RESTRICTED_SCAN_REQUEST);
+        }
+        startScan(settings, workSource);
+    }
+
     /**
      * see {@link android.net.wifi.WifiManager#startScan}
      * and {@link android.net.wifi.WifiManager#startCustomizedScan}
@@ -397,9 +422,6 @@ public final class WifiServiceImpl extends IWifiManager.Stub {
     public void startScan(ScanSettings settings, WorkSource workSource) {
         enforceChangePermission();
         if (settings != null) {
-            // TODO: should be removed once the startCustomizedScan API is opened up
-            mContext.enforceCallingOrSelfPermission(android.Manifest.permission.LOCATION_HARDWARE,
-                    "LocationHardware");
             settings = new ScanSettings(settings);
             if (!settings.isValid()) {
                 Slog.e(TAG, "invalid scan setting");
@@ -486,13 +508,14 @@ public final class WifiServiceImpl extends IWifiManager.Stub {
         if (mBatchedScanSupported == false) return new ArrayList<BatchedScanResult>();
         int uid = Binder.getCallingUid();
         int userId = UserHandle.getCallingUserId();
+        boolean hasInteractUsersFull = checkInteractAcrossUsersFull();
         long ident = Binder.clearCallingIdentity();
         try {
             if (mAppOps.noteOp(AppOpsManager.OP_WIFI_SCAN, uid, callingPackage)
                     != AppOpsManager.MODE_ALLOWED) {
                 return new ArrayList<BatchedScanResult>();
             }
-            if (!isCurrentProfile(userId)) {
+            if (!isCurrentProfile(userId) && !hasInteractUsersFull) {
                 return new ArrayList<BatchedScanResult>();
             }
             return mWifiStateMachine.syncGetBatchedScanResultsList();
@@ -611,7 +634,11 @@ public final class WifiServiceImpl extends IWifiManager.Stub {
     private void enforceChangePermission() {
         mContext.enforceCallingOrSelfPermission(android.Manifest.permission.CHANGE_WIFI_STATE,
                                                 "WifiService");
+    }
 
+    private void enforceLocationHardwarePermission() {
+        mContext.enforceCallingOrSelfPermission(Manifest.permission.LOCATION_HARDWARE,
+                "LocationHardware");
     }
 
     private void enforceReadCredentialPermission() {
@@ -948,19 +975,29 @@ public final class WifiServiceImpl extends IWifiManager.Stub {
         enforceAccessPermission();
         int userId = UserHandle.getCallingUserId();
         int uid = Binder.getCallingUid();
+        boolean hasInteractUsersFull = checkInteractAcrossUsersFull();
         long ident = Binder.clearCallingIdentity();
         try {
             if (mAppOps.noteOp(AppOpsManager.OP_WIFI_SCAN, uid, callingPackage)
                     != AppOpsManager.MODE_ALLOWED) {
                 return new ArrayList<ScanResult>();
             }
-            if (!isCurrentProfile(userId)) {
+            if (!isCurrentProfile(userId) && !hasInteractUsersFull) {
                 return new ArrayList<ScanResult>();
             }
             return mWifiStateMachine.syncGetScanResultsList();
         } finally {
             Binder.restoreCallingIdentity(ident);
         }
+    }
+
+    /**
+     * Returns true if the caller holds INTERACT_ACROSS_USERS_FULL.
+     */
+    private boolean checkInteractAcrossUsersFull() {
+        return mContext.checkCallingOrSelfPermission(
+                android.Manifest.permission.INTERACT_ACROSS_USERS_FULL)
+                == PackageManager.PERMISSION_GRANTED;
     }
 
     /**
@@ -1276,6 +1313,14 @@ public final class WifiServiceImpl extends IWifiManager.Stub {
         return new Messenger(mClientHandler);
     }
 
+    /**
+     * Disable an ephemeral network, i.e. network that is created thru a WiFi Scorer
+     */
+    public void disableEphemeralNetwork(String SSID) {
+        enforceAccessPermission();
+        enforceChangePermission();
+        mWifiStateMachine.disableEphemeralNetwork(SSID);
+    }
 
     /**
      * Get the IP and proxy configuration file

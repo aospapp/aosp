@@ -8,7 +8,8 @@
 #include "base/macros.h"
 #include "cc/animation/animation.h"
 #include "content/public/common/screen_orientation_values.h"
-#include "third_party/WebKit/public/platform/WebAnimation.h"
+#include "net/base/mime_util.h"
+#include "third_party/WebKit/public/platform/WebCompositorAnimation.h"
 #include "third_party/WebKit/public/platform/WebMimeRegistry.h"
 #include "third_party/WebKit/public/platform/WebScreenOrientationLockType.h"
 
@@ -34,17 +35,29 @@ COMPILE_ASSERT_MATCHING_ENUM(blink::WebScreenOrientationLockLandscape,
     LANDSCAPE);
 COMPILE_ASSERT_MATCHING_ENUM(blink::WebScreenOrientationLockPortrait,
     PORTRAIT);
+COMPILE_ASSERT_MATCHING_ENUM(blink::WebScreenOrientationLockNatural,
+    NATURAL);
+
+// SupportsType
+COMPILE_ASSERT_MATCHING_ENUM(blink::WebMimeRegistry::IsNotSupported,
+    net::IsNotSupported);
+COMPILE_ASSERT_MATCHING_ENUM(blink::WebMimeRegistry::IsSupported,
+    net::IsSupported);
+COMPILE_ASSERT_MATCHING_ENUM(blink::WebMimeRegistry::MayBeSupported,
+    net::MayBeSupported);
 
 // TargetProperty
-COMPILE_ASSERT_MATCHING_ENUM(blink::WebAnimation::TargetPropertyTransform,
+COMPILE_ASSERT_MATCHING_ENUM(
+    blink::WebCompositorAnimation::TargetPropertyTransform,
     cc::Animation::Transform);
-COMPILE_ASSERT_MATCHING_ENUM(blink::WebAnimation::TargetPropertyOpacity,
+COMPILE_ASSERT_MATCHING_ENUM(
+    blink::WebCompositorAnimation::TargetPropertyOpacity,
     cc::Animation::Opacity);
-COMPILE_ASSERT_MATCHING_ENUM(blink::WebAnimation::TargetPropertyFilter,
+COMPILE_ASSERT_MATCHING_ENUM(
+    blink::WebCompositorAnimation::TargetPropertyFilter,
     cc::Animation::Filter);
-#if WEB_SCROLL_OFFSET_ANIMATION_CURVE_IS_DEFINED
-COMPILE_ASSERT_MATCHING_ENUM(blink::WebAnimation::TargetPropertyScrollOffset,
+COMPILE_ASSERT_MATCHING_ENUM(
+    blink::WebCompositorAnimation::TargetPropertyScrollOffset,
     cc::Animation::ScrollOffset);
-#endif
 
 } // namespace content

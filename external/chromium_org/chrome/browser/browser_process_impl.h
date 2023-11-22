@@ -21,9 +21,9 @@
 #include "base/timer/timer.h"
 #include "chrome/browser/browser_process.h"
 
+class ChromeDeviceClient;
 class ChromeNetLog;
 class ChromeResourceDispatcherHostDelegate;
-class MetricsServicesManager;
 class RemoteDebuggingServer;
 class PrefRegistrySimple;
 class PromoResourceService;
@@ -78,7 +78,7 @@ class BrowserProcessImpl : public BrowserProcess,
   virtual void ResourceDispatcherHostCreated() OVERRIDE;
   virtual void EndSession() OVERRIDE;
   virtual MetricsServicesManager* GetMetricsServicesManager() OVERRIDE;
-  virtual MetricsService* metrics_service() OVERRIDE;
+  virtual metrics::MetricsService* metrics_service() OVERRIDE;
   virtual rappor::RapporService* rappor_service() OVERRIDE;
   virtual IOThread* io_thread() OVERRIDE;
   virtual WatchDogThread* watchdog_thread() OVERRIDE;
@@ -194,22 +194,25 @@ class BrowserProcessImpl : public BrowserProcess,
 
   scoped_ptr<GpuModeManager> gpu_mode_manager_;
 
+#if defined(ENABLE_EXTENSIONS)
   scoped_ptr<extensions::ExtensionsBrowserClient> extensions_browser_client_;
+
   scoped_refptr<extensions::EventRouterForwarder>
       extension_event_router_forwarder_;
+
+  scoped_ptr<MediaFileSystemRegistry> media_file_system_registry_;
+#endif
 
 #if !defined(OS_ANDROID)
   scoped_ptr<RemoteDebuggingServer> remote_debugging_server_;
 #endif
 
-#if !defined(OS_ANDROID) && !defined(OS_IOS)
-  scoped_ptr<MediaFileSystemRegistry> media_file_system_registry_;
-#endif
-
+#if defined(ENABLE_FULL_PRINTING)
   scoped_refptr<printing::PrintPreviewDialogController>
       print_preview_dialog_controller_;
 
   scoped_ptr<printing::BackgroundPrintingManager> background_printing_manager_;
+#endif
 
   // Manager for desktop notification UI.
   bool created_notification_ui_manager_;
@@ -273,8 +276,11 @@ class BrowserProcessImpl : public BrowserProcess,
   // but some users of component updater only install per-user.
   scoped_ptr<component_updater::ComponentUpdateService> component_updater_;
   scoped_refptr<CRLSetFetcher> crl_set_fetcher_;
+
+#if !defined(DISABLE_NACL)
   scoped_ptr<component_updater::PnaclComponentInstaller>
       pnacl_component_installer_;
+#endif
 
 #if defined(ENABLE_PLUGIN_INSTALLATION)
   scoped_refptr<PluginsResourceService> plugins_resource_service_;
@@ -294,6 +300,10 @@ class BrowserProcessImpl : public BrowserProcess,
   scoped_ptr<network_time::NetworkTimeTracker> network_time_tracker_;
 
   scoped_ptr<gcm::GCMDriver> gcm_driver_;
+
+#if !defined(OS_ANDROID)
+  scoped_ptr<ChromeDeviceClient> device_client_;
+#endif
 
   DISALLOW_COPY_AND_ASSIGN(BrowserProcessImpl);
 };

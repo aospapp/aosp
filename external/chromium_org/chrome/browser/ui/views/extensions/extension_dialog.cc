@@ -10,6 +10,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/views/constrained_window_views.h"
 #include "chrome/browser/ui/views/extensions/extension_dialog_observer.h"
+#include "chrome/browser/ui/views/extensions/extension_view_views.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/render_view_host.h"
@@ -24,19 +25,30 @@
 using content::BrowserContext;
 using content::WebContents;
 
+namespace {
+
+ExtensionViewViews* GetExtensionView(extensions::ExtensionViewHost* host) {
+  return static_cast<ExtensionViewViews*>(host->view());
+}
+
+}  // namespace
+
 ExtensionDialog::ExtensionDialog(extensions::ExtensionViewHost* host,
                                  ExtensionDialogObserver* observer)
     : host_(host),
       observer_(observer) {
   AddRef();  // Balanced in DeleteDelegate();
 
-  registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_HOST_DID_STOP_LOADING,
+  registrar_.Add(this,
+                 extensions::NOTIFICATION_EXTENSION_HOST_DID_STOP_LOADING,
                  content::Source<BrowserContext>(host->browser_context()));
   // Listen for the containing view calling window.close();
-  registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_HOST_VIEW_SHOULD_CLOSE,
+  registrar_.Add(this,
+                 extensions::NOTIFICATION_EXTENSION_HOST_VIEW_SHOULD_CLOSE,
                  content::Source<BrowserContext>(host->browser_context()));
   // Listen for a crash or other termination of the extension process.
-  registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_PROCESS_TERMINATED,
+  registrar_.Add(this,
+                 extensions::NOTIFICATION_EXTENSION_PROCESS_TERMINATED,
                  content::Source<BrowserContext>(host->browser_context()));
 }
 
@@ -61,8 +73,9 @@ ExtensionDialog* ExtensionDialog::Show(
     return NULL;
   // Preferred size must be set before views::Widget::CreateWindowWithParent
   // is called because CreateWindowWithParent refers the result of CanResize().
-  host->view()->SetPreferredSize(gfx::Size(width, height));
-  host->view()->set_minimum_size(gfx::Size(min_width, min_height));
+  ExtensionViewViews* view = GetExtensionView(host);
+  view->SetPreferredSize(gfx::Size(width, height));
+  view->set_minimum_size(gfx::Size(min_width, min_height));
   host->SetAssociatedWebContents(web_contents);
 
   DCHECK(parent_window);
@@ -72,9 +85,9 @@ ExtensionDialog* ExtensionDialog::Show(
 
   // Show a white background while the extension loads.  This is prettier than
   // flashing a black unfilled window frame.
-  host->view()->set_background(
+  view->set_background(
       views::Background::CreateSolidBackground(0xFF, 0xFF, 0xFF));
-  host->view()->SetVisible(true);
+  view->SetVisible(true);
 
   // Ensure the DOM JavaScript can respond immediately to keyboard shortcuts.
   host->host_contents()->Focus();
@@ -132,11 +145,11 @@ int ExtensionDialog::GetDialogButtons() const {
 
 bool ExtensionDialog::CanResize() const {
   // Can resize only if minimum contents size set.
-  return host_->view()->GetPreferredSize() != gfx::Size();
+  return GetExtensionView(host_.get())->GetPreferredSize() != gfx::Size();
 }
 
 void ExtensionDialog::SetMinimumContentsSize(int width, int height) {
-  host_->view()->SetPreferredSize(gfx::Size(width, height));
+  GetExtensionView(host_.get())->SetPreferredSize(gfx::Size(width, height));
 }
 
 ui::ModalType ExtensionDialog::GetModalType() const {
@@ -162,15 +175,15 @@ void ExtensionDialog::DeleteDelegate() {
 }
 
 views::Widget* ExtensionDialog::GetWidget() {
-  return host_->view()->GetWidget();
+  return GetExtensionView(host_.get())->GetWidget();
 }
 
 const views::Widget* ExtensionDialog::GetWidget() const {
-  return host_->view()->GetWidget();
+  return GetExtensionView(host_.get())->GetWidget();
 }
 
 views::View* ExtensionDialog::GetContentsView() {
-  return host_->view();
+  return GetExtensionView(host_.get());
 }
 
 bool ExtensionDialog::UseNewStyleForThisDialog() const {
@@ -184,22 +197,22 @@ void ExtensionDialog::Observe(int type,
                              const content::NotificationSource& source,
                              const content::NotificationDetails& details) {
   switch (type) {
-    case chrome::NOTIFICATION_EXTENSION_HOST_DID_STOP_LOADING:
+    case extensions::NOTIFICATION_EXTENSION_HOST_DID_STOP_LOADING:
       // Avoid potential overdraw by removing the temporary background after
       // the extension finishes loading.
-      host_->view()->set_background(NULL);
+      GetExtensionView(host_.get())->set_background(NULL);
       // The render view is created during the LoadURL(), so we should
       // set the focus to the view if nobody else takes the focus.
       if (content::Details<extensions::ExtensionHost>(host()) == details)
         MaybeFocusRenderView();
       break;
-    case chrome::NOTIFICATION_EXTENSION_HOST_VIEW_SHOULD_CLOSE:
+    case extensions::NOTIFICATION_EXTENSION_HOST_VIEW_SHOULD_CLOSE:
       // If we aren't the host of the popup, then disregard the notification.
       if (content::Details<extensions::ExtensionHost>(host()) != details)
         return;
       GetWidget()->Close();
       break;
-    case chrome::NOTIFICATION_EXTENSION_PROCESS_TERMINATED:
+    case extensions::NOTIFICATION_EXTENSION_PROCESS_TERMINATED:
       if (content::Details<extensions::ExtensionHost>(host()) != details)
         return;
       if (observer_)

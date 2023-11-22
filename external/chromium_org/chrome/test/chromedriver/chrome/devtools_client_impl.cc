@@ -53,6 +53,10 @@ Status ConditionIsMet(bool* is_condition_met) {
   return Status(kOk);
 }
 
+Status FakeCloseFrontends() {
+  return Status(kOk);
+}
+
 }  // namespace
 
 namespace internal {
@@ -66,6 +70,22 @@ InspectorCommandResponse::InspectorCommandResponse() {}
 InspectorCommandResponse::~InspectorCommandResponse() {}
 
 }  // namespace internal
+
+const char DevToolsClientImpl::kBrowserwideDevToolsClientId[] = "browser";
+
+DevToolsClientImpl::DevToolsClientImpl(
+    const SyncWebSocketFactory& factory,
+    const std::string& url,
+    const std::string& id)
+    : socket_(factory.Run().Pass()),
+      url_(url),
+      crashed_(false),
+      id_(id),
+      frontend_closer_func_(base::Bind(&FakeCloseFrontends)),
+      parser_func_(base::Bind(&internal::ParseInspectorMessage)),
+      unnotified_event_(NULL),
+      next_id_(1),
+      stack_count_(0) {}
 
 DevToolsClientImpl::DevToolsClientImpl(
     const SyncWebSocketFactory& factory,
@@ -454,16 +474,19 @@ bool ParseInspectorMessage(
   } else if (message_dict->GetInteger("id", &id)) {
     base::DictionaryValue* unscoped_error = NULL;
     base::DictionaryValue* unscoped_result = NULL;
-    if (!message_dict->GetDictionary("error", &unscoped_error) &&
-        !message_dict->GetDictionary("result", &unscoped_result))
-      return false;
-
     *type = kCommandResponseMessageType;
     command_response->id = id;
-    if (unscoped_result)
+    // As per Chromium issue 392577, DevTools does not necessarily return a
+    // "result" dictionary for every valid response. In particular,
+    // Tracing.start and Tracing.end command responses do not contain one.
+    // So, if neither "error" nor "result" keys are present, just provide
+    // a blank result dictionary.
+    if (message_dict->GetDictionary("result", &unscoped_result))
       command_response->result.reset(unscoped_result->DeepCopy());
-    else
+    else if (message_dict->GetDictionary("error", &unscoped_error))
       base::JSONWriter::Write(unscoped_error, &command_response->error);
+    else
+      command_response->result.reset(new base::DictionaryValue());
     return true;
   }
   return false;

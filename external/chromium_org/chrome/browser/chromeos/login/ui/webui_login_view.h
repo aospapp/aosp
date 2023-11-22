@@ -12,6 +12,7 @@
 #include "base/observer_list.h"
 #include "chrome/browser/extensions/signin/scoped_gaia_auth_extension.h"
 #include "chrome/browser/ui/chrome_web_modal_dialog_manager_delegate.h"
+#include "components/web_modal/popup_manager.h"
 #include "components/web_modal/web_contents_modal_dialog_host.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
@@ -44,6 +45,12 @@ class WebUILoginView : public views::View,
                        public ChromeWebModalDialogManagerDelegate,
                        public web_modal::WebContentsModalDialogHost {
  public:
+  class FrameObserver {
+   public:
+    // Called when a frame failed to load.
+    virtual void OnFrameError(const std::string& frame_unique_name) = 0;
+  };
+
   // Internal class name.
   static const char kViewClassName[];
 
@@ -105,6 +112,9 @@ class WebUILoginView : public views::View,
     should_emit_login_prompt_visible_ = emit;
   }
 
+  void AddFrameObserver(FrameObserver* frame_observer);
+  void RemoveFrameObserver(FrameObserver* frame_observer);
+
  protected:
   // Overridden from views::View:
   virtual void Layout() OVERRIDE;
@@ -137,19 +147,20 @@ class WebUILoginView : public views::View,
       content::WebContents* web_contents,
       const content::MediaStreamRequest& request,
       const content::MediaResponseCallback& callback) OVERRIDE;
+  virtual bool CheckMediaAccessPermission(
+      content::WebContents* web_contents,
+      const GURL& security_origin,
+      content::MediaStreamType type) OVERRIDE;
   virtual bool PreHandleGestureEvent(
       content::WebContents* source,
       const blink::WebGestureEvent& event) OVERRIDE;
 
   // Overridden from content::WebContentsObserver.
   virtual void DidFailProvisionalLoad(
-      int64 frame_id,
-      const base::string16& frame_unique_name,
-      bool is_main_frame,
+      content::RenderFrameHost* render_frame_host,
       const GURL& validated_url,
       int error_code,
-      const base::string16& error_description,
-      content::RenderViewHost* render_view_host) OVERRIDE;
+      const base::string16& error_description) OVERRIDE;
 
   // Performs series of actions when login prompt is considered
   // to be ready and visible.
@@ -185,6 +196,12 @@ class WebUILoginView : public views::View,
   scoped_ptr<ScopedGaiaAuthExtension> auth_extension_;
 
   ObserverList<web_modal::ModalDialogHostObserver> observer_list_;
+  ObserverList<FrameObserver> frame_observer_list_;
+
+  // Manage popups appearing over the login window.
+  // TODO(gbillock): See if we can get rid of this. Perhaps in favor of
+  // in-content styled popups or something? There oughtta be a way...
+  scoped_ptr<web_modal::PopupManager> popup_manager_;
 
   DISALLOW_COPY_AND_ASSIGN(WebUILoginView);
 };

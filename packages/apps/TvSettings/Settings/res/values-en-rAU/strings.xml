@@ -63,6 +63,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"Backup &amp; restore"</string>
     <string name="device_reset" msgid="2827002349560023125">"Factory data reset"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Calibration"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"Downloaded apps"</string>
     <string name="apps_system" msgid="2499191125802829425">"System app"</string>
     <string name="apps_running" msgid="6430310491739956228">"Running apps"</string>
@@ -107,7 +111,7 @@
     <string name="system_language" msgid="2337138146114609247">"Language"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"Keyboard"</string>
     <string name="system_search" msgid="2837264654143247611">"Search"</string>
-    <!-- no translation found for system_security (4190058778883258927) -->
+    <!-- no translation found for system_security (8230080273993484407) -->
     <skip />
     <string name="system_speech" msgid="8128688499687306982">"Speech"</string>
     <!-- no translation found for system_inputs (2413907183796651102) -->
@@ -119,12 +123,13 @@
     <string name="about_system_update" msgid="7282772247661356586">"System update"</string>
     <string name="about_preference" msgid="4131396784531360434">"About"</string>
     <string name="device_name" msgid="2670488158531273028">"Device name"</string>
+    <!-- no translation found for restart_button_label (8153112858638352970) -->
+    <skip />
     <string name="about_legal_info" msgid="8511870741437307531">"Legal information"</string>
     <string name="about_warranty" msgid="5736003473060436384">"Warranty"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"Open-source licences"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"View Terms of Service"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"View Privacy Policy"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"View Additional Terms"</string>
+    <!-- no translation found for about_terms_of_service (7743088207977334874) -->
+    <skip />
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"Licence data is unavailable"</string>
     <string name="about_model" msgid="6625269442206323995">"Model"</string>
     <string name="about_version" msgid="1177287676732287266">"Version"</string>
@@ -303,7 +308,6 @@
     <string name="system_date" msgid="2767108116769558081">"Date"</string>
     <string name="system_time" msgid="6726022312605226285">"Time"</string>
     <string name="system_set_date" msgid="2437586307768561116">"Set date"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"Choose date format"</string>
     <string name="system_set_time" msgid="4661804115501057452">"Set time"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"Set time zone"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"Use 24-hour format"</string>

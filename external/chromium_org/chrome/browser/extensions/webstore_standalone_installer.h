@@ -10,10 +10,12 @@
 #include "base/callback.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "chrome/browser/extensions/active_install_data.h"
 #include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/webstore_data_fetcher_delegate.h"
 #include "chrome/browser/extensions/webstore_install_helper.h"
 #include "chrome/browser/extensions/webstore_installer.h"
+#include "chrome/common/extensions/webstore_install_result.h"
 #include "net/url_request/url_fetcher_delegate.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 
@@ -50,7 +52,9 @@ class WebstoreStandaloneInstaller
   // A callback for when the install process completes, successfully or not. If
   // there was a failure, |success| will be false and |error| may contain a
   // developer-readable error message about why it failed.
-  typedef base::Callback<void(bool success, const std::string& error)> Callback;
+  typedef base::Callback<void(bool success,
+                              const std::string& error,
+                              webstore_install::Result result)> Callback;
 
   WebstoreStandaloneInstaller(const std::string& webstore_item_id,
                               Profile* profile,
@@ -60,11 +64,36 @@ class WebstoreStandaloneInstaller
  protected:
   virtual ~WebstoreStandaloneInstaller();
 
+  // Runs the callback; primarily used for running a callback before it is
+  // cleared in AbortInstall().
+  void RunCallback(
+      bool success, const std::string& error, webstore_install::Result result);
+
+  // Called when the install should be aborted. The callback is cleared.
   void AbortInstall();
-  void InvokeCallback(const std::string& error);
-  virtual void CompleteInstall(const std::string& error);
+
+  // Checks InstallTracker and returns true if the same extension is not
+  // currently being installed. Registers this install with the InstallTracker.
+  bool EnsureUniqueInstall(webstore_install::Result* reason,
+                           std::string* error);
+
+  // Called when the install is complete.
+  virtual void CompleteInstall(webstore_install::Result result,
+                               const std::string& error);
+
+  // Called when the installer should proceed to prompt the user.
+  void ProceedWithInstallPrompt();
+
+  // Lazily creates a dummy extension for display from the parsed manifest. This
+  // is safe to call from OnManifestParsed() onwards. The manifest may be
+  // invalid, thus the caller must check that the return value is not NULL.
+  scoped_refptr<const Extension> GetLocalizedExtensionForDisplay();
 
   // Template Method's hooks to be implemented by subclasses.
+
+  // Called when this install is about to be registered with the InstallTracker.
+  // Allows subclasses to set properties of the install data.
+  virtual void InitInstallData(ActiveInstallData* install_data) const;
 
   // Called at certain check points of the workflow to decide whether it makes
   // sense to proceed with installation. A requestor can be a website that
@@ -108,11 +137,12 @@ class WebstoreStandaloneInstaller
       const base::DictionaryValue& webstore_data,
       std::string* error) const = 0;
 
-  // Perform all necessary checks after the manifest has been parsed to make
-  // sure that the install should still proceed.
-  virtual bool CheckInstallValid(
-      const base::DictionaryValue& manifest,
-      std::string* error);
+  // Will be called after the extension's manifest has been successfully parsed.
+  // Subclasses can perform asynchronous checks at this point and call
+  // ProceedWithInstallPrompt() to proceed with the install or otherwise call
+  // CompleteInstall() with an error code. The default implementation calls
+  // ProceedWithInstallPrompt().
+  virtual void OnManifestParsed();
 
   // Returns an install UI to be shown. By default, this returns an install UI
   // that is a transient child of the host window for GetWebContents().
@@ -120,6 +150,10 @@ class WebstoreStandaloneInstaller
 
   // Create an approval to pass installation parameters to the CrxInstaller.
   virtual scoped_ptr<WebstoreInstaller::Approval> CreateApproval() const;
+
+  // ExtensionInstallPrompt::Delegate interface implementation.
+  virtual void InstallUIProceed() OVERRIDE;
+  virtual void InstallUIAbort(bool user_initiated) OVERRIDE;
 
   // Accessors to be used by subclasses.
   bool show_user_count() const { return show_user_count_; }
@@ -137,6 +171,9 @@ class WebstoreStandaloneInstaller
   Profile* profile() const { return profile_; }
   const std::string& id() const { return id_; }
   const base::DictionaryValue* manifest() const { return manifest_.get(); }
+  const Extension* localized_extension_for_display() const {
+    return localized_extension_for_display_.get();
+  }
 
  private:
   friend class base::RefCountedThreadSafe<WebstoreStandaloneInstaller>;
@@ -174,10 +211,6 @@ class WebstoreStandaloneInstaller
       InstallHelperResultCode result_code,
       const std::string& error_message) OVERRIDE;
 
-  // ExtensionInstallPrompt::Delegate interface implementation.
-  virtual void InstallUIProceed() OVERRIDE;
-  virtual void InstallUIAbort(bool user_initiated) OVERRIDE;
-
   // WebstoreInstaller::Delegate interface implementation.
   virtual void OnExtensionInstallSuccess(const std::string& id) OVERRIDE;
   virtual void OnExtensionInstallFailure(
@@ -211,6 +244,9 @@ class WebstoreStandaloneInstaller
   scoped_ptr<base::DictionaryValue> webstore_data_;
   scoped_ptr<base::DictionaryValue> manifest_;
   SkBitmap icon_;
+
+  // Active install registered with the InstallTracker.
+  scoped_ptr<ScopedActiveInstall> scoped_active_install_;
 
   // Created by ShowInstallUI() when a prompt is shown (if
   // the implementor returns a non-NULL in CreateInstallPrompt()).

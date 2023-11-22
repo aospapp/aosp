@@ -13,28 +13,34 @@ import module as mojom
 
 class PackedField(object):
   kind_to_size = {
-    mojom.BOOL:         1,
-    mojom.INT8:         1,
-    mojom.UINT8:        1,
-    mojom.INT16:        2,
-    mojom.UINT16:       2,
-    mojom.INT32:        4,
-    mojom.UINT32:       4,
-    mojom.FLOAT:        4,
-    mojom.HANDLE:       4,
-    mojom.MSGPIPE:      4,
-    mojom.SHAREDBUFFER: 4,
-    mojom.DCPIPE:       4,
-    mojom.DPPIPE:       4,
-    mojom.INT64:        8,
-    mojom.UINT64:       8,
-    mojom.DOUBLE:       8,
-    mojom.STRING:       8
+    mojom.BOOL:                  1,
+    mojom.INT8:                  1,
+    mojom.UINT8:                 1,
+    mojom.INT16:                 2,
+    mojom.UINT16:                2,
+    mojom.INT32:                 4,
+    mojom.UINT32:                4,
+    mojom.FLOAT:                 4,
+    mojom.HANDLE:                4,
+    mojom.MSGPIPE:               4,
+    mojom.SHAREDBUFFER:          4,
+    mojom.DCPIPE:                4,
+    mojom.DPPIPE:                4,
+    mojom.NULLABLE_HANDLE:       4,
+    mojom.NULLABLE_MSGPIPE:      4,
+    mojom.NULLABLE_SHAREDBUFFER: 4,
+    mojom.NULLABLE_DCPIPE:       4,
+    mojom.NULLABLE_DPPIPE:       4,
+    mojom.INT64:                 8,
+    mojom.UINT64:                8,
+    mojom.DOUBLE:                8,
+    mojom.STRING:                8,
+    mojom.NULLABLE_STRING:       8
   }
 
   @classmethod
   def GetSizeForKind(cls, kind):
-    if isinstance(kind, mojom.Array) or isinstance(kind, mojom.Struct):
+    if isinstance(kind, (mojom.Array, mojom.Struct, mojom.FixedArray)):
       return 8
     if isinstance(kind, mojom.Interface) or \
        isinstance(kind, mojom.InterfaceRequest):

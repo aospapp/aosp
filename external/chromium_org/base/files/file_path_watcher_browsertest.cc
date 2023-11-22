@@ -17,8 +17,8 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/compiler_specific.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/message_loop/message_loop.h"
 #include "base/message_loop/message_loop_proxy.h"
@@ -528,7 +528,7 @@ TEST_F(FilePathWatcherTest, RecursiveWatch) {
   ASSERT_TRUE(WaitForEvents());
 
   // Modify "$dir/subdir/subdir_child_dir/child_dir_file1" attributes.
-  ASSERT_TRUE(file_util::MakeFileUnreadable(child_dir_file1));
+  ASSERT_TRUE(base::MakeFileUnreadable(child_dir_file1));
   ASSERT_TRUE(WaitForEvents());
 
   // Delete "$dir/subdir/subdir_file1".
@@ -618,7 +618,7 @@ TEST_F(FilePathWatcherTest, FileAttributesChanged) {
   ASSERT_TRUE(SetupWatch(test_file(), &watcher, delegate.get(), false));
 
   // Now make sure we get notified if the file is modified.
-  ASSERT_TRUE(file_util::MakeFileUnreadable(test_file()));
+  ASSERT_TRUE(base::MakeFileUnreadable(test_file()));
   ASSERT_TRUE(WaitForEvents());
   DeleteDelegateOnFileThread(delegate.release());
 }

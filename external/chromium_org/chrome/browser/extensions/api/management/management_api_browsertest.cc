@@ -2,21 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/extensions/api/management/management_api.h"
 #include "chrome/browser/extensions/api/management/management_api_constants.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/extensions/extension_function_test_utils.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/extensions/extension_test_message_listener.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/common/chrome_switches.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/browser_test_utils.h"
@@ -24,6 +20,9 @@
 #include "extensions/browser/extension_host.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/notification_types.h"
+#include "extensions/common/test_util.h"
+#include "extensions/test/extension_test_message_listener.h"
 
 namespace keys = extension_management_api_constants;
 namespace util = extension_function_test_utils;
@@ -101,6 +100,14 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementApiBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(ExtensionManagementApiBrowserTest,
+                       GetSelfNoPermissions) {
+  ExtensionTestMessageListener listener1("success", false);
+  ASSERT_TRUE(LoadExtension(
+      test_data_dir_.AppendASCII("management/get_self")));
+  ASSERT_TRUE(listener1.WaitUntilSatisfied());
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionManagementApiBrowserTest,
                        UninstallWithConfirmDialog) {
   ExtensionService* service = ExtensionSystem::Get(browser()->profile())->
       extension_service();
@@ -112,12 +119,11 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementApiBrowserTest,
 
   const std::string id = extension->id();
 
-  scoped_refptr<Extension> empty_extension(
-      extension_function_test_utils::CreateEmptyExtension());
+  scoped_refptr<Extension> empty_extension(test_util::CreateEmptyExtension());
   // Uninstall, then cancel via the confirm dialog.
   scoped_refptr<ManagementUninstallFunction> uninstall_function(
       new ManagementUninstallFunction());
-  uninstall_function->set_extension(empty_extension);
+  uninstall_function->set_extension(empty_extension.get());
   uninstall_function->set_user_gesture(true);
   ManagementUninstallFunction::SetAutoConfirmForTest(false);
 
@@ -134,7 +140,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementApiBrowserTest,
 
   // Uninstall, then accept via the confirm dialog.
   uninstall_function = new ManagementUninstallFunction();
-  uninstall_function->set_extension(empty_extension);
+  uninstall_function->set_extension(empty_extension.get());
   ManagementUninstallFunction::SetAutoConfirmForTest(true);
   uninstall_function->set_user_gesture(true);
   util::RunFunctionAndReturnSingleResult(
@@ -290,8 +296,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementApiEscalationTest,
   SetEnabled(true, false, keys::kGestureNeededForEscalationError);
 
   // Expect an error that user cancelled the dialog.
-  CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-      switches::kAppsGalleryInstallAutoConfirmForTests, "cancel");
+  ExtensionInstallPrompt::g_auto_confirm_for_tests =
+      ExtensionInstallPrompt::CANCEL;
   SetEnabled(true, true, keys::kUserDidNotReEnableError);
 
   // This should succeed when user accepts dialog.  We must wait for the process
@@ -299,10 +305,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementApiEscalationTest,
   // crash it.  (NOTIFICATION_RENDERER_PROCESS_CREATED does not wait for the
   // latter and can cause KillProcess to fail on Windows.)
   content::WindowedNotificationObserver observer(
-      chrome::NOTIFICATION_EXTENSION_HOST_CREATED,
+      extensions::NOTIFICATION_EXTENSION_HOST_CREATED,
       content::NotificationService::AllSources());
-  CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-      switches::kAppsGalleryInstallAutoConfirmForTests, "accept");
+  ExtensionInstallPrompt::g_auto_confirm_for_tests =
+      ExtensionInstallPrompt::ACCEPT;
   SetEnabled(true, true, std::string());
   observer.Wait();
 

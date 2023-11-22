@@ -6,7 +6,7 @@ header.hide=1
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2014 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -42,41 +42,47 @@ header.hide=1
     <div class="col-8">
     <h3>What's New</h3>
 
-<a href="{@docRoot}source/build-numbers.html">
-        <h4>Android 4.4.4 released</h4></a>
-        <p>Builds for Android 4.4.4 have been released. See the <strong><a
-href="{@docRoot}source/build-numbers.html#source-code-tags-and-builds">Source
-Code Tags and Builds</a></strong> table on <strong>Codenames, Tags, and Build
-Numbers</strong> for the new builds, tags, and devices supported.</p>
-
-<a href="{@docRoot}compatibility/downloads.html">
-        <h4>Android 4.4 CTS packages updated</h4></a>
-        <p>Revision 3 of the Android 4.4 Compatibility Test Suite (CTS) and
-Android 4.4 CTS Verifier have been added to Compatibility
-<strong><a
-href="{@docRoot}compatibility/downloads.html">Downloads</a></strong>. Packages
-for x86 architectures are included for the first time.</p>
+<a href="{@docRoot}devices/audio.html">
+        <h4>Audio gains attributes, USB, and headset documentation</h4></a>
+        <p>The <strong><a
+        href="{@docRoot}devices/audio.html">Audio section</a></strong> now describes <strong><a
+	href="{@docRoot}devices/audio_attributes.html">Attributes</a></strong> and <strong><a
+        href="{@docRoot}devices/audio_usb.html">USB digital audio</a></strong> support, while a <strong><a
+	href="{@docRoot}accessories/headset-spec.html">Wired audio headset
+        specification</a></strong> can now be found in the <strong><a
+        href="{@docRoot}accessories/index.html">Accessories section</a></strong>.</p>
 
 <img border="0" src="images/Android_Robot_100.png" alt="Android Partner icon" style="display:inline;float:right;margin:5px 10px">
 
-<a href="{@docRoot}devices/tech/dalvik/art.html">
-        <h4>ART introduction completely revised</h4></a>
+<a href="{@docRoot}devices/tech/security/index.html">
+        <h4>Encryption and SELinux revised</h4></a>
         <p><strong><a
-href="{@docRoot}devices/tech/dalvik/art.html">Introducing ART</a></strong> has been
-rewritten to reflect forthcoming changes and prepare developers and
-manufacturers for the runtime's adoption.</p>
+        href="{@docRoot}devices/tech/encryption/index.html">Encryption</a></strong> and <strong><a
+        href="{@docRoot}devices/tech/security/se-linux.html">Security-Enhanced Linux</a></strong> have been
+	updated to describe the latest features of Android 5.0, such as default
+        encryption and full enforcement of SELinux.</p>
 
-<a href="{@docRoot}source/brands.html">
-        <h4>Brand guidelines published</h4></a>
-        <p>Manufacturers have their own set of <strong><a
-href="{@docRoot}source/brands.html">guidelines for Android brand use</a></strong>.</p>
+<a href="{@docRoot}devices/sensors/index.html">
+        <h4>Sensors and Power rewritten</h4></a>
+        <p><strong><a
+        href="{@docRoot}devices/sensors/index.html">Sensors</a></strong> and <strong><a
+	href="{@docRoot}devices/tech/power.html">Power</a></strong> have been
+	completely rewritten to reflect the latest Android release and include
+        new gesture sensors and tools for measuring power consumption.</p>
 
-<a href="{@docRoot}devices/graphics/architecture.html">
- <h4>Graphics architecture document published</h4></a>
-        <p>Android engineering describes the system-level <strong><a
-href="{@docRoot}devices/graphics/architecture.html">Graphics
-Architecture</a></strong> in great detail.</p>
+<a href="{@docRoot}devices/tv/index.html">
+        <h4>TV Input Framework and more come to Android</h4></a>
+        <p>The <strong><a
+        href="{@docRoot}devices/tv/index.html">TV Input Framework</a></strong> and <strong><a
+        href="{@docRoot}devices/tv/HDMI-CEC.html">HDMI-CEC</a></strong> enable TV development, while <strong><a
+	href="{@docRoot}devices/audio_tv.html">TV Audio</a></strong> describes audio routing through televisions.</p>
 
+<a href="{@docRoot}devices/camera/versioning.html">
+        <h4>Camera versioning added, security enhancements updated</h4></a>
+        <p>The Camera team now describes its <strong><a
+        href="{@docRoot}devices/tv/index.html">Version support</a></strong>, while the Security team lists new <strong><a
+        href="{@docRoot}devices/tech/security/enhancements.html">Enhancements</a></strong> and <strong><a
+        href="{@docRoot}devices/tech/security/acknowledgements.html">Acknowledgements</a></strong>.</p>
     </div>
 
     <div class="col-8">

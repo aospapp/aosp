@@ -51,30 +51,21 @@ class NetErrorTabHelper
       content::NavigationController::ReloadType reload_type) OVERRIDE;
 
   virtual void DidStartProvisionalLoadForFrame(
-      int64 frame_id,
-      int64 parent_frame_id,
-      bool is_main_frame,
+      content::RenderFrameHost* render_frame_host,
       const GURL& validated_url,
       bool is_error_page,
-      bool is_iframe_srcdoc,
-      content::RenderViewHost* render_view_host) OVERRIDE;
+      bool is_iframe_srcdoc) OVERRIDE;
 
   virtual void DidCommitProvisionalLoadForFrame(
-      int64 frame_id,
-      const base::string16& frame_unique_name,
-      bool is_main_frame,
+      content::RenderFrameHost* render_frame_host,
       const GURL& url,
-      content::PageTransition transition_type,
-      content::RenderViewHost* render_view_host) OVERRIDE;
+      ui::PageTransition transition_type) OVERRIDE;
 
   virtual void DidFailProvisionalLoad(
-      int64 frame_id,
-      const base::string16& frame_unique_name,
-      bool is_main_frame,
+      content::RenderFrameHost* render_frame_host,
       const GURL& validated_url,
       int error_code,
-      const base::string16& error_description,
-      content::RenderViewHost* render_view_host) OVERRIDE;
+      const base::string16& error_description) OVERRIDE;
 
  protected:
   // |contents| is the WebContents of the tab this NetErrorTabHelper is
@@ -95,8 +86,6 @@ class NetErrorTabHelper
 
   void InitializePref(content::WebContents* contents);
   bool ProbesAllowed() const;
-
-  base::WeakPtrFactory<NetErrorTabHelper> weak_factory_;
 
   // True if the last provisional load that started was for an error page.
   bool is_error_page_;
@@ -120,6 +109,8 @@ class NetErrorTabHelper
   // "Use a web service to resolve navigation errors" preference is required
   // to allow probes.
   BooleanPrefMember resolve_errors_with_web_service_;
+
+  base::WeakPtrFactory<NetErrorTabHelper> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(NetErrorTabHelper);
 };

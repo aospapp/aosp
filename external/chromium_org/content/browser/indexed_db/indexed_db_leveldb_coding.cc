@@ -54,7 +54,7 @@
 // <0, 0, 0, 100, database id>
 //   => Existence implies the database id is in the free list
 //      [DatabaseFreeListKey]
-// <0, 0, 0, 201, origin, database name> => Database id [DatabaseNameKey]
+// <0, 0, 0, 201, origin, database name> => Database id (int) [DatabaseNameKey]
 //
 //
 // Database metadata: [DatabaseMetaDataKey]
@@ -160,6 +160,9 @@
 // The sequence number is obsolete; it was used to allow two entries with the
 // same user (index) key in non-unique indexes prior to the inclusion of the
 // primary key in the data.
+//
+// Note: In order to be compatible with LevelDB's Bloom filter each bit of the
+// encoded key needs to used and "not ignored" by the comparator.
 
 using base::StringPiece;
 using blink::WebIDBKeyType;
@@ -1436,7 +1439,7 @@ std::string DatabaseMetaDataKey::Encode(int64 database_id,
 }
 
 ObjectStoreMetaDataKey::ObjectStoreMetaDataKey()
-    : object_store_id_(-1), meta_data_type_(-1) {}
+    : object_store_id_(-1), meta_data_type_(0xFF) {}
 
 bool ObjectStoreMetaDataKey::Decode(StringPiece* slice,
                                     ObjectStoreMetaDataKey* result) {

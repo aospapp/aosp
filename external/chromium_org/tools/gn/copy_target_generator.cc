@@ -23,11 +23,9 @@ CopyTargetGenerator::~CopyTargetGenerator() {
 void CopyTargetGenerator::DoRun() {
   target_->set_output_type(Target::COPY_FILES);
 
-  FillSources();
-  if (err_->has_error())
+  if (!FillSources())
     return;
-  FillOutputs();
-  if (err_->has_error())
+  if (!FillOutputs(true))
     return;
 
   if (target_->sources().empty()) {
@@ -35,7 +33,7 @@ void CopyTargetGenerator::DoRun() {
         "You have to specify at least one file to copy in the \"sources\".");
     return;
   }
-  if (target_->action_values().outputs().size() != 1) {
+  if (target_->action_values().outputs().list().size() != 1) {
     *err_ = Err(function_call_, "Copy command must have exactly one output.",
         "You must specify exactly one value in the \"outputs\" array for the "
         "destination of the copy\n(see \"gn help copy\"). If there are "

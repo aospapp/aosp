@@ -455,7 +455,7 @@ public class SwipeHelper {
 
         void onDragCancelled(SwipeableItemView v);
 
-        ConversationSelectionSet getSelectionSet();
+        ConversationCheckedSet getCheckedSet();
 
         LeaveBehindItem getLastSwipedItem();
     }

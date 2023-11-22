@@ -33,6 +33,8 @@ namespace extensions {
 
 class Extension;
 class ExtensionHost;
+class ExtensionRegistry;
+class ProcessManagerDelegate;
 class ProcessManagerObserver;
 
 // Manages dynamic state of running Chromium extensions. There is one instance
@@ -106,9 +108,14 @@ class ProcessManager : public content::NotificationObserver {
   // called regularly.
   void KeepaliveImpulse(const Extension* extension);
 
+  // Triggers a keepalive impulse for a plug-in (e.g NaCl).
+  static void OnKeepaliveFromPlugin(int render_process_id,
+                                    int render_frame_id,
+                                    const std::string& extension_id);
+
   // Handles a response to the ShouldSuspend message, used for lazy background
   // pages.
-  void OnShouldSuspendAck(const std::string& extension_id, int sequence_id);
+  void OnShouldSuspendAck(const std::string& extension_id, uint64 sequence_id);
 
   // Same as above, for the Suspend message.
   void OnSuspendAck(const std::string& extension_id);
@@ -122,8 +129,12 @@ class ProcessManager : public content::NotificationObserver {
   // onSuspendCanceled() event to it.
   void CancelSuspend(const Extension* extension);
 
-  // Ensures background hosts are loaded for a new browser window.
-  void OnBrowserWindowReady();
+  // Creates background hosts if the embedder is ready and they are not already
+  // loaded.
+  void MaybeCreateStartupBackgroundHosts();
+
+  // Called on shutdown to close our extension hosts.
+  void CloseBackgroundHosts();
 
   // Gets the BrowserContext associated with site_instance_ and all other
   // related SiteInstances.
@@ -137,30 +148,45 @@ class ProcessManager : public content::NotificationObserver {
   void SetKeepaliveImpulseDecrementCallbackForTesting(
       const ImpulseCallbackForTesting& callback);
 
-  // Creates an incognito-context instance for tests. Tests for non-incognito
-  // contexts can just use Create() above.
+  // Sets the time in milliseconds that an extension event page can
+  // be idle before it is shut down; must be > 0.
+  static void SetEventPageIdleTimeForTesting(unsigned idle_time_msec);
+
+  // Sets the time in milliseconds that an extension event page has
+  // between being notified of its impending unload and that unload
+  // happening.
+  static void SetEventPageSuspendingTimeForTesting(
+      unsigned suspending_time_msec);
+
+  // Creates a non-incognito instance for tests. |registry| allows unit tests
+  // to inject an ExtensionRegistry that is not managed by the usual
+  // BrowserContextKeyedServiceFactory system.
+  static ProcessManager* CreateForTesting(content::BrowserContext* context,
+                                          ExtensionRegistry* registry);
+
+  // Creates an incognito-context instance for tests.
   static ProcessManager* CreateIncognitoForTesting(
       content::BrowserContext* incognito_context,
       content::BrowserContext* original_context,
-      ProcessManager* original_manager);
+      ProcessManager* original_manager,
+      ExtensionRegistry* registry);
+
+  bool startup_background_hosts_created_for_test() const {
+    return startup_background_hosts_created_;
+  }
 
  protected:
   // If |context| is incognito pass the master context as |original_context|.
-  // Otherwise pass the same context for both.
+  // Otherwise pass the same context for both. Pass the ExtensionRegistry for
+  // |context| as |registry|, or override it for testing.
   ProcessManager(content::BrowserContext* context,
-                 content::BrowserContext* original_context);
-
-  // Called on browser shutdown to close our extension hosts.
-  void CloseBackgroundHosts();
+                 content::BrowserContext* original_context,
+                 ExtensionRegistry* registry);
 
   // content::NotificationObserver:
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
-
-  // Load all background pages once the profile data is ready and the pages
-  // should be loaded.
-  void CreateBackgroundHostsForProfileStartup();
 
   content::NotificationRegistrar registrar_;
 
@@ -172,6 +198,9 @@ class ProcessManager : public content::NotificationObserver {
   // browsing instance is created.  This controls process grouping.
   scoped_refptr<content::SiteInstance> site_instance_;
 
+  // Not owned. Also used by IncognitoProcessManager.
+  ExtensionRegistry* extension_registry_;
+
  private:
   friend class ProcessManagerTest;
 
@@ -181,6 +210,10 @@ class ProcessManager : public content::NotificationObserver {
   typedef std::map<ExtensionId, BackgroundPageData> BackgroundPageDataMap;
   typedef std::map<content::RenderViewHost*,
       extensions::ViewType> ExtensionRenderViews;
+
+  // Load all background pages once the profile data is ready and the pages
+  // should be loaded.
+  void CreateStartupBackgroundHosts();
 
   // Called just after |host| is created so it can be registered in our lists.
   void OnBackgroundHostCreated(ExtensionHost* host);
@@ -198,10 +231,10 @@ class ProcessManager : public content::NotificationObserver {
   // These are called when the extension transitions between idle and active.
   // They control the process of closing the background page when idle.
   void OnLazyBackgroundPageIdle(const std::string& extension_id,
-                                int sequence_id);
+                                uint64 sequence_id);
   void OnLazyBackgroundPageActive(const std::string& extension_id);
   void CloseLazyBackgroundPageNow(const std::string& extension_id,
-                                  int sequence_id);
+                                  uint64 sequence_id);
 
   // Potentially registers a RenderViewHost, if it is associated with an
   // extension. Does nothing if this is not an extension renderer.
@@ -216,9 +249,6 @@ class ProcessManager : public content::NotificationObserver {
   // Clears background page data for this extension.
   void ClearBackgroundPageData(const std::string& extension_id);
 
-  // Returns true if loading background pages should be deferred.
-  bool DeferLoadingBackgroundHosts() const;
-
   void OnDevToolsStateChanged(content::DevToolsAgentHost*, bool attached);
 
   // Contains all active extension-related RenderViewHost instances for all
@@ -227,14 +257,6 @@ class ProcessManager : public content::NotificationObserver {
   ExtensionRenderViews all_extension_views_;
 
   BackgroundPageDataMap background_page_data_;
-
-  // The time to delay between an extension becoming idle and
-  // sending a ShouldSuspend message; read from command-line switch.
-  base::TimeDelta event_page_idle_time_;
-
-  // The time to delay between sending a ShouldSuspend message and
-  // sending a Suspend message; read from command-line switch.
-  base::TimeDelta event_page_suspending_time_;
 
   // True if we have created the startup set of background hosts.
   bool startup_background_hosts_created_;
@@ -246,6 +268,22 @@ class ProcessManager : public content::NotificationObserver {
 
   ObserverList<ProcessManagerObserver> observer_list_;
 
+  // ID Counter used to set ProcessManager::BackgroundPageData close_sequence_id
+  // members. These IDs are tracked per extension in background_page_data_ and
+  // are used to verify that nothing has interrupted the process of closing a
+  // lazy background process.
+  //
+  // Any interruption obtains a new ID by incrementing
+  // last_background_close_sequence_id_ and storing it in background_page_data_
+  // for a particular extension. Callbacks and round-trip IPC messages store the
+  // value of the extension's close_sequence_id at the beginning of the process.
+  // Thus comparisons can be done to halt when IDs no longer match.
+  //
+  // This counter provides unique IDs even when BackgroundPageData objects are
+  // reset.
+  uint64 last_background_close_sequence_id_;
+
+  // Must be last member, see doc on WeakPtrFactory.
   base::WeakPtrFactory<ProcessManager> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(ProcessManager);

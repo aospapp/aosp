@@ -11,7 +11,6 @@
 #include <oleacc.h>
 
 #include "base/basictypes.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/win/scoped_comptr.h"
 #include "content/common/content_export.h"
 #include "ui/gfx/rect.h"
@@ -21,7 +20,7 @@ class WindowEventTarget;
 }
 
 namespace content {
-class BrowserAccessibilityManagerWin;
+class RenderWidgetHostViewAura;
 
 // Reasons for the existence of this class outlined below:-
 // 1. Some screen readers expect every tab / every unique web content container
@@ -57,12 +56,13 @@ class CONTENT_EXPORT LegacyRenderWidgetHostHWND
                            NON_EXPORTED_BASE(ATL::CWindow),
                            ATL::CWinTraits<WS_CHILD> > Base;
 
-  ~LegacyRenderWidgetHostHWND();
-
   // Creates and returns an instance of the LegacyRenderWidgetHostHWND class on
   // successful creation of a child window parented to the parent window passed
   // in.
-  static scoped_ptr<LegacyRenderWidgetHostHWND> Create(HWND parent);
+  static LegacyRenderWidgetHostHWND* Create(HWND parent);
+
+  // Destroys the HWND managed by this class.
+  void Destroy();
 
   BEGIN_MSG_MAP_EX(LegacyRenderWidgetHostHWND)
     MESSAGE_HANDLER_EX(WM_GETOBJECT, OnGetObject)
@@ -93,13 +93,6 @@ class CONTENT_EXPORT LegacyRenderWidgetHostHWND
 
   IAccessible* window_accessible() { return window_accessible_; }
 
-  void set_browser_accessibility_manager(
-      content::BrowserAccessibilityManagerWin* manager) {
-    manager_ = manager;
-  }
-
-  void OnManagerDeleted();
-
   // Functions to show and hide the window.
   void Show();
   void Hide();
@@ -107,11 +100,18 @@ class CONTENT_EXPORT LegacyRenderWidgetHostHWND
   // Resizes the window to the bounds passed in.
   void SetBounds(const gfx::Rect& bounds);
 
+  // The pointer to the containing RenderWidgetHostViewAura instance is passed
+  // here.
+  void set_host(RenderWidgetHostViewAura* host) {
+    host_ = host;
+  }
+
  protected:
   virtual void OnFinalMessage(HWND hwnd) OVERRIDE;
 
  private:
   LegacyRenderWidgetHostHWND(HWND parent);
+  ~LegacyRenderWidgetHostHWND();
 
   bool Init();
 
@@ -136,11 +136,12 @@ class CONTENT_EXPORT LegacyRenderWidgetHostHWND
   LRESULT OnNCCalcSize(UINT message, WPARAM w_param, LPARAM l_param);
   LRESULT OnSize(UINT message, WPARAM w_param, LPARAM l_param);
 
-  content::BrowserAccessibilityManagerWin* manager_;
   base::win::ScopedComPtr<IAccessible> window_accessible_;
 
   // Set to true if we turned on mouse tracking.
   bool mouse_tracking_enabled_;
+
+  RenderWidgetHostViewAura* host_;
 
   DISALLOW_COPY_AND_ASSIGN(LegacyRenderWidgetHostHWND);
 };

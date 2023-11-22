@@ -53,7 +53,8 @@ public class DecodeEditEncodeTest extends AndroidTestCase {
     private static final boolean DEBUG_SAVE_FILE = false;   // save copy of encoded movie
 
     // parameters for the encoder
-    private static final String MIME_TYPE = "video/avc";    // H.264 Advanced Video Coding
+                                                            // H.264 Advanced Video Coding
+    private static final String MIME_TYPE = MediaFormat.MIMETYPE_VIDEO_AVC;
     private static final int FRAME_RATE = 15;               // 15fps
     private static final int IFRAME_INTERVAL = 10;          // 10 seconds between I-frames
 
@@ -806,7 +807,7 @@ public class DecodeEditEncodeTest extends AndroidTestCase {
 
 
     /**
-     * The elementary stream coming out of the "video/avc" encoder needs to be fed back into
+     * The elementary stream coming out of the encoder needs to be fed back into
      * the decoder one chunk at a time.  If we just wrote the data to a file, we would lose
      * the information about chunk boundaries.  This class stores the encoded data in memory,
      * retaining the chunk organization.

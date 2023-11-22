@@ -17,6 +17,7 @@
 package com.android.internal.telephony.imsphone;
 
 import android.content.Context;
+import android.net.Uri;
 import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.Looper;
@@ -24,6 +25,7 @@ import android.os.Message;
 import android.os.PowerManager;
 import android.os.Registrant;
 import android.os.SystemClock;
+import android.telecom.Log;
 import android.telephony.DisconnectCause;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.Rlog;
@@ -71,12 +73,12 @@ public class ImsPhoneConnection extends Connection {
     private int mCause = DisconnectCause.NOT_DISCONNECTED;
     private PostDialState mPostDialState = PostDialState.NOT_STARTED;
     private UUSInfo mUusInfo;
-
-    private boolean mIsMultiparty = false;
-
     private Handler mHandler;
 
     private PowerManager.WakeLock mPartialWakeLock;
+
+    // The cached connect time of the connection when it turns into a conference.
+    private long mConferenceConnectTime = 0;
 
     //***** Event Constants
     private static final int EVENT_DTMF_DONE = 1;
@@ -130,30 +132,7 @@ public class ImsPhoneConnection extends Connection {
             mCnapNamePresentation = ImsCallProfile.OIRToPresentation(
                     imsCall.getCallProfile().getCallExtraInt(ImsCallProfile.EXTRA_CNAP));
 
-            ImsCallProfile imsCallProfile = imsCall.getCallProfile();
-            if (imsCallProfile != null) {
-                int callType = imsCall.getCallProfile().mCallType;
-                setVideoState(ImsCallProfile.getVideoStateFromCallType(callType));
-
-                ImsStreamMediaProfile mediaProfile = imsCallProfile.mMediaProfile;
-                if (mediaProfile != null) {
-                    setAudioQuality(getAudioQualityFromMediaProfile(mediaProfile));
-                }
-            }
-
-            // Determine if the current call have video capabilities.
-            try {
-                ImsCallProfile localCallProfile = imsCall.getLocalCallProfile();
-                if (localCallProfile != null) {
-                    int localCallTypeCapability = localCallProfile.mCallType;
-                    boolean isLocalVideoCapable = localCallTypeCapability
-                            == ImsCallProfile.CALL_TYPE_VT;
-
-                    setLocalVideoCapable(isLocalVideoCapable);
-                }
-            } catch (ImsException e) {
-                // No session, so cannot get local capabilities.
-            }
+            updateMediaCapabilities(imsCall);
         } else {
             mNumberPresentation = PhoneConstants.PRESENTATION_UNKNOWN;
             mCnapNamePresentation = PhoneConstants.PRESENTATION_UNKNOWN;
@@ -202,27 +181,6 @@ public class ImsPhoneConnection extends Connection {
     equalsHandlesNulls (Object a, Object b) {
         return (a == null) ? (b == null) : a.equals (b);
     }
-
-    /**
-     * Determines the {@link ImsPhoneConnection} audio quality based on an
-     * {@link ImsStreamMediaProfile}.
-     *
-     * @param mediaProfile The media profile.
-     * @return The audio quality.
-     */
-    private int getAudioQualityFromMediaProfile(ImsStreamMediaProfile mediaProfile) {
-        int audioQuality;
-
-        // The Adaptive Multi-Rate Wideband codec is used for high definition audio calls.
-        if (mediaProfile.mAudioQuality == ImsStreamMediaProfile.AUDIO_QUALITY_AMR_WB) {
-            audioQuality = AUDIO_QUALITY_HIGH_DEFINITION;
-        } else {
-            audioQuality = AUDIO_QUALITY_STANDARD;
-        }
-
-        return audioQuality;
-    }
-
 
     @Override
     public String getOrigDialString(){
@@ -347,7 +305,7 @@ public class ImsPhoneConnection extends Connection {
     }
 
     /** Called when the connection has been disconnected */
-    /*package*/ boolean
+    public boolean
     onDisconnect(int cause) {
         Rlog.d(LOG_TAG, "onDisconnect: cause=" + cause);
         if (mCause != DisconnectCause.LOCAL) mCause = cause;
@@ -411,7 +369,7 @@ public class ImsPhoneConnection extends Connection {
     private boolean
     processPostDialChar(char c) {
         if (PhoneNumberUtils.is12Key(c)) {
-            mOwner.mCi.sendDtmf(c, mHandler.obtainMessage(EVENT_DTMF_DONE));
+            mOwner.sendDtmf(c, mHandler.obtainMessage(EVENT_DTMF_DONE));
         } else if (c == PhoneNumberUtils.PAUSE) {
             // From TS 22.101:
             // It continues...
@@ -468,8 +426,7 @@ public class ImsPhoneConnection extends Connection {
             return;
         }
 
-        if (mPostDialString == null ||
-                mPostDialString.length() <= mNextPostDialChar) {
+        if (mPostDialString == null || mPostDialString.length() <= mNextPostDialChar) {
             setPostDialState(PostDialState.COMPLETE);
 
             // notifyMessage.arg1 is 0 on complete
@@ -492,6 +449,9 @@ public class ImsPhoneConnection extends Connection {
             }
         }
 
+        notifyPostDialListenersNextChar(c);
+
+        // TODO: remove the following code since the handler no longer executes anything.
         postDialHandler = mOwner.mPhone.mPostDialHandler;
 
         Message notifyMessage;
@@ -530,6 +490,7 @@ public class ImsPhoneConnection extends Connection {
             releaseWakeLock();
         }
         mPostDialState = s;
+        notifyPostDialListeners();
     }
 
     private void
@@ -569,15 +530,9 @@ public class ImsPhoneConnection extends Connection {
         return null;
     }
 
-    /* package */ void
-    setMultiparty(boolean isMultiparty) {
-        Rlog.d(LOG_TAG, "setMultiparty " + isMultiparty);
-        mIsMultiparty = isMultiparty;
-    }
-
     @Override
     public boolean isMultiparty() {
-        return mIsMultiparty;
+        return mImsCall != null && mImsCall.isMultiparty();
     }
 
     /*package*/ ImsCall getImsCall() {
@@ -592,18 +547,17 @@ public class ImsPhoneConnection extends Connection {
         mParent = parent;
     }
 
-    /*package*/ boolean
-    update(ImsCall imsCall, ImsPhoneCall.State state) {
-        boolean changed = false;
-
+    /**
+     * @return {@code true} if the {@link ImsPhoneConnection} or its media capabilities have been
+     *     changed, and {@code false} otherwise.
+     */
+    /*package*/ boolean update(ImsCall imsCall, ImsPhoneCall.State state) {
         if (state == ImsPhoneCall.State.ACTIVE) {
-            if (mParent.getState().isRinging()
-                    || mParent.getState().isDialing()) {
+            if (mParent.getState().isRinging() || mParent.getState().isDialing()) {
                 onConnectedInOrOut();
             }
 
-            if (mParent.getState().isRinging()
-                    || mParent == mOwner.mBackgroundCall) {
+            if (mParent.getState().isRinging() || mParent == mOwner.mBackgroundCall) {
                 //mForegroundCall should be IDLE
                 //when accepting WAITING call
                 //before accept WAITING call,
@@ -616,59 +570,154 @@ public class ImsPhoneConnection extends Connection {
             onStartedHolding();
         }
 
-        changed = mParent.update(this, imsCall, state);
-
-        if (imsCall != null) {
-            // Check for a change in the video capabilities for the call and update the
-            // {@link ImsPhoneConnection} with this information.
-            try {
-                // Get the current local VT capabilities (i.e. even if currentCallType above is
-                // audio-only, the local capability could support bi-directional video).
-                ImsCallProfile localCallProfile = imsCall.getLocalCallProfile();
-                if (localCallProfile != null) {
-                    int localCallTypeCapability = localCallProfile.mCallType;
-                    boolean newLocalVideoCapable = localCallTypeCapability
-                            == ImsCallProfile.CALL_TYPE_VT;
-
-                    if (isLocalVideoCapable() != newLocalVideoCapable) {
-                        setLocalVideoCapable(newLocalVideoCapable);
-                        changed = true;
-                    }
-                }
-            } catch (ImsException e) {
-                // No session in place -- no change
-            }
-
-            // Check for a change in the call type / video state, or audio quality of the
-            // {@link ImsCall} and update the {@link ImsPhoneConnection} with this information.
-            ImsCallProfile callProfile = imsCall.getCallProfile();
-            if (callProfile != null) {
-                int oldVideoState = getVideoState();
-                int newVideoState = ImsCallProfile.getVideoStateFromCallType(callProfile.mCallType);
-
-                if (oldVideoState != newVideoState) {
-                    setVideoState(newVideoState);
-                    changed = true;
-                }
-
-                ImsStreamMediaProfile mediaProfile = callProfile.mMediaProfile;
-                if (mediaProfile != null) {
-                    int oldAudioQuality = getAudioQuality();
-                    int newAudioQuality = getAudioQualityFromMediaProfile(mediaProfile);
-
-                    if (oldAudioQuality != newAudioQuality) {
-                        setAudioQuality(newAudioQuality);
-                        changed = true;
-                    }
-                }
-            }
-        }
-        return changed;
+        boolean updateParent = mParent.update(this, imsCall, state);
+        boolean updateMediaCapabilities = updateMediaCapabilities(imsCall);
+        return updateParent || updateMediaCapabilities;
     }
 
     @Override
     public int getPreciseDisconnectCause() {
         return 0;
+    }
+
+    /**
+     * Notifies this Connection of a request to disconnect a participant of the conference managed
+     * by the connection.
+     *
+     * @param endpoint the {@link android.net.Uri} of the participant to disconnect.
+     */
+    @Override
+    public void onDisconnectConferenceParticipant(Uri endpoint) {
+        ImsCall imsCall = getImsCall();
+        if (imsCall == null) {
+            return;
+        }
+        try {
+            imsCall.removeParticipants(new String[]{endpoint.toString()});
+        } catch (ImsException e) {
+            // No session in place -- no change
+            Rlog.e(LOG_TAG, "onDisconnectConferenceParticipant: no session in place. "+
+                    "Failed to disconnect endpoint = " + endpoint);
+        }
+    }
+
+    /**
+     * Sets the conference connect time.  Used when an {@code ImsConference} is created to out of
+     * this phone connection.
+     *
+     * @param conferenceConnectTime The conference connect time.
+     */
+    public void setConferenceConnectTime(long conferenceConnectTime) {
+        mConferenceConnectTime = conferenceConnectTime;
+    }
+
+    /**
+     * @return The conference connect time.
+     */
+    public long getConferenceConnectTime() {
+        return mConferenceConnectTime;
+    }
+
+    /**
+     * Check for a change in the video capabilities and audio quality for the {@link ImsCall}, and
+     * update the {@link ImsPhoneConnection} with this information.
+     *
+     * @param imsCall The call to check for changes in media capabilities.
+     * @return Whether the media capabilities have been changed.
+     */
+    private boolean updateMediaCapabilities(ImsCall imsCall) {
+        if (imsCall == null) {
+            return false;
+        }
+
+        boolean changed = false;
+
+        try {
+            // The actual call profile (negotiated between local and peer).
+            ImsCallProfile negotiatedCallProfile = imsCall.getCallProfile();
+            // The capabilities of the local device.
+            ImsCallProfile localCallProfile = imsCall.getLocalCallProfile();
+            // The capabilities of the peer device.
+            ImsCallProfile remoteCallProfile = imsCall.getRemoteCallProfile();
+
+            if (negotiatedCallProfile != null) {
+                int callType = negotiatedCallProfile.mCallType;
+
+                int newVideoState = ImsCallProfile.getVideoStateFromCallType(callType);
+                if (getVideoState() != newVideoState) {
+                    setVideoState(newVideoState);
+                    changed = true;
+                }
+            }
+
+            if (localCallProfile != null) {
+                int callType = localCallProfile.mCallType;
+
+                boolean newLocalVideoCapable = callType == ImsCallProfile.CALL_TYPE_VT;
+                if (isLocalVideoCapable() != newLocalVideoCapable) {
+                    setLocalVideoCapable(newLocalVideoCapable);
+                    changed = true;
+                }
+            }
+
+            int newAudioQuality =
+                    getAudioQualityFromCallProfile(localCallProfile, remoteCallProfile);
+            if (getAudioQuality() != newAudioQuality) {
+                setAudioQuality(newAudioQuality);
+                changed = true;
+            }
+        } catch (ImsException e) {
+            // No session in place -- no change
+        }
+
+        return changed;
+    }
+
+    /**
+     * Determines the {@link ImsPhoneConnection} audio quality based on the local and remote
+     * {@link ImsCallProfile}. If indicate a HQ audio call if the local stream profile
+     * indicates AMR_WB or EVRC_WB and there is no remote restrict cause.
+     *
+     * @param localCallProfile The local call profile.
+     * @param remoteCallProfile The remote call profile.
+     * @return The audio quality.
+     */
+    private int getAudioQualityFromCallProfile(
+            ImsCallProfile localCallProfile, ImsCallProfile remoteCallProfile) {
+        if (localCallProfile == null || remoteCallProfile == null
+                || localCallProfile.mMediaProfile == null) {
+            return AUDIO_QUALITY_STANDARD;
+        }
+
+        boolean isHighDef = (localCallProfile.mMediaProfile.mAudioQuality
+                        == ImsStreamMediaProfile.AUDIO_QUALITY_AMR_WB
+                || localCallProfile.mMediaProfile.mAudioQuality
+                        == ImsStreamMediaProfile.AUDIO_QUALITY_EVRC_WB)
+                && remoteCallProfile.mRestrictCause == ImsCallProfile.CALL_RESTRICT_CAUSE_NONE;
+        return isHighDef ? AUDIO_QUALITY_HIGH_DEFINITION : AUDIO_QUALITY_STANDARD;
+    }
+
+    /**
+     * Provides a string representation of the {@link ImsPhoneConnection}.  Primarily intended for
+     * use in log statements.
+     *
+     * @return String representation of call.
+     */
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("[ImsPhoneConnection objId: ");
+        sb.append(System.identityHashCode(this));
+        sb.append(" address:");
+        sb.append(Log.pii(getAddress()));
+        sb.append(" ImsCall:");
+        if (mImsCall == null) {
+            sb.append("null");
+        } else {
+            sb.append(mImsCall);
+        }
+        sb.append("]");
+        return sb.toString();
     }
 }
 

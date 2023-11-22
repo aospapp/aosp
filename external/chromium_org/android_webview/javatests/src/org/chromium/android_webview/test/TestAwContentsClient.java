@@ -5,7 +5,9 @@
 package org.chromium.android_webview.test;
 
 import android.graphics.Picture;
+import android.net.http.SslError;
 import android.webkit.ConsoleMessage;
+import android.webkit.ValueCallback;
 
 import org.chromium.base.ThreadUtils;
 import org.chromium.content.browser.test.util.CallbackHelper;
@@ -19,9 +21,11 @@ import org.chromium.content.browser.test.util.TestCallbackHelperContainer.OnRece
  */
 public class TestAwContentsClient extends NullContentsClient {
     private String mUpdatedTitle;
+    private boolean mAllowSslError;
     private final OnPageStartedHelper mOnPageStartedHelper;
     private final OnPageFinishedHelper mOnPageFinishedHelper;
     private final OnReceivedErrorHelper mOnReceivedErrorHelper;
+    private final CallbackHelper mOnReceivedSslErrorHelper;
     private final OnDownloadStartHelper mOnDownloadStartHelper;
     private final OnReceivedLoginRequestHelper mOnReceivedLoginRequestHelper;
     private final OnEvaluateJavaScriptResultHelper mOnEvaluateJavaScriptResultHelper;
@@ -29,12 +33,14 @@ public class TestAwContentsClient extends NullContentsClient {
     private final OnScaleChangedHelper mOnScaleChangedHelper;
     private final PictureListenerHelper mPictureListenerHelper;
     private final ShouldOverrideUrlLoadingHelper mShouldOverrideUrlLoadingHelper;
+    private final DoUpdateVisitedHistoryHelper mDoUpdateVisitedHistoryHelper;
 
     public TestAwContentsClient() {
         super(ThreadUtils.getUiThreadLooper());
         mOnPageStartedHelper = new OnPageStartedHelper();
         mOnPageFinishedHelper = new OnPageFinishedHelper();
         mOnReceivedErrorHelper = new OnReceivedErrorHelper();
+        mOnReceivedSslErrorHelper = new CallbackHelper();
         mOnDownloadStartHelper = new OnDownloadStartHelper();
         mOnReceivedLoginRequestHelper = new OnReceivedLoginRequestHelper();
         mOnEvaluateJavaScriptResultHelper = new OnEvaluateJavaScriptResultHelper();
@@ -42,6 +48,8 @@ public class TestAwContentsClient extends NullContentsClient {
         mOnScaleChangedHelper = new OnScaleChangedHelper();
         mPictureListenerHelper = new PictureListenerHelper();
         mShouldOverrideUrlLoadingHelper = new ShouldOverrideUrlLoadingHelper();
+        mDoUpdateVisitedHistoryHelper = new DoUpdateVisitedHistoryHelper();
+        mAllowSslError = true;
     }
 
     public OnPageStartedHelper getOnPageStartedHelper() {
@@ -54,6 +62,10 @@ public class TestAwContentsClient extends NullContentsClient {
 
     public OnReceivedErrorHelper getOnReceivedErrorHelper() {
         return mOnReceivedErrorHelper;
+    }
+
+    public CallbackHelper getOnReceivedSslErrorHelper() {
+        return mOnReceivedSslErrorHelper;
     }
 
     public OnDownloadStartHelper getOnDownloadStartHelper() {
@@ -74,6 +86,10 @@ public class TestAwContentsClient extends NullContentsClient {
 
     public AddMessageToConsoleHelper getAddMessageToConsoleHelper() {
         return mAddMessageToConsoleHelper;
+    }
+
+    public DoUpdateVisitedHistoryHelper getDoUpdateVisitedHistoryHelper() {
+        return mDoUpdateVisitedHistoryHelper;
     }
 
     /**
@@ -132,6 +148,16 @@ public class TestAwContentsClient extends NullContentsClient {
     @Override
     public void onReceivedError(int errorCode, String description, String failingUrl) {
         mOnReceivedErrorHelper.notifyCalled(errorCode, description, failingUrl);
+    }
+
+    @Override
+    public void onReceivedSslError(ValueCallback<Boolean> callback, SslError error) {
+        callback.onReceiveValue(mAllowSslError);
+        mOnReceivedSslErrorHelper.notifyCalled();
+    }
+
+    public void setAllowSslError(boolean allow) {
+        mAllowSslError = allow;
     }
 
     /**
@@ -234,7 +260,7 @@ public class TestAwContentsClient extends NullContentsClient {
     }
 
     /**
-     * Callback helper for onScaleChangedScaled.
+     * Callback helper for AddMessageToConsole.
      */
     public static class AddMessageToConsoleHelper extends CallbackHelper {
         private int mLevel;
@@ -277,7 +303,7 @@ public class TestAwContentsClient extends NullContentsClient {
     }
 
     /**
-     * Callback helper for onScaleChangedScaled.
+     * Callback helper for PictureListener.
      */
     public static class PictureListenerHelper extends CallbackHelper {
         // Generally null, depending on |invalidationOnly| in enableOnNewPicture()
@@ -300,7 +326,7 @@ public class TestAwContentsClient extends NullContentsClient {
     }
 
     /**
-     * Callback helper for onScaleChangedScaled.
+     * Callback helper for ShouldOverrideUrlLoading.
      */
     public static class ShouldOverrideUrlLoadingHelper extends CallbackHelper {
         private String mShouldOverrideUrlLoadingUrl;
@@ -340,5 +366,35 @@ public class TestAwContentsClient extends NullContentsClient {
             mShouldOverrideUrlLoadingHelper.getShouldOverrideUrlLoadingReturnValue();
         mShouldOverrideUrlLoadingHelper.notifyCalled(url);
         return returnValue;
+    }
+
+
+    /**
+     * Callback helper for doUpdateVisitedHistory.
+     */
+    public static class DoUpdateVisitedHistoryHelper extends CallbackHelper {
+        String mUrl;
+        boolean mIsReload;
+
+        public String getUrl() {
+            assert getCallCount() > 0;
+            return mUrl;
+        }
+
+        public boolean getIsReload() {
+            assert getCallCount() > 0;
+            return mIsReload;
+        }
+
+        public void notifyCalled(String url, boolean isReload) {
+            mUrl = url;
+            mIsReload = isReload;
+            notifyCalled();
+        }
+    }
+
+    @Override
+    public void doUpdateVisitedHistory(String url, boolean isReload) {
+        getDoUpdateVisitedHistoryHelper().notifyCalled(url, isReload);
     }
 }

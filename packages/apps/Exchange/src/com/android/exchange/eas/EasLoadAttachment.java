@@ -19,6 +19,7 @@ package com.android.exchange.eas;
 import android.content.Context;
 import android.os.RemoteException;
 
+import com.android.emailcommon.provider.Account;
 import com.android.emailcommon.provider.EmailContent;
 import com.android.emailcommon.provider.EmailContent.Attachment;
 import com.android.emailcommon.service.EmailServiceStatus;
@@ -69,15 +70,15 @@ public final class EasLoadAttachment extends EasOperation {
     /**
      * Constructor for use with {@link EasService} when performing an actual sync.
      * @param context Our {@link Context}.
-     * @param accountId The id of the account in question (i.e. its id in the database).
+     * @param account The account we're loading the attachment for.
      * @param attachmentId The local id of the attachment (i.e. its id in the database).
      * @param callback The callback for any status updates.
      */
-    public EasLoadAttachment(final Context context, final long accountId, final long attachmentId,
+    public EasLoadAttachment(final Context context, final Account account, final long attachmentId,
             final IEmailServiceCallback callback) {
         // The account is loaded before performOperation but it is not guaranteed to be available
         // before then.
-        super(context, accountId);
+        super(context, account);
         mCallback = callback;
         mAttachmentId = attachmentId;
     }

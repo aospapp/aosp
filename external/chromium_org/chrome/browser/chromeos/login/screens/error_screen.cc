@@ -11,19 +11,29 @@
 #include "chrome/browser/chromeos/login/wizard_controller.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 
+namespace {
+void* const kCanaryConstant = (void*)0xbaddecafbaddecafLLU;
+}
+
 namespace chromeos {
 
 ErrorScreen::ErrorScreen(ScreenObserver* screen_observer,
                          ErrorScreenActor* actor)
     : WizardScreen(screen_observer),
+      canary_1_(kCanaryConstant),
       actor_(actor),
+      canary_2_(kCanaryConstant),
       parent_screen_(OobeDisplay::SCREEN_UNKNOWN),
       weak_factory_(this) {
-  DCHECK(actor_);
+  CHECK(actor_);
   actor_->SetDelegate(this);
 }
 
 ErrorScreen::~ErrorScreen() {
+  CHECK(this);
+  CHECK(canary_1_ == kCanaryConstant);
+  CHECK(canary_2_ == kCanaryConstant);
+  CHECK(actor_);
   actor_->SetDelegate(NULL);
 }
 
@@ -54,7 +64,7 @@ void ErrorScreen::OnLaunchOobeGuestSession() {
                  weak_factory_.GetWeakPtr()));
 }
 
-void ErrorScreen::OnLoginFailure(const LoginFailure& error) {
+void ErrorScreen::OnAuthFailure(const AuthFailure& error) {
   // The only condition leading here is guest mount failure, which should not
   // happen in practice. For now, just log an error so this situation is visible
   // in logs if it ever occurs.
@@ -62,11 +72,11 @@ void ErrorScreen::OnLoginFailure(const LoginFailure& error) {
   guest_login_performer_.reset();
 }
 
-void ErrorScreen::OnLoginSuccess(const UserContext& user_context) {
+void ErrorScreen::OnAuthSuccess(const UserContext& user_context) {
   LOG(FATAL);
 }
 
-void ErrorScreen::OnOffTheRecordLoginSuccess() {
+void ErrorScreen::OnOffTheRecordAuthSuccess() {
   // Restart Chrome to enter the guest session.
   const CommandLine& browser_command_line = *CommandLine::ForCurrentProcess();
   CommandLine command_line(browser_command_line.GetProgram());

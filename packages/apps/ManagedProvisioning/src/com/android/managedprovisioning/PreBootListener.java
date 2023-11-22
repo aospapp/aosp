@@ -37,49 +37,64 @@ import java.util.List;
 public class PreBootListener extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
-        int currentUserId = context.getUserId();
-        if (currentUserId == UserHandle.USER_OWNER) {
-            // Resetting the cross-profile intent filters for the managed profiles which have
-            // this user as their parent.
-            UserManager um = (UserManager) context.getSystemService(
-                    Context.USER_SERVICE);
-            List<UserInfo> profiles = um.getProfiles(currentUserId);
-            boolean hasClearedParent = false;
-            if (profiles.size() > 1) {
-                PackageManager pm = context.getPackageManager();
-                for (UserInfo userInfo : profiles) {
-                    if (userInfo.isManagedProfile()) {
-                        if (!hasClearedParent) {
-                            // Removes filters from the parent to all the managed profiles.
-                            pm.clearCrossProfileIntentFilters(currentUserId);
-                            hasClearedParent = true;
-                        }
-                        pm.clearCrossProfileIntentFilters(userInfo.id);
-                        CrossProfileIntentFiltersHelper.setFilters(
-                                pm, currentUserId, userInfo.id);
-                        deleteNonRequiredApps(context, userInfo.id);
-                    }
-                }
+        if (context.getUserId() != UserHandle.USER_OWNER) {
+            return;
+        }
+
+        DevicePolicyManager dpm = (DevicePolicyManager) context.getSystemService(
+                Context.DEVICE_POLICY_SERVICE);
+        PackageManager pm = context.getPackageManager();
+
+        // Check for device owner.
+        if (dpm.getDeviceOwner() != null && DeleteNonRequiredAppsTask
+                    .shouldDeleteNonRequiredApps(context, UserHandle.USER_OWNER)) {
+
+            // Delete new apps.
+                deleteNonRequiredApps(context, dpm.getDeviceOwner(), UserHandle.USER_OWNER,
+                        R.array.required_apps_managed_device,
+                        R.array.vendor_required_apps_managed_device,
+                        false /* Do not disable INSTALL_SHORTCUT listeners */);
+        }
+
+        // Check for managed profiles.
+        UserManager um = (UserManager) context.getSystemService(Context.USER_SERVICE);
+        List<UserInfo> profiles = um.getProfiles(UserHandle.USER_OWNER);
+        if (profiles.size() <= 1) {
+            return;
+        }
+
+        // Removes cross profile intent filters from the parent to all the managed profiles.
+        pm.clearCrossProfileIntentFilters(UserHandle.USER_OWNER);
+
+        // For each managed profile reset cross profile intent filters and delete new apps.
+        for (UserInfo userInfo : profiles) {
+            if (!userInfo.isManagedProfile()) {
+                continue;
             }
+            pm.clearCrossProfileIntentFilters(userInfo.id);
+            CrossProfileIntentFiltersHelper.setFilters(
+                    pm, UserHandle.USER_OWNER, userInfo.id);
+
+            ComponentName profileOwner = dpm.getProfileOwnerAsUser(userInfo.id);
+            if (profileOwner == null) {
+                // Shouldn't happen.
+                ProvisionLogger.loge("No profile owner on managed profile " + userInfo.id);
+                continue;
+            }
+            deleteNonRequiredApps(context, profileOwner.getPackageName(), userInfo.id,
+                    R.array.required_apps_managed_profile,
+                    R.array.vendor_required_apps_managed_profile,
+                    true /* Disable INSTALL_SHORTCUT listeners */);
         }
     }
 
-    /**
-     * Deletes non-required apps that have been added to the system image during the system
-     * update.
-     */
-    private void deleteNonRequiredApps(Context context, int userId) {
-        DevicePolicyManager dpm = (DevicePolicyManager)
-                context.getSystemService(Context.DEVICE_POLICY_SERVICE);
-        ComponentName profileOwner = dpm.getProfileOwnerAsUser(userId);
-        if (profileOwner == null) {
-            ProvisionLogger.loge("There is no profile owner on a managed profile.");
-        }
-
-        new DeleteNonRequiredAppsTask(context, profileOwner.getPackageName(), userId,
-                R.array.required_apps_managed_profile, R.array.vendor_required_apps_managed_profile,
-                false /* We are not creating a new profile */,
-                true /* Disable INSTALL_SHORTCUT listeners */,
+    private void deleteNonRequiredApps(Context context, String mdmPackageName, int userId,
+            int requiredAppsList, int vendorRequiredAppsList,
+            boolean disableInstallShortcutListeners) {
+        new DeleteNonRequiredAppsTask(context, mdmPackageName, userId,
+                requiredAppsList, vendorRequiredAppsList,
+                false /*we are not creating a new profile*/,
+                disableInstallShortcutListeners,
                 new DeleteNonRequiredAppsTask.Callback() {
 
                     @Override

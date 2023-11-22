@@ -21,7 +21,7 @@
     <item msgid="5210943529756743284">"Vyhledávání…"</item>
     <item msgid="7895190850044173217">"Připojování…"</item>
     <item msgid="7589307602609991992">"Ověřování…"</item>
-    <item msgid="7439429469102224627">"Načítání adresy IP…"</item>
+    <item msgid="7439429469102224627">"Načítání IP adresy…"</item>
     <item msgid="7079865889809010740">"Připojeno"</item>
     <item msgid="8018480471737227053">"Pozastaveno"</item>
     <item msgid="9110004131358099530">"Odpojování…"</item>
@@ -35,7 +35,7 @@
     <item msgid="4703591207522320165">"Vyhledávání…"</item>
     <item msgid="7351421574703844779">"Připojování k síti <xliff:g id="NETWORK_NAME">%1$s</xliff:g>…"</item>
     <item msgid="874502389678205660">"Ověřování v síti <xliff:g id="NETWORK_NAME">%1$s</xliff:g>…"</item>
-    <item msgid="7964187733783647040">"Získávání adresy IP ze sítě <xliff:g id="NETWORK_NAME">%1$s</xliff:g>…"</item>
+    <item msgid="7964187733783647040">"Získávání IP adresy ze sítě <xliff:g id="NETWORK_NAME">%1$s</xliff:g>…"</item>
     <item msgid="4990222034464002805">"Připojeno k síti <xliff:g id="NETWORK_NAME">%1$s</xliff:g>"</item>
     <item msgid="5347651564202902346">"Pozastaveno"</item>
     <item msgid="4812777464932254477">"Odpojování od sítě <xliff:g id="NETWORK_NAME">%1$s</xliff:g>…"</item>

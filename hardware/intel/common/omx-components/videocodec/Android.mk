@@ -9,8 +9,8 @@ endif
 
 include $(CLEAR_VARS)
 
-ifeq ($(TARGET_HAS_VPP),true)
-LOCAL_CFLAGS += -DTARGET_HAS_VPP
+ifeq ($(TARGET_HAS_ISV),true)
+LOCAL_CFLAGS += -DTARGET_HAS_ISV
 endif
 
 LOCAL_SHARED_LIBRARIES := \
@@ -26,7 +26,8 @@ LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/libmix_videodecoder \
     $(TARGET_OUT_HEADERS)/libva \
     $(call include-path-for, frameworks-native)/media/hardware \
-    $(call include-path-for, frameworks-native)/media/openmax
+    $(call include-path-for, frameworks-native)/media/openmax \
+    $(call include-path-for, libhardware)
 
 PLATFORM_USE_GEN_HW := \
     baytrail \
@@ -37,9 +38,10 @@ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/ufo
 endif
 
 LOCAL_SRC_FILES := \
-    OMXComponentCodecBase.cpp\
-    OMXVideoDecoderBase.cpp\
+    OMXComponentCodecBase.cpp \
+    OMXVideoDecoderBase.cpp \
     OMXVideoDecoderAVC.cpp
+
 LOCAL_CFLAGS += -Werror
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libOMXVideoDecoderAVC
@@ -77,8 +79,8 @@ PLATFORM_SUPPORT_VP8 := \
 ifneq ($(filter $(TARGET_BOARD_PLATFORM),$(PLATFORM_SUPPORT_VP8)),)
 include $(CLEAR_VARS)
 
-ifeq ($(TARGET_HAS_VPP),true)
-LOCAL_CFLAGS += -DTARGET_HAS_VPP
+ifeq ($(TARGET_HAS_ISV),true)
+LOCAL_CFLAGS += -DTARGET_HAS_ISV
 endif
 
 LOCAL_SHARED_LIBRARIES := \
@@ -94,12 +96,14 @@ LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/libmix_videodecoder \
     $(TARGET_OUT_HEADERS)/libva \
     $(call include-path-for, frameworks-native)/media/hardware \
-    $(call include-path-for, frameworks-native)/media/openmax
+    $(call include-path-for, frameworks-native)/media/openmax \
+    $(call include-path-for, libhardware)
 
 LOCAL_SRC_FILES := \
-    OMXComponentCodecBase.cpp\
-    OMXVideoDecoderBase.cpp\
+    OMXComponentCodecBase.cpp \
+    OMXVideoDecoderBase.cpp \
     OMXVideoDecoderVP8.cpp
+
 LOCAL_CFLAGS += -Werror
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libOMXVideoDecoderVP8
@@ -136,12 +140,11 @@ endif
 # VP9 with SW decode and HW Render
 include $(CLEAR_VARS)
 
-ifeq ($(TARGET_HAS_VPP),true)
-LOCAL_CFLAGS += -DTARGET_HAS_VPP
+ifeq ($(TARGET_HAS_ISV),true)
+LOCAL_CFLAGS += -DTARGET_HAS_ISV
 endif
 
 LOCAL_SHARED_LIBRARIES := \
-    libui \
     libwrs_omxil_common \
     libva_videodecoder \
     liblog \
@@ -161,15 +164,16 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/libvpx_internal/libvpx/vpx_codec \
     $(LOCAL_PATH)/libvpx_internal/libvpx/vpx_ports \
     $(call include-path-for, frameworks-native)/media/hardware \
-    $(call include-path-for, frameworks-native)/media/openmax
+    $(call include-path-for, frameworks-native)/media/openmax \
+    $(call include-path-for, libhardware)
 
 ifeq ($(TARGET_BOARD_PLATFORM),baytrail)
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/ufo
 endif
 
 LOCAL_SRC_FILES := \
-    OMXComponentCodecBase.cpp\
-    OMXVideoDecoderBase.cpp\
+    OMXComponentCodecBase.cpp \
+    OMXVideoDecoderBase.cpp \
     OMXVideoDecoderVP9HWR.cpp
 
 LOCAL_CFLAGS += -Werror
@@ -196,7 +200,6 @@ ifeq ($(TARGET_HAS_VPP),true)
 LOCAL_CFLAGS += -DTARGET_HAS_VPP
 endif
 LOCAL_SHARED_LIBRARIES := \
-    libui \
     libwrs_omxil_common \
     liblog \
     libva_videodecoder \
@@ -208,15 +211,16 @@ LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/libmix_videodecoder \
     $(TARGET_OUT_HEADERS)/libva \
     $(call include-path-for, frameworks-native)/media/hardware \
-    $(call include-path-for, frameworks-native)/media/openmax
+    $(call include-path-for, frameworks-native)/media/openmax \
+    $(call include-path-for, libhardware)
 
 ifeq ($(TARGET_BOARD_PLATFORM),baytrail)
     LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/ufo
 endif
 
 LOCAL_SRC_FILES := \
-    OMXComponentCodecBase.cpp\
-    OMXVideoDecoderBase.cpp\
+    OMXComponentCodecBase.cpp \
+    OMXVideoDecoderBase.cpp \
     OMXVideoDecoderVP9Hybrid.cpp
 
 LOCAL_CFLAGS += -Werror
@@ -238,8 +242,8 @@ include $(BUILD_SHARED_LIBRARY)
 endif
 
 include $(CLEAR_VARS)
-ifeq ($(TARGET_HAS_VPP),true)
-LOCAL_CFLAGS += -DTARGET_HAS_VPP
+ifeq ($(TARGET_HAS_ISV),true)
+LOCAL_CFLAGS += -DTARGET_HAS_ISV
 endif
 
 LOCAL_SHARED_LIBRARIES := \
@@ -255,7 +259,8 @@ LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/libmix_videodecoder \
     $(TARGET_OUT_HEADERS)/libva \
     $(call include-path-for, frameworks-native)/media/hardware \
-    $(call include-path-for, frameworks-native)/media/openmax
+    $(call include-path-for, frameworks-native)/media/openmax \
+    $(call include-path-for, libhardware)
 
 PLATFORM_USE_GEN_HW := \
     baytrail \
@@ -266,9 +271,10 @@ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/ufo
 endif
 
 LOCAL_SRC_FILES := \
-    OMXComponentCodecBase.cpp\
-    OMXVideoDecoderBase.cpp\
+    OMXComponentCodecBase.cpp \
+    OMXVideoDecoderBase.cpp \
     OMXVideoDecoderMPEG4.cpp
+
 LOCAL_CFLAGS += -Werror
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libOMXVideoDecoderMPEG4
@@ -293,8 +299,8 @@ include $(BUILD_SHARED_LIBRARY)
 ################################################################################
 
 include $(CLEAR_VARS)
-ifeq ($(TARGET_HAS_VPP),true)
-LOCAL_CFLAGS += -DTARGET_HAS_VPP
+ifeq ($(TARGET_HAS_ISV),true)
+LOCAL_CFLAGS += -DTARGET_HAS_ISV
 endif
 
 LOCAL_SHARED_LIBRARIES := \
@@ -310,7 +316,8 @@ LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/libmix_videodecoder \
     $(TARGET_OUT_HEADERS)/libva \
     $(call include-path-for, frameworks-native)/media/hardware \
-    $(call include-path-for, frameworks-native)/media/openmax
+    $(call include-path-for, frameworks-native)/media/openmax \
+    $(call include-path-for, libhardware)
 
 PLATFORM_USE_GEN_HW := \
     baytrail \
@@ -321,9 +328,10 @@ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/ufo
 endif
 
 LOCAL_SRC_FILES := \
-    OMXComponentCodecBase.cpp\
-    OMXVideoDecoderBase.cpp\
+    OMXComponentCodecBase.cpp \
+    OMXVideoDecoderBase.cpp \
     OMXVideoDecoderH263.cpp
+
 LOCAL_CFLAGS += -Werror
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libOMXVideoDecoderH263
@@ -348,8 +356,8 @@ include $(BUILD_SHARED_LIBRARY)
 ################################################################################
 
 include $(CLEAR_VARS)
-ifeq ($(TARGET_HAS_VPP),true)
-LOCAL_CFLAGS += -DTARGET_HAS_VPP
+ifeq ($(TARGET_HAS_ISV),true)
+LOCAL_CFLAGS += -DTARGET_HAS_ISV
 endif
 
 LOCAL_SHARED_LIBRARIES := \
@@ -365,7 +373,8 @@ LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/libmix_videodecoder \
     $(TARGET_OUT_HEADERS)/libva \
     $(call include-path-for, frameworks-native)/media/hardware \
-    $(call include-path-for, frameworks-native)/media/openmax
+    $(call include-path-for, frameworks-native)/media/openmax \
+    $(call include-path-for, libhardware)
 
 PLATFORM_USE_GEN_HW := \
     baytrail \
@@ -376,9 +385,10 @@ LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/ufo
 endif
 
 LOCAL_SRC_FILES := \
-    OMXComponentCodecBase.cpp\
-    OMXVideoDecoderBase.cpp\
+    OMXComponentCodecBase.cpp \
+    OMXVideoDecoderBase.cpp \
     OMXVideoDecoderWMV.cpp
+
 LOCAL_CFLAGS += -Werror
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libOMXVideoDecoderWMV
@@ -410,8 +420,8 @@ include $(BUILD_SHARED_LIBRARY)
 ifeq ($(USE_INTEL_SECURE_AVC),true)
 
 include $(CLEAR_VARS)
-ifeq ($(TARGET_HAS_VPP),true)
-LOCAL_CFLAGS += -DTARGET_HAS_VPP
+ifeq ($(TARGET_HAS_ISV),true)
+LOCAL_CFLAGS += -DTARGET_HAS_ISV
 endif
 
 LOCAL_SHARED_LIBRARIES := \
@@ -430,9 +440,10 @@ LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/libdrm \
     $(call include-path-for, frameworks-native)/media/hardware \
     $(call include-path-for, frameworks-native)/media/openmax \
+    $(call include-path-for, libhardware)
 
 LOCAL_SRC_FILES := \
-    OMXComponentCodecBase.cpp\
+    OMXComponentCodecBase.cpp \
     OMXVideoDecoderBase.cpp
 
 ifeq ($(TARGET_BOARD_PLATFORM),moorefield)
@@ -454,8 +465,8 @@ endif #USE_INTEL_SECURE_AVC
 ################################################################################
 
 include $(CLEAR_VARS)
-ifeq ($(TARGET_HAS_VPP),true)
-LOCAL_CFLAGS += -DTARGET_HAS_VPP
+ifeq ($(TARGET_HAS_ISV),true)
+LOCAL_CFLAGS += -DTARGET_HAS_ISV
 endif
 
 LOCAL_SHARED_LIBRARIES := \
@@ -492,8 +503,8 @@ include $(BUILD_SHARED_LIBRARY)
 ################################################################################
 
 include $(CLEAR_VARS)
-ifeq ($(TARGET_HAS_VPP),true)
-LOCAL_CFLAGS += -DTARGET_HAS_VPP
+ifeq ($(TARGET_HAS_ISV),true)
+LOCAL_CFLAGS += -DTARGET_HAS_ISV
 endif
 
 LOCAL_SHARED_LIBRARIES := \
@@ -534,8 +545,8 @@ include $(BUILD_SHARED_LIBRARY)
 ################################################################################
 
 include $(CLEAR_VARS)
-ifeq ($(TARGET_HAS_VPP),true)
-LOCAL_CFLAGS += -DTARGET_HAS_VPP
+ifeq ($(TARGET_HAS_ISV),true)
+LOCAL_CFLAGS += -DTARGET_HAS_ISV
 endif
 
 LOCAL_SHARED_LIBRARIES := \
@@ -573,8 +584,8 @@ include $(BUILD_SHARED_LIBRARY)
 ################################################################################
 
 include $(CLEAR_VARS)
-ifeq ($(TARGET_HAS_VPP),true)
-LOCAL_CFLAGS += -DTARGET_HAS_VPP
+ifeq ($(TARGET_HAS_ISV),true)
+LOCAL_CFLAGS += -DTARGET_HAS_ISV
 endif
 
 LOCAL_SHARED_LIBRARIES := \
@@ -590,11 +601,12 @@ LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/libmix_videodecoder \
     $(TARGET_OUT_HEADERS)/libva \
     $(call include-path-for, frameworks-native)/media/hardware \
-    $(call include-path-for, frameworks-native)/media/openmax
+    $(call include-path-for, frameworks-native)/media/openmax \
+    $(call include-path-for, libhardware)
 
 LOCAL_SRC_FILES := \
-    OMXComponentCodecBase.cpp\
-    OMXVideoDecoderBase.cpp\
+    OMXComponentCodecBase.cpp \
+    OMXVideoDecoderBase.cpp \
     OMXVideoDecoderPAVC.cpp
 
 LOCAL_CFLAGS += -Werror
@@ -617,8 +629,8 @@ include $(BUILD_SHARED_LIBRARY)
 ################################################################################
 
 include $(CLEAR_VARS)
-ifeq ($(TARGET_HAS_VPP),true)
-LOCAL_CFLAGS += -DTARGET_HAS_VPP
+ifeq ($(TARGET_HAS_ISV),true)
+LOCAL_CFLAGS += -DTARGET_HAS_ISV
 endif
 
 LOCAL_SHARED_LIBRARIES := \

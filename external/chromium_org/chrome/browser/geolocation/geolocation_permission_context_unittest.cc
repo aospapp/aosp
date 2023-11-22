@@ -10,18 +10,19 @@
 
 #include "base/bind.h"
 #include "base/containers/hash_tables.h"
+#include "base/id_map.h"
 #include "base/memory/scoped_vector.h"
-#include "base/run_loop.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/test/simple_test_clock.h"
+#include "base/time/clock.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
-#include "chrome/browser/content_settings/permission_request_id.h"
 #include "chrome/browser/content_settings/tab_specific_content_settings.h"
 #include "chrome/browser/geolocation/geolocation_permission_context_factory.h"
 #include "chrome/browser/infobars/infobar_service.h"
-#include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_profile.h"
+#include "components/content_settings/core/common/permission_request_id.h"
 #include "components/infobars/core/confirm_infobar_delegate.h"
 #include "components/infobars/core/infobar.h"
 #include "content/public/browser/browser_thread.h"
@@ -31,14 +32,18 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/mock_render_process_host.h"
 #include "content/public/test/test_renderer_host.h"
+#include "content/public/test/test_utils.h"
 #include "content/public/test/web_contents_tester.h"
-#include "extensions/browser/view_type_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if defined(OS_ANDROID)
 #include "base/prefs/pref_service.h"
 #include "chrome/browser/android/mock_google_location_settings_helper.h"
 #include "chrome/common/pref_names.h"
+#endif
+
+#if defined(ENABLE_EXTENSIONS)
+#include "extensions/browser/view_type_utils.h"
 #endif
 
 using content::MockRenderProcessHost;
@@ -175,8 +180,7 @@ void GeolocationPermissionContextTests::RequestGeolocationPermission(
       base::Bind(&GeolocationPermissionContextTests::PermissionResponse,
                  base::Unretained(this), id),
       cancel_callback);
-  content::BrowserThread::GetBlockingPool()->FlushForTesting();
-  base::RunLoop().RunUntilIdle();
+  content::RunAllBlockingPoolTasksUntilIdle();
 }
 
 void GeolocationPermissionContextTests::PermissionResponse(
@@ -214,12 +218,14 @@ void GeolocationPermissionContextTests::AddNewTab(const GURL& url) {
   content::WebContents* new_tab = content::WebContents::Create(
       content::WebContents::CreateParams(profile()));
   new_tab->GetController().LoadURL(
-      url, content::Referrer(), content::PAGE_TRANSITION_TYPED, std::string());
+      url, content::Referrer(), ui::PAGE_TRANSITION_TYPED, std::string());
   content::RenderViewHostTester::For(new_tab->GetRenderViewHost())->
       SendNavigate(extra_tabs_.size() + 1, url);
 
   // Set up required helpers, and make this be as "tabby" as the code requires.
+#if defined(ENABLE_EXTENSIONS)
   extensions::SetViewType(new_tab, extensions::VIEW_TYPE_TAB_CONTENTS);
+#endif
   InfoBarService::CreateForWebContents(new_tab);
 
   extra_tabs_.push_back(new_tab);
@@ -245,7 +251,9 @@ void GeolocationPermissionContextTests::SetUp() {
   ChromeRenderViewHostTestHarness::SetUp();
 
   // Set up required helpers, and make this be as "tabby" as the code requires.
+#if defined(ENABLE_EXTENSIONS)
   extensions::SetViewType(web_contents(), extensions::VIEW_TYPE_TAB_CONTENTS);
+#endif
   InfoBarService::CreateForWebContents(web_contents());
   TabSpecificContentSettings::CreateForWebContents(web_contents());
 #if defined(OS_ANDROID)
@@ -296,18 +304,6 @@ TEST_F(GeolocationPermissionContextTests, GeolocationEnabledDisabled) {
   MockGoogleLocationSettingsHelper::SetLocationStatus(true, false);
   EXPECT_EQ(0U, infobar_service()->infobar_count());
   RequestGeolocationPermission(web_contents(), RequestID(0), requesting_frame);
-  EXPECT_EQ(1U, infobar_service()->infobar_count());
-  ConfirmInfoBarDelegate* infobar_delegate_1 =
-      infobar_service()->infobar_at(0)->delegate()->AsConfirmInfoBarDelegate();
-  ASSERT_TRUE(infobar_delegate_1);
-  base::string16 text_1 = infobar_delegate_1->GetButtonLabel(
-      ConfirmInfoBarDelegate::BUTTON_OK);
-  EXPECT_NE(text_0, text_1);
-
-  Reload();
-  MockGoogleLocationSettingsHelper::SetLocationStatus(false, false);
-  EXPECT_EQ(0U, infobar_service()->infobar_count());
-  RequestGeolocationPermission(web_contents(), RequestID(0), requesting_frame);
   EXPECT_EQ(0U, infobar_service()->infobar_count());
 }
 
@@ -332,13 +328,7 @@ TEST_F(GeolocationPermissionContextTests, MasterEnabledGoogleAppsDisabled) {
   MockGoogleLocationSettingsHelper::SetLocationStatus(true, false);
   EXPECT_EQ(0U, infobar_service()->infobar_count());
   RequestGeolocationPermission(web_contents(), RequestID(0), requesting_frame);
-  EXPECT_EQ(1U, infobar_service()->infobar_count());
-  ConfirmInfoBarDelegate* infobar_delegate =
-      infobar_service()->infobar_at(0)->delegate()->AsConfirmInfoBarDelegate();
-  ASSERT_TRUE(infobar_delegate);
-  infobar_delegate->Accept();
-  EXPECT_TRUE(
-      MockGoogleLocationSettingsHelper::WasGoogleLocationSettingsCalled());
+  EXPECT_EQ(0U, infobar_service()->infobar_count());
 }
 #endif
 
@@ -695,4 +685,140 @@ TEST_F(GeolocationPermissionContextTests, InfoBarUsesCommittedEntry) {
 
   // Delete the tab contents.
   DeleteContents();
+}
+
+TEST_F(GeolocationPermissionContextTests, LastUsageAudited) {
+  GURL requesting_frame("http://www.example.com/geolocation");
+  NavigateAndCommit(requesting_frame);
+
+  base::SimpleTestClock* test_clock = new base::SimpleTestClock;
+  test_clock->SetNow(base::Time::UnixEpoch() +
+                     base::TimeDelta::FromSeconds(10));
+
+  HostContentSettingsMap* map = profile()->GetHostContentSettingsMap();
+  map->SetPrefClockForTesting(scoped_ptr<base::Clock>(test_clock));
+
+  // The permission shouldn't have been used yet.
+  EXPECT_EQ(map->GetLastUsage(requesting_frame.GetOrigin(),
+                              requesting_frame.GetOrigin(),
+                              CONTENT_SETTINGS_TYPE_GEOLOCATION).ToDoubleT(),
+            0);
+
+  EXPECT_EQ(0U, infobar_service()->infobar_count());
+  RequestGeolocationPermission(web_contents(), RequestID(0), requesting_frame);
+  ASSERT_EQ(1U, infobar_service()->infobar_count());
+  infobars::InfoBar* infobar = infobar_service()->infobar_at(0);
+  ConfirmInfoBarDelegate* infobar_delegate =
+      infobar->delegate()->AsConfirmInfoBarDelegate();
+  ASSERT_TRUE(infobar_delegate);
+  infobar_delegate->Accept();
+  CheckTabContentsState(requesting_frame, CONTENT_SETTING_ALLOW);
+  CheckPermissionMessageSent(0, true);
+
+  // Permission has been used at the starting time.
+  EXPECT_EQ(map->GetLastUsage(requesting_frame.GetOrigin(),
+                              requesting_frame.GetOrigin(),
+                              CONTENT_SETTINGS_TYPE_GEOLOCATION).ToDoubleT(),
+            10);
+
+  test_clock->Advance(base::TimeDelta::FromSeconds(3));
+  RequestGeolocationPermission(web_contents(), RequestID(0), requesting_frame);
+
+  // Permission has been used three seconds later.
+  EXPECT_EQ(map->GetLastUsage(requesting_frame.GetOrigin(),
+                              requesting_frame.GetOrigin(),
+                              CONTENT_SETTINGS_TYPE_GEOLOCATION).ToDoubleT(),
+            13);
+}
+
+TEST_F(GeolocationPermissionContextTests, LastUsageAuditedMultipleFrames) {
+  base::SimpleTestClock* test_clock = new base::SimpleTestClock;
+  test_clock->SetNow(base::Time::UnixEpoch() +
+                     base::TimeDelta::FromSeconds(10));
+
+  HostContentSettingsMap* map = profile()->GetHostContentSettingsMap();
+  map->SetPrefClockForTesting(scoped_ptr<base::Clock>(test_clock));
+
+  GURL requesting_frame_0("http://www.example.com/geolocation");
+  GURL requesting_frame_1("http://www.example-2.com/geolocation");
+
+  // The permission shouldn't have been used yet.
+  EXPECT_EQ(map->GetLastUsage(requesting_frame_0.GetOrigin(),
+                              requesting_frame_0.GetOrigin(),
+                              CONTENT_SETTINGS_TYPE_GEOLOCATION).ToDoubleT(),
+            0);
+  EXPECT_EQ(map->GetLastUsage(requesting_frame_1.GetOrigin(),
+                              requesting_frame_0.GetOrigin(),
+                              CONTENT_SETTINGS_TYPE_GEOLOCATION).ToDoubleT(),
+            0);
+
+  NavigateAndCommit(requesting_frame_0);
+  EXPECT_EQ(0U, infobar_service()->infobar_count());
+
+  // Request permission for two frames.
+  RequestGeolocationPermission(
+      web_contents(), RequestID(0), requesting_frame_0);
+  RequestGeolocationPermission(
+      web_contents(), RequestID(1), requesting_frame_1);
+
+  // Ensure only one infobar is created.
+  ASSERT_EQ(1U, infobar_service()->infobar_count());
+  infobars::InfoBar* infobar_0 = infobar_service()->infobar_at(0);
+  ConfirmInfoBarDelegate* infobar_delegate_0 =
+      infobar_0->delegate()->AsConfirmInfoBarDelegate();
+
+  // Accept the first frame.
+  infobar_delegate_0->Accept();
+  CheckTabContentsState(requesting_frame_0, CONTENT_SETTING_ALLOW);
+  CheckPermissionMessageSent(0, true);
+  infobar_service()->RemoveInfoBar(infobar_0);
+
+  // Verify that accepting the first didn't accept because it's embedder
+  // in the other.
+  EXPECT_EQ(map->GetLastUsage(requesting_frame_0.GetOrigin(),
+                              requesting_frame_0.GetOrigin(),
+                              CONTENT_SETTINGS_TYPE_GEOLOCATION).ToDoubleT(),
+            10);
+  EXPECT_EQ(map->GetLastUsage(requesting_frame_1.GetOrigin(),
+                              requesting_frame_0.GetOrigin(),
+                              CONTENT_SETTINGS_TYPE_GEOLOCATION).ToDoubleT(),
+            0);
+
+  ASSERT_EQ(1U, infobar_service()->infobar_count());
+  infobars::InfoBar* infobar_1 = infobar_service()->infobar_at(0);
+  ConfirmInfoBarDelegate* infobar_delegate_1 =
+      infobar_1->delegate()->AsConfirmInfoBarDelegate();
+
+  test_clock->Advance(base::TimeDelta::FromSeconds(1));
+
+  // Allow the second frame.
+  infobar_delegate_1->Accept();
+  CheckTabContentsState(requesting_frame_1, CONTENT_SETTING_ALLOW);
+  CheckPermissionMessageSent(1, true);
+  infobar_service()->RemoveInfoBar(infobar_1);
+
+  // Verify that the times are different.
+  EXPECT_EQ(map->GetLastUsage(requesting_frame_0.GetOrigin(),
+                              requesting_frame_0.GetOrigin(),
+                              CONTENT_SETTINGS_TYPE_GEOLOCATION).ToDoubleT(),
+            10);
+  EXPECT_EQ(map->GetLastUsage(requesting_frame_1.GetOrigin(),
+                              requesting_frame_0.GetOrigin(),
+                              CONTENT_SETTINGS_TYPE_GEOLOCATION).ToDoubleT(),
+            11);
+
+  test_clock->Advance(base::TimeDelta::FromSeconds(2));
+  RequestGeolocationPermission(
+      web_contents(), RequestID(0), requesting_frame_0);
+
+  // Verify that requesting permission in one frame doesn't update other where
+  // it is the embedder.
+  EXPECT_EQ(map->GetLastUsage(requesting_frame_0.GetOrigin(),
+                              requesting_frame_0.GetOrigin(),
+                              CONTENT_SETTINGS_TYPE_GEOLOCATION).ToDoubleT(),
+            13);
+  EXPECT_EQ(map->GetLastUsage(requesting_frame_1.GetOrigin(),
+                              requesting_frame_0.GetOrigin(),
+                              CONTENT_SETTINGS_TYPE_GEOLOCATION).ToDoubleT(),
+            11);
 }

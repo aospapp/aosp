@@ -115,6 +115,10 @@ class PolicyBase : public Dispatcher, public TargetPolicy {
   // Sets up the handle closer for a new target.
   bool SetupHandleCloser(TargetProcess* target);
 
+  ResultCode AddRuleInternal(SubSystem subsystem,
+                             Semantics semantics,
+                             const wchar_t* pattern);
+
   // This lock synchronizes operations on the targets_ collection.
   CRITICAL_SECTION lock_;
   // Maintains the list of target process associated with this policy.
@@ -157,6 +161,7 @@ class PolicyBase : public Dispatcher, public TargetPolicy {
 
   static HDESK alternate_desktop_handle_;
   static HWINSTA alternate_winstation_handle_;
+  static IntegrityLevel alternate_desktop_integrity_level_label_;
 
   DISALLOW_COPY_AND_ASSIGN(PolicyBase);
 };

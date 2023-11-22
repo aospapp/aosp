@@ -20,6 +20,7 @@ import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.telephony.PhoneNumberUtils;
 import android.text.Editable;
 import android.text.method.DialerKeyListener;
 import android.util.AttributeSet;
@@ -34,6 +35,7 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.android.contacts.common.util.MaterialColorMapUtils.MaterialPalette;
 import com.android.phone.common.dialpad.DialpadKeyButton;
 import com.android.phone.common.dialpad.DialpadView;
 
@@ -47,6 +49,10 @@ public class DialpadFragment extends BaseFragment<DialpadPresenter, DialpadPrese
         View.OnHoverListener, View.OnClickListener {
 
     private static final int ACCESSIBILITY_DTMF_STOP_DELAY_MILLIS = 50;
+
+    private final int[] mButtonIds = new int[] {R.id.zero, R.id.one, R.id.two, R.id.three,
+            R.id.four, R.id.five, R.id.six, R.id.seven, R.id.eight, R.id.nine, R.id.star,
+            R.id.pound};
 
     /**
      * LinearLayout with getter and setter methods for the translationY property using floats,
@@ -131,6 +137,8 @@ public class DialpadFragment extends BaseFragment<DialpadPresenter, DialpadPrese
     private DTMFKeyListener mDialerKeyListener;
 
     private DialpadView mDialpadView;
+
+    private int mCurrentTextColor;
 
     /**
      * Our own key listener, specialized for dealing with DTMF codes.
@@ -457,10 +465,32 @@ public class DialpadFragment extends BaseFragment<DialpadPresenter, DialpadPrese
             // the edit (copy / paste / select) functions.
             mDtmfDialerField.setLongClickable(false);
             mDtmfDialerField.setElegantTextHeight(false);
-            configureKeypadListeners(mDialpadView);
+            configureKeypadListeners();
         }
 
         return parent;
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        updateColors();
+    }
+
+    public void updateColors() {
+        int textColor = InCallPresenter.getInstance().getThemeColors().mPrimaryColor;
+
+        if (mCurrentTextColor == textColor) {
+            return;
+        }
+
+        DialpadKeyButton dialpadKey;
+        for (int i = 0; i < mButtonIds.length; i++) {
+            dialpadKey = (DialpadKeyButton) mDialpadView.findViewById(mButtonIds[i]);
+            ((TextView) dialpadKey.findViewById(R.id.dialpad_key_number)).setTextColor(textColor);
+        }
+
+        mCurrentTextColor = textColor;
     }
 
     @Override
@@ -484,7 +514,7 @@ public class DialpadFragment extends BaseFragment<DialpadPresenter, DialpadPrese
      * @param text Text to set Dialpad EditText to.
      */
     public void setDtmfText(String text) {
-        mDtmfDialerField.setText(text);
+        mDtmfDialerField.setText(PhoneNumberUtils.ttsSpanAsPhoneNumber(text));
     }
 
     @Override
@@ -544,12 +574,10 @@ public class DialpadFragment extends BaseFragment<DialpadPresenter, DialpadPrese
         }
     }
 
-    private void configureKeypadListeners(View fragmentView) {
-        final int[] buttonIds = new int[] {R.id.zero, R.id.one, R.id.two, R.id.three, R.id.four,
-                R.id.five, R.id.six, R.id.seven, R.id.eight, R.id.nine, R.id.star, R.id.pound};
+    private void configureKeypadListeners() {
         DialpadKeyButton dialpadKey;
-        for (int i = 0; i < buttonIds.length; i++) {
-            dialpadKey = (DialpadKeyButton) fragmentView.findViewById(buttonIds[i]);
+        for (int i = 0; i < mButtonIds.length; i++) {
+            dialpadKey = (DialpadKeyButton) mDialpadView.findViewById(mButtonIds[i]);
             dialpadKey.setOnTouchListener(this);
             dialpadKey.setOnKeyListener(this);
             dialpadKey.setOnHoverListener(this);

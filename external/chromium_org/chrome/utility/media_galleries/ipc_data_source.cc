@@ -5,7 +5,7 @@
 #include "chrome/utility/media_galleries/ipc_data_source.h"
 
 #include "base/message_loop/message_loop_proxy.h"
-#include "chrome/common/chrome_utility_messages.h"
+#include "chrome/common/extensions/chrome_utility_extensions_messages.h"
 #include "content/public/utility/utility_thread.h"
 
 namespace metadata {
@@ -21,9 +21,8 @@ IPCDataSource::~IPCDataSource() {
   DCHECK(utility_thread_checker_.CalledOnValidThread());
 }
 
-void IPCDataSource::Stop(const base::Closure& callback) {
+void IPCDataSource::Stop() {
   DCHECK(data_source_thread_checker_.CalledOnValidThread());
-  callback.Run();
 }
 
 void IPCDataSource::Read(int64 position, int size, uint8* data,

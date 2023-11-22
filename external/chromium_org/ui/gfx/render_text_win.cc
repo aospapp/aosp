@@ -16,7 +16,8 @@
 #include "third_party/icu/source/common/unicode/uchar.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/font_fallback_win.h"
-#include "ui/gfx/font_smoothing_win.h"
+#include "ui/gfx/font_render_params.h"
+#include "ui/gfx/geometry/size_conversions.h"
 #include "ui/gfx/platform_font_win.h"
 #include "ui/gfx/utf16_indexing.h"
 
@@ -36,65 +37,6 @@ const size_t kMaxRuns = 10000;
 
 // The maximum number of glyphs per run; ScriptShape fails on larger values.
 const size_t kMaxGlyphs = 65535;
-
-// Callback to |EnumEnhMetaFile()| to intercept font creation.
-int CALLBACK MetaFileEnumProc(HDC hdc,
-                              HANDLETABLE* table,
-                              CONST ENHMETARECORD* record,
-                              int table_entries,
-                              LPARAM log_font) {
-  if (record->iType == EMR_EXTCREATEFONTINDIRECTW) {
-    const EMREXTCREATEFONTINDIRECTW* create_font_record =
-        reinterpret_cast<const EMREXTCREATEFONTINDIRECTW*>(record);
-    *reinterpret_cast<LOGFONT*>(log_font) = create_font_record->elfw.elfLogFont;
-  }
-  return 1;
-}
-
-// Finds a fallback font to use to render the specified |text| with respect to
-// an initial |font|. Returns the resulting font via out param |result|. Returns
-// |true| if a fallback font was found.
-// Adapted from WebKit's |FontCache::GetFontDataForCharacters()|.
-// TODO(asvitkine): This should be moved to font_fallback_win.cc.
-bool ChooseFallbackFont(HDC hdc,
-                        const Font& font,
-                        const wchar_t* text,
-                        int text_length,
-                        Font* result) {
-  // Use a meta file to intercept the fallback font chosen by Uniscribe.
-  HDC meta_file_dc = CreateEnhMetaFile(hdc, NULL, NULL, NULL);
-  if (!meta_file_dc)
-    return false;
-
-  SelectObject(meta_file_dc, font.GetNativeFont());
-
-  SCRIPT_STRING_ANALYSIS script_analysis;
-  HRESULT hresult =
-      ScriptStringAnalyse(meta_file_dc, text, text_length, 0, -1,
-                          SSA_METAFILE | SSA_FALLBACK | SSA_GLYPHS | SSA_LINK,
-                          0, NULL, NULL, NULL, NULL, NULL, &script_analysis);
-
-  if (SUCCEEDED(hresult)) {
-    hresult = ScriptStringOut(script_analysis, 0, 0, 0, NULL, 0, 0, FALSE);
-    ScriptStringFree(&script_analysis);
-  }
-
-  bool found_fallback = false;
-  HENHMETAFILE meta_file = CloseEnhMetaFile(meta_file_dc);
-  if (SUCCEEDED(hresult)) {
-    LOGFONT log_font;
-    log_font.lfFaceName[0] = 0;
-    EnumEnhMetaFile(0, meta_file, MetaFileEnumProc, &log_font, NULL);
-    if (log_font.lfFaceName[0]) {
-      *result = Font(base::UTF16ToUTF8(log_font.lfFaceName),
-                     font.GetFontSize());
-      found_fallback = true;
-    }
-  }
-  DeleteEnhMetaFile(meta_file);
-
-  return found_fallback;
-}
 
 // Changes |font| to have the specified |font_size| (or |font_height| on Windows
 // XP) and |font_style| if it is not the case already. Only considers bold and
@@ -284,6 +226,65 @@ size_t FindUnusualCharacter(const base::string16& text,
   return run_break;
 }
 
+// Callback to |EnumEnhMetaFile()| to intercept font creation.
+int CALLBACK MetaFileEnumProc(HDC hdc,
+                              HANDLETABLE* table,
+                              CONST ENHMETARECORD* record,
+                              int table_entries,
+                              LPARAM log_font) {
+  if (record->iType == EMR_EXTCREATEFONTINDIRECTW) {
+    const EMREXTCREATEFONTINDIRECTW* create_font_record =
+        reinterpret_cast<const EMREXTCREATEFONTINDIRECTW*>(record);
+    *reinterpret_cast<LOGFONT*>(log_font) = create_font_record->elfw.elfLogFont;
+  }
+  return 1;
+}
+
+// Finds a fallback font to use to render the specified |text| with respect to
+// an initial |font|. Returns the resulting font via out param |result|. Returns
+// |true| if a fallback font was found.
+// Adapted from WebKit's |FontCache::GetFontDataForCharacters()|.
+// TODO(asvitkine): This should be moved to font_fallback_win.cc.
+bool ChooseFallbackFont(HDC hdc,
+                        const Font& font,
+                        const wchar_t* text,
+                        int text_length,
+                        Font* result) {
+  // Use a meta file to intercept the fallback font chosen by Uniscribe.
+  HDC meta_file_dc = CreateEnhMetaFile(hdc, NULL, NULL, NULL);
+  if (!meta_file_dc)
+    return false;
+
+  SelectObject(meta_file_dc, font.GetNativeFont());
+
+  SCRIPT_STRING_ANALYSIS script_analysis;
+  HRESULT hresult =
+      ScriptStringAnalyse(meta_file_dc, text, text_length, 0, -1,
+                          SSA_METAFILE | SSA_FALLBACK | SSA_GLYPHS | SSA_LINK,
+                          0, NULL, NULL, NULL, NULL, NULL, &script_analysis);
+
+  if (SUCCEEDED(hresult)) {
+    hresult = ScriptStringOut(script_analysis, 0, 0, 0, NULL, 0, 0, FALSE);
+    ScriptStringFree(&script_analysis);
+  }
+
+  bool found_fallback = false;
+  HENHMETAFILE meta_file = CloseEnhMetaFile(meta_file_dc);
+  if (SUCCEEDED(hresult)) {
+    LOGFONT log_font;
+    log_font.lfFaceName[0] = 0;
+    EnumEnhMetaFile(0, meta_file, MetaFileEnumProc, &log_font, NULL);
+    if (log_font.lfFaceName[0]) {
+      *result = Font(base::UTF16ToUTF8(log_font.lfFaceName),
+                     font.GetFontSize());
+      found_fallback = true;
+    }
+  }
+  DeleteEnhMetaFile(meta_file);
+
+  return found_fallback;
+}
+
 }  // namespace
 
 namespace internal {
@@ -448,8 +449,9 @@ class LineBreaker {
       line->baseline = line_ascent_;
       line->size.set_height(line_ascent_ + line_descent_);
       line->preceding_heights = total_size_.height();
-      total_size_.set_height(total_size_.height() + line->size.height());
-      total_size_.set_width(std::max(total_size_.width(), line->size.width()));
+      const Size line_size(ToCeiledSize(line->size));
+      total_size_.set_height(total_size_.height() + line_size.height());
+      total_size_.set_width(std::max(total_size_.width(), line_size.width()));
     }
     line_x_ = 0;
     line_ascent_ = 0;
@@ -809,13 +811,9 @@ void RenderTextWin::DrawVisualText(Canvas* canvas) {
   ApplyFadeEffects(&renderer);
   ApplyTextShadows(&renderer);
 
-  bool smoothing_enabled;
-  bool cleartype_enabled;
-  GetCachedFontSmoothingSettings(&smoothing_enabled, &cleartype_enabled);
-  // Note that |cleartype_enabled| corresponds to Skia's |enable_lcd_text|.
-  renderer.SetFontSmoothingSettings(
-      smoothing_enabled, cleartype_enabled && !background_is_transparent(),
-      smoothing_enabled /* subpixel_positioning */);
+  renderer.SetFontRenderParams(
+      font_list().GetPrimaryFont().GetFontRenderParams(),
+      background_is_transparent());
 
   ApplyCompositionAndSelectionStyles();
 
@@ -825,7 +823,7 @@ void RenderTextWin::DrawVisualText(Canvas* canvas) {
 
     // Skip painting empty lines or lines outside the display rect area.
     if (!display_rect().Intersects(Rect(PointAtOffsetFromOrigin(line_offset),
-                                        line.size)))
+                                        ToCeiledSize(line.size))))
       continue;
 
     const Vector2d text_offset = line_offset + Vector2d(0, line.baseline);
@@ -1060,7 +1058,7 @@ void RenderTextWin::LayoutTextRun(internal::TextRun* run) {
   const size_t run_length = run->range.length();
   const wchar_t* run_text = &(GetLayoutText()[run->range.start()]);
   Font original_font = run->font;
-  LinkedFontsIterator fonts(original_font);
+  internal::LinkedFontsIterator fonts(original_font);
   bool tried_cached_font = false;
   bool tried_fallback = false;
   // Keep track of the font that is able to display the greatest number of

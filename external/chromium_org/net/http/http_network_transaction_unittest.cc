@@ -11,8 +11,8 @@
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/json/json_writer.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -303,7 +303,7 @@ class HttpNetworkTransactionTest
     session_deps_.net_log = log.bound().net_log();
     scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
     scoped_ptr<HttpTransaction> trans(
-        new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+        new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
     for (size_t i = 0; i < data_count; ++i) {
       session_deps_.socket_factory->AddSocketDataProvider(data[i]);
@@ -433,6 +433,32 @@ class BeforeNetworkStartHandler {
   DISALLOW_COPY_AND_ASSIGN(BeforeNetworkStartHandler);
 };
 
+class BeforeProxyHeadersSentHandler {
+ public:
+  BeforeProxyHeadersSentHandler()
+      : observed_before_proxy_headers_sent_(false) {}
+
+  void OnBeforeProxyHeadersSent(const ProxyInfo& proxy_info,
+                                HttpRequestHeaders* request_headers) {
+    observed_before_proxy_headers_sent_ = true;
+    observed_proxy_server_uri_ = proxy_info.proxy_server().ToURI();
+  }
+
+  bool observed_before_proxy_headers_sent() const {
+    return observed_before_proxy_headers_sent_;
+  }
+
+  std::string observed_proxy_server_uri() const {
+    return observed_proxy_server_uri_;
+  }
+
+ private:
+  bool observed_before_proxy_headers_sent_;
+  std::string observed_proxy_server_uri_;
+
+  DISALLOW_COPY_AND_ASSIGN(BeforeProxyHeadersSentHandler);
+};
+
 // Fill |str| with a long header list that consumes >= |size| bytes.
 void FillLargeHeadersString(std::string* str, int size) {
   const char* row =
@@ -539,7 +565,8 @@ template<>
 CaptureGroupNameHttpProxySocketPool::CaptureGroupNameSocketPool(
     HostResolver* host_resolver,
     CertVerifier* /* cert_verifier */)
-    : HttpProxyClientSocketPool(0, 0, NULL, host_resolver, NULL, NULL, NULL) {}
+    : HttpProxyClientSocketPool(
+          0, 0, NULL, host_resolver, NULL, NULL, NULL, NULL) {}
 
 template <>
 CaptureGroupNameSSLSocketPool::CaptureGroupNameSocketPool(
@@ -559,7 +586,9 @@ CaptureGroupNameSSLSocketPool::CaptureGroupNameSocketPool(
                           NULL,
                           NULL,
                           NULL,
-                          NULL) {}
+                          false,
+                          NULL) {
+}
 
 //-----------------------------------------------------------------------------
 
@@ -610,7 +639,7 @@ bool CheckNTLMServerAuth(const AuthChallengeInfo* auth_challenge) {
 TEST_P(HttpNetworkTransactionTest, Basic) {
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 }
 
 TEST_P(HttpNetworkTransactionTest, SimpleGET) {
@@ -928,7 +957,7 @@ TEST_P(HttpNetworkTransactionTest, TwoIdenticalLocationHeaders) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   StaticSocketDataProvider data(data_reads, arraysize(data_reads), NULL, 0);
   session_deps_.socket_factory->AddSocketDataProvider(&data);
@@ -973,7 +1002,11 @@ TEST_P(HttpNetworkTransactionTest, Head) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
+  BeforeProxyHeadersSentHandler proxy_headers_handler;
+  trans->SetBeforeProxyHeadersSentCallback(
+      base::Bind(&BeforeProxyHeadersSentHandler::OnBeforeProxyHeadersSent,
+                 base::Unretained(&proxy_headers_handler)));
 
   MockWrite data_writes1[] = {
     MockWrite("HEAD / HTTP/1.1\r\n"
@@ -1010,6 +1043,7 @@ TEST_P(HttpNetworkTransactionTest, Head) {
   EXPECT_EQ(1234, response->headers->GetContentLength());
   EXPECT_EQ("HTTP/1.1 404 Not Found", response->headers->GetStatusLine());
   EXPECT_TRUE(response->proxy_server.IsEmpty());
+  EXPECT_FALSE(proxy_headers_handler.observed_before_proxy_headers_sent());
 
   std::string server_header;
   void* iter = NULL;
@@ -1087,7 +1121,7 @@ TEST_P(HttpNetworkTransactionTest, Ignores100) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockRead data_reads[] = {
     MockRead("HTTP/1.0 100 Continue\r\n\r\n"),
@@ -1129,7 +1163,7 @@ TEST_P(HttpNetworkTransactionTest, Ignores1xx) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockRead data_reads[] = {
     MockRead("HTTP/1.1 102 Unspecified status code\r\n\r\n"
@@ -1168,7 +1202,7 @@ TEST_P(HttpNetworkTransactionTest, Incomplete100ThenEOF) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockRead data_reads[] = {
     MockRead(SYNCHRONOUS, "HTTP/1.0 100 Continue\r\n"),
@@ -1199,8 +1233,7 @@ TEST_P(HttpNetworkTransactionTest, EmptyResponse) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
-
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockRead data_reads[] = {
     MockRead(ASYNC, 0),
@@ -1515,7 +1548,7 @@ TEST_P(HttpNetworkTransactionTest, NonKeepAliveConnectionReset) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockRead data_reads[] = {
     MockRead(ASYNC, ERR_CONNECTION_RESET),
@@ -1842,7 +1875,7 @@ TEST_P(HttpNetworkTransactionTest, BasicAuth) {
   session_deps_.net_log = &log;
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes1[] = {
     MockWrite("GET / HTTP/1.1\r\n"
@@ -1941,7 +1974,7 @@ TEST_P(HttpNetworkTransactionTest, DoNotSendAuth) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes[] = {
     MockWrite("GET / HTTP/1.1\r\n"
@@ -2613,7 +2646,7 @@ TEST_P(HttpNetworkTransactionTest, UnexpectedProxyAuth) {
   // We are using a DIRECT connection (i.e. no proxy) for this session.
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes1[] = {
     MockWrite("GET / HTTP/1.1\r\n"
@@ -3485,14 +3518,13 @@ TEST_P(HttpNetworkTransactionTest,
       spdy_util_.ConstructSpdyWindowUpdate(1, wrapped_get_resp1->size()));
 
   // CONNECT to news.google.com:443 via SPDY.
-  SpdySynStreamIR connect2_ir(3);
-  spdy_util_.SetPriority(LOWEST, &connect2_ir);
-  connect2_ir.SetHeader(spdy_util_.GetMethodKey(), "CONNECT");
-  connect2_ir.SetHeader(spdy_util_.GetPathKey(), "news.google.com:443");
-  connect2_ir.SetHeader(spdy_util_.GetHostKey(), "news.google.com");
-  spdy_util_.MaybeAddVersionHeader(&connect2_ir);
+  SpdyHeaderBlock connect2_block;
+  connect2_block[spdy_util_.GetMethodKey()] = "CONNECT";
+  connect2_block[spdy_util_.GetPathKey()] = "news.google.com:443";
+  connect2_block[spdy_util_.GetHostKey()] = "news.google.com";
+  spdy_util_.MaybeAddVersionHeader(&connect2_block);
   scoped_ptr<SpdyFrame> connect2(
-      spdy_util_.CreateFramer(false)->SerializeFrame(connect2_ir));
+      spdy_util_.ConstructSpdySyn(3, connect2_block, LOWEST, false, false));
 
   scoped_ptr<SpdyFrame> conn_resp2(
       spdy_util_.ConstructSpdyGetSynReply(NULL, 0, 3));
@@ -3748,8 +3780,8 @@ TEST_P(HttpNetworkTransactionTest,
   // http://www.google.com/
   scoped_ptr<SpdyHeaderBlock> headers(
       spdy_util_.ConstructGetHeaderBlockForProxy("http://www.google.com/"));
-  scoped_ptr<SpdyFrame> get1(spdy_util_.ConstructSpdyControlFrame(
-      headers.Pass(), false, 1, LOWEST, SYN_STREAM, CONTROL_FLAG_FIN, 0));
+  scoped_ptr<SpdyFrame> get1(
+      spdy_util_.ConstructSpdySyn(1, *headers, LOWEST, false, true));
   scoped_ptr<SpdyFrame> get_resp1(
       spdy_util_.ConstructSpdyGetSynReply(NULL, 0, 1));
   scoped_ptr<SpdyFrame> body1(
@@ -3758,8 +3790,8 @@ TEST_P(HttpNetworkTransactionTest,
   // http://news.google.com/
   scoped_ptr<SpdyHeaderBlock> headers2(
       spdy_util_.ConstructGetHeaderBlockForProxy("http://news.google.com/"));
-  scoped_ptr<SpdyFrame> get2(spdy_util_.ConstructSpdyControlFrame(
-      headers2.Pass(), false, 3, LOWEST, SYN_STREAM, CONTROL_FLAG_FIN, 0));
+  scoped_ptr<SpdyFrame> get2(
+      spdy_util_.ConstructSpdySyn(3, *headers2, LOWEST, false, true));
   scoped_ptr<SpdyFrame> get_resp2(
       spdy_util_.ConstructSpdyGetSynReply(NULL, 0, 3));
   scoped_ptr<SpdyFrame> body2(
@@ -4165,7 +4197,7 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyThenServer) {
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
 
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes1[] = {
     MockWrite("GET http://www.google.com/ HTTP/1.1\r\n"
@@ -4626,7 +4658,7 @@ TEST_P(HttpNetworkTransactionTest, LargeHeadersNoBody) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   // Respond with 300 kb of headers (we should fail after 256 kb).
   std::string large_headers_string;
@@ -5081,7 +5113,7 @@ TEST_P(HttpNetworkTransactionTest, AuthIdentityInURL) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   // The password contains an escaped character -- for this test to pass it
   // will need to be unescaped by HttpNetworkTransaction.
@@ -5162,7 +5194,7 @@ TEST_P(HttpNetworkTransactionTest, WrongAuthIdentityInURL) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes1[] = {
     MockWrite("GET / HTTP/1.1\r\n"
@@ -5270,7 +5302,7 @@ TEST_P(HttpNetworkTransactionTest, AuthIdentityInURLSuppressed) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes1[] = {
     MockWrite("GET / HTTP/1.1\r\n"
@@ -5861,7 +5893,7 @@ TEST_P(HttpNetworkTransactionTest, ResetStateForRestart) {
   // Create a transaction (the dependencies aren't important).
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpNetworkTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   // Setup some state (which we expect ResetStateForRestart() will clear).
   trans->read_buf_ = new IOBuffer(15);
@@ -5908,7 +5940,7 @@ TEST_P(HttpNetworkTransactionTest, HTTPSBadCertificate) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes[] = {
     MockWrite("GET / HTTP/1.1\r\n"
@@ -6012,7 +6044,7 @@ TEST_P(HttpNetworkTransactionTest, HTTPSBadCertificateViaProxy) {
 
     scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
     scoped_ptr<HttpTransaction> trans(
-        new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+        new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
     int rv = trans->Start(&request, callback.callback(), BoundNetLog());
     EXPECT_EQ(ERR_IO_PENDING, rv);
@@ -6076,7 +6108,7 @@ TEST_P(HttpNetworkTransactionTest, HTTPSViaHttpsProxy) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   int rv = trans->Start(&request, callback.callback(), BoundNetLog());
   EXPECT_EQ(ERR_IO_PENDING, rv);
@@ -6134,7 +6166,7 @@ TEST_P(HttpNetworkTransactionTest, RedirectOfHttpsConnectViaHttpsProxy) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   int rv = trans->Start(&request, callback.callback(), BoundNetLog());
   EXPECT_EQ(ERR_IO_PENDING, rv);
@@ -6219,7 +6251,7 @@ TEST_P(HttpNetworkTransactionTest, RedirectOfHttpsConnectViaSpdyProxy) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   int rv = trans->Start(&request, callback.callback(), BoundNetLog());
   EXPECT_EQ(ERR_IO_PENDING, rv);
@@ -6271,7 +6303,7 @@ TEST_P(HttpNetworkTransactionTest,
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   int rv = trans->Start(&request, callback.callback(), BoundNetLog());
   EXPECT_EQ(ERR_IO_PENDING, rv);
@@ -6332,7 +6364,7 @@ TEST_P(HttpNetworkTransactionTest,
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   int rv = trans->Start(&request, callback.callback(), BoundNetLog());
   EXPECT_EQ(ERR_IO_PENDING, rv);
@@ -6388,23 +6420,12 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthSpdyProxy) {
 
   // The proxy responds to the connect with a 407, using a persistent
   // connection.
+  const char* const kAuthStatus = "407";
   const char* const kAuthChallenge[] = {
-    spdy_util_.GetStatusKey(), "407 Proxy Authentication Required",
-    spdy_util_.GetVersionKey(), "HTTP/1.1",
     "proxy-authenticate", "Basic realm=\"MyRealm1\"",
   };
-
-  scoped_ptr<SpdyFrame> conn_auth_resp(
-      spdy_util_.ConstructSpdyControlFrame(NULL,
-                                           0,
-                                           false,
-                                           1,
-                                           LOWEST,
-                                           SYN_REPLY,
-                                           CONTROL_FLAG_NONE,
-                                           kAuthChallenge,
-                                           arraysize(kAuthChallenge),
-                                           0));
+  scoped_ptr<SpdyFrame> conn_auth_resp(spdy_util_.ConstructSpdySynReplyError(
+      kAuthStatus, kAuthChallenge, arraysize(kAuthChallenge) / 2, 1));
 
   scoped_ptr<SpdyFrame> conn_resp(
       spdy_util_.ConstructSpdyGetSynReply(NULL, 0, 3));
@@ -6757,7 +6778,7 @@ TEST_P(HttpNetworkTransactionTest, HTTPSBadCertificateViaHttpsProxy) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   int rv = trans->Start(&request, callback.callback(), BoundNetLog());
   EXPECT_EQ(ERR_IO_PENDING, rv);
@@ -6786,7 +6807,7 @@ TEST_P(HttpNetworkTransactionTest, BuildRequest_UserAgent) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes[] = {
     MockWrite("GET / HTTP/1.1\r\n"
@@ -6826,7 +6847,7 @@ TEST_P(HttpNetworkTransactionTest, BuildRequest_UserAgentOverTunnel) {
   session_deps_.proxy_service.reset(ProxyService::CreateFixed("myproxy:70"));
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes[] = {
     MockWrite("CONNECT www.google.com:443 HTTP/1.1\r\n"
@@ -6865,7 +6886,7 @@ TEST_P(HttpNetworkTransactionTest, BuildRequest_Referer) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes[] = {
     MockWrite("GET / HTTP/1.1\r\n"
@@ -6902,7 +6923,7 @@ TEST_P(HttpNetworkTransactionTest, BuildRequest_PostContentLengthZero) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes[] = {
     MockWrite("POST / HTTP/1.1\r\n"
@@ -6939,7 +6960,7 @@ TEST_P(HttpNetworkTransactionTest, BuildRequest_PutContentLengthZero) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes[] = {
     MockWrite("PUT / HTTP/1.1\r\n"
@@ -6976,7 +6997,7 @@ TEST_P(HttpNetworkTransactionTest, BuildRequest_HeadContentLengthZero) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes[] = {
     MockWrite("HEAD / HTTP/1.1\r\n"
@@ -7014,7 +7035,7 @@ TEST_P(HttpNetworkTransactionTest, BuildRequest_CacheControlNoCache) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes[] = {
     MockWrite("GET / HTTP/1.1\r\n"
@@ -7054,7 +7075,7 @@ TEST_P(HttpNetworkTransactionTest,
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes[] = {
     MockWrite("GET / HTTP/1.1\r\n"
@@ -7092,7 +7113,7 @@ TEST_P(HttpNetworkTransactionTest, BuildRequest_ExtraHeaders) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes[] = {
     MockWrite("GET / HTTP/1.1\r\n"
@@ -7132,7 +7153,7 @@ TEST_P(HttpNetworkTransactionTest, BuildRequest_ExtraHeadersStripped) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes[] = {
     MockWrite("GET / HTTP/1.1\r\n"
@@ -7177,7 +7198,7 @@ TEST_P(HttpNetworkTransactionTest, SOCKS4_HTTP_GET) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   char write_buffer[] = { 0x04, 0x01, 0x00, 0x50, 127, 0, 0, 1, 0 };
   char read_buffer[] = { 0x00, 0x5A, 0x00, 0x00, 0, 0, 0, 0 };
@@ -7236,7 +7257,7 @@ TEST_P(HttpNetworkTransactionTest, SOCKS4_SSL_GET) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   unsigned char write_buffer[] = { 0x04, 0x01, 0x01, 0xBB, 127, 0, 0, 1, 0 };
   unsigned char read_buffer[] = { 0x00, 0x5A, 0x00, 0x00, 0, 0, 0, 0 };
@@ -7300,7 +7321,7 @@ TEST_P(HttpNetworkTransactionTest, SOCKS4_HTTP_GET_no_PAC) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   char write_buffer[] = { 0x04, 0x01, 0x00, 0x50, 127, 0, 0, 1, 0 };
   char read_buffer[] = { 0x00, 0x5A, 0x00, 0x00, 0, 0, 0, 0 };
@@ -7359,7 +7380,7 @@ TEST_P(HttpNetworkTransactionTest, SOCKS5_HTTP_GET) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   const char kSOCKS5GreetRequest[] = { 0x05, 0x01, 0x00 };
   const char kSOCKS5GreetResponse[] = { 0x05, 0x00 };
@@ -7432,7 +7453,7 @@ TEST_P(HttpNetworkTransactionTest, SOCKS5_SSL_GET) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   const char kSOCKS5GreetRequest[] = { 0x05, 0x01, 0x00 };
   const char kSOCKS5GreetResponse[] = { 0x05, 0x00 };
@@ -7517,7 +7538,7 @@ scoped_refptr<HttpNetworkSession> SetupSessionForGroupNameTests(
       session->http_server_properties();
   http_server_properties->SetAlternateProtocol(
       HostPortPair("host.with.alternate", 80), 443,
-      AlternateProtocolFromNextProto(next_proto));
+      AlternateProtocolFromNextProto(next_proto), 1);
 
   return session;
 }
@@ -7763,7 +7784,7 @@ TEST_P(HttpNetworkTransactionTest, ReconsiderProxyAfterFailedConnection) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   TestCompletionCallback callback;
 
@@ -7789,7 +7810,7 @@ void HttpNetworkTransactionTest::BypassHostCacheOnRefreshHelper(
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   // Warm up the host cache so it has an entry for "www.google.com".
   AddressList addrlist;
@@ -7869,7 +7890,7 @@ TEST_P(HttpNetworkTransactionTest, RequestWriteError) {
   TestCompletionCallback callback;
 
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   int rv = trans->Start(&request, callback.callback(), BoundNetLog());
   EXPECT_EQ(ERR_IO_PENDING, rv);
@@ -7897,7 +7918,7 @@ TEST_P(HttpNetworkTransactionTest, ConnectionClosedAfterStartOfHeaders) {
   TestCompletionCallback callback;
 
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   int rv = trans->Start(&request, callback.callback(), BoundNetLog());
   EXPECT_EQ(ERR_IO_PENDING, rv);
@@ -8022,7 +8043,7 @@ TEST_P(HttpNetworkTransactionTest, HTTPSViaProxyWithExtraData) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   int rv = trans->Start(&request, callback.callback(), BoundNetLog());
   EXPECT_EQ(ERR_IO_PENDING, rv);
@@ -8039,7 +8060,7 @@ TEST_P(HttpNetworkTransactionTest, LargeContentLengthThenClose) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockRead data_reads[] = {
     MockRead("HTTP/1.0 200 OK\r\nContent-Length:6719476739\r\n\r\n"),
@@ -8091,7 +8112,7 @@ TEST_P(HttpNetworkTransactionTest, UploadFileSmallerThanLength) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockRead data_reads[] = {
     MockRead("HTTP/1.0 200 OK\r\n\r\n"),
@@ -8129,7 +8150,7 @@ TEST_P(HttpNetworkTransactionTest, UploadUnreadableFile) {
   std::string temp_file_content("Unreadable file.");
   ASSERT_TRUE(base::WriteFile(temp_file, temp_file_content.c_str(),
                                    temp_file_content.length()));
-  ASSERT_TRUE(file_util::MakeFileUnreadable(temp_file));
+  ASSERT_TRUE(base::MakeFileUnreadable(temp_file));
 
   ScopedVector<UploadElementReader> element_readers;
   element_readers.push_back(
@@ -8149,7 +8170,7 @@ TEST_P(HttpNetworkTransactionTest, UploadUnreadableFile) {
   // If we try to upload an unreadable file, the transaction should fail.
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   StaticSocketDataProvider data(NULL, 0, NULL, 0);
   session_deps_.socket_factory->AddSocketDataProvider(&data);
@@ -8206,7 +8227,7 @@ TEST_P(HttpNetworkTransactionTest, CancelDuringInitRequestBody) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   StaticSocketDataProvider data;
   session_deps_.socket_factory->AddSocketDataProvider(&data);
@@ -8310,7 +8331,7 @@ TEST_P(HttpNetworkTransactionTest, ChangeAuthRealms) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   // Issue the first request with Authorize headers. There should be a
   // password prompt for first_realm waiting to be filled in after the
@@ -8429,11 +8450,10 @@ TEST_P(HttpNetworkTransactionTest, HonorAlternateProtocolHeader) {
   EXPECT_EQ("hello world", response_data);
 
   ASSERT_TRUE(http_server_properties.HasAlternateProtocol(http_host_port_pair));
-  const PortAlternateProtocolPair alternate =
+  const AlternateProtocolInfo alternate =
       http_server_properties.GetAlternateProtocol(http_host_port_pair);
-  PortAlternateProtocolPair expected_alternate;
-  expected_alternate.port = 443;
-  expected_alternate.protocol = AlternateProtocolFromNextProto(GetParam());
+  AlternateProtocolInfo expected_alternate(
+      443, AlternateProtocolFromNextProto(GetParam()), 1);
   EXPECT_TRUE(expected_alternate.Equals(alternate));
 }
 
@@ -8469,7 +8489,7 @@ TEST_P(HttpNetworkTransactionTest,
   http_server_properties->SetAlternateProtocol(
       HostPortPair::FromURL(request.url),
       666 /* port is ignored by MockConnect anyway */,
-      AlternateProtocolFromNextProto(GetParam()));
+      AlternateProtocolFromNextProto(GetParam()), 1);
 
   scoped_ptr<HttpTransaction> trans(
       new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
@@ -8490,7 +8510,7 @@ TEST_P(HttpNetworkTransactionTest,
 
   ASSERT_TRUE(http_server_properties->HasAlternateProtocol(
       HostPortPair::FromURL(request.url)));
-  const PortAlternateProtocolPair alternate =
+  const AlternateProtocolInfo alternate =
       http_server_properties->GetAlternateProtocol(
           HostPortPair::FromURL(request.url));
   EXPECT_EQ(ALTERNATE_PROTOCOL_BROKEN, alternate.protocol);
@@ -8531,7 +8551,7 @@ TEST_P(HttpNetworkTransactionTest,
   http_server_properties->SetAlternateProtocol(
       HostPortPair::FromURL(restricted_port_request.url),
       kUnrestrictedAlternatePort,
-      AlternateProtocolFromNextProto(GetParam()));
+      AlternateProtocolFromNextProto(GetParam()), 1);
 
   scoped_ptr<HttpTransaction> trans(
       new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
@@ -8582,7 +8602,7 @@ TEST_P(HttpNetworkTransactionTest,
   http_server_properties->SetAlternateProtocol(
       HostPortPair::FromURL(restricted_port_request.url),
       kUnrestrictedAlternatePort,
-      AlternateProtocolFromNextProto(GetParam()));
+      AlternateProtocolFromNextProto(GetParam()), 1);
 
   scoped_ptr<HttpTransaction> trans(
       new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
@@ -8630,7 +8650,7 @@ TEST_P(HttpNetworkTransactionTest,
   http_server_properties->SetAlternateProtocol(
       HostPortPair::FromURL(restricted_port_request.url),
       kRestrictedAlternatePort,
-      AlternateProtocolFromNextProto(GetParam()));
+      AlternateProtocolFromNextProto(GetParam()), 1);
 
   scoped_ptr<HttpTransaction> trans(
       new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
@@ -8679,7 +8699,7 @@ TEST_P(HttpNetworkTransactionTest,
   http_server_properties->SetAlternateProtocol(
       HostPortPair::FromURL(unrestricted_port_request.url),
       kRestrictedAlternatePort,
-      AlternateProtocolFromNextProto(GetParam()));
+      AlternateProtocolFromNextProto(GetParam()), 1);
 
   scoped_ptr<HttpTransaction> trans(
       new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
@@ -8727,7 +8747,7 @@ TEST_P(HttpNetworkTransactionTest,
   http_server_properties->SetAlternateProtocol(
       HostPortPair::FromURL(unrestricted_port_request.url),
       kUnrestrictedAlternatePort,
-      AlternateProtocolFromNextProto(GetParam()));
+      AlternateProtocolFromNextProto(GetParam()), 1);
 
   scoped_ptr<HttpTransaction> trans(
       new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
@@ -8770,7 +8790,7 @@ TEST_P(HttpNetworkTransactionTest, AlternateProtocolUnsafeBlocked) {
   http_server_properties->SetAlternateProtocol(
       HostPortPair::FromURL(request.url),
       kUnsafePort,
-      AlternateProtocolFromNextProto(GetParam()));
+      AlternateProtocolFromNextProto(GetParam()), 1);
 
   scoped_ptr<HttpTransaction> trans(
       new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
@@ -9682,7 +9702,7 @@ TEST_P(HttpNetworkTransactionTest, GenerateAuthToken) {
     request.load_flags = 0;
 
     scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
-    HttpNetworkTransaction trans(DEFAULT_PRIORITY, session);
+    HttpNetworkTransaction trans(DEFAULT_PRIORITY, session.get());
 
     for (int round = 0; round < test_config.num_auth_rounds; ++round) {
       const TestRound& read_write_round = test_config.rounds[round];
@@ -10241,7 +10261,7 @@ TEST_P(HttpNetworkTransactionTest, SimpleCancel) {
   session_deps_.host_resolver->set_synchronous_mode(true);
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   StaticSocketDataProvider data(data_reads, arraysize(data_reads), NULL, 0);
   data.set_connect_data(mock_connect);
@@ -10285,7 +10305,7 @@ TEST_P(HttpNetworkTransactionTest, CancelAfterHeaders) {
     request.url = GURL("http://www.google.com/");
     request.load_flags = 0;
 
-    HttpNetworkTransaction trans(DEFAULT_PRIORITY, session);
+    HttpNetworkTransaction trans(DEFAULT_PRIORITY, session.get());
     TestCompletionCallback callback;
 
     int rv = trans.Start(&request, callback.callback(), BoundNetLog());
@@ -10304,7 +10324,7 @@ TEST_P(HttpNetworkTransactionTest, CancelAfterHeaders) {
   base::MessageLoop::current()->RunUntilIdle();
 
   // Socket should now be idle, waiting to be reused.
-  EXPECT_EQ(1, GetIdleSocketCountInTransportSocketPool(session));
+  EXPECT_EQ(1, GetIdleSocketCountInTransportSocketPool(session.get()));
 }
 
 // Test a basic GET request through a proxy.
@@ -10340,6 +10360,10 @@ TEST_P(HttpNetworkTransactionTest, ProxyGet) {
 
   scoped_ptr<HttpTransaction> trans(
       new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
+  BeforeProxyHeadersSentHandler proxy_headers_handler;
+  trans->SetBeforeProxyHeadersSentCallback(
+      base::Bind(&BeforeProxyHeadersSentHandler::OnBeforeProxyHeadersSent,
+                 base::Unretained(&proxy_headers_handler)));
 
   int rv = trans->Start(&request, callback1.callback(), log.bound());
   EXPECT_EQ(ERR_IO_PENDING, rv);
@@ -10356,6 +10380,8 @@ TEST_P(HttpNetworkTransactionTest, ProxyGet) {
   EXPECT_TRUE(response->was_fetched_via_proxy);
   EXPECT_TRUE(
       response->proxy_server.Equals(HostPortPair::FromString("myproxy:70")));
+  EXPECT_TRUE(proxy_headers_handler.observed_before_proxy_headers_sent());
+  EXPECT_EQ("myproxy:70", proxy_headers_handler.observed_proxy_server_uri());
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
 
   LoadTimingInfo load_timing_info;
@@ -11381,17 +11407,15 @@ TEST_P(HttpNetworkTransactionTest, DoNotUseSpdySessionForHttpOverTunnel) {
       spdy_util_.ConstructWrappedSpdyFrame(req1, 1));
 
   // SPDY GET for HTTP URL (through the proxy, but not the tunnel).
-  SpdySynStreamIR req2_ir(3);
-  spdy_util_.SetPriority(MEDIUM, &req2_ir);
-  req2_ir.set_fin(true);
-  req2_ir.SetHeader(spdy_util_.GetMethodKey(), "GET");
-  req2_ir.SetHeader(spdy_util_.GetPathKey(),
-                    spdy_util_.is_spdy2() ? http_url.c_str() : "/");
-  req2_ir.SetHeader(spdy_util_.GetHostKey(), "www.google.com:443");
-  req2_ir.SetHeader(spdy_util_.GetSchemeKey(), "http");
-  spdy_util_.MaybeAddVersionHeader(&req2_ir);
+  SpdyHeaderBlock req2_block;
+  req2_block[spdy_util_.GetMethodKey()] = "GET";
+  req2_block[spdy_util_.GetPathKey()] =
+      spdy_util_.is_spdy2() ? http_url.c_str() : "/";
+  req2_block[spdy_util_.GetHostKey()] = "www.google.com:443";
+  req2_block[spdy_util_.GetSchemeKey()] = "http";
+  spdy_util_.MaybeAddVersionHeader(&req2_block);
   scoped_ptr<SpdyFrame> req2(
-      spdy_util_.CreateFramer(false)->SerializeFrame(req2_ir));
+      spdy_util_.ConstructSpdySyn(3, req2_block, MEDIUM, false, true));
 
   MockWrite writes1[] = {
     CreateMockWrite(*connect, 0),
@@ -11562,8 +11586,8 @@ TEST_P(HttpNetworkTransactionTest, DoNotUseSpdySessionIfCertDoesNotMatch) {
   // SPDY GET for HTTP URL (through SPDY proxy)
   scoped_ptr<SpdyHeaderBlock> headers(
       spdy_util_.ConstructGetHeaderBlockForProxy("http://www.google.com/"));
-  scoped_ptr<SpdyFrame> req1(spdy_util_.ConstructSpdyControlFrame(
-      headers.Pass(), false, 1, LOWEST, SYN_STREAM, CONTROL_FLAG_FIN, 0));
+  scoped_ptr<SpdyFrame> req1(
+      spdy_util_.ConstructSpdySyn(1, *headers, LOWEST, false, true));
 
   MockWrite writes1[] = {
     CreateMockWrite(*req1, 0),
@@ -11625,7 +11649,7 @@ TEST_P(HttpNetworkTransactionTest, DoNotUseSpdySessionIfCertDoesNotMatch) {
   base::FilePath certs_dir = GetTestCertsDirectory();
   scoped_refptr<X509Certificate> server_cert(
       ImportCertFromFile(certs_dir, "ok_cert.pem"));
-  ASSERT_NE(static_cast<X509Certificate*>(NULL), server_cert);
+  ASSERT_NE(static_cast<X509Certificate*>(NULL), server_cert.get());
 
   SSLSocketDataProvider ssl1(ASYNC, OK);  // to the proxy
   ssl1.SetNextProto(GetParam());
@@ -11931,7 +11955,7 @@ TEST_P(HttpNetworkTransactionTest, HttpSyncConnectError) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockConnect mock_connect(SYNCHRONOUS, ERR_CONNECTION_REFUSED);
   StaticSocketDataProvider data;
@@ -11961,7 +11985,7 @@ TEST_P(HttpNetworkTransactionTest, HttpAsyncConnectError) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockConnect mock_connect(ASYNC, ERR_CONNECTION_REFUSED);
   StaticSocketDataProvider data;
@@ -11991,7 +12015,7 @@ TEST_P(HttpNetworkTransactionTest, HttpSyncWriteError) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes[] = {
     MockWrite(SYNCHRONOUS, ERR_CONNECTION_RESET),
@@ -12027,7 +12051,7 @@ TEST_P(HttpNetworkTransactionTest, HttpAsyncWriteError) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes[] = {
     MockWrite(ASYNC, ERR_CONNECTION_RESET),
@@ -12063,7 +12087,7 @@ TEST_P(HttpNetworkTransactionTest, HttpSyncReadError) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes[] = {
     MockWrite("GET / HTTP/1.1\r\n"
@@ -12101,7 +12125,7 @@ TEST_P(HttpNetworkTransactionTest, HttpAsyncReadError) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes[] = {
     MockWrite("GET / HTTP/1.1\r\n"
@@ -12140,7 +12164,7 @@ TEST_P(HttpNetworkTransactionTest, GetFullRequestHeadersIncludesExtraHeader) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes[] = {
     MockWrite("GET / HTTP/1.1\r\n"
@@ -12441,7 +12465,7 @@ TEST_P(HttpNetworkTransactionTest, SetStreamRequestPriorityOnStart) {
   FakeStreamFactory* fake_factory = new FakeStreamFactory();
   peer.SetHttpStreamFactory(scoped_ptr<HttpStreamFactory>(fake_factory));
 
-  HttpNetworkTransaction trans(LOW, session);
+  HttpNetworkTransaction trans(LOW, session.get());
 
   ASSERT_TRUE(fake_factory->last_stream_request() == NULL);
 
@@ -12464,7 +12488,7 @@ TEST_P(HttpNetworkTransactionTest, SetStreamRequestPriority) {
   FakeStreamFactory* fake_factory = new FakeStreamFactory();
   peer.SetHttpStreamFactory(scoped_ptr<HttpStreamFactory>(fake_factory));
 
-  HttpNetworkTransaction trans(LOW, session);
+  HttpNetworkTransaction trans(LOW, session.get());
 
   HttpRequestInfo request;
   TestCompletionCallback callback;
@@ -12489,7 +12513,7 @@ TEST_P(HttpNetworkTransactionTest, SetStreamPriority) {
   FakeStreamFactory* fake_factory = new FakeStreamFactory();
   peer.SetHttpStreamFactory(scoped_ptr<HttpStreamFactory>(fake_factory));
 
-  HttpNetworkTransaction trans(LOW, session);
+  HttpNetworkTransaction trans(LOW, session.get());
 
   HttpRequestInfo request;
   TestCompletionCallback callback;
@@ -12520,7 +12544,7 @@ TEST_P(HttpNetworkTransactionTest, CreateWebSocketHandshakeStream) {
     peer.SetHttpStreamFactoryForWebSocket(
         scoped_ptr<HttpStreamFactory>(fake_factory));
 
-    HttpNetworkTransaction trans(LOW, session);
+    HttpNetworkTransaction trans(LOW, session.get());
     trans.SetWebSocketHandshakeStreamCreateHelper(
         &websocket_stream_create_helper);
 
@@ -12610,7 +12634,7 @@ TEST_P(HttpNetworkTransactionTest, CloseSSLSocketOnIdleForHttpRequest) {
   ASSERT_EQ(ERR_IO_PENDING,
             http_trans->Start(&http_request, http_callback.callback(),
                               BoundNetLog()));
-  EXPECT_TRUE(IsTransportSocketPoolStalled(session));
+  EXPECT_TRUE(IsTransportSocketPoolStalled(session.get()));
 
   // Wait for response from SSL request.
   ASSERT_EQ(OK, ssl_callback.WaitForResult());
@@ -12620,15 +12644,15 @@ TEST_P(HttpNetworkTransactionTest, CloseSSLSocketOnIdleForHttpRequest) {
 
   // The SSL socket should automatically be closed, so the HTTP request can
   // start.
-  EXPECT_EQ(0, GetIdleSocketCountInSSLSocketPool(session));
-  ASSERT_FALSE(IsTransportSocketPoolStalled(session));
+  EXPECT_EQ(0, GetIdleSocketCountInSSLSocketPool(session.get()));
+  ASSERT_FALSE(IsTransportSocketPoolStalled(session.get()));
 
   // The HTTP request can now complete.
   ASSERT_EQ(OK, http_callback.WaitForResult());
   ASSERT_EQ(OK, ReadTransaction(http_trans.get(), &response_data));
   EXPECT_EQ("falafel", response_data);
 
-  EXPECT_EQ(1, GetIdleSocketCountInTransportSocketPool(session));
+  EXPECT_EQ(1, GetIdleSocketCountInTransportSocketPool(session.get()));
 }
 
 // Tests that when a SSL connection is established but there's no corresponding
@@ -12683,7 +12707,7 @@ TEST_P(HttpNetworkTransactionTest, CloseSSLSocketOnIdleForHttpRequest2) {
   session->ssl_config_service()->GetSSLConfig(&ssl_config);
   http_stream_factory->PreconnectStreams(1, ssl_request, DEFAULT_PRIORITY,
                                          ssl_config, ssl_config);
-  EXPECT_EQ(0, GetIdleSocketCountInSSLSocketPool(session));
+  EXPECT_EQ(0, GetIdleSocketCountInSSLSocketPool(session.get()));
 
   // Start the HTTP request.  Pool should stall.
   TestCompletionCallback http_callback;
@@ -12692,7 +12716,7 @@ TEST_P(HttpNetworkTransactionTest, CloseSSLSocketOnIdleForHttpRequest2) {
   ASSERT_EQ(ERR_IO_PENDING,
             http_trans->Start(&http_request, http_callback.callback(),
                               BoundNetLog()));
-  EXPECT_TRUE(IsTransportSocketPoolStalled(session));
+  EXPECT_TRUE(IsTransportSocketPoolStalled(session.get()));
 
   // The SSL connection will automatically be closed once the connection is
   // established, to let the HTTP request start.
@@ -12701,7 +12725,7 @@ TEST_P(HttpNetworkTransactionTest, CloseSSLSocketOnIdleForHttpRequest2) {
   ASSERT_EQ(OK, ReadTransaction(http_trans.get(), &response_data));
   EXPECT_EQ("falafel", response_data);
 
-  EXPECT_EQ(1, GetIdleSocketCountInTransportSocketPool(session));
+  EXPECT_EQ(1, GetIdleSocketCountInTransportSocketPool(session.get()));
 }
 
 TEST_P(HttpNetworkTransactionTest, PostReadsErrorResponseAfterReset) {
@@ -12717,7 +12741,7 @@ TEST_P(HttpNetworkTransactionTest, PostReadsErrorResponseAfterReset) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
   // Send headers successfully, but get an error while sending the body.
   MockWrite data_writes[] = {
     MockWrite("POST / HTTP/1.1\r\n"
@@ -12792,7 +12816,7 @@ TEST_P(HttpNetworkTransactionTest,
   request1.load_flags = 0;
 
   scoped_ptr<HttpTransaction> trans1(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
   int rv = trans1->Start(&request1, callback.callback(), BoundNetLog());
   EXPECT_EQ(ERR_IO_PENDING, rv);
 
@@ -12823,7 +12847,7 @@ TEST_P(HttpNetworkTransactionTest,
   request2.load_flags = 0;
 
   scoped_ptr<HttpTransaction> trans2(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
   rv = trans2->Start(&request2, callback.callback(), BoundNetLog());
   EXPECT_EQ(ERR_IO_PENDING, rv);
 
@@ -12856,7 +12880,7 @@ TEST_P(HttpNetworkTransactionTest,
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
   // Send headers successfully, but get an error while sending the body.
   MockWrite data_writes[] = {
     MockWrite("POST / HTTP/1.1\r\n"
@@ -12911,7 +12935,7 @@ TEST_P(HttpNetworkTransactionTest, ChunkedPostReadsErrorResponseAfterReset) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
   // Send headers successfully, but get an error while sending the body.
   MockWrite data_writes[] = {
     MockWrite("POST / HTTP/1.1\r\n"
@@ -12970,7 +12994,7 @@ TEST_P(HttpNetworkTransactionTest, PostReadsErrorResponseAfterResetAnd100) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
 
   MockWrite data_writes[] = {
     MockWrite("POST / HTTP/1.1\r\n"
@@ -13023,7 +13047,7 @@ TEST_P(HttpNetworkTransactionTest, PostIgnoresNonErrorResponseAfterReset) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
   // Send headers successfully, but get an error while sending the body.
   MockWrite data_writes[] = {
     MockWrite("POST / HTTP/1.1\r\n"
@@ -13068,7 +13092,7 @@ TEST_P(HttpNetworkTransactionTest,
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
   // Send headers successfully, but get an error while sending the body.
   MockWrite data_writes[] = {
     MockWrite("POST / HTTP/1.1\r\n"
@@ -13114,7 +13138,7 @@ TEST_P(HttpNetworkTransactionTest, PostIgnoresHttp09ResponseAfterReset) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
   // Send headers successfully, but get an error while sending the body.
   MockWrite data_writes[] = {
     MockWrite("POST / HTTP/1.1\r\n"
@@ -13157,7 +13181,7 @@ TEST_P(HttpNetworkTransactionTest, PostIgnoresPartial400HeadersAfterReset) {
 
   scoped_refptr<HttpNetworkSession> session(CreateSession(&session_deps_));
   scoped_ptr<HttpTransaction> trans(
-      new HttpNetworkTransaction(DEFAULT_PRIORITY, session));
+      new HttpNetworkTransaction(DEFAULT_PRIORITY, session.get()));
   // Send headers successfully, but get an error while sending the body.
   MockWrite data_writes[] = {
     MockWrite("POST / HTTP/1.1\r\n"

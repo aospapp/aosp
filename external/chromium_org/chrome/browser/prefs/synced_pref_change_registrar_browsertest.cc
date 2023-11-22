@@ -16,12 +16,12 @@
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/test/test_utils.h"
 #include "sync/api/attachments/attachment_id.h"
-#include "sync/api/attachments/attachment_service_proxy_for_test.h"
 #include "sync/api/fake_sync_change_processor.h"
 #include "sync/api/sync_change.h"
 #include "sync/api/sync_error_factory.h"
 #include "sync/api/sync_error_factory_mock.h"
 #include "sync/api/syncable_service.h"
+#include "sync/internal_api/public/attachments/attachment_service_proxy_for_test.h"
 #include "sync/protocol/sync.pb.h"
 
 #if defined(ENABLE_CONFIGURATION_POLICY)
@@ -114,7 +114,7 @@ class SyncedPrefChangeRegistrarTest : public InProcessBrowserTest {
     registrar_.reset(new SyncedPrefChangeRegistrar(prefs_));
   }
 
-  virtual void CleanUpOnMainThread() OVERRIDE {
+  virtual void TearDownOnMainThread() OVERRIDE {
     registrar_.reset();
   }
 
@@ -192,7 +192,7 @@ IN_PROC_BROWSER_TEST_F(SyncedPrefChangeRegistrarTest,
   policies.Set(policy::key::kShowHomeButton,
                policy::POLICY_LEVEL_MANDATORY,
                policy::POLICY_SCOPE_USER,
-               base::Value::CreateBooleanValue(true),
+               new base::FundamentalValue(true),
                NULL);
   UpdateChromePolicy(policies);
 
@@ -213,7 +213,7 @@ IN_PROC_BROWSER_TEST_F(SyncedPrefChangeRegistrarTest,
   policies.Set(policy::key::kShowHomeButton,
                policy::POLICY_LEVEL_MANDATORY,
                policy::POLICY_SCOPE_USER,
-               base::Value::CreateBooleanValue(true),
+               new base::FundamentalValue(true),
                NULL);
   UpdateChromePolicy(policies);
 

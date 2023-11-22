@@ -8,9 +8,10 @@ namespace policy {
 
 const char kMetricToken[] = "Enterprise.DMToken";
 const char kMetricPolicy[] = "Enterprise.Policy";
-const char kMetricEnrollment[] = "Enterprise.Enrollment";
-const char kMetricEnrollmentRecovery[] = "Enterprise.EnrollmentRecovery";
-const char kMetricPolicyRefresh[] = "Enterprise.PolicyRefresh";
-const char kMetricPolicyInvalidations[] = "Enterprise.PolicyInvalidations";
+const char kMetricUserPolicyRefresh[] = "Enterprise.PolicyRefresh";
+const char kMetricUserPolicyInvalidations[] = "Enterprise.PolicyInvalidations";
+const char kMetricDevicePolicyRefresh[] = "Enterprise.DevicePolicyRefresh";
+const char kMetricDevicePolicyInvalidations[] =
+    "Enterprise.DevicePolicyInvalidations";
 
 }  // namespace policy

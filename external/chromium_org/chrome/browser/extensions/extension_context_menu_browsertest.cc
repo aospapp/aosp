@@ -3,10 +3,7 @@
 // found in the LICENSE file.
 
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
-#include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/extensions/extension_test_message_listener.h"
 #include "chrome/browser/extensions/lazy_background_page_test_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu.h"
@@ -15,14 +12,16 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/common/context_menu_params.h"
-#include "extensions/browser/extension_system.h"
+#include "extensions/browser/extension_registry.h"
+#include "extensions/browser/process_manager.h"
 #include "extensions/browser/test_management_policy.h"
 #include "extensions/common/extension_set.h"
-#include "extensions/common/switches.h"
+#include "extensions/test/extension_test_message_listener.h"
 #include "net/dns/mock_host_resolver.h"
 #include "ui/base/models/menu_model.h"
 
 using content::WebContents;
+using extensions::ContextMenuMatcher;
 using extensions::MenuItem;
 using ui::MenuModel;
 
@@ -67,10 +66,11 @@ class ExtensionContextMenuBrowserTest : public ExtensionBrowserTest {
   // Returns a pointer to the currently loaded extension with |name|, or null
   // if not found.
   const extensions::Extension* GetExtensionNamed(const std::string& name) {
-    const extensions::ExtensionSet* extensions =
-        browser()->profile()->GetExtensionService()->extensions();
-    for (extensions::ExtensionSet::const_iterator i = extensions->begin();
-         i != extensions->end(); ++i) {
+    const extensions::ExtensionSet& extensions =
+        extensions::ExtensionRegistry::Get(
+            browser()->profile())->enabled_extensions();
+    for (extensions::ExtensionSet::const_iterator i = extensions.begin();
+         i != extensions.end(); ++i) {
       if ((*i)->name() == name) {
         return i->get();
       }
@@ -132,7 +132,7 @@ class ExtensionContextMenuBrowserTest : public ExtensionBrowserTest {
             GetWebContents(), page_url, GURL(), GURL()));
 
     // Look for the extension item in the menu, and make sure it's |enabled|.
-    int command_id = IDC_EXTENSIONS_CONTEXT_CUSTOM_FIRST;
+    int command_id = ContextMenuMatcher::ConvertToExtensionsCustomCommandId(0);
     ASSERT_EQ(enabled, menu->IsCommandIdEnabled(command_id));
 
     // Update the item and make sure it is now |!enabled|.
@@ -140,8 +140,8 @@ class ExtensionContextMenuBrowserTest : public ExtensionBrowserTest {
     ASSERT_EQ(!enabled, menu->IsCommandIdEnabled(command_id));
   }
 
- bool MenuHasExtensionItemWithLabel(TestRenderViewContextMenu* menu,
-                                    const std::string& label) {
+  bool MenuHasExtensionItemWithLabel(TestRenderViewContextMenu* menu,
+                                     const std::string& label) {
     base::string16 label16 = base::UTF8ToUTF16(label);
     std::map<int, MenuItem::Id>::iterator i;
     for (i = menu->extension_items().extension_item_map_.begin();
@@ -207,7 +207,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionContextMenuBrowserTest, Simple) {
       GetWebContents(), page_url, GURL(), GURL()));
 
   // Look for the extension item in the menu, and execute it.
-  int command_id = IDC_EXTENSIONS_CONTEXT_CUSTOM_FIRST;
+  int command_id = ContextMenuMatcher::ConvertToExtensionsCustomCommandId(0);
   ASSERT_TRUE(menu->IsCommandIdEnabled(command_id));
   menu->ExecuteCommand(command_id, 0);
 
@@ -326,7 +326,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionContextMenuBrowserTest, MAYBE_TopLevel) {
   MenuModel* model = NULL;
 
   ASSERT_TRUE(menu->GetMenuModelAndItemIndex(
-      IDC_EXTENSIONS_CONTEXT_CUSTOM_FIRST, &model, &index));
+      ContextMenuMatcher::ConvertToExtensionsCustomCommandId(0),
+      &model,
+      &index));
   EXPECT_EQ(base::UTF8ToUTF16("An Extension with multiple Context Menus"),
                               model->GetLabelAt(index++));
   EXPECT_EQ(base::UTF8ToUTF16("Context Menu #1 - Extension #2"),
@@ -411,7 +413,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionContextMenuBrowserTest, Separators) {
   int index = 0;
   base::string16 label;
   ASSERT_TRUE(menu->GetMenuModelAndItemIndex(
-      IDC_EXTENSIONS_CONTEXT_CUSTOM_FIRST, &model, &index));
+      ContextMenuMatcher::ConvertToExtensionsCustomCommandId(0),
+      &model,
+      &index));
   EXPECT_EQ(base::UTF8ToUTF16(extension->name()), model->GetLabelAt(index));
   ASSERT_EQ(MenuModel::TYPE_SUBMENU, model->GetTypeAt(index));
 
@@ -429,7 +433,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionContextMenuBrowserTest, Separators) {
   menu.reset(
       TestRenderViewContextMenu::Create(GetWebContents(), url, GURL(), GURL()));
   ASSERT_TRUE(menu->GetMenuModelAndItemIndex(
-      IDC_EXTENSIONS_CONTEXT_CUSTOM_FIRST, &model, &index));
+      ContextMenuMatcher::ConvertToExtensionsCustomCommandId(0),
+      &model,
+      &index));
   EXPECT_EQ(base::UTF8ToUTF16("parent"), model->GetLabelAt(index));
   submenu = model->GetSubmenuModelAt(index);
   ASSERT_TRUE(submenu != NULL);
@@ -501,7 +507,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionContextMenuBrowserTest, MAYBE_IncognitoSplit) {
           incognito_web_contents, page_url, GURL(), GURL()));
 
   // Look for the extension item in the menu, and execute it.
-  int command_id = IDC_EXTENSIONS_CONTEXT_CUSTOM_FIRST;
+  int command_id = ContextMenuMatcher::ConvertToExtensionsCustomCommandId(0);
   ASSERT_TRUE(menu->IsCommandIdEnabled(command_id));
   menu->ExecuteCommand(command_id, 0);
 
@@ -546,13 +552,11 @@ IN_PROC_BROWSER_TEST_F(ExtensionContextMenuBrowserTest, Enabled) {
 
 class ExtensionContextMenuBrowserLazyTest :
     public ExtensionContextMenuBrowserTest {
-  virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
-    ExtensionContextMenuBrowserTest::SetUpCommandLine(command_line);
+  virtual void SetUpOnMainThread() OVERRIDE {
+    ExtensionContextMenuBrowserTest::SetUpOnMainThread();
     // Set shorter delays to prevent test timeouts.
-    command_line->AppendSwitchASCII(
-        extensions::switches::kEventPageIdleTime, "1");
-    command_line->AppendSwitchASCII(
-        extensions::switches::kEventPageSuspendingTime, "0");
+    extensions::ProcessManager::SetEventPageIdleTimeForTesting(1);
+    extensions::ProcessManager::SetEventPageSuspendingTimeForTesting(0);
   }
 };
 

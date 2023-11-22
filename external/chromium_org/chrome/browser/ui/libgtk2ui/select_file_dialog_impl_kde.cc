@@ -18,12 +18,11 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread_restrictions.h"
 #include "chrome/browser/ui/libgtk2ui/select_file_dialog_impl.h"
-
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/browser_thread.h"
-#include "grit/generated_resources.h"
-#include "grit/ui_strings.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/strings/grit/ui_strings.h"
 
 // These conflict with base/tracked_objects.h, so need to come last.
 #include <gdk/gdkx.h>
@@ -354,7 +353,7 @@ void SelectFileDialogImplKDE::FileSelected(const base::FilePath& path,
     *last_saved_path_ = path.DirName();
   else if (type_ == SELECT_OPEN_FILE)
     *last_opened_path_ = path.DirName();
-  else if (type_ == SELECT_FOLDER)
+  else if (type_ == SELECT_FOLDER || type_ == SELECT_UPLOAD_FOLDER)
     *last_opened_path_ = path;
   else
     NOTREACHED();

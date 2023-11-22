@@ -12,21 +12,25 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
-#include "chrome/browser/autocomplete/autocomplete_match.h"
-#include "chrome/browser/autocomplete/autocomplete_provider.h"
-#include "chrome/browser/autocomplete/autocomplete_provider_listener.h"
-#include "chrome/browser/autocomplete/autocomplete_result.h"
+#include "chrome/browser/autocomplete/chrome_autocomplete_scheme_classifier.h"
 #include "chrome/browser/autocomplete/history_quick_provider.h"
 #include "chrome/browser/history/history_service.h"
 #include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/search_engines/template_url.h"
-#include "chrome/browser/search_engines/template_url_service.h"
+#include "chrome/browser/search_engines/chrome_template_url_service_client.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
+#include "components/history/core/browser/url_database.h"
 #include "components/metrics/proto/omnibox_event.pb.h"
 #include "components/metrics/proto/omnibox_input_type.pb.h"
+#include "components/omnibox/autocomplete_match.h"
+#include "components/omnibox/autocomplete_provider.h"
+#include "components/omnibox/autocomplete_provider_listener.h"
+#include "components/omnibox/autocomplete_result.h"
+#include "components/search_engines/search_terms_data.h"
+#include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_service.h"
 #include "components/url_fixer/url_fixer.h"
 #include "content/public/test/test_browser_thread_bundle.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -167,8 +171,13 @@ class HistoryURLProviderTest : public testing::Test,
 
  protected:
   static KeyedService* CreateTemplateURLService(
-      content::BrowserContext* profile) {
-    return new TemplateURLService(static_cast<Profile*>(profile));
+      content::BrowserContext* context) {
+    Profile* profile = static_cast<Profile*>(context);
+    return new TemplateURLService(
+        profile->GetPrefs(), make_scoped_ptr(new SearchTermsData), NULL,
+        scoped_ptr<TemplateURLServiceClient>(
+            new ChromeTemplateURLServiceClient(profile)),
+        NULL, NULL, base::Closure());
   }
 
   // testing::Test
@@ -283,7 +292,8 @@ void HistoryURLProviderTest::RunTest(
     metrics::OmniboxInputType::Type* identified_input_type) {
   AutocompleteInput input(text, base::string16::npos, desired_tld, GURL(),
                           metrics::OmniboxEventProto::INVALID_SPEC,
-                          prevent_inline_autocomplete, false, true, true);
+                          prevent_inline_autocomplete, false, true, true,
+                          ChromeAutocompleteSchemeClassifier(profile_.get()));
   *identified_input_type = input.type();
   autocomplete_->Start(input, false);
   if (!autocomplete_->done())
@@ -291,8 +301,10 @@ void HistoryURLProviderTest::RunTest(
 
   matches_ = autocomplete_->matches();
   if (sort_matches_) {
+    TemplateURLService* service =
+        TemplateURLServiceFactory::GetForProfile(profile_.get());
     for (ACMatches::iterator i = matches_.begin(); i != matches_.end(); ++i)
-      i->ComputeStrippedDestinationURL(profile_.get());
+      i->ComputeStrippedDestinationURL(service);
     AutocompleteResult::DedupMatchesByDestination(
         input.current_page_classification(), false, &matches_);
     std::sort(matches_.begin(), matches_.end(),
@@ -450,7 +462,7 @@ TEST_F(HistoryURLProviderTest, CullRedirects) {
   redirects_to_a.push_back(GURL(test_cases[2].url));
   redirects_to_a.push_back(GURL(test_cases[0].url));
   history_service_->AddPage(GURL(test_cases[0].url), base::Time::Now(),
-      NULL, 0, GURL(), redirects_to_a, content::PAGE_TRANSITION_TYPED,
+      NULL, 0, GURL(), redirects_to_a, ui::PAGE_TRANSITION_TYPED,
       history::SOURCE_BROWSED, true);
 
   // Because all the results are part of a redirect chain with other results,
@@ -562,7 +574,8 @@ TEST_F(HistoryURLProviderTest, EmptyVisits) {
   AutocompleteInput input(ASCIIToUTF16("p"), base::string16::npos,
                           base::string16(), GURL(),
                           metrics::OmniboxEventProto::INVALID_SPEC, false,
-                          false, true, true);
+                          false, true, true,
+                          ChromeAutocompleteSchemeClassifier(profile_.get()));
   autocomplete_->Start(input, false);
   // HistoryURLProvider shouldn't be done (waiting on async results).
   EXPECT_FALSE(autocomplete_->done());
@@ -604,7 +617,8 @@ TEST_F(HistoryURLProviderTest, DontAutocompleteOnTrailingWhitespace) {
   AutocompleteInput input(ASCIIToUTF16("slash "), base::string16::npos,
                           base::string16(), GURL(),
                           metrics::OmniboxEventProto::INVALID_SPEC, false,
-                          false, true, true);
+                          false, true, true,
+                          ChromeAutocompleteSchemeClassifier(profile_.get()));
   autocomplete_->Start(input, false);
   if (!autocomplete_->done())
     base::MessageLoop::current()->Run();
@@ -780,7 +794,8 @@ TEST_F(HistoryURLProviderTest, CrashDueToFixup) {
     AutocompleteInput input(ASCIIToUTF16(test_cases[i]), base::string16::npos,
                             base::string16(), GURL(),
                             metrics::OmniboxEventProto::INVALID_SPEC,
-                            false, false, true, true);
+                            false, false, true, true,
+                            ChromeAutocompleteSchemeClassifier(profile_.get()));
     autocomplete_->Start(input, false);
     if (!autocomplete_->done())
       base::MessageLoop::current()->Run();
@@ -898,7 +913,8 @@ TEST_F(HistoryURLProviderTest, SuggestExactInput) {
                             base::string16::npos, base::string16(),
                             GURL("about:blank"),
                             metrics::OmniboxEventProto::INVALID_SPEC, false,
-                            false, true, true);
+                            false, true, true,
+                            ChromeAutocompleteSchemeClassifier(profile_.get()));
     AutocompleteMatch match(autocomplete_->SuggestExactInput(
         input.text(), input.canonicalized_url(), test_cases[i].trim_http));
     EXPECT_EQ(ASCIIToUTF16(test_cases[i].contents), match.contents);

@@ -16,6 +16,10 @@
 #include "cc/scheduler/scheduler_settings.h"
 
 namespace base {
+namespace debug {
+class ConvertableToTraceForamt;
+class TracedValue;
+}
 class Value;
 }
 
@@ -93,7 +97,7 @@ class CC_EXPORT SchedulerStateMachine {
     ACTION_SEND_BEGIN_MAIN_FRAME,
     ACTION_COMMIT,
     ACTION_UPDATE_VISIBLE_TILES,
-    ACTION_ACTIVATE_PENDING_TREE,
+    ACTION_ACTIVATE_SYNC_TREE,
     ACTION_DRAW_AND_SWAP_IF_POSSIBLE,
     ACTION_DRAW_AND_SWAP_FORCED,
     ACTION_DRAW_AND_SWAP_ABORT,
@@ -102,7 +106,8 @@ class CC_EXPORT SchedulerStateMachine {
   };
   static const char* ActionToString(Action action);
 
-  scoped_ptr<base::Value> AsValue() const;
+  scoped_refptr<base::debug::ConvertableToTraceFormat> AsValue() const;
+  void AsValueInto(base::debug::TracedValue* dict, base::TimeTicks now) const;
 
   Action NextAction() const;
   void UpdateState(Action action);
@@ -172,10 +177,12 @@ class CC_EXPORT SchedulerStateMachine {
   // Notification from the OutputSurface that a swap has been consumed.
   void DidSwapBuffersComplete();
 
-  // Indicates whether to prioritize animation smoothness over new content
-  // activation.
-  void SetSmoothnessTakesPriority(bool smoothness_takes_priority);
-  bool smoothness_takes_priority() const { return smoothness_takes_priority_; }
+  // Indicates whether to prioritize impl thread latency (i.e., animation
+  // smoothness) over new content activation.
+  void SetImplLatencyTakesPriority(bool impl_latency_takes_priority);
+  bool impl_latency_takes_priority() const {
+    return impl_latency_takes_priority_;
+  }
 
   // Indicates whether ACTION_DRAW_AND_SWAP_IF_POSSIBLE drew to the screen.
   void DidDrawIfPossibleCompleted(DrawResult result);
@@ -229,6 +236,12 @@ class CC_EXPORT SchedulerStateMachine {
   void SetContinuousPainting(bool continuous_painting) {
     continuous_painting_ = continuous_painting;
   }
+
+  bool CouldSendBeginMainFrame() const;
+
+  // TODO(zmo): This is temporary for debugging crbug.com/393331.
+  // We should remove it afterwards.
+  std::string GetStatesForDebugging() const;
 
  protected:
   bool BeginFrameNeededToAnimateOrDraw() const;
@@ -296,7 +309,7 @@ class CC_EXPORT SchedulerStateMachine {
   bool pending_tree_is_ready_for_activation_;
   bool active_tree_needs_first_draw_;
   bool did_create_and_initialize_first_output_surface_;
-  bool smoothness_takes_priority_;
+  bool impl_latency_takes_priority_;
   bool skip_next_begin_main_frame_to_reduce_latency_;
   bool skip_begin_main_frame_to_reduce_latency_;
   bool continuous_painting_;

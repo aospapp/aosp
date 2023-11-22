@@ -27,6 +27,9 @@ namespace chromeos {
 class BluetoothChromeOSTest;
 class BluetoothDeviceChromeOS;
 class BluetoothPairingChromeOS;
+class BluetoothRemoteGattCharacteristicChromeOS;
+class BluetoothRemoteGattDescriptorChromeOS;
+class BluetoothRemoteGattServiceChromeOS;
 
 // The BluetoothAdapterChromeOS class implements BluetoothAdapter for the
 // Chrome OS platform.
@@ -64,12 +67,12 @@ class BluetoothAdapterChromeOS
   virtual bool IsDiscovering() const OVERRIDE;
   virtual void CreateRfcommService(
       const device::BluetoothUUID& uuid,
-      int channel,
+      const ServiceOptions& options,
       const CreateServiceCallback& callback,
       const CreateServiceErrorCallback& error_callback) OVERRIDE;
   virtual void CreateL2capService(
       const device::BluetoothUUID& uuid,
-      int psm,
+      const ServiceOptions& options,
       const CreateServiceCallback& callback,
       const CreateServiceErrorCallback& error_callback) OVERRIDE;
 
@@ -81,6 +84,27 @@ class BluetoothAdapterChromeOS
   // Announce to observers a change in device state that is not reflected by
   // its D-Bus properties.
   void NotifyDeviceChanged(BluetoothDeviceChromeOS* device);
+
+  // The following methods are used to send various GATT observer events to
+  // observers.
+  void NotifyGattServiceAdded(BluetoothRemoteGattServiceChromeOS* service);
+  void NotifyGattServiceRemoved(BluetoothRemoteGattServiceChromeOS* service);
+  void NotifyGattServiceChanged(BluetoothRemoteGattServiceChromeOS* service);
+  void NotifyGattDiscoveryComplete(BluetoothRemoteGattServiceChromeOS* service);
+  void NotifyGattCharacteristicAdded(
+      BluetoothRemoteGattCharacteristicChromeOS* characteristic);
+  void NotifyGattCharacteristicRemoved(
+      BluetoothRemoteGattCharacteristicChromeOS* characteristic);
+  void NotifyGattDescriptorAdded(
+      BluetoothRemoteGattDescriptorChromeOS* descriptor);
+  void NotifyGattDescriptorRemoved(
+      BluetoothRemoteGattDescriptorChromeOS* descriptor);
+  void NotifyGattCharacteristicValueChanged(
+      BluetoothRemoteGattCharacteristicChromeOS* characteristic,
+      const std::vector<uint8>& value);
+  void NotifyGattDescriptorValueChanged(
+      BluetoothRemoteGattDescriptorChromeOS* descriptor,
+      const std::vector<uint8>& value);
 
   // Returns the object path of the adapter.
   const dbus::ObjectPath& object_path() const { return object_path_; }

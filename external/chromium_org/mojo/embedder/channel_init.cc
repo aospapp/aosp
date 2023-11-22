@@ -11,48 +11,45 @@
 namespace mojo {
 namespace embedder {
 
-ChannelInit::ChannelInit()
-    : channel_info_(NULL),
-      weak_factory_(this) {
+ChannelInit::ChannelInit() : channel_info_(nullptr), weak_factory_(this) {
 }
 
 ChannelInit::~ChannelInit() {
-  if (channel_info_) {
-    io_thread_task_runner_->PostTask(
-        FROM_HERE,
-        base::Bind(&mojo::embedder::DestroyChannelOnIOThread, channel_info_));
-  }
+  if (channel_info_)
+    DestroyChannel(channel_info_);
 }
 
-mojo::ScopedMessagePipeHandle ChannelInit::Init(
+ScopedMessagePipeHandle ChannelInit::Init(
     base::PlatformFile file,
     scoped_refptr<base::TaskRunner> io_thread_task_runner) {
   DCHECK(!io_thread_task_runner_.get());  // Should only init once.
   io_thread_task_runner_ = io_thread_task_runner;
-  mojo::ScopedMessagePipeHandle message_pipe = mojo::embedder::CreateChannel(
-      mojo::embedder::ScopedPlatformHandle(
-          mojo::embedder::PlatformHandle(file)),
-      io_thread_task_runner,
-      base::Bind(&ChannelInit::OnCreatedChannel, weak_factory_.GetWeakPtr(),
-                 io_thread_task_runner),
-      base::MessageLoop::current()->message_loop_proxy()).Pass();
+  ScopedMessagePipeHandle message_pipe =
+      CreateChannel(ScopedPlatformHandle(PlatformHandle(file)),
+                    io_thread_task_runner,
+                    base::Bind(&ChannelInit::OnCreatedChannel,
+                               weak_factory_.GetWeakPtr(),
+                               io_thread_task_runner),
+                    base::MessageLoop::current()->message_loop_proxy()).Pass();
   return message_pipe.Pass();
 }
 
+void ChannelInit::WillDestroySoon() {
+  if (channel_info_)
+    WillDestroyChannelSoon(channel_info_);
+}
+
 // static
-void ChannelInit::OnCreatedChannel(
-    base::WeakPtr<ChannelInit> host,
-    scoped_refptr<base::TaskRunner> io_thread,
-    embedder::ChannelInfo* channel) {
-  // By the time we get here |host| may have been destroyed. If so, shutdown the
-  // channel.
-  if (!host.get()) {
-    io_thread->PostTask(
-        FROM_HERE,
-        base::Bind(&mojo::embedder::DestroyChannelOnIOThread, channel));
+void ChannelInit::OnCreatedChannel(base::WeakPtr<ChannelInit> self,
+                                   scoped_refptr<base::TaskRunner> io_thread,
+                                   ChannelInfo* channel) {
+  // If |self| was already destroyed, shut the channel down.
+  if (!self) {
+    DestroyChannel(channel);
     return;
   }
-  host->channel_info_ = channel;
+
+  self->channel_info_ = channel;
 }
 
 }  // namespace embedder

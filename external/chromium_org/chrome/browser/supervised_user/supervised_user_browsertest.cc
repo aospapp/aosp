@@ -7,7 +7,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/common/cancelable_request.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/profiles/profile.h"
@@ -36,9 +35,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/test/browser_test_utils.h"
-#include "grit/generated_resources.h"
 #include "testing/gmock/include/gmock/gmock.h"
-#include "ui/base/l10n/l10n_util.h"
 
 using content::InterstitialPage;
 using content::NavigationController;
@@ -136,22 +133,21 @@ class SupervisedUserBlockModeTest : public InProcessBrowserTest {
                     const std::string& text_query,
                     const history::QueryOptions& options,
                     history::QueryResults* results) {
-    CancelableRequestConsumer history_request_consumer;
     base::RunLoop run_loop;
+    base::CancelableTaskTracker history_task_tracker;
     history_service->QueryHistory(
         base::UTF8ToUTF16(text_query),
         options,
-        &history_request_consumer,
         base::Bind(&SupervisedUserBlockModeTest::QueryHistoryComplete,
                    base::Unretained(this),
                    results,
-                   &run_loop));
+                   &run_loop),
+        &history_task_tracker);
     run_loop.Run();  // Will go until ...Complete calls Quit.
   }
 
   void QueryHistoryComplete(history::QueryResults* new_results,
                             base::RunLoop* run_loop,
-                            HistoryService::Handle /* handle */,
                             history::QueryResults* results) {
     results->Swap(new_results);
     run_loop->Quit();  // Will return out to QueryHistory.
@@ -218,9 +214,12 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserBlockModeTest, OpenBlockedURLInNewTab) {
   // On pressing the "back" button, the new tab should be closed, and we should
   // get back to the previous active tab.
   MockTabStripModelObserver observer(tab_strip);
+  base::RunLoop run_loop;
   EXPECT_CALL(observer,
-              TabClosingAt(tab_strip, tab, tab_strip->active_index()));
+              TabClosingAt(tab_strip, tab, tab_strip->active_index()))
+      .WillOnce(testing::InvokeWithoutArgs(&run_loop, &base::RunLoop::Quit));
   GoBack(tab);
+  run_loop.Run();
   EXPECT_EQ(prev_tab, tab_strip->GetActiveWebContents());
 }
 

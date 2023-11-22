@@ -18,14 +18,12 @@
 <resources>
     <dimen name="conversation_message_content_margin_side">32dp</dimen>
     <dimen name="conversation_view_margin_side">24dp</dimen>
-    <dimen name="conversation_header_padding_side">24dp</dimen>
-    <dimen name="conversation_header_star_size">55dp</dimen>
+    <dimen name="conversation_view_snack_bar_margin">16dp</dimen>
+    <dimen name="conversation_header_padding_side">36dp</dimen>
     <dimen name="conversation_border_margin_side">24dp</dimen>
 
     <dimen name="message_header_icon_margin">24dp</dimen>
     <dimen name="message_header_icon_additional_margin_start">32dp</dimen>
-    <dimen name="message_header_action_button_width">56dp</dimen>
-    <dimen name="message_header_action_button_height">56dp</dimen>
     <dimen name="message_header_action_button_margin_top">8dp</dimen>
     <dimen name="message_header_text_margin_top">22dp</dimen>
     <dimen name="message_header_margin_bottom">24dp</dimen>
@@ -51,8 +49,12 @@
     <dimen name="search_view_width">400dip</dimen>
 
     <dimen name="empty_view_text_width">380dip</dimen>
-    <dimen name="empty_view_text_size">28sp</dimen>
     <dimen name="empty_view_space">16dip</dimen>
 
     <dimen name="chip_wrapper_start_padding">64dp</dimen>
+
+    <dimen name="action_bar_content_inset_start">60dp</dimen>
+
+    <dimen name="snack_bar_min_width">288dp</dimen>
+    <dimen name="snack_bar_max_width">320dp</dimen>
 </resources>

@@ -42,13 +42,13 @@ class DataTypeErrorHandler;
 // This class is responsible for taking changes from the history backend and
 // applying them to the sync API 'syncable' model, and vice versa. All
 // operations and use of this class are from the UI thread.
-class TypedUrlChangeProcessor : public ChangeProcessor,
+class TypedUrlChangeProcessor : public sync_driver::ChangeProcessor,
                                 public content::NotificationObserver {
  public:
   TypedUrlChangeProcessor(Profile* profile,
                           TypedUrlModelAssociator* model_associator,
                           history::HistoryBackend* history_backend,
-                          DataTypeErrorHandler* error_handler);
+                          sync_driver::DataTypeErrorHandler* error_handler);
   virtual ~TypedUrlChangeProcessor();
 
   // content::NotificationObserver implementation.
@@ -113,7 +113,7 @@ class TypedUrlChangeProcessor : public ChangeProcessor,
   // The set of pending changes that will be written out on the next
   // CommitChangesFromSyncModel() call.
   history::URLRows pending_new_urls_;
-  TypedUrlModelAssociator::TypedUrlUpdateVector pending_updated_urls_;
+  history::URLRows pending_updated_urls_;
   std::vector<GURL> pending_deleted_urls_;
   TypedUrlModelAssociator::TypedUrlVisitVector pending_new_visits_;
   history::VisitVector pending_deleted_visits_;

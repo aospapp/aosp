@@ -8,13 +8,12 @@
 #include "base/strings/string_util.h"
 #include "base/time/default_tick_clock.h"
 #include "build/build_config.h"
-#include "chrome/browser/apps/chrome_apps_client.h"
 #include "chrome/browser/background/background_mode_manager.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_impl.h"
-#include "chrome/browser/extensions/chrome_extensions_browser_client.h"
 #include "chrome/browser/printing/print_job_manager.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/ui/apps/chrome_app_window_client.h"
 #include "chrome/test/base/testing_browser_process_platform_part.h"
 #include "components/network_time/network_time_tracker.h"
 #include "content/public/browser/notification_service.h"
@@ -28,17 +27,18 @@
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #endif
 
-#if !defined(OS_IOS) && !defined(OS_ANDROID)
-#include "chrome/browser/media_galleries/media_file_system_registry.h"
-#include "components/storage_monitor/storage_monitor.h"
-#include "components/storage_monitor/test_storage_monitor.h"
-#endif
-
 #if defined(ENABLE_CONFIGURATION_POLICY)
 #include "components/policy/core/browser/browser_policy_connector.h"
 #else
 #include "components/policy/core/common/policy_service_stub.h"
 #endif  // defined(ENABLE_CONFIGURATION_POLICY)
+
+#if defined(ENABLE_EXTENSIONS)
+#include "chrome/browser/extensions/chrome_extensions_browser_client.h"
+#include "chrome/browser/media_galleries/media_file_system_registry.h"
+#include "components/storage_monitor/storage_monitor.h"
+#include "components/storage_monitor/test_storage_monitor.h"
+#endif
 
 #if defined(ENABLE_FULL_PRINTING)
 #include "chrome/browser/printing/background_printing_manager.h"
@@ -71,13 +71,13 @@ TestingBrowserProcess::TestingBrowserProcess()
       local_state_(NULL),
       io_thread_(NULL),
       system_request_context_(NULL),
-      platform_part_(new TestingBrowserProcessPlatformPart()),
-      extensions_browser_client_(
-          new extensions::ChromeExtensionsBrowserClient) {
+      platform_part_(new TestingBrowserProcessPlatformPart()) {
 #if defined(ENABLE_EXTENSIONS)
-  apps::AppsClient::Set(ChromeAppsClient::GetInstance());
-#endif
+  extensions_browser_client_.reset(
+      new extensions::ChromeExtensionsBrowserClient);
+  extensions::AppWindowClient::Set(ChromeAppWindowClient::GetInstance());
   extensions::ExtensionsBrowserClient::Set(extensions_browser_client_.get());
+#endif
 }
 
 TestingBrowserProcess::~TestingBrowserProcess() {
@@ -85,7 +85,9 @@ TestingBrowserProcess::~TestingBrowserProcess() {
 #if defined(ENABLE_CONFIGURATION_POLICY)
   SetBrowserPolicyConnector(NULL);
 #endif
+#if defined(ENABLE_EXTENSIONS)
   extensions::ExtensionsBrowserClient::Set(NULL);
+#endif
 
   // Destructors for some objects owned by TestingBrowserProcess will use
   // g_browser_process if it is not NULL, so it must be NULL before proceeding.
@@ -102,7 +104,7 @@ MetricsServicesManager* TestingBrowserProcess::GetMetricsServicesManager() {
   return NULL;
 }
 
-MetricsService* TestingBrowserProcess::metrics_service() {
+metrics::MetricsService* TestingBrowserProcess::metrics_service() {
   return NULL;
 }
 
@@ -264,7 +266,7 @@ bool TestingBrowserProcess::IsShuttingDown() {
 }
 
 printing::PrintJobManager* TestingBrowserProcess::print_job_manager() {
-#if defined(ENABLE_FULL_PRINTING)
+#if defined(ENABLE_PRINTING)
   if (!print_job_manager_.get())
     print_job_manager_.reset(new printing::PrintJobManager());
   return print_job_manager_.get();

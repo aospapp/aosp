@@ -33,10 +33,12 @@ import android.os.Message;
 import android.os.RemoteException;
 import android.os.SystemProperties;
 import android.telecom.PhoneAccount;
+import android.telecom.PhoneAccountHandle;
 import android.telecom.VideoProfile;
 import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.ContextThemeWrapper;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -50,13 +52,16 @@ import com.android.internal.telephony.CallStateException;
 import com.android.internal.telephony.CallerInfo;
 import com.android.internal.telephony.CallerInfoAsyncQuery;
 import com.android.internal.telephony.Connection;
+import com.android.internal.telephony.IccCard;
 import com.android.internal.telephony.MmiCode;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
+import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.TelephonyCapabilities;
 import com.android.internal.telephony.TelephonyProperties;
 import com.android.internal.telephony.sip.SipPhone;
 import com.android.phone.CallGatewayManager.RawGatewayInfo;
+import com.android.services.telephony.TelephonyConnectionService;
 
 import java.util.Arrays;
 import java.util.List;
@@ -116,6 +121,13 @@ public class PhoneUtils {
 
     /** Noise suppression status as selected by user */
     private static boolean sIsNoiseSuppressionEnabled = true;
+
+    /**
+     * Theme to use for dialogs displayed by utility methods in this class. This is needed
+     * because these dialogs are displayed using the application context, which does not resolve
+     * the dialog theme correctly.
+     */
+    private static final int THEME = AlertDialog.THEME_DEVICE_DEFAULT_LIGHT;
 
     private static class FgRingCalls {
         private Call fgCall;
@@ -955,7 +967,7 @@ public class PhoneUtils {
                 // places the message at the forefront of the UI.
 
                 if (sUssdDialog == null) {
-                    sUssdDialog = new AlertDialog.Builder(context)
+                    sUssdDialog = new AlertDialog.Builder(context, THEME)
                             .setPositiveButton(R.string.ok, null)
                             .setCancelable(true)
                             .setOnDismissListener(new DialogInterface.OnDismissListener() {
@@ -1006,7 +1018,9 @@ public class PhoneUtils {
                 //      time that a USSD should be canceled.
 
                 // inflate the layout with the scrolling text area for the dialog.
-                LayoutInflater inflater = (LayoutInflater) context.getSystemService(
+                ContextThemeWrapper contextThemeWrapper =
+                        new ContextThemeWrapper(context, R.style.DialerAlertDialogTheme);
+                LayoutInflater inflater = (LayoutInflater) contextThemeWrapper.getSystemService(
                         Context.LAYOUT_INFLATER_SERVICE);
                 View dialogView = inflater.inflate(R.layout.dialog_ussd_response, null);
 
@@ -1045,7 +1059,7 @@ public class PhoneUtils {
                     };
 
                 // build the dialog
-                final AlertDialog newDialog = new AlertDialog.Builder(context)
+                final AlertDialog newDialog = new AlertDialog.Builder(contextThemeWrapper)
                         .setMessage(text)
                         .setView(dialogView)
                         .setPositiveButton(R.string.send_button, mUSSDDialogListener)
@@ -1081,6 +1095,11 @@ public class PhoneUtils {
 
                 // now show the dialog!
                 newDialog.show();
+
+                newDialog.getButton(DialogInterface.BUTTON_POSITIVE)
+                        .setTextColor(context.getResources().getColor(R.color.dialer_theme_color));
+                newDialog.getButton(DialogInterface.BUTTON_NEGATIVE)
+                        .setTextColor(context.getResources().getColor(R.color.dialer_theme_color));
             }
         }
     }
@@ -2426,5 +2445,43 @@ public class PhoneUtils {
     public static boolean isLandscape(Context context) {
         return context.getResources().getConfiguration().orientation
                 == Configuration.ORIENTATION_LANDSCAPE;
+    }
+
+    public static PhoneAccountHandle makePstnPhoneAccountHandle(Phone phone) {
+        return makePstnPhoneAccountHandleWithPrefix(phone, "", false);
+    }
+
+    public static PhoneAccountHandle makePstnPhoneAccountHandleWithPrefix(
+            Phone phone, String prefix, boolean isEmergency) {
+        ComponentName pstnConnectionServiceName =
+                new ComponentName(phone.getContext(), TelephonyConnectionService.class);
+        // TODO: Should use some sort of special hidden flag to decorate this account as
+        // an emergency-only account
+        String id = isEmergency ? "E" : prefix + String.valueOf(phone.getSubId());
+        return new PhoneAccountHandle(pstnConnectionServiceName, id);
+    }
+
+    /**
+     * Register ICC status for all phones.
+     */
+    static final void registerIccStatus(Handler handler, int event) {
+        for (Phone phone : PhoneFactory.getPhones()) {
+            IccCard sim = phone.getIccCard();
+            if (sim != null) {
+                if (VDBG) Log.v(LOG_TAG, "register for ICC status, phone " + phone.getPhoneId());
+                sim.registerForNetworkLocked(handler, event, phone);
+            }
+        }
+    }
+
+    /**
+     * Set the radio power on/off state for all phones.
+     *
+     * @param enabled true means on, false means off.
+     */
+    static final void setRadioPower(boolean enabled) {
+        for (Phone phone : PhoneFactory.getPhones()) {
+            phone.setRadioPower(enabled);
+        }
     }
 }

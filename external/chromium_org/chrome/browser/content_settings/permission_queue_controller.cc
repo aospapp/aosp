@@ -7,19 +7,23 @@
 #include "base/prefs/pref_service.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
+#include "chrome/browser/content_settings/permission_context_uma_util.h"
 #include "chrome/browser/geolocation/geolocation_infobar_delegate.h"
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/media/midi_permission_infobar_delegate.h"
+#include "chrome/browser/notifications/desktop_notification_infobar_delegate.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/services/gcm/push_messaging_infobar_delegate.h"
 #include "chrome/browser/tab_contents/tab_util.h"
-#include "chrome/common/content_settings.h"
 #include "chrome/common/pref_names.h"
+#include "components/content_settings/core/common/content_settings.h"
 #include "components/infobars/core/infobar.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/url_constants.h"
 
 #if defined(OS_ANDROID)
 #include "chrome/browser/media/protected_media_identifier_infobar_delegate.h"
@@ -42,7 +46,6 @@ class PermissionQueueController::PendingInfobarRequest {
                         const PermissionRequestID& id,
                         const GURL& requesting_frame,
                         const GURL& embedder,
-                        const std::string& accept_button_label,
                         PermissionDecidedCallback callback);
   ~PendingInfobarRequest();
 
@@ -63,7 +66,6 @@ class PermissionQueueController::PendingInfobarRequest {
   PermissionRequestID id_;
   GURL requesting_frame_;
   GURL embedder_;
-  std::string accept_button_label_;
   PermissionDecidedCallback callback_;
   infobars::InfoBar* infobar_;
 
@@ -75,13 +77,11 @@ PermissionQueueController::PendingInfobarRequest::PendingInfobarRequest(
     const PermissionRequestID& id,
     const GURL& requesting_frame,
     const GURL& embedder,
-    const std::string& accept_button_label,
     PermissionDecidedCallback callback)
     : type_(type),
       id_(id),
       requesting_frame_(requesting_frame),
       embedder_(embedder),
-      accept_button_label_(accept_button_label),
       callback_(callback),
       infobar_(NULL) {
 }
@@ -103,19 +103,28 @@ void PermissionQueueController::PendingInfobarRequest::RunCallback(
 void PermissionQueueController::PendingInfobarRequest::CreateInfoBar(
     PermissionQueueController* controller,
     const std::string& display_languages) {
-  // TODO(toyoshim): Remove following ContentType dependent code.
-  // Also these InfoBarDelegate can share much more code each other.
-  // http://crbug.com/266743
   switch (type_) {
     case CONTENT_SETTINGS_TYPE_GEOLOCATION:
       infobar_ = GeolocationInfoBarDelegate::Create(
           GetInfoBarService(id_), controller, id_, requesting_frame_,
-          display_languages, accept_button_label_);
+          display_languages);
       break;
+#if defined(ENABLE_NOTIFICATIONS)
+    case CONTENT_SETTINGS_TYPE_NOTIFICATIONS:
+      infobar_ = DesktopNotificationInfoBarDelegate::Create(
+          GetInfoBarService(id_), controller, id_, requesting_frame_,
+          display_languages);
+      break;
+#endif  // ENABLE_NOTIFICATIONS
     case CONTENT_SETTINGS_TYPE_MIDI_SYSEX:
       infobar_ = MidiPermissionInfoBarDelegate::Create(
           GetInfoBarService(id_), controller, id_, requesting_frame_,
-          display_languages);
+          display_languages, type_);
+      break;
+    case CONTENT_SETTINGS_TYPE_PUSH_MESSAGING:
+      infobar_ = gcm::PushMessagingInfoBarDelegate::Create(
+          GetInfoBarService(id_), controller, id_, requesting_frame_,
+          display_languages, type_);
       break;
 #if defined(OS_ANDROID)
     case CONTENT_SETTINGS_TYPE_PROTECTED_MEDIA_IDENTIFIER:
@@ -149,13 +158,15 @@ void PermissionQueueController::CreateInfoBarRequest(
     const PermissionRequestID& id,
     const GURL& requesting_frame,
     const GURL& embedder,
-    const std::string& accept_button_label,
     PermissionDecidedCallback callback) {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
 
+  if (requesting_frame.SchemeIs(content::kChromeUIScheme) ||
+      embedder.SchemeIs(content::kChromeUIScheme))
+    return;
+
   pending_infobar_requests_.push_back(PendingInfobarRequest(
-      type_, id, requesting_frame, embedder,
-      accept_button_label, callback));
+      type_, id, requesting_frame, embedder, callback));
   if (!AlreadyShowingInfoBarForTab(id))
     ShowQueuedInfoBarForTab(id);
 }
@@ -183,8 +194,18 @@ void PermissionQueueController::OnPermissionSet(
     bool update_content_setting,
     bool allowed) {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
-  if (update_content_setting)
+
+  // TODO(miguelg): move the permission persistence to
+  // PermissionContextBase once all the types are moved there.
+  if (update_content_setting) {
     UpdateContentSetting(requesting_frame, embedder, allowed);
+    if (allowed)
+      PermissionContextUmaUtil::PermissionGranted(type_);
+    else
+      PermissionContextUmaUtil::PermissionDenied(type_);
+  } else {
+    PermissionContextUmaUtil::PermissionDismissed(type_);
+  }
 
   // Cancel this request first, then notify listeners.  TODO(pkasting): Why
   // is this order important?
@@ -348,9 +369,15 @@ void PermissionQueueController::UpdateContentSetting(
 
   ContentSetting content_setting =
       allowed ? CONTENT_SETTING_ALLOW : CONTENT_SETTING_BLOCK;
+
+  ContentSettingsPattern embedder_pattern =
+      (type_ == CONTENT_SETTINGS_TYPE_NOTIFICATIONS) ?
+      ContentSettingsPattern::Wildcard() :
+      ContentSettingsPattern::FromURLNoWildcard(embedder.GetOrigin());
+
   profile_->GetHostContentSettingsMap()->SetContentSetting(
       ContentSettingsPattern::FromURLNoWildcard(requesting_frame.GetOrigin()),
-      ContentSettingsPattern::FromURLNoWildcard(embedder.GetOrigin()),
+      embedder_pattern,
       type_,
       std::string(),
       content_setting);

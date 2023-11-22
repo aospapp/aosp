@@ -11,10 +11,11 @@
 #include "chrome/browser/chromeos/login/enrollment/auto_enrollment_check_screen_actor.h"
 #include "chrome/browser/chromeos/login/enrollment/auto_enrollment_controller.h"
 #include "chrome/browser/chromeos/login/screens/error_screen.h"
-#include "chrome/browser/chromeos/net/network_portal_detector.h"
+#include "chromeos/network/portal_detector/network_portal_detector.h"
 
 namespace chromeos {
 
+class ScreenManager;
 class ScreenObserver;
 
 // Handles the control flow after OOBE auto-update completes to wait for the
@@ -31,6 +32,8 @@ class AutoEnrollmentCheckScreen
       ScreenObserver* observer,
       AutoEnrollmentCheckScreenActor* actor);
   virtual ~AutoEnrollmentCheckScreen();
+
+  static AutoEnrollmentCheckScreen* Get(ScreenManager* manager);
 
   // Hands over OOBE control to this AutoEnrollmentCheckStep. It'll return the
   // flow back to the caller via the |screen_observer_|'s OnExit function.

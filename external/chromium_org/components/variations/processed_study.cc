@@ -5,11 +5,12 @@
 #include "components/variations/processed_study.h"
 
 #include <set>
+#include <string>
 
 #include "base/version.h"
 #include "components/variations/proto/study.pb.h"
 
-namespace chrome_variations {
+namespace variations {
 
 namespace {
 
@@ -91,6 +92,15 @@ bool ProcessedStudy::Init(const Study* study, bool is_expired) {
   return true;
 }
 
+int ProcessedStudy::GetExperimentIndexByName(const std::string& name) const {
+  for (int i = 0; i < study_->experiment_size(); ++i) {
+    if (study_->experiment(i).name() == name)
+      return i;
+  }
+
+  return -1;
+}
+
 // static
 bool ProcessedStudy::ValidateAndAppendStudy(
     const Study* study,
@@ -104,4 +114,4 @@ bool ProcessedStudy::ValidateAndAppendStudy(
   return false;
 }
 
-}  // namespace chrome_variations
+}  // namespace variations

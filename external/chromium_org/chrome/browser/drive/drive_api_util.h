@@ -8,9 +8,7 @@
 #include <string>
 
 #include "base/memory/scoped_ptr.h"
-#include "chrome/browser/drive/drive_service_interface.h"
 #include "google_apis/drive/drive_common_callbacks.h"
-#include "google_apis/drive/drive_entry_kinds.h"
 #include "google_apis/drive/gdata_errorcode.h"
 
 class GURL;
@@ -21,11 +19,8 @@ class Value;
 }  // namespace base
 
 namespace google_apis {
-class AppList;
-class AppResource;
 class ChangeList;
 class ChangeResource;
-class DriveAppIcon;
 class FileList;
 class FileResource;
 class ResourceEntry;
@@ -68,34 +63,6 @@ std::string ExtractResourceIdFromUrl(const GURL& url);
 // into the new format.
 std::string CanonicalizeResourceId(const std::string& resource_id);
 
-// Returns a ResourceIdCanonicalizer which returns the argument.
-ResourceIdCanonicalizer GetIdentityResourceIdCanonicalizer();
-
-// Note: Following constants and a function are used to support GetShareUrl on
-// Drive API v2. Unfortunately, there is no support on Drive API v2, so we need
-// to fall back to GData WAPI for the GetShareUrl. Thus, these are shared by
-// both GDataWapiService and DriveAPIService.
-// TODO(hidehiko): Remove these from here, when Drive API v2 supports
-// GetShareUrl.
-
-// OAuth2 scopes for the GData WAPI.
-extern const char kDocsListScope[];
-extern const char kDriveAppsScope[];
-
-// Extracts an url to the sharing dialog and returns it via |callback|. If
-// the share url doesn't exist, then an empty url is returned.
-void ParseShareUrlAndRun(const google_apis::GetShareUrlCallback& callback,
-                         google_apis::GDataErrorCode error,
-                         scoped_ptr<base::Value> value);
-
-// Converts ResourceEntry to FileResource.
-scoped_ptr<google_apis::FileResource>
-ConvertResourceEntryToFileResource(const google_apis::ResourceEntry& entry);
-
-// Returns the GData WAPI's Kind of the FileResource.
-google_apis::DriveEntryKind GetKind(
-    const google_apis::FileResource& file_resource);
-
 // Converts FileResource to ResourceEntry.
 scoped_ptr<google_apis::ResourceEntry>
 ConvertFileResourceToResourceEntry(
@@ -118,9 +85,17 @@ ConvertChangeListToResourceList(const google_apis::ChangeList& change_list);
 // or an empty string if an error is found.
 std::string GetMd5Digest(const base::FilePath& file_path);
 
-// The resource ID for the root directory for WAPI is defined in the spec:
-// https://developers.google.com/google-apps/documents-list/
-extern const char kWapiRootDirectoryResourceId[];
+// Returns preferred file extension for hosted documents which have given mime
+// type.
+std::string GetHostedDocumentExtension(const std::string& mime_type);
+
+// Returns true if the given mime type is corresponding to one of known hosted
+// document types.
+bool IsKnownHostedDocumentMimeType(const std::string& mime_type);
+
+// Returns true if the given file path has an extension corresponding to one of
+// hosted document types.
+bool HasHostedDocumentExtension(const base::FilePath& path);
 
 }  // namespace util
 }  // namespace drive

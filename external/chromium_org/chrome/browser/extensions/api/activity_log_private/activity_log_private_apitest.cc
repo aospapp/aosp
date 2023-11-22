@@ -47,7 +47,7 @@ class ActivityLogApiTest : public ExtensionApiTest {
 };
 
 #if defined(OS_WIN) && !defined(NDEBUG)
-// TODO(karenlees): fix flakiness on win debug - crbug.com/299393
+// TODO(pmarch): fix flakiness on win debug - crbug.com/299393
 #define MAYBE_TriggerEvent DISABLED_TriggerEvent
 #else
 #define MAYBE_TriggerEvent TriggerEvent

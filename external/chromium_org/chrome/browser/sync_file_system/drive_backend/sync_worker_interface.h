@@ -26,7 +26,7 @@ class DriveServiceInterface;
 class DriveUploaderInterface;
 }
 
-namespace fileapi {
+namespace storage {
 class FileSystemURL;
 }
 
@@ -47,7 +47,7 @@ class SyncWorkerInterface {
   class Observer {
    public:
     virtual void OnPendingFileListUpdated(int item_count) = 0;
-    virtual void OnFileStatusChanged(const fileapi::FileSystemURL& url,
+    virtual void OnFileStatusChanged(const storage::FileSystemURL& url,
                                      SyncFileStatus file_status,
                                      SyncAction sync_action,
                                      SyncDirection direction) = 0;
@@ -85,31 +85,18 @@ class SyncWorkerInterface {
   virtual scoped_ptr<base::ListValue> DumpFiles(const GURL& origin) = 0;
   virtual scoped_ptr<base::ListValue> DumpDatabase() = 0;
   virtual void SetSyncEnabled(bool enabled) = 0;
-  virtual void PromoteDemotedChanges() = 0;
+  virtual void PromoteDemotedChanges(const base::Closure& callback) = 0;
 
   // See LocalChangeProcessor for the details.
-  virtual void ApplyLocalChange(
-      const FileChange& local_change,
-      const base::FilePath& local_path,
-      const SyncFileMetadata& local_metadata,
-      const fileapi::FileSystemURL& url,
-      const SyncStatusCallback& callback) = 0;
+  virtual void ApplyLocalChange(const FileChange& local_change,
+                                const base::FilePath& local_path,
+                                const SyncFileMetadata& local_metadata,
+                                const storage::FileSystemURL& url,
+                                const SyncStatusCallback& callback) = 0;
 
-  // See drive::DriveNotificationObserver for the details.
-  virtual void OnNotificationReceived() = 0;
-
-  // See drive::DriveServiceObserver for the details.
-  virtual void OnReadyToSendRequests() = 0;
-  virtual void OnRefreshTokenInvalid() = 0;
-
-  // See net::NetworkChangeNotifier::NetworkChangeObserver for the details.
-  virtual void OnNetworkChanged(
-      net::NetworkChangeNotifier::ConnectionType type) = 0;
-
-  virtual drive::DriveServiceInterface* GetDriveService() = 0;
-  virtual drive::DriveUploaderInterface* GetDriveUploader() = 0;
-  virtual MetadataDatabase* GetMetadataDatabase() = 0;
-  virtual SyncTaskManager* GetSyncTaskManager() = 0;
+  virtual void ActivateService(RemoteServiceState service_state,
+                               const std::string& description) = 0;
+  virtual void DeactivateService(const std::string& description) = 0;
 
   virtual void DetachFromSequence() = 0;
 
@@ -117,9 +104,6 @@ class SyncWorkerInterface {
 
  private:
   friend class SyncEngineTest;
-
-  // TODO(peria): Remove this interface after making FakeSyncWorker class.
-  virtual void SetHasRefreshToken(bool has_refresh_token) = 0;
 
   DISALLOW_COPY_AND_ASSIGN(SyncWorkerInterface);
 };

@@ -235,6 +235,8 @@ void GLEncoder::s_glFlush(void *self)
 
 const GLubyte *GLEncoder::s_glGetString(void *self, GLenum name)
 {
+    (void)self;
+
     GLubyte *retval =  (GLubyte *) "";
     switch(name) {
     case GL_VENDOR:
@@ -282,7 +284,7 @@ void GLEncoder::s_glColorPointer(void *self, int size, GLenum type, GLsizei stri
     ctx->m_state->setState(GLClientState::COLOR_LOCATION, size, type, false, stride, data);
 }
 
-void GLEncoder::s_glPointsizePointer(void *self, GLenum type, GLsizei stride, const void *data)
+void GLEncoder::s_glPointSizePointerOES(void *self, GLenum type, GLsizei stride, const void *data)
 {
     GLEncoder *ctx = (GLEncoder *)self;
     assert(ctx->m_state != NULL);
@@ -296,7 +298,7 @@ void GLEncoder::s_glClientActiveTexture(void *self, GLenum texture)
     ctx->m_state->setActiveTexture(texture - GL_TEXTURE0);
 }
 
-void GLEncoder::s_glTexcoordPointer(void *self, int size, GLenum type, GLsizei stride, const void *data)
+void GLEncoder::s_glTexCoordPointer(void *self, int size, GLenum type, GLsizei stride, const void *data)
 {
     GLEncoder *ctx = (GLEncoder *)self;
     assert(ctx->m_state != NULL);
@@ -923,52 +925,57 @@ GLEncoder::GLEncoder(IOStream *stream) : gl_encoder_context_t(stream)
     m_error = GL_NO_ERROR;
     m_num_compressedTextureFormats = 0;
     m_compressedTextureFormats = NULL;
+
     // overrides;
-    m_glFlush_enc = set_glFlush(s_glFlush);
-    m_glPixelStorei_enc = set_glPixelStorei(s_glPixelStorei);
-    m_glVertexPointer_enc = set_glVertexPointer(s_glVertexPointer);
-    m_glNormalPointer_enc = set_glNormalPointer(s_glNormalPointer);
-    m_glColorPointer_enc = set_glColorPointer(s_glColorPointer);
-    m_glPointSizePointerOES_enc = set_glPointSizePointerOES(s_glPointsizePointer);
-    m_glClientActiveTexture_enc = set_glClientActiveTexture(s_glClientActiveTexture);
-    m_glTexCoordPointer_enc = set_glTexCoordPointer(s_glTexcoordPointer);
-    m_glMatrixIndexPointerOES_enc = set_glMatrixIndexPointerOES(s_glMatrixIndexPointerOES);
-    m_glWeightPointerOES_enc = set_glWeightPointerOES(s_glWeightPointerOES);
+#define OVERRIDE(name)  m_##name##_enc = this-> name ; this-> name = &s_##name
 
-    m_glGetIntegerv_enc = set_glGetIntegerv(s_glGetIntegerv);
-    m_glGetFloatv_enc = set_glGetFloatv(s_glGetFloatv);
-    m_glGetBooleanv_enc = set_glGetBooleanv(s_glGetBooleanv);
-    m_glGetFixedv_enc = set_glGetFixedv(s_glGetFixedv);
-    m_glGetPointerv_enc = set_glGetPointerv(s_glGetPointerv);
+    OVERRIDE(glFlush);
+    OVERRIDE(glPixelStorei);
+    OVERRIDE(glVertexPointer);
+    OVERRIDE(glNormalPointer);
+    OVERRIDE(glColorPointer);
+    OVERRIDE(glPointSizePointerOES);
+    OVERRIDE(glClientActiveTexture);
+    OVERRIDE(glTexCoordPointer);
+    OVERRIDE(glMatrixIndexPointerOES);
+    OVERRIDE(glWeightPointerOES);
 
-    m_glBindBuffer_enc = set_glBindBuffer(s_glBindBuffer);
-    m_glBufferData_enc = set_glBufferData(s_glBufferData);
-    m_glBufferSubData_enc = set_glBufferSubData(s_glBufferSubData);
-    m_glDeleteBuffers_enc = set_glDeleteBuffers(s_glDeleteBuffers);
+    OVERRIDE(glGetIntegerv);
+    OVERRIDE(glGetFloatv);
+    OVERRIDE(glGetBooleanv);
+    OVERRIDE(glGetFixedv);
+    OVERRIDE(glGetPointerv);
 
-    m_glEnableClientState_enc = set_glEnableClientState(s_glEnableClientState);
-    m_glDisableClientState_enc = set_glDisableClientState(s_glDisableClientState);
-    m_glIsEnabled_enc = set_glIsEnabled(s_glIsEnabled);
-    m_glDrawArrays_enc = set_glDrawArrays(s_glDrawArrays);
-    m_glDrawElements_enc = set_glDrawElements(s_glDrawElements);
-    set_glGetString(s_glGetString);
-    set_glFinish(s_glFinish);
-    m_glGetError_enc = set_glGetError(s_glGetError);
+    OVERRIDE(glBindBuffer);
+    OVERRIDE(glBufferData);
+    OVERRIDE(glBufferSubData);
+    OVERRIDE(glDeleteBuffers);
 
-    m_glActiveTexture_enc = set_glActiveTexture(s_glActiveTexture);
-    m_glBindTexture_enc = set_glBindTexture(s_glBindTexture);
-    m_glDeleteTextures_enc = set_glDeleteTextures(s_glDeleteTextures);
-    m_glDisable_enc = set_glDisable(s_glDisable);
-    m_glEnable_enc = set_glEnable(s_glEnable);
-    m_glGetTexParameterfv_enc = set_glGetTexParameterfv(s_glGetTexParameterfv);
-    m_glGetTexParameteriv_enc = set_glGetTexParameteriv(s_glGetTexParameteriv);
-    m_glGetTexParameterxv_enc = set_glGetTexParameterxv(s_glGetTexParameterxv);
-    m_glTexParameterf_enc = set_glTexParameterf(s_glTexParameterf);
-    m_glTexParameterfv_enc = set_glTexParameterfv(s_glTexParameterfv);
-    m_glTexParameteri_enc = set_glTexParameteri(s_glTexParameteri);
-    m_glTexParameterx_enc = set_glTexParameterx(s_glTexParameterx);
-    m_glTexParameteriv_enc = set_glTexParameteriv(s_glTexParameteriv);
-    m_glTexParameterxv_enc = set_glTexParameterxv(s_glTexParameterxv);
+    OVERRIDE(glEnableClientState);
+    OVERRIDE(glDisableClientState);
+    OVERRIDE(glIsEnabled);
+    OVERRIDE(glDrawArrays);
+    OVERRIDE(glDrawElements);
+
+    this->glGetString = s_glGetString;
+    this->glFinish = s_glFinish;
+
+    OVERRIDE(glGetError);
+
+    OVERRIDE(glActiveTexture);
+    OVERRIDE(glBindTexture);
+    OVERRIDE(glDeleteTextures);
+    OVERRIDE(glDisable);
+    OVERRIDE(glEnable);
+    OVERRIDE(glGetTexParameterfv);
+    OVERRIDE(glGetTexParameteriv);
+    OVERRIDE(glGetTexParameterxv);
+    OVERRIDE(glTexParameterf);
+    OVERRIDE(glTexParameterfv);
+    OVERRIDE(glTexParameteri);
+    OVERRIDE(glTexParameterx);
+    OVERRIDE(glTexParameteriv);
+    OVERRIDE(glTexParameterxv);
 }
 
 GLEncoder::~GLEncoder()

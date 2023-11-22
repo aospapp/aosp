@@ -14,6 +14,7 @@
 #include "content/common/clipboard_messages.h"
 #include "content/common/database_messages.h"
 #include "content/common/desktop_notification_messages.h"
+#include "content/common/device_sensors/device_light_messages.h"
 #include "content/common/device_sensors/device_motion_messages.h"
 #include "content/common/device_sensors/device_orientation_messages.h"
 #include "content/common/devtools_messages.h"
@@ -30,7 +31,7 @@
 #include "content/common/image_messages.h"
 #include "content/common/indexed_db/indexed_db_messages.h"
 #include "content/common/input_messages.h"
-#include "content/common/java_bridge_messages.h"
+#include "content/common/manifest_manager_messages.h"
 #include "content/common/media/aec_dump_messages.h"
 #include "content/common/media/audio_messages.h"
 // TODO(xhwang): Move this to a new ifdef block.
@@ -45,8 +46,8 @@
 #include "content/common/message_port_messages.h"
 #include "content/common/mime_registry_messages.h"
 #include "content/common/mojo/mojo_messages.h"
-#include "content/common/p2p_messages.h"
 #include "content/common/pepper_messages.h"
+#include "content/common/platform_notification_messages.h"
 #include "content/common/plugin_process_messages.h"
 #include "content/common/power_monitor_messages.h"
 #include "content/common/push_messaging_messages.h"
@@ -62,6 +63,10 @@
 #include "content/common/view_messages.h"
 #include "content/common/websocket_messages.h"
 #include "content/common/worker_messages.h"
+
+#if defined(ENABLE_WEBRTC)
+#include "content/common/p2p_messages.h"
+#endif
 
 #if defined(OS_ANDROID)
 #include "content/common/gin_java_bridge_messages.h"

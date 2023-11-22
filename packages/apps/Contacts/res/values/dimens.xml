@@ -22,40 +22,74 @@
     <dimen name="quickcontact_maximum_title_size">36dp</dimen>
     <!-- When QC is uncollapsed, the title has this much margin on its left, right and bottom -->
     <dimen name="quickcontact_title_initial_margin">16dp</dimen>
-
-    <!-- Top padding of the entire contact editor  -->
-    <dimen name="editor_padding_top">0dip</dimen>
+    <!-- The ratio of width:height for the contact's photo in landscape -->
+    <item name="quickcontact_landscape_photo_ratio" type="dimen" format="float">0.7</item>
+    <!-- How far QuickContacts can be dragged and released from the top of the window before we dismiss it. -->
+    <dimen name="quickcontact_dismiss_distance_on_release">40dp</dimen>
+    <!-- How far QuickContacts can be dragged from the top of the window before we dismiss it. -->
+    <dimen name="quickcontact_dismiss_distance_on_scroll">100dp</dimen>
+    <!-- When first flinging QuickContacts towards the top of the window if the fling is
+        predicted to scroll past the window top by less than this amount, then QuickContacts
+        snaps to the top of the window. -->
+    <dimen name="quickcontact_snap_to_top_slop_height">33dp</dimen>
 
     <!-- Padding of the rounded plus/minus/expand/collapse buttons in the editor  -->
-    <dimen name="editor_round_button_padding_left">8dip</dimen>
-    <dimen name="editor_round_button_padding_right">8dip</dimen>
-    <dimen name="editor_round_button_padding_top">8dip</dimen>
-    <dimen name="editor_round_button_padding_bottom">8dip</dimen>
+    <dimen name="editor_round_button_padding_left">16dip</dimen>
+    <dimen name="editor_round_button_padding_right">16dip</dimen>
+    <dimen name="editor_round_button_padding_top">16dip</dimen>
+    <dimen name="editor_round_button_padding_bottom">16dip</dimen>
 
     <!-- Minimum height of a row in the Editor -->
     <dimen name="editor_min_line_item_height">48dip</dimen>
 
-    <!-- Top padding of an EditText in the Editor -->
-    <dimen name="editor_text_field_top_padding">8dip</dimen>
+    <!-- Width of the delete button (X) in the raw contact editor -->
+    <dimen name="editor_delete_button_width">48dp</dimen>
 
-    <!-- Bottom padding of an EditText in the Editor -->
-    <dimen name="editor_text_field_bottom_padding">7dip</dimen>
+    <!-- The height and width of the delete button should be the same size as an editor row -->
+    <dimen name="editor_delete_button_size">@dimen/editor_min_line_item_height</dimen>
 
-    <!-- Right padding of a field in the Editor -->
-    <dimen name="editor_field_right_padding">4dip</dimen>
+    <!-- Top margin applied to mime-type icons inside the editor. This is needed to give the
+        appearance that the icons are top aligned with the text, since visible text doesn't
+        start at the very top of TextViews. -->
+    <dimen name="editor_kind_icon_top_margin">14dp</dimen>
 
-    <!-- Left padding of a field in the Editor -->
-    <dimen name="editor_field_left_padding">4dip</dimen>
+    <!-- RHS padding added to spinners in the editor. This separates the spinner text from the
+        spinner graphic since b/18194928 causes the spinner to always be on the RHS.
+        In LTR mode this shouldn't have an observable affect. We set paddingRight instead of
+        drawablePadding since the spinner graphic is not a normal drawable.  -->
+    <dimen name="editor_spinner_right_padding_workaround">24dip</dimen>
 
-    <!-- End padding added to spinners in the editor. This separates the spinner text from the
-        spinner graphic when Button gravity is incorrectly set in RTL mode
-        (see framework bug b/17011078. In LTR mode this shouldn't have an observable affect.
-        We set paddingEnd instead of drawablePadding since the spinner graphic is not a normal
-        drawable.  -->
-    <dimen name="editor_spinner_end_padding_workaround">24dip</dimen>
+    <!-- Size of input form text inside the contact editor -->
+    <dimen name="editor_form_text_size">16sp</dimen>
+
+    <!-- Width and height of the mime-type icons inside the editor -->
+    <dimen name="editor_kind_icon_size">24dp</dimen>
+
+    <!-- Total width of data-kind icon, including its start and end padding -->
+    <dimen name="editor_kind_icon_total_width">68dp</dimen>
+
+    <!-- Padding below every editor view, such as LabeledEditorView. This value is chosen
+        to give 32dp of apparent padding between EditText's in the Raw Contact Editor. -->
+    <dimen name="editor_padding_between_editor_views">15dp</dimen>
+
+    <!-- Padding below every readonly editor view. This value is chosen to give 32dp of apparent padding
+        between TextView's in the readonly Raw Contact Editor. -->
+    <dimen name="editor_padding_between_read_only_editor_views">25dp</dimen>
+
+    <!-- Padding above and below the photo editor. This value is chosen to give 32dp of apparent
+        padding between TextView's and the photo's ImageView. -->
+    <dimen name="editor_padding_around_read_only_photo_editor">28dp</dimen>
+
+    <!-- Padding below the photo editor. This value is larger than
+        editor_padding_between_editor_views, since ImageView's don't have space between the bottom
+        of their visual bottom, like an EditText does. -->
+    <dimen name="editor_padding_below_photo">21dp</dimen>
 
     <!-- Width of the Type-Label in the Editor -->
-    <dimen name="editor_type_label_width">100dip</dimen>
+    <dimen name="editor_type_label_width">150dip</dimen>
+
+    <!-- Width of the drop down that appears when you click on the Type-Label spinner in the editor -->
+    <dimen name="editor_type_label_dropdown_width">150dp</dimen>
 
     <!-- Left padding of the label in the add field button for the contact editor -->
     <dimen name="editor_add_field_label_left_padding">16dip</dimen>
@@ -153,8 +187,9 @@
     <!-- Extra top padding if the title is set to null -->
     <dimen name="expanding_entry_card_null_title_top_extra_padding">2dp</dimen>
 
-    <!-- Height of the separator between entries in an ExpandingEntryCardView -->
-    <dimen name="expanding_entry_card_item_separator_height">1dp</dimen>
+    <!-- Height of the separator between entries in an ExpandingEntryCardView and contact editor. -->
+    <dimen name="divider_line_height">1dp</dimen>
+
     <!-- Dimensions for an entry in ExpandingEntryCardView -->
     <dimen name="expanding_entry_card_item_padding_start">20dp</dimen>
     <dimen name="expanding_entry_card_item_padding_end">20dp</dimen>

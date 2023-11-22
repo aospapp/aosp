@@ -20,8 +20,8 @@
 
     <!-- Main text -->
     <dimen name="main_text_padding_left_right">40dp</dimen>
+    <dimen name="main_text_padding_top">16dp</dimen>
     <dimen name="main_text_margins_left_right">64dp</dimen>
-    <dimen name="main_text_container_padding_top">16dp</dimen>
 
     <!-- Title -->
     <dimen name="title_height">80dp</dimen>

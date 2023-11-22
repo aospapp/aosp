@@ -56,20 +56,17 @@ class SYNC_EXPORT_PRIVATE SyncSchedulerImpl
       const ConfigurationParams& params) OVERRIDE;
   virtual void Stop() OVERRIDE;
   virtual void ScheduleLocalNudge(
-      const base::TimeDelta& desired_delay,
       ModelTypeSet types,
       const tracked_objects::Location& nudge_location) OVERRIDE;
   virtual void ScheduleLocalRefreshRequest(
-      const base::TimeDelta& desired_delay,
       ModelTypeSet types,
       const tracked_objects::Location& nudge_location) OVERRIDE;
   virtual void ScheduleInvalidationNudge(
-      const base::TimeDelta& desired_delay,
-      const ObjectIdInvalidationMap& invalidation_map,
+      syncer::ModelType type,
+      scoped_ptr<InvalidationInterface> invalidation,
       const tracked_objects::Location& nudge_location) OVERRIDE;
+  virtual void ScheduleInitialSyncNudge(syncer::ModelType model_type) OVERRIDE;
   virtual void SetNotificationsEnabled(bool notifications_enabled) OVERRIDE;
-
-  virtual base::TimeDelta GetSessionsCommitDelay() const OVERRIDE;
 
   virtual void OnCredentialsUpdated() OVERRIDE;
   virtual void OnConnectionStatusChange() OVERRIDE;
@@ -84,8 +81,8 @@ class SYNC_EXPORT_PRIVATE SyncSchedulerImpl
       const base::TimeDelta& new_interval) OVERRIDE;
   virtual void OnReceivedLongPollIntervalUpdate(
       const base::TimeDelta& new_interval) OVERRIDE;
-  virtual void OnReceivedSessionsCommitDelay(
-      const base::TimeDelta& new_delay) OVERRIDE;
+  virtual void OnReceivedCustomNudgeDelays(
+      const std::map<ModelType, base::TimeDelta>& nudge_delays) OVERRIDE;
   virtual void OnReceivedClientInvalidationHintBufferSize(int size) OVERRIDE;
   virtual void OnSyncProtocolError(
       const SyncProtocolError& sync_protocol_error) OVERRIDE;
@@ -147,6 +144,8 @@ class SYNC_EXPORT_PRIVATE SyncSchedulerImpl
   };
 
   static const char* GetModeString(Mode mode);
+
+  void SetDefaultNudgeDelay(base::TimeDelta delay_ms);
 
   // Invoke the syncer to perform a nudge job.
   void DoNudgeSyncSessionJob(JobPriority priority);
@@ -248,9 +247,6 @@ class SYNC_EXPORT_PRIVATE SyncSchedulerImpl
   // updated by the server.
   base::TimeDelta syncer_short_poll_interval_seconds_;
   base::TimeDelta syncer_long_poll_interval_seconds_;
-
-  // Server-tweakable sessions commit delay.
-  base::TimeDelta sessions_commit_delay_;
 
   // Periodic timer for polling.  See AdjustPolling.
   base::RepeatingTimer<SyncSchedulerImpl> poll_timer_;

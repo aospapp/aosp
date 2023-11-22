@@ -16,7 +16,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/login/users/user_manager.h"
+#include "chrome/browser/chromeos/login/users/scoped_test_user_manager.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/chromeos/settings/device_settings_service.h"
 #endif
@@ -71,7 +71,7 @@ class WebContents;
 //   // This is equivalent to the above, and lets you test pending navigations.
 //   browser()->OpenURL(OpenURLParams(
 //       GURL("http://foo/2"), GURL(), CURRENT_TAB,
-//       content::PAGE_TRANSITION_TYPED, false));
+//       ui::PAGE_TRANSITION_TYPED, false));
 //   CommitPendingLoad(controller);
 //
 // Subclasses must invoke BrowserWithTestWindowTest::SetUp as it is responsible

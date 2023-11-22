@@ -9,15 +9,12 @@
 #include "base/prefs/pref_service.h"
 #include "base/prefs/scoped_user_pref_update.h"
 #include "base/synchronization/cancellation_flag.h"
-#include "chrome/browser/browser_process.h"
 #include "chrome/browser/browsing_data/browsing_data_helper.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/google/google_url_tracker_factory.h"
 #include "chrome/browser/profile_resetter/brandcoded_default_settings.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/search_engines/template_url_prepopulate_data.h"
-#include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_iterator.h"
@@ -26,6 +23,9 @@
 #include "chrome/installer/util/browser_distribution.h"
 #include "components/google/core/browser/google_pref_names.h"
 #include "components/google/core/browser/google_url_tracker.h"
+#include "components/search_engines/search_engines_pref_names.h"
+#include "components/search_engines/template_url_prepopulate_data.h"
+#include "components/search_engines/template_url_service.h"
 #include "content/public/browser/browser_thread.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/management_policy.h"
@@ -33,7 +33,6 @@
 #if defined(OS_WIN)
 #include "base/base_paths.h"
 #include "base/path_service.h"
-#include "chrome/browser/component_updater/sw_reporter_installer_win.h"
 #include "chrome/installer/util/shell_util.h"
 
 namespace {
@@ -107,15 +106,15 @@ void ProfileResetter::Reset(
     Resettable flag;
     void (ProfileResetter::*method)();
   } flagToMethod[] = {
-        {DEFAULT_SEARCH_ENGINE, &ProfileResetter::ResetDefaultSearchEngine},
-        {HOMEPAGE, &ProfileResetter::ResetHomepage},
-        {CONTENT_SETTINGS, &ProfileResetter::ResetContentSettings},
-        {COOKIES_AND_SITE_DATA, &ProfileResetter::ResetCookiesAndSiteData},
-        {EXTENSIONS, &ProfileResetter::ResetExtensions},
-        {STARTUP_PAGES, &ProfileResetter::ResetStartupPages},
-        {PINNED_TABS, &ProfileResetter::ResetPinnedTabs},
-        {SHORTCUTS, &ProfileResetter::ResetShortcuts},
-    };
+    {DEFAULT_SEARCH_ENGINE, &ProfileResetter::ResetDefaultSearchEngine},
+    {HOMEPAGE, &ProfileResetter::ResetHomepage},
+    {CONTENT_SETTINGS, &ProfileResetter::ResetContentSettings},
+    {COOKIES_AND_SITE_DATA, &ProfileResetter::ResetCookiesAndSiteData},
+    {EXTENSIONS, &ProfileResetter::ResetExtensions},
+    {STARTUP_PAGES, &ProfileResetter::ResetStartupPages},
+    {PINNED_TABS, &ProfileResetter::ResetPinnedTabs},
+    {SHORTCUTS, &ProfileResetter::ResetShortcuts},
+  };
 
   ResettableFlags reset_triggered_for_flags = 0;
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(flagToMethod); ++i) {
@@ -124,20 +123,6 @@ void ProfileResetter::Reset(
       (this->*flagToMethod[i].method)();
     }
   }
-
-// When the user resets any of their settings on Windows and agreed to sending
-// feedback, run the software reporter tool to see if it could find the reason
-// why the user wanted a reset.
-#if defined(OS_WIN)
-  // The browser process and / or local_state can be NULL when running tests.
-  if (accepted_send_feedback && g_browser_process &&
-      g_browser_process->local_state() &&
-      g_browser_process->local_state()->GetBoolean(
-          prefs::kMetricsReportingEnabled)) {
-    ExecuteSwReporter(g_browser_process->component_updater(),
-                      g_browser_process->local_state());
-  }
-#endif
 
   DCHECK_EQ(resettable_flags, reset_triggered_for_flags);
 }
@@ -269,7 +254,8 @@ void ProfileResetter::ResetExtensions() {
   std::vector<std::string> brandcode_extensions;
   master_settings_->GetExtensions(&brandcode_extensions);
 
-  ExtensionService* extension_service = profile_->GetExtensionService();
+  ExtensionService* extension_service =
+      extensions::ExtensionSystem::Get(profile_)->extension_service();
   DCHECK(extension_service);
   extension_service->DisableUserExtensions(brandcode_extensions);
 

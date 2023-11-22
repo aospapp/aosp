@@ -204,6 +204,9 @@ This file contains the strings for ash.
       <message name="IDS_ASH_STATUS_TRAY_ACCESSIBLE_NAME" desc="The accessible name of the status tray.">
         Status tray
       </message>
+      <message name="IDS_ASH_STATUS_TRAY_ACCESSIBLE_DESCRIPTION" desc="The accessible description of the status tray and the information on it.">
+        Status tray, time <ph name="time">$1<ex>9:50</ex></ph>, <ph name="battery">$2<ex>Battery is full.</ex></ph>
+      </message>
       <message name="IDS_ASH_STATUS_TRAY_BRAILLE_DISPLAY_CONNECTED_BUBBLE" desc="The message shown on a bubble when a braille display is connected">
 Braille display connected.
       </message>
@@ -246,6 +249,12 @@ Press Ctrl+Alt+Z to disable.
       </message>
       <message name="IDS_ASH_STATUS_TRAY_MESSAGE_CANNOT_ADD_USER" desc="The error message when the user has reached the limit of multi profile users.">
         You can only have up to three accounts in multiple sign-in.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_MESSAGE_NOT_ALLOWED_PRIMARY_USER" desc="The error message when the primary user forbids multiple signin because of not-allowed policy or because of usage policy-pushed certificates.">
+        The administrator for this account has disallowed multiple sign-in.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_MESSAGE_OUT_OF_USERS" desc="The error message when all the users are added into multi-profile session.">
+        All available users have already been added to this session.
       </message>
 
       <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH" desc="The label used as the header in the bluetooth popup.">
@@ -349,7 +358,7 @@ Press Ctrl+Alt+Z to disable.
         Shut down
       </message>
 
-      <message name="IDS_ASH_STATUS_TRAY_LOCALLY_MANAGED_LABEL" desc="Label shown instead of email for supervised users">
+      <message name="IDS_ASH_STATUS_TRAY_SUPERVISED_LABEL" desc="Label shown instead of email for supervised users">
          Supervised user
       </message>
 

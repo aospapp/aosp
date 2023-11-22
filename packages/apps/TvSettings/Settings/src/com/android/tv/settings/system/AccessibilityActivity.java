@@ -128,9 +128,11 @@ public class AccessibilityActivity extends BaseSettingsActivity implements Actio
             case ACCESSIBILITY_OVERVIEW:
                 mActions.add(ActionType.ACCESSIBILITY_CAPTIONS.toAction(mResources));
                 mActions.add(ActionType.ACCESSIBILITY_SERVICES.toAction(mResources));
-                mActions.add(ActionType.ACCESSIBILITY_SPEAK_PASSWORDS.toAction(mResources,
-                        mHelper.getSecureStatusIntSetting(
-                                Settings.Secure.ACCESSIBILITY_SPEAK_PASSWORD)));
+                // TODO b/18007521
+                // uncomment when Talkback is able to support not speaking passwords aloud
+                //mActions.add(ActionType.ACCESSIBILITY_SPEAK_PASSWORDS.toAction(mResources,
+                //        mHelper.getSecureStatusIntSetting(
+                //                Settings.Secure.ACCESSIBILITY_SPEAK_PASSWORD)));
                 mActions.add(ActionType.ACCESSIBILITY_TTS_OUTPUT.toAction(mResources,
                                 getDisplayNameForEngine(mTts.getCurrentEngine())));
                 break;

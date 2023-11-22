@@ -377,17 +377,13 @@ struct object_context_s {
     struct lnc_cmdbuf_s *lnc_cmdbuf_list[LNC_MAX_CMDBUFS_ENCODE];
     struct pnw_cmdbuf_s *pnw_cmdbuf_list[PNW_MAX_CMDBUFS_ENCODE];
     struct tng_cmdbuf_s	*tng_cmdbuf_list[TNG_MAX_CMDBUFS_ENCODE];
-#ifdef PSBVIDEO_MRFL_VPP
     struct vsp_cmdbuf_s *vsp_cmdbuf_list[VSP_MAX_CMDBUFS];
-#endif
 
     struct psb_cmdbuf_s *cmdbuf; /* Current cmd buffer */
     struct lnc_cmdbuf_s *lnc_cmdbuf;
     struct pnw_cmdbuf_s *pnw_cmdbuf;
     struct tng_cmdbuf_s *tng_cmdbuf;
-#ifdef PSBVIDEO_MRFL_VPP
     struct vsp_cmdbuf_s *vsp_cmdbuf;
-#endif
 
     int cmdbuf_current;
 
@@ -507,6 +503,7 @@ struct psb_surface_share_info_s {
 
     unsigned int coded_width;
     unsigned int coded_height;
+    unsigned int initialized;
 };
 
 struct object_surface_s {
@@ -545,18 +542,18 @@ struct object_surface_s {
 
 #define SET_CODEDBUF_INFO(flag, aux_info, slice_num) \
     do {\
-	(aux_info) &= ~(PSB_CODEDBUF_##flag##_MASK<<PSB_CODEDBUF_##flag##_SHIFT);\
-	(aux_info) |= ((slice_num) & PSB_CODEDBUF_##flag##_MASK)\
-	<<PSB_CODEDBUF_##flag##_SHIFT;\
+        (aux_info) &= ~(PSB_CODEDBUF_##flag##_MASK<<PSB_CODEDBUF_##flag##_SHIFT);\
+        (aux_info) |= ((slice_num) & PSB_CODEDBUF_##flag##_MASK)\
+        <<PSB_CODEDBUF_##flag##_SHIFT;\
     } while (0)
 
 #define CLEAR_CODEDBUF_INFO(flag, aux_info) \
     do {\
-	(aux_info) &= ~(PSB_CODEDBUF_##flag##_MASK<<PSB_CODEDBUF_##flag##_SHIFT);\
+        (aux_info) &= ~(PSB_CODEDBUF_##flag##_MASK<<PSB_CODEDBUF_##flag##_SHIFT);\
     } while (0)
 
 #define GET_CODEDBUF_INFO(flag, aux_info) \
-	(((aux_info)>>PSB_CODEDBUF_##flag##_SHIFT) & PSB_CODEDBUF_##flag##_MASK)
+        (((aux_info)>>PSB_CODEDBUF_##flag##_SHIFT) & PSB_CODEDBUF_##flag##_MASK)
 
 
 #define PSB_CODEDBUF_SEGMENT_MAX  (9)
@@ -624,8 +621,8 @@ typedef struct _PsbSurfaceAttributeTPI {
     unsigned int count; /* buffer count for surface creation */
     unsigned long *buffers; /* buffer handles or user pointers */
     unsigned long reserved[4]; /* used to pass additional information, like	362
-			* Android native window pointer	363
-			*/
+                        * Android native window pointer	363
+                        */
 } PsbSurfaceAttributeTPI;
 
 #define MEMSET_OBJECT(ptr, data_struct) \
@@ -710,7 +707,7 @@ inline static char * buffer_type_to_string(int type)
     case VAEncMiscParameterBufferType:
         return "VAEncMiscParameterBufferType";
     case VAProbabilityBufferType:
-	return "VAProbabilityBufferType";
+        return "VAProbabilityBufferType";
     case VAHuffmanTableBufferType:
         return "VAHuffmanTableBufferType";
     case VAQMatrixBufferType:

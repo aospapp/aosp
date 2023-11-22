@@ -224,6 +224,7 @@ void TestWebSocket::RunTests(const std::string& filter) {
   RUN_TEST_WITH_REFERENCE_CHECK(AbortSendMessageCall, filter);
   RUN_TEST_WITH_REFERENCE_CHECK(AbortCloseCall, filter);
   RUN_TEST_WITH_REFERENCE_CHECK(AbortReceiveMessageCall, filter);
+  RUN_TEST_WITH_REFERENCE_CHECK(ClosedFromServerWhileSending, filter);
 
   RUN_TEST_WITH_REFERENCE_CHECK(CcInterfaces, filter);
 
@@ -566,10 +567,10 @@ std::string TestWebSocket::TestInvalidClose() {
   PASS();
 }
 
+// TODO(tyoshino): Consider splitting this test into smaller ones.
+// http://crbug.com/397035
 std::string TestWebSocket::TestValidClose() {
   PP_Var reason = CreateVarString("close for test");
-  PP_Var url = CreateVarString(GetFullURL(kEchoServerURL).c_str());
-  PP_Var protocols[] = { PP_MakeUndefined() };
   TestCompletionCallback callback(instance_->pp_instance(), callback_type());
   TestCompletionCallback another_callback(
       instance_->pp_instance(), callback_type());
@@ -593,6 +594,7 @@ std::string TestWebSocket::TestValidClose() {
   callback.WaitForResult(websocket_interface_->Close(
       ws, PP_WEBSOCKETSTATUSCODE_NOT_SPECIFIED, reason,
       callback.GetCallback().pp_completion_callback()));
+  CHECK_CALLBACK_BEHAVIOR(callback);
   ASSERT_EQ(PP_OK, callback.result());
   core_interface_->ReleaseResource(ws);
 
@@ -607,10 +609,12 @@ std::string TestWebSocket::TestValidClose() {
   ASSERT_EQ(PP_OK, callback.result());
   core_interface_->ReleaseResource(ws);
 
-  // Close in connecting.
-  // The ongoing connect failed with PP_ERROR_ABORTED, then the close is done
-  // successfully.
+  // Close in CONNECTING state.
+  // The ongoing Connect() fails with PP_ERROR_ABORTED, then the Close()
+  // completes successfully.
   ws = websocket_interface_->Create(instance_->pp_instance());
+  PP_Var url = CreateVarString(GetFullURL(kEchoServerURL).c_str());
+  PP_Var protocols[] = { PP_MakeUndefined() };
   result = websocket_interface_->Connect(
       ws, url, protocols, 0U, callback.GetCallback().pp_completion_callback());
   ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
@@ -623,10 +627,11 @@ std::string TestWebSocket::TestValidClose() {
   another_callback.WaitForResult(PP_OK_COMPLETIONPENDING);
   ASSERT_EQ(PP_OK, another_callback.result());
   core_interface_->ReleaseResource(ws);
+  ReleaseVar(url);
 
-  // Close in closing.
-  // The first close will be done successfully, then the second one failed with
-  // with PP_ERROR_INPROGRESS immediately.
+  // Close while already closing.
+  // The first Close will succeed, and the second one will synchronously fail
+  // with PP_ERROR_INPROGRESS.
   ws = Connect(GetFullURL(kEchoServerURL), &result, std::string());
   ASSERT_TRUE(ws);
   ASSERT_EQ(PP_OK, result);
@@ -642,7 +647,7 @@ std::string TestWebSocket::TestValidClose() {
   ASSERT_EQ(PP_OK, callback.result());
   core_interface_->ReleaseResource(ws);
 
-  // Close with ongoing receive message.
+  // Close with ongoing ReceiveMessage.
   ws = Connect(GetFullURL(kEchoServerURL), &result, std::string());
   ASSERT_TRUE(ws);
   ASSERT_EQ(PP_OK, result);
@@ -661,7 +666,7 @@ std::string TestWebSocket::TestValidClose() {
   ASSERT_EQ(PP_OK, another_callback.result());
   core_interface_->ReleaseResource(ws);
 
-  // Close with PP_VARTYPE_UNDEFINED and ongoing receive message.
+  // Close with PP_VARTYPE_UNDEFINED for reason and ongoing ReceiveMessage.
   ws = Connect(GetFullURL(kEchoServerURL), &result, std::string());
   ASSERT_TRUE(ws);
   ASSERT_EQ(PP_OK, result);
@@ -696,7 +701,6 @@ std::string TestWebSocket::TestValidClose() {
   core_interface_->ReleaseResource(ws);
 
   ReleaseVar(reason);
-  ReleaseVar(url);
 
   PASS();
 }
@@ -1151,6 +1155,33 @@ std::string TestWebSocket::TestAbortReceiveMessageCall() {
 
   ReleaseVar(large_var);
   ReleaseVar(text_var);
+
+  PASS();
+}
+
+std::string TestWebSocket::TestClosedFromServerWhileSending() {
+  // Connect to test echo server.
+  const pp::Var protocols[] = { pp::Var() };
+  TestWebSocketAPI websocket(instance_);
+  int32_t result =
+      websocket.Connect(pp::Var(GetFullURL(kEchoServerURL)), protocols, 0U);
+  ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
+  websocket.WaitForConnected();
+
+  result = websocket.Send(pp::Var("hello"));
+  ASSERT_EQ(PP_OK, result);
+  result = websocket.Send(pp::Var("Goodbye"));
+  // We send many messages so that PepperWebSocketHost::SendText is called
+  // after PepperWebSocketHost::didClose is called.
+  // Note: We must not wait for CLOSED event here because
+  // WebSocketResource::SendMessage doesn't call PepperWebSocketHost::SendText
+  // when its internal state is CLOSING or CLOSED. We want to test if the
+  // pepper WebSocket works well when WebSocketResource is OPEN and
+  // PepperWebSocketHost is CLOSED.
+  for (size_t i = 0; i < 10000; ++i) {
+    result = websocket.Send(pp::Var(""));
+    ASSERT_EQ(PP_OK, result);
+  }
 
   PASS();
 }

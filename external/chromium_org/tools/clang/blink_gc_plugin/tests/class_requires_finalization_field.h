@@ -7,7 +7,7 @@
 
 #include "heap/stubs.h"
 
-namespace WebCore {
+namespace blink {
 
 class A : public GarbageCollected<A> {
 public:
@@ -27,21 +27,21 @@ public:
     void trace(Visitor*) { };
 };
 
-} // WebCore namespace
+} // blink namespace
 
 namespace WTF {
 
 template<>
-struct VectorTraits<WebCore::C> {
+struct VectorTraits<blink::C> {
     static const bool needsDestruction = false;
 };
 
 } // WTF namespace
 
-namespace WebCore {
+namespace blink {
 
 // Off-heap vectors always need to be finalized.
-class NeedsFinalizer : public A {
+class NeedsFinalizer : public A, public ScriptWrappable {
 public:
     void trace(Visitor*);
 private:
@@ -58,7 +58,7 @@ private:
 };
 
 // On-heap vectors with no inlined objects never need to be finalized.
-class DoesNotNeedFinalizer : public A {
+class DoesNotNeedFinalizer : public A, public ScriptWrappable {
 public:
     void trace(Visitor*);
 private:
@@ -67,7 +67,7 @@ private:
 
 // On-heap vectors with inlined objects that don't need destruction
 // don't need to be finalized.
-class AlsoDoesNotNeedFinalizer : public A {
+class AlsoDoesNotNeedFinalizer : public A, public ScriptWrappable {
 public:
     void trace(Visitor*);
 private:

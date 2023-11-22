@@ -51,12 +51,14 @@ class ResetScreenHandler : public ResetScreenActor,
  private:
   // JS messages handlers.
   void HandleOnCancel();
-  void HandleOnRestart(bool should_rollback);
+  void HandleOnRestart();
   void HandleOnPowerwash(bool rollback_checked);
   void HandleOnLearnMore();
+  void HandleOnShowRollback();
+  void HandleOnHideRollback();
+  void HandleOnShowConfirm();
 
   void ChooseAndApplyShowScenario();
-  void OnRollbackFlagFileCheckDone(scoped_ptr<bool> file_exists);
   void ShowWithParams();
 
   Delegate* delegate_;
@@ -75,10 +77,13 @@ class ResetScreenHandler : public ResetScreenActor,
   // for first exec after boot situation.
   bool reboot_was_requested_;
 
-  // Keeps whether rollback option is available fo.
+  // Keeps whether rollback option is available.
   bool rollback_available_;
 
-  // Whether rollback is initiated.
+  // Keeps whether rollback option is active at the screen.
+  bool rollback_checked_;
+
+  // Whether rollback is initiated. Prevents screen-hide.
   bool preparing_for_rollback_;
 
   base::WeakPtrFactory<ResetScreenHandler> weak_ptr_factory_;

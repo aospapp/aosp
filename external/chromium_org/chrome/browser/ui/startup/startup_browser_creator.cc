@@ -14,8 +14,8 @@
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/environment.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
@@ -41,13 +41,14 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profiles_state.h"
-#include "chrome/browser/search_engines/util.h"
+#include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/app_list/app_list_service.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/startup/startup_browser_creator_impl.h"
+#include "chrome/browser/ui/user_manager.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_result_codes.h"
@@ -57,15 +58,13 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/installer/util/browser_distribution.h"
 #include "components/google/core/browser/google_util.h"
+#include "components/search_engines/util.h"
 #include "components/signin/core/common/profile_management_switches.h"
 #include "components/url_fixer/url_fixer.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/navigation_controller.h"
-#include "grit/locale_settings.h"
 #include "net/base/net_util.h"
-#include "ui/base/l10n/l10n_util.h"
-#include "ui/base/resource/resource_bundle.h"
 
 #if defined(USE_ASH)
 #include "ash/shell.h"
@@ -75,10 +74,10 @@
 #include "chrome/browser/chromeos/app_mode/app_launch_utils.h"
 #include "chrome/browser/chromeos/kiosk_mode/kiosk_mode_settings.h"
 #include "chrome/browser/chromeos/login/demo_mode/demo_app_launcher.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chromeos/chromeos_switches.h"
+#include "components/user_manager/user_manager.h"
 #endif
 
 #if defined(TOOLKIT_VIEWS) && defined(OS_LINUX)
@@ -329,9 +328,7 @@ bool StartupBrowserCreator::LaunchBrowser(
   profile_launch_observer.Get().AddLaunched(profile);
 
 #if defined(OS_CHROMEOS)
-  g_browser_process->platform_part()->profile_helper()->ProfileStartup(
-      profile,
-      process_startup);
+  chromeos::ProfileHelper::Get()->ProfileStartup(profile, process_startup);
 #endif
   return true;
 }
@@ -363,7 +360,8 @@ SessionStartupPref StartupBrowserCreator::GetSessionStartupPref(
   // in a location shared by all users and the check is meaningless. Query the
   // UserManager instead to determine whether the user is new.
 #if defined(OS_CHROMEOS)
-  const bool is_first_run = chromeos::UserManager::Get()->IsCurrentUserNew();
+  const bool is_first_run =
+      user_manager::UserManager::Get()->IsCurrentUserNew();
 #else
   const bool is_first_run = first_run::IsChromeFirstRun();
 #endif
@@ -416,7 +414,8 @@ std::vector<GURL> StartupBrowserCreator::GetURLsFromCommandLine(
     if ((param.value().size() > 2) && (param.value()[0] == '?') &&
         (param.value()[1] == ' ')) {
       GURL url(GetDefaultSearchURLForSearchTerms(
-          profile, param.LossyDisplayName().substr(2)));
+          TemplateURLServiceFactory::GetForProfile(profile),
+          param.LossyDisplayName().substr(2)));
       if (url.is_valid()) {
         urls.push_back(url);
         continue;
@@ -502,9 +501,9 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
     net::SetExplicitlyAllowedPorts(allowed_ports);
   }
 
-  if (command_line.HasSwitch(switches::kInstallFromWebstore)) {
+  if (command_line.HasSwitch(switches::kInstallEphemeralAppFromWebstore)) {
     extensions::StartupHelper helper;
-    helper.InstallFromWebstore(command_line, last_used_profile);
+    helper.InstallEphemeralApp(command_line, last_used_profile);
     // Nothing more needs to be done, so return false to stop launching and
     // quit.
     return false;
@@ -528,18 +527,16 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
     return false;
   }
 
-  if (command_line.HasSwitch(switches::kLimitedInstallFromWebstore)) {
-    extensions::StartupHelper helper;
-    helper.LimitedInstallFromWebstore(command_line, last_used_profile,
-                                      base::Bind(&base::DoNothing));
-  }
-
 #if defined(OS_CHROMEOS)
+
+#if defined(USE_ATHENA)
+  // Athena will never launch browser.
+  silent_launch = true;
+#endif
+
   // The browser will be launched after the user logs in.
-  if (command_line.HasSwitch(chromeos::switches::kLoginManager) ||
-      command_line.HasSwitch(chromeos::switches::kLoginPassword)) {
+  if (command_line.HasSwitch(chromeos::switches::kLoginManager))
     silent_launch = true;
-  }
 
   if (chrome::IsRunningInAppMode() &&
       command_line.HasSwitch(switches::kAppId)) {
@@ -559,7 +556,7 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
     chrome::AttemptUserExit();
     return false;
   }
-#endif
+#endif  // OS_CHROMEOS
 
 #if defined(TOOLKIT_VIEWS) && defined(USE_X11)
   ui::TouchFactory::SetTouchDeviceListFromCommandLine();
@@ -624,7 +621,7 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
   // create a browser window for the corresponding original profile.
   if (last_opened_profiles.empty()) {
     // If the last used profile is locked or was a guest, show the user manager.
-    if (switches::IsNewProfileManagement()) {
+    if (switches::IsNewAvatarMenu()) {
       ProfileInfoCache& profile_info =
           g_browser_process->profile_manager()->GetProfileInfoCache();
       size_t profile_index = profile_info.GetIndexOfProfileWithPath(
@@ -632,7 +629,9 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
       bool signin_required = profile_index != std::string::npos &&
           profile_info.ProfileIsSigninRequiredAtIndex(profile_index);
       if (signin_required || last_used_profile->IsGuestSession()) {
-        chrome::ShowUserManager(base::FilePath());
+        UserManager::Show(base::FilePath(),
+                          profiles::USER_MANAGER_NO_TUTORIAL,
+                          profiles::USER_MANAGER_SELECT_PROFILE_NO_ACTION);
         return true;
       }
     }
@@ -665,7 +664,7 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
         continue;
 
       // Don't re-open a browser window for the guest profile.
-      if (switches::IsNewProfileManagement() &&
+      if (switches::IsNewAvatarMenu() &&
           (*it)->IsGuestSession())
         continue;
 
@@ -681,7 +680,7 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
 
     // If the last used profile was the guest one, we didn't open it so
     // we don't need to activate it either.
-    if (!switches::IsNewProfileManagement() &&
+    if (!switches::IsNewAvatarMenu() &&
         !last_used_profile->IsGuestSession())
       profile_launch_observer.Get().set_profile_to_activate(last_used_profile);
   }
@@ -732,16 +731,16 @@ bool HasPendingUncleanExit(Profile* profile) {
 
 base::FilePath GetStartupProfilePath(const base::FilePath& user_data_dir,
                                      const CommandLine& command_line) {
+  if (command_line.HasSwitch(switches::kProfileDirectory)) {
+    return user_data_dir.Append(
+        command_line.GetSwitchValuePath(switches::kProfileDirectory));
+  }
+
   // If we are showing the app list then chrome isn't shown so load the app
   // list's profile rather than chrome's.
   if (command_line.HasSwitch(switches::kShowAppList)) {
     return AppListService::Get(chrome::HOST_DESKTOP_TYPE_NATIVE)->
         GetProfilePath(user_data_dir);
-  }
-
-  if (command_line.HasSwitch(switches::kProfileDirectory)) {
-    return user_data_dir.Append(
-        command_line.GetSwitchValuePath(switches::kProfileDirectory));
   }
 
   return g_browser_process->profile_manager()->GetLastUsedProfileDir(

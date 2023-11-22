@@ -16,8 +16,8 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:paddingLeft="@dimen/pad_left_unsafe_description"
-    android:paddingRight="@dimen/pad_right_unsafe_action"
+    android:paddingStart="@dimen/pad_start_unsafe_description"
+    android:paddingEnd="@dimen/pad_end_unsafe_action"
     android:paddingTop="@dimen/progress_bar_vertical_padding"
     android:paddingBottom="@dimen/progress_bar_vertical_padding"
     android:orientation="vertical">

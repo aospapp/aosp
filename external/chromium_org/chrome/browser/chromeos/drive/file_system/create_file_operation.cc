@@ -6,9 +6,10 @@
 
 #include <string>
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "chrome/browser/chromeos/drive/drive.pb.h"
-#include "chrome/browser/chromeos/drive/file_system/operation_observer.h"
+#include "chrome/browser/chromeos/drive/file_change.h"
+#include "chrome/browser/chromeos/drive/file_system/operation_delegate.h"
 #include "chrome/browser/chromeos/drive/resource_metadata.h"
 #include "content/public/browser/browser_thread.h"
 #include "net/base/mime_util.h"
@@ -70,10 +71,10 @@ FileError UpdateLocalState(internal::ResourceMetadata* metadata,
 
 CreateFileOperation::CreateFileOperation(
     base::SequencedTaskRunner* blocking_task_runner,
-    OperationObserver* observer,
+    OperationDelegate* delegate,
     internal::ResourceMetadata* metadata)
     : blocking_task_runner_(blocking_task_runner),
-      observer_(observer),
+      delegate_(delegate),
       metadata_(metadata),
       weak_ptr_factory_(this) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
@@ -123,9 +124,14 @@ void CreateFileOperation::CreateFileAfterUpdateLocalState(
              entry->file_specific_info().is_hosted_document()) ?
         FILE_ERROR_EXISTS : FILE_ERROR_OK;
   } else if (error == FILE_ERROR_OK) {
-    // Notify observer if the file was newly created.
-    observer_->OnDirectoryChangedByOperation(file_path.DirName());
-    observer_->OnEntryUpdatedByOperation(entry->local_id());
+    DCHECK(!entry->file_info().is_directory());
+
+    // Notify delegate if the file was newly created.
+    FileChange changed_file;
+    changed_file.Update(
+        file_path, FileChange::FILE_TYPE_FILE, FileChange::ADD_OR_UPDATE);
+    delegate_->OnFileChangedByOperation(changed_file);
+    delegate_->OnEntryUpdatedByOperation(entry->local_id());
   }
   callback.Run(error);
 }

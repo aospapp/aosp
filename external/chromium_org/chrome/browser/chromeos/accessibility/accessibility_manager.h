@@ -190,6 +190,11 @@ class AccessibilityManager
   // Notify accessibility when locale changes occur.
   void OnLocaleChanged();
 
+  // Plays an earcon. Earcons are brief and distinctive sounds that indicate
+  // when their mapped event has occurred. The sound key enums can be found in
+  // chromeos/audio/chromeos_sounds.h.
+  void PlayEarcon(int sound_key);
+
  protected:
   AccessibilityManager();
   virtual ~AccessibilityManager();
@@ -268,8 +273,6 @@ class AccessibilityManager
 
   ash::AccessibilityNotificationVisibility spoken_feedback_notification_;
 
-  base::WeakPtrFactory<AccessibilityManager> weak_ptr_factory_;
-
   bool should_speak_chrome_vox_announcements_on_user_screen_;
 
   bool system_sounds_enabled_;
@@ -281,6 +284,8 @@ class AccessibilityManager
                  AccessibilityManager> scoped_braille_observer_;
 
   bool braille_ime_current_;
+
+  base::WeakPtrFactory<AccessibilityManager> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(AccessibilityManager);
 };

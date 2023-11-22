@@ -16,6 +16,8 @@
 
 package com.android.cts.verifier;
 
+import com.android.compatibility.common.util.ReportLog;
+
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.ContentResolver;
@@ -32,6 +34,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.ImageButton;
+import android.widget.Toast;
 
 /**
  * {@link Activity}s to handle clicks to the pass and fail buttons of the pass fail buttons layout.
@@ -93,10 +96,18 @@ public class PassFailButtons {
          * @param passed Whether or not the test passed.
          */
         void setTestResultAndFinish(boolean passed);
+
+        /** @return A {@link ReportLog} that is used to record test metric data. */
+        ReportLog getReportLog();
     }
 
     public static class Activity extends android.app.Activity implements PassFailActivity {
         private WakeLock mWakeLock;
+        private final ReportLog reportLog;
+
+        public Activity() {
+           this.reportLog = new CtsVerifierReportLog();
+        }
 
         @Override
         protected void onResume() {
@@ -148,12 +159,21 @@ public class PassFailButtons {
 
         @Override
         public void setTestResultAndFinish(boolean passed) {
-            PassFailButtons.setTestResultAndFinishHelper(this, getTestId(), getTestDetails(),
-                    passed);
+            PassFailButtons.setTestResultAndFinishHelper(
+                    this, getTestId(), getTestDetails(), passed, getReportLog());
         }
+
+        @Override
+        public ReportLog getReportLog() { return reportLog; }
     }
 
     public static class ListActivity extends android.app.ListActivity implements PassFailActivity {
+
+        private final ReportLog reportLog;
+
+        public ListActivity() {
+            this.reportLog = new CtsVerifierReportLog();
+        }
 
         @Override
         public void setPassFailButtonClickListeners() {
@@ -187,14 +207,23 @@ public class PassFailButtons {
 
         @Override
         public void setTestResultAndFinish(boolean passed) {
-            PassFailButtons.setTestResultAndFinishHelper(this, getTestId(), getTestDetails(),
-                    passed);
+            PassFailButtons.setTestResultAndFinishHelper(
+                    this, getTestId(), getTestDetails(), passed, getReportLog());
         }
+
+        @Override
+        public ReportLog getReportLog() { return reportLog; }
     }
 
     public static class TestListActivity extends AbstractTestListActivity
             implements PassFailActivity {
 
+        private final ReportLog reportLog;
+
+        public TestListActivity() {
+            this.reportLog = new CtsVerifierReportLog();
+        }
+
         @Override
         public void setPassFailButtonClickListeners() {
             setPassFailClickListeners(this);
@@ -227,9 +256,12 @@ public class PassFailButtons {
 
         @Override
         public void setTestResultAndFinish(boolean passed) {
-            PassFailButtons.setTestResultAndFinishHelper(this, getTestId(), getTestDetails(),
-                    passed);
+            PassFailButtons.setTestResultAndFinishHelper(
+                    this, getTestId(), getTestDetails(), passed, getReportLog());
         }
+
+        @Override
+        public ReportLog getReportLog() { return reportLog; }
     }
 
     private static <T extends android.app.Activity & PassFailActivity>
@@ -238,12 +270,29 @@ public class PassFailButtons {
             @Override
             public void onClick(View target) {
                 setTestResultAndFinish(activity, activity.getTestId(), activity.getTestDetails(),
-                        target);
+                        activity.getReportLog(), target);
             }
         };
 
-        activity.findViewById(R.id.pass_button).setOnClickListener(clickListener);
-        activity.findViewById(R.id.fail_button).setOnClickListener(clickListener);
+        View passButton = activity.findViewById(R.id.pass_button);
+        passButton.setOnClickListener(clickListener);
+        passButton.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View view) {
+                Toast.makeText(activity, R.string.pass_button_text, Toast.LENGTH_SHORT).show();
+                return true;
+            }
+        });
+
+        View failButton = activity.findViewById(R.id.fail_button);
+        failButton.setOnClickListener(clickListener);
+        failButton.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View view) {
+                Toast.makeText(activity, R.string.fail_button_text, Toast.LENGTH_SHORT).show();
+                return true;
+            }
+        });
     }
 
     private static void setInfo(final android.app.Activity activity, final int titleId,
@@ -255,6 +304,13 @@ public class PassFailButtons {
             @Override
             public void onClick(View view) {
                 showInfoDialog(activity, titleId, messageId, viewId);
+            }
+        });
+        infoButton.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View view) {
+                Toast.makeText(activity, R.string.info_button_text, Toast.LENGTH_SHORT).show();
+                return true;
             }
         });
 
@@ -341,7 +397,7 @@ public class PassFailButtons {
 
     /** Set the test result corresponding to the button clicked and finish the activity. */
     private static void setTestResultAndFinish(android.app.Activity activity, String testId,
-            String testDetails, View target) {
+            String testDetails, ReportLog reportLog, View target) {
         boolean passed;
         switch (target.getId()) {
             case R.id.pass_button:
@@ -353,16 +409,16 @@ public class PassFailButtons {
             default:
                 throw new IllegalArgumentException("Unknown id: " + target.getId());
         }
-        setTestResultAndFinishHelper(activity, testId, testDetails, passed);
+        setTestResultAndFinishHelper(activity, testId, testDetails, passed, reportLog);
     }
 
     /** Set the test result and finish the activity. */
     private static void setTestResultAndFinishHelper(android.app.Activity activity, String testId,
-            String testDetails, boolean passed) {
+            String testDetails, boolean passed, ReportLog reportLog) {
         if (passed) {
-            TestResult.setPassedResult(activity, testId, testDetails);
+            TestResult.setPassedResult(activity, testId, testDetails, reportLog);
         } else {
-            TestResult.setFailedResult(activity, testId, testDetails);
+            TestResult.setFailedResult(activity, testId, testDetails, reportLog);
         }
 
         activity.finish();
@@ -370,5 +426,9 @@ public class PassFailButtons {
 
     private static ImageButton getPassButtonView(android.app.Activity activity) {
         return (ImageButton) activity.findViewById(R.id.pass_button);
+    }
+
+    public static class CtsVerifierReportLog extends ReportLog {
+
     }
 }

@@ -429,6 +429,7 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
         boolean mHaveResult = false;
         boolean mGoodResult = false;
         boolean mSucceeded = false;
+        static final int TIMEOUT_MS = 30000;
         
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -456,10 +457,10 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
                 final long startTime = SystemClock.uptimeMillis();
                 while (!mHaveResult) {
                     try {
-                        wait(5000);
+                        wait(TIMEOUT_MS);
                     } catch (InterruptedException e) {
                     }
-                    if (SystemClock.uptimeMillis() >= (startTime+5000)) {
+                    if (SystemClock.uptimeMillis() >= (startTime + TIMEOUT_MS)) {
                         throw new RuntimeException("Timeout");
                     }
                 }
@@ -477,10 +478,10 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
                 final long startTime = SystemClock.uptimeMillis();
                 while (!mHaveResult) {
                     try {
-                        wait(5000);
+                        wait(TIMEOUT_MS);
                     } catch (InterruptedException e) {
                     }
-                    if (SystemClock.uptimeMillis() >= (startTime+5000)) {
+                    if (SystemClock.uptimeMillis() >= (startTime + TIMEOUT_MS)) {
                         throw new RuntimeException("Timeout");
                     }
                 }

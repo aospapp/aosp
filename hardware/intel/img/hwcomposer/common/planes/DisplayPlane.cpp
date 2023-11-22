@@ -113,6 +113,16 @@ void DisplayPlane::setPosition(int x, int y, int w, int h)
 
     if (mForceScaling) {
         // set in assignToDevice
+        mPosition.x = (int) (((float)x/DEFAULT_DRM_FB_WIDTH)*mDisplayWidth);
+        mPosition.y = (int) (((float)y/DEFAULT_DRM_FB_HEIGHT)*mDisplayHeight);
+        mPosition.w = (int) (((float)w/DEFAULT_DRM_FB_WIDTH)*mDisplayWidth);
+        mPosition.h = (int) (((float)h/DEFAULT_DRM_FB_HEIGHT)*mDisplayHeight);
+
+        mDisplayCrop.x = 0;
+        mDisplayCrop.y = 0;
+        mDisplayCrop.w = mDisplayWidth;
+        mDisplayCrop.h = mDisplayHeight;
+
         return;
     }
 
@@ -348,15 +358,8 @@ bool DisplayPlane::assignToDevice(int disp)
     if (mForceScaling) {
         mModeInfo.hdisplay = mDisplayWidth;
         mModeInfo.vdisplay = mDisplayHeight;
-        mPosition.x = 0;
-        mPosition.y = 0;
-        mPosition.w = mDisplayWidth;
-        mPosition.h = mDisplayHeight;
+
     }
-    mDisplayCrop.x = 0;
-    mDisplayCrop.y = 0;
-    mDisplayCrop.w = mDisplayWidth;
-    mDisplayCrop.h = mDisplayHeight;
 
     return true;
 }

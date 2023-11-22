@@ -64,27 +64,6 @@ public class DataReductionProxySettings {
         mNativeDataReductionProxySettings = nativeInit();
     }
 
-    /**
-     * Add a pattern for hosts to bypass. Wildcards should be compatible with the JavaScript
-     * function shExpMatch, which can be used in proxy PAC resolution. This should be called
-     * before the proxy is used.
-     * @param pattern A pattern to match.
-     */
-    public void bypassHostPattern(String pattern) {
-        nativeBypassHostPattern(mNativeDataReductionProxySettings, pattern);
-    }
-
-    /**
-     * Add a pattern for URLs to bypass. Wildcards should be compatible with the JavaScript
-     * function shExpMatch, which can be used in proxy PAC resolution. This should be called
-     * before the proxy is used.
-     * @param pattern A pattern to match.
-     */
-    public void bypassURLPattern(String pattern) {
-        nativeBypassURLPattern(mNativeDataReductionProxySettings, pattern);
-    }
-
-
     /** Returns true if the SPDY proxy is allowed to be used. */
     public boolean isDataReductionProxyAllowed() {
         return nativeIsDataReductionProxyAllowed(mNativeDataReductionProxySettings);
@@ -93,6 +72,11 @@ public class DataReductionProxySettings {
     /** Returns true if the SPDY proxy promo is allowed to be shown. */
     public boolean isDataReductionProxyPromoAllowed() {
         return nativeIsDataReductionProxyPromoAllowed(mNativeDataReductionProxySettings);
+    }
+
+    /** Returns true if proxy alternative field trial is running. */
+    public boolean isIncludedInAltFieldTrial() {
+        return nativeIsIncludedInAltFieldTrial(mNativeDataReductionProxySettings);
     }
 
     /**
@@ -137,30 +121,6 @@ public class DataReductionProxySettings {
     }
 
     /**
-     * Returns true if the host and realm (as passed in to Tab.onReceivedHttpAuthRequest()) are such
-     * that a authentication token can be generated. The host must match one of the configured proxy
-     * hosts, and the realm must be prefixed with the authentication realm string used by the data
-     * reduction proxies.
-     * @param host The host requesting authentication.
-     * @param realm The authentication realm.
-     * @return True if host and realm can be authenticated.
-     */
-    public boolean isAcceptableAuthChallenge(String host, String realm) {
-        return nativeIsAcceptableAuthChallenge(mNativeDataReductionProxySettings, host, realm);
-    }
-
-    /**
-     * Returns an authentication token for the data reduction proxy. If the token cannot be
-     * generated, an empty string is returned.
-     * @param host The host requesting authentication.
-     * @param realm The authentication realm.
-     * @return The generated token.
-     */
-    public String getTokenForAuthChallenge(String host, String realm) {
-        return nativeGetTokenForAuthChallenge(mNativeDataReductionProxySettings, host, realm);
-    }
-
-    /**
      * Retrieves the history of daily totals of bytes that would have been
      * received if no data reducing mechanism had been applied.
      * @return The history of daily totals
@@ -179,6 +139,14 @@ public class DataReductionProxySettings {
     }
 
     /**
+     * Determines if the data reduction proxy is currently unreachable.
+     * @return true if the data reduction proxy is unreachable.
+     */
+    public boolean isDataReductionProxyUnreachable() {
+        return nativeIsDataReductionProxyUnreachable(mNativeDataReductionProxySettings);
+    }
+
+    /**
      * @return The data reduction settings as a string percentage.
      */
     public String getContentLengthPercentSavings() {
@@ -193,13 +161,11 @@ public class DataReductionProxySettings {
     }
 
     private native long nativeInit();
-    private native void nativeBypassHostPattern(
-            long nativeDataReductionProxySettingsAndroid, String pattern);
-    private native void nativeBypassURLPattern(
-            long nativeDataReductionProxySettingsAndroid, String pattern);
     private native boolean nativeIsDataReductionProxyAllowed(
             long nativeDataReductionProxySettingsAndroid);
     private native boolean nativeIsDataReductionProxyPromoAllowed(
+            long nativeDataReductionProxySettingsAndroid);
+    private native boolean nativeIsIncludedInAltFieldTrial(
             long nativeDataReductionProxySettingsAndroid);
     private native String nativeGetDataReductionProxyOrigin(
             long nativeDataReductionProxySettingsAndroid);
@@ -213,12 +179,10 @@ public class DataReductionProxySettings {
             long nativeDataReductionProxySettingsAndroid);
     private native ContentLengths nativeGetContentLengths(
             long nativeDataReductionProxySettingsAndroid);
-    private native boolean nativeIsAcceptableAuthChallenge(
-            long nativeDataReductionProxySettingsAndroid, String host, String realm);
-    private native String nativeGetTokenForAuthChallenge(
-            long nativeDataReductionProxySettingsAndroid, String host, String realm);
     private native long[] nativeGetDailyOriginalContentLengths(
             long nativeDataReductionProxySettingsAndroid);
     private native long[] nativeGetDailyReceivedContentLengths(
+            long nativeDataReductionProxySettingsAndroid);
+    private native boolean nativeIsDataReductionProxyUnreachable(
             long nativeDataReductionProxySettingsAndroid);
 }

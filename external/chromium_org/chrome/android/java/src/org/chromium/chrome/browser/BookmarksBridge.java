@@ -4,12 +4,12 @@
 
 package org.chromium.chrome.browser;
 
-import android.text.TextUtils;
-import android.util.Log;
-
 import org.chromium.base.CalledByNative;
 import org.chromium.base.ObserverList;
+import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.components.bookmarks.BookmarkId;
+import org.chromium.components.bookmarks.BookmarkType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,15 +19,8 @@ import java.util.List;
  * bookmark model stored in native.
  */
 public class BookmarksBridge {
-
-    // Should mirror constants in chrome/browser/android/bookmarks/bookmarks_bridge.cc
-    public static final int BOOKMARK_TYPE_NORMAL = 0;
-    public static final int BOOKMARK_TYPE_PARTNER = 1;
-
-    public static final int INVALID_FOLDER_ID = -2;
-    public static final int ROOT_FOLDER_ID = -1;
-
     private final Profile mProfile;
+    private boolean mIsDoingExtensiveChanges;
     private long mNativeBookmarksBridge;
     private boolean mIsNativeBookmarkModelLoaded;
     private final List<DelayedBookmarkCallback> mDelayedBookmarkCallbacks =
@@ -58,9 +51,13 @@ public class BookmarksBridge {
     }
 
     /**
-     * Interface that provides listeners to be notified of changes to the bookmark model.
+     * Base empty implementation observer class that provides listeners to be notified of changes
+     * to the bookmark model. It's mandatory to implement one method, bookmarkModelChanged. Other
+     * methods are optional and if they aren't overridden, the default implementation of them will
+     * eventually call bookmarkModelChanged. Unless noted otherwise, all the functions won't be
+     * called during extensive change.
      */
-    public interface BookmarkModelObserver {
+    public abstract static class BookmarkModelObserver {
         /**
          * Invoked when a node has moved.
          * @param oldParent The parent before the move.
@@ -68,56 +65,79 @@ public class BookmarksBridge {
          * @param newParent The parent after the move.
          * @param newIndex The index of the node in the new parent.
          */
-        void bookmarkNodeMoved(
-                BookmarkItem oldParent, int oldIndex, BookmarkItem newParent, int newIndex);
+        public void bookmarkNodeMoved(
+                BookmarkItem oldParent, int oldIndex, BookmarkItem newParent, int newIndex) {
+            bookmarkModelChanged();
+        }
 
         /**
          * Invoked when a node has been added.
          * @param parent The parent of the node being added.
          * @param index The index of the added node.
          */
-        void bookmarkNodeAdded(BookmarkItem parent, int index);
+        public void bookmarkNodeAdded(BookmarkItem parent, int index) {
+            bookmarkModelChanged();
+        }
+
+        /**
+         * Invoked when a node has been removed, the item may still be starred though. This can
+         * be called during extensive change, and have the flag argument indicating it.
+         * @param parent The parent of the node that was removed.
+         * @param oldIndex The index of the removed node in the parent before it was removed.
+         * @param node The node that was removed.
+         * @param isDoingExtensiveChanges whether extensive changes are happening.
+         */
+        public void bookmarkNodeRemoved(BookmarkItem parent, int oldIndex, BookmarkItem node,
+                boolean isDoingExtensiveChanges) {
+            if (isDoingExtensiveChanges) return;
+
+            bookmarkNodeRemoved(parent, oldIndex, node);
+        }
 
         /**
          * Invoked when a node has been removed, the item may still be starred though.
+         *
          * @param parent The parent of the node that was removed.
          * @param oldIndex The index of the removed node in the parent before it was removed.
          * @param node The node that was removed.
          */
-        void bookmarkNodeRemoved(BookmarkItem parent, int oldIndex, BookmarkItem node);
+        public void bookmarkNodeRemoved(BookmarkItem parent, int oldIndex, BookmarkItem node) {
+            bookmarkModelChanged();
+        }
 
         /**
          * Invoked when the title or url of a node changes.
          * @param node The node being changed.
          */
-        void bookmarkNodeChanged(BookmarkItem node);
+        public void bookmarkNodeChanged(BookmarkItem node) {
+            bookmarkModelChanged();
+        }
 
         /**
          * Invoked when the children (just direct children, not descendants) of a node have been
          * reordered in some way, such as sorted.
          * @param node The node whose children are being reordered.
          */
-        void bookmarkNodeChildrenReordered(BookmarkItem node);
+        public void bookmarkNodeChildrenReordered(BookmarkItem node) {
+            bookmarkModelChanged();
+        }
 
         /**
-         * Invoked before an extensive set of model changes is about to begin.  This tells UI
-         * intensive observers to wait until the updates finish to update themselves. These methods
-         * should only be used for imports and sync. Observers should still respond to
-         * BookmarkNodeRemoved immediately, to avoid holding onto stale node references.
+         * Called when the native side of bookmark is loaded and now in usable state.
          */
-        void extensiveBookmarkChangesBeginning();
-
-        /**
-         * Invoked after an extensive set of model changes has ended.  This tells observers to
-         * update themselves if they were waiting for the update to finish.
-         */
-        void extensiveBookmarkChangesEnded();
+        public void bookmarkModelLoaded() {
+            bookmarkModelChanged();
+        }
 
         /**
          *  Called when there are changes to the bookmark model that don't trigger any of the other
-         *  callback methods. For example, this is called when partner bookmarks change.
+         *  callback methods or it wasn't handled by other callback methods.
+         *  Examples:
+         *  - On partner bookmarks change.
+         *  - On extensive change finished.
+         *  - Falling back from other methods that are not overridden in this class.
          */
-        void bookmarkModelChanged();
+        public abstract void bookmarkModelChanged();
     }
 
     /**
@@ -127,6 +147,7 @@ public class BookmarksBridge {
     public BookmarksBridge(Profile profile) {
         mProfile = profile;
         mNativeBookmarksBridge = nativeInit(profile);
+        mIsDoingExtensiveChanges = nativeIsDoingExtensiveChanges(mNativeBookmarksBridge);
     }
 
     /**
@@ -143,6 +164,15 @@ public class BookmarksBridge {
     }
 
     /**
+     * Load an empty partner bookmark shim for testing. The root node for bookmark will be an
+     * empty node.
+     */
+    @VisibleForTesting
+    public void loadEmptyPartnerBookmarkShimForTesting() {
+        nativeLoadEmptyPartnerBookmarkShimForTesting(mNativeBookmarksBridge);
+    }
+
+    /**
      * Add an observer to bookmark model changes.
      * @param observer The observer to be added.
      */
@@ -156,6 +186,176 @@ public class BookmarksBridge {
      */
     public void removeObserver(BookmarkModelObserver observer) {
         mObservers.removeObserver(observer);
+    }
+
+    /**
+     * @return Whether or not the underlying bookmark model is loaded.
+     */
+    public boolean isBookmarkModelLoaded() {
+        return mIsNativeBookmarkModelLoaded;
+    }
+
+    /**
+     * @return A BookmarkItem instance for the given BookmarkId.
+     */
+    public BookmarkItem getBookmarkById(BookmarkId id) {
+        assert mIsNativeBookmarkModelLoaded;
+        return nativeGetBookmarkByID(mNativeBookmarksBridge, id.getId(), id.getType());
+    }
+
+    /**
+     * @return All the permanent nodes.
+     */
+    public List<BookmarkId> getPermanentNodeIDs() {
+        assert mIsNativeBookmarkModelLoaded;
+        List<BookmarkId> result = new ArrayList<BookmarkId>();
+        nativeGetPermanentNodeIDs(mNativeBookmarksBridge, result);
+        return result;
+    }
+
+    /**
+     * @return The top level folder's parents, which are root node, mobile node, and other node.
+     */
+    public List<BookmarkId> getTopLevelFolderParentIDs() {
+        assert mIsNativeBookmarkModelLoaded;
+        List<BookmarkId> result = new ArrayList<BookmarkId>();
+        nativeGetTopLevelFolderParentIDs(mNativeBookmarksBridge, result);
+        return result;
+    }
+
+    /**
+     * @param getSpecial Whether special top folders should be returned.
+     * @param getNormal  Whether normal top folders should be returned.
+     * @return The top level folders. Note that special folders come first and normal top folders
+     *         will be in the alphabetical order. Special top folders are managed bookmark and
+     *         partner bookmark. Normal top folders are desktop permanent folder, and the
+     *         sub-folders of mobile permanent folder and others permanent folder.
+     */
+    public List<BookmarkId> getTopLevelFolderIDs(boolean getSpecial, boolean getNormal) {
+        assert mIsNativeBookmarkModelLoaded;
+        List<BookmarkId> result = new ArrayList<BookmarkId>();
+        nativeGetTopLevelFolderIDs(mNativeBookmarksBridge, getSpecial, getNormal, result);
+        return result;
+    }
+
+    /**
+     * @return The uncategorized bookmark IDs. They are direct descendant bookmarks of mobile and
+     *         other folders.
+     */
+    public List<BookmarkId> getUncategorizedBookmarkIDs() {
+        assert mIsNativeBookmarkModelLoaded;
+        List<BookmarkId> result = new ArrayList<BookmarkId>();
+        nativeGetUncategorizedBookmarkIDs(mNativeBookmarksBridge, result);
+        return result;
+    }
+
+    /**
+     * Populates folderList with BookmarkIds of folders users can move bookmarks
+     * to and all folders have corresponding depth value in depthList. Folders
+     * having depths of 0 will be shown as top-layered folders. These include
+     * "Desktop Folder" itself as well as all children of "mobile" and "other".
+     * Children of 0-depth folders have depth of 1, and so on.
+     *
+     * The result list will be sorted alphabetically by title. "mobile", "other",
+     * root node, managed folder, partner folder are NOT included as results.
+     */
+    public void getAllFoldersWithDepths(List<BookmarkId> folderList,
+            List<Integer> depthList) {
+        assert mIsNativeBookmarkModelLoaded;
+        nativeGetAllFoldersWithDepths(mNativeBookmarksBridge, folderList, depthList);
+    }
+
+    /**
+     * @return The BookmarkId for Mobile folder node
+     */
+    public BookmarkId getMobileFolderId() {
+        assert mIsNativeBookmarkModelLoaded;
+        return nativeGetMobileFolderId(mNativeBookmarksBridge);
+    }
+
+    /**
+     * @return Id representing the special "other" folder from bookmark model.
+     */
+    @VisibleForTesting
+    public BookmarkId getOtherFolderId() {
+        assert mIsNativeBookmarkModelLoaded;
+        return nativeGetOtherFolderId(mNativeBookmarksBridge);
+    }
+
+    /**
+     * @return BokmarkId representing special "desktop" folder, namely "bookmark bar".
+     */
+    @VisibleForTesting
+    public BookmarkId getDesktopFolderId() {
+        assert mIsNativeBookmarkModelLoaded;
+        return nativeGetDesktopFolderId(mNativeBookmarksBridge);
+    }
+
+    /**
+     * Reads sub-folder IDs, sub-bookmark IDs, or both of the given folder.
+     *
+     * @param getFolders   Whether sub-folders should be returned.
+     * @param getBookmarks Whether sub-bookmarks should be returned.
+     * @return Child IDs of the given folder, with the specified type.
+     */
+    public List<BookmarkId> getChildIDs(BookmarkId id, boolean getFolders, boolean getBookmarks) {
+        assert mIsNativeBookmarkModelLoaded;
+        List<BookmarkId> result = new ArrayList<BookmarkId>();
+        nativeGetChildIDs(mNativeBookmarksBridge,
+                id.getId(),
+                id.getType(),
+                getFolders,
+                getBookmarks,
+                result);
+        return result;
+    }
+
+    /**
+     * @return All bookmark IDs ordered by descending creation date.
+     */
+    public List<BookmarkId> getAllBookmarkIDsOrderedByCreationDate() {
+        assert mIsNativeBookmarkModelLoaded;
+        List<BookmarkId> result = new ArrayList<BookmarkId>();
+        nativeGetAllBookmarkIDsOrderedByCreationDate(mNativeBookmarksBridge, result);
+        return result;
+    }
+
+    /**
+     * Set title of the given bookmark.
+     */
+    public void setBookmarkTitle(BookmarkId id, String title) {
+        assert mIsNativeBookmarkModelLoaded;
+        nativeSetBookmarkTitle(mNativeBookmarksBridge, id.getId(), id.getType(), title);
+    }
+
+    /**
+     * Set URL of the given bookmark.
+     */
+    public void setBookmarkUrl(BookmarkId id, String url) {
+        assert mIsNativeBookmarkModelLoaded;
+        nativeSetBookmarkUrl(mNativeBookmarksBridge, id.getId(), id.getType(), url);
+    }
+
+    /**
+     * @return Whether the given bookmark exist in the current bookmark model, e.g., not deleted.
+     */
+    public boolean doesBookmarkExist(BookmarkId id) {
+        assert mIsNativeBookmarkModelLoaded;
+        return nativeDoesBookmarkExist(mNativeBookmarksBridge, id.getId(), id.getType());
+    }
+
+    /**
+     * Fetches the bookmarks of the given folder. This is an always-synchronous version of another
+     * getBookmarksForForder function.
+     *
+     * @param folderId The parent folder id.
+     * @return Bookmarks of the given folder.
+     */
+    public List<BookmarkItem> getBookmarksForFolder(BookmarkId folderId) {
+        assert mIsNativeBookmarkModelLoaded;
+        List<BookmarkItem> result = new ArrayList<BookmarkItem>();
+        nativeGetBookmarksForFolder(mNativeBookmarksBridge, folderId, null, result);
+        return result;
     }
 
     /**
@@ -210,13 +410,92 @@ public class BookmarksBridge {
         nativeMoveBookmark(mNativeBookmarksBridge, bookmarkId, newParentId, index);
     }
 
+    /**
+     * Add a new folder to the given parent folder
+     *
+     * @param parent Folder where to add. Must be a normal editable folder, instead of a partner
+     *               bookmark folder or a managed bookomark folder or root node of the entire
+     *               bookmark model.
+     * @param index The position to locate the new folder
+     * @param title The title text of the new folder
+     * @return Id of the added node. If adding failed (index is invalid, string is null, parent is
+     *         not editable), returns null.
+     */
+    public BookmarkId addFolder(BookmarkId parent, int index, String title) {
+        assert parent.getType() == BookmarkType.BOOKMARK_TYPE_NORMAL;
+        assert index >= 0;
+        assert title != null;
+
+        return nativeAddFolder(mNativeBookmarksBridge, parent, index, title);
+    }
+
+    /**
+     * Add a new bookmark to a specific position below parent
+     *
+     * @param parent Folder where to add. Must be a normal editable folder, instead of a partner
+     *               bookmark folder or a managed bookomark folder or root node of the entire
+     *               bookmark model.
+     * @param index The position where the bookmark will be placed in parent folder
+     * @param title Title of the new bookmark
+     * @param url Url of the new bookmark
+     * @return Id of the added node. If adding failed (index is invalid, string is null, parent is
+     *         not editable), returns null.
+     */
+    public BookmarkId addBookmark(BookmarkId parent, int index, String title, String url) {
+        assert parent.getType() == BookmarkType.BOOKMARK_TYPE_NORMAL;
+        assert index >= 0;
+        assert title != null;
+        assert url != null;
+
+        return nativeAddBookmark(mNativeBookmarksBridge, parent, index, title, url);
+    }
+
+    /**
+     * Undo the last undoable action on the top of the bookmark undo stack
+     */
+    public void undo() {
+        nativeUndo(mNativeBookmarksBridge);
+    }
+
+    /**
+     * Start grouping actions for a single undo operation
+     * Note: This only works with BookmarkModel, not partner bookmarks.
+     */
+    public void startGroupingUndos() {
+        nativeStartGroupingUndos(mNativeBookmarksBridge);
+    }
+
+    /**
+     * End grouping actions for a single undo operation
+     * Note: This only works with BookmarkModel, not partner bookmarks.
+     */
+    public void endGroupingUndos() {
+        nativeEndGroupingUndos(mNativeBookmarksBridge);
+    }
+
+    /**
+     * A bridge function to BookmarkModelFactory::GetForProfile.
+     */
+    public static long getNativeBookmarkModel(Profile profile) {
+        return nativeGetNativeBookmarkModel(profile);
+    }
+
     public static boolean isEditBookmarksEnabled() {
         return nativeIsEditBookmarksEnabled();
+    }
+
+    public static boolean isEnhancedBookmarksEnabled(Profile profile) {
+        return nativeIsEnhancedBookmarksFeatureEnabled(profile);
     }
 
     @CalledByNative
     private void bookmarkModelLoaded() {
         mIsNativeBookmarkModelLoaded = true;
+
+        for (BookmarkModelObserver observer : mObservers) {
+            observer.bookmarkModelLoaded();
+        }
+
         if (!mDelayedBookmarkCallbacks.isEmpty()) {
             for (int i = 0; i < mDelayedBookmarkCallbacks.size(); i++) {
                 mDelayedBookmarkCallbacks.get(i).callCallbackMethod();
@@ -233,6 +512,8 @@ public class BookmarksBridge {
     @CalledByNative
     private void bookmarkNodeMoved(
             BookmarkItem oldParent, int oldIndex, BookmarkItem newParent, int newIndex) {
+        if (mIsDoingExtensiveChanges) return;
+
         for (BookmarkModelObserver observer : mObservers) {
             observer.bookmarkNodeMoved(oldParent, oldIndex, newParent, newIndex);
         }
@@ -240,6 +521,8 @@ public class BookmarksBridge {
 
     @CalledByNative
     private void bookmarkNodeAdded(BookmarkItem parent, int index) {
+        if (mIsDoingExtensiveChanges) return;
+
         for (BookmarkModelObserver observer : mObservers) {
             observer.bookmarkNodeAdded(parent, index);
         }
@@ -248,12 +531,15 @@ public class BookmarksBridge {
     @CalledByNative
     private void bookmarkNodeRemoved(BookmarkItem parent, int oldIndex, BookmarkItem node) {
         for (BookmarkModelObserver observer : mObservers) {
-            observer.bookmarkNodeRemoved(parent, oldIndex, node);
+            observer.bookmarkNodeRemoved(parent, oldIndex, node,
+                    mIsDoingExtensiveChanges);
         }
     }
 
     @CalledByNative
     private void bookmarkNodeChanged(BookmarkItem node) {
+        if (mIsDoingExtensiveChanges) return;
+
         for (BookmarkModelObserver observer : mObservers) {
             observer.bookmarkNodeChanged(node);
         }
@@ -261,6 +547,8 @@ public class BookmarksBridge {
 
     @CalledByNative
     private void bookmarkNodeChildrenReordered(BookmarkItem node) {
+        if (mIsDoingExtensiveChanges) return;
+
         for (BookmarkModelObserver observer : mObservers) {
             observer.bookmarkNodeChildrenReordered(node);
         }
@@ -268,20 +556,19 @@ public class BookmarksBridge {
 
     @CalledByNative
     private void extensiveBookmarkChangesBeginning() {
-        for (BookmarkModelObserver observer : mObservers) {
-            observer.extensiveBookmarkChangesBeginning();
-        }
+        mIsDoingExtensiveChanges = true;
     }
 
     @CalledByNative
     private void extensiveBookmarkChangesEnded() {
-        for (BookmarkModelObserver observer : mObservers) {
-            observer.extensiveBookmarkChangesEnded();
-        }
+        mIsDoingExtensiveChanges = false;
+        bookmarkModelChanged();
     }
 
     @CalledByNative
     private void bookmarkModelChanged() {
+        if (mIsDoingExtensiveChanges) return;
+
         for (BookmarkModelObserver observer : mObservers) {
             observer.bookmarkModelChanged();
         }
@@ -301,124 +588,70 @@ public class BookmarksBridge {
     }
 
     @CalledByNative
+    private static void addToBookmarkIdList(List<BookmarkId> bookmarkIdList, long id, int type) {
+        bookmarkIdList.add(new BookmarkId(id, type));
+    }
+
+    @CalledByNative
+    private static void addToBookmarkIdListWithDepth(List<BookmarkId> folderList, long id,
+            int type, List<Integer> depthList, int depth) {
+        folderList.add(new BookmarkId(id, type));
+        depthList.add(depth);
+    }
+
+    @CalledByNative
     private static BookmarkId createBookmarkId(long id, int type) {
         return new BookmarkId(id, type);
     }
 
+    private native BookmarkItem nativeGetBookmarkByID(long nativeBookmarksBridge, long id,
+            int type);
+    private native void nativeGetPermanentNodeIDs(long nativeBookmarksBridge,
+            List<BookmarkId> bookmarksList);
+    private native void nativeGetTopLevelFolderParentIDs(long nativeBookmarksBridge,
+            List<BookmarkId> bookmarksList);
+    private native void nativeGetTopLevelFolderIDs(long nativeBookmarksBridge, boolean getSpecial,
+            boolean getNormal, List<BookmarkId> bookmarksList);
+    private native void nativeGetUncategorizedBookmarkIDs(long nativeBookmarksBridge,
+            List<BookmarkId> bookmarksList);
+    private native void nativeGetAllFoldersWithDepths(long nativeBookmarksBridge,
+            List<BookmarkId> folderList, List<Integer> depthList);
+    private native BookmarkId nativeGetMobileFolderId(long nativeBookmarksBridge);
+    private native BookmarkId nativeGetOtherFolderId(long nativeBookmarksBridge);
+    private native BookmarkId nativeGetDesktopFolderId(long nativeBookmarksBridge);
+    private native void nativeGetChildIDs(long nativeBookmarksBridge, long id, int type,
+            boolean getFolders, boolean getBookmarks, List<BookmarkId> bookmarksList);
+    private native void nativeGetAllBookmarkIDsOrderedByCreationDate(long nativeBookmarksBridge,
+            List<BookmarkId> result);
+    private native void nativeSetBookmarkTitle(long nativeBookmarksBridge, long id, int type,
+            String title);
+    private native void nativeSetBookmarkUrl(long nativeBookmarksBridge, long id, int type,
+            String url);
+    private native boolean nativeDoesBookmarkExist(long nativeBookmarksBridge, long id, int type);
     private native void nativeGetBookmarksForFolder(long nativeBookmarksBridge,
             BookmarkId folderId, BookmarksCallback callback,
             List<BookmarkItem> bookmarksList);
     private native void nativeGetCurrentFolderHierarchy(long nativeBookmarksBridge,
             BookmarkId folderId, BookmarksCallback callback,
             List<BookmarkItem> bookmarksList);
+    private native BookmarkId nativeAddFolder(long nativeBookmarksBridge, BookmarkId parent,
+            int index, String title);
     private native void nativeDeleteBookmark(long nativeBookmarksBridge, BookmarkId bookmarkId);
     private native void nativeMoveBookmark(long nativeBookmarksBridge, BookmarkId bookmarkId,
             BookmarkId newParentId, int index);
+    private native BookmarkId nativeAddBookmark(long nativeBookmarksBridge, BookmarkId parent,
+            int index, String title, String url);
+    private native void nativeUndo(long nativeBookmarksBridge);
+    private native void nativeStartGroupingUndos(long nativeBookmarksBridge);
+    private native void nativeEndGroupingUndos(long nativeBookmarksBridge);
+    private static native long nativeGetNativeBookmarkModel(Profile profile);
+    private static native boolean nativeIsEnhancedBookmarksFeatureEnabled(Profile profile);
+    private native void nativeLoadEmptyPartnerBookmarkShimForTesting(long nativeBookmarksBridge);
+
     private native long nativeInit(Profile profile);
+    private native boolean nativeIsDoingExtensiveChanges(long nativeBookmarksBridge);
     private native void nativeDestroy(long nativeBookmarksBridge);
     private static native boolean nativeIsEditBookmarksEnabled();
-
-    /**
-     * Simple object representing the bookmark id.
-     */
-    public static class BookmarkId {
-        private static final String LOG_TAG = "BookmarkId";
-        private static final char TYPE_PARTNER = 'p';
-
-        private final long mId;
-        private final int mType;
-
-        public BookmarkId(long id, int type) {
-            mId = id;
-            mType = type;
-        }
-
-        /**
-         * @param c The char representing the type.
-         * @return The Bookmark type from a char representing the type.
-         */
-        private static int getBookmarkTypeFromChar(char c) {
-            switch (c) {
-                case TYPE_PARTNER:
-                    return BOOKMARK_TYPE_PARTNER;
-                default:
-                    return BOOKMARK_TYPE_NORMAL;
-            }
-        }
-
-        /**
-         * @param c The char representing the bookmark type.
-         * @return Whether the char representing the bookmark type is a valid type.
-         */
-        private static boolean isValidBookmarkTypeFromChar(char c) {
-            return c == TYPE_PARTNER;
-        }
-
-        /**
-         * @param s The bookmark id string (Eg: p1 for partner bookmark id 1).
-         * @return the Bookmark id from the string which is a concatenation of bookmark type and
-         *         the bookmark id.
-         */
-        public static BookmarkId getBookmarkIdFromString(String s) {
-            long id = ROOT_FOLDER_ID;
-            int type = BOOKMARK_TYPE_NORMAL;
-            if (TextUtils.isEmpty(s)) return new BookmarkId(id, type);
-            char folderTypeChar = s.charAt(0);
-            if (isValidBookmarkTypeFromChar(folderTypeChar)) {
-                type = getBookmarkTypeFromChar(folderTypeChar);
-                s = s.substring(1);
-            }
-            try {
-                id = Long.parseLong(s);
-            } catch (NumberFormatException exception) {
-                Log.e(LOG_TAG, "Error parsing url to extract the bookmark folder id.", exception);
-            }
-            return new BookmarkId(id, type);
-        }
-
-        /**
-         * @return The id of the bookmark.
-         */
-        @CalledByNative("BookmarkId")
-        public long getId() {
-            return mId;
-        }
-
-        /**
-         * @return The bookmark type.
-         */
-        @CalledByNative("BookmarkId")
-        public int getType() {
-            return mType;
-        }
-
-        private String getBookmarkTypeString() {
-            switch (mType) {
-                case BOOKMARK_TYPE_PARTNER:
-                    return String.valueOf(TYPE_PARTNER);
-                case BOOKMARK_TYPE_NORMAL:
-                default:
-                    return "";
-            }
-        }
-
-        @Override
-        public String toString() {
-            return getBookmarkTypeString() + mId;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (!(o instanceof BookmarkId)) return false;
-            BookmarkId item = (BookmarkId) o;
-            return (item.mId == mId && item.mType == mType);
-        }
-
-        @Override
-        public int hashCode() {
-            return toString().hashCode();
-        }
-    }
 
     /**
      * Simple object representing the bookmark item.
@@ -432,7 +665,6 @@ public class BookmarksBridge {
         private final BookmarkId mParentId;
         private final boolean mIsEditable;
         private final boolean mIsManaged;
-
 
         private BookmarkItem(BookmarkId id, String title, String url, boolean isFolder,
                 BookmarkId parentId, boolean isEditable, boolean isManaged) {

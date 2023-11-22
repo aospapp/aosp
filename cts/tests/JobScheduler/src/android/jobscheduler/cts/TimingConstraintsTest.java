@@ -29,7 +29,7 @@ public class TimingConstraintsTest extends ConstraintTest {
 
     public void testScheduleOnce() throws Exception {
         JobInfo oneTimeJob = new JobInfo.Builder(TIMING_JOB_ID, kJobServiceComponent)
-                        .setOverrideDeadline(1000)  // 1 secs
+                        .setOverrideDeadline(5000)  // 5 secs
                         .build();
 
         kTestEnvironment.setExpectedExecutions(1);
@@ -41,7 +41,7 @@ public class TimingConstraintsTest extends ConstraintTest {
     public void testSchedulePeriodic() throws Exception {
         JobInfo periodicJob =
                 new JobInfo.Builder(TIMING_JOB_ID, kJobServiceComponent)
-                        .setPeriodic(1000L)  // 1 second period.
+                        .setPeriodic(5000L)  // 5 second period.
                         .build();
 
         kTestEnvironment.setExpectedExecutions(3);
@@ -52,7 +52,8 @@ public class TimingConstraintsTest extends ConstraintTest {
 
     public void testCancel() throws Exception {
         JobInfo cancelJob = new JobInfo.Builder(CANCEL_JOB_ID, kJobServiceComponent)
-                .setOverrideDeadline(2000L)
+                .setMinimumLatency(5000L) // make sure it doesn't actually run immediately
+                .setOverrideDeadline(7000L)
                 .build();
 
         kTestEnvironment.setExpectedExecutions(0);

@@ -63,4 +63,10 @@
     <#assign min_sdk = "21"/>
 </#if>
 <#-- Set the global build tools version -->
-<#assign build_tools_version='"21.0.0"'/>
+<#assign build_tools_version='"21.1.1"'/>
+
+<#assign play_services_wearable_dependency="'com.google.android.gms:play-services-wearable:6.5.+'"/>
+
+<#assign android_support_v13_dependency="'com.android.support:support-v13:21.0.+'"/>
+
+<#assign wearable_support_dependency="'com.google.android.support:wearable:1.1.+'"/>

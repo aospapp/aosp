@@ -19,22 +19,20 @@ class CC_EXPORT ImageLayer : public TiledLayer {
   static scoped_refptr<ImageLayer> Create();
 
   // Layer implementation.
-  virtual bool DrawsContent() const OVERRIDE;
   virtual void SetTexturePriorities(const PriorityCalculator& priority_calc)
       OVERRIDE;
   virtual bool Update(ResourceUpdateQueue* queue,
                       const OcclusionTracker<Layer>* occlusion) OVERRIDE;
   virtual void CalculateContentsScale(float ideal_contents_scale,
-                                      float device_scale_factor,
-                                      float page_scale_factor,
-                                      float maximum_animation_contents_scale,
-                                      bool animating_transform_to_screen,
                                       float* contents_scale_x,
                                       float* contents_scale_y,
                                       gfx::Size* content_bounds) OVERRIDE;
   virtual void OnOutputSurfaceCreated() OVERRIDE;
 
   void SetBitmap(const SkBitmap& image);
+
+ protected:
+  virtual bool HasDrawableContent() const OVERRIDE;
 
  private:
   ImageLayer();

@@ -29,6 +29,7 @@ import android.support.v4.app.ActionBarDrawerToggle;
 import android.support.v7.appcompat.R;
 import android.support.v7.internal.app.WindowCallback;
 import android.support.v7.internal.view.SupportMenuInflater;
+import android.support.v7.internal.widget.TintTypedArray;
 import android.support.v7.view.ActionMode;
 import android.support.v7.widget.Toolbar;
 import android.util.AttributeSet;
@@ -101,7 +102,7 @@ abstract class ActionBarActivityDelegate {
 
         @Override
         public View onCreatePanelView(int featureId) {
-            return null;
+            return mActivity.onCreatePanelView(featureId);
         }
     };
     // The fake window callback we're currently using
@@ -123,6 +124,10 @@ abstract class ActionBarActivityDelegate {
                 mActionBar = createSupportActionBar();
             }
         }
+        return mActionBar;
+    }
+
+    final ActionBar peekSupportActionBar() {
         return mActionBar;
     }
 
@@ -148,12 +153,20 @@ abstract class ActionBarActivityDelegate {
                     "You need to use a Theme.AppCompat theme (or descendant) with this activity.");
         }
 
-        mHasActionBar = a.getBoolean(R.styleable.Theme_windowActionBar, false);
-        mOverlayActionBar = a.getBoolean(R.styleable.Theme_windowActionBarOverlay, false);
-        mOverlayActionMode = a.getBoolean(R.styleable.Theme_windowActionModeOverlay, false);
+        if (a.getBoolean(R.styleable.Theme_windowActionBar, false)) {
+            mHasActionBar = true;
+        }
+        if (a.getBoolean(R.styleable.Theme_windowActionBarOverlay, false)) {
+            mOverlayActionBar = true;
+        }
+        if (a.getBoolean(R.styleable.Theme_windowActionModeOverlay, false)) {
+            mOverlayActionMode = true;
+        }
         mIsFloating = a.getBoolean(R.styleable.Theme_android_windowIsFloating, false);
         a.recycle();
     }
+
+    abstract void onPostCreate(Bundle savedInstanceState);
 
     abstract void onConfigurationChanged(Configuration newConfig);
 
@@ -176,8 +189,6 @@ abstract class ActionBarActivityDelegate {
     abstract boolean supportRequestWindowFeature(int featureId);
 
     // Methods used to create and respond to options menu
-    abstract View onCreatePanelView(int featureId);
-
     abstract boolean onPreparePanel(int featureId, View view, Menu menu);
 
     abstract void onPanelClosed(int featureId, Menu menu);
@@ -208,9 +219,7 @@ abstract class ActionBarActivityDelegate {
 
     abstract void setSupportProgress(int progress);
 
-    boolean onKeyDown(int keyCode, KeyEvent event) {
-        return false;
-    }
+    abstract boolean dispatchKeyEvent(KeyEvent event);
 
     abstract boolean onKeyShortcut(int keyCode, KeyEvent event);
 
@@ -259,16 +268,15 @@ abstract class ActionBarActivityDelegate {
         return context;
     }
 
-    abstract View createView(String name, @NonNull AttributeSet attrs);
-
+    abstract View createView(String name, @NonNull Context context, @NonNull AttributeSet attrs);
 
     private class ActionBarDrawableToggleImpl implements
             android.support.v7.app.ActionBarDrawerToggle.Delegate,
             ActionBarDrawerToggle.Delegate {
         @Override
         public Drawable getThemeUpIndicator() {
-            final TypedArray a = ActionBarActivityDelegate.this.getActionBarThemedContext()
-                    .obtainStyledAttributes(new int[]{ getHomeAsUpIndicatorAttrId() });
+            final TintTypedArray a = TintTypedArray.obtainStyledAttributes(
+                    getActionBarThemedContext(), null, new int[]{ getHomeAsUpIndicatorAttrId() });
             final Drawable result = a.getDrawable(0);
             a.recycle();
             return result;
@@ -277,6 +285,12 @@ abstract class ActionBarActivityDelegate {
         @Override
         public Context getActionBarThemedContext() {
             return ActionBarActivityDelegate.this.getActionBarThemedContext();
+        }
+
+        @Override
+        public boolean isNavigationVisible() {
+            final ActionBar ab = getSupportActionBar();
+            return ab != null && (ab.getDisplayOptions() & ActionBar.DISPLAY_HOME_AS_UP) != 0;
         }
 
         @Override

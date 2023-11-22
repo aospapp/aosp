@@ -54,12 +54,13 @@ class Graphics3DResource : public ppapi::Resource,
                                          GLenum access) OVERRIDE;
   virtual void UnmapTexSubImage2DCHROMIUM(const void* mem) OVERRIDE;
   virtual uint32_t InsertSyncPoint() OVERRIDE;
+  virtual uint32_t InsertFutureSyncPoint() OVERRIDE;
+  virtual void RetireSyncPoint(uint32_t sync_point) OVERRIDE;
 
  private:
   virtual ~Graphics3DResource();
 
   static void ContextLostThunk(void* closure);
-  static void DrawAnimationFrameThunk(void* closure);
   void ContextLost();
 
   MojoGLES2Context context_;

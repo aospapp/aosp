@@ -82,6 +82,7 @@ public class MockListener extends NotificationListenerService {
         Log.d(TAG, "created");
 
         mTestPackages.add("com.android.cts.verifier");
+        mTestPackages.add("com.android.cts.robot");
 
         mPosted = new ArrayList<String>();
         mRemoved = new ArrayList<String>();
@@ -238,8 +239,8 @@ public class MockListener extends NotificationListenerService {
         Log.d(TAG, "removed: " + sbn.getTag());
         mRemoved.add(sbn.getTag());
         mNotifications.remove(sbn.getKey());
-        onNotificationRankingUpdate(rankingMap);
         mNotificationKeys.remove(sbn.getTag());
+        onNotificationRankingUpdate(rankingMap);
     }
 
     public static void resetListenerData(Context context) {

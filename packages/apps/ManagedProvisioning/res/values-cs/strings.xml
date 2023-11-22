@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Aplikaci pro správu nelze použít. Buď v ní chybí některé komponenty, nebo je poškozená. Obraťte se na oddělení IT."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Instalace aplikace pro správu se nezdařila."</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Ve vašem zařízení není nainstalována aplikace pro správu."</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Zastavit nastavování?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Opravdu chcete nastavování zastavit?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Ne"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Ano"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Rušení..."</string>
 </resources>

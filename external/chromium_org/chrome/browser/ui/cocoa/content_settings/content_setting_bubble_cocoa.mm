@@ -16,9 +16,9 @@
 #import "chrome/browser/ui/cocoa/l10n_util.h"
 #include "chrome/browser/ui/content_settings/content_setting_bubble_model.h"
 #include "chrome/browser/ui/content_settings/content_setting_media_menu_model.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/plugin_service.h"
 #include "content/public/browser/web_contents_observer.h"
-#include "grit/generated_resources.h"
 #include "skia/ext/skia_utils_mac.h"
 #import "third_party/google_toolbox_for_mac/src/AppKit/GTMUILocalizerAndLayoutTweaker.h"
 #import "ui/base/cocoa/controls/hyperlink_button_cell.h"
@@ -281,6 +281,10 @@ class ContentSettingBubbleWebContentsObserverBridge
     case CONTENT_SETTINGS_TYPE_MEDIASTREAM_MIC:
     case CONTENT_SETTINGS_TYPE_MEDIASTREAM_CAMERA:
     case CONTENT_SETTINGS_NUM_TYPES:
+    // TODO(miguelg): Remove this nib content settings support
+    // is implemented
+    case CONTENT_SETTINGS_TYPE_PUSH_MESSAGING:
+    case CONTENT_SETTINGS_TYPE_SSL_CERT_DECISIONS:
       NOTREACHED();
   }
   if ((self = [super initWithWindowNibPath:nibPath

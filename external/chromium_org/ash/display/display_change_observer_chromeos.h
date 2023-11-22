@@ -9,19 +9,27 @@
 #include "ash/shell_observer.h"
 #include "base/basictypes.h"
 #include "ui/display/chromeos/display_configurator.h"
+#include "ui/events/input_device_event_observer.h"
 
 namespace ash {
 
+class DisplayInfo;
 struct DisplayMode;
 
 // An object that observes changes in display configuration and
 // update DisplayManagers.
 class DisplayChangeObserver : public ui::DisplayConfigurator::StateController,
                               public ui::DisplayConfigurator::Observer,
+                              public ui::InputDeviceEventObserver,
                               public ShellObserver {
  public:
+  // Returns the mode list for internal display.
+  ASH_EXPORT static std::vector<DisplayMode> GetInternalDisplayModeList(
+      const DisplayInfo& display_info,
+      const ui::DisplayConfigurator::DisplayState& output);
+
   // Returns the resolution list.
-  ASH_EXPORT static std::vector<DisplayMode> GetDisplayModeList(
+  ASH_EXPORT static std::vector<DisplayMode> GetExternalDisplayModeList(
       const ui::DisplayConfigurator::DisplayState& output);
 
   DisplayChangeObserver();
@@ -37,8 +45,14 @@ class DisplayChangeObserver : public ui::DisplayConfigurator::StateController,
   virtual void OnDisplayModeChanged(
       const ui::DisplayConfigurator::DisplayStateList& outputs) OVERRIDE;
 
+  // Overriden from ui::InputDeviceEventObserver:
+  virtual void OnInputDeviceConfigurationChanged() OVERRIDE;
+
   // Overriden from ShellObserver:
   virtual void OnAppTerminating() OVERRIDE;
+
+  // Exposed for testing.
+  ASH_EXPORT static float FindDeviceScaleFactor(float dpi);
 
  private:
   DISALLOW_COPY_AND_ASSIGN(DisplayChangeObserver);

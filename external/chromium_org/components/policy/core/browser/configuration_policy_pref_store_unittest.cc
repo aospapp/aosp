@@ -52,8 +52,8 @@ TEST_F(ConfigurationPolicyPrefStoreListTest, GetDefault) {
 
 TEST_F(ConfigurationPolicyPrefStoreListTest, SetValue) {
   base::ListValue* in_value = new base::ListValue();
-  in_value->Append(base::Value::CreateStringValue("test1"));
-  in_value->Append(base::Value::CreateStringValue("test2,"));
+  in_value->Append(new base::StringValue("test1"));
+  in_value->Append(new base::StringValue("test2,"));
   PolicyMap policy;
   policy.Set(kTestPolicy, POLICY_LEVEL_MANDATORY,
              POLICY_SCOPE_USER, in_value, NULL);
@@ -80,9 +80,11 @@ TEST_F(ConfigurationPolicyPrefStoreStringTest, GetDefault) {
 
 TEST_F(ConfigurationPolicyPrefStoreStringTest, SetValue) {
   PolicyMap policy;
-  policy.Set(kTestPolicy, POLICY_LEVEL_MANDATORY,
+  policy.Set(kTestPolicy,
+             POLICY_LEVEL_MANDATORY,
              POLICY_SCOPE_USER,
-             base::Value::CreateStringValue("http://chromium.org"), NULL);
+             new base::StringValue("http://chromium.org"),
+             NULL);
   UpdateProviderPolicy(policy);
   const base::Value* value = NULL;
   EXPECT_TRUE(store_->GetValue(kTestPref, &value));
@@ -106,8 +108,11 @@ TEST_F(ConfigurationPolicyPrefStoreBooleanTest, GetDefault) {
 
 TEST_F(ConfigurationPolicyPrefStoreBooleanTest, SetValue) {
   PolicyMap policy;
-  policy.Set(kTestPolicy, POLICY_LEVEL_MANDATORY,
-             POLICY_SCOPE_USER, base::Value::CreateBooleanValue(false), NULL);
+  policy.Set(kTestPolicy,
+             POLICY_LEVEL_MANDATORY,
+             POLICY_SCOPE_USER,
+             new base::FundamentalValue(false),
+             NULL);
   UpdateProviderPolicy(policy);
   const base::Value* value = NULL;
   EXPECT_TRUE(store_->GetValue(kTestPref, &value));
@@ -117,8 +122,11 @@ TEST_F(ConfigurationPolicyPrefStoreBooleanTest, SetValue) {
   ASSERT_TRUE(result);
   EXPECT_FALSE(boolean_value);
 
-  policy.Set(kTestPolicy, POLICY_LEVEL_MANDATORY,
-             POLICY_SCOPE_USER, base::Value::CreateBooleanValue(true), NULL);
+  policy.Set(kTestPolicy,
+             POLICY_LEVEL_MANDATORY,
+             POLICY_SCOPE_USER,
+             new base::FundamentalValue(true),
+             NULL);
   UpdateProviderPolicy(policy);
   value = NULL;
   EXPECT_TRUE(store_->GetValue(kTestPref, &value));
@@ -144,8 +152,11 @@ TEST_F(ConfigurationPolicyPrefStoreIntegerTest, GetDefault) {
 
 TEST_F(ConfigurationPolicyPrefStoreIntegerTest, SetValue) {
   PolicyMap policy;
-  policy.Set(kTestPolicy, POLICY_LEVEL_MANDATORY,
-             POLICY_SCOPE_USER, base::Value::CreateIntegerValue(2), NULL);
+  policy.Set(kTestPolicy,
+             POLICY_LEVEL_MANDATORY,
+             POLICY_SCOPE_USER,
+             new base::FundamentalValue(2),
+             NULL);
   UpdateProviderPolicy(policy);
   const base::Value* value = NULL;
   EXPECT_TRUE(store_->GetValue(kTestPref, &value));
@@ -180,7 +191,7 @@ TEST_F(ConfigurationPolicyPrefStoreRefreshTest, Refresh) {
   policy.Set(kTestPolicy,
              POLICY_LEVEL_MANDATORY,
              POLICY_SCOPE_USER,
-             base::Value::CreateStringValue("http://www.chromium.org"),
+             new base::StringValue("http://www.chromium.org"),
              NULL);
   UpdateProviderPolicy(policy);
   observer_.VerifyAndResetChangedKey(kTestPref);

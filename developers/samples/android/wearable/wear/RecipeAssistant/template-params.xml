@@ -20,12 +20,12 @@
 <sample>
     <name>RecipeAssistant</name>
     <group>Wearable</group>
-    <package>com.example.android.recipeassistant</package>
+    <package>com.example.android.wearable.recipeassistant</package>
 
 
 
     <!-- change minSdk if needed-->
-    <minSdk>20</minSdk>
+    <minSdk>18</minSdk>
 
 
     <strings>

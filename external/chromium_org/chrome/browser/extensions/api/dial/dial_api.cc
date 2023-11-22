@@ -19,8 +19,6 @@ using content::BrowserThread;
 
 namespace {
 
-const char kDialServiceError[] = "Dial service error.";
-
 // How often to poll for devices.
 const int kDialRefreshIntervalSecs = 120;
 
@@ -72,13 +70,13 @@ void DialAPI::OnListenerRemoved(const EventListenerInfo& details) {
 
 void DialAPI::NotifyListenerAddedOnIOThread() {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
-  VLOG(1) << "DIAL device event listener added.";
+  VLOG(2) << "DIAL device event listener added.";
   dial_registry()->OnListenerAdded();
 }
 
 void DialAPI::NotifyListenerRemovedOnIOThread() {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
-  VLOG(1) << "DIAL device event listener removed";
+  VLOG(2) << "DIAL device event listener removed";
   dial_registry()->OnListenerRemoved();
 }
 
@@ -163,9 +161,6 @@ void DialDiscoverNowFunction::Work() {
 
 bool DialDiscoverNowFunction::Respond() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  if (!result_)
-    error_ = kDialServiceError;
-
   SetResult(new base::FundamentalValue(result_));
   return true;
 }

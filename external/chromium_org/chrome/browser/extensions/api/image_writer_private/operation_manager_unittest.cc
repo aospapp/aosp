@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 #include "base/command_line.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/extensions/api/image_writer_private/error_messages.h"
 #include "chrome/browser/extensions/api/image_writer_private/operation_manager.h"
 #include "chrome/browser/extensions/api/image_writer_private/test_utils.h"
@@ -14,7 +13,7 @@
 #include "extensions/browser/event_router.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/login/users/user_manager.h"
+#include "chrome/browser/chromeos/login/users/scoped_test_user_manager.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/chromeos/settings/device_settings_service.h"
 #endif
@@ -58,8 +57,7 @@ KeyedService* BuildFakeExtensionSystem(content::BrowserContext* profile) {
 
 namespace {
 
-class ImageWriterOperationManagerTest
-    : public ImageWriterUnitTestBase {
+class ImageWriterOperationManagerTest : public ImageWriterUnitTestBase {
  public:
   void StartCallback(bool success, const std::string& error) {
     started_ = true;
@@ -111,11 +109,11 @@ TEST_F(ImageWriterOperationManagerTest, WriteFromFile) {
   OperationManager manager(&test_profile_);
 
   manager.StartWriteFromFile(
-    kDummyExtensionId,
-    test_image_path_,
-    test_device_path_.AsUTF8Unsafe(),
-    base::Bind(&ImageWriterOperationManagerTest::StartCallback,
-               base::Unretained(this)));
+      kDummyExtensionId,
+      test_utils_.GetImagePath(),
+      test_utils_.GetDevicePath().AsUTF8Unsafe(),
+      base::Bind(&ImageWriterOperationManagerTest::StartCallback,
+                 base::Unretained(this)));
 
   EXPECT_TRUE(started_);
   EXPECT_TRUE(start_success_);
@@ -138,7 +136,7 @@ TEST_F(ImageWriterOperationManagerTest, DestroyPartitions) {
 
   manager.DestroyPartitions(
       kDummyExtensionId,
-      test_device_path_.AsUTF8Unsafe(),
+      test_utils_.GetDevicePath().AsUTF8Unsafe(),
       base::Bind(&ImageWriterOperationManagerTest::StartCallback,
                  base::Unretained(this)));
 

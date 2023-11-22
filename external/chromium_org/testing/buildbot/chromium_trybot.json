@@ -13,7 +13,6 @@
     },
     {
       "test": "browser_tests",
-      "exclude_builders": ["tryserver.chromium:win_chromium_x64_rel"],
       "swarming": {
         "can_use_on_swarming_builders": true,
         "shards": 5
@@ -24,9 +23,14 @@
     "cc_unittests",
     "chromedriver_unittests",
     {
+      "test": "chromevox_tests",
+      "chromium_configs": ["chromium_chromeos", "chromium_chromeos_clang"]
+    },
+    {
       "test": "chrome_elf_unittests",
       "platforms": ["win"]
     },
+    "components_browsertests",
     "components_unittests",
     {
       "test": "compositor_unittests",
@@ -36,8 +40,18 @@
       "test": "courgette_unittests",
       "platforms": ["win"]
     },
-    "content_browsertests",
-    "content_unittests",
+    {
+      "test": "content_browsertests",
+      "swarming": {
+        "can_use_on_swarming_builders": true
+      }
+    },
+    {
+      "test": "content_unittests",
+      "swarming": {
+        "can_use_on_swarming_builders": true
+      }
+    },
     "crypto_unittests",
     {
       "test": "dbus_unittests",
@@ -45,13 +59,16 @@
     },
     "device_unittests",
     "events_unittests",
+    {
+      "test": "extensions_unittests",
+      "platforms": ["win", "mac", "linux"]
+    },
     "gcm_unit_tests",
     "gfx_unittests",
     "google_apis_unittests",
     "gpu_unittests",
     {
       "test": "interactive_ui_tests",
-      "exclude_builders": ["tryserver.chromium:win_chromium_x64_rel"],
       "swarming": {
         "can_use_on_swarming_builders": true,
         "shards": 3
@@ -61,12 +78,17 @@
       "test": "installer_util_unittests",
       "platforms": ["win"]
     },
+    {
+      "test": "ipc_mojo_unittests",
+      "platforms": ["linux"]
+    },
     "ipc_tests",
     "jingle_unittests",
     {
       "test": "keyboard_unittests",
       "platforms": ["linux", "win"]
     },
+    "media_perftests",
     "media_unittests",
     "message_center_unittests",
     "mojo_apps_js_unittests",
@@ -76,7 +98,14 @@
     "mojo_public_environment_unittests",
     "mojo_public_system_unittests",
     "mojo_public_utility_unittests",
-    "mojo_service_manager_unittests",
+    {
+      "test": "mojo_application_manager_unittests",
+      "platforms": ["linux"]
+    },
+    {
+      "test": "mojo_shell_tests",
+      "platforms": ["linux"]
+    },
     "mojo_system_unittests",
     {
       "test": "nacl_loader_unittests",
@@ -104,7 +133,13 @@
       "platforms": ["win"]
     },
     "sql_unittests",
-    "sync_integration_tests",
+    {
+      "test": "sync_integration_tests",
+      "swarming": {
+        "can_use_on_swarming_builders": true,
+        "shards": 3
+      }
+    },
     "sync_unit_tests",
     "ui_unittests",
     {
@@ -115,7 +150,6 @@
       }
     },
     "url_unittests",
-    "webkit_compositor_bindings_unittests",
     {
       "test": "wm_unittests",
       "platforms": ["linux"]
@@ -138,7 +172,7 @@
     },
     {
       "test": "mojo_view_manager_unittests",
-      "platforms": ["linux", "win"]
+      "platforms": ["linux"]
     },
     {
       "test": "views_unittests",
@@ -166,6 +200,24 @@
     {
       "test": "display_unittests",
       "platforms": ["linux"]
+    },
+    {
+      "test": "ozone_unittests",
+      "platforms": ["linux"],
+      "chromium_configs": ["chromium_chromeos_ozone"]
     }
+  ],
+
+  "non_filter_builders": [
+  ],
+
+  "non_filter_tests_builders": [
+  ],
+
+  "filter_compile_builders": [
+    "win_chromium_compile_dbg",
+    "win_chromium_rel_swarming",
+    "win_chromium_x64_rel_swarming",
+    "win8_chromium_rel"
   ]
 }

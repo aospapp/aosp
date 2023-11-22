@@ -27,6 +27,7 @@ import android.app.Fragment;
 import android.app.FragmentTransaction;
 import android.app.LoaderManager;
 import android.content.ClipData;
+import android.content.ClipDescription;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
@@ -42,6 +43,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.ParcelFileDescriptor;
@@ -49,6 +51,7 @@ import android.provider.BaseColumns;
 import android.support.v4.app.RemoteInput;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.ActionBarActivity;
+import android.support.v7.view.ActionMode;
 import android.text.Editable;
 import android.text.Html;
 import android.text.SpanWatcher;
@@ -111,11 +114,13 @@ import com.android.mail.utils.LogTag;
 import com.android.mail.utils.LogUtils;
 import com.android.mail.utils.NotificationActionUtils;
 import com.android.mail.utils.Utils;
+import com.android.mail.utils.ViewUtils;
 import com.google.android.mail.common.html.parser.HtmlTree;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -127,8 +132,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ComposeActivity extends ActionBarActivity
         implements OnClickListener, ActionBar.OnNavigationListener,
@@ -165,6 +172,9 @@ public class ComposeActivity extends ActionBarActivity
     private static final String EXTRA_SUBJECT = "subject";
 
     private static final String EXTRA_BODY = "body";
+    private static final String EXTRA_TEXT_CHANGED ="extraTextChanged";
+
+    private static final String EXTRA_SKIP_PARSING_BODY = "extraSkipParsingBody";
 
     /**
      * Expected to be html formatted text.
@@ -211,8 +221,10 @@ public class ComposeActivity extends ActionBarActivity
     // the previously instantiated map.  If ComposeActivity.onCreate() is called, with a bundle
     // (restoring data from a previous instance), and the map hasn't been created, we will attempt
     // to populate the map with data stored in shared preferences.
-    // FIXME: values in this map are never read.
-    private static ConcurrentHashMap<Integer, Long> sRequestMessageIdMap = null;
+    private static final ConcurrentHashMap<Integer, Long> sRequestMessageIdMap =
+            new ConcurrentHashMap<Integer, Long>(10);
+    private static final Random sRandom = new Random(System.currentTimeMillis());
+
     /**
      * Notifies the {@code Activity} that the caller is an Email
      * {@code Activity}, so that the back behavior may be modified accordingly.
@@ -258,16 +270,26 @@ public class ComposeActivity extends ActionBarActivity
 
     private static final String KEY_INNER_SAVED_STATE = "compose_state";
 
-    /**
-     * A single thread for running tasks in the background.
-     */
-    private final static Handler SEND_SAVE_TASK_HANDLER;
+    // A single thread for running tasks in the background.
+    private static final Handler SEND_SAVE_TASK_HANDLER;
+    @VisibleForTesting
+    public static final AtomicInteger PENDING_SEND_OR_SAVE_TASKS_NUM = new AtomicInteger(0);
+
+    // String representing the uri of the data directory (used for attachment uri checking).
+    private static final String DATA_DIRECTORY_ROOT;
+    private static final String ALTERNATE_DATA_DIRECTORY_ROOT;
+
+    // Static initializations
     static {
         HandlerThread handlerThread = new HandlerThread("Send Message Task Thread");
         handlerThread.start();
-
         SEND_SAVE_TASK_HANDLER = new Handler(handlerThread.getLooper());
+
+        DATA_DIRECTORY_ROOT = Environment.getDataDirectory().toString();
+        ALTERNATE_DATA_DIRECTORY_ROOT = DATA_DIRECTORY_ROOT + DATA_DIRECTORY_ROOT;
     }
+
+    private final Rect mRect = new Rect();
 
     private ScrollView mScrollView;
     private RecipientEditTextView mTo;
@@ -316,17 +338,25 @@ public class ComposeActivity extends ActionBarActivity
     protected Bundle mInnerSavedState;
     private ContentValues mExtraValues = null;
 
-    // Array of the outstanding send or save tasks.  Access is synchronized
-    // with the object itself
-    /* package for testing */
-    @VisibleForTesting
-    public final ArrayList<SendOrSaveTask> mActiveTasks = Lists.newArrayList();
-    // FIXME: this variable is never read. related to sRequestMessageIdMap.
+    // This is used to track pending requests, refer to sRequestMessageIdMap
     private int mRequestId;
     private String mSignature;
     private Account[] mAccounts;
     private boolean mRespondedInline;
     private boolean mPerformedSendOrDiscard = false;
+
+    // OnKeyListener solely used for intercepting CTRL+ENTER event for SEND.
+    private final View.OnKeyListener mKeyListenerForSendShortcut = new View.OnKeyListener() {
+        @Override
+        public boolean onKey(View v, int keyCode, KeyEvent event) {
+            if (event.hasModifiers(KeyEvent.META_CTRL_ON) &&
+                    keyCode == KeyEvent.KEYCODE_ENTER && event.getAction() == KeyEvent.ACTION_UP) {
+                doSend();
+                return true;
+            }
+            return false;
+        }
+    };
 
     private final HtmlTree.ConverterFactory mSpanConverterFactory =
             new HtmlTree.ConverterFactory() {
@@ -482,6 +512,9 @@ public class ComposeActivity extends ActionBarActivity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Change the title for accessibility so we announce "Compose" instead
+        // of the app_name while still showing the app_name in recents.
+        setTitle(R.string.compose_title);
         setContentView(R.layout.compose);
         final ActionBar actionBar = getSupportActionBar();
         if (actionBar != null) {
@@ -516,6 +549,16 @@ public class ComposeActivity extends ActionBarActivity
             quotedText = savedState.getCharSequence(EXTRA_QUOTED_TEXT);
 
             mExtraValues = savedState.getParcelable(EXTRA_VALUES);
+
+            // Get the draft id from the request id if there is one.
+            if (savedState.containsKey(EXTRA_REQUEST_ID)) {
+                final int requestId = savedState.getInt(EXTRA_REQUEST_ID);
+                if (sRequestMessageIdMap.containsKey(requestId)) {
+                    synchronized (mDraftLock) {
+                        mDraftId = sRequestMessageIdMap.get(requestId);
+                    }
+                }
+            }
         } else {
             account = obtainAccount(intent);
             action = intent.getIntExtra(EXTRA_ACTION, COMPOSE);
@@ -834,6 +877,9 @@ public class ComposeActivity extends ActionBarActivity
         if (mRespondedInline) {
             mQuotedTextView.setVisibility(View.GONE);
         }
+
+        mTextChanged = (savedInstanceState != null) ?
+                savedInstanceState.getBoolean(EXTRA_TEXT_CHANGED) : false;
     }
 
     private static boolean hadSavedInstanceStateMessage(final Bundle savedInstanceState) {
@@ -1054,6 +1100,11 @@ public class ComposeActivity extends ActionBarActivity
                 EXTRA_ATTACHMENT_PREVIEWS, mAttachmentsView.getAttachmentPreviews());
 
         state.putParcelable(EXTRA_VALUES, mExtraValues);
+
+        state.putBoolean(EXTRA_TEXT_CHANGED, mTextChanged);
+        // On configuration changes, we don't actually need to parse the body html ourselves because
+        // the framework can correctly restore the body EditText to its exact original state.
+        state.putBoolean(EXTRA_SKIP_PARSING_BODY, isChangingConfigurations());
     }
 
     private int getMode() {
@@ -1085,7 +1136,16 @@ public class ComposeActivity extends ActionBarActivity
         message.setReplyTo(null);
         message.dateReceivedMs = 0;
         message.bodyHtml = spannedBodyToHtml(body, true);
-        message.bodyText = mBodyView.getText().toString();
+        message.bodyText = body.toString();
+        // Fallback to use the text version if html conversion fails for whatever the reason.
+        final String htmlInPlainText = Utils.convertHtmlToPlainText(message.bodyHtml);
+        if (message.bodyText != null && message.bodyText.trim().length() > 0 &&
+                TextUtils.isEmpty(htmlInPlainText)) {
+            LogUtils.w(LOG_TAG, "FAILED HTML CONVERSION: from %d to %d", message.bodyText.length(),
+                    htmlInPlainText.length());
+            Analytics.getInstance().sendEvent("errors", "failed_html_conversion", null, 0);
+            message.bodyHtml = "<p>" + message.bodyText + "</p>";
+        }
         message.embedsExternalResources = false;
         message.refMessageUri = mRefMessage != null ? mRefMessage.uri : null;
         message.appendRefMessageContent = mQuotedTextView.getQuotedTextIfIncluded() != null;
@@ -1162,7 +1222,7 @@ public class ComposeActivity extends ActionBarActivity
         }
         if (mReplyFromAccount == null) {
             if (mDraft != null) {
-                mReplyFromAccount = getReplyFromAccountFromDraft(mAccount, mDraft);
+                mReplyFromAccount = getReplyFromAccountFromDraft(mDraft);
             } else if (mRefMessage != null) {
                 mReplyFromAccount = getReplyFromAccountForReply(mAccount, mRefMessage);
             }
@@ -1269,20 +1329,15 @@ public class ComposeActivity extends ActionBarActivity
                 account.getSenderName(), account.getEmailAddress(), true, false);
     }
 
-    private ReplyFromAccount getReplyFromAccountFromDraft(final Account account,
-            final Message msg) {
+    private ReplyFromAccount getReplyFromAccountFromDraft(final Message msg) {
         final Address[] draftFroms = Address.parse(msg.getFrom());
         final String sender = draftFroms.length > 0 ? draftFroms[0].getAddress() : "";
         ReplyFromAccount replyFromAccount = null;
-        List<ReplyFromAccount> replyFromAccounts = mFromSpinner.getReplyFromAccounts();
-        if (TextUtils.equals(account.getEmailAddress(), sender)) {
-            replyFromAccount = getDefaultReplyFromAccount(account);
-        } else {
-            for (ReplyFromAccount fromAccount : replyFromAccounts) {
-                if (TextUtils.equals(fromAccount.address, sender)) {
-                    replyFromAccount = fromAccount;
-                    break;
-                }
+        // Do not try to check against the "default" account because the default might be an alias.
+        for (ReplyFromAccount fromAccount : mFromSpinner.getReplyFromAccounts()) {
+            if (TextUtils.equals(fromAccount.address, sender)) {
+                replyFromAccount = fromAccount;
+                break;
             }
         }
         return replyFromAccount;
@@ -1298,25 +1353,39 @@ public class ComposeActivity extends ActionBarActivity
         mCcBccView = (CcBccView) findViewById(R.id.cc_bcc_wrapper);
         mAttachmentsView = (AttachmentsView)findViewById(R.id.attachments);
         mTo = (RecipientEditTextView) findViewById(R.id.to);
+        mTo.setOnKeyListener(mKeyListenerForSendShortcut);
         initializeRecipientEditTextView(mTo);
         mTo.setAlternatePopupAnchor(findViewById(R.id.compose_to_dropdown_anchor));
         mCc = (RecipientEditTextView) findViewById(R.id.cc);
+        mCc.setOnKeyListener(mKeyListenerForSendShortcut);
         initializeRecipientEditTextView(mCc);
         mBcc = (RecipientEditTextView) findViewById(R.id.bcc);
+        mBcc.setOnKeyListener(mKeyListenerForSendShortcut);
         initializeRecipientEditTextView(mBcc);
         // TODO: add special chips text change watchers before adding
         // this as a text changed watcher to the to, cc, bcc fields.
         mSubject = (TextView) findViewById(R.id.subject);
+        mSubject.setOnKeyListener(mKeyListenerForSendShortcut);
         mSubject.setOnEditorActionListener(this);
         mSubject.setOnFocusChangeListener(this);
         mQuotedTextView = (QuotedTextView) findViewById(R.id.quoted_text_view);
         mQuotedTextView.setRespondInlineListener(this);
         mBodyView = (EditText) findViewById(R.id.body);
+        mBodyView.setOnKeyListener(mKeyListenerForSendShortcut);
         mBodyView.setOnFocusChangeListener(this);
         mFromStatic = findViewById(R.id.static_from_content);
         mFromStaticText = (TextView) findViewById(R.id.from_account_name);
         mFromSpinnerWrapper = findViewById(R.id.spinner_from_content);
         mFromSpinner = (FromAddressSpinner) findViewById(R.id.from_picker);
+
+        // Bottom placeholder to forward click events to the body
+        findViewById(R.id.composearea_tap_trap_bottom).setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mBodyView.requestFocus();
+                mBodyView.setSelection(mBodyView.getText().length());
+            }
+        });
     }
 
     private void initializeRecipientEditTextView(RecipientEditTextView view) {
@@ -1423,7 +1492,7 @@ public class ComposeActivity extends ActionBarActivity
         }
         if (mComposeMode == ComposeActivity.COMPOSE) {
             actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_STANDARD);
-            actionBar.setTitle(R.string.compose);
+            actionBar.setTitle(R.string.compose_title);
         } else {
             actionBar.setTitle(null);
             if (mComposeModeAdapter == null) {
@@ -1486,12 +1555,20 @@ public class ComposeActivity extends ActionBarActivity
     }
 
     private void initFromDraftMessage(Message message) {
-        LogUtils.d(LOG_TAG, "Intializing draft from previous draft message: %s", message);
+        LogUtils.d(LOG_TAG, "Initializing draft from previous draft message: %s", message);
 
-        mDraft = message;
-        mDraftId = message.id;
+        synchronized (mDraftLock) {
+            // Draft id might already be set by the request to id map, if so we don't need to set it
+            if (mDraftId == UIProvider.INVALID_MESSAGE_ID) {
+                mDraftId = message.id;
+            } else {
+                message.id = mDraftId;
+            }
+            mDraft = message;
+        }
         mSubject.setText(message.subject);
         mForward = message.draftType == UIProvider.DraftType.FORWARD;
+
         final List<String> toAddresses = Arrays.asList(message.getToAddressesUnescaped());
         addToAddresses(toAddresses);
         addCcAddresses(Arrays.asList(message.getCcAddressesUnescaped()), toAddresses);
@@ -1502,6 +1579,14 @@ public class ComposeActivity extends ActionBarActivity
                 addAttachmentAndUpdateView(a);
             }
         }
+
+        // If we don't need to re-populate the body, and the quoted text will be restored from
+        // ref message. So we can skip rest of this code.
+        if (mInnerSavedState != null && mInnerSavedState.getBoolean(EXTRA_SKIP_PARSING_BODY)) {
+            LogUtils.i(LOG_TAG, "Skipping manually populating body and quoted text from draft.");
+            return;
+        }
+
         int quotedTextIndex = message.appendRefMessageContent ? message.quotedTextOffset : -1;
         // Set the body
         CharSequence quotedText = null;
@@ -1541,7 +1626,7 @@ public class ComposeActivity extends ActionBarActivity
                     quotedText = body.substring(quotedTextIndex);
                 }
             }
-            mBodyView.setText(bodyText);
+            setBody(bodyText, false);
         }
         if (quotedTextIndex > -1 && quotedText != null) {
             mQuotedTextView.setQuotedTextFromDraft(quotedText, mForward);
@@ -1797,77 +1882,22 @@ public class ComposeActivity extends ActionBarActivity
         if (!mAttachmentsChanged) {
             long totalSize = 0;
             if (extras.containsKey(EXTRA_ATTACHMENTS)) {
-                String[] uris = (String[]) extras.getSerializable(EXTRA_ATTACHMENTS);
-                for (String uriString : uris) {
-                    final Uri uri = Uri.parse(uriString);
-                    long size = 0;
-                    try {
-                        if (handleSpecialAttachmentUri(uri)) {
-                            continue;
-                        }
-
-                        final Attachment a = mAttachmentsView.generateLocalAttachment(uri);
-                        size = mAttachmentsView.addAttachment(mAccount, a);
-
-                        Analytics.getInstance().sendEvent("send_intent_attachment",
-                                Utils.normalizeMimeType(a.getContentType()), null, size);
-
-                    } catch (AttachmentFailureException e) {
-                        LogUtils.e(LOG_TAG, e, "Error adding attachment");
-                        showAttachmentTooBigToast(e.getErrorRes());
-                    }
-                    totalSize += size;
+                final String[] uris = (String[]) extras.getSerializable(EXTRA_ATTACHMENTS);
+                final ArrayList<Uri> parsedUris = Lists.newArrayListWithCapacity(uris.length);
+                for (String uri : uris) {
+                    parsedUris.add(Uri.parse(uri));
                 }
+                totalSize += handleAttachmentUrisFromIntent(parsedUris);
             }
             if (extras.containsKey(Intent.EXTRA_STREAM)) {
                 if (Intent.ACTION_SEND_MULTIPLE.equals(action)) {
                     final ArrayList<Uri> uris = extras
                             .getParcelableArrayList(Intent.EXTRA_STREAM);
-                    ArrayList<Attachment> attachments = new ArrayList<Attachment>();
-                    for (Uri uri : uris) {
-                        if (uri == null) {
-                            continue;
-                        }
-                        try {
-                            if (handleSpecialAttachmentUri(uri)) {
-                                continue;
-                            }
-
-                            final Attachment a = mAttachmentsView.generateLocalAttachment(uri);
-                            attachments.add(a);
-
-                            Analytics.getInstance().sendEvent("send_intent_attachment",
-                                    Utils.normalizeMimeType(a.getContentType()), null, a.size);
-
-                        } catch (AttachmentFailureException e) {
-                            LogUtils.e(LOG_TAG, e, "Error adding attachment");
-                            String maxSize = AttachmentUtils.convertToHumanReadableSize(
-                                    getApplicationContext(),
-                                    mAccount.settings.getMaxAttachmentSize());
-                            showErrorToast(getString
-                                    (R.string.generic_attachment_problem, maxSize));
-                        }
-                    }
-                    totalSize += addAttachments(attachments);
+                    totalSize += handleAttachmentUrisFromIntent(uris);
                 } else {
                     final Uri uri = extras.getParcelable(Intent.EXTRA_STREAM);
-                    if (uri != null) {
-                        long size = 0;
-                        try {
-                            if (!handleSpecialAttachmentUri(uri)) {
-                                final Attachment a = mAttachmentsView.generateLocalAttachment(uri);
-                                size = mAttachmentsView.addAttachment(mAccount, a);
-
-                                Analytics.getInstance().sendEvent("send_intent_attachment",
-                                        Utils.normalizeMimeType(a.getContentType()), null, size);
-                            }
-
-                        } catch (AttachmentFailureException e) {
-                            LogUtils.e(LOG_TAG, e, "Error adding attachment");
-                            showAttachmentTooBigToast(e.getErrorRes());
-                        }
-                        totalSize += size;
-                    }
+                    final ArrayList<Uri> uris = Lists.newArrayList(uri);
+                    totalSize += handleAttachmentUrisFromIntent(uris);
                 }
             }
 
@@ -1879,6 +1909,66 @@ public class ComposeActivity extends ActionBarActivity
                         Integer.toString(getAttachments().size()), null, totalSize);
             }
         }
+    }
+
+    /**
+     * Helper function to handle a list of uris to attach.
+     * @return the total size of all successfully attached files.
+     */
+    private long handleAttachmentUrisFromIntent(List<Uri> uris) {
+        ArrayList<Attachment> attachments = Lists.newArrayList();
+        for (Uri uri : uris) {
+            try {
+                if (uri != null) {
+                    if ("file".equals(uri.getScheme())) {
+                        final File f = new File(uri.getPath());
+                        // We should not be attaching any files from the data directory UNLESS
+                        // the data directory is part of the calling process.
+                        final String filePath = f.getCanonicalPath();
+                        if (filePath.startsWith(DATA_DIRECTORY_ROOT)) {
+                            final String callingPackage = getCallingPackage();
+                            if (callingPackage == null) {
+                                showErrorToast(getString(R.string.attachment_permission_denied));
+                                continue;
+                            }
+
+                            // So it looks like the data directory are usually /data/data, but
+                            // DATA_DIRECTORY_ROOT is only /data.. so let's check for both
+                            final String pathWithoutRoot;
+                            // We add 1 to the length for the additional / before the package name.
+                            if (filePath.startsWith(ALTERNATE_DATA_DIRECTORY_ROOT)) {
+                                pathWithoutRoot = filePath.substring(
+                                        ALTERNATE_DATA_DIRECTORY_ROOT.length() + 1);
+                            } else {
+                                pathWithoutRoot = filePath.substring(
+                                        DATA_DIRECTORY_ROOT.length() + 1);
+                            }
+
+                            // If we are trying to access a data package that's not part of the
+                            // calling package, show error toast and ignore this attachment.
+                            if (!pathWithoutRoot.startsWith(callingPackage)) {
+                                showErrorToast(getString(R.string.attachment_permission_denied));
+                                continue;
+                            }
+                        }
+                    }
+                    if (!handleSpecialAttachmentUri(uri)) {
+                        final Attachment a = mAttachmentsView.generateLocalAttachment(uri);
+                        attachments.add(a);
+
+                        Analytics.getInstance().sendEvent("send_intent_attachment",
+                                Utils.normalizeMimeType(a.getContentType()), null, a.size);
+                    }
+                }
+            } catch (AttachmentFailureException e) {
+                LogUtils.e(LOG_TAG, e, "Error adding attachment");
+                showAttachmentTooBigToast(e.getErrorRes());
+            } catch (IOException | SecurityException e) {
+                LogUtils.e(LOG_TAG, e, "Error adding attachment");
+                showErrorToast(getString(R.string.attachment_permission_denied));
+            }
+        }
+        return addAttachments(attachments);
     }
 
     protected void initQuotedText(CharSequence quotedText, boolean shouldQuoteText) {
@@ -2254,9 +2344,8 @@ public class ComposeActivity extends ActionBarActivity
                 mCc.getLocationOnScreen(coords);
 
                 // Subtract status bar and action bar height from y-coord.
-                final Rect rect = new Rect();
-                getWindow().getDecorView().getWindowVisibleDisplayFrame(rect);
-                final int deltaY = coords[1] - getSupportActionBar().getHeight() - rect.top;
+                getWindow().getDecorView().getWindowVisibleDisplayFrame(mRect);
+                final int deltaY = coords[1] - getSupportActionBar().getHeight() - mRect.top;
 
                 // Only scroll down
                 if (deltaY > 0) {
@@ -2298,7 +2387,7 @@ public class ComposeActivity extends ActionBarActivity
                     : (Intent.ACTION_SEND.equals(action)
                             || Intent.ACTION_SEND_MULTIPLE.equals(action)
                             || Intent.ACTION_SENDTO.equals(action)
-                            || shouldSave()));
+                            || isDraftDirty()));
 
         final MenuItem helpItem = menu.findItem(R.id.help_info_menu_item);
         final MenuItem sendFeedbackItem = menu.findItem(R.id.feedback_menu_item);
@@ -2401,198 +2490,176 @@ public class ComposeActivity extends ActionBarActivity
 
     @VisibleForTesting
     public interface SendOrSaveCallback {
-        void initializeSendOrSave(SendOrSaveTask sendOrSaveTask);
+        void initializeSendOrSave();
         void notifyMessageIdAllocated(SendOrSaveMessage sendOrSaveMessage, Message message);
-        Message getMessage();
-        void sendOrSaveFinished(SendOrSaveTask sendOrSaveTask, boolean success);
-        void incrementRecipientsTimesContacted(List<String> recipients);
+        long getMessageId();
+        void sendOrSaveFinished(SendOrSaveMessage message, boolean success);
     }
 
-    @VisibleForTesting
-    public static class SendOrSaveTask implements Runnable {
-        private final Context mContext;
-        @VisibleForTesting
-        public final SendOrSaveCallback mSendOrSaveCallback;
-        @VisibleForTesting
-        public final SendOrSaveMessage mSendOrSaveMessage;
-        private ReplyFromAccount mExistingDraftAccount;
-
-        public SendOrSaveTask(Context context, SendOrSaveMessage message,
-                SendOrSaveCallback callback, ReplyFromAccount draftAccount) {
-            mContext = context;
-            mSendOrSaveCallback = callback;
-            mSendOrSaveMessage = message;
-            mExistingDraftAccount = draftAccount;
-        }
-
-        @Override
-        public void run() {
-            final SendOrSaveMessage sendOrSaveMessage = mSendOrSaveMessage;
-
-            final ReplyFromAccount selectedAccount = sendOrSaveMessage.mAccount;
-            Message message = mSendOrSaveCallback.getMessage();
-            long messageId = message != null ? message.id : UIProvider.INVALID_MESSAGE_ID;
-            // If a previous draft has been saved, in an account that is different
-            // than what the user wants to send from, remove the old draft, and treat this
-            // as a new message
-            if (mExistingDraftAccount != null
-                    && !selectedAccount.account.uri.equals(mExistingDraftAccount.account.uri)) {
-                if (messageId != UIProvider.INVALID_MESSAGE_ID) {
-                    ContentResolver resolver = mContext.getContentResolver();
-                    ContentValues values = new ContentValues();
-                    values.put(BaseColumns._ID, messageId);
-                    if (mExistingDraftAccount.account.expungeMessageUri != null) {
-                        new ContentProviderTask.UpdateTask()
-                                .run(resolver, mExistingDraftAccount.account.expungeMessageUri,
-                                        values, null, null);
-                    } else {
-                        // TODO(mindyp) delete the conversation.
-                    }
-                    // reset messageId to 0, so a new message will be created
-                    messageId = UIProvider.INVALID_MESSAGE_ID;
-                }
-            }
-
-            final long messageIdToSave = messageId;
-            sendOrSaveMessage(messageIdToSave, sendOrSaveMessage, selectedAccount);
-
-            if (!sendOrSaveMessage.mSave) {
-                incrementRecipientsTimesContacted(
-                        (String) sendOrSaveMessage.mValues.get(UIProvider.MessageColumns.TO),
-                        (String) sendOrSaveMessage.mValues.get(UIProvider.MessageColumns.CC),
-                        (String) sendOrSaveMessage.mValues.get(UIProvider.MessageColumns.BCC));
-            }
-            mSendOrSaveCallback.sendOrSaveFinished(SendOrSaveTask.this, true);
-        }
-
-        private void incrementRecipientsTimesContacted(
-                final String toAddresses, final String ccAddresses, final String bccAddresses) {
-            final List<String> recipients = Lists.newArrayList();
-            addAddressesToRecipientList(recipients, toAddresses);
-            addAddressesToRecipientList(recipients, ccAddresses);
-            addAddressesToRecipientList(recipients, bccAddresses);
-            mSendOrSaveCallback.incrementRecipientsTimesContacted(recipients);
-        }
-
-        private void addAddressesToRecipientList(
-                final List<String> recipients, final String addressString) {
-            if (recipients == null) {
-                throw new IllegalArgumentException("recipientList cannot be null");
-            }
-            if (TextUtils.isEmpty(addressString)) {
-                return;
-            }
-            final Rfc822Token[] tokens = Rfc822Tokenizer.tokenize(addressString);
-            for (final Rfc822Token token : tokens) {
-                recipients.add(token.getAddress());
-            }
-        }
-
-        /**
-         * Send or Save a message.
-         */
-        private void sendOrSaveMessage(final long messageIdToSave,
-                final SendOrSaveMessage sendOrSaveMessage, final ReplyFromAccount selectedAccount) {
-            final ContentResolver resolver = mContext.getContentResolver();
-            final boolean updateExistingMessage = messageIdToSave != UIProvider.INVALID_MESSAGE_ID;
-
-            final String accountMethod = sendOrSaveMessage.mSave ?
-                    UIProvider.AccountCallMethods.SAVE_MESSAGE :
-                    UIProvider.AccountCallMethods.SEND_MESSAGE;
-
-            try {
-                if (updateExistingMessage) {
-                    sendOrSaveMessage.mValues.put(BaseColumns._ID, messageIdToSave);
-
-                    callAccountSendSaveMethod(resolver,
-                            selectedAccount.account, accountMethod, sendOrSaveMessage);
+    private void runSendOrSaveProviderCalls(SendOrSaveMessage sendOrSaveMessage,
+            SendOrSaveCallback callback, ReplyFromAccount currReplyFromAccount,
+            ReplyFromAccount originalReplyFromAccount) {
+        long messageId = callback.getMessageId();
+        // If a previous draft has been saved, in an account that is different
+        // than what the user wants to send from, remove the old draft, and treat this
+        // as a new message
+        if (originalReplyFromAccount != null
+                && !currReplyFromAccount.account.uri.equals(originalReplyFromAccount.account.uri)) {
+            if (messageId != UIProvider.INVALID_MESSAGE_ID) {
+                ContentResolver resolver = getContentResolver();
+                ContentValues values = new ContentValues();
+                values.put(BaseColumns._ID, messageId);
+                if (originalReplyFromAccount.account.expungeMessageUri != null) {
+                    new ContentProviderTask.UpdateTask()
+                            .run(resolver, originalReplyFromAccount.account.expungeMessageUri,
+                                    values, null, null);
                 } else {
-                    Uri messageUri = null;
-                    final Bundle result = callAccountSendSaveMethod(resolver,
-                            selectedAccount.account, accountMethod, sendOrSaveMessage);
-                    if (result != null) {
-                        // If a non-null value was returned, then the provider handled the call
-                        // method
-                        messageUri = result.getParcelable(UIProvider.MessageColumns.URI);
-                    }
-                    if (sendOrSaveMessage.mSave && messageUri != null) {
-                        final Cursor messageCursor = resolver.query(messageUri,
-                                UIProvider.MESSAGE_PROJECTION, null, null, null);
-                        if (messageCursor != null) {
-                            try {
-                                if (messageCursor.moveToFirst()) {
-                                    // Broadcast notification that a new message has
-                                    // been allocated
-                                    mSendOrSaveCallback.notifyMessageIdAllocated(sendOrSaveMessage,
-                                            new Message(messageCursor));
-                                }
-                            } finally {
-                                messageCursor.close();
-                            }
-                        }
-                    }
+                    // TODO(mindyp) delete the conversation.
                 }
-            } finally {
-                // Close any opened file descriptors
-                closeOpenedAttachmentFds(sendOrSaveMessage);
+                // reset messageId to 0, so a new message will be created
+                messageId = UIProvider.INVALID_MESSAGE_ID;
             }
         }
 
-        private static void closeOpenedAttachmentFds(final SendOrSaveMessage sendOrSaveMessage) {
-            final Bundle openedFds = sendOrSaveMessage.attachmentFds();
-            if (openedFds != null) {
-                final Set<String> keys = openedFds.keySet();
-                for (final String key : keys) {
-                    final ParcelFileDescriptor fd = openedFds.getParcelable(key);
-                    if (fd != null) {
+        final long messageIdToSave = messageId;
+        sendOrSaveMessage(callback, messageIdToSave, sendOrSaveMessage, currReplyFromAccount);
+
+        if (!sendOrSaveMessage.mSave) {
+            incrementRecipientsTimesContacted(
+                    (String) sendOrSaveMessage.mValues.get(UIProvider.MessageColumns.TO),
+                    (String) sendOrSaveMessage.mValues.get(UIProvider.MessageColumns.CC),
+                    (String) sendOrSaveMessage.mValues.get(UIProvider.MessageColumns.BCC));
+        }
+        callback.sendOrSaveFinished(sendOrSaveMessage, true);
+    }
+
+    private void incrementRecipientsTimesContacted(
+            final String toAddresses, final String ccAddresses, final String bccAddresses) {
+        final List<String> recipients = Lists.newArrayList();
+        addAddressesToRecipientList(recipients, toAddresses);
+        addAddressesToRecipientList(recipients, ccAddresses);
+        addAddressesToRecipientList(recipients, bccAddresses);
+        incrementRecipientsTimesContacted(recipients);
+    }
+
+    private void addAddressesToRecipientList(
+            final List<String> recipients, final String addressString) {
+        if (recipients == null) {
+            throw new IllegalArgumentException("recipientList cannot be null");
+        }
+        if (TextUtils.isEmpty(addressString)) {
+            return;
+        }
+        final Rfc822Token[] tokens = Rfc822Tokenizer.tokenize(addressString);
+        for (final Rfc822Token token : tokens) {
+            recipients.add(token.getAddress());
+        }
+    }
+
+    /**
+     * Send or Save a message.
+     */
+    private void sendOrSaveMessage(SendOrSaveCallback callback, final long messageIdToSave,
+            final SendOrSaveMessage sendOrSaveMessage, final ReplyFromAccount selectedAccount) {
+        final ContentResolver resolver = getContentResolver();
+        final boolean updateExistingMessage = messageIdToSave != UIProvider.INVALID_MESSAGE_ID;
+
+        final String accountMethod = sendOrSaveMessage.mSave ?
+                UIProvider.AccountCallMethods.SAVE_MESSAGE :
+                UIProvider.AccountCallMethods.SEND_MESSAGE;
+
+        try {
+            if (updateExistingMessage) {
+                sendOrSaveMessage.mValues.put(BaseColumns._ID, messageIdToSave);
+
+                callAccountSendSaveMethod(resolver,
+                        selectedAccount.account, accountMethod, sendOrSaveMessage);
+            } else {
+                Uri messageUri = null;
+                final Bundle result = callAccountSendSaveMethod(resolver,
+                        selectedAccount.account, accountMethod, sendOrSaveMessage);
+                if (result != null) {
+                    // If a non-null value was returned, then the provider handled the call
+                    // method
+                    messageUri = result.getParcelable(UIProvider.MessageColumns.URI);
+                }
+                if (sendOrSaveMessage.mSave && messageUri != null) {
+                    final Cursor messageCursor = resolver.query(messageUri,
+                            UIProvider.MESSAGE_PROJECTION, null, null, null);
+                    if (messageCursor != null) {
                         try {
-                            fd.close();
-                        } catch (IOException e) {
-                            // Do nothing
+                            if (messageCursor.moveToFirst()) {
+                                // Broadcast notification that a new message has
+                                // been allocated
+                                callback.notifyMessageIdAllocated(sendOrSaveMessage,
+                                        new Message(messageCursor));
+                            }
+                        } finally {
+                            messageCursor.close();
                         }
                     }
                 }
             }
+        } finally {
+            // Close any opened file descriptors
+            closeOpenedAttachmentFds(sendOrSaveMessage);
         }
+    }
 
-        /**
-         * Use the {@link ContentResolver#call} method to send or save the message.
-         *
-         * If this was successful, this method will return an non-null Bundle instance
-         */
-        private static Bundle callAccountSendSaveMethod(final ContentResolver resolver,
-                final Account account, final String method,
-                final SendOrSaveMessage sendOrSaveMessage) {
-            // Copy all of the values from the content values to the bundle
-            final Bundle methodExtras = new Bundle(sendOrSaveMessage.mValues.size());
-            final Set<Entry<String, Object>> valueSet = sendOrSaveMessage.mValues.valueSet();
-
-            for (Entry<String, Object> entry : valueSet) {
-                final Object entryValue = entry.getValue();
-                final String key = entry.getKey();
-                if (entryValue instanceof String) {
-                    methodExtras.putString(key, (String)entryValue);
-                } else if (entryValue instanceof Boolean) {
-                    methodExtras.putBoolean(key, (Boolean)entryValue);
-                } else if (entryValue instanceof Integer) {
-                    methodExtras.putInt(key, (Integer)entryValue);
-                } else if (entryValue instanceof Long) {
-                    methodExtras.putLong(key, (Long)entryValue);
-                } else {
-                    LogUtils.wtf(LOG_TAG, "Unexpected object type: %s",
-                            entryValue.getClass().getName());
+    private static void closeOpenedAttachmentFds(final SendOrSaveMessage sendOrSaveMessage) {
+        final Bundle openedFds = sendOrSaveMessage.attachmentFds();
+        if (openedFds != null) {
+            final Set<String> keys = openedFds.keySet();
+            for (final String key : keys) {
+                final ParcelFileDescriptor fd = openedFds.getParcelable(key);
+                if (fd != null) {
+                    try {
+                        fd.close();
+                    } catch (IOException e) {
+                        // Do nothing
+                    }
                 }
             }
-
-            // If the SendOrSaveMessage has some opened fds, add them to the bundle
-            final Bundle fdMap = sendOrSaveMessage.attachmentFds();
-            if (fdMap != null) {
-                methodExtras.putParcelable(
-                        UIProvider.SendOrSaveMethodParamKeys.OPENED_FD_MAP, fdMap);
-            }
-
-            return resolver.call(account.uri, method, account.uri.toString(), methodExtras);
         }
+    }
+
+    /**
+     * Use the {@link ContentResolver#call} method to send or save the message.
+     *
+     * If this was successful, this method will return an non-null Bundle instance
+     */
+    private static Bundle callAccountSendSaveMethod(final ContentResolver resolver,
+            final Account account, final String method,
+            final SendOrSaveMessage sendOrSaveMessage) {
+        // Copy all of the values from the content values to the bundle
+        final Bundle methodExtras = new Bundle(sendOrSaveMessage.mValues.size());
+        final Set<Entry<String, Object>> valueSet = sendOrSaveMessage.mValues.valueSet();
+
+        for (Entry<String, Object> entry : valueSet) {
+            final Object entryValue = entry.getValue();
+            final String key = entry.getKey();
+            if (entryValue instanceof String) {
+                methodExtras.putString(key, (String)entryValue);
+            } else if (entryValue instanceof Boolean) {
+                methodExtras.putBoolean(key, (Boolean)entryValue);
+            } else if (entryValue instanceof Integer) {
+                methodExtras.putInt(key, (Integer)entryValue);
+            } else if (entryValue instanceof Long) {
+                methodExtras.putLong(key, (Long)entryValue);
+            } else {
+                LogUtils.wtf(LOG_TAG, "Unexpected object type: %s",
+                        entryValue.getClass().getName());
+            }
+        }
+
+        // If the SendOrSaveMessage has some opened fds, add them to the bundle
+        final Bundle fdMap = sendOrSaveMessage.attachmentFds();
+        if (fdMap != null) {
+            methodExtras.putParcelable(
+                    UIProvider.SendOrSaveMethodParamKeys.OPENED_FD_MAP, fdMap);
+        }
+
+        return resolver.call(account.uri, method, account.uri.toString(), methodExtras);
     }
 
     /**
@@ -2607,80 +2674,80 @@ public class ComposeActivity extends ActionBarActivity
 
     @VisibleForTesting
     public static class SendOrSaveMessage {
-        final ReplyFromAccount mAccount;
+        final int mRequestId;
         final ContentValues mValues;
         final String mRefMessageId;
         @VisibleForTesting
         public final boolean mSave;
-        final int mRequestId;
         private final Bundle mAttachmentFds;
 
-        public SendOrSaveMessage(Context context, ReplyFromAccount account, ContentValues values,
-                String refMessageId, List<Attachment> attachments, boolean save) {
-            mAccount = account;
+        public SendOrSaveMessage(Context context, int requestId, ContentValues values,
+                String refMessageId, List<Attachment> attachments, Bundle optionalAttachmentFds,
+                boolean save) {
+            mRequestId = requestId;
             mValues = values;
             mRefMessageId = refMessageId;
             mSave = save;
-            mRequestId = mValues.hashCode() ^ hashCode();
 
-            mAttachmentFds = initializeAttachmentFds(context, attachments);
-        }
-
-        int requestId() {
-            return mRequestId;
+            // If the attachments are already open for us (pre-JB), then don't open them again
+            if (optionalAttachmentFds != null) {
+                mAttachmentFds = optionalAttachmentFds;
+            } else {
+                mAttachmentFds = initializeAttachmentFds(context, attachments);
+            }
         }
 
         Bundle attachmentFds() {
             return mAttachmentFds;
         }
+    }
 
-        /**
-         * Opens {@link ParcelFileDescriptor} for each of the attachments.  This method must be
-         * called before the ComposeActivity finishes.
-         * Note: The caller is responsible for closing these file descriptors.
-         */
-        private static Bundle initializeAttachmentFds(final Context context,
-                final List<Attachment> attachments) {
-            if (attachments == null || attachments.size() == 0) {
-                return null;
-            }
-
-            final Bundle result = new Bundle(attachments.size());
-            final ContentResolver resolver = context.getContentResolver();
-
-            for (Attachment attachment : attachments) {
-                if (attachment == null || Utils.isEmpty(attachment.contentUri)) {
-                    continue;
-                }
-
-                ParcelFileDescriptor fileDescriptor;
-                try {
-                    fileDescriptor = resolver.openFileDescriptor(attachment.contentUri, "r");
-                } catch (FileNotFoundException e) {
-                    LogUtils.e(LOG_TAG, e, "Exception attempting to open attachment");
-                    fileDescriptor = null;
-                } catch (SecurityException e) {
-                    // We have encountered a security exception when attempting to open the file
-                    // specified by the content uri.  If the attachment has been cached, this
-                    // isn't a problem, as even through the original permission may have been
-                    // revoked, we have cached the file.  This will happen when saving/sending
-                    // a previously saved draft.
-                    // TODO(markwei): Expose whether the attachment has been cached through the
-                    // attachment object.  This would allow us to limit when the log is made, as
-                    // if the attachment has been cached, this really isn't an error
-                    LogUtils.e(LOG_TAG, e, "Security Exception attempting to open attachment");
-                    // Just set the file descriptor to null, as the underlying provider needs
-                    // to handle the file descriptor not being set.
-                    fileDescriptor = null;
-                }
-
-                if (fileDescriptor != null) {
-                    result.putParcelable(attachment.contentUri.toString(), fileDescriptor);
-                }
-            }
-
-            return result;
+    /**
+     * Opens {@link ParcelFileDescriptor} for each of the attachments.  This method must be
+     * called before the ComposeActivity finishes.
+     * Note: The caller is responsible for closing these file descriptors.
+     */
+    private static Bundle initializeAttachmentFds(final Context context,
+            final List<Attachment> attachments) {
+        if (attachments == null || attachments.size() == 0) {
+            return null;
         }
+
+        final Bundle result = new Bundle(attachments.size());
+        final ContentResolver resolver = context.getContentResolver();
+
+        for (Attachment attachment : attachments) {
+            if (attachment == null || Utils.isEmpty(attachment.contentUri)) {
+                continue;
+            }
+
+            ParcelFileDescriptor fileDescriptor;
+            try {
+                fileDescriptor = resolver.openFileDescriptor(attachment.contentUri, "r");
+            } catch (FileNotFoundException e) {
+                LogUtils.e(LOG_TAG, e, "Exception attempting to open attachment");
+                fileDescriptor = null;
+            } catch (SecurityException e) {
+                // We have encountered a security exception when attempting to open the file
+                // specified by the content uri.  If the attachment has been cached, this
+                // isn't a problem, as even through the original permission may have been
+                // revoked, we have cached the file.  This will happen when saving/sending
+                // a previously saved draft.
+                // TODO(markwei): Expose whether the attachment has been cached through the
+                // attachment object.  This would allow us to limit when the log is made, as
+                // if the attachment has been cached, this really isn't an error
+                LogUtils.e(LOG_TAG, e, "Security Exception attempting to open attachment");
+                // Just set the file descriptor to null, as the underlying provider needs
+                // to handle the file descriptor not being set.
+                fileDescriptor = null;
+            }
+
+            if (fileDescriptor != null) {
+                result.putParcelable(attachment.contentUri.toString(), fileDescriptor);
+            }
+        }
+
+        return result;
     }
 
     /**
@@ -2784,14 +2851,14 @@ public class ComposeActivity extends ActionBarActivity
      */
     public void updateSaveUi() {
         if (mSave != null) {
-            mSave.setEnabled((shouldSave() && !isBlank()));
+            mSave.setEnabled((isDraftDirty() && !isBlank()));
         }
     }
 
     /**
-     * Returns true if we need to save the current draft.
+     * Returns true if the current draft is modified from the version we previously saved.
      */
-    private boolean shouldSave() {
+    private boolean isDraftDirty() {
         synchronized (mDraftLock) {
             // The message should only be saved if:
             // It hasn't been sent AND
@@ -3067,10 +3134,11 @@ public class ComposeActivity extends ActionBarActivity
         return mSubject.getText().toString();
     }
 
-    private int sendOrSaveInternal(Context context, ReplyFromAccount replyFromAccount,
-            Message message, final Message refMessage, final CharSequence quotedText,
-            SendOrSaveCallback callback, Handler handler, boolean save, int composeMode,
-            ReplyFromAccount draftAccount, final ContentValues extraValues) {
+    private void sendOrSaveInternal(Context context, int requestId,
+            ReplyFromAccount currReplyFromAccount, ReplyFromAccount originalReplyFromAccount,
+            Message message, Message refMessage, CharSequence quotedText,
+            SendOrSaveCallback callback, boolean save, int composeMode, ContentValues extraValues,
+            Bundle optionalAttachmentFds) {
         final ContentValues values = new ContentValues();
 
         final String refMessageId = refMessage != null ? refMessage.uri.toString() : "";
@@ -3085,21 +3153,22 @@ public class ComposeActivity extends ActionBarActivity
         // bodyHtml already have the composing spans removed.
         final String htmlBody = message.bodyHtml;
         final String textBody = message.bodyText;
-        // fullbody will contain the actual body plus the quoted text.
-        final String fullBody;
-        final String quotedString;
+        // fullbodyhtml/fullbodytext will contain the actual body plus the quoted text.
+        String fullBodyHtml = htmlBody;
+        String fullBodyText = textBody;
+        String quotedString = null;
         final boolean hasQuotedText = !TextUtils.isEmpty(quotedText);
         if (hasQuotedText) {
             // The quoted text is HTML at this point.
             quotedString = quotedText.toString();
-            fullBody = htmlBody + quotedString;
+            fullBodyHtml = htmlBody + quotedString;
+            fullBodyText = textBody + Utils.convertHtmlToPlainText(quotedString);
             MessageModification.putForward(values, composeMode == ComposeActivity.FORWARD);
             MessageModification.putAppendRefMessageContent(values, true /* include quoted */);
-        } else {
-            fullBody = htmlBody;
-            quotedString = null;
         }
+
         // Only take refMessage into account if either one of its html/text is not empty.
+        int quotedTextPos = -1;
         if (refMessage != null && !(TextUtils.isEmpty(refMessage.bodyHtml) &&
                 TextUtils.isEmpty(refMessage.bodyText))) {
             // The code below might need to be revisited. The quoted text position is different
@@ -3108,17 +3177,15 @@ public class ComposeActivity extends ActionBarActivity
             // if both exist.  Issues like this made me file b/14256940 to make sure that we
             // properly handle the existing of both text/html and text/plain parts and to verify
             // that we are not making some assumptions that break if there is no text/html part.
-            int quotedTextPos = -1;
             if (!TextUtils.isEmpty(refMessage.bodyHtml)) {
-                MessageModification.putBodyHtml(values, fullBody.toString());
+                MessageModification.putBodyHtml(values, fullBodyHtml);
                 if (hasQuotedText) {
                     quotedTextPos = htmlBody.length() +
                             QuotedTextView.getQuotedTextOffset(quotedString);
                 }
             }
             if (!TextUtils.isEmpty(refMessage.bodyText)) {
-                MessageModification.putBody(values,
-                        Utils.convertHtmlToPlainText(fullBody.toString()));
+                MessageModification.putBody(values, fullBodyText);
                 if (hasQuotedText && (quotedTextPos == -1)) {
                     quotedTextPos = textBody.length();
                 }
@@ -3132,8 +3199,8 @@ public class ComposeActivity extends ActionBarActivity
                 MessageModification.putQuoteStartPos(values, quotedTextPos);
             }
         } else {
-            MessageModification.putBodyHtml(values, fullBody.toString());
-            MessageModification.putBody(values, Utils.convertHtmlToPlainText(fullBody.toString()));
+            MessageModification.putBodyHtml(values, fullBodyHtml);
+            MessageModification.putBody(values, fullBodyText);
         }
         int draftType = getDraftType(composeMode);
         MessageModification.putDraftType(values, draftType);
@@ -3144,17 +3211,16 @@ public class ComposeActivity extends ActionBarActivity
         if (extraValues != null) {
             values.putAll(extraValues);
         }
-        SendOrSaveMessage sendOrSaveMessage = new SendOrSaveMessage(context, replyFromAccount,
-                values, refMessageId, message.getAttachments(), save);
-        SendOrSaveTask sendOrSaveTask = new SendOrSaveTask(context, sendOrSaveMessage, callback,
-                draftAccount);
 
-        callback.initializeSendOrSave(sendOrSaveTask);
-        // Do the send/save action on the specified handler to avoid possible
-        // ANRs
-        handler.post(sendOrSaveTask);
+        SendOrSaveMessage sendOrSaveMessage = new SendOrSaveMessage(context, requestId,
+                values, refMessageId, message.getAttachments(), optionalAttachmentFds, save);
+        runSendOrSaveProviderCalls(sendOrSaveMessage, callback, currReplyFromAccount,
+                originalReplyFromAccount);
 
-        return sendOrSaveMessage.requestId();
+        LogUtils.i(LOG_TAG, "[compose] SendOrSaveMessage [%s] posted (isSave: %s) - " +
+                "bodyHtml length: %d, bodyText length: %d, quoted text pos: %d, attach count: %d",
+                requestId, save, message.bodyHtml.length(), message.bodyText.length(),
+                quotedTextPos, message.getAttachmentCount(true));
     }
 
     /**
@@ -3218,23 +3284,41 @@ public class ComposeActivity extends ActionBarActivity
         }
 
         final SendOrSaveCallback callback = new SendOrSaveCallback() {
-            // FIXME: unused
-            private int mRestoredRequestId;
-
             @Override
-            public void initializeSendOrSave(SendOrSaveTask sendOrSaveTask) {
-                synchronized (mActiveTasks) {
-                    int numTasks = mActiveTasks.size();
-                    if (numTasks == 0) {
+            public void initializeSendOrSave() {
+                final Intent i = new Intent(ComposeActivity.this, EmptyService.class);
+
+                // API 16+ allows for setClipData. For pre-16 we are going to open the fds
+                // on the main thread.
+                if (Utils.isRunningJellybeanOrLater()) {
+                    // Grant the READ permission for the attachments to the service so that
+                    // as long as the service stays alive we won't hit PermissionExceptions.
+                    final ClipDescription desc = new ClipDescription("attachment_uris",
+                            new String[]{ClipDescription.MIMETYPE_TEXT_URILIST});
+                    ClipData clipData = null;
+                    for (Attachment a : mAttachmentsView.getAttachments()) {
+                        if (a != null && !Utils.isEmpty(a.contentUri)) {
+                            final ClipData.Item uriItem = new ClipData.Item(a.contentUri);
+                            if (clipData == null) {
+                                clipData = new ClipData(desc, uriItem);
+                            } else {
+                                clipData.addItem(uriItem);
+                            }
+                        }
+                    }
+                    i.setClipData(clipData);
+                    i.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                }
+
+                synchronized (PENDING_SEND_OR_SAVE_TASKS_NUM) {
+                    if (PENDING_SEND_OR_SAVE_TASKS_NUM.getAndAdd(1) == 0) {
                         // Start service so we won't be killed if this app is
                         // put in the background.
-                        startService(new Intent(ComposeActivity.this, EmptyService.class));
+                        startService(i);
                     }
-
-                    mActiveTasks.add(sendOrSaveTask);
                 }
                 if (sTestSendOrSaveCallback != null) {
-                    sTestSendOrSaveCallback.initializeSendOrSave(sendOrSaveTask);
+                    sTestSendOrSaveCallback.initializeSendOrSave();
                 }
             }
 
@@ -3242,11 +3326,10 @@ public class ComposeActivity extends ActionBarActivity
             public void notifyMessageIdAllocated(SendOrSaveMessage sendOrSaveMessage,
                     Message message) {
                 synchronized (mDraftLock) {
-                    mDraftAccount = sendOrSaveMessage.mAccount;
                     mDraftId = message.id;
                     mDraft = message;
                     if (sRequestMessageIdMap != null) {
-                        sRequestMessageIdMap.put(sendOrSaveMessage.requestId(), mDraftId);
+                        sRequestMessageIdMap.put(sendOrSaveMessage.mRequestId, mDraftId);
                     }
                     // Cache request message map, in case the process is killed
                     saveRequestMap();
@@ -3257,14 +3340,14 @@ public class ComposeActivity extends ActionBarActivity
             }
 
             @Override
-            public Message getMessage() {
+            public long getMessageId() {
                 synchronized (mDraftLock) {
-                    return mDraft;
+                    return mDraftId;
                 }
             }
 
             @Override
-            public void sendOrSaveFinished(SendOrSaveTask task, boolean success) {
+            public void sendOrSaveFinished(SendOrSaveMessage message, boolean success) {
                 // Update the last sent from account.
                 if (mAccount != null) {
                     MailAppProvider.getInstance().setLastSentFromAccount(mAccount.uri.toString());
@@ -3280,37 +3363,39 @@ public class ComposeActivity extends ActionBarActivity
                             .show();
                 }
 
-                int numTasks;
-                synchronized (mActiveTasks) {
-                    // Remove the task from the list of active tasks
-                    mActiveTasks.remove(task);
-                    numTasks = mActiveTasks.size();
-                }
-
-                if (numTasks == 0) {
-                    // Stop service so we can be killed.
-                    stopService(new Intent(ComposeActivity.this, EmptyService.class));
+                synchronized (PENDING_SEND_OR_SAVE_TASKS_NUM) {
+                    if (PENDING_SEND_OR_SAVE_TASKS_NUM.addAndGet(-1) == 0) {
+                        // Stop service so we can be killed.
+                        stopService(new Intent(ComposeActivity.this, EmptyService.class));
+                    }
                 }
                 if (sTestSendOrSaveCallback != null) {
-                    sTestSendOrSaveCallback.sendOrSaveFinished(task, success);
+                    sTestSendOrSaveCallback.sendOrSaveFinished(message, success);
                 }
-            }
-
-            @Override
-            public void incrementRecipientsTimesContacted(final List<String> recipients) {
-                ComposeActivity.this.incrementRecipientsTimesContacted(recipients);
             }
         };
         setAccount(mReplyFromAccount.account);
 
         final Spanned body = removeComposingSpans(mBodyView.getText());
+        callback.initializeSendOrSave();
+
+        // For pre-JB we need to open the fds on the main thread
+        final Bundle attachmentFds;
+        if (!Utils.isRunningJellybeanOrLater()) {
+            attachmentFds = initializeAttachmentFds(this, mAttachmentsView.getAttachments());
+        } else {
+            attachmentFds = null;
+        }
+
+        // Generate a unique message id for this request
+        mRequestId = sRandom.nextInt();
         SEND_SAVE_TASK_HANDLER.post(new Runnable() {
             @Override
             public void run() {
                 final Message msg = createMessage(mReplyFromAccount, mRefMessage, getMode(), body);
-                mRequestId = sendOrSaveInternal(ComposeActivity.this, mReplyFromAccount, msg,
-                        mRefMessage, mQuotedTextView.getQuotedTextIfIncluded(), callback,
-                        SEND_SAVE_TASK_HANDLER, save, mComposeMode, mDraftAccount, mExtraValues);
+                sendOrSaveInternal(ComposeActivity.this, mRequestId, mReplyFromAccount,
+                        mDraftAccount, msg, mRefMessage, mQuotedTextView.getQuotedTextIfIncluded(),
+                        callback, save, mComposeMode, mExtraValues, attachmentFds);
             }
         });
 
@@ -3521,11 +3606,13 @@ public class ComposeActivity extends ActionBarActivity
 
     /**
      * Set the body of the message.
+     * Please try to exclusively use this method instead of calling mBodyView.setText(..) directly.
      *
      * @param text text to set
      * @param withSignature True to append a signature.
      */
     public void setBody(CharSequence text, boolean withSignature) {
+        LogUtils.i(LOG_TAG, "Body populated, len: %d, sig: %b", text.length(), withSignature);
         mBodyView.setText(text);
         if (withSignature) {
             appendSignature();
@@ -3566,7 +3653,7 @@ public class ComposeActivity extends ActionBarActivity
             if (!TextUtils.isEmpty(oldSignature)) {
                 int pos = getSignatureStartPosition(oldSignature, bodyText);
                 if (pos > -1) {
-                    mBodyView.setText(bodyText.substring(0, pos));
+                    setBody(bodyText.substring(0, pos), false);
                 }
             }
             setAccount(mReplyFromAccount.account);
@@ -3611,9 +3698,15 @@ public class ComposeActivity extends ActionBarActivity
     }
 
     private void doDiscard() {
-        final DialogFragment frag = new DiscardConfirmDialogFragment();
-        frag.show(getFragmentManager(), "discard confirm");
+        // Only need to ask for confirmation if the draft is in a dirty state.
+        if (isDraftDirty()) {
+            final DialogFragment frag = new DiscardConfirmDialogFragment();
+            frag.show(getFragmentManager(), "discard confirm");
+        } else {
+            doDiscardWithoutConfirmation();
+        }
     }
+
     /**
      * Effectively discard the current message.
      *
@@ -3655,7 +3748,7 @@ public class ComposeActivity extends ActionBarActivity
             return;
         }
 
-        if (shouldSave()) {
+        if (isDraftDirty()) {
             doSave(!mAddingAttachment /* show toast */);
         }
     }
@@ -3906,9 +3999,21 @@ public class ComposeActivity extends ActionBarActivity
         @Override
         protected void onPostExecute(Spanned spanned) {
             mBodyView.removeTextChangedListener(ComposeActivity.this);
-            mBodyView.setText(spanned);
+            setBody(spanned, false);
             mTextChanged = false;
             mBodyView.addTextChangedListener(ComposeActivity.this);
         }
+    }
+
+    @Override
+    public void onSupportActionModeStarted(ActionMode mode) {
+        super.onSupportActionModeStarted(mode);
+        ViewUtils.setStatusBarColor(this, R.color.action_mode_statusbar_color);
+    }
+
+    @Override
+    public void onSupportActionModeFinished(ActionMode mode) {
+        super.onSupportActionModeFinished(mode);
+        ViewUtils.setStatusBarColor(this, R.color.primary_dark_color);
     }
 }

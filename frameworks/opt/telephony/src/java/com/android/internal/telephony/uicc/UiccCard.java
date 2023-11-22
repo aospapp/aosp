@@ -79,7 +79,6 @@ public class UiccCard {
     private Context mContext;
     private CommandsInterface mCi;
     private CatService mCatService;
-    private boolean mDestroyed = false; //set to true once this card is commanded to be disposed of.
     private RadioState mLastRadioState =  RadioState.RADIO_UNAVAILABLE;
     private UiccCarrierPrivilegeRules mCarrierPrivilegeRules;
 
@@ -95,7 +94,7 @@ public class UiccCard {
     private static final int EVENT_SIM_IO_DONE = 19;
     private static final int EVENT_CARRIER_PRIVILIGES_LOADED = 20;
 
-    int mSlotId;
+    private int mPhoneId;
 
     public UiccCard(Context c, CommandsInterface ci, IccCardStatus ics) {
         if (DBG) log("Creating");
@@ -103,9 +102,9 @@ public class UiccCard {
         update(c, ci, ics);
     }
 
-    public UiccCard(Context c, CommandsInterface ci, IccCardStatus ics, int slotId) {
+    public UiccCard(Context c, CommandsInterface ci, IccCardStatus ics, int phoneId) {
         mCardState = ics.mCardState;
-        mSlotId = slotId;
+        mPhoneId = phoneId;
         update(c, ci, ics);
     }
 
@@ -129,10 +128,6 @@ public class UiccCard {
 
     public void update(Context c, CommandsInterface ci, IccCardStatus ics) {
         synchronized (mLock) {
-            if (mDestroyed) {
-                loge("Updated after destroyed! Fix me!");
-                return;
-            }
             CardState oldState = mCardState;
             mCardState = ics.mCardState;
             mUniversalPinState = ics.mUniversalPinState;
@@ -141,6 +136,7 @@ public class UiccCard {
             mImsSubscriptionAppIndex = ics.mImsSubscriptionAppIndex;
             mContext = c;
             mCi = ci;
+
             //update applications
             if (DBG) log(ics.mApplications.length + " applications");
             for ( int i = 0; i < mUiccApplications.length; i++) {
@@ -197,7 +193,7 @@ public class UiccCard {
         if (mUiccApplications.length > 0 && mUiccApplications[0] != null) {
             // Initialize or Reinitialize CatService
             if (mCatService == null) {
-                mCatService = CatService.getInstance(mCi, mContext, this, mSlotId);
+                mCatService = CatService.getInstance(mCi, mContext, this, mPhoneId);
             } else {
                 ((CatService)mCatService).update(mCi, mContext, this);
             }
@@ -354,12 +350,6 @@ public class UiccCard {
     protected Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg){
-            if (mDestroyed) {
-                loge("Received message " + msg + "[" + msg.what
-                        + "] while being destroyed. Ignoring.");
-                return;
-            }
-
             switch (msg.what) {
                 case EVENT_CARD_REMOVED:
                     onIccSwap(false);
@@ -467,6 +457,23 @@ public class UiccCard {
     }
 
     /**
+     * Resets the application with the input AID. Returns true if any changes were made.
+     */
+    public boolean resetAppWithAid(String aid) {
+        synchronized (mLock) {
+            for (int i = 0; i < mUiccApplications.length; i++) {
+                if (mUiccApplications[i] != null && aid.equals(mUiccApplications[i].getAid())) {
+                    // Delete removed applications
+                    mUiccApplications[i].dispose();
+                    mUiccApplications[i] = null;
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    /**
      * Exposes {@link CommandsInterface.iccOpenLogicalChannel}
      */
     public void iccOpenLogicalChannel(String AID, Message response) {
@@ -525,6 +532,10 @@ public class UiccCard {
             }
         }
         return count;
+    }
+
+    public int getPhoneId() {
+        return mPhoneId;
     }
 
     /**
@@ -625,7 +636,6 @@ public class UiccCard {
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         pw.println("UiccCard:");
         pw.println(" mCi=" + mCi);
-        pw.println(" mDestroyed=" + mDestroyed);
         pw.println(" mLastRadioState=" + mLastRadioState);
         pw.println(" mCatService=" + mCatService);
         pw.println(" mAbsentRegistrants: size=" + mAbsentRegistrants.size());
@@ -669,6 +679,18 @@ public class UiccCard {
                     pw.println();
                 }
             }
+        }
+        // Print UiccCarrierPrivilegeRules and registrants.
+        if (mCarrierPrivilegeRules == null) {
+            pw.println(" mCarrierPrivilegeRules: null");
+        } else {
+            pw.println(" mCarrierPrivilegeRules: " + mCarrierPrivilegeRules);
+            mCarrierPrivilegeRules.dump(fd, pw, args);
+        }
+        pw.println(" mCarrierPrivilegeRegistrants: size=" + mCarrierPrivilegeRegistrants.size());
+        for (int i = 0; i < mCarrierPrivilegeRegistrants.size(); i++) {
+            pw.println("  mCarrierPrivilegeRegistrants[" + i + "]="
+                    + ((Registrant)mCarrierPrivilegeRegistrants.get(i)).getHandler());
         }
         pw.flush();
     }

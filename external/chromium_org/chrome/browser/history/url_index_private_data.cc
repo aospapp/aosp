@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "base/basictypes.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/i18n/break_iterator.h"
 #include "base/i18n/case_conversion.h"
 #include "base/metrics/histogram.h"
@@ -280,7 +280,8 @@ bool URLIndexPrivateData::UpdateURL(
     HistoryService* history_service,
     const URLRow& row,
     const std::string& languages,
-    const std::set<std::string>& scheme_whitelist) {
+    const std::set<std::string>& scheme_whitelist,
+    base::CancelableTaskTracker* tracker) {
   // The row may or may not already be in our index. If it is not already
   // indexed and it qualifies then it gets indexed. If it is already
   // indexed and still qualifies then it gets updated, otherwise it
@@ -293,7 +294,12 @@ bool URLIndexPrivateData::UpdateURL(
     URLRow new_row(row);
     new_row.set_id(row_id);
     row_was_updated = RowQualifiesAsSignificant(new_row, base::Time()) &&
-        IndexRow(NULL, history_service, new_row, languages, scheme_whitelist);
+                      IndexRow(NULL,
+                               history_service,
+                               new_row,
+                               languages,
+                               scheme_whitelist,
+                               tracker);
   } else if (RowQualifiesAsSignificant(row, base::Time())) {
     // This indexed row still qualifies and will be re-indexed.
     // The url won't have changed but the title, visit count, etc.
@@ -308,7 +314,7 @@ bool URLIndexPrivateData::UpdateURL(
       row_to_update.set_last_visit(row.last_visit());
       // If something appears to have changed, update the recent visits
       // information.
-      ScheduleUpdateRecentVisits(history_service, row_id);
+      ScheduleUpdateRecentVisits(history_service, row_id, tracker);
       // While the URL is guaranteed to remain stable, the title may have
       // changed. If so, then update the index with the changed words.
       if (title_updated) {
@@ -357,10 +363,11 @@ void URLIndexPrivateData::UpdateRecentVisits(
 
 void URLIndexPrivateData::ScheduleUpdateRecentVisits(
     HistoryService* history_service,
-    URLID url_id) {
+    URLID url_id,
+    base::CancelableTaskTracker* tracker) {
   history_service->ScheduleDBTask(
-      new UpdateRecentVisitsFromHistoryDBTask(this, url_id),
-      &recent_visits_consumer_);
+      scoped_ptr<history::HistoryDBTask>(
+          new UpdateRecentVisitsFromHistoryDBTask(this, url_id)), tracker);
 }
 
 // Helper functor for DeleteURL.
@@ -444,8 +451,8 @@ scoped_refptr<URLIndexPrivateData> URLIndexPrivateData::RebuildFromHistory(
     return NULL;
   rebuilt_data->last_time_rebuilt_from_history_ = base::Time::Now();
   for (URLRow row; history_enum.GetNextURL(&row); ) {
-    rebuilt_data->IndexRow(history_db, NULL, row, languages,
-                           scheme_whitelist);
+    rebuilt_data->IndexRow(
+        history_db, NULL, row, languages, scheme_whitelist, NULL);
   }
 
   UMA_HISTOGRAM_TIMES("History.InMemoryURLIndexingTime",
@@ -466,10 +473,6 @@ bool URLIndexPrivateData::WritePrivateDataToCacheFileTask(
   DCHECK(private_data.get());
   DCHECK(!file_path.empty());
   return private_data->SaveToFile(file_path);
-}
-
-void URLIndexPrivateData::CancelPendingUpdates() {
-  recent_visits_consumer_.CancelAllRequests();
 }
 
 scoped_refptr<URLIndexPrivateData> URLIndexPrivateData::Duplicate() const {
@@ -685,7 +688,8 @@ bool URLIndexPrivateData::IndexRow(
     HistoryService* history_service,
     const URLRow& row,
     const std::string& languages,
-    const std::set<std::string>& scheme_whitelist) {
+    const std::set<std::string>& scheme_whitelist,
+    base::CancelableTaskTracker* tracker) {
   const GURL& gurl(row.url());
 
   // Index only URLs with a whitelisted scheme.
@@ -730,8 +734,9 @@ bool URLIndexPrivateData::IndexRow(
                                               &recent_visits))
       UpdateRecentVisits(row_id, recent_visits);
   } else {
+    DCHECK(tracker);
     DCHECK(history_service);
-    ScheduleUpdateRecentVisits(history_service, row_id);
+    ScheduleUpdateRecentVisits(history_service, row_id, tracker);
   }
 
   return true;
@@ -744,11 +749,10 @@ void URLIndexPrivateData::AddRowWordsToIndex(const URLRow& row,
   // Split URL into individual, unique words then add in the title words.
   const GURL& gurl(row.url());
   const base::string16& url =
-      bookmark_utils::CleanUpUrlForMatching(gurl, languages, NULL);
+      bookmarks::CleanUpUrlForMatching(gurl, languages, NULL);
   String16Set url_words = String16SetFromString16(url,
       word_starts ? &word_starts->url_word_starts_ : NULL);
-  const base::string16& title =
-      bookmark_utils::CleanUpTitleForMatching(row.title());
+  const base::string16& title = bookmarks::CleanUpTitleForMatching(row.title());
   String16Set title_words = String16SetFromString16(title,
       word_starts ? &word_starts->title_word_starts_ : NULL);
   String16Set words = base::STLSetUnion<String16Set>(url_words, title_words);
@@ -1178,8 +1182,7 @@ bool URLIndexPrivateData::RestoreHistoryInfoMap(
     for (int i = 0; i < iter->visits_size(); ++i) {
       visits.push_back(std::make_pair(
           base::Time::FromInternalValue(iter->visits(i).visit_time()),
-          static_cast<content::PageTransition>(iter->visits(i).
-                                               transition_type())));
+          ui::PageTransitionFromInt(iter->visits(i).transition_type())));
     }
     history_info_map_[history_id].visits = visits;
   }
@@ -1223,11 +1226,11 @@ bool URLIndexPrivateData::RestoreWordStartsMap(
          iter != history_info_map_.end(); ++iter) {
       RowWordStarts word_starts;
       const URLRow& row(iter->second.url_row);
-      const base::string16& url = bookmark_utils::CleanUpUrlForMatching(
-          row.url(), languages, NULL);
+      const base::string16& url =
+          bookmarks::CleanUpUrlForMatching(row.url(), languages, NULL);
       String16VectorFromString16(url, false, &word_starts.url_word_starts_);
       const base::string16& title =
-          bookmark_utils::CleanUpTitleForMatching(row.title());
+          bookmarks::CleanUpTitleForMatching(row.title());
       String16VectorFromString16(title, false, &word_starts.title_word_starts_);
       word_starts_map_[iter->first] = word_starts;
     }

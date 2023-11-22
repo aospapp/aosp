@@ -25,11 +25,11 @@
 #include "chrome/browser/history/history_db_task.h"
 #include "chrome/browser/history/history_notifications.h"
 #include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/history/page_usage_data.h"
 #include "chrome/browser/history/top_sites_cache.h"
 #include "chrome/browser/history/url_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
+#include "components/history/core/browser/page_usage_data.h"
 #include "components/history/core/common/thumbnail_score.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_controller.h"
@@ -378,7 +378,7 @@ void TopSitesImpl::Shutdown() {
   // Cancel all requests so that the service doesn't callback to us after we've
   // invoked Shutdown (this could happen if we have a pending request and
   // Shutdown is invoked).
-  history_consumer_.CancelAllRequests();
+  cancelable_task_tracker_.TryCancelAll();
   backend_->Shutdown();
 }
 
@@ -444,10 +444,10 @@ void TopSitesImpl::DiffMostVisited(const MostVisitedURLList& old_list,
   }
 }
 
-CancelableRequestProvider::Handle TopSitesImpl::StartQueryForMostVisited() {
+base::CancelableTaskTracker::TaskId TopSitesImpl::StartQueryForMostVisited() {
   DCHECK(loaded_);
   if (!profile_)
-    return 0;
+    return base::CancelableTaskTracker::kBadTaskId;
 
   HistoryService* hs = HistoryServiceFactory::GetForProfile(
       profile_, Profile::EXPLICIT_ACCESS);
@@ -456,11 +456,11 @@ CancelableRequestProvider::Handle TopSitesImpl::StartQueryForMostVisited() {
     return hs->QueryMostVisitedURLs(
         num_results_to_request_from_history(),
         kDaysOfHistory,
-        &history_consumer_,
         base::Bind(&TopSitesImpl::OnTopSitesAvailableFromHistory,
-                   base::Unretained(this)));
+                   base::Unretained(this)),
+        &cancelable_task_tracker_);
   }
-  return 0;
+  return base::CancelableTaskTracker::kBadTaskId;
 }
 
 bool TopSitesImpl::IsKnownURL(const GURL& url) {
@@ -874,10 +874,7 @@ void TopSitesImpl::MoveStateToLoaded() {
   for (size_t i = 0; i < pending_callbacks.size(); i++)
     pending_callbacks[i].Run(filtered_urls_all, filtered_urls_nonforced);
 
-  content::NotificationService::current()->Notify(
-      chrome::NOTIFICATION_TOP_SITES_LOADED,
-      content::Source<Profile>(profile_),
-      content::Details<TopSites>(this));
+  NotifyTopSitesLoaded();
 }
 
 void TopSitesImpl::ResetThreadSafeCache() {
@@ -890,13 +887,6 @@ void TopSitesImpl::ResetThreadSafeCache() {
 void TopSitesImpl::ResetThreadSafeImageCache() {
   base::AutoLock lock(lock_);
   thread_safe_cache_->SetThumbnails(cache_->images());
-}
-
-void TopSitesImpl::NotifyTopSitesChanged() {
-  content::NotificationService::current()->Notify(
-      chrome::NOTIFICATION_TOP_SITES_CHANGED,
-      content::Source<TopSites>(this),
-      content::NotificationService::NoDetails());
 }
 
 void TopSitesImpl::RestartQueryForTopSitesTimer(base::TimeDelta delta) {
@@ -930,9 +920,9 @@ void TopSitesImpl::OnGotMostVisitedThumbnails(
 }
 
 void TopSitesImpl::OnTopSitesAvailableFromHistory(
-    CancelableRequestProvider::Handle handle,
-    MostVisitedURLList pages) {
-  SetTopSites(pages);
+    const MostVisitedURLList* pages) {
+  DCHECK(pages);
+  SetTopSites(*pages);
 }
 
 }  // namespace history

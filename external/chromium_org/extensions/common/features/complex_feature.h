@@ -39,7 +39,6 @@ class ComplexFeature : public Feature {
 
   virtual bool IsIdInBlacklist(const std::string& extension_id) const OVERRIDE;
   virtual bool IsIdInWhitelist(const std::string& extension_id) const OVERRIDE;
-  virtual bool IsBlockedInServiceWorker() const OVERRIDE;
 
  protected:
   // extensions::Feature:
@@ -48,8 +47,6 @@ class ComplexFeature : public Feature {
       Manifest::Type type,
       const GURL& url,
       Context context) const OVERRIDE;
-
-  virtual std::set<Context>* GetContexts() OVERRIDE;
 
   virtual bool IsInternal() const OVERRIDE;
 

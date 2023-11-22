@@ -21,4 +21,5 @@
     <string name="photo_view_count" msgid="3466690572899800275">"<xliff:g id="COUNT">%d</xliff:g>টির মধ্যে <xliff:g id="CURRENT_POS">%d</xliff:g>টি"</string>
     <string name="retry" msgid="3319517143224679074">"পুনরায় চেষ্টা করুন"</string>
     <string name="failed" msgid="1458877219699376279">"চিত্রটি লোড করা যায়নি"</string>
+    <string name="titles" msgid="8072357561981153438">"<xliff:g id="TITLE_0">%s</xliff:g>, <xliff:g id="SUBTITLE">%s</xliff:g>"</string>
 </resources>

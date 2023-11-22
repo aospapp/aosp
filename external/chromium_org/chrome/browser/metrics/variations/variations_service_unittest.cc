@@ -82,16 +82,54 @@ class TestVariationsService : public VariationsService {
   DISALLOW_COPY_AND_ASSIGN(TestVariationsService);
 };
 
+class TestVariationsServiceObserver : public VariationsService::Observer {
+ public:
+  TestVariationsServiceObserver()
+      : best_effort_changes_notified_(0),
+        crticial_changes_notified_(0) {
+  }
+  virtual ~TestVariationsServiceObserver() {
+  }
+
+  virtual void OnExperimentChangesDetected(Severity severity) OVERRIDE {
+    switch (severity) {
+      case BEST_EFFORT:
+        ++best_effort_changes_notified_;
+        break;
+      case CRITICAL:
+        ++crticial_changes_notified_;
+        break;
+    }
+  }
+
+  int best_effort_changes_notified() const {
+    return best_effort_changes_notified_;
+  }
+
+  int crticial_changes_notified() const {
+    return crticial_changes_notified_;
+  }
+
+ private:
+  // Number of notification received with BEST_EFFORT severity.
+  int best_effort_changes_notified_;
+
+  // Number of notification received with CRITICAL severity.
+  int crticial_changes_notified_;
+
+  DISALLOW_COPY_AND_ASSIGN(TestVariationsServiceObserver);
+};
+
 // Populates |seed| with simple test data. The resulting seed will contain one
 // study called "test", which contains one experiment called "abc" with
 // probability weight 100. |seed|'s study field will be cleared before adding
 // the new study.
-VariationsSeed CreateTestSeed() {
-  VariationsSeed seed;
-  Study* study = seed.add_study();
+variations::VariationsSeed CreateTestSeed() {
+  variations::VariationsSeed seed;
+  variations::Study* study = seed.add_study();
   study->set_name("test");
   study->set_default_experiment_name("abc");
-  Study_Experiment* experiment = study->add_experiment();
+  variations::Study_Experiment* experiment = study->add_experiment();
   experiment->set_name("abc");
   experiment->set_probability_weight(100);
   seed.set_serial_number("123");
@@ -99,7 +137,7 @@ VariationsSeed CreateTestSeed() {
 }
 
 // Serializes |seed| to protobuf binary format.
-std::string SerializeSeed(const VariationsSeed& seed) {
+std::string SerializeSeed(const variations::VariationsSeed& seed) {
   std::string serialized_seed;
   seed.SerializeToString(&serialized_seed);
   return serialized_seed;
@@ -328,6 +366,50 @@ TEST_F(VariationsServiceTest, SeedDateUpdatedOn304Status) {
   service.OnURLFetchComplete(fetcher);
   EXPECT_FALSE(
       prefs.FindPreference(prefs::kVariationsSeedDate)->IsDefaultValue());
+}
+
+TEST_F(VariationsServiceTest, Observer) {
+  TestingPrefServiceSimple prefs;
+  VariationsService::RegisterPrefs(prefs.registry());
+  VariationsService service(new TestRequestAllowedNotifier, &prefs, NULL);
+
+  struct {
+    int normal_count;
+    int best_effort_count;
+    int critical_count;
+    int expected_best_effort_notifications;
+    int expected_crtical_notifications;
+  } cases[] = {
+      {0, 0, 0, 0, 0},
+      {1, 0, 0, 0, 0},
+      {10, 0, 0, 0, 0},
+      {0, 1, 0, 1, 0},
+      {0, 10, 0, 1, 0},
+      {0, 0, 1, 0, 1},
+      {0, 0, 10, 0, 1},
+      {0, 1, 1, 0, 1},
+      {1, 1, 1, 0, 1},
+      {1, 1, 0, 1, 0},
+      {1, 0, 1, 0, 1},
+  };
+
+  for (size_t i = 0; i < ARRAYSIZE_UNSAFE(cases); ++i) {
+    TestVariationsServiceObserver observer;
+    service.AddObserver(&observer);
+
+    variations::VariationsSeedSimulator::Result result;
+    result.normal_group_change_count = cases[i].normal_count;
+    result.kill_best_effort_group_change_count = cases[i].best_effort_count;
+    result.kill_critical_group_change_count = cases[i].critical_count;
+    service.NotifyObservers(result);
+
+    EXPECT_EQ(cases[i].expected_best_effort_notifications,
+              observer.best_effort_changes_notified()) << i;
+    EXPECT_EQ(cases[i].expected_crtical_notifications,
+              observer.crticial_changes_notified()) << i;
+
+    service.RemoveObserver(&observer);
+  }
 }
 
 }  // namespace chrome_variations

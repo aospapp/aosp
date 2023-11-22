@@ -15,6 +15,10 @@
 #include "ui/app_list/pagination_model_observer.h"
 #include "ui/views/view.h"
 
+namespace gfx {
+class Rect;
+}
+
 namespace views {
 class ViewModel;
 }
@@ -65,14 +69,15 @@ class APP_LIST_EXPORT ContentsView : public views::View,
   void SetDragAndDropHostOfCurrentAppList(
       ApplicationDragAndDropHost* drag_and_drop_host);
 
-  void set_contents_switcher_view(
-      ContentsSwitcherView* contents_switcher_view) {
-    contents_switcher_view_ = contents_switcher_view;
-  }
+  void SetContentsSwitcherView(ContentsSwitcherView* contents_switcher_view);
 
+  // Shows/hides the search results. Hiding the search results will cause the
+  // app list to return to the page that was displayed before
+  // ShowSearchResults(true) was invoked.
   void ShowSearchResults(bool show);
-  void ShowFolderContent(AppListFolderItem* folder);
   bool IsShowingSearchResults() const;
+
+  void ShowFolderContent(AppListFolderItem* folder);
 
   // Sets the active launcher page and animates the pages into place.
   void SetActivePage(int page_index);
@@ -83,7 +88,8 @@ class APP_LIST_EXPORT ContentsView : public views::View,
   // True if |named_page| is the current active laucher page.
   bool IsNamedPageActive(NamedPage named_page) const;
 
-  // Gets the index of a launcher page in |view_model_|, by NamedPage.
+  // Gets the index of a launcher page in |view_model_|, by NamedPage. Returns
+  // -1 if there is no view for |named_page|.
   int GetPageIndexForNamedPage(NamedPage named_page) const;
 
   int NumLauncherPages() const;
@@ -102,13 +108,15 @@ class APP_LIST_EXPORT ContentsView : public views::View,
   virtual gfx::Size GetPreferredSize() const OVERRIDE;
   virtual void Layout() OVERRIDE;
   virtual bool OnKeyPressed(const ui::KeyEvent& event) OVERRIDE;
-  virtual bool OnMouseWheel(const ui::MouseWheelEvent& event) OVERRIDE;
 
   // Overridden from PaginationModelObserver:
   virtual void TotalPagesChanged() OVERRIDE;
   virtual void SelectedPageChanged(int old_selected, int new_selected) OVERRIDE;
   virtual void TransitionStarted() OVERRIDE;
   virtual void TransitionChanged() OVERRIDE;
+
+  // Returns the pagination model for the ContentsView.
+  const PaginationModel& pagination_model() { return pagination_model_; }
 
  private:
   // Sets the active launcher page, accounting for whether the change is for
@@ -117,6 +125,10 @@ class APP_LIST_EXPORT ContentsView : public views::View,
 
   // Invoked when active view is changed.
   void ActivePageChanged(bool show_search_results);
+
+  // Gets the origin (the off-screen resting place) for a given launcher page
+  // with index |page_index|.
+  gfx::Rect GetOffscreenPageBounds(int page_index) const;
 
   // Calculates and sets the bounds for the subviews. If there is currently an
   // animation, this positions the views as appropriate for the current frame.
@@ -139,10 +151,6 @@ class APP_LIST_EXPORT ContentsView : public views::View,
   // launcher-page pagination.
   PaginationModel* GetAppsPaginationModel();
 
-  // Overridden from ui::EventHandler:
-  virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
-  virtual void OnScrollEvent(ui::ScrollEvent* event) OVERRIDE;
-
   // Special sub views of the ContentsView. All owned by the views hierarchy.
   AppsContainerView* apps_container_view_;
   SearchResultListView* search_results_view_;
@@ -155,6 +163,9 @@ class APP_LIST_EXPORT ContentsView : public views::View,
   scoped_ptr<views::ViewModel> view_model_;
   // Maps NamedPage onto |view_model_| indices.
   std::map<NamedPage, int> named_page_to_view_;
+
+  // The page that was showing before ShowSearchResults(true) was invoked.
+  int page_before_search_;
 
   // Manages the pagination for the launcher pages.
   PaginationModel pagination_model_;

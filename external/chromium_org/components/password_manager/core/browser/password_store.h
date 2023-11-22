@@ -127,7 +127,9 @@ class PasswordStore : protected PasswordStoreSync,
       scoped_refptr<base::SingleThreadTaskRunner> db_thread_runner);
 
   // Reimplement this to add custom initialization. Always call this too.
-  virtual bool Init(const syncer::SyncableService::StartSyncFlare& flare);
+  // |sync_username| is specified to aid in metrics reporting.
+  virtual bool Init(const syncer::SyncableService::StartSyncFlare& flare,
+                    const std::string& sync_username);
 
   // Adds the given PasswordForm to the secure password store asynchronously.
   virtual void AddLogin(const autofill::PasswordForm& form);
@@ -169,7 +171,7 @@ class PasswordStore : protected PasswordStoreSync,
   virtual void GetBlacklistLogins(PasswordStoreConsumer* consumer);
 
   // Reports usage metrics for the database.
-  virtual void ReportMetrics();
+  virtual void ReportMetrics(const std::string& sync_username);
 
   // Adds an observer to be notified when the password store data changes.
   void AddObserver(Observer* observer);
@@ -203,7 +205,7 @@ class PasswordStore : protected PasswordStoreSync,
 
   // Methods below will be run in PasswordStore's own thread.
   // Synchronous implementation that reports usage metrics.
-  virtual void ReportMetricsImpl() = 0;
+  virtual void ReportMetricsImpl(const std::string& sync_username) = 0;
 
   // Bring PasswordStoreSync methods to the scope of PasswordStore. Otherwise,
   // base::Bind can't be used with them because it fails to cast PasswordStore
@@ -249,14 +251,19 @@ class PasswordStore : protected PasswordStoreSync,
   // Log UMA stats for number of bulk deletions.
   void LogStatsForBulkDeletion(int num_deletions);
 
+  // PasswordStoreSync:
+  // Called by WrapModificationTask() once the underlying data-modifying
+  // operation has been performed. Notifies observers that password store data
+  // may have been changed.
+  virtual void NotifyLoginsChanged(
+      const PasswordStoreChangeList& changes) OVERRIDE;
+
   // TaskRunner for tasks that run on the main thread (usually the UI thread).
   scoped_refptr<base::SingleThreadTaskRunner> main_thread_runner_;
 
   // TaskRunner for the DB thread. By default, this is the task runner used for
   // background tasks -- see |GetBackgroundTaskRunner|.
   scoped_refptr<base::SingleThreadTaskRunner> db_thread_runner_;
-
-  scoped_ptr<PasswordSyncableService> syncable_service_;
 
  private:
   // Schedule the given |func| to be run in the PasswordStore's own thread with
@@ -270,13 +277,6 @@ class PasswordStore : protected PasswordStoreSync,
   // NotifyLoginsChanged(). Note that there is no guarantee that the called
   // method will actually modify the password store data.
   virtual void WrapModificationTask(ModificationTask task);
-
-  // PasswordStoreSync:
-  // Called by WrapModificationTask() once the underlying data-modifying
-  // operation has been performed. Notifies observers that password store data
-  // may have been changed.
-  virtual void NotifyLoginsChanged(
-      const PasswordStoreChangeList& changes) OVERRIDE;
 
   // Copies |matched_forms| into the request's result vector, then calls
   // |ForwardLoginsResult|. Temporarily used as an adapter between the API of
@@ -297,6 +297,8 @@ class PasswordStore : protected PasswordStoreSync,
 
   // The observers.
   scoped_refptr<ObserverListThreadSafe<Observer> > observers_;
+
+  scoped_ptr<PasswordSyncableService> syncable_service_;
 
   bool shutdown_called_;
 

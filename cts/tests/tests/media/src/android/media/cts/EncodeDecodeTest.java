@@ -51,8 +51,9 @@ public class EncodeDecodeTest extends AndroidTestCase {
     private static final String DEBUG_FILE_NAME_BASE = "/sdcard/test.";
 
     // parameters for the encoder
-    private static final String MIME_TYPE_AVC = "video/avc";    // H.264 Advanced Video Coding
-    private static final String MIME_TYPE_VP8 = "video/x-vnd.on2.vp8";
+                                                            // H.264 Advanced Video Coding
+    private static final String MIME_TYPE_AVC = MediaFormat.MIMETYPE_VIDEO_AVC;
+    private static final String MIME_TYPE_VP8 = MediaFormat.MIMETYPE_VIDEO_VP8;
     private static final int FRAME_RATE = 15;               // 15fps
     private static final int IFRAME_INTERVAL = 10;          // 10 seconds between I-frames
 
@@ -297,20 +298,24 @@ public class EncodeDecodeTest extends AndroidTestCase {
         mLargestColorDelta = -1;
 
         try {
-            MediaCodecInfo codecInfo = selectCodec(mMimeType);
-            if (codecInfo == null) {
-                // Don't fail CTS if they don't have an AVC codec (not here, anyway).
-                Log.e(TAG, "Unable to find an appropriate codec for " + mMimeType);
-                return;
-            }
-            if (VERBOSE) Log.d(TAG, "found codec: " + codecInfo.getName());
-
-            int colorFormat = selectColorFormat(codecInfo, mMimeType);
-            if (VERBOSE) Log.d(TAG, "found colorFormat: " + colorFormat);
-
             // We avoid the device-specific limitations on width and height by using values that
             // are multiples of 16, which all tested devices seem to be able to handle.
             MediaFormat format = MediaFormat.createVideoFormat(mMimeType, mWidth, mHeight);
+            MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+            String codec = mcl.findEncoderForFormat(format);
+            if (codec == null) {
+                // Don't fail CTS if they don't have an AVC codec (not here, anyway).
+                Log.e(TAG, "Unable to find an appropriate codec for " + format);
+                return;
+            }
+            if (VERBOSE) Log.d(TAG, "found codec: " + codec);
+
+            // Create a MediaCodec for the desired codec, then configure it as an encoder with
+            // our desired properties.
+            encoder = MediaCodec.createByCodecName(codec);
+
+            int colorFormat = selectColorFormat(encoder.getCodecInfo(), mMimeType);
+            if (VERBOSE) Log.d(TAG, "found colorFormat: " + colorFormat);
 
             // Set some properties.  Failing to specify some of these can cause the MediaCodec
             // configure() call to throw an unhelpful exception.
@@ -320,9 +325,6 @@ public class EncodeDecodeTest extends AndroidTestCase {
             format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
             if (VERBOSE) Log.d(TAG, "format: " + format);
 
-            // Create a MediaCodec for the desired codec, then configure it as an encoder with
-            // our desired properties.
-            encoder = MediaCodec.createByCodecName(codecInfo.getName());
             encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
             encoder.start();
 
@@ -362,19 +364,19 @@ public class EncodeDecodeTest extends AndroidTestCase {
         mLargestColorDelta = -1;
 
         try {
-            MediaCodecInfo codecInfo = selectCodec(mMimeType);
-            if (codecInfo == null) {
-                // Don't fail CTS if they don't have an AVC codec (not here, anyway).
-                Log.e(TAG, "Unable to find an appropriate codec for " + mMimeType);
-                return;
-            }
-            if (VERBOSE) Log.d(TAG, "found codec: " + codecInfo.getName());
-
-            int colorFormat = MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface;
-
             // We avoid the device-specific limitations on width and height by using values that
             // are multiples of 16, which all tested devices seem to be able to handle.
             MediaFormat format = MediaFormat.createVideoFormat(mMimeType, mWidth, mHeight);
+            MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+            String codec = mcl.findEncoderForFormat(format);
+            if (codec == null) {
+                // Don't fail CTS if they don't have an AVC codec (not here, anyway).
+                Log.e(TAG, "Unable to find an appropriate codec for " + format);
+                return;
+            }
+            if (VERBOSE) Log.d(TAG, "found codec: " + codec);
+
+            int colorFormat = MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface;
 
             // Set some properties.  Failing to specify some of these can cause the MediaCodec
             // configure() call to throw an unhelpful exception.
@@ -396,7 +398,7 @@ public class EncodeDecodeTest extends AndroidTestCase {
 
             // Create a MediaCodec for the desired codec, then configure it as an encoder with
             // our desired properties.  Request a Surface to use for input.
-            encoder = MediaCodec.createByCodecName(codecInfo.getName());
+            encoder = MediaCodec.createByCodecName(codec);
             encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
             inputSurface = new InputSurface(encoder.createInputSurface());
             encoder.start();
@@ -421,29 +423,6 @@ public class EncodeDecodeTest extends AndroidTestCase {
 
             Log.i(TAG, "Largest color delta: " + mLargestColorDelta);
         }
-    }
-
-    /**
-     * Returns the first codec capable of encoding the specified MIME type, or null if no
-     * match was found.
-     */
-    private static MediaCodecInfo selectCodec(String mimeType) {
-        int numCodecs = MediaCodecList.getCodecCount();
-        for (int i = 0; i < numCodecs; i++) {
-            MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
-
-            if (!codecInfo.isEncoder()) {
-                continue;
-            }
-
-            String[] types = codecInfo.getSupportedTypes();
-            for (int j = 0; j < types.length; j++) {
-                if (types[j].equalsIgnoreCase(mimeType)) {
-                    return codecInfo;
-                }
-            }
-        }
-        return null;
     }
 
     /**

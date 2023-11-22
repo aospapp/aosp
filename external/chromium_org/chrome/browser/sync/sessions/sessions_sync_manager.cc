@@ -11,6 +11,7 @@
 #include "chrome/browser/sync/sessions/sessions_util.h"
 #include "chrome/browser/sync/sessions/synced_window_delegates_getter.h"
 #include "chrome/common/url_constants.h"
+#include "components/sync_driver/local_device_info_provider.h"
 #include "content/public/browser/favicon_status.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/notification_details.h"
@@ -24,6 +25,8 @@
 
 using content::NavigationEntry;
 using sessions::SerializedNavigationEntry;
+using sync_driver::DeviceInfo;
+using sync_driver::LocalDeviceInfoProvider;
 using syncer::SyncChange;
 using syncer::SyncData;
 
@@ -44,15 +47,17 @@ static const char kNTPOpenTabSyncURL[] = "chrome://newtab/#open_tabs";
 // stale and becomes a candidate for garbage collection.
 static const size_t kDefaultStaleSessionThresholdDays = 14;  // 2 weeks.
 
+// |local_device| is owned by ProfileSyncService, its lifetime exceeds
+// lifetime of SessionSyncManager.
 SessionsSyncManager::SessionsSyncManager(
     Profile* profile,
-    SyncInternalApiDelegate* delegate,
+    LocalDeviceInfoProvider* local_device,
     scoped_ptr<LocalSessionEventRouter> router)
     : favicon_cache_(profile, kMaxSyncFavicons),
       local_tab_pool_out_of_sync_(true),
       sync_prefs_(profile->GetPrefs()),
       profile_(profile),
-      delegate_(delegate),
+      local_device_(local_device),
       local_session_header_node_id_(TabNodePool::kInvalidTabNodeID),
       stale_session_threshold_days_(kDefaultStaleSessionThresholdDays),
       local_event_router_(router.Pass()),
@@ -85,23 +90,30 @@ syncer::SyncMergeResult SessionsSyncManager::MergeDataAndStartSyncing(
   sync_processor_ = sync_processor.Pass();
 
   local_session_header_node_id_ = TabNodePool::kInvalidTabNodeID;
-  scoped_ptr<DeviceInfo> local_device_info(delegate_->GetLocalDeviceInfo());
-  syncer::SyncChangeList new_changes;
 
   // Make sure we have a machine tag.  We do this now (versus earlier) as it's
   // a conveniently safe time to assert sync is ready and the cache_guid is
   // initialized.
-  if (current_machine_tag_.empty())
+  if (current_machine_tag_.empty()) {
     InitializeCurrentMachineTag();
+  }
+
+  // SessionDataTypeController ensures that the local device info
+  // is available before activating this datatype.
+  DCHECK(local_device_);
+  const DeviceInfo* local_device_info = local_device_->GetLocalDeviceInfo();
   if (local_device_info) {
     current_session_name_ = local_device_info->client_name();
   } else {
     merge_result.set_error(error_handler_->CreateAndUploadError(
         FROM_HERE,
-        "Failed to get device info for machine tag."));
+        "Failed to get local device info."));
     return merge_result;
   }
+
   session_tracker_.SetLocalSessionTag(current_machine_tag_);
+
+  syncer::SyncChangeList new_changes;
 
   // First, we iterate over sync data to update our session_tracker_.
   syncer::SyncDataList restored_tabs;
@@ -112,7 +124,7 @@ syncer::SyncMergeResult SessionsSyncManager::MergeDataAndStartSyncing(
     base_specifics->set_session_tag(current_machine_tag());
     sync_pb::SessionHeader* header_s = base_specifics->mutable_header();
     header_s->set_client_name(current_session_name_);
-    header_s->set_device_type(DeviceInfo::GetLocalDeviceType());
+    header_s->set_device_type(local_device_info->device_type());
     syncer::SyncData data = syncer::SyncData::CreateLocalData(
         current_machine_tag(), current_session_name_, specifics);
     new_changes.push_back(syncer::SyncChange(
@@ -121,7 +133,7 @@ syncer::SyncMergeResult SessionsSyncManager::MergeDataAndStartSyncing(
 
 #if defined(OS_ANDROID)
   std::string sync_machine_tag(BuildMachineTag(
-      delegate_->GetLocalSyncCacheGUID()));
+      local_device_->GetLocalSyncCacheGUID()));
   if (current_machine_tag_.compare(sync_machine_tag) != 0)
     DeleteForeignSessionInternal(sync_machine_tag, &new_changes);
 #endif
@@ -148,7 +160,11 @@ void SessionsSyncManager::AssociateWindows(
   SyncedSession* current_session = session_tracker_.GetSession(local_tag);
   current_session->modified_time = base::Time::Now();
   header_s->set_client_name(current_session_name_);
-  header_s->set_device_type(DeviceInfo::GetLocalDeviceType());
+  // SessionDataTypeController ensures that the local device info
+  // is available before activating this datatype.
+  DCHECK(local_device_);
+  const DeviceInfo* local_device_info = local_device_->GetLocalDeviceInfo();
+  header_s->set_device_type(local_device_info->device_type());
 
   session_tracker_.ResetSessionTracking(local_tag);
   std::set<SyncedWindowDelegate*> windows =
@@ -326,6 +342,24 @@ void SessionsSyncManager::RebuildAssociations() {
   StopSyncing(syncer::SESSIONS);
   MergeDataAndStartSyncing(
       syncer::SESSIONS, data, processor.Pass(), error_handler.Pass());
+}
+
+bool SessionsSyncManager::IsValidSessionHeader(
+    const sync_pb::SessionHeader& header) {
+  // Verify that tab IDs appear only once within a session.
+  // Intended to prevent http://crbug.com/360822.
+  std::set<int> session_tab_ids;
+  for (int i = 0; i < header.window_size(); ++i) {
+    const sync_pb::SessionWindow& window = header.window(i);
+    for (int j = 0; j < window.tab_size(); ++j) {
+      const int tab_id = window.tab(j);
+      bool success = session_tab_ids.insert(tab_id).second;
+      if (!success)
+        return false;
+    }
+  }
+
+  return true;
 }
 
 void SessionsSyncManager::OnLocalTabModified(SyncedTabDelegate* modified_tab) {
@@ -579,6 +613,12 @@ void SessionsSyncManager::UpdateTrackerWithForeignSession(
     // Header data contains window information and ordered tab id's for each
     // window.
 
+    if (!IsValidSessionHeader(specifics.header())) {
+      LOG(WARNING) << "Ignoring foreign session node with invalid header "
+                   << "and tag " << foreign_session_tag << ".";
+      return;
+    }
+
     // Load (or create) the SyncedSession object for this client.
     const sync_pb::SessionHeader& header = specifics.header();
     PopulateSessionHeaderFromSpecifics(header,
@@ -639,7 +679,10 @@ void SessionsSyncManager::InitializeCurrentMachineTag() {
     current_machine_tag_ = persisted_guid;
     DVLOG(1) << "Restoring persisted session sync guid: " << persisted_guid;
   } else {
-    current_machine_tag_ = BuildMachineTag(delegate_->GetLocalSyncCacheGUID());
+    DCHECK(local_device_);
+    std::string cache_guid = local_device_->GetLocalSyncCacheGUID();
+    DCHECK(!cache_guid.empty());
+    current_machine_tag_ = BuildMachineTag(cache_guid);
     DVLOG(1) << "Creating session sync guid: " << current_machine_tag_;
     sync_prefs_.SetSyncSessionsGUID(current_machine_tag_);
   }
@@ -906,7 +949,8 @@ void SessionsSyncManager::SetSessionTabFromDelegate(
   session_tab->window_id.set_id(tab_delegate.GetWindowId());
   session_tab->tab_id.set_id(tab_delegate.GetSessionId());
   session_tab->tab_visual_index = 0;
-  session_tab->current_navigation_index = tab_delegate.GetCurrentEntryIndex();
+  // Use -1 to indicate that the index hasn't been set properly yet.
+  session_tab->current_navigation_index = -1;
   session_tab->pinned = tab_delegate.IsPinned();
   session_tab->extension_app_id = tab_delegate.GetExtensionAppId();
   session_tab->user_agent_override.clear();
@@ -926,12 +970,23 @@ void SessionsSyncManager::SetSessionTabFromDelegate(
     if (!entry->GetVirtualURL().is_valid())
       continue;
 
+    // Set current_navigation_index to the index in navigations.
+    if (i == current_index)
+      session_tab->current_navigation_index = session_tab->navigations.size();
+
     session_tab->navigations.push_back(
         SerializedNavigationEntry::FromNavigationEntry(i, *entry));
     if (is_supervised) {
       session_tab->navigations.back().set_blocked_state(
           SerializedNavigationEntry::STATE_ALLOWED);
     }
+  }
+
+  // If the current navigation is invalid, set the index to the end of the
+  // navigation array.
+  if (session_tab->current_navigation_index < 0) {
+    session_tab->current_navigation_index =
+        session_tab->navigations.size() - 1;
   }
 
   if (is_supervised) {
@@ -952,6 +1007,11 @@ void SessionsSyncManager::SetSessionTabFromDelegate(
 
 FaviconCache* SessionsSyncManager::GetFaviconCache() {
   return &favicon_cache_;
+}
+
+SyncedWindowDelegatesGetter*
+SessionsSyncManager::GetSyncedWindowDelegatesGetter() const {
+  return synced_window_getter_.get();
 }
 
 void SessionsSyncManager::DoGarbageCollection() {

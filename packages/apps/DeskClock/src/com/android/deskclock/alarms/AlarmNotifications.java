@@ -72,17 +72,20 @@ public final class AlarmNotifications {
                 .setOngoing(false)
                 .setAutoCancel(false)
                 .setPriority(Notification.PRIORITY_DEFAULT)
-                .setCategory(Notification.CATEGORY_ALARM);
+                .setCategory(Notification.CATEGORY_ALARM)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setLocalOnly(true);
 
         // Setup up hide notification
-        Intent hideIntent = AlarmStateManager.createStateChangeIntent(context, "DELETE_TAG",
-                instance, AlarmInstance.HIDE_NOTIFICATION_STATE);
+        Intent hideIntent = AlarmStateManager.createStateChangeIntent(context,
+                AlarmStateManager.ALARM_DELETE_TAG, instance,
+                AlarmInstance.HIDE_NOTIFICATION_STATE);
         notification.setDeleteIntent(PendingIntent.getBroadcast(context, instance.hashCode(),
                 hideIntent, PendingIntent.FLAG_UPDATE_CURRENT));
 
         // Setup up dismiss action
-        Intent dismissIntent = AlarmStateManager.createStateChangeIntent(context, "DISMISS_TAG",
-                instance, AlarmInstance.DISMISSED_STATE);
+        Intent dismissIntent = AlarmStateManager.createStateChangeIntent(context,
+                AlarmStateManager.ALARM_DISMISS_TAG, instance, AlarmInstance.DISMISSED_STATE);
         notification.addAction(R.drawable.ic_alarm_off_black,
                 resources.getString(R.string.alarm_alert_dismiss_now_text),
                 PendingIntent.getBroadcast(context, instance.hashCode(),
@@ -110,11 +113,13 @@ public final class AlarmNotifications {
                 .setOngoing(true)
                 .setAutoCancel(false)
                 .setPriority(Notification.PRIORITY_HIGH)
-                .setCategory(Notification.CATEGORY_ALARM);
+                .setCategory(Notification.CATEGORY_ALARM)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setLocalOnly(true);
 
         // Setup up dismiss action
-        Intent dismissIntent = AlarmStateManager.createStateChangeIntent(context, "DISMISS_TAG",
-                instance, AlarmInstance.DISMISSED_STATE);
+        Intent dismissIntent = AlarmStateManager.createStateChangeIntent(context,
+                AlarmStateManager.ALARM_DISMISS_TAG, instance, AlarmInstance.DISMISSED_STATE);
         notification.addAction(R.drawable.ic_alarm_off_black,
                 resources.getString(R.string.alarm_alert_dismiss_now_text),
                 PendingIntent.getBroadcast(context, instance.hashCode(),
@@ -143,11 +148,13 @@ public final class AlarmNotifications {
                 .setOngoing(true)
                 .setAutoCancel(false)
                 .setPriority(Notification.PRIORITY_MAX)
-                .setCategory(Notification.CATEGORY_ALARM);
+                .setCategory(Notification.CATEGORY_ALARM)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setLocalOnly(true);
 
         // Setup up dismiss action
-        Intent dismissIntent = AlarmStateManager.createStateChangeIntent(context, "DISMISS_TAG",
-                instance, AlarmInstance.DISMISSED_STATE);
+        Intent dismissIntent = AlarmStateManager.createStateChangeIntent(context,
+                AlarmStateManager.ALARM_DISMISS_TAG, instance, AlarmInstance.DISMISSED_STATE);
         notification.addAction(R.drawable.ic_alarm_off_black,
                 resources.getString(R.string.alarm_alert_dismiss_text),
                 PendingIntent.getBroadcast(context, instance.hashCode(),
@@ -175,11 +182,13 @@ public final class AlarmNotifications {
                 .setContentText(contextText)
                 .setSmallIcon(R.drawable.stat_notify_alarm)
                 .setPriority(Notification.PRIORITY_HIGH)
-                .setCategory(Notification.CATEGORY_ALARM);
+                .setCategory(Notification.CATEGORY_ALARM)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setLocalOnly(true);
 
         // Setup dismiss intent
-        Intent dismissIntent = AlarmStateManager.createStateChangeIntent(context, "DISMISS_TAG",
-                instance, AlarmInstance.DISMISSED_STATE);
+        Intent dismissIntent = AlarmStateManager.createStateChangeIntent(context,
+                AlarmStateManager.ALARM_DISMISS_TAG, instance, AlarmInstance.DISMISSED_STATE);
         notification.setDeleteIntent(PendingIntent.getBroadcast(context, instance.hashCode(),
                 dismissIntent, PendingIntent.FLAG_UPDATE_CURRENT));
 
@@ -211,11 +220,13 @@ public final class AlarmNotifications {
                 .setAutoCancel(false)
                 .setDefaults(Notification.DEFAULT_LIGHTS)
                 .setWhen(0)
-                .setCategory(Notification.CATEGORY_ALARM);
+                .setCategory(Notification.CATEGORY_ALARM)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setLocalOnly(true);
 
         // Setup Snooze Action
-        Intent snoozeIntent = AlarmStateManager.createStateChangeIntent(context, "SNOOZE_TAG",
-                instance, AlarmInstance.SNOOZE_STATE);
+        Intent snoozeIntent = AlarmStateManager.createStateChangeIntent(context,
+                AlarmStateManager.ALARM_SNOOZE_TAG, instance, AlarmInstance.SNOOZE_STATE);
         PendingIntent snoozePendingIntent = PendingIntent.getBroadcast(context, instance.hashCode(),
                 snoozeIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT);
@@ -223,8 +234,8 @@ public final class AlarmNotifications {
                 resources.getString(R.string.alarm_alert_snooze_text), snoozePendingIntent);
 
         // Setup Dismiss Action
-        Intent dismissIntent = AlarmStateManager.createStateChangeIntent(context, "DISMISS_TAG",
-                instance, AlarmInstance.DISMISSED_STATE);
+        Intent dismissIntent = AlarmStateManager.createStateChangeIntent(context,
+                AlarmStateManager.ALARM_DISMISS_TAG, instance, AlarmInstance.DISMISSED_STATE);
         PendingIntent dismissPendingIntent = PendingIntent.getBroadcast(context,
                 instance.hashCode(), dismissIntent, PendingIntent.FLAG_UPDATE_CURRENT);
         notification.addAction(R.drawable.ic_alarm_off_black,

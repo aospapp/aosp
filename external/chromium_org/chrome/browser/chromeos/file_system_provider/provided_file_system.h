@@ -9,7 +9,9 @@
 #include "chrome/browser/chromeos/file_system_provider/provided_file_system_info.h"
 #include "chrome/browser/chromeos/file_system_provider/provided_file_system_interface.h"
 #include "chrome/browser/chromeos/file_system_provider/request_manager.h"
-#include "webkit/browser/fileapi/async_file_util.h"
+#include "storage/browser/fileapi/async_file_util.h"
+
+class Profile;
 
 namespace net {
 class IOBuffer;
@@ -26,45 +28,85 @@ class EventRouter;
 namespace chromeos {
 namespace file_system_provider {
 
+class NotificationManagerInterface;
+
 // Provided file system implementation. Forwards requests between providers and
 // clients.
 class ProvidedFileSystem : public ProvidedFileSystemInterface {
  public:
-  ProvidedFileSystem(extensions::EventRouter* event_router,
+  ProvidedFileSystem(Profile* profile,
                      const ProvidedFileSystemInfo& file_system_info);
   virtual ~ProvidedFileSystem();
 
   // ProvidedFileSystemInterface overrides.
-  virtual void RequestUnmount(
-      const fileapi::AsyncFileUtil::StatusCallback& callback) OVERRIDE;
-  virtual void GetMetadata(
+  virtual AbortCallback RequestUnmount(
+      const storage::AsyncFileUtil::StatusCallback& callback) OVERRIDE;
+  virtual AbortCallback GetMetadata(
       const base::FilePath& entry_path,
-      const fileapi::AsyncFileUtil::GetFileInfoCallback& callback) OVERRIDE;
-  virtual void ReadDirectory(
+      MetadataFieldMask fields,
+      const GetMetadataCallback& callback) OVERRIDE;
+  virtual AbortCallback ReadDirectory(
       const base::FilePath& directory_path,
-      const fileapi::AsyncFileUtil::ReadDirectoryCallback& callback) OVERRIDE;
-  virtual void OpenFile(const base::FilePath& file_path,
-                        OpenFileMode mode,
-                        bool create,
-                        const OpenFileCallback& callback) OVERRIDE;
-  virtual void CloseFile(
+      const storage::AsyncFileUtil::ReadDirectoryCallback& callback) OVERRIDE;
+  virtual AbortCallback OpenFile(const base::FilePath& file_path,
+                                 OpenFileMode mode,
+                                 const OpenFileCallback& callback) OVERRIDE;
+  virtual AbortCallback CloseFile(
       int file_handle,
-      const fileapi::AsyncFileUtil::StatusCallback& callback) OVERRIDE;
-  virtual void ReadFile(int file_handle,
-                        net::IOBuffer* buffer,
-                        int64 offset,
-                        int length,
-                        const ReadChunkReceivedCallback& callback) OVERRIDE;
+      const storage::AsyncFileUtil::StatusCallback& callback) OVERRIDE;
+  virtual AbortCallback ReadFile(
+      int file_handle,
+      net::IOBuffer* buffer,
+      int64 offset,
+      int length,
+      const ReadChunkReceivedCallback& callback) OVERRIDE;
+  virtual AbortCallback CreateDirectory(
+      const base::FilePath& directory_path,
+      bool recursive,
+      const storage::AsyncFileUtil::StatusCallback& callback) OVERRIDE;
+  virtual AbortCallback DeleteEntry(
+      const base::FilePath& entry_path,
+      bool recursive,
+      const storage::AsyncFileUtil::StatusCallback& callback) OVERRIDE;
+  virtual AbortCallback CreateFile(
+      const base::FilePath& file_path,
+      const storage::AsyncFileUtil::StatusCallback& callback) OVERRIDE;
+  virtual AbortCallback CopyEntry(
+      const base::FilePath& source_path,
+      const base::FilePath& target_path,
+      const storage::AsyncFileUtil::StatusCallback& callback) OVERRIDE;
+  virtual AbortCallback MoveEntry(
+      const base::FilePath& source_path,
+      const base::FilePath& target_path,
+      const storage::AsyncFileUtil::StatusCallback& callback) OVERRIDE;
+  virtual AbortCallback Truncate(
+      const base::FilePath& file_path,
+      int64 length,
+      const storage::AsyncFileUtil::StatusCallback& callback) OVERRIDE;
+  virtual AbortCallback WriteFile(
+      int file_handle,
+      net::IOBuffer* buffer,
+      int64 offset,
+      int length,
+      const storage::AsyncFileUtil::StatusCallback& callback) OVERRIDE;
   virtual const ProvidedFileSystemInfo& GetFileSystemInfo() const OVERRIDE;
   virtual RequestManager* GetRequestManager() OVERRIDE;
   virtual base::WeakPtr<ProvidedFileSystemInterface> GetWeakPtr() OVERRIDE;
 
  private:
-  extensions::EventRouter* event_router_;
-  RequestManager request_manager_;
-  ProvidedFileSystemInfo file_system_info_;
+  // Aborts an operation executed with a request id equal to
+  // |operation_request_id|. The request is removed immediately on the C++ side
+  // despite being handled by the providing extension or not.
+  void Abort(int operation_request_id,
+             const storage::AsyncFileUtil::StatusCallback& callback);
 
-  base::WeakPtrFactory<ProvidedFileSystemInterface> weak_ptr_factory_;
+  Profile* profile_;                       // Not owned.
+  extensions::EventRouter* event_router_;  // Not owned. May be NULL.
+  ProvidedFileSystemInfo file_system_info_;
+  scoped_ptr<NotificationManagerInterface> notification_manager_;
+  RequestManager request_manager_;
+
+  base::WeakPtrFactory<ProvidedFileSystem> weak_ptr_factory_;
   DISALLOW_COPY_AND_ASSIGN(ProvidedFileSystem);
 };
 

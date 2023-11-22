@@ -28,6 +28,7 @@ import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
@@ -1014,6 +1015,24 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
         }
     }
 
+    private void checkAntiBandingMode(CaptureRequest.Builder request, int template) {
+        if (template == CameraDevice.TEMPLATE_MANUAL) {
+            return;
+        }
+
+        List<Integer> availableAntiBandingModes =
+                Arrays.asList(toObject(mStaticInfo.getAeAvailableAntiBandingModesChecked()));
+
+        if (availableAntiBandingModes.contains(CameraMetadata.CONTROL_AE_ANTIBANDING_MODE_AUTO)) {
+            mCollector.expectKeyValueEquals(request, CONTROL_AE_ANTIBANDING_MODE,
+                    CameraMetadata.CONTROL_AE_ANTIBANDING_MODE_AUTO);
+        } else {
+            mCollector.expectKeyValueIsIn(request, CONTROL_AE_ANTIBANDING_MODE,
+                    CameraMetadata.CONTROL_AE_ANTIBANDING_MODE_50HZ,
+                    CameraMetadata.CONTROL_AE_ANTIBANDING_MODE_60HZ);
+        }
+    }
+
     /**
      * <p>Check if 3A metering settings are "up to HAL" in request template</p>
      *
@@ -1058,6 +1077,7 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
 
         checkAfMode(request, template, props);
         checkFpsRange(request, template, props);
+        checkAntiBandingMode(request, template);
 
         if (template == CameraDevice.TEMPLATE_MANUAL) {
             mCollector.expectKeyValueEquals(request, CONTROL_MODE, CaptureRequest.CONTROL_MODE_OFF);
@@ -1068,8 +1088,6 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
         } else {
             mCollector.expectKeyValueEquals(request, CONTROL_AE_MODE,
                     CaptureRequest.CONTROL_AE_MODE_ON);
-            mCollector.expectKeyValueNotEquals(request, CONTROL_AE_ANTIBANDING_MODE,
-                    CaptureRequest.CONTROL_AE_ANTIBANDING_MODE_OFF);
             mCollector.expectKeyValueEquals(request, CONTROL_AE_EXPOSURE_COMPENSATION, 0);
             mCollector.expectKeyValueEquals(request, CONTROL_AE_LOCK, false);
             mCollector.expectKeyValueEquals(request, CONTROL_AE_PRECAPTURE_TRIGGER,

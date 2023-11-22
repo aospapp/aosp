@@ -8,12 +8,12 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/synchronization/lock.h"
 #include "cc/base/switches.h"
+#include "cc/blink/web_layer_impl.h"
 #include "cc/input/input_handler.h"
 #include "cc/layers/layer.h"
 #include "cc/output/output_surface.h"
 #include "cc/test/test_context_provider.h"
 #include "cc/trees/layer_tree_host.h"
-#include "content/renderer/compositor_bindings/web_layer_impl.h"
 #include "content/test/test_webkit_platform_support.h"
 #include "third_party/WebKit/public/platform/Platform.h"
 #include "third_party/WebKit/public/platform/WebGraphicsContext3D.h"
@@ -42,8 +42,8 @@ void WebLayerTreeViewImplForTesting::Initialize() {
 
   // Accelerated animations are enabled for unit tests.
   settings.accelerated_animation_enabled = true;
-  layer_tree_host_ =
-      cc::LayerTreeHost::CreateSingleThreaded(this, this, NULL, settings);
+  layer_tree_host_ = cc::LayerTreeHost::CreateSingleThreaded(
+      this, this, NULL, settings, base::MessageLoopProxy::current());
   DCHECK(layer_tree_host_);
 }
 
@@ -54,7 +54,7 @@ void WebLayerTreeViewImplForTesting::setSurfaceReady() {
 void WebLayerTreeViewImplForTesting::setRootLayer(
     const blink::WebLayer& root) {
   layer_tree_host_->SetRootLayer(
-      static_cast<const WebLayerImpl*>(&root)->layer());
+      static_cast<const cc_blink::WebLayerImpl*>(&root)->layer());
 }
 
 void WebLayerTreeViewImplForTesting::clearRootLayer() {
@@ -137,14 +137,15 @@ void WebLayerTreeViewImplForTesting::setDeferCommits(bool defer_commits) {
 void WebLayerTreeViewImplForTesting::Layout() {
 }
 
-void WebLayerTreeViewImplForTesting::ApplyScrollAndScale(
+void WebLayerTreeViewImplForTesting::ApplyViewportDeltas(
     const gfx::Vector2d& scroll_delta,
-    float page_scale) {}
+    float page_scale,
+    float top_controls_delta) {}
 
-scoped_ptr<cc::OutputSurface>
-WebLayerTreeViewImplForTesting::CreateOutputSurface(bool fallback) {
-  return make_scoped_ptr(
-      new cc::OutputSurface(cc::TestContextProvider::Create()));
+void WebLayerTreeViewImplForTesting::RequestNewOutputSurface(
+    bool fallback) {
+  layer_tree_host_->SetOutputSurface(make_scoped_ptr(
+      new cc::OutputSurface(cc::TestContextProvider::Create())));
 }
 
 void WebLayerTreeViewImplForTesting::registerViewportLayers(
@@ -152,19 +153,28 @@ void WebLayerTreeViewImplForTesting::registerViewportLayers(
     const blink::WebLayer* innerViewportScrollLayer,
     const blink::WebLayer* outerViewportScrollLayer) {
   layer_tree_host_->RegisterViewportLayers(
-      static_cast<const WebLayerImpl*>(pageScaleLayer)->layer(),
-      static_cast<const WebLayerImpl*>(innerViewportScrollLayer)->layer(),
+      static_cast<const cc_blink::WebLayerImpl*>(pageScaleLayer)->layer(),
+      static_cast<const cc_blink::WebLayerImpl*>(innerViewportScrollLayer)
+          ->layer(),
       // The outer viewport layer will only exist when using pinch virtual
       // viewports.
-      outerViewportScrollLayer
-          ? static_cast<const WebLayerImpl*>(outerViewportScrollLayer)->layer()
-          : NULL);
+      outerViewportScrollLayer ? static_cast<const cc_blink::WebLayerImpl*>(
+                                     outerViewportScrollLayer)->layer()
+                               : NULL);
 }
 
 void WebLayerTreeViewImplForTesting::clearViewportLayers() {
   layer_tree_host_->RegisterViewportLayers(scoped_refptr<cc::Layer>(),
                                            scoped_refptr<cc::Layer>(),
                                            scoped_refptr<cc::Layer>());
+}
+
+void WebLayerTreeViewImplForTesting::registerSelection(
+    const blink::WebSelectionBound& start,
+    const blink::WebSelectionBound& end) {
+}
+
+void WebLayerTreeViewImplForTesting::clearSelection() {
 }
 
 }  // namespace content

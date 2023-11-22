@@ -4,16 +4,14 @@
 
 #include "chrome/browser/content_settings/cookie_settings.h"
 
-#include "base/command_line.h"
 #include "base/prefs/pref_service.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/content_settings/content_settings_utils.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/browser/profiles/incognito_helpers.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/common/chrome_switches.h"
-#include "chrome/common/content_settings_pattern.h"
 #include "chrome/common/pref_names.h"
+#include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/pref_registry/pref_registry_syncable.h"
@@ -185,12 +183,12 @@ ContentSetting CookieSettings::GetCookieSetting(
 
   // First get any host-specific settings.
   content_settings::SettingInfo info;
-  scoped_ptr<base::Value> value(host_content_settings_map_->GetWebsiteSetting(
+  scoped_ptr<base::Value> value = host_content_settings_map_->GetWebsiteSetting(
       url,
       first_party_url,
       CONTENT_SETTINGS_TYPE_COOKIES,
       std::string(),
-      &info));
+      &info);
   if (source)
     *source = info.source;
 

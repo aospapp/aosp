@@ -16,7 +16,10 @@
 
 /* Original code copied from NDK Native-media sample code */
 
-#undef NDEBUG
+//#define LOG_NDEBUG 0
+#define TAG "NativeMedia"
+#include <log/log.h>
+
 #include <assert.h>
 #include <jni.h>
 #include <pthread.h>
@@ -26,13 +29,6 @@
 #include <semaphore.h>
 
 #include <android/native_window_jni.h>
-
-// for __android_log_print(ANDROID_LOG_INFO, "YourApp", "formatted message");
-#include <android/log.h>
-#define TAG "NativeMedia"
-#define ALOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, TAG, __VA_ARGS__)
-#define ALOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
-#define ALOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 
 #include "ndk/NdkMediaExtractor.h"
 #include "ndk/NdkMediaCodec.h"

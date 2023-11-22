@@ -12,12 +12,14 @@ score is a indicator for the browser's ability to smoothly run HTML5 games."""
 
 import os
 
-from telemetry import test
-from telemetry.page import page_measurement
+from telemetry import benchmark
 from telemetry.page import page_set
+from telemetry.page import page_test
+from telemetry.value import scalar
 
-class _HTML5GamingMeasurement(page_measurement.PageMeasurement):
-  def MeasurePage(self, _, tab, results):
+
+class _HTML5GamingMeasurement(page_test.PageTest):
+  def ValidateAndMeasurePage(self, _, tab, results):
     tab.ExecuteJavaScript('benchmark();')
     # Default value of score element is 87485, its value is updated with actual
     # score when test finish.
@@ -25,10 +27,13 @@ class _HTML5GamingMeasurement(page_measurement.PageMeasurement):
         'document.getElementById("score").innerHTML != "87485"', 200)
     result = int(tab.EvaluateJavaScript(
         'document.getElementById("score").innerHTML'))
-    results.Add('Score', 'score', result)
+    results.AddValue(
+        scalar.ScalarValue(results.current_page, 'Score', 'score', result))
 
 
-class HTML5Gaming(test.Test):
+
+@benchmark.Disabled
+class HTML5Gaming(benchmark.Benchmark):
   """Imapct HTML5 smooth running games benchmark suite."""
   test = _HTML5GamingMeasurement
   def CreatePageSet(self, options):

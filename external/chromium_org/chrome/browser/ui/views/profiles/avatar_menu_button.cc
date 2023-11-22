@@ -20,6 +20,7 @@
 #include "components/signin/core/common/profile_management_switches.h"
 #include "content/public/browser/notification_service.h"
 #include "ui/gfx/canvas.h"
+#include "ui/views/view_targeter.h"
 #include "ui/views/widget/widget.h"
 
 static inline int Round(double x) {
@@ -34,9 +35,13 @@ AvatarMenuButton::AvatarMenuButton(Browser* browser, bool disabled)
       browser_(browser),
       disabled_(disabled),
       is_rectangle_(false),
-      old_height_(0) {
+      old_height_(0),
+      button_on_right_(false) {
   // In RTL mode, the avatar icon should be looking the opposite direction.
   EnableCanvasFlippingForRTLUI(true);
+
+  SetEventTargeter(
+      scoped_ptr<views::ViewTargeter>(new views::ViewTargeter(this)));
 }
 
 AvatarMenuButton::~AvatarMenuButton() {
@@ -77,16 +82,20 @@ void AvatarMenuButton::OnPaint(gfx::Canvas* canvas) {
       button_icon_.height(), dst_x, dst_y, dst_width, dst_height, false);
 }
 
-bool AvatarMenuButton::HitTestRect(const gfx::Rect& rect) const {
-  return !disabled_ && views::MenuButton::HitTestRect(rect);
-}
-
 void AvatarMenuButton::SetAvatarIcon(const gfx::Image& icon,
                                      bool is_rectangle) {
   icon_.reset(new gfx::Image(icon));
   button_icon_ = gfx::ImageSkia();
   is_rectangle_ = is_rectangle;
   SchedulePaint();
+}
+
+// views::ViewTargeterDelegate:
+bool AvatarMenuButton::DoesIntersectRect(const views::View* target,
+                                         const gfx::Rect& rect) const {
+  CHECK_EQ(target, this);
+  return !disabled_ &&
+         views::ViewTargeterDelegate::DoesIntersectRect(target, rect);
 }
 
 // views::MenuButtonListener implementation

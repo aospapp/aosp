@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 #include "content/renderer/media/peer_connection_tracker.h"
 
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "content/common/media/peer_connection_tracker_messages.h"
 #include "content/renderer/media/rtc_media_constraints.h"
@@ -34,6 +35,29 @@ static string SerializeServers(
   }
   result += "]";
   return result;
+}
+
+static RTCMediaConstraints GetNativeMediaConstraints(
+    const blink::WebMediaConstraints& constraints) {
+  RTCMediaConstraints native_constraints;
+
+  if (constraints.isNull())
+    return native_constraints;
+
+  blink::WebVector<blink::WebMediaConstraint> mandatory;
+  constraints.getMandatoryConstraints(mandatory);
+  for (size_t i = 0; i < mandatory.size(); ++i) {
+    native_constraints.AddMandatory(
+        mandatory[i].m_name.utf8(), mandatory[i].m_value.utf8(), false);
+  }
+
+  blink::WebVector<blink::WebMediaConstraint> optional;
+  constraints.getOptionalConstraints(optional);
+  for (size_t i = 0; i < optional.size(); ++i) {
+    native_constraints.AddOptional(
+        optional[i].m_name.utf8(), optional[i].m_value.utf8(), false);
+  }
+  return native_constraints;
 }
 
 static string SerializeMediaConstraints(
@@ -96,6 +120,28 @@ static string SerializeMediaDescriptor(
     result += "]";
   }
   return result;
+}
+
+static std::string SerializeIceTransportType(
+    webrtc::PeerConnectionInterface::IceTransportsType type) {
+  string transport_type;
+  switch (type) {
+  case webrtc::PeerConnectionInterface::kNone:
+    transport_type = "none";
+    break;
+  case webrtc::PeerConnectionInterface::kRelay:
+    transport_type = "relay";
+    break;
+  case webrtc::PeerConnectionInterface::kAll:
+    transport_type = "all";
+    break;
+  case webrtc::PeerConnectionInterface::kNoHost:
+    transport_type = "noHost";
+    break;
+  default:
+    NOTREACHED();
+  };
+  return transport_type;
 }
 
 #define GET_STRING_OF_STATE(state)                \
@@ -169,7 +215,7 @@ static base::DictionaryValue* GetDictValueStats(
   dict->Set("values", values);
 
   for (size_t i = 0; i < report.values.size(); ++i) {
-    values->AppendString(report.values[i].name);
+    values->AppendString(report.values[i].display_name());
     values->AppendString(report.values[i].value);
   }
   return dict;
@@ -233,6 +279,7 @@ bool PeerConnectionTracker::OnControlMessageReceived(
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(PeerConnectionTracker, message)
     IPC_MESSAGE_HANDLER(PeerConnectionTracker_GetAllStats, OnGetAllStats)
+    IPC_MESSAGE_HANDLER(PeerConnectionTracker_OnSuspend, OnSuspend)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
@@ -242,8 +289,8 @@ void PeerConnectionTracker::OnGetAllStats() {
   for (PeerConnectionIdMap::iterator it = peer_connection_id_map_.begin();
        it != peer_connection_id_map_.end(); ++it) {
 
-    talk_base::scoped_refptr<InternalStatsObserver> observer(
-        new talk_base::RefCountedObject<InternalStatsObserver>(it->second));
+    rtc::scoped_refptr<InternalStatsObserver> observer(
+        new rtc::RefCountedObject<InternalStatsObserver>(it->second));
 
     it->first->GetStats(
         observer,
@@ -252,16 +299,26 @@ void PeerConnectionTracker::OnGetAllStats() {
   }
 }
 
+void PeerConnectionTracker::OnSuspend() {
+  for (PeerConnectionIdMap::iterator it = peer_connection_id_map_.begin();
+       it != peer_connection_id_map_.end(); ++it) {
+    it->first->CloseClientPeerConnection();
+  }
+}
+
 void PeerConnectionTracker::RegisterPeerConnection(
     RTCPeerConnectionHandler* pc_handler,
-    const std::vector<webrtc::PeerConnectionInterface::IceServer>& servers,
+    const webrtc::PeerConnectionInterface::RTCConfiguration& config,
     const RTCMediaConstraints& constraints,
     const blink::WebFrame* frame) {
   DVLOG(1) << "PeerConnectionTracker::RegisterPeerConnection()";
   PeerConnectionInfo info;
 
   info.lid = GetNextLocalID();
-  info.servers = SerializeServers(servers);
+  info.rtc_configuration =
+      "{ servers: " +  SerializeServers(config.servers) + ", " +
+      "iceTransportType: " + SerializeIceTransportType(config.type) + " }";
+
   info.constraints = SerializeMediaConstraints(constraints);
   info.url = frame->document().url().spec();
   RenderThreadImpl::current()->Send(
@@ -323,25 +380,41 @@ void PeerConnectionTracker::TrackSetSessionDescription(
 
 void PeerConnectionTracker::TrackUpdateIce(
       RTCPeerConnectionHandler* pc_handler,
-      const std::vector<webrtc::PeerConnectionInterface::IceServer>& servers,
+      const webrtc::PeerConnectionInterface::RTCConfiguration& config,
       const RTCMediaConstraints& options) {
-  string servers_string = "servers: " + SerializeServers(servers);
+  string servers_string = "servers: " + SerializeServers(config.servers);
+
+  string transport_type =
+      "iceTransportType: " + SerializeIceTransportType(config.type);
+
   string constraints =
       "constraints: {" + SerializeMediaConstraints(options) + "}";
 
   SendPeerConnectionUpdate(
-      pc_handler, "updateIce", servers_string + ", " + constraints);
+      pc_handler,
+      "updateIce",
+      servers_string + ", " + transport_type + ", " + constraints);
 }
 
 void PeerConnectionTracker::TrackAddIceCandidate(
       RTCPeerConnectionHandler* pc_handler,
       const blink::WebRTCICECandidate& candidate,
-      Source source) {
-  string value = "mid: " + base::UTF16ToUTF8(candidate.sdpMid()) + ", " +
-                 "candidate: " + base::UTF16ToUTF8(candidate.candidate());
-  SendPeerConnectionUpdate(
-      pc_handler,
-      source == SOURCE_LOCAL ? "onIceCandidate" : "addIceCandidate", value);
+      Source source,
+      bool succeeded) {
+  string value =
+      "sdpMid: " + base::UTF16ToUTF8(candidate.sdpMid()) + ", " +
+      "sdpMLineIndex: " + base::IntToString(candidate.sdpMLineIndex()) + ", " +
+      "candidate: " + base::UTF16ToUTF8(candidate.candidate());
+
+  // OnIceCandidate always succeeds as it's a callback from the browser.
+  DCHECK(source != SOURCE_LOCAL || succeeded);
+
+  string event =
+      (source == SOURCE_LOCAL) ? "onIceCandidate"
+                               : (succeeded ? "addIceCandidate"
+                                            : "addIceCandidateFailed");
+
+  SendPeerConnectionUpdate(pc_handler, event, value);
 }
 
 void PeerConnectionTracker::TrackAddStream(
@@ -441,8 +514,10 @@ void PeerConnectionTracker::TrackCreateDTMFSender(
 
 void PeerConnectionTracker::TrackGetUserMedia(
     const blink::WebUserMediaRequest& user_media_request) {
-  RTCMediaConstraints audio_constraints(user_media_request.audioConstraints());
-  RTCMediaConstraints video_constraints(user_media_request.videoConstraints());
+  RTCMediaConstraints audio_constraints(
+      GetNativeMediaConstraints(user_media_request.audioConstraints()));
+  RTCMediaConstraints video_constraints(
+      GetNativeMediaConstraints(user_media_request.videoConstraints()));
 
   RenderThreadImpl::current()->Send(new PeerConnectionTrackerHost_GetUserMedia(
       user_media_request.securityOrigin().toString().utf8(),

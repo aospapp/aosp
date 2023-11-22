@@ -5,12 +5,15 @@
 #include "chrome/browser/browsing_data/browsing_data_helper.h"
 
 #include "base/strings/stringprintf.h"
-#include "chrome/browser/extensions/mock_extension_special_storage_policy.h"
 #include "chrome/common/url_constants.h"
 #include "extensions/common/constants.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
+
+#if defined(ENABLE_EXTENSIONS)
+#include "chrome/browser/extensions/mock_extension_special_storage_policy.h"
+#endif
 
 namespace {
 
@@ -49,7 +52,7 @@ class BrowsingDataHelperTest : public testing::Test {
 
   bool Match(const GURL& origin,
              int mask,
-             ExtensionSpecialStoragePolicy* policy) {
+             storage::SpecialStoragePolicy* policy) {
     return BrowsingDataHelper::DoesOriginMatchMask(origin, mask, policy);
   }
 
@@ -104,6 +107,7 @@ TEST_F(BrowsingDataHelperTest, ChromeSchemesAreNotAllExtension) {
   EXPECT_FALSE(IsExtensionScheme(content::kViewSourceScheme));
 }
 
+#if defined(ENABLE_EXTENSIONS)
 TEST_F(BrowsingDataHelperTest, TestMatches) {
   scoped_refptr<MockExtensionSpecialStoragePolicy> mock_policy =
       new MockExtensionSpecialStoragePolicy;
@@ -152,6 +156,22 @@ TEST_F(BrowsingDataHelperTest, TestMatches) {
   EXPECT_FALSE(Match(kOriginDevTools,
                      kUnprotected | kProtected | kExtension,
                      mock_policy.get()));
+}
+#endif
+
+// If extensions are disabled, there is no policy.
+TEST_F(BrowsingDataHelperTest, TestNoPolicyMatches) {
+  EXPECT_FALSE(Match(kOrigin1, kExtension, NULL));
+  EXPECT_TRUE(Match(kOrigin1, kUnprotected, NULL));
+  EXPECT_FALSE(Match(kOrigin1, kProtected, NULL));
+
+  EXPECT_TRUE(Match(kOriginExt, kExtension, NULL));
+  EXPECT_FALSE(Match(kOriginExt, kUnprotected, NULL));
+  EXPECT_FALSE(Match(kOriginExt, kProtected, NULL));
+
+  EXPECT_FALSE(Match(kOriginDevTools, kExtension, NULL));
+  EXPECT_FALSE(Match(kOriginDevTools, kUnprotected, NULL));
+  EXPECT_FALSE(Match(kOriginDevTools, kProtected, NULL));
 }
 
 }  // namespace

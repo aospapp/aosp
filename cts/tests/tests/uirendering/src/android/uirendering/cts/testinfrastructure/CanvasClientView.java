@@ -19,6 +19,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.util.AttributeSet;
 import android.view.View;
 
 /**
@@ -26,14 +27,21 @@ import android.view.View;
  */
 public class CanvasClientView extends View {
     private CanvasClient mCanvasClient;
-    private int mWidth;
-    private int mHeight;
 
-    public CanvasClientView(Context context, CanvasClient canvasClient, int width, int height) {
+    public CanvasClientView(Context context) {
         super(context);
+    }
+
+    public CanvasClientView(Context context, AttributeSet attrs) {
+        super(context, attrs);
+    }
+
+    public CanvasClientView(Context context, AttributeSet attrs, int defStyleAttr) {
+        super(context, attrs, defStyleAttr);
+    }
+
+    public void setCanvasClient(CanvasClient canvasClient) {
         mCanvasClient = canvasClient;
-        mWidth = width;
-        mHeight = height;
     }
 
     @Override
@@ -45,11 +53,11 @@ public class CanvasClientView extends View {
             paint.setTextSize(20);
             canvas.drawText(s, 200, 200, paint);
         }
-        if (mCanvasClient != null) {
-            canvas.save();
-            canvas.clipRect(0, 0, mWidth, mHeight);
-            mCanvasClient.draw(canvas, mWidth, mHeight);
-            canvas.restore();
-        }
+        if (mCanvasClient == null) throw new IllegalStateException("Canvas client missing");
+
+        canvas.save();
+        canvas.clipRect(0, 0, ActivityTestBase.TEST_WIDTH, ActivityTestBase.TEST_HEIGHT);
+        mCanvasClient.draw(canvas, ActivityTestBase.TEST_WIDTH, ActivityTestBase.TEST_HEIGHT);
+        canvas.restore();
     }
 }

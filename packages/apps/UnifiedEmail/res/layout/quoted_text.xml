@@ -23,7 +23,7 @@
 
     <View android:id="@+id/upper_quotedtext_divider_bar"
         android:visibility="gone"
-        style="@style/RecipientComposeFieldSpacer" />
+        style="@style/DefaultDividerStyle" />
 
     <LinearLayout android:id="@+id/quoted_text_button_bar"
         android:layout_width="match_parent"
@@ -52,14 +52,14 @@
             android:background="?android:attr/selectableItemBackground"
             android:text="@string/respond_inline"
             android:textAllCaps="true"
-            android:textColor="@color/respond_inline_color"
+            android:textColor="@color/text_color_blue"
             android:textSize="14sp" />
 
     </LinearLayout>
 
     <View
         android:id="@+id/divider_bar"
-        style="@style/RecipientComposeFieldSpacer" />
+        style="@style/DefaultDividerStyle" />
 
     <WebView android:id="@+id/quoted_text_web_view"
         android:layout_height="wrap_content"

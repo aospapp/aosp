@@ -17,10 +17,13 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.support.v17.leanback.R;
 import android.support.v17.leanback.graphics.ColorOverlayDimmer;
+import android.support.v17.leanback.widget.RowPresenter.ViewHolder;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
+
+import java.util.HashMap;
 
 /**
  * ListRowPresenter renders {@link ListRow} using a
@@ -46,6 +49,8 @@ public class ListRowPresenter extends RowPresenter {
 
     private static final String TAG = "ListRowPresenter";
     private static final boolean DEBUG = false;
+
+    private static final int DEFAULT_RECYCLED_POOL_SIZE = 24;
 
     public static class ViewHolder extends RowPresenter.ViewHolder {
         final ListRowPresenter mListRowPresenter;
@@ -87,6 +92,7 @@ public class ListRowPresenter extends RowPresenter {
     private boolean mShadowEnabled = true;
     private int mBrowseRowsFadingEdgeLength = -1;
     private boolean mRoundedCornersEnabled = true;
+    private HashMap<Presenter, Integer> mRecycledPoolSize = new HashMap<Presenter, Integer>();
 
     private static int sSelectedRowTopPadding;
     private static int sExpandedSelectedRowTopPadding;
@@ -184,10 +190,6 @@ public class ListRowPresenter extends RowPresenter {
         }
         if (needsDefaultListSelectEffect()) {
             ShadowOverlayContainer.prepareParentForShadow(rowViewHolder.mGridView);
-            ((ViewGroup) rowViewHolder.view).setClipChildren(false);
-            if (rowViewHolder.mContainerViewHolder != null) {
-                ((ViewGroup) rowViewHolder.mContainerViewHolder.view).setClipChildren(false);
-            }
         }
         FocusHighlightHelper.setupBrowseItemFocusHighlight(rowViewHolder.mItemBridgeAdapter,
                 mZoomFactor, false);
@@ -242,13 +244,29 @@ public class ListRowPresenter extends RowPresenter {
 
             @Override
             public void onAddPresenter(Presenter presenter, int type) {
-                rowViewHolder.getGridView().getRecycledViewPool().setMaxRecycledViews(type, 24);
+                rowViewHolder.getGridView().getRecycledViewPool().setMaxRecycledViews(
+                        type, getRecycledPoolSize(presenter));
             }
         });
     }
 
     final boolean needsDefaultListSelectEffect() {
         return isUsingDefaultListSelectEffect() && getSelectEffectEnabled();
+    }
+
+    /**
+     * Sets the recycled pool size for the given presenter.
+     */
+    public void setRecycledPoolSize(Presenter presenter, int size) {
+        mRecycledPoolSize.put(presenter, size);
+    }
+
+    /**
+     * Returns the recycled pool size for the given presenter.
+     */
+    public int getRecycledPoolSize(Presenter presenter) {
+        return mRecycledPoolSize.containsKey(presenter) ? mRecycledPoolSize.get(presenter) :
+                DEFAULT_RECYCLED_POOL_SIZE;
     }
 
     /**
@@ -537,4 +555,11 @@ public class ListRowPresenter extends RowPresenter {
         vh.mGridView.setScrollEnabled(!freeze);
     }
 
+    @Override
+    public void setEntranceTransitionState(RowPresenter.ViewHolder holder,
+            boolean afterEntrance) {
+        super.setEntranceTransitionState(holder, afterEntrance);
+        ((ViewHolder) holder).mGridView.setChildrenVisibility(
+                afterEntrance? View.VISIBLE : View.INVISIBLE);
+    }
 }

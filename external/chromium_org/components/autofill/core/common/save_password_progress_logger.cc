@@ -39,14 +39,6 @@ std::string GetStringFromID(SavePasswordProgressLogger::StringID id) {
       return "Decision: DROP the password";
     case SavePasswordProgressLogger::STRING_DECISION_SAVE:
       return "Decision: SAVE the password";
-    case SavePasswordProgressLogger::STRING_METHOD:
-      return "Form method";
-    case SavePasswordProgressLogger::STRING_METHOD_GET:
-      return "GET";
-    case SavePasswordProgressLogger::STRING_METHOD_POST:
-      return "POST";
-    case SavePasswordProgressLogger::STRING_METHOD_EMPTY:
-      return "(empty)";
     case SavePasswordProgressLogger::STRING_OTHER:
       return "(other)";
     case SavePasswordProgressLogger::STRING_SCHEME_HTML:
@@ -71,8 +63,8 @@ std::string GetStringFromID(SavePasswordProgressLogger::StringID id) {
       return "Password element";
     case SavePasswordProgressLogger::STRING_PASSWORD_AUTOCOMPLETE_SET:
       return "Password autocomplete set";
-    case SavePasswordProgressLogger::STRING_OLD_PASSWORD_ELEMENT:
-      return "Old password element";
+    case SavePasswordProgressLogger::STRING_NEW_PASSWORD_ELEMENT:
+      return "New password element";
     case SavePasswordProgressLogger::STRING_SSL_VALID:
       return "SSL valid";
     case SavePasswordProgressLogger::STRING_PASSWORD_GENERATED:
@@ -137,14 +129,16 @@ std::string GetStringFromID(SavePasswordProgressLogger::StringID id) {
       return "Form manager found, exact match.";
     case SavePasswordProgressLogger::STRING_MATCH_WITHOUT_ACTION:
       return "Form manager found, match except for action.";
-    case SavePasswordProgressLogger::STRING_NO_FORM_MANAGER:
-      return "No form manager found.";
+    case SavePasswordProgressLogger::STRING_MATCHING_NOT_COMPLETE:
+      return "No form manager has completed matching.";
     case SavePasswordProgressLogger::STRING_FORM_BLACKLISTED:
       return "Form blacklisted.";
     case SavePasswordProgressLogger::STRING_INVALID_FORM:
       return "Invalid form.";
     case SavePasswordProgressLogger::STRING_AUTOCOMPLETE_OFF:
       return "Autocomplete=off.";
+    case SavePasswordProgressLogger::STRING_SYNC_CREDENTIAL:
+      return "Credential is used for syncing passwords.";
     case SavePasswordProgressLogger::STRING_PROVISIONALLY_SAVED_FORM:
       return "provisionally_saved_form";
     case SavePasswordProgressLogger::STRING_IGNORE_POSSIBLE_USERNAMES:
@@ -165,6 +159,8 @@ std::string GetStringFromID(SavePasswordProgressLogger::StringID id) {
       return "SSL errors present";
     case SavePasswordProgressLogger::STRING_ONLY_VISIBLE:
       return "only_visible";
+    case SavePasswordProgressLogger::STRING_SHOW_PASSWORD_PROMPT:
+      return "Show password prompt";
     case SavePasswordProgressLogger::STRING_INVALID:
       return "INVALID";
       // Intentionally no default: clause here -- all IDs need to get covered.
@@ -194,7 +190,7 @@ bool IsUnwantedInElementID(char c) {
 std::string ScrubElementID(std::string element_id) {
   std::replace_if(
       element_id.begin(), element_id.end(), IsUnwantedInElementID, ' ');
-  return StringToLowerASCII(element_id);
+  return base::StringToLowerASCII(element_id);
 }
 
 std::string ScrubElementID(const base::string16& element_id) {
@@ -218,21 +214,6 @@ std::string FormSchemeToString(PasswordForm::Scheme scheme) {
       result_id = SavePasswordProgressLogger::STRING_OTHER;
       break;
   }
-  return GetStringFromID(result_id);
-}
-
-std::string FormMethodToString(const std::string& method) {
-  std::string method_processed;
-  base::TrimWhitespaceASCII(
-      StringToLowerASCII(method), base::TRIM_ALL, &method_processed);
-  SavePasswordProgressLogger::StringID result_id =
-      SavePasswordProgressLogger::STRING_OTHER;
-  if (method_processed.empty())
-    result_id = SavePasswordProgressLogger::STRING_METHOD_EMPTY;
-  else if (method_processed == "get")
-    result_id = SavePasswordProgressLogger::STRING_METHOD_GET;
-  else if (method_processed == "post")
-    result_id = SavePasswordProgressLogger::STRING_METHOD_POST;
   return GetStringFromID(result_id);
 }
 
@@ -264,8 +245,8 @@ void SavePasswordProgressLogger::LogPasswordForm(
                 ScrubElementID(form.password_element));
   log.SetBoolean(GetStringFromID(STRING_PASSWORD_AUTOCOMPLETE_SET),
                  form.password_autocomplete_set);
-  log.SetString(GetStringFromID(STRING_OLD_PASSWORD_ELEMENT),
-                ScrubElementID(form.old_password_element));
+  log.SetString(GetStringFromID(STRING_NEW_PASSWORD_ELEMENT),
+                ScrubElementID(form.new_password_element));
   log.SetBoolean(GetStringFromID(STRING_SSL_VALID), form.ssl_valid);
   log.SetBoolean(GetStringFromID(STRING_PASSWORD_GENERATED),
                  form.type == PasswordForm::TYPE_GENERATED);
@@ -279,11 +260,9 @@ void SavePasswordProgressLogger::LogPasswordForm(
 void SavePasswordProgressLogger::LogHTMLForm(
     SavePasswordProgressLogger::StringID label,
     const std::string& name_or_id,
-    const std::string& method,
     const GURL& action) {
   DictionaryValue log;
   log.SetString(GetStringFromID(STRING_NAME_OR_ID), ScrubElementID(name_or_id));
-  log.SetString(GetStringFromID(STRING_METHOD), FormMethodToString(method));
   log.SetString(GetStringFromID(STRING_ACTION), ScrubURL(action));
   LogValue(label, log);
 }

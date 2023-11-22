@@ -14,7 +14,7 @@
 #include "components/autofill/core/browser/autofill_popup_delegate.h"
 #include "components/autofill/core/browser/popup_item_ids.h"
 #include "content/public/browser/native_web_keyboard_event.h"
-#include "grit/component_scaled_resources.h"
+#include "grit/components_scaled_resources.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/events/event.h"
 #include "ui/gfx/rect_conversions.h"
@@ -530,7 +530,8 @@ bool AutofillPopupControllerImpl::HasSuggestions() {
          (identifiers_[0] > 0 ||
           identifiers_[0] == POPUP_ITEM_ID_AUTOCOMPLETE_ENTRY ||
           identifiers_[0] == POPUP_ITEM_ID_PASSWORD_ENTRY ||
-          identifiers_[0] == POPUP_ITEM_ID_DATALIST_ENTRY);
+          identifiers_[0] == POPUP_ITEM_ID_DATALIST_ENTRY ||
+          identifiers_[0] == POPUP_ITEM_ID_MAC_ACCESS_CONTACTS);
 }
 
 void AutofillPopupControllerImpl::SetValues(
@@ -604,11 +605,11 @@ int AutofillPopupControllerImpl::RowWidthWithoutText(int row) const {
 }
 
 void AutofillPopupControllerImpl::UpdatePopupBounds() {
-  int popup_required_width = GetDesiredPopupWidth();
+  int popup_width = GetDesiredPopupWidth();
   int popup_height = GetDesiredPopupHeight();
 
-  popup_bounds_ = controller_common_->GetPopupBounds(popup_height,
-                                                     popup_required_width);
+  popup_bounds_ = controller_common_->GetPopupBounds(popup_width,
+                                                     popup_height);
 }
 #endif  // !defined(OS_ANDROID)
 

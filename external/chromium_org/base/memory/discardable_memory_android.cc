@@ -4,7 +4,6 @@
 
 #include "base/memory/discardable_memory.h"
 
-#include "base/android/sys_utils.h"
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/lazy_instance.h"
@@ -13,6 +12,7 @@
 #include "base/memory/discardable_memory_ashmem_allocator.h"
 #include "base/memory/discardable_memory_emulated.h"
 #include "base/memory/discardable_memory_malloc.h"
+#include "base/sys_info.h"
 
 namespace base {
 namespace {
@@ -26,16 +26,13 @@ const size_t kAshmemMemoryLimit = 512 * 1024 * 1024;
 size_t GetOptimalAshmemRegionSizeForAllocator() {
   // Note that this may do some I/O (without hitting the disk though) so it
   // should not be called on the critical path.
-  return base::android::SysUtils::AmountOfPhysicalMemoryKB() * 1024 / 8;
+  return base::SysInfo::AmountOfPhysicalMemory() / 8;
 }
 
 // Holds the shared state used for allocations.
 struct SharedState {
   SharedState()
-      : manager(kAshmemMemoryLimit,
-                kAshmemMemoryLimit,
-                kAshmemMemoryLimit,
-                TimeDelta::Max()),
+      : manager(kAshmemMemoryLimit, kAshmemMemoryLimit, TimeDelta::Max()),
         allocator(kAshmemAllocatorName,
                   GetOptimalAshmemRegionSizeForAllocator()) {}
 
@@ -45,16 +42,6 @@ struct SharedState {
 LazyInstance<SharedState>::Leaky g_shared_state = LAZY_INSTANCE_INITIALIZER;
 
 }  // namespace
-
-// static
-void DiscardableMemory::RegisterMemoryPressureListeners() {
-  internal::DiscardableMemoryEmulated::RegisterMemoryPressureListeners();
-}
-
-// static
-void DiscardableMemory::UnregisterMemoryPressureListeners() {
-  internal::DiscardableMemoryEmulated::UnregisterMemoryPressureListeners();
-}
 
 // static
 bool DiscardableMemory::ReduceMemoryUsage() {

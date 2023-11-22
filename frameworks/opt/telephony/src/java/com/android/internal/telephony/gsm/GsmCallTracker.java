@@ -46,6 +46,8 @@ import com.android.internal.telephony.gsm.CallFailCause;
 import com.android.internal.telephony.gsm.GSMPhone;
 import com.android.internal.telephony.gsm.GsmCall;
 import com.android.internal.telephony.gsm.GsmConnection;
+import com.android.internal.telephony.imsphone.ImsPhone;
+import com.android.internal.telephony.imsphone.ImsPhoneConnection;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -392,13 +394,16 @@ public final class GsmCallTracker extends CallTracker {
     private void
     updatePhoneState() {
         PhoneConstants.State oldState = mState;
-
         if (mRingingCall.isRinging()) {
             mState = PhoneConstants.State.RINGING;
         } else if (mPendingMO != null ||
                 !(mForegroundCall.isIdle() && mBackgroundCall.isIdle())) {
             mState = PhoneConstants.State.OFFHOOK;
         } else {
+            ImsPhone imsPhone = (ImsPhone)mPhone.getImsPhone();
+            if ( mState == PhoneConstants.State.OFFHOOK && (imsPhone != null)){
+                imsPhone.callEndCleanupHandOverCallIfAny();
+            }
             mState = PhoneConstants.State.IDLE;
         }
 
@@ -490,15 +495,17 @@ public final class GsmCallTracker extends CallTracker {
                 } else {
                     mConnections[i] = new GsmConnection(mPhone.getContext(), dc, this, i);
 
-                    // it's a ringing call
-                    if (mConnections[i].getCall() == mRingingCall) {
-                        newRinging = mConnections[i];
-                    } else if (mHandoverConnection != null) {
+                    Connection hoConnection = getHoConnection(dc);
+                    if (hoConnection != null) {
                         // Single Radio Voice Call Continuity (SRVCC) completed
-                        mPhone.migrateFrom((PhoneBase) mPhone.getImsPhone());
-                        mConnections[i].migrateFrom(mHandoverConnection);
+                        mConnections[i].migrateFrom(hoConnection);
+                        if (!hoConnection.isMultiparty()) {
+                            // Remove only if it is not multiparty
+                            mHandoverConnections.remove(hoConnection);
+                        }
                         mPhone.notifyHandoverStateChanged(mConnections[i]);
-                        mHandoverConnection = null;
+                    } else if ( mConnections[i].getCall() == mRingingCall ) { // it's a ringing call
+                        newRinging = mConnections[i];
                     } else {
                         // Something strange happened: a call appeared
                         // which is neither a ringing call or one we created.
@@ -611,6 +618,13 @@ public final class GsmCallTracker extends CallTracker {
                 mDroppedDuringPoll.remove(i);
                 hasAnyCallDisconnected |= conn.onDisconnect(conn.mCause);
             }
+        }
+
+        /* Disconnect any pending Handover connections */
+        for (Connection hoConnection : mHandoverConnections) {
+            log("handlePollCalls - disconnect hoConn= " + hoConnection.toString());
+            ((ImsPhoneConnection)hoConnection).onDisconnect(DisconnectCause.NOT_VALID);
+            mHandoverConnections.remove(hoConnection);
         }
 
         // Any non-local disconnects: determine cause
@@ -976,5 +990,9 @@ public final class GsmCallTracker extends CallTracker {
         pw.println(" mPhone=" + mPhone);
         pw.println(" mDesiredMute=" + mDesiredMute);
         pw.println(" mState=" + mState);
+    }
+    @Override
+    public PhoneConstants.State getState() {
+        return mState;
     }
 }

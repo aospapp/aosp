@@ -48,7 +48,6 @@ void SendWindowAccessibilityNotification(
   }
 }
 
-
 AccessibilityControlInfo::AccessibilityControlInfo(
     Profile* profile, const std::string& name)
     : AccessibilityEventInfo(profile),
@@ -64,6 +63,14 @@ void AccessibilityControlInfo::SerializeToDict(
   dict->SetString(keys::kTypeKey, type());
   if (!context_.empty())
     dict->SetString(keys::kContextKey, context_);
+  if (!bounds_.IsEmpty()) {
+    base::DictionaryValue* bounds_value = new base::DictionaryValue();
+    bounds_value->SetInteger(keys::kLeft, bounds_.x());
+    bounds_value->SetInteger(keys::kTop, bounds_.y());
+    bounds_value->SetInteger(keys::kWidth, bounds_.width());
+    bounds_value->SetInteger(keys::kHeight, bounds_.height());
+    dict->Set(keys::kBoundsKey, bounds_value);
+  }
 }
 
 AccessibilityWindowInfo::AccessibilityWindowInfo(Profile* profile,
@@ -84,6 +91,17 @@ AccessibilityButtonInfo::AccessibilityButtonInfo(Profile* profile,
 
 const char* AccessibilityButtonInfo::type() const {
   return keys::kTypeButton;
+}
+
+AccessibilityStaticTextInfo::AccessibilityStaticTextInfo(Profile* profile,
+                                                 const std::string& text,
+                                                 const std::string& context)
+    : AccessibilityControlInfo(profile, text) {
+  set_context(context);
+}
+
+const char* AccessibilityStaticTextInfo::type() const {
+  return keys::kTypeStaticText;
 }
 
 AccessibilityLinkInfo::AccessibilityLinkInfo(Profile* profile,

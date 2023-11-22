@@ -11,6 +11,7 @@
 #include "base/compiler_specific.h"  // OVERRIDE
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_ptr.h"
+#include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/animation/animation_delegate.h"
 
 namespace gfx {
@@ -36,7 +37,6 @@ class ASH_EXPORT DefaultHeaderPainter : public HeaderPainter,
   // DefaultHeaderPainter does not take ownership of any of the parameters.
   void Init(views::Widget* frame,
             views::View* header_view,
-            views::View* window_icon,
             FrameCaptionButtonContainerView* caption_button_container);
 
   // HeaderPainter overrides:
@@ -46,9 +46,10 @@ class ASH_EXPORT DefaultHeaderPainter : public HeaderPainter,
   virtual int GetHeaderHeightForPainting() const OVERRIDE;
   virtual void SetHeaderHeightForPainting(int height) OVERRIDE;
   virtual void SchedulePaintForTitle() OVERRIDE;
+  virtual void UpdateLeftViewXInset(int left_view_x_inset) OVERRIDE;
 
-  // Sets the window icon for the header. Passing NULL removes the window icon.
-  void UpdateWindowIcon(views::View* window_icon, int icon_size);
+  // Sets the left header view for the header. Passing NULL removes the view.
+  void UpdateLeftHeaderView(views::View* left_header_view);
 
  private:
   FRIEND_TEST_ALL_PREFIXES(DefaultHeaderPainterTest, TitleIconAlignment);
@@ -66,6 +67,12 @@ class ASH_EXPORT DefaultHeaderPainter : public HeaderPainter,
   // Paints the header/content separator.
   void PaintHeaderContentSeparator(gfx::Canvas* canvas);
 
+  // Layout the left header view.
+  void LayoutLeftHeaderView();
+
+  // Updates the size button's images.
+  void UpdateSizeButtonImages();
+
   // Returns the header bounds in the coordinates of |view_|. The header is
   // assumed to be positioned at the top left corner of |view_| and to have the
   // same width as |view_|.
@@ -74,16 +81,13 @@ class ASH_EXPORT DefaultHeaderPainter : public HeaderPainter,
   // Returns the bounds for the title.
   gfx::Rect GetTitleBounds() const;
 
-  // Returns the frame image to use when |frame_| is active.
-  gfx::ImageSkia* GetActiveFrameImage() const;
-
-  // Returns the frame image to use when |frame_| is inactive.
-  gfx::ImageSkia* GetInactiveFrameImage() const;
+  // Returns the frame color to use when |frame_| is inactive.
+  SkColor GetInactiveFrameColor() const;
 
   views::Widget* frame_;
   views::View* view_;
-  views::View* window_icon_;  // May be NULL.
-  int window_icon_size_;
+  views::View* left_header_view_;  // May be NULL.
+  int left_view_x_inset_;
   FrameCaptionButtonContainerView* caption_button_container_;
 
   // The height of the header including the header/content separator.

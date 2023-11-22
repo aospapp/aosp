@@ -219,15 +219,15 @@ util.getDirectories = function(dirEntry, params, paths, successCallback,
       return onComplete();
 
     dirEntry.getDirectory(
-      path, params,
-      function(entry) {
-        successCallback(entry);
-        getNextDirectory();
-      },
-      function(err) {
-        errorCallback(err);
-        getNextDirectory();
-      });
+        path, params,
+        function(entry) {
+          successCallback(entry);
+          getNextDirectory();
+        },
+        function(err) {
+          errorCallback(err);
+          getNextDirectory();
+        });
   };
 
   getNextDirectory();
@@ -268,52 +268,18 @@ util.getFiles = function(dirEntry, params, paths, successCallback,
       return onComplete();
 
     dirEntry.getFile(
-      path, params,
-      function(entry) {
-        successCallback(entry);
-        getNextFile();
-      },
-      function(err) {
-        errorCallback(err);
-        getNextFile();
-      });
+        path, params,
+        function(entry) {
+          successCallback(entry);
+          getNextFile();
+        },
+        function(err) {
+          errorCallback(err);
+          getNextFile();
+        });
   };
 
   getNextFile();
-};
-
-/**
- * Resolve a path to either a DirectoryEntry or a FileEntry, regardless of
- * whether the path is a directory or file.
- *
- * @param {DirectoryEntry} root The root of the filesystem to search.
- * @param {string} path The path to be resolved.
- * @param {function(Entry)} resultCallback Called back when a path is
- *     successfully resolved. Entry will be either a DirectoryEntry or
- *     a FileEntry.
- * @param {function(FileError)} errorCallback Called back if an unexpected
- *     error occurs while resolving the path.
- */
-util.resolvePath = function(root, path, resultCallback, errorCallback) {
-  if (path == '' || path == '/') {
-    resultCallback(root);
-    return;
-  }
-
-  root.getFile(
-      path, {create: false},
-      resultCallback,
-      function(err) {
-        if (err.name == util.FileError.TYPE_MISMATCH_ERR) {
-          // Bah.  It's a directory, ask again.
-          root.getDirectory(
-              path, {create: false},
-              resultCallback,
-              errorCallback);
-        } else {
-          errorCallback(err);
-        }
-      });
 };
 
 /**
@@ -366,68 +332,6 @@ util.removeFileOrDirectory = function(entry, onSuccess, onError) {
 };
 
 /**
- * Checks if an entry exists at |relativePath| in |dirEntry|.
- * If exists, tries to deduplicate the path by inserting parenthesized number,
- * such as " (1)", before the extension. If it still exists, tries the
- * deduplication again by increasing the number up to 10 times.
- * For example, suppose "file.txt" is given, "file.txt", "file (1).txt",
- * "file (2).txt", ..., "file (9).txt" will be tried.
- *
- * @param {DirectoryEntry} dirEntry The target directory entry.
- * @param {string} relativePath The path to be deduplicated.
- * @param {function(string)} onSuccess Called with the deduplicated path on
- *     success.
- * @param {function(FileError)} onError Called on error.
- */
-util.deduplicatePath = function(dirEntry, relativePath, onSuccess, onError) {
-  // The trial is up to 10.
-  var MAX_RETRY = 10;
-
-  // Crack the path into three part. The parenthesized number (if exists) will
-  // be replaced by incremented number for retry. For example, suppose
-  // |relativePath| is "file (10).txt", the second check path will be
-  // "file (11).txt".
-  var match = /^(.*?)(?: \((\d+)\))?(\.[^.]*?)?$/.exec(relativePath);
-  var prefix = match[1];
-  var copyNumber = match[2] ? parseInt(match[2], 10) : 0;
-  var ext = match[3] ? match[3] : '';
-
-  // The path currently checking the existence.
-  var trialPath = relativePath;
-
-  var onNotResolved = function(err) {
-    // We expect to be unable to resolve the target file, since we're going
-    // to create it during the copy.  However, if the resolve fails with
-    // anything other than NOT_FOUND, that's trouble.
-    if (err.name != util.FileError.NOT_FOUND_ERR) {
-      onError(err);
-      return;
-    }
-
-    // Found a path that doesn't exist.
-    onSuccess(trialPath);
-  };
-
-  var numRetry = MAX_RETRY;
-  var onResolved = function(entry) {
-    if (--numRetry == 0) {
-      // Hit the limit of the number of retrial.
-      // Note that we cannot create FileError object directly, so here we use
-      // Object.create instead.
-      onError(util.createDOMError(util.FileError.PATH_EXISTS_ERR));
-      return;
-    }
-
-    ++copyNumber;
-    trialPath = prefix + ' (' + copyNumber + ')' + ext;
-    util.resolvePath(dirEntry, trialPath, onResolved, onNotResolved);
-  };
-
-  // Check to see if the target exists.
-  util.resolvePath(dirEntry, trialPath, onResolved, onNotResolved);
-};
-
-/**
  * Convert a number of bytes into a human friendly format, using the correct
  * number separators.
  *
@@ -452,8 +356,6 @@ util.bytesToString = function(bytes) {
                Math.pow(2, 50)];
 
   var str = function(n, u) {
-    // TODO(rginda): Switch to v8Locale's number formatter when it's
-    // available.
     return strf(u, n.toLocaleString());
   };
 
@@ -551,17 +453,6 @@ util.applyTransform = function(element, transform) {
                   'scaleY(' + transform.scaleY + ') ' +
                   'rotate(' + transform.rotate90 * 90 + 'deg)' :
       '';
-};
-
-/**
- * Makes filesystem: URL from the path.
- * @param {string} path File or directory path.
- * @return {string} URL.
- */
-util.makeFilesystemUrl = function(path) {
-  path = path.split('/').map(encodeURIComponent).join('/');
-  var prefix = 'external';
-  return 'filesystem:' + chrome.runtime.getURL(prefix + path);
 };
 
 /**
@@ -670,49 +561,11 @@ function strf(id, var_args) {
 }
 
 /**
- * Adapter object that abstracts away the the difference between Chrome app APIs
- * v1 and v2. Is only necessary while the migration to v2 APIs is in progress.
- * TODO(mtomasz): Clean up this. crbug.com/240606.
+ * @return {boolean} True if Files.app is running as an open files or a select
+ *     folder dialog. False otherwise.
  */
-util.platform = {
-  /**
-   * @return {boolean} True if Files.app is running as an open files or a select
-   *     folder dialog. False otherwise.
-   */
-  runningInBrowser: function() {
-    return !window.appID;
-  },
-
-  /**
-   * @param {function(Object)} callback Function accepting a preference map.
-   */
-  getPreferences: function(callback) {
-    chrome.storage.local.get(callback);
-  },
-
-  /**
-   * @param {string} key Preference name.
-   * @param {function(string)} callback Function accepting the preference value.
-   */
-  getPreference: function(key, callback) {
-    chrome.storage.local.get(key, function(items) {
-      callback(items[key]);
-    });
-  },
-
-  /**
-   * @param {string} key Preference name.
-   * @param {string|Object} value Preference value.
-   * @param {function()=} opt_callback Completion callback.
-   */
-  setPreference: function(key, value, opt_callback) {
-    if (typeof value != 'string')
-      value = JSON.stringify(value);
-
-    var items = {};
-    items[key] = value;
-    chrome.storage.local.set(items, opt_callback);
-  }
+util.runningInBrowser = function() {
+  return !window.appID;
 };
 
 /**
@@ -729,8 +582,12 @@ util.addPageLoadHandler = function(handler) {
  * Save app launch data to the local storage.
  */
 util.saveAppState = function() {
-  if (window.appState)
-    util.platform.setPreference(window.appID, window.appState);
+  if (!window.appState)
+    return;
+  var items = {};
+
+  items[window.appID] = JSON.stringify(window.appState);
+  chrome.storage.local.set(items);
 };
 
 /**
@@ -801,7 +658,8 @@ util.AppCache.update = function(key, value, opt_lifetime) {
  * @private
  */
 util.AppCache.read_ = function(callback) {
-  util.platform.getPreference(util.AppCache.KEY, function(json) {
+  chrome.storage.local.get(util.AppCache.KEY, function(values) {
+    var json = values[util.AppCache.KEY];
     if (json) {
       try {
         callback(JSON.parse(json));
@@ -818,7 +676,9 @@ util.AppCache.read_ = function(callback) {
  * @private
  */
 util.AppCache.write_ = function(map) {
-  util.platform.setPreference(util.AppCache.KEY, JSON.stringify(map));
+  var items = {};
+  items[util.AppCache.KEY] = JSON.stringify(map);
+  chrome.storage.local.set(items);
 };
 
 /**
@@ -834,7 +694,7 @@ util.AppCache.cleanup_ = function(map) {
     if (map.hasOwnProperty(key))
       keys.push(key);
   }
-  keys.sort(function(a, b) { return map[a].expire > map[b].expire });
+  keys.sort(function(a, b) { return map[a].expire > map[b].expire; });
 
   var cutoff = Date.now();
 
@@ -866,11 +726,11 @@ util.AppCache.cleanup_ = function(map) {
  */
 util.loadImage = function(image, url, opt_options, opt_isValid) {
   return ImageLoaderClient.loadToImage(url,
-                                      image,
-                                      opt_options || {},
-                                      function() {},
-                                      function() { image.onerror(); },
-                                      opt_isValid);
+                                       image,
+                                       opt_options || {},
+                                       function() {},
+                                       function() { image.onerror(); },
+                                       opt_isValid);
 };
 
 /**
@@ -1066,8 +926,7 @@ util.UserDOMError.prototype = {
   /**
    * @return {string} File error name.
    */
-  get name() {
-    return this.name_;
+  get name() { return this.name_;
   }
 };
 
@@ -1099,6 +958,33 @@ util.isSameFileSystem = function(fileSystem1, fileSystem2) {
   if (!fileSystem1 || !fileSystem2)
     return false;
   return util.isSameEntry(fileSystem1.root, fileSystem2.root);
+};
+
+/**
+ * Collator for sorting.
+ * @type {Intl.Collator}
+ */
+util.collator = new Intl.Collator(
+    [], {usage: 'sort', numeric: true, sensitivity: 'base'});
+
+/**
+ * Compare by name. The 2 entries must be in same directory.
+ * @param {Entry} entry1 First entry.
+ * @param {Entry} entry2 Second entry.
+ * @return {number} Compare result.
+ */
+util.compareName = function(entry1, entry2) {
+  return util.collator.compare(entry1.name, entry2.name);
+};
+
+/**
+ * Compare by path.
+ * @param {Entry} entry1 First entry.
+ * @param {Entry} entry2 Second entry.
+ * @return {number} Compare result.
+ */
+util.comparePath = function(entry1, entry2) {
+  return util.collator.compare(entry1.fullPath, entry2.fullPath);
 };
 
 /**
@@ -1156,11 +1042,8 @@ util.getCurrentLocaleOrDefault = function() {
  * @return {Array.<string>} Output array of URLs.
  */
 util.entriesToURLs = function(entries) {
-  // TODO(mtomasz): Make all callers use entries instead of URLs, and then
-  // remove this utility function.
-  console.warn('Converting entries to URLs is deprecated.');
   return entries.map(function(entry) {
-     return entry.toURL();
+    return entry.toURL();
   });
 };
 
@@ -1205,8 +1088,7 @@ util.URLsToEntries = function(urls, opt_callback) {
   if (opt_callback) {
     resultPromise.then(function(result) {
       opt_callback(result.entries, result.failureUrls);
-    }).
-    catch(function(error) {
+    }).catch(function(error) {
       console.error(
           'util.URLsToEntries is failed.',
           error.stack ? error.stack : error);
@@ -1223,11 +1105,10 @@ util.URLsToEntries = function(urls, opt_callback) {
  */
 util.isTeleported = function(window) {
   return new Promise(function(onFulfilled) {
-    window.chrome.fileBrowserPrivate.getProfiles(function(profiles,
-                                                          currentId,
-                                                          displayedId) {
-      onFulfilled(currentId !== displayedId);
-    });
+    window.chrome.fileManagerPrivate.getProfiles(
+        function(profiles, currentId, displayedId) {
+          onFulfilled(currentId !== displayedId);
+        });
   });
 };
 
@@ -1242,33 +1123,32 @@ util.isTeleported = function(window) {
 util.showOpenInOtherDesktopAlert = function(alertDialog, entries) {
   if (!entries.length)
     return;
-  chrome.fileBrowserPrivate.getProfiles(function(profiles,
-                                                 currentId,
-                                                 displayedId) {
-    // Find strings.
-    var displayName;
-    for (var i = 0; i < profiles.length; i++) {
-      if (profiles[i].profileId === currentId) {
-        displayName = profiles[i].displayName;
-        break;
-      }
-    }
-    if (!displayName) {
-      console.warn('Display name is not found.');
-      return;
-    }
+  chrome.fileManagerPrivate.getProfiles(
+      function(profiles, currentId, displayedId) {
+        // Find strings.
+        var displayName;
+        for (var i = 0; i < profiles.length; i++) {
+          if (profiles[i].profileId === currentId) {
+            displayName = profiles[i].displayName;
+            break;
+          }
+        }
+        if (!displayName) {
+          console.warn('Display name is not found.');
+          return;
+        }
 
-    var title = entries.size > 1 ?
-        entries[0].name + '\u2026' /* ellipsis */ : entries[0].name;
-    var message = strf(entries.size > 1 ?
-                       'OPEN_IN_OTHER_DESKTOP_MESSAGE_PLURAL' :
-                       'OPEN_IN_OTHER_DESKTOP_MESSAGE',
-                       displayName,
-                       currentId);
+        var title = entries.size > 1 ?
+            entries[0].name + '\u2026' /* ellipsis */ : entries[0].name;
+        var message = strf(entries.size > 1 ?
+                           'OPEN_IN_OTHER_DESKTOP_MESSAGE_PLURAL' :
+                           'OPEN_IN_OTHER_DESKTOP_MESSAGE',
+                           displayName,
+                           currentId);
 
-    // Show the dialog.
-    alertDialog.showWithTitle(title, message);
-  }.bind(this));
+        // Show the dialog.
+        alertDialog.showWithTitle(title, message);
+      }.bind(this));
 };
 
 /**
@@ -1357,6 +1237,7 @@ util.getEntryLabel = function(volumeManager, entry) {
         return str('DRIVE_SHARED_WITH_ME_COLLECTION_LABEL');
       case VolumeManagerCommon.RootType.DRIVE_RECENT:
         return str('DRIVE_RECENT_COLLECTION_LABEL');
+      case VolumeManagerCommon.RootType.DRIVE_OTHER:
       case VolumeManagerCommon.RootType.DOWNLOADS:
       case VolumeManagerCommon.RootType.ARCHIVE:
       case VolumeManagerCommon.RootType.REMOVABLE:
@@ -1383,4 +1264,48 @@ util.getEntryLabel = function(volumeManager, entry) {
 util.isDropEffectAllowed = function(effectAllowed, dropEffect) {
   return effectAllowed === 'all' ||
       effectAllowed.toLowerCase().indexOf(dropEffect) !== -1;
+};
+
+/**
+ * Verifies the user entered name for file or folder to be created or
+ * renamed to. Name restrictions must correspond to File API restrictions
+ * (see DOMFilePath::isValidPath). Curernt WebKit implementation is
+ * out of date (spec is
+ * http://dev.w3.org/2009/dap/file-system/file-dir-sys.html, 8.3) and going to
+ * be fixed. Shows message box if the name is invalid.
+ *
+ * It also verifies if the name length is in the limit of the filesystem.
+ *
+ * @param {DirectoryEntry} parentEntry The URL of the parent directory entry.
+ * @param {string} name New file or folder name.
+ * @param {boolean} filterHiddenOn Whether to report the hidden file name error
+ *     or not.
+ * @return {Promise} Promise fulfilled on success, or rejected with the error
+ *     message.
+ */
+util.validateFileName = function(parentEntry, name, filterHiddenOn) {
+  var testResult = /[\/\\\<\>\:\?\*\"\|]/.exec(name);
+  var msg;
+  if (testResult)
+    return Promise.reject(strf('ERROR_INVALID_CHARACTER', testResult[0]));
+  else if (/^\s*$/i.test(name))
+    return Promise.reject(str('ERROR_WHITESPACE_NAME'));
+  else if (/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i.test(name))
+    return Promise.reject(str('ERROR_RESERVED_NAME'));
+  else if (filterHiddenOn && /\.crdownload$/i.test(name))
+    return Promise.reject(str('ERROR_RESERVED_NAME'));
+  else if (filterHiddenOn && name[0] == '.')
+    return Promise.reject(str('ERROR_HIDDEN_NAME'));
+
+  return new Promise(function(fulfill, reject) {
+    chrome.fileManagerPrivate.validatePathNameLength(
+        parentEntry.toURL(),
+        name,
+        function(valid) {
+          if (valid)
+            fulfill();
+          else
+            reject(str('ERROR_LONG_NAME'));
+        });
+  });
 };

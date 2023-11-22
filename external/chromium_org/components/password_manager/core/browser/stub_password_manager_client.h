@@ -18,8 +18,14 @@ class StubPasswordManagerClient : public PasswordManagerClient {
   virtual ~StubPasswordManagerClient();
 
   // PasswordManagerClient:
-  virtual void PromptUserToSavePassword(PasswordFormManager* form_to_save)
-      OVERRIDE;
+  virtual bool IsSyncAccountCredential(
+      const std::string& username, const std::string& origin) const OVERRIDE;
+  virtual bool ShouldFilterAutofillResult(
+      const autofill::PasswordForm& form) OVERRIDE;
+  virtual bool PromptUserToSavePassword(
+      scoped_ptr<PasswordFormManager> form_to_save) OVERRIDE;
+  virtual void AutomaticPasswordSave(
+      scoped_ptr<PasswordFormManager> saved_manager) OVERRIDE;
   virtual void AuthenticateAutofillAndFillForm(
       scoped_ptr<autofill::PasswordFormFillData> fill_data) OVERRIDE;
   virtual PrefService* GetPrefs() OVERRIDE;

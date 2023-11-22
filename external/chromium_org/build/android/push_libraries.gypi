@@ -30,6 +30,7 @@
     '<(DEPTH)/build/android/gyp/util/md5_check.py',
     '<(DEPTH)/build/android/gyp/push_libraries.py',
     '<(strip_stamp)',
+    '<(strip_additional_stamp)',
     '<(build_device_config_path)',
   ],
   'outputs': [
@@ -40,7 +41,7 @@
     '--build-device-configuration=<(build_device_config_path)',
     '--libraries-dir=<(libraries_source_dir)',
     '--device-dir=<(device_library_dir)',
-    '--libraries-json=<(ordered_libraries_file)',
+    '--libraries=@FileArg(<(ordered_libraries_file):libraries)',
     '--stamp=<(push_stamp)',
     '--configuration-name=<(configuration_name)',
   ],

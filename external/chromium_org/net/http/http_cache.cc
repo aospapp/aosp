@@ -15,7 +15,7 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/callback.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/format_macros.h"
 #include "base/location.h"
 #include "base/memory/ref_counted.h"
@@ -33,6 +33,7 @@
 #include "net/base/net_errors.h"
 #include "net/base/upload_data_stream.h"
 #include "net/disk_cache/disk_cache.h"
+#include "net/http/disk_based_cert_cache.h"
 #include "net/http/disk_cache_based_quic_server_info.h"
 #include "net/http/http_cache_transaction.h"
 #include "net/http/http_network_layer.h"
@@ -45,6 +46,11 @@
 
 namespace {
 
+bool UseCertCache() {
+  return base::FieldTrialList::FindFullName("CertCacheTrial") ==
+         "ExperimentGroup";
+}
+
 // Adaptor to delete a file on a worker thread.
 void DeletePath(base::FilePath path) {
   base::DeleteFile(path, false);
@@ -54,11 +60,12 @@ void DeletePath(base::FilePath path) {
 
 namespace net {
 
-HttpCache::DefaultBackend::DefaultBackend(CacheType type,
-                                          BackendType backend_type,
-                                          const base::FilePath& path,
-                                          int max_bytes,
-                                          base::MessageLoopProxy* thread)
+HttpCache::DefaultBackend::DefaultBackend(
+    CacheType type,
+    BackendType backend_type,
+    const base::FilePath& path,
+    int max_bytes,
+    const scoped_refptr<base::SingleThreadTaskRunner>& thread)
     : type_(type),
       backend_type_(backend_type),
       path_(path),
@@ -83,7 +90,7 @@ int HttpCache::DefaultBackend::CreateBackend(
                                         path_,
                                         max_bytes_,
                                         true,
-                                        thread_.get(),
+                                        thread_,
                                         net_log,
                                         backend,
                                         callback);
@@ -290,6 +297,7 @@ HttpCache::HttpCache(const net::HttpNetworkSession::Params& params,
     : net_log_(params.net_log),
       backend_factory_(backend_factory),
       building_backend_(false),
+      bypass_lock_for_test_(false),
       mode_(NORMAL),
       network_layer_(new HttpNetworkLayer(new HttpNetworkSession(params))),
       weak_factory_(this) {
@@ -304,6 +312,7 @@ HttpCache::HttpCache(HttpNetworkSession* session,
     : net_log_(session->net_log()),
       backend_factory_(backend_factory),
       building_backend_(false),
+      bypass_lock_for_test_(false),
       mode_(NORMAL),
       network_layer_(new HttpNetworkLayer(session)),
       weak_factory_(this) {
@@ -315,6 +324,7 @@ HttpCache::HttpCache(HttpTransactionFactory* network_layer,
     : net_log_(net_log),
       backend_factory_(backend_factory),
       building_backend_(false),
+      bypass_lock_for_test_(false),
       mode_(NORMAL),
       network_layer_(network_layer),
       weak_factory_(this) {
@@ -343,6 +353,7 @@ HttpCache::~HttpCache() {
 
   // Before deleting pending_ops_, we have to make sure that the disk cache is
   // done with said operations, or it will attempt to use deleted data.
+  cert_cache_.reset();
   disk_cache_.reset();
 
   PendingOpsMap::iterator pending_it = pending_ops_.begin();
@@ -453,7 +464,12 @@ int HttpCache::CreateTransaction(RequestPriority priority,
     CreateBackend(NULL, net::CompletionCallback());
   }
 
-  trans->reset(new HttpCache::Transaction(priority, this));
+   HttpCache::Transaction* transaction =
+      new HttpCache::Transaction(priority, this);
+   if (bypass_lock_for_test_)
+    transaction->BypassLockForTest();
+
+  trans->reset(transaction);
   return OK;
 }
 
@@ -597,7 +613,8 @@ int HttpCache::DoomEntry(const std::string& key, Transaction* trans) {
   entry->disk_entry->Doom();
   entry->doomed = true;
 
-  DCHECK(entry->writer || !entry->readers.empty());
+  DCHECK(entry->writer || !entry->readers.empty() ||
+         entry->will_process_pending_queue);
   return OK;
 }
 
@@ -999,7 +1016,7 @@ bool HttpCache::RemovePendingTransactionFromPendingOp(PendingOp* pending_op,
 }
 
 void HttpCache::SetupQuicServerInfoFactory(HttpNetworkSession* session) {
-  if (session && session->params().enable_quic_persist_server_info &&
+  if (session &&
       !session->quic_stream_factory()->has_quic_server_info_factory()) {
     DCHECK(!quic_server_info_factory_);
     quic_server_info_factory_.reset(new QuicServerInfoFactoryAdaptor(this));
@@ -1160,8 +1177,11 @@ void HttpCache::OnBackendCreated(int result, PendingOp* pending_op) {
     // work items. The first call saves the backend and releases the factory,
     // and the last call clears building_backend_.
     backend_factory_.reset();  // Reclaim memory.
-    if (result == OK)
+    if (result == OK) {
       disk_cache_ = pending_op->backend.Pass();
+      if (UseCertCache())
+        cert_cache_.reset(new DiskBasedCertCache(disk_cache_.get()));
+    }
   }
 
   if (!pending_op->pending_queue.empty()) {

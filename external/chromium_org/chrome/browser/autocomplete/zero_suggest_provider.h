@@ -4,12 +4,7 @@
 //
 // This file contains the zero-suggest autocomplete provider. This experimental
 // provider is invoked when the user focuses in the omnibox prior to editing,
-// and generates search query suggestions based on the current URL. To enable
-// this provider, point --experimental-zero-suggest-url-prefix at an
-// appropriate suggestion service.
-//
-// HUGE DISCLAIMER: This is just here for experimenting and will probably be
-// deleted entirely as we revise how suggestions work with the omnibox.
+// and generates search query suggestions based on the current URL.
 
 #ifndef CHROME_BROWSER_AUTOCOMPLETE_ZERO_SUGGEST_PROVIDER_H_
 #define CHROME_BROWSER_AUTOCOMPLETE_ZERO_SUGGEST_PROVIDER_H_
@@ -17,10 +12,14 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
-#include "chrome/browser/autocomplete/base_search_provider.h"
-#include "chrome/browser/autocomplete/search_provider.h"
+#include "components/history/core/browser/history_types.h"
 #include "components/metrics/proto/omnibox_event.pb.h"
+#include "components/omnibox/base_search_provider.h"
+#include "components/omnibox/search_provider.h"
+#include "net/url_request/url_fetcher_delegate.h"
 
+class AutocompleteProviderListener;
+class Profile;
 class TemplateURLService;
 
 namespace base {
@@ -46,10 +45,12 @@ class PrefRegistrySyncable;
 // TODO(jered): Consider deleting this class and building this functionality
 // into SearchProvider after dogfood and after we break the association between
 // omnibox text and suggestions.
-class ZeroSuggestProvider : public BaseSearchProvider {
+class ZeroSuggestProvider : public BaseSearchProvider,
+                            public net::URLFetcherDelegate {
  public:
   // Creates and returns an instance of this provider.
   static ZeroSuggestProvider* Create(AutocompleteProviderListener* listener,
+                                     TemplateURLService* template_url_service,
                                      Profile* profile);
 
   // Registers a preference used to cache zero suggest results.
@@ -58,44 +59,45 @@ class ZeroSuggestProvider : public BaseSearchProvider {
   // AutocompleteProvider:
   virtual void Start(const AutocompleteInput& input,
                      bool minimal_changes) OVERRIDE;
+  virtual void Stop(bool clear_cached_results) OVERRIDE;
   virtual void DeleteMatch(const AutocompleteMatch& match) OVERRIDE;
+  virtual void AddProviderInfo(ProvidersInfo* provider_info) const OVERRIDE;
 
   // Sets |field_trial_triggered_| to false.
   virtual void ResetSession() OVERRIDE;
 
- protected:
-  // BaseSearchProvider:
-  virtual void ModifyProviderInfo(
-      metrics::OmniboxEventProto_ProviderInfo* provider_info) const OVERRIDE;
-
  private:
   ZeroSuggestProvider(AutocompleteProviderListener* listener,
+                      TemplateURLService* template_url_service,
                       Profile* profile);
 
   virtual ~ZeroSuggestProvider();
 
   // BaseSearchProvider:
-  virtual bool StoreSuggestionResponse(const std::string& json_data,
-                                       const base::Value& parsed_data) OVERRIDE;
   virtual const TemplateURL* GetTemplateURL(bool is_keyword) const OVERRIDE;
   virtual const AutocompleteInput GetInput(bool is_keyword) const OVERRIDE;
-  virtual Results* GetResultsToFill(bool is_keyword) OVERRIDE;
   virtual bool ShouldAppendExtraParams(
-      const SuggestResult& result) const OVERRIDE;
-  virtual void StopSuggest() OVERRIDE;
-  virtual void ClearAllResults() OVERRIDE;
-  virtual int GetDefaultResultRelevance() const OVERRIDE;
+      const SearchSuggestionParser::SuggestResult& result) const OVERRIDE;
   virtual void RecordDeletionResult(bool success) OVERRIDE;
-  virtual void LogFetchComplete(bool success, bool is_keyword) OVERRIDE;
-  virtual bool IsKeywordFetcher(const net::URLFetcher* fetcher) const OVERRIDE;
-  virtual void UpdateMatches() OVERRIDE;
+
+  // net::URLFetcherDelegate:
+  virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
+
+  // Optionally, cache the received |json_data| and return true if we want
+  // to stop processing results at this point. The |parsed_data| is the parsed
+  // version of |json_data| used to determine if we received an empty result.
+  bool StoreSuggestionResponse(const std::string& json_data,
+                               const base::Value& parsed_data);
 
   // Adds AutocompleteMatches for each of the suggestions in |results| to
   // |map|.
-  void AddSuggestResultsToMap(const SuggestResults& results, MatchMap* map);
+  void AddSuggestResultsToMap(
+      const SearchSuggestionParser::SuggestResults& results,
+      MatchMap* map);
 
   // Returns an AutocompleteMatch for a navigational suggestion |navigation|.
-  AutocompleteMatch NavigationToMatch(const NavigationResult& navigation);
+  AutocompleteMatch NavigationToMatch(
+      const SearchSuggestionParser::NavigationResult& navigation);
 
   // Fetches zero-suggest suggestions by sending a request using |suggest_url|.
   void Run(const GURL& suggest_url);
@@ -127,8 +129,8 @@ class ZeroSuggestProvider : public BaseSearchProvider {
   // populates |matches_| with cached results.
   void MaybeUseCachedSuggestions();
 
-  // Used to build default search engine URLs for suggested queries.
-  TemplateURLService* template_url_service_;
+  AutocompleteProviderListener* listener_;
+  Profile* profile_;
 
   // The URL for which a suggestion fetch is pending.
   std::string current_query_;
@@ -148,7 +150,7 @@ class ZeroSuggestProvider : public BaseSearchProvider {
 
   // Contains suggest and navigation results as well as relevance parsed from
   // the response for the most recent zero suggest input URL.
-  Results results_;
+  SearchSuggestionParser::Results results_;
 
   // Whether we are currently showing cached zero suggest results.
   bool results_from_cache_;

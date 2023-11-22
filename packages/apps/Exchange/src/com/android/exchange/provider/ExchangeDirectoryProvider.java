@@ -116,13 +116,29 @@ public class ExchangeDirectoryProvider extends ContentProvider {
         }
     }
 
+    static class GalDisplayNameFields {
+        private final String displayName;
+        private final String displayNameSource;
+        private final String alternateDisplayName;
+
+        GalDisplayNameFields(PackedString ps) {
+            displayName = ps.get(GalData.DISPLAY_NAME);
+            displayNameSource = ps.get(GalData.DISPLAY_NAME_SOURCE);
+            alternateDisplayName = ps.get(GalData.DISPLAY_NAME_ALTERNATIVE);
+        }
+
+        String getDisplayName() { return displayName; }
+        String getDisplayNameSource() { return displayNameSource; }
+        String getAlternateDisplayName() { return alternateDisplayName; }
+    }
+
     static class GalContactRow {
         private final GalProjection mProjection;
         private Object[] row;
         static long dataId = 1;
 
         GalContactRow(GalProjection projection, long contactId, String accountName,
-                String displayName) {
+                GalDisplayNameFields displayNameFields) {
             this.mProjection = projection;
             row = new Object[projection.size];
 
@@ -132,10 +148,9 @@ public class ExchangeDirectoryProvider extends ContentProvider {
             put(Contacts.Entity.RAW_CONTACT_ID, contactId);
             put(Contacts.Entity.DATA_ID, dataId++);
 
-            put(Contacts.DISPLAY_NAME, displayName);
-
-            // TODO alternative display name
-            put(Contacts.DISPLAY_NAME_ALTERNATIVE, displayName);
+            put(Contacts.DISPLAY_NAME, displayNameFields.getDisplayName());
+            put(Contacts.DISPLAY_NAME_SOURCE, displayNameFields.getDisplayNameSource());
+            put(Contacts.DISPLAY_NAME_ALTERNATIVE, displayNameFields.getAlternateDisplayName());
 
             put(RawContacts.ACCOUNT_TYPE, Eas.EXCHANGE_ACCOUNT_MANAGER_TYPE);
             put(RawContacts.ACCOUNT_NAME, accountName);
@@ -157,10 +172,11 @@ public class ExchangeDirectoryProvider extends ContentProvider {
         }
 
         static void addEmailAddress(MatrixCursor cursor, GalProjection galProjection,
-                long contactId, String accountName, String displayName, String address) {
+                long contactId, String accountName, GalDisplayNameFields displayNameFields,
+                String address) {
             if (!TextUtils.isEmpty(address)) {
                 final GalContactRow r = new GalContactRow(
-                        galProjection, contactId, accountName, displayName);
+                        galProjection, contactId, accountName, displayNameFields);
                 r.put(Data.MIMETYPE, Email.CONTENT_ITEM_TYPE);
                 r.put(Email.TYPE, Email.TYPE_WORK);
                 r.put(Email.ADDRESS, address);
@@ -169,10 +185,10 @@ public class ExchangeDirectoryProvider extends ContentProvider {
         }
 
         static void addPhoneRow(MatrixCursor cursor, GalProjection projection, long contactId,
-                String accountName, String displayName, int type, String number) {
+                String accountName, GalDisplayNameFields displayNameFields, int type, String number) {
             if (!TextUtils.isEmpty(number)) {
                 final GalContactRow r = new GalContactRow(
-                        projection, contactId, accountName, displayName);
+                        projection, contactId, accountName, displayNameFields);
                 r.put(Data.MIMETYPE, Phone.CONTENT_ITEM_TYPE);
                 r.put(Phone.TYPE, type);
                 r.put(Phone.NUMBER, number);
@@ -181,14 +197,14 @@ public class ExchangeDirectoryProvider extends ContentProvider {
         }
 
         public static void addNameRow(MatrixCursor cursor, GalProjection galProjection,
-                long contactId, String accountName, String displayName,
+                long contactId, String accountName, GalDisplayNameFields displayNameFields,
                 String firstName, String lastName) {
             final GalContactRow r = new GalContactRow(
-                    galProjection, contactId, accountName, displayName);
+                    galProjection, contactId, accountName, displayNameFields);
             r.put(Data.MIMETYPE, StructuredName.CONTENT_ITEM_TYPE);
             r.put(StructuredName.GIVEN_NAME, firstName);
             r.put(StructuredName.FAMILY_NAME, lastName);
-            r.put(StructuredName.DISPLAY_NAME, displayName);
+            r.put(StructuredName.DISPLAY_NAME, displayNameFields.getDisplayName());
             cursor.addRow(r.getRow());
         }
     }
@@ -246,7 +262,7 @@ public class ExchangeDirectoryProvider extends ContentProvider {
                                 if (bundle != null && !bundle.getBoolean(
                                         Configuration.EXCHANGE_CONFIGURATION_USE_ALTERNATE_STRINGS,
                                         true)) {
-                                    exchangeName = R.string.exchange_name;
+                                    exchangeName = R.string.exchange_eas_name;
                                 }
                                 row[i] = exchangeName;
                             } else if (column.equals(Directory.DISPLAY_NAME)) {
@@ -354,17 +370,17 @@ public class ExchangeDirectoryProvider extends ContentProvider {
                         ? Long.parseLong(pathSegments.get(3))
                         : DEFAULT_CONTACT_ID;
                 ps = new PackedString(lookupKey);
-                final String displayName = ps.get(GalData.DISPLAY_NAME);
-                GalContactRow.addEmailAddress(cursor, galProjection, contactId,
-                        accountName, displayName, ps.get(GalData.EMAIL_ADDRESS));
-                GalContactRow.addPhoneRow(cursor, galProjection, contactId,
-                        displayName, displayName, Phone.TYPE_HOME, ps.get(GalData.HOME_PHONE));
-                GalContactRow.addPhoneRow(cursor, galProjection, contactId,
-                        displayName, displayName, Phone.TYPE_WORK, ps.get(GalData.WORK_PHONE));
-                GalContactRow.addPhoneRow(cursor, galProjection, contactId,
-                        displayName, displayName, Phone.TYPE_MOBILE, ps.get(GalData.MOBILE_PHONE));
-                GalContactRow.addNameRow(cursor, galProjection, contactId, displayName,
-                        ps.get(GalData.FIRST_NAME), ps.get(GalData.LAST_NAME), displayName);
+                final GalDisplayNameFields displayNameFields = new GalDisplayNameFields(ps);
+                GalContactRow.addEmailAddress(cursor, galProjection, contactId, accountName, displayNameFields,
+                        ps.get(GalData.EMAIL_ADDRESS));
+                GalContactRow.addPhoneRow(cursor, galProjection, contactId, accountName, displayNameFields,
+                        Phone.TYPE_HOME, ps.get(GalData.HOME_PHONE));
+                GalContactRow.addPhoneRow(cursor, galProjection, contactId, accountName, displayNameFields,
+                        Phone.TYPE_WORK, ps.get(GalData.WORK_PHONE));
+                GalContactRow.addPhoneRow(cursor, galProjection, contactId, accountName, displayNameFields,
+                        Phone.TYPE_MOBILE, ps.get(GalData.MOBILE_PHONE));
+                GalContactRow.addNameRow(cursor, galProjection, contactId, accountName, displayNameFields,
+                        ps.get(GalData.FIRST_NAME), ps.get(GalData.LAST_NAME));
                 return cursor;
             }
         }
@@ -462,6 +478,7 @@ public class ExchangeDirectoryProvider extends ContentProvider {
                 continue;
             }
             galDataRow.put(GalData.DISPLAY_NAME, displayName.first);
+            galDataRow.put(GalData.DISPLAY_NAME_SOURCE, String.valueOf(displayName.second));
 
             final String alternateDisplayName = getAlternateDisplayName(
                     galDataRow, displayName.first);
@@ -475,6 +492,7 @@ public class ExchangeDirectoryProvider extends ContentProvider {
                 row[displayNameSourceIndex] = displayName.second;
             }
 
+            galDataRow.put(GalData.DISPLAY_NAME_ALTERNATIVE, alternateDisplayName);
             if (alternateDisplayNameIndex != -1) {
                 row[alternateDisplayNameIndex] = alternateDisplayName;
             }

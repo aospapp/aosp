@@ -10,37 +10,35 @@
 #include "base/callback.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/location.h"
 #include "base/message_loop/message_loop.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/chromeos/policy/device_policy_builder.h"
 #include "chrome/browser/chromeos/policy/device_policy_cros_browser_test.h"
 #include "chrome/browser/chromeos/policy/proto/chrome_device_policy.pb.h"
 #include "chrome/browser/chromeos/policy/user_cloud_policy_manager_chromeos.h"
 #include "chrome/browser/chromeos/policy/user_cloud_policy_manager_factory_chromeos.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
-#include "chrome/browser/extensions/api/power/power_api_manager.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/policy/profile_policy_connector_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/common/extensions/api/power.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chromeos/chromeos_paths.h"
 #include "chromeos/chromeos_switches.h"
 #include "chromeos/dbus/cryptohome_client.h"
-#include "chromeos/dbus/fake_dbus_thread_manager.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/fake_power_manager_client.h"
 #include "chromeos/dbus/fake_session_manager_client.h"
 #include "chromeos/dbus/power_manager/policy.pb.h"
 #include "chromeos/dbus/power_policy_controller.h"
+#include "chromeos/login/user_names.h"
 #include "components/policy/core/common/cloud/cloud_policy_core.h"
 #include "components/policy/core/common/cloud/cloud_policy_store.h"
 #include "components/policy/core/common/cloud/policy_builder.h"
@@ -51,6 +49,8 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/test/test_utils.h"
+#include "extensions/browser/api/power/power_api_manager.h"
+#include "extensions/common/api/power.h"
 #include "policy/proto/device_management_backend.pb.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -157,7 +157,7 @@ class PowerPolicyLoginScreenBrowserTest : public PowerPolicyBrowserTestBase {
   // PowerPolicyBrowserTestBase:
   virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE;
   virtual void SetUpOnMainThread() OVERRIDE;
-  virtual void CleanUpOnMainThread() OVERRIDE;
+  virtual void TearDownOnMainThread() OVERRIDE;
 
   DISALLOW_COPY_AND_ASSIGN(PowerPolicyLoginScreenBrowserTest);
 };
@@ -177,11 +177,10 @@ PowerPolicyBrowserTestBase::PowerPolicyBrowserTestBase()
 }
 
 void PowerPolicyBrowserTestBase::SetUpInProcessBrowserTestFixture() {
-  power_manager_client_ = new chromeos::FakePowerManagerClient;
-  fake_dbus_thread_manager()->SetPowerManagerClient(
-      scoped_ptr<chromeos::PowerManagerClient>(power_manager_client_));
-
   DevicePolicyCrosBrowserTest::SetUpInProcessBrowserTestFixture();
+  power_manager_client_ = new chromeos::FakePowerManagerClient;
+  dbus_setter()->SetPowerManagerClient(
+      scoped_ptr<chromeos::PowerManagerClient>(power_manager_client_));
 
   // Initialize device policy.
   InstallOwnerKey();
@@ -193,7 +192,7 @@ void PowerPolicyBrowserTestBase::SetUpOnMainThread() {
 
   // Initialize user policy.
   InstallUserKey();
-  user_policy_.policy_data().set_username(chromeos::UserManager::kStubUser);
+  user_policy_.policy_data().set_username(chromeos::login::kStubUser);
 }
 
 void PowerPolicyBrowserTestBase::InstallUserKey() {
@@ -201,7 +200,7 @@ void PowerPolicyBrowserTestBase::InstallUserKey() {
   ASSERT_TRUE(PathService::Get(chromeos::DIR_USER_POLICY_KEYS, &user_keys_dir));
   std::string sanitized_username =
       chromeos::CryptohomeClient::GetStubSanitizedUsername(
-          chromeos::UserManager::kStubUser);
+          chromeos::login::kStubUser);
   base::FilePath user_key_file =
       user_keys_dir.AppendASCII(sanitized_username)
                    .AppendASCII("policy.pub");
@@ -291,11 +290,11 @@ void PowerPolicyLoginScreenBrowserTest::SetUpOnMainThread() {
       content::NotificationService::AllSources()).Wait();
 }
 
-void PowerPolicyLoginScreenBrowserTest::CleanUpOnMainThread() {
+void PowerPolicyLoginScreenBrowserTest::TearDownOnMainThread() {
   base::MessageLoop::current()->PostTask(FROM_HERE,
                                          base::Bind(&chrome::AttemptExit));
   base::RunLoop().RunUntilIdle();
-  PowerPolicyBrowserTestBase::CleanUpOnMainThread();
+  PowerPolicyBrowserTestBase::TearDownOnMainThread();
 }
 
 PowerPolicyInSessionBrowserTest::PowerPolicyInSessionBrowserTest() {
@@ -481,7 +480,7 @@ IN_PROC_BROWSER_TEST_F(PowerPolicyInSessionBrowserTest, AllowScreenWakeLocks) {
   // Pretend an extension grabs a screen wake lock.
   const char kExtensionId[] = "abcdefghijklmnopabcdefghijlkmnop";
   extensions::PowerApiManager::Get(browser()->profile())->AddRequest(
-      kExtensionId, extensions::api::power::LEVEL_DISPLAY);
+      kExtensionId, extensions::core_api::power::LEVEL_DISPLAY);
   base::RunLoop().RunUntilIdle();
 
   // Check that the lock is in effect (ignoring ac_idle_action,

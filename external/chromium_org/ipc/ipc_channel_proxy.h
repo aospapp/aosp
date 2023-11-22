@@ -22,6 +22,7 @@ class SingleThreadTaskRunner;
 
 namespace IPC {
 
+class ChannelFactory;
 class MessageFilter;
 class MessageFilterRouter;
 class SendCallbackHelper;
@@ -68,7 +69,12 @@ class IPC_EXPORT ChannelProxy : public Sender, public base::NonThreadSafe {
       const IPC::ChannelHandle& channel_handle,
       Channel::Mode mode,
       Listener* listener,
-      base::SingleThreadTaskRunner* ipc_task_runner);
+      const scoped_refptr<base::SingleThreadTaskRunner>& ipc_task_runner);
+
+  static scoped_ptr<ChannelProxy> Create(
+      scoped_ptr<ChannelFactory> factory,
+      Listener* listener,
+      const scoped_refptr<base::SingleThreadTaskRunner>& ipc_task_runner);
 
   virtual ~ChannelProxy();
 
@@ -78,6 +84,7 @@ class IPC_EXPORT ChannelProxy : public Sender, public base::NonThreadSafe {
   // thread.
   void Init(const IPC::ChannelHandle& channel_handle, Channel::Mode mode,
             bool create_pipe_now);
+  void Init(scoped_ptr<ChannelFactory> factory, bool create_pipe_now);
 
   // Close the IPC::Channel.  This operation completes asynchronously, once the
   // background thread processes the command to close the channel.  It is ok to
@@ -124,14 +131,16 @@ class IPC_EXPORT ChannelProxy : public Sender, public base::NonThreadSafe {
   // to the internal state.
   ChannelProxy(Context* context);
 
-  ChannelProxy(Listener* listener,
-               base::SingleThreadTaskRunner* ipc_task_runner);
+  ChannelProxy(
+      Listener* listener,
+      const scoped_refptr<base::SingleThreadTaskRunner>& ipc_task_runner);
 
   // Used internally to hold state that is referenced on the IPC thread.
   class Context : public base::RefCountedThreadSafe<Context>,
                   public Listener {
    public:
-    Context(Listener* listener, base::SingleThreadTaskRunner* ipc_thread);
+    Context(Listener* listener,
+            const scoped_refptr<base::SingleThreadTaskRunner>& ipc_thread);
     void ClearIPCTaskRunner();
     base::SingleThreadTaskRunner* ipc_task_runner() const {
       return ipc_task_runner_.get();
@@ -171,8 +180,7 @@ class IPC_EXPORT ChannelProxy : public Sender, public base::NonThreadSafe {
     friend class SendCallbackHelper;
 
     // Create the Channel
-    void CreateChannel(const IPC::ChannelHandle& channel_handle,
-                       const Channel::Mode& mode);
+    void CreateChannel(scoped_ptr<ChannelFactory> factory);
 
     // Methods called on the IO thread.
     void OnSendMessage(scoped_ptr<Message> message_ptr);

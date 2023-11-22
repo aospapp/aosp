@@ -12,13 +12,13 @@
 #include "base/message_loop/message_loop.h"
 #include "base/prefs/pref_service.h"
 #include "chrome/browser/content_settings/content_settings_mock_observer.h"
-#include "chrome/browser/content_settings/content_settings_rule.h"
 #include "chrome/browser/content_settings/content_settings_utils.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/testing_pref_service_syncable.h"
 #include "chrome/test/base/testing_profile.h"
+#include "components/content_settings/core/browser/content_settings_rule.h"
 #include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
@@ -61,7 +61,7 @@ TEST_F(PolicyProviderTest, DefaultGeolocationContentSetting) {
 
   // Change the managed value of the default geolocation setting
   prefs->SetManagedPref(prefs::kManagedDefaultGeolocationSetting,
-                        base::Value::CreateIntegerValue(CONTENT_SETTING_BLOCK));
+                        new base::FundamentalValue(CONTENT_SETTING_BLOCK));
 
   rule_iterator.reset(
       provider.GetRuleIterator(
@@ -85,7 +85,7 @@ TEST_F(PolicyProviderTest, ManagedDefaultContentSettings) {
   PolicyProvider provider(prefs);
 
   prefs->SetManagedPref(prefs::kManagedDefaultPluginsSetting,
-                        base::Value::CreateIntegerValue(CONTENT_SETTING_BLOCK));
+                        new base::FundamentalValue(CONTENT_SETTING_BLOCK));
 
   scoped_ptr<RuleIterator> rule_iterator(
       provider.GetRuleIterator(
@@ -121,7 +121,7 @@ TEST_F(PolicyProviderTest, ObserveManagedSettingsChange) {
 
   // Set the managed default-content-setting.
   prefs->SetManagedPref(prefs::kManagedDefaultImagesSetting,
-                        base::Value::CreateIntegerValue(CONTENT_SETTING_BLOCK));
+                        new base::FundamentalValue(CONTENT_SETTING_BLOCK));
   ::testing::Mock::VerifyAndClearExpectations(&mock_observer);
   EXPECT_CALL(mock_observer,
               OnContentSettingChanged(_,
@@ -138,7 +138,7 @@ TEST_F(PolicyProviderTest, GettingManagedContentSettings) {
   TestingPrefServiceSyncable* prefs = profile.GetTestingPrefService();
 
   base::ListValue* value = new base::ListValue();
-  value->Append(base::Value::CreateStringValue("[*.]google.com"));
+  value->Append(new base::StringValue("[*.]google.com"));
   prefs->SetManagedPref(prefs::kManagedImagesBlockedForUrls,
                         value);
 
@@ -187,7 +187,7 @@ TEST_F(PolicyProviderTest, GettingManagedContentSettings) {
   // enforced via policies and not set by the user or extension. So a call to
   // SetWebsiteSetting does nothing.
   scoped_ptr<base::Value> value_block(
-      base::Value::CreateIntegerValue(CONTENT_SETTING_BLOCK));
+      new base::FundamentalValue(CONTENT_SETTING_BLOCK));
   bool owned = provider.SetWebsiteSetting(yt_url_pattern,
                                           yt_url_pattern,
                                           CONTENT_SETTINGS_TYPE_COOKIES,
@@ -210,7 +210,7 @@ TEST_F(PolicyProviderTest, ResourceIdentifier) {
   TestingPrefServiceSyncable* prefs = profile.GetTestingPrefService();
 
   base::ListValue* value = new base::ListValue();
-  value->Append(base::Value::CreateStringValue("[*.]google.com"));
+  value->Append(new base::StringValue("[*.]google.com"));
   prefs->SetManagedPref(prefs::kManagedPluginsAllowedForUrls,
                         value);
 
@@ -263,8 +263,8 @@ TEST_F(PolicyProviderTest, AutoSelectCertificateList) {
   std::string pattern_str("\"pattern\":\"[*.]google.com\"");
   std::string filter_str("\"filter\":{\"ISSUER\":{\"CN\":\"issuer name\"}}");
   base::ListValue* value = new base::ListValue();
-  value->Append(base::Value::CreateStringValue(
-      "{" + pattern_str + "," + filter_str + "}"));
+  value->Append(
+      new base::StringValue("{" + pattern_str + "," + filter_str + "}"));
   prefs->SetManagedPref(prefs::kManagedAutoSelectCertificateForUrls,
                         value);
   GURL youtube_url("https://www.youtube.com");

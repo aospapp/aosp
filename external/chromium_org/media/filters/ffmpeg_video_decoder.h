@@ -36,6 +36,7 @@ class MEDIA_EXPORT FFmpegVideoDecoder : public VideoDecoder {
   void set_decode_nalus(bool decode_nalus) { decode_nalus_ = decode_nalus; }
 
   // VideoDecoder implementation.
+  virtual std::string GetDisplayName() const OVERRIDE;
   virtual void Initialize(const VideoDecoderConfig& config,
                           bool low_delay,
                           const PipelineStatusCB& status_cb,
@@ -43,7 +44,6 @@ class MEDIA_EXPORT FFmpegVideoDecoder : public VideoDecoder {
   virtual void Decode(const scoped_refptr<DecoderBuffer>& buffer,
                       const DecodeCB& decode_cb) OVERRIDE;
   virtual void Reset(const base::Closure& closure) OVERRIDE;
-  virtual void Stop() OVERRIDE;
 
   // Callback called from within FFmpeg to allocate a buffer based on
   // the dimensions of |codec_context|. See AVCodecContext.get_buffer2

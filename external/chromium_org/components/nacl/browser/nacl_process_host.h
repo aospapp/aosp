@@ -7,9 +7,11 @@
 
 #include "build/build_config.h"
 
+#include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util_proxy.h"
 #include "base/memory/ref_counted.h"
+#include "base/memory/shared_memory.h"
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop/message_loop.h"
 #include "base/process/process.h"
@@ -17,6 +19,7 @@
 #include "content/public/browser/browser_child_process_host_delegate.h"
 #include "content/public/browser/browser_child_process_host_iterator.h"
 #include "ipc/ipc_channel_handle.h"
+#include "native_client/src/public/nacl_file_info.h"
 #include "net/socket/socket_descriptor.h"
 #include "ppapi/shared_impl/ppapi_permissions.h"
 #include "url/gurl.h"
@@ -45,6 +48,8 @@ class NaClProcessHost : public content::BrowserChildProcessHostDelegate {
  public:
   // manifest_url: the URL of the manifest of the Native Client plugin being
   // executed.
+  // nexe_file: A file that corresponds to the nexe module to be loaded.
+  // nexe_token: A cache validation token for nexe_file.
   // permissions: PPAPI permissions, to control access to private APIs.
   // render_view_id: RenderView routing id, to control access to private APIs.
   // permission_bits: controls which interfaces the NaCl plugin can use.
@@ -61,6 +66,8 @@ class NaClProcessHost : public content::BrowserChildProcessHostDelegate {
   // off_the_record: was the process launched from an incognito renderer?
   // profile_directory: is the path of current profile directory.
   NaClProcessHost(const GURL& manifest_url,
+                  base::File nexe_file,
+                  const NaClFileToken& nexe_token,
                   ppapi::PpapiPermissions permissions,
                   int render_view_id,
                   uint32 permission_bits,
@@ -100,12 +107,6 @@ class NaClProcessHost : public content::BrowserChildProcessHostDelegate {
   content::BrowserPpapiHost* browser_ppapi_host() { return ppapi_host_.get(); }
 
  private:
-  // Internal class that holds the NaClHandle objecs so that
-  // nacl_process_host.h doesn't include NaCl headers.  Needed since it's
-  // included by src\content, which can't depend on the NaCl gyp file because it
-  // depends on chrome.gyp (circular dependency).
-  struct NaClInternal;
-
   bool LaunchNaClGdb();
 
   // Mark the process as using a particular GDB debug stub port and notify
@@ -165,10 +166,14 @@ class NaClProcessHost : public content::BrowserChildProcessHostDelegate {
   void OnSetKnownToValidate(const std::string& signature);
   void OnResolveFileToken(uint64 file_token_lo, uint64 file_token_hi,
                           IPC::Message* reply_msg);
+  void OnResolveFileTokenAsync(uint64 file_token_lo, uint64 file_token_hi);
   void FileResolved(const base::FilePath& file_path,
                     IPC::Message* reply_msg,
                     base::File file);
-
+  void FileResolvedAsync(uint64_t file_token_lo,
+                         uint64_t file_token_hi,
+                         const base::FilePath& file_path,
+                         base::File file);
 #if defined(OS_WIN)
   // Message handler for Windows hardware exception handling.
   void OnAttachDebugExceptionHandler(const std::string& info,
@@ -186,6 +191,9 @@ class NaClProcessHost : public content::BrowserChildProcessHostDelegate {
       const IPC::ChannelHandle& manifest_service_channel_handle);
 
   GURL manifest_url_;
+  base::File nexe_file_;
+  NaClFileToken nexe_token_;
+
   ppapi::PpapiPermissions permissions_;
 
 #if defined(OS_WIN)
@@ -210,11 +218,6 @@ class NaClProcessHost : public content::BrowserChildProcessHostDelegate {
   // debug the NaCl loader.
   base::FilePath manifest_path_;
 
-  // Socket pairs for the NaCl process and renderer.
-  scoped_ptr<NaClInternal> internal_;
-
-  base::WeakPtrFactory<NaClProcessHost> weak_factory_;
-
   scoped_ptr<content::BrowserChildProcessHost> process_;
 
   bool uses_irt_;
@@ -238,6 +241,15 @@ class NaClProcessHost : public content::BrowserChildProcessHostDelegate {
 
   // Throttling time in milliseconds for PpapiHostMsg_Keepalive IPCs.
   static unsigned keepalive_throttle_interval_milliseconds_;
+
+  // Shared memory provided to the plugin and renderer for
+  // reporting crash information.
+  base::SharedMemory crash_info_shmem_;
+
+  base::File socket_for_renderer_;
+  base::File socket_for_sel_ldr_;
+
+  base::WeakPtrFactory<NaClProcessHost> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(NaClProcessHost);
 };

@@ -31,8 +31,8 @@
     <dimen name="main_panel_height">90dp</dimen>
 
     <dimen name="side_panel_title_padding_top">27dp</dimen>
-    <dimen name="side_panel_title_padding_left">32dp</dimen>
-    <dimen name="side_panel_title_padding_right">56dp</dimen>
+    <dimen name="side_panel_title_padding_start">32dp</dimen>
+    <dimen name="side_panel_title_padding_end">56dp</dimen>
     <dimen name="side_panel_title_text_height">60dp</dimen>
     <dimen name="side_panel_title_text_size">24sp</dimen>
 
@@ -41,8 +41,8 @@
 
     <dimen name="setting_padding_top">9dp</dimen>
     <dimen name="setting_padding_bottom">16dp</dimen>
-    <dimen name="setting_text_padding_left">32dp</dimen>
-    <dimen name="setting_text_padding_right">56dp</dimen>
+    <dimen name="setting_text_padding_start">32dp</dimen>
+    <dimen name="setting_text_padding_end">56dp</dimen>
     <dimen name="setting_text_title_size">18sp</dimen>
     <dimen name="setting_text_value_size">12sp</dimen>
 

@@ -4,10 +4,15 @@
 
 package org.chromium.content.browser;
 
+import static org.chromium.base.test.util.ScalableTimeout.scaleTimeout;
+
 import android.test.suitebuilder.annotation.SmallTest;
+
+import junit.framework.Assert;
 
 import org.chromium.base.test.util.Feature;
 import org.chromium.content.browser.test.util.TestCallbackHelperContainer;
+import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_shell_apk.ContentShellActivity;
 
 import java.lang.annotation.Annotation;
@@ -16,6 +21,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.ref.WeakReference;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * Part of the test suite for the Java Bridge. Tests a number of features including ...
@@ -117,7 +123,7 @@ public class JavaBridgeBasicsTest extends JavaBridgeTestBase {
             public void run() {
                 getContentViewCore().addPossiblyUnsafeJavascriptInterface(object,
                         name, requiredAnnotation);
-                getContentViewCore().reload(true);
+                getContentViewCore().getWebContents().getNavigationController().reload(true);
             }
         });
         onPageFinishedHelper.waitForCallback(currentCallCount);
@@ -130,7 +136,7 @@ public class JavaBridgeBasicsTest extends JavaBridgeTestBase {
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
-                getContentViewCore().reload(true);
+                getContentViewCore().getWebContents().getNavigationController().reload(true);
             }
         });
         onPageFinishedHelper.waitForCallback(currentCallCount);
@@ -172,15 +178,27 @@ public class JavaBridgeBasicsTest extends JavaBridgeTestBase {
     @SmallTest
     @Feature({"AndroidWebView", "Android-JavaBridge"})
     public void testRemovalNotReflectedUntilReload() throws Throwable {
-        injectObjectAndReload(new Object(), "testObject");
+        injectObjectAndReload(new Object() {
+            public void method() {
+                mTestController.setStringValue("I'm here");
+            }
+        }, "testObject");
         assertEquals("object", executeJavaScriptAndGetStringResult("typeof testObject"));
+        executeJavaScript("testObject.method()");
+        assertEquals("I'm here", mTestController.waitForStringValue());
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
                 getContentViewCore().removeJavascriptInterface("testObject");
             }
         });
+        // Check that the Java object is being held by the Java bridge, thus it's not
+        // collected. Note that despite that what JavaDoc says about invoking "gc()", both Dalvik
+        // and ART actually run the collector if called via Runtime.
+        Runtime.getRuntime().gc();
         assertEquals("object", executeJavaScriptAndGetStringResult("typeof testObject"));
+        executeJavaScript("testObject.method()");
+        assertEquals("I'm here", mTestController.waitForStringValue());
         synchronousPageReload();
         assertEquals("undefined", executeJavaScriptAndGetStringResult("typeof testObject"));
     }
@@ -195,7 +213,7 @@ public class JavaBridgeBasicsTest extends JavaBridgeTestBase {
             @Override
             public void run() {
                 getContentViewCore().removeJavascriptInterface("foo");
-                getContentViewCore().reload(true);
+                getContentViewCore().getWebContents().getNavigationController().reload(true);
             }
         });
         onPageFinishedHelper.waitForCallback(currentCallCount);
@@ -357,7 +375,7 @@ public class JavaBridgeBasicsTest extends JavaBridgeTestBase {
                         testObject, "testObject1", null);
                 getContentViewCore().addPossiblyUnsafeJavascriptInterface(
                         testObject, "testObject2", null);
-                getContentViewCore().reload(true);
+                getContentViewCore().getWebContents().getNavigationController().reload(true);
             }
         });
         onPageFinishedHelper.waitForCallback(currentCallCount);
@@ -404,7 +422,7 @@ public class JavaBridgeBasicsTest extends JavaBridgeTestBase {
                         object, "testObject", null);
                 getContentViewCore().addPossiblyUnsafeJavascriptInterface(
                         innerObject, "innerObject", null);
-                getContentViewCore().reload(true);
+                getContentViewCore().getWebContents().getNavigationController().reload(true);
             }
         });
         onPageFinishedHelper.waitForCallback(currentCallCount);
@@ -428,11 +446,11 @@ public class JavaBridgeBasicsTest extends JavaBridgeTestBase {
         class TestObject {
             public InnerObject getInnerObject() {
                 InnerObject inner = new InnerObject();
-                weakRefForInner = new WeakReference<InnerObject>(inner);
+                mWeakRefForInner = new WeakReference<InnerObject>(inner);
                 return inner;
             }
             // A weak reference is used to check InnerObject instance reachability.
-            WeakReference<InnerObject> weakRefForInner;
+            WeakReference<InnerObject> mWeakRefForInner;
         }
         TestObject object = new TestObject();
         injectObjectAndReload(object, "testObject");
@@ -442,12 +460,12 @@ public class JavaBridgeBasicsTest extends JavaBridgeTestBase {
                         "(function() { " +
                         "globalInner = testObject.getInnerObject(); return typeof globalInner; " +
                         "})()"));
-        assertTrue(object.weakRefForInner.get() != null);
+        assertTrue(object.mWeakRefForInner.get() != null);
         // Check that returned Java object is being held by the Java bridge, thus it's not
         // collected.  Note that despite that what JavaDoc says about invoking "gc()", both Dalvik
         // and ART actually run the collector.
         Runtime.getRuntime().gc();
-        assertTrue(object.weakRefForInner.get() != null);
+        assertTrue(object.mWeakRefForInner.get() != null);
         // Now dereference the inner object in JS and run GC to collect the interface object.
         assertEquals("true", executeJavaScriptAndGetStringResult(
                         "(function() { " +
@@ -456,7 +474,7 @@ public class JavaBridgeBasicsTest extends JavaBridgeTestBase {
         // Force GC on the Java side again. The bridge had to release the inner object, so it must
         // be collected this time.
         Runtime.getRuntime().gc();
-        assertEquals(null, object.weakRefForInner.get());
+        assertEquals(null, object.mWeakRefForInner.get());
     }
 
     @SmallTest
@@ -493,6 +511,47 @@ public class JavaBridgeBasicsTest extends JavaBridgeTestBase {
             @Override
             public void run() {
                 assertFalse(threadId == Thread.currentThread().getId());
+            }
+        });
+    }
+
+    @SmallTest
+    @Feature({"AndroidWebView", "Android-JavaBridge"})
+    public void testBlockingUiThreadDoesNotBlockCallsFromJs() throws Throwable {
+        class TestObject {
+            private CountDownLatch mLatch;
+            public TestObject() {
+                mLatch = new CountDownLatch(1);
+            }
+            public boolean waitOnTheLatch() throws Exception {
+                return mLatch.await(scaleTimeout(10000),
+                        java.util.concurrent.TimeUnit.MILLISECONDS);
+            }
+            public void unlockTheLatch() throws Exception {
+                mTestController.setStringValue("unlocked");
+                mLatch.countDown();
+            }
+        }
+        final TestObject testObject = new TestObject();
+        injectObjectAndReload(testObject, "testObject");
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                // loadUrl is asynchronous, the JS code will start running on the renderer
+                // thread. As soon as we exit loadUrl, the browser UI thread will be stuck waiting
+                // on the latch. If blocking the browser thread blocks Java Bridge, then the call
+                // to "unlockTheLatch()" will be executed after the waiting timeout, thus the
+                // string value will not yet be updated by the injected object.
+                mTestController.setStringValue("locked");
+                getWebContents().getNavigationController().loadUrl(new LoadUrlParams(
+                        "javascript:(function() { testObject.unlockTheLatch() })()"));
+                try {
+                    assertTrue(testObject.waitOnTheLatch());
+                } catch (Exception e) {
+                    android.util.Log.e("JavaBridgeBasicsTest", "Wait exception", e);
+                    Assert.fail("Wait exception");
+                }
+                assertEquals("unlocked", mTestController.getStringValue());
             }
         });
     }
@@ -545,7 +604,7 @@ public class JavaBridgeBasicsTest extends JavaBridgeTestBase {
             public void method() {}
             private void privateMethod() {}
             public int field;
-            private int privateField;
+            private int mPrivateField;
         }, "testObject");
         executeJavaScript(
                 "var result = \"\"; " +
@@ -598,7 +657,7 @@ public class JavaBridgeBasicsTest extends JavaBridgeTestBase {
     public void testReflectPrivateFieldRaisesException() throws Throwable {
         injectObjectAndReload(new Object() {
             public Class<?> myGetClass() { return getClass(); }
-            private int field;
+            private int mField;
         }, "testObject");
         assertRaisesException("testObject.myGetClass().getField('field')");
         // getDeclaredField() is able to access a private field, but getInt()
@@ -774,7 +833,7 @@ public class JavaBridgeBasicsTest extends JavaBridgeTestBase {
             public void run() {
                 getContentViewCore().addJavascriptInterface(new Test(),
                         "testObject");
-                getContentViewCore().reload(true);
+                getContentViewCore().getWebContents().getNavigationController().reload(true);
             }
         });
         onPageFinishedHelper.waitForCallback(currentCallCount);

@@ -19,9 +19,11 @@
 #include "extensions/common/extension.h"
 #include "url/gurl.h"
 
-using content::PluginService;
+#if !defined(DISABLE_NACL)
+#include "components/nacl/common/nacl_constants.h"
+#endif
 
-static const char kNaClPluginMimeType[] = "application/x-nacl";
+using content::PluginService;
 
 namespace extensions {
 
@@ -67,6 +69,7 @@ void PluginManager::OnExtensionLoaded(content::BrowserContext* browser_context,
     }
   }
 
+#if !defined(DISABLE_NACL)
   const NaClModuleInfo::List* nacl_modules =
       NaClModuleInfo::GetNaClModules(extension);
   if (nacl_modules) {
@@ -78,6 +81,7 @@ void PluginManager::OnExtensionLoaded(content::BrowserContext* browser_context,
     }
     UpdatePluginListWithNaClModules();
   }
+#endif
 
   const MimeTypesHandler* handler = MimeTypesHandler::GetHandler(extension);
   if (handler && !handler->handler_url().empty()) {
@@ -122,6 +126,7 @@ void PluginManager::OnExtensionUnloaded(
     }
   }
 
+#if !defined(DISABLE_NACL)
   const NaClModuleInfo::List* nacl_modules =
       NaClModuleInfo::GetNaClModules(extension);
   if (nacl_modules) {
@@ -133,6 +138,7 @@ void PluginManager::OnExtensionUnloaded(
     }
     UpdatePluginListWithNaClModules();
   }
+#endif
 
   const MimeTypesHandler* handler = MimeTypesHandler::GetHandler(extension);
   if (handler && !handler->handler_url().empty()) {
@@ -147,6 +153,8 @@ void PluginManager::OnExtensionUnloaded(
   if (plugins_or_nacl_changed)
     PluginService::GetInstance()->PurgePluginListCache(profile_, false);
 }
+
+#if !defined(DISABLE_NACL)
 
 void PluginManager::RegisterNaClModule(const NaClModuleInfo& info) {
   DCHECK(FindNaClModule(info.url) == nacl_module_list_.end());
@@ -176,7 +184,7 @@ void PluginManager::UpdatePluginListWithNaClModules() {
   // Check each MIME type the plugins handle for the NaCl MIME type.
   for (mime_iter = pepper_info->mime_types.begin();
        mime_iter != pepper_info->mime_types.end(); ++mime_iter) {
-    if (mime_iter->mime_type == kNaClPluginMimeType) {
+    if (mime_iter->mime_type == nacl::kNaClPluginMimeType) {
       // This plugin handles "application/x-nacl".
 
       PluginService::GetInstance()->UnregisterInternalPlugin(pepper_info->path);
@@ -215,5 +223,7 @@ NaClModuleInfo::List::iterator PluginManager::FindNaClModule(const GURL& url) {
   }
   return nacl_module_list_.end();
 }
+
+#endif  // !defined(DISABLE_NACL)
 
 }  // namespace extensions

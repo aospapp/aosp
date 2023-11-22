@@ -7,7 +7,7 @@
 
 #include <algorithm>
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/json/json_reader.h"
 #include "base/message_loop/message_loop.h"
@@ -15,7 +15,6 @@
 #include "base/stl_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/synchronization/waitable_event.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/download/download_file_icon_extractor.h"
 #include "chrome/browser/download/download_service.h"
 #include "chrome/browser/download/download_service_factory.h"
@@ -40,10 +39,10 @@
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
-#include "content/public/common/page_transition_types.h"
 #include "content/public/test/download_test_observer.h"
 #include "content/test/net/url_request_slow_download_job.h"
 #include "extensions/browser/event_router.h"
+#include "extensions/browser/notification_types.h"
 #include "net/base/data_url.h"
 #include "net/base/net_util.h"
 #include "net/url_request/url_request.h"
@@ -51,9 +50,10 @@
 #include "net/url_request/url_request_job.h"
 #include "net/url_request/url_request_job_factory.h"
 #include "net/url_request/url_request_job_factory_impl.h"
-#include "webkit/browser/fileapi/file_system_context.h"
-#include "webkit/browser/fileapi/file_system_operation_runner.h"
-#include "webkit/browser/fileapi/file_system_url.h"
+#include "storage/browser/fileapi/file_system_context.h"
+#include "storage/browser/fileapi/file_system_operation_runner.h"
+#include "storage/browser/fileapi/file_system_url.h"
+#include "ui/base/page_transition_types.h"
 
 using content::BrowserContext;
 using content::BrowserThread;
@@ -80,12 +80,14 @@ class DownloadsEventsListener : public content::NotificationObserver {
  public:
   DownloadsEventsListener()
     : waiting_(false) {
-    registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_DOWNLOADS_EVENT,
+    registrar_.Add(this,
+                   extensions::NOTIFICATION_EXTENSION_DOWNLOADS_EVENT,
                    content::NotificationService::AllSources());
   }
 
   virtual ~DownloadsEventsListener() {
-    registrar_.Remove(this, chrome::NOTIFICATION_EXTENSION_DOWNLOADS_EVENT,
+    registrar_.Remove(this,
+                      extensions::NOTIFICATION_EXTENSION_DOWNLOADS_EVENT,
                       content::NotificationService::AllSources());
     STLDeleteElements(&events_);
   }
@@ -176,8 +178,7 @@ class DownloadsEventsListener : public content::NotificationObserver {
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE {
     switch (type) {
-      case chrome::NOTIFICATION_EXTENSION_DOWNLOADS_EVENT:
-        {
+      case extensions::NOTIFICATION_EXTENSION_DOWNLOADS_EVENT: {
           DownloadsNotificationSource* dns =
               content::Source<DownloadsNotificationSource>(source).ptr();
           Event* new_event = new Event(
@@ -274,7 +275,7 @@ class DownloadExtensionTest : public ExtensionApiTest {
     content::WebContents* tab = chrome::AddSelectedTabWithURL(
         current_browser(),
         extension_->GetResourceURL("empty.html"),
-        content::PAGE_TRANSITION_LINK);
+        ui::PAGE_TRANSITION_LINK);
     EventRouter::Get(current_browser()->profile())
         ->AddEventListener(downloads::OnCreated::kEventName,
                            tab->GetRenderProcessHost(),
@@ -295,7 +296,7 @@ class DownloadExtensionTest : public ExtensionApiTest {
     content::WebContents* tab = chrome::AddSelectedTabWithURL(
         current_browser(),
         extension_->GetResourceURL("empty.html"),
-        content::PAGE_TRANSITION_LINK);
+        ui::PAGE_TRANSITION_LINK);
     EventRouter::Get(current_browser()->profile())
         ->AddEventListener(downloads::OnDeterminingFilename::kEventName,
                            tab->GetRenderProcessHost(),
@@ -585,7 +586,7 @@ class DownloadExtensionTest : public ExtensionApiTest {
       content::WebContents* tab = chrome::AddSelectedTabWithURL(
           current_browser(),
           extension_->GetResourceURL("empty.html"),
-          content::PAGE_TRANSITION_LINK);
+          ui::PAGE_TRANSITION_LINK);
       function->set_extension(extension_);
       function->SetRenderViewHost(tab->GetRenderViewHost());
     }
@@ -698,9 +699,9 @@ class ScopedItemVectorCanceller {
 // Writes an HTML5 file so that it can be downloaded.
 class HTML5FileWriter {
  public:
-  static bool CreateFileForTesting(fileapi::FileSystemContext* context,
-                                   const fileapi::FileSystemURL& path,
-                                   const char*data,
+  static bool CreateFileForTesting(storage::FileSystemContext* context,
+                                   const storage::FileSystemURL& path,
+                                   const char* data,
                                    int length) {
     // Create a temp file.
     base::FilePath temp_file;
@@ -734,8 +735,8 @@ class HTML5FileWriter {
   }
 
   static void CreateFileForTestingOnIOThread(
-      fileapi::FileSystemContext* context,
-      const fileapi::FileSystemURL& path,
+      storage::FileSystemContext* context,
+      const storage::FileSystemURL& path,
       const base::FilePath& temp_file,
       bool* result,
       base::WaitableEvent* done_event) {
@@ -803,8 +804,14 @@ downloads::InterruptReason InterruptReasonContentToExtension(
 
 }  // namespace
 
+#if defined(OS_CHROMEOS)
+// http://crbug.com/396510
+#define MAYBE_DownloadExtensionTest_Open DISABLED_DownloadExtensionTest_Open
+#else
+#define MAYBE_DownloadExtensionTest_Open DownloadExtensionTest_Open
+#endif
 IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
-                       DownloadExtensionTest_Open) {
+                       MAYBE_DownloadExtensionTest_Open) {
   LoadExtension("downloads_split");
   DownloadsOpenFunction* open_function = new DownloadsOpenFunction();
   open_function->set_user_gesture(true);
@@ -1596,7 +1603,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
 
   for (size_t index = 0; index < arraysize(kUnsafeHeaders); ++index) {
     std::string download_url = test_server()->GetURL("slow?0").spec();
-    EXPECT_STREQ(errors::kInvalidHeader,
+    EXPECT_STREQ(errors::kInvalidHeaderUnsafe,
                   RunFunctionAndReturnError(new DownloadsDownloadFunction(),
                                             base::StringPrintf(
         "[{\"url\": \"%s\","
@@ -1608,6 +1615,35 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
         static_cast<int>(index),
         kUnsafeHeaders[index])).c_str());
   }
+}
+
+// Tests that invalid header names and values are rejected.
+IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
+                       DownloadExtensionTest_Download_InvalidHeaders) {
+  LoadExtension("downloads_split");
+  ASSERT_TRUE(StartEmbeddedTestServer());
+  ASSERT_TRUE(test_server()->Start());
+  GoOnTheRecord();
+  std::string download_url = test_server()->GetURL("slow?0").spec();
+  EXPECT_STREQ(errors::kInvalidHeaderName,
+               RunFunctionAndReturnError(new DownloadsDownloadFunction(),
+                                         base::StringPrintf(
+      "[{\"url\": \"%s\","
+      "  \"filename\": \"unsafe-header-crlf.txt\","
+      "  \"headers\": [{"
+      "    \"name\": \"Header\\r\\nSec-Spoof: Hey\\r\\nX-Split:X\","
+      "    \"value\": \"unsafe\"}]}]",
+      download_url.c_str())).c_str());
+
+  EXPECT_STREQ(errors::kInvalidHeaderValue,
+               RunFunctionAndReturnError(new DownloadsDownloadFunction(),
+                                         base::StringPrintf(
+      "[{\"url\": \"%s\","
+      "  \"filename\": \"unsafe-header-crlf.txt\","
+      "  \"headers\": [{"
+      "    \"name\": \"Invalid-value\","
+      "    \"value\": \"hey\\r\\nSec-Spoof: Hey\"}]}]",
+      download_url.c_str())).c_str());
 }
 
 #if defined(OS_WIN)
@@ -1680,9 +1716,18 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
       download_url.c_str())).c_str());
 }
 
+// flaky on mac: crbug.com/392288
+#if defined(OS_MACOSX)
+#define MAYBE_DownloadExtensionTest_Download_InvalidURLs \
+        DISABLED_DownloadExtensionTest_Download_InvalidURLs
+#else
+#define MAYBE_DownloadExtensionTest_Download_InvalidURLs \
+        DownloadExtensionTest_Download_InvalidURLs
+#endif
+
 // Test that downloading invalid URLs immediately returns kInvalidURLError.
 IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
-                       DownloadExtensionTest_Download_InvalidURLs) {
+                       MAYBE_DownloadExtensionTest_Download_InvalidURLs) {
   LoadExtension("downloads_split");
   GoOnTheRecord();
 
@@ -1969,7 +2014,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
 
   ASSERT_TRUE(WaitForInterruption(
       item,
-      content::DOWNLOAD_INTERRUPT_REASON_SERVER_FAILED,
+      content::DOWNLOAD_INTERRUPT_REASON_SERVER_UNAUTHORIZED,
       base::StringPrintf("[{\"danger\": \"safe\","
                          "  \"incognito\": false,"
                          "  \"mime\": \"text/html\","
@@ -2293,10 +2338,19 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
                           result_id)));
 }
 
+// flaky on mac: crbug.com/392288
+#if defined(OS_MACOSX)
+#define MAYBE_DownloadExtensionTest_Download_FileSystemURL \
+        DISABLED_DownloadExtensionTest_Download_FileSystemURL
+#else
+#define MAYBE_DownloadExtensionTest_Download_FileSystemURL \
+        DownloadExtensionTest_Download_FileSystemURL
+#endif
+
 // Test downloading filesystem: URLs.
 // NOTE: chrome disallows creating HTML5 FileSystem Files in incognito.
 IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
-                       DownloadExtensionTest_Download_FileSystemURL) {
+                       MAYBE_DownloadExtensionTest_Download_FileSystemURL) {
   static const char* kPayloadData = "on the record\ndata";
   GoOnTheRecord();
   LoadExtension("downloads_split");
@@ -2306,10 +2360,11 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
 
   // Setup a file in the filesystem which we can download.
   ASSERT_TRUE(HTML5FileWriter::CreateFileForTesting(
-      BrowserContext::GetDefaultStoragePartition(browser()->profile())->
-          GetFileSystemContext(),
-      fileapi::FileSystemURL::CreateForTest(GURL(download_url)),
-      kPayloadData, strlen(kPayloadData)));
+      BrowserContext::GetDefaultStoragePartition(browser()->profile())
+          ->GetFileSystemContext(),
+      storage::FileSystemURL::CreateForTest(GURL(download_url)),
+      kPayloadData,
+      strlen(kPayloadData)));
 
   // Now download it.
   scoped_ptr<base::Value> result(RunFunctionAndReturnResult(
@@ -3456,9 +3511,16 @@ IN_PROC_BROWSER_TEST_F(
 
 // TODO test precedence rules: install_time
 
+#if defined(OS_MACOSX)
+#define MAYBE_DownloadExtensionTest_OnDeterminingFilename_RemoveFilenameDeterminer \
+  DISABLED_DownloadExtensionTest_OnDeterminingFilename_RemoveFilenameDeterminer
+#else
+#define MAYBE_DownloadExtensionTest_OnDeterminingFilename_RemoveFilenameDeterminer \
+  DownloadExtensionTest_OnDeterminingFilename_RemoveFilenameDeterminer
+#endif
 IN_PROC_BROWSER_TEST_F(
     DownloadExtensionTest,
-    DownloadExtensionTest_OnDeterminingFilename_RemoveFilenameDeterminer) {
+    MAYBE_DownloadExtensionTest_OnDeterminingFilename_RemoveFilenameDeterminer) {
   ASSERT_TRUE(StartEmbeddedTestServer());
   ASSERT_TRUE(test_server()->Start());
   GoOnTheRecord();
@@ -4034,7 +4096,7 @@ TEST(ExtensionDetermineDownloadFilenameInternal,
   base::FilePath filename;
   downloads::FilenameConflictAction conflict_action =
       downloads::FILENAME_CONFLICT_ACTION_UNIQUIFY;
-  ExtensionWarningSet warnings;
+  WarningSet warnings;
 
   // Empty incumbent determiner
   warnings.clear();
@@ -4071,7 +4133,7 @@ TEST(ExtensionDetermineDownloadFilenameInternal,
   EXPECT_EQ(FILE_PATH_LITERAL("a"), filename.value());
   EXPECT_EQ(downloads::FILENAME_CONFLICT_ACTION_OVERWRITE, conflict_action);
   EXPECT_FALSE(warnings.empty());
-  EXPECT_EQ(ExtensionWarning::kDownloadFilenameConflict,
+  EXPECT_EQ(Warning::kDownloadFilenameConflict,
             warnings.begin()->warning_type());
   EXPECT_EQ("suggester", warnings.begin()->extension_id());
 
@@ -4092,7 +4154,7 @@ TEST(ExtensionDetermineDownloadFilenameInternal,
   EXPECT_EQ(FILE_PATH_LITERAL("b"), filename.value());
   EXPECT_EQ(downloads::FILENAME_CONFLICT_ACTION_PROMPT, conflict_action);
   EXPECT_FALSE(warnings.empty());
-  EXPECT_EQ(ExtensionWarning::kDownloadFilenameConflict,
+  EXPECT_EQ(Warning::kDownloadFilenameConflict,
             warnings.begin()->warning_type());
   EXPECT_EQ("incumbent", warnings.begin()->extension_id());
 }

@@ -4,6 +4,38 @@
 Release Notes
 #############
 
+Chrome/Pepper 38 (15 August 2014)
+=================================
+
+PNaCl
+-----
+
+* Compilation speed improvements due to validation caching of the translator and
+  linker.
+* Performance improvement of SIMD vector shuffle.
+
+Chrome/Pepper 37 (20 June 2014)
+===============================
+
+PNaCl
+-----
+
+* 2–10% translation time improvement.
+* Improved vector load/store and shuffle performance.
+
+Pepper
+------
+
+* Media Streams Input support.
+* Compositor API.
+* Hardware Decode API in development preview.
+* Sync API in development preview.
+
+SDK
+---
+
+* Demo of a :ref:`full development environment in the browser <io2014>`.
+
 Chrome/Pepper 36 (09 May 2014)
 ==============================
 

@@ -7,8 +7,8 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/values.h"
 #include "chrome/browser/ui/webui/chromeos/login/oobe_ui.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
 namespace {
@@ -32,11 +32,8 @@ UpdateScreenHandler::~UpdateScreenHandler() {
 
 void UpdateScreenHandler::DeclareLocalizedValues(
     LocalizedValuesBuilder* builder) {
-  builder->AddF("checkingForUpdatesMsg",
-                IDS_CHECKING_FOR_UPDATE_MSG, IDS_SHORT_PRODUCT_NAME);
-  builder->AddF("installingUpdateDesc",
-                IDS_UPDATE_MSG, IDS_SHORT_PRODUCT_NAME);
-
+  builder->Add("checkingForUpdatesMsg", IDS_CHECKING_FOR_UPDATE_MSG);
+  builder->Add("installingUpdateDesc", IDS_UPDATE_MSG);
   builder->Add("updateScreenTitle", IDS_UPDATE_SCREEN_TITLE);
   builder->Add("updateScreenAccessibleTitle",
                IDS_UPDATE_SCREEN_ACCESSIBLE_TITLE);
@@ -107,30 +104,26 @@ void UpdateScreenHandler::ShowProgressMessage(bool visible) {
 }
 
 void UpdateScreenHandler::SetProgressMessage(ProgressMessage message) {
-  scoped_ptr<base::StringValue> progress_message;
+  int ids = 0;
   switch (message) {
     case PROGRESS_MESSAGE_UPDATE_AVAILABLE:
-      progress_message.reset(base::Value::CreateStringValue(
-          l10n_util::GetStringUTF16(IDS_UPDATE_AVAILABLE)));
+      ids = IDS_UPDATE_AVAILABLE;
       break;
     case PROGRESS_MESSAGE_INSTALLING_UPDATE:
-      progress_message.reset(base::Value::CreateStringValue(
-          l10n_util::GetStringFUTF16(IDS_INSTALLING_UPDATE,
-            l10n_util::GetStringUTF16(IDS_SHORT_PRODUCT_NAME))));
+      ids = IDS_INSTALLING_UPDATE;
       break;
     case PROGRESS_MESSAGE_VERIFYING:
-      progress_message.reset(base::Value::CreateStringValue(
-          l10n_util::GetStringUTF16(IDS_UPDATE_VERIFYING)));
+      ids = IDS_UPDATE_VERIFYING;
       break;
     case PROGRESS_MESSAGE_FINALIZING:
-      progress_message.reset(base::Value::CreateStringValue(
-          l10n_util::GetStringUTF16(IDS_UPDATE_FINALIZING)));
+      ids = IDS_UPDATE_FINALIZING;
       break;
     default:
       NOTREACHED();
-  };
-  if (progress_message.get())
-    CallJS("setProgressMessage", *progress_message);
+      return;
+  }
+
+  CallJS("setProgressMessage", l10n_util::GetStringUTF16(ids));
 }
 
 void UpdateScreenHandler::ShowCurtain(bool visible) {
@@ -143,10 +136,9 @@ void UpdateScreenHandler::RegisterMessages() {
 #endif
 }
 
-void UpdateScreenHandler::OnConnectToNetworkRequested(
-    const std::string& service_path) {
+void UpdateScreenHandler::OnConnectToNetworkRequested() {
   if (screen_)
-    screen_->OnConnectToNetworkRequested(service_path);
+    screen_->OnConnectToNetworkRequested();
 }
 
 #if !defined(OFFICIAL_BUILD)

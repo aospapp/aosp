@@ -17,6 +17,7 @@
 -->
 
 <resources>
-    <dimen name="vacation_responder_width">600dip</dimen>
-    <dimen name="vacation_responder_padding_horizontal_wide">32dip</dimen>
+    <dimen name="vacation_responder_width_tablet">600dp</dimen>
+    <dimen name="vacation_responder_padding_horizontal_wide">32dp</dimen>
+    <dimen name="vacation_responder_margin_horizontal_wide">28dp</dimen>
 </resources>

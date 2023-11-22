@@ -22,9 +22,13 @@ class AddKeyRequest;
 class AuthorizationRequest;
 class BaseReply;
 class CheckKeyRequest;
+class FlushAndSignBootAttributesRequest;
+class GetBootAttributeRequest;
+class GetKeyDataRequest;
 class MountRequest;
-class UpdateKeyRequest;
 class RemoveKeyRequest;
+class SetBootAttributeRequest;
+class UpdateKeyRequest;
 
 } // namespace cryptohome
 
@@ -233,7 +237,7 @@ class CHROMEOS_EXPORT CryptohomeClient : public DBusClient {
   // Calls Pkcs11GetTpmTokenInfoForUser method.  On success |callback| will
   // receive PKCS #11 token information for the user identified by |user_email|.
   // The |user_email| must be a canonical email address as returned by
-  // chromeos::User::email().
+  // user_manager::User::email().
   virtual void Pkcs11GetTpmTokenInfoForUser(
       const std::string& user_email,
       const Pkcs11GetTpmTokenInfoCallback& callback) = 0;
@@ -451,6 +455,17 @@ class CHROMEOS_EXPORT CryptohomeClient : public DBusClient {
       const std::string& key_prefix,
       const BoolDBusMethodCallback& callback) = 0;
 
+  // Asynchronously calls the GetKeyDataEx method. |callback| will be invoked
+  // with the reply protobuf.
+  // GetKeyDataEx returns information about the key specified in |request|. At
+  // present, this does not include any secret information and the call should
+  // not be authenticated (|auth| should be empty).
+  virtual void GetKeyDataEx(
+      const cryptohome::AccountIdentifier& id,
+      const cryptohome::AuthorizationRequest& auth,
+      const cryptohome::GetKeyDataRequest& request,
+      const ProtobufMethodCallback& callback) = 0;
+
   // Asynchronously calls CheckKeyEx method. |callback| is called after method
   // call, and with reply protobuf.
   // CheckKeyEx just checks if authorization information is valid.
@@ -498,6 +513,30 @@ class CHROMEOS_EXPORT CryptohomeClient : public DBusClient {
                            const cryptohome::AuthorizationRequest& auth,
                            const cryptohome::RemoveKeyRequest& request,
                            const ProtobufMethodCallback& callback) = 0;
+
+  // Asynchronously calls GetBootAttribute method. |callback| is called after
+  // method call, and with reply protobuf.
+  // GetBootAttribute gets the value of the specified boot attribute.
+  virtual void GetBootAttribute(
+      const cryptohome::GetBootAttributeRequest& request,
+      const ProtobufMethodCallback& callback) = 0;
+
+  // Asynchronously calls SetBootAttribute method. |callback| is called after
+  // method call, and with reply protobuf.
+  // SetBootAttribute sets the value of the specified boot attribute. The value
+  // won't be available unitl FlushAndSignBootAttributes() is called.
+  virtual void SetBootAttribute(
+      const cryptohome::SetBootAttributeRequest& request,
+      const ProtobufMethodCallback& callback) = 0;
+
+  // Asynchronously calls FlushAndSignBootAttributes method. |callback| is
+  // called after method call, and with reply protobuf.
+  // FlushAndSignBootAttributes makes all pending boot attribute settings
+  // available, and have them signed by a special TPM key. This method always
+  // fails after any user, publuc, or guest session starts.
+  virtual void FlushAndSignBootAttributes(
+      const cryptohome::FlushAndSignBootAttributesRequest& request,
+      const ProtobufMethodCallback& callback) = 0;
 
  protected:
   // Create() should be used instead.

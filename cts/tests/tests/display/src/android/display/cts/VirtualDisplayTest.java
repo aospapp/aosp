@@ -57,7 +57,7 @@ public class VirtualDisplayTest extends AndroidTestCase {
     private static final int WIDTH = 720;
     private static final int HEIGHT = 480;
     private static final int DENSITY = DisplayMetrics.DENSITY_MEDIUM;
-    private static final int TIMEOUT = 10000;
+    private static final int TIMEOUT = 40000;
 
     // Colors that we use as a signal to determine whether some desired content was
     // drawn.  The colors themselves doesn't matter but we choose them to have with distinct

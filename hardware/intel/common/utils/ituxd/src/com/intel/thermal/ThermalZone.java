@@ -481,9 +481,9 @@ public class ThermalZone {
      * zone operates in polling mode.
      */
     public boolean isZoneStateChanged() {
-        for (ThermalSensor ts : mThermalSensors) {
-            if (ts.getSensorActiveStatus()) {
-                ts.updateSensorTemp();
+        for (int i = 0; i < mThermalSensors.size(); i++) {
+            if (mThermalSensors.get(i).getSensorActiveStatus()) {
+                mThermalSensors.get(i).updateSensorTemp();
             }
         }
         return updateZoneParams();

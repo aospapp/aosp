@@ -68,11 +68,11 @@ The factors that impact the decision include:
 </p>
 
 <ul>
-<li>presence of a fast mixer thread for this output (see below)</li>
-<li>track sample rate</li>
-<li>presence of a client thread to execute callback handlers for this track</li>
-<li>track buffer size</li>
-<li>available fast track slots (see below)</li>
+<li>Presence of a fast mixer thread for this output (see below)</li>
+<li>Track sample rate</li>
+<li>Presence of a client thread to execute callback handlers for this track</li>
+<li>Track buffer size</li>
+<li>Available fast track slots (see below)</li>
 </ul>
 
 <p>
@@ -100,7 +100,7 @@ The fast mixer thread provides these features:
 </p>
 
 <ul>
-<li>mixing of the normal mixer's sub-mix and up to 7 client fast tracks</li>
+<li>Mixing of the normal mixer's sub-mix and up to 7 client fast tracks</li>
 <li>Per track attenuation</li>
 </ul>
 

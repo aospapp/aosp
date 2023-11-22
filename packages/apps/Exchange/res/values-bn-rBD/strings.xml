@@ -27,7 +27,6 @@
     <string name="meeting_recurring" msgid="2752008481765880928">"কখন: <xliff:g id="EVENTDATE">%s</xliff:g> (পুনরাবৃত্তি)"</string>
     <string name="meeting_allday" msgid="7251209063071628040">"কখন: <xliff:g id="EVENTDATE">%s</xliff:g> (সারা দিন)"</string>
     <string name="meeting_allday_recurring" msgid="4545762363537362545">"কখন: <xliff:g id="EVENTDATE">%s</xliff:g> (সারা দিন, পুনরাবৃত্তি)"</string>
-    <string name="notification_exchange_calendar_added" msgid="8998454267739748113">"Exchange ক্যালেন্ডার জোড়া হয়েছে"</string>
     <string name="app_name" msgid="1707639359526090662">"Exchange পরিষেবাদি"</string>
     <string name="exception_cancel" msgid="8972887597771126871">"এই তারিখের এই ইভেন্টটি বাতিল করা হয়েছে: <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="exception_updated" msgid="329192591551400871">"এই তারিখের এই ইভেন্টটির বিশদ বিবরণ পরিবর্তন করা হয়েছে: <xliff:g id="DATE">%s</xliff:g>"</string>

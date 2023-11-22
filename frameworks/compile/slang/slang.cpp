@@ -452,8 +452,6 @@ int Slang::compile() {
 
   // The compilation ended, clear
   mBackend.reset();
-  mASTContext.reset();
-  mPP.reset();
   mOS.reset();
 
   return mDiagEngine->hasErrorOccurred() ? 1 : 0;

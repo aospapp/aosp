@@ -144,41 +144,9 @@
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_LOGOUT_BUTTON_PUSHED_TOP" file="cros/status/status_logout_button_pushed_top.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_LOGOUT_BUTTON_PUSHED_TOP_LEFT" file="cros/status/status_logout_button_pushed_top_left.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_LOGOUT_BUTTON_PUSHED_TOP_RIGHT" file="cros/status/status_logout_button_pushed_top_right.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_MANAGED_USER" file="cros/status/status_managed_mode_user.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_1X" file="cros/network/statusbar_network_1x.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_3G_DARK" file="cros/network/statusbar_network_3g_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_3G_LIGHT" file="cros/network/statusbar_network_3g_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_4G_DARK" file="cros/network/statusbar_network_4g_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_4G_LIGHT" file="cros/network/statusbar_network_4g_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_ARCS_DARK" file="cros/network/statusbar_network_arcs_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_ARCS_LIGHT" file="cros/network/statusbar_network_arcs_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_BARS_DARK" file="cros/network/statusbar_network_bars_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_BARS_LIGHT" file="cros/network/statusbar_network_bars_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_EDGE_DARK" file="cros/network/statusbar_network_edge_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_EDGE_LIGHT" file="cros/network/statusbar_network_edge_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_EVDO_DARK" file="cros/network/statusbar_network_evdo_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_EVDO_LIGHT" file="cros/network/statusbar_network_evdo_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_FAILED" file="cros/network/status_network_failed.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_GPRS_DARK" file="cros/network/statusbar_network_gprs_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_GPRS_LIGHT" file="cros/network/statusbar_network_gprs_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_HSPA_DARK" file="cros/network/statusbar_network_hspa_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_HSPA_LIGHT" file="cros/network/statusbar_network_hspa_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_HSPA_PLUS_DARK" file="cros/network/statusbar_network_hspa_plus_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_HSPA_PLUS_LIGHT" file="cros/network/statusbar_network_hspa_plus_light.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_SUPERVISED_USER" file="cros/status/status_managed_mode_user.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_INFO" file="cros/network/status_network_info.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_INFO_HOVER" file="cros/network/status_network_info_hover.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_LTE_ADVANCED_DARK" file="cros/network/statusbar_network_lte_advanced_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_LTE_ADVANCED_LIGHT" file="cros/network/statusbar_network_lte_advanced_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_LTE_DARK" file="cros/network/statusbar_network_lte_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_LTE_LIGHT" file="cros/network/statusbar_network_lte_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_PORTAL_DARK" file="cros/network/statusbar_network_active_portal_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_PORTAL_LIGHT" file="cros/network/statusbar_network_active_portal_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_ROAMING_DARK" file="cros/network/statusbar_network_roaming_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_ROAMING_LIGHT" file="cros/network/statusbar_network_roaming_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_SECURE_DARK" file="cros/network/statusbar_network_secure_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_VPN" file="cros/network/statusbar_vpn_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_VPN_BADGE" file="cros/network/statusbar_network_vpn_badge.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NETWORK_WIRED" file="cros/network/statusbar_wired.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NOTIFICATION_3G" file="cros/network/notification_3g.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NOTIFICATION_LTE" file="cros/network/notification_lte.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NOTIFICATION_SESSION_LENGTH_LIMIT" file="cros/notification/notification_session_length_timer.png" />
@@ -221,17 +189,19 @@
 
       <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CONTROL_BACKGROUND_H" file="common/window_control_background_hover.png" />
       <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CONTROL_BACKGROUND_P" file="common/window_control_background_pressed.png" />
+      <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CONTROL_ICON_BACK" file="common/window_control_icon_back.png" />
+      <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CONTROL_ICON_BACK_I" file="common/window_control_icon_back_inactive.png" />
       <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CONTROL_ICON_CLOSE" file="common/window_control_icon_close.png" />
       <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CONTROL_ICON_CLOSE_I" file="common/window_control_icon_close_inactive.png" />
       <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CONTROL_ICON_LEFT_SNAPPED" file="common/window_control_icon_left_snapped.png" />
+      <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CONTROL_ICON_MAXIMIZE" file="common/window_control_icon_maximize.png" />
+      <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CONTROL_ICON_MAXIMIZE_I" file="common/window_control_icon_maximize_inactive.png" />
       <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CONTROL_ICON_MINIMIZE" file="common/window_control_icon_minimize.png" />
       <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CONTROL_ICON_MINIMIZE_I" file="common/window_control_icon_minimize_inactive.png" />
+      <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CONTROL_ICON_RESTORE" file="common/window_control_icon_restore.png" />
+      <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CONTROL_ICON_RESTORE_I" file="common/window_control_icon_restore_inactive.png" />
       <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CONTROL_ICON_RIGHT_SNAPPED" file="common/window_control_icon_right_snapped.png" />
-      <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CONTROL_ICON_SIZE" file="common/window_control_icon_size.png" />
-      <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CONTROL_ICON_SIZE_I" file="common/window_control_icon_size_inactive.png" />
 
-      <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_HEADER_BASE" file="common/window_header_base_active.png" />
-      <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_HEADER_BASE_RESTORED_INACTIVE" file="common/window_header_base_inactive.png" />
       <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_HEADER_SHADE_INACTIVE_BOTTOM" file="common/window_header_shade_bottom_inactive.png" />
       <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_HEADER_SHADE_INACTIVE_LEFT" file="common/window_header_shade_left_inactive.png" />
       <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_HEADER_SHADE_INACTIVE_RIGHT" file="common/window_header_shade_right_inactive.png" />

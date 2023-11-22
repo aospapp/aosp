@@ -23,22 +23,23 @@ class SequencedTaskRunner;
 
 namespace chromeos {
 
-// This class is responsible for loading the TPM token when the user logs
-// in. It is expected to be constructed on the UI thread and public methods
-// should all be called from the UI thread. When the TPM token is loaded,
-// or if the TPM should stay disabled for the session, the observers are
-// notified using |OnTPMTokenReady|.
+// This class is responsible for loading the TPM backed token for the system
+// slot when the user logs in. It is expected to be constructed on the UI thread
+// and public methods should all be called from the UI thread.
+// When the TPM token is loaded, or if the TPM should stay disabled for the
+// session, the observers are notified using |OnTPMTokenReady|.
+// Note: This currently initializes the token with the hard coded default id 0.
+// See CryptohomeClient::OnPkcs11GetTpmTokenInfo.
 class CHROMEOS_EXPORT TPMTokenLoader : public LoginState::Observer {
  public:
-  class Observer {
-   public:
-    // Called when the TPM token initialization is done or the case where TPM
-    // should stay disabled is detected (e.g. on guest login).
-    virtual void OnTPMTokenReady() = 0;
-
-   protected:
-    virtual ~Observer() {}
+  enum TPMTokenStatus {
+    TPM_TOKEN_STATUS_UNDETERMINED,
+    TPM_TOKEN_STATUS_ENABLED,
+    TPM_TOKEN_STATUS_DISABLED
   };
+
+  typedef base::Callback<void(bool)> TPMReadyCallback;
+  typedef std::vector<TPMReadyCallback> TPMReadyCallbackList;
 
   // Sets the global instance. Must be called before any calls to Get().
   // The global instance will immediately start observing |LoginState|.
@@ -63,11 +64,9 @@ class CHROMEOS_EXPORT TPMTokenLoader : public LoginState::Observer {
   void SetCryptoTaskRunner(
       const scoped_refptr<base::SequencedTaskRunner>& crypto_task_runner);
 
-  void AddObserver(TPMTokenLoader::Observer* observer);
-  void RemoveObserver(TPMTokenLoader::Observer* observer);
-
-  // Checks if the TPM token in ready to be used.
-  bool IsTPMTokenReady() const;
+  // Checks if the TPM token is enabled. If the state is unknown, |callback|
+  // will be called back once the TPM state is known.
+  TPMTokenStatus IsTPMTokenEnabled(const TPMReadyCallback& callback);
 
   std::string tpm_user_pin() const { return tpm_user_pin_; }
 
@@ -75,13 +74,15 @@ class CHROMEOS_EXPORT TPMTokenLoader : public LoginState::Observer {
   explicit TPMTokenLoader(bool for_test);
   virtual ~TPMTokenLoader();
 
+  bool IsTPMLoadingEnabled() const;
+
   // Starts tpm token initialization if the user is logged in and the crypto
   // task runner is set.
   void MaybeStartTokenInitialization();
 
   // This is the cyclic chain of callbacks to initialize the TPM token.
   void ContinueTokenInitialization();
-  void OnPersistentNSSDBOpened();
+  void OnTPMTokenEnabledForNSS();
   void OnTpmIsEnabled(DBusMethodCallStatus call_status,
                       bool tpm_is_enabled);
   void OnPkcs11IsTpmTokenReady(DBusMethodCallStatus call_status,
@@ -104,14 +105,14 @@ class CHROMEOS_EXPORT TPMTokenLoader : public LoginState::Observer {
 
   bool initialized_for_test_;
 
-  ObserverList<Observer> observers_;
+  TPMReadyCallbackList tpm_ready_callback_list_;
 
   // The states are traversed in this order but some might get omitted or never
   // be left.
   enum TPMTokenState {
     TPM_STATE_UNKNOWN,
     TPM_INITIALIZATION_STARTED,
-    TPM_DB_OPENED,
+    TPM_TOKEN_ENABLED_FOR_NSS,
     TPM_DISABLED,
     TPM_ENABLED,
     TPM_TOKEN_READY,
@@ -125,7 +126,6 @@ class CHROMEOS_EXPORT TPMTokenLoader : public LoginState::Observer {
   base::TimeDelta tpm_request_delay_;
 
   // Cached TPM token info.
-  std::string tpm_token_name_;
   int tpm_token_slot_id_;
   std::string tpm_user_pin_;
 

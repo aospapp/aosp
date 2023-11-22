@@ -5,10 +5,9 @@
 package org.chromium.content.browser;
 
 import android.content.pm.ActivityInfo;
-import android.os.Build;
 import android.test.suitebuilder.annotation.MediumTest;
-import android.test.suitebuilder.annotation.SmallTest;
 
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.content.browser.test.util.CriteriaHelper;
@@ -51,32 +50,22 @@ public class ScreenOrientationListenerTest extends ContentShellTestBase {
     }
 
     /**
-     * Locks the screen orientation to the predefined orientation type.
-     */
-    private void lockOrientation(int orientation) {
-        getActivity().setRequestedOrientation(orientation);
-    }
-
-    /**
      * Locks the screen orientation to the predefined orientation type then wait
      * for the orientation change to happen.
      */
-    private boolean lockOrientationAndWait(int orientation)
-            throws InterruptedException {
-        OrientationChangeObserverCriteria criteria = new OrientationChangeObserverCriteria(
-                mObserver, orientationTypeToAngle(orientation));
+    private void lockOrientationAndWait(final int orientation) throws InterruptedException {
+        OrientationChangeObserverCriteria criteria =
+                new OrientationChangeObserverCriteria(mObserver,
+                                                      orientationTypeToAngle(orientation));
+        ThreadUtils.runOnUiThreadBlocking(new Runnable() {
+            @Override
+            public void run() {
+                getActivity().setRequestedOrientation(orientation);
+            }
+        });
+        getInstrumentation().waitForIdleSync();
 
-        lockOrientation(orientation);
-
-        return CriteriaHelper.pollForCriteria(criteria);
-    }
-
-    /**
-     * Unlock the screen orientation. Equivalent to locking to unspecified.
-     */
-    private void unlockOrientation() {
-        getActivity().setRequestedOrientation(
-                ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+        CriteriaHelper.pollForCriteria(criteria);
     }
 
     @Override
@@ -84,70 +73,39 @@ public class ScreenOrientationListenerTest extends ContentShellTestBase {
         super.setUp();
 
         mObserver = new MockOrientationObserver();
+
+        final ContentShellActivity activity = launchContentShellWithUrl(DEFAULT_URL);
+        waitForActiveShellToBeDoneLoading();
+
+        ThreadUtils.runOnUiThreadBlocking(new Runnable() {
+            @Override
+            public void run() {
+                ScreenOrientationListener.getInstance().addObserver(mObserver, activity);
+                ScreenOrientationListener.getInstance().startAccurateListening();
+            }
+        });
+
+        // Make sure we start all the tests with the same orientation.
+        lockOrientationAndWait(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
     }
 
     @Override
     public void tearDown() throws Exception {
-        unlockOrientation();
+        ThreadUtils.runOnUiThreadBlocking(new Runnable() {
+            @Override
+            public void run() {
+                getActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+                ScreenOrientationListener.getInstance().startAccurateListening();
+            }
+        });
 
         mObserver = null;
         super.tearDown();
     }
 
-    private void setUpForConfigurationListener() throws InterruptedException {
-        ScreenOrientationListener.getInstance().injectConfigurationListenerBackendForTest();
-
-        ContentShellActivity activity = launchContentShellWithUrl(DEFAULT_URL);
-        waitForActiveShellToBeDoneLoading();
-
-        ScreenOrientationListener.getInstance().addObserver(
-                mObserver, getInstrumentation().getTargetContext());
-    }
-
-    private boolean setUpForDisplayListener() throws InterruptedException {
-        // This can't work for pre JB-MR1 SDKs.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR1)
-            return false;
-
-        ContentShellActivity activity = launchContentShellWithUrl(DEFAULT_URL);
-        waitForActiveShellToBeDoneLoading();
-
-        ScreenOrientationListener.getInstance().addObserver(
-                mObserver, getInstrumentation().getTargetContext());
-        return true;
-    }
-
-    // At least one of these tests flakes 50% on all runs of
-    // contentshell_instrumentation_tests.
-    // crbug.com/356483
-    /*
-    @SmallTest
-    @Feature({"ScreenOrientation"})
-    public void testConfigurationListenerDefault() throws Exception {
-        setUpForConfigurationListener();
-
-        assertFalse(mObserver.mHasChanged);
-        assertEquals(-1, mObserver.mOrientation);
-    }
-
-    @SmallTest
-    @Feature({"ScreenOrientation"})
-    public void testConfigurationListenerAsyncSetup() throws Exception {
-        setUpForConfigurationListener();
-
-        // We should get a onScreenOrientationChange call asynchronously.
-        CriteriaHelper.pollForCriteria(new OrientationChangeObserverCriteria(
-                mObserver));
-
-        assertTrue(mObserver.mHasChanged);
-        assertTrue(mObserver.mOrientation != -1);
-    }
-
     @MediumTest
     @Feature({"ScreenOrientation"})
-    public void testConfigurationListenerChanges() throws Exception {
-        setUpForConfigurationListener();
-
+    public void testVariousOrientationChanges() throws Exception {
         lockOrientationAndWait(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         assertEquals(90, mObserver.mOrientation);
 
@@ -164,76 +122,7 @@ public class ScreenOrientationListenerTest extends ContentShellTestBase {
 
     @MediumTest
     @Feature({"ScreenOrientation"})
-    public void testConfigurationListenerFlipPortrait() throws Exception {
-        setUpForConfigurationListener();
-
-        lockOrientationAndWait(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-        assertEquals(0, mObserver.mOrientation);
-
-        lockOrientationAndWait(ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT);
-        assertEquals(0, mObserver.mOrientation);
-    }
-
-    @MediumTest
-    @Feature({"ScreenOrientation"})
-    public void testConfigurationListenerFlipLandscape() throws Exception {
-        setUpForConfigurationListener();
-
-        lockOrientationAndWait(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-        assertEquals(90, mObserver.mOrientation);
-
-        lockOrientationAndWait(ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE);
-        assertEquals(90, mObserver.mOrientation);
-    }
-
-    @SmallTest
-    @Feature({"ScreenOrientation"})
-    public void testDisplayListenerDefault() throws Exception {
-        if (!setUpForDisplayListener())
-            return;
-
-        assertEquals(-1, mObserver.mOrientation);
-    }
-
-    @SmallTest
-    @Feature({"ScreenOrientation"})
-    public void testDisplayListenerAsyncSetup() throws Exception {
-        if (!setUpForDisplayListener())
-            return;
-
-        // We should get a onScreenOrientationChange call asynchronously.
-        CriteriaHelper.pollForCriteria(new OrientationChangeObserverCriteria(
-                mObserver));
-
-        assertTrue(mObserver.mOrientation != -1);
-    }
-
-    @MediumTest
-    @Feature({"ScreenOrientation"})
-    public void testDisplayListenerChanges() throws Exception {
-        if (!setUpForDisplayListener())
-            return;
-
-        lockOrientationAndWait(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-        assertEquals(90, mObserver.mOrientation);
-
-        lockOrientationAndWait(ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT);
-        assertTrue(mObserver.mOrientation == 180 ||
-                   (ALLOW_0_FOR_180 && mObserver.mOrientation == 0));
-
-        lockOrientationAndWait(ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE);
-        assertEquals(-90, mObserver.mOrientation);
-
-        lockOrientationAndWait(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-        assertEquals(0, mObserver.mOrientation);
-    }
-
-    @SmallTest
-    @Feature({"ScreenOrientation"})
-    public void testDisplayListenerFlipPortrait() throws Exception {
-        if (!setUpForDisplayListener())
-            return;
-
+    public void testFlipPortrait() throws Exception {
         lockOrientationAndWait(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         assertEquals(0, mObserver.mOrientation);
 
@@ -242,17 +131,13 @@ public class ScreenOrientationListenerTest extends ContentShellTestBase {
                    (ALLOW_0_FOR_180 && mObserver.mOrientation == 0));
     }
 
-    @SmallTest
+    @MediumTest
     @Feature({"ScreenOrientation"})
-    public void testDisplayListenerFlipLandscape() throws Exception {
-        if (!setUpForDisplayListener())
-            return;
-
+    public void testFlipLandscape() throws Exception {
         lockOrientationAndWait(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         assertEquals(90, mObserver.mOrientation);
 
         lockOrientationAndWait(ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE);
         assertEquals(-90, mObserver.mOrientation);
     }
-    */
 }

@@ -79,7 +79,8 @@ class ExtensionAppModelBuilder : public extensions::InstallObserver,
       extensions::UnloadedExtensionInfo::Reason reason) OVERRIDE;
   virtual void OnExtensionUninstalled(
       content::BrowserContext* browser_context,
-      const extensions::Extension* extension) OVERRIDE;
+      const extensions::Extension* extension,
+      extensions::UninstallReason reason) OVERRIDE;
   virtual void OnShutdown(extensions::ExtensionRegistry* registry) OVERRIDE;
 
   // AppListItemListObserver.
@@ -95,9 +96,6 @@ class ExtensionAppModelBuilder : public extensions::InstallObserver,
 
   // Populates the model with apps.
   void PopulateApps();
-
-  // Re-sort apps in case app ordinal prefs are changed.
-  void ResortApps();
 
   // Inserts an app based on app ordinal prefs.
   void InsertApp(scoped_ptr<ExtensionAppItem> app);
@@ -115,10 +113,14 @@ class ExtensionAppModelBuilder : public extensions::InstallObserver,
   // Returns app instance matching |extension_id| or NULL.
   ExtensionAppItem* GetExtensionAppItem(const std::string& extension_id);
 
-  // Initializes the |extension_pref_change_registrar| to listen for extension
-  // prefs changes. OnExtensionPreferenceChanged() is called when extension
-  // prefs change.
-  void InitializePrefChangeRegistrar();
+  // Initializes the |profile_pref_change_registrar_| and the
+  // |extension_pref_change_registrar_| to listen for changes to profile and
+  // extension prefs, and call OnProfilePreferenceChanged() or
+  // OnExtensionPreferenceChanged().
+  void InitializePrefChangeRegistrars();
+
+  // Handles profile prefs changes.
+  void OnProfilePreferenceChanged();
 
   // Handles extension prefs changes.
   void OnExtensionPreferenceChanged();
@@ -126,6 +128,9 @@ class ExtensionAppModelBuilder : public extensions::InstallObserver,
   // Unowned pointers to the service that owns this and associated profile.
   app_list::AppListSyncableService* service_;
   Profile* profile_;
+
+  // Registrar used to monitor the profile prefs.
+  PrefChangeRegistrar profile_pref_change_registrar_;
 
   // Registrar used to monitor the extension prefs.
   PrefChangeRegistrar extension_pref_change_registrar_;

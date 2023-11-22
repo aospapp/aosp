@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.google.android.leanbacklauncher.partnercustomizer">
 
+    <uses-sdk
+        android:minSdkVersion="21"
+        android:targetSdkVersion="21" />
+
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.INTERNET" />
 
@@ -19,5 +23,6 @@
                 <data android:scheme="package"/>
             </intent-filter>
         </receiver>
+
     </application>
 </manifest>

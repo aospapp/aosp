@@ -22,18 +22,19 @@ namespace content {
 class CONTENT_EXPORT VideoCapturerDelegate
     : public base::RefCountedThreadSafe<VideoCapturerDelegate> {
  public:
-  typedef base::Callback<void(bool running)> RunningCallback;
+  typedef base::Callback<void(MediaStreamRequestResult result)> RunningCallback;
 
-  explicit VideoCapturerDelegate(
-      const StreamDeviceInfo& device_info);
+  explicit VideoCapturerDelegate(const StreamDeviceInfo& device_info);
 
   // Collects the formats that can currently be used.
-  // |max_requested_height| and |max_requested_width| is used by Tab and Screen
-  // capture to decide what resolution to generate.
-  // |callback| is triggered when the formats have been collected.
+  // |max_requested_height|, |max_requested_width|, and
+  // |max_requested_frame_rate| is used by Tab and Screen capture to decide what
+  // resolution/framerate to generate. |callback| is triggered when the formats
+  // have been collected.
   virtual void GetCurrentSupportedFormats(
       int max_requested_width,
       int max_requested_height,
+      double max_requested_frame_rate,
       const VideoCaptureDeviceFormatsCB& callback);
 
   // Starts capturing frames using the resolution in |params|.
@@ -70,7 +71,6 @@ class CONTENT_EXPORT VideoCapturerDelegate
   base::Closure stop_capture_cb_;
 
   bool is_screen_cast_;
-  bool got_first_frame_;
 
   // |running_callback| is provided to this class in StartCapture and must be
   // valid until StopCapture is called.
@@ -103,10 +103,11 @@ class CONTENT_EXPORT MediaStreamVideoCapturerSource
   virtual void GetCurrentSupportedFormats(
       int max_requested_width,
       int max_requested_height,
+      double max_requested_frame_rate,
       const VideoCaptureDeviceFormatsCB& callback) OVERRIDE;
 
   virtual void StartSourceImpl(
-      const media::VideoCaptureParams& params,
+      const media::VideoCaptureFormat& format,
       const VideoCaptureDeliverFrameCB& frame_callback) OVERRIDE;
 
   virtual void StopSourceImpl() OVERRIDE;

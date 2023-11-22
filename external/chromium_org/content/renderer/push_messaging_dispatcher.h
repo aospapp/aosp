@@ -8,7 +8,8 @@
 #include <string>
 
 #include "base/id_map.h"
-#include "content/public/renderer/render_view_observer.h"
+#include "content/public/common/push_messaging_status.h"
+#include "content/public/renderer/render_frame_observer.h"
 #include "third_party/WebKit/public/platform/WebPushClient.h"
 
 class GURL;
@@ -18,32 +19,37 @@ class Message;
 }  // namespace IPC
 
 namespace blink {
+class WebServiceWorkerProvider;
 class WebString;
 }  // namespace blink
 
 namespace content {
-class RenderViewImpl;
-
-class PushMessagingDispatcher : public RenderViewObserver,
+class PushMessagingDispatcher : public RenderFrameObserver,
                                 public blink::WebPushClient {
  public:
-  explicit PushMessagingDispatcher(RenderViewImpl* render_view);
+  explicit PushMessagingDispatcher(RenderFrame* render_frame);
   virtual ~PushMessagingDispatcher();
 
  private:
-  // RenderView::Observer implementation.
+  // RenderFrame::Observer implementation.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
 
   // WebPushClient implementation.
+  // TODO(mvanouwerkerk): Delete this method once its callers are gone and
+  // WebPushClient no longer defines it (as pure virtual).
   virtual void registerPushMessaging(
       const blink::WebString& sender_id,
-      blink::WebPushRegistrationCallbacks* callbacks) OVERRIDE;
+      blink::WebPushRegistrationCallbacks* callbacks);
+  virtual void registerPushMessaging(
+      const blink::WebString& sender_id,
+      blink::WebPushRegistrationCallbacks* callbacks,
+      blink::WebServiceWorkerProvider* service_worker_provider);
 
   void OnRegisterSuccess(int32 callbacks_id,
                          const GURL& endpoint,
                          const std::string& registration_id);
 
-  void OnRegisterError(int32 callbacks_id);
+  void OnRegisterError(int32 callbacks_id, PushMessagingStatus status);
 
   IDMap<blink::WebPushRegistrationCallbacks, IDMapOwnPointer>
       registration_callbacks_;

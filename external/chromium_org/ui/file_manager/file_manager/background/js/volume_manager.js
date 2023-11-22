@@ -12,9 +12,11 @@
  * @param {string} volumeId ID of the volume.
  * @param {DOMFileSystem} fileSystem The file system object for this volume.
  * @param {string} error The error if an error is found.
- * @param {string} deviceType The type of device ('usb'|'sd'|'optical'|'mobile'
+ * @param {?string} deviceType The type of device ('usb'|'sd'|'optical'|'mobile'
  *     |'unknown') (as defined in chromeos/disks/disk_mount_manager.cc).
  *     Can be null.
+ * @param {?string} devicePath Identifier of the device that the volume belongs
+ *     to. Can be null.
  * @param {boolean} isReadOnly True if the volume is read only.
  * @param {!{displayName:string, isCurrentProfile:boolean}} profile Profile
  *     information.
@@ -29,6 +31,7 @@ function VolumeInfo(
     fileSystem,
     error,
     deviceType,
+    devicePath,
     isReadOnly,
     profile,
     label,
@@ -66,6 +69,7 @@ function VolumeInfo(
   // TODO(hidehiko): Rename to make this more understandable.
   this.error_ = error;
   this.deviceType_ = deviceType;
+  this.devicePath_ = devicePath;
   this.isReadOnly_ = isReadOnly;
   this.profile_ = Object.freeze(profile);
   this.extensionId_ = extensionId;
@@ -118,6 +122,12 @@ VolumeInfo.prototype = {
     return this.deviceType_;
   },
   /**
+   * @return {string} Device identifier.
+   */
+  get devicePath() {
+    return this.devicePath_;
+  },
+  /**
    * @return {boolean} Whether read only or not.
    */
   get isReadOnly() {
@@ -150,6 +160,7 @@ VolumeInfo.prototype = {
  * @param {function(DirectoryEntry)} onSuccess Success callback with the
  *     display root directory as an argument.
  * @param {function(FileError)} onFailure Failure callback.
+ * @return {Promise}
  */
 VolumeInfo.prototype.resolveDisplayRoot = function(onSuccess, onFailure) {
   if (!this.displayRootPromise_) {
@@ -172,7 +183,9 @@ VolumeInfo.prototype.resolveDisplayRoot = function(onSuccess, onFailure) {
       this.displayRoot_ = displayRoot;
     }.bind(this));
   }
-  this.displayRootPromise_.then(onSuccess, onFailure);
+  if (onSuccess)
+    this.displayRootPromise_.then(onSuccess, onFailure);
+  return this.displayRootPromise_;
 };
 
 /**
@@ -218,7 +231,7 @@ volumeManagerUtil.createVolumeInfo = function(volumeMetadata, callback) {
       break;
   }
 
-  chrome.fileBrowserPrivate.requestFileSystem(
+  chrome.fileManagerPrivate.requestFileSystem(
       volumeMetadata.volumeId,
       function(fileSystem) {
         // TODO(mtomasz): chrome.runtime.lastError should have error reason.
@@ -230,6 +243,7 @@ volumeManagerUtil.createVolumeInfo = function(volumeMetadata, callback) {
               null,  // File system is not found.
               volumeMetadata.mountCondition,
               volumeMetadata.deviceType,
+              volumeMetadata.devicePath,
               volumeMetadata.isReadOnly,
               volumeMetadata.profile,
               localizedLabel,
@@ -256,6 +270,7 @@ volumeManagerUtil.createVolumeInfo = function(volumeMetadata, callback) {
             fileSystem,
             volumeMetadata.mountCondition,
             volumeMetadata.deviceType,
+            volumeMetadata.devicePath,
             volumeMetadata.isReadOnly,
             volumeMetadata.profile,
             localizedLabel,
@@ -445,7 +460,7 @@ function VolumeManager() {
     reason: VolumeManagerCommon.DriveConnectionReason.NO_SERVICE
   };
 
-  chrome.fileBrowserPrivate.onDriveConnectionStatusChanged.addListener(
+  chrome.fileManagerPrivate.onDriveConnectionStatusChanged.addListener(
       this.onDriveConnectionStatusChanged_.bind(this));
   this.onDriveConnectionStatusChanged_();
 }
@@ -455,7 +470,7 @@ function VolumeManager() {
  * @private_
  */
 VolumeManager.prototype.onDriveConnectionStatusChanged_ = function() {
-  chrome.fileBrowserPrivate.getDriveConnectionState(function(state) {
+  chrome.fileManagerPrivate.getDriveConnectionState(function(state) {
     this.driveConnectionState_ = state;
     cr.dispatchSimpleEvent(this, 'drive-connection-changed');
   }.bind(this));
@@ -496,25 +511,30 @@ VolumeManager.getInstanceQueue_ = new AsyncUtil.Queue();
 VolumeManager.instance_ = null;
 
 /**
+ * @type {Promise}
+ * @private
+ */
+VolumeManager.instancePromise_ = null;
+
+/**
  * Returns the VolumeManager instance asynchronously. If it is not created or
  * under initialization, it will waits for the finish of the initialization.
  * @param {function(VolumeManager)} callback Called with the VolumeManager
- *     instance.
+ *     instance. TODO(hirono): Remove the callback and use Promise instead.
+ * @return {Promise} Promise to be fulfilled with the volume manager.
  */
 VolumeManager.getInstance = function(callback) {
-  VolumeManager.getInstanceQueue_.run(function(continueCallback) {
-    if (VolumeManager.instance_) {
-      callback(VolumeManager.instance_);
-      continueCallback();
-      return;
-    }
-
+  if (!VolumeManager.instancePromise_) {
     VolumeManager.instance_ = new VolumeManager();
-    VolumeManager.instance_.initialize_(function() {
-      callback(VolumeManager.instance_);
-      continueCallback();
+    VolumeManager.instancePromise_ = new Promise(function(fulfill) {
+      VolumeManager.instance_.initialize_(function() {
+        return fulfill(VolumeManager.instance_);
+      });
     });
-  });
+  }
+  if (callback)
+    VolumeManager.instancePromise_.then(callback);
+  return VolumeManager.instancePromise_;
 };
 
 /**
@@ -524,7 +544,7 @@ VolumeManager.getInstance = function(callback) {
  * @private
  */
 VolumeManager.prototype.initialize_ = function(callback) {
-  chrome.fileBrowserPrivate.getVolumeMetadataList(function(volumeMetadataList) {
+  chrome.fileManagerPrivate.getVolumeMetadataList(function(volumeMetadataList) {
     // We must subscribe to the mount completed event in the callback of
     // getVolumeMetadataList. crbug.com/330061.
     // But volumes reported by onMountCompleted events must be added after the
@@ -554,7 +574,7 @@ VolumeManager.prototype.initialize_ = function(callback) {
       });
     }.bind(this));
 
-    chrome.fileBrowserPrivate.onMountCompleted.addListener(
+    chrome.fileManagerPrivate.onMountCompleted.addListener(
         this.onMountCompleted_.bind(this));
   }.bind(this));
 };
@@ -572,8 +592,11 @@ VolumeManager.prototype.onMountCompleted_ = function(event) {
             'mount',
             event.volumeMetadata.sourcePath);
 
-        var error = event.status === 'success' ? '' : event.status;
-        if (!error || event.status === 'error_unknown_filesystem') {
+        if (event.status === 'success' ||
+            event.status ===
+                VolumeManagerCommon.VolumeError.UNKNOWN_FILESYSTEM ||
+            event.status ===
+                VolumeManagerCommon.VolumeError.UNSUPPORTED_FILESYSTEM) {
           volumeManagerUtil.createVolumeInfo(
               event.volumeMetadata,
               function(volumeInfo) {
@@ -647,7 +670,7 @@ VolumeManager.prototype.makeRequestKey_ = function(requestType, argument) {
  */
 VolumeManager.prototype.mountArchive = function(
     fileUrl, successCallback, errorCallback) {
-  chrome.fileBrowserPrivate.addMount(fileUrl, function(sourcePath) {
+  chrome.fileManagerPrivate.addMount(fileUrl, function(sourcePath) {
     console.info(
         'Mount request: url=' + fileUrl + '; sourcePath=' + sourcePath);
     var requestKey = this.makeRequestKey_('mount', sourcePath);
@@ -665,7 +688,7 @@ VolumeManager.prototype.mountArchive = function(
 VolumeManager.prototype.unmount = function(volumeInfo,
                                            successCallback,
                                            errorCallback) {
-  chrome.fileBrowserPrivate.removeMount(volumeInfo.volumeId);
+  chrome.fileManagerPrivate.removeMount(volumeInfo.volumeId);
   var requestKey = this.makeRequestKey_('unmount', volumeInfo.volumeId);
   this.startRequest_(requestKey, successCallback, errorCallback);
 };

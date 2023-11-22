@@ -19,14 +19,13 @@
 #include "chrome/browser/ui/content_settings/content_setting_bubble_model_delegate.h"
 #include "chrome/browser/ui/toolbar/toolbar_model_impl.h"
 #include "chrome/browser/ui/view_ids.h"
-#include "chrome/browser/ui/views/location_bar/location_icon_view.h"
 #include "chrome/browser/ui/views/toolbar/reload_button.h"
+#include "chrome/grit/generated_resources.h"
+#include "chrome/grit/theme_resources.h"
 #include "components/password_manager/core/browser/password_manager.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
-#include "grit/generated_resources.h"
-#include "grit/theme_resources.h"
 #include "ipc/ipc_message.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/theme_provider.h"
@@ -264,7 +263,7 @@ content::WebContents* SimpleWebViewDialog::OpenURL(
 }
 
 void SimpleWebViewDialog::NavigationStateChanged(
-    const WebContents* source, unsigned changed_flags) {
+    const WebContents* source, content::InvalidateTypes changed_flags) {
   if (location_bar_) {
     location_bar_->Update(NULL);
     UpdateButtons();

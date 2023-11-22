@@ -22,7 +22,7 @@
     <string name="tag_unknown" msgid="2897956823877728783">"Tipo de tag desconhecido"</string>
     <string name="tag_empty" msgid="3726529819932095782">"Tag vazia"</string>
     <string name="button_done" msgid="7048822758098308158">"Concluído"</string>
-    <string name="action_text" msgid="577417996159152923">"Enviar SMS para <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
+    <string name="action_text" msgid="577417996159152923">"Enviar mensagem de texto para <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
     <string name="action_call" msgid="6226253647953184035">"Chamar <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
     <string name="empty_tag_prompt" msgid="4206394383309956030">"Esta tag está vazia."</string>
     <string name="import_vcard" msgid="5104299047930666528">"Importar ^1"</string>

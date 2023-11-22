@@ -22,9 +22,7 @@ import com.android.cts.verifier.sensors.base.SensorCtsVerifierTestActivity;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.hardware.cts.helpers.TestSensorEnvironment;
-import android.hardware.cts.helpers.sensoroperations.TestSensorFlushOperation;
 import android.hardware.cts.helpers.sensoroperations.TestSensorOperation;
-import android.hardware.cts.helpers.sensoroperations.VerifiableSensorOperation;
 
 import java.util.concurrent.TimeUnit;
 
@@ -128,7 +126,7 @@ public class BatchingTestActivity extends SensorCtsVerifierTestActivity {
 
         int testDurationSec = maxBatchReportLatencySec + BATCHING_PADDING_TIME_S;
         TestSensorOperation operation =
-                new TestSensorOperation(environment, testDurationSec,TimeUnit.SECONDS);
+                TestSensorOperation.createOperation(environment, testDurationSec,TimeUnit.SECONDS);
         return executeTest(operation);
     }
 
@@ -145,15 +143,14 @@ public class BatchingTestActivity extends SensorCtsVerifierTestActivity {
                 maxBatchReportLatencyUs);
 
         int flushDurationSec = maxBatchReportLatencySec / 2;
-        TestSensorFlushOperation operation =
-                new TestSensorFlushOperation(environment, flushDurationSec, TimeUnit.SECONDS);
+        TestSensorOperation operation = TestSensorOperation
+                .createFlushOperation(environment, flushDurationSec, TimeUnit.SECONDS);
         return executeTest(operation);
     }
 
-    private String executeTest(VerifiableSensorOperation operation) throws InterruptedException {
+    private String executeTest(TestSensorOperation operation) throws InterruptedException {
         operation.addDefaultVerifications();
-        operation.setLogEvents(true);
-        operation.execute();
+        operation.execute(getCurrentTestNode());
         return null;
     }
 }

@@ -50,6 +50,10 @@ class MockView : public PermissionBubbleView {
     return can_accept_updates_;
   }
 
+  virtual bool IsVisible() OVERRIDE {
+    return shown_;
+  }
+
   bool shown_;
   bool can_accept_updates_;
   Delegate* delegate_;
@@ -97,7 +101,8 @@ class PermissionBubbleManagerTest : public ChromeRenderViewHostTestHarness {
   }
 
   void WaitForFrameLoad() {
-    manager_->DocumentLoadedInFrame(0, NULL);
+    // PermissionBubbleManager ignores all parameters. Yay?
+    manager_->DocumentLoadedInFrame(NULL);
     base::MessageLoop::current()->RunUntilIdle();
   }
 
@@ -337,6 +342,7 @@ TEST_F(PermissionBubbleManagerTest, ForgetRequestsOnPageNavigation) {
   manager_->AddRequest(&request1_);
   WaitForCoalescing();
   manager_->AddRequest(&request2_);
+  manager_->AddRequest(&iframe_request_other_domain_);
 
   EXPECT_TRUE(view_.shown_);
   ASSERT_EQ(1u, view_.permission_requests_.size());
@@ -344,8 +350,10 @@ TEST_F(PermissionBubbleManagerTest, ForgetRequestsOnPageNavigation) {
   NavigateAndCommit(GURL("http://www2.google.com/"));
   WaitForCoalescing();
 
+  EXPECT_FALSE(view_.shown_);
   EXPECT_TRUE(request1_.finished());
   EXPECT_TRUE(request2_.finished());
+  EXPECT_TRUE(iframe_request_other_domain_.finished());
 }
 
 TEST_F(PermissionBubbleManagerTest, TestCancel) {

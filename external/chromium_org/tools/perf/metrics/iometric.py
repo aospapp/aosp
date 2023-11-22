@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import sys
+
 from metrics import Metric
 from telemetry.value import scalar
 
@@ -11,8 +13,9 @@ class IOMetric(Metric):
 
   @classmethod
   def CustomizeBrowserOptions(cls, options):
-    if options.platform.GetOSName() != 'mac':
-      # FIXME: Get rid of this on all platforms - http://crbug.com/361049 .
+    # TODO(tonyg): This is the host platform, so not totally correct.
+    if sys.platform not in ('darwin', 'win32'):
+      # TODO(playmobil): Get rid of this on all platforms crbug.com/361049.
       options.AppendExtraBrowserArgs('--no-sandbox')
 
   def Start(self, page, tab):
@@ -39,7 +42,8 @@ class IOMetric(Metric):
         process_type_trace: String to be added to the trace name in the results.
       """
 
-      def AddSummaryForOperation(operation_name, trace_name_prefix, units):
+      def AddSummaryForOperation(operation_name, trace_name_prefix, units,
+                                 description):
         """Adds summary results for an operation in a process.
 
         Args:
@@ -52,13 +56,17 @@ class IOMetric(Metric):
             value = value / 1024
           results.AddSummaryValue(
               scalar.ScalarValue(None, trace_name_prefix + process_type_trace,
-                                 units, value, important=False))
+                                 units, value, important=False,
+                                 description=description))
 
-      AddSummaryForOperation('ReadOperationCount', 'read_operations_', 'count')
+      AddSummaryForOperation('ReadOperationCount', 'read_operations_', 'count',
+                             'Number of IO read operations.')
       AddSummaryForOperation('WriteOperationCount', 'write_operations_',
-                             'count')
-      AddSummaryForOperation('ReadTransferCount', 'read_bytes_', 'kb')
-      AddSummaryForOperation('WriteTransferCount', 'write_bytes_', 'kb')
+                             'count', 'Number of IO write operations.')
+      AddSummaryForOperation('ReadTransferCount', 'read_bytes_', 'kb',
+                             'Number of IO bytes read.')
+      AddSummaryForOperation('WriteTransferCount', 'write_bytes_', 'kb',
+                             'Number of IO bytes written.')
 
     AddSummariesForProcessType('Browser', 'browser')
     AddSummariesForProcessType('Renderer', 'renderer')

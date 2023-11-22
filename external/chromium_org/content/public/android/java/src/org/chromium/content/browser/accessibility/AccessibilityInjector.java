@@ -107,7 +107,7 @@ public class AccessibilityInjector extends WebContentsObserverAndroid {
      * @param view The ContentViewCore that this AccessibilityInjector manages.
      */
     protected AccessibilityInjector(ContentViewCore view) {
-        super(view);
+        super(view.getWebContents());
         mContentViewCore = view;
 
         mAccessibilityScreenReaderUrl = CommandLine.getInstance().getSwitchValue(
@@ -305,11 +305,13 @@ public class AccessibilityInjector extends WebContentsObserverAndroid {
     }
 
     private int getAxsUrlParameterValue() {
-        if (mContentViewCore.getUrl() == null) return ACCESSIBILITY_SCRIPT_INJECTION_UNDEFINED;
+        if (mContentViewCore.getWebContents().getUrl() == null) {
+            return ACCESSIBILITY_SCRIPT_INJECTION_UNDEFINED;
+        }
 
         try {
-            List<NameValuePair> params = URLEncodedUtils.parse(new URI(mContentViewCore.getUrl()),
-                    null);
+            List<NameValuePair> params = URLEncodedUtils.parse(
+                    new URI(mContentViewCore.getWebContents().getUrl()), null);
 
             for (NameValuePair param : params) {
                 if ("axs".equals(param.getName())) {
@@ -317,8 +319,11 @@ public class AccessibilityInjector extends WebContentsObserverAndroid {
                 }
             }
         } catch (URISyntaxException ex) {
+            // Intentional no-op.
         } catch (NumberFormatException ex) {
+            // Intentional no-op.
         } catch (IllegalArgumentException ex) {
+            // Intentional no-op.
         }
 
         return ACCESSIBILITY_SCRIPT_INJECTION_UNDEFINED;
@@ -347,7 +352,7 @@ public class AccessibilityInjector extends WebContentsObserverAndroid {
     private static class VibratorWrapper {
         private static final long MAX_VIBRATE_DURATION_MS = 5000;
 
-        private Vibrator mVibrator;
+        private final Vibrator mVibrator;
 
         public VibratorWrapper(Context context) {
             mVibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
@@ -389,9 +394,9 @@ public class AccessibilityInjector extends WebContentsObserverAndroid {
      * Used to protect the TextToSpeech class, only exposing the methods we want to expose.
      */
     private static class TextToSpeechWrapper {
-        private TextToSpeech mTextToSpeech;
-        private SelfBrailleClient mSelfBrailleClient;
-        private View mView;
+        private final TextToSpeech mTextToSpeech;
+        private final SelfBrailleClient mSelfBrailleClient;
+        private final View mView;
 
         public TextToSpeechWrapper(View view, Context context) {
             mView = view;

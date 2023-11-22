@@ -184,15 +184,14 @@ class ShellWindowDelegateView : public views::WidgetDelegateView,
     }
 
     context_menu_model_.reset(new ContextMenuModel(shell_, params));
-    context_menu_runner_.reset(
-        new views::MenuRunner(context_menu_model_.get()));
+    context_menu_runner_.reset(new views::MenuRunner(
+        context_menu_model_.get(), views::MenuRunner::CONTEXT_MENU));
 
     if (context_menu_runner_->RunMenuAt(web_view_->GetWidget(),
                                         NULL,
                                         gfx::Rect(screen_point, gfx::Size()),
                                         views::MENU_ANCHOR_TOPRIGHT,
-                                        ui::MENU_SOURCE_NONE,
-                                        views::MenuRunner::CONTEXT_MENU) ==
+                                        ui::MENU_SOURCE_NONE) ==
         views::MenuRunner::MENU_DELETED) {
       return;
     }
@@ -343,6 +342,7 @@ class ShellWindowDelegateView : public views::WidgetDelegateView,
   // Overridden from WidgetDelegateView
   virtual bool CanResize() const OVERRIDE { return true; }
   virtual bool CanMaximize() const OVERRIDE { return true; }
+  virtual bool CanMinimize() const OVERRIDE { return true; }
   virtual base::string16 GetWindowTitle() const OVERRIDE {
     return title_;
   }
@@ -412,6 +412,7 @@ class ShellWindowDelegateView : public views::WidgetDelegateView,
 
 #if defined(OS_CHROMEOS)
 wm::WMTestHelper* Shell::wm_test_helper_ = NULL;
+gfx::Screen* Shell::test_screen_ = NULL;
 #endif
 views::ViewsDelegate* Shell::views_delegate_ = NULL;
 
@@ -423,8 +424,8 @@ void Shell::PlatformInitialize(const gfx::Size& default_window_size) {
 #endif
 #if defined(OS_CHROMEOS)
   chromeos::DBusThreadManager::Initialize();
-  gfx::Screen::SetScreenInstance(gfx::SCREEN_TYPE_NATIVE,
-                                 aura::TestScreen::Create(gfx::Size()));
+  test_screen_ = aura::TestScreen::Create(gfx::Size());
+  gfx::Screen::SetScreenInstance(gfx::SCREEN_TYPE_NATIVE, test_screen_);
   wm_test_helper_ = new wm::WMTestHelper(default_window_size,
                                          GetContextFactory());
 #else
@@ -438,6 +439,9 @@ void Shell::PlatformExit() {
 #if defined(OS_CHROMEOS)
   delete wm_test_helper_;
   wm_test_helper_ = NULL;
+
+  delete test_screen_;
+  test_screen_ = NULL;
 #endif
   delete views_delegate_;
   views_delegate_ = NULL;
@@ -499,7 +503,6 @@ void Shell::PlatformCreateWindow(int width, int height) {
   views::Widget::InitParams params;
   params.bounds = gfx::Rect(0, 0, width, height);
   params.delegate = new ShellWindowDelegateView(this);
-  params.remove_standard_frame = true;
   window_widget_->Init(params);
 #endif
 

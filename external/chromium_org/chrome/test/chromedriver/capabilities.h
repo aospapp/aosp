@@ -60,6 +60,28 @@ class Switches {
 
 typedef std::map<std::string, Log::Level> LoggingPrefs;
 
+struct PerfLoggingPrefs {
+  PerfLoggingPrefs();
+  ~PerfLoggingPrefs();
+
+  // We must distinguish between a log domain being set by default and being
+  // explicitly set. Otherwise, |PerformanceLogger| could only handle 3 of 4
+  // possible combinations (tracing enabled/disabled + Timeline on/off).
+  enum InspectorDomainStatus {
+    kDefaultEnabled,
+    kDefaultDisabled,
+    kExplicitlyEnabled,
+    kExplicitlyDisabled
+  };
+
+  InspectorDomainStatus network;
+  InspectorDomainStatus page;
+  InspectorDomainStatus timeline;
+
+  std::string trace_categories;  // Non-empty string enables tracing.
+  int buffer_usage_reporting_interval;  // ms between trace buffer usage events.
+};
+
 struct Capabilities {
   Capabilities();
   ~Capabilities();
@@ -113,6 +135,8 @@ struct Capabilities {
 
   // If set, enable minidump for chrome crashes and save to this directory.
   std::string minidump_path;
+
+  PerfLoggingPrefs perf_logging_prefs;
 
   scoped_ptr<base::DictionaryValue> prefs;
 

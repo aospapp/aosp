@@ -19,22 +19,25 @@
 #include "base/values.h"
 #include "chrome/browser/chromeos/login/users/avatar/user_image_loader.h"
 #include "chrome/browser/chromeos/login/users/avatar/user_image_manager.h"
-#include "chrome/browser/chromeos/login/users/user.h"
 #include "chrome/browser/profiles/profile_downloader_delegate.h"
+#include "components/user_manager/user.h"
 #include "ui/gfx/image/image_skia.h"
 
 class ProfileDownloader;
-class UserImage;
 
 namespace base {
 class FilePath;
 class SequencedTaskRunner;
 }
 
+namespace user_manager {
+class UserImage;
+class UserManager;
+}
+
 namespace chromeos {
 
 class UserImageSyncObserver;
-class UserManager;
 
 class UserImageManagerImpl
     : public UserImageManager,
@@ -42,13 +45,14 @@ class UserImageManagerImpl
  public:
   // UserImageManager:
   UserImageManagerImpl(const std::string& user_id,
-                       UserManager* user_manager);
+                       user_manager::UserManager* user_manager);
   virtual ~UserImageManagerImpl();
 
   virtual void LoadUserImage() OVERRIDE;
   virtual void UserLoggedIn(bool user_is_new, bool user_is_local) OVERRIDE;
   virtual void SaveUserDefaultImageIndex(int default_image_index) OVERRIDE;
-  virtual void SaveUserImage(const UserImage& user_image) OVERRIDE;
+  virtual void SaveUserImage(
+      const user_manager::UserImage& user_image) OVERRIDE;
   virtual void SaveUserImageFromFile(const base::FilePath& path) OVERRIDE;
   virtual void SaveUserImageFromProfileImage() OVERRIDE;
   virtual void DeleteUserImage() OVERRIDE;
@@ -140,16 +144,16 @@ class UserImageManagerImpl
   void TryToCreateImageSyncObserver();
 
   // Returns immutable version of user with |user_id_|.
-  const User* GetUser() const;
+  const user_manager::User* GetUser() const;
 
   // Returns mutable version of user with |user_id_|.
-  User* GetUserAndModify() const;
+  user_manager::User* GetUserAndModify() const;
 
   // Returns true if user with |user_id_| is logged in and a regular user.
   bool IsUserLoggedInAndRegular() const;
 
   // The user manager.
-  UserManager* user_manager_;
+  user_manager::UserManager* user_manager_;
 
   // Loader for JPEG user images.
   scoped_refptr<UserImageLoader> image_loader_;

@@ -37,7 +37,8 @@ public class MonkeyTest extends AbstractMonkeyTest {
     }
 
     private void assertIsUserAMonkey(boolean isMonkey) throws DeviceNotAvailableException {
-        String logs = mDevice.executeAdbCommand("logcat", "-d", "MonkeyActivity:I", "*:S");
+        String logs = mDevice.executeAdbCommand(
+                "logcat", "-v", "brief", "-d", "MonkeyActivity:I", "*:S");
         boolean monkeyLogsFound = false;
         Scanner s = new Scanner(logs);
         try {

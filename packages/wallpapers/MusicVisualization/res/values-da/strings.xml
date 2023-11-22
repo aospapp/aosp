@@ -19,7 +19,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="wallpapers" msgid="7646602778647576267">"Baggrunde med musikvisualisering"</string>
+    <string name="wallpapers" msgid="7646602778647576267">"Tapeter med musikvisualisering"</string>
     <string name="author" msgid="6199067265817633685">"Google"</string>
     <string name="vis2_desc" msgid="192540837551311681">"Tegner et billede af lydbølgerne fra det musiknummer, der afspilles i øjeblikket."</string>
     <string name="vis3_desc" msgid="3878566533630652215">"Viser frekvensområdet for det musiknummer, der afspilles i øjeblikket"</string>

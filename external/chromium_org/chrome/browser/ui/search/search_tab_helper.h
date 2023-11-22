@@ -101,6 +101,8 @@ class SearchTabHelper : public content::WebContentsObserver,
   friend class InstantPageTest;
   friend class SearchIPCRouterPolicyTest;
   friend class SearchIPCRouterTest;
+  friend class SearchTabHelperPrerenderTest;
+
   FRIEND_TEST_ALL_PREFIXES(SearchTabHelperTest,
                            DetermineIfPageSupportsInstant_Local);
   FRIEND_TEST_ALL_PREFIXES(SearchTabHelperTest,
@@ -148,18 +150,12 @@ class SearchTabHelper : public content::WebContentsObserver,
       const content::LoadCommittedDetails& details,
       const content::FrameNavigateParams& params) OVERRIDE;
   virtual void DidFailProvisionalLoad(
-      int64 frame_id,
-      const base::string16& frame_unique_name,
-      bool is_main_frame,
+      content::RenderFrameHost* render_frame_host,
       const GURL& validated_url,
       int error_code,
-      const base::string16& error_description,
-      content::RenderViewHost* render_view_host) OVERRIDE;
-  virtual void DidFinishLoad(
-      int64 frame_id,
-      const GURL& validated_url,
-      bool is_main_frame,
-      content::RenderViewHost* render_view_host) OVERRIDE;
+      const base::string16& error_description) OVERRIDE;
+  virtual void DidFinishLoad(content::RenderFrameHost* render_frame_host,
+                             const GURL& validated_url) OVERRIDE;
   virtual void NavigationEntryCommitted(
       const content::LoadCommittedDetails& load_details) OVERRIDE;
 
@@ -186,11 +182,6 @@ class SearchTabHelper : public content::WebContentsObserver,
   virtual void MostVisitedItemsChanged(
       const std::vector<InstantMostVisitedItem>& items) OVERRIDE;
   virtual void OmniboxStartMarginChanged(int omnibox_start_margin) OVERRIDE;
-
-  // Removes recommended URLs if a matching URL is already open in the Browser,
-  // if the Most Visited Tile Placement experiment is enabled, and the client is
-  // in the experiment group.
-  void MaybeRemoveMostVisitedItems(std::vector<InstantMostVisitedItem>* items);
 
   // Sets the mode of the model based on the current URL of web_contents().
   // Only updates the origin part of the mode if |update_origin| is true,
@@ -220,6 +211,12 @@ class SearchTabHelper : public content::WebContentsObserver,
   // Returns the OmniboxView for |web_contents_| or NULL if not available.
   OmniboxView* GetOmniboxView() const;
 
+  typedef bool (*OmniboxHasFocusFn)(OmniboxView*);
+
+  void set_omnibox_has_focus_fn(OmniboxHasFocusFn fn) {
+    omnibox_has_focus_fn_ = fn;
+  }
+
   const bool is_search_enabled_;
 
   // Model object for UI that cares about search state.
@@ -235,6 +232,10 @@ class SearchTabHelper : public content::WebContentsObserver,
   // by us.
   // NULL on iOS and Android because they don't use the Instant framework.
   SearchTabHelperDelegate* delegate_;
+
+  // Function to check if the omnibox has focus. Tests use this to modify the
+  // default behavior.
+  OmniboxHasFocusFn omnibox_has_focus_fn_;
 
   DISALLOW_COPY_AND_ASSIGN(SearchTabHelper);
 };

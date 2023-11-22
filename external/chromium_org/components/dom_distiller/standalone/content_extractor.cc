@@ -13,6 +13,7 @@
 #include "base/strings/string_split.h"
 #include "components/dom_distiller/content/distiller_page_web_contents.h"
 #include "components/dom_distiller/core/article_entry.h"
+#include "components/dom_distiller/core/distilled_page_prefs.h"
 #include "components/dom_distiller/core/distiller.h"
 #include "components/dom_distiller/core/dom_distiller_service.h"
 #include "components/dom_distiller/core/dom_distiller_store.h"
@@ -21,6 +22,7 @@
 #include "components/dom_distiller/core/task_tracker.h"
 #include "components/leveldb_proto/proto_database.h"
 #include "components/leveldb_proto/proto_database_impl.h"
+#include "components/pref_registry/testing_pref_service_syncable.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/test/content_browser_test.h"
@@ -97,10 +99,17 @@ scoped_ptr<DomDistillerService> CreateDomDistillerService(
   scoped_ptr<DistillerFactory> distiller_factory(
       new DistillerFactoryImpl(distiller_url_fetcher_factory.Pass(), options));
 
+  // Setting up PrefService for DistilledPagePrefs.
+  user_prefs::TestingPrefServiceSyncable* pref_service =
+      new user_prefs::TestingPrefServiceSyncable();
+  DistilledPagePrefs::RegisterProfilePrefs(pref_service->registry());
+
   return scoped_ptr<DomDistillerService>(new DomDistillerService(
       dom_distiller_store.PassAs<DomDistillerStoreInterface>(),
       distiller_factory.Pass(),
-      distiller_page_factory.Pass()));
+      distiller_page_factory.Pass(),
+      scoped_ptr<DistilledPagePrefs>(
+          new DistilledPagePrefs(pref_service))));
 }
 
 void AddComponentsResources() {
@@ -134,6 +143,8 @@ std::string GetReadableArticleString(
     output << "Page " << i << std::endl;
     output << "URL: " << page.url() << std::endl;
     output << "Content: " << page.html() << std::endl;
+    if (page.has_debug_info() && page.debug_info().has_log())
+      output << "Log: " << page.debug_info().log() << std::endl;
   }
   return output.str();
 }
@@ -142,10 +153,13 @@ std::string GetReadableArticleString(
 
 class ContentExtractionRequest : public ViewRequestDelegate {
  public:
-  void Start(DomDistillerService* service, base::Closure finished_callback) {
+  void Start(DomDistillerService* service, const gfx::Size& render_view_size,
+             base::Closure finished_callback) {
     finished_callback_ = finished_callback;
     viewer_handle_ =
-        service->ViewUrl(this, service->CreateDefaultDistillerPage(), url_);
+        service->ViewUrl(this,
+                         service->CreateDefaultDistillerPage(render_view_size),
+                         url_);
   }
 
   DistilledArticleProto GetArticleCopy() {
@@ -191,6 +205,7 @@ class ContentExtractionRequest : public ViewRequestDelegate {
   virtual void OnArticleReady(const DistilledArticleProto* article_proto)
       OVERRIDE {
     article_proto_ = article_proto;
+    CHECK(article_proto->pages_size()) << "Failed extracting " << url_;
     base::MessageLoop::current()->PostTask(
         FROM_HERE,
         finished_callback_);
@@ -243,6 +258,7 @@ class ContentExtractor : public ContentBrowserTest {
     while (pending_tasks_ < max_tasks_ && next_request_ < requests_.size()) {
       requests_[next_request_]->Start(
           service_.get(),
+          shell()->web_contents()->GetContainerBounds().size(),
           base::Bind(&ContentExtractor::FinishRequest, base::Unretained(this)));
       ++next_request_;
       ++pending_tasks_;

@@ -21,10 +21,4 @@
          Note: this this value should be set with the same qualifiers where
          show_two_pane_search_results is set to false -->
     <integer name="conversation_list_search_header_mode">0</integer>
-
-    <!-- Whether to show single or 2 pane search results -->
-    <bool name="show_two_pane_search_results">false</bool>
-
-    <!-- Whether or not to use a nice transition when showing the folder list fragment; used in 2-pane layouts -->
-    <integer name="use_folder_list_fragment_transition">0</integer>
 </resources>

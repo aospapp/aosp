@@ -10,13 +10,15 @@ RequestInfo::RequestInfo()
     : referrer_policy(blink::WebReferrerPolicyDefault),
       load_flags(0),
       requestor_pid(0),
-      request_type(ResourceType::MAIN_FRAME),
+      request_type(RESOURCE_TYPE_MAIN_FRAME),
       priority(net::LOW),
       request_context(0),
       appcache_host_id(0),
       routing_id(0),
       download_to_file(false),
       has_user_gesture(false),
+      skip_service_worker(false),
+      enable_load_timing(false),
       extra_data(NULL) {
 }
 

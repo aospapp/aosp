@@ -1444,7 +1444,11 @@ public class CalendarUtilities {
         cv.put(Calendars.CALENDAR_TIME_ZONE, Time.getCurrentTimezone());
         cv.put(Calendars.CALENDAR_ACCESS_LEVEL, Calendars.CAL_ACCESS_OWNER);
         cv.put(Calendars.OWNER_ACCOUNT, account.mEmailAddress);
-
+        if (TextUtils.equals(mailbox.mDisplayName, account.mEmailAddress)) {
+            cv.put(Calendars.IS_PRIMARY, 1);
+        } else {
+            cv.put(Calendars.IS_PRIMARY, 0);
+        }
         Uri uri = contentResolver.insert(asSyncAdapter(Calendars.CONTENT_URI, account.mEmailAddress,
                         Eas.EXCHANGE_ACCOUNT_MANAGER_TYPE), cv);
         // We save the id of the calendar into mSyncStatus

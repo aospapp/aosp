@@ -6,14 +6,14 @@
 #define CONTENT_TEST_ACCESSIBILITY_BROWSER_TEST_UTILS_H_
 
 #include "base/memory/weak_ptr.h"
-#include "content/common/view_message_enums.h"
+#include "content/common/accessibility_mode_enums.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/accessibility/ax_tree.h"
 
 namespace content {
 
 class MessageLoopRunner;
-class RenderViewHostImpl;
+class RenderFrameHostImpl;
 class Shell;
 
 // Create an instance of this class *before* doing any operation that
@@ -28,6 +28,9 @@ class AccessibilityNotificationWaiter {
       Shell* shell,
       AccessibilityMode accessibility_mode,
       ui::AXEvent event);
+  AccessibilityNotificationWaiter(
+      RenderFrameHostImpl* frame_host,
+       ui::AXEvent event);
   ~AccessibilityNotificationWaiter();
 
   // Blocks until the specific accessibility notification registered in
@@ -51,12 +54,12 @@ class AccessibilityNotificationWaiter {
   // GetAXTree() is about the page with the url "about:blank".
   bool IsAboutBlank();
 
-  Shell* shell_;
-  RenderViewHostImpl* view_host_;
+  RenderFrameHostImpl* frame_host_;
   ui::AXEvent event_to_wait_for_;
   scoped_refptr<MessageLoopRunner> loop_runner_;
-  base::WeakPtrFactory<AccessibilityNotificationWaiter> weak_factory_;
   int event_target_id_;
+
+  base::WeakPtrFactory<AccessibilityNotificationWaiter> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(AccessibilityNotificationWaiter);
 };

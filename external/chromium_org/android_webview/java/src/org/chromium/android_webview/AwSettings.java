@@ -14,11 +14,10 @@ import android.util.Log;
 import android.webkit.WebSettings;
 import android.webkit.WebSettings.PluginState;
 
-import com.google.common.annotations.VisibleForTesting;
-
 import org.chromium.base.CalledByNative;
 import org.chromium.base.JNINamespace;
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.VisibleForTesting;
 
 /**
  * Stores Android WebView specific settings that does not need to be synced to WebKit.
@@ -69,7 +68,7 @@ public class AwSettings {
     private String mSerifFontFamily = "serif";
     private String mCursiveFontFamily = "cursive";
     private String mFantasyFontFamily = "fantasy";
-    private String mDefaultTextEncoding;
+    private String mDefaultTextEncoding = "UTF-8";
     private String mUserAgent;
     private int mMinimumFontSize = 8;
     private int mMinimumLogicalFontSize = 8;
@@ -99,7 +98,7 @@ public class AwSettings {
     private boolean mVideoOverlayForEmbeddedVideoEnabled = false;
 
     // Although this bit is stored on AwSettings it is actually controlled via the CookieManager.
-    private boolean mAcceptThirdPartyCookies;
+    private boolean mAcceptThirdPartyCookies = false;
 
     private final boolean mSupportLegacyQuirks;
 
@@ -160,7 +159,7 @@ public class AwSettings {
                         case RUN_RUNNABLE_BLOCKING:
                             synchronized (mAwSettingsLock) {
                                 if (mNativeAwSettings != 0) {
-                                    ((Runnable)msg.obj).run();
+                                    ((Runnable) msg.obj).run();
                                 }
                                 mSynchronizationPending = false;
                                 mAwSettingsLock.notifyAll();
@@ -228,7 +227,6 @@ public class AwSettings {
                 mAllowFileAccessFromFileURLs = true;
             }
 
-            mDefaultTextEncoding = AwResource.getDefaultTextEncoding();
             mUserAgent = LazyDefaultUserAgent.sInstance;
 
             // Best-guess a sensible initial value based on the features supported on the device.

@@ -16,12 +16,12 @@
 #include "content/browser/indexed_db/indexed_db_callbacks.h"
 #include "content/browser/indexed_db/indexed_db_connection.h"
 #include "content/browser/indexed_db/indexed_db_cursor.h"
-#include "content/browser/indexed_db/indexed_db_factory.h"
 #include "content/browser/indexed_db/indexed_db_fake_backing_store.h"
 #include "content/browser/indexed_db/indexed_db_transaction.h"
 #include "content/browser/indexed_db/indexed_db_value.h"
 #include "content/browser/indexed_db/mock_indexed_db_callbacks.h"
 #include "content/browser/indexed_db/mock_indexed_db_database_callbacks.h"
+#include "content/browser/indexed_db/mock_indexed_db_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using base::ASCIIToUTF16;
@@ -37,12 +37,12 @@ TEST(IndexedDBDatabaseTest, BackingStoreRetention) {
       new IndexedDBFakeBackingStore();
   EXPECT_TRUE(backing_store->HasOneRef());
 
-  IndexedDBFactory* factory = 0;
+  scoped_refptr<MockIndexedDBFactory> factory = new MockIndexedDBFactory();
   leveldb::Status s;
   scoped_refptr<IndexedDBDatabase> db =
       IndexedDBDatabase::Create(ASCIIToUTF16("db"),
-                                backing_store,
-                                factory,
+                                backing_store.get(),
+                                factory.get(),
                                 IndexedDBDatabase::Identifier(),
                                 &s);
   ASSERT_TRUE(s.ok());
@@ -56,12 +56,12 @@ TEST(IndexedDBDatabaseTest, ConnectionLifecycle) {
       new IndexedDBFakeBackingStore();
   EXPECT_TRUE(backing_store->HasOneRef());  // local
 
-  IndexedDBFactory* factory = 0;
+  scoped_refptr<MockIndexedDBFactory> factory = new MockIndexedDBFactory();
   leveldb::Status s;
   scoped_refptr<IndexedDBDatabase> db =
       IndexedDBDatabase::Create(ASCIIToUTF16("db"),
-                                backing_store,
-                                factory,
+                                backing_store.get(),
+                                factory.get(),
                                 IndexedDBDatabase::Identifier(),
                                 &s);
   ASSERT_TRUE(s.ok());
@@ -114,12 +114,12 @@ TEST(IndexedDBDatabaseTest, ForcedClose) {
       new IndexedDBFakeBackingStore();
   EXPECT_TRUE(backing_store->HasOneRef());
 
-  IndexedDBFactory* factory = 0;
+  scoped_refptr<MockIndexedDBFactory> factory = new MockIndexedDBFactory();
   leveldb::Status s;
   scoped_refptr<IndexedDBDatabase> database =
       IndexedDBDatabase::Create(ASCIIToUTF16("db"),
-                                backing_store,
-                                factory,
+                                backing_store.get(),
+                                factory.get(),
                                 IndexedDBDatabase::Identifier(),
                                 &s);
   ASSERT_TRUE(s.ok());
@@ -136,14 +136,14 @@ TEST(IndexedDBDatabaseTest, ForcedClose) {
       upgrade_transaction_id,
       IndexedDBDatabaseMetadata::DEFAULT_INT_VERSION);
   database->OpenConnection(connection);
-  EXPECT_EQ(database, request->connection()->database());
+  EXPECT_EQ(database.get(), request->connection()->database());
 
   const int64 transaction_id = 123;
   const std::vector<int64> scope;
   database->CreateTransaction(transaction_id,
                               request->connection(),
                               scope,
-                              indexed_db::TRANSACTION_READ_ONLY);
+                              blink::WebIDBTransactionModeReadOnly);
 
   request->connection()->ForceClose();
 
@@ -180,12 +180,12 @@ TEST(IndexedDBDatabaseTest, PendingDelete) {
       new IndexedDBFakeBackingStore();
   EXPECT_TRUE(backing_store->HasOneRef());  // local
 
-  IndexedDBFactory* factory = 0;
+  scoped_refptr<MockIndexedDBFactory> factory = new MockIndexedDBFactory();
   leveldb::Status s;
   scoped_refptr<IndexedDBDatabase> db =
       IndexedDBDatabase::Create(ASCIIToUTF16("db"),
-                                backing_store,
-                                factory,
+                                backing_store.get(),
+                                factory.get(),
                                 IndexedDBDatabase::Identifier(),
                                 &s);
   ASSERT_TRUE(s.ok());
@@ -208,7 +208,10 @@ TEST(IndexedDBDatabaseTest, PendingDelete) {
   scoped_refptr<MockDeleteCallbacks> request2(new MockDeleteCallbacks());
   db->DeleteDatabase(request2);
 
+  EXPECT_FALSE(request2->blocked_called());
+  db->VersionChangeIgnored();
   EXPECT_TRUE(request2->blocked_called());
+
   EXPECT_FALSE(backing_store->HasOneRef());  // local and db
 
   db->Close(request1->connection(), true /* forced */);
@@ -223,14 +226,16 @@ void DummyOperation(IndexedDBTransaction* transaction) {
 
 class IndexedDBDatabaseOperationTest : public testing::Test {
  public:
-  IndexedDBDatabaseOperationTest() : commit_success_(leveldb::Status::OK()) {}
+  IndexedDBDatabaseOperationTest()
+      : commit_success_(leveldb::Status::OK()),
+        factory_(new MockIndexedDBFactory()) {}
 
   virtual void SetUp() {
     backing_store_ = new IndexedDBFakeBackingStore();
     leveldb::Status s;
     db_ = IndexedDBDatabase::Create(ASCIIToUTF16("db"),
-                                    backing_store_,
-                                    NULL /*factory*/,
+                                    backing_store_.get(),
+                                    factory_.get(),
                                     IndexedDBDatabase::Identifier(),
                                     &s);
     ASSERT_TRUE(s.ok());
@@ -251,10 +256,10 @@ class IndexedDBDatabaseOperationTest : public testing::Test {
         transaction_id,
         callbacks_,
         std::set<int64>() /*scope*/,
-        indexed_db::TRANSACTION_VERSION_CHANGE,
-        db_,
+        blink::WebIDBTransactionModeVersionChange,
+        db_.get(),
         new IndexedDBFakeBackingStore::FakeTransaction(commit_success_));
-    db_->TransactionCreated(transaction_);
+    db_->TransactionCreated(transaction_.get());
 
     // Add a dummy task which takes the place of the VersionChangeOperation
     // which kicks off the upgrade. This ensures that the transaction has
@@ -275,6 +280,7 @@ class IndexedDBDatabaseOperationTest : public testing::Test {
 
  private:
   base::MessageLoop message_loop_;
+  scoped_refptr<MockIndexedDBFactory> factory_;
 
   DISALLOW_COPY_AND_ASSIGN(IndexedDBDatabaseOperationTest);
 };
@@ -386,7 +392,7 @@ TEST_F(IndexedDBDatabaseOperationTest, CreatePutDelete) {
 
   // Put is asynchronous
   IndexedDBValue value("value1", std::vector<IndexedDBBlobInfo>());
-  ScopedVector<webkit_blob::BlobDataHandle> handles;
+  ScopedVector<storage::BlobDataHandle> handles;
   scoped_ptr<IndexedDBKey> key(new IndexedDBKey("key"));
   std::vector<IndexedDBDatabase::IndexKeys> index_keys;
   scoped_refptr<MockIndexedDBCallbacks> request(
@@ -396,7 +402,7 @@ TEST_F(IndexedDBDatabaseOperationTest, CreatePutDelete) {
            &value,
            &handles,
            key.Pass(),
-           IndexedDBDatabase::ADD_ONLY,
+           blink::WebIDBPutModeAddOnly,
            request,
            index_keys);
 

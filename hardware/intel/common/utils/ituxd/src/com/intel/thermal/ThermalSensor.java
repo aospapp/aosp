@@ -219,14 +219,11 @@ public class ThermalSensor {
      * Method that actually does a Sysfs read.
      */
     public int readSensorTemp() {
-        int val = ThermalManager.INVALID_TEMP;
-        try {
-            String tempStr = ThermalUtils.readSysfs(mInputTempPath);
-            if (tempStr != null) {
-                val = Integer.parseInt(tempStr.trim());
-            }
-        } catch (NumberFormatException e) {
-            Log.i(TAG, "NumberFormatException in readSensorTemp():" + mInputTempPath);
+        int val = ThermalUtils.readSysfsTemp(mInputTempPath);
+        if (val <= ThermalManager.ABS_ZERO) {
+            // Error will be returned as negative offset from absolute zero in milli degree C
+            Log.e(TAG, "readSensorTemp failed with error:" + (val - ThermalManager.ABS_ZERO));
+            val = ThermalManager.INVALID_TEMP;
         }
         return val;
     }

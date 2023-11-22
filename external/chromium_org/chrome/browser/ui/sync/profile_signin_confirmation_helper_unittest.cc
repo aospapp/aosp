@@ -20,12 +20,9 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
-#include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/extensions/test_extension_system.h"
 #include "chrome/browser/history/history_service.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/prefs/browser_prefs.h"
-#include "chrome/common/extensions/extension_constants.h"
 #include "chrome/test/base/testing_pref_service_syncable.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/bookmarks/browser/bookmark_model.h"
@@ -33,17 +30,24 @@
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "content/public/test/test_browser_thread_bundle.h"
 #include "content/public/test/test_utils.h"
-#include "extensions/browser/extension_prefs.h"
-#include "extensions/common/extension.h"
-#include "extensions/common/manifest_constants.h"
-#include "extensions/common/permissions/permission_set.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/login/users/user_manager.h"
+#include "chrome/browser/chromeos/login/users/scoped_test_user_manager.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/chromeos/settings/device_settings_service.h"
+#endif
+
+#if defined(ENABLE_EXTENSIONS)
+#include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/test_extension_system.h"
+#include "chrome/common/extensions/extension_constants.h"
+#include "extensions/browser/extension_prefs.h"
+#include "extensions/common/constants.h"
+#include "extensions/common/extension.h"
+#include "extensions/common/manifest_constants.h"
+#include "extensions/common/permissions/permission_set.h"
 #endif
 
 namespace {
@@ -86,6 +90,7 @@ class TestingPrefStoreWithCustomReadError : public TestingPrefStore {
   PrefReadError read_error_;
 };
 
+#if defined(ENABLE_EXTENSIONS)
 #if defined(OS_WIN)
 const base::FilePath::CharType kExtensionFilePath[] =
     FILE_PATH_LITERAL("c:\\foo");
@@ -111,6 +116,7 @@ static scoped_refptr<extensions::Extension> CreateExtension(
         &error);
   return extension;
 }
+#endif
 
 }  // namespace
 
@@ -140,6 +146,7 @@ class ProfileSigninConfirmationHelperTest : public testing::Test {
     model_ = BookmarkModelFactory::GetForProfile(profile_.get());
     test::WaitForBookmarkModelToLoad(model_);
     ASSERT_TRUE(profile_->CreateHistoryService(true, false));
+#if defined(ENABLE_EXTENSIONS)
     extensions::TestExtensionSystem* system =
         static_cast<extensions::TestExtensionSystem*>(
             extensions::ExtensionSystem::Get(profile_.get()));
@@ -147,6 +154,7 @@ class ProfileSigninConfirmationHelperTest : public testing::Test {
     system->CreateExtensionService(&command_line,
                                    base::FilePath(kExtensionFilePath),
                                    false);
+#endif
   }
 
   virtual void TearDown() OVERRIDE {
@@ -169,7 +177,8 @@ class ProfileSigninConfirmationHelperTest : public testing::Test {
 #endif
 };
 
-TEST_F(ProfileSigninConfirmationHelperTest, DoNotPromptForNewProfile) {
+// http://crbug.com/393149
+TEST_F(ProfileSigninConfirmationHelperTest, DISABLED_DoNotPromptForNewProfile) {
   // Profile is new and there's no profile data.
   EXPECT_FALSE(
       GetCallbackResult(
@@ -192,6 +201,7 @@ TEST_F(ProfileSigninConfirmationHelperTest, PromptForNewProfile_Bookmarks) {
               profile_.get())));
 }
 
+#if defined(ENABLE_EXTENSIONS)
 TEST_F(ProfileSigninConfirmationHelperTest, PromptForNewProfile_Extensions) {
   ExtensionService* extensions =
       extensions::ExtensionSystem::Get(profile_.get())->extension_service();
@@ -201,7 +211,7 @@ TEST_F(ProfileSigninConfirmationHelperTest, PromptForNewProfile_Extensions) {
 
   // (The web store doesn't count.)
   scoped_refptr<extensions::Extension> webstore =
-      CreateExtension("web store", extension_misc::kWebStoreAppId);
+      CreateExtension("web store", extensions::kWebStoreAppId);
   extensions::ExtensionPrefs::Get(profile_.get())->AddGrantedPermissions(
       webstore->id(), make_scoped_refptr(new extensions::PermissionSet).get());
   extensions->AddExtension(webstore.get());
@@ -216,8 +226,11 @@ TEST_F(ProfileSigninConfirmationHelperTest, PromptForNewProfile_Extensions) {
   EXPECT_TRUE(GetCallbackResult(
       base::Bind(&ui::CheckShouldPromptForNewProfile, profile_.get())));
 }
+#endif
 
-TEST_F(ProfileSigninConfirmationHelperTest, PromptForNewProfile_History) {
+// http://crbug.com/393149
+TEST_F(ProfileSigninConfirmationHelperTest,
+       DISABLED_PromptForNewProfile_History) {
   HistoryService* history = HistoryServiceFactory::GetForProfile(
       profile_.get(),
       Profile::EXPLICIT_ACCESS);
@@ -230,7 +243,7 @@ TEST_F(ProfileSigninConfirmationHelperTest, PromptForNewProfile_History) {
     base::snprintf(buf, arraysize(buf), "http://foo.com/%d", i);
     history->AddPage(
         GURL(std::string(buf)), base::Time::Now(), NULL, 1,
-        GURL(), history::RedirectList(), content::PAGE_TRANSITION_LINK,
+        GURL(), history::RedirectList(), ui::PAGE_TRANSITION_LINK,
         history::SOURCE_BROWSED, false);
   }
   EXPECT_TRUE(
@@ -240,7 +253,9 @@ TEST_F(ProfileSigninConfirmationHelperTest, PromptForNewProfile_History) {
               profile_.get())));
 }
 
-TEST_F(ProfileSigninConfirmationHelperTest, PromptForNewProfile_TypedURLs) {
+// http://crbug.com/393149
+TEST_F(ProfileSigninConfirmationHelperTest,
+       DISABLED_PromptForNewProfile_TypedURLs) {
   HistoryService* history = HistoryServiceFactory::GetForProfile(
       profile_.get(),
       Profile::EXPLICIT_ACCESS);
@@ -249,7 +264,7 @@ TEST_F(ProfileSigninConfirmationHelperTest, PromptForNewProfile_TypedURLs) {
   // Profile is new but has a typed URL.
   history->AddPage(
       GURL("http://example.com"), base::Time::Now(), NULL, 1,
-      GURL(), history::RedirectList(), content::PAGE_TRANSITION_TYPED,
+      GURL(), history::RedirectList(), ui::PAGE_TRANSITION_TYPED,
       history::SOURCE_BROWSED, false);
   EXPECT_TRUE(
       GetCallbackResult(

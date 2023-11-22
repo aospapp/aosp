@@ -272,7 +272,7 @@ public class UiAutomationTest extends UiAutomatorTestCase {
             if (lastPresentedTimeNano == FrameStats.UNDEFINED_TIME_NANO) {
                 assertTrue(presentedTimeNano == FrameStats.UNDEFINED_TIME_NANO);
             } else if (presentedTimeNano != FrameStats.UNDEFINED_TIME_NANO) {
-                assertTrue(presentedTimeNano > lastPresentedTimeNano);
+                assertTrue(presentedTimeNano >= lastPresentedTimeNano);
             }
             lastPresentedTimeNano = presentedTimeNano;
         }

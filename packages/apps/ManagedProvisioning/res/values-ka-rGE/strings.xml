@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"ადმინისტრატორის აპის გამოყენება ვერ მოხერხდა. მას აკლია კომპონენტები, ან დაზიანებულია. დაუკავშირდით თქვენს IT განყოფილებას."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"ადმინისტრატორის აპი ვერ დაინსტალირდა."</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"ადმინისტრატორის აპი არ არის დაინსტალირებული თქვენს მოწყობილობაზე."</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"გსურთ, მომართვის შეჩერება?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"დარწმუნებული ხართ, რომ მომართვის შეწყვეტა გსურთ?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"არა"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"კი"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"უქმდება..."</string>
 </resources>

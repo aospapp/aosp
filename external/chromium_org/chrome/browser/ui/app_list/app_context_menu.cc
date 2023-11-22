@@ -5,21 +5,17 @@
 #include "chrome/browser/ui/app_list/app_context_menu.h"
 
 #include "base/bind.h"
-#include "base/command_line.h"
-#include "chrome/app/chrome_command_ids.h"
-#include "chrome/browser/chromeos/genius_app/app_id.h"
 #include "chrome/browser/extensions/context_menu_matcher.h"
+#include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/menu_manager.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/app_list/app_context_menu_delegate.h"
 #include "chrome/browser/ui/app_list/app_list_controller_delegate.h"
-#include "chrome/common/chrome_switches.h"
-#include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/manifest_url_handler.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/common/context_menu_params.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
 #if defined(USE_ASH)
@@ -38,7 +34,6 @@ enum CommandId {
   OPTIONS,
   UNINSTALL,
   REMOVE_FROM_FOLDER,
-  DETAILS,
   MENU_NEW_WINDOW,
   MENU_NEW_INCOGNITO_WINDOW,
   // Order matters in USE_LAUNCH_TYPE_* and must match the LaunchType enum.
@@ -90,17 +85,18 @@ ui::MenuModel* AppContextMenu::GetMenuModel() {
           MENU_NEW_INCOGNITO_WINDOW,
           IDS_APP_LIST_NEW_INCOGNITO_WINDOW);
     }
+    if (controller_->CanDoShowAppInfoFlow()) {
+      menu_model_->AddItemWithStringId(SHOW_APP_INFO,
+                                       IDS_APP_CONTEXT_MENU_SHOW_INFO);
+    }
   } else {
     extension_menu_items_.reset(new extensions::ContextMenuMatcher(
         profile_, this, menu_model_.get(),
         base::Bind(MenuItemHasLauncherContext)));
 
+    // First, add the primary actions.
     if (!is_platform_app_)
       menu_model_->AddItem(LAUNCH_NEW, base::string16());
-
-    int index = 0;
-    extension_menu_items_->AppendExtensionItems(
-        extensions::MenuItem::ExtensionKey(app_id_), base::string16(), &index);
 
     // Show Pin/Unpin option if shelf is available.
     if (controller_->GetPinnable() != AppListControllerDelegate::NO_PIN) {
@@ -116,23 +112,12 @@ ui::MenuModel* AppContextMenu::GetMenuModel() {
       menu_model_->AddItemWithStringId(CREATE_SHORTCUTS,
                                        IDS_NEW_TAB_APP_CREATE_SHORTCUT);
     }
-
-    // Don't display the app info dialog for the Store app or the Genius app.
-    // TODO(sashab): Update the metadata for these apps so their dialogs can be
-    // re-enabled (see crbug.com/383713).
-    if (controller_->CanDoShowAppInfoFlow() &&
-        app_id_ != extension_misc::kWebStoreAppId &&
-        app_id_ != genius_app::kGeniusAppId) {
-      menu_model_->AddItemWithStringId(SHOW_APP_INFO,
-                                       IDS_APP_CONTEXT_MENU_SHOW_INFO);
-    }
+    menu_model_->AddSeparator(ui::NORMAL_SEPARATOR);
 
     if (!is_platform_app_) {
-      menu_model_->AddSeparator(ui::NORMAL_SEPARATOR);
       // Streamlined hosted apps can only toggle between USE_LAUNCH_TYPE_WINDOW
       // and USE_LAUNCH_TYPE_REGULAR.
-      if (CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableStreamlinedHostedApps)) {
+      if (extensions::util::IsStreamlinedHostedAppsEnabled()) {
         menu_model_->AddCheckItemWithStringId(
             USE_LAUNCH_TYPE_REGULAR,
             IDS_APP_CONTEXT_MENU_OPEN_TAB);
@@ -160,14 +145,32 @@ ui::MenuModel* AppContextMenu::GetMenuModel() {
 #endif
       }
       menu_model_->AddSeparator(ui::NORMAL_SEPARATOR);
-      menu_model_->AddItemWithStringId(OPTIONS, IDS_NEW_TAB_APP_OPTIONS);
     }
 
-    menu_model_->AddItemWithStringId(DETAILS, IDS_NEW_TAB_APP_DETAILS);
-    menu_model_->AddItemWithStringId(
-        UNINSTALL,
-        is_platform_app_ ? IDS_APP_LIST_UNINSTALL_ITEM
-                         : IDS_EXTENSIONS_UNINSTALL);
+    // Assign unique IDs to commands added by the app itself.
+    int index = USE_LAUNCH_TYPE_COMMAND_END;
+    extension_menu_items_->AppendExtensionItems(
+        extensions::MenuItem::ExtensionKey(app_id_),
+        base::string16(),
+        &index,
+        false);  // is_action_menu
+
+    // If at least 1 item was added, add another separator after the list.
+    if (index > USE_LAUNCH_TYPE_COMMAND_END)
+      menu_model_->AddSeparator(ui::NORMAL_SEPARATOR);
+
+    if (!is_platform_app_)
+      menu_model_->AddItemWithStringId(OPTIONS, IDS_NEW_TAB_APP_OPTIONS);
+
+    menu_model_->AddItemWithStringId(UNINSTALL,
+                                     is_platform_app_
+                                         ? IDS_APP_LIST_UNINSTALL_ITEM
+                                         : IDS_APP_LIST_EXTENSIONS_UNINSTALL);
+
+    if (controller_->CanDoShowAppInfoFlow()) {
+      menu_model_->AddItemWithStringId(SHOW_APP_INFO,
+                                       IDS_APP_CONTEXT_MENU_SHOW_INFO);
+    }
   }
 
   return menu_model_.get();
@@ -204,8 +207,8 @@ bool AppContextMenu::IsCommandIdChecked(int command_id) const {
       command_id < USE_LAUNCH_TYPE_COMMAND_END) {
     return static_cast<int>(controller_->GetExtensionLaunchType(
         profile_, app_id_)) + USE_LAUNCH_TYPE_COMMAND_START == command_id;
-  } else if (command_id >= IDC_EXTENSIONS_CONTEXT_CUSTOM_FIRST &&
-             command_id <= IDC_EXTENSIONS_CONTEXT_CUSTOM_LAST) {
+  } else if (extensions::ContextMenuMatcher::IsExtensionsCustomCommandId(
+                 command_id)) {
     return extension_menu_items_->IsCommandIdChecked(command_id);
   }
   return false;
@@ -219,10 +222,8 @@ bool AppContextMenu::IsCommandIdEnabled(int command_id) const {
     return controller_->HasOptionsPage(profile_, app_id_);
   } else if (command_id == UNINSTALL) {
     return controller_->UserMayModifySettings(profile_, app_id_);
-  } else if (command_id == DETAILS) {
-    return controller_->IsAppFromWebStore(profile_, app_id_);
-  } else if (command_id >= IDC_EXTENSIONS_CONTEXT_CUSTOM_FIRST &&
-             command_id <= IDC_EXTENSIONS_CONTEXT_CUSTOM_LAST) {
+  } else if (extensions::ContextMenuMatcher::IsExtensionsCustomCommandId(
+                 command_id)) {
     return extension_menu_items_->IsCommandIdEnabled(command_id);
   } else if (command_id == MENU_NEW_WINDOW) {
     // "Normal" windows are not allowed when incognito is enforced.
@@ -261,8 +262,7 @@ void AppContextMenu::ExecuteCommand(int command_id, int event_flags) {
         command_id - USE_LAUNCH_TYPE_COMMAND_START);
     // Streamlined hosted apps can only toggle between LAUNCH_TYPE_WINDOW and
     // LAUNCH_TYPE_REGULAR.
-    if (CommandLine::ForCurrentProcess()->HasSwitch(
-        switches::kEnableStreamlinedHostedApps)) {
+    if (extensions::util::IsStreamlinedHostedAppsEnabled()) {
       launch_type = (controller_->GetExtensionLaunchType(profile_, app_id_) ==
                      extensions::LAUNCH_TYPE_REGULAR) ?
                     extensions::LAUNCH_TYPE_WINDOW :
@@ -273,10 +273,8 @@ void AppContextMenu::ExecuteCommand(int command_id, int event_flags) {
     controller_->ShowOptionsPage(profile_, app_id_);
   } else if (command_id == UNINSTALL) {
     controller_->UninstallApp(profile_, app_id_);
-  } else if (command_id == DETAILS) {
-    controller_->ShowAppInWebStore(profile_, app_id_, is_search_result_);
-  } else if (command_id >= IDC_EXTENSIONS_CONTEXT_CUSTOM_FIRST &&
-             command_id <= IDC_EXTENSIONS_CONTEXT_CUSTOM_LAST) {
+  } else if (extensions::ContextMenuMatcher::IsExtensionsCustomCommandId(
+                 command_id)) {
     extension_menu_items_->ExecuteCommand(command_id, NULL,
                                           content::ContextMenuParams());
   } else if (command_id == MENU_NEW_WINDOW) {

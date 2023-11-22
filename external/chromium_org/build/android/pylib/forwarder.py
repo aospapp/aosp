@@ -88,10 +88,10 @@ class Forwarder(object):
       instance = Forwarder._GetInstanceLocked(tool)
       instance._InitDeviceLocked(device, tool)
 
-      device_serial = device.old_interface.Adb().GetSerialNumber()
+      device_serial = str(device)
       redirection_commands = [
-          ['--serial-id=' + device_serial, '--map', str(device),
-           str(host)] for device, host in port_pairs]
+          ['--serial-id=' + device_serial, '--map', str(device_port),
+           str(host_port)] for device_port, host_port in port_pairs]
       logging.info('Forwarding using commands: %s', redirection_commands)
 
       for redirection_command in redirection_commands:
@@ -104,12 +104,13 @@ class Forwarder(object):
                             ' built host_forwarder.')
           else: raise
         if exit_code != 0:
+          Forwarder._KillDeviceLocked(device, tool)
           raise Exception('%s exited with %d:\n%s' % (
               instance._host_forwarder_path, exit_code, '\n'.join(output)))
         tokens = output.split(':')
         if len(tokens) != 2:
-          raise Exception(('Unexpected host forwarder output "%s", ' +
-                          'expected "device_port:host_port"') % output)
+          raise Exception('Unexpected host forwarder output "%s", '
+                          'expected "device_port:host_port"' % output)
         device_port = int(tokens[0])
         host_port = int(tokens[1])
         serial_with_port = (device_serial, device_port)
@@ -146,7 +147,7 @@ class Forwarder(object):
     with _FileLock(Forwarder._LOCK_PATH):
       if not Forwarder._instance:
         return
-      adb_serial = device.old_interface.Adb().GetSerialNumber()
+      adb_serial = str(device)
       if adb_serial not in Forwarder._instance._initialized_devices:
         return
       port_map = Forwarder._GetInstanceLocked(
@@ -157,8 +158,6 @@ class Forwarder(object):
       # There are no more ports mapped, kill the device_forwarder.
       tool = valgrind_tools.CreateTool(None, device)
       Forwarder._KillDeviceLocked(device, tool)
-      Forwarder._instance._initialized_devices.remove(adb_serial)
-
 
   @staticmethod
   def DevicePortForHostPort(host_port):
@@ -223,7 +222,7 @@ class Forwarder(object):
     Note that the global lock must be acquired before calling this method.
     """
     instance = Forwarder._GetInstanceLocked(None)
-    serial = device.old_interface.Adb().GetSerialNumber()
+    serial = str(device)
     serial_with_port = (serial, device_port)
     if not serial_with_port in instance._device_to_host_port_map:
       logging.error('Trying to unmap non-forwarded port %d' % device_port)
@@ -248,7 +247,7 @@ class Forwarder(object):
     current process is returned.
     """
     use_multiprocessing = Forwarder._MULTIPROCESSING_ENV_VAR in os.environ
-    return os.getppid() if use_multiprocessing else os.getpid()
+    return os.getpgrp() if use_multiprocessing else os.getpid()
 
   def _InitHostLocked(self):
     """Initializes the host forwarder daemon.
@@ -285,11 +284,11 @@ class Forwarder(object):
       tool: Tool class to use to get wrapper, if necessary, for executing the
             forwarder (see valgrind_tools.py).
     """
-    device_serial = device.old_interface.Adb().GetSerialNumber()
+    device_serial = str(device)
     if device_serial in self._initialized_devices:
       return
     Forwarder._KillDeviceLocked(device, tool)
-    device.old_interface.PushIfNeeded(
+    device.PushChangedFiles(
         self._device_forwarder_path_on_host,
         Forwarder._DEVICE_FORWARDER_FOLDER)
     cmd = '%s %s' % (tool.GetUtilWrapper(), Forwarder._DEVICE_FORWARDER_PATH)
@@ -327,22 +326,11 @@ class Forwarder(object):
             forwarder (see valgrind_tools.py).
     """
     logging.info('Killing device_forwarder.')
-    if not device.old_interface.FileExistsOnDevice(
-        Forwarder._DEVICE_FORWARDER_PATH):
+    Forwarder._instance._initialized_devices.discard(str(device))
+    if not device.FileExists(Forwarder._DEVICE_FORWARDER_PATH):
       return
 
     cmd = '%s %s --kill-server' % (tool.GetUtilWrapper(),
                                    Forwarder._DEVICE_FORWARDER_PATH)
     device.old_interface.GetAndroidToolStatusAndOutput(
         cmd, lib_path=Forwarder._DEVICE_FORWARDER_FOLDER)
-
-    # TODO(pliard): Remove the following call to KillAllBlocking() when we are
-    # sure that the old version of device_forwarder (not supporting
-    # 'kill-server') is not running on the bots anymore.
-    timeout_sec = 5
-    processes_killed = device.old_interface.KillAllBlocking(
-        'device_forwarder', timeout_sec)
-    if not processes_killed:
-      pids = device.old_interface.ExtractPid('device_forwarder')
-      if pids:
-        raise Exception('Timed out while killing device_forwarder')

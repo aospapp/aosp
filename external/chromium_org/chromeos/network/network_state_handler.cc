@@ -611,6 +611,7 @@ void NetworkStateHandler::UpdateDeviceProperty(const std::string& device_path,
   NET_LOG_EVENT("DevicePropertyUpdated", detail);
 
   NotifyDeviceListChanged();
+  NotifyDevicePropertiesUpdated(device);
 
   if (key == shill::kScanningProperty && device->scanning() == false)
     ScanCompleted(device->type());
@@ -644,6 +645,7 @@ void NetworkStateHandler::UpdateIPConfigProperties(
     if (!network)
       return;
     network->IPConfigPropertiesChanged(properties);
+    NotifyNetworkPropertiesUpdated(network);
     if (network->path() == default_network_path_)
       NotifyDefaultNetworkChanged(network);
   } else if (type == ManagedState::MANAGED_TYPE_DEVICE) {
@@ -651,6 +653,7 @@ void NetworkStateHandler::UpdateIPConfigProperties(
     if (!device)
       return;
     device->IPConfigPropertiesChanged(ip_config_path, properties);
+    NotifyDevicePropertiesUpdated(device);
     if (!default_network_path_.empty()) {
       const NetworkState* default_network =
           GetNetworkState(default_network_path_);
@@ -894,6 +897,13 @@ void NetworkStateHandler::NotifyNetworkPropertiesUpdated(
   NET_LOG_DEBUG("NOTIFY:NetworkPropertiesUpdated", GetLogName(network));
   FOR_EACH_OBSERVER(NetworkStateHandlerObserver, observers_,
                     NetworkPropertiesUpdated(network));
+}
+
+void NetworkStateHandler::NotifyDevicePropertiesUpdated(
+    const DeviceState* device) {
+  NET_LOG_DEBUG("NOTIFY:DevicePropertiesUpdated", GetLogName(device));
+  FOR_EACH_OBSERVER(NetworkStateHandlerObserver, observers_,
+                    DevicePropertiesUpdated(device));
 }
 
 void NetworkStateHandler::ScanCompleted(const std::string& type) {

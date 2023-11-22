@@ -20,9 +20,9 @@
 #include "chrome/browser/ui/host_desktop.h"
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
 #include "chrome/browser/upgrade_detector.h"
+#include "chrome/grit/locale_settings.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_service.h"
-#include "grit/locale_settings.h"
 #include "ui/base/l10n/l10n_util.h"
 
 namespace {
@@ -71,17 +71,20 @@ class SystemTrayDelegateLinux : public ash::SystemTrayDelegate,
     return base::string16();
   }
 
-  virtual const std::string GetLocallyManagedUserManager() const OVERRIDE {
+  virtual const std::string GetSupervisedUserManager() const OVERRIDE {
     return std::string();
   }
 
-  virtual const base::string16 GetLocallyManagedUserManagerName() const
-        OVERRIDE {
+  virtual const base::string16 GetSupervisedUserManagerName() const OVERRIDE {
     return base::string16();
   }
 
-  virtual const base::string16 GetLocallyManagedUserMessage() const OVERRIDE {
+  virtual const base::string16 GetSupervisedUserMessage() const OVERRIDE {
     return base::string16();
+  }
+
+  virtual bool IsUserSupervised() const OVERRIDE {
+    return false;
   }
 
   virtual bool SystemShouldUpgrade() const OVERRIDE {
@@ -124,9 +127,6 @@ class SystemTrayDelegateLinux : public ash::SystemTrayDelegate,
     return false;
   }
 
-  virtual void ShowDriveSettings() OVERRIDE {
-  }
-
   virtual void ShowIMESettings() OVERRIDE {
   }
 
@@ -146,7 +146,7 @@ class SystemTrayDelegateLinux : public ash::SystemTrayDelegate,
   virtual void ShowPublicAccountInfo() OVERRIDE {
   }
 
-  virtual void ShowLocallyManagedUserInfo() OVERRIDE {
+  virtual void ShowSupervisedUserInfo() OVERRIDE {
   }
 
   virtual void ShowEnterpriseInfo() OVERRIDE {
@@ -213,19 +213,10 @@ class SystemTrayDelegateLinux : public ash::SystemTrayDelegate,
   virtual void ActivateIMEProperty(const std::string& key) OVERRIDE {
   }
 
-  virtual void CancelDriveOperation(int32 operation_id) OVERRIDE {
+  virtual void ShowNetworkConfigure(const std::string& network_id) OVERRIDE {
   }
 
-  virtual void GetDriveOperationStatusList(
-      ash::DriveOperationStatusList* list) OVERRIDE {
-  }
-
-  virtual void ShowNetworkConfigure(const std::string& network_id,
-                                    gfx::NativeWindow parent_window) OVERRIDE {
-  }
-
-  virtual bool EnrollNetwork(const std::string& network_id,
-                             gfx::NativeWindow parent_window) OVERRIDE {
+  virtual bool EnrollNetwork(const std::string& network_id) OVERRIDE {
     return true;
   }
 
@@ -284,11 +275,6 @@ class SystemTrayDelegateLinux : public ash::SystemTrayDelegate,
   }
 
   virtual void ActiveUserWasChanged() OVERRIDE {
-  }
-
-  virtual bool IsNetworkBehindCaptivePortal(
-      const std::string& service_path) const OVERRIDE {
-    return false;
   }
 
   virtual bool IsSearchKeyMappedToCapsLock() OVERRIDE {

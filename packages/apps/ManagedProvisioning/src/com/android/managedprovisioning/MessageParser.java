@@ -32,6 +32,7 @@ import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_AD
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_COOKIE_HEADER;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED;
 import static android.app.admin.DevicePolicyManager.MIME_TYPE_PROVISIONING_NFC;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -78,6 +79,8 @@ import java.util.Properties;
  * sum of the target file {@link #EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM}.
  * Additional information to send through to the device admin may be specified in
  * {@link #EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE}.
+ * The boolean {@link #EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED} indicates wheter system
+ * apps should not be disabled.
  * Furthermore a wifi network may be specified in {@link #EXTRA_PROVISIONING_WIFI_SSID}, and if
  * applicable {@link #EXTRA_PROVISIONING_WIFI_HIDDEN},
  * {@link #EXTRA_PROVISIONING_WIFI_SECURITY_TYPE}, {@link #EXTRA_PROVISIONING_WIFI_PASSWORD},
@@ -120,7 +123,8 @@ public class MessageParser {
 
     protected static final String[] DEVICE_OWNER_BOOLEAN_EXTRAS = {
         EXTRA_PROVISIONING_WIFI_HIDDEN,
-        EXTRA_PROVISIONING_STARTED_BY_NFC
+        EXTRA_PROVISIONING_STARTED_BY_NFC,
+        EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED
     };
 
     protected static final String[] DEVICE_OWNER_PERSISTABLE_BUNDLE_EXTRAS = {
@@ -151,6 +155,8 @@ public class MessageParser {
 
         bundle.putBoolean(EXTRA_PROVISIONING_WIFI_HIDDEN, params.mWifiHidden);
         bundle.putBoolean(EXTRA_PROVISIONING_STARTED_BY_NFC, params.mStartedByNfc);
+        bundle.putBoolean(EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED,
+                params.mLeaveAllSystemAppsEnabled);
 
         bundle.putParcelable(EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE, params.mAdminExtrasBundle);
     }
@@ -232,6 +238,10 @@ public class MessageParser {
                 params.mWifiHidden = Boolean.parseBoolean(s);
             }
 
+            if ((s = props.getProperty(EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED)) != null) {
+                params.mLeaveAllSystemAppsEnabled = Boolean.parseBoolean(s);
+            }
+
             checkValidityOfProvisioningParams(params);
             return params;
         } catch (IOException e) {
@@ -283,6 +293,9 @@ public class MessageParser {
                 ProvisioningParams.DEFAULT_WIFI_HIDDEN);
         params.mStartedByNfc = intent.getBooleanExtra(EXTRA_PROVISIONING_STARTED_BY_NFC,
                 false);
+        params.mLeaveAllSystemAppsEnabled = intent.getBooleanExtra(
+                EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED,
+                ProvisioningParams.DEFAULT_LEAVE_ALL_SYSTEM_APPS_ENABLED);
 
         try {
             params.mAdminExtrasBundle = (PersistableBundle) intent.getParcelableExtra(

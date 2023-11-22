@@ -22,7 +22,7 @@ using chrome_common_net::DnsProbeStatus;
 using chrome_common_net::DnsProbeStatusToString;
 using content::BrowserContext;
 using content::BrowserThread;
-using content::PageTransition;
+using ui::PageTransition;
 using content::RenderViewHost;
 using content::WebContents;
 using content::WebContentsObserver;
@@ -93,31 +93,25 @@ void NetErrorTabHelper::DidStartNavigationToPendingEntry(
 }
 
 void NetErrorTabHelper::DidStartProvisionalLoadForFrame(
-    int64 frame_id,
-    int64 parent_frame_id,
-    bool is_main_frame,
+    content::RenderFrameHost* render_frame_host,
     const GURL& validated_url,
     bool is_error_page,
-    bool is_iframe_srcdoc,
-    RenderViewHost* render_view_host) {
+    bool is_iframe_srcdoc) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  if (!is_main_frame)
+  if (render_frame_host->GetParent())
     return;
 
   is_error_page_ = is_error_page;
 }
 
 void NetErrorTabHelper::DidCommitProvisionalLoadForFrame(
-    int64 frame_id,
-    const base::string16& frame_unique_name,
-    bool is_main_frame,
+    content::RenderFrameHost* render_frame_host,
     const GURL& url,
-    PageTransition transition_type,
-    RenderViewHost* render_view_host) {
+    PageTransition transition_type) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  if (!is_main_frame)
+  if (render_frame_host->GetParent())
     return;
 
   // Resend status every time an error page commits; this is somewhat spammy,
@@ -135,16 +129,13 @@ void NetErrorTabHelper::DidCommitProvisionalLoadForFrame(
 }
 
 void NetErrorTabHelper::DidFailProvisionalLoad(
-    int64 frame_id,
-    const base::string16& frame_unique_name,
-    bool is_main_frame,
+    content::RenderFrameHost* render_frame_host,
     const GURL& validated_url,
     int error_code,
-    const base::string16& error_description,
-    RenderViewHost* render_view_host) {
+    const base::string16& error_description) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  if (!is_main_frame)
+  if (render_frame_host->GetParent())
     return;
 
   if (IsDnsError(error_code)) {
@@ -155,11 +146,11 @@ void NetErrorTabHelper::DidFailProvisionalLoad(
 
 NetErrorTabHelper::NetErrorTabHelper(WebContents* contents)
     : WebContentsObserver(contents),
-      weak_factory_(this),
       is_error_page_(false),
       dns_error_active_(false),
       dns_error_page_committed_(false),
-      dns_probe_status_(chrome_common_net::DNS_PROBE_POSSIBLE) {
+      dns_probe_status_(chrome_common_net::DNS_PROBE_POSSIBLE),
+      weak_factory_(this) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   // If this helper is under test, it won't have a WebContents.

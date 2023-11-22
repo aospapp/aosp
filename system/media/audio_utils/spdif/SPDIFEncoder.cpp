@@ -18,7 +18,7 @@
 
 #include <stdint.h>
 
-#define LOG_TAG "AudioHardwareTungsten"
+#define LOG_TAG "AudioSPDIF"
 #include <utils/Log.h>
 #include <audio_utils/spdif/SPDIFEncoder.h>
 
@@ -48,8 +48,9 @@ SPDIFEncoder::SPDIFEncoder()
     mBurstBufferSizeBytes = sizeof(uint16_t)
             * SPDIF_ENCODED_CHANNEL_COUNT
             * mFramer->getMaxSampleFramesPerSyncFrame();
+
     ALOGI("SPDIFEncoder: mBurstBufferSizeBytes = %d, littleEndian = %d",
-        mBurstBufferSizeBytes, isLittleEndian());
+            mBurstBufferSizeBytes, isLittleEndian());
     mBurstBuffer = new uint16_t[mBurstBufferSizeBytes >> 1];
     clearBurstBuffer();
 }
@@ -116,22 +117,29 @@ void SPDIFEncoder::sendZeroPad()
     size_t burstSize = mFramer->getSampleFramesPerSyncFrame() * sizeof(uint16_t)
             * SPDIF_ENCODED_CHANNEL_COUNT;
     if (mByteCursor > burstSize) {
-        ALOGE("SPDIFEncoder: Burst buffer, contents too large!\n");
+        ALOGE("SPDIFEncoder: Burst buffer, contents too large!");
         clearBurstBuffer();
     } else {
         // We don't have to write zeros because buffer already set to zero
-        // by clearBurstBuffer().
+        // by clearBurstBuffer(). Just pretend we wrote zeros by
+        // incrementing cursor.
         mByteCursor = burstSize;
     }
 }
 
 void SPDIFEncoder::flushBurstBuffer()
 {
-    if (mByteCursor > 0) {
+    const int preambleSize = 4 * sizeof(uint16_t);
+    if (mByteCursor > preambleSize) {
+        // Set number of bits for valid payload before zeroPad.
+        uint16_t lengthCode = (mByteCursor - preambleSize) * 8;
+        mBurstBuffer[3] = lengthCode;
+
         sendZeroPad();
         writeOutput(mBurstBuffer, mByteCursor);
-        clearBurstBuffer();
     }
+    clearBurstBuffer();
+    mFramer->resetBurst();
 }
 
 void SPDIFEncoder::clearBurstBuffer()
@@ -142,7 +150,7 @@ void SPDIFEncoder::clearBurstBuffer()
     mByteCursor = 0;
 }
 
-size_t SPDIFEncoder::startDataBurst()
+void SPDIFEncoder::startDataBurst()
 {
     // Encode IEC61937-1 Burst Preamble
     uint16_t preamble[4];
@@ -156,14 +164,15 @@ size_t SPDIFEncoder::startDataBurst()
     preamble[0] = kSPDIFSync1;
     preamble[1] = kSPDIFSync2;
     preamble[2] = burstInfo;
-    preamble[3] = mFramer->getLengthCode();
+    preamble[3] = 0; // lengthCode - This will get set after the buffer is full.
     writeBurstBufferShorts(preamble, 4);
+}
 
+size_t SPDIFEncoder::startSyncFrame()
+{
     // Write start of encoded frame that was buffered in frame detector.
     size_t syncSize = mFramer->getHeaderSizeBytes();
     writeBurstBufferBytes(mFramer->getHeaderAddress(), syncSize);
-    ALOGV("SPDIFEncoder: startDataBurst, syncSize = %u, lengthCode = %d",
-        syncSize, mFramer->getLengthCode());
     return mFramer->getFrameSizeBytes() - syncSize;
 }
 
@@ -177,14 +186,17 @@ ssize_t SPDIFEncoder::write( const void *buffer, size_t numBytes )
     while (bytesLeft > 0) {
         State nextState = mState;
         switch (mState) {
-        // Look for beginning of encoded frame.
+        // Look for beginning of next encoded frame.
         case STATE_IDLE:
             if (mFramer->scan(*data)) {
-                if (mFramer->isFirstInBurst()) {
+                if (mByteCursor == 0) {
+                    startDataBurst();
+                } else if (mFramer->isFirstInBurst()) {
                     // Make sure that this frame is at the beginning of the data burst.
                     flushBurstBuffer();
+                    startDataBurst();
                 }
-                mPayloadBytesPending = startDataBurst();
+                mPayloadBytesPending = startSyncFrame();
                 nextState = STATE_BURST;
             }
             data++;
@@ -208,7 +220,6 @@ ssize_t SPDIFEncoder::write( const void *buffer, size_t numBytes )
                 // If we have all the payload then send a data burst.
                 if (mPayloadBytesPending == 0) {
                     if (mFramer->isLastInBurst()) {
-                        // Flush now if we know the burst is ready.
                         flushBurstBuffer();
                     }
                     nextState = STATE_IDLE;

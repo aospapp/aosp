@@ -27,10 +27,13 @@ import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsProvider;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject;
+import android.support.test.uiautomator.UiObjectNotFoundException;
+import android.support.test.uiautomator.UiScrollable;
 import android.support.test.uiautomator.UiSelector;
 import android.test.InstrumentationTestCase;
 import android.test.MoreAsserts;
 import android.text.format.DateUtils;
+import android.util.Log;
 
 import com.android.cts.documentclient.MyActivity.Result;
 
@@ -45,10 +48,12 @@ import java.io.OutputStream;
  * like {@link Intent#ACTION_OPEN_DOCUMENT}.
  */
 public class DocumentsClientTest extends InstrumentationTestCase {
+    private static final String TAG = "DocumentsClientTest";
+
     private UiDevice mDevice;
     private MyActivity mActivity;
 
-    private static final long TIMEOUT = 10 * DateUtils.SECOND_IN_MILLIS;
+    private static final long TIMEOUT = 30 * DateUtils.SECOND_IN_MILLIS;
 
     @Override
     public void setUp() throws Exception {
@@ -64,6 +69,48 @@ public class DocumentsClientTest extends InstrumentationTestCase {
     public void tearDown() throws Exception {
         super.tearDown();
         mActivity.finish();
+    }
+
+    private UiObject findRoot(String label) throws UiObjectNotFoundException {
+        final UiSelector rootsList = new UiSelector().resourceId(
+                "com.android.documentsui:id/container_roots").childSelector(
+                new UiSelector().resourceId("android:id/list"));
+
+        // We might need to expand drawer if not visible
+        if (!new UiObject(rootsList).waitForExists(TIMEOUT)) {
+            Log.d(TAG, "Failed to find roots list; trying to expand");
+            final UiSelector hamburger = new UiSelector().resourceId(
+                    "com.android.documentsui:id/toolbar").childSelector(
+                    new UiSelector().className("android.widget.ImageButton").clickable(true));
+            new UiObject(hamburger).click();
+        }
+
+        // Wait for the first list item to appear
+        assertTrue("First list item",
+                new UiObject(rootsList.childSelector(new UiSelector())).waitForExists(TIMEOUT));
+
+        // Now scroll around to find our item
+        new UiScrollable(rootsList).scrollIntoView(new UiSelector().text(label));
+        return new UiObject(rootsList.childSelector(new UiSelector().text(label)));
+    }
+
+    private UiObject findDocument(String label) throws UiObjectNotFoundException {
+        final UiSelector docList = new UiSelector().resourceId(
+                "com.android.documentsui:id/container_directory").childSelector(
+                new UiSelector().resourceId("com.android.documentsui:id/list"));
+
+        // Wait for the first list item to appear
+        assertTrue("First list item",
+                new UiObject(docList.childSelector(new UiSelector())).waitForExists(TIMEOUT));
+
+        // Now scroll around to find our item
+        new UiScrollable(docList).scrollIntoView(new UiSelector().text(label));
+        return new UiObject(docList.childSelector(new UiSelector().text(label)));
+    }
+
+    private UiObject findSaveButton() throws UiObjectNotFoundException {
+        return new UiObject(new UiSelector().resourceId("com.android.documentsui:id/container_save")
+                .childSelector(new UiSelector().resourceId("android:id/button1")));
     }
 
     public void testOpenSimple() throws Exception {
@@ -83,16 +130,16 @@ public class DocumentsClientTest extends InstrumentationTestCase {
 
         // Ensure that we see both of our roots
         mDevice.waitForIdle();
-        assertTrue("CtsLocal root", new UiObject(new UiSelector().text("CtsLocal")).waitForExists(TIMEOUT));
-        assertTrue("CtsCreate root", new UiObject(new UiSelector().text("CtsCreate")).exists());
-        assertFalse("CtsGetContent", new UiObject(new UiSelector().text("CtsGetContent")).exists());
+        assertTrue("CtsLocal root", findRoot("CtsLocal").exists());
+        assertTrue("CtsCreate root", findRoot("CtsCreate").exists());
+        assertFalse("CtsGetContent root", findRoot("CtsGetContent").exists());
 
         // Pick a specific file from our test provider
         mDevice.waitForIdle();
-        new UiObject(new UiSelector().text("CtsLocal")).click();
+        findRoot("CtsLocal").click();
 
         mDevice.waitForIdle();
-        new UiObject(new UiSelector().text("FILE1")).click();
+        findDocument("FILE1").click();
 
         final Result result = mActivity.getResult();
         final Uri uri = result.data.getData();
@@ -118,10 +165,10 @@ public class DocumentsClientTest extends InstrumentationTestCase {
         mActivity.startActivityForResult(intent, 42);
 
         mDevice.waitForIdle();
-        new UiObject(new UiSelector().text("CtsCreate")).click();
+        findRoot("CtsCreate").click();
+
         mDevice.waitForIdle();
-        new UiObject(new UiSelector().resourceId("com.android.documentsui:id/container_save")
-                .childSelector(new UiSelector().resourceId("android:id/button1"))).click();
+        findSaveButton().click();
 
         final Result result = mActivity.getResult();
         final Uri uri = result.data.getData();
@@ -142,18 +189,17 @@ public class DocumentsClientTest extends InstrumentationTestCase {
         mActivity.startActivityForResult(intent, 42);
 
         mDevice.waitForIdle();
-        new UiObject(new UiSelector().text("CtsCreate")).click();
+        findRoot("CtsCreate").click();
 
         // Pick file2, which should be selected since MIME matches, then try
         // picking a non-matching MIME, which should leave file2 selected.
         mDevice.waitForIdle();
-        new UiObject(new UiSelector().text("FILE2")).click();
+        findDocument("FILE2").click();
         mDevice.waitForIdle();
-        new UiObject(new UiSelector().text("FILE1")).click();
+        findDocument("FILE1").click();
 
         mDevice.waitForIdle();
-        new UiObject(new UiSelector().resourceId("com.android.documentsui:id/container_save")
-                .childSelector(new UiSelector().resourceId("android:id/button1"))).click();
+        findSaveButton().click();
 
         final Result result = mActivity.getResult();
         final Uri uri = result.data.getData();
@@ -168,12 +214,12 @@ public class DocumentsClientTest extends InstrumentationTestCase {
         mActivity.startActivityForResult(intent, 42);
 
         mDevice.waitForIdle();
-        new UiObject(new UiSelector().text("CtsCreate")).click();
+        findRoot("CtsCreate").click();
+
         mDevice.waitForIdle();
-        new UiObject(new UiSelector().text("DIR2")).click();
+        findDocument("DIR2").click();
         mDevice.waitForIdle();
-        new UiObject(new UiSelector().resourceId("com.android.documentsui:id/container_save")
-                .childSelector(new UiSelector().resourceId("android:id/button1"))).click();
+        findSaveButton().click();
 
         final Result result = mActivity.getResult();
         final Uri uri = result.data.getData();
@@ -244,12 +290,12 @@ public class DocumentsClientTest extends InstrumentationTestCase {
         // Look around, we should be able to see both DocumentsProviders and
         // other GET_CONTENT sources.
         mDevice.waitForIdle();
-        assertTrue("CtsLocal root", new UiObject(new UiSelector().text("CtsLocal")).waitForExists(TIMEOUT));
-        assertTrue("CtsCreate root", new UiObject(new UiSelector().text("CtsCreate")).exists());
-        assertTrue("CtsGetContent", new UiObject(new UiSelector().text("CtsGetContent")).exists());
+        assertTrue("CtsLocal root", findRoot("CtsLocal").exists());
+        assertTrue("CtsCreate root", findRoot("CtsCreate").exists());
+        assertTrue("CtsGetContent root", findRoot("CtsGetContent").exists());
 
         mDevice.waitForIdle();
-        new UiObject(new UiSelector().text("CtsGetContent")).click();
+        findRoot("CtsGetContent").click();
 
         final Result result = mActivity.getResult();
         assertEquals("ReSuLt", result.data.getAction());

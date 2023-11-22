@@ -31,21 +31,26 @@
     <string name="benchmark">Benchmark</string>
 
     <string name="results">Results: not run</string>
-
-    <string name="io_control_on">USAGE_IO</string>
-    <string name="io_control_off">USAGE_IO</string>
     <string name="length_long">Long run</string>
     <string name="length_short">Long run</string>
-    <string name="dvfs_on">Background work</string>
-    <string name="dvfs_off">Background work</string>
-    <string name="run_all">Benchmark All</string>
-    <string name="run_one">Benchmark One</string>
     <string name="select_all">All</string>
     <string name="select_none">None</string>
-    <string name="select_hp">Full FP</string>
-    <string name="select_lp">Relaxed FP</string>
-    <string name="pause_on">Pause</string>
-    <string name="pause_off">Pause</string>
-    <string name="select_intrinsics">Intrinsics</string>
+
+    <string name="action_settings">Setting</string>
+    <string name="action_resolution">Resolution</string>
+
+    <string name="action_res">res</string>
+    <string name="ok">Ok</string>
+    <string name="cancel">Cancel</string>
+    <string name="settings">settings</string>
+    <string-array
+        name="settings_array">
+        <item>Use shared memory (TextureView) for output</item>
+        <item>Animate paramaters during benchmark</item>
+        <item>Display output while testing</item>
+        <item>Simulate background CPU load</item>
+        <item>Run each test longer, 10 seconds</item>
+        <item>Pause 10 seconds between tests</item>
+    </string-array>
 
 </resources>

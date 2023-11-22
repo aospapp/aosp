@@ -14,19 +14,14 @@
 #include "base/bind.h"
 #include "base/location.h"
 #include "base/stl_util.h"
-#include "base/strings/string_number_conversions.h"
 #include "base/task_runner.h"
 #include "base/threading/worker_pool.h"
 #include "base/time/time.h"
 #include "chromeos/cert_loader.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/shill_service_client.h"
-#include "chromeos/network/certificate_pattern.h"
-#include "chromeos/network/client_cert_util.h"
 #include "chromeos/network/managed_network_configuration_handler.h"
 #include "chromeos/network/network_state.h"
-#include "chromeos/network/network_ui_data.h"
-#include "chromeos/tpm_token_loader.h"
 #include "components/onc/onc_constants.h"
 #include "dbus/object_path.h"
 #include "net/cert/scoped_nss_types.h"
@@ -35,19 +30,25 @@
 namespace chromeos {
 
 // Describes a network |network_path| for which a matching certificate |cert_id|
-// was found.
+// was found or for which no certificate was found (|cert_id| will be empty).
 struct ClientCertResolver::NetworkAndMatchingCert {
   NetworkAndMatchingCert(const std::string& network_path,
                          client_cert::ConfigType config_type,
-                         const std::string& cert_id)
+                         const std::string& cert_id,
+                         int slot_id)
       : service_path(network_path),
         cert_config_type(config_type),
-        pkcs11_id(cert_id) {}
+        pkcs11_id(cert_id),
+        key_slot_id(slot_id) {}
 
   std::string service_path;
   client_cert::ConfigType cert_config_type;
-  // The id of the matching certificate.
+
+  // The id of the matching certificate or empty if no certificate was found.
   std::string pkcs11_id;
+
+  // The id of the slot containing the certificate and the private key.
+  int key_slot_id;
 };
 
 typedef std::vector<ClientCertResolver::NetworkAndMatchingCert>
@@ -91,24 +92,21 @@ bool CompareCertExpiration(const CertAndIssuer& a,
 // |client_cert_pattern|.
 struct NetworkAndCertPattern {
   NetworkAndCertPattern(const std::string& network_path,
-                        client_cert::ConfigType config_type,
-                        const CertificatePattern& pattern)
+                        const client_cert::ClientCertConfig& client_cert_config)
       : service_path(network_path),
-        cert_config_type(config_type),
-        client_cert_pattern(pattern) {}
+        cert_config(client_cert_config) {}
+
   std::string service_path;
-  client_cert::ConfigType cert_config_type;
-  CertificatePattern client_cert_pattern;
+  client_cert::ClientCertConfig cert_config;
 };
 
 // A unary predicate that returns true if the given CertAndIssuer matches the
-// certificate pattern of the NetworkAndCertPattern.
+// given certificate pattern.
 struct MatchCertWithPattern {
-  explicit MatchCertWithPattern(const NetworkAndCertPattern& pattern)
-      : net_and_pattern(pattern) {}
+  explicit MatchCertWithPattern(const CertificatePattern& cert_pattern)
+      : pattern(cert_pattern) {}
 
   bool operator()(const CertAndIssuer& cert_and_issuer) {
-    const CertificatePattern& pattern = net_and_pattern.client_cert_pattern;
     if (!pattern.issuer().Empty() &&
         !client_cert::CertPrincipalMatches(pattern.issuer(),
                                            cert_and_issuer.cert->issuer())) {
@@ -128,15 +126,11 @@ struct MatchCertWithPattern {
     return true;
   }
 
-  NetworkAndCertPattern net_and_pattern;
+  const CertificatePattern pattern;
 };
 
-// Searches for matches between |networks| and |certs| and writes matches to
-// |matches|. Because this calls NSS functions and is potentially slow, it must
-// be run on a worker thread.
-void FindCertificateMatches(const net::CertificateList& certs,
-                            std::vector<NetworkAndCertPattern>* networks,
-                            NetworkCertMatches* matches) {
+std::vector<CertAndIssuer> CreateSortedCertAndIssuerList(
+    const net::CertificateList& certs) {
   // Filter all client certs and determines each certificate's issuer, which is
   // required for the pattern matching.
   std::vector<CertAndIssuer> client_certs;
@@ -157,7 +151,7 @@ void FindCertificateMatches(const net::CertificateList& certs,
         net::X509Certificate::CreateFromHandle(
             issuer_handle.get(),
             net::X509Certificate::OSCertHandles() /* no intermediate certs */);
-    if (!issuer) {
+    if (!issuer.get()) {
       LOG(ERROR) << "Couldn't create issuer cert.";
       continue;
     }
@@ -171,72 +165,44 @@ void FindCertificateMatches(const net::CertificateList& certs,
   }
 
   std::sort(client_certs.begin(), client_certs.end(), &CompareCertExpiration);
+  return client_certs;
+}
+
+// Searches for matches between |networks| and |certs| and writes matches to
+// |matches|. Because this calls NSS functions and is potentially slow, it must
+// be run on a worker thread.
+void FindCertificateMatches(const net::CertificateList& certs,
+                            std::vector<NetworkAndCertPattern>* networks,
+                            NetworkCertMatches* matches) {
+  std::vector<CertAndIssuer> client_certs(CreateSortedCertAndIssuerList(certs));
 
   for (std::vector<NetworkAndCertPattern>::const_iterator it =
            networks->begin();
        it != networks->end(); ++it) {
-    std::vector<CertAndIssuer>::iterator cert_it = std::find_if(
-        client_certs.begin(), client_certs.end(), MatchCertWithPattern(*it));
+    std::vector<CertAndIssuer>::iterator cert_it =
+        std::find_if(client_certs.begin(),
+                     client_certs.end(),
+                     MatchCertWithPattern(it->cert_config.pattern));
+    std::string pkcs11_id;
+    int slot_id = -1;
     if (cert_it == client_certs.end()) {
-      LOG(WARNING) << "Couldn't find a matching client cert for network "
-                   << it->service_path;
-      continue;
-    }
-    std::string pkcs11_id = CertLoader::GetPkcs11IdForCert(*cert_it->cert);
-    if (pkcs11_id.empty()) {
-      LOG(ERROR) << "Couldn't determine PKCS#11 ID.";
-      continue;
+      VLOG(1) << "Couldn't find a matching client cert for network "
+              << it->service_path;
+      // Leave |pkcs11_id| empty to indicate that no cert was found for this
+      // network.
+    } else {
+      pkcs11_id =
+          CertLoader::GetPkcs11IdAndSlotForCert(*cert_it->cert, &slot_id);
+      if (pkcs11_id.empty()) {
+        LOG(ERROR) << "Couldn't determine PKCS#11 ID.";
+        // So far this error is not expected to happen. We can just continue, in
+        // the worst case the user can remove the problematic cert.
+        continue;
+      }
     }
     matches->push_back(ClientCertResolver::NetworkAndMatchingCert(
-        it->service_path, it->cert_config_type, pkcs11_id));
+        it->service_path, it->cert_config.location, pkcs11_id, slot_id));
   }
-}
-
-// Determines the type of the CertificatePattern configuration, i.e. is it a
-// pattern within an EAP, IPsec or OpenVPN configuration.
-client_cert::ConfigType OncToClientCertConfigurationType(
-    const base::DictionaryValue& network_config) {
-  using namespace ::onc;
-
-  const base::DictionaryValue* wifi = NULL;
-  network_config.GetDictionaryWithoutPathExpansion(network_config::kWiFi,
-                                                   &wifi);
-  if (wifi) {
-    const base::DictionaryValue* eap = NULL;
-    wifi->GetDictionaryWithoutPathExpansion(wifi::kEAP, &eap);
-    if (!eap)
-      return client_cert::CONFIG_TYPE_NONE;
-    return client_cert::CONFIG_TYPE_EAP;
-  }
-
-  const base::DictionaryValue* vpn = NULL;
-  network_config.GetDictionaryWithoutPathExpansion(network_config::kVPN, &vpn);
-  if (vpn) {
-    const base::DictionaryValue* openvpn = NULL;
-    vpn->GetDictionaryWithoutPathExpansion(vpn::kOpenVPN, &openvpn);
-    if (openvpn)
-      return client_cert::CONFIG_TYPE_OPENVPN;
-
-    const base::DictionaryValue* ipsec = NULL;
-    vpn->GetDictionaryWithoutPathExpansion(vpn::kIPsec, &ipsec);
-    if (ipsec)
-      return client_cert::CONFIG_TYPE_IPSEC;
-
-    return client_cert::CONFIG_TYPE_NONE;
-  }
-
-  const base::DictionaryValue* ethernet = NULL;
-  network_config.GetDictionaryWithoutPathExpansion(network_config::kEthernet,
-                                                   &ethernet);
-  if (ethernet) {
-    const base::DictionaryValue* eap = NULL;
-    ethernet->GetDictionaryWithoutPathExpansion(wifi::kEAP, &eap);
-    if (eap)
-      return client_cert::CONFIG_TYPE_EAP;
-    return client_cert::CONFIG_TYPE_NONE;
-  }
-
-  return client_cert::CONFIG_TYPE_NONE;
 }
 
 void LogError(const std::string& service_path,
@@ -296,6 +262,39 @@ void ClientCertResolver::Init(
 void ClientCertResolver::SetSlowTaskRunnerForTest(
     const scoped_refptr<base::TaskRunner>& task_runner) {
   slow_task_runner_for_test_ = task_runner;
+}
+
+// static
+bool ClientCertResolver::ResolveCertificatePatternSync(
+    const client_cert::ConfigType client_cert_type,
+    const CertificatePattern& pattern,
+    base::DictionaryValue* shill_properties) {
+  // Prepare and sort the list of known client certs.
+  std::vector<CertAndIssuer> client_certs(
+      CreateSortedCertAndIssuerList(CertLoader::Get()->cert_list()));
+
+  // Search for a certificate matching the pattern.
+  std::vector<CertAndIssuer>::iterator cert_it = std::find_if(
+      client_certs.begin(), client_certs.end(), MatchCertWithPattern(pattern));
+
+  if (cert_it == client_certs.end()) {
+    VLOG(1) << "Couldn't find a matching client cert";
+    client_cert::SetEmptyShillProperties(client_cert_type, shill_properties);
+    return false;
+  }
+
+  int slot_id = -1;
+  std::string pkcs11_id =
+      CertLoader::GetPkcs11IdAndSlotForCert(*cert_it->cert, &slot_id);
+  if (pkcs11_id.empty()) {
+    LOG(ERROR) << "Couldn't determine PKCS#11 ID.";
+    // So far this error is not expected to happen. We can just continue, in
+    // the worst case the user can remove the problematic cert.
+    return false;
+  }
+  client_cert::SetShillProperties(
+      client_cert_type, slot_id, pkcs11_id, shill_properties);
+  return true;
 }
 
 void ClientCertResolver::NetworkListChanged() {
@@ -378,15 +377,10 @@ void ClientCertResolver::ResolveNetworks(
     // In any case, don't check this network again in NetworkListChanged.
     resolved_networks_.insert(network->path());
 
-    // If this network is not managed, it cannot have a ClientCertPattern.
-    if (network->guid().empty())
+    // If this network is not configured, it cannot have a ClientCertPattern.
+    if (network->profile_path().empty())
       continue;
 
-    if (network->profile_path().empty()) {
-      LOG(ERROR) << "Network " << network->path()
-                 << " has a GUID but not profile path";
-      continue;
-    }
     const base::DictionaryValue* policy =
         managed_network_config_handler_->FindPolicyByGuidAndProfile(
             network->guid(), network->profile_path());
@@ -400,26 +394,15 @@ void ClientCertResolver::ResolveNetworks(
     }
 
     VLOG(2) << "Inspecting network " << network->path();
-    // TODO(pneubeck): Access the ClientCertPattern without relying on
-    //   NetworkUIData, which also parses other things that we don't need here.
-    // The ONCSource is irrelevant here.
-    scoped_ptr<NetworkUIData> ui_data(
-        NetworkUIData::CreateFromONC(onc::ONC_SOURCE_NONE, *policy));
+    client_cert::ClientCertConfig cert_config;
+    OncToClientCertConfig(*policy, &cert_config);
 
     // Skip networks that don't have a ClientCertPattern.
-    if (ui_data->certificate_type() != CLIENT_CERT_TYPE_PATTERN)
+    if (cert_config.client_cert_type != ::onc::client_cert::kPattern)
       continue;
 
-    client_cert::ConfigType config_type =
-        OncToClientCertConfigurationType(*policy);
-    if (config_type == client_cert::CONFIG_TYPE_NONE) {
-      LOG(ERROR) << "UIData contains a CertificatePattern, but the policy "
-                 << "doesn't. Network: " << network->path();
-      continue;
-    }
-
-    networks_with_pattern->push_back(NetworkAndCertPattern(
-        network->path(), config_type, ui_data->certificate_pattern()));
+    networks_with_pattern->push_back(
+        NetworkAndCertPattern(network->path(), cert_config));
   }
   if (networks_with_pattern->empty())
     return;
@@ -427,7 +410,8 @@ void ClientCertResolver::ResolveNetworks(
   VLOG(2) << "Start task for resolving client cert patterns.";
   base::TaskRunner* task_runner = slow_task_runner_for_test_.get();
   if (!task_runner)
-    task_runner = base::WorkerPool::GetTaskRunner(true /* task is slow */);
+    task_runner =
+        base::WorkerPool::GetTaskRunner(true /* task is slow */).get();
 
   NetworkCertMatches* matches = new NetworkCertMatches;
   task_runner->PostTaskAndReply(
@@ -445,14 +429,16 @@ void ClientCertResolver::ConfigureCertificates(NetworkCertMatches* matches) {
   for (NetworkCertMatches::const_iterator it = matches->begin();
        it != matches->end(); ++it) {
     VLOG(1) << "Configuring certificate of network " << it->service_path;
-    CertLoader* cert_loader = CertLoader::Get();
     base::DictionaryValue shill_properties;
-    client_cert::SetShillProperties(
-        it->cert_config_type,
-        base::IntToString(cert_loader->TPMTokenSlotID()),
-        TPMTokenLoader::Get()->tpm_user_pin(),
-        &it->pkcs11_id,
-        &shill_properties);
+    if (it->pkcs11_id.empty()) {
+      client_cert::SetEmptyShillProperties(it->cert_config_type,
+                                           &shill_properties);
+    } else {
+      client_cert::SetShillProperties(it->cert_config_type,
+                                      it->key_slot_id,
+                                      it->pkcs11_id,
+                                      &shill_properties);
+    }
     DBusThreadManager::Get()->GetShillServiceClient()->
         SetProperties(dbus::ObjectPath(it->service_path),
                         shill_properties,

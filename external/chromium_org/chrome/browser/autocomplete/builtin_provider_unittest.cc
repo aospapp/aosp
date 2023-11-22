@@ -7,11 +7,12 @@
 #include "base/format_macros.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/autocomplete/autocomplete_input.h"
-#include "chrome/browser/autocomplete/autocomplete_match.h"
-#include "chrome/browser/autocomplete/autocomplete_provider.h"
+#include "chrome/browser/autocomplete/chrome_autocomplete_scheme_classifier.h"
 #include "chrome/common/url_constants.h"
 #include "components/metrics/proto/omnibox_event.pb.h"
+#include "components/omnibox/autocomplete_input.h"
+#include "components/omnibox/autocomplete_match.h"
+#include "components/omnibox/autocomplete_provider.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
@@ -28,7 +29,7 @@ class BuiltinProviderTest : public testing::Test {
   BuiltinProviderTest() : provider_(NULL) {}
   virtual ~BuiltinProviderTest() {}
 
-  virtual void SetUp() OVERRIDE { provider_ = new BuiltinProvider(NULL, NULL); }
+  virtual void SetUp() OVERRIDE { provider_ = new BuiltinProvider(); }
   virtual void TearDown() OVERRIDE { provider_ = NULL; }
 
   void RunTest(const TestData cases[], size_t num_cases) {
@@ -39,7 +40,8 @@ class BuiltinProviderTest : public testing::Test {
       const AutocompleteInput input(cases[i].input, base::string16::npos,
                                     base::string16(), GURL(),
                                     metrics::OmniboxEventProto::INVALID_SPEC,
-                                    true, false, true, true);
+                                    true, false, true, true,
+                                    ChromeAutocompleteSchemeClassifier(NULL));
       provider_->Start(input, false);
       EXPECT_TRUE(provider_->done());
       matches = provider_->matches();

@@ -24,6 +24,7 @@ class FilePath;
 
 namespace extensions {
 class InfoMap;
+struct Message;
 }
 
 // This class filters out incoming Chrome-specific IPC messages from the
@@ -45,9 +46,6 @@ class ChromeExtensionMessageFilter : public content::BrowserMessageFilter,
   friend class base::DeleteHelper<ChromeExtensionMessageFilter>;
 
   virtual ~ChromeExtensionMessageFilter();
-
-  void OnCanTriggerClipboardRead(const GURL& origin, bool* allowed);
-  void OnCanTriggerClipboardWrite(const GURL& origin, bool* allowed);
 
   // TODO(jamescook): Move these functions into the extensions module. Ideally
   // this would be in extensions::ExtensionMessageFilter but that will require
@@ -80,6 +78,7 @@ class ChromeExtensionMessageFilter : public content::BrowserMessageFilter,
                                   int receiver_port_id,
                                   int tab_id, const std::string& extension_id,
                                   const std::string& channel_name);
+  void OnPostMessage(int port_id, const extensions::Message& message);
   void OnGetExtMessageBundle(const std::string& extension_id,
                              IPC::Message* reply_msg);
   void OnGetExtMessageBundleOnBlockingPool(

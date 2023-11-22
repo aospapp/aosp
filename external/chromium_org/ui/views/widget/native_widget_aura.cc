@@ -76,10 +76,10 @@ NativeWidgetAura::NativeWidgetAura(internal::NativeWidgetDelegate* delegate)
     : delegate_(delegate),
       window_(new aura::Window(this)),
       ownership_(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET),
-      close_widget_factory_(this),
       destroying_(false),
       cursor_(gfx::kNullCursor),
-      saved_window_state_(ui::SHOW_STATE_DEFAULT) {
+      saved_window_state_(ui::SHOW_STATE_DEFAULT),
+      close_widget_factory_(this) {
   aura::client::SetFocusChangeObserver(window_, this);
   aura::client::SetActivationChangeObserver(window_, this);
 }
@@ -143,12 +143,9 @@ void NativeWidgetAura::InitNativeWidget(const Widget::InitParams& params) {
     }
   }
 
-  // Set properties before addeing to the parent so that its layout manager
-  // sees the correct values.
-  window_->SetProperty(aura::client::kCanMaximizeKey,
-                       GetWidget()->widget_delegate()->CanMaximize());
-  window_->SetProperty(aura::client::kCanResizeKey,
-                       GetWidget()->widget_delegate()->CanResize());
+  // Set properties before adding to the parent so that its layout manager sees
+  // the correct values.
+  OnSizeConstraintsChanged();
 
   if (parent) {
     parent->AddChild(window_);
@@ -156,6 +153,9 @@ void NativeWidgetAura::InitNativeWidget(const Widget::InitParams& params) {
     aura::client::ParentWindowWithContext(
         window_, context->GetRootWindow(), window_bounds);
   }
+
+  // Start observing property changes.
+  window_->AddObserver(this);
 
   // Wait to set the bounds until we have a parent. That way we can know our
   // true state/bounds (the LayoutManager may enforce a particular
@@ -356,7 +356,7 @@ bool NativeWidgetAura::SetWindowTitle(const base::string16& title) {
     return false;
   if (window_->title() == title)
     return false;
-  window_->set_title(title);
+  window_->SetTitle(title);
   return true;
 }
 
@@ -438,8 +438,10 @@ void NativeWidgetAura::StackBelow(gfx::NativeView native_view) {
 }
 
 void NativeWidgetAura::SetShape(gfx::NativeRegion region) {
-  // No need for this. Just delete and ignore.
-  delete region;
+  if (window_)
+    window_->layer()->SetAlphaShape(make_scoped_ptr(region));
+  else
+    delete region;
 }
 
 void NativeWidgetAura::Close() {
@@ -688,11 +690,18 @@ ui::NativeTheme* NativeWidgetAura::GetNativeTheme() const {
 #endif
 }
 
-void NativeWidgetAura::OnRootViewLayout() const {
+void NativeWidgetAura::OnRootViewLayout() {
 }
 
 bool NativeWidgetAura::IsTranslucentWindowOpacitySupported() const {
   return true;
+}
+
+void NativeWidgetAura::OnSizeConstraintsChanged() {
+  window_->SetProperty(aura::client::kCanMaximizeKey,
+                       GetWidget()->widget_delegate()->CanMaximize());
+  window_->SetProperty(aura::client::kCanResizeKey,
+                       GetWidget()->widget_delegate()->CanResize());
 }
 
 void NativeWidgetAura::RepostNativeEvent(gfx::NativeEvent native_event) {
@@ -798,6 +807,7 @@ void NativeWidgetAura::OnDeviceScaleFactorChanged(float device_scale_factor) {
 }
 
 void NativeWidgetAura::OnWindowDestroying(aura::Window* window) {
+  window_->RemoveObserver(this);
   delegate_->OnNativeWidgetDestroying();
 
   // If the aura::Window is destroyed, we can no longer show tooltips.
@@ -825,6 +835,16 @@ void NativeWidgetAura::GetHitTestMask(gfx::Path* mask) const {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// NativeWidgetAura, aura::WindowObserver implementation:
+
+void NativeWidgetAura::OnWindowPropertyChanged(aura::Window* window,
+                                               const void* key,
+                                               intptr_t old) {
+  if (key == aura::client::kShowStateKey)
+    delegate_->OnNativeWidgetWindowShowStateChanged();
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // NativeWidgetAura, ui::EventHandler implementation:
 
 void NativeWidgetAura::OnKeyEvent(ui::KeyEvent* event) {
@@ -840,7 +860,10 @@ void NativeWidgetAura::OnKeyEvent(ui::KeyEvent* event) {
   // and the window may be invisible by that time.
   if (!window_->IsVisible())
     return;
-  GetWidget()->GetInputMethod()->DispatchKeyEvent(*event);
+  InputMethod* input_method = GetWidget()->GetInputMethod();
+  if (!input_method)
+    return;
+  input_method->DispatchKeyEvent(*event);
   if (switches::IsTextInputFocusManagerEnabled()) {
     FocusManager* focus_manager = GetWidget()->GetFocusManager();
     delegate_->OnKeyEvent(event);
@@ -1142,11 +1165,6 @@ void NativeWidgetPrivate::ReparentNativeView(gfx::NativeView native_view,
 // static
 bool NativeWidgetPrivate::IsMouseButtonDown() {
   return aura::Env::GetInstance()->IsMouseButtonDown();
-}
-
-// static
-bool NativeWidgetPrivate::IsTouchDown() {
-  return aura::Env::GetInstance()->is_touch_down();
 }
 
 // static

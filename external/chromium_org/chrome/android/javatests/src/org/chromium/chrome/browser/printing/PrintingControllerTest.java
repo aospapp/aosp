@@ -4,6 +4,8 @@
 
 package org.chromium.printing;
 
+import android.annotation.TargetApi;
+import android.os.Build;
 import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
 import android.print.PageRange;
@@ -41,7 +43,7 @@ public class PrintingControllerTest extends ChromeShellTestBase {
     private static final String URL = UrlUtils.encodeHtmlDataUri(
             "<html><head></head><body>foo</body></html>");
     private static final String PDF_PREAMBLE = "%PDF-1";
-    private static long TEST_TIMEOUT = 20000L;
+    private static final long TEST_TIMEOUT = 20000L;
 
     private static class LayoutResultCallbackWrapperMock implements
             PrintDocumentAdapterWrapper.LayoutResultCallbackWrapper {
@@ -72,6 +74,7 @@ public class PrintingControllerTest extends ChromeShellTestBase {
      * controller: onStart, onLayout, onWrite, onFinish.  Each one is called once, and in this
      * order, in the UI thread.
      */
+    @TargetApi(Build.VERSION_CODES.KITKAT)
     @LargeTest
     @Feature({"Printing"})
     public void testNormalPrintingFlow() throws Throwable {
@@ -197,6 +200,7 @@ public class PrintingControllerTest extends ChromeShellTestBase {
         }
     }
 
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
     private void callLayoutOnUiThread(
             final PrintingControllerImpl controller,
             final PrintAttributes oldAttributes,
@@ -219,6 +223,7 @@ public class PrintingControllerTest extends ChromeShellTestBase {
         }
     }
 
+    @TargetApi(Build.VERSION_CODES.KITKAT)
     private void callWriteOnUiThread(
             final PrintingControllerImpl controller,
             final ParcelFileDescriptor descriptor,
@@ -248,7 +253,7 @@ public class PrintingControllerTest extends ChromeShellTestBase {
 
     private void callFinishOnUiThread(final PrintingControllerImpl controller) {
         try {
-            runTestOnUiThread( new Runnable() {
+            runTestOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     controller.onFinish();

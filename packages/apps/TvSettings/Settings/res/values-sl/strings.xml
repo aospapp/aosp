@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"Varnostno kopiranje in obnovitev"</string>
     <string name="device_reset" msgid="2827002349560023125">"Tovarniška ponastavitev"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Umerjanje"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"Prenesene aplikacije"</string>
     <string name="apps_system" msgid="2499191125802829425">"Sistemske aplikacije"</string>
     <string name="apps_running" msgid="6430310491739956228">"Aplikacije, ki se izvajajo"</string>
@@ -95,7 +99,7 @@
     <string name="system_language" msgid="2337138146114609247">"Jezik"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"Tipkovnica"</string>
     <string name="system_search" msgid="2837264654143247611">"Iskanje"</string>
-    <string name="system_security" msgid="4190058778883258927">"Varnost in omejitve"</string>
+    <string name="system_security" msgid="8230080273993484407">"Varnost in omejitve"</string>
     <string name="system_speech" msgid="8128688499687306982">"Govor"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Vhodi"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"Dostopnost"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"Sistemska posodobitev"</string>
     <string name="about_preference" msgid="4131396784531360434">"Vizitka"</string>
     <string name="device_name" msgid="2670488158531273028">"Ime naprave"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"Znova zaženi"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"Pravne informacije"</string>
     <string name="about_warranty" msgid="5736003473060436384">"Garancija"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"Odprtokodne licence"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"Ogled pogojev storitve"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"Ogled pravilnika o zasebnosti"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"Ogled dodatnih pogojev"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Googlova pravna obvestila"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"Podatki o licenci niso na voljo"</string>
     <string name="about_model" msgid="6625269442206323995">"Model"</string>
     <string name="about_version" msgid="1177287676732287266">"Različica"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"Datum"</string>
     <string name="system_time" msgid="6726022312605226285">"Ura"</string>
     <string name="system_set_date" msgid="2437586307768561116">"Nastavitev datuma"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"Izbira oblike datuma"</string>
     <string name="system_set_time" msgid="4661804115501057452">"Nastavitev ure"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"Nastavitev časovnega pasu"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"Uporabljaj 24-urno obliko"</string>

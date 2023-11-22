@@ -12,14 +12,16 @@
 #include "base/prefs/pref_service.h"
 #include "base/strings/string_util.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
 #include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/common/chrome_switches.h"
 #include "chromeos/chromeos_switches.h"
 #include "components/signin/core/browser/profile_oauth2_token_service.h"
+#include "components/signin/core/browser/signin_client.h"
 #include "components/signin/core/browser/signin_manager.h"
+#include "components/user_manager/user_manager.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/gaia_constants.h"
 #include "google_apis/gaia/gaia_urls.h"
@@ -40,10 +42,11 @@ OAuth2LoginManager::OAuth2LoginManager(Profile* user_profile)
       restore_strategy_(RESTORE_FROM_COOKIE_JAR),
       state_(SESSION_RESTORE_NOT_STARTED) {
   GetTokenService()->AddObserver(this);
+
+  // For telemetry, we mark session restore completed to avoid warnings from
+  // MergeSessionThrottle.
   if (CommandLine::ForCurrentProcess()->
-          HasSwitch(chromeos::switches::kOobeSkipPostLogin)) {
-    // For telemetry we should mark session restore completed to avoid
-    // warnings from MergeSessionThrottle.
+          HasSwitch(chromeos::switches::kDisableGaiaServices)) {
     SetSessionRestoreState(SESSION_RESTORE_DONE);
   }
 }
@@ -99,17 +102,17 @@ void OAuth2LoginManager::RestoreSessionFromSavedTokens() {
   ProfileOAuth2TokenService* token_service = GetTokenService();
   const std::string& primary_account_id = GetPrimaryAccountId();
   if (token_service->RefreshTokenIsAvailable(primary_account_id)) {
-    LOG(WARNING) << "OAuth2 refresh token is already loaded.";
+    VLOG(1) << "OAuth2 refresh token is already loaded.";
     VerifySessionCookies();
   } else {
-    LOG(WARNING) << "Loading OAuth2 refresh token from database.";
+    VLOG(1) << "Loading OAuth2 refresh token from database.";
 
     // Flag user with unknown token status in case there are no saved tokens
     // and OnRefreshTokenAvailable is not called. Flagging it here would
     // cause user to go through Gaia in next login to obtain a new refresh
     // token.
-    UserManager::Get()->SaveUserOAuthStatus(primary_account_id,
-                                            User::OAUTH_TOKEN_STATUS_UNKNOWN);
+    user_manager::UserManager::Get()->SaveUserOAuthStatus(
+        primary_account_id, user_manager::User::OAUTH_TOKEN_STATUS_UNKNOWN);
 
     token_service->LoadCredentials(primary_account_id);
   }
@@ -127,7 +130,7 @@ bool OAuth2LoginManager::ShouldBlockTabLoading() {
 
 void OAuth2LoginManager::OnRefreshTokenAvailable(
     const std::string& account_id) {
-  LOG(WARNING) << "OnRefreshTokenAvailable";
+  VLOG(1) << "OnRefreshTokenAvailable";
 
   if (state_ == SESSION_RESTORE_NOT_STARTED)
     return;
@@ -137,15 +140,15 @@ void OAuth2LoginManager::OnRefreshTokenAvailable(
 
   // Do not validate tokens for supervised users, as they don't actually have
   // oauth2 token.
-  if (UserManager::Get()->IsLoggedInAsLocallyManagedUser()) {
-    LOG(WARNING) << "Logged in as managed user, skip token validation.";
+  if (user_manager::UserManager::Get()->IsLoggedInAsSupervisedUser()) {
+    VLOG(1) << "Logged in as supervised user, skip token validation.";
     return;
   }
   // Only restore session cookies for the primary account in the profile.
   if (GetPrimaryAccountId() == account_id) {
     // Token is loaded. Undo the flagging before token loading.
-    UserManager::Get()->SaveUserOAuthStatus(account_id,
-                                            User::OAUTH2_TOKEN_STATUS_VALID);
+    user_manager::UserManager::Get()->SaveUserOAuthStatus(
+        account_id, user_manager::User::OAUTH2_TOKEN_STATUS_VALID);
     VerifySessionCookies();
   }
 }
@@ -218,9 +221,15 @@ void OAuth2LoginManager::FetchOAuth2Tokens() {
   // If we have authenticated cookie jar, get OAuth1 token first, then fetch
   // SID/LSID cookies through OAuthLogin call.
   if (restore_strategy_ == RESTORE_FROM_COOKIE_JAR) {
+    SigninClient* signin_client =
+        ChromeSigninClientFactory::GetForProfile(user_profile_);
+    std::string signin_scoped_device_id =
+        signin_client->GetSigninScopedDeviceId();
+
     oauth2_token_fetcher_.reset(
         new OAuth2TokenFetcher(this, auth_request_context_.get()));
-    oauth2_token_fetcher_->StartExchangeFromCookies(std::string());
+    oauth2_token_fetcher_->StartExchangeFromCookies(std::string(),
+                                                    signin_scoped_device_id);
   } else if (restore_strategy_ == RESTORE_FROM_AUTH_CODE) {
     DCHECK(!auth_code_.empty());
     oauth2_token_fetcher_.reset(
@@ -303,7 +312,7 @@ void OAuth2LoginManager::OnListAccountsSuccess(const std::string& data) {
              accounts.begin();
          iter != accounts.end(); ++iter) {
       if (gaia::CanonicalizeEmail(iter->first) == user_email) {
-        found = true;
+        found = iter->second;
         break;
       }
 

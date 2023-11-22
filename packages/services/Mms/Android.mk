@@ -22,7 +22,7 @@ include $(CLEAR_VARS)
 LOCAL_PACKAGE_NAME := MmsService
 LOCAL_PRIVILEGED_MODULE := true
 
-LOCAL_JAVA_LIBRARIES := telephony-common
+LOCAL_JAVA_LIBRARIES := telephony-common okhttp
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 

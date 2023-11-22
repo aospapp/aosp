@@ -19,7 +19,6 @@ namespace metrics {
 namespace {
 
 const char kTestPrefName[] = "TestPref";
-const char kTestOldPrefName[] = "TestPrefOld";
 const size_t kLogCountLimit = 3;
 const size_t kLogByteLimit = 1000;
 
@@ -49,7 +48,6 @@ class PersistedLogsTest : public testing::Test {
  public:
   PersistedLogsTest() {
     prefs_.registry()->RegisterListPref(kTestPrefName);
-    prefs_.registry()->RegisterListPref(kTestOldPrefName);
   }
 
  protected:
@@ -62,8 +60,8 @@ class PersistedLogsTest : public testing::Test {
 class TestPersistedLogs : public PersistedLogs {
  public:
   TestPersistedLogs(PrefService* service, size_t min_log_bytes)
-      : PersistedLogs(service, kTestPrefName, kTestOldPrefName, kLogCountLimit,
-                      min_log_bytes, 0) {
+      : PersistedLogs(service, kTestPrefName, kLogCountLimit, min_log_bytes,
+                      0) {
   }
 
   // Stages and removes the next log, while testing it's value.
@@ -240,7 +238,7 @@ TEST_F(PersistedLogsTest, Staging) {
   EXPECT_EQ(persisted_logs.staged_log(), Compress("two"));
   persisted_logs.StoreLog("three");
   EXPECT_EQ(persisted_logs.staged_log(), Compress("two"));
-  EXPECT_EQ(persisted_logs.size(), 2U);
+  EXPECT_EQ(persisted_logs.size(), 3U);
   persisted_logs.DiscardStagedLog();
   EXPECT_FALSE(persisted_logs.has_staged_log());
   EXPECT_EQ(persisted_logs.size(), 2U);
@@ -254,38 +252,15 @@ TEST_F(PersistedLogsTest, Staging) {
   EXPECT_EQ(persisted_logs.size(), 0U);
 }
 
-TEST_F(PersistedLogsTest, ProvisionalStoreStandardFlow) {
-  // Ensure that provisional store works, and discards the correct log.
+TEST_F(PersistedLogsTest, DiscardOrder) {
+  // Ensure that the correct log is discarded if new logs are pushed while
+  // a log is staged.
   TestPersistedLogs persisted_logs(&prefs_, kLogByteLimit);
 
   persisted_logs.StoreLog("one");
   persisted_logs.StageLog();
-  persisted_logs.StoreStagedLogAsUnsent(PersistedLogs::PROVISIONAL_STORE);
   persisted_logs.StoreLog("two");
-  persisted_logs.DiscardLastProvisionalStore();
-  persisted_logs.SerializeLogs();
-
-  TestPersistedLogs result_persisted_logs(&prefs_, kLogByteLimit);
-  EXPECT_EQ(PersistedLogs::RECALL_SUCCESS,
-            result_persisted_logs.DeserializeLogs());
-  EXPECT_EQ(1U, result_persisted_logs.size());
-  result_persisted_logs.ExpectNextLog("two");
-}
-
-TEST_F(PersistedLogsTest, ProvisionalStoreNoop1) {
-  // Ensure that trying to drop a sent log is a no-op, even if another log has
-  // since been staged.
-  TestPersistedLogs persisted_logs(&prefs_, kLogByteLimit);
-  persisted_logs.DeserializeLogs();
-  persisted_logs.StoreLog("one");
-  persisted_logs.StageLog();
-  persisted_logs.StoreStagedLogAsUnsent(PersistedLogs::PROVISIONAL_STORE);
-  persisted_logs.StageLog();
   persisted_logs.DiscardStagedLog();
-  persisted_logs.StoreLog("two");
-  persisted_logs.StageLog();
-  persisted_logs.StoreStagedLogAsUnsent(PersistedLogs::NORMAL_STORE);
-  persisted_logs.DiscardLastProvisionalStore();
   persisted_logs.SerializeLogs();
 
   TestPersistedLogs result_persisted_logs(&prefs_, kLogByteLimit);
@@ -295,28 +270,8 @@ TEST_F(PersistedLogsTest, ProvisionalStoreNoop1) {
   result_persisted_logs.ExpectNextLog("two");
 }
 
-TEST_F(PersistedLogsTest, ProvisionalStoreNoop2) {
-  // Ensure that trying to drop more than once is a no-op
-  TestPersistedLogs persisted_logs(&prefs_, kLogByteLimit);
-  persisted_logs.DeserializeLogs();
-  persisted_logs.StoreLog("one");
-  persisted_logs.StageLog();
-  persisted_logs.StoreStagedLogAsUnsent(PersistedLogs::NORMAL_STORE);
-  persisted_logs.StoreLog("two");
-  persisted_logs.StageLog();
-  persisted_logs.StoreStagedLogAsUnsent(PersistedLogs::PROVISIONAL_STORE);
-  persisted_logs.DiscardLastProvisionalStore();
-  persisted_logs.DiscardLastProvisionalStore();
-  persisted_logs.SerializeLogs();
 
-  TestPersistedLogs result_persisted_logs(&prefs_, kLogByteLimit);
-  EXPECT_EQ(PersistedLogs::RECALL_SUCCESS,
-            result_persisted_logs.DeserializeLogs());
-  EXPECT_EQ(1U, result_persisted_logs.size());
-  result_persisted_logs.ExpectNextLog("one");
-}
-
-TEST_F(PersistedLogsTest, Encoding) {
+TEST_F(PersistedLogsTest, Hashes) {
   const char kFooText[] = "foo";
   const std::string foo_hash = base::SHA1HashString(kFooText);
 

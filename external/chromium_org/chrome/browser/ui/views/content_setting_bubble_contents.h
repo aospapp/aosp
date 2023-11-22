@@ -9,7 +9,7 @@
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "chrome/common/content_settings_types.h"
+#include "components/content_settings/core/common/content_settings_types.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/media_stream_request.h"
 #include "ui/views/bubble/bubble_delegate.h"
@@ -76,6 +76,9 @@ class ContentSettingBubbleContents : public content::WebContentsObserver,
       const content::LoadCommittedDetails& details,
       const content::FrameNavigateParams& params) OVERRIDE;
 
+  // views::View:
+  virtual void OnNativeThemeChanged(const ui::NativeTheme* theme) OVERRIDE;
+
   // views::ButtonListener:
   virtual void ButtonPressed(views::Button* sender,
                              const ui::Event& event) OVERRIDE;
@@ -88,8 +91,7 @@ class ContentSettingBubbleContents : public content::WebContentsObserver,
                                    const gfx::Point& point) OVERRIDE;
 
   // Helper to get the preferred width of the media menu.
-  int GetPreferredMediaMenuWidth(views::MenuButton* button,
-                                 ui::SimpleMenuModel* menu_model);
+  void UpdateMenuButtonSizes(const ui::NativeTheme* theme);
 
   // Provides data for this bubble.
   scoped_ptr<ContentSettingBubbleModel> content_setting_bubble_model_;

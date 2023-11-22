@@ -65,6 +65,7 @@ class AndroidCamera2AgentImpl extends CameraAgent {
     private final DispatchThread mDispatchThread;
     private final CameraManager mCameraManager;
     private final MediaActionSound mNoisemaker;
+    private CameraExceptionHandler mExceptionHandler;
 
     /**
      * Number of camera devices.  The length of {@code mCameraDevices} does not reveal this
@@ -86,6 +87,7 @@ class AndroidCamera2AgentImpl extends CameraAgent {
         mCameraHandlerThread = new HandlerThread("Camera2 Handler Thread");
         mCameraHandlerThread.start();
         mCameraHandler = new Camera2Handler(mCameraHandlerThread.getLooper());
+        mExceptionHandler = new CameraExceptionHandler(mCameraHandler);
         mCameraState = new AndroidCamera2StateHolder();
         mDispatchThread = new DispatchThread(mCameraHandler, mCameraHandlerThread);
         mDispatchThread.start();
@@ -134,11 +136,6 @@ class AndroidCamera2AgentImpl extends CameraAgent {
 
     // TODO: Implement
     @Override
-    public void setCameraDefaultExceptionCallback(CameraExceptionCallback callback,
-            Handler handler) {}
-
-    // TODO: Implement
-    @Override
     public void recycle() {}
 
     // TODO: Some indices may now be invalid; ensure everyone can handle that and update the docs
@@ -157,6 +154,21 @@ class AndroidCamera2AgentImpl extends CameraAgent {
     @Override
     protected DispatchThread getDispatchThread() {
         return mDispatchThread;
+    }
+
+    @Override
+    protected CameraStateHolder getCameraState() {
+        return mCameraState;
+    }
+
+    @Override
+    protected CameraExceptionHandler getCameraExceptionHandler() {
+        return mExceptionHandler;
+    }
+
+    @Override
+    public void setCameraExceptionHandler(CameraExceptionHandler exceptionHandler) {
+        mExceptionHandler = exceptionHandler;
     }
 
     private static abstract class CaptureAvailableListener
@@ -210,8 +222,9 @@ class AndroidCamera2AgentImpl extends CameraAgent {
         public void handleMessage(final Message msg) {
             super.handleMessage(msg);
             Log.v(TAG, "handleMessage - action = '" + CameraActions.stringify(msg.what) + "'");
+            int cameraAction = msg.what;
             try {
-                switch(msg.what) {
+                switch (cameraAction) {
                     case CameraActions.OPEN_CAMERA:
                     case CameraActions.RECONNECT: {
                         CameraOpenCallback openCallback = (CameraOpenCallback) msg.obj;
@@ -628,12 +641,12 @@ class AndroidCamera2AgentImpl extends CameraAgent {
                     }
                 }
             } catch (final Exception ex) {
-                if (msg.what != CameraActions.RELEASE && mCamera != null) {
+                if (cameraAction != CameraActions.RELEASE && mCamera != null) {
                     // TODO: Handle this better
                     mCamera.close();
                     mCamera = null;
                 } else if (mCamera == null) {
-                    if (msg.what == CameraActions.OPEN_CAMERA) {
+                    if (cameraAction == CameraActions.OPEN_CAMERA) {
                         if (mOpenCallback != null) {
                             mOpenCallback.onDeviceOpenFailure(mCameraIndex,
                                     generateHistoryString(mCameraIndex));
@@ -645,11 +658,9 @@ class AndroidCamera2AgentImpl extends CameraAgent {
                 }
 
                 if (ex instanceof RuntimeException) {
-                    post(new Runnable() {
-                        @Override
-                        public void run() {
-                            sCameraExceptionCallback.onCameraException((RuntimeException) ex);
-                        }});
+                    String commandHistory = generateHistoryString(Integer.parseInt(mCameraId));
+                    mExceptionHandler.onCameraException((RuntimeException) ex, commandHistory,
+                            cameraAction, mCameraState.getState());
                 }
             } finally {
                 WaitDoneBundle.unblockSyncWaiters(msg);
@@ -771,8 +782,10 @@ class AndroidCamera2AgentImpl extends CameraAgent {
                     try {
                         CameraCharacteristics props =
                                 mCameraManager.getCameraCharacteristics(mCameraId);
-                        mCameraProxy = new AndroidCamera2ProxyImpl(mCameraIndex, mCamera,
-                                    getCameraDeviceInfo().getCharacteristics(mCameraIndex), props);
+                        CameraDeviceInfo.Characteristics characteristics =
+                                getCameraDeviceInfo().getCharacteristics(mCameraIndex);
+                        mCameraProxy = new AndroidCamera2ProxyImpl(AndroidCamera2AgentImpl.this,
+                                mCameraIndex, mCamera, characteristics, props);
                         mPersistentSettings = new Camera2RequestSettingsSet();
                         mActiveArray =
                                 props.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
@@ -960,6 +973,7 @@ class AndroidCamera2AgentImpl extends CameraAgent {
     }
 
     private class AndroidCamera2ProxyImpl extends CameraAgent.CameraProxy {
+        private final AndroidCamera2AgentImpl mCameraAgent;
         private final int mCameraIndex;
         private final CameraDevice mCamera;
         private final CameraDeviceInfo.Characteristics mCharacteristics;
@@ -967,9 +981,13 @@ class AndroidCamera2AgentImpl extends CameraAgent {
         private CameraSettings mLastSettings;
         private boolean mShutterSoundEnabled;
 
-        public AndroidCamera2ProxyImpl(int cameraIndex, CameraDevice camera,
+        public AndroidCamera2ProxyImpl(
+                AndroidCamera2AgentImpl agent,
+                int cameraIndex,
+                CameraDevice camera,
                 CameraDeviceInfo.Characteristics characteristics,
                 CameraCharacteristics properties) {
+            mCameraAgent = agent;
             mCameraIndex = cameraIndex;
             mCamera = camera;
             mCharacteristics = characteristics;
@@ -995,6 +1013,10 @@ class AndroidCamera2AgentImpl extends CameraAgent {
         @Override
         public CameraCapabilities getCapabilities() {
             return mCapabilities;
+        }
+
+        public CameraAgent getAgent() {
+            return mCameraAgent;
         }
 
         private AndroidCamera2Capabilities getSpecializedCapabilities() {
@@ -1039,53 +1061,67 @@ class AndroidCamera2AgentImpl extends CameraAgent {
 
         @Override
         public void autoFocus(final Handler handler, final CameraAFCallback cb) {
-            mDispatchThread.runJob(new Runnable() {
-                @Override
-                public void run() {
-                    CameraAFCallback cbForward = null;
-                    if (cb != null) {
-                        cbForward = new CameraAFCallback() {
-                            @Override
-                            public void onAutoFocus(final boolean focused,
-                                                    final CameraProxy camera) {
-                                handler.post(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        cb.onAutoFocus(focused, camera);
-                                    }});
-                            }};
-                    }
+            try {
+                mDispatchThread.runJob(new Runnable() {
+                    @Override
+                    public void run() {
+                        CameraAFCallback cbForward = null;
+                        if (cb != null) {
+                            cbForward = new CameraAFCallback() {
+                                @Override
+                                public void onAutoFocus(final boolean focused,
+                                                        final CameraProxy camera) {
+                                    handler.post(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            cb.onAutoFocus(focused, camera);
+                                        }
+                                    });
+                                }
+                            };
+                        }
 
-                    mCameraState.waitForStates(AndroidCamera2StateHolder.CAMERA_PREVIEW_ACTIVE |
-                            AndroidCamera2StateHolder.CAMERA_FOCUS_LOCKED);
-                    mCameraHandler.obtainMessage(CameraActions.AUTO_FOCUS, cbForward)
-                            .sendToTarget();
-                }});
+                        mCameraState.waitForStates(AndroidCamera2StateHolder.CAMERA_PREVIEW_ACTIVE |
+                                AndroidCamera2StateHolder.CAMERA_FOCUS_LOCKED);
+                        mCameraHandler.obtainMessage(CameraActions.AUTO_FOCUS, cbForward)
+                                .sendToTarget();
+                    }
+                });
+            } catch (RuntimeException ex) {
+                mCameraAgent.getCameraExceptionHandler().onDispatchThreadException(ex);
+            }
         }
 
         @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
         @Override
         public void setAutoFocusMoveCallback(final Handler handler, final CameraAFMoveCallback cb) {
-            mDispatchThread.runJob(new Runnable() {
-                @Override
-                public void run() {
-                    CameraAFMoveCallback cbForward = null;
-                    if (cb != null) {
-                        cbForward = new CameraAFMoveCallback() {
-                            @Override
-                            public void onAutoFocusMoving(final boolean moving,
-                                                          final CameraProxy camera) {
-                                handler.post(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        cb.onAutoFocusMoving(moving, camera);
-                                    }});
-                                }};
-                    }
+            try {
+                mDispatchThread.runJob(new Runnable() {
+                    @Override
+                    public void run() {
+                        CameraAFMoveCallback cbForward = null;
+                        if (cb != null) {
+                            cbForward = new CameraAFMoveCallback() {
+                                @Override
+                                public void onAutoFocusMoving(final boolean moving,
+                                                              final CameraProxy camera) {
+                                    handler.post(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            cb.onAutoFocusMoving(moving, camera);
+                                        }
+                                    });
+                                }
+                            };
+                        }
 
-                    mCameraHandler.obtainMessage(CameraActions.SET_AUTO_FOCUS_MOVE_CALLBACK,
-                            cbForward).sendToTarget();
-                }});
+                        mCameraHandler.obtainMessage(CameraActions.SET_AUTO_FOCUS_MOVE_CALLBACK,
+                                cbForward).sendToTarget();
+                    }
+                });
+            } catch (RuntimeException ex) {
+                mCameraAgent.getCameraExceptionHandler().onDispatchThreadException(ex);
+            }
         }
 
         @Override
@@ -1127,15 +1163,20 @@ class AndroidCamera2AgentImpl extends CameraAgent {
                         }
                     }
                 }};
-            mDispatchThread.runJob(new Runnable() {
-                @Override
-                public void run() {
-                    // Wait until PREVIEW_ACTIVE or better
-                    mCameraState.waitForStates(
-                            ~(AndroidCamera2StateHolder.CAMERA_PREVIEW_ACTIVE - 1));
-                    mCameraHandler.obtainMessage(CameraActions.CAPTURE_PHOTO, picListener)
-                            .sendToTarget();
-                }});
+            try {
+                mDispatchThread.runJob(new Runnable() {
+                    @Override
+                    public void run() {
+                        // Wait until PREVIEW_ACTIVE or better
+                        mCameraState.waitForStates(
+                                ~(AndroidCamera2StateHolder.CAMERA_PREVIEW_ACTIVE - 1));
+                        mCameraHandler.obtainMessage(CameraActions.CAPTURE_PHOTO, picListener)
+                                .sendToTarget();
+                    }
+                });
+            } catch (RuntimeException ex) {
+                mCameraAgent.getCameraExceptionHandler().onDispatchThreadException(ex);
+            }
         }
 
         // TODO: Implement
@@ -1154,10 +1195,6 @@ class AndroidCamera2AgentImpl extends CameraAgent {
         // TODO: Remove this method override once we handle this message
         @Override
         public void stopFaceDetection() {}
-
-        // TODO: Implement
-        @Override
-        public void setErrorCallback(Handler handler, CameraErrorCallback cb) {}
 
         // TODO: Implement
         @Override
@@ -1380,12 +1417,4 @@ class AndroidCamera2AgentImpl extends CameraAgent {
             }
         }
     }
-
-    private static final CameraExceptionCallback sCameraExceptionCallback =
-            new CameraExceptionCallback() {
-                @Override
-                public synchronized void onCameraException(RuntimeException e) {
-                    throw e;
-                }
-            };
 }

@@ -23,20 +23,22 @@
     <item
         android:id="@+id/empty_trash"
         android:title="@string/empty_trash"
-        app:showAsAction="always|withText" />
+        app:showAsAction="never"
+        android:alphabeticShortcut="@string/trigger_delete_char" />
 
     <!-- Available only in the spam folder, when the account supports emptying it -->
     <item
         android:id="@+id/empty_spam"
         android:title="@string/empty_spam"
-        app:showAsAction="always|withText" />
+        app:showAsAction="never"
+        android:alphabeticShortcut="@string/trigger_delete_char" />
 
     <!-- Available only for accounts with SERVER_SEARCH and in a folder
       that supports FOLDER_SERVER_SEARCH -->
-    <item android:id="@+id/search" android:title="@string/menu_search"
+    <item android:id="@+id/search"
+        android:title="@string/menu_search"
         app:showAsAction="ifRoom|collapseActionView"
-        android:icon="@drawable/ic_menu_search"
-        app:actionLayout="@layout/mail_actionbar_searchview" />
+        android:icon="@drawable/ic_menu_search" />
 
     <!-- These invisible menu item are used to enable keyboard shortcuts -->
     <item
@@ -45,9 +47,33 @@
         android:visible="false"
         android:alphabeticShortcut="@string/trigger_compose_char" />
 
-    <item android:id="@+id/refresh"
+    <item
+        android:id="@+id/refresh"
         android:title="@string/refresh"
         android:visible="false"
         android:alphabeticShortcut="@string/trigger_refresh_char" />
 
+    <item
+        android:id="@+id/toggle_read_unread"
+        android:title="@string/toggle_read_unread"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_toggle_read_unread_char" />
+
+    <item
+        android:id="@+id/toggle_drawer"
+        android:title="@string/menu_toggle_drawer"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_toggle_drawer_char" />
+
+    <item
+        android:id="@+id/settings"
+        android:title="@string/menu_settings"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_settings_char" />
+
+    <item
+        android:id="@+id/help_info_menu_item"
+        android:title="@string/help_and_feedback"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_help_char" />
 </menu>

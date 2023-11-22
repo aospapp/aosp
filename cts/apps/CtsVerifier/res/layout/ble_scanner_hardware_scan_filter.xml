@@ -17,40 +17,41 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:padding="10dip"
-        >
-    <TextView android:text="@string/ble_scanner_scan_filter_instruction"
+        android:padding="10dip">
+    <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-    />
-    <LinearLayout android:orientation="vertical"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            >
-        <LinearLayout android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                >
-            <Button android:id="@+id/ble_scan_with_filter"
+            android:layout_height="wrap_content">
+        <LinearLayout android:orientation="vertical"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+            <TextView android:text="@string/ble_scanner_scan_filter_instruction"
                     android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"/>
+            <LinearLayout android:orientation="vertical"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/ble_scan_with_filter"
-                    />
-            <Button android:id="@+id/ble_scan_without_filter"
-                    android:layout_width="wrap_content"
+                    android:layout_centerInParent="true">
+                <LinearLayout android:orientation="vertical"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+                    <Button android:id="@+id/ble_scan_with_filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/ble_scan_with_filter"/>
+                    <Button android:id="@+id/ble_scan_without_filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/ble_scan_without_filter"/>
+                </LinearLayout>
+                <ListView android:id="@+id/ble_scan_result_list"
+                        android:layout_height="wrap_content"
+                        android:layout_width="match_parent">
+                </ListView>
+            </LinearLayout>
+            <include android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/ble_scan_without_filter"
-                    />
+                    android:layout_alignParentBottom="true"
+                    layout="@layout/pass_fail_buttons"/>
         </LinearLayout>
-        <ListView android:id="@+id/ble_scan_result_list"
-                android:layout_height="wrap_content"
-                android:layout_width="match_parent">
-        </ListView>
-    </LinearLayout>
-    <include android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_alignParentBottom="true"
-            layout="@layout/pass_fail_buttons"
-    />
+    </ScrollView>
 </RelativeLayout>

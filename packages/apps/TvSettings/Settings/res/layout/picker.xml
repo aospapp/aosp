@@ -34,6 +34,6 @@
         android:focusable="false"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingLeft="@dimen/picker_left_padding" />
+        android:paddingStart="@dimen/picker_start_padding" />
 
 </RelativeLayout>

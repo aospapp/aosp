@@ -47,10 +47,16 @@ unw_is_signal_frame (unw_cursor_t *cursor)
   arg = c->dwarf.as_arg;
 
   ip = c->dwarf.ip;
+  /* ANDROID support update. */
+  /* Undo the attempt to correct the PC or we'll be pointing to the nop instead of the mov. */
+  ip += 4;
+  /* ANDROID support update. */
 
   ret = (*a->access_mem) (as, ip, &w0, 0, arg);
   if (ret < 0)
-    return ret;
+  /* ANDROID support update. */
+    return 0;
+  /* End ANDROID update. */
 
   /* FIXME: distinguish 32bit insn vs 64bit registers.  */
   if (w0 != 0xd4000001d2801168)

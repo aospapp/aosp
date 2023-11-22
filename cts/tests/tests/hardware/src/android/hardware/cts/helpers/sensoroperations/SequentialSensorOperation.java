@@ -17,25 +17,25 @@
 package android.hardware.cts.helpers.sensoroperations;
 
 import android.hardware.cts.helpers.SensorStats;
+import android.hardware.cts.helpers.reporting.ISensorTestNode;
 
-import java.util.LinkedList;
-import java.util.List;
+import java.util.ArrayList;
 
 /**
- * A {@link ISensorOperation} that executes a set of children {@link ISensorOperation}s in a
+ * A {@link SensorOperation} that executes a set of children {@link SensorOperation}s in a
  * sequence. The children are executed in the order they are added. This class can be combined to
- * compose complex {@link ISensorOperation}s.
+ * compose complex {@link SensorOperation}s.
  */
-public class SequentialSensorOperation extends AbstractSensorOperation {
+public class SequentialSensorOperation extends SensorOperation {
     public static final String STATS_TAG = "sequential";
 
-    private final List<ISensorOperation> mOperations = new LinkedList<ISensorOperation>();
+    private final ArrayList<SensorOperation> mOperations = new ArrayList<>();
 
     /**
-     * Add a set of {@link ISensorOperation}s.
+     * Add a set of {@link SensorOperation}s.
      */
-    public void add(ISensorOperation ... operations) {
-        for (ISensorOperation operation : operations) {
+    public void add(SensorOperation ... operations) {
+        for (SensorOperation operation : operations) {
             if (operation == null) {
                 throw new IllegalArgumentException("Arguments cannot be null");
             }
@@ -44,15 +44,16 @@ public class SequentialSensorOperation extends AbstractSensorOperation {
     }
 
     /**
-     * Executes the {@link ISensorOperation}s in the order they were added. If an exception occurs
+     * Executes the {@link SensorOperation}s in the order they were added. If an exception occurs
      * in one operation, it is thrown and all subsequent operations will not run.
      */
     @Override
-    public void execute() throws InterruptedException {
+    public void execute(ISensorTestNode parent) throws InterruptedException {
+        ISensorTestNode currentNode = asTestNode(parent);
         for (int i = 0; i < mOperations.size(); i++) {
-            ISensorOperation operation = mOperations.get(i);
+            SensorOperation operation = mOperations.get(i);
             try {
-                operation.execute();
+                operation.execute(currentNode);
             } catch (AssertionError e) {
                 String msg = String.format("Operation %d failed: \"%s\"", i, e.getMessage());
                 getStats().addValue(SensorStats.ERROR, msg);
@@ -69,7 +70,7 @@ public class SequentialSensorOperation extends AbstractSensorOperation {
     @Override
     public SequentialSensorOperation clone() {
         SequentialSensorOperation operation = new SequentialSensorOperation();
-        for (ISensorOperation subOperation : mOperations) {
+        for (SensorOperation subOperation : mOperations) {
             operation.add(subOperation.clone());
         }
         return operation;

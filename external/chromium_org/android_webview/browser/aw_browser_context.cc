@@ -11,6 +11,7 @@
 #include "android_webview/browser/jni_dependency_factory.h"
 #include "android_webview/browser/net/aw_url_request_context_getter.h"
 #include "android_webview/browser/net/init_native_callback.h"
+#include "base/bind.h"
 #include "base/prefs/pref_registry_simple.h"
 #include "base/prefs/pref_service.h"
 #include "base/prefs/pref_service_factory.h"
@@ -19,15 +20,20 @@
 #include "components/data_reduction_proxy/browser/data_reduction_proxy_params.h"
 #include "components/data_reduction_proxy/browser/data_reduction_proxy_prefs.h"
 #include "components/data_reduction_proxy/browser/data_reduction_proxy_settings.h"
+#include "components/data_reduction_proxy/browser/data_reduction_proxy_statistics_prefs.h"
 #include "components/user_prefs/user_prefs.h"
 #include "components/visitedlink/browser/visitedlink_master.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/ssl_host_state_delegate.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "net/cookies/cookie_store.h"
+#include "net/proxy/proxy_config_service_android.h"
+#include "net/proxy/proxy_service.h"
 
 using base::FilePath;
 using content::BrowserThread;
+using data_reduction_proxy::DataReductionProxyConfigService;
 using data_reduction_proxy::DataReductionProxySettings;
 
 namespace android_webview {
@@ -40,6 +46,16 @@ void HandleReadError(PersistentPrefStore::PrefReadError error) {
 
 AwBrowserContext* g_browser_context = NULL;
 
+net::ProxyConfigService* CreateProxyConfigService() {
+  net::ProxyConfigServiceAndroid* config_service =
+      static_cast<net::ProxyConfigServiceAndroid*>(
+          net::ProxyService::CreateSystemProxyConfigService(
+              BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO),
+              nullptr /* Ignored on Android */ ));
+  config_service->set_exclude_pac_url(true);
+  return config_service;
+}
+
 }  // namespace
 
 // Data reduction proxy is disabled by default.
@@ -50,7 +66,7 @@ AwBrowserContext::AwBrowserContext(
     JniDependencyFactory* native_factory)
     : context_storage_path_(path),
       native_factory_(native_factory) {
-  DCHECK(g_browser_context == NULL);
+  DCHECK(!g_browser_context);
   g_browser_context = this;
 
   // This constructor is entered during the creation of ContentBrowserClient,
@@ -59,7 +75,7 @@ AwBrowserContext::AwBrowserContext(
 }
 
 AwBrowserContext::~AwBrowserContext() {
-  DCHECK(g_browser_context == this);
+  DCHECK_EQ(this, g_browser_context);
   g_browser_context = NULL;
 }
 
@@ -90,28 +106,40 @@ void AwBrowserContext::SetDataReductionProxyEnabled(bool enabled) {
       context->GetDataReductionProxySettings();
   if (proxy_settings == NULL)
     return;
+
+  context->CreateDataReductionProxyStatisticsIfNecessary();
+  proxy_settings->SetDataReductionProxyStatisticsPrefs(
+      context->data_reduction_proxy_statistics_.get());
   proxy_settings->SetDataReductionProxyEnabled(data_reduction_proxy_enabled_);
 }
 
 void AwBrowserContext::PreMainMessageLoopRun() {
   cookie_store_ = CreateCookieStore(this);
-#if defined(SPDY_PROXY_AUTH_ORIGIN)
   data_reduction_proxy_settings_.reset(
       new DataReductionProxySettings(
           new data_reduction_proxy::DataReductionProxyParams(
               data_reduction_proxy::DataReductionProxyParams::kAllowed)));
-#endif
+  scoped_ptr<DataReductionProxyConfigService>
+      data_reduction_proxy_config_service(
+          new DataReductionProxyConfigService(
+              scoped_ptr<net::ProxyConfigService>(
+                  CreateProxyConfigService()).Pass()));
+  if (data_reduction_proxy_settings_.get()) {
+      data_reduction_proxy_configurator_.reset(
+          new data_reduction_proxy::DataReductionProxyConfigTracker(
+              base::Bind(&DataReductionProxyConfigService::UpdateProxyConfig,
+                         base::Unretained(
+                             data_reduction_proxy_config_service.get())),
+            BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO)));
+    data_reduction_proxy_settings_->SetProxyConfigurator(
+        data_reduction_proxy_configurator_.get());
+  }
 
   url_request_context_getter_ =
-      new AwURLRequestContextGetter(GetPath(), cookie_store_.get());
+      new AwURLRequestContextGetter(GetPath(),
+                                    cookie_store_.get(),
+                                    data_reduction_proxy_config_service.Pass());
 
-  if (data_reduction_proxy_settings_.get()) {
-    scoped_ptr<data_reduction_proxy::DataReductionProxyConfigurator>
-        configurator(new data_reduction_proxy::DataReductionProxyConfigTracker(
-            url_request_context_getter_->proxy_config_service(),
-            BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO)));
-    data_reduction_proxy_settings_->SetProxyConfigurator(configurator.Pass());
-  }
   visitedlink_master_.reset(
       new visitedlink::VisitedLinkMaster(this, this, false));
   visitedlink_master_->Init();
@@ -164,6 +192,10 @@ DataReductionProxySettings* AwBrowserContext::GetDataReductionProxySettings() {
   return data_reduction_proxy_settings_.get();
 }
 
+AwURLRequestContextGetter* AwBrowserContext::GetAwURLRequestContext() {
+  return url_request_context_getter_.get();
+}
+
 // Create user pref service for autofill functionality.
 void AwBrowserContext::CreateUserPrefServiceIfNecessary() {
   if (user_pref_service_)
@@ -192,11 +224,9 @@ void AwBrowserContext::CreateUserPrefServiceIfNecessary() {
   if (data_reduction_proxy_settings_.get()) {
     data_reduction_proxy_settings_->InitDataReductionProxySettings(
         user_pref_service_.get(),
-        user_pref_service_.get(),
         GetRequestContext());
 
-    data_reduction_proxy_settings_->SetDataReductionProxyEnabled(
-        data_reduction_proxy_enabled_);
+    SetDataReductionProxyEnabled(data_reduction_proxy_enabled_);
   }
 }
 
@@ -254,7 +284,7 @@ content::BrowserPluginGuestManager* AwBrowserContext::GetGuestManager() {
   return NULL;
 }
 
-quota::SpecialStoragePolicy* AwBrowserContext::GetSpecialStoragePolicy() {
+storage::SpecialStoragePolicy* AwBrowserContext::GetSpecialStoragePolicy() {
   // Intentionally returning NULL as 'Extensions' and 'Apps' not supported.
   return NULL;
 }
@@ -264,12 +294,34 @@ content::PushMessagingService* AwBrowserContext::GetPushMessagingService() {
   return NULL;
 }
 
+content::SSLHostStateDelegate* AwBrowserContext::GetSSLHostStateDelegate() {
+  if (!ssl_host_state_delegate_.get()) {
+    ssl_host_state_delegate_.reset(new AwSSLHostStateDelegate());
+  }
+  return ssl_host_state_delegate_.get();
+}
+
 void AwBrowserContext::RebuildTable(
     const scoped_refptr<URLEnumerator>& enumerator) {
   // Android WebView rebuilds from WebChromeClient.getVisitedHistory. The client
   // can change in the lifetime of this WebView and may not yet be set here.
   // Therefore this initialization path is not used.
   enumerator->OnComplete(true);
+}
+
+void AwBrowserContext::CreateDataReductionProxyStatisticsIfNecessary() {
+  DCHECK(user_pref_service_.get());
+
+  if (!data_reduction_proxy_statistics_.get()) {
+    // We don't care about commit_delay for now. It is just a dummy value.
+    base::TimeDelta commit_delay = base::TimeDelta::FromMinutes(60);
+    data_reduction_proxy_statistics_ =
+        scoped_ptr<data_reduction_proxy::DataReductionProxyStatisticsPrefs>(
+            new data_reduction_proxy::DataReductionProxyStatisticsPrefs(
+                user_pref_service_.get(),
+                base::MessageLoopProxy::current(),
+                commit_delay));
+  }
 }
 
 }  // namespace android_webview

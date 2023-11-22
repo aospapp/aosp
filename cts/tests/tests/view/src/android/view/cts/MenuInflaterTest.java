@@ -19,7 +19,6 @@ package android.view.cts;
 import com.android.cts.view.R;
 import com.android.internal.view.menu.MenuBuilder;
 
-
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.Resources;
@@ -28,6 +27,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
 import android.test.ActivityInstrumentationTestCase2;
+import android.test.UiThreadTest;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.SubMenu;
@@ -48,16 +48,21 @@ public class MenuInflaterTest extends ActivityInstrumentationTestCase2<MenuInfla
     protected void setUp() throws Exception {
         super.setUp();
         mActivity = getActivity();
-        mMenuInflater = mActivity.getMenuInflater();
     }
 
+    @UiThreadTest
     public void testConstructor() {
         new MenuInflater(mActivity);
     }
 
+    @UiThreadTest
     public void testInflate() {
         Menu menu = new MenuBuilder(mActivity);
         assertEquals(0, menu.size());
+
+        if (mMenuInflater == null) {
+            mMenuInflater = mActivity.getMenuInflater();
+        }
 
         mMenuInflater.inflate(com.android.cts.view.R.menu.browser, menu);
         assertNotNull(menu);
@@ -77,7 +82,12 @@ public class MenuInflaterTest extends ActivityInstrumentationTestCase2<MenuInfla
     }
 
     // Check wheher the objects are created correctly from xml files
+    @UiThreadTest
     public void testInflateFromXml(){
+        if (mMenuInflater == null) {
+            mMenuInflater = mActivity.getMenuInflater();
+        }
+
         // the visibility and shortcut
         Menu menu = new MenuBuilder(mActivity);
         mMenuInflater.inflate(R.menu.visible_shortcut, menu);

@@ -10,8 +10,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "content/public/browser/devtools_agent_host.h"
-#include "content/public/browser/devtools_client_host.h"
-#include "content/public/browser/devtools_frontend_host_delegate.h"
+#include "content/public/browser/devtools_frontend_host.h"
 #include "content/public/browser/web_contents_observer.h"
 
 namespace content {
@@ -24,7 +23,8 @@ class Shell;
 class WebContents;
 
 class ShellDevToolsFrontend : public WebContentsObserver,
-                              public DevToolsFrontendHostDelegate {
+                              public DevToolsFrontendHost::Delegate,
+                              public DevToolsAgentHostClient {
  public:
   static ShellDevToolsFrontend* Show(WebContents* inspected_contents);
   static ShellDevToolsFrontend* Show(WebContents* inspected_contents,
@@ -47,14 +47,21 @@ class ShellDevToolsFrontend : public WebContentsObserver,
   virtual void WebContentsDestroyed() OVERRIDE;
   virtual void RenderProcessGone(base::TerminationStatus status) OVERRIDE;
 
-  // DevToolsFrontendHostDelegate implementation
-  virtual void DispatchOnEmbedder(const std::string& message) OVERRIDE {}
+  // content::DevToolsFrontendHost::Delegate implementation.
+  virtual void HandleMessageFromDevToolsFrontend(
+      const std::string& message) OVERRIDE;
+  virtual void HandleMessageFromDevToolsFrontendToBackend(
+      const std::string& message) OVERRIDE;
 
-  virtual void InspectedContentsClosing() OVERRIDE;
+  // content::DevToolsAgentHostClient implementation.
+  virtual void DispatchProtocolMessage(
+      DevToolsAgentHost* agent_host, const std::string& message) OVERRIDE;
+  virtual void AgentHostClosed(
+      DevToolsAgentHost* agent_host, bool replaced) OVERRIDE;
 
   Shell* frontend_shell_;
   scoped_refptr<DevToolsAgentHost> agent_host_;
-  scoped_ptr<DevToolsClientHost> frontend_host_;
+  scoped_ptr<DevToolsFrontendHost> frontend_host_;
 
   DISALLOW_COPY_AND_ASSIGN(ShellDevToolsFrontend);
 };

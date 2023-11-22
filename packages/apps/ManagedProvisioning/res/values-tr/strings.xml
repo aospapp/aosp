@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Yönetim uygulaması kullanılamıyor. Bileşenleri eksik veya bozuk. BT bölümünüze başvurun."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Yönetici uygulaması yüklenemedi"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Yönetici uygulaması cihazınızda yüklü değil"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Kurulum durdurulsun mu?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Kurulumu durdurmak istediğinizden emin misiniz?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Hayır"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Evet"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"İptal ediliyor..."</string>
 </resources>

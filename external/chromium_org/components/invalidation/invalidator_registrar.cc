@@ -9,7 +9,7 @@
 #include <utility>
 
 #include "base/logging.h"
-#include "sync/notifier/object_id_invalidation_map.h"
+#include "components/invalidation/object_id_invalidation_map.h"
 
 namespace syncer {
 
@@ -18,7 +18,6 @@ InvalidatorRegistrar::InvalidatorRegistrar()
 
 InvalidatorRegistrar::~InvalidatorRegistrar() {
   DCHECK(thread_checker_.CalledOnValidThread());
-  CHECK(!handlers_.might_have_observers());
   CHECK(handler_to_ids_map_.empty());
 }
 

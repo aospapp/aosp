@@ -4,9 +4,11 @@
 
 #include "chrome/browser/signin/signin_ui_util.h"
 
+#include "base/prefs/pref_service.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/account_tracker_service_factory.h"
 #include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
 #include "chrome/browser/signin/signin_global_error.h"
 #include "chrome/browser/signin/signin_global_error_factory.h"
@@ -15,10 +17,14 @@
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/sync/sync_global_error.h"
 #include "chrome/browser/sync/sync_global_error_factory.h"
+#include "chrome/browser/ui/browser_navigator.h"
+#include "chrome/common/pref_names.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
+#include "components/signin/core/browser/account_tracker_service.h"
 #include "components/signin/core/browser/profile_oauth2_token_service.h"
 #include "components/signin/core/browser/signin_manager.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
+#include "components/signin/core/common/profile_management_switches.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/font_list.h"
 #include "ui/gfx/text_elider.h"
@@ -151,6 +157,35 @@ void GetStatusLabelsForAuthError(Profile* profile,
       }
       break;
   }
+}
+
+void InitializePrefsForProfile(Profile* profile) {
+  // Suppresses the upgrade tutorial for a new profile.
+  if (profile->IsNewProfile() && switches::IsNewAvatarMenu()) {
+    profile->GetPrefs()->SetInteger(
+        prefs::kProfileAvatarTutorialShown, kUpgradeWelcomeTutorialShowMax + 1);
+  }
+}
+
+void ShowSigninErrorLearnMorePage(Profile* profile) {
+  static const char kSigninErrorLearnMoreUrl[] =
+      "https://support.google.com/chrome/answer/1181420?";
+  chrome::NavigateParams params(
+      profile, GURL(kSigninErrorLearnMoreUrl), ui::PAGE_TRANSITION_LINK);
+  params.disposition = NEW_FOREGROUND_TAB;
+  chrome::Navigate(&params);
+}
+
+std::string GetDisplayEmail(Profile* profile, const std::string& account_id) {
+  AccountTrackerService* account_tracker =
+      AccountTrackerServiceFactory::GetForProfile(profile);
+  std::string email = account_tracker->GetAccountInfo(account_id).email;
+  if (email.empty()) {
+    DCHECK_EQ(AccountTrackerService::MIGRATION_NOT_STARTED,
+              account_tracker->GetMigrationState());
+    return account_id;
+  }
+  return email;
 }
 
 }  // namespace signin_ui_util

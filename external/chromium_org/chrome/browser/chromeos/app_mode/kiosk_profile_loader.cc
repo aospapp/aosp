@@ -10,17 +10,17 @@
 #include "base/strings/string_util.h"
 #include "base/sys_info.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_app_manager.h"
-#include "chrome/browser/chromeos/login/auth/login_status_consumer.h"
-#include "chrome/browser/chromeos/login/auth/user_context.h"
 #include "chrome/browser/chromeos/login/demo_mode/demo_app_launcher.h"
 #include "chrome/browser/chromeos/login/login_utils.h"
 #include "chrome/browser/chromeos/login/ui/login_display_host_impl.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chromeos/cryptohome/async_method_caller.h"
 #include "chromeos/dbus/cryptohome_client.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/login/auth/auth_status_consumer.h"
+#include "chromeos/login/auth/user_context.h"
+#include "chromeos/login/user_names.h"
 #include "content/public/browser/browser_thread.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 
@@ -31,14 +31,14 @@ namespace chromeos {
 namespace {
 
 KioskAppLaunchError::Error LoginFailureToKioskAppLaunchError(
-    const LoginFailure& error) {
+    const AuthFailure& error) {
   switch (error.reason()) {
-    case LoginFailure::COULD_NOT_MOUNT_TMPFS:
-    case LoginFailure::COULD_NOT_MOUNT_CRYPTOHOME:
+    case AuthFailure::COULD_NOT_MOUNT_TMPFS:
+    case AuthFailure::COULD_NOT_MOUNT_CRYPTOHOME:
       return KioskAppLaunchError::UNABLE_TO_MOUNT;
-    case LoginFailure::DATA_REMOVAL_FAILED:
+    case AuthFailure::DATA_REMOVAL_FAILED:
       return KioskAppLaunchError::UNABLE_TO_REMOVE;
-    case LoginFailure::USERNAME_HASH_FAILED:
+    case AuthFailure::USERNAME_HASH_FAILED:
       return KioskAppLaunchError::UNABLE_TO_RETRIEVE_HASH;
     default:
       NOTREACHED();
@@ -146,7 +146,7 @@ void KioskProfileLoader::ReportLaunchResult(KioskAppLaunchError::Error error) {
   }
 }
 
-void KioskProfileLoader::OnLoginSuccess(const UserContext& user_context)  {
+void KioskProfileLoader::OnAuthSuccess(const UserContext& user_context) {
   // LoginPerformer will delete itself.
   login_performer_->set_delegate(NULL);
   ignore_result(login_performer_.release());
@@ -157,15 +157,15 @@ void KioskProfileLoader::OnLoginSuccess(const UserContext& user_context)  {
   // we switch this back to the demo user name to correctly identify this
   // user as a demo user.
   UserContext context = user_context;
-  if (context.GetUserID() == UserManager::kGuestUserName)
+  if (context.GetUserID() == chromeos::login::kGuestUserName)
     context.SetUserID(DemoAppLauncher::kDemoUserName);
   LoginUtils::Get()->PrepareProfile(context,
-                                    false,  // has_cookies
+                                    false,  // has_auth_cookies
                                     false,  // has_active_session
                                     this);
 }
 
-void KioskProfileLoader::OnLoginFailure(const LoginFailure& error) {
+void KioskProfileLoader::OnAuthFailure(const AuthFailure& error) {
   ReportLaunchResult(LoginFailureToKioskAppLaunchError(error));
 }
 

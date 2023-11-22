@@ -20,23 +20,24 @@ namespace input_method {
 namespace {
 void OnSessionStateChange(InputMethodManagerImpl* input_method_manager_impl,
                           InputMethodPersistence* input_method_persistence,
-                          InputMethodManager::State new_state) {
-  input_method_persistence->OnSessionStateChange(new_state);
-  input_method_manager_impl->SetState(new_state);
+                          InputMethodManager::UISessionState new_ui_session) {
+  input_method_persistence->OnSessionStateChange(new_ui_session);
+  input_method_manager_impl->SetUISessionState(new_ui_session);
 }
+
+bool g_disable_extension_loading = false;
 
 class InputMethodConfiguration {
  public:
   InputMethodConfiguration() {}
   virtual ~InputMethodConfiguration() {}
 
-  void Initialize(
-      const scoped_refptr<base::SequencedTaskRunner>& ui_task_runner) {
+  void Initialize() {
     IMEBridge::Initialize();
 
     InputMethodManagerImpl* impl = new InputMethodManagerImpl(
-        scoped_ptr<InputMethodDelegate>(new InputMethodDelegateImpl));
-    impl->Init(ui_task_runner.get());
+        scoped_ptr<InputMethodDelegate>(new InputMethodDelegateImpl),
+        !g_disable_extension_loading);
     InputMethodManager::Initialize(impl);
 
     DCHECK(InputMethodManager::Get());
@@ -78,18 +79,20 @@ InputMethodConfiguration* g_input_method_configuration = NULL;
 
 }  // namespace
 
-void Initialize(
-    const scoped_refptr<base::SequencedTaskRunner>& ui_task_runner,
-    const scoped_refptr<base::SequencedTaskRunner>& file_task_runner) {
+void Initialize() {
   if (!g_input_method_configuration)
     g_input_method_configuration = new InputMethodConfiguration();
-  g_input_method_configuration->Initialize(ui_task_runner);
+  g_input_method_configuration->Initialize();
 }
 
 void InitializeForTesting(InputMethodManager* mock_manager) {
   if (!g_input_method_configuration)
     g_input_method_configuration = new InputMethodConfiguration();
   g_input_method_configuration->InitializeForTesting(mock_manager);
+}
+
+void DisableExtensionLoading() {
+  g_disable_extension_loading = true;
 }
 
 void Shutdown() {

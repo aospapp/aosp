@@ -24,7 +24,8 @@
         android:id="@+id/settings"
         android:title="@string/menu_settings"
         android:menuCategory="secondary"
-        app:showAsAction="never" />
+        app:showAsAction="never"
+        android:alphabeticShortcut="@string/trigger_settings_char" />
 
     <!-- Available if the account specifies a help url -->
     <item
@@ -32,5 +33,6 @@
         android:icon="@android:drawable/ic_menu_help"
         android:menuCategory="secondary"
         app:showAsAction="never"
-        android:title="@string/help_and_feedback" />
+        android:title="@string/help_and_feedback"
+        android:alphabeticShortcut="@string/trigger_help_char" />
 </menu>

@@ -10,10 +10,10 @@
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/chromeos/login/auth/extended_authenticator.h"
 #include "chrome/browser/supervised_user/supervised_user_shared_settings_service.h"
 #include "chrome/browser/supervised_user/supervised_user_sync_service.h"
 #include "chrome/browser/supervised_user/supervised_users.h"
+#include "chromeos/login/auth/extended_authenticator.h"
 #include "components/keyed_service/core/keyed_service.h"
 
 namespace chromeos {
@@ -30,7 +30,7 @@ class UserContext;
 // 3) Old master key is deleted.
 class ManagerPasswordService
     : public KeyedService,
-      public chromeos::ExtendedAuthenticator::AuthStatusConsumer {
+      public chromeos::ExtendedAuthenticator::NewAuthStatusConsumer {
  public:
   ManagerPasswordService();
   virtual ~ManagerPasswordService();

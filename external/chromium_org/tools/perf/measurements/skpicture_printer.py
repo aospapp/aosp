@@ -4,13 +4,14 @@
 import glob
 import os
 
-from telemetry.page import page_measurement
+from telemetry.page import page_test
+from telemetry.value import scalar
 
 
 _JS = 'chrome.gpuBenchmarking.printToSkPicture("{0}");'
 
 
-class SkpicturePrinter(page_measurement.PageMeasurement):
+class SkpicturePrinter(page_test.PageTest):
   @classmethod
   def AddCommandLineArgs(cls, parser):
     parser.add_option('-s', '--skp-outdir',
@@ -25,12 +26,11 @@ class SkpicturePrinter(page_measurement.PageMeasurement):
   def CustomizeBrowserOptions(self, options):
     options.AppendExtraBrowserArgs(['--enable-gpu-benchmarking',
                                     '--no-sandbox',
-                                    '--enable-deferred-image-decoding',
-                                    '--force-compositing-mode'])
+                                    '--enable-deferred-image-decoding'])
 
-  def MeasurePage(self, page, tab, results):
+  def ValidateAndMeasurePage(self, page, tab, results):
     if tab.browser.platform.GetOSName() in ['android', 'chromeos']:
-      raise page_measurement.MeasurementFailure(
+      raise page_test.MeasurementFailure(
           'SkPicture printing not supported on this platform')
 
     # Replace win32 path separator char '\' with '\\'.
@@ -39,4 +39,5 @@ class SkpicturePrinter(page_measurement.PageMeasurement):
     js = _JS.format(outpath.replace('\\', '\\\\'))
     tab.EvaluateJavaScript(js)
     pictures = glob.glob(os.path.join(outpath, '*.skp'))
-    results.Add('saved_picture_count', 'count', len(pictures))
+    results.AddValue(scalar.ScalarValue(
+        results.current_page, 'saved_picture_count', 'count', len(pictures)))

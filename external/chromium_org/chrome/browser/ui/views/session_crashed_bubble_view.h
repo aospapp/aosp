@@ -51,18 +51,18 @@ class SessionCrashedBubbleView
                            bool offer_uma_optin);
   virtual ~SessionCrashedBubbleView();
 
-  // Creates and shows the session crashed bubble, with |offer_uma_optin|
-  // indicating whether the UMA opt-in checkbox should be shown. Called
-  // by Show after checking whether the UMA option should be presented and it
-  // takes ownership of |browser_observer|.
+  // Creates and shows the session crashed bubble, with |uma_opted_in_already|
+  // indicating whether the user has already opted-in to UMA. It will be called
+  // by Show. It takes ownership of |browser_observer|.
   static void ShowForReal(scoped_ptr<BrowserRemovalObserver> browser_observer,
-                          bool offer_uma_optin);
+                          bool uma_opted_in_already);
 
   // WidgetDelegateView methods.
   virtual views::View* GetInitiallyFocusedView() OVERRIDE;
   virtual base::string16 GetWindowTitle() const OVERRIDE;
   virtual bool ShouldShowWindowTitle() const OVERRIDE;
   virtual bool ShouldShowCloseButton() const OVERRIDE;
+  virtual void OnWidgetDestroying(views::Widget* widget) OVERRIDE;
 
   // views::BubbleDelegateView methods.
   virtual void Init() OVERRIDE;
@@ -79,11 +79,8 @@ class SessionCrashedBubbleView
   virtual void DidStartNavigationToPendingEntry(
       const GURL& url,
       content::NavigationController::ReloadType reload_type) OVERRIDE;
-  virtual void DidFinishLoad(
-      int64 frame_id,
-      const GURL& validated_url,
-      bool is_main_frame,
-      content::RenderViewHost* render_view_host) OVERRIDE;
+  virtual void DidFinishLoad(content::RenderFrameHost* render_frame_host,
+                             const GURL& validated_url) OVERRIDE;
   virtual void WasShown() OVERRIDE;
   virtual void WasHidden() OVERRIDE;
 
@@ -101,8 +98,8 @@ class SessionCrashedBubbleView
       content::WebContents* contents,
       int index) OVERRIDE;
 
-  // Create the view for user to opt in to Uma.
-  void CreateUmaOptinView(views::GridLayout* layout);
+  // Create the view for the user to opt in to UMA.
+  views::View* CreateUMAOptinView();
 
   // Restore previous session after user selects so.
   void RestorePreviousSession(views::Button* sender);
@@ -129,6 +126,10 @@ class SessionCrashedBubbleView
 
   // Whether or not a navigation has started on current tab.
   bool started_navigation_;
+
+  // Whether or not the user chose to restore previous session. It is used to
+  // collect bubble usage stats.
+  bool restored_;
 
   DISALLOW_COPY_AND_ASSIGN(SessionCrashedBubbleView);
 };

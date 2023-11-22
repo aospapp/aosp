@@ -15,10 +15,22 @@
 #include "sync/sessions/status_controller.h"
 #include "sync/test/engine/fake_model_worker.h"
 #include "sync/test/engine/mock_update_handler.h"
+#include "sync/test/mock_invalidation.h"
 #include "sync/test/sessions/mock_debug_info_getter.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace syncer {
+
+namespace {
+
+scoped_ptr<InvalidationInterface> BuildInvalidation(
+    int64 version,
+    const std::string& payload) {
+  return MockInvalidation::Build(version, payload)
+      .PassAs<InvalidationInterface>();
+}
+
+}  // namespace
 
 using sessions::MockDebugInfoGetter;
 
@@ -133,11 +145,11 @@ TEST_F(GetUpdatesProcessorTest, BookmarkNudge) {
 TEST_F(GetUpdatesProcessorTest, NotifyMany) {
   sessions::NudgeTracker nudge_tracker;
   nudge_tracker.RecordRemoteInvalidation(
-      BuildInvalidationMap(AUTOFILL, 1, "autofill_payload"));
+      AUTOFILL, BuildInvalidation(1, "autofill_payload"));
   nudge_tracker.RecordRemoteInvalidation(
-      BuildInvalidationMap(BOOKMARKS, 1, "bookmark_payload"));
+      BOOKMARKS, BuildInvalidation(1, "bookmark_payload"));
   nudge_tracker.RecordRemoteInvalidation(
-      BuildInvalidationMap(PREFERENCES, 1, "preferences_payload"));
+      PREFERENCES, BuildInvalidation(1, "preferences_payload"));
   ModelTypeSet notified_types;
   notified_types.Put(AUTOFILL);
   notified_types.Put(BOOKMARKS);
@@ -171,6 +183,44 @@ TEST_F(GetUpdatesProcessorTest, NotifyMany) {
     } else {
       EXPECT_FALSE(progress_marker.has_notification_hint());
       EXPECT_EQ(0, gu_trigger.notification_hint_size());
+    }
+  }
+}
+
+// Basic test to ensure initial sync requests are expressed in the request.
+TEST_F(GetUpdatesProcessorTest, InitialSyncRequest) {
+  sessions::NudgeTracker nudge_tracker;
+  nudge_tracker.RecordInitialSyncRequired(AUTOFILL);
+  nudge_tracker.RecordInitialSyncRequired(PREFERENCES);
+
+  ModelTypeSet initial_sync_types = ModelTypeSet(AUTOFILL, PREFERENCES);
+
+  sync_pb::ClientToServerMessage message;
+  NormalGetUpdatesDelegate normal_delegate(nudge_tracker);
+  scoped_ptr<GetUpdatesProcessor> processor(
+      BuildGetUpdatesProcessor(normal_delegate));
+  processor->PrepareGetUpdates(enabled_types(), &message);
+
+  const sync_pb::GetUpdatesMessage& gu_msg = message.get_updates();
+  EXPECT_EQ(sync_pb::GetUpdatesCallerInfo::DATATYPE_REFRESH,
+            gu_msg.caller_info().source());
+  EXPECT_EQ(sync_pb::SyncEnums::GU_TRIGGER, gu_msg.get_updates_origin());
+  for (int i = 0; i < gu_msg.from_progress_marker_size(); ++i) {
+    syncer::ModelType type = GetModelTypeFromSpecificsFieldNumber(
+        gu_msg.from_progress_marker(i).data_type_id());
+
+    const sync_pb::DataTypeProgressMarker& progress_marker =
+        gu_msg.from_progress_marker(i);
+    const sync_pb::GetUpdateTriggers& gu_trigger =
+        progress_marker.get_update_triggers();
+
+    // We perform some basic tests of GU trigger and source fields here.  The
+    // more complicated scenarios are tested by the NudgeTracker tests.
+    if (initial_sync_types.Has(type)) {
+      EXPECT_TRUE(gu_trigger.initial_sync_in_progress());
+    } else {
+      EXPECT_TRUE(gu_trigger.has_initial_sync_in_progress());
+      EXPECT_FALSE(gu_trigger.initial_sync_in_progress());
     }
   }
 }

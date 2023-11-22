@@ -50,13 +50,13 @@ class DevToolsAgent : public RenderViewObserver,
   // WebDevToolsAgentClient implementation
   virtual void sendMessageToInspectorFrontend(const blink::WebString& data);
 
+  virtual long processId() OVERRIDE;
   virtual int debuggerId() OVERRIDE;
   virtual void saveAgentRuntimeState(const blink::WebString& state) OVERRIDE;
   virtual blink::WebDevToolsAgentClient::WebKitClientMessageLoop*
       createClientMessageLoop() OVERRIDE;
   virtual void willEnterDebugLoop() OVERRIDE;
   virtual void didExitDebugLoop() OVERRIDE;
-  virtual void visitAllocatedObjects(AllocatedObjectVisitor* visitor) OVERRIDE;
 
   typedef void (*TraceEventCallback)(
       char phase, const unsigned char*, const char* name, unsigned long long id,
@@ -74,8 +74,6 @@ class DevToolsAgent : public RenderViewObserver,
   virtual void enableDeviceEmulation(
       const blink::WebDeviceEmulationParams& params) OVERRIDE;
   virtual void disableDeviceEmulation() OVERRIDE;
-  virtual void setTouchEventEmulationEnabled(bool enabled,
-                                             bool allow_pinch) OVERRIDE;
 
   void OnAttach(const std::string& host_id);
   void OnReattach(const std::string& host_id,

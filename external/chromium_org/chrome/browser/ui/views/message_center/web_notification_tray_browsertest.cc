@@ -39,7 +39,7 @@ class WebNotificationTrayTest : public InProcessBrowserTest {
   WebNotificationTrayTest() {}
   virtual ~WebNotificationTrayTest() {}
 
-  virtual void CleanUpOnMainThread() OVERRIDE {
+  virtual void TearDownOnMainThread() OVERRIDE {
     message_center::MessageCenter::Get()->RemoveAllNotifications(false);
   }
 
@@ -249,6 +249,6 @@ IN_PROC_BROWSER_TEST_F(WebNotificationTrayTest, MAYBE_StatusIconBehavior) {
   EXPECT_TRUE(tray->status_icon_ != NULL);
   RemoveNotification("test_id");
   base::RunLoop().RunUntilIdle();
-  EXPECT_TRUE(tray->status_icon_ != NULL);
+  EXPECT_TRUE(tray->status_icon_ == NULL);
 }
 }  // namespace message_center

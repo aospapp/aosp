@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"‏לא ניתן להשתמש באפליקציית הניהול. חסרים בה מרכיבים או שהיא פגומה. צור קשר עם מחלקת ה-IT שלך."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"לא ניתן להתקין את אפליקציית הניהול"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"אפליקציית הניהול לא מותקנת במכשיר שלך"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"האם להפסיק את תהליך ההגדרה?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"האם אתה בטוח שברצונך להפסיק את תהליך ההגדרה?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"לא"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"כן"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"מבטל..."</string>
 </resources>

@@ -16,6 +16,29 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := android-support-multidex
-LOCAL_SDK_VERSION := 11
+LOCAL_SDK_VERSION := 4
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
+
+ifneq "" "$(filter eng.%,$(BUILD_NUMBER))"
+  ASMD_VERSION_NAME_TAG := eng.$(USER)
+else
+  ASMD_VERSION_NAME_TAG := $(BUILD_NUMBER)
+endif
+
+ASMD_GIT_VERSION_TAG := `cd $(LOCAL_PATH); git log --format="%H" -n 1`
+
+ASMD_VERSION_INTERMEDIATE = $(call intermediates-dir-for,JAVA_LIBRARIES,$(LOCAL_MODULE),,COMMON)/$(LOCAL_MODULE).version.txt
+$(ASMD_VERSION_INTERMEDIATE):
+	$(hide) mkdir -p $(dir $@)
+	$(hide) echo "build.version=$(ASMD_VERSION_NAME_TAG)" > $@
+	$(hide) echo "build.id=$(BUILD_ID)" >> $@
+	$(hide) echo "git.version=$(ASMD_GIT_VERSION_TAG)" >> $@
+
+LOCAL_JAVA_RESOURCE_FILES := $(ASMD_VERSION_INTERMEDIATE)
+
+# Use a dir because we have files in subfolders and we want to keep the path into the archive
+#
+# use "resources" instead of "res" because res is already used for packaging the SDK project
+LOCAL_JAVA_RESOURCE_DIRS := resources
+
 include $(BUILD_STATIC_JAVA_LIBRARY)

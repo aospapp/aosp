@@ -17,6 +17,7 @@ class PrefService;
 namespace base {
 class CommandLine;
 class FilePath;
+class ListValue;
 }
 
 namespace content {
@@ -25,6 +26,7 @@ class WebContents;
 }
 
 namespace net {
+class NetLog;
 class NetworkDelegate;
 class URLRequest;
 class URLRequestJob;
@@ -41,6 +43,7 @@ class ExtensionPrefsObserver;
 class ExtensionSystem;
 class ExtensionSystemProvider;
 class InfoMap;
+class ProcessManagerDelegate;
 class RuntimeAPIDelegate;
 
 // Interface to allow the extensions module to make browser-process-specific
@@ -98,10 +101,6 @@ class ExtensionsBrowserClient {
       const extensions::Extension* extension,
       content::BrowserContext* context) const = 0;
 
-  // Returns true if |request| corresponds to a resource request from a
-  // <webview>.
-  virtual bool IsWebViewRequest(net::URLRequest* request) const = 0;
-
   // Returns an URLRequestJob to load an extension resource from the embedder's
   // resource bundle (.pak) files. Returns NULL if the request is not for a
   // resource bundle resource or if the embedder does not support this feature.
@@ -133,12 +132,9 @@ class ExtensionsBrowserClient {
       content::BrowserContext* context,
       std::vector<ExtensionPrefsObserver*>* observers) const = 0;
 
-  // Returns true if loading background pages should be deferred.
-  virtual bool DeferLoadingBackgroundHosts(
-      content::BrowserContext* context) const = 0;
-
-  virtual bool IsBackgroundPageAllowed(
-      content::BrowserContext* context) const = 0;
+  // Returns the ProcessManagerDelegate shared across all BrowserContexts. May
+  // return NULL in tests or for simple embedders.
+  virtual ProcessManagerDelegate* GetProcessManagerDelegate() const = 0;
 
   // Creates a new ExtensionHostDelegate instance.
   virtual scoped_ptr<ExtensionHostDelegate> CreateExtensionHostDelegate() = 0;
@@ -182,6 +178,14 @@ class ExtensionsBrowserClient {
   // the manager doesn't exist.
   virtual ComponentExtensionResourceManager*
   GetComponentExtensionResourceManager() = 0;
+
+  // Propagate a event to all the renderers in every browser context. The
+  // implementation must be safe to call from any thread.
+  virtual void BroadcastEventToRenderers(const std::string& event_name,
+                                         scoped_ptr<base::ListValue> args) = 0;
+
+  // Returns the embedder's net::NetLog.
+  virtual net::NetLog* GetNetLog() = 0;
 
   // Returns the single instance of |this|.
   static ExtensionsBrowserClient* Get();

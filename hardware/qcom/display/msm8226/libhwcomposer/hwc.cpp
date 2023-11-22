@@ -44,7 +44,7 @@ using namespace qhwc;
 using namespace overlay;
 
 #define VSYNC_DEBUG 0
-#define BLANK_DEBUG 1
+#define POWER_MODE_DEBUG 1
 
 static int hwc_device_open(const struct hw_module_t* module,
                            const char* name,
@@ -101,12 +101,104 @@ static void hwc_registerProcs(struct hwc_composer_device_1* dev,
     init_vsync_thread(ctx);
 }
 
-//Helper
+static void setPaddingRound(hwc_context_t *ctx, int numDisplays,
+                            hwc_display_contents_1_t** displays) {
+    ctx->isPaddingRound = false;
+    for(int i = 0; i < numDisplays; i++) {
+        hwc_display_contents_1_t *list = displays[i];
+        if (LIKELY(list && list->numHwLayers > 0)) {
+            if((ctx->mPrevHwLayerCount[i] == 1 or
+                ctx->mPrevHwLayerCount[i] == 0) and
+               (list->numHwLayers > 1)) {
+                /* If the previous cycle for dpy 'i' has 0 AppLayers and the
+                 * current cycle has atleast 1 AppLayer, padding round needs
+                 * to be invoked in current cycle on all the active displays
+                 * to free up the resources.
+                 */
+                ctx->isPaddingRound = true;
+            }
+            ctx->mPrevHwLayerCount[i] = (int)list->numHwLayers;
+        } else {
+            ctx->mPrevHwLayerCount[i] = 0;
+        }
+    }
+}
+
+/* Based on certain conditions, isPaddingRound will be set
+ * to make this function self-contained */
+static void setDMAState(hwc_context_t *ctx, int numDisplays,
+                        hwc_display_contents_1_t** displays) {
+
+    if(ctx->mRotMgr->getNumActiveSessions() == 0)
+        Overlay::setDMAMode(Overlay::DMA_LINE_MODE);
+
+    for(int dpy = 0; dpy < numDisplays; dpy++) {
+        hwc_display_contents_1_t *list = displays[dpy];
+        if (LIKELY(list && list->numHwLayers > 0)) {
+            for(size_t layerIndex = 0; layerIndex < list->numHwLayers;
+                                                  layerIndex++) {
+                if(list->hwLayers[layerIndex].compositionType !=
+                                            HWC_FRAMEBUFFER_TARGET)
+                {
+                    hwc_layer_1_t const* layer = &list->hwLayers[layerIndex];
+                    private_handle_t *hnd = (private_handle_t *)layer->handle;
+
+                    /* If a layer requires rotation, set the DMA state
+                     * to BLOCK_MODE */
+
+                    if (canUseRotator(ctx, dpy) &&
+                        has90Transform(layer) && isRotationDoable(ctx, hnd)) {
+                        if(not ctx->mOverlay->isDMAMultiplexingSupported()) {
+                            if(ctx->mOverlay->isPipeTypeAttached(
+                                             overlay::utils::OV_MDP_PIPE_DMA))
+                                ctx->isPaddingRound = true;
+                        }
+                        Overlay::setDMAMode(Overlay::DMA_BLOCK_MODE);
+                    }
+                }
+            }
+            if(dpy) {
+                /* Uncomment the below code for testing purpose.
+                   Assuming the orientation value is in terms of HAL_TRANSFORM,
+                   this needs mapping to HAL, if its in different convention */
+
+                /* char value[PROPERTY_VALUE_MAX];
+                   property_get("sys.ext_orientation", value, "0");
+                   ctx->mExtOrientation = atoi(value);*/
+
+                if(ctx->mExtOrientation || ctx->mBufferMirrorMode) {
+                    if(ctx->mOverlay->isPipeTypeAttached(
+                                         overlay::utils::OV_MDP_PIPE_DMA)) {
+                        ctx->isPaddingRound = true;
+                    }
+                    Overlay::setDMAMode(Overlay::DMA_BLOCK_MODE);
+                }
+            }
+        }
+    }
+}
+
+static void setNumActiveDisplays(hwc_context_t *ctx, int numDisplays,
+                            hwc_display_contents_1_t** displays) {
+
+    ctx->numActiveDisplays = 0;
+    for(int i = 0; i < numDisplays; i++) {
+        hwc_display_contents_1_t *list = displays[i];
+        if (LIKELY(list && list->numHwLayers > 0)) {
+            /* For display devices like SSD and screenrecord, we cannot
+             * rely on isActive and connected attributes of dpyAttr to
+             * determine if the displaydevice is active. Hence in case if
+             * the layer-list is non-null and numHwLayers > 0, we assume
+             * the display device to be active.
+             */
+            ctx->numActiveDisplays += 1;
+        }
+    }
+}
+
 static void reset(hwc_context_t *ctx, int numDisplays,
                   hwc_display_contents_1_t** displays) {
 
-    ctx->numActiveDisplays = 0;
-    ctx->isPaddingRound = false;
 
     for(int i = 0; i < numDisplays; i++) {
         hwc_display_contents_1_t *list = displays[i];
@@ -115,31 +207,15 @@ static void reset(hwc_context_t *ctx, int numDisplays,
         // cache we need to reset it.
         // We can probably rethink that later on
         if (LIKELY(list && list->numHwLayers > 0)) {
-            for(uint32_t j = 0; j < list->numHwLayers; j++) {
+            for(size_t j = 0; j < list->numHwLayers; j++) {
                 if(list->hwLayers[j].compositionType != HWC_FRAMEBUFFER_TARGET)
                     list->hwLayers[j].compositionType = HWC_FRAMEBUFFER;
             }
 
-            /* For display devices like SSD and screenrecord, we cannot
-             * rely on isActive and connected attributes of dpyAttr to
-             * determine if the displaydevice is active. Hence in case if
-             * the layer-list is non-null and numHwLayers > 0, we assume
-             * the display device to be active.
-             */
-            ctx->numActiveDisplays += 1;
-
-            if((ctx->mPrevHwLayerCount[i] == 1) and (list->numHwLayers > 1)) {
-                /* If the previous cycle for dpy 'i' has 0 AppLayers and the
-                 * current cycle has atleast 1 AppLayer, padding round needs
-                 * to be invoked on current cycle to free up the resources.
-                 */
-                ctx->isPaddingRound = true;
-            }
-            ctx->mPrevHwLayerCount[i] = list->numHwLayers;
-        } else {
-            ctx->mPrevHwLayerCount[i] = 0;
         }
 
+        if(ctx->mMDPComp[i])
+            ctx->mMDPComp[i]->reset();
         if(ctx->mFBUpdate[i])
             ctx->mFBUpdate[i]->reset();
         if(ctx->mCopyBit[i])
@@ -149,40 +225,30 @@ static void reset(hwc_context_t *ctx, int numDisplays,
     }
 
     ctx->mAD->reset();
-    MDPComp::reset();
     if(ctx->mHWCVirtual)
         ctx->mHWCVirtual->destroy(ctx, numDisplays, displays);
 }
 
-bool isEqual(float f1, float f2) {
-        return ((int)(f1*100) == (int)(f2*100)) ? true : false;
-}
-
 static void scaleDisplayFrame(hwc_context_t *ctx, int dpy,
                             hwc_display_contents_1_t *list) {
-    float origXres = ctx->dpyAttr[dpy].xres_orig;
-    float origYres = ctx->dpyAttr[dpy].yres_orig;
-    float fakeXres = ctx->dpyAttr[dpy].xres;
-    float fakeYres = ctx->dpyAttr[dpy].yres;
-    float xresRatio = origXres / fakeXres;
-    float yresRatio = origYres / fakeYres;
+    uint32_t origXres = ctx->dpyAttr[dpy].xres;
+    uint32_t origYres = ctx->dpyAttr[dpy].yres;
+    uint32_t newXres = ctx->dpyAttr[dpy].xres_new;
+    uint32_t newYres = ctx->dpyAttr[dpy].yres_new;
+    float xresRatio = (float)origXres / (float)newXres;
+    float yresRatio = (float)origYres / (float)newYres;
     for (size_t i = 0; i < list->numHwLayers; i++) {
         hwc_layer_1_t *layer = &list->hwLayers[i];
         hwc_rect_t& displayFrame = layer->displayFrame;
         hwc_rect_t sourceCrop = integerizeSourceCrop(layer->sourceCropf);
-        float layerWidth = displayFrame.right - displayFrame.left;
-        float layerHeight = displayFrame.bottom - displayFrame.top;
-        float sourceWidth = sourceCrop.right - sourceCrop.left;
-        float sourceHeight = sourceCrop.bottom - sourceCrop.top;
-
-        if (isEqual(layerWidth / sourceWidth, xresRatio) &&
-                isEqual(layerHeight / sourceHeight, yresRatio))
-            break;
-
-        displayFrame.left = xresRatio * displayFrame.left;
-        displayFrame.top = yresRatio * displayFrame.top;
-        displayFrame.right = displayFrame.left + layerWidth * xresRatio;
-        displayFrame.bottom = displayFrame.top + layerHeight * yresRatio;
+        uint32_t layerWidth = displayFrame.right - displayFrame.left;
+        uint32_t layerHeight = displayFrame.bottom - displayFrame.top;
+        displayFrame.left = (int)(xresRatio * (float)displayFrame.left);
+        displayFrame.top = (int)(yresRatio * (float)displayFrame.top);
+        displayFrame.right = (int)((float)displayFrame.left +
+                                   (float)layerWidth * xresRatio);
+        displayFrame.bottom = (int)((float)displayFrame.top +
+                                    (float)layerHeight * yresRatio);
     }
 }
 
@@ -195,17 +261,21 @@ static int hwc_prepare_primary(hwc_composer_device_1 *dev,
     if (LIKELY(list && list->numHwLayers > 1) &&
             ctx->dpyAttr[dpy].isActive) {
 
-        if (ctx->dpyAttr[dpy].customFBSize)
+        if (ctx->dpyAttr[dpy].customFBSize &&
+                list->flags & HWC_GEOMETRY_CHANGED)
             scaleDisplayFrame(ctx, dpy, list);
 
-        reset_layer_prop(ctx, dpy, list->numHwLayers - 1);
+        reset_layer_prop(ctx, dpy, (int)list->numHwLayers - 1);
         setListStats(ctx, list, dpy);
 
         fbComp = (ctx->mMDPComp[dpy]->prepare(ctx, list) < 0);
 
         if (fbComp) {
             const int fbZ = 0;
-            ctx->mFBUpdate[dpy]->prepareAndValidate(ctx, list, fbZ);
+            if(not ctx->mFBUpdate[dpy]->prepareAndValidate(ctx, list, fbZ)) {
+                ctx->mOverlay->clear(dpy);
+                ctx->mLayerRotMap[dpy]->clear();
+            }
         }
 
         if (ctx->mMDP.version < qdutils::MDP_V4_0) {
@@ -226,13 +296,17 @@ static int hwc_prepare_external(hwc_composer_device_1 *dev,
     if (LIKELY(list && list->numHwLayers > 1) &&
             ctx->dpyAttr[dpy].isActive &&
             ctx->dpyAttr[dpy].connected) {
-        reset_layer_prop(ctx, dpy, list->numHwLayers - 1);
+        reset_layer_prop(ctx, dpy, (int)list->numHwLayers - 1);
         if(!ctx->dpyAttr[dpy].isPause) {
             ctx->dpyAttr[dpy].isConfiguring = false;
             setListStats(ctx, list, dpy);
             if(ctx->mMDPComp[dpy]->prepare(ctx, list) < 0) {
                 const int fbZ = 0;
-                ctx->mFBUpdate[dpy]->prepareAndValidate(ctx, list, fbZ);
+                if(not ctx->mFBUpdate[dpy]->prepareAndValidate(ctx, list, fbZ))
+                {
+                    ctx->mOverlay->clear(dpy);
+                    ctx->mLayerRotMap[dpy]->clear();
+                }
             }
         } else {
             /* External Display is in Pause state.
@@ -261,13 +335,16 @@ static int hwc_prepare(hwc_composer_device_1 *dev, size_t numDisplays,
 
     //Will be unlocked at the end of set
     ctx->mDrawLock.lock();
-    reset(ctx, numDisplays, displays);
+    setPaddingRound(ctx, (int)numDisplays, displays);
+    setDMAState(ctx, (int)numDisplays, displays);
+    setNumActiveDisplays(ctx, (int)numDisplays, displays);
+    reset(ctx, (int)numDisplays, displays);
 
     ctx->mOverlay->configBegin();
     ctx->mRotMgr->configBegin();
     overlay::Writeback::configBegin();
 
-    for (int32_t i = (numDisplays-1); i >= 0; i--) {
+    for (int32_t i = ((int32_t)numDisplays-1); i >=0 ; i--) {
         hwc_display_contents_1_t *list = displays[i];
         int dpy = getDpyforExternalDisplay(ctx, i);
         switch(dpy) {
@@ -324,106 +401,86 @@ static int hwc_eventControl(struct hwc_composer_device_1* dev, int dpy,
     return ret;
 }
 
-static int hwc_blank(struct hwc_composer_device_1* dev, int dpy, int blank)
+static int hwc_setPowerMode(struct hwc_composer_device_1* dev, int dpy,
+        int mode)
 {
     ATRACE_CALL();
     hwc_context_t* ctx = (hwc_context_t*)(dev);
-
-    Locker::Autolock _l(ctx->mDrawLock);
     int ret = 0, value = 0;
 
-    /* In case of non-hybrid WFD session, we are fooling SF by
-     * piggybacking on HDMI display ID for virtual.
-     * TODO: Not needed once we have WFD client working on top
-     * of Google API's.
-     */
-    dpy = getDpyforExternalDisplay(ctx,dpy);
+    Locker::Autolock _l(ctx->mDrawLock);
+    ALOGD_IF(POWER_MODE_DEBUG, "%s: Setting mode %d on display: %d",
+            __FUNCTION__, mode, dpy);
 
-    ALOGD_IF(BLANK_DEBUG, "%s: %s display: %d", __FUNCTION__,
-          blank==1 ? "Blanking":"Unblanking", dpy);
-    if(blank) {
-        // free up all the overlay pipes in use
-        // when we get a blank for either display
-        // makes sure that all pipes are freed
-        ctx->mOverlay->configBegin();
-        ctx->mOverlay->configDone();
-        ctx->mRotMgr->clear();
-        // If VDS is connected, do not clear WB object as it
-        // will end up detaching IOMMU. This is required
-        // to send black frame to WFD sink on power suspend.
-        // Note: With this change, we keep the WriteBack object
-        // alive on power suspend for AD use case.
+    switch(mode) {
+        case HWC_POWER_MODE_OFF:
+            // free up all the overlay pipes in use
+            // when we get a blank for either display
+            // makes sure that all pipes are freed
+            ctx->mOverlay->configBegin();
+            ctx->mOverlay->configDone();
+            ctx->mRotMgr->clear();
+            // If VDS is connected, do not clear WB object as it
+            // will end up detaching IOMMU. This is required
+            // to send black frame to WFD sink on power suspend.
+            // Note: With this change, we keep the WriteBack object
+            // alive on power suspend for AD use case.
+            value = FB_BLANK_POWERDOWN;
+            break;
+        case HWC_POWER_MODE_DOZE:
+        case HWC_POWER_MODE_DOZE_SUSPEND:
+            value = FB_BLANK_VSYNC_SUSPEND;
+            break;
+        case HWC_POWER_MODE_NORMAL:
+            value = FB_BLANK_UNBLANK;
+            break;
     }
+
     switch(dpy) {
     case HWC_DISPLAY_PRIMARY:
-        value = blank ? FB_BLANK_POWERDOWN : FB_BLANK_UNBLANK;
         if(ioctl(ctx->dpyAttr[dpy].fd, FBIOBLANK, value) < 0 ) {
-            ALOGE("%s: Failed to handle blank event(%d) for Primary!!",
-                  __FUNCTION__, blank );
-            return -1;
+            ALOGE("%s: ioctl FBIOBLANK failed for Primary with error %s"
+                    " value %d", __FUNCTION__, strerror(errno), value);
+            return -errno;
         }
 
-        if(!blank) {
-            // Enable HPD here, as during bootup unblank is called
+        if(mode == HWC_POWER_MODE_NORMAL) {
+            // Enable HPD here, as during bootup POWER_MODE_NORMAL is set
             // when SF is completely initialized
             ctx->mExtDisplay->setHPD(1);
         }
 
-        ctx->dpyAttr[dpy].isActive = !blank;
-
-        if(ctx->mVirtualonExtActive) {
-            /* if mVirtualonExtActive is true, display hal will
-             * receive unblank calls for non-hybrid WFD solution
-             * since we piggyback on HDMI.
-             * TODO: Not needed once we have WFD client working on top
-             of Google API's */
-            break;
-        }
+        ctx->dpyAttr[dpy].isActive = not(mode == HWC_POWER_MODE_OFF);
+        //Deliberate fall through since there is no explicit power mode for
+        //virtual displays.
     case HWC_DISPLAY_VIRTUAL:
-        /* There are two ways to reach this block of code.
-
-         * Display hal has received unblank call on HWC_DISPLAY_EXTERNAL
-         and ctx->mVirtualonExtActive is true. In this case, non-hybrid
-         WFD is active. If so, getDpyforExternalDisplay will return dpy
-         as HWC_DISPLAY_VIRTUAL.
-
-         * Display hal has received unblank call on HWC_DISPLAY_PRIMARY
-         and since SF is not aware of VIRTUAL DISPLAY being handle by HWC,
-         it wont send blank / unblank events for it. We piggyback on
-         PRIMARY DISPLAY events to release mdp pipes and
-         activate/deactivate VIRTUAL DISPLAY.
-
-         * TODO: This separate case statement is not needed once we have
-         WFD client working on top of Google API's.
-
-         */
-
         if(ctx->dpyAttr[HWC_DISPLAY_VIRTUAL].connected) {
-            if(blank and (!ctx->dpyAttr[HWC_DISPLAY_VIRTUAL].isPause)) {
-                int dpy = HWC_DISPLAY_VIRTUAL;
+            const int dpy = HWC_DISPLAY_VIRTUAL;
+            if(mode == HWC_POWER_MODE_OFF and
+                    (not ctx->dpyAttr[dpy].isPause)) {
                 if(!Overlay::displayCommit(ctx->dpyAttr[dpy].fd)) {
-                    ALOGE("%s: display commit fail for virtual!", __FUNCTION__);
+                    ALOGE("%s: displayCommit failed for virtual", __FUNCTION__);
                     ret = -1;
                 }
             }
-            ctx->dpyAttr[HWC_DISPLAY_VIRTUAL].isActive = !blank;
+            ctx->dpyAttr[dpy].isActive = not(mode == HWC_POWER_MODE_OFF);
         }
         break;
     case HWC_DISPLAY_EXTERNAL:
-        if(blank) {
+        if(mode == HWC_POWER_MODE_OFF) {
             if(!Overlay::displayCommit(ctx->dpyAttr[dpy].fd)) {
-                ALOGE("%s: display commit fail for external!", __FUNCTION__);
+                ALOGE("%s: displayCommit failed for external", __FUNCTION__);
                 ret = -1;
             }
         }
-        ctx->dpyAttr[dpy].isActive = !blank;
+        ctx->dpyAttr[dpy].isActive = not(mode == HWC_POWER_MODE_OFF);
         break;
     default:
         return -EINVAL;
     }
 
-    ALOGD_IF(BLANK_DEBUG, "%s: Done %s display: %d", __FUNCTION__,
-          blank ? "blanking":"unblanking", dpy);
+    ALOGD_IF(POWER_MODE_DEBUG, "%s: Done setting mode %d on display %d",
+            __FUNCTION__, mode, dpy);
     return ret;
 }
 
@@ -438,18 +495,18 @@ static void reset_panel(struct hwc_composer_device_1* dev)
         return;
     }
 
-    ALOGD("%s: calling BLANK DISPLAY", __FUNCTION__);
-    ret = hwc_blank(dev, HWC_DISPLAY_PRIMARY, 1);
+    ALOGD("%s: setting power mode off", __FUNCTION__);
+    ret = hwc_setPowerMode(dev, HWC_DISPLAY_PRIMARY, HWC_POWER_MODE_OFF);
     if (ret < 0) {
         ALOGE("%s: FBIOBLANK failed to BLANK:  %s", __FUNCTION__,
-                                                            strerror(errno));
+                strerror(errno));
     }
 
-    ALOGD("%s: calling UNBLANK DISPLAY and enabling vsync", __FUNCTION__);
-    ret = hwc_blank(dev, HWC_DISPLAY_PRIMARY, 0);
+    ALOGD("%s: setting power mode normal and enabling vsync", __FUNCTION__);
+    ret = hwc_setPowerMode(dev, HWC_DISPLAY_PRIMARY, HWC_POWER_MODE_NORMAL);
     if (ret < 0) {
         ALOGE("%s: FBIOBLANK failed to UNBLANK : %s", __FUNCTION__,
-                                                            strerror(errno));
+                strerror(errno));
     }
     hwc_vsync_control(ctx, HWC_DISPLAY_PRIMARY, 1);
 
@@ -472,7 +529,8 @@ static int hwc_query(struct hwc_composer_device_1* dev,
         if(ctx->mMDP.hasOverlay) {
             supported |= HWC_DISPLAY_VIRTUAL_BIT;
             if(!(qdutils::MDPVersion::getInstance().is8x26() ||
-                        qdutils::MDPVersion::getInstance().is8x16()))
+                        qdutils::MDPVersion::getInstance().is8x16() ||
+                        qdutils::MDPVersion::getInstance().is8x39()))
                 supported |= HWC_DISPLAY_EXTERNAL_BIT;
         }
         value[0] = supported;
@@ -496,12 +554,18 @@ static int hwc_set_primary(hwc_context_t *ctx, hwc_display_contents_1_t* list) {
     int ret = 0;
     const int dpy = HWC_DISPLAY_PRIMARY;
     if (LIKELY(list) && ctx->dpyAttr[dpy].isActive) {
-        uint32_t last = list->numHwLayers - 1;
+        size_t last = list->numHwLayers - 1;
         hwc_layer_1_t *fbLayer = &list->hwLayers[last];
         int fd = -1; //FenceFD from the Copybit(valid in async mode)
         bool copybitDone = false;
-        if(ctx->mCopyBit[dpy])
-            copybitDone = ctx->mCopyBit[dpy]->draw(ctx, list, dpy, &fd);
+
+        if (ctx->mCopyBit[dpy]) {
+            if (ctx->mMDP.version < qdutils::MDP_V4_0)
+                copybitDone = ctx->mCopyBit[dpy]->draw(ctx, list, dpy, &fd);
+            else
+                fd = ctx->mMDPComp[dpy]->drawOverlap(ctx, list);
+        }
+
         if(list->numHwLayers > 1)
             hwc_sync(ctx, list, dpy, fd);
 
@@ -521,6 +585,12 @@ static int hwc_set_primary(hwc_context_t *ctx, hwc_display_contents_1_t* list) {
             hnd = ctx->mCopyBit[dpy]->getCurrentRenderBuffer();
         }
 
+        if(isAbcInUse(ctx) == true) {
+            int index = ctx->listStats[dpy].renderBufIndexforABC;
+            hwc_layer_1_t *tempLayer = &list->hwLayers[index];
+            hnd = (private_handle_t *)tempLayer->handle;
+        }
+
         if(hnd) {
             if (!ctx->mFBUpdate[dpy]->draw(ctx, hnd)) {
                 ALOGE("%s: FBUpdate draw failed", __FUNCTION__);
@@ -528,8 +598,20 @@ static int hwc_set_primary(hwc_context_t *ctx, hwc_display_contents_1_t* list) {
             }
         }
 
-        if(!Overlay::displayCommit(ctx->dpyAttr[dpy].fd,
-                                            ctx->listStats[dpy].roi)) {
+        int lSplit = getLeftSplit(ctx, dpy);
+        qhwc::ovutils::Dim lRoi = qhwc::ovutils::Dim(
+            ctx->listStats[dpy].lRoi.left,
+            ctx->listStats[dpy].lRoi.top,
+            ctx->listStats[dpy].lRoi.right - ctx->listStats[dpy].lRoi.left,
+            ctx->listStats[dpy].lRoi.bottom - ctx->listStats[dpy].lRoi.top);
+
+        qhwc::ovutils::Dim rRoi = qhwc::ovutils::Dim(
+            ctx->listStats[dpy].rRoi.left - lSplit,
+            ctx->listStats[dpy].rRoi.top,
+            ctx->listStats[dpy].rRoi.right - ctx->listStats[dpy].rRoi.left,
+            ctx->listStats[dpy].rRoi.bottom - ctx->listStats[dpy].rRoi.top);
+
+        if(!Overlay::displayCommit(ctx->dpyAttr[dpy].fd, lRoi, rRoi)) {
             ALOGE("%s: display commit fail for %d dpy!", __FUNCTION__, dpy);
             ret = -1;
         }
@@ -552,7 +634,7 @@ static int hwc_set_external(hwc_context_t *ctx,
     if (LIKELY(list) && ctx->dpyAttr[dpy].isActive &&
         ctx->dpyAttr[dpy].connected &&
         !ctx->dpyAttr[dpy].isPause) {
-        uint32_t last = list->numHwLayers - 1;
+        size_t last = list->numHwLayers - 1;
         hwc_layer_1_t *fbLayer = &list->hwLayers[last];
         int fd = -1; //FenceFD from the Copybit(valid in async mode)
         bool copybitDone = false;
@@ -605,7 +687,7 @@ static int hwc_set(hwc_composer_device_1 *dev,
 {
     int ret = 0;
     hwc_context_t* ctx = (hwc_context_t*)(dev);
-    for (uint32_t i = 0; i < numDisplays; i++) {
+    for (int i = 0; i < (int)numDisplays; i++) {
         hwc_display_contents_1_t* list = displays[i];
         int dpy = getDpyforExternalDisplay(ctx, i);
         switch(dpy) {
@@ -628,8 +710,6 @@ static int hwc_set(hwc_composer_device_1 *dev,
     CALC_FPS();
     MDPComp::resetIdleFallBack();
     ctx->mVideoTransFlag = false;
-    if(ctx->mRotMgr->getNumActiveSessions() == 0)
-        Overlay::setDMAMode(Overlay::DMA_LINE_MODE);
     //Was locked at the beginning of prepare
     ctx->mDrawLock.unlock();
     return ret;
@@ -640,8 +720,8 @@ int hwc_getDisplayConfigs(struct hwc_composer_device_1* dev, int disp,
     int ret = 0;
     hwc_context_t* ctx = (hwc_context_t*)(dev);
     disp = getDpyforExternalDisplay(ctx, disp);
-    //in 1.1 there is no way to choose a config, report as config id # 0
-    //This config is passed to getDisplayAttributes. Ignore for now.
+    //Currently we allow only 1 config, reported as config id # 0
+    //This config is passed in to getDisplayAttributes. Ignored for now.
     switch(disp) {
         case HWC_DISPLAY_PRIMARY:
             if(*numConfigs > 0) {
@@ -685,7 +765,7 @@ int hwc_getDisplayAttributes(struct hwc_composer_device_1* dev, int disp,
         HWC_DISPLAY_NO_ATTRIBUTE,
     };
 
-    const int NUM_DISPLAY_ATTRIBUTES = (sizeof(DISPLAY_ATTRIBUTES) /
+    const size_t NUM_DISPLAY_ATTRIBUTES = (sizeof(DISPLAY_ATTRIBUTES) /
             sizeof(DISPLAY_ATTRIBUTES)[0]);
 
     for (size_t i = 0; i < NUM_DISPLAY_ATTRIBUTES - 1; i++) {
@@ -694,14 +774,21 @@ int hwc_getDisplayAttributes(struct hwc_composer_device_1* dev, int disp,
             values[i] = ctx->dpyAttr[disp].vsync_period;
             break;
         case HWC_DISPLAY_WIDTH:
-            values[i] = ctx->dpyAttr[disp].xres;
+            if (ctx->dpyAttr[disp].customFBSize)
+                values[i] = ctx->dpyAttr[disp].xres_new;
+            else
+                values[i] = ctx->dpyAttr[disp].xres;
+
             ALOGD("%s disp = %d, width = %d",__FUNCTION__, disp,
-                    ctx->dpyAttr[disp].xres);
+                    values[i]);
             break;
         case HWC_DISPLAY_HEIGHT:
-            values[i] = ctx->dpyAttr[disp].yres;
+            if (ctx->dpyAttr[disp].customFBSize)
+                values[i] = ctx->dpyAttr[disp].yres_new;
+            else
+                values[i] = ctx->dpyAttr[disp].yres;
             ALOGD("%s disp = %d, height = %d",__FUNCTION__, disp,
-                    ctx->dpyAttr[disp].yres);
+                    values[i]);
             break;
         case HWC_DISPLAY_DPI_X:
             values[i] = (int32_t) (ctx->dpyAttr[disp].xdpi*1000.0);
@@ -730,7 +817,7 @@ void hwc_dump(struct hwc_composer_device_1* dev, char *buff, int buff_len)
         dumpsys_log(aBuf, "  Vsync is being faked!!\n");
     for(int dpy = 0; dpy < HWC_NUM_DISPLAY_TYPES; dpy++) {
         if(ctx->mMDPComp[dpy])
-            ctx->mMDPComp[dpy]->dump(aBuf);
+            ctx->mMDPComp[dpy]->dump(aBuf, ctx);
     }
     char ovDump[2048] = {'\0'};
     ctx->mOverlay->getDump(ovDump, 2048);
@@ -744,6 +831,17 @@ void hwc_dump(struct hwc_composer_device_1* dev, char *buff, int buff_len)
         ovDump[0] = '\0';
     }
     strlcpy(buff, aBuf.string(), buff_len);
+}
+
+int hwc_getActiveConfig(struct hwc_composer_device_1* /*dev*/, int /*disp*/) {
+    //Supports only the default config (0th index) for now
+    return 0;
+}
+
+int hwc_setActiveConfig(struct hwc_composer_device_1* /*dev*/, int /*disp*/,
+        int index) {
+    //Supports only the default config (0th index) for now
+    return (index == 0) ? index : -EINVAL;
 }
 
 static int hwc_device_close(struct hw_device_t *dev)
@@ -775,18 +873,20 @@ static int hwc_device_open(const struct hw_module_t* module, const char* name,
 
         //Setup HWC methods
         dev->device.common.tag          = HARDWARE_DEVICE_TAG;
-        dev->device.common.version      = HWC_DEVICE_API_VERSION_1_3;
+        dev->device.common.version      = HWC_DEVICE_API_VERSION_1_4;
         dev->device.common.module       = const_cast<hw_module_t*>(module);
         dev->device.common.close        = hwc_device_close;
         dev->device.prepare             = hwc_prepare;
         dev->device.set                 = hwc_set;
         dev->device.eventControl        = hwc_eventControl;
-        dev->device.blank               = hwc_blank;
+        dev->device.setPowerMode        = hwc_setPowerMode;
         dev->device.query               = hwc_query;
         dev->device.registerProcs       = hwc_registerProcs;
         dev->device.dump                = hwc_dump;
         dev->device.getDisplayConfigs   = hwc_getDisplayConfigs;
         dev->device.getDisplayAttributes = hwc_getDisplayAttributes;
+        dev->device.getActiveConfig     = hwc_getActiveConfig;
+        dev->device.setActiveConfig     = hwc_setActiveConfig;
         *device = &dev->device.common;
         status = 0;
     }

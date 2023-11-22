@@ -72,6 +72,7 @@ protected:
     DECLARE_HANDLER(OMXVideoEncoderBase, SyncEncoding);
     DECLARE_HANDLER(OMXVideoEncoderBase, PrependSPSPPS);
     DECLARE_HANDLER(OMXVideoEncoderBase, TemporalLayer);
+    DECLARE_HANDLER(OMXVideoEncoderBase, ConfigVideoBitrate);
     DECLARE_HANDLER(OMXVideoEncoderBase, BlackFramePointer);
 
 protected:
@@ -86,6 +87,7 @@ protected:
     OMX_VIDEO_PARAM_INTEL_ADAPTIVE_SLICE_CONTROL mParamIntelAdaptiveSliceControl;
     OMX_VIDEO_PARAM_PROFILELEVELTYPE mParamProfileLevel;
     OMX_VIDEO_PARAM_INTEL_TEMPORAL_LAYER mTemporalLayer;
+    OMX_VIDEO_CONFIG_BITRATETYPE mConfigBitrate;
 
     IVideoEncoder *mVideoEncoder;
     VideoParamsCommon *mEncoderParams;

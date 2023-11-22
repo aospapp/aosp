@@ -149,6 +149,9 @@ public class DeviceInfoInstrument extends Instrumentation implements DeviceInfoC
         // Multi-user support
         addResult(MULTI_USER, getMultiUserInfo());
 
+        // Encrypted
+        addResult(ENCRYPTED, getEncrypted());
+
         finish(Activity.RESULT_OK, mResults);
     }
 
@@ -393,5 +396,30 @@ public class DeviceInfoInstrument extends Instrumentation implements DeviceInfoC
         }
 
         return "unknown";
+    }
+
+    private static String getProperty(String property)
+            throws IOException {
+        Process process = new ProcessBuilder("getprop", property).start();
+        Scanner scanner = null;
+        String line = "";
+        try {
+            scanner = new Scanner(process.getInputStream());
+            line = scanner.nextLine();
+        } finally {
+            if (scanner != null) {
+                scanner.close();
+            }
+        }
+        return line;
+    }
+
+    private int getEncrypted() {
+        try {
+            return "encrypted".equals(getProperty("ro.crypto.state")) ? 1 : 0;
+        } catch (IOException e) {
+        }
+
+        return 0;
     }
 }

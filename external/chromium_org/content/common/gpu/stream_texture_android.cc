@@ -95,7 +95,7 @@ void StreamTexture::OnWillDestroyStub() {
   surface_texture_ = NULL;
 }
 
-void StreamTexture::Destroy() {
+void StreamTexture::Destroy(bool have_context) {
   NOTREACHED();
 }
 
@@ -200,6 +200,19 @@ bool StreamTexture::BindTexImage(unsigned target) {
 
 void StreamTexture::ReleaseTexImage(unsigned target) {
   NOTREACHED();
+}
+
+bool StreamTexture::CopyTexImage(unsigned target) {
+  return false;
+}
+
+bool StreamTexture::ScheduleOverlayPlane(gfx::AcceleratedWidget widget,
+                                         int z_order,
+                                         gfx::OverlayTransform transform,
+                                         const gfx::Rect& bounds_rect,
+                                         const gfx::RectF& crop_rect) {
+  NOTREACHED();
+  return false;
 }
 
 }  // namespace content

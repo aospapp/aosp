@@ -32,7 +32,7 @@ std::string IntVectorToString(const std::vector<int>& items) {
 AXNodeData::AXNodeData()
     : id(-1),
       role(AX_ROLE_UNKNOWN),
-      state(-1) {
+      state(0xFFFFFFFF) {
 }
 
 AXNodeData::~AXNodeData() {
@@ -342,6 +342,9 @@ std::string AXNodeData::ToString() const {
         break;
       case AX_ATTR_CANVAS_HAS_FALLBACK:
         result += " has_fallback=" + value;
+        break;
+      case AX_ATTR_IS_AX_TREE_HOST:
+        result += " is_ax_tree_host=" + value;
         break;
       case AX_BOOL_ATTRIBUTE_NONE:
         break;

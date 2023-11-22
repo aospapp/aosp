@@ -21,14 +21,18 @@ include $(BUILD_HOST_JAVA_LIBRARY)
 
 cts_library_xml := $(CTS_TESTCASES_OUT)/$(LOCAL_MODULE).xml
 
-$(cts_library_xml): PRIVATE_PATH := $(LOCAL_PATH)/src
+cts_src_dirs := $(LOCAL_PATH)/src
+cts_src_dirs += $(sort $(dir $(LOCAL_GENERATED_SOURCES)))
+cts_src_dirs := $(addprefix -s , $(cts_src_dirs))
+
+$(cts_library_xml): PRIVATE_SRC_DIRS := $(cts_src_dirs)
 $(cts_library_xml): PRIVATE_TEST_PACKAGE := $(LOCAL_CTS_TEST_PACKAGE)
 $(cts_library_xml): PRIVATE_LIBRARY := $(LOCAL_MODULE)
 $(cts_library_xml): PRIVATE_JAR_PATH := $(LOCAL_MODULE).jar
 $(cts_library_xml): $(HOST_OUT_JAVA_LIBRARIES)/$(LOCAL_MODULE).jar $(CTS_EXPECTATIONS) $(CTS_UNSUPPORTED_ABIS) $(CTS_JAVA_TEST_SCANNER_DOCLET) $(CTS_JAVA_TEST_SCANNER) $(CTS_XML_GENERATOR)
 	$(hide) echo Generating test description for host library $(PRIVATE_LIBRARY)
 	$(hide) mkdir -p $(CTS_TESTCASES_OUT)
-	$(hide) $(CTS_JAVA_TEST_SCANNER) -s $(PRIVATE_PATH) \
+	$(hide) $(CTS_JAVA_TEST_SCANNER) $(PRIVATE_SRC_DIRS) \
 						-d $(CTS_JAVA_TEST_SCANNER_DOCLET) | \
 			$(CTS_XML_GENERATOR) -t hostSideOnly \
 						-j $(PRIVATE_JAR_PATH) \
@@ -38,3 +42,6 @@ $(cts_library_xml): $(HOST_OUT_JAVA_LIBRARIES)/$(LOCAL_MODULE).jar $(CTS_EXPECTA
 						-b $(CTS_UNSUPPORTED_ABIS) \
 						-a $(CTS_TARGET_ARCH) \
 						-o $@
+
+# Have the module name depend on the cts files; so the cts files get generated when you run mm/mmm/mma/mmma.
+$(my_register_name) : $(cts_library_xml)

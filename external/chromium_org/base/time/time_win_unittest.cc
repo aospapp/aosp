@@ -178,7 +178,7 @@ TEST(TimeTicks, TimerPerformance) {
   typedef TimeTicks (*TestFunc)();
   struct TestCase {
     TestFunc func;
-    char *description;
+    const char *description;
   };
   // Cheating a bit here:  assumes sizeof(TimeTicks) == sizeof(Time)
   // in order to create a single test case list.
@@ -210,7 +210,8 @@ TEST(TimeTicks, TimerPerformance) {
   }
 }
 
-TEST(TimeTicks, Drift) {
+// http://crbug.com/396384
+TEST(TimeTicks, DISABLED_Drift) {
   // If QPC is disabled, this isn't measuring anything.
   if (!TimeTicks::IsHighResClockWorking())
     return;
@@ -239,4 +240,35 @@ TEST(TimeTicks, Drift) {
 
   printf("average time drift in microseconds: %lld\n",
          total_drift / kIterations);
+}
+
+int64 QPCValueToMicrosecondsSafely(LONGLONG qpc_value,
+                                   int64 ticks_per_second) {
+  int64 whole_seconds = qpc_value / ticks_per_second;
+  int64 leftover_ticks = qpc_value % ticks_per_second;
+  int64 microseconds = (whole_seconds * Time::kMicrosecondsPerSecond) +
+                       ((leftover_ticks * Time::kMicrosecondsPerSecond) /
+                        ticks_per_second);
+  return microseconds;
+}
+
+TEST(TimeTicks, FromQPCValue) {
+  if (!TimeTicks::IsHighResClockWorking())
+    return;
+  LARGE_INTEGER frequency;
+  QueryPerformanceFrequency(&frequency);
+  int64 ticks_per_second = frequency.QuadPart;
+  LONGLONG qpc_value = Time::kQPCOverflowThreshold;
+  TimeTicks expected_value = TimeTicks::FromInternalValue(
+    QPCValueToMicrosecondsSafely(qpc_value + 1, ticks_per_second));
+  EXPECT_EQ(expected_value,
+            TimeTicks::FromQPCValue(qpc_value + 1));
+  expected_value = TimeTicks::FromInternalValue(
+    QPCValueToMicrosecondsSafely(qpc_value, ticks_per_second));
+  EXPECT_EQ(expected_value,
+            TimeTicks::FromQPCValue(qpc_value));
+  expected_value = TimeTicks::FromInternalValue(
+    QPCValueToMicrosecondsSafely(qpc_value - 1, ticks_per_second));
+  EXPECT_EQ(expected_value,
+            TimeTicks::FromQPCValue(qpc_value - 1));
 }

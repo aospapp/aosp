@@ -273,11 +273,13 @@ void AudioStreamOut::finishedWriteOp(size_t framesWritten,
 
             // We should never be a full second ahead of schedule; sanity check
             // our throttle time and cap the max sleep time at 1 second.
-            if (deltaUSec > 1000000)
+            if (deltaUSec > 1000000) {
+                ALOGW("throttle time clipped! deltaLT = %lld deltaUSec = %lld",
+                    deltaLT, deltaUSec);
                 sleep_time = 1000000;
-            else
+            } else {
                 sleep_time = static_cast<useconds_t>(deltaUSec);
-
+            }
             usleep(sleep_time);
         }
     }
@@ -338,7 +340,7 @@ char* AudioStreamOut::getParameters(const char* k)
 
     if (param.get(keySupChannels, value) == NO_ERROR) {
         if (mIsMCOutput) {
-            hdmiCaps.getChannelMasksForAF(value, false);
+            hdmiCaps.getChannelMasksForAF(value);
             param.add(keySupChannels, value);
         } else {
             param.add(keySupChannels, String8("AUDIO_CHANNEL_OUT_STEREO"));
@@ -534,6 +536,8 @@ void AudioStreamOut::updateTargetOutputs()
 
 void AudioStreamOut::adjustOutputs(int64_t maxTime)
 {
+    int64_t a_zero_original = mLocalTimeToFrames.a_zero;
+    int64_t b_zero_original = mLocalTimeToFrames.b_zero;
     AudioOutputList::iterator I;
 
     // Check to see if any outputs are active and see what their buffer levels
@@ -551,6 +555,10 @@ void AudioStreamOut::adjustOutputs(int64_t maxTime)
             }
         }
     }
+    // Restore original offset so that the sleep time calculation for
+    // throttling is not broken in finishedWriteOp().
+    mLocalTimeToFrames.a_zero = a_zero_original;
+    mLocalTimeToFrames.b_zero = b_zero_original;
 }
 
 ssize_t AudioStreamOut::write(const void* buffer, size_t bytes)

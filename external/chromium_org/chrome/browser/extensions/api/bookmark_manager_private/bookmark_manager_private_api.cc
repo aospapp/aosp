@@ -24,6 +24,7 @@
 #include "chrome/browser/undo/bookmark_undo_service_factory.h"
 #include "chrome/common/extensions/api/bookmark_manager_private.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_node_data.h"
 #include "components/bookmarks/browser/bookmark_utils.h"
@@ -34,10 +35,11 @@
 #include "content/public/browser/web_ui.h"
 #include "extensions/browser/extension_function_dispatcher.h"
 #include "extensions/browser/view_type_utils.h"
-#include "grit/generated_resources.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/webui/web_ui_util.h"
+
+using bookmarks::BookmarkNodeData;
 
 namespace extensions {
 
@@ -71,7 +73,7 @@ const BookmarkNode* GetNodeFromString(BookmarkModel* model,
   int64 id;
   if (!base::StringToInt64(id_string, &id))
     return NULL;
-  return GetBookmarkNodeByID(model, id);
+  return bookmarks::GetBookmarkNodeByID(model, id);
 }
 
 // Gets a vector of bookmark nodes from the argument list of IDs.
@@ -79,7 +81,6 @@ const BookmarkNode* GetNodeFromString(BookmarkModel* model,
 bool GetNodesFromVector(BookmarkModel* model,
                         const std::vector<std::string>& id_strings,
                         std::vector<const BookmarkNode*>* nodes) {
-
   if (id_strings.empty())
     return false;
 
@@ -360,7 +361,7 @@ bool ClipboardBookmarkManagerFunction::CopyOrCut(bool cut,
     error_ = bookmark_keys::kModifyManagedError;
     return false;
   }
-  bookmark_utils::CopyToClipboard(model, nodes, cut);
+  bookmarks::CopyToClipboard(model, nodes, cut);
   return true;
 }
 
@@ -389,7 +390,7 @@ bool BookmarkManagerPrivatePasteFunction::RunOnReady() {
   const BookmarkNode* parent_node = GetNodeFromString(model, params->parent_id);
   if (!CanBeModified(parent_node))
     return false;
-  bool can_paste = bookmark_utils::CanPasteFromClipboard(model, parent_node);
+  bool can_paste = bookmarks::CanPasteFromClipboard(model, parent_node);
   if (!can_paste)
     return false;
 
@@ -406,7 +407,7 @@ bool BookmarkManagerPrivatePasteFunction::RunOnReady() {
       highest_index = index;
   }
 
-  bookmark_utils::PasteFromClipboard(model, parent_node, highest_index);
+  bookmarks::PasteFromClipboard(model, parent_node, highest_index);
   return true;
 }
 
@@ -423,8 +424,7 @@ bool BookmarkManagerPrivateCanPasteFunction::RunOnReady() {
     error_ = bookmark_keys::kNoParentError;
     return false;
   }
-  bool can_paste =
-      bookmark_utils::CanPasteFromClipboard(model, parent_node);
+  bool can_paste = bookmarks::CanPasteFromClipboard(model, parent_node);
   SetResult(new base::FundamentalValue(can_paste));
   return true;
 }
@@ -634,7 +634,7 @@ bool BookmarkManagerPrivateGetSubtreeFunction::RunOnReady() {
 bool BookmarkManagerPrivateCanEditFunction::RunOnReady() {
   PrefService* prefs = user_prefs::UserPrefs::Get(GetProfile());
   SetResult(new base::FundamentalValue(
-      prefs->GetBoolean(prefs::kEditBookmarksEnabled)));
+      prefs->GetBoolean(bookmarks::prefs::kEditBookmarksEnabled)));
   return true;
 }
 
@@ -759,9 +759,7 @@ bool BookmarkManagerPrivateRemoveTreesFunction::RunOnReady() {
 
   BookmarkModel* model = GetBookmarkModel();
   ChromeBookmarkClient* client = GetChromeBookmarkClient();
-#if !defined(OS_ANDROID)
   bookmarks::ScopedGroupBookmarkActions group_deletes(model);
-#endif
   int64 id;
   for (size_t i = 0; i < params->id_list.size(); ++i) {
     if (!GetBookmarkIdAsInt64(params->id_list[i], &id))
@@ -774,25 +772,18 @@ bool BookmarkManagerPrivateRemoveTreesFunction::RunOnReady() {
 }
 
 bool BookmarkManagerPrivateUndoFunction::RunOnReady() {
-#if !defined(OS_ANDROID)
   BookmarkUndoServiceFactory::GetForProfile(GetProfile())->undo_manager()->
       Undo();
-#endif
-
   return true;
 }
 
 bool BookmarkManagerPrivateRedoFunction::RunOnReady() {
-#if !defined(OS_ANDROID)
   BookmarkUndoServiceFactory::GetForProfile(GetProfile())->undo_manager()->
       Redo();
-#endif
-
   return true;
 }
 
 bool BookmarkManagerPrivateGetUndoInfoFunction::RunOnReady() {
-#if !defined(OS_ANDROID)
   UndoManager* undo_manager =
       BookmarkUndoServiceFactory::GetForProfile(GetProfile())->undo_manager();
 
@@ -801,13 +792,10 @@ bool BookmarkManagerPrivateGetUndoInfoFunction::RunOnReady() {
   result.label = base::UTF16ToUTF8(undo_manager->GetUndoLabel());
 
   results_ = UndoInfo::Results::Create(result);
-#endif  // !defined(OS_ANDROID)
-
   return true;
 }
 
 bool BookmarkManagerPrivateGetRedoInfoFunction::RunOnReady() {
-#if !defined(OS_ANDROID)
   UndoManager* undo_manager =
       BookmarkUndoServiceFactory::GetForProfile(GetProfile())->undo_manager();
 
@@ -816,8 +804,6 @@ bool BookmarkManagerPrivateGetRedoInfoFunction::RunOnReady() {
   result.label = base::UTF16ToUTF8(undo_manager->GetRedoLabel());
 
   results_ = RedoInfo::Results::Create(result);
-#endif  // !defined(OS_ANDROID)
-
   return true;
 }
 

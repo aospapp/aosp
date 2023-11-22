@@ -9,10 +9,11 @@ import os
 import re
 import tempfile
 
-from telemetry import test
+from telemetry import benchmark
 from telemetry.core import bitmap
-from telemetry.page import cloud_storage
 from telemetry.page import page_test
+from telemetry.util import cloud_storage
+
 
 test_data_dir = os.path.abspath(os.path.join(
     os.path.dirname(__file__), '..', '..', 'data', 'gpu'))
@@ -215,7 +216,7 @@ class ValidatorBase(page_test.PageTest):
       raise
 
 
-class TestBase(test.Test):
+class TestBase(benchmark.Benchmark):
   @classmethod
   def AddTestCommandLineArgs(cls, group):
     group.add_option('--build-revision',

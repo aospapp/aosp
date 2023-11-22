@@ -15,6 +15,8 @@
 #include "components/translate/core/browser/translate_download_manager.h"
 #include "components/translate/core/common/translate_util.h"
 
+namespace translate {
+
 const char TranslatePrefs::kPrefTranslateLanguageBlacklist[] =
     "translate_language_blacklist";
 const char TranslatePrefs::kPrefTranslateSiteBlacklist[] =
@@ -27,6 +29,10 @@ const char TranslatePrefs::kPrefTranslateAcceptedCount[] =
     "translate_accepted_count";
 const char TranslatePrefs::kPrefTranslateBlockedLanguages[] =
     "translate_blocked_languages";
+const char TranslatePrefs::kPrefTranslateLastDeniedTime[] =
+    "translate_last_denied_time";
+const char TranslatePrefs::kPrefTranslateTooOftenDenied[] =
+    "translate_too_often_denied";
 
 namespace {
 
@@ -103,6 +109,9 @@ void TranslatePrefs::ResetToDefaults() {
     ResetTranslationAcceptedCount(language);
     ResetTranslationDeniedCount(language);
   }
+
+  prefs_->ClearPref(kPrefTranslateLastDeniedTime);
+  prefs_->ClearPref(kPrefTranslateTooOftenDenied);
 }
 
 bool TranslatePrefs::IsBlockedLanguage(
@@ -255,6 +264,27 @@ void TranslatePrefs::ResetTranslationAcceptedCount(
   update.Get()->SetInteger(language, 0);
 }
 
+void TranslatePrefs::UpdateLastDeniedTime() {
+  if (IsTooOftenDenied())
+    return;
+
+  double time = prefs_->GetDouble(kPrefTranslateLastDeniedTime);
+  base::Time last_closed_time = base::Time::FromJsTime(time);
+  base::Time now = base::Time::Now();
+  prefs_->SetDouble(kPrefTranslateLastDeniedTime, now.ToJsTime());
+  if (now - last_closed_time <= base::TimeDelta::FromDays(1))
+    prefs_->SetBoolean(kPrefTranslateTooOftenDenied, true);
+}
+
+bool TranslatePrefs::IsTooOftenDenied() const {
+  return prefs_->GetBoolean(kPrefTranslateTooOftenDenied);
+}
+
+void TranslatePrefs::ResetDenialState() {
+  prefs_->SetDouble(kPrefTranslateLastDeniedTime, 0);
+  prefs_->SetBoolean(kPrefTranslateTooOftenDenied, false);
+}
+
 void TranslatePrefs::GetLanguageList(std::vector<std::string>* languages) {
   DCHECK(languages);
   DCHECK(languages->empty());
@@ -335,6 +365,12 @@ void TranslatePrefs::RegisterProfilePrefs(
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterListPref(kPrefTranslateBlockedLanguages,
                              user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterDoublePref(
+      kPrefTranslateLastDeniedTime, 0,
+      user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
+  registry->RegisterBooleanPref(
+      kPrefTranslateTooOftenDenied, false,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
 }
 
 // static
@@ -538,3 +574,5 @@ bool TranslatePrefs::IsDictionaryEmpty(const char* pref_id) const {
   const base::DictionaryValue* dict = prefs_->GetDictionary(pref_id);
   return (dict == NULL || dict->empty());
 }
+
+}  // namespace translate

@@ -21,6 +21,10 @@ import com.android.cts.widget.R;
 import android.app.Activity;
 import android.os.Bundle;
 import android.widget.PopupWindow;
+import android.view.View;
+import android.view.View.OnApplyWindowInsetsListener;
+import android.view.Window;
+import android.view.WindowInsets;
 
 /**
  * Stub activity for testing {@link PopupWindow}

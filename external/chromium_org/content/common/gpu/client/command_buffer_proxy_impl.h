@@ -12,6 +12,7 @@
 #include "base/callback.h"
 #include "base/compiler_specific.h"
 #include "base/containers/hash_tables.h"
+#include "base/containers/scoped_ptr_hash_map.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
@@ -26,10 +27,6 @@ struct GPUCommandBufferConsoleMessage;
 
 namespace base {
 class SharedMemory;
-}
-
-namespace gfx {
-class GpuMemoryBuffer;
 }
 
 namespace gpu {
@@ -108,6 +105,8 @@ class CommandBufferProxyImpl
                                                       int32* id) OVERRIDE;
   virtual void DestroyGpuMemoryBuffer(int32 id) OVERRIDE;
   virtual uint32 InsertSyncPoint() OVERRIDE;
+  virtual uint32_t InsertFutureSyncPoint() OVERRIDE;
+  virtual void RetireSyncPoint(uint32_t sync_point) OVERRIDE;
   virtual void SignalSyncPoint(uint32 sync_point,
                                const base::Closure& callback) OVERRIDE;
   virtual void SignalQuery(uint32 query,
@@ -142,10 +141,15 @@ class CommandBufferProxyImpl
 
   GpuChannelHost* channel() const { return channel_; }
 
+  base::SharedMemoryHandle GetSharedStateHandle() const {
+    return shared_state_shm_->handle();
+  }
+
  private:
   typedef std::map<int32, scoped_refptr<gpu::Buffer> > TransferBufferMap;
   typedef base::hash_map<uint32, base::Closure> SignalTaskMap;
-  typedef std::map<int32, gfx::GpuMemoryBuffer*> GpuMemoryBufferMap;
+  typedef base::ScopedPtrHashMap<int32, gfx::GpuMemoryBuffer>
+      GpuMemoryBufferMap;
 
   // Send an IPC message over the GPU channel. This is private to fully
   // encapsulate the channel; all callers of this function must explicitly
@@ -199,6 +203,8 @@ class CommandBufferProxyImpl
   GpuMemoryBufferMap gpu_memory_buffers_;
 
   gpu::Capabilities capabilities_;
+
+  std::vector<ui::LatencyInfo> latency_info_;
 
   DISALLOW_COPY_AND_ASSIGN(CommandBufferProxyImpl);
 };

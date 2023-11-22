@@ -13,6 +13,7 @@
 #include "extensions/browser/api/dns/host_resolver_wrapper.h"
 #include "extensions/browser/api/socket/socket.h"
 #include "extensions/browser/api/socket/tcp_socket.h"
+#include "extensions/browser/api/socket/tls_socket.h"
 #include "extensions/browser/api/socket/udp_socket.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/common/extension.h"
@@ -24,6 +25,8 @@
 #include "net/base/net_errors.h"
 #include "net/base/net_log.h"
 #include "net/base/net_util.h"
+#include "net/url_request/url_request_context.h"
+#include "net/url_request/url_request_context_getter.h"
 
 namespace extensions {
 
@@ -43,6 +46,8 @@ const char kNetworkListError[] = "Network lookup failed or unsupported";
 const char kTCPSocketBindError[] =
     "TCP socket does not support bind. For TCP server please use listen.";
 const char kMulticastSocketTypeError[] = "Only UDP socket supports multicast.";
+const char kSecureSocketTypeError[] = "Only TCP sockets are supported for TLS.";
+const char kSocketNotConnectedError[] = "Socket not connected";
 const char kWildcardAddress[] = "*";
 const int kWildcardPort = 0;
 
@@ -71,6 +76,11 @@ Socket* SocketAsyncApiFunction::GetSocket(int api_resource_id) {
   return manager_->Get(extension_->id(), api_resource_id);
 }
 
+void SocketAsyncApiFunction::ReplaceSocket(int api_resource_id,
+                                           Socket* socket) {
+  manager_->Replace(extension_->id(), api_resource_id, socket);
+}
+
 base::hash_set<int>* SocketAsyncApiFunction::GetSocketIds() {
   return manager_->GetResourceIds(extension_->id());
 }
@@ -96,8 +106,7 @@ bool SocketExtensionWithDnsLookupFunction::PrePrepare() {
 void SocketExtensionWithDnsLookupFunction::StartDnsLookup(
     const std::string& hostname) {
   net::HostResolver* host_resolver =
-      extensions::HostResolverWrapper::GetInstance()->GetHostResolver(
-          resource_context_->GetHostResolver());
+      HostResolverWrapper::GetInstance()->GetHostResolver(resource_context_);
   DCHECK(host_resolver);
 
   // Yes, we are passing zero as the port. There are some interesting but not
@@ -195,6 +204,8 @@ void SocketConnectFunction::AsyncWorkStart() {
     return;
   }
 
+  socket_->set_hostname(hostname_);
+
   SocketPermissionRequest::OperationType operation_type;
   switch (socket_->GetSocketType()) {
     case Socket::TYPE_TCP:
@@ -210,7 +221,7 @@ void SocketConnectFunction::AsyncWorkStart() {
   }
 
   SocketPermission::CheckParam param(operation_type, hostname_, port_);
-  if (!GetExtension()->permissions_data()->CheckAPIPermissionWithParam(
+  if (!extension()->permissions_data()->CheckAPIPermissionWithParam(
           APIPermission::kSocket, &param)) {
     error_ = kPermissionError;
     SetResult(new base::FundamentalValue(-1));
@@ -275,7 +286,7 @@ void SocketBindFunction::Work() {
   if (socket->GetSocketType() == Socket::TYPE_UDP) {
     SocketPermission::CheckParam param(
         SocketPermissionRequest::UDP_BIND, address_, port_);
-    if (!GetExtension()->permissions_data()->CheckAPIPermissionWithParam(
+    if (!extension()->permissions_data()->CheckAPIPermissionWithParam(
             APIPermission::kSocket, &param)) {
       error_ = kPermissionError;
       SetResult(new base::FundamentalValue(result));
@@ -308,7 +319,7 @@ void SocketListenFunction::Work() {
   if (socket) {
     SocketPermission::CheckParam param(
         SocketPermissionRequest::TCP_LISTEN, params_->address, params_->port);
-    if (!GetExtension()->permissions_data()->CheckAPIPermissionWithParam(
+    if (!extension()->permissions_data()->CheckAPIPermissionWithParam(
             APIPermission::kSocket, &param)) {
       error_ = kPermissionError;
       SetResult(new base::FundamentalValue(result));
@@ -510,7 +521,7 @@ void SocketSendToFunction::AsyncWorkStart() {
   if (socket_->GetSocketType() == Socket::TYPE_UDP) {
     SocketPermission::CheckParam param(
         SocketPermissionRequest::UDP_SEND_TO, hostname_, port_);
-    if (!GetExtension()->permissions_data()->CheckAPIPermissionWithParam(
+    if (!extension()->permissions_data()->CheckAPIPermissionWithParam(
             APIPermission::kSocket, &param)) {
       error_ = kPermissionError;
       SetResult(new base::FundamentalValue(-1));
@@ -724,7 +735,7 @@ void SocketJoinGroupFunction::Work() {
       kWildcardAddress,
       kWildcardPort);
 
-  if (!GetExtension()->permissions_data()->CheckAPIPermissionWithParam(
+  if (!extension()->permissions_data()->CheckAPIPermissionWithParam(
           APIPermission::kSocket, &param)) {
     error_ = kPermissionError;
     SetResult(new base::FundamentalValue(result));
@@ -768,7 +779,7 @@ void SocketLeaveGroupFunction::Work() {
       SocketPermissionRequest::UDP_MULTICAST_MEMBERSHIP,
       kWildcardAddress,
       kWildcardPort);
-  if (!GetExtension()->permissions_data()->CheckAPIPermissionWithParam(
+  if (!extension()->permissions_data()->CheckAPIPermissionWithParam(
           APIPermission::kSocket, &param)) {
     error_ = kPermissionError;
     SetResult(new base::FundamentalValue(result));
@@ -875,7 +886,7 @@ void SocketGetJoinedGroupsFunction::Work() {
       SocketPermissionRequest::UDP_MULTICAST_MEMBERSHIP,
       kWildcardAddress,
       kWildcardPort);
-  if (!GetExtension()->permissions_data()->CheckAPIPermissionWithParam(
+  if (!extension()->permissions_data()->CheckAPIPermissionWithParam(
           APIPermission::kSocket, &param)) {
     error_ = kPermissionError;
     SetResult(new base::FundamentalValue(result));
@@ -886,6 +897,78 @@ void SocketGetJoinedGroupsFunction::Work() {
   values->AppendStrings((std::vector<std::string>&)static_cast<UDPSocket*>(
                             socket)->GetJoinedGroups());
   SetResult(values);
+}
+
+SocketSecureFunction::SocketSecureFunction() {
+}
+
+SocketSecureFunction::~SocketSecureFunction() {
+}
+
+bool SocketSecureFunction::Prepare() {
+  DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
+  params_ = core_api::socket::Secure::Params::Create(*args_);
+  EXTENSION_FUNCTION_VALIDATE(params_.get());
+  url_request_getter_ = browser_context()->GetRequestContext();
+  return true;
+}
+
+// Override the regular implementation, which would call AsyncWorkCompleted
+// immediately after Work().
+void SocketSecureFunction::AsyncWorkStart() {
+  DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::IO));
+
+  Socket* socket = GetSocket(params_->socket_id);
+  if (!socket) {
+    SetResult(new base::FundamentalValue(net::ERR_INVALID_ARGUMENT));
+    error_ = kSocketNotFoundError;
+    AsyncWorkCompleted();
+    return;
+  }
+
+  // Make sure that the socket is a TCP client socket.
+  if (socket->GetSocketType() != Socket::TYPE_TCP ||
+      static_cast<TCPSocket*>(socket)->ClientStream() == NULL) {
+    SetResult(new base::FundamentalValue(net::ERR_INVALID_ARGUMENT));
+    error_ = kSecureSocketTypeError;
+    AsyncWorkCompleted();
+    return;
+  }
+
+  if (!socket->IsConnected()) {
+    SetResult(new base::FundamentalValue(net::ERR_INVALID_ARGUMENT));
+    error_ = kSocketNotConnectedError;
+    AsyncWorkCompleted();
+    return;
+  }
+
+  net::URLRequestContext* url_request_context =
+      url_request_getter_->GetURLRequestContext();
+
+  TLSSocket::UpgradeSocketToTLS(
+      socket,
+      url_request_context->ssl_config_service(),
+      url_request_context->cert_verifier(),
+      url_request_context->transport_security_state(),
+      extension_id(),
+      params_->options.get(),
+      base::Bind(&SocketSecureFunction::TlsConnectDone, this));
+}
+
+void SocketSecureFunction::TlsConnectDone(scoped_ptr<TLSSocket> socket,
+                                          int result) {
+  // if an error occurred, socket MUST be NULL.
+  DCHECK(result == net::OK || socket == NULL);
+
+  if (socket && result == net::OK) {
+    ReplaceSocket(params_->socket_id, socket.release());
+  } else {
+    RemoveSocket(params_->socket_id);
+    error_ = net::ErrorToString(result);
+  }
+
+  results_ = core_api::socket::Secure::Results::Create(result);
+  AsyncWorkCompleted();
 }
 
 }  // namespace extensions

@@ -4,7 +4,6 @@
 
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/extensions/api/permissions/permissions_api.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -14,7 +13,9 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test_utils.h"
+#include "extensions/browser/notification_types.h"
 #include "extensions/common/extension.h"
+#include "extensions/test/result_catcher.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "url/gurl.h"
@@ -209,7 +210,7 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(StartEmbeddedTestServer());
 
   content::WindowedNotificationObserver signal(
-      chrome::NOTIFICATION_USER_SCRIPTS_UPDATED,
+      extensions::NOTIFICATION_USER_SCRIPTS_UPDATED,
       content::Source<Profile>(browser()->profile()));
 
   // Start with a renderer already open at a URL.

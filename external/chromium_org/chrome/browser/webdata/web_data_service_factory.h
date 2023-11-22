@@ -13,8 +13,12 @@
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/webdata/common/web_database_service.h"
 
+class KeywordWebDataService;
 class TokenWebData;
-class WebDataService;
+
+#if defined(OS_WIN)
+class PasswordWebDataService;
+#endif
 
 namespace autofill {
 class AutofillWebDataService;
@@ -35,16 +39,24 @@ class WebDataServiceWrapper : public KeyedService {
 
   virtual scoped_refptr<autofill::AutofillWebDataService> GetAutofillWebData();
 
-  virtual scoped_refptr<WebDataService> GetWebData();
+  virtual scoped_refptr<KeywordWebDataService> GetKeywordWebData();
 
   virtual scoped_refptr<TokenWebData> GetTokenWebData();
+
+#if defined(OS_WIN)
+  virtual scoped_refptr<PasswordWebDataService> GetPasswordWebData();
+#endif
 
  private:
   scoped_refptr<WebDatabaseService> web_database_;
 
   scoped_refptr<autofill::AutofillWebDataService> autofill_web_data_;
+  scoped_refptr<KeywordWebDataService> keyword_web_data_;
   scoped_refptr<TokenWebData> token_web_data_;
-  scoped_refptr<WebDataService> web_data_;
+
+#if defined(OS_WIN)
+  scoped_refptr<PasswordWebDataService> password_web_data_;
+#endif
 
   DISALLOW_COPY_AND_ASSIGN(WebDataServiceWrapper);
 };
@@ -67,9 +79,22 @@ class WebDataServiceFactory : public BrowserContextKeyedServiceFactory {
       GetAutofillWebDataForProfile(Profile* profile,
                                    Profile::ServiceAccessType access_type);
 
-  // Returns the TokenWebData associated with the |profile|.
-  static scoped_refptr<TokenWebData> GetTokenWebDataForProfile(Profile* profile,
+  // Returns the KeywordWebDataService associated with the |profile|.
+  static scoped_refptr<KeywordWebDataService> GetKeywordWebDataForProfile(
+      Profile* profile,
       Profile::ServiceAccessType access_type);
+
+  // Returns the TokenWebData associated with the |profile|.
+  static scoped_refptr<TokenWebData> GetTokenWebDataForProfile(
+      Profile* profile,
+      Profile::ServiceAccessType access_type);
+
+#if defined(OS_WIN)
+  // Returns the PasswordWebDataService associated with the |profile|.
+  static scoped_refptr<PasswordWebDataService> GetPasswordWebDataForProfile(
+      Profile* profile,
+      Profile::ServiceAccessType access_type);
+#endif
 
   static WebDataServiceFactory* GetInstance();
 

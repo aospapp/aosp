@@ -29,10 +29,12 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.View.OnClickListener;
 import android.widget.ArrayAdapter;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -69,11 +71,13 @@ public class ByodFlowTestActivity extends PassFailButtons.ListActivity {
     protected DevicePolicyManager mDevicePolicyManager;
 
     private TestItem mProfileOwnerInstalled;
-    private TestItem mDiskEncryptionTest;
     private TestItem mProfileVisibleTest;
     private TestItem mDeviceAdminVisibleTest;
     private TestItem mWorkAppVisibleTest;
     private TestItem mCrossProfileIntentFiltersTest;
+    private TestItem mDisableNonMarketTest;
+    private TestItem mEnableNonMarketTest;
+    private TestItem mWorkNotificationBadgedTest;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -155,13 +159,6 @@ public class ByodFlowTestActivity extends PassFailButtons.ListActivity {
             }
         };
 
-        mDiskEncryptionTest = new TestItem(this, R.string.provisioning_byod_diskencryption) {
-            @Override
-            public TestResult getPassFailState() {
-                return isDeviceEncrypted() ? TestResult.Passed : TestResult.Failed;
-            }
-        };
-
         mProfileVisibleTest = new TestItem(this, R.string.provisioning_byod_profile_visible,
                 R.string.provisioning_byod_profile_visible_instruction,
                 new Intent(Settings.ACTION_SETTINGS));
@@ -170,9 +167,31 @@ public class ByodFlowTestActivity extends PassFailButtons.ListActivity {
                 R.string.provisioning_byod_admin_visible_instruction,
                 new Intent(Settings.ACTION_SECURITY_SETTINGS));
 
-        mWorkAppVisibleTest = new TestItem(this, R.string.provisioning_byod_workapps_visible,
-                R.string.provisioning_byod_workapps_visible_instruction,
-                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME));
+        /*
+         * To keep the image in this test up to date, use the instructions in
+         * {@link ByodIconSamplerActivity}.
+         */
+        mWorkAppVisibleTest = new TestItemWithIcon(this,
+                R.string.provisioning_byod_workapps_visible,
+                R.string.provisioning_byod_profile_visible_instruction,
+                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
+                R.drawable.badged_icon);
+
+        mWorkNotificationBadgedTest = new TestItemWithIcon(this,
+                R.string.provisioning_byod_work_notification,
+                R.string.provisioning_byod_work_notification_instruction,
+                new Intent(WorkNotificationTestActivity.ACTION_WORK_NOTIFICATION),
+                R.drawable.ic_corp_icon);
+
+        mDisableNonMarketTest = new TestItem(this, R.string.provisioning_byod_nonmarket_deny,
+                R.string.provisioning_byod_nonmarket_deny_info,
+                new Intent(ByodHelperActivity.ACTION_INSTALL_APK)
+                        .putExtra(ByodHelperActivity.EXTRA_ALLOW_NON_MARKET_APPS, false));
+
+        mEnableNonMarketTest = new TestItem(this, R.string.provisioning_byod_nonmarket_allow,
+                R.string.provisioning_byod_nonmarket_allow_info,
+                new Intent(ByodHelperActivity.ACTION_INSTALL_APK)
+                        .putExtra(ByodHelperActivity.EXTRA_ALLOW_NON_MARKET_APPS, true));
 
         Intent intent = new Intent(CrossProfileTestActivity.ACTION_CROSS_PROFILE);
         Intent chooser = Intent.createChooser(intent, getResources().getString(R.string.provisioning_cross_profile_chooser));
@@ -181,12 +200,14 @@ public class ByodFlowTestActivity extends PassFailButtons.ListActivity {
                 R.string.provisioning_byod_cross_profile_instruction,
                 chooser);
 
-        mTests.add(mDiskEncryptionTest);
         mTests.add(mProfileOwnerInstalled);
         mTests.add(mProfileVisibleTest);
         mTests.add(mDeviceAdminVisibleTest);
         mTests.add(mWorkAppVisibleTest);
+        mTests.add(mWorkNotificationBadgedTest);
         mTests.add(mCrossProfileIntentFiltersTest);
+        mTests.add(mDisableNonMarketTest);
+        mTests.add(mEnableNonMarketTest);
     }
 
     @Override
@@ -197,31 +218,47 @@ public class ByodFlowTestActivity extends PassFailButtons.ListActivity {
     }
 
     private void showManualTestDialog(final TestItem test) {
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(this)
                 .setIcon(android.R.drawable.ic_dialog_info)
-                .setMessage(test.getManualTestInstruction())
+                .setTitle(R.string.provisioning_byod)
                 .setNeutralButton(R.string.provisioning_byod_go, null)
-                .setPositiveButton(R.string.pass_button_text, new DialogInterface.OnClickListener() {
+                .setPositiveButton(R.string.pass_button_text, new AlertDialog.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
+                        clearRemainingState(test);
                         setTestResult(test, TestResult.Passed);
                     }
                 })
-                .setNegativeButton(R.string.fail_button_text, new DialogInterface.OnClickListener() {
+                .setNegativeButton(R.string.fail_button_text, new AlertDialog.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
+                        clearRemainingState(test);
                         setTestResult(test, TestResult.Failed);
                     }
-                })
-                .create();
-        dialog.show();
-
+                });
+        View customView = test.getCustomView();
+        if (customView != null) {
+            dialogBuilder.setView(customView);
+        } else {
+            dialogBuilder.setMessage(test.getManualTestInstruction());
+        }
+        AlertDialog dialog = dialogBuilder.show();
+        // Note: Setting the OnClickListener on the Dialog rather than the Builder, prevents the
+        // dialog being dismissed on onClick.
         dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
                 ByodFlowTestActivity.this.startActivity(test.getManualTestIntent());
             }
         });
+    }
+
+    private void clearRemainingState(final TestItem test) {
+        if (WorkNotificationTestActivity.ACTION_WORK_NOTIFICATION.equals(
+                test.getManualTestIntent().getAction())) {
+            ByodFlowTestActivity.this.startActivity(new Intent(
+                    WorkNotificationTestActivity.ACTION_CLEAR_WORK_NOTIFICATION));
+        }
     }
 
     private void setTestResult(TestItem test, TestResult result) {
@@ -282,11 +319,10 @@ public class ByodFlowTestActivity extends PassFailButtons.ListActivity {
                 this, ByodHelperActivity.class),
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
                 PackageManager.DONT_KILL_APP);
-    }
-
-    private boolean isDeviceEncrypted() {
-        return mDevicePolicyManager.getStorageEncryptionStatus()
-                == DevicePolicyManager.ENCRYPTION_STATUS_ACTIVE;
+        getPackageManager().setComponentEnabledSetting(new ComponentName(
+                this, WorkNotificationTestActivity.class),
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP);
     }
 
     private void showToast(int messageId) {
@@ -350,6 +386,33 @@ public class ByodFlowTestActivity extends PassFailButtons.ListActivity {
         public Intent getManualTestIntent() {
             return mManualIntent;
         }
+
+        public View getCustomView() {
+            return null;
+        }
+    }
+
+    static class TestItemWithIcon extends TestItem {
+
+        private int mImageResId;
+        private Context mContext;
+
+        public TestItemWithIcon(Context context, int nameResId, int testInstructionResId,
+                Intent testIntent, int imageResId) {
+            super(context, nameResId, testInstructionResId, testIntent);
+            mContext = context;
+            mImageResId = imageResId;
+        }
+
+        @Override
+        public View getCustomView() {
+            LayoutInflater layoutInflater = LayoutInflater.from(mContext);
+            View view = layoutInflater.inflate(R.layout.byod_custom_view,
+                    null /* root */);
+            ((ImageView) view.findViewById(R.id.sample_icon)).setImageResource(mImageResId);
+            ((TextView) view.findViewById(R.id.message)).setText(getManualTestInstruction());
+            return view;
+        }
     }
 
     static class TestAdapter extends ArrayAdapter<TestItem> {
@@ -380,5 +443,4 @@ public class ByodFlowTestActivity extends PassFailButtons.ListActivity {
             return view;
         }
     }
-
 }

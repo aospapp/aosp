@@ -5,11 +5,13 @@
 #include "base/basictypes.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/message_loop/message_loop.h"
 #include "base/path_service.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/cancelable_task_tracker.h"
 #include "chrome/browser/history/history_service.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -78,10 +80,11 @@ class HistoryQueryTest : public testing::Test {
   void QueryHistory(const std::string& text_query,
                     const QueryOptions& options,
                     QueryResults* results) {
-    history_->QueryHistory(
-        base::UTF8ToUTF16(text_query), options, &consumer_,
-        base::Bind(&HistoryQueryTest::QueryHistoryComplete,
-                   base::Unretained(this)));
+    history_->QueryHistory(base::UTF8ToUTF16(text_query),
+                           options,
+                           base::Bind(&HistoryQueryTest::QueryHistoryComplete,
+                                      base::Unretained(this)),
+                           &tracker_);
     // Will go until ...Complete calls Quit.
     base::MessageLoop::current()->Run();
     results->Swap(&last_query_results_);
@@ -151,7 +154,7 @@ class HistoryQueryTest : public testing::Test {
     GURL url(entry.url);
 
     history_->AddPage(url, entry.time, context_id, page_id_++, GURL(),
-                      history::RedirectList(), content::PAGE_TRANSITION_LINK,
+                      history::RedirectList(), ui::PAGE_TRANSITION_LINK,
                       history::SOURCE_BROWSED, false);
     history_->SetPageTitle(url, base::UTF8ToUTF16(entry.title));
   }
@@ -186,7 +189,7 @@ class HistoryQueryTest : public testing::Test {
     }
   }
 
-  void QueryHistoryComplete(HistoryService::Handle, QueryResults* results) {
+  void QueryHistoryComplete(QueryResults* results) {
     results->Swap(&last_query_results_);
     base::MessageLoop::current()->Quit();  // Will return out to QueryHistory.
   }
@@ -197,7 +200,7 @@ class HistoryQueryTest : public testing::Test {
 
   base::FilePath history_dir_;
 
-  CancelableRequestConsumer consumer_;
+  base::CancelableTaskTracker tracker_;
 
   // The QueryHistoryComplete callback will put the results here so QueryHistory
   // can return them.

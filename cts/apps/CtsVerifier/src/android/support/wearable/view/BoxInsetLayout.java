@@ -18,6 +18,8 @@ package android.support.wearable.view;
 
 import com.android.cts.verifier.R;
 
+import android.annotation.TargetApi;
+import android.os.Build;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Rect;
@@ -38,6 +40,7 @@ import android.widget.FrameLayout;
  * The {@code layout_box} attribute is ignored on a device with a rectangular
  * screen.
  */
+@TargetApi(Build.VERSION_CODES.KITKAT_WATCH)
 public class BoxInsetLayout extends FrameLayout {
 
     private static float FACTOR = 0.146467f; //(1 - sqrt(2)/2)/2
@@ -81,10 +84,10 @@ public class BoxInsetLayout extends FrameLayout {
             requestLayout();
         }
         mInsets.set(
-                insets.getSystemWindowInsetLeft(),
-                insets.getSystemWindowInsetTop(),
-                insets.getSystemWindowInsetRight(),
-                insets.getSystemWindowInsetBottom());
+            insets.getSystemWindowInsetLeft(),
+            insets.getSystemWindowInsetTop(),
+            insets.getSystemWindowInsetRight(),
+            insets.getSystemWindowInsetBottom());
         return insets;
     }
 
@@ -187,9 +190,9 @@ public class BoxInsetLayout extends FrameLayout {
             int totalMargin = 0;
             // BoxInset is a padding. Ignore margin when we want to do BoxInset.
             if (mLastKnownRound && ((lp.boxedEdges & LayoutParams.BOX_LEFT) != 0)) {
-                totalPadding = boxInset;
+                totalPadding += boxInset;
             } else {
-                totalMargin = plwf + lp.leftMargin;
+                totalMargin += plwf + lp.leftMargin;
             }
             if (mLastKnownRound && ((lp.boxedEdges & LayoutParams.BOX_RIGHT) != 0)) {
                 totalPadding += boxInset;
@@ -206,10 +209,12 @@ public class BoxInsetLayout extends FrameLayout {
             }
 
             // adjust height
+            totalPadding = 0;
+            totalMargin = 0;
             if (mLastKnownRound && ((lp.boxedEdges & LayoutParams.BOX_TOP) != 0)) {
-                totalPadding = boxInset;
+                totalPadding += boxInset;
             } else {
-                totalMargin = ptwf + lp.topMargin;
+                totalMargin += ptwf + lp.topMargin;
             }
             if (mLastKnownRound && ((lp.boxedEdges & LayoutParams.BOX_BOTTOM) != 0)) {
                 totalPadding += boxInset;
@@ -236,7 +241,7 @@ public class BoxInsetLayout extends FrameLayout {
     }
 
     private void layoutBoxChildren(int left, int top, int right, int bottom,
-            boolean forceLeftGravity) {
+                                  boolean forceLeftGravity) {
         final int count = getChildCount();
         int boxInset = (int)(FACTOR * Math.max(right - left, bottom - top));
 
@@ -272,55 +277,80 @@ public class BoxInsetLayout extends FrameLayout {
                 int paddingTop = child.getPaddingTop();
                 int paddingBottom = child.getPaddingBottom();
 
-                switch (absoluteGravity & Gravity.HORIZONTAL_GRAVITY_MASK) {
-                    case Gravity.CENTER_HORIZONTAL:
-                        childLeft = parentLeft + (parentRight - parentLeft - width) / 2 +
-                                lp.leftMargin - lp.rightMargin;
-                        break;
-                    case Gravity.RIGHT:
-                        if (!forceLeftGravity) {
-                            if (mLastKnownRound
-                                    && ((lp.boxedEdges & LayoutParams.BOX_RIGHT) != 0)) {
-                                paddingRight = boxInset;
-                                childLeft = right - left - width;
-                            } else {
-                                childLeft = parentRight - width - lp.rightMargin;
-                            }
+                // If the child's width is match_parent, we ignore gravity and set boxInset padding
+                // on both sides, with a left position of parentLeft + the child's left margin.
+                if (lp.width == LayoutParams.MATCH_PARENT) {
+                    if (mLastKnownRound && ((lp.boxedEdges & LayoutParams.BOX_LEFT) != 0)) {
+                        paddingLeft = boxInset;
+                    }
+                    if (mLastKnownRound && ((lp.boxedEdges & LayoutParams.BOX_RIGHT) != 0)) {
+                        paddingRight = boxInset;
+                    }
+                    childLeft = parentLeft + lp.leftMargin;
+                } else {
+                    switch (absoluteGravity & Gravity.HORIZONTAL_GRAVITY_MASK) {
+                        case Gravity.CENTER_HORIZONTAL:
+                            childLeft = parentLeft + (parentRight - parentLeft - width) / 2 +
+                                    lp.leftMargin - lp.rightMargin;
                             break;
-                        }
-                    case Gravity.LEFT:
-                    default:
-                        if (mLastKnownRound && ((lp.boxedEdges & LayoutParams.BOX_LEFT) != 0)) {
-                            paddingLeft = boxInset;
-                            childLeft = 0;
-                        } else {
-                            childLeft = parentLeft + lp.leftMargin;
-                        }
+                        case Gravity.RIGHT:
+                            if (!forceLeftGravity) {
+                                if (mLastKnownRound
+                                        && ((lp.boxedEdges & LayoutParams.BOX_RIGHT) != 0)) {
+                                    paddingRight = boxInset;
+                                    childLeft = right - left - width;
+                                } else {
+                                    childLeft = parentRight - width - lp.rightMargin;
+                                }
+                                break;
+                            }
+                        case Gravity.LEFT:
+                        default:
+                            if (mLastKnownRound && ((lp.boxedEdges & LayoutParams.BOX_LEFT) != 0)) {
+                                paddingLeft = boxInset;
+                                childLeft = 0;
+                            } else {
+                                childLeft = parentLeft + lp.leftMargin;
+                            }
+                    }
                 }
 
-                switch (verticalGravity) {
-                    case Gravity.TOP:
-                        if (mLastKnownRound && ((lp.boxedEdges & LayoutParams.BOX_TOP) != 0)) {
-                            paddingTop = boxInset;
-                            childTop = 0;
-                        } else {
+                // If the child's height is match_parent, we ignore gravity and set boxInset padding
+                // on both top and bottom, with a top position of parentTop + the child's top
+                // margin.
+                if (lp.height == LayoutParams.MATCH_PARENT) {
+                    if (mLastKnownRound && ((lp.boxedEdges & LayoutParams.BOX_TOP) != 0)) {
+                        paddingTop = boxInset;
+                    }
+                    if (mLastKnownRound && ((lp.boxedEdges & LayoutParams.BOX_BOTTOM) != 0)) {
+                        paddingBottom = boxInset;
+                    }
+                    childTop = parentTop + lp.topMargin;
+                } else {
+                    switch (verticalGravity) {
+                        case Gravity.TOP:
+                            if (mLastKnownRound && ((lp.boxedEdges & LayoutParams.BOX_TOP) != 0)) {
+                                paddingTop = boxInset;
+                                childTop = 0;
+                            } else {
+                                childTop = parentTop + lp.topMargin;
+                            }
+                            break;
+                        case Gravity.CENTER_VERTICAL:
+                            childTop = parentTop + (parentBottom - parentTop - height) / 2 +
+                                    lp.topMargin - lp.bottomMargin;
+                            break;
+                        case Gravity.BOTTOM:
+                            if (mLastKnownRound && ((lp.boxedEdges & LayoutParams.BOX_BOTTOM) != 0)) {
+                                paddingBottom = boxInset;
+                                childTop = bottom - top - height;
+                            } else {
+                                childTop = parentBottom - height - lp.bottomMargin;
+                            }
+                            break;
+                        default:
                             childTop = parentTop + lp.topMargin;
-                        }
-                        break;
-                    case Gravity.CENTER_VERTICAL:
-                        childTop = parentTop + (parentBottom - parentTop - height) / 2 +
-                                lp.topMargin - lp.bottomMargin;
-                        break;
-                    case Gravity.BOTTOM:
-                        if (mLastKnownRound && ((lp.boxedEdges & LayoutParams.BOX_BOTTOM) != 0)) {
-                            paddingBottom = boxInset;
-                            childTop = bottom - top - height;
-                        } else {
-                            childTop = parentBottom - height - lp.bottomMargin;
-                        }
-                        break;
-                    default:
-                        childTop = parentTop + lp.topMargin;
+                    }
                 }
 
                 child.setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom);

@@ -77,7 +77,6 @@ import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneBase;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.PhoneNotifier;
-import com.android.internal.telephony.Subscription;
 import com.android.internal.telephony.TelephonyIntents;
 import com.android.internal.telephony.TelephonyProperties;
 import com.android.internal.telephony.cdma.CDMAPhone;
@@ -128,6 +127,7 @@ public class ImsPhone extends ImsPhoneBase {
 
     private final RegistrantList mSilentRedialRegistrants = new RegistrantList();
 
+    private boolean mImsRegistered = false;
     // A runnable which is used to automatically exit from Ecm after a period of time.
     private Runnable mExitEcmRunnable = new Runnable() {
         @Override
@@ -516,7 +516,7 @@ public class ImsPhone extends ImsPhoneBase {
                     "sendDtmf called with invalid character '" + c + "'");
         } else {
             if (mCT.mState ==  PhoneConstants.State.OFFHOOK) {
-                mCT.sendDtmf(c);
+                mCT.sendDtmf(c, null);
             }
         }
     }
@@ -524,18 +524,18 @@ public class ImsPhone extends ImsPhoneBase {
     @Override
     public void
     startDtmf(char c) {
-        if (!PhoneNumberUtils.is12Key(c)) {
+        if (!(PhoneNumberUtils.is12Key(c) || (c >= 'A' && c <= 'D'))) {
             Rlog.e(LOG_TAG,
                     "startDtmf called with invalid character '" + c + "'");
         } else {
-            sendDtmf(c);
+            mCT.startDtmf(c);
         }
     }
 
     @Override
     public void
     stopDtmf() {
-        // no op
+        mCT.stopDtmf();
     }
 
     @Override
@@ -552,6 +552,11 @@ public class ImsPhone extends ImsPhoneBase {
     @Override
     public void setMute(boolean muted) {
         mCT.setMute(muted);
+    }
+
+    @Override
+    public void setUiTTYMode(int uiTtyMode, Message onComplete) {
+        mCT.setUiTTYMode(uiTtyMode, onComplete);
     }
 
     @Override
@@ -600,6 +605,8 @@ public class ImsPhone extends ImsPhoneBase {
             case CF_REASON_BUSY: return ImsUtInterface.CDIV_CF_BUSY;
             case CF_REASON_NO_REPLY: return ImsUtInterface.CDIV_CF_NO_REPLY;
             case CF_REASON_NOT_REACHABLE: return ImsUtInterface.CDIV_CF_NOT_REACHABLE;
+            case CF_REASON_ALL: return ImsUtInterface.CDIV_CF_ALL;
+            case CF_REASON_ALL_CONDITIONAL: return ImsUtInterface.CDIV_CF_ALL_CONDITIONAL;
             default:
                 break;
         }
@@ -613,6 +620,8 @@ public class ImsPhone extends ImsPhoneBase {
             case ImsUtInterface.CDIV_CF_BUSY: return CF_REASON_BUSY;
             case ImsUtInterface.CDIV_CF_NO_REPLY: return CF_REASON_NO_REPLY;
             case ImsUtInterface.CDIV_CF_NOT_REACHABLE: return CF_REASON_NOT_REACHABLE;
+            case ImsUtInterface.CDIV_CF_ALL: return CF_REASON_ALL;
+            case ImsUtInterface.CDIV_CF_ALL_CONDITIONAL: return CF_REASON_ALL_CONDITIONAL;
             default:
                 break;
         }
@@ -913,21 +922,19 @@ public class ImsPhone extends ImsPhoneBase {
         }
     }
 
-    public ImsPhoneConnection getHandoverConnection() {
-        // handover for single foreground call
-        ImsPhoneConnection conn = getForegroundCall().getHandoverConnection();
-
-        // handover for single background call
-        if (conn == null) {
-            conn = getBackgroundCall().getHandoverConnection();
+    public ArrayList<Connection> getHandoverConnection() {
+        ArrayList<Connection> connList = new ArrayList<Connection>();
+        // Add all foreground call connections
+        connList.addAll(getForegroundCall().mConnections);
+        // Add all background call connections
+        connList.addAll(getBackgroundCall().mConnections);
+        // Add all background call connections
+        connList.addAll(getRingingCall().mConnections);
+        if (connList.size() > 0) {
+            return connList;
+        } else {
+            return null;
         }
-
-        // handover for single ringing call
-        if (conn == null) {
-            conn = getRingingCall().getHandoverConnection();
-        }
-
-        return conn;
     }
 
     public void notifySrvccState(Call.SrvccState state) {
@@ -952,18 +959,13 @@ public class ImsPhone extends ImsPhoneBase {
     }
 
     @Override
-    public long getSubId() {
+    public int getSubId() {
         return mDefaultPhone.getSubId();
     }
 
     @Override
     public int getPhoneId() {
         return mDefaultPhone.getPhoneId();
-    }
-
-    @Override
-    public Subscription getSubscriptionInfo() {
-        return mDefaultPhone.getSubscriptionInfo();
     }
 
     private IccRecords getIccRecords() {
@@ -1037,10 +1039,18 @@ public class ImsPhone extends ImsPhoneBase {
     sendResponse(Message onComplete, Object result, Throwable e) {
         if (onComplete != null) {
             CommandException ex = null;
+            ImsException imsEx = null;
             if (e != null) {
-                ex = getCommandException(e);
+                if (e instanceof ImsException) {
+                    imsEx = (ImsException) e;
+                    AsyncResult.forMessage(onComplete, result, imsEx);
+                } else {
+                    ex = getCommandException(e);
+                    AsyncResult.forMessage(onComplete, result, ex);
+                }
+            } else {
+                AsyncResult.forMessage(onComplete, result, null);
             }
-            AsyncResult.forMessage(onComplete, result, ex);
             onComplete.sendToTarget();
         }
     }
@@ -1230,5 +1240,21 @@ public class ImsPhone extends ImsPhoneBase {
 
     public boolean isVtEnabled() {
         return mCT.isVtEnabled();
+    }
+
+    public Phone getDefaultPhone() {
+        return mDefaultPhone;
+    }
+
+    public boolean isImsRegistered() {
+        return mImsRegistered;
+    }
+
+    public void setImsRegistered(boolean value) {
+        mImsRegistered = value;
+    }
+
+    public void callEndCleanupHandOverCallIfAny() {
+        mCT.callEndCleanupHandOverCallIfAny();
     }
 }

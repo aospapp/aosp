@@ -107,6 +107,7 @@ public class SearchBar extends RelativeLayout {
     private SpeechOrbView mSpeechOrbView;
     private ImageView mBadgeView;
     private String mSearchQuery;
+    private String mHint;
     private String mTitle;
     private Drawable mBadgeDrawable;
     private final Handler mHandler = new Handler();
@@ -191,7 +192,7 @@ public class SearchBar extends RelativeLayout {
                 if (hasFocus) {
                     showNativeKeyboard();
                 }
-                updateUi();
+                updateUi(hasFocus);
             }
         });
         final Runnable mOnTextChangedRunnable = new Runnable() {
@@ -236,8 +237,9 @@ public class SearchBar extends RelativeLayout {
             public boolean onEditorAction(TextView textView, int action, KeyEvent keyEvent) {
                 if (DEBUG) Log.v(TAG, "onEditorAction: " + action + " event: " + keyEvent);
                 boolean handled = true;
-                if (EditorInfo.IME_ACTION_SEARCH == action && null != mSearchBarListener) {
-                    if (DEBUG) Log.v(TAG, "Action Pressed");
+                if ((EditorInfo.IME_ACTION_SEARCH == action ||
+                        EditorInfo.IME_NULL == action) && null != mSearchBarListener) {
+                    if (DEBUG) Log.v(TAG, "Action or enter pressed");
                     hideNativeKeyboard();
                     mHandler.postDelayed(new Runnable() {
                         @Override
@@ -298,11 +300,11 @@ public class SearchBar extends RelativeLayout {
                 } else {
                     stopRecognition();
                 }
-                updateUi();
+                updateUi(hasFocus);
             }
         });
 
-        updateUi();
+        updateUi(hasFocus());
         updateHint();
     }
 
@@ -371,7 +373,7 @@ public class SearchBar extends RelativeLayout {
      * Returns the current search bar hint text.
      */
     public CharSequence getHint() {
-        return (mSearchTextEditor == null) ? null : mSearchTextEditor.getHint();
+        return mHint;
     }
 
     /**
@@ -468,8 +470,6 @@ public class SearchBar extends RelativeLayout {
      * This will update the hint for the search bar properly depending on state and provided title
      */
     private void updateHint() {
-        if (null == mSearchTextEditor) return;
-
         String title = getResources().getString(R.string.lb_search_bar_hint);
         if (!TextUtils.isEmpty(mTitle)) {
             if (isVoiceMode()) {
@@ -480,7 +480,10 @@ public class SearchBar extends RelativeLayout {
         } else if (isVoiceMode()) {
             title = getResources().getString(R.string.lb_search_bar_hint_speech);
         }
-        mSearchTextEditor.setHint(title);
+        mHint = title;
+        if (mSearchTextEditor != null) {
+            mSearchTextEditor.setHint(mHint);
+        }
     }
 
     private void toggleRecognition() {
@@ -499,6 +502,12 @@ public class SearchBar extends RelativeLayout {
                 mListening, mRecognizing));
 
         if (!mRecognizing) return;
+
+        // Edit text content was cleared when starting recogition; ensure the content is restored
+        // in error cases
+        mSearchTextEditor.setText(mSearchQuery);
+        mSearchTextEditor.setHint(mHint);
+
         mRecognizing = false;
 
         if (mSpeechRecognitionCallback != null || null == mSpeechRecognizer) return;
@@ -528,6 +537,7 @@ public class SearchBar extends RelativeLayout {
         }
         if (mSpeechRecognitionCallback != null) {
             mSearchTextEditor.setText("");
+            mSearchTextEditor.setHint("");
             mSpeechRecognitionCallback.recognizeSpeech();
             return;
         }
@@ -673,14 +683,16 @@ public class SearchBar extends RelativeLayout {
         mSpeechRecognizer.startListening(recognizerIntent);
     }
 
-    private void updateUi() {
-        if (DEBUG) Log.v(TAG, String.format("Update UI %s %s",
-                isVoiceMode() ? "Voice" : "Text",
-                hasFocus() ? "Focused" : "Unfocused"));
-        if (isVoiceMode()) {
+    private void updateUi(boolean hasFocus) {
+        if (hasFocus) {
             mBarBackground.setAlpha(mBackgroundSpeechAlpha);
-            mSearchTextEditor.setTextColor(mTextColorSpeechMode);
-            mSearchTextEditor.setHintTextColor(mTextHintColorSpeechMode);
+            if (isVoiceMode()) {
+                mSearchTextEditor.setTextColor(mTextHintColorSpeechMode);
+                mSearchTextEditor.setHintTextColor(mTextHintColorSpeechMode);
+            } else {
+                mSearchTextEditor.setTextColor(mTextColorSpeechMode);
+                mSearchTextEditor.setHintTextColor(mTextHintColorSpeechMode);
+            }
         } else {
             mBarBackground.setAlpha(mBackgroundAlpha);
             mSearchTextEditor.setTextColor(mTextColor);

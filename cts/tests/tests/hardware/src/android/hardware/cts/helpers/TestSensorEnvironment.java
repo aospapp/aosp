@@ -19,15 +19,22 @@ package android.hardware.cts.helpers;
 import android.content.Context;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
-import android.hardware.cts.helpers.sensoroperations.ISensorOperation;
+import android.hardware.cts.helpers.sensoroperations.SensorOperation;
 
 import java.util.concurrent.TimeUnit;
 
 /**
- * A class that encapsulates base environment information for the {@link ISensorOperation}.
+ * A class that encapsulates base environment information for the {@link SensorOperation}.
  * The environment is self contained and carries its state around all the sensor test framework.
  */
 public class TestSensorEnvironment {
+
+    /**
+     * It represents the fraction of the expected sampling frequency, at which the sensor can
+     * actually produce events.
+     */
+    private static final float MAXIMUM_EXPECTED_SAMPLING_FREQUENCY_MULTIPLIER = 0.9f;
+
     private final Context mContext;
     private final Sensor mSensor;
     private final boolean mSensorMightHaveMoreListeners;
@@ -40,7 +47,10 @@ public class TestSensorEnvironment {
      * @param context The context for the test
      * @param sensorType The type of the sensor under test
      * @param samplingPeriodUs The requested collection period for the sensor under test
+     *
+     * @deprecated Use variants with {@link Sensor} objects.
      */
+    @Deprecated
     public TestSensorEnvironment(Context context, int sensorType, int samplingPeriodUs) {
         this(context, sensorType, false /* sensorMightHaveMoreListeners */, samplingPeriodUs);
     }
@@ -52,7 +62,10 @@ public class TestSensorEnvironment {
      * @param sensorType The type of the sensor under test
      * @param samplingPeriodUs The requested collection period for the sensor under test
      * @param maxReportLatencyUs The requested collection report latency for the sensor under test
+     *
+     * @deprecated Use variants with {@link Sensor} objects.
      */
+    @Deprecated
     public TestSensorEnvironment(
             Context context,
             int sensorType,
@@ -72,7 +85,10 @@ public class TestSensorEnvironment {
      * @param sensorType The type of the sensor under test
      * @param sensorMightHaveMoreListeners Whether the sensor under test is acting under load
      * @param samplingPeriodUs The requested collection period for the sensor under test
+     *
+     * @deprecated Use variants with {@link Sensor} objects.
      */
+    @Deprecated
     public TestSensorEnvironment(
             Context context,
             int sensorType,
@@ -93,7 +109,10 @@ public class TestSensorEnvironment {
      * @param sensorMightHaveMoreListeners Whether the sensor under test is acting under load
      * @param samplingPeriodUs The requested collection period for the sensor under test
      * @param maxReportLatencyUs The requested collection report latency for the sensor under test
+     *
+     * @deprecated Use variants with {@link Sensor} objects.
      */
+    @Deprecated
     public TestSensorEnvironment(
             Context context,
             int sensorType,
@@ -103,6 +122,26 @@ public class TestSensorEnvironment {
         this(context,
                 getSensor(context, sensorType),
                 sensorMightHaveMoreListeners,
+                samplingPeriodUs,
+                maxReportLatencyUs);
+    }
+
+    /**
+     * Constructs an environment for sensor testing.
+     *
+     * @param context The context for the test
+     * @param sensor The sensor under test
+     * @param samplingPeriodUs The requested collection period for the sensor under test
+     * @param maxReportLatencyUs The requested collection report latency for the sensor under test
+     */
+    public TestSensorEnvironment(
+            Context context,
+            Sensor sensor,
+            int samplingPeriodUs,
+            int maxReportLatencyUs) {
+        this(context,
+                sensor,
+                false /* sensorMightHaveMoreListeners */,
                 samplingPeriodUs,
                 maxReportLatencyUs);
     }
@@ -160,6 +199,17 @@ public class TestSensorEnvironment {
     }
 
     /**
+     * @return A string representing the frequency equivalent to
+     * {@link #getRequestedSamplingPeriodUs()}.
+     */
+    public String getFrequencyString() {
+        if (mSamplingPeriodUs == SensorManager.SENSOR_DELAY_FASTEST) {
+            return "fastest";
+        }
+        return String.format("%.0fhz", getFrequencyHz());
+    }
+
+    /**
      * @return The requested collection max batch report latency in microseconds.
      */
     public int getMaxReportLatencyUs() {
@@ -171,7 +221,8 @@ public class TestSensorEnvironment {
      * data at different sampling rates (the rates are unknown); false otherwise.
      */
     public boolean isSensorSamplingRateOverloaded() {
-        return mSensorMightHaveMoreListeners && mSamplingPeriodUs != SensorManager.SENSOR_DELAY_FASTEST;
+        return mSensorMightHaveMoreListeners
+                && mSamplingPeriodUs != SensorManager.SENSOR_DELAY_FASTEST;
     }
 
     /**
@@ -194,6 +245,15 @@ public class TestSensorEnvironment {
         }
 
         return Math.max(expectedSamplingPeriodUs, mSensor.getMinDelay());
+    }
+
+    /**
+     * @return The actual sampling period at which a sensor can sample data. This value is a
+     *         fraction of {@link #getExpectedSamplingPeriodUs()}.
+     */
+    public int getMaximumExpectedSamplingPeriodUs() {
+        int expectedSamplingPeriodUs = getExpectedSamplingPeriodUs();
+        return (int) (expectedSamplingPeriodUs / MAXIMUM_EXPECTED_SAMPLING_FREQUENCY_MULTIPLIER);
     }
 
     /**
@@ -264,6 +324,17 @@ public class TestSensorEnvironment {
                 reportLatencySec = 0;
         }
         return TimeUnit.SECONDS.toNanos(reportLatencySec);
+    }
+
+    @Override
+    public String toString() {
+        return String.format(
+                "Sensor='%s', SamplingRateOverloaded=%s, SamplingPeriod=%sus, "
+                        + "MaxReportLatency=%sus",
+                mSensor,
+                isSensorSamplingRateOverloaded(),
+                mSamplingPeriodUs,
+                mMaxReportLatencyUs);
     }
 
     /**

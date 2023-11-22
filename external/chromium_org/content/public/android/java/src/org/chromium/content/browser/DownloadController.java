@@ -17,7 +17,7 @@ import org.chromium.base.JNINamespace;
 @JNINamespace("content")
 public class DownloadController {
     private static final String LOGTAG = "DownloadController";
-    private static DownloadController sInstance;
+    private static final DownloadController sInstance = new DownloadController();
 
     /**
      * Class for notifying the application that download has completed.
@@ -40,9 +40,6 @@ public class DownloadController {
 
     @CalledByNative
     public static DownloadController getInstance() {
-        if (sInstance == null) {
-            sInstance = new DownloadController();
-        }
         return sInstance;
     }
 
@@ -67,7 +64,8 @@ public class DownloadController {
     @CalledByNative
     public void newHttpGetDownload(ContentViewCore view, String url,
             String userAgent, String contentDisposition, String mimeType,
-            String cookie, String referer, String filename, long contentLength) {
+            String cookie, String referer, boolean hasUserGesture,
+            String filename, long contentLength) {
         ContentViewDownloadDelegate downloadDelegate = downloadDelegateFromView(view);
 
         if (downloadDelegate != null) {
@@ -78,6 +76,7 @@ public class DownloadController {
                     .setMimeType(mimeType)
                     .setCookie(cookie)
                     .setReferer(referer)
+                    .setHasUserGesture(hasUserGesture)
                     .setFileName(filename)
                     .setContentLength(contentLength)
                     .setIsGETRequest(true)

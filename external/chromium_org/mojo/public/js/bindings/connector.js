@@ -3,10 +3,11 @@
 // found in the LICENSE file.
 
 define("mojo/public/js/bindings/connector", [
+  "mojo/public/js/bindings/buffer",
   "mojo/public/js/bindings/codec",
   "mojo/public/js/bindings/core",
   "mojo/public/js/bindings/support",
-], function(codec, core, support) {
+], function(buffer, codec, core, support) {
 
   function Connector(handle) {
     this.handle_ = handle;
@@ -95,15 +96,32 @@ define("mojo/public/js/bindings/connector", [
           this.errorHandler_.onError(read.result);
         return;
       }
-      var buffer = new codec.Buffer(read.buffer);
-      var message = new codec.Message(buffer, read.handles);
+      var messageBuffer = new buffer.Buffer(read.buffer);
+      var message = new codec.Message(messageBuffer, read.handles);
       if (this.incomingReceiver_) {
           this.incomingReceiver_.accept(message);
       }
     }
   };
 
+  // The TestConnector subclass is only intended to be used in unit tests. It
+  // enables delivering a message to the pipe's handle without an async wait.
+
+  function TestConnector(handle) {
+    Connector.call(this, handle);
+  }
+
+  TestConnector.prototype = Object.create(Connector.prototype);
+
+  TestConnector.prototype.waitToReadMore_ = function() {
+  };
+
+  TestConnector.prototype.deliverMessage = function() {
+    this.readMore_(core.RESULT_OK);
+  }
+
   var exports = {};
   exports.Connector = Connector;
+  exports.TestConnector = TestConnector;
   return exports;
 });

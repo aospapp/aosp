@@ -153,7 +153,7 @@ struct VideoConfigBuffer {
     VideoExtensionBuffer *ext;
     void* nativeWindow;
     uint32_t rotationDegrees;
-#ifdef TARGET_HAS_VPP
+#ifdef TARGET_HAS_ISV
     uint32_t vppBufferNum;
 #endif
 };

@@ -112,6 +112,11 @@ class CC_EXPORT LayerAnimationController
     layer_animation_delegate_ = delegate;
   }
 
+  void remove_layer_animation_delegate(AnimationDelegate* delegate) {
+    if (layer_animation_delegate_ == delegate)
+      layer_animation_delegate_ = NULL;
+  }
+
   bool HasFilterAnimationThatInflatesBounds() const;
   bool HasTransformAnimationThatInflatesBounds() const;
   bool HasAnimationThatInflatesBounds() const {
@@ -128,9 +133,10 @@ class CC_EXPORT LayerAnimationController
 
   bool HasOnlyTranslationTransforms() const;
 
-  // Sets |max_scale| to the maximum scale along any dimension during active
-  // animations. Returns false if the maximum scale cannot be computed.
-  bool MaximumScale(float* max_scale) const;
+  // Sets |max_scale| to the maximum scale along any dimension at any
+  // destination in active animations. Returns false if the maximum scale cannot
+  // be computed.
+  bool MaximumTargetScale(float* max_scale) const;
 
   bool needs_to_start_animations_for_testing() {
     return needs_to_start_animations_;

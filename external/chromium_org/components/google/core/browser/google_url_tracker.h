@@ -40,14 +40,15 @@ class InfoBar;
 // To protect users' privacy and reduce server load, no updates will be
 // performed (ever) unless at least one consumer registers interest by calling
 // RequestServerCheck().
-class GoogleURLTracker : public net::URLFetcherDelegate,
-                         public net::NetworkChangeNotifier::IPAddressObserver,
-                         public KeyedService {
+class GoogleURLTracker
+    : public net::URLFetcherDelegate,
+      public net::NetworkChangeNotifier::NetworkChangeObserver,
+      public KeyedService {
  public:
   // Callback that is called when the Google URL is updated. The arguments are
   // the old and new URLs.
-  typedef base::Callback<void(GURL, GURL)> OnGoogleURLUpdatedCallback;
-  typedef base::CallbackList<void(GURL, GURL)> CallbackList;
+  typedef base::Callback<void()> OnGoogleURLUpdatedCallback;
+  typedef base::CallbackList<void()> CallbackList;
   typedef CallbackList::Subscription Subscription;
 
   // The constructor does different things depending on which of these values
@@ -130,7 +131,8 @@ class GoogleURLTracker : public net::URLFetcherDelegate,
   virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
 
   // NetworkChangeNotifier::IPAddressObserver:
-  virtual void OnIPAddressChanged() OVERRIDE;
+  virtual void OnNetworkChanged(
+      net::NetworkChangeNotifier::ConnectionType type) OVERRIDE;
 
   // KeyedService:
   virtual void Shutdown() OVERRIDE;
@@ -163,7 +165,7 @@ class GoogleURLTracker : public net::URLFetcherDelegate,
       GoogleURLTrackerMapEntry* map_entry,
       bool must_be_listening_for_commit);
 
-  void NotifyGoogleURLUpdated(GURL old_url, GURL new_url);
+  void NotifyGoogleURLUpdated();
 
   CallbackList callback_list_;
 

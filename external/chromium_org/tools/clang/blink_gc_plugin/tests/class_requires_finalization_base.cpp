@@ -4,7 +4,7 @@
 
 #include "class_requires_finalization_base.h"
 
-namespace WebCore {
+namespace blink {
 
 void NeedsFinalizer::trace(Visitor* visitor)
 {
@@ -14,6 +14,16 @@ void NeedsFinalizer::trace(Visitor* visitor)
 void DoesNotNeedFinalizer::trace(Visitor* visitor)
 {
     A::trace(visitor);
+}
+
+void GCedClassWithAScriptWrappableBase::trace(Visitor* visitor)
+{
+    A::trace(visitor);
+}
+
+void GCedClassWithAScriptWrappableAndAFinalizableBase::trace(Visitor* visitor)
+{
+    GCedClassWithAScriptWrappableBase::trace(visitor);
 }
 
 }

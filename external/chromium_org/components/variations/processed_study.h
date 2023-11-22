@@ -5,11 +5,12 @@
 #ifndef COMPONENTS_VARIATIONS_PROCESSED_STUDY_H_
 #define COMPONENTS_VARIATIONS_PROCESSED_STUDY_H_
 
+#include <string>
 #include <vector>
 
 #include "base/metrics/field_trial.h"
 
-namespace chrome_variations {
+namespace variations {
 
 class Study;
 
@@ -30,6 +31,10 @@ class ProcessedStudy {
 
   bool is_expired() const { return is_expired_; }
 
+  // Gets the index of the experiment with the given |name|. Returns -1 if no
+  // experiment is found.
+  int GetExperimentIndexByName(const std::string& name) const;
+
   static bool ValidateAndAppendStudy(
       const Study* study,
       bool is_expired,
@@ -46,6 +51,6 @@ class ProcessedStudy {
   bool is_expired_;
 };
 
-}  // namespace chrome_variations
+}  // namespace variations
 
 #endif  // COMPONENTS_VARIATIONS_PROCESSED_STUDY_H_

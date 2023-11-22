@@ -136,8 +136,30 @@ function Rect() {
       return;
   }
   console.error('Invalid Rect constructor arguments:',
-       Array.apply(null, arguments));
+                Array.apply(null, arguments));
 }
+
+Rect.prototype = {
+  /**
+   * Obtains the x coordinate of right edge. The most right pixels in the
+   * rectangle are (x = right - 1) and the pixels (x = right) are not included
+   * in the rectangle.
+   * @return {number}
+   */
+  get right() {
+    return this.left + this.width;
+  },
+
+  /**
+   * Obtains the y coordinate of bottom edge. The most bottom pixels in the
+   * rectangle are (y = bottom - 1) and the pixels (y = bottom) are not included
+   * in the rectangle.
+   * @return {number}
+   */
+  get bottom() {
+    return this.top + this.height;
+  }
+};
 
 /**
  * @param {number} factor Factor to scale.
@@ -405,13 +427,10 @@ ImageUtil.setClass = function(element, className, on) {
  *    account.
  *
  * @param {HTMLDocument} document Owner document.
- * @param {MetadataCache=} opt_metadataCache Metadata cache. Required for
- *     caching. If not passed, caching will be disabled.
  * @constructor
  */
-ImageUtil.ImageLoader = function(document, opt_metadataCache) {
+ImageUtil.ImageLoader = function(document) {
   this.document_ = document;
-  this.metadataCache_ = opt_metadataCache || null;
   this.image_ = new Image();
   this.generation_ = 0;
 };
@@ -421,18 +440,16 @@ ImageUtil.ImageLoader = function(document, opt_metadataCache) {
  * TODO(mtomasz): Simplify, or even get rid of this class and merge with the
  * ThumbnaiLoader class.
  *
- * @param {FileEntry} entry Image entry to be loaded.
- * @param {function(function(object))} transformFetcher function to get
- *     the image transform (which we need for the image orientation).
+ * @param {Gallery.Item} item Item representing the image to be loaded.
  * @param {function(HTMLCanvasElement, string=)} callback Callback to be
  *     called when loaded. The second optional argument is an error identifier.
  * @param {number=} opt_delay Load delay in milliseconds, useful to let the
  *     animations play out before the computation heavy image loading starts.
  */
-ImageUtil.ImageLoader.prototype.load = function(
-    entry, transformFetcher, callback, opt_delay) {
-  this.cancel();
+ImageUtil.ImageLoader.prototype.load = function(item, callback, opt_delay) {
+  var entry = item.getEntry();
 
+  this.cancel();
   this.entry_ = entry;
   this.callback_ = callback;
 
@@ -443,7 +460,7 @@ ImageUtil.ImageLoader.prototype.load = function(
       this.convertImage_(
           image, transform || { scaleX: 1, scaleY: 1, rotate90: 0});
     }
-  };
+  }.bind(this);
 
   var onError = function(opt_error) {
     this.image_.onerror = null;
@@ -456,15 +473,18 @@ ImageUtil.ImageLoader.prototype.load = function(
     tmpCallback(emptyCanvas, opt_error);
   }.bind(this);
 
-  var loadImage = function(opt_metadata) {
+  var loadImage = function() {
     ImageUtil.metrics.startInterval(ImageUtil.getMetricName('LoadTime'));
     this.timeout_ = null;
 
-    this.image_.onload = function(e) {
+    this.image_.onload = function() {
       this.image_.onerror = null;
       this.image_.onload = null;
-
-      transformFetcher(entry, onTransform.bind(this, e.target));
+      item.getFetchedMedia().then(function(fetchedMediaMetadata) {
+        onTransform(this.image_, fetchedMediaMetadata.imageTransform);
+      }.bind(this)).catch(function(error) {
+        console.error(error.stack || error);
+      });
     }.bind(this);
 
     // The error callback has an optional error argument, which in case of a
@@ -473,16 +493,12 @@ ImageUtil.ImageLoader.prototype.load = function(
 
     // Load the image directly. The query parameter is workaround for
     // crbug.com/379678, which force to update the contents of the image.
-    this.image_.src = entry.toURL() + "?nocache=" + Date.now();
+    this.image_.src = entry.toURL() + '?nocache=' + Date.now();
   }.bind(this);
 
   // Loads the image. If already loaded, then forces a reload.
   var startLoad = this.resetImage_.bind(this, function() {
-    // Fetch metadata to detect last modification time for the caching purpose.
-    if (this.metadataCache_)
-      this.metadataCache_.getOne(entry, 'filesystem', loadImage);
-    else
-      loadImage();
+    loadImage();
   }.bind(this), onError);
 
   if (opt_delay) {

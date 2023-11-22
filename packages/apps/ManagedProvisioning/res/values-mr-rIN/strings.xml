@@ -51,7 +51,7 @@
     <string name="default_owned_device_username" msgid="3915120202811807955">"कार्य डिव्‍हाइसचा वापरकर्ता"</string>
     <string name="setup_device" msgid="6725265673245816366">"आपले डिव्हाइस सेट करा"</string>
     <string name="progress_data_process" msgid="7099462614425874283">"सेटअप डेटावर प्रक्रिया करत आहे..."</string>
-    <string name="progress_connect_to_wifi" msgid="9214694010080838763">"Wi-Fi शी कनेक्ट करत आहे..."</string>
+    <string name="progress_connect_to_wifi" msgid="9214694010080838763">"वाय-फाय शी कनेक्ट करत आहे..."</string>
     <string name="progress_download" msgid="4995057798189799156">"प्रशासन अॅप डाउनलोड करत आहे..."</string>
     <string name="progress_install" msgid="9169411715762296097">"प्रशासन अॅप स्थापित करत आहे..."</string>
     <string name="progress_set_owner" msgid="1292946927202510987">"डिव्हाइस मालक सेट करत आहे..."</string>
@@ -62,10 +62,15 @@
     <string name="device_owner_error_reset" msgid="1609782972753569267">"रीसेट करा"</string>
     <string name="device_owner_error_general" msgid="5962462955470123776">"आपले डिव्हाइस सेट करणे शक्य झाले नाही. आपल्या IT विभागाशी संपर्क साधा."</string>
     <string name="device_owner_error_already_provisioned" msgid="1902305486832057049">"हे डिव्‍हाइस आधीपासून सेट केले आहे"</string>
-    <string name="device_owner_error_wifi" msgid="4256310285761332378">"Wi-Fi ला कनेक्ट करू शकलो नाही"</string>
+    <string name="device_owner_error_wifi" msgid="4256310285761332378">"वाय-फाय ला कनेक्ट करू शकलो नाही"</string>
     <string name="device_owner_error_hash_mismatch" msgid="184518450016295596">"एका checksum त्रुटीमुळे प्रशासन अॅप वापरणे शक्य झाले नाही. आपल्या IT विभागाशी संपर्क साधा."</string>
     <string name="device_owner_error_download_failed" msgid="4520111971592657116">"प्रशासक अ‍ॅप डाउनलोड करणे शक्य झाले नाही"</string>
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"प्रशासन अॅप वापरणे शक्य नाही. ते गहाळ घटक किंवा दूषित आहेत. आपल्या IT विभागाशी संपर्क साधा."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"प्रशासक अ‍ॅप स्‍थापित करणे शक्य झाले नाही"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"आपल्‍या डिव्‍हाइसवर प्रशासक अ‍ॅप स्‍थापित केला नाही"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"सेट करणे थांबवायचे?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"आपल्याला खात्री आहे की आपण सेट करणे थांबवू इच्छिता?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"नाही"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"होय"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"रद्द करत आहे..."</string>
 </resources>

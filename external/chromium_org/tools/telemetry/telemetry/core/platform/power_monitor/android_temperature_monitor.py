@@ -4,7 +4,6 @@
 
 import telemetry.core.platform.power_monitor as power_monitor
 
-
 _TEMPERATURE_FILE = '/sys/class/thermal/thermal_zone0/temp'
 
 
@@ -58,8 +57,7 @@ class AndroidTemperatureMonitor(power_monitor.PowerMonitor):
     return power_data
 
   def _GetBoardTemperatureCelsius(self):
-    contents = self._device.old_interface.GetFileContents(_TEMPERATURE_FILE)
+    contents = self._device.ReadFile(_TEMPERATURE_FILE)
     if len(contents) > 0:
       return float(contents[0])
     return None
-

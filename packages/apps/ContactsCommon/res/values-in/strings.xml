@@ -19,7 +19,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="toast_text_copied" msgid="8327159932780920627">"Teks disalin"</string>
     <string name="call_custom" msgid="2786306789889210756">"Hubungi <xliff:g id="CUSTOM">%s</xliff:g>"</string>
-    <string name="call_home" msgid="1479549630992276827">"Hubungi rumah"</string>
+    <string name="call_home" msgid="1479549630992276827">"Telepon rumah"</string>
     <string name="call_mobile" msgid="8618334085824709009">"Hubungi nomor seluler"</string>
     <string name="call_work" msgid="8299062439076337075">"Hubungi kantor"</string>
     <string name="call_fax_work" msgid="3770754834467992571">"Hubungi faks kantor"</string>
@@ -161,7 +161,8 @@
     <string name="listSingleContact" msgid="8525131203887307088">"Kontak tunggal"</string>
     <string name="dialog_new_contact_account" msgid="4107520273478326011">"Buat kontak di bawah akun"</string>
     <string name="import_from_sim" msgid="4749894687871835873">"Impor dari kartu SIM"</string>
-    <string name="import_from_sim_number" msgid="1232500923375370101">"Impor dari kartu SIM #<xliff:g id="SIM_NUMBER">%d</xliff:g>"</string>
+    <string name="import_from_sim_summary" msgid="2306434118233541675">"Impor dari SIM <xliff:g id="SIM_NAME">^1</xliff:g> - <xliff:g id="SIM_NUMBER">^2</xliff:g>"</string>
+    <string name="import_from_sim_summary_no_number" msgid="8498561004799710237">"Impor dari SIM <xliff:g id="SIM_NAME">%1$s</xliff:g>"</string>
     <string name="import_from_sdcard" product="default" msgid="6423964533801496764">"Impor dari penyimpanan"</string>
     <string name="cancel_import_confirmation_message" msgid="7764915400478970495">"Batalkan impor <xliff:g id="FILENAME">%s</xliff:g>?"</string>
     <string name="cancel_export_confirmation_message" msgid="4063783315931861656">"Batalkan ekspor <xliff:g id="FILENAME">%s</xliff:g>?"</string>
@@ -205,7 +206,6 @@
     <string name="vcard_export_request_rejected_message" msgid="8044599716727705282">"Permintaan ekspor vCard ditolak. Coba lagi nanti."</string>
     <string name="vcard_unknown_filename" msgid="4832657686149881554">"kontak"</string>
     <string name="caching_vcard_message" msgid="6635485116655518520">"Menyimpan vCard ke dalam cache penyimpanan lokal sementara. Impor yang sebenarnya akan segera dimulai."</string>
-    <string name="percentage" msgid="6699653515463625488">"<xliff:g id="PERCENTAGE">%s</xliff:g><xliff:g id="PERCENTSIGN">%%</xliff:g>"</string>
     <string name="vcard_import_failed" msgid="4105296876768072508">"Tidak dapat mengimpor vCard."</string>
     <string name="import_failure_no_vcard_file" product="nosdcard" msgid="2066107150525521097">"Tidak ditemukan file vCard dalam penyimpanan."</string>
     <string name="import_failure_no_vcard_file" product="default" msgid="1748300468382501403">"Tidak ditemukan file vCard pada kartu SD."</string>
@@ -251,4 +251,7 @@
     <string name="action_menu_back_from_search" msgid="1138551123844019647">"menghentikan penelusuran"</string>
     <string name="description_clear_search" msgid="3893511425518852086">"Hapus penelusuran"</string>
     <string name="settings_contact_display_options_title" msgid="1020420603072835628">"Opsi tampilan kontak"</string>
+    <string name="select_account_dialog_title" msgid="5509088895267310568">"Akun"</string>
+    <string name="set_default_account" msgid="3865970860434642695">"Selalu gunakan ini untuk panggilan"</string>
+    <string name="select_phone_account_for_calls" msgid="933905607702811164">"Telepon dengan"</string>
 </resources>

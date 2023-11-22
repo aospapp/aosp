@@ -26,6 +26,8 @@
 #     items
 #   'string-enum' - the user can select a string value from a collection of
 #     items
+#   'string-enum-list' - the user can select a set of string values from a
+#     collection of items
 #   'main' - a boolean value
 #   'list' - a list of string values
 #   'dict' - a dictionary value, containing other values indexed by strings
@@ -98,6 +100,9 @@
 #   documentation should state that the policy supports dynamic refresh or not.
 #   Supporting dynamic refresh means that Chrome respects the changes to the
 #   policy immediately, without the need for restart.
+#   'can_be_mandatory' can be set to False to exclude that policy in the
+#   mandatory policies template. This only affects the template generation;
+#   The default is True.
 #   'can_be_recommended' can be set to True to include that policy in the
 #   recommended policies templates. This only affects the template generation;
 #   all policies can be at the recommended level. The default is False.
@@ -118,7 +123,7 @@
 #   persistent IDs for all fields (but not for groups!) are needed. These are
 #   specified by the 'id' keys of each policy. NEVER CHANGE EXISTING IDs,
 #   because doing so would break the deployed wire format!
-#   For your editing convenience: highest ID currently used: 270
+#   For your editing convenience: highest ID currently used: 277
 #
 # Placeholders:
 #   The following placeholder strings are automatically substituted:
@@ -132,6 +137,10 @@
 #   that this policy is only supported as a device-level Cloud Policy.
 #   In that case no entry in the UserPolicy Protobuf is generated and
 #   it is assumed that it will be added to the DevicePolicy Protobuf manually.
+#
+# Enterprise defaults:
+#   An optional key 'default_for_enterprise_users' contains value that's set for
+#   enterprise users as a default.
 #
   'policy_definitions': [
     {
@@ -202,7 +211,7 @@
       },
       'example_value': True,
       'id': 3,
-      'caption': '''Set Chrome as Default Browser''',
+      'caption': '''Set <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> as Default Browser''',
       'desc': '''Configures the default browser checks in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> and prevents users from changing them.
 
       If you enable this setting, <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will always check on startup whether it is the default browser and automatically register itself if possible.
@@ -210,7 +219,7 @@
       If this setting is disabled, <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will never check if it is the default browser and will disable user controls for setting this option.
 
       If this setting is not set, <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will allow the user to control whether it is the default browser and whether user notifications should be shown when it isn't.''',
-      'label': '''Set Chrome as Default Browser''',
+      'label': '''Set <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> as Default Browser''',
     },
     {
       'name': 'ApplicationLocaleValue',
@@ -309,6 +318,48 @@
       If this policy is left not set, this will be enabled but the user will be able to change it.''',
     },
     {
+      'name': 'NetworkPredictionOptions',
+      'type': 'int-enum',
+      'schema': {
+        'type': 'integer',
+        'enum': [ 0, 1, 2 ],
+      },
+      'items': [
+        {
+          'name': 'NetworkPredictionAlways',
+          'value': 0,
+          'caption': '''Predict network actions on any network connection''',
+        },
+        {
+          'name': 'NetworkPredictionWifiOnly',
+          'value': 1,
+          'caption': '''Predict network actions on any network that is not
+          cellular''',
+        },
+        {
+          'name': 'NetworkPredictionNever',
+          'value': 2,
+          'caption': '''Do not predict network actions on any network connection''',
+        },
+      ],
+      'supported_on': ['chrome.*:38-', 'chrome_os:38-', 'android:38-'],
+      'features': {
+        'can_be_recommended': True,
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'example_value': 1,
+      'id': 273,
+      'caption': '''Enable network prediction''',
+      'desc': '''Enables network prediction in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> and prevents users from changing this setting.
+
+      This controls DNS prefetching, TCP and SSL preconnection and prerendering of web pages.
+
+      If you set this preference to 'always', 'never', or 'WiFi only', users cannot change or override this setting in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>.
+
+      If this policy is left not set, network prediction will be enabled but the user will be able to change it.''',
+    },
+    {
       'name': 'WPADQuickCheckEnabled',
       'type': 'main',
       'schema': { 'type': 'boolean' },
@@ -322,7 +373,7 @@
       'caption': '''Enable WPAD optimization''',
       'desc': '''Enables WPAD optimization in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> and prevents users from changing this setting.
 
-      Setting this to enabled causes Chrome to wait for a shorter interval for DNS-based WPAD servers.
+      Setting this to enabled causes <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> to wait for a shorter interval for DNS-based WPAD servers.
 
       If this policy is left not set, this will be enabled and the user will not
       be able to change it.''',
@@ -357,7 +408,7 @@
       'supported_on': ['chrome.*:12-', 'chrome_os:12-'],
       'features': {
         'dynamic_refresh': True,
-        'per_profile': False,
+        'per_profile': True,
       },
       'deprecated': True,
       'example_value': ['file', 'https'],
@@ -473,7 +524,7 @@
       'caption': '''Disable saving browser history''',
       'desc': '''Disables saving browser history in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> and prevents users from changing this setting.
 
-      If this setting is enabled, browsing history is not saved.
+      If this setting is enabled, browsing history is not saved. This setting also disables tab syncing.
 
       If this setting is disabled or not set, browsing history is saved.''',
     },
@@ -700,7 +751,7 @@
       'name': 'PrintingEnabled',
       'type': 'main',
       'schema': { 'type': 'boolean' },
-      'supported_on': ['chrome.*:8-', 'chrome_os:11-'],
+      'supported_on': ['chrome.*:8-', 'chrome_os:11-', 'android:39-'],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -745,11 +796,11 @@
       'example_value': False,
       'id': 162,
       'caption': '''Force SafeSearch''',
-      'desc': '''Forces queries in Google Web Search to be done with SafeSearch set to active and prevents users from changing this setting.
+      'desc': '''Forces queries in Google Web Search to be done with SafeSearch set to active and prevents users from changing this setting. This setting also forces Safety Mode on YouTube.
 
-      If you enable this setting, SafeSearch in Google Search is always active.
+      If you enable this setting, SafeSearch in Google Search and YouTube is always active.
 
-      If you disable this setting or do not set a value, SafeSearch in Google Search is not enforced.''',
+      If you disable this setting or do not set a value, SafeSearch in Google Search and YouTube is not enforced.''',
     },
     {
       'name': 'SafeBrowsingEnabled',
@@ -994,14 +1045,14 @@
       'name': 'SigninAllowed',
       'type': 'main',
       'schema': { 'type': 'boolean' },
-      'supported_on': ['chrome.*:27-'],
+      'supported_on': ['chrome.*:27-', 'android:38-'],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
       },
       'example_value': True,
       'id': 190,
-      'caption': '''Allows sign in to Chrome''',
+      'caption': '''Allows sign in to <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>''',
       'desc': '''Allows the user to sign in to <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> and prevents users from changing this setting.
 
       If you set this policy, you can configure if a user is allowed to sign in to <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> or not.''',
@@ -1015,7 +1066,6 @@
         'dynamic_refresh': False,
         'per_profile': False,
       },
-      'future': True,
       'example_value': False,
       'id': 265,
       'caption': '''Enables the old web-based signin''',
@@ -1489,7 +1539,7 @@
 
           Separate multiple server names with commas. Wildcards (*) are allowed.
 
-          If you leave this policy not set Chrome will try to detect if a server is on the Intranet and only then will it respond to IWA requests.  If a server is detected as Internet then IWA requests from it will be ignored by Chrome.''',
+          If you leave this policy not set <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will try to detect if a server is on the Intranet and only then will it respond to IWA requests.  If a server is detected as Internet then IWA requests from it will be ignored by <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>.''',
         },
         {
           'name': 'AuthNegotiateDelegateWhitelist',
@@ -1507,7 +1557,7 @@
 
           Separate multiple server names with commas. Wildcards (*) are allowed.
 
-          If you leave this policy not set Chrome will not delegate user credentials even if a server is detected as Intranet.''',
+          If you leave this policy not set <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will not delegate user credentials even if a server is detected as Intranet.''',
         },
         {
           'name': 'GSSAPILibraryName',
@@ -1610,11 +1660,11 @@
           'caption': '''Configure the list of force-installed extensions''',
           'desc': '''Allows you to specify a list of extensions that will be installed silently, without user interaction.
 
-          Each item of the list is a string that contains an extension ID and an update URL delimited by a semicolon (<ph name="SEMICOLON">;</ph>). The extension ID is the 32-letter string found e.g. on <ph name="CHROME_EXTENSIONS_LINK">chrome://extensions</ph> when in developer mode. The update URL should point to an Update Manifest XML document as described at <ph name="LINK_TO_EXTENSION_DOC1">http://code.google.com/chrome/extensions/autoupdate.html</ph>. Note that the update URL set in this policy is only used for the initial installation; subsequent updates of the extension will use the update URL indicated in the extension's manifest.
+          Each item of the list is a string that contains an extension ID and an update URL delimited by a semicolon (<ph name="SEMICOLON">;</ph>). The extension ID is the 32-letter string found e.g. on <ph name="CHROME_EXTENSIONS_LINK">chrome://extensions</ph> when in developer mode. The update URL should point to an Update Manifest XML document as described at <ph name="LINK_TO_EXTENSION_DOC1">https://developer.chrome.com/extensions/autoupdate</ph>. Note that the update URL set in this policy is only used for the initial installation; subsequent updates of the extension will use the update URL indicated in the extension's manifest.
 
           For each item, <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will retrieve the extension specified by the extension ID from the update service at the specified update URL and silently install it.
 
-          For example, <ph name="EXTENSION_POLICY_EXAMPLE">lcncmkcnkcdbbanbjakcencbaoegdjlp;https://clients2.google.com/service/update2/crx</ph> installs the <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME">Google SSL Web Search</ph> extension from the standard Chrome Web Store update URL. For more information about hosting extensions, see: <ph name="LINK_TO_EXTENSION_DOC2">http://code.google.com/chrome/extensions/hosting.html</ph>.
+          For example, <ph name="EXTENSION_POLICY_EXAMPLE">lcncmkcnkcdbbanbjakcencbaoegdjlp;https://clients2.google.com/service/update2/crx</ph> installs the <ph name="EXTENSION_POLICY_EXAMPLE_EXTENSION_NAME">Google SSL Web Search</ph> extension from the standard Chrome Web Store update URL. For more information about hosting extensions, see: <ph name="LINK_TO_EXTENSION_DOC2">https://developer.chrome.com/extensions/hosting</ph>.
 
           Users will be unable to uninstall extensions that are specified by this policy. If you remove an extension from this list, then it will be automatically uninstalled by <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>. Extensions specified in this list are also automatically whitelisted for installation; the ExtensionsInstallBlacklist does not affect them.
 
@@ -1638,9 +1688,9 @@
           'caption': '''Configure extension, app, and user script install sources''',
           'desc': '''Allows you to specify which URLs are allowed to install extensions, apps, and themes.
 
-          Starting in Chrome 21, it is more difficult to install extensions, apps, and user scripts from outside the Chrome Web Store. Previously, users could click on a link to a *.crx file, and Chrome would offer to install the file after a few warnings. After Chrome 21, such files must be downloaded and dragged onto the Chrome settings page. This setting allows specific URLs to have the old, easier installation flow.
+          Starting in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> 21, it is more difficult to install extensions, apps, and user scripts from outside the Chrome Web Store. Previously, users could click on a link to a *.crx file, and <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> would offer to install the file after a few warnings. After <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> 21, such files must be downloaded and dragged onto the <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> settings page. This setting allows specific URLs to have the old, easier installation flow.
 
-          Each item in this list is an extension-style match pattern (see http://code.google.com/chrome/extensions/match_patterns.html). Users will be able to easily install items from any URL that matches an item in this list. Both the location of the *.crx file and the page where the download is started from (i.e. the referrer) must be allowed by these patterns.
+          Each item in this list is an extension-style match pattern (see https://developer.chrome.com/extensions/match_patterns). Users will be able to easily install items from any URL that matches an item in this list. Both the location of the *.crx file and the page where the download is started from (i.e. the referrer) must be allowed by these patterns.
 
           ExtensionInstallBlacklist takes precedence over this policy. That is, an extension on the blacklist won't be installed, even if it happens from a site on this list.''',
           'label': '''URL patterns to allow extension, app, and user script installs from''',
@@ -1672,7 +1722,7 @@
           'caption': '''Configure allowed app/extension types''',
           'desc': '''Controls which app/extension types are allowed to be installed.
 
-          This setting white-lists the allowed types of extension/apps that can be installed in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>. The value is a list of strings, each of which should be one of the following: "extension", "theme", "user_script", "hosted_app", "legacy_packaged_app", "platform_app". See the Chrome extensions documentation for more information on these types.
+          This setting white-lists the allowed types of extension/apps that can be installed in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>. The value is a list of strings, each of which should be one of the following: "extension", "theme", "user_script", "hosted_app", "legacy_packaged_app", "platform_app". See the <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> extensions documentation for more information on these types.
 
           Note that this policy also affects extensions and apps to be force-installed via ExtensionInstallForcelist.
 
@@ -2695,8 +2745,10 @@
           'features': {
             'dynamic_refresh': False,
             'per_profile': True,
+            'can_be_recommended': True,
+            'can_be_mandatory' : False,
           },
-          'example_value': [{'protocol': 'mailto', 'url': 'https://mail.google.com/mail/?extsrc=mailto&url=%s', 'default': 'true'}],
+          'example_value': [{'protocol': 'mailto', 'url': 'https://mail.google.com/mail/?extsrc=mailto&url=%s', 'default': True}],
           'id': 268,
           'caption': '''Register protocol handlers''',
           'desc': '''Allows you to register a list of protocol handlers. This can only be a recommended policy. The property |protocol| should be set to the scheme such as 'mailto' and the property |url| should be set to the URL pattern of the application that handles the scheme. The pattern can include a '%s', which if present will be replaced by the handled URL.
@@ -3099,6 +3151,7 @@
         'per_profile': True,
       },
       'example_value': 'unrestricted',
+      'default_for_enterprise_users': 'primary-only',
       'id': 244,
       'caption': '''Control the user behavior in a multiprofile session''',
       'desc': '''Control the user behavior in a multiprofile session on <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> devices.
@@ -3139,7 +3192,7 @@
 
       If this setting is left not set the user can decide to use this function or not.
 
-      This setting has been removed from Chrome 29 and higher versions.''',
+      This setting has been removed from <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> 29 and higher versions.''',
     },
     {
       'name': 'TranslateEnabled',
@@ -3424,6 +3477,26 @@
       'label': '''Import saved passwords from default browser on first run''',
     },
     {
+      'name': 'ImportAutofillFormData',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome.*:39-'],
+      'features': {
+        'can_be_recommended': True,
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'example_value': True,
+      'id': 277,
+      'caption': '''Import autofill form data from default browser on first run''',
+      'desc': '''This policy forces the autofill form data to be imported from the previous default browser if enabled. If enabled, this policy also affects the import dialog.
+
+      If disabled, the autofill form data is not imported.
+
+      If it is not set, the user may be asked whether to import, or importing may happen automatically.''',
+      'label': '''Import autofill form data from default browser on first run''',
+    },
+    {
       'name': 'MaxConnectionsPerProxy',
       'type': 'int',
       'schema': { 'type': 'integer' },
@@ -3648,13 +3721,14 @@
       'type': 'main',
       'schema': { 'type': 'boolean' },
       'supported_on': ['chrome.*:18-'],
+      'deprecated': True,
       'features': {
         'dynamic_refresh': False,
         'per_profile': True,
       },
       'example_value': False,
       'id': 117,
-      'caption': '''Disable Print Preview''',
+      'caption': '''Disable Print Preview (deprecated)''',
       'desc': '''Show the system print dialog instead of print preview.
 
       When this setting is enabled, <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will open the system print dialog instead of the built-in print preview when a user requests a page to be printed.
@@ -3691,7 +3765,7 @@
       'caption': '''Whether online OCSP/CRL checks are performed''',
       'desc': '''In light of the fact that soft-fail, online revocation checks provide no effective security benefit, they are disabled by default in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> version 19 and later. By setting this policy to true, the previous behavior is restored and online OCSP/CRL checks will be performed.
 
-      If the policy is not set, or is set to false, then Chrome will not perform online revocation checks in Chrome 19 and later.''',
+      If the policy is not set, or is set to false, then <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will not perform online revocation checks in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> 19 and later.''',
     },
     {
       'name': 'RequireOnlineRevocationChecksForLocalAnchors',
@@ -3709,7 +3783,7 @@
 
       If <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> is unable to obtain revocation status information, such certificates will be treated as revoked ('hard-fail').
 
-      If this policy is not set, or it is set to false, then Chrome will use the existing online revocation checking settings.''',
+      If this policy is not set, or it is set to false, then <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will use the existing online revocation checking settings.''',
     },
     {
       'name': 'ForceEphemeralProfiles',
@@ -3745,7 +3819,7 @@
       'caption': '''Limit the time for which a user authenticated via SAML can log in offline''',
       'desc': '''Limit the time for which a user authenticated via SAML can log in offline.
 
-      During login, Chrome OS can authenticate against a server (online) or using a cached password (offline).
+      During login, <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> can authenticate against a server (online) or using a cached password (offline).
 
       When this policy is set to a value of -1, the user can authenticate offline indefinitely. When this policy is set to any other value, it specifies the length of time since the last online authentication after which the user must use online authentication again.
 
@@ -3778,7 +3852,6 @@
       'device_only': True,
       'features': {
         'dynamic_refresh': True,
-        'per_profile': False,
       },
       'deprecated': True,
       'example_value': 'remove-lru',
@@ -4411,8 +4484,8 @@
           },
           'example_value': True,
           'id': 139,
-          'caption': '''Disables Drive in the Chrome OS Files app''',
-          'desc': '''Disables Google Drive syncing in the Chrome OS Files app when set to True. In that case, no data is uploaded to Google Drive.
+          'caption': '''Disables Drive in the <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> Files app''',
+          'desc': '''Disables Google Drive syncing in the <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> Files app when set to True. In that case, no data is uploaded to Google Drive.
 
           If not set or set to False, then users will be able to transfer files to Google Drive.''',
         },
@@ -4427,8 +4500,8 @@
           },
           'example_value': True,
           'id': 140,
-          'caption': '''Disables Google Drive over Cellular connections in the Chrome OS Files app''',
-          'desc': '''Disables Google Drive syncing in the Chrome OS Files app when using a cellular connection when set to True. In that case, data is only synced to Google Drive when connected via WiFi or Ethernet.
+          'caption': '''Disables Google Drive over cellular connections in the <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> Files app''',
+          'desc': '''Disables Google Drive syncing in the <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> Files app when using a cellular connection when set to True. In that case, data is only synced to Google Drive when connected via WiFi or Ethernet.
 
           If not set or set to False, then users will be able to transfer files to Google Drive via cellular connections.''',
         },
@@ -5997,8 +6070,8 @@
       },
       'example_value': True,
       'id': 189,
-      'caption': '''Hide the web store from the new tab page and app launcher''',
-      'desc': '''Hide the Chrome Web Store app and footer link from the New Tab Page and Chrome OS app launcher.
+      'caption': '''Hide the web store from the New Tab Page and app launcher''',
+      'desc': '''Hide the Chrome Web Store app and footer link from the New Tab Page and <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> app launcher.
 
       When this policy is set to true, the icons are hidden.
 
@@ -6018,8 +6091,8 @@
       },
       'example_value': [ "enable-managed-mode", "my-cool-flag" ],
       'id': 191,
-      'caption': '''System wide flags to be applied on Chrome start-up''',
-      'desc': '''Specifies the flags that should be applied to Chrome when it starts. The specified flags are applied before Chrome is started even for the sign-in screen.''',
+      'caption': '''System wide flags to be applied on <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> start-up''',
+      'desc': '''Specifies the flags that should be applied to <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> when it starts. The specified flags are applied before <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> is started even for the sign-in screen.''',
     },
     {
       'name': 'UptimeLimit',
@@ -6095,7 +6168,6 @@
       'supported_on': ['chrome_os:28-'],
       'features': {
         'dynamic_refresh': False,
-        'per_profile': False,
       },
       'device_only': True,
       'example_value': 'restricted',
@@ -6121,7 +6193,6 @@
           'supported_on': ['chrome_os:28-'],
           'features': {
             'dynamic_refresh': True,
-            'per_profile': False,
           },
           'device_only': True,
           'example_value': True,
@@ -6241,7 +6312,7 @@
           'caption': '''Default behavior for sites not in any content pack''',
           'desc': '''The default behavior for sites not in any content pack.
 
-          This policy is for internal use by Chrome itself.''',
+          This policy is for internal use by <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> itself.''',
         },
         {
           'name': 'ContentPackManualBehaviorHosts',
@@ -6267,7 +6338,7 @@
           'caption': '''Managed user manual exception hosts''',
           'desc': '''A dictionary mapping hostnames to a boolean flag specifying whether access to the host should be allowed (true) or blocked (false).
 
-          This policy is for internal use by Chrome itself.''',
+          This policy is for internal use by <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> itself.''',
         },
         {
           'name': 'ContentPackManualBehaviorURLs',
@@ -6293,7 +6364,7 @@
           'caption': '''Managed user manual exception URLs''',
           'desc': '''A dictionary mapping URLs to a boolean flag specifying whether access to the host should be allowed (true) or blocked (false).
 
-          This policy is for internal use by Chrome itself.''',
+          This policy is for internal use by <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> itself.''',
         },
         {
           'name': 'SupervisedUsersEnabled',
@@ -6374,9 +6445,11 @@
 
       The policy is a list of bookmarks, and each bookmark is a dictionary containing the bookmark "name" and target "url".
 
+      A bookmark can also be configured as a folder. In that case, define the folder "name" but don't define an "url"; instead, define the folder contents as another list of bookmarks under the "children" key.
+
       These bookmarks are placed in a Managed bookmarks folder inside the Mobile bookmarks. These bookmarks can't be modified by the user.
 
-      When this policy is set then the Managed bookmarks are the default folder opened when the bookmarks view is opened in Chrome.
+      When this policy is set then the Managed bookmarks are the default folder opened when the bookmarks view is opened in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>.
 
       Managed bookmarks are not synced to the user account.''',
     },
@@ -6465,7 +6538,7 @@
       'caption': '''Wallpaper image''',
       'desc': '''Configure wallpaper image.
 
-      This policy allows you to configure the wallpaper image that is shown on the desktop and on the login screen background for the user. The policy is set by specifying the URL from which <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> can download the wallpaper image and a cryptographic hash used to verify the integrity of the download. The image must be in JPEG format, its size must not exceed 16MB. The URL must be accessible without any authentication.
+      This policy allows you to configure the wallpaper image that is shown on the desktop and on the login screen background for the user. The policy is set by specifying the URL from which <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> can download the wallpaper image and a cryptographic hash used to verify the integrity of the download. The image must be in JPEG format, its file size must not exceed 16MB and its dimension must not exceed 32 megapixels. The URL must be accessible without any authentication.
 
       The wallpaper image is downloaded and cached. It will be re-downloaded whenever the URL or the hash changes.
 
@@ -6492,27 +6565,257 @@
     },
     {
       'name': 'EnableDeprecatedWebPlatformFeatures',
-      'type': 'list',
+      'type': 'string-enum-list',
       'schema': {
         'type': 'array',
-        'items': { 'type': 'string' },
+        'items': {
+          'type': 'string',
+          'enum': [
+            'ShowModalDialog_EffectiveUntil20150430'
+          ],
+        },
       },
+      'items': [
+        {
+          'name': 'ShowModalDialog',
+          'value': 'ShowModalDialog_EffectiveUntil20150430',
+          'caption': '''Enable ShowModalDialog API through 2015.04.30''',
+        }
+      ],
       'supported_on': ['chrome.*:37-', 'chrome_os:37-', 'android:37-'],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
       },
-      'example_value': [],
+      'example_value': ['ShowModalDialog_EffectiveUntil20150430'],
       'id': 270,
-      'caption': '''Enable deprecated web platform features''',
-      'desc': '''Specify a list of deprecated web platform features to re-enable.
+      'caption': '''Enable deprecated web platform features for a limited time''',
+      'desc': '''Specify a list of deprecated web platform features to re-enable temporarily.
 
       This policy gives administrators the ability to re-enable deprecated web platform features for a limited time. Features are identified by a string tag and the features corresponding to the tags included in the list specified by this policy will get re-enabled.
 
-      The following tags are currently defined:
-      - ShowModalDialog_EffectiveUntil20150430
+      If this policy is left not set, or the list is empty or does not match one of the supported string tags, all deprecated web platform features will remain disabled.
 
-      If this policy is left not set or the list is empty, all deprecated web platform features will remain disabled.''',
+      While the policy itself is supported on the above platforms, the feature it is enabling may be available on fewer platforms. Not all deprecated Web Platform features can be re-enabled. Only the ones explicitly listed below can be for a limited period of time, which is different per feature. The general format of the string tag will be [DeprecatedFeatureName]_EffectiveUntil[yyyymmdd]. As reference, you can find the intent behind the Web Platform feature changes at http://bit.ly/blinkintents.
+      ''',
+    },
+    {
+      'name': 'DeviceTransferSAMLCookies',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:38-'],
+      'device_only': True,
+      'features': {
+        'dynamic_refresh': True,
+      },
+      'example_value': True,
+      'id': 271,
+      'caption': '''Transfer SAML IdP cookies during login''',
+      'desc': '''Specifies whether authentication cookies set by a SAML IdP during login should be transferred to the user's profile.
+
+      When a user authenticates via a SAML IdP during login, cookies set by the IdP are written to a temporary profile at first. These cookies can be transferred to the user's profile to carry forward the authentication state.
+
+      When this policy is set to true, cookies set by the IdP are transferred to the user's profile every time he/she authenticates against the SAML IdP during login.
+
+      When this policy is set to false or unset, cookies set by the IdP are transferred to the user's profile during his/her first login on a device only.
+
+      This policy affects users whose domain matches the device's enrollment domain only. For all other users, cookies set by the IdP are transferred to the user's profile during his/her first login on the device only.''',
+    },
+    {
+      'name': 'EasyUnlockAllowed',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:38-'],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'example_value': True,
+      'default_for_enterprise_users': False,
+      'id': 272,
+      'caption': '''Allows Smart Lock to be used''',
+      'desc': '''Allows Smart Lock to be used on <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> devices.
+
+      If you enable this setting, users will be allowed to use Smart Lock if the requirements for the feature are satisfied.
+
+      If you disable this setting, users will not be allowed to use Smart Lock.
+
+      If this policy is left not set, the default is not allowed for enterprise-managed users and allowed for non-managed users.''',
+    },
+    {
+      'name': 'SessionLocales',
+      'type': 'list',
+      'schema': {
+        'type': 'array',
+        'items': { 'type': 'string' },
+      },
+      'supported_on': ['chrome_os:38-'],
+      'features': {
+        'can_be_recommended': True,
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'example_value': ['de', 'fr'],
+      'id': 274,
+      'caption': '''Set the recommended locales for a public session''',
+      'desc': '''Sets one or more recommended locales for a public sessions, allowing users to easily choose one of these locales.
+
+      The user can choose a locale and a keyboard layout before starting a public session. By default, all locales supported by <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> are listed in alphabetic order. You can use this policy to move a set of recommended locales to the top of the list.
+
+      If this policy is not set, the current UI locale will be pre-selected.
+
+      If this policy is set, the recommended locales will be moved to the top of the list and will be visually separated from all other locales. The recommended locales will be listed in the order in which they appear in the policy. The first recommended locale will be pre-selected.
+
+      If there is more than one recommended locale, it is assumed that users will want to select among these locales. Locale and keyboard layout selection will be prominently offered when starting a public session. Otherwise, it is assumed that most users will want to use the pre-selected locale. Locale and keyboard layout selection will be less prominently offered when starting a public session.
+
+      When this policy is set and automatic login is enabled (see the |DeviceLocalAccountAutoLoginId| and |DeviceLocalAccountAutoLoginDelay| policies), the automatically started public session will use the first recommended locale and the most popular keyboard layout matching this locale.
+
+      The pre-selected keyboard layout will always be the most popular layout matching the pre-selected locale.
+
+      This policy can only be set as recommended. You can use this policy to move a set of recommended locales to the top but users are always allowed to choose any locale supported by <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> for their session.
+      ''',
+    },
+    {
+      'name': 'BrowserGuestModeEnabled',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome.*:38-'],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': False,
+      },
+      'example_value': True,
+      'id': 275,
+      'caption': '''Enable guest mode in browser''',
+      'desc': '''If this policy is set to true or not configured, <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will enable guest logins. Guest logins are <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> profiles where all windows are in incognito mode.
+
+      If this policy is set to false, <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will not allow guest profiles to be started.''',
+    },
+    {
+      'name': 'BrowserAddPersonEnabled',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome.*:39-'],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': False,
+      },
+      'example_value': True,
+      'id': 276,
+      'caption': '''Enable add person in profile manager''',
+      'desc': '''If this policy is set to true or not configured, <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will allow Add Person from the user manager.
+
+      If this policy is set to false, <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will not allow creation of new profiles from the profile manager.''',
+    },
+    {
+      'name': 'SSLVersionMin',
+      'type': 'string-enum',
+      'schema': {
+        'type': 'string',
+        'enum': [
+          'ssl3',
+          'tls1',
+          'tls1.1',
+          'tls1.2',
+        ],
+      },
+      'items': [
+        {
+          'name': 'SSLv3',
+          'value': 'ssl3',
+          'caption': 'SSL 3.0',
+        },
+        {
+          'name': 'TLSv1',
+          'value': 'tls1',
+          'caption': 'TLS 1.0',
+        },
+        {
+          'name': 'TLSv1.1',
+          'value': 'tls1.1',
+          'caption': 'TLS 1.1',
+        },
+        {
+          'name': 'TLSv1.2',
+          'value': 'tls1.2',
+          'caption': 'TLS 1.2',
+        },
+      ],
+      'supported_on': [
+        'chrome.*:39-',
+        'chrome_os:39-',
+        'android:39-',
+        'ios:39-',
+      ],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': False,
+      },
+      'example_value': 'ssl3',
+      'id': 279,
+      'caption': '''Minimum SSL version enabled''',
+      'desc': '''If this policy is not configured then <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will use a default minimum version, which is SSLv3 in Chrome 39 but may be TLS 1.0 in Chrome 40.
+
+      Otherwise it may be set to one of the following values: "sslv3", "tls1", "tls1.1" or "tls1.2". When set, <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will not use SSL/TLS versions less than the specified version. An unrecognized value will be ignored.
+
+      Note that, despite the number, "sslv3" is an earier version than "tls1".''',
+    },
+    {
+      'name': 'SSLVersionFallbackMin',
+      'type': 'string-enum',
+      'schema': {
+        'type': 'string',
+        'enum': [
+          'ssl3',
+          'tls1',
+          'tls1.1',
+          'tls1.2',
+        ],
+      },
+      'items': [
+        {
+          'name': 'SSLv3',
+          'value': 'ssl3',
+          'caption': 'SSL 3.0',
+        },
+        {
+          'name': 'TLSv1',
+          'value': 'tls1',
+          'caption': 'TLS 1.0',
+        },
+        {
+          'name': 'TLSv1.1',
+          'value': 'tls1.1',
+          'caption': 'TLS 1.1',
+        },
+        {
+          'name': 'TLSv1.2',
+          'value': 'tls1.2',
+          'caption': 'TLS 1.2',
+        },
+      ],
+      'supported_on': [
+        'chrome.*:39-',
+        'chrome_os:39-',
+        'android:39-',
+        'ios:39-',
+      ],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': False,
+      },
+      'example_value': 'tls1',
+      'id': 280,
+      'caption': '''Minimum SSL version to fallback to''',
+      'desc': '''When an SSL/TLS handshake fails, <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will retry the connection with a lesser version of SSL/TLS in order to work around bugs in HTTPS servers. This setting configures the version at which this fallback process will stop. If a server performs version negotiation correctly then this setting doesn't apply and SSLVersionMin controls.
+
+      If this policy is not configured then <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will use a default minimum version, which was SSLv3 in Chrome 38 but is TLS 1.0 in Chrome 39.
+
+      Otherwise it may be set to one of the following values: "sslv3", "tls1", "tls1.1" or "tls1.2". A setting of "tls1" protects against attacks on SSLv3 but is already the default. A more likely situation is that compatibility with a buggy server must be maintained and thus this needs to be set to "sslv3". That potentially opens up all connections to SSLv3 attacks since a network attacker can induce fallbacks. Thus this is a stopgap measure and the server should be rapidly fixed.
+
+      A setting of "tls1.2" disables all fallback but this may have a significant compatibility impact.
+
+      Note that, despite the number, "sslv3" is an earier version than "tls1".''',
     },
   ],
   'messages': {
@@ -6522,7 +6825,7 @@
       'text': '''Microsoft Windows XP SP2 or later'''
     },
     'mac_chrome_preferences': {
-      'desc': '''A text indicating in Mac OS X Workgroup Manager, that currently the preferences of Chrome are being edited''',
+      'desc': '''A text indicating in Mac OS X Workgroup Manager, that currently the preferences of Chromium are being edited''',
       'text': '''<ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> preferences'''
     },
     'doc_data_type': {
@@ -6563,16 +6866,22 @@
     },
     'doc_intro': {
       'desc': '''Introduction text for the generated policy documentation''',
-      'text': '''(This document may include policies that are targeted for later
-      <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> versions, those are
-      subject to change without notice. The list of supported policies is the
-      same for Chromium and Google Chrome.)
+      'text': '''Both Chromium and Google Chrome support the same set of
+      policies. Please note that this document may include policies that are
+      targeted for unreleased software versions (i.e. their 'supported on' entry
+      refers to an unreleased version) and that such policies are subject to
+      change or removal without prior notice.
 
-      You don't need to change these settings by hand!  You can download easy-to-use templates from
-      <ph name="POLICY_TEMPLATE_DOWNLOAD_URL">http://www.chromium.org/administrators/policy-templates<ex>
+      These policies are strictly intended to be used to configure instances of
+      <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> internal to your
+      organization. Use of these policies outside of your organization (for
+      example, in a publicly distributed program) is considered malware and will
+      likely be labeled as malware by Google and anti-virus vendors.
+
+      These settings don't need to be configured manually!  Easy-to-use
+      templates for Windows, Mac and Linux are available for download from <ph
+      name="POLICY_TEMPLATE_DOWNLOAD_URL">http://www.chromium.org/administrators/policy-templates<ex>
       http://www.chromium.org/administrators/policy-templates</ex></ph>.
-
-      These policies are strictly intended to be used to configure instances of Chrome internal to your organization. Use of these policies outside of your organization (for example, in a publicly distributed program) is considered malware and will likely be labeled as malware by Google and anti-virus vendors.
 
       Note: Starting with <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>
       28, policies are loaded directly from the Group Policy API on
@@ -6602,12 +6911,16 @@
       'text': '''Description'''
     },
     'doc_feature_dynamic_refresh': {
-      'desc': '''The name of the feature that indicates for a given policy that changes to it are respected by Chrome without a browser restart''',
+      'desc': '''The name of the feature that indicates for a given policy that changes to it are respected by Chromium without a browser restart''',
       'text': '''Dynamic Policy Refresh'''
     },
     'doc_feature_can_be_recommended': {
       'desc': '''The name of the feature that indicates for a given policy that it can be recommended, instead of mandatory''',
       'text': '''Can Be Recommended'''
+    },
+    'doc_feature_can_be_mandatory': {
+      'desc': '''The name of the feature that indicates for a given policy that it can be mandatory, instead of recommended''',
+      'text': '''Can Be Mandatory'''
     },
     'doc_feature_per_profile': {
       'desc': '''The name of the feature that indicates whether a policy is applicable to browser Profiles individually or whether it affects the entire browser.''',
@@ -6620,6 +6933,10 @@
     'doc_recommended': {
       'desc': '''Text appended in parentheses next to the policies top-level container to indicate that those policies are of the Recommended level''',
       'text': 'Default Settings (users can override)',
+    },
+    'doc_complex_policies_on_windows': {
+      'desc': '''Text pointing the user to a help article for complex policies on Windows''',
+      'text': '''encoded as a JSON string, for details see <ph name="COMPLEX_POLICIES_URL">http://www.chromium.org/administrators/complex-policies-on-windows<ex>http://www.chromium.org/administrators/complex-policies-on-windows</ex></ph>''',
     },
   },
   'placeholders': [],

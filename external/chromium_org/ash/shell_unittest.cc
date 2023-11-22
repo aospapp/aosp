@@ -25,10 +25,10 @@
 #include "base/strings/utf_string_conversions.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/env.h"
-#include "ui/aura/test/event_generator.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_event_dispatcher.h"
 #include "ui/base/models/simple_menu_model.h"
+#include "ui/events/test/event_generator.h"
 #include "ui/events/test/events_test_utils.h"
 #include "ui/events/test/test_event_handler.h"
 #include "ui/gfx/size.h"
@@ -370,7 +370,7 @@ TEST_F(ShellTest, LockScreenClosesActiveMenu) {
   views::Widget* widget = ash::Shell::GetPrimaryRootWindowController()->
       wallpaper_controller()->widget();
   scoped_ptr<views::MenuRunner> menu_runner(
-      new views::MenuRunner(menu_model.get()));
+      new views::MenuRunner(menu_model.get(), views::MenuRunner::CONTEXT_MENU));
 
   // When MenuRunner runs a nested loop the LockScreenAndVerifyMenuClosed
   // command will fire, check the menu state and ensure the nested menu loop
@@ -384,8 +384,7 @@ TEST_F(ShellTest, LockScreenClosesActiveMenu) {
                                    NULL,
                                    gfx::Rect(),
                                    views::MENU_ANCHOR_TOPLEFT,
-                                   ui::MENU_SOURCE_MOUSE,
-                                   views::MenuRunner::CONTEXT_MENU));
+                                   ui::MENU_SOURCE_MOUSE));
 }
 
 TEST_F(ShellTest, ManagedWindowModeBasics) {
@@ -510,7 +509,7 @@ TEST_F(ShellTest, TestPreTargetHandlerOrder) {
 TEST_F(ShellTest, EnvPreTargetHandler) {
   ui::test::TestEventHandler event_handler;
   aura::Env::GetInstance()->AddPreTargetHandler(&event_handler);
-  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
   generator.MoveMouseBy(1, 1);
   EXPECT_NE(0, event_handler.num_mouse_events());
   aura::Env::GetInstance()->RemovePreTargetHandler(&event_handler);

@@ -70,13 +70,9 @@ class ASH_EXPORT DisplayManager
   // 1) EXTENDED mode extends the desktop to the second dislpay.
   // 2) MIRRORING mode copies the content of the primary display to
   //    the 2nd display. (Software Mirroring).
-  // 3) In VIRTUAL_KEYBOARD mode, the 2nd display is used as a
-  //    dedicated display for virtual keyboard, and it is not
-  //    recognized as a part of desktop.
   enum SecondDisplayMode {
     EXTENDED,
-    MIRRORING,
-    VIRTUAL_KEYBOARD
+    MIRRORING
   };
 
   // Returns the list of possible UI scales for the display.
@@ -122,6 +118,10 @@ class ASH_EXPORT DisplayManager
   // Initialize default display.
   void InitDefaultDisplay();
 
+  // Initializes font related params that depends on display
+  // configuration.
+  void InitFontParams();
+
   // True if the given |display| is currently connected.
   bool IsActiveDisplay(const gfx::Display& display) const;
 
@@ -162,10 +162,18 @@ class ASH_EXPORT DisplayManager
   void SetDisplayRotation(int64 display_id, gfx::Display::Rotation rotation);
 
   // Sets the display's ui scale.
+  // TODO(mukai): remove this and merge into SetDisplayMode.
   void SetDisplayUIScale(int64 display_id, float ui_scale);
 
   // Sets the display's resolution.
+  // TODO(mukai): remove this and merge into SetDisplayMode.
   void SetDisplayResolution(int64 display_id, const gfx::Size& resolution);
+
+  // Sets the external display's configuration, including resolution change,
+  // ui-scale change, and device scale factor change. Returns true if it changes
+  // the display resolution so that the caller needs to show a notification in
+  // case the new resolution actually doesn't work.
+  bool SetDisplayMode(int64 display_id, const DisplayMode& display_mode);
 
   // Register per display properties. |overscan_insets| is NULL if
   // the display has no custom overscan insets.
@@ -174,9 +182,30 @@ class ASH_EXPORT DisplayManager
                                float ui_scale,
                                const gfx::Insets* overscan_insets,
                                const gfx::Size& resolution_in_pixels,
+                               float device_scale_factor,
                                ui::ColorCalibrationProfile color_profile);
 
-  // Returns the display's selected mode.
+  // Register stored rotation properties for the internal display.
+  void RegisterDisplayRotationProperties(bool rotation_lock,
+                                         gfx::Display::Rotation rotation);
+
+  // Returns the stored rotation lock preference if it has been loaded,
+  // otherwise false.
+  bool registered_internal_display_rotation_lock() const {
+    return registered_internal_display_rotation_lock_;
+  }
+
+  // Returns the stored rotation preference for the internal display if it has
+  // been loaded, otherwise |gfx::Display::Rotate_0|.
+  gfx::Display::Rotation registered_internal_display_rotation() const {
+    return registered_internal_display_rotation_;
+  }
+
+  // Returns the display mode of |display_id| which is currently used.
+  DisplayMode GetActiveModeForDisplayId(int64 display_id) const;
+
+  // Returns the display's selected mode. This returns false and doesn't
+  // set |mode_out| if the display mode is in default.
   bool GetSelectedModeForDisplayId(int64 display_id,
                                    DisplayMode* mode_out) const;
 
@@ -256,10 +285,6 @@ class ASH_EXPORT DisplayManager
 #endif
   bool software_mirroring_enabled() const {
     return second_display_mode_ == MIRRORING;
-  };
-
-  bool virtual_keyboard_root_window_enabled() const {
-    return second_display_mode_ == VIRTUAL_KEYBOARD;
   };
 
   // Sets/gets second display mode.
@@ -361,6 +386,12 @@ private:
   SecondDisplayMode second_display_mode_;
   int64 mirrored_display_id_;
   gfx::Display non_desktop_display_;
+
+  // User preference for rotation lock of the internal display.
+  bool registered_internal_display_rotation_lock_;
+
+  // User preference for the rotation of the internal display.
+  gfx::Display::Rotation registered_internal_display_rotation_;
 
   DISALLOW_COPY_AND_ASSIGN(DisplayManager);
 };

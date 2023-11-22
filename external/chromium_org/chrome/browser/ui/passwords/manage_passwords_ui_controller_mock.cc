@@ -28,14 +28,19 @@ const autofill::PasswordForm&
   return pending_credentials_;
 }
 
+void ManagePasswordsUIControllerMock::SetPendingCredentials(
+    autofill::PasswordForm pending_credentials) {
+  pending_credentials_ = pending_credentials;
+}
+
 bool ManagePasswordsUIControllerMock::IsInstalled() const {
   return web_contents()->GetUserData(UserDataKey()) == this;
 }
 
-void ManagePasswordsUIControllerMock::SavePassword() {
+void ManagePasswordsUIControllerMock::SavePasswordInternal() {
   saved_password_ = true;
 }
 
-void ManagePasswordsUIControllerMock::NeverSavePassword() {
+void ManagePasswordsUIControllerMock::NeverSavePasswordInternal() {
   never_saved_password_ = true;
 }

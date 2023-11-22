@@ -82,7 +82,7 @@
 /sys/devices/virtual/htc_sensorhub/sensor_hub  enable                    0660 system system
 /sys/devices/virtual/htc_sensorhub/sensor_hub  batch_enable              0660 system system
 /sys/devices/virtual/htc_sensorhub/sensor_hub  flush                     0660 system system
-/sys/devices/virtual/htc_sensorhub/sensor_hub  firmware_version          0660 system system
+/sys/devices/virtual/htc_sensorhub/sensor_hub  firmware_version          0664 system system
 /sys/devices/virtual/htc_sensorhub/sensor_hub  hall_sensor               0660 system system
 /sys/devices/virtual/htc_sensorhub/sensor_hub  sensor_hub_rdata          0660 system system
 /sys/devices/virtual/htc_sensorhub/sensor_hub  facedown_enabled          0660 system system

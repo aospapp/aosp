@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Negalima naudoti administratoriaus programos. Trūksta jos komponentų arba ji sugadinta. Susisiekite su IT skyriumi."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Nepavyko įdiegti administratoriaus programos"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Administratoriaus programa neįdiegta įrenginyje"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Stabdyti sąranką?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Ar tikrai norite sustabdyti sąranką?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Ne"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Taip"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Atšaukiama..."</string>
 </resources>

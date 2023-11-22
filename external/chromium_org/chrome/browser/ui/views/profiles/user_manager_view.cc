@@ -9,17 +9,22 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_metrics.h"
 #include "chrome/browser/profiles/profile_window.h"
+#include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_dialogs.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/user_manager.h"
 #include "chrome/browser/ui/views/auto_keep_alive.h"
+#include "chrome/grit/chromium_strings.h"
 #include "content/public/browser/web_contents.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/gfx/screen.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/window/dialog_client_view.h"
 
 #if defined(OS_WIN)
 #include "chrome/browser/shell_integration.h"
@@ -29,46 +34,24 @@
 
 namespace {
 
-// Default window size.
-const int kWindowWidth = 900;
-const int kWindowHeight = 700;
+// An open User Manager window. There can only be one open at a time. This
+// is reset to NULL when the window is closed.
+UserManagerView* instance_ = NULL;
 
-}
+} // namespace
 
-namespace chrome {
+// UserManager -----------------------------------------------------------------
 
-// Declared in browser_dialogs.h so others don't have to depend on this header.
-void ShowUserManager(const base::FilePath& profile_path_to_focus) {
-  UserManagerView::Show(
-      profile_path_to_focus, profiles::USER_MANAGER_NO_TUTORIAL);
-}
-
-void ShowUserManagerWithTutorial(profiles::UserManagerTutorialMode tutorial) {
-  UserManagerView::Show(base::FilePath(), tutorial);
-}
-
-void HideUserManager() {
-  UserManagerView::Hide();
-}
-
-}  // namespace chrome
-
-// static
-UserManagerView* UserManagerView::instance_ = NULL;
-
-UserManagerView::UserManagerView()
-    : web_view_(NULL),
-      keep_alive_(new AutoKeepAlive(NULL)) {
-}
-
-UserManagerView::~UserManagerView() {
-}
-
-// static
-void UserManagerView::Show(const base::FilePath& profile_path_to_focus,
-                           profiles::UserManagerTutorialMode tutorial_mode) {
+void UserManager::Show(
+    const base::FilePath& profile_path_to_focus,
+    profiles::UserManagerTutorialMode tutorial_mode,
+    profiles::UserManagerProfileSelected profile_open_action) {
   ProfileMetrics::LogProfileSwitchUser(ProfileMetrics::OPEN_USER_MANAGER);
   if (instance_) {
+    // If we are showing the User Manager after locking a profile, change the
+    // active profile to Guest.
+    profiles::SetActiveProfileToGuestIfLocked();
+
     // If there's a user manager window open already, just activate it.
     instance_->GetWidget()->Activate();
     return;
@@ -79,36 +62,92 @@ void UserManagerView::Show(const base::FilePath& profile_path_to_focus,
   profiles::CreateGuestProfileForUserManager(
       profile_path_to_focus,
       tutorial_mode,
+      profile_open_action,
       base::Bind(&UserManagerView::OnGuestProfileCreated,
-                 base::Passed(make_scoped_ptr(new UserManagerView))));
+                 base::Passed(make_scoped_ptr(new UserManagerView)),
+                 profile_path_to_focus));
 }
 
-// static
-void UserManagerView::Hide() {
+void UserManager::Hide() {
   if (instance_)
     instance_->GetWidget()->Close();
 }
 
-// static
-bool UserManagerView::IsShowing() {
+bool UserManager::IsShowing() {
   return instance_ ? instance_->GetWidget()->IsActive() : false;
+}
+
+// UserManagerView -------------------------------------------------------------
+
+UserManagerView::UserManagerView()
+    : web_view_(NULL),
+      keep_alive_(new AutoKeepAlive(NULL)) {
+}
+
+UserManagerView::~UserManagerView() {
 }
 
 // static
 void UserManagerView::OnGuestProfileCreated(
     scoped_ptr<UserManagerView> instance,
+    const base::FilePath& profile_path_to_focus,
     Profile* guest_profile,
     const std::string& url) {
+  // If we are showing the User Manager after locking a profile, change the
+  // active profile to Guest.
+  profiles::SetActiveProfileToGuestIfLocked();
+
+  DCHECK(!instance_);
   instance_ = instance.release();  // |instance_| takes over ownership.
-  instance_->Init(guest_profile, GURL(url));
+  instance_->Init(profile_path_to_focus, guest_profile, GURL(url));
 }
 
-void UserManagerView::Init(Profile* guest_profile, const GURL& url) {
+void UserManagerView::Init(
+    const base::FilePath& profile_path_to_focus,
+    Profile* guest_profile,
+    const GURL& url) {
   web_view_ = new views::WebView(guest_profile);
-  SetLayoutManager(new views::FillLayout);
+  web_view_->set_allow_accelerators(true);
   AddChildView(web_view_);
+  SetLayoutManager(new views::FillLayout);
+  AddAccelerator(ui::Accelerator(ui::VKEY_W, ui::EF_CONTROL_DOWN));
 
-  DialogDelegate::CreateDialogWidget(this, NULL, NULL);
+  // If the user manager is being displayed from an existing profile, use
+  // its last active browser to determine where the user manager should be
+  // placed.  This is used so that we can center the dialog on the correct
+  // monitor in a multiple-monitor setup.
+  //
+  // If |profile_path_to_focus| is empty (for example, starting up chrome
+  // when all existing profiles are locked) or we can't find an active
+  // browser, bounds will remain empty and the user manager will be centered on
+  // the default monitor by default.
+  gfx::Rect bounds;
+  if (!profile_path_to_focus.empty()) {
+    ProfileManager* manager = g_browser_process->profile_manager();
+    if (manager) {
+      Profile* profile = manager->GetProfileByPath(profile_path_to_focus);
+      DCHECK(profile);
+      Browser* browser = chrome::FindLastActiveWithProfile(profile,
+          chrome::GetActiveDesktop());
+      if (browser) {
+        gfx::NativeView native_view =
+            views::Widget::GetWidgetForNativeWindow(
+                browser->window()->GetNativeWindow())->GetNativeView();
+        bounds = gfx::Screen::GetScreenFor(native_view)->
+            GetDisplayNearestWindow(native_view).work_area();
+        bounds.ClampToCenteredSize(gfx::Size(UserManager::kWindowWidth,
+                                             UserManager::kWindowHeight));
+      }
+    }
+  }
+
+  DialogDelegate::CreateDialogWidgetWithBounds(this, NULL, NULL, bounds);
+
+  // Since the User Manager can be the only top level window, we don't
+  // want to accidentally quit all of Chrome if the user is just trying to
+  // unfocus the selected pod in the WebView.
+  GetDialogClientView()->RemoveAccelerator(
+      ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
 
 #if defined(OS_WIN)
   // Set the app id for the task manager to the app id of its parent
@@ -123,8 +162,15 @@ void UserManagerView::Init(Profile* guest_profile, const GURL& url) {
   web_view_->RequestFocus();
 }
 
+bool UserManagerView::AcceleratorPressed(const ui::Accelerator& accelerator) {
+  DCHECK_EQ(ui::VKEY_W, accelerator.key_code());
+  DCHECK_EQ(ui::EF_CONTROL_DOWN, accelerator.modifiers());
+  GetWidget()->Close();
+  return true;
+}
+
 gfx::Size UserManagerView::GetPreferredSize() const {
-  return gfx::Size(kWindowWidth, kWindowHeight);
+  return gfx::Size(UserManager::kWindowWidth, UserManager::kWindowHeight);
 }
 
 bool UserManagerView::CanResize() const {
@@ -135,8 +181,12 @@ bool UserManagerView::CanMaximize() const {
   return true;
 }
 
+bool UserManagerView::CanMinimize() const {
+  return true;
+}
+
 base::string16 UserManagerView::GetWindowTitle() const {
-  return l10n_util::GetStringUTF16(IDS_USER_MANAGER_SCREEN_TITLE);
+  return l10n_util::GetStringUTF16(IDS_PRODUCT_NAME);
 }
 
 int UserManagerView::GetDialogButtons() const {

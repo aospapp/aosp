@@ -16,6 +16,8 @@
 
 package com.android.cts.verifier;
 
+import com.android.compatibility.common.util.ReportLog;
+
 import android.app.Activity;
 import android.content.Intent;
 
@@ -35,29 +37,44 @@ public class TestResult {
     private static final String TEST_NAME = "name";
     private static final String TEST_RESULT = "result";
     private static final String TEST_DETAILS = "details";
+    private static final String TEST_METRICS = "metrics";
 
     private final String mName;
     private final int mResult;
     private final String mDetails;
+    private final ReportLog mReportLog;
 
     /** Sets the test activity's result to pass. */
     public static void setPassedResult(Activity activity, String testId, String testDetails) {
+        setPassedResult(activity, testId, testDetails, null /*reportLog*/);
+    }
+
+    /** Sets the test activity's result to pass including a test report log result. */
+    public static void setPassedResult(Activity activity, String testId, String testDetails,
+            ReportLog reportLog) {
         activity.setResult(Activity.RESULT_OK, createResult(activity, TEST_RESULT_PASSED, testId,
-                testDetails));
+                testDetails, reportLog));
     }
 
     /** Sets the test activity's result to failed. */
     public static void setFailedResult(Activity activity, String testId, String testDetails) {
+        setFailedResult(activity, testId, testDetails, null /*reportLog*/);
+    }
+
+    /** Sets the test activity's result to failed including a test report log result. */
+    public static void setFailedResult(Activity activity, String testId, String testDetails,
+            ReportLog reportLog) {
         activity.setResult(Activity.RESULT_OK, createResult(activity, TEST_RESULT_FAILED, testId,
-                testDetails));
+                testDetails, reportLog));
     }
 
     private static Intent createResult(Activity activity, int testResult, String testName,
-            String testDetails) {
+            String testDetails, ReportLog reportLog) {
         Intent data = new Intent(activity, activity.getClass());
         data.putExtra(TEST_NAME, testName);
         data.putExtra(TEST_RESULT, testResult);
         data.putExtra(TEST_DETAILS, testDetails);
+        data.putExtra(TEST_METRICS, reportLog);
         return data;
     }
 
@@ -69,13 +86,16 @@ public class TestResult {
         String name = data.getStringExtra(TEST_NAME);
         int result = data.getIntExtra(TEST_RESULT, TEST_RESULT_NOT_EXECUTED);
         String details = data.getStringExtra(TEST_DETAILS);
-        return new TestResult(name, result, details);
+        ReportLog reportLog = (ReportLog) data.getSerializableExtra(TEST_METRICS);
+        return new TestResult(name, result, details, reportLog);
     }
 
-    private TestResult(String name, int result, String details) {
+    private TestResult(
+            String name, int result, String details, ReportLog reportLog) {
         this.mName = name;
         this.mResult = result;
         this.mDetails = details;
+        this.mReportLog = reportLog;
     }
 
     /** Return the name of the test like "com.android.cts.verifier.foo.FooTest" */
@@ -91,5 +111,10 @@ public class TestResult {
     /** Return null or string containing test output. */
     public String getDetails() {
         return mDetails;
+    }
+
+    /** @return the {@link ReportLog} or null if not set */
+    public ReportLog getReportLog() {
+        return mReportLog;
     }
 }

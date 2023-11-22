@@ -192,7 +192,6 @@ public class VMDeath002Test extends JDWPSyncTestCase {
             assertTrue("Failure in processing VM_DEATH event", success);
         }
 
-        logWriter.println("=> Resume debuggee");
         resumeDebuggee();
 
         logWriter.println("==> test PASSED!");

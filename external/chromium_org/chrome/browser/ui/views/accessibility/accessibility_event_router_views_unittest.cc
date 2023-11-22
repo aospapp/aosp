@@ -18,6 +18,7 @@
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/menu/menu_item_view.h"
+#include "ui/views/controls/menu/menu_model_adapter.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/controls/menu/submenu_view.h"
 #include "ui/views/layout/grid_layout.h"
@@ -140,7 +141,7 @@ class AccessibilityEventRouterViewsTest
   }
 
   views::Widget* CreateWindowWithContents(views::View* contents) {
-    gfx::NativeView context = NULL;
+    gfx::NativeWindow context = NULL;
 #if defined(USE_AURA)
     context = aura_test_helper_->root_window();
 #endif
@@ -423,6 +424,32 @@ TEST_F(AccessibilityEventRouterViewsTest, AlertsFromWindowAndControl) {
   window->CloseNow();
 }
 
+TEST_F(AccessibilityEventRouterViewsTest, AccessibilityFocusableView) {
+  // Create a view with a child view.
+  views::View* parent = new views::View();
+  views::View* child = new views::View();
+  parent->AddChildView(child);
+
+  // Put the view in a window.
+  views::Widget* window = CreateWindowWithContents(parent);
+
+  // Since the child view has no accessibility focusable ancestors, this
+  // should still be the child view.
+  views::View* accessible_view =
+      AccessibilityEventRouterViews::FindFirstAccessibleAncestor(child);
+  EXPECT_EQ(accessible_view, child);
+
+  // Now make the parent view accessibility focusable. Calling
+  // FindFirstAccessibleAncestor() again on child should return the parent
+  // view.
+  parent->SetAccessibilityFocusable(true);
+  accessible_view =
+      AccessibilityEventRouterViews::FindFirstAccessibleAncestor(child);
+  EXPECT_EQ(accessible_view, parent);
+
+  window->CloseNow();
+}
+
 namespace {
 
 class SimpleMenuDelegate : public ui::SimpleMenuModel::Delegate {
@@ -446,8 +473,10 @@ class SimpleMenuDelegate : public ui::SimpleMenuModel::Delegate {
     menu_model_->AddSeparator(ui::NORMAL_SEPARATOR);
     menu_model_->AddItem(IDC_MENU_ITEM_3, ASCIIToUTF16("Item 3"));
 
-    menu_runner_.reset(new views::MenuRunner(menu_model_.get()));
-    return menu_runner_->GetMenu();
+    menu_adapter_.reset(new views::MenuModelAdapter(menu_model_.get()));
+    views::MenuItemView* menu_view = menu_adapter_->CreateMenu();
+    menu_runner_.reset(new views::MenuRunner(menu_view, 0));
+    return menu_view;
   }
 
   virtual bool IsCommandIdChecked(int command_id) const OVERRIDE {
@@ -473,6 +502,7 @@ class SimpleMenuDelegate : public ui::SimpleMenuModel::Delegate {
 
  private:
   scoped_ptr<ui::SimpleMenuModel> menu_model_;
+  scoped_ptr<views::MenuModelAdapter> menu_adapter_;
   scoped_ptr<views::MenuRunner> menu_runner_;
 
   DISALLOW_COPY_AND_ASSIGN(SimpleMenuDelegate);

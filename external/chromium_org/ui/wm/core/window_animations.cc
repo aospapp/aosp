@@ -26,6 +26,7 @@
 #include "ui/compositor/layer_animation_sequence.h"
 #include "ui/compositor/layer_animator.h"
 #include "ui/compositor/layer_tree_owner.h"
+#include "ui/compositor/scoped_animation_duration_scale_mode.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/gfx/animation/animation.h"
 #include "ui/gfx/interpolated_transform.h"
@@ -58,7 +59,8 @@ const float kWindowAnimation_Vertical_TranslateY = 15.f;
 // The subclass will determine when the animation is completed.
 class HidingWindowAnimationObserverBase : public aura::WindowObserver {
  public:
-  HidingWindowAnimationObserverBase(aura::Window* window) : window_(window) {
+  explicit HidingWindowAnimationObserverBase(aura::Window* window)
+      : window_(window) {
     window_->AddObserver(this);
   }
   virtual ~HidingWindowAnimationObserverBase() {
@@ -396,31 +398,29 @@ class RotateHidingWindowAnimationObserver
     : public HidingWindowAnimationObserverBase,
       public ui::LayerAnimationObserver {
  public:
-  RotateHidingWindowAnimationObserver(aura::Window* window)
-      : HidingWindowAnimationObserverBase(window), last_sequence_(NULL) {}
+  explicit RotateHidingWindowAnimationObserver(aura::Window* window)
+      : HidingWindowAnimationObserverBase(window) {}
   virtual ~RotateHidingWindowAnimationObserver() {}
 
-  void set_last_sequence(ui::LayerAnimationSequence* last_sequence) {
-    last_sequence_ = last_sequence;
+  // Destroys itself after |last_sequence| ends or is aborted. Does not take
+  // ownership of |last_sequence|, which should not be NULL.
+  void SetLastSequence(ui::LayerAnimationSequence* last_sequence) {
+    last_sequence->AddObserver(this);
   }
 
   // ui::LayerAnimationObserver:
   virtual void OnLayerAnimationEnded(
       ui::LayerAnimationSequence* sequence) OVERRIDE {
-    if (last_sequence_ == sequence)
-      OnAnimationCompleted();
+    OnAnimationCompleted();
   }
   virtual void OnLayerAnimationAborted(
       ui::LayerAnimationSequence* sequence) OVERRIDE {
-    if (last_sequence_ == sequence)
-      OnAnimationCompleted();
+    OnAnimationCompleted();
   }
   virtual void OnLayerAnimationScheduled(
       ui::LayerAnimationSequence* sequence) OVERRIDE {}
 
  private:
-  ui::LayerAnimationSequence* last_sequence_;
-
   DISALLOW_COPY_AND_ASSIGN(RotateHidingWindowAnimationObserver);
 };
 
@@ -482,8 +482,9 @@ void AddLayerAnimationsForRotate(aura::Window* window, bool show) {
   ui::LayerAnimationSequence* last_sequence =
       new ui::LayerAnimationSequence(transition.release());
   window->layer()->GetAnimator()->ScheduleAnimation(last_sequence);
+
   if (observer) {
-    observer->set_last_sequence(last_sequence);
+    observer->SetLastSequence(last_sequence);
     observer->DetachAndRecreateLayers();
   }
 }
@@ -649,10 +650,23 @@ bool AnimateWindow(aura::Window* window, WindowAnimationType type) {
 }
 
 bool WindowAnimationsDisabled(aura::Window* window) {
-  return (!gfx::Animation::ShouldRenderRichAnimation() || (window &&
-          window->GetProperty(aura::client::kAnimationsDisabledKey)) ||
-      CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kWindowAnimationsDisabled));
+  // Individual windows can choose to skip animations.
+  if (window && window->GetProperty(aura::client::kAnimationsDisabledKey))
+    return true;
+
+  // Animations can be disabled globally for testing.
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kWindowAnimationsDisabled))
+    return true;
+
+  // Tests of animations themselves should still run even if the machine is
+  // being accessed via Remote Desktop.
+  if (ui::ScopedAnimationDurationScaleMode::duration_scale_mode() ==
+      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION)
+    return false;
+
+  // Let the user decide whether or not to play the animation.
+  return !gfx::Animation::ShouldRenderRichAnimation();
 }
 
 }  // namespace wm

@@ -15,10 +15,10 @@
 #include "base/debug/stack_trace.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
+#include "base/posix/eintr_wrapper.h"
 #include "base/strings/stringprintf.h"
 #include "base/synchronization/lock.h"
 #include "chrome/common/crash_keys.h"
-#import "chrome/common/mac/objc_method_swizzle.h"
 
 #if !defined(OS_IOS) && (MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_6)
 // Apparently objc/runtime.h doesn't define this with the 10.6 SDK yet.
@@ -174,7 +174,9 @@ BOOL GetZombieRecord(id object, ZombieRecord* record) {
 // Dump the symbols.  This is pulled out into a function to make it
 // easy to use DCHECK to dump only in debug builds.
 BOOL DumpDeallocTrace(const void* const* array, int size) {
-  fprintf(stderr, "Backtrace from -dealloc:\n");
+  // Async-signal safe version of fputs, consistent with StackTrace::Print().
+  const char* message = "Backtrace from -dealloc:\n";
+  ignore_result(HANDLE_EINTR(write(STDERR_FILENO, message, strlen(message))));
   base::debug::StackTrace(array, size).Print();
 
   return YES;
@@ -220,7 +222,7 @@ void ZombieObjectCrash(id object, SEL aSelector, SEL viaSelector) {
   if (found && record.traceDepth) {
     DCHECK(DumpDeallocTrace(record.trace, record.traceDepth));
   } else {
-    DLOG(INFO) << "Unable to generate backtrace from -dealloc.";
+    DLOG(WARNING) << "Unable to generate backtrace from -dealloc.";
   }
   DLOG(FATAL) << aString;
 

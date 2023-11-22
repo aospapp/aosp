@@ -12,7 +12,6 @@
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/search/search.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/app_list/app_list_service.h"
@@ -29,16 +28,16 @@
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/infobars/core/confirm_infobar_delegate.h"
 #include "components/infobars/core/infobar.h"
+#include "components/search/search.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/common/extension.h"
-#include "grit/generated_resources.h"
-#include "grit/theme_resources.h"
+#include "grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/resource/resource_bundle.h"
 
 #if defined(USE_ASH)
 #include "ash/shell.h"
@@ -134,7 +133,7 @@ bool ErrorInfoBarDelegate::LinkClicked(WindowOpenDisposition disposition) {
           GURL("http://support.google.com/chrome_webstore/?p=crx_warning"),
           content::Referrer(),
           (disposition == CURRENT_TAB) ? NEW_FOREGROUND_TAB : disposition,
-          content::PAGE_TRANSITION_LINK, false));
+          ui::PAGE_TRANSITION_LINK, false));
   return false;
 }
 
@@ -219,7 +218,7 @@ ExtensionInstallUIDefault::ExtensionInstallUIDefault(Profile* profile)
 ExtensionInstallUIDefault::~ExtensionInstallUIDefault() {}
 
 void ExtensionInstallUIDefault::OnInstallSuccess(const Extension* extension,
-                                                 SkBitmap* icon) {
+                                                 const SkBitmap* icon) {
   if (skip_post_install_ui())
     return;
 

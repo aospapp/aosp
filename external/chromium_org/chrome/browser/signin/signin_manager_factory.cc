@@ -24,20 +24,6 @@ SigninManagerFactory::SigninManagerFactory()
 }
 
 SigninManagerFactory::~SigninManagerFactory() {
-#if defined(OS_MACOSX)
-  // Check that the number of remaining observers is as expected. Mac has a
-  // known issue wherein there might be a remaining observer
-  // (UIAppListViewDelegate).
-  int num_observers = 0;
-  if (observer_list_.might_have_observers()) {
-    ObserverListBase<SigninManagerFactory::Observer>::Iterator it(
-        observer_list_);
-    while (it.GetNext()) {
-      num_observers++;
-    }
-  }
-  DCHECK_LE(num_observers, 1);
-#endif  // defined(OS_MACOSX)
 }
 
 #if defined(OS_CHROMEOS)
@@ -88,6 +74,10 @@ void SigninManagerFactory::RegisterProfilePrefs(
       prefs::kGoogleServicesUsername,
       std::string(),
       user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
+  registry->RegisterStringPref(
+      prefs::kGoogleServicesSigninScopedDeviceId,
+      std::string(),
+      user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
   registry->RegisterBooleanPref(
       prefs::kAutologinEnabled,
       true,
@@ -99,6 +89,10 @@ void SigninManagerFactory::RegisterProfilePrefs(
   registry->RegisterListPref(prefs::kReverseAutologinRejectedEmailList,
                              new base::ListValue,
                              user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
+  registry->RegisterInt64Pref(
+      prefs::kSignedInTime,
+      base::Time().ToInternalValue(),
+      user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
   chrome::RegisterLocalAuthPrefs(registry);
 }
 

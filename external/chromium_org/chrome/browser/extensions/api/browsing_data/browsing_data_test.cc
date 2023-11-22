@@ -38,7 +38,7 @@ const char kRemoveEverythingArguments[] = "[{\"since\": 1000}, {"
     "\"downloads\": true, \"fileSystems\": true, \"formData\": true, "
     "\"history\": true, \"indexedDB\": true, \"localStorage\": true, "
     "\"serverBoundCertificates\": true, \"passwords\": true, "
-    "\"pluginData\": true, \"webSQL\": true"
+    "\"pluginData\": true, \"serviceWorkers\": true, \"webSQL\": true"
     "}]";
 
 
@@ -228,10 +228,12 @@ class ExtensionBrowsingDataTest : public InProcessBrowserTest,
                                  BrowsingDataRemover::REMOVE_PLUGIN_DATA) |
                        GetAsMask(data_to_remove, "passwords",
                                  BrowsingDataRemover::REMOVE_PASSWORDS) |
+                       GetAsMask(data_to_remove, "serviceWorkers",
+                                 BrowsingDataRemover::REMOVE_SERVICE_WORKERS) |
                        GetAsMask(data_to_remove, "webSQL",
                                  BrowsingDataRemover::REMOVE_WEBSQL) |
                        GetAsMask(data_to_remove, "serverBoundCertificates",
-                           BrowsingDataRemover::REMOVE_SERVER_BOUND_CERTS);
+                           BrowsingDataRemover::REMOVE_CHANNEL_IDS);
     EXPECT_EQ(expected_removal_mask, removal_mask);
   }
 
@@ -289,6 +291,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowsingDataTest, RemovalProhibited) {
   CheckRemovalPermitted("{\"localStorage\": true}", true);
   CheckRemovalPermitted("{\"serverBoundCertificates\": true}", true);
   CheckRemovalPermitted("{\"passwords\": true}", true);
+  CheckRemovalPermitted("{\"serviceWorkers\": true}", true);
   CheckRemovalPermitted("{\"webSQL\": true}", true);
 
   // The entire removal is prohibited if any part is.
@@ -349,7 +352,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowsingDataTest, BrowsingDataOriginSetMask) {
 }
 
 IN_PROC_BROWSER_TEST_F(ExtensionBrowsingDataTest,
-                       FLAKY_BrowsingDataRemovalMask) {
+                       BrowsingDataRemovalMask) {
   RunBrowsingDataRemoveWithKeyAndCompareRemovalMask(
       "appcache", BrowsingDataRemover::REMOVE_APPCACHE);
   RunBrowsingDataRemoveWithKeyAndCompareRemovalMask(
@@ -370,10 +373,12 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowsingDataTest,
       "localStorage", BrowsingDataRemover::REMOVE_LOCAL_STORAGE);
   RunBrowsingDataRemoveWithKeyAndCompareRemovalMask(
       "serverBoundCertificates",
-      BrowsingDataRemover::REMOVE_SERVER_BOUND_CERTS);
+      BrowsingDataRemover::REMOVE_CHANNEL_IDS);
   RunBrowsingDataRemoveWithKeyAndCompareRemovalMask(
       "passwords", BrowsingDataRemover::REMOVE_PASSWORDS);
   // We can't remove plugin data inside a test profile.
+  RunBrowsingDataRemoveWithKeyAndCompareRemovalMask(
+      "serviceWorkers", BrowsingDataRemover::REMOVE_SERVICE_WORKERS);
   RunBrowsingDataRemoveWithKeyAndCompareRemovalMask(
       "webSQL", BrowsingDataRemover::REMOVE_WEBSQL);
 }
@@ -440,7 +445,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowsingDataTest, ShortcutFunctionRemovalMask) {
       BrowsingDataRemover::REMOVE_CACHE);
   RunAndCompareRemovalMask<BrowsingDataRemoveCookiesFunction>(
       BrowsingDataRemover::REMOVE_COOKIES |
-      BrowsingDataRemover::REMOVE_SERVER_BOUND_CERTS);
+      BrowsingDataRemover::REMOVE_CHANNEL_IDS);
   RunAndCompareRemovalMask<BrowsingDataRemoveDownloadsFunction>(
       BrowsingDataRemover::REMOVE_DOWNLOADS);
   RunAndCompareRemovalMask<BrowsingDataRemoveFileSystemsFunction>(
@@ -456,6 +461,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowsingDataTest, ShortcutFunctionRemovalMask) {
   // We can't remove plugin data inside a test profile.
   RunAndCompareRemovalMask<BrowsingDataRemovePasswordsFunction>(
       BrowsingDataRemover::REMOVE_PASSWORDS);
+  RunAndCompareRemovalMask<BrowsingDataRemoveServiceWorkersFunction>(
+      BrowsingDataRemover::REMOVE_SERVICE_WORKERS);
   RunAndCompareRemovalMask<BrowsingDataRemoveWebSQLFunction>(
       BrowsingDataRemover::REMOVE_WEBSQL);
 }

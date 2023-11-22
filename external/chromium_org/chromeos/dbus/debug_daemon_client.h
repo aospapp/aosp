@@ -8,6 +8,7 @@
 #include "base/callback.h"
 #include "base/files/file.h"
 #include "base/memory/ref_counted_memory.h"
+#include "base/task_runner.h"
 #include "chromeos/chromeos_export.h"
 #include "chromeos/dbus/dbus_client.h"
 
@@ -29,9 +30,12 @@ class CHROMEOS_EXPORT DebugDaemonClient : public DBusClient {
   typedef base::Callback<void(bool succeeded)> GetDebugLogsCallback;
 
   // Requests to store debug logs into |file| and calls |callback|
-  // when completed. Debug logs will be stored in the .tgz format.
-  virtual void GetDebugLogs(base::File file,
-                            const GetDebugLogsCallback& callback) = 0;
+  // when completed. Debug logs will be stored in the .tgz if
+  // |is_compressed| is true, otherwise in logs will be stored in .tar format.
+  virtual void DumpDebugLogs(bool is_compressed,
+                             base::File file,
+                             scoped_refptr<base::TaskRunner> task_runner,
+                             const GetDebugLogsCallback& callback) = 0;
 
   // Called once SetDebugMode() is complete. Takes one parameter:
   // - succeeded: debug mode was changed successfully.
@@ -114,8 +118,9 @@ class CHROMEOS_EXPORT DebugDaemonClient : public DBusClient {
       result)> StopSystemTracingCallback;
 
   // Requests to stop system tracing and calls |callback| when completed.
-  virtual bool RequestStopSystemTracing(const StopSystemTracingCallback&
-      callback) = 0;
+  virtual bool RequestStopSystemTracing(
+      scoped_refptr<base::TaskRunner> task_runner,
+      const StopSystemTracingCallback& callback) = 0;
 
   // Returns an empty SystemTracingCallback that does nothing.
   static StopSystemTracingCallback EmptyStopSystemTracingCallback();

@@ -18,6 +18,7 @@
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/login/users/fake_user_manager.h"
+#include "chrome/browser/chromeos/login/users/scoped_user_manager_enabler.h"
 #endif
 
 class MessageCenterSettingsControllerTest : public testing::Test {
@@ -53,13 +54,12 @@ class MessageCenterSettingsControllerTest : public testing::Test {
  private:
   TestingProfileManager testing_profile_manager_;
   scoped_ptr<MessageCenterSettingsController> controller_;
+  content::TestBrowserThreadBundle thread_bundle_;
 
   DISALLOW_COPY_AND_ASSIGN(MessageCenterSettingsControllerTest);
 };
 
 #if defined(OS_CHROMEOS)
-// This value should be same as the one in fake_user_manager.cc
-static const char kUserIdHashSuffix[] = "-hash";
 
 class MessageCenterSettingsControllerChromeOSTest
     : public MessageCenterSettingsControllerTest {
@@ -84,7 +84,7 @@ class MessageCenterSettingsControllerChromeOSTest
     MessageCenterSettingsControllerTest::CreateProfile(name);
 
     GetFakeUserManager()->AddUser(name);
-    GetFakeUserManager()->UserLoggedIn(name, name + kUserIdHashSuffix, false);
+    GetFakeUserManager()->LoginUser(name);
   }
 
   void SwitchActiveUser(const std::string& name) {
@@ -95,7 +95,7 @@ class MessageCenterSettingsControllerChromeOSTest
  private:
   chromeos::FakeUserManager* GetFakeUserManager() {
     return static_cast<chromeos::FakeUserManager*>(
-        chromeos::UserManager::Get());
+        user_manager::UserManager::Get());
   }
 
   scoped_ptr<chromeos::ScopedUserManagerEnabler> user_manager_enabler_;

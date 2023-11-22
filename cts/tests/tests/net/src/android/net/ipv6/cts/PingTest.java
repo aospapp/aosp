@@ -53,6 +53,9 @@ public class PingTest extends AndroidTestCase {
     /** Maximum size of the packets we're using to test. */
     private static final int MAX_SIZE = 4096;
 
+    /** Size of the ICMPv6 header. */
+    private static final int ICMP_HEADER_SIZE = 8;
+
     /** Number of packets to test. */
     private static final int NUM_PACKETS = 10;
 
@@ -65,7 +68,7 @@ public class PingTest extends AndroidTestCase {
      * Returns a byte array containing an ICMPv6 echo request with the specified payload length.
      */
     private byte[] pingPacket(int payloadLength) {
-        byte[] packet = new byte[payloadLength + 8];
+        byte[] packet = new byte[payloadLength + ICMP_HEADER_SIZE];
         new Random().nextBytes(packet);
         System.arraycopy(PING_HEADER, 0, packet, 0, PING_HEADER.length);
         return packet;
@@ -130,6 +133,7 @@ public class PingTest extends AndroidTestCase {
 
         // Check the response is an echo reply.
         byte[] response = new byte[bytesRead];
+        responseBuffer.flip();
         responseBuffer.get(response, 0, bytesRead);
         assertEquals((byte) 0x81, response[0]);
 
@@ -154,7 +158,7 @@ public class PingTest extends AndroidTestCase {
         assertEquals("localhost/::1", ipv6Loopback.toString());
 
         for (int i = 0; i < NUM_PACKETS; i++) {
-            byte[] packet = pingPacket((int) (Math.random() * MAX_SIZE));
+            byte[] packet = pingPacket((int) (Math.random() * (MAX_SIZE - ICMP_HEADER_SIZE)));
             FileDescriptor s = createPingSocket();
             // Use both recvfrom and read().
             sendPing(s, ipv6Loopback, packet);

@@ -200,6 +200,11 @@ public abstract class RowPresenter extends Presenter {
      */
     protected void initializeRowViewHolder(ViewHolder vh) {
         vh.mInitialzed = true;
+        // set clip children to false for slide transition
+        ((ViewGroup) vh.view).setClipChildren(false);
+        if (vh.mContainerViewHolder != null) {
+            ((ViewGroup) vh.mContainerViewHolder.view).setClipChildren(false);
+        }
     }
 
     /**
@@ -490,8 +495,21 @@ public abstract class RowPresenter extends Presenter {
 
     /**
      * Freeze/Unfreeze the row, typically used when transition starts/ends.
+     * This method is called by fragment, app should not call it directly.
      */
     public void freeze(ViewHolder holder, boolean freeze) {
     }
 
+    /**
+     * Change visibility of views, entrance transition will be run against the views that
+     * change visibilities.  Subclass may override and begin with calling
+     * super.setEntranceTransitionState().  This method is called by fragment,
+     * app should not call it directly.
+     */
+    public void setEntranceTransitionState(ViewHolder holder, boolean afterTransition) {
+        if (holder.mHeaderViewHolder != null) {
+            holder.mHeaderViewHolder.view.setVisibility(afterTransition ?
+                    View.VISIBLE : View.INVISIBLE);
+        }
+    }
 }

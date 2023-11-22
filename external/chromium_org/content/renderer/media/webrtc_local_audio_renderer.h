@@ -21,7 +21,7 @@
 
 namespace media {
 class AudioBus;
-class AudioFifo;
+class AudioBlockFifo;
 class AudioOutputDevice;
 class AudioParameters;
 }
@@ -124,7 +124,7 @@ class CONTENT_EXPORT WebRtcLocalAudioRenderer
   scoped_refptr<media::AudioOutputDevice> sink_;
 
   // Contains copies of captured audio frames.
-  scoped_ptr<media::AudioFifo> loopback_fifo_;
+  scoped_ptr<media::AudioBlockFifo> loopback_fifo_;
 
   // Stores last time a render callback was received. The time difference
   // between a new time stamp and this value can be used to derive the
@@ -135,9 +135,11 @@ class CONTENT_EXPORT WebRtcLocalAudioRenderer
   base::TimeDelta total_render_time_;
 
   // The audio parameters of the capture source.
+  // Must only be touched on the main thread.
   media::AudioParameters source_params_;
 
   // The audio parameters used by the sink.
+  // Must only be touched on the main thread.
   media::AudioParameters sink_params_;
 
   // Set when playing, cleared when paused.

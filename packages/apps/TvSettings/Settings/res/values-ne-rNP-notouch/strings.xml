@@ -26,6 +26,10 @@
     <string name="device_apps_app_management_force_stop_desc" msgid="221435219644064243">"यदि तपाईँले अनुप्रयोगलाई जबर्जस्ती रोक्नु भएको खण्डमा त्यसले चाहेअनुसार काम नगर्न सक्छ।"</string>
     <string name="device_apps_app_management_uninstall" msgid="6054050725055974790">"विस्थापन गर्नुहोस्"</string>
     <string name="device_apps_app_management_uninstall_desc" msgid="3542570994262234511">"के तपाईँ यो अनुप्रयोग अस्थापना गर्न चाहनु हुन्छ?"</string>
+    <string name="device_apps_app_management_disable" msgid="1461984395121717076">"अक्षम गर्नुहोस्"</string>
+    <string name="device_apps_app_management_disable_desc" msgid="1362228583828208991">"तपाईं यो अनुप्रयोग अक्षम गर्न चाहनुहुन्छ?"</string>
+    <string name="device_apps_app_management_enable" msgid="8794752872502256633">"सक्षम गर्नुहोस्"</string>
+    <string name="device_apps_app_management_enable_desc" msgid="6449017972628203288">"तपाईं यो अनुप्रयोग सक्षम गर्न चाहनुहुन्छ?"</string>
     <string name="device_apps_app_management_clear_data" msgid="8288695583331012586">"डेटा हटाउनुहोस्"</string>
     <string name="device_apps_app_management_clear_data_desc" msgid="2197842469669426232">"यो अनुप्रयोगको सबै डेटा स्थायी रूपमा मेटिने छ।"</string>
     <string name="device_apps_app_management_clear_data_what" msgid="376666756087041021">"यसले सबै फाइलहरू, सेटिङहरू, खाताहरू, डेटाबेसहरू, आदी समावेश गर्दछ।"</string>

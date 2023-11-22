@@ -10,6 +10,7 @@
 
 #include "base/auto_reset.h"
 #include "base/basictypes.h"
+#include "base/callback.h"
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
@@ -21,6 +22,7 @@
 #include "content/common/cursors/webcursor.h"
 #include "content/common/gpu/client/webgraphicscontext3d_command_buffer_impl.h"
 #include "content/common/input/synthetic_gesture_params.h"
+#include "content/renderer/message_delivery_policy.h"
 #include "ipc/ipc_listener.h"
 #include "ipc/ipc_sender.h"
 #include "third_party/WebKit/public/platform/WebRect.h"
@@ -49,6 +51,7 @@ class ViewHostMsg_UpdateRect;
 
 namespace IPC {
 class SyncMessage;
+class SyncMessageFilter;
 }
 
 namespace blink {
@@ -59,7 +62,10 @@ class WebMouseEvent;
 class WebTouchEvent;
 }
 
-namespace cc { class OutputSurface; }
+namespace cc {
+class OutputSurface;
+class SwapPromise;
+}
 
 namespace gfx {
 class Range;
@@ -67,6 +73,7 @@ class Range;
 
 namespace content {
 class ExternalPopupMenu;
+class FrameSwapMessageQueue;
 class PepperPluginInstanceImpl;
 class RenderFrameImpl;
 class RenderFrameProxy;
@@ -135,7 +142,6 @@ class CONTENT_EXPORT RenderWidget
   virtual bool Send(IPC::Message* msg) OVERRIDE;
 
   // blink::WebWidgetClient
-  virtual void suppressCompositorScheduling(bool enable);
   virtual void willBeginCompositorFrame();
   virtual void didAutoResize(const blink::WebSize& new_size);
   virtual void initializeLayerTreeView();
@@ -161,9 +167,13 @@ class CONTENT_EXPORT RenderWidget
   virtual void resetInputMethod();
   virtual void didHandleGestureEvent(const blink::WebGestureEvent& event,
                                      bool event_cancelled);
+  virtual void showImeIfNeeded();
 
   // Begins the compositor's scheduler to start producing frames.
   void StartCompositor();
+
+  // Stop compositing.
+  void DestroyLayerTreeView();
 
   // Called when a plugin is moved.  These events are queued up and sent with
   // the next paint or scroll message to the host.
@@ -195,6 +205,18 @@ class CONTENT_EXPORT RenderWidget
 
   // Notifies about a compositor frame commit operation having finished.
   virtual void DidCommitCompositorFrame();
+
+  // Deliveres |message| together with compositor state change updates. The
+  // exact behavior depends on |policy|.
+  // This mechanism is not a drop-in replacement for IPC: messages sent this way
+  // will not be automatically available to BrowserMessageFilter, for example.
+  // FIFO ordering is preserved between messages enqueued with the same
+  // |policy|, the ordering between messages enqueued for different policies is
+  // undefined.
+  //
+  // |msg| message to send, ownership of |msg| is transferred.
+  // |policy| see the comment on MessageDeliveryPolicy.
+  void QueueMessage(IPC::Message* msg, MessageDeliveryPolicy policy);
 
   // Handle common setup/teardown for handling IME events.
   void StartHandlingImeEvent();
@@ -229,6 +251,7 @@ class CONTENT_EXPORT RenderWidget
       const blink::WebDeviceEmulationParams& params);
   void DisableScreenMetricsEmulation();
   void SetPopupOriginAdjustmentsForEmulation(ScreenMetricsEmulator* emulator);
+  gfx::Rect AdjustValidationMessageAnchor(const gfx::Rect& anchor);
 
   void ScheduleCompositeWithForcedRedraw();
 
@@ -238,6 +261,10 @@ class CONTENT_EXPORT RenderWidget
   void OnSwapBuffersComplete();
   void OnSwapBuffersAborted();
 
+  // Checks if the text input state and compose inline mode have been changed.
+  // If they are changed, the new value will be sent to the browser process.
+  void UpdateTextInputType();
+
   // Checks if the selection bounds have been changed. If they are changed,
   // the new value will be sent to the browser process.
   void UpdateSelectionBounds();
@@ -246,6 +273,7 @@ class CONTENT_EXPORT RenderWidget
 
   void OnShowHostContextMenu(ContextMenuParams* params);
 
+#if defined(OS_ANDROID) || defined(USE_AURA)
   enum ShowIme {
     SHOW_IME_IF_NEEDED,
     NO_SHOW_IME,
@@ -263,6 +291,7 @@ class CONTENT_EXPORT RenderWidget
   // IME events. This is when the text change did not originate from the IME in
   // the browser side, such as changes by JavaScript or autofill.
   void UpdateTextInputState(ShowIme show_ime, ChangeSource change_source);
+#endif
 
 #if defined(OS_MACOSX) || defined(USE_AURA)
   // Checks if the composition range or composition character bounds have been
@@ -313,6 +342,10 @@ class CONTENT_EXPORT RenderWidget
   // active RenderWidgets.
   void SetSwappedOut(bool is_swapped_out);
 
+  // Allows the process to exit once the unload handler has finished, if there
+  // are no other active RenderWidgets.
+  void WasSwappedOut();
+
   void FlushPendingInputEventAck();
   void DoDeferredClose();
   void DoDeferredSetWindowRect(const blink::WebRect& pos);
@@ -320,7 +353,7 @@ class CONTENT_EXPORT RenderWidget
   // Resizes the render widget.
   void Resize(const gfx::Size& new_size,
               const gfx::Size& physical_backing_size,
-              float overdraw_bottom_height,
+              float top_controls_layout_height,
               const gfx::Size& visible_viewport_size,
               const gfx::Rect& resizer_rect,
               bool is_fullscreen,
@@ -348,8 +381,8 @@ class CONTENT_EXPORT RenderWidget
   virtual void OnResize(const ViewMsg_Resize_Params& params);
   void OnChangeResizeRect(const gfx::Rect& resizer_rect);
   virtual void OnWasHidden();
-  virtual void OnWasShown(bool needs_repainting);
-  virtual void OnWasSwappedOut();
+  virtual void OnWasShown(bool needs_repainting,
+                          const ui::LatencyInfo& latency_info);
   void OnCreateVideoAck(int32 video_id);
   void OnUpdateVideoAck(int32 video_id);
   void OnRequestMoveAck();
@@ -371,9 +404,9 @@ class CONTENT_EXPORT RenderWidget
   void OnGetFPS();
   void OnUpdateScreenRects(const gfx::Rect& view_screen_rect,
                            const gfx::Rect& window_screen_rect);
-#if defined(OS_ANDROID)
   void OnShowImeIfNeeded();
 
+#if defined(OS_ANDROID)
   // Whenever an IME event that needs an acknowledgement is sent to the browser,
   // the number of outstanding IME events that needs acknowledgement should be
   // incremented. All IME events will be dropped until we receive an ack from
@@ -391,6 +424,7 @@ class CONTENT_EXPORT RenderWidget
 
   virtual void SetDeviceScaleFactor(float device_scale_factor);
   virtual bool SetDeviceColorProfile(const std::vector<char>& color_profile);
+  virtual void ResetDeviceColorProfileForTesting();
 
   virtual void OnOrientationChange();
 
@@ -420,6 +454,16 @@ class CONTENT_EXPORT RenderWidget
   bool next_paint_is_resize_ack() const;
   void set_next_paint_is_resize_ack();
   void set_next_paint_is_repaint_ack();
+
+  // QueueMessage implementation extracted into a static method for easy
+  // testing.
+  static scoped_ptr<cc::SwapPromise> QueueMessageImpl(
+      IPC::Message* msg,
+      MessageDeliveryPolicy policy,
+      FrameSwapMessageQueue* frame_swap_message_queue,
+      scoped_refptr<IPC::SyncMessageFilter> sync_message_filter,
+      bool commit_requested,
+      int source_frame_number);
 
   // Override point to obtain that the current input method state and caret
   // position.
@@ -540,9 +584,9 @@ class CONTENT_EXPORT RenderWidget
   // The size of the view's backing surface in non-DPI-adjusted pixels.
   gfx::Size physical_backing_size_;
 
-  // The height of the physical backing surface that is overdrawn opaquely in
-  // the browser, for example by an on-screen-keyboard (in DPI-adjusted pixels).
-  float overdraw_bottom_height_;
+  // The amount that the viewport size given to Blink was shrunk by the URL-bar
+  // (always 0 on platforms where URL-bar hiding isn't supported).
+  float top_controls_layout_height_;
 
   // The size of the visible viewport in DPI-adjusted pixels.
   gfx::Size visible_viewport_size_;
@@ -591,6 +635,9 @@ class CONTENT_EXPORT RenderWidget
   // True if we have requested this widget be closed.  No more messages will
   // be sent, except for a Close.
   bool closing_;
+
+  // True if it is known that the host is in the process of being shut down.
+  bool host_closing_;
 
   // Whether this RenderWidget is currently swapped out, such that the view is
   // being rendered by another process.  If all RenderWidgets in a process are
@@ -662,9 +709,6 @@ class CONTENT_EXPORT RenderWidget
   std::queue<SyntheticGestureCompletionCallback>
       pending_synthetic_gesture_callbacks_;
 
-  // Specified whether the compositor will run in its own thread.
-  bool is_threaded_compositing_enabled_;
-
   const ui::LatencyInfo* current_event_latency_info_;
 
   uint32 next_output_surface_id_;
@@ -693,6 +737,7 @@ class CONTENT_EXPORT RenderWidget
   gfx::Point popup_screen_origin_for_emulation_;
   float popup_origin_scale_for_emulation_;
 
+  scoped_refptr<FrameSwapMessageQueue> frame_swap_message_queue_;
   scoped_ptr<ResizingModeSelector> resizing_mode_selector_;
 
   // Lists of RenderFrameProxy objects that need to be notified of

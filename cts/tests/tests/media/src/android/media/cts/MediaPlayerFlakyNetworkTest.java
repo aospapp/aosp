@@ -15,6 +15,7 @@
  */
 package android.media.cts;
 
+import android.cts.util.MediaUtils;
 import android.media.MediaPlayer;
 import android.os.Handler;
 import android.os.Looper;
@@ -34,6 +35,7 @@ import java.io.IOException;
 
 import java.net.Socket;
 import java.util.Random;
+import java.util.Vector;
 import java.util.concurrent.Callable;
 import java.util.concurrent.FutureTask;
 
@@ -42,6 +44,7 @@ import java.util.concurrent.FutureTask;
  * from an HTTP server over a simulated "flaky" network.
  */
 public class MediaPlayerFlakyNetworkTest extends MediaPlayerTestBase {
+    private static final String PKG = "com.android.cts.media";
 
     private static final String[] TEST_VIDEOS = {
         "raw/video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_192kbps_44100hz",
@@ -92,21 +95,37 @@ public class MediaPlayerFlakyNetworkTest extends MediaPlayerTestBase {
         doPlayStreams(6, 0.00002f);
     }
 
-   private void doPlayStreams(int seed, float probability) throws Throwable {
+    private String[] getSupportedVideos() {
+        Vector<String> supported = new Vector<String>();
+        for (String video : TEST_VIDEOS) {
+            if (MediaUtils.hasCodecsForPath(mContext, "android.resource://" + PKG + "/" + video)) {
+                supported.add(video);
+            }
+        }
+        return supported.toArray(new String[supported.size()]);
+    }
+
+    private void doPlayStreams(int seed, float probability) throws Throwable {
+        String[] supported = getSupportedVideos();
+        if (supported.length == 0) {
+            MediaUtils.skipTest("no codec found");
+            return;
+        }
+
         Random random = new Random(seed);
         createHttpServer(seed, probability);
         for (int i = 0; i < 10; i++) {
-            String video = getRandomTestVideo(random);
+            String video = getRandomTestVideo(random, supported);
             doPlayMp4Stream(video, 20000, 5000);
             doAsyncPrepareAndRelease(video);
             doRandomOperations(video);
         }
-        doPlayMp4Stream(getRandomTestVideo(random), 30000, 20000);
+        doPlayMp4Stream(getRandomTestVideo(random, supported), 30000, 20000);
         releaseHttpServer();
     }
 
-    private String getRandomTestVideo(Random random) {
-        return TEST_VIDEOS[random.nextInt(TEST_VIDEOS.length)];
+    private String getRandomTestVideo(Random random, String[] videos) {
+        return videos[random.nextInt(videos.length)];
     }
 
     private void doPlayMp4Stream(String video, int millisToPrepare, int millisToPlay)

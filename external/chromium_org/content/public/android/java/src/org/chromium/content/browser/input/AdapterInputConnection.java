@@ -17,7 +17,7 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
 
-import com.google.common.annotations.VisibleForTesting;
+import org.chromium.base.VisibleForTesting;
 
 /**
  * InputConnection is created by ContentView.onCreateInputConnection.
@@ -63,43 +63,53 @@ public class AdapterInputConnection extends BaseInputConnection {
         outAttrs.inputType = EditorInfo.TYPE_CLASS_TEXT
                 | EditorInfo.TYPE_TEXT_VARIATION_WEB_EDIT_TEXT;
 
-        if (imeAdapter.getTextInputType() == ImeAdapter.sTextInputTypeText) {
+        int inputType = imeAdapter.getTextInputType();
+        int inputFlags = imeAdapter.getTextInputFlags();
+        if ((inputFlags & imeAdapter.sTextInputFlagAutocompleteOff) != 0) {
+            outAttrs.inputType |= EditorInfo.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
+        }
+
+        if (inputType == ImeAdapter.sTextInputTypeText) {
             // Normal text field
-            outAttrs.inputType |= EditorInfo.TYPE_TEXT_FLAG_AUTO_CORRECT;
             outAttrs.imeOptions |= EditorInfo.IME_ACTION_GO;
-        } else if (imeAdapter.getTextInputType() == ImeAdapter.sTextInputTypeTextArea ||
-                imeAdapter.getTextInputType() == ImeAdapter.sTextInputTypeContentEditable) {
+            if ((inputFlags & imeAdapter.sTextInputFlagAutocorrectOff) == 0) {
+                outAttrs.inputType |= EditorInfo.TYPE_TEXT_FLAG_AUTO_CORRECT;
+            }
+        } else if (inputType == ImeAdapter.sTextInputTypeTextArea ||
+                inputType == ImeAdapter.sTextInputTypeContentEditable) {
             // TextArea or contenteditable.
             outAttrs.inputType |= EditorInfo.TYPE_TEXT_FLAG_MULTI_LINE
-                    | EditorInfo.TYPE_TEXT_FLAG_CAP_SENTENCES
-                    | EditorInfo.TYPE_TEXT_FLAG_AUTO_CORRECT;
+                    | EditorInfo.TYPE_TEXT_FLAG_CAP_SENTENCES;
+            if ((inputFlags & imeAdapter.sTextInputFlagAutocorrectOff) == 0) {
+                outAttrs.inputType |= EditorInfo.TYPE_TEXT_FLAG_AUTO_CORRECT;
+            }
             outAttrs.imeOptions |= EditorInfo.IME_ACTION_NONE;
             mSingleLine = false;
-        } else if (imeAdapter.getTextInputType() == ImeAdapter.sTextInputTypePassword) {
+        } else if (inputType == ImeAdapter.sTextInputTypePassword) {
             // Password
             outAttrs.inputType = InputType.TYPE_CLASS_TEXT
                     | InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD;
             outAttrs.imeOptions |= EditorInfo.IME_ACTION_GO;
-        } else if (imeAdapter.getTextInputType() == ImeAdapter.sTextInputTypeSearch) {
+        } else if (inputType == ImeAdapter.sTextInputTypeSearch) {
             // Search
             outAttrs.imeOptions |= EditorInfo.IME_ACTION_SEARCH;
-        } else if (imeAdapter.getTextInputType() == ImeAdapter.sTextInputTypeUrl) {
+        } else if (inputType == ImeAdapter.sTextInputTypeUrl) {
             // Url
             outAttrs.inputType = InputType.TYPE_CLASS_TEXT
                     | InputType.TYPE_TEXT_VARIATION_URI;
             outAttrs.imeOptions |= EditorInfo.IME_ACTION_GO;
-        } else if (imeAdapter.getTextInputType() == ImeAdapter.sTextInputTypeEmail) {
+        } else if (inputType == ImeAdapter.sTextInputTypeEmail) {
             // Email
             outAttrs.inputType = InputType.TYPE_CLASS_TEXT
                     | InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS;
             outAttrs.imeOptions |= EditorInfo.IME_ACTION_GO;
-        } else if (imeAdapter.getTextInputType() == ImeAdapter.sTextInputTypeTel) {
+        } else if (inputType == ImeAdapter.sTextInputTypeTel) {
             // Telephone
             // Number and telephone do not have both a Tab key and an
             // action in default OSK, so set the action to NEXT
             outAttrs.inputType = InputType.TYPE_CLASS_PHONE;
             outAttrs.imeOptions |= EditorInfo.IME_ACTION_NEXT;
-        } else if (imeAdapter.getTextInputType() == ImeAdapter.sTextInputTypeNumber) {
+        } else if (inputType == ImeAdapter.sTextInputTypeNumber) {
             // Number
             outAttrs.inputType = InputType.TYPE_CLASS_NUMBER
                     | InputType.TYPE_NUMBER_VARIATION_NORMAL
@@ -243,7 +253,7 @@ public class AdapterInputConnection extends BaseInputConnection {
             // Send TAB key event
             long timeStampMs = SystemClock.uptimeMillis();
             mImeAdapter.sendSyntheticKeyEvent(
-                    ImeAdapter.sEventTypeRawKeyDown, timeStampMs, KeyEvent.KEYCODE_TAB, 0);
+                    ImeAdapter.sEventTypeRawKeyDown, timeStampMs, KeyEvent.KEYCODE_TAB, 0, 0);
         } else {
             mImeAdapter.sendKeyEventWithKeyCode(KeyEvent.KEYCODE_ENTER,
                     KeyEvent.FLAG_SOFT_KEYBOARD | KeyEvent.FLAG_KEEP_TOUCH_MODE
@@ -318,13 +328,36 @@ public class AdapterInputConnection extends BaseInputConnection {
         if (DEBUG) {
             Log.w(TAG, "deleteSurroundingText [" + beforeLength + " " + afterLength + "]");
         }
+        int originalBeforeLength = beforeLength;
+        int originalAfterLength = afterLength;
         int availableBefore = Selection.getSelectionStart(mEditable);
         int availableAfter = mEditable.length() - Selection.getSelectionEnd(mEditable);
         beforeLength = Math.min(beforeLength, availableBefore);
         afterLength = Math.min(afterLength, availableAfter);
         super.deleteSurroundingText(beforeLength, afterLength);
         updateSelectionIfRequired();
-        return mImeAdapter.deleteSurroundingText(beforeLength, afterLength);
+
+        // For single-char deletion calls |ImeAdapter.sendKeyEventWithKeyCode| with the real key
+        // code. For multi-character deletion, executes deletion by calling
+        // |ImeAdapter.deleteSurroundingText| and sends synthetic key events with a dummy key code.
+        int keyCode = KeyEvent.KEYCODE_UNKNOWN;
+        if (originalBeforeLength == 1 && originalAfterLength == 0)
+            keyCode = KeyEvent.KEYCODE_DEL;
+        else if (originalBeforeLength == 0 && originalAfterLength == 1)
+            keyCode = KeyEvent.KEYCODE_FORWARD_DEL;
+
+        boolean result = true;
+        if (keyCode == KeyEvent.KEYCODE_UNKNOWN) {
+            result = mImeAdapter.sendSyntheticKeyEvent(
+                    ImeAdapter.sEventTypeRawKeyDown, SystemClock.uptimeMillis(), keyCode, 0, 0);
+            result &= mImeAdapter.deleteSurroundingText(beforeLength, afterLength);
+            result &= mImeAdapter.sendSyntheticKeyEvent(
+                    ImeAdapter.sEventTypeKeyUp, SystemClock.uptimeMillis(), keyCode, 0, 0);
+        } else {
+            mImeAdapter.sendKeyEventWithKeyCode(
+                    keyCode, KeyEvent.FLAG_SOFT_KEYBOARD | KeyEvent.FLAG_KEEP_TOUCH_MODE);
+        }
+        return result;
     }
 
     /**
@@ -437,7 +470,12 @@ public class AdapterInputConnection extends BaseInputConnection {
             super.setComposingRegion(a, b);
         }
         updateSelectionIfRequired();
-        return mImeAdapter.setComposingRegion(a, b);
+
+        CharSequence regionText = null;
+        if (b > a) {
+            regionText = mEditable.subSequence(a, b);
+        }
+        return mImeAdapter.setComposingRegion(regionText, a, b);
     }
 
     boolean isActive() {

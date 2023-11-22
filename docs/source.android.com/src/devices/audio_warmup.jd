@@ -24,7 +24,7 @@ page.title=Audio Warmup
   </div>
 </div>
 
-<p>Audio warmup is the time for the audio amplifier circuit in your device to
+<p>Audio warmup is the time it takes for the audio amplifier circuit in your device to
 be fully powered and reach its normal operation state. The major contributors
 to audio warmup time are power management and any "de-pop" logic to stabilize
 the circuit.

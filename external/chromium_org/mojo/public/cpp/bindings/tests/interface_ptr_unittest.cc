@@ -41,10 +41,6 @@ class MathCalculatorImpl : public InterfaceImpl<math::Calculator> {
     got_connection_ = true;
   }
 
-  virtual void OnConnectionError() MOJO_OVERRIDE {
-    delete this;
-  }
-
   virtual void Clear() MOJO_OVERRIDE {
     client()->Output(total_);
   }
@@ -63,7 +59,7 @@ class MathCalculatorImpl : public InterfaceImpl<math::Calculator> {
     return got_connection_;
   }
 
-private:
+ private:
   double total_;
   bool got_connection_;
 };
@@ -74,6 +70,10 @@ class MathCalculatorUIImpl : public math::CalculatorUI {
       : calculator_(calculator.Pass()),
         output_(0.0) {
     calculator_.set_client(this);
+  }
+
+  bool WaitForIncomingMethodCall() {
+    return calculator_.WaitForIncomingMethodCall();
   }
 
   bool encountered_error() const {
@@ -149,6 +149,42 @@ class SelfDestructingMathCalculatorUIImpl : public math::CalculatorUI {
 // static
 int SelfDestructingMathCalculatorUIImpl::num_instances_ = 0;
 
+class ReentrantServiceImpl : public InterfaceImpl<sample::Service> {
+ public:
+  virtual ~ReentrantServiceImpl() {}
+
+  ReentrantServiceImpl()
+      : got_connection_(false), call_depth_(0), max_call_depth_(0) {}
+
+  virtual void OnConnectionEstablished() MOJO_OVERRIDE {
+    got_connection_ = true;
+  }
+
+  bool got_connection() const {
+    return got_connection_;
+  }
+
+  int max_call_depth() { return max_call_depth_; }
+
+  virtual void Frobinate(sample::FooPtr foo,
+                         sample::Service::BazOptions baz,
+                         sample::PortPtr port) MOJO_OVERRIDE {
+    max_call_depth_ = std::max(++call_depth_, max_call_depth_);
+    if (call_depth_ == 1) {
+      EXPECT_TRUE(WaitForIncomingMethodCall());
+    }
+    call_depth_--;
+  }
+
+  virtual void GetPort(mojo::InterfaceRequest<sample::Port> port)
+      MOJO_OVERRIDE {}
+
+ private:
+  bool got_connection_;
+  int call_depth_;
+  int max_call_depth_;
+};
+
 class InterfacePtrTest : public testing::Test {
  public:
   virtual ~InterfacePtrTest() {
@@ -180,24 +216,47 @@ TEST_F(InterfacePtrTest, EndToEnd) {
   EXPECT_EQ(10.0, calculator_ui.GetOutput());
 }
 
+TEST_F(InterfacePtrTest, EndToEnd_Synchronous) {
+  math::CalculatorPtr calc;
+  MathCalculatorImpl* impl = BindToProxy(new MathCalculatorImpl(), &calc);
+  EXPECT_TRUE(impl->got_connection());
+
+  // Suppose this is instantiated in a process that has pipe1_.
+  MathCalculatorUIImpl calculator_ui(calc.Pass());
+
+  EXPECT_EQ(0.0, calculator_ui.GetOutput());
+
+  calculator_ui.Add(2.0);
+  EXPECT_EQ(0.0, calculator_ui.GetOutput());
+  impl->WaitForIncomingMethodCall();
+  calculator_ui.WaitForIncomingMethodCall();
+  EXPECT_EQ(2.0, calculator_ui.GetOutput());
+
+  calculator_ui.Multiply(5.0);
+  EXPECT_EQ(2.0, calculator_ui.GetOutput());
+  impl->WaitForIncomingMethodCall();
+  calculator_ui.WaitForIncomingMethodCall();
+  EXPECT_EQ(10.0, calculator_ui.GetOutput());
+}
+
 TEST_F(InterfacePtrTest, Movable) {
   math::CalculatorPtr a;
   math::CalculatorPtr b;
   BindToProxy(new MathCalculatorImpl(), &b);
 
-  EXPECT_TRUE(!a.get());
-  EXPECT_FALSE(!b.get());
+  EXPECT_TRUE(!a);
+  EXPECT_FALSE(!b);
 
   a = b.Pass();
 
-  EXPECT_FALSE(!a.get());
-  EXPECT_TRUE(!b.get());
+  EXPECT_FALSE(!a);
+  EXPECT_TRUE(!b);
 }
 
 TEST_F(InterfacePtrTest, Resettable) {
   math::CalculatorPtr a;
 
-  EXPECT_TRUE(!a.get());
+  EXPECT_TRUE(!a);
 
   MessagePipe pipe;
 
@@ -206,12 +265,12 @@ TEST_F(InterfacePtrTest, Resettable) {
 
   a = MakeProxy<math::Calculator>(pipe.handle0.Pass());
 
-  EXPECT_FALSE(!a.get());
+  EXPECT_FALSE(!a);
 
   a.reset();
 
-  EXPECT_TRUE(!a.get());
-  EXPECT_FALSE(a.internal_state()->router());
+  EXPECT_TRUE(!a);
+  EXPECT_FALSE(a.internal_state()->router_for_testing());
 
   // Test that handle was closed.
   EXPECT_EQ(MOJO_RESULT_INVALID_ARGUMENT, CloseRaw(handle));
@@ -312,6 +371,23 @@ TEST_F(InterfacePtrTest, NestedDestroyInterfacePtrOnClientMethod) {
   PumpMessages();
 
   EXPECT_EQ(0, SelfDestructingMathCalculatorUIImpl::num_instances());
+}
+
+TEST_F(InterfacePtrTest, ReentrantWaitForIncomingMethodCall) {
+  sample::ServicePtr proxy;
+  ReentrantServiceImpl* impl = BindToProxy(new ReentrantServiceImpl(), &proxy);
+  EXPECT_TRUE(impl->got_connection());
+
+  proxy->Frobinate(sample::FooPtr(),
+                   sample::Service::BAZ_OPTIONS_REGULAR,
+                   sample::PortPtr());
+  proxy->Frobinate(sample::FooPtr(),
+                   sample::Service::BAZ_OPTIONS_REGULAR,
+                   sample::PortPtr());
+
+  PumpMessages();
+
+  EXPECT_EQ(2, impl->max_call_depth());
 }
 
 }  // namespace

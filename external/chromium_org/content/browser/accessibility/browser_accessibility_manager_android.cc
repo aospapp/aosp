@@ -168,14 +168,13 @@ void BrowserAccessibilityManagerAndroid::NotifyAccessibilityEvent(
               env, android_node->GetText()).obj());
       break;
     }
-    case ui::AX_EVENT_SELECTED_TEXT_CHANGED:
+    case ui::AX_EVENT_TEXT_SELECTION_CHANGED:
       Java_BrowserAccessibilityManager_handleTextSelectionChanged(
           env, obj.obj(), node->GetId());
       break;
-    case ui::AX_EVENT_CHILDREN_CHANGED:
     case ui::AX_EVENT_TEXT_CHANGED:
     case ui::AX_EVENT_VALUE_CHANGED:
-      if (node->IsEditableText()) {
+      if (node->IsEditableText() && GetFocus(GetRoot()) == node) {
         Java_BrowserAccessibilityManager_handleEditableTextChanged(
             env, obj.obj(), node->GetId());
       }
@@ -247,6 +246,7 @@ jboolean BrowserAccessibilityManagerAndroid::PopulateAccessibilityNodeInfo(
   bool is_root = node->GetParent() == NULL;
   Java_BrowserAccessibilityManager_setAccessibilityNodeInfoLocation(
       env, obj, info,
+      id,
       absolute_rect.x(), absolute_rect.y(),
       parent_relative_rect.x(), parent_relative_rect.y(),
       absolute_rect.width(), absolute_rect.height(),

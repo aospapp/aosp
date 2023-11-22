@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Administrator ilovasidan foydalanib bo‘lmaydi. Unda ba’zi tarkibiy qismlar mavjud emas yoki buzilgan. IT bo‘limiga murojaat qiling."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Administrator ilovasini o‘rnatib bo‘lmadi"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Qurilmangizga administrator ilovasi o‘rnatilmadi"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Sozlash to‘xtatilsinmi?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Haqiqatan ham sozlashni to‘xtatmoqchimisiz?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Yo‘q"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Ha"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Bekor qilinmoqda…"</string>
 </resources>

@@ -4,14 +4,25 @@
 import sys
 
 from measurements import smoothness
+from metrics import power
+from telemetry.core import exceptions
 from telemetry.core import wpr_modes
 from telemetry.page import page
-from telemetry.page import page_measurement_unittest_base
-# pylint: disable=W0401,W0614
-from telemetry.page.actions.all_page_actions import *
+from telemetry.page import page_test
 from telemetry.unittest import options_for_unittests
+from telemetry.unittest import page_test_test_case
+from telemetry.unittest import test
+
+class FakeTracingController(object):
+  def __init__(self):
+    self.category_filter = None
+  def Start(self, _options, category_filter, _timeout):
+    self.category_filter = category_filter
+
 
 class FakePlatform(object):
+  def __init__(self):
+    self.tracing_controller = FakeTracingController()
   def IsRawDisplayFrameRateSupported(self):
     return False
   def CanMonitorPower(self):
@@ -21,10 +32,6 @@ class FakePlatform(object):
 class FakeBrowser(object):
   def __init__(self):
     self.platform = FakePlatform()
-    self.category_filter = None
-
-  def StartTracing(self, category_filter, _):
-    self.category_filter = category_filter
 
 
 class AnimatedPage(page.Page):
@@ -34,7 +41,7 @@ class AnimatedPage(page.Page):
       page_set=page_set, base_dir=page_set.base_dir)
 
   def RunSmoothness(self, action_runner):
-    action_runner.Wait(1)
+    action_runner.Wait(.2)
 
 
 class FakeTab(object):
@@ -44,8 +51,7 @@ class FakeTab(object):
   def ExecuteJavaScript(self, js):
     pass
 
-class SmoothnessUnitTest(
-      page_measurement_unittest_base.PageMeasurementUnitTestBase):
+class SmoothnessUnitTest(page_test_test_case.PageTestTestCase):
   """Smoke test for smoothness measurement
 
      Runs smoothness measurement on a simple page and verifies
@@ -62,16 +68,19 @@ class SmoothnessUnitTest(
 
     tab = FakeTab()
     measurement = smoothness.Smoothness()
+    measurement.WillStartBrowser(tab.browser.platform)
+    measurement.WillNavigateToPage(test_page, tab)
     measurement.WillRunActions(test_page, tab)
 
-    expected_category_filter = [
+    expected_category_filter = set([
         'DELAY(cc.BeginMainFrame;0.012000;static)',
         'DELAY(cc.DrawAndSwap;0.012000;alternating)',
         'DELAY(gpu.PresentingFrame;0.012000;static)',
         'benchmark'
-    ]
-    actual_category_filter = tab.browser.category_filter.split(',')
-    actual_category_filter.sort()
+    ])
+    tracing_controller = tab.browser.platform.tracing_controller
+    actual_category_filter = (
+      tracing_controller.category_filter.included_categories)
 
     # FIXME: Put blink.console into the expected above and remove these two
     # remove entries when the blink.console change has rolled into chromium.
@@ -118,6 +127,7 @@ class SmoothnessUnitTest(
       self.assertGreater(
           mean_input_event_latency[0].GetRepresentativeNumber(), 0)
 
+  @test.Disabled('mac', 'chromeos')  # http://crbug.com/403903
   def testSmoothnessForPageWithNoGesture(self):
     ps = self.CreateEmptyPageSet()
     ps.AddPage(AnimatedPage(ps))
@@ -132,3 +142,38 @@ class SmoothnessUnitTest(
 
   def testCleanUpTrace(self):
     self.TestTracingCleanedUp(smoothness.Smoothness, self._options)
+
+  def testCleanUpPowerMetric(self):
+    class FailPage(page.Page):
+      def __init__(self, page_set):
+        super(FailPage, self).__init__(
+            url='file://blank.html',
+            page_set=page_set, base_dir=page_set.base_dir)
+      def RunSmoothness(self, _):
+        raise exceptions.IntentionalException
+
+    class FakePowerMetric(power.PowerMetric):
+      start_called = False
+      stop_called = True
+      def Start(self, _1, _2):
+        self.start_called = True
+      def Stop(self, _1, _2):
+        self.stop_called = True
+
+    ps = self.CreateEmptyPageSet()
+    ps.AddPage(FailPage(ps))
+
+    class BuggyMeasurement(smoothness.Smoothness):
+      fake_power = None
+      # Inject fake power metric.
+      def WillStartBrowser(self, platform):
+        self.fake_power = self._power_metric = FakePowerMetric(platform)
+
+    measurement = BuggyMeasurement()
+    try:
+      self.RunMeasurement(measurement, ps)
+    except page_test.TestNotSupportedOnPlatformFailure:
+      pass
+
+    self.assertTrue(measurement.fake_power.start_called)
+    self.assertTrue(measurement.fake_power.stop_called)

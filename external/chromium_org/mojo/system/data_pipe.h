@@ -14,6 +14,7 @@
 #include "mojo/public/c/system/data_pipe.h"
 #include "mojo/public/c/system/types.h"
 #include "mojo/system/handle_signals_state.h"
+#include "mojo/system/memory.h"
 #include "mojo/system/system_impl_export.h"
 
 namespace mojo {
@@ -28,8 +29,8 @@ class WaiterList;
 // Its subclasses implement the three cases: local producer and consumer, local
 // producer and remote consumer, and remote producer and local consumer. This
 // class is thread-safe.
-class MOJO_SYSTEM_IMPL_EXPORT DataPipe :
-    public base::RefCountedThreadSafe<DataPipe> {
+class MOJO_SYSTEM_IMPL_EXPORT DataPipe
+    : public base::RefCountedThreadSafe<DataPipe> {
  public:
   // The default options for |MojoCreateDataPipe()|. (Real uses should obtain
   // this via |ValidateCreateOptions()| with a null |in_options|; this is
@@ -42,27 +43,26 @@ class MOJO_SYSTEM_IMPL_EXPORT DataPipe :
   // |MojoCreateDataPipeOptions| and will be entirely overwritten on success (it
   // may be partly overwritten on failure).
   static MojoResult ValidateCreateOptions(
-      const MojoCreateDataPipeOptions* in_options,
+      UserPointer<const MojoCreateDataPipeOptions> in_options,
       MojoCreateDataPipeOptions* out_options);
 
   // These are called by the producer dispatcher to implement its methods of
   // corresponding names.
   void ProducerCancelAllWaiters();
   void ProducerClose();
-  // This does not validate its arguments, except to check that |*num_bytes| is
-  // a multiple of |element_num_bytes_|.
-  MojoResult ProducerWriteData(const void* elements,
-                               uint32_t* num_bytes,
+  MojoResult ProducerWriteData(UserPointer<const void> elements,
+                               UserPointer<uint32_t> num_bytes,
                                bool all_or_none);
-  // This does not validate its arguments.
-  MojoResult ProducerBeginWriteData(void** buffer,
-                                    uint32_t* buffer_num_bytes,
+  MojoResult ProducerBeginWriteData(UserPointer<void*> buffer,
+                                    UserPointer<uint32_t> buffer_num_bytes,
                                     bool all_or_none);
   MojoResult ProducerEndWriteData(uint32_t num_bytes_written);
+  HandleSignalsState ProducerGetHandleSignalsState();
   MojoResult ProducerAddWaiter(Waiter* waiter,
                                MojoHandleSignals signals,
-                               uint32_t context);
-  void ProducerRemoveWaiter(Waiter* waiter);
+                               uint32_t context,
+                               HandleSignalsState* signals_state);
+  void ProducerRemoveWaiter(Waiter* waiter, HandleSignalsState* signals_state);
   bool ProducerIsBusy() const;
 
   // These are called by the consumer dispatcher to implement its methods of
@@ -71,21 +71,22 @@ class MOJO_SYSTEM_IMPL_EXPORT DataPipe :
   void ConsumerClose();
   // This does not validate its arguments, except to check that |*num_bytes| is
   // a multiple of |element_num_bytes_|.
-  MojoResult ConsumerReadData(void* elements,
-                              uint32_t* num_bytes,
+  MojoResult ConsumerReadData(UserPointer<void> elements,
+                              UserPointer<uint32_t> num_bytes,
                               bool all_or_none);
-  MojoResult ConsumerDiscardData(uint32_t* num_bytes,
+  MojoResult ConsumerDiscardData(UserPointer<uint32_t> num_bytes,
                                  bool all_or_none);
-  MojoResult ConsumerQueryData(uint32_t* num_bytes);
-  // This does not validate its arguments.
-  MojoResult ConsumerBeginReadData(const void** buffer,
-                                   uint32_t* buffer_num_bytes,
+  MojoResult ConsumerQueryData(UserPointer<uint32_t> num_bytes);
+  MojoResult ConsumerBeginReadData(UserPointer<const void*> buffer,
+                                   UserPointer<uint32_t> buffer_num_bytes,
                                    bool all_or_none);
   MojoResult ConsumerEndReadData(uint32_t num_bytes_read);
+  HandleSignalsState ConsumerGetHandleSignalsState();
   MojoResult ConsumerAddWaiter(Waiter* waiter,
                                MojoHandleSignals signals,
-                               uint32_t context);
-  void ConsumerRemoveWaiter(Waiter* waiter);
+                               uint32_t context,
+                               HandleSignalsState* signals_state);
+  void ConsumerRemoveWaiter(Waiter* waiter, HandleSignalsState* signals_state);
   bool ConsumerIsBusy() const;
 
  protected:
@@ -97,34 +98,44 @@ class MOJO_SYSTEM_IMPL_EXPORT DataPipe :
   virtual ~DataPipe();
 
   virtual void ProducerCloseImplNoLock() = 0;
-  // |*num_bytes| will be a nonzero multiple of |element_num_bytes_|.
-  virtual MojoResult ProducerWriteDataImplNoLock(const void* elements,
-                                                 uint32_t* num_bytes,
-                                                 bool all_or_none) = 0;
+  // |num_bytes.Get()| will be a nonzero multiple of |element_num_bytes_|.
+  virtual MojoResult ProducerWriteDataImplNoLock(
+      UserPointer<const void> elements,
+      UserPointer<uint32_t> num_bytes,
+      uint32_t max_num_bytes_to_write,
+      uint32_t min_num_bytes_to_write) = 0;
   virtual MojoResult ProducerBeginWriteDataImplNoLock(
-      void** buffer,
-      uint32_t* buffer_num_bytes,
-      bool all_or_none) = 0;
+      UserPointer<void*> buffer,
+      UserPointer<uint32_t> buffer_num_bytes,
+      uint32_t min_num_bytes_to_write) = 0;
   virtual MojoResult ProducerEndWriteDataImplNoLock(
       uint32_t num_bytes_written) = 0;
   // Note: A producer should not be writable during a two-phase write.
-  virtual HandleSignalsState ProducerGetHandleSignalsStateNoLock() const = 0;
+  virtual HandleSignalsState ProducerGetHandleSignalsStateImplNoLock()
+      const = 0;
 
   virtual void ConsumerCloseImplNoLock() = 0;
   // |*num_bytes| will be a nonzero multiple of |element_num_bytes_|.
-  virtual MojoResult ConsumerReadDataImplNoLock(void* elements,
-                                                uint32_t* num_bytes,
-                                                bool all_or_none) = 0;
-  virtual MojoResult ConsumerDiscardDataImplNoLock(uint32_t* num_bytes,
-                                                   bool all_or_none) = 0;
+  virtual MojoResult ConsumerReadDataImplNoLock(
+      UserPointer<void> elements,
+      UserPointer<uint32_t> num_bytes,
+      uint32_t max_num_bytes_to_read,
+      uint32_t min_num_bytes_to_read) = 0;
+  virtual MojoResult ConsumerDiscardDataImplNoLock(
+      UserPointer<uint32_t> num_bytes,
+      uint32_t max_num_bytes_to_discard,
+      uint32_t min_num_bytes_to_discard) = 0;
   // |*num_bytes| will be a nonzero multiple of |element_num_bytes_|.
-  virtual MojoResult ConsumerQueryDataImplNoLock(uint32_t* num_bytes) = 0;
-  virtual MojoResult ConsumerBeginReadDataImplNoLock(const void** buffer,
-                                                     uint32_t* buffer_num_bytes,
-                                                     bool all_or_none) = 0;
+  virtual MojoResult ConsumerQueryDataImplNoLock(
+      UserPointer<uint32_t> num_bytes) = 0;
+  virtual MojoResult ConsumerBeginReadDataImplNoLock(
+      UserPointer<const void*> buffer,
+      UserPointer<uint32_t> buffer_num_bytes,
+      uint32_t min_num_bytes_to_read) = 0;
   virtual MojoResult ConsumerEndReadDataImplNoLock(uint32_t num_bytes_read) = 0;
   // Note: A consumer should not be writable during a two-phase read.
-  virtual HandleSignalsState ConsumerGetHandleSignalsStateNoLock() const = 0;
+  virtual HandleSignalsState ConsumerGetHandleSignalsStateImplNoLock()
+      const = 0;
 
   // Thread-safe and fast (they don't take the lock):
   bool may_discard() const { return may_discard_; }

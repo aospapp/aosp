@@ -99,7 +99,7 @@ private:
     static void s_glGetBooleanv(void *self, GLenum pname, GLboolean *ptr);
 
     glVertexAttribPointer_client_proc_t m_glVertexAttribPointer_enc;
-    static void s_glVertexAtrribPointer(void *self, GLuint indx, GLint size, GLenum type,
+    static void s_glVertexAttribPointer(void *self, GLuint indx, GLint size, GLenum type,
                                         GLboolean normalized, GLsizei stride, const GLvoid * ptr);
 
     glEnableVertexAttribArray_client_proc_t m_glEnableVertexAttribArray_enc;
@@ -114,10 +114,10 @@ private:
     glGetVertexAttribfv_client_proc_t m_glGetVertexAttribfv_enc;
     static void s_glGetVertexAttribfv(void *self, GLuint index, GLenum pname, GLfloat *params);
 
-    glGetVertexAttribPointerv_client_proc_t m_glGetVertexAttribPointerv;
+    glGetVertexAttribPointerv_client_proc_t m_glGetVertexAttribPointerv_enc;
     static void s_glGetVertexAttribPointerv(void *self, GLuint index, GLenum pname, GLvoid **pointer);
 
-    static void s_glShaderSource(void *self, GLuint shader, GLsizei count, const GLchar *const *string, const GLint *length);
+    static void s_glShaderSource(void *self, GLuint shader, GLsizei count, const GLchar * const *string, const GLint *length);
 
     static void s_glFinish(void *self);
 
@@ -218,6 +218,7 @@ private:
     glTexParameterfv_client_proc_t m_glTexParameterfv_enc;
     glTexParameteri_client_proc_t m_glTexParameteri_enc;
     glTexParameteriv_client_proc_t m_glTexParameteriv_enc;
+    glTexImage2D_client_proc_t m_glTexImage2D_enc;
 
     static void s_glActiveTexture(void* self, GLenum texture);
     static void s_glBindTexture(void* self, GLenum target, GLuint texture);
@@ -228,5 +229,9 @@ private:
     static void s_glTexParameterfv(void* self, GLenum target, GLenum pname, const GLfloat* params);
     static void s_glTexParameteri(void* self, GLenum target, GLenum pname, GLint param);
     static void s_glTexParameteriv(void* self, GLenum target, GLenum pname, const GLint* params);
+    static void s_glTexImage2D(void* self, GLenum target, GLint level, GLint internalformat,
+            GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type,
+            const GLvoid* pixels);
+
 };
 #endif

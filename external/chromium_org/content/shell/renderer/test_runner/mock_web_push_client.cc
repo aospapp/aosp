@@ -15,9 +15,8 @@ using blink::WebString;
 namespace content {
 
 MockWebPushClient::MockWebPushClient()
-  // The default state should be be an error with "Registration failed." message
-  // because LayoutTests are currently depending on that.
-  : error_message_("Registration failed.") {
+    : error_message_(
+          "Registration failed (default mock client error message)") {
 }
 
 MockWebPushClient::~MockWebPushClient() {}
@@ -38,6 +37,13 @@ void MockWebPushClient::SetMockErrorValues(const std::string& message) {
 void MockWebPushClient::registerPushMessaging(
     const WebString& sender_id,
     blink::WebPushRegistrationCallbacks* callbacks) {
+  registerPushMessaging(sender_id, callbacks, NULL);
+}
+
+void MockWebPushClient::registerPushMessaging(
+    const WebString& sender_id,
+    blink::WebPushRegistrationCallbacks* callbacks,
+    blink::WebServiceWorkerProvider* service_worker_provider) {
   DCHECK(callbacks);
 
   if (!error_message_.empty()) {

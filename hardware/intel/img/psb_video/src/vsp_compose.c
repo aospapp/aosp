@@ -8,11 +8,11 @@
  * distribute, sub license, and/or sell copies of the Software, and to
  * permit persons to whom the Software is furnished to do so, subject to
  * the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice (including the
  * next paragraph) shall be included in all copies or substantial portions
  * of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
@@ -45,7 +45,7 @@
 #define ALIGN_TO_128(value) ((value + 128 - 1) & ~(128 - 1))
 #define ALIGN_TO_16(value) ((value + 16 - 1) & ~(16 - 1))
 
-VAStatus vsp_compose_process_pipeline_param(context_VPP_p ctx, object_context_p obj_context, object_buffer_p obj_buffer)
+VAStatus vsp_compose_process_pipeline_param(context_VPP_p ctx, object_context_p __maybe_unused obj_context, object_buffer_p obj_buffer)
 {
 
 	VAStatus vaStatus = VA_STATUS_SUCCESS;

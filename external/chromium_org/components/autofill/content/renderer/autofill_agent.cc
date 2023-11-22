@@ -28,7 +28,6 @@
 #include "content/public/common/ssl_status.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/renderer/render_view.h"
-#include "grit/components_strings.h"
 #include "net/cert/cert_status_flags.h"
 #include "third_party/WebKit/public/platform/WebRect.h"
 #include "third_party/WebKit/public/platform/WebURLRequest.h"
@@ -80,8 +79,7 @@ void GetDataListSuggestions(const WebInputElement& element,
   base::string16 prefix;
   if (!ignore_current_value) {
     prefix = element.editingValue();
-    if (element.isMultiple() &&
-        element.formControlType() == WebString::fromUTF8("email")) {
+    if (element.isMultiple() && element.isEmailField()) {
       std::vector<base::string16> parts;
       base::SplitStringDontTrim(prefix, ',', &parts);
       if (parts.size() > 0) {
@@ -133,7 +131,6 @@ AutofillAgent::AutofillAgent(content::RenderView* render_view,
       was_query_node_autofilled_(false),
       has_shown_autofill_popup_for_current_edit_(false),
       did_set_node_text_(false),
-      has_new_forms_for_browser_(false),
       ignore_text_changes_(false),
       is_popup_possibly_visible_(false),
       main_frame_processed_(false),
@@ -208,7 +205,7 @@ void AutofillAgent::WillSubmitForm(WebLocalFrame* frame,
   FormData form_data;
   if (WebFormElementToFormData(form,
                                WebFormControlElement(),
-                               REQUIRE_AUTOCOMPLETE,
+                               REQUIRE_NONE,
                                static_cast<ExtractMask>(
                                    EXTRACT_VALUE | EXTRACT_OPTION_TEXT),
                                &form_data,
@@ -218,14 +215,9 @@ void AutofillAgent::WillSubmitForm(WebLocalFrame* frame,
   }
 }
 
-void AutofillAgent::ZoomLevelChanged() {
-  // Any time the zoom level changes, the page's content moves, so any Autofill
-  // popups should be hidden. This is only needed for the new Autofill UI
-  // because WebKit already knows to hide the old UI when this occurs.
-  HidePopup();
-}
-
 void AutofillAgent::FocusedNodeChanged(const WebNode& node) {
+  HidePopup();
+
   if (password_generation_agent_ &&
       password_generation_agent_->FocusedNodeHasChanged(node)) {
     is_popup_possibly_visible_ = true;
@@ -253,14 +245,12 @@ void AutofillAgent::OrientationChangeEvent() {
   HidePopup();
 }
 
-void AutofillAgent::DidChangeScrollOffset(WebLocalFrame*) {
+void AutofillAgent::Resized() {
   HidePopup();
 }
 
-void AutofillAgent::didRequestAutocomplete(
-    const WebFormElement& form,
-    const blink::WebAutocompleteParams& details) {
-  didRequestAutocomplete(form);
+void AutofillAgent::DidChangeScrollOffset(WebLocalFrame*) {
+  HidePopup();
 }
 
 void AutofillAgent::didRequestAutocomplete(
@@ -287,7 +277,10 @@ void AutofillAgent::didRequestAutocomplete(
   } else if (!WebFormElementToFormData(form,
                                        WebFormControlElement(),
                                        REQUIRE_AUTOCOMPLETE,
-                                       EXTRACT_OPTIONS,
+                                       static_cast<ExtractMask>(
+                                           EXTRACT_VALUE |
+                                           EXTRACT_OPTION_TEXT |
+                                           EXTRACT_OPTIONS),
                                        &form_data,
                                        NULL)) {
     error_message = "failed to parse form.";
@@ -323,12 +316,24 @@ void AutofillAgent::FormControlElementClicked(
   if (!input_element && !IsTextAreaElement(element))
     return;
 
-  if (was_focused)
-    ShowSuggestions(element, true, false, true, false);
-}
+  bool show_full_suggestion_list = element.isAutofilled() || was_focused;
+  bool show_password_suggestions_only = !was_focused;
 
-void AutofillAgent::FormControlElementLostFocus() {
-  HidePopup();
+  // TODO(gcasto): Remove after crbug.com/423464 has been fixed.
+  bool show_suggestions = true;
+#if defined(OS_ANDROID)
+  show_suggestions = was_focused;
+#endif
+
+  if (show_suggestions) {
+    ShowSuggestions(element,
+                    true,
+                    false,
+                    true,
+                    false,
+                    show_full_suggestion_list,
+                    show_password_suggestions_only);
+  }
 }
 
 void AutofillAgent::textFieldDidEndEditing(const WebInputElement& element) {
@@ -380,7 +385,7 @@ void AutofillAgent::TextFieldDidChangeImpl(
     }
   }
 
-  ShowSuggestions(element, false, true, false, false);
+  ShowSuggestions(element, false, true, false, false, false, false);
 
   FormData form;
   FormFieldData field;
@@ -402,11 +407,11 @@ void AutofillAgent::textFieldDidReceiveKeyDown(const WebInputElement& element,
 
   if (event.windowsKeyCode == ui::VKEY_DOWN ||
       event.windowsKeyCode == ui::VKEY_UP)
-    ShowSuggestions(element, true, true, true, false);
+    ShowSuggestions(element, true, true, true, false, false, false);
 }
 
 void AutofillAgent::openTextDataListChooser(const WebInputElement& element) {
-    ShowSuggestions(element, true, false, false, true);
+  ShowSuggestions(element, true, false, false, true, false, false);
 }
 
 void AutofillAgent::firstUserGestureObserved() {
@@ -420,8 +425,7 @@ void AutofillAgent::AcceptDataListSuggestion(
   base::string16 new_value = suggested_value;
   // If this element takes multiple values then replace the last part with
   // the suggestion.
-  if (input_element->isMultiple() &&
-      input_element->formControlType() == WebString::fromUTF8("email")) {
+  if (input_element->isMultiple() && input_element->isEmailField()) {
     std::vector<base::string16> parts;
 
     base::SplitStringDontTrim(input_element->editingValue(), ',', &parts);
@@ -496,8 +500,10 @@ void AutofillAgent::OnClearPreviewedForm() {
 
 void AutofillAgent::OnFillFieldWithValue(const base::string16& value) {
   WebInputElement* input_element = toWebInputElement(&element_);
-  if (input_element)
+  if (input_element) {
     FillFieldWithValue(value, input_element);
+    input_element->setAutofilled(true);
+  }
 }
 
 void AutofillAgent::OnPreviewFieldWithValue(const base::string16& value) {
@@ -559,8 +565,12 @@ void AutofillAgent::ShowSuggestions(const WebFormControlElement& element,
                                     bool autofill_on_empty_values,
                                     bool requires_caret_at_end,
                                     bool display_warning_if_disabled,
-                                    bool datalist_only) {
+                                    bool datalist_only,
+                                    bool show_full_suggestion_list,
+                                    bool show_password_suggestions_only) {
   if (!element.isEnabled() || element.isReadOnly())
+    return;
+  if (!datalist_only && !element.suggestedValue().isEmpty())
     return;
 
   const WebInputElement* input_element = toWebInputElement(&element);
@@ -590,8 +600,10 @@ void AutofillAgent::ShowSuggestions(const WebFormControlElement& element,
   }
 
   element_ = element;
-  if (input_element &&
-      password_autofill_agent_->ShowSuggestions(*input_element)) {
+  if (IsAutofillableInputElement(input_element) &&
+      (password_autofill_agent_->ShowSuggestions(*input_element,
+                                                 show_full_suggestion_list) ||
+       show_password_suggestions_only)) {
     is_popup_possibly_visible_ = true;
     return;
   }
@@ -676,7 +688,6 @@ void AutofillAgent::FillFieldWithValue(const base::string16& value,
                                        WebInputElement* node) {
   did_set_node_text_ = true;
   node->setEditingValue(value.substr(0, node->maxLength()));
-  node->setAutofilled(true);
 }
 
 void AutofillAgent::PreviewFieldWithValue(const base::string16& value,

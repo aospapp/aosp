@@ -9,12 +9,26 @@
 #include "base/metrics/field_trial.h"
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
-#include "chrome/common/variations/variation_ids.h"
 #include "components/variations/variations_associated_data.h"
 
 namespace chrome_variations {
 
 namespace {
+
+const int MINIMIUM_ID = 3300000;
+
+const int UNIFORMITY_1_PERCENT_BASE  = MINIMIUM_ID;
+const int UNIFORMITY_1_PERCENT_LIMIT = UNIFORMITY_1_PERCENT_BASE + 100;
+const int UNIFORMITY_5_PERCENT_BASE  = UNIFORMITY_1_PERCENT_LIMIT;
+const int UNIFORMITY_5_PERCENT_LIMIT = UNIFORMITY_5_PERCENT_BASE + 20;
+const int UNIFORMITY_10_PERCENT_BASE  = UNIFORMITY_5_PERCENT_LIMIT;
+const int UNIFORMITY_10_PERCENT_LIMIT = UNIFORMITY_10_PERCENT_BASE + 10;
+const int UNIFORMITY_20_PERCENT_BASE  = UNIFORMITY_10_PERCENT_LIMIT;
+const int UNIFORMITY_20_PERCENT_LIMIT = UNIFORMITY_20_PERCENT_BASE + 5;
+const int UNIFORMITY_50_PERCENT_BASE  = UNIFORMITY_20_PERCENT_LIMIT;
+// A uniformity trial used to compare one-time-randomized and
+// session-randomized FieldTrials.
+const int UNIFORMITY_SESSION_RANDOMIZED_5_PERCENT_BASE  = 3300139;
 
 // Set up a uniformity field trial. |one_time_randomized| indicates if the
 // field trial is one-time randomized or session-randomized. |trial_name_string|
@@ -23,7 +37,7 @@ namespace {
 void SetupSingleUniformityFieldTrial(
     base::FieldTrial::RandomizationType randomization_type,
     const std::string& trial_name_string,
-    const VariationID trial_base_id,
+    const variations::VariationID trial_base_id,
     int num_trial_groups) {
   // Probability per group remains constant for all uniformity trials, what
   // changes is the probability divisor.
@@ -42,8 +56,9 @@ void SetupSingleUniformityFieldTrial(
       base::FieldTrialList::FactoryGetFieldTrial(
           trial_name, divisor, kDefaultGroupName, 2015, 1, 1,
           randomization_type, NULL));
-  AssociateGoogleVariationID(GOOGLE_UPDATE_SERVICE, trial_name,
-                             kDefaultGroupName, trial_base_id);
+  variations::AssociateGoogleVariationID(variations::GOOGLE_UPDATE_SERVICE,
+                                         trial_name, kDefaultGroupName,
+                                         trial_base_id);
 
   // Loop starts with group 1 because the field trial automatically creates a
   // default group, which would be group 0.
@@ -52,9 +67,9 @@ void SetupSingleUniformityFieldTrial(
           base::StringPrintf("group_%02d", group_number);
     DVLOG(1) << "    Group name = " << group_name;
     trial->AppendGroup(group_name, kProbabilityPerGroup);
-    AssociateGoogleVariationID(
-        GOOGLE_UPDATE_SERVICE, trial_name, group_name,
-        static_cast<VariationID>(trial_base_id + group_number));
+    variations::AssociateGoogleVariationID(
+        variations::GOOGLE_UPDATE_SERVICE, trial_name, group_name,
+        static_cast<variations::VariationID>(trial_base_id + group_number));
   }
 
   // Now that all groups have been appended, call group() on the trial to
@@ -104,7 +119,7 @@ void SetupUniformityFieldTrials(const base::Time install_date) {
   // Declare our variation ID bases along side this array so we can loop over it
   // and assign the IDs appropriately. So for example, the 1 percent experiments
   // should have a size of 100 (100/100 = 1).
-  const VariationID trial_base_ids[] = {
+  const variations::VariationID trial_base_ids[] = {
     UNIFORMITY_1_PERCENT_BASE,
     UNIFORMITY_5_PERCENT_BASE,
     UNIFORMITY_10_PERCENT_BASE,

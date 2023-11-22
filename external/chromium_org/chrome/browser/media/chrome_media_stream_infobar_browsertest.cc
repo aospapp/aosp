@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 #include "base/command_line.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/path_service.h"
 #include "base/strings/stringprintf.h"
 #include "chrome/browser/chrome_notification_types.h"
@@ -17,10 +17,10 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/content_settings_types.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/test_switches.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/content_settings/core/common/content_settings_types.h"
 #include "components/infobars/core/infobar.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/common/media_stream_request.h"
@@ -105,14 +105,7 @@ class MediaStreamInfoBarTest : public WebRtcTestBase {
 
 // Actual tests ---------------------------------------------------------------
 
-// Failing on ChromiumOS Debug and Win Aura, so disabling on both.
-// See http://crbug.com/263333.
-#if (defined(OS_CHROMEOS) && !defined(NDEBUG)) || defined(USE_AURA)
-#define MAYBE_TestAllowingUserMedia DISABLED_TestAllowingUserMedia
-#else
-#define MAYBE_TestAllowingUserMedia TestAllowingUserMedia
-#endif
-IN_PROC_BROWSER_TEST_F(MediaStreamInfoBarTest, MAYBE_TestAllowingUserMedia) {
+IN_PROC_BROWSER_TEST_F(MediaStreamInfoBarTest, TestAllowingUserMedia) {
   content::WebContents* tab_contents = LoadTestPageInTab();
   GetUserMediaAndAccept(tab_contents);
 }
@@ -132,17 +125,8 @@ IN_PROC_BROWSER_TEST_F(MediaStreamInfoBarTest, TestDenyingUserMediaIncognito) {
   GetUserMediaAndDeny(tab_contents);
 }
 
-// Failing on ChromiumOS Debug and Win Aura, so disabling on Aura.
-// See http://crbug.com/263333.
-#if defined(USE_AURA)
-#define MAYBE_TestAcceptThenDenyWhichShouldBeSticky \
-  DISABLED_TestAcceptThenDenyWhichShouldBeSticky
-#else
-#define MAYBE_TestAcceptThenDenyWhichShouldBeSticky \
-  TestAcceptThenDenyWhichShouldBeSticky
-#endif
 IN_PROC_BROWSER_TEST_F(MediaStreamInfoBarTest,
-                       MAYBE_TestAcceptThenDenyWhichShouldBeSticky) {
+                       TestAcceptThenDenyWhichShouldBeSticky) {
 #if defined(OS_WIN) && defined(USE_ASH)
   // Disable this test in Metro+Ash for now (http://crbug.com/262796).
   if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kAshBrowserTests))
@@ -164,14 +148,7 @@ IN_PROC_BROWSER_TEST_F(MediaStreamInfoBarTest,
   EXPECT_EQ(0u, infobar_service->infobar_count());
 }
 
-// Failing on Win Aura, so disabling on that.
-// See http://crbug.com/263333.
-#if defined(USE_AURA)
-#define MAYBE_TestAcceptIsNotSticky DISABLED_TestAcceptIsNotSticky
-#else
-#define MAYBE_TestAcceptIsNotSticky TestAcceptIsNotSticky
-#endif
-IN_PROC_BROWSER_TEST_F(MediaStreamInfoBarTest, MAYBE_TestAcceptIsNotSticky) {
+IN_PROC_BROWSER_TEST_F(MediaStreamInfoBarTest, TestAcceptIsNotSticky) {
   content::WebContents* tab_contents = LoadTestPageInTab();
 
   // If accept were sticky the second call would hang because it hangs if an
@@ -225,15 +202,8 @@ IN_PROC_BROWSER_TEST_F(MediaStreamInfoBarTest,
                                                kVideoOnlyCallConstraints);
 }
 
-#if defined(OS_CHROMEOS) && !defined(NDEBUG)
-#define MAYBE_DenyingCameraDoesNotCauseStickyDenyForMics \
-  DISABLED_DenyingCameraDoesNotCauseStickyDenyForMics
-#else
-#define MAYBE_DenyingCameraDoesNotCauseStickyDenyForMics \
-  DenyingCameraDoesNotCauseStickyDenyForMics
-#endif
 IN_PROC_BROWSER_TEST_F(MediaStreamInfoBarTest,
-                       MAYBE_DenyingCameraDoesNotCauseStickyDenyForMics) {
+                       DenyingCameraDoesNotCauseStickyDenyForMics) {
   content::WebContents* tab_contents = LoadTestPageInTab();
 
   // If camera blocking also blocked mics, the second call here would hang.

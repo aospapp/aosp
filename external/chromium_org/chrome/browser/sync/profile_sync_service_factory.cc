@@ -19,12 +19,13 @@
 #include "chrome/browser/services/gcm/gcm_profile_service_factory.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/signin/about_signin_internals_factory.h"
+#include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
 #include "chrome/browser/signin/signin_manager_factory.h"
-#include "chrome/browser/sync/managed_user_signin_manager_wrapper.h"
 #include "chrome/browser/sync/profile_sync_components_factory_impl.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/startup_controller.h"
+#include "chrome/browser/sync/supervised_user_signin_manager_wrapper.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/global_error/global_error_service_factory.h"
 #include "chrome/browser/webdata/web_data_service_factory.h"
@@ -32,9 +33,13 @@
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/signin/core/browser/profile_oauth2_token_service.h"
 #include "components/signin/core/browser/signin_manager.h"
+#include "url/gurl.h"
+
+#if defined(ENABLE_EXTENSIONS)
+#include "chrome/browser/notifications/sync_notifier/chrome_notifier_service_factory.h"
 #include "extensions/browser/extension_system_provider.h"
 #include "extensions/browser/extensions_browser_client.h"
-#include "url/gurl.h"
+#endif
 
 // static
 ProfileSyncServiceFactory* ProfileSyncServiceFactory::GetInstance() {
@@ -55,15 +60,13 @@ ProfileSyncServiceFactory::ProfileSyncServiceFactory()
     : BrowserContextKeyedServiceFactory(
         "ProfileSyncService",
         BrowserContextDependencyManager::GetInstance()) {
-
   // The ProfileSyncService depends on various SyncableServices being around
   // when it is shut down.  Specify those dependencies here to build the proper
   // destruction order.
   DependsOn(AboutSigninInternalsFactory::GetInstance());
   DependsOn(autofill::PersonalDataManagerFactory::GetInstance());
   DependsOn(BookmarkModelFactory::GetInstance());
-  DependsOn(
-      extensions::ExtensionsBrowserClient::Get()->GetExtensionSystemFactory());
+  DependsOn(ChromeSigninClientFactory::GetInstance());
   DependsOn(GlobalErrorServiceFactory::GetInstance());
   DependsOn(HistoryServiceFactory::GetInstance());
   DependsOn(invalidation::ProfileInvalidationProviderFactory::GetInstance());
@@ -75,6 +78,11 @@ ProfileSyncServiceFactory::ProfileSyncServiceFactory()
   DependsOn(ThemeServiceFactory::GetInstance());
 #endif
   DependsOn(WebDataServiceFactory::GetInstance());
+#if defined(ENABLE_EXTENSIONS)
+  DependsOn(
+      extensions::ExtensionsBrowserClient::Get()->GetExtensionSystemFactory());
+  DependsOn(notifier::ChromeNotifierServiceFactory::GetInstance());
+#endif
 
   // The following have not been converted to KeyedServices yet,
   // and for now they are explicitly destroyed after the
@@ -105,8 +113,8 @@ KeyedService* ProfileSyncServiceFactory::BuildServiceInstanceFor(
   const GURL sync_service_url =
       ProfileSyncService::GetSyncServiceURL(*CommandLine::ForCurrentProcess());
 
-  scoped_ptr<ManagedUserSigninManagerWrapper> signin_wrapper(
-      new ManagedUserSigninManagerWrapper(profile, signin));
+  scoped_ptr<SupervisedUserSigninManagerWrapper> signin_wrapper(
+      new SupervisedUserSigninManagerWrapper(profile, signin));
   std::string account_id = signin_wrapper->GetAccountIdToUse();
   OAuth2TokenService::ScopeSet scope_set;
   scope_set.insert(signin_wrapper->GetSyncScopeToUse());
@@ -125,13 +133,13 @@ KeyedService* ProfileSyncServiceFactory::BuildServiceInstanceFor(
       browser_defaults::kSyncAutoStarts ? browser_sync::AUTO_START
                                         : browser_sync::MANUAL_START;
   ProfileSyncService* pss = new ProfileSyncService(
-      new ProfileSyncComponentsFactoryImpl(profile,
-                                           CommandLine::ForCurrentProcess(),
-                                           sync_service_url,
-                                           account_id,
-                                           scope_set,
-                                           token_service,
-                                           url_request_context_getter),
+      scoped_ptr<ProfileSyncComponentsFactory>(
+          new ProfileSyncComponentsFactoryImpl(
+              profile,
+              CommandLine::ForCurrentProcess(),
+              sync_service_url,
+              token_service,
+              url_request_context_getter)),
       profile,
       signin_wrapper.Pass(),
       token_service,

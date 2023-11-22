@@ -10,9 +10,9 @@
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/views/constrained_window_views.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/page_navigator.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/views/controls/link.h"
 #include "ui/views/controls/message_box_view.h"
@@ -76,7 +76,7 @@ DownloadFeedbackDialogView::DownloadFeedbackDialogView(
           views::MessageBoxView::InitParams(l10n_util::GetStringUTF16(
               IDS_FEEDBACK_SERVICE_DIALOG_EXPLANATION)))),
       link_view_(new views::Link(l10n_util::GetStringUTF16(
-          IDS_SAFE_BROWSING_PRIVACY_POLICY_PAGE_V2))),
+          IDS_SAFE_BROWSING_PRIVACY_POLICY_PAGE))),
       title_text_(l10n_util::GetStringUTF16(IDS_FEEDBACK_SERVICE_DIALOG_TITLE)),
       ok_button_text_(l10n_util::GetStringUTF16(
           IDS_FEEDBACK_SERVICE_DIALOG_OK_BUTTON_LABEL)),
@@ -155,6 +155,6 @@ void DownloadFeedbackDialogView::LinkClicked(
       GURL(l10n_util::GetStringUTF8(IDS_SAFE_BROWSING_PRIVACY_POLICY_URL)),
       content::Referrer(),
       disposition == CURRENT_TAB ? NEW_FOREGROUND_TAB : disposition,
-      content::PAGE_TRANSITION_LINK, false);
+      ui::PAGE_TRANSITION_LINK, false);
   navigator_->OpenURL(params);
 }

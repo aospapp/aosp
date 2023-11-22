@@ -23,6 +23,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
+import android.support.v4.view.ViewCompat;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
@@ -216,25 +217,31 @@ public class BaseDialogFragment {
                     oa.setInterpolator(new DecelerateInterpolator(1.0f));
                     oa.start();
 
-                    // Fade in and slide in the ContentFragment TextViews from the left.
-                    prepareAndAnimateView(title, 0, - SLIDE_IN_DISTANCE,
+                    View actionFragmentView = activity.findViewById(mActionAreaId);
+                    boolean isRtl = ViewCompat.getLayoutDirection(contentView) ==
+                            View.LAYOUT_DIRECTION_RTL;
+                    int startDist = isRtl ? SLIDE_IN_DISTANCE : -SLIDE_IN_DISTANCE;
+                    int endDist = isRtl ? -actionFragmentView.getMeasuredWidth() :
+                            actionFragmentView.getMeasuredWidth();
+
+                    // Fade in and slide in the ContentFragment TextViews from the start.
+                    prepareAndAnimateView(title, 0, startDist,
                             secondaryDelay, ANIMATE_IN_DURATION,
                             new DecelerateInterpolator(1.0f),
                             false);
-                    prepareAndAnimateView(breadcrumb, 0, - SLIDE_IN_DISTANCE,
+                    prepareAndAnimateView(breadcrumb, 0, startDist,
                             secondaryDelay, ANIMATE_IN_DURATION,
                             new DecelerateInterpolator(1.0f),
                             false);
                     prepareAndAnimateView(description, 0,
-                            - SLIDE_IN_DISTANCE,
+                            startDist,
                             secondaryDelay, ANIMATE_IN_DURATION,
                             new DecelerateInterpolator(1.0f),
                             false);
 
-                    // Fade in and slide in the ActionFragment from the right.
-                    View actionFragmentView = activity.findViewById(mActionAreaId);
+                    // Fade in and slide in the ActionFragment from the end.
                     prepareAndAnimateView(actionFragmentView, 0,
-                            actionFragmentView.getMeasuredWidth(), secondaryDelay,
+                            endDist, secondaryDelay,
                             ANIMATE_IN_DURATION, new DecelerateInterpolator(1.0f),
                             false);
 
@@ -250,7 +257,7 @@ public class BaseDialogFragment {
                         transitionAnimation.addTransitionTarget(target);
                         transitionAnimation.startTransition();
                     } else if (icon != null) {
-                        prepareAndAnimateView(icon, 0, - SLIDE_IN_DISTANCE,
+                        prepareAndAnimateView(icon, 0, startDist,
                                 secondaryDelay, ANIMATE_IN_DURATION,
                                 new DecelerateInterpolator(1.0f), true /* is the icon */);
                         if (mShadowLayer != null) {

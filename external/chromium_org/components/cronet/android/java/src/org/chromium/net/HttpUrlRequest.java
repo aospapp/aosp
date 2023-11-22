@@ -7,6 +7,8 @@ package org.chromium.net;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
+import java.util.List;
+import java.util.Map;
 
 /**
  * HTTP request (GET or POST).
@@ -65,8 +67,20 @@ public interface HttpUrlRequest {
      *            POST.
      * @param channel The channel to read to read upload data from if this is a
      *            POST request.
+     * @param contentLength The length of data to upload.
      */
-    void setUploadChannel(String contentType, ReadableByteChannel channel);
+    void setUploadChannel(String contentType, ReadableByteChannel channel,
+                          long contentLength);
+
+    /**
+     * Sets the HTTP method verb to use for this request.
+     *
+     * <p>The default when this method is not called is "GET" if the request has
+     * no body or "POST" if it does.
+     *
+     * @param method "GET", "POST", etc. Must be all uppercase.
+     */
+    void setHttpMethod(String method);
 
     /**
      * Start executing the request.
@@ -85,6 +99,14 @@ public interface HttpUrlRequest {
      * Returns {@code true} if the request has been canceled.
      */
     boolean isCanceled();
+
+    /**
+     * Returns protocol (e.g. "quic/1+spdy/3") negotiated with server. Returns
+     * empty string if no protocol was negotiated, or the protocol is not known.
+     * Returns empty when using plain http or https. Must be called after
+     * onResponseStarted but before request is recycled.
+     */
+    String getNegotiatedProtocol();
 
     /**
      * Returns the entire response as a ByteBuffer.
@@ -121,6 +143,12 @@ public interface HttpUrlRequest {
      */
     String getHeader(String name);
 
+    /**
+     * Returns an unmodifiable map of the response-header fields and values.
+     * The null key is mapped to the HTTP status line for compatibility with
+     * HttpUrlConnection.
+     */
+    Map<String, List<String>> getAllHeaders();
 
     /**
      * Returns the exception that occurred while executing the request of null

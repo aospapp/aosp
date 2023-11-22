@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"පරිපාලක යෙදුම භාවිතා කළ නොහැක. එහි අංශ නැත හෝ විකෘති වී ඇත. ඔබගේ IT අංශය සම්බන්ධ කරගන්න."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"පරිපාලක යෙදුම ස්ථාපනය කළ නොහැක."</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"ඔබගේ උපාංගය මත පරිපාලක යෙදුම ස්ථාපනය කර නොමැත."</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"සැකසීම නැවත් වන්නද?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"සකස් කිරීම නැවත් වීමට ඔබට අවශ්‍ය බව ඔබට සහතිකද?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"නැත"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"ඔව්"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"අවලංගු කරමින්…"</string>
 </resources>

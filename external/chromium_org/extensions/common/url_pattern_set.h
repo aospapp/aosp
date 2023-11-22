@@ -5,6 +5,7 @@
 #ifndef EXTENSIONS_COMMON_URL_PATTERN_SET_H_
 #define EXTENSIONS_COMMON_URL_PATTERN_SET_H_
 
+#include <iosfwd>
 #include <set>
 
 #include "base/memory/scoped_ptr.h"
@@ -68,6 +69,9 @@ class URLPatternSet {
 
   void ClearPatterns();
 
+  // Adds a pattern based on |origin| to the set.
+  bool AddOrigin(int valid_schemes, const GURL& origin);
+
   // Returns true if every URL that matches |set| is matched by this. In other
   // words, if every pattern in |set| is encompassed by a pattern in this.
   bool Contains(const URLPatternSet& set) const;
@@ -77,6 +81,9 @@ class URLPatternSet {
 
   // Test if the extent contains a URL.
   bool MatchesURL(const GURL& url) const;
+
+  // Test if the extent matches all URLs (for example, <all_urls>).
+  bool MatchesAllURLs() const;
 
   bool MatchesSecurityOrigin(const GURL& origin) const;
 
@@ -90,6 +97,8 @@ class URLPatternSet {
                 bool allow_file_access,
                 std::string* error);
 
+  // Converts to and from a vector of strings.
+  scoped_ptr<std::vector<std::string> > ToStringVector() const;
   bool Populate(const std::vector<std::string>& patterns,
                 int valid_schemes,
                 bool allow_file_access,
@@ -99,6 +108,9 @@ class URLPatternSet {
   // The list of URL patterns that comprise the extent.
   std::set<URLPattern> patterns_;
 };
+
+std::ostream& operator<<(std::ostream& out,
+                         const URLPatternSet& url_pattern_set);
 
 }  // namespace extensions
 

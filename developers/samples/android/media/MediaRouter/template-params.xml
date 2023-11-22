@@ -27,8 +27,8 @@
     <!-- change minSdk if needed-->
     <minSdk>13</minSdk>
 
-    <dependency>com.android.support:appcompat-v7:20.+</dependency>
-    <dependency>com.android.support:mediarouter-v7:20.+</dependency>
+    <dependency>com.android.support:appcompat-v7:21.0.2</dependency>
+    <dependency>com.android.support:mediarouter-v7:21.0.2</dependency>
 
 
     <strings>

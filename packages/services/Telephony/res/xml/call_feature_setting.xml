@@ -15,24 +15,24 @@
 -->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:phone="http://schemas.android.com/apk/res/com.android.phone"
-    android:title="@string/updating_title">
+    android:title="@string/call_settings">
 
     <PreferenceScreen
         android:key="phone_account_settings_preference_screen"
-        android:title="@string/phone_account_settings">
+        android:title="@string/phone_accounts">
 
         <intent
             android:targetPackage="com.android.phone"
             android:targetClass="com.android.phone.settings.PhoneAccountSettingsActivity"/>
 
-    </PreferenceScreen>>
+    </PreferenceScreen>
 
     <PreferenceScreen
         android:key="button_voicemail_category_key"
         android:title="@string/voicemail"
         android:persistent="false">
 
-        <ListPreference
+        <com.android.phone.settings.VoicemailProviderListPreference
             android:key="button_voicemail_provider_key"
             android:title="@string/voicemail_provider"
             android:summary="@string/sum_voicemail_choose_provider"
@@ -64,15 +64,14 @@
 
         </PreferenceScreen>
 
-        <RingtonePreference
-            android:key="button_voicemail_notification_ringtone_key"
+        <com.android.phone.settings.VoicemailRingtonePreference
+            android:key="@string/voicemail_notification_ringtone_key"
             android:title="@string/voicemail_notification_ringtone_title"
-            android:persistent="true"
-            android:ringtoneType="notification"
-            android:defaultValue="content://settings/system/notification_sound" />
+            android:persistent="false"
+            android:ringtoneType="notification" />
 
         <CheckBoxPreference
-            android:key="button_voicemail_notification_vibrate_key"
+            android:key="@string/voicemail_notification_vibrate_key"
             android:title="@string/voicemail_notification_vibrate_when_title"
             android:persistent="true" />
 
@@ -81,13 +80,13 @@
     <PreferenceScreen
         android:key="button_fdn_key"
         android:title="@string/fdn"
-        android:persistent="false">
+        android:persistent="false" />
 
-        <intent android:action="android.intent.action.MAIN"
-            android:targetPackage="com.android.phone"
-            android:targetClass="com.android.phone.FdnSetting" />
-
-    </PreferenceScreen>
+    <CheckBoxPreference
+        android:key="button_enable_video_calling"
+        android:title="@string/enable_video_calling_title"
+        android:persistent="true"
+        android:defaultValue="true" />
 
     <CheckBoxPreference
         android:key="button_auto_retry_key"
@@ -95,8 +94,8 @@
         android:persistent="false"
         android:summary="@string/auto_retry_mode_summary"/>
 
-    <ListPreference
-        android:key="button_tty_mode_key"
+    <com.android.phone.settings.TtyModeListPreference
+        android:key="@string/tty_mode_key"
         android:title="@string/tty_mode_option_title"
         android:summary="@string/tty_mode_option_summary"
         android:persistent="false"

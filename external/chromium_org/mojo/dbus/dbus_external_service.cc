@@ -15,9 +15,7 @@
 #include "dbus/message.h"
 #include "dbus/object_path.h"
 #include "mojo/embedder/channel_init.h"
-#include "mojo/public/cpp/application/application.h"
 #include "mojo/public/cpp/bindings/error_handler.h"
-#include "mojo/public/interfaces/service_provider/service_provider.mojom.h"
 #include "mojo/shell/external_service.mojom.h"
 
 namespace mojo {
@@ -69,7 +67,7 @@ void DBusExternalServiceBase::ExportMethods() {
 }
 
 void DBusExternalServiceBase::InitializeDBus() {
-  CHECK(!bus_);
+  CHECK(!bus_.get());
   dbus::Bus::Options options;
   options.bus_type = dbus::Bus::SESSION;
   bus_ = new dbus::Bus(options);

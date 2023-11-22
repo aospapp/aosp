@@ -19,7 +19,7 @@ namespace views {
 class LabelButtonBorder;
 class Painter;
 
-// LabelButton is an alternative to TextButton, it's not focusable by default.
+// LabelButton is a button with text and an icon, it's not focusable by default.
 class VIEWS_EXPORT LabelButton : public CustomButton,
                                  public NativeThemeDelegate {
  public:
@@ -65,12 +65,9 @@ class VIEWS_EXPORT LabelButton : public CustomButton,
   gfx::HorizontalAlignment GetHorizontalAlignment() const;
   void SetHorizontalAlignment(gfx::HorizontalAlignment alignment);
 
-  // Set the directionality mode used for the button text.
-  void SetDirectionalityMode(gfx::DirectionalityMode mode);
-
-  // Call set_min_size(gfx::Size()) to clear the monotonically increasing size.
-  void set_min_size(const gfx::Size& min_size) { min_size_ = min_size; }
-  void set_max_size(const gfx::Size& max_size) { max_size_ = max_size; }
+  // Call SetMinSize(gfx::Size()) to clear the monotonically increasing size.
+  void SetMinSize(const gfx::Size& min_size);
+  void SetMaxSize(const gfx::Size& max_size);
 
   // Get or set the option to handle the return key; false by default.
   bool is_default() const { return is_default_; }
@@ -80,12 +77,18 @@ class VIEWS_EXPORT LabelButton : public CustomButton,
   ButtonStyle style() const { return style_; }
   void SetStyle(ButtonStyle style);
 
+  // Set the spacing between the image and the text. Shrinking the spacing
+  // will not shrink the overall button size, as it is monotonically increasing.
+  // Call SetMinSize(gfx::Size()) to clear the size if needed.
+  void SetImageLabelSpacing(int spacing);
+
   void SetFocusPainter(scoped_ptr<Painter> focus_painter);
   Painter* focus_painter() { return focus_painter_.get(); }
 
   // View:
   virtual void SetBorder(scoped_ptr<Border> border) OVERRIDE;
   virtual gfx::Size GetPreferredSize() const OVERRIDE;
+  virtual int GetHeightForWidth(int w) const OVERRIDE;
   virtual void Layout() OVERRIDE;
   virtual const char* GetClassName() const OVERRIDE;
 
@@ -146,6 +149,10 @@ class VIEWS_EXPORT LabelButton : public CustomButton,
   virtual ui::NativeTheme::State GetForegroundThemeState(
       ui::NativeTheme::ExtraParams* params) const OVERRIDE;
 
+  // Resets |cached_preferred_size_| and marks |cached_preferred_size_valid_|
+  // as false.
+  void ResetCachedPreferredSize();
+
   // The image and label shown in the button.
   ImageView* image_;
   Label* label_;
@@ -166,6 +173,10 @@ class VIEWS_EXPORT LabelButton : public CustomButton,
   // |max_size_| may be set to clamp the preferred size.
   gfx::Size max_size_;
 
+  // Cache the last computed preferred size.
+  mutable gfx::Size cached_preferred_size_;
+  mutable bool cached_preferred_size_valid_;
+
   // Flag indicating default handling of the return key via an accelerator.
   // Whether or not the button appears or behaves as the default button in its
   // current context;
@@ -176,6 +187,9 @@ class VIEWS_EXPORT LabelButton : public CustomButton,
 
   // True if current border was set by UpdateThemedBorder. Defaults to true.
   bool border_is_themed_border_;
+
+  // Spacing between the image and the text.
+  int image_label_spacing_;
 
   scoped_ptr<Painter> focus_painter_;
 

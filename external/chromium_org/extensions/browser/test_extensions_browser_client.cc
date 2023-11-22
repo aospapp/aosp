@@ -15,7 +15,10 @@ namespace extensions {
 
 TestExtensionsBrowserClient::TestExtensionsBrowserClient(
     BrowserContext* main_context)
-    : main_context_(main_context), incognito_context_(NULL) {
+    : main_context_(main_context),
+      incognito_context_(NULL),
+      process_manager_delegate_(NULL),
+      extension_system_factory_(NULL) {
   DCHECK(main_context_);
   DCHECK(!main_context_->IsOffTheRecord());
 }
@@ -84,11 +87,6 @@ bool TestExtensionsBrowserClient::CanExtensionCrossIncognito(
   return false;
 }
 
-bool TestExtensionsBrowserClient::IsWebViewRequest(
-    net::URLRequest* request) const {
-  return false;
-}
-
 net::URLRequestJob*
 TestExtensionsBrowserClient::MaybeCreateResourceBundleRequestJob(
     net::URLRequest* request,
@@ -116,14 +114,9 @@ void TestExtensionsBrowserClient::GetEarlyExtensionPrefsObservers(
     content::BrowserContext* context,
     std::vector<ExtensionPrefsObserver*>* observers) const {}
 
-bool TestExtensionsBrowserClient::DeferLoadingBackgroundHosts(
-    BrowserContext* context) const {
-  return false;
-}
-
-bool TestExtensionsBrowserClient::IsBackgroundPageAllowed(
-    BrowserContext* context) const {
-  return true;
+ProcessManagerDelegate* TestExtensionsBrowserClient::GetProcessManagerDelegate()
+    const {
+  return process_manager_delegate_;
 }
 
 scoped_ptr<ExtensionHostDelegate>
@@ -151,9 +144,8 @@ ApiActivityMonitor* TestExtensionsBrowserClient::GetApiActivityMonitor(
 
 ExtensionSystemProvider*
 TestExtensionsBrowserClient::GetExtensionSystemFactory() {
-  // Tests requiring an extension system should override this function.
-  NOTREACHED();
-  return NULL;
+  DCHECK(extension_system_factory_);
+  return extension_system_factory_;
 }
 
 void TestExtensionsBrowserClient::RegisterExtensionFunctions(
@@ -167,6 +159,15 @@ TestExtensionsBrowserClient::CreateRuntimeAPIDelegate(
 
 ComponentExtensionResourceManager*
 TestExtensionsBrowserClient::GetComponentExtensionResourceManager() {
+  return NULL;
+}
+
+void TestExtensionsBrowserClient::BroadcastEventToRenderers(
+    const std::string& event_name,
+    scoped_ptr<base::ListValue> args) {
+}
+
+net::NetLog* TestExtensionsBrowserClient::GetNetLog() {
   return NULL;
 }
 

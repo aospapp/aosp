@@ -77,6 +77,16 @@ void OAuth2TokenService::RequestImpl::InformConsumer(
     consumer_->OnGetTokenFailure(this, error);
 }
 
+OAuth2TokenService::ScopedBacthChange::ScopedBacthChange(
+    OAuth2TokenService* token_service) : token_service_(token_service) {
+  DCHECK(token_service_);
+  token_service_->StartBatchChanges();
+}
+
+OAuth2TokenService::ScopedBacthChange::~ScopedBacthChange() {
+  token_service_->EndBatchChanges();
+}
+
 // Class that fetches an OAuth2 access token for a given account id and set of
 // scopes.
 //
@@ -225,7 +235,6 @@ OAuth2TokenService::Fetcher::Fetcher(
       client_id_(client_id),
       client_secret_(client_secret) {
   DCHECK(oauth2_token_service_);
-  DCHECK(getter_.get());
   waiting_requests_.push_back(waiting_request);
 }
 
@@ -335,6 +344,8 @@ size_t OAuth2TokenService::Fetcher::GetWaitingRequestCount() const {
 }
 
 void OAuth2TokenService::Fetcher::Cancel() {
+  if (fetcher_)
+    fetcher_->CancelRequest();
   fetcher_.reset();
   retry_timer_.Stop();
   error_ = GoogleServiceAuthError(GoogleServiceAuthError::REQUEST_CANCELED);
@@ -366,7 +377,7 @@ OAuth2TokenService::Consumer::Consumer(const std::string& id)
 OAuth2TokenService::Consumer::~Consumer() {
 }
 
-OAuth2TokenService::OAuth2TokenService() {
+OAuth2TokenService::OAuth2TokenService() : batch_change_depth_(0) {
 }
 
 OAuth2TokenService::~OAuth2TokenService() {
@@ -758,6 +769,19 @@ void OAuth2TokenService::FireRefreshTokenRevoked(
 
 void OAuth2TokenService::FireRefreshTokensLoaded() {
   FOR_EACH_OBSERVER(Observer, observer_list_, OnRefreshTokensLoaded());
+}
+
+void OAuth2TokenService::StartBatchChanges() {
+  ++batch_change_depth_;
+  if (batch_change_depth_ == 1)
+    FOR_EACH_OBSERVER(Observer, observer_list_, OnStartBatchChanges());
+}
+
+void OAuth2TokenService::EndBatchChanges() {
+  --batch_change_depth_;
+  DCHECK_LE(0, batch_change_depth_);
+  if (batch_change_depth_ == 0)
+    FOR_EACH_OBSERVER(Observer, observer_list_, OnEndBatchChanges());
 }
 
 int OAuth2TokenService::cache_size_for_testing() const {

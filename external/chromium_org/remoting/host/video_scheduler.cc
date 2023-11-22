@@ -20,9 +20,10 @@
 #include "remoting/protocol/cursor_shape_stub.h"
 #include "remoting/protocol/message_decoder.h"
 #include "remoting/protocol/video_stub.h"
+#include "third_party/webrtc/modules/desktop_capture/desktop_capturer.h"
 #include "third_party/webrtc/modules/desktop_capture/desktop_frame.h"
+#include "third_party/webrtc/modules/desktop_capture/mouse_cursor.h"
 #include "third_party/webrtc/modules/desktop_capture/mouse_cursor_shape.h"
-#include "third_party/webrtc/modules/desktop_capture/screen_capturer.h"
 
 namespace remoting {
 
@@ -30,17 +31,25 @@ namespace remoting {
 // TODO(hclam): Move this value to CaptureScheduler.
 static const int kMaxPendingFrames = 2;
 
-// Interval between empty keep-alive frames. These frames are sent only
-// when there are no real video frames being sent. To prevent PseudoTCP from
-// resetting congestion window this value must be smaller that then the minimum
-// RTO used in PseudoTCP, which is 250ms.
+// Interval between empty keep-alive frames. These frames are sent only when the
+// stream is paused or inactive for some other reason (e.g. when blocked on
+// capturer). To prevent PseudoTCP from resetting congestion window this value
+// must be smaller than the minimum RTO used in PseudoTCP, which is 250ms.
 static const int kKeepAlivePacketIntervalMs = 200;
+
+static bool g_enable_timestamps = false;
+
+// static
+void VideoScheduler::EnableTimestampsForTests() {
+  g_enable_timestamps = true;
+}
 
 VideoScheduler::VideoScheduler(
     scoped_refptr<base::SingleThreadTaskRunner> capture_task_runner,
     scoped_refptr<base::SingleThreadTaskRunner> encode_task_runner,
     scoped_refptr<base::SingleThreadTaskRunner> network_task_runner,
-    scoped_ptr<webrtc::ScreenCapturer> capturer,
+    scoped_ptr<webrtc::DesktopCapturer> capturer,
+    scoped_ptr<webrtc::MouseCursorMonitor> mouse_cursor_monitor,
     scoped_ptr<VideoEncoder> encoder,
     protocol::CursorShapeStub* cursor_stub,
     protocol::VideoStub* video_stub)
@@ -48,6 +57,7 @@ VideoScheduler::VideoScheduler(
       encode_task_runner_(encode_task_runner),
       network_task_runner_(network_task_runner),
       capturer_(capturer.Pass()),
+      mouse_cursor_monitor_(mouse_cursor_monitor.Pass()),
       encoder_(encoder.Pass()),
       cursor_stub_(cursor_stub),
       video_stub_(video_stub),
@@ -58,6 +68,7 @@ VideoScheduler::VideoScheduler(
       sequence_number_(0) {
   DCHECK(network_task_runner_->BelongsToCurrentThread());
   DCHECK(capturer_);
+  DCHECK(mouse_cursor_monitor_);
   DCHECK(encoder_);
   DCHECK(cursor_stub_);
   DCHECK(video_stub_);
@@ -86,7 +97,8 @@ void VideoScheduler::OnCaptureCompleted(webrtc::DesktopFrame* frame) {
   // that we don't start capturing frame n+2 before frame n is freed.
   encode_task_runner_->PostTask(
       FROM_HERE, base::Bind(&VideoScheduler::EncodeFrame, this,
-                            base::Passed(&owned_frame), sequence_number_));
+                            base::Passed(&owned_frame), sequence_number_,
+                            base::TimeTicks::Now()));
 
   // If a frame was skipped, try to capture it again.
   if (did_skip_frame_) {
@@ -95,11 +107,10 @@ void VideoScheduler::OnCaptureCompleted(webrtc::DesktopFrame* frame) {
   }
 }
 
-void VideoScheduler::OnCursorShapeChanged(
-    webrtc::MouseCursorShape* cursor_shape) {
+void VideoScheduler::OnMouseCursor(webrtc::MouseCursor* cursor) {
   DCHECK(capture_task_runner_->BelongsToCurrentThread());
 
-  scoped_ptr<webrtc::MouseCursorShape> owned_cursor(cursor_shape);
+  scoped_ptr<webrtc::MouseCursor> owned_cursor(cursor);
 
   // Do nothing if the scheduler is being stopped.
   if (!capturer_)
@@ -107,15 +118,31 @@ void VideoScheduler::OnCursorShapeChanged(
 
   scoped_ptr<protocol::CursorShapeInfo> cursor_proto(
       new protocol::CursorShapeInfo());
-  cursor_proto->set_width(cursor_shape->size.width());
-  cursor_proto->set_height(cursor_shape->size.height());
-  cursor_proto->set_hotspot_x(cursor_shape->hotspot.x());
-  cursor_proto->set_hotspot_y(cursor_shape->hotspot.y());
-  cursor_proto->set_data(cursor_shape->data);
+  cursor_proto->set_width(cursor->image()->size().width());
+  cursor_proto->set_height(cursor->image()->size().height());
+  cursor_proto->set_hotspot_x(cursor->hotspot().x());
+  cursor_proto->set_hotspot_y(cursor->hotspot().y());
+
+  std::string data;
+  uint8_t* current_row = cursor->image()->data();
+  for (int y = 0; y < cursor->image()->size().height(); ++y) {
+    cursor_proto->mutable_data()->append(
+        current_row,
+        current_row + cursor->image()->size().width() *
+            webrtc::DesktopFrame::kBytesPerPixel);
+    current_row += cursor->image()->stride();
+  }
 
   network_task_runner_->PostTask(
       FROM_HERE, base::Bind(&VideoScheduler::SendCursorShape, this,
                             base::Passed(&cursor_proto)));
+}
+
+void VideoScheduler::OnMouseCursorPosition(
+    webrtc::MouseCursorMonitor::CursorState state,
+    const webrtc::DesktopVector& position) {
+  // We're not subscribing to mouse position changes.
+  NOTREACHED();
 }
 
 void VideoScheduler::Start() {
@@ -194,6 +221,10 @@ void VideoScheduler::SetLosslessColor(bool want_lossless) {
 // Private methods -----------------------------------------------------------
 
 VideoScheduler::~VideoScheduler() {
+  // Destroy the capturer and encoder on their respective threads.
+  capture_task_runner_->DeleteSoon(FROM_HERE, capturer_.release());
+  capture_task_runner_->DeleteSoon(FROM_HERE, mouse_cursor_monitor_.release());
+  encode_task_runner_->DeleteSoon(FROM_HERE, encoder_.release());
 }
 
 // Capturer thread -------------------------------------------------------------
@@ -202,8 +233,10 @@ void VideoScheduler::StartOnCaptureThread() {
   DCHECK(capture_task_runner_->BelongsToCurrentThread());
   DCHECK(!capture_timer_);
 
-  // Start the capturer and let it notify us if cursor shape changes.
-  capturer_->SetMouseShapeObserver(this);
+  // Start mouse cursor monitor.
+  mouse_cursor_monitor_->Init(this, webrtc::MouseCursorMonitor::SHAPE_ONLY);
+
+  // Start the capturer.
   capturer_->Start(this);
 
   capture_timer_.reset(new base::OneShotTimer<VideoScheduler>());
@@ -211,7 +244,7 @@ void VideoScheduler::StartOnCaptureThread() {
       FROM_HERE, base::TimeDelta::FromMilliseconds(kKeepAlivePacketIntervalMs),
       this, &VideoScheduler::SendKeepAlivePacket));
 
-  // Capture first frame immedately.
+  // Capture first frame immediately.
   CaptureNextFrame();
 }
 
@@ -260,6 +293,9 @@ void VideoScheduler::CaptureNextFrame() {
   ScheduleNextCapture();
 
   capture_pending_ = true;
+
+  // Capture the mouse shape.
+  mouse_cursor_monitor_->Capture();
 
   // And finally perform one capture.
   capturer_->Capture(webrtc::DesktopRegion());
@@ -334,19 +370,28 @@ void VideoScheduler::SendCursorShape(
 
 void VideoScheduler::EncodeFrame(
     scoped_ptr<webrtc::DesktopFrame> frame,
-    int64 sequence_number) {
+    int64 sequence_number,
+    base::TimeTicks timestamp) {
   DCHECK(encode_task_runner_->BelongsToCurrentThread());
 
-  // Drop the frame if there were no changes.
+  // If there is nothing to encode then send an empty packet.
   if (!frame || frame->updated_region().is_empty()) {
     capture_task_runner_->DeleteSoon(FROM_HERE, frame.release());
-    capture_task_runner_->PostTask(
-        FROM_HERE, base::Bind(&VideoScheduler::FrameCaptureCompleted, this));
+    scoped_ptr<VideoPacket> packet(new VideoPacket());
+    packet->set_client_sequence_number(sequence_number);
+    network_task_runner_->PostTask(
+        FROM_HERE,
+        base::Bind(
+            &VideoScheduler::SendVideoPacket, this, base::Passed(&packet)));
     return;
   }
 
   scoped_ptr<VideoPacket> packet = encoder_->Encode(*frame);
   packet->set_client_sequence_number(sequence_number);
+
+  if (g_enable_timestamps) {
+    packet->set_timestamp(timestamp.ToInternalValue());
+  }
 
   // Destroy the frame before sending |packet| because SendVideoPacket() may
   // trigger another frame to be captured, and the screen capturer expects the

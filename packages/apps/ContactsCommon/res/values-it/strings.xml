@@ -161,7 +161,8 @@
     <string name="listSingleContact" msgid="8525131203887307088">"Contatto singolo"</string>
     <string name="dialog_new_contact_account" msgid="4107520273478326011">"Crea contatto nell\'account"</string>
     <string name="import_from_sim" msgid="4749894687871835873">"Importa da scheda SIM"</string>
-    <string name="import_from_sim_number" msgid="1232500923375370101">"Importare dalla scheda SIM n. <xliff:g id="SIM_NUMBER">%d</xliff:g>"</string>
+    <string name="import_from_sim_summary" msgid="2306434118233541675">"Importa da SIM <xliff:g id="SIM_NAME">^1</xliff:g> - <xliff:g id="SIM_NUMBER">^2</xliff:g>"</string>
+    <string name="import_from_sim_summary_no_number" msgid="8498561004799710237">"Importa da SIM <xliff:g id="SIM_NAME">%1$s</xliff:g>"</string>
     <string name="import_from_sdcard" product="default" msgid="6423964533801496764">"Importa da archivio"</string>
     <string name="cancel_import_confirmation_message" msgid="7764915400478970495">"Annullare l\'importazione di <xliff:g id="FILENAME">%s</xliff:g>?"</string>
     <string name="cancel_export_confirmation_message" msgid="4063783315931861656">"Annullare l\'esportazione di <xliff:g id="FILENAME">%s</xliff:g>?"</string>
@@ -205,7 +206,6 @@
     <string name="vcard_export_request_rejected_message" msgid="8044599716727705282">"Richiesta esportazione vCard rifiutata. Riprova più tardi."</string>
     <string name="vcard_unknown_filename" msgid="4832657686149881554">"contatto"</string>
     <string name="caching_vcard_message" msgid="6635485116655518520">"Memorizzazione delle vCard nella cache di archiviazione temporanea locale. L\'importazione reale inizierà a breve."</string>
-    <string name="percentage" msgid="6699653515463625488">"<xliff:g id="PERCENTAGE">%s</xliff:g><xliff:g id="PERCENTSIGN">%%</xliff:g>"</string>
     <string name="vcard_import_failed" msgid="4105296876768072508">"Importazione vCard non riuscita."</string>
     <string name="import_failure_no_vcard_file" product="nosdcard" msgid="2066107150525521097">"Nessun file vCard trovato nell\'archivio."</string>
     <string name="import_failure_no_vcard_file" product="default" msgid="1748300468382501403">"Nessun file vCard trovato sulla scheda SD."</string>
@@ -251,4 +251,7 @@
     <string name="action_menu_back_from_search" msgid="1138551123844019647">"interrompi ricerca"</string>
     <string name="description_clear_search" msgid="3893511425518852086">"Cancella ricerca"</string>
     <string name="settings_contact_display_options_title" msgid="1020420603072835628">"Opzioni di visualizzazione dei contatti"</string>
+    <string name="select_account_dialog_title" msgid="5509088895267310568">"Account"</string>
+    <string name="set_default_account" msgid="3865970860434642695">"Usa sempre questa per chiamare"</string>
+    <string name="select_phone_account_for_calls" msgid="933905607702811164">"Chiama con"</string>
 </resources>

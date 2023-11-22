@@ -5,6 +5,7 @@
 #ifndef UI_GFX_GEOMETRY_POINT_F_H_
 #define UI_GFX_GEOMETRY_POINT_F_H_
 
+#include <iosfwd>
 #include <string>
 
 #include "ui/gfx/geometry/point_base.h"
@@ -66,9 +67,14 @@ inline PointF ScalePoint(const PointF& p, float scale) {
   return ScalePoint(p, scale, scale);
 }
 
-#if !defined(COMPILER_MSVC)
+#if !defined(COMPILER_MSVC) && !defined(__native_client__)
 extern template class PointBase<PointF, float, Vector2dF>;
 #endif
+
+// This is declared here for use in gtest-based unit tests but is defined in
+// the gfx_test_support target. Depend on that to use this in your unit test.
+// This should not be used in production code - call ToString() instead.
+void PrintTo(const PointF& point, ::std::ostream* os);
 
 }  // namespace gfx
 

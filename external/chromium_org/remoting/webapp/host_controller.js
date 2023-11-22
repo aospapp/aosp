@@ -9,14 +9,7 @@ var remoting = remoting || {};
 
 /** @constructor */
 remoting.HostController = function() {
-  this.hostDispatcher_ = this.createDispatcher_();
-};
-
-/**
- * @return {remoting.HostDispatcher}
- */
-remoting.HostController.prototype.getDispatcher = function() {
-  return this.hostDispatcher_;
+  this.hostDaemonFacade_ = this.createDaemonFacade_();
 };
 
 // Note that the values in the enums below are copied from
@@ -64,12 +57,12 @@ remoting.HostController.AsyncResult.fromString = function(result) {
 }
 
 /**
- * @return {remoting.HostDispatcher}
+ * @return {remoting.HostDaemonFacade}
  * @private
  */
-remoting.HostController.prototype.createDispatcher_ = function() {
-  /** @type {remoting.HostDispatcher} @private */
-  var hostDispatcher = new remoting.HostDispatcher();
+remoting.HostController.prototype.createDaemonFacade_ = function() {
+  /** @type {remoting.HostDaemonFacade} @private */
+  var hostDaemonFacade = new remoting.HostDaemonFacade();
 
   /** @param {string} version */
   var printVersion = function(version) {
@@ -80,11 +73,11 @@ remoting.HostController.prototype.createDispatcher_ = function() {
     }
   };
 
-  hostDispatcher.getDaemonVersion(printVersion, function() {
+  hostDaemonFacade.getDaemonVersion(printVersion, function() {
     console.log('Host version not available.');
   });
 
-  return hostDispatcher;
+  return hostDaemonFacade;
 };
 
 /**
@@ -104,8 +97,8 @@ remoting.HostController.Feature = {
  */
 remoting.HostController.prototype.hasFeature = function(feature, callback) {
   // TODO(rmsousa): This could synchronously return a boolean, provided it were
-  // only called after the dispatcher is completely initialized.
-  this.hostDispatcher_.hasFeature(feature, callback);
+  // only called after native messaging is completely initialized.
+  this.hostDaemonFacade_.hasFeature(feature, callback);
 };
 
 /**
@@ -115,7 +108,7 @@ remoting.HostController.prototype.hasFeature = function(feature, callback) {
  *     error.
  */
 remoting.HostController.prototype.getConsent = function(onDone, onError) {
-  this.hostDispatcher_.getUsageStatsConsent(onDone, onError);
+  this.hostDaemonFacade_.getUsageStatsConsent(onDone, onError);
 };
 
 /**
@@ -178,10 +171,11 @@ remoting.HostController.prototype.start = function(hostPin, consent, onDone,
    * @param {string} privateKey
    * @param {string} xmppLogin
    * @param {string} refreshToken
+   * @param {string} clientBaseJid
    * @param {string} hostSecretHash
    */
-  function startHostWithHash(hostName, publicKey, privateKey,
-                             xmppLogin, refreshToken, hostSecretHash) {
+  function startHostWithHash(hostName, publicKey, privateKey, xmppLogin,
+                             refreshToken, clientBaseJid, hostSecretHash) {
     var hostConfig = {
       xmpp_login: xmppLogin,
       oauth_refresh_token: refreshToken,
@@ -190,13 +184,34 @@ remoting.HostController.prototype.start = function(hostPin, consent, onDone,
       host_secret_hash: hostSecretHash,
       private_key: privateKey
     };
-    var hostOwner = remoting.identity.getCachedEmail();
+    var hostOwner = clientBaseJid;
+    var hostOwnerEmail = remoting.identity.getCachedEmail();
     if (hostOwner != xmppLogin) {
       hostConfig['host_owner'] = hostOwner;
+      if (hostOwnerEmail != hostOwner) {
+        hostConfig['host_owner_email'] = hostOwnerEmail;
+      }
     }
-    that.hostDispatcher_.startDaemon(hostConfig, consent,
-                                     onStarted.bind(null, hostName, publicKey),
-                                     onStartError);
+    that.hostDaemonFacade_.startDaemon(
+        hostConfig, consent, onStarted.bind(null, hostName, publicKey),
+        onStartError);
+  }
+
+  /**
+   * @param {string} hostName
+   * @param {string} publicKey
+   * @param {string} privateKey
+   * @param {string} email
+   * @param {string} refreshToken
+   * @param {string} clientBaseJid
+   */
+  function onClientBaseJid(
+      hostName, publicKey, privateKey, email, refreshToken, clientBaseJid) {
+    that.hostDaemonFacade_.getPinHash(
+        newHostId, hostPin,
+        startHostWithHash.bind(null, hostName, publicKey, privateKey,
+                               email, refreshToken, clientBaseJid),
+        onError);
   }
 
   /**
@@ -208,11 +223,10 @@ remoting.HostController.prototype.start = function(hostPin, consent, onDone,
    */
   function onServiceAccountCredentials(
       hostName, publicKey, privateKey, email, refreshToken) {
-    that.hostDispatcher_.getPinHash(
-        newHostId, hostPin,
-        startHostWithHash.bind(
+    that.getClientBaseJid_(
+        onClientBaseJid.bind(
             null, hostName, publicKey, privateKey, email, refreshToken),
-        onError);
+        onStartError);
   }
 
   /**
@@ -228,14 +242,14 @@ remoting.HostController.prototype.start = function(hostPin, consent, onDone,
     if (success) {
       var result = jsonParseSafe(xhr.responseText);
       if ('data' in result && 'authorizationCode' in result['data']) {
-        that.hostDispatcher_.getCredentialsFromAuthCode(
+        that.hostDaemonFacade_.getCredentialsFromAuthCode(
             result['data']['authorizationCode'],
             onServiceAccountCredentials.bind(
                 null, hostName, publicKey, privateKey),
             onError);
       } else {
         // No authorization code returned, use regular user credential flow.
-        that.hostDispatcher_.getPinHash(
+        that.hostDaemonFacade_.getPinHash(
             newHostId, hostPin, startHostWithHash.bind(
                 null, hostName, publicKey, privateKey,
                 remoting.identity.getCachedEmail(),
@@ -306,7 +320,7 @@ remoting.HostController.prototype.start = function(hostPin, consent, onDone,
   function onHasFeatureOAuthClient(
       hostName, privateKey, publicKey, hasFeature) {
     if (hasFeature) {
-      that.hostDispatcher_.getHostClientId(
+      that.hostDaemonFacade_.getHostClientId(
           onHostClientId.bind(null, hostName, privateKey, publicKey), onError);
     } else {
       remoting.identity.callWithToken(
@@ -331,11 +345,11 @@ remoting.HostController.prototype.start = function(hostPin, consent, onDone,
    * @return {void} Nothing.
    */
   function startWithHostname(hostName) {
-    that.hostDispatcher_.generateKeyPair(onKeyGenerated.bind(null, hostName),
+    that.hostDaemonFacade_.generateKeyPair(onKeyGenerated.bind(null, hostName),
                                          onError);
   }
 
-  this.hostDispatcher_.getHostName(startWithHostname, onError);
+  this.hostDaemonFacade_.getHostName(startWithHostname, onError);
 };
 
 /**
@@ -368,7 +382,7 @@ remoting.HostController.prototype.stop = function(onDone, onError) {
     }
   }
 
-  this.hostDispatcher_.stopDaemon(onStopped, onError);
+  this.hostDaemonFacade_.stopDaemon(onStopped, onError);
 };
 
 /**
@@ -410,7 +424,7 @@ remoting.HostController.prototype.updatePin = function(newPin, onDone,
     var newConfig = {
       host_secret_hash: pinHash
     };
-    that.hostDispatcher_.updateDaemonConfig(newConfig, onConfigUpdated,
+    that.hostDaemonFacade_.updateDaemonConfig(newConfig, onConfigUpdated,
                                             onError);
   }
 
@@ -422,13 +436,13 @@ remoting.HostController.prototype.updatePin = function(newPin, onDone,
     }
     /** @type {string} */
     var hostId = config['host_id'];
-    that.hostDispatcher_.getPinHash(hostId, newPin, updateDaemonConfigWithHash,
-                                    onError);
+    that.hostDaemonFacade_.getPinHash(
+        hostId, newPin, updateDaemonConfigWithHash, onError);
   }
 
   // TODO(sergeyu): When crbug.com/121518 is fixed: replace this call
   // with an unprivileged version if that is necessary.
-  this.hostDispatcher_.getDaemonConfig(onConfig, onError);
+  this.hostDaemonFacade_.getDaemonConfig(onConfig, onError);
 };
 
 /**
@@ -438,9 +452,13 @@ remoting.HostController.prototype.updatePin = function(newPin, onDone,
  *     callback.
  */
 remoting.HostController.prototype.getLocalHostState = function(onDone) {
-  this.hostDispatcher_.getDaemonState(onDone, function(error) {
-    onDone(remoting.HostController.State.UNKNOWN);
-  });
+  /** @param {remoting.Error} error */
+  function onError(error) {
+    onDone((error == remoting.Error.MISSING_PLUGIN) ?
+               remoting.HostController.State.NOT_INSTALLED :
+               remoting.HostController.State.UNKNOWN);
+  }
+  this.hostDaemonFacade_.getDaemonState(onDone, onError);
 };
 
 /**
@@ -460,7 +478,7 @@ remoting.HostController.prototype.getLocalHostId = function(onDone) {
     onDone(hostId);
   };
 
-  this.hostDispatcher_.getDaemonConfig(onConfig, function(error) {
+  this.hostDaemonFacade_.getDaemonConfig(onConfig, function(error) {
     onDone(null);
   });
 };
@@ -474,7 +492,7 @@ remoting.HostController.prototype.getLocalHostId = function(onDone) {
  */
 remoting.HostController.prototype.getPairedClients = function(onDone,
                                                               onError) {
-  this.hostDispatcher_.getPairedClients(onDone, onError);
+  this.hostDaemonFacade_.getPairedClients(onDone, onError);
 };
 
 /**
@@ -487,7 +505,7 @@ remoting.HostController.prototype.getPairedClients = function(onDone,
  */
 remoting.HostController.prototype.deletePairedClient = function(
     client, onDone, onError) {
-  this.hostDispatcher_.deletePairedClient(client, onDone, onError);
+  this.hostDaemonFacade_.deletePairedClient(client, onDone, onError);
 };
 
 /**
@@ -499,7 +517,58 @@ remoting.HostController.prototype.deletePairedClient = function(
  */
 remoting.HostController.prototype.clearPairedClients = function(
     onDone, onError) {
-  this.hostDispatcher_.clearPairedClients(onDone, onError);
+  this.hostDaemonFacade_.clearPairedClients(onDone, onError);
+};
+
+/**
+ * Gets the host owner's base JID, used by the host for client authorization.
+ * In most cases this is the same as the owner's email address, but for
+ * non-Gmail accounts, it may be different.
+ *
+ * @private
+ * @param {function(string): void} onSuccess
+ * @param {function(remoting.Error): void} onError
+ */
+remoting.HostController.prototype.getClientBaseJid_ = function(
+    onSuccess, onError) {
+  var signalStrategy = null;
+
+  var onState = function(state) {
+    switch (state) {
+      case remoting.SignalStrategy.State.CONNECTED:
+        var jid = signalStrategy.getJid().split('/')[0].toLowerCase();
+        base.dispose(signalStrategy);
+        signalStrategy = null;
+        onSuccess(jid);
+        break;
+
+      case remoting.SignalStrategy.State.FAILED:
+        var error = signalStrategy.getError();
+        base.dispose(signalStrategy);
+        signalStrategy = null;
+        onError(error);
+        break;
+    }
+  };
+
+  signalStrategy = remoting.SignalStrategy.create(onState);
+
+  /** @param {string} token */
+  function connectSignalingWithToken(token) {
+    remoting.identity.getEmail(
+        connectSignalingWithTokenAndEmail.bind(null, token), onError);
+  }
+
+  /**
+   * @param {string} token
+   * @param {string} email
+   */
+  function connectSignalingWithTokenAndEmail(token, email) {
+    signalStrategy.connect(
+        remoting.settings.XMPP_SERVER_ADDRESS, email, token);
+  }
+
+  remoting.identity.callWithToken(connectSignalingWithToken, onError);
 };
 
 /** @type {remoting.HostController} */

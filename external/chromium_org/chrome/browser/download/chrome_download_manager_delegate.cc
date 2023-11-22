@@ -10,7 +10,7 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/callback.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/prefs/pref_member.h"
 #include "base/prefs/pref_service.h"
 #include "base/rand_util.h"
@@ -21,7 +21,6 @@
 #include "base/threading/sequenced_worker_pool.h"
 #include "base/time/time.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/download/download_completion_blocker.h"
 #include "chrome/browser/download/download_crx_util.h"
 #include "chrome/browser/download/download_file_picker.h"
@@ -47,6 +46,7 @@
 #include "content/public/browser/download_manager.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/page_navigator.h"
+#include "extensions/browser/notification_types.h"
 #include "net/base/filename_util.h"
 #include "net/base/mime_util.h"
 
@@ -78,26 +78,10 @@ const char kSafeBrowsingUserDataKey[] = "Safe Browsing ID";
 // The state of a safebrowsing check.
 class SafeBrowsingState : public DownloadCompletionBlocker {
  public:
-  SafeBrowsingState()
-    : verdict_(DownloadProtectionService::SAFE) {
-  }
-
+  SafeBrowsingState() {}
   virtual ~SafeBrowsingState();
 
-  // The verdict that we got from calling CheckClientDownload. Only valid to
-  // call if |is_complete()|.
-  DownloadProtectionService::DownloadCheckResult verdict() const {
-    return verdict_;
-  }
-
-  void SetVerdict(DownloadProtectionService::DownloadCheckResult result) {
-    verdict_ = result;
-    CompleteDownload();
-  }
-
  private:
-  DownloadProtectionService::DownloadCheckResult verdict_;
-
   DISALLOW_COPY_AND_ASSIGN(SafeBrowsingState);
 };
 
@@ -159,7 +143,8 @@ void CheckDownloadUrlDone(
     bool is_content_check_supported,
     DownloadProtectionService::DownloadCheckResult result) {
   content::DownloadDangerType danger_type;
-  if (result == DownloadProtectionService::SAFE) {
+  if (result == DownloadProtectionService::SAFE ||
+      result == DownloadProtectionService::UNKNOWN) {
     // If this type of files is handled by the enhanced SafeBrowsing download
     // protection, mark it as potentially dangerous content until we are done
     // with scanning it.
@@ -293,7 +278,7 @@ void ChromeDownloadManagerDelegate::DisableSafeBrowsing(DownloadItem* item) {
     state = new SafeBrowsingState();
     item->SetUserData(&kSafeBrowsingUserDataKey, state);
   }
-  state->SetVerdict(DownloadProtectionService::SAFE);
+  state->CompleteDownload();
 #endif
 }
 
@@ -315,10 +300,25 @@ bool ChromeDownloadManagerDelegate::IsDownloadReadyForCompletion(
       item->SetUserData(&kSafeBrowsingUserDataKey, state);
       service->CheckClientDownload(
           item,
-          base::Bind(
-              &ChromeDownloadManagerDelegate::CheckClientDownloadDone,
-              weak_ptr_factory_.GetWeakPtr(),
-              item->GetId()));
+          base::Bind(&ChromeDownloadManagerDelegate::CheckClientDownloadDone,
+                     weak_ptr_factory_.GetWeakPtr(),
+                     item->GetId()));
+      return false;
+    }
+
+    // In case the service was disabled between the download starting and now,
+    // we need to restore the danger state.
+    content::DownloadDangerType danger_type = item->GetDangerType();
+    if (DownloadItemModel(item).IsDangerousFileBasedOnType() &&
+        (danger_type == content::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS ||
+         danger_type ==
+             content::DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT)) {
+      DVLOG(2) << __FUNCTION__
+               << "() SB service disabled. Marking download as DANGEROUS FILE";
+      item->OnContentCheckCompleted(
+          content::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE);
+      content::BrowserThread::PostTask(
+          content::BrowserThread::UI, FROM_HERE, internal_complete_callback);
       return false;
     }
   } else if (!state->is_complete()) {
@@ -326,6 +326,7 @@ bool ChromeDownloadManagerDelegate::IsDownloadReadyForCompletion(
     state->set_callback(internal_complete_callback);
     return false;
   }
+
 #endif
   return true;
 }
@@ -360,7 +361,7 @@ bool ChromeDownloadManagerDelegate::ShouldOpenDownload(
     // time, Observe() will call the passed callback.
     registrar_.Add(
         this,
-        chrome::NOTIFICATION_CRX_INSTALLER_DONE,
+        extensions::NOTIFICATION_CRX_INSTALLER_DONE,
         content::Source<extensions::CrxInstaller>(crx_installer.get()));
 
     crx_installers_[crx_installer.get()] = callback;
@@ -449,7 +450,7 @@ void ChromeDownloadManagerDelegate::OpenDownload(DownloadItem* download) {
       net::FilePathToFileURL(download->GetTargetFilePath()),
       content::Referrer(),
       NEW_FOREGROUND_TAB,
-      content::PAGE_TRANSITION_LINK,
+      ui::PAGE_TRANSITION_LINK,
       false);
   browser->OpenURL(params);
   RecordDownloadOpenMethod(DOWNLOAD_OPEN_METHOD_DEFAULT_BROWSER);
@@ -636,6 +637,11 @@ void ChromeDownloadManagerDelegate::CheckClientDownloadDone(
     content::DownloadDangerType danger_type =
         content::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS;
     switch (result) {
+      case DownloadProtectionService::UNKNOWN:
+        // The check failed or was inconclusive.
+        if (DownloadItemModel(item).IsDangerousFileBasedOnType())
+          danger_type = content::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE;
+        break;
       case DownloadProtectionService::SAFE:
         // Do nothing.
         break;
@@ -659,7 +665,7 @@ void ChromeDownloadManagerDelegate::CheckClientDownloadDone(
 
   SafeBrowsingState* state = static_cast<SafeBrowsingState*>(
       item->GetUserData(&kSafeBrowsingUserDataKey));
-  state->SetVerdict(result);
+  state->CompleteDownload();
 }
 #endif  // FULL_SAFE_BROWSING
 
@@ -669,11 +675,9 @@ void ChromeDownloadManagerDelegate::Observe(
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
 #if defined(ENABLE_EXTENSIONS)
-  DCHECK(type == chrome::NOTIFICATION_CRX_INSTALLER_DONE);
+  DCHECK(type == extensions::NOTIFICATION_CRX_INSTALLER_DONE);
 
-  registrar_.Remove(this,
-                    chrome::NOTIFICATION_CRX_INSTALLER_DONE,
-                    source);
+  registrar_.Remove(this, extensions::NOTIFICATION_CRX_INSTALLER_DONE, source);
 
   scoped_refptr<extensions::CrxInstaller> installer =
       content::Source<extensions::CrxInstaller>(source).ptr();
@@ -690,10 +694,15 @@ void ChromeDownloadManagerDelegate::OnDownloadTargetDetermined(
     scoped_ptr<DownloadTargetInfo> target_info) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DownloadItem* item = download_manager_->GetDownload(download_id);
-  if (!target_info->target_path.empty() && item &&
-      IsOpenInBrowserPreferreredForFile(target_info->target_path) &&
-      target_info->is_filetype_handled_safely)
-    DownloadItemModel(item).SetShouldPreferOpeningInBrowser(true);
+  if (item) {
+    if (!target_info->target_path.empty() &&
+        IsOpenInBrowserPreferreredForFile(target_info->target_path) &&
+        target_info->is_filetype_handled_safely)
+      DownloadItemModel(item).SetShouldPreferOpeningInBrowser(true);
+
+    if (target_info->is_dangerous_file)
+      DownloadItemModel(item).SetIsDangerousFileBasedOnType(true);
+  }
   callback.Run(target_info->target_path,
                target_info->target_disposition,
                target_info->danger_type,

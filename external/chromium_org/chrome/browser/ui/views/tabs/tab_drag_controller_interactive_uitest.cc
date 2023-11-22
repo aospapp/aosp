@@ -51,8 +51,9 @@
 #include "ash/wm/window_util.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "ui/aura/client/screen_position_client.h"
-#include "ui/aura/test/event_generator.h"
+#include "ui/aura/test/event_generator_delegate_aura.h"
 #include "ui/aura/window_event_dispatcher.h"
+#include "ui/events/test/event_generator.h"
 #endif
 
 using content::WebContents;
@@ -212,13 +213,14 @@ bool GetIsDragged(Browser* browser) {
 }  // namespace
 
 #if defined(USE_ASH) && !defined(OS_WIN)  // TODO(win_ash)
-class ScreenEventGeneratorDelegate : public aura::test::EventGeneratorDelegate {
+class ScreenEventGeneratorDelegate
+    : public aura::test::EventGeneratorDelegateAura {
  public:
   explicit ScreenEventGeneratorDelegate(aura::Window* root_window)
       : root_window_(root_window) {}
   virtual ~ScreenEventGeneratorDelegate() {}
 
-  // EventGeneratorDelegate overrides:
+  // EventGeneratorDelegateAura overrides:
   virtual aura::WindowTreeHost* GetHostAt(
       const gfx::Point& point) const OVERRIDE {
     return root_window_->GetHost();
@@ -328,16 +330,21 @@ IN_PROC_BROWSER_TEST_F(TabDragControllerTest, GestureEndShouldEndDragTest) {
   Tab* tab1 = tab_strip->tab_at(1);
   gfx::Point tab_1_center(tab1->width() / 2, tab1->height() / 2);
 
-  ui::GestureEvent gesture_begin(ui::ET_GESTURE_BEGIN, tab_1_center.x(),
-      tab_1_center.x(), 0, base::TimeDelta(),
-      ui::GestureEventDetails(ui::ET_GESTURE_BEGIN, 0.0f, 0.0f), 0);
-  tab_strip->MaybeStartDrag(tab1, gesture_begin,
+  ui::GestureEvent gesture_tap_down(
+      tab_1_center.x(),
+      tab_1_center.x(),
+      0,
+      base::TimeDelta(),
+      ui::GestureEventDetails(ui::ET_GESTURE_TAP_DOWN));
+  tab_strip->MaybeStartDrag(tab1, gesture_tap_down,
     tab_strip->GetSelectionModel());
   EXPECT_TRUE(TabDragController::IsActive());
 
-  ui::GestureEvent gesture_end(ui::ET_GESTURE_END, tab_1_center.x(),
-      tab_1_center.x(), 0, base::TimeDelta(),
-      ui::GestureEventDetails(ui::ET_GESTURE_END, 0.0f, 0.0f), 0);
+  ui::GestureEvent gesture_end(tab_1_center.x(),
+                               tab_1_center.x(),
+                               0,
+                               base::TimeDelta(),
+                               ui::GestureEventDetails(ui::ET_GESTURE_END));
   tab_strip->OnGestureEvent(&gesture_end);
   EXPECT_FALSE(TabDragController::IsActive());
   EXPECT_FALSE(tab_strip->IsDragSessionActive());
@@ -353,8 +360,8 @@ class DetachToBrowserTabDragControllerTest
 
   virtual void SetUpOnMainThread() OVERRIDE {
 #if defined(OS_CHROMEOS)
-    event_generator_.reset(new aura::test::EventGenerator(
-                               ash::Shell::GetPrimaryRootWindow()));
+    event_generator_.reset(
+        new ui::test::EventGenerator(ash::Shell::GetPrimaryRootWindow()));
 #endif
   }
 
@@ -368,7 +375,7 @@ class DetachToBrowserTabDragControllerTest
     if (input_source() == INPUT_SOURCE_MOUSE)
       return;
 #if defined(OS_CHROMEOS)
-    event_generator_.reset(new aura::test::EventGenerator(
+    event_generator_.reset(new ui::test::EventGenerator(
         new ScreenEventGeneratorDelegate(ash::wm::GetRootWindowAt(point))));
 #endif
   }
@@ -522,7 +529,7 @@ class DetachToBrowserTabDragControllerTest
 
  private:
 #if defined(OS_CHROMEOS)
-  scoped_ptr<aura::test::EventGenerator> event_generator_;
+  scoped_ptr<ui::test::EventGenerator> event_generator_;
 #endif
 
   DISALLOW_COPY_AND_ASSIGN(DetachToBrowserTabDragControllerTest);

@@ -15,9 +15,16 @@ namespace extensions {
 // this class should call ExtensionsBrowserClient::Set() with its instance.
 class TestExtensionsBrowserClient : public ExtensionsBrowserClient {
  public:
-  // |context| is required and must not be an incognito context.
+  // |main_context| is required and must not be an incognito context.
   explicit TestExtensionsBrowserClient(content::BrowserContext* main_context);
   virtual ~TestExtensionsBrowserClient();
+
+  void set_process_manager_delegate(ProcessManagerDelegate* delegate) {
+    process_manager_delegate_ = delegate;
+  }
+  void set_extension_system_factory(ExtensionSystemProvider* factory) {
+    extension_system_factory_ = factory;
+  }
 
   // Associates an incognito context with |main_context_|.
   void SetIncognitoContext(content::BrowserContext* incognito_context);
@@ -42,7 +49,6 @@ class TestExtensionsBrowserClient : public ExtensionsBrowserClient {
   virtual bool CanExtensionCrossIncognito(
       const extensions::Extension* extension,
       content::BrowserContext* context) const OVERRIDE;
-  virtual bool IsWebViewRequest(net::URLRequest* request) const OVERRIDE;
   virtual net::URLRequestJob* MaybeCreateResourceBundleRequestJob(
       net::URLRequest* request,
       net::NetworkDelegate* network_delegate,
@@ -59,10 +65,7 @@ class TestExtensionsBrowserClient : public ExtensionsBrowserClient {
   virtual void GetEarlyExtensionPrefsObservers(
       content::BrowserContext* context,
       std::vector<ExtensionPrefsObserver*>* observers) const OVERRIDE;
-  virtual bool DeferLoadingBackgroundHosts(
-      content::BrowserContext* context) const OVERRIDE;
-  virtual bool IsBackgroundPageAllowed(content::BrowserContext* context) const
-      OVERRIDE;
+  virtual ProcessManagerDelegate* GetProcessManagerDelegate() const OVERRIDE;
   virtual scoped_ptr<ExtensionHostDelegate> CreateExtensionHostDelegate()
       OVERRIDE;
   virtual bool DidVersionUpdate(content::BrowserContext* context) OVERRIDE;
@@ -78,10 +81,20 @@ class TestExtensionsBrowserClient : public ExtensionsBrowserClient {
       content::BrowserContext* context) const OVERRIDE;
   virtual ComponentExtensionResourceManager*
   GetComponentExtensionResourceManager() OVERRIDE;
+  virtual void BroadcastEventToRenderers(
+      const std::string& event_name,
+      scoped_ptr<base::ListValue> args) OVERRIDE;
+  virtual net::NetLog* GetNetLog() OVERRIDE;
 
  private:
   content::BrowserContext* main_context_;       // Not owned.
   content::BrowserContext* incognito_context_;  // Not owned, defaults to NULL.
+
+  // Not owned, defaults to NULL.
+  ProcessManagerDelegate* process_manager_delegate_;
+
+  // Not owned, defaults to NULL.
+  ExtensionSystemProvider* extension_system_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(TestExtensionsBrowserClient);
 };

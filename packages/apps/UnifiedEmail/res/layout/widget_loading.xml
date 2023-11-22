@@ -20,7 +20,7 @@
     android:id="@+id/widget_loading"
     android:layout_width="match_parent"
     android:layout_height="64sp"
-    android:background="@drawable/conversation_item_background_selector">
+    android:background="@drawable/conversation_item_background">
     <TextView
         android:id="@+id/loading_text"
         android:layout_height="match_parent"

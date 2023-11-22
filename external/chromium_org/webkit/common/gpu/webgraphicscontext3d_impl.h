@@ -19,6 +19,7 @@ namespace gpu {
 namespace gles2 {
 class GLES2Interface;
 class GLES2ImplementationErrorMessageCallback;
+struct ContextCreationAttribHelper;
 }
 }
 
@@ -45,6 +46,13 @@ class WebGraphicsContext3DErrorMessageCallback;
 class WEBKIT_GPU_EXPORT WebGraphicsContext3DImpl
     : public NON_EXPORTED_BASE(blink::WebGraphicsContext3D) {
  public:
+  virtual ~WebGraphicsContext3DImpl();
+
+  // Must be called before any of the following methods. Permanently binds to
+  // the first calling thread. Returns false if the graphics context fails to
+  // initialize. Do not call from more than one thread.
+  virtual bool InitializeOnCurrentThread() = 0;
+
   //----------------------------------------------------------------------
   // WebGraphicsContext3D methods
 
@@ -559,11 +567,16 @@ class WEBKIT_GPU_EXPORT WebGraphicsContext3DImpl
     return gl_;
   }
 
+  // Convert WebGL context creation attributes into command buffer / EGL size
+  // requests.
+  static void ConvertAttributes(
+      const blink::WebGraphicsContext3D::Attributes& attributes,
+      ::gpu::gles2::ContextCreationAttribHelper* output_attribs);
+
  protected:
   friend class WebGraphicsContext3DErrorMessageCallback;
 
   WebGraphicsContext3DImpl();
-  virtual ~WebGraphicsContext3DImpl();
 
   ::gpu::gles2::GLES2ImplementationErrorMessageCallback*
       getErrorMessageCallback();

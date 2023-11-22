@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"يتعذر استخدام تطبيق المشرف. بعض المكونات مفقودة أو تالفة. يمكنك الاتصال بقسم تكنولوجيا المعلومات."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"يتعذر تثبيت التطبيق الإداري"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"لم يتم تثبيت التطبيق الإداري على جهازك"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"هل تريد إيقاف الإعداد؟"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"هل تريد بالتأكيد إيقاف الإعداد؟"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"لا"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"نعم"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"جارٍ الإلغاء..."</string>
 </resources>

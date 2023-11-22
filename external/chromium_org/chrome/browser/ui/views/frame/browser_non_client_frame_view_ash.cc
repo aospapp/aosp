@@ -6,15 +6,17 @@
 
 #include <algorithm>
 
-#include "ash/ash_switches.h"
+#include "ash/frame/caption_buttons/frame_caption_button.h"
 #include "ash/frame/caption_buttons/frame_caption_button_container_view.h"
 #include "ash/frame/default_header_painter.h"
 #include "ash/frame/frame_border_hit_test_controller.h"
 #include "ash/frame/header_painter_util.h"
 #include "ash/shell.h"
-#include "base/command_line.h"
+#include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/views/frame/browser_frame.h"
 #include "chrome/browser/ui/views/frame/browser_header_painter_ash.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -23,7 +25,6 @@
 #include "chrome/browser/ui/views/profiles/avatar_menu_button.h"
 #include "chrome/browser/ui/views/tab_icon_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
-#include "chrome/common/chrome_switches.h"
 #include "content/public/browser/web_contents.h"
 #include "grit/ash_resources.h"
 #include "grit/theme_resources.h"
@@ -31,7 +32,6 @@
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/window.h"
 #include "ui/base/hit_test.h"
-#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/theme_provider.h"
@@ -70,6 +70,18 @@ const int kTabstripTopSpacingShort = 0;
 // to hit easily.
 const int kTabShadowHeight = 4;
 
+// Combines View::ConvertPointToTarget() and View::HitTest() for a given
+// |point|. Converts |point| from |src| to |dst| and hit tests it against |dst|.
+bool ConvertedHitTest(views::View* src,
+                      views::View* dst,
+                      const gfx::Point& point) {
+  DCHECK(src);
+  DCHECK(dst);
+  gfx::Point converted_point(point);
+  views::View::ConvertPointToTarget(src, dst, &converted_point);
+  return dst->HitTestPoint(converted_point);
+}
+
 }  // namespace
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -80,9 +92,11 @@ const char BrowserNonClientFrameViewAsh::kViewClassName[] =
     "BrowserNonClientFrameViewAsh";
 
 BrowserNonClientFrameViewAsh::BrowserNonClientFrameViewAsh(
-    BrowserFrame* frame, BrowserView* browser_view)
+    BrowserFrame* frame,
+    BrowserView* browser_view)
     : BrowserNonClientFrameView(frame, browser_view),
       caption_button_container_(NULL),
+      web_app_back_button_(NULL),
       window_icon_(NULL),
       frame_border_hit_test_controller_(
           new ash::FrameBorderHitTestController(frame)) {
@@ -91,6 +105,9 @@ BrowserNonClientFrameViewAsh::BrowserNonClientFrameViewAsh(
 
 BrowserNonClientFrameViewAsh::~BrowserNonClientFrameViewAsh() {
   ash::Shell::GetInstance()->RemoveShellObserver(this);
+  // browser_view() outlives the frame, as destruction of sibling views happens
+  // in the same order as creation - see BrowserView::CreateBrowserWindow.
+  chrome::RemoveCommandObserver(browser_view()->browser(), IDC_BACK, this);
 }
 
 void BrowserNonClientFrameViewAsh::Init() {
@@ -114,8 +131,28 @@ void BrowserNonClientFrameViewAsh::Init() {
   if (UsePackagedAppHeaderStyle()) {
     ash::DefaultHeaderPainter* header_painter = new ash::DefaultHeaderPainter;
     header_painter_.reset(header_painter);
-    header_painter->Init(frame(), this, window_icon_,
-        caption_button_container_);
+    header_painter->Init(frame(), this, caption_button_container_);
+    if (window_icon_) {
+      header_painter->UpdateLeftHeaderView(window_icon_);
+    }
+  } else if (UseWebAppHeaderStyle()) {
+    web_app_back_button_ =
+        new ash::FrameCaptionButton(this, ash::CAPTION_BUTTON_ICON_BACK);
+    web_app_back_button_->SetImages(ash::CAPTION_BUTTON_ICON_BACK,
+                                    ash::FrameCaptionButton::ANIMATE_NO,
+                                    IDR_AURA_WINDOW_CONTROL_ICON_BACK,
+                                    IDR_AURA_WINDOW_CONTROL_ICON_BACK_I,
+                                    IDR_AURA_WINDOW_CONTROL_BACKGROUND_H,
+                                    IDR_AURA_WINDOW_CONTROL_BACKGROUND_P);
+
+    UpdateBackButtonState(true);
+    chrome::AddCommandObserver(browser_view()->browser(), IDC_BACK, this);
+    AddChildView(web_app_back_button_);
+
+    ash::DefaultHeaderPainter* header_painter = new ash::DefaultHeaderPainter;
+    header_painter_.reset(header_painter);
+    header_painter->Init(frame(), this, caption_button_container_);
+    header_painter->UpdateLeftHeaderView(web_app_back_button_);
   } else {
     BrowserHeaderPainterAsh* header_painter = new BrowserHeaderPainterAsh;
     header_painter_.reset(header_painter);
@@ -156,7 +193,7 @@ int BrowserNonClientFrameViewAsh::GetTopInset() const {
       return kTabstripTopSpacingTall;
   }
 
-  if (UsePackagedAppHeaderStyle())
+  if (UsePackagedAppHeaderStyle() || UseWebAppHeaderStyle())
     return header_painter_->GetHeaderHeightForPainting();
 
   int caption_buttons_bottom = caption_button_container_->bounds().bottom();
@@ -199,12 +236,17 @@ int BrowserNonClientFrameViewAsh::NonClientHitTest(const gfx::Point& point) {
   int hit_test = ash::FrameBorderHitTestController::NonClientHitTest(this,
       caption_button_container_, point);
 
-  // See if the point is actually within the avatar menu button or within
-  // the avatar label.
-  if (hit_test == HTCAPTION && ((avatar_button() &&
-       avatar_button()->GetMirroredBounds().Contains(point)) ||
-      (avatar_label() && avatar_label()->GetMirroredBounds().Contains(point))))
-      return HTCLIENT;
+  // See if the point is actually within the avatar menu button.
+  if (hit_test == HTCAPTION && avatar_button() &&
+      ConvertedHitTest(this, avatar_button(), point)) {
+    return HTCLIENT;
+  }
+
+  // See if the point is actually within the web app back button.
+  if (hit_test == HTCAPTION && web_app_back_button_ &&
+      ConvertedHitTest(this, web_app_back_button_, point)) {
+    return HTCLIENT;
+  }
 
   // When the window is restored we want a large click target above the tabs
   // to drag the window, so redirect clicks in the tab's shadow to caption.
@@ -246,6 +288,9 @@ void BrowserNonClientFrameViewAsh::UpdateWindowTitle() {
     header_painter_->SchedulePaintForTitle();
 }
 
+void BrowserNonClientFrameViewAsh::SizeConstraintsChanged() {
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // views::View:
 
@@ -259,13 +304,20 @@ void BrowserNonClientFrameViewAsh::OnPaint(gfx::Canvas* canvas) {
   }
 
   caption_button_container_->SetPaintAsActive(ShouldPaintAsActive());
+  if (web_app_back_button_) {
+    // TODO(benwells): Check that the disabled and inactive states should be
+    // drawn in the same way.
+    web_app_back_button_->set_paint_as_active(
+        ShouldPaintAsActive() &&
+        chrome::IsCommandEnabled(browser_view()->browser(), IDC_BACK));
+  }
 
   ash::HeaderPainter::Mode header_mode = ShouldPaintAsActive() ?
       ash::HeaderPainter::MODE_ACTIVE : ash::HeaderPainter::MODE_INACTIVE;
   header_painter_->PaintHeader(canvas, header_mode);
   if (browser_view()->IsToolbarVisible())
     PaintToolbarBackground(canvas);
-  else if (!UsePackagedAppHeaderStyle())
+  else if (!UsePackagedAppHeaderStyle() && !UseWebAppHeaderStyle())
     PaintContentEdge(canvas);
 }
 
@@ -287,39 +339,18 @@ void BrowserNonClientFrameViewAsh::Layout() {
     painted_height = GetTopInset();
   }
   header_painter_->SetHeaderHeightForPainting(painted_height);
-  if (avatar_button())
+  if (avatar_button()) {
     LayoutAvatar();
+    header_painter_->UpdateLeftViewXInset(avatar_button()->bounds().right());
+  } else {
+    header_painter_->UpdateLeftViewXInset(
+        ash::HeaderPainterUtil::GetDefaultLeftViewXInset());
+  }
   BrowserNonClientFrameView::Layout();
 }
 
 const char* BrowserNonClientFrameViewAsh::GetClassName() const {
   return kViewClassName;
-}
-
-bool BrowserNonClientFrameViewAsh::HitTestRect(const gfx::Rect& rect) const {
-  if (!views::View::HitTestRect(rect)) {
-    // |rect| is outside BrowserNonClientFrameViewAsh's bounds.
-    return false;
-  }
-
-  TabStrip* tabstrip = browser_view()->tabstrip();
-  if (tabstrip && browser_view()->IsTabStripVisible()) {
-    // Claim |rect| only if it is above the bottom of the tabstrip in a non-tab
-    // portion.
-    gfx::RectF rect_in_tabstrip_coords_f(rect);
-    View::ConvertRectToTarget(this, tabstrip, &rect_in_tabstrip_coords_f);
-    gfx::Rect rect_in_tabstrip_coords = gfx::ToEnclosingRect(
-        rect_in_tabstrip_coords_f);
-
-     if (rect_in_tabstrip_coords.y() > tabstrip->height())
-       return false;
-
-    return !tabstrip->HitTestRect(rect_in_tabstrip_coords) ||
-        tabstrip->IsRectInWindowCaption(rect_in_tabstrip_coords);
-  }
-
-  // Claim |rect| if it is above the top of the topmost view in the client area.
-  return rect.y() < GetTopInset();
 }
 
 void BrowserNonClientFrameViewAsh::GetAccessibleState(
@@ -340,6 +371,17 @@ gfx::Size BrowserNonClientFrameViewAsh::GetMinimumSize() const {
         min_tabstrip_width + GetTabStripLeftInset() + GetTabStripRightInset());
   }
   return gfx::Size(min_width, min_client_view_size.height());
+}
+
+void BrowserNonClientFrameViewAsh::
+  ChildPreferredSizeChanged(views::View* child) {
+  // FrameCaptionButtonContainerView animates the visibility changes in
+  // UpdateSizeButtonVisibility(false). Due to this a new size is not available
+  // until the completion of the animation. Layout in response to the preferred
+  // size changes.
+  if (child != caption_button_container_)
+    return;
+  frame()->GetRootView()->Layout();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -378,7 +420,55 @@ gfx::ImageSkia BrowserNonClientFrameViewAsh::GetFaviconForTabIconView() {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// CommandObserver:
+
+void BrowserNonClientFrameViewAsh::EnabledStateChangedForCommand(int id,
+                                                                 bool enabled) {
+  DCHECK_EQ(IDC_BACK, id);
+  UpdateBackButtonState(enabled);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// views::ButtonListener:
+
+void BrowserNonClientFrameViewAsh::ButtonPressed(views::Button* sender,
+                                                 const ui::Event& event) {
+  DCHECK_EQ(sender, web_app_back_button_);
+  chrome::ExecuteCommand(browser_view()->browser(), IDC_BACK);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // BrowserNonClientFrameViewAsh, private:
+
+// views::NonClientFrameView:
+bool BrowserNonClientFrameViewAsh::DoesIntersectRect(
+    const views::View* target,
+    const gfx::Rect& rect) const {
+  CHECK_EQ(target, this);
+  if (!views::ViewTargeterDelegate::DoesIntersectRect(this, rect)) {
+    // |rect| is outside BrowserNonClientFrameViewAsh's bounds.
+    return false;
+  }
+
+  TabStrip* tabstrip = browser_view()->tabstrip();
+  if (tabstrip && browser_view()->IsTabStripVisible()) {
+    // Claim |rect| only if it is above the bottom of the tabstrip in a non-tab
+    // portion.
+    gfx::RectF rect_in_tabstrip_coords_f(rect);
+    View::ConvertRectToTarget(this, tabstrip, &rect_in_tabstrip_coords_f);
+    gfx::Rect rect_in_tabstrip_coords = gfx::ToEnclosingRect(
+        rect_in_tabstrip_coords_f);
+
+     if (rect_in_tabstrip_coords.y() > tabstrip->height())
+       return false;
+
+    return !tabstrip->HitTestRect(rect_in_tabstrip_coords) ||
+        tabstrip->IsRectInWindowCaption(rect_in_tabstrip_coords);
+  }
+
+  // Claim |rect| if it is above the top of the topmost view in the client area.
+  return rect.y() < GetTopInset();
+}
 
 int BrowserNonClientFrameViewAsh::GetTabStripLeftInset() const {
   return avatar_button() ? kAvatarSideSpacing +
@@ -400,12 +490,16 @@ bool BrowserNonClientFrameViewAsh::UseImmersiveLightbarHeaderStyle() const {
 }
 
 bool BrowserNonClientFrameViewAsh::UsePackagedAppHeaderStyle() const {
-  // Non streamlined hosted apps do not have a toolbar or tabstrip. Their header
-  // should look the same as the header for packaged apps. Streamlined hosted
-  // apps have a toolbar so should use the browser header style.
+  // Use the packaged app style for apps that aren't using the newer WebApp
+  // style.
+  return browser_view()->browser()->is_app() && !UseWebAppHeaderStyle();
+}
+
+bool BrowserNonClientFrameViewAsh::UseWebAppHeaderStyle() const {
+  // Use of the experimental WebApp header style is guarded with the
+  // streamlined hosted app style.
   return browser_view()->browser()->is_app() &&
-      !CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableStreamlinedHostedApps);
+         extensions::util::IsStreamlinedHostedAppsEnabled();
 }
 
 void BrowserNonClientFrameViewAsh::LayoutAvatar() {
@@ -535,9 +629,14 @@ void BrowserNonClientFrameViewAsh::PaintToolbarBackground(gfx::Canvas* canvas) {
 }
 
 void BrowserNonClientFrameViewAsh::PaintContentEdge(gfx::Canvas* canvas) {
-  DCHECK(!UsePackagedAppHeaderStyle());
+  DCHECK(!UsePackagedAppHeaderStyle() && !UseWebAppHeaderStyle());
   canvas->FillRect(gfx::Rect(0, caption_button_container_->bounds().bottom(),
                              width(), kClientEdgeThickness),
                    ThemeProperties::GetDefaultColor(
                        ThemeProperties::COLOR_TOOLBAR_SEPARATOR));
+}
+
+void BrowserNonClientFrameViewAsh::UpdateBackButtonState(bool enabled) {
+  web_app_back_button_->SetState(enabled ? views::Button::STATE_NORMAL
+                                         : views::Button::STATE_DISABLED);
 }

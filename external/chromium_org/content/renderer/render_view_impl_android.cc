@@ -9,8 +9,6 @@
 #include "cc/trees/layer_tree_host.h"
 #include "content/common/view_messages.h"
 #include "content/renderer/gpu/render_widget_compositor.h"
-#include "content/renderer/media/video_capture_impl_manager.h"
-#include "content/renderer/render_thread_impl.h"
 #include "third_party/WebKit/public/web/WebView.h"
 
 namespace content {
@@ -73,20 +71,6 @@ void RenderViewImpl::OnExtractSmartClipData(const gfx::Rect& rect) {
   webview()->extractSmartClipData(rect, clip_text, clip_html, clip_rect);
   Send(new ViewHostMsg_SmartClipDataExtracted(
       routing_id_, clip_text, clip_html, clip_rect));
-}
-
-void RenderViewImpl::OnPauseVideoCaptureStream() {
-#if defined(ENABLE_WEBRTC)
-  RenderThreadImpl::current()->video_capture_impl_manager()->
-      SuspendDevices(true);
-#endif
-}
-
-void RenderViewImpl::OnResumeVideoCaptureStream() {
-#if defined(ENABLE_WEBRTC)
-  RenderThreadImpl::current()->video_capture_impl_manager()->
-      SuspendDevices(false);
-#endif
 }
 
 }  // namespace content

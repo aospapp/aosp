@@ -10,8 +10,13 @@
 #include "base/prefs/scoped_user_pref_update.h"
 #include "base/sha1.h"
 #include "base/strings/string_number_conversions.h"
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/flags_storage.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
+#include "components/signin/core/browser/signin_manager.h"
 #include "components/sync_driver/pref_names.h"
 #include "components/variations/variations_associated_data.h"
 #include "extensions/common/features/feature.h"
@@ -23,16 +28,20 @@ const char kFieldTrialName[] = "EnhancedBookmarks";
 
 // Get extension id from Finch EnhancedBookmarks group parameters.
 std::string GetEnhancedBookmarksExtensionIdFromFinch() {
-  return chrome_variations::GetVariationParamValue(kFieldTrialName, "id");
+  return variations::GetVariationParamValue(kFieldTrialName, "id");
 }
 
 // Returns true if enhanced bookmarks experiment is enabled from Finch.
 bool IsEnhancedBookmarksExperimentEnabledFromFinch() {
-  std::string ext_id = GetEnhancedBookmarksExtensionIdFromFinch();
+  const std::string ext_id = GetEnhancedBookmarksExtensionIdFromFinch();
+#if defined(OS_ANDROID)
+  return !ext_id.empty();
+#else
   const extensions::FeatureProvider* feature_provider =
       extensions::FeatureProvider::GetPermissionFeatures();
   extensions::Feature* feature = feature_provider->GetFeature("metricsPrivate");
   return feature && feature->IsIdInWhitelist(ext_id);
+#endif
 }
 
 };  // namespace
@@ -125,6 +134,14 @@ void UpdateBookmarksExperimentState(
     }
   }
 
+#if defined(OS_ANDROID)
+  bool opt_in = !opt_out
+      && CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          switches::kEnhancedBookmarksExperiment) == "1";
+  if (opt_in && bookmarks_experiment_new_state == BOOKMARKS_EXPERIMENT_NONE)
+    bookmarks_experiment_new_state = BOOKMARKS_EXPERIMENT_ENABLED;
+#endif
+
   UMA_HISTOGRAM_ENUMERATION("EnhancedBookmarks.SyncExperimentState",
                             bookmarks_experiment_new_state,
                             BOOKMARKS_EXPERIMENT_ENUM_SIZE);
@@ -133,6 +150,16 @@ void UpdateBookmarksExperimentState(
       bookmarks_experiment_new_state);
   ForceFinchBookmarkExperimentIfNeeded(flags_storage,
                                        bookmarks_experiment_new_state);
+}
+
+void InitBookmarksExperimentState(Profile* profile) {
+  SigninManagerBase* signin = SigninManagerFactory::GetForProfile(profile);
+  bool is_signed_in = signin && signin->IsAuthenticated();
+  UpdateBookmarksExperimentState(
+      profile->GetPrefs(),
+      g_browser_process->local_state(),
+      is_signed_in,
+      BOOKMARKS_EXPERIMENT_ENABLED_FROM_SYNC_UNKNOWN);
 }
 
 void ForceFinchBookmarkExperimentIfNeeded(
@@ -164,19 +191,30 @@ void ForceFinchBookmarkExperimentIfNeeded(
   }
 }
 
-bool IsEnhancedBookmarksExperimentEnabled() {
+bool IsEnhancedBookmarksExperimentEnabled(
+    about_flags::FlagsStorage* flags_storage) {
+#if defined(OS_CHROMEOS)
+  // We are not setting command line flags on Chrome OS to avoid browser restart
+  // but still have flags in flags_storage. So check flags_storage instead.
+  const std::set<std::string> flags = flags_storage->GetFlags();
+  if (flags.find(switches::kManualEnhancedBookmarks) != flags.end())
+    return true;
+  if (flags.find(switches::kManualEnhancedBookmarksOptout) != flags.end())
+    return true;
+#else
   CommandLine* command_line = CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(switches::kManualEnhancedBookmarks) ||
       command_line->HasSwitch(switches::kManualEnhancedBookmarksOptout)) {
     return true;
   }
+#endif
 
   return IsEnhancedBookmarksExperimentEnabledFromFinch();
 }
 
 #if defined(OS_ANDROID)
-bool IsEnhancedBookmarkImageFetchingEnabled() {
-  if (IsEnhancedBookmarksExperimentEnabled())
+bool IsEnhancedBookmarkImageFetchingEnabled(const PrefService* user_prefs) {
+  if (IsEnhancedBookmarksEnabled(user_prefs))
     return true;
 
   // Salient images are collected from visited bookmarked pages even if the
@@ -184,9 +222,17 @@ bool IsEnhancedBookmarkImageFetchingEnabled() {
   // available so that in the future, when the feature is turned on, the user
   // experience is not a big list of flat colors. However as a precautionary
   // measure it is possible to disable this collection of images from finch.
-  std::string disable_fetching = chrome_variations::GetVariationParamValue(
+  std::string disable_fetching = variations::GetVariationParamValue(
       kFieldTrialName, "DisableImagesFetching");
   return disable_fetching.empty();
+}
+
+bool IsEnhancedBookmarksEnabled(const PrefService* user_prefs) {
+  BookmarksExperimentState bookmarks_experiment_state =
+      static_cast<BookmarksExperimentState>(user_prefs->GetInteger(
+          sync_driver::prefs::kEnhancedBookmarksExperimentEnabled));
+  return bookmarks_experiment_state == BOOKMARKS_EXPERIMENT_ENABLED ||
+      bookmarks_experiment_state == BOOKMARKS_EXPERIMENT_ENABLED_FROM_FINCH;
 }
 #endif
 
@@ -195,7 +241,7 @@ bool IsEnableDomDistillerSet() {
       HasSwitch(switches::kEnableDomDistiller)) {
     return true;
   }
-  if (chrome_variations::GetVariationParamValue(
+  if (variations::GetVariationParamValue(
           kFieldTrialName, "enable-dom-distiller") == "1")
     return true;
 
@@ -207,7 +253,7 @@ bool IsEnableSyncArticlesSet() {
       HasSwitch(switches::kEnableSyncArticles)) {
     return true;
   }
-  if (chrome_variations::GetVariationParamValue(
+  if (variations::GetVariationParamValue(
           kFieldTrialName, "enable-sync-articles") == "1")
     return true;
 

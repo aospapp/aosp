@@ -6,13 +6,7 @@
 
 #include <string>
 
-#include "base/bind.h"
-#include "base/bind_helpers.h"
-#include "base/callback.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
-#include "base/files/file_path.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/metrics/histogram.h"
 #include "base/prefs/pref_registry_simple.h"
 #include "base/prefs/pref_service.h"
@@ -22,16 +16,14 @@
 #include "chrome/browser/chromeos/reset/metrics.h"
 #include "chrome/browser/ui/webui/chromeos/login/oobe_ui.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
 #include "chromeos/chromeos_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/power_manager_client.h"
 #include "chromeos/dbus/session_manager_client.h"
 #include "chromeos/dbus/update_engine_client.h"
 #include "content/public/browser/browser_thread.h"
-#include "grit/browser_resources.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
-#include "ui/base/l10n/l10n_util.h"
 
 namespace {
 
@@ -41,13 +33,6 @@ const char kJsScreenPath[] = "login.ResetScreen";
 const char kResetScreen[] = "reset";
 
 const int kErrorUIStateRollback = 7;
-
-static const char kRollbackFlagFile[] = "/tmp/.enable_rollback_ui";
-
-void CheckRollbackFlagFileExists(bool *file_exists) {
-  DCHECK(content::BrowserThread::GetBlockingPool()->RunsTasksOnCurrentThread());
-  *file_exists = base::PathExists(base::FilePath(kRollbackFlagFile));
-}
 
 }  // namespace
 
@@ -60,6 +45,7 @@ ResetScreenHandler::ResetScreenHandler()
       restart_required_(true),
       reboot_was_requested_(false),
       rollback_available_(false),
+      rollback_checked_(false),
       preparing_for_rollback_(false),
       weak_ptr_factory_(this) {
 }
@@ -75,32 +61,21 @@ void ResetScreenHandler::PrepareToShow() {
 
 void ResetScreenHandler::ShowWithParams() {
   int dialog_type;
-  if (reboot_was_requested_) {
-    dialog_type = rollback_available_ ?
-        reset::DIALOG_SHORTCUT_CONFIRMING_POWERWASH_AND_ROLLBACK :
-        reset::DIALOG_SHORTCUT_CONFIRMING_POWERWASH_ONLY;
+  if (restart_required_) {
+    dialog_type = reset::DIALOG_SHORTCUT_RESTART_REQUIRED;
   } else {
-    dialog_type = rollback_available_ ?
-      reset::DIALOG_SHORTCUT_OFFERING_ROLLBACK_AVAILABLE :
-      reset::DIALOG_SHORTCUT_OFFERING_ROLLBACK_UNAVAILABLE;
+    dialog_type = reset::DIALOG_SHORTCUT_OFFERING_ROLLBACK_UNAVAILABLE;
   }
   UMA_HISTOGRAM_ENUMERATION("Reset.ChromeOS.PowerwashDialogShown",
                             dialog_type,
                             reset::DIALOG_VIEW_TYPE_SIZE);
 
-  base::DictionaryValue reset_screen_params;
-  reset_screen_params.SetBoolean("showRestartMsg", restart_required_);
-  reset_screen_params.SetBoolean(
-      "showRollbackOption", rollback_available_ && !reboot_was_requested_);
-  reset_screen_params.SetBoolean(
-      "simpleConfirm", reboot_was_requested_ && !rollback_available_);
-  reset_screen_params.SetBoolean(
-      "rollbackConfirm", reboot_was_requested_ && rollback_available_);
-
   PrefService* prefs = g_browser_process->local_state();
   prefs->SetBoolean(prefs::kFactoryResetRequested, false);
-  prefs->SetBoolean(prefs::kRollbackRequested, false);
   prefs->CommitPendingWrite();
+  base::DictionaryValue reset_screen_params;
+  reset_screen_params.SetBoolean("restartRequired", restart_required_);
+  reset_screen_params.SetBoolean("rollbackAvailable", rollback_available_);
   ShowScreen(kResetScreen, &reset_screen_params);
 }
 
@@ -117,45 +92,25 @@ void ResetScreenHandler::ChooseAndApplyShowScenario() {
   PrefService* prefs = g_browser_process->local_state();
   restart_required_ = !CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kFirstExecAfterBoot);
+
   reboot_was_requested_ = false;
   rollback_available_ = false;
   preparing_for_rollback_ = false;
   if (!restart_required_)  // First exec after boot.
     reboot_was_requested_ = prefs->GetBoolean(prefs::kFactoryResetRequested);
 
-  // Check Rollback flag-file.
-  scoped_ptr<bool> file_exists(new bool(false));
-  base::Closure checkfile_closure = base::Bind(
-      &CheckRollbackFlagFileExists,
-      base::Unretained(file_exists.get()));
-  base::Closure on_check_done = base::Bind(
-      &ResetScreenHandler::OnRollbackFlagFileCheckDone,
-      weak_ptr_factory_.GetWeakPtr(),
-      base::Passed(file_exists.Pass()));
-  if (!content::BrowserThread::PostBlockingPoolTaskAndReply(
-          FROM_HERE,
-          checkfile_closure,
-          on_check_done)) {
-    LOG(WARNING) << "Failed to check flag file for Rollback reset option";
-    on_check_done.Run();
-  }
-}
-
-void ResetScreenHandler::OnRollbackFlagFileCheckDone(
-    scoped_ptr<bool> file_exists) {
-  if (!(*file_exists) && !CommandLine::ForCurrentProcess()->HasSwitch(
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kEnableRollbackOption)) {
     rollback_available_ = false;
     ShowWithParams();
   } else if (!restart_required_ && reboot_was_requested_) {
     // First exec after boot.
-    PrefService* prefs = g_browser_process->local_state();
-    rollback_available_ = prefs->GetBoolean(prefs::kRollbackRequested);
-    ShowWithParams();
-  } else {
     chromeos::DBusThreadManager::Get()->GetUpdateEngineClient()->
         CanRollbackCheck(base::Bind(&ResetScreenHandler::OnRollbackCheck,
         weak_ptr_factory_.GetWeakPtr()));
+  } else {
+    // Will require restart.
+    ShowWithParams();
   }
 }
 
@@ -173,15 +128,17 @@ void ResetScreenHandler::DeclareLocalizedValues(
     LocalizedValuesBuilder* builder) {
   builder->Add("resetScreenTitle", IDS_RESET_SCREEN_TITLE);
   builder->Add("resetScreenAccessibleTitle", IDS_RESET_SCREEN_TITLE);
-  builder->Add("resetScreenIconTitle",IDS_RESET_SCREEN_ICON_TITLE);
+  builder->Add("resetScreenIconTitle", IDS_RESET_SCREEN_ICON_TITLE);
   builder->Add("cancelButton", IDS_CANCEL);
+  builder->Add("resetButtonReset", IDS_RESET_SCREEN_RESET);
+  builder->Add("resetButtonRestart", IDS_RELAUNCH_BUTTON);
+  builder->Add("resetButtonPowerwash", IDS_RESET_SCREEN_POWERWASH);
+  builder->Add("resetButtonPowerwashAndRollback",
+               IDS_RESET_SCREEN_POWERWASH_AND_REVERT);
 
   builder->Add("resetWarningDataDetails",
                IDS_RESET_SCREEN_WARNING_DETAILS_DATA);
   builder->Add("resetRestartMessage", IDS_RESET_SCREEN_RESTART_MSG);
-  builder->AddF("resetRollbackOption",
-                IDS_RESET_SCREEN_ROLLBACK_OPTION,
-                IDS_SHORT_PRODUCT_NAME);
   builder->AddF("resetRevertPromise",
                 IDS_RESET_SCREEN_PREPARING_REVERT_PROMISE,
                 IDS_SHORT_PRODUCT_NAME);
@@ -189,31 +146,29 @@ void ResetScreenHandler::DeclareLocalizedValues(
                 IDS_RESET_SCREEN_PREPARING_REVERT_SPINNER_MESSAGE,
                 IDS_SHORT_PRODUCT_NAME);
 
-  // Different variants of the same UI elements for all dialog cases.
-  builder->Add("resetButtonReset", IDS_RESET_SCREEN_RESET);
-  builder->Add("resetButtonRelaunch", IDS_RELAUNCH_BUTTON);
-  builder->Add("resetButtonPowerwash", IDS_RESET_SCREEN_POWERWASH);
-
-  builder->AddF(
-      "resetAndRollbackWarningTextConfirmational",
-      IDS_RESET_SCREEN_CONFIRMATION_WARNING_POWERWASH_AND_ROLLBACK_MSG,
-      IDS_SHORT_PRODUCT_NAME);
-  builder->AddF("resetWarningTextConfirmational",
-                IDS_RESET_SCREEN_CONFIRMATION_WARNING_POWERWASH_MSG,
-                IDS_SHORT_PRODUCT_NAME);
-  builder->AddF("resetWarningTextInitial",
+  // Variants for screen title.
+  builder->AddF("resetWarningTitle",
                 IDS_RESET_SCREEN_WARNING_MSG,
                 IDS_SHORT_PRODUCT_NAME);
+  builder->AddF("resetPowerwashWarningTitle",
+                IDS_RESET_SCREEN_WARNING_POWERWASH_MSG,
+                IDS_SHORT_PRODUCT_NAME);
+  builder->AddF("resetPowerwasAndRollbackhWarningTitle",
+                IDS_RESET_SCREEN_WARNING_POWERWASH_AND_ROLLBACK_MSG,
+                IDS_SHORT_PRODUCT_NAME);
 
-  builder->AddF(
-      "resetAndRollbackWarningDetailsConfirmational",
-      IDS_RESET_SCREEN_CONFIRMATION_WARNING_ROLLBACK_DETAILS,
-      IDS_SHORT_PRODUCT_NAME);
-  builder->AddF("resetWarningDetailsConfirmational",
+  // Variants for screen message.
+  builder->AddF("resetPowerwashWarningDetails",
+                IDS_RESET_SCREEN_WARNING_DETAILS,
+                IDS_SHORT_PRODUCT_NAME);
+  builder->AddF("resetPowerwashRollbackWarningDetails",
+                IDS_RESET_SCREEN_WARNING_POWERWASH_AND_ROLLBACK_MSG,
+                IDS_SHORT_PRODUCT_NAME);
+  builder->AddF("resetPowerwashConfirmationDetails",
                 IDS_RESET_SCREEN_CONFIRMATION_WARNING_DETAILS,
                 IDS_SHORT_PRODUCT_NAME);
-  builder->AddF("resetWarningDetailsInitial",
-                IDS_RESET_SCREEN_WARNING_DETAILS,
+  builder->AddF("resetPowerwashRollbackConfirmationDetails",
+                IDS_RESET_SCREEN_CONFIRMATION_WARNING_ROLLBACK_DETAILS,
                 IDS_SHORT_PRODUCT_NAME);
 }
 
@@ -227,7 +182,6 @@ void ResetScreenHandler::OnRollbackCheck(bool can_rollback) {
 // static
 void ResetScreenHandler::RegisterPrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(prefs::kFactoryResetRequested, false);
-  registry->RegisterBooleanPref(prefs::kRollbackRequested, false);
 }
 
 void ResetScreenHandler::Initialize() {
@@ -245,6 +199,12 @@ void ResetScreenHandler::RegisterMessages() {
   AddCallback("restartOnReset", &ResetScreenHandler::HandleOnRestart);
   AddCallback("powerwashOnReset", &ResetScreenHandler::HandleOnPowerwash);
   AddCallback("resetOnLearnMore", &ResetScreenHandler::HandleOnLearnMore);
+  AddCallback(
+      "showRollbackOnResetScreen", &ResetScreenHandler::HandleOnShowRollback);
+  AddCallback(
+      "hideRollbackOnResetScreen", &ResetScreenHandler::HandleOnHideRollback);
+  AddCallback(
+      "showConfirmationOnReset", &ResetScreenHandler::HandleOnShowConfirm);
 }
 
 void ResetScreenHandler::HandleOnCancel() {
@@ -255,26 +215,27 @@ void ResetScreenHandler::HandleOnCancel() {
   DBusThreadManager::Get()->GetUpdateEngineClient()->RemoveObserver(this);
 }
 
-void ResetScreenHandler::HandleOnRestart(bool should_rollback) {
+void ResetScreenHandler::HandleOnRestart() {
   PrefService* prefs = g_browser_process->local_state();
   prefs->SetBoolean(prefs::kFactoryResetRequested, true);
-  prefs->SetBoolean(prefs::kRollbackRequested, should_rollback);
   prefs->CommitPendingWrite();
 
   chromeos::DBusThreadManager::Get()->GetPowerManagerClient()->RequestRestart();
 }
 
 void ResetScreenHandler::HandleOnPowerwash(bool rollback_checked) {
-  if (rollback_available_ && (rollback_checked || reboot_was_requested_)) {
+  if (rollback_available_ && rollback_checked) {
       preparing_for_rollback_ = true;
       CallJS("updateViewOnRollbackCall");
       DBusThreadManager::Get()->GetUpdateEngineClient()->AddObserver(this);
+      VLOG(1) << "Starting Rollback";
       chromeos::DBusThreadManager::Get()->GetUpdateEngineClient()->Rollback();
   } else {
     if (rollback_checked && !rollback_available_) {
       NOTREACHED() <<
           "Rollback was checked but not available. Starting powerwash.";
     }
+    VLOG(1) << "Starting Powerwash";
     chromeos::DBusThreadManager::Get()->GetSessionManagerClient()->
         StartDeviceWipe();
   }
@@ -284,6 +245,35 @@ void ResetScreenHandler::HandleOnLearnMore() {
   if (!help_app_.get())
     help_app_ = new HelpAppLauncher(GetNativeWindow());
   help_app_->ShowHelpTopic(HelpAppLauncher::HELP_POWERWASH);
+}
+
+void ResetScreenHandler::HandleOnShowRollback() {
+  VLOG(1) << "Requested rollback availability" << rollback_available_;
+  if (rollback_available_) {
+    UMA_HISTOGRAM_ENUMERATION(
+        "Reset.ChromeOS.PowerwashDialogShown",
+        reset::DIALOG_SHORTCUT_OFFERING_ROLLBACK_AVAILABLE,
+        reset::DIALOG_VIEW_TYPE_SIZE);
+    CallJS("showRollbackOption");
+    rollback_checked_ = true;
+  }
+}
+
+void ResetScreenHandler::HandleOnHideRollback() {
+  if (rollback_available_ && rollback_checked_) {
+    CallJS("hideRollbackOption");
+    rollback_checked_ = false;
+  }
+}
+
+void ResetScreenHandler::HandleOnShowConfirm() {
+  int dialog_type = rollback_checked_ ?
+      reset::DIALOG_SHORTCUT_CONFIRMING_POWERWASH_AND_ROLLBACK :
+      reset::DIALOG_SHORTCUT_CONFIRMING_POWERWASH_ONLY;
+  UMA_HISTOGRAM_ENUMERATION(
+      "Reset.ChromeOS.PowerwashDialogShown",
+      dialog_type,
+      reset::DIALOG_VIEW_TYPE_SIZE);
 }
 
 void ResetScreenHandler::UpdateStatusChanged(

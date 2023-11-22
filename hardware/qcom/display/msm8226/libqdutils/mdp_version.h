@@ -99,8 +99,12 @@ struct PanelInfo {
     int mWidthAlign;             // ROI width alignment restriction
     int mTopAlign;               // ROI top alignment restriction
     int mHeightAlign;            // ROI height alignment restriction
+    int mMinROIWidth;            // Min width needed for ROI
+    int mMinROIHeight;           // Min height needed for ROI
+    bool mNeedsROIMerge;         // Merge ROI's of both the DSI's
     PanelInfo() : mType(NO_PANEL), mPartialUpdateEnable(0),
-    mLeftAlign(0), mWidthAlign(0), mTopAlign(0), mHeightAlign(0){}
+    mLeftAlign(0), mWidthAlign(0), mTopAlign(0), mHeightAlign(0),
+    mMinROIWidth(0), mMinROIHeight(0), mNeedsROIMerge(false){}
     friend class MDPVersion;
 };
 
@@ -125,20 +129,27 @@ public:
     bool supportsMacroTile();
     int getLeftSplit() { return mSplit.left(); }
     int getRightSplit() { return mSplit.right(); }
-    int isPartialUpdateEnabled() { return mPanelInfo.mPartialUpdateEnable; }
+    bool isPartialUpdateEnabled() { return mPanelInfo.mPartialUpdateEnable; }
     int getLeftAlign() { return mPanelInfo.mLeftAlign; }
     int getWidthAlign() { return mPanelInfo.mWidthAlign; }
     int getTopAlign() { return mPanelInfo.mTopAlign; }
     int getHeightAlign() { return mPanelInfo.mHeightAlign; }
+    int getMinROIWidth() { return mPanelInfo.mMinROIWidth; }
+    int getMinROIHeight() { return mPanelInfo.mMinROIHeight; }
+    bool needsROIMerge() { return mPanelInfo.mNeedsROIMerge; }
     unsigned long getLowBw() { return mLowBw; }
     unsigned long getHighBw() { return mHighBw; }
+    bool isRotDownscaleEnabled() { return mRotDownscale; }
     bool isSrcSplit() const;
+    bool isSrcSplitAlways() const;
     bool isRGBScalarSupported() const;
     bool is8x26();
     bool is8x74v2();
     bool is8084();
     bool is8092();
+    bool is8994();
     bool is8x16();
+    bool is8x39();
 
 private:
     bool updateSysFsInfo();
@@ -162,7 +173,10 @@ private:
     unsigned long mLowBw; //kbps
     unsigned long mHighBw; //kbps
     bool mSourceSplit;
+    //Additional property on top of source split
+    bool mSourceSplitAlways;
     bool mRGBHasNoScalar;
+    bool mRotDownscale;
 };
 }; //namespace qdutils
 #endif //INCLUDE_LIBQCOMUTILS_MDPVER

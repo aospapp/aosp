@@ -1,8 +1,9 @@
-/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+/* Copyright (c) 2014 The Chromium Authors. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file. */
 
 /* The order of z-index:
+ * - -1: text-measure
  * - 2: drag-selection-border
  * - 3: preview-panel
  * - 500: scrollbar
@@ -42,12 +43,12 @@ html.col-resize * {
 
 /* Outer frame of the dialog. */
 body {
-  -webkit-box-flex: 1;
-  -webkit-box-orient: vertical;
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   cursor: default;
-  display: -webkit-box;
+  display: flex;
+  flex: auto;
+  flex-direction: column;
   height: 100%;
   margin: 0;
   padding: 0;
@@ -76,6 +77,7 @@ a:focus {
 /* TODO(mtomasz): Flip scrollbars to the opposite side for RTL languages. */
 .scrollbar-vertical {
   bottom: 0;
+  flex: none;
   position: absolute;
   right: 0;
   top: 0;
@@ -111,12 +113,11 @@ a:focus {
 
 /* Main part of the dialog between header and footer. */
 .dialog-container {
-  -webkit-box-align: stretch;
-  -webkit-box-flex: 1;
-  -webkit-box-orient: horizontal;
+  align-items: stretch;
   background-color: white;  /* Makes #drag-container invisible. */
-  border-radius: 2px;
-  display: -webkit-box;
+  display: flex;
+  flex: auto;
+  flex-direction: row;
   overflow: hidden;
   position: relative;
 }
@@ -129,25 +130,24 @@ a:focus {
 
 /* List/grid and preview are inside this container. */
 .dialog-main {
-  -webkit-box-align: stretch;
-  -webkit-box-flex: 1;
-  -webkit-box-orient: vertical;
-  display: -webkit-box;
+  align-items: stretch;
+  display: flex;
+  flex: auto;
+  flex-direction: column;
 }
 
 /* Directory tree at the left. */
 .dialog-navigation-list {
   -webkit-border-end: 1px solid rgba(20, 20, 22, 0.1);
-  -webkit-box-flex: 0;
-  -webkit-box-orient: vertical;
   background-color: #f1f1f1;
   display: flex;
+  flex: none;
   flex-direction: column;
   max-width: 40%;
   min-width: 100px;
   overflow: hidden;
   position: relative;
-  width: 150px;
+  width: 190px;
 }
 
 .dialog-navigation-list-header {
@@ -157,32 +157,20 @@ a:focus {
   line-height: 45px;
 }
 
-.dialog-navigation-list-header #profile-badge {
-  display: inline-block;
-  height: 29px;  /* Size of a profile image. */
-  margin: 8px;
-  vertical-align: top;
-  width: 29px;  /* Size of a profile image. */
-}
-
 .dialog-navigation-list-header #app-name {
   color: #303030;
   font-size: 130%;
   margin: 0 15px;
 }
 
-.dialog-navigation-list-header #profile-badge:not([hidden]) + #app-name {
-  margin: 0;
-}
-
 .dialog-navigation-list-contents {
-  display: -webkit-box;
+  display: flex;
   flex: 1 1 auto;
   position: relative;
 }
 
 .dialog-navigation-list-footer {
-  display: -webkit-flex;
+  display: flex;
   flex: none;
   flex-direction: column;
 }
@@ -190,8 +178,8 @@ a:focus {
 /* A vertical splitter between the roots list and the file list. It is actually
    a transparent area centered on the roots list right border.*/
 div.splitter {
-  -webkit-box-flex: 0;
   cursor: col-resize;
+  flex: none;
   margin-left: -3px;
   margin-right: -3px;
   position: relative;
@@ -199,60 +187,12 @@ div.splitter {
   z-index: 500;  /* Must be below the contextmenu (600). */
 }
 
-#navigation-list {
-  -webkit-box-flex: 1;
-  -webkit-box-orient: vertical;
-  display: -webkit-box;
-}
-
-#navigation-list > * {
-  height: 40px;
-  padding: 0 5px;
-}
-
-#navigation-list > .accepts,
-#navigation-list > [lead][selected],
-#navigation-list > [lead],
-#navigation-list > [selected],
-#navigation-list > [anchor] {
-  background-color: rgb(225, 225, 225);
-}
-
-#navigation-list:focus > .accepts,
-#navigation-list:focus > [lead][selected],
-#navigation-list:focus > [lead],
-#navigation-list:focus > [selected],
-#navigation-list:focus > [anchor] {
-  background-color: rgb(66, 129, 244);
-  color: white;
-}
-
-#navigation-list li.root-item {
-  -webkit-box-align: center;
-  display: -webkit-box;
-  line-height: 22px;  /* To accommodate for icons. */
-  padding-left: 11px;
-}
-
-#navigation-list li.root-item > .root-label {
-  -webkit-box-flex: 1;
-  margin: 0 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-#navigation-list .volume-icon {
-  background-repeat: no-repeat;
-  height: 24px;
-  width: 24px;
-}
-
 #middlebar-header {
   -webkit-border-end: 1px solid rgba(20, 20, 22, 0.1);
   -webkit-box-sizing: border-box;
   -webkit-padding-start: 20px;
   color: rgb(100, 100, 100);
+  flex: none;
   height: 47px;
   line-height: 40px;
   overflow-x: hidden;
@@ -262,20 +202,21 @@ div.splitter {
 }
 
 #directory-tree {
-  -webkit-border-end: 1px solid rgba(20, 20, 22, 0.1);
   bottom: 0;
+  flex: none;
   left: 0;
   overflow-x: hidden;
   overflow-y: auto;
   padding-bottom: 0;  /* For the preview panel. Will be overridden by JS. */
   position: absolute;
   right: 0;
-  top: 47px;
+  top: 0;
 }
 
 #directory-tree .tree-row {
+  align-items: center;
   cursor: pointer;
-  display: -webkit-box;
+  display: flex;
   line-height: 29px;
   padding: 0 3px;
 }
@@ -286,12 +227,12 @@ div.splitter {
 }
 
 #directory-tree .tree-row > .expand-icon {
+  flex: none;
   height: 37px;
   left: 3px;
-  margin: -13px;
+  margin: -12px -10px -13px -13px;
   right: 3px;
   top: 0;
-  vertical-align: middle;
   width: 37px;
 }
 
@@ -300,16 +241,16 @@ div.splitter {
 }
 
 #directory-tree .tree-row > .volume-icon {
-  background-position: center 2px;
+  background-position: center 3px;
   background-repeat: no-repeat;
+  flex: none;
   height: 24px;
-  vertical-align: middle;
   width: 24px;
 }
 
 #directory-tree .tree-row > .label {
-  -webkit-box-flex: 1;
   display: block;
+  flex: auto;
   margin: 0 3px;
   overflow-x: hidden;
   text-overflow: ellipsis;
@@ -319,15 +260,8 @@ div.splitter {
 #directory-tree .tree-row[lead][selected],
 #directory-tree .tree-row[lead],
 #directory-tree .tree-row[selected],
-#directory-tree .tree-row[anchor] {
-  background-color: rgb(204, 204, 204);
-}
-
-#directory-tree .tree-item.accepts > .tree-row,
-#directory-tree .tree-row[lead][selected],
-#directory-tree .tree-row[lead],
-#directory-tree .tree-row[selected],
-#directory-tree .tree-row[anchor] {
+#directory-tree .tree-row[anchor],
+#directory-tree .tree-row:active {
   background-color: rgb(225, 225, 225);
 }
 
@@ -348,20 +282,29 @@ div.splitter {
   color: white;
 }
 
-#navigation-list .root-item > div.root-eject {
+/* Make top-level items thicker and their expand-icno invisible */
+#directory-tree > .tree-item > .tree-row {
+  line-height: 40px;
+}
+
+#directory-tree > .tree-item > .tree-row > .expand-icon {
+  visibility: hidden;
+}
+
+#directory-tree .tree-row > div.root-eject {
   background: -webkit-image-set(
       url('../images/files/ui/eject.png') 1x,
       url('../images/files/ui/2x/eject.png') 2x) no-repeat center;
   cursor: pointer;
+  flex: none;
   height: 20px;
   margin-right: 6px;
   opacity: 0.7;
   transition: opacity 70ms linear;
-  vertical-align: middle;
   width: 20px;
 }
 
-#navigation-list:focus .root-item[selected] > div.root-eject {
+#directory-tree:focus .tree-row[selected] > div.root-eject {
   background: -webkit-image-set(
       url('../images/files/ui/eject_white.png') 1x,
       url('../images/files/ui/2x/eject_white.png') 2x) no-repeat center;
@@ -376,46 +319,33 @@ div.splitter {
 /* Breadcrumbs and things under the title but above the list view. */
 .dialog-header {
   -webkit-app-region: drag;
-  -webkit-box-align: center;
-  -webkit-box-orient: horizontal;
+  align-items: center;
   display: flex;
+  flex: none;
+  flex-direction: row;
   height: 48px;
   margin: 0;
   transition: all 180ms ease;
+}
+
+.dialog-header .volume-icon {
+  -webkit-margin-start: 10px;
+  background-position: center 3px;
+  background-repeat: no-repeat;
+  flex: none;
+  height: 24px;
+  width: 24px;
+}
+
+.dialog-header > .spacer {
+  flex: auto;
 }
 
 /* Search box */
 
 #search-box {
   display: flex;
-  flex: auto;
-}
-
-#search-box .icon {
-  -webkit-app-region: no-drag;
-  -webkit-padding-end: 0;
-  -webkit-padding-start: 10px;
-  background: transparent -webkit-image-set(
-      url(../images/files/ui/search_icon_inactive.png) 1x,
-      url(../images/files/ui/2x/search_icon_inactive.png) 2x)
-      no-repeat center;
   flex: none;
-  height: 32px;
-  padding-bottom: 8px;
-  padding-top: 8px;
-  width: 32px;
-}
-
-#search-box .icon:hover,
-#search-box.has-cursor .icon,
-#search-box.has-text .icon {
-  background-image: -webkit-image-set(
-      url(../images/files/ui/search_icon_active.png) 1x,
-      url(../images/files/ui/2x/search_icon_active.png) 2x);
-}
-
-#search-box .full-size {
-  flex: 1 0 0;
 }
 
 #search-box input {
@@ -431,6 +361,8 @@ div.splitter {
   max-width: 100%;
   outline: none;
   padding: 0;
+  transition: width 0.2s ease;
+  width: 0;
 }
 
 #search-box input::-webkit-search-cancel-button {
@@ -439,7 +371,7 @@ div.splitter {
 
 #search-box.has-cursor input,
 #search-box.has-text input {
-  cursor: text;
+  width: 176px;
 }
 
 #search-box .clear {
@@ -458,11 +390,17 @@ div.splitter {
   min-width: 0;
   outline: none;
   padding: 0;
+  visibility: hidden;
   width: 12px;
 }
 
+#search-box.has-cursor .clear,
 #search-box.has-text .clear {
   display: block;
+}
+
+#search-box.has-text .clear {
+  visibility: visible;
 }
 
 #search-box .clear:hover {
@@ -481,17 +419,35 @@ div.splitter {
   flex: none;
 }
 
+.topbutton-bar .search-button {
+  background-image: -webkit-image-set(
+      url(../images/files/ui/search_icon_active.png) 1x,
+      url(../images/files/ui/2x/search_icon_active.png) 2x);
+}
+
+.topbutton-bar .view-button.table {
+  background-image: -webkit-image-set(
+      url('../images/files/ui/button_list_view.png') 1x,
+      url('../images/files/ui/2x/button_list_view.png') 2x);
+}
+
+.topbutton-bar .view-button.grid {
+  background-image: -webkit-image-set(
+      url('../images/files/ui/button_mosaic_view.png') 1x,
+      url('../images/files/ui/2x/button_mosaic_view.png') 2x);
+}
+
 /* Container for the detail and thumbnail list views. */
 .dialog-body {
-  -webkit-box-flex: 1;
   -webkit-transition: all 180ms ease;
   border-top: 1px solid rgba(20, 20, 22, 0.1);
+  flex: auto;
   position: relative;
 }
 
 .main-panel {
   bottom: 0;
-  display: -webkit-box;
+  display: flex;
   left: 0;
   position: absolute;
   right: 0;
@@ -499,7 +455,8 @@ div.splitter {
 }
 
 .dialog-middlebar-contents {
-  display: -webkit-box;
+  display: flex;
+  flex: none;
   max-width: 50%;
   min-width: 45px;
   position: relative;
@@ -508,10 +465,11 @@ div.splitter {
 
 /* Container for the ok/cancel buttons. */
 .dialog-footer {
-  -webkit-box-align: center;
-  -webkit-box-orient: horizontal;
+  align-items: center;
   border-top: 1px solid rgb(225, 225, 225);
-  display: -webkit-box;
+  display: flex;
+  flex: none;
+  flex-direction: row;
   outline: none;
   padding: 10px;
 }
@@ -529,61 +487,20 @@ div.splitter {
 }
 
 .progressable .progress-bar {
-  -webkit-box-flex: 1;
   -webkit-margin-end: 20px;
   -webkit-margin-start: 20px;
+  flex: auto;
 }
 
 /* The container for breadcrumb elements. */
 .breadcrumbs {
-  -webkit-box-align: center;
-  -webkit-box-flex: 1;
-  -webkit-box-orient: horizontal;
-  display: -webkit-box;
+  align-items: center;
+  display: flex;
+  flex: auto;
+  flex-direction: row;
   line-height: 20px;
   overflow: hidden;
   padding-top: 1px;
-}
-
-#dir-breadcrumbs {
-  -webkit-margin-end: 5px;
-  -webkit-margin-start: 10px;
-}
-
-/* The icon for offline mode */
-.offline-icon {
-  -webkit-margin-end: 0;
-  -webkit-margin-start: 10px;
-  background-image: -webkit-image-set(
-    url('../images/files/ui/offline.png') 1x,
-    url('../images/files/ui/2x/offline.png') 2x);
-  height: 16px;
-  opacity: 0;
-  transition-duration: 200ms;
-  transition-property: opacity;
-  transition-timing-function: ease-out;
-  width: 16px;
-}
-
-/* Transition for '-webkit-margin-start' (or -end) property is not working.
- * So I added .offline-icon-space to animate 'width' property. */
-.offline-icon-space {
-  -webkit-margin-end: 0;
-  -webkit-margin-start: -26px; /* Clear width of .offline-icon */
-  transition-duration: 200ms;
-  transition-property: width;
-  transition-timing-function: ease-out;
-  width: 0;
-}
-
-body[drive] .dialog-container[connection='offline'] .offline-icon,
-body[drive] .dialog-container[connection='metered'] .offline-icon {
-  opacity: 1;
-}
-
-body[drive] .dialog-container[connection='offline'] .offline-icon-space,
-body[drive] .dialog-container[connection='metered'] .offline-icon-space {
-  width: 26px;
 }
 
 .breadcrumbs > [collapsed]::before {
@@ -596,8 +513,9 @@ body[drive] .dialog-container[connection='metered'] .offline-icon-space {
 
 /* A single directory name in the list of path breadcrumbs. */
 .breadcrumb-path {
-  color: #969696;
+  color: #141414;
   cursor: pointer;
+  flex: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -617,6 +535,7 @@ body[drive] .dialog-container[connection='metered'] .offline-icon-space {
     url('../images/files/ui/2x/breadcrumb-separator.png') 2x);
   background-position: center center;
   background-repeat: no-repeat;
+  flex: none;
   height: 10px;
   overflow: hidden;
   width: 25px;
@@ -635,28 +554,34 @@ html[dir='rtl'] .breadcrumbs .separator {
 }
 
 .filelist-panel {
-  -webkit-box-flex: 1;
-  -webkit-box-orient: vertical;
-  display: -webkit-box;
+  display: flex;
+  flex: auto;
+  flex-direction: column;
 }
 
 #list-container {
-  -webkit-box-flex: 1;
-  -webkit-box-orient: vertical;
-  display: -webkit-box;
+  display: flex;
+  flex: auto;
+  flex-direction: column;
   position: relative;
 }
 
 #detail-table {
-  -webkit-box-flex: 1;
-  -webkit-box-orient: vertical;
-  display: -webkit-box;
+  display: flex;
+  flex: auto;
+  flex-direction: column;
 }
 
 #detail-table > list,
 .thumbnail-grid {
-  -webkit-box-flex: 1;
+  flex: auto;
   padding-bottom: 0;  /* For the preview panel. Will be overridden by JS. */
+}
+
+#file-list {
+  /* Override overflow specifying by table_list.js to use the original scroll
+     bar. crbug.com/391698 */
+  overflow: scroll !important;
 }
 
 #file-list .drag-selection-border {
@@ -669,7 +594,7 @@ html[dir='rtl'] .breadcrumbs .separator {
 }
 
 .spinner {
-  background: 100% url(../images/common/spinner.svg);
+  background: url(../images/common/spinner.svg) center/100% no-repeat;
   height: 16px;
   left: 50%;
   margin-left: -8px;
@@ -691,8 +616,7 @@ html[dir='rtl'] .breadcrumbs .separator {
 }
 
 .downloads-warning {
-  -webkit-box-align: center;
-  -webkit-box-orient: horizontal;
+  align-items: center;
   background-color: #f0f0f0;
   background-image: -webkit-image-set(
     url('../images/files/ui/warning_icon_square.png') 1x,
@@ -700,36 +624,39 @@ html[dir='rtl'] .breadcrumbs .separator {
   background-position: 15px center;
   background-repeat: no-repeat;
   color: #666;
-  display: -webkit-box;
+  display: flex;
+  flex: none;
+  flex-direction: row;
   font-size: 13px;
-  height: 57px;
+  height: 44px;
   overflow: hidden;
   padding-left: 57px;  /* Make space for the icon. */
   transition: height 70ms linear;
 }
 
 .downloads-warning[hidden] {
-  display: -webkit-box !important;  /* Overrides [hidden] for animation. */
+  display: flex !important;  /* Overrides [hidden] for animation. */
   height: 0;
 }
 
 @-webkit-keyframes heightAnimation {
   0% {
+    display: flex;
     height: 0;
-    display: -webkit-box;
   }
 }
 
 /* Drive space warning banner. */
 .volume-warning {
   -webkit-animation: heightAnimation 70ms linear;
-  -webkit-box-align: center;
-  -webkit-box-orient: horizontal;
+  align-items: center;
   background-image: url(chrome://resources/images/clouds.png);
   background-repeat: repeat-x;
   background-size: 150px 44px;
   color: #333;
-  display: -webkit-box;
+  display: flex;
+  flex: none;
+  flex-direction: row;
   font-size: 13px;
   height: 44px;
   overflow: hidden;
@@ -748,11 +675,13 @@ html[dir='rtl'] .breadcrumbs .separator {
   background-position: center;
   background-repeat: no-repeat;
   background-size: 25px 22px;
+  flex: none;
   height: 44px;
   width: 50px;
 }
 
 .volume-warning .drive-text {
+  flex: none;
   margin-right: 11px;
 }
 
@@ -777,17 +706,17 @@ body[type='full-page'] .detail-name .detail-icon {
   position: absolute;
 }
 
-.img-container > img:not(.cached):not(.drag-thumbnail) {
+.img-container > img:not(.cached) {
   -webkit-animation: fadeIn 250ms linear;
 }
 
 .thumbnail-bottom {
-  -webkit-box-align: center;
-  -webkit-box-orient: horizontal;
-  -webkit-box-pack: center;
+  align-items: center;
   bottom: 0;
   cursor: auto;
-  display: -webkit-box;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
   left: 0;
   padding: 0 10px;
   position: absolute;
@@ -795,7 +724,7 @@ body[type='full-page'] .detail-name .detail-icon {
 }
 
 .thumbnail-bottom .filename-label {
-  -webkit-box-flex: 1;
+  flex: auto;
 }
 
 /* Styles specific for the grid view. */
@@ -847,7 +776,9 @@ body[type='full-page'] .detail-name .detail-icon {
 }
 
 #list-container list > li[selected],
+#list-container list > li:active,
 #list-container grid > li[selected],
+#list-container grid > li:active,
 #default-actions-list > li[selected] {
   background-color: rgb(225, 225, 225);
 }
@@ -879,7 +810,6 @@ body[type='full-page'] .detail-name .detail-icon {
 }
 
 #directory-tree .tree-item.accepts > .tree-row,
-#navigation-list > .accepts,
 #list-container list > li.accepts,
 #list-container grid > li.accepts {
   -webkit-animation: acceptsBlink 200ms linear 1s 3;
@@ -889,11 +819,6 @@ body[type='full-page'] .detail-name .detail-icon {
   0% {
     background-color: transparent;
   }
-}
-
-.table-row-cell .selection-label {
-  -webkit-margin-end: 10px;
-  height: 15px;
 }
 
 .table-row-cell .filename-label,
@@ -925,7 +850,7 @@ input.rename {
 
 .table-row-cell .filename-label,
 .table-row-cell input.rename {
-  -webkit-box-flex: 1;
+  flex: auto;
 }
 
 li[renaming=''] .filename-label {
@@ -947,14 +872,13 @@ li[renaming=''] .filename-label {
 
 /* Bottom pane describing current selection. */
 .preview-panel {
-  -webkit-box-align: center;
-  -webkit-box-orient: horizontal;
   -webkit-transition: background-color 150ms ease;
-  background: linear-gradient(
-      to bottom, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 1));
+  align-items: center;
+  background: white;
   border-top: 1px solid rgba(20, 20, 22, 0.1);
   bottom: 0;
-  display: -webkit-box;
+  display: flex;
+  flex-direction: row;
   height: 51px;
   left: 0;
   opacity: 1;
@@ -979,28 +903,34 @@ li[renaming=''] .filename-label {
 
 .preview-panel > .left,
 .dialog-footer > .left {
-  -webkit-box-align: center;
-  -webkit-box-flex: 1;
-  -webkit-box-orient: horizontal;
-  display: -webkit-box;
+  align-items: center;
+  display: flex;
+  flex: auto;
+  flex-direction: row;
 }
 
 .preview-panel > .right,
 .dialog-footer > .right {
-  -webkit-box-pack: end;
+  flex: none;
+  justify-content: flex-end;
 }
 
 .preview-panel .preparing-label {
   -webkit-margin-start: 30px;
+  flex: none;
 }
 
 .preview-panel .progress-bar {
-  -webkit-box-flex: 1;
+  flex: auto;
+}
+
+.preview-panel .preview-text {
+  color: #333;
 }
 
 .preview-thumbnails {
-  -webkit-box-orient: horizontal;
-  display: -webkit-box;
+  display: flex;
+  flex-direction: row;
   padding-left: 25px;
 }
 
@@ -1026,7 +956,7 @@ li[renaming=''] .filename-label {
   box-shadow: 0 0 0 1px #F0F0F0,
               0 0 0 2px #D0D0D0,
               2px 2px 6px rgba(0, 0, 0, 0.2);
-  display: -webkit-flex;
+  display: flex;
   left: -8px;
   opacity: 0;
   pointer-events: none;
@@ -1056,7 +986,7 @@ li[renaming=''] .filename-label {
 }
 
 .preview-thumbnails > .popup > img {
-  -webkit-flex: 1 1 0;
+  flex: 1 1 0;
   -webkit-user-drag: none;
 }
 
@@ -1079,6 +1009,7 @@ li[renaming=''] .filename-label {
 /* Container for a table header. */
 .table-header {
   box-sizing: border-box;
+  flex: none;
   height: 47px;
 }
 
@@ -1120,9 +1051,9 @@ li[renaming=''] .filename-label {
 }
 
 .table-row-cell > * {
-  -webkit-box-align: center;
-  -webkit-box-flex: 1;
-  -webkit-box-orient: horizontal;
+  align-items: center;
+  flex: auto;
+  flex-direction: row;
   padding: 0 10px;
 }
 
@@ -1131,7 +1062,7 @@ li[renaming=''] .filename-label {
 }
 
 .table-row-cell > .detail-name {
-  display: -webkit-box;
+  display: flex;
 }
 
 .table-row-cell > .detail-name {
@@ -1145,13 +1076,13 @@ li[renaming=''] .filename-label {
 }
 
 .table-row-cell {
-  -webkit-box-align: center;
+  align-items: center;
 }
 
 #list-container li.table-row,
 #default-actions-list li {
-  height: 29px;
-  line-height: 29px;
+  height: 32px;
+  line-height: 32px;
 }
 
 /* The icon in the name column. See file_types.css for specific icons. */
@@ -1165,19 +1096,8 @@ li[renaming=''] .filename-label {
   margin-bottom: 2px;
 }
 
-.metadata-item {
-  -webkit-box-flex: 1;
-  -webkit-box-orient: horizontal;
-  -webkit-padding-start: 8px;
-  display: -webkit-box;
-}
-
-.metadata-label {
-  -webkit-margin-end: 6px;
-}
-
 .preview-panel .spacer {
-  -webkit-box-flex: 1;
+  flex: auto;
 }
 
 #delete-button {
@@ -1213,10 +1133,9 @@ li[renaming=''] .filename-label {
 }
 
 #preview-lines {
-  -webkit-box-flex: 1;
   -webkit-margin-end: 10px;
   -webkit-margin-start: 10px;
-  vertical-align: middle;
+  flex: auto;
 }
 
 /* The selection summary text at the bottom of the preview pane. */
@@ -1234,58 +1153,31 @@ li[renaming=''] .filename-label {
 }
 
 .detail-name > * {
-  -webkit-box-align: center;
-  display: -webkit-box;
-}
-
-/* Overriding input.common[type='checkbox'] rule in common.css. */
-.detail-name > input.common[type='checkbox'] {
-  -webkit-margin-end: 4px;
-  -webkit-margin-start: -1px;
-  border-color: #444;
-}
-
-list .detail-name > .file-checkbox::before,
-.pin::before {
-  /* Invisible area that reacts on mouse events. */
-  content: '';
-  display: -webkit-box;
-  height: 38px;
-  left: -8px;
-  position: absolute;
-  right: -9px;
-  top: -14px;
+  align-items: center;
+  display: flex;
+  flex: none;
 }
 
 #filename-input-box {
-  -webkit-box-align: center;
-  -webkit-box-flex: 1;
-  display: -webkit-box;
+  align-items: center;
+  display: flex;
+  flex: auto;
 }
 
 #filename-input-box input {
-  -webkit-box-flex: 1;
-  display: -webkit-box;
+  flex: auto;
   padding: 1px 2px;
 }
 
 #filename-input-box .filename-label {
-  -webkit-box-orient: horizontal;
   background-color: white;
   color: #333;
-  display: -webkit-box;
+  flex: none;
   padding-right: 4px;
 }
 
 body:not([type='saveas-file']) #filename-input-box {
   display: none;
-}
-
-/* A vertical spring. */
-.vertical-spacer {
-  -webkit-box-flex: 1;
-  -webkit-box-orient: vertical;
-  display: -webkit-box;
 }
 
 /* Dimmed items */
@@ -1294,24 +1186,6 @@ body[type='folder'] .file,
 body[type='upload-folder'] .file,
 body[drive] .dialog-container[connection='offline'] .dim-offline {
   opacity: 0.4;
-}
-
-/* Overlay pane covering the entire file manager window (e.g. image editor)*/
-.overlay-pane {
-  -webkit-app-region: no-drag;
-  border: none;
-  height: 100%;
-  left: 0;
-  position: absolute;
-  top: 0;
-  width: 100%;
-  z-index: 1000;  /* Must be above all elements in file manager container. */
-}
-
-/* When the overlay pane is visible hide everything else so that the tab order
-  is not confused. */
-body[overlay-visible] > :not(.overlay-pane) {
-  display: none !important;
 }
 
 /* Invisible container for elements representing files while dragging. */
@@ -1323,12 +1197,12 @@ body[overlay-visible] > :not(.overlay-pane) {
 }
 
 #drag-container .drag-contents {
-  -webkit-box-orient: horizontal;
   background-color: #fafafa;
   border: 1px solid #bbb;
   border-radius: 3px;
   box-shadow: 0 2px 2px 0 rgba(0, 0, 0, .2);
-  display: -webkit-box;
+  display: flex;
+  flex-direction: row;
   line-height: 0;
   margin-bottom: 5px;
   padding: 6px;
@@ -1336,16 +1210,17 @@ body[overlay-visible] > :not(.overlay-pane) {
 }
 
 #drag-container .drag-contents.for-image  {
+  flex: none;
   padding: 2px;
 }
 
 #drag-container .thumbnail-item {
-  -webkit-box-orient: horizontal;
-  display: -webkit-box;
+  display: flex;
+  flex-direction: row;
 }
 
 #drag-container .label {
-  -webkit-box-flex: 1;
+  flex: auto;
   font-weight: bold;
   line-height: 24px;
   max-width: 320px;
@@ -1362,16 +1237,6 @@ menu.file-context-menu {
 menu.chrome-menu hr {
   color: transparent;
   font-size: 0;
-}
-
-div.offline {
-  -webkit-box-pack: center;
-  display: -webkit-box;
-}
-
-div.offline > * {
-  -webkit-box-align: center;
-  display: -webkit-box;
 }
 
 div.shade {
@@ -1420,11 +1285,11 @@ body[unformatted] .dialog-container .filelist-panel {
 
 #unmounted-panel > *,
 #format-panel > * {
-  -webkit-box-align: center;
-  -webkit-box-orient: horizontal;
-  -webkit-box-pack: start;
+  align-items: center;
   display: none;
+  flex-direction: row;
   height: 22px;
+  justify-content: flex-start;
   margin-bottom: 10px;
 }
 
@@ -1445,7 +1310,7 @@ body[drive='mounting'] #unmounted-panel > .loading,
 body[drive='error'] #unmounted-panel > .error,
 #format-panel > #format-button,
 #unmounted-panel.retry-enabled > .learn-more {
-  display: -webkit-box;
+  display: flex;
 }
 
 .plain-link {
@@ -1528,6 +1393,7 @@ body[drive='error'] #unmounted-panel > .error,
 #no-search-results {
   bottom: 0;
   display: none;
+  flex: none;
   left: 0;
   padding: 10px;
   position: absolute;
@@ -1540,14 +1406,14 @@ body[drive='error'] #unmounted-panel > .error,
 }
 
 #volume-space-info-contents {
-  -webkit-box-align: center;
-  display: -webkit-box;
+  align-items: center;
+  display: flex;
 }
 
 #volume-space-info-contents > div {
-  -webkit-box-flex: 1;
   -webkit-margin-start: 15px;
-  display: -webkit-box;
+  display: flex;
+  flex: auto;
 }
 
 #list-container .table-header-inner {
@@ -1564,6 +1430,7 @@ body[drive='error'] #unmounted-panel > .error,
 }
 
 #new-folder-button {
+  flex: none;
   margin-right: 30px;
 }
 
@@ -1585,6 +1452,7 @@ list.autocomplete-suggestions {
   box-shadow: 0 1px 4px 0 rgba(0, 0, 0, .5);
   box-sizing: border-box;  /* To match the width with the search box's. */
   color: rgb(34, 34, 34);
+  flex: none;
   overflow: hidden;
   padding: 5px 0;
   position: fixed;
@@ -1593,8 +1461,8 @@ list.autocomplete-suggestions {
 }
 
 list.autocomplete-suggestions > li {
-  -webkit-box-align: center;
-  display: -webkit-box;
+  align-items: center;
+  display: flex;
   padding: 3px 0;
 }
 
@@ -1604,7 +1472,7 @@ list.autocomplete-suggestions > li > div.detail-icon {
 }
 
 list.autocomplete-suggestions > li > div.detail-text {
-  -webkit-box-flex: 1;
+  flex: auto;
   overflow-x: hidden;
   text-overflow: ellipsis;
 }
@@ -1644,45 +1512,6 @@ list.autocomplete-suggestions > [lead] > div.detail-text em {
 
 #gear-menu > menuitem:not(.menuitem-button) {
   -webkit-margin-end: 50px;
-}
-
-/* View buttons in the gear menu. */
-
-menuitem#detail-view {
-  background-image: -webkit-image-set(
-    url('../images/files/ui/button_list_view.png') 1x,
-    url('../images/files/ui/2x/button_list_view.png') 2x);
-}
-
-menuitem#detail-view[selected]:not([disabled]),
-menuitem#detail-view[lead]:not([disabled]) {
-  background-image: -webkit-image-set(
-    url('../images/files/ui/button_list_view_white.png') 1x,
-    url('../images/files/ui/2x/button_list_view_white.png') 2x);
-}
-
-menuitem#thumbnail-view {
-  background-image: -webkit-image-set(
-    url('../images/files/ui/button_mosaic_view.png') 1x,
-    url('../images/files/ui/2x/button_mosaic_view.png') 2x);
-}
-
-menuitem#thumbnail-view[selected]:not([disabled]),
-menuitem#thumbnail-view[lead]:not([disabled]) {
-  background-image: -webkit-image-set(
-    url('../images/files/ui/button_mosaic_view_white.png') 1x,
-    url('../images/files/ui/2x/button_mosaic_view_white.png') 2x);
-}
-
-#iframe-drag-area {
-  -webkit-app-region: drag;
-  height: 48px;
-  left: 64px;
-  position: absolute;
-  right: 134px;
-  top: 0;
-  width: auto;
-  z-index: 101;
 }
 
 #suggest-app-dialog {
@@ -1779,31 +1608,13 @@ menuitem#thumbnail-view[lead]:not([disabled]) {
   text-align: center;
 }
 
-.cr-dialog-frame.share-dialog-frame {
-  background-color: white;
-  width: auto;
+#multi-profile-share-dialog .cr-dialog-title {
+  -webkit-margin-after: 0;
 }
 
-.share-dialog-webview-wrapper {
-  height: 100px;
-  margin-top: 10px;
-  min-width: 300px;
-  overflow: hidden;
-  transition: height 200ms ease;
-}
-
-.share-dialog-webview {
-  height: 100%;
-  width: 100%;
-}
-
-.share-dialog-webview-wrapper:not(.loaded) .share-dialog-webview {
-  visibility: hidden;
-}
-
-.share-dialog-frame .cr-dialog-text,
-.share-dialog-frame .cr-dialog-buttons {
-  display: none;
+#multi-profile-share-dialog .cr-dialog-text {
+  line-height: 18px;
+  margin-top: 0;
 }
 
 #multi-profile-share-dialog .mail-label {
@@ -2028,4 +1839,12 @@ menuitem#thumbnail-view[lead]:not([disabled]) {
 
 #progress-center li:not(.cancelable) button.cancel {
   visibility: hidden;
+}
+
+.text-measure {
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  visibility: hidden;
+  z-index: -1;
 }

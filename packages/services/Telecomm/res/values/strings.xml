@@ -68,9 +68,6 @@
     <string name="respond_via_sms_setting_summary"></string>
     <!-- Dialog title when changing a string for the "Respond via SMS" feature. [CHAR LIMIT=30] -->
     <string name="respond_via_sms_edittext_dialog_title">Quick response</string>
-    <!-- Menu option in  "Respond via SMS" that allows user to reset the default
-         activity used to handle "Respond via SMS" [CHAR LIMIT=30] -->
-    <string name="respond_via_sms_menu_reset_default_activity">Reset default app</string>
 
     <!-- "Respond via SMS": Confirmation message shown after sending
         a text response. [CHAR LIMIT=40] -->
@@ -78,10 +75,13 @@
 
     <!-- Message indicating that the user is not allowed to make non-emergency outgoing phone calls
          due to a user restriction -->
-    <string name="outgoing_call_not_allowed">This user is not allowed to make non-emergency phone calls</string>
+    <string name="outgoing_call_not_allowed">Only emergency calls are allowed by the device owner</string>
 
     <!-- Call failure message displayed in an error dialog used to indicate that a phone number was not provided -->
-    <string name="outgoing_call_error_no_phone_number_supplied">Call not sent, no valid number entered.</string>
+    <string name="outgoing_call_error_no_phone_number_supplied">To place a call, enter a valid number.</string>
+
+    <!-- Message shown when the user tries to make a video call when already in a video call. -->
+    <string name ="duplicate_video_call_not_allowed">Call cannot be added at this time.</string>
 
     <!-- missing voicemail number -->
     <!-- Title of the "Missing voicemail number" dialog -->

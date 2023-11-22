@@ -1,4 +1,4 @@
-page.title=Android Technical Information
+page.title=Android Core Technologies
 @jd:body
 
 <!--
@@ -25,26 +25,26 @@ page.title=Android Technical Information
 </div>
 
 
-<p>Welcome to the Android technical documentation section of the site. Here you
-can find technical information useful to people and organizations who are
+<p>Welcome to the Android core technologies section of the site. Here you
+can find information on common features useful to people and organizations who are
 looking to modify, contribute to, or port the Android software. This is "under
 the hood" information intended for engineers.</p>
 
-<h2 id="accessory-protocol-information">Accessory Protocol Information</h2>
+<h2 id="accessory-protocol-information">Accessories</h2>
 <p>Android devices can connect to hardware accessories, such as audio docks,
 keyboards and custom hardware, through USB or Bluetooth. This document
 describes the Android Open Accessory protocol for accessory hardware builders.</p>
 <p><a href="{@docRoot}accessories/index.html">&raquo; Accessory Protocol Information</a></p>
 
-<h2 id="dalvik-technical-information">Dalvik Technical Information</h2>
-<p>The Dalvik Virtual Machine is the heart of Android. It's a fast, just-in-time
-compiled, optimized bytecode virtual machine. Android applications are
-compiled to Dalvik bytecode and run on the Dalvik VM. This section includes
-detailed information such as the Dalvik bytecode format specification,
-design information on the VM itself, and so on.</p>
-<p><a href="{@docRoot}devices/tech/dalvik/index.html">&raquo; Dalvik Information</a></p>
+<h2 id="art-technical-information">ART</h2>
+<p>The Android runtime (ART) is the heart of Android. It's a fast, ahead-of-time
+compiled runtime with modern garbage collection designed to scale. Android applications are
+compiled to Dalvik bytecode and run with ART. This section includes
+detailed information such as the Dalvik Executable format specification,
+and design information on the runtime itself.</p>
+<p><a href="{@docRoot}devices/tech/dalvik/index.html">&raquo; ART and Dalvik Information</a></p>
 
-<h2 id="data-usage-technical-information">Data Usage Technical Information</h2>
+<h2 id="data-usage-technical-information">Data Usage</h2>
 <p>Android's data usage features allow users to understand and control how their
 device uses network data. This document is designed for systems integrators
 and mobile operators, to help explain technical details they should be aware
@@ -60,18 +60,29 @@ about debugging at the platform level.</p>
 <p>Android's Hardware Abstraction Layer (HAL) provides the interface between
 software APIs and hardware drivers. This section contains the commented code
 files of the HAL.</p>
-<p><a href="{@docRoot}devices/reference/files.html">&raquo; HAL Reference</a></p>
+<p><a href="{@docRoot}devices/halref/files.html">&raquo; HAL Reference</a></p>
 
-<h2 id="kernel-technical-information">Kernel Technical Information</h2>
+<h2 id="kernel-technical-information">Kernel</h2>
 <p>The kernel configuration settings in this document are meant to be used as a base
 for an Android kernel configuration. All devices should have the options in android-base
 configuration enabled.</p>
 <p><a href="{@docRoot}devices/tech/kernel.html">&raquo; Kernel Information</a></p>
 
-<h2 id="power-technical-information">Power Technical Information</h2>
+<h2 id="lowram-technical-information">Low RAM</h2>
+<p>Android supports devices with limited memory through various optimizations,
+such as improved memory management, reduced system memory, and several
+build-time and kernel configuration settings.</p>
+<p><a href="{@docRoot}devices/low-ram.html">&raquo; Low RAM Information</a></p>
+
+<h2 id="power-technical-information">Power</h2>
 <p>Battery usage statistics are tracked by the framework. This involves keeping track of 
 time spent by different device components in different states.</p>
 <p><a href="{@docRoot}devices/tech/power.html">&raquo; Power Information</a></p>
+
+<h2 id="security-technical-information">Security</h2>
+<p>Android security comes with a variety of measures, including an application
+sandbox, SELinux, dm-verity, encryption, and more.</p>
+<p><a href="{@docRoot}devices/tech/security/index.html">&raquo; Security Information</a></p>
 
 <h2 id="tradefed-test-infrastructure">Trade Federation Testing Infrastructure</h2>
 <p>Trade Federation is a continuous test framework for running tests on Android devices. 

@@ -262,14 +262,14 @@ void WorkerProcessLauncherTest::KillProcess() {
   event_handler_ = NULL;
 
   if (worker_process_.IsValid()) {
-    TerminateProcess(worker_process_, CONTROL_C_EXIT);
+    TerminateProcess(worker_process_.Get(), CONTROL_C_EXIT);
     worker_process_.Close();
   }
 }
 
 void WorkerProcessLauncherTest::TerminateWorker(DWORD exit_code) {
   if (worker_process_.IsValid())
-    TerminateProcess(worker_process_, exit_code);
+    TerminateProcess(worker_process_.Get(), exit_code);
 }
 
 void WorkerProcessLauncherTest::ConnectClient() {
@@ -311,8 +311,9 @@ void WorkerProcessLauncherTest::CrashWorker() {
 }
 
 void WorkerProcessLauncherTest::StartWorker() {
-  launcher_.reset(new WorkerProcessLauncher(launcher_delegate_.Pass(),
-                                            &server_listener_));
+  launcher_.reset(new WorkerProcessLauncher(
+      launcher_delegate_.PassAs<WorkerProcessLauncher::Delegate>(),
+      &server_listener_));
 
   launcher_->SetKillProcessTimeoutForTest(base::TimeDelta::FromMilliseconds(0));
 }
@@ -361,11 +362,12 @@ void WorkerProcessLauncherTest::DoLaunchProcess() {
 
   // Wrap the pipe into an IPC channel.
   channel_server_ = IPC::ChannelProxy::Create(
-      IPC::ChannelHandle(pipe), IPC::Channel::MODE_SERVER, this, task_runner_);
+      IPC::ChannelHandle(pipe.Get()), IPC::Channel::MODE_SERVER, this,
+      task_runner_);
 
   HANDLE temp_handle;
   ASSERT_TRUE(DuplicateHandle(GetCurrentProcess(),
-                              worker_process_,
+                              worker_process_.Get(),
                               GetCurrentProcess(),
                               &temp_handle,
                               0,

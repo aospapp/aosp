@@ -6,7 +6,6 @@
 
 #include "content/public/renderer/render_thread.h"
 #include "content/public/renderer/v8_value_converter.h"
-#include "extensions/common/ad_injection_constants.h"
 #include "extensions/common/dom_action_types.h"
 #include "extensions/common/extension_messages.h"
 #include "extensions/renderer/activity_log_converter_strategy.h"
@@ -29,8 +28,6 @@ void AppendV8Value(const std::string& api_name,
   DCHECK(list);
   scoped_ptr<V8ValueConverter> converter(V8ValueConverter::create());
   ActivityLogConverterStrategy strategy;
-  strategy.set_enable_detailed_parsing(
-      ad_injection_constants::ApiCanInjectAds(api_name));
   converter->SetFunctionAllowed(true);
   converter->SetStrategy(&strategy);
   scoped_ptr<base::Value> value(converter->FromV8Value(
@@ -105,6 +102,19 @@ void DOMActivityLogger::logMethod(const WebString& api_name,
     AppendV8Value(api_name_utf8, argv[i], args.get());
   SendDomActionMessage(
       api_name_utf8, url, title, DomActionType::METHOD, args.Pass());
+}
+
+void DOMActivityLogger::logEvent(const WebString& event_name,
+                                 int argc,
+                                 const WebString* argv,
+                                 const WebURL& url,
+                                 const WebString& title) {
+  scoped_ptr<base::ListValue> args(new base::ListValue);
+  std::string event_name_utf8 = event_name.utf8();
+  for (int i = 0; i < argc; ++i)
+    args->Append(new base::StringValue(argv[i]));
+  SendDomActionMessage(
+      event_name_utf8, url, title, DomActionType::METHOD, args.Pass());
 }
 
 void DOMActivityLogger::SendDomActionMessage(const std::string& api_call,

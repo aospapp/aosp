@@ -6,6 +6,7 @@
 
 #include "chrome/browser/extensions/api/preference/preference_api.h"
 #include "chrome/common/pref_names.h"
+#include "components/search_engines/search_engines_pref_names.h"
 #include "extensions/browser/extension_pref_value_map.h"
 #include "extensions/browser/extension_pref_value_map_factory.h"
 #include "extensions/browser/extension_registry.h"
@@ -26,7 +27,7 @@ const Extension* FindOverridingExtension(
   for (ExtensionSet::const_iterator it = extensions.begin();
        it != extensions.end();
        ++it) {
-    const SettingsOverrides* settings = SettingsOverrides::Get(*it);
+    const SettingsOverrides* settings = SettingsOverrides::Get(it->get());
     if (settings) {
       if (type == BUBBLE_TYPE_HOME_PAGE && !settings->homepage)
         continue;
@@ -55,7 +56,7 @@ const Extension* FindOverridingExtension(
         continue;  // Not primary.
 
       // Found the primary extension.
-      return *it;
+      return it->get();
     }
   }
 

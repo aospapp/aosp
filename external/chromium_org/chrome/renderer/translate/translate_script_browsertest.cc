@@ -6,7 +6,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/test/base/chrome_render_view_test.h"
 #include "components/translate/core/common/translate_errors.h"
-#include "grit/component_resources.h"
+#include "grit/components_resources.h"
 #include "third_party/WebKit/public/web/WebLocalFrame.h"
 #include "third_party/WebKit/public/web/WebScriptSource.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -144,7 +144,7 @@ TEST_F(TranslateScriptBrowserTest, ElementLoadSuccess) {
   InjectElementLibrary();
   EXPECT_TRUE(IsLibReady());
   EXPECT_FALSE(GetError());
-  EXPECT_EQ(TranslateErrors::NONE, GetErrorCode());
+  EXPECT_EQ(translate::TranslateErrors::NONE, GetErrorCode());
 }
 
 // Test if onTranslateElementLoad() fails to initialize the element library and
@@ -155,7 +155,7 @@ TEST_F(TranslateScriptBrowserTest, ElementLoadFailure) {
   InjectElementLibrary();
   EXPECT_FALSE(IsLibReady());
   EXPECT_TRUE(GetError());
-  EXPECT_EQ(TranslateErrors::INITIALIZATION_ERROR, GetErrorCode());
+  EXPECT_EQ(translate::TranslateErrors::INITIALIZATION_ERROR, GetErrorCode());
 }
 
 // Test if cr.googleTranslate.translate() works.
@@ -163,12 +163,12 @@ TEST_F(TranslateScriptBrowserTest, TranslateSuccess) {
   InjectElementLibrary();
   EXPECT_TRUE(IsLibReady());
   EXPECT_FALSE(GetError());
-  EXPECT_EQ(TranslateErrors::NONE, GetErrorCode());
+  EXPECT_EQ(translate::TranslateErrors::NONE, GetErrorCode());
 
   ExecuteScript(kTranslate);
 
   EXPECT_FALSE(GetError());
-  EXPECT_EQ(TranslateErrors::NONE, GetErrorCode());
+  EXPECT_EQ(translate::TranslateErrors::NONE, GetErrorCode());
 }
 
 // Test if cr.googleTranslate.translate() handles library exception correctly.
@@ -178,12 +178,13 @@ TEST_F(TranslateScriptBrowserTest, TranslateFail) {
   InjectElementLibrary();
   EXPECT_TRUE(IsLibReady());
   EXPECT_FALSE(GetError());
-  EXPECT_EQ(TranslateErrors::NONE, GetErrorCode());
+  EXPECT_EQ(translate::TranslateErrors::NONE, GetErrorCode());
 
   ExecuteScript(kTranslate);
 
   EXPECT_TRUE(GetError());
-  EXPECT_EQ(TranslateErrors::UNEXPECTED_SCRIPT_ERROR, GetErrorCode());
+  EXPECT_EQ(translate::TranslateErrors::UNEXPECTED_SCRIPT_ERROR,
+            GetErrorCode());
 }
 
 // Test if onTranslateProgress callback handles boolean type error correctly.
@@ -194,12 +195,12 @@ TEST_F(TranslateScriptBrowserTest, CallbackGetBooleanError) {
   InjectElementLibrary();
   EXPECT_TRUE(IsLibReady());
   EXPECT_FALSE(GetError());
-  EXPECT_EQ(TranslateErrors::NONE, GetErrorCode());
+  EXPECT_EQ(translate::TranslateErrors::NONE, GetErrorCode());
 
   ExecuteScript(kTranslate);
 
   EXPECT_TRUE(GetError());
-  EXPECT_EQ(TranslateErrors::TRANSLATION_ERROR, GetErrorCode());
+  EXPECT_EQ(translate::TranslateErrors::TRANSLATION_ERROR, GetErrorCode());
 }
 
 // Test if onTranslateProgress callback handles number type error correctly and
@@ -211,12 +212,12 @@ TEST_F(TranslateScriptBrowserTest, CallbackGetNumberError1) {
   InjectElementLibrary();
   EXPECT_TRUE(IsLibReady());
   EXPECT_FALSE(GetError());
-  EXPECT_EQ(TranslateErrors::NONE, GetErrorCode());
+  EXPECT_EQ(translate::TranslateErrors::NONE, GetErrorCode());
 
   ExecuteScript(kTranslate);
 
   EXPECT_TRUE(GetError());
-  EXPECT_EQ(TranslateErrors::TRANSLATION_ERROR, GetErrorCode());
+  EXPECT_EQ(translate::TranslateErrors::TRANSLATION_ERROR, GetErrorCode());
 }
 
 // Test if onTranslateProgress callback handles number type error correctly and
@@ -228,12 +229,12 @@ TEST_F(TranslateScriptBrowserTest, CallbackGetNumberError2) {
   InjectElementLibrary();
   EXPECT_TRUE(IsLibReady());
   EXPECT_FALSE(GetError());
-  EXPECT_EQ(TranslateErrors::NONE, GetErrorCode());
+  EXPECT_EQ(translate::TranslateErrors::NONE, GetErrorCode());
 
   ExecuteScript(kTranslate);
 
   EXPECT_TRUE(GetError());
-  EXPECT_EQ(TranslateErrors::UNSUPPORTED_LANGUAGE, GetErrorCode());
+  EXPECT_EQ(translate::TranslateErrors::UNSUPPORTED_LANGUAGE, GetErrorCode());
 }
 
 // TODO(toyoshim): Add test for onLoadJavaScript.

@@ -15,61 +15,72 @@
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="56dp"
-    android:background="@drawable/folder_teaser_item_background">
-
-    <ImageView
-        android:id="@+id/folder_imageView"
-        android:layout_width="24dp"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_vertical"
-        android:duplicateParentState="true"
-        style="@style/FolderTeaserMarginStartStyle" />
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
 
     <LinearLayout
-        android:id="@+id/text_layout"
-        android:layout_width="0dip"
+        android:id="@+id/folder_teaser_row"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:layout_gravity="center_vertical"
-        android:duplicateParentState="true"
-        android:orientation="vertical"
-        style="@style/FolderTeaserLabelMarginStyle" >
+        android:minHeight="@dimen/folder_teaser_item_height"
+        android:background="?android:attr/selectableItemBackground"
+        style="@style/FolderTeaserPaddingEndStyle">
+
+        <ImageView
+            android:id="@+id/nested_folder_icon"
+            android:layout_width="@dimen/folder_teaser_start_margin"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:paddingLeft="24dp"
+            android:paddingRight="24dp"
+            android:src="@drawable/ic_drawer_folder_24dp" />
+
+        <LinearLayout
+            android:id="@+id/text_layout"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_gravity="center_vertical"
+            android:orientation="vertical"
+            style="@style/FolderTeaserPaddingEndStyle">
+
+            <TextView
+                android:id="@+id/folder_textView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/folder_teaser_main_text"/>
+
+            <TextView
+                android:id="@+id/senders_textView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:textSize="14sp"
+                android:fontFamily="sans-serif-light"
+                android:textColor="@color/folder_teaser_sub_text" />
+
+        </LinearLayout>
 
         <TextView
-            android:id="@+id/folder_textView"
+            android:id="@+id/unread_count_textView"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:duplicateParentState="true"
-            android:includeFontPadding="false"
-            android:textColor="@color/folder_teaser_main_text"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:singleLine="true"
-            android:ellipsize="end" />
+            android:layout_height="match_parent"
+            style="@style/FolderTeaserUnreadCountTextStyle" />
 
         <TextView
-            android:id="@+id/senders_textView"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:duplicateParentState="true"
-            android:includeFontPadding="false"
-            android:fontFamily="sans-serif-light"
-            android:textColor="@color/folder_teaser_senders_text"
-            android:textSize="12sp"
-            android:singleLine="true"
-            android:ellipsize="end" />
+            android:id="@+id/unseen_count_textView"
+            android:minWidth="57sp"
+            android:textSize="14sp"
+            android:visibility="gone"
+            style="@style/UnseenCount" />
 
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/count_textView"
-        android:layout_width="57sp"
-        android:layout_height="20sp"
-        android:layout_gravity="center_vertical"
-        android:gravity="center"
-        android:textColor="@color/folder_teaser_count_text"
-        android:textSize="14sp"
-        style="@style/FolderTeaserMarginEndStyle" />
+    <View style="@style/ConversationListDividerStyle" />
 
 </LinearLayout>

@@ -4,22 +4,26 @@
 
 #include "ash/display/display_manager.h"
 
+#include "ash/ash_switches.h"
 #include "ash/display/display_controller.h"
+#include "ash/display/display_info.h"
 #include "ash/display/display_layout_store.h"
 #include "ash/screen_util.h"
 #include "ash/shell.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/test/display_manager_test_api.h"
 #include "ash/test/mirror_window_test_api.h"
+#include "base/command_line.h"
 #include "base/format_macros.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "ui/aura/env.h"
-#include "ui/aura/test/event_generator.h"
 #include "ui/aura/window_observer.h"
 #include "ui/aura/window_tree_host.h"
-#include "ui/gfx/display_observer.h"
+#include "ui/events/test/event_generator.h"
 #include "ui/gfx/display.h"
+#include "ui/gfx/display_observer.h"
+#include "ui/gfx/font_render_params.h"
 #include "ui/gfx/screen.h"
 #include "ui/gfx/screen_type_delegate.h"
 
@@ -568,6 +572,36 @@ TEST_F(DisplayManagerTest, TestNativeDisplaysChanged) {
   EXPECT_FALSE(display_manager()->IsMirrored());
 }
 
+// Make sure crash does not happen if add and remove happens at the same time.
+// See: crbug.com/414394
+TEST_F(DisplayManagerTest, DisplayAddRemoveAtTheSameTime) {
+  if (!SupportsMultipleDisplays())
+    return;
+
+  UpdateDisplay("100+0-500x500,0+501-400x400");
+
+  const int64 primary_id = DisplayController::GetPrimaryDisplayId();
+  const int64 secondary_id = ScreenUtil::GetSecondaryDisplay().id();
+
+  DisplayInfo primary_info = display_manager()->GetDisplayInfo(primary_id);
+  DisplayInfo secondary_info = display_manager()->GetDisplayInfo(secondary_id);
+
+  // An id which is different from primary and secondary.
+  const int64 third_id = primary_id + secondary_id;
+
+  DisplayInfo third_info =
+      CreateDisplayInfo(third_id, gfx::Rect(0, 0, 600, 600));
+
+  std::vector<DisplayInfo> display_info_list;
+  display_info_list.push_back(third_info);
+  display_info_list.push_back(secondary_info);
+  display_manager()->OnNativeDisplaysChanged(display_info_list);
+
+  EXPECT_EQ(third_id, DisplayController::GetPrimaryDisplayId());
+  EXPECT_EQ("600x600", GetDisplayForId(third_id).size().ToString());
+  EXPECT_EQ(secondary_id, ScreenUtil::GetSecondaryDisplay().id());
+}
+
 #if defined(OS_WIN)
 // TODO(scottmg): RootWindow doesn't get resized on Windows
 // Ash. http://crbug.com/247916.
@@ -613,7 +647,7 @@ TEST_F(DisplayManagerTest, MAYBE_EnsurePointerInDisplays) {
 
   aura::Env* env = aura::Env::GetInstance();
 
-  aura::test::EventGenerator generator(root_windows[0]);
+  ui::test::EventGenerator generator(root_windows[0]);
 
   // Set the initial position.
   generator.MoveMouseToInHost(350, 150);
@@ -736,13 +770,19 @@ TEST_F(DisplayManagerTest, DontRememberBestResolution) {
   display_manager()->OnNativeDisplaysChanged(display_info_list);
 
   DisplayMode mode;
+  DisplayMode expected_mode;
+  expected_mode.size = gfx::Size(1000, 500);
   EXPECT_FALSE(
       display_manager()->GetSelectedModeForDisplayId(display_id, &mode));
+  EXPECT_TRUE(expected_mode.IsEquivalent(
+      display_manager()->GetActiveModeForDisplayId(display_id)));
 
   // Unsupported resolution.
   display_manager()->SetDisplayResolution(display_id, gfx::Size(800, 4000));
   EXPECT_FALSE(
       display_manager()->GetSelectedModeForDisplayId(display_id, &mode));
+  EXPECT_TRUE(expected_mode.IsEquivalent(
+      display_manager()->GetActiveModeForDisplayId(display_id)));
 
   // Supported resolution.
   display_manager()->SetDisplayResolution(display_id, gfx::Size(800, 300));
@@ -751,6 +791,9 @@ TEST_F(DisplayManagerTest, DontRememberBestResolution) {
   EXPECT_EQ("800x300", mode.size.ToString());
   EXPECT_EQ(59.0f, mode.refresh_rate);
   EXPECT_FALSE(mode.native);
+  expected_mode.size = gfx::Size(800, 300);
+  EXPECT_TRUE(expected_mode.IsEquivalent(
+      display_manager()->GetActiveModeForDisplayId(display_id)));
 
   // Best resolution.
   display_manager()->SetDisplayResolution(display_id, gfx::Size(1000, 500));
@@ -759,6 +802,9 @@ TEST_F(DisplayManagerTest, DontRememberBestResolution) {
   EXPECT_EQ("1000x500", mode.size.ToString());
   EXPECT_EQ(58.0f, mode.refresh_rate);
   EXPECT_TRUE(mode.native);
+  expected_mode.size = gfx::Size(1000, 500);
+  EXPECT_TRUE(expected_mode.IsEquivalent(
+      display_manager()->GetActiveModeForDisplayId(display_id)));
 }
 
 TEST_F(DisplayManagerTest, ResolutionFallback) {
@@ -874,6 +920,8 @@ TEST_F(DisplayManagerTest, Rotate) {
 }
 
 TEST_F(DisplayManagerTest, UIScale) {
+  DisplayInfo::SetUse125DSFForUIScaling(false);
+
   UpdateDisplay("1280x800");
   int64 display_id = Shell::GetScreen()->GetPrimaryDisplay().id();
   display_manager()->SetDisplayUIScale(display_id, 1.125f);
@@ -953,46 +1001,126 @@ TEST_F(DisplayManagerTest, UIScale) {
   display = Shell::GetScreen()->GetPrimaryDisplay();
   EXPECT_EQ(1.0f, display.device_scale_factor());
   EXPECT_EQ("1280x850", display.bounds().size().ToString());
+
+  // 1.25 ui scaling on 1.25 DSF device should use 1.0 DSF
+  // on screen.
+  UpdateDisplay("1280x850*1.25");
+  display_manager()->SetDisplayUIScale(display_id, 1.25f);
+  EXPECT_EQ(1.25f, GetDisplayInfoAt(0).configured_ui_scale());
+  EXPECT_EQ(1.0f, GetDisplayInfoAt(0).GetEffectiveUIScale());
+  display = Shell::GetScreen()->GetPrimaryDisplay();
+  EXPECT_EQ(1.0f, display.device_scale_factor());
+  EXPECT_EQ("1280x850", display.bounds().size().ToString());
 }
 
-TEST_F(DisplayManagerTest, UIScaleUpgradeToHighDPI) {
+TEST_F(DisplayManagerTest, UIScaleWithDisplayMode) {
+  int display_id = 1000;
+
+  // Setup the display modes with UI-scale.
+  DisplayInfo native_display_info =
+      CreateDisplayInfo(display_id, gfx::Rect(0, 0, 1280, 800));
+  std::vector<DisplayMode> display_modes;
+  const DisplayMode base_mode(gfx::Size(1280, 800), 60.0f, false, false);
+  std::vector<float> scales =
+      DisplayManager::GetScalesForDisplay(native_display_info);
+  for (size_t i = 0; i < scales.size(); i++) {
+    DisplayMode mode = base_mode;
+    mode.ui_scale = scales[i];
+    mode.native = (scales[i] == 1.0f);
+    display_modes.push_back(mode);
+  }
+  native_display_info.set_display_modes(display_modes);
+  std::vector<DisplayInfo> display_info_list;
+  display_info_list.push_back(native_display_info);
+  display_manager()->OnNativeDisplaysChanged(display_info_list);
+
+  DisplayMode expected_mode = base_mode;
+  EXPECT_TRUE(expected_mode.IsEquivalent(
+      display_manager()->GetActiveModeForDisplayId(display_id)));
+
+  display_manager()->SetDisplayUIScale(display_id, 1.125f);
+  EXPECT_EQ(1.0, GetDisplayInfoAt(0).configured_ui_scale());
+  EXPECT_TRUE(expected_mode.IsEquivalent(
+      display_manager()->GetActiveModeForDisplayId(display_id)));
+  display_manager()->SetDisplayUIScale(display_id, 0.8f);
+  EXPECT_EQ(1.0f, GetDisplayInfoAt(0).configured_ui_scale());
+  EXPECT_TRUE(expected_mode.IsEquivalent(
+      display_manager()->GetActiveModeForDisplayId(display_id)));
+  display_manager()->SetDisplayUIScale(display_id, 0.75f);
+  EXPECT_EQ(1.0f, GetDisplayInfoAt(0).configured_ui_scale());
+  EXPECT_TRUE(expected_mode.IsEquivalent(
+      display_manager()->GetActiveModeForDisplayId(display_id)));
+  display_manager()->SetDisplayUIScale(display_id, 0.625f);
+  EXPECT_EQ(1.0f, GetDisplayInfoAt(0).configured_ui_scale());
+  EXPECT_TRUE(expected_mode.IsEquivalent(
+      display_manager()->GetActiveModeForDisplayId(display_id)));
+
+  gfx::Display::SetInternalDisplayId(display_id);
+
+  display_manager()->SetDisplayUIScale(display_id, 1.5f);
+  EXPECT_EQ(1.0f, GetDisplayInfoAt(0).configured_ui_scale());
+  EXPECT_TRUE(expected_mode.IsEquivalent(
+      display_manager()->GetActiveModeForDisplayId(display_id)));
+  display_manager()->SetDisplayUIScale(display_id, 1.25f);
+  EXPECT_EQ(1.0f, GetDisplayInfoAt(0).configured_ui_scale());
+  EXPECT_TRUE(expected_mode.IsEquivalent(
+      display_manager()->GetActiveModeForDisplayId(display_id)));
+  display_manager()->SetDisplayUIScale(display_id, 1.125f);
+  EXPECT_EQ(1.125f, GetDisplayInfoAt(0).configured_ui_scale());
+  expected_mode.ui_scale = 1.125f;
+  EXPECT_TRUE(expected_mode.IsEquivalent(
+      display_manager()->GetActiveModeForDisplayId(display_id)));
+  display_manager()->SetDisplayUIScale(display_id, 0.8f);
+  EXPECT_EQ(0.8f, GetDisplayInfoAt(0).configured_ui_scale());
+  expected_mode.ui_scale = 0.8f;
+  EXPECT_TRUE(expected_mode.IsEquivalent(
+      display_manager()->GetActiveModeForDisplayId(display_id)));
+  display_manager()->SetDisplayUIScale(display_id, 0.75f);
+  EXPECT_EQ(0.8f, GetDisplayInfoAt(0).configured_ui_scale());
+  EXPECT_TRUE(expected_mode.IsEquivalent(
+      display_manager()->GetActiveModeForDisplayId(display_id)));
+  display_manager()->SetDisplayUIScale(display_id, 0.625f);
+  EXPECT_EQ(0.625f, GetDisplayInfoAt(0).configured_ui_scale());
+  expected_mode.ui_scale = 0.625f;
+  EXPECT_TRUE(expected_mode.IsEquivalent(
+      display_manager()->GetActiveModeForDisplayId(display_id)));
+  display_manager()->SetDisplayUIScale(display_id, 0.6f);
+  EXPECT_EQ(0.625f, GetDisplayInfoAt(0).configured_ui_scale());
+  EXPECT_TRUE(expected_mode.IsEquivalent(
+      display_manager()->GetActiveModeForDisplayId(display_id)));
+  display_manager()->SetDisplayUIScale(display_id, 0.5f);
+  EXPECT_EQ(0.5f, GetDisplayInfoAt(0).configured_ui_scale());
+  expected_mode.ui_scale = 0.5f;
+  EXPECT_TRUE(expected_mode.IsEquivalent(
+      display_manager()->GetActiveModeForDisplayId(display_id)));
+}
+
+
+TEST_F(DisplayManagerTest, Use125DSFRorUIScaling) {
   int64 display_id = Shell::GetScreen()->GetPrimaryDisplay().id();
   gfx::Display::SetInternalDisplayId(display_id);
-  UpdateDisplay("1920x1080");
+  DisplayInfo::SetUse125DSFForUIScaling(true);
 
-  DisplayInfo::SetAllowUpgradeToHighDPI(false);
-  display_manager()->SetDisplayUIScale(display_id, 1.125f);
+  UpdateDisplay("1920x1080*1.25");
   EXPECT_EQ(1.0f, GetDisplayInfoAt(0).GetEffectiveDeviceScaleFactor());
-  EXPECT_EQ(1.125f, GetDisplayInfoAt(0).GetEffectiveUIScale());
-  EXPECT_EQ("2160x1215", GetDisplayForId(display_id).size().ToString());
-
-  display_manager()->SetDisplayUIScale(display_id, 0.5f);
-  EXPECT_EQ(1.0f, GetDisplayInfoAt(0).GetEffectiveDeviceScaleFactor());
-  EXPECT_EQ(0.5f, GetDisplayInfoAt(0).GetEffectiveUIScale());
-  EXPECT_EQ("960x540", GetDisplayForId(display_id).size().ToString());
-
-  DisplayInfo::SetAllowUpgradeToHighDPI(true);
-  display_manager()->SetDisplayUIScale(display_id, 1.125f);
-  EXPECT_EQ(1.0f, GetDisplayInfoAt(0).GetEffectiveDeviceScaleFactor());
-  EXPECT_EQ(1.125f, GetDisplayInfoAt(0).GetEffectiveUIScale());
-  EXPECT_EQ("2160x1215", GetDisplayForId(display_id).size().ToString());
-
-  display_manager()->SetDisplayUIScale(display_id, 0.5f);
-  EXPECT_EQ(2.0f, GetDisplayInfoAt(0).GetEffectiveDeviceScaleFactor());
   EXPECT_EQ(1.0f, GetDisplayInfoAt(0).GetEffectiveUIScale());
-  EXPECT_EQ("960x540", GetDisplayForId(display_id).size().ToString());
 
-  // Upgrade only works on 1.0f DSF.
-  UpdateDisplay("1920x1080*2");
-  display_manager()->SetDisplayUIScale(display_id, 1.125f);
-  EXPECT_EQ(2.0f, GetDisplayInfoAt(0).GetEffectiveDeviceScaleFactor());
-  EXPECT_EQ(1.125f, GetDisplayInfoAt(0).GetEffectiveUIScale());
-  EXPECT_EQ("1080x607", GetDisplayForId(display_id).size().ToString());
+  display_manager()->SetDisplayUIScale(display_id, 0.8f);
+  EXPECT_EQ(1.25f, GetDisplayInfoAt(0).GetEffectiveDeviceScaleFactor());
+  EXPECT_EQ(1.0f, GetDisplayInfoAt(0).GetEffectiveUIScale());
+  EXPECT_EQ("1536x864", GetDisplayForId(display_id).size().ToString());
 
   display_manager()->SetDisplayUIScale(display_id, 0.5f);
-  EXPECT_EQ(2.0f, GetDisplayInfoAt(0).GetEffectiveDeviceScaleFactor());
+  EXPECT_EQ(1.0f, GetDisplayInfoAt(0).GetEffectiveDeviceScaleFactor());
   EXPECT_EQ(0.5f, GetDisplayInfoAt(0).GetEffectiveUIScale());
-  EXPECT_EQ("480x270", GetDisplayForId(display_id).size().ToString());
+  EXPECT_EQ("960x540", GetDisplayForId(display_id).size().ToString());
+
+  display_manager()->SetDisplayUIScale(display_id, 1.25f);
+  EXPECT_EQ(1.0f, GetDisplayInfoAt(0).GetEffectiveDeviceScaleFactor());
+  EXPECT_EQ(1.25f, GetDisplayInfoAt(0).GetEffectiveUIScale());
+  EXPECT_EQ("2400x1350", GetDisplayForId(display_id).size().ToString());
+
+  DisplayInfo::SetUse125DSFForUIScaling(false);
 }
 
 #if defined(OS_WIN)
@@ -1009,8 +1137,8 @@ TEST_F(DisplayManagerTest, MAYBE_UpdateMouseCursorAfterRotateZoom) {
   aura::Window::Windows root_windows = Shell::GetAllRootWindows();
   aura::Env* env = aura::Env::GetInstance();
 
-  aura::test::EventGenerator generator1(root_windows[0]);
-  aura::test::EventGenerator generator2(root_windows[1]);
+  ui::test::EventGenerator generator1(root_windows[0]);
+  ui::test::EventGenerator generator2(root_windows[1]);
 
   // Test on 1st display.
   generator1.MoveMouseToInHost(150, 50);
@@ -1148,6 +1276,46 @@ TEST_F(DisplayManagerTest, SoftwareMirroring) {
   Shell::GetScreen()->RemoveObserver(&display_observer);
 }
 
+#if defined(OS_CHROMEOS)
+// Make sure this does not cause any crashes. See http://crbug.com/412910
+// This test is limited to OS_CHROMEOS because CursorCompositingEnabled is only
+// for ChromeOS.
+TEST_F(DisplayManagerTest, SoftwareMirroringWithCompositingCursor) {
+  if (!SupportsMultipleDisplays())
+    return;
+
+  UpdateDisplay("300x400,400x500");
+
+  test::MirrorWindowTestApi test_api;
+  EXPECT_EQ(NULL, test_api.GetHost());
+
+  DisplayManager* display_manager = Shell::GetInstance()->display_manager();
+  DisplayInfo secondary_info = display_manager->GetDisplayInfo(
+      ScreenUtil::GetSecondaryDisplay().id());
+
+  display_manager->SetSoftwareMirroring(true);
+  display_manager->UpdateDisplays();
+
+  aura::Window::Windows root_windows = Shell::GetAllRootWindows();
+  EXPECT_FALSE(root_windows[0]->Contains(test_api.GetCursorWindow()));
+
+  Shell::GetInstance()->SetCursorCompositingEnabled(true);
+
+  EXPECT_TRUE(root_windows[0]->Contains(test_api.GetCursorWindow()));
+
+  // Removes the first display and keeps the second one.
+  display_manager->SetSoftwareMirroring(false);
+  std::vector<DisplayInfo> new_info_list;
+  new_info_list.push_back(secondary_info);
+  display_manager->OnNativeDisplaysChanged(new_info_list);
+
+  root_windows = Shell::GetAllRootWindows();
+  EXPECT_TRUE(root_windows[0]->Contains(test_api.GetCursorWindow()));
+
+  Shell::GetInstance()->SetCursorCompositingEnabled(false);
+}
+#endif  // OS_CHROMEOS
+
 TEST_F(DisplayManagerTest, MirroredLayout) {
   if (!SupportsMultipleDisplays())
     return;
@@ -1276,5 +1444,107 @@ TEST_F(ScreenShutdownTest, ScreenAfterShutdown) {
     return;
   UpdateDisplay("500x300,800x400");
 }
+
+
+#if defined(OS_CHROMEOS)
+namespace {
+
+// A helper class that sets the display configuration and starts ash.
+// This is to make sure the font configuration happens during ash
+// initialization process.
+class FontTestHelper : public test::AshTestBase {
+ public:
+  enum DisplayType {
+    INTERNAL,
+    EXTERNAL
+  };
+
+  FontTestHelper(float scale, DisplayType display_type) {
+    gfx::ClearFontRenderParamsCacheForTest();
+    base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+    if (display_type == INTERNAL)
+      command_line->AppendSwitch(switches::kAshUseFirstDisplayAsInternal);
+    command_line->AppendSwitchASCII(switches::kAshHostWindowBounds,
+                                    StringPrintf("1000x800*%f", scale));
+    SetUp();
+  }
+
+  virtual ~FontTestHelper() {
+    TearDown();
+  }
+
+  // test::AshTestBase:
+  virtual void TestBody() OVERRIDE {
+    NOTREACHED();
+  }
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(FontTestHelper);
+};
+
+
+bool IsTextSubpixelPositioningEnabled() {
+  gfx::FontRenderParams params =
+      gfx::GetFontRenderParams(gfx::FontRenderParamsQuery(false), NULL);
+  return params.subpixel_positioning;
+}
+
+}  // namespace
+
+typedef testing::Test DisplayManagerFontTest;
+
+TEST_F(DisplayManagerFontTest, TextSubpixelPositioningWithDsf100Internal) {
+  FontTestHelper helper(1.0f, FontTestHelper::INTERNAL);
+  ASSERT_DOUBLE_EQ(
+      1.0f, Shell::GetScreen()->GetPrimaryDisplay().device_scale_factor());
+  EXPECT_FALSE(IsTextSubpixelPositioningEnabled());
+}
+
+TEST_F(DisplayManagerFontTest, TextSubpixelPositioningWithDsf125Internal) {
+  FontTestHelper helper(1.25f, FontTestHelper::INTERNAL);
+  ASSERT_DOUBLE_EQ(
+      1.25f, Shell::GetScreen()->GetPrimaryDisplay().device_scale_factor());
+  EXPECT_TRUE(IsTextSubpixelPositioningEnabled());
+}
+
+TEST_F(DisplayManagerFontTest, TextSubpixelPositioningWithDsf200Internal) {
+  FontTestHelper helper(2.0f, FontTestHelper::INTERNAL);
+  ASSERT_DOUBLE_EQ(
+      2.0f, Shell::GetScreen()->GetPrimaryDisplay().device_scale_factor());
+  EXPECT_TRUE(IsTextSubpixelPositioningEnabled());
+}
+
+TEST_F(DisplayManagerFontTest, TextSubpixelPositioningWithDsf100External) {
+  FontTestHelper helper(1.0f, FontTestHelper::EXTERNAL);
+  ASSERT_DOUBLE_EQ(
+      1.0f, Shell::GetScreen()->GetPrimaryDisplay().device_scale_factor());
+  EXPECT_FALSE(IsTextSubpixelPositioningEnabled());
+}
+
+TEST_F(DisplayManagerFontTest, TextSubpixelPositioningWithDsf125External) {
+  FontTestHelper helper(1.25f, FontTestHelper::EXTERNAL);
+  ASSERT_DOUBLE_EQ(
+      1.25f, Shell::GetScreen()->GetPrimaryDisplay().device_scale_factor());
+  EXPECT_FALSE(IsTextSubpixelPositioningEnabled());
+}
+
+TEST_F(DisplayManagerFontTest, TextSubpixelPositioningWithDsf200External) {
+  FontTestHelper helper(2.0f, FontTestHelper::EXTERNAL);
+  ASSERT_DOUBLE_EQ(
+      2.0f, Shell::GetScreen()->GetPrimaryDisplay().device_scale_factor());
+  EXPECT_FALSE(IsTextSubpixelPositioningEnabled());
+}
+
+TEST_F(DisplayManagerFontTest,
+       TextSubpixelPositioningWithDsf125InternalWithScaling) {
+  DisplayInfo::SetUse125DSFForUIScaling(true);
+  FontTestHelper helper(1.25f, FontTestHelper::INTERNAL);
+  ASSERT_DOUBLE_EQ(
+      1.0f, Shell::GetScreen()->GetPrimaryDisplay().device_scale_factor());
+  EXPECT_FALSE(IsTextSubpixelPositioningEnabled());
+  DisplayInfo::SetUse125DSFForUIScaling(false);
+}
+
+#endif  // OS_CHROMEOS
 
 }  // namespace ash

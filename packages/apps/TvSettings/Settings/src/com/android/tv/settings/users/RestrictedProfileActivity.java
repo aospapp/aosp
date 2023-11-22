@@ -50,7 +50,6 @@ import android.view.inputmethod.InputMethodManager;
 
 import com.android.internal.widget.ILockSettings;
 import com.android.internal.widget.LockPatternUtils;
-import com.android.internal.widget.LockPatternUtilsCache;
 import com.android.tv.dialog.PinDialogFragment;
 
 import java.util.ArrayList;
@@ -375,8 +374,8 @@ public class RestrictedProfileActivity extends Activity implements Action.Listen
 
     private ILockSettings getLockSettings() {
         if (mLockSettingsService == null) {
-            mLockSettingsService = LockPatternUtilsCache.getInstance(
-                    ILockSettings.Stub.asInterface(ServiceManager.getService("lock_settings")));
+            mLockSettingsService = ILockSettings.Stub.asInterface(
+                    ServiceManager.getService("lock_settings"));
         }
         return mLockSettingsService;
     }

@@ -5,6 +5,7 @@
 #ifndef CONTENT_BROWSER_SERVICE_WORKER_SERVICE_WORKER_CONTROLLEE_REQUEST_HANDLER_H_
 #define CONTENT_BROWSER_SERVICE_WORKER_SERVICE_WORKER_CONTROLLEE_REQUEST_HANDLER_H_
 
+#include "base/gtest_prod_util.h"
 #include "content/browser/service_worker/service_worker_request_handler.h"
 
 namespace net {
@@ -14,8 +15,10 @@ class URLRequest;
 
 namespace content {
 
+class ResourceRequestBody;
 class ServiceWorkerRegistration;
 class ServiceWorkerURLRequestJob;
+class ServiceWorkerVersion;
 
 // A request handler derivative used to handle requests from
 // controlled documents.
@@ -25,8 +28,9 @@ class CONTENT_EXPORT ServiceWorkerControlleeRequestHandler
   ServiceWorkerControlleeRequestHandler(
       base::WeakPtr<ServiceWorkerContextCore> context,
       base::WeakPtr<ServiceWorkerProviderHost> provider_host,
-      base::WeakPtr<webkit_blob::BlobStorageContext> blob_storage_context,
-      ResourceType::Type resource_type);
+      base::WeakPtr<storage::BlobStorageContext> blob_storage_context,
+      ResourceType resource_type,
+      scoped_refptr<ResourceRequestBody> body);
   virtual ~ServiceWorkerControlleeRequestHandler();
 
   // Called via custom URLRequestJobFactory.
@@ -34,7 +38,16 @@ class CONTENT_EXPORT ServiceWorkerControlleeRequestHandler
       net::URLRequest* request,
       net::NetworkDelegate* network_delegate) OVERRIDE;
 
+  virtual void GetExtraResponseInfo(
+      bool* was_fetched_via_service_worker,
+      GURL* original_url_via_service_worker,
+      base::TimeTicks* fetch_start_time,
+      base::TimeTicks* fetch_ready_time,
+      base::TimeTicks* fetch_end_time) const OVERRIDE;
+
  private:
+  FRIEND_TEST_ALL_PREFIXES(ServiceWorkerControlleeRequestHandlerTest,
+                           ActivateWaitingVersion);
   typedef ServiceWorkerControlleeRequestHandler self;
 
   // For main resource case.
@@ -42,11 +55,16 @@ class CONTENT_EXPORT ServiceWorkerControlleeRequestHandler
   void DidLookupRegistrationForMainResource(
       ServiceWorkerStatusCode status,
       const scoped_refptr<ServiceWorkerRegistration>& registration);
+  void OnVersionStatusChanged(
+      ServiceWorkerRegistration* registration,
+      ServiceWorkerVersion* version);
 
   // For sub resource case.
   void PrepareForSubResource();
 
+  bool is_main_resource_load_;
   scoped_refptr<ServiceWorkerURLRequestJob> job_;
+  scoped_refptr<ResourceRequestBody> body_;
   base::WeakPtrFactory<ServiceWorkerControlleeRequestHandler> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(ServiceWorkerControlleeRequestHandler);

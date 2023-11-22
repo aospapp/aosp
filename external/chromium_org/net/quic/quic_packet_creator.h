@@ -69,7 +69,6 @@ class NET_EXPORT_PRIVATE QuicPacketCreator : public QuicFecBuilderInterface {
 
   // The overhead the framing will add for a packet with one frame.
   static size_t StreamFramePacketOverhead(
-      QuicVersion version,
       QuicConnectionIdLength connection_id_length,
       bool include_version,
       QuicSequenceNumberLength sequence_number_length,
@@ -225,12 +224,10 @@ class NET_EXPORT_PRIVATE QuicPacketCreator : public QuicFecBuilderInterface {
   }
 
   // Sets creator's max number of packets covered by an FEC group.
-  void set_max_packets_per_fec_group(
-      size_t max_packets_per_fec_group) {
-    // To turn off FEC protection, use StopFecProtectingPackets().
-    DCHECK_NE(0u, max_packets_per_fec_group);
-    max_packets_per_fec_group_ = max_packets_per_fec_group;
-  }
+  // Note: While there are no constraints on |max_packets_per_fec_group|,
+  // this setter enforces a min value of kLowestMaxPacketsPerFecGroup.
+  // To turn off FEC protection, use StopFecProtectingPackets().
+  void set_max_packets_per_fec_group(size_t max_packets_per_fec_group);
 
  private:
   friend class test::QuicPacketCreatorPeer;

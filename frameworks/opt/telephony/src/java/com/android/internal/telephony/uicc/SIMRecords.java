@@ -16,10 +16,6 @@
 
 package com.android.internal.telephony.uicc;
 
-import static com.android.internal.telephony.TelephonyProperties.PROPERTY_ICC_OPERATOR_ALPHA;
-import static com.android.internal.telephony.TelephonyProperties.PROPERTY_ICC_OPERATOR_ISO_COUNTRY;
-import static com.android.internal.telephony.TelephonyProperties.PROPERTY_ICC_OPERATOR_NUMERIC;
-
 import android.content.Context;
 import android.os.AsyncResult;
 import android.os.Message;
@@ -236,7 +232,6 @@ public class SIMRecords extends IccRecords {
         mImsi = null;
         mMsisdn = null;
         mVoiceMailNum = null;
-        mCountVoiceMessages = 0;
         mMncLength = UNINITIALIZED;
         log("setting0 mMncLength" + mMncLength);
         mIccId = null;
@@ -252,9 +247,9 @@ public class SIMRecords extends IccRecords {
 
         log("SIMRecords: onRadioOffOrNotAvailable set 'gsm.sim.operator.numeric' to operator=null");
         log("update icc_operator_numeric=" + null);
-        setSystemProperty(PROPERTY_ICC_OPERATOR_NUMERIC, null);
-        setSystemProperty(PROPERTY_ICC_OPERATOR_ALPHA, null);
-        setSystemProperty(PROPERTY_ICC_OPERATOR_ISO_COUNTRY, null);
+        mTelephonyManager.setSimOperatorNumericForPhone(mParentApp.getPhoneId(), "");
+        mTelephonyManager.setSimOperatorNameForPhone(mParentApp.getPhoneId(), "");
+        mTelephonyManager.setSimCountryIsoForPhone(mParentApp.getPhoneId(), "");
 
         // recordsRequested is set to false indicating that the SIM
         // read requests made so far are not valid. This is set to
@@ -307,13 +302,15 @@ public class SIMRecords extends IccRecords {
     public void setMsisdnNumber(String alphaTag, String number,
             Message onComplete) {
 
-        mMsisdn = number;
-        mMsisdnTag = alphaTag;
+        // If the SIM card is locked by PIN, we will set EF_MSISDN fail.
+        // In that case, msisdn and msisdnTag should not be update.
+        mNewMsisdn = number;
+        mNewMsisdnTag = alphaTag;
 
-        if(DBG) log("Set MSISDN: " + mMsisdnTag + " " + /*mMsisdn*/ "xxxxxxx");
+        if(DBG) log("Set MSISDN: " + mNewMsisdnTag + " " + /*mNewMsisdn*/ "xxxxxxx");
 
 
-        AdnRecord adn = new AdnRecord(mMsisdnTag, mMsisdn);
+        AdnRecord adn = new AdnRecord(mNewMsisdnTag, mNewMsisdn);
 
         new AdnRecordLoader(mFh).updateEF(adn, EF_MSISDN, EF_EXT1, 1, null,
                 obtainMessage(EVENT_SET_MSISDN_DONE, onComplete));
@@ -408,26 +405,13 @@ public class SIMRecords extends IccRecords {
             return;
         }
 
-        // range check
-        if (countWaiting < 0) {
-            countWaiting = -1;
-        } else if (countWaiting > 0xff) {
-            // TS 23.040 9.2.3.24.2
-            // "The value 255 shall be taken to mean 255 or greater"
-            countWaiting = 0xff;
-        }
-
-        mCountVoiceMessages = countWaiting;
-
-        mRecordsEventsRegistrants.notifyResult(EVENT_MWI);
-
         try {
             if (mEfMWIS != null) {
                 // TS 51.011 10.3.45
 
                 // lsb of byte 0 is 'voicemail' status
                 mEfMWIS[0] = (byte)((mEfMWIS[0] & 0xfe)
-                                    | (mCountVoiceMessages == 0 ? 0 : 1));
+                                    | (countWaiting == 0 ? 0 : 1));
 
                 // byte 1 is the number of voice messages waiting
                 if (countWaiting < 0) {
@@ -440,14 +424,13 @@ public class SIMRecords extends IccRecords {
 
                 mFh.updateEFLinearFixed(
                     EF_MWIS, 1, mEfMWIS, null,
-                    obtainMessage (EVENT_UPDATE_DONE, EF_MWIS));
+                    obtainMessage (EVENT_UPDATE_DONE, EF_MWIS, 0));
             }
 
             if (mEfCPHS_MWI != null) {
                     // Refer CPHS4_2.WW6 B4.2.3
                 mEfCPHS_MWI[0] = (byte)((mEfCPHS_MWI[0] & 0xf0)
-                            | (mCountVoiceMessages == 0 ? 0x5 : 0xa));
-
+                            | (countWaiting == 0 ? 0x5 : 0xa));
                 mFh.updateEFTransparent(
                     EF_VOICE_MAIL_INDICATOR_CPHS, mEfCPHS_MWI,
                     obtainMessage (EVENT_UPDATE_DONE, EF_VOICE_MAIL_INDICATOR_CPHS));
@@ -461,6 +444,37 @@ public class SIMRecords extends IccRecords {
     // byte is between 1 and 4. See ETSI TS 131 102 v11.3.0 section 4.2.64.
     private boolean validEfCfis(byte[] data) {
         return ((data != null) && (data[0] >= 1) && (data[0] <= 4));
+    }
+
+    public int getVoiceMessageCount() {
+        boolean voiceMailWaiting = false;
+        int countVoiceMessages = 0;
+        if (mEfMWIS != null) {
+            // Use this data if the EF[MWIS] exists and
+            // has been loaded
+            // Refer TS 51.011 Section 10.3.45 for the content description
+            voiceMailWaiting = ((mEfMWIS[0] & 0x01) != 0);
+            countVoiceMessages = mEfMWIS[1] & 0xff;
+
+            if (voiceMailWaiting && countVoiceMessages == 0) {
+                // Unknown count = -1
+                countVoiceMessages = -1;
+            }
+            if(DBG) log(" VoiceMessageCount from SIM MWIS = " + countVoiceMessages);
+        } else if (mEfCPHS_MWI != null) {
+            // use voice mail count from CPHS
+            int indicator = (int) (mEfCPHS_MWI[0] & 0xf);
+
+            // Refer CPHS4_2.WW6 B4.2.3
+            if (indicator == 0xA) {
+                // Unknown count = -1
+                countVoiceMessages = -1;
+            } else if (indicator == 0x5) {
+                countVoiceMessages = 0;
+            }
+            if(DBG) log(" VoiceMessageCount from SIM CPHS = " + countVoiceMessages);
+        }
+        return countVoiceMessages;
     }
 
     /**
@@ -766,6 +780,12 @@ public class SIMRecords extends IccRecords {
                 isRecordLoadResponse = false;
                 ar = (AsyncResult)msg.obj;
 
+                if (ar.exception == null) {
+                    mMsisdn = mNewMsisdn;
+                    mMsisdnTag = mNewMsisdnTag;
+                    log("Success to update EF[MSISDN]");
+                }
+
                 if (ar.userObj != null) {
                     AsyncResult.forMessage(((Message) ar.userObj)).exception
                             = ar.exception;
@@ -779,30 +799,21 @@ public class SIMRecords extends IccRecords {
                 ar = (AsyncResult)msg.obj;
                 data = (byte[])ar.result;
 
+                if(DBG) log("EF_MWIS : " + IccUtils.bytesToHexString(data));
+
                 if (ar.exception != null) {
+                    if(DBG) log("EVENT_GET_MWIS_DONE exception = "
+                            + ar.exception);
                     break;
                 }
-
-                log("EF_MWIS: " + IccUtils.bytesToHexString(data));
-
-                mEfMWIS = data;
 
                 if ((data[0] & 0xff) == 0xff) {
-                    log("Uninitialized record MWIS");
+                    if(DBG) log("SIMRecords: Uninitialized record MWIS");
                     break;
                 }
 
-                // Refer TS 51.011 Section 10.3.45 for the content description
-                boolean voiceMailWaiting = ((data[0] & 0x01) != 0);
-                mCountVoiceMessages = data[1] & 0xff;
-
-                if (voiceMailWaiting && mCountVoiceMessages == 0) {
-                    // Unknown count = -1
-                    mCountVoiceMessages = -1;
-                }
-
-                mRecordsEventsRegistrants.notifyResult(EVENT_MWI);
-            break;
+                mEfMWIS = data;
+                break;
 
             case EVENT_GET_VOICE_MAIL_INDICATOR_CPHS_DONE:
                 isRecordLoadResponse = true;
@@ -810,29 +821,16 @@ public class SIMRecords extends IccRecords {
                 ar = (AsyncResult)msg.obj;
                 data = (byte[])ar.result;
 
+                if(DBG) log("EF_CPHS_MWI: " + IccUtils.bytesToHexString(data));
+
                 if (ar.exception != null) {
+                    if(DBG) log("EVENT_GET_VOICE_MAIL_INDICATOR_CPHS_DONE exception = "
+                            + ar.exception);
                     break;
                 }
 
                 mEfCPHS_MWI = data;
-
-                // Use this data if the EF[MWIS] exists and
-                // has been loaded
-
-                if (mEfMWIS == null) {
-                    int indicator = data[0] & 0xf;
-
-                    // Refer CPHS4_2.WW6 B4.2.3
-                    if (indicator == 0xA) {
-                        // Unknown count = -1
-                        mCountVoiceMessages = -1;
-                    } else if (indicator == 0x5) {
-                        mCountVoiceMessages = 0;
-                    }
-
-                    mRecordsEventsRegistrants.notifyResult(EVENT_MWI);
-                }
-            break;
+                break;
 
             case EVENT_GET_ICCID_DONE:
                 isRecordLoadResponse = true;
@@ -1289,18 +1287,8 @@ public class SIMRecords extends IccRecords {
                 onIccRefreshInit();
                 break;
             case IccRefreshResponse.REFRESH_RESULT_RESET:
+                // Refresh reset is handled by the UiccCard object.
                 if (DBG) log("handleSimRefresh with SIM_REFRESH_RESET");
-                if (requirePowerOffOnSimRefreshReset()) {
-                    mCi.setRadioPower(false, null);
-                    /* Note: no need to call setRadioPower(true).  Assuming the desired
-                    * radio power state is still ON (as tracked by ServiceStateTracker),
-                    * ServiceStateTracker will call setRadioPower when it receives the
-                    * RADIO_STATE_CHANGED notification for the power off.  And if the
-                    * desired power state has changed in the interim, we don't want to
-                    * override it with an unconditional power on.
-                    */
-                }
-                mAdnCache.reset();
                 break;
             default:
                 // unknown refresh operation
@@ -1460,7 +1448,8 @@ public class SIMRecords extends IccRecords {
             log("onAllRecordsLoaded set 'gsm.sim.operator.numeric' to operator='" +
                     operator + "'");
             log("update icc_operator_numeric=" + operator);
-            setSystemProperty(PROPERTY_ICC_OPERATOR_NUMERIC, operator);
+            mTelephonyManager.setSimOperatorNumericForPhone(
+                    mParentApp.getPhoneId(), operator);
             final SubscriptionController subController = SubscriptionController.getInstance();
             subController.setMccMnc(operator, subController.getDefaultSmsSubId());
         } else {
@@ -1469,8 +1458,9 @@ public class SIMRecords extends IccRecords {
 
         if (!TextUtils.isEmpty(mImsi)) {
             log("onAllRecordsLoaded set mcc imsi=" + mImsi);
-            setSystemProperty(PROPERTY_ICC_OPERATOR_ISO_COUNTRY,
-                    MccTable.countryCodeForMcc(Integer.parseInt(mImsi.substring(0,3))));
+            mTelephonyManager.setSimCountryIsoForPhone(
+                    mParentApp.getPhoneId(), MccTable.countryCodeForMcc(
+                    Integer.parseInt(mImsi.substring(0,3))));
         } else {
             log("onAllRecordsLoaded empty imsi skipping setting mcc");
         }
@@ -1487,7 +1477,8 @@ public class SIMRecords extends IccRecords {
     private void setSpnFromConfig(String carrier) {
         if (mSpnOverride.containsCarrier(carrier)) {
             setServiceProviderName(mSpnOverride.getSpn(carrier));
-            SystemProperties.set(PROPERTY_ICC_OPERATOR_ALPHA, getServiceProviderName());
+            mTelephonyManager.setSimOperatorNameForPhone(
+                    mParentApp.getPhoneId(), getServiceProviderName());
         }
     }
 
@@ -1511,6 +1502,12 @@ public class SIMRecords extends IccRecords {
     }
 
     private void loadEfLiAndEfPl() {
+        Resources resource = Resources.getSystem();
+        if (!resource.getBoolean(com.android.internal.R.bool.config_use_sim_language_file)) {
+            if (DBG) log ("Not using EF LI/EF PL");
+            return;
+        }
+
         if (mParentApp.getType() == AppType.APPTYPE_USIM) {
             mRecordsRequested = true;
             mFh.loadEFTransparent(EF_LI,
@@ -1733,7 +1730,8 @@ public class SIMRecords extends IccRecords {
 
                     if (DBG) log("Load EF_SPN: " + getServiceProviderName()
                             + " spnDisplayCondition: " + mSpnDisplayCondition);
-                    setSystemProperty(PROPERTY_ICC_OPERATOR_ALPHA, getServiceProviderName());
+                    mTelephonyManager.setSimOperatorNameForPhone(
+                            mParentApp.getPhoneId(), getServiceProviderName());
 
                     mSpnState = GetSpnFsmState.IDLE;
                 } else {
@@ -1754,7 +1752,8 @@ public class SIMRecords extends IccRecords {
                     setServiceProviderName(IccUtils.adnStringFieldToString(data, 0, data.length));
 
                     if (DBG) log("Load EF_SPN_CPHS: " + getServiceProviderName());
-                    setSystemProperty(PROPERTY_ICC_OPERATOR_ALPHA, getServiceProviderName());
+                    mTelephonyManager.setSimOperatorNameForPhone(
+                            mParentApp.getPhoneId(), getServiceProviderName());
 
                     mSpnState = GetSpnFsmState.IDLE;
                 } else {
@@ -1771,7 +1770,8 @@ public class SIMRecords extends IccRecords {
                     setServiceProviderName(IccUtils.adnStringFieldToString(data, 0, data.length));
 
                     if (DBG) log("Load EF_SPN_SHORT_CPHS: " + getServiceProviderName());
-                    setSystemProperty(PROPERTY_ICC_OPERATOR_ALPHA, getServiceProviderName());
+                    mTelephonyManager.setSimOperatorNameForPhone(
+                            mParentApp.getPhoneId(), getServiceProviderName());
                 }else {
                     if (DBG) log("No SPN loaded in either CHPS or 3GPP");
                 }
@@ -1921,13 +1921,5 @@ public class SIMRecords extends IccRecords {
         pw.println(" mUsimServiceTable=" + mUsimServiceTable);
         pw.println(" mGid1=" + mGid1);
         pw.flush();
-    }
-
-    private void setSystemProperty(String key, String val) {
-        // Update the system properties only in case NON-DSDS.
-        // TODO: Shall have a better approach!
-        if (!TelephonyManager.getDefault().isMultiSimEnabled()) {
-            SystemProperties.set(key, val);
-        }
     }
 }

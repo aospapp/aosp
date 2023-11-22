@@ -118,7 +118,7 @@ class HashMap {};
 
 }
 
-namespace WebCore {
+namespace blink {
 
 using namespace WTF;
 
@@ -216,6 +216,21 @@ public:
 class GarbageCollectedMixin {
     virtual void adjustAndMark(Visitor*) const = 0;
     virtual bool isAlive(Visitor*) const = 0;
+    virtual void trace(Visitor*) { }
+};
+
+template<typename T>
+struct TraceIfNeeded {
+    static void trace(Visitor*, T*);
+};
+
+// blink::ScriptWrappable receives special treatment
+// so as to allow it to be used together with GarbageCollected<T>,
+// even when its user-declared destructor is provided.
+// As it is with Oilpan disabled.
+class ScriptWrappable {
+public:
+    ~ScriptWrappable() { /* user-declared, thus, non-trivial */ }
 };
 
 }
@@ -223,7 +238,7 @@ class GarbageCollectedMixin {
 namespace WTF {
 
 template<typename T>
-struct VectorTraits<WebCore::Member<T> > {
+struct VectorTraits<blink::Member<T> > {
     static const bool needsDestruction = false;
 };
 

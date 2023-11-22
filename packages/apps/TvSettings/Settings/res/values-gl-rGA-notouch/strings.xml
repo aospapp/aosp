@@ -25,165 +25,85 @@
     <skip />
     <!-- no translation found for wifi_setup_save_success (2001513015933996675) -->
     <skip />
-    <!-- no translation found for setup_ir (8305193430921797241) -->
     <skip />
-    <!-- no translation found for remote_setup_welcome_message_title (5476589388820014744) -->
     <skip />
-    <!-- no translation found for remote_setup_welcome_message_description (2490113907172564702) -->
     <skip />
-    <!-- no translation found for remote_setup_welcome_message_hint (3193005012448600181) -->
     <skip />
-    <!-- no translation found for remote_setup_welcome_message_choice_yes (5685232858099010013) -->
     <skip />
-    <!-- no translation found for remote_setup_welcome_message_choice_no (175673795270850846) -->
     <skip />
-    <!-- no translation found for remote_setup_configuring_title (426693490088036953) -->
     <skip />
-    <!-- no translation found for remote_setup_tv_brand_selection_title (4426624334135525006) -->
     <skip />
-    <!-- no translation found for remote_setup_tv_brand_not_listed (6399444939148833806) -->
     <skip />
-    <!-- no translation found for remote_setup_popular_brands (5266668021746622176) -->
     <skip />
-    <!-- no translation found for remote_setup_all_brands (4549396010551387027) -->
     <skip />
-    <!-- no translation found for verify_tv_works_title (3032439000825004562) -->
     <skip />
-    <!-- no translation found for verify_tv_works_description (5367161763698305110) -->
     <skip />
-    <!-- no translation found for verify_tv_works_title_second (385858407975452465) -->
     <skip />
-    <!-- no translation found for verify_tv_works_description_second (6491845798813188688) -->
     <skip />
-    <!-- no translation found for remote_setup_tv_works_choice_yes (4845224377319634589) -->
     <skip />
-    <!-- no translation found for remote_setup_tv_works_choice_no (4592512199517822882) -->
     <skip />
-    <!-- no translation found for remote_setup_tv_works_choice_exit (3284401175722431348) -->
     <skip />
-    <!-- no translation found for remote_setup_av_receiver_message_title (2872952499181136479) -->
     <skip />
-    <!-- no translation found for remote_setup_av_receiver_message_choice_yes (4425950273612887422) -->
     <skip />
-    <!-- no translation found for remote_setup_av_receiver_message_choice_no (4110689241054488465) -->
     <skip />
-    <!-- no translation found for av_receiver_brand_selection_title (6590559258588648873) -->
     <skip />
-    <!-- no translation found for remote_setup_avr_brand_not_list (3844561269362712169) -->
     <skip />
-    <!-- no translation found for verify_av_receiver_works_title (269543338100774333) -->
     <skip />
-    <!-- no translation found for verify_av_receiver_works_description (823315661416528145) -->
     <skip />
-    <!-- no translation found for verify_av_receiver_works_title_second (5746428972280536169) -->
     <skip />
-    <!-- no translation found for verify_av_receiver_works_description_second (441544714015585905) -->
     <skip />
-    <!-- no translation found for remote_setup_av_receiver_works_choice_yes (3958668567541773813) -->
     <skip />
-    <!-- no translation found for remote_setup_av_receiver_works_choice_no (6425368711913498529) -->
     <skip />
-    <!-- no translation found for remote_setup_av_receiver_works_choice_exit (643490819476900552) -->
     <skip />
-    <!-- no translation found for remote_setup_complete_title (7922835571489412611) -->
     <skip />
-    <!-- no translation found for remote_setup_complete_indicator (7561911666937200298) -->
     <skip />
-    <!-- no translation found for remote_setup_complete_description (6137050944153859244) -->
     <skip />
-    <!-- no translation found for remote_setup_complete_tv (4708077946518308016) -->
     <skip />
-    <!-- no translation found for remote_setup_complete_avr (8656836889865354332) -->
     <skip />
-    <!-- no translation found for remote_setup_complete_tv_and_avr (4453597584162220399) -->
     <skip />
-    <!-- no translation found for remote_setup_failure_title (5665820270966778692) -->
     <skip />
-    <!-- no translation found for remote_setup_no_more_tv_codes_title (167374899889584010) -->
     <skip />
-    <!-- no translation found for remote_setup_no_more_tv_codes_description (8659030568193419721) -->
     <skip />
-    <!-- no translation found for remote_setup_no_more_tv_codes_choice_continue (2978201890199080045) -->
     <skip />
-    <!-- no translation found for remote_setup_no_more_tv_codes_choice_try_again (883803209087217919) -->
     <skip />
-    <!-- no translation found for remote_setup_no_more_avr_codes_title (1569711951085807000) -->
     <skip />
-    <!-- no translation found for remote_setup_no_more_avr_codes_description (691671526507009571) -->
     <skip />
-    <!-- no translation found for remote_setup_no_more_avr_codes_choice_continue (3661278022504253254) -->
     <skip />
-    <!-- no translation found for remote_setup_no_more_avr_codes_choice_try_again (7093479823678687125) -->
     <skip />
-    <!-- no translation found for remote_volume_control_title (42790796387499754) -->
     <skip />
-    <!-- no translation found for remote_volume_control_description (1709266463890271158) -->
     <skip />
-    <!-- no translation found for remote_volume_control_tv (8238742772961949484) -->
     <skip />
-    <!-- no translation found for remote_volume_control_avr (1210344689909782196) -->
     <skip />
-    <!-- no translation found for remote_volume_control_more_info (3974235951312948896) -->
     <skip />
-    <!-- no translation found for remote_input_control_title (2162123799829832793) -->
     <skip />
-    <!-- no translation found for remote_input_control_description (4463232750558670880) -->
     <skip />
-    <!-- no translation found for remote_input_control_tv (1161797798141087133) -->
     <skip />
-    <!-- no translation found for remote_input_control_avr (4332681403776201898) -->
     <skip />
-    <!-- no translation found for remote_input_control_more_info (2288173413092344097) -->
     <skip />
-    <!-- no translation found for remote_power_control_title (6900887500636256080) -->
     <skip />
-    <!-- no translation found for remote_power_control_description (3169112762029996294) -->
     <skip />
-    <!-- no translation found for remote_power_control_tv (20401013011107997) -->
     <skip />
-    <!-- no translation found for remote_power_control_avr (7915107400409384444) -->
     <skip />
-    <!-- no translation found for remote_power_control_more_info (6548476606481318540) -->
     <skip />
-    <!-- no translation found for remote_setup_tv_unable_to_configure_title (4278769121940609448) -->
     <skip />
-    <!-- no translation found for remote_setup_tv_unable_to_configure_description (8864537568753823798) -->
     <skip />
-    <!-- no translation found for remote_setup_tv_unable_to_configure_hint (1731804913207624724) -->
     <skip />
-    <!-- no translation found for remote_setup_tv_unable_to_configure_continue (3805427230334915588) -->
     <skip />
-    <!-- no translation found for remote_setup_tv_unable_to_configure_try_again (6302613495483136852) -->
     <skip />
-    <!-- no translation found for remote_setup_avr_unable_to_configure_title (7801918594788868621) -->
     <skip />
-    <!-- no translation found for remote_setup_avr_unable_to_configure_description (1400910510206854454) -->
     <skip />
-    <!-- no translation found for remote_setup_avr_unable_to_configure_hint (1160999973083806587) -->
     <skip />
-    <!-- no translation found for remote_setup_avr_unable_to_configure_continue (6233717853267060396) -->
     <skip />
-    <!-- no translation found for remote_setup_avr_unable_to_configure_try_again (4693947869846354939) -->
     <skip />
-    <!-- no translation found for remote_programmed_successfully_ok (1375513531893934307) -->
     <skip />
-    <!-- no translation found for remote_summary_title_configured (5771960008601106877) -->
     <skip />
-    <!-- no translation found for remote_summary_description_configured_tv_only (7739533340195955540) -->
     <skip />
-    <!-- no translation found for remote_summary_description_configured (2021732057311118918) -->
     <skip />
-    <!-- no translation found for remote_summary_change (6976485331757187056) -->
     <skip />
-    <!-- no translation found for remote_summary_do_not_change (4097498021633504763) -->
     <skip />
-    <!-- no translation found for remote_setup_finish_later_title (4030643297327885317) -->
     <skip />
-    <!-- no translation found for remote_setup_finish_later_description (3511320380471211038) -->
     <skip />
-    <!-- no translation found for remote_setup_finish_later_choice_continue (8780389496840477364) -->
     <skip />
-    <!-- no translation found for remote_setup_finish_later_choice_start_over (1027538826869717585) -->
     <skip />
     <!-- no translation found for device_apps_app_management_version (6315648665194084382) -->
     <skip />

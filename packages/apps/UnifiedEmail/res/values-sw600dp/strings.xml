@@ -22,6 +22,9 @@
     <string name="add_bcc_label">+ Bcc</string>
     <!-- Menu item: manages the folders for this account. [CHAR LIMIT = 30] -->
     <string name="menu_manage_folders">Manage folders</string>
+    <!-- Menu item move_to state for displaying as an action or in overflow -->
+    <!-- 2 corresponds to SHOW_AS_ACTION_ALWAYS -->
+    <string name="menu_move_to_state" translatable="false">2</string>
     <!--  Settings screen, Reply to all default setting summary [CHAR LIMIT=70] -->
     <string name="preferences_default_reply_all_summary">Use as default for replies to message notifications</string>
 </resources>

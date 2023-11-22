@@ -14,14 +14,15 @@ second depending on the test. Final Score is computed by calculating geometric
 mean of individual tests scores.
 """
 
-from telemetry import test
-from telemetry.page import page_measurement
+from telemetry import benchmark
 from telemetry.page import page_set
+from telemetry.page import page_test
 from telemetry.util import statistics
 from telemetry.value import merge_values
 from telemetry.value import scalar
 
-class _PeaceKeeperMeasurement(page_measurement.PageMeasurement):
+
+class _PeaceKeeperMeasurement(page_test.PageTest):
 
   def WillNavigateToPage(self, page, tab):
     page.script_to_evaluate_on_commit = """
@@ -50,12 +51,13 @@ class _PeaceKeeperMeasurement(page_measurement.PageMeasurement):
         }
         """
 
-  def MeasurePage(self, _, tab, results):
+  def ValidateAndMeasurePage(self, _, tab, results):
     tab.WaitForJavaScriptExpression('_done', 600)
     result = tab.EvaluateJavaScript('__results')
 
-    results.Add('Score', 'score', int(result['score']), result['test'],
-                'unimportant')
+    results.AddValue(scalar.ScalarValue(
+        results.current_page, '%s.Score' % result['test'], 'score',
+        int(result['score'])), important=False)
 
   def DidRunTest(self, browser, results):
     # Calculate geometric mean as the total for the combined tests.
@@ -68,7 +70,8 @@ class _PeaceKeeperMeasurement(page_measurement.PageMeasurement):
         scalar.ScalarValue(None, 'Total.Score', 'score', total))
 
 
-class PeaceKeeperBenchmark(test.Test):
+@benchmark.Disabled
+class PeaceKeeperBenchmark(benchmark.Benchmark):
   """A base class for Peackeeper benchmarks."""
   test = _PeaceKeeperMeasurement
 
@@ -89,6 +92,7 @@ class PeaceKeeperBenchmark(test.Test):
     return ps
 
 
+@benchmark.Disabled
 class PeaceKeeperRender(PeaceKeeperBenchmark):
   """PeaceKeeper rendering benchmark suite.
 
@@ -104,6 +108,7 @@ class PeaceKeeperRender(PeaceKeeperBenchmark):
                ]
 
 
+@benchmark.Disabled
 class PeaceKeeperData(PeaceKeeperBenchmark):
   """PeaceKeeper Data operations benchmark suite.
 
@@ -123,6 +128,7 @@ class PeaceKeeperData(PeaceKeeperBenchmark):
                ]
 
 
+@benchmark.Disabled
 class PeaceKeeperDom(PeaceKeeperBenchmark):
   """PeaceKeeper DOM operations benchmark suite.
 
@@ -163,6 +169,7 @@ class PeaceKeeperDom(PeaceKeeperBenchmark):
                ]
 
 
+@benchmark.Disabled
 class PeaceKeeperTextParsing(PeaceKeeperBenchmark):
   """PeaceKeeper Text Parsing benchmark suite.
 
@@ -192,6 +199,7 @@ class PeaceKeeperTextParsing(PeaceKeeperBenchmark):
                ]
 
 
+@benchmark.Disabled
 class PeaceKeeperHTML5Canvas(PeaceKeeperBenchmark):
   """PeaceKeeper HTML5 Canvas benchmark suite.
 
@@ -209,6 +217,7 @@ class PeaceKeeperHTML5Canvas(PeaceKeeperBenchmark):
                ]
 
 
+@benchmark.Disabled
 class PeaceKeeperHTML5Capabilities(PeaceKeeperBenchmark):
   """PeaceKeeper HTML5 Capabilities benchmark suite.
 

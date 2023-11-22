@@ -16,6 +16,10 @@
 
 package android.net.cts;
 
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.SystemClock;
 import android.test.AndroidTestCase;
 import android.util.Log;
@@ -34,6 +38,7 @@ public class DnsTest extends AndroidTestCase {
 
     private static final boolean DBG = false;
     private static final String TAG = "DnsTest";
+    private static final String PROXY_NETWORK_TYPE = "PROXY";
 
     /**
      * @return true on success
@@ -70,6 +75,14 @@ public class DnsTest extends AndroidTestCase {
 
         // We should have at least one of the addresses to connect!
         assertTrue(foundV4 || foundV6);
+
+        // Skip the rest of the test if the active network for watch is PROXY.
+        // TODO: Check NetworkInfo type in addition to type name once ag/601257 is merged.
+        if (getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)
+                && activeNetworkInfoIsProxy()) {
+            Log.i(TAG, "Skipping test because the active network type name is PROXY.");
+            return;
+        }
 
         try {
             addrs = InetAddress.getAllByName("ipv6.google.com");
@@ -240,5 +253,16 @@ public class DnsTest extends AndroidTestCase {
         } catch (Exception e) {
             Log.e(TAG, "bad URL in testDnsPerf: " + e.toString());
         }
+    }
+
+    private boolean activeNetworkInfoIsProxy() {
+        ConnectivityManager cm = (ConnectivityManager)
+                getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo info = cm.getActiveNetworkInfo();
+        if (PROXY_NETWORK_TYPE.equals(info.getTypeName())) {
+            return true;
+        }
+
+        return false;
     }
 }

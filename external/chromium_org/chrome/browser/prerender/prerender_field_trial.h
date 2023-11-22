@@ -32,7 +32,11 @@ bool IsLocalPredictorEnabled();
 
 // Indicates whether to disable the local predictor due to unencrypted sync
 // settings and configuration.
-bool DisableLocalPredictorBasedOnSyncAndConfiguration(Profile* profile);
+bool ShouldDisableLocalPredictorBasedOnSyncAndConfiguration(Profile* profile);
+
+// Returns whether or not the local predictor is temporarily disabled, due
+// to network predictive action settings and current network.
+bool ShouldDisableLocalPredictorDueToPreferencesAndNetwork(Profile* profile);
 
 // Returns true iff the LoggedIn Predictor is enabled.
 bool IsLoggedInPredictorEnabled();
@@ -70,6 +74,9 @@ int GetPrerenderServiceBehaviorID();
 
 // Returns the fetch timeout to be used for the prerender service, in ms.
 int GetPrerenderServiceFetchTimeoutMs();
+
+// Returns the timeout for entries in the prefetch list, in seconds.
+int GetPrerenderPrefetchListTimeoutSeconds();
 
 // Returns the TTL to be used for the local predictor.
 int GetLocalPredictorTTLSeconds();

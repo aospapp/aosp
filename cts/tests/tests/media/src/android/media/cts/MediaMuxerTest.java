@@ -97,7 +97,7 @@ public class MediaMuxerTest extends AndroidTestCase {
 
         // Throws exception b/c start() is not called.
         muxer = new MediaMuxer(outputFile, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
-        muxer.addTrack(MediaFormat.createVideoFormat("video/avc", 480, 320));
+        muxer.addTrack(MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, 480, 320));
 
         try {
             muxer.stop();
@@ -108,10 +108,10 @@ public class MediaMuxerTest extends AndroidTestCase {
 
         // Throws exception b/c 2 video tracks were added.
         muxer = new MediaMuxer(outputFile, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
-        muxer.addTrack(MediaFormat.createVideoFormat("video/avc", 480, 320));
+        muxer.addTrack(MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, 480, 320));
 
         try {
-            muxer.addTrack(MediaFormat.createVideoFormat("video/avc", 480, 320));
+            muxer.addTrack(MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, 480, 320));
             fail("should throw IllegalStateException.");
         } catch (IllegalStateException e) {
             // expected
@@ -119,9 +119,9 @@ public class MediaMuxerTest extends AndroidTestCase {
 
         // Throws exception b/c 2 audio tracks were added.
         muxer = new MediaMuxer(outputFile, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
-        muxer.addTrack(MediaFormat.createAudioFormat("audio/mp4a-latm", 48000, 1));
+        muxer.addTrack(MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, 48000, 1));
         try {
-            muxer.addTrack(MediaFormat.createAudioFormat("audio/mp4a-latm", 48000, 1));
+            muxer.addTrack(MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, 48000, 1));
             fail("should throw IllegalStateException.");
         } catch (IllegalStateException e) {
             // expected
@@ -129,11 +129,11 @@ public class MediaMuxerTest extends AndroidTestCase {
 
         // Throws exception b/c 3 tracks were added.
         muxer = new MediaMuxer(outputFile, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
-        muxer.addTrack(MediaFormat.createVideoFormat("video/avc", 480, 320));
-        muxer.addTrack(MediaFormat.createAudioFormat("audio/mp4a-latm", 48000, 1));
+        muxer.addTrack(MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, 480, 320));
+        muxer.addTrack(MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, 48000, 1));
         try {
 
-            muxer.addTrack(MediaFormat.createVideoFormat("video/avc", 480, 320));
+            muxer.addTrack(MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, 480, 320));
             fail("should throw IllegalStateException.");
         } catch (IllegalStateException e) {
             // expected

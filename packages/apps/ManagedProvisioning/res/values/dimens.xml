@@ -21,10 +21,15 @@
     <!-- Main text -->
     <dimen name="main_text_padding_left_right">16dp</dimen>
     <dimen name="main_text_padding_bottom">24dp</dimen>
-    <dimen name="main_text_padding_top">24dp</dimen>
+    <dimen name="main_text_padding_top">0dp</dimen>
+    <dimen name="main_text_padding_between_text">8dp</dimen>
     <dimen name="main_text_margins_left_right">0dp</dimen>
-    <dimen name="main_text_container_padding_top">0dp</dimen>
     <dimen name="main_text_size">16sp</dimen>
+
+    <!-- Dialog Fragment text -->
+    <dimen name="dialog_text_padding_left_right">16dp</dimen>
+    <dimen name="dialog_text_padding_bottom">24dp</dimen>
+    <dimen name="dialog_text_padding_top">24dp</dimen>
 
     <!-- Buttons -->
     <dimen name="button_width">100dp</dimen>
@@ -39,6 +44,6 @@
     <dimen name="title_padding">@dimen/main_text_padding_left_right</dimen>
 
     <dimen name="row_height">72dp</dimen>
-    <dimen name="row_padding_top">16dp</dimen>
+    <dimen name="row_padding_top">8dp</dimen>
     <dimen name="icon_width_height">56dp</dimen>
 </resources>

@@ -92,7 +92,8 @@ public class WidgetConversationListItemViewBuilder {
                     continue;
                 }
                 remoteViews.setViewVisibility(viewId, View.VISIBLE);
-                int color[] = new int[] {folderValues.getBackgroundColor(mDefaultBgColor)};
+                int color[] = new int[]
+                        {folderValues.getBackgroundColor(mFolderDrawableResources.defaultBgColor)};
                 Bitmap bitmap = Bitmap.createBitmap(color, 1, 1, Bitmap.Config.RGB_565);
                 remoteViews.setImageViewBitmap(viewId, bitmap);
 
@@ -121,14 +122,14 @@ public class WidgetConversationListItemViewBuilder {
         DATE_TEXT_COLOR_UNREAD = res.getColor(R.color.date_text_color_unread);
 
         // Initialize Bitmap
-        ATTACHMENT = BitmapFactory.decodeResource(res, R.drawable.ic_attach_file_20dp);
+        ATTACHMENT = BitmapFactory.decodeResource(res, R.drawable.ic_attach_file_18dp);
     }
 
     /*
      * Add size, color and style to a given text
      */
-    private static CharSequence addStyle(CharSequence text, int size, int color) {
-        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+    private static SpannableStringBuilder addStyle(CharSequence text, int size, int color) {
+        final SpannableStringBuilder builder = new SpannableStringBuilder(text);
         builder.setSpan(
                 new AbsoluteSizeSpan(size), 0, text.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         if (color != 0) {
@@ -154,7 +155,11 @@ public class WidgetConversationListItemViewBuilder {
 
         // Add style to date
         final int dateColor = isUnread ? DATE_TEXT_COLOR_UNREAD : DATE_TEXT_COLOR_READ;
-        final CharSequence styledDate = addStyle(date, dateFontSize, dateColor);
+        final SpannableStringBuilder dateBuilder = addStyle(date, dateFontSize, dateColor);
+        if (isUnread) {
+            dateBuilder.setSpan(new StyleSpan(Typeface.BOLD), 0, date.length(),
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
 
         subject = Conversation.getSubjectForDisplay(context, null /* badgeText */, subject);
         final SpannableStringBuilder subjectBuilder = new SpannableStringBuilder(subject);
@@ -162,8 +167,8 @@ public class WidgetConversationListItemViewBuilder {
             subjectBuilder.setSpan(new StyleSpan(Typeface.BOLD), 0, subject.length(),
                     Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
-        final CharacterStyle subjectStyle = new ForegroundColorSpan(
-                isUnread ? SUBJECT_TEXT_COLOR_UNREAD : SUBJECT_TEXT_COLOR_READ);
+        final int subjectColor = isUnread ? SUBJECT_TEXT_COLOR_UNREAD : SUBJECT_TEXT_COLOR_READ;
+        final CharacterStyle subjectStyle = new ForegroundColorSpan(subjectColor);
         subjectBuilder.setSpan(subjectStyle, 0, subjectBuilder.length(),
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         final CharSequence styledSubject = addStyle(subjectBuilder, subjectFontSize, 0);
@@ -183,7 +188,7 @@ public class WidgetConversationListItemViewBuilder {
         final RemoteViews remoteViews = new RemoteViews(
                 context.getPackageName(), R.layout.widget_conversation_list_item);
         remoteViews.setTextViewText(R.id.widget_senders, senders);
-        remoteViews.setTextViewText(R.id.widget_date, styledDate);
+        remoteViews.setTextViewText(R.id.widget_date, dateBuilder);
         remoteViews.setTextViewText(R.id.widget_subject, styledSubject);
         remoteViews.setTextViewText(R.id.widget_snippet, styledSnippet);
         if (paperclipBitmap != null) {

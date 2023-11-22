@@ -22,9 +22,6 @@ import android.media.ToneGenerator;
 import android.provider.Settings;
 
 // TODO: Needed for move to system service: import com.android.internal.R;
-import com.google.common.collect.ImmutableMap;
-
-import java.util.Map;
 
 /**
  * Plays DTMF tones locally for the caller to hear. In order to reduce (1) the amount of times we
@@ -33,22 +30,6 @@ import java.util.Map;
  * changes.
  */
 class DtmfLocalTonePlayer extends CallsManagerListenerBase {
-    private static final Map<Character, Integer> TONE_MAP =
-            ImmutableMap.<Character, Integer>builder()
-                    .put('1', ToneGenerator.TONE_DTMF_1)
-                    .put('2', ToneGenerator.TONE_DTMF_2)
-                    .put('3', ToneGenerator.TONE_DTMF_3)
-                    .put('4', ToneGenerator.TONE_DTMF_4)
-                    .put('5', ToneGenerator.TONE_DTMF_5)
-                    .put('6', ToneGenerator.TONE_DTMF_6)
-                    .put('7', ToneGenerator.TONE_DTMF_7)
-                    .put('8', ToneGenerator.TONE_DTMF_8)
-                    .put('9', ToneGenerator.TONE_DTMF_9)
-                    .put('0', ToneGenerator.TONE_DTMF_0)
-                    .put('#', ToneGenerator.TONE_DTMF_P)
-                    .put('*', ToneGenerator.TONE_DTMF_S)
-                    .build();
-
     /** Generator used to actually play the tone. */
     private ToneGenerator mToneGenerator;
 
@@ -85,8 +66,9 @@ class DtmfLocalTonePlayer extends CallsManagerListenerBase {
             Log.d(this, "playTone: mToneGenerator == null, %c.", c);
         } else {
             Log.d(this, "starting local tone: %c.", c);
-            if (TONE_MAP.containsKey(c)) {
-                mToneGenerator.startTone(TONE_MAP.get(c), -1 /* toneDuration */);
+            int tone = getMappedTone(c);
+            if (tone != ToneGenerator.TONE_UNKNOWN) {
+                mToneGenerator.startTone(tone, -1 /* toneDuration */);
             }
         }
     }
@@ -159,5 +141,16 @@ class DtmfLocalTonePlayer extends CallsManagerListenerBase {
                 mToneGenerator = null;
             }
         }
+    }
+
+    private static final int getMappedTone(char digit) {
+        if (digit >= '0' && digit <= '9') {
+            return ToneGenerator.TONE_DTMF_0 + digit - '0';
+        } else if (digit == '#') {
+            return ToneGenerator.TONE_DTMF_P;
+        } else if (digit == '*') {
+            return ToneGenerator.TONE_DTMF_S;
+        }
+        return ToneGenerator.TONE_UNKNOWN;
     }
 }

@@ -29,7 +29,6 @@ import com.android.exchange.EasResponse;
 import com.android.exchange.adapter.FolderSyncParser;
 import com.android.exchange.adapter.Serializer;
 import com.android.exchange.adapter.Tags;
-import com.android.exchange.service.EasService;
 import com.android.mail.utils.LogUtils;
 
 import org.apache.http.HttpEntity;
@@ -65,17 +64,6 @@ public class EasFolderSync extends EasOperation {
     private Bundle mValidationResult;
 
     /**
-     * Constructor for use with {@link EasService} when performing an actual sync.
-     * @param context
-     * @param accountId
-     */
-    public EasFolderSync(final Context context, final long accountId) {
-        super(context, accountId);
-        mStatusOnly = false;
-        mPolicy = null;
-    }
-
-    /**
      * Constructor for actually doing folder sync.
      * @param context
      * @param account
@@ -86,14 +74,20 @@ public class EasFolderSync extends EasOperation {
         mPolicy = null;
     }
 
+    private static Account makeAccount(final HostAuth hostAuth) {
+        final Account account = new Account();
+        account.mHostAuthRecv = hostAuth;
+        account.mEmailAddress = hostAuth.mLogin;
+        return account;
+    }
+
     /**
      * Constructor for account validation.
      * @param context
      * @param hostAuth
      */
     public EasFolderSync(final Context context, final HostAuth hostAuth) {
-        super(context, -1);
-        setDummyAccount(hostAuth);
+        super(context, makeAccount(hostAuth), hostAuth);
         mStatusOnly = true;
     }
 

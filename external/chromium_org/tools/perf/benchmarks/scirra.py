@@ -10,17 +10,18 @@ represented onscreen when the animation reaches the 30 FPS threshold.
 
 import os
 
-from telemetry import test
-from telemetry.page import page_measurement
+from telemetry import benchmark
 from telemetry.page import page_set
+from telemetry.page import page_test
+from telemetry.value import scalar
 
 
-class _ScirraMeasurement(page_measurement.PageMeasurement):
+class _ScirraMeasurement(page_test.PageTest):
 
   def WillNavigateToPage(self, page, tab):
     page.script_to_evaluate_on_commit = 'window.sprites = 0;'
 
-  def MeasurePage(self, _, tab, results):
+  def ValidateAndMeasurePage(self, _, tab, results):
     object_count = '$objectcount$'
     fps = '$fps$'
     tickcount = '$tickcount$'
@@ -47,10 +48,11 @@ class _ScirraMeasurement(page_measurement.PageMeasurement):
         """ % {'tickcount': tickcount, 'fps': fps, 'object_count': object_count}
     tab.WaitForJavaScriptExpression(js_is_done, 300)
     total = int(tab.EvaluateJavaScript('window.sprites'))
-    results.Add('Count', 'count', total)
+    results.AddValue(scalar.ScalarValue(
+      results.current_page, 'Count', 'count', total))
 
-
-class ScirraBenchmark(test.Test):
+@benchmark.Disabled
+class ScirraBenchmark(benchmark.Benchmark):
   """WebGL and Canvas2D rendering benchmark suite."""
   test = _ScirraMeasurement
   def CreatePageSet(self, options):

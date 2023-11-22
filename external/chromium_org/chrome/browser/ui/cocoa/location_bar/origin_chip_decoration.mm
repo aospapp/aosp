@@ -8,20 +8,17 @@
 #include "base/metrics/user_metrics_action.h"
 #include "base/strings/sys_string_conversions.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/search/search.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/safe_browsing/ui_manager.h"
+#include "chrome/browser/search/search.h"
 #import "chrome/browser/ui/cocoa/location_bar/location_bar_view_mac.h"
 #import "chrome/browser/ui/cocoa/location_bar/location_icon_decoration.h"
 #import "chrome/browser/ui/cocoa/omnibox/omnibox_view_mac.h"
-#import "chrome/browser/ui/cocoa/nsview_additions.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/toolbar/origin_chip_info.h"
 #include "content/public/browser/user_metrics.h"
 #include "extensions/browser/extension_icon_image.h"
 #include "grit/theme_resources.h"
-#include "ui/base/l10n/l10n_util.h"
-#include "ui/base/resource/resource_bundle.h"
+#import "ui/base/cocoa/nsview_additions.h"
 #include "ui/gfx/image/image.h"
 
 namespace {
@@ -82,14 +79,14 @@ OriginChipDecoration::OriginChipDecoration(
   // May not be set for unit tests.
   scoped_refptr<SafeBrowsingService> sb_service =
       g_browser_process->safe_browsing_service();
-  if (sb_service.get() && sb_service->ui_manager())
+  if (sb_service.get() && sb_service->ui_manager().get())
     sb_service->ui_manager()->AddObserver(this);
 }
 
 OriginChipDecoration::~OriginChipDecoration() {
   scoped_refptr<SafeBrowsingService> sb_service =
       g_browser_process->safe_browsing_service();
-  if (sb_service.get() && sb_service->ui_manager())
+  if (sb_service.get() && sb_service->ui_manager().get())
     sb_service->ui_manager()->RemoveObserver(this);
 }
 

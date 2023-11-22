@@ -6,10 +6,11 @@
 #define CHROME_BROWSER_AUTOCOMPLETE_HISTORY_PROVIDER_H_
 
 #include "base/compiler_specific.h"
-#include "chrome/browser/autocomplete/autocomplete_provider.h"
 #include "chrome/browser/history/in_memory_url_index_types.h"
+#include "components/omnibox/autocomplete_provider.h"
 
 class AutocompleteInput;
+class Profile;
 struct AutocompleteMatch;
 
 // This class is a base class for the history autocomplete providers and
@@ -24,9 +25,7 @@ class HistoryProvider : public AutocompleteProvider {
   static bool PreventInlineAutocomplete(const AutocompleteInput& input);
 
  protected:
-  HistoryProvider(AutocompleteProviderListener* listener,
-                  Profile* profile,
-                  AutocompleteProvider::Type type);
+  HistoryProvider(Profile* profile, AutocompleteProvider::Type type);
   virtual ~HistoryProvider();
 
   // Finds and removes the match from the current collection of matches and
@@ -39,6 +38,8 @@ class HistoryProvider : public AutocompleteProvider {
       const history::TermMatches& matches,
       size_t text_length,
       bool is_url);
+
+  Profile* profile_;
 };
 
 #endif  // CHROME_BROWSER_AUTOCOMPLETE_HISTORY_PROVIDER_H_

@@ -7,7 +7,7 @@
 
 #include <string>
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/memory/weak_ptr.h"
 #include "base/values.h"
 #include "net/url_request/url_fetcher.h"
@@ -42,14 +42,18 @@ class PrivetURLFetcher : public net::URLFetcherDelegate {
    public:
     virtual ~Delegate() {}
 
-    // If you do not implement this method, you will always get a
-    // TOKEN_ERROR error when your token is invalid.
+    // If you do not implement this method for PrivetV1 callers, you will always
+    // get a TOKEN_ERROR error when your token is invalid.
     virtual void OnNeedPrivetToken(
         PrivetURLFetcher* fetcher,
         const TokenCallback& callback);
+
+    // If this returns the empty string, will not send an auth token.
+    virtual std::string GetAuthToken();
+
     virtual void OnError(PrivetURLFetcher* fetcher, ErrorType error) = 0;
     virtual void OnParsedJson(PrivetURLFetcher* fetcher,
-                              const base::DictionaryValue* value,
+                              const base::DictionaryValue& value,
                               bool has_error) = 0;
 
     // If this method is returns true, the data will not be parsed as JSON, and
@@ -69,6 +73,9 @@ class PrivetURLFetcher : public net::URLFetcherDelegate {
 
   virtual ~PrivetURLFetcher();
 
+  // net::URLFetcherDelegate methods.
+  virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
+
   static void SetTokenForHost(const std::string& host,
                               const std::string& token);
 
@@ -77,6 +84,8 @@ class PrivetURLFetcher : public net::URLFetcherDelegate {
   void DoNotRetryOnTransientError();
 
   void SendEmptyPrivetToken();
+
+  void V3Mode();
 
   // Set the contents of the Range header. |OnRawData| must return true if this
   // is called.
@@ -94,14 +103,13 @@ class PrivetURLFetcher : public net::URLFetcherDelegate {
   void SetUploadFilePath(const std::string& upload_content_type,
                          const base::FilePath& upload_file_path);
 
-  virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
-  void OnURLFetchCompleteParseData(const net::URLFetcher* source);
-  bool OnURLFetchCompleteDoNotParseData(const net::URLFetcher* source);
-
   const GURL& url() const { return url_fetcher_->GetOriginalURL(); }
   int response_code() const { return url_fetcher_->GetResponseCode(); }
 
  private:
+  void OnURLFetchCompleteParseData(const net::URLFetcher* source);
+  bool OnURLFetchCompleteDoNotParseData(const net::URLFetcher* source);
+
   std::string GetHostString();  // Get string representing the host.
   std::string GetPrivetAccessToken();
   void Try();
@@ -119,6 +127,7 @@ class PrivetURLFetcher : public net::URLFetcherDelegate {
   bool send_empty_privet_token_;
   bool has_byte_range_;
   bool make_response_file_;
+  bool v3_mode_;
 
   int byte_range_start_;
   int byte_range_end_;

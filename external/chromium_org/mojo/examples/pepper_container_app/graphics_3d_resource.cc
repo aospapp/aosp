@@ -8,6 +8,7 @@
 #include "mojo/examples/pepper_container_app/mojo_ppapi_globals.h"
 #include "mojo/examples/pepper_container_app/plugin_instance.h"
 #include "mojo/public/c/gles2/gles2.h"
+#include "mojo/public/cpp/environment/environment.h"
 #include "ppapi/c/pp_errors.h"
 
 namespace mojo {
@@ -28,8 +29,8 @@ Graphics3DResource::Graphics3DResource(PP_Instance instance)
   ScopedMessagePipeHandle pipe = MojoPpapiGlobals::Get()->CreateGLES2Context();
   context_ = MojoGLES2CreateContext(pipe.release().value(),
                                     &ContextLostThunk,
-                                    &DrawAnimationFrameThunk,
-                                    this);
+                                    this,
+                                    Environment::GetDefaultAsyncWaiter());
 }
 
 bool Graphics3DResource::IsBoundGraphics() const {
@@ -137,16 +138,21 @@ uint32_t Graphics3DResource::InsertSyncPoint() {
   return 0;
 }
 
+uint32_t Graphics3DResource::InsertFutureSyncPoint() {
+  NOTIMPLEMENTED();
+  return 0;
+}
+
+void Graphics3DResource::RetireSyncPoint(uint32_t sync_point) {
+  NOTIMPLEMENTED();
+}
+
 Graphics3DResource::~Graphics3DResource() {
   MojoGLES2DestroyContext(context_);
 }
 
 void Graphics3DResource::ContextLostThunk(void* closure) {
   static_cast<Graphics3DResource*>(closure)->ContextLost();
-}
-
-void Graphics3DResource::DrawAnimationFrameThunk(void* closure) {
-  // TODO(yzshen): Use this notification to drive the SwapBuffers() callback.
 }
 
 void Graphics3DResource::ContextLost() {

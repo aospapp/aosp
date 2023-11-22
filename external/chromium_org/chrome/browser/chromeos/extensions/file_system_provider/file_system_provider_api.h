@@ -30,6 +30,16 @@ class FileSystemProviderUnmountFunction : public ChromeSyncExtensionFunction {
   virtual bool RunSync() OVERRIDE;
 };
 
+class FileSystemProviderGetAllFunction : public ChromeSyncExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("fileSystemProvider.getAll",
+                             FILESYSTEMPROVIDER_GETALL)
+
+ protected:
+  virtual ~FileSystemProviderGetAllFunction() {}
+  virtual bool RunSync() OVERRIDE;
+};
+
 class FileSystemProviderInternalUnmountRequestedSuccessFunction
     : public FileSystemProviderInternalFunction {
  public:
@@ -39,18 +49,6 @@ class FileSystemProviderInternalUnmountRequestedSuccessFunction
 
  protected:
   virtual ~FileSystemProviderInternalUnmountRequestedSuccessFunction() {}
-  virtual bool RunWhenValid() OVERRIDE;
-};
-
-class FileSystemProviderInternalUnmountRequestedErrorFunction
-    : public FileSystemProviderInternalFunction {
- public:
-  DECLARE_EXTENSION_FUNCTION(
-      "fileSystemProviderInternal.unmountRequestedError",
-      FILESYSTEMPROVIDERINTERNAL_GETMETADATAREQUESTEDERROR)
-
- protected:
-  virtual ~FileSystemProviderInternalUnmountRequestedErrorFunction() {}
   virtual bool RunWhenValid() OVERRIDE;
 };
 
@@ -66,18 +64,6 @@ class FileSystemProviderInternalGetMetadataRequestedSuccessFunction
   virtual bool RunWhenValid() OVERRIDE;
 };
 
-class FileSystemProviderInternalGetMetadataRequestedErrorFunction
-    : public FileSystemProviderInternalFunction {
- public:
-  DECLARE_EXTENSION_FUNCTION(
-      "fileSystemProviderInternal.getMetadataRequestedError",
-      FILESYSTEMPROVIDERINTERNAL_GETMETADATAREQUESTEDERROR)
-
- protected:
-  virtual ~FileSystemProviderInternalGetMetadataRequestedErrorFunction() {}
-  virtual bool RunWhenValid() OVERRIDE;
-};
-
 class FileSystemProviderInternalReadDirectoryRequestedSuccessFunction
     : public FileSystemProviderInternalFunction {
  public:
@@ -87,66 +73,6 @@ class FileSystemProviderInternalReadDirectoryRequestedSuccessFunction
 
  protected:
   virtual ~FileSystemProviderInternalReadDirectoryRequestedSuccessFunction() {}
-  virtual bool RunWhenValid() OVERRIDE;
-};
-
-class FileSystemProviderInternalReadDirectoryRequestedErrorFunction
-    : public FileSystemProviderInternalFunction {
- public:
-  DECLARE_EXTENSION_FUNCTION(
-      "fileSystemProviderInternal.readDirectoryRequestedError",
-      FILESYSTEMPROVIDERINTERNAL_READDIRECTORYREQUESTEDERROR)
-
- protected:
-  virtual ~FileSystemProviderInternalReadDirectoryRequestedErrorFunction() {}
-  virtual bool RunWhenValid() OVERRIDE;
-};
-
-class FileSystemProviderInternalOpenFileRequestedSuccessFunction
-    : public FileSystemProviderInternalFunction {
- public:
-  DECLARE_EXTENSION_FUNCTION(
-      "fileSystemProviderInternal.openFileRequestedSuccess",
-      FILESYSTEMPROVIDERINTERNAL_OPENFILEREQUESTEDSUCCESS)
-
- protected:
-  virtual ~FileSystemProviderInternalOpenFileRequestedSuccessFunction() {}
-  virtual bool RunWhenValid() OVERRIDE;
-};
-
-class FileSystemProviderInternalOpenFileRequestedErrorFunction
-    : public FileSystemProviderInternalFunction {
- public:
-  DECLARE_EXTENSION_FUNCTION(
-      "fileSystemProviderInternal.openFileRequestedError",
-      FILESYSTEMPROVIDERINTERNAL_OPENFILEREQUESTEDERROR)
-
- protected:
-  virtual ~FileSystemProviderInternalOpenFileRequestedErrorFunction() {}
-  virtual bool RunWhenValid() OVERRIDE;
-};
-
-class FileSystemProviderInternalCloseFileRequestedSuccessFunction
-    : public FileSystemProviderInternalFunction {
- public:
-  DECLARE_EXTENSION_FUNCTION(
-      "fileSystemProviderInternal.closeFileRequestedSuccess",
-      FILESYSTEMPROVIDERINTERNAL_CLOSEFILEREQUESTEDSUCCESS)
-
- protected:
-  virtual ~FileSystemProviderInternalCloseFileRequestedSuccessFunction() {}
-  virtual bool RunWhenValid() OVERRIDE;
-};
-
-class FileSystemProviderInternalCloseFileRequestedErrorFunction
-    : public FileSystemProviderInternalFunction {
- public:
-  DECLARE_EXTENSION_FUNCTION(
-      "fileSystemProviderInternal.closeFileRequestedError",
-      FILESYSTEMPROVIDERINTERNAL_CLOSEFILEREQUESTEDERROR)
-
- protected:
-  virtual ~FileSystemProviderInternalCloseFileRequestedErrorFunction() {}
   virtual bool RunWhenValid() OVERRIDE;
 };
 
@@ -162,15 +88,27 @@ class FileSystemProviderInternalReadFileRequestedSuccessFunction
   virtual bool RunWhenValid() OVERRIDE;
 };
 
-class FileSystemProviderInternalReadFileRequestedErrorFunction
+class FileSystemProviderInternalOperationRequestedSuccessFunction
     : public FileSystemProviderInternalFunction {
  public:
   DECLARE_EXTENSION_FUNCTION(
-      "fileSystemProviderInternal.readFileRequestedError",
-      FILESYSTEMPROVIDERINTERNAL_READFILEREQUESTEDERROR)
+      "fileSystemProviderInternal.operationRequestedSuccess",
+      FILESYSTEMPROVIDERINTERNAL_OPERATIONREQUESTEDSUCCESS)
 
  protected:
-  virtual ~FileSystemProviderInternalReadFileRequestedErrorFunction() {}
+  virtual ~FileSystemProviderInternalOperationRequestedSuccessFunction() {}
+  virtual bool RunWhenValid() OVERRIDE;
+};
+
+class FileSystemProviderInternalOperationRequestedErrorFunction
+    : public FileSystemProviderInternalFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION(
+      "fileSystemProviderInternal.operationRequestedError",
+      FILESYSTEMPROVIDERINTERNAL_OPERATIONREQUESTEDERROR)
+
+ protected:
+  virtual ~FileSystemProviderInternalOperationRequestedErrorFunction() {}
   virtual bool RunWhenValid() OVERRIDE;
 };
 

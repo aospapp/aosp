@@ -22,13 +22,13 @@
 #include "chrome/browser/google/google_brand.h"
 #include "chrome/browser/omnibox/omnibox_log.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
-#include "chrome/browser/search_engines/template_url.h"
-#include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "components/google/core/browser/google_util.h"
+#include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_service.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/notification_service.h"
@@ -426,7 +426,7 @@ void RLZTracker::Observe(int type,
           content::Details<content::NavigationEntry>(details).ptr();
       if (entry != NULL &&
           ((entry->GetTransitionType() &
-            content::PAGE_TRANSITION_HOME_PAGE) != 0)) {
+            ui::PAGE_TRANSITION_HOME_PAGE) != 0)) {
         RecordFirstSearch(ChromeHomePage());
         registrar_.Remove(this, content::NOTIFICATION_NAV_ENTRY_PENDING,
                           content::NotificationService::AllSources());

@@ -5,7 +5,6 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.os.Bundle;
-import android.os.RemoteException;
 import android.provider.CalendarContract;
 import android.provider.ContactsContract;
 
@@ -31,7 +30,7 @@ public class EasFullSyncOperation extends EasOperation {
     private final static String TAG = LogUtils.TAG;
 
     private final static int RESULT_SUCCESS = 0;
-    private final static int RESULT_SECURITY_HOLD = -100;
+    public final static int RESULT_SECURITY_HOLD = -100;
 
     public static final int SEND_FAILED = 1;
     public static final String MAILBOX_KEY_AND_NOT_SEND_FAILED =
@@ -57,9 +56,9 @@ public class EasFullSyncOperation extends EasOperation {
     final Bundle mSyncExtras;
     Set<String> mAuthsToSync;
 
-    public EasFullSyncOperation(final Context context, final long accountId,
+    public EasFullSyncOperation(final Context context, final Account account,
                                 final Bundle syncExtras) {
-        super(context, accountId);
+        super(context, account);
         mSyncExtras = syncExtras;
     }
 
@@ -95,12 +94,12 @@ public class EasFullSyncOperation extends EasOperation {
 
     @Override
     public int performOperation() {
-        // Make sure the account is loaded if it hasn't already been.
-        if (!init(false)) {
-            LogUtils.i(LOG_TAG, "Failed to initialize %d before operation EasFullSyncOperation",
-                    getAccountId());
+        if (!init()) {
+            LogUtils.i(LOG_TAG, "Failed to initialize %d before sending request for operation %s",
+                    getAccountId(), getCommand());
             return RESULT_INITIALIZATION_FAILURE;
         }
+
         final android.accounts.Account amAccount = new android.accounts.Account(
                 mAccount.mEmailAddress, Eas.EXCHANGE_ACCOUNT_MANAGER_TYPE);
         mAuthsToSync = EasService.getAuthoritiesToSync(amAccount, AUTHORITIES_TO_SYNC);
@@ -148,6 +147,7 @@ public class EasFullSyncOperation extends EasOperation {
 
         // Do not permit further syncs if we're on security hold.
         if ((mAccount.mFlags & Account.FLAGS_SECURITY_HOLD) != 0) {
+            LogUtils.d(TAG, "Account is on security hold %d", mAccount.getId());
             return RESULT_SECURITY_HOLD;
         }
 
@@ -240,31 +240,34 @@ public class EasFullSyncOperation extends EasOperation {
             return EmailServiceStatus.SUCCESS;
         }
 
-        int result = 0;
+        int syncResult = 0;
         // Non-mailbox syncs are whole account syncs initiated by the AccountManager and are
         // treated as background syncs.
         if (mailbox.mType == Mailbox.TYPE_OUTBOX || mailbox.isSyncable()) {
             final ContentValues cv = new ContentValues(2);
-            updateMailbox(mailbox, cv, isUserSync ?
-                    EmailContent.SYNC_STATUS_USER : EmailContent.SYNC_STATUS_BACKGROUND);
+            final int syncStatus = isUserSync ?
+                    EmailContent.SYNC_STATUS_USER : EmailContent.SYNC_STATUS_BACKGROUND;
+            updateMailbox(mailbox, cv, syncStatus);
             try {
                 if (mailbox.mType == Mailbox.TYPE_OUTBOX) {
                     return syncOutbox(mailbox.mId);
                 }
                 if (hasCallbackMethod) {
-                    EmailServiceStatus.syncMailboxStatus(mContext.getContentResolver(), mSyncExtras,
-                            mailbox.mId, EmailServiceStatus.IN_PROGRESS, 0,
+                    final int lastSyncResult = UIProvider.createSyncValue(syncStatus,
                             UIProvider.LastSyncResult.SUCCESS);
+                    EmailServiceStatus.syncMailboxStatus(mContext.getContentResolver(), mSyncExtras,
+                            mailbox.mId, EmailServiceStatus.IN_PROGRESS, 0, lastSyncResult);
                 }
                 final EasSyncBase operation = new EasSyncBase(mContext, mAccount, mailbox);
                 LogUtils.d(TAG, "IEmailService.syncMailbox account %d", mAccount.mId);
-                result = operation.performOperation();
+                syncResult = operation.performOperation();
             } finally {
                 updateMailbox(mailbox, cv, EmailContent.SYNC_STATUS_NONE);
                 if (hasCallbackMethod) {
+                    final int uiSyncResult = translateSyncResultToUiResult(syncResult);
+                    final int lastSyncResult = UIProvider.createSyncValue(syncStatus, uiSyncResult);
                     EmailServiceStatus.syncMailboxStatus(mContext.getContentResolver(), mSyncExtras,
-                            mailbox.mId, EmailServiceStatus.SUCCESS, 0,
-                            EasOperation.translateSyncResultToUiResult(result));
+                            mailbox.mId, EmailServiceStatus.SUCCESS, 0, lastSyncResult);
                 }
             }
         } else {
@@ -272,7 +275,7 @@ public class EasFullSyncOperation extends EasOperation {
             LogUtils.d(TAG, "Skipping sync of non syncable folder");
         }
 
-        return result;
+        return syncResult;
     }
 
     private int syncOutbox(final long mailboxId) {
@@ -304,16 +307,23 @@ public class EasFullSyncOperation extends EasOperation {
                 if (result == EasOutboxSync.RESULT_ITEM_NOT_FOUND) {
                     // This can happen if we are using smartReply, and the message we are referring
                     // to has disappeared from the server. Try again with smartReply disabled.
+                    // This should be a legitimate, but unusual case. Log a warning.
+                    LogUtils.w(TAG, "WARNING: EasOutboxSync falling back from smartReply");
                     op = new EasOutboxSync(mContext, mAccount, message, false);
                     result = op.performOperation();
                 }
                 // If we got some connection error or other fatal error, terminate the sync.
-                // RESULT_NON_FATAL_ERROR
+                // If we get some non-fatal error, continue.
                 if (result != EasOutboxSync.RESULT_OK &&
                         result != EasOutboxSync.RESULT_NON_FATAL_ERROR &&
                         result > EasOutboxSync.RESULT_OP_SPECIFIC_ERROR_RESULT) {
                     LogUtils.w(TAG, "Aborting outbox sync for error %d", result);
                     return result;
+                } else if (result <= EasOutboxSync.RESULT_OP_SPECIFIC_ERROR_RESULT) {
+                    // There are several different conditions that can cause outbox syncing to fail,
+                    // but they shouldn't prevent us from continuing and trying to downsync
+                    // other mailboxes.
+                    LogUtils.i(TAG, "Outbox sync failed with result %d", result);
                 }
             }
         } finally {

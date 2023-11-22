@@ -16,13 +16,11 @@ namespace browser_sync {
 
 ExtensionDataTypeController::ExtensionDataTypeController(
     syncer::ModelType type,
-    SyncApiComponentFactory* sync_factory,
-    Profile* profile,
-    const DisableTypeCallback& disable_callback)
+    sync_driver::SyncApiComponentFactory* sync_factory,
+    Profile* profile)
     : UIDataTypeController(
           BrowserThread::GetMessageLoopProxyForThread(BrowserThread::UI),
           base::Bind(&ChromeReportUnrecoverableError),
-          disable_callback,
           type,
           sync_factory),
       profile_(profile) {

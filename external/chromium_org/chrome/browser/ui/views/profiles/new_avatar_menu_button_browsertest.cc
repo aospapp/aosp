@@ -8,8 +8,8 @@
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profiles_state.h"
-#include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/user_manager.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/profiles/avatar_menu_button.h"
 #include "chrome/browser/ui/views/profiles/new_avatar_button.h"
@@ -22,7 +22,6 @@
 #include "chrome/test/base/testing_browser_process.h"
 #include "components/signin/core/common/profile_management_switches.h"
 #include "content/public/test/test_utils.h"
-#include "grit/generated_resources.h"
 #include "ui/views/controls/button/label_button.h"
 
 class NewAvatarMenuButtonTest : public InProcessBrowserTest {
@@ -48,11 +47,11 @@ NewAvatarMenuButtonTest::~NewAvatarMenuButtonTest() {
 
 void NewAvatarMenuButtonTest::SetUp() {
   InProcessBrowserTest::SetUp();
-  DCHECK(switches::IsNewProfileManagement());
+  DCHECK(switches::IsNewAvatarMenu());
 }
 
 void NewAvatarMenuButtonTest::SetUpCommandLine(CommandLine* command_line) {
-  switches::EnableNewProfileManagementForTesting(command_line);
+  switches::EnableNewAvatarMenuForTesting(command_line);
 }
 
 void NewAvatarMenuButtonTest::CreateTestingProfile() {
@@ -133,9 +132,9 @@ IN_PROC_BROWSER_TEST_F(NewAvatarMenuButtonTest, MAYBE_SignOut) {
   EXPECT_TRUE(browser_list->empty());
 
   // If the User Manager hasn't shown yet, wait for it to show up.
-  if (!UserManagerView::IsShowing())
+  if (!UserManager::IsShowing())
     base::MessageLoop::current()->RunUntilIdle();
 
   // We need to hide the User Manager or else the process can't die.
-  chrome::HideUserManager();
+  UserManager::Hide();
 }

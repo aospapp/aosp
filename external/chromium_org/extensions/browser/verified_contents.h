@@ -46,17 +46,16 @@ class VerifiedContents {
   const std::string& extension_id() const { return extension_id_; }
   const base::Version& version() const { return version_; }
 
-  // This returns a pointer to the binary form of an expected sha256 root hash
-  // for |relative_path| computing using a tree hash algorithm.
-  const std::string* GetTreeHashRoot(const base::FilePath& relative_path);
+  bool HasTreeHashRoot(const base::FilePath& relative_path) const;
+
+  bool TreeHashRootEquals(const base::FilePath& relative_path,
+                          const std::string& expected) const;
 
   // If InitFrom has not been called yet, or was used in "ignore invalid
   // signature" mode, this can return false.
   bool valid_signature() { return valid_signature_; }
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(VerifiedContents);
-
   // Returns the base64url-decoded "payload" field from the json at |path|, if
   // the signature was valid (or ignore_invalid_signature was set to true).
   bool GetPayload(const base::FilePath& path,
@@ -85,8 +84,19 @@ class VerifiedContents {
   std::string extension_id_;
   base::Version version_;
 
-  // The expected treehash root hashes for each file.
-  std::map<base::FilePath, std::string> root_hashes_;
+  // The expected treehash root hashes for each file, lower cased so we can do
+  // case-insensitive lookups.
+  //
+  // We use a multi-map here so that we can do fast lookups of paths from
+  // requests on case-insensitive systems (windows, mac) where the request path
+  // might not have the exact right capitalization, but not break
+  // case-sensitive systems (linux, chromeos). TODO(asargent) - we should give
+  // developers client-side warnings in each of those cases, and have the
+  // webstore reject the cases they can statically detect. See crbug.com/29941
+  typedef std::multimap<base::FilePath::StringType, std::string> RootHashes;
+  RootHashes root_hashes_;
+
+  DISALLOW_COPY_AND_ASSIGN(VerifiedContents);
 };
 
 }  // namespace extensions

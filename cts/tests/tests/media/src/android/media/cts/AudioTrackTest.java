@@ -16,6 +16,7 @@
 
 package android.media.cts;
 
+import android.content.pm.PackageManager;
 import android.cts.util.CtsAndroidTestCase;
 import android.media.AudioFormat;
 import android.media.AudioManager;
@@ -1309,34 +1310,158 @@ public class AudioTrackTest extends CtsAndroidTestCase {
     }
 
     public static byte[] createSoundDataInByteArray(int bufferSamples, final int sampleRate,
-            final double frequency) {
+            final double frequency, double sweep) {
         final double rad = 2 * Math.PI * frequency / sampleRate;
         byte[] vai = new byte[bufferSamples];
+        sweep = Math.PI * sweep / ((double)sampleRate * vai.length);
         for (int j = 0; j < vai.length; j++) {
-            int unsigned =  (int)(Math.sin(j * rad) * Byte.MAX_VALUE) + Byte.MAX_VALUE & 0xFF;
+            int unsigned =  (int)(Math.sin(j * (rad + j * sweep)) * Byte.MAX_VALUE)
+                    + Byte.MAX_VALUE & 0xFF;
             vai[j] = (byte) unsigned;
         }
         return vai;
     }
 
     public static short[] createSoundDataInShortArray(int bufferSamples, final int sampleRate,
-            final double frequency) {
+            final double frequency, double sweep) {
         final double rad = 2 * Math.PI * frequency / sampleRate;
         short[] vai = new short[bufferSamples];
+        sweep = Math.PI * sweep / ((double)sampleRate * vai.length);
         for (int j = 0; j < vai.length; j++) {
-            vai[j] = (short)(Math.sin(j * rad) * Short.MAX_VALUE);
+            vai[j] = (short)(Math.sin(j * (rad + j * sweep)) * Short.MAX_VALUE);
         }
         return vai;
     }
 
     public static float[] createSoundDataInFloatArray(int bufferSamples, final int sampleRate,
-            final double frequency) {
+            final double frequency, double sweep) {
         final double rad = 2 * Math.PI * frequency / sampleRate;
         float[] vaf = new float[bufferSamples];
+        sweep = Math.PI * sweep / ((double)sampleRate * vaf.length);
         for (int j = 0; j < vaf.length; j++) {
-            vaf[j] = (float)(Math.sin(j * rad));
+            vaf[j] = (float)(Math.sin(j * (rad + j * sweep)));
         }
         return vaf;
+    }
+
+    public static byte[] createSoundDataInByteArray(int bufferSamples, final int sampleRate,
+            final double frequency) {
+        return createSoundDataInByteArray(bufferSamples, sampleRate, frequency, 0 /*sweep*/);
+    }
+
+    public static short[] createSoundDataInShortArray(int bufferSamples, final int sampleRate,
+            final double frequency) {
+        return createSoundDataInShortArray(bufferSamples, sampleRate, frequency, 0 /*sweep*/);
+    }
+
+    public static float[] createSoundDataInFloatArray(int bufferSamples, final int sampleRate,
+            final double frequency) {
+        return createSoundDataInFloatArray(bufferSamples, sampleRate, frequency, 0 /*sweep*/);
+    }
+
+    public void testPlayStaticData() throws Exception {
+        // constants for test
+        final String TEST_NAME = "testPlayStaticData";
+        final int TEST_FORMAT_ARRAY[] = {  // 6 chirps repeated (TEST_LOOPS+1) times, 3 times
+                AudioFormat.ENCODING_PCM_8BIT,
+                AudioFormat.ENCODING_PCM_16BIT,
+                AudioFormat.ENCODING_PCM_FLOAT,
+        };
+        final int TEST_SR_ARRAY[] = {
+                12055, // Note multichannel tracks will sound very short at low sample rates
+                48000,
+        };
+        final int TEST_CONF_ARRAY[] = {
+                AudioFormat.CHANNEL_OUT_MONO,    // 1.0
+                AudioFormat.CHANNEL_OUT_STEREO,  // 2.0
+                AudioFormat.CHANNEL_OUT_7POINT1_SURROUND, // 7.1
+        };
+        final int TEST_MODE = AudioTrack.MODE_STATIC;
+        final int TEST_STREAM_TYPE = AudioManager.STREAM_MUSIC;
+        final double TEST_SWEEP = 100;
+        final int TEST_LOOPS = 1;
+
+        for (int TEST_FORMAT : TEST_FORMAT_ARRAY) {
+            double frequency = 400; // frequency changes for each test
+            for (int TEST_SR : TEST_SR_ARRAY) {
+                for (int TEST_CONF : TEST_CONF_ARRAY) {
+                    // -------- initialization --------------
+                    final int seconds = 1;
+                    final int channelCount = Integer.bitCount(TEST_CONF);
+                    final int bufferFrames = seconds * TEST_SR;
+                    final int bufferSamples = bufferFrames * channelCount;
+                    final int bufferSize = bufferSamples
+                            * AudioFormat.getBytesPerSample(TEST_FORMAT);
+                    final double testFrequency = frequency / channelCount;
+                    final long MILLISECONDS_PER_SECOND = 1000;
+                    AudioTrack track = new AudioTrack(TEST_STREAM_TYPE, TEST_SR,
+                            TEST_CONF, TEST_FORMAT, bufferSize, TEST_MODE);
+                    assertEquals(TEST_NAME, track.getState(), AudioTrack.STATE_NO_STATIC_DATA);
+
+                    // -------- test --------------
+
+                    // test setLoopPoints and setPosition can be called here.
+                    assertEquals(TEST_NAME,
+                            track.setPlaybackHeadPosition(bufferFrames/2),
+                            android.media.AudioTrack.SUCCESS);
+                    assertEquals(TEST_NAME,
+                            track.setLoopPoints(
+                                    0 /*startInFrames*/, bufferFrames, 10 /*loopCount*/),
+                            android.media.AudioTrack.SUCCESS);
+                    // only need to write once to the static track
+                    switch (TEST_FORMAT) {
+                    case AudioFormat.ENCODING_PCM_8BIT: {
+                        byte data[] = createSoundDataInByteArray(
+                                bufferSamples, TEST_SR,
+                                testFrequency, TEST_SWEEP);
+                        assertEquals(TEST_NAME,
+                                track.write(data, 0 /*offsetInBytes*/, data.length),
+                                bufferSamples);
+                        } break;
+                    case AudioFormat.ENCODING_PCM_16BIT: {
+                        short data[] = createSoundDataInShortArray(
+                                bufferSamples, TEST_SR,
+                                testFrequency, TEST_SWEEP);
+                        assertEquals(TEST_NAME,
+                                track.write(data, 0 /*offsetInBytes*/, data.length),
+                                bufferSamples);
+                        } break;
+                    case AudioFormat.ENCODING_PCM_FLOAT: {
+                        float data[] = createSoundDataInFloatArray(
+                                bufferSamples, TEST_SR,
+                                testFrequency, TEST_SWEEP);
+                        assertEquals(TEST_NAME,
+                                track.write(data, 0 /*offsetInBytes*/, data.length,
+                                        AudioTrack.WRITE_BLOCKING),
+                                bufferSamples);
+                        } break;
+                    }
+                    assertEquals(TEST_NAME, track.getState(), AudioTrack.STATE_INITIALIZED);
+                    // test setLoopPoints and setPosition can be called here.
+                    assertEquals(TEST_NAME,
+                            track.setPlaybackHeadPosition(0 /*positionInFrames*/),
+                            android.media.AudioTrack.SUCCESS);
+                    assertEquals(TEST_NAME,
+                            track.setLoopPoints(0 /*startInFrames*/, bufferFrames, TEST_LOOPS),
+                            android.media.AudioTrack.SUCCESS);
+
+                    track.play();
+                    Thread.sleep(seconds * MILLISECONDS_PER_SECOND * (TEST_LOOPS + 1));
+                    Thread.sleep(WAIT_MSEC);
+
+                    // Check position after looping. AudioTrack.getPlaybackHeadPosition() returns
+                    // the running count of frames played, not the actual static buffer position.
+                    int position = track.getPlaybackHeadPosition();
+                    assertEquals(TEST_NAME, position, bufferFrames * (TEST_LOOPS + 1));
+
+                    track.stop();
+                    Thread.sleep(WAIT_MSEC);
+                    // -------- tear down --------------
+                    track.release();
+                    frequency += 70; // increment test tone frequency
+                }
+            }
+        }
     }
 
     public void testPlayStreamData() throws Exception {
@@ -1541,7 +1666,16 @@ public class AudioTrackTest extends CtsAndroidTestCase {
         }
     }
 
+    private boolean hasAudioOutput() {
+        return getContext().getPackageManager()
+            .hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT);
+    }
+
     public void testGetTimestamp() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
+        
         // constants for test
         final String TEST_NAME = "testGetTimestamp";
         final int TEST_SR = 22050;

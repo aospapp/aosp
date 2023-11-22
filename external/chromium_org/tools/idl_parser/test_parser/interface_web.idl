@@ -137,3 +137,47 @@ interface MyIFaceSpecials {
   getter double (DOMString property);
   long long [5][6] GetFiveSix(SomeType arg);
 };
+
+/* TREE
+ *Interface(MyIFaceStringifiers)
+ *  Stringifier()
+ *  Stringifier()
+ *    Operation(_unnamed_)
+ *      Arguments()
+ *      Type()
+ *        PrimitiveType(DOMString)
+ *  Stringifier()
+ *    Operation(namedStringifier)
+ *      Arguments()
+ *      Type()
+ *        PrimitiveType(DOMString)
+ *  Stringifier()
+ *    Attribute(stringValue)
+ *      Type()
+ *        PrimitiveType(DOMString)
+ */
+interface MyIFaceStringifiers {
+  stringifier;
+  stringifier DOMString ();
+  stringifier DOMString namedStringifier();
+  stringifier attribute DOMString stringValue;
+};
+
+/* TREE
+ *Interface(MyExtendedAttributeInterface)
+ *  Operation(method)
+ *    Arguments()
+ *    Type()
+ *      PrimitiveType(void)
+ *    ExtAttributes()
+ *      ExtAttribute(Attr)
+ *      ExtAttribute(MethodIdentList)
+ *  ExtAttributes()
+ *    ExtAttribute(MyExtendedAttribute)
+ *    ExtAttribute(MyExtendedIdentListAttribute)
+ */
+[MyExtendedAttribute,
+ MyExtendedIdentListAttribute=(Foo, Bar, Baz)]
+interface MyExtendedAttributeInterface {
+  [Attr, MethodIdentList=(Foo, Bar)] void method();
+};

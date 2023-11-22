@@ -11,8 +11,8 @@
 #include "base/command_line.h"
 #include "base/debug/debugger.h"
 #include "base/debug/stack_trace.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/i18n/icu_util.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
@@ -135,7 +135,6 @@ void TestSuite::InitializeFromCommandLine(int argc, wchar_t** argv) {
 void TestSuite::PreInitialize(bool create_at_exit_manager) {
 #if defined(OS_WIN)
   testing::GTEST_FLAG(catch_exceptions) = false;
-  base::TimeTicks::SetNowIsHighResNowIfSupported();
 #endif
   base::EnableTerminationOnHeapCorruption();
 #if defined(OS_LINUX) && defined(USE_AURA)
@@ -281,6 +280,13 @@ void TestSuite::SuppressErrorDialogs() {
 }
 
 void TestSuite::Initialize() {
+#if !defined(OS_IOS)
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kWaitForDebugger)) {
+    base::debug::WaitForDebugger(60, true);
+  }
+#endif
+
 #if defined(OS_MACOSX) && !defined(OS_IOS)
   // Some of the app unit tests spin runloops.
   mock_cr_app::RegisterMockCrApp();
@@ -331,6 +337,8 @@ void TestSuite::Initialize() {
 #endif  // !defined(OS_IOS)
 
   TestTimeouts::Initialize();
+
+  trace_to_file_.BeginTracingFromCommandLineOptions();
 }
 
 void TestSuite::Shutdown() {

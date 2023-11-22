@@ -19,4 +19,24 @@ LOCAL_MODULE := android-support-multidex-instrumentation
 LOCAL_JAVA_LIBRARIES := android-support-multidex
 LOCAL_SDK_VERSION := 4
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
+
+
+ifneq "" "$(filter eng.%,$(BUILD_NUMBER))"
+  ASMDI_VERSION_NAME_TAG := eng.$(USER)
+else
+  ASMDI_VERSION_NAME_TAG := $(BUILD_NUMBER)
+endif
+
+ASMDI_GIT_VERSION_TAG := `cd $(LOCAL_PATH); git log --format="%H" -n 1`
+
+ASMDI_VERSION_INTERMEDIATE = $(call intermediates-dir-for,JAVA_LIBRARIES,$(LOCAL_MODULE),,COMMON)/$(LOCAL_MODULE).version.txt
+$(ASMDI_VERSION_INTERMEDIATE):
+	$(hide) mkdir -p $(dir $@)
+	$(hide) echo "build.version=$(ASMDI_VERSION_NAME_TAG)" > $@
+	$(hide) echo "build.id=$(BUILD_ID)" >> $@
+	$(hide) echo "git.version=$(ASMDI_GIT_VERSION_TAG)" >> $@
+
+LOCAL_JAVA_RESOURCE_FILES := $(ASMDI_VERSION_INTERMEDIATE)
+
+
 include $(BUILD_STATIC_JAVA_LIBRARY)

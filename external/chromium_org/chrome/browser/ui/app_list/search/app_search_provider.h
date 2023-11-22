@@ -21,6 +21,10 @@ class ExtensionSet;
 
 namespace app_list {
 
+namespace test {
+class AppSearchProviderTest;
+}
+
 class AppSearchProvider : public SearchProvider,
                           public extensions::ExtensionRegistryObserver {
  public:
@@ -36,6 +40,10 @@ class AppSearchProvider : public SearchProvider,
   class App;
   typedef ScopedVector<App> Apps;
 
+  friend test::AppSearchProviderTest;
+
+  void StartImpl(const base::Time& current_time, const base::string16& query);
+
   // Adds extensions to apps container if they should be displayed.
   void AddApps(const extensions::ExtensionSet& extensions);
   void RefreshApps();
@@ -46,7 +54,8 @@ class AppSearchProvider : public SearchProvider,
       const extensions::Extension* extension) OVERRIDE;
   virtual void OnExtensionUninstalled(
       content::BrowserContext* browser_context,
-      const extensions::Extension* extension) OVERRIDE;
+      const extensions::Extension* extension,
+      extensions::UninstallReason reason) OVERRIDE;
 
   Profile* profile_;
   AppListControllerDelegate* list_controller_;

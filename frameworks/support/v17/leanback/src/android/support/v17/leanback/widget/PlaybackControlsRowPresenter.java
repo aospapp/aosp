@@ -116,6 +116,9 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
             ObjectAdapter adapter = primary ?
                     ((PlaybackControlsRow) getRow()).getPrimaryActionsAdapter() :
                             ((PlaybackControlsRow) getRow()).getSecondaryActionsAdapter();
+            if (adapter == null) {
+                return null;
+            }
             if (adapter.getPresenterSelector() instanceof ControlButtonPresenterSelector) {
                 ControlButtonPresenterSelector selector =
                         (ControlButtonPresenterSelector) adapter.getPresenterSelector();
@@ -361,6 +364,7 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
 
         MarginLayoutParams lp = (MarginLayoutParams) vh.mControlsDock.getLayoutParams();
         if (row.getImageDrawable() == null || row.getItem() == null) {
+            vh.mImageView.setImageDrawable(null);
             vh.setBackground(vh.mControlsDock);
             lp.setMarginStart(0);
             lp.setMarginEnd(0);
@@ -411,6 +415,24 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
         super.onRowViewSelected(vh, selected);
         if (selected) {
             ((ViewHolder) vh).dispatchItemSelection();
+        }
+    }
+
+    @Override
+    protected void onRowViewAttachedToWindow(RowPresenter.ViewHolder vh) {
+        super.onRowViewAttachedToWindow(vh);
+        if (mDescriptionPresenter != null) {
+            mDescriptionPresenter.onViewAttachedToWindow(
+                    ((ViewHolder) vh).mDescriptionViewHolder);
+        }
+    }
+
+    @Override
+    protected void onRowViewDetachedFromWindow(RowPresenter.ViewHolder vh) {
+        super.onRowViewDetachedFromWindow(vh);
+        if (mDescriptionPresenter != null) {
+            mDescriptionPresenter.onViewDetachedFromWindow(
+                    ((ViewHolder) vh).mDescriptionViewHolder);
         }
     }
 }

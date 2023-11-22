@@ -5,12 +5,13 @@
 #include "chrome/browser/chromeos/drive/file_system.h"
 
 #include "base/bind.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/prefs/pref_service.h"
 #include "chrome/browser/chromeos/drive/change_list_loader.h"
 #include "chrome/browser/chromeos/drive/directory_loader.h"
 #include "chrome/browser/chromeos/drive/drive.pb.h"
 #include "chrome/browser/chromeos/drive/file_cache.h"
+#include "chrome/browser/chromeos/drive/file_change.h"
 #include "chrome/browser/chromeos/drive/file_system/copy_operation.h"
 #include "chrome/browser/chromeos/drive/file_system/create_directory_operation.h"
 #include "chrome/browser/chromeos/drive/file_system/create_file_operation.h"
@@ -285,14 +286,14 @@ void FileSystem::Reset(const FileOperationCallback& callback) {
   ResetComponents();
 
   base::PostTaskAndReplyWithResult(
-      blocking_task_runner_,
+      blocking_task_runner_.get(),
       FROM_HERE,
       base::Bind(&ResetOnBlockingPool, resource_metadata_, cache_),
       callback);
 }
 
 void FileSystem::ResetComponents() {
-  file_system::OperationObserver* observer = this;
+  file_system::OperationDelegate* delegate = this;
 
   about_resource_loader_.reset(new internal::AboutResourceLoader(scheduler_));
   loader_controller_.reset(new internal::LoaderController);
@@ -314,7 +315,7 @@ void FileSystem::ResetComponents() {
   directory_loader_->AddObserver(this);
 
   sync_client_.reset(new internal::SyncClient(blocking_task_runner_.get(),
-                                              observer,
+                                              delegate,
                                               scheduler_,
                                               resource_metadata_,
                                               cache_,
@@ -322,47 +323,45 @@ void FileSystem::ResetComponents() {
                                               temporary_file_directory_));
 
   copy_operation_.reset(
-      new file_system::CopyOperation(
-          blocking_task_runner_.get(),
-          observer,
-          scheduler_,
-          resource_metadata_,
-          cache_,
-          drive_service_->GetResourceIdCanonicalizer()));
+      new file_system::CopyOperation(blocking_task_runner_.get(),
+                                     delegate,
+                                     scheduler_,
+                                     resource_metadata_,
+                                     cache_));
   create_directory_operation_.reset(new file_system::CreateDirectoryOperation(
-      blocking_task_runner_.get(), observer, resource_metadata_));
+      blocking_task_runner_.get(), delegate, resource_metadata_));
   create_file_operation_.reset(
       new file_system::CreateFileOperation(blocking_task_runner_.get(),
-                                           observer,
+                                           delegate,
                                            resource_metadata_));
   move_operation_.reset(
       new file_system::MoveOperation(blocking_task_runner_.get(),
-                                     observer,
+                                     delegate,
                                      resource_metadata_));
   open_file_operation_.reset(
       new file_system::OpenFileOperation(blocking_task_runner_.get(),
-                                         observer,
+                                         delegate,
                                          scheduler_,
                                          resource_metadata_,
                                          cache_,
                                          temporary_file_directory_));
   remove_operation_.reset(
       new file_system::RemoveOperation(blocking_task_runner_.get(),
-                                       observer,
+                                       delegate,
                                        resource_metadata_,
                                        cache_));
   touch_operation_.reset(new file_system::TouchOperation(
-      blocking_task_runner_.get(), observer, resource_metadata_));
+      blocking_task_runner_.get(), delegate, resource_metadata_));
   truncate_operation_.reset(
       new file_system::TruncateOperation(blocking_task_runner_.get(),
-                                         observer,
+                                         delegate,
                                          scheduler_,
                                          resource_metadata_,
                                          cache_,
                                          temporary_file_directory_));
   download_operation_.reset(
       new file_system::DownloadOperation(blocking_task_runner_.get(),
-                                         observer,
+                                         delegate,
                                          scheduler_,
                                          resource_metadata_,
                                          cache_,
@@ -373,7 +372,7 @@ void FileSystem::ResetComponents() {
   get_file_for_saving_operation_.reset(
       new file_system::GetFileForSavingOperation(logger_,
                                                  blocking_task_runner_.get(),
-                                                 observer,
+                                                 delegate,
                                                  scheduler_,
                                                  resource_metadata_,
                                                  cache_,
@@ -511,7 +510,7 @@ void FileSystem::Pin(const base::FilePath& file_path,
 
   std::string* local_id = new std::string;
   base::PostTaskAndReplyWithResult(
-      blocking_task_runner_,
+      blocking_task_runner_.get(),
       FROM_HERE,
       base::Bind(&PinInternal, resource_metadata_, cache_, file_path, local_id),
       base::Bind(&FileSystem::FinishPin,
@@ -538,13 +537,10 @@ void FileSystem::Unpin(const base::FilePath& file_path,
 
   std::string* local_id = new std::string;
   base::PostTaskAndReplyWithResult(
-      blocking_task_runner_,
+      blocking_task_runner_.get(),
       FROM_HERE,
-      base::Bind(&UnpinInternal,
-                 resource_metadata_,
-                 cache_,
-                 file_path,
-                 local_id),
+      base::Bind(
+          &UnpinInternal, resource_metadata_, cache_, file_path, local_id),
       base::Bind(&FileSystem::FinishUnpin,
                  weak_ptr_factory_.GetWeakPtr(),
                  callback,
@@ -629,7 +625,7 @@ void FileSystem::GetResourceEntryAfterRead(
   scoped_ptr<ResourceEntry> entry(new ResourceEntry);
   ResourceEntry* entry_ptr = entry.get();
   base::PostTaskAndReplyWithResult(
-      blocking_task_runner_,
+      blocking_task_runner_.get(),
       FROM_HERE,
       base::Bind(&GetLocallyStoredResourceEntry,
                  resource_metadata_,
@@ -788,9 +784,11 @@ void FileSystem::SearchMetadata(const std::string& query,
                                   callback);
 }
 
-void FileSystem::OnDirectoryChangedByOperation(
-    const base::FilePath& directory_path) {
-  OnDirectoryChanged(directory_path);
+void FileSystem::OnFileChangedByOperation(const FileChange& changed_files) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  FOR_EACH_OBSERVER(
+      FileSystemObserver, observers_, OnFileChanged(changed_files));
 }
 
 void FileSystem::OnEntryUpdatedByOperation(const std::string& local_id) {
@@ -801,7 +799,7 @@ void FileSystem::OnDriveSyncError(file_system::DriveSyncErrorType type,
                                   const std::string& local_id) {
   base::FilePath* file_path = new base::FilePath;
   base::PostTaskAndReplyWithResult(
-      blocking_task_runner_,
+      blocking_task_runner_.get(),
       FROM_HERE,
       base::Bind(&internal::ResourceMetadata::GetFilePath,
                  base::Unretained(resource_metadata_),
@@ -824,11 +822,23 @@ void FileSystem::OnDriveSyncErrorAfterGetFilePath(
                     OnDriveSyncError(type, *file_path));
 }
 
-void FileSystem::OnDirectoryChanged(const base::FilePath& directory_path) {
+bool FileSystem::WaitForSyncComplete(const std::string& local_id,
+                                     const FileOperationCallback& callback) {
+  return sync_client_->WaitForUpdateTaskToComplete(local_id, callback);
+}
+
+void FileSystem::OnDirectoryReloaded(const base::FilePath& directory_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  FOR_EACH_OBSERVER(FileSystemObserver, observers_,
-                    OnDirectoryChanged(directory_path));
+  FOR_EACH_OBSERVER(
+      FileSystemObserver, observers_, OnDirectoryChanged(directory_path));
+}
+
+void FileSystem::OnFileChanged(const FileChange& changed_files) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  FOR_EACH_OBSERVER(
+      FileSystemObserver, observers_, OnFileChanged(changed_files));
 }
 
 void FileSystem::OnLoadFromServerComplete() {
@@ -861,11 +871,14 @@ void FileSystem::GetMetadata(
 
   int64* largest_changestamp = new int64(0);
   base::PostTaskAndReplyWithResult(
-      blocking_task_runner_,
+      blocking_task_runner_.get(),
       FROM_HERE,
       base::Bind(&internal::ResourceMetadata::GetLargestChangestamp,
-                 base::Unretained(resource_metadata_), largest_changestamp),
-      base::Bind(&OnGetLargestChangestamp, metadata, callback,
+                 base::Unretained(resource_metadata_),
+                 largest_changestamp),
+      base::Bind(&OnGetLargestChangestamp,
+                 metadata,
+                 callback,
                  base::Owned(largest_changestamp)));
 }
 
@@ -877,16 +890,15 @@ void FileSystem::MarkCacheFileAsMounted(
 
   base::FilePath* cache_file_path = new base::FilePath;
   base::PostTaskAndReplyWithResult(
-      blocking_task_runner_,
+      blocking_task_runner_.get(),
       FROM_HERE,
       base::Bind(&MarkCacheFileAsMountedInternal,
                  resource_metadata_,
                  cache_,
                  drive_file_path,
                  cache_file_path),
-      base::Bind(&RunMarkMountedCallback,
-                 callback,
-                 base::Owned(cache_file_path)));
+      base::Bind(
+          &RunMarkMountedCallback, callback, base::Owned(cache_file_path)));
 }
 
 void FileSystem::MarkCacheFileAsUnmounted(
@@ -901,7 +913,7 @@ void FileSystem::MarkCacheFileAsUnmounted(
   }
 
   base::PostTaskAndReplyWithResult(
-      blocking_task_runner_,
+      blocking_task_runner_.get(),
       FROM_HERE,
       base::Bind(&internal::FileCache::MarkAsUnmounted,
                  base::Unretained(cache_),
@@ -970,7 +982,7 @@ void FileSystem::GetPathFromResourceId(const std::string& resource_id,
 
   base::FilePath* const file_path = new base::FilePath();
   base::PostTaskAndReplyWithResult(
-      blocking_task_runner_,
+      blocking_task_runner_.get(),
       FROM_HERE,
       base::Bind(&GetPathFromResourceIdOnBlockingPool,
                  resource_metadata_,

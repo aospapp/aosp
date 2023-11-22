@@ -5,10 +5,11 @@
 #include "extensions/browser/verified_contents.h"
 
 #include "base/base64.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/strings/string_util.h"
 #include "base/values.h"
+#include "components/crx_file/id_util.h"
 #include "crypto/signature_verifier.h"
 #include "extensions/common/extension.h"
 
@@ -131,7 +132,7 @@ bool VerifiedContents::InitFrom(const base::FilePath& path,
 
   std::string item_id;
   if (!dictionary->GetString(kItemIdKey, &item_id) ||
-      !Extension::IdIsValid(item_id))
+      !crx_file::id_util::IdIsValid(item_id))
     return false;
   extension_id_ = item_id;
 
@@ -185,11 +186,9 @@ bool VerifiedContents::InitFrom(const base::FilePath& path,
         return false;
       base::FilePath file_path =
           base::FilePath::FromUTF8Unsafe(file_path_string);
-#if defined(FILE_PATH_USES_WIN_SEPARATORS)
-      file_path = file_path.NormalizePathSeparators();
-#endif  // defined(FILE_PATH_USES_WIN_SEPARATORS)
-      root_hashes_[file_path] = std::string();
-      root_hashes_[file_path].swap(root_hash);
+      RootHashes::iterator i = root_hashes_.insert(std::make_pair(
+          base::StringToLowerASCII(file_path.value()), std::string()));
+      i->second.swap(root_hash);
     }
 
     break;
@@ -197,13 +196,24 @@ bool VerifiedContents::InitFrom(const base::FilePath& path,
   return true;
 }
 
-const std::string* VerifiedContents::GetTreeHashRoot(
-    const base::FilePath& relative_path) {
-  std::map<base::FilePath, std::string>::const_iterator i =
-      root_hashes_.find(relative_path);
-  if (i == root_hashes_.end())
-    return NULL;
-  return &i->second;
+bool VerifiedContents::HasTreeHashRoot(
+    const base::FilePath& relative_path) const {
+  base::FilePath::StringType path = base::StringToLowerASCII(
+      relative_path.NormalizePathSeparatorsTo('/').value());
+  return root_hashes_.find(path) != root_hashes_.end();
+}
+
+bool VerifiedContents::TreeHashRootEquals(const base::FilePath& relative_path,
+                                          const std::string& expected) const {
+  base::FilePath::StringType path = base::StringToLowerASCII(
+      relative_path.NormalizePathSeparatorsTo('/').value());
+  for (RootHashes::const_iterator i = root_hashes_.find(path);
+       i != root_hashes_.end();
+       ++i) {
+    if (expected == i->second)
+      return true;
+  }
+  return false;
 }
 
 // We're loosely following the "JSON Web Signature" draft spec for signing

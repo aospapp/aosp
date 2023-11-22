@@ -24,8 +24,8 @@
 #include "chrome/browser/profile_resetter/automatic_profile_resetter_delegate.h"
 #include "chrome/browser/profile_resetter/jtl_interpreter.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "components/search_engines/template_url_service.h"
 #include "components/variations/variations_associated_data.h"
 #include "content/public/browser/browser_thread.h"
 #include "grit/browser_resources.h"
@@ -106,8 +106,7 @@ bool GetProgramAndHashSeedOverridesFromExperiment(std::string* program,
   DCHECK(hash_seed);
 #if defined(GOOGLE_CHROME_BUILD)
   std::map<std::string, std::string> params;
-  chrome_variations::GetVariationParams(kAutomaticProfileResetStudyName,
-                                        &params);
+  variations::GetVariationParams(kAutomaticProfileResetStudyName, &params);
   if (params.count(kAutomaticProfileResetStudyProgramParameterName) &&
       params.count(kAutomaticProfileResetStudyHashSeedParameterName)) {
     program->swap(params[kAutomaticProfileResetStudyProgramParameterName]);

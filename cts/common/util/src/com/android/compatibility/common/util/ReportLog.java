@@ -16,6 +16,9 @@
 
 package com.android.compatibility.common.util;
 
+import org.xmlpull.v1.XmlSerializer;
+
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,8 +31,8 @@ public abstract class ReportLog implements Serializable {
     private Result mSummary;
     private final List<Result> mDetails = new ArrayList<Result>();
 
-    private class Result implements Serializable {
-        private static final int BASE_DEPTH = 2;// 0:constructor, 1:addValues/setSummary, 2:caller
+    class Result implements Serializable {
+        private static final int CALLER_STACKTRACE_DEPTH = 5;
         private String mLocation;
         private String mMessage;
         private double[] mValues;
@@ -53,15 +56,35 @@ public abstract class ReportLog implements Serializable {
         private Result(String message, double[] values, ResultType type,
                 ResultUnit unit, int depth) {
             final StackTraceElement[] trace = Thread.currentThread().getStackTrace();
-            final StackTraceElement e = trace[Math.min(BASE_DEPTH + depth, trace.length - 1)];
-            mLocation = String.format("%s#%s:%d",
-                    e.getClassName(), e.getMethodName(), e.getLineNumber());
+            final StackTraceElement e =
+                    trace[Math.min(CALLER_STACKTRACE_DEPTH + depth, trace.length - 1)];
+            mLocation = String.format(
+                    "%s#%s:%d", e.getClassName(), e.getMethodName(), e.getLineNumber());
             mMessage = message;
             mValues = values;
             mType = type;
             mUnit = unit;
         }
 
+        public String getLocation() {
+            return mLocation;
+        }
+
+        public String getMessage() {
+            return mMessage;
+        }
+
+        public double[] getValues() {
+            return mValues;
+        }
+
+        public ResultType getType() {
+            return mType;
+        }
+
+        public ResultUnit getUnit() {
+            return mUnit;
+        }
     }
 
     /**
@@ -107,5 +130,13 @@ public abstract class ReportLog implements Serializable {
     public void setSummary(String message, double value, ResultType type,
             ResultUnit unit, int depth) {
         mSummary = new Result(message, new double[] {value}, type, unit, depth);
+    }
+
+    public Result getSummary() {
+        return mSummary;
+    }
+
+    public List<Result> getDetailedMetrics() {
+        return new ArrayList<Result>(mDetails);
     }
 }

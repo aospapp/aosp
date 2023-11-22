@@ -132,11 +132,12 @@ public class UsageStatsTest extends InstrumentationTestCase {
                 Activities.ActivityThree.class,
         };
 
+        final long startTime = System.currentTimeMillis() - MINUTE;
+
         // Launch the series of Activities.
         launchSubActivities(activitySequence);
 
         final long endTime = System.currentTimeMillis();
-        final long startTime = endTime - DAY;
         UsageEvents events = mUsageStatsManager.queryEvents(startTime, endTime);
 
         // Consume all the events.
@@ -147,15 +148,26 @@ public class UsageStatsTest extends InstrumentationTestCase {
             eventList.add(event);
         }
 
+        // Find the last Activity's MOVE_TO_FOREGROUND event.
+        int end = eventList.size();
+        while (end > 0) {
+            UsageEvents.Event event = eventList.get(end - 1);
+            if (event.getClassName().equals(activitySequence[activitySequence.length - 1].getName())
+                    && event.getEventType() == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                break;
+            }
+            end--;
+        }
+
         // We expect 2 events per Activity launched (foreground + background)
         // except for the last Activity, which was in the foreground when
         // we queried the event log.
-        assertTrue(eventList.size() >= (activitySequence.length * 2) - 1);
-        final int offset = eventList.size() - ((activitySequence.length * 2) - 1);
+        final int start = end - ((activitySequence.length * 2) - 1);
+        assertTrue("Not enough events", start >= 0);
 
         final int activityCount = activitySequence.length;
         for (int i = 0; i < activityCount; i++) {
-            int index = offset + (i * 2);
+            final int index = start + (i * 2);
 
             // Check for foreground event.
             UsageEvents.Event event = eventList.get(index);
@@ -163,10 +175,10 @@ public class UsageStatsTest extends InstrumentationTestCase {
             assertEquals(activitySequence[i].getName(), event.getClassName());
             assertEquals(UsageEvents.Event.MOVE_TO_FOREGROUND, event.getEventType());
 
-            index += 1;
+            // Only check for the background event if this is not the
+            // last activity.
             if (i < activityCount - 1) {
-                // Check for background event.
-                event = eventList.get(index);
+                event = eventList.get(index + 1);
                 assertEquals(mTargetPackage, event.getPackageName());
                 assertEquals(activitySequence[i].getName(), event.getClassName());
                 assertEquals(UsageEvents.Event.MOVE_TO_BACKGROUND, event.getEventType());
@@ -182,6 +194,7 @@ public class UsageStatsTest extends InstrumentationTestCase {
     @Ignore
     public void ignore_testStatsAreShiftedInTimeWhenSystemTimeChanges() throws Exception {
         launchSubActivity(Activities.ActivityOne.class);
+        launchSubActivity(Activities.ActivityThree.class);
 
         long endTime = System.currentTimeMillis();
         long startTime = endTime - MINUTE;
@@ -214,18 +227,19 @@ public class UsageStatsTest extends InstrumentationTestCase {
     }
 
     public void testUsageEventsParceling() throws Exception {
-        final long startTime = System.currentTimeMillis();
+        final long startTime = System.currentTimeMillis() - MINUTE;
 
+        // Ensure some data is in the UsageStats log.
         @SuppressWarnings("unchecked")
         Class<? extends Activity>[] activityClasses = new Class[] {
+                Activities.ActivityTwo.class,
                 Activities.ActivityOne.class,
                 Activities.ActivityThree.class,
-                Activities.ActivityTwo.class,
         };
         launchSubActivities(activityClasses);
 
         final long endTime = System.currentTimeMillis();
-        UsageEvents events = mUsageStatsManager.queryEvents(startTime - TIME_DIFF_THRESHOLD, endTime);
+        UsageEvents events = mUsageStatsManager.queryEvents(startTime, endTime);
         assertTrue(events.getNextEvent(new UsageEvents.Event()));
 
         Parcel p = Parcel.obtain();
@@ -255,6 +269,7 @@ public class UsageStatsTest extends InstrumentationTestCase {
 
         // Launch an Activity.
         launchSubActivity(Activities.ActivityFour.class);
+        launchSubActivity(Activities.ActivityThree.class);
 
         final long endTime = System.currentTimeMillis();
 
@@ -287,10 +302,12 @@ public class UsageStatsTest extends InstrumentationTestCase {
     }
 
     public void testNoAccessSilentlyFails() throws Exception {
+        final long startTime = System.currentTimeMillis() - MINUTE;
+
         launchSubActivity(Activities.ActivityOne.class);
+        launchSubActivity(Activities.ActivityThree.class);
 
         final long endTime = System.currentTimeMillis();
-        final long startTime = endTime - MINUTE;
         List<UsageStats> stats = mUsageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_BEST,
                 startTime, endTime);
         assertFalse(stats.isEmpty());

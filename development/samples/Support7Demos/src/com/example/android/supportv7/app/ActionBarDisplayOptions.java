@@ -15,6 +15,8 @@
  */
 package com.example.android.supportv7.app;
 
+import com.example.android.supportv7.R;
+
 import android.os.Bundle;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.ActionBar;
@@ -24,8 +26,8 @@ import android.view.Gravity;
 import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
-
-import com.example.android.supportv7.R;
+import android.widget.ArrayAdapter;
+import android.widget.Toast;
 
 /**
  * This demo shows how various action bar display option flags can be combined and their effects.
@@ -59,6 +61,21 @@ public class ActionBarDisplayOptions extends ActionBarActivity
         bar.addTab(bar.newTab().setText("Tab 1").setTabListener(this));
         bar.addTab(bar.newTab().setText("Tab 2").setTabListener(this));
         bar.addTab(bar.newTab().setText("Tab 3").setTabListener(this));
+
+        final ArrayAdapter<String> listAdapter = new ArrayAdapter<String>(bar.getThemedContext(),
+                R.layout.support_simple_spinner_dropdown_item,
+                new String[] { "Item 1", "Item 2", "Item 3" });
+        bar.setListNavigationCallbacks(listAdapter, new ActionBar.OnNavigationListener() {
+            @Override
+            public boolean onNavigationItemSelected(int itemPosition, long itemId) {
+                Toast.makeText(ActionBarDisplayOptions.this,
+                        listAdapter.getItem(itemPosition),
+                        Toast.LENGTH_SHORT).show();
+                return true;
+            }
+        });
+
+        bar.setLogo(R.drawable.ic_media_play);
     }
 
     @Override
@@ -94,10 +111,17 @@ public class ActionBarDisplayOptions extends ActionBarActivity
                 flags = ActionBar.DISPLAY_SHOW_CUSTOM;
                 break;
             case R.id.toggle_navigation:
-                bar.setNavigationMode(
-                        bar.getNavigationMode() == ActionBar.NAVIGATION_MODE_STANDARD
-                                ? ActionBar.NAVIGATION_MODE_TABS
-                                : ActionBar.NAVIGATION_MODE_STANDARD);
+                switch (bar.getNavigationMode()) {
+                    case ActionBar.NAVIGATION_MODE_STANDARD:
+                        bar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
+                        break;
+                    case ActionBar.NAVIGATION_MODE_TABS:
+                        bar.setNavigationMode(ActionBar.NAVIGATION_MODE_LIST);
+                        break;
+                    case ActionBar.NAVIGATION_MODE_LIST:
+                        bar.setNavigationMode(ActionBar.NAVIGATION_MODE_STANDARD);
+                        break;
+                }
                 return;
             case R.id.cycle_custom_gravity: {
                 ActionBar.LayoutParams lp = mCustomViewLayoutParams;

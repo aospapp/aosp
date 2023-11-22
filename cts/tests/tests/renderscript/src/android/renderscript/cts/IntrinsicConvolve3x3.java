@@ -24,10 +24,16 @@ public class IntrinsicConvolve3x3 extends IntrinsicBase {
         float cf1[] = {0.f, 0.f, 0.f,  0.f, 1.f, 0.f,  0.f, 0.f, 0.f};
         float cf2[] = {0.f, -1.f, 0.f,  -1.f, 5.f, -1.f,  0.f, -1.f, 0.f};
 
+        float irCoeff1 = 3.1415927f;
+        float irCoeff2 = -irCoeff1;
+        float cf3[] = {0.f, irCoeff1, 0.f,  irCoeff2, 1.f, irCoeff2,  0.f, irCoeff1, 0.f};
+
         Element e = makeElement(dt, vecSize);
 
         System.gc();
         makeBuffers(w, h, e);
+
+        mVerify.set_gAllowedIntError(1);
 
         ScriptIntrinsicConvolve3x3 si = ScriptIntrinsicConvolve3x3.create(mRS, e);
         si.setCoefficients(cf1);
@@ -116,6 +122,44 @@ public class IntrinsicConvolve3x3 extends IntrinsicBase {
         }
         //android.util.Log.e("RSI test", "test convolve U8_" + vecSize + " 2 " + w + ", " + h);
         mVerify.invoke_verify(mAllocRef, mAllocDst, mAllocSrc);
+
+        si.setCoefficients(cf3);
+        sr.set_gCoeffs(cf3);
+        si.forEach(mAllocRef, sc);
+        if (dt == Element.DataType.UNSIGNED_8) {
+            switch(vecSize) {
+            case 4:
+                sr.forEach_convolve_U4(mAllocDst, sc);
+                break;
+            case 3:
+                sr.forEach_convolve_U3(mAllocDst, sc);
+                break;
+            case 2:
+                sr.forEach_convolve_U2(mAllocDst, sc);
+                break;
+            case 1:
+                sr.forEach_convolve_U1(mAllocDst, sc);
+                break;
+            }
+        } else {
+            switch(vecSize) {
+            case 4:
+                sr.forEach_convolve_F4(mAllocDst, sc);
+                break;
+            case 3:
+                sr.forEach_convolve_F3(mAllocDst, sc);
+                break;
+            case 2:
+                sr.forEach_convolve_F2(mAllocDst, sc);
+                break;
+            case 1:
+                sr.forEach_convolve_F1(mAllocDst, sc);
+                break;
+            }
+        }
+        //android.util.Log.e("RSI test", "test convolve U8_" + vecSize + " 2 " + w + ", " + h);
+        mVerify.invoke_verify(mAllocRef, mAllocDst, mAllocSrc);
+
         mRS.finish();
     }
 

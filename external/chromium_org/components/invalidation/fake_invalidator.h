@@ -9,9 +9,9 @@
 
 #include "base/callback_forward.h"
 #include "base/compiler_specific.h"
+#include "components/invalidation/invalidation_util.h"
+#include "components/invalidation/invalidator.h"
 #include "components/invalidation/invalidator_registrar.h"
-#include "sync/notifier/invalidation_util.h"
-#include "sync/notifier/invalidator.h"
 
 namespace syncer {
 

@@ -5,13 +5,11 @@
 #ifndef MOJO_PUBLIC_CPP_BINDINGS_STRING_H_
 #define MOJO_PUBLIC_CPP_BINDINGS_STRING_H_
 
-#include <assert.h>
-
 #include <string>
 
 #include "mojo/public/cpp/bindings/lib/array_internal.h"
 #include "mojo/public/cpp/bindings/type_converter.h"
-#include "mojo/public/cpp/system/macros.h"
+#include "mojo/public/cpp/environment/logging.h"
 
 namespace mojo {
 
@@ -34,12 +32,12 @@ class String {
 
   template <typename U>
   static String From(const U& other) {
-    return TypeConverter<String, U>::ConvertFrom(other);
+    return TypeConverter<String, U>::Convert(other);
   }
 
   template <typename U>
   U To() const {
-    return TypeConverter<String, U>::ConvertTo(*this);
+    return TypeConverter<U, String>::Convert(*this);
   }
 
   String& operator=(const std::string& str) {
@@ -108,45 +106,43 @@ inline bool operator!=(const String& a, const String& b) { return !(a == b); }
 inline bool operator!=(const char* a, const String& b) { return !(a == b); }
 inline bool operator!=(const String& a, const char* b) { return !(a == b); }
 
+inline std::ostream& operator<<(std::ostream& out, const String& s) {
+  return out << s.get();
+}
+
 // TODO(darin): Add similar variants of operator<,<=,>,>=
 
 template <>
-class TypeConverter<String, std::string> {
- public:
-  static String ConvertFrom(const std::string& input) {
-    return String(input);
-  }
-  static std::string ConvertTo(const String& input) {
-    return input;
-  }
+struct TypeConverter<String, std::string> {
+  static String Convert(const std::string& input) { return String(input); }
+};
+
+template <>
+struct TypeConverter<std::string, String> {
+  static std::string Convert(const String& input) { return input; }
 };
 
 template <size_t N>
-class TypeConverter<String, char[N]> {
- public:
-  static String ConvertFrom(const char input[N]) {
-    assert(input);
+struct TypeConverter<String, char[N]> {
+  static String Convert(const char input[N]) {
+    MOJO_DCHECK(input);
     return String(input, N-1);
   }
 };
 
 // Appease MSVC.
 template <size_t N>
-class TypeConverter<String, const char[N]> {
- public:
-  static String ConvertFrom(const char input[N]) {
-    assert(input);
+struct TypeConverter<String, const char[N]> {
+  static String Convert(const char input[N]) {
+    MOJO_DCHECK(input);
     return String(input, N-1);
   }
 };
 
 template <>
-class TypeConverter<String, const char*> {
- public:
+struct TypeConverter<String, const char*> {
   // |input| may be null, in which case a null String will be returned.
-  static String ConvertFrom(const char* input) {
-    return String(input);
-  }
+  static String Convert(const char* input) { return String(input); }
 };
 
 }  // namespace mojo

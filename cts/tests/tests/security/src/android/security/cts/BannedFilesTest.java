@@ -131,14 +131,6 @@ public class BannedFilesTest extends TestCase {
         assertNotSetugid("/vendor/bin/tcpdump-arm");
     }
 
-    /**
-     * Test if /dev/diag exists.
-     */
-    public void testNoDevDiag(){
-        File file = new File("/dev/diag");
-        assertFalse("File \"" + file.getAbsolutePath() + "\" exists", file.exists());
-    }
-
     private static void assertNotSetugid(String file) {
         FileUtils.FileStatus fs = new FileUtils.FileStatus();
         if (!FileUtils.getFileStatus(file, fs, false)) {

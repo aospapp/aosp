@@ -20,62 +20,44 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_height="wrap_content"
     android:layout_width="match_parent"
+    android:background="@drawable/folder_item"
+    android:gravity="center_vertical"
     android:minHeight="@dimen/folder_list_item_minimum_height"
-    android:background="@drawable/folder_item">
+    style="@style/FolderListItemEndStyle">
 
-    <ImageView
-        android:id="@+id/folder_parent_icon"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
+    <View
+        android:id="@+id/nested_folder_space"
         android:visibility="gone"
-        android:src="@drawable/folder_parent_icon"
-        style="@style/FolderParentIconStyle" />
-
-    <FrameLayout
-        android:id="@+id/message_counts"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_centerVertical="true"
-        android:duplicateParentState="true"
-        style="@style/FolderListItemEndStyle" >
-
-        <TextView
-            android:id="@+id/unread"
-            android:duplicateParentState="true"
-            style="@style/UnreadCountRelativeLayout" />
-
-        <TextView
-            android:id="@+id/unseen"
-            style="@style/UnseenCount" />
-
-    </FrameLayout>
+        android:layout_width="@dimen/nested_folder_space"
+        android:layout_height="wrap_content" />
 
     <ImageView
         android:id="@+id/folder_icon"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_centerVertical="true"
-        android:duplicateParentState="true"
         style="@style/FolderListIconStyle" />
 
     <TextView
         android:id="@+id/name"
         android:layout_height="wrap_content"
-        android:layout_width="wrap_content"
-        android:layout_centerVertical="true"
-        android:layout_toEndOf="@id/folder_icon"
-        android:layout_toRightOf="@id/folder_icon"
-        android:layout_toStartOf="@id/message_counts"
-        android:layout_toLeftOf="@id/message_counts"
-        android:layout_alignWithParentIfMissing="true"
-        android:duplicateParentState="true"
-        android:includeFontPadding="false"
+        android:layout_width="0dp"
+        android:layout_weight="1"
         android:maxLines="2"
         android:ellipsize="end"
         android:textAlignment="viewStart"
-        android:textColor="@color/folder_item_text_color"
+        android:textColor="@color/text_color_black"
         android:textSize="@dimen/drawer_item_font_size"
         style="@style/FolderListItemStyle" />
+
+    <TextView
+        android:id="@+id/unread"
+        style="@style/DrawerUnreadCount" />
+
+    <TextView
+        android:id="@+id/unseen"
+        android:includeFontPadding="false"
+        android:paddingTop="5dp"
+        android:paddingBottom="5dp"
+        style="@style/UnseenCount" />
 
 </com.android.mail.ui.FolderItemView>

@@ -29,13 +29,12 @@ def _DidTestSucceed(tab):
 
 class _GpuRasterizationValidator(cloud_storage_test_base.ValidatorBase):
   def CustomizeBrowserOptions(self, options):
-    options.AppendExtraBrowserArgs(['--force-compositing-mode',
-                                    '--enable-threaded-compositing',
+    options.AppendExtraBrowserArgs(['--enable-threaded-compositing',
                                     '--enable-impl-side-painting',
                                     '--force-gpu-rasterization',
                                     '--enable-gpu-benchmarking'])
 
-  def ValidatePage(self, page, tab, results):
+  def ValidateAndMeasurePage(self, page, tab, results):
     if not _DidTestSucceed(tab):
       raise page_test.Failure('Page indicated a failure')
 
@@ -66,10 +65,9 @@ class _GpuRasterizationValidator(cloud_storage_test_base.ValidatorBase):
 class GpuRasterization(cloud_storage_test_base.TestBase):
   """Tests that GPU rasterization produces valid content"""
   test = _GpuRasterizationValidator
-  page_set = page_sets.GpuRasterizationTestsPageSet
 
   def CreatePageSet(self, options):
-    page_set = super(GpuRasterization, self).CreatePageSet(options)
+    page_set = page_sets.GpuRasterizationTestsPageSet()
     for page in page_set.pages:
       page.script_to_evaluate_on_commit = test_harness_script
     return page_set

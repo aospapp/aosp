@@ -39,7 +39,8 @@ class CC_EXPORT HeadsUpDisplayLayerImpl : public LayerImpl {
 
   virtual bool WillDraw(DrawMode draw_mode,
                         ResourceProvider* resource_provider) OVERRIDE;
-  virtual void AppendQuads(QuadSink* quad_sink,
+  virtual void AppendQuads(RenderPass* render_pass,
+                           const OcclusionTracker<LayerImpl>& occlusion_tracker,
                            AppendQuadsData* append_quads_data) OVERRIDE;
   void UpdateHudTexture(DrawMode draw_mode,
                         ResourceProvider* resource_provider);
@@ -71,7 +72,7 @@ class CC_EXPORT HeadsUpDisplayLayerImpl : public LayerImpl {
 
   virtual const char* LayerTypeAsString() const OVERRIDE;
 
-  virtual void AsValueInto(base::DictionaryValue* dict) const OVERRIDE;
+  virtual void AsValueInto(base::debug::TracedValue* dict) const OVERRIDE;
 
   void UpdateHudContents();
   void DrawHudContents(SkCanvas* canvas);
@@ -110,7 +111,7 @@ class CC_EXPORT HeadsUpDisplayLayerImpl : public LayerImpl {
                               int top,
                               int right) const;
   void DrawDebugRect(SkCanvas* canvas,
-                     SkPaint& paint,
+                     SkPaint* paint,
                      const DebugRect& rect,
                      SkColor stroke_color,
                      SkColor fill_color,
@@ -118,7 +119,10 @@ class CC_EXPORT HeadsUpDisplayLayerImpl : public LayerImpl {
                      const std::string& label_text) const;
   void DrawDebugRects(SkCanvas* canvas, DebugRectHistory* debug_rect_history);
 
-  scoped_ptr<ScopedResource> hud_resource_;
+  void AcquireResource(ResourceProvider* resource_provider);
+  void ReleaseUnmatchedSizeResources(ResourceProvider* resource_provider);
+
+  ScopedPtrVector<ScopedResource> resources_;
   scoped_ptr<SkCanvas> hud_canvas_;
 
   skia::RefPtr<SkTypeface> typeface_;

@@ -300,7 +300,6 @@ void RenderWidgetFullscreenPepper::InvalidateRect(const blink::WebRect& rect) {
 
 void RenderWidgetFullscreenPepper::ScrollRect(
     int dx, int dy, const blink::WebRect& rect) {
-  didScrollRect(dx, dy, rect);
 }
 
 void RenderWidgetFullscreenPepper::Destroy() {

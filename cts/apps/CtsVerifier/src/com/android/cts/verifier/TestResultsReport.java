@@ -16,6 +16,8 @@
 
 package com.android.cts.verifier;
 
+import com.android.compatibility.common.util.MetricsXmlSerializer;
+import com.android.compatibility.common.util.ReportLog;
 import com.android.cts.verifier.TestListAdapter.TestListItem;
 
 import org.xmlpull.v1.XmlSerializer;
@@ -126,6 +128,12 @@ class TestResultsReport {
                     xml.startTag(null, TEST_DETAILS_TAG);
                     xml.text(details);
                     xml.endTag(null, TEST_DETAILS_TAG);
+                }
+
+                ReportLog reportLog = mAdapter.getReportLog(i);
+                if (reportLog != null) {
+                    MetricsXmlSerializer metricsXmlSerializer = new MetricsXmlSerializer(xml);
+                    metricsXmlSerializer.serialize(reportLog);
                 }
 
                 xml.endTag(null, TEST_TAG);

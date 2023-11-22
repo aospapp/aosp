@@ -5,6 +5,7 @@
 #include "chrome/browser/chromeos/file_manager/filesystem_api_util.h"
 
 #include "base/callback.h"
+#include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "chrome/browser/chromeos/drive/file_errors.h"
@@ -12,12 +13,14 @@
 #include "chrome/browser/chromeos/drive/file_system_util.h"
 #include "chrome/browser/chromeos/file_manager/app_id.h"
 #include "chrome/browser/chromeos/file_manager/fileapi_util.h"
+#include "chrome/browser/chromeos/file_system_provider/mount_path_util.h"
+#include "chrome/browser/chromeos/file_system_provider/provided_file_system_interface.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/storage_partition.h"
 #include "google_apis/drive/task_util.h"
-#include "webkit/browser/fileapi/file_system_context.h"
+#include "storage/browser/fileapi/file_system_context.h"
 
 namespace file_manager {
 namespace util {
@@ -26,17 +29,33 @@ namespace {
 
 // Helper function used to implement GetNonNativeLocalPathMimeType. It extracts
 // the mime type from the passed Drive resource entry.
-void GetMimeTypeAfterGetResourceEntry(
+void GetMimeTypeAfterGetResourceEntryForDrive(
     const base::Callback<void(bool, const std::string&)>& callback,
     drive::FileError error,
     scoped_ptr<drive::ResourceEntry> entry) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
-  if (error != drive::FILE_ERROR_OK || !entry->has_file_specific_info()) {
+  if (error != drive::FILE_ERROR_OK || !entry->has_file_specific_info() ||
+      entry->file_specific_info().content_mime_type().empty()) {
     callback.Run(false, std::string());
     return;
   }
   callback.Run(true, entry->file_specific_info().content_mime_type());
+}
+
+// Helper function used to implement GetNonNativeLocalPathMimeType. It extracts
+// the mime type from the passed metadata from a providing extension.
+void GetMimeTypeAfterGetMetadataForProvidedFileSystem(
+    const base::Callback<void(bool, const std::string&)>& callback,
+    scoped_ptr<chromeos::file_system_provider::EntryMetadata> metadata,
+    base::File::Error result) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+
+  if (result != base::File::FILE_OK || metadata->mime_type.empty()) {
+    callback.Run(false, std::string());
+    return;
+  }
+  callback.Run(true, metadata->mime_type);
 }
 
 // Helper function to converts a callback that takes boolean value to that takes
@@ -50,9 +69,9 @@ void BoolCallbackAsFileErrorCallback(
 // Part of PrepareFileOnIOThread. It tries to create a new file if the given
 // |url| is not already inhabited.
 void PrepareFileAfterCheckExistOnIOThread(
-    scoped_refptr<fileapi::FileSystemContext> file_system_context,
-    const fileapi::FileSystemURL& url,
-    const fileapi::FileSystemOperation::StatusCallback& callback,
+    scoped_refptr<storage::FileSystemContext> file_system_context,
+    const storage::FileSystemURL& url,
+    const storage::FileSystemOperation::StatusCallback& callback,
     base::File::Error error) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
 
@@ -73,8 +92,8 @@ void PrepareFileAfterCheckExistOnIOThread(
 // Checks whether a file exists at the given |url|, and try creating it if it
 // is not already there.
 void PrepareFileOnIOThread(
-    scoped_refptr<fileapi::FileSystemContext> file_system_context,
-    const fileapi::FileSystemURL& url,
+    scoped_refptr<storage::FileSystemContext> file_system_context,
+    const storage::FileSystemURL& url,
     const base::Callback<void(bool)>& callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
 
@@ -98,15 +117,15 @@ bool IsUnderNonNativeLocalPath(Profile* profile,
     return false;
   }
 
-  fileapi::FileSystemURL filesystem_url =
-      GetFileSystemContextForExtensionId(profile,
-                                         kFileManagerAppId)->CrackURL(url);
+  storage::FileSystemURL filesystem_url =
+      GetFileSystemContextForExtensionId(profile, kFileManagerAppId)
+          ->CrackURL(url);
   if (!filesystem_url.is_valid())
     return false;
 
   switch (filesystem_url.type()) {
-    case fileapi::kFileSystemTypeNativeLocal:
-    case fileapi::kFileSystemTypeRestrictedNativeLocal:
+    case storage::kFileSystemTypeNativeLocal:
+    case storage::kFileSystemTypeRestrictedNativeLocal:
       return false;
     default:
       // The path indeed corresponds to a mount point not associated with a
@@ -122,29 +141,50 @@ void GetNonNativeLocalPathMimeType(
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK(IsUnderNonNativeLocalPath(profile, path));
 
-  if (!drive::util::IsUnderDriveMountPoint(path)) {
-    // Non-drive mount point does not have mime types as metadata. Just return
-    // success with empty mime type value.
-    content::BrowserThread::PostTask(
-        content::BrowserThread::UI,
-        FROM_HERE,
-        base::Bind(callback, true /* success */, std::string()));
+  if (drive::util::IsUnderDriveMountPoint(path)) {
+    drive::FileSystemInterface* file_system =
+        drive::util::GetFileSystemByProfile(profile);
+    if (!file_system) {
+      content::BrowserThread::PostTask(
+          content::BrowserThread::UI,
+          FROM_HERE,
+          base::Bind(callback, false, std::string()));
+      return;
+    }
+
+    file_system->GetResourceEntry(
+        drive::util::ExtractDrivePath(path),
+        base::Bind(&GetMimeTypeAfterGetResourceEntryForDrive, callback));
     return;
   }
 
-  drive::FileSystemInterface* file_system =
-      drive::util::GetFileSystemByProfile(profile);
-  if (!file_system) {
-    content::BrowserThread::PostTask(
-        content::BrowserThread::UI,
-        FROM_HERE,
-        base::Bind(callback, false, std::string()));
+  if (chromeos::file_system_provider::util::IsFileSystemProviderLocalPath(
+          path)) {
+    chromeos::file_system_provider::util::LocalPathParser parser(profile, path);
+    if (!parser.Parse()) {
+      content::BrowserThread::PostTask(
+          content::BrowserThread::UI,
+          FROM_HERE,
+          base::Bind(callback, false, std::string()));
+      return;
+    }
+
+    parser.file_system()->GetMetadata(
+        parser.file_path(),
+        chromeos::file_system_provider::ProvidedFileSystemInterface::
+            METADATA_FIELD_DEFAULT,
+        base::Bind(&GetMimeTypeAfterGetMetadataForProvidedFileSystem,
+                   callback));
     return;
   }
 
-  file_system->GetResourceEntry(
-      drive::util::ExtractDrivePath(path),
-      base::Bind(&GetMimeTypeAfterGetResourceEntry, callback));
+  // We don't have a way to obtain metadata other than drive and FSP. Returns an
+  // error with empty MIME type, that leads fallback guessing mime type from
+  // file extensions.
+  content::BrowserThread::PostTask(
+      content::BrowserThread::UI,
+      FROM_HERE,
+      base::Bind(callback, false /* failure */, std::string()));
 }
 
 void IsNonNativeLocalPathDirectory(
@@ -189,7 +229,7 @@ void PrepareNonNativeLocalFileForWritableApp(
     return;
   }
 
-  fileapi::FileSystemContext* const context =
+  storage::FileSystemContext* const context =
       GetFileSystemContextForExtensionId(profile, kFileManagerAppId);
   DCHECK(context);
 

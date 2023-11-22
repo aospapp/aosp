@@ -7,9 +7,9 @@
 #include <vector>
 
 #include "base/bind.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "content/public/browser/notification_service.h"
 #include "extensions/browser/image_loader.h"
+#include "extensions/browser/notification_types.h"
 #include "extensions/common/extension.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/canvas_image_source.h"
@@ -40,18 +40,14 @@
 
 namespace {
 
-const int kMatchBiggerTreshold = 32;
-
 extensions::ExtensionResource GetExtensionIconResource(
     const extensions::Extension* extension,
     const ExtensionIconSet& icons,
     int size,
     ExtensionIconSet::MatchType match_type) {
-  std::string path = icons.Get(size, match_type);
-  if (path.empty())
-    return extensions::ExtensionResource();
-
-  return extension->GetResource(path);
+  const std::string& path = icons.Get(size, match_type);
+  return path.empty() ? extensions::ExtensionResource()
+                      : extension->GetResource(path);
 }
 
 class BlankImageSource : public gfx::CanvasImageSource {
@@ -150,7 +146,7 @@ IconImage::IconImage(
   image_skia_ = gfx::ImageSkia(source_, resource_size);
 
   registrar_.Add(this,
-                 chrome::NOTIFICATION_EXTENSION_REMOVED,
+                 extensions::NOTIFICATION_EXTENSION_REMOVED,
                  content::NotificationService::AllSources());
 }
 
@@ -171,11 +167,10 @@ gfx::ImageSkiaRep IconImage::LoadImageForScaleFactor(
   extensions::ExtensionResource resource;
 
   // Find extension resource for non bundled component extensions.
-  // We try loading bigger image only if resource size is >= 32.
-  if (resource_size_in_pixel >= kMatchBiggerTreshold) {
-    resource = GetExtensionIconResource(extension_, icon_set_,
-        resource_size_in_pixel, ExtensionIconSet::MATCH_BIGGER);
-  }
+  resource = GetExtensionIconResource(extension_,
+                                      icon_set_,
+                                      resource_size_in_pixel,
+                                      ExtensionIconSet::MATCH_BIGGER);
 
   // If resource is not found by now, try matching smaller one.
   if (resource.empty()) {
@@ -228,7 +223,7 @@ void IconImage::OnImageLoaded(float scale, const gfx::Image& image_in) {
 void IconImage::Observe(int type,
                         const content::NotificationSource& source,
                         const content::NotificationDetails& details) {
-  DCHECK_EQ(type, chrome::NOTIFICATION_EXTENSION_REMOVED);
+  DCHECK_EQ(type, extensions::NOTIFICATION_EXTENSION_REMOVED);
 
   const Extension* extension = content::Details<const Extension>(details).ptr();
 

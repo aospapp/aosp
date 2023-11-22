@@ -7,12 +7,12 @@
 #include "base/callback.h"
 
 #if defined(ENABLE_EXTENSIONS)
-#include "chrome/browser/content_settings/permission_request_id.h"
-#include "chrome/browser/extensions/suggest_permission_util.h"
-#include "chrome/browser/guest_view/web_view/web_view_guest.h"
 #include "chrome/browser/profiles/profile.h"
+#include "components/content_settings/core/common/permission_request_id.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/browser/guest_view/web_view/web_view_permission_helper.h"
 #include "extensions/browser/process_map.h"
+#include "extensions/browser/suggest_permission_util.h"
 #include "extensions/browser/view_type_utils.h"
 #include "extensions/common/extension.h"
 
@@ -41,12 +41,11 @@ bool GeolocationPermissionContextExtensions::RequestPermission(
 #if defined(ENABLE_EXTENSIONS)
   GURL requesting_frame_origin = requesting_frame.GetOrigin();
 
-  WebViewGuest* guest = WebViewGuest::FromWebContents(web_contents);
-  if (guest) {
-    guest->RequestGeolocationPermission(bridge_id,
-                                        requesting_frame,
-                                        user_gesture,
-                                        callback);
+  extensions::WebViewPermissionHelper* web_view_permission_helper =
+      extensions::WebViewPermissionHelper::FromWebContents(web_contents);
+  if (web_view_permission_helper) {
+    web_view_permission_helper->RequestGeolocationPermission(
+        bridge_id, requesting_frame, user_gesture, callback);
     *permission_set = false;
     *new_permission = false;
     return true;
@@ -91,10 +90,12 @@ bool GeolocationPermissionContextExtensions::CancelPermissionRequest(
     content::WebContents* web_contents,
     int bridge_id) {
 #if defined(ENABLE_EXTENSIONS)
-  WebViewGuest* guest =
-      web_contents ? WebViewGuest::FromWebContents(web_contents) : NULL;
-  if (guest) {
-    guest->CancelGeolocationPermissionRequest(bridge_id);
+  extensions::WebViewPermissionHelper* web_view_permission_helper =
+      web_contents ?
+      extensions::WebViewPermissionHelper::FromWebContents(web_contents)
+      : NULL;
+  if (web_view_permission_helper) {
+    web_view_permission_helper->CancelGeolocationPermissionRequest(bridge_id);
     return true;
   }
 #endif  // defined(ENABLE_EXTENSIONS)

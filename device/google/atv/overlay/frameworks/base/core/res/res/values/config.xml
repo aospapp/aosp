@@ -48,4 +48,5 @@
     <!-- Override configuration check for dpad so that we always appear to have one -->
     <bool name="config_hasPermanentDpad">true</bool>
 
+    <bool name="config_defaultInTouchMode">false</bool>
 </resources>

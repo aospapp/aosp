@@ -237,13 +237,23 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
     return mTypeParameters;
   }
 
-  public MethodInfo cloneForClass(ClassInfo newContainingClass) {
+  /**
+   * Clone this MethodInfo as if it belonged to the specified ClassInfo and apply the
+   * typeArgumentMapping to the parameters and return types.
+   */
+  public MethodInfo cloneForClass(ClassInfo newContainingClass,
+      Map<String, TypeInfo> typeArgumentMapping) {
+    TypeInfo returnType = mReturnType.getTypeWithArguments(typeArgumentMapping);
+    ArrayList<ParameterInfo> parameters = new ArrayList<ParameterInfo>();
+    for (ParameterInfo pi : mParameters) {
+      parameters.add(pi.cloneWithTypeArguments(typeArgumentMapping));
+    }
     MethodInfo result =
         new MethodInfo(getRawCommentText(), mTypeParameters, name(), signature(),
             newContainingClass, realContainingClass(), isPublic(), isProtected(),
             isPackagePrivate(), isPrivate(), isFinal(), isStatic(), isSynthetic(), mIsAbstract,
             mIsSynchronized, mIsNative, mIsAnnotationElement, kind(), mFlatSignature,
-            mOverriddenMethod, mReturnType, mParameters, mThrownExceptions, position(),
+            mOverriddenMethod, returnType, mParameters, mThrownExceptions, position(),
             annotations());
     result.init(mDefaultAnnotationElementValue);
     return result;
@@ -539,13 +549,18 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
   }
 
   public void makeHDF(Data data, String base) {
+    makeHDF(data, base, Collections.<String, TypeInfo>emptyMap());
+  }
+
+  public void makeHDF(Data data, String base, Map<String, TypeInfo> typeMapping) {
     data.setValue(base + ".kind", kind());
     data.setValue(base + ".name", name());
     data.setValue(base + ".href", htmlPage());
     data.setValue(base + ".anchor", anchor());
 
     if (mReturnType != null) {
-      returnType().makeHDF(data, base + ".returnType", false, typeVariables());
+      returnType().getTypeWithArguments(typeMapping).makeHDF(
+          data, base + ".returnType", false, typeVariables());
       data.setValue(base + ".abstract", mIsAbstract ? "abstract" : "");
     }
 
@@ -564,7 +579,8 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
     ParamTagInfo.makeHDF(data, base + ".paramTags", paramTags());
     AttrTagInfo.makeReferenceHDF(data, base + ".attrRefs", comment().attrTags());
     ThrowsTagInfo.makeHDF(data, base + ".throws", throwsTags());
-    ParameterInfo.makeHDF(data, base + ".params", mParameters.toArray(new ParameterInfo[mParameters.size()]), isVarArgs(), typeVariables());
+    ParameterInfo.makeHDF(data, base + ".params", mParameters.toArray(
+        new ParameterInfo[mParameters.size()]), isVarArgs(), typeVariables(), typeMapping);
     if (isProtected()) {
       data.setValue(base + ".scope", "protected");
     } else if (isPublic()) {

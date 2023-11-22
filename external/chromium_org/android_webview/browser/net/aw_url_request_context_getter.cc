@@ -17,9 +17,9 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/threading/sequenced_worker_pool.h"
 #include "base/threading/worker_pool.h"
+#include "components/data_reduction_proxy/browser/data_reduction_proxy_auth_request_handler.h"
 #include "components/data_reduction_proxy/browser/data_reduction_proxy_config_service.h"
 #include "components/data_reduction_proxy/browser/data_reduction_proxy_settings.h"
-#include "components/data_reduction_proxy/browser/http_auth_handler_data_reduction_proxy.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/cookie_store_factory.h"
@@ -27,13 +27,14 @@
 #include "content/public/common/content_switches.h"
 #include "content/public/common/url_constants.h"
 #include "net/base/cache_type.h"
+#include "net/base/net_log.h"
 #include "net/cookies/cookie_store.h"
 #include "net/dns/mapped_host_resolver.h"
 #include "net/http/http_cache.h"
 #include "net/http/http_stream_factory.h"
 #include "net/proxy/proxy_service.h"
 #include "net/socket/next_proto.h"
-#include "net/ssl/default_server_bound_cert_store.h"
+#include "net/ssl/default_channel_id_store.h"
 #include "net/url_request/data_protocol_handler.h"
 #include "net/url_request/file_protocol_handler.h"
 #include "net/url_request/url_request_context_builder.h"
@@ -79,6 +80,9 @@ void ApplyCmdlineOverridesToNetworkSessionParams(
         switches::kTestingFixedHttpsPort), &value);
     params->testing_fixed_https_port = value;
   }
+  if (command_line.HasSwitch(switches::kIgnoreCertificateErrors)) {
+    params->ignore_certificate_errors = true;
+  }
 }
 
 void PopulateNetworkSessionParams(
@@ -86,7 +90,7 @@ void PopulateNetworkSessionParams(
     net::HttpNetworkSession::Params* params) {
   params->host_resolver = context->host_resolver();
   params->cert_verifier = context->cert_verifier();
-  params->server_bound_cert_service = context->server_bound_cert_service();
+  params->channel_id_service = context->channel_id_service();
   params->transport_security_state = context->transport_security_state();
   params->proxy_service = context->proxy_service();
   params->ssl_config_service = context->ssl_config_service();
@@ -94,7 +98,6 @@ void PopulateNetworkSessionParams(
   params->network_delegate = context->network_delegate();
   params->http_server_properties = context->http_server_properties();
   params->net_log = context->net_log();
-
   // TODO(sgurun) remove once crbug.com/329681 is fixed.
   params->next_protos = net::NextProtosSpdy31();
   params->use_alternate_protocols = true;
@@ -169,14 +172,13 @@ scoped_ptr<net::URLRequestJobFactory> CreateJobFactory(
 }  // namespace
 
 AwURLRequestContextGetter::AwURLRequestContextGetter(
-    const base::FilePath& partition_path, net::CookieStore* cookie_store)
+    const base::FilePath& partition_path, net::CookieStore* cookie_store,
+    scoped_ptr<data_reduction_proxy::DataReductionProxyConfigService>
+        config_service)
     : partition_path_(partition_path),
       cookie_store_(cookie_store),
-      proxy_config_service_(new DataReductionProxyConfigService(
-          scoped_ptr<net::ProxyConfigService>(
-              net::ProxyService::CreateSystemProxyConfigService(
-                  GetNetworkTaskRunner(),
-                  NULL /* Ignored on Android */)).Pass())) {
+      net_log_(new net::NetLog()) {
+  data_reduction_proxy_config_service_ = config_service.Pass();
   // CreateSystemProxyConfigService for Android must be called on main thread.
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 }
@@ -195,19 +197,19 @@ void AwURLRequestContextGetter::InitializeURLRequestContext() {
 #if !defined(DISABLE_FTP_SUPPORT)
   builder.set_ftp_enabled(false);  // Android WebView does not support ftp yet.
 #endif
-  builder.set_proxy_config_service(proxy_config_service_.release());
+  DCHECK(data_reduction_proxy_config_service_.get());
+  // Android provides a local HTTP proxy that handles all the proxying.
+  // Create the proxy without a resolver since we rely on this local HTTP proxy.
+  // TODO(sgurun) is this behavior guaranteed through SDK?
+  builder.set_proxy_service(
+      net::ProxyService::CreateWithoutProxyResolver(
+          data_reduction_proxy_config_service_.release(),
+          net_log_.get()));
   builder.set_accept_language(net::HttpUtil::GenerateAcceptLanguageHeader(
       AwContentBrowserClient::GetAcceptLangsImpl()));
+  builder.set_net_log(net_log_.get());
+  builder.set_channel_id_enabled(false);
   ApplyCmdlineOverridesToURLRequestContextBuilder(&builder);
-
-#if defined(SPDY_PROXY_AUTH_ORIGIN)
-  data_reduction_proxy::DataReductionProxyParams drp_params(
-      data_reduction_proxy::DataReductionProxyParams::kAllowed);
-  builder.add_http_auth_handler_factory(
-      data_reduction_proxy::HttpAuthHandlerDataReductionProxy::Scheme(),
-      new data_reduction_proxy::HttpAuthHandlerDataReductionProxy::Factory(
-          drp_params.GetAllowedProxies()));
-#endif
 
   url_request_context_.reset(builder.Build());
   // TODO(mnaganov): Fix URLRequestContextBuilder to use proper threads.
@@ -225,23 +227,24 @@ void AwURLRequestContextGetter::InitializeURLRequestContext() {
           20 * 1024 * 1024,  // 20M
           BrowserThread::GetMessageLoopProxyForThread(BrowserThread::CACHE)));
 
-#if defined(SPDY_PROXY_AUTH_ORIGIN)
   AwBrowserContext* browser_context = AwBrowserContext::GetDefault();
   DCHECK(browser_context);
-  DataReductionProxySettings* drp_settings =
+  DataReductionProxySettings* data_reduction_proxy_settings =
       browser_context->GetDataReductionProxySettings();
-  if (drp_settings) {
-    aw_network_delegate->set_data_reduction_proxy_params(
-        drp_settings->params());
-    std::string drp_key = drp_settings->params()->key();
-    // Only precache credentials if a key is available at URLRequestContext
-    // initialization.
-    if (!drp_key.empty()) {
-    DataReductionProxySettings::InitDataReductionProxySession(
-        main_cache->GetSession(), &drp_params);
-    }
-  }
-#endif
+  DCHECK(data_reduction_proxy_settings);
+  data_reduction_proxy_auth_request_handler_.reset(
+      new data_reduction_proxy::DataReductionProxyAuthRequestHandler(
+          data_reduction_proxy::kClientAndroidWebview,
+          data_reduction_proxy_settings->params(),
+          BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO)));
+
+  // Compression statistics are not gathered for WebView, so
+  // DataReductionProxyStatisticsPrefs is not instantiated and passed to the
+  // network delegate.
+  aw_network_delegate->set_data_reduction_proxy_params(
+      data_reduction_proxy_settings->params());
+  aw_network_delegate->set_data_reduction_proxy_auth_request_handler(
+      data_reduction_proxy_auth_request_handler_.get());
 
   main_http_factory_.reset(main_cache);
   url_request_context_->set_http_transaction_factory(main_cache);
@@ -272,10 +275,18 @@ void AwURLRequestContextGetter::SetHandlersAndInterceptors(
   request_interceptors_.swap(request_interceptors);
 }
 
-DataReductionProxyConfigService*
-AwURLRequestContextGetter::proxy_config_service() {
-  // TODO(bengr): return system config if data reduction proxy is disabled.
-  return proxy_config_service_.get();
+data_reduction_proxy::DataReductionProxyAuthRequestHandler*
+AwURLRequestContextGetter::GetDataReductionProxyAuthRequestHandler() const {
+  return data_reduction_proxy_auth_request_handler_.get();
+}
+
+net::NetLog* AwURLRequestContextGetter::GetNetLog() {
+  return net_log_.get();
+}
+
+void AwURLRequestContextGetter::SetKeyOnIO(const std::string& key) {
+  DCHECK(data_reduction_proxy_auth_request_handler_);
+  data_reduction_proxy_auth_request_handler_->InitAuthentication(key);
 }
 
 }  // namespace android_webview

@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/webui/favicon_source.h"
 
+#include <cmath>
+
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/strings/string_number_conversions.h"
@@ -16,13 +18,13 @@
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/common/favicon/favicon_url_parser.h"
 #include "chrome/common/url_constants.h"
-#include "grit/locale_settings.h"
-#include "grit/ui_resources.h"
+#include "chrome/grit/locale_settings.h"
 #include "net/url_request/url_request.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/webui/web_ui_util.h"
+#include "ui/resources/grit/ui_resources.h"
 
 FaviconSource::IconRequest::IconRequest()
     : size_in_dip(gfx::kFaviconSize), device_scale_factor(1.0f) {
@@ -77,15 +79,16 @@ void FaviconSource::StartDataRequest(
   }
 
   GURL url(parsed.url);
+  int desired_size_in_pixel =
+      std::ceil(parsed.size_in_dip * parsed.device_scale_factor);
 
   if (parsed.is_icon_url) {
     // TODO(michaelbai): Change GetRawFavicon to support combination of
     // IconType.
-    favicon_service->GetRawFavicon(
+   favicon_service->GetRawFavicon(
         url,
         favicon_base::FAVICON,
-        parsed.size_in_dip,
-        parsed.device_scale_factor,
+        desired_size_in_pixel,
         base::Bind(
             &FaviconSource::OnFaviconDataAvailable,
             base::Unretained(this),
@@ -108,9 +111,9 @@ void FaviconSource::StartDataRequest(
     }
 
     favicon_service->GetRawFaviconForPageURL(
-        FaviconService::FaviconForPageURLParams(
-            url, icon_types_, parsed.size_in_dip),
-        parsed.device_scale_factor,
+        url,
+        icon_types_,
+        desired_size_in_pixel,
         base::Bind(
             &FaviconSource::OnFaviconDataAvailable,
             base::Unretained(this),

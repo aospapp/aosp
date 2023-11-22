@@ -42,8 +42,7 @@ public class ChromeShellTestBase extends ActivityInstrumentationTestCase2<Chrome
             public void run() {
                 CommandLine.initFromFile("/data/local/tmp/chrome-shell-command-line");
                 try {
-                    BrowserStartupController.get(targetContext).startBrowserProcessesSync(
-                            BrowserStartupController.MAX_RENDERERS_LIMIT);
+                    BrowserStartupController.get(targetContext).startBrowserProcessesSync(false);
                 } catch (ProcessInitException e) {
                     Log.e(TAG, "Unable to load native library.", e);
                     fail("Unable to load native library");
@@ -96,7 +95,8 @@ public class ChromeShellTestBase extends ActivityInstrumentationTestCase2<Chrome
                             ChromeShellTab tab = activity.getActiveTab();
                             if (tab != null) {
                                 isLoaded.set(!tab.isLoading()
-                                        && !TextUtils.isEmpty(tab.getContentViewCore().getUrl()));
+                                        && !TextUtils.isEmpty(tab.getContentViewCore()
+                                                .getWebContents().getUrl()));
                             } else {
                                 isLoaded.set(false);
                             }

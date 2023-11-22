@@ -8,12 +8,10 @@
 #include "ash/metrics/user_metrics_recorder.h"
 #include "ash/shelf/shelf_layout_manager.h"
 #include "ash/shell.h"
-#include "ash/shell/panel_window.h"
 #include "ash/shell_window_ids.h"
 #include "ash/system/audio/tray_audio.h"
 #include "ash/system/bluetooth/tray_bluetooth.h"
 #include "ash/system/date/tray_date.h"
-#include "ash/system/drive/tray_drive.h"
 #include "ash/system/ime/tray_ime.h"
 #include "ash/system/status_area_widget.h"
 #include "ash/system/tray/system_tray_delegate.h"
@@ -47,16 +45,17 @@
 #include "ash/system/chromeos/audio/tray_audio_chromeos.h"
 #include "ash/system/chromeos/brightness/tray_brightness.h"
 #include "ash/system/chromeos/enterprise/tray_enterprise.h"
-#include "ash/system/chromeos/managed/tray_locally_managed_user.h"
 #include "ash/system/chromeos/network/tray_network.h"
 #include "ash/system/chromeos/network/tray_sms.h"
 #include "ash/system/chromeos/network/tray_vpn.h"
+#include "ash/system/chromeos/power/power_status.h"
 #include "ash/system/chromeos/power/tray_power.h"
 #include "ash/system/chromeos/rotation/tray_rotation_lock.h"
 #include "ash/system/chromeos/screen_security/screen_capture_tray_item.h"
 #include "ash/system/chromeos/screen_security/screen_share_tray_item.h"
 #include "ash/system/chromeos/session/tray_session_length_limit.h"
 #include "ash/system/chromeos/settings/tray_settings.h"
+#include "ash/system/chromeos/supervised/tray_supervised_user.h"
 #include "ash/system/chromeos/tray_caps_lock.h"
 #include "ash/system/chromeos/tray_display.h"
 #include "ash/system/chromeos/tray_tracing.h"
@@ -173,7 +172,7 @@ void SystemTray::CreateItems(SystemTrayDelegate* delegate) {
 #if defined(OS_CHROMEOS)
   AddTrayItem(new TraySessionLengthLimit(this));
   AddTrayItem(new TrayEnterprise(this));
-  AddTrayItem(new TrayLocallyManagedUser(this));
+  AddTrayItem(new TraySupervisedUser(this));
   AddTrayItem(new TrayIME(this));
   AddTrayItem(tray_accessibility_);
   AddTrayItem(new TrayTracing(this));
@@ -182,10 +181,11 @@ void SystemTray::CreateItems(SystemTrayDelegate* delegate) {
   AddTrayItem(new TrayVPN(this));
   AddTrayItem(new TraySms(this));
   AddTrayItem(new TrayBluetooth(this));
-  AddTrayItem(new TrayDrive(this));
   AddTrayItem(new TrayDisplay(this));
-  AddTrayItem(new ScreenCaptureTrayItem(this));
-  AddTrayItem(new ScreenShareTrayItem(this));
+  screen_capture_tray_item_ = new ScreenCaptureTrayItem(this);
+  AddTrayItem(screen_capture_tray_item_);
+  screen_share_tray_item_ = new ScreenShareTrayItem(this);
+  AddTrayItem(screen_share_tray_item_);
   AddTrayItem(new MultiProfileMediaTrayItem(this));
   AddTrayItem(new TrayAudioChromeOs(this));
   AddTrayItem(new TrayBrightness(this));
@@ -204,7 +204,6 @@ void SystemTray::CreateItems(SystemTrayDelegate* delegate) {
   AddTrayItem(new TrayIME(this));
   AddTrayItem(tray_accessibility_);
   AddTrayItem(new TrayBluetooth(this));
-  AddTrayItem(new TrayDrive(this));
   AddTrayItem(new TrayUpdate(this));
   AddTrayItem(tray_date_);
 #endif
@@ -402,6 +401,16 @@ void SystemTray::DestroyNotificationBubble() {
   }
 }
 
+base::string16 SystemTray::GetAccessibleNameForTray() {
+  base::string16 time = GetAccessibleTimeString(base::Time::Now());
+  base::string16 battery = base::ASCIIToUTF16("");
+#if defined(OS_CHROMEOS)
+  battery = PowerStatus::Get()->GetAccessibleNameString(false);
+#endif
+  return l10n_util::GetStringFUTF16(
+      IDS_ASH_STATUS_TRAY_ACCESSIBLE_DESCRIPTION, time, battery);
+}
+
 int SystemTray::GetTrayXOffset(SystemTrayItem* item) const {
   // Don't attempt to align the arrow if the shelf is on the left or right.
   if (shelf_alignment() != SHELF_ALIGNMENT_BOTTOM &&
@@ -588,6 +597,14 @@ void SystemTray::UpdateWebNotifications() {
   status_area_widget()->web_notification_tray()->SetSystemTrayHeight(height);
 }
 
+base::string16 SystemTray::GetAccessibleTimeString(
+    const base::Time& now) const {
+  base::HourClockType hour_type =
+      ash::Shell::GetInstance()->system_tray_delegate()->GetHourClockType();
+  return base::TimeFormatTimeOfDayWithHourClockType(
+      now, hour_type, base::kKeepAmPm);
+}
+
 void SystemTray::SetShelfAlignment(ShelfAlignment alignment) {
   if (alignment == shelf_alignment())
     return;
@@ -613,10 +630,6 @@ void SystemTray::AnchorUpdated() {
     system_bubble_->bubble_view()->UpdateBubble();
     UpdateBubbleViewArrow(system_bubble_->bubble_view());
   }
-}
-
-base::string16 SystemTray::GetAccessibleNameForTray() {
-  return l10n_util::GetStringUTF16(IDS_ASH_STATUS_TRAY_ACCESSIBLE_NAME);
 }
 
 void SystemTray::BubbleResized(const TrayBubbleView* bubble_view) {

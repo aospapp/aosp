@@ -11,10 +11,12 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/observer_list.h"
+#include "base/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "cc/trees/layer_tree_host_client.h"
 #include "cc/trees/layer_tree_host_single_thread_client.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/compositor/compositor_animation_observer.h"
 #include "ui/compositor/compositor_export.h"
 #include "ui/compositor/compositor_observer.h"
 #include "ui/compositor/layer_animator_collection.h"
@@ -127,11 +129,11 @@ class COMPOSITOR_EXPORT CompositorLock
 // view hierarchy.
 class COMPOSITOR_EXPORT Compositor
     : NON_EXPORTED_BASE(public cc::LayerTreeHostClient),
-      NON_EXPORTED_BASE(public cc::LayerTreeHostSingleThreadClient),
-      NON_EXPORTED_BASE(public LayerAnimatorCollectionDelegate) {
+      NON_EXPORTED_BASE(public cc::LayerTreeHostSingleThreadClient) {
  public:
   Compositor(gfx::AcceleratedWidget widget,
-             ui::ContextFactory* context_factory);
+             ui::ContextFactory* context_factory,
+             scoped_refptr<base::SingleThreadTaskRunner> task_runner);
   virtual ~Compositor();
 
   ui::ContextFactory* context_factory() { return context_factory_; }
@@ -184,17 +186,30 @@ class COMPOSITOR_EXPORT Compositor
   // the |root_layer|.
   void SetBackgroundColor(SkColor color);
 
+  // Set the visibility of the underlying compositor.
+  void SetVisible(bool visible);
+
   // Returns the widget for this compositor.
   gfx::AcceleratedWidget widget() const { return widget_; }
 
   // Returns the vsync manager for this compositor.
   scoped_refptr<CompositorVSyncManager> vsync_manager() const;
 
+  // Returns the main thread task runner this compositor uses. Users of the
+  // compositor generally shouldn't use this.
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner() const {
+    return task_runner_;
+  }
+
   // Compositor does not own observers. It is the responsibility of the
   // observer to remove itself when it is done observing.
   void AddObserver(CompositorObserver* observer);
   void RemoveObserver(CompositorObserver* observer);
   bool HasObserver(CompositorObserver* observer);
+
+  void AddAnimationObserver(CompositorAnimationObserver* observer);
+  void RemoveAnimationObserver(CompositorAnimationObserver* observer);
+  bool HasAnimationObserver(CompositorAnimationObserver* observer);
 
   // Creates a compositor lock. Returns NULL if it is not possible to lock at
   // this time (i.e. we're waiting to complete a previous unlock).
@@ -215,12 +230,13 @@ class COMPOSITOR_EXPORT Compositor
   // LayerTreeHostClient implementation.
   virtual void WillBeginMainFrame(int frame_id) OVERRIDE {}
   virtual void DidBeginMainFrame() OVERRIDE {}
-  virtual void Animate(base::TimeTicks frame_begin_time) OVERRIDE;
+  virtual void BeginMainFrame(const cc::BeginFrameArgs& args) OVERRIDE;
   virtual void Layout() OVERRIDE;
-  virtual void ApplyScrollAndScale(const gfx::Vector2d& scroll_delta,
-                                   float page_scale) OVERRIDE {}
-  virtual scoped_ptr<cc::OutputSurface> CreateOutputSurface(bool fallback)
-      OVERRIDE;
+  virtual void ApplyViewportDeltas(
+      const gfx::Vector2d& scroll_delta,
+      float page_scale,
+      float top_controls_delta) OVERRIDE {}
+  virtual void RequestNewOutputSurface(bool fallback) OVERRIDE;
   virtual void DidInitializeOutputSurface() OVERRIDE {}
   virtual void WillCommit() OVERRIDE {}
   virtual void DidCommit() OVERRIDE;
@@ -232,9 +248,6 @@ class COMPOSITOR_EXPORT Compositor
   virtual void ScheduleAnimation() OVERRIDE;
   virtual void DidPostSwapBuffers() OVERRIDE;
   virtual void DidAbortSwapBuffers() OVERRIDE;
-
-  // LayerAnimatorCollectionDelegate implementation.
-  virtual void ScheduleAnimationForLayerCollection() OVERRIDE;
 
   int last_started_frame() { return last_started_frame_; }
   int last_ended_frame() { return last_ended_frame_; }
@@ -269,11 +282,13 @@ class COMPOSITOR_EXPORT Compositor
   Layer* root_layer_;
 
   ObserverList<CompositorObserver> observer_list_;
+  ObserverList<CompositorAnimationObserver> animation_observer_list_;
 
   gfx::AcceleratedWidget widget_;
   scoped_refptr<cc::Layer> root_web_layer_;
   scoped_ptr<cc::LayerTreeHost> host_;
   scoped_refptr<base::MessageLoopProxy> compositor_thread_loop_;
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
 
   // The manager of vsync parameters for this compositor.
   scoped_refptr<CompositorVSyncManager> vsync_manager_;

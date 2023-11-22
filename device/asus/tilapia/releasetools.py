@@ -32,6 +32,10 @@ def FullOTA_InstallEnd(info):
   else:
     WriteRadio(info, radio_img)
 
+def IncrementalOTA_InstallBegin(info):
+  info.script.Unmount("/system")
+  info.script.TunePartition("/system", "-O", "^has_journal")
+  info.script.Mount("/system")
 
 def IncrementalOTA_InstallEnd(info):
   try:

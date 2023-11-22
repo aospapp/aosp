@@ -33,6 +33,7 @@ const char kAttachmentData[] = "some data";
 const char kAccountId[] = "some-account-id";
 const char kAccessToken[] = "some-access-token";
 const char kAuthorization[] = "Authorization";
+const char kAttachments[] = "/attachments/";
 
 }  // namespace
 
@@ -134,7 +135,6 @@ class TokenServiceProvider
       base::NonThreadSafe {
  public:
   TokenServiceProvider(OAuth2TokenService* token_service);
-  virtual ~TokenServiceProvider();
 
   // OAuth2TokenService::TokenServiceProvider implementation.
   virtual scoped_refptr<base::SingleThreadTaskRunner>
@@ -142,6 +142,8 @@ class TokenServiceProvider
   virtual OAuth2TokenService* GetTokenService() OVERRIDE;
 
  private:
+  virtual ~TokenServiceProvider();
+
   scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
   OAuth2TokenService* token_service_;
 };
@@ -186,7 +188,7 @@ class AttachmentUploaderImplTest : public testing::Test,
   const AttachmentUploader::UploadCallback& upload_callback() const;
   std::vector<HttpRequest>& http_requests_received();
   std::vector<AttachmentUploader::UploadResult>& upload_results();
-  std::vector<AttachmentId>& updated_attachment_ids();
+  std::vector<AttachmentId>& attachment_ids();
   MockOAuth2TokenService& token_service();
   base::MessageLoopForIO& message_loop();
   RequestHandler& request_handler();
@@ -194,7 +196,7 @@ class AttachmentUploaderImplTest : public testing::Test,
  private:
   // An UploadCallback invoked by AttachmentUploaderImpl.
   void UploadDone(const AttachmentUploader::UploadResult& result,
-                  const AttachmentId& updated_attachment_id);
+                  const AttachmentId& attachment_id);
 
   base::MessageLoopForIO message_loop_;
   scoped_refptr<net::URLRequestContextGetter> url_request_context_getter_;
@@ -206,7 +208,7 @@ class AttachmentUploaderImplTest : public testing::Test,
   base::Closure signal_upload_done_;
   std::vector<HttpRequest> http_requests_received_;
   std::vector<AttachmentUploader::UploadResult> upload_results_;
-  std::vector<AttachmentId> updated_attachment_ids_;
+  std::vector<AttachmentId> attachment_ids_;
   scoped_ptr<MockOAuth2TokenService> token_service_;
 
   // Must be last data member.
@@ -264,20 +266,19 @@ void AttachmentUploaderImplTest::SetUp() {
       base::Bind(&RequestHandler::HandleRequest,
                  base::Unretained(request_handler_.get())));
 
-  std::string url_prefix(
-      base::StringPrintf("http://localhost:%d/uploads/", server_.port()));
+  GURL url(base::StringPrintf("http://localhost:%d/", server_.port()));
 
   token_service_.reset(new MockOAuth2TokenService);
-  scoped_ptr<OAuth2TokenServiceRequest::TokenServiceProvider>
+  scoped_refptr<OAuth2TokenServiceRequest::TokenServiceProvider>
       token_service_provider(new TokenServiceProvider(token_service_.get()));
 
   OAuth2TokenService::ScopeSet scopes;
   scopes.insert(GaiaConstants::kChromeSyncOAuth2Scope);
-  uploader().reset(new AttachmentUploaderImpl(url_prefix,
+  uploader().reset(new AttachmentUploaderImpl(url,
                                               url_request_context_getter_,
                                               kAccountId,
                                               scopes,
-                                              token_service_provider.Pass()));
+                                              token_service_provider));
 
   upload_callback_ = base::Bind(&AttachmentUploaderImplTest::UploadDone,
                                 base::Unretained(this));
@@ -315,8 +316,8 @@ AttachmentUploaderImplTest::upload_results() {
 }
 
 std::vector<AttachmentId>&
-AttachmentUploaderImplTest::updated_attachment_ids() {
-  return updated_attachment_ids_;
+AttachmentUploaderImplTest::attachment_ids() {
+  return attachment_ids_;
 }
 
 MockOAuth2TokenService& AttachmentUploaderImplTest::token_service() {
@@ -333,10 +334,10 @@ RequestHandler& AttachmentUploaderImplTest::request_handler() {
 
 void AttachmentUploaderImplTest::UploadDone(
     const AttachmentUploader::UploadResult& result,
-    const AttachmentId& updated_attachment_id) {
+    const AttachmentId& attachment_id) {
   DCHECK(CalledOnValidThread());
   upload_results_.push_back(result);
-  updated_attachment_ids_.push_back(updated_attachment_id);
+  attachment_ids_.push_back(attachment_id);
   DCHECK(!signal_upload_done_.is_null());
   signal_upload_done_.Run();
 }
@@ -377,6 +378,42 @@ net::HttpStatusCode RequestHandler::GetStatusCode() const {
   return status_code_;
 }
 
+TEST_F(AttachmentUploaderImplTest, GetURLForAttachmentId_NoPath) {
+  AttachmentId id = AttachmentId::Create();
+  std::string unique_id = id.GetProto().unique_id();
+  GURL sync_service_url("https://example.com");
+  EXPECT_EQ("https://example.com/attachments/" + unique_id,
+            AttachmentUploaderImpl::GetURLForAttachmentId(sync_service_url, id)
+                .spec());
+}
+
+TEST_F(AttachmentUploaderImplTest, GetURLForAttachmentId_JustSlash) {
+  AttachmentId id = AttachmentId::Create();
+  std::string unique_id = id.GetProto().unique_id();
+  GURL sync_service_url("https://example.com/");
+  EXPECT_EQ("https://example.com/attachments/" + unique_id,
+            AttachmentUploaderImpl::GetURLForAttachmentId(sync_service_url, id)
+                .spec());
+}
+
+TEST_F(AttachmentUploaderImplTest, GetURLForAttachmentId_Path) {
+  AttachmentId id = AttachmentId::Create();
+  std::string unique_id = id.GetProto().unique_id();
+  GURL sync_service_url("https://example.com/service");
+  EXPECT_EQ("https://example.com/service/attachments/" + unique_id,
+            AttachmentUploaderImpl::GetURLForAttachmentId(sync_service_url, id)
+                .spec());
+}
+
+TEST_F(AttachmentUploaderImplTest, GetURLForAttachmentId_PathAndSlash) {
+  AttachmentId id = AttachmentId::Create();
+  std::string unique_id = id.GetProto().unique_id();
+  GURL sync_service_url("https://example.com/service/");
+  EXPECT_EQ("https://example.com/service/attachments/" + unique_id,
+            AttachmentUploaderImpl::GetURLForAttachmentId(sync_service_url, id)
+                .spec());
+}
+
 // Verify the "happy case" of uploading an attachment.
 //
 // Token is requested, token is returned, HTTP request is made, attachment is
@@ -396,14 +433,14 @@ TEST_F(AttachmentUploaderImplTest, UploadAttachment_HappyCase) {
   // See that the done callback was invoked with the right arguments.
   ASSERT_EQ(1U, upload_results().size());
   EXPECT_EQ(AttachmentUploader::UPLOAD_SUCCESS, upload_results()[0]);
-  ASSERT_EQ(1U, updated_attachment_ids().size());
-  EXPECT_EQ(attachment.GetId(), updated_attachment_ids()[0]);
+  ASSERT_EQ(1U, attachment_ids().size());
+  EXPECT_EQ(attachment.GetId(), attachment_ids()[0]);
 
   // See that the HTTP server received one request.
   ASSERT_EQ(1U, http_requests_received().size());
   const HttpRequest& http_request = http_requests_received().front();
   EXPECT_EQ(net::test_server::METHOD_POST, http_request.method);
-  std::string expected_relative_url("/uploads/" +
+  std::string expected_relative_url(kAttachments +
                                     attachment.GetId().GetProto().unique_id());
   EXPECT_EQ(expected_relative_url, http_request.relative_url);
   EXPECT_TRUE(http_request.has_content);
@@ -412,10 +449,6 @@ TEST_F(AttachmentUploaderImplTest, UploadAttachment_HappyCase) {
   const std::string header_value(std::string("Bearer ") + kAccessToken);
   EXPECT_THAT(http_request.headers,
               testing::Contains(testing::Pair(header_name, header_value)));
-
-  // TODO(maniscalco): Once AttachmentUploaderImpl is capable of updating the
-  // AttachmentId with server address information about the attachment, add some
-  // checks here to verify it works properly (bug 371522).
 }
 
 // Verify two overlapping calls to upload the same attachment result in only one
@@ -476,9 +509,9 @@ TEST_F(AttachmentUploaderImplTest, UploadAttachment_FailToGetToken) {
 
   // See that the done callback was invoked.
   ASSERT_EQ(1U, upload_results().size());
-  EXPECT_EQ(AttachmentUploader::UPLOAD_UNSPECIFIED_ERROR, upload_results()[0]);
-  ASSERT_EQ(1U, updated_attachment_ids().size());
-  EXPECT_EQ(attachment.GetId(), updated_attachment_ids()[0]);
+  EXPECT_EQ(AttachmentUploader::UPLOAD_TRANSIENT_ERROR, upload_results()[0]);
+  ASSERT_EQ(1U, attachment_ids().size());
+  EXPECT_EQ(attachment.GetId(), attachment_ids()[0]);
 
   // See that no HTTP request was received.
   ASSERT_EQ(0U, http_requests_received().size());
@@ -498,15 +531,52 @@ TEST_F(AttachmentUploaderImplTest, UploadAttachment_ServiceUnavilable) {
 
   // See that the done callback was invoked.
   ASSERT_EQ(1U, upload_results().size());
-  EXPECT_EQ(AttachmentUploader::UPLOAD_UNSPECIFIED_ERROR, upload_results()[0]);
-  ASSERT_EQ(1U, updated_attachment_ids().size());
-  EXPECT_EQ(attachment.GetId(), updated_attachment_ids()[0]);
+  EXPECT_EQ(AttachmentUploader::UPLOAD_TRANSIENT_ERROR, upload_results()[0]);
+  ASSERT_EQ(1U, attachment_ids().size());
+  EXPECT_EQ(attachment.GetId(), attachment_ids()[0]);
 
   // See that the HTTP server received one request.
   ASSERT_EQ(1U, http_requests_received().size());
   const HttpRequest& http_request = http_requests_received().front();
   EXPECT_EQ(net::test_server::METHOD_POST, http_request.method);
-  std::string expected_relative_url("/uploads/" +
+  std::string expected_relative_url(kAttachments +
+                                    attachment.GetId().GetProto().unique_id());
+  EXPECT_EQ(expected_relative_url, http_request.relative_url);
+  EXPECT_TRUE(http_request.has_content);
+  EXPECT_EQ(kAttachmentData, http_request.content);
+  std::string expected_header(kAuthorization);
+  const std::string header_name(kAuthorization);
+  const std::string header_value(std::string("Bearer ") + kAccessToken);
+  EXPECT_THAT(http_request.headers,
+              testing::Contains(testing::Pair(header_name, header_value)));
+
+  // See that we did not invalidate the token.
+  ASSERT_EQ(0, token_service().num_invalidate_token());
+}
+
+// Verify that we "403 Forbidden" as a non-transient error.
+TEST_F(AttachmentUploaderImplTest, UploadAttachment_Forbidden) {
+  token_service().AddAccount(kAccountId);
+  request_handler().SetStatusCode(net::HTTP_FORBIDDEN);
+
+  scoped_refptr<base::RefCountedString> some_data(new base::RefCountedString);
+  some_data->data() = kAttachmentData;
+  Attachment attachment = Attachment::Create(some_data);
+  uploader()->UploadAttachment(attachment, upload_callback());
+
+  RunAndWaitFor(1);
+
+  // See that the done callback was invoked.
+  ASSERT_EQ(1U, upload_results().size());
+  EXPECT_EQ(AttachmentUploader::UPLOAD_UNSPECIFIED_ERROR, upload_results()[0]);
+  ASSERT_EQ(1U, attachment_ids().size());
+  EXPECT_EQ(attachment.GetId(), attachment_ids()[0]);
+
+  // See that the HTTP server received one request.
+  ASSERT_EQ(1U, http_requests_received().size());
+  const HttpRequest& http_request = http_requests_received().front();
+  EXPECT_EQ(net::test_server::METHOD_POST, http_request.method);
+  std::string expected_relative_url(kAttachments +
                                     attachment.GetId().GetProto().unique_id());
   EXPECT_EQ(expected_relative_url, http_request.relative_url);
   EXPECT_TRUE(http_request.has_content);
@@ -536,15 +606,15 @@ TEST_F(AttachmentUploaderImplTest, UploadAttachment_BadToken) {
 
   // See that the done callback was invoked.
   ASSERT_EQ(1U, upload_results().size());
-  EXPECT_EQ(AttachmentUploader::UPLOAD_UNSPECIFIED_ERROR, upload_results()[0]);
-  ASSERT_EQ(1U, updated_attachment_ids().size());
-  EXPECT_EQ(attachment.GetId(), updated_attachment_ids()[0]);
+  EXPECT_EQ(AttachmentUploader::UPLOAD_TRANSIENT_ERROR, upload_results()[0]);
+  ASSERT_EQ(1U, attachment_ids().size());
+  EXPECT_EQ(attachment.GetId(), attachment_ids()[0]);
 
   // See that the HTTP server received one request.
   ASSERT_EQ(1U, http_requests_received().size());
   const HttpRequest& http_request = http_requests_received().front();
   EXPECT_EQ(net::test_server::METHOD_POST, http_request.method);
-  std::string expected_relative_url("/uploads/" +
+  std::string expected_relative_url(kAttachments +
                                     attachment.GetId().GetProto().unique_id());
   EXPECT_EQ(expected_relative_url, http_request.relative_url);
   EXPECT_TRUE(http_request.has_content);

@@ -61,12 +61,7 @@
 #include "net/ssl/ssl_cert_request_info.h"
 #include "net/ssl/ssl_connection_status_flags.h"
 #include "url/gurl.h"
-
-#if defined(SPDY_PROXY_AUTH_ORIGIN)
-#include <algorithm>
-#include "net/proxy/proxy_server.h"
-#endif
-
+#include "url/url_canon.h"
 
 using base::Time;
 using base::TimeDelta;
@@ -79,17 +74,20 @@ void ProcessAlternateProtocol(
     HttpNetworkSession* session,
     const HttpResponseHeaders& headers,
     const HostPortPair& http_host_port_pair) {
-  std::string alternate_protocol_str;
-
-  if (!headers.EnumerateHeader(NULL, kAlternateProtocolHeader,
-                               &alternate_protocol_str)) {
-    // Header is not present.
+  if (!headers.HasHeader(kAlternateProtocolHeader))
     return;
+
+  std::vector<std::string> alternate_protocol_values;
+  void* iter = NULL;
+  std::string alternate_protocol_str;
+  while (headers.EnumerateHeader(&iter, kAlternateProtocolHeader,
+                                 &alternate_protocol_str)) {
+    alternate_protocol_values.push_back(alternate_protocol_str);
   }
 
   session->http_stream_factory()->ProcessAlternateProtocol(
       session->http_server_properties(),
-      alternate_protocol_str,
+      alternate_protocol_values,
       http_host_port_pair,
       *session);
 }
@@ -463,6 +461,11 @@ void HttpNetworkTransaction::SetWebSocketHandshakeStreamCreateHelper(
 void HttpNetworkTransaction::SetBeforeNetworkStartCallback(
     const BeforeNetworkStartCallback& callback) {
   before_network_start_callback_ = callback;
+}
+
+void HttpNetworkTransaction::SetBeforeProxyHeadersSentCallback(
+    const BeforeProxyHeadersSentCallback& callback) {
+  before_proxy_headers_sent_callback_ = callback;
 }
 
 int HttpNetworkTransaction::ResumeNetworkStart() {
@@ -880,6 +883,10 @@ void HttpNetworkTransaction::BuildRequestHeaders(bool using_proxy) {
         &request_headers_);
 
   request_headers_.MergeFrom(request_->extra_headers);
+
+  if (using_proxy && !before_proxy_headers_sent_callback_.is_null())
+    before_proxy_headers_sent_callback_.Run(proxy_info_, &request_headers_);
+
   response_.did_use_http_auth =
       request_headers_.HasHeader(HttpRequestHeaders::kAuthorization) ||
       request_headers_.HasHeader(HttpRequestHeaders::kProxyAuthorization);
@@ -1054,7 +1061,7 @@ int HttpNetworkTransaction::DoReadHeadersComplete(int result) {
         *request_,
         request_headers_,
         proxy_info_.proxy_server(),
-        *response_.headers);
+        *response_.headers.get());
   }
   return OK;
 }
@@ -1297,6 +1304,7 @@ int HttpNetworkTransaction::HandleSSLHandshakeError(int error) {
   uint16 version_max = server_ssl_config_.version_max;
 
   switch (error) {
+    case ERR_CONNECTION_CLOSED:
     case ERR_SSL_PROTOCOL_ERROR:
     case ERR_SSL_VERSION_OR_CIPHER_MISMATCH:
       if (version_max >= SSL_PROTOCOL_VERSION_TLS1 &&
@@ -1317,6 +1325,26 @@ int HttpNetworkTransaction::HandleSSLHandshakeError(int error) {
         // While SSL 3.0 fallback should be eliminated because of security
         // reasons, there is a high risk of breaking the servers if this is
         // done in general.
+        should_fallback = true;
+      }
+      break;
+    case ERR_CONNECTION_RESET:
+      if (version_max >= SSL_PROTOCOL_VERSION_TLS1_1 &&
+          version_max > server_ssl_config_.version_min) {
+        // Some network devices that inspect application-layer packets seem to
+        // inject TCP reset packets to break the connections when they see TLS
+        // 1.1 in ClientHello or ServerHello. See http://crbug.com/130293.
+        //
+        // Only allow ERR_CONNECTION_RESET to trigger a fallback from TLS 1.1 or
+        // 1.2. We don't lose much in this fallback because the explicit IV for
+        // CBC mode in TLS 1.1 is approximated by record splitting in TLS
+        // 1.0. The fallback will be more painful for TLS 1.2 when we have GCM
+        // support.
+        //
+        // ERR_CONNECTION_RESET is a common network error, so we don't want it
+        // to trigger a version fallback in general, especially the TLS 1.0 ->
+        // SSL 3.0 fallback, which would drop TLS extensions.
+        version_max--;
         should_fallback = true;
       }
       break;
@@ -1512,6 +1540,17 @@ GURL HttpNetworkTransaction::AuthURL(HttpAuth::Target target) const {
                   proxy_info_.proxy_server().host_port_pair().ToString());
     }
     case HttpAuth::AUTH_SERVER:
+      if (ForWebSocketHandshake()) {
+        const GURL& url = request_->url;
+        url::Replacements<char> ws_to_http;
+        if (url.SchemeIs("ws")) {
+          ws_to_http.SetScheme("http", url::Component(0, 4));
+        } else {
+          DCHECK(url.SchemeIs("wss"));
+          ws_to_http.SetScheme("https", url::Component(0, 5));
+        }
+        return url.ReplaceComponents(ws_to_http);
+      }
       return request_->url;
     default:
      return GURL();

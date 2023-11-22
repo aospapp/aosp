@@ -21,6 +21,7 @@
 #include "ui/accessibility/ax_text_utils.h"
 #include "ui/base/win/accessibility_ids_win.h"
 #include "ui/base/win/accessibility_misc_utils.h"
+#include "ui/base/win/atl_module.h"
 
 namespace content {
 
@@ -179,6 +180,7 @@ STDMETHODIMP BrowserAccessibilityRelation::get_targets(long max_targets,
 
 // static
 BrowserAccessibility* BrowserAccessibility::Create() {
+  ui::win::CreateATLModuleIfNeeded();
   CComObject<BrowserAccessibilityWin>* instance;
   HRESULT hr = CComObject<BrowserAccessibilityWin>::CreateInstance(&instance);
   DCHECK(SUCCEEDED(hr));
@@ -498,7 +500,7 @@ STDMETHODIMP BrowserAccessibilityWin::get_accParent(IDispatch** disp_parent) {
     // This happens if we're the root of the tree;
     // return the IAccessible for the window.
     parent_obj =
-         manager()->ToBrowserAccessibilityManagerWin()->parent_iaccessible();
+        manager()->ToBrowserAccessibilityManagerWin()->GetParentIAccessible();
     // |parent| can only be NULL if the manager was created before the parent
     // IAccessible was known and it wasn't subsequently set before a client
     // requested it. This has been fixed. |parent| may also be NULL during
@@ -738,7 +740,8 @@ STDMETHODIMP BrowserAccessibilityWin::get_windowHandle(HWND* window_handle) {
   if (!window_handle)
     return E_INVALIDARG;
 
-  *window_handle = manager()->ToBrowserAccessibilityManagerWin()->parent_hwnd();
+  *window_handle =
+      manager()->ToBrowserAccessibilityManagerWin()->GetParentHWND();
   if (!*window_handle)
     return E_FAIL;
 
@@ -994,7 +997,7 @@ STDMETHODIMP BrowserAccessibilityWin::get_imagePosition(
 
   if (coordinate_type == IA2_COORDTYPE_SCREEN_RELATIVE) {
     HWND parent_hwnd =
-        manager()->ToBrowserAccessibilityManagerWin()->parent_hwnd();
+        manager()->ToBrowserAccessibilityManagerWin()->GetParentHWND();
     if (!parent_hwnd)
       return E_FAIL;
     POINT top_left = {0, 0};
@@ -2561,7 +2564,7 @@ STDMETHODIMP BrowserAccessibilityWin::get_computedStyleForProperties(
 
   for (unsigned short i = 0; i < num_style_properties; ++i) {
     base::string16 name = (LPCWSTR)style_properties[i];
-    StringToLowerASCII(&name);
+    base::StringToLowerASCII(&name);
     if (name == L"display") {
       base::string16 display = GetString16Attribute(
           ui::AX_ATTR_DISPLAY);
@@ -3173,7 +3176,7 @@ bool BrowserAccessibilityWin::IsNative() const {
   return true;
 }
 
-void BrowserAccessibilityWin::OnLocationChanged() const {
+void BrowserAccessibilityWin::OnLocationChanged() {
   manager()->ToBrowserAccessibilityManagerWin()->MaybeCallNotifyWinEvent(
       EVENT_OBJECT_LOCATIONCHANGE, unique_id_win());
 }
@@ -3388,8 +3391,7 @@ void BrowserAccessibilityWin::InitRoleAndState() {
       ia_role_ = ROLE_SYSTEM_APPLICATION;
       break;
     case ui::AX_ROLE_ARTICLE:
-      ia_role_ = ROLE_SYSTEM_GROUPING;
-      ia2_role_ = IA2_ROLE_SECTION;
+      ia_role_ = ROLE_SYSTEM_DOCUMENT;
       ia_state_ |= STATE_SYSTEM_READONLY;
       break;
     case ui::AX_ROLE_BUSY_INDICATOR:
@@ -3474,6 +3476,15 @@ void BrowserAccessibilityWin::InitRoleAndState() {
       ia2_state_ |= IA2_STATE_SINGLE_LINE;
       ia2_state_ |= IA2_STATE_EDITABLE;
       break;
+    case ui::AX_ROLE_FIGCAPTION:
+      role_name_ = html_tag;
+      ia2_role_ = IA2_ROLE_CAPTION;
+      break;
+    case ui::AX_ROLE_FIGURE:
+      role_name_ = html_tag;
+      ia_role_ = ROLE_SYSTEM_GROUPING;
+      ia2_role_ = IA2_ROLE_SECTION;
+      break;
     case ui::AX_ROLE_FORM:
       role_name_ = L"form";
       ia2_role_ = IA2_ROLE_FORM;
@@ -3537,10 +3548,12 @@ void BrowserAccessibilityWin::InitRoleAndState() {
       ia_role_ = ROLE_SYSTEM_TEXT;
       ia2_role_ = IA2_ROLE_LABEL;
       break;
+    case ui::AX_ROLE_MAIN:
+      ia_role_ = ROLE_SYSTEM_GROUPING;
+      break;
     case ui::AX_ROLE_BANNER:
     case ui::AX_ROLE_COMPLEMENTARY:
     case ui::AX_ROLE_CONTENT_INFO:
-    case ui::AX_ROLE_MAIN:
     case ui::AX_ROLE_NAVIGATION:
     case ui::AX_ROLE_SEARCH:
       ia_role_ = ROLE_SYSTEM_GROUPING;
@@ -3761,6 +3774,7 @@ void BrowserAccessibilityWin::InitRoleAndState() {
     case ui::AX_ROLE_LOG:
     case ui::AX_ROLE_MARQUEE:
     case ui::AX_ROLE_MATTE:
+    case ui::AX_ROLE_NONE:
     case ui::AX_ROLE_PRESENTATIONAL:
     case ui::AX_ROLE_RULER_MARKER:
     case ui::AX_ROLE_SHEET:

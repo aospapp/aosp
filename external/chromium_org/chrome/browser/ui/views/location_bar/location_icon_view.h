@@ -36,9 +36,14 @@ class LocationIconView : public views::ImageView {
   // helper in the appropriate circumstances.
   void OnClickOrTap(const ui::LocatedEvent& event);
 
+  // Set to true when the bubble is already showing at the time the icon is
+  // clicked. This suppresses re-showing the bubble on mouse release, so that
+  // clicking the icon repeatedly will appear to toggle the bubble on and off.
+  bool suppress_mouse_released_action_;
+
   PageInfoHelper page_info_helper_;
 
-  DISALLOW_IMPLICIT_CONSTRUCTORS(LocationIconView);
+  DISALLOW_COPY_AND_ASSIGN(LocationIconView);
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_LOCATION_BAR_LOCATION_ICON_VIEW_H_

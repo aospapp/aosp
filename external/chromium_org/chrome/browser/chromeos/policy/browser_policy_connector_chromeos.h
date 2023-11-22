@@ -24,6 +24,9 @@ class URLRequestContextGetter;
 namespace policy {
 
 class AppPackUpdater;
+class ConsumerManagementService;
+class DeviceCloudPolicyInitializer;
+class DeviceCloudPolicyInvalidator;
 class DeviceCloudPolicyManagerChromeOS;
 class DeviceLocalAccountPolicyService;
 class DeviceManagementService;
@@ -42,6 +45,12 @@ class BrowserPolicyConnectorChromeOS : public ChromeBrowserPolicyConnector {
   virtual void Init(
       PrefService* local_state,
       scoped_refptr<net::URLRequestContextGetter> request_context) OVERRIDE;
+
+  // Shutdown() is called from BrowserProcessImpl::StartTearDown() but |this|
+  // observes some objects that get destroyed earlier. PreShutdown() is called
+  // from ChromeBrowserMainPartsChromeos::PostMainMessageLoopRun(), allowing the
+  // connection to these dependencies to be severed earlier.
+  void PreShutdown();
 
   virtual void Shutdown() OVERRIDE;
 
@@ -68,6 +77,10 @@ class BrowserPolicyConnectorChromeOS : public ChromeBrowserPolicyConnector {
     return device_cloud_policy_manager_;
   }
 
+  DeviceCloudPolicyInitializer* GetDeviceCloudPolicyInitializer() {
+    return device_cloud_policy_initializer_.get();
+  }
+
   DeviceLocalAccountPolicyService* GetDeviceLocalAccountPolicyService() {
     return device_local_account_policy_service_.get();
   }
@@ -92,9 +105,17 @@ class BrowserPolicyConnectorChromeOS : public ChromeBrowserPolicyConnector {
   void SetUserPolicyDelegate(ConfigurationPolicyProvider* user_policy_provider);
 
   // Returns the device management service for consumer management.
-  DeviceManagementService* consumer_device_management_service() const {
+  DeviceManagementService* GetDeviceManagementServiceForConsumer() const {
     return consumer_device_management_service_.get();
   }
+
+  ConsumerManagementService* GetConsumerManagementService() const {
+    return consumer_management_service_.get();
+  }
+
+  // Sets the device cloud policy initializer for testing.
+  void SetDeviceCloudPolicyInitializerForTesting(
+      scoped_ptr<DeviceCloudPolicyInitializer> initializer);
 
   // Sets the install attributes for testing. Must be called before the browser
   // is created. RemoveInstallAttributesForTesting must be called after the test
@@ -110,12 +131,16 @@ class BrowserPolicyConnectorChromeOS : public ChromeBrowserPolicyConnector {
   // Set the timezone as soon as the policies are available.
   void SetTimezoneIfPolicyAvailable();
 
+  void OnDeviceCloudPolicyManagerConnected();
+
   // Components of the device cloud policy implementation.
   scoped_ptr<ServerBackedStateKeysBroker> state_keys_broker_;
   scoped_ptr<EnterpriseInstallAttributes> install_attributes_;
   DeviceCloudPolicyManagerChromeOS* device_cloud_policy_manager_;
+  scoped_ptr<DeviceCloudPolicyInitializer> device_cloud_policy_initializer_;
   scoped_ptr<DeviceLocalAccountPolicyService>
       device_local_account_policy_service_;
+  scoped_ptr<DeviceCloudPolicyInvalidator> device_cloud_policy_invalidator_;
 
   // This policy provider is used on Chrome OS to feed user policy into the
   // global PolicyService instance. This works by installing the cloud policy
@@ -129,6 +154,7 @@ class BrowserPolicyConnectorChromeOS : public ChromeBrowserPolicyConnector {
   scoped_ptr<NetworkConfigurationUpdater> network_configuration_updater_;
 
   scoped_ptr<DeviceManagementService> consumer_device_management_service_;
+  scoped_ptr<ConsumerManagementService> consumer_management_service_;
 
   base::WeakPtrFactory<BrowserPolicyConnectorChromeOS> weak_ptr_factory_;
 

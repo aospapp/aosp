@@ -32,12 +32,12 @@
         android:scaleType="fitCenter"
         tools:ignore="ContentDescription" />
 
-    <TextView
+    <com.android.tv.settings.widget.ResizingTextView
         android:id="@+id/title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginLeft="@dimen/browse_item_text_marginHor"
-        android:layout_marginRight="@dimen/browse_item_text_marginHor"
+        android:layout_marginStart="@dimen/browse_item_text_marginHor"
+        android:layout_marginEnd="@dimen/browse_item_text_marginHor"
         android:layout_marginBottom="@dimen/browse_item_title_marginBottom"
         android:layout_alignParentBottom="true"
         android:ellipsize="end"
@@ -53,8 +53,8 @@
         android:id="@+id/description"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginLeft="@dimen/browse_item_text_marginHor"
-        android:layout_marginRight="@dimen/browse_item_text_marginHor"
+        android:layout_marginStart="@dimen/browse_item_text_marginHor"
+        android:layout_marginEnd="@dimen/browse_item_text_marginHor"
         android:layout_marginBottom="@dimen/browse_item_description_marginBottom"
         android:layout_alignParentBottom="true"
         android:ellipsize="end"

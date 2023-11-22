@@ -11,7 +11,6 @@
 #include "base/strings/string16.h"
 #include "base/strings/string_util.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/history/most_visited_tiles_experiment.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/instant_service.h"
 #include "chrome/browser/search/instant_service_factory.h"
@@ -22,7 +21,7 @@
 #include "chrome/browser/ui/app_list/app_list_util.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/omnibox/location_bar.h"
+#include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
@@ -32,6 +31,9 @@
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
 #include "chrome/browser/ui/webui/ntp/ntp_user_data_logger.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/generated_resources.h"
+#include "components/google/core/browser/google_util.h"
+#include "components/search/search.h"
 #include "components/signin/core/browser/signin_manager.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_details.h"
@@ -39,14 +41,14 @@
 #include "content/public/browser/navigation_type.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/common/page_transition_types.h"
 #include "content/public/common/referrer.h"
-#include "grit/generated_resources.h"
 #include "net/base/net_errors.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
 
 DEFINE_WEB_CONTENTS_USER_DATA_KEY(SearchTabHelper);
@@ -119,7 +121,18 @@ void RecordNewTabLoadTime(content::WebContents* contents) {
 
   base::TimeDelta duration =
       base::TimeTicks::Now() - core_tab_helper->new_tab_start_time();
-  UMA_HISTOGRAM_TIMES("Tab.NewTabOnload", duration);
+  if (IsCacheableNTP(contents)) {
+    if (google_util::IsGoogleDomainUrl(
+        contents->GetController().GetLastCommittedEntry()->GetURL(),
+        google_util::ALLOW_SUBDOMAIN,
+        google_util::DISALLOW_NON_STANDARD_PORTS)) {
+      UMA_HISTOGRAM_TIMES("Tab.NewTabOnload.Google", duration);
+    } else {
+      UMA_HISTOGRAM_TIMES("Tab.NewTabOnload.Other", duration);
+    }
+  } else {
+    UMA_HISTOGRAM_TIMES("Tab.NewTabOnload.Local", duration);
+  }
   core_tab_helper->set_new_tab_start_time(base::TimeTicks());
 }
 
@@ -133,6 +146,10 @@ bool IsHistorySyncEnabled(Profile* profile) {
       sync->GetActiveDataTypes().Has(syncer::HISTORY_DELETE_DIRECTIVES);
 }
 
+bool OmniboxHasFocus(OmniboxView* omnibox) {
+  return omnibox && omnibox->model()->has_focus();
+}
+
 }  // namespace
 
 SearchTabHelper::SearchTabHelper(content::WebContents* web_contents)
@@ -143,7 +160,8 @@ SearchTabHelper::SearchTabHelper(content::WebContents* web_contents)
                   make_scoped_ptr(new SearchIPCRouterPolicyImpl(web_contents))
                       .PassAs<SearchIPCRouter::Policy>()),
       instant_service_(NULL),
-      delegate_(NULL) {
+      delegate_(NULL),
+      omnibox_has_focus_fn_(&OmniboxHasFocus) {
   if (!is_search_enabled_)
     return;
 
@@ -245,8 +263,8 @@ void SearchTabHelper::OnTabActivated() {
   ipc_router_.OnTabActivated();
 
   OmniboxView* omnibox_view = GetOmniboxView();
-  if (chrome::ShouldPrerenderInstantUrlOnOmniboxFocus() && omnibox_view &&
-      omnibox_view->model()->has_focus()) {
+  if (chrome::ShouldPrerenderInstantUrlOnOmniboxFocus() &&
+      omnibox_has_focus_fn_(omnibox_view)) {
     InstantSearchPrerenderer* prerenderer =
         InstantSearchPrerenderer::GetForProfile(profile());
     if (prerenderer && !IsSearchResultsPage()) {
@@ -319,17 +337,13 @@ void SearchTabHelper::DidNavigateMainFrame(
 }
 
 void SearchTabHelper::DidFailProvisionalLoad(
-    int64 /* frame_id */,
-    const base::string16& /* frame_unique_name */,
-    bool is_main_frame,
+    content::RenderFrameHost* render_frame_host,
     const GURL& validated_url,
     int error_code,
-    const base::string16& /* error_description */,
-    content::RenderViewHost* /* render_view_host */) {
+    const base::string16& /* error_description */) {
   // If error_code is ERR_ABORTED means that the user has canceled this
   // navigation so it shouldn't be redirected.
-  if (is_main_frame &&
-      error_code != net::ERR_ABORTED &&
+  if (!render_frame_host->GetParent() && error_code != net::ERR_ABORTED &&
       validated_url != GURL(chrome::kChromeSearchLocalNtpUrl) &&
       chrome::IsNTPURL(validated_url, profile())) {
     RedirectToLocalNTP();
@@ -337,12 +351,9 @@ void SearchTabHelper::DidFailProvisionalLoad(
   }
 }
 
-void SearchTabHelper::DidFinishLoad(
-    int64 /* frame_id */,
-    const GURL&  /* validated_url */,
-    bool is_main_frame,
-    content::RenderViewHost* /* render_view_host */) {
-  if (is_main_frame) {
+void SearchTabHelper::DidFinishLoad(content::RenderFrameHost* render_frame_host,
+                                    const GURL& /* validated_url */) {
+  if (!render_frame_host->GetParent()) {
     if (chrome::IsInstantNTP(web_contents_))
       RecordNewTabLoadTime(web_contents_);
 
@@ -419,25 +430,11 @@ void SearchTabHelper::ThemeInfoChanged(const ThemeBackgroundInfo& theme_info) {
 
 void SearchTabHelper::MostVisitedItemsChanged(
     const std::vector<InstantMostVisitedItem>& items) {
-  std::vector<InstantMostVisitedItem> items_copy(items);
-  MaybeRemoveMostVisitedItems(&items_copy);
-  ipc_router_.SendMostVisitedItems(items_copy);
+  ipc_router_.SendMostVisitedItems(items);
 }
 
 void SearchTabHelper::OmniboxStartMarginChanged(int omnibox_start_margin) {
   ipc_router_.SetOmniboxStartMargin(omnibox_start_margin);
-}
-
-void SearchTabHelper::MaybeRemoveMostVisitedItems(
-    std::vector<InstantMostVisitedItem>* items) {
-  if (!delegate_)
-    return;
-
-  if (!history::MostVisitedTilesExperiment::IsDontShowOpenURLsEnabled())
-    return;
-
-  history::MostVisitedTilesExperiment::RemoveItemsMatchingOpenTabs(
-      delegate_->GetOpenUrls(), items);
 }
 
 void SearchTabHelper::FocusOmnibox(OmniboxFocusState state) {
@@ -623,7 +620,7 @@ void SearchTabHelper::RedirectToLocalNTP() {
   content::NavigationController::LoadURLParams load_params(
       (GURL(chrome::kChromeSearchLocalNtpUrl)));
   load_params.referrer = content::Referrer();
-  load_params.transition_type = content::PAGE_TRANSITION_SERVER_REDIRECT;
+  load_params.transition_type = ui::PAGE_TRANSITION_SERVER_REDIRECT;
   // Don't push a history entry.
   load_params.should_replace_current_entry = true;
   web_contents_->GetController().LoadURLWithParams(load_params);

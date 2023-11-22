@@ -4,10 +4,11 @@
 
 #include "chrome/browser/invalidation/invalidation_service_android.h"
 
+#include "base/callback.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/invalidation/invalidation_controller_android.h"
+#include "components/invalidation/object_id_invalidation_map.h"
 #include "content/public/browser/notification_service.h"
-#include "sync/notifier/object_id_invalidation_map.h"
 
 namespace invalidation {
 

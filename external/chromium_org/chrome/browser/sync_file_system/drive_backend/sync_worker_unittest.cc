@@ -7,6 +7,7 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
+#include "base/thread_task_runner_handle.h"
 #include "chrome/browser/drive/drive_uploader.h"
 #include "chrome/browser/drive/fake_drive_service.h"
 #include "chrome/browser/extensions/test_extension_service.h"
@@ -116,9 +117,8 @@ class SyncWorkerTest : public testing::Test,
             fake_drive_service.Pass(),
             scoped_ptr<drive::DriveUploaderInterface>(),
             NULL /* task_logger */,
-            base::MessageLoopProxy::current() /* ui_task_runner */,
-            base::MessageLoopProxy::current() /* worker_task_runner */,
-            base::MessageLoopProxy::current() /* file_task_runner */));
+            base::ThreadTaskRunnerHandle::Get() /* ui_task_runner */,
+            base::ThreadTaskRunnerHandle::Get() /* worker_task_runner */));
 
     sync_worker_.reset(new SyncWorker(
         profile_dir_.path(),
@@ -144,7 +144,7 @@ class SyncWorkerTest : public testing::Test,
   }
 
   SyncTaskManager* GetSyncTaskManager() {
-    return sync_worker_->GetSyncTaskManager();
+    return sync_worker_->task_manager_.get();
   }
 
   void CheckServiceState(SyncStatusCode expected_sync_status,
@@ -156,10 +156,6 @@ class SyncWorkerTest : public testing::Test,
 
   MetadataDatabase* metadata_database() {
     return sync_worker_->GetMetadataDatabase();
-  }
-
-  void SetHasRefreshToken(bool has_refresh_token) {
-    sync_worker_->has_refresh_token_ = has_refresh_token;
   }
 
  private:
@@ -288,9 +284,6 @@ TEST_F(SyncWorkerTest, GetOriginStatusMap) {
 TEST_F(SyncWorkerTest, UpdateServiceState) {
   EXPECT_EQ(REMOTE_SERVICE_OK, sync_worker()->GetCurrentState());
 
-  // Assume an user is in login state.
-  SetHasRefreshToken(true);
-
   GetSyncTaskManager()->ScheduleTask(
       FROM_HERE,
       base::Bind(&EmptyTask, SYNC_STATUS_AUTHENTICATION_FAILED),
@@ -307,7 +300,7 @@ TEST_F(SyncWorkerTest, UpdateServiceState) {
       base::Bind(&SyncWorkerTest::CheckServiceState,
                  AsWeakPtr(),
                  SYNC_STATUS_ACCESS_FORBIDDEN,
-                 REMOTE_SERVICE_AUTHENTICATION_REQUIRED));
+                 REMOTE_SERVICE_ACCESS_FORBIDDEN));
 
   GetSyncTaskManager()->ScheduleTask(
       FROM_HERE,

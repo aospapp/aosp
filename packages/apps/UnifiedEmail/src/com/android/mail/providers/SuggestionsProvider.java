@@ -35,16 +35,9 @@ import java.util.ArrayList;
 /**
  * Simple extension / instantiation of SearchRecentSuggestionsProvider, independent
  * of mail account or account capabilities.  Offers suggestions from historical searches
- * and contact email addresses on the device. The authority fro for this provider is obtained
- * through the MailAppProvider as follows:
- * final String AUTHORITY = MailAppProvider.getInstance().getSuggestionAuthority()
- * It needs to be done after the MailAppProvider is constructed.
+ * and contact email addresses on the device.
  */
 public class SuggestionsProvider extends SearchRecentSuggestionsProvider {
-    /**
-     * Mode used in the constructor of SuggestionsProvider.
-     */
-    public final static int MODE = DATABASE_MODE_QUERIES;
     /**
      * Columns over the contacts database that we return in the {@link ContactsCursor}.
      */
@@ -65,23 +58,13 @@ public class SuggestionsProvider extends SearchRecentSuggestionsProvider {
      */
     static private final int MIN_QUERY_LENGTH_FOR_CONTACTS = 2;
 
-    public SuggestionsProvider() {
-        super();
+    public SuggestionsProvider(Context context) {
+        super(context);
     }
 
     @Override
-    public boolean onCreate() {
-        final String authority = getContext().getString(R.string.suggestions_authority);
-        setupSuggestions(authority, MODE);
-        super.onCreate();
-        return true;
-    }
-
-    @Override
-    public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs,
-            String sortOrder) {
-        String query = selectionArgs[0];
-        MergeCursor mergeCursor = null;
+    public Cursor query(String query) {
+        Cursor mergeCursor = null;
 
         synchronized (mTermsLock) {
             mFullQueryTerms = null;
@@ -110,12 +93,18 @@ public class SuggestionsProvider extends SearchRecentSuggestionsProvider {
             ArrayList<Cursor> cursors = new ArrayList<Cursor>();
             // Pass query; at this point it is either the last term OR the
             // only term.
-            cursors.add(super.query(uri, projection, selection, new String[] { query }, sortOrder));
+            final Cursor c = super.query(query);
+            if (c != null) {
+                cursors.add(c);
+            }
 
             if (query.length() >= MIN_QUERY_LENGTH_FOR_CONTACTS) {
                 cursors.add(new ContactsCursor().query(query));
             }
-            mergeCursor = new MergeCursor(cursors.toArray(new Cursor[cursors.size()]));
+
+            if (cursors.size() > 0) {
+                mergeCursor = new MergeCursor(cursors.toArray(new Cursor[cursors.size()]));
+            }
         }
         return mergeCursor;
     }
@@ -124,10 +113,8 @@ public class SuggestionsProvider extends SearchRecentSuggestionsProvider {
      * Utility class to return a cursor over the contacts database
      */
     private final class ContactsCursor extends MatrixCursorWithCachedColumns {
-        private final Context mContext;
         public ContactsCursor() {
             super(CONTACTS_COLUMNS);
-            mContext = getContext();
         }
 
         /**
@@ -170,8 +157,8 @@ public class SuggestionsProvider extends SearchRecentSuggestionsProvider {
         final StringBuilder query = new StringBuilder();
         if (mFullQueryTerms != null) {
             synchronized (mTermsLock) {
-                for (int i = 0, size = mFullQueryTerms.size(); i < size; i++) {
-                    query.append(mFullQueryTerms.get(i)).append(QUERY_TOKEN_SEPARATOR);
+                for (String token : mFullQueryTerms) {
+                    query.append(token).append(QUERY_TOKEN_SEPARATOR);
                 }
             }
         }

@@ -22,6 +22,7 @@
 #include "ipc/ipc_message_macros.h"
 #include "ipc/ipc_message_utils.h"
 #include "third_party/WebKit/public/web/WebFormElement.h"
+#include "ui/gfx/ipc/gfx_param_traits.h"
 #include "ui/gfx/rect.h"
 #include "url/gurl.h"
 
@@ -195,14 +196,16 @@ IPC_MESSAGE_ROUTED1(AutofillHostMsg_PasswordFormsParsed,
                     std::vector<autofill::PasswordForm> /* forms */)
 
 // Notification that initial layout has occurred and the following password
-// forms are visible on the page (e.g. not set to display:none.)
-IPC_MESSAGE_ROUTED1(AutofillHostMsg_PasswordFormsRendered,
-                    std::vector<autofill::PasswordForm> /* forms */)
+// forms are visible on the page (e.g. not set to display:none.), and whether
+// all frames in the page have been rendered.
+IPC_MESSAGE_ROUTED2(AutofillHostMsg_PasswordFormsRendered,
+                    std::vector<autofill::PasswordForm> /* forms */,
+                    bool /* did_stop_loading */)
 
 // A ping to the browser that PasswordAutofillAgent was constructed. As a
 // consequence, the browser sends AutofillMsg_SetLoggingState with the current
 // state of the logging activity.
-IPC_MESSAGE_ROUTED0(AutofillHostMsg_PasswordAutofillAgentConstructed);
+IPC_MESSAGE_ROUTED0(AutofillHostMsg_PasswordAutofillAgentConstructed)
 
 // Notification that this password form was submitted by the user.
 IPC_MESSAGE_ROUTED1(AutofillHostMsg_PasswordFormSubmitted,
@@ -251,7 +254,7 @@ IPC_MESSAGE_ROUTED2(AutofillHostMsg_RequestAutocomplete,
 
 // Sent when interactive autocomplete is cancelled (e.g. because the invoking
 // frame was navigated to a different URL).
-IPC_MESSAGE_ROUTED0(AutofillHostMsg_CancelRequestAutocomplete);
+IPC_MESSAGE_ROUTED0(AutofillHostMsg_CancelRequestAutocomplete)
 
 // Send when a text field is done editing.
 IPC_MESSAGE_ROUTED0(AutofillHostMsg_DidEndTextFieldEditing)

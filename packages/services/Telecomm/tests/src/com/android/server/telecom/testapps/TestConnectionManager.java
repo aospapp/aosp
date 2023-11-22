@@ -60,9 +60,9 @@ public class TestConnectionManager extends ConnectionService {
             }
 
             @Override
-            public void onCallCapabilitiesChanged(RemoteConnection connection,
-                    int callCapabilities) {
-                setCallCapabilities(callCapabilities);
+            public void onConnectionCapabilitiesChanged(RemoteConnection connection,
+                    int connectionCapabilities) {
+                setConnectionCapabilities(connectionCapabilities);
             }
 
             @Override
@@ -246,8 +246,9 @@ public class TestConnectionManager extends ConnectionService {
             }
 
             @Override
-            public void onCapabilitiesChanged(RemoteConference conference, int capabilities) {
-                setCapabilities(capabilities);
+            public void onConnectionCapabilitiesChanged(RemoteConference conference,
+                    int connectionCapabilities) {
+                setConnectionCapabilities(connectionCapabilities);
             }
 
             @Override

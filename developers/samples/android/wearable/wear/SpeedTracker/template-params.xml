@@ -25,20 +25,23 @@
 `
 
     <!-- change minSdk if needed-->
-    <minSdk>20</minSdk>
+    <minSdk>18</minSdk>
+
+    <dependency>com.google.android.gms:play-services-location:6.5.+</dependency>
+    <dependency_wearable>com.google.android.gms:play-services-location:6.5.+</dependency_wearable>
 
 
     <strings>
         <intro>
             <![CDATA[
-This sample uses the FusedLocation APIs of GMS on those
-devices that have a hardware GPS built in. In those cases,
-this sample provides a simple screen that shows the current
-speed of the device on the watch. User can set a speed limit
-and if the speed approaches that limit, it changes the color
-to yellow and if it exceeds the limit, it turns red. User
-can also enable recording of coordinates and when it pairs
-back with the phone, this data will be synced with the phone
+This sample uses the FusedLocation APIs of Google Play Services
+on those devices that have a hardware GPS built in. In those
+cases, this sample provides a simple screen that shows the
+current speed of the device on the watch. User can set a speed
+limit and if the speed approaches that limit, it changes the
+color to yellow and if it exceeds the limit, it turns red. User
+can also enable recording of coordinates and when it pairs back
+with the phone, this data will be synced with the phone
 component of the app and user can see a track made of those
 coordinates on a map on the phone.
             ]]>
@@ -46,8 +49,6 @@ coordinates on a map on the phone.
     </strings>
 
     <template src="base"/>
-    <template src="Wear"/>
-    <common src="logger"/>
-    <common src="activities"/>
+    <template src="WearPlusShared"/>
 
 </sample>

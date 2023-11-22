@@ -13,6 +13,7 @@
 #include "base/prefs/pref_member.h"
 #include "chrome/browser/command_observer.h"
 #include "chrome/browser/ui/toolbar/back_forward_menu_model.h"
+#include "chrome/browser/ui/toolbar/wrench_menu_badge_controller.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/views/accessible_pane_view.h"
@@ -48,7 +49,9 @@ class ToolbarView : public views::AccessiblePaneView,
                     public content::NotificationObserver,
                     public CommandObserver,
                     public views::ButtonListener,
-                    public views::WidgetObserver {
+                    public views::WidgetObserver,
+                    public views::ViewTargeterDelegate,
+                    public WrenchMenuBadgeController::Delegate {
  public:
   // The view class name.
   static const char kViewClassName[];
@@ -91,13 +94,11 @@ class ToolbarView : public views::AccessiblePaneView,
   void ExecuteExtensionCommand(const extensions::Extension* extension,
                                const extensions::Command& command);
 
-  // Shows the extension's page action, if present.
-  void ShowPageActionPopup(const extensions::Extension* extension);
+  // Shows the app (wrench) menu. |for_drop| indicates whether the menu is
+  // opened for a drag-and-drop operation.
+  void ShowAppMenu(bool for_drop);
 
-  // Shows the extension's browser action, if present.
-  void ShowBrowserActionPopup(const extensions::Extension* extension);
-
-  // Accessors...
+  // Accessors.
   Browser* browser() const { return browser_; }
   BrowserActionsContainer* browser_actions() const { return browser_actions_; }
   ReloadButton* reload_button() const { return reload_; }
@@ -105,15 +106,15 @@ class ToolbarView : public views::AccessiblePaneView,
   views::MenuButton* app_menu() const;
   HomeButton* home_button() const { return home_; }
 
-  // Overridden from AccessiblePaneView
+  // AccessiblePaneView:
   virtual bool SetPaneFocus(View* initial_focus) OVERRIDE;
   virtual void GetAccessibleState(ui::AXViewState* state) OVERRIDE;
 
-  // Overridden from views::MenuButtonListener:
+  // views::MenuButtonListener:
   virtual void OnMenuButtonClicked(views::View* source,
                                    const gfx::Point& point) OVERRIDE;
 
-  // Overridden from LocationBarView::Delegate:
+  // LocationBarView::Delegate:
   virtual content::WebContents* GetWebContents() OVERRIDE;
   virtual ToolbarModel* GetToolbarModel() OVERRIDE;
   virtual const ToolbarModel* GetToolbarModel() const OVERRIDE;
@@ -128,31 +129,32 @@ class ToolbarView : public views::AccessiblePaneView,
                                    const GURL& url,
                                    const content::SSLStatus& ssl) OVERRIDE;
 
-  // Overridden from CommandObserver:
+  // CommandObserver:
   virtual void EnabledStateChangedForCommand(int id, bool enabled) OVERRIDE;
 
-  // Overridden from views::ButtonListener:
+  // views::ButtonListener:
   virtual void ButtonPressed(views::Button* sender,
                              const ui::Event& event) OVERRIDE;
 
-  // Overridden from views::WidgetObserver:
+  // views::WidgetObserver:
   virtual void OnWidgetVisibilityChanged(views::Widget* widget,
                                          bool visible) OVERRIDE;
+  virtual void OnWidgetActivationChanged(views::Widget* widget,
+                                         bool active) OVERRIDE;
 
-  // Overridden from content::NotificationObserver:
+  // content::NotificationObserver:
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
-  // Overridden from ui::AcceleratorProvider:
+  // ui::AcceleratorProvider:
   virtual bool GetAcceleratorForCommandId(
       int command_id, ui::Accelerator* accelerator) OVERRIDE;
 
-  // Overridden from views::View:
+  // views::View:
   virtual gfx::Size GetPreferredSize() const OVERRIDE;
   virtual gfx::Size GetMinimumSize() const OVERRIDE;
   virtual void Layout() OVERRIDE;
-  virtual bool HitTestRect(const gfx::Rect& rect) const OVERRIDE;
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE;
   virtual void OnThemeChanged() OVERRIDE;
   virtual const char* GetClassName() const OVERRIDE;
@@ -176,7 +178,7 @@ class ToolbarView : public views::AccessiblePaneView,
   };
 
  protected:
-  // Overridden from AccessiblePaneView
+  // AccessiblePaneView:
   virtual bool SetPaneFocusAndFocusDefault() OVERRIDE;
   virtual void RemovePaneFocus() OVERRIDE;
 
@@ -188,14 +190,14 @@ class ToolbarView : public views::AccessiblePaneView,
                               // bar, used for popups.
   };
 
-  // Returns true if we should show the upgrade recommended dot.
-  bool ShouldShowUpgradeRecommended();
+  // views::ViewTargeterDelegate:
+  virtual bool DoesIntersectRect(const views::View* target,
+                                 const gfx::Rect& rect) const OVERRIDE;
 
-  // Returns true if we should show the background page badge.
-  bool ShouldShowBackgroundPageBadge();
-
-  // Returns true if we should show the warning for incompatible software.
-  bool ShouldShowIncompatibilityWarning();
+  // WrenchMenuBadgeController::Delegate:
+  virtual void UpdateBadgeSeverity(WrenchMenuBadgeController::BadgeType type,
+                                   WrenchIconPainter::Severity severity,
+                                   bool animate) OVERRIDE;
 
   // Returns the number of pixels above the location bar in non-normal display.
   int PopupTopSpacing() const;
@@ -217,12 +219,6 @@ class ToolbarView : public views::AccessiblePaneView,
   // |auto_update_enabled| is set to true when auto-upate is on.
   void ShowOutdatedInstallNotification(bool auto_update_enabled);
 
-  // Updates the badge and the accessible name of the app menu (Wrench).
-  void UpdateAppMenuState();
-
-  // Updates the severity level on the wrench menu button.
-  void UpdateWrenchButtonSeverity();
-
   void OnShowHomeButtonChanged();
 
   int content_shadow_height() const;
@@ -236,6 +232,8 @@ class ToolbarView : public views::AccessiblePaneView,
   BrowserActionsContainer* browser_actions_;
   WrenchToolbarButton* app_menu_;
   Browser* browser_;
+
+  WrenchMenuBadgeController badge_controller_;
 
   // Controls whether or not a home button should be shown on the toolbar.
   BooleanPrefMember show_home_button_;

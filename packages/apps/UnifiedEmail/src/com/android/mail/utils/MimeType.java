@@ -74,7 +74,9 @@ public class MimeType {
         if (contentUri != null) {
             Utils.setIntentDataAndTypeAndNormalize(mimetypeIntent, contentUri, contentType);
         } else {
-            Utils.setIntentTypeAndNormalize(mimetypeIntent, contentType);
+            // Fake a reasonable looking URI so that intent filters that specify a scheme will match
+            final Uri dummyUri = Uri.parse("content://" + context.getPackageName());
+            Utils.setIntentDataAndTypeAndNormalize(mimetypeIntent, dummyUri, contentType);
         }
 
         PackageManager manager;

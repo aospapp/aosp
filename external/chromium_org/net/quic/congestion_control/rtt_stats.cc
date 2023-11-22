@@ -4,6 +4,10 @@
 
 #include "net/quic/congestion_control/rtt_stats.h"
 
+#include <complex>  // std::abs
+
+using std::max;
+
 namespace net {
 
 namespace {
@@ -35,6 +39,14 @@ bool RttStats::HasUpdates() const {
 void RttStats::SampleNewRecentMinRtt(uint32 num_samples) {
   num_min_rtt_samples_remaining_ = num_samples;
   new_min_rtt_ = RttSample();
+}
+
+void RttStats::ExpireSmoothedMetrics() {
+  mean_deviation_ =
+      max(mean_deviation_,
+          QuicTime::Delta::FromMicroseconds(
+              std::abs(smoothed_rtt_.Subtract(latest_rtt_).ToMicroseconds())));
+  smoothed_rtt_ = max(smoothed_rtt_, latest_rtt_);
 }
 
 // Updates the RTT based on a new sample.
@@ -76,7 +88,7 @@ void RttStats::UpdateRtt(QuicTime::Delta send_delta,
         kBeta * std::abs(smoothed_rtt_.Subtract(rtt_sample).ToMicroseconds()));
     smoothed_rtt_ = smoothed_rtt_.Multiply(kOneMinusAlpha).Add(
         rtt_sample.Multiply(kAlpha));
-    DVLOG(1) << "Cubic; smoothed_rtt(us):" << smoothed_rtt_.ToMicroseconds()
+    DVLOG(1) << " smoothed_rtt(us):" << smoothed_rtt_.ToMicroseconds()
              << " mean_deviation(us):" << mean_deviation_.ToMicroseconds();
   }
 }

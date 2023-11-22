@@ -38,6 +38,8 @@ class LazyDomDistillerService : public DomDistillerServiceInterface,
       const GURL& url,
       scoped_ptr<DistillerPage> distiller_page,
       const ArticleAvailableCallback& article_cb) OVERRIDE;
+  virtual bool HasEntry(const std::string& entry_id) OVERRIDE;
+  virtual std::string GetUrlForEntry(const std::string& entry_id) OVERRIDE;
   virtual std::vector<ArticleEntry> GetEntries() const OVERRIDE;
   virtual scoped_ptr<ArticleEntry> RemoveEntry(
       const std::string& entry_id) OVERRIDE;
@@ -49,11 +51,13 @@ class LazyDomDistillerService : public DomDistillerServiceInterface,
       ViewRequestDelegate* delegate,
       scoped_ptr<DistillerPage> distiller_page,
       const GURL& url) OVERRIDE;
-  virtual scoped_ptr<DistillerPage> CreateDefaultDistillerPage() OVERRIDE;
+  virtual scoped_ptr<DistillerPage> CreateDefaultDistillerPage(
+      const gfx::Size& render_view_size) OVERRIDE;
   virtual scoped_ptr<DistillerPage> CreateDefaultDistillerPageWithHandle(
       scoped_ptr<SourcePageHandle> handle) OVERRIDE;
   virtual void AddObserver(DomDistillerObserver* observer) OVERRIDE;
   virtual void RemoveObserver(DomDistillerObserver* observer) OVERRIDE;
+  virtual DistilledPagePrefs* GetDistilledPagePrefs() OVERRIDE;
 
  private:
   // Accessor method for the backing service instance.

@@ -41,17 +41,17 @@ ExtensionCacheImpl* ExtensionCacheImpl::GetInstance() {
 }
 
 ExtensionCacheImpl::ExtensionCacheImpl()
-  : weak_ptr_factory_(this),
-    cache_(new LocalExtensionCache(base::FilePath(kLocalCacheDir),
+  : cache_(new LocalExtensionCache(base::FilePath(kLocalCacheDir),
         kMaxCacheSize,
         base::TimeDelta::FromDays(kMaxCacheAgeDays),
         content::BrowserThread::GetBlockingPool()->
             GetSequencedTaskRunnerWithShutdownBehavior(
                 content::BrowserThread::GetBlockingPool()->GetSequenceToken(),
-                base::SequencedWorkerPool::SKIP_ON_SHUTDOWN))) {
+                base::SequencedWorkerPool::SKIP_ON_SHUTDOWN))),
+    weak_ptr_factory_(this) {
   notification_registrar_.Add(
       this,
-      chrome::NOTIFICATION_EXTENSION_INSTALL_ERROR,
+      extensions::NOTIFICATION_EXTENSION_INSTALL_ERROR,
       content::NotificationService::AllBrowserContextsAndSources());
   cache_->Init(true, base::Bind(&ExtensionCacheImpl::OnCacheInitialized,
                                 weak_ptr_factory_.GetWeakPtr()));
@@ -123,7 +123,7 @@ void ExtensionCacheImpl::Observe(int type,
     return;
 
   switch (type) {
-    case chrome::NOTIFICATION_EXTENSION_INSTALL_ERROR: {
+    case extensions::NOTIFICATION_EXTENSION_INSTALL_ERROR: {
       extensions::CrxInstaller* installer =
           content::Source<extensions::CrxInstaller>(source).ptr();
       // TODO(dpolukhin): remove extension from cache only if installation

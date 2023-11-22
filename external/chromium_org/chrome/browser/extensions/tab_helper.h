@@ -5,7 +5,6 @@
 #ifndef CHROME_BROWSER_EXTENSIONS_TAB_HELPER_H_
 #define CHROME_BROWSER_EXTENSIONS_TAB_HELPER_H_
 
-#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -15,12 +14,15 @@
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "chrome/browser/extensions/active_tab_permission_granter.h"
+#include "chrome/common/extensions/webstore_install_result.h"
 #include "chrome/common/web_application_info.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "extensions/browser/extension_function_dispatcher.h"
+#include "extensions/browser/script_execution_observer.h"
+#include "extensions/browser/script_executor.h"
 #include "extensions/common/stack_frame.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 
@@ -36,10 +38,10 @@ class Image;
 }
 
 namespace extensions {
+class ActiveScriptController;
 class BookmarkAppHelper;
 class Extension;
 class LocationBarController;
-class ScriptExecutor;
 class WebstoreInlineInstallerFactory;
 
 // Per-tab extension helper. Also handles non-extension apps.
@@ -49,63 +51,20 @@ class TabHelper : public content::WebContentsObserver,
                   public content::NotificationObserver,
                   public content::WebContentsUserData<TabHelper> {
  public:
-  // Different types of action when web app info is available.
-  // OnDidGetApplicationInfo uses this to dispatch calls.
-  enum WebAppAction {
-    NONE,              // No action at all.
-    CREATE_SHORTCUT,   // Bring up create application shortcut dialog.
-    CREATE_HOSTED_APP, // Create and install a hosted app.
-    UPDATE_SHORTCUT    // Update icon for app shortcut.
-  };
-
-  // Observer base class for classes that need to be notified when content
-  // scripts and/or tabs.executeScript calls run on a page.
-  class ScriptExecutionObserver {
-   public:
-    // Map of extensions IDs to the executing script paths.
-    typedef std::map<std::string, std::set<std::string> > ExecutingScriptsMap;
-
-    // Automatically observes and unobserves |tab_helper| on construction
-    // and destruction. |tab_helper| must outlive |this|.
-    explicit ScriptExecutionObserver(TabHelper* tab_helper);
-    ScriptExecutionObserver();
-
-    // Called when script(s) have executed on a page.
-    //
-    // |executing_scripts_map| contains all extensions that are executing
-    // scripts, mapped to the paths for those scripts. This may be an empty set
-    // if the script has no path associated with it (e.g. in the case of
-    // tabs.executeScript).
-    virtual void OnScriptsExecuted(
-        const content::WebContents* web_contents,
-        const ExecutingScriptsMap& executing_scripts_map,
-        int32 on_page_id,
-        const GURL& on_url) = 0;
-
-   protected:
-    virtual ~ScriptExecutionObserver();
-
-    TabHelper* tab_helper_;
-  };
-
   virtual ~TabHelper();
-
-  void AddScriptExecutionObserver(ScriptExecutionObserver* observer) {
-    script_execution_observers_.AddObserver(observer);
-  }
-
-  void RemoveScriptExecutionObserver(ScriptExecutionObserver* observer) {
-    script_execution_observers_.RemoveObserver(observer);
-  }
 
   void CreateApplicationShortcuts();
   void CreateHostedAppFromWebContents();
   bool CanCreateApplicationShortcuts() const;
   bool CanCreateBookmarkApp() const;
 
-  void set_pending_web_app_action(WebAppAction action) {
-    pending_web_app_action_ = action;
+  void UpdateShortcutOnLoadComplete() {
+    update_shortcut_on_load_complete_ = true;
   }
+
+  // ScriptExecutionObserver::Delegate
+  virtual void AddScriptExecutionObserver(ScriptExecutionObserver* observer);
+  virtual void RemoveScriptExecutionObserver(ScriptExecutionObserver* observer);
 
   // App extensions ------------------------------------------------------------
 
@@ -139,16 +98,16 @@ class TabHelper : public content::WebContentsObserver,
   // extension_misc::EXTENSION_ICON_SMALLISH).
   SkBitmap* GetExtensionAppIcon();
 
-  content::WebContents* web_contents() const {
-    return content::WebContentsObserver::web_contents();
-  }
-
   ScriptExecutor* script_executor() {
     return script_executor_.get();
   }
 
   LocationBarController* location_bar_controller() {
     return location_bar_controller_.get();
+  }
+
+  ActiveScriptController* active_script_controller() {
+    return active_script_controller_.get();
   }
 
   ActiveTabPermissionGranter* active_tab_permission_granter() {
@@ -165,6 +124,15 @@ class TabHelper : public content::WebContentsObserver,
       WebstoreInlineInstallerFactory* factory);
 
  private:
+  // Different types of action when web app info is available.
+  // OnDidGetApplicationInfo uses this to dispatch calls.
+  enum WebAppAction {
+    NONE,               // No action at all.
+    CREATE_SHORTCUT,    // Bring up create application shortcut dialog.
+    CREATE_HOSTED_APP,  // Create and install a hosted app.
+    UPDATE_SHORTCUT     // Update icon for app shortcut.
+  };
+
   explicit TabHelper(content::WebContents* web_contents);
   friend class content::WebContentsUserData<TabHelper>;
 
@@ -192,7 +160,7 @@ class TabHelper : public content::WebContentsObserver,
   virtual content::WebContents* GetAssociatedWebContents() const OVERRIDE;
 
   // Message handlers.
-  void OnDidGetApplicationInfo(int32 page_id, const WebApplicationInfo& info);
+  void OnDidGetWebApplicationInfo(const WebApplicationInfo& info);
   void OnInlineWebstoreInstall(int install_id,
                                int return_route_id,
                                const std::string& webstore_item_id,
@@ -204,7 +172,6 @@ class TabHelper : public content::WebContentsObserver,
   void OnRequest(const ExtensionHostMsg_Request_Params& params);
   void OnContentScriptsExecuting(
       const ScriptExecutionObserver::ExecutingScriptsMap& extension_ids,
-      int32 page_id,
       const GURL& on_url);
   void OnWatchedPageChange(const std::vector<std::string>& css_selectors);
   void OnDetailedConsoleMessageAdded(const base::string16& message,
@@ -226,7 +193,8 @@ class TabHelper : public content::WebContentsObserver,
   virtual void OnInlineInstallComplete(int install_id,
                                        int return_route_id,
                                        bool success,
-                                       const std::string& error);
+                                       const std::string& error,
+                                       webstore_install::Result result);
 
   // content::NotificationObserver.
   virtual void Observe(int type,
@@ -236,7 +204,7 @@ class TabHelper : public content::WebContentsObserver,
   // Requests application info for the specified page. This is an asynchronous
   // request. The delegate is notified by way of OnDidGetApplicationInfo when
   // the data is available.
-  void GetApplicationInfo(int32 page_id);
+  void GetApplicationInfo(WebAppAction action);
 
   // Sends our tab ID to |render_view_host|.
   void SetTabId(content::RenderViewHost* render_view_host);
@@ -265,11 +233,20 @@ class TabHelper : public content::WebContentsObserver,
   // from a WebContents.
   WebAppAction pending_web_app_action_;
 
+  // Which page id was active when the GetApplicationInfo request was sent, for
+  // verification when the reply returns.
+  int32 last_committed_page_id_;
+
+  // Whether to trigger an update when the page load completes.
+  bool update_shortcut_on_load_complete_;
+
   content::NotificationRegistrar registrar_;
 
   scoped_ptr<ScriptExecutor> script_executor_;
 
   scoped_ptr<LocationBarController> location_bar_controller_;
+
+  scoped_ptr<ActiveScriptController> active_script_controller_;
 
   scoped_ptr<ActiveTabPermissionGranter> active_tab_permission_granter_;
 
@@ -277,11 +254,11 @@ class TabHelper : public content::WebContentsObserver,
 
   Profile* profile_;
 
-  // Vend weak pointers that can be invalidated to stop in-progress loads.
-  base::WeakPtrFactory<TabHelper> image_loader_ptr_factory_;
-
   // Creates WebstoreInlineInstaller instances for inline install triggers.
   scoped_ptr<WebstoreInlineInstallerFactory> webstore_inline_installer_factory_;
+
+  // Vend weak pointers that can be invalidated to stop in-progress loads.
+  base::WeakPtrFactory<TabHelper> image_loader_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(TabHelper);
 };

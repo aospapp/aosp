@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"‏منتظم کی ایپ کا استعمال نہیں کر سکتے۔ اس میں چھوٹے ہوئے اجزاء ہیں یا یہ خراب ہوگئی ہے۔ اپنے IT ڈیپارٹمنٹ سے رابطہ کریں۔"</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"منتظم کی ایپ کو انسٹال نہیں کیا جا سکا"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"منتظم کی ایپ آپ کے آلہ پر انسٹال نہیں ہے"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"ترتیب دینا بند کریں؟"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"کیا آپ واقعی ترتیب دینا بند کرنا چاہتے ہیں؟"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"نہیں"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"ہاں"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"منسوخ کیا جا رہا ہے…"</string>
 </resources>

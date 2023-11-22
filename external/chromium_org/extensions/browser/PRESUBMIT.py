@@ -12,8 +12,8 @@ import sys
 
 def GetPreferredTryMasters(project, change):
   return {
-    'tryserver.chromium': {
-      'linux_chromium_chromeos_rel': set(['defaulttests']),
+    'tryserver.chromium.linux': {
+      'linux_chromium_chromeos_rel_swarming': set(['defaulttests']),
     }
   }
 

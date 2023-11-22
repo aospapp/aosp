@@ -5,7 +5,6 @@
 #include "sync/internal_api/public/http_bridge.h"
 
 #include "base/message_loop/message_loop.h"
-#include "base/message_loop/message_loop_proxy.h"
 #include "base/strings/string_number_conversions.h"
 #include "net/base/load_flags.h"
 #include "net/base/net_errors.h"
@@ -57,7 +56,7 @@ HttpBridge::RequestContextGetter::GetNetworkTaskRunner() const {
 }
 
 HttpBridgeFactory::HttpBridgeFactory(
-    net::URLRequestContextGetter* baseline_context_getter,
+    const scoped_refptr<net::URLRequestContextGetter>& baseline_context_getter,
     const NetworkTimeUpdateCallback& network_time_update_callback,
     CancelationSignal* cancelation_signal)
     : baseline_request_context_getter_(baseline_context_getter),
@@ -83,9 +82,8 @@ void HttpBridgeFactory::Init(const std::string& user_agent) {
     return;
   }
 
-  request_context_getter_ =
-      new HttpBridge::RequestContextGetter(
-          baseline_request_context_getter_, user_agent);
+  request_context_getter_ = new HttpBridge::RequestContextGetter(
+      baseline_request_context_getter_.get(), user_agent);
 }
 
 HttpPostProviderInterface* HttpBridgeFactory::Create() {
@@ -168,6 +166,7 @@ HttpBridge::RequestContext::RequestContext(
 }
 
 HttpBridge::RequestContext::~RequestContext() {
+  AssertNoURLRequests();
   DCHECK(network_task_runner_->BelongsToCurrentThread());
   delete http_transaction_factory();
 }

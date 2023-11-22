@@ -39,4 +39,43 @@
     <template src="base"/>
     <common src="logger"/>
 
+    <metadata>
+        <status>PUBLISHED</status>
+        <categories>UI, Background, Views</categories>
+        <technologies>Android</technologies>
+        <languages>Java</languages>
+        <solutions>Mobile</solutions>
+        <level>ADVANCED</level>
+        <icon>screenshots/icon-web.png</icon>
+        <screenshots>
+            <img>screenshots/1-gridview.png</img>
+            <img>screenshots/2-detail.png</img>
+        </screenshots>
+        <api_refs>
+            <android>android.widget.ImageView</android>
+            <android>android.widget.GridView</android>
+            <android>android.graphics.BitmapFactory</android>
+            <android>android.os.AsyncTask</android>
+            <android>android.util.LruCache</android>
+            <android>android.support.v4.view.ViewPager</android>
+        </api_refs>
+        <description>
+<![CDATA[
+Sample demonstrating how to load large bitmaps efficiently off the main UI thread,
+caching bitmaps (both in memory and on disk), managing bitmap memory and displaying
+bitmaps in UI elements such as ViewPager and ListView/GridView.
+]]>
+        </description>
+        <intro>
+<![CDATA[
+This is a sample application for the Android Training class [Displaying Bitmaps Efficiently][1].
+
+It demonstrates how to load large bitmaps efficiently off the main UI thread, caching
+bitmaps (both in memory and on disk), managing bitmap memory and displaying bitmaps
+in UI elements such as ViewPager and ListView/GridView.
+
+[1]: http://developer.android.com/training/displaying-bitmaps/
+]]>
+        </intro>
+    </metadata>
 </sample>

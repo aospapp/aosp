@@ -10,6 +10,7 @@
 
 #include "sync/base/sync_export.h"
 #include "sync/internal_api/public/http_post_provider_factory.h"
+#include "sync/internal_api/public/internal_components_factory.h"
 #include "sync/internal_api/public/sync_manager.h"
 #include "sync/internal_api/public/user_share.h"
 #include "sync/syncable/directory_change_delegate.h"
@@ -51,22 +52,22 @@ class SYNC_EXPORT_PRIVATE SyncRollbackManagerBase :
       const ModelSafeRoutingInfo& new_routing_info,
       const base::Closure& ready_task,
       const base::Closure& retry_task) OVERRIDE;
-  virtual void OnInvalidatorStateChange(InvalidatorState state) OVERRIDE;
+  virtual void SetInvalidatorEnabled(bool invalidator_enabled) OVERRIDE;
   virtual void OnIncomingInvalidation(
-      const ObjectIdInvalidationMap& invalidation_map) OVERRIDE;
+      syncer::ModelType type,
+      scoped_ptr<InvalidationInterface> invalidation) OVERRIDE;
   virtual void AddObserver(SyncManager::Observer* observer) OVERRIDE;
   virtual void RemoveObserver(SyncManager::Observer* observer) OVERRIDE;
   virtual SyncStatus GetDetailedStatus() const OVERRIDE;
   virtual void SaveChanges() OVERRIDE;
-  virtual void ShutdownOnSyncThread() OVERRIDE;
+  virtual void ShutdownOnSyncThread(ShutdownReason reason) OVERRIDE;
   virtual UserShare* GetUserShare() OVERRIDE;
   virtual const std::string cache_guid() OVERRIDE;
   virtual bool ReceivedExperiment(Experiments* experiments) OVERRIDE;
   virtual bool HasUnsyncedItems() OVERRIDE;
   virtual SyncEncryptionHandler* GetEncryptionHandler() OVERRIDE;
   virtual void RefreshTypes(ModelTypeSet types) OVERRIDE;
-  virtual std::string GetOwnerName() const OVERRIDE;
-  virtual SyncCoreProxy* GetSyncCoreProxy() OVERRIDE;
+  virtual SyncContextProxy* GetSyncContextProxy() OVERRIDE;
   virtual ScopedVector<ProtocolEvent> GetBufferedProtocolEvents()
       OVERRIDE;
   virtual scoped_ptr<base::ListValue> GetAllNodesForType(
@@ -99,6 +100,7 @@ class SYNC_EXPORT_PRIVATE SyncRollbackManagerBase :
   bool InitInternal(
       const base::FilePath& database_location,
       InternalComponentsFactory* internal_components_factory,
+      InternalComponentsFactory::StorageOption storage,
       scoped_ptr<UnrecoverableErrorHandler> unrecoverable_error_handler,
       ReportUnrecoverableErrorFunction report_unrecoverable_error_function);
 
@@ -118,9 +120,9 @@ class SYNC_EXPORT_PRIVATE SyncRollbackManagerBase :
   void NotifyInitializationSuccess();
   void NotifyInitializationFailure();
 
-  bool InitBackupDB(
-      const base::FilePath& sync_folder,
-      InternalComponentsFactory* internal_components_factory);
+  bool InitBackupDB(const base::FilePath& sync_folder,
+                    InternalComponentsFactory* internal_components_factory,
+                    InternalComponentsFactory::StorageOption storage);
 
   bool InitTypeRootNode(ModelType type);
   void InitBookmarkFolder(const std::string& folder);
@@ -131,11 +133,11 @@ class SYNC_EXPORT_PRIVATE SyncRollbackManagerBase :
   scoped_ptr<UnrecoverableErrorHandler> unrecoverable_error_handler_;
   ReportUnrecoverableErrorFunction report_unrecoverable_error_function_;
 
-  base::WeakPtrFactory<SyncRollbackManagerBase> weak_ptr_factory_;
-
   scoped_ptr<SyncEncryptionHandler> dummy_handler_;
 
   bool initialized_;
+
+  base::WeakPtrFactory<SyncRollbackManagerBase> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(SyncRollbackManagerBase);
 };

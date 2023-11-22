@@ -8,8 +8,7 @@
 " current line.)
 
 let s:script = expand('<sfile>:p:h') .
-  \'/../../third_party/clang_format/script/clang-format.py'
-echo s:script
+  \'/../../buildtools/clang_format/script/clang-format.py'
 
 if has('mac')
   execute "map <D-I> :pyf " . s:script . "<CR>"

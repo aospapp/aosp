@@ -70,7 +70,7 @@ class OutputSurface implements SurfaceTexture.OnFrameAvailableListener {
         eglSetup(width, height);
         makeCurrent();
 
-        setup();
+        setup(this);
     }
 
     /**
@@ -78,14 +78,18 @@ class OutputSurface implements SurfaceTexture.OnFrameAvailableListener {
      * new one).  Creates a Surface that can be passed to MediaCodec.configure().
      */
     public OutputSurface() {
-        setup();
+        setup(this);
+    }
+
+    public OutputSurface(final SurfaceTexture.OnFrameAvailableListener listener) {
+        setup(listener);
     }
 
     /**
      * Creates instances of TextureRender and SurfaceTexture, and a Surface associated
      * with the SurfaceTexture.
      */
-    private void setup() {
+    private void setup(SurfaceTexture.OnFrameAvailableListener listener) {
         mTextureRender = new TextureRender();
         mTextureRender.surfaceCreated();
 
@@ -107,7 +111,7 @@ class OutputSurface implements SurfaceTexture.OnFrameAvailableListener {
         //
         // Java language note: passing "this" out of a constructor is generally unwise,
         // but we should be able to get away with it here.
-        mSurfaceTexture.setOnFrameAvailableListener(this);
+        mSurfaceTexture.setOnFrameAvailableListener(listener);
 
         mSurface = new Surface(mSurfaceTexture);
     }
@@ -283,6 +287,11 @@ class OutputSurface implements SurfaceTexture.OnFrameAvailableListener {
      */
     public void drawImage() {
         mTextureRender.drawFrame(mSurfaceTexture);
+    }
+
+    public void latchImage() {
+        mTextureRender.checkGlError("before updateTexImage");
+        mSurfaceTexture.updateTexImage();
     }
 
     @Override

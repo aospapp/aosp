@@ -22,7 +22,7 @@ namespace base {
 class WaitableEvent;
 }
 
-namespace talk_base {
+namespace rtc {
 class NetworkManager;
 class PacketSocketFactory;
 class Thread;
@@ -103,7 +103,7 @@ class CONTENT_EXPORT PeerConnectionDependencyFactory
   // The PeerConnection object is owned by PeerConnectionHandler.
   virtual scoped_refptr<webrtc::PeerConnectionInterface>
       CreatePeerConnection(
-          const webrtc::PeerConnectionInterface::IceServers& ice_servers,
+          const webrtc::PeerConnectionInterface::RTCConfiguration& config,
           const webrtc::MediaConstraintsInterface* constraints,
           blink::WebFrame* web_frame,
           webrtc::PeerConnectionObserver* observer);
@@ -179,7 +179,7 @@ class CONTENT_EXPORT PeerConnectionDependencyFactory
   // creating PeerConnection objects.
   void CreatePeerConnectionFactory();
 
-  void InitializeWorkerThread(talk_base::Thread** thread,
+  void InitializeWorkerThread(rtc::Thread** thread,
                               base::WaitableEvent* event);
 
   void CreateIpcNetworkManagerOnWorkerThread(base::WaitableEvent* event);
@@ -206,8 +206,8 @@ class CONTENT_EXPORT PeerConnectionDependencyFactory
 
   // PeerConnection threads. signaling_thread_ is created from the
   // "current" chrome thread.
-  talk_base::Thread* signaling_thread_;
-  talk_base::Thread* worker_thread_;
+  rtc::Thread* signaling_thread_;
+  rtc::Thread* worker_thread_;
   base::Thread chrome_worker_thread_;
 
   DISALLOW_COPY_AND_ASSIGN(PeerConnectionDependencyFactory);

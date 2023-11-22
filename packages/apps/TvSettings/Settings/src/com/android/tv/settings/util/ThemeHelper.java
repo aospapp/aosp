@@ -42,7 +42,7 @@ public class ThemeHelper {
      */
     public static int getThemeResource(boolean transparent) {
         if (transparent) {
-            return android.R.style.Theme_Leanback_FormWizard;
+            return R.style.Theme_Leanback_FormWizard_Transparent;
         } else {
             return R.style.Theme_Leanback_FormWizard_Solid;
         }

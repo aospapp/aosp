@@ -23,6 +23,7 @@
 #define MEDIA_FILTERS_FFMPEG_DEMUXER_H_
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "base/callback.h"
@@ -55,8 +56,8 @@ typedef scoped_ptr<AVPacket, ScopedPtrAVFreePacket> ScopedAVPacket;
 
 class FFmpegDemuxerStream : public DemuxerStream {
  public:
-  // Keeps a copy of |demuxer| and initializes itself using information
-  // inside |stream|.  Both parameters must outlive |this|.
+  // Keeps a copy of |demuxer| and initializes itself using information inside
+  // |stream|.  Both parameters must outlive |this|.
   FFmpegDemuxerStream(FFmpegDemuxer* demuxer, AVStream* stream);
   virtual ~FFmpegDemuxerStream();
 
@@ -74,8 +75,15 @@ class FFmpegDemuxerStream : public DemuxerStream {
   // Empties the queues and ignores any additional calls to Read().
   void Stop();
 
-  // Returns the duration of this stream.
-  base::TimeDelta duration();
+  base::TimeDelta duration() const { return duration_; }
+
+  // Enables fixes for ogg files with negative timestamps.  For AUDIO streams,
+  // all packets with negative timestamps will be marked for post-decode
+  // discard.  For all other stream types, if FFmpegDemuxer::start_time() is
+  // negative, it will not be used to shift timestamps during EnqueuePacket().
+  void enable_negative_timestamp_fixups_for_ogg() {
+    fixup_negative_ogg_timestamps_ = true;
+  }
 
   // DemuxerStream implementation.
   virtual Type type() OVERRIDE;
@@ -84,6 +92,7 @@ class FFmpegDemuxerStream : public DemuxerStream {
   virtual bool SupportsConfigChanges() OVERRIDE;
   virtual AudioDecoderConfig audio_decoder_config() OVERRIDE;
   virtual VideoDecoderConfig video_decoder_config() OVERRIDE;
+  virtual VideoRotation video_rotation() OVERRIDE;
 
   // Returns the range of buffered data in this stream.
   Ranges<base::TimeDelta> GetBufferedRanges() const;
@@ -124,7 +133,9 @@ class FFmpegDemuxerStream : public DemuxerStream {
   base::TimeDelta duration_;
   bool end_of_stream_;
   base::TimeDelta last_packet_timestamp_;
+  base::TimeDelta last_packet_duration_;
   Ranges<base::TimeDelta> buffered_ranges_;
+  VideoRotation video_rotation_;
 
   DecoderBufferQueue buffer_queue_;
   ReadCB read_cb_;
@@ -136,6 +147,7 @@ class FFmpegDemuxerStream : public DemuxerStream {
   bool bitstream_converter_enabled_;
 
   std::string encryption_key_id_;
+  bool fixup_negative_ogg_timestamps_;
 
   DISALLOW_COPY_AND_ASSIGN(FFmpegDemuxerStream);
 };
@@ -152,11 +164,11 @@ class MEDIA_EXPORT FFmpegDemuxer : public Demuxer {
   virtual void Initialize(DemuxerHost* host,
                           const PipelineStatusCB& status_cb,
                           bool enable_text_tracks) OVERRIDE;
-  virtual void Stop(const base::Closure& callback) OVERRIDE;
+  virtual void Stop() OVERRIDE;
   virtual void Seek(base::TimeDelta time, const PipelineStatusCB& cb) OVERRIDE;
+  virtual base::Time GetTimelineOffset() const OVERRIDE;
   virtual DemuxerStream* GetStream(DemuxerStream::Type type) OVERRIDE;
   virtual base::TimeDelta GetStartTime() const OVERRIDE;
-  virtual base::Time GetTimelineOffset() const OVERRIDE;
   virtual Liveness GetLiveness() const OVERRIDE;
 
   // Calls |need_key_cb_| with the initialization data encountered in the file.
@@ -167,6 +179,11 @@ class MEDIA_EXPORT FFmpegDemuxer : public Demuxer {
   // about capacity and what buffered data is available.
   void NotifyCapacityAvailable();
   void NotifyBufferingChanged();
+
+  // The lowest demuxed timestamp.  If negative, DemuxerStreams must use this to
+  // adjust packet timestamps such that external clients see a zero-based
+  // timeline.
+  base::TimeDelta start_time() const { return start_time_; }
 
  private:
   // To allow tests access to privates.
@@ -182,9 +199,6 @@ class MEDIA_EXPORT FFmpegDemuxer : public Demuxer {
   // FFmpeg callbacks during reading + helper method to initiate reads.
   void ReadFrameIfNeeded();
   void OnReadFrameDone(ScopedAVPacket packet, int result);
-
-  // DataSource callbacks during stopping.
-  void OnDataSourceStopped(const base::Closure& callback);
 
   // Returns true iff any stream has additional capacity. Note that streams can
   // go over capacity depending on how the file is muxed.
@@ -224,7 +238,7 @@ class MEDIA_EXPORT FFmpegDemuxer : public Demuxer {
   // results of pre-seek av_read_frame() operations.
   bool pending_seek_;
 
-  // |streams_| mirrors the AVStream array in |format_context_|. It contains
+  // |streams_| mirrors the AVStream array in AVFormatContext. It contains
   // FFmpegDemuxerStreams encapsluating AVStream objects at the same index.
   //
   // Since we only support a single audio and video stream, |streams_| will
@@ -245,10 +259,21 @@ class MEDIA_EXPORT FFmpegDemuxer : public Demuxer {
   // Derived bitrate after initialization has completed.
   int bitrate_;
 
-  // The first timestamp of the opened media file. This is used to set the
-  // starting clock value to match the timestamps in the media file. Default
-  // is 0.
+  // The first timestamp of the audio or video stream, whichever is lower.  This
+  // is used to adjust timestamps so that external consumers always see a zero
+  // based timeline.
   base::TimeDelta start_time_;
+
+  // The index and start time of the preferred streams for seeking.  Filled upon
+  // completion of OnFindStreamInfoDone().  Each info entry represents an index
+  // into |streams_| and the start time of that stream.
+  //
+  // Seek() will attempt to use |preferred_stream_for_seeking_| if the seek
+  // point occurs after its associated start time.  Otherwise it will use
+  // |fallback_stream_for_seeking_|.
+  typedef std::pair<int, base::TimeDelta> StreamSeekInfo;
+  StreamSeekInfo preferred_stream_for_seeking_;
+  StreamSeekInfo fallback_stream_for_seeking_;
 
   // The Time associated with timestamp 0. Set to a null
   // time if the file doesn't have an association to Time.

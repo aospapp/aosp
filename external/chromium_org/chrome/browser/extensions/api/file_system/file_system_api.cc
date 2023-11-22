@@ -4,13 +4,12 @@
 
 #include "chrome/browser/extensions/api/file_system/file_system_api.h"
 
-#include "apps/app_window.h"
-#include "apps/app_window_registry.h"
-#include "apps/browser/file_handler_util.h"
+#include <set>
+
 #include "apps/saved_files_service.h"
 #include "base/bind.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/path_service.h"
 #include "base/strings/string_util.h"
@@ -21,30 +20,34 @@
 #include "base/values.h"
 #include "chrome/browser/extensions/api/file_handlers/app_file_handler_util.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/path_util.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/apps/directory_access_confirmation_dialog.h"
 #include "chrome/browser/ui/chrome_select_file_policy.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/api/file_system.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
+#include "extensions/browser/app_window/app_window.h"
+#include "extensions/browser/app_window/app_window_registry.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/granted_file_entry.h"
 #include "extensions/common/permissions/api_permission.h"
 #include "extensions/common/permissions/permissions_data.h"
-#include "grit/generated_resources.h"
 #include "net/base/mime_util.h"
+#include "storage/browser/fileapi/external_mount_points.h"
+#include "storage/browser/fileapi/isolated_context.h"
+#include "storage/common/fileapi/file_system_types.h"
+#include "storage/common/fileapi/file_system_util.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
 #include "ui/shell_dialogs/selected_file_info.h"
-#include "webkit/browser/fileapi/external_mount_points.h"
-#include "webkit/browser/fileapi/isolated_context.h"
-#include "webkit/common/fileapi/file_system_types.h"
-#include "webkit/common/fileapi/file_system_util.h"
 
 #if defined(OS_MACOSX)
 #include <CoreFoundation/CoreFoundation.h>
@@ -57,8 +60,7 @@
 
 using apps::SavedFileEntry;
 using apps::SavedFilesService;
-using apps::AppWindow;
-using fileapi::IsolatedContext;
+using storage::IsolatedContext;
 
 const char kInvalidCallingPage[] = "Invalid calling page. This function can't "
     "be called from a background page.";
@@ -76,68 +78,6 @@ namespace file_system = extensions::api::file_system;
 namespace ChooseEntry = file_system::ChooseEntry;
 
 namespace {
-
-#if defined(OS_MACOSX)
-// Retrieves the localized display name for the base name of the given path.
-// If the path is not localized, this will just return the base name.
-std::string GetDisplayBaseName(const base::FilePath& path) {
-  base::ScopedCFTypeRef<CFURLRef> url(CFURLCreateFromFileSystemRepresentation(
-      NULL, (const UInt8*)path.value().c_str(), path.value().length(), true));
-  if (!url)
-    return path.BaseName().value();
-
-  CFStringRef str;
-  if (LSCopyDisplayNameForURL(url, &str) != noErr)
-    return path.BaseName().value();
-
-  std::string result(base::SysCFStringRefToUTF8(str));
-  CFRelease(str);
-  return result;
-}
-
-// Prettifies |source_path| for OS X, by localizing every component of the
-// path. Additionally, if the path is inside the user's home directory, then
-// replace the home directory component with "~".
-base::FilePath PrettifyPath(const base::FilePath& source_path) {
-  base::FilePath home_path;
-  PathService::Get(base::DIR_HOME, &home_path);
-  DCHECK(source_path.IsAbsolute());
-
-  // Break down the incoming path into components, and grab the display name
-  // for every component. This will match app bundles, ".localized" folders,
-  // and localized subfolders of the user's home directory.
-  // Don't grab the display name of the first component, i.e., "/", as it'll
-  // show up as the HDD name.
-  std::vector<base::FilePath::StringType> components;
-  source_path.GetComponents(&components);
-  base::FilePath display_path = base::FilePath(components[0]);
-  base::FilePath actual_path = display_path;
-  for (std::vector<base::FilePath::StringType>::iterator i =
-           components.begin() + 1; i != components.end(); ++i) {
-    actual_path = actual_path.Append(*i);
-    if (actual_path == home_path) {
-      display_path = base::FilePath("~");
-      home_path = base::FilePath();
-      continue;
-    }
-    std::string display = GetDisplayBaseName(actual_path);
-    display_path = display_path.Append(display);
-  }
-  DCHECK_EQ(actual_path.value(), source_path.value());
-  return display_path;
-}
-#else  // defined(OS_MACOSX)
-// Prettifies |source_path|, by replacing the user's home directory with "~"
-// (if applicable).
-base::FilePath PrettifyPath(const base::FilePath& source_path) {
-  base::FilePath home_path;
-  base::FilePath display_path = base::FilePath::FromUTF8Unsafe("~");
-  if (PathService::Get(base::DIR_HOME, &home_path)
-      && home_path.AppendRelativePath(source_path, &display_path))
-    return display_path;
-  return source_path;
-}
-#endif  // defined(OS_MACOSX)
 
 bool g_skip_picker_for_test = false;
 bool g_use_suggested_path_for_test = false;
@@ -163,7 +103,7 @@ bool GetFileTypesFromAcceptOption(
          iter != list->end(); ++iter) {
       std::vector<base::FilePath::StringType> inner;
       std::string accept_type = *iter;
-      StringToLowerASCII(&accept_type);
+      base::StringToLowerASCII(&accept_type);
       net::GetExtensionsForMimeType(accept_type, &inner);
       if (inner.empty())
         continue;
@@ -188,7 +128,7 @@ bool GetFileTypesFromAcceptOption(
     for (std::vector<std::string>::const_iterator iter = list->begin();
          iter != list->end(); ++iter) {
       std::string extension = *iter;
-      StringToLowerASCII(&extension);
+      base::StringToLowerASCII(&extension);
 #if defined(OS_WIN)
       extension_set.insert(base::UTF8ToWide(*iter));
 #else
@@ -274,7 +214,7 @@ bool FileSystemGetDisplayPathFunction::RunSync() {
                                                           &error_))
     return false;
 
-  file_path = PrettifyPath(file_path);
+  file_path = path_util::PrettifyPath(file_path);
   SetResult(new base::StringValue(file_path.value()));
   return true;
 }
@@ -324,13 +264,12 @@ void FileSystemEntryFunction::AddEntryToResponse(
     const base::FilePath& path,
     const std::string& id_override) {
   DCHECK(response_);
-  apps::file_handler_util::GrantedFileEntry file_entry =
-      extensions::app_file_handler_util::CreateFileEntry(
-          GetProfile(),
-          GetExtension(),
-          render_view_host_->GetProcess()->GetID(),
-          path,
-          is_directory_);
+  GrantedFileEntry file_entry = app_file_handler_util::CreateFileEntry(
+      GetProfile(),
+      extension(),
+      render_view_host_->GetProcess()->GetID(),
+      path,
+      is_directory_);
   base::ListValue* entries;
   bool success = response_->GetList("entries", &entries);
   DCHECK(success);
@@ -360,7 +299,7 @@ bool FileSystemGetWritableEntryFunction::RunAsync() {
   EXTENSION_FUNCTION_VALIDATE(args_->GetString(0, &filesystem_name));
   EXTENSION_FUNCTION_VALIDATE(args_->GetString(1, &filesystem_path));
 
-  if (!app_file_handler_util::HasFileSystemWritePermission(extension_)) {
+  if (!app_file_handler_util::HasFileSystemWritePermission(extension_.get())) {
     error_ = kRequiresFileSystemWriteError;
     return false;
   }
@@ -411,7 +350,7 @@ bool FileSystemIsWritableEntryFunction::RunSync() {
   EXTENSION_FUNCTION_VALIDATE(args_->GetString(1, &filesystem_path));
 
   std::string filesystem_id;
-  if (!fileapi::CrackIsolatedFileSystemName(filesystem_name, &filesystem_id)) {
+  if (!storage::CrackIsolatedFileSystemName(filesystem_name, &filesystem_id)) {
     error_ = app_file_handler_util::kInvalidParameters;
     return false;
   }
@@ -550,8 +489,7 @@ void FileSystemChooseEntryFunction::ShowPicker(
   // platform-app only.
   content::WebContents* web_contents = NULL;
   if (extension_->is_platform_app()) {
-    apps::AppWindowRegistry* registry =
-        apps::AppWindowRegistry::Get(GetProfile());
+    AppWindowRegistry* registry = AppWindowRegistry::Get(GetProfile());
     DCHECK(registry);
     AppWindow* app_window =
         registry->GetAppWindowForRenderViewHost(render_view_host());
@@ -632,10 +570,10 @@ void FileSystemChooseEntryFunction::RegisterTempExternalFileSystemForTest(
   // For testing on Chrome OS, where to deal with remote and local paths
   // smoothly, all accessed paths need to be registered in the list of
   // external mount points.
-  fileapi::ExternalMountPoints::GetSystemInstance()->RegisterFileSystem(
+  storage::ExternalMountPoints::GetSystemInstance()->RegisterFileSystem(
       name,
-      fileapi::kFileSystemTypeNativeLocal,
-      fileapi::FileSystemMountOption(),
+      storage::kFileSystemTypeNativeLocal,
+      storage::FileSystemMountOption(),
       path);
 }
 
@@ -666,13 +604,12 @@ void FileSystemChooseEntryFunction::FilesSelected(
   }
   file_system_api::SetLastChooseEntryDirectory(
       ExtensionPrefs::Get(GetProfile()),
-      GetExtension()->id(),
+      extension()->id(),
       last_choose_directory);
   if (is_directory_) {
     // Get the WebContents for the app window to be the parent window of the
     // confirmation dialog if necessary.
-    apps::AppWindowRegistry* registry =
-        apps::AppWindowRegistry::Get(GetProfile());
+    AppWindowRegistry* registry = AppWindowRegistry::Get(GetProfile());
     DCHECK(registry);
     AppWindow* app_window =
         registry->GetAppWindowForRenderViewHost(render_view_host());
@@ -749,7 +686,8 @@ void FileSystemChooseEntryFunction::ConfirmDirectoryAccessOnFileThread(
           FROM_HERE,
           base::Bind(
               CreateDirectoryAccessConfirmationDialog,
-              app_file_handler_util::HasFileSystemWritePermission(extension_),
+              app_file_handler_util::HasFileSystemWritePermission(
+                  extension_.get()),
               base::UTF8ToUTF16(extension_->name()),
               web_contents,
               base::Bind(
@@ -771,7 +709,7 @@ void FileSystemChooseEntryFunction::ConfirmDirectoryAccessOnFileThread(
 
 void FileSystemChooseEntryFunction::OnDirectoryAccessConfirmed(
     const std::vector<base::FilePath>& paths) {
-  if (app_file_handler_util::HasFileSystemWritePermission(extension_)) {
+  if (app_file_handler_util::HasFileSystemWritePermission(extension_.get())) {
     PrepareFilesForWritableApp(paths);
     return;
   }
@@ -856,11 +794,13 @@ bool FileSystemChooseEntryFunction::RunAsync() {
       picker_type = ui::SelectFileDialog::SELECT_OPEN_MULTI_FILE;
 
     if (options->type == file_system::CHOOSE_ENTRY_TYPE_OPENWRITABLEFILE &&
-        !app_file_handler_util::HasFileSystemWritePermission(extension_)) {
+        !app_file_handler_util::HasFileSystemWritePermission(
+            extension_.get())) {
       error_ = kRequiresFileSystemWriteError;
       return false;
     } else if (options->type == file_system::CHOOSE_ENTRY_TYPE_SAVEFILE) {
-      if (!app_file_handler_util::HasFileSystemWritePermission(extension_)) {
+      if (!app_file_handler_util::HasFileSystemWritePermission(
+              extension_.get())) {
         error_ = kRequiresFileSystemWriteError;
         return false;
       }
@@ -894,7 +834,7 @@ bool FileSystemChooseEntryFunction::RunAsync() {
   file_type_info.support_drive = true;
 
   base::FilePath previous_path = file_system_api::GetLastChooseEntryDirectory(
-      ExtensionPrefs::Get(GetProfile()), GetExtension()->id());
+      ExtensionPrefs::Get(GetProfile()), extension()->id());
 
   content::BrowserThread::PostTaskAndReply(
       content::BrowserThread::FILE,
@@ -990,6 +930,24 @@ bool FileSystemRestoreEntryFunction::RunAsync() {
   }
   SendResponse(true);
   return true;
+}
+
+bool FileSystemObserveDirectoryFunction::RunSync() {
+  NOTIMPLEMENTED();
+  error_ = kUnknownIdError;
+  return false;
+}
+
+bool FileSystemUnobserveEntryFunction::RunSync() {
+  NOTIMPLEMENTED();
+  error_ = kUnknownIdError;
+  return false;
+}
+
+bool FileSystemGetObservedEntriesFunction::RunSync() {
+  NOTIMPLEMENTED();
+  error_ = kUnknownIdError;
+  return false;
 }
 
 }  // namespace extensions

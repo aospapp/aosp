@@ -12,7 +12,7 @@
 #include <unistd.h>
 
 #include "base/debug/leak_annotations.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/posix/eintr_wrapper.h"
 #include "base/third_party/valgrind/valgrind.h"
 #include "build/build_config.h"
@@ -68,6 +68,12 @@ static const int kExpectedValue = 42;
 static const int kIgnoreThisTest = 43;
 static const int kExitWithAssertionFailure = 1;
 static const int kExitForTimeout = 2;
+
+#if !defined(OS_ANDROID)
+// This is due to StackDumpSignalHandler() performing _exit(1).
+// TODO(jln): get rid of the collision with kExitWithAssertionFailure.
+const int kExitAfterSIGSEGV = 1;
+#endif
 
 static void SigAlrmHandler(int) {
   const char failure_message[] = "Timeout reached!\n";
@@ -250,9 +256,33 @@ void UnitTests::DeathMessage(int status,
   const char* expected_msg = static_cast<const char*>(aux);
 
   bool subprocess_terminated_normally = WIFEXITED(status);
-  ASSERT_TRUE(subprocess_terminated_normally) << details;
+  ASSERT_TRUE(subprocess_terminated_normally) << "Exit status: " << status
+                                              << " " << details;
   int subprocess_exit_status = WEXITSTATUS(status);
-  ASSERT_EQ(kExitWithAssertionFailure, subprocess_exit_status) << details;
+  ASSERT_EQ(1, subprocess_exit_status) << details;
+
+  bool subprocess_exited_without_matching_message =
+      msg.find(expected_msg) == std::string::npos;
+  EXPECT_FALSE(subprocess_exited_without_matching_message) << details;
+}
+
+void UnitTests::DeathSEGVMessage(int status,
+                                 const std::string& msg,
+                                 const void* aux) {
+  std::string details(TestFailedMessage(msg));
+  const char* expected_msg = static_cast<const char*>(aux);
+
+#if defined(OS_ANDROID)
+  const bool subprocess_got_sigsegv =
+      WIFSIGNALED(status) && (SIGSEGV == WTERMSIG(status));
+#else
+  const bool subprocess_got_sigsegv =
+      WIFEXITED(status) && (kExitAfterSIGSEGV == WEXITSTATUS(status));
+#endif
+
+  ASSERT_TRUE(subprocess_got_sigsegv) << "Exit status: " << status
+                                      << " " << details;
+
   bool subprocess_exited_without_matching_message =
       msg.find(expected_msg) == std::string::npos;
   EXPECT_FALSE(subprocess_exited_without_matching_message) << details;

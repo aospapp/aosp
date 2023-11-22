@@ -12,15 +12,15 @@
 #include "base/prefs/pref_service.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
-#include "chrome/browser/chromeos/login/users/user.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_warning_dialog.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_window_manager.h"
 #include "chrome/common/pref_names.h"
-#include "grit/generated_resources.h"
+#include "chrome/grit/generated_resources.h"
+#include "components/user_manager/user.h"
+#include "components/user_manager/user_manager.h"
 #include "ui/aura/window.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/simple_menu_model.h"
@@ -87,7 +87,8 @@ scoped_ptr<ui::MenuModel> CreateMultiUserContextMenu(aura::Window* window) {
         new chromeos::MultiUserContextMenuChromeos(window);
     model.reset(menu);
     for (int user_index = 1; user_index < logged_in_users; ++user_index) {
-      const ash::UserInfo* user_info = delegate->GetUserInfo(user_index);
+      const user_manager::UserInfo* user_info =
+          delegate->GetUserInfo(user_index);
       menu->AddItem(user_index == 1 ? IDC_VISIT_DESKTOP_OF_LRU_USER_2
                                     : IDC_VISIT_DESKTOP_OF_LRU_USER_3,
                     l10n_util::GetStringFUTF16(
@@ -128,10 +129,11 @@ void ExecuteVisitDesktopCommand(int command_id, aura::Window* window) {
 
       // Don't show warning dialog if any logged in user in multi-profiles
       // session dismissed it.
-      const chromeos::UserList logged_in_users =
-          chromeos::UserManager::Get()->GetLoggedInUsers();
-      for (chromeos::UserList::const_iterator it = logged_in_users.begin();
-           it != logged_in_users.end(); ++it) {
+      const user_manager::UserList logged_in_users =
+          user_manager::UserManager::Get()->GetLoggedInUsers();
+      for (user_manager::UserList::const_iterator it = logged_in_users.begin();
+           it != logged_in_users.end();
+           ++it) {
         if (multi_user_util::GetProfileFromUserID(
             multi_user_util::GetUserIDFromEmail((*it)->email()))->GetPrefs()->
             GetBoolean(prefs::kMultiProfileWarningShowDismissed)) {

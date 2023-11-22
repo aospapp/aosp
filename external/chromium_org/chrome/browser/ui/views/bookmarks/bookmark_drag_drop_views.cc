@@ -20,6 +20,8 @@
 #include "ui/views/drag_utils.h"
 #include "ui/views/widget/widget.h"
 
+using bookmarks::BookmarkNodeData;
+
 namespace chrome {
 
 void DragBookmarks(Profile* profile,
@@ -39,7 +41,7 @@ void DragBookmarks(Profile* profile,
 
   int operation = ui::DragDropTypes::DRAG_COPY | ui::DragDropTypes::DRAG_LINK;
   BookmarkModel* model = BookmarkModelFactory::GetForProfile(profile);
-  if (bookmark_utils::CanAllBeEditedByUser(model->client(), nodes))
+  if (bookmarks::CanAllBeEditedByUser(model->client(), nodes))
     operation |= ui::DragDropTypes::DRAG_MOVE;
 
   views::Widget* widget = views::Widget::GetWidgetForNativeView(view);
@@ -62,7 +64,7 @@ int GetBookmarkDragOperation(content::BrowserContext* browser_context,
   BookmarkModel* model = BookmarkModelFactory::GetForProfile(profile);
 
   int move = ui::DragDropTypes::DRAG_MOVE;
-  if (!prefs->GetBoolean(prefs::kEditBookmarksEnabled) ||
+  if (!prefs->GetBoolean(bookmarks::prefs::kEditBookmarksEnabled) ||
       !model->client()->CanBeEditedByUser(node)) {
     move = ui::DragDropTypes::DRAG_NONE;
   }

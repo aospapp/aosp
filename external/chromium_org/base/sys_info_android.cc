@@ -7,6 +7,7 @@
 #include <dlfcn.h>
 #include <sys/system_properties.h>
 
+#include "base/android/sys_utils.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
@@ -203,6 +204,15 @@ int SysInfo::DalvikHeapSizeMB() {
 int SysInfo::DalvikHeapGrowthLimitMB() {
   static int heap_growth_limit = GetDalvikHeapGrowthLimitMB();
   return heap_growth_limit;
+}
+
+static base::LazyInstance<
+    base::internal::LazySysInfoValue<bool,
+        android::SysUtils::IsLowEndDeviceFromJni> >::Leaky
+    g_lazy_low_end_device = LAZY_INSTANCE_INITIALIZER;
+
+bool SysInfo::IsLowEndDevice() {
+  return g_lazy_low_end_device.Get().value();
 }
 
 

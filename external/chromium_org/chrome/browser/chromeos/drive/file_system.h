@@ -12,7 +12,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "chrome/browser/chromeos/drive/change_list_loader_observer.h"
-#include "chrome/browser/chromeos/drive/file_system/operation_observer.h"
+#include "chrome/browser/chromeos/drive/file_system/operation_delegate.h"
 #include "chrome/browser/chromeos/drive/file_system_interface.h"
 #include "google_apis/drive/gdata_errorcode.h"
 
@@ -53,7 +53,6 @@ class DownloadOperation;
 class GetFileForSavingOperation;
 class MoveOperation;
 class OpenFileOperation;
-class OperationObserver;
 class RemoveOperation;
 class SearchOperation;
 class TouchOperation;
@@ -63,7 +62,7 @@ class TruncateOperation;
 // The production implementation of FileSystemInterface.
 class FileSystem : public FileSystemInterface,
                    public internal::ChangeListLoaderObserver,
-                   public file_system::OperationObserver {
+                   public file_system::OperationDelegate {
  public:
   FileSystem(PrefService* pref_service,
              EventLogger* logger,
@@ -162,17 +161,21 @@ class FileSystem : public FileSystemInterface,
                                      const GetFilePathCallback& callback)
       OVERRIDE;
 
-  // file_system::OperationObserver overrides.
-  virtual void OnDirectoryChangedByOperation(
-      const base::FilePath& directory_path) OVERRIDE;
+  // file_system::OperationDelegate overrides.
+  virtual void OnFileChangedByOperation(
+      const FileChange& changed_files) OVERRIDE;
   virtual void OnEntryUpdatedByOperation(const std::string& local_id) OVERRIDE;
   virtual void OnDriveSyncError(file_system::DriveSyncErrorType type,
                                 const std::string& local_id) OVERRIDE;
+  virtual bool WaitForSyncComplete(
+      const std::string& local_id,
+      const FileOperationCallback& callback) OVERRIDE;
 
   // ChangeListLoader::Observer overrides.
   // Used to propagate events from ChangeListLoader.
-  virtual void OnDirectoryChanged(
+  virtual void OnDirectoryReloaded(
       const base::FilePath& directory_path) OVERRIDE;
+  virtual void OnFileChanged(const FileChange& changed_files) OVERRIDE;
   virtual void OnLoadFromServerComplete() OVERRIDE;
   virtual void OnInitialLoadComplete() OVERRIDE;
 

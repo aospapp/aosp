@@ -9,8 +9,15 @@ namespace extensions {
 class FileSystemProviderApiTest : public ExtensionApiTest {
  public:
   FileSystemProviderApiTest()
-      // Set the channel to "trunk" since this API is restricted to trunk.
-      : current_channel_(chrome::VersionInfo::CHANNEL_UNKNOWN) {
+      : current_channel_(chrome::VersionInfo::CHANNEL_DEV) {}
+
+  // Loads a helper testing extension.
+  virtual void SetUpOnMainThread() OVERRIDE {
+    ExtensionApiTest::SetUpOnMainThread();
+    const extensions::Extension* extension = LoadExtensionWithFlags(
+        test_data_dir_.AppendASCII("file_system_provider/test_util"),
+        kFlagEnableIncognito);
+    ASSERT_TRUE(extension);
   }
 
  private:
@@ -25,6 +32,12 @@ IN_PROC_BROWSER_TEST_F(FileSystemProviderApiTest, Mount) {
 
 IN_PROC_BROWSER_TEST_F(FileSystemProviderApiTest, Unmount) {
   ASSERT_TRUE(RunPlatformAppTestWithFlags("file_system_provider/unmount",
+                                          kFlagLoadAsComponent))
+      << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(FileSystemProviderApiTest, GetAll) {
+  ASSERT_TRUE(RunPlatformAppTestWithFlags("file_system_provider/get_all",
                                           kFlagLoadAsComponent))
       << message_;
 }
@@ -49,6 +62,71 @@ IN_PROC_BROWSER_TEST_F(FileSystemProviderApiTest, ReadFile) {
 
 IN_PROC_BROWSER_TEST_F(FileSystemProviderApiTest, BigFile) {
   ASSERT_TRUE(RunPlatformAppTestWithFlags("file_system_provider/big_file",
+                                          kFlagLoadAsComponent))
+      << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(FileSystemProviderApiTest, Evil) {
+  ASSERT_TRUE(RunPlatformAppTestWithFlags("file_system_provider/evil",
+                                          kFlagLoadAsComponent))
+      << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(FileSystemProviderApiTest, MimeType) {
+  ASSERT_TRUE(RunPlatformAppTestWithFlags("file_system_provider/mime_type",
+                                          kFlagLoadAsComponent))
+      << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(FileSystemProviderApiTest, CreateDirectory) {
+  ASSERT_TRUE(RunPlatformAppTestWithFlags(
+      "file_system_provider/create_directory", kFlagLoadAsComponent))
+      << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(FileSystemProviderApiTest, DeleteEntry) {
+  ASSERT_TRUE(RunPlatformAppTestWithFlags("file_system_provider/delete_entry",
+                                          kFlagLoadAsComponent))
+      << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(FileSystemProviderApiTest, CreateFile) {
+  ASSERT_TRUE(RunPlatformAppTestWithFlags("file_system_provider/create_file",
+                                          kFlagLoadAsComponent))
+      << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(FileSystemProviderApiTest, CopyEntry) {
+  ASSERT_TRUE(RunPlatformAppTestWithFlags("file_system_provider/copy_entry",
+                                          kFlagLoadAsComponent))
+      << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(FileSystemProviderApiTest, MoveEntry) {
+  ASSERT_TRUE(RunPlatformAppTestWithFlags("file_system_provider/move_entry",
+                                          kFlagLoadAsComponent))
+      << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(FileSystemProviderApiTest, Truncate) {
+  ASSERT_TRUE(RunPlatformAppTestWithFlags("file_system_provider/truncate",
+                                          kFlagLoadAsComponent))
+      << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(FileSystemProviderApiTest, WriteFile) {
+  ASSERT_TRUE(RunPlatformAppTestWithFlags("file_system_provider/write_file",
+                                          kFlagLoadAsComponent))
+      << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(FileSystemProviderApiTest, Extension) {
+  ASSERT_TRUE(RunComponentExtensionTest("file_system_provider/extension"))
+      << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(FileSystemProviderApiTest, Thumbnail) {
+  ASSERT_TRUE(RunPlatformAppTestWithFlags("file_system_provider/thumbnail",
                                           kFlagLoadAsComponent))
       << message_;
 }

@@ -10,8 +10,8 @@
 #include <vector>
 
 #include "base/basictypes.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
@@ -178,7 +178,7 @@ class PolicyTestCase {
   void AddSupportedOs(const std::string& os) { supported_os_.push_back(os); }
 
   bool IsSupported() const {
-#if !defined(OFFICIAL_BUILD)
+#if !defined(GOOGLE_CHROME_BUILD)
     if (is_official_only())
       return false;
 #endif

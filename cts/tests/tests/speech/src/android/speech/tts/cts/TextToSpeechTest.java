@@ -15,6 +15,7 @@
  */
 package android.speech.tts.cts;
 
+import android.content.pm.PackageManager;
 import android.os.Environment;
 import android.speech.tts.TextToSpeech;
 import android.test.AndroidTestCase;
@@ -39,6 +40,15 @@ public class TextToSpeechTest extends AndroidTestCase {
     protected void setUp() throws Exception {
         super.setUp();
         mTts = TextToSpeechWrapper.createTextToSpeechWrapper(getContext());
+        if (mTts == null) {
+            PackageManager pm = getContext().getPackageManager();
+            if (!pm.hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT)) {
+                // It is OK to have no TTS, when audio-out is not supported.
+                return;
+            } else {
+                fail("FEATURE_AUDIO_OUTPUT is set, but there is no TTS engine");
+            }
+        }
         assertNotNull(mTts);
         assertTrue(checkAndSetLanguageAvailable());
     }
@@ -46,7 +56,9 @@ public class TextToSpeechTest extends AndroidTestCase {
     @Override
     protected void tearDown() throws Exception {
         super.tearDown();
-        mTts.shutdown();
+        if (mTts != null) {
+            mTts.shutdown();
+        }
     }
 
     private TextToSpeech getTts() {
@@ -83,6 +95,9 @@ public class TextToSpeechTest extends AndroidTestCase {
     }
 
     public void testSynthesizeToFile() throws Exception {
+        if (mTts == null) {
+            return;
+        }
         File sampleFile = new File(Environment.getExternalStorageDirectory(), SAMPLE_FILE_NAME);
         try {
             assertFalse(sampleFile.exists());
@@ -101,18 +116,27 @@ public class TextToSpeechTest extends AndroidTestCase {
     }
 
     public void testSpeak() throws Exception {
+        if (mTts == null) {
+            return;
+        }
         int result = getTts().speak(SAMPLE_TEXT, TextToSpeech.QUEUE_FLUSH, createParams());
         assertEquals("speak() failed", TextToSpeech.SUCCESS, result);
         assertTrue("speak() completion timeout", waitForUtterance());
     }
 
     public void testGetEnginesIncludesDefault() throws Exception {
+        if (mTts == null) {
+            return;
+        }
         List<TextToSpeech.EngineInfo> engines = getTts().getEngines();
         assertNotNull("getEngines() returned null", engines);
         assertContainsEngine(getTts().getDefaultEngine(), engines);
     }
 
     public void testGetEnginesIncludesMock() throws Exception {
+        if (mTts == null) {
+            return;
+        }
         List<TextToSpeech.EngineInfo> engines = getTts().getEngines();
         assertNotNull("getEngines() returned null", engines);
         assertContainsEngine(TextToSpeechWrapper.MOCK_TTS_ENGINE, engines);

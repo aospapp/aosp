@@ -25,6 +25,7 @@
 #include "net/base/net_errors.h"
 #include "net/base/network_delegate.h"
 #include "net/base/request_priority.h"
+#include "net/base/sdch_manager.h"
 #include "net/cert/cert_verifier.h"
 #include "net/cookies/cookie_monster.h"
 #include "net/disk_cache/disk_cache.h"
@@ -72,6 +73,10 @@ class TestURLRequestContext : public URLRequestContext {
       const HttpNetworkSession::Params& params) {
   }
 
+  void SetSdchManager(scoped_ptr<SdchManager> sdch_manager) {
+    context_storage_.set_sdch_manager(sdch_manager.Pass());
+  }
+
  private:
   bool initialized_;
 
@@ -113,17 +118,6 @@ class TestURLRequestContextGetter : public URLRequestContextGetter {
  private:
   const scoped_refptr<base::SingleThreadTaskRunner> network_task_runner_;
   scoped_ptr<TestURLRequestContext> context_;
-};
-
-//-----------------------------------------------------------------------------
-
-class TestURLRequest : public URLRequest {
- public:
-  TestURLRequest(const GURL& url,
-                 RequestPriority priority,
-                 Delegate* delegate,
-                 TestURLRequestContext* context);
-  virtual ~TestURLRequest();
 };
 
 //-----------------------------------------------------------------------------
@@ -175,7 +169,8 @@ class TestDelegate : public URLRequest::Delegate {
   void ClearFullRequestHeaders();
 
   // URLRequest::Delegate:
-  virtual void OnReceivedRedirect(URLRequest* request, const GURL& new_url,
+  virtual void OnReceivedRedirect(URLRequest* request,
+                                  const RedirectInfo& redirect_info,
                                   bool* defer_redirect) OVERRIDE;
   virtual void OnBeforeNetworkStart(URLRequest* request, bool* defer) OVERRIDE;
   virtual void OnAuthRequired(URLRequest* request,
@@ -274,6 +269,19 @@ class TestNetworkDelegate : public NetworkDelegate {
   void set_can_throttle_requests(bool val) { can_throttle_requests_ = val; }
   bool can_throttle_requests() const { return can_throttle_requests_; }
 
+  void set_cancel_request_with_policy_violating_referrer(bool val) {
+    cancel_request_with_policy_violating_referrer_ = val;
+  }
+
+  int observed_before_proxy_headers_sent_callbacks() const {
+    return observed_before_proxy_headers_sent_callbacks_;
+  }
+
+  // Last observed proxy in proxy header sent callback.
+  HostPortPair last_observed_proxy() {
+    return last_observed_proxy_;
+  }
+
  protected:
   // NetworkDelegate:
   virtual int OnBeforeURLRequest(URLRequest* request,
@@ -282,6 +290,10 @@ class TestNetworkDelegate : public NetworkDelegate {
   virtual int OnBeforeSendHeaders(URLRequest* request,
                                   const CompletionCallback& callback,
                                   HttpRequestHeaders* headers) OVERRIDE;
+  virtual void OnBeforeSendProxyHeaders(
+      net::URLRequest* request,
+      const net::ProxyInfo& proxy_info,
+      net::HttpRequestHeaders* headers) OVERRIDE;
   virtual void OnSendHeaders(URLRequest* request,
                              const HttpRequestHeaders& headers) OVERRIDE;
   virtual int OnHeadersReceived(
@@ -316,6 +328,10 @@ class TestNetworkDelegate : public NetworkDelegate {
   virtual int OnBeforeSocketStreamConnect(
       SocketStream* stream,
       const CompletionCallback& callback) OVERRIDE;
+  virtual bool OnCancelURLRequestWithPolicyViolatingReferrerHeader(
+      const URLRequest& request,
+      const GURL& target_url,
+      const GURL& referrer_url) const OVERRIDE;
 
   void InitRequestStatesIfNew(int request_id);
 
@@ -333,6 +349,9 @@ class TestNetworkDelegate : public NetworkDelegate {
   int blocked_get_cookies_count_;
   int blocked_set_cookie_count_;
   int set_cookie_count_;
+  int observed_before_proxy_headers_sent_callbacks_;
+  // Last observed proxy in before proxy header sent callback.
+  HostPortPair last_observed_proxy_;
 
   // NetworkDelegate callbacks happen in a particular order (e.g.
   // OnBeforeURLRequest is always called before OnBeforeSendHeaders).
@@ -352,6 +371,7 @@ class TestNetworkDelegate : public NetworkDelegate {
 
   bool can_access_files_;  // true by default
   bool can_throttle_requests_;  // true by default
+  bool cancel_request_with_policy_violating_referrer_;  // false by default
 };
 
 // Overrides the host used by the LocalHttpTestServer in

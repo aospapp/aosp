@@ -41,7 +41,6 @@ enum ActionType {
     DATE(R.string.system_date),
     TIME(R.string.system_time),
     DATE_SET_DATE(R.string.system_set_date),
-    DATE_CHOOSE_FORMAT(R.string.system_choose_date_format),
     TIME_SET_TIME(R.string.system_set_time),
     TIME_SET_TIME_ZONE(R.string.system_set_time_zone),
     TIME_CHOOSE_FORMAT(R.string.system_set_time_format),

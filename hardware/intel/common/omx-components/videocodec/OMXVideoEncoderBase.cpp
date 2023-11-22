@@ -172,6 +172,12 @@ OMX_ERRORTYPE OMXVideoEncoderBase::InitOutputPort(void) {
     mConfigIntelBitrate.nFrameRate = 0;
     mConfigIntelBitrate.nTemporalID = 0;
 
+    // OMX_VIDEO_CONFIG_BITRATETYPE
+    memset(&mConfigBitrate, 0, sizeof(mConfigBitrate));
+    SetTypeHeader(&mConfigBitrate, sizeof(mConfigBitrate));
+    mConfigBitrate.nPortIndex = OUTPORT_INDEX;
+    mConfigBitrate.nEncodeBitrate = 0; // Maximum bitrate
+
     // OMX_VIDEO_CONFIG_INTEL_AIR
     memset(&mConfigIntelAir, 0, sizeof(mConfigIntelAir));
     SetTypeHeader(&mConfigIntelAir, sizeof(mConfigIntelAir));
@@ -404,6 +410,7 @@ OMX_ERRORTYPE OMXVideoEncoderBase::BuildHandlerList(void) {
     AddHandler((OMX_INDEXTYPE)OMX_IndexExtSyncEncoding, GetSyncEncoding, SetSyncEncoding);
     AddHandler((OMX_INDEXTYPE)OMX_IndexExtPrependSPSPPS, GetPrependSPSPPS, SetPrependSPSPPS);
     AddHandler((OMX_INDEXTYPE)OMX_IndexExtTemporalLayer, GetTemporalLayer,SetTemporalLayer);
+    AddHandler((OMX_INDEXTYPE)OMX_IndexConfigVideoBitrate, GetConfigVideoBitrate, SetConfigVideoBitrate);
     AddHandler((OMX_INDEXTYPE)OMX_IndexExtRequestBlackFramePointer, GetBlackFramePointer, GetBlackFramePointer);
     return OMX_ErrorNone;
 }
@@ -934,4 +941,42 @@ OMX_ERRORTYPE OMXVideoEncoderBase::GetBlackFramePointer(OMX_PTR pStructure) {
 
 OMX_ERRORTYPE OMXVideoEncoderBase::SetBlackFramePointer(OMX_PTR) {
     return OMX_ErrorUnsupportedSetting;
+}
+
+OMX_ERRORTYPE OMXVideoEncoderBase::GetConfigVideoBitrate(OMX_PTR pStructure) {
+
+    OMX_ERRORTYPE ret;
+    OMX_VIDEO_CONFIG_BITRATETYPE *p = (OMX_VIDEO_CONFIG_BITRATETYPE *)pStructure;
+
+    CHECK_TYPE_HEADER(p);
+    CHECK_PORT_INDEX(p, OUTPORT_INDEX);
+    memcpy(p, &mConfigBitrate, sizeof(*p));
+    return OMX_ErrorNone;
+}
+OMX_ERRORTYPE OMXVideoEncoderBase::SetConfigVideoBitrate(OMX_PTR pStructure){
+    OMX_ERRORTYPE ret;
+    Encode_Status retStatus = ENCODE_SUCCESS;
+    if (mParamBitrate.eControlRate == OMX_Video_ControlRateMax){
+        LOGE("SetConfigIntelBitrate failed. Feature is disabled.");
+        return OMX_ErrorUnsupportedIndex;
+    }
+    OMX_VIDEO_CONFIG_BITRATETYPE *p = (OMX_VIDEO_CONFIG_BITRATETYPE *)pStructure;
+    CHECK_TYPE_HEADER(p);
+    CHECK_PORT_INDEX(p, OUTPORT_INDEX);
+
+    // set in either Loaded state (ComponentSetParam) or Executing state (ComponentSetConfig)
+    mConfigBitrate = *p;
+
+    // return OMX_ErrorNone if not in Executing state
+    // TODO: return OMX_ErrorIncorrectStateOperation?
+    // CHECK_SET_CONFIG_STATE();
+
+    VideoConfigBitRate configBitRate;
+    configBitRate.rcParams.bitRate = mConfigBitrate.nEncodeBitrate;
+    configBitRate.rcParams.temporalID = 0;
+    retStatus = mVideoEncoder->setConfig(&configBitRate);
+    if(retStatus != ENCODE_SUCCESS) {
+        LOGW("failed to set IntelBitrate");
+    }
+    return OMX_ErrorNone;
 }

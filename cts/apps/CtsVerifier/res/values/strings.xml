@@ -36,6 +36,7 @@
     <string name="test_category_features">Features</string>
     <string name="test_category_deskclock">Clock</string>
     <string name="test_category_jobscheduler">Job Scheduler</string>
+    <string name="test_category_tv">TV</string>
     <string name="test_category_other">Other</string>
     <string name="clear">Clear</string>
     <string name="test_results_cleared">Test results cleared.</string>
@@ -67,7 +68,10 @@
         \n\nFollow the instructions below to check that the data backup and restore works:
         \n\n1. Make sure backup and automatic restore are enabled in settings. Depending on the
         backup transport supported by the device you may need to do additional steps. For instance
-        you may need to set a Google account as the backup account for the device.
+        you may need to set a Google account as the backup account for the device. If you cannot
+        find the corresponding setting options on your device, run \"adb shell bmgr enable true\"
+        to enable the backup manager. You can check its status by executing \"adb shell bmgr
+        enabled\".
         \n\n2. Run the backup manager: adb shell bmgr run
         \n\n3. Uninstall the program: adb uninstall com.android.cts.verifier
         \n\n4. Reinstall the CTS Verifier and verify that the values are still the same.
@@ -184,14 +188,16 @@
     <!-- BLE client side strings -->
     <string name="ble_client_service_name">Bluetooth LE GATT Client Handler Service</string>
     <string name="ble_client_test_name">BLE Client Test</string>
-    <string name="ble_client_connect_name">1. BLE Client Connect</string>
-    <string name="ble_discover_service_name">2. BLE Discover Service</string>
-    <string name="ble_client_characteristic_name">3. BLE Read/Write Characteristic</string>
-    <string name="ble_reliable_write_name">4. BLE Reliable Write</string>
-    <string name="ble_notify_characteristic_name">5. BLE Notify Characteristic</string>
-    <string name="ble_client_descriptor_name">6. BLE Read/Write Descriptor</string>
-    <string name="ble_read_rssi_name">7. BLE Read RSSI</string>
-    <string name="ble_client_disconnect_name">8. BLE Client Disconnect</string>
+    <string name="ble_client_connect_name">BLE Client Connect</string>
+    <string name="ble_discover_service_name">BLE Discover Service</string>
+    <string name="ble_read_characteristic_name">BLE Read Characteristic</string>
+    <string name="ble_write_characteristic_name">BLE Write Characteristic</string>
+    <string name="ble_reliable_write_name">BLE Reliable Write</string>
+    <string name="ble_notify_characteristic_name">BLE Notify Characteristic</string>
+    <string name="ble_read_descriptor_name">BLE Read Descriptor</string>
+    <string name="ble_write_descriptor_name">BLE Write Descriptor</string>
+    <string name="ble_read_rssi_name">BLE Read RSSI</string>
+    <string name="ble_client_disconnect_name">BLE Client Disconnect</string>
     <string name="ble_client_test_info">The BLE test must be done simultaneously on two devices. This device is the client. All tests listed here must be done in order.</string>
     <string name="ble_client_send_connect_info">Type in the Bluetooth address of the remote device to connect to, and verify that the devices are connected.</string>
     <string name="ble_discover_service_info">Verify that the service is discovered when you press the "Discover Service" button.</string>
@@ -214,6 +220,7 @@
     <string name="ble_waiting_notification">Waiting on notification</string>
     <string name="ble_read_rssi">Read RSSI</string>
     <string name="ble_disconnect">Disconnect</string>
+    <string name="ble_test_text">TEST</string>
 
     <!-- BLE server side strings -->
     <string name="ble_server_service_name">Bluetooth LE GATT Server Handler Service</string>
@@ -263,6 +270,8 @@
     <string name="ble_scanner_scan_filter_instruction">Scan filter is to scan data with service UUID = 0x6666 only. If you scan without scan filter, data with service UUID = 0x5555 and 0x6666 will show up on screen.\nFor monsoon test:\n\tClick scan with filter, lock the screen, connect to monsoon. It will not wake up when advertiser is advertising unscannable data packets, but will show a peak in power usage when advertiser is advertising scannable data.\nFor logcat test:\n\tClick scan with filter, logcat the scanner. No data will be received by GattService when advertiser is advertising unscannable data.</string>
     <string name="ble_scan_with_filter">Scan with filter</string>
     <string name="ble_scan_without_filter">Scan without filter</string>
+    <string name="ble_scan_start">Start scan</string>
+    <string name="ble_scan_stop">Stop scan</string>
 
     <!-- Strings for FeatureSummaryActivity -->
     <string name="feature_summary">Hardware/Software Feature Summary</string>
@@ -433,6 +442,10 @@
     <string name="nfc_hce_payment_dynamic_aids_emulator">Dynamic payment AIDs (Emulator)</string>
     <string name="nfc_hce_payment_dynamic_aids_reader">Dynamic payment AIDs (Reader)</string>
     <string name="nfc_hce_payment_dynamic_aids_help">This test tries to register dynamic AIDs for a payment service.</string>
+
+    <string name="nfc_hce_large_num_aids_emulator">Large number of AIDs (Emulator)</string>
+    <string name="nfc_hce_large_num_aids_reader">Large number of AIDs (Reader)</string>
+    <string name="nfc_hce_large_num_aids_help">This test tries to register a large number of different AIDs, to make sure there are no limitations on the maximum amount of HCE apps on the device. Note that this test may take a few seconds to complete; please be patient.</string>
 
     <string name="nfc_hce_payment_prefix_aids_emulator">Payment prefix AIDs (Emulator)</string>
     <string name="nfc_hce_payment_prefix_aids_reader">Payment prefix AIDs (Reader)</string>
@@ -766,6 +779,30 @@
     <string name="usb_test_passed">Received all expected messages. Pass button enabled!</string>
     <string name="usb_file_descriptor_error">Could not open file descriptor for USB accessory... try reconnecting and restarting the accessory?</string>
 
+    <!-- Strings for the Camera ITS test activity -->
+    <string name="camera_its_test">Camera ITS Test</string>
+    <string name="camera_its_test_info">
+        1. Connect your Android device to a computer with adb installed via a USB cable.
+        \n\n2. Setup the CameraITS test environment by following the setup instructions in the
+        README file found in the CameraITS directory included in the CTS Verifier bundle
+        (cd CameraITS; source build/envsetup.sh;).
+        \n\n3. Setup the test scene described in the CameraITS README file, and aim the camera
+        at it.
+        \n\n4. Run the full ITS test suite on all possible camera Ids.
+        (cd CameraITS; python tools/run_all_tests.py camera=[cameraId]).  Once all
+        of the tests have been run, the \'PASS\' button will be enabled if all of the tests have
+        succeeded.  Please note that these tests can take 20+ minutes to run.
+    </string>
+    <string name="no_camera_manager">
+        No camera manager exists!  This test device is in a bad state.
+    </string>
+    <string name="all_legacy_devices">
+        All cameras on this device are LEGACY mode only - ITS tests will only be applied to LIMITED
+        or better devices.  \'PASS\' button enabled.
+    </string>
+    <string name="its_test_passed">All Camera ITS tests passed.  Pass button enabled!</string>
+    <string name="its_test_failed">Some Camera ITS tests failed.</string>
+
     <!-- Strings for StreamingVideoActivity -->
     <string name="streaming_video">Streaming Video Quality Verifier</string>
     <string name="streaming_video_info">This is a test for assessing the quality of streaming videos.  Play each stream and verify that the video is smooth and in sync with the audio, and that there are no quality problems.</string>
@@ -938,6 +975,15 @@
         itself according to the current rotation of the device.</string>
 
     <string name="test_category_notifications">Notifications</string>
+    <string name="package_priority_test">Notification Package Priority Test</string>
+    <string name="package_priority_info">This test checks that the NotificationManagerService respects
+        user preferences about relative package priorities.
+    </string>
+    <string name="package_priority_bot">Verifying that the CTS Robot helper package is installed.</string>
+    <string name="package_priority_high">Find \"%s\" under \"App notifications\" in the \"Sound &amp; notifications\" settings panel, and mark it as having notification priority.</string>
+    <string name="package_priority_default">Find \"%s\" under \"App notifications\" in the \"Sound &amp; notifications\" settings panel, and make sure it has default priority.</string>
+    <string name="package_priority_user_order">Check that ranker respects user priorities.</string>
+
     <string name="attention_test">Notification Attention Management Test</string>
     <string name="attention_info">This test checks that the NotificationManagerService is
         respecting user preferences about notification ranking and filtering.
@@ -1057,6 +1103,20 @@
     <string name="widget_name">Widget Framework Test</string>
     <string name="widget_pass">Pass</string>
     <string name="widget_fail">Fail</string>
+
+    <string name="provisioning_byod_nonmarket_allow">Enable non-market apps</string>
+    <string name="provisioning_byod_nonmarket_allow_info">
+        This test verifies that non-market apps can be installed if permitted.\n
+        1. A package installation UI should appear.\n
+        2. Accept the package and verify that it installs.
+    </string>
+
+    <string name="provisioning_byod_nonmarket_deny">Disable non-market apps</string>
+    <string name="provisioning_byod_nonmarket_deny_info">
+        This test verifies that non-market apps cannot be installed unless permitted.\n
+        1. A package installation UI should appear.\n
+        2. Verify that the installation of the package is refused.
+    </string>
 
     <!-- Strings for DeskClock -->
     <string name="deskclock_tests">Alarms and Timers Tests</string>
@@ -1195,6 +1255,7 @@
         Start by pressing the button on screen and follow instructions to finish the managed provisioning process.
         If your device has not been encrypted before, it will be encrypted and rebooted.
         After the provisioning process completes, return to this page and carry out further verifications.
+        Note: the device will remain encrypted after the test which can only be disabled by factory reset.
     </string>
     <string name="provisioning_byod_start">Start BYOD provisioning flow</string>
     <string name="provisioning_byod_instructions">
@@ -1203,7 +1264,10 @@
         After reboot follow instructions in the notification area to complete the provisioning.\n
         2. After successful provisioning, you should be automatically redirected back to this page.
         Please press through the following verification steps.
-        Allow a few seconds after returning from provisioning, as the profile owner test should automatically pass.
+        Allow a few seconds after returning from provisioning, as the profile owner test should automatically pass.\n
+        \n
+        If the device is being encrypted during step 1, it will remain encrypted After this test.
+        The only way to disable the encryption is to factory reset the device.
     </string>
     <string name="provisioning_byod_profileowner">Profile owner installed</string>
     <string name="provisioning_byod_diskencryption">Full disk encryption enabled</string>
@@ -1223,6 +1287,13 @@
         \n
         Verify that you are prompted with the above choices and both options work as intended. Then mark this test accordingly.
     </string>
+    <string name="provisioning_byod_work_notification">Work notification is badged</string>
+    <string name="provisioning_byod_work_notification_instruction">
+        Please press the Go button to trigger a notification.\n
+        \n
+        Verify that the notification is badged (see sample badge below). Then mark this test accordingly.
+    </string>
+    <string name="provisioning_byod_work_notification_title">This is a work notification</string>
     <string name="provisioning_byod_profile_visible_instruction">
         Please press the Go button to open the Settings page.
         Navigate to Accounts and confirm that:\n
@@ -1246,7 +1317,7 @@
         Go to All Apps screen and scroll through it to confirm that:\n
         \n
         - A new set of work apps including CTS Verifier appear in the list.\n
-        - Work badge overlay appears on work app\'s icon.\n
+        - Work badge overlay appears on work app\'s icon (see example icon below).\n
         \n
         Then navigate back to this screen using Recents button.
     </string>
@@ -1279,7 +1350,7 @@
 
     <string name="js_charging_test">Charging Constraints</string>
     <string name="js_charging_instructions">Verify the behaviour of the JobScheduler API for when the device is on power and unplugged from power. Simply follow the on-screen instructions.</string>
-    <string name="js_charging_description_1">Unplug the phone in order to begin.</string>
+    <string name="js_charging_description_1">Unplug the device in order to begin.</string>
     <string name="js_charging_off_test">Device not charging will not execute a job with a charging constraint.</string>
     <string name="js_charging_on_test">Device when charging will execute a job with a charging constraint.</string>
     <string name="js_charging_description_2">After the above test has passed, plug the device back in to continue. If the above failed, you can simply fail this test.</string>
@@ -1291,7 +1362,103 @@
     <string name="js_any_connectivity_test">Device with no connectivity will not execute a job with an unmetered connectivity constraint.</string>
     <string name="js_no_connectivity_test">Device with no connectivity will still execute a job with no connectivity constraints.</string>
 
+    <!-- String for Live Channels app Tests -->
+
+    <string name="tv_input_discover_test">3rd-party TV input app discoverability test</string>
+    <string name="tv_input_discover_test_info">
+    This test verifies that the pre-loaded Live Channels app is invoked via intents and issues
+    appropriate calls to framework APIs, so that TV input apps work properly with the pre-loaded
+    Live Channels app.
+    </string>
+    <string name="tv_input_discover_test_go_to_setup">
+    Press the \"Launch Live Channels\" button, and set up the newly installed TV input:
+    \"CTS Verifier\".
+    </string>
+    <string name="tv_input_discover_test_verify_setup">
+    Setup activity must have been started.
+    </string>
+    <string name="tv_input_discover_test_tune_to_channel">
+    Press the \"Launch Live Channels\" button, and tune to the channel named \"Dummy\" from
+    \"CTS Verifier\" input. If necessary, configure the channel to be visible.
+    </string>
+    <string name="tv_input_discover_test_verify_tune">
+    Tune command must be called.
+    </string>
+    <string name="tv_input_discover_test_verify_overlay_view">
+    Overlay view must be shown. Verify that there is a text view displaying \"Overlay View Dummy Text\"
+    when you tune to the \"Dummy\" channel.
+    </string>
+
+    <string name="tv_parental_control_test">Live Channels app parental control test</string>
+    <string name="tv_parental_control_test_info">
+    This test verifies that the default Live Channels app invokes proper parental control APIs in
+    the framework.
+    </string>
+    <string name="tv_parental_control_test_turn_on_parental_control">
+    Press the \"Launch Live Channels\" button, and turn on the parental control. If it\'s on
+    already, turn it off and on again.
+    </string>
+    <string name="tv_parental_control_test_verify_receive_broadcast1">
+    TV input service must have received ACTION_PARENTAL_CONTROLS_ENABLED_CHANGED broadcast.
+    </string>
+    <string name="tv_parental_control_test_block_tv_ma">
+    Press the \"Launch Live Channels\" button, and block \"Fake\" rating for \"CtsVerifier\" rating
+    system in the parental control settings. You may have to enable the rating system if it is
+    disabled by default. If it\'s already blocked, unblock, save, and then block again.
+    </string>
+    <string name="tv_parental_control_test_verify_receive_broadcast2">
+    TV input service must have received ACTION_BLOCKED_RATINGS_CHANGED broadcast.
+    </string>
+    <string name="tv_parental_control_test_block_unblock">
+    Press the \"Launch Live Channels\" button; verify that the channel is blocked visually.
+    Try unblock the screen by entering PIN; verify that it\'s unblocked visually.
+    </string>
+
+    <string name="tv_launch_tv_app">Launch Live Channels</string>
+    <string name="tv_channel_not_found">
+    CtsVerifier channel is not set up. Please set up before proceeding.
+    </string>
+
+    <string name="tv_multiple_tracks_test">Live Channels app multiple tracks / subtitle test</string>
+    <string name="tv_multiple_tracks_test_info">
+    This test verifies that the default Live Channels app invokes proper mulitple tracks / subtitle
+    APIs in the framework.
+    </string>
+    <string name="tv_multiple_tracks_test_select_subtitle">
+    Press the \"Launch Live Channels\" button. Verify that the closed caption is off by default.
+    Set closed caption to English.
+    </string>
+    <string name="tv_multiple_tracks_test_verify_set_caption_enabled">
+    Caption should be enabled.
+    </string>
+    <string name="tv_multiple_tracks_test_verify_select_subtitle">
+    The English subtitle track should be selected.
+    </string>
+    <string name="tv_multiple_tracks_test_select_audio">
+    Press the \"Launch Live Channels\" button. Verify that the audio track is English by default.
+    Select Spanish audio track.
+    </string>
+    <string name="tv_multiple_tracks_test_verify_select_audio">
+    The Spanish audio track should be selected.
+    </string>
+
+    <string name="overlay_view_text">Overlay View Dummy Text</string>
+    <string name="fake_rating">Fake</string>
+
     <!-- A list of fully-qualified test classes that should not be run. -->
     <string-array name="disabled_tests" />
 
+    <!-- Strings for screen pinning test -->
+    <string name="screen_pinning_test">Screen Pinning Test</string>
+    <string name="screen_pin_instructions">Pressing next will prompt you to enter screen pinning, allow this app to enter screen pinning.</string>
+    <string name="screen_pin_check_pinned">Press Next to verify the app is pinned.</string>
+    <string name="screen_pin_no_exit">Try to leave the app without unpinning the screen. Press next once you have verified you cannot leave.</string>
+    <string name="screen_pin_exit">Use interactions defined by your device to unpin such as long pressing the back and overview button, then press next.</string>
+    <string name="screen_pinning_done">All tests completed successfully.</string>
+
+    <string name="error_screen_no_longer_pinned">The screen was no longer pinned.</string>
+    <string name="error_screen_already_pinned">Cannot start the test with the screen already pinned.</string>
+    <string name="error_screen_pinning_did_not_start">Screen was not pinned.</string>
+    <string name="error_screen_pinning_did_not_exit">Screen was not unpinned.</string>
+    <string name="error_screen_pinning_couldnt_exit">Could not exit screen pinning through API.</string>
 </resources>

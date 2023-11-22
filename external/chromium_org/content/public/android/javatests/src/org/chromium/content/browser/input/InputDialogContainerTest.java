@@ -9,26 +9,27 @@ import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import org.chromium.base.test.util.Feature;
+import org.chromium.ui.picker.InputDialogContainer;
 
 public class InputDialogContainerTest extends AndroidTestCase {
-    private static int TEXT_INPUT_TYPE_DATE = 0;
-    private static int TEXT_INPUT_TYPE_DATETIME = 1;
-    private static int TEXT_INPUT_TYPE_DATETIMELOCAL = 2;
-    private static int TEXT_INPUT_TYPE_MONTH = 3;
-    private static int TEXT_INPUT_TYPE_TIME = 4;
-    private static int TEXT_INPUT_TYPE_WEEK = 5;
+    private static final int TEXT_INPUT_TYPE_DATE = 0;
+    private static final int TEXT_INPUT_TYPE_DATETIME = 1;
+    private static final int TEXT_INPUT_TYPE_DATETIMELOCAL = 2;
+    private static final int TEXT_INPUT_TYPE_MONTH = 3;
+    private static final int TEXT_INPUT_TYPE_TIME = 4;
+    private static final int TEXT_INPUT_TYPE_WEEK = 5;
 
     // Defined in third_party/WebKit/Source/platform/DateComponents.h
-    private static double DATE_DIALOG_DEFAULT_MIN = -62135596800000.0;
-    private static double DATE_DIALOG_DEFAULT_MAX = 8640000000000000.0;
-    private static double DATETIMELOCAL_DIALOG_DEFAULT_MIN = -62135596800000.0;
-    private static double DATETIMELOCAL_DIALOG_DEFAULT_MAX = 8640000000000000.0;
-    private static double MONTH_DIALOG_DEFAULT_MIN = -23628.0;
-    private static double MONTH_DIALOG_DEFAULT_MAX = 3285488.0;
-    private static double TIME_DIALOG_DEFAULT_MIN = 0.0;
-    private static double TIME_DIALOG_DEFAULT_MAX = 86399999.0;
-    private static double WEEK_DIALOG_DEFAULT_MIN = -62135596800000.0;
-    private static double WEEK_DIALOG_DEFAULT_MAX = 8639999568000000.0;
+    private static final double DATE_DIALOG_DEFAULT_MIN = -62135596800000.0;
+    private static final double DATE_DIALOG_DEFAULT_MAX = 8640000000000000.0;
+    private static final double DATETIMELOCAL_DIALOG_DEFAULT_MIN = -62135596800000.0;
+    private static final double DATETIMELOCAL_DIALOG_DEFAULT_MAX = 8640000000000000.0;
+    private static final double MONTH_DIALOG_DEFAULT_MIN = -23628.0;
+    private static final double MONTH_DIALOG_DEFAULT_MAX = 3285488.0;
+    private static final double TIME_DIALOG_DEFAULT_MIN = 0.0;
+    private static final double TIME_DIALOG_DEFAULT_MAX = 86399999.0;
+    private static final double WEEK_DIALOG_DEFAULT_MIN = -62135596800000.0;
+    private static final double WEEK_DIALOG_DEFAULT_MAX = 8639999568000000.0;
 
     InputActionDelegateForTests mInputActionDelegate;
     InputDialogContainerForTests mInputDialogContainer;
@@ -332,7 +333,7 @@ public class InputDialogContainerTest extends AndroidTestCase {
         @Override
         public void cancelDateTimeDialog() {
         }
-    };
+    }
 
     private static class InputDialogContainerForTests extends InputDialogContainer {
         private int mExpectedDialogType;
@@ -373,7 +374,7 @@ public class InputDialogContainerTest extends AndroidTestCase {
         }
 
         @Override
-        void showPickerDialog(final int dialogType,
+        protected void showPickerDialog(final int dialogType,
                 int year, int month, int monthDay,
                 int hourOfDay, int minute, int second, int millis, int week,
                 double min, double max, double step) {
@@ -391,6 +392,7 @@ public class InputDialogContainerTest extends AndroidTestCase {
             assertEquals(mExpectedStep, step);
         }
 
+        @Override
         public void setFieldDateTimeValue(int dialogType,
                                        int year, int month, int monthDay,
                                        int hourOfDay, int minute, int second, int millis,

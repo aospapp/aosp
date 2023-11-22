@@ -15,7 +15,6 @@
 #include "ash/screen_util.h"
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
-#include "ash/wm/coordinate_conversion.h"
 #include "ash/wm/default_window_resizer.h"
 #include "ash/wm/dock/docked_window_layout_manager.h"
 #include "ash/wm/dock/docked_window_resizer.h"
@@ -37,6 +36,7 @@
 #include "ui/compositor/layer.h"
 #include "ui/gfx/screen.h"
 #include "ui/gfx/transform.h"
+#include "ui/wm/core/coordinate_conversion.h"
 #include "ui/wm/core/window_util.h"
 #include "ui/wm/public/window_types.h"
 
@@ -109,6 +109,9 @@ namespace {
 // Snapping distance used instead of WorkspaceWindowResizer::kScreenEdgeInset
 // when resizing a window using touchscreen.
 const int kScreenEdgeInsetForTouchDrag = 32;
+
+// Current instance for use by the WorkspaceWindowResizerTest.
+WorkspaceWindowResizer* instance = NULL;
 
 // Returns true if the window should stick to the edge.
 bool ShouldStickToEdge(int distance_from_edge, int sticky_size) {
@@ -256,8 +259,9 @@ const int WorkspaceWindowResizer::kMinOnscreenHeight = 32;
 // static
 const int WorkspaceWindowResizer::kScreenEdgeInset = 8;
 
-// static
-WorkspaceWindowResizer* WorkspaceWindowResizer::instance_ = NULL;
+WorkspaceWindowResizer* WorkspaceWindowResizer::GetInstanceForTest() {
+  return instance;
+}
 
 // Represents the width or height of a window with constraints on its minimum
 // and maximum size. 0 represents a lack of a constraint.
@@ -333,8 +337,8 @@ WorkspaceWindowResizer::~WorkspaceWindowResizer() {
     Shell* shell = Shell::GetInstance();
     shell->cursor_manager()->UnlockCursor();
   }
-  if (instance_ == this)
-    instance_ = NULL;
+  if (instance == this)
+    instance = NULL;
 }
 
 // static
@@ -371,7 +375,7 @@ void WorkspaceWindowResizer::Drag(const gfx::Point& location_in_parent,
   }
 
   gfx::Point location_in_screen = location_in_parent;
-  wm::ConvertPointToScreen(GetTarget()->parent(), &location_in_screen);
+  ::wm::ConvertPointToScreen(GetTarget()->parent(), &location_in_screen);
 
   aura::Window* root = NULL;
   gfx::Display display =
@@ -443,23 +447,31 @@ void WorkspaceWindowResizer::CompleteDrag() {
     }
   }
 
-  if (!snapped && window_state()->IsSnapped()) {
-    // Keep the window snapped if the user resizes the window such that the
-    // window has valid bounds for a snapped window. Always unsnap the window
-    // if the user dragged the window via the caption area because doing this is
-    // slightly less confusing.
-    if (details().window_component == HTCAPTION ||
-        !AreBoundsValidSnappedBounds(window_state()->GetStateType(),
-                                     GetTarget()->bounds())) {
-      // Set the window to WINDOW_STATE_TYPE_NORMAL but keep the
-      // window at the bounds that the user has moved/resized the
-      // window to. ClearRestoreBounds() is used instead of
-      // SaveCurrentBoundsForRestore() because most of the restore
-      // logic is skipped because we are still in the middle of a
-      // drag.  TODO(pkotwicz): Fix this and use
-      // SaveCurrentBoundsForRestore().
+  if (!snapped) {
+    if (window_state()->IsSnapped()) {
+      // Keep the window snapped if the user resizes the window such that the
+      // window has valid bounds for a snapped window. Always unsnap the window
+      // if the user dragged the window via the caption area because doing this
+      // is slightly less confusing.
+      if (details().window_component == HTCAPTION ||
+          !AreBoundsValidSnappedBounds(window_state()->GetStateType(),
+                                       GetTarget()->bounds())) {
+        // Set the window to WINDOW_STATE_TYPE_NORMAL but keep the
+        // window at the bounds that the user has moved/resized the
+        // window to. ClearRestoreBounds() is used instead of
+        // SaveCurrentBoundsForRestore() because most of the restore
+        // logic is skipped because we are still in the middle of a
+        // drag.  TODO(pkotwicz): Fix this and use
+        // SaveCurrentBoundsForRestore().
+        window_state()->ClearRestoreBounds();
+        window_state()->Restore();
+      }
+    } else if (!dock_layout_->is_dragged_window_docked()) {
+      // The window was not snapped and is not snapped. This is a user
+      // resize/drag and so the current bounds should be maintained, clearing
+      // any prior restore bounds. When the window is docked the restore bound
+      // must be kept so the docked state can be reverted properly.
       window_state()->ClearRestoreBounds();
-      window_state()->Restore();
     }
   }
 }
@@ -547,7 +559,7 @@ WorkspaceWindowResizer::WorkspaceWindowResizer(
     total_initial_size_ += initial_size;
     total_available += std::max(min_size, initial_size) - min_size;
   }
-  instance_ = this;
+  instance = this;
 }
 
 void WorkspaceWindowResizer::LayoutAttachedWindows(
@@ -771,8 +783,8 @@ void WorkspaceWindowResizer::AdjustBoundsForMainWindow(
     int sticky_size,
     gfx::Rect* bounds) {
   gfx::Point last_mouse_location_in_screen = last_mouse_location_;
-  wm::ConvertPointToScreen(GetTarget()->parent(),
-                           &last_mouse_location_in_screen);
+  ::wm::ConvertPointToScreen(GetTarget()->parent(),
+                             &last_mouse_location_in_screen);
   gfx::Display display = Shell::GetScreen()->GetDisplayNearestPoint(
       last_mouse_location_in_screen);
   gfx::Rect work_area =

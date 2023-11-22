@@ -165,8 +165,10 @@ GCMInvalidationBridge::GCMInvalidationBridge(
       weak_factory_(this) {}
 
 GCMInvalidationBridge::~GCMInvalidationBridge() {
-  if (subscribed_for_incoming_messages_)
+  if (subscribed_for_incoming_messages_) {
     gcm_driver_->RemoveAppHandler(kInvalidationsAppId);
+    gcm_driver_->RemoveConnectionObserver(this);
+  }
 }
 
 scoped_ptr<syncer::GCMNetworkChannelDelegate>
@@ -285,6 +287,7 @@ void GCMInvalidationBridge::SubscribeForIncomingMessages() {
 
   DCHECK(!subscribed_for_incoming_messages_);
   gcm_driver_->AddAppHandler(kInvalidationsAppId, this);
+  gcm_driver_->AddConnectionObserver(this);
   core_thread_task_runner_->PostTask(
       FROM_HERE,
       base::Bind(&GCMInvalidationBridge::Core::OnConnectionStateChanged,
@@ -328,6 +331,13 @@ void GCMInvalidationBridge::OnMessagesDeleted(const std::string& app_id) {
 void GCMInvalidationBridge::OnSendError(
     const std::string& app_id,
     const gcm::GCMClient::SendErrorDetails& send_error_details) {
+  // cacheinvalidation doesn't send messages over GCM.
+  NOTREACHED();
+}
+
+void GCMInvalidationBridge::OnSendAcknowledged(
+    const std::string& app_id,
+    const std::string& message_id) {
   // cacheinvalidation doesn't send messages over GCM.
   NOTREACHED();
 }

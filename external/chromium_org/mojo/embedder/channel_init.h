@@ -5,9 +5,9 @@
 #ifndef MOJO_EMBEDDER_CHANNEL_INIT_H_
 #define MOJO_EMBEDDER_CHANNEL_INIT_H_
 
+#include "base/files/file.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
-#include "base/platform_file.h"
 #include "mojo/public/cpp/system/core.h"
 #include "mojo/system/system_impl_export.h"
 
@@ -23,8 +23,8 @@ struct ChannelInfo;
 
 namespace embedder {
 
-// ChannelInit handle creation (and destruction) of the mojo channel. It is
-// expected that this class is created and destroyed on the main thread.
+// |ChannelInit| handles creation (and destruction) of the Mojo channel. It is
+// not thread-safe, but may be used on any single thread (with a |MessageLoop|).
 class MOJO_SYSTEM_IMPL_EXPORT ChannelInit {
  public:
   ChannelInit();
@@ -36,17 +36,21 @@ class MOJO_SYSTEM_IMPL_EXPORT ChannelInit {
       base::PlatformFile file,
       scoped_refptr<base::TaskRunner> io_thread_task_runner);
 
+  // Notifies the channel that we (hence it) will soon be destroyed.
+  void WillDestroySoon();
+
  private:
-  // Invoked on the main thread once the channel has been established.
-  static void OnCreatedChannel(
-      base::WeakPtr<ChannelInit> host,
-      scoped_refptr<base::TaskRunner> io_thread,
-      embedder::ChannelInfo* channel);
+  // Invoked on the thread on which this object lives once the channel has been
+  // established. (This is a static method that takes a weak pointer to self,
+  // since we want to destroy the channel even if we're destroyed.)
+  static void OnCreatedChannel(base::WeakPtr<ChannelInit> self,
+                               scoped_refptr<base::TaskRunner> io_thread,
+                               ChannelInfo* channel);
 
   scoped_refptr<base::TaskRunner> io_thread_task_runner_;
 
   // If non-null the channel has been established.
-  embedder::ChannelInfo* channel_info_;
+  ChannelInfo* channel_info_;
 
   base::WeakPtrFactory<ChannelInit> weak_factory_;
 

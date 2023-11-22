@@ -9,7 +9,7 @@
 #include "base/compiler_specific.h"
 #include "components/sync_driver/data_type_controller.h"
 
-namespace browser_sync {
+namespace sync_driver {
 
 // Implementation for proxy datatypes. These are datatype that have no
 // representation in sync, and therefore no change processor or syncable
@@ -32,9 +32,8 @@ class ProxyDataTypeController : public DataTypeController {
   virtual State state() const OVERRIDE;
 
   // DataTypeErrorHandler interface.
-  virtual void OnSingleDatatypeUnrecoverableError(
-      const tracked_objects::Location& from_here,
-      const std::string& message) OVERRIDE;
+  virtual void OnSingleDataTypeUnrecoverableError(
+      const syncer::SyncError& error) OVERRIDE;
 
  protected:
   // DataTypeController is RefCounted.
@@ -52,6 +51,6 @@ class ProxyDataTypeController : public DataTypeController {
   DISALLOW_COPY_AND_ASSIGN(ProxyDataTypeController);
 };
 
-}  // namespace browser_sync
+}  // namespace sync_driver
 
 #endif  // COMPONENTS_SYNC_DRIVER_PROXY_DATA_TYPE_CONTROLLER_H__

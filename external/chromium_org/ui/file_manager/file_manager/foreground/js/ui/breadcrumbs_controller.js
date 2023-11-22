@@ -5,7 +5,7 @@
 'use strict';
 
 /**
- * @extends cr.EventTarget
+ * @extends {cr.EventTarget}
  * @param {HTMLDivElement} div Div container for breadcrumbs.
  * @param {MetadataCache} metadataCache To retrieve metadata.
  * @param {VolumeManagerWrapper} volumeManager Volume manager.
@@ -43,8 +43,6 @@ BreadcrumbsController.prototype.show = function(entry) {
     return;
 
   this.entry_ = entry;
-  this.bc_.hidden = false;
-  this.bc_.textContent = '';
   this.showSequence_++;
 
   var queue = new AsyncUtil.Queue();
@@ -63,7 +61,7 @@ BreadcrumbsController.prototype.show = function(entry) {
     if (entryLocationInfo.isRootEntry &&
         entryLocationInfo.rootType ===
             VolumeManagerCommon.RootType.DRIVE_OTHER) {
-      this.metadataCache_.getOne(previousEntry, 'drive', function(result) {
+      this.metadataCache_.getOne(previousEntry, 'external', function(result) {
         if (result && result.sharedWithMe) {
           // Adds the shared-with-me entry instead.
           var driveVolumeInfo = entryLocationInfo.volumeInfo;
@@ -117,8 +115,12 @@ BreadcrumbsController.prototype.show = function(entry) {
   // Update DOM element.
   queue.run(function(sequence, callback) {
     // Check the sequence number to skip requests that are out of date.
-    if (this.showSequence_ === sequence && !error)
-      this.updateInternal_(entries);
+    if (this.showSequence_ === sequence) {
+      this.bc_.hidden = false;
+      this.bc_.textContent = '';
+      if (!error)
+        this.updateInternal_(entries);
+    }
     callback();
   }.bind(this, this.showSequence_));
 };
@@ -160,7 +162,7 @@ BreadcrumbsController.prototype.updateInternal_ = function(entries) {
  */
 BreadcrumbsController.prototype.truncate = function() {
   if (!this.bc_.firstChild)
-   return;
+    return;
 
   // Assume style.width == clientWidth (items have no margins or paddings).
 
@@ -186,8 +188,8 @@ BreadcrumbsController.prototype.truncate = function() {
   if (pathWidth + currentWidth <= containerWidth)
     return;
   if (!lastSeparator) {
-    this.bc_.lastChild.style.width = Math.min(currentWidth, containerWidth) +
-                                      'px';
+    this.bc_.lastChild.style.width =
+        Math.min(currentWidth, containerWidth) + 'px';
     return;
   }
   var lastCrumbSeparatorWidth = lastSeparator.clientWidth;

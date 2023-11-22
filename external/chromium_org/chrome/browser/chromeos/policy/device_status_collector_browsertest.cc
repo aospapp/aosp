@@ -13,7 +13,7 @@
 #include "base/run_loop.h"
 #include "base/threading/sequenced_worker_pool.h"
 #include "chrome/browser/chromeos/login/users/mock_user_manager.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
+#include "chrome/browser/chromeos/login/users/scoped_user_manager_enabler.h"
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
 #include "chrome/browser/chromeos/policy/stub_enterprise_install_attributes.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
@@ -648,12 +648,12 @@ TEST_F(DeviceStatusCollectorTest, ReportUsers) {
 
   // Verify that users are reported by default.
   GetStatus();
-  EXPECT_EQ(5, status_.user_size());
+  EXPECT_EQ(6, status_.user_size());
 
   // Verify that users are reported after enabling the setting.
   cros_settings_->SetBoolean(chromeos::kReportDeviceUsers, true);
   GetStatus();
-  EXPECT_EQ(5, status_.user_size());
+  EXPECT_EQ(6, status_.user_size());
   EXPECT_EQ(em::DeviceUser::USER_TYPE_MANAGED, status_.user(0).type());
   EXPECT_EQ("user0@managed.com", status_.user(0).email());
   EXPECT_EQ(em::DeviceUser::USER_TYPE_MANAGED, status_.user(1).type());
@@ -664,31 +664,13 @@ TEST_F(DeviceStatusCollectorTest, ReportUsers) {
   EXPECT_FALSE(status_.user(3).has_email());
   EXPECT_EQ(em::DeviceUser::USER_TYPE_MANAGED, status_.user(4).type());
   EXPECT_EQ("user4@managed.com", status_.user(4).email());
+  EXPECT_EQ(em::DeviceUser::USER_TYPE_MANAGED, status_.user(5).type());
+  EXPECT_EQ("user5@managed.com", status_.user(5).email());
 
   // Verify that users are no longer reported if setting is disabled.
   cros_settings_->SetBoolean(chromeos::kReportDeviceUsers, false);
   GetStatus();
   EXPECT_EQ(0, status_.user_size());
-}
-
-TEST_F(DeviceStatusCollectorTest, ReportManagedUser) {
-  // Verify that at least one managed user is reported regardless of list size.
-  user_manager_->AddUser("user0@unmanaged.com");
-  user_manager_->AddUser("user1@unmanaged.com");
-  user_manager_->AddUser("user2@unmanaged.com");
-  user_manager_->AddUser("user3@unmanaged.com");
-  user_manager_->AddUser("user4@unmanaged.com");
-  user_manager_->AddUser("user5@unmanaged.com");
-  user_manager_->AddUser("user6@managed.com");
-  user_manager_->AddUser("user7@managed.com");
-
-  cros_settings_->SetBoolean(chromeos::kReportDeviceUsers, true);
-  GetStatus();
-  EXPECT_EQ(7, status_.user_size());
-  for (int i = 0; i < 6; ++i)
-    EXPECT_EQ(em::DeviceUser::USER_TYPE_UNMANAGED, status_.user(i).type());
-  EXPECT_EQ(em::DeviceUser::USER_TYPE_MANAGED, status_.user(6).type());
-  EXPECT_EQ("user6@managed.com", status_.user(6).email());
 }
 
 // Fake device state.
@@ -727,7 +709,7 @@ class DeviceStatusCollectorNetworkInterfacesTest
     : public DeviceStatusCollectorTest {
  protected:
   virtual void SetUp() OVERRIDE {
-    chromeos::DBusThreadManager::InitializeWithStub();
+    chromeos::DBusThreadManager::Initialize();
     chromeos::NetworkHandler::Initialize();
     chromeos::ShillDeviceClient::TestInterface* test_device_client =
         chromeos::DBusThreadManager::Get()->GetShillDeviceClient()->

@@ -9,9 +9,9 @@
 #include "base/message_loop/message_loop.h"
 #include "base/strings/sys_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host_view.h"
-#include "grit/generated_resources.h"
 #import "ui/base/cocoa/menu_controller.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -46,6 +46,35 @@ NSMenuItem* GetMenuItemByID(ui::MenuModel* model,
 
 }  // namespace
 
+// OSX implemenation of the ToolkitDelegate.
+// This simply (re)delegates calls to RVContextMenuMac because they do not
+// have to be componentized.
+class ToolkitDelegateMac : public RenderViewContextMenuBase::ToolkitDelegate {
+ public:
+  explicit ToolkitDelegateMac(RenderViewContextMenuMac* context_menu)
+      : context_menu_(context_menu) {}
+  virtual ~ToolkitDelegateMac() {}
+
+ private:
+  // ToolkitDelegate:
+  virtual void Init(ui::SimpleMenuModel* menu_model) OVERRIDE {
+    context_menu_->InitToolkitMenu();
+  }
+  virtual void Cancel() OVERRIDE{
+    context_menu_->CancelToolkitMenu();
+  }
+  virtual void UpdateMenuItem(int command_id,
+                              bool enabled,
+                              bool hidden,
+                              const base::string16& title) OVERRIDE {
+    context_menu_->UpdateToolkitMenuItem(
+        command_id, enabled, hidden, title);
+  }
+
+  RenderViewContextMenuMac* context_menu_;
+  DISALLOW_COPY_AND_ASSIGN(ToolkitDelegateMac);
+};
+
 // Obj-C bridge class that is the target of all items in the context menu.
 // Relies on the tag being set to the command id.
 
@@ -57,13 +86,11 @@ RenderViewContextMenuMac::RenderViewContextMenuMac(
       speech_submenu_model_(this),
       bidi_submenu_model_(this),
       parent_view_(parent_view) {
+  scoped_ptr<ToolkitDelegate> delegate(new ToolkitDelegateMac(this));
+  set_toolkit_delegate(delegate.Pass());
 }
 
 RenderViewContextMenuMac::~RenderViewContextMenuMac() {
-}
-
-void RenderViewContextMenuMac::PlatformInit() {
-  InitPlatformMenu();
 }
 
 void RenderViewContextMenuMac::Show() {
@@ -75,7 +102,9 @@ void RenderViewContextMenuMac::Show() {
   // [NSApp currentEvent] will return a valid event.
   NSEvent* currentEvent = [NSApp currentEvent];
   NSWindow* window = [parent_view_ window];
-  NSPoint position = [window mouseLocationOutsideOfEventStream];
+  NSPoint position =
+      NSMakePoint(params_.x, NSHeight([parent_view_ bounds]) - params_.y);
+  position = [parent_view_ convertPoint:position toView:nil];
   NSTimeInterval eventTime = [currentEvent timestamp];
   NSEvent* clickEvent = [NSEvent mouseEventWithType:NSRightMouseDown
                                            location:position
@@ -104,10 +133,6 @@ void RenderViewContextMenuMac::Show() {
                    withEvent:clickEvent
                      forView:parent_view_];
   }
-}
-
-void RenderViewContextMenuMac::PlatformCancel() {
-  [menu_controller_ cancel];
 }
 
 void RenderViewContextMenuMac::ExecuteCommand(int command_id, int event_flags) {
@@ -208,7 +233,7 @@ void RenderViewContextMenuMac::AppendPlatformEditableItems() {
   AppendBidiSubMenu();
 }
 
-void RenderViewContextMenuMac::InitPlatformMenu() {
+void RenderViewContextMenuMac::InitToolkitMenu() {
   bool has_selection = !params_.selection_text.empty();
 
   if (has_selection) {
@@ -231,6 +256,27 @@ void RenderViewContextMenuMac::InitPlatformMenu() {
           &speech_submenu_model_);
     }
   }
+}
+
+void RenderViewContextMenuMac::CancelToolkitMenu() {
+  [menu_controller_ cancel];
+}
+
+void RenderViewContextMenuMac::UpdateToolkitMenuItem(
+    int command_id,
+    bool enabled,
+    bool hidden,
+    const base::string16& title) {
+  NSMenuItem* item = GetMenuItemByID(&menu_model_, [menu_controller_ menu],
+                                     command_id);
+  if (!item)
+    return;
+
+  // Update the returned NSMenuItem directly so we can update it immediately.
+  [item setEnabled:enabled];
+  [item setTitle:base::SysUTF16ToNSString(title)];
+  [item setHidden:hidden];
+  [[item menu] itemChanged:item];
 }
 
 void RenderViewContextMenuMac::AppendBidiSubMenu() {
@@ -263,20 +309,4 @@ void RenderViewContextMenuMac::StopSpeaking() {
   content::RenderWidgetHostView* view = GetRenderViewHost()->GetView();
   if (view)
     view->StopSpeaking();
-}
-
-void RenderViewContextMenuMac::UpdateMenuItem(int command_id,
-                                              bool enabled,
-                                              bool hidden,
-                                              const base::string16& title) {
-  NSMenuItem* item = GetMenuItemByID(&menu_model_, [menu_controller_ menu],
-                                     command_id);
-  if (!item)
-    return;
-
-  // Update the returned NSMenuItem directly so we can update it immediately.
-  [item setEnabled:enabled];
-  [item setTitle:SysUTF16ToNSString(title)];
-  [item setHidden:hidden];
-  [[item menu] itemChanged:item];
 }

@@ -10,14 +10,15 @@
 #include "chrome/browser/chromeos/login/screens/user_selection_screen.h"
 #include "chrome/browser/signin/screenlock_bridge.h"
 #include "chrome/browser/ui/webui/chromeos/login/signin_screen_handler.h"
+#include "chrome/grit/generated_resources.h"
+#include "components/user_manager/user_manager.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/web_ui.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
 namespace chromeos {
 
-UserManager* AppLaunchSigninScreen::test_user_manager_ = NULL;
+user_manager::UserManager* AppLaunchSigninScreen::test_user_manager_ = NULL;
 
 AppLaunchSigninScreen::AppLaunchSigninScreen(
     OobeUI* oobe_ui, Delegate* delegate)
@@ -39,15 +40,15 @@ void AppLaunchSigninScreen::Show() {
 }
 
 void AppLaunchSigninScreen::InitOwnerUserList() {
-  UserManager* user_manager = GetUserManager();
+  user_manager::UserManager* user_manager = GetUserManager();
   const std::string& owner_email = user_manager->GetOwnerEmail();
-  const UserList& all_users = user_manager->GetUsers();
+  const user_manager::UserList& all_users = user_manager->GetUsers();
 
   owner_user_list_.clear();
-  for (UserList::const_iterator it = all_users.begin();
+  for (user_manager::UserList::const_iterator it = all_users.begin();
        it != all_users.end();
        ++it) {
-    User* user = *it;
+    user_manager::User* user = *it;
     if (user->email() == owner_email) {
       owner_user_list_.push_back(user);
       break;
@@ -57,12 +58,13 @@ void AppLaunchSigninScreen::InitOwnerUserList() {
 
 // static
 void AppLaunchSigninScreen::SetUserManagerForTesting(
-    UserManager* user_manager) {
+    user_manager::UserManager* user_manager) {
   test_user_manager_ = user_manager;
 }
 
-UserManager* AppLaunchSigninScreen::GetUserManager() {
-  return test_user_manager_ ? test_user_manager_ : UserManager::Get();
+user_manager::UserManager* AppLaunchSigninScreen::GetUserManager() {
+  return test_user_manager_ ? test_user_manager_
+                            : user_manager::UserManager::Get();
 }
 
 void AppLaunchSigninScreen::CancelPasswordChangedFlow() {
@@ -81,7 +83,8 @@ void AppLaunchSigninScreen::CompleteLogin(const UserContext& user_context) {
   NOTREACHED();
 }
 
-void AppLaunchSigninScreen::Login(const UserContext& user_context) {
+void AppLaunchSigninScreen::Login(const UserContext& user_context,
+                                  const SigninSpecifics& specifics) {
   // Note: LoginUtils::CreateAuthenticator doesn't necessarily create
   // a new Authenticator object, and could reuse an existing one.
   authenticator_ = LoginUtils::Get()->CreateAuthenticator(this);
@@ -92,19 +95,7 @@ void AppLaunchSigninScreen::Login(const UserContext& user_context) {
                  user_context));
 }
 
-void AppLaunchSigninScreen::LoginAsRetailModeUser() {
-  NOTREACHED();
-}
-
-void AppLaunchSigninScreen::LoginAsGuest() {
-  NOTREACHED();
-}
-
 void AppLaunchSigninScreen::MigrateUserData(const std::string& old_password) {
-  NOTREACHED();
-}
-
-void AppLaunchSigninScreen::LoginAsPublicAccount(const std::string& username) {
   NOTREACHED();
 }
 
@@ -152,7 +143,7 @@ void AppLaunchSigninScreen::ShowSigninScreenForCreds(
   NOTREACHED();
 }
 
-const UserList& AppLaunchSigninScreen::GetUsers() const {
+const user_manager::UserList& AppLaunchSigninScreen::GetUsers() const {
   if (test_user_manager_) {
     return test_user_manager_->GetUsers();
   }
@@ -184,12 +175,7 @@ void AppLaunchSigninScreen::Signout() {
   NOTREACHED();
 }
 
-void AppLaunchSigninScreen::LoginAsKioskApp(const std::string& app_id,
-                                            bool diagnostic_mode) {
-  NOTREACHED();
-}
-
-void AppLaunchSigninScreen::OnLoginFailure(const LoginFailure& error) {
+void AppLaunchSigninScreen::OnAuthFailure(const AuthFailure& error) {
   LOG(ERROR) << "Unlock failure: " << error.reason();
   webui_handler_->ClearAndEnablePassword();
   webui_handler_->ShowError(
@@ -199,26 +185,33 @@ void AppLaunchSigninScreen::OnLoginFailure(const LoginFailure& error) {
      HelpAppLauncher::HELP_CANT_ACCESS_ACCOUNT_OFFLINE);
 }
 
-void AppLaunchSigninScreen::OnLoginSuccess(const UserContext& user_context) {
+void AppLaunchSigninScreen::OnAuthSuccess(const UserContext& user_context) {
   delegate_->OnOwnerSigninSuccess();
 }
 
 void AppLaunchSigninScreen::HandleGetUsers() {
   base::ListValue users_list;
-  const UserList& users = GetUsers();
+  const user_manager::UserList& users = GetUsers();
 
-  for (UserList::const_iterator it = users.begin(); it != users.end(); ++it) {
+  for (user_manager::UserList::const_iterator it = users.begin();
+       it != users.end();
+       ++it) {
     ScreenlockBridge::LockHandler::AuthType initial_auth_type =
         UserSelectionScreen::ShouldForceOnlineSignIn(*it)
             ? ScreenlockBridge::LockHandler::ONLINE_SIGN_IN
             : ScreenlockBridge::LockHandler::OFFLINE_PASSWORD;
     base::DictionaryValue* user_dict = new base::DictionaryValue();
     UserSelectionScreen::FillUserDictionary(
-        *it, true, false, initial_auth_type, user_dict);
+        *it,
+        true,   /* is_owner */
+        false,  /* is_signin_to_add */
+        initial_auth_type,
+        NULL,   /* public_session_recommended_locales */
+        user_dict);
     users_list.Append(user_dict);
   }
 
-  webui_handler_->LoadUsers(users_list, false, false);
+  webui_handler_->LoadUsers(users_list, false);
 }
 
 void AppLaunchSigninScreen::SetAuthType(

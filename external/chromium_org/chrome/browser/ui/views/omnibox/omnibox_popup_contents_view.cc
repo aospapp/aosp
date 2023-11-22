@@ -11,12 +11,13 @@
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_result_view.h"
-#include "grit/ui_resources.h"
 #include "ui/base/theme_provider.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/path.h"
+#include "ui/resources/grit/ui_resources.h"
 #include "ui/views/controls/image_view.h"
+#include "ui/views/view_targeter.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/non_client_view.h"
 #include "ui/wm/core/window_animations.h"
@@ -70,6 +71,9 @@ OmniboxPopupContentsView::OmniboxPopupContentsView(
 
   ui::ThemeProvider* theme = location_bar_view_->GetThemeProvider();
   bottom_shadow_ = theme->GetImageSkiaNamed(IDR_BUBBLE_B);
+
+  SetEventTargeter(
+      scoped_ptr<views::ViewTargeter>(new views::ViewTargeter(this)));
 }
 
 void OmniboxPopupContentsView::Init() {
@@ -193,16 +197,15 @@ void OmniboxPopupContentsView::UpdatePopupAppearance() {
   target_bounds_ = new_target_bounds;
 
   if (popup_ == NULL) {
-    gfx::NativeView popup_parent =
-        location_bar_view_->GetWidget()->GetNativeView();
+    views::Widget* popup_parent = location_bar_view_->GetWidget();
 
     // If the popup is currently closed, we need to create it.
     popup_ = (new AutocompletePopupWidget)->AsWeakPtr();
     views::Widget::InitParams params(views::Widget::InitParams::TYPE_POPUP);
     params.opacity = views::Widget::InitParams::TRANSLUCENT_WINDOW;
-    params.parent = popup_parent;
+    params.parent = popup_parent->GetNativeView();
     params.bounds = GetPopupBounds();
-    params.context = popup_parent;
+    params.context = popup_parent->GetNativeWindow();
     popup_->Init(params);
     // Third-party software such as DigitalPersona identity verification can
     // hook the underlying window creation methods and use SendMessage to
@@ -267,6 +270,11 @@ gfx::Image OmniboxPopupContentsView::GetIconIfExtensionMatch(
   return model_->GetIconIfExtensionMatch(GetMatchAtIndex(index));
 }
 
+bool OmniboxPopupContentsView::IsStarredMatch(
+    const AutocompleteMatch& match) const {
+  return model_->IsStarredMatch(match);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // OmniboxPopupContentsView, AnimationDelegate implementation:
 
@@ -287,11 +295,6 @@ void OmniboxPopupContentsView::Layout() {
   // We need to manually schedule a paint here since we are a layered window and
   // won't implicitly require painting until we ask for one.
   SchedulePaint();
-}
-
-views::View* OmniboxPopupContentsView::GetEventHandlerForRect(
-    const gfx::Rect& rect) {
-  return this;
 }
 
 views::View* OmniboxPopupContentsView::GetTooltipHandlerForPoint(
@@ -439,6 +442,12 @@ void OmniboxPopupContentsView::PaintChildren(gfx::Canvas* canvas,
 
 ////////////////////////////////////////////////////////////////////////////////
 // OmniboxPopupContentsView, private:
+
+views::View* OmniboxPopupContentsView::TargetForRect(views::View* root,
+                                                     const gfx::Rect& rect) {
+  CHECK_EQ(root, this);
+  return this;
+}
 
 bool OmniboxPopupContentsView::HasMatchAt(size_t index) const {
   return index < model_->result().size();

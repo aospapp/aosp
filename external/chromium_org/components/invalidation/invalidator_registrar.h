@@ -11,8 +11,8 @@
 #include "base/observer_list.h"
 #include "base/threading/thread_checker.h"
 #include "components/invalidation/invalidation_export.h"
-#include "sync/notifier/invalidation_handler.h"
-#include "sync/notifier/invalidation_util.h"
+#include "components/invalidation/invalidation_handler.h"
+#include "components/invalidation/invalidation_util.h"
 
 namespace invalidation {
 class ObjectId;
@@ -85,7 +85,7 @@ class INVALIDATION_EXPORT InvalidatorRegistrar {
   typedef std::map<InvalidationHandler*, ObjectIdSet> HandlerIdsMap;
 
   base::ThreadChecker thread_checker_;
-  ObserverList<InvalidationHandler> handlers_;
+  ObserverList<InvalidationHandler, true> handlers_;
   HandlerIdsMap handler_to_ids_map_;
   InvalidatorState state_;
 

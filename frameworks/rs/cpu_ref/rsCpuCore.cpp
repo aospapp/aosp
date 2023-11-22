@@ -266,7 +266,7 @@ bool RsdCpuReferenceImpl::init(uint32_t version_major, uint32_t version_minor,
 
     GetCpuInfo();
 
-    int cpu = sysconf(_SC_NPROCESSORS_ONLN);
+    int cpu = sysconf(_SC_NPROCESSORS_CONF);
     if(mRSC->props.mDebugMaxThreads) {
         cpu = mRSC->props.mDebugMaxThreads;
     }

@@ -15,10 +15,10 @@
 #include "base/prefs/pref_member.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/cocoa/omnibox/omnibox_view_mac.h"
-#include "chrome/browser/ui/omnibox/location_bar.h"
+#include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_controller.h"
 #include "chrome/browser/ui/search/search_model_observer.h"
-#include "chrome/common/content_settings_types.h"
+#include "components/content_settings/core/common/content_settings_types.h"
 
 @class AutocompleteTextField;
 class CommandUpdater;
@@ -28,6 +28,7 @@ class GeneratedCreditCardDecoration;
 class KeywordHintDecoration;
 class LocationBarDecoration;
 class LocationIconDecoration;
+class ManagePasswordsDecoration;
 class MicSearchDecoration;
 class OriginChipDecoration;
 class PageActionDecoration;
@@ -46,7 +47,6 @@ class ZoomDecorationTest;
 class LocationBarViewMac : public LocationBar,
                            public LocationBarTesting,
                            public OmniboxEditController,
-                           public content::NotificationObserver,
                            public SearchModelObserver {
  public:
   LocationBarViewMac(AutocompleteTextField* field,
@@ -59,14 +59,17 @@ class LocationBarViewMac : public LocationBar,
   virtual void ShowFirstRunBubble() OVERRIDE;
   virtual GURL GetDestinationURL() const OVERRIDE;
   virtual WindowOpenDisposition GetWindowOpenDisposition() const OVERRIDE;
-  virtual content::PageTransition GetPageTransition() const OVERRIDE;
+  virtual ui::PageTransition GetPageTransition() const OVERRIDE;
   virtual void AcceptInput() OVERRIDE;
   virtual void FocusLocation(bool select_all) OVERRIDE;
   virtual void FocusSearch() OVERRIDE;
   virtual void UpdateContentSettingsIcons() OVERRIDE;
-  virtual void UpdateManagePasswordsIconAndBubble() OVERRIDE {};
+  virtual void UpdateManagePasswordsIconAndBubble() OVERRIDE;
   virtual void UpdatePageActions() OVERRIDE;
   virtual void InvalidatePageActions() OVERRIDE;
+  virtual void UpdateBookmarkStarVisibility() OVERRIDE;
+  virtual bool ShowPageActionPopup(const extensions::Extension* extension,
+                                   bool grant_active_tab) OVERRIDE;
   virtual void UpdateOpenPDFInReaderPrompt() OVERRIDE;
   virtual void UpdateGeneratedCreditCardView() OVERRIDE;
   virtual void SaveStateToContents(content::WebContents* contents) OVERRIDE;
@@ -110,6 +113,10 @@ class LocationBarViewMac : public LocationBar,
   // Get the point in window coordinates on the star for the Translate bubble to
   // aim at.
   NSPoint GetTranslateBubblePoint() const;
+
+  // Get the point in window coordinates in the lock icon for the Manage
+  // Passwords bubble to aim at.
+  NSPoint GetManagePasswordsBubblePoint() const;
 
   // Get the point in window coordinates in the security icon at which the page
   // info bubble aims.
@@ -161,20 +168,15 @@ class LocationBarViewMac : public LocationBar,
 
   AutocompleteTextField* GetAutocompleteTextField() { return field_; }
 
-
-  // content::NotificationObserver:
-  virtual void Observe(int type,
-                       const content::NotificationSource& source,
-                       const content::NotificationDetails& details) OVERRIDE;
+  ManagePasswordsDecoration* manage_passwords_decoration() {
+    return manage_passwords_decoration_.get();
+  }
 
   // SearchModelObserver:
   virtual void ModelChanged(const SearchModel::State& old_state,
                             const SearchModel::State& new_state) OVERRIDE;
 
   Browser* browser() const { return browser_; }
-
-  // Activates the page action for the extension that has the given id.
-  void ActivatePageAction(const std::string& extension_id);
 
  protected:
   // OmniboxEditController:
@@ -209,10 +211,8 @@ class LocationBarViewMac : public LocationBar,
   void UpdateTranslateDecoration();
 
   // Updates the zoom decoration in the omnibox with the current zoom level.
-  void UpdateZoomDecoration();
-
-  // Ensures the star decoration is visible or hidden, as required.
-  void UpdateStarDecorationVisibility();
+  // Returns whether any updates were made.
+  bool UpdateZoomDecoration();
 
   // Updates the voice search decoration. Returns true if the visible state was
   // changed.
@@ -266,10 +266,10 @@ class LocationBarViewMac : public LocationBar,
   // The left-hand-side origin chip.
   scoped_ptr<OriginChipDecoration> origin_chip_decoration_;
 
-  Browser* browser_;
+  // The right-hand-side button to manage passwords associated with a page.
+  scoped_ptr<ManagePasswordsDecoration> manage_passwords_decoration_;
 
-  // Used to register for notifications received by NotificationObserver.
-  content::NotificationRegistrar registrar_;
+  Browser* browser_;
 
   // Used to schedule a task for the first run info bubble.
   base::WeakPtrFactory<LocationBarViewMac> weak_ptr_factory_;

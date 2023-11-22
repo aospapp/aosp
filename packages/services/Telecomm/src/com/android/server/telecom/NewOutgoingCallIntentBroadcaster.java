@@ -22,6 +22,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.net.Uri;
+import android.os.Trace;
 import android.os.UserHandle;
 import android.telecom.GatewayInfo;
 import android.telecom.PhoneAccount;
@@ -96,6 +97,7 @@ class NewOutgoingCallIntentBroadcaster {
 
         @Override
         public void onReceive(Context context, Intent intent) {
+            Trace.beginSection("onReceiveNewOutgoingCallBroadcast");
             Log.v(this, "onReceive: %s", intent);
 
             // Once the NEW_OUTGOING_CALL broadcast is finished, the resultData is used as the
@@ -114,8 +116,9 @@ class NewOutgoingCallIntentBroadcaster {
 
             if (endEarly) {
                 if (mCall != null) {
-                    mCall.disconnect();
+                    mCall.disconnect(true /* wasViaNewOutgoingCall */);
                 }
+                Trace.endSection();
                 return;
             }
 
@@ -139,6 +142,7 @@ class NewOutgoingCallIntentBroadcaster {
                             false),
                     mIntent.getIntExtra(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE,
                             VideoProfile.VideoState.AUDIO_ONLY));
+            Trace.endSection();
         }
     }
 

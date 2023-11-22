@@ -14,7 +14,7 @@
 #include "chrome/browser/sync_file_system/drive_backend/metadata_database.pb.h"
 #include "chrome/browser/sync_file_system/sync_status_code.h"
 #include "google_apis/drive/gdata_errorcode.h"
-#include "webkit/common/blob/scoped_file.h"
+#include "storage/common/blob/scoped_file.h"
 
 namespace google_apis {
 class ChangeResource;
@@ -22,52 +22,37 @@ class FileResource;
 class ResourceEntry;
 }
 
-namespace leveldb {
-class WriteBatch;
-}
-
 namespace sync_file_system {
 namespace drive_backend {
 
-void PutServiceMetadataToBatch(const ServiceMetadata& service_metadata,
-                               leveldb::WriteBatch* batch);
-void PutFileMetadataToBatch(const FileMetadata& file,
-                            leveldb::WriteBatch* batch);
-void PutFileTrackerToBatch(const FileTracker& tracker,
-                           leveldb::WriteBatch* batch);
+class LevelDBWrapper;
 
-void PutFileMetadataDeletionToBatch(const std::string& file_id,
-                                    leveldb::WriteBatch* batch);
-void PutFileTrackerDeletionToBatch(int64 tracker_id,
-                                   leveldb::WriteBatch* batch);
+void PutVersionToDB(int64 version, LevelDBWrapper* db);
 
-void PopulateFileDetailsByFileResource(
-    const google_apis::FileResource& file_resource,
-    FileDetails* details);
-scoped_ptr<FileMetadata> CreateFileMetadataFromFileResource(
-    int64 change_id,
-    const google_apis::FileResource& resource);
-scoped_ptr<FileMetadata> CreateFileMetadataFromChangeResource(
-    const google_apis::ChangeResource& change);
-scoped_ptr<FileMetadata> CreateDeletedFileMetadata(
-    int64 change_id,
-    const std::string& file_id);
+void PutServiceMetadataToDB(const ServiceMetadata& service_metadata,
+                            LevelDBWrapper* db);
+void PutFileMetadataToDB(const FileMetadata& file, LevelDBWrapper* db);
+void PutFileTrackerToDB(const FileTracker& tracker, LevelDBWrapper* db);
 
-// Creates a temporary file in |dir_path|.  This must be called on an
-// IO-allowed task runner, and the runner must be given as |file_task_runner|.
-webkit_blob::ScopedFile CreateTemporaryFile(
-    base::TaskRunner* file_task_runner);
-
-std::string FileKindToString(FileKind file_kind);
+void PutFileMetadataDeletionToDB(const std::string& file_id,
+                                 LevelDBWrapper* db);
+void PutFileTrackerDeletionToDB(int64 tracker_id, LevelDBWrapper* db);
 
 bool HasFileAsParent(const FileDetails& details, const std::string& file_id);
 
-std::string GetMimeTypeFromTitle(const base::FilePath& title);
+bool IsAppRoot(const FileTracker& tracker);
+
+std::string GetTrackerTitle(const FileTracker& tracker);
 
 SyncStatusCode GDataErrorCodeToSyncStatusCode(
     google_apis::GDataErrorCode error);
 
-scoped_ptr<FileTracker> CloneFileTracker(const FileTracker* obj);
+// Returns true if |str| starts with |prefix|, and removes |prefix| from |str|.
+// If |out| is not NULL, the result is stored in it.
+bool RemovePrefix(const std::string& str, const std::string& prefix,
+                  std::string* out);
+
+scoped_ptr<ServiceMetadata> InitializeServiceMetadata(LevelDBWrapper* db);
 
 template <typename Src, typename Dest>
 void AppendContents(const Src& src, Dest* dest) {

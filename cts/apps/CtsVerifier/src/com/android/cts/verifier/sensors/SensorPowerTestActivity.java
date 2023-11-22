@@ -63,7 +63,7 @@ public class SensorPowerTestActivity
 
     @Override
     protected void activitySetUp() throws InterruptedException {
-        mScreenManipulator = new SensorTestScreenManipulator(getApplicationContext());
+        mScreenManipulator = new SensorTestScreenManipulator(this);
         mScreenManipulator.initialize(this);
     }
 

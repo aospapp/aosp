@@ -12,7 +12,7 @@
 #import "chrome/browser/ui/cocoa/location_bar/location_bar_view_mac.h"
 #import "chrome/browser/ui/cocoa/omnibox/omnibox_view_mac.h"
 #include "chrome/browser/ui/zoom/zoom_controller.h"
-#include "grit/generated_resources.h"
+#include "chrome/grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 
 ZoomDecoration::ZoomDecoration(LocationBarViewMac* owner)
@@ -24,24 +24,25 @@ ZoomDecoration::~ZoomDecoration() {
   [bubble_ closeWithoutAnimation];
 }
 
-void ZoomDecoration::Update(ZoomController* zoom_controller) {
+bool ZoomDecoration::UpdateIfNecessary(ZoomController* zoom_controller) {
   if (!ShouldShowDecoration()) {
-    [bubble_ close];
-    SetVisible(false);
-    return;
+    if (!IsVisible() && !bubble_)
+      return false;
+
+    HideUI();
+    return true;
   }
 
-  SetImage(OmniboxViewMac::ImageForResource(
-      zoom_controller->GetResourceForZoomLevel()));
-
   base::string16 zoom_percent =
-      base::IntToString16(zoom_controller->zoom_percent());
+      base::IntToString16(zoom_controller->GetZoomPercent());
   NSString* zoom_string =
       l10n_util::GetNSStringFWithFixup(IDS_TOOLTIP_ZOOM, zoom_percent);
-  tooltip_.reset([zoom_string retain]);
 
-  SetVisible(true);
-  [bubble_ onZoomChanged];
+  if (IsVisible() && [tooltip_ isEqualToString:zoom_string])
+    return false;
+
+  ShowAndUpdateUI(zoom_controller, zoom_string);
+  return true;
 }
 
 void ZoomDecoration::ShowBubble(BOOL auto_close) {
@@ -69,6 +70,22 @@ void ZoomDecoration::ShowBubble(BOOL auto_close) {
 
 void ZoomDecoration::CloseBubble() {
   [bubble_ close];
+}
+
+void ZoomDecoration::HideUI() {
+  [bubble_ close];
+  SetVisible(false);
+}
+
+void ZoomDecoration::ShowAndUpdateUI(ZoomController* zoom_controller,
+                                     NSString* tooltip_string) {
+  SetImage(OmniboxViewMac::ImageForResource(
+      zoom_controller->GetResourceForZoomLevel()));
+
+  tooltip_.reset([tooltip_string retain]);
+
+  SetVisible(true);
+  [bubble_ onZoomChanged];
 }
 
 NSPoint ZoomDecoration::GetBubblePointInFrame(NSRect frame) {

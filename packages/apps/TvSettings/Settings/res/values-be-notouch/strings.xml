@@ -22,136 +22,56 @@
     <string name="wifi_setup_connection_success" msgid="3362351168182711828">"Паспяховае злучэнне!"</string>
     <!-- no translation found for wifi_setup_save_success (2001513015933996675) -->
     <skip />
-    <!-- no translation found for setup_ir (8305193430921797241) -->
     <skip />
-    <!-- no translation found for remote_setup_welcome_message_title (5476589388820014744) -->
     <skip />
-    <string name="remote_setup_welcome_message_description" msgid="2490113907172564702">"Пульт мае магчымасць кантраляваць сiлкаванне, пераключэнне ўваходаў і гук тэлевізара і прыёмнiка."</string>
-    <!-- no translation found for remote_setup_welcome_message_hint (3193005012448600181) -->
     <skip />
-    <string name="remote_setup_welcome_message_choice_yes" msgid="5685232858099010013">"Усталяваць"</string>
-    <!-- no translation found for remote_setup_welcome_message_choice_no (175673795270850846) -->
     <skip />
-    <string name="remote_setup_configuring_title" msgid="426693490088036953">"Канфiгурацыя"</string>
-    <!-- no translation found for remote_setup_tv_brand_selection_title (4426624334135525006) -->
     <skip />
-    <!-- no translation found for remote_setup_tv_brand_not_listed (6399444939148833806) -->
     <skip />
-    <!-- no translation found for remote_setup_popular_brands (5266668021746622176) -->
     <skip />
-    <!-- no translation found for remote_setup_all_brands (4549396010551387027) -->
     <skip />
-    <string name="verify_tv_works_title" msgid="3032439000825004562">"Паспрабуйце!"</string>
-    <!-- no translation found for verify_tv_works_description (5367161763698305110) -->
     <skip />
-    <string name="verify_tv_works_title_second" msgid="385858407975452465">"А зараз?"</string>
-    <!-- no translation found for verify_tv_works_description_second (2259210492868802216) -->
     <skip />
-    <string name="remote_setup_tv_works_choice_yes" msgid="4845224377319634589">"Так, працуе"</string>
-    <string name="remote_setup_tv_works_choice_no" msgid="4592512199517822882">"Не, не працуе"</string>
-    <string name="remote_setup_tv_works_choice_exit" msgid="3284401175722431348">"Скончыць гэта потым"</string>
-    <string name="remote_setup_av_receiver_message_title" msgid="6684021872456430428">"Вы выкарыстоўваеце AV-прыёмнiк для рэгулявання гучнасці ці пераключэння крыніцы відэасігналу?"</string>
-    <string name="remote_setup_av_receiver_message_choice_yes" msgid="4425950273612887422">"Так"</string>
-    <string name="remote_setup_av_receiver_message_choice_no" msgid="4110689241054488465">"Не, проста тэлебачанне"</string>
-    <string name="av_receiver_brand_selection_title" msgid="6590559258588648873">"Якой маркі ваш AV-прыёмнiк?"</string>
-    <!-- no translation found for remote_setup_avr_brand_not_list (3844561269362712169) -->
     <skip />
-    <string name="verify_av_receiver_works_title" msgid="269543338100774333">"Паспрабуйце!"</string>
-    <!-- no translation found for verify_av_receiver_works_description (823315661416528145) -->
     <skip />
-    <string name="verify_av_receiver_works_title_second" msgid="5746428972280536169">"А зараз?"</string>
-    <!-- no translation found for verify_av_receiver_works_description_second (441544714015585905) -->
     <skip />
-    <string name="remote_setup_av_receiver_works_choice_yes" msgid="3958668567541773813">"Так, працуе"</string>
-    <!-- no translation found for remote_setup_av_receiver_works_choice_no (6425368711913498529) -->
     <skip />
-    <!-- no translation found for remote_setup_av_receiver_works_choice_exit (643490819476900552) -->
     <skip />
-    <!-- no translation found for remote_setup_complete_title (7922835571489412611) -->
     <skip />
-    <string name="remote_setup_complete_indicator" msgid="7561911666937200298">"✔"</string>
-    <!-- no translation found for remote_setup_complete_description (6137050944153859244) -->
     <skip />
-    <!-- no translation found for remote_setup_complete_tv (4708077946518308016) -->
     <skip />
-    <!-- no translation found for remote_setup_complete_avr (8656836889865354332) -->
     <skip />
-    <!-- no translation found for remote_setup_complete_tv_and_avr (4453597584162220399) -->
     <skip />
-    <!-- no translation found for remote_setup_failure_title (5665820270966778692) -->
     <skip />
-    <!-- no translation found for remote_setup_no_more_tv_codes_title (167374899889584010) -->
     <skip />
-    <!-- no translation found for remote_setup_no_more_tv_codes_description (8659030568193419721) -->
     <skip />
-    <!-- no translation found for remote_setup_no_more_tv_codes_choice_continue (2978201890199080045) -->
     <skip />
-    <!-- no translation found for remote_setup_no_more_tv_codes_choice_try_again (883803209087217919) -->
     <skip />
-    <!-- no translation found for remote_setup_no_more_avr_codes_title (1569711951085807000) -->
     <skip />
-    <!-- no translation found for remote_setup_no_more_avr_codes_description (691671526507009571) -->
     <skip />
-    <!-- no translation found for remote_setup_no_more_avr_codes_choice_continue (3661278022504253254) -->
     <skip />
-    <!-- no translation found for remote_setup_no_more_avr_codes_choice_try_again (7093479823678687125) -->
     <skip />
-    <!-- no translation found for remote_volume_control_title (42790796387499754) -->
     <skip />
-    <!-- no translation found for remote_volume_control_description (1709266463890271158) -->
     <skip />
-    <string name="remote_volume_control_tv" msgid="8238742772961949484">"ТБ"</string>
-    <!-- no translation found for remote_volume_control_avr (1210344689909782196) -->
     <skip />
-    <string name="remote_volume_control_more_info" msgid="3974235951312948896">"Дадатковая інфармацыя"</string>
-    <!-- no translation found for remote_input_control_title (2162123799829832793) -->
     <skip />
-    <!-- no translation found for remote_input_control_description (4463232750558670880) -->
     <skip />
-    <string name="remote_input_control_tv" msgid="1161797798141087133">"ТБ"</string>
-    <!-- no translation found for remote_input_control_avr (4332681403776201898) -->
     <skip />
-    <string name="remote_input_control_more_info" msgid="2288173413092344097">"Дадатковая інфармацыя"</string>
-    <!-- no translation found for remote_power_control_title (6900887500636256080) -->
     <skip />
-    <!-- no translation found for remote_power_control_description (3169112762029996294) -->
     <skip />
-    <string name="remote_power_control_tv" msgid="20401013011107997">"ТБ"</string>
-    <!-- no translation found for remote_power_control_avr (7915107400409384444) -->
     <skip />
-    <string name="remote_power_control_more_info" msgid="6548476606481318540">"Дадатковая інфармацыя"</string>
-    <!-- no translation found for remote_setup_tv_unable_to_configure_title (4278769121940609448) -->
     <skip />
-    <!-- no translation found for remote_setup_tv_unable_to_configure_description (8864537568753823798) -->
     <skip />
-    <string name="remote_setup_tv_unable_to_configure_hint" msgid="1731804913207624724">"Пазней гэта можна змянiць у наладах."</string>
-    <string name="remote_setup_tv_unable_to_configure_continue" msgid="3805427230334915588">"Працягваць"</string>
-    <string name="remote_setup_tv_unable_to_configure_try_again" msgid="6302613495483136852">"Паўтарыце спробу"</string>
-    <!-- no translation found for remote_setup_avr_unable_to_configure_title (7801918594788868621) -->
     <skip />
-    <!-- no translation found for remote_setup_avr_unable_to_configure_description (1400910510206854454) -->
     <skip />
-    <string name="remote_setup_avr_unable_to_configure_hint" msgid="1160999973083806587">"Пазней гэта можна змянiць у наладах."</string>
-    <string name="remote_setup_avr_unable_to_configure_continue" msgid="6233717853267060396">"Працягваць"</string>
-    <string name="remote_setup_avr_unable_to_configure_try_again" msgid="4693947869846354939">"Паўтарыце спробу"</string>
-    <string name="remote_programmed_successfully_ok" msgid="1375513531893934307">"OК"</string>
-    <!-- no translation found for remote_summary_title_configured (5771960008601106877) -->
     <skip />
-    <!-- no translation found for remote_summary_description_configured_tv_only (7739533340195955540) -->
     <skip />
-    <!-- no translation found for remote_summary_description_configured (2021732057311118918) -->
     <skip />
-    <!-- no translation found for remote_summary_change (6976485331757187056) -->
     <skip />
-    <!-- no translation found for remote_summary_do_not_change (4097498021633504763) -->
     <skip />
-    <!-- no translation found for remote_setup_finish_later_title (4030643297327885317) -->
     <skip />
-    <!-- no translation found for remote_setup_finish_later_description (3511320380471211038) -->
     <skip />
-    <!-- no translation found for remote_setup_finish_later_choice_continue (8780389496840477364) -->
     <skip />
-    <!-- no translation found for remote_setup_finish_later_choice_start_over (1027538826869717585) -->
     <skip />
     <string name="device_apps_app_management_version" msgid="6315648665194084382">"версія <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_force_stop" msgid="1803832648099079651">"Прымусовае спыненне"</string>

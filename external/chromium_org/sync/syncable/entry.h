@@ -210,6 +210,11 @@ class SYNC_EXPORT Entry {
     return kernel_->ref(ATTACHMENT_METADATA);
   }
 
+  const sync_pb::AttachmentMetadata& GetServerAttachmentMetadata() const {
+    DCHECK(kernel_);
+    return kernel_->ref(SERVER_ATTACHMENT_METADATA);
+  }
+
   bool GetSyncing() const {
     DCHECK(kernel_);
     return kernel_->ref(SYNCING);
@@ -244,6 +249,10 @@ class SYNC_EXPORT Entry {
   // Returns true if this is an entry that is expected to maintain a certain
   // sort ordering relative to its siblings under the same parent.
   bool ShouldMaintainPosition() const;
+
+  // Returns true if this is an entry that is expected to maintain hierarchy.
+  // ie. Whether or not the PARENT_ID field contains useful information.
+  bool ShouldMaintainHierarchy() const;
 
   Directory* dir() const;
 

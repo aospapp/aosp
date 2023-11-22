@@ -18,52 +18,69 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:paddingTop="@dimen/editor_padding_top"
-    android:paddingBottom="32dip">
+    android:orientation="vertical" >
 
     <include
-        layout="@layout/editor_account_header" />
+        layout="@layout/editor_account_header_expandable" />
 
     <LinearLayout
-        android:layout_height="wrap_content"
+        android:id="@+id/collapsable_section"
         android:layout_width="match_parent"
-        android:orientation="horizontal"
-        android:paddingTop="8dip"
-        android:paddingLeft="16dip"
-        android:paddingStart="16dip">
+        android:layout_height="wrap_content"
+        android:orientation="vertical" >
 
-        <TextView android:id="@+id/read_only_name"
-            android:layout_width="0dip"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center_vertical"
-            android:singleLine="true"
-            android:ellipsize="end"
-            android:textAppearance="?android:attr/textAppearanceMedium"
-            android:textColor="?android:attr/textColorSecondary" />
+        <!-- Want 16dp of apparent top padding. Since TextView has 4dp of inset/padding built in,
+            only set marginTop=12dp. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="@dimen/editor_padding_around_read_only_photo_editor"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/kind_icon"
+                android:layout_marginTop="2dp"
+                android:src="@drawable/ic_person_black_24dp"
+                android:contentDescription="@string/header_name_entry"
+                style="@style/EditKindIconStyle" />
+
+            <TextView
+                android:id="@+id/read_only_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginRight="@dimen/editor_delete_button_width"
+                android:singleLine="true"
+                android:textSize="@dimen/editor_form_text_size"
+                android:textColor="?android:attr/textColorSecondary"
+                android:enabled="false"/>
+
+        </LinearLayout>
 
         <include
             android:id="@+id/edit_photo"
-            android:layout_marginRight="8dip"
-            android:layout_marginEnd="8dip"
-            layout="@layout/item_photo_editor" />
+            layout="@layout/item_photo_editor_readonly" />
+
+        <Button
+            android:id="@+id/button_edit_externally"
+            android:text="@string/edit_contact"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="@dimen/editor_padding_below_photo"
+            android:layout_marginEnd="13dip"
+            android:layout_marginStart="13dip"/>
+
+        <LinearLayout android:id="@+id/sect_general"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"/>
 
     </LinearLayout>
 
-    <Button
-        android:id="@+id/button_edit_externally"
-        android:text="@string/edit_contact"
+    <View
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="13dip"
-        android:layout_marginBottom="13dip"
-        android:layout_marginLeft="13dip"
-        android:layout_marginStart="13dip"/>
-
-    <LinearLayout android:id="@+id/sect_general"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"/>
+        android:layout_height="@dimen/divider_line_height"
+        android:background="@color/divider_line_color_light" />
 
 </com.android.contacts.editor.RawContactReadOnlyEditorView>

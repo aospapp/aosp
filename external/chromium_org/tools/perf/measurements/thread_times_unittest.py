@@ -5,16 +5,14 @@
 from measurements import thread_times
 from measurements import smoothness_unittest
 from metrics import timeline
-from telemetry import test
 from telemetry.core import wpr_modes
-from telemetry.page import page_measurement_unittest_base
-
 from telemetry.unittest import options_for_unittests
+from telemetry.unittest import page_test_test_case
+from telemetry.unittest import test
 
 
 
-class ThreadTimesUnitTest(
-      page_measurement_unittest_base.PageMeasurementUnitTestBase):
+class ThreadTimesUnitTest(page_test_test_case.PageTestTestCase):
   def setUp(self):
     self._options = options_for_unittests.GetCopy()
     self._options.browser_options.wpr_mode = wpr_modes.WPR_OFF

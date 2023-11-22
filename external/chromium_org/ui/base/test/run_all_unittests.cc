@@ -10,7 +10,6 @@
 #include "build/build_config.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_paths.h"
-#include "ui/gfx/gfx_paths.h"
 
 #if defined(OS_ANDROID)
 #include "base/android/jni_android.h"
@@ -58,7 +57,6 @@ void UIBaseTestSuite::Initialize() {
 #endif
 
   ui::RegisterPathProvider();
-  gfx::RegisterPathProvider();
 
   base::FilePath exe_path;
   PathService::Get(base::DIR_EXE, &exe_path);
@@ -68,12 +66,14 @@ void UIBaseTestSuite::Initialize() {
   // chrome_100_percent.pak at the appropriate places to ui_test.pak.
   base::mac::SetOverrideFrameworkBundlePath(
       exe_path.AppendASCII("ui_unittests Framework.framework"));
-  ui::ResourceBundle::InitSharedInstanceWithLocale("en-US", NULL);
+  ui::ResourceBundle::InitSharedInstanceWithLocale(
+      "en-US", NULL, ui::ResourceBundle::LOAD_COMMON_RESOURCES);
 
 #elif defined(OS_IOS) || defined(OS_ANDROID)
   // On iOS, the ui_unittests binary is itself a mini bundle, with resources
   // built in. On Android, ui_unittests_apk provides the necessary framework.
-  ui::ResourceBundle::InitSharedInstanceWithLocale("en-US", NULL);
+  ui::ResourceBundle::InitSharedInstanceWithLocale(
+      "en-US", NULL, ui::ResourceBundle::LOAD_COMMON_RESOURCES);
 
 #else
   // On other platforms, the (hardcoded) paths for chrome_100_percent.pak and

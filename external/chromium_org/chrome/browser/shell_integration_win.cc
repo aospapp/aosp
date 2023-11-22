@@ -7,12 +7,12 @@
 #include <windows.h>
 #include <shlwapi.h>
 #include <shobjidl.h>
-#include <propkey.h>
+#include <propkey.h>  // Needs to come after shobjidl.h.
 
 #include "base/bind.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/message_loop/message_loop.h"
 #include "base/path_service.h"
 #include "base/strings/string_number_conversions.h"
@@ -384,7 +384,8 @@ bool ShellIntegration::IsFirefoxDefaultBrowser() {
     base::win::RegKey key(HKEY_CLASSES_ROOT, key_path.c_str(), KEY_READ);
     base::string16 app_cmd;
     if (key.Valid() && (key.ReadValue(L"", &app_cmd) == ERROR_SUCCESS) &&
-        base::string16::npos != StringToLowerASCII(app_cmd).find(L"firefox"))
+        base::string16::npos !=
+        base::StringToLowerASCII(app_cmd).find(L"firefox"))
       ff_default = true;
   }
   return ff_default;

@@ -68,6 +68,7 @@ def GetSDKVersion():
 
   version = None
   revision = None
+  commit_position = None
   for line in open(readme):
     if ':' in line:
       name, value = line.split(':', 1)
@@ -75,17 +76,19 @@ def GetSDKVersion():
         version = value.strip()
       if name == "Chrome Revision":
         revision = value.strip()
+      if name == "Chrome Commit Position":
+        commit_position = value.strip()
 
-  if revision == None or version == None:
+  if revision is None or version is None or commit_position is None:
     raise Error("error parsing SDK README: %s" % readme)
 
   try:
-    revision = int(revision)
     version = int(version)
+    revision = int(revision)
   except ValueError:
     raise Error("error parsing SDK README: %s" % readme)
 
-  return (version, revision)
+  return (version, revision, commit_position)
 
 
 def GetSystemArch(platform):
@@ -144,8 +147,16 @@ def GetNaClArch(platform):
   # If CHROME_PATH is set to point to google-chrome or google-chrome
   # was found in the PATH and we are running on UNIX then google-chrome
   # is a bash script that points to 'chrome' in the same folder.
-  if os.path.basename(chrome_path) == 'google-chrome':
+  #
+  # When running beta or dev branch, the name is google-chrome-{beta,dev}.
+  if os.path.basename(chrome_path).startswith('google-chrome'):
     chrome_path = os.path.join(os.path.dirname(chrome_path), 'chrome')
+
+  if not os.path.exists(chrome_path):
+    raise Error("File %s does not exist." % chrome_path)
+
+  if not os.access(chrome_path, os.X_OK):
+    raise Error("File %s is not executable" % chrome_path)
 
   try:
     pobj = subprocess.Popen(['objdump', '-f', chrome_path],
@@ -173,6 +184,10 @@ def GetNaClArch(platform):
 
 
 def ParseVersion(version):
+  """Parses a version number of the form '<major>.<position>'.
+
+  <position> is the Cr-Commit-Position number.
+  """
   if '.' in version:
     version = version.split('.')
   else:
@@ -182,6 +197,22 @@ def ParseVersion(version):
     return tuple(int(x) for x in version)
   except ValueError:
     raise Error('error parsing SDK version: %s' % version)
+
+
+def CheckVersion(required_version):
+  """Determines whether the current SDK version meets the required version.
+
+  Args:
+    required_version: (major, position) pair, where position is the
+    Cr-Commit-Position number.
+
+  Raises:
+    Error: The SDK version is older than required_version.
+  """
+  version = GetSDKVersion()[:2]
+  if version < required_version:
+    raise Error("SDK version too old (current: %d.%d, required: %d.%d)"
+           % (version[0], version[1], required_version[0], required_version[1]))
 
 
 def main(args):
@@ -197,9 +228,13 @@ def main(args):
       help='Print major version of the NaCl SDK.')
   parser.add_option('--sdk-revision', action='store_true',
       help='Print revision number of the NaCl SDK.')
+  parser.add_option('--sdk-commit-position', action='store_true',
+      help='Print commit position of the NaCl SDK.')
   parser.add_option('--check-version',
+      metavar='MAJOR.POSITION',
       help='Check that the SDK version is at least as great as the '
-           'version passed in.')
+           'version passed in. MAJOR is the major version number and POSITION '
+           'is the Cr-Commit-Position number.')
 
   options, _ = parser.parse_args(args)
 
@@ -222,13 +257,11 @@ def main(args):
     out = GetSDKVersion()[0]
   elif options.sdk_revision:
     out = GetSDKVersion()[1]
+  elif options.sdk_commit_position:
+    out = GetSDKVersion()[2]
   elif options.check_version:
     required_version = ParseVersion(options.check_version)
-    version = GetSDKVersion()
-    if version < required_version:
-      raise Error("SDK version too old (current: %s.%s, required: %s.%s)"
-             % (version[0], version[1],
-                required_version[0], required_version[1]))
+    CheckVersion(required_version)
     out = None
 
   if out:

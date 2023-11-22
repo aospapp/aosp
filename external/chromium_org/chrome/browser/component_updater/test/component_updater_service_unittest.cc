@@ -3,23 +3,32 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/component_updater/test/component_updater_service_unittest.h"
-#include "base/file_util.h"
+
+#include <vector>
+
+#include "base/files/file_util.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/values.h"
-#include "chrome/browser/component_updater/component_updater_utils.h"
-#include "chrome/browser/component_updater/test/test_installer.h"
+#include "chrome/browser/component_updater/component_updater_resource_throttle.h"
 #include "chrome/common/chrome_paths.h"
+#include "components/component_updater/component_updater_utils.h"
+#include "components/component_updater/test/test_configurator.h"
+#include "components/component_updater/test/test_installer.h"
+#include "components/component_updater/test/url_request_post_interceptor.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/resource_controller.h"
 #include "content/public/browser/resource_request_info.h"
 #include "content/public/browser/resource_throttle.h"
 #include "libxml/globals.h"
 #include "net/base/upload_bytes_element_reader.h"
+#include "net/url_request/test_url_request_interceptor.h"
 #include "net/url_request/url_fetcher.h"
+#include "net/url_request/url_request.h"
 #include "net/url_request/url_request_test_util.h"
 #include "url/gurl.h"
 
@@ -32,148 +41,24 @@ using ::testing::Mock;
 
 namespace component_updater {
 
-#define POST_INTERCEPT_SCHEME "https"
-#define POST_INTERCEPT_HOSTNAME "localhost2"
-#define POST_INTERCEPT_PATH "/update2"
-
 MockServiceObserver::MockServiceObserver() {
 }
 
 MockServiceObserver::~MockServiceObserver() {
 }
 
-bool PartialMatch::Match(const std::string& actual) const {
-  return actual.find(expected_) != std::string::npos;
-}
-
-TestConfigurator::TestConfigurator()
-    : initial_time_(0),
-      times_(1),
-      recheck_time_(0),
-      ondemand_time_(0),
-      cus_(NULL),
-      context_(new net::TestURLRequestContextGetter(
-          BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO))) {
-}
-
-TestConfigurator::~TestConfigurator() {
-}
-
-int TestConfigurator::InitialDelay() {
-  return initial_time_;
-}
-
-int TestConfigurator::NextCheckDelay() {
-  // This is called when a new full cycle of checking for updates is going
-  // to happen. In test we normally only test one cycle so it is a good
-  // time to break from the test messageloop Run() method so the test can
-  // finish.
-  if (--times_ <= 0) {
-    quit_closure_.Run();
-    return 0;
-  }
-  return 1;
-}
-
-int TestConfigurator::StepDelay() {
-  return 0;
-}
-
-int TestConfigurator::StepDelayMedium() {
-  return NextCheckDelay();
-}
-
-int TestConfigurator::MinimumReCheckWait() {
-  return recheck_time_;
-}
-
-int TestConfigurator::OnDemandDelay() {
-  return ondemand_time_;
-}
-
-GURL TestConfigurator::UpdateUrl() {
-  return GURL(POST_INTERCEPT_SCHEME
-              "://" POST_INTERCEPT_HOSTNAME POST_INTERCEPT_PATH);
-}
-
-GURL TestConfigurator::PingUrl() {
-  return UpdateUrl();
-}
-
-std::string TestConfigurator::ExtraRequestParams() {
-  return "extra=\"foo\"";
-}
-
-size_t TestConfigurator::UrlSizeLimit() {
-  return 256;
-}
-
-net::URLRequestContextGetter* TestConfigurator::RequestContext() {
-  return context_.get();
-}
-
-// Don't use the utility process to run code out-of-process.
-bool TestConfigurator::InProcess() {
-  return true;
-}
-
-bool TestConfigurator::DeltasEnabled() const {
-  return true;
-}
-
-bool TestConfigurator::UseBackgroundDownloader() const {
-  return false;
-}
-
-// Set how many update checks are called, the default value is just once.
-void TestConfigurator::SetLoopCount(int times) {
-  times_ = times;
-}
-
-void TestConfigurator::SetRecheckTime(int seconds) {
-  recheck_time_ = seconds;
-}
-
-void TestConfigurator::SetOnDemandTime(int seconds) {
-  ondemand_time_ = seconds;
-}
-
-void TestConfigurator::SetComponentUpdateService(ComponentUpdateService* cus) {
-  cus_ = cus;
-}
-
-void TestConfigurator::SetQuitClosure(const base::Closure& quit_closure) {
-  quit_closure_ = quit_closure;
-}
-
-void TestConfigurator::SetInitialDelay(int seconds) {
-  initial_time_ = seconds;
-}
-
-InterceptorFactory::InterceptorFactory()
-    : URLRequestPostInterceptorFactory(POST_INTERCEPT_SCHEME,
-                                       POST_INTERCEPT_HOSTNAME) {
-}
-
-InterceptorFactory::~InterceptorFactory() {
-}
-
-URLRequestPostInterceptor* InterceptorFactory::CreateInterceptor() {
-  return URLRequestPostInterceptorFactory::CreateInterceptor(
-      base::FilePath::FromUTF8Unsafe(POST_INTERCEPT_PATH));
-}
-
 ComponentUpdaterTest::ComponentUpdaterTest()
-    : test_config_(NULL),
+    : post_interceptor_(NULL),
+      test_config_(NULL),
       thread_bundle_(content::TestBrowserThreadBundle::IO_MAINLOOP) {
   // The component updater instance under test.
-  test_config_ = new TestConfigurator;
+  test_config_ = new TestConfigurator(
+      BrowserThread::GetBlockingPool()
+          ->GetSequencedTaskRunnerWithShutdownBehavior(
+              BrowserThread::GetBlockingPool()->GetSequenceToken(),
+              base::SequencedWorkerPool::SKIP_ON_SHUTDOWN),
+      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO));
   component_updater_.reset(ComponentUpdateServiceFactory(test_config_));
-  test_config_->SetComponentUpdateService(component_updater_.get());
-
-  // The test directory is chrome/test/data/components.
-  PathService::Get(chrome::DIR_TEST_DATA, &test_data_dir_);
-  test_data_dir_ = test_data_dir_.AppendASCII("components");
 
   net::URLFetcher::SetEnableInterceptionForTests(true);
 }
@@ -183,8 +68,12 @@ ComponentUpdaterTest::~ComponentUpdaterTest() {
 }
 
 void ComponentUpdaterTest::SetUp() {
-  get_interceptor_.reset(new GetInterceptor);
-  interceptor_factory_.reset(new InterceptorFactory);
+  get_interceptor_.reset(new GetInterceptor(
+      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO),
+      BrowserThread::GetBlockingPool()->GetTaskRunnerWithShutdownBehavior(
+          base::SequencedWorkerPool::SKIP_ON_SHUTDOWN)));
+  interceptor_factory_.reset(new InterceptorFactory(
+      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO)));
   post_interceptor_ = interceptor_factory_->CreateInterceptor();
   EXPECT_TRUE(post_interceptor_);
 }
@@ -201,7 +90,10 @@ ComponentUpdateService* ComponentUpdaterTest::component_updater() {
 
 // Makes the full path to a component updater test file.
 const base::FilePath ComponentUpdaterTest::test_file(const char* file) {
-  return test_data_dir_.AppendASCII(file);
+  base::FilePath path;
+  PathService::Get(base::DIR_SOURCE_ROOT, &path);
+  return path.AppendASCII("components").AppendASCII("test").AppendASCII("data")
+      .AppendASCII("component_updater").AppendASCII(file);
 }
 
 TestConfigurator* ComponentUpdaterTest::test_configurator() {
@@ -565,7 +457,13 @@ TEST_F(ComponentUpdaterTest, ProdVersionCheck) {
 //    nothing happens.
 //  - We make an on demand call.
 //  - This triggers a second loop, which has a reply that triggers an install.
-TEST_F(ComponentUpdaterTest, OnDemandUpdate) {
+#if defined(OS_LINUX)
+// http://crbug.com/396488
+#define MAYBE_OnDemandUpdate DISABLED_OnDemandUpdate
+#else
+#define MAYBE_OnDemandUpdate OnDemandUpdate
+#endif
+TEST_F(ComponentUpdaterTest, MAYBE_OnDemandUpdate) {
   MockServiceObserver observer;
   {
     InSequence seq;
@@ -1291,14 +1189,13 @@ content::ResourceThrottle* RequestTestResourceThrottle(
     TestResourceController* controller,
     const char* crx_id) {
   net::TestURLRequestContext context;
-  net::TestURLRequest url_request(GURL("http://foo.example.com/thing.bin"),
-                                  net::DEFAULT_PRIORITY,
-                                  NULL,
-                                  &context);
+  scoped_ptr<net::URLRequest> url_request(context.CreateRequest(
+      GURL("http://foo.example.com/thing.bin"),
+      net::DEFAULT_PRIORITY,
+      NULL,
+      NULL));
 
-  content::ResourceThrottle* rt =
-      cus->GetOnDemandUpdater().GetOnDemandResourceThrottle(&url_request,
-                                                            crx_id);
+  content::ResourceThrottle* rt = GetOnDemandResourceThrottle(cus, crx_id);
   rt->set_controller_for_testing(controller);
   controller->SetThrottle(rt);
   return rt;

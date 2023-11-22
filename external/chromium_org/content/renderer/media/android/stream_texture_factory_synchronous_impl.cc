@@ -43,6 +43,7 @@ class StreamTextureProxyImpl
   void BindOnThread(int32 stream_id);
   void OnFrameAvailable();
 
+  // Protects access to |client_| and |loop_|.
   base::Lock lock_;
   cc::VideoFrameProvider::Client* client_;
   scoped_refptr<base::MessageLoopProxy> loop_;
@@ -68,11 +69,14 @@ StreamTextureProxyImpl::~StreamTextureProxyImpl() {}
 
 void StreamTextureProxyImpl::Release() {
   {
+    // Cannot call into |client_| anymore (from any thread) after returning
+    // from here.
     base::AutoLock lock(lock_);
     client_ = NULL;
   }
-  // Assumes this is the last reference to this object. So no need to acquire
-  // lock.
+  // Release is analogous to the destructor, so there should be no more external
+  // calls to this object in Release. Therefore there is no need to acquire the
+  // lock to access |loop_|.
   if (!loop_.get() || loop_->BelongsToCurrentThread() ||
       !loop_->DeleteSoon(FROM_HERE, this)) {
     delete this;
@@ -162,13 +166,14 @@ StreamTextureFactorySynchronousImpl::StreamTextureFactorySynchronousImpl(
 StreamTextureFactorySynchronousImpl::~StreamTextureFactorySynchronousImpl() {}
 
 StreamTextureProxy* StreamTextureFactorySynchronousImpl::CreateProxy() {
-  if (!context_provider_)
+  bool had_proxy = !!context_provider_;
+  if (!had_proxy)
     context_provider_ = create_context_provider_callback_.Run();
 
   if (!context_provider_)
     return NULL;
 
-  if (observer_)
+  if (observer_ && !had_proxy)
     context_provider_->AddObserver(observer_);
   return new StreamTextureProxyImpl(context_provider_);
 }
@@ -198,8 +203,8 @@ unsigned StreamTextureFactorySynchronousImpl::CreateStreamTexture(
   stream_id = gl->CreateStreamTextureCHROMIUM(*texture_id);
 
   gl->GenMailboxCHROMIUM(texture_mailbox->name);
-  gl->BindTexture(texture_target, *texture_id);
-  gl->ProduceTextureCHROMIUM(texture_target, texture_mailbox->name);
+  gl->ProduceTextureDirectCHROMIUM(
+      *texture_id, texture_target, texture_mailbox->name);
   return stream_id;
 }
 

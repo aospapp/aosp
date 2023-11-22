@@ -83,7 +83,7 @@ write_int(char const* path, int value)
     fd = open(path, O_RDWR);
     if (fd >= 0) {
         char buffer[20];
-        int bytes = sprintf(buffer, "%d\n", value);
+        int bytes = snprintf(buffer, sizeof(buffer), "%d\n", value);
         ssize_t amt = write(fd, buffer, (size_t)bytes);
         close(fd);
         return amt == -1 ? -errno : 0;
@@ -168,12 +168,18 @@ set_speaker_light_locked(struct light_device_t* dev,
     }
 
     if (blink) {
-        if (red)
-            write_int(RED_BLINK_FILE, blink);
-        if (green)
-            write_int(GREEN_BLINK_FILE, blink);
-        if (blue)
-            write_int(BLUE_BLINK_FILE, blink);
+        if (red) {
+            if (write_int(RED_BLINK_FILE, blink))
+                write_int(RED_LED_FILE, 0);
+	}
+        if (green) {
+            if (write_int(GREEN_BLINK_FILE, blink))
+                write_int(GREEN_LED_FILE, 0);
+	}
+        if (blue) {
+            if (write_int(BLUE_BLINK_FILE, blink))
+                write_int(BLUE_LED_FILE, 0);
+	}
     } else {
         write_int(RED_LED_FILE, red);
         write_int(GREEN_LED_FILE, green);
@@ -191,6 +197,17 @@ handle_speaker_battery_locked(struct light_device_t* dev)
     } else {
         set_speaker_light_locked(dev, &g_notification);
     }
+}
+
+static int
+set_light_battery(struct light_device_t* dev,
+        struct light_state_t const* state)
+{
+    pthread_mutex_lock(&g_lock);
+    g_battery = *state;
+    handle_speaker_battery_locked(dev);
+    pthread_mutex_unlock(&g_lock);
+    return 0;
 }
 
 static int
@@ -259,6 +276,8 @@ static int open_lights(const struct hw_module_t* module, char const* name,
 
     if (0 == strcmp(LIGHT_ID_BACKLIGHT, name))
         set_light = set_light_backlight;
+    else if (0 == strcmp(LIGHT_ID_BATTERY, name))
+        set_light = set_light_battery;
     else if (0 == strcmp(LIGHT_ID_NOTIFICATIONS, name))
         set_light = set_light_notifications;
     else if (0 == strcmp(LIGHT_ID_BUTTONS, name))
@@ -271,6 +290,10 @@ static int open_lights(const struct hw_module_t* module, char const* name,
     pthread_once(&g_init, init_globals);
 
     struct light_device_t *dev = malloc(sizeof(struct light_device_t));
+
+    if(!dev)
+        return -ENOMEM;
+
     memset(dev, 0, sizeof(*dev));
 
     dev->common.tag = HARDWARE_DEVICE_TAG;

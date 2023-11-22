@@ -13,7 +13,6 @@
 #include "base/threading/non_thread_safe.h"
 #include "base/time/time.h"
 #include "sync/internal_api/public/base/model_type.h"
-#include "sync/notifier/invalidation_state_tracker.h"
 
 class PrefService;
 class ProfileIOData;
@@ -181,6 +180,6 @@ class SyncPrefs : NON_EXPORTED_BASE(public base::NonThreadSafe),
   DISALLOW_COPY_AND_ASSIGN(SyncPrefs);
 };
 
-}  // namespace browser_sync
+}  // namespace sync_driver
 
 #endif  // COMPONENTS_SYNC_DRIVER_SYNC_PREFS_H_

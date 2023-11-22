@@ -14,10 +14,6 @@ SkBitmap* ContentRendererClient::GetSadWebViewBitmap() {
   return NULL;
 }
 
-std::string ContentRendererClient::GetDefaultEncoding() {
-  return std::string();
-}
-
 bool ContentRendererClient::OverrideCreatePlugin(
     RenderFrame* render_frame,
     blink::WebLocalFrame* frame,
@@ -117,7 +113,7 @@ bool ContentRendererClient::ShouldFork(blink::WebFrame* frame,
 
 bool ContentRendererClient::WillSendRequest(
     blink::WebFrame* frame,
-    PageTransition transition_type,
+    ui::PageTransition transition_type,
     const GURL& url,
     const GURL& first_party_for_cookies,
     GURL* new_url) {
@@ -174,6 +170,25 @@ bool ContentRendererClient::ShouldEnableSiteIsolationPolicy() const {
 blink::WebWorkerPermissionClientProxy*
 ContentRendererClient::CreateWorkerPermissionClientProxy(
     RenderFrame* render_frame, blink::WebFrame* frame) {
+  return NULL;
+}
+
+bool ContentRendererClient::IsPluginAllowedToUseCompositorAPI(const GURL& url) {
+  return false;
+}
+
+bool ContentRendererClient::IsPluginAllowedToUseVideoDecodeAPI(
+    const GURL& url) {
+  return false;
+}
+
+bool ContentRendererClient::IsPluginAllowedToUseDevChannelAPIs() {
+  return false;
+}
+
+BrowserPluginDelegate* ContentRendererClient::CreateBrowserPluginDelegate(
+    RenderFrame* render_frame,
+    const std::string& mime_type) {
   return NULL;
 }
 

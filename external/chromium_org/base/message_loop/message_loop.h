@@ -11,6 +11,7 @@
 #include "base/base_export.h"
 #include "base/basictypes.h"
 #include "base/callback_forward.h"
+#include "base/debug/task_annotator.h"
 #include "base/location.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
@@ -38,7 +39,6 @@
 namespace base {
 
 class HistogramBase;
-class MessagePumpObserver;
 class RunLoop;
 class ThreadTaskRunnerHandle;
 class WaitableEvent;
@@ -295,7 +295,14 @@ class BASE_EXPORT MessageLoop : public MessagePump::Delegate {
   const std::string& thread_name() const { return thread_name_; }
 
   // Gets the message loop proxy associated with this message loop.
+  //
+  // NOTE: Deprecated; prefer task_runner() and the TaskRunner interfaces
   scoped_refptr<MessageLoopProxy> message_loop_proxy() {
+    return message_loop_proxy_;
+  }
+
+  // Gets the TaskRunner associated with this message loop.
+  scoped_refptr<SingleThreadTaskRunner> task_runner() {
     return message_loop_proxy_;
   }
 
@@ -364,10 +371,6 @@ class BASE_EXPORT MessageLoop : public MessagePump::Delegate {
   void AddTaskObserver(TaskObserver* task_observer);
   void RemoveTaskObserver(TaskObserver* task_observer);
 
-  // When we go into high resolution timer mode, we will stay in hi-res mode
-  // for at least 1s.
-  static const int kHighResolutionTimerModeLeaseTimeMs = 1000;
-
 #if defined(OS_WIN)
   void set_os_modal_loop(bool os_modal_loop) {
     os_modal_loop_ = os_modal_loop;
@@ -383,7 +386,7 @@ class BASE_EXPORT MessageLoop : public MessagePump::Delegate {
 
   // Returns true if the message loop has high resolution timers enabled.
   // Provided for testing.
-  bool IsHighResolutionTimerEnabledForTesting();
+  bool HasHighResolutionTasks();
 
   // Returns true if the message loop is "idle". Provided for testing.
   bool IsIdleForTesting();
@@ -420,10 +423,9 @@ class BASE_EXPORT MessageLoop : public MessagePump::Delegate {
   // true if some work was done.
   bool DeletePendingTasks();
 
-  // Creates a process-wide unique ID to represent this task in trace events.
-  // This will be mangled with a Process ID hash to reduce the likelyhood of
-  // colliding with MessageLoop pointers on other processes.
-  uint64 GetTaskTraceID(const PendingTask& task);
+  // Returns the TaskAnnotator which is used to add debug information to posted
+  // tasks.
+  debug::TaskAnnotator* task_annotator() { return &task_annotator_; }
 
   // Loads tasks from the incoming queue to |work_queue_| if the latter is
   // empty.
@@ -446,14 +448,20 @@ class BASE_EXPORT MessageLoop : public MessagePump::Delegate {
   virtual bool DoWork() OVERRIDE;
   virtual bool DoDelayedWork(TimeTicks* next_delayed_work_time) OVERRIDE;
   virtual bool DoIdleWork() OVERRIDE;
-  virtual void GetQueueingInformation(size_t* queue_size,
-                                      TimeDelta* queueing_delay) OVERRIDE;
 
   const Type type_;
 
   // A list of tasks that need to be processed by this instance.  Note that
   // this queue is only accessed (push/pop) by our current thread.
   TaskQueue work_queue_;
+
+  // How many high resolution tasks are in the pending task queue. This value
+  // increases by N every time we call ReloadWorkQueue() and decreases by 1
+  // every time we call RunTask() if the task needs a high resolution timer.
+  int pending_high_res_tasks_;
+  // Tracks if we have requested high resolution timers. Its only use is to
+  // turn off the high resolution timer upon loop destruction.
+  bool in_high_res_mode_;
 
   // Contains delayed tasks, sorted by their 'delayed_run_time' property.
   DelayedTaskQueue delayed_work_queue_;
@@ -485,6 +493,8 @@ class BASE_EXPORT MessageLoop : public MessagePump::Delegate {
   RunLoop* run_loop_;
 
   ObserverList<TaskObserver> task_observers_;
+
+  debug::TaskAnnotator task_annotator_;
 
   scoped_refptr<internal::IncomingTaskQueue> incoming_task_queue_;
 
@@ -546,15 +556,7 @@ class BASE_EXPORT MessageLoopForUI : public MessageLoop {
   void Start();
 #endif
 
-#if defined(OS_WIN)
-  typedef MessagePumpObserver Observer;
-
-  // Please see message_pump_win for definitions of these methods.
-  void AddObserver(Observer* observer);
-  void RemoveObserver(Observer* observer);
-#endif
-
-#if defined(USE_OZONE) || (defined(OS_CHROMEOS) && !defined(USE_GLIB))
+#if defined(USE_OZONE) || (defined(USE_X11) && !defined(USE_GLIB))
   // Please see MessagePumpLibevent for definition.
   bool WatchFileDescriptor(
       int fd,

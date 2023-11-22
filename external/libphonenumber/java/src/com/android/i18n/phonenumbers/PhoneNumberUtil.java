@@ -539,8 +539,8 @@ public class PhoneNumberUtil {
   private final Map<Integer, List<String>> countryCallingCodeToRegionCodeMap;
 
   // The set of regions that share country calling code 1.
-  // There are roughly 26 regions and we set the initial capacity of the HashSet to 35 to offer a
-  // load factor of roughly 0.75.
+  // There are roughly 26 regions.
+  // We set the initial capacity of the HashSet to 35 to offer a load factor of roughly 0.75.
   private final Set<String> nanpaRegions = new HashSet<String>(35);
 
   // A mapping from a region code to the PhoneMetadata for that region.
@@ -577,7 +577,7 @@ public class PhoneNumberUtil {
   private final MetadataLoader metadataLoader;
 
   /**
-   * This class implements a singleton, so the only constructor is private.
+   * This class implements a singleton, the constructor is only visible to facilitate testing.
    */
   // @VisibleForTesting
   PhoneNumberUtil(String filePrefix, MetadataLoader metadataLoader,
@@ -803,11 +803,11 @@ public class PhoneNumberUtil {
   }
 
   /**
-   * Gets the length of the geographical area code from the {@code nationalNumber_} field of the
-   * PhoneNumber object passed in, so that clients could use it to split a national significant
-   * number into geographical area code and subscriber number. It works in such a way that the
-   * resultant subscriber number should be diallable, at least on some devices. An example of how
-   * this could be used:
+   * Gets the length of the geographical area code from the
+   * PhoneNumber object passed in, so that clients could use it
+   * to split a national significant number into geographical area code and subscriber number. It
+   * works in such a way that the resultant subscriber number should be diallable, at least on some
+   * devices. An example of how this could be used:
    *
    * <pre>
    * PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
@@ -838,9 +838,10 @@ public class PhoneNumberUtil {
    *    entities
    *  <li> some geographical numbers have no area codes.
    * </ul>
-   * @param number  the PhoneNumber object for which clients want to know the length of the area
-   *     code.
-   * @return  the length of area code of the PhoneNumber object passed in.
+   * @param number  the PhoneNumber object for which clients
+   *     want to know the length of the area code.
+   * @return  the length of area code of the PhoneNumber object
+   *     passed in.
    */
   public int getLengthOfGeographicalAreaCode(PhoneNumber number) {
     PhoneMetadata metadata = getMetadataForRegion(getRegionCodeForNumber(number));
@@ -861,11 +862,12 @@ public class PhoneNumberUtil {
   }
 
   /**
-   * Gets the length of the national destination code (NDC) from the PhoneNumber object passed in,
-   * so that clients could use it to split a national significant number into NDC and subscriber
-   * number. The NDC of a phone number is normally the first group of digit(s) right after the
-   * country calling code when the number is formatted in the international format, if there is a
-   * subscriber number part that follows. An example of how this could be used:
+   * Gets the length of the national destination code (NDC) from the
+   * PhoneNumber object passed in, so that clients could use it
+   * to split a national significant number into NDC and subscriber number. The NDC of a phone
+   * number is normally the first group of digit(s) right after the country calling code when the
+   * number is formatted in the international format, if there is a subscriber number part that
+   * follows. An example of how this could be used:
    *
    * <pre>
    * PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
@@ -888,8 +890,10 @@ public class PhoneNumberUtil {
    * Refer to the unittests to see the difference between this function and
    * {@link #getLengthOfGeographicalAreaCode}.
    *
-   * @param number  the PhoneNumber object for which clients want to know the length of the NDC.
-   * @return  the length of NDC of the PhoneNumber object passed in.
+   * @param number  the PhoneNumber object for which clients
+   *     want to know the length of the NDC.
+   * @return  the length of NDC of the PhoneNumber object
+   *     passed in.
    */
   public int getLengthOfNationalDestinationCode(PhoneNumber number) {
     PhoneNumber copiedProto;
@@ -1047,6 +1051,11 @@ public class PhoneNumberUtil {
    * Tests whether a phone number has a geographical association. It checks if the number is
    * associated to a certain region in the country where it belongs to. Note that this doesn't
    * verify if the number is actually in use.
+   *
+   * A similar method is implemented as PhoneNumberOfflineGeocoder.canBeGeocoded, which performs a
+   * looser check, since it only prevents cases where prefixes overlap for geocodable and
+   * non-geocodable numbers. Also, if new phone number types were added, we should check if this
+   * other method should be updated too.
    */
   boolean isNumberGeographical(PhoneNumber phoneNumber) {
     PhoneNumberType numberType = getNumberType(phoneNumber);
@@ -1111,6 +1120,7 @@ public class PhoneNumberUtil {
     formattedNumber.setLength(0);
     int countryCallingCode = number.getCountryCode();
     String nationalSignificantNumber = getNationalSignificantNumber(number);
+
     if (numberFormat == PhoneNumberFormat.E164) {
       // Early exit for E164 case (even if the country calling code is invalid) since no formatting
       // of the national number needs to be applied. Extensions are not formatted.
@@ -1337,7 +1347,8 @@ public class PhoneNumberUtil {
             // CL fixed line numbers need the national prefix when dialing in the national format,
             // but don't have it when used for display. The reverse is true for mobile numbers.
             // As a result, we output them in the international format to make it work.
-            ((regionCode.equals("MX") || regionCode.equals("CL")) && isFixedLineOrMobile)) &&
+            ((regionCode.equals("MX") || regionCode.equals("CL")) &&
+             isFixedLineOrMobile)) &&
             canBeInternationallyDialled(numberNoExt)) {
           formattedNumber = format(numberNoExt, PhoneNumberFormat.INTERNATIONAL);
         } else {
@@ -1508,7 +1519,8 @@ public class PhoneNumberUtil {
         }
         // When the format we apply to this number doesn't contain national prefix, we can just
         // return the national format.
-        // TODO: Refactor the code below with the code in isNationalPrefixPresentIfRequired.
+        // TODO: Refactor the code below with the code in
+        // isNationalPrefixPresentIfRequired.
         String candidateNationalPrefixRule = formatRule.getNationalPrefixFormattingRule();
         // We assume that the first-group symbol will never be _before_ the national prefix.
         int indexOfFirstGroup = candidateNationalPrefixRule.indexOf("$1");
@@ -2731,7 +2743,7 @@ public class PhoneNumberUtil {
   private boolean checkRegionForParsing(String numberToParse, String defaultRegion) {
     if (!isValidRegionCode(defaultRegion)) {
       // If the number is null or empty, we can't infer the region.
-      if (numberToParse == null || numberToParse.length() == 0 ||
+      if ((numberToParse == null) || (numberToParse.length() == 0) ||
           !PLUS_CHARS_PATTERN.matcher(numberToParse).lookingAt()) {
         return false;
       }
@@ -3009,9 +3021,13 @@ public class PhoneNumberUtil {
       }
 
       // Now append everything between the "tel:" prefix and the phone-context. This should include
-      // the national number, an optional extension or isdn-subaddress component.
-      nationalNumber.append(numberToParse.substring(
-          numberToParse.indexOf(RFC3966_PREFIX) + RFC3966_PREFIX.length(), indexOfPhoneContext));
+      // the national number, an optional extension or isdn-subaddress component. Note we also
+      // handle the case when "tel:" is missing, as we have seen in some of the phone number inputs.
+      // In that case, we append everything from the beginning.
+      int indexOfRfc3966Prefix = numberToParse.indexOf(RFC3966_PREFIX);
+      int indexOfNationalNumber = (indexOfRfc3966Prefix >= 0) ?
+          indexOfRfc3966Prefix + RFC3966_PREFIX.length() : 0;
+      nationalNumber.append(numberToParse.substring(indexOfNationalNumber, indexOfPhoneContext));
     } else {
       // Extract a possible number from the string passed in (this strips leading characters that
       // could not be the start of a phone number.)
@@ -3204,7 +3220,7 @@ public class PhoneNumberUtil {
   /**
    * Returns true if the number can be dialled from outside the region, or unknown. If the number
    * can only be dialled from within the region, returns false. Does not check the number is a valid
-   * number.
+   * number. Note that, at the moment, this method does not handle short numbers.
    * TODO: Make this method public when we have enough metadata to make it worthwhile.
    *
    * @param number  the phone-number for which we want to know whether it is diallable from

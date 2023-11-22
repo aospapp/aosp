@@ -37,8 +37,6 @@ class NET_EXPORT_PRIVATE TcpCubicSender : public SendAlgorithmInterface {
                  QuicConnectionStats* stats);
   virtual ~TcpCubicSender();
 
-  bool InSlowStart() const;
-
   // Start implementation of SendAlgorithmInterface.
   virtual void SetFromConfig(const QuicConfig& config, bool is_server) OVERRIDE;
   virtual void OnIncomingQuicCongestionFeedbackFrame(
@@ -46,21 +44,27 @@ class NET_EXPORT_PRIVATE TcpCubicSender : public SendAlgorithmInterface {
       QuicTime feedback_receive_time) OVERRIDE;
   virtual void OnCongestionEvent(bool rtt_updated,
                                  QuicByteCount bytes_in_flight,
-                                 const CongestionMap& acked_packets,
-                                 const CongestionMap& lost_packets) OVERRIDE;
+                                 const CongestionVector& acked_packets,
+                                 const CongestionVector& lost_packets) OVERRIDE;
   virtual bool OnPacketSent(QuicTime sent_time,
                             QuicByteCount bytes_in_flight,
                             QuicPacketSequenceNumber sequence_number,
                             QuicByteCount bytes,
                             HasRetransmittableData is_retransmittable) OVERRIDE;
   virtual void OnRetransmissionTimeout(bool packets_retransmitted) OVERRIDE;
+  virtual void RevertRetransmissionTimeout() OVERRIDE;
   virtual QuicTime::Delta TimeUntilSend(
       QuicTime now,
       QuicByteCount bytes_in_flight,
       HasRetransmittableData has_retransmittable_data) const OVERRIDE;
   virtual QuicBandwidth BandwidthEstimate() const OVERRIDE;
+  virtual bool HasReliableBandwidthEstimate() const OVERRIDE;
   virtual QuicTime::Delta RetransmissionDelay() const OVERRIDE;
   virtual QuicByteCount GetCongestionWindow() const OVERRIDE;
+  virtual bool InSlowStart() const OVERRIDE;
+  virtual bool InRecovery() const OVERRIDE;
+  virtual QuicByteCount GetSlowStartThreshold() const OVERRIDE;
+  virtual CongestionControlType GetCongestionControlType() const OVERRIDE;
   // End implementation of SendAlgorithmInterface.
 
  private:
@@ -77,7 +81,6 @@ class NET_EXPORT_PRIVATE TcpCubicSender : public SendAlgorithmInterface {
   void MaybeIncreaseCwnd(QuicPacketSequenceNumber acked_sequence_number,
                          QuicByteCount bytes_in_flight);
   bool IsCwndLimited(QuicByteCount bytes_in_flight) const;
-  bool InRecovery() const;
   // Methods for isolating PRR from the rest of TCP Cubic.
   void PrrOnPacketLost(QuicByteCount bytes_in_flight);
   void PrrOnPacketAcked(QuicByteCount acked_bytes);
@@ -118,8 +121,14 @@ class NET_EXPORT_PRIVATE TcpCubicSender : public SendAlgorithmInterface {
   // Congestion window in packets.
   QuicTcpCongestionWindow congestion_window_;
 
+  // Congestion window before the last loss event or RTO.
+  QuicByteCount previous_congestion_window_;
+
   // Slow start congestion window in packets, aka ssthresh.
   QuicTcpCongestionWindow slowstart_threshold_;
+
+  // Slow start threshold before the last loss event or RTO.
+  QuicTcpCongestionWindow previous_slowstart_threshold_;
 
   // Whether the last loss event caused us to exit slowstart.
   // Used for stats collection of slowstart_packets_lost

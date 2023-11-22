@@ -12,10 +12,12 @@
 #include "components/autofill/core/browser/credit_card.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "grit/components_strings.h"
-#include "third_party/libaddressinput/chromium/cpp/include/libaddressinput/address_data.h"
-#include "third_party/libaddressinput/chromium/cpp/include/libaddressinput/address_field.h"
-#include "third_party/libaddressinput/chromium/cpp/include/libaddressinput/address_ui.h"
-#include "third_party/libaddressinput/chromium/cpp/include/libaddressinput/address_ui_component.h"
+#include "third_party/libaddressinput/chromium/addressinput_util.h"
+#include "third_party/libaddressinput/src/cpp/include/libaddressinput/address_data.h"
+#include "third_party/libaddressinput/src/cpp/include/libaddressinput/address_field.h"
+#include "third_party/libaddressinput/src/cpp/include/libaddressinput/address_ui.h"
+#include "third_party/libaddressinput/src/cpp/include/libaddressinput/address_ui_component.h"
+#include "third_party/libaddressinput/src/cpp/include/libaddressinput/localization.h"
 #include "ui/base/l10n/l10n_util.h"
 
 namespace autofill {
@@ -24,9 +26,19 @@ namespace i18ninput {
 namespace {
 
 using base::UTF16ToUTF8;
-using ::i18n::addressinput::AddressData;
 using ::i18n::addressinput::AddressField;
 using ::i18n::addressinput::AddressUiComponent;
+using ::i18n::addressinput::Localization;
+
+std::vector<AddressUiComponent> BuildComponents(const std::string& country_code,
+                                                std::string* language_code) {
+  Localization localization;
+  localization.SetGetter(l10n_util::GetStringUTF8);
+  std::string not_used;
+  return ::i18n::addressinput::BuildComponents(
+      country_code, localization, g_browser_process->GetApplicationLocale(),
+      language_code == NULL ? &not_used : language_code);
+}
 
 DetailInput::Length LengthFromHint(AddressUiComponent::LengthHint hint) {
   if (hint == AddressUiComponent::HINT_SHORT)
@@ -41,23 +53,19 @@ void BuildAddressInputs(common::AddressType address_type,
                         const std::string& country_code,
                         DetailInputs* inputs,
                         std::string* language_code) {
-  std::vector<AddressUiComponent> components(
-      ::i18n::addressinput::BuildComponents(
-          country_code, g_browser_process->GetApplicationLocale(),
-          language_code));
+  const std::vector<AddressUiComponent>& components(
+      BuildComponents(country_code, language_code));
 
   const bool billing = address_type == common::ADDRESS_TYPE_BILLING;
 
   for (size_t i = 0; i < components.size(); ++i) {
     const AddressUiComponent& component = components[i];
-    if (component.field == ::i18n::addressinput::ORGANIZATION) {
-      // TODO(dbeam): figure out when we actually need this.
+    // Interactive autofill dialog does not display organization.
+    if (component.field == ::i18n::addressinput::ORGANIZATION)
       continue;
-    }
-
-    ServerFieldType server_type = TypeForField(component.field, address_type);
+    ServerFieldType server_type = i18n::TypeForField(component.field, billing);
     DetailInput::Length length = LengthFromHint(component.length_hint);
-    base::string16 placeholder = l10n_util::GetStringUTF16(component.name_id);
+    base::string16 placeholder = base::UTF8ToUTF16(component.name);
     DetailInput input = { length, server_type, placeholder };
     inputs->push_back(input);
   }
@@ -93,8 +101,8 @@ bool AddressHasCompleteAndVerifiedData(const AutofillProfile& profile,
   if (!profile.IsVerified())
     return false;
 
-  if (!i18n::CreateAddressDataFromAutofillProfile(profile, app_locale)->
-          HasAllRequiredFields()) {
+  if (!addressinput::HasAllRequiredFields(
+          *i18n::CreateAddressDataFromAutofillProfile(profile, app_locale))) {
     return false;
   }
 
@@ -104,96 +112,13 @@ bool AddressHasCompleteAndVerifiedData(const AutofillProfile& profile,
   };
 
   for (size_t i = 0; i < arraysize(more_required_fields); ++i) {
-    if (profile.GetRawInfo(more_required_fields[i]).empty())
+    if (profile.GetInfo(AutofillType(more_required_fields[i]),
+                        app_locale).empty()) {
       return false;
+    }
   }
 
   return true;
-}
-
-ServerFieldType TypeForField(AddressField address_field,
-                             common::AddressType address_type) {
-  bool billing = address_type == common::ADDRESS_TYPE_BILLING;
-  switch (address_field) {
-    case ::i18n::addressinput::COUNTRY:
-      return billing ? ADDRESS_BILLING_COUNTRY : ADDRESS_HOME_COUNTRY;
-    case ::i18n::addressinput::ADMIN_AREA:
-      return billing ? ADDRESS_BILLING_STATE : ADDRESS_HOME_STATE;
-    case ::i18n::addressinput::LOCALITY:
-      return billing ? ADDRESS_BILLING_CITY : ADDRESS_HOME_CITY;
-    case ::i18n::addressinput::DEPENDENT_LOCALITY:
-      return billing ? ADDRESS_BILLING_DEPENDENT_LOCALITY :
-                       ADDRESS_HOME_DEPENDENT_LOCALITY;
-    case ::i18n::addressinput::POSTAL_CODE:
-      return billing ? ADDRESS_BILLING_ZIP : ADDRESS_HOME_ZIP;
-    case ::i18n::addressinput::SORTING_CODE:
-      return billing ? ADDRESS_BILLING_SORTING_CODE : ADDRESS_HOME_SORTING_CODE;
-    case ::i18n::addressinput::STREET_ADDRESS:
-      return billing ? ADDRESS_BILLING_STREET_ADDRESS :
-                       ADDRESS_HOME_STREET_ADDRESS;
-    case ::i18n::addressinput::RECIPIENT:
-      return billing ? NAME_BILLING_FULL : NAME_FULL;
-    case ::i18n::addressinput::ORGANIZATION:
-      return COMPANY_NAME;
-  }
-  NOTREACHED();
-  return UNKNOWN_TYPE;
-}
-
-bool FieldForType(ServerFieldType server_type,
-                  ::i18n::addressinput::AddressField* field) {
-  switch (server_type) {
-    case ADDRESS_BILLING_COUNTRY:
-    case ADDRESS_HOME_COUNTRY:
-      if (field)
-        *field = ::i18n::addressinput::COUNTRY;
-      return true;
-    case ADDRESS_BILLING_STATE:
-    case ADDRESS_HOME_STATE:
-      if (field)
-        *field = ::i18n::addressinput::ADMIN_AREA;
-      return true;
-    case ADDRESS_BILLING_CITY:
-    case ADDRESS_HOME_CITY:
-      if (field)
-        *field = ::i18n::addressinput::LOCALITY;
-      return true;
-    case ADDRESS_BILLING_DEPENDENT_LOCALITY:
-    case ADDRESS_HOME_DEPENDENT_LOCALITY:
-      if (field)
-        *field = ::i18n::addressinput::DEPENDENT_LOCALITY;
-      return true;
-    case ADDRESS_BILLING_SORTING_CODE:
-    case ADDRESS_HOME_SORTING_CODE:
-      if (field)
-        *field = ::i18n::addressinput::SORTING_CODE;
-      return true;
-    case ADDRESS_BILLING_ZIP:
-    case ADDRESS_HOME_ZIP:
-      if (field)
-        *field = ::i18n::addressinput::POSTAL_CODE;
-      return true;
-    case ADDRESS_BILLING_STREET_ADDRESS:
-    case ADDRESS_BILLING_LINE1:
-    case ADDRESS_BILLING_LINE2:
-    case ADDRESS_HOME_STREET_ADDRESS:
-    case ADDRESS_HOME_LINE1:
-    case ADDRESS_HOME_LINE2:
-      if (field)
-        *field = ::i18n::addressinput::STREET_ADDRESS;
-      return true;
-    case COMPANY_NAME:
-      if (field)
-        *field = ::i18n::addressinput::ORGANIZATION;
-      return true;
-    case NAME_BILLING_FULL:
-    case NAME_FULL:
-      if (field)
-        *field = ::i18n::addressinput::RECIPIENT;
-      return true;
-    default:
-      return false;
-  }
 }
 
 }  // namespace i18ninput

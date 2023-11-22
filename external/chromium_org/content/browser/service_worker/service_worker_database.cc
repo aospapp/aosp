@@ -6,7 +6,7 @@
 
 #include <string>
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/metrics/histogram.h"
@@ -16,6 +16,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "content/browser/service_worker/service_worker_database.pb.h"
+#include "content/browser/service_worker/service_worker_metrics.h"
 #include "content/common/service_worker/service_worker_types.h"
 #include "third_party/leveldatabase/src/helpers/memenv/memenv.h"
 #include "third_party/leveldatabase/src/include/leveldb/db.h"
@@ -77,14 +78,6 @@ const char kUncommittedResIdKeyPrefix[] = "URES:";
 const char kPurgeableResIdKeyPrefix[] = "PRES:";
 
 const int64 kCurrentSchemaVersion = 1;
-
-// For histogram.
-const char kOpenResultHistogramLabel[] =
-    "ServiceWorker.Database.OpenResult";
-const char kReadResultHistogramLabel[] =
-    "ServiceWorker.Database.ReadResult";
-const char kWriteResultHistogramLabel[] =
-    "ServiceWorker.Database.WriteResult";
 
 bool RemovePrefix(const std::string& str,
                   const std::string& prefix,
@@ -488,8 +481,10 @@ ServiceWorkerDatabase::Status ServiceWorkerDatabase::ReadRegistration(
 ServiceWorkerDatabase::Status ServiceWorkerDatabase::WriteRegistration(
     const RegistrationData& registration,
     const std::vector<ResourceRecord>& resources,
+    int64* deleted_version_id,
     std::vector<int64>* newly_purgeable_resources) {
   DCHECK(sequence_checker_.CalledOnValidSequencedThread());
+  *deleted_version_id = kInvalidServiceWorkerVersionId;
   Status status = LazyOpen(true);
   if (status != STATUS_OK)
     return status;
@@ -518,6 +513,9 @@ ServiceWorkerDatabase::Status ServiceWorkerDatabase::WriteRegistration(
     // Delete a resource from the uncommitted list.
     batch.Delete(CreateResourceIdKey(
         kUncommittedResIdKeyPrefix, itr->resource_id));
+    // Delete from the purgeable list in case this version was once deleted.
+    batch.Delete(
+        CreateResourceIdKey(kPurgeableResIdKeyPrefix, itr->resource_id));
   }
 
   // Retrieve a previous version to sweep purgeable resources.
@@ -529,6 +527,7 @@ ServiceWorkerDatabase::Status ServiceWorkerDatabase::WriteRegistration(
     return status;
   if (status == STATUS_OK) {
     DCHECK_LT(old_registration.version_id, registration.version_id);
+    *deleted_version_id = old_registration.version_id;
     status = DeleteResourceRecords(
         old_registration.version_id, newly_purgeable_resources, &batch);
     if (status != STATUS_OK)
@@ -550,7 +549,7 @@ ServiceWorkerDatabase::Status ServiceWorkerDatabase::UpdateVersionToActive(
     int64 registration_id,
     const GURL& origin) {
   DCHECK(sequence_checker_.CalledOnValidSequencedThread());
-  ServiceWorkerDatabase::Status status = LazyOpen(false);
+  Status status = LazyOpen(false);
   if (IsNewOrNonexistentDatabase(status))
     return STATUS_ERROR_NOT_FOUND;
   if (status != STATUS_OK)
@@ -575,7 +574,7 @@ ServiceWorkerDatabase::Status ServiceWorkerDatabase::UpdateLastCheckTime(
     const GURL& origin,
     const base::Time& time) {
   DCHECK(sequence_checker_.CalledOnValidSequencedThread());
-  ServiceWorkerDatabase::Status status = LazyOpen(false);
+  Status status = LazyOpen(false);
   if (IsNewOrNonexistentDatabase(status))
     return STATUS_ERROR_NOT_FOUND;
   if (status != STATUS_OK)
@@ -598,8 +597,10 @@ ServiceWorkerDatabase::Status ServiceWorkerDatabase::UpdateLastCheckTime(
 ServiceWorkerDatabase::Status ServiceWorkerDatabase::DeleteRegistration(
     int64 registration_id,
     const GURL& origin,
+    int64* version_id,
     std::vector<int64>* newly_purgeable_resources) {
   DCHECK(sequence_checker_.CalledOnValidSequencedThread());
+  *version_id = kInvalidServiceWorkerVersionId;
   Status status = LazyOpen(false);
   if (IsNewOrNonexistentDatabase(status))
     return STATUS_OK;
@@ -630,6 +631,7 @@ ServiceWorkerDatabase::Status ServiceWorkerDatabase::DeleteRegistration(
   for (std::vector<RegistrationData>::const_iterator itr =
            registrations.begin(); itr != registrations.end(); ++itr) {
     if (itr->registration_id == registration_id) {
+      *version_id = itr->version_id;
       status = DeleteResourceRecords(
           itr->version_id, newly_purgeable_resources, &batch);
       if (status != STATUS_OK)
@@ -969,11 +971,15 @@ ServiceWorkerDatabase::Status ServiceWorkerDatabase::WriteResourceIdsInBatch(
   if (status != STATUS_OK)
     return status;
 
+  if (ids.empty())
+    return STATUS_OK;
   for (std::set<int64>::const_iterator itr = ids.begin();
        itr != ids.end(); ++itr) {
     // Value should be empty.
     batch->Put(CreateResourceIdKey(id_key_prefix, *itr), "");
   }
+  // std::set is sorted, so the last element is the largest.
+  BumpNextResourceIdIfNeeded(*ids.rbegin(), batch);
   return STATUS_OK;
 }
 
@@ -1055,6 +1061,15 @@ void ServiceWorkerDatabase::BumpNextRegistrationIdIfNeeded(
   }
 }
 
+void ServiceWorkerDatabase::BumpNextResourceIdIfNeeded(
+    int64 used_id, leveldb::WriteBatch* batch) {
+  DCHECK(batch);
+  if (next_avail_resource_id_ <= used_id) {
+    next_avail_resource_id_ = used_id + 1;
+    batch->Put(kNextResIdKey, base::Int64ToString(next_avail_resource_id_));
+  }
+}
+
 void ServiceWorkerDatabase::BumpNextVersionIdIfNeeded(
     int64 used_id, leveldb::WriteBatch* batch) {
   DCHECK(batch);
@@ -1083,31 +1098,25 @@ void ServiceWorkerDatabase::Disable(
 void ServiceWorkerDatabase::HandleOpenResult(
     const tracked_objects::Location& from_here,
     Status status) {
-  if (status != ServiceWorkerDatabase::STATUS_OK)
+  if (status != STATUS_OK)
     Disable(from_here, status);
-  UMA_HISTOGRAM_ENUMERATION(kOpenResultHistogramLabel,
-                            status,
-                            ServiceWorkerDatabase::STATUS_ERROR_MAX);
+  ServiceWorkerMetrics::CountOpenDatabaseResult(status);
 }
 
 void ServiceWorkerDatabase::HandleReadResult(
     const tracked_objects::Location& from_here,
     Status status) {
-  if (status != ServiceWorkerDatabase::STATUS_OK)
+  if (status != STATUS_OK)
     Disable(from_here, status);
-  UMA_HISTOGRAM_ENUMERATION(kReadResultHistogramLabel,
-                            status,
-                            ServiceWorkerDatabase::STATUS_ERROR_MAX);
+  ServiceWorkerMetrics::CountReadDatabaseResult(status);
 }
 
 void ServiceWorkerDatabase::HandleWriteResult(
     const tracked_objects::Location& from_here,
     Status status) {
-  if (status != ServiceWorkerDatabase::STATUS_OK)
+  if (status != STATUS_OK)
     Disable(from_here, status);
-  UMA_HISTOGRAM_ENUMERATION(kWriteResultHistogramLabel,
-                            status,
-                            ServiceWorkerDatabase::STATUS_ERROR_MAX);
+  ServiceWorkerMetrics::CountWriteDatabaseResult(status);
 }
 
 }  // namespace content

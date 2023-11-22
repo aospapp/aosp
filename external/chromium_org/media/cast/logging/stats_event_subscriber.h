@@ -6,6 +6,7 @@
 #define MEDIA_CAST_LOGGING_STATS_EVENT_SUBSCRIBER_H_
 
 #include "base/gtest_prod_util.h"
+#include "base/memory/linked_ptr.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/threading/thread_checker.h"
 #include "base/time/tick_clock.h"
@@ -15,6 +16,7 @@
 
 namespace base {
 class DictionaryValue;
+class ListValue;
 }
 
 namespace media {
@@ -49,12 +51,14 @@ class StatsEventSubscriber : public RawEventSubscriber {
  private:
   friend class StatsEventSubscriberTest;
   FRIEND_TEST_ALL_PREFIXES(StatsEventSubscriberTest, EmptyStats);
-  FRIEND_TEST_ALL_PREFIXES(StatsEventSubscriberTest, Capture);
+  FRIEND_TEST_ALL_PREFIXES(StatsEventSubscriberTest, CaptureEncode);
   FRIEND_TEST_ALL_PREFIXES(StatsEventSubscriberTest, Encode);
   FRIEND_TEST_ALL_PREFIXES(StatsEventSubscriberTest, Decode);
   FRIEND_TEST_ALL_PREFIXES(StatsEventSubscriberTest, PlayoutDelay);
   FRIEND_TEST_ALL_PREFIXES(StatsEventSubscriberTest, E2ELatency);
   FRIEND_TEST_ALL_PREFIXES(StatsEventSubscriberTest, Packets);
+
+  static const size_t kMaxFrameInfoMapSize = 100;
 
   // Generic statistics given the raw data. More specific data (e.g. frame rate
   // and bit rate) can be computed given the basic metrics.
@@ -74,6 +78,34 @@ class StatsEventSubscriber : public RawEventSubscriber {
     size_t sum_size;
   };
 
+  class SimpleHistogram {
+   public:
+    // This will create N+2 buckets where N = (max - min) / width:
+    // Underflow bucket: < min
+    // Bucket 0: [min, min + width - 1]
+    // Bucket 1: [min + width, min + 2 * width - 1]
+    // ...
+    // Bucket N-1: [max - width, max - 1]
+    // Overflow bucket: >= max
+    // |min| must be less than |max|.
+    // |width| must divide |max - min| evenly.
+    SimpleHistogram(int64 min, int64 max, int64 width);
+
+    ~SimpleHistogram();
+
+    void Add(int64 sample);
+
+    void Reset();
+
+    scoped_ptr<base::ListValue> GetHistogram() const;
+
+   private:
+    int64 min_;
+    int64 max_;
+    int64 width_;
+    std::vector<int> buckets_;
+  };
+
   enum CastStat {
     // Capture frame rate.
     CAPTURE_FPS,
@@ -85,8 +117,7 @@ class StatsEventSubscriber : public RawEventSubscriber {
     // TODO(imcheng): This stat is not populated yet because we do not have
     // the time when encode started. Record it in FRAME_ENCODED event.
     AVG_ENCODE_TIME_MS,
-    // Average playout delay in milliseconds, with target delay already
-    // accounted for. Ideally, every frame should have a playout delay of 0.
+    // Average playout delay in milliseconds.
     AVG_PLAYOUT_DELAY_MS,
     // Duration from when a packet is transmitted to when it is received.
     // This measures latency from sender to receiver.
@@ -102,11 +133,45 @@ class StatsEventSubscriber : public RawEventSubscriber {
     // Fraction of packet loss.
     PACKET_LOSS_FRACTION,
     // Duration in milliseconds since last receiver response.
-    MS_SINCE_LAST_RECEIVER_RESPONSE
+    MS_SINCE_LAST_RECEIVER_RESPONSE,
+    // Number of frames captured.
+    NUM_FRAMES_CAPTURED,
+    // Number of frames dropped by encoder.
+    NUM_FRAMES_DROPPED_BY_ENCODER,
+    // Number of late frames.
+    NUM_FRAMES_LATE,
+    // Number of packets that were sent (not retransmitted).
+    NUM_PACKETS_SENT,
+    // Number of packets that were retransmitted.
+    NUM_PACKETS_RETRANSMITTED,
+    // Number of packets that had their retransmission cancelled.
+    NUM_PACKETS_RTX_REJECTED,
+    // Unix time in milliseconds of first event since reset.
+    FIRST_EVENT_TIME_MS,
+    // Unix time in milliseconds of last event since reset.
+    LAST_EVENT_TIME_MS,
+
+    // Histograms
+    CAPTURE_LATENCY_MS_HISTO,
+    ENCODE_LATENCY_MS_HISTO,
+    PACKET_LATENCY_MS_HISTO,
+    FRAME_LATENCY_MS_HISTO,
+    PLAYOUT_DELAY_MS_HISTO
+  };
+
+  struct FrameInfo {
+    FrameInfo();
+    ~FrameInfo();
+
+    base::TimeTicks capture_time;
+    base::TimeTicks capture_end_time;
+    base::TimeTicks encode_time;
+    bool encoded;
   };
 
   typedef std::map<CastStat, double> StatsMap;
-  typedef std::map<RtpTimestamp, base::TimeTicks> FrameEventTimeMap;
+  typedef std::map<CastStat, linked_ptr<SimpleHistogram> > HistogramMap;
+  typedef std::map<RtpTimestamp, FrameInfo> FrameInfoMap;
   typedef std::map<
       std::pair<RtpTimestamp, uint16>,
       std::pair<base::TimeTicks, CastLoggingEvent> >
@@ -116,11 +181,20 @@ class StatsEventSubscriber : public RawEventSubscriber {
 
   static const char* CastStatToString(CastStat stat);
 
+  void InitHistograms();
+
   // Assigns |stats_map| with stats data. Used for testing.
   void GetStatsInternal(StatsMap* stats_map) const;
 
+  void UpdateFirstLastEventTime(base::TimeTicks timestamp,
+                                bool is_receiver_event);
   bool GetReceiverOffset(base::TimeDelta* offset);
-  void RecordFrameCapturedTime(const FrameEvent& frame_event);
+  void MaybeInsertFrameInfo(RtpTimestamp rtp_timestamp,
+                            const FrameInfo& frame_info);
+  void RecordFrameCaptureTime(const FrameEvent& frame_event);
+  void RecordCaptureLatency(const FrameEvent& frame_event);
+  void RecordEncodeLatency(const FrameEvent& frame_event);
+  void RecordFrameTxLatency(const FrameEvent& frame_event);
   void RecordE2ELatency(const FrameEvent& frame_event);
   void RecordPacketSentTime(const PacketEvent& packet_event);
   void ErasePacketSentTime(const PacketEvent& packet_event);
@@ -131,6 +205,12 @@ class StatsEventSubscriber : public RawEventSubscriber {
                        CastLoggingEvent event,
                        CastStat stat,
                        StatsMap* stats_map) const;
+  void PopulateFrameCountStat(CastLoggingEvent event,
+                              CastStat stat,
+                              StatsMap* stats_map) const;
+  void PopulatePacketCountStat(CastLoggingEvent event,
+                               CastStat stat,
+                               StatsMap* stats_map) const;
   void PopulatePlayoutDelayStat(StatsMap* stats_map) const;
   void PopulateFrameBitrateStat(base::TimeTicks now, StatsMap* stats_map) const;
   void PopulatePacketBitrateStat(base::TimeTicks now,
@@ -157,14 +237,21 @@ class StatsEventSubscriber : public RawEventSubscriber {
 
   base::TimeTicks last_response_received_time_;
 
-  // Fixed size map to record when recent frames were captured.
-  FrameEventTimeMap frame_captured_times_;
+  int num_frames_dropped_by_encoder_;
+  int num_frames_late_;
+
+  // Fixed size map to record when recent frames were captured and other info.
+  FrameInfoMap recent_frame_infos_;
 
   // Fixed size map to record when recent packets were sent.
   PacketEventTimeMap packet_sent_times_;
 
   // Sender time assigned on creation and |Reset()|.
   base::TimeTicks start_time_;
+  base::TimeTicks first_event_time_;
+  base::TimeTicks last_event_time_;
+
+  HistogramMap histograms_;
 
   base::ThreadChecker thread_checker_;
   DISALLOW_COPY_AND_ASSIGN(StatsEventSubscriber);

@@ -11,8 +11,8 @@
 
 #include "base/bind.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/path_service.h"
 #include "base/prefs/pref_service.h"
 #include "base/strings/string16.h"
@@ -29,13 +29,13 @@
 #include "chrome/browser/shell_integration.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/chromium_strings.h"
 #include "chrome/installer/util/browser_distribution.h"
 #include "chrome/installer/util/product.h"
 #include "chrome/installer/util/shell_util.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
 #include "grit/chrome_unscaled_resources.h"
-#include "grit/chromium_strings.h"
 #include "skia/ext/image_operations.h"
 #include "skia/ext/platform_canvas.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -71,7 +71,7 @@ const int kMaxProfileShortcutFileNameLength = 64;
 const int kShortcutIconSize = 48;
 const int kProfileAvatarBadgeSize = kShortcutIconSize / 2;
 
-const int kCurrentProfileIconVersion = 2;
+const int kCurrentProfileIconVersion = 3;
 
 // 2x sized profile avatar icons. Mirrors |kDefaultAvatarIconResources| in
 // profile_info_cache.cc.
@@ -589,17 +589,22 @@ base::string16 SanitizeShortcutProfileNameString(
   return sanitized;
 }
 
+// Returns a copied SkBitmap for the given image that can be safely passed to
+// another thread.
+SkBitmap GetSkBitmapCopy(const gfx::Image& image) {
+  DCHECK(!image.IsEmpty());
+  const SkBitmap* image_bitmap = image.ToSkBitmap();
+  SkBitmap bitmap_copy;
+  image_bitmap->deepCopyTo(&bitmap_copy);
+  return bitmap_copy;
+}
+
 // Returns a copied SkBitmap for the given resource id that can be safely passed
 // to another thread.
 SkBitmap GetImageResourceSkBitmapCopy(int resource_id) {
   const gfx::Image image =
       ResourceBundle::GetSharedInstance().GetNativeImageNamed(resource_id);
-  DCHECK(!image.IsEmpty());
-
-  const SkBitmap* image_bitmap = image.ToSkBitmap();
-  SkBitmap bitmap_copy;
-  image_bitmap->deepCopyTo(&bitmap_copy);
-  return bitmap_copy;
+  return GetSkBitmapCopy(image);
 }
 
 }  // namespace
@@ -808,15 +813,35 @@ void ProfileShortcutManagerWin::CreateOrUpdateShortcutsForProfileAtPath(
   if (!remove_badging) {
     params.profile_name = cache->GetNameOfProfileAtIndex(profile_index);
 
-    const size_t icon_index =
-        cache->GetAvatarIconIndexOfProfileAtIndex(profile_index);
-    const int resource_id_1x =
-        profiles::GetDefaultAvatarIconResourceIDAtIndex(icon_index);
-    const int resource_id_2x = kProfileAvatarIconResources2x[icon_index];
-    // Make a copy of the SkBitmaps to ensure that we can safely use the image
-    // data on the FILE thread.
-    params.avatar_image_1x = GetImageResourceSkBitmapCopy(resource_id_1x);
-    params.avatar_image_2x = GetImageResourceSkBitmapCopy(resource_id_2x);
+    // The profile might be using the Gaia avatar, which is not in the
+    // resources array.
+    bool has_gaia_image = false;
+    if (cache->IsUsingGAIAPictureOfProfileAtIndex(profile_index)) {
+      const gfx::Image* image =
+          cache->GetGAIAPictureOfProfileAtIndex(profile_index);
+      if (image) {
+        params.avatar_image_1x = GetSkBitmapCopy(*image);
+        // Gaia images are 256px, which makes them big enough to use in the
+        // large icon case as well.
+        DCHECK_GE(image->Width(), IconUtil::kLargeIconSize);
+        params.avatar_image_2x = params.avatar_image_1x;
+        has_gaia_image = true;
+      }
+    }
+
+    // If the profile isn't using a Gaia image, or if the Gaia image did not
+    // exist, revert to the previously used avatar icon.
+    if (!has_gaia_image) {
+      const size_t icon_index =
+          cache->GetAvatarIconIndexOfProfileAtIndex(profile_index);
+      const int resource_id_1x =
+          profiles::GetDefaultAvatarIconResourceIDAtIndex(icon_index);
+      const int resource_id_2x = kProfileAvatarIconResources2x[icon_index];
+      // Make a copy of the SkBitmaps to ensure that we can safely use the image
+      // data on the FILE thread.
+      params.avatar_image_1x = GetImageResourceSkBitmapCopy(resource_id_1x);
+      params.avatar_image_2x = GetImageResourceSkBitmapCopy(resource_id_2x);
+    }
   }
   BrowserThread::PostTask(
       BrowserThread::FILE, FROM_HERE,

@@ -17,11 +17,13 @@
 package android.support.v7.media;
 
 import android.app.ActivityManager;
+import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.IntentSender;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Resources;
 import android.os.Bundle;
@@ -68,6 +70,30 @@ import java.util.Locale;
 public final class MediaRouter {
     private static final String TAG = "MediaRouter";
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
+
+    /**
+     * Passed to {@link android.support.v7.media.MediaRouteProvider.RouteController#onUnselect(int)}
+     * when the reason the route was unselected is unknown.
+     */
+    public static final int UNSELECT_REASON_UNKNOWN = 0;
+    /**
+     * Passed to {@link android.support.v7.media.MediaRouteProvider.RouteController#onUnselect(int)}
+     * when the user pressed the disconnect button to disconnect and keep playing.
+     * <p>
+     *
+     * @see {@link MediaRouteDescriptor#canDisconnectAndKeepPlaying()}.
+     */
+    public static final int UNSELECT_REASON_DISCONNECTED = 1;
+    /**
+     * Passed to {@link android.support.v7.media.MediaRouteProvider.RouteController#onUnselect(int)}
+     * when the user pressed the stop casting button.
+     */
+    public static final int UNSELECT_REASON_STOPPED = 2;
+    /**
+     * Passed to {@link android.support.v7.media.MediaRouteProvider.RouteController#onUnselect(int)}
+     * when the user selected a different route.
+     */
+    public static final int UNSELECT_REASON_ROUTE_CHANGED = 3;
 
     // Maintains global media router state for the process.
     // This field is initialized in MediaRouter.getInstance() before any
@@ -354,13 +380,37 @@ public final class MediaRouter {
     }
 
     /**
+     * Unselects the current round and selects the default route instead.
+     * <p>
+     * The reason given must be one of:
+     * <ul>
+     * <li>{@link MediaRouter#UNSELECT_REASON_UNKNOWN}</li>
+     * <li>{@link MediaRouter#UNSELECT_REASON_DISCONNECTED}</li>
+     * <li>{@link MediaRouter#UNSELECT_REASON_STOPPED}</li>
+     * <li>{@link MediaRouter#UNSELECT_REASON_ROUTE_CHANGED}</li>
+     * </ul>
+     *
+     * @param reason The reason for disconnecting the current route.
+     */
+    public void unselect(int reason) {
+        if (reason < MediaRouter.UNSELECT_REASON_UNKNOWN ||
+                reason > MediaRouter.UNSELECT_REASON_ROUTE_CHANGED) {
+            throw new IllegalArgumentException("Unsupported reason to unselect route");
+        }
+        checkCallingThread();
+
+        sGlobal.selectRoute(getDefaultRoute(), reason);
+    }
+
+    /**
      * Returns true if there is a route that matches the specified selector.
      * <p>
-     * This method returns true if there are any available routes that match the selector
-     * regardless of whether they are enabled or disabled.  If the
+     * This method returns true if there are any available routes that match the
+     * selector regardless of whether they are enabled or disabled. If the
      * {@link #AVAILABILITY_FLAG_IGNORE_DEFAULT_ROUTE} flag is specified, then
      * the method will only consider non-default routes.
-     * </p><p class="note">
+     * </p>
+     * <p class="note">
      * On {@link ActivityManager#isLowRamDevice low-RAM devices} this method
      * will return true if it is possible to discover a matching route even if
      * discovery is not in progress or if no matching route has yet been found.
@@ -368,9 +418,10 @@ public final class MediaRouter {
      * </p>
      *
      * @param selector The selector to match.
-     * @param flags Flags to control the determination of whether a route may be available.
-     * May be zero or some combination of {@link #AVAILABILITY_FLAG_IGNORE_DEFAULT_ROUTE}
-     * and {@link #AVAILABILITY_FLAG_REQUIRE_MATCH}.
+     * @param flags Flags to control the determination of whether a route may be
+     *            available. May be zero or some combination of
+     *            {@link #AVAILABILITY_FLAG_IGNORE_DEFAULT_ROUTE} and
+     *            {@link #AVAILABILITY_FLAG_REQUIRE_MATCH}.
      * @return True if a matching route may be available.
      */
     public boolean isRouteAvailable(@NonNull MediaRouteSelector selector, int flags) {
@@ -670,6 +721,25 @@ public final class MediaRouter {
     }
 
     /**
+     * Sets a compat media session to enable remote control of the volume of the
+     * selected route. This should be used instead of
+     * {@link #addRemoteControlClient} when using {@link MediaSessionCompat}.
+     * Set the session to null to clear it.
+     *
+     * @param mediaSession
+     */
+    public void setMediaSessionCompat(MediaSessionCompat mediaSession) {
+        if (DEBUG) {
+            Log.d(TAG, "addMediaSessionCompat: " + mediaSession);
+        }
+        sGlobal.setMediaSessionCompat(mediaSession);
+    }
+
+    public MediaSessionCompat.Token getMediaSessionToken() {
+        return sGlobal.getMediaSessionToken();
+    }
+
+    /**
      * Ensures that calls into the media router are on the correct thread.
      * It pays to be a little paranoid when global state invariants are at risk.
      */
@@ -700,6 +770,7 @@ public final class MediaRouter {
         private String mDescription;
         private boolean mEnabled;
         private boolean mConnecting;
+        private boolean mCanDisconnect;
         private final ArrayList<IntentFilter> mControlFilters = new ArrayList<IntentFilter>();
         private int mPlaybackType;
         private int mPlaybackStream;
@@ -709,6 +780,7 @@ public final class MediaRouter {
         private Display mPresentationDisplay;
         private int mPresentationDisplayId = -1;
         private Bundle mExtras;
+        private IntentSender mSettingsIntent;
         private MediaRouteDescriptor mDescriptor;
 
         /** @hide */
@@ -1072,6 +1144,17 @@ public final class MediaRouter {
         }
 
         /**
+         * Gets whether this route supports disconnecting without interrupting
+         * playback.
+         *
+         * @return True if this route can disconnect without stopping playback,
+         *         false otherwise.
+         */
+        public boolean canDisconnect() {
+            return mCanDisconnect;
+        }
+
+        /**
          * Requests a volume change for this route asynchronously.
          * <p>
          * This function may only be called on a selected route.  It will have
@@ -1149,6 +1232,15 @@ public final class MediaRouter {
         }
 
         /**
+         * Gets an intent sender for launching a settings activity for this
+         * route.
+         */
+        @Nullable
+        public IntentSender getSettingsIntent() {
+            return mSettingsIntent;
+        }
+
+        /**
          * Selects this media route.
          */
         public void select() {
@@ -1163,6 +1255,7 @@ public final class MediaRouter {
                     + ", description=" + mDescription
                     + ", enabled=" + mEnabled
                     + ", connecting=" + mConnecting
+                    + ", canDisconnect=" + mCanDisconnect
                     + ", playbackType=" + mPlaybackType
                     + ", playbackStream=" + mPlaybackStream
                     + ", volumeHandling=" + mVolumeHandling
@@ -1170,6 +1263,7 @@ public final class MediaRouter {
                     + ", volumeMax=" + mVolumeMax
                     + ", presentationDisplayId=" + mPresentationDisplayId
                     + ", extras=" + mExtras
+                    + ", settingsIntent=" + mSettingsIntent
                     + ", providerPackageName=" + mProvider.getPackageName()
                     + " }";
         }
@@ -1228,6 +1322,14 @@ public final class MediaRouter {
                     if (!equal(mExtras, descriptor.getExtras())) {
                         mExtras = descriptor.getExtras();
                         changes |= CHANGE_GENERAL;
+                    }
+                    if (!equal(mSettingsIntent, descriptor.getSettingsActivity())) {
+                        mSettingsIntent = descriptor.getSettingsActivity();
+                        changes |= CHANGE_GENERAL;
+                    }
+                    if (mCanDisconnect != descriptor.canDisconnectAndKeepPlaying()) {
+                        mCanDisconnect = descriptor.canDisconnectAndKeepPlaying();
+                        changes |= CHANGE_GENERAL | CHANGE_PRESENTATION_DISPLAY;
                     }
                 }
             }
@@ -1521,6 +1623,21 @@ public final class MediaRouter {
         private MediaRouteProvider.RouteController mSelectedRouteController;
         private MediaRouteDiscoveryRequest mDiscoveryRequest;
         private MediaSessionRecord mMediaSession;
+        private MediaSessionCompat mRccMediaSession;
+        private MediaSessionCompat mCompatSession;
+        private MediaSessionCompat.OnActiveChangeListener mSessionActiveListener =
+                new MediaSessionCompat.OnActiveChangeListener() {
+            @Override
+            public void onActiveChanged() {
+                if(mRccMediaSession != null) {
+                    if (mRccMediaSession.isActive()) {
+                        addRemoteControlClient(mRccMediaSession.getRemoteControlClient());
+                    } else {
+                        removeRemoteControlClient(mRccMediaSession.getRemoteControlClient());
+                    }
+                }
+            }
+        };
 
         GlobalMediaRouter(Context applicationContext) {
             mApplicationContext = applicationContext;
@@ -1634,6 +1751,10 @@ public final class MediaRouter {
         }
 
         public void selectRoute(RouteInfo route) {
+            selectRoute(route, MediaRouter.UNSELECT_REASON_ROUTE_CHANGED);
+        }
+
+        public void selectRoute(RouteInfo route, int unselectReason) {
             if (!mRoutes.contains(route)) {
                 Log.w(TAG, "Ignoring attempt to select removed route: " + route);
                 return;
@@ -1643,7 +1764,7 @@ public final class MediaRouter {
                 return;
             }
 
-            setSelectedRouteInternal(route);
+            setSelectedRouteInternal(route, unselectReason);
         }
 
         public boolean isRouteAvailable(MediaRouteSelector selector, int flags) {
@@ -1952,13 +2073,15 @@ public final class MediaRouter {
             if (mSelectedRoute != null && !isRouteSelectable(mSelectedRoute)) {
                 Log.i(TAG, "Unselecting the current route because it "
                         + "is no longer selectable: " + mSelectedRoute);
-                setSelectedRouteInternal(null);
+                setSelectedRouteInternal(null,
+                        MediaRouter.UNSELECT_REASON_UNKNOWN);
             }
             if (mSelectedRoute == null) {
                 // Choose a new route.
                 // This will have the side-effect of updating the playback info when
                 // the new route is selected.
-                setSelectedRouteInternal(chooseFallbackRoute());
+                setSelectedRouteInternal(chooseFallbackRoute(),
+                        MediaRouter.UNSELECT_REASON_UNKNOWN);
             } else if (selectedRouteDescriptorChanged) {
                 // Update the playback info because the properties of the route have changed.
                 updatePlaybackInfoFromSelectedRoute();
@@ -1998,15 +2121,16 @@ public final class MediaRouter {
                             SystemMediaRouteProvider.DEFAULT_ROUTE_ID);
         }
 
-        private void setSelectedRouteInternal(RouteInfo route) {
+        private void setSelectedRouteInternal(RouteInfo route, int unselectReason) {
             if (mSelectedRoute != route) {
                 if (mSelectedRoute != null) {
                     if (DEBUG) {
-                        Log.d(TAG, "Route unselected: " + mSelectedRoute);
+                        Log.d(TAG, "Route unselected: " + mSelectedRoute + " reason: "
+                                + unselectReason);
                     }
                     mCallbackHandler.post(CallbackHandler.MSG_ROUTE_UNSELECTED, mSelectedRoute);
                     if (mSelectedRouteController != null) {
-                        mSelectedRouteController.onUnselect();
+                        mSelectedRouteController.onUnselect(unselectReason);
                         mSelectedRouteController.onRelease();
                         mSelectedRouteController = null;
                     }
@@ -2071,6 +2195,38 @@ public final class MediaRouter {
             }
         }
 
+        public void setMediaSessionCompat(final MediaSessionCompat session) {
+            mCompatSession = session;
+            if (session == null) {
+                if (mRccMediaSession != null) {
+                    removeRemoteControlClient(mRccMediaSession.getRemoteControlClient());
+                    mRccMediaSession.removeOnActiveChangeListener(mSessionActiveListener);
+                }
+            }
+            if (android.os.Build.VERSION.SDK_INT >= 21) {
+                setMediaSession(session.getMediaSession());
+            } else if (android.os.Build.VERSION.SDK_INT >= 14) {
+                if (mRccMediaSession != null) {
+                    removeRemoteControlClient(mRccMediaSession.getRemoteControlClient());
+                    mRccMediaSession.removeOnActiveChangeListener(mSessionActiveListener);
+                }
+                mRccMediaSession = session;
+                session.addOnActiveChangeListener(mSessionActiveListener);
+                if (session.isActive()) {
+                    addRemoteControlClient(session.getRemoteControlClient());
+                }
+            }
+        }
+
+        public MediaSessionCompat.Token getMediaSessionToken() {
+            if (mMediaSession != null) {
+                return mMediaSession.getToken();
+            } else if (mCompatSession != null) {
+                return mCompatSession.getSessionToken();
+            }
+            return null;
+        }
+
         private int findRemoteControlClientRecord(Object rcc) {
             final int count = mRemoteControlClients.size();
             for (int i = 0; i < count; i++) {
@@ -2096,13 +2252,22 @@ public final class MediaRouter {
                     record.updatePlaybackInfo();
                 }
                 if (mMediaSession != null) {
-                    int controlType = VolumeProviderCompat.VOLUME_CONTROL_FIXED;
-                    if (mPlaybackInfo.volumeHandling
-                            == MediaRouter.RouteInfo.PLAYBACK_VOLUME_VARIABLE) {
-                        controlType = VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE;
+                    if (mSelectedRoute == getDefaultRoute()) {
+                        // Local route
+                        mMediaSession.clearVolumeHandling();
+                    } else {
+                        int controlType = VolumeProviderCompat.VOLUME_CONTROL_FIXED;
+                        if (mPlaybackInfo.volumeHandling
+                                == MediaRouter.RouteInfo.PLAYBACK_VOLUME_VARIABLE) {
+                            controlType = VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE;
+                        }
+                        mMediaSession.configureVolume(controlType, mPlaybackInfo.volumeMax,
+                                mPlaybackInfo.volume);
                     }
-                    mMediaSession.configureVolume(controlType, mPlaybackInfo.volumeMax,
-                            mPlaybackInfo.volume);
+                }
+            } else {
+                if (mMediaSession != null) {
+                    mMediaSession.clearVolumeHandling();
                 }
             }
         }
@@ -2123,7 +2288,7 @@ public final class MediaRouter {
             private VolumeProviderCompat mVpCompat;
 
             public MediaSessionRecord(Object mediaSession) {
-                mMsCompat = MediaSessionCompat.obtain(mediaSession);
+                mMsCompat = MediaSessionCompat.obtain(mApplicationContext, mediaSession);
             }
 
             public void configureVolume(int controlType, int max, int current) {
@@ -2135,17 +2300,27 @@ public final class MediaRouter {
                     // Otherwise create a new provider and update
                     mVpCompat = new VolumeProviderCompat(controlType, max, current) {
                         @Override
-                        public void onSetVolumeTo(int volume) {
-                            if (mSelectedRoute != null) {
-                                mSelectedRoute.requestSetVolume(volume);
-                            }
+                        public void onSetVolumeTo(final int volume) {
+                            mCallbackHandler.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    if (mSelectedRoute != null) {
+                                        mSelectedRoute.requestSetVolume(volume);
+                                    }
+                                }
+                            });
                         }
 
                         @Override
-                        public void onAdjustVolume(int direction) {
-                            if (mSelectedRoute != null) {
-                                mSelectedRoute.requestUpdateVolume(direction);
-                            }
+                        public void onAdjustVolume(final int direction) {
+                            mCallbackHandler.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    if (mSelectedRoute != null) {
+                                        mSelectedRoute.requestUpdateVolume(direction);
+                                    }
+                                }
+                            });
                         }
                     };
                     mMsCompat.setPlaybackToRemote(mVpCompat);
@@ -2155,6 +2330,10 @@ public final class MediaRouter {
             public void clearVolumeHandling() {
                 mMsCompat.setPlaybackToLocal(mPlaybackInfo.playbackStream);
                 mVpCompat = null;
+            }
+
+            public MediaSessionCompat.Token getToken() {
+                return mMsCompat.getSessionToken();
             }
 
         }

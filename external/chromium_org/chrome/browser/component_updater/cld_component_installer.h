@@ -5,15 +5,17 @@
 #ifndef CHROME_BROWSER_COMPONENT_UPDATER_CLD_COMPONENT_INSTALLER_H_
 #define CHROME_BROWSER_COMPONENT_UPDATER_CLD_COMPONENT_INSTALLER_H_
 
+#include <stdint.h>
 #include <string>
 #include <vector>
 
 #include "base/files/file_path.h"
 #include "base/gtest_prod_util.h"
-#include "chrome/browser/component_updater/default_component_installer.h"
+#include "base/macros.h"
+#include "components/component_updater/default_component_installer.h"
 
 namespace test {
-class ScopedCLDDynamicDataHarness;
+class ComponentCldDataHarness;
 }  // namespace test
 
 namespace component_updater {
@@ -28,7 +30,7 @@ class CldComponentInstallerTraits : public ComponentInstallerTraits {
 
  private:
   friend class CldComponentInstallerTest;  // For access within SetUp()
-  friend class test::ScopedCLDDynamicDataHarness;  // For browser tests only
+  friend class test::ComponentCldDataHarness;  // For browser tests only
   FRIEND_TEST_ALL_PREFIXES(CldComponentInstallerTest, ComponentReady);
   FRIEND_TEST_ALL_PREFIXES(CldComponentInstallerTest, GetBaseDirectory);
   FRIEND_TEST_ALL_PREFIXES(CldComponentInstallerTest, GetHash);
@@ -49,22 +51,26 @@ class CldComponentInstallerTraits : public ComponentInstallerTraits {
       const base::FilePath& path,
       scoped_ptr<base::DictionaryValue> manifest) OVERRIDE;
   virtual base::FilePath GetBaseDirectory() const OVERRIDE;
-  virtual void GetHash(std::vector<uint8>* hash) const OVERRIDE;
+  virtual void GetHash(std::vector<uint8_t>* hash) const OVERRIDE;
   virtual std::string GetName() const OVERRIDE;
 
   static base::FilePath GetInstalledPath(const base::FilePath& base);
+
+  // Sets the path to the CLD data file. Called internally once a valid CLD
+  // data file has been observed. The implementation of this method is
+  // responsible for configuring the CLD data source.
+  // This method is threadsafe.
   static void SetLatestCldDataFile(const base::FilePath& path);
+
+  // Returns the file path that was most recently set in SetLatestCldDataFile.
+  static base::FilePath GetLatestCldDataFile();
+
   DISALLOW_COPY_AND_ASSIGN(CldComponentInstallerTraits);
 };
 
 // Call once during startup to make the component update service aware of
 // the CLD component.
 void RegisterCldComponent(ComponentUpdateService* cus);
-
-// Returns the path to the latest CLD data file into the specified path object,
-// or an empty path if the CLD data file has not been observed yet.
-// This function is threadsafe.
-base::FilePath GetLatestCldDataFile();
 
 }  // namespace component_updater
 

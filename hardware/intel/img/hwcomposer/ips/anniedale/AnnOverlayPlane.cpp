@@ -50,37 +50,6 @@ bool AnnOverlayPlane::setDataBuffer(uint32_t handle)
         return true;
     }
 
-    if (mForceScaling) {
-        BufferManager *bm = Hwcomposer::getInstance().getBufferManager();
-        ssize_t index = mScalingBufferMap.indexOfKey(handle);
-        if (index < 0) {
-            mScalingTarget = bm->allocGrallocBuffer(
-                    mSrcCrop.w,
-                    mSrcCrop.h,
-                    DisplayQuery::queryNV12Format(),
-                    GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_HW_VIDEO_ENCODER);
-            if (!mScalingTarget) {
-                ELOGTRACE("Failed to allocate gralloc buffer.");
-                return false;
-            }
-
-            if (mScalingBufferMap.size() >= MAX_SCALING_BUF_COUNT) {
-                while (!mScalingBufferMap.isEmpty()) {
-                    uint32_t handle = mScalingBufferMap.valueAt(0);
-                    bm->freeGrallocBuffer(handle);
-                    mScalingBufferMap.removeItemsAt(0);
-                }
-            }
-
-            mScalingBufferMap.add(handle, mScalingTarget);
-        } else {
-            mScalingTarget = mScalingBufferMap.valueAt(index);
-        }
-
-        mScalingSource = handle;
-        handle = mScalingTarget;
-    }
-
     return DisplayPlane::setDataBuffer(handle);
 }
 
@@ -112,12 +81,6 @@ void AnnOverlayPlane::setZOrderConfig(ZOrderConfig& /* zorderConfig */,
 
 bool AnnOverlayPlane::reset()
 {
-    while (!mScalingBufferMap.isEmpty()) {
-        uint32_t handle = mScalingBufferMap.valueAt(0);
-        Hwcomposer::getInstance().getBufferManager()->freeGrallocBuffer(handle);
-        mScalingBufferMap.removeItemsAt(0);
-    }
-
     OverlayPlaneBase::reset();
     if (mRotationBufProvider) {
         mRotationBufProvider->reset();
@@ -634,19 +597,25 @@ void AnnOverlayPlane::setTransform(int transform)
     }
 }
 
+// HSD 4645510:
+// This is a SOC limition, that when source buffer width range is
+// in (960, 1024] - one cache line length, and rotation bit is set
+// in portrait mode, video will show distortion.
+bool AnnOverlayPlane::isSettingRotBitAllowed()
+{
+    uint32_t width = mSrcCrop.w;
+
+    if ((width > 960 && width <= 1024) &&
+            (mTransform == 0 || mTransform == HAL_TRANSFORM_ROT_180))
+        return false;
+    return true;
+}
+
 bool AnnOverlayPlane::flip(void *ctx)
 {
     uint32_t ovadd = 0;
 
     RETURN_FALSE_IF_NOT_INIT();
-
-    if (mForceScaling) {
-        BufferManager *bm = Hwcomposer::getInstance().getBufferManager();
-        if (!bm->blitGrallocBuffer(mScalingSource, mScalingTarget, mSrcCrop, 0)) {
-            ELOGTRACE("Failed to blit RGB buffer to NV12.");
-            return false;
-        }
-    }
 
     if (!DisplayPlane::flip(ctx)) {
         ELOGTRACE("failed to flip display plane.");
@@ -658,7 +627,8 @@ bool AnnOverlayPlane::flip(void *ctx)
 
     // enable rotation mode and setup rotation config
     if (mIndex == 0 && mRotationConfig != 0) {
-        ovadd |= (1 << 12);
+        if (isSettingRotBitAllowed())
+            ovadd |= (1 << 12);
         ovadd |= mRotationConfig;
     }
 
@@ -830,6 +800,12 @@ bool AnnOverlayPlane::useOverlayRotation(BufferMapper& /* mapper */)
 {
     if (mTransform == 0)
         return true;
+
+    if (!isSettingRotBitAllowed()) {
+        mUseOverlayRotation = false;
+        mRotationConfig = 0;
+        return false;
+    }
 
     // workaround limitation of overlay rotation by falling back to use VA rotated buffer
     bool fallback = false;

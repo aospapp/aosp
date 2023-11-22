@@ -1,4 +1,5 @@
 include_rules = [
+  "+content/app/strings/grit",  # For generated headers
   "+content/public/browser",
   "+media/audio",  # For audio input for speech input feature.
   "+media/base",  # For Android JNI registration.
@@ -25,7 +26,6 @@ include_rules = [
   "+chromeos",
   "+third_party/cros_system_api",
 
-  "-webkit/child",
   "-webkit/renderer",
 
   # No inclusion of WebKit from the browser, other than strictly enum/POD,
@@ -39,9 +39,12 @@ include_rules = [
   "+third_party/WebKit/public/platform/WebIDBDatabaseException.h",
   "+third_party/WebKit/public/platform/WebIDBTypes.h",
   "+third_party/WebKit/public/platform/WebReferrerPolicy.h",
+  "+third_party/WebKit/public/platform/WebLockOrientationError.h",
+  "+third_party/WebKit/public/platform/WebNotificationPermission.h",
   "+third_party/WebKit/public/platform/WebScreenOrientationLockType.h",
   "+third_party/WebKit/public/platform/WebScreenOrientationType.h",
   "+third_party/WebKit/public/platform/WebScreenInfo.h",
+  "+third_party/WebKit/public/platform/WebServiceWorkerCacheError.h",
   "+third_party/WebKit/public/platform/WebServiceWorkerError.h",
   "+third_party/WebKit/public/platform/WebServiceWorkerEventResult.h",
   "+third_party/WebKit/public/platform/WebServiceWorkerState.h",
@@ -63,12 +66,10 @@ include_rules = [
   "+third_party/WebKit/public/web/WebPopupType.h",
   "+third_party/WebKit/public/web/WebSerializedScriptValueVersion.h",
   "+third_party/WebKit/public/web/WebTextDirection.h",
+  "+third_party/WebKit/public/web/WebTextInputType.h",
 
   # These should be burned down. http://crbug.com/237267
   "!third_party/WebKit/public/web/mac/WebInputEventFactory.h",
-
-  "+ui/ozone/ozone_platform.h",
-  "+ui/ozone/ozone_switches.h",
 
   # DO NOT ADD ANY CHROME OR COMPONENTS INCLUDES HERE!!!
   # See https://sites.google.com/a/chromium.org/dev/developers/content-module

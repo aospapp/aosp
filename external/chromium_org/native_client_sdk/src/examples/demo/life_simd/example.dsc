@@ -5,11 +5,14 @@
       'NAME' : 'life_simd',
       'TYPE' : 'main',
       'SOURCES' : [
-        'life.c',
+        'life.cc',
       ],
       'DEPS': ['ppapi_simple', 'nacl_io'],
-      'LIBS': ['ppapi_simple', 'nacl_io', 'ppapi_cpp', 'ppapi', 'pthread']
+      'LIBS': ['ppapi_simple', 'nacl_io', 'sdk_util', 'ppapi_cpp', 'ppapi', 'pthread']
     }
+  ],
+  'DATA': [
+    'example.js'
   ],
   'DEST': 'examples/demo',
   'NAME': 'life_simd',

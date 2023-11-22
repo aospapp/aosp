@@ -9,14 +9,14 @@
 #include "sync/api/sync_error.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
-namespace browser_sync {
+namespace sync_driver {
 
 class StartCallbackMock {
  public:
   StartCallbackMock();
   virtual ~StartCallbackMock();
 
-  MOCK_METHOD3(Run, void(DataTypeController::StartResult result,
+  MOCK_METHOD3(Run, void(DataTypeController::ConfigureResult result,
                          const syncer::SyncMergeResult& local_merge_result,
                          const syncer::SyncMergeResult& syncer_merge_result));
 };
@@ -29,6 +29,6 @@ class ModelLoadCallbackMock {
   MOCK_METHOD2(Run, void(syncer::ModelType, syncer::SyncError));
 };
 
-}  // namespace browser_sync
+}  // namespace sync_driver
 
 #endif  // COMPONENTS_SYNC_DRIVER_DATA_TYPE_CONTROLLER_MOCK_H__

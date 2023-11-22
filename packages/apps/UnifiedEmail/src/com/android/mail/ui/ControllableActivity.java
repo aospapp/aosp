@@ -30,8 +30,7 @@ import com.android.mail.providers.Folder;
  * able to attach the various view fragments and delegate the method calls between them.
  */
 public interface ControllableActivity extends RestrictedActivity,
-        FolderItemView.DropHandler, UndoListener,
-        AnimatedAdapter.Listener, ConversationListFooterView.FooterViewClickListener {
+        UndoListener, AnimatedAdapter.Listener, ConversationListFooterView.FooterViewClickListener {
     /**
      * Returns the ViewMode the activity is updating.
      * @see com.android.mail.ui.ViewMode
@@ -47,17 +46,11 @@ public interface ControllableActivity extends RestrictedActivity,
     ConversationListCallbacks getListHandler();
 
     /**
-     * Return the folder change listener for this activity
-     * @return
-     */
-    FolderChangeListener getFolderChangeListener();
-
-    /**
      * Get the set of currently selected conversations. This method returns a non-null value.
      * In case no conversation is currently selected, it returns an empty selection set.
      * @return
      */
-    ConversationSelectionSet getSelectedSet();
+    ConversationCheckedSet getCheckedSet();
 
     /**
      * Returns the listener for folder list selection changes in the folder list
@@ -102,10 +95,6 @@ public interface ControllableActivity extends RestrictedActivity,
     DrawerController getDrawerController();
 
     KeyboardNavigationController getKeyboardNavigationController();
-
-    void startDragMode();
-
-    void stopDragMode();
 
     boolean isAccessibilityEnabled();
 

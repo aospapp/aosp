@@ -14,6 +14,10 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
+#if defined(OS_WIN)
+#include "base/win/windows_version.h"
+#endif
+
 #define LONG_STRING_CONST(...) #__VA_ARGS__
 
 namespace content {
@@ -158,10 +162,7 @@ TEST_F(GpuDataManagerImplPrivateTest, GpuSideBlacklisting) {
           },
           {
             "id": 2,
-            "gl_renderer": {
-              "op": "contains",
-              "value": "GeForce"
-            },
+            "gl_renderer": ".*GeForce.*",
             "features": [
               "accelerated_2d_canvas"
             ]
@@ -205,10 +206,7 @@ TEST_F(GpuDataManagerImplPrivateTest, GpuSideExceptions) {
             "id": 1,
             "exceptions": [
               {
-                "gl_renderer": {
-                  "op": "contains",
-                  "value": "GeForce"
-                }
+                "gl_renderer": ".*GeForce.*"
               }
             ],
             "features": [
@@ -288,6 +286,22 @@ TEST_F(GpuDataManagerImplPrivateTest, SwiftShaderRendering2) {
   EXPECT_EQ(1u, manager->GetBlacklistedFeatureCount());
   EXPECT_TRUE(manager->IsFeatureBlacklisted(
       gpu::GPU_FEATURE_TYPE_ACCELERATED_2D_CANVAS));
+}
+
+TEST_F(GpuDataManagerImplPrivateTest, WarpEnabledOverridesSwiftShader) {
+  // If WARP fallback is enabled on Windows 8 it should not allow SwiftShader
+  // to be enabled.
+#if defined(OS_WIN)
+  if (base::win::GetVersion() >= base::win::VERSION_WIN8) {
+    ScopedGpuDataManagerImplPrivate manager;
+    manager->ForceWarpModeForTesting();
+    const base::FilePath test_path(FILE_PATH_LITERAL("AnyPath"));
+    manager->RegisterSwiftShaderPath(test_path);
+    manager->DisableHardwareAcceleration();
+    EXPECT_TRUE(manager->ShouldUseWarp());
+    EXPECT_FALSE(manager->ShouldUseSwiftShader());
+  }
+#endif
 }
 
 TEST_F(GpuDataManagerImplPrivateTest, GpuInfoUpdate) {
@@ -601,7 +615,7 @@ TEST_F(GpuDataManagerImplPrivateTest, GpuDriverBugListSingle) {
   ScopedGpuDataManagerImplPrivate manager;
   manager->gpu_driver_bugs_.insert(5);
 
-  CommandLine command_line(0, NULL);
+  base::CommandLine command_line(0, NULL);
   manager->AppendGpuCommandLine(&command_line);
 
   EXPECT_TRUE(command_line.HasSwitch(switches::kGpuDriverBugWorkarounds));
@@ -615,7 +629,7 @@ TEST_F(GpuDataManagerImplPrivateTest, GpuDriverBugListMultiple) {
   manager->gpu_driver_bugs_.insert(5);
   manager->gpu_driver_bugs_.insert(7);
 
-  CommandLine command_line(0, NULL);
+  base::CommandLine command_line(0, NULL);
   manager->AppendGpuCommandLine(&command_line);
 
   EXPECT_TRUE(command_line.HasSwitch(switches::kGpuDriverBugWorkarounds));

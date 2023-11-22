@@ -10,15 +10,12 @@
 #include "base/json/json_reader.h"
 #include "base/prefs/pref_service.h"
 #include "base/values.h"
-#include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/content_settings/content_settings_rule.h"
 #include "chrome/browser/content_settings/content_settings_utils.h"
-#include "chrome/common/content_settings_pattern.h"
 #include "chrome/common/pref_names.h"
+#include "components/content_settings/core/browser/content_settings_rule.h"
+#include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/browser/notification_details.h"
-#include "content/public/browser/notification_source.h"
 
 using content::BrowserThread;
 
@@ -44,6 +41,8 @@ const char* kPrefToManageType[] = {
   NULL,  // No policy for default value of PPAPI broker
   NULL,  // No policy for default value of multiple automatic downloads
   NULL,  // No policy for default value of MIDI system exclusive requests
+  NULL,  // No policy for default value of push messaging requests
+  NULL,  // No policy for default value of SSL certificate decisions
 #if defined(OS_WIN)
   NULL,  // No policy for default value of "switch to desktop"
 #elif defined(OS_ANDROID) || defined(OS_CHROMEOS)
@@ -215,13 +214,13 @@ PolicyProvider::PolicyProvider(PrefService* prefs) : prefs_(prefs) {
       prefs::kManagedNotificationsAllowedForUrls, callback);
   pref_change_registrar_.Add(
       prefs::kManagedNotificationsBlockedForUrls, callback);
-  // The following preferences are only used to indicate if a
-  // default content setting is managed and to hold the managed default setting
-  // value. If the value for any of the following perferences is set then the
-  // corresponding default content setting is managed. These preferences exist
-  // in parallel to the preference default content settings.  If a
-  // default content settings type is managed any user defined excpetions
-  // (patterns) for this type are ignored.
+  // The following preferences are only used to indicate if a default content
+  // setting is managed and to hold the managed default setting value. If the
+  // value for any of the following preferences is set then the corresponding
+  // default content setting is managed. These preferences exist in parallel to
+  // the preference default content settings. If a default content settings type
+  // is managed any user defined exceptions (patterns) for this type are
+  // ignored.
   pref_change_registrar_.Add(prefs::kManagedDefaultCookiesSetting, callback);
   pref_change_registrar_.Add(prefs::kManagedDefaultImagesSetting, callback);
   pref_change_registrar_.Add(prefs::kManagedDefaultJavaScriptSetting, callback);
@@ -288,13 +287,12 @@ void PolicyProvider::GetContentSettingsFromPreferences(
       ContentSettingsPattern secondary_pattern =
           !pattern_pair.second.IsValid() ? ContentSettingsPattern::Wildcard()
                                          : pattern_pair.second;
-      value_map->SetValue(
-          pattern_pair.first,
-          secondary_pattern,
-          content_type,
-          NO_RESOURCE_IDENTIFIER,
-          base::Value::CreateIntegerValue(
-              kPrefsForManagedContentSettingsMap[i].setting));
+      value_map->SetValue(pattern_pair.first,
+                          secondary_pattern,
+                          content_type,
+                          NO_RESOURCE_IDENTIFIER,
+                          new base::FundamentalValue(
+                              kPrefsForManagedContentSettingsMap[i].setting));
     }
   }
 }
@@ -369,7 +367,7 @@ void PolicyProvider::GetAutoSelectCertificateSettingsFromPreferences(
     // Ignore invalid patterns.
     if (!pattern.IsValid()) {
       VLOG(1) << "Ignoring invalid certificate auto select setting:"
-                 " Invalid content settings pattern: " << pattern;
+                 " Invalid content settings pattern: " << pattern.ToString();
       continue;
     }
 
@@ -412,12 +410,11 @@ void PolicyProvider::UpdateManagedDefaultSetting(
         content_type,
         std::string());
   } else {
-    value_map_.SetValue(
-        ContentSettingsPattern::Wildcard(),
-        ContentSettingsPattern::Wildcard(),
-        content_type,
-        std::string(),
-        base::Value::CreateIntegerValue(setting));
+    value_map_.SetValue(ContentSettingsPattern::Wildcard(),
+                        ContentSettingsPattern::Wildcard(),
+                        content_type,
+                        std::string(),
+                        new base::FundamentalValue(setting));
   }
 }
 

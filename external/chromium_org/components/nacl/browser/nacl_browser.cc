@@ -5,8 +5,8 @@
 #include "components/nacl/browser/nacl_browser.h"
 
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_proxy.h"
+#include "base/files/file_util.h"
 #include "base/message_loop/message_loop.h"
 #include "base/metrics/histogram.h"
 #include "base/path_service.h"
@@ -113,15 +113,16 @@ const int64 kCrashesIntervalInSeconds = 120;
 
 namespace nacl {
 
-base::File OpenNaClExecutableImpl(const base::FilePath& file_path) {
+base::File OpenNaClReadExecImpl(const base::FilePath& file_path,
+                                bool is_executable) {
   // Get a file descriptor. On Windows, we need 'GENERIC_EXECUTE' in order to
   // memory map the executable.
   // IMPORTANT: This file descriptor must not have write access - that could
   // allow a NaCl inner sandbox escape.
-  base::File file(file_path,
-                  (base::File::FLAG_OPEN |
-                   base::File::FLAG_READ |
-                   base::File::FLAG_EXECUTE));  // Windows only flag.
+  uint32 flags = base::File::FLAG_OPEN | base::File::FLAG_READ;
+  if (is_executable)
+    flags |= base::File::FLAG_EXECUTE;  // Windows only flag.
+  base::File file(file_path, flags);
   if (!file.IsValid())
     return file.Pass();
 
@@ -136,8 +137,7 @@ base::File OpenNaClExecutableImpl(const base::FilePath& file_path) {
 }
 
 NaClBrowser::NaClBrowser()
-    : weak_factory_(this),
-      irt_filepath_(),
+    : irt_filepath_(),
       irt_state_(NaClResourceUninitialized),
       validation_cache_file_path_(),
       validation_cache_is_enabled_(
@@ -146,7 +146,8 @@ NaClBrowser::NaClBrowser()
       validation_cache_is_modified_(false),
       validation_cache_state_(NaClResourceUninitialized),
       path_cache_(kFilePathCacheSize),
-      ok_(true) {
+      ok_(true),
+      weak_factory_(this) {
 }
 
 void NaClBrowser::SetDelegate(NaClBrowserDelegate* delegate) {

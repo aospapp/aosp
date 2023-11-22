@@ -88,6 +88,7 @@ public class ArrayObjectAdapter extends ObjectAdapter {
 
     /**
      * Inserts an item into this adapter at the specified index.
+     * If the index is >= {@link #size} an exception will be thrown.
      *
      * @param index The index at which the item should be inserted.
      * @param item The item to insert into the adapter.
@@ -99,13 +100,16 @@ public class ArrayObjectAdapter extends ObjectAdapter {
 
     /**
      * Adds the objects in the given collection to the adapter, starting at the
-     * given index.
+     * given index.  If the index is >= {@link #size} an exception will be thrown.
      *
      * @param index The index at which the items should be inserted.
      * @param items A {@link Collection} of items to insert.
      */
     public void addAll(int index, Collection items) {
         int itemsCount = items.size();
+        if (itemsCount == 0) {
+            return;
+        }
         mItems.addAll(index, items);
         notifyItemRangeInserted(index, itemsCount);
     }
@@ -126,6 +130,18 @@ public class ArrayObjectAdapter extends ObjectAdapter {
     }
 
     /**
+     * Replaces item at position with a new item and calls notifyItemRangeChanged()
+     * at the given position.  Note that this method does not compare new item to
+     * existing item.
+     * @param position  The index of item to replace.
+     * @param item      The new item to be placed at given position.
+     */
+    public void replace(int position, Object item) {
+        mItems.set(position, item);
+        notifyItemRangeChanged(position, 1);
+    }
+
+    /**
      * Removes a range of items from the adapter. The range is specified by giving
      * the starting position and the number of elements to remove.
      *
@@ -135,6 +151,9 @@ public class ArrayObjectAdapter extends ObjectAdapter {
      */
     public int removeItems(int position, int count) {
         int itemsToRemove = Math.min(count, mItems.size() - position);
+        if (itemsToRemove <= 0) {
+            return 0;
+        }
 
         for (int i = 0; i < itemsToRemove; i++) {
             mItems.remove(position);
@@ -148,6 +167,9 @@ public class ArrayObjectAdapter extends ObjectAdapter {
      */
     public void clear() {
         int itemCount = mItems.size();
+        if (itemCount == 0) {
+            return;
+        }
         mItems.clear();
         notifyItemRangeRemoved(0, itemCount);
     }

@@ -72,18 +72,19 @@ For information about using repo to download source, see <a href="{@docRoot}sour
 <pre><code>$ repo sync PROJECT0 PROJECT1 PROJECT2 ...
 </code></pre>
 <h2 id="creating-topic-branches">Creating topic branches</h2>
-<p>Start a topic branch in your local work environment whenever you begin a change, for example when you begin work on a bug or new feature. A topic branch is not a copy of the original files; it is a pointer to a particular commit. This makes creating local branches and switching among them a light-weight operation. By using branches, you can isolate one aspect of your work from the others. For an interesting article about using topic branches, see <a href="http://www.kernel.org/pub/software/scm/git/docs/howto/separating-topic-branches.txt">Separating topic branches</a>.
-<img src="{@docRoot}images/external-link.png" alt=""></p>
-<p>To start a topic branch using Repo: </p>
-<pre><code>$ repo start BRANCH_NAME
+<p>Start a topic branch in your local work environment whenever you begin a change, for example when you begin work on a bug or new feature. A topic branch is not a copy of the original files; it is a pointer to a particular commit. This makes creating local branches and switching among them a light-weight operation. By using branches, you can isolate one aspect of your work from the others. For an interesting article about using topic branches, see <a href="http://www.kernel.org/pub/software/scm/git/docs/howto/separating-topic-branches.txt">Separating topic branches</a>.</p>
+<p>To start a topic branch using Repo, navigate into the project to be modified and issue: </p>
+<pre><code>$ repo start BRANCH_NAME .
 </code></pre>
-<p>To verify that your new branch was created:</p>
-<pre><code>$ repo status
+<p>Please note, the period represents the project in the current working directory. To verify your new branch was created:</p>
+<pre><code>$ repo status .
 </code></pre>
 <h2 id="using-topic-branches">Using topic branches</h2>
 <p>To assign the branch to a particular project:</p>
-<pre><code>$ repo start BRANCH_NAME PROJECT
+<pre><code>$ repo start BRANCH_NAME PROJECT_NAME
 </code></pre>
+<p>See <a href="https://android.googlesource.com/">android.googlesource.com</a> for a list of all projects. Again, if you've already navigated into a particular project directory, you may simply pass a period to represent the current project.</p>
+
 <p>To switch to another branch that you have created in your local work environment:</p>
 <pre><code>$ git checkout BRANCH_NAME
 </code></pre>

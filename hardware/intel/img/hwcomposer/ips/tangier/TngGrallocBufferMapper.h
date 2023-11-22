@@ -42,6 +42,7 @@ private:
 private:
     IMG_gralloc_module_public_t& mIMGGrallocModule;
     void* mBufferObject;
+    native_handle_t* mClonedHandle;
 };
 
 } // namespace intel

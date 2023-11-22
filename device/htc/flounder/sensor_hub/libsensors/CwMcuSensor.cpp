@@ -1050,7 +1050,7 @@ void CwMcuSensor::calculate_rv_4th_element(int sensors_id) {
 }
 
 int CwMcuSensor::readEvents(sensors_event_t* data, int count) {
-    int64_t mtimestamp = getTimestamp();
+    uint64_t mtimestamp;
 
     if (count < 1) {
         return -EINVAL;
@@ -1087,6 +1087,8 @@ int CwMcuSensor::readEvents(sensors_event_t* data, int count) {
 
             if (event_mcu_time < last_mcu_timestamp[id]) {
                 ALOGE("Do syncronization due to wrong delta mcu_timestamp\n");
+                ALOGE("curr_ts = %" PRIu64 " ns, last_ts = %" PRIu64 " ns",
+                    event_mcu_time, last_mcu_timestamp[id]);
                 sync_time_thread_in_class();
             }
 
@@ -1101,12 +1103,11 @@ int CwMcuSensor::readEvents(sensors_event_t* data, int count) {
                 int64_t event_cpu_diff = event_mcu_diff * time_slope;
                 event_cpu_time = last_cpu_timestamp[id] + event_cpu_diff;
             }
-            last_mcu_timestamp[id] = event_mcu_time;
-            last_cpu_timestamp[id] = event_cpu_time;
             pthread_mutex_unlock(&sync_timestamp_algo_mutex);
 
             pthread_mutex_lock(&last_timestamp_mutex);
 
+            mtimestamp = getTimestamp();
             ALOGV("readEvents: id = %d, accuracy = %d\n"
                   , id
                   , mPendingEvents[id].acceleration.status);
@@ -1118,9 +1119,11 @@ int CwMcuSensor::readEvents(sensors_event_t* data, int count) {
                   id,
                   event_mcu_time / NS_PER_MS,
                   event_cpu_time,
-                  (event_cpu_time - last_timestamp[id]) / NS_PER_US,
-                  getTimestamp());
-            last_timestamp[id] = event_cpu_time;
+                  (event_cpu_time - last_cpu_timestamp[id]) / NS_PER_US,
+                  mtimestamp);
+            event_cpu_time = (mtimestamp > event_cpu_time) ? event_cpu_time : mtimestamp;
+            last_mcu_timestamp[id] = event_mcu_time;
+            last_cpu_timestamp[id] = event_cpu_time;
             pthread_mutex_unlock(&last_timestamp_mutex);
             /*** The algorithm which parsed mcu_time into cpu_time for each event ***/
 

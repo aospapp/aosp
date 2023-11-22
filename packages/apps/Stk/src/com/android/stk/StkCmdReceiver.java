@@ -18,11 +18,13 @@ package com.android.stk;
 
 import com.android.internal.telephony.cat.AppInterface;
 import com.android.internal.telephony.uicc.IccRefreshResponse;
-
+import com.android.internal.telephony.cat.CatLog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+
+import com.android.internal.telephony.cat.AppInterface;
 
 /**
  * Receiver class to get STK intents, broadcasted by telephony layer.
@@ -35,44 +37,65 @@ public class StkCmdReceiver extends BroadcastReceiver {
         String action = intent.getAction();
 
         if (action.equals(AppInterface.CAT_CMD_ACTION)) {
-            handleCommandMessage(context, intent);
+            handleAction(context, intent, StkAppService.OP_CMD);
         } else if (action.equals(AppInterface.CAT_SESSION_END_ACTION)) {
-            handleSessionEnd(context, intent);
+            handleAction(context, intent, StkAppService.OP_END_SESSION);
         } else if (action.equals(AppInterface.CAT_ICC_STATUS_CHANGE)) {
-            handleCardStatusChange(context, intent);
+            handleAction(context, intent, StkAppService.OP_CARD_STATUS_CHANGED);
+        } else if (action.equals(Intent.ACTION_LOCALE_CHANGED)) {
+            handleLocaleChange(context);
+        } else if (action.equals(AppInterface.CAT_ALPHA_NOTIFY_ACTION)) {
+            handleAction(context, intent, StkAppService.OP_ALPHA_NOTIFY);
+        } else if (action.equals(Intent.ACTION_SCREEN_OFF)) {
+            handleIdleScreen(context);
         }
     }
 
-    private void handleCommandMessage(Context context, Intent intent) {
+    private void handleAction(Context context, Intent intent, int op) {
         Bundle args = new Bundle();
-        args.putInt(StkAppService.OPCODE, StkAppService.OP_CMD);
-        args.putParcelable(StkAppService.CMD_MSG, intent
-                .getParcelableExtra("STK CMD"));
+        int slot_id = intent.getIntExtra(StkAppService.SLOT_ID, 0);
+
+        args.putInt(StkAppService.OPCODE, op);
+        args.putInt(StkAppService.SLOT_ID, slot_id);
+
+        if (StkAppService.OP_CMD == op) {
+            args.putParcelable(StkAppService.CMD_MSG, intent
+                    .getParcelableExtra(StkAppService.STK_CMD));
+        } else if (StkAppService.OP_CARD_STATUS_CHANGED == op) {
+            // If the Card is absent then check if the StkAppService is even
+            // running before starting it to stop it right away
+            if ((intent.getBooleanExtra(AppInterface.CARD_STATUS, false) == false)
+                    && StkAppService.getInstance() == null) {
+                return;
+            }
+
+            args.putBoolean(AppInterface.CARD_STATUS,
+                    intent.getBooleanExtra(AppInterface.CARD_STATUS, true));
+            args.putInt(AppInterface.REFRESH_RESULT,
+                    intent.getIntExtra(AppInterface.REFRESH_RESULT,
+                    IccRefreshResponse.REFRESH_RESULT_FILE_UPDATE));
+        } else if (StkAppService.OP_ALPHA_NOTIFY == op) {
+            String alphaString = intent.getStringExtra(AppInterface.ALPHA_STRING);
+            args.putString(AppInterface.ALPHA_STRING, alphaString);
+        }
+
+        CatLog.d("StkCmdReceiver", "handleAction, op: " + op +
+                "args: " + args + ", slot id: " + slot_id);
+        Intent toService = new Intent(context, StkAppService.class);
+        toService.putExtras(args);
+        context.startService(toService);
+    }
+
+    private void handleLocaleChange(Context context) {
+        Bundle args = new Bundle();
+        args.putInt(StkAppService.OPCODE, StkAppService.OP_LOCALE_CHANGED);
         context.startService(new Intent(context, StkAppService.class)
                 .putExtras(args));
     }
 
-    private void handleSessionEnd(Context context, Intent intent) {
+    private void handleIdleScreen(Context context) {
         Bundle args = new Bundle();
-        args.putInt(StkAppService.OPCODE, StkAppService.OP_END_SESSION);
-        context.startService(new Intent(context, StkAppService.class)
-                .putExtras(args));
-    }
-
-    private void handleCardStatusChange(Context context, Intent intent) {
-        // If the Card is absent then check if the StkAppService is even
-        // running before starting it to stop it right away
-        if ((intent.getBooleanExtra(AppInterface.CARD_STATUS, false) == false)
-                && StkAppService.getInstance() == null) {
-            return;
-        }
-        Bundle args = new Bundle();
-        args.putInt(StkAppService.OPCODE, StkAppService.OP_CARD_STATUS_CHANGED);
-        args.putBoolean(AppInterface.CARD_STATUS,
-                intent.getBooleanExtra(AppInterface.CARD_STATUS, true));
-        args.putInt(AppInterface.REFRESH_RESULT,
-                intent.getIntExtra(AppInterface.REFRESH_RESULT,
-                IccRefreshResponse.REFRESH_RESULT_FILE_UPDATE));
+        args.putInt(StkAppService.OPCODE, StkAppService.OP_IDLE_SCREEN);
         context.startService(new Intent(context, StkAppService.class)
                 .putExtras(args));
     }

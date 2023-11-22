@@ -16,8 +16,8 @@
 #include "net/http/http_response_headers.h"
 #include "net/http/http_server_properties_impl.h"
 #include "net/http/transport_security_state.h"
-#include "net/ssl/default_server_bound_cert_store.h"
-#include "net/ssl/server_bound_cert_service.h"
+#include "net/ssl/channel_id_service.h"
+#include "net/ssl/default_channel_id_store.h"
 #include "net/url_request/static_http_user_agent_settings.h"
 #include "net/url_request/url_request_job_factory_impl.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -61,6 +61,7 @@ TestURLRequestContext::TestURLRequestContext(bool delay_initialization)
 
 TestURLRequestContext::~TestURLRequestContext() {
   DCHECK(initialized_);
+  AssertNoURLRequests();
 }
 
 void TestURLRequestContext::Init() {
@@ -114,11 +115,11 @@ void TestURLRequestContext::Init() {
   // In-memory cookie store.
   if (!cookie_store())
     context_storage_.set_cookie_store(new CookieMonster(NULL, NULL));
-  // In-memory origin bound cert service.
-  if (!server_bound_cert_service()) {
-    context_storage_.set_server_bound_cert_service(
-        new ServerBoundCertService(
-            new DefaultServerBoundCertStore(NULL),
+  // In-memory Channel ID service.
+  if (!channel_id_service()) {
+    context_storage_.set_channel_id_service(
+        new ChannelIDService(
+            new DefaultChannelIDStore(NULL),
             base::WorkerPool::GetTaskRunner(true)));
   }
   if (!http_user_agent_settings()) {
@@ -127,15 +128,6 @@ void TestURLRequestContext::Init() {
   }
   if (!job_factory())
     context_storage_.set_job_factory(new URLRequestJobFactoryImpl);
-}
-
-TestURLRequest::TestURLRequest(const GURL& url,
-                               RequestPriority priority,
-                               Delegate* delegate,
-                               TestURLRequestContext* context)
-    : URLRequest(url, priority, delegate, context) {}
-
-TestURLRequest::~TestURLRequest() {
 }
 
 TestURLRequestContextGetter::TestURLRequestContextGetter(
@@ -194,7 +186,7 @@ void TestDelegate::ClearFullRequestHeaders() {
 }
 
 void TestDelegate::OnReceivedRedirect(URLRequest* request,
-                                      const GURL& new_url,
+                                      const RedirectInfo& redirect_info,
                                       bool* defer_redirect) {
   EXPECT_TRUE(request->is_redirecting());
 
@@ -324,10 +316,12 @@ TestNetworkDelegate::TestNetworkDelegate()
       blocked_get_cookies_count_(0),
       blocked_set_cookie_count_(0),
       set_cookie_count_(0),
+      observed_before_proxy_headers_sent_callbacks_(0),
       has_load_timing_info_before_redirect_(false),
       has_load_timing_info_before_auth_(false),
       can_access_files_(true),
-      can_throttle_requests_(true) {
+      can_throttle_requests_(true),
+      cancel_request_with_policy_violating_referrer_(false) {
 }
 
 TestNetworkDelegate::~TestNetworkDelegate() {
@@ -364,7 +358,7 @@ void TestNetworkDelegate::InitRequestStatesIfNew(int request_id) {
 int TestNetworkDelegate::OnBeforeURLRequest(
     URLRequest* request,
     const CompletionCallback& callback,
-    GURL* new_url ) {
+    GURL* new_url) {
   int req_id = request->identifier();
   InitRequestStatesIfNew(req_id);
   event_order_[req_id] += "OnBeforeURLRequest\n";
@@ -394,6 +388,14 @@ int TestNetworkDelegate::OnBeforeSendHeaders(
       kStageCompletedError;  // request canceled by delegate
 
   return OK;
+}
+
+void TestNetworkDelegate::OnBeforeSendProxyHeaders(
+    net::URLRequest* request,
+    const net::ProxyInfo& proxy_info,
+    net::HttpRequestHeaders* headers) {
+  ++observed_before_proxy_headers_sent_callbacks_;
+  last_observed_proxy_ = proxy_info.proxy_server().host_port_pair();
 }
 
 void TestNetworkDelegate::OnSendHeaders(
@@ -601,6 +603,13 @@ int TestNetworkDelegate::OnBeforeSocketStreamConnect(
     SocketStream* socket,
     const CompletionCallback& callback) {
   return OK;
+}
+
+bool TestNetworkDelegate::OnCancelURLRequestWithPolicyViolatingReferrerHeader(
+    const URLRequest& request,
+    const GURL& target_url,
+    const GURL& referrer_url) const {
+  return cancel_request_with_policy_violating_referrer_;
 }
 
 // static

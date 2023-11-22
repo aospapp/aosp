@@ -103,8 +103,8 @@ public class ImageProcessingActivity extends Activity
         HISTOGRAM ("Histogram"),
         MANDELBROT_DOUBLE ("Mandelbrot fp64"),
         RESIZE_BICUBIC_SCRIPT ("Resize BiCubic Script"),
-        RESIZE_BICUBIC_INTRINSIC ("Resize BiCubic Intrinsic");
-
+        RESIZE_BICUBIC_INTRINSIC ("Resize BiCubic Intrinsic"),
+        MIRROR ("Mirror Image");
 
         private final String name;
 
@@ -373,6 +373,9 @@ public class ImageProcessingActivity extends Activity
             break;
         case RESIZE_BICUBIC_INTRINSIC:
             mTest = new Resize(true);
+            break;
+        case MIRROR:
+            mTest = new Mirror();
             break;
         }
 

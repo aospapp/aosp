@@ -18,8 +18,6 @@ std::string GetUserAgent();
 class ChromeContentClient : public content::ContentClient {
  public:
   static const char* const kPDFPluginName;
-  static const char* const kNaClPluginName;
-  static const char* const kNaClOldPluginName;
   static const char* const kRemotingViewerPluginPath;
 
   virtual void SetActiveURL(const GURL& url) OVERRIDE;
@@ -44,7 +42,6 @@ class ChromeContentClient : public content::ContentClient {
   virtual bool GetSandboxProfileForSandboxType(
       int sandbox_type,
       int* sandbox_profile_resource_id) const OVERRIDE;
-  virtual std::string GetCarbonInterposePath() const OVERRIDE;
 #endif
 };
 

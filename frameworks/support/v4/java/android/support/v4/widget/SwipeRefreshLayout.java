@@ -101,6 +101,7 @@ public class SwipeRefreshLayout extends ViewGroup {
     private boolean mOriginalOffsetCalculated = false;
 
     private float mInitialMotionY;
+    private float mInitialDownY;
     private boolean mIsBeingDragged;
     private int mActivePointerId = INVALID_POINTER;
     // Whether this item is scaled up rather than clipped
@@ -446,13 +447,30 @@ public class SwipeRefreshLayout extends ViewGroup {
     }
 
     /**
+     * @deprecated Use {@link #setProgressBackgroundColorSchemeResource(int)}
+     */
+    @Deprecated
+    public void setProgressBackgroundColor(int colorRes) {
+        setProgressBackgroundColorSchemeResource(colorRes);
+    }
+
+    /**
      * Set the background color of the progress spinner disc.
      *
      * @param colorRes Resource id of the color.
      */
-    public void setProgressBackgroundColor(int colorRes) {
-        mCircleView.setBackgroundColor(colorRes);
-        mProgress.setBackgroundColor(getResources().getColor(colorRes));
+    public void setProgressBackgroundColorSchemeResource(int colorRes) {
+        setProgressBackgroundColorSchemeColor(getResources().getColor(colorRes));
+    }
+
+    /**
+     * Set the background color of the progress spinner disc.
+     *
+     * @param color
+     */
+    public void setProgressBackgroundColorSchemeColor(int color) {
+        mCircleView.setBackgroundColor(color);
+        mProgress.setBackgroundColor(color);
     }
 
     /**
@@ -577,6 +595,17 @@ public class SwipeRefreshLayout extends ViewGroup {
     }
 
     /**
+     * Get the diameter of the progress circle that is displayed as part of the
+     * swipe to refresh layout. This is not valid until a measure pass has
+     * completed.
+     *
+     * @return Diameter in pixels of the progress circle view.
+     */
+    public int getProgressCircleDiameter() {
+        return mCircleView != null ?mCircleView.getMeasuredHeight() : 0;
+    }
+
+    /**
      * @return Whether it is possible for the child view of this layout to
      *         scroll up. Override this if the child view is a custom view.
      */
@@ -615,11 +644,12 @@ public class SwipeRefreshLayout extends ViewGroup {
                 setTargetOffsetTopAndBottom(mOriginalOffsetTop - mCircleView.getTop(), true);
                 mActivePointerId = MotionEventCompat.getPointerId(ev, 0);
                 mIsBeingDragged = false;
-                final float initialMotionY = getMotionEventY(ev, mActivePointerId);
-                if (initialMotionY == -1) {
+                final float initialDownY = getMotionEventY(ev, mActivePointerId);
+                if (initialDownY == -1) {
                     return false;
                 }
-                mInitialMotionY = initialMotionY;
+                mInitialDownY = initialDownY;
+                break;
 
             case MotionEvent.ACTION_MOVE:
                 if (mActivePointerId == INVALID_POINTER) {
@@ -631,8 +661,9 @@ public class SwipeRefreshLayout extends ViewGroup {
                 if (y == -1) {
                     return false;
                 }
-                final float yDiff = y - mInitialMotionY;
+                final float yDiff = y - mInitialDownY;
                 if (yDiff > mTouchSlop && !mIsBeingDragged) {
+                    mInitialMotionY = mInitialDownY + mTouchSlop;
                     mIsBeingDragged = true;
                     mProgress.setAlpha(STARTING_PROGRESS_ALPHA);
                 }
@@ -733,7 +764,7 @@ public class SwipeRefreshLayout extends ViewGroup {
                             // Animate the alpha
                             startProgressAlphaStartAnimation();
                         }
-                        float strokeStart = (float) (adjustedPercent * .8f);
+                        float strokeStart = adjustedPercent * .8f;
                         mProgress.setStartEndTrim(0f, Math.min(MAX_PROGRESS_ANGLE, strokeStart));
                         mProgress.setArrowScale(Math.min(1f, adjustedPercent));
                     } else {
@@ -852,6 +883,7 @@ public class SwipeRefreshLayout extends ViewGroup {
             targetTop = (mFrom + (int) ((endTarget - mFrom) * interpolatedTime));
             int offset = targetTop - mCircleView.getTop();
             setTargetOffsetTopAndBottom(offset, false /* requires update */);
+            mProgress.setArrowScale(1 - interpolatedTime);
         }
     };
 

@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"Резервное копирование и восстановление"</string>
     <string name="device_reset" msgid="2827002349560023125">"Заводские настройки"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Калибровка"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"Скачанные приложения"</string>
     <string name="apps_system" msgid="2499191125802829425">"Системные приложения"</string>
     <string name="apps_running" msgid="6430310491739956228">"Выполняющиеся приложения"</string>
@@ -95,7 +99,7 @@
     <string name="system_language" msgid="2337138146114609247">"Язык"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"Клавиатура"</string>
     <string name="system_search" msgid="2837264654143247611">"Поиск"</string>
-    <string name="system_security" msgid="4190058778883258927">"Безопасность и ограничения"</string>
+    <string name="system_security" msgid="8230080273993484407">"Безопасность и ограничения"</string>
     <string name="system_speech" msgid="8128688499687306982">"Речь"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Входы"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"Специальные возможности"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"Обновление системы"</string>
     <string name="about_preference" msgid="4131396784531360434">"Об устройстве"</string>
     <string name="device_name" msgid="2670488158531273028">"Название устройства"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"Перезапустить"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"Юридическая информация"</string>
     <string name="about_warranty" msgid="5736003473060436384">"Гарантия"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"Лицензии открытого ПО"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"Условия использования"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"Политика конфиденциальности"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"Дополнительные условия"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Правовая информация Google"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"Нет данных о лицензии"</string>
     <string name="about_model" msgid="6625269442206323995">"Модель"</string>
     <string name="about_version" msgid="1177287676732287266">"Версия"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"Дата"</string>
     <string name="system_time" msgid="6726022312605226285">"Время"</string>
     <string name="system_set_date" msgid="2437586307768561116">"Установить дату"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"Формат даты"</string>
     <string name="system_set_time" msgid="4661804115501057452">"Установить время"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"Выбрать часовой пояс"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"24-часовой формат"</string>
@@ -295,7 +297,7 @@
     <string name="delete_location_history_desc" msgid="4142806827237093397">"История местоположений этого аккаунта Google будет удалена с устройства навсегда. Некоторые приложения, включая Google Now, перестанут работать."</string>
     <string name="system_services" msgid="7230571820151215779">"Сервисы"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Настройки службы"</string>
-    <string name="accessibility_captions" msgid="6133896463407851079">"Титры"</string>
+    <string name="accessibility_captions" msgid="6133896463407851079">"Субтитры"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"Настройки субтитров в видео"</string>
     <string name="captions_display" msgid="735692527287125548">"Экран"</string>
     <string name="captions_display_on" msgid="1989009878719500520">"Вкл."</string>
@@ -362,7 +364,7 @@
     <string name="system_wait_for_debugger" msgid="4007354935701089555">"Подождите, пока подключится отладчик"</string>
     <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"Установленные через USB"</string>
     <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"Проверять, насколько безопасны приложения, устанавливаемые через ADB/ADT"</string>
-    <string name="system_wifi_verbose_logging" msgid="3474525355071613242">"Подробные сведения в журнале Wi-Fi"</string>
+    <string name="system_wifi_verbose_logging" msgid="3474525355071613242">"Подробный журнал Wi-Fi"</string>
     <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"Включить запись подробных сведений в журнал Wi-Fi"</string>
     <string name="system_show_touches" msgid="2179121368437801757">"Показывать нажатия"</string>
     <string name="system_pointer_location" msgid="2673764026490179227">"Показывать касания"</string>

@@ -23,7 +23,9 @@ class DictionaryValue;
 namespace chromeos {
 class AppLaunchSplashScreenActor;
 class BaseScreenHandler;
+class ControllerPairingScreenActor;
 class ErrorScreenHandler;
+class HostPairingScreenActor;
 class KioskAppMenuHandler;
 class KioskEnableScreenActor;
 class LoginScreenContext;
@@ -73,7 +75,7 @@ class OobeUI : public OobeDisplay,
   static const char kScreenUserImagePicker[];
   static const char kScreenTpmError[];
   static const char kScreenPasswordChanged[];
-  static const char kScreenManagedUserCreationFlow[];
+  static const char kScreenSupervisedUserCreationFlow[];
   static const char kScreenTermsOfService[];
   static const char kScreenWrongHWID[];
   static const char kScreenAutoEnrollmentCheck[];
@@ -81,13 +83,13 @@ class OobeUI : public OobeDisplay,
   static const char kScreenConfirmPassword[];
   static const char kScreenFatalError[];
   static const char kScreenHIDDetection[];
+  static const char kScreenControllerPairing[];
+  static const char kScreenHostPairing[];
 
   OobeUI(content::WebUI* web_ui, const GURL& url);
   virtual ~OobeUI();
 
   // OobeDisplay implementation:
-  virtual void ShowScreen(WizardScreen* screen) OVERRIDE;
-  virtual void HideScreen(WizardScreen* screen) OVERRIDE;
   virtual CoreOobeActor* GetCoreOobeActor() OVERRIDE;
   virtual UpdateScreenActor* GetUpdateScreenActor() OVERRIDE;
   virtual NetworkScreenActor* GetNetworkScreenActor() OVERRIDE;
@@ -103,13 +105,16 @@ class OobeUI : public OobeDisplay,
   virtual WrongHWIDScreenActor* GetWrongHWIDScreenActor() OVERRIDE;
   virtual AutoEnrollmentCheckScreenActor*
       GetAutoEnrollmentCheckScreenActor() OVERRIDE;
-  virtual LocallyManagedUserCreationScreenHandler*
-      GetLocallyManagedUserCreationScreenActor() OVERRIDE;
+  virtual SupervisedUserCreationScreenHandler*
+      GetSupervisedUserCreationScreenActor() OVERRIDE;
   virtual AppLaunchSplashScreenActor*
       GetAppLaunchSplashScreenActor() OVERRIDE;
   virtual bool IsJSReady(const base::Closure& display_is_ready_callback)
       OVERRIDE;
   virtual HIDDetectionScreenActor* GetHIDDetectionScreenActor() OVERRIDE;
+  virtual ControllerPairingScreenActor* GetControllerPairingScreenActor()
+      OVERRIDE;
+  virtual HostPairingScreenActor* GetHostPairingScreenActor() OVERRIDE;
 
   // Collects localized strings from the owned handlers.
   void GetLocalizedStrings(base::DictionaryValue* localized_strings);
@@ -187,9 +192,11 @@ class OobeUI : public OobeDisplay,
   KioskEnableScreenActor* kiosk_enable_screen_actor_;
   WrongHWIDScreenActor* wrong_hwid_screen_actor_;
   AutoEnrollmentCheckScreenActor* auto_enrollment_check_screen_actor_;
-  LocallyManagedUserCreationScreenHandler*
-      locally_managed_user_creation_screen_actor_;
+  SupervisedUserCreationScreenHandler*
+      supervised_user_creation_screen_actor_;
   AppLaunchSplashScreenActor* app_launch_splash_screen_actor_;
+  ControllerPairingScreenActor* controller_pairing_screen_actor_;
+  HostPairingScreenActor* host_pairing_screen_actor_;
 
   // Reference to ErrorScreenHandler that handles error screen
   // requests and forward calls from native code to JS side.

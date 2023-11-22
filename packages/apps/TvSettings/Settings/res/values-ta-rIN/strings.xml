@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"காப்புப்பிரதி &amp; மீட்டெடுப்பு"</string>
     <string name="device_reset" msgid="2827002349560023125">"தரவின் ஆரம்பநிலை மீட்டமைப்பு"</string>
     <string name="device_calibration" msgid="8632962533376605191">"அளவுக்குறியீடு"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"இறக்கியப் பயன்பாடுகள்"</string>
     <string name="apps_system" msgid="2499191125802829425">"முறைமைப் பயன்பாடுகள்"</string>
     <string name="apps_running" msgid="6430310491739956228">"இயங்கும் பயன்பாடுகள்"</string>
@@ -95,7 +99,7 @@
     <string name="system_language" msgid="2337138146114609247">"மொழி"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"விசைப்பலகை"</string>
     <string name="system_search" msgid="2837264654143247611">"தேடு"</string>
-    <string name="system_security" msgid="4190058778883258927">"பாதுகாப்பு &amp; கட்டுப்பாடுகள்"</string>
+    <string name="system_security" msgid="8230080273993484407">"பாதுகாப்பு &amp; கட்டுப்பாடுகள்"</string>
     <string name="system_speech" msgid="8128688499687306982">"பேச்சு"</string>
     <string name="system_inputs" msgid="2413907183796651102">"உள்ளீடுகள்"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"அணுகல்தன்மை"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"முறைமை புதுப்பிப்பு"</string>
     <string name="about_preference" msgid="4131396784531360434">"அறிமுகம்"</string>
     <string name="device_name" msgid="2670488158531273028">"சாதனத்தின் பெயர்"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"மீண்டும் தொடங்கு"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"சட்டத் தகவல்"</string>
     <string name="about_warranty" msgid="5736003473060436384">"உத்தரவாதம்"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"ஓப்பன் சோர்ஸ் உரிமங்கள்"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"சேவை விதிமுறைகளைக் காட்டு"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"தனியுரிமைக் கொள்கையைக் காட்டு"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"கூடுதல் விதிமுறைகளைக் காட்டு"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Google சட்டம்"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"உரிமத் தரவு கிடைக்கவில்லை"</string>
     <string name="about_model" msgid="6625269442206323995">"மாடல்"</string>
     <string name="about_version" msgid="1177287676732287266">"பதிப்பு"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"தேதி"</string>
     <string name="system_time" msgid="6726022312605226285">"நேரம்"</string>
     <string name="system_set_date" msgid="2437586307768561116">"தேதியை அமை"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"தேதி வடிவமைப்பைத் தேர்வுசெய்யவும்"</string>
     <string name="system_set_time" msgid="4661804115501057452">"நேரத்தை அமை"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"நேர மண்டலத்தை அமை"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"24-மணிநேர வடிவத்தைப் பயன்படுத்து"</string>
@@ -292,7 +294,7 @@
     <string name="location_reporting_desc" msgid="6256424995139430823">"Google Now மற்றும் Google வரைபடம் போன்ற தயாரிப்புகளில் Google இந்த அம்சத்தைப் பயன்படுத்துகிறது. இருப்பிட அறிக்கையிடலை இயக்குவது, இந்த அம்சத்தைப் பயன்படுத்தும் எந்தவொரு Google தயாரிப்பும் உங்கள் Google கணக்குடன் தொடர்புடைய சாதனத்தின் மிகச் சமீபத்திய இருப்பிடத் தரவைப் பயன்படுத்த, சேமிக்க அனுமதிக்கிறது."</string>
     <string name="location_history_desc" msgid="3861249867748294369">"இந்தக் கணக்கிற்கு இருப்பிட வரலாறு இயக்கப்படும் போது, உங்கள் பயன்பாடுகள் பயன்படுத்துவதற்குச் சாதன இருப்பிடத் தரவை Google சேமிக்கலாம்.\n\nஎடுத்துக்காட்டாக, Google வரைபடம் திசைகளை வழங்கலாம், Google Now வழக்கமான பயணத்தில் உள்ள ட்ராஃபிக் பற்றி அறிவிக்கலாம்.\n\nஎந்த நேரத்திலும் இருப்பிட வரலாற்றை நீங்கள் முடக்கலாம், ஆனால் அவ்வாறு செய்வது சேமித்தத் தரவை நீக்காது. இருப்பிட வரலாற்றைக் கண்டு நிர்வகிக்க maps.google.com/locationhistoryஐப் பார்வையிடவும்."</string>
     <string name="delete_location_history_title" msgid="5804802702252280549">"இட வரலாற்றை நீக்கு"</string>
-    <string name="delete_location_history_desc" msgid="4142806827237093397">"Google கணக்கிற்காகச் சாதனத்தில் சேமிக்கப்பட்ட எல்லா இட வரலாற்றையும் இது நீக்கும். இதைச் செயல்தவிர்க்க முடியாது. Google Now உட்பட சில செயல்பாடுகள் செயல்படுவது நிறுத்தப்படும்."</string>
+    <string name="delete_location_history_desc" msgid="4142806827237093397">"Google கணக்கிற்காகச் சாதனத்தில் சேமிக்கப்பட்ட எல்லா இட வரலாற்றையும் இது நீக்கும். இதைத் திரும்பப்பெற முடியாது. Google Now உட்பட சில செயல்பாடுகள் செயல்படுவது நிறுத்தப்படும்."</string>
     <string name="system_services" msgid="7230571820151215779">"சேவைகள்"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"சேவை அமைப்புகள்"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"தலைப்புகள்"</string>
@@ -406,7 +408,7 @@
     <string name="disagree" msgid="9170636026862400981">"ஏற்கவில்லை"</string>
     <string name="security_unknown_sources_title" msgid="769762478057744545">"அறியப்படாத மூலங்கள்"</string>
     <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Play Store ஐத் தவிர்த்து பிற ஆதாரங்களிலிருந்து பயன்பாடுகளின் நிறுவலை அனுமதி"</string>
-    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"உங்கள் சாதனம் மற்றும் தனிப்பட்ட தரவு ஆகியவை அறியப்படாத மூலங்களிலிருந்து பெறப்பட்ட பயன்பாடுகளால் தாக்குதலுக்கு உள்ளாகக்கூடும். இந்தப் பயன்பாடுகளைப் பயன்படுத்தியதன் விளைவாக உங்கள் சாதனம் பாதிக்கப்பட்டால் அல்லது தரவை இழந்தால் அதற்கு நீங்கள் மட்டுமே பொறுப்பு என்பதை ஒப்புக்கொள்கிறீர்கள்."</string>
+    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"உங்கள் சாதனம் மற்றும் தனிப்பட்ட தரவு ஆகியவை அறியப்படாத மூலங்களிலிருந்து பெற்ற பயன்பாடுகளால் தாக்குதலுக்கு உள்ளாகக்கூடும். இந்தப் பயன்பாடுகளைப் பயன்படுத்தியதன் விளைவாக உங்கள் சாதனம் பாதிக்கப்பட்டால் அல்லது தரவை இழந்தால் அதற்கு நீங்கள் மட்டுமே பொறுப்பு என்பதை ஒப்புக்கொள்கிறீர்கள்."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"பயன்பாடுகளைச் சரிபார்"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"தீங்கு ஏற்படுத்தக்கூடிய பயன்பாடுகளை நிறுவ அனுமதிக்காதே அல்லது நிறுவுவதற்கு முன்பு எச்சரிக்கை செய்"</string>
   <string-array name="hdcp_checking_summaries">

@@ -4,8 +4,8 @@
 
 #include "gpu/command_buffer/service/async_pixel_transfer_manager.h"
 
-#include "base/android/sys_utils.h"
 #include "base/debug/trace_event.h"
+#include "base/sys_info.h"
 #include "gpu/command_buffer/service/async_pixel_transfer_manager_egl.h"
 #include "gpu/command_buffer/service/async_pixel_transfer_manager_idle.h"
 #include "gpu/command_buffer/service/async_pixel_transfer_manager_stub.h"
@@ -78,7 +78,7 @@ AsyncPixelTransferManager* AsyncPixelTransferManager::Create(
   switch (gfx::GetGLImplementation()) {
     case gfx::kGLImplementationEGLGLES2:
       DCHECK(context);
-      if (!base::android::SysUtils::IsLowEndDevice() &&
+      if (!base::SysInfo::IsLowEndDevice() &&
           context->HasExtension("EGL_KHR_fence_sync") &&
           context->HasExtension("EGL_KHR_image") &&
           context->HasExtension("EGL_KHR_image_base") &&

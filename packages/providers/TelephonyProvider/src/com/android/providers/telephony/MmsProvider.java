@@ -28,6 +28,7 @@ import android.database.sqlite.SQLiteException;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.net.Uri;
+import android.os.Binder;
 import android.os.FileUtils;
 import android.os.ParcelFileDescriptor;
 import android.os.UserHandle;
@@ -35,10 +36,11 @@ import android.provider.BaseColumns;
 import android.provider.Telephony;
 import android.provider.Telephony.CanonicalAddressesColumns;
 import android.provider.Telephony.Mms;
-import android.provider.Telephony.MmsSms;
 import android.provider.Telephony.Mms.Addr;
 import android.provider.Telephony.Mms.Part;
 import android.provider.Telephony.Mms.Rate;
+import android.provider.Telephony.MmsSms;
+import android.provider.Telephony.Threads;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -48,8 +50,6 @@ import com.google.android.mms.util.DownloadDrmHelper;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-
-import android.provider.Telephony.Threads;
 
 /**
  * The class to provide base facility to access MMS related content,
@@ -63,6 +63,8 @@ public class MmsProvider extends ContentProvider {
     static final String TABLE_DRM  = "drm";
     static final String TABLE_WORDS = "words";
 
+    // The name of parts directory. The full dir is "app_parts".
+    private static final String PARTS_DIR_NAME = "parts";
 
     @Override
     public boolean onCreate() {
@@ -279,6 +281,7 @@ public class MmsProvider extends ContentProvider {
         if (values != null && values.containsKey(Part._DATA)) {
             return null;
         }
+        final int callerUid = Binder.getCallingUid();
         int msgBox = Mms.MESSAGE_BOX_ALL;
         boolean notify = true;
 
@@ -371,19 +374,27 @@ public class MmsProvider extends ContentProvider {
                 finalValues.put(Mms.THREAD_ID, Threads.getOrCreateThreadId(getContext(), address));
             }
 
+            if (ProviderUtil.shouldSetCreator(finalValues, callerUid)) {
+                // Only SYSTEM or PHONE can set CREATOR
+                // If caller is not SYSTEM or PHONE, or SYSTEM or PHONE does not set CREATOR
+                // set CREATOR using the truth on caller.
+                // Note: Inferring package name from UID may include unrelated package names
+                finalValues.put(Telephony.Mms.CREATOR,
+                        ProviderUtil.getPackageNamesByUid(getContext(), callerUid));
+            }
+
             if ((rowId = db.insert(table, null, finalValues)) <= 0) {
-                Log.e(TAG, "MmsProvider.insert: failed! " + finalValues);
+                Log.e(TAG, "MmsProvider.insert: failed!");
                 return null;
             }
 
             res = Uri.parse(res + "/" + rowId);
-
         } else if (table.equals(TABLE_ADDR)) {
             finalValues = new ContentValues(values);
             finalValues.put(Addr.MSG_ID, uri.getPathSegments().get(0));
 
             if ((rowId = db.insert(table, null, finalValues)) <= 0) {
-                Log.e(TAG, "Failed to insert address: " + finalValues);
+                Log.e(TAG, "Failed to insert address");
                 return null;
             }
 
@@ -418,7 +429,7 @@ public class MmsProvider extends ContentProvider {
 
                 // Generate the '_data' field of the part with default
                 // permission settings.
-                String path = getContext().getDir("parts", 0).getPath()
+                String path = getContext().getDir(PARTS_DIR_NAME, 0).getPath()
                         + "/PART_" + System.currentTimeMillis() + contentLocation;
 
                 if (DownloadDrmHelper.isDrmConvertNeeded(contentType)) {
@@ -452,7 +463,7 @@ public class MmsProvider extends ContentProvider {
             }
 
             if ((rowId = db.insert(table, null, finalValues)) <= 0) {
-                Log.e(TAG, "MmsProvider.insert: failed! " + finalValues);
+                Log.e(TAG, "MmsProvider.insert: failed!");
                 return null;
             }
 
@@ -484,7 +495,7 @@ public class MmsProvider extends ContentProvider {
             db.delete(table, Rate.SENT_TIME + "<=" + oneHourAgo, null);
             db.insert(table, null, values);
         } else if (table.equals(TABLE_DRM)) {
-            String path = getContext().getDir("parts", 0).getPath()
+            String path = getContext().getDir(PARTS_DIR_NAME, 0).getPath()
                     + "/PART_" + System.currentTimeMillis();
             finalValues = new ContentValues(1);
             finalValues.put("_data", path);
@@ -504,7 +515,7 @@ public class MmsProvider extends ContentProvider {
             }
 
             if ((rowId = db.insert(table, null, finalValues)) <= 0) {
-                Log.e(TAG, "MmsProvider.insert: failed! " + finalValues);
+                Log.e(TAG, "MmsProvider.insert: failed!");
                 return null;
             }
             res = Uri.parse(res + "/drm/" + rowId);
@@ -697,6 +708,7 @@ public class MmsProvider extends ContentProvider {
         if (values != null && values.containsKey(Part._DATA)) {
             return 0;
         }
+        final int callerUid = Binder.getCallingUid();
         int match = sURLMatcher.match(uri);
         if (LOCAL_LOGV) {
             Log.v(TAG, "Update uri=" + uri + ", match=" + match);
@@ -729,7 +741,7 @@ public class MmsProvider extends ContentProvider {
                 break;
 
             case MMS_PART_RESET_FILE_PERMISSION:
-                String path = getContext().getDir("parts", 0).getPath() + '/' +
+                String path = getContext().getDir(PARTS_DIR_NAME, 0).getPath() + '/' +
                         uri.getPathSegments().get(1);
                 // Reset the file permission back to read for everyone but me.
                 int result = FileUtils.setPermissions(path, 0644, -1, -1);
@@ -749,6 +761,12 @@ public class MmsProvider extends ContentProvider {
         if (table.equals(TABLE_PDU)) {
             // Filter keys that we don't support yet.
             filterUnsupportedKeys(values);
+            if (ProviderUtil.shouldRemoveCreator(values, callerUid)) {
+                // CREATOR should not be changed by non-SYSTEM/PHONE apps
+                Log.w(TAG, ProviderUtil.getPackageNamesByUid(getContext(), callerUid) +
+                        " tries to update CREATOR");
+                values.remove(Mms.CREATOR);
+            }
             finalValues = new ContentValues(values);
 
             if (msgId != null) {
@@ -818,10 +836,17 @@ public class MmsProvider extends ContentProvider {
         try {
             File filePath = new File(path);
             if (!filePath.getCanonicalPath()
-                    .startsWith(getContext().getApplicationInfo().dataDir + "/app_parts/")) {
+                    .startsWith(getContext().getDir(PARTS_DIR_NAME, 0).getPath())) {
+                Log.e(TAG, "openFile: path "
+                        + filePath.getCanonicalPath()
+                        + " does not start with "
+                        + getContext().getDir(PARTS_DIR_NAME, 0).getPath());
+                // Don't care return value
+                filePath.delete();
                 return null;
             }
         } catch (IOException e) {
+            Log.e(TAG, "openFile: create path failed " + e, e);
             return null;
         }
 

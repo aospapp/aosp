@@ -65,7 +65,7 @@ void TabModalConfirmDialogTest::SetUpOnMainThread() {
   content::RunAllPendingInMessageLoop();
 }
 
-void TabModalConfirmDialogTest::CleanUpOnMainThread() {
+void TabModalConfirmDialogTest::TearDownOnMainThread() {
   content::RunAllPendingInMessageLoop();
 }
 
@@ -120,7 +120,7 @@ IN_PROC_BROWSER_TEST_F(TabModalConfirmDialogTest, Navigate) {
   content::OpenURLParams params(GURL("about:blank"),
                                 content::Referrer(),
                                 CURRENT_TAB,
-                                content::PAGE_TRANSITION_LINK,
+                                ui::PAGE_TRANSITION_LINK,
                                 false);
   browser()->tab_strip_model()->GetActiveWebContents()->OpenURL(params);
 

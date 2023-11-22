@@ -18,6 +18,7 @@ package android.media.cts;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
+import android.media.AudioAttributes;
 import android.util.Log;
 
 import java.util.LinkedList;
@@ -46,7 +47,8 @@ public class NonBlockingAudioTrack {
     private int mNumBytesQueued = 0;
     private LinkedList<QueueElem> mQueue = new LinkedList<QueueElem>();
 
-    public NonBlockingAudioTrack(int sampleRate, int channelCount) {
+    public NonBlockingAudioTrack(int sampleRate, int channelCount, boolean hwAvSync,
+                    int audioSessionId) {
         int channelConfig;
         switch (channelCount) {
             case 1:
@@ -70,13 +72,29 @@ public class NonBlockingAudioTrack {
 
         int bufferSize = 2 * minBufferSize;
 
-        mAudioTrack = new AudioTrack(
-                AudioManager.STREAM_MUSIC,
-                sampleRate,
-                channelConfig,
-                AudioFormat.ENCODING_PCM_16BIT,
-                bufferSize,
-                AudioTrack.MODE_STREAM);
+        if (!hwAvSync) {
+            mAudioTrack = new AudioTrack(
+                    AudioManager.STREAM_MUSIC,
+                    sampleRate,
+                    channelConfig,
+                    AudioFormat.ENCODING_PCM_16BIT,
+                    bufferSize,
+                    AudioTrack.MODE_STREAM);
+        }
+        else {
+            // build AudioTrack using Audio Attributes and FLAG_HW_AV_SYNC
+            AudioAttributes audioAttributes = (new AudioAttributes.Builder())
+                            .setLegacyStreamType(AudioManager.STREAM_MUSIC)
+                            .setFlags(AudioAttributes.FLAG_HW_AV_SYNC)
+                            .build();
+            AudioFormat audioFormat = (new AudioFormat.Builder())
+                            .setChannelMask(channelConfig)
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setSampleRate(sampleRate)
+                            .build();
+             mAudioTrack = new AudioTrack(audioAttributes, audioFormat, bufferSize,
+                                    AudioTrack.MODE_STREAM, audioSessionId);
+        }
 
         mSampleRate = sampleRate;
         mFrameSize = 2 * channelCount;
@@ -111,6 +129,16 @@ public class NonBlockingAudioTrack {
         cancelWriteMore();
 
         mAudioTrack.pause();
+    }
+
+    public void flush() {
+        if (mAudioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
+            return;
+        }
+        mAudioTrack.flush();
+        mNumFramesSubmitted = 0;
+        mQueue.clear();
+        mNumBytesQueued = 0;
     }
 
     public void release() {

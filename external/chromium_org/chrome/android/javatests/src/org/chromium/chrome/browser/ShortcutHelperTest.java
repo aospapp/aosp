@@ -15,6 +15,9 @@ import org.chromium.chrome.shell.ChromeShellTestBase;
 import org.chromium.content.browser.test.util.Criteria;
 import org.chromium.content.browser.test.util.CriteriaHelper;
 
+/**
+ * Tests org.chromium.chrome.browser.ShortcutHelper and it's C++ counterpart.
+ */
 public class ShortcutHelperTest extends ChromeShellTestBase {
     private static final String WEBAPP_ACTION_NAME = "WEBAPP_ACTION";
 
@@ -39,14 +42,22 @@ public class ShortcutHelperTest extends ChromeShellTestBase {
             + "<head><title>" + NORMAL_TITLE + "</title></head>"
             + "<body>Not Webapp capable</body></html>");
 
+    private static final String META_APP_NAME_TITLE = "Web application-name";
+    private static final String META_APP_NAME_HTML = UrlUtils.encodeHtmlDataUri(
+            "<html><head>"
+            + "<meta name=\"mobile-web-app-capable\" content=\"yes\" />"
+            + "<meta name=\"application-name\" content=\"" + META_APP_NAME_TITLE + "\">"
+            + "<title>Not the right title</title>"
+            + "</head><body>Webapp capable</body></html>");
+
     private static class TestObserver implements ChromeShellApplicationObserver {
-        Intent firedIntent;
+        Intent mFiredIntent;
 
         @Override
         public boolean onSendBroadcast(Intent intent) {
             if (intent.hasExtra(Intent.EXTRA_SHORTCUT_NAME)) {
                 // Stop a shortcut from really being added.
-                firedIntent = intent;
+                mFiredIntent = intent;
                 return false;
             }
 
@@ -54,7 +65,7 @@ public class ShortcutHelperTest extends ChromeShellTestBase {
         }
 
         public void reset() {
-            firedIntent = null;
+            mFiredIntent = null;
         }
     }
 
@@ -84,7 +95,7 @@ public class ShortcutHelperTest extends ChromeShellTestBase {
     public void testAddWebappShortcuts() throws InterruptedException {
         // Add a webapp shortcut and make sure the intent's parameters make sense.
         addShortcutToURL(WEBAPP_HTML, "");
-        Intent firedIntent = mTestObserver.firedIntent;
+        Intent firedIntent = mTestObserver.mFiredIntent;
         assertEquals(WEBAPP_TITLE, firedIntent.getStringExtra(Intent.EXTRA_SHORTCUT_NAME));
 
         Intent launchIntent = firedIntent.getParcelableExtra(Intent.EXTRA_SHORTCUT_INTENT);
@@ -95,7 +106,7 @@ public class ShortcutHelperTest extends ChromeShellTestBase {
         // Add a second shortcut and make sure it matches the second webapp's parameters.
         mTestObserver.reset();
         addShortcutToURL(SECOND_WEBAPP_HTML, "");
-        Intent newFiredIntent = mTestObserver.firedIntent;
+        Intent newFiredIntent = mTestObserver.mFiredIntent;
         assertEquals(SECOND_WEBAPP_TITLE,
                 newFiredIntent.getStringExtra(Intent.EXTRA_SHORTCUT_NAME));
 
@@ -115,7 +126,7 @@ public class ShortcutHelperTest extends ChromeShellTestBase {
         addShortcutToURL(NORMAL_HTML, "");
 
         // Make sure the intent's parameters make sense.
-        Intent firedIntent = mTestObserver.firedIntent;
+        Intent firedIntent = mTestObserver.mFiredIntent;
         assertEquals(NORMAL_TITLE, firedIntent.getStringExtra(Intent.EXTRA_SHORTCUT_NAME));
 
         Intent launchIntent = firedIntent.getParcelableExtra(Intent.EXTRA_SHORTCUT_INTENT);
@@ -133,7 +144,7 @@ public class ShortcutHelperTest extends ChromeShellTestBase {
     public void testAddWebappShortcutsWithoutTitleEdit() throws InterruptedException {
         // Add a webapp shortcut to check unedited title.
         addShortcutToURL(WEBAPP_HTML, "");
-        Intent firedIntent = mTestObserver.firedIntent;
+        Intent firedIntent = mTestObserver.mFiredIntent;
         assertEquals(WEBAPP_TITLE, firedIntent.getStringExtra(Intent.EXTRA_SHORTCUT_NAME));
     }
 
@@ -146,8 +157,21 @@ public class ShortcutHelperTest extends ChromeShellTestBase {
     public void testAddWebappShortcutsWithTitleEdit() throws InterruptedException {
         // Add a webapp shortcut to check edited title.
         addShortcutToURL(WEBAPP_HTML, EDITED_WEBAPP_TITLE);
-        Intent firedIntent = mTestObserver.firedIntent;
+        Intent firedIntent = mTestObserver.mFiredIntent;
         assertEquals(EDITED_WEBAPP_TITLE , firedIntent.getStringExtra(Intent.EXTRA_SHORTCUT_NAME));
+    }
+
+    /**
+     * @MediumTest
+     * @Feature("{Webapp}")
+     * crbug.com/303486
+     */
+    @FlakyTest
+    public void testAddWebappShortcutsWithApplicationName() throws InterruptedException {
+        // Add a webapp shortcut to check edited title.
+        addShortcutToURL(META_APP_NAME_HTML, "");
+        Intent firedIntent = mTestObserver.mFiredIntent;
+        assertEquals(META_APP_NAME_TITLE , firedIntent.getStringExtra(Intent.EXTRA_SHORTCUT_NAME));
     }
 
     private void addShortcutToURL(String url, final String title) throws InterruptedException {
@@ -158,8 +182,16 @@ public class ShortcutHelperTest extends ChromeShellTestBase {
         getInstrumentation().runOnMainSync(new Runnable() {
             @Override
             public void run() {
-                ShortcutHelper.addShortcut(mActivity.getApplicationContext(),
-                        mActivity.getActiveTab(), title);
+                final ShortcutHelper shortcutHelper = new ShortcutHelper(
+                        mActivity.getApplicationContext(), mActivity.getActiveTab());
+                // Calling initialize() isn't strictly required but it is
+                // testing this code path.
+                shortcutHelper.initialize(new ShortcutHelper.OnInitialized() {
+                    @Override
+                    public void onInitialized(String t) {
+                        shortcutHelper.addShortcut(title);
+                    }
+                });
             }
         });
 
@@ -167,7 +199,7 @@ public class ShortcutHelperTest extends ChromeShellTestBase {
         assertTrue(CriteriaHelper.pollForCriteria(new Criteria() {
             @Override
             public boolean isSatisfied() {
-                return mTestObserver.firedIntent != null;
+                return mTestObserver.mFiredIntent != null;
             }
         }));
     }

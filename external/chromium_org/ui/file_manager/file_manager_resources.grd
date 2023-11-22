@@ -17,9 +17,6 @@
       <include name="IDR_FILE_MANAGER_MAIN_JS" file="file_manager/foreground/js/main_scripts.js" flattenhtml="true" type="BINDATA" />
       <include name="IDR_FILE_MANAGER_BKGND_JS" file="file_manager/background/js/background.js" type="BINDATA" />
 
-      <include name="IDR_FILE_MANAGER_GALLERY" file="file_manager/gallery.html" allowexternalscript="true" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_FILE_MANAGER_GALLERY_JS" file="file_manager/foreground/js/photo/gallery_scripts.js" flattenhtml="true" type="BINDATA" />
-
       <!-- Scripts working in background page. -->
       <include name="IDR_FILE_MANAGER_ERROR_UTIL_JS" file="file_manager/common/js/error_util.js" flattenhtml="false" type="BINDATA" />
       <include name="IDR_FILE_MANAGER_ASYNC_UTIL_JS" file="file_manager/common/js/async_util.js" flattenhtml="false" type="BINDATA" />
@@ -83,8 +80,14 @@
       <include name="IDR_VIDEO_PLAYER_BKGND_JS" file="video_player/js/background.js" flattenhtml="true" type="BINDATA" />
       <include name="IDR_VIDEO_PLAYER_TEST_UTIL_JS" file="video_player/js/test_util.js" flattenhtml="false" type="BINDATA" />
       <include name="IDR_VIDEO_PLAYER_ERROR_UTIL_JS" file="video_player/js/error_util.js" flattenhtml="false" type="BINDATA" />
-      <include name="IDR_VIDEO_PLAYER_ICON_16" file="video_player/images/100/icon.png" type="BINDATA" />
-      <include name="IDR_VIDEO_PLAYER_ICON_32" file="video_player/images/200/icon.png" type="BINDATA" />
+      <include name="IDR_VIDEO_PLAYER_ICON_FAVICON_16" file="video_player/images/icon/video-player-favicon-16.png" type="BINDATA" />
+      <include name="IDR_VIDEO_PLAYER_ICON_32" file="video_player/images/icon/video-player-32.png" type="BINDATA" />
+      <include name="IDR_VIDEO_PLAYER_ICON_48" file="video_player/images/icon/video-player-48.png" type="BINDATA" />
+      <include name="IDR_VIDEO_PLAYER_ICON_64" file="video_player/images/icon/video-player-64.png" type="BINDATA" />
+      <include name="IDR_VIDEO_PLAYER_ICON_96" file="video_player/images/icon/video-player-96.png" type="BINDATA" />
+      <include name="IDR_VIDEO_PLAYER_ICON_128" file="video_player/images/icon/video-player-128.png" type="BINDATA" />
+      <include name="IDR_VIDEO_PLAYER_ICON_256" file="video_player/images/icon/video-player-256.png" type="BINDATA" />
+      <include name="IDR_VIDEO_PLAYER_ICON_FAVICON_32" file="video_player/images/icon/video-player-favicon-32.png" type="BINDATA" />
 
       <!-- Gallery.app pages and scripts. -->
       <include name="IDR_GALLERY_MANIFEST" file="gallery/manifest.json" type="BINDATA" />

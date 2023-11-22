@@ -68,6 +68,10 @@ class TestWidgetConstraintsDelegate : public TestWidgetDelegate {
     return true;
   }
 
+  virtual bool CanMinimize() const OVERRIDE {
+    return true;
+  }
+
   void set_minimum_size(const gfx::Size& min_size) {
     minimum_size_ = min_size;
   }
@@ -79,6 +83,12 @@ class TestWidgetConstraintsDelegate : public TestWidgetDelegate {
   const gfx::Rect& GetFrameCaptionButtonContainerViewBounds() {
     return custom_frame_view()->GetFrameCaptionButtonContainerViewForTest()->
         bounds();
+  }
+
+  void EndFrameCaptionButtonContainerViewAnimations() {
+    FrameCaptionButtonContainerView::TestApi test(custom_frame_view()->
+        GetFrameCaptionButtonContainerViewForTest());
+    test.EndAnimations();
   }
 
   int GetTitleBarHeight() const {
@@ -212,11 +222,13 @@ TEST_F(CustomFrameViewAshTest, HeaderViewNotifiedOfChildSizeChange) {
       GetFrameCaptionButtonContainerViewBounds();
   Shell::GetInstance()->maximize_mode_controller()->
       EnableMaximizeModeWindowManager(true);
+  delegate->EndFrameCaptionButtonContainerViewAnimations();
   const gfx::Rect maximize_mode_bounds = delegate->
       GetFrameCaptionButtonContainerViewBounds();
   EXPECT_GT(initial.width(), maximize_mode_bounds.width());
   Shell::GetInstance()->maximize_mode_controller()->
       EnableMaximizeModeWindowManager(false);
+  delegate->EndFrameCaptionButtonContainerViewAnimations();
   const gfx::Rect after_restore = delegate->
       GetFrameCaptionButtonContainerViewBounds();
   EXPECT_EQ(initial, after_restore);

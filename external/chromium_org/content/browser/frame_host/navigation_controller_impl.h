@@ -58,7 +58,7 @@ class CONTENT_EXPORT NavigationControllerImpl
   virtual void SetTransientEntry(NavigationEntry* entry) OVERRIDE;
   virtual void LoadURL(const GURL& url,
                        const Referrer& referrer,
-                       PageTransition type,
+                       ui::PageTransition type,
                        const std::string& extra_headers) OVERRIDE;
   virtual void LoadURLWithParams(const LoadURLParams& params) OVERRIDE;
   virtual void LoadIfNecessary() OVERRIDE;
@@ -167,7 +167,7 @@ class CONTENT_EXPORT NavigationControllerImpl
   bool IsURLInPageNavigation(
       const GURL& url,
       bool renderer_says_in_page,
-      NavigationType navigation_type) const;
+      RenderFrameHost* rfh) const;
 
   // Sets the SessionStorageNamespace for the given |partition_id|. This is
   // used during initialization of a new NavigationController to allow

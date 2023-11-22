@@ -88,6 +88,8 @@ public:
                 uint32_t shift;
                 uint32_t step;
             } yuv;
+
+            int grallocFlags;
         };
         mutable DrvState drvState;
 
@@ -183,7 +185,7 @@ protected:
         const android::renderscript::Context *rsc;
         const android::renderscript::Allocation *alloc;
 
-        virtual void onFrameAvailable();
+        virtual void onFrameAvailable(const BufferItem& item);
     };
 
     sp<NewBufferListener> mBufferListener;

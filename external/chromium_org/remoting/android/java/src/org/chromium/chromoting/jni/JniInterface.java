@@ -18,9 +18,11 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.widget.CheckBox;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.chromium.base.CalledByNative;
 import org.chromium.base.JNINamespace;
+import org.chromium.chromoting.CapabilityManager;
 import org.chromium.chromoting.Chromoting;
 import org.chromium.chromoting.R;
 
@@ -142,6 +144,9 @@ public class JniInterface {
     /** Bitmap holding the cursor shape. Accessed on the graphics thread. */
     private static Bitmap sCursorBitmap = null;
 
+    /** Capability Manager through which capabilities and extensions are handled. */
+    private static CapabilityManager sCapabilityManager = CapabilityManager.getInstance();
+
     /**
      * To be called once from the main Activity. Any subsequent calls will update the application
      * context, but not reload the library. This is useful e.g. when the activity is closed and the
@@ -176,20 +181,33 @@ public class JniInterface {
         sConnectionListener = listener;
         SharedPreferences prefs = sContext.getPreferences(Activity.MODE_PRIVATE);
         nativeConnect(username, authToken, hostJid, hostId, hostPubkey,
-                prefs.getString(hostId + "_id", ""), prefs.getString(hostId + "_secret", ""));
+                prefs.getString(hostId + "_id", ""), prefs.getString(hostId + "_secret", ""),
+                sCapabilityManager.getLocalCapabilities());
         sConnected = true;
     }
 
     /** Performs the native portion of the connection. */
     private static native void nativeConnect(String username, String authToken, String hostJid,
-            String hostId, String hostPubkey, String pairId, String pairSecret);
+            String hostId, String hostPubkey, String pairId, String pairSecret,
+            String capabilities);
 
     /** Severs the connection and cleans up. Called on the UI thread. */
     public static void disconnectFromHost() {
-        if (!sConnected) return;
+        if (!sConnected) {
+            return;
+        }
 
         sConnectionListener.onConnectionState(ConnectionListener.State.CLOSED,
                 ConnectionListener.Error.OK);
+
+        disconnectFromHostWithoutNotification();
+    }
+
+    /** Same as disconnectFromHost() but without notifying the ConnectionListener. */
+    private static void disconnectFromHostWithoutNotification() {
+        if (!sConnected) {
+            return;
+        }
 
         nativeDisconnect();
         sConnectionListener = null;
@@ -204,11 +222,17 @@ public class JniInterface {
     /** Performs the native portion of the cleanup. */
     private static native void nativeDisconnect();
 
-    /** Reports whenever the connection status changes. Called on the UI thread. */
+    /** Called by native code whenever the connection status changes. Called on the UI thread. */
     @CalledByNative
-    private static void reportConnectionStatus(int state, int error) {
-        sConnectionListener.onConnectionState(ConnectionListener.State.fromValue(state),
-                ConnectionListener.Error.fromValue(error));
+    private static void onConnectionState(int stateCode, int errorCode) {
+        ConnectionListener.State state = ConnectionListener.State.fromValue(stateCode);
+        ConnectionListener.Error error = ConnectionListener.Error.fromValue(errorCode);
+        sConnectionListener.onConnectionState(state, error);
+        if (state == ConnectionListener.State.FAILED || state == ConnectionListener.State.CLOSED) {
+            // Disconnect from the host here, otherwise the next time connectToHost() is called,
+            // it will try to disconnect, triggering an incorrect status notification.
+            disconnectFromHostWithoutNotification();
+        }
     }
 
     /** Prompts the user to enter a PIN. Called on the UI thread. */
@@ -222,8 +246,8 @@ public class JniInterface {
         final View pinEntry = sContext.getLayoutInflater().inflate(R.layout.pin_dialog, null);
         pinPrompt.setView(pinEntry);
 
-        final TextView pinTextView = (TextView)pinEntry.findViewById(R.id.pin_dialog_text);
-        final CheckBox pinCheckBox = (CheckBox)pinEntry.findViewById(R.id.pin_dialog_check);
+        final TextView pinTextView = (TextView) pinEntry.findViewById(R.id.pin_dialog_text);
+        final CheckBox pinCheckBox = (CheckBox) pinEntry.findViewById(R.id.pin_dialog_check);
 
         if (!pairingSupported) {
             pinCheckBox.setChecked(false);
@@ -235,8 +259,13 @@ public class JniInterface {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         Log.i("jniiface", "User provided a PIN code");
-                        nativeAuthenticationResponse(String.valueOf(pinTextView.getText()),
-                                pinCheckBox.isChecked(), Build.MODEL);
+                        if (sConnected) {
+                            nativeAuthenticationResponse(String.valueOf(pinTextView.getText()),
+                                    pinCheckBox.isChecked(), Build.MODEL);
+                        } else {
+                            String message = sContext.getString(R.string.error_network_error);
+                            Toast.makeText(sContext, message, Toast.LENGTH_LONG).show();
+                        }
                     }
                 });
 
@@ -286,11 +315,19 @@ public class JniInterface {
 
     /** Saves newly-received pairing credentials to permanent storage. Called on the UI thread. */
     @CalledByNative
-    private static void commitPairingCredentials(String host, byte[] id, byte[] secret) {
-        sContext.getPreferences(Activity.MODE_PRIVATE).edit().
-                putString(host + "_id", new String(id)).
-                putString(host + "_secret", new String(secret)).
-                apply();
+    private static void commitPairingCredentials(String host, String id, String secret) {
+        // Empty |id| indicates that pairing needs to be removed.
+        if (id.isEmpty()) {
+            sContext.getPreferences(Activity.MODE_PRIVATE).edit().
+                    remove(host + "_id").
+                    remove(host + "_secret").
+                    apply();
+        } else {
+            sContext.getPreferences(Activity.MODE_PRIVATE).edit().
+                    putString(host + "_id", id).
+                    putString(host + "_secret", secret).
+                    apply();
+        }
     }
 
     /**
@@ -449,5 +486,45 @@ public class JniInterface {
     /**
      * Notify the native code to continue authentication with the |token| and the |sharedSecret|.
      */
-    public static native void nativeOnThirdPartyTokenFetched(String token, String sharedSecret);
+    public static void onThirdPartyTokenFetched(String token, String sharedSecret) {
+        if (!sConnected) {
+            return;
+        }
+
+        nativeOnThirdPartyTokenFetched(token, sharedSecret);
+    }
+
+    /** Passes authentication data to the native handling code. */
+    private static native void nativeOnThirdPartyTokenFetched(String token, String sharedSecret);
+
+    //
+    // Host and Client Capabilities
+    //
+
+    /** Set the list of negotiated capabilities between host and client. Called on the UI thread. */
+    @CalledByNative
+    public static void setCapabilities(String capabilities) {
+        sCapabilityManager.setNegotiatedCapabilities(capabilities);
+    }
+
+    //
+    // Extension Message Handling
+    //
+
+    /** Passes on the deconstructed ExtensionMessage to the app. Called on the UI thread. */
+    @CalledByNative
+    public static void handleExtensionMessage(String type, String data) {
+        sCapabilityManager.onExtensionMessage(type, data);
+    }
+
+    /** Sends an extension message to the Chromoting host. Called on the UI thread. */
+    public static void sendExtensionMessage(String type, String data) {
+        if (!sConnected) {
+            return;
+        }
+
+        nativeSendExtensionMessage(type, data);
+    }
+
+    private static native void nativeSendExtensionMessage(String type, String data);
 }

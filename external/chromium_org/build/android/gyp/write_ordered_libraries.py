@@ -27,13 +27,30 @@ import sys
 
 from util import build_utils
 
-_options = None
+_readelf = None
+_library_dirs = None
+
 _library_re = re.compile(
     '.*NEEDED.*Shared library: \[(?P<library_name>[\w/.]+)\]')
 
 
+def SetReadelfPath(path):
+  global _readelf
+  _readelf = path
+
+
+def SetLibraryDirs(dirs):
+  global _library_dirs
+  _library_dirs = dirs
+
+
 def FullLibraryPath(library_name):
-  return '%s/%s' % (_options.libraries_dir, library_name)
+  assert _library_dirs is not None
+  for directory in _library_dirs:
+    path = '%s/%s' % (directory, library_name)
+    if os.path.exists(path):
+      return path
+  return library_name
 
 
 def IsSystemLibrary(library_name):
@@ -43,9 +60,10 @@ def IsSystemLibrary(library_name):
 
 
 def CallReadElf(library_or_executable):
-  readelf_cmd = [_options.readelf,
+  assert _readelf is not None
+  readelf_cmd = [_readelf,
                  '-d',
-                 library_or_executable]
+                 FullLibraryPath(library_or_executable)]
   return build_utils.CheckOutput(readelf_cmd)
 
 
@@ -61,38 +79,24 @@ def GetNonSystemDependencies(library_name):
 
 def GetSortedTransitiveDependencies(libraries):
   """Returns all transitive library dependencies in dependency order."""
-  def GraphNode(library):
-    return (library, GetNonSystemDependencies(library))
+  return build_utils.GetSortedTransitiveDependencies(
+      libraries, GetNonSystemDependencies)
 
-  # First: find all library dependencies.
-  unchecked_deps = libraries
-  all_deps = set(libraries)
-  while unchecked_deps:
-    lib = unchecked_deps.pop()
-    new_deps = GetNonSystemDependencies(lib).difference(all_deps)
-    unchecked_deps.extend(new_deps)
-    all_deps = all_deps.union(new_deps)
 
-  # Then: simple, slow topological sort.
-  sorted_deps = []
-  unsorted_deps = dict(map(GraphNode, all_deps))
-  while unsorted_deps:
-    for library, dependencies in unsorted_deps.items():
-      if not dependencies.intersection(unsorted_deps.keys()):
-        sorted_deps.append(library)
-        del unsorted_deps[library]
+def GetSortedTransitiveDependenciesForBinaries(binaries):
+  if binaries[0].endswith('.so'):
+    libraries = [os.path.basename(lib) for lib in binaries]
+  else:
+    assert len(binaries) == 1
+    all_deps = GetDependencies(binaries[0])
+    libraries = [lib for lib in all_deps if not IsSystemLibrary(lib)]
 
-  return sorted_deps
-
-def GetSortedTransitiveDependenciesForExecutable(executable):
-  """Returns all transitive library dependencies in dependency order."""
-  all_deps = GetDependencies(executable)
-  libraries = [lib for lib in all_deps if not IsSystemLibrary(lib)]
   return GetSortedTransitiveDependencies(libraries)
 
 
 def main():
   parser = optparse.OptionParser()
+  build_utils.AddDepfileOption(parser)
 
   parser.add_option('--input-libraries',
       help='A list of top-level input libraries.')
@@ -102,20 +106,32 @@ def main():
   parser.add_option('--output', help='Path to the generated .json file.')
   parser.add_option('--stamp', help='Path to touch on success.')
 
-  global _options
-  _options, _ = parser.parse_args()
+  options, _ = parser.parse_args()
 
-  libraries = build_utils.ParseGypList(_options.input_libraries)
-  if libraries[0].endswith('.so'):
-    libraries = [os.path.basename(lib) for lib in libraries]
-    libraries = GetSortedTransitiveDependencies(libraries)
-  else:
-    libraries = GetSortedTransitiveDependenciesForExecutable(libraries[0])
+  SetReadelfPath(options.readelf)
+  SetLibraryDirs(options.libraries_dir.split(','))
 
-  build_utils.WriteJson(libraries, _options.output, only_if_changed=True)
+  libraries = build_utils.ParseGypList(options.input_libraries)
+  if len(libraries):
+    libraries = GetSortedTransitiveDependenciesForBinaries(libraries)
 
-  if _options.stamp:
-    build_utils.Touch(_options.stamp)
+  # Convert to "base" library names: e.g. libfoo.so -> foo
+  java_libraries_list = (
+      '{%s}' % ','.join(['"%s"' % s[3:-3] for s in libraries]))
+
+  build_utils.WriteJson(
+      {'libraries': libraries, 'java_libraries_list': java_libraries_list},
+      options.output,
+      only_if_changed=True)
+
+  if options.stamp:
+    build_utils.Touch(options.stamp)
+
+  if options.depfile:
+    print libraries
+    build_utils.WriteDepfile(
+        options.depfile,
+        libraries + build_utils.GetPythonDependencies())
 
 
 if __name__ == '__main__':

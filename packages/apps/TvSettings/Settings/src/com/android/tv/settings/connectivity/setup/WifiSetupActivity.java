@@ -35,7 +35,6 @@ import com.android.tv.settings.form.FormPage;
 import com.android.tv.settings.form.FormPageResultListener;
 
 import android.animation.Animator;
-import android.animation.ArgbEvaluator;
 import android.animation.ObjectAnimator;
 import android.app.Fragment;
 import android.app.FragmentManager;
@@ -52,9 +51,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.text.TextUtils;
-import android.util.Log;
 import android.util.Pair;
-import android.util.TypedValue;
 import android.view.View;
 
 import java.util.ArrayList;
@@ -72,10 +69,13 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
     private static final int MSG_NETWORK_REFRESH = 1;
     private static final int NETWORK_REFRESH_TIMEOUT = 5000;
     private static final String EXTRA_SHOW_SUMMARY = "extra_show_summary";
+    private static final String EXTRA_SHOW_SKIP_NETWORK = "extra_show_skip_network";
+    private static final String EXTRA_SHOW_WPS_AT_TOP = "extra_show_wps_at_top";
     // If you change this constant, make sure to change the constant in setup wizard
     private static final int RESULT_NETWORK_SKIPPED = 3;
 
-    private boolean mFirstRun;
+    private boolean mShowSkipNetwork;
+    private boolean mShowWpsAtTop;
     private AdvancedWifiOptionsFlow mAdvancedWifiOptionsFlow;
     private WifiManager mWifiManager;
     private WifiConfiguration mConfiguration;
@@ -117,6 +117,8 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
         };
 
         boolean showSummary = getIntent().getBooleanExtra(EXTRA_SHOW_SUMMARY, false);
+        mShowSkipNetwork = getIntent().getBooleanExtra(EXTRA_SHOW_SKIP_NETWORK, false);
+        mShowWpsAtTop = getIntent().getBooleanExtra(EXTRA_SHOW_WPS_AT_TOP, false);
 
         if (showSummary) {
             addSummaryPage();
@@ -203,6 +205,7 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
                 break;
             case CHOOSE_NETWORK:
                 if (choiceChosen(formPage, R.string.skip_network)) {
+                    WifiConfigHelper.forgetWifiNetwork(this);
                     setResult(RESULT_NETWORK_SKIPPED);
                 } else {
                     mHandler.removeMessages(MSG_NETWORK_REFRESH);
@@ -264,8 +267,6 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
                         break;
                 }
                 break;
-            case CONNECT_FAILED:
-                // fall through
             case CONNECT_TIMEOUT:
                 mAdvancedWifiOptionsFlow = new AdvancedWifiOptionsFlow(this, this, true, null);
                 // fall through
@@ -279,6 +280,8 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
                     addPage(WifiFormPageType.CHOOSE_NETWORK);
                 }
                 break;
+            case CONNECT_FAILED:
+                // fall through
             case CONNECT_AUTHENTICATION_FAILURE:
                 if (choiceChosen(formPage, R.string.wifi_action_try_again)) {
                     addPageBasedOnNetworkChoice(mChooseNetworkPage);
@@ -431,6 +434,20 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
             listItems.add(new SelectFromListWizardFragment.ListItem(result));
         }
         Collections.sort(listItems, new SelectFromListWizardFragment.ListItemComparator());
+
+        SelectFromListWizardFragment.ListItem wpsItem = new SelectFromListWizardFragment.ListItem(
+                getString(R.string.wps_network).toUpperCase(), R.drawable.ic_setup_wps);
+        if (mShowWpsAtTop) {
+            listItems.add(0, wpsItem);
+        } else {
+            listItems.add(wpsItem);
+        }
+
+        if (mShowSkipNetwork) {
+            listItems.add(new SelectFromListWizardFragment.ListItem(
+                   getString(R.string.skip_network).toUpperCase(), 0));
+        }
+
         return listItems;
     }
 
@@ -439,7 +456,7 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
             mConfiguration.hiddenSSID = true;
             addPage(WifiFormPageType.ENTER_SSID);
         } else if (choiceChosen(chooseNetworkPage, R.string.wps_network)) {
-            addPage(WifiFormPageType.WPS, WpsConnectionActivity.createIntent(this, 1)
+            addPage(WifiFormPageType.WPS, new Intent(this, WpsConnectionActivity.class)
                     .putExtras(getIntent().getExtras()));
         } else {
             ScanResult scanResult = getListItem(chooseNetworkPage).getScanResult();

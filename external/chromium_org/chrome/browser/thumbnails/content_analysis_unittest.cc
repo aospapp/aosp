@@ -32,7 +32,7 @@ namespace {
 unsigned long ImagePixelSum(const SkBitmap& bitmap, const gfx::Rect& rect) {
   // Get the sum of pixel values in the rectangle. Applicable only to
   // monochrome bitmaps.
-  DCHECK_EQ(SkBitmap::kA8_Config, bitmap.config());
+  DCHECK_EQ(kAlpha_8_SkColorType, bitmap.colorType());
   unsigned long total = 0;
   for (int r = rect.y(); r < rect.bottom(); ++r) {
     const uint8* row_data = static_cast<const uint8*>(
@@ -88,9 +88,8 @@ TEST_F(ThumbnailContentAnalysisTest, ApplyGradientMagnitudeOnImpulse) {
       skia::GetTopDevice(*canvas.sk_canvas())->accessBitmap(false);
 
   SkBitmap reduced_color;
-  reduced_color.setConfig(
-      SkBitmap::kA8_Config, source.width(), source.height());
-  reduced_color.allocPixels();
+  reduced_color.allocPixels(SkImageInfo::MakeA8(source.width(),
+                                                source.height()));
 
   gfx::Vector3dF transform(0.299f, 0.587f, 0.114f);
   EXPECT_TRUE(color_utils::ApplyColorReduction(
@@ -133,9 +132,8 @@ TEST_F(ThumbnailContentAnalysisTest, ApplyGradientMagnitudeOnFrame) {
       skia::GetTopDevice(*canvas.sk_canvas())->accessBitmap(false);
 
   SkBitmap reduced_color;
-  reduced_color.setConfig(
-      SkBitmap::kA8_Config, source.width(), source.height());
-  reduced_color.allocPixels();
+  reduced_color.allocPixels(SkImageInfo::MakeA8(source.width(),
+                                                source.height()));
 
   gfx::Vector3dF transform(0.299f, 0.587f, 0.114f);
   EXPECT_TRUE(color_utils::ApplyColorReduction(
@@ -172,9 +170,8 @@ TEST_F(ThumbnailContentAnalysisTest, ExtractImageProfileInformation) {
   SkBitmap source =
       skia::GetTopDevice(*canvas.sk_canvas())->accessBitmap(false);
   SkBitmap reduced_color;
-  reduced_color.setConfig(
-      SkBitmap::kA8_Config, source.width(), source.height());
-  reduced_color.allocPixels();
+  reduced_color.allocPixels(SkImageInfo::MakeA8(source.width(),
+                                                source.height()));
 
   gfx::Vector3dF transform(1, 0, 0);
   EXPECT_TRUE(color_utils::ApplyColorReduction(
@@ -237,9 +234,8 @@ TEST_F(ThumbnailContentAnalysisTest,
   SkBitmap source =
       skia::GetTopDevice(*canvas.sk_canvas())->accessBitmap(false);
   SkBitmap reduced_color;
-  reduced_color.setConfig(
-      SkBitmap::kA8_Config, source.width(), source.height());
-  reduced_color.allocPixels();
+  reduced_color.allocPixels(SkImageInfo::MakeA8(source.width(),
+                                                source.height()));
 
   gfx::Vector3dF transform(1, 0, 0);
   EXPECT_TRUE(color_utils::ApplyColorReduction(

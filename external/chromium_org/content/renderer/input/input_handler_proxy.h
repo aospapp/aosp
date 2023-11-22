@@ -45,9 +45,10 @@ class CONTENT_EXPORT InputHandlerProxy
   virtual void WillShutdown() OVERRIDE;
   virtual void Animate(base::TimeTicks time) OVERRIDE;
   virtual void MainThreadHasStoppedFlinging() OVERRIDE;
-  virtual void DidOverscroll(const gfx::Vector2dF& accumulated_overscroll,
-                             const gfx::Vector2dF& latest_overscroll_delta)
-      OVERRIDE;
+  virtual void DidOverscroll(
+      const gfx::PointF& causal_event_viewport_point,
+      const gfx::Vector2dF& accumulated_overscroll,
+      const gfx::Vector2dF& latest_overscroll_delta) OVERRIDE;
 
   // blink::WebGestureCurveTarget implementation.
   virtual bool scrollBy(const blink::WebFloatSize& offset,
@@ -66,16 +67,19 @@ class CONTENT_EXPORT InputHandlerProxy
 
   // Schedule a time in the future after which a boost-enabled fling will
   // terminate without further momentum from the user (see |Animate()|).
-  void FlingBoostExtend(const blink::WebGestureEvent& event);
-
-  // Cancel the current fling and insert a GestureScrollBegin if necessary.
-  void FlingBoostCancelAndResumeScrollingIfNecessary();
+  void ExtendBoostedFlingTimeout(const blink::WebGestureEvent& event);
 
   // Returns true if we scrolled by the increment.
   bool TouchpadFlingScroll(const blink::WebFloatSize& increment);
 
+  // Returns true if we actually had an active fling to cancel, also notifying
+  // the client that the fling has ended. Note that if a boosted fling is active
+  // and suppressing an active scroll sequence, a synthetic GestureScrollBegin
+  // will be injected to resume scrolling.
+  bool CancelCurrentFling();
+
   // Returns true if we actually had an active fling to cancel.
-  bool CancelCurrentFling(bool send_fling_stopped_notification);
+  bool CancelCurrentFlingWithoutNotifyingClient();
 
   scoped_ptr<blink::WebGestureCurve> fling_curve_;
   // Parameters for the active fling animation, stored in case we need to
@@ -91,7 +95,7 @@ class CONTENT_EXPORT InputHandlerProxy
 
   // The last event that extended the lifetime of the boosted fling. If the
   // event was a scroll gesture, a GestureScrollBegin will be inserted if the
-  // fling terminates (via |FlingBoostCancelAndResumeScrollingIfNecessary()|).
+  // fling terminates (via |CancelCurrentFling()|).
   blink::WebGestureEvent last_fling_boost_event_;
 
 #ifndef NDEBUG
@@ -115,6 +119,8 @@ class CONTENT_EXPORT InputHandlerProxy
 
   // Non-zero only within the scope of |scrollBy|.
   gfx::Vector2dF current_fling_velocity_;
+
+  bool smooth_scroll_enabled_;
 
   DISALLOW_COPY_AND_ASSIGN(InputHandlerProxy);
 };

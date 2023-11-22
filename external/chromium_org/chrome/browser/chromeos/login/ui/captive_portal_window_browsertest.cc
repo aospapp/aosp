@@ -12,11 +12,11 @@
 #include "chrome/browser/chromeos/login/ui/captive_portal_window_proxy.h"
 #include "chrome/browser/chromeos/login/ui/login_display_host_impl.h"
 #include "chrome/browser/chromeos/login/ui/webui_login_view.h"
-#include "chrome/browser/chromeos/net/network_portal_detector.h"
 #include "chrome/browser/chromeos/net/network_portal_detector_test_impl.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chromeos/chromeos_switches.h"
 #include "chromeos/dbus/fake_shill_manager_client.h"
+#include "chromeos/network/portal_detector/network_portal_detector.h"
 
 namespace chromeos {
 
@@ -89,7 +89,7 @@ class CaptivePortalWindowTest : public InProcessBrowserTest {
         new CaptivePortalWindowProxy(&delegate_, web_contents));
   }
 
-  virtual void CleanUpOnMainThread() OVERRIDE {
+  virtual void TearDownOnMainThread() OVERRIDE {
     captive_portal_window_proxy_.reset();
     base::MessageLoopForUI::current()->DeleteSoon(FROM_HERE, host_);
     base::MessageLoopForUI::current()->RunUntilIdle();
@@ -187,11 +187,11 @@ class CaptivePortalWindowCtorDtorTest : public LoginManagerTest {
     NetworkPortalDetector::CaptivePortalState portal_state;
     portal_state.status = NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_PORTAL;
     portal_state.response_code = 200;
-    network_portal_detector_->SetDefaultNetworkPathForTesting(
-        FakeShillManagerClient::kFakeEthernetNetworkPath,
-        FakeShillManagerClient::kFakeEthernetNetworkPath /* guid */);
+    network_portal_detector_->SetDefaultNetworkForTesting(
+        FakeShillManagerClient::kFakeEthernetNetworkGuid);
     network_portal_detector_->SetDetectionResultsForTesting(
-        FakeShillManagerClient::kFakeEthernetNetworkPath, portal_state);
+        FakeShillManagerClient::kFakeEthernetNetworkGuid,
+        portal_state);
   }
 
  protected:

@@ -114,7 +114,8 @@ void ExtensionEnableFlow::CreatePrompt() {
 void ExtensionEnableFlow::StartObserving() {
   extension_registry_observer_.Add(
       extensions::ExtensionRegistry::Get(profile_));
-  registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_LOAD_ERROR,
+  registrar_.Add(this,
+                 extensions::NOTIFICATION_EXTENSION_LOAD_ERROR,
                  content::Source<Profile>(profile_));
 }
 
@@ -126,7 +127,7 @@ void ExtensionEnableFlow::StopObserving() {
 void ExtensionEnableFlow::Observe(int type,
                                   const content::NotificationSource& source,
                                   const content::NotificationDetails& details) {
-  DCHECK_EQ(chrome::NOTIFICATION_EXTENSION_LOAD_ERROR, type);
+  DCHECK_EQ(extensions::NOTIFICATION_EXTENSION_LOAD_ERROR, type);
   StopObserving();
   delegate_->ExtensionEnableFlowAborted(false);
 }
@@ -142,7 +143,8 @@ void ExtensionEnableFlow::OnExtensionLoaded(
 
 void ExtensionEnableFlow::OnExtensionUninstalled(
     content::BrowserContext* browser_context,
-    const Extension* extension) {
+    const Extension* extension,
+    extensions::UninstallReason reason) {
   if (extension->id() == extension_id_) {
     StopObserving();
     delegate_->ExtensionEnableFlowAborted(false);

@@ -11,12 +11,13 @@
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/website_settings/website_settings.h"
+#include "chrome/grit/generated_resources.h"
+#include "content/public/browser/browser_context.h"
 #include "content/public/browser/cert_store.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/ssl_status.h"
-#include "grit/generated_resources.h"
 #include "jni/WebsiteSettingsPopup_jni.h"
 #include "net/cert/x509_certificate.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -105,6 +106,13 @@ void WebsiteSettingsPopupAndroid::Destroy(JNIEnv* env, jobject obj) {
   delete this;
 }
 
+void WebsiteSettingsPopupAndroid::ResetCertDecisions(
+    JNIEnv* env,
+    jobject obj,
+    jobject java_web_contents) {
+  presenter_->OnRevokeSSLErrorBypassButtonPressed();
+}
+
 void WebsiteSettingsPopupAndroid::SetIdentityInfo(
     const IdentityInfo& identity_info) {
   JNIEnv* env = base::android::AttachCurrentThread();
@@ -126,7 +134,7 @@ void WebsiteSettingsPopupAndroid::SetIdentityInfo(
     ScopedJavaLocalRef<jstring> description = ConvertUTF8ToJavaString(
         env, identity_info.identity_status_description);
     base::string16 certificate_label =
-            l10n_util::GetStringUTF16(IDS_PAGEINFO_CERT_INFO_BUTTON);
+        l10n_util::GetStringUTF16(IDS_PAGEINFO_CERT_INFO_BUTTON);
     Java_WebsiteSettingsPopup_addCertificateSection(
         env,
         popup_jobject_.obj(),
@@ -134,6 +142,15 @@ void WebsiteSettingsPopupAndroid::SetIdentityInfo(
         ConvertUTF8ToJavaString(env, headline).obj(),
         description.obj(),
         ConvertUTF16ToJavaString(env, certificate_label).obj());
+
+    if (identity_info.show_ssl_decision_revoke_button) {
+      base::string16 reset_button_label = l10n_util::GetStringUTF16(
+          IDS_PAGEINFO_RESET_INVALID_CERTIFICATE_DECISIONS_BUTTON);
+      Java_WebsiteSettingsPopup_addResetCertDecisionsButton(
+          env,
+          popup_jobject_.obj(),
+          ConvertUTF16ToJavaString(env, reset_button_label).obj());
+    }
   }
 
   {

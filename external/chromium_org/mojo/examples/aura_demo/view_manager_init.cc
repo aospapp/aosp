@@ -4,42 +4,37 @@
 
 #include "base/basictypes.h"
 #include "base/bind.h"
-#include "mojo/public/cpp/application/application.h"
-#include "mojo/services/public/interfaces/view_manager/view_manager.mojom.h"
+#include "mojo/application/application_runner_chromium.h"
+#include "mojo/public/c/system/main.h"
+#include "mojo/public/cpp/application/application_delegate.h"
+#include "mojo/public/cpp/application/application_impl.h"
+#include "mojo/public/interfaces/application/service_provider.mojom.h"
+#include "mojo/services/public/cpp/view_manager/view_manager.h"
+#include "mojo/services/public/cpp/view_manager/view_manager_context.h"
 
-namespace mojo {
 namespace examples {
 
 // ViewManagerInit is responsible for establishing the initial connection to
 // the view manager. When established it loads |mojo_aura_demo|.
-class ViewManagerInit : public Application {
+class ViewManagerInit : public mojo::ApplicationDelegate {
  public:
   ViewManagerInit() {}
   virtual ~ViewManagerInit() {}
 
-  virtual void Initialize() OVERRIDE {
-    ConnectTo("mojo:mojo_view_manager", &view_manager_init_);
-    view_manager_init_->EmbedRoot("mojo:mojo_aura_demo",
-                                  base::Bind(&ViewManagerInit::DidConnect,
-                                             base::Unretained(this)));
+  virtual void Initialize(mojo::ApplicationImpl* app) MOJO_OVERRIDE {
+    context_.reset(new mojo::ViewManagerContext(app));
+    context_->Embed("mojo:mojo_aura_demo");
   }
 
  private:
-  void DidConnect(bool result) {
-    DCHECK(result);
-    VLOG(1) << "ViewManagerInit::DidConnection result=" << result;
-  }
-
-  view_manager::ViewManagerInitServicePtr view_manager_init_;
+  scoped_ptr<mojo::ViewManagerContext> context_;
 
   DISALLOW_COPY_AND_ASSIGN(ViewManagerInit);
 };
 
 }  // namespace examples
 
-// static
-Application* Application::Create() {
-  return new examples::ViewManagerInit();
+MojoResult MojoMain(MojoHandle shell_handle) {
+  mojo::ApplicationRunnerChromium runner(new examples::ViewManagerInit);
+  return runner.Run(shell_handle);
 }
-
-}  // namespace mojo

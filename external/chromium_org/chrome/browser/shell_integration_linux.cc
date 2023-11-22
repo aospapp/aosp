@@ -21,9 +21,9 @@
 #include "base/base_paths.h"
 #include "base/command_line.h"
 #include "base/environment.h"
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/i18n/file_util_icu.h"
 #include "base/memory/ref_counted_memory.h"
@@ -260,6 +260,7 @@ void DeleteShortcutInApplicationsMenu(
   LaunchXdgUtility(argv, &exit_code);
 }
 
+#if defined(USE_GLIB)
 // Quote a string such that it appears as one verbatim argument for the Exec
 // key in a desktop file.
 std::string QuoteArgForDesktopFileExec(const std::string& arg) {
@@ -310,6 +311,7 @@ std::string QuoteCommandLineForDesktopFileExec(
 const char kDesktopEntry[] = "Desktop Entry";
 
 const char kXdgOpenShebang[] = "#!/usr/bin/env xdg-open";
+#endif
 
 const char kXdgSettings[] = "xdg-settings";
 const char kXdgSettingsDefaultBrowser[] = "default-web-browser";
@@ -695,7 +697,7 @@ base::FilePath GetWebShortcutFilename(const GURL& url) {
   // Use a prefix, because xdg-desktop-menu requires it.
   std::string filename =
       std::string(chrome::kBrowserProcessExecutableName) + "-" + url.spec();
-  file_util::ReplaceIllegalCharactersInPath(&filename, '_');
+  base::i18n::ReplaceIllegalCharactersInPath(&filename, '_');
 
   base::FilePath desktop_path;
   if (!PathService::Get(base::DIR_USER_DESKTOP, &desktop_path))
@@ -725,7 +727,7 @@ base::FilePath GetExtensionShortcutFilename(const base::FilePath& profile_path,
       .append(extension_id)
       .append("-")
       .append(profile_path.BaseName().value());
-  file_util::ReplaceIllegalCharactersInPath(&filename, '_');
+  base::i18n::ReplaceIllegalCharactersInPath(&filename, '_');
   // Spaces in filenames break xdg-desktop-menu
   // (see https://bugs.freedesktop.org/show_bug.cgi?id=66605).
   base::ReplaceChars(filename, " ", "_", &filename);
@@ -741,7 +743,7 @@ std::vector<base::FilePath> GetExistingProfileShortcutFilenames(
   prefix.append("-");
   std::string suffix("-");
   suffix.append(profile_path.BaseName().value());
-  file_util::ReplaceIllegalCharactersInPath(&suffix, '_');
+  base::i18n::ReplaceIllegalCharactersInPath(&suffix, '_');
   // Spaces in filenames break xdg-desktop-menu
   // (see https://bugs.freedesktop.org/show_bug.cgi?id=66605).
   base::ReplaceChars(suffix, " ", "_", &suffix);

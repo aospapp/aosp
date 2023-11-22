@@ -5,22 +5,24 @@
 #include "chrome/browser/autocomplete/keyword_extensions_delegate_impl.h"
 
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/extensions/api/omnibox/omnibox_api.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
-#include "extensions/browser/extension_system.h"
+#include "extensions/browser/extension_registry.h"
+#include "extensions/browser/notification_types.h"
 
 namespace omnibox_api = extensions::api::omnibox;
 
 int KeywordExtensionsDelegateImpl::global_input_uid_ = 0;
 
 KeywordExtensionsDelegateImpl::KeywordExtensionsDelegateImpl(
+    Profile* profile,
     KeywordProvider* provider)
     : KeywordExtensionsDelegate(provider),
+      profile_(profile),
       provider_(provider) {
   DCHECK(provider_);
 
@@ -28,15 +30,16 @@ KeywordExtensionsDelegateImpl::KeywordExtensionsDelegateImpl(
   // Extension suggestions always come from the original profile, since that's
   // where extensions run. We use the input ID to distinguish whether the
   // suggestions are meant for us.
+  registrar_.Add(this,
+                 extensions::NOTIFICATION_EXTENSION_OMNIBOX_SUGGESTIONS_READY,
+                 content::Source<Profile>(profile_->GetOriginalProfile()));
   registrar_.Add(
-      this, chrome::NOTIFICATION_EXTENSION_OMNIBOX_SUGGESTIONS_READY,
-      content::Source<Profile>(profile()->GetOriginalProfile()));
-  registrar_.Add(
-      this, chrome::NOTIFICATION_EXTENSION_OMNIBOX_DEFAULT_SUGGESTION_CHANGED,
-      content::Source<Profile>(profile()->GetOriginalProfile()));
-  registrar_.Add(
-      this, chrome::NOTIFICATION_EXTENSION_OMNIBOX_INPUT_ENTERED,
-      content::Source<Profile>(profile()));
+      this,
+      extensions::NOTIFICATION_EXTENSION_OMNIBOX_DEFAULT_SUGGESTION_CHANGED,
+      content::Source<Profile>(profile_->GetOriginalProfile()));
+  registrar_.Add(this,
+                 extensions::NOTIFICATION_EXTENSION_OMNIBOX_INPUT_ENTERED,
+                 content::Source<Profile>(profile_));
 }
 
 KeywordExtensionsDelegateImpl::~KeywordExtensionsDelegateImpl() {
@@ -47,15 +50,13 @@ void  KeywordExtensionsDelegateImpl::IncrementInputId() {
 }
 
 bool KeywordExtensionsDelegateImpl::IsEnabledExtension(
-    Profile* profile,
     const std::string& extension_id) {
-  ExtensionService* extension_service =
-      extensions::ExtensionSystem::Get(profile)->extension_service();
   const extensions::Extension* extension =
-      extension_service->GetExtensionById(extension_id, false);
+      extensions::ExtensionRegistry::Get(
+          profile_)->enabled_extensions().GetByID(extension_id);
   return extension &&
-      (!profile->IsOffTheRecord() ||
-       !extensions::util::IsIncognitoEnabled(extension_id, profile));
+      (!profile_->IsOffTheRecord() ||
+       extensions::util::IsIncognitoEnabled(extension_id, profile_));
 }
 
 bool KeywordExtensionsDelegateImpl::Start(
@@ -74,7 +75,7 @@ bool KeywordExtensionsDelegateImpl::Start(
   }
 
   extensions::ApplyDefaultSuggestionForExtensionKeyword(
-      profile(), template_url, remaining_input, &matches()->front());
+      profile_, template_url, remaining_input, &matches()->front());
 
   if (minimal_changes) {
     // If the input hasn't significantly changed, we can just use the
@@ -91,7 +92,7 @@ bool KeywordExtensionsDelegateImpl::Start(
     // We only have to wait for suggest results if there are actually
     // extensions listening for input changes.
     if (extensions::ExtensionOmniboxEventRouter::OnInputChanged(
-            profile(), template_url->GetExtensionId(),
+            profile_, template_url->GetExtensionId(),
             base::UTF16ToUTF8(remaining_input), current_input_id_))
       set_done(false);
   }
@@ -104,13 +105,13 @@ void KeywordExtensionsDelegateImpl::EnterExtensionKeywordMode(
   current_keyword_extension_id_ = extension_id;
 
   extensions::ExtensionOmniboxEventRouter::OnInputStarted(
-      profile(), current_keyword_extension_id_);
+      profile_, current_keyword_extension_id_);
 }
 
 void KeywordExtensionsDelegateImpl::MaybeEndExtensionKeywordMode() {
   if (!current_keyword_extension_id_.empty()) {
     extensions::ExtensionOmniboxEventRouter::OnInputCancelled(
-        profile(), current_keyword_extension_id_);
+        profile_, current_keyword_extension_id_);
     current_keyword_extension_id_.clear();
   }
 }
@@ -123,7 +124,7 @@ void KeywordExtensionsDelegateImpl::Observe(
   const AutocompleteInput& input = extension_suggest_last_input_;
 
   switch (type) {
-    case chrome::NOTIFICATION_EXTENSION_OMNIBOX_INPUT_ENTERED:
+    case extensions::NOTIFICATION_EXTENSION_OMNIBOX_INPUT_ENTERED:
       // Input has been accepted, so we're done with this input session. Ensure
       // we don't send the OnInputCancelled event, or handle any more stray
       // suggestions_ready events.
@@ -131,7 +132,8 @@ void KeywordExtensionsDelegateImpl::Observe(
       current_input_id_ = 0;
       return;
 
-    case chrome::NOTIFICATION_EXTENSION_OMNIBOX_DEFAULT_SUGGESTION_CHANGED: {
+    case extensions::NOTIFICATION_EXTENSION_OMNIBOX_DEFAULT_SUGGESTION_CHANGED
+        : {
       // It's possible to change the default suggestion while not in an editing
       // session.
       base::string16 keyword, remaining_input;
@@ -143,12 +145,12 @@ void KeywordExtensionsDelegateImpl::Observe(
       const TemplateURL* template_url(
           model->GetTemplateURLForKeyword(keyword));
       extensions::ApplyDefaultSuggestionForExtensionKeyword(
-          profile(), template_url, remaining_input, &matches()->front());
+          profile_, template_url, remaining_input, &matches()->front());
       OnProviderUpdate(true);
       return;
     }
 
-    case chrome::NOTIFICATION_EXTENSION_OMNIBOX_SUGGESTIONS_READY: {
+    case extensions::NOTIFICATION_EXTENSION_OMNIBOX_SUGGESTIONS_READY: {
       const omnibox_api::SendSuggestions::Params& suggestions =
           *content::Details<
               omnibox_api::SendSuggestions::Params>(details).ptr();

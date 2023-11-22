@@ -18,6 +18,7 @@ package android.hardware.camera2.cts;
 
 import android.content.Context;
 import android.graphics.ImageFormat;
+import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraCharacteristics.Key;
 import android.hardware.camera2.CameraManager;
@@ -25,10 +26,13 @@ import android.hardware.camera2.cts.helpers.CameraErrorCollector;
 import android.hardware.camera2.params.BlackLevelPattern;
 import android.hardware.camera2.params.ColorSpaceTransform;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.media.ImageReader;
 import android.test.AndroidTestCase;
 import android.util.Log;
 import android.util.Rational;
+import android.util.Range;
 import android.util.Size;
+import android.view.Surface;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -75,6 +79,8 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
             CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE;
     private static final int MANUAL_SENSOR =
             CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR;
+    private static final int MANUAL_POSTPROC =
+            CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_POST_PROCESSING;
     private static final int RAW =
             CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW;
 
@@ -248,8 +254,8 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
                 expectKeyAvailable(c, CameraCharacteristics.STATISTICS_INFO_AVAILABLE_HOT_PIXEL_MAP_MODES   , OPT      ,   RAW                  );
                 expectKeyAvailable(c, CameraCharacteristics.STATISTICS_INFO_MAX_FACE_COUNT                  , LEGACY   ,   BC                   );
                 expectKeyAvailable(c, CameraCharacteristics.SYNC_MAX_LATENCY                                , LEGACY   ,   BC                   );
-                expectKeyAvailable(c, CameraCharacteristics.TONEMAP_AVAILABLE_TONE_MAP_MODES                , FULL     ,   MANUAL_SENSOR        );
-                expectKeyAvailable(c, CameraCharacteristics.TONEMAP_MAX_CURVE_POINTS                        , FULL     ,   MANUAL_SENSOR        );
+                expectKeyAvailable(c, CameraCharacteristics.TONEMAP_AVAILABLE_TONE_MAP_MODES                , FULL     ,   MANUAL_POSTPROC      );
+                expectKeyAvailable(c, CameraCharacteristics.TONEMAP_MAX_CURVE_POINTS                        , FULL     ,   MANUAL_POSTPROC      );
 
                 // Future: Use column editors for modifying above, ignore line length to keep 1 key per line
 
@@ -267,7 +273,8 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
         int counter = 0;
         for (CameraCharacteristics c : mCharacteristics) {
             int[] actualCapabilities = c.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES);
-            assertNotNull("android.request.availableCapabilities must never be null");
+            assertNotNull("android.request.availableCapabilities must never be null",
+                    actualCapabilities);
             if (!arrayContains(actualCapabilities,
                     CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW)) {
                 Log.i(TAG, "RAW capability is not supported in camera " + counter++ +
@@ -339,6 +346,274 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
     }
 
     /**
+     * Test values for static metadata used by the BURST capability.
+     */
+    public void testStaticBurstCharacteristics() {
+        int counter = 0;
+        for (CameraCharacteristics c : mCharacteristics) {
+            int[] actualCapabilities = c.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES);
+            assertNotNull("android.request.availableCapabilities must never be null",
+                    actualCapabilities);
+
+            // Check if the burst capability is defined
+            boolean haveBurstCapability = arrayContains(actualCapabilities,
+                    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BURST_CAPTURE);
+
+            StreamConfigurationMap config =
+                    c.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            assertNotNull(String.format("No stream configuration map found for: ID %s",
+                    mIds[counter]), config);
+
+            // Ensure that max YUV size matches max JPEG size
+            Size maxYuvSize = CameraTestUtils.getMaxSize(
+                    config.getOutputSizes(ImageFormat.YUV_420_888));
+            Size maxJpegSize = CameraTestUtils.getMaxSize(config.getOutputSizes(ImageFormat.JPEG));
+
+            boolean haveMaxYuv = maxYuvSize != null ?
+                (maxJpegSize.getWidth() <= maxYuvSize.getWidth() &&
+                        maxJpegSize.getHeight() <= maxYuvSize.getHeight()) : false;
+
+            // Ensure that YUV output is fast enough - needs to be at least 20 fps
+
+            long maxYuvRate =
+                config.getOutputMinFrameDuration(ImageFormat.YUV_420_888, maxYuvSize);
+            final long MIN_DURATION_BOUND_NS = 50000000; // 50 ms, 20 fps
+
+            boolean haveMaxYuvRate = maxYuvRate <= MIN_DURATION_BOUND_NS;
+
+            // Ensure that there's an FPS range that's fast enough to capture at above
+            // minFrameDuration, for full-auto bursts
+            Range[] fpsRanges = c.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
+            float minYuvFps = 1.f / maxYuvRate;
+
+            boolean haveFastAeTargetFps = false;
+            for (Range<Integer> r : fpsRanges) {
+                if (r.getLower() >= minYuvFps) {
+                    haveFastAeTargetFps = true;
+                    break;
+                }
+            }
+
+            // Ensure that maximum sync latency is small enough for fast setting changes, even if
+            // it's not quite per-frame
+
+            Integer maxSyncLatencyValue = c.get(CameraCharacteristics.SYNC_MAX_LATENCY);
+            assertNotNull(String.format("No sync latency declared for ID %s", mIds[counter]),
+                    maxSyncLatencyValue);
+
+            int maxSyncLatency = maxSyncLatencyValue;
+            final long MAX_LATENCY_BOUND = 4;
+            boolean haveFastSyncLatency =
+                (maxSyncLatency <= MAX_LATENCY_BOUND) && (maxSyncLatency >= 0);
+
+            if (haveBurstCapability) {
+                assertTrue(
+                        String.format("BURST-capable camera device %s does not have maximum YUV " +
+                                "size that is at least max JPEG size",
+                                mIds[counter]),
+                        haveMaxYuv);
+                assertTrue(
+                        String.format("BURST-capable camera device %s YUV frame rate is too slow" +
+                                "(%d ns min frame duration reported, less than %d ns expected)",
+                                mIds[counter], maxYuvRate, MIN_DURATION_BOUND_NS),
+                        haveMaxYuvRate);
+                assertTrue(
+                        String.format("BURST-capable camera device %s does not list an AE target " +
+                                " FPS range with min FPS >= %f, for full-AUTO bursts",
+                                mIds[counter], minYuvFps),
+                        haveFastAeTargetFps);
+                assertTrue(
+                        String.format("BURST-capable camera device %s YUV sync latency is too long" +
+                                "(%d frames reported, [0, %d] frames expected)",
+                                mIds[counter], maxSyncLatency, MAX_LATENCY_BOUND),
+                        haveFastSyncLatency);
+            } else {
+                assertTrue(
+                        String.format("Camera device %s has all the requirements for BURST" +
+                                " capability but does not report it!", mIds[counter]),
+                        !(haveMaxYuv && haveMaxYuvRate &&
+                                haveFastAeTargetFps && haveFastSyncLatency));
+            }
+
+            counter++;
+        }
+    }
+
+    /**
+     * Cross-check StreamConfigurationMap output
+     */
+    public void testStreamConfigurationMap() {
+        int counter = 0;
+        for (CameraCharacteristics c : mCharacteristics) {
+            Log.i(TAG, "testStreamConfigurationMap: Testing camera ID " + mIds[counter]);
+            StreamConfigurationMap config =
+                    c.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            assertNotNull(String.format("No stream configuration map found for: ID %s",
+                            mIds[counter]), config);
+
+            assertTrue("ImageReader must be supported",
+                    config.isOutputSupportedFor(android.media.ImageReader.class));
+            assertTrue("MediaRecorder must be supported",
+                    config.isOutputSupportedFor(android.media.MediaRecorder.class));
+            assertTrue("MediaCodec must be supported",
+                    config.isOutputSupportedFor(android.media.MediaCodec.class));
+            assertTrue("Allocation must be supported",
+                    config.isOutputSupportedFor(android.renderscript.Allocation.class));
+            assertTrue("SurfaceHolder must be supported",
+                    config.isOutputSupportedFor(android.view.SurfaceHolder.class));
+            assertTrue("SurfaceTexture must be supported",
+                    config.isOutputSupportedFor(android.graphics.SurfaceTexture.class));
+
+            assertTrue("YUV_420_888 must be supported",
+                    config.isOutputSupportedFor(ImageFormat.YUV_420_888));
+            assertTrue("JPEG must be supported",
+                    config.isOutputSupportedFor(ImageFormat.JPEG));
+
+            // Legacy YUV formats should not be listed
+            assertTrue("NV21 must not be supported",
+                    !config.isOutputSupportedFor(ImageFormat.NV21));
+
+            int[] actualCapabilities = c.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES);
+            assertNotNull("android.request.availableCapabilities must never be null",
+                    actualCapabilities);
+            if (arrayContains(actualCapabilities,
+                    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW)) {
+                assertTrue("RAW_SENSOR must be supported if RAW capability is advertised",
+                    config.isOutputSupportedFor(ImageFormat.RAW_SENSOR));
+            }
+
+            // Cross check public formats and sizes
+
+            int[] supportedFormats = config.getOutputFormats();
+            for (int format : supportedFormats) {
+                assertTrue("Format " + format + " fails cross check",
+                        config.isOutputSupportedFor(format));
+                Size[] supportedSizes = config.getOutputSizes(format);
+                assertTrue("Supported format " + format + " has no sizes listed",
+                        supportedSizes.length > 0);
+                for (Size size : supportedSizes) {
+                    if (VERBOSE) {
+                        Log.v(TAG,
+                                String.format("Testing camera %s, format %d, size %s",
+                                        mIds[counter], format, size.toString()));
+                    }
+
+                    long stallDuration = config.getOutputStallDuration(format, size);
+                    switch(format) {
+                        case ImageFormat.YUV_420_888:
+                            assertTrue("YUV_420_888 may not have a non-zero stall duration",
+                                    stallDuration == 0);
+                            break;
+                        default:
+                            assertTrue("Negative stall duration for format " + format,
+                                    stallDuration >= 0);
+                            break;
+                    }
+                    long minDuration = config.getOutputMinFrameDuration(format, size);
+                    if (arrayContains(actualCapabilities,
+                            CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR)) {
+                        assertTrue("MANUAL_SENSOR capability, need positive min frame duration for"
+                                + "format " + format + " for size " + size + " minDuration " +
+                                minDuration,
+                                minDuration > 0);
+                    } else {
+                        assertTrue("Need non-negative min frame duration for format " + format,
+                                minDuration >= 0);
+                    }
+
+                    ImageReader testReader = ImageReader.newInstance(
+                        size.getWidth(),
+                        size.getHeight(),
+                        format,
+                        1);
+                    Surface testSurface = testReader.getSurface();
+
+                    assertTrue(
+                        String.format("isOutputSupportedFor fails for config %s, format %d",
+                                size.toString(), format),
+                        config.isOutputSupportedFor(testSurface));
+
+                    testReader.close();
+
+                } // sizes
+
+                // Try an invalid size in this format, should round
+                Size invalidSize = findInvalidSize(supportedSizes);
+                int MAX_ROUNDING_WIDTH = 1920;
+                if (invalidSize.getWidth() <= MAX_ROUNDING_WIDTH) {
+                    ImageReader testReader = ImageReader.newInstance(
+                                                                     invalidSize.getWidth(),
+                                                                     invalidSize.getHeight(),
+                                                                     format,
+                                                                     1);
+                    Surface testSurface = testReader.getSurface();
+
+                    assertTrue(
+                               String.format("isOutputSupportedFor fails for config %s, %d",
+                                       invalidSize.toString(), format),
+                               config.isOutputSupportedFor(testSurface));
+
+                    testReader.close();
+                }
+            } // formats
+
+            // Cross-check opaque format and sizes
+
+            SurfaceTexture st = new SurfaceTexture(1);
+            Surface surf = new Surface(st);
+
+            Size[] opaqueSizes = config.getOutputSizes(SurfaceTexture.class);
+            assertTrue("Opaque format has no sizes listed",
+                    opaqueSizes.length > 0);
+            for (Size size : opaqueSizes) {
+                long stallDuration = config.getOutputStallDuration(SurfaceTexture.class, size);
+                assertTrue("Opaque output may not have a non-zero stall duration",
+                        stallDuration == 0);
+
+                long minDuration = config.getOutputMinFrameDuration(SurfaceTexture.class, size);
+                if (arrayContains(actualCapabilities,
+                                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR)) {
+                    assertTrue("MANUAL_SENSOR capability, need positive min frame duration for"
+                            + "opaque format",
+                            minDuration > 0);
+                } else {
+                    assertTrue("Need non-negative min frame duration for opaque format ",
+                            minDuration >= 0);
+                }
+                st.setDefaultBufferSize(size.getWidth(), size.getHeight());
+
+                assertTrue(
+                    String.format("isOutputSupportedFor fails for SurfaceTexture config %s",
+                            size.toString()),
+                    config.isOutputSupportedFor(surf));
+
+            } // opaque sizes
+
+            // Try invalid opaque size, should get rounded
+            Size invalidSize = findInvalidSize(opaqueSizes);
+            st.setDefaultBufferSize(invalidSize.getWidth(), invalidSize.getHeight());
+            assertTrue(
+                String.format("isOutputSupportedFor fails for SurfaceTexture config %s",
+                        invalidSize.toString()),
+                config.isOutputSupportedFor(surf));
+
+            counter++;
+        } // mCharacteristics
+
+    }
+
+    /**
+     * Create an invalid size that's close to one of the good sizes in the list, but not one of them
+     */
+    private Size findInvalidSize(Size[] goodSizes) {
+        Size invalidSize = new Size(goodSizes[0].getWidth() + 1, goodSizes[0].getHeight());
+        while(arrayContains(goodSizes, invalidSize)) {
+            invalidSize = new Size(invalidSize.getWidth() + 1, invalidSize.getHeight());
+        }
+        return invalidSize;
+    }
+
+    /**
      * Check key is present in characteristics if the hardware level is at least {@code hwLevel};
      * check that the key is present if the actual capabilities are one of {@code capabilities}.
      *
@@ -351,7 +626,8 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
         assertNotNull("android.info.supportedHardwareLevel must never be null", actualHwLevel);
 
         int[] actualCapabilities = c.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES);
-        assertNotNull("android.request.availableCapabilities must never be null");
+        assertNotNull("android.request.availableCapabilities must never be null",
+                actualCapabilities);
 
         List<Key<?>> allKeys = c.getKeys();
 
@@ -403,6 +679,20 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
 
         for (int elem : arr) {
             if (elem == needle) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static <T> boolean arrayContains(T[] arr, T needle) {
+        if (arr == null) {
+            return false;
+        }
+
+        for (T elem : arr) {
+            if (elem.equals(needle)) {
                 return true;
             }
         }

@@ -10,6 +10,7 @@
 #include "cc/quads/draw_quad.h"
 #include "cc/quads/render_pass.h"
 #include "cc/test/fake_output_surface.h"
+#include "cc/test/mock_occlusion_tracker.h"
 #include "cc/trees/layer_tree_host_common.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/point_conversions.h"
@@ -39,8 +40,10 @@ void LayerTestCommon::VerifyQuadsExactlyCoverRect(const QuadList& quads,
                                                   const gfx::Rect& rect) {
   Region remaining = rect;
 
-  for (size_t i = 0; i < quads.size(); ++i) {
-    DrawQuad* quad = quads[i];
+  size_t i = 0;
+  for (QuadList::ConstIterator iter = quads.begin(); iter != quads.end();
+       ++iter) {
+    const DrawQuad* quad = &*iter;
     gfx::RectF quad_rectf =
         MathUtil::MapClippedRect(quad->quadTransform(), gfx::RectF(quad->rect));
 
@@ -57,25 +60,29 @@ void LayerTestCommon::VerifyQuadsExactlyCoverRect(const QuadList& quads,
         << quad_string << i << " remaining: " << remaining.ToString()
         << " quad: " << quad_rect.ToString();
     remaining.Subtract(quad_rect);
+
+    ++i;
   }
 
   EXPECT_TRUE(remaining.IsEmpty());
 }
 
 // static
-void LayerTestCommon::VerifyQuadsCoverRectWithOcclusion(
-    const QuadList& quads,
-    const gfx::Rect& rect,
-    const gfx::Rect& occluded,
-    size_t* partially_occluded_count) {
+void LayerTestCommon::VerifyQuadsAreOccluded(const QuadList& quads,
+                                             const gfx::Rect& occluded,
+                                             size_t* partially_occluded_count) {
   // No quad should exist if it's fully occluded.
-  for (size_t i = 0; i < quads.size(); ++i) {
-    EXPECT_FALSE(occluded.Contains(quads[i]->visible_rect));
+  for (QuadList::ConstIterator iter = quads.begin(); iter != quads.end();
+       ++iter) {
+    gfx::Rect target_visible_rect = MathUtil::MapEnclosingClippedRect(
+        iter->quadTransform(), iter->visible_rect);
+    EXPECT_FALSE(occluded.Contains(target_visible_rect));
   }
 
   // Quads that are fully occluded on one axis only should be shrunken.
-  for (size_t i = 0; i < quads.size(); ++i) {
-    DrawQuad* quad = quads[i];
+  for (QuadList::ConstIterator iter = quads.begin(); iter != quads.end();
+       ++iter) {
+    const DrawQuad* quad = &*iter;
     DCHECK(quad->quadTransform().IsIdentityOrIntegerTranslation());
     gfx::Rect target_rect =
         MathUtil::MapEnclosingClippedRect(quad->quadTransform(), quad->rect);
@@ -100,11 +107,10 @@ void LayerTestCommon::VerifyQuadsCoverRectWithOcclusion(
 }
 
 LayerTestCommon::LayerImplTest::LayerImplTest()
-    : host_(FakeLayerTreeHost::Create()),
+    : client_(FakeLayerTreeHostClient::DIRECT_3D),
+      host_(FakeLayerTreeHost::Create(&client_)),
       root_layer_impl_(LayerImpl::Create(host_->host_impl()->active_tree(), 1)),
-      render_pass_(RenderPass::Create()),
-      quad_culler_(make_scoped_ptr(
-          new MockQuadCuller(render_pass_.get(), &occlusion_tracker_))) {
+      render_pass_(RenderPass::Create()) {
   scoped_ptr<FakeOutputSurface> output_surface = FakeOutputSurface::Create3d();
   host_->host_impl()->InitializeRenderer(
       output_surface.PassAs<OutputSurface>());
@@ -125,23 +131,25 @@ void LayerTestCommon::LayerImplTest::AppendQuadsWithOcclusion(
     const gfx::Rect& occluded) {
   AppendQuadsData data;
 
-  quad_culler_->clear_lists();
-  quad_culler_->set_occluded_target_rect(occluded);
+  render_pass_->quad_list.clear();
+  render_pass_->shared_quad_state_list.clear();
+  occlusion_tracker_.set_occluded_target_rect(occluded);
   layer_impl->WillDraw(DRAW_MODE_HARDWARE, resource_provider());
-  layer_impl->AppendQuads(quad_culler_.get(), &data);
+  layer_impl->AppendQuads(render_pass_.get(), occlusion_tracker_, &data);
   layer_impl->DidDraw(resource_provider());
 }
 
 void LayerTestCommon::LayerImplTest::AppendQuadsForPassWithOcclusion(
     LayerImpl* layer_impl,
-    const RenderPass::Id& id,
+    const RenderPassId& id,
     const gfx::Rect& occluded) {
   AppendQuadsData data(id);
 
-  quad_culler_->clear_lists();
-  quad_culler_->set_occluded_target_rect(occluded);
+  render_pass_->quad_list.clear();
+  render_pass_->shared_quad_state_list.clear();
+  occlusion_tracker_.set_occluded_target_rect(occluded);
   layer_impl->WillDraw(DRAW_MODE_HARDWARE, resource_provider());
-  layer_impl->AppendQuads(quad_culler_.get(), &data);
+  layer_impl->AppendQuads(render_pass_.get(), occlusion_tracker_, &data);
   layer_impl->DidDraw(resource_provider());
 }
 
@@ -150,11 +158,14 @@ void LayerTestCommon::LayerImplTest::AppendSurfaceQuadsWithOcclusion(
     const gfx::Rect& occluded) {
   AppendQuadsData data;
 
-  quad_culler_->clear_lists();
-  quad_culler_->set_occluded_target_rect_for_contributing_surface(occluded);
+  render_pass_->quad_list.clear();
+  render_pass_->shared_quad_state_list.clear();
+  occlusion_tracker_.set_occluded_target_rect_for_contributing_surface(
+      occluded);
   bool for_replica = false;
-  RenderPass::Id id(1, 1);
-  surface_impl->AppendQuads(quad_culler_.get(), &data, for_replica, id);
+  RenderPassId id(1, 1);
+  surface_impl->AppendQuads(
+      render_pass_.get(), occlusion_tracker_, &data, for_replica, id);
 }
 
 }  // namespace cc

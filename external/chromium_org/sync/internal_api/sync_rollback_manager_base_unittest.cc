@@ -9,6 +9,7 @@
 #include "sync/internal_api/public/read_transaction.h"
 #include "sync/internal_api/public/test/test_internal_components_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "url/gurl.h"
 
 namespace syncer {
 
@@ -20,48 +21,33 @@ void OnConfigDone(bool success) {
 
 class SyncTestRollbackManager : public SyncRollbackManagerBase {
  public:
-  virtual void Init(
-      const base::FilePath& database_location,
-      const WeakHandle<JsEventHandler>& event_handler,
-      const std::string& sync_server_and_path,
-      int sync_server_port,
-      bool use_ssl,
-      scoped_ptr<HttpPostProviderFactory> post_factory,
-      const std::vector<scoped_refptr<ModelSafeWorker> >& workers,
-      ExtensionsActivity* extensions_activity,
-      ChangeDelegate* change_delegate,
-      const SyncCredentials& credentials,
-      const std::string& invalidator_client_id,
-      const std::string& restored_key_for_bootstrapping,
-      const std::string& restored_keystore_key_for_bootstrapping,
-      InternalComponentsFactory* internal_components_factory,
-      Encryptor* encryptor,
-      scoped_ptr<UnrecoverableErrorHandler> unrecoverable_error_handler,
-      ReportUnrecoverableErrorFunction report_unrecoverable_error_function,
-      CancelationSignal* cancelation_signal) OVERRIDE {
-    SyncRollbackManagerBase::InitInternal(database_location,
-                                          internal_components_factory,
-                                          unrecoverable_error_handler.Pass(),
-                                          report_unrecoverable_error_function);
+  virtual void Init(InitArgs* args) OVERRIDE {
+    SyncRollbackManagerBase::InitInternal(
+        args->database_location,
+        args->internal_components_factory.get(),
+        InternalComponentsFactory::STORAGE_IN_MEMORY,
+        args->unrecoverable_error_handler.Pass(),
+        args->report_unrecoverable_error_function);
   }
 };
 
 class SyncRollbackManagerBaseTest : public testing::Test {
  protected:
   virtual void SetUp() OVERRIDE {
-    TestInternalComponentsFactory factory(InternalComponentsFactory::Switches(),
-                                          STORAGE_IN_MEMORY);
-    manager_.Init(base::FilePath(base::FilePath::kCurrentDirectory),
-                  MakeWeakHandle(base::WeakPtr<JsEventHandler>()),
-                  "", 0, true, scoped_ptr<HttpPostProviderFactory>().Pass(),
-                  std::vector<scoped_refptr<ModelSafeWorker> >(),
-                  NULL, NULL, SyncCredentials(), "", "", "", &factory,
-                  NULL, scoped_ptr<UnrecoverableErrorHandler>().Pass(),
-                  NULL, NULL);
+    SyncManager::InitArgs args;
+    args.database_location = base::FilePath(base::FilePath::kCurrentDirectory);
+    args.service_url = GURL("https://example.com/");
+    args.internal_components_factory.reset(new TestInternalComponentsFactory(
+        InternalComponentsFactory::Switches(),
+        InternalComponentsFactory::STORAGE_IN_MEMORY,
+        &storage_used_));
+    manager_.Init(&args);
+    EXPECT_EQ(InternalComponentsFactory::STORAGE_IN_MEMORY, storage_used_);
   }
 
   SyncTestRollbackManager manager_;
   base::MessageLoop loop_;    // Needed for WeakHandle
+  InternalComponentsFactory::StorageOption storage_used_;
 };
 
 TEST_F(SyncRollbackManagerBaseTest, InitTypeOnConfiguration) {

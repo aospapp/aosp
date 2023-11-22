@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"تهیهٔ نسخهٔ پشتیبان و بازیابی"</string>
     <string name="device_reset" msgid="2827002349560023125">"بازنشانی به داده‌های کارخانه"</string>
     <string name="device_calibration" msgid="8632962533376605191">"کالیبراسیون"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"برنامه‌های دانلود شده"</string>
     <string name="apps_system" msgid="2499191125802829425">"برنامه‌های سیستم"</string>
     <string name="apps_running" msgid="6430310491739956228">"برنامه‌های در حال اجرا"</string>
@@ -64,7 +68,7 @@
     <string name="accessories_camera" msgid="503302832375993697">"دوربین"</string>
     <string name="accessories_add" msgid="1347802656349218830">"افزودن وسیله جانبی"</string>
     <string name="accessories_wifi_display" msgid="1107690327150126038">"Wi-Fi Display"</string>
-    <string name="accessory_state_pairing" msgid="7501989679637780963">"در حال جفت کردن..."</string>
+    <string name="accessory_state_pairing" msgid="7501989679637780963">"در حال مرتبط‌سازی..."</string>
     <string name="accessory_state_connecting" msgid="8777884957977608529">"در حال اتصال..."</string>
     <string name="accessory_state_error" msgid="4529815543328841909">"مرتبط‌سازی انجام نشد"</string>
     <string name="accessory_state_canceled" msgid="4419328837733619447">"لغو شد"</string>
@@ -82,11 +86,11 @@
     <string name="accessories_add_multiple_select" msgid="3696794187001405647">"برای مرتبط کردن با دستگاه انتخاب شده، دکمه مرتبط‌سازی را در این دستگاه فشار دهید و به مدت ۵ ثانیه نگه دارید"</string>
     <string name="error_action_not_supported" msgid="300552308104354666">"این عملکرد پشتیبانی نمی‌شود"</string>
     <string name="bluetooth_pairing_request" msgid="4523088117471287665">"درخواست مرتبط‌سازی با بلوتوث"</string>
-    <string name="bluetooth_confirm_passkey_msg" msgid="7031117992819855434">"برای مرتبط کردن با &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;، مطمئن شوید این کلید عبور را نشان می‌دهد: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;"</string>
+    <string name="bluetooth_confirm_passkey_msg" msgid="7031117992819855434">"برای مرتبط کردن با &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;، مطمئن شوید این کلیدواژه را نشان می‌دهد: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;"</string>
     <string name="bluetooth_incoming_pairing_msg" msgid="8234127565393932499">"از: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;&lt;br&gt;با این دستگاه مرتبط شود؟"</string>
     <string name="bluetooth_display_passkey_pin_msg" msgid="8951451728250058901">"برای مرتبط‌سازی با: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;&lt;br&gt;&lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt; را در آن تایپ کنید و سپس Return یا Enter را فشار دهید."</string>
     <string name="bluetooth_enter_pin_msg" msgid="7443458826667686394">"برای مرتبط‌سازی با: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;،‏ &lt;br&gt;پین لازم برای این دستگاه را تایپ کنید:"</string>
-    <string name="bluetooth_enter_passkey_msg" msgid="7980787196089653577">"برای مرتبط‌سازی با: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;،‏ &lt;br&gt;کلید عبور لازم برای دستگاه را تایپ کنید:"</string>
+    <string name="bluetooth_enter_passkey_msg" msgid="7980787196089653577">"برای مرتبط‌سازی با: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;،‏ &lt;br&gt;کلیدواژه درخواستی برای دستگاه را تایپ کنید:"</string>
     <string name="bluetooth_pin_values_hint" msgid="2319900367581543300">"معمولاً ۰۰۰۰ یا ۱۲۳۴"</string>
     <string name="bluetooth_pair" msgid="7836818609620478122">"مرتبط‌سازی"</string>
     <string name="bluetooth_cancel" msgid="4152153558528588479">"لغو"</string>
@@ -95,7 +99,7 @@
     <string name="system_language" msgid="2337138146114609247">"زبان"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"صفحه کلید"</string>
     <string name="system_search" msgid="2837264654143247611">"جستجو"</string>
-    <string name="system_security" msgid="4190058778883258927">"امنیت و محدودیت‌ها"</string>
+    <string name="system_security" msgid="8230080273993484407">"امنیت و محدودیت‌ها"</string>
     <string name="system_speech" msgid="8128688499687306982">"گفتار"</string>
     <string name="system_inputs" msgid="2413907183796651102">"ورودی‌ها"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"قابلیت دسترسی"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"به‌روزرسانی سیستم"</string>
     <string name="about_preference" msgid="4131396784531360434">"درباره"</string>
     <string name="device_name" msgid="2670488158531273028">"نام دستگاه"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"راه‌اندازی مجدد"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"اطلاعات حقوقی"</string>
     <string name="about_warranty" msgid="5736003473060436384">"ضمانت‌نامه"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"مجوزهای منبع آزاد"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"مشاهده شرایط سرویس"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"مشاهده خط‌مشی رازداری"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"مشاهده شرایط اضافی"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"شرایط حقوقی Google"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"داده مجوز در دسترس نیست"</string>
     <string name="about_model" msgid="6625269442206323995">"مدل"</string>
     <string name="about_version" msgid="1177287676732287266">"نسخه"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"تاریخ"</string>
     <string name="system_time" msgid="6726022312605226285">"زمان"</string>
     <string name="system_set_date" msgid="2437586307768561116">"تنظیم تاریخ"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"فرمت تاریخ را انتخاب کنید"</string>
     <string name="system_set_time" msgid="4661804115501057452">"تنظیم زمان"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"تنظیم منطقه زمانی"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"استفاده از قالب ۲۴ ساعته"</string>

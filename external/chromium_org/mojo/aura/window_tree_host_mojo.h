@@ -5,7 +5,7 @@
 #ifndef MOJO_EXAMPLES_AURA_DEMO_WINDOW_TREE_HOST_VIEW_MANAGER_H_
 #define MOJO_EXAMPLES_AURA_DEMO_WINDOW_TREE_HOST_VIEW_MANAGER_H_
 
-#include "mojo/services/public/cpp/view_manager/node_observer.h"
+#include "mojo/services/public/cpp/view_manager/view_observer.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/events/event_source.h"
 #include "ui/gfx/geometry/rect.h"
@@ -22,10 +22,9 @@ class WindowTreeHostMojoDelegate;
 
 class WindowTreeHostMojo : public aura::WindowTreeHost,
                            public ui::EventSource,
-                           public view_manager::NodeObserver {
+                           public ViewObserver {
  public:
-  WindowTreeHostMojo(view_manager::Node* node,
-                     WindowTreeHostMojoDelegate* delegate);
+  WindowTreeHostMojo(View* view, WindowTreeHostMojoDelegate* delegate);
   virtual ~WindowTreeHostMojo();
 
   // Returns the WindowTreeHostMojo for the specified compositor.
@@ -53,7 +52,6 @@ class WindowTreeHostMojo : public aura::WindowTreeHost,
   virtual void SetCapture() OVERRIDE;
   virtual void ReleaseCapture() OVERRIDE;
   virtual void PostNativeEvent(const base::NativeEvent& native_event) OVERRIDE;
-  virtual void OnDeviceScaleFactorChanged(float device_scale_factor) OVERRIDE;
   virtual void SetCursorNative(gfx::NativeCursor cursor) OVERRIDE;
   virtual void MoveCursorToNative(const gfx::Point& location) OVERRIDE;
   virtual void OnCursorVisibilityChangedNative(bool show) OVERRIDE;
@@ -61,14 +59,13 @@ class WindowTreeHostMojo : public aura::WindowTreeHost,
   // ui::EventSource:
   virtual ui::EventProcessor* GetEventProcessor() OVERRIDE;
 
-  // view_manager::NodeObserver:
-  virtual void OnNodeBoundsChange(
-      view_manager::Node* node,
+  // ViewObserver:
+  virtual void OnViewBoundsChanged(
+      View* view,
       const gfx::Rect& old_bounds,
-      const gfx::Rect& new_bounds,
-      view_manager::NodeObserver::DispositionChangePhase phase) OVERRIDE;
+      const gfx::Rect& new_bounds) OVERRIDE;
 
-  view_manager::Node* node_;
+  View* view_;
 
   gfx::Rect bounds_;
 

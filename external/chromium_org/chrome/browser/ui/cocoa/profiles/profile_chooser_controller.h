@@ -66,14 +66,18 @@ class WebContents;
 
 - (id)initWithBrowser:(Browser*)browser
            anchoredAt:(NSPoint)point
-             withMode:(profiles::BubbleViewMode)mode
-      withServiceType:(signin::GAIAServiceType)GAIAServiceType;
+             viewMode:(profiles::BubbleViewMode)viewMode
+         tutorialMode:(profiles::TutorialMode)tutorialMode
+          serviceType:(signin::GAIAServiceType)GAIAServiceType;
 
 // Creates all the subviews of the avatar bubble for |viewToDisplay|.
 - (void)initMenuContentsWithView:(profiles::BubbleViewMode)viewToDisplay;
 
 // Returns the view currently displayed by the bubble.
 - (profiles::BubbleViewMode)viewMode;
+
+// Sets the tutorial mode of the bubble.
+- (void)setTutorialMode:(profiles::TutorialMode)tutorialMode;
 
 // Switches to a given profile. |sender| is an ProfileChooserItemController.
 - (IBAction)switchToProfile:(id)sender;
@@ -95,9 +99,6 @@ class WebContents;
 
 // Shows the inline signin page.
 - (IBAction)showInlineSigninPage:(id)sender;
-
-// Shows the signin tab in the browser.
-- (IBAction)showTabbedSigninPage:(id)sender;
 
 // Adds an account to the active profile.
 - (IBAction)addAccount:(id)sender;
@@ -125,8 +126,9 @@ class WebContents;
 @interface ProfileChooserController (ExposedForTesting)
 - (id)initWithBrowser:(Browser*)browser
            anchoredAt:(NSPoint)point
-             withMode:(profiles::BubbleViewMode)mode
-      withServiceType:(signin::GAIAServiceType)serviceType;
+             viewMode:(profiles::BubbleViewMode)viewMode
+         tutorialMode:(profiles::TutorialMode)tutorialMode
+          serviceType:(signin::GAIAServiceType)GAIAServiceType;
 @end
 
 #endif  // CHROME_BROWSER_UI_COCOA_PROFILES_PROFILE_CHOOSER_CONTROLLER_H_

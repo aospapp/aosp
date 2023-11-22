@@ -28,7 +28,7 @@
 namespace {
 
 // Hardcoded value for the secure version of Acrobat Reader.
-const char kSecureVersion[] = "11.0.7.79";
+const char kSecureVersion[] = "11.0.8.4";
 
 const char kAdobeReaderIdentifier[] = "adobe-reader";
 const char kPdfMimeType[] = "application/pdf";
@@ -94,10 +94,13 @@ AdobeReaderPluginInfo GetReaderPlugin(
       reader_info.is_enabled = plugin_status != PluginPrefs::POLICY_DISABLED;
     }
 
-    PluginMetadata::SecurityStatus security_status =
+    // Adobe Reader will likely always come up as "requires_authorization".
+    // See http://crbug.com/311655.
+    PluginMetadata::SecurityStatus security_stat =
         plugin_metadata->GetSecurityStatus(plugins[i]);
     reader_info.is_secure =
-        security_status == PluginMetadata::SECURITY_STATUS_UP_TO_DATE;
+        security_stat == PluginMetadata::SECURITY_STATUS_UP_TO_DATE ||
+        security_stat == PluginMetadata::SECURITY_STATUS_REQUIRES_AUTHORIZATION;
 
     reader_info.plugin_info = plugins[i];
     break;

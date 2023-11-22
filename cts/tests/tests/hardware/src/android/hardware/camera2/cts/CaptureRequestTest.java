@@ -282,11 +282,6 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
             try {
                 openDevice(mCameraIds[i]);
 
-                if (mStaticInfo.isHardwareLevelLegacy()) {
-                    Log.i(TAG, "Skipping test on legacy devices");
-                    continue;
-                }
-
                 Size maxPreviewSz = mOrderedPreviewSizes.get(0); // Max preview size.
 
                 // Update preview surface with given size for all sub-tests.
@@ -326,7 +321,13 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
                 flashTestByAeMode(listener, CaptureRequest.CONTROL_AE_MODE_ON);
 
                 // LEGACY won't support AE mode OFF
-                if (mStaticInfo.isHardwareLevelLimitedOrBetter()) {
+                boolean aeOffModeSupported = false;
+                for (int aeMode : mStaticInfo.getAeAvailableModesChecked()) {
+                    if (aeMode == CaptureRequest.CONTROL_AE_MODE_OFF) {
+                        aeOffModeSupported = true;
+                    }
+                }
+                if (aeOffModeSupported) {
                     flashTestByAeMode(listener, CaptureRequest.CONTROL_AE_MODE_OFF);
                 }
 
@@ -344,11 +345,6 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
                 openDevice(mCameraIds[i]);
-
-                if (mStaticInfo.isHardwareLevelLegacy()) {
-                    Log.i(TAG, "Skipping test on legacy devices");
-                    continue;
-                }
 
                 faceDetectionTestByCamera();
             } finally {
@@ -2102,15 +2098,18 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
 
             resultListener = new SimpleCaptureCallback();
             startPreview(requestBuilder, previewSz, resultListener);
-            long[] frameDurationRange =
-                    new long[]{(long) (1e9 / fpsRange.getUpper()), (long) (1e9 / fpsRange.getLower())};
+            waitForSettingsApplied(resultListener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
+
+            long[] frameDurationRange = new long[]{
+                    (long) (1e9 / fpsRange.getUpper()), (long) (1e9 / fpsRange.getLower())};
             for (int j = 0; j < numFramesVerified; j++) {
                 CaptureResult result =
                         resultListener.getCaptureResult(WAIT_FOR_RESULT_TIMEOUT_MS);
                 validatePipelineDepth(result);
                 long frameDuration = getValueNotNull(result, CaptureResult.SENSOR_FRAME_DURATION);
                 mCollector.expectInRange(
-                        "Frame duration must be in the range of " + Arrays.toString(frameDurationRange),
+                        "Frame duration must be in the range of " +
+                                Arrays.toString(frameDurationRange),
                         frameDuration,
                         (long) (frameDurationRange[0] * (1 - FRAME_DURATION_ERROR_MARGIN)),
                         (long) (frameDurationRange[1] * (1 + FRAME_DURATION_ERROR_MARGIN)));

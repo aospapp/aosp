@@ -38,10 +38,6 @@ class SavePasswordProgressLogger {
     STRING_DECISION_ASK,
     STRING_DECISION_DROP,
     STRING_DECISION_SAVE,
-    STRING_METHOD,
-    STRING_METHOD_GET,
-    STRING_METHOD_POST,
-    STRING_METHOD_EMPTY,
     STRING_OTHER,
     STRING_SCHEME_HTML,
     STRING_SCHEME_BASIC,
@@ -54,7 +50,7 @@ class SavePasswordProgressLogger {
     STRING_USERNAME_ELEMENT,
     STRING_PASSWORD_ELEMENT,
     STRING_PASSWORD_AUTOCOMPLETE_SET,
-    STRING_OLD_PASSWORD_ELEMENT,
+    STRING_NEW_PASSWORD_ELEMENT,
     STRING_SSL_VALID,
     STRING_PASSWORD_GENERATED,
     STRING_TIMES_USED,
@@ -87,10 +83,11 @@ class SavePasswordProgressLogger {
     STRING_EMPTY_PASSWORD,
     STRING_EXACT_MATCH,
     STRING_MATCH_WITHOUT_ACTION,
-    STRING_NO_FORM_MANAGER,
+    STRING_MATCHING_NOT_COMPLETE,
     STRING_FORM_BLACKLISTED,
     STRING_INVALID_FORM,
     STRING_AUTOCOMPLETE_OFF,
+    STRING_SYNC_CREDENTIAL,
     STRING_PROVISIONALLY_SAVED_FORM,
     STRING_IGNORE_POSSIBLE_USERNAMES,
     STRING_ON_PASSWORD_FORMS_RENDERED_METHOD,
@@ -101,6 +98,7 @@ class SavePasswordProgressLogger {
     STRING_NO_MATCHING_FORM,
     STRING_SSL_ERRORS_PRESENT,
     STRING_ONLY_VISIBLE,
+    STRING_SHOW_PASSWORD_PROMPT,
     STRING_INVALID,  // Represents a string returned in a case of an error.
     STRING_MAX = STRING_INVALID
   };
@@ -113,7 +111,6 @@ class SavePasswordProgressLogger {
   void LogPasswordForm(StringID label, const PasswordForm& form);
   void LogHTMLForm(StringID label,
                    const std::string& name_or_id,
-                   const std::string& method,
                    const GURL& action);
   void LogURL(StringID label, const GURL& url);
   void LogBoolean(StringID label, bool truth_value);

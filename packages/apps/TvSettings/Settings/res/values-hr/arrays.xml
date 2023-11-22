@@ -72,12 +72,12 @@
     <item msgid="4410581208185456276">"Zadano"</item>
     <item msgid="9033306684422202101">"Sans Serif"</item>
     <item msgid="1864985245839120339">"Sans Serif zgusnuti"</item>
-    <item msgid="2707402752636362906">"Fiksna širina bez serifa"</item>
+    <item msgid="2707402752636362906">"Sans-serif fiksne širine"</item>
     <item msgid="4549910217342216388">"Serif"</item>
-    <item msgid="4764344884232052861">"Fiksna širina sa serifima"</item>
-    <item msgid="8561996903323025702">"Jednostavno"</item>
+    <item msgid="4764344884232052861">"Serif fiksne širine"</item>
+    <item msgid="8561996903323025702">"Neformalni"</item>
     <item msgid="8403638572764467550">"Kurziv"</item>
-    <item msgid="5560655268137500927">"Mala slova"</item>
+    <item msgid="5560655268137500927">"Mali verzal"</item>
   </string-array>
   <string-array name="captioning_font_size_selector_titles">
     <item msgid="4304493614734189861">"Vrlo malen"</item>

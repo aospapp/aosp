@@ -199,7 +199,7 @@ See <a href="http://site.icu-project.org/bugs">Submitting ICU Bugs and Feature R
 
 <h2 id="mksh">mksh</h2>
 <p>All changes to the MirBSD Korn Shell project at <code>external/mksh</code> should be made upstream
-either by sending an email to miros-mksh on the mirbsd.o®g domain (no subscription
+either by sending an email to miros-mksh on the mirbsd.org domain (no subscription
 required to submit there) or (optionally) at <a href="https://launchpad.net/mksh">Launchpad</a>.
 </p>
 <h2 id="openssl">OpenSSL</h2>

@@ -13,11 +13,11 @@
 #include "base/synchronization/waitable_event.h"
 #include "net/base/net_errors.h"
 #include "net/socket/socket.h"
-#include "remoting/protocol/fake_session.h"
+#include "remoting/protocol/fake_stream_socket.h"
 #include "remoting/protocol/message_reader.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/libjingle/source/talk/base/byteorder.h"
+#include "third_party/webrtc/base/byteorder.h"
 
 using testing::_;
 using testing::DoAll;
@@ -82,9 +82,9 @@ class MessageReaderTest : public testing::Test {
 
   void AddMessage(const std::string& message) {
     std::string data = std::string(4, ' ') + message;
-    talk_base::SetBE32(const_cast<char*>(data.data()), message.size());
+    rtc::SetBE32(const_cast<char*>(data.data()), message.size());
 
-    socket_.AppendInputData(std::vector<char>(data.begin(), data.end()));
+    socket_.AppendInputData(data);
   }
 
   bool CompareResult(CompoundBuffer* buffer, const std::string& expected) {
@@ -101,7 +101,7 @@ class MessageReaderTest : public testing::Test {
 
   base::MessageLoop message_loop_;
   scoped_ptr<MessageReader> reader_;
-  FakeSocket socket_;
+  FakeStreamSocket socket_;
   MockMessageReceivedCallback callback_;
   std::vector<CompoundBuffer*> messages_;
   bool in_callback_;

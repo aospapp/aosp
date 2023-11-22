@@ -20,7 +20,6 @@
 #include "ui/aura/client/window_tree_client.h"
 #include "ui/aura/test/aura_test_base.h"
 #include "ui/aura/test/aura_test_utils.h"
-#include "ui/aura/test/event_generator.h"
 #include "ui/aura/test/test_window_delegate.h"
 #include "ui/aura/test/test_windows.h"
 #include "ui/aura/test/window_test_api.h"
@@ -39,6 +38,7 @@
 #include "ui/events/event_utils.h"
 #include "ui/events/gestures/gesture_configuration.h"
 #include "ui/events/keycodes/keyboard_codes.h"
+#include "ui/events/test/event_generator.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/screen.h"
 #include "ui/gfx/skia_util.h"
@@ -362,12 +362,7 @@ TEST_F(WindowTest, ContainsMouse) {
 }
 
 // Test Window::ConvertPointToWindow() with transform to root_window.
-#if defined(USE_OZONE)
-// TODO(rjkroege): Add cursor support in ozone: http://crbug.com/252315.
-TEST_F(WindowTest, DISABLED_MoveCursorToWithTransformRootWindow) {
-#else
 TEST_F(WindowTest, MoveCursorToWithTransformRootWindow) {
-#endif
   gfx::Transform transform;
   transform.Translate(100.0, 100.0);
   transform.Rotate(90.0);
@@ -422,12 +417,7 @@ TEST_F(WindowTest, MoveCursorToWithTransformWindow) {
 // Test Window::ConvertPointToWindow() with complex transforms to both root and
 // non-root windows.
 // Test Window::ConvertPointToWindow() with transform to root_window.
-#if defined(USE_OZONE)
-// TODO(rjkroege): Add cursor support in ozone: http://crbug.com/252315.
-TEST_F(WindowTest, DISABLED_MoveCursorToWithComplexTransform) {
-#else
 TEST_F(WindowTest, MoveCursorToWithComplexTransform) {
-#endif
   scoped_ptr<Window> w1(
       CreateTestWindow(SK_ColorWHITE, 1, gfx::Rect(10, 10, 500, 500),
                        root_window()));
@@ -781,7 +771,7 @@ TEST_F(WindowTest, CaptureTests) {
   EXPECT_TRUE(window->HasCapture());
   EXPECT_EQ(0, delegate.capture_lost_count());
   EXPECT_EQ(0, delegate.capture_changed_event_count());
-  EventGenerator generator(root_window(), gfx::Point(50, 50));
+  ui::test::EventGenerator generator(root_window(), gfx::Point(50, 50));
   generator.PressLeftButton();
   EXPECT_EQ(1, delegate.mouse_event_count());
   generator.ReleaseLeftButton();
@@ -828,9 +818,9 @@ TEST_F(WindowTest, TouchCaptureCancelsOtherTouches) {
       &delegate2, 0, gfx::Rect(50, 50, 50, 50), root_window()));
 
   // Press on w1.
-  ui::TouchEvent press(
+  ui::TouchEvent press1(
       ui::ET_TOUCH_PRESSED, gfx::Point(10, 10), 0, getTime());
-  DispatchEventUsingWindowDispatcher(&press);
+  DispatchEventUsingWindowDispatcher(&press1);
   // We will get both GESTURE_BEGIN and GESTURE_TAP_DOWN.
   EXPECT_EQ(2, delegate1.gesture_event_count());
   delegate1.ResetCounts();
@@ -878,9 +868,11 @@ TEST_F(WindowTest, TouchCaptureDoesntCancelCapturedTouches) {
   CaptureWindowDelegateImpl delegate;
   scoped_ptr<Window> window(CreateTestWindowWithDelegate(
       &delegate, 0, gfx::Rect(0, 0, 50, 50), root_window()));
+  base::TimeDelta time = getTime();
+  const int kTimeDelta = 100;
 
   ui::TouchEvent press(
-      ui::ET_TOUCH_PRESSED, gfx::Point(10, 10), 0, getTime());
+      ui::ET_TOUCH_PRESSED, gfx::Point(10, 10), 0, time);
   DispatchEventUsingWindowDispatcher(&press);
 
   // We will get both GESTURE_BEGIN and GESTURE_TAP_DOWN.
@@ -895,7 +887,8 @@ TEST_F(WindowTest, TouchCaptureDoesntCancelCapturedTouches) {
 
   // On move We will get TOUCH_MOVED, GESTURE_TAP_CANCEL,
   // GESTURE_SCROLL_START and GESTURE_SCROLL_UPDATE.
-  ui::TouchEvent move(ui::ET_TOUCH_MOVED, gfx::Point(10, 20), 0, getTime());
+  time += base::TimeDelta::FromMilliseconds(kTimeDelta);
+  ui::TouchEvent move(ui::ET_TOUCH_MOVED, gfx::Point(10, 20), 0, time);
   DispatchEventUsingWindowDispatcher(&move);
   EXPECT_EQ(1, delegate.touch_event_count());
   EXPECT_EQ(3, delegate.gesture_event_count());
@@ -908,15 +901,17 @@ TEST_F(WindowTest, TouchCaptureDoesntCancelCapturedTouches) {
   delegate.ResetCounts();
 
   // On move we still get TOUCH_MOVED and GESTURE_SCROLL_UPDATE.
-  ui::TouchEvent move2(ui::ET_TOUCH_MOVED, gfx::Point(10, 30), 0, getTime());
+  time += base::TimeDelta::FromMilliseconds(kTimeDelta);
+  ui::TouchEvent move2(ui::ET_TOUCH_MOVED, gfx::Point(10, 30), 0, time);
   DispatchEventUsingWindowDispatcher(&move2);
   EXPECT_EQ(1, delegate.touch_event_count());
   EXPECT_EQ(1, delegate.gesture_event_count());
   delegate.ResetCounts();
 
   // And on release we get TOUCH_RELEASED, GESTURE_SCROLL_END, GESTURE_END
+  time += base::TimeDelta::FromMilliseconds(kTimeDelta);
   ui::TouchEvent release(
-      ui::ET_TOUCH_RELEASED, gfx::Point(10, 20), 0, getTime());
+      ui::ET_TOUCH_RELEASED, gfx::Point(10, 20), 0, time);
   DispatchEventUsingWindowDispatcher(&release);
   EXPECT_EQ(1, delegate.touch_event_count());
   EXPECT_EQ(2, delegate.gesture_event_count());
@@ -1033,7 +1028,7 @@ TEST_F(WindowTest, ChangeCaptureWhileMouseDown) {
   EXPECT_TRUE(window->HasCapture());
   EXPECT_EQ(0, delegate.capture_lost_count());
   EXPECT_EQ(0, delegate.capture_changed_event_count());
-  EventGenerator generator(root_window(), gfx::Point(50, 50));
+  ui::test::EventGenerator generator(root_window(), gfx::Point(50, 50));
   generator.PressLeftButton();
   EXPECT_EQ(0, delegate.capture_lost_count());
   EXPECT_EQ(0, delegate.capture_changed_event_count());
@@ -1136,7 +1131,7 @@ TEST_F(WindowTest, MouseEnterExit) {
       CreateTestWindowWithDelegate(&d2, 2, gfx::Rect(70, 70, 50, 50),
                                    root_window()));
 
-  test::EventGenerator generator(root_window());
+  ui::test::EventGenerator generator(root_window());
   generator.MoveMouseToCenterOf(w1.get());
   EXPECT_TRUE(d1.entered());
   EXPECT_FALSE(d1.exited());
@@ -1157,7 +1152,7 @@ TEST_F(WindowTest, WindowTreeHostExit) {
       CreateTestWindowWithDelegate(&d1, 1, gfx::Rect(10, 10, 50, 50),
                                    root_window()));
 
-  test::EventGenerator generator(root_window());
+  ui::test::EventGenerator generator(root_window());
   generator.MoveMouseToCenterOf(w1.get());
   EXPECT_TRUE(d1.entered());
   EXPECT_FALSE(d1.exited());
@@ -1183,7 +1178,7 @@ TEST_F(WindowTest, MouseEnterExitWithClick) {
       CreateTestWindowWithDelegate(&d2, 2, gfx::Rect(70, 70, 50, 50),
                                    root_window()));
 
-  test::EventGenerator generator(root_window());
+  ui::test::EventGenerator generator(root_window());
   generator.MoveMouseToCenterOf(w1.get());
   EXPECT_TRUE(d1.entered());
   EXPECT_FALSE(d1.exited());
@@ -1209,7 +1204,7 @@ TEST_F(WindowTest, MouseEnterExitWhenDeleteWithCapture) {
       CreateTestWindowWithDelegate(&delegate, 1, gfx::Rect(10, 10, 50, 50),
                                    root_window()));
 
-  test::EventGenerator generator(root_window());
+  ui::test::EventGenerator generator(root_window());
   generator.MoveMouseToCenterOf(window.get());
   EXPECT_TRUE(delegate.entered());
   EXPECT_FALSE(delegate.exited());
@@ -1237,7 +1232,7 @@ TEST_F(WindowTest, MouseEnterExitWithDelete) {
       CreateTestWindowWithDelegate(&d1, 1, gfx::Rect(10, 10, 50, 50),
                                    root_window()));
 
-  test::EventGenerator generator(root_window());
+  ui::test::EventGenerator generator(root_window());
   generator.MoveMouseToCenterOf(w1.get());
   EXPECT_TRUE(d1.entered());
   EXPECT_FALSE(d1.exited());
@@ -1271,7 +1266,7 @@ TEST_F(WindowTest, MouseEnterExitWithHide) {
       CreateTestWindowWithDelegate(&d1, 1, gfx::Rect(10, 10, 50, 50),
                                    root_window()));
 
-  test::EventGenerator generator(root_window());
+  ui::test::EventGenerator generator(root_window());
   generator.MoveMouseToCenterOf(w1.get());
   EXPECT_TRUE(d1.entered());
   EXPECT_FALSE(d1.exited());
@@ -1303,7 +1298,7 @@ TEST_F(WindowTest, MouseEnterExitWithParentHide) {
   MouseEnterExitWindowDelegate d2;
   Window* w2 = CreateTestWindowWithDelegate(&d2, 2, gfx::Rect(10, 10, 50, 50),
                                             w1.get());
-  test::EventGenerator generator(root_window());
+  ui::test::EventGenerator generator(root_window());
   generator.MoveMouseToCenterOf(w2);
   // Enters / exits can be send asynchronously.
   RunAllPendingInMessageLoop();
@@ -1327,7 +1322,7 @@ TEST_F(WindowTest, MouseEnterExitWithParentDelete) {
   MouseEnterExitWindowDelegate d2;
   Window* w2 = CreateTestWindowWithDelegate(&d2, 2, gfx::Rect(10, 10, 50, 50),
                                             w1.get());
-  test::EventGenerator generator(root_window());
+  ui::test::EventGenerator generator(root_window());
   generator.MoveMouseToCenterOf(w2);
 
   // Enters / exits can be send asynchronously.
@@ -1618,8 +1613,8 @@ TEST_F(WindowTest, OwnedProperty) {
 
 TEST_F(WindowTest, SetBoundsInternalShouldCheckTargetBounds) {
   // We cannot short-circuit animations in this test.
-  ui::ScopedAnimationDurationScaleMode normal_duration_mode(
-      ui::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+  ui::ScopedAnimationDurationScaleMode test_duration_mode(
+      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
 
   scoped_ptr<Window> w1(
       CreateTestWindowWithBounds(gfx::Rect(0, 0, 100, 100), root_window()));
@@ -1712,6 +1707,18 @@ class WindowObserverTest : public WindowTest,
     return result;
   }
 
+  std::string TransformNotificationsAndClear() {
+    std::string result;
+    for (std::vector<std::pair<int, int> >::iterator it =
+            transform_notifications_.begin();
+        it != transform_notifications_.end();
+        ++it) {
+      base::StringAppendF(&result, "(%d,%d)", it->first, it->second);
+    }
+    transform_notifications_.clear();
+    return result;
+  }
+
  private:
   virtual void OnWindowAdded(Window* new_window) OVERRIDE {
     added_count_++;
@@ -1740,12 +1747,19 @@ class WindowObserverTest : public WindowTest,
     old_property_value_ = old;
   }
 
+  virtual void OnAncestorWindowTransformed(Window* source,
+                                           Window* window) OVERRIDE {
+    transform_notifications_.push_back(
+        std::make_pair(source->id(), window->id()));
+  }
+
   int added_count_;
   int removed_count_;
   int destroyed_count_;
   scoped_ptr<VisibilityInfo> visibility_info_;
   const void* property_key_;
   intptr_t old_property_value_;
+  std::vector<std::pair<int, int> > transform_notifications_;
 
   DISALLOW_COPY_AND_ASSIGN(WindowObserverTest);
 };
@@ -1860,6 +1874,33 @@ TEST_F(WindowObserverTest, PropertyChanged) {
   // Sanity check to see if |PropertyChangeInfoAndClear| really clears.
   EXPECT_EQ(PropertyChangeInfo(
       reinterpret_cast<const void*>(NULL), -3), PropertyChangeInfoAndClear());
+}
+
+TEST_F(WindowObserverTest, AncestorTransformed) {
+  // Create following window hierarchy:
+  //   root_window
+  //   +-- w1
+  //       +-- w2
+  //       +-- w3
+  //           +-- w4
+  // Then, apply a transform to |w1| and ensure all its descendants are
+  // notified.
+  scoped_ptr<Window> w1(CreateTestWindowWithId(1, root_window()));
+  w1->AddObserver(this);
+  scoped_ptr<Window> w2(CreateTestWindowWithId(2, w1.get()));
+  w2->AddObserver(this);
+  scoped_ptr<Window> w3(CreateTestWindowWithId(3, w1.get()));
+  w3->AddObserver(this);
+  scoped_ptr<Window> w4(CreateTestWindowWithId(4, w3.get()));
+  w4->AddObserver(this);
+
+  EXPECT_EQ(std::string(), TransformNotificationsAndClear());
+
+  gfx::Transform transform;
+  transform.Translate(10, 10);
+  w1->SetTransform(transform);
+
+  EXPECT_EQ("(1,1)(1,2)(1,3)(1,4)", TransformNotificationsAndClear());
 }
 
 TEST_F(WindowTest, AcquireLayer) {
@@ -2018,7 +2059,7 @@ TEST_F(WindowTest, VisibilityClientIsVisible) {
 TEST_F(WindowTest, MouseEventsOnWindowChange) {
   gfx::Size size = host()->GetBounds().size();
 
-  EventGenerator generator(root_window());
+  ui::test::EventGenerator generator(root_window());
   generator.MoveMouseTo(50, 50);
 
   EventCountDelegate d1;
@@ -2237,8 +2278,8 @@ TEST_F(WindowTest, RootWindowSetWhenReparenting) {
   parent1.AddChild(&child);
 
   // We need animations to start in order to observe the bounds changes.
-  ui::ScopedAnimationDurationScaleMode animation_duration_mode(
-      ui::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+  ui::ScopedAnimationDurationScaleMode test_duration_mode(
+      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
   ui::ScopedLayerAnimationSettings settings1(child.layer()->GetAnimator());
   settings1.SetTransitionDuration(base::TimeDelta::FromMilliseconds(100));
   gfx::Rect new_bounds(gfx::Rect(35, 35, 50, 50));
@@ -2352,8 +2393,8 @@ TEST_F(WindowTest, DelegateNotifiedAsBoundsChange) {
   BoundsChangeDelegate delegate;
 
   // We cannot short-circuit animations in this test.
-  ui::ScopedAnimationDurationScaleMode normal_duration_mode(
-      ui::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+  ui::ScopedAnimationDurationScaleMode test_duration_mode(
+      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
 
   scoped_ptr<Window> window(
       CreateTestWindowWithDelegate(&delegate, 1,
@@ -2387,8 +2428,8 @@ TEST_F(WindowTest, DelegateNotifiedAsBoundsChangeInHiddenLayer) {
   BoundsChangeDelegate delegate;
 
   // We cannot short-circuit animations in this test.
-  ui::ScopedAnimationDurationScaleMode normal_duration_mode(
-      ui::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+  ui::ScopedAnimationDurationScaleMode test_duration_mode(
+      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
 
   scoped_ptr<Window> window(
       CreateTestWindowWithDelegate(&delegate, 1,
@@ -3390,8 +3431,8 @@ class TestLayerAnimationObserver : public ui::LayerAnimationObserver {
 }
 
 TEST_F(WindowTest, WindowDestroyCompletesAnimations) {
-  ui::ScopedAnimationDurationScaleMode normal_duration_mode(
-      ui::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+  ui::ScopedAnimationDurationScaleMode test_duration_mode(
+      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
   scoped_refptr<ui::LayerAnimator> animator =
       ui::LayerAnimator::CreateImplicitAnimator();
   TestLayerAnimationObserver observer;
@@ -3399,7 +3440,7 @@ TEST_F(WindowTest, WindowDestroyCompletesAnimations) {
   // Make sure destroying a Window completes the animation.
   {
     scoped_ptr<Window> window(CreateTestWindowWithId(1, root_window()));
-    window->layer()->SetAnimator(animator);
+    window->layer()->SetAnimator(animator.get());
 
     gfx::Transform transform;
     transform.Scale(0.5f, 0.5f);
@@ -3408,7 +3449,7 @@ TEST_F(WindowTest, WindowDestroyCompletesAnimations) {
     EXPECT_TRUE(animator->is_animating());
     EXPECT_FALSE(observer.animation_completed());
   }
-  EXPECT_TRUE(animator);
+  EXPECT_TRUE(animator.get());
   EXPECT_FALSE(animator->is_animating());
   EXPECT_TRUE(observer.animation_completed());
   EXPECT_FALSE(observer.animation_aborted());
@@ -3418,7 +3459,7 @@ TEST_F(WindowTest, WindowDestroyCompletesAnimations) {
   animator = ui::LayerAnimator::CreateImplicitAnimator();
   animator->AddObserver(&observer);
   ui::Layer layer;
-  layer.SetAnimator(animator);
+  layer.SetAnimator(animator.get());
   {
     scoped_ptr<Window> window(CreateTestWindowWithId(1, root_window()));
     window->layer()->Add(&layer);
@@ -3431,7 +3472,7 @@ TEST_F(WindowTest, WindowDestroyCompletesAnimations) {
     EXPECT_FALSE(observer.animation_completed());
   }
 
-  EXPECT_TRUE(animator);
+  EXPECT_TRUE(animator.get());
   EXPECT_FALSE(animator->is_animating());
   EXPECT_TRUE(observer.animation_completed());
   EXPECT_FALSE(observer.animation_aborted());

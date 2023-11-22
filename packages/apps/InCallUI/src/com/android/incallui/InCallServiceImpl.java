@@ -16,6 +16,8 @@
 
 package com.android.incallui;
 
+import android.content.Intent;
+import android.os.IBinder;
 import android.telecom.InCallService;
 import android.telecom.Phone;
 
@@ -34,10 +36,6 @@ public class InCallServiceImpl extends InCallService {
         AudioModeProvider.getInstance().setPhone(phone);
         TelecomAdapter.getInstance().setPhone(phone);
         InCallPresenter.getInstance().setPhone(phone);
-        InCallPresenter.getInstance().setUp(
-                getApplicationContext(),
-                CallList.getInstance(),
-                AudioModeProvider.getInstance());
         TelecomAdapter.getInstance().setContext(InCallServiceImpl.this);
     }
 
@@ -51,5 +49,22 @@ public class InCallServiceImpl extends InCallService {
         TelecomAdapter.getInstance().setContext(null);
         CallList.getInstance().clearOnDisconnect();
         InCallPresenter.getInstance().tearDown();
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        InCallPresenter.getInstance().setUp(
+                getApplicationContext(),
+                CallList.getInstance(),
+                AudioModeProvider.getInstance());
+        InCallPresenter.getInstance().onServiceBind();
+        InCallPresenter.getInstance().maybeStartRevealAnimation(intent);
+        return super.onBind(intent);
+    }
+
+    @Override
+    public boolean onUnbind(Intent intent) {
+        InCallPresenter.getInstance().onServiceUnbind();
+        return super.onUnbind(intent);
     }
 }

@@ -17,11 +17,6 @@
 -->
 
 <resources>
-    <style name="DismissButtonStyle">
-        <item name="android:paddingStart">@dimen/dismiss_button_padding_start</item>
-        <item name="android:paddingEnd">@dimen/dismiss_button_padding_end</item>
-    </style>
-
     <style name="MessageDetailsHeaderStyle">
         <item name="android:paddingStart">@dimen/message_details_header_padding_start_expanded</item>
         <item name="android:paddingEnd">@dimen/message_details_header_padding_end</item>
@@ -50,10 +45,6 @@
         <item name="android:paddingEnd">@dimen/send_mail_as_padding</item>
     </style>
 
-    <style name="UndoTextStyle" parent="AbstractUndoTextStyle">
-        <item name="android:paddingEnd">@dimen/undo_text_padding</item>
-    </style>
-
     <style name="MessageHeaderIconStyle">
         <item name="android:layout_marginStart">@dimen/message_header_icon_additional_margin_start</item>
     </style>
@@ -63,9 +54,8 @@
         <item name="android:layout_marginEnd">@dimen/conversation_border_margin_side</item>
     </style>
 
-    <style name="NewMessageButtonStyle" parent="AbstractNewMessageButtonStyle">
-        <item name="android:layout_marginStart">@dimen/toast_bar_margin</item>
-        <item name="android:layout_marginEnd">@dimen/toast_bar_margin</item>
+    <style name="DrawerNavigationStyle">
+        <item name="android:nextFocusLeft">@+id/conversation_list_view</item>
     </style>
 
     <style name="FolderListItemStartStyle">
@@ -73,19 +63,19 @@
     </style>
 
     <style name="FolderListItemEndStyle">
-        <item name="android:layout_marginEnd">@dimen/folder_list_item_end_margin</item>
-        <item name="android:layout_alignParentEnd">true</item>
+        <item name="android:paddingEnd">@dimen/folder_list_item_end_margin</item>
     </style>
 
-    <style name="DrawerFooterListItemStyle">
-        <item name="android:paddingStart">@dimen/drawer_footer_text_padding_start</item>
+    <style name="FolderListItemStyleBase">
+        <item name="android:layout_marginStart">@dimen/folder_list_item_text_start_margin</item>
+        <item name="android:layout_marginEnd">@dimen/folder_list_item_end_margin</item>
     </style>
 
     <style name="DismissSeparatorStyle">
         <item name="android:layout_marginStart">@dimen/dismiss_separator_padding</item>
     </style>
 
-    <style name="TeaserTextStyle">
+    <style name="TeaserStartMargin">
         <item name="android:layout_marginStart">@dimen/teaser_text_padding</item>
     </style>
 
@@ -107,8 +97,8 @@
         <item name="android:layout_marginStart">@dimen/attachment_icon_padding</item>
     </style>
 
-    <style name="UndoNotificationStyle">
-        <item name="android:layout_marginStart">@android:dimen/notification_large_icon_width</item>
+    <style name="AttachmentThumbnail">
+        <item name="android:layout_marginStart">@dimen/attachment_item_padding_start</item>
     </style>
 
     <style name="UnreadCountWithMarginEndStyle" parent="UnreadCountRelativeLayout">
@@ -124,62 +114,8 @@
         <item name="android:paddingStart">@dimen/compose_attachment_text_padding</item>
     </style>
 
-    <style name="AccountItemIcon" parent="AbstractAccountItemIcon">
-        <item name="android:layout_alignParentStart">true</item>
-    </style>
-
-    <style name="AccountRadioButtonStyle">
-        <item name="android:layout_marginStart">@dimen/account_item_margin_start</item>
-    </style>
-
-    <style name="AccountUnreadCountStyle" parent="UnreadCountRelativeLayout">
-        <item name="android:layout_marginEnd">@dimen/account_item_margin_end</item>
-        <item name="android:layout_alignParentEnd">true</item>
-    </style>
-
-    <style name="VacationResponderStyle">
-        <item name="android:paddingStart">@dimen/vacation_responder_padding_horizontal</item>
-        <item name="android:paddingEnd">@dimen/vacation_responder_padding_horizontal</item>
-    </style>
-
-    <style name="VacationResponderLabelSmall" parent="AbstractVacationResponderLabelSmall">
-        <item name="android:paddingStart">@dimen/vacation_responder_inner_padding</item>
-        <item name="android:paddingEnd">@dimen/vacation_responder_inner_padding</item>
-    </style>
-
-    <style name="VactionResponderStartDateLabel" parent="VacationResponderLabelSmall">
-        <item name="android:layout_marginEnd">
-            @dimen/vacation_responder_padding_between_date_spinners</item>
-    </style>
-
-    <style name="VactionResponderEndDateLabel" parent="VacationResponderLabelSmall">
-        <item name="android:layout_marginStart">
-            @dimen/vacation_responder_padding_between_date_spinners</item>
-    </style>
-
-    <style name="VacationResponderDateSpinner" parent="AbstractVacationResponderDateSpinner">
-        <item name="android:paddingStart">@dimen/vacation_responder_inner_padding</item>
-        <item name="android:paddingEnd">@dimen/vacation_responder_inner_padding</item>
-    </style>
-
-    <style name="VactionResponderStartDateSpinner" parent="VacationResponderDateSpinner">
-        <item name="android:layout_marginEnd">
-            @dimen/vacation_responder_padding_between_date_spinners</item>
-    </style>
-
-    <style name="VactionResponderEndDateSpinner" parent="VacationResponderDateSpinner">
-        <item name="android:layout_marginStart">
-            @dimen/vacation_responder_padding_between_date_spinners</item>
-    </style>
-
-    <style name="VacationResponderCheckBox" parent="AbstractVacationResponderCheckBox">
-        <item name="android:paddingStart">@dimen/vacation_responder_inner_padding</item>
-        <item name="android:paddingEnd">@dimen/vacation_responder_inner_padding</item>
-    </style>
-
-    <style name="VacationResponderSwitch">
-        <item name="android:paddingStart">@dimen/vacation_responder_inner_padding</item>
-        <item name="android:paddingEnd">@dimen/vacation_responder_inner_padding</item>
+    <style name="VacationResponderDatePadding">
+        <item name="android:layout_marginEnd">@dimen/vacation_responder_padding_between_date_spinners</item>
     </style>
 
     <style name="MessageSenderNameStyle" parent="AbstractMessageSenderNameStyle">
@@ -188,16 +124,24 @@
 
     <style name="MessageHeaderSubtitleStyle" parent="AbstractMessageHeaderSubtitleStyle">
         <item name="android:layout_alignParentStart">true</item>
+        <item name="android:maxLines">1</item>
     </style>
 
-    <style name="FloatingActionButtonStyle" parent="AbstractFloatingActionButtonStyle">
-        <item name="android:layout_gravity">bottom|end</item>
-        <item name="android:layout_marginEnd">@dimen/floating_action_bar_margin</item>
+    <style name="FloatingActionButtonStyle" parent="FloatingActionButtonBackgroundStyle">
+        <item name="android:layout_marginEnd">@dimen/compose_button_margin_side</item>
     </style>
 
-    <style name="SnackBarActionTextStyle">
-        <item name="android:layout_gravity">end</item>
-        <item name="android:paddingEnd">@dimen/snack_bar_margin_horizontal</item>
+    <style name="SnackBarDescriptionTextStyle">
+        <item name="android:layout_marginStart">@dimen/snack_bar_margin_horizontal</item>
+    </style>
+
+    <style name="MiniDrawerFolderStyle" parent="@style/MiniDrawerFolderStyleBase">
+        <item name="android:scaleX">-1</item>
+    </style>
+
+    <style name="SingleFolderListIconStyle">
+        <item name="android:layout_marginStart">@dimen/single_folder_list_item_start_margin</item>
+        <item name="android:scaleX">-1</item>
     </style>
 
     <style name="FolderSelectionItemStyle" parent="AbstractFolderSelectionItemStyle">
@@ -208,15 +152,12 @@
     <style name="FolderListIconStyle">
         <item name="android:layout_marginStart">@dimen/folder_list_item_start_margin</item>
         <item name="android:layout_alignParentStart">true</item>
+        <item name="android:scaleX">-1</item>
     </style>
 
     <style name="MessageHeaderUpperDateStyle" parent="MessageHeaderSmallStyle">
         <item name="android:layout_alignParentEnd">true</item>
         <item name="android:layout_marginStart">@dimen/attachment_icon_padding</item>
-    </style>
-
-    <style name="FolderParentIconStyle">
-        <item name="android:layout_alignParentEnd">true</item>
     </style>
 
     <style name="MessageAttachmentBarMarginEndStyle">
@@ -229,6 +170,10 @@
 
     <style name="WidgetAttachStyle">
         <item name="android:paddingEnd">@dimen/widget_attachment_padding_end</item>
+    </style>
+
+    <style name="WidgetHeaderStartMargin">
+        <item name="android:paddingStart">16dp</item>
     </style>
 
     <!-- START Conversation list styles -->
@@ -338,10 +283,14 @@
     <style name="ConversationListSpaciousStarStyle">
         <item name="android:layout_marginEnd">@dimen/conv_list_spacious_star_padding_end</item>
     </style>
+
+    <style name="ConversationListFooterLoadMoreStyle">
+        <item name="android:paddingStart">@dimen/conv_list_footer_load_more_padding</item>
+    </style>
     <!-- END Conversation list styles -->
 
-    <style name="SpinnerAccountAddressStyle" parent="ComposeFromTextViewStyle">
-        <item name="android:paddingStart">@dimen/custom_from_inner_padding</item>
+    <style name="SpinnerAccountNameStyle" parent="ComposeFromTextViewStyle">
+        <item name="android:paddingEnd">@dimen/custom_from_inner_padding</item>
     </style>
 
     <style name="AbstractComposeAreaWithRtl" parent="@style/AbstractComposeArea">
@@ -362,6 +311,10 @@
         <item name="android:layout_marginEnd">@dimen/compose_content_end_padding</item>
     </style>
 
+    <style name="ComposeHeadingPadding">
+        <item name="android:paddingEnd">@dimen/compose_header_padding</item>
+    </style>
+
     <style name="ComposeFieldButton" parent="@style/BaseComposeFieldButton">
         <item name="android:layout_marginStart">@dimen/compose_header_btn_padding</item>
     </style>
@@ -370,17 +323,8 @@
         <item name="android:layout_marginStart">@dimen/quoted_text_checkbox_margin_offset</item>
     </style>
 
-    <style name="FolderTeaserLabelMarginStyle">
-        <item name="android:layout_marginStart">@dimen/folder_teaser_label_start_padding</item>
-        <item name="android:layout_marginEnd">@dimen/folder_teaser_label_end_padding</item>
-    </style>
-
-    <style name="FolderTeaserMarginStartStyle">
-        <item name="android:layout_marginStart">@dimen/folder_teaser_start_padding</item>
-    </style>
-
-    <style name="FolderTeaserMarginEndStyle">
-        <item name="android:layout_marginEnd">@dimen/folder_teaser_end_padding</item>
+    <style name="FolderTeaserPaddingEndStyle">
+        <item name="android:paddingEnd">@dimen/folder_teaser_end_padding</item>
     </style>
 
     <style name="ArrowStyle">
@@ -392,13 +336,9 @@
         <item name="android:paddingStart">@dimen/undo_description_padding</item>
     </style>
 
-    <style name="UndoIconStyle">
-        <item name="android:paddingStart">@dimen/undo_icon_padding_start</item>
-        <item name="android:paddingEnd">@dimen/undo_icon_padding_end</item>
-    </style>
-
     <style name="AccountItemNameStyle">
         <item name="android:paddingStart">@dimen/account_item_name_start_padding</item>
         <item name="android:paddingEnd">@dimen/account_item_name_end_padding</item>
     </style>
+
 </resources>

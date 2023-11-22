@@ -26,6 +26,10 @@
     <string name="device_apps_app_management_force_stop_desc" msgid="221435219644064243">"Ако присилно запрете апликација, таа може да не се однесува правилно."</string>
     <string name="device_apps_app_management_uninstall" msgid="6054050725055974790">"Деинсталирај"</string>
     <string name="device_apps_app_management_uninstall_desc" msgid="3542570994262234511">"Дали сакате да ја деинсталирате оваа апликација?"</string>
+    <string name="device_apps_app_management_disable" msgid="1461984395121717076">"Оневозможи"</string>
+    <string name="device_apps_app_management_disable_desc" msgid="1362228583828208991">"Дали сакате да ја оневозможите оваа апликација?"</string>
+    <string name="device_apps_app_management_enable" msgid="8794752872502256633">"Овозможи"</string>
+    <string name="device_apps_app_management_enable_desc" msgid="6449017972628203288">"Дали сакате да ја овозможите оваа апликација?"</string>
     <string name="device_apps_app_management_clear_data" msgid="8288695583331012586">"Исчисти податоци"</string>
     <string name="device_apps_app_management_clear_data_desc" msgid="2197842469669426232">"Сите податоци на оваа апликација ќе се избришат трајно."</string>
     <string name="device_apps_app_management_clear_data_what" msgid="376666756087041021">"Ова ги вклучува сите датотеки, поставки, сметки, бази на податоци, итн."</string>

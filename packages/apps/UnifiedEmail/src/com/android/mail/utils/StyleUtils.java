@@ -34,15 +34,24 @@ public class StyleUtils {
      * non-underline version {@link LinkStyleSpan} which calls the supplied listener when clicked.
      */
     public static void stripUnderlinesAndLinkUrls(TextView textView,
-                                                  View.OnClickListener onClickListener) {
+            View.OnClickListener onClickListener) {
         final Spannable spannable = (Spannable) textView.getText();
-        final URLSpan[] urls = textView.getUrls();
+        stripUnderlinesAndLinkUrls(spannable, onClickListener);
+    }
+
+    /**
+     * Removes any {@link android.text.style.URLSpan}s from the Spannable and replaces them with a
+     * non-underline version {@link LinkStyleSpan} which calls the supplied listener when clicked.
+     */
+    public static void stripUnderlinesAndLinkUrls(Spannable input,
+            View.OnClickListener onClickListener) {
+        final URLSpan[] urls = input.getSpans(0, input.length(), URLSpan.class);
 
         for (URLSpan span : urls) {
-            final int start = spannable.getSpanStart(span);
-            final int end = spannable.getSpanEnd(span);
-            spannable.removeSpan(span);
-            spannable.setSpan(new LinkStyleSpan(onClickListener), start, end,
+            final int start = input.getSpanStart(span);
+            final int end = input.getSpanEnd(span);
+            input.removeSpan(span);
+            input.setSpan(new LinkStyleSpan(onClickListener), start, end,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
     }

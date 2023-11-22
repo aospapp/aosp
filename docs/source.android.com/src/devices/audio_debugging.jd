@@ -54,12 +54,12 @@ and may require changes for other versions.
 
 <ol>
 <li><code>cd frameworks/av/services/audioflinger</code></li>
-<li>edit <code>Configuration.h</code></li>
-<li>uncomment <code>#define TEE_SINK</code></li>
-<li>re-build <code>libaudioflinger.so</code></li>
+<li>Edit <code>Configuration.h</code>.</li>
+<li>Uncomment <code>#define TEE_SINK</code>.</li>
+<li>Re-build <code>libaudioflinger.so</code>.</li>
 <li><code>adb root</code></li>
 <li><code>adb remount</code></li>
-<li>push or sync the new <code>libaudioflinger.so</code> to the device's <code>/system/lib</code></li>
+<li>Push or sync the new <code>libaudioflinger.so</code> to the device's <code>/system/lib</code>.</li>
 </ol>
 
 <h3>Run-time setup</h3>
@@ -87,7 +87,7 @@ chown media:media /data/misc/media
 </code>
 </li>
 <li><code>echo af.tee=# &gt; /data/local.prop</code>
-<br />where the <code>af.tee</code> value is a number described below
+<br />Where the <code>af.tee</code> value is a number described below.
 </li>
 <li><code>chmod 644 /data/local.prop</code></li>
 <li><code>reboot</code></li>
@@ -115,17 +115,17 @@ but you can get similar results using "4."
 <h3>Test and acquire data</h3>
 
 <ol>
-<li>Run your audio test</li>
+<li>Run your audio test.</li>
 <li><code>adb shell dumpsys media.audio_flinger</code></li>
 <li>Look for a line in dumpsys output such as this:<br />
 <code>tee copied to /data/misc/media/20131010101147_2.wav</code>
-<br />This is a PCM .wav file</br>
+<br />This is a PCM .wav file.</br>
 </li>
 <li><code>adb pull</code> any <code>/data/misc/media/*.wav</code> files of interest;
 note that track-specific dump filenames do not appear in the dumpsys output,
-but are still saved to <code>/data/misc/media</code> upon track closure
+but are still saved to <code>/data/misc/media</code> upon track closure.
 </li>
-<li>Review the dump files for privacy concerns before sharing with others</li>
+<li>Review the dump files for privacy concerns before sharing with others.</li>
 </ol>
 
 <h4>Suggestions</h4>
@@ -133,15 +133,15 @@ but are still saved to <code>/data/misc/media</code> upon track closure
 <p>Try these ideas for more useful results:</p>
 
 <ul>
-<li>Disable touch sounds and key clicks</li>
-<li>Maximize all volumes</li>
+<li>Disable touch sounds and key clicks.</li>
+<li>Maximize all volumes.</li>
 <li>Disable apps that make sound or record from microphone,
-if they are not of interest to your test
+if they are not of interest to your test.
 </li>
 <li>Track-specific dumps are only saved when the track is closed;
 you may need to force close an app in order to dump its track-specific data
 <li>Do the <code>dumpsys</code> immediately after test;
-there is a limited amount of recording space available</li>
+there is a limited amount of recording space available.</li>
 <li>To make sure you don't lose your dump files,
 upload them to your host periodically.
 Only a limited number of dump files are preserved;
@@ -155,10 +155,10 @@ As noted above, the tee sink feature should not be left enabled.
 Restore your build and device as follows:
 </p>
 <ol>
-<li>Revert the source code changes to <code>Configuration.h</code></li>
-<li>Re-build <code>libaudioflinger.so</code></li>
+<li>Revert the source code changes to <code>Configuration.h</code>.</li>
+<li>Re-build <code>libaudioflinger.so</code>.</li>
 <li>Push or sync the restored <code>libaudioflinger.so</code>
-to the device's <code>/system/lib</code>
+to the device's <code>/system/lib</code>.
 </li>
 <li><code>adb shell</code></li>
 <li><code>rm /data/local.prop</code></li>
@@ -172,7 +172,7 @@ to the device's <code>/system/lib</code>
 
 <p>
 The standard Java language logging API in Android SDK is
-<a class="external-link" href="http://developer.android.com/reference/android/util/Log.html" target="_android">android.util.Log</a>.
+<a href="http://developer.android.com/reference/android/util/Log.html">android.util.Log</a>.
 </p>
 
 <p>
@@ -243,15 +243,14 @@ By convention, each thread should use it's own timeline.
 <h3>Benefits</h3>
 
 <p>
-The benefits of the <code>media.log</code> system include:
+The benefits of the <code>media.log</code> system are that it:
 </p>
 <ul>
-<li>doesn't spam the main log unless and until it is needed</li>
-<li>can be examined even when <code>mediaserver</code> crashes or hangs</li>
-<li>is non-blocking per timeline</li>
-<li>
-less disturbance to performance
-(of course no form of logging is completely non-intrusive)
+<li>Doesn't spam the main log unless and until it is needed.</li>
+<li>Can be examined even when <code>mediaserver</code> crashes or hangs.</li>
+<li>Is non-blocking per timeline.</li>
+<li>Offers less disturbance to performance.
+(Of course no form of logging is completely non-intrusive.)
 </li>
 </ul>
 
@@ -266,9 +265,9 @@ and the <code>init</code> process, before <code>media.log</code> is introduced:
 Notable points:
 </p>
 <ul>
-<li><code>init</code> forks and execs <code>mediaserver</code></li>
-<li><code>init</code> detects the death of <code>mediaserver</code>, and re-forks as necessary</li>
-<li><code>ALOGx</code> logging is not shown
+<li><code>init</code> forks and execs <code>mediaserver</code>.</li>
+<li><code>init</code> detects the death of <code>mediaserver</code>, and re-forks as necessary.</li>
+<li><code>ALOGx</code> logging is not shown.
 </ul>
 
 <p>
@@ -363,8 +362,7 @@ within a context where the thread's mutex <code>mLock</code> is held.
 After you have added the logs, re-build AudioFlinger.
 </p>
 
-<b>Caution:</b>
-<p>
+<p class="caution"><strong>Caution:</strong>
 A separate <code>NBLog::Writer</code> timeline is required per thread,
 to ensure thread safety, since timelines omit mutexes by design.  If you
 want more than one thread to use the same timeline, you can protect with an

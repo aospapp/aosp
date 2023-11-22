@@ -65,7 +65,7 @@ class JavaHeapProfiler(profiler.Profiler):
     self._DumpJavaHeap(False)
 
   def _DumpJavaHeap(self, wait_for_completion):
-    if not self._browser_backend.adb.device().old_interface.FileExistsOnDevice(
+    if not self._browser_backend.adb.device().FileExists(
         self._DEFAULT_DEVICE_DIR):
       self._browser_backend.adb.RunShellCommand(
           'mkdir -p ' + self._DEFAULT_DEVICE_DIR)
@@ -83,6 +83,5 @@ class JavaHeapProfiler(profiler.Profiler):
     self._run_count += 1
 
   def _FileSize(self, file_name):
-    f = self._browser_backend.adb.device().old_interface.ListPathContents(
-        file_name)
+    f = self._browser_backend.adb.device().Ls(file_name)
     return f.get(os.path.basename(file_name), (0, ))[0]

@@ -92,7 +92,7 @@ class UpdateSieve {
     return it == request_from_version_.end() ? false : it->second < version;
   }
 
-  // Returns the mininum version seen across all types.
+  // Returns the minimum version seen across all types.
   int64 GetMinVersion() const {
     return min_version_;
   }
@@ -288,7 +288,7 @@ bool FakeServer::HandleGetUpdatesRequest(
     FakeServerEntity* entity = it->second;
     if (sieve->ClientWantsItem(entity)) {
       sync_pb::SyncEntity* response_entity = response->add_entries();
-      response_entity->CopyFrom(*(entity->SerializeAsProto()));
+      entity->SerializeAsProto(response_entity);
       max_response_version = std::max(max_response_version,
                                       response_entity->version());
 
@@ -336,13 +336,7 @@ string FakeServer::CommitEntity(
         client_entity,
         entities_[client_entity.id_string()]);
   } else if (client_entity.has_client_defined_unique_tag()) {
-    if (entities_.find(client_entity.id_string()) != entities_.end()) {
-      entity = UniqueClientEntity::CreateUpdatedVersion(
-          client_entity,
-          entities_[client_entity.id_string()]);
-    } else {
-      entity = UniqueClientEntity::CreateNew(client_entity);
-    }
+    entity = UniqueClientEntity::Create(client_entity);
   } else {
     // TODO(pvalenzuela): Validate entity's parent ID.
     if (entities_.find(client_entity.id_string()) != entities_.end()) {

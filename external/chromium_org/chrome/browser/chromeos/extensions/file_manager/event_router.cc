@@ -1,22 +1,25 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/chromeos/extensions/file_manager/event_router.h"
 
 #include "base/bind.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/message_loop/message_loop.h"
 #include "base/prefs/pref_change_registrar.h"
 #include "base/prefs/pref_service.h"
 #include "base/stl_util.h"
+#include "base/thread_task_runner_handle.h"
 #include "base/threading/sequenced_worker_pool.h"
 #include "base/values.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/chromeos/drive/drive_integration_service.h"
+#include "chrome/browser/chromeos/drive/file_change.h"
 #include "chrome/browser/chromeos/drive/file_system_interface.h"
 #include "chrome/browser/chromeos/drive/file_system_util.h"
+#include "chrome/browser/chromeos/extensions/file_manager/device_event_router.h"
 #include "chrome/browser/chromeos/extensions/file_manager/private_api_util.h"
 #include "chrome/browser/chromeos/file_manager/app_id.h"
 #include "chrome/browser/chromeos/file_manager/fileapi_util.h"
@@ -26,21 +29,24 @@
 #include "chrome/browser/chromeos/login/ui/login_display_host_impl.h"
 #include "chrome/browser/drive/drive_service_interface.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/login/login_state.h"
 #include "chromeos/network/network_handler.h"
 #include "chromeos/network/network_state_handler.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/browser/notification_source.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/storage_partition.h"
 #include "extensions/browser/event_router.h"
 #include "extensions/browser/extension_host.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_system.h"
-#include "webkit/common/fileapi/file_system_types.h"
-#include "webkit/common/fileapi/file_system_util.h"
+#include "storage/common/fileapi/file_system_types.h"
+#include "storage/common/fileapi/file_system_util.h"
 
 using chromeos::disks::DiskMountManager;
 using chromeos::NetworkHandler;
@@ -50,36 +56,12 @@ using drive::DriveIntegrationServiceFactory;
 using file_manager::util::EntryDefinition;
 using file_manager::util::FileDefinition;
 
-namespace file_browser_private = extensions::api::file_browser_private;
+namespace file_manager_private = extensions::api::file_manager_private;
 
 namespace file_manager {
 namespace {
-
-void DirectoryExistsOnBlockingPool(const base::FilePath& directory_path,
-                                   const base::Closure& success_callback,
-                                   const base::Closure& failure_callback) {
-  DCHECK(BrowserThread::GetBlockingPool()->RunsTasksOnCurrentThread());
-
-  if (base::DirectoryExists(directory_path))
-    BrowserThread::PostTask(BrowserThread::UI, FROM_HERE, success_callback);
-  else
-    BrowserThread::PostTask(BrowserThread::UI, FROM_HERE, failure_callback);
-}
-
-void DirectoryExistsOnUIThread(const base::FilePath& directory_path,
-                               const base::Closure& success_callback,
-                               const base::Closure& failure_callback) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  content::BrowserThread::PostBlockingPoolTask(
-      FROM_HERE,
-      base::Bind(&DirectoryExistsOnBlockingPool,
-                 directory_path,
-                 success_callback,
-                 failure_callback));
-}
-
 // Constants for the "transferState" field of onFileTransferUpdated event.
+const char kFileTransferStateAdded[] = "added";
 const char kFileTransferStateStarted[] = "started";
 const char kFileTransferStateInProgress[] = "in_progress";
 const char kFileTransferStateCompleted[] = "completed";
@@ -88,10 +70,28 @@ const char kFileTransferStateFailed[] = "failed";
 // Frequency of sending onFileTransferUpdated.
 const int64 kProgressEventFrequencyInMilliseconds = 1000;
 
+// Maximim size of detailed change info on directory change event. If the size
+// exceeds the maximum size, the detailed info is omitted and the force refresh
+// is kicked.
+const size_t kDirectoryChangeEventMaxDetailInfoSize = 1000;
+
+// This time(millisecond) is used for confirm following event exists.
+const int64 kFileTransferEventDelayTimeInMilliseconds = 300;
+
 // Utility function to check if |job_info| is a file uploading job.
 bool IsUploadJob(drive::JobType type) {
   return (type == drive::TYPE_UPLOAD_NEW_FILE ||
           type == drive::TYPE_UPLOAD_EXISTING_FILE);
+}
+
+size_t CountActiveFileTransferJobInfo(
+    const std::vector<drive::JobInfo>& job_info_list) {
+  size_t num_active_file_transfer_job_info = 0;
+  for (size_t i = 0; i < job_info_list.size(); ++i) {
+    if (IsActiveFileTransferJobInfo(job_info_list[i]))
+      ++num_active_file_transfer_job_info;
+  }
+  return num_active_file_transfer_job_info;
 }
 
 // Converts the job info to a IDL generated type.
@@ -100,18 +100,22 @@ void JobInfoToTransferStatus(
     const std::string& extension_id,
     const std::string& job_status,
     const drive::JobInfo& job_info,
-    file_browser_private::FileTransferStatus* status) {
+    file_manager_private::FileTransferStatus* status) {
   DCHECK(IsActiveFileTransferJobInfo(job_info));
 
   scoped_ptr<base::DictionaryValue> result(new base::DictionaryValue);
   GURL url = util::ConvertDrivePathToFileSystemUrl(
       profile, job_info.file_path, extension_id);
   status->file_url = url.spec();
-  status->transfer_state = file_browser_private::ParseTransferState(job_status);
+  status->transfer_state = file_manager_private::ParseTransferState(job_status);
   status->transfer_type =
       IsUploadJob(job_info.job_type) ?
-      file_browser_private::TRANSFER_TYPE_UPLOAD :
-      file_browser_private::TRANSFER_TYPE_DOWNLOAD;
+      file_manager_private::TRANSFER_TYPE_UPLOAD :
+      file_manager_private::TRANSFER_TYPE_DOWNLOAD;
+  DriveIntegrationService* const integration_service =
+      DriveIntegrationServiceFactory::FindForProfile(profile);
+  status->num_total_jobs = CountActiveFileTransferJobInfo(
+      integration_service->job_list()->GetJobInfoList());
   // JavaScript does not have 64-bit integers. Instead we use double, which
   // is in IEEE 754 formant and accurate up to 52-bits in JS, and in practice
   // in C++. Larger values are rounded.
@@ -119,31 +123,6 @@ void JobInfoToTransferStatus(
       new double(static_cast<double>(job_info.num_completed_bytes)));
   status->total.reset(
       new double(static_cast<double>(job_info.num_total_bytes)));
-}
-
-// Checks for availability of the Google+ Photos app.
-// TODO(mtomasz): Replace with crbug.com/341902 solution.
-bool IsGooglePhotosInstalled(Profile *profile) {
-  ExtensionService* service =
-      extensions::ExtensionSystem::Get(profile)->extension_service();
-  if (!service)
-    return false;
-
-  // Google+ Photos uses several ids for different channels. Therefore, all of
-  // them should be checked.
-  const std::string kGooglePlusPhotosIds[] = {
-      "ebpbnabdhheoknfklmpddcdijjkmklkp",  // G+ Photos staging
-      "efjnaogkjbogokcnohkmnjdojkikgobo",  // G+ Photos prod
-      "ejegoaikibpmikoejfephaneibodccma"   // G+ Photos dev
-  };
-
-  for (size_t i = 0; i < arraysize(kGooglePlusPhotosIds); ++i) {
-    if (service->GetExtensionById(kGooglePlusPhotosIds[i],
-                                  false /* include_disable */) != NULL)
-      return true;
-  }
-
-  return false;
 }
 
 // Checks if the Recovery Tool is running. This is a temporary solution.
@@ -176,100 +155,93 @@ void BroadcastEvent(Profile* profile,
       make_scoped_ptr(new extensions::Event(event_name, event_args.Pass())));
 }
 
-file_browser_private::MountCompletedStatus
+file_manager_private::MountCompletedStatus
 MountErrorToMountCompletedStatus(chromeos::MountError error) {
   switch (error) {
     case chromeos::MOUNT_ERROR_NONE:
-      return file_browser_private::MOUNT_COMPLETED_STATUS_SUCCESS;
+      return file_manager_private::MOUNT_COMPLETED_STATUS_SUCCESS;
     case chromeos::MOUNT_ERROR_UNKNOWN:
-      return file_browser_private::MOUNT_COMPLETED_STATUS_ERROR_UNKNOWN;
+      return file_manager_private::MOUNT_COMPLETED_STATUS_ERROR_UNKNOWN;
     case chromeos::MOUNT_ERROR_INTERNAL:
-      return file_browser_private::MOUNT_COMPLETED_STATUS_ERROR_INTERNAL;
+      return file_manager_private::MOUNT_COMPLETED_STATUS_ERROR_INTERNAL;
     case chromeos::MOUNT_ERROR_INVALID_ARGUMENT:
-      return file_browser_private::
+      return file_manager_private::
           MOUNT_COMPLETED_STATUS_ERROR_INVALID_ARGUMENT;
     case chromeos::MOUNT_ERROR_INVALID_PATH:
-      return file_browser_private::MOUNT_COMPLETED_STATUS_ERROR_INVALID_PATH;
+      return file_manager_private::MOUNT_COMPLETED_STATUS_ERROR_INVALID_PATH;
     case chromeos::MOUNT_ERROR_PATH_ALREADY_MOUNTED:
-      return file_browser_private::
+      return file_manager_private::
           MOUNT_COMPLETED_STATUS_ERROR_PATH_ALREADY_MOUNTED;
     case chromeos::MOUNT_ERROR_PATH_NOT_MOUNTED:
-      return file_browser_private::
+      return file_manager_private::
           MOUNT_COMPLETED_STATUS_ERROR_PATH_NOT_MOUNTED;
     case chromeos::MOUNT_ERROR_DIRECTORY_CREATION_FAILED:
-      return file_browser_private
+      return file_manager_private
           ::MOUNT_COMPLETED_STATUS_ERROR_DIRECTORY_CREATION_FAILED;
     case chromeos::MOUNT_ERROR_INVALID_MOUNT_OPTIONS:
-      return file_browser_private
+      return file_manager_private
           ::MOUNT_COMPLETED_STATUS_ERROR_INVALID_MOUNT_OPTIONS;
     case chromeos::MOUNT_ERROR_INVALID_UNMOUNT_OPTIONS:
-      return file_browser_private::
+      return file_manager_private::
           MOUNT_COMPLETED_STATUS_ERROR_INVALID_UNMOUNT_OPTIONS;
     case chromeos::MOUNT_ERROR_INSUFFICIENT_PERMISSIONS:
-      return file_browser_private::
+      return file_manager_private::
           MOUNT_COMPLETED_STATUS_ERROR_INSUFFICIENT_PERMISSIONS;
     case chromeos::MOUNT_ERROR_MOUNT_PROGRAM_NOT_FOUND:
-      return file_browser_private::
+      return file_manager_private::
           MOUNT_COMPLETED_STATUS_ERROR_MOUNT_PROGRAM_NOT_FOUND;
     case chromeos::MOUNT_ERROR_MOUNT_PROGRAM_FAILED:
-      return file_browser_private::
+      return file_manager_private::
           MOUNT_COMPLETED_STATUS_ERROR_MOUNT_PROGRAM_FAILED;
     case chromeos::MOUNT_ERROR_INVALID_DEVICE_PATH:
-      return file_browser_private::
+      return file_manager_private::
           MOUNT_COMPLETED_STATUS_ERROR_INVALID_DEVICE_PATH;
     case chromeos::MOUNT_ERROR_UNKNOWN_FILESYSTEM:
-      return file_browser_private::
+      return file_manager_private::
           MOUNT_COMPLETED_STATUS_ERROR_UNKNOWN_FILESYSTEM;
     case chromeos::MOUNT_ERROR_UNSUPPORTED_FILESYSTEM:
-      return file_browser_private::
-          MOUNT_COMPLETED_STATUS_ERROR_UNSUPORTED_FILESYSTEM;
+      return file_manager_private::
+          MOUNT_COMPLETED_STATUS_ERROR_UNSUPPORTED_FILESYSTEM;
     case chromeos::MOUNT_ERROR_INVALID_ARCHIVE:
-      return file_browser_private::MOUNT_COMPLETED_STATUS_ERROR_INVALID_ARCHIVE;
+      return file_manager_private::MOUNT_COMPLETED_STATUS_ERROR_INVALID_ARCHIVE;
     case chromeos::MOUNT_ERROR_NOT_AUTHENTICATED:
-      return file_browser_private::MOUNT_COMPLETED_STATUS_ERROR_AUTHENTICATION;
+      return file_manager_private::MOUNT_COMPLETED_STATUS_ERROR_AUTHENTICATION;
     case chromeos::MOUNT_ERROR_PATH_UNMOUNTED:
-      return file_browser_private::MOUNT_COMPLETED_STATUS_ERROR_PATH_UNMOUNTED;
+      return file_manager_private::MOUNT_COMPLETED_STATUS_ERROR_PATH_UNMOUNTED;
   }
   NOTREACHED();
-  return file_browser_private::MOUNT_COMPLETED_STATUS_NONE;
+  return file_manager_private::MOUNT_COMPLETED_STATUS_NONE;
 }
 
-void BroadcastMountCompletedEvent(
-    Profile* profile,
-    file_browser_private::MountCompletedEventType event_type,
-    chromeos::MountError error,
-    const VolumeInfo& volume_info,
-    bool is_remounting) {
-  file_browser_private::MountCompletedEvent event;
-  event.event_type = event_type;
-  event.status = MountErrorToMountCompletedStatus(error);
-  util::VolumeInfoToVolumeMetadata(
-      profile, volume_info, &event.volume_metadata);
-  event.is_remounting = is_remounting;
-
-  BroadcastEvent(
-      profile,
-      file_browser_private::OnMountCompleted::kEventName,
-      file_browser_private::OnMountCompleted::Create(event));
-}
-
-file_browser_private::CopyProgressStatusType
+file_manager_private::CopyProgressStatusType
 CopyProgressTypeToCopyProgressStatusType(
-    fileapi::FileSystemOperation::CopyProgressType type) {
+    storage::FileSystemOperation::CopyProgressType type) {
   switch (type) {
-    case fileapi::FileSystemOperation::BEGIN_COPY_ENTRY:
-      return file_browser_private::COPY_PROGRESS_STATUS_TYPE_BEGIN_COPY_ENTRY;
-    case fileapi::FileSystemOperation::END_COPY_ENTRY:
-      return file_browser_private::COPY_PROGRESS_STATUS_TYPE_END_COPY_ENTRY;
-    case fileapi::FileSystemOperation::PROGRESS:
-      return file_browser_private::COPY_PROGRESS_STATUS_TYPE_PROGRESS;
+    case storage::FileSystemOperation::BEGIN_COPY_ENTRY:
+      return file_manager_private::COPY_PROGRESS_STATUS_TYPE_BEGIN_COPY_ENTRY;
+    case storage::FileSystemOperation::END_COPY_ENTRY:
+      return file_manager_private::COPY_PROGRESS_STATUS_TYPE_END_COPY_ENTRY;
+    case storage::FileSystemOperation::PROGRESS:
+      return file_manager_private::COPY_PROGRESS_STATUS_TYPE_PROGRESS;
   }
   NOTREACHED();
-  return file_browser_private::COPY_PROGRESS_STATUS_TYPE_NONE;
+  return file_manager_private::COPY_PROGRESS_STATUS_TYPE_NONE;
+}
+
+file_manager_private::ChangeType ConvertChangeTypeFromDriveToApi(
+    drive::FileChange::ChangeType type) {
+  switch (type) {
+    case drive::FileChange::ADD_OR_UPDATE:
+      return file_manager_private::CHANGE_TYPE_ADD_OR_UPDATE;
+    case drive::FileChange::DELETE:
+      return file_manager_private::CHANGE_TYPE_DELETE;
+  }
+  NOTREACHED();
+  return file_manager_private::CHANGE_TYPE_ADD_OR_UPDATE;
 }
 
 std::string FileErrorToErrorName(base::File::Error error_code) {
-  namespace js = extensions::api::file_browser_private;
+  namespace js = extensions::api::file_manager_private;
   switch (error_code) {
     case base::File::FILE_ERROR_NOT_FOUND:
       return "NotFoundError";
@@ -330,6 +302,74 @@ bool ShouldSendProgressEvent(bool always, base::Time* last_time) {
   }
 }
 
+// Obtains whether the Files.app should handle the volume or not.
+bool ShouldShowNotificationForVolume(
+    Profile* profile,
+    const DeviceEventRouter& device_event_router,
+    const VolumeInfo& volume_info) {
+  if (volume_info.type != VOLUME_TYPE_MTP &&
+      volume_info.type != VOLUME_TYPE_REMOVABLE_DISK_PARTITION) {
+    return false;
+  }
+
+  if (device_event_router.is_resuming() || device_event_router.is_starting_up())
+    return false;
+
+  // Do not attempt to open File Manager while the login is in progress or
+  // the screen is locked or running in kiosk app mode and make sure the file
+  // manager is opened only for the active user.
+  if (chromeos::LoginDisplayHostImpl::default_host() ||
+      chromeos::ScreenLocker::default_screen_locker() ||
+      chrome::IsRunningInForcedAppMode() ||
+      profile != ProfileManager::GetActiveUserProfile()) {
+    return false;
+  }
+
+  // Do not pop-up the File Manager, if the recovery tool is running.
+  if (IsRecoveryToolRunning(profile))
+    return false;
+
+  // If the disable-default-apps flag is on, Files.app is not opened
+  // automatically on device mount not to obstruct the manual test.
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableDefaultApps)) {
+    return false;
+  }
+
+  return true;
+}
+
+// Sub-part of the event router for handling device events.
+class DeviceEventRouterImpl : public DeviceEventRouter {
+ public:
+  explicit DeviceEventRouterImpl(Profile* profile) : profile_(profile) {}
+
+  // DeviceEventRouter overrides.
+  virtual void OnDeviceEvent(file_manager_private::DeviceEventType type,
+                             const std::string& device_path) OVERRIDE {
+    DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+    file_manager_private::DeviceEvent event;
+    event.type = type;
+    event.device_path = device_path;
+
+    BroadcastEvent(profile_,
+                   file_manager_private::OnDeviceChanged::kEventName,
+                   file_manager_private::OnDeviceChanged::Create(event));
+  }
+
+  // DeviceEventRouter overrides.
+  virtual bool IsExternalStorageDisabled() OVERRIDE {
+    DCHECK_CURRENTLY_ON(BrowserThread::UI);
+    return profile_->GetPrefs()->GetBoolean(prefs::kExternalStorageDisabled);
+  }
+
+ private:
+  Profile* const profile_;
+
+  DISALLOW_COPY_AND_ASSIGN(DeviceEventRouterImpl);
+};
+
 }  // namespace
 
 // Pass dummy value to JobInfo's constructor for make it default constructible.
@@ -345,9 +385,10 @@ EventRouter::DriveJobInfoWithStatus::DriveJobInfoWithStatus(
 EventRouter::EventRouter(Profile* profile)
     : pref_change_registrar_(new PrefChangeRegistrar),
       profile_(profile),
-      multi_user_window_manager_observer_registered_(false),
+      device_event_router_(new DeviceEventRouterImpl(profile)),
       weak_factory_(this) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  ObserveEvents();
 }
 
 EventRouter::~EventRouter() {
@@ -372,26 +413,23 @@ void EventRouter::Shutdown() {
                                                                    FROM_HERE);
   }
 
-  DriveIntegrationService* integration_service =
-      DriveIntegrationServiceFactory::FindForProfileRegardlessOfStates(
-          profile_);
+  DriveIntegrationService* const integration_service =
+      DriveIntegrationServiceFactory::FindForProfile(profile_);
   if (integration_service) {
     integration_service->file_system()->RemoveObserver(this);
     integration_service->drive_service()->RemoveObserver(this);
     integration_service->job_list()->RemoveObserver(this);
   }
 
-  VolumeManager* volume_manager = VolumeManager::Get(profile_);
-  if (volume_manager)
+  VolumeManager* const volume_manager = VolumeManager::Get(profile_);
+  if (volume_manager) {
     volume_manager->RemoveObserver(this);
-
-  chrome::MultiUserWindowManager* const multi_user_window_manager =
-      chrome::MultiUserWindowManager::GetInstance();
-  if (multi_user_window_manager &&
-      multi_user_window_manager_observer_registered_) {
-    multi_user_window_manager_observer_registered_ = false;
-    multi_user_window_manager->RemoveObserver(this);
+    volume_manager->RemoveObserver(device_event_router_.get());
   }
+
+  chromeos::PowerManagerClient* const power_manager_client =
+      chromeos::DBusThreadManager::Get()->GetPowerManagerClient();
+  power_manager_client->RemoveObserver(device_event_router_.get());
 
   profile_ = NULL;
 }
@@ -406,16 +444,24 @@ void EventRouter::ObserveEvents() {
     return;
   }
 
+  // Ignore device events for the first few seconds.
+  device_event_router_->Startup();
+
   // VolumeManager's construction triggers DriveIntegrationService's
   // construction, so it is necessary to call VolumeManager's Get before
   // accessing DriveIntegrationService.
-  VolumeManager* volume_manager = VolumeManager::Get(profile_);
-  if (volume_manager)
+  VolumeManager* const volume_manager = VolumeManager::Get(profile_);
+  if (volume_manager) {
     volume_manager->AddObserver(this);
+    volume_manager->AddObserver(device_event_router_.get());
+  }
 
-  DriveIntegrationService* integration_service =
-      DriveIntegrationServiceFactory::FindForProfileRegardlessOfStates(
-          profile_);
+  chromeos::PowerManagerClient* const power_manager_client =
+      chromeos::DBusThreadManager::Get()->GetPowerManagerClient();
+  power_manager_client->AddObserver(device_event_router_.get());
+
+  DriveIntegrationService* const integration_service =
+      DriveIntegrationServiceFactory::FindForProfile(profile_);
   if (integration_service) {
     integration_service->drive_service()->AddObserver(this);
     integration_service->file_system()->AddObserver(this);
@@ -471,7 +517,8 @@ void EventRouter::AddFileWatch(const base::FilePath& local_path,
       watcher->WatchLocalFile(
           watch_path,
           base::Bind(&EventRouter::HandleFileWatchNotification,
-                     weak_factory_.GetWeakPtr()),
+                     weak_factory_.GetWeakPtr(),
+                     static_cast<drive::FileChange*>(NULL)),
           callback);
     }
 
@@ -511,50 +558,50 @@ void EventRouter::OnCopyCompleted(int copy_id,
                                   base::File::Error error) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  file_browser_private::CopyProgressStatus status;
+  file_manager_private::CopyProgressStatus status;
   if (error == base::File::FILE_OK) {
     // Send success event.
-    status.type = file_browser_private::COPY_PROGRESS_STATUS_TYPE_SUCCESS;
+    status.type = file_manager_private::COPY_PROGRESS_STATUS_TYPE_SUCCESS;
     status.source_url.reset(new std::string(source_url.spec()));
     status.destination_url.reset(new std::string(destination_url.spec()));
   } else {
     // Send error event.
-    status.type = file_browser_private::COPY_PROGRESS_STATUS_TYPE_ERROR;
+    status.type = file_manager_private::COPY_PROGRESS_STATUS_TYPE_ERROR;
     status.error.reset(new std::string(FileErrorToErrorName(error)));
   }
 
   BroadcastEvent(
       profile_,
-      file_browser_private::OnCopyProgress::kEventName,
-      file_browser_private::OnCopyProgress::Create(copy_id, status));
+      file_manager_private::OnCopyProgress::kEventName,
+      file_manager_private::OnCopyProgress::Create(copy_id, status));
 }
 
 void EventRouter::OnCopyProgress(
     int copy_id,
-    fileapi::FileSystemOperation::CopyProgressType type,
+    storage::FileSystemOperation::CopyProgressType type,
     const GURL& source_url,
     const GURL& destination_url,
     int64 size) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  file_browser_private::CopyProgressStatus status;
+  file_manager_private::CopyProgressStatus status;
   status.type = CopyProgressTypeToCopyProgressStatusType(type);
   status.source_url.reset(new std::string(source_url.spec()));
-  if (type == fileapi::FileSystemOperation::END_COPY_ENTRY)
+  if (type == storage::FileSystemOperation::END_COPY_ENTRY)
     status.destination_url.reset(new std::string(destination_url.spec()));
-  if (type == fileapi::FileSystemOperation::PROGRESS)
+  if (type == storage::FileSystemOperation::PROGRESS)
     status.size.reset(new double(size));
 
   // Should not skip events other than TYPE_PROGRESS.
   const bool always =
-      status.type != file_browser_private::COPY_PROGRESS_STATUS_TYPE_PROGRESS;
+      status.type != file_manager_private::COPY_PROGRESS_STATUS_TYPE_PROGRESS;
   if (!ShouldSendProgressEvent(always, &last_copy_progress_event_))
     return;
 
   BroadcastEvent(
       profile_,
-      file_browser_private::OnCopyProgress::kEventName,
-      file_browser_private::OnCopyProgress::Create(copy_id, status));
+      file_manager_private::OnCopyProgress::kEventName,
+      file_manager_private::OnCopyProgress::Create(copy_id, status));
 }
 
 void EventRouter::DefaultNetworkChanged(const chromeos::NetworkState* network) {
@@ -565,8 +612,8 @@ void EventRouter::DefaultNetworkChanged(const chromeos::NetworkState* network) {
 
   BroadcastEvent(
       profile_,
-      file_browser_private::OnDriveConnectionStatusChanged::kEventName,
-      file_browser_private::OnDriveConnectionStatusChanged::Create());
+      file_manager_private::OnDriveConnectionStatusChanged::kEventName,
+      file_manager_private::OnDriveConnectionStatusChanged::Create());
 }
 
 void EventRouter::OnFileManagerPrefsChanged() {
@@ -577,13 +624,16 @@ void EventRouter::OnFileManagerPrefsChanged() {
 
   BroadcastEvent(
       profile_,
-      file_browser_private::OnPreferencesChanged::kEventName,
-      file_browser_private::OnPreferencesChanged::Create());
+      file_manager_private::OnPreferencesChanged::kEventName,
+      file_manager_private::OnPreferencesChanged::Create());
 }
 
 void EventRouter::OnJobAdded(const drive::JobInfo& job_info) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  OnJobUpdated(job_info);
+  if (!drive::IsActiveFileTransferJobInfo(job_info))
+    return;
+  ScheduleDriveFileTransferEvent(
+      job_info, kFileTransferStateAdded, false /* immediate */);
 }
 
 void EventRouter::OnJobUpdated(const drive::JobInfo& job_info) {
@@ -593,14 +643,13 @@ void EventRouter::OnJobUpdated(const drive::JobInfo& job_info) {
 
   bool is_new_job = (drive_jobs_.find(job_info.job_id) == drive_jobs_.end());
 
-  // Replace with the latest job info.
-  drive_jobs_[job_info.job_id] = DriveJobInfoWithStatus(
-      job_info,
-      is_new_job ? kFileTransferStateStarted : kFileTransferStateInProgress);
+  const std::string status =
+      is_new_job ? kFileTransferStateStarted : kFileTransferStateInProgress;
 
-  // Fire event if needed.
-  bool always = is_new_job;
-  SendDriveFileTransferEvent(always);
+  // Replace with the latest job info.
+  drive_jobs_[job_info.job_id] = DriveJobInfoWithStatus(job_info, status);
+
+  ScheduleDriveFileTransferEvent(job_info, status, false /* immediate */);
 }
 
 void EventRouter::OnJobDone(const drive::JobInfo& job_info,
@@ -609,76 +658,98 @@ void EventRouter::OnJobDone(const drive::JobInfo& job_info,
   if (!drive::IsActiveFileTransferJobInfo(job_info))
     return;
 
-  // Replace with the latest job info.
-  drive_jobs_[job_info.job_id] = DriveJobInfoWithStatus(
-      job_info,
-      error == drive::FILE_ERROR_OK ? kFileTransferStateCompleted
-      : kFileTransferStateFailed);
+  const std::string status = error == drive::FILE_ERROR_OK
+                                 ? kFileTransferStateCompleted
+                                 : kFileTransferStateFailed;
 
-  // Fire event if needed.
-  bool always = true;
-  SendDriveFileTransferEvent(always);
+  ScheduleDriveFileTransferEvent(job_info, status, true /* immediate */);
 
   // Forget about the job.
   drive_jobs_.erase(job_info.job_id);
 }
 
-void EventRouter::SendDriveFileTransferEvent(bool always) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+void EventRouter::ScheduleDriveFileTransferEvent(const drive::JobInfo& job_info,
+                                                 const std::string& status,
+                                                 bool immediate) {
+  const bool no_pending_task = !drive_job_info_for_scheduled_event_;
+  // Update the latest event.
+  drive_job_info_for_scheduled_event_.reset(
+      new DriveJobInfoWithStatus(job_info, status));
+  if (immediate) {
+    SendDriveFileTransferEvent();
+  } else if (no_pending_task) {
+    const base::TimeDelta delay = base::TimeDelta::FromMilliseconds(
+        kFileTransferEventDelayTimeInMilliseconds);
+    base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+        FROM_HERE,
+        base::Bind(&EventRouter::SendDriveFileTransferEvent,
+                   weak_factory_.GetWeakPtr()),
+        delay);
+  }
+}
 
-  // When |always| flag is not set, we don't send the event until certain
-  // amount of time passes after the previous one. This is to avoid
-  // flooding the IPC between extensions by many onFileTransferUpdated events.
-  if (!ShouldSendProgressEvent(always, &last_file_transfer_event_))
+void EventRouter::SendDriveFileTransferEvent() {
+  if (!drive_job_info_for_scheduled_event_)
     return;
 
-  // Convert the current |drive_jobs_| to IDL type.
-  std::vector<linked_ptr<file_browser_private::FileTransferStatus> >
-      status_list;
-  for (std::map<drive::JobID, DriveJobInfoWithStatus>::iterator
-           iter = drive_jobs_.begin(); iter != drive_jobs_.end(); ++iter) {
-    linked_ptr<file_browser_private::FileTransferStatus> status(
-        new file_browser_private::FileTransferStatus());
-    JobInfoToTransferStatus(profile_,
-                            kFileManagerAppId,
-                            iter->second.status,
-                            iter->second.job_info,
-                            status.get());
-    status_list.push_back(status);
-  }
-  BroadcastEvent(
-      profile_,
-      file_browser_private::OnFileTransfersUpdated::kEventName,
-      file_browser_private::OnFileTransfersUpdated::Create(status_list));
+  file_manager_private::FileTransferStatus status;
+  JobInfoToTransferStatus(profile_,
+                          kFileManagerAppId,
+                          drive_job_info_for_scheduled_event_->status,
+                          drive_job_info_for_scheduled_event_->job_info,
+                          &status);
+
+  drive_job_info_for_scheduled_event_.reset();
+
+  BroadcastEvent(profile_,
+                 file_manager_private::OnFileTransfersUpdated::kEventName,
+                 file_manager_private::OnFileTransfersUpdated::Create(status));
 }
 
 void EventRouter::OnDirectoryChanged(const base::FilePath& drive_path) {
-  HandleFileWatchNotification(drive_path, false);
+  HandleFileWatchNotification(NULL, drive_path, false);
+}
+
+void EventRouter::OnFileChanged(const drive::FileChange& changed_files) {
+  typedef std::map<base::FilePath, drive::FileChange> FileChangeMap;
+
+  FileChangeMap map;
+  const drive::FileChange::Map& changed_file_map = changed_files.map();
+  for (drive::FileChange::Map::const_iterator it = changed_file_map.begin();
+       it != changed_file_map.end();
+       it++) {
+    const base::FilePath& path = it->first;
+    map[path.DirName()].Update(path, it->second);
+  }
+
+  for (FileChangeMap::const_iterator it = map.begin(); it != map.end(); it++) {
+    HandleFileWatchNotification(&(it->second), it->first, false);
+  }
 }
 
 void EventRouter::OnDriveSyncError(drive::file_system::DriveSyncErrorType type,
                                    const base::FilePath& drive_path) {
-  file_browser_private::DriveSyncErrorEvent event;
+  file_manager_private::DriveSyncErrorEvent event;
   switch (type) {
     case drive::file_system::DRIVE_SYNC_ERROR_DELETE_WITHOUT_PERMISSION:
       event.type =
-          file_browser_private::DRIVE_SYNC_ERROR_TYPE_DELETE_WITHOUT_PERMISSION;
+          file_manager_private::DRIVE_SYNC_ERROR_TYPE_DELETE_WITHOUT_PERMISSION;
       break;
     case drive::file_system::DRIVE_SYNC_ERROR_SERVICE_UNAVAILABLE:
       event.type =
-          file_browser_private::DRIVE_SYNC_ERROR_TYPE_SERVICE_UNAVAILABLE;
+          file_manager_private::DRIVE_SYNC_ERROR_TYPE_SERVICE_UNAVAILABLE;
       break;
     case drive::file_system::DRIVE_SYNC_ERROR_MISC:
       event.type =
-          file_browser_private::DRIVE_SYNC_ERROR_TYPE_MISC;
+          file_manager_private::DRIVE_SYNC_ERROR_TYPE_MISC;
       break;
   }
   event.file_url = util::ConvertDrivePathToFileSystemUrl(
       profile_, drive_path, kFileManagerAppId).spec();
   BroadcastEvent(
       profile_,
-      file_browser_private::OnDriveSyncError::kEventName,
-      file_browser_private::OnDriveSyncError::Create(event));
+      file_manager_private::OnDriveSyncError::kEventName,
+      file_manager_private::OnDriveSyncError::Create(event));
 }
 
 void EventRouter::OnRefreshTokenInvalid() {
@@ -687,11 +758,12 @@ void EventRouter::OnRefreshTokenInvalid() {
   // Raise a DriveConnectionStatusChanged event to notify the status offline.
   BroadcastEvent(
       profile_,
-      file_browser_private::OnDriveConnectionStatusChanged::kEventName,
-      file_browser_private::OnDriveConnectionStatusChanged::Create());
+      file_manager_private::OnDriveConnectionStatusChanged::kEventName,
+      file_manager_private::OnDriveConnectionStatusChanged::Create());
 }
 
-void EventRouter::HandleFileWatchNotification(const base::FilePath& local_path,
+void EventRouter::HandleFileWatchNotification(const drive::FileChange* list,
+                                              const base::FilePath& local_path,
                                               bool got_error) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
@@ -699,21 +771,36 @@ void EventRouter::HandleFileWatchNotification(const base::FilePath& local_path,
   if (iter == file_watchers_.end()) {
     return;
   }
-  DispatchDirectoryChangeEvent(iter->second->virtual_path(), got_error,
+
+  if (list && list->size() > kDirectoryChangeEventMaxDetailInfoSize) {
+    // Removes the detailed information, if the list size is more than
+    // kDirectoryChangeEventMaxDetailInfoSize, since passing large list
+    // and processing it may cause more itme.
+    // This will be invoked full-refresh in Files.app.
+    list = NULL;
+  }
+
+  DispatchDirectoryChangeEvent(iter->second->virtual_path(),
+                               list,
+                               got_error,
                                iter->second->GetExtensionIds());
 }
 
 void EventRouter::DispatchDirectoryChangeEvent(
     const base::FilePath& virtual_path,
+    const drive::FileChange* list,
     bool got_error,
     const std::vector<std::string>& extension_ids) {
   if (!profile_) {
     NOTREACHED();
     return;
   }
+  linked_ptr<drive::FileChange> changes;
+  if (list)
+    changes.reset(new drive::FileChange(*list));  // Copy
 
   for (size_t i = 0; i < extension_ids.size(); ++i) {
-    const std::string& extension_id = extension_ids[i];
+    std::string* extension_id = new std::string(extension_ids[i]);
 
     FileDefinition file_definition;
     file_definition.virtual_path = virtual_path;
@@ -721,18 +808,24 @@ void EventRouter::DispatchDirectoryChangeEvent(
 
     file_manager::util::ConvertFileDefinitionToEntryDefinition(
         profile_,
-        extension_id,
+        *extension_id,
         file_definition,
         base::Bind(
             &EventRouter::DispatchDirectoryChangeEventWithEntryDefinition,
             weak_factory_.GetWeakPtr(),
+            changes,
+            base::Owned(extension_id),
             got_error));
   }
 }
 
 void EventRouter::DispatchDirectoryChangeEventWithEntryDefinition(
+    const linked_ptr<drive::FileChange> list,
+    const std::string* extension_id,
     bool watcher_error,
     const EntryDefinition& entry_definition) {
+  typedef std::map<base::FilePath, drive::FileChange::ChangeList> ChangeListMap;
+
   if (entry_definition.error != base::File::FILE_OK ||
       !entry_definition.is_directory) {
     DVLOG(1) << "Unable to dispatch event because resolving the directory "
@@ -740,10 +833,40 @@ void EventRouter::DispatchDirectoryChangeEventWithEntryDefinition(
     return;
   }
 
-  file_browser_private::FileWatchEvent event;
+  file_manager_private::FileWatchEvent event;
   event.event_type = watcher_error
-      ? file_browser_private::FILE_WATCH_EVENT_TYPE_ERROR
-      : file_browser_private::FILE_WATCH_EVENT_TYPE_CHANGED;
+      ? file_manager_private::FILE_WATCH_EVENT_TYPE_ERROR
+      : file_manager_private::FILE_WATCH_EVENT_TYPE_CHANGED;
+
+  // Detailed information is available.
+  if (list.get()) {
+    event.changed_files.reset(
+        new std::vector<linked_ptr<file_manager_private::FileChange> >);
+
+    if (list->map().empty())
+      return;
+
+    for (drive::FileChange::Map::const_iterator it = list->map().begin();
+         it != list->map().end();
+         it++) {
+      linked_ptr<file_manager_private::FileChange> change_list(
+          new file_manager_private::FileChange);
+
+      GURL url = util::ConvertDrivePathToFileSystemUrl(
+          profile_, it->first, *extension_id);
+      change_list->url = url.spec();
+
+      for (drive::FileChange::ChangeList::List::const_iterator change =
+               it->second.list().begin();
+           change != it->second.list().end();
+           change++) {
+        change_list->changes.push_back(
+            ConvertChangeTypeFromDriveToApi(change->change()));
+      }
+
+      event.changed_files->push_back(change_list);
+    }
+  }
 
   event.entry.additional_properties.SetString(
       "fileSystemName", entry_definition.file_system_name);
@@ -755,68 +878,14 @@ void EventRouter::DispatchDirectoryChangeEventWithEntryDefinition(
                                                entry_definition.is_directory);
 
   BroadcastEvent(profile_,
-                 file_browser_private::OnDirectoryChanged::kEventName,
-                 file_browser_private::OnDirectoryChanged::Create(event));
-}
-
-void EventRouter::ShowRemovableDeviceInFileManager(
-    VolumeType type,
-    const base::FilePath& mount_path) {
-  // Do not attempt to open File Manager while the login is in progress or
-  // the screen is locked or running in kiosk app mode and make sure the file
-  // manager is opened only for the active user.
-  if (chromeos::LoginDisplayHostImpl::default_host() ||
-      chromeos::ScreenLocker::default_screen_locker() ||
-      chrome::IsRunningInForcedAppMode() ||
-      profile_ != ProfileManager::GetActiveUserProfile())
-    return;
-
-  // Do not pop-up the File Manager, if the recovery tool is running.
-  if (IsRecoveryToolRunning(profile_))
-    return;
-
-  // Do not pop-up the File Manager, if Google+ Photos may be launched.
-  if (IsGooglePhotosInstalled(profile_)) {
-    // MTP device is handled by Photos app.
-    if (type == VOLUME_TYPE_MTP)
-      return;
-    // According to DCF (Design rule of Camera File system) by JEITA / CP-3461
-    // cameras should have pictures located in the DCIM root directory.
-    // Such removable disks are handled by Photos app.
-    if (type == VOLUME_TYPE_REMOVABLE_DISK_PARTITION) {
-      DirectoryExistsOnUIThread(
-          mount_path.AppendASCII("DCIM"),
-          base::Bind(&base::DoNothing),
-          base::Bind(&util::OpenRemovableDrive, profile_, mount_path));
-      return;
-    }
-  }
-
-  util::OpenRemovableDrive(profile_, mount_path);
-}
-
-void EventRouter::DispatchDeviceEvent(
-    file_browser_private::DeviceEventType type,
-    const std::string& device_path) {
-  file_browser_private::DeviceEvent event;
-  event.type = type;
-  event.device_path = device_path;
-  BroadcastEvent(profile_,
-                 file_browser_private::OnDeviceChanged::kEventName,
-                 file_browser_private::OnDeviceChanged::Create(event));
+                 file_manager_private::OnDirectoryChanged::kEventName,
+                 file_manager_private::OnDirectoryChanged::Create(event));
 }
 
 void EventRouter::OnDiskAdded(
     const DiskMountManager::Disk& disk, bool mounting) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  if (!mounting) {
-    // If the disk is not being mounted, we don't want the Scanning
-    // notification to persist.
-    DispatchDeviceEvent(
-        file_browser_private::DEVICE_EVENT_TYPE_SCAN_CANCELED,
-        disk.system_path_prefix());
-  }
+  // Do nothing.
 }
 
 void EventRouter::OnDiskRemoved(const DiskMountManager::Disk& disk) {
@@ -826,38 +895,16 @@ void EventRouter::OnDiskRemoved(const DiskMountManager::Disk& disk) {
 
 void EventRouter::OnDeviceAdded(const std::string& device_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  // If the policy is set instead of showing the new device notification,
-  // we show a notification that the operation is not permitted.
-  if (profile_->GetPrefs()->GetBoolean(prefs::kExternalStorageDisabled)) {
-    DispatchDeviceEvent(
-        file_browser_private::DEVICE_EVENT_TYPE_DISABLED,
-        device_path);
-    return;
-  }
-
-  DispatchDeviceEvent(
-      file_browser_private::DEVICE_EVENT_TYPE_ADDED,
-      device_path);
+  // Do nothing.
 }
 
-void EventRouter::OnDeviceRemoved(const std::string& device_path,
-                                  bool hard_unplugged) {
+void EventRouter::OnDeviceRemoved(const std::string& device_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  DispatchDeviceEvent(
-      file_browser_private::DEVICE_EVENT_TYPE_REMOVED,
-      device_path);
-
-  if (hard_unplugged) {
-    DispatchDeviceEvent(file_browser_private::DEVICE_EVENT_TYPE_HARD_UNPLUGGED,
-                        device_path);
-  }
+  // Do nothing.
 }
 
 void EventRouter::OnVolumeMounted(chromeos::MountError error_code,
-                                  const VolumeInfo& volume_info,
-                                  bool is_remounting) {
+                                  const VolumeInfo& volume_info) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   // profile_ is NULL if ShutdownOnUIThread() is called earlier. This can
   // happen at shutdown. This should be removed after removing Drive mounting
@@ -866,55 +913,48 @@ void EventRouter::OnVolumeMounted(chromeos::MountError error_code,
   if (!profile_)
     return;
 
-  BroadcastMountCompletedEvent(
-      profile_,
-      file_browser_private::MOUNT_COMPLETED_EVENT_TYPE_MOUNT,
+  DispatchMountCompletedEvent(
+      file_manager_private::MOUNT_COMPLETED_EVENT_TYPE_MOUNT,
       error_code,
-      volume_info,
-      is_remounting);
-
-  if ((volume_info.type == VOLUME_TYPE_MTP ||
-       volume_info.type == VOLUME_TYPE_REMOVABLE_DISK_PARTITION) &&
-      !is_remounting) {
-    // If a new device was mounted, a new File manager window may need to be
-    // opened.
-    if (error_code == chromeos::MOUNT_ERROR_NONE)
-      ShowRemovableDeviceInFileManager(volume_info.type,
-                                       volume_info.mount_path);
-  }
+      volume_info);
 }
 
 void EventRouter::OnVolumeUnmounted(chromeos::MountError error_code,
                                     const VolumeInfo& volume_info) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  BroadcastMountCompletedEvent(
-      profile_,
-      file_browser_private::MOUNT_COMPLETED_EVENT_TYPE_UNMOUNT,
+  DispatchMountCompletedEvent(
+      file_manager_private::MOUNT_COMPLETED_EVENT_TYPE_UNMOUNT,
       error_code,
-      volume_info,
-      false);
+      volume_info);
+}
+
+void EventRouter::DispatchMountCompletedEvent(
+    file_manager_private::MountCompletedEventType event_type,
+    chromeos::MountError error,
+    const VolumeInfo& volume_info) {
+  // Build an event object.
+  file_manager_private::MountCompletedEvent event;
+  event.event_type = event_type;
+  event.status = MountErrorToMountCompletedStatus(error);
+  util::VolumeInfoToVolumeMetadata(
+      profile_, volume_info, &event.volume_metadata);
+  event.should_notify = ShouldShowNotificationForVolume(
+      profile_, *device_event_router_, volume_info);
+  BroadcastEvent(profile_,
+                 file_manager_private::OnMountCompleted::kEventName,
+                 file_manager_private::OnMountCompleted::Create(event));
 }
 
 void EventRouter::OnFormatStarted(const std::string& device_path,
                                   bool success) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  if (success) {
-    DispatchDeviceEvent(file_browser_private::DEVICE_EVENT_TYPE_FORMAT_START,
-                        device_path);
-  } else {
-    DispatchDeviceEvent(file_browser_private::DEVICE_EVENT_TYPE_FORMAT_FAIL,
-                        device_path);
-  }
+  // Do nothing.
 }
 
 void EventRouter::OnFormatCompleted(const std::string& device_path,
                                     bool success) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DispatchDeviceEvent(success ?
-                      file_browser_private::DEVICE_EVENT_TYPE_FORMAT_SUCCESS :
-                      file_browser_private::DEVICE_EVENT_TYPE_FORMAT_FAIL,
-                      device_path);
+  // Do nothing.
 }
 
 void EventRouter::Observe(int type,
@@ -924,28 +964,7 @@ void EventRouter::Observe(int type,
     Profile* const added_profile = content::Source<Profile>(source).ptr();
     if (!added_profile->IsOffTheRecord())
       GrantAccessForAddedProfileToRunningInstance(added_profile, profile_);
-
-    BroadcastEvent(profile_,
-                   file_browser_private::OnProfileAdded::kEventName,
-                   file_browser_private::OnProfileAdded::Create());
   }
-}
-
-void EventRouter::RegisterMultiUserWindowManagerObserver() {
-  if (multi_user_window_manager_observer_registered_)
-    return;
-  chrome::MultiUserWindowManager* const multi_user_window_manager =
-      chrome::MultiUserWindowManager::GetInstance();
-  if (multi_user_window_manager) {
-    multi_user_window_manager->AddObserver(this);
-    multi_user_window_manager_observer_registered_ = true;
-  }
-}
-
-void EventRouter::OnOwnerEntryChanged(aura::Window* window) {
-  BroadcastEvent(profile_,
-                 file_browser_private::OnDesktopChanged::kEventName,
-                 file_browser_private::OnDesktopChanged::Create());
 }
 
 }  // namespace file_manager

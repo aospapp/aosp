@@ -9,13 +9,15 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "ui/base/test/ui_controls.h"
 
-#if defined(TOOLKIT_VIEWS)
-#include "ui/views/view.h"
-#endif
-
 namespace gfx {
 class Point;
 }
+
+#if defined(TOOLKIT_VIEWS)
+namespace views {
+class View;
+}
+#endif
 
 namespace ui_test_utils {
 
@@ -28,6 +30,9 @@ bool IsViewFocused(const Browser* browser, ViewID vid);
 
 // Simulates a mouse click on a View in the browser.
 void ClickOnView(const Browser* browser, ViewID vid);
+
+// Makes focus shift to the given View without clicking it.
+void FocusView(const Browser* browser, ViewID vid);
 
 // A collection of utilities that are used from interactive_ui_tests. These are
 // separated from ui_test_utils.h to ensure that browser_tests don't use them,
@@ -120,18 +125,14 @@ bool SendKeyPressAndWaitWithDetails(
 }
 
 // A combination of SendMouseMove to the middle of the view followed by
-// SendMouseEvents.
-void MoveMouseToCenterAndPress(
+// SendMouseEvents. Only exposed for toolkit-views.
+// Alternatives: ClickOnView() and ui::test::EventGenerator.
 #if defined(TOOLKIT_VIEWS)
-    views::View* view,
-#elif defined(OS_IOS)
-    UIView* view,
-#elif defined(OS_MACOSX)
-    NSView* view,
+void MoveMouseToCenterAndPress(views::View* view,
+                               ui_controls::MouseButton button,
+                               int state,
+                               const base::Closure& task);
 #endif
-    ui_controls::MouseButton button,
-    int state,
-    const base::Closure& task);
 
 namespace internal {
 

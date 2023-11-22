@@ -13,11 +13,11 @@
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_app_launch_error.h"
 #include "chrome/browser/chromeos/login/existing_user_controller.h"
+#include "chrome/grit/generated_resources.h"
 #include "chromeos/chromeos_switches.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_ui.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/webui/web_ui_util.h"
 
@@ -31,17 +31,13 @@ const char kKioskSetAppsOldAPI[] = "login.AppsMenuButton.setApps";
 const char kKioskShowErrorNewAPI[] = "login.AccountPickerScreen.showAppError";
 const char kKioskShowErrorOldAPI[] = "login.AppsMenuButton.showError";
 
-// Default app icon size.
-const char kDefaultAppIconSizeString[] = "96px";
-const int kMaxAppIconSize = 160;
-
 }  // namespace
 
 KioskAppMenuHandler::KioskAppMenuHandler(
     const scoped_refptr<NetworkStateInformer>& network_state_informer)
-    : weak_ptr_factory_(this),
-      is_webui_initialized_(false),
-      network_state_informer_(network_state_informer) {
+    : is_webui_initialized_(false),
+      network_state_informer_(network_state_informer),
+      weak_ptr_factory_(this) {
   KioskAppManager::Get()->AddObserver(this);
   network_state_informer_->AddObserver(this);
 }
@@ -107,22 +103,8 @@ void KioskAppMenuHandler::SendKioskApps() {
 
     // TODO(xiyuan): Replace data url with a URLDataSource.
     std::string icon_url("chrome://theme/IDR_APP_DEFAULT_ICON");
-
-    if (!app_data.icon.isNull()) {
+    if (!app_data.icon.isNull())
       icon_url = webui::GetBitmapDataUrl(*app_data.icon.bitmap());
-      int width = app_data.icon.width();
-      int height = app_data.icon.height();
-
-      // If app icon size is larger than default 160x160 then don't provide
-      // size at all since it's already limited on the css side.
-      if (width <= kMaxAppIconSize && height <= kMaxAppIconSize) {
-        app_info->SetString("iconWidth", base::IntToString(width) + "px");
-        app_info->SetString("iconHeight", base::IntToString(height) + "px");
-      }
-    } else {
-      app_info->SetString("iconWidth", kDefaultAppIconSizeString);
-      app_info->SetString("iconHeight", kDefaultAppIconSizeString);
-    }
     app_info->SetString("iconUrl", icon_url);
 
     apps_list.Append(app_info.release());

@@ -7,16 +7,13 @@
 
 #include "base/memory/singleton.h"
 #include "content/common/content_export.h"
+#include "content/public/common/resource_type.h"
 #include "net/url_request/url_request.h"
 #include "url/gurl.h"
-#include "webkit/common/resource_type.h"
-
-namespace appcache {
-class AppCacheRequestHandler;
-class AppCacheServiceImpl;
-}
 
 namespace content {
+class AppCacheRequestHandler;
+class AppCacheServiceImpl;
 
 // An interceptor to hijack requests and potentially service them out of
 // the appcache.
@@ -31,10 +28,10 @@ class CONTENT_EXPORT AppCacheInterceptor
 
   // Must be called to make a request eligible for retrieval from an appcache.
   static void SetExtraRequestInfo(net::URLRequest* request,
-                                  appcache::AppCacheServiceImpl* service,
+                                  AppCacheServiceImpl* service,
                                   int process_id,
                                   int host_id,
-                                  ResourceType::Type resource_type);
+                                  ResourceType resource_type);
 
   // May be called after response headers are complete to retrieve extra
   // info about the response.
@@ -71,8 +68,8 @@ class CONTENT_EXPORT AppCacheInterceptor
   virtual ~AppCacheInterceptor();
 
   static void SetHandler(net::URLRequest* request,
-                         appcache::AppCacheRequestHandler* handler);
-  static appcache::AppCacheRequestHandler* GetHandler(net::URLRequest* request);
+                         AppCacheRequestHandler* handler);
+  static AppCacheRequestHandler* GetHandler(net::URLRequest* request);
 
   DISALLOW_COPY_AND_ASSIGN(AppCacheInterceptor);
 };

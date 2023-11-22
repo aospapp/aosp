@@ -35,7 +35,7 @@ public class AutofillPopupBridge implements AutofillPopupDelegate{
             new Handler().post(new Runnable() {
                 @Override
                 public void run() {
-                    requestHide();
+                    dismissed();
                 }
             });
         } else {
@@ -51,8 +51,8 @@ public class AutofillPopupBridge implements AutofillPopupDelegate{
     }
 
     @Override
-    public void requestHide() {
-        nativeRequestHide(mNativeAutofillPopup);
+    public void dismissed() {
+        nativePopupDismissed(mNativeAutofillPopup);
     }
 
     @Override
@@ -73,8 +73,8 @@ public class AutofillPopupBridge implements AutofillPopupDelegate{
      * @param suggestions Autofill suggestions to be displayed.
      */
     @CalledByNative
-    private void show(AutofillSuggestion[] suggestions) {
-        if (mAutofillPopup != null) mAutofillPopup.filterAndShow(suggestions);
+    private void show(AutofillSuggestion[] suggestions, boolean isRtl) {
+        if (mAutofillPopup != null) mAutofillPopup.filterAndShow(suggestions, isRtl);
     }
 
     /**
@@ -109,7 +109,7 @@ public class AutofillPopupBridge implements AutofillPopupDelegate{
         array[index] = new AutofillSuggestion(label, sublabel, uniqueId);
     }
 
-    private native void nativeRequestHide(long nativeAutofillPopupViewAndroid);
+    private native void nativePopupDismissed(long nativeAutofillPopupViewAndroid);
     private native void nativeSuggestionSelected(long nativeAutofillPopupViewAndroid,
             int listIndex);
 }

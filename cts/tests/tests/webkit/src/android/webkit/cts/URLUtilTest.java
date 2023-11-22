@@ -144,7 +144,7 @@ public class URLUtilTest extends AndroidTestCase {
 
     public void testGuessFileName() {
         String url = "ftp://example.url/test";
-        assertEquals("test.jpeg", URLUtil.guessFileName(url, null, "image/jpeg"));
+        assertEquals("test.jpg", URLUtil.guessFileName(url, null, "image/jpeg"));
 
         assertEquals("test.bin", URLUtil.guessFileName(url, null, "application/octet-stream"));
     }

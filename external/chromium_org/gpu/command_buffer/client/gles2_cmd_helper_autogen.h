@@ -557,6 +557,17 @@ void GetAttachedShaders(GLuint program,
   }
 }
 
+void GetAttribLocation(GLuint program,
+                       uint32_t name_bucket_id,
+                       uint32_t location_shm_id,
+                       uint32_t location_shm_offset) {
+  gles2::cmds::GetAttribLocation* c =
+      GetCmdSpace<gles2::cmds::GetAttribLocation>();
+  if (c) {
+    c->Init(program, name_bucket_id, location_shm_id, location_shm_offset);
+  }
+}
+
 void GetBooleanv(GLenum pname,
                  uint32_t params_shm_id,
                  uint32_t params_shm_offset) {
@@ -725,6 +736,17 @@ void GetUniformiv(GLuint program,
   gles2::cmds::GetUniformiv* c = GetCmdSpace<gles2::cmds::GetUniformiv>();
   if (c) {
     c->Init(program, location, params_shm_id, params_shm_offset);
+  }
+}
+
+void GetUniformLocation(GLuint program,
+                        uint32_t name_bucket_id,
+                        uint32_t location_shm_id,
+                        uint32_t location_shm_offset) {
+  gles2::cmds::GetUniformLocation* c =
+      GetCmdSpace<gles2::cmds::GetUniformLocation>();
+  if (c) {
+    c->Init(program, name_bucket_id, location_shm_id, location_shm_offset);
   }
 }
 
@@ -1919,6 +1941,25 @@ void ScheduleOverlayPlaneCHROMIUM(GLint plane_z_order,
             uv_y,
             uv_width,
             uv_height);
+  }
+}
+
+void MatrixLoadfCHROMIUMImmediate(GLenum matrixMode, const GLfloat* m) {
+  const uint32_t size =
+      gles2::cmds::MatrixLoadfCHROMIUMImmediate::ComputeSize();
+  gles2::cmds::MatrixLoadfCHROMIUMImmediate* c =
+      GetImmediateCmdSpaceTotalSize<gles2::cmds::MatrixLoadfCHROMIUMImmediate>(
+          size);
+  if (c) {
+    c->Init(matrixMode, m);
+  }
+}
+
+void MatrixLoadIdentityCHROMIUM(GLenum matrixMode) {
+  gles2::cmds::MatrixLoadIdentityCHROMIUM* c =
+      GetCmdSpace<gles2::cmds::MatrixLoadIdentityCHROMIUM>();
+  if (c) {
+    c->Init(matrixMode);
   }
 }
 

@@ -3,6 +3,7 @@ include_rules = [
   # rely on components.
   "+ash",
   "+chrome",
+  "+chrome/grit",  # For generated headers
   "+chromeos",
   "+components",
   "+extensions",
@@ -14,11 +15,10 @@ include_rules = [
   # within content/ and a test within chrome/.
   "+content/public",
 
-  "+grit",  # For generated headers
-  "+media/audio",
+  "+gin/public",
+  "+grit",  # For generated headers. TODO(thestig): Remove.
   "+media/base",
-  "+sandbox/win/src",
+  "+mojo/embedder",
   "+sandbox/win/tests",
-  "+webkit/glue",
   "+win8/test",
 ]

@@ -6,7 +6,6 @@
 #include "chrome/browser/ui/views/menu_test_base.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "ui/aura/window.h"
 #include "ui/base/test/ui_controls.h"
 #include "ui/views/controls/button/menu_button.h"
 #include "ui/views/controls/menu/menu_item_view.h"
@@ -33,8 +32,12 @@ void MenuTestBase::Click(views::View* view, const base::Closure& next) {
 void MenuTestBase::KeyPress(ui::KeyboardCode keycode,
                             const base::Closure& next) {
   ui_controls::SendKeyPressNotifyWhenDone(
-      GetWidget()->GetNativeView()->GetRootWindow(), keycode, false, false,
+      GetWidget()->GetNativeWindow(), keycode, false, false,
       false, false, next);
+}
+
+int MenuTestBase::GetMenuRunnerFlags() {
+  return views::MenuRunner::HAS_MNEMONICS;
 }
 
 void MenuTestBase::SetUp() {
@@ -42,12 +45,17 @@ void MenuTestBase::SetUp() {
       NULL, base::ASCIIToUTF16("Menu Test"), this, true);
   menu_ = new views::MenuItemView(this);
   BuildMenu(menu_);
-  menu_runner_.reset(new views::MenuRunner(menu_));
+  menu_runner_.reset(new views::MenuRunner(menu_, GetMenuRunnerFlags()));
 
   ViewEventTestBase::SetUp();
 }
 
 void MenuTestBase::TearDown() {
+  // We cancel the menu first because certain operations (like a menu opened
+  // with views::MenuRunner::FOR_DROP) don't take kindly to simply pulling the
+  // runner out from under them.
+  menu_runner_->Cancel();
+
   menu_runner_.reset();
   menu_ = NULL;
   ViewEventTestBase::TearDown();
@@ -74,8 +82,7 @@ void MenuTestBase::OnMenuButtonClicked(views::View* source,
                                         button_,
                                         bounds,
                                         views::MENU_ANCHOR_TOPLEFT,
-                                        ui::MENU_SOURCE_NONE,
-                                        views::MenuRunner::HAS_MNEMONICS));
+                                        ui::MENU_SOURCE_NONE));
 }
 
 void MenuTestBase::ExecuteCommand(int id) {

@@ -15,6 +15,8 @@ aarch64_codegen_TBLGEN_TABLES := \
   AArch64GenMCPseudoLowering.inc \
 
 aarch64_codegen_SRC_FILES := \
+  AArch64A53Fix835769.cpp \
+  AArch64A57FPLoadBalancing.cpp \
   AArch64AddressTypePromotion.cpp \
   AArch64AdvSIMDScalarPass.cpp \
   AArch64AsmPrinter.cpp \

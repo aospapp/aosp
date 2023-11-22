@@ -261,7 +261,17 @@ public class Intents {
         public Intent build() {
             mIntent.setAction(Intent.ACTION_VIEW);
 
-            mIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT);
+            // In Lollipop, each list of photos should appear as a document in the "Recents"
+            // list. In earlier versions, this flag was Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET.
+            mIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT
+                    // FLAG_ACTIVITY_CLEAR_TOP is needed for the case where the app tries to
+                    // display a different photo while there is an existing activity instance
+                    // for that list of photos. Since the initial photo is specified as an
+                    // extra, without FLAG_ACTIVITY_CLEAR_TOP, the activity instance would
+                    // just get restarted and it would display whatever photo it was last
+                    // displaying. FLAG_ACTIVITY_CLEAR_TOP causes a new instance to be created,
+                    // and it will display the new initial photo.
+                    | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
             if (mPhotoIndex != null) {
                 mIntent.putExtra(EXTRA_PHOTO_INDEX, (int) mPhotoIndex);

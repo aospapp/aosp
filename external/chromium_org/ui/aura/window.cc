@@ -257,8 +257,8 @@ Window::~Window() {
   if (delegate_)
     delegate_->OnWindowDestroyed(this);
   ObserverListBase<WindowObserver>::Iterator iter(observers_);
-  WindowObserver* observer;
-  while ((observer = iter.GetNext())) {
+  for (WindowObserver* observer = iter.GetNext(); observer;
+       observer = iter.GetNext()) {
     RemoveObserver(observer);
     observer->OnWindowDestroyed(this);
   }
@@ -303,6 +303,13 @@ void Window::SetName(const std::string& name) {
 
   if (layer())
     UpdateLayerName();
+}
+
+void Window::SetTitle(const base::string16& title) {
+  title_ = title;
+  FOR_EACH_OBSERVER(WindowObserver,
+                    observers_,
+                    OnWindowTitleChanged(this));
 }
 
 void Window::SetTransparent(bool transparent) {
@@ -402,6 +409,7 @@ void Window::SetTransform(const gfx::Transform& transform) {
   layer()->SetTransform(transform);
   FOR_EACH_OBSERVER(WindowObserver, observers_,
                     OnWindowTransformed(this));
+  NotifyAncestorWindowTransformed(this);
 }
 
 void Window::SetLayoutManager(LayoutManager* layout_manager) {
@@ -484,9 +492,8 @@ void Window::SchedulePaintInRect(const gfx::Rect& rect) {
       parent_rect.Offset(bounds().origin().OffsetFromOrigin());
       parent_->SchedulePaintInRect(parent_rect);
     }
-  } else if (layer() && layer()->SchedulePaint(rect)) {
-    FOR_EACH_OBSERVER(
-        WindowObserver, observers_, OnWindowPaintScheduled(this, rect));
+  } else if (layer()) {
+    layer()->SchedulePaint(rect);
   }
 }
 
@@ -746,12 +753,18 @@ void Window::SetCapture() {
   Window* root_window = GetRootWindow();
   if (!root_window)
     return;
+  client::CaptureClient* capture_client = client::GetCaptureClient(root_window);
+  if (!capture_client)
+    return;
   client::GetCaptureClient(root_window)->SetCapture(this);
 }
 
 void Window::ReleaseCapture() {
   Window* root_window = GetRootWindow();
   if (!root_window)
+    return;
+  client::CaptureClient* capture_client = client::GetCaptureClient(root_window);
+  if (!capture_client)
     return;
   client::GetCaptureClient(root_window)->ReleaseCapture(this);
 }
@@ -782,8 +795,6 @@ void* Window::GetNativeWindowProperty(const char* key) const {
 
 void Window::OnDeviceScaleFactorChanged(float device_scale_factor) {
   ScopedCursorHider hider(this);
-  if (IsRootWindow())
-    host_->OnDeviceScaleFactorChanged(device_scale_factor);
   if (delegate_)
     delegate_->OnDeviceScaleFactorChanged(device_scale_factor);
 }
@@ -1307,6 +1318,15 @@ void Window::NotifyWindowVisibilityChangedUp(aura::Window* target,
   }
 }
 
+void Window::NotifyAncestorWindowTransformed(Window* source) {
+  FOR_EACH_OBSERVER(WindowObserver, observers_,
+                    OnAncestorWindowTransformed(source, this));
+  for (Window::Windows::const_iterator it = children_.begin();
+       it != children_.end(); ++it) {
+    (*it)->NotifyAncestorWindowTransformed(source);
+  }
+}
+
 void Window::OnWindowBoundsChanged(const gfx::Rect& old_bounds) {
   if (layer()) {
     bounds_ = layer()->bounds();
@@ -1343,6 +1363,13 @@ bool Window::CleanupGestureState() {
 
 void Window::OnPaintLayer(gfx::Canvas* canvas) {
   Paint(canvas);
+}
+
+void Window::OnDelegatedFrameDamage(const gfx::Rect& damage_rect_in_dip) {
+  DCHECK(layer());
+  FOR_EACH_OBSERVER(WindowObserver,
+                    observers_,
+                    OnDelegatedFrameDamage(this, damage_rect_in_dip));
 }
 
 base::Closure Window::PrepareForLayerBoundsChange() {

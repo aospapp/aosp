@@ -17,16 +17,16 @@
 namespace net {
 class CookieStore;
 class HttpTransactionFactory;
+class NetLog;
 class ProxyConfigService;
 class URLRequestContext;
 class URLRequestJobFactory;
 }
 
 namespace data_reduction_proxy {
+class DataReductionProxyAuthRequestHandler;
 class DataReductionProxyConfigService;
 }
-
-using data_reduction_proxy::DataReductionProxyConfigService;
 
 namespace android_webview {
 
@@ -34,17 +34,27 @@ class AwNetworkDelegate;
 
 class AwURLRequestContextGetter : public net::URLRequestContextGetter {
  public:
-  AwURLRequestContextGetter(const base::FilePath& partition_path,
-                            net::CookieStore* cookie_store);
-
-  void InitializeOnNetworkThread();
+  AwURLRequestContextGetter(
+      const base::FilePath& partition_path,
+      net::CookieStore* cookie_store,
+      scoped_ptr<data_reduction_proxy::DataReductionProxyConfigService>
+          config_service);
 
   // net::URLRequestContextGetter implementation.
   virtual net::URLRequestContext* GetURLRequestContext() OVERRIDE;
   virtual scoped_refptr<base::SingleThreadTaskRunner>
       GetNetworkTaskRunner() const OVERRIDE;
 
-  DataReductionProxyConfigService* proxy_config_service();
+  data_reduction_proxy::DataReductionProxyAuthRequestHandler*
+      GetDataReductionProxyAuthRequestHandler() const;
+
+  // NetLog is thread-safe, so clients can call this method from arbitrary
+  // threads (UI and IO).
+  net::NetLog* GetNetLog();
+
+  // This should be called before the network stack is ever used. It can be
+  // called again afterwards if the key updates.
+  void SetKeyOnIO(const std::string& key);
 
  private:
   friend class AwBrowserContext;
@@ -64,8 +74,12 @@ class AwURLRequestContextGetter : public net::URLRequestContextGetter {
 
   const base::FilePath partition_path_;
   scoped_refptr<net::CookieStore> cookie_store_;
+  scoped_ptr<net::NetLog> net_log_;
   scoped_ptr<net::URLRequestContext> url_request_context_;
-  scoped_ptr<DataReductionProxyConfigService> proxy_config_service_;
+  scoped_ptr<data_reduction_proxy::DataReductionProxyConfigService>
+      data_reduction_proxy_config_service_;
+  scoped_ptr<data_reduction_proxy::DataReductionProxyAuthRequestHandler>
+      data_reduction_proxy_auth_request_handler_;
   scoped_ptr<net::URLRequestJobFactory> job_factory_;
   scoped_ptr<net::HttpTransactionFactory> main_http_factory_;
 

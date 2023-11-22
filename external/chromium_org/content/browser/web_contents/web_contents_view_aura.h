@@ -136,10 +136,16 @@ class WebContentsViewAura
   virtual void UpdateDragCursor(blink::WebDragOperation operation) OVERRIDE;
   virtual void GotFocus() OVERRIDE;
   virtual void TakeFocus(bool reverse) OVERRIDE;
+  virtual void ShowDisambiguationPopup(
+      const gfx::Rect& target_rect,
+      const SkBitmap& zoomed_bitmap,
+      const base::Callback<void(ui::GestureEvent*)>& gesture_cb,
+      const base::Callback<void(ui::MouseEvent*)>& mouse_cb) OVERRIDE;
+  virtual void HideDisambiguationPopup() OVERRIDE;
 
   // Overridden from OverscrollControllerDelegate:
   virtual gfx::Rect GetVisibleBounds() const OVERRIDE;
-  virtual void OnOverscrollUpdate(float delta_x, float delta_y) OVERRIDE;
+  virtual bool OnOverscrollUpdate(float delta_x, float delta_y) OVERRIDE;
   virtual void OnOverscrollComplete(OverscrollMode overscroll_mode) OVERRIDE;
   virtual void OnOverscrollModeChange(OverscrollMode old_mode,
                                       OverscrollMode new_mode) OVERRIDE;
@@ -178,10 +184,11 @@ class WebContentsViewAura
   virtual int OnPerformDrop(const ui::DropTargetEvent& event) OVERRIDE;
 
   // Overridden from aura::WindowObserver:
-  virtual void OnWindowParentChanged(aura::Window* window,
-                                     aura::Window* parent) OVERRIDE;
   virtual void OnWindowVisibilityChanged(aura::Window* window,
                                          bool visible) OVERRIDE;
+
+  // Update the web contents visiblity.
+  void UpdateWebContentsVisibility(bool visible);
 
   scoped_ptr<aura::Window> window_;
 
@@ -225,6 +232,10 @@ class WebContentsViewAura
 
   scoped_ptr<TouchEditableImplAura> touch_editable_;
   scoped_ptr<GestureNavSimple> gesture_nav_simple_;
+
+  // On Windows we can run into problems if resources get released within the
+  // initialization phase while the content (and its dimensions) are not known.
+  bool is_or_was_visible_;
 
   DISALLOW_COPY_AND_ASSIGN(WebContentsViewAura);
 };

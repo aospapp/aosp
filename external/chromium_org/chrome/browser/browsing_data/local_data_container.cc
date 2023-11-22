@@ -6,8 +6,8 @@
 
 #include "base/bind.h"
 #include "base/memory/linked_ptr.h"
+#include "chrome/browser/browsing_data/browsing_data_channel_id_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_flash_lso_helper.h"
-#include "chrome/browser/browsing_data/browsing_data_server_bound_cert_helper.h"
 #include "chrome/browser/browsing_data/cookies_tree_model.h"
 #include "chrome/browser/content_settings/cookie_settings.h"
 #include "net/cookies/canonical_cookie.h"
@@ -24,7 +24,8 @@ LocalDataContainer::LocalDataContainer(
     BrowsingDataIndexedDBHelper* indexed_db_helper,
     BrowsingDataFileSystemHelper* file_system_helper,
     BrowsingDataQuotaHelper* quota_helper,
-    BrowsingDataServerBoundCertHelper* server_bound_cert_helper,
+    BrowsingDataChannelIDHelper* channel_id_helper,
+    BrowsingDataServiceWorkerHelper* service_worker_helper,
     BrowsingDataFlashLSOHelper* flash_lso_helper)
     : appcache_helper_(appcache_helper),
       cookie_helper_(cookie_helper),
@@ -34,10 +35,12 @@ LocalDataContainer::LocalDataContainer(
       indexed_db_helper_(indexed_db_helper),
       file_system_helper_(file_system_helper),
       quota_helper_(quota_helper),
-      server_bound_cert_helper_(server_bound_cert_helper),
+      channel_id_helper_(channel_id_helper),
+      service_worker_helper_(service_worker_helper),
       flash_lso_helper_(flash_lso_helper),
       model_(NULL),
-      weak_ptr_factory_(this) {}
+      weak_ptr_factory_(this) {
+}
 
 LocalDataContainer::~LocalDataContainer() {}
 
@@ -94,9 +97,15 @@ void LocalDataContainer::Init(CookiesTreeModel* model) {
                    weak_ptr_factory_.GetWeakPtr()));
   }
 
-  if (server_bound_cert_helper_.get()) {
-    server_bound_cert_helper_->StartFetching(
-        base::Bind(&LocalDataContainer::OnServerBoundCertModelInfoLoaded,
+  if (channel_id_helper_.get()) {
+    channel_id_helper_->StartFetching(
+        base::Bind(&LocalDataContainer::OnChannelIDModelInfoLoaded,
+                   weak_ptr_factory_.GetWeakPtr()));
+  }
+
+  if (service_worker_helper_.get()) {
+    service_worker_helper_->StartFetching(
+        base::Bind(&LocalDataContainer::OnServiceWorkerModelInfoLoaded,
                    weak_ptr_factory_.GetWeakPtr()));
   }
 
@@ -108,9 +117,9 @@ void LocalDataContainer::Init(CookiesTreeModel* model) {
 }
 
 void LocalDataContainer::OnAppCacheModelInfoLoaded() {
-  using appcache::AppCacheInfo;
-  using appcache::AppCacheInfoCollection;
-  using appcache::AppCacheInfoVector;
+  using content::AppCacheInfo;
+  using content::AppCacheInfoCollection;
+  using content::AppCacheInfoVector;
   typedef std::map<GURL, AppCacheInfoVector> InfoByOrigin;
 
   scoped_refptr<AppCacheInfoCollection> appcache_info =
@@ -180,11 +189,18 @@ void LocalDataContainer::OnQuotaModelInfoLoaded(
   model_->PopulateQuotaInfo(this);
 }
 
-void LocalDataContainer::OnServerBoundCertModelInfoLoaded(
-    const ServerBoundCertList& cert_list) {
-  server_bound_cert_list_ = cert_list;
+void LocalDataContainer::OnChannelIDModelInfoLoaded(
+    const ChannelIDList& channel_id_list) {
+  channel_id_list_ = channel_id_list;
   DCHECK(model_);
-  model_->PopulateServerBoundCertInfo(this);
+  model_->PopulateChannelIDInfo(this);
+}
+
+void LocalDataContainer::OnServiceWorkerModelInfoLoaded(
+    const ServiceWorkerUsageInfoList& service_worker_info) {
+  service_worker_info_list_ = service_worker_info;
+  DCHECK(model_);
+  model_->PopulateServiceWorkerUsageInfo(this);
 }
 
 void LocalDataContainer::OnFlashLSOInfoLoaded(

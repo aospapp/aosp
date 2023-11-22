@@ -8,15 +8,13 @@
 #include "base/message_loop/message_loop.h"
 #include "components/invalidation/fake_invalidation_handler.h"
 #include "components/invalidation/fake_invalidation_state_tracker.h"
+#include "components/invalidation/invalidation_state_tracker.h"
 #include "components/invalidation/invalidator_test_template.h"
 #include "components/invalidation/push_client_channel.h"
 #include "jingle/notifier/base/fake_base_task.h"
 #include "jingle/notifier/base/notifier_options.h"
 #include "jingle/notifier/listener/fake_push_client.h"
 #include "net/url_request/url_request_test_util.h"
-#include "sync/internal_api/public/base/model_type.h"
-#include "sync/internal_api/public/util/weak_handle.h"
-#include "sync/notifier/invalidation_state_tracker.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace syncer {
@@ -42,13 +40,13 @@ class InvalidationNotifierTestDelegate {
     scoped_ptr<SyncNetworkChannel> network_channel(
         new PushClientChannel(push_client.Pass()));
     invalidator_.reset(
-        new InvalidationNotifier(
-            network_channel.Pass(),
-            invalidator_client_id,
-            UnackedInvalidationsMap(),
-            initial_state,
-            MakeWeakHandle(invalidation_state_tracker),
-            "fake_client_info"));
+        new InvalidationNotifier(network_channel.Pass(),
+                                 invalidator_client_id,
+                                 UnackedInvalidationsMap(),
+                                 initial_state,
+                                 invalidation_state_tracker,
+                                 base::MessageLoopProxy::current(),
+                                 "fake_client_info"));
   }
 
   Invalidator* GetInvalidator() {

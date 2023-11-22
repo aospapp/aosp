@@ -243,14 +243,16 @@ public class Message implements Parcelable, HtmlMessage {
 
     /**
      * Helper equality function to check if the two Message objects are equal in terms of
-     * the fields that the user can input from ComposeActivity. This is primarily used to
-     * ensure draft preview/composition are synced.
+     * the fields that are visible in ConversationView.
+     *
      * @param o the Message being compared to
      * @return True if they are equal in fields, false otherwise
      */
     public boolean isEqual(Message o) {
         return TextUtils.equals(this.getFrom(), o.getFrom()) &&
                 this.sendingState == o.sendingState &&
+                this.starred == o.starred &&
+                this.read == o.read &&
                 TextUtils.equals(this.getTo(), o.getTo()) &&
                 TextUtils.equals(this.getCc(), o.getCc()) &&
                 TextUtils.equals(this.getBcc(), o.getBcc()) &&
@@ -655,7 +657,7 @@ public class Message implements Parcelable, HtmlMessage {
     public int getAttachmentCount(boolean includeInline) {
         // If include inline, just return the full list count.
         if (includeInline) {
-            return mAttachments.size();
+            return getAttachments().size();
         }
 
         // Otherwise, iterate through the attachment list,

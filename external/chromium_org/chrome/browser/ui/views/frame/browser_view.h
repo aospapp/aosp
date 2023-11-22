@@ -17,6 +17,7 @@
 #include "chrome/browser/signin/signin_header_helper.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window_testing_views.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_model_observer.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/views/frame/browser_frame.h"
@@ -63,10 +64,6 @@ class WebContentsCloseHandler;
 #if defined(OS_WIN)
 class JumpList;
 #endif
-
-namespace autofill {
-class PasswordGenerator;
-}
 
 namespace content {
 class RenderFrameHost;
@@ -320,9 +317,11 @@ class BrowserView : public BrowserWindow,
   virtual void ShowBookmarkAppBubble(
       const WebApplicationInfo& web_app_info,
       const std::string& extension_id) OVERRIDE;
-  virtual void ShowTranslateBubble(content::WebContents* contents,
-                                   translate::TranslateStep step,
-                                   TranslateErrors::Type error_type) OVERRIDE;
+  virtual void ShowTranslateBubble(
+      content::WebContents* contents,
+      translate::TranslateStep step,
+      translate::TranslateErrors::Type error_type,
+      bool is_user_gesture) OVERRIDE;
 #if defined(ENABLE_ONE_CLICK_SIGNIN)
   virtual void ShowOneClickSigninBubble(
       OneClickSigninBubbleType type,
@@ -364,19 +363,11 @@ class BrowserView : public BrowserWindow,
                                 const gfx::Rect& rect) OVERRIDE;
   virtual void ShowAvatarBubbleFromAvatarButton(AvatarBubbleMode mode,
       const signin::ManageAccountsParams& manage_accounts_params) OVERRIDE;
-  virtual void ShowPasswordGenerationBubble(
-      const gfx::Rect& rect,
-      const autofill::PasswordForm& form,
-      autofill::PasswordGenerator* password_generator) OVERRIDE;
   virtual void OverscrollUpdate(int delta_y) OVERRIDE;
   virtual int GetRenderViewHeightInsetWithDetachedBookmarkBar() OVERRIDE;
   virtual void ExecuteExtensionCommand(
       const extensions::Extension* extension,
       const extensions::Command& command) OVERRIDE;
-  virtual void ShowPageActionPopup(
-      const extensions::Extension* extension) OVERRIDE;
-  virtual void ShowBrowserActionPopup(
-      const extensions::Extension* extension) OVERRIDE;
 
   // Overridden from BrowserWindowTesting:
   virtual BookmarkBarView* GetBookmarkBarView() const OVERRIDE;
@@ -402,6 +393,7 @@ class BrowserView : public BrowserWindow,
   // Overridden from views::WidgetDelegate:
   virtual bool CanResize() const OVERRIDE;
   virtual bool CanMaximize() const OVERRIDE;
+  virtual bool CanMinimize() const OVERRIDE;
   virtual bool CanActivate() const OVERRIDE;
   virtual base::string16 GetWindowTitle() const OVERRIDE;
   virtual base::string16 GetAccessibleWindowTitle() const OVERRIDE;

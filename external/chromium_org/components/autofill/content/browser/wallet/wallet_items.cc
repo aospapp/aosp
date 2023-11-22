@@ -13,7 +13,7 @@
 #include "components/autofill/content/browser/wallet/gaia_account.h"
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/credit_card.h"
-#include "grit/component_scaled_resources.h"
+#include "grit/components_scaled_resources.h"
 #include "grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -245,7 +245,7 @@ bool WalletItems::HasRequiredAction(RequiredAction action) const {
 
 bool WalletItems::SupportsCard(const base::string16& card_number,
                                base::string16* message) const {
-  std::string card_type = CreditCard::GetCreditCardType(card_number);
+  const char* const card_type = CreditCard::GetCreditCardType(card_number);
 
   if (card_type == kVisaCard ||
       card_type == kMasterCard ||
@@ -539,6 +539,22 @@ scoped_ptr<WalletItems>
     DVLOG(1) << "Response from Google wallet missing addresses";
   }
 
+  const base::ListValue* allowed_shipping_countries;
+  if (dictionary.GetList("allowed_shipping_spec_by_country",
+                         &allowed_shipping_countries)) {
+    for (size_t i = 0; i < allowed_shipping_countries->GetSize(); ++i) {
+      const base::DictionaryValue* country_spec;
+      std::string country_code;
+      if (allowed_shipping_countries->GetDictionary(i, &country_spec) &&
+          country_spec->GetString("country_code", &country_code)) {
+        wallet_items->AddAllowedShippingCountry(country_code);
+      }
+    }
+  } else {
+    DVLOG(1) << "Response from Google wallet missing allowed shipping"
+                " countries";
+  }
+
   return wallet_items.Pass();
 }
 
@@ -568,7 +584,8 @@ bool WalletItems::operator==(const WalletItems& other) const {
                                             other.instruments()) &&
          VectorsAreEqual<Address>(addresses(), other.addresses()) &&
          VectorsAreEqual<LegalDocument>(legal_documents(),
-                                         other.legal_documents());
+                                         other.legal_documents()) &&
+         allowed_shipping_countries() == other.allowed_shipping_countries();
 }
 
 bool WalletItems::operator!=(const WalletItems& other) const {

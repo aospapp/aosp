@@ -1,3 +1,0 @@
-This scene has no requirements; scene 0 tests don't actually
-look at the image content, and the camera can be pointed at
-any target (or even flat on the desk).

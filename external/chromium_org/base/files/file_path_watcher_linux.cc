@@ -20,9 +20,9 @@
 #include "base/bind.h"
 #include "base/containers/hash_tables.h"
 #include "base/debug/trace_event.h"
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/location.h"
 #include "base/logging.h"
@@ -429,7 +429,7 @@ bool FilePathWatcherImpl::Watch(const FilePath& path,
   DCHECK(target_.empty());
   DCHECK(MessageLoopForIO::current());
 
-  set_message_loop(MessageLoopProxy::current().get());
+  set_message_loop(MessageLoopProxy::current());
   callback_ = callback;
   target_ = path;
   recursive_ = recursive;

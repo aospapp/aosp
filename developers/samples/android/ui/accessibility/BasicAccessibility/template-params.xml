@@ -31,6 +31,41 @@
         </intro>
     </strings>
 
+    <metadata>
+        <status>PUBLISHED</status>
+        <categories>UI</categories>
+        <technologies>Android</technologies>
+        <languages>Java</languages>
+        <solutions>Mobile</solutions>
+        <level>BEGINNER</level>
+        <icon>screenshots/icon-web.png</icon>
+        <screenshots>
+            <img>screenshots/main.png</img>
+        </screenshots>
+        <api_refs>
+            <android>android.view.View</android>
+            <android>android.view.accessibility.AccessibilityEvent</android>
+        </api_refs>
+        <description>
+<![CDATA[
+This sample demonstrates how to create an accessible application, using a mix of different widgets
+demonstrating different ways of adding accessibility markup to a UI.
+]]>
+        </description>
+        <intro>
+<![CDATA[
+This sample demonstrates how to create an accessible application, showing
+how to add accessibility to both framework and custom widgets.
+
+To run this sample as intended you will need to turn on TalkBack (or another text to speach system)
+on your Android device. Go to Settings > Accessibility > TalkBack to turn TalkBack on.
+
+When you run the sample with TalkBack mode on, TalkBack will read aloud the
+description of the in-focus widget.
+]]>
+        </intro>
+    </metadata>
+
     <template src="base"/>
     <common src="logger"/>
 

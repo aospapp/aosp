@@ -66,13 +66,10 @@ V4L2VideoEncodeAccelerator::OutputRecord::OutputRecord()
 V4L2VideoEncodeAccelerator::V4L2VideoEncodeAccelerator(
     scoped_ptr<V4L2Device> device)
     : child_message_loop_proxy_(base::MessageLoopProxy::current()),
-      weak_this_ptr_factory_(this),
-      weak_this_(weak_this_ptr_factory_.GetWeakPtr()),
       output_buffer_byte_size_(0),
       device_input_format_(media::VideoFrame::UNKNOWN),
       input_planes_count_(0),
       output_format_fourcc_(0),
-      encoder_thread_("V4L2EncoderThread"),
       encoder_state_(kUninitialized),
       stream_header_size_(0),
       device_(device.Pass()),
@@ -81,7 +78,10 @@ V4L2VideoEncodeAccelerator::V4L2VideoEncodeAccelerator(
       input_memory_type_(V4L2_MEMORY_USERPTR),
       output_streamon_(false),
       output_buffer_queued_count_(0),
-      device_poll_thread_("V4L2EncoderDevicePollThread") {
+      encoder_thread_("V4L2EncoderThread"),
+      device_poll_thread_("V4L2EncoderDevicePollThread"),
+      weak_this_ptr_factory_(this) {
+  weak_this_ = weak_this_ptr_factory_.GetWeakPtr();
 }
 
 V4L2VideoEncodeAccelerator::~V4L2VideoEncodeAccelerator() {
@@ -255,6 +255,7 @@ void V4L2VideoEncodeAccelerator::Destroy() {
 
   // We're destroying; cancel all callbacks.
   client_ptr_factory_.reset();
+  weak_this_ptr_factory_.InvalidateWeakPtrs();
 
   if (image_processor_.get())
     image_processor_.release()->Destroy();
@@ -279,26 +280,30 @@ void V4L2VideoEncodeAccelerator::Destroy() {
   delete this;
 }
 
-// static
 std::vector<media::VideoEncodeAccelerator::SupportedProfile>
 V4L2VideoEncodeAccelerator::GetSupportedProfiles() {
+  return GetSupportedProfilesStatic();
+}
+
+std::vector<media::VideoEncodeAccelerator::SupportedProfile>
+V4L2VideoEncodeAccelerator::GetSupportedProfilesStatic() {
   std::vector<SupportedProfile> profiles;
   SupportedProfile profile;
 
-  const CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  const base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
   if (cmd_line->HasSwitch(switches::kEnableWebRtcHWVp8Encoding)) {
-    profile.profile = media::VP8PROFILE_MAIN;
+    profile.profile = media::VP8PROFILE_ANY;
     profile.max_resolution.SetSize(1920, 1088);
-    profile.max_framerate.numerator = 30;
-    profile.max_framerate.denominator = 1;
-    profiles.push_back(profile);
-  } else {
-    profile.profile = media::H264PROFILE_MAIN;
-    profile.max_resolution.SetSize(1920, 1088);
-    profile.max_framerate.numerator = 30;
-    profile.max_framerate.denominator = 1;
+    profile.max_framerate_numerator = 30;
+    profile.max_framerate_denominator = 1;
     profiles.push_back(profile);
   }
+
+  profile.profile = media::H264PROFILE_MAIN;
+  profile.max_resolution.SetSize(1920, 1088);
+  profile.max_framerate_numerator = 30;
+  profile.max_framerate_denominator = 1;
+  profiles.push_back(profile);
 
   return profiles;
 }
@@ -608,6 +613,7 @@ bool V4L2VideoEncodeAccelerator::EnqueueInputRecord() {
 
     switch (input_memory_type_) {
       case V4L2_MEMORY_USERPTR:
+        qbuf.m.planes[i].length = qbuf.m.planes[i].bytesused;
         qbuf.m.planes[i].m.userptr =
             reinterpret_cast<unsigned long>(frame->data(i));
         DCHECK(qbuf.m.planes[i].m.userptr);
@@ -858,6 +864,7 @@ bool V4L2VideoEncodeAccelerator::SetOutputFormat(
 
 bool V4L2VideoEncodeAccelerator::NegotiateInputFormat(
     media::VideoFrame::Format input_format) {
+  DVLOG(3) << "NegotiateInputFormat()";
   DCHECK(child_message_loop_proxy_->BelongsToCurrentThread());
   DCHECK(!input_streamon_);
   DCHECK(!output_streamon_);

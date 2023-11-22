@@ -25,7 +25,9 @@
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/extension_util.h"
 #include "extensions/browser/image_loader.h"
+#include "extensions/browser/notification_types.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_icon_set.h"
 #include "extensions/common/extension_resource.h"
@@ -174,27 +176,30 @@ BackgroundApplicationListModel::~BackgroundApplicationListModel() {
 }
 
 BackgroundApplicationListModel::BackgroundApplicationListModel(Profile* profile)
-    : profile_(profile) {
+    : profile_(profile),
+      ready_(false) {
   DCHECK(profile_);
   registrar_.Add(this,
-                 chrome::NOTIFICATION_EXTENSION_LOADED_DEPRECATED,
+                 extensions::NOTIFICATION_EXTENSION_LOADED_DEPRECATED,
                  content::Source<Profile>(profile));
   registrar_.Add(this,
-                 chrome::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED,
+                 extensions::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED,
                  content::Source<Profile>(profile));
   registrar_.Add(this,
-                 chrome::NOTIFICATION_EXTENSIONS_READY,
+                 extensions::NOTIFICATION_EXTENSIONS_READY_DEPRECATED,
                  content::Source<Profile>(profile));
   registrar_.Add(this,
-                 chrome::NOTIFICATION_EXTENSION_PERMISSIONS_UPDATED,
+                 extensions::NOTIFICATION_EXTENSION_PERMISSIONS_UPDATED,
                  content::Source<Profile>(profile));
   registrar_.Add(this,
                  chrome::NOTIFICATION_BACKGROUND_CONTENTS_SERVICE_CHANGED,
                  content::Source<Profile>(profile));
   ExtensionService* service = extensions::ExtensionSystem::Get(profile)->
       extension_service();
-  if (service && service->is_ready())
+  if (service && service->is_ready()) {
     Update();
+    ready_ = true;
+  }
 }
 
 void BackgroundApplicationListModel::AddObserver(Observer* observer) {
@@ -307,6 +312,11 @@ bool BackgroundApplicationListModel::IsBackgroundApp(
   // 2) It is a hosted app, and has a background contents registered or in the
   //    manifest.
 
+  // Ephemeral apps are denied any background activity after their event page
+  // has been destroyed, thus they cannot be background apps.
+  if (extensions::util::IsEphemeralApp(extension.id(), profile))
+    return false;
+
   // Not a background app if we don't have the background permission or
   // the push messaging permission
   if (!extension.permissions_data()->HasAPIPermission(
@@ -344,8 +354,9 @@ void BackgroundApplicationListModel::Observe(
     int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
-  if (type == chrome::NOTIFICATION_EXTENSIONS_READY) {
+  if (type == extensions::NOTIFICATION_EXTENSIONS_READY_DEPRECATED) {
     Update();
+    ready_ = true;
     return;
   }
   ExtensionService* service = extensions::ExtensionSystem::Get(profile_)->
@@ -354,14 +365,14 @@ void BackgroundApplicationListModel::Observe(
     return;
 
   switch (type) {
-    case chrome::NOTIFICATION_EXTENSION_LOADED_DEPRECATED:
+    case extensions::NOTIFICATION_EXTENSION_LOADED_DEPRECATED:
       OnExtensionLoaded(content::Details<Extension>(details).ptr());
       break;
-    case chrome::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED:
+    case extensions::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED:
       OnExtensionUnloaded(
           content::Details<UnloadedExtensionInfo>(details)->extension);
       break;
-    case chrome::NOTIFICATION_EXTENSION_PERMISSIONS_UPDATED:
+    case extensions::NOTIFICATION_EXTENSION_PERMISSIONS_UPDATED:
       OnExtensionPermissionsUpdated(
           content::Details<UpdatedExtensionPermissionsInfo>(details)->extension,
           content::Details<UpdatedExtensionPermissionsInfo>(details)->reason,

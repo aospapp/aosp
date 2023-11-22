@@ -1,8 +1,8 @@
-page.title=Dalvik VM Instruction Formats
+page.title=Dalvik Executable instruction formats
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2014 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -16,13 +16,21 @@ page.title=Dalvik VM Instruction Formats
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-<h2>Introduction and Overview</h2>
+<div id="qv-wrapper">
+  <div id="qv">
+    <h2>In this document</h2>
+    <ol id="auto-toc">
+    </ol>
+  </div>
+</div>
 
-<p>This document lists the instruction formats used by Dalvik bytecode
-and is meant to be used in conjunction with the
+<h2 id="intro">Introduction</h2>
+
+<p>This document lists the instruction formats used by the Dalvik Executable
+format and Dalvik bytecode. It is meant to be used in conjunction with the
 <a href="dalvik-bytecode.html">bytecode reference document</a>.</p>
 
-<h3>Bitwise descriptions</h3>
+<h2 id="bitwise">Bitwise descriptions</h2>
 
 <p>The first column in the format table lists the bitwise layout of
 the format. It consists of one or more space-separated "words" each of
@@ -49,7 +57,7 @@ consists of the opcode in the low eight bits and a pair of four-bit
 values in the high eight bits; and the second word consists of a single
 16-bit value.</p>
 
-<h3>Format IDs</h3>
+<h2 id="format-ids">Format IDs</h2>
 
 <p>The second column in the format table indicates the short identifier
 for the format, which is used in other documents and in code to identify
@@ -69,7 +77,7 @@ and additionally contains a branch target.</p>
 "<code>s</code>" suffix, making them four characters total. Similarly,
 suggested "inline" linking formats have an additional "<code>i</code>"
 suffix. (In this context, inline linking is like static linking,
-except with more direct ties into a virtual machine's implementation.)
+except with more direct ties into a machine's implementation.)
 Finally, a couple oddball suggested formats (e.g.,
 "<code>20bc</code>") include two pieces of data which are both
 represented in its format ID.</p>
@@ -147,7 +155,7 @@ forms have different sizes, depending on the format:</p>
 </tbody>
 </table>
 
-<h3>Syntax</h3>
+<h2 id="syntax">Syntax</h2>
 
 <p>The third column of the format table indicates the human-oriented
 syntax for instructions which use the indicated format. Each instruction
@@ -163,7 +171,7 @@ each four bits of the field. For example, an eight-bit field labeled
 <p>Arguments which name a register have the form "<code>v<i>X</i></code>".
 The prefix "<code>v</code>" was chosen instead of the more common
 "<code>r</code>" exactly to avoid conflicting with (non-virtual) architectures
-on which a Dalvik virtual machine might be implemented which themselves
+on which the Dalvik Executable format might be implemented which themselves
 use the prefix "<code>r</code>" for their registers. (That is, this
 decision makes it possible to talk about both virtual and real registers
 together without the need for circumlocution.)</p>
@@ -197,7 +205,7 @@ but instead picks a variant, each variant is listed with the prefix
 "<code>[<i>X</i>=<i>N</i>]</code>" (e.g., "<code>[A=2]</code>") to indicate
 the correspondence.</p>
 
-<h2>The Formats</h2>
+<h2 id="formats">The formats</h2>
 
 <table class="format">
 <thead>

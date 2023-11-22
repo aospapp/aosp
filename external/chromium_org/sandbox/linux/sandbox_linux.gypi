@@ -12,7 +12,8 @@
         'compile_suid_client': 0,
         'compile_credentials': 0,
       }],
-      ['OS=="linux" and (target_arch=="ia32" or target_arch=="x64")', {
+      ['OS=="linux" and (target_arch=="ia32" or target_arch=="x64" or '
+         'target_arch=="mipsel")', {
         'compile_seccomp_bpf_demo': 1,
       }, {
         'compile_seccomp_bpf_demo': 0,
@@ -117,6 +118,9 @@
       'target_name': 'seccomp_bpf',
       'type': '<(component)',
       'sources': [
+        'bpf_dsl/bpf_dsl.cc',
+        'bpf_dsl/bpf_dsl.h',
+        'bpf_dsl/cons.h',
         'seccomp-bpf/basicblock.cc',
         'seccomp-bpf/basicblock.h',
         'seccomp-bpf/codegen.cc',
@@ -129,7 +133,6 @@
         'seccomp-bpf/linux_seccomp.h',
         'seccomp-bpf/sandbox_bpf.cc',
         'seccomp-bpf/sandbox_bpf.h',
-        'seccomp-bpf/sandbox_bpf_compatibility_policy.h',
         'seccomp-bpf/sandbox_bpf_policy.cc',
         'seccomp-bpf/sandbox_bpf_policy.h',
         'seccomp-bpf/syscall.cc',
@@ -177,34 +180,12 @@
       ],
     },
     {
-      # A demonstration program for the seccomp-bpf sandbox.
-      'target_name': 'seccomp_bpf_demo',
-      'conditions': [
-        ['compile_seccomp_bpf_demo==1', {
-          'type': 'executable',
-          'sources': [
-            'seccomp-bpf/demo.cc',
-          ],
-          'dependencies': [
-            'seccomp_bpf',
-          ],
-        }, {
-          'type': 'none',
-        }],
-      ],
-      'include_dirs': [
-        '../../',
-      ],
-    },
-    {
       # The setuid sandbox, for Linux
       'target_name': 'chrome_sandbox',
       'type': 'executable',
       'sources': [
         'suid/common/sandbox.h',
         'suid/common/suid_unsafe_environment_variables.h',
-        'suid/linux_util.c',
-        'suid/linux_util.h',
         'suid/process_util.h',
         'suid/process_util_linux.c',
         'suid/sandbox.c',
@@ -264,10 +245,14 @@
       'type': 'none',
       'sources': [
         'services/android_arm_ucontext.h',
+        'services/android_arm64_ucontext.h',
         'services/android_futex.h',
         'services/android_ucontext.h',
         'services/android_i386_ucontext.h',
+        'services/android_mips_ucontext.h',
         'services/arm_linux_syscalls.h',
+        'services/arm64_linux_syscalls.h',
+        'services/mips_linux_syscalls.h',
         'services/linux_syscalls.h',
         'services/x86_32_linux_syscalls.h',
         'services/x86_64_linux_syscalls.h',

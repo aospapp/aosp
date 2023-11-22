@@ -46,7 +46,7 @@ import android.os.Parcel;
 import android.test.AndroidTestCase;
 import android.util.AttributeSet;
 import android.util.Log;
-import android.util.Pair;
+import android.util.Size;
 import android.view.Display;
 import android.view.Surface;
 import android.view.TextureView;
@@ -79,7 +79,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
     private static final String TAG = "EncodeVirtualDisplayWithCompositionTest";
     private static final boolean DBG = true;
-    private static final String MIME_TYPE = "video/avc";
+    private static final String MIME_TYPE = MediaFormat.MIMETYPE_VIDEO_AVC;
 
     private static final long DEFAULT_WAIT_TIMEOUT_MS = 3000;
     private static final long DEFAULT_WAIT_TIMEOUT_US = 3000000;
@@ -92,6 +92,8 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
     private static final int BITRATE_1080p = 20000000;
     private static final int BITRATE_720p = 14000000;
     private static final int BITRATE_800x480 = 14000000;
+    private static final int BITRATE_DEFAULT = 10000000;
+
     private static final int IFRAME_INTERVAL = 10;
 
     private static final int MAX_NUM_WINDOWS = 3;
@@ -138,73 +140,59 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
 
     public void testRendering800x480Locally() throws Throwable {
         Log.i(TAG, "testRendering800x480Locally");
-        Pair<Integer, Integer> maxRes = checkMaxConcurrentEncodingDecodingResolution();
-        if (maxRes == null) {
-            fail("codec not supported");
-        }
-        if (maxRes.first >= 800 && maxRes.second >= 480) {
+        if (isConcurrentEncodingDecodingSupported(800, 480, BITRATE_800x480)) {
             runTestRenderingInSeparateThread(800, 480, false, false);
         } else {
-            Log.w(TAG, "This H/W does not support 800x480");
+            Log.i(TAG, "SKIPPING testRendering800x480Locally(): codec not supported");
         }
     }
 
     public void testRenderingMaxResolutionLocally() throws Throwable {
         Log.i(TAG, "testRenderingMaxResolutionLocally");
-        Pair<Integer, Integer> maxRes = checkMaxConcurrentEncodingDecodingResolution();
+        Size maxRes = checkMaxConcurrentEncodingDecodingResolution();
         if (maxRes == null) {
-            fail("codec not supported");
+            Log.i(TAG, "SKIPPING testRenderingMaxResolutionLocally(): codec not supported");
+        } else {
+            Log.w(TAG, "Trying resolution " + maxRes);
+            runTestRenderingInSeparateThread(maxRes.getWidth(), maxRes.getHeight(), false, false);
         }
-        Log.w(TAG, "Trying resolution w:" + maxRes.first + " h:" + maxRes.second);
-        runTestRenderingInSeparateThread(maxRes.first, maxRes.second, false, false);
     }
 
     public void testRendering800x480Remotely() throws Throwable {
         Log.i(TAG, "testRendering800x480Remotely");
-        Pair<Integer, Integer> maxRes = checkMaxConcurrentEncodingDecodingResolution();
-        if (maxRes == null) {
-            fail("codec not supported");
-        }
-        if (maxRes.first >= 800 && maxRes.second >= 480) {
+        if (isConcurrentEncodingDecodingSupported(800, 480, BITRATE_800x480)) {
             runTestRenderingInSeparateThread(800, 480, true, false);
         } else {
-            Log.w(TAG, "This H/W does not support 800x480");
+            Log.i(TAG, "SKIPPING testRendering800x480Remotely(): codec not supported");
         }
     }
 
     public void testRenderingMaxResolutionRemotely() throws Throwable {
         Log.i(TAG, "testRenderingMaxResolutionRemotely");
-        Pair<Integer, Integer> maxRes = checkMaxConcurrentEncodingDecodingResolution();
+        Size maxRes = checkMaxConcurrentEncodingDecodingResolution();
         if (maxRes == null) {
-            fail("codec not supported");
+            Log.i(TAG, "SKIPPING testRenderingMaxResolutionRemotely(): codec not supported");
+        } else {
+            Log.w(TAG, "Trying resolution " + maxRes);
+            runTestRenderingInSeparateThread(maxRes.getWidth(), maxRes.getHeight(), true, false);
         }
-        Log.w(TAG, "Trying resolution w:" + maxRes.first + " h:" + maxRes.second);
-        runTestRenderingInSeparateThread(maxRes.first, maxRes.second, true, false);
     }
 
     public void testRendering800x480RemotelyWith3Windows() throws Throwable {
         Log.i(TAG, "testRendering800x480RemotelyWith3Windows");
-        Pair<Integer, Integer> maxRes = checkMaxConcurrentEncodingDecodingResolution();
-        if (maxRes == null) {
-            fail("codec not supported");
-        }
-        if (maxRes.first >= 800 && maxRes.second >= 480) {
+        if (isConcurrentEncodingDecodingSupported(800, 480, BITRATE_800x480)) {
             runTestRenderingInSeparateThread(800, 480, true, true);
         } else {
-            Log.w(TAG, "This H/W does not support 800x480");
+            Log.i(TAG, "SKIPPING testRendering800x480RemotelyWith3Windows(): codec not supported");
         }
     }
 
     public void testRendering800x480LocallyWith3Windows() throws Throwable {
         Log.i(TAG, "testRendering800x480LocallyWith3Windows");
-        Pair<Integer, Integer> maxRes = checkMaxConcurrentEncodingDecodingResolution();
-        if (maxRes == null) {
-            fail("codec not supported");
-        }
-        if (maxRes.first >= 800 && maxRes.second >= 480) {
+        if (isConcurrentEncodingDecodingSupported(800, 480, BITRATE_800x480)) {
             runTestRenderingInSeparateThread(800, 480, false, true);
         } else {
-            Log.w(TAG, "This H/W does not support 800x480");
+            Log.i(TAG, "SKIPPING testRendering800x480LocallyWith3Windows(): codec not supported");
         }
     }
 
@@ -418,8 +406,8 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
     private static final int NUM_DISPLAY_CREATION = 10;
     private static final int NUM_RENDERING = 10;
     private void doTestVirtualDisplayRecycles(int numDisplays) throws Exception {
-        CodecInfo codecInfo = getAvcSupportedFormatInfo();
-        if (codecInfo == null) {
+        Size maxSize = getMaxSupportedEncoderSize();
+        if (maxSize == null) {
             Log.i(TAG, "no codec found, skipping");
             return;
         }
@@ -431,13 +419,13 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
                 Log.i(TAG, "start encoding");
             }
             EncodingHelper encodingHelper = new EncodingHelper();
-            mEncodingSurface = encodingHelper.startEncoding(codecInfo.mMaxW, codecInfo.mMaxH,
+            mEncodingSurface = encodingHelper.startEncoding(maxSize.getWidth(), maxSize.getHeight(),
                     mEncoderEventListener);
             GlCompositor compositor = new GlCompositor();
             if (DBG) {
                 Log.i(TAG, "start composition");
             }
-            compositor.startComposition(mEncodingSurface, codecInfo.mMaxW, codecInfo.mMaxH,
+            compositor.startComposition(mEncodingSurface, maxSize.getWidth(), maxSize.getHeight(),
                     numDisplays);
             for (int j = 0; j < NUM_DISPLAY_CREATION; j++) {
                 if (DBG) {
@@ -447,7 +435,7 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
                     virtualDisplays[k] =
                         new VirtualDisplayPresentation(getContext(),
                                 compositor.getWindowSurface(k),
-                                codecInfo.mMaxW/numDisplays, codecInfo.mMaxH);
+                                maxSize.getWidth()/numDisplays, maxSize.getHeight());
                     virtualDisplays[k].createVirtualDisplay();
                     virtualDisplays[k].createPresentation();
                 }
@@ -543,7 +531,7 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
             MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, mW, mH);
             format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
                     MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
-            int bitRate = 10000000;
+            int bitRate = BITRATE_DEFAULT;
             if (mW == 1920 && mH == 1080) {
                 bitRate = BITRATE_1080p;
             } else if (mW == 1280 && mH == 720) {
@@ -1329,152 +1317,56 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
         }
     }
 
-    private static class CodecInfo {
-        public int mMaxW;
-        public int mMaxH;
-        public int mFps;
-        public int mBitRate;
-        public String mCodecName;
-    };
+    private static Size getMaxSupportedEncoderSize() {
+        final Size[] standardSizes = new Size[] {
+            new Size(1920, 1080),
+            new Size(1280, 720),
+            new Size(720, 480),
+            new Size(352, 576)
+        };
 
-    /**
-     * Returns the first codec capable of encoding the specified MIME type, or null if no
-     * match was found.
-     */
-    private static MediaCodecInfo selectCodec(String mimeType) {
-        int numCodecs = MediaCodecList.getCodecCount();
-        for (int i = 0; i < numCodecs; i++) {
-            MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
-
-            if (!codecInfo.isEncoder()) {
-                continue;
-            }
-
-            String[] types = codecInfo.getSupportedTypes();
-            for (int j = 0; j < types.length; j++) {
-                if (types[j].equalsIgnoreCase(mimeType)) {
-                    return codecInfo;
-                }
+        MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+        for (Size sz : standardSizes) {
+            MediaFormat format = MediaFormat.createVideoFormat(
+                MIME_TYPE, sz.getWidth(), sz.getHeight());
+            format.setInteger(MediaFormat.KEY_FRAME_RATE, 15); // require at least 15fps
+            if (mcl.findEncoderForFormat(format) != null) {
+                return sz;
             }
         }
         return null;
-    }
-
-    private static CodecInfo getAvcSupportedFormatInfo() {
-        MediaCodecInfo mediaCodecInfo = selectCodec(MIME_TYPE);
-        if (mediaCodecInfo == null) {
-            return null;
-        }
-        CodecCapabilities cap = mediaCodecInfo.getCapabilitiesForType(MIME_TYPE);
-        if (cap == null) { // not supported
-            return null;
-        }
-        CodecInfo info = new CodecInfo();
-        int highestLevel = 0;
-        for (CodecProfileLevel lvl : cap.profileLevels) {
-            if (lvl.level > highestLevel) {
-                highestLevel = lvl.level;
-            }
-        }
-        int maxW = 0;
-        int maxH = 0;
-        int bitRate = 0;
-        int fps = 0; // frame rate for the max resolution
-        switch(highestLevel) {
-            // Do not support Level 1 to 2.
-            case CodecProfileLevel.AVCLevel1:
-            case CodecProfileLevel.AVCLevel11:
-            case CodecProfileLevel.AVCLevel12:
-            case CodecProfileLevel.AVCLevel13:
-            case CodecProfileLevel.AVCLevel1b:
-            case CodecProfileLevel.AVCLevel2:
-                return null;
-            case CodecProfileLevel.AVCLevel21:
-                maxW = 352;
-                maxH = 576;
-                bitRate = 4000000;
-                fps = 25;
-                break;
-            case CodecProfileLevel.AVCLevel22:
-                maxW = 720;
-                maxH = 480;
-                bitRate = 4000000;
-                fps = 15;
-                break;
-            case CodecProfileLevel.AVCLevel3:
-                maxW = 720;
-                maxH = 480;
-                bitRate = 10000000;
-                fps = 30;
-                break;
-            case CodecProfileLevel.AVCLevel31:
-                maxW = 1280;
-                maxH = 720;
-                bitRate = 14000000;
-                fps = 30;
-                break;
-            case CodecProfileLevel.AVCLevel32:
-                maxW = 1280;
-                maxH = 720;
-                bitRate = 20000000;
-                fps = 60;
-                break;
-            case CodecProfileLevel.AVCLevel4: // only try up to 1080p
-            default:
-                maxW = 1920;
-                maxH = 1080;
-                bitRate = 20000000;
-                fps = 30;
-                break;
-        }
-        info.mMaxW = maxW;
-        info.mMaxH = maxH;
-        info.mFps = fps;
-        info.mBitRate = bitRate;
-        info.mCodecName = mediaCodecInfo.getName();
-        Log.i(TAG, "AVC Level 0x" + Integer.toHexString(highestLevel) + " bit rate " + bitRate +
-                " fps " + info.mFps + " w " + maxW + " h " + maxH);
-
-        return info;
     }
 
     /**
      * Check maximum concurrent encoding / decoding resolution allowed.
      * Some H/Ws cannot support maximum resolution reported in encoder if decoder is running
      * at the same time.
-     * Check is done for 4 different levels: 1080p, 720p, 800x480 and max of encoder if is is
-     * smaller than 800x480.
+     * Check is done for 4 different levels: 1080p, 720p, 800x480, 480p
+     * (The last one is required by CDD.)
      */
-    private Pair<Integer, Integer> checkMaxConcurrentEncodingDecodingResolution() {
-        CodecInfo codecInfo = getAvcSupportedFormatInfo();
-        if (codecInfo == null) {
-            return null;
+    private Size checkMaxConcurrentEncodingDecodingResolution() {
+        if (isConcurrentEncodingDecodingSupported(1920, 1080, BITRATE_1080p)) {
+            return new Size(1920, 1080);
+        } else if (isConcurrentEncodingDecodingSupported(1280, 720, BITRATE_720p)) {
+            return new Size(1280, 720);
+        } else if (isConcurrentEncodingDecodingSupported(800, 480, BITRATE_800x480)) {
+            return new Size(800, 480);
+        } else if (isConcurrentEncodingDecodingSupported(720, 480, BITRATE_DEFAULT)) {
+            return new Size(720, 480);
         }
-        int maxW = codecInfo.mMaxW;
-        int maxH = codecInfo.mMaxH;
-        if (maxW >= 1920 && maxH >= 1080) {
-            if (isConcurrentEncodingDecodingSupported(1920, 1080, BITRATE_1080p)) {
-                return new Pair<Integer, Integer>(1920, 1080);
-            }
-        }
-        if (maxW >= 1280 && maxH >= 720) {
-            if (isConcurrentEncodingDecodingSupported(1280, 720, BITRATE_720p)) {
-                return new Pair<Integer, Integer>(1280, 720);
-            }
-        }
-        if (maxW >= 800 && maxH >= 480) {
-            if (isConcurrentEncodingDecodingSupported(800, 480, BITRATE_800x480)) {
-                return new Pair<Integer, Integer>(800, 480);
-            }
-        }
-        if (!isConcurrentEncodingDecodingSupported(codecInfo.mMaxW, codecInfo.mMaxH,
-                codecInfo.mBitRate)) {
-            fail("should work with advertised resolution");
-        }
-        return new Pair<Integer, Integer>(maxW, maxH);
+        Log.i(TAG, "SKIPPING test: concurrent encoding and decoding is not supported");
+        return null;
     }
 
     private boolean isConcurrentEncodingDecodingSupported(int w, int h, int bitRate) {
+        MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+        MediaFormat testFormat = MediaFormat.createVideoFormat(MIME_TYPE, w, h);
+        testFormat.setInteger(MediaFormat.KEY_BIT_RATE, bitRate);
+        if (mcl.findDecoderForFormat(testFormat) == null
+                || mcl.findEncoderForFormat(testFormat) == null) {
+            return false;
+        }
+
         MediaCodec decoder = null;
         OutputSurface decodingSurface = null;
         MediaCodec encoder = null;

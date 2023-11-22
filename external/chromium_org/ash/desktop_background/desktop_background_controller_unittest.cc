@@ -68,7 +68,8 @@ void RunAnimationForWidget(views::Widget* widget) {
 class DesktopBackgroundControllerTest : public test::AshTestBase {
  public:
   DesktopBackgroundControllerTest()
-      : controller_(NULL) {
+      : controller_(NULL),
+        wallpaper_delegate_(NULL) {
   }
   virtual ~DesktopBackgroundControllerTest() {}
 
@@ -94,8 +95,7 @@ class DesktopBackgroundControllerTest : public test::AshTestBase {
   // Creates an image of size |size|.
   gfx::ImageSkia CreateImage(int width, int height, SkColor color) {
     SkBitmap bitmap;
-    bitmap.setConfig(SkBitmap::kARGB_8888_Config, width, height);
-    bitmap.allocPixels();
+    bitmap.allocN32Pixels(width, height);
     bitmap.eraseColor(color);
     gfx::ImageSkia image = gfx::ImageSkia::CreateFrom1xBitmap(bitmap);
     return image;
@@ -150,8 +150,8 @@ TEST_F(DesktopBackgroundControllerTest, BasicReparenting) {
 
 TEST_F(DesktopBackgroundControllerTest, ControllerOwnership) {
   // We cannot short-circuit animations for this test.
-  ui::ScopedAnimationDurationScaleMode normal_duration_mode(
-      ui::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+  ui::ScopedAnimationDurationScaleMode test_duration_mode(
+      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
 
   // Create wallpaper and background view.
   DesktopBackgroundController* controller =
@@ -182,8 +182,8 @@ TEST_F(DesktopBackgroundControllerTest, ControllerOwnership) {
 // move all desktop views if there are more than one.
 TEST_F(DesktopBackgroundControllerTest, BackgroundMovementDuringUnlock) {
   // We cannot short-circuit animations for this test.
-  ui::ScopedAnimationDurationScaleMode normal_duration_mode(
-      ui::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+  ui::ScopedAnimationDurationScaleMode test_duration_mode(
+      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
 
   // Reset wallpaper state, see ControllerOwnership above.
   DesktopBackgroundController* controller =
@@ -230,8 +230,8 @@ TEST_F(DesktopBackgroundControllerTest, BackgroundMovementDuringUnlock) {
 // animation and replace current wallpaper before next animation starts.
 TEST_F(DesktopBackgroundControllerTest, ChangeWallpaperQuick) {
   // We cannot short-circuit animations for this test.
-  ui::ScopedAnimationDurationScaleMode normal_duration_mode(
-      ui::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+  ui::ScopedAnimationDurationScaleMode test_duration_mode(
+      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
 
   // Reset wallpaper state, see ControllerOwnership above.
   DesktopBackgroundController* controller =
@@ -291,8 +291,7 @@ TEST_F(DesktopBackgroundControllerTest, ResizeCustomWallpaper) {
   // that the resized image is the expected size.
   controller_->SetWallpaperImage(image, WALLPAPER_LAYOUT_STRETCH);
   EXPECT_TRUE(image.BackedBySameObjectAs(controller_->GetWallpaper()));
-  content::BrowserThread::GetBlockingPool()->FlushForTesting();
-  content::RunAllPendingInMessageLoop();
+  content::RunAllBlockingPoolTasksUntilIdle();
   gfx::ImageSkia resized_image = controller_->GetWallpaper();
   EXPECT_FALSE(image.BackedBySameObjectAs(resized_image));
   EXPECT_EQ(gfx::Size(320, 200).ToString(), resized_image.size().ToString());
@@ -301,8 +300,7 @@ TEST_F(DesktopBackgroundControllerTest, ResizeCustomWallpaper) {
   // previously-resized image instead of doing another resize
   // (http://crbug.com/321402).
   controller_->SetWallpaperImage(image, WALLPAPER_LAYOUT_STRETCH);
-  content::BrowserThread::GetBlockingPool()->FlushForTesting();
-  content::RunAllPendingInMessageLoop();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_TRUE(resized_image.BackedBySameObjectAs(controller_->GetWallpaper()));
 }
 

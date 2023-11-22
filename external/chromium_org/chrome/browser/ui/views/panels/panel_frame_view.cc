@@ -8,10 +8,9 @@
 #include "chrome/browser/ui/panels/panel_constants.h"
 #include "chrome/browser/ui/views/panels/panel_view.h"
 #include "chrome/browser/ui/views/tab_icon_view.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/web_contents.h"
-#include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/ui_resources.h"
 #include "ui/aura/window.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -20,6 +19,7 @@
 #include "ui/gfx/font_list.h"
 #include "ui/gfx/path.h"
 #include "ui/gfx/screen.h"
+#include "ui/resources/grit/ui_resources.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/widget/widget.h"
@@ -489,6 +489,9 @@ void PanelFrameView::UpdateWindowTitle() {
   title_label_->SetText(panel_view_->panel()->GetWindowTitle());
 }
 
+void PanelFrameView::SizeConstraintsChanged() {
+}
+
 gfx::Size PanelFrameView::GetPreferredSize() const {
   gfx::Size pref_size =
       panel_view_->window()->client_view()->GetPreferredSize();
@@ -558,16 +561,16 @@ void PanelFrameView::OnPaint(gfx::Canvas* canvas) {
 }
 
 bool PanelFrameView::OnMousePressed(const ui::MouseEvent& event) {
-  if (event.IsOnlyLeftMouseButton()) {
+  // If the mouse location falls within the resizing area of the titlebar, do
+  // not handle the event so that the system resizing logic can kick in.
+  if (event.IsOnlyLeftMouseButton() &&
+      !IsWithinResizingArea(event.location())) {
     // |event.location| is in the view's coordinate system. Convert it to the
     // screen coordinate system.
     gfx::Point mouse_location = event.location();
     views::View::ConvertPointToScreen(this, &mouse_location);
 
-    // If the mouse location falls within the resizing area of the titlebar,
-    // do not handle the event so that the system resizing logic could kick in.
-    if (!panel_view_->IsWithinResizingArea(mouse_location) &&
-        panel_view_->OnTitlebarMousePressed(mouse_location))
+    if (panel_view_->OnTitlebarMousePressed(mouse_location))
       return true;
   }
   return NonClientFrameView::OnMousePressed(event);
@@ -765,4 +768,12 @@ void PanelFrameView::PaintFrameEdge(gfx::Canvas* canvas) {
                        height() - top_left_image.height() -
                            bottom_left_image.height());
 #endif
+}
+
+bool PanelFrameView::IsWithinResizingArea(
+    const gfx::Point& mouse_location) const {
+  panel::Resizability resizability = panel_view_->panel()->CanResizeByMouse();
+  int edge_hittest = GetFrameEdgeHitTest(
+      mouse_location, size(), PanelView::kResizeInsideBoundsSize, resizability);
+  return edge_hittest != HTNOWHERE;
 }

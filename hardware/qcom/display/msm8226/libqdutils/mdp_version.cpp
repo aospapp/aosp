@@ -37,24 +37,41 @@ namespace qdutils {
 
 #define TOKEN_PARAMS_DELIM  "="
 
-#ifndef MDSS_MDP_REV
-enum mdp_rev {
-    MDSS_MDP_HW_REV_100 = 0x10000000, //8974 v1
-    MDSS_MDP_HW_REV_101 = 0x10010000, //8x26
-    MDSS_MDP_HW_REV_102 = 0x10020000, //8974 v2
-    MDSS_MDP_HW_REV_103 = 0x10030000, //8084
-    MDSS_MDP_HW_REV_104 = 0x10040000, //Next version
-    MDSS_MDP_HW_REV_105 = 0x10050000, //Next version
-    MDSS_MDP_HW_REV_106 = 0x10060000, //8x16
-    MDSS_MDP_HW_REV_200 = 0x20000000, //8092
-    MDSS_MDP_HW_REV_206 = 0x20060000, //Future
-};
-#else
-enum mdp_rev {
-    MDSS_MDP_HW_REV_104 = 0x10040000, //Next version
-    MDSS_MDP_HW_REV_206 = 0x20060000, //Future
-    MDSS_MDP_HW_REV_107 = 0x10070000, //Next version
-};
+#ifndef MDSS_MDP_HW_REV_100
+#define MDSS_MDP_HW_REV_100 0x10000000 //8974 v1
+#endif
+#ifndef MDSS_MDP_HW_REV_101
+#define MDSS_MDP_HW_REV_101 0x10010000 //8x26
+#endif
+#ifndef MDSS_MDP_HW_REV_102
+#define MDSS_MDP_HW_REV_102 0x10020000 //8974 v2
+#endif
+#ifndef MDSS_MDP_HW_REV_103
+#define MDSS_MDP_HW_REV_103 0x10030000 //8084
+#endif
+#ifndef MDSS_MDP_HW_REV_104
+#define MDSS_MDP_HW_REV_104 0x10040000 //Next version
+#endif
+#ifndef MDSS_MDP_HW_REV_105
+#define MDSS_MDP_HW_REV_105 0x10050000 //8994
+#endif
+#ifndef MDSS_MDP_HW_REV_106
+#define MDSS_MDP_HW_REV_106 0x10060000 //8x16
+#endif
+#ifndef MDSS_MDP_HW_REV_107
+#define MDSS_MDP_HW_REV_107 0x10070000 //Next version
+#endif
+#ifndef MDSS_MDP_HW_REV_108
+#define MDSS_MDP_HW_REV_108 0x10080000 //8x39 & 8x36
+#endif
+#ifndef MDSS_MDP_HW_REV_109
+#define MDSS_MDP_HW_REV_109 0x10090000 //Next version
+#endif
+#ifndef MDSS_MDP_HW_REV_200
+#define MDSS_MDP_HW_REV_200 0x20000000 //8092
+#endif
+#ifndef MDSS_MDP_HW_REV_206
+#define MDSS_MDP_HW_REV_206 0x20060000 //Future
 #endif
 
 MDPVersion::MDPVersion()
@@ -71,7 +88,9 @@ MDPVersion::MDPVersion()
     mLowBw = 0;
     mHighBw = 0;
     mSourceSplit = false;
+    mSourceSplitAlways = false;
     mRGBHasNoScalar = false;
+    mRotDownscale = false;
 
     updatePanelInfo();
 
@@ -119,7 +138,6 @@ void  MDPVersion::updatePanelInfo() {
     FILE *panelInfoNodeFP = NULL;
     const int MAX_FRAME_BUFFER_NAME_SIZE = 128;
     char fbType[MAX_FRAME_BUFFER_NAME_SIZE];
-    char panelInfo[MAX_FRAME_BUFFER_NAME_SIZE];
     const char *strCmdPanel = "mipi dsi cmd panel";
     const char *strVideoPanel = "mipi dsi video panel";
     const char *strLVDSPanel = "lvds panel";
@@ -165,7 +183,7 @@ void  MDPVersion::updatePanelInfo() {
                           mPanelInfo.mPartialUpdateEnable? "Enabled" :
                           "Disabled");
                 }
-                if(!strncmp(tokens[0], "xalign", strlen("xalign"))) {
+                if(!strncmp(tokens[0], "xstart", strlen("xstart"))) {
                     mPanelInfo.mLeftAlign = atoi(tokens[1]);
                     ALOGI("Left Align: %d", mPanelInfo.mLeftAlign);
                 }
@@ -180,6 +198,18 @@ void  MDPVersion::updatePanelInfo() {
                 if(!strncmp(tokens[0], "halign", strlen("halign"))) {
                     mPanelInfo.mHeightAlign = atoi(tokens[1]);
                     ALOGI("Height Align: %d", mPanelInfo.mHeightAlign);
+                }
+                if(!strncmp(tokens[0], "min_w", strlen("min_w"))) {
+                    mPanelInfo.mMinROIWidth = atoi(tokens[1]);
+                    ALOGI("Min ROI Width: %d", mPanelInfo.mMinROIWidth);
+                }
+                if(!strncmp(tokens[0], "min_h", strlen("min_h"))) {
+                    mPanelInfo.mMinROIHeight = atoi(tokens[1]);
+                    ALOGI("Min ROI Height: %d", mPanelInfo.mMinROIHeight);
+                }
+                if(!strncmp(tokens[0], "roi_merge", strlen("roi_merge"))) {
+                    mPanelInfo.mNeedsROIMerge = atoi(tokens[1]);
+                    ALOGI("Needs ROI Merge: %d", mPanelInfo.mNeedsROIMerge);
                 }
             }
         }
@@ -253,22 +283,22 @@ bool MDPVersion::updateSysFsInfo() {
                     for(int i=1; i<index;i++) {
                         if(!strncmp(tokens[i], "bwc", strlen("bwc"))) {
                            mFeatures |= MDP_BWC_EN;
-                        }
-                        else if(!strncmp(tokens[i], "decimation",
+                        } else if(!strncmp(tokens[i], "decimation",
                                     strlen("decimation"))) {
                            mFeatures |= MDP_DECIMATION_EN;
-                        }
-                        else if(!strncmp(tokens[i], "tile_format",
+                        } else if(!strncmp(tokens[i], "tile_format",
                                     strlen("tile_format"))) {
                            if(enableMacroTile)
                                mMacroTileEnabled = true;
                         } else if(!strncmp(tokens[i], "src_split",
                                     strlen("src_split"))) {
                             mSourceSplit = true;
-                        }
-                        else if(!strncmp(tokens[i], "non_scalar_rgb",
+                        } else if(!strncmp(tokens[i], "non_scalar_rgb",
                                     strlen("non_scalar_rgb"))) {
                             mRGBHasNoScalar = true;
+                        } else if(!strncmp(tokens[i], "rotator_downscale",
+                                    strlen("rotator_downscale"))) {
+                            mRotDownscale = true;
                         }
                     }
                 }
@@ -277,6 +307,30 @@ bool MDPVersion::updateSysFsInfo() {
         free(line);
         fclose(sysfsFd);
     }
+
+    if(mSourceSplit) {
+        memset(sysfsPath, 0, sizeof(sysfsPath));
+        snprintf(sysfsPath , sizeof(sysfsPath),
+                "/sys/class/graphics/fb0/msm_fb_src_split_info");
+
+        sysfsFd = fopen(sysfsPath, "rb");
+        if (sysfsFd == NULL) {
+            ALOGE("%s: Opening file %s failed with error %s", __FUNCTION__,
+                    sysfsPath, strerror(errno));
+            return false;
+        } else {
+            line = (char *) malloc(len);
+            if((read = getline(&line, &len, sysfsFd)) != -1) {
+                if(!strncmp(line, "src_split_always",
+                        strlen("src_split_always"))) {
+                    mSourceSplitAlways = true;
+                }
+            }
+            free(line);
+            fclose(sysfsFd);
+        }
+    }
+
     ALOGD_IF(DEBUG, "%s: mMDPVersion: %d mMdpRev: %x mRGBPipes:%d,"
                     "mVGPipes:%d", __FUNCTION__, mMDPVersion, mMdpRev,
                     mRGBPipes, mVGPipes);
@@ -342,6 +396,10 @@ bool MDPVersion::isSrcSplit() const {
     return mSourceSplit;
 }
 
+bool MDPVersion::isSrcSplitAlways() const {
+    return mSourceSplitAlways;
+}
+
 bool MDPVersion::isRGBScalarSupported() const {
     return (!mRGBHasNoScalar);
 }
@@ -366,10 +424,21 @@ bool MDPVersion::is8092() {
             mMdpRev < MDSS_MDP_HW_REV_206);
 }
 
+bool MDPVersion::is8994() {
+    return (mMdpRev >= MDSS_MDP_HW_REV_105 and
+            mMdpRev < MDSS_MDP_HW_REV_106);
+}
+
 bool MDPVersion::is8x16() {
     return (mMdpRev >= MDSS_MDP_HW_REV_106 and
             mMdpRev < MDSS_MDP_HW_REV_107);
 }
+
+bool MDPVersion::is8x39() {
+    return (mMdpRev >= MDSS_MDP_HW_REV_108 and
+            mMdpRev < MDSS_MDP_HW_REV_109);
+}
+
 
 }; //namespace qdutils
 

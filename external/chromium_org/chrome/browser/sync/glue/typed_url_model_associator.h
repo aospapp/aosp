@@ -13,7 +13,7 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/strings/string16.h"
-#include "chrome/browser/history/history_types.h"
+#include "components/history/core/browser/history_types.h"
 #include "components/sync_driver/data_type_error_handler.h"
 #include "components/sync_driver/model_associator.h"
 #include "sync/protocol/typed_url_specifics.pb.h"
@@ -42,17 +42,15 @@ namespace browser_sync {
 // * Persisting model associations and loading them back.
 // We do not check if we have local data before this run; we always
 // merge and sync.
-class TypedUrlModelAssociator : public AssociatorInterface {
+class TypedUrlModelAssociator : public sync_driver::AssociatorInterface {
  public:
-  typedef std::vector<std::pair<history::URLID, history::URLRow> >
-      TypedUrlUpdateVector;
   typedef std::vector<std::pair<GURL, std::vector<history::VisitInfo> > >
       TypedUrlVisitVector;
 
   static syncer::ModelType model_type() { return syncer::TYPED_URLS; }
   TypedUrlModelAssociator(ProfileSyncService* sync_service,
                           history::HistoryBackend* history_backend,
-                          DataTypeErrorHandler* error_handler);
+                          sync_driver::DataTypeErrorHandler* error_handler);
   virtual ~TypedUrlModelAssociator();
 
   // AssociatorInterface implementation.
@@ -79,7 +77,7 @@ class TypedUrlModelAssociator : public AssociatorInterface {
   bool DeleteAllNodes(syncer::WriteTransaction* trans);
 
   void WriteToHistoryBackend(const history::URLRows* new_urls,
-                             const TypedUrlUpdateVector* updated_urls,
+                             const history::URLRows* updated_urls,
                              const TypedUrlVisitVector* new_visits,
                              const history::VisitVector* deleted_visits);
 
@@ -93,7 +91,7 @@ class TypedUrlModelAssociator : public AssociatorInterface {
   void UpdateFromSyncDB(const sync_pb::TypedUrlSpecifics& typed_url,
                         TypedUrlVisitVector* visits_to_add,
                         history::VisitVector* visits_to_remove,
-                        TypedUrlUpdateVector* updated_urls,
+                        history::URLRows* updated_urls,
                         history::URLRows* new_urls);
 
   // Given a TypedUrlSpecifics object, removes all visits that are older than
@@ -190,7 +188,8 @@ class TypedUrlModelAssociator : public AssociatorInterface {
   bool abort_requested_;
   base::Lock abort_lock_;
 
-  DataTypeErrorHandler* error_handler_; // Guaranteed to outlive datatypes.
+  // Guaranteed to outlive datatypes.
+  sync_driver::DataTypeErrorHandler* error_handler_;
 
   // Statistics for the purposes of tracking the percentage of DB accesses that
   // fail for each client via UMA.

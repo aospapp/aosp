@@ -45,7 +45,12 @@
 #include "media/cast/cast_receiver.h"
 #include "media/cast/cast_sender.h"
 #include "media/cast/logging/simple_event_subscriber.h"
+#include "media/cast/net/cast_transport_config.h"
+#include "media/cast/net/cast_transport_defines.h"
+#include "media/cast/net/cast_transport_sender.h"
+#include "media/cast/net/cast_transport_sender_impl.h"
 #include "media/cast/test/fake_single_thread_task_runner.h"
+#include "media/cast/test/loopback_transport.h"
 #include "media/cast/test/skewed_single_thread_task_runner.h"
 #include "media/cast/test/skewed_tick_clock.h"
 #include "media/cast/test/utility/audio_utility.h"
@@ -53,10 +58,6 @@
 #include "media/cast/test/utility/test_util.h"
 #include "media/cast/test/utility/udp_proxy.h"
 #include "media/cast/test/utility/video_utility.h"
-#include "media/cast/transport/cast_transport_config.h"
-#include "media/cast/transport/cast_transport_defines.h"
-#include "media/cast/transport/cast_transport_sender.h"
-#include "media/cast/transport/cast_transport_sender_impl.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace media {
@@ -68,15 +69,15 @@ static const int64 kStartMillisecond = INT64_C(1245);
 static const int kAudioChannels = 2;
 static const int kVideoHdWidth = 1280;
 static const int kVideoHdHeight = 720;
-static const int kTargetDelay = 300;
+static const int kTargetPlayoutDelayMs = 300;
 
 // The tests are commonly implemented with |kFrameTimerMs| RunTask function;
 // a normal video is 30 fps hence the 33 ms between frames.
 static const int kFrameTimerMs = 33;
 
-void UpdateCastTransportStatus(transport::CastTransportStatus status) {
-  bool result = (status == transport::TRANSPORT_AUDIO_INITIALIZED ||
-                 status == transport::TRANSPORT_VIDEO_INITIALIZED);
+void UpdateCastTransportStatus(CastTransportStatus status) {
+  bool result = (status == TRANSPORT_AUDIO_INITIALIZED ||
+                 status == TRANSPORT_VIDEO_INITIALIZED);
   EXPECT_TRUE(result);
 }
 
@@ -88,73 +89,15 @@ void VideoInitializationStatus(CastInitializationStatus status) {
   EXPECT_EQ(STATUS_VIDEO_INITIALIZED, status);
 }
 
-void IgnoreRawEvents(const std::vector<PacketEvent>& packet_events) {
+void IgnoreRawEvents(const std::vector<PacketEvent>& packet_events,
+                     const std::vector<FrameEvent>& frame_events) {
 }
 
 }  // namespace
 
-// Shim that turns forwards packets from a test::PacketPipe to a
-// PacketReceiverCallback.
-class LoopBackPacketPipe : public test::PacketPipe {
- public:
-  LoopBackPacketPipe(const transport::PacketReceiverCallback& packet_receiver)
-      : packet_receiver_(packet_receiver) {}
-
-  virtual ~LoopBackPacketPipe() {}
-
-  // PacketPipe implementations.
-  virtual void Send(scoped_ptr<transport::Packet> packet) OVERRIDE {
-    packet_receiver_.Run(packet.Pass());
-  }
-
- private:
-  transport::PacketReceiverCallback packet_receiver_;
-};
-
-// Class that sends the packet direct from sender into the receiver with the
-// ability to drop packets between the two.
-// TODO(hubbe): Break this out and share code with end2end_unittest.cc
-class LoopBackTransport : public transport::PacketSender {
- public:
-  explicit LoopBackTransport(scoped_refptr<CastEnvironment> cast_environment)
-      : cast_environment_(cast_environment) {}
-
-  void SetPacketReceiver(
-      const transport::PacketReceiverCallback& packet_receiver,
-      const scoped_refptr<base::SingleThreadTaskRunner>& task_runner,
-      base::TickClock* clock) {
-    scoped_ptr<test::PacketPipe> loopback_pipe(
-        new LoopBackPacketPipe(packet_receiver));
-    if (packet_pipe_) {
-      packet_pipe_->AppendToPipe(loopback_pipe.Pass());
-    } else {
-      packet_pipe_ = loopback_pipe.Pass();
-    }
-    packet_pipe_->InitOnIOThread(task_runner, clock);
-  }
-
-  virtual bool SendPacket(transport::PacketRef packet,
-                          const base::Closure& cb) OVERRIDE {
-    DCHECK(cast_environment_->CurrentlyOn(CastEnvironment::MAIN));
-    scoped_ptr<Packet> packet_copy(new Packet(packet->data));
-    packet_pipe_->Send(packet_copy.Pass());
-    return true;
-  }
-
-  void SetPacketPipe(scoped_ptr<test::PacketPipe> pipe) {
-    // Append the loopback pipe to the end.
-    pipe->AppendToPipe(packet_pipe_.Pass());
-    packet_pipe_ = pipe.Pass();
-  }
-
- private:
-  scoped_refptr<CastEnvironment> cast_environment_;
-  scoped_ptr<test::PacketPipe> packet_pipe_;
-};
-
 // Wraps a CastTransportSender and records some statistics about
 // the data that goes through it.
-class CastTransportSenderWrapper : public transport::CastTransportSender {
+class CastTransportSenderWrapper : public CastTransportSender {
  public:
   // Takes ownership of |transport|.
   void Init(CastTransportSender* transport,
@@ -166,60 +109,58 @@ class CastTransportSenderWrapper : public transport::CastTransportSender {
   }
 
   virtual void InitializeAudio(
-      const transport::CastTransportAudioConfig& config) OVERRIDE {
-    transport_->InitializeAudio(config);
+      const CastTransportRtpConfig& config,
+      const RtcpCastMessageCallback& cast_message_cb,
+      const RtcpRttCallback& rtt_cb) OVERRIDE {
+    audio_ssrc_ = config.ssrc;
+    transport_->InitializeAudio(config, cast_message_cb, rtt_cb);
   }
 
   virtual void InitializeVideo(
-      const transport::CastTransportVideoConfig& config) OVERRIDE {
-    transport_->InitializeVideo(config);
+      const CastTransportRtpConfig& config,
+      const RtcpCastMessageCallback& cast_message_cb,
+      const RtcpRttCallback& rtt_cb) OVERRIDE {
+    video_ssrc_ = config.ssrc;
+    transport_->InitializeVideo(config, cast_message_cb, rtt_cb);
   }
 
-  virtual void SetPacketReceiver(
-      const transport::PacketReceiverCallback& packet_receiver) OVERRIDE {
-    transport_->SetPacketReceiver(packet_receiver);
+  virtual void InsertFrame(uint32 ssrc,
+                           const EncodedFrame& frame) OVERRIDE {
+    if (ssrc == audio_ssrc_) {
+      *encoded_audio_bytes_ += frame.data.size();
+    } else if (ssrc == video_ssrc_) {
+      *encoded_video_bytes_ += frame.data.size();
+    }
+    transport_->InsertFrame(ssrc, frame);
   }
 
-  virtual void InsertCodedAudioFrame(
-      const transport::EncodedFrame& audio_frame) OVERRIDE {
-    *encoded_audio_bytes_ += audio_frame.data.size();
-    transport_->InsertCodedAudioFrame(audio_frame);
+  virtual void SendSenderReport(
+      uint32 ssrc,
+      base::TimeTicks current_time,
+      uint32 current_time_as_rtp_timestamp) OVERRIDE {
+    transport_->SendSenderReport(ssrc,
+                                 current_time,
+                                 current_time_as_rtp_timestamp);
   }
 
-  virtual void InsertCodedVideoFrame(
-      const transport::EncodedFrame& video_frame) OVERRIDE {
-    *encoded_video_bytes_ += video_frame.data.size();
-    transport_->InsertCodedVideoFrame(video_frame);
+  virtual void CancelSendingFrames(
+      uint32 ssrc,
+      const std::vector<uint32>& frame_ids) OVERRIDE {
+    transport_->CancelSendingFrames(ssrc, frame_ids);
   }
 
-  virtual void SendRtcpFromRtpSender(uint32 packet_type_flags,
-                                     uint32 ntp_seconds,
-                                     uint32 ntp_fraction,
-                                     uint32 rtp_timestamp,
-                                     const transport::RtcpDlrrReportBlock& dlrr,
-                                     uint32 sending_ssrc,
-                                     const std::string& c_name) OVERRIDE {
-    transport_->SendRtcpFromRtpSender(packet_type_flags,
-                                      ntp_seconds,
-                                      ntp_fraction,
-                                      rtp_timestamp,
-                                      dlrr,
-                                      sending_ssrc,
-                                      c_name);
+  virtual void ResendFrameForKickstart(uint32 ssrc,
+                                       uint32 frame_id) OVERRIDE {
+    transport_->ResendFrameForKickstart(ssrc, frame_id);
   }
 
-  // Retransmission request.
-  virtual void ResendPackets(
-      bool is_audio,
-      const MissingFramesAndPacketsMap& missing_packets,
-      bool cancel_rtx_if_not_in_list,
-      base::TimeDelta dedupe_window) OVERRIDE {
-    transport_->ResendPackets(
-        is_audio, missing_packets, cancel_rtx_if_not_in_list, dedupe_window);
+  virtual PacketReceiverCallback PacketReceiverForTesting() OVERRIDE {
+    return transport_->PacketReceiverForTesting();
   }
 
  private:
-  scoped_ptr<transport::CastTransportSender> transport_;
+  scoped_ptr<CastTransportSender> transport_;
+  uint32 audio_ssrc_, video_ssrc_;
   uint64* encoded_video_bytes_;
   uint64* encoded_audio_bytes_;
 };
@@ -278,34 +219,37 @@ class RunOneBenchmark {
         base::TimeDelta::FromMilliseconds(kStartMillisecond));
   }
 
-  void Configure(transport::VideoCodec video_codec,
-                 transport::AudioCodec audio_codec,
+  void Configure(Codec video_codec,
+                 Codec audio_codec,
                  int audio_sampling_frequency,
                  int max_number_of_video_buffers_used) {
-    audio_sender_config_.rtp_config.ssrc = 1;
+    audio_sender_config_.ssrc = 1;
     audio_sender_config_.incoming_feedback_ssrc = 2;
-    audio_sender_config_.rtp_config.payload_type = 96;
+    audio_sender_config_.max_playout_delay =
+        base::TimeDelta::FromMilliseconds(kTargetPlayoutDelayMs);
+    audio_sender_config_.rtp_payload_type = 96;
     audio_sender_config_.use_external_encoder = false;
     audio_sender_config_.frequency = audio_sampling_frequency;
     audio_sender_config_.channels = kAudioChannels;
     audio_sender_config_.bitrate = kDefaultAudioEncoderBitrate;
     audio_sender_config_.codec = audio_codec;
-    audio_sender_config_.rtp_config.max_delay_ms = kTargetDelay;
 
     audio_receiver_config_.feedback_ssrc =
         audio_sender_config_.incoming_feedback_ssrc;
-    audio_receiver_config_.incoming_ssrc = audio_sender_config_.rtp_config.ssrc;
+    audio_receiver_config_.incoming_ssrc = audio_sender_config_.ssrc;
     audio_receiver_config_.rtp_payload_type =
-        audio_sender_config_.rtp_config.payload_type;
+        audio_sender_config_.rtp_payload_type;
     audio_receiver_config_.frequency = audio_sender_config_.frequency;
     audio_receiver_config_.channels = kAudioChannels;
     audio_receiver_config_.max_frame_rate = 100;
-    audio_receiver_config_.codec.audio = audio_sender_config_.codec;
-    audio_receiver_config_.rtp_max_delay_ms = kTargetDelay;
+    audio_receiver_config_.codec = audio_sender_config_.codec;
+    audio_receiver_config_.rtp_max_delay_ms = kTargetPlayoutDelayMs;
 
-    video_sender_config_.rtp_config.ssrc = 3;
+    video_sender_config_.ssrc = 3;
     video_sender_config_.incoming_feedback_ssrc = 4;
-    video_sender_config_.rtp_config.payload_type = 97;
+    video_sender_config_.max_playout_delay =
+        base::TimeDelta::FromMilliseconds(kTargetPlayoutDelayMs);
+    video_sender_config_.rtp_payload_type = 97;
     video_sender_config_.use_external_encoder = false;
     video_sender_config_.width = kVideoHdWidth;
     video_sender_config_.height = kVideoHdHeight;
@@ -324,18 +268,17 @@ class RunOneBenchmark {
     video_sender_config_.max_number_of_video_buffers_used =
         max_number_of_video_buffers_used;
     video_sender_config_.codec = video_codec;
-    video_sender_config_.rtp_config.max_delay_ms = kTargetDelay;
 
     video_receiver_config_.feedback_ssrc =
         video_sender_config_.incoming_feedback_ssrc;
-    video_receiver_config_.incoming_ssrc = video_sender_config_.rtp_config.ssrc;
+    video_receiver_config_.incoming_ssrc = video_sender_config_.ssrc;
     video_receiver_config_.rtp_payload_type =
-        video_sender_config_.rtp_config.payload_type;
-    video_receiver_config_.codec.video = video_sender_config_.codec;
+        video_sender_config_.rtp_payload_type;
+    video_receiver_config_.codec = video_sender_config_.codec;
     video_receiver_config_.frequency = kVideoFrequency;
     video_receiver_config_.channels = 1;
     video_receiver_config_.max_frame_rate = 100;
-    video_receiver_config_.rtp_max_delay_ms = kTargetDelay;
+    video_receiver_config_.rtp_max_delay_ms = kTargetPlayoutDelayMs;
   }
 
   void SetSenderClockSkew(double skew, base::TimeDelta offset) {
@@ -348,23 +291,25 @@ class RunOneBenchmark {
     task_runner_receiver_->SetSkew(1.0 / skew);
   }
 
-  void Create() {
+  void Create(const MeasuringPoint& p) {
     cast_receiver_ = CastReceiver::Create(cast_environment_receiver_,
                                           audio_receiver_config_,
                                           video_receiver_config_,
                                           &receiver_to_sender_);
     net::IPEndPoint dummy_endpoint;
-    transport_sender_.Init(new transport::CastTransportSenderImpl(
-                               NULL,
-                               testing_clock_sender_,
-                               dummy_endpoint,
-                               base::Bind(&UpdateCastTransportStatus),
-                               base::Bind(&IgnoreRawEvents),
-                               base::TimeDelta::FromSeconds(1),
-                               task_runner_sender_,
-                               &sender_to_receiver_),
-                           &video_bytes_encoded_,
-                           &audio_bytes_encoded_);
+    transport_sender_.Init(
+        new CastTransportSenderImpl(
+            NULL,
+            testing_clock_sender_,
+            dummy_endpoint,
+            make_scoped_ptr(new base::DictionaryValue),
+            base::Bind(&UpdateCastTransportStatus),
+            base::Bind(&IgnoreRawEvents),
+            base::TimeDelta::FromSeconds(1),
+            task_runner_sender_,
+            &sender_to_receiver_),
+        &video_bytes_encoded_,
+        &audio_bytes_encoded_);
 
     cast_sender_ =
         CastSender::Create(cast_environment_sender_, &transport_sender_);
@@ -377,10 +322,13 @@ class RunOneBenchmark {
                                   CreateDefaultVideoEncodeAcceleratorCallback(),
                                   CreateDefaultVideoEncodeMemoryCallback());
 
-    receiver_to_sender_.SetPacketReceiver(
-        cast_sender_->packet_receiver(), task_runner_, &testing_clock_);
-    sender_to_receiver_.SetPacketReceiver(
-        cast_receiver_->packet_receiver(), task_runner_, &testing_clock_);
+    receiver_to_sender_.Initialize(
+        CreateSimplePipe(p).Pass(),
+        transport_sender_.PacketReceiverForTesting(),
+        task_runner_, &testing_clock_);
+    sender_to_receiver_.Initialize(
+        CreateSimplePipe(p).Pass(), cast_receiver_->packet_receiver(),
+        task_runner_, &testing_clock_);
   }
 
   virtual ~RunOneBenchmark() {
@@ -436,10 +384,9 @@ class RunOneBenchmark {
 
   void Run(const MeasuringPoint& p) {
     available_bitrate_ = p.bitrate;
-    Configure(transport::kFakeSoftwareVideo, transport::kPcm16, 32000, 1);
-    receiver_to_sender_.SetPacketPipe(CreateSimplePipe(p).Pass());
-    sender_to_receiver_.SetPacketPipe(CreateSimplePipe(p).Pass());
-    Create();
+    Configure(
+        CODEC_VIDEO_FAKE, CODEC_AUDIO_PCM16, 32000, 1);
+    Create(p);
     StartBasicPlayer();
 
     for (int frame = 0; frame < 1000; frame++) {

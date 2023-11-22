@@ -24,14 +24,15 @@
 
     <strings>
         <intro>
-            <![CDATA[
-                Welcome to the <b>Basic Android Key Store</b> sample!\n\n
-                This sample demonstrates how to use the Android Key Store to safely create and store
-                encryption keys that only your application can access.  You can also sign data
-                using those keys.\n\n
-                To create a new KeyPair, click \"Create\".\n\n
-                To sign some data using a KeyPair, click \"Sign\".\n\n
-                To verify the data using the signature provided, click \"Verify\".\n\n            ]]>
+<![CDATA[
+Welcome to the <b>Basic Android Key Store</b> sample!\n\n
+This sample demonstrates how to use the Android Key Store to safely create and store
+encryption keys that only your application can access.  You can also sign data
+using those keys.\n\n
+To create a new KeyPair, click \"Create\".\n\n
+To sign some data using a KeyPair, click \"Sign\".\n\n
+To verify the data using the signature provided, click \"Verify\".\n\n
+]]>
         </intro>
     </strings>
 
@@ -40,4 +41,44 @@
     <common src="activities"/>
     <common src="logger"/>
 
+    <metadata>
+    <status>PUBLISHED</status>
+    <categories>Security</categories>
+    <technologies>Android</technologies>
+    <languages>Java</languages>
+    <solutions>Mobile</solutions>
+    <level>ADVANCED</level>
+    <icon>screenshots/big-icon.png</icon>
+    <screenshots>
+        <img>screenshots/screenshot1.png</img>
+        <img>screenshots/screenshot2.png</img>
+        <img>screenshots/screenshot3.png</img>
+        <img>screenshots/screenshot4.png</img>
+        <img>screenshots/screenshot5.png</img>
+    </screenshots>
+    <api_refs>
+        <android>android.security.KeyPairGeneratorSpec</android>
+    </api_refs>
+    <description>
+<![CDATA[
+An advanced sample displaying the creation and usage of data integrity mechanisms
+]]>
+    </description>
+    <intro>
+<![CDATA[
+This sample demonstrates how to use the Android [KeyStore][1] to safely create and store
+encryption keys that only your application can access.
+
+A [KeyPair][2] consisting of a [PrivateKey][3] and a [PublicKey][4] is being generated.
+The private key then is being used to sign and verify a String.
+
+Next to that appropriate exception handling for potential errors is being displayed.
+
+[1]: https://developer.android.com/reference/java/security/KeyStore.html
+[2]: https://developer.android.com/reference/java/security/KeyPair.html
+[3]: https://developer.android.com/reference/java/security/PrivateKey.html
+[4]: https://developer.android.com/reference/java/security/PublicKey.html
+]]>
+    </intro>
+</metadata>
 </sample>

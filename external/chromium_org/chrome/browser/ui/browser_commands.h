@@ -76,6 +76,9 @@ void NewIncognitoWindow(Browser* browser);
 void CloseWindow(Browser* browser);
 void NewTab(Browser* browser);
 void CloseTab(Browser* browser);
+bool CanZoomIn(content::WebContents* contents);
+bool CanZoomOut(content::WebContents* contents);
+bool ActualSize(content::WebContents* contents);
 void RestoreTab(Browser* browser);
 TabStripModelDelegate::RestoreTabType GetRestoreTabType(
     const Browser* browser);
@@ -106,10 +109,11 @@ void ShowWebsiteSettings(Browser* browser,
                          const GURL& url,
                          const content::SSLStatus& ssl);
 void Print(Browser* browser);
-bool CanPrint(const Browser* browser);
-void AdvancedPrint(Browser* browser);
-bool CanAdvancedPrint(const Browser* browser);
-void PrintToDestination(Browser* browser);
+bool CanPrint(Browser* browser);
+#if !defined(DISABLE_BASIC_PRINTING)
+void BasicPrint(Browser* browser);
+bool CanBasicPrint(Browser* browser);
+#endif  // !DISABLE_BASIC_PRINTING
 void EmailPageLocation(Browser* browser);
 bool CanEmailPageLocation(const Browser* browser);
 void Cut(Browser* browser);

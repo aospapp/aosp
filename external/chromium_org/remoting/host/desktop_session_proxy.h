@@ -31,6 +31,10 @@ class ChannelProxy;
 class Message;
 }  // namespace IPC
 
+namespace webrtc {
+class MouseCursor;
+}  // namespace webrtc
+
 struct SerializedDesktopFrame;
 
 namespace remoting {
@@ -41,6 +45,7 @@ class ClientSessionControl;
 class DesktopSessionConnector;
 struct DesktopSessionProxyTraits;
 class IpcAudioCapturer;
+class IpcMouseCursorMonitor;
 class IpcVideoFrameCapturer;
 class ScreenControls;
 
@@ -76,7 +81,8 @@ class DesktopSessionProxy
   scoped_ptr<AudioCapturer> CreateAudioCapturer();
   scoped_ptr<InputInjector> CreateInputInjector();
   scoped_ptr<ScreenControls> CreateScreenControls();
-  scoped_ptr<webrtc::ScreenCapturer> CreateVideoCapturer();
+  scoped_ptr<webrtc::DesktopCapturer> CreateVideoCapturer();
+  scoped_ptr<webrtc::MouseCursorMonitor> CreateMouseCursorMonitor();
   std::string GetCapabilities() const;
   void SetCapabilities(const std::string& capabilities);
 
@@ -100,7 +106,7 @@ class DesktopSessionProxy
   // on the |audio_capture_task_runner_| thread.
   void SetAudioCapturer(const base::WeakPtr<IpcAudioCapturer>& audio_capturer);
 
-  // APIs used to implement the webrtc::ScreenCapturer interface. These must be
+  // APIs used to implement the webrtc::DesktopCapturer interface. These must be
   // called on the |video_capture_task_runner_| thread.
   void CaptureFrame();
 
@@ -108,6 +114,11 @@ class DesktopSessionProxy
   // the |video_capture_task_runner_| thread.
   void SetVideoCapturer(
       const base::WeakPtr<IpcVideoFrameCapturer> video_capturer);
+
+  // Stores |mouse_cursor_monitor| to be used to post mouse cursor changes.
+  // Called on the |video_capture_task_runner_| thread.
+  void SetMouseCursorMonitor(
+      const base::WeakPtr<IpcMouseCursorMonitor>& mouse_cursor_monitor);
 
   // APIs used to implement the InputInjector interface.
   void InjectClipboardEvent(const protocol::ClipboardEvent& event);
@@ -146,8 +157,8 @@ class DesktopSessionProxy
   // Handles CaptureCompleted notification from the desktop session agent.
   void OnCaptureCompleted(const SerializedDesktopFrame& serialized_frame);
 
-  // Handles CursorShapeChanged notification from the desktop session agent.
-  void OnCursorShapeChanged(const webrtc::MouseCursorShape& cursor_shape);
+  // Handles MouseCursor notification from the desktop session agent.
+  void OnMouseCursor(const webrtc::MouseCursor& mouse_cursor);
 
   // Handles InjectClipboardEvent request from the desktop integration process.
   void OnInjectClipboardEvent(const std::string& serialized_event);
@@ -156,9 +167,9 @@ class DesktopSessionProxy
   // passing |frame|.
   void PostCaptureCompleted(scoped_ptr<webrtc::DesktopFrame> frame);
 
-  // Posts OnCursorShapeChanged() to |video_capturer_| on the video thread,
-  // passing |cursor_shape|.
-  void PostCursorShape(scoped_ptr<webrtc::MouseCursorShape> cursor_shape);
+  // Posts OnMouseCursor() to |mouse_cursor_monitor_| on the video thread,
+  // passing |mouse_cursor|.
+  void PostMouseCursor(scoped_ptr<webrtc::MouseCursor> mouse_cursor);
 
   // Sends a message to the desktop session agent. The message is silently
   // deleted if the channel is broken.
@@ -190,6 +201,9 @@ class DesktopSessionProxy
 
   // Points to the video capturer receiving captured video frames.
   base::WeakPtr<IpcVideoFrameCapturer> video_capturer_;
+
+  // Points to the mouse cursor monitor receiving mouse cursor changes.
+  base::WeakPtr<IpcMouseCursorMonitor> mouse_cursor_monitor_;
 
   // IPC channel to the desktop session agent.
   scoped_ptr<IPC::ChannelProxy> desktop_channel_;

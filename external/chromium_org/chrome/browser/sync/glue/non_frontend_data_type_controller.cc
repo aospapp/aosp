@@ -44,8 +44,8 @@ class NonFrontendDataTypeController::BackendComponentsContainer {
   // For returning association results to controller on UI.
   syncer::WeakHandle<NonFrontendDataTypeController> controller_handle_;
 
-  scoped_ptr<AssociatorInterface> model_associator_;
-  scoped_ptr<ChangeProcessor> change_processor_;
+  scoped_ptr<sync_driver::AssociatorInterface> model_associator_;
+  scoped_ptr<sync_driver::ChangeProcessor> change_processor_;
 };
 
 NonFrontendDataTypeController::
@@ -157,16 +157,15 @@ NonFrontendDataTypeController::AssociationResult::AssociationResult(
 NonFrontendDataTypeController::AssociationResult::~AssociationResult() {}
 
 // TODO(tim): Legacy controllers are being left behind in componentization
-// effort for now, hence passing null DisableTypeCallback and still having
-// a dependency on ProfileSyncService.  That dep can probably be removed
-// without too much work.
+// effort for now, hence  still having a dependency on ProfileSyncService.
+// That dep can probably be removed without too much work.
 NonFrontendDataTypeController::NonFrontendDataTypeController(
     scoped_refptr<base::MessageLoopProxy> ui_thread,
     const base::Closure& error_callback,
     ProfileSyncComponentsFactory* profile_sync_factory,
     Profile* profile,
     ProfileSyncService* sync_service)
-    : DataTypeController(ui_thread, error_callback, DisableTypeCallback()),
+    : DataTypeController(ui_thread, error_callback),
       state_(NOT_RUNNING),
       profile_sync_factory_(profile_sync_factory),
       profile_(profile),
@@ -183,7 +182,7 @@ NonFrontendDataTypeController::NonFrontendDataTypeController(
 void NonFrontendDataTypeController::LoadModels(
     const ModelLoadCallback& model_load_callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(!model_load_callback.is_null());
+  model_load_callback_ = model_load_callback;
   if (state_ != NOT_RUNNING) {
     model_load_callback.Run(type(),
                             syncer::SyncError(FROM_HERE,
@@ -253,7 +252,9 @@ void DestroyComponentsInBackend(
 
 void NonFrontendDataTypeController::Stop() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK_NE(state_, NOT_RUNNING);
+
+  if (state_ == NOT_RUNNING)
+    return;
 
   // Deactivate the date type on the UI thread first to stop processing
   // sync server changes. This needs to happen before posting task to destroy
@@ -276,14 +277,6 @@ void NonFrontendDataTypeController::Stop() {
     change_processor_ = NULL;
   }
 
-  // Call start callback if waiting for association.
-  if (state_ == ASSOCIATING) {
-    StartDone(ABORTED,
-              syncer::SyncMergeResult(type()),
-              syncer::SyncMergeResult(type()));
-
-  }
-
   state_ = NOT_RUNNING;
 }
 
@@ -292,25 +285,24 @@ std::string NonFrontendDataTypeController::name() const {
   return syncer::ModelTypeToString(type());
 }
 
-DataTypeController::State NonFrontendDataTypeController::state() const {
+sync_driver::DataTypeController::State NonFrontendDataTypeController::state()
+    const {
   return state_;
 }
 
-void NonFrontendDataTypeController::OnSingleDatatypeUnrecoverableError(
-    const tracked_objects::Location& from_here,
-    const std::string& message) {
+void NonFrontendDataTypeController::OnSingleDataTypeUnrecoverableError(
+    const syncer::SyncError& error) {
   DCHECK(IsOnBackendThread());
-  RecordUnrecoverableError(from_here, message);
-  BrowserThread::PostTask(BrowserThread::UI, from_here,
+  DCHECK_EQ(type(), error.model_type());
+  RecordUnrecoverableError(error.location(), error.message());
+  BrowserThread::PostTask(BrowserThread::UI, error.location(),
       base::Bind(&NonFrontendDataTypeController::DisableImpl,
                  this,
-                 from_here,
-                 message));
+                 error));
 }
 
 NonFrontendDataTypeController::NonFrontendDataTypeController()
-    : DataTypeController(base::MessageLoopProxy::current(), base::Closure(),
-                         DisableTypeCallback()),
+    : DataTypeController(base::MessageLoopProxy::current(), base::Closure()),
       state_(NOT_RUNNING),
       profile_sync_factory_(NULL),
       profile_(NULL),
@@ -339,7 +331,7 @@ bool NonFrontendDataTypeController::IsOnBackendThread() {
 }
 
 void NonFrontendDataTypeController::StartDone(
-    DataTypeController::StartResult start_result,
+    DataTypeController::ConfigureResult start_result,
     const syncer::SyncMergeResult& local_merge_result,
     const syncer::SyncMergeResult& syncer_merge_result) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
@@ -358,7 +350,7 @@ void NonFrontendDataTypeController::StartDone(
 }
 
 void NonFrontendDataTypeController::StartDoneImpl(
-    DataTypeController::StartResult start_result,
+    DataTypeController::ConfigureResult start_result,
     DataTypeController::State new_state,
     const syncer::SyncMergeResult& local_merge_result,
     const syncer::SyncMergeResult& syncer_merge_result) {
@@ -370,20 +362,15 @@ void NonFrontendDataTypeController::StartDoneImpl(
     RecordStartFailure(start_result);
   }
 
-  DCHECK(!start_callback_.is_null());
-  // We have to release the callback before we call it, since it's possible
-  // invoking the callback will trigger a call to STOP(), which will get
-  // confused by the non-NULL start_callback_.
-  StartCallback callback = start_callback_;
-  start_callback_.Reset();
-  callback.Run(start_result, local_merge_result, syncer_merge_result);
+  start_callback_.Run(start_result, local_merge_result, syncer_merge_result);
 }
 
 void NonFrontendDataTypeController::DisableImpl(
-    const tracked_objects::Location& from_here,
-    const std::string& message) {
+    const syncer::SyncError& error) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  profile_sync_service_->DisableDatatype(type(), from_here, message);
+  if (!model_load_callback_.is_null()) {
+    model_load_callback_.Run(type(), error);
+  }
 }
 
 void NonFrontendDataTypeController::RecordAssociationTime(
@@ -395,7 +382,7 @@ void NonFrontendDataTypeController::RecordAssociationTime(
 #undef PER_DATA_TYPE_MACRO
 }
 
-void NonFrontendDataTypeController::RecordStartFailure(StartResult result) {
+void NonFrontendDataTypeController::RecordStartFailure(ConfigureResult result) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   UMA_HISTOGRAM_ENUMERATION("Sync.DataTypeStartFailures",
                             ModelTypeToHistogramInt(type()),
@@ -446,11 +433,13 @@ void NonFrontendDataTypeController::set_state(State state) {
   state_ = state;
 }
 
-AssociatorInterface* NonFrontendDataTypeController::associator() const {
+sync_driver::AssociatorInterface* NonFrontendDataTypeController::associator()
+    const {
   return model_associator_;
 }
 
-ChangeProcessor* NonFrontendDataTypeController::GetChangeProcessor() const {
+sync_driver::ChangeProcessor*
+NonFrontendDataTypeController::GetChangeProcessor() const {
   return change_processor_;
 }
 

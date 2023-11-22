@@ -6,6 +6,7 @@
 #define UI_VIEWS_WINDOW_NON_CLIENT_VIEW_H_
 
 #include "ui/views/view.h"
+#include "ui/views/view_targeter_delegate.h"
 
 namespace gfx {
 class Path;
@@ -22,7 +23,8 @@ class ClientView;
 //  responds to events within the frame portions of the non-client area of a
 //  window. This view does _not_ contain the ClientView, but rather is a sibling
 //  of it.
-class VIEWS_EXPORT NonClientFrameView : public View {
+class VIEWS_EXPORT NonClientFrameView : public View,
+                                        public ViewTargeterDelegate {
  public:
   // Internal class name.
   static const char kViewClassName[];
@@ -77,9 +79,9 @@ class VIEWS_EXPORT NonClientFrameView : public View {
   virtual void ResetWindowControls() = 0;
   virtual void UpdateWindowIcon() = 0;
   virtual void UpdateWindowTitle() = 0;
+  virtual void SizeConstraintsChanged() = 0;
 
-  // Overridden from View:
-  virtual bool HitTestRect(const gfx::Rect& rect) const OVERRIDE;
+  // View:
   virtual void GetAccessibleState(ui::AXViewState* state) OVERRIDE;
   virtual const char* GetClassName() const OVERRIDE;
 
@@ -89,6 +91,10 @@ class VIEWS_EXPORT NonClientFrameView : public View {
   NonClientFrameView();
 
  private:
+  // ViewTargeterDelegate:
+  virtual bool DoesIntersectRect(const View* target,
+                                 const gfx::Rect& rect) const OVERRIDE;
+
   // Prevents the non-client frame view from being rendered as inactive when
   // true.
   bool inactive_rendering_disabled_;
@@ -130,7 +136,7 @@ class VIEWS_EXPORT NonClientFrameView : public View {
 // implementations (e.g. during the switch from DWM/Aero-Glass to Vista Basic/
 // Classic rendering).
 //
-class VIEWS_EXPORT NonClientView : public View {
+class VIEWS_EXPORT NonClientView : public View, public ViewTargeterDelegate {
  public:
   // Internal class name.
   static const char kViewClassName[];
@@ -190,6 +196,9 @@ class VIEWS_EXPORT NonClientView : public View {
   // title.
   void UpdateWindowTitle();
 
+  // Called when the size constraints of the window change.
+  void SizeConstraintsChanged();
+
   // Get/Set client_view property.
   ClientView* client_view() const { return client_view_; }
   void set_client_view(ClientView* client_view) {
@@ -212,7 +221,6 @@ class VIEWS_EXPORT NonClientView : public View {
   virtual void GetAccessibleState(ui::AXViewState* state) OVERRIDE;
   virtual const char* GetClassName() const OVERRIDE;
 
-  virtual views::View* GetEventHandlerForRect(const gfx::Rect& rect) OVERRIDE;
   virtual views::View* GetTooltipHandlerForPoint(
       const gfx::Point& point) OVERRIDE;
 
@@ -222,6 +230,9 @@ class VIEWS_EXPORT NonClientView : public View {
       const ViewHierarchyChangedDetails& details) OVERRIDE;
 
  private:
+  // ViewTargeterDelegate:
+  virtual View* TargetForRect(View* root, const gfx::Rect& rect) OVERRIDE;
+
   // A ClientView object or subclass, responsible for sizing the contents view
   // of the window, hit testing and perhaps other tasks depending on the
   // implementation.

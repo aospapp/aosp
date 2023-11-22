@@ -34,10 +34,10 @@
     <string name="respond_via_sms_setting_title_2" msgid="6104662227299493906">"تعديل الردود السريعة"</string>
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"رد سريع"</string>
-    <string name="respond_via_sms_menu_reset_default_activity" msgid="1461742052902053466">"إعادة تعيين التطبيق الافتراضي"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"تم إرسال الرسالة إلى <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
-    <string name="outgoing_call_not_allowed" msgid="1434784869685645427">"هذا المستخدم غير مسموح له بإجراء مكالمات هاتفية بخلاف مكالمات الطوارئ"</string>
-    <string name="outgoing_call_error_no_phone_number_supplied" msgid="4987143284589568716">"لم يتم إرسال الاتصال، لم يتم إدخال رقم صالح."</string>
+    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"مسموح لمالك الجهاز بمكالمات الطوارئ فقط"</string>
+    <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"لإجراء مكالمة، أدخل رقمًا صالحًا."</string>
+    <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"لا يمكن إضافة مكالمة في الوقت الحالي."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"رقم البريد الصوتي مفقود"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"‏لم يتم تخزين رقم بريد صوتي على بطاقة SIM."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"إضافة رقم"</string>

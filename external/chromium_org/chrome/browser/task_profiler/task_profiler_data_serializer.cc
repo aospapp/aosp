@@ -4,8 +4,8 @@
 
 #include "chrome/browser/task_profiler/task_profiler_data_serializer.h"
 
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/json/json_string_value_serializer.h"
 #include "base/time/time.h"
 #include "base/tracked_objects.h"
@@ -28,15 +28,12 @@ namespace {
 // Re-serializes the |location| into |dictionary|.
 void LocationSnapshotToValue(const LocationSnapshot& location,
                              base::DictionaryValue* dictionary) {
-  dictionary->Set("file_name",
-                  base::Value::CreateStringValue(location.file_name));
+  dictionary->SetString("file_name", location.file_name);
   // Note: This function name is not escaped, and templates have less-than
   // characters, which means this is not suitable for display as HTML unless
   // properly escaped.
-  dictionary->Set("function_name",
-                  base::Value::CreateStringValue(location.function_name));
-  dictionary->Set("line_number",
-                  base::Value::CreateIntegerValue(location.line_number));
+  dictionary->SetString("function_name", location.function_name);
+  dictionary->SetInteger("line_number", location.line_number);
 }
 
 // Re-serializes the |birth| into |dictionary|.  Prepends the |prefix| to the
@@ -50,32 +47,19 @@ void BirthOnThreadSnapshotToValue(const BirthOnThreadSnapshot& birth,
   LocationSnapshotToValue(birth.location, location_value.get());
   dictionary->Set(prefix + "_location", location_value.release());
 
-  dictionary->Set(prefix + "_thread",
-                  base::Value::CreateStringValue(birth.thread_name));
+  dictionary->Set(prefix + "_thread", new base::StringValue(birth.thread_name));
 }
 
 // Re-serializes the |death_data| into |dictionary|.
 void DeathDataSnapshotToValue(const DeathDataSnapshot& death_data,
                               base::DictionaryValue* dictionary) {
-  dictionary->Set("count",
-                  base::Value::CreateIntegerValue(death_data.count));
-  dictionary->Set("run_ms",
-                  base::Value::CreateIntegerValue(death_data.run_duration_sum));
-  dictionary->Set("run_ms_max",
-                  base::Value::CreateIntegerValue(death_data.run_duration_max));
-  dictionary->Set("run_ms_sample",
-                  base::Value::CreateIntegerValue(
-                      death_data.run_duration_sample));
-  dictionary->Set("queue_ms",
-                  base::Value::CreateIntegerValue(
-                      death_data.queue_duration_sum));
-  dictionary->Set("queue_ms_max",
-                  base::Value::CreateIntegerValue(
-                      death_data.queue_duration_max));
-  dictionary->Set("queue_ms_sample",
-                  base::Value::CreateIntegerValue(
-                      death_data.queue_duration_sample));
-
+  dictionary->SetInteger("count", death_data.count);
+  dictionary->SetInteger("run_ms", death_data.run_duration_sum);
+  dictionary->SetInteger("run_ms_max", death_data.run_duration_max);
+  dictionary->SetInteger("run_ms_sample", death_data.run_duration_sample);
+  dictionary->SetInteger("queue_ms", death_data.queue_duration_sum);
+  dictionary->SetInteger("queue_ms_max", death_data.queue_duration_max);
+  dictionary->SetInteger("queue_ms_sample", death_data.queue_duration_sample);
 }
 
 // Re-serializes the |snapshot| into |dictionary|.
@@ -87,9 +71,7 @@ void TaskSnapshotToValue(const TaskSnapshot& snapshot,
   DeathDataSnapshotToValue(snapshot.death_data, death_data.get());
   dictionary->Set("death_data", death_data.release());
 
-  dictionary->Set("death_thread",
-                  base::Value::CreateStringValue(snapshot.death_thread_name));
-
+  dictionary->SetString("death_thread", snapshot.death_thread_name);
 }
 
 }  // anonymous namespace

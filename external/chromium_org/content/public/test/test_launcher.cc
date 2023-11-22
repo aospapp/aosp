@@ -11,7 +11,7 @@
 #include "base/command_line.h"
 #include "base/containers/hash_tables.h"
 #include "base/environment.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/logging.h"
 #include "base/memory/linked_ptr.h"
@@ -345,7 +345,8 @@ void WrapperTestLauncherDelegate::DoRunTest(base::TestLauncher* test_launcher,
       new_cmd_line,
       browser_wrapper ? browser_wrapper : std::string(),
       TestTimeouts::action_max_timeout(),
-      true,
+      base::TestLauncher::USE_JOB_OBJECTS |
+          base::TestLauncher::ALLOW_BREAKAWAY_FROM_JOB,
       base::Bind(&WrapperTestLauncherDelegate::GTestCallback,
                  base::Unretained(this),
                  test_launcher,

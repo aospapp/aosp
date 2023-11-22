@@ -12,8 +12,7 @@ var eventBindings = require('event_bindings');
 var Event = eventBindings.Event;
 var forEach = require('utils').forEach;
 var lastError = require('lastError');
-var schema =
-    requireNative('automationInternal').GetSchemaAdditions();
+var schema = requireNative('automationInternal').GetSchemaAdditions();
 
 // TODO(aboxhall): Look into using WeakMap
 var idToAutomationRootNode = {};
@@ -87,7 +86,7 @@ automation.registerCustomHook(function(bindingsAPI) {
   });
 });
 
-// Listen to the automationInternal.onaccessibilityEvent event, which is
+// Listen to the automationInternal.onAccessibilityEvent event, which is
 // essentially a proxy for the AccessibilityHostMsg_Events IPC from the
 // renderer.
 automationInternal.onAccessibilityEvent.addListener(function(data) {
@@ -102,20 +101,43 @@ automationInternal.onAccessibilityEvent.addListener(function(data) {
     targetTree = new AutomationRootNode(pid, rid);
     idToAutomationRootNode[id] = targetTree;
   }
-  privates(targetTree).impl.update(data);
-  var eventType = data.eventType;
-  if (eventType == 'loadComplete' || eventType == 'layoutComplete') {
-    // If the tree wasn't available when getTree() was called, the callback will
-    // have been cached in idToCallback, so call and delete it now that we
-    // have the complete tree.
-    if (id in idToCallback) {
-      for (var i = 0; i < idToCallback[id].length; i++) {
-        var callback = idToCallback[id][i];
-        callback(targetTree);
-      }
-      delete idToCallback[id];
-    }
+  if (!privates(targetTree).impl.onAccessibilityEvent(data))
+    return;
+
+  // If we're not waiting on a callback to getTree(), we can early out here.
+  if (!(id in idToCallback))
+    return;
+
+  // We usually get a 'placeholder' tree first, which doesn't have any url
+  // attribute or child nodes. If we've got that, wait for the full tree before
+  // calling the callback.
+  // TODO(dmazzoni): Don't send down placeholder (crbug.com/397553)
+  if (id != DESKTOP_TREE_ID && !targetTree.attributes.url &&
+      targetTree.children.length == 0) {
+    return;
   }
+
+  // If the tree wasn't available when getTree() was called, the callback will
+  // have been cached in idToCallback, so call and delete it now that we
+  // have the complete tree.
+  for (var i = 0; i < idToCallback[id].length; i++) {
+    console.log('calling getTree() callback');
+    var callback = idToCallback[id][i];
+    callback(targetTree);
+  }
+  delete idToCallback[id];
+});
+
+automationInternal.onAccessibilityTreeDestroyed.addListener(function(pid, rid) {
+  var id = createAutomationRootNodeID(pid, rid);
+  var targetTree = idToAutomationRootNode[id];
+  if (targetTree) {
+    privates(targetTree).impl.destroy();
+    delete idToAutomationRootNode[id];
+  } else {
+    logging.WARNING('no targetTree to destroy');
+  }
+  delete idToAutomationRootNode[id];
 });
 
 exports.binding = automation.generate();

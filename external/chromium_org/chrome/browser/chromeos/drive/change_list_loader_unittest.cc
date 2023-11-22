@@ -11,6 +11,7 @@
 #include "base/run_loop.h"
 #include "chrome/browser/chromeos/drive/change_list_loader_observer.h"
 #include "chrome/browser/chromeos/drive/file_cache.h"
+#include "chrome/browser/chromeos/drive/file_change.h"
 #include "chrome/browser/chromeos/drive/file_system_util.h"
 #include "chrome/browser/chromeos/drive/job_scheduler.h"
 #include "chrome/browser/chromeos/drive/resource_metadata.h"
@@ -39,10 +40,8 @@ class TestChangeListLoaderObserver : public ChangeListLoaderObserver {
     loader_->RemoveObserver(this);
   }
 
-  const std::set<base::FilePath>& changed_directories() const {
-    return changed_directories_;
-  }
-  void clear_changed_directories() { changed_directories_.clear(); }
+  const FileChange& changed_files() const { return changed_files_; }
+  void clear_changed_files() { changed_files_.ClearForTest(); }
 
   int load_from_server_complete_count() const {
     return load_from_server_complete_count_;
@@ -52,9 +51,8 @@ class TestChangeListLoaderObserver : public ChangeListLoaderObserver {
   }
 
   // ChageListObserver overrides:
-  virtual void OnDirectoryChanged(
-      const base::FilePath& directory_path) OVERRIDE {
-    changed_directories_.insert(directory_path);
+  virtual void OnFileChanged(const FileChange& changed_files) OVERRIDE {
+    changed_files_.Apply(changed_files);
   }
   virtual void OnLoadFromServerComplete() OVERRIDE {
     ++load_from_server_complete_count_;
@@ -65,7 +63,7 @@ class TestChangeListLoaderObserver : public ChangeListLoaderObserver {
 
  private:
   ChangeListLoader* loader_;
-  std::set<base::FilePath> changed_directories_;
+  FileChange changed_files_;
   int load_from_server_complete_count_;
   int initial_load_complete_count_;
 
@@ -145,6 +143,70 @@ class ChangeListLoaderTest : public testing::Test {
   scoped_ptr<ChangeListLoader> change_list_loader_;
 };
 
+TEST_F(ChangeListLoaderTest, AboutResourceLoader) {
+  google_apis::GDataErrorCode error[6] = {};
+  scoped_ptr<google_apis::AboutResource> about[6];
+
+  // No resource is cached at the beginning.
+  ASSERT_FALSE(about_resource_loader_->cached_about_resource());
+
+  // Since no resource is cached, this "Get" should trigger the update.
+  about_resource_loader_->GetAboutResource(
+      google_apis::test_util::CreateCopyResultCallback(error + 0, about + 0));
+  // Since there is one in-flight update, the next "Get" just wait for it.
+  about_resource_loader_->GetAboutResource(
+      google_apis::test_util::CreateCopyResultCallback(error + 1, about + 1));
+
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(google_apis::HTTP_SUCCESS, error[0]);
+  EXPECT_EQ(google_apis::HTTP_SUCCESS, error[1]);
+  const int64 first_changestamp = about[0]->largest_change_id();
+  EXPECT_EQ(first_changestamp, about[1]->largest_change_id());
+  ASSERT_TRUE(about_resource_loader_->cached_about_resource());
+  EXPECT_EQ(
+      first_changestamp,
+      about_resource_loader_->cached_about_resource()->largest_change_id());
+
+  // Increment changestamp by 1.
+  AddNewFile("temp");
+  // Explicitly calling UpdateAboutResource will start another API call.
+  about_resource_loader_->UpdateAboutResource(
+      google_apis::test_util::CreateCopyResultCallback(error + 2, about + 2));
+  // It again waits for the in-flight UpdateAboutResoure call, even though this
+  // time there is a cached result.
+  about_resource_loader_->GetAboutResource(
+      google_apis::test_util::CreateCopyResultCallback(error + 3, about + 3));
+
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(google_apis::HTTP_SUCCESS, error[2]);
+  EXPECT_EQ(google_apis::HTTP_SUCCESS, error[3]);
+  EXPECT_EQ(first_changestamp + 1, about[2]->largest_change_id());
+  EXPECT_EQ(first_changestamp + 1, about[3]->largest_change_id());
+  EXPECT_EQ(
+      first_changestamp + 1,
+      about_resource_loader_->cached_about_resource()->largest_change_id());
+
+  // Increment changestamp by 1.
+  AddNewFile("temp2");
+  // Now no UpdateAboutResource task is running. Returns the cached result.
+  about_resource_loader_->GetAboutResource(
+      google_apis::test_util::CreateCopyResultCallback(error + 4, about + 4));
+  // Explicitly calling UpdateAboutResource will start another API call.
+  about_resource_loader_->UpdateAboutResource(
+      google_apis::test_util::CreateCopyResultCallback(error + 5, about + 5));
+
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(google_apis::HTTP_NO_CONTENT, error[4]);
+  EXPECT_EQ(google_apis::HTTP_SUCCESS, error[5]);
+  EXPECT_EQ(first_changestamp + 1, about[4]->largest_change_id());
+  EXPECT_EQ(first_changestamp + 2, about[5]->largest_change_id());
+  EXPECT_EQ(
+      first_changestamp + 2,
+      about_resource_loader_->cached_about_resource()->largest_change_id());
+
+  EXPECT_EQ(3, drive_service_->about_resource_load_count());
+}
+
 TEST_F(ChangeListLoaderTest, Load) {
   EXPECT_FALSE(change_list_loader_->IsRefreshing());
 
@@ -168,7 +230,7 @@ TEST_F(ChangeListLoaderTest, Load) {
   EXPECT_EQ(1, drive_service_->about_resource_load_count());
   EXPECT_EQ(1, observer.initial_load_complete_count());
   EXPECT_EQ(1, observer.load_from_server_complete_count());
-  EXPECT_TRUE(observer.changed_directories().empty());
+  EXPECT_TRUE(observer.changed_files().empty());
 
   base::FilePath file_path =
       util::GetDriveMyDriveRootPath().AppendASCII("File 1.txt");
@@ -186,6 +248,7 @@ TEST_F(ChangeListLoaderTest, Load_LocalMetadataAvailable) {
   EXPECT_EQ(FILE_ERROR_OK, error);
 
   // Reset loader.
+  about_resource_loader_.reset(new AboutResourceLoader(scheduler_.get()));
   change_list_loader_.reset(
       new ChangeListLoader(logger_.get(),
                            base::MessageLoopProxy::current().get(),
@@ -219,8 +282,8 @@ TEST_F(ChangeListLoaderTest, Load_LocalMetadataAvailable) {
   EXPECT_EQ(drive_service_->about_resource().largest_change_id(), changestamp);
   EXPECT_EQ(1, drive_service_->change_list_load_count());
   EXPECT_EQ(1, observer.load_from_server_complete_count());
-  EXPECT_EQ(1U, observer.changed_directories().count(
-      util::GetDriveMyDriveRootPath()));
+  EXPECT_TRUE(
+      observer.changed_files().CountDirectory(util::GetDriveMyDriveRootPath()));
 
   base::FilePath file_path =
       util::GetDriveMyDriveRootPath().AppendASCII(gdata_entry->title());
@@ -292,8 +355,8 @@ TEST_F(ChangeListLoaderTest, CheckForUpdates) {
   EXPECT_EQ(FILE_ERROR_OK, metadata_->GetLargestChangestamp(&changestamp));
   EXPECT_LT(previous_changestamp, changestamp);
   EXPECT_EQ(1, observer.load_from_server_complete_count());
-  EXPECT_EQ(1U, observer.changed_directories().count(
-      util::GetDriveMyDriveRootPath()));
+  EXPECT_TRUE(
+      observer.changed_files().CountDirectory(util::GetDriveMyDriveRootPath()));
 
   // The new file is found in the local metadata.
   base::FilePath new_file_path =
@@ -326,13 +389,13 @@ TEST_F(ChangeListLoaderTest, Lock) {
   base::RunLoop().RunUntilIdle();
 
   // Update is pending due to the lock.
-  EXPECT_TRUE(observer.changed_directories().empty());
+  EXPECT_TRUE(observer.changed_files().empty());
 
-  // Unlock the loader, this should resume the pending udpate.
+  // Unlock the loader, this should resume the pending update.
   lock.reset();
   base::RunLoop().RunUntilIdle();
-  EXPECT_EQ(1U, observer.changed_directories().count(
-      util::GetDriveMyDriveRootPath()));
+  EXPECT_TRUE(
+      observer.changed_files().CountDirectory(util::GetDriveMyDriveRootPath()));
 }
 
 }  // namespace internal

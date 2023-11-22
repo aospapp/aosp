@@ -561,9 +561,14 @@ bool m_exynos_gsc_find_and_trylock_and_create(
                     continue;
                 }
 
-                if (gsc_handle->cur_obj_mutex)
+                /* Trade temporary object for one in the pool */
+                if (gsc_handle->cur_obj_mutex) {
                     exynos_mutex_unlock(gsc_handle->cur_obj_mutex);
+                    if (gsc_handle->destroy_cur_obj_mutex)
+                        exynos_mutex_destroy(gsc_handle->cur_obj_mutex);
+                }
 
+                gsc_handle->destroy_cur_obj_mutex = false;
                 gsc_handle->cur_obj_mutex = gsc_handle->obj_mutex[i];
 
                 flag_find_new_gsc = true;
@@ -729,6 +734,7 @@ void *exynos_gsc_create(
         gsc_handle->obj_mutex[i] = NULL;
 
     gsc_handle->cur_obj_mutex = NULL;
+    gsc_handle->destroy_cur_obj_mutex = false;
     gsc_handle->flag_local_path = false;
     gsc_handle->flag_exclusive_open = false;
 
@@ -813,6 +819,7 @@ void *exynos_gsc_reserve(int dev_num)
     gsc_handle->gsc_fd = -1;
     gsc_handle->op_mutex = NULL;
     gsc_handle->cur_obj_mutex = NULL;
+    gsc_handle->destroy_cur_obj_mutex = true;
 
     sprintf(mutex_name, "%sObject%d", LOG_TAG, dev_num);
     gsc_handle->cur_obj_mutex = exynos_mutex_create(EXYNOS_MUTEX_TYPE_SHARED, mutex_name);
@@ -908,6 +915,7 @@ void *exynos_gsc_create_exclusive(
         gsc_handle->obj_mutex[i] = NULL;
 
     gsc_handle->cur_obj_mutex = NULL;
+    gsc_handle->destroy_cur_obj_mutex = false;
     gsc_handle->flag_local_path = false;
     gsc_handle->flag_exclusive_open = true;
 
@@ -928,6 +936,7 @@ void *exynos_gsc_create_exclusive(
         ALOGE("%s::exynos_mutex_create(%s) fail", __func__, mutex_name);
         goto err;
     }
+    gsc_handle->destroy_cur_obj_mutex = true;
 
     do {
         if (exynos_mutex_trylock(gsc_handle->cur_obj_mutex) == true) {
@@ -965,8 +974,11 @@ err:
     if (gsc_handle) {
         m_exynos_gsc_destroy(gsc_handle);
 
-        if (gsc_handle->cur_obj_mutex)
+        if (gsc_handle->cur_obj_mutex) {
             exynos_mutex_unlock(gsc_handle->cur_obj_mutex);
+            if (gsc_handle->destroy_cur_obj_mutex)
+                exynos_mutex_destroy(gsc_handle->cur_obj_mutex);
+        }
 
         for (i = 0; i < NUM_OF_GSC_HW; i++) {
             if ((gsc_handle->obj_mutex[i] != NULL) &&
@@ -1022,6 +1034,9 @@ void exynos_gsc_destroy(
                 ALOGE("%s::exynos_mutex_destroy(obj_mutex) fail", __func__);
         }
     }
+
+    if (gsc_handle->destroy_cur_obj_mutex)
+        exynos_mutex_destroy(gsc_handle->cur_obj_mutex);
 
     exynos_mutex_unlock(gsc_handle->op_mutex);
 

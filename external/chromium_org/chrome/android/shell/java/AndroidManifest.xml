@@ -9,7 +9,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.chromium.chrome.shell">
 
-    <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="19" />
+    <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="20" />
     <permission android:name="org.chromium.chrome.shell.permission.SANDBOX"
             android:protectionLevel="signature" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
@@ -31,6 +31,11 @@
                 android:protectionLevel="signature" />
     <uses-permission android:name="org.chromium.chrome.shell.permission.C2D_MESSAGE" />
     <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
+
+    <permission android:name="org.chromium.chrome.shell.permission.DEBUG"
+                android:label="Debug web pages in Chrome Shell"
+                android:permissionGroup="android.permission-group.DEVELOPMENT_TOOLS"
+                android:protectionLevel="signature" />
 
     <application android:name="org.chromium.chrome.shell.ChromeShellApplication"
             android:icon="@mipmap/app_icon"
@@ -122,6 +127,41 @@
                  android:permission="org.chromium.content_shell.permission.SANDBOX"
                  android:isolatedProcess="true"
                  android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService13"
+                 android:process=":sandboxed_process13"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService14"
+                 android:process=":sandboxed_process14"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService15"
+                 android:process=":sandboxed_process15"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService16"
+                 android:process=":sandboxed_process16"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService17"
+                 android:process=":sandboxed_process17"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService18"
+                 android:process=":sandboxed_process18"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
+        <service android:name="org.chromium.content.app.SandboxedProcessService19"
+                 android:process=":sandboxed_process19"
+                 android:permission="org.chromium.content_shell.permission.SANDBOX"
+                 android:isolatedProcess="true"
+                 android:exported="false" />
 
         <!-- Receiver for GCM messages. Rebroadcasts them locally for sync. -->
         <receiver android:exported="true"
@@ -181,6 +221,15 @@
         <provider android:name="org.chromium.chrome.browser.ChromeBrowserProvider"
                   android:authorities="org.chromium.chrome.shell"
                   android:exported="true" />
+
+        <!-- Provider for FileProvider. -->
+        <provider android:name="android.support.v4.content.FileProvider"
+            android:authorities="org.chromium.chrome.shell.FileProvider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <!-- Sync adapter for browser sync. -->
         <service android:exported="false"

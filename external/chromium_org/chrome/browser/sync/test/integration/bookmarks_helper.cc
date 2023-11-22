@@ -4,8 +4,9 @@
 
 #include "chrome/browser/sync/test/integration/bookmarks_helper.h"
 
+#include "base/bind.h"
 #include "base/compiler_specific.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/path_service.h"
 #include "base/rand_util.h"
 #include "base/strings/string_number_conversions.h"
@@ -13,12 +14,14 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/task/cancelable_task_tracker.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
+#include "chrome/browser/bookmarks/chrome_bookmark_client.h"
+#include "chrome/browser/bookmarks/chrome_bookmark_client_factory.h"
 #include "chrome/browser/favicon/favicon_service.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/history/history_db_task.h"
 #include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/history/history_types.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/glue/bookmark_change_processor.h"
 #include "chrome/browser/sync/test/integration/multi_client_status_change_checker.h"
@@ -27,10 +30,12 @@
 #include "chrome/browser/sync/test/integration/sync_test.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/bookmarks/browser/bookmark_client.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_model_observer.h"
 #include "components/bookmarks/browser/bookmark_utils.h"
 #include "components/favicon_base/favicon_util.h"
+#include "components/history/core/browser/history_types.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/models/tree_node_iterator.h"
@@ -266,9 +271,11 @@ void WaitForHistoryToProcessPendingTasks() {
     HistoryService* history_service =
         HistoryServiceFactory::GetForProfileWithoutCreating(profile);
     base::WaitableEvent done(false, false);
-    CancelableRequestConsumer request_consumer;
-    history_service->ScheduleDBTask(new HistoryEmptyTask(&done),
-        &request_consumer);
+    base::CancelableTaskTracker task_tracker;
+    history_service->ScheduleDBTask(
+        scoped_ptr<history::HistoryDBTask>(
+            new HistoryEmptyTask(&done)),
+        &task_tracker);
     done.Wait();
   }
   // Wait such that any notifications broadcast from one of the history threads
@@ -334,13 +341,22 @@ bool NodesMatch(const BookmarkNode* node_a, const BookmarkNode* node_b) {
   return true;
 }
 
+// Helper for BookmarkModelsMatch.
+bool NodeCantBeSynced(bookmarks::BookmarkClient* client,
+                      const BookmarkNode* node) {
+  // Return true to skip a node.
+  return !client->CanSyncNode(node);
+}
+
 // Checks if the hierarchies in |model_a| and |model_b| are equivalent in
 // terms of the data model and favicon. Returns true if they both match.
 // Note: Some peripheral fields like creation times are allowed to mismatch.
 bool BookmarkModelsMatch(BookmarkModel* model_a, BookmarkModel* model_b) {
   bool ret_val = true;
-  ui::TreeNodeIterator<const BookmarkNode> iterator_a(model_a->root_node());
-  ui::TreeNodeIterator<const BookmarkNode> iterator_b(model_b->root_node());
+  ui::TreeNodeIterator<const BookmarkNode> iterator_a(
+      model_a->root_node(), base::Bind(&NodeCantBeSynced, model_a->client()));
+  ui::TreeNodeIterator<const BookmarkNode> iterator_b(
+      model_b->root_node(), base::Bind(&NodeCantBeSynced, model_b->client()));
   while (iterator_a.has_next()) {
     const BookmarkNode* node_a = iterator_a.Next();
     if (!iterator_b.has_next()) {
@@ -407,6 +423,11 @@ const BookmarkNode* GetSyncedBookmarksNode(int index) {
   return GetBookmarkModel(index)->mobile_node();
 }
 
+const BookmarkNode* GetManagedNode(int index) {
+  return ChromeBookmarkClientFactory::GetForProfile(
+      sync_datatype_helper::test()->GetProfile(index))->managed_node();
+}
+
 BookmarkModel* GetVerifierBookmarkModel() {
   return BookmarkModelFactory::GetForProfile(
       sync_datatype_helper::test()->verifier());
@@ -431,7 +452,7 @@ const BookmarkNode* AddURL(int profile,
                            const std::string& title,
                            const GURL& url) {
   BookmarkModel* model = GetBookmarkModel(profile);
-  if (GetBookmarkNodeByID(model, parent->id()) != parent) {
+  if (bookmarks::GetBookmarkNodeByID(model, parent->id()) != parent) {
     LOG(ERROR) << "Node " << parent->GetTitle() << " does not belong to "
                << "Profile " << profile;
     return NULL;
@@ -473,7 +494,7 @@ const BookmarkNode* AddFolder(int profile,
                               int index,
                               const std::string& title) {
   BookmarkModel* model = GetBookmarkModel(profile);
-  if (GetBookmarkNodeByID(model, parent->id()) != parent) {
+  if (bookmarks::GetBookmarkNodeByID(model, parent->id()) != parent) {
     LOG(ERROR) << "Node " << parent->GetTitle() << " does not belong to "
                << "Profile " << profile;
     return NULL;
@@ -504,7 +525,7 @@ void SetTitle(int profile,
               const BookmarkNode* node,
               const std::string& new_title) {
   BookmarkModel* model = GetBookmarkModel(profile);
-  ASSERT_EQ(GetBookmarkNodeByID(model, node->id()), node)
+  ASSERT_EQ(bookmarks::GetBookmarkNodeByID(model, node->id()), node)
       << "Node " << node->GetTitle() << " does not belong to "
       << "Profile " << profile;
   if (sync_datatype_helper::test()->use_verifier()) {
@@ -521,7 +542,7 @@ void SetFavicon(int profile,
                 const gfx::Image& image,
                 FaviconSource favicon_source) {
   BookmarkModel* model = GetBookmarkModel(profile);
-  ASSERT_EQ(GetBookmarkNodeByID(model, node->id()), node)
+  ASSERT_EQ(bookmarks::GetBookmarkNodeByID(model, node->id()), node)
       << "Node " << node->GetTitle() << " does not belong to "
       << "Profile " << profile;
   ASSERT_EQ(BookmarkNode::URL, node->type()) << "Node " << node->GetTitle()
@@ -549,7 +570,7 @@ const BookmarkNode* SetURL(int profile,
                            const BookmarkNode* node,
                            const GURL& new_url) {
   BookmarkModel* model = GetBookmarkModel(profile);
-  if (GetBookmarkNodeByID(model, node->id()) != node) {
+  if (bookmarks::GetBookmarkNodeByID(model, node->id()) != node) {
     LOG(ERROR) << "Node " << node->GetTitle() << " does not belong to "
                << "Profile " << profile;
     return NULL;
@@ -570,7 +591,7 @@ void Move(int profile,
           const BookmarkNode* new_parent,
           int index) {
   BookmarkModel* model = GetBookmarkModel(profile);
-  ASSERT_EQ(GetBookmarkNodeByID(model, node->id()), node)
+  ASSERT_EQ(bookmarks::GetBookmarkNodeByID(model, node->id()), node)
       << "Node " << node->GetTitle() << " does not belong to "
       << "Profile " << profile;
   if (sync_datatype_helper::test()->use_verifier()) {
@@ -585,7 +606,7 @@ void Move(int profile,
 
 void Remove(int profile, const BookmarkNode* parent, int index) {
   BookmarkModel* model = GetBookmarkModel(profile);
-  ASSERT_EQ(GetBookmarkNodeByID(model, parent->id()), parent)
+  ASSERT_EQ(bookmarks::GetBookmarkNodeByID(model, parent->id()), parent)
       << "Node " << parent->GetTitle() << " does not belong to "
       << "Profile " << profile;
   if (sync_datatype_helper::test()->use_verifier()) {
@@ -612,7 +633,7 @@ void RemoveAll(int profile) {
 
 void SortChildren(int profile, const BookmarkNode* parent) {
   BookmarkModel* model = GetBookmarkModel(profile);
-  ASSERT_EQ(GetBookmarkNodeByID(model, parent->id()), parent)
+  ASSERT_EQ(bookmarks::GetBookmarkNodeByID(model, parent->id()), parent)
       << "Node " << parent->GetTitle() << " does not belong to "
       << "Profile " << profile;
   if (sync_datatype_helper::test()->use_verifier()) {
@@ -624,8 +645,9 @@ void SortChildren(int profile, const BookmarkNode* parent) {
 }
 
 void ReverseChildOrder(int profile, const BookmarkNode* parent) {
-  ASSERT_EQ(GetBookmarkNodeByID(GetBookmarkModel(profile), parent->id()),
-            parent)
+  ASSERT_EQ(
+      bookmarks::GetBookmarkNodeByID(GetBookmarkModel(profile), parent->id()),
+      parent)
       << "Node " << parent->GetTitle() << " does not belong to "
       << "Profile " << profile;
   int child_count = parent->child_count();
@@ -775,8 +797,7 @@ gfx::Image CreateFavicon(SkColor color) {
     int pixel_width = dip_width * scale;
     int pixel_height = dip_height * scale;
     SkBitmap bmp;
-    bmp.setConfig(SkBitmap::kARGB_8888_Config, pixel_width, pixel_height);
-    bmp.allocPixels();
+    bmp.allocN32Pixels(pixel_width, pixel_height);
     bmp.eraseColor(color);
     favicon.AddRepresentation(gfx::ImageSkiaRep(bmp, scale));
   }

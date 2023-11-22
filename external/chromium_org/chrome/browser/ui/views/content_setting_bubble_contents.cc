@@ -18,14 +18,14 @@
 #include "chrome/browser/ui/content_settings/content_setting_bubble_model.h"
 #include "chrome/browser/ui/content_settings/content_setting_media_menu_model.h"
 #include "chrome/browser/ui/views/browser_dialogs.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/plugin_service.h"
 #include "content/public/browser/web_contents.h"
-#include "grit/generated_resources.h"
-#include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/font_list.h"
+#include "ui/gfx/text_utils.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/button/menu_button.h"
 #include "ui/views/controls/button/radio_button.h"
@@ -33,6 +33,7 @@
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/link.h"
 #include "ui/views/controls/menu/menu.h"
+#include "ui/views/controls/menu/menu_config.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/controls/separator.h"
 #include "ui/views/layout/grid_layout.h"
@@ -53,7 +54,7 @@ const int kMaxContentsWidth = 500;
 const int kMinMultiLineContentsWidth = 250;
 
 // The minimum width of the media menu buttons.
-const int kMinMediaMenuButtonWidth = 100;
+const int kMinMediaMenuButtonWidth = 150;
 
 }  // namespace
 
@@ -291,7 +292,6 @@ void ContentSettingBubbleContents::Init() {
     menu_column_set->AddColumn(GridLayout::LEADING, GridLayout::FILL, 1,
                                GridLayout::USE_PREF, 0, 0);
 
-    int menu_width = 0;
     for (ContentSettingBubbleModel::MediaMenuMap::const_iterator i(
          bubble_content.media_menus.begin());
          i != bubble_content.media_menus.end(); ++i) {
@@ -331,28 +331,14 @@ void ContentSettingBubbleContents::Init() {
       if (i->second.disabled)
         menu_button->SetEnabled(false);
 
-      // Use the longest width of the menus as the width of the menu buttons.
-      menu_width = std::max(menu_width,
-                            GetPreferredMediaMenuWidth(
-                                menu_button, menu_view->menu_model.get()));
-
       layout->AddView(label);
       layout->AddView(menu_button);
 
       bubble_content_empty = false;
     }
-
-    // Make sure the width is at least kMinMediaMenuButtonWidth. The
-    // maximum width will be clamped by kMaxContentsWidth of the view.
-    menu_width = std::max(kMinMediaMenuButtonWidth, menu_width);
-
-    // Set all the menu buttons to the width we calculated above.
-    for (MediaMenuPartsMap::const_iterator i = media_menus_.begin();
-         i != media_menus_.end(); ++i) {
-      i->first->set_min_size(gfx::Size(menu_width, 0));
-      i->first->set_max_size(gfx::Size(menu_width, 0));
-    }
   }
+
+  UpdateMenuButtonSizes(GetNativeTheme());
 
   const gfx::FontList& domain_font =
       ui::ResourceBundle::GetSharedInstance().GetFontList(
@@ -424,6 +410,12 @@ void ContentSettingBubbleContents::DidNavigateMainFrame(
   GetWidget()->Close();
 }
 
+void ContentSettingBubbleContents::OnNativeThemeChanged(
+    const ui::NativeTheme* theme) {
+  views::BubbleDelegateView::OnNativeThemeChanged(theme);
+  UpdateMenuButtonSizes(theme);
+}
+
 void ContentSettingBubbleContents::ButtonPressed(views::Button* sender,
                                                  const ui::Event& event) {
   RadioGroup::const_iterator i(
@@ -468,7 +460,8 @@ void ContentSettingBubbleContents::OnMenuButtonClicked(
     MediaMenuPartsMap::iterator j(media_menus_.find(
         static_cast<views::MenuButton*>(source)));
     DCHECK(j != media_menus_.end());
-    menu_runner_.reset(new views::MenuRunner(j->second->menu_model.get()));
+    menu_runner_.reset(new views::MenuRunner(j->second->menu_model.get(),
+                                             views::MenuRunner::HAS_MNEMONICS));
 
     gfx::Point screen_location;
     views::View::ConvertPointToScreen(j->first, &screen_location);
@@ -477,22 +470,39 @@ void ContentSettingBubbleContents::OnMenuButtonClicked(
                                 j->first,
                                 gfx::Rect(screen_location, j->first->size()),
                                 views::MENU_ANCHOR_TOPLEFT,
-                                ui::MENU_SOURCE_NONE,
-                                views::MenuRunner::HAS_MNEMONICS));
+                                ui::MENU_SOURCE_NONE));
 }
 
-int ContentSettingBubbleContents::GetPreferredMediaMenuWidth(
-    views::MenuButton* button,
-    ui::SimpleMenuModel* menu_model) {
-  base::string16 title = button->GetText();
+void ContentSettingBubbleContents::UpdateMenuButtonSizes(
+    const ui::NativeTheme* theme) {
+  const views::MenuConfig config = views::MenuConfig(theme);
+  const int margins = config.item_left_margin + config.check_width +
+                      config.label_to_arrow_padding + config.arrow_width +
+                      config.arrow_to_edge_padding;
 
-  int width = button->GetPreferredSize().width();
-  for (int i = 0; i < menu_model->GetItemCount(); ++i) {
-    button->SetText(menu_model->GetLabelAt(i));
-    width = std::max(width, button->GetPreferredSize().width());
+  // The preferred media menu size sort of copies the logic in
+  // MenuItemView::CalculateDimensions(). When this was using TextButton, it
+  // completely coincidentally matched the logic in MenuItemView. We now need
+  // to redo this manually.
+  int menu_width = 0;
+  for (MediaMenuPartsMap::const_iterator i = media_menus_.begin();
+       i != media_menus_.end(); ++i) {
+    for (int j = 0; j < i->second->menu_model->GetItemCount(); ++j) {
+      int string_width = gfx::GetStringWidth(
+          i->second->menu_model->GetLabelAt(j),
+          config.font_list);
+
+      menu_width = std::max(menu_width, string_width);
+    }
   }
 
-  // Recover the title for the menu button.
-  button->SetText(title);
-  return width;
+  // Make sure the width is at least kMinMediaMenuButtonWidth. The
+  // maximum width will be clamped by kMaxContentsWidth of the view.
+  menu_width = std::max(kMinMediaMenuButtonWidth, menu_width + margins);
+
+  for (MediaMenuPartsMap::const_iterator i = media_menus_.begin();
+       i != media_menus_.end(); ++i) {
+    i->first->SetMinSize(gfx::Size(menu_width, 0));
+    i->first->SetMaxSize(gfx::Size(menu_width, 0));
+  }
 }

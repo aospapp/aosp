@@ -14,14 +14,12 @@
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
 #include "base/sequenced_task_runner_helpers.h"
-#include "chrome/browser/google/google_url_tracker_factory.h"
-#include "chrome/browser/search_engines/search_host_to_urls_map.h"
-#include "chrome/browser/search_engines/template_url.h"
-#include "chrome/browser/search_engines/template_url_service.h"
-#include "chrome/browser/search_engines/template_url_service_factory.h"
-#include "chrome/browser/search_engines/ui_thread_search_terms_data.h"
-#include "chrome/browser/search_engines/util.h"
 #include "components/google/core/browser/google_url_tracker.h"
+#include "components/search_engines/search_host_to_urls_map.h"
+#include "components/search_engines/search_terms_data.h"
+#include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_service.h"
+#include "components/search_engines/util.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_process_host_observer.h"
@@ -118,7 +116,7 @@ void GoogleURLChangeNotifier::OnChange(const std::string& google_base_url) {
 // to the SearchProviderInstallData on the I/O thread.
 class GoogleURLObserver : public content::RenderProcessHostObserver {
  public:
-  GoogleURLObserver(Profile* profile,
+  GoogleURLObserver(GoogleURLTracker* google_url_tracker,
                     GoogleURLChangeNotifier* change_notifier,
                     content::RenderProcessHost* host);
 
@@ -130,8 +128,9 @@ class GoogleURLObserver : public content::RenderProcessHostObserver {
   virtual ~GoogleURLObserver() {}
 
   // Callback that is called when the Google URL is updated.
-  void OnGoogleURLUpdated(GURL old_url, GURL new_url);
+  void OnGoogleURLUpdated();
 
+  GoogleURLTracker* google_url_tracker_;
   scoped_refptr<GoogleURLChangeNotifier> change_notifier_;
 
   scoped_ptr<GoogleURLTracker::Subscription> google_url_updated_subscription_;
@@ -140,29 +139,24 @@ class GoogleURLObserver : public content::RenderProcessHostObserver {
 };
 
 GoogleURLObserver::GoogleURLObserver(
-    Profile* profile,
+    GoogleURLTracker* google_url_tracker,
     GoogleURLChangeNotifier* change_notifier,
     content::RenderProcessHost* host)
-    : change_notifier_(change_notifier) {
+    : google_url_tracker_(google_url_tracker),
+      change_notifier_(change_notifier) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  GoogleURLTracker* google_url_tracker =
-      GoogleURLTrackerFactory::GetForProfile(profile);
-
-  // GoogleURLTracker is not created in tests.
-  if (google_url_tracker) {
-    google_url_updated_subscription_ =
-        google_url_tracker->RegisterCallback(base::Bind(
-            &GoogleURLObserver::OnGoogleURLUpdated, base::Unretained(this)));
-  }
+  google_url_updated_subscription_ =
+      google_url_tracker_->RegisterCallback(base::Bind(
+          &GoogleURLObserver::OnGoogleURLUpdated, base::Unretained(this)));
   host->AddObserver(this);
 }
 
-void GoogleURLObserver::OnGoogleURLUpdated(GURL old_url, GURL new_url) {
+void GoogleURLObserver::OnGoogleURLUpdated() {
   BrowserThread::PostTask(BrowserThread::IO,
                           FROM_HERE,
                           base::Bind(&GoogleURLChangeNotifier::OnChange,
                                      change_notifier_.get(),
-                                     new_url.spec()));
+                                     google_url_tracker_->google_url().spec()));
 }
 
 void GoogleURLObserver::RenderProcessHostDestroyed(
@@ -185,16 +179,22 @@ static bool IsSameOrigin(const GURL& requested_origin,
 }  // namespace
 
 SearchProviderInstallData::SearchProviderInstallData(
-    Profile* profile,
+    TemplateURLService* template_url_service,
+    const std::string& google_base_url,
+    GoogleURLTracker* google_url_tracker,
     content::RenderProcessHost* host)
-    : template_url_service_(TemplateURLServiceFactory::GetForProfile(profile)),
-      google_base_url_(UIThreadSearchTermsData(profile).GoogleBaseURLValue()),
+    : template_url_service_(template_url_service),
+      google_base_url_(google_base_url),
       weak_factory_(this) {
-  // GoogleURLObserver is responsible for killing itself when
-  // the given notification occurs.
-  new GoogleURLObserver(profile,
-                        new GoogleURLChangeNotifier(weak_factory_.GetWeakPtr()),
-                        host);
+  // GoogleURLTracker is not created in tests.
+  if (google_url_tracker) {
+    // GoogleURLObserver is responsible for killing itself when
+    // the given notification occurs.
+    new GoogleURLObserver(
+        google_url_tracker,
+        new GoogleURLChangeNotifier(weak_factory_.GetWeakPtr()),
+        host);
+  }
 }
 
 SearchProviderInstallData::~SearchProviderInstallData() {

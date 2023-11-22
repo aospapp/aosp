@@ -81,8 +81,12 @@ class CONTENT_EXPORT BlinkPlatformImpl
       const blink::WebURL& url, blink::WebString& mimetype,
       blink::WebString& charset);
   virtual blink::WebURLError cancelledError(const blink::WebURL& url) const;
+  virtual bool isReservedIPAddress(
+      const blink::WebSecurityOrigin&) const OVERRIDE;
+  virtual bool isReservedIPAddress(const blink::WebURL&) const OVERRIDE;
   virtual blink::WebThread* createThread(const char* name);
   virtual blink::WebThread* currentThread();
+  virtual void yieldCurrentThread();
   virtual blink::WebWaitableEvent* createWaitableEvent();
   virtual blink::WebWaitableEvent* waitMultipleEvents(
       const blink::WebVector<blink::WebWaitableEvent*>& events);
@@ -150,9 +154,6 @@ class CONTENT_EXPORT BlinkPlatformImpl
       const blink::WebWorkerRunLoop& runLoop) OVERRIDE;
   virtual blink::WebCrypto* crypto() OVERRIDE;
 
-  void SetFlingCurveParameters(const std::vector<float>& new_touchpad,
-                               const std::vector<float>& new_touchscreen);
-
   void SuspendSharedTimer();
   void ResumeSharedTimer();
   virtual void OnStartSharedTimer(base::TimeDelta delay) {}
@@ -173,7 +174,6 @@ class CONTENT_EXPORT BlinkPlatformImpl
   double shared_timer_fire_time_;
   bool shared_timer_fire_time_was_set_while_suspended_;
   int shared_timer_suspended_;  // counter
-  scoped_ptr<FlingCurveConfiguration> fling_curve_configuration_;
   base::ThreadLocalStorage::Slot current_thread_slot_;
   WebCryptoImpl web_crypto_;
 };

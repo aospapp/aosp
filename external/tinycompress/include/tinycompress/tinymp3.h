@@ -103,4 +103,8 @@ enum mp3_stereo_mode {
 	MONO = 0x03
 };
 
+#if defined(__cplusplus)
+}
+#endif
+
 #endif

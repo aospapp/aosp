@@ -76,8 +76,6 @@ class NaClBrowserTestBase : public InProcessBrowserTest {
 
   virtual bool IsAPnaclTest();
 
-  virtual bool IsPnaclDisabled();
-
   // Map a file relative to the variant directory to a URL served by the test
   // web server.
   GURL TestURL(const base::FilePath::StringType& url_fragment);
@@ -132,19 +130,6 @@ class NaClBrowserTestPnaclNonSfi : public NaClBrowserTestBase {
   virtual base::FilePath::StringType Variant() OVERRIDE;
 };
 
-// Class used to test that when --disable-pnacl is specified the PNaCl mime
-// type is not available.
-class NaClBrowserTestPnaclDisabled : public NaClBrowserTestBase {
- public:
-  virtual void SetUpCommandLine(base::CommandLine* command_line) OVERRIDE;
-
-  virtual base::FilePath::StringType Variant() OVERRIDE;
-
-  virtual bool IsAPnaclTest() OVERRIDE;
-
-  virtual bool IsPnaclDisabled() OVERRIDE;
-};
-
 class NaClBrowserTestNonSfiMode : public NaClBrowserTestBase {
  public:
   virtual void SetUpCommandLine(base::CommandLine* command_line) OVERRIDE;
@@ -166,6 +151,11 @@ class NaClBrowserTestNewlibExtension : public NaClBrowserTestNewlib {
   virtual void SetUpCommandLine(base::CommandLine* command_line) OVERRIDE;
 };
 
+class NaClBrowserTestGLibcExtension : public NaClBrowserTestGLibc {
+ public:
+  virtual void SetUpCommandLine(base::CommandLine* command_line) OVERRIDE;
+};
+
 // PNaCl tests take a long time on windows debug builds
 // and sometimes time out.  Disable until it is made faster:
 // https://code.google.com/p/chromium/issues/detail?id=177555
@@ -183,8 +173,10 @@ class NaClBrowserTestNewlibExtension : public NaClBrowserTestNewlib {
 #  define MAYBE_GLIBC(test_name) DISABLED_##test_name
 #endif
 
-// ASan does not work with libc-free context, so disable the test.
-#if defined(OS_LINUX) && !defined(ADDRESS_SANITIZER)
+// Sanitizers internally use some syscalls which non-SFI NaCl disallows.
+#if defined(OS_LINUX) && !defined(ADDRESS_SANITIZER) && \
+    !defined(THREAD_SANITIZER) && !defined(MEMORY_SANITIZER) && \
+    !defined(LEAK_SANITIZER)
 #  define MAYBE_NONSFI(test_case) test_case
 #else
 #  define MAYBE_NONSFI(test_case) DISABLED_##test_case

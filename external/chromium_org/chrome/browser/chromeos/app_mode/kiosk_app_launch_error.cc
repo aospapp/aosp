@@ -7,7 +7,7 @@
 #include "base/prefs/scoped_user_pref_update.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_app_manager.h"
-#include "grit/generated_resources.h"
+#include "chrome/grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
 namespace chromeos {
@@ -42,6 +42,12 @@ std::string KioskAppLaunchError::GetErrorMessage(Error error) {
 
     case USER_CANCEL:
       return l10n_util::GetStringUTF8(IDS_KIOSK_APP_ERROR_USER_CANCEL);
+
+    case UNABLE_TO_DOWNLOAD:
+      return l10n_util::GetStringUTF8(IDS_KIOSK_APP_ERROR_UNABLE_TO_DOWNLOAD);
+
+    case UNABLE_TO_LAUNCH:
+      return l10n_util::GetStringUTF8(IDS_KIOSK_APP_ERROR_UNABLE_TO_LAUNCH);
   }
 
   NOTREACHED() << "Unknown kiosk app launch error, error=" << error;

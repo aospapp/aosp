@@ -161,7 +161,8 @@
     <string name="listSingleContact" msgid="8525131203887307088">"Tek kişi"</string>
     <string name="dialog_new_contact_account" msgid="4107520273478326011">"Hesap altında kişi oluştur"</string>
     <string name="import_from_sim" msgid="4749894687871835873">"SIM karttan içe aktar"</string>
-    <string name="import_from_sim_number" msgid="1232500923375370101">"<xliff:g id="SIM_NUMBER">%d</xliff:g> numaralı SIM karttan içe aktar"</string>
+    <string name="import_from_sim_summary" msgid="2306434118233541675">"SIM\'den (<xliff:g id="SIM_NAME">^1</xliff:g> - <xliff:g id="SIM_NUMBER">^2</xliff:g>) içe aktar"</string>
+    <string name="import_from_sim_summary_no_number" msgid="8498561004799710237">"SIM\'den (<xliff:g id="SIM_NAME">%1$s</xliff:g>) içe aktar"</string>
     <string name="import_from_sdcard" product="default" msgid="6423964533801496764">"Depolama biriminden içe aktar"</string>
     <string name="cancel_import_confirmation_message" msgid="7764915400478970495">"<xliff:g id="FILENAME">%s</xliff:g> dosyasının içe aktarılması iptal edilsin mi?"</string>
     <string name="cancel_export_confirmation_message" msgid="4063783315931861656">"<xliff:g id="FILENAME">%s</xliff:g> dosyasının dışa aktarılması iptal edilsin mi?"</string>
@@ -205,7 +206,6 @@
     <string name="vcard_export_request_rejected_message" msgid="8044599716727705282">"vCard\'ı dışa aktarma isteği reddedildi. Daha sonra tekrar deneyin."</string>
     <string name="vcard_unknown_filename" msgid="4832657686149881554">"kişi"</string>
     <string name="caching_vcard_message" msgid="6635485116655518520">"vCard\'lar geçici bir yerel depolama alanında önbelleğe alınıyor. Asıl içe aktarma işlemi kısa süre içinde başlayacak."</string>
-    <string name="percentage" msgid="6699653515463625488">"<xliff:g id="PERCENTSIGN">%%</xliff:g><xliff:g id="PERCENTAGE">%s</xliff:g>"</string>
     <string name="vcard_import_failed" msgid="4105296876768072508">"vCard içe aktarılamadı."</string>
     <string name="import_failure_no_vcard_file" product="nosdcard" msgid="2066107150525521097">"Depolama biriminde hiç vCard dosyası bulunamadı."</string>
     <string name="import_failure_no_vcard_file" product="default" msgid="1748300468382501403">"SD kartta hiç vCard dosyası bulunamadı."</string>
@@ -251,4 +251,7 @@
     <string name="action_menu_back_from_search" msgid="1138551123844019647">"aramayı durdur"</string>
     <string name="description_clear_search" msgid="3893511425518852086">"Aramayı temizle"</string>
     <string name="settings_contact_display_options_title" msgid="1020420603072835628">"Kişi görüntüleme seçenekleri"</string>
+    <string name="select_account_dialog_title" msgid="5509088895267310568">"Hesap"</string>
+    <string name="set_default_account" msgid="3865970860434642695">"Çağrılar için her zaman bunu kullan"</string>
+    <string name="select_phone_account_for_calls" msgid="933905607702811164">"Çağrıyı şununla yap:"</string>
 </resources>

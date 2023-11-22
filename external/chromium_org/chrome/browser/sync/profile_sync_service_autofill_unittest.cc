@@ -81,7 +81,6 @@ using base::TimeDelta;
 using base::WaitableEvent;
 using browser_sync::AutofillDataTypeController;
 using browser_sync::AutofillProfileDataTypeController;
-using browser_sync::DataTypeController;
 using content::BrowserThread;
 using syncer::AUTOFILL;
 using syncer::AUTOFILL_PROFILE;
@@ -95,9 +94,11 @@ using syncer::syncable::SPECIFICS;
 using syncer::syncable::UNITTEST;
 using syncer::syncable::WriterTag;
 using syncer::syncable::WriteTransaction;
+using sync_driver::DataTypeController;
 using testing::_;
 using testing::DoAll;
 using testing::ElementsAre;
+using testing::Not;
 using testing::SetArgumentPointee;
 using testing::Return;
 
@@ -209,7 +210,7 @@ class TokenWebDataServiceFake : public TokenWebData {
     return true;
   }
 
-  virtual WebDataService::Handle GetAllTokens(
+  virtual AutofillWebDataService::Handle GetAllTokens(
       WebDataServiceConsumer* consumer) OVERRIDE {
     // TODO(tim): It would be nice if WebDataService was injected on
     // construction of ProfileOAuth2TokenService rather than fetched by
@@ -343,7 +344,6 @@ class WebDataServiceFake : public AutofillWebDataService {
 
 KeyedService* BuildMockWebDataServiceWrapper(content::BrowserContext* profile) {
   return new MockWebDataServiceWrapper(
-      NULL,
       new WebDataServiceFake(),
       new TokenWebDataServiceFake());
 }
@@ -356,14 +356,13 @@ ACTION_P(MakeAutocompleteSyncComponents, wds) {
 }
 
 ACTION_P(ReturnNewDataTypeManagerWithDebugListener, debug_listener) {
-  return new browser_sync::DataTypeManagerImpl(
+  return new sync_driver::DataTypeManagerImpl(
       base::Closure(),
       debug_listener,
       arg1,
       arg2,
       arg3,
-      arg4,
-      arg5);
+      arg4);
 }
 
 ACTION_P(MakeAutofillProfileSyncComponents, wds) {
@@ -388,12 +387,11 @@ class AbstractAutofillFactory {
 
 class AutofillEntryFactory : public AbstractAutofillFactory {
  public:
-  virtual browser_sync::DataTypeController* CreateDataTypeController(
+  virtual DataTypeController* CreateDataTypeController(
       ProfileSyncComponentsFactory* factory,
       TestingProfile* profile,
       ProfileSyncService* service) OVERRIDE {
-    return new AutofillDataTypeController(
-        factory, profile, DataTypeController::DisableTypeCallback());
+    return new AutofillDataTypeController(factory, profile);
   }
 
   virtual void SetExpectation(ProfileSyncComponentsFactoryMock* factory,
@@ -407,12 +405,11 @@ class AutofillEntryFactory : public AbstractAutofillFactory {
 
 class AutofillProfileFactory : public AbstractAutofillFactory {
  public:
-  virtual browser_sync::DataTypeController* CreateDataTypeController(
+  virtual DataTypeController* CreateDataTypeController(
       ProfileSyncComponentsFactory* factory,
       TestingProfile* profile,
       ProfileSyncService* service) OVERRIDE {
-    return new AutofillProfileDataTypeController(
-        factory, profile, DataTypeController::DisableTypeCallback());
+    return new AutofillProfileDataTypeController(factory, profile);
   }
 
   virtual void SetExpectation(ProfileSyncComponentsFactoryMock* factory,
@@ -512,6 +509,12 @@ class ProfileSyncServiceAutofillTest
         profile_->IsOffTheRecord());
 
     web_data_service_->StartSyncableService();
+
+    // When UpdateAutofillEntries() is called with an empty list, the return
+    // value should be |true|, rather than the default of |false|.
+    std::vector<AutofillEntry> empty;
+    EXPECT_CALL(autofill_table_, UpdateAutofillEntries(empty))
+        .WillRepeatedly(Return(true));
   }
 
   virtual void TearDown() OVERRIDE {
@@ -553,7 +556,7 @@ class ProfileSyncServiceAutofillTest
                             web_data_service_.get(),
                             data_type_controller);
 
-    EXPECT_CALL(*components, CreateDataTypeManager(_, _, _, _, _, _)).
+    EXPECT_CALL(*components, CreateDataTypeManager(_, _, _, _, _)).
         WillOnce(ReturnNewDataTypeManagerWithDebugListener(
                      syncer::MakeWeakHandle(debug_ptr_factory_.GetWeakPtr())));
 
@@ -694,7 +697,10 @@ class ProfileSyncServiceAutofillTest
   void SetIdleChangeProcessorExpectations() {
     EXPECT_CALL(autofill_table_, RemoveFormElement(_, _)).Times(0);
     EXPECT_CALL(autofill_table_, GetAutofillTimestamps(_, _, _, _)).Times(0);
-    EXPECT_CALL(autofill_table_, UpdateAutofillEntries(_)).Times(0);
+
+    // Only permit UpdateAutofillEntries() to be called with an empty list.
+    std::vector<AutofillEntry> empty;
+    EXPECT_CALL(autofill_table_, UpdateAutofillEntries(Not(empty))).Times(0);
   }
 
   static AutofillEntry MakeAutofillEntry(const char* name,

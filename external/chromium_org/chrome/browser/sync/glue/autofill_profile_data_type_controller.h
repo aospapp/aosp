@@ -21,13 +21,12 @@ class PersonalDataManager;
 namespace browser_sync {
 
 class AutofillProfileDataTypeController
-    : public NonUIDataTypeController,
+    : public sync_driver::NonUIDataTypeController,
       public autofill::PersonalDataManagerObserver {
  public:
   AutofillProfileDataTypeController(
       ProfileSyncComponentsFactory* profile_sync_factory,
-      Profile* profile,
-      const DisableTypeCallback& disable_callback);
+      Profile* profile);
 
   // NonUIDataTypeController implementation.
   virtual syncer::ModelType type() const OVERRIDE;

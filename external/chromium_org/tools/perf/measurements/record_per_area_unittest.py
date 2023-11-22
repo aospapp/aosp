@@ -3,14 +3,13 @@
 # found in the LICENSE file.
 
 from measurements import record_per_area
-from telemetry import test
 from telemetry.core import wpr_modes
-from telemetry.page import page_measurement_unittest_base
 from telemetry.unittest import options_for_unittests
+from telemetry.unittest import page_test_test_case
+from telemetry.unittest import test
 
 
-class RecordPerAreaUnitTest(
-      page_measurement_unittest_base.PageMeasurementUnitTestBase):
+class RecordPerAreaUnitTest(page_test_test_case.PageTestTestCase):
   """Smoke test for record_per_area measurement
 
      Runs record_per_area measurement on a simple page and verifies

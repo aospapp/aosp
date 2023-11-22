@@ -4,13 +4,16 @@
 
 #include "base/bind.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/metrics/statistics_recorder.h"
 #include "base/path_service.h"
 #include "base/test/launcher/unit_test_launcher.h"
 #include "base/test/test_suite.h"
+#include "components/content_settings/core/common/content_settings_pattern.h"
 #include "content/public/test/test_content_client_initializer.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_paths.h"
+#include "url/url_util.h"
 
 #if defined(OS_MACOSX)
 #include "base/mac/bundle_locations.h"
@@ -35,6 +38,12 @@ class ComponentsTestSuite : public base::TestSuite {
  private:
   virtual void Initialize() OVERRIDE {
     base::TestSuite::Initialize();
+
+    // Initialize the histograms subsystem, so that any histograms hit in tests
+    // are correctly registered with the statistics recorder and can be queried
+    // by tests.
+    base::StatisticsRecorder::Initialize();
+
 #if !defined(OS_IOS)
     gfx::GLSurface::InitializeOneOffForTests();
 #endif
@@ -69,12 +78,24 @@ class ComponentsTestSuite : public base::TestSuite {
 
     // TODO(tfarina): This should be changed to InitSharedInstanceWithPakFile()
     // so we can load our pak file instead of chrome.pak. crbug.com/348563
-    ui::ResourceBundle::InitSharedInstanceWithLocale("en-US", NULL);
+    ui::ResourceBundle::InitSharedInstanceWithLocale(
+        "en-US", NULL, ui::ResourceBundle::LOAD_COMMON_RESOURCES);
     base::FilePath resources_pack_path;
     PathService::Get(base::DIR_MODULE, &resources_pack_path);
     ui::ResourceBundle::GetSharedInstance().AddDataPackFromPath(
         resources_pack_path.AppendASCII("resources.pak"),
         ui::SCALE_FACTOR_NONE);
+
+    // These schemes need to be added globally to pass tests of
+    // autocomplete_input_unittest.cc and content_settings_pattern*
+    url::AddStandardScheme("chrome");
+    url::AddStandardScheme("chrome-extension");
+    url::AddStandardScheme("chrome-devtools");
+    url::AddStandardScheme("chrome-search");
+
+    // Not using kExtensionScheme to avoid the dependency to extensions.
+    ContentSettingsPattern::SetNonWildcardDomainNonPortScheme(
+        "chrome-extension");
   }
 
   virtual void Shutdown() OVERRIDE {

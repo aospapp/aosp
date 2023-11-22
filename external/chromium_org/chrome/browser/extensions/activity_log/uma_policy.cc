@@ -10,7 +10,7 @@
 #include "chrome/browser/extensions/active_script_controller.h"
 #include "chrome/browser/extensions/activity_log/activity_action_constants.h"
 #include "chrome/browser/extensions/activity_log/ad_network_database.h"
-#include "chrome/browser/sessions/session_id.h"
+#include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -103,33 +103,30 @@ void UmaPolicy::ProcessAction(scoped_refptr<Action> action) {
 }
 
 int UmaPolicy::MatchActionToStatus(scoped_refptr<Action> action) {
-  if (action->action_type() == Action::ACTION_CONTENT_SCRIPT) {
+  if (action->action_type() == Action::ACTION_CONTENT_SCRIPT)
     return kContentScript;
-  } else if (action->action_type() == Action::ACTION_API_CALL &&
-             action->api_name() == "tabs.executeScript") {
+  if (action->action_type() == Action::ACTION_API_CALL &&
+      action->api_name() == "tabs.executeScript")
     return kContentScript;
-  } else if (action->action_type() != Action::ACTION_DOM_ACCESS) {
+  if (action->action_type() != Action::ACTION_DOM_ACCESS)
     return kNoStatus;
-  }
 
-  int dom_verb;
+  int dom_verb = DomActionType::MODIFIED;
   if (!action->other() ||
       !action->other()->GetIntegerWithoutPathExpansion(
-          activity_log_constants::kActionDomVerb, &dom_verb)) {
+          activity_log_constants::kActionDomVerb, &dom_verb))
     return kNoStatus;
-  }
 
   int ret_bit = kNoStatus;
   DomActionType::Type dom_type = static_cast<DomActionType::Type>(dom_verb);
   if (dom_type == DomActionType::GETTER)
     return kReadDom;
-  if (dom_type == DomActionType::SETTER) {
+  if (dom_type == DomActionType::SETTER)
     ret_bit |= kModifiedDom;
-  } else if (dom_type == DomActionType::METHOD) {
+  else if (dom_type == DomActionType::METHOD)
     ret_bit |= kDomMethod;
-  } else {
+  else
     return kNoStatus;
-  }
 
   if (action->api_name() == "HTMLDocument.write" ||
       action->api_name() == "HTMLDocument.writeln") {
@@ -139,21 +136,20 @@ int UmaPolicy::MatchActionToStatus(scoped_refptr<Action> action) {
   } else if (action->api_name() == "Document.createElement") {
     std::string arg;
     action->args()->GetString(0, &arg);
-    if (arg == "script") {
+    if (arg == "script")
       ret_bit |= kCreatedScript;
-    } else if (arg == "iframe") {
+    else if (arg == "iframe")
       ret_bit |= kCreatedIframe;
-    } else if (arg == "div") {
+    else if (arg == "div")
       ret_bit |= kCreatedDiv;
-    } else if (arg == "a") {
+    else if (arg == "a")
       ret_bit |= kCreatedLink;
-    } else if (arg == "input") {
+    else if (arg == "input")
       ret_bit |= kCreatedInput;
-    } else if (arg == "embed") {
+    else if (arg == "embed")
       ret_bit |= kCreatedEmbed;
-    } else if (arg == "object") {
+    else if (arg == "object")
       ret_bit |= kCreatedObject;
-    }
   }
 
   const Action::InjectionType ad_injection =
@@ -320,7 +316,7 @@ void UmaPolicy::OnBrowserRemoved(Browser* browser) {
   browser->tab_strip_model()->RemoveObserver(this);
 }
 
-// Use the value from SessionID::IdForTab, *not* |index|. |index| will be
+// Use the value from SessionTabHelper::IdForTab, *not* |index|. |index| will be
 // duplicated across tabs in a session, whereas IdForTab uniquely identifies
 // each tab.
 void UmaPolicy::TabChangedAt(content::WebContents* contents,
@@ -332,7 +328,7 @@ void UmaPolicy::TabChangedAt(content::WebContents* contents,
     return;
 
   std::string url = CleanURL(contents->GetLastCommittedURL());
-  int32 tab_id = SessionID::IdForTab(contents);
+  int32 tab_id = SessionTabHelper::IdForTab(contents);
 
   std::map<int32, std::string>::iterator tab_it = tab_list_.find(tab_id);
 
@@ -355,7 +351,7 @@ void UmaPolicy::TabChangedAt(content::WebContents* contents,
   SetupOpenedPage(url);
 }
 
-// Use the value from SessionID::IdForTab, *not* |index|. |index| will be
+// Use the value from SessionTabHelper::IdForTab, *not* |index|. |index| will be
 // duplicated across tabs in a session, whereas IdForTab uniquely identifies
 // each tab.
 void UmaPolicy::TabClosingAt(TabStripModel* tab_strip_model,
@@ -364,7 +360,7 @@ void UmaPolicy::TabClosingAt(TabStripModel* tab_strip_model,
   if (!contents)
     return;
   std::string url = CleanURL(contents->GetLastCommittedURL());
-  int32 tab_id = SessionID::IdForTab(contents);
+  int32 tab_id = SessionTabHelper::IdForTab(contents);
   std::map<int, std::string>::iterator tab_it = tab_list_.find(tab_id);
   if (tab_it != tab_list_.end())
     tab_list_.erase(tab_id);

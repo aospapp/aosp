@@ -15,6 +15,7 @@
  */
 package com.android.managedprovisioning;
 
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME;
 
@@ -50,8 +51,13 @@ public class BootReminder extends BroadcastReceiver {
         EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE
     };
 
+    private static final String[] PROFILE_OWNER_ACCOUNT_EXTRAS = {
+        // Key for the account extras
+        EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE
+    };
+
     private static final ComponentName PROFILE_OWNER_INTENT_TARGET =
-            ManagedProvisioningActivity.ALIAS_NO_CHECK_CALLER;
+            ProfileOwnerPreProvisioningActivity.ALIAS_NO_CHECK_CALLER;
 
     /*
      * Device owner parameters that are stored in the IntentStore for resuming provisioning.
@@ -137,7 +143,8 @@ public class BootReminder extends BroadcastReceiver {
     private static IntentStore getProfileOwnerIntentStore(Context context) {
         return new IntentStore(context,PROFILE_OWNER_INTENT_TARGET, PROFILE_OWNER_PREFERENCES_NAME)
                 .setStringKeys(PROFILE_OWNER_STRING_EXTRAS)
-                .setPersistableBundleKeys(PROFILE_OWNER_PERSISTABLE_BUNDLE_EXTRAS);
+                .setPersistableBundleKeys(PROFILE_OWNER_PERSISTABLE_BUNDLE_EXTRAS)
+                .setAccountKeys(PROFILE_OWNER_ACCOUNT_EXTRAS);
     }
 
     private static IntentStore getDeviceOwnerIntentStore(Context context) {

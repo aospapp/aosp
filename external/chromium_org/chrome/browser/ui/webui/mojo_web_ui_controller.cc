@@ -6,30 +6,25 @@
 
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/mojo_web_ui_handler.h"
-#include "content/public/browser/render_view_host.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "content/public/common/bindings_policy.h"
 #include "mojo/public/cpp/system/core.h"
 
-MojoWebUIController::MojoWebUIController(content::WebUI* contents)
-    : WebUIController(contents),
-      mojo_data_source_(NULL) {
+MojoWebUIControllerBase::MojoWebUIControllerBase(content::WebUI* contents)
+    : WebUIController(contents), mojo_data_source_(NULL) {
 }
 
-MojoWebUIController::~MojoWebUIController() {
+MojoWebUIControllerBase::~MojoWebUIControllerBase() {
 }
 
-void MojoWebUIController::RenderViewCreated(
+void MojoWebUIControllerBase::RenderViewCreated(
     content::RenderViewHost* render_view_host) {
   render_view_host->AllowBindings(content::BINDINGS_POLICY_WEB_UI);
-
-  mojo::MessagePipe pipe;
-  ui_handler_ = CreateUIHandler(pipe.handle0.Pass());
-  render_view_host->SetWebUIHandle(pipe.handle1.Pass());
 }
 
-void MojoWebUIController::AddMojoResourcePath(const std::string& path,
-                                              int resource_id) {
+void MojoWebUIControllerBase::AddMojoResourcePath(const std::string& path,
+                                                  int resource_id) {
   if (!mojo_data_source_) {
     mojo_data_source_ = content::WebUIDataSource::AddMojoDataSource(
         Profile::FromWebUI(web_ui()));

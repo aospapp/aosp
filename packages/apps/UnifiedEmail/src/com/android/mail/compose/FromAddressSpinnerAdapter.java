@@ -36,15 +36,7 @@ import java.util.List;
  * @author mindyp@google.com
  */
 public class FromAddressSpinnerAdapter extends ArrayAdapter<ReplyFromAccount> {
-    private static final int FROM = 0;
-    private static final int CUSTOM_FROM = 1;
     private static String sFormatString;
-
-    public static int REAL_ACCOUNT = 2;
-
-    public static int ACCOUNT_DISPLAY = 0;
-
-    public static int ACCOUNT_ADDRESS = 1;
 
     private LayoutInflater mInflater;
 
@@ -62,27 +54,19 @@ public class FromAddressSpinnerAdapter extends ArrayAdapter<ReplyFromAccount> {
     }
 
     @Override
-    public int getViewTypeCount() {
-        // FROM and CUSTOM_FROM
-        return 2;
-    }
-
-    @Override
-    public int getItemViewType(int pos) {
-        return getItem(pos).isCustomFrom ? CUSTOM_FROM : FROM;
-    }
-
-    @Override
     public View getView(int position, View convertView, ViewGroup parent) {
-        ReplyFromAccount fromItem = getItem(position);
-        int res = fromItem.isCustomFrom ? R.layout.custom_from_item : R.layout.from_item;
-        View fromEntry = convertView == null ? getInflater().inflate(res, null) : convertView;
+        final ReplyFromAccount fromItem = getItem(position);
+        final View fromEntry = convertView == null ?
+                getInflater().inflate(R.layout.from_item, null) : convertView;
+        final TextView nameView = (TextView) fromEntry.findViewById(R.id.spinner_account_name);
         if (fromItem.isCustomFrom) {
-            ((TextView) fromEntry.findViewById(R.id.spinner_account_name)).setText(fromItem.name);
+            nameView.setText(fromItem.name);
+            nameView.setVisibility(View.VISIBLE);
 
             ((TextView) fromEntry.findViewById(R.id.spinner_account_address))
                     .setText(formatAddress(fromItem.address));
         } else {
+            nameView.setVisibility(View.GONE);
             ((TextView) fromEntry.findViewById(R.id.spinner_account_address))
                     .setText(fromItem.address);
         }
@@ -91,10 +75,10 @@ public class FromAddressSpinnerAdapter extends ArrayAdapter<ReplyFromAccount> {
 
     @Override
     public View getDropDownView(int position, View convertView, ViewGroup parent) {
-        ReplyFromAccount fromItem = getItem(position);
-        int res = fromItem.isCustomFrom ? R.layout.custom_from_dropdown_item
+        final ReplyFromAccount fromItem = getItem(position);
+        final int res = fromItem.isCustomFrom ? R.layout.custom_from_dropdown_item
                 : R.layout.from_dropdown_item;
-        View fromEntry = getInflater().inflate(res, null);
+        final View fromEntry = getInflater().inflate(res, null);
         if (fromItem.isCustomFrom) {
             ((TextView) fromEntry.findViewById(R.id.spinner_account_name)).setText(fromItem.name);
             ((TextView) fromEntry.findViewById(R.id.spinner_account_address))

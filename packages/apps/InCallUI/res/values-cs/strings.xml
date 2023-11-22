@@ -21,10 +21,9 @@
     <string name="onHold" msgid="9035493194749959955">"Přidržený hovor"</string>
     <string name="unknown" msgid="6878797917991465859">"Neznámý volající"</string>
     <string name="private_num" msgid="6713286113000232309">"Soukromé číslo"</string>
-    <string name="payphone" msgid="1931775086311769314">"Veřejný telefon"</string>
+    <string name="payphone" msgid="4793877574636445118">"Telefonní automat"</string>
     <string name="confCall" msgid="1904840547188336828">"Konferenční hovor"</string>
-    <string name="call_lost" msgid="317670617901479594">"Hovor byl ztracen."</string>
-    <string name="ok" msgid="3811371167865772377">"OK"</string>
+    <string name="call_lost" msgid="6183862117003999578">"Volání zrušeno"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"Reproduktor"</string>
     <string name="audio_mode_earpiece" msgid="4156527186373869107">"Sluchátko"</string>
     <string name="audio_mode_wired_headset" msgid="1465350758489175975">"Kabelová náhlavní soupr."</string>
@@ -38,7 +37,7 @@
     <string name="caller_manage_header" msgid="3231519674734638786">"Konferenční hovor <xliff:g id="CONF_CALL_TIME">%s</xliff:g>"</string>
     <string name="voicemail_settings_number_label" msgid="8524164258691887790">"Číslo hlasové schránky"</string>
     <string name="card_title_dialing" msgid="5769417478498348054">"Vytáčení"</string>
-    <string name="card_title_redialing" msgid="4831412164303596395">"Nový pokus"</string>
+    <string name="card_title_redialing" msgid="8253487008234167266">"Opakované vytáčení"</string>
     <string name="card_title_conf_call" msgid="1162980346189744501">"Konferenční hovor"</string>
     <string name="card_title_incoming_call" msgid="7364539451234646909">"Příchozí hovor"</string>
     <string name="card_title_call_ended" msgid="5544730338889702298">"Hovor ukončen"</string>
@@ -49,9 +48,9 @@
     <string name="card_title_video_call_connecting" msgid="297586766381973954">"Navazování spojení pro video"</string>
     <string name="card_title_video_call" msgid="5898636679563320218">"Videohovor"</string>
     <string name="card_title_video_call_requesting" msgid="4587504939739340937">"Požadování videa"</string>
-    <string name="card_title_video_call_error" msgid="5520555528871673801">"Spojení videohovoru se nezdařilo"</string>
-    <string name="card_title_callback_number" msgid="4604563437776874016">"Vaše číslo pro zpětná volání\n <xliff:g id="DARK_NUMBER">%1$s</xliff:g>"</string>
-    <string name="card_title_callback_number_emergency" msgid="85588345502265075">"Vaše číslo pro tísňové zpětné volání\n <xliff:g id="DARK_NUMBER">%1$s</xliff:g>"</string>
+    <string name="card_title_video_call_error" msgid="9000555878389539225">"Videohovor nelze zahájit"</string>
+    <string name="card_title_callback_number" msgid="7307938207564217293">"Vaše číslo pro zpětné volání\n <xliff:g id="DARK_NUMBER">%1$s</xliff:g>"</string>
+    <string name="card_title_callback_number_emergency" msgid="8634765419223426754">"Vaše číslo pro tísňové zpětné volání\n <xliff:g id="DARK_NUMBER">%1$s</xliff:g>"</string>
     <string name="notification_dialing" msgid="2107666444937350731">"Vytáčení"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"Zmeškaný hovor"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"Zmeškané hovory"</string>
@@ -68,6 +67,7 @@
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"Číslo hlasové schránky je neznámé."</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"Žádný signál"</string>
     <string name="notification_network_selection_text" msgid="2607085729661923269">"Vybraná síť (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) není k dispozici"</string>
+    <string name="notification_action_answer" msgid="6700362365135365143">"Přijmout"</string>
     <string name="notification_action_end_call" msgid="6069460915123531620">"Zavěsit"</string>
     <string name="notification_action_answer_video" msgid="7809271910870211729">"Video"</string>
     <string name="notification_action_answer_voice" msgid="1770796916369437773">"Hlasový hovor"</string>
@@ -77,23 +77,23 @@
     <string name="notification_missedCall_message" msgid="3049928912736917988">"Zpráva"</string>
     <string name="incall_error_power_off" msgid="6550191216405193368">"Chcete-li telefonovat, vypněte nejprve režim Letadlo."</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"Přihlášení k síti nebylo úspěšné."</string>
-    <string name="incall_error_out_of_service" msgid="8587993036435080418">"Mobilní síť je nedostupná."</string>
-    <string name="incall_error_no_phone_number_supplied" msgid="4197432103471807739">"Hovor nelze spojit, nebylo zadáno platné číslo."</string>
-    <string name="incall_error_call_failed" msgid="4313552620858880999">"Hovor nebyl spojen."</string>
+    <string name="incall_error_out_of_service" msgid="4100065333878929223">"Mobilní síť je nedostupná."</string>
+    <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Chcete-li uskutečnit hovor, zadejte platné telefonní číslo."</string>
+    <string name="incall_error_call_failed" msgid="6302746943230078197">"Hovor nelze uskutečnit."</string>
     <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"Spouštění sekvence MMI..."</string>
-    <string name="incall_error_supp_service_unknown" msgid="2991054870745666038">"Nepodporovaná služba."</string>
-    <string name="incall_error_supp_service_switch" msgid="3503552565745872241">"Hovory nelze přepnout."</string>
-    <string name="incall_error_supp_service_separate" msgid="914362338192301746">"Hovor nelze oddělit."</string>
-    <string name="incall_error_supp_service_transfer" msgid="2509871374644921632">"Hovor nelze předat."</string>
-    <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"Hovory nelze spojit do konferenčního hovoru."</string>
-    <string name="incall_error_supp_service_reject" msgid="7055164130563826216">"Hovor nelze odmítnout."</string>
-    <string name="incall_error_supp_service_hangup" msgid="7417583238334762737">"Hovor není možné uvolnit."</string>
+    <string name="incall_error_supp_service_unknown" msgid="323435289607131929">"Služba není podporována."</string>
+    <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Hovory nelze přepnout."</string>
+    <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Hovor nelze rozdělit."</string>
+    <string name="incall_error_supp_service_transfer" msgid="7235952238189391438">"Hovor nelze předat."</string>
+    <string name="incall_error_supp_service_conference" msgid="7010354362202271726">"Konferenční hovor nelze uskutečnit."</string>
+    <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"Hovor nelze odmítnout."</string>
+    <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"Hovor nelze ukončit."</string>
     <string name="incall_call_type_label_sip" msgid="4931428719494190371">"Volání SIP"</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"Tísňové volání"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"Zapínání rádia..."</string>
-    <string name="emergency_enable_radio_dialog_retry" msgid="3724423402363063736">"Nepokrytá oblast, opakování pokusu..."</string>
-    <string name="dial_emergency_error" msgid="7969515493359619960">"Hovor nelze spojit, <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> není číslo nouzového volání."</string>
-    <string name="dial_emergency_empty_error" msgid="5556166819619323893">"Hovor nebyl spojen. Vytočte prosím číslo tísňového volání."</string>
+    <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"Služba je nedostupná. Probíhá další pokus…"</string>
+    <string name="dial_emergency_error" msgid="1509085166367420355">"Hovor nelze uskutečnit. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> není číslo tísňového volání."</string>
+    <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Hovor nelze uskutečnit. Vytočte číslo tísňového volání."</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Číslo vytočíte pomocí klávesnice."</string>
     <string name="overflowHoldMenuItemText" msgid="7382457697092158039">"Podržet hovor"</string>
     <string name="overflowResumeMenuItemText" msgid="8826360006222366843">"Obnovit hovor"</string>
@@ -127,28 +127,6 @@
     <string name="respond_via_sms_custom_message" msgid="6158880869935281078">"Napsat vlastní odpověď..."</string>
     <string name="custom_message_cancel" msgid="7516406059429609296">"Zrušit"</string>
     <string name="custom_message_send" msgid="5795754217085747742">"Odeslat"</string>
-    <string name="description_image_button_one" msgid="5502718871331943463">"jedna"</string>
-    <string name="description_image_button_two" msgid="4903738528222924522">"dvě"</string>
-    <string name="description_image_button_three" msgid="5570985408463782329">"tři"</string>
-    <string name="description_image_button_four" msgid="1697520001239289074">"čtyři"</string>
-    <string name="description_image_button_five" msgid="3450276493026943454">"pět"</string>
-    <string name="description_image_button_six" msgid="2070376172268675300">"šest"</string>
-    <string name="description_image_button_seven" msgid="1757351311199993371">"sedm"</string>
-    <string name="description_image_button_eight" msgid="4734693919020613227">"osm"</string>
-    <string name="description_image_button_nine" msgid="5568534122590597040">"devět"</string>
-    <string name="description_image_button_star" msgid="1976280813017254462">"hvězdička"</string>
-    <string name="description_image_button_zero" msgid="4211255756866893605">"nula"</string>
-    <string name="description_image_button_pound" msgid="1716041284529917866">"libra"</string>
-    <string name="description_dial_button" msgid="7459705245418435351">"vytáčení"</string>
-    <string name="description_delete_button" msgid="4015842181592283903">"backspace"</string>
-    <string name="accessibility_speakerphone_selected" msgid="4389354567657833468">"Vybrán reproduktor"</string>
-    <string name="accessibility_earpiece_selected" msgid="5749525199671068663">"Vybráno sluchátko"</string>
-    <string name="accessibility_wired_headset_selected" msgid="2984920743124263932">"Vybrána kabelová náhlavní souprava"</string>
-    <string name="accessibility_bluetooth_headset_selected" msgid="2785473629292181736">"Vybrána náhlavní souprava Bluetooth"</string>
-    <string name="accessibility_call_muted" msgid="2776111226185342220">"Hovor ztlumen."</string>
-    <string name="accessibility_call_unmuted" msgid="7496527089753980871">"Zvuk hovoru byl zapnut."</string>
-    <string name="accessibility_call_put_on_hold" msgid="4226100429657528833">"Hovor byl přidržen."</string>
-    <string name="accessibility_call_removed_from_hold" msgid="2269352120695851563">"Přidržení hovoru bylo zrušeno."</string>
     <string name="description_target_answer" msgid="7205604197797472471">"Odpověď"</string>
     <string name="description_target_send_sms" msgid="2098326025587950144">"Odeslat SMS"</string>
     <string name="description_target_decline" msgid="4789834364389731957">"Odmítnout"</string>
@@ -166,9 +144,8 @@
     <string name="default_notification_description" msgid="78174796906240970">"Výchozí zvuk (<xliff:g id="DEFAULT_SOUND_TITLE">%1$s</xliff:g>)"</string>
     <string name="ringtone_title" msgid="6374978286202084684">"Vyzváněcí tón telefonu"</string>
     <string name="vibrate_on_ring_title" msgid="9197564612065258960">"Vibrace při vyzvánění"</string>
-    <string name="dial_pad_autocomplete" msgid="494525952035761075">"Autom. doplňování číselníku"</string>
+    <string name="dial_pad_autocomplete" msgid="7683489952557536398">"Aut. doplňování číselníku"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"Vyzvánění a vibrace"</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"Spravovat konferenční hovor"</string>
     <string name="emergency_call_dialog_number_for_display" msgid="8373041754188879871">"Číslo tísňové linky"</string>
-    <string name="select_account_dialog_title" msgid="5730339500156684204">"Výběr účtu"</string>
 </resources>

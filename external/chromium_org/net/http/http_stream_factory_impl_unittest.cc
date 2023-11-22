@@ -394,7 +394,8 @@ CapturePreconnectsSocketPool<ParentPool>::CapturePreconnectsSocketPool(
 template<>
 CapturePreconnectsHttpProxySocketPool::CapturePreconnectsSocketPool(
     HostResolver* host_resolver, CertVerifier* /* cert_verifier */)
-    : HttpProxyClientSocketPool(0, 0, NULL, host_resolver, NULL, NULL, NULL),
+    : HttpProxyClientSocketPool(
+          0, 0, NULL, host_resolver, NULL, NULL, NULL, NULL),
       last_num_streams_(-1) {}
 
 template <>
@@ -403,10 +404,10 @@ CapturePreconnectsSSLSocketPool::CapturePreconnectsSocketPool(
     CertVerifier* cert_verifier)
     : SSLClientSocketPool(0,
                           0,
-                          NULL,           // ssl_histograms
+                          NULL,  // ssl_histograms
                           host_resolver,
                           cert_verifier,
-                          NULL,           // server_bound_cert_store
+                          NULL,           // channel_id_store
                           NULL,           // transport_security_state
                           NULL,           // cert_transparency_verifier
                           std::string(),  // ssl_session_cache_shard
@@ -414,9 +415,11 @@ CapturePreconnectsSSLSocketPool::CapturePreconnectsSocketPool(
                           NULL,           // transport_socket_pool
                           NULL,
                           NULL,
-                          NULL,           // ssl_config_service
-                          NULL),          // net_log
-      last_num_streams_(-1) {}
+                          NULL,   // ssl_config_service
+                          false,  // enable_ssl_connect_job_waiting
+                          NULL),  // net_log
+      last_num_streams_(-1) {
+}
 
 class HttpStreamFactoryTest : public ::testing::Test,
                               public ::testing::WithParamInterface<NextProto> {
@@ -941,9 +944,6 @@ TEST_P(HttpStreamFactoryTest, RequestWebSocketBasicHandshakeStream) {
       session->GetTransportSocketPool(HttpNetworkSession::NORMAL_SOCKET_POOL)));
   EXPECT_EQ(0, GetSocketPoolGroupCount(
       session->GetSSLSocketPool(HttpNetworkSession::NORMAL_SOCKET_POOL)));
-  EXPECT_EQ(1, GetSocketPoolGroupCount(
-      session->GetTransportSocketPool(
-          HttpNetworkSession::WEBSOCKET_SOCKET_POOL)));
   EXPECT_EQ(0, GetSocketPoolGroupCount(
       session->GetSSLSocketPool(HttpNetworkSession::WEBSOCKET_SOCKET_POOL)));
   EXPECT_TRUE(waiter.used_proxy_info().is_direct());
@@ -992,9 +992,6 @@ TEST_P(HttpStreamFactoryTest, RequestWebSocketBasicHandshakeStreamOverSSL) {
       session->GetTransportSocketPool(HttpNetworkSession::NORMAL_SOCKET_POOL)));
   EXPECT_EQ(0, GetSocketPoolGroupCount(
       session->GetSSLSocketPool(HttpNetworkSession::NORMAL_SOCKET_POOL)));
-  EXPECT_EQ(1, GetSocketPoolGroupCount(
-      session->GetTransportSocketPool(
-          HttpNetworkSession::WEBSOCKET_SOCKET_POOL)));
   EXPECT_EQ(1, GetSocketPoolGroupCount(
       session->GetSSLSocketPool(HttpNetworkSession::WEBSOCKET_SOCKET_POOL)));
   EXPECT_TRUE(waiter.used_proxy_info().is_direct());
@@ -1158,9 +1155,6 @@ TEST_P(HttpStreamFactoryTest, RequestWebSocketSpdyHandshakeStreamButGetSSL) {
   EXPECT_EQ(0, GetSocketPoolGroupCount(
       session->GetSSLSocketPool(HttpNetworkSession::NORMAL_SOCKET_POOL)));
   EXPECT_EQ(1, GetSocketPoolGroupCount(
-      session->GetTransportSocketPool(
-                HttpNetworkSession::WEBSOCKET_SOCKET_POOL)));
-  EXPECT_EQ(1, GetSocketPoolGroupCount(
       session->GetSSLSocketPool(HttpNetworkSession::WEBSOCKET_SOCKET_POOL)));
   EXPECT_TRUE(waiter1.used_proxy_info().is_direct());
 }
@@ -1278,7 +1272,8 @@ TEST_P(HttpStreamFactoryTest, DISABLED_OrphanedWebSocketStream) {
   session->http_server_properties()->SetAlternateProtocol(
       HostPortPair("www.google.com", 8888),
       9999,
-      NPN_SPDY_3);
+      NPN_SPDY_3,
+      1);
 
   SSLConfig ssl_config;
   StreamRequestWaiter waiter;

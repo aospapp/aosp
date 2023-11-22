@@ -5,7 +5,6 @@
 #include "chrome/browser/drive/dummy_drive_service.h"
 
 #include "base/bind.h"
-#include "chrome/browser/drive/drive_api_util.h"
 
 using google_apis::AboutResourceCallback;
 using google_apis::AppListCallback;
@@ -36,10 +35,6 @@ void DummyDriveService::AddObserver(DriveServiceObserver* observer) {}
 void DummyDriveService::RemoveObserver(DriveServiceObserver* observer) {}
 
 bool DummyDriveService::CanSendRequest() const { return true; }
-
-ResourceIdCanonicalizer DummyDriveService::GetResourceIdCanonicalizer() const {
-  return util::GetIdentityResourceIdCanonicalizer();
-}
 
 bool DummyDriveService::HasAccessToken() const { return true; }
 
@@ -132,11 +127,6 @@ CancelCallback DummyDriveService::UpdateResource(
     const google_apis::FileResourceCallback& callback) {
   return CancelCallback();
 }
-
-CancelCallback DummyDriveService::RenameResource(
-    const std::string& resource_id,
-    const std::string& new_title,
-    const EntryActionCallback& callback) { return CancelCallback(); }
 
 CancelCallback DummyDriveService::AddResourceToDirectory(
     const std::string& parent_resource_id,

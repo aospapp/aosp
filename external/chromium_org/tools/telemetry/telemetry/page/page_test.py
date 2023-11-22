@@ -3,13 +3,12 @@
 # found in the LICENSE file.
 
 from telemetry.core import command_line
-
 from telemetry.page import test_expectations
 from telemetry.page.actions import action_runner as action_runner_module
 
 
 class Failure(Exception):
-  """Exception that can be thrown from PageMeasurement to indicate an
+  """Exception that can be thrown from PageTest to indicate an
   undesired but designed-for problem."""
 
 
@@ -19,8 +18,53 @@ class TestNotSupportedOnPlatformFailure(Failure):
   browser version."""
 
 
+class MeasurementFailure(Failure):
+  """Exception that can be thrown from MeasurePage to indicate an undesired but
+  designed-for problem."""
+
+
 class PageTest(command_line.Command):
-  """A class styled on unittest.TestCase for creating page-specific tests."""
+  """A class styled on unittest.TestCase for creating page-specific tests.
+
+  Test should override ValidateAndMeasurePage to perform test
+  validation and page measurement as necessary.
+
+     class BodyChildElementMeasurement(PageTest):
+       def ValidateAndMeasurePage(self, page, tab, results):
+         body_child_count = tab.EvaluateJavaScript(
+             'document.body.children.length')
+         results.AddValue(scalar.ScalarValue(
+             page, 'body_children', 'count', body_child_count))
+
+  The class also provide hooks to add test-specific options. Here is
+  an example:
+
+     class BodyChildElementMeasurement(PageTest):
+       def AddCommandLineArgs(parser):
+         parser.add_option('--element', action='store', default='body')
+
+       def ValidateAndMeasurePage(self, page, tab, results):
+         body_child_count = tab.EvaluateJavaScript(
+             'document.querySelector('%s').children.length')
+         results.AddValue(scalar.ScalarValue(
+             page, 'children', 'count', child_count))
+
+  Args:
+    action_name_to_run: This is the method name in telemetry.page.Page
+        subclasses to run.
+    discard_first_run: Discard the first run of this page. This is
+        usually used with page_repeat and pageset_repeat options.
+    attempts: The number of attempts to run if we encountered
+        infrastructure problems (as opposed to test issues), such as
+        losing a browser.
+    max_failures: The number of page failures allowed before we stop
+        running other pages.
+    is_action_name_to_run_optional: Determines what to do if
+        action_name_to_run is not empty but the page doesn't have that
+        action. The page will run (without any action) if
+        is_action_name_to_run_optional is True, otherwise the page
+        will fail.
+  """
 
   options = {}
 
@@ -31,7 +75,6 @@ class PageTest(command_line.Command):
                clear_cache_before_each_run=False,
                attempts=3,
                max_failures=None,
-               max_errors=None,
                is_action_name_to_run_optional=False):
     super(PageTest, self).__init__()
 
@@ -49,7 +92,6 @@ class PageTest(command_line.Command):
     self._close_tabs_before_run = True
     self._attempts = attempts
     self._max_failures = max_failures
-    self._max_errors = max_errors
     self._is_action_name_to_run_optional = is_action_name_to_run_optional
     assert self._attempts > 0, 'Test attempts must be greater than 0'
     # If the test overrides the TabForPage method, it is considered a multi-tab
@@ -112,15 +154,6 @@ class PageTest(command_line.Command):
   def max_failures(self, count):
     self._max_failures = count
 
-  @property
-  def max_errors(self):
-    """Maximum number of errors allowed for the page set."""
-    return self._max_errors
-
-  @max_errors.setter
-  def max_errors(self, count):
-    self._max_errors = count
-
   def Run(self, args):
     # Define this method to avoid pylint errors.
     # TODO(dtu): Make this actually run the test with args.page_set.
@@ -160,7 +193,7 @@ class PageTest(command_line.Command):
     if page.startup_url:
       options.browser_options.startup_url = page.startup_url
 
-  def WillStartBrowser(self, browser):
+  def WillStartBrowser(self, platform):
     """Override to manipulate the browser environment before it launches."""
 
   def DidStartBrowser(self, browser):
@@ -182,15 +215,6 @@ class PageTest(command_line.Command):
     This will occur before the browser is torn down.
     """
     self.options = None
-
-  def WillRunPageRepeats(self, page):
-    """Override to do operations before each page is iterated over."""
-
-  def DidRunPageRepeats(self, page):
-    """Override to do operations after each page is iterated over."""
-
-  def DidStartHTTPServer(self, tab):
-    """Override to do operations after the HTTP server is started."""
 
   def WillNavigateToPage(self, page, tab):
     """Override to do operations before the page is navigated, notably Telemetry
@@ -226,16 +250,46 @@ class PageTest(command_line.Command):
     """Override to examine the page set before the test run.  Useful for
     example to validate that the pageset can be used with the test."""
 
-  def ValidatePage(self, page, tab, results):
-    """Override to check the actual test assertions.
+  def ValidateAndMeasurePage(self, page, tab, results):
+    """Override to check test assertions and perform measurement.
 
-    This is where most your test logic should go."""
-    raise NotImplementedError()
+    When adding measurement results, call results.AddValue(...) for
+    each result. Raise an exception or add a failure.FailureValue on
+    failure. page_test.py also provides several base exception classes
+    to use.
+
+    Prefer metric value names that are in accordance with python
+    variable style. e.g., metric_name. The name 'url' must not be used.
+
+    Put together:
+      def ValidateAndMeasurePage(self, page, tab, results):
+        res = tab.EvaluateJavaScript('2+2')
+        if res != 4:
+          raise Exception('Oh, wow.')
+        results.AddValue(scalar.ScalarValue(
+            page, 'two_plus_two', 'count', res))
+
+    Args:
+      page: A telemetry.page.Page instance.
+      tab: A telemetry.core.Tab instance.
+      results: A telemetry.results.PageTestResults instance.
+    """
+    # TODO(chrishenry): Switch to raise NotImplementedError() when
+    # subclasses no longer override ValidatePage/MeasurePage.
+    self.ValidatePage(page, tab, results)
+
+  def ValidatePage(self, page, tab, results):
+    """DEPRECATED: Use ValidateAndMeasurePage instead."""
+    self.MeasurePage(page, tab, results)
+
+  def MeasurePage(self, page, tab, results):
+    """DEPRECATED: Use ValidateAndMeasurePage instead."""
 
   def RunPage(self, page, tab, results):
     # Run actions.
     interactive = self.options and self.options.interactive
-    action_runner = action_runner_module.ActionRunner(tab)
+    action_runner = action_runner_module.ActionRunner(
+        tab, skip_waits=page.skip_waits)
     self.WillRunActions(page, tab)
     if interactive:
       action_runner.PauseInteractive()
@@ -243,8 +297,7 @@ class PageTest(command_line.Command):
       self._RunMethod(page, self._action_name_to_run, action_runner)
     self.DidRunActions(page, tab)
 
-    # Run validator.
-    self.ValidatePage(page, tab, results)
+    self.ValidateAndMeasurePage(page, tab, results)
 
   def _RunMethod(self, page, method_name, action_runner):
     if hasattr(page, method_name):
@@ -256,7 +309,8 @@ class PageTest(command_line.Command):
 
     Runs the 'navigate_steps' page attribute as a compound action.
     """
-    action_runner = action_runner_module.ActionRunner(tab)
+    action_runner = action_runner_module.ActionRunner(
+        tab, skip_waits=page.skip_waits)
     page.RunNavigateSteps(action_runner)
 
   def IsExiting(self):

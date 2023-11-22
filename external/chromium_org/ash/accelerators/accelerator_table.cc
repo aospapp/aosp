@@ -57,6 +57,9 @@ const AcceleratorData kAcceleratorData[] = {
   // The lock key on Chrome OS keyboards produces F13 scancodes.
   { true, ui::VKEY_F13, ui::EF_NONE, LOCK_PRESSED },
   { false, ui::VKEY_F13, ui::EF_NONE, LOCK_RELEASED },
+  // Generic keyboards can use VKEY_SLEEP to mimic ChromeOS keyboard's lock key.
+  { true, ui::VKEY_SLEEP, ui::EF_NONE, LOCK_PRESSED },
+  { false, ui::VKEY_SLEEP, ui::EF_NONE, LOCK_RELEASED },
   { true, ui::VKEY_POWER, ui::EF_NONE, POWER_PRESSED },
   { false, ui::VKEY_POWER, ui::EF_NONE, POWER_RELEASED },
   { true, ui::VKEY_M, ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN,
@@ -120,7 +123,7 @@ const AcceleratorData kAcceleratorData[] = {
   { true, ui::VKEY_VOLUME_MUTE, ui::EF_NONE, VOLUME_MUTE },
   { true, ui::VKEY_VOLUME_DOWN, ui::EF_NONE, VOLUME_DOWN },
   { true, ui::VKEY_VOLUME_UP, ui::EF_NONE, VOLUME_UP },
-  { true, ui::VKEY_L, ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN, FOCUS_LAUNCHER },
+  { true, ui::VKEY_L, ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN, FOCUS_SHELF },
   { true, ui::VKEY_HELP, ui::EF_NONE, SHOW_KEYBOARD_OVERLAY },
   { true, ui::VKEY_OEM_2, ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN,
     SHOW_KEYBOARD_OVERLAY },
@@ -146,14 +149,6 @@ const AcceleratorData kAcceleratorData[] = {
   // Window management shortcuts.
   { true, ui::VKEY_OEM_4, ui::EF_ALT_DOWN, WINDOW_SNAP_LEFT },
   { true, ui::VKEY_OEM_6, ui::EF_ALT_DOWN, WINDOW_SNAP_RIGHT },
-  // The same accelerator is defined in
-  // c/b/ui/views/accelerator_table.cc in order for the web page to
-  // intercept and process this shortcut. This accelerator is used if the
-  // focused window isn't browser window nor web content.
-  // TODO(stevet/jamescook): Remove this in M33, as well as the copy
-  // referenced above. We want to move away from shortcuts bound to Ctrl
-  // because web content often uses them.
-  { true, ui::VKEY_M, ui::EF_CONTROL_DOWN, WINDOW_MINIMIZE },
   { true, ui::VKEY_OEM_MINUS, ui::EF_ALT_DOWN, WINDOW_MINIMIZE },
   { true, ui::VKEY_OEM_PLUS, ui::EF_ALT_DOWN, TOGGLE_MAXIMIZED },
   { true, ui::VKEY_OEM_PLUS, ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN,
@@ -239,13 +234,20 @@ const AcceleratorData kDebugAcceleratorData[] = {
 
 const size_t kDebugAcceleratorDataLength = arraysize(kDebugAcceleratorData);
 
-const AcceleratorAction kReservedActions[] = {
+const AcceleratorAction kPreferredActions[] = {
   // Window cycling accelerators.
   CYCLE_BACKWARD_MRU,  // Shift+Alt+Tab
   CYCLE_FORWARD_MRU,  // Alt+Tab
+};
+
+const size_t kPreferredActionsLength = arraysize(kPreferredActions);
+
+const AcceleratorAction kReservedActions[] = {
 #if defined(OS_CHROMEOS)
   POWER_PRESSED,
   POWER_RELEASED,
+#else
+  DUMMY_FOR_RESERVED,
 #endif
 };
 

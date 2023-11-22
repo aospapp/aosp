@@ -98,6 +98,29 @@ public class TypeInfo implements Resolvable {
     }
   }
 
+  /**
+   * Copy Constructor.
+   */
+  private TypeInfo(TypeInfo other) {
+    mIsPrimitive = other.isPrimitive();
+    mIsTypeVariable = other.isTypeVariable();
+    mIsWildcard = other.isWildcard();
+    mDimension = other.dimension();
+    mSimpleTypeName = other.simpleTypeName();
+    mQualifiedTypeName = other.qualifiedTypeName();
+    mClass = other.asClassInfo();
+    if (other.typeArguments() != null) {
+      mTypeArguments = new ArrayList<TypeInfo>(other.typeArguments());
+    }
+    if (other.superBounds() != null) {
+      mSuperBounds = new ArrayList<TypeInfo>(other.superBounds());
+    }
+    if (other.extendsBounds() != null) {
+      mExtendsBounds = new ArrayList<TypeInfo>(other.extendsBounds());
+    }
+    mFullName = other.fullName();
+  }
+
   public ClassInfo asClassInfo() {
     return mClass;
   }
@@ -421,6 +444,51 @@ public class TypeInfo implements Resolvable {
       }
 
       return allResolved;
+  }
+
+  /**
+   * Copy this TypeInfo, but replace type arguments with those defined in the
+   * typeArguments mapping.
+   * <p>
+   * If the current type is one of the base types in the mapping (i.e. a parameter itself)
+   * then this returns the mapped type.
+   */
+  public TypeInfo getTypeWithArguments(Map<String, TypeInfo> typeArguments) {
+    if (typeArguments.containsKey(fullName())) {
+      return typeArguments.get(fullName());
+    }
+
+    TypeInfo ti = new TypeInfo(this);
+    if (typeArguments() != null) {
+      ArrayList<TypeInfo> newArgs = new ArrayList<TypeInfo>();
+      for (TypeInfo t : typeArguments()) {
+        newArgs.add(t.getTypeWithArguments(typeArguments));
+      }
+      ti.setTypeArguments(newArgs);
+    }
+    return ti;
+  }
+
+  /**
+   * Given two TypeInfos that reference the same type, take the first one's type parameters
+   * and generate a mapping from their names to the type parameters defined in the second.
+   */
+  public static Map<String, TypeInfo> getTypeArgumentMapping(TypeInfo generic, TypeInfo typed) {
+    Map<String, TypeInfo> map = new HashMap<String, TypeInfo>();
+    for (int i = 0; i < generic.typeArguments().size(); i++) {
+      if (typed.typeArguments() != null && typed.typeArguments().size() > i) {
+        map.put(generic.typeArguments().get(i).fullName(), typed.typeArguments().get(i));
+      }
+    }
+    return map;
+  }
+
+  /**
+   * Given a ClassInfo and a parameterized TypeInfo, take the class's raw type's type parameters
+   * and generate a mapping from their names to the type parameters defined in the TypeInfo.
+   */
+  public static Map<String, TypeInfo> getTypeArgumentMapping(ClassInfo cls, TypeInfo typed) {
+    return getTypeArgumentMapping(cls.asTypeInfo(), typed);
   }
 
   private ArrayList<Resolution> mResolutions;

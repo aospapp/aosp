@@ -21,6 +21,7 @@ import android.content.Context;
 
 import com.android.exchange.Eas;
 import com.android.exchange.EasException;
+import com.android.exchange.service.EasService;
 import com.android.exchange.utility.FileLogger;
 import com.android.mail.utils.LogUtils;
 import com.google.common.annotations.VisibleForTesting;
@@ -68,16 +69,12 @@ public abstract class Parser {
     private static final int NOT_ENDED = Integer.MIN_VALUE;
     private static final int EOF_BYTE = -1;
 
-    private boolean logging = false;
     private boolean capture = false;
 
     private ArrayList<Integer> captureArray;
 
     // The input stream for this parser
     private InputStream in;
-
-    // The current tag depth
-    private int depth;
 
     // The stack of names of tags being processed; used when debug = true
     private String[] nameArray = new String[32];
@@ -181,7 +178,6 @@ public abstract class Parser {
 
     public Parser(final InputStream in) throws IOException {
         setInput(in, true);
-        logging = Eas.PARSER_LOG;
     }
 
     /**
@@ -191,18 +187,6 @@ public abstract class Parser {
      */
     public Parser(final Parser parser) throws IOException {
         setInput(parser.in, false);
-        logging = Eas.PARSER_LOG;
-    }
-
-    /**
-     * Set the debug state of the parser.  When debugging is on, every token is logged (LogUtils.v)
-     * to the console.
-     *
-     * @param val the desired state for debug output
-     */
-    @VisibleForTesting
-    public void setDebug(final boolean val) {
-        logging = val;
     }
 
     protected InputStream getInput() {
@@ -406,7 +390,7 @@ public abstract class Parser {
     }
 
     void log(final String str) {
-        if (!logging) {
+        if (!EasService.getProtocolLogging()) {
             return;
         }
         final String logStr;
@@ -419,8 +403,8 @@ public abstract class Parser {
         final char [] charArray = new char[startTagArray.size() * 2];
         Arrays.fill(charArray, ' ');
         final String indent = new String(charArray);
-        LogUtils.v(LOG_TAG, "%s", indent + logStr);
-        if (Eas.FILE_LOG) {
+        LogUtils.d(LOG_TAG, "%s", indent + logStr);
+        if (EasService.getFileLogging()) {
             FileLogger.log(LOG_TAG, logStr);
         }
     }
@@ -436,7 +420,7 @@ public abstract class Parser {
         push(id);
     }
 
-    private void pop() {
+    protected void pop() {
         // Retrieve the now-current startTag from our stack
         startTag = startTagArray.removeFirst();
         log("</" + startTag + '>');

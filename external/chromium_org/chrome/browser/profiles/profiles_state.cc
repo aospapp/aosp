@@ -18,14 +18,11 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/signin/core/browser/profile_oauth2_token_service.h"
 #include "components/signin/core/common/profile_management_switches.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
-
-#if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/login/users/user_manager.h"
-#endif
+#include "ui/gfx/text_elider.h"
 
 namespace profiles {
 
@@ -44,46 +41,77 @@ base::FilePath GetDefaultProfileDir(const base::FilePath& user_data_dir) {
 }
 
 void RegisterPrefs(PrefRegistrySimple* registry) {
+  // Preferences about global profile information.
   registry->RegisterStringPref(prefs::kProfileLastUsed, std::string());
   registry->RegisterIntegerPref(prefs::kProfilesNumCreated, 1);
   registry->RegisterListPref(prefs::kProfilesLastActive);
+
+  // Preferences about the user manager.
+  registry->RegisterBooleanPref(prefs::kBrowserGuestModeEnabled, true);
+  registry->RegisterBooleanPref(prefs::kBrowserAddPersonEnabled, true);
 }
 
-base::string16 GetAvatarNameForProfile(Profile* profile) {
+base::string16 GetAvatarNameForProfile(const base::FilePath& profile_path) {
   base::string16 display_name;
 
-  if (profile->IsGuestSession()) {
+  if (profile_path == ProfileManager::GetGuestProfilePath()) {
     display_name = l10n_util::GetStringUTF16(IDS_GUEST_PROFILE_NAME);
   } else {
-    ProfileInfoCache& cache =
+    const ProfileInfoCache& cache =
         g_browser_process->profile_manager()->GetProfileInfoCache();
-    size_t index = cache.GetIndexOfProfileWithPath(profile->GetPath());
+    size_t index = cache.GetIndexOfProfileWithPath(profile_path);
 
     if (index == std::string::npos)
       return l10n_util::GetStringUTF16(IDS_SINGLE_PROFILE_DISPLAY_NAME);
 
-    // Using the --new-profile-management flag, there's a couple of rules
-    // about what the avatar button displays. If there's a single, local
-    // profile, with a default name (i.e. of the form Person %d), it should
-    // display IDS_SINGLE_PROFILE_DISPLAY_NAME. If this is a signed in profile,
-    // or the user has edited the profile name, or there are multiple profiles,
-    // it will return the actual name  of the profile.
-    base::string16 profile_name = cache.GetNameOfProfileAtIndex(index);
-    bool has_default_name = cache.ProfileIsUsingDefaultNameAtIndex(index);
+    // Using the --new-avatar-menu flag, there's a couple of rules about what
+    // the avatar button displays. If there's a single profile, with a default
+    // name (i.e. of the form Person %d) not manually set, it should display
+    // IDS_SINGLE_PROFILE_DISPLAY_NAME. If the profile is signed in but is using
+    // a default name, use the profiles's email address. Otherwise, it
+    // will return the actual name of the profile.
+    const base::string16 profile_name = cache.GetNameOfProfileAtIndex(index);
+    const base::string16 email = cache.GetUserNameOfProfileAtIndex(index);
+    bool is_default_name = cache.ProfileIsUsingDefaultNameAtIndex(index) &&
+        cache.IsDefaultProfileName(profile_name);
 
-    if (cache.GetNumberOfProfiles() == 1 && has_default_name &&
-        cache.GetUserNameOfProfileAtIndex(index).empty()) {
+    if (cache.GetNumberOfProfiles() == 1 && is_default_name)
       display_name = l10n_util::GetStringUTF16(IDS_SINGLE_PROFILE_DISPLAY_NAME);
-    } else {
-      display_name = profile_name;
-    }
+    else
+      display_name = (is_default_name && !email.empty()) ? email : profile_name;
   }
   return display_name;
 }
 
+base::string16 GetAvatarButtonTextForProfile(Profile* profile) {
+  const int kMaxCharactersToDisplay = 15;
+  base::string16 name = GetAvatarNameForProfile(profile->GetPath());
+  name = gfx::TruncateString(name,
+                             kMaxCharactersToDisplay,
+                             gfx::CHARACTER_BREAK);
+  if (profile->IsSupervised()) {
+    name = l10n_util::GetStringFUTF16(IDS_SUPERVISED_USER_NEW_AVATAR_LABEL,
+                                      name);
+  }
+  return name;
+}
+
 void UpdateProfileName(Profile* profile,
                        const base::string16& new_profile_name) {
+  const ProfileInfoCache& cache =
+      g_browser_process->profile_manager()->GetProfileInfoCache();
+  size_t profile_index = cache.GetIndexOfProfileWithPath(profile->GetPath());
+  if (profile_index == std::string::npos)
+    return;
+
+  if (new_profile_name == cache.GetNameOfProfileAtIndex(profile_index))
+    return;
+
+  // This is only called when updating the profile name through the UI,
+  // so we can assume the user has done this on purpose.
   PrefService* pref_service = profile->GetPrefs();
+  pref_service->SetBoolean(prefs::kProfileUsingDefaultName, false);
+
   // Updating the profile preference will cause the cache to be updated for
   // this preference.
   pref_service->SetString(prefs::kProfileName,
@@ -126,6 +154,31 @@ SigninErrorController* GetSigninErrorController(Profile* profile) {
   ProfileOAuth2TokenService* token_service =
       ProfileOAuth2TokenServiceFactory::GetForProfile(profile);
   return token_service ? token_service->signin_error_controller() : NULL;
+}
+
+Profile* SetActiveProfileToGuestIfLocked() {
+  Profile* active_profile = ProfileManager::GetLastUsedProfile();
+  DCHECK(active_profile);
+
+  if (active_profile->IsGuestSession())
+    return active_profile;
+
+  ProfileManager* profile_manager = g_browser_process->profile_manager();
+  const ProfileInfoCache& cache = profile_manager->GetProfileInfoCache();
+  size_t index = cache.GetIndexOfProfileWithPath(active_profile->GetPath());
+  if (!cache.ProfileIsSigninRequiredAtIndex(index))
+    return NULL;
+
+  // The guest profile must have been loaded already.
+  Profile* guest_profile = profile_manager->GetProfile(
+      ProfileManager::GetGuestProfilePath());
+  DCHECK(guest_profile);
+
+  PrefService* local_state = g_browser_process->local_state();
+  DCHECK(local_state);
+  local_state->SetString(prefs::kProfileLastUsed,
+                         guest_profile->GetPath().BaseName().MaybeAsASCII());
+  return guest_profile;
 }
 
 }  // namespace profiles

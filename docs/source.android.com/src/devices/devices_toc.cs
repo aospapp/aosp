@@ -20,7 +20,7 @@
   <li class="nav-section">
     <div class="nav-section-header">
       <a href="<?cs var:toroot ?>devices/index.html">
-        <span class="en">Porting</span>
+        <span class="en">Interfaces</span>
       </a>
     </div>
     <ul>
@@ -31,7 +31,9 @@
         </a>
       </div>
         <ul>
+          <li><a href="<?cs var:toroot ?>devices/audio_terminology.html">Terminology</a></li>
           <li><a href="<?cs var:toroot ?>devices/audio_implement.html">Implementation</a></li>
+          <li><a href="<?cs var:toroot ?>devices/audio_attributes.html">Attributes</a></li>
           <li><a href="<?cs var:toroot ?>devices/audio_warmup.html">Warmup</a></li>
           <li class="nav-section">
             <div class="nav-section-header">
@@ -47,9 +49,9 @@
           </li>
           <li><a href="<?cs var:toroot ?>devices/audio_avoiding_pi.html">Priority Inversion</a></li>
           <li><a href="<?cs var:toroot ?>devices/audio_src.html">Sample Rate Conversion</a></li>
-          <li><a href="<?cs var:toroot ?>devices/audio_terminology.html">Terminology</a></li>
           <li><a href="<?cs var:toroot ?>devices/audio_debugging.html">Debugging</a></li>
           <li><a href="<?cs var:toroot ?>devices/audio_usb.html">USB Digital Audio</a></li>
+          <li><a href="<?cs var:toroot ?>devices/audio_tv.html">TV Audio</a></li>
         </ul>
       </li>
       <li><a href="<?cs var:toroot ?>devices/bluetooth.html">Bluetooth</a></li>
@@ -67,6 +69,7 @@
           <li><a href="<?cs var:toroot ?>devices/camera/camera3_crop_reprocess.html">Output and Cropping</a></li>
           <li><a href="<?cs var:toroot ?>devices/camera/camera3_error_stream.html">Errors and Streams</a></li>
           <li><a href="<?cs var:toroot ?>devices/camera/camera3_requests_methods.html">Request Creation</a></li>
+          <li><a href="<?cs var:toroot ?>devices/camera/versioning.html">Version Support</a></li>
         </ul>
       </li>
 
@@ -89,7 +92,8 @@
           </a>
         </div>
         <ul>
-          <li><a href="<?cs var:toroot ?>devices/graphics/architecture.html">System-Level Architecture</a></li>
+          <li><a href="<?cs var:toroot ?>devices/graphics/architecture.html">Architecture</a></li>
+          <li><a href="<?cs var:toroot ?>devices/graphics/implement.html">Implementation</a></li>
         </ul>
       </li>
       <li class="nav-section">
@@ -111,62 +115,7 @@
           <li><a href="<?cs var:toroot ?>devices/tech/input/validate-keymaps.html">Validate Keymaps</a></li>
         </ul>
       </li>
-      <li><a href="<?cs var:toroot ?>devices/low-ram.html">Low RAM</a></li>
       <li><a href="<?cs var:toroot ?>devices/media.html">Media</a></li>
-     <li class="nav-section">
-          <div class="nav-section-header">
-            <a href="<?cs var:toroot ?>devices/tech/security/index.html">
-              <span class="en">Security</span>
-            </a>
-          </div>
-        <ul>
-            <li>
-              <a href="<?cs var:toroot ?>devices/tech/security/acknowledgements.html">
-                <span class="en">Acknowledgements</span>
-              </a>
-            </li>
-          <li class="nav-section">
-            <div class="nav-section-header">
-              <a href="<?cs var:toroot ?>devices/tech/security/enhancements.html">
-                <span class="en">Enhancements</span>
-              </a>
-            </div>
-            <ul>
-              <li><a href="<?cs var:toroot ?>devices/tech/security/enhancements44.html">Android 4.4</a></li>
-              <li><a href="<?cs var:toroot ?>devices/tech/security/enhancements43.html">Android 4.3</a></li>
-              <li><a href="<?cs var:toroot ?>devices/tech/security/enhancements42.html">Android 4.2</a></li>
-            </ul>
-          </li>
-            <li>
-              <a href="<?cs var:toroot ?>devices/tech/security/best-practices.html">
-                <span class="en">Best practices</span>
-              </a>
-            </li>
-            <li>
-              <a href="<?cs var:toroot ?>devices/tech/security/dm-verity.html">
-                <span class="en">dm-verity on boot</span>
-              </a>
-            </li>
-            <li>
-              <a href="<?cs var:toroot ?>devices/tech/encryption/index.html">
-                <span class="en">Encryption</span>
-              </a>
-            </li>
-          <li class="nav-section">
-            <div class="nav-section-header">
-              <a href="<?cs var:toroot ?>devices/tech/security/se-linux.html">
-                <span class="en">Security-Enhanced Linux</span>
-              </a>
-            </div>
-            <ul>
-              <li><a href="<?cs var:toroot ?>devices/tech/security/selinux/concepts.html">Concepts</a></li>
-              <li><a href="<?cs var:toroot ?>devices/tech/security/selinux/implement.html">Implementation</a></li>
-              <li><a href="<?cs var:toroot ?>devices/tech/security/selinux/customize.html">Customization</a></li>
-              <li><a href="<?cs var:toroot ?>devices/tech/security/selinux/validate.html">Validation</a></li>
-            </ul>
-          </li>
-          </ul>
-      </li>
      <li class="nav-section">
           <div class="nav-section-header">
             <a href="<?cs var:toroot ?>devices/sensors/index.html">
@@ -221,6 +170,17 @@
             </li>
           </ul>
       </li>
+      <li class="nav-section">
+        <div class="nav-section-header">
+          <a href="<?cs var:toroot ?>devices/tv/index.html">
+            <span class="en">TV</span>
+          </a>
+        </div>
+        <ul>
+          <li><a href="<?cs var:toroot ?>devices/tv/HDMI-CEC.html">HDMI-CEC control service</a></li>
+        </ul>
+      </li>
+
     </ul>
   </li>
 <!-- End Porting Android -->
@@ -230,7 +190,7 @@
   <li class="nav-section">
     <div class="nav-section-header">
       <a href="<?cs var:toroot ?>devices/tech/index.html">
-        <span class="en">Technical Information</span>
+        <span class="en">Core Technologies</span>
       </a>
     </div>
 
@@ -238,13 +198,12 @@
       <li class="nav-section">
         <div class="nav-section-header">
           <a href="<?cs var:toroot ?>devices/tech/dalvik/index.html">
-          <span class="en">Dalvik</span></a>
+          <span class="en">ART and Dalvik</span></a>
         </div>
         <ul>
           <li><a href="<?cs var:toroot ?>devices/tech/dalvik/dalvik-bytecode.html">Bytecode Format</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/dalvik/dex-format.html">.Dex Format</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/dalvik/instruction-formats.html">Instruction Formats</a></li>
-          <li><a href="<?cs var:toroot ?>devices/tech/dalvik/art.html">Introducing ART</a></li>
         </ul>
       </li>
 
@@ -278,7 +237,7 @@
 
       <li class="nav-section">
         <div class="nav-section-header empty">
-          <a href="<?cs var:toroot ?>devices/reference/files.html">
+          <a href="<?cs var:toroot ?>devices/halref/index.html">
             <span class="en">HAL File Reference</span>
           </a>
         </div>
@@ -291,15 +250,77 @@
       </li>
 
       <li>
+          <a href="<?cs var:toroot ?>devices/low-ram.html">
+            <span class="en">Low RAM</span>
+          </a>
+      </li>
+
+      <li>
           <a href="<?cs var:toroot ?>devices/tech/power.html">
             <span class="en">Power</span>
           </a>
       </li>
 
+     <li class="nav-section">
+          <div class="nav-section-header">
+            <a href="<?cs var:toroot ?>devices/tech/security/index.html">
+              <span class="en">Security</span>
+            </a>
+          </div>
+        <ul>
+            <li>
+              <a href="<?cs var:toroot ?>devices/tech/security/acknowledgements.html">
+                <span class="en">Acknowledgements</span>
+              </a>
+            </li>
+          <li class="nav-section">
+            <div class="nav-section-header">
+              <a href="<?cs var:toroot ?>devices/tech/security/enhancements.html">
+                <span class="en">Enhancements</span>
+              </a>
+            </div>
+            <ul>
+              <li><a href="<?cs var:toroot ?>devices/tech/security/enhancements50.html">Android 5.0</a></li>
+              <li><a href="<?cs var:toroot ?>devices/tech/security/enhancements44.html">Android 4.4</a></li>
+              <li><a href="<?cs var:toroot ?>devices/tech/security/enhancements43.html">Android 4.3</a></li>
+              <li><a href="<?cs var:toroot ?>devices/tech/security/enhancements42.html">Android 4.2</a></li>
+            </ul>
+          </li>
+            <li>
+              <a href="<?cs var:toroot ?>devices/tech/security/best-practices.html">
+                <span class="en">Best practices</span>
+              </a>
+            </li>
+            <li>
+              <a href="<?cs var:toroot ?>devices/tech/security/dm-verity.html">
+                <span class="en">dm-verity on boot</span>
+              </a>
+            </li>
+            <li>
+              <a href="<?cs var:toroot ?>devices/tech/encryption/index.html">
+                <span class="en">Encryption</span>
+              </a>
+            </li>
+          <li class="nav-section">
+            <div class="nav-section-header">
+              <a href="<?cs var:toroot ?>devices/tech/security/se-linux.html">
+                <span class="en">Security-Enhanced Linux</span>
+              </a>
+            </div>
+            <ul>
+              <li><a href="<?cs var:toroot ?>devices/tech/security/selinux/concepts.html">Concepts</a></li>
+              <li><a href="<?cs var:toroot ?>devices/tech/security/selinux/implement.html">Implementation</a></li>
+              <li><a href="<?cs var:toroot ?>devices/tech/security/selinux/customize.html">Customization</a></li>
+              <li><a href="<?cs var:toroot ?>devices/tech/security/selinux/validate.html">Validation</a></li>
+            </ul>
+          </li>
+          </ul>
+      </li>
+
       <li class="nav-section">
         <div class="nav-section-header">
           <a href="<?cs var:toroot ?>devices/tech/test_infra/tradefed/index.html">
-            <span class="en">Trade Federation Testing Infrastructure</span>
+            <span class="en">Testing Infrastructure</span>
           </a>
         </div>
         <ul>

@@ -10,7 +10,6 @@ import android.graphics.Picture;
 import android.net.http.SslError;
 import android.os.Looper;
 import android.os.Message;
-import android.util.ArrayMap;
 import android.view.KeyEvent;
 import android.view.View;
 import android.webkit.ConsoleMessage;
@@ -19,11 +18,9 @@ import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 
 import org.chromium.android_webview.permission.AwPermissionRequest;
-import org.chromium.content.browser.ContentViewCore;
-import org.chromium.content.browser.WebContentsObserverAndroid;
-import org.chromium.net.NetError;
 
 import java.security.Principal;
+import java.util.HashMap;
 
 /**
  * Base-class that an AwContents embedder derives from to receive callbacks.
@@ -38,8 +35,6 @@ public abstract class AwContentsClient {
 
     private final AwContentsClientCallbackHelper mCallbackHelper;
 
-    private AwWebContentsObserver mWebContentsObserver;
-
     // Last background color reported from the renderer. Holds the sentinal value INVALID_COLOR
     // if not valid.
     private int mCachedRendererBackgroundColor = INVALID_COLOR;
@@ -53,66 +48,6 @@ public abstract class AwContentsClient {
     // Alllow injection of the callback thread, for testing.
     public AwContentsClient(Looper looper) {
         mCallbackHelper = new AwContentsClientCallbackHelper(looper, this);
-    }
-
-    class AwWebContentsObserver extends WebContentsObserverAndroid {
-        public AwWebContentsObserver(ContentViewCore contentViewCore) {
-            super(contentViewCore);
-        }
-
-        @Override
-        public void didFinishLoad(long frameId, String validatedUrl, boolean isMainFrame) {
-            String unreachableWebDataUrl = AwContentsStatics.getUnreachableWebDataUrl();
-            boolean isErrorUrl =
-                    unreachableWebDataUrl != null && unreachableWebDataUrl.equals(validatedUrl);
-            if (isMainFrame && !isErrorUrl) {
-                AwContentsClient.this.onPageFinished(validatedUrl);
-            }
-        }
-
-        @Override
-        public void didFailLoad(boolean isProvisionalLoad,
-                boolean isMainFrame, int errorCode, String description, String failingUrl) {
-            if (isMainFrame) {
-                if (errorCode != NetError.ERR_ABORTED) {
-                    // This error code is generated for the following reasons:
-                    // - WebView.stopLoading is called,
-                    // - the navigation is intercepted by the embedder via shouldOverrideNavigation.
-                    //
-                    // The Android WebView does not notify the embedder of these situations using
-                    // this error code with the WebViewClient.onReceivedError callback.
-                    AwContentsClient.this.onReceivedError(
-                            ErrorCodeConversionHelper.convertErrorCode(errorCode), description,
-                                    failingUrl);
-                }
-                // Need to call onPageFinished after onReceivedError (if there is an error) for
-                // backwards compatibility with the classic webview.
-                AwContentsClient.this.onPageFinished(failingUrl);
-            }
-        }
-
-        @Override
-        public void didNavigateMainFrame(String url, String baseUrl,
-                boolean isNavigationToDifferentPage, boolean isFragmentNavigation) {
-            // This is here to emulate the Classic WebView firing onPageFinished for main frame
-            // navigations where only the hash fragment changes.
-            if (isFragmentNavigation) {
-                AwContentsClient.this.onPageFinished(url);
-            }
-        }
-
-        @Override
-        public void didNavigateAnyFrame(String url, String baseUrl, boolean isReload) {
-            AwContentsClient.this.doUpdateVisitedHistory(url, isReload);
-        }
-
-    }
-
-    final void installWebContentsObserver(ContentViewCore contentViewCore) {
-        if (mWebContentsObserver != null) {
-            mWebContentsObserver.detachFromWebContents();
-        }
-        mWebContentsObserver = new AwWebContentsObserver(contentViewCore);
     }
 
     final AwContentsClientCallbackHelper getCallbackHelper() {
@@ -162,7 +97,7 @@ public abstract class AwContentsClient {
         // Method used (GET/POST/OPTIONS)
         public String method;
         // Headers that would have been sent to server.
-        public ArrayMap<String, String> requestHeaders;
+        public HashMap<String, String> requestHeaders;
     }
 
     public abstract void getVisitedHistory(ValueCallback<String[]> callback);

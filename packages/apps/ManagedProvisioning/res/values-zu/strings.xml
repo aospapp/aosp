@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Ayikwazi ukusebenzisa uhlelo lokusebenza lomqondisi. Xhumana nomnyango wakho we-IT."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Ayikwazanga ukufaka uhlelo lokusebenza lomqondisi"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Uhlelo lokusebenza alufakiwe kudivayisi yakho"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Misa ukusetha?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Ingabe uqinisekile ukuthi ufuna ukumisa ukusetha?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Cha"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Yebo"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Kuyakhanselwa..."</string>
 </resources>

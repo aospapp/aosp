@@ -17,6 +17,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/observer_list.h"
 #include "base/sequenced_task_runner_helpers.h"
+#include "chrome/browser/safe_browsing/incident_reporting/delayed_analysis_callback.h"
 #include "chrome/browser/safe_browsing/safe_browsing_util.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_observer.h"
@@ -124,6 +125,12 @@ class SafeBrowsingService
   scoped_ptr<TrackedPreferenceValidationDelegate>
       CreatePreferenceValidationDelegate(Profile* profile) const;
 
+  // Registers |callback| to be run after some delay following process launch.
+  // |callback| will be dropped if the service is not applicable for the
+  // process.
+  void RegisterDelayedAnalysisCallback(
+      const safe_browsing::DelayedAnalysisCallback& callback);
+
  protected:
   // Creates the safe browsing service.  Need to initialize before using.
   SafeBrowsingService();
@@ -133,6 +140,10 @@ class SafeBrowsingService
   virtual SafeBrowsingDatabaseManager* CreateDatabaseManager();
 
   virtual SafeBrowsingUIManager* CreateUIManager();
+
+  // Registers all the delayed analysis with the incident reporting service.
+  // This is where you register your process-wide, profile-independent analysis.
+  virtual void RegisterAllDelayedAnalysis();
 
  private:
   friend class SafeBrowsingServiceFactoryImpl;

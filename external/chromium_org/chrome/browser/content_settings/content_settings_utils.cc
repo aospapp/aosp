@@ -12,11 +12,11 @@
 #include "base/memory/scoped_vector.h"
 #include "base/strings/string_split.h"
 #include "base/values.h"
-#include "chrome/browser/content_settings/content_settings_provider.h"
-#include "chrome/browser/content_settings/content_settings_rule.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/content_settings_pattern.h"
+#include "components/content_settings/core/browser/content_settings_provider.h"
+#include "components/content_settings/core/browser/content_settings_rule.h"
+#include "components/content_settings/core/common/content_settings_pattern.h"
 #include "url/gurl.h"
 
 namespace {
@@ -41,6 +41,8 @@ const char* kTypeNames[] = {
   "ppapi-broker",
   "multiple-automatic-downloads",
   "midi-sysex",
+  "push-messaging",
+  "ssl-cert-decisions",
 #if defined(OS_WIN)
   "metro-switch-to-desktop",
 #elif defined(OS_ANDROID) || defined(OS_CHROMEOS)
@@ -61,6 +63,50 @@ namespace content_settings {
 
 std::string GetTypeName(ContentSettingsType type) {
   return std::string(kTypeNames[type]);
+}
+
+bool GetTypeFromName(const std::string& name,
+                     ContentSettingsType* return_setting) {
+  for (size_t type = 0; type < CONTENT_SETTINGS_NUM_TYPES; ++type) {
+    if (name.compare(kTypeNames[type]) == 0) {
+      *return_setting = static_cast<ContentSettingsType>(type);
+      return true;
+    }
+  }
+  return false;
+}
+
+std::string ContentSettingToString(ContentSetting setting) {
+  switch (setting) {
+    case CONTENT_SETTING_ALLOW:
+      return "allow";
+    case CONTENT_SETTING_ASK:
+      return "ask";
+    case CONTENT_SETTING_BLOCK:
+      return "block";
+    case CONTENT_SETTING_SESSION_ONLY:
+      return "session";
+    case CONTENT_SETTING_DEFAULT:
+      return "default";
+    case CONTENT_SETTING_NUM_SETTINGS:
+      NOTREACHED();
+  }
+
+  return std::string();
+}
+
+ContentSetting ContentSettingFromString(const std::string& name) {
+  if (name == "allow")
+    return CONTENT_SETTING_ALLOW;
+  if (name == "ask")
+    return CONTENT_SETTING_ASK;
+  if (name == "block")
+    return CONTENT_SETTING_BLOCK;
+  if (name == "session")
+    return CONTENT_SETTING_SESSION_ONLY;
+
+  NOTREACHED() << name << " is not a recognized content setting.";
+  return CONTENT_SETTING_DEFAULT;
 }
 
 std::string CreatePatternString(

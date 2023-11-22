@@ -5,8 +5,9 @@
 #ifndef COMPONENTS_DATA_REDUCTION_PROXY_BROWSER_DATA_REDUCTION_PROXY_PROTOCOL_H_
 #define COMPONENTS_DATA_REDUCTION_PROXY_BROWSER_DATA_REDUCTION_PROXY_PROTOCOL_H_
 
-#include "base/macros.h"
 #include "base/memory/ref_counted.h"
+#include "components/data_reduction_proxy/common/data_reduction_proxy_headers.h"
+#include "net/proxy/proxy_retry_info.h"
 
 namespace base {
 class TimeDelta;
@@ -14,6 +15,8 @@ class TimeDelta;
 
 namespace net {
 class HttpResponseHeaders;
+class ProxyConfig;
+class ProxyInfo;
 class ProxyServer;
 class URLRequest;
 }
@@ -26,12 +29,27 @@ class DataReductionProxyParams;
 
 // Decides whether to mark the data reduction proxy as temporarily bad and
 // put it on the proxy retry list. Returns true if the request should be
-// retried. Sets |override_response_headers| to redirect if so.
+// retried. Sets |override_response_headers| to redirect if so. Returns
+// the DataReductionProxyBypassType (if not NULL).
 bool MaybeBypassProxyAndPrepareToRetry(
     const DataReductionProxyParams* params,
     net::URLRequest* request,
     const net::HttpResponseHeaders* original_response_headers,
-    scoped_refptr<net::HttpResponseHeaders>* override_response_headers);
+    scoped_refptr<net::HttpResponseHeaders>* override_response_headers,
+    DataReductionProxyBypassType* proxy_bypass_type);
+
+// Configure |result| to proceed directly to the origin if |result|'s current
+// proxy is the data reduction proxy, the
+// |net::LOAD_BYPASS_DATA_REDUCTION_PROXY| |load_flag| is set, and the
+// DataCompressionProxyCriticalBypass Finch trial is set.
+// This handler is intended to be invoked only by
+// |ChromeNetworkDelegate.NotifyResolveProxy|.
+void OnResolveProxyHandler(const GURL& url,
+                           int load_flags,
+                           const net::ProxyConfig& data_reduction_proxy_config,
+                           const net::ProxyRetryInfoMap& proxy_retry_info,
+                           const DataReductionProxyParams* params,
+                           net::ProxyInfo* result);
 
 // Returns true if the request method is idempotent. Only idempotent requests
 // are retried on a bypass. Visible as part of the public API for testing.
@@ -39,8 +57,8 @@ bool IsRequestIdempotent(const net::URLRequest* request);
 
 // Sets the override headers to contain a status line that indicates a
 // redirect (a 302), a "Location:" header that points to the request url,
-// and sets load flags to bypass proxies. Visible as part of the public API for
-// testing.
+// and sets load flags to bypass proxies.
+// Visible as part of the public API for testing.
 void OverrideResponseAsRedirect(
     net::URLRequest* request,
     const net::HttpResponseHeaders* original_response_headers,

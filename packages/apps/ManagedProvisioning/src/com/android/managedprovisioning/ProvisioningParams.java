@@ -29,6 +29,7 @@ import java.util.Locale;
 public class ProvisioningParams implements Parcelable {
     public static final long DEFAULT_LOCAL_TIME = -1;
     public static final boolean DEFAULT_WIFI_HIDDEN = false;
+    public static final boolean DEFAULT_LEAVE_ALL_SYSTEM_APPS_ENABLED = false;
     public static final int DEFAULT_WIFI_PROXY_PORT = 0;
 
     public String mTimeZone;
@@ -53,6 +54,8 @@ public class ProvisioningParams implements Parcelable {
     public PersistableBundle mAdminExtrasBundle;
 
     public boolean mStartedByNfc; // True iff provisioning flow was started by Nfc bump.
+
+    public boolean mLeaveAllSystemAppsEnabled;
 
     public String getLocaleAsString() {
         if (mLocale != null) {
@@ -91,6 +94,7 @@ public class ProvisioningParams implements Parcelable {
         out.writeByteArray(mDeviceAdminPackageChecksum);
         out.writeParcelable(mAdminExtrasBundle, 0 /* default */);
         out.writeInt(mStartedByNfc ? 1 : 0);
+        out.writeInt(mLeaveAllSystemAppsEnabled ? 1 : 0);
     }
 
     public static final Parcelable.Creator<ProvisioningParams> CREATOR
@@ -116,6 +120,7 @@ public class ProvisioningParams implements Parcelable {
             in.readByteArray(params.mDeviceAdminPackageChecksum);
             params.mAdminExtrasBundle = in.readParcelable(null /* use default classloader */);
             params.mStartedByNfc = in.readInt() == 1;
+            params.mLeaveAllSystemAppsEnabled = in.readInt() == 1;
             return params;
         }
 

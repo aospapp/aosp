@@ -2,11 +2,14 @@ package com.bumptech.glide.manager;
 
 import android.annotation.TargetApi;
 import android.app.Fragment;
+import android.util.Log;
+
 import com.bumptech.glide.RequestManager;
 
 @TargetApi(11)
 public class RequestManagerFragment extends Fragment {
     private RequestManager requestManager;
+    private static String TAG = "RequestManagerFragment";
 
     public void setRequestManager(RequestManager requestManager) {
         this.requestManager = requestManager;
@@ -28,7 +31,11 @@ public class RequestManagerFragment extends Fragment {
     public void onStop() {
         super.onStop();
         if (requestManager != null) {
-            requestManager.onStop();
+            try {
+                requestManager.onStop();
+            } catch (RuntimeException e) {
+                Log.e(TAG, "exception during onStop", e);
+            }
         }
     }
 
@@ -36,7 +43,11 @@ public class RequestManagerFragment extends Fragment {
     public void onDestroy() {
         super.onDestroy();
         if (requestManager != null) {
-            requestManager.onDestroy();
+            try {
+                requestManager.onDestroy();
+            } catch (RuntimeException e) {
+                Log.e(TAG, "exception during onDestroy", e);
+            }
         }
     }
 }

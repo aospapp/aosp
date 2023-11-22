@@ -35,6 +35,7 @@
     android:layout_width="match_parent"
     android:layout_margin="0dp"
     android:padding="0dp"
+    android:background="@color/button_background_color"
     android:layout_height="wrap_content"
     android:layout_alignParentBottom="true"
     android:animateLayoutChanges="true"
@@ -44,10 +45,8 @@
         android:orientation="horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingStart="@dimen/button_cluster_horizontal_padding"
-        android:paddingEnd="@dimen/button_cluster_horizontal_padding"
-        android:background="@color/button_background_color"
-        android:gravity="bottom|center_horizontal">
+        android:gravity="bottom|center_horizontal"
+        android:baselineAligned="false">
 
         <!-- This row only ever shows either 4 or 5 buttons. This may depend on whether the device
              supports "Hold" (i.e. 4 buttons on CDMA devices, 5 buttons on GSM devices.) or whether
@@ -66,10 +65,10 @@
         <!-- "Audio mode". this is a multi-mode button that can behave either like a simple
              "compound button" with two states *or* like an action button that brings up a popup
              menu; see btn_compound_audio.xml and CallButtonFragment.updateAudioButtons(). -->
-        <ImageButton android:id="@+id/audioButton"
+        <ToggleButton android:id="@+id/audioButton"
             style="@style/InCallCompoundButton"
             android:background="@drawable/btn_compound_audio"
-            android:contentDescription="@string/onscreenAudioText" />
+            android:contentDescription="@string/audio_mode_speaker" />
 
         <!-- "Change to audio call" for video calls. -->
         <ImageButton android:id="@+id/changeToVoiceButton"
@@ -81,7 +80,7 @@
         <!-- MIDDLE LEFT SLOT ================================================================== -->
 
         <!-- "Mute" -->
-        <ImageButton android:id="@+id/muteButton"
+        <ToggleButton android:id="@+id/muteButton"
             style="@style/InCallCompoundButton"
             android:background="@drawable/btn_compound_mute"
             android:contentDescription="@string/onscreenMuteText" />
@@ -89,7 +88,7 @@
         <!-- CENTER SLOT ======================================================================= -->
 
         <!-- "Dialpad" -->
-        <ImageButton android:id="@+id/dialpadButton"
+        <ToggleButton android:id="@+id/dialpadButton"
             style="@style/InCallCompoundButton"
             android:background="@drawable/btn_compound_dialpad"
             android:contentDescription="@string/onscreenShowDialpadText" />
@@ -100,7 +99,7 @@
              other of these must always be set to GONE. -->
 
         <!-- "Hold" -->
-        <ImageButton android:id="@+id/holdButton"
+        <ToggleButton android:id="@+id/holdButton"
             style="@style/InCallCompoundButton"
             android:background="@drawable/btn_compound_hold"
             android:contentDescription="@string/onscreenHoldText" />
@@ -120,7 +119,7 @@
             android:visibility="gone" />
 
         <!-- "Switch camera" for video calls. -->
-        <ImageButton android:id="@+id/switchCameraButton"
+        <ToggleButton android:id="@+id/switchCameraButton"
             style="@style/InCallCompoundButton"
             android:background="@drawable/btn_compound_video_switch"
             android:contentDescription="@string/onscreenSwitchCameraText"
@@ -148,7 +147,7 @@
             android:visibility="gone" />
 
         <!-- "Switch camera" for video calls. -->
-        <ImageButton android:id="@+id/pauseVideoButton"
+        <ToggleButton android:id="@+id/pauseVideoButton"
             style="@style/InCallCompoundButton"
             android:background="@drawable/btn_compound_video_off"
             android:contentDescription="@string/onscreenPauseVideoText"

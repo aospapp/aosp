@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Δεν ήταν δυνατή η χρήση της εφαρμογής διαχείρισης. Λείπουν στοιχεία ή είναι κατεστραμμένα. Επικοινωνήστε με το τμήμα πληροφορικής υποστήριξης."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Δεν ήταν δυνατή η εγκατάσταση της εφαρμογής διαχείρισης"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Η εφαρμογή διαχείρισης δεν είναι εγκατεστημένη στη συσκευή σας"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Διακοπή ρύθμισης;"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Είστε βέβαιοι ότι θέλετε να διακόψετε τη ρύθμιση;"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Όχι"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Ναι"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Γίνεται ακύρωση…"</string>
 </resources>

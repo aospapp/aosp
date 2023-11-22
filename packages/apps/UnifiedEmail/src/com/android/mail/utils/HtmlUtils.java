@@ -55,7 +55,7 @@ public class HtmlUtils {
         final Spanned spanned = htmlTree.getSpanned();
         AnalyticsTimer.getInstance().logDuration(AnalyticsTimer.COMPOSE_HTML_TO_SPAN, true,
                 "compose", "html_to_span", null);
-        LogUtils.v(LOG_TAG, "htmlToSpan completed, input: %d, result: %d", html.length(),
+        LogUtils.i(LOG_TAG, "htmlToSpan completed, input: %d, result: %d", html.length(),
                 spanned.length());
         return spanned;
     }

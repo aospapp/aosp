@@ -96,7 +96,7 @@ TEST_F(SchemaMapTest, HasComponents) {
 
 TEST_F(SchemaMapTest, Lookups) {
   scoped_refptr<SchemaMap> map = CreateTestMap();
-  ASSERT_TRUE(map);
+  ASSERT_TRUE(map.get());
   EXPECT_TRUE(map->HasComponents());
 
   EXPECT_FALSE(map->GetSchema(
@@ -141,18 +141,17 @@ TEST_F(SchemaMapTest, FilterBundle) {
   expected_bundle.Get(chrome_ns).Set("ChromePolicy",
                                      POLICY_LEVEL_MANDATORY,
                                      POLICY_SCOPE_USER,
-                                     base::Value::CreateStringValue("value"),
+                                     new base::StringValue("value"),
                                      NULL);
   bundle.CopyFrom(expected_bundle);
 
   // Unknown components are filtered out.
   PolicyNamespace another_extension_ns(POLICY_DOMAIN_EXTENSIONS, "xyz");
-  bundle.Get(another_extension_ns).Set(
-      "AnotherExtensionPolicy",
-      POLICY_LEVEL_MANDATORY,
-      POLICY_SCOPE_USER,
-      base::Value::CreateStringValue("value"),
-      NULL);
+  bundle.Get(another_extension_ns).Set("AnotherExtensionPolicy",
+                                       POLICY_LEVEL_MANDATORY,
+                                       POLICY_SCOPE_USER,
+                                       new base::StringValue("value"),
+                                       NULL);
   schema_map->FilterBundle(&bundle);
   EXPECT_TRUE(bundle.Equals(expected_bundle));
 
@@ -163,27 +162,39 @@ TEST_F(SchemaMapTest, FilterBundle) {
   list.AppendString("b");
   map.Set("list", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
           list.DeepCopy(), NULL);
-  map.Set("boolean", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-          base::Value::CreateBooleanValue(true), NULL);
-  map.Set("integer", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-          base::Value::CreateIntegerValue(1), NULL);
+  map.Set("boolean",
+          POLICY_LEVEL_MANDATORY,
+          POLICY_SCOPE_USER,
+          new base::FundamentalValue(true),
+          NULL);
+  map.Set("integer",
+          POLICY_LEVEL_MANDATORY,
+          POLICY_SCOPE_USER,
+          new base::FundamentalValue(1),
+          NULL);
   map.Set("null", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
           base::Value::CreateNullValue(), NULL);
-  map.Set("double", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-          base::Value::CreateDoubleValue(1.2), NULL);
+  map.Set("double",
+          POLICY_LEVEL_MANDATORY,
+          POLICY_SCOPE_USER,
+          new base::FundamentalValue(1.2),
+          NULL);
   base::DictionaryValue dict;
   dict.SetString("a", "b");
   dict.SetInteger("b", 2);
   map.Set("object", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
           dict.DeepCopy(), NULL);
-  map.Set("string", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-          base::Value::CreateStringValue("value"), NULL);
+  map.Set("string",
+          POLICY_LEVEL_MANDATORY,
+          POLICY_SCOPE_USER,
+          new base::StringValue("value"),
+          NULL);
 
   bundle.MergeFrom(expected_bundle);
   bundle.Get(extension_ns).Set("Unexpected",
                                POLICY_LEVEL_MANDATORY,
                                POLICY_SCOPE_USER,
-                               base::Value::CreateStringValue("to-be-removed"),
+                               new base::StringValue("to-be-removed"),
                                NULL);
 
   schema_map->FilterBundle(&bundle);
@@ -192,18 +203,36 @@ TEST_F(SchemaMapTest, FilterBundle) {
   // Mismatched types are also removed.
   bundle.Clear();
   PolicyMap& badmap = bundle.Get(extension_ns);
-  badmap.Set("list", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-             base::Value::CreateBooleanValue(false), NULL);
-  badmap.Set("boolean", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-             base::Value::CreateIntegerValue(0), NULL);
-  badmap.Set("integer", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-             base::Value::CreateBooleanValue(false), NULL);
-  badmap.Set("null", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-             base::Value::CreateBooleanValue(false), NULL);
-  badmap.Set("double", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-             base::Value::CreateBooleanValue(false), NULL);
-  badmap.Set("object", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
-             base::Value::CreateBooleanValue(false), NULL);
+  badmap.Set("list",
+             POLICY_LEVEL_MANDATORY,
+             POLICY_SCOPE_USER,
+             new base::FundamentalValue(false),
+             NULL);
+  badmap.Set("boolean",
+             POLICY_LEVEL_MANDATORY,
+             POLICY_SCOPE_USER,
+             new base::FundamentalValue(0),
+             NULL);
+  badmap.Set("integer",
+             POLICY_LEVEL_MANDATORY,
+             POLICY_SCOPE_USER,
+             new base::FundamentalValue(false),
+             NULL);
+  badmap.Set("null",
+             POLICY_LEVEL_MANDATORY,
+             POLICY_SCOPE_USER,
+             new base::FundamentalValue(false),
+             NULL);
+  badmap.Set("double",
+             POLICY_LEVEL_MANDATORY,
+             POLICY_SCOPE_USER,
+             new base::FundamentalValue(false),
+             NULL);
+  badmap.Set("object",
+             POLICY_LEVEL_MANDATORY,
+             POLICY_SCOPE_USER,
+             new base::FundamentalValue(false),
+             NULL);
   badmap.Set("string", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
              NULL,
              new ExternalDataFetcher(base::WeakPtr<ExternalDataManager>(),
@@ -237,7 +266,7 @@ TEST_F(SchemaMapTest, LegacyComponents) {
   bundle.Get(extension_ns).Set("String",
                                POLICY_LEVEL_MANDATORY,
                                POLICY_SCOPE_USER,
-                               base::Value::CreateStringValue("value 1"),
+                               new base::StringValue("value 1"),
                                NULL);
 
   // The Chrome namespace isn't filtered.
@@ -245,7 +274,7 @@ TEST_F(SchemaMapTest, LegacyComponents) {
   bundle.Get(chrome_ns).Set("ChromePolicy",
                             POLICY_LEVEL_MANDATORY,
                             POLICY_SCOPE_USER,
-                            base::Value::CreateStringValue("value 3"),
+                            new base::StringValue("value 3"),
                             NULL);
 
   PolicyBundle expected_bundle;
@@ -256,14 +285,14 @@ TEST_F(SchemaMapTest, LegacyComponents) {
   bundle.Get(without_schema_ns).Set("Schemaless",
                                     POLICY_LEVEL_MANDATORY,
                                     POLICY_SCOPE_USER,
-                                    base::Value::CreateStringValue("value 2"),
+                                    new base::StringValue("value 2"),
                                     NULL);
 
   // Unknown policies of known components with a schema are removed.
   bundle.Get(extension_ns).Set("Surprise",
                                POLICY_LEVEL_MANDATORY,
                                POLICY_SCOPE_USER,
-                               base::Value::CreateStringValue("value 4"),
+                               new base::StringValue("value 4"),
                                NULL);
 
   // Unknown components are removed.
@@ -271,7 +300,7 @@ TEST_F(SchemaMapTest, LegacyComponents) {
   bundle.Get(unknown_ns).Set("Surprise",
                              POLICY_LEVEL_MANDATORY,
                              POLICY_SCOPE_USER,
-                             base::Value::CreateStringValue("value 5"),
+                             new base::StringValue("value 5"),
                              NULL);
 
   schema_map->FilterBundle(&bundle);

@@ -29,10 +29,12 @@ namespace syncer {
 class SyncError;
 }
 
-namespace browser_sync {
-
+namespace sync_driver {
 class AssociatorInterface;
 class ChangeProcessor;
+}
+
+namespace browser_sync {
 
 // Implementation for datatypes that do not reside on the frontend thread
 // (UI thread). This is the same thread we perform initialization
@@ -42,7 +44,7 @@ class ChangeProcessor;
 //    model_safe_group()
 //    PostTaskOnBackendThread()
 //    CreateSyncComponents()
-class NonFrontendDataTypeController : public DataTypeController {
+class NonFrontendDataTypeController : public sync_driver::DataTypeController {
  public:
   // For creating non-frontend processor/associator and associating on backend.
   class BackendComponentsContainer;
@@ -66,9 +68,8 @@ class NonFrontendDataTypeController : public DataTypeController {
 
   // DataTypeErrorHandler interface.
   // Note: this is performed on the datatype's thread.
-  virtual void OnSingleDatatypeUnrecoverableError(
-      const tracked_objects::Location& from_here,
-      const std::string& message) OVERRIDE;
+  virtual void OnSingleDataTypeUnrecoverableError(
+      const syncer::SyncError& error) OVERRIDE;
 
   // Callback to receive background association results.
   struct AssociationResult {
@@ -81,8 +82,8 @@ class NonFrontendDataTypeController : public DataTypeController {
     syncer::SyncMergeResult local_merge_result;
     syncer::SyncMergeResult syncer_merge_result;
     base::TimeDelta association_time;
-    ChangeProcessor* change_processor;
-    AssociatorInterface* model_associator;
+    sync_driver::ChangeProcessor* change_processor;
+    sync_driver::AssociatorInterface* model_associator;
   };
   void AssociationCallback(AssociationResult result);
 
@@ -127,31 +128,30 @@ class NonFrontendDataTypeController : public DataTypeController {
 
   // Called on UI thread during shutdown to effectively disable processing
   // any changes.
-  virtual void DisconnectProcessor(ChangeProcessor* processor) = 0;
+  virtual void DisconnectProcessor(sync_driver::ChangeProcessor* processor) = 0;
 
   // Start up complete, update the state and invoke the callback.
   // Note: this is performed on the datatype's thread.
   virtual void StartDone(
-      DataTypeController::StartResult start_result,
+      DataTypeController::ConfigureResult start_result,
       const syncer::SyncMergeResult& local_merge_result,
       const syncer::SyncMergeResult& syncer_merge_result);
 
   // UI thread implementation of StartDone.
   virtual void StartDoneImpl(
-      DataTypeController::StartResult start_result,
+      DataTypeController::ConfigureResult start_result,
       DataTypeController::State new_state,
       const syncer::SyncMergeResult& local_merge_result,
       const syncer::SyncMergeResult& syncer_merge_result);
 
   // The actual implementation of Disabling the datatype. This happens
   // on the UI thread.
-  virtual void DisableImpl(const tracked_objects::Location& from_here,
-                           const std::string& message);
+  virtual void DisableImpl(const syncer::SyncError& error);
 
   // Record association time. Called on Datatype's thread.
   virtual void RecordAssociationTime(base::TimeDelta time);
   // Record causes of start failure. Called on UI thread.
-  virtual void RecordStartFailure(StartResult result);
+  virtual void RecordStartFailure(ConfigureResult result);
 
   // Handles the reporting of unrecoverable error. It records stuff in
   // UMA and reports to breakpad.
@@ -167,8 +167,8 @@ class NonFrontendDataTypeController : public DataTypeController {
   void set_start_callback(const StartCallback& callback);
   void set_state(State state);
 
-  virtual AssociatorInterface* associator() const;
-  virtual ChangeProcessor* GetChangeProcessor() const OVERRIDE;
+  virtual sync_driver::AssociatorInterface* associator() const;
+  virtual sync_driver::ChangeProcessor* GetChangeProcessor() const OVERRIDE;
 
   State state_;
   StartCallback start_callback_;
@@ -184,8 +184,8 @@ class NonFrontendDataTypeController : public DataTypeController {
   // and associate model. Released on backend.
   scoped_ptr<BackendComponentsContainer> components_container_;
 
-  AssociatorInterface* model_associator_;
-  ChangeProcessor* change_processor_;
+  sync_driver::AssociatorInterface* model_associator_;
+  sync_driver::ChangeProcessor* change_processor_;
 
   base::WeakPtrFactory<NonFrontendDataTypeController> weak_ptr_factory_;
 

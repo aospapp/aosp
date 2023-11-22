@@ -139,6 +139,10 @@ class WebContents;
 
   // Helper for performing tab selection as a result of dragging over a tab.
   scoped_ptr<HoverTabSelector> hoverTabSelector_;
+
+  // A container view for the window controls, which must be manually added in
+  // fullscreen in 10.10+.
+  base::scoped_nsobject<NSView> fullscreenWindowControls_;
 }
 
 @property(nonatomic) CGFloat leftIndentForControls;
@@ -248,6 +252,12 @@ class WebContents;
 // Returns the currently active TabContentsController.
 - (TabContentsController*)activeTabContentsController;
 
+// Adds traffic lights to the tab strip. Idempotent.
+- (void)addWindowControls;
+
+// Removes traffic lights from the tab strip. Idempotent.
+- (void)removeWindowControls;
+
 @end
 
 @interface TabStripController(TestingAPI)
@@ -257,5 +267,9 @@ class WebContents;
 
 // Returns the parent view to use when showing a sheet for a given web contents.
 NSView* GetSheetParentViewForWebContents(content::WebContents* web_contents);
+
+// Returns the bounds to use when showing a sheet for a given parent view. This
+// returns a rect in window coordinates.
+NSRect GetSheetParentBoundsForParentView(NSView* view);
 
 #endif  // CHROME_BROWSER_UI_COCOA_TABS_TAB_STRIP_CONTROLLER_H_

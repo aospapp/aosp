@@ -11,6 +11,7 @@
     'generated_html_files': [
       '<(SHARED_INTERMEDIATE_DIR)/main.html',
       '<(SHARED_INTERMEDIATE_DIR)/wcs_sandbox.html',
+      '<(SHARED_INTERMEDIATE_DIR)/background.html',
     ],
   },
   'dependencies': [
@@ -20,7 +21,7 @@
   'conditions': [
     ['run_jscompile != 0', {
       'variables': {
-        'success_stamp': '<(PRODUCT_DIR)/remoting_webapp_jscompile.stamp',
+        'success_stamp': '<(PRODUCT_DIR)/<(_target_name)_jscompile.stamp',
       },
       'actions': [
         {

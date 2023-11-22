@@ -6,11 +6,11 @@
 
 #include "base/basictypes.h"
 #include "base/bind.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/location.h"
-#include "base/message_loop/message_loop_proxy.h"
 #include "base/run_loop.h"
 #include "base/stl_util.h"
+#include "base/thread_task_runner_handle.h"
 #include "base/threading/thread.h"
 #include "chrome/browser/sync_file_system/file_change.h"
 #include "chrome/browser/sync_file_system/local/canned_syncable_file_system.h"
@@ -29,14 +29,14 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/test/test_browser_thread_bundle.h"
 #include "content/public/test/test_utils.h"
+#include "storage/browser/fileapi/file_system_context.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/leveldatabase/src/helpers/memenv/memenv.h"
 #include "third_party/leveldatabase/src/include/leveldb/env.h"
-#include "webkit/browser/fileapi/file_system_context.h"
 
 using content::BrowserThread;
-using fileapi::FileSystemURL;
+using storage::FileSystemURL;
 using ::testing::_;
 using ::testing::AtLeast;
 using ::testing::InvokeWithoutArgs;
@@ -88,12 +88,12 @@ void OnGetFileMetadata(const tracked_objects::Location& where,
 }
 
 ACTION_P(MockStatusCallback, status) {
-  base::MessageLoopProxy::current()->PostTask(
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE, base::Bind(arg4, status));
 }
 
 ACTION_P2(MockStatusCallbackAndRecordChange, status, changes) {
-  base::MessageLoopProxy::current()->PostTask(
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE, base::Bind(arg4, status));
   changes->push_back(arg0);
 }
@@ -196,7 +196,6 @@ class LocalFileSyncServiceTest
 
   content::TestBrowserThreadBundle thread_bundle_;
 
-  ScopedEnableSyncFSDirectoryOperation enable_directory_operation_;
   base::ScopedTempDir temp_dir_;
   scoped_ptr<leveldb::Env> in_memory_env_;
   TestingProfile profile_;
@@ -544,7 +543,7 @@ TEST_F(LocalFileSyncServiceTest, RecordFakeChange) {
 
   EXPECT_EQ(0, GetNumChangesInTracker());
 
-  fileapi::FileSystemURLSet urlset;
+  storage::FileSystemURLSet urlset;
   file_system_->GetChangedURLsInTracker(&urlset);
   EXPECT_TRUE(urlset.empty());
 

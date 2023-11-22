@@ -105,7 +105,7 @@ static void ConvolveOneU4(const RsForEachStubParamStruct *p, uint32_t x, uchar4 
                 convert_float4(py2[x]) * coeff[7] +
                 convert_float4(py2[x2]) * coeff[8];
 
-    px = clamp(px, 0.f, 255.f);
+    px = clamp(px + 0.5f, 0.f, 255.f);
     uchar4 o = {(uchar)px.x, (uchar)px.y, (uchar)px.z, (uchar)px.w};
     *out = o;
 }
@@ -127,7 +127,7 @@ static void ConvolveOneU2(const RsForEachStubParamStruct *p, uint32_t x, uchar2 
                 convert_float2(py2[x]) * coeff[7] +
                 convert_float2(py2[x2]) * coeff[8];
 
-    px = clamp(px, 0.f, 255.f);
+    px = clamp(px + 0.5f, 0.f, 255.f);
     *out = convert_uchar2(px);
 }
 
@@ -147,7 +147,7 @@ static void ConvolveOneU1(const RsForEachStubParamStruct *p, uint32_t x, uchar *
                ((float)py2[x1]) * coeff[6] +
                ((float)py2[x]) * coeff[7] +
                ((float)py2[x2]) * coeff[8];
-    *out = clamp(px, 0.f, 255.f);
+    *out = clamp(px + 0.5f, 0.f, 255.f);
 }
 
 static void ConvolveOneF4(const RsForEachStubParamStruct *p, uint32_t x, float4 *out,

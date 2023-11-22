@@ -18,7 +18,7 @@
 #include "chrome/browser/net/about_protocol_handler.h"
 #include "chrome/browser/net/chrome_net_log.h"
 #include "chrome/browser/net/chrome_network_delegate.h"
-#include "chrome/browser/net/chrome_url_request_context.h"
+#include "chrome/browser/net/chrome_url_request_context_getter.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -34,10 +34,10 @@
 #include "net/http/http_cache.h"
 #include "net/http/http_network_session.h"
 #include "net/http/http_server_properties_impl.h"
-#include "net/ssl/default_server_bound_cert_store.h"
-#include "net/ssl/server_bound_cert_service.h"
+#include "net/ssl/channel_id_service.h"
+#include "net/ssl/default_channel_id_store.h"
 #include "net/url_request/url_request_job_factory_impl.h"
-#include "webkit/browser/database/database_tracker.h"
+#include "storage/browser/database/database_tracker.h"
 
 using content::BrowserThread;
 
@@ -51,7 +51,7 @@ OffTheRecordProfileIOData::Handle::Handle(Profile* profile)
 
 OffTheRecordProfileIOData::Handle::~Handle() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  io_data_->ShutdownOnUIThread();
+  io_data_->ShutdownOnUIThread(GetAllContextGetters().Pass());
 }
 
 content::ResourceContext*
@@ -129,7 +129,7 @@ OffTheRecordProfileIOData::Handle::CreateIsolatedAppRequestContextGetter(
 
   scoped_ptr<ProtocolHandlerRegistry::JobInterceptorFactory>
       protocol_handler_interceptor(
-          ProtocolHandlerRegistryFactory::GetForProfile(profile_)->
+          ProtocolHandlerRegistryFactory::GetForBrowserContext(profile_)->
               CreateJobInterceptorFactory());
   ChromeURLRequestContextGetter* context =
       ChromeURLRequestContextGetter::CreateForIsolatedApp(
@@ -163,14 +163,32 @@ void OffTheRecordProfileIOData::Handle::LazyInitialize() const {
   io_data_->safe_browsing_enabled()->MoveToThread(
       BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO));
 #endif
-#if defined(OS_ANDROID) || defined(OS_IOS)
+  // TODO(kundaji): Remove data_reduction_proxy_enabled pref for incognito.
+  // Bug http://crbug/412873.
   io_data_->data_reduction_proxy_enabled()->Init(
       data_reduction_proxy::prefs::kDataReductionProxyEnabled,
       profile_->GetPrefs());
   io_data_->data_reduction_proxy_enabled()->MoveToThread(
       BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO));
-#endif
   io_data_->InitializeOnUIThread(profile_);
+}
+
+scoped_ptr<ProfileIOData::ChromeURLRequestContextGetterVector>
+OffTheRecordProfileIOData::Handle::GetAllContextGetters() {
+  scoped_ptr<ChromeURLRequestContextGetterVector> context_getters(
+      new ChromeURLRequestContextGetterVector());
+  ChromeURLRequestContextGetterMap::iterator iter =
+      app_request_context_getter_map_.begin();
+  for (; iter != app_request_context_getter_map_.end(); ++iter)
+    context_getters->push_back(iter->second);
+
+  if (extensions_request_context_getter_.get())
+    context_getters->push_back(extensions_request_context_getter_);
+
+  if (main_request_context_getter_.get())
+    context_getters->push_back(main_request_context_getter_);
+
+  return context_getters.Pass();
 }
 
 OffTheRecordProfileIOData::OffTheRecordProfileIOData(
@@ -185,7 +203,7 @@ void OffTheRecordProfileIOData::InitializeInternal(
     ProfileParams* profile_params,
     content::ProtocolHandlerMap* protocol_handlers,
     content::URLRequestInterceptorScopedVector request_interceptors) const {
-  ChromeURLRequestContext* main_context = main_request_context();
+  net::URLRequestContext* main_context = main_request_context();
 
   IOThread* const io_thread = profile_params->io_thread;
   IOThread::Globals* const io_thread_globals = io_thread->globals();
@@ -209,19 +227,22 @@ void OffTheRecordProfileIOData::InitializeInternal(
   main_context->set_throttler_manager(
       io_thread_globals->throttler_manager.get());
 
+  main_context->set_cert_transparency_verifier(
+      io_thread_globals->cert_transparency_verifier.get());
+
   // For incognito, we use the default non-persistent HttpServerPropertiesImpl.
   set_http_server_properties(
       scoped_ptr<net::HttpServerProperties>(
           new net::HttpServerPropertiesImpl()));
   main_context->set_http_server_properties(http_server_properties());
 
-  // For incognito, we use a non-persistent server bound cert store.
-  net::ServerBoundCertService* server_bound_cert_service =
-      new net::ServerBoundCertService(
-          new net::DefaultServerBoundCertStore(NULL),
+  // For incognito, we use a non-persistent channel ID store.
+  net::ChannelIDService* channel_id_service =
+      new net::ChannelIDService(
+          new net::DefaultChannelIDStore(NULL),
           base::WorkerPool::GetTaskRunner(true));
-  set_server_bound_cert_service(server_bound_cert_service);
-  main_context->set_server_bound_cert_service(server_bound_cert_service);
+  set_channel_id_service(channel_id_service);
+  main_context->set_channel_id_service(channel_id_service);
 
   using content::CookieStoreConfig;
   main_context->set_cookie_store(
@@ -255,15 +276,9 @@ void OffTheRecordProfileIOData::InitializeInternal(
 
   // Setup the SDCHManager for this profile.
   sdch_manager_.reset(new net::SdchManager);
-  sdch_manager_->set_sdch_fetcher(
-      new net::SdchDictionaryFetcher(
-          sdch_manager_.get(),
-          // SdchDictionaryFetcher takes a reference to the Getter, and
-          // hence implicitly takes ownership.
-          new net::TrivialURLRequestContextGetter(
-              main_context,
-              content::BrowserThread::GetMessageLoopProxyForThread(
-                  content::BrowserThread::IO))));
+  sdch_manager_->set_sdch_fetcher(scoped_ptr<net::SdchFetcher>(
+      new net::SdchDictionaryFetcher(sdch_manager_.get(),
+                                     main_context)).Pass());
   main_context->set_sdch_manager(sdch_manager_.get());
 
 #if defined(ENABLE_EXTENSIONS)
@@ -273,7 +288,7 @@ void OffTheRecordProfileIOData::InitializeInternal(
 
 void OffTheRecordProfileIOData::
     InitializeExtensionsRequestContext(ProfileParams* profile_params) const {
-  ChromeURLRequestContext* extensions_context = extensions_request_context();
+  net::URLRequestContext* extensions_context = extensions_request_context();
 
   IOThread* const io_thread = profile_params->io_thread;
   IOThread::Globals* const io_thread_globals = io_thread->globals();
@@ -287,15 +302,20 @@ void OffTheRecordProfileIOData::
   extensions_context->set_throttler_manager(
       io_thread_globals->throttler_manager.get());
 
+  extensions_context->set_cert_transparency_verifier(
+      io_thread_globals->cert_transparency_verifier.get());
+
   // All we care about for extensions is the cookie store. For incognito, we
   // use a non-persistent cookie store.
   net::CookieMonster* extensions_cookie_store =
       content::CreateCookieStore(content::CookieStoreConfig())->
           GetCookieMonster();
   // Enable cookies for devtools and extension URLs.
-  const char* schemes[] = {content::kChromeDevToolsScheme,
-                           extensions::kExtensionScheme};
-  extensions_cookie_store->SetCookieableSchemes(schemes, 2);
+  const char* const schemes[] = {
+      content::kChromeDevToolsScheme,
+      extensions::kExtensionScheme
+  };
+  extensions_cookie_store->SetCookieableSchemes(schemes, arraysize(schemes));
   extensions_context->set_cookie_store(extensions_cookie_store);
 
   scoped_ptr<net::URLRequestJobFactoryImpl> extensions_job_factory(
@@ -315,8 +335,8 @@ void OffTheRecordProfileIOData::
   extensions_context->set_job_factory(extensions_job_factory_.get());
 }
 
-ChromeURLRequestContext* OffTheRecordProfileIOData::InitializeAppRequestContext(
-    ChromeURLRequestContext* main_context,
+net::URLRequestContext* OffTheRecordProfileIOData::InitializeAppRequestContext(
+    net::URLRequestContext* main_context,
     const StoragePartitionDescriptor& partition_descriptor,
     scoped_ptr<ProtocolHandlerRegistry::JobInterceptorFactory>
         protocol_handler_interceptor,
@@ -357,30 +377,30 @@ ChromeURLRequestContext* OffTheRecordProfileIOData::InitializeAppRequestContext(
   return context;
 }
 
-ChromeURLRequestContext*
+net::URLRequestContext*
 OffTheRecordProfileIOData::InitializeMediaRequestContext(
-    ChromeURLRequestContext* original_context,
+    net::URLRequestContext* original_context,
     const StoragePartitionDescriptor& partition_descriptor) const {
   NOTREACHED();
   return NULL;
 }
 
-ChromeURLRequestContext*
+net::URLRequestContext*
 OffTheRecordProfileIOData::AcquireMediaRequestContext() const {
   NOTREACHED();
   return NULL;
 }
 
-ChromeURLRequestContext*
+net::URLRequestContext*
 OffTheRecordProfileIOData::AcquireIsolatedAppRequestContext(
-    ChromeURLRequestContext* main_context,
+    net::URLRequestContext* main_context,
     const StoragePartitionDescriptor& partition_descriptor,
     scoped_ptr<ProtocolHandlerRegistry::JobInterceptorFactory>
         protocol_handler_interceptor,
     content::ProtocolHandlerMap* protocol_handlers,
     content::URLRequestInterceptorScopedVector request_interceptors) const {
   // We create per-app contexts on demand, unlike the others above.
-  ChromeURLRequestContext* app_request_context =
+  net::URLRequestContext* app_request_context =
       InitializeAppRequestContext(main_context,
                                   partition_descriptor,
                                   protocol_handler_interceptor.Pass(),
@@ -390,9 +410,9 @@ OffTheRecordProfileIOData::AcquireIsolatedAppRequestContext(
   return app_request_context;
 }
 
-ChromeURLRequestContext*
+net::URLRequestContext*
 OffTheRecordProfileIOData::AcquireIsolatedMediaRequestContext(
-    ChromeURLRequestContext* app_context,
+    net::URLRequestContext* app_context,
     const StoragePartitionDescriptor& partition_descriptor) const {
   NOTREACHED();
   return NULL;

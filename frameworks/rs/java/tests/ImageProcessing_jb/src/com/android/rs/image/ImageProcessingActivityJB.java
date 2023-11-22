@@ -17,6 +17,7 @@
 package com.android.rs.imagejb;
 
 import android.app.Activity;
+
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -52,6 +53,10 @@ public class ImageProcessingActivityJB extends Activity
     private SeekBar mBar3;
     private SeekBar mBar4;
     private SeekBar mBar5;
+
+    private int mBars[] = new int[5];
+    private int mBarsOld[] = new int[5];
+
     private TextView mText1;
     private TextView mText2;
     private TextView mText3;
@@ -66,8 +71,27 @@ public class ImageProcessingActivityJB extends Activity
     private boolean mToggleDVFS;
     private boolean mToggleLong;
     private boolean mTogglePause;
+    private boolean mToggleAnimate;
+    private boolean mToggleDisplay;
     private int mBitmapWidth;
     private int mBitmapHeight;
+    private boolean mDemoMode;
+
+    // Updates pending is a counter of how many kernels have been
+    // sent to RS for processing
+    //
+    // In benchmark this is incremented each time a kernel is launched and
+    // decremented each time a kernel completes
+    //
+    // In demo mode, each UI input increments the counter and it is zeroed
+    // when the latest settings are sent to RS for processing.
+    private int mUpdatesPending;
+
+    // In demo mode this is used to count updates in the pipeline.  It's
+    // incremented when work is submitted to RS and decremented when invalidate is
+    // called to display a result.
+    private int mShowsPending;
+
 
     static public class SizedTV extends TextureView {
         int mWidth;
@@ -98,6 +122,28 @@ public class ImageProcessingActivityJB extends Activity
 
     /////////////////////////////////////////////////////////////////////////
 
+    // Message processor to handle notifications for when kernel completes
+    private class MessageProcessor extends RenderScript.RSMessageHandler {
+        MessageProcessor() {
+        }
+
+        public void run() {
+            synchronized(mProcessor) {
+                // In demo mode, decrement the pending displays and notify the
+                // UI processor it can now enqueue more work if additional updates
+                // are blocked by a full pipeline.
+                if (mShowsPending > 0) {
+                    mShowsPending --;
+                    mProcessor.notifyAll();
+                }
+            }
+        }
+    }
+
+
+    /////////////////////////////////////////////////////////////////////////
+    // Processor is a helper thread for running the work without
+    // blocking the UI thread.
     class Processor extends Thread {
         RenderScript mRS;
         Allocation mInPixelsAllocation;
@@ -108,16 +154,44 @@ public class ImageProcessingActivityJB extends Activity
         private Surface mOutSurface;
         private float mLastResult;
         private boolean mRun = true;
-        private int mOp = 0;
         private boolean mDoingBenchmark;
         private TestBase mTest;
         private TextureView mDisplayView;
 
         private boolean mBenchmarkMode;
 
+        // We don't want to call the "changed" methods excessively as this
+        // can cause extra work for drivers.  Before running a test update
+        // any bars which have changed.
+        void runTest() {
+            if (mBars[0] != mBarsOld[0]) {
+                mTest.onBar1Changed(mBars[0]);
+                mBarsOld[0] = mBars[0];
+            }
+            if (mBars[1] != mBarsOld[1]) {
+                mTest.onBar2Changed(mBars[1]);
+                mBarsOld[1] = mBars[1];
+            }
+            if (mBars[2] != mBarsOld[2]) {
+                mTest.onBar3Changed(mBars[2]);
+                mBarsOld[2] = mBars[2];
+            }
+            if (mBars[3] != mBarsOld[3]) {
+                mTest.onBar4Changed(mBars[3]);
+                mBarsOld[3] = mBars[3];
+            }
+            if (mBars[4] != mBarsOld[4]) {
+                mTest.onBar5Changed(mBars[4]);
+                mBarsOld[4] = mBars[4];
+            }
+            mTest.runTest();
+        }
+
         Processor(RenderScript rs, TextureView v, boolean benchmarkMode) {
             mRS = rs;
             mDisplayView = v;
+
+            mRS.setMessageHandler(new MessageProcessor());
 
             switch(mBitmapWidth) {
             case 3840:
@@ -146,6 +220,8 @@ public class ImageProcessingActivityJB extends Activity
                 break;
             }
 
+            // We create the output allocation using USAGE_IO_OUTPUT so we can share the
+            // bits with a TextureView.  This is more efficient than using a bitmap.
             mOutDisplayAllocation = Allocation.createTyped(mRS, mInPixelsAllocation.getType(),
                                                                Allocation.MipmapControl.MIPMAP_NONE,
                                                                Allocation.USAGE_SCRIPT |
@@ -163,82 +239,122 @@ public class ImageProcessingActivityJB extends Activity
             start();
         }
 
+        class Result {
+            float totalTime;
+            int itterations;
+        }
+
+        // Run one loop of kernels for at least the specified minimum time.
+        // The function returns the average time in ms for the test run
+        private Result runBenchmarkLoop(float minTime) {
+            mUpdatesPending = 0;
+            Result r = new Result();
+
+            long t = java.lang.System.currentTimeMillis();
+            do {
+                synchronized(this) {
+                    // Shows pending is used to track the number of kernels in the RS pipeline
+                    // We throttle it to 2.  This provide some buffering to allow a kernel to be started
+                    // before we are nofitied the previous finished.  However, larger numbers are uncommon
+                    // in interactive apps as they introduce 'lag' between user input and display.
+                    mShowsPending++;
+                    if (mShowsPending > 2) {
+                        try {
+                            this.wait();
+                        } catch(InterruptedException e) {
+                        }
+                    }
+                }
+
+                // If animations are enabled update the test state.
+                if (mToggleAnimate) {
+                    mTest.animateBars(r.totalTime);
+                }
+
+                // Run the kernel
+                mTest.runTest();
+                r.itterations ++;
+
+                if (mToggleDisplay) {
+                    // If we are not outputting directly to the TextureView we need to copy from
+                    // our temporary buffer.
+                    if (mOutDisplayAllocation != mOutPixelsAllocation) {
+                        mOutDisplayAllocation.copyFrom(mOutPixelsAllocation);
+                    }
+
+                    // queue the update of the TextureView with the allocation contents
+                    mOutDisplayAllocation.ioSend();
+                }
+
+                // Send our RS message handler a message so we know when this work has completed
+                mRS.sendMessage(0, null);
+
+                long t2 = java.lang.System.currentTimeMillis();
+                r.totalTime += (t2 - t) / 1000.f;
+                t = t2;
+            } while (r.totalTime < minTime);
+
+            // Wait for any stray operations to complete and update the final time
+            mRS.finish();
+            long t2 = java.lang.System.currentTimeMillis();
+            r.totalTime += (t2 - t) / 1000.f;
+            t = t2;
+            return r;
+        }
+
+
+        // Get a benchmark result for a specific test
         private float getBenchmark() {
             mDoingBenchmark = true;
+            mUpdatesPending = 0;
 
-            mTest.setupBenchmark();
             long result = 0;
-            long runtime = 1000;
+            float runtime = 1.f;
             if (mToggleLong) {
-                runtime = 10000;
+                runtime = 10.f;
             }
 
             if (mToggleDVFS) {
                 mDvfsWar.go();
             }
 
-            //Log.v("rs", "Warming");
-            long t = java.lang.System.currentTimeMillis() + 250;
-            do {
-                mTest.runTest();
-                mTest.finish();
-            } while (t > java.lang.System.currentTimeMillis());
-            //mHandler.sendMessage(Message.obtain());
+            // We run a short bit of work before starting the actual test
+            // this is to let any power management do its job and respond
+            runBenchmarkLoop(0.3f);
 
-            //Log.v("rs", "Benchmarking");
-            int ct = 0;
-            t = java.lang.System.currentTimeMillis();
-            do {
-                mTest.runTest();
-                mTest.finish();
-                ct++;
-            } while ((t + runtime) > java.lang.System.currentTimeMillis());
-            t = java.lang.System.currentTimeMillis() - t;
-            float ft = (float)t;
-            ft /= ct;
+            // Run the actual benchmark
+            Result r = runBenchmarkLoop(runtime);
 
-            mTest.exitBenchmark();
+            Log.v("rs", "Test: time=" + r.totalTime +"s,  frames=" + r.itterations +
+                  ", avg=" + r.totalTime / r.itterations * 1000.f);
+
             mDoingBenchmark = false;
-
-            android.util.Log.v("rs", "bench " + ft);
-            return ft;
+            return r.totalTime / r.itterations * 1000.f;
         }
-
-        private Handler mHandler = new Handler() {
-            // Allow the filter to complete without blocking the UI
-            // thread.  When the message arrives that the op is complete
-            // we will either mark completion or start a new filter if
-            // more work is ready.  Either way, display the result.
-            @Override
-            public void handleMessage(Message msg) {
-                synchronized(this) {
-                    if (mRS == null || mOutPixelsAllocation == null) {
-                        return;
-                    }
-                    if (mOutDisplayAllocation != mOutPixelsAllocation) {
-                        mOutDisplayAllocation.copyFrom(mOutPixelsAllocation);
-                    }
-                    mOutDisplayAllocation.ioSend();
-                    mDisplayView.invalidate();
-                    //mTest.runTestSendMessage();
-                }
-            }
-        };
 
         public void run() {
             Surface lastSurface = null;
             while (mRun) {
+                // Our loop for launching tests or benchmarks
                 synchronized(this) {
-                    try {
-                        this.wait();
-                    } catch(InterruptedException e) {
+                    // If we have no work to do, or we have displays pending, wait
+                    if ((mUpdatesPending == 0) || (mShowsPending != 0)) {
+                        try {
+                            this.wait();
+                        } catch(InterruptedException e) {
+                        }
                     }
+
+                    // We may have been asked to exit while waiting
                     if (!mRun) return;
 
+                    // During startup we may not have a surface yet to display, if
+                    // this is the case, wait.
                     if ((mOutSurface == null) || (mOutPixelsAllocation == null)) {
                         continue;
                     }
 
+                    // Our display surface changed, set it.
                     if (lastSurface != mOutSurface) {
                         mOutDisplayAllocation.setSurface(mOutSurface);
                         lastSurface = mOutSurface;
@@ -246,19 +362,27 @@ public class ImageProcessingActivityJB extends Activity
                 }
 
                 if (mBenchmarkMode) {
+                    // Loop over the tests we want to benchmark
                     for (int ct=0; (ct < mTestList.length) && mRun; ct++) {
-                        mRS.finish();
 
+                        // For reproducibility we wait a short time for any sporadic work
+                        // created by the user touching the screen to launch the test to pass.
+                        // Also allows for things to settle after the test changes.
+                        mRS.finish();
                         try {
                             sleep(250);
                         } catch(InterruptedException e) {
                         }
 
+                        // If we just ran a test, we destroy it here to relieve some memory pressure
                         if (mTest != null) {
                             mTest.destroy();
                         }
 
-                        mTest = changeTest(mTestList[ct]);
+                        // Select the next test
+                        mTest = changeTest(mTestList[ct], false);
+
+                        // If the user selected the "long pause" option, wait
                         if (mTogglePause) {
                             for (int i=0; (i < 100) && mRun; i++) {
                                 try {
@@ -268,30 +392,57 @@ public class ImageProcessingActivityJB extends Activity
                             }
                         }
 
+                        // Run the test
                         mTestResults[ct] = getBenchmark();
-                        mHandler.sendMessage(Message.obtain());
                     }
                     onBenchmarkFinish(mRun);
+                } else {
+                    boolean update = false;
+                    synchronized(this) {
+                        // If we have updates to process and are not blocked by pending shows,
+                        // start the next kernel
+                        if ((mUpdatesPending > 0) && (mShowsPending == 0)) {
+                            mUpdatesPending = 0;
+                            update = true;
+                            mShowsPending++;
+                        }
+                    }
+
+                    if (update) {
+                        // Run the kernel
+                        runTest();
+
+                        // If we are not outputting directly to the TextureView we need to copy from
+                        // our temporary buffer.
+                        if (mOutDisplayAllocation != mOutPixelsAllocation) {
+                            mOutDisplayAllocation.copyFrom(mOutPixelsAllocation);
+                        }
+
+                        // queue the update of the TextureView with the allocation contents
+                        mOutDisplayAllocation.ioSend();
+
+                        // Send our RS message handler a message so we know when this work has completed
+                        mRS.sendMessage(0, null);
+                    }
                 }
             }
 
         }
 
         public void update() {
+            // something UI related has changed, enqueue an update if one is not
+            // already pending.  Wake the worker if needed
             synchronized(this) {
-                if (mOp == 0) {
-                    mOp = 2;
+                if (mUpdatesPending < 2) {
+                    mUpdatesPending++;
+                    notifyAll();
                 }
-                notifyAll();
             }
         }
 
         public void setSurface(Surface s) {
-            synchronized(this) {
-                mOutSurface = s;
-                notifyAll();
-            }
-            //update();
+            mOutSurface = s;
+            update();
         }
 
         public void exit() {
@@ -310,6 +461,11 @@ public class ImageProcessingActivityJB extends Activity
             mInPixelsAllocation2.destroy();
             if (mOutPixelsAllocation != mOutDisplayAllocation) {
                 mOutPixelsAllocation.destroy();
+            }
+
+            if (mTest != null) {
+                mTest.destroy();
+                mTest = null;
             }
             mOutDisplayAllocation.destroy();
             mRS.destroy();
@@ -382,39 +538,33 @@ public class ImageProcessingActivityJB extends Activity
     private boolean mDoingBenchmark;
     public Processor mProcessor;
 
+    TestBase changeTest(IPTestListJB.TestName t, boolean setupUI) {
+        TestBase tb = IPTestListJB.newTest(t);
 
-    private Handler mHandler = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {
-            mDisplayView.invalidate();
+        tb.createBaseTest(this);
+        if (setupUI) {
+            setupBars(tb);
         }
-    };
-
-    public void updateDisplay() {
-        mHandler.sendMessage(Message.obtain());
-        //mProcessor.update();
+        return tb;
     }
 
-    TestBase changeTest(int id) {
+    TestBase changeTest(int id, boolean setupUI) {
         IPTestListJB.TestName t = IPTestListJB.TestName.values()[id];
-        TestBase tb = IPTestListJB.newTest(t);
-        tb.createBaseTest(this);
-        //setupBars(tb);
-        return tb;
+        return changeTest(t, setupUI);
     }
 
     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
         if (fromUser) {
             if (seekBar == mBar1) {
-                mProcessor.mTest.onBar1Changed(progress);
+                mBars[0] = progress;
             } else if (seekBar == mBar2) {
-                mProcessor.mTest.onBar2Changed(progress);
+                mBars[1] = progress;
             } else if (seekBar == mBar3) {
-                mProcessor.mTest.onBar3Changed(progress);
+                mBars[2] = progress;
             } else if (seekBar == mBar4) {
-                mProcessor.mTest.onBar4Changed(progress);
+                mBars[3] = progress;
             } else if (seekBar == mBar5) {
-                mProcessor.mTest.onBar5Changed(progress);
+                mBars[4] = progress;
             }
             mProcessor.update();
         }
@@ -516,22 +666,11 @@ public class ImageProcessingActivityJB extends Activity
         finish();
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        Intent i = getIntent();
-        mTestList = i.getIntArrayExtra("tests");
 
-        mToggleIO = i.getBooleanExtra("enable io", false);
-        mToggleDVFS = i.getBooleanExtra("enable dvfs", false);
-        mToggleLong = i.getBooleanExtra("enable long", false);
-        mTogglePause = i.getBooleanExtra("enable pause", false);
-        mBitmapWidth = i.getIntExtra("resolution X", 0);
-        mBitmapHeight = i.getIntExtra("resolution Y", 0);
-
-        mTestResults = new float[mTestList.length];
-
-        hideBars();
+    void startProcessor() {
+        if (!mDemoMode) {
+            hideBars();
+        }
 
         Point size = new Point();
         getWindowManager().getDefaultDisplay().getSize(size);
@@ -561,8 +700,33 @@ public class ImageProcessingActivityJB extends Activity
         mDisplayView.mHeight = th;
         //mDisplayView.setTransform(new android.graphics.Matrix());
 
-        mProcessor = new Processor(RenderScript.create(this), mDisplayView, true);
+        mProcessor = new Processor(RenderScript.create(this), mDisplayView, !mDemoMode);
         mDisplayView.setSurfaceTextureListener(this);
+
+        if (mDemoMode) {
+            mProcessor.mTest = changeTest(mTestList[0], true);
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Intent i = getIntent();
+        mTestList = i.getIntArrayExtra("tests");
+
+        mToggleIO = i.getBooleanExtra("enable io", false);
+        mToggleDVFS = i.getBooleanExtra("enable dvfs", false);
+        mToggleLong = i.getBooleanExtra("enable long", false);
+        mTogglePause = i.getBooleanExtra("enable pause", false);
+        mToggleAnimate = i.getBooleanExtra("enable animate", false);
+        mToggleDisplay = i.getBooleanExtra("enable display", false);
+        mBitmapWidth = i.getIntExtra("resolution X", 0);
+        mBitmapHeight = i.getIntExtra("resolution Y", 0);
+        mDemoMode = i.getBooleanExtra("demo", false);
+
+        mTestResults = new float[mTestList.length];
+
+        startProcessor();
     }
 
     protected void onDestroy() {

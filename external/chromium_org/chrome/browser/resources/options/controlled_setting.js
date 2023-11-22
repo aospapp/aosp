@@ -10,7 +10,7 @@ cr.define('options', function() {
    * indicator that the value is controlled by some external entity such as
    * policy or an extension.
    * @constructor
-   * @extends {HTMLSpanElement}
+   * @extends {cr.ui.BubbleButton}
    */
   var ControlledSettingIndicator = cr.ui.define('span');
 
@@ -51,12 +51,13 @@ cr.define('options', function() {
       Preferences.clearPref(this.pref, !this.dialogPref);
     },
 
-    /* Handle changes to the associated pref by hiding any currently visible
+    /**
+     * Handle changes to the associated pref by hiding any currently visible
      * bubble and updating the controlledBy property.
      * @param {Event} event Pref change event.
      */
     handlePrefChange: function(event) {
-      OptionsPage.hideBubble();
+      PageManager.hideBubble();
       if (event.value.controlledBy) {
         if (!this.value || String(event.value.value) == this.value) {
           this.controlledBy = event.value.controlledBy;
@@ -79,11 +80,11 @@ cr.define('options', function() {
 
     /**
      * Open or close a bubble with further information about the pref.
-     * @private
+     * @override
      */
-    toggleBubble_: function() {
+    toggleBubble: function() {
       if (this.showingBubble) {
-        OptionsPage.hideBubble();
+        PageManager.hideBubble();
       } else {
         var self = this;
 
@@ -179,14 +180,13 @@ cr.define('options', function() {
           content.appendChild(extensionContainer);
         }
 
-        OptionsPage.showBubble(content, this.image, this, this.location);
+        PageManager.showBubble(content, this.image, this, this.location);
       }
     },
   };
 
   /**
    * The name of the associated preference.
-   * @type {string}
    */
   cr.defineProperty(ControlledSettingIndicator, 'pref', cr.PropertyKind.ATTR);
 
@@ -196,7 +196,6 @@ cr.define('options', function() {
    * only actually committed when the user confirms the dialog. If the user
    * cancels the dialog instead, the changes are rolled back in the settings UI
    * and never committed.
-   * @type {boolean}
    */
   cr.defineProperty(ControlledSettingIndicator, 'dialogPref',
                     cr.PropertyKind.BOOL_ATTR);
@@ -214,7 +213,7 @@ cr.define('options', function() {
 
   /**
    * The status of the associated preference:
-   * - 'policy':            A specific value is enfoced by policy.
+   * - 'policy':            A specific value is enforced by policy.
    * - 'extension':         A specific value is enforced by an extension.
    * - 'recommended':       A value is recommended by policy. The user could
    *                        override this recommendation but has not done so.
@@ -225,7 +224,6 @@ cr.define('options', function() {
    * - 'shared':            A value belongs to the primary user but can be
    *                        modified (Chrome OS only).
    * - unset:               The value is controlled by the user alone.
-   * @type {string}
    */
   cr.defineProperty(ControlledSettingIndicator, 'controlledBy',
                     cr.PropertyKind.ATTR);

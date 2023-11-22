@@ -18,6 +18,7 @@
 #include "base/version.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/external_component_loader.h"
 #include "chrome/browser/extensions/external_policy_loader.h"
@@ -26,6 +27,7 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
+#include "components/crx_file/id_util.h"
 #include "content/public/browser/browser_thread.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/external_provider_interface.h"
@@ -34,14 +36,16 @@
 #include "ui/base/l10n/l10n_util.h"
 
 #if defined(OS_CHROMEOS)
+#include "chrome/browser/chromeos/app_mode/kiosk_app_manager.h"
 #include "chrome/browser/chromeos/customization_document.h"
 #include "chrome/browser/chromeos/extensions/device_local_account_external_policy_loader.h"
-#include "chrome/browser/chromeos/login/users/user.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/chromeos/policy/app_pack_updater.h"
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
 #include "chrome/browser/chromeos/policy/device_local_account.h"
 #include "chrome/browser/chromeos/policy/device_local_account_policy_service.h"
+#include "chrome/browser/chromeos/profiles/profile_helper.h"
+#include "components/user_manager/user.h"
+#include "components/user_manager/user_manager.h"
 #else
 #include "chrome/browser/extensions/default_apps.h"
 #endif
@@ -64,6 +68,7 @@ const char ExternalProviderImpl::kIsFromWebstore[] = "is_from_webstore";
 const char ExternalProviderImpl::kKeepIfPresent[] = "keep_if_present";
 const char ExternalProviderImpl::kWasInstalledByOem[] = "was_installed_by_oem";
 const char ExternalProviderImpl::kSupportedLocales[] = "supported_locales";
+const char ExternalProviderImpl::kMayBeUntrusted[] = "may_be_untrusted";
 
 ExternalProviderImpl::ExternalProviderImpl(
     VisitorInterface* service,
@@ -111,7 +116,7 @@ void ExternalProviderImpl::SetPrefs(base::DictionaryValue* prefs) {
     const std::string& extension_id = i.key();
     const base::DictionaryValue* extension = NULL;
 
-    if (!Extension::IdIsValid(extension_id)) {
+    if (!crx_file::id_util::IdIsValid(extension_id)) {
       LOG(WARNING) << "Malformed extension dictionary: key "
                    << extension_id.c_str() << " is not a valid id.";
       continue;
@@ -202,12 +207,12 @@ void ExternalProviderImpl::SetPrefs(base::DictionaryValue* prefs) {
         is_bookmark_app) {
       creation_flags |= Extension::FROM_BOOKMARK;
     }
-    bool is_from_webstore;
+    bool is_from_webstore = false;
     if (extension->GetBoolean(kIsFromWebstore, &is_from_webstore) &&
         is_from_webstore) {
       creation_flags |= Extension::FROM_WEBSTORE;
     }
-    bool keep_if_present;
+    bool keep_if_present = false;
     if (extension->GetBoolean(kKeepIfPresent, &keep_if_present) &&
         keep_if_present && profile_) {
       ExtensionServiceInterface* extension_service =
@@ -221,10 +226,15 @@ void ExternalProviderImpl::SetPrefs(base::DictionaryValue* prefs) {
         continue;
       }
     }
-    bool was_installed_by_oem;
+    bool was_installed_by_oem = false;
     if (extension->GetBoolean(kWasInstalledByOem, &was_installed_by_oem) &&
         was_installed_by_oem) {
       creation_flags |= Extension::WAS_INSTALLED_BY_OEM;
+    }
+    bool may_be_untrusted = false;
+    if (extension->GetBoolean(kMayBeUntrusted, &may_be_untrusted) &&
+        may_be_untrusted) {
+      creation_flags |= Extension::MAY_BE_UNTRUSTED;
     }
 
     std::string install_parameter;
@@ -362,8 +372,8 @@ void ExternalProviderImpl::CreateExternalProviders(
   policy::BrowserPolicyConnectorChromeOS* connector =
       g_browser_process->platform_part()->browser_policy_connector_chromeos();
   bool is_chrome_os_public_session = false;
-  const chromeos::User* user =
-      chromeos::UserManager::Get()->GetUserByProfile(profile);
+  const user_manager::User* user =
+      chromeos::ProfileHelper::Get()->GetUserByProfile(profile);
   policy::DeviceLocalAccount::Type account_type;
   if (user && policy::IsDeviceLocalAccountUser(user->email(), &account_type)) {
     if (account_type == policy::DeviceLocalAccount::TYPE_PUBLIC_SESSION)
@@ -378,14 +388,16 @@ void ExternalProviderImpl::CreateExternalProviders(
       NOTREACHED();
     }
   } else {
-    external_loader = new ExternalPolicyLoader(profile);
+    external_loader = new ExternalPolicyLoader(
+        ExtensionManagementFactory::GetForBrowserContext(profile));
   }
 #else
-  external_loader = new ExternalPolicyLoader(profile);
+  external_loader = new ExternalPolicyLoader(
+      ExtensionManagementFactory::GetForBrowserContext(profile));
 #endif
 
   // Policies are mandatory so they can't be skipped with command line flag.
-  if (external_loader) {
+  if (external_loader.get()) {
     provider_list->push_back(
         linked_ptr<ExternalProviderInterface>(
             new ExternalProviderImpl(
@@ -397,14 +409,29 @@ void ExternalProviderImpl::CreateExternalProviders(
                 Extension::NO_FLAGS)));
   }
 
+  // Load the KioskAppExternalProvider when running in kiosk mode.
+  if (chrome::IsRunningInForcedAppMode()) {
+#if defined(OS_CHROMEOS)
+    chromeos::KioskAppManager* kiosk_app_manager =
+        chromeos::KioskAppManager::Get();
+    DCHECK(kiosk_app_manager);
+    if (kiosk_app_manager && !kiosk_app_manager->external_loader_created()) {
+      provider_list->push_back(linked_ptr<ExternalProviderInterface>(
+          new ExternalProviderImpl(service,
+                                   kiosk_app_manager->CreateExternalLoader(),
+                                   profile,
+                                   Manifest::EXTERNAL_PREF,
+                                   Manifest::INVALID_LOCATION,
+                                   Extension::NO_FLAGS)));
+    }
+#endif
+    return;
+  }
+
   // In tests don't install extensions from default external sources.
   // It would only slowdown tests and make them flaky.
   if (CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kDisableDefaultApps))
-    return;
-
-  // No external app install in app mode.
-  if (chrome::IsRunningInForcedAppMode())
     return;
 
   // On Mac OS, items in /Library/... should be written by the superuser.
@@ -420,7 +447,7 @@ void ExternalProviderImpl::CreateExternalProviders(
   bool is_chromeos_demo_session = false;
   int bundled_extension_creation_flags = Extension::NO_FLAGS;
 #if defined(OS_CHROMEOS)
-  chromeos::UserManager* user_manager = chromeos::UserManager::Get();
+  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
   is_chromeos_demo_session =
       user_manager && user_manager->IsLoggedInAsDemoUser() &&
       connector->GetDeviceMode() == policy::DEVICE_MODE_RETAIL_KIOSK;

@@ -48,7 +48,7 @@ public class NoReadLogsPermissionTest extends AndroidTestCase {
         BufferedReader reader = null;
         try {
             logcatProc = Runtime.getRuntime().exec(new String[]
-                    {"logcat", "-d", "ActivityManager:* *:S" });
+                    {"logcat", "-v", "brief", "-d", "ActivityManager:* *:S" });
 
             reader = new BufferedReader(new InputStreamReader(logcatProc.getInputStream()));
 

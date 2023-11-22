@@ -10,7 +10,6 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/observer_list.h"
 #include "base/sequenced_task_runner.h"
 #include "chromeos/dbus/bluetooth_device_client.h"
 #include "chromeos/dbus/bluetooth_gatt_service_client.h"
@@ -33,10 +32,6 @@ class BluetoothDeviceChromeOS
       public BluetoothGattServiceClient::Observer {
  public:
   // BluetoothDevice override
-  virtual void AddObserver(
-      device::BluetoothDevice::Observer* observer) OVERRIDE;
-  virtual void RemoveObserver(
-      device::BluetoothDevice::Observer* observer) OVERRIDE;
   virtual uint32 GetBluetoothClass() const OVERRIDE;
   virtual std::string GetAddress() const OVERRIDE;
   virtual VendorIDSource GetVendorIDSource() const OVERRIDE;
@@ -77,6 +72,19 @@ class BluetoothDeviceChromeOS
   virtual void StartConnectionMonitor(
       const base::Closure& callback,
       const ErrorCallback& error_callback) OVERRIDE;
+
+  // Attempts to initiate an insecure outgoing L2CAP or RFCOMM connection to the
+  // advertised service on this device matching |uuid|, performing an SDP lookup
+  // if necessary to determine the correct protocol and channel for the
+  // connection. Unlike ConnectToService, the outgoing connection will request
+  // no bonding rather than general bonding. |callback| will be called on a
+  // successful connection with a BluetoothSocket instance that is to be owned
+  // by the receiver. |error_callback| will be called on failure with a message
+  // indicating the cause.
+  void ConnectToServiceInsecurely(
+    const device::BluetoothUUID& uuid,
+    const ConnectToServiceCallback& callback,
+    const ConnectToServiceErrorCallback& error_callback);
 
   // Creates a pairing object with the given delegate |pairing_delegate| and
   // establishes it as the pairing context for this device. All pairing-related
@@ -171,9 +179,6 @@ class BluetoothDeviceChromeOS
 
   // The dbus object path of the device object.
   dbus::ObjectPath object_path_;
-
-  // List of observers interested in event notifications from us.
-  ObserverList<device::BluetoothDevice::Observer> observers_;
 
   // Number of ongoing calls to Connect().
   int num_connecting_calls_;

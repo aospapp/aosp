@@ -55,6 +55,8 @@ class BackendInitializeChecker : public SingleClientStatusChangeChecker {
       : SingleClientStatusChangeChecker(service) {}
 
   virtual bool IsExitConditionSatisfied() OVERRIDE {
+    if (service()->backend_mode() != ProfileSyncService::SYNC)
+      return false;
     if (service()->sync_initialized())
       return true;
     // Backend initialization is blocked by an auth error.
@@ -158,7 +160,7 @@ bool ProfileSyncServiceHarness::SetupSync(
 
   // Authenticate sync client using GAIA credentials.
   service()->signin()->SetAuthenticatedUsername(username_);
-  service()->GoogleSigninSucceeded(username_, password_);
+  service()->GoogleSigninSucceeded(username_, username_, password_);
 
 #if defined(ENABLE_MANAGED_USERS)
   std::string account_id = profile_->IsSupervised() ?

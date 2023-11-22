@@ -11,23 +11,23 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop/message_loop.h"
-#include "base/message_loop/message_loop_proxy.h"
 #include "base/stl_util.h"
+#include "base/thread_task_runner_handle.h"
 #include "chrome/browser/sync_file_system/local/canned_syncable_file_system.h"
 #include "chrome/browser/sync_file_system/local/local_file_sync_context.h"
 #include "chrome/browser/sync_file_system/local/sync_file_system_backend.h"
 #include "chrome/browser/sync_file_system/sync_status_code.h"
 #include "chrome/browser/sync_file_system/syncable_file_system_util.h"
 #include "content/public/test/mock_blob_url_request_context.h"
+#include "storage/browser/fileapi/file_system_context.h"
+#include "storage/browser/quota/quota_manager.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/leveldatabase/src/helpers/memenv/memenv.h"
 #include "third_party/leveldatabase/src/include/leveldb/env.h"
-#include "webkit/browser/fileapi/file_system_context.h"
-#include "webkit/browser/quota/quota_manager.h"
 
-using fileapi::FileSystemContext;
-using fileapi::FileSystemURL;
-using fileapi::FileSystemURLSet;
+using storage::FileSystemContext;
+using storage::FileSystemURL;
+using storage::FileSystemURLSet;
 using content::MockBlobURLRequestContext;
 using content::ScopedTextBlob;
 
@@ -39,17 +39,18 @@ class LocalFileChangeTrackerTest : public testing::Test {
       : in_memory_env_(leveldb::NewMemEnv(leveldb::Env::Default())),
         file_system_(GURL("http://example.com"),
                      in_memory_env_.get(),
-                     base::MessageLoopProxy::current().get(),
-                     base::MessageLoopProxy::current().get()) {}
+                     base::ThreadTaskRunnerHandle::Get().get(),
+                     base::ThreadTaskRunnerHandle::Get().get()) {}
 
   virtual void SetUp() OVERRIDE {
     file_system_.SetUp(CannedSyncableFileSystem::QUOTA_ENABLED);
 
+    ASSERT_TRUE(base_dir_.CreateUniqueTempDir());
     sync_context_ =
-        new LocalFileSyncContext(base::FilePath(),
+        new LocalFileSyncContext(base_dir_.path(),
                                  in_memory_env_.get(),
-                                 base::MessageLoopProxy::current().get(),
-                                 base::MessageLoopProxy::current().get());
+                                 base::ThreadTaskRunnerHandle::Get().get(),
+                                 base::ThreadTaskRunnerHandle::Get().get());
     ASSERT_EQ(
         sync_file_system::SYNC_STATUS_OK,
         file_system_.MaybeInitializeFileSystemContext(sync_context_.get()));
@@ -105,12 +106,12 @@ class LocalFileChangeTrackerTest : public testing::Test {
     change_tracker()->CollectLastDirtyChanges(file_system_context());
   }
 
-  void GetAllChangedURLs(fileapi::FileSystemURLSet* urls) {
+  void GetAllChangedURLs(storage::FileSystemURLSet* urls) {
     change_tracker()->GetAllChangedURLs(urls);
   }
 
-  ScopedEnableSyncFSDirectoryOperation enable_directory_operation_;
   base::MessageLoopForIO message_loop_;
+  base::ScopedTempDir base_dir_;
   scoped_ptr<leveldb::Env> in_memory_env_;
   CannedSyncableFileSystem file_system_;
 
@@ -119,6 +120,35 @@ class LocalFileChangeTrackerTest : public testing::Test {
 
   DISALLOW_COPY_AND_ASSIGN(LocalFileChangeTrackerTest);
 };
+
+TEST_F(LocalFileChangeTrackerTest, DemoteAndPromote) {
+  EXPECT_EQ(base::File::FILE_OK, file_system_.OpenFileSystem());
+
+  const char kPath[] = "foo/bar";
+  change_tracker()->OnCreateDirectory(URL(kPath));
+
+  FileSystemURLSet urls;
+  file_system_.GetChangedURLsInTracker(&urls);
+  ASSERT_EQ(1u, urls.size());
+  EXPECT_EQ(URL(kPath), *urls.begin());
+
+  change_tracker()->DemoteChangesForURL(URL(kPath));
+
+  file_system_.GetChangedURLsInTracker(&urls);
+  ASSERT_TRUE(urls.empty());
+
+  change_tracker()->PromoteDemotedChangesForURL(URL(kPath));
+
+  file_system_.GetChangedURLsInTracker(&urls);
+  ASSERT_EQ(1u, urls.size());
+  EXPECT_EQ(URL(kPath), *urls.begin());
+
+  change_tracker()->DemoteChangesForURL(URL(kPath));
+  change_tracker()->OnRemoveDirectory(URL(kPath));
+
+  file_system_.GetChangedURLsInTracker(&urls);
+  ASSERT_TRUE(urls.empty());
+}
 
 TEST_F(LocalFileChangeTrackerTest, GetChanges) {
   EXPECT_EQ(base::File::FILE_OK, file_system_.OpenFileSystem());
@@ -206,13 +236,11 @@ TEST_F(LocalFileChangeTrackerTest, GetChanges) {
   urls_to_process.clear();
   change_tracker()->GetNextChangedURLs(&urls_to_process, 0);
   ASSERT_EQ(5U, urls_to_process.size());
-  EXPECT_EQ(URL(kPath2), urls_to_process[0]);
-  EXPECT_EQ(URL(kPath5), urls_to_process[1]);
-  EXPECT_EQ(URL(kPath4), urls_to_process[2]);
-  EXPECT_TRUE(URL(kPath1) == urls_to_process[3] ||
-              URL(kPath1) == urls_to_process[4]);
-  EXPECT_TRUE(URL(kPath3) == urls_to_process[3] ||
-              URL(kPath3) == urls_to_process[4]);
+  EXPECT_EQ(URL(kPath1), urls_to_process[0]);
+  EXPECT_EQ(URL(kPath2), urls_to_process[1]);
+  EXPECT_EQ(URL(kPath3), urls_to_process[2]);
+  EXPECT_EQ(URL(kPath5), urls_to_process[3]);
+  EXPECT_EQ(URL(kPath4), urls_to_process[4]);
 
   // No changes to promote any more.
   EXPECT_FALSE(change_tracker()->PromoteDemotedChanges());
@@ -537,7 +565,7 @@ TEST_F(LocalFileChangeTrackerTest, RestoreMoveChanges) {
   file_system_.GetChangedURLsInTracker(&urls);
   // Deletion for child files in the deleted directory cannot be restored,
   // so we will only have 8 changes.
-  EXPECT_EQ(8U, urls.size());
+  EXPECT_EQ(10U, urls.size());
 
   VerifyAndClearChange(URL(kPath0),
                        FileChange(FileChange::FILE_CHANGE_DELETE,

@@ -112,9 +112,7 @@ TEST(ToolsSanityTest, MemoryLeak) {
 #else
 #define MAYBE_AccessesToNewMemory AccessesToNewMemory
 #define MAYBE_AccessesToMallocMemory AccessesToMallocMemory
-#define MAYBE_ArrayDeletedWithoutBraces ArrayDeletedWithoutBraces
-#define MAYBE_SingleElementDeletedWithBraces SingleElementDeletedWithBraces
-#endif
+#endif // (defined(ADDRESS_SANITIZER) && defined(OS_IOS)) || defined(SYZYASAN)
 
 // The following tests pass with Clang r170392, but not r172454, which
 // makes AddressSanitizer detect errors in them. We disable these tests under
@@ -126,7 +124,11 @@ TEST(ToolsSanityTest, MemoryLeak) {
 #define MAYBE_SingleElementDeletedWithBraces \
     DISABLED_SingleElementDeletedWithBraces
 #define MAYBE_ArrayDeletedWithoutBraces DISABLED_ArrayDeletedWithoutBraces
-#endif
+#else
+#define MAYBE_ArrayDeletedWithoutBraces ArrayDeletedWithoutBraces
+#define MAYBE_SingleElementDeletedWithBraces SingleElementDeletedWithBraces
+#endif  // defined(ADDRESS_SANITIZER) || defined(SYZYASAN)
+
 TEST(ToolsSanityTest, MAYBE_AccessesToNewMemory) {
   char *foo = new char[10];
   MakeSomeErrors(foo, 10);
@@ -287,16 +289,27 @@ void RunInParallel(PlatformThread::Delegate *d1, PlatformThread::Delegate *d2) {
   PlatformThread::Join(b);
 }
 
-}  // namespace
-
-// A data race detector should report an error in this test.
-TEST(ToolsSanityTest, DataRace) {
+#if defined(THREAD_SANITIZER)
+void DataRace() {
   bool *shared = new bool(false);
   TOOLS_SANITY_TEST_CONCURRENT_THREAD thread1(shared), thread2(shared);
   RunInParallel(&thread1, &thread2);
   EXPECT_TRUE(*shared);
   delete shared;
+  // We're in a death test - crash.
+  CHECK(0);
 }
+#endif
+
+}  // namespace
+
+#if defined(THREAD_SANITIZER)
+// A data race detector should report an error in this test.
+TEST(ToolsSanityTest, DataRace) {
+  // The suppression regexp must match that in base/debug/tsan_suppressions.cc.
+  EXPECT_DEATH(DataRace(), "1 race:base/tools_sanity_unittest.cc");
+}
+#endif
 
 TEST(ToolsSanityTest, AnnotateBenignRace) {
   bool shared = false;

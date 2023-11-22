@@ -26,7 +26,6 @@
 #include "ppapi/cpp/instance.h"
 #include "ppapi/cpp/private/find_private.h"
 #include "ppapi/cpp/private/uma_private.h"
-#include "ppapi/cpp/private/var_private.h"
 #include "ppapi/cpp/url_loader.h"
 #include "ppapi/utility/completion_callback_factory.h"
 
@@ -160,7 +159,7 @@ class OutOfProcessInstance : public pp::Instance,
   int GetDocumentPixelHeight() const;
 
   // Draws a rectangle with the specified dimensions and color in our buffer.
-  void FillRect(const pp::Rect& rect, unsigned int color);
+  void FillRect(const pp::Rect& rect, uint32 color);
 
   void LoadUrl(const std::string& url);
   void LoadPreviewUrl(const std::string& url);
@@ -205,6 +204,9 @@ class OutOfProcessInstance : public pp::Instance,
   // Load the next available preview page into the blank page.
   void LoadAvailablePreviewPage();
 
+  // Bound the given scroll offset to the document.
+  pp::Point BoundScrollOffsetToDocument(const pp::Point& scroll_offset);
+
   pp::ImageData image_data_;
   // Used when the plugin is embedded in a page and we have to create the loader
   // ourself.
@@ -238,7 +240,7 @@ class OutOfProcessInstance : public pp::Instance,
 
   struct BackgroundPart {
     pp::Rect location;
-    unsigned int color;
+    uint32 color;
   };
   std::vector<BackgroundPart> background_parts_;
 
@@ -284,10 +286,6 @@ class OutOfProcessInstance : public pp::Instance,
   DocumentLoadState document_load_state_;
   DocumentLoadState preview_document_load_state_;
 
-  // JavaScript interface to control this instance.
-  // This wraps a PDFScriptableObject in a pp::Var.
-  pp::VarPrivate instance_object_;
-
   // A UMA resource for histogram reporting.
   pp::UMAPrivate uma_;
 
@@ -332,6 +330,11 @@ class OutOfProcessInstance : public pp::Instance,
   // request so that it can start the throbber. We will tell it again once the
   // document finishes loading.
   bool did_call_start_loading_;
+
+  // If this is true, then don't scroll the plugin in response to DidChangeView
+  // messages. This will be true when the extension page is in the process of
+  // zooming the plugin so that flickering doesn't occur while zooming.
+  bool stop_scrolling_;
 
   // The callback for receiving the password from the page.
   scoped_ptr<pp::CompletionCallbackWithOutput<pp::Var> > password_callback_;

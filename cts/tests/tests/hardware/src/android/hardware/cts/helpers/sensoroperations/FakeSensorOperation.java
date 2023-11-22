@@ -17,16 +17,17 @@
 package android.hardware.cts.helpers.sensoroperations;
 
 import android.hardware.cts.helpers.SensorStats;
+import android.hardware.cts.helpers.reporting.ISensorTestNode;
 
 import junit.framework.Assert;
 
 import java.util.concurrent.TimeUnit;
 
 /**
- * A fake {@ISensorOperation} that will run for a specified time and then pass or fail. Useful when
- * debugging the framework.
+ * A fake {@link SensorOperation} that will run for a specified time and then pass or fail. Useful
+ * when debugging the framework.
  */
-public class FakeSensorOperation extends AbstractSensorOperation {
+public class FakeSensorOperation extends SensorOperation {
     private static final int NANOS_PER_MILLI = 1000000;
 
     private final boolean mFail;
@@ -56,7 +57,7 @@ public class FakeSensorOperation extends AbstractSensorOperation {
      * {@inheritDoc}
      */
     @Override
-    public void execute() {
+    public void execute(ISensorTestNode parent) {
         long delayNs = TimeUnit.NANOSECONDS.convert(mDelay, mTimeUnit);
         try {
             Thread.sleep(delayNs / NANOS_PER_MILLI, (int) (delayNs % NANOS_PER_MILLI));

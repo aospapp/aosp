@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"ಬ್ಯಾಕಪ್ &amp; ಮರುಸ್ಥಾಪನೆ"</string>
     <string name="device_reset" msgid="2827002349560023125">"ಫ್ಯಾಕ್ಟರಿ ಡೇಟಾ ಮರುಹೊಂದಿಕೆ"</string>
     <string name="device_calibration" msgid="8632962533376605191">"ಕ್ಯಾಲಿಬರೇಶನ್"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"ಡೌನ್‌ಲೋಡ್ ಮಾಡಿರುವ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು"</string>
     <string name="apps_system" msgid="2499191125802829425">"ಸಿಸ್ಟಂ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು"</string>
     <string name="apps_running" msgid="6430310491739956228">"ರನ್ ಆಗುತ್ತಿರುವ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು"</string>
@@ -95,7 +99,7 @@
     <string name="system_language" msgid="2337138146114609247">"ಭಾಷೆ"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"ಕೀಬೋರ್ಡ್"</string>
     <string name="system_search" msgid="2837264654143247611">"ಹುಡುಕಾಟ"</string>
-    <string name="system_security" msgid="4190058778883258927">"ಭದ್ರತೆ &amp; ನಿರ್ಬಂಧಗಳು"</string>
+    <string name="system_security" msgid="8230080273993484407">"ಭದ್ರತೆ &amp; ನಿರ್ಬಂಧಗಳು"</string>
     <string name="system_speech" msgid="8128688499687306982">"ಮಾತು"</string>
     <string name="system_inputs" msgid="2413907183796651102">"ಇನ್‌ಪುಟ್‌ಗಳು"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"ಪ್ರವೇಶಿಸುವಿಕೆ"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"ಸಿಸ್ಟಂ ನವೀಕರಣ"</string>
     <string name="about_preference" msgid="4131396784531360434">"ಕುರಿತು"</string>
     <string name="device_name" msgid="2670488158531273028">"ಸಾಧನದ ಹೆಸರು"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"ಮರುಪ್ರಾರಂಭಿಸು"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"ಕಾನೂನು ಮಾಹಿತಿ"</string>
     <string name="about_warranty" msgid="5736003473060436384">"ವಾರೆಂಟಿ"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"ಮುಕ್ತ ಮೂಲ ಪರವಾನಗಿಗಳು"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"ಸೇವಾ ನಿಯಮಗಳನ್ನು ವೀಕ್ಷಿಸಿ"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"ಗೌಪ್ಯತೆ ನೀತಿಯನ್ನು ವೀಕ್ಷಿಸಿ"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"ಹೆಚ್ಚುವರಿ ನಿಯಮಗಳನ್ನು ವೀಕ್ಷಿಸಿ"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Google ಕಾನೂನು"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"ಪರವಾನಗಿ ಡೇಟಾ ಲಭ್ಯವಿಲ್ಲ"</string>
     <string name="about_model" msgid="6625269442206323995">"ಮಾದರಿ"</string>
     <string name="about_version" msgid="1177287676732287266">"ಆವೃತ್ತಿ"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"ದಿನಾಂಕ"</string>
     <string name="system_time" msgid="6726022312605226285">"ಸಮಯ"</string>
     <string name="system_set_date" msgid="2437586307768561116">"ದಿನಾಂಕವನ್ನು ಹೊಂದಿಸಿ"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"ದಿನಾಂಕ ಸ್ವರೂಪವನ್ನು ಆರಿಸಿ"</string>
     <string name="system_set_time" msgid="4661804115501057452">"ಸಮಯವನ್ನು ಹೊಂದಿಸಿ"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"ಸಮಯದ ವಲಯವನ್ನು ಹೊಂದಿಸಿ"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"24-ಗಂಟೆ ಸ್ವರೂಪವನ್ನು ಬಳಸು"</string>

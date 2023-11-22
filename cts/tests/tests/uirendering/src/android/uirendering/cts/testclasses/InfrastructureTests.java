@@ -17,7 +17,6 @@ package android.uirendering.cts.testclasses;
 
 import com.android.cts.uirendering.R;
 
-import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Rect;
@@ -29,7 +28,6 @@ import android.uirendering.cts.bitmapverifiers.RectVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.CanvasClient;
 import android.uirendering.cts.testinfrastructure.ViewInitializer;
-import android.util.Log;
 import android.view.View;
 
 public class InfrastructureTests extends ActivityTestBase {
@@ -52,16 +50,17 @@ public class InfrastructureTests extends ActivityTestBase {
         CanvasClient canvasClient = new CanvasClient() {
             @Override
             public void draw(Canvas canvas, int width, int height) {
-                canvas.drawColor(canvas.isHardwareAccelerated() ? Color.WHITE : Color.BLACK);
+                canvas.drawColor(canvas.isHardwareAccelerated() ? Color.BLACK : Color.WHITE);
             }
         };
-        // This is considered a very high threshold and as such, the test should still fail because
-        // they are completely different images.
-        final float threshold = 0.1f;
         BitmapComparer inverseComparer = new BitmapComparer() {
             @Override
             public boolean verifySame(int[] ideal, int[] given, int offset, int stride, int width,
                     int height) {
+
+                // Return true if the images aren't even 10% similar. They should be completely
+                // different, since they should both be completely different colors.
+                final float threshold = 0.1f;
                 return !(new MSSIMComparer(threshold)).verifySame(ideal, given, offset, stride,
                         width, height);
             }

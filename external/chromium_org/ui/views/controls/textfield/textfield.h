@@ -45,6 +45,9 @@ class VIEWS_EXPORT Textfield : public View,
   // The textfield's class name.
   static const char kViewClassName[];
 
+  // The preferred size of the padding to be used around textfield text.
+  static const int kTextPadding;
+
   // Returns the text cursor blink time in milliseconds, or 0 for no blinking.
   static size_t GetCaretBlinkMs();
 
@@ -89,6 +92,9 @@ class VIEWS_EXPORT Textfield : public View,
   // of text that overflows its display area.
   void SelectAll(bool reversed);
 
+  // A convenience method to select the word closest to |point|.
+  void SelectWordAt(const gfx::Point& point);
+
   // Clears the selection within the edit field and sets the caret to the end.
   void ClearSelection();
 
@@ -119,6 +125,9 @@ class VIEWS_EXPORT Textfield : public View,
   SkColor GetSelectionBackgroundColor() const;
   void SetSelectionBackgroundColor(SkColor color);
   void UseDefaultSelectionBackgroundColor();
+
+  // Set drop shadows underneath the text.
+  void SetShadows(const gfx::ShadowValues& shadows);
 
   // Gets/Sets whether or not the cursor is enabled.
   bool GetCursorEnabled() const;
@@ -196,6 +205,7 @@ class VIEWS_EXPORT Textfield : public View,
   bool HasTextBeingDragged();
 
   // View overrides:
+  virtual gfx::Insets GetInsets() const OVERRIDE;
   virtual int GetBaseline() const OVERRIDE;
   virtual gfx::Size GetPreferredSize() const OVERRIDE;
   virtual const char* GetClassName() const OVERRIDE;
@@ -219,6 +229,8 @@ class VIEWS_EXPORT Textfield : public View,
   virtual void OnDragDone() OVERRIDE;
   virtual void GetAccessibleState(ui::AXViewState* state) OVERRIDE;
   virtual void OnBoundsChanged(const gfx::Rect& previous_bounds) OVERRIDE;
+  virtual bool GetNeedsNotificationWhenVisibleBoundsChange() const OVERRIDE;
+  virtual void OnVisibleBoundsChanged() OVERRIDE;
   virtual void OnEnabledChanged() OVERRIDE;
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE;
   virtual void OnFocus() OVERRIDE;
@@ -446,6 +458,15 @@ class VIEWS_EXPORT Textfield : public View,
   gfx::Range double_click_word_;
 
   scoped_ptr<ui::TouchSelectionController> touch_selection_controller_;
+
+  // Used to track touch drag starting location and offset to enable touch
+  // scrolling.
+  gfx::Point drag_start_location_;
+  int drag_start_display_offset_;
+
+  // Tracks if touch editing handles are hidden because user has started
+  // scrolling. If |true|, handles are shown after scrolling ends.
+  bool touch_handles_hidden_due_to_scroll_;
 
   // Context menu related members.
   scoped_ptr<ui::SimpleMenuModel> context_menu_contents_;

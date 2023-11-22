@@ -22,13 +22,16 @@ import android.database.Cursor;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.PaintDrawable;
+import android.graphics.drawable.StateListDrawable;
 import android.net.Uri;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.TextUtils;
+import android.util.StateSet;
 import android.view.View;
 import android.widget.ImageView;
 
+import com.android.mail.R;
 import com.android.mail.content.CursorCreator;
 import com.android.mail.content.ObjectCursorLoader;
 import com.android.mail.providers.UIProvider.FolderType;
@@ -357,13 +360,12 @@ public class Folder implements Parcelable, Comparable<Folder> {
         this.lastSyncResult = lastSyncResult;
         this.type = type;
         this.iconResId = iconResId;
-        this.notificationIconResId = notificationIconResId;
         this.bgColor = bgColor;
         this.fgColor = fgColor;
-        if (bgColor != null) {
+        if (!TextUtils.isEmpty(bgColor)) {
             this.bgColorInt = Integer.parseInt(bgColor);
         }
-        if (fgColor != null) {
+        if (!TextUtils.isEmpty(fgColor)) {
             this.fgColorInt = Integer.parseInt(fgColor);
         }
         this.loadMoreUri = loadMoreUri;
@@ -397,13 +399,12 @@ public class Folder implements Parcelable, Comparable<Folder> {
         lastSyncResult = cursor.getInt(UIProvider.FOLDER_LAST_SYNC_RESULT_COLUMN);
         type = cursor.getInt(UIProvider.FOLDER_TYPE_COLUMN);
         iconResId = cursor.getInt(UIProvider.FOLDER_ICON_RES_ID_COLUMN);
-        notificationIconResId = cursor.getInt(UIProvider.FOLDER_NOTIFICATION_ICON_RES_ID_COLUMN);
         bgColor = cursor.getString(UIProvider.FOLDER_BG_COLOR_COLUMN);
         fgColor = cursor.getString(UIProvider.FOLDER_FG_COLOR_COLUMN);
-        if (bgColor != null) {
+        if (!TextUtils.isEmpty(bgColor)) {
             bgColorInt = Integer.parseInt(bgColor);
         }
-        if (fgColor != null) {
+        if (!TextUtils.isEmpty(fgColor)) {
             fgColorInt = Integer.parseInt(fgColor);
         }
         String loadMore = cursor.getString(UIProvider.FOLDER_LOAD_MORE_URI_COLUMN);
@@ -456,13 +457,12 @@ public class Folder implements Parcelable, Comparable<Folder> {
         lastSyncResult = in.readInt();
         type = in.readInt();
         iconResId = in.readInt();
-        notificationIconResId = in.readInt();
         bgColor = in.readString();
         fgColor = in.readString();
-        if (bgColor != null) {
+        if (!TextUtils.isEmpty(bgColor)) {
             bgColorInt = Integer.parseInt(bgColor);
         }
-        if (fgColor != null) {
+        if (!TextUtils.isEmpty(fgColor)) {
             fgColorInt = Integer.parseInt(fgColor);
         }
         loadMoreUri = in.readParcelable(loader);
@@ -493,7 +493,6 @@ public class Folder implements Parcelable, Comparable<Folder> {
         dest.writeInt(lastSyncResult);
         dest.writeInt(type);
         dest.writeInt(iconResId);
-        dest.writeInt(notificationIconResId);
         dest.writeString(bgColor);
         dest.writeString(fgColor);
         dest.writeParcelable(loadMoreUri, 0);
@@ -640,20 +639,45 @@ public class Folder implements Parcelable, Comparable<Folder> {
         }
     }
 
+    private static final int[] ACTIVATED_STATE_LIST = new int[] {android.R.attr.state_activated};
+
     public static void setIcon(Folder folder, ImageView iconView) {
         if (iconView == null) {
             return;
         }
-        final int icon = folder.iconResId;
+        int icon = folder.iconResId;
+
+        // If we're using the default folders, make sure we show the parent icon
+        if (icon == R.drawable.ic_drawer_folder_24dp && folder.hasChildren) {
+            icon = R.drawable.ic_folder_parent_24dp;
+        }
+
         if (icon > 0) {
-            final Drawable iconDrawable = iconView.getResources().getDrawable(icon);
-            if (iconDrawable != null &&
-                    folder.supportsCapability(UIProvider.FolderCapabilities.TINT_ICON)) {
-                // Default multiply by white
-                iconDrawable.mutate().setColorFilter(folder.getBackgroundColor(0xFFFFFF),
-                        PorterDuff.Mode.MULTIPLY);
+            final Drawable defaultIconDrawable = iconView.getResources().getDrawable(icon);
+            if (defaultIconDrawable != null) {
+                final Drawable iconDrawable;
+                if (folder.supportsCapability(UIProvider.FolderCapabilities.TINT_ICON)) {
+                    // Default multiply by white
+                    defaultIconDrawable.mutate().setColorFilter(folder.getBackgroundColor(0xFFFFFF),
+                            PorterDuff.Mode.MULTIPLY);
+                    iconDrawable = defaultIconDrawable;
+                } else {
+                    final StateListDrawable listDrawable = new StateListDrawable();
+
+                    final Drawable activatedIconDrawable =
+                            iconView.getResources().getDrawable(icon);
+                    activatedIconDrawable.mutate().setColorFilter(0xff000000,
+                            PorterDuff.Mode.MULTIPLY);
+
+                    listDrawable.addState(ACTIVATED_STATE_LIST, activatedIconDrawable);
+                    listDrawable.addState(StateSet.WILD_CARD, defaultIconDrawable);
+
+                    iconDrawable = listDrawable;
+                }
+                iconView.setImageDrawable(iconDrawable);
+            } else {
+                iconView.setImageDrawable(null);
             }
-            iconView.setImageDrawable(iconDrawable);
         } else {
             LogUtils.e(LogUtils.TAG, "No icon returned for folder %s", folder);
         }
@@ -667,11 +691,11 @@ public class Folder implements Parcelable, Comparable<Folder> {
     }
 
     public int getBackgroundColor(int defaultColor) {
-        return bgColor != null ? bgColorInt : defaultColor;
+        return !TextUtils.isEmpty(bgColor) ? bgColorInt : defaultColor;
     }
 
     public int getForegroundColor(int defaultColor) {
-        return fgColor != null ? fgColorInt : defaultColor;
+        return !TextUtils.isEmpty(fgColor) ? fgColorInt : defaultColor;
     }
 
     /**
@@ -889,10 +913,10 @@ public class Folder implements Parcelable, Comparable<Folder> {
         f.iconResId = Integer.parseInt(split[index++]);
         f.bgColor = split[index++];
         f.fgColor = split[index++];
-        if (f.bgColor != null) {
+        if (!TextUtils.isEmpty(f.bgColor)) {
             f.bgColorInt = Integer.parseInt(f.bgColor);
         }
-        if (f.fgColor != null) {
+        if (!TextUtils.isEmpty(f.fgColor)) {
             f.fgColorInt = Integer.parseInt(f.fgColor);
         }
         f.loadMoreUri = getValidUri(split[index++]);

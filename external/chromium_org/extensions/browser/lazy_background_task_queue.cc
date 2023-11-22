@@ -5,7 +5,6 @@
 #include "extensions/browser/lazy_background_task_queue.h"
 
 #include "base/callback.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_process_host.h"
@@ -16,10 +15,10 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/extensions_browser_client.h"
+#include "extensions/browser/notification_types.h"
 #include "extensions/browser/process_manager.h"
 #include "extensions/browser/process_map.h"
 #include "extensions/common/extension.h"
-#include "extensions/common/extension_messages.h"
 #include "extensions/common/manifest_handlers/background_info.h"
 #include "extensions/common/view_type.h"
 
@@ -27,13 +26,15 @@ namespace extensions {
 
 LazyBackgroundTaskQueue::LazyBackgroundTaskQueue(
     content::BrowserContext* browser_context)
-    : browser_context_(browser_context) {
-  registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_HOST_DID_STOP_LOADING,
+    : browser_context_(browser_context), extension_registry_observer_(this) {
+  registrar_.Add(this,
+                 extensions::NOTIFICATION_EXTENSION_HOST_DID_STOP_LOADING,
                  content::NotificationService::AllBrowserContextsAndSources());
-  registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_HOST_DESTROYED,
+  registrar_.Add(this,
+                 extensions::NOTIFICATION_EXTENSION_HOST_DESTROYED,
                  content::NotificationService::AllBrowserContextsAndSources());
-  registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED,
-                 content::Source<content::BrowserContext>(browser_context));
+
+  extension_registry_observer_.Add(ExtensionRegistry::Get(browser_context));
 }
 
 LazyBackgroundTaskQueue::~LazyBackgroundTaskQueue() {
@@ -42,6 +43,8 @@ LazyBackgroundTaskQueue::~LazyBackgroundTaskQueue() {
 bool LazyBackgroundTaskQueue::ShouldEnqueueTask(
     content::BrowserContext* browser_context,
     const Extension* extension) {
+  // Note: browser_context may not be the same as browser_context_ for incognito
+  // extension tasks.
   DCHECK(extension);
   if (BackgroundInfo::HasBackgroundPage(extension)) {
     ProcessManager* pm = ExtensionSystem::Get(
@@ -137,7 +140,7 @@ void LazyBackgroundTaskQueue::Observe(
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
   switch (type) {
-    case chrome::NOTIFICATION_EXTENSION_HOST_DID_STOP_LOADING: {
+    case extensions::NOTIFICATION_EXTENSION_HOST_DID_STOP_LOADING: {
       // If an on-demand background page finished loading, dispatch queued up
       // events for it.
       ExtensionHost* host =
@@ -148,7 +151,7 @@ void LazyBackgroundTaskQueue::Observe(
       }
       break;
     }
-    case chrome::NOTIFICATION_EXTENSION_HOST_DESTROYED: {
+    case extensions::NOTIFICATION_EXTENSION_HOST_DESTROYED: {
       // Notify consumers about the load failure when the background host dies.
       // This can happen if the extension crashes. This is not strictly
       // necessary, since we also unload the extension in that case (which
@@ -162,27 +165,25 @@ void LazyBackgroundTaskQueue::Observe(
       }
       break;
     }
-    case chrome::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED: {
-      // Notify consumers that the page failed to load.
-      content::BrowserContext* browser_context =
-          content::Source<content::BrowserContext>(source).ptr();
-      UnloadedExtensionInfo* unloaded =
-          content::Details<UnloadedExtensionInfo>(details).ptr();
-      ProcessPendingTasks(NULL, browser_context, unloaded->extension);
-      // If this extension is also running in an off-the-record context,
-      // notify that task queue as well.
-      ExtensionsBrowserClient* browser_client = ExtensionsBrowserClient::Get();
-      if (browser_client->HasOffTheRecordContext(browser_context)) {
-        ProcessPendingTasks(
-            NULL,
-            browser_client->GetOffTheRecordContext(browser_context),
-            unloaded->extension);
-      }
-      break;
-    }
     default:
       NOTREACHED();
       break;
+  }
+}
+
+void LazyBackgroundTaskQueue::OnExtensionUnloaded(
+    content::BrowserContext* browser_context,
+    const Extension* extension,
+    UnloadedExtensionInfo::Reason reason) {
+  // Notify consumers that the page failed to load.
+  ProcessPendingTasks(NULL, browser_context, extension);
+  // If this extension is also running in an off-the-record context, notify that
+  // task queue as well.
+  ExtensionsBrowserClient* browser_client = ExtensionsBrowserClient::Get();
+  if (browser_client->HasOffTheRecordContext(browser_context)) {
+    ProcessPendingTasks(NULL,
+                        browser_client->GetOffTheRecordContext(browser_context),
+                        extension);
   }
 }
 

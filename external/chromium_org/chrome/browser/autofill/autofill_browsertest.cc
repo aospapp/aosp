@@ -6,7 +6,7 @@
 
 #include "base/basictypes.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/rand_util.h"
@@ -47,6 +47,7 @@
 #include "ui/events/keycodes/keyboard_codes.h"
 
 using base::ASCIIToUTF16;
+using base::UTF16ToASCII;
 using base::WideToUTF16;
 
 namespace autofill {
@@ -120,7 +121,7 @@ class AutofillTest : public InProcessBrowserTest {
     test::DisableSystemServices(browser()->profile()->GetPrefs());
   }
 
-  virtual void CleanUpOnMainThread() OVERRIDE {
+  virtual void TearDownOnMainThread() OVERRIDE {
     // Make sure to close any showing popups prior to tearing down the UI.
     content::WebContents* web_contents =
         browser()->tab_strip_model()->GetActiveWebContents();
@@ -163,7 +164,7 @@ class AutofillTest : public InProcessBrowserTest {
   void FillFormAndSubmit(const std::string& filename, const FormMap& data) {
     GURL url = test_server()->GetURL("files/autofill/" + filename);
     chrome::NavigateParams params(browser(), url,
-                                  content::PAGE_TRANSITION_LINK);
+                                  ui::PAGE_TRANSITION_LINK);
     params.disposition = NEW_FOREGROUND_TAB;
     ui_test_utils::NavigateToURL(&params);
 
@@ -378,8 +379,12 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, FillProfileCrazyCharacters) {
 
   SetProfiles(&profiles);
   ASSERT_EQ(profiles.size(), personal_data_manager()->GetProfiles().size());
-  for (size_t i = 0; i < profiles.size(); ++i)
-    EXPECT_EQ(profiles[i], *personal_data_manager()->GetProfiles()[i]);
+  for (size_t i = 0; i < profiles.size(); ++i) {
+    EXPECT_TRUE(std::find(profiles.begin(),
+                          profiles.end(),
+                          *personal_data_manager()->GetProfiles()[i]) !=
+                profiles.end());
+  }
 
   std::vector<CreditCard> cards;
   CreditCard card1;
@@ -429,8 +434,12 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, FillProfileCrazyCharacters) {
 
   SetCards(&cards);
   ASSERT_EQ(cards.size(), personal_data_manager()->GetCreditCards().size());
-  for (size_t i = 0; i < cards.size(); ++i)
-    EXPECT_EQ(cards[i], *personal_data_manager()->GetCreditCards()[i]);
+  for (size_t i = 0; i < cards.size(); ++i) {
+    EXPECT_TRUE(std::find(cards.begin(),
+                          cards.end(),
+                          *personal_data_manager()->GetCreditCards()[i]) !=
+                cards.end());
+  }
 }
 
 // Test filling in invalid values for profiles are saved as-is. Phone
@@ -621,18 +630,24 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, ProfileSavedWithValidCountryPhone) {
     FillFormAndSubmit("autofill_test_form.html", profiles[i]);
 
   ASSERT_EQ(2u, personal_data_manager()->GetProfiles().size());
-  ASSERT_EQ(ASCIIToUTF16("(408) 871-4567"),
-            personal_data_manager()->GetProfiles()[0]->GetRawInfo(
-                PHONE_HOME_WHOLE_NUMBER));
-  ASSERT_EQ(ASCIIToUTF16("+49 40 808179000"),
-            personal_data_manager()->GetProfiles()[1]->GetRawInfo(
-                PHONE_HOME_WHOLE_NUMBER));
+  int us_address_index =
+      personal_data_manager()->GetProfiles()[0]->GetRawInfo(
+          ADDRESS_HOME_LINE1) == ASCIIToUTF16("123 Cherry Ave")
+          ? 0
+          : 1;
+
+  EXPECT_EQ(
+      ASCIIToUTF16("408-871-4567"),
+      personal_data_manager()->GetProfiles()[us_address_index]->GetRawInfo(
+          PHONE_HOME_WHOLE_NUMBER));
+  ASSERT_EQ(
+      ASCIIToUTF16("+49 40-80-81-79-000"),
+      personal_data_manager()->GetProfiles()[1 - us_address_index]->GetRawInfo(
+          PHONE_HOME_WHOLE_NUMBER));
 }
 
-// Test Autofill appends country codes to aggregated phone numbers.
-// The country code is added for the following case:
-//   The phone number contains the correct national number size and
-//   is a valid format.
+// Prepend country codes when formatting phone numbers, but only if the user
+// provided one in the first place.
 IN_PROC_BROWSER_TEST_F(AutofillTest, AppendCountryCodeForAggregatedPhones) {
   ASSERT_TRUE(test_server()->Start());
   FormMap data;
@@ -643,13 +658,107 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, AppendCountryCodeForAggregatedPhones) {
   data["ADDRESS_HOME_STATE"] = "CA";
   data["ADDRESS_HOME_ZIP"] = "95110";
   data["ADDRESS_HOME_COUNTRY"] = "Germany";
-  data["PHONE_HOME_WHOLE_NUMBER"] = "(08) 450 777-777";
+  data["PHONE_HOME_WHOLE_NUMBER"] = "+4908450777777";
   FillFormAndSubmit("autofill_test_form.html", data);
 
-  ASSERT_EQ(1u, personal_data_manager()->GetProfiles().size());
-  base::string16 phone = personal_data_manager()->GetProfiles()[0]->GetRawInfo(
-      PHONE_HOME_WHOLE_NUMBER);
-  ASSERT_TRUE(StartsWith(phone, ASCIIToUTF16("+49"), true));
+  data["ADDRESS_HOME_LINE1"] = "4321 H St.";
+  data["PHONE_HOME_WHOLE_NUMBER"] = "08450777777";
+  FillFormAndSubmit("autofill_test_form.html", data);
+
+  ASSERT_EQ(2u, personal_data_manager()->GetProfiles().size());
+  int second_address_index =
+      personal_data_manager()->GetProfiles()[0]->GetRawInfo(
+          ADDRESS_HOME_LINE1) == ASCIIToUTF16("4321 H St.")
+          ? 0
+          : 1;
+
+  EXPECT_EQ(ASCIIToUTF16("+49 8450 777777"),
+            personal_data_manager()
+                ->GetProfiles()[1 - second_address_index]
+                ->GetRawInfo(PHONE_HOME_WHOLE_NUMBER));
+
+  EXPECT_EQ(
+      ASCIIToUTF16("08450 777777"),
+      personal_data_manager()->GetProfiles()[second_address_index]->GetRawInfo(
+          PHONE_HOME_WHOLE_NUMBER));
+}
+
+// Test that Autofill uses '+' sign for international numbers.
+// This applies to the following cases:
+//   The phone number has a leading '+'.
+//   The phone number does not have a leading '+'.
+//   The phone number has a leading international direct dialing (IDD) code.
+// This does not apply to US numbers. For US numbers, '+' is removed.
+IN_PROC_BROWSER_TEST_F(AutofillTest, UsePlusSignForInternationalNumber) {
+  ASSERT_TRUE(test_server()->Start());
+  std::vector<FormMap> profiles;
+
+  FormMap data1;
+  data1["NAME_FIRST"] = "Bonnie";
+  data1["NAME_LAST"] = "Smith";
+  data1["ADDRESS_HOME_LINE1"] = "6723 Roadway Rd";
+  data1["ADDRESS_HOME_CITY"] = "Reading";
+  data1["ADDRESS_HOME_STATE"] = "Berkshire";
+  data1["ADDRESS_HOME_ZIP"] = "RG12 3BR";
+  data1["ADDRESS_HOME_COUNTRY"] = "United Kingdom";
+  data1["PHONE_HOME_WHOLE_NUMBER"] = "+44 7624-123456";
+  profiles.push_back(data1);
+
+  FormMap data2;
+  data2["NAME_FIRST"] = "John";
+  data2["NAME_LAST"] = "Doe";
+  data2["ADDRESS_HOME_LINE1"] = "987 H St";
+  data2["ADDRESS_HOME_CITY"] = "Reading";
+  data2["ADDRESS_HOME_STATE"] = "BerkShire";
+  data2["ADDRESS_HOME_ZIP"] = "RG12 3BR";
+  data2["ADDRESS_HOME_COUNTRY"] = "United Kingdom";
+  data2["PHONE_HOME_WHOLE_NUMBER"] = "44 7624 123456";
+  profiles.push_back(data2);
+
+  FormMap data3;
+  data3["NAME_FIRST"] = "Jane";
+  data3["NAME_LAST"] = "Doe";
+  data3["ADDRESS_HOME_LINE1"] = "1523 Garcia St";
+  data3["ADDRESS_HOME_CITY"] = "Reading";
+  data3["ADDRESS_HOME_STATE"] = "BerkShire";
+  data3["ADDRESS_HOME_ZIP"] = "RG12 3BR";
+  data3["ADDRESS_HOME_COUNTRY"] = "United Kingdom";
+  data3["PHONE_HOME_WHOLE_NUMBER"] = "0044 7624 123456";
+  profiles.push_back(data3);
+
+  FormMap data4;
+  data4["NAME_FIRST"] = "Bob";
+  data4["NAME_LAST"] = "Smith";
+  data4["ADDRESS_HOME_LINE1"] = "123 Cherry Ave";
+  data4["ADDRESS_HOME_CITY"] = "Mountain View";
+  data4["ADDRESS_HOME_STATE"] = "CA";
+  data4["ADDRESS_HOME_ZIP"] = "94043";
+  data4["ADDRESS_HOME_COUNTRY"] = "United States";
+  data4["PHONE_HOME_WHOLE_NUMBER"] = "+1 (408) 871-4567";
+  profiles.push_back(data4);
+
+  for (size_t i = 0; i < profiles.size(); ++i)
+    FillFormAndSubmit("autofill_test_form.html", profiles[i]);
+
+  ASSERT_EQ(4u, personal_data_manager()->GetProfiles().size());
+
+  for (size_t i = 0; i < personal_data_manager()->GetProfiles().size(); ++i) {
+    AutofillProfile* profile = personal_data_manager()->GetProfiles()[i];
+    std::string expectation;
+    std::string name = UTF16ToASCII(profile->GetRawInfo(NAME_FIRST));
+
+    if (name == "Bonnie")
+      expectation = "+447624123456";
+    else if (name == "John")
+      expectation = "+447624123456";
+    else if (name == "Jane")
+      expectation = "+447624123456";
+    else if (name == "Bob")
+      expectation = "14088714567";
+
+    EXPECT_EQ(ASCIIToUTF16(expectation),
+              profile->GetInfo(AutofillType(PHONE_HOME_WHOLE_NUMBER), ""));
+  }
 }
 
 // Test CC info not offered to be saved when autocomplete=off for CC field.
@@ -707,7 +816,7 @@ IN_PROC_BROWSER_TEST_F(AutofillTest,
   ASSERT_EQ(3u, personal_data_manager()->GetProfiles().size());
 }
 
-// Test profiles are not merged without mininum address values.
+// Test profiles are not merged without minimum address values.
 // Mininum address values needed during aggregation are: address line 1, city,
 // state, and zip code.
 // Profiles are merged when data for address line 1 and city match.

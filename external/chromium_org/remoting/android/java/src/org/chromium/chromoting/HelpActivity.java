@@ -33,6 +33,11 @@ import org.chromium.ui.UiUtils;
 public class HelpActivity extends Activity {
     private static final String PLAY_STORE_URL = "market://details?id=";
 
+    private static final String FEEDBACK_PACKAGE = "com.google.android.gms";
+
+    private static final String FEEDBACK_CLASS =
+            "com.google.android.gms.feedback.LegacyBugReportService";
+
     /**
      * Maximum dimension for the screenshot to be sent to the Send Feedback handler.  This size
      * ensures the size of bitmap < 1MB, which is a requirement of the handler.
@@ -43,7 +48,7 @@ public class HelpActivity extends Activity {
      * This global variable is used for passing the screenshot from the originating Activity to the
      * HelpActivity. There seems to be no better way of doing this.
      */
-    private static Bitmap mScreenshot;
+    private static Bitmap sScreenshot;
 
     /** Constant used to send the feedback parcel to the system feedback service. */
     private static final int SEND_FEEDBACK_INFO = Binder.FIRST_CALL_TRANSACTION;
@@ -62,13 +67,19 @@ public class HelpActivity extends Activity {
 
     private void sendFeedback() {
         Intent intent = new Intent(Intent.ACTION_BUG_REPORT);
+        intent.setComponent(new ComponentName(FEEDBACK_PACKAGE, FEEDBACK_CLASS));
+        if (getPackageManager().resolveService(intent, 0) == null) {
+            Log.e("help", "Unable to resolve Feedback service.");
+            return;
+        }
+
         ServiceConnection conn = new ServiceConnection() {
             @Override
             public void onServiceConnected(ComponentName name, IBinder service) {
                 try {
                     Parcel parcel = Parcel.obtain();
-                    if (mScreenshot != null) {
-                        mScreenshot.writeToParcel(parcel, 0);
+                    if (sScreenshot != null) {
+                        sScreenshot.writeToParcel(parcel, 0);
                     }
                     service.transact(SEND_FEEDBACK_INFO, parcel, null, 0);
                     parcel.recycle();
@@ -87,7 +98,7 @@ public class HelpActivity extends Activity {
     /** Launches the Help activity. */
     public static void launch(Activity activity, String helpUrl) {
         View rootView = activity.getWindow().getDecorView().getRootView();
-        mScreenshot = UiUtils.generateScaledScreenshot(rootView, MAX_FEEDBACK_SCREENSHOT_DIMENSION,
+        sScreenshot = UiUtils.generateScaledScreenshot(rootView, MAX_FEEDBACK_SCREENSHOT_DIMENSION,
                 Bitmap.Config.ARGB_8888);
 
         Intent intent = new Intent(activity, HelpActivity.class);

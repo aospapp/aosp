@@ -8,17 +8,19 @@
 
 #include "base/logging.h"
 #include "base/time/time.h"
+#include "mojo/embedder/platform_shared_buffer.h"
+#include "mojo/embedder/platform_support.h"
 #include "mojo/public/c/system/macros.h"
 #include "mojo/system/constants.h"
 #include "mojo/system/data_pipe.h"
 #include "mojo/system/data_pipe_consumer_dispatcher.h"
 #include "mojo/system/data_pipe_producer_dispatcher.h"
 #include "mojo/system/dispatcher.h"
+#include "mojo/system/handle_signals_state.h"
 #include "mojo/system/local_data_pipe.h"
 #include "mojo/system/memory.h"
 #include "mojo/system/message_pipe.h"
 #include "mojo/system/message_pipe_dispatcher.h"
-#include "mojo/system/raw_shared_buffer.h"
 #include "mojo/system/shared_buffer_dispatcher.h"
 #include "mojo/system/waiter.h"
 
@@ -73,21 +75,22 @@ namespace system {
 //    - Locks at the "INF" level may not have any locks taken while they are
 //      held.
 
-Core::Core() {
+// TODO(vtl): This should take a |scoped_ptr<PlatformSupport>| as a parameter.
+Core::Core(scoped_ptr<embedder::PlatformSupport> platform_support)
+    : platform_support_(platform_support.Pass()) {
 }
 
 Core::~Core() {
 }
 
-MojoHandle Core::AddDispatcher(
-    const scoped_refptr<Dispatcher>& dispatcher) {
+MojoHandle Core::AddDispatcher(const scoped_refptr<Dispatcher>& dispatcher) {
   base::AutoLock locker(handle_table_lock_);
   return handle_table_.AddDispatcher(dispatcher);
 }
 
 scoped_refptr<Dispatcher> Core::GetDispatcher(MojoHandle handle) {
   if (handle == MOJO_HANDLE_INVALID)
-    return NULL;
+    return nullptr;
 
   base::AutoLock locker(handle_table_lock_);
   return handle_table_.GetDispatcher(handle);
@@ -104,8 +107,8 @@ MojoResult Core::Close(MojoHandle handle) {
   scoped_refptr<Dispatcher> dispatcher;
   {
     base::AutoLock locker(handle_table_lock_);
-    MojoResult result = handle_table_.GetAndRemoveDispatcher(handle,
-                                                             &dispatcher);
+    MojoResult result =
+        handle_table_.GetAndRemoveDispatcher(handle, &dispatcher);
     if (result != MOJO_RESULT_OK)
       return result;
   }
@@ -119,38 +122,73 @@ MojoResult Core::Close(MojoHandle handle) {
 
 MojoResult Core::Wait(MojoHandle handle,
                       MojoHandleSignals signals,
-                      MojoDeadline deadline) {
-  return WaitManyInternal(&handle, &signals, 1, deadline);
+                      MojoDeadline deadline,
+                      UserPointer<MojoHandleSignalsState> signals_state) {
+  uint32_t unused = static_cast<uint32_t>(-1);
+  HandleSignalsState hss;
+  MojoResult rv = WaitManyInternal(&handle,
+                                   &signals,
+                                   1,
+                                   deadline,
+                                   &unused,
+                                   signals_state.IsNull() ? nullptr : &hss);
+  if (rv != MOJO_RESULT_INVALID_ARGUMENT && !signals_state.IsNull())
+    signals_state.Put(hss);
+  return rv;
 }
 
-MojoResult Core::WaitMany(const MojoHandle* handles,
-                          const MojoHandleSignals* signals,
+MojoResult Core::WaitMany(UserPointer<const MojoHandle> handles,
+                          UserPointer<const MojoHandleSignals> signals,
                           uint32_t num_handles,
-                          MojoDeadline deadline) {
-  if (!VerifyUserPointerWithCount<MojoHandle>(handles, num_handles))
-    return MOJO_RESULT_INVALID_ARGUMENT;
-  if (!VerifyUserPointerWithCount<MojoHandleSignals>(signals, num_handles))
-    return MOJO_RESULT_INVALID_ARGUMENT;
+                          MojoDeadline deadline,
+                          UserPointer<uint32_t> result_index,
+                          UserPointer<MojoHandleSignalsState> signals_states) {
   if (num_handles < 1)
     return MOJO_RESULT_INVALID_ARGUMENT;
   if (num_handles > kMaxWaitManyNumHandles)
     return MOJO_RESULT_RESOURCE_EXHAUSTED;
-  return WaitManyInternal(handles, signals, num_handles, deadline);
+
+  UserPointer<const MojoHandle>::Reader handles_reader(handles, num_handles);
+  UserPointer<const MojoHandleSignals>::Reader signals_reader(signals,
+                                                              num_handles);
+  uint32_t index = static_cast<uint32_t>(-1);
+  MojoResult rv;
+  if (signals_states.IsNull()) {
+    rv = WaitManyInternal(handles_reader.GetPointer(),
+                          signals_reader.GetPointer(),
+                          num_handles,
+                          deadline,
+                          &index,
+                          nullptr);
+  } else {
+    UserPointer<MojoHandleSignalsState>::Writer signals_states_writer(
+        signals_states, num_handles);
+    // Note: The |reinterpret_cast| is safe, since |HandleSignalsState| is a
+    // subclass of |MojoHandleSignalsState| that doesn't add any data members.
+    rv = WaitManyInternal(handles_reader.GetPointer(),
+                          signals_reader.GetPointer(),
+                          num_handles,
+                          deadline,
+                          &index,
+                          reinterpret_cast<HandleSignalsState*>(
+                              signals_states_writer.GetPointer()));
+    if (rv != MOJO_RESULT_INVALID_ARGUMENT)
+      signals_states_writer.Commit();
+  }
+  if (index != static_cast<uint32_t>(-1) && !result_index.IsNull())
+    result_index.Put(index);
+  return rv;
 }
 
-MojoResult Core::CreateMessagePipe(const MojoCreateMessagePipeOptions* options,
-                                   MojoHandle* message_pipe_handle0,
-                                   MojoHandle* message_pipe_handle1) {
+MojoResult Core::CreateMessagePipe(
+    UserPointer<const MojoCreateMessagePipeOptions> options,
+    UserPointer<MojoHandle> message_pipe_handle0,
+    UserPointer<MojoHandle> message_pipe_handle1) {
   MojoCreateMessagePipeOptions validated_options = {};
-  // This will verify the |options| pointer.
-  MojoResult result = MessagePipeDispatcher::ValidateCreateOptions(
-      options, &validated_options);
+  MojoResult result =
+      MessagePipeDispatcher::ValidateCreateOptions(options, &validated_options);
   if (result != MOJO_RESULT_OK)
     return result;
-  if (!VerifyUserPointer<MojoHandle>(message_pipe_handle0))
-    return MOJO_RESULT_INVALID_ARGUMENT;
-  if (!VerifyUserPointer<MojoHandle>(message_pipe_handle1))
-    return MOJO_RESULT_INVALID_ARGUMENT;
 
   scoped_refptr<MessagePipeDispatcher> dispatcher0(
       new MessagePipeDispatcher(validated_options));
@@ -170,12 +208,12 @@ MojoResult Core::CreateMessagePipe(const MojoCreateMessagePipeOptions* options,
     return MOJO_RESULT_RESOURCE_EXHAUSTED;
   }
 
-  scoped_refptr<MessagePipe> message_pipe(new MessagePipe());
+  scoped_refptr<MessagePipe> message_pipe(MessagePipe::CreateLocalLocal());
   dispatcher0->Init(message_pipe, 0);
   dispatcher1->Init(message_pipe, 1);
 
-  *message_pipe_handle0 = handle_pair.first;
-  *message_pipe_handle1 = handle_pair.second;
+  message_pipe_handle0.Put(handle_pair.first);
+  message_pipe_handle1.Put(handle_pair.second);
   return MOJO_RESULT_OK;
 }
 
@@ -187,18 +225,18 @@ MojoResult Core::CreateMessagePipe(const MojoCreateMessagePipeOptions* options,
 // after the the message has been received and a new handle created (and
 // possibly even after calls have been made on the new handle).
 MojoResult Core::WriteMessage(MojoHandle message_pipe_handle,
-                              const void* bytes,
+                              UserPointer<const void> bytes,
                               uint32_t num_bytes,
-                              const MojoHandle* handles,
+                              UserPointer<const MojoHandle> handles,
                               uint32_t num_handles,
                               MojoWriteMessageFlags flags) {
   scoped_refptr<Dispatcher> dispatcher(GetDispatcher(message_pipe_handle));
-  if (!dispatcher)
+  if (!dispatcher.get())
     return MOJO_RESULT_INVALID_ARGUMENT;
 
   // Easy case: not sending any handles.
   if (num_handles == 0)
-    return dispatcher->WriteMessage(bytes, num_bytes, NULL, flags);
+    return dispatcher->WriteMessage(bytes, num_bytes, nullptr, flags);
 
   // We have to handle |handles| here, since we have to mark them busy in the
   // global handle table. We can't delegate this to the dispatcher, since the
@@ -208,10 +246,10 @@ MojoResult Core::WriteMessage(MojoHandle message_pipe_handle,
   // validity, even for dispatchers that don't support |WriteMessage()| and will
   // simply return failure unconditionally. It also breaks the usual
   // left-to-right verification order of arguments.)
-  if (!VerifyUserPointerWithCount<MojoHandle>(handles, num_handles))
-    return MOJO_RESULT_INVALID_ARGUMENT;
   if (num_handles > kMaxMessageNumHandles)
     return MOJO_RESULT_RESOURCE_EXHAUSTED;
+
+  UserPointer<const MojoHandle>::Reader handles_reader(handles, num_handles);
 
   // We'll need to hold on to the dispatchers so that we can pass them on to
   // |WriteMessage()| and also so that we can unlock their locks afterwards
@@ -225,14 +263,17 @@ MojoResult Core::WriteMessage(MojoHandle message_pipe_handle,
   // handles from the handle table.
   {
     base::AutoLock locker(handle_table_lock_);
-    MojoResult result = handle_table_.MarkBusyAndStartTransport(
-        message_pipe_handle, handles, num_handles, &transports);
+    MojoResult result =
+        handle_table_.MarkBusyAndStartTransport(message_pipe_handle,
+                                                handles_reader.GetPointer(),
+                                                num_handles,
+                                                &transports);
     if (result != MOJO_RESULT_OK)
       return result;
   }
 
-  MojoResult rv = dispatcher->WriteMessage(bytes, num_bytes, &transports,
-                                           flags);
+  MojoResult rv =
+      dispatcher->WriteMessage(bytes, num_bytes, &transports, flags);
 
   // We need to release the dispatcher locks before we take the handle table
   // lock.
@@ -241,77 +282,81 @@ MojoResult Core::WriteMessage(MojoHandle message_pipe_handle,
 
   {
     base::AutoLock locker(handle_table_lock_);
-    if (rv == MOJO_RESULT_OK)
-      handle_table_.RemoveBusyHandles(handles, num_handles);
-    else
-      handle_table_.RestoreBusyHandles(handles, num_handles);
+    if (rv == MOJO_RESULT_OK) {
+      handle_table_.RemoveBusyHandles(handles_reader.GetPointer(), num_handles);
+    } else {
+      handle_table_.RestoreBusyHandles(handles_reader.GetPointer(),
+                                       num_handles);
+    }
   }
 
   return rv;
 }
 
 MojoResult Core::ReadMessage(MojoHandle message_pipe_handle,
-                             void* bytes,
-                             uint32_t* num_bytes,
-                             MojoHandle* handles,
-                             uint32_t* num_handles,
+                             UserPointer<void> bytes,
+                             UserPointer<uint32_t> num_bytes,
+                             UserPointer<MojoHandle> handles,
+                             UserPointer<uint32_t> num_handles,
                              MojoReadMessageFlags flags) {
   scoped_refptr<Dispatcher> dispatcher(GetDispatcher(message_pipe_handle));
-  if (!dispatcher)
+  if (!dispatcher.get())
     return MOJO_RESULT_INVALID_ARGUMENT;
 
-  if (num_handles) {
-    if (!VerifyUserPointer<uint32_t>(num_handles))
-      return MOJO_RESULT_INVALID_ARGUMENT;
-    if (!VerifyUserPointerWithCount<MojoHandle>(handles, *num_handles))
-      return MOJO_RESULT_INVALID_ARGUMENT;
-  }
+  uint32_t num_handles_value = num_handles.IsNull() ? 0 : num_handles.Get();
 
-  // Easy case: won't receive any handles.
-  if (!num_handles || *num_handles == 0)
-    return dispatcher->ReadMessage(bytes, num_bytes, NULL, num_handles, flags);
+  MojoResult rv;
+  if (num_handles_value == 0) {
+    // Easy case: won't receive any handles.
+    rv = dispatcher->ReadMessage(
+        bytes, num_bytes, nullptr, &num_handles_value, flags);
+  } else {
+    DispatcherVector dispatchers;
+    rv = dispatcher->ReadMessage(
+        bytes, num_bytes, &dispatchers, &num_handles_value, flags);
+    if (!dispatchers.empty()) {
+      DCHECK_EQ(rv, MOJO_RESULT_OK);
+      DCHECK(!num_handles.IsNull());
+      DCHECK_LE(dispatchers.size(), static_cast<size_t>(num_handles_value));
 
-  DispatcherVector dispatchers;
-  MojoResult rv = dispatcher->ReadMessage(bytes, num_bytes,
-                                          &dispatchers, num_handles,
-                                          flags);
-  if (!dispatchers.empty()) {
-    DCHECK_EQ(rv, MOJO_RESULT_OK);
-    DCHECK(num_handles);
-    DCHECK_LE(dispatchers.size(), static_cast<size_t>(*num_handles));
-
-    bool success;
-    {
-      base::AutoLock locker(handle_table_lock_);
-      success = handle_table_.AddDispatcherVector(dispatchers, handles);
-    }
-    if (!success) {
-      LOG(ERROR) << "Received message with " << dispatchers.size()
-                 << " handles, but handle table full";
-      // Close dispatchers (outside the lock).
-      for (size_t i = 0; i < dispatchers.size(); i++) {
-        if (dispatchers[i])
-          dispatchers[i]->Close();
+      bool success;
+      UserPointer<MojoHandle>::Writer handles_writer(handles,
+                                                     dispatchers.size());
+      {
+        base::AutoLock locker(handle_table_lock_);
+        success = handle_table_.AddDispatcherVector(
+            dispatchers, handles_writer.GetPointer());
+      }
+      if (success) {
+        handles_writer.Commit();
+      } else {
+        LOG(ERROR) << "Received message with " << dispatchers.size()
+                   << " handles, but handle table full";
+        // Close dispatchers (outside the lock).
+        for (size_t i = 0; i < dispatchers.size(); i++) {
+          if (dispatchers[i].get())
+            dispatchers[i]->Close();
+        }
+        if (rv == MOJO_RESULT_OK)
+          rv = MOJO_RESULT_RESOURCE_EXHAUSTED;
       }
     }
   }
 
+  if (!num_handles.IsNull())
+    num_handles.Put(num_handles_value);
   return rv;
 }
 
-MojoResult Core::CreateDataPipe(const MojoCreateDataPipeOptions* options,
-                                MojoHandle* data_pipe_producer_handle,
-                                MojoHandle* data_pipe_consumer_handle) {
+MojoResult Core::CreateDataPipe(
+    UserPointer<const MojoCreateDataPipeOptions> options,
+    UserPointer<MojoHandle> data_pipe_producer_handle,
+    UserPointer<MojoHandle> data_pipe_consumer_handle) {
   MojoCreateDataPipeOptions validated_options = {};
-  // This will verify the |options| pointer.
-  MojoResult result = DataPipe::ValidateCreateOptions(options,
-                                                      &validated_options);
+  MojoResult result =
+      DataPipe::ValidateCreateOptions(options, &validated_options);
   if (result != MOJO_RESULT_OK)
     return result;
-  if (!VerifyUserPointer<MojoHandle>(data_pipe_producer_handle))
-    return MOJO_RESULT_INVALID_ARGUMENT;
-  if (!VerifyUserPointer<MojoHandle>(data_pipe_consumer_handle))
-    return MOJO_RESULT_INVALID_ARGUMENT;
 
   scoped_refptr<DataPipeProducerDispatcher> producer_dispatcher(
       new DataPipeProducerDispatcher());
@@ -337,30 +382,30 @@ MojoResult Core::CreateDataPipe(const MojoCreateDataPipeOptions* options,
   producer_dispatcher->Init(data_pipe);
   consumer_dispatcher->Init(data_pipe);
 
-  *data_pipe_producer_handle = handle_pair.first;
-  *data_pipe_consumer_handle = handle_pair.second;
+  data_pipe_producer_handle.Put(handle_pair.first);
+  data_pipe_consumer_handle.Put(handle_pair.second);
   return MOJO_RESULT_OK;
 }
 
 MojoResult Core::WriteData(MojoHandle data_pipe_producer_handle,
-                           const void* elements,
-                           uint32_t* num_bytes,
+                           UserPointer<const void> elements,
+                           UserPointer<uint32_t> num_bytes,
                            MojoWriteDataFlags flags) {
   scoped_refptr<Dispatcher> dispatcher(
       GetDispatcher(data_pipe_producer_handle));
-  if (!dispatcher)
+  if (!dispatcher.get())
     return MOJO_RESULT_INVALID_ARGUMENT;
 
   return dispatcher->WriteData(elements, num_bytes, flags);
 }
 
 MojoResult Core::BeginWriteData(MojoHandle data_pipe_producer_handle,
-                                void** buffer,
-                                uint32_t* buffer_num_bytes,
+                                UserPointer<void*> buffer,
+                                UserPointer<uint32_t> buffer_num_bytes,
                                 MojoWriteDataFlags flags) {
   scoped_refptr<Dispatcher> dispatcher(
       GetDispatcher(data_pipe_producer_handle));
-  if (!dispatcher)
+  if (!dispatcher.get())
     return MOJO_RESULT_INVALID_ARGUMENT;
 
   return dispatcher->BeginWriteData(buffer, buffer_num_bytes, flags);
@@ -370,31 +415,31 @@ MojoResult Core::EndWriteData(MojoHandle data_pipe_producer_handle,
                               uint32_t num_bytes_written) {
   scoped_refptr<Dispatcher> dispatcher(
       GetDispatcher(data_pipe_producer_handle));
-  if (!dispatcher)
+  if (!dispatcher.get())
     return MOJO_RESULT_INVALID_ARGUMENT;
 
   return dispatcher->EndWriteData(num_bytes_written);
 }
 
 MojoResult Core::ReadData(MojoHandle data_pipe_consumer_handle,
-                          void* elements,
-                          uint32_t* num_bytes,
+                          UserPointer<void> elements,
+                          UserPointer<uint32_t> num_bytes,
                           MojoReadDataFlags flags) {
   scoped_refptr<Dispatcher> dispatcher(
       GetDispatcher(data_pipe_consumer_handle));
-  if (!dispatcher)
+  if (!dispatcher.get())
     return MOJO_RESULT_INVALID_ARGUMENT;
 
   return dispatcher->ReadData(elements, num_bytes, flags);
 }
 
 MojoResult Core::BeginReadData(MojoHandle data_pipe_consumer_handle,
-                               const void** buffer,
-                               uint32_t* buffer_num_bytes,
+                               UserPointer<const void*> buffer,
+                               UserPointer<uint32_t> buffer_num_bytes,
                                MojoReadDataFlags flags) {
   scoped_refptr<Dispatcher> dispatcher(
       GetDispatcher(data_pipe_consumer_handle));
-  if (!dispatcher)
+  if (!dispatcher.get())
     return MOJO_RESULT_INVALID_ARGUMENT;
 
   return dispatcher->BeginReadData(buffer, buffer_num_bytes, flags);
@@ -404,31 +449,27 @@ MojoResult Core::EndReadData(MojoHandle data_pipe_consumer_handle,
                              uint32_t num_bytes_read) {
   scoped_refptr<Dispatcher> dispatcher(
       GetDispatcher(data_pipe_consumer_handle));
-  if (!dispatcher)
+  if (!dispatcher.get())
     return MOJO_RESULT_INVALID_ARGUMENT;
 
   return dispatcher->EndReadData(num_bytes_read);
 }
 
 MojoResult Core::CreateSharedBuffer(
-    const MojoCreateSharedBufferOptions* options,
+    UserPointer<const MojoCreateSharedBufferOptions> options,
     uint64_t num_bytes,
-    MojoHandle* shared_buffer_handle) {
+    UserPointer<MojoHandle> shared_buffer_handle) {
   MojoCreateSharedBufferOptions validated_options = {};
-  // This will verify the |options| pointer.
-  MojoResult result =
-      SharedBufferDispatcher::ValidateCreateOptions(options,
-                                                    &validated_options);
+  MojoResult result = SharedBufferDispatcher::ValidateCreateOptions(
+      options, &validated_options);
   if (result != MOJO_RESULT_OK)
     return result;
-  if (!VerifyUserPointer<MojoHandle>(shared_buffer_handle))
-    return MOJO_RESULT_INVALID_ARGUMENT;
 
   scoped_refptr<SharedBufferDispatcher> dispatcher;
-  result = SharedBufferDispatcher::Create(validated_options, num_bytes,
-                                          &dispatcher);
+  result = SharedBufferDispatcher::Create(
+      platform_support(), validated_options, num_bytes, &dispatcher);
   if (result != MOJO_RESULT_OK) {
-    DCHECK(!dispatcher);
+    DCHECK(!dispatcher.get());
     return result;
   }
 
@@ -439,25 +480,22 @@ MojoResult Core::CreateSharedBuffer(
     return MOJO_RESULT_RESOURCE_EXHAUSTED;
   }
 
-  *shared_buffer_handle = h;
+  shared_buffer_handle.Put(h);
   return MOJO_RESULT_OK;
 }
 
 MojoResult Core::DuplicateBufferHandle(
     MojoHandle buffer_handle,
-    const MojoDuplicateBufferHandleOptions* options,
-    MojoHandle* new_buffer_handle) {
+    UserPointer<const MojoDuplicateBufferHandleOptions> options,
+    UserPointer<MojoHandle> new_buffer_handle) {
   scoped_refptr<Dispatcher> dispatcher(GetDispatcher(buffer_handle));
-  if (!dispatcher)
+  if (!dispatcher.get())
     return MOJO_RESULT_INVALID_ARGUMENT;
 
   // Don't verify |options| here; that's the dispatcher's job.
-  if (!VerifyUserPointer<MojoHandle>(new_buffer_handle))
-    return MOJO_RESULT_INVALID_ARGUMENT;
-
   scoped_refptr<Dispatcher> new_dispatcher;
-  MojoResult result = dispatcher->DuplicateBufferHandle(options,
-                                                        &new_dispatcher);
+  MojoResult result =
+      dispatcher->DuplicateBufferHandle(options, &new_dispatcher);
   if (result != MOJO_RESULT_OK)
     return result;
 
@@ -468,29 +506,26 @@ MojoResult Core::DuplicateBufferHandle(
     return MOJO_RESULT_RESOURCE_EXHAUSTED;
   }
 
-  *new_buffer_handle = new_handle;
+  new_buffer_handle.Put(new_handle);
   return MOJO_RESULT_OK;
 }
 
 MojoResult Core::MapBuffer(MojoHandle buffer_handle,
                            uint64_t offset,
                            uint64_t num_bytes,
-                           void** buffer,
+                           UserPointer<void*> buffer,
                            MojoMapBufferFlags flags) {
   scoped_refptr<Dispatcher> dispatcher(GetDispatcher(buffer_handle));
-  if (!dispatcher)
+  if (!dispatcher.get())
     return MOJO_RESULT_INVALID_ARGUMENT;
 
-  if (!VerifyUserPointerWithCount<void*>(buffer, 1))
-    return MOJO_RESULT_INVALID_ARGUMENT;
-
-  scoped_ptr<RawSharedBufferMapping> mapping;
+  scoped_ptr<embedder::PlatformSharedBufferMapping> mapping;
   MojoResult result = dispatcher->MapBuffer(offset, num_bytes, flags, &mapping);
   if (result != MOJO_RESULT_OK)
     return result;
 
   DCHECK(mapping);
-  void* address = mapping->base();
+  void* address = mapping->GetBase();
   {
     base::AutoLock locker(mapping_table_lock_);
     result = mapping_table_.AddMapping(mapping.Pass());
@@ -498,13 +533,13 @@ MojoResult Core::MapBuffer(MojoHandle buffer_handle,
   if (result != MOJO_RESULT_OK)
     return result;
 
-  *buffer = address;
+  buffer.Put(address);
   return MOJO_RESULT_OK;
 }
 
-MojoResult Core::UnmapBuffer(void* buffer) {
+MojoResult Core::UnmapBuffer(UserPointer<void> buffer) {
   base::AutoLock locker(mapping_table_lock_);
-  return mapping_table_.RemoveMapping(buffer);
+  return mapping_table_.RemoveMapping(buffer.GetPointerValue());
 }
 
 // Note: We allow |handles| to repeat the same handle multiple times, since
@@ -514,15 +549,20 @@ MojoResult Core::UnmapBuffer(void* buffer) {
 MojoResult Core::WaitManyInternal(const MojoHandle* handles,
                                   const MojoHandleSignals* signals,
                                   uint32_t num_handles,
-                                  MojoDeadline deadline) {
+                                  MojoDeadline deadline,
+                                  uint32_t* result_index,
+                                  HandleSignalsState* signals_states) {
   DCHECK_GT(num_handles, 0u);
+  DCHECK_EQ(*result_index, static_cast<uint32_t>(-1));
 
   DispatcherVector dispatchers;
   dispatchers.reserve(num_handles);
   for (uint32_t i = 0; i < num_handles; i++) {
     scoped_refptr<Dispatcher> dispatcher = GetDispatcher(handles[i]);
-    if (!dispatcher)
+    if (!dispatcher.get()) {
+      *result_index = i;
       return MOJO_RESULT_INVALID_ARGUMENT;
+    }
     dispatchers.push_back(dispatcher);
   }
 
@@ -533,26 +573,31 @@ MojoResult Core::WaitManyInternal(const MojoHandle* handles,
   uint32_t i;
   MojoResult rv = MOJO_RESULT_OK;
   for (i = 0; i < num_handles; i++) {
-    rv = dispatchers[i]->AddWaiter(&waiter, signals[i], i);
-    if (rv != MOJO_RESULT_OK)
+    rv = dispatchers[i]->AddWaiter(
+        &waiter, signals[i], i, signals_states ? &signals_states[i] : nullptr);
+    if (rv != MOJO_RESULT_OK) {
+      *result_index = i;
       break;
+    }
   }
   uint32_t num_added = i;
 
-  if (rv == MOJO_RESULT_ALREADY_EXISTS) {
-    rv = static_cast<MojoResult>(i);  // The i-th one is already "triggered".
-  } else if (rv == MOJO_RESULT_OK) {
-    uint32_t context = static_cast<uint32_t>(-1);
-    rv = waiter.Wait(deadline, &context);
-    if (rv == MOJO_RESULT_OK)
-      rv = static_cast<MojoResult>(context);
-  }
+  if (rv == MOJO_RESULT_ALREADY_EXISTS)
+    rv = MOJO_RESULT_OK;  // The i-th one is already "triggered".
+  else if (rv == MOJO_RESULT_OK)
+    rv = waiter.Wait(deadline, result_index);
 
   // Make sure no other dispatchers try to wake |waiter| for the current
   // |Wait()|/|WaitMany()| call. (Only after doing this can |waiter| be
   // destroyed, but this would still be required if the waiter were in TLS.)
-  for (i = 0; i < num_added; i++)
-    dispatchers[i]->RemoveWaiter(&waiter);
+  for (i = 0; i < num_added; i++) {
+    dispatchers[i]->RemoveWaiter(&waiter,
+                                 signals_states ? &signals_states[i] : nullptr);
+  }
+  if (signals_states) {
+    for (; i < num_handles; i++)
+      signals_states[i] = dispatchers[i]->GetHandleSignalsState();
+  }
 
   return rv;
 }

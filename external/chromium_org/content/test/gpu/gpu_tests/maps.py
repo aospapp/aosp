@@ -13,20 +13,18 @@ import os
 import cloud_storage_test_base
 import maps_expectations
 
-from telemetry import test
+from telemetry import benchmark
 from telemetry.core import bitmap
 from telemetry.core import util
 from telemetry.page import page
 from telemetry.page import page_set
 from telemetry.page import page_test
-# pylint: disable=W0401,W0614
-from telemetry.page.actions.all_page_actions import *
 
 class _MapsValidator(cloud_storage_test_base.ValidatorBase):
   def CustomizeBrowserOptions(self, options):
     options.AppendExtraBrowserArgs('--enable-gpu-benchmarking')
 
-  def ValidatePage(self, page, tab, results):
+  def ValidateAndMeasurePage(self, page, tab, results):
     # TODO: This should not be necessary, but it's not clear if the test is
     # failing on the bots in it's absence. Remove once we can verify that it's
     # safe to do so.
@@ -84,7 +82,8 @@ class MapsPage(page.Page):
 
   def RunNavigateSteps(self, action_runner):
     action_runner.NavigateToPage(self)
-    action_runner.WaitForJavaScriptCondition('window.testDone', timeout=180)
+    action_runner.WaitForJavaScriptCondition(
+        'window.testDone', timeout_in_seconds=180)
 
 
 class Maps(cloud_storage_test_base.TestBase):
@@ -99,6 +98,7 @@ class Maps(cloud_storage_test_base.TestBase):
         util.GetChromiumSrcDir(), 'content', 'test', 'gpu', 'page_sets')
     ps = page_set.PageSet(archive_data_file='data/maps.json',
                           make_javascript_deterministic=False,
-                          file_path=page_set_path)
+                          file_path=page_set_path,
+                          bucket=page_set.PUBLIC_BUCKET)
     ps.AddPage(MapsPage(ps, ps.base_dir))
     return ps

@@ -4,7 +4,6 @@
 
 #include "content/renderer/pepper/resource_creation_impl.h"
 
-#include "content/renderer/pepper/common.h"
 #include "content/renderer/pepper/ppb_audio_impl.h"
 #include "content/renderer/pepper/ppb_broker_impl.h"
 #include "content/renderer/pepper/ppb_buffer_impl.h"
@@ -13,7 +12,9 @@
 #include "content/renderer/pepper/ppb_image_data_impl.h"
 #include "content/renderer/pepper/ppb_scrollbar_impl.h"
 #include "content/renderer/pepper/ppb_video_decoder_impl.h"
+#include "ppapi/c/pp_bool.h"
 #include "ppapi/c/pp_size.h"
+#include "ppapi/c/pp_var.h"
 #include "ppapi/shared_impl/ppb_audio_config_shared.h"
 #include "ppapi/shared_impl/ppb_audio_shared.h"
 #include "ppapi/shared_impl/ppb_image_data_shared.h"
@@ -105,8 +106,10 @@ PP_Resource ResourceCreationImpl::CreateGraphics3D(PP_Instance instance,
 PP_Resource ResourceCreationImpl::CreateGraphics3DRaw(
     PP_Instance instance,
     PP_Resource share_context,
-    const int32_t* attrib_list) {
-  return PPB_Graphics3D_Impl::CreateRaw(instance, share_context, attrib_list);
+    const int32_t* attrib_list,
+    base::SharedMemoryHandle* shared_state) {
+  return PPB_Graphics3D_Impl::CreateRaw(instance, share_context, attrib_list,
+                                        shared_state);
 }
 
 PP_Resource ResourceCreationImpl::CreateHostResolver(PP_Instance instance) {

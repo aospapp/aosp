@@ -47,6 +47,18 @@ Status ParseString(std::string* to_set,
   return Status(kOk);
 }
 
+Status ParseInterval(int* to_set,
+                     const base::Value& option,
+                     Capabilities* capabilities) {
+  int parsed_int = 0;
+  if (!option.GetAsInteger(&parsed_int))
+    return Status(kUnknownError, "must be an integer");
+  if (parsed_int <= 0)
+    return Status(kUnknownError, "must be positive");
+  *to_set = parsed_int;
+  return Status(kOk);
+}
+
 Status ParseFilePath(base::FilePath* to_set,
                      const base::Value& option,
                      Capabilities* capabilities) {
@@ -124,9 +136,9 @@ Status ParseMobileEmulation(const base::Value& option,
     if (!mobile_emulation->GetDictionary("deviceMetrics", &metrics))
       return Status(kUnknownError, "'deviceMetrics' must be a dictionary");
 
-    int width;
-    int height;
-    double device_scale_factor;
+    int width = 0;
+    int height = 0;
+    double device_scale_factor = 0;
     if (!metrics->GetInteger("width", &width) ||
         !metrics->GetInteger("height", &height) ||
         !metrics->GetDouble("pixelRatio", &device_scale_factor))
@@ -185,7 +197,7 @@ Status ParseProxy(const base::Value& option, Capabilities* capabilities) {
   std::string proxy_type;
   if (!proxy_dict->GetString("proxyType", &proxy_type))
     return Status(kUnknownError, "'proxyType' must be a string");
-  proxy_type = StringToLowerASCII(proxy_type);
+  proxy_type = base::StringToLowerASCII(proxy_type);
   if (proxy_type == "direct") {
     capabilities->switches.SetSwitch("no-proxy-server");
   } else if (proxy_type == "system") {
@@ -302,6 +314,50 @@ Status ParseLoggingPrefs(const base::Value& option,
   return Status(kOk);
 }
 
+Status ParseInspectorDomainStatus(
+    PerfLoggingPrefs::InspectorDomainStatus* to_set,
+    const base::Value& option,
+    Capabilities* capabilities) {
+  bool desired_value;
+  if (!option.GetAsBoolean(&desired_value))
+    return Status(kUnknownError, "must be a boolean");
+  if (desired_value)
+    *to_set = PerfLoggingPrefs::InspectorDomainStatus::kExplicitlyEnabled;
+  else
+    *to_set = PerfLoggingPrefs::InspectorDomainStatus::kExplicitlyDisabled;
+  return Status(kOk);
+}
+
+Status ParsePerfLoggingPrefs(const base::Value& option,
+                             Capabilities* capabilities) {
+  const base::DictionaryValue* perf_logging_prefs = NULL;
+  if (!option.GetAsDictionary(&perf_logging_prefs))
+    return Status(kUnknownError, "must be a dictionary");
+
+  std::map<std::string, Parser> parser_map;
+  parser_map["bufferUsageReportingInterval"] = base::Bind(&ParseInterval,
+      &capabilities->perf_logging_prefs.buffer_usage_reporting_interval);
+  parser_map["enableNetwork"] = base::Bind(
+      &ParseInspectorDomainStatus, &capabilities->perf_logging_prefs.network);
+  parser_map["enablePage"] = base::Bind(
+      &ParseInspectorDomainStatus, &capabilities->perf_logging_prefs.page);
+  parser_map["enableTimeline"] = base::Bind(
+      &ParseInspectorDomainStatus, &capabilities->perf_logging_prefs.timeline);
+  parser_map["traceCategories"] = base::Bind(
+      &ParseString, &capabilities->perf_logging_prefs.trace_categories);
+
+  for (base::DictionaryValue::Iterator it(*perf_logging_prefs); !it.IsAtEnd();
+       it.Advance()) {
+     if (parser_map.find(it.key()) == parser_map.end())
+       return Status(kUnknownError, "unrecognized performance logging "
+                     "option: " + it.key());
+     Status status = parser_map[it.key()].Run(it.value(), capabilities);
+     if (status.IsError())
+       return Status(kUnknownError, "cannot parse " + it.key(), status);
+   }
+   return Status(kOk);
+}
+
 Status ParseChromeOptions(
     const base::Value& capability,
     Capabilities* capabilities) {
@@ -318,6 +374,9 @@ Status ParseChromeOptions(
   parser_map["args"] = base::Bind(&IgnoreCapability);
   parser_map["binary"] = base::Bind(&IgnoreCapability);
   parser_map["extensions"] = base::Bind(&IgnoreCapability);
+
+  parser_map["perfLoggingPrefs"] = base::Bind(&ParsePerfLoggingPrefs);
+
   if (is_android) {
     parser_map["androidActivity"] =
         base::Bind(&ParseString, &capabilities->android_activity);
@@ -330,6 +389,7 @@ Status ParseChromeOptions(
     parser_map["androidUseRunningApp"] =
         base::Bind(&ParseBoolean, &capabilities->android_use_running_app);
     parser_map["args"] = base::Bind(&ParseSwitches);
+    parser_map["excludeSwitches"] = base::Bind(&ParseExcludeSwitches);
     parser_map["loadAsync"] = base::Bind(&IgnoreDeprecatedOption, "loadAsync");
   } else if (is_remote) {
     parser_map["debuggerAddress"] = base::Bind(&ParseUseRemoteBrowser);
@@ -337,7 +397,6 @@ Status ParseChromeOptions(
     parser_map["args"] = base::Bind(&ParseSwitches);
     parser_map["binary"] = base::Bind(&ParseFilePath, &capabilities->binary);
     parser_map["detach"] = base::Bind(&ParseBoolean, &capabilities->detach);
-    parser_map["mobileEmulation"] = base::Bind(&ParseMobileEmulation);
     parser_map["excludeSwitches"] = base::Bind(&ParseExcludeSwitches);
     parser_map["extensions"] = base::Bind(&ParseExtensions);
     parser_map["forceDevToolsScreenshot"] = base::Bind(
@@ -348,6 +407,7 @@ Status ParseChromeOptions(
     parser_map["logPath"] = base::Bind(&ParseLogPath);
     parser_map["minidumpPath"] =
         base::Bind(&ParseString, &capabilities->minidump_path);
+    parser_map["mobileEmulation"] = base::Bind(&ParseMobileEmulation);
     parser_map["prefs"] = base::Bind(&ParseDict, &capabilities->prefs);
   }
 
@@ -473,6 +533,15 @@ std::string Switches::ToString() const {
   return str;
 }
 
+PerfLoggingPrefs::PerfLoggingPrefs()
+    : network(InspectorDomainStatus::kDefaultEnabled),
+      page(InspectorDomainStatus::kDefaultEnabled),
+      timeline(InspectorDomainStatus::kDefaultEnabled),
+      trace_categories(),
+      buffer_usage_reporting_interval(1000) {}
+
+PerfLoggingPrefs::~PerfLoggingPrefs() {}
+
 Capabilities::Capabilities()
     : android_use_running_app(false),
       detach(false),
@@ -502,6 +571,17 @@ Status Capabilities::Parse(const base::DictionaryValue& desired_caps) {
         return Status(
             kUnknownError, "cannot parse capability: " + it->first, status);
       }
+    }
+  }
+  // Perf log must be enabled if perf log prefs are specified; otherwise, error.
+  LoggingPrefs::const_iterator iter = logging_prefs.find(
+      WebDriverLog::kPerformanceType);
+  if (iter == logging_prefs.end() || iter->second == Log::kOff) {
+    const base::DictionaryValue* chrome_options = NULL;
+    if (desired_caps.GetDictionary("chromeOptions", &chrome_options) &&
+        chrome_options->HasKey("perfLoggingPrefs")) {
+      return Status(kUnknownError, "perfLoggingPrefs specified, "
+                    "but performance logging was not enabled");
     }
   }
   return Status(kOk);

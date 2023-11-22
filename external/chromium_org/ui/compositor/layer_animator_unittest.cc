@@ -2000,8 +2000,8 @@ TEST(LayerAnimatorTest, CallbackDeletesAnimationInProgress) {
 // tests the behavior when the OnLayerAnimationAborted() callback causes
 // all of the animator's other animations to be deleted.
 TEST(LayerAnimatorTest, ObserverDeletesAnimationsOnAbort) {
-  ScopedAnimationDurationScaleMode normal_duration_mode(
-      ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+  ScopedAnimationDurationScaleMode test_duration_mode(
+      ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
   scoped_refptr<LayerAnimator> animator(new TestLayerAnimator());
   animator->set_disable_timer_for_test(true);
   TestLayerAnimationDelegate delegate;
@@ -2524,7 +2524,7 @@ TEST(LayerAnimatorTest, LayerAnimatorCollectionTickTime) {
 
   LayerAnimatorCollection* collection = delegate.GetLayerAnimatorCollection();
   base::TimeTicks null;
-  collection->Progress(null);
+  collection->OnAnimationStep(null);
   EXPECT_TRUE(collection->last_tick_time().is_null());
 
   // Adding an animator to the collection should update the last tick time.

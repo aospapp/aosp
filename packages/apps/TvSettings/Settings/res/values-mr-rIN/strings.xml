@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"बॅकअप घ्या आणि पुनर्संचयित करा"</string>
     <string name="device_reset" msgid="2827002349560023125">"फॅक्टरी डेटा रीसेट"</string>
     <string name="device_calibration" msgid="8632962533376605191">"कॅलिब्रेशन"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"डाउनलोड केलेले अॅप्स"</string>
     <string name="apps_system" msgid="2499191125802829425">"सिस्टीम अॅप्स"</string>
     <string name="apps_running" msgid="6430310491739956228">"अॅप्स चालविणे"</string>
@@ -90,12 +94,12 @@
     <string name="bluetooth_pin_values_hint" msgid="2319900367581543300">"सामान्यतः 0000 किंवा 1234"</string>
     <string name="bluetooth_pair" msgid="7836818609620478122">"जोडा"</string>
     <string name="bluetooth_cancel" msgid="4152153558528588479">"रद्द करा"</string>
-    <string name="system_cast" msgid="6421567823845207156">"Google कास्ट"</string>
+    <string name="system_cast" msgid="6421567823845207156">"Google Cast"</string>
     <string name="system_date_time" msgid="8898457978560618950">"तारीख आणि वेळ"</string>
     <string name="system_language" msgid="2337138146114609247">"भाषा"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"कीबोर्ड"</string>
     <string name="system_search" msgid="2837264654143247611">"शोधा"</string>
-    <string name="system_security" msgid="4190058778883258927">"सुरक्षितता आणि निर्बंध"</string>
+    <string name="system_security" msgid="8230080273993484407">"सुरक्षितता आणि प्रतिबंध"</string>
     <string name="system_speech" msgid="8128688499687306982">"उच्चारण"</string>
     <string name="system_inputs" msgid="2413907183796651102">"इनपुट"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"प्रवेशयोग्यता"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"सिस्टम अद्यतन"</string>
     <string name="about_preference" msgid="4131396784531360434">"विषयी"</string>
     <string name="device_name" msgid="2670488158531273028">"डिव्हाइस नाव"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"रीस्टार्ट करा"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"कायदेशीर माहिती"</string>
     <string name="about_warranty" msgid="5736003473060436384">"हमी"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"मुक्त स्त्रोत परवाने"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"सेवा अटी पहा"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"गोपनीयता धोरण पहा"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"अतिरिक्त अटी पहा"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Google कायदेशीर"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"परवाना डेटा अनुपलब्‍ध आहे"</string>
     <string name="about_model" msgid="6625269442206323995">"मॉडेल"</string>
     <string name="about_version" msgid="1177287676732287266">"आवृत्ती"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"तारीख"</string>
     <string name="system_time" msgid="6726022312605226285">"वेळ"</string>
     <string name="system_set_date" msgid="2437586307768561116">"तारीख सेट करा"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"तारीख स्वरूपन निवडा"</string>
     <string name="system_set_time" msgid="4661804115501057452">"वेळ सेट करा"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"टाईम झोन सेट करा"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"24-तास स्वरूप वापरा"</string>

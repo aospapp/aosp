@@ -10,11 +10,11 @@
 
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string16.h"
-#include "chrome/browser/sync/glue/device_info.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/sync_driver/change_processor.h"
 #include "components/sync_driver/data_type_controller.h"
+#include "components/sync_driver/device_info.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "sync/internal_api/public/base/model_type.h"
 #include "sync/protocol/sync_protocol_error.h"
@@ -25,6 +25,8 @@ using ::testing::Invoke;
 class ProfileSyncServiceMock : public ProfileSyncService {
  public:
   explicit ProfileSyncServiceMock(Profile* profile);
+  ProfileSyncServiceMock(
+      scoped_ptr<ProfileSyncComponentsFactory> factory, Profile* profile);
   virtual ~ProfileSyncServiceMock();
 
   // A utility used by sync tests to create a TestingProfile with a Google
@@ -37,9 +39,10 @@ class ProfileSyncServiceMock : public ProfileSyncService {
       content::BrowserContext* profile);
 
   MOCK_METHOD0(DisableForUser, void());
-  MOCK_METHOD3(OnBackendInitialized,
+  MOCK_METHOD4(OnBackendInitialized,
       void(const syncer::WeakHandle<syncer::JsBackend>&,
            const syncer::WeakHandle<syncer::DataTypeDebugInfoListener>&,
+           const std::string&,
            bool));
   MOCK_METHOD0(OnSyncCycleCompleted, void());
   MOCK_METHOD0(OnAuthError, void());
@@ -57,9 +60,7 @@ class ProfileSyncServiceMock : public ProfileSyncService {
   MOCK_METHOD2(OnUnrecoverableError,
                void(const tracked_objects::Location& location,
                const std::string& message));
-  MOCK_METHOD3(DisableDatatype, void(syncer::ModelType,
-               const tracked_objects::Location&,
-               std::string message));
+  MOCK_METHOD1(DisableDatatype, void(const syncer::SyncError&));
   MOCK_CONST_METHOD0(GetUserShare, syncer::UserShare*());
   MOCK_METHOD1(DeactivateDataType, void(syncer::ModelType));
   MOCK_METHOD0(UnsuppressAndStart, void());
@@ -69,6 +70,7 @@ class ProfileSyncServiceMock : public ProfileSyncService {
   MOCK_METHOD0(GetJsController, base::WeakPtr<syncer::JsController>());
   MOCK_CONST_METHOD0(HasSyncSetupCompleted, bool());
 
+  MOCK_CONST_METHOD0(EncryptEverythingAllowed, bool());
   MOCK_CONST_METHOD0(EncryptEverythingEnabled, bool());
   MOCK_METHOD0(EnableEncryptEverything, void());
 
@@ -89,27 +91,14 @@ class ProfileSyncServiceMock : public ProfileSyncService {
   MOCK_CONST_METHOD0(sync_initialized, bool());
   MOCK_CONST_METHOD0(IsStartSuppressed, bool());
   MOCK_CONST_METHOD0(waiting_for_auth, bool());
-  MOCK_METHOD1(OnActionableError, void(
-      const syncer::SyncProtocolError&));
+  MOCK_METHOD1(OnActionableError, void(const syncer::SyncProtocolError&));
   MOCK_METHOD1(SetSetupInProgress, void(bool));
-  MOCK_CONST_METHOD0(IsSessionsDataTypeControllerRunning, bool());
-
-  MOCK_CONST_METHOD0(GetAllSignedInDevicesMock,
-                     std::vector<browser_sync::DeviceInfo*>* ());
-  // This is to get around the fact that GMOCK does not handle Scoped*.
-  virtual ScopedVector<browser_sync::DeviceInfo>
-      GetAllSignedInDevices() const OVERRIDE;
-
-  virtual scoped_ptr<browser_sync::DeviceInfo> GetLocalDeviceInfo()
-      const OVERRIDE;
-  MOCK_CONST_METHOD0(GetLocalDeviceInfoMock,
-                     browser_sync::DeviceInfo*());
-  MOCK_CONST_METHOD0(GetLocalSyncCacheGUID, std::string());
+  MOCK_CONST_METHOD1(IsDataTypeControllerRunning, bool(syncer::ModelType));
 
   // DataTypeManagerObserver mocks.
   MOCK_METHOD0(OnConfigureBlocked, void());
   MOCK_METHOD1(OnConfigureDone,
-               void(const browser_sync::DataTypeManager::ConfigureResult&));
+               void(const sync_driver::DataTypeManager::ConfigureResult&));
   MOCK_METHOD0(OnConfigureRetry, void());
   MOCK_METHOD0(OnConfigureStart, void());
 

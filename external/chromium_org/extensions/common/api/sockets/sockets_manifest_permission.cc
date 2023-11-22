@@ -11,7 +11,6 @@
 #include "extensions/common/api/extensions_manifest_types.h"
 #include "extensions/common/api/sockets/sockets_manifest_data.h"
 #include "extensions/common/error_utils.h"
-#include "extensions/common/extension_messages.h"
 #include "extensions/common/manifest_constants.h"
 #include "grit/extensions_strings.h"
 #include "ipc/ipc_message.h"
@@ -223,12 +222,6 @@ scoped_ptr<base::Value> SocketsManifestPermission::ToValue() const {
   return scoped_ptr<base::Value>(sockets.ToValue().release()).Pass();
 }
 
-ManifestPermission* SocketsManifestPermission::Clone() const {
-  scoped_ptr<SocketsManifestPermission> result(new SocketsManifestPermission());
-  result->permissions_ = permissions_;
-  return result.release();
-}
-
 ManifestPermission* SocketsManifestPermission::Diff(
     const ManifestPermission* rhs) const {
   const SocketsManifestPermission* other =
@@ -260,34 +253,6 @@ ManifestPermission* SocketsManifestPermission::Intersect(
   result->permissions_ = base::STLSetIntersection<SocketPermissionEntrySet>(
       permissions_, other->permissions_);
   return result.release();
-}
-
-bool SocketsManifestPermission::Contains(const ManifestPermission* rhs) const {
-  const SocketsManifestPermission* other =
-      static_cast<const SocketsManifestPermission*>(rhs);
-
-  return base::STLIncludes<SocketPermissionEntrySet>(permissions_,
-                                                     other->permissions_);
-}
-
-bool SocketsManifestPermission::Equal(const ManifestPermission* rhs) const {
-  const SocketsManifestPermission* other =
-      static_cast<const SocketsManifestPermission*>(rhs);
-
-  return (permissions_ == other->permissions_);
-}
-
-void SocketsManifestPermission::Write(IPC::Message* m) const {
-  IPC::WriteParam(m, permissions_);
-}
-
-bool SocketsManifestPermission::Read(const IPC::Message* m,
-                                     PickleIterator* iter) {
-  return IPC::ReadParam(m, iter, &permissions_);
-}
-
-void SocketsManifestPermission::Log(std::string* log) const {
-  IPC::LogParam(permissions_, log);
 }
 
 void SocketsManifestPermission::AddPermission(

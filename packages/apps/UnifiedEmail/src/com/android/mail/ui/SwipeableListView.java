@@ -28,7 +28,6 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.widget.AbsListView;
 import android.widget.AbsListView.OnScrollListener;
-import android.widget.HeaderViewListAdapter;
 import android.widget.ListView;
 
 import com.android.mail.R;
@@ -50,12 +49,23 @@ import java.util.Collection;
 import java.util.HashMap;
 
 public class SwipeableListView extends ListView implements Callback, OnScrollListener {
+    private static final long INVALID_CONVERSATION_ID = -1;
+
     private final SwipeHelper mSwipeHelper;
+    /**
+     * Are swipes enabled on all items? (Each individual item can still prevent swiping.)<br>
+     * When swiping is disabled, the UI still reacts to the gesture to acknowledge it.
+     */
     private boolean mEnableSwipe = false;
+    /**
+     * When set, we prevent the SwipeHelper from kicking in at all. This
+     * short-circuits {@link #mEnableSwipe}.
+     */
+    private boolean mPreventSwipesEntirely = false;
 
     public static final String LOG_TAG = LogTag.getLogTag();
 
-    private ConversationSelectionSet mConvSelectionSet;
+    private ConversationCheckedSet mConvCheckedSet;
     private int mSwipeAction;
     private Account mAccount;
     private Folder mFolder;
@@ -63,6 +73,8 @@ public class SwipeableListView extends ListView implements Callback, OnScrollLis
     private boolean mScrolling;
 
     private SwipeListener mSwipeListener;
+
+    private long mSelectedConversationId = INVALID_CONVERSATION_ID;
 
     // Instantiated through view inflation
     @SuppressWarnings("unused")
@@ -76,11 +88,11 @@ public class SwipeableListView extends ListView implements Callback, OnScrollLis
 
     public SwipeableListView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
-        setOnScrollListener(this);
         float densityScale = getResources().getDisplayMetrics().density;
         float pagingTouchSlop = ViewConfiguration.get(context).getScaledPagingTouchSlop();
         mSwipeHelper = new SwipeHelper(context, SwipeHelper.X, this, densityScale,
                 pagingTouchSlop);
+        mScrolling = false;
     }
 
     @Override
@@ -110,6 +122,20 @@ public class SwipeableListView extends ListView implements Callback, OnScrollLis
         mEnableSwipe = enable;
     }
 
+    /**
+     * Completely ignore any horizontal swiping gestures.
+     */
+    public void preventSwipesEntirely() {
+        mPreventSwipesEntirely = true;
+    }
+
+    /**
+     * Reverses a prior call to {@link #preventSwipesEntirely()}.
+     */
+    public void stopPreventingSwipes() {
+        mPreventSwipesEntirely = false;
+    }
+
     public void setSwipeAction(int action) {
         mSwipeAction = action;
     }
@@ -122,8 +148,8 @@ public class SwipeableListView extends ListView implements Callback, OnScrollLis
         return mSwipeAction;
     }
 
-    public void setSelectionSet(ConversationSelectionSet set) {
-        mConvSelectionSet = set;
+    public void setCheckedSet(ConversationCheckedSet set) {
+        mConvCheckedSet = set;
     }
 
     public void setCurrentAccount(Account account) {
@@ -135,8 +161,8 @@ public class SwipeableListView extends ListView implements Callback, OnScrollLis
     }
 
     @Override
-    public ConversationSelectionSet getSelectionSet() {
-        return mConvSelectionSet;
+    public ConversationCheckedSet getCheckedSet() {
+        return mConvCheckedSet;
     }
 
     @Override
@@ -144,13 +170,14 @@ public class SwipeableListView extends ListView implements Callback, OnScrollLis
         if (mScrolling) {
             return super.onInterceptTouchEvent(ev);
         } else {
-            return mSwipeHelper.onInterceptTouchEvent(ev) || super.onInterceptTouchEvent(ev);
+            return (!mPreventSwipesEntirely && mSwipeHelper.onInterceptTouchEvent(ev))
+                    || super.onInterceptTouchEvent(ev);
         }
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
-        return mSwipeHelper.onTouchEvent(ev) || super.onTouchEvent(ev);
+        return (!mPreventSwipesEntirely && mSwipeHelper.onTouchEvent(ev)) || super.onTouchEvent(ev);
     }
 
     @Override
@@ -246,12 +273,12 @@ public class SwipeableListView extends ListView implements Callback, OnScrollLis
             mSwipedListener.onListItemSwiped(convList);
         }
         adapter.notifyDataSetChanged();
-        if (mConvSelectionSet != null && !mConvSelectionSet.isEmpty()
-                && mConvSelectionSet.contains(conv)) {
-            mConvSelectionSet.toggle(conv);
+        if (mConvCheckedSet != null && !mConvCheckedSet.isEmpty()
+                && mConvCheckedSet.contains(conv)) {
+            mConvCheckedSet.toggle(conv);
             // Don't commit destructive actions if the item we just removed from
             // the selection set is the item we just destroyed!
-            if (!conv.isMostlyDead() && mConvSelectionSet.isEmpty()) {
+            if (!conv.isMostlyDead() && mConvCheckedSet.isEmpty()) {
                 commitDestructiveActions(true);
             }
         }
@@ -337,17 +364,9 @@ public class SwipeableListView extends ListView implements Callback, OnScrollLis
 
     @Override
     public boolean performItemClick(View view, int pos, long id) {
-        final int previousPosition = getCheckedItemPosition();
-        final boolean selectionSetEmpty = mConvSelectionSet.isEmpty();
-
         // Superclass method modifies the selection set
         final boolean handled = super.performItemClick(view, pos, id);
 
-        // If we are in CAB mode then a click shouldn't
-        // activate the new item, it should only add it to the selection set
-        if (!selectionSetEmpty && previousPosition != -1) {
-            setItemChecked(previousPosition, true);
-        }
         // Commit any existing destructive actions when the user selects a
         // conversation to view.
         commitDestructiveActions(true);
@@ -389,6 +408,59 @@ public class SwipeableListView extends ListView implements Callback, OnScrollLis
 
     public boolean isScrolling() {
         return mScrolling;
+    }
+
+    /**
+     * Set the currently selected (focused by the list view) position.
+     */
+    public void setSelectedConversation(Conversation conv) {
+        if (conv == null) {
+            return;
+        }
+
+        mSelectedConversationId = conv.id;
+    }
+
+    public boolean isConversationSelected(Conversation conv) {
+        return mSelectedConversationId != INVALID_CONVERSATION_ID && conv != null
+                && mSelectedConversationId == conv.id;
+    }
+
+    /**
+     * This is only used for debugging/logging purposes. DO NOT call this function to try to get
+     * the currently selected position. Use {@link #mSelectedConversationId} instead.
+     */
+    public int getSelectedConversationPosDebug() {
+        for (int i = getFirstVisiblePosition(); i < getLastVisiblePosition(); i++) {
+            final Object item = getItemAtPosition(i);
+            if (item instanceof ConversationCursor) {
+                final Conversation c = ((ConversationCursor) item).getConversation();
+                if (c.id == mSelectedConversationId) {
+                    return i;
+                }
+            }
+        }
+        return ListView.INVALID_POSITION;
+    }
+
+    @Override
+    public void onTouchModeChanged(boolean isInTouchMode) {
+        super.onTouchModeChanged(isInTouchMode);
+        if (!isInTouchMode) {
+            // We need to invalidate going from touch mode -> keyboard mode because the currently
+            // selected item might have changed in touch mode. However, since from the framework's
+            // perspective the selected position doesn't matter in touch mode, when we enter
+            // keyboard mode via up/down arrow, the list view will ONLY invalidate the newly
+            // selected item and not the currently selected item. As a result, we might get an
+            // inconsistent UI where it looks like both the old and new selected items are focused.
+            final int index = getSelectedItemPosition();
+            if (index != ListView.INVALID_POSITION) {
+                final View child = getChildAt(index - getFirstVisiblePosition());
+                if (child != null) {
+                    child.invalidate();
+                }
+            }
+        }
     }
 
     @Override

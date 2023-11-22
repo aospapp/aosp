@@ -5,13 +5,17 @@
 define("mojo/public/js/bindings/router", [
   "mojo/public/js/bindings/codec",
   "mojo/public/js/bindings/connector",
-], function(codec, connector) {
+  "mojo/public/js/bindings/validator",
+], function(codec, connector, validator) {
 
-  function Router(handle) {
-    this.connector_ = new connector.Connector(handle);
+  function Router(handle, connectorFactory) {
+    if (connectorFactory === undefined)
+      connectorFactory = connector.Connector;
+    this.connector_ = new connectorFactory(handle);
     this.incomingReceiver_ = null;
     this.nextRequestID_ = 0;
     this.responders_ = {};
+    this.payloadValidators_ = [];
 
     this.connector_.setIncomingReceiver({
         accept: this.handleIncomingMessage_.bind(this),
@@ -55,13 +59,29 @@ define("mojo/public/js/bindings/router", [
     this.incomingReceiver_ = receiver;
   };
 
+  Router.prototype.setPayloadValidators = function(payloadValidators) {
+    this.payloadValidators_ = payloadValidators;
+  };
+
   Router.prototype.encounteredError = function() {
     return this.connector_.encounteredError();
   };
 
   Router.prototype.handleIncomingMessage_ = function(message) {
-    var flags = message.getFlags();
-    if (flags & codec.kMessageExpectsResponse) {
+    var noError = validator.validationError.NONE;
+    var messageValidator = new validator.Validator(message);
+    var err = messageValidator.validateMessageHeader();
+    for (var i = 0; err === noError && i < this.payloadValidators_.length; ++i)
+      err = this.payloadValidators_[i](messageValidator);
+
+    if (err == noError)
+      this.handleValidIncomingMessage_(message);
+    else
+      this.handleInvalidIncomingMessage_(message, err);
+  };
+
+  Router.prototype.handleValidIncomingMessage_ = function(message) {
+    if (message.expectsResponse()) {
       if (this.incomingReceiver_) {
         this.incomingReceiver_.acceptWithResponder(message, this);
       } else {
@@ -69,7 +89,7 @@ define("mojo/public/js/bindings/router", [
         // listening, then we have no choice but to tear down the pipe.
         this.close();
       }
-    } else if (flags & codec.kMessageIsResponse) {
+    } else if (message.isResponse()) {
       var reader = new codec.MessageReader(message);
       var requestID = reader.requestID;
       var responder = this.responders_[requestID];
@@ -79,7 +99,11 @@ define("mojo/public/js/bindings/router", [
       if (this.incomingReceiver_)
         this.incomingReceiver_.accept(message);
     }
-  };
+  }
+
+  Router.prototype.handleInvalidIncomingMessage_ = function(message, error) {
+    this.close();
+  }
 
   Router.prototype.handleConnectionError_ = function(result) {
     for (var each in this.responders_)
@@ -87,7 +111,25 @@ define("mojo/public/js/bindings/router", [
     this.close();
   };
 
+  // The TestRouter subclass is only intended to be used in unit tests.
+  // It defeats valid message handling and delgates invalid message handling.
+
+  function TestRouter(handle, connectorFactory) {
+    Router.call(this, handle, connectorFactory);
+  }
+
+  TestRouter.prototype = Object.create(Router.prototype);
+
+  TestRouter.prototype.handleValidIncomingMessage_ = function() {
+  };
+
+  TestRouter.prototype.handleInvalidIncomingMessage_ =
+      function(message, error) {
+        this.validationErrorHandler(error);
+      };
+
   var exports = {};
   exports.Router = Router;
+  exports.TestRouter = TestRouter;
   return exports;
 });

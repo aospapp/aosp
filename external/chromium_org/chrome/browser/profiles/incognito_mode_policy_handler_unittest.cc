@@ -7,7 +7,6 @@
 #include "chrome/common/pref_names.h"
 #include "components/policy/core/browser/configuration_policy_pref_store.h"
 #include "components/policy/core/browser/configuration_policy_pref_store_test.h"
-#include "grit/generated_resources.h"
 #include "policy/policy_constants.h"
 
 namespace policy {
@@ -33,16 +32,18 @@ class IncognitoModePolicyHandlerTest
                    int availability) {
     PolicyMap policy;
     if (incognito_enabled != INCOGNITO_ENABLED_UNKNOWN) {
-      policy.Set(key::kIncognitoEnabled, POLICY_LEVEL_MANDATORY,
+      policy.Set(key::kIncognitoEnabled,
+                 POLICY_LEVEL_MANDATORY,
                  POLICY_SCOPE_USER,
-                 base::Value::CreateBooleanValue(
-                     incognito_enabled == INCOGNITO_ENABLED_TRUE),
+                 new base::FundamentalValue(incognito_enabled ==
+                                            INCOGNITO_ENABLED_TRUE),
                  NULL);
     }
     if (availability >= 0) {
-      policy.Set(key::kIncognitoModeAvailability, POLICY_LEVEL_MANDATORY,
+      policy.Set(key::kIncognitoModeAvailability,
+                 POLICY_LEVEL_MANDATORY,
                  POLICY_SCOPE_USER,
-                 base::Value::CreateIntegerValue(availability),
+                 new base::FundamentalValue(availability),
                  NULL);
     }
     UpdateProviderPolicy(policy);

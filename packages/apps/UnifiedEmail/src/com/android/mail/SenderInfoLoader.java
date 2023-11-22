@@ -34,6 +34,7 @@ import android.provider.ContactsContract.Data;
 import android.util.Pair;
 
 import com.android.bitmap.util.Trace;
+import com.android.mail.utils.Utils;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
@@ -240,9 +241,8 @@ public class SenderInfoLoader extends AsyncTaskLoader<ImmutableMap<String, Conta
         // The ContactsContract.IN_DEFAULT_DIRECTORY does not exist prior to android L. There is
         // no VERSION.SDK_INT value assigned for android L yet. Therefore, we must gate the
         // following logic on the development codename.
-        // TODO: use VERSION.SDK_INT once VERSION.SDK_INT is increased for L.
-        if (VERSION.CODENAME.startsWith("L")) {
-            return "in_default_directory ASC, " + Data._ID;
+        if (Utils.isRunningLOrLater()) {
+            return Contacts.IN_DEFAULT_DIRECTORY + " ASC, " + Data._ID;
         }
         return null;
     }

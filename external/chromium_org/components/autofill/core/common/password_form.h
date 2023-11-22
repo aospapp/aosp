@@ -116,12 +116,16 @@ struct PasswordForm {
   // When parsing an HTML form, this is typically empty.
   std::vector<base::string16> other_possible_usernames;
 
-  // The name of the password input element, Optional (improves scoring).
+  // The name of the input element corresponding to the current password.
+  // Optional (improves scoring).
   //
-  // When parsing an HTML form, this must always be set.
+  // When parsing an HTML form, this will always be set, unless it is a sign-up
+  // form or a change password form that does not ask for the current password.
+  // In these two cases the |new_password_element| will always be set.
   base::string16 password_element;
 
-  // The password. Required.
+  // The current password. Must be non-empty for PasswordForm instances that are
+  // meant to be persisted to the password store.
   //
   // When parsing an HTML form, this is typically empty.
   base::string16 password_value;
@@ -130,12 +134,12 @@ struct PasswordForm {
   // True otherwise.
   bool password_autocomplete_set;
 
-  // If the form was a change password form, the name of the
-  // 'old password' input element. Optional.
-  base::string16 old_password_element;
+  // If the form was a sign-up or a change password form, the name of the input
+  // element corresponding to the new password. Optional, and not persisted.
+  base::string16 new_password_element;
 
-  // The old password. Optional.
-  base::string16 old_password_value;
+  // The new password. Optional, and not persisted.
+  base::string16 new_password_value;
 
   // Whether or not this login was saved under an HTTPS session with a valid
   // SSL cert. We will never match or autofill a PasswordForm where
@@ -202,6 +206,23 @@ struct PasswordForm {
   // When parsing an HTML form, this is normally set.
   FormData form_data;
 
+  // These following fields are set by a website using the Credential Manager
+  // API. They will be empty and remain unused for sites which do not use that
+  // API.
+  //
+  // User friendly name to show in the UI.
+  base::string16 display_name;
+
+  // The URL of the user's avatar to display in the UI.
+  GURL avatar_url;
+
+  // The URL of identity provider used for federated login.
+  GURL federation_url;
+
+  // If true, Chrome will sign the user in automatically using the credentials.
+  // This field isn't synced deliberately.
+  bool is_zero_click;
+
   // Returns true if this match was found using public suffix matching.
   bool IsPublicSuffixMatch() const;
 
@@ -215,6 +236,8 @@ struct PasswordForm {
 
 // Map username to PasswordForm* for convenience. See password_form_manager.h.
 typedef std::map<base::string16, PasswordForm*> PasswordFormMap;
+
+typedef std::map<base::string16, const PasswordForm*> ConstPasswordFormMap;
 
 // For testing.
 std::ostream& operator<<(std::ostream& os,

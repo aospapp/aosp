@@ -20,6 +20,7 @@
 #include "ui/views/mouse_watcher.h"
 #include "ui/views/view.h"
 #include "ui/views/view_model.h"
+#include "ui/views/view_targeter_delegate.h"
 
 class NewTabButton;
 class StackedTabStripLayout;
@@ -52,6 +53,7 @@ class ImageView;
 class TabStrip : public views::View,
                  public views::ButtonListener,
                  public views::MouseWatcherListener,
+                 public views::ViewTargeterDelegate,
                  public TabController {
  public:
   static const char kViewClassName[];
@@ -63,6 +65,13 @@ class TabStrip : public views::View,
   // The vertical offset of the tab strip button. This offset applies only to
   // restored windows.
   static const int kNewTabButtonVerticalOffset;
+
+  // The size of the new tab button must be hardcoded because we need to be
+  // able to lay it out before we are able to get its image from the
+  // ui::ThemeProvider.  It also makes sense to do this, because the size of the
+  // new tab button should not need to be calculated dynamically.
+  static const int kNewTabButtonAssetWidth;
+  static const int kNewTabButtonAssetHeight;
 
   explicit TabStrip(TabStripController* controller);
   virtual ~TabStrip();
@@ -211,6 +220,7 @@ class TabStrip : public views::View,
   virtual void ToggleSelected(Tab* tab) OVERRIDE;
   virtual void AddSelectionFromAnchorTo(Tab* tab) OVERRIDE;
   virtual void CloseTab(Tab* tab, CloseTabSource source) OVERRIDE;
+  virtual void ToggleTabAudioMute(Tab* tab) OVERRIDE;
   virtual void ShowContextMenuForTab(Tab* tab,
                                      const gfx::Point& p,
                                      ui::MenuSourceType source_type) OVERRIDE;
@@ -230,6 +240,8 @@ class TabStrip : public views::View,
                                  const ui::MouseEvent& event) OVERRIDE;
   virtual bool ShouldPaintTab(const Tab* tab, gfx::Rect* clip) OVERRIDE;
   virtual bool IsImmersiveStyle() const OVERRIDE;
+  virtual void UpdateTabAccessibilityState(const Tab* tab,
+                                           ui::AXViewState* state) OVERRIDE;
 
   // MouseWatcherListener overrides:
   virtual void MouseMovedOutOfHost() OVERRIDE;
@@ -247,7 +259,6 @@ class TabStrip : public views::View,
   virtual void OnDragExited() OVERRIDE;
   virtual int OnPerformDrop(const ui::DropTargetEvent& event) OVERRIDE;
   virtual void GetAccessibleState(ui::AXViewState* state) OVERRIDE;
-  virtual views::View* GetEventHandlerForRect(const gfx::Rect& rect) OVERRIDE;
   virtual views::View* GetTooltipHandlerForPoint(
       const gfx::Point& point) OVERRIDE;
 
@@ -306,13 +317,6 @@ class TabStrip : public views::View,
 
   // Horizontal gap between mini and non-mini-tabs.
   static const int kMiniToNonMiniGap;
-
-  // The size of the new tab button must be hardcoded because we need to be
-  // able to lay it out before we are able to get its image from the
-  // ui::ThemeProvider.  It also makes sense to do this, because the size of the
-  // new tab button should not need to be calculated dynamically.
-  static const int kNewTabButtonAssetWidth;
-  static const int kNewTabButtonAssetHeight;
 
   void Init();
 
@@ -578,6 +582,10 @@ class TabStrip : public views::View,
 
   // ui::EventHandler overrides.
   virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
+
+  // views::ViewTargeterDelegate:
+  virtual views::View* TargetForRect(views::View* root,
+                                     const gfx::Rect& rect) OVERRIDE;
 
   // -- Member Variables ------------------------------------------------------
 

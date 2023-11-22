@@ -14,14 +14,13 @@
 #include "base/sequenced_task_runner.h"
 #include "base/single_thread_task_runner.h"
 #include "base/thread_task_runner_handle.h"
-#include "sync/internal_api/public/base/invalidator_state.h"
 #include "sync/internal_api/public/http_post_provider_factory.h"
 #include "sync/internal_api/public/internal_components_factory.h"
 #include "sync/internal_api/public/util/weak_handle.h"
-#include "sync/notifier/invalidator.h"
-#include "sync/notifier/object_id_invalidation_map.h"
 #include "sync/syncable/directory.h"
 #include "sync/test/fake_sync_encryption_handler.h"
+
+class GURL;
 
 namespace syncer {
 
@@ -73,25 +72,7 @@ void FakeSyncManager::WaitForSyncThread() {
   run_loop.Run();
 }
 
-void FakeSyncManager::Init(
-    const base::FilePath& database_location,
-    const WeakHandle<JsEventHandler>& event_handler,
-    const std::string& sync_server_and_path,
-    int sync_server_port,
-    bool use_ssl,
-    scoped_ptr<HttpPostProviderFactory> post_factory,
-    const std::vector<scoped_refptr<ModelSafeWorker> >& workers,
-    ExtensionsActivity* extensions_activity,
-    ChangeDelegate* change_delegate,
-    const SyncCredentials& credentials,
-    const std::string& invalidator_client_id,
-    const std::string& restored_key_for_bootstrapping,
-    const std::string& restored_keystore_key_for_bootstrapping,
-    InternalComponentsFactory* internal_components_factory,
-    Encryptor* encryptor,
-    scoped_ptr<UnrecoverableErrorHandler> unrecoverable_error_handler,
-    ReportUnrecoverableErrorFunction report_unrecoverable_error_function,
-    CancelationSignal* cancelation_signal) {
+void FakeSyncManager::Init(InitArgs* args) {
   sync_task_runner_ = base::ThreadTaskRunnerHandle::Get();
   PurgePartiallySyncedTypes();
 
@@ -205,7 +186,7 @@ void FakeSyncManager::SaveChanges() {
   // Do nothing.
 }
 
-void FakeSyncManager::ShutdownOnSyncThread() {
+void FakeSyncManager::ShutdownOnSyncThread(ShutdownReason reason) {
   DCHECK(sync_task_runner_->RunsTasksOnCurrentThread());
   test_user_share_.TearDown();
 }
@@ -214,8 +195,8 @@ UserShare* FakeSyncManager::GetUserShare() {
   return test_user_share_.user_share();
 }
 
-syncer::SyncCoreProxy* FakeSyncManager::GetSyncCoreProxy() {
-  return &null_sync_core_proxy_;
+syncer::SyncContextProxy* FakeSyncManager::GetSyncContextProxy() {
+  return &null_sync_context_proxy_;
 }
 
 const std::string FakeSyncManager::cache_guid() {
@@ -263,7 +244,8 @@ bool FakeSyncManager::HasDirectoryTypeDebugInfoObserver(
 void FakeSyncManager::RequestEmitDebugInfo() {}
 
 void FakeSyncManager::OnIncomingInvalidation(
-      const ObjectIdInvalidationMap& invalidation_map) {
+    syncer::ModelType type,
+    scoped_ptr<InvalidationInterface> invalidation) {
   // Do nothing.
 }
 
@@ -271,10 +253,8 @@ ModelTypeSet FakeSyncManager::GetLastRefreshRequestTypes() {
   return last_refresh_request_types_;
 }
 
-void FakeSyncManager::OnInvalidatorStateChange(InvalidatorState state) {
+void FakeSyncManager::SetInvalidatorEnabled(bool invalidator_enabled) {
   // Do nothing.
 }
-
-std::string FakeSyncManager::GetOwnerName() const { return "FakeSyncManager"; }
 
 }  // namespace syncer

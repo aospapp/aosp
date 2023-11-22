@@ -18,7 +18,7 @@ namespace syncer {
 class SyncableService;
 }
 
-namespace browser_sync {
+namespace sync_driver {
 
 class SyncApiComponentFactory;
 
@@ -27,7 +27,6 @@ class NonUIDataTypeController : public DataTypeController {
   NonUIDataTypeController(
       scoped_refptr<base::MessageLoopProxy> ui_thread,
       const base::Closure& error_callback,
-      const DisableTypeCallback& disable_callback,
       SyncApiComponentFactory* sync_factory);
 
   // DataTypeController interface.
@@ -40,9 +39,8 @@ class NonUIDataTypeController : public DataTypeController {
   virtual ChangeProcessor* GetChangeProcessor() const OVERRIDE;
   virtual std::string name() const OVERRIDE;
   virtual State state() const OVERRIDE;
-  virtual void OnSingleDatatypeUnrecoverableError(
-      const tracked_objects::Location& from_here,
-      const std::string& message) OVERRIDE;
+  virtual void OnSingleDataTypeUnrecoverableError(
+      const syncer::SyncError& error) OVERRIDE;
 
  protected:
   // For testing only.
@@ -77,13 +75,13 @@ class NonUIDataTypeController : public DataTypeController {
   // Start up complete, update the state and invoke the callback.
   // Note: this is performed on the datatype's thread.
   virtual void StartDone(
-      DataTypeController::StartResult start_result,
+      DataTypeController::ConfigureResult start_result,
       const syncer::SyncMergeResult& local_merge_result,
       const syncer::SyncMergeResult& syncer_merge_result);
 
   // UI thread implementation of StartDone.
   virtual void StartDoneImpl(
-      DataTypeController::StartResult start_result,
+      DataTypeController::ConfigureResult start_result,
       DataTypeController::State new_state,
       const syncer::SyncMergeResult& local_merge_result,
       const syncer::SyncMergeResult& syncer_merge_result);
@@ -95,7 +93,7 @@ class NonUIDataTypeController : public DataTypeController {
   virtual void RecordAssociationTime(base::TimeDelta time);
 
   // Record causes of start failure.
-  virtual void RecordStartFailure(StartResult result);
+  virtual void RecordStartFailure(ConfigureResult result);
 
   // To allow unit tests to control thread interaction during non-ui startup
   // and shutdown, use a factory method to create the SharedChangeProcessor.
@@ -125,8 +123,7 @@ class NonUIDataTypeController : public DataTypeController {
   // Disable this type with the sync service. Should only be invoked in case of
   // an unrecoverable error.
   // Note: this is performed on the UI thread.
-  void DisableImpl(const tracked_objects::Location& from_here,
-                   const std::string& message);
+  void DisableImpl(const syncer::SyncError& error);
 
   SyncApiComponentFactory* const sync_factory_;
 
@@ -162,6 +159,6 @@ class NonUIDataTypeController : public DataTypeController {
   scoped_refptr<base::MessageLoopProxy> ui_thread_;
 };
 
-}  // namespace browser_sync
+}  // namespace sync_driver
 
 #endif  // COMPONENTS_SYNC_DRIVER_NON_UI_DATA_TYPE_CONTROLLER_H_

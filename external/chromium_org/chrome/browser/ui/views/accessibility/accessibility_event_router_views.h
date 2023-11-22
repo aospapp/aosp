@@ -67,6 +67,8 @@ class AccessibilityEventRouterViews : public content::NotificationObserver {
                            TestFocusNotification);
   FRIEND_TEST_ALL_PREFIXES(AccessibilityEventRouterViewsTest,
                            MenuIndexAndCountForInvisibleMenu);
+  FRIEND_TEST_ALL_PREFIXES(AccessibilityEventRouterViewsTest,
+                           AccessibilityFocusableView);
 
   AccessibilityEventRouterViews();
   virtual ~AccessibilityEventRouterViews();
@@ -88,11 +90,19 @@ class AccessibilityEventRouterViews : public content::NotificationObserver {
       views::View* view,
       ui::AXEvent event,
       Profile* profile);
+  static void SendStaticTextNotification(
+      views::View* view,
+      ui::AXEvent event,
+      Profile* profile);
   static void SendLinkNotification(
       views::View* view,
       ui::AXEvent event,
       Profile* profile);
   static void SendMenuNotification(
+      views::View* view,
+      ui::AXEvent event,
+      Profile* profile);
+  static void SendTabNotification(
       views::View* view,
       ui::AXEvent event,
       Profile* profile);
@@ -158,10 +168,20 @@ class AccessibilityEventRouterViews : public content::NotificationObserver {
   // subview with a role of STATIC_TEXT.
   static std::string RecursiveGetStaticText(views::View* view);
 
+  // Returns the first ancestor of |view| (including |view|) that is
+  // accessible.
+  static views::View* FindFirstAccessibleAncestor(views::View* view);
+
   // The profile associated with the most recent window event  - used to
   // figure out where to route a few events that can't be directly traced
   // to a window with a profile (like menu events).
   Profile* most_recent_profile_;
+
+  // The most recent accessibility focusable view is stored in view storage
+  // and is used to prevent multiple events from being dispatched on a
+  // hoverable view from its multiple children. This is the id for the most
+  // recent view we put in view storage.
+  const int most_recent_view_id_;
 
   // Notification registrar so we can clear most_recent_profile_ when a
   // profile is destroyed.

@@ -6,7 +6,7 @@
 
 #include "base/bind.h"
 #include "base/compiler_specific.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/json/json_file_value_serializer.h"
 #include "base/json/json_string_value_serializer.h"
 #include "base/metrics/histogram.h"
@@ -48,8 +48,8 @@ void AddBookmarksToIndex(BookmarkLoadDetails* details,
 }
 
 void LoadCallback(const base::FilePath& path,
-                  BookmarkStorage* storage,
-                  BookmarkLoadDetails* details,
+                  const base::WeakPtr<BookmarkStorage>& storage,
+                  scoped_ptr<BookmarkLoadDetails> details,
                   base::SequencedTaskRunner* task_runner) {
   startup_metric_utils::ScopedSlowStartupUMA
       scoped_timer("Startup.SlowStartupBookmarksLoad");
@@ -96,17 +96,18 @@ void LoadCallback(const base::FilePath& path,
 
   if (load_index) {
     TimeTicks start_time = TimeTicks::Now();
-    AddBookmarksToIndex(details, details->bb_node());
-    AddBookmarksToIndex(details, details->other_folder_node());
-    AddBookmarksToIndex(details, details->mobile_folder_node());
+    AddBookmarksToIndex(details.get(), details->bb_node());
+    AddBookmarksToIndex(details.get(), details->other_folder_node());
+    AddBookmarksToIndex(details.get(), details->mobile_folder_node());
     for (size_t i = 0; i < extra_nodes.size(); ++i)
-      AddBookmarksToIndex(details, extra_nodes[i]);
+      AddBookmarksToIndex(details.get(), extra_nodes[i]);
     UMA_HISTOGRAM_TIMES("Bookmarks.CreateBookmarkIndexTime",
                         TimeTicks::Now() - start_time);
   }
 
   task_runner->PostTask(FROM_HERE,
-                        base::Bind(&BookmarkStorage::OnLoadFinished, storage));
+                        base::Bind(&BookmarkStorage::OnLoadFinished, storage,
+                                   base::Passed(&details)));
 }
 
 }  // namespace
@@ -145,8 +146,8 @@ BookmarkStorage::BookmarkStorage(
     const base::FilePath& profile_path,
     base::SequencedTaskRunner* sequenced_task_runner)
     : model_(model),
-      writer_(profile_path.Append(bookmarks::kBookmarksFileName),
-              sequenced_task_runner) {
+      writer_(profile_path.Append(kBookmarksFileName), sequenced_task_runner),
+      weak_factory_(this) {
   sequenced_task_runner_ = sequenced_task_runner;
   writer_.set_commit_interval(base::TimeDelta::FromMilliseconds(kSaveDelayMS));
   sequenced_task_runner_->PostTask(FROM_HERE,
@@ -161,14 +162,11 @@ BookmarkStorage::~BookmarkStorage() {
 void BookmarkStorage::LoadBookmarks(
     scoped_ptr<BookmarkLoadDetails> details,
     const scoped_refptr<base::SequencedTaskRunner>& task_runner) {
-  DCHECK(!details_.get());
-  DCHECK(details);
-  details_ = details.Pass();
   sequenced_task_runner_->PostTask(FROM_HERE,
                                    base::Bind(&LoadCallback,
                                               writer_.path(),
-                                              make_scoped_refptr(this),
-                                              details_.get(),
+                                              weak_factory_.GetWeakPtr(),
+                                              base::Passed(&details),
                                               task_runner));
 }
 
@@ -192,11 +190,11 @@ bool BookmarkStorage::SerializeData(std::string* output) {
   return serializer.Serialize(*(value.get()));
 }
 
-void BookmarkStorage::OnLoadFinished() {
+void BookmarkStorage::OnLoadFinished(scoped_ptr<BookmarkLoadDetails> details) {
   if (!model_)
     return;
 
-  model_->DoneLoading(details_.Pass());
+  model_->DoneLoading(details.Pass());
 }
 
 bool BookmarkStorage::SaveNow() {

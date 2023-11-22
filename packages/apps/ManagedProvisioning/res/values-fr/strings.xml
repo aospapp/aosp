@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Impossible d\'utiliser l\'application d\'administration. Des composants sont manquants ou corrompus. Contactez votre service informatique."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Impossible d\'installer l\'application d\'administration."</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"L\'application d\'administration n\'est pas installée sur votre appareil."</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Arrêter la configuration ?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Voulez-vous vraiment arrêter la configuration ?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Non"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Oui"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Annulation en cours..."</string>
 </resources>

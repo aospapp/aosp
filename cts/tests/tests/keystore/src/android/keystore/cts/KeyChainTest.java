@@ -16,10 +16,11 @@
 
 package android.keystore.cts;
 
+import android.content.pm.PackageManager;
 import android.security.KeyChain;
-import junit.framework.TestCase;
+import android.test.AndroidTestCase;
 
-public class KeyChainTest extends TestCase {
+public class KeyChainTest extends AndroidTestCase {
     public void testIsKeyAlgorithmSupported_RequiredAlgorithmsSupported() throws Exception {
         assertTrue("DSA must be supported", KeyChain.isKeyAlgorithmSupported("DSA"));
         assertTrue("EC must be supported", KeyChain.isKeyAlgorithmSupported("EC"));
@@ -34,11 +35,21 @@ public class KeyChainTest extends TestCase {
      * tests in hardware/libhardware/tests/keymaster/
      */
     public void testIsBoundKeyAlgorithm_RequiredAlgorithmsSupported() throws Exception {
-        assertTrue("RSA must be hardware-backed by a hardware-specific Keymaster HAL",
-                KeyChain.isBoundKeyAlgorithm("RSA"));
+        if (isLeanbackOnly()) {
+            KeyChain.isBoundKeyAlgorithm("RSA");
+        }
+        else {
+            assertTrue("RSA must be hardware-backed by a hardware-specific Keymaster HAL",
+                       KeyChain.isBoundKeyAlgorithm("RSA"));
+        }
 
         // These are not required, but must not throw an exception
         KeyChain.isBoundKeyAlgorithm("DSA");
         KeyChain.isBoundKeyAlgorithm("EC");
+    }
+
+    private boolean isLeanbackOnly() {
+        PackageManager pm = getContext().getPackageManager();
+        return (pm != null && pm.hasSystemFeature("android.software.leanback_only"));
     }
 }

@@ -15,7 +15,8 @@
 #include "components/password_manager/core/browser/password_manager.h"
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/navigation_entry.h"
-#include "content/public/browser/render_view_host.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/resource_request_details.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/frame_navigate_params.h"
 
@@ -81,29 +82,20 @@ PrerenderTabHelper::PrerenderTabHelper(
 PrerenderTabHelper::~PrerenderTabHelper() {
 }
 
-void PrerenderTabHelper::ProvisionalChangeToMainFrameUrl(
-    const GURL& url,
-    content::RenderFrameHost* render_frame_host) {
-  url_ = url;
-  RecordEvent(EVENT_MAINFRAME_CHANGE);
-  RecordEventIfLoggedInURL(EVENT_MAINFRAME_CHANGE_DOMAIN_LOGGED_IN, url);
-  PrerenderManager* prerender_manager = MaybeGetPrerenderManager();
-  if (!prerender_manager)
+void PrerenderTabHelper::DidGetRedirectForResourceRequest(
+    content::RenderViewHost* render_view_host,
+    const content::ResourceRedirectDetails& details) {
+  if (details.resource_type != content::RESOURCE_TYPE_MAIN_FRAME)
     return;
-  if (prerender_manager->IsWebContentsPrerendering(web_contents(), NULL))
-    return;
-  ReportTabHelperURLSeenToLocalPredictor(prerender_manager, url,
-                                         web_contents());
+
+  MainFrameUrlDidChange(details.new_url);
 }
 
 void PrerenderTabHelper::DidCommitProvisionalLoadForFrame(
-    int64 frame_id,
-    const base::string16& frame_unique_name,
-    bool is_main_frame,
+    content::RenderFrameHost* render_frame_host,
     const GURL& validated_url,
-    content::PageTransition transition_type,
-    content::RenderViewHost* render_view_host) {
-  if (!is_main_frame)
+    ui::PageTransition transition_type) {
+  if (render_frame_host->GetParent())
     return;
   RecordEvent(EVENT_MAINFRAME_COMMIT);
   RecordEventIfLoggedInURL(EVENT_MAINFRAME_COMMIT_DOMAIN_LOGGED_IN,
@@ -159,14 +151,11 @@ void PrerenderTabHelper::DidStopLoading(
 }
 
 void PrerenderTabHelper::DidStartProvisionalLoadForFrame(
-      int64 frame_id,
-      int64 parent_frame_id,
-      bool is_main_frame,
-      const GURL& validated_url,
-      bool is_error_page,
-      bool is_iframe_srcdoc,
-      content::RenderViewHost* render_view_host) {
-  if (!is_main_frame)
+    content::RenderFrameHost* render_frame_host,
+    const GURL& validated_url,
+    bool is_error_page,
+    bool is_iframe_srcdoc) {
+  if (render_frame_host->GetParent())
     return;
 
   // Record PPLT state for the beginning of a new navigation.
@@ -180,6 +169,21 @@ void PrerenderTabHelper::DidStartProvisionalLoadForFrame(
     next_load_is_control_prerender_ = false;
     next_load_origin_ = ORIGIN_NONE;
   }
+
+  MainFrameUrlDidChange(validated_url);
+}
+
+void PrerenderTabHelper::MainFrameUrlDidChange(const GURL& url) {
+  url_ = url;
+  RecordEvent(EVENT_MAINFRAME_CHANGE);
+  RecordEventIfLoggedInURL(EVENT_MAINFRAME_CHANGE_DOMAIN_LOGGED_IN, url);
+  PrerenderManager* prerender_manager = MaybeGetPrerenderManager();
+  if (!prerender_manager)
+    return;
+  if (prerender_manager->IsWebContentsPrerendering(web_contents(), NULL))
+    return;
+  ReportTabHelperURLSeenToLocalPredictor(prerender_manager, url,
+                                         web_contents());
 }
 
 void PrerenderTabHelper::PasswordSubmitted(const autofill::PasswordForm& form) {

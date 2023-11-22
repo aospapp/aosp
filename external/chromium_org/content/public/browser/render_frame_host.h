@@ -12,6 +12,7 @@
 #include "ipc/ipc_listener.h"
 #include "ipc/ipc_sender.h"
 #include "ui/gfx/native_widget_types.h"
+#include "ui/gfx/rect.h"
 #include "url/gurl.h"
 
 namespace base {
@@ -21,6 +22,7 @@ class Value;
 namespace content {
 class RenderProcessHost;
 class RenderViewHost;
+class ServiceRegistry;
 class SiteInstance;
 
 // The interface provides a communication conduit with a frame in the renderer.
@@ -71,8 +73,23 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   virtual void ExecuteJavaScript(const base::string16& javascript,
                                  const JavaScriptResultCallback& callback) = 0;
 
+  // ONLY FOR TESTS: Same as above but adds a fake UserGestureIndicator around
+  // execution. (crbug.com/408426)
+  virtual void ExecuteJavaScriptForTests(const base::string16& javascript) = 0;
+
+  // Accessibility actions.
+  virtual void AccessibilitySetFocus(int acc_obj_id) = 0;
+  virtual void AccessibilityDoDefaultAction(int acc_obj_id) = 0;
+  virtual void AccessibilityScrollToMakeVisible(
+      int acc_obj_id, const gfx::Rect& subfocus) = 0;
+  virtual void AccessibilitySetTextSelection(
+      int acc_obj_id, int start_offset, int end_offset) = 0;
+
   // Temporary until we get rid of RenderViewHost.
   virtual RenderViewHost* GetRenderViewHost() = 0;
+
+  // Returns the ServiceRegistry for this frame.
+  virtual ServiceRegistry* GetServiceRegistry() = 0;
 
  private:
   // This interface should only be implemented inside content.

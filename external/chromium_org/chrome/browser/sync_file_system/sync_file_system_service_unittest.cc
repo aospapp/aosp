@@ -7,8 +7,10 @@
 #include "base/basictypes.h"
 #include "base/bind.h"
 #include "base/run_loop.h"
+#include "base/single_thread_task_runner.h"
 #include "base/stl_util.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/thread_task_runner_handle.h"
 #include "chrome/browser/sync_file_system/local/canned_syncable_file_system.h"
 #include "chrome/browser/sync_file_system/local/local_file_sync_context.h"
 #include "chrome/browser/sync_file_system/local/local_file_sync_service.h"
@@ -26,14 +28,14 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/test/test_browser_thread_bundle.h"
 #include "content/public/test/test_utils.h"
+#include "storage/browser/fileapi/file_system_context.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/leveldatabase/src/helpers/memenv/memenv.h"
 #include "third_party/leveldatabase/src/include/leveldb/env.h"
-#include "webkit/browser/fileapi/file_system_context.h"
 
 using content::BrowserThread;
-using fileapi::FileSystemURL;
-using fileapi::FileSystemURLSet;
+using storage::FileSystemURL;
+using storage::FileSystemURLSet;
 using ::testing::AnyNumber;
 using ::testing::AtLeast;
 using ::testing::InSequence;
@@ -89,7 +91,7 @@ class MockSyncEventObserver : public SyncEventObserver {
                     SyncServiceState state,
                     const std::string& description));
   MOCK_METHOD4(OnFileSynced,
-               void(const fileapi::FileSystemURL& url,
+               void(const storage::FileSystemURL& url,
                     SyncFileStatus status,
                     SyncAction action,
                     SyncDirection direction));
@@ -99,7 +101,7 @@ ACTION_P3(NotifyStateAndCallback,
           mock_remote_service, service_state, operation_status) {
   mock_remote_service->NotifyRemoteServiceStateUpdated(
       service_state, "Test event.");
-  base::MessageLoopProxy::current()->PostTask(
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE, base::Bind(arg1, operation_status));
 }
 
@@ -108,13 +110,18 @@ ACTION_P(RecordState, states) {
 }
 
 ACTION_P(MockStatusCallback, status) {
-  base::MessageLoopProxy::current()->PostTask(
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE, base::Bind(arg4, status));
 }
 
 ACTION_P2(MockSyncFileCallback, status, url) {
-  base::MessageLoopProxy::current()->PostTask(
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE, base::Bind(arg0, status, url));
+}
+
+ACTION(InvokeCompletionClosure) {
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE, base::Bind(arg0));
 }
 
 class SyncFileSystemServiceTest : public testing::Test {
@@ -253,8 +260,6 @@ class SyncFileSystemServiceTest : public testing::Test {
     sync_service_->SetSyncEnabledForTesting(true);
   }
 
-  ScopedEnableSyncFSDirectoryOperation enable_directory_operation_;
-
   content::TestBrowserThreadBundle thread_bundle_;
   scoped_ptr<leveldb::Env> in_memory_env_;
   TestingProfile profile_;
@@ -348,6 +353,12 @@ TEST_F(SyncFileSystemServiceTest, SimpleLocalSyncFlow) {
   EXPECT_CALL(*mock_local_change_processor(),
               ApplyLocalChange(change, _, _, kFile, _))
       .WillOnce(MockStatusCallback(SYNC_STATUS_OK));
+  EXPECT_CALL(*mock_remote_service(), ProcessRemoteChange(_))
+      .WillRepeatedly(MockSyncFileCallback(SYNC_STATUS_NO_CHANGE_TO_SYNC,
+                                           FileSystemURL()));
+
+  EXPECT_CALL(*mock_remote_service(), PromoteDemotedChanges(_))
+      .WillRepeatedly(InvokeCompletionClosure());
 
   EXPECT_EQ(base::File::FILE_OK, file_system_->CreateFile(kFile));
 
@@ -397,6 +408,9 @@ TEST_F(SyncFileSystemServiceTest, SimpleSyncFlowWithFileBusy) {
     EXPECT_CALL(*mock_remote_service(), ProcessRemoteChange(_))
         .WillOnce(InvokeWithoutArgs(&run_loop, &base::RunLoop::Quit));
   }
+
+  EXPECT_CALL(*mock_remote_service(), PromoteDemotedChanges(_))
+      .WillRepeatedly(InvokeCompletionClosure());
 
   // We might also see an activity for local sync as we're going to make
   // a local write operation on kFile.

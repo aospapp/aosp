@@ -1,4 +1,6 @@
 include_rules = [
  "-chrome/browser/ui/libgtk2ui",
- "+chrome/browser/ui/views"
+ "+content/app/resources/grit/content_resources.h",
+ "+chrome/browser/ui/views",
+ "+components/user_manager"
 ]

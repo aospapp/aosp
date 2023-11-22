@@ -24,6 +24,7 @@ import android.os.Parcelable;
 
 import com.android.mail.browse.ConversationCursor;
 import com.android.mail.providers.Conversation;
+import com.android.mail.providers.Folder;
 
 /**
  * A controller interface that is to receive user initiated events and handle them.
@@ -59,6 +60,7 @@ public interface ConversationListCallbacks {
 
     Conversation getCurrentConversation();
     void setCurrentConversation(Conversation c);
+    void onConversationViewSwitched(Conversation c);
 
     /**
      * Returns whether the initial conversation has begun but not finished loading. If this returns
@@ -97,6 +99,12 @@ public interface ConversationListCallbacks {
      */
     void setDetachedMode();
 
+    /**
+     * @return true if the List fragment should start up with list swipes disabled entirely
+     * (with no UI reaction)
+     */
+    boolean shouldPreventListSwipesEntirely();
+
     String CONVERSATION_LIST_SCROLL_POSITION_INDEX = "index";
     String CONVERSATION_LIST_SCROLL_POSITION_OFFSET = "offset";
 
@@ -118,4 +126,17 @@ public interface ConversationListCallbacks {
      *            {@link #CONVERSATION_LIST_SCROLL_POSITION_OFFSET}
      */
     void setConversationListScrollPosition(String folderUri, Parcelable savedPosition);
+
+    /**
+     * Is the user peeking the current conversation or actually viewing it.
+     */
+    boolean isCurrentConversationJustPeeking();
+
+    /**
+     * Set up the empty icon depending on the current empty folder.
+     * @param isEmpty if false, then instead of showing the default empty icon, shows the no
+     *   selected message icon.
+     * @return true if the icon is setup, false otherwise.
+     */
+    boolean setupEmptyIconView(Folder folder, boolean isEmpty);
 }

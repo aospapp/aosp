@@ -49,7 +49,7 @@
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"အကြောင်းကြားမှုများ ဖွင့်ပါ"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"အရေးပေါ် သတိပေးရေး ထုတ်လွှင့်ချက်များကို ပြပါ"</string>
     <string name="alert_sound_duration_title" msgid="4712853569849108005">"သတိပေးသံ ကြာရှည်မှု"</string>
-    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"သတိပေးနှုန်း"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"သတိပေးချက် သတိပေးသံ"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"စကားပြော သတိပေးချက် သတင်းတို"</string>
     <string name="enable_alert_speech_summary" msgid="356086178962268831">"အရေးပေါ် သတိပေးရေး သတင်းများကို ပြောကြားရန် စာသား-မှ-စကားကို အသုံးပြုပါ"</string>
     <string name="category_etws_settings_title" msgid="4072774251965938576">"ETWS သတ်မှတ်ချက်များ"</string>

@@ -254,8 +254,9 @@ public class AttachmentActionHandler {
         sOptionHandler = handler;
     }
 
-    public boolean shouldShowExtraOption1(String mimeType) {
-        return (sOptionHandler != null) && sOptionHandler.shouldShowExtraOption1(mimeType);
+    public boolean shouldShowExtraOption1(final String accountType, final String mimeType) {
+        return (sOptionHandler != null) && sOptionHandler.shouldShowExtraOption1(
+                accountType, mimeType);
     }
 
     public void handleOption1() {
@@ -274,7 +275,7 @@ public class AttachmentActionHandler {
      */
     public static class OptionHandler {
 
-        public boolean shouldShowExtraOption1(String mimeType) {
+        public boolean shouldShowExtraOption1(String accountType, String mimeType) {
             return false;
         }
 

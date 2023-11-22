@@ -1,12 +1,15 @@
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 import sys
+import unittest
 
 from telemetry.core.platform.profiler import vtune_profiler
 from telemetry.unittest import options_for_unittests
 from telemetry.unittest import simple_mock
 from telemetry.unittest import tab_test_case
+
 
 class MockPopen(object):
   def __init__(self, returncode, stdout=None, stderr=None):
@@ -62,9 +65,7 @@ class MockSubprocess(object):
       return False
 
 
-class TestVTuneProfiler(tab_test_case.TabTestCase):
-  def setUp(self):
-    super(TestVTuneProfiler, self).setUp()
+class TestVTuneProfiler(unittest.TestCase):
 
   def testVTuneProfilerIsSupported(self):
     options = options_for_unittests.GetCopy()
@@ -90,6 +91,9 @@ class TestVTuneProfiler(tab_test_case.TabTestCase):
           options.browser_type.startswith('cros'))
     finally:
       vtune_profiler.subprocess = real_subprocess
+
+
+class TestVTuneProfilerTabTestCase(tab_test_case.TabTestCase):
 
   def testVTuneProfiler(self):
     mock_subprocess = MockSubprocess()

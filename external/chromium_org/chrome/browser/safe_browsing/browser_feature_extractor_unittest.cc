@@ -26,15 +26,16 @@
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/common/page_transition_types.h"
 #include "content/public/common/referrer.h"
 #include "content/public/test/test_browser_thread.h"
 #include "content/public/test/web_contents_tester.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
 
 using content::BrowserThread;
+using content::ResourceType;
 using content::WebContentsTester;
 
 using testing::DoAll;
@@ -120,27 +121,27 @@ class BrowserFeatureExtractorTest : public ChromeRenderViewHostTestHarness {
     std::vector<GURL> redirect_chain;
     redirect_chain.push_back(url);
     SetRedirectChain(redirect_chain, true);
-    NavigateAndCommit(url, GURL(), content::PAGE_TRANSITION_LINK);
+    NavigateAndCommit(url, GURL(), ui::PAGE_TRANSITION_LINK);
   }
 
   // This is similar to NavigateAndCommit that is in WebContentsTester, but
   // allows us to specify the referrer and page_transition_type.
   void NavigateAndCommit(const GURL& url,
                          const GURL& referrer,
-                         content::PageTransition type) {
+                         ui::PageTransition type) {
     web_contents()->GetController().LoadURL(
         url, content::Referrer(referrer, blink::WebReferrerPolicyDefault),
         type, std::string());
 
     static int page_id = 0;
-    content::RenderViewHost* rvh =
-        WebContentsTester::For(web_contents())->GetPendingRenderViewHost();
-    if (!rvh) {
-      rvh = web_contents()->GetRenderViewHost();
+    content::RenderFrameHost* rfh =
+        WebContentsTester::For(web_contents())->GetPendingMainFrame();
+    if (!rfh) {
+      rfh = web_contents()->GetMainFrame();
     }
     WebContentsTester::For(web_contents())->ProceedWithCrossSiteNavigation();
     WebContentsTester::For(web_contents())->TestDidNavigateWithReferrer(
-        rvh, ++page_id, url,
+        rfh, ++page_id, url,
         content::Referrer(referrer, blink::WebReferrerPolicyDefault), type);
   }
 
@@ -210,9 +211,13 @@ class BrowserFeatureExtractorTest : public ChromeRenderViewHostTestHarness {
   scoped_refptr<StrictMock<MockSafeBrowsingDatabaseManager> > db_manager_;
 
  private:
-  void ExtractFeaturesDone(bool success, ClientPhishingRequest* request) {
-    ASSERT_EQ(0U, success_.count(request));
-    success_[request] = success;
+  void ExtractFeaturesDone(bool success,
+                           scoped_ptr<ClientPhishingRequest> request) {
+    EXPECT_TRUE(BrowserThread::CurrentlyOn(BrowserThread::UI));
+    ASSERT_EQ(0U, success_.count(request.get()));
+    // The pointer doesn't really belong to us.  It belongs to
+    // the test case which passed it to ExtractFeatures above.
+    success_[request.release()] = success;
     if (--num_pending_ == 0) {
       base::MessageLoop::current()->Quit();
     }
@@ -264,17 +269,17 @@ TEST_F(BrowserFeatureExtractorTest, UrlInHistory) {
   history_service()->AddPage(GURL("http://www.foo.com/bar.html?a=b"),
                              base::Time::Now() - base::TimeDelta::FromHours(23),
                              NULL, 0, GURL(), history::RedirectList(),
-                             content::PAGE_TRANSITION_LINK,
+                             ui::PAGE_TRANSITION_LINK,
                              history::SOURCE_BROWSED, false);
   history_service()->AddPage(GURL("http://www.foo.com/bar.html"),
                              base::Time::Now() - base::TimeDelta::FromHours(25),
                              NULL, 0, GURL(), history::RedirectList(),
-                             content::PAGE_TRANSITION_TYPED,
+                             ui::PAGE_TRANSITION_TYPED,
                              history::SOURCE_BROWSED, false);
   history_service()->AddPage(GURL("https://www.foo.com/goo.html"),
                              base::Time::Now() - base::TimeDelta::FromDays(5),
                              NULL, 0, GURL(), history::RedirectList(),
-                             content::PAGE_TRANSITION_TYPED,
+                             ui::PAGE_TRANSITION_TYPED,
                              history::SOURCE_BROWSED, false);
 
   SimpleNavigateAndCommit(GURL("http://www.foo.com/bar.html"));
@@ -367,9 +372,9 @@ TEST_F(BrowserFeatureExtractorTest, BrowseFeatures) {
   browse_info_->http_status_code = 200;
   NavigateAndCommit(GURL("http://www.foo.com/"),
                     GURL("http://google.com/"),
-                    content::PageTransitionFromInt(
-                        content::PAGE_TRANSITION_AUTO_BOOKMARK |
-                        content::PAGE_TRANSITION_FORWARD_BACK));
+                    ui::PageTransitionFromInt(
+                        ui::PAGE_TRANSITION_AUTO_BOOKMARK |
+                        ui::PAGE_TRANSITION_FORWARD_BACK));
 
   EXPECT_TRUE(ExtractFeatures(&request));
   std::map<std::string, double> features;
@@ -405,10 +410,10 @@ TEST_F(BrowserFeatureExtractorTest, BrowseFeatures) {
   browse_info_->http_status_code = 404;
   NavigateAndCommit(GURL("http://www.foo.com/page.html"),
                     GURL("http://www.foo.com"),
-                    content::PageTransitionFromInt(
-                        content::PAGE_TRANSITION_TYPED |
-                        content::PAGE_TRANSITION_CHAIN_START |
-                        content::PAGE_TRANSITION_CLIENT_REDIRECT));
+                    ui::PageTransitionFromInt(
+                        ui::PAGE_TRANSITION_TYPED |
+                        ui::PAGE_TRANSITION_CHAIN_START |
+                        ui::PAGE_TRANSITION_CLIENT_REDIRECT));
 
   EXPECT_TRUE(ExtractFeatures(&request));
   features.clear();
@@ -458,10 +463,10 @@ TEST_F(BrowserFeatureExtractorTest, BrowseFeatures) {
   SetRedirectChain(redirect_chain, true);
   NavigateAndCommit(GURL("http://www.bar.com/"),
                     GURL("http://www.foo.com/page.html"),
-                    content::PageTransitionFromInt(
-                        content::PAGE_TRANSITION_LINK |
-                        content::PAGE_TRANSITION_CHAIN_END |
-                        content::PAGE_TRANSITION_CLIENT_REDIRECT));
+                    ui::PageTransitionFromInt(
+                        ui::PAGE_TRANSITION_LINK |
+                        ui::PAGE_TRANSITION_CHAIN_END |
+                        ui::PAGE_TRANSITION_CLIENT_REDIRECT));
 
   EXPECT_TRUE(ExtractFeatures(&request));
   features.clear();
@@ -497,7 +502,7 @@ TEST_F(BrowserFeatureExtractorTest, BrowseFeatures) {
   SetRedirectChain(redirect_chain, false);
   NavigateAndCommit(GURL("http://www.bar.com/other_page.html"),
                     GURL("http://www.bar.com/"),
-                    content::PAGE_TRANSITION_LINK);
+                    ui::PAGE_TRANSITION_LINK);
 
   EXPECT_TRUE(ExtractFeatures(&request));
   features.clear();
@@ -537,7 +542,7 @@ TEST_F(BrowserFeatureExtractorTest, BrowseFeatures) {
   SetRedirectChain(redirect_chain, true);
   NavigateAndCommit(GURL("http://www.baz.com"),
                     GURL("https://bankofamerica.com"),
-                    content::PAGE_TRANSITION_GENERATED);
+                    ui::PAGE_TRANSITION_GENERATED);
 
   EXPECT_TRUE(ExtractFeatures(&request));
   features.clear();
@@ -594,15 +599,15 @@ TEST_F(BrowserFeatureExtractorTest, MalwareFeatures) {
   request.set_url("http://www.foo.com/");
 
   std::vector<IPUrlInfo> bad_urls;
-  bad_urls.push_back(IPUrlInfo("http://bad.com", "GET", "",
-                               ResourceType::SCRIPT));
-  bad_urls.push_back(IPUrlInfo("http://evil.com", "GET", "",
-                               ResourceType::SCRIPT));
+  bad_urls.push_back(
+      IPUrlInfo("http://bad.com", "GET", "", content::RESOURCE_TYPE_SCRIPT));
+  bad_urls.push_back(
+      IPUrlInfo("http://evil.com", "GET", "", content::RESOURCE_TYPE_SCRIPT));
   browse_info_->ips.insert(std::make_pair("193.5.163.8", bad_urls));
   browse_info_->ips.insert(std::make_pair("92.92.92.92", bad_urls));
   std::vector<IPUrlInfo> good_urls;
-  good_urls.push_back(IPUrlInfo("http://ok.com", "GET", "",
-                                ResourceType::SCRIPT));
+  good_urls.push_back(
+      IPUrlInfo("http://ok.com", "GET", "", content::RESOURCE_TYPE_SCRIPT));
   browse_info_->ips.insert(std::make_pair("23.94.78.1", good_urls));
   EXPECT_CALL(*db_manager_, MatchMalwareIP("193.5.163.8"))
       .WillOnce(Return(true));
@@ -634,8 +639,8 @@ TEST_F(BrowserFeatureExtractorTest, MalwareFeatures_ExceedLimit) {
   request.set_url("http://www.foo.com/");
 
   std::vector<IPUrlInfo> bad_urls;
-  bad_urls.push_back(IPUrlInfo("http://bad.com", "GET", "",
-                               ResourceType::SCRIPT));
+  bad_urls.push_back(
+      IPUrlInfo("http://bad.com", "GET", "", content::RESOURCE_TYPE_SCRIPT));
   std::vector<std::string> ips;
   for (int i = 0; i < 7; ++i) {  // Add 7 ips
     std::string ip = base::StringPrintf("%d.%d.%d.%d", i, i, i, i);

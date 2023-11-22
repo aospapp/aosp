@@ -7,6 +7,7 @@
 #include "base/bind.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/run_loop.h"
+#include "base/thread_task_runner_handle.h"
 #include "chrome/browser/drive/drive_api_util.h"
 #include "chrome/browser/drive/drive_uploader.h"
 #include "chrome/browser/drive/fake_drive_service.h"
@@ -55,14 +56,13 @@ class SyncEngineInitializerTest : public testing::Test {
         fake_drive_service.Pass(),
         scoped_ptr<drive::DriveUploaderInterface>(),
         NULL,
-        base::MessageLoopProxy::current(),
-        base::MessageLoopProxy::current(),
-        base::MessageLoopProxy::current()));
+        base::ThreadTaskRunnerHandle::Get(),
+        base::ThreadTaskRunnerHandle::Get()));
 
     sync_task_manager_.reset(new SyncTaskManager(
         base::WeakPtr<SyncTaskManager::Client>(),
         1 /* maximum_parallel_task */,
-        base::MessageLoopProxy::current()));
+        base::ThreadTaskRunnerHandle::Get()));
     sync_task_manager_->Initialize(SYNC_STATUS_OK);
   }
 
@@ -107,14 +107,8 @@ class SyncEngineInitializerTest : public testing::Test {
       const google_apis::FileResource** app_roots,
       size_t app_roots_count) {
     SyncStatusCode status = SYNC_STATUS_UNKNOWN;
-    scoped_ptr<MetadataDatabase> database;
-    MetadataDatabase::Create(
-        base::MessageLoopProxy::current(),
-        base::MessageLoopProxy::current(),
-        database_path(),
-        in_memory_env_.get(),
-        CreateResultReceiver(&status, &database));
-    base::RunLoop().RunUntilIdle();
+    scoped_ptr<MetadataDatabase> database = MetadataDatabase::Create(
+        database_path(), in_memory_env_.get(), &status);
     if (status != SYNC_STATUS_OK)
       return status;
 
@@ -126,16 +120,11 @@ class SyncEngineInitializerTest : public testing::Test {
           const_cast<google_apis::FileResource*>(app_roots[i]));
     }
 
-    status = SYNC_STATUS_UNKNOWN;
-    database->PopulateInitialData(kInitialLargestChangeID,
-                                  sync_root,
-                                  app_root_list,
-                                  CreateResultReceiver(&status));
-    base::RunLoop().RunUntilIdle();
+    status = database->PopulateInitialData(
+        kInitialLargestChangeID, sync_root, app_root_list);
 
     app_root_list.weak_clear();
-
-    return SYNC_STATUS_OK;
+    return status;
   }
 
   scoped_ptr<google_apis::FileResource> CreateRemoteFolder(

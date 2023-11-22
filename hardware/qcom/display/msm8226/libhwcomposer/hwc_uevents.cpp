@@ -32,19 +32,12 @@
 #include "comptype.h"
 #include "external.h"
 #include "virtual.h"
+#include "hwc_virtual.h"
 #include "mdp_version.h"
 using namespace overlay;
 namespace qhwc {
 #define HWC_UEVENT_SWITCH_STR  "change@/devices/virtual/switch/"
 #define HWC_UEVENT_THREAD_NAME "hwcUeventThread"
-
-/* External Display states */
-enum {
-    EXTERNAL_OFFLINE = 0,
-    EXTERNAL_ONLINE,
-    EXTERNAL_PAUSE,
-    EXTERNAL_RESUME
-};
 
 static void setup(hwc_context_t* ctx, int dpy)
 {
@@ -107,53 +100,15 @@ static int getConnectedState(const char* strUdata, int len)
 }
 
 void handle_pause(hwc_context_t* ctx, int dpy) {
-    {
-        Locker::Autolock _l(ctx->mDrawLock);
-        ctx->dpyAttr[dpy].isActive = true;
-        ctx->dpyAttr[dpy].isPause = true;
-        ctx->proc->invalidate(ctx->proc);
-    }
-    usleep(ctx->dpyAttr[HWC_DISPLAY_PRIMARY].vsync_period
-           * 2 / 1000);
-    // At this point all the pipes used by External have been
-    // marked as UNSET.
-    {
-        Locker::Autolock _l(ctx->mDrawLock);
-        // Perform commit to unstage the pipes.
-        if (!Overlay::displayCommit(ctx->dpyAttr[dpy].fd)) {
-            ALOGE("%s: display commit fail! for %d dpy",
-                  __FUNCTION__, dpy);
-        }
+    if(ctx->mHWCVirtual) {
+        ctx->mHWCVirtual->pause(ctx, dpy);
     }
     return;
 }
 
 void handle_resume(hwc_context_t* ctx, int dpy) {
-    //Treat Resume as Online event
-    //Since external didnt have any pipes, force primary to give up
-    //its pipes; we don't allow inter-mixer pipe transfers.
-    {
-        Locker::Autolock _l(ctx->mDrawLock);
-
-        // A dynamic resolution change (DRC) can be made for a WiFi
-        // display. In order to support the resolution change, we
-        // need to reconfigure the corresponding display attributes.
-        // Since DRC is only on WiFi display, we only need to call
-        // configure() on the VirtualDisplay device.
-        if(dpy == HWC_DISPLAY_VIRTUAL)
-            ctx->mVirtualDisplay->configure();
-
-        ctx->dpyAttr[dpy].isConfiguring = true;
-        ctx->dpyAttr[dpy].isActive = true;
-        ctx->proc->invalidate(ctx->proc);
-    }
-    usleep(ctx->dpyAttr[HWC_DISPLAY_PRIMARY].vsync_period
-           * 2 / 1000);
-    //At this point external has all the pipes it would need.
-    {
-        Locker::Autolock _l(ctx->mDrawLock);
-        ctx->dpyAttr[dpy].isPause = false;
-        ctx->proc->invalidate(ctx->proc);
+    if(ctx->mHWCVirtual) {
+        ctx->mHWCVirtual->resume(ctx, dpy);
     }
     return;
 }
@@ -182,9 +137,24 @@ static void teardownWfd(hwc_context_t* ctx) {
             ctx->mVirtualonExtActive = false;
         }
     }
-    /* Wait for few frames for SF to tear down the WFD session. */
-    usleep(ctx->dpyAttr[HWC_DISPLAY_PRIMARY].vsync_period
-            * 2 / 1000);
+
+    if(ctx->mVDSEnabled) {
+        ctx->mWfdSyncLock.lock();
+        ALOGD_IF(HWC_WFDDISPSYNC_LOG,
+                 "%s: Waiting for wfd-teardown to be signalled",__FUNCTION__);
+        ctx->mWfdSyncLock.wait();
+        ALOGD_IF(HWC_WFDDISPSYNC_LOG,
+                 "%s: Teardown signalled. Completed waiting in uevent thread",
+                 __FUNCTION__);
+        ctx->mWfdSyncLock.unlock();
+    } else {
+        /*TODO: Remove this else block and have wait rather than usleep
+          once wfd module issues binder call on teardown.*/
+
+        /* For now, Wait for few frames for SF to tear down the WFD session.*/
+        usleep(ctx->dpyAttr[HWC_DISPLAY_PRIMARY].vsync_period
+               * 2 / 1000);
+    }
 }
 
 static void handle_uevent(hwc_context_t* ctx, const char* udata, int len)
@@ -203,7 +173,7 @@ static void handle_uevent(hwc_context_t* ctx, const char* udata, int len)
 
     int switch_state = getConnectedState(udata, len);
 
-    ALOGE_IF(UEVENT_DEBUG,"%s: uevent recieved: %s switch state: %d",
+    ALOGE_IF(UEVENT_DEBUG,"%s: uevent received: %s switch state: %d",
              __FUNCTION__,udata, switch_state);
 
     switch(switch_state) {
@@ -360,7 +330,7 @@ static void *uevent_loop(void *param)
     }
 
     while(1) {
-        len = uevent_next_event(udata, sizeof(udata) - 2);
+        len = uevent_next_event(udata, (int)sizeof(udata) - 2);
         handle_uevent(ctx, udata, len);
     }
 

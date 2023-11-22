@@ -13,8 +13,6 @@
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "grit/quota_internals_resources.h"
-#include "ui/base/l10n/l10n_util.h"
-#include "ui/base/resource/resource_bundle.h"
 
 using content::WebContents;
 
@@ -24,6 +22,7 @@ content::WebUIDataSource* CreateQuotaInternalsHTMLSource() {
   content::WebUIDataSource* source =
       content::WebUIDataSource::Create(chrome::kChromeUIQuotaInternalsHost);
 
+  source->SetUseJsonJSFormatV2();
   source->SetJsonPath("strings.js");
   source->AddResourcePath(
       "event_handler.js", IDR_QUOTA_INTERNALS_EVENT_HANDLER_JS);

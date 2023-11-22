@@ -57,6 +57,9 @@ public class ContactInfoCache implements ContactsAsyncHelper.OnImageLoadComplete
 
     private static ContactInfoCache sCache = null;
 
+    private Drawable mDefaultContactPhotoDrawable;
+    private Drawable mConferencePhotoDrawable;
+
     public static synchronized ContactInfoCache getInstance(Context mContext) {
         if (sCache == null) {
             sCache = new ContactInfoCache(mContext.getApplicationContext());
@@ -157,12 +160,10 @@ public class ContactInfoCache implements ContactsAsyncHelper.OnImageLoadComplete
         }
 
         ContactCacheEntry cacheEntry = mInfoMap.get(callId);
-        // Rebuild the entry from the new data if:
-        // 1) This is NOT the asynchronous local lookup (IOW, this is the first pass)
-        // 2) The local lookup was done and the contact exists
-        // 3) The existing cached entry is empty (no name).
-        if (!didLocalLookup || callerInfo.contactExists ||
-                (cacheEntry != null && TextUtils.isEmpty(cacheEntry.name))) {
+        // Ensure we always have a cacheEntry. Replace the existing entry if
+        // it has no name or if we found a local contact.
+        if (cacheEntry == null || TextUtils.isEmpty(cacheEntry.name) ||
+                callerInfo.contactExists) {
             cacheEntry = buildEntry(mContext, callId, callerInfo, presentationMode, isIncoming);
             mInfoMap.put(callId, cacheEntry);
         }
@@ -170,7 +171,7 @@ public class ContactInfoCache implements ContactsAsyncHelper.OnImageLoadComplete
         sendInfoNotifications(callId, cacheEntry);
 
         if (didLocalLookup) {
-            // Before issuing a request for more data from other services, We only check that the
+            // Before issuing a request for more data from other services, we only check that the
             // contact wasn't found in the local DB.  We don't check the if the cache entry already
             // has a name because we allow overriding cnap data with data from other services.
             if (!callerInfo.contactExists && mPhoneNumberService != null) {
@@ -318,12 +319,10 @@ public class ContactInfoCache implements ContactsAsyncHelper.OnImageLoadComplete
             if (info.cachedPhoto != null) {
                 photo = info.cachedPhoto;
             } else {
-                photo = context.getResources().getDrawable(R.drawable.img_no_image);
-                photo.setAutoMirrored(true);
+                photo = getDefaultContactPhotoDrawable();
             }
         } else if (info.contactDisplayPhotoUri == null) {
-            photo = context.getResources().getDrawable(R.drawable.img_no_image);
-            photo.setAutoMirrored(true);
+            photo = getDefaultContactPhotoDrawable();
         } else {
             cce.displayPhotoUri = info.contactDisplayPhotoUri;
         }
@@ -491,6 +490,22 @@ public class ContactInfoCache implements ContactsAsyncHelper.OnImageLoadComplete
             name = context.getString(R.string.payphone);
         }
         return name;
+    }
+
+    public Drawable getDefaultContactPhotoDrawable() {
+        if (mDefaultContactPhotoDrawable == null) {
+            mDefaultContactPhotoDrawable =
+                    mContext.getResources().getDrawable(R.drawable.img_no_image_automirrored);
+        }
+        return mDefaultContactPhotoDrawable;
+    }
+
+    public Drawable getConferenceDrawable() {
+        if (mConferencePhotoDrawable == null) {
+            mConferencePhotoDrawable =
+                    mContext.getResources().getDrawable(R.drawable.img_conference_automirrored);
+        }
+        return mConferencePhotoDrawable;
     }
 
     /**

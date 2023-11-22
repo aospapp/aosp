@@ -5,19 +5,22 @@
 #include "chrome/browser/ui/search_engines/search_engine_tab_helper.h"
 
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/search_engines/template_url.h"
-#include "chrome/browser/search_engines/template_url_fetcher.h"
 #include "chrome/browser/search_engines/template_url_fetcher_factory.h"
-#include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
-#include "chrome/browser/ui/search_engines/template_url_fetcher_ui_callbacks.h"
+#include "chrome/browser/ui/search_engines/search_engine_tab_helper_delegate.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/common/url_constants.h"
+#include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_fetcher.h"
+#include "components/search_engines/template_url_service.h"
 #include "content/public/browser/favicon_status.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/frame_navigate_params.h"
+#include "content/public/common/url_fetcher.h"
 
 using content::NavigationController;
 using content::NavigationEntry;
@@ -29,8 +32,8 @@ namespace {
 
 // Returns true if the entry's transition type is FORM_SUBMIT.
 bool IsFormSubmit(const NavigationEntry* entry) {
-  return (content::PageTransitionStripQualifier(entry->GetTransitionType()) ==
-          content::PAGE_TRANSITION_FORM_SUBMIT);
+  return (ui::PageTransitionStripQualifier(entry->GetTransitionType()) ==
+          ui::PAGE_TRANSITION_FORM_SUBMIT);
 }
 
 base::string16 GenerateKeywordFromNavigationEntry(
@@ -61,6 +64,15 @@ base::string16 GenerateKeywordFromNavigationEntry(
   return TemplateURL::GenerateKeyword(url);
 }
 
+void AssociateURLFetcherWithWebContents(content::WebContents* web_contents,
+                                        net::URLFetcher* url_fetcher) {
+  content::AssociateURLFetcherWithRenderFrame(
+      url_fetcher,
+      web_contents->GetURL(),
+      web_contents->GetRenderProcessHost()->GetID(),
+      web_contents->GetMainFrame()->GetRoutingID());
+}
+
 }  // namespace
 
 SearchEngineTabHelper::~SearchEngineTabHelper() {
@@ -83,7 +95,8 @@ bool SearchEngineTabHelper::OnMessageReceived(const IPC::Message& message) {
 }
 
 SearchEngineTabHelper::SearchEngineTabHelper(WebContents* web_contents)
-    : content::WebContentsObserver(web_contents) {
+    : content::WebContentsObserver(web_contents),
+      weak_ptr_factory_(this) {
   DCHECK(web_contents);
 }
 
@@ -133,8 +146,18 @@ void SearchEngineTabHelper::OnPageHasOSDD(
   // Download the OpenSearch description document. If this is successful, a
   // new keyword will be created when done.
   TemplateURLFetcherFactory::GetForProfile(profile)->ScheduleDownload(
-      keyword, osdd_url, entry->GetFavicon().url, web_contents(),
-      new TemplateURLFetcherUICallbacks(this, web_contents()), provider_type);
+      keyword, osdd_url, entry->GetFavicon().url,
+      base::Bind(&AssociateURLFetcherWithWebContents, web_contents()),
+      base::Bind(&SearchEngineTabHelper::OnDownloadedOSDD,
+                 weak_ptr_factory_.GetWeakPtr()),
+      provider_type);
+}
+
+void SearchEngineTabHelper::OnDownloadedOSDD(
+    scoped_ptr<TemplateURL> template_url) {
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents()->GetBrowserContext());
+  delegate_->ConfirmAddSearchProvider(template_url.release(), profile);
 }
 
 void SearchEngineTabHelper::GenerateKeywordIfNecessary(

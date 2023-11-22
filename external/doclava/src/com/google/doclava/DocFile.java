@@ -219,6 +219,8 @@ public class DocFile {
           hdf.setValue("engage", "true");
         } else if (filename.indexOf("distribute/monetize") == 0) {
           hdf.setValue("monetize", "true");
+        } else if (filename.indexOf("distribute/analyze") == 0) {
+          hdf.setValue("analyze", "true");
         } else if (filename.indexOf("distribute/tools") == 0) {
           hdf.setValue("disttools", "true");
         } else if (filename.indexOf("distribute/stories") == 0) {

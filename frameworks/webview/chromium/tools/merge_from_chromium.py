@@ -16,13 +16,11 @@
 
 """Merge Chromium into the Android tree."""
 
-import contextlib
 import logging
 import optparse
 import os
 import re
 import sys
-import urllib2
 
 import merge_common
 
@@ -53,12 +51,12 @@ def _ReadGitFile(sha1, path, git_url=None, git_branch=None):
 
 
 def _ParseDEPS(deps_content):
-  """Parses the .DEPS.git file from Chromium and returns its contents.
+  """Parses the DEPS file from Chromium and returns its contents.
 
   Args:
-    deps_content: The contents of the .DEPS.git file as text.
+    deps_content: The contents of the DEPS file as text.
   Returns:
-    A dictionary of the contents of .DEPS.git at the specified revision
+    A dictionary of the contents of DEPS at the specified revision
   """
 
   class FromImpl(object):
@@ -71,6 +69,7 @@ def _ParseDEPS(deps_content):
       return 'From("%s")' % self.module_name
 
   class _VarImpl(object):
+
     def __init__(self, custom_vars, local_scope):
       self._custom_vars = custom_vars
       self._local_scope = local_scope
@@ -86,20 +85,20 @@ def _ParseDEPS(deps_content):
   tmp_locals = {}
   var = _VarImpl({}, tmp_locals)
   tmp_globals = {'From': FromImpl, 'Var': var.Lookup, 'deps_os': {}}
-  exec(deps_content) in tmp_globals, tmp_locals
+  exec(deps_content) in tmp_globals, tmp_locals  # pylint: disable=W0122
   return tmp_locals
 
 
 def _GetProjectMergeInfo(projects, deps_vars):
-  """Gets the git URL and SHA1 for each project based on .DEPS.git.
+  """Gets the git URL and SHA1 for each project based on DEPS.
 
   Args:
     projects: The list of projects to consider.
-    deps_vars: The dictionary of dependencies from .DEPS.git.
+    deps_vars: The dictionary of dependencies from DEPS.
   Returns:
     A dictionary from project to git URL and SHA1 - 'path: (url, sha1)'
   Raises:
-    TemporaryMergeError: if a project to be merged is not found in .DEPS.git.
+    TemporaryMergeError: if a project to be merged is not found in DEPS.
   """
   deps_fallback_order = [
       deps_vars['deps'],
@@ -109,7 +108,7 @@ def _GetProjectMergeInfo(projects, deps_vars):
   result = {}
   for path in projects:
     for deps in deps_fallback_order:
-      if len(path) > 0:
+      if path:
         upstream_path = os.path.join('src', path)
       else:
         upstream_path = 'src'
@@ -118,7 +117,7 @@ def _GetProjectMergeInfo(projects, deps_vars):
         break
     else:
       raise merge_common.TemporaryMergeError(
-          'Could not find .DEPS.git entry for project %s. This probably '
+          'Could not find DEPS entry for project %s. This probably '
           'means that the project list in merge_from_chromium.py needs to be '
           'updated.' % path)
     match = re.match('(.*?)@(.*)', url_plus_sha1)
@@ -132,7 +131,7 @@ def _GetProjectMergeInfo(projects, deps_vars):
 def _MergeProjects(version, root_sha1, target, unattended, buildspec_url):
   """Merges each required Chromium project into the Android repository.
 
-  .DEPS.git is consulted to determine which revision each project must be merged
+  DEPS is consulted to determine which revision each project must be merged
   at. Only a whitelist of required projects are merged.
 
   Args:
@@ -141,6 +140,9 @@ def _MergeProjects(version, root_sha1, target, unattended, buildspec_url):
     target: The target branch to merge to.
     unattended: Run in unattended mode.
     buildspec_url: URL for buildspec repository, when merging a branch.
+  Returns:
+    The abbrev sha1 merged. It will be either |root_sha1| itself (when merging
+    chromium trunk) or the upstream sha1 of the release.
   Raises:
     TemporaryMergeError: If incompatibly licensed code is left after pruning.
   """
@@ -155,8 +157,10 @@ def _MergeProjects(version, root_sha1, target, unattended, buildspec_url):
 
   logging.debug('Parsing DEPS ...')
   if root_sha1:
-    deps_content = _ReadGitFile(root_sha1, '.DEPS.git')
+    deps_content = _ReadGitFile(root_sha1, 'DEPS')
   else:
+    # TODO(primiano): At some point the release branches will use DEPS as well,
+    # instead of .DEPS.git. Rename below when that day will come.
     deps_content = _ReadGitFile('FETCH_HEAD',
                                 'releases/' + version + '/.DEPS.git',
                                 buildspec_url,
@@ -204,15 +208,21 @@ def _MergeProjects(version, root_sha1, target, unattended, buildspec_url):
   if not root_sha1:
     merge_info = _GetProjectMergeInfo([''], deps_vars)
     url = merge_info['']['url']
-    root_sha1 = merge_info['']['sha1']
-    merge_common.GetCommandStdout(['git', 'fetch', url, root_sha1])
-  logging.debug('Merging Chromium at %s ...', root_sha1)
+    merged_sha1 = merge_info['']['sha1']
+    merge_common.GetCommandStdout(['git', 'fetch', url, merged_sha1])
+    merged_sha1 = merge_common.Abbrev(merged_sha1)
+    merge_msg_version = '%s (%s)' % (version, merged_sha1)
+  else:
+    merge_msg_version = root_sha1
+    merged_sha1 = root_sha1
+
+  logging.debug('Merging Chromium at %s ...', merged_sha1)
   # Merge conflicts make git merge return 1, so ignore errors
-  merge_common.GetCommandStdout(['git', 'merge', '--no-commit', root_sha1],
+  merge_common.GetCommandStdout(['git', 'merge', '--no-commit', merged_sha1],
                                 ignore_errors=True)
   merge_common.CheckNoConflictsAndCommitMerge(
-      'Merge Chromium at %s (%s)\n\n%s'
-      % (version, root_sha1, AUTOGEN_MESSAGE), unattended=unattended)
+      'Merge Chromium at %s\n\n%s'
+      % (merge_msg_version, AUTOGEN_MESSAGE), unattended=unattended)
 
   logging.debug('Getting directories to exclude ...')
 
@@ -222,9 +232,9 @@ def _MergeProjects(version, root_sha1, target, unattended, buildspec_url):
   sys.path.append(os.path.join(merge_common.REPOSITORY_ROOT, 'android_webview',
                                'tools'))
   sys.dont_write_bytecode = True
-  global webview_licenses
-  import webview_licenses
-  import known_issues
+  global webview_licenses  # pylint: disable=W0602
+  import webview_licenses  # pylint: disable=W0621,W0612,C6204
+  import known_issues  # pylint: disable=C6204
 
   for path, exclude_list in known_issues.KNOWN_INCOMPATIBLE.iteritems():
     logging.debug('  %s', '\n  '.join(os.path.join(path, x) for x in
@@ -236,6 +246,8 @@ def _MergeProjects(version, root_sha1, target, unattended, buildspec_url):
       merge_common.GetCommandStdout(['git', 'commit', '-m',
                                      'Exclude unwanted directories'],
                                     cwd=dest_dir)
+  assert(root_sha1 is None or root_sha1 == merged_sha1)
+  return merged_sha1
 
 
 def _CheckLicenses():
@@ -331,19 +343,19 @@ def _GenerateNoticeFile(version):
         % (version, AUTOGEN_MESSAGE)])
 
 
-def _GenerateLastChange(version):
+def _GenerateLastChange(version, root_sha1):
   """Write a build/util/LASTCHANGE file containing the current revision.
 
   The revision number is compiled into the binary at build time from this file.
 
   Args:
     version: The version to mention in generated commit messages.
+    root_sha1: The SHA1 of the main project (before the merge).
   """
   logging.debug('Updating LASTCHANGE ...')
-  svn_revision, sha1 = _GetSVNRevisionAndSHA1('HEAD', 'HEAD')
   with open(os.path.join(merge_common.REPOSITORY_ROOT, 'build/util/LASTCHANGE'),
             'w') as f:
-    f.write('LASTCHANGE=%s\n' % svn_revision)
+    f.write('LASTCHANGE=%s\n' % merge_common.Abbrev(root_sha1))
   merge_common.GetCommandStdout(['git', 'add', '-f', 'build/util/LASTCHANGE'])
   logging.debug('Updating LASTCHANGE.blink ...')
   with open(os.path.join(merge_common.REPOSITORY_ROOT,
@@ -358,27 +370,13 @@ def _GenerateLastChange(version):
         % (version, AUTOGEN_MESSAGE)])
 
 
-def GetLKGR():
-  """Fetch the last known good release from Chromium's dashboard.
-
-  Returns:
-    The last known good SVN revision.
-  """
-  with contextlib.closing(
-      urllib2.urlopen('https://chromium-status.appspot.com/lkgr')) as lkgr:
-    return int(lkgr.read())
-
-
 def GetHEAD():
-  """Fetch the latest HEAD revision from the git mirror of the Chromium svn
-  repo.
+  """Fetch the latest HEAD revision from the Chromium Git mirror.
 
   Returns:
-    The latest HEAD SVN revision.
+    The latest HEAD revision (A Git abbrev SHA1).
   """
-  (svn_revision, root_sha1) = _GetSVNRevisionAndSHA1(SRC_GIT_BRANCH,
-                                                     'HEAD')
-  return int(svn_revision)
+  return _GetGitAbbrevSHA1(SRC_GIT_BRANCH, 'HEAD')
 
 
 def _ParseSvnRevisionFromGitCommitMessage(commit_message):
@@ -386,60 +384,53 @@ def _ParseSvnRevisionFromGitCommitMessage(commit_message):
                    flags=re.MULTILINE).group(1)
 
 
-def _GetSVNRevisionFromSha(sha1):
-  commit = merge_common.GetCommandStdout([
-      'git', 'show', '--format=%H%n%b', sha1])
-  return _ParseSvnRevisionFromGitCommitMessage(commit)
+def _GetGitAbbrevSHA1(git_branch, revision):
+  """Returns an abbrev. SHA for the given revision (or branch, if HEAD)."""
+  assert revision
+  logging.debug('Getting Git revision for %s ...', revision)
 
+  upstream = git_branch if revision == 'HEAD' else revision
 
-def _GetSVNRevisionAndSHA1(git_branch, svn_revision):
-  logging.debug('Getting SVN revision and SHA1 ...')
+  # Make sure the remote and the branch exist locally.
+  try:
+    merge_common.GetCommandStdout([
+        'git', 'show-ref', '--verify', '--quiet', git_branch])
+  except merge_common.CommandError:
+    raise merge_common.TemporaryMergeError(
+        'Cannot find the branch %s. Have you sync\'d master-chromium in this '
+        'checkout?' % git_branch)
 
-  if svn_revision == 'HEAD':
-    # Just use the latest commit.
-    commit = merge_common.GetCommandStdout([
-        'git', 'log', '-n1', '--grep=git-svn-id:', '--format=%H%n%b',
-        git_branch])
-    sha1 = commit.split()[0]
-    svn_revision = _ParseSvnRevisionFromGitCommitMessage(commit)
-    return (svn_revision, sha1)
+  # Make sure the |upstream| Git object has been mirrored.
+  try:
+    merge_common.GetCommandStdout([
+        'git', 'merge-base', '--is-ancestor', upstream, git_branch])
+  except merge_common.CommandError:
+    raise merge_common.TemporaryMergeError(
+        'Upstream object (%s) not reachable from %s' % (upstream, git_branch))
 
-  if svn_revision is None:
-    # Fetch LKGR from upstream.
-    svn_revision = GetLKGR()
-  output = merge_common.GetCommandStdout([
-      'git', 'log', '--grep=git-svn-id: .*@%s' % svn_revision,
-      '--format=%H', git_branch])
-  if not output:
-    raise merge_common.TemporaryMergeError('Revision %s not found in git repo.'
-                                           % svn_revision)
-  # The log grep will sometimes match reverts/reapplies of commits. We take the
-  # oldest (last) match because the first time it appears in history is
-  # overwhelmingly likely to be the correct commit.
-  sha1 = output.split()[-1]
-  return (svn_revision, sha1)
+  abbrev_sha = merge_common.Abbrev(merge_common.GetCommandStdout(
+      ['git', 'rev-list', '--max-count=1', upstream]).split()[0])
+  return abbrev_sha
 
 
 def _GetBlinkRevision():
-  commit = merge_common.GetCommandStdout([
-      'git', 'log', '-n1', '--grep=git-svn-id:', '--format=%H%n%b'],
+  # TODO(primiano): Switch to Git as soon as Blink gets migrated as well.
+  commit = merge_common.GetCommandStdout(
+      ['git', 'log', '-n1', '--grep=git-svn-id:', '--format=%H%n%b'],
       cwd=os.path.join(merge_common.REPOSITORY_ROOT, 'third_party', 'WebKit'))
   return _ParseSvnRevisionFromGitCommitMessage(commit)
 
 
-def Snapshot(svn_revision, root_sha1, release, target, unattended,
-             buildspec_url):
+def Snapshot(root_sha1, release, target, unattended, buildspec_url):
   """Takes a snapshot of the Chromium tree and merges it into Android.
 
   Android makefiles and a top-level NOTICE file are generated and committed
   after the merge.
 
   Args:
-    svn_revision: The SVN revision in the Chromium repository to merge from.
-    root_sha1: The sha1 in the Chromium git mirror to merge from.
+    root_sha1: The abbrev sha1 in the Chromium git mirror to merge from.
     release: The Chromium release version to merge from (e.g. "30.0.1599.20").
-             Only one of svn_revision, root_sha1 and release should be
-             specified.
+             Only one of root_sha1 and release should be specified.
     target: The target branch to merge to.
     unattended: Run in unattended mode.
     buildspec_url: URL for buildspec repository, used when merging a release.
@@ -447,29 +438,25 @@ def Snapshot(svn_revision, root_sha1, release, target, unattended,
   Returns:
     True if new commits were merged; False if no new commits were present.
   """
-  if svn_revision:
-    svn_revision, root_sha1 = _GetSVNRevisionAndSHA1(SRC_GIT_BRANCH,
-                                                     svn_revision)
-  elif root_sha1:
-    svn_revision = _GetSVNRevisionFromSha(root_sha1)
-
-  if svn_revision and root_sha1:
-    version = svn_revision
-    if not merge_common.GetCommandStdout(['git', 'rev-list', '-1',
-                                          'HEAD..' + root_sha1]):
-      logging.info('No new commits to merge at %s (%s)',
-                   svn_revision, root_sha1)
-      return False
-  elif release:
-    version = release
+  if release:
     root_sha1 = None
+    version = release
   else:
-    raise merge_common.MergeError('No merge source specified')
+    root_sha1 = _GetGitAbbrevSHA1(SRC_GIT_BRANCH, root_sha1)
+    version = root_sha1
+
+  assert (root_sha1 is not None and len(root_sha1) > 6) or version == release
+
+  if root_sha1 and not merge_common.GetCommandStdout(
+      ['git', 'rev-list', '-1', 'HEAD..' + root_sha1]):
+    logging.info('No new commits to merge at %s (%s)', version, root_sha1)
+    return False
 
   logging.info('Snapshotting Chromium at %s (%s)', version, root_sha1)
 
   # 1. Merge, accounting for excluded directories
-  _MergeProjects(version, root_sha1, target, unattended, buildspec_url)
+  merged_sha1 = _MergeProjects(version, root_sha1, target, unattended,
+                               buildspec_url)
 
   # 2. Generate Android makefiles
   _GenerateMakefiles(version, unattended)
@@ -481,7 +468,7 @@ def Snapshot(svn_revision, root_sha1, release, target, unattended,
   _GenerateNoticeFile(version)
 
   # 5. Generate LASTCHANGE file
-  _GenerateLastChange(version)
+  _GenerateLastChange(version, merged_sha1)
 
   return True
 
@@ -498,7 +485,7 @@ def Push(version, target):
   if target == 'master-chromium':
     refspecs.insert(0, '+%s:master-chromium-merge' % src)
   for refspec in refspecs:
-    logging.debug('Pushing to server (%s) ...' % refspec)
+    logging.debug('Pushing to server (%s) ...', refspec)
     for path in merge_common.ALL_PROJECTS:
       if path in merge_common.PROJECTS_WITH_FLAT_HISTORY:
         remote = 'history'
@@ -513,29 +500,21 @@ def Push(version, target):
 def main():
   parser = optparse.OptionParser(usage='%prog [options]')
   parser.epilog = ('Takes a snapshot of the Chromium tree at the specified '
-                   'Chromium SVN revision and merges it into this repository. '
+                   'Chromium Git revision and merges it into this repository. '
                    'Paths marked as excluded for license reasons are removed '
                    'as part of the merge. Also generates Android makefiles and '
                    'generates a top-level NOTICE file suitable for use in the '
                    'Android build.')
   parser.add_option(
-      '', '--svn_revision',
-      default=None,
-      help=('Merge to the specified chromium SVN revision, rather than using '
-            'the current LKGR. Can also pass HEAD to merge from tip of tree. '
-            'Only one of svn_revision, sha1 and release should be specified'))
-  parser.add_option(
       '', '--sha1',
-      default=None,
-      help=('Merge to the specified chromium sha1 revision from ' + SRC_GIT_BRANCH
-            + ' branch, rather than using the current LKGR. Only one of'
-            'svn_revision, sha1 and release should be specified.'))
+      default='HEAD',
+      help=('Merge to the specified chromium sha1 revision from ' +
+            SRC_GIT_BRANCH + ' branch. Default is HEAD, to merge from ToT.'))
   parser.add_option(
       '', '--release',
       default=None,
-      help=('Merge to the specified chromium release buildspec (e.g. '
-            '"30.0.1599.20"). Only one of svn_revision, sha1 and release '
-            'should be specified.'))
+      help=('Merge to the specified chromium release buildspec (e.g., "30.0.'
+            '1599.20"). Only one of --sha1 and --release should be specified'))
   parser.add_option(
       '', '--buildspec_url',
       default=None,
@@ -548,11 +527,7 @@ def main():
       '', '--push',
       default=False, action='store_true',
       help=('Push the result of a previous merge to the server. Note '
-            'svn_revision must be given.'))
-  parser.add_option(
-      '', '--get_lkgr',
-      default=False, action='store_true',
-      help=('Just print the current LKGR on stdout and exit.'))
+            '--sha1 must be given.'))
   parser.add_option(
       '', '--get_head',
       default=False, action='store_true',
@@ -574,25 +549,30 @@ def main():
     print >>sys.stderr, 'You need to run the Android envsetup.sh and lunch.'
     return 1
 
+  if os.environ.get('GYP_DEFINES'):
+    print >>sys.stderr, (
+        'The environment is defining GYP_DEFINES (=%s). It will affect the '
+        ' generated makefiles.' % os.environ['GYP_DEFINES'])
+    if not options.unattended and raw_input('Continue? [y/N]') != 'y':
+      return 1
+
   logging.basicConfig(format='%(message)s', level=logging.DEBUG,
                       stream=sys.stdout)
 
-  if options.get_lkgr:
-    print GetLKGR()
-  elif options.get_head:
+  if options.get_head:
     logging.disable(logging.CRITICAL)  # Prevent log messages
     print GetHEAD()
   elif options.push:
     if options.release:
       Push(options.release, options.target)
-    elif options.svn_revision:
-      Push(options.svn_revision, options.target)
+    elif options.sha1:
+      Push(options.sha1, options.target)
     else:
       print >>sys.stderr, 'You need to pass the version to push.'
       return 1
   else:
-    if not Snapshot(options.svn_revision, options.sha1, options.release,
-                    options.target, options.unattended, options.buildspec_url):
+    if not Snapshot(options.sha1, options.release, options.target,
+                    options.unattended, options.buildspec_url):
       return options.no_changes_exit
 
   return 0

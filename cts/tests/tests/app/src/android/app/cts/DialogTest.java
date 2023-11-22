@@ -393,25 +393,28 @@ public class DialogTest extends ActivityInstrumentationTestCase2<DialogStubActiv
         d.isOnTouchEventCalled = false;
         assertTrue(d.isShowing());
 
-        // Send a touch event outside the activity.  This time the dialog will be dismissed
-        // because closeOnTouchOutside is true.
-        d.setCanceledOnTouchOutside(true);
+        // Watch activities cover the entire screen, so there is no way to touch outside.
+        if (!mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            // Send a touch event outside the activity.  This time the dialog will be dismissed
+            // because closeOnTouchOutside is true.
+            d.setCanceledOnTouchOutside(true);
 
-        touchMotionEvent = MotionEvent.obtain(now, now + 1, MotionEvent.ACTION_DOWN,
-                1, 100, 0);
-        mInstrumentation.sendPointerSync(touchMotionEvent);
+            touchMotionEvent = MotionEvent.obtain(now, now + 1, MotionEvent.ACTION_DOWN,
+                    1, 100, 0);
+            mInstrumentation.sendPointerSync(touchMotionEvent);
 
-        new PollingCheck(TEST_TIMEOUT) {
-            protected boolean check() {
-                return d.dispatchTouchEventResult;
-            }
-        }.run();
+            new PollingCheck(TEST_TIMEOUT) {
+                protected boolean check() {
+                    return d.dispatchTouchEventResult;
+                }
+            }.run();
 
-        assertMotionEventEquals(touchMotionEvent, d.touchEvent);
+            assertMotionEventEquals(touchMotionEvent, d.touchEvent);
 
-        assertTrue(d.isOnTouchEventCalled);
-        assertMotionEventEquals(touchMotionEvent, d.onTouchEvent);
-        assertFalse(d.isShowing());
+            assertTrue(d.isOnTouchEventCalled);
+            assertMotionEventEquals(touchMotionEvent, d.onTouchEvent);
+            assertFalse(d.isShowing());
+        }
     }
 
     public void testTrackballEvent() {
@@ -670,19 +673,36 @@ public class DialogTest extends ActivityInstrumentationTestCase2<DialogStubActiv
         mInstrumentation.waitForIdleSync();
     }
 
-    public void testSetFeatureDrawableUri() {
+    public void testSetFeatureDrawableUri() throws Throwable {
         startDialogActivity(DialogStubActivity.TEST_ONSTART_AND_ONSTOP);
-        mActivity.getDialog().setFeatureDrawableUri(0, Uri.parse("http://www.google.com"));
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                mActivity.getDialog().setFeatureDrawableUri(Window.FEATURE_LEFT_ICON,
+                        Uri.parse("http://www.google.com"));
+            }
+        });
+        mInstrumentation.waitForIdleSync();
     }
 
-    public void testSetFeatureDrawable() {
+    public void testSetFeatureDrawable() throws Throwable {
         startDialogActivity(DialogStubActivity.TEST_ONSTART_AND_ONSTOP);
-        mActivity.getDialog().setFeatureDrawable(0, new MockDrawable());
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                mActivity.getDialog().setFeatureDrawable(Window.FEATURE_LEFT_ICON, 
+                        new MockDrawable());
+            }
+        });
+        mInstrumentation.waitForIdleSync();
     }
 
-    public void testSetFeatureDrawableAlpha() {
+    public void testSetFeatureDrawableAlpha() throws Throwable {
         startDialogActivity(DialogStubActivity.TEST_ONSTART_AND_ONSTOP);
-        mActivity.getDialog().setFeatureDrawableAlpha(0, 0);
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                mActivity.getDialog().setFeatureDrawableAlpha(Window.FEATURE_LEFT_ICON, 0);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
     }
 
     public void testGetLayoutInflater() {

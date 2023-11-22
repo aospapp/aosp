@@ -892,7 +892,7 @@
 
 #define IPC_BEGIN_MESSAGE_MAP(class_name, msg) \
   { \
-    typedef class_name _IpcMessageHandlerClass; \
+    typedef class_name _IpcMessageHandlerClass ALLOW_UNUSED; \
     void* param__ = NULL; \
     const IPC::Message& ipc_message__ = msg; \
     switch (ipc_message__.type()) {
@@ -905,16 +905,16 @@
 #define IPC_DECLTYPE typeof
 #endif
 
-#define IPC_BEGIN_MESSAGE_MAP_WITH_PARAM(class_name, msg, param)               \
-  {                                                                            \
-    typedef class_name _IpcMessageHandlerClass;                                \
-    IPC_DECLTYPE(param) param__ = param;                                       \
-    const IPC::Message& ipc_message__ = msg;                                   \
+#define IPC_BEGIN_MESSAGE_MAP_WITH_PARAM(class_name, msg, param) \
+  {                                                              \
+    typedef class_name _IpcMessageHandlerClass ALLOW_UNUSED;     \
+    IPC_DECLTYPE(param) param__ = param;                         \
+    const IPC::Message& ipc_message__ = msg;                     \
     switch (ipc_message__.type()) {
 
 #define IPC_MESSAGE_FORWARD(msg_class, obj, member_func)                       \
     case msg_class::ID: {                                                      \
-        TRACK_RUN_IN_IPC_HANDLER(member_func);                                 \
+        TRACK_RUN_IN_THIS_SCOPED_REGION(member_func);                          \
         if (!msg_class::Dispatch(&ipc_message__, obj, this, param__,           \
                                  &member_func))                                \
           ipc_message__.set_dispatch_error();                                  \
@@ -926,7 +926,7 @@
 
 #define IPC_MESSAGE_FORWARD_DELAY_REPLY(msg_class, obj, member_func)           \
     case msg_class::ID: {                                                      \
-        TRACK_RUN_IN_IPC_HANDLER(member_func);                                 \
+        TRACK_RUN_IN_THIS_SCOPED_REGION(member_func);                          \
         if (!msg_class::DispatchDelayReply(&ipc_message__, obj, param__,       \
                                            &member_func))                      \
           ipc_message__.set_dispatch_error();                                  \
@@ -940,14 +940,14 @@
 // TODO(jar): fix chrome frame to always supply |code| argument.
 #define IPC_MESSAGE_HANDLER_GENERIC(msg_class, code)                           \
     case msg_class::ID: {                                                      \
-        /* TRACK_RUN_IN_IPC_HANDLER(code);  TODO(jar) */                       \
+        /* TRACK_RUN_IN_THIS_SCOPED_REGION(code);  TODO(jar) */                \
         code;                                                                  \
       }                                                                        \
       break;
 
 #define IPC_REPLY_HANDLER(func)                                                \
     case IPC_REPLY_ID: {                                                       \
-        TRACK_RUN_IN_IPC_HANDLER(func);                                        \
+        TRACK_RUN_IN_THIS_SCOPED_REGION(func);                                 \
         func(ipc_message__);                                                   \
       }                                                                        \
       break;

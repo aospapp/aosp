@@ -28,6 +28,7 @@
 
 using android_webview::AwContentsIoThreadClient;
 using content::BrowserThread;
+using content::ResourceType;
 using navigation_interception::InterceptNavigationDelegate;
 
 namespace {
@@ -41,7 +42,7 @@ void SetCacheControlFlag(
       net::LOAD_VALIDATE_CACHE |
       net::LOAD_PREFERRING_CACHE |
       net::LOAD_ONLY_FROM_CACHE;
-  DCHECK((flag & all_cache_control_flags) == flag);
+  DCHECK_EQ((flag & all_cache_control_flags), flag);
   int load_flags = request->load_flags();
   load_flags &= ~all_cache_control_flags;
   load_flags |= flag;
@@ -209,10 +210,8 @@ AwResourceDispatcherHostDelegate::~AwResourceDispatcherHostDelegate() {
 void AwResourceDispatcherHostDelegate::RequestBeginning(
     net::URLRequest* request,
     content::ResourceContext* resource_context,
-    appcache::AppCacheService* appcache_service,
-    ResourceType::Type resource_type,
-    int child_id,
-    int route_id,
+    content::AppCacheService* appcache_service,
+    ResourceType resource_type,
     ScopedVector<content::ResourceThrottle>* throttles) {
 
   AddExtraHeadersIfNeeded(request, resource_context);
@@ -226,12 +225,12 @@ void AwResourceDispatcherHostDelegate::RequestBeginning(
   // however io_client may or may not be ready at the time depending on whether
   // webcontents is created.
   throttles->push_back(new IoThreadClientThrottle(
-      child_id, request_info->GetRenderFrameID(), request));
+      request_info->GetChildID(), request_info->GetRenderFrameID(), request));
 
   // We allow intercepting only navigations within main frames. This
   // is used to post onPageStarted. We handle shouldOverrideUrlLoading
   // via a sync IPC.
-  if (resource_type == ResourceType::MAIN_FRAME)
+  if (resource_type == content::RESOURCE_TYPE_MAIN_FRAME)
     throttles->push_back(InterceptNavigationDelegate::CreateThrottleFor(
         request));
 }
@@ -320,7 +319,7 @@ void AwResourceDispatcherHostDelegate::OnResponseStarted(
     return;
   }
 
-  if (request_info->GetResourceType() == ResourceType::MAIN_FRAME) {
+  if (request_info->GetResourceType() == content::RESOURCE_TYPE_MAIN_FRAME) {
     // Check for x-auto-login header.
     auto_login_parser::HeaderData header_data;
     if (auto_login_parser::ParserHeaderInResponse(
@@ -402,16 +401,18 @@ void AwResourceDispatcherHostDelegate::AddExtraHeadersIfNeeded(
     content::ResourceContext* resource_context) {
   const content::ResourceRequestInfo* request_info =
       content::ResourceRequestInfo::ForRequest(request);
-  if (!request_info) return;
-  if (request_info->GetResourceType() != ResourceType::MAIN_FRAME) return;
+  if (!request_info)
+    return;
+  if (request_info->GetResourceType() != content::RESOURCE_TYPE_MAIN_FRAME)
+    return;
 
-  const content::PageTransition transition = request_info->GetPageTransition();
+  const ui::PageTransition transition = request_info->GetPageTransition();
   const bool is_load_url =
-      transition & content::PAGE_TRANSITION_FROM_API;
+      transition & ui::PAGE_TRANSITION_FROM_API;
   const bool is_go_back_forward =
-      transition & content::PAGE_TRANSITION_FORWARD_BACK;
-  const bool is_reload = content::PageTransitionCoreTypeIs(
-      transition, content::PAGE_TRANSITION_RELOAD);
+      transition & ui::PAGE_TRANSITION_FORWARD_BACK;
+  const bool is_reload = ui::PageTransitionCoreTypeIs(
+      transition, ui::PAGE_TRANSITION_RELOAD);
   if (is_load_url || is_go_back_forward || is_reload) {
     AwResourceContext* awrc = static_cast<AwResourceContext*>(resource_context);
     std::string extra_headers = awrc->GetExtraHeaders(request->url());

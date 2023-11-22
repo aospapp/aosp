@@ -11,13 +11,14 @@
 #include "chrome/browser/extensions/api/automation_internal/automation_util.h"
 #include "chrome/browser/extensions/api/tabs/tabs_constants.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/extensions/api/automation_internal.h"
 #include "chrome/common/extensions/manifest_handlers/automation.h"
 #include "content/public/browser/ax_event_notification_details.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
-#include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
@@ -75,7 +76,16 @@ class AutomationWebContentsObserver
       const std::vector<content::AXEventNotificationDetails>& details)
       OVERRIDE {
     automation_util::DispatchAccessibilityEventsToAutomation(
-        details, browser_context_);
+        details, browser_context_,
+        web_contents()->GetContainerBounds().OffsetFromOrigin());
+  }
+
+  virtual void RenderFrameDeleted(
+      content::RenderFrameHost* render_frame_host) OVERRIDE {
+    automation_util::DispatchTreeDestroyedEventToAutomation(
+        render_frame_host->GetProcess()->GetID(),
+        render_frame_host->GetRoutingID(),
+        browser_context_);
   }
 
  private:
@@ -91,40 +101,40 @@ class AutomationWebContentsObserver
   DISALLOW_COPY_AND_ASSIGN(AutomationWebContentsObserver);
 };
 
-// Helper class that implements an action adapter for a |RenderWidgetHost|.
-class RenderWidgetHostActionAdapter : public AutomationActionAdapter {
+// Helper class that implements an action adapter for a |RenderFrameHost|.
+class RenderFrameHostActionAdapter : public AutomationActionAdapter {
  public:
-  explicit RenderWidgetHostActionAdapter(content::RenderWidgetHost* rwh)
-      : rwh_(rwh) {}
+  explicit RenderFrameHostActionAdapter(content::RenderFrameHost* rfh)
+      : rfh_(rfh) {}
 
-  virtual ~RenderWidgetHostActionAdapter() {}
+  virtual ~RenderFrameHostActionAdapter() {}
 
   // AutomationActionAdapter implementation.
   virtual void DoDefault(int32 id) OVERRIDE {
-    rwh_->AccessibilityDoDefaultAction(id);
+    rfh_->AccessibilityDoDefaultAction(id);
   }
 
   virtual void Focus(int32 id) OVERRIDE {
-    rwh_->AccessibilitySetFocus(id);
+    rfh_->AccessibilitySetFocus(id);
   }
 
   virtual void MakeVisible(int32 id) OVERRIDE {
-    rwh_->AccessibilityScrollToMakeVisible(id, gfx::Rect());
+    rfh_->AccessibilityScrollToMakeVisible(id, gfx::Rect());
   }
 
   virtual void SetSelection(int32 id, int32 start, int32 end) OVERRIDE {
-    rwh_->AccessibilitySetTextSelection(id, start, end);
+    rfh_->AccessibilitySetTextSelection(id, start, end);
   }
 
  private:
-  content::RenderWidgetHost* rwh_;
+  content::RenderFrameHost* rfh_;
 
-  DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostActionAdapter);
+  DISALLOW_COPY_AND_ASSIGN(RenderFrameHostActionAdapter);
 };
 
 ExtensionFunction::ResponseAction
 AutomationInternalEnableTabFunction::Run() {
-  const AutomationInfo* automation_info = AutomationInfo::Get(GetExtension());
+  const AutomationInfo* automation_info = AutomationInfo::Get(extension());
   EXTENSION_FUNCTION_VALIDATE(automation_info);
 
   using api::automation_internal::EnableTab::Params;
@@ -148,25 +158,24 @@ AutomationInternalEnableTabFunction::Run() {
     if (!contents)
       return RespondNow(Error("No active tab"));
   }
-  content::RenderWidgetHost* rwh =
-      contents->GetRenderWidgetHostView()->GetRenderWidgetHost();
-  if (!rwh)
+  content::RenderFrameHost* rfh = contents->GetMainFrame();
+  if (!rfh)
     return RespondNow(Error("Could not enable accessibility for active tab"));
 
-  if (!CanRequestAutomation(GetExtension(), automation_info, contents)) {
+  if (!CanRequestAutomation(extension(), automation_info, contents)) {
     return RespondNow(
         Error(kCannotRequestAutomationOnPage, contents->GetURL().spec()));
   }
   AutomationWebContentsObserver::CreateForWebContents(contents);
-  rwh->EnableTreeOnlyAccessibilityMode();
+  contents->EnableTreeOnlyAccessibilityMode();
   return RespondNow(
       ArgumentList(api::automation_internal::EnableTab::Results::Create(
-          rwh->GetProcess()->GetID(), rwh->GetRoutingID())));
+          rfh->GetProcess()->GetID(), rfh->GetRoutingID())));
   }
 
 ExtensionFunction::ResponseAction
 AutomationInternalPerformActionFunction::Run() {
-  const AutomationInfo* automation_info = AutomationInfo::Get(GetExtension());
+  const AutomationInfo* automation_info = AutomationInfo::Get(extension());
   EXTENSION_FUNCTION_VALIDATE(automation_info && automation_info->interact);
 
   using api::automation_internal::PerformAction::Params;
@@ -184,21 +193,20 @@ AutomationInternalPerformActionFunction::Run() {
                             " platform does not support desktop automation"));
 #endif  // defined(OS_CHROMEOS)
   }
-  content::RenderWidgetHost* rwh = content::RenderWidgetHost::FromID(
-      params->args.process_id, params->args.routing_id);
-
-  if (!rwh)
+  content::RenderFrameHost* rfh =
+      content::RenderFrameHost::FromID(params->args.process_id,
+                                       params->args.routing_id);
+  if (!rfh)
     return RespondNow(Error("Ignoring action on destroyed node"));
-  if (rwh->IsRenderView()) {
-    const content::RenderViewHost* rvh = content::RenderViewHost::From(rwh);
-    const content::WebContents* contents =
-        content::WebContents::FromRenderViewHost(rvh);
-    if (!CanRequestAutomation(GetExtension(), automation_info, contents)) {
-      return RespondNow(
-          Error(kCannotRequestAutomationOnPage, contents->GetURL().spec()));
-    }
+
+  const content::WebContents* contents =
+      content::WebContents::FromRenderFrameHost(rfh);
+  if (!CanRequestAutomation(extension(), automation_info, contents)) {
+    return RespondNow(
+        Error(kCannotRequestAutomationOnPage, contents->GetURL().spec()));
   }
-  RenderWidgetHostActionAdapter adapter(rwh);
+
+  RenderFrameHostActionAdapter adapter(rfh);
   return RouteActionToAdapter(params.get(), &adapter);
 }
 
@@ -236,7 +244,7 @@ AutomationInternalPerformActionFunction::RouteActionToAdapter(
 ExtensionFunction::ResponseAction
 AutomationInternalEnableDesktopFunction::Run() {
 #if defined(OS_CHROMEOS)
-  const AutomationInfo* automation_info = AutomationInfo::Get(GetExtension());
+  const AutomationInfo* automation_info = AutomationInfo::Get(extension());
   if (!automation_info || !automation_info->desktop)
     return RespondNow(Error("desktop permission must be requested"));
 

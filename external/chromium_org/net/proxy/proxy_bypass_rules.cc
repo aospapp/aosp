@@ -6,10 +6,11 @@
 
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/string_util.h"
-#include "base/strings/stringprintf.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/string_tokenizer.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
+#include "net/base/host_port_pair.h"
 #include "net/base/net_util.h"
 
 namespace net {
@@ -21,8 +22,8 @@ class HostnamePatternRule : public ProxyBypassRules::Rule {
   HostnamePatternRule(const std::string& optional_scheme,
                       const std::string& hostname_pattern,
                       int optional_port)
-      : optional_scheme_(StringToLowerASCII(optional_scheme)),
-        hostname_pattern_(StringToLowerASCII(hostname_pattern)),
+      : optional_scheme_(base::StringToLowerASCII(optional_scheme)),
+        hostname_pattern_(base::StringToLowerASCII(hostname_pattern)),
         optional_port_(optional_port) {
   }
 
@@ -35,7 +36,8 @@ class HostnamePatternRule : public ProxyBypassRules::Rule {
 
     // Note it is necessary to lower-case the host, since GURL uses capital
     // letters for percent-escaped characters.
-    return MatchPattern(StringToLowerASCII(url.host()), hostname_pattern_);
+    return MatchPattern(base::StringToLowerASCII(url.host()),
+                        hostname_pattern_);
   }
 
   virtual std::string ToString() const OVERRIDE {
@@ -130,6 +132,7 @@ class BypassIPBlockRule : public ProxyBypassRules::Rule {
 };
 
 // Returns true if the given string represents an IP address.
+// IPv6 addresses are expected to be bracketed.
 bool IsIPAddress(const std::string& domain) {
   // From GURL::HostIsIPAddress()
   url::RawCanonOutputT<char, 128> ignored_output;
@@ -304,9 +307,12 @@ bool ProxyBypassRules::AddRuleFromStringInternal(
   std::string host;
   int port;
   if (ParseHostAndPort(raw, &host, &port)) {
-    if (IsIPAddress(host)) {
+    // Note that HostPortPair is used to merely to convert any IPv6 literals to
+    // a URL-safe format that can be used by canonicalization below.
+    std::string bracketed_host = HostPortPair(host, 80).HostForURL();
+    if (IsIPAddress(bracketed_host)) {
       // Canonicalize the IP literal before adding it as a string pattern.
-      GURL tmp_url("http://" + host);
+      GURL tmp_url("http://" + bracketed_host);
       return AddRuleForHostname(scheme, tmp_url.host(), port);
     }
   }

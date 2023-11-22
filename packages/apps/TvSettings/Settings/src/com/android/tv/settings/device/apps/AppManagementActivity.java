@@ -30,10 +30,14 @@ import com.android.tv.settings.dialog.old.DialogActivity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 
 /**
@@ -70,6 +74,8 @@ public class AppManagementActivity extends DialogActivity implements ActionAdapt
         super.onCreate(savedInstanceState);
         mPackageName = getIntent().getStringExtra(EXTRA_PACKAGE_NAME_KEY);
         mApplicationsState = ApplicationsState.getInstance(getApplication());
+        mSession = mApplicationsState.newSession(this);
+        mSession.resume();
         mAppInfo = new AppInfo(this, mApplicationsState.getEntry(mPackageName));
         mOpenManager = new OpenManager(this, mAppInfo);
         mForceStopManager = new ForceStopManager(this, mAppInfo);
@@ -79,8 +85,6 @@ public class AppManagementActivity extends DialogActivity implements ActionAdapt
         mDefaultClearer = new DefaultClearer(this, mAppInfo);
         mCacheClearer = new CacheClearer(this, mAppInfo);
         mActionFragment = ActionFragment.newInstance(getActions());
-        mSession = mApplicationsState.newSession(this);
-        mSession.resume();
 
         setContentAndActionFragments(ContentFragment.newInstance(mAppInfo.getName(),
                 getString(R.string.device_apps),
@@ -95,6 +99,41 @@ public class AppManagementActivity extends DialogActivity implements ActionAdapt
                 SettingsConstant.PACKAGE + ".device.apps.AppManagementActivity"));
         i.putExtra(AppManagementActivity.EXTRA_PACKAGE_NAME_KEY, packageName);
         return i;
+    }
+
+    private void refreshUpdateActions() {
+        mApplicationsState = ApplicationsState.getInstance(getApplication());
+        mAppInfo = new AppInfo(this, mApplicationsState.getEntry(mPackageName));
+        mUninstallManager = new UninstallManager(this, mAppInfo);
+        updateActions();
+    }
+
+    static class DisableChanger extends AsyncTask<Void, Void, Void> {
+        final PackageManager mPm;
+        final WeakReference<AppManagementActivity> mActivity;
+        final ApplicationInfo mInfo;
+        final int mState;
+
+        DisableChanger(AppManagementActivity activity, ApplicationInfo info, int state) {
+            mPm = activity.getPackageManager();
+            mActivity = new WeakReference<AppManagementActivity>(activity);
+            mInfo = info;
+            mState = state;
+        }
+
+        @Override
+        protected Void doInBackground(Void... params) {
+            mPm.setApplicationEnabledSetting(mInfo.packageName, mState, 0);
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void result) {
+            AppManagementActivity activity = mActivity.get();
+            if (activity != null) {
+                activity.refreshUpdateActions();
+            }
+        }
     }
 
     @Override
@@ -248,6 +287,12 @@ public class AppManagementActivity extends DialogActivity implements ActionAdapt
             case UNINSTALL:
                 onUninstallOk();
                 break;
+            case DISABLE:
+                onDisableOk();
+                break;
+            case ENABLE:
+                onEnableOk();
+                break;
             default:
                 break;
         }
@@ -279,6 +324,18 @@ public class AppManagementActivity extends DialogActivity implements ActionAdapt
 
     private void onUninstallOk() {
         mUninstallManager.uninstall(REQUEST_UNINSTALL);
+    }
+
+    private void onDisableOk() {
+        new DisableChanger(this, mAppInfo.getApplicationInfo(),
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER).execute();
+        goToActionSelectScreen();
+    }
+
+    private void onEnableOk() {
+        new DisableChanger(this, mAppInfo.getApplicationInfo(),
+                PackageManager.COMPONENT_ENABLED_STATE_DEFAULT).execute();
+        goToActionSelectScreen();
     }
 
     private void onNotificationsOn() {
@@ -340,6 +397,15 @@ public class AppManagementActivity extends DialogActivity implements ActionAdapt
         }
         if (mUninstallManager.canUninstall()) {
             actions.add(ActionType.UNINSTALL.toInitAction(getResources()));
+        } else {
+            // App is on system partition.
+            if (mUninstallManager.canDisable()) {
+                if (mUninstallManager.isEnabled()) {
+                    actions.add(ActionType.DISABLE.toInitAction(getResources()));
+                } else {
+                    actions.add(ActionType.ENABLE.toInitAction(getResources()));
+                }
+            }
         }
         actions.add(
                 ActionType.CLEAR_DATA.toInitAction(getResources(), mDataClearer.getDataSize(this)));

@@ -8,8 +8,8 @@ import tempfile
 import time
 
 from telemetry.core import exceptions
+from telemetry.core.platform.power_monitor import sysfs_power_monitor
 from telemetry.core.platform.profiler import monsoon
-import telemetry.core.platform.power_monitor as power_monitor
 
 
 def _MonitorPower(device, is_collecting, output):
@@ -42,9 +42,9 @@ def _MonitorPower(device, is_collecting, output):
     }
     json.dump(result, output)
 
-class MonsoonPowerMonitor(power_monitor.PowerMonitor):
-  def __init__(self):
-    super(MonsoonPowerMonitor, self).__init__()
+class MonsoonPowerMonitor(sysfs_power_monitor.SysfsPowerMonitor):
+  def __init__(self, _, platform_backend):
+    super(MonsoonPowerMonitor, self).__init__(platform_backend)
     self._powermonitor_process = None
     self._powermonitor_output_file = None
     self._is_collecting = None
@@ -65,6 +65,7 @@ class MonsoonPowerMonitor(power_monitor.PowerMonitor):
   def StartMonitoringPower(self, browser):
     assert not self._powermonitor_process, (
         'Must call StopMonitoringPower().')
+    super(MonsoonPowerMonitor, self).StartMonitoringPower(browser)
     self._powermonitor_output_file = tempfile.TemporaryFile()
     self._is_collecting = multiprocessing.Event()
     self._powermonitor_process = multiprocessing.Process(
@@ -72,6 +73,8 @@ class MonsoonPowerMonitor(power_monitor.PowerMonitor):
         args=(self._monsoon,
               self._is_collecting,
               self._powermonitor_output_file))
+    # Ensure child is not left behind: parent kills daemonic children on exit.
+    self._powermonitor_process.daemon = True
     self._powermonitor_process.start()
     if not self._is_collecting.wait(timeout=0.5):
       self._powermonitor_process.terminate()
@@ -81,6 +84,7 @@ class MonsoonPowerMonitor(power_monitor.PowerMonitor):
     assert self._powermonitor_process, (
         'StartMonitoringPower() not called.')
     try:
+      cpu_stats = super(MonsoonPowerMonitor, self).StopMonitoringPower()
       # Tell powermonitor to take an immediate sample and join.
       self._is_collecting.clear()
       self._powermonitor_process.join()
@@ -88,7 +92,9 @@ class MonsoonPowerMonitor(power_monitor.PowerMonitor):
         self._powermonitor_output_file.seek(0)
         powermonitor_output = self._powermonitor_output_file.read()
       assert powermonitor_output, 'PowerMonitor produced no output'
-      return MonsoonPowerMonitor.ParseSamplingOutput(powermonitor_output)
+      power_stats = MonsoonPowerMonitor.ParseSamplingOutput(powermonitor_output)
+      return super(MonsoonPowerMonitor, self).CombineResults(cpu_stats,
+                                                             power_stats)
     finally:
       self._powermonitor_output_file = None
       self._powermonitor_process = None
@@ -103,15 +109,16 @@ class MonsoonPowerMonitor(power_monitor.PowerMonitor):
     """
     power_samples = []
     total_energy_consumption_mwh = 0
+
     result = json.loads(powermonitor_output)
-    timedelta_h = result['duration_s'] / len(result['samples']) / 3600
-    for (current_a, voltage_v) in result['samples']:
-      energy_consumption_mw = current_a * voltage_v * 10**3
-      total_energy_consumption_mwh += energy_consumption_mw * timedelta_h
-      power_samples.append(energy_consumption_mw)
-    # -------- Collect and Process Data -------------
+    if result['samples']:
+      timedelta_h = result['duration_s'] / len(result['samples']) / 3600
+      for (current_a, voltage_v) in result['samples']:
+        energy_consumption_mw = current_a * voltage_v * 10**3
+        total_energy_consumption_mwh += energy_consumption_mw * timedelta_h
+        power_samples.append(energy_consumption_mw)
+
     out_dict = {}
-    # Raw power usage samples.
     out_dict['identifier'] = 'monsoon'
     out_dict['power_samples_mw'] = power_samples
     out_dict['energy_consumption_mwh'] = total_energy_consumption_mwh

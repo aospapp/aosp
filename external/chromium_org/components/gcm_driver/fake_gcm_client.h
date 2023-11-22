@@ -56,6 +56,11 @@ class FakeGCMClient : public GCMClient {
   virtual void SetRecording(bool recording) OVERRIDE;
   virtual void ClearActivityLogs() OVERRIDE;
   virtual GCMStatistics GetStatistics() const OVERRIDE;
+  virtual void SetAccountsForCheckin(
+      const std::map<std::string, std::string>& account_tokens) OVERRIDE;
+  virtual void UpdateAccountMapping(
+      const AccountMapping& account_mapping) OVERRIDE;
+  virtual void RemoveAccountMapping(const std::string& account_id) OVERRIDE;
 
   // Initiate the loading that has been delayed.
   // Called on UI thread.
@@ -67,8 +72,8 @@ class FakeGCMClient : public GCMClient {
                       const IncomingMessage& message);
   void DeleteMessages(const std::string& app_id);
 
-  static std::string GetRegistrationIdFromSenderIds(
-      const std::vector<std::string>& sender_ids);
+  std::string GetRegistrationIdFromSenderIds(
+      const std::vector<std::string>& sender_ids) const;
 
   Status status() const { return status_; }
 
@@ -85,8 +90,13 @@ class FakeGCMClient : public GCMClient {
   void MessagesDeleted(const std::string& app_id);
   void MessageSendError(const std::string& app_id,
                         const SendErrorDetails& send_error_details);
+  void SendAcknowledgement(const std::string& app_id,
+                           const std::string& message_id);
 
   Delegate* delegate_;
+  // Increased at checkout in order to produce a different registration ID
+  // after checkout and re-checkin.
+  int sequence_id_;
   Status status_;
   StartMode start_mode_;
   scoped_refptr<base::SequencedTaskRunner> ui_thread_;

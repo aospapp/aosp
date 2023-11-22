@@ -16,6 +16,10 @@
 
 package android.mediastress.cts;
 
+import android.media.CamcorderProfile;
+import android.media.MediaRecorder.AudioEncoder;
+import android.media.MediaRecorder.VideoEncoder;
+
 public class Vp8R480x360ShortPlayerTest extends MediaPlayerStressTest {
     private static final String VIDEO_PATH_MIDDLE = "bbb_short/480x360/webm_libvpx_libvorbis/";
     private final String[] mMedias = {
@@ -32,6 +36,10 @@ public class Vp8R480x360ShortPlayerTest extends MediaPlayerStressTest {
         "bbb_short.ffmpeg.480x360.webm.libvpx_500kbps_30fps.libvorbis_stereo_128kbps_44100Hz.webm",
         "bbb_short.ffmpeg.480x360.webm.libvpx_500kbps_30fps.libvorbis_stereo_192kbps_44100Hz.webm"
     };
+
+    public Vp8R480x360ShortPlayerTest() {
+        super(CamcorderProfile.QUALITY_480P, VideoEncoder.VP8, AudioEncoder.VORBIS);
+    }
 
     public void testPlay00() throws Exception {
         doTestVideoPlaybackShort(0);

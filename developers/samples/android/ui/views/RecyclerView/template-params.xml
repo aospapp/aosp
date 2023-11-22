@@ -22,7 +22,7 @@
     <group>UI</group>
     <package>com.example.android.recyclerview</package>
 
-    <dependency>com.android.support:recyclerview-v7:+</dependency>
+    <dependency>com.android.support:recyclerview-v7:21.0.2</dependency>
 
     <!-- change minSdk if needed-->
     <minSdk>7</minSdk>
@@ -31,10 +31,23 @@
     <strings>
         <intro>
             <![CDATA[
-            Demonstration of using RecyclerView with a LayoutManager to create a vertical ListView.
+                Demonstration of using RecyclerView with a LinearLayoutManager and GridLayoutManager
+                to create a vertical list. Tap \"SHOW LOG\" to view elements as they are bound to
+                their ViewHolder. The log also displays elements that you tap.
             ]]>
         </intro>
     </strings>
+
+    <colors>
+        <color>
+            <name>colorPrimary</name>
+            <hexval>#00BCD4</hexval>
+        </color>
+        <color>
+            <name>colorPrimaryDark</name>
+            <hexval>#00838F</hexval>
+        </color>
+    </colors>
 
     <template src="base"/>
     <template src="FragmentView"/>

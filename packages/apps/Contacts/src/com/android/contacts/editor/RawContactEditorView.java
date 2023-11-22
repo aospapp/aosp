@@ -21,7 +21,7 @@ import android.database.Cursor;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.provider.ContactsContract.CommonDataKinds.GroupMembership;
-import android.provider.ContactsContract.CommonDataKinds.Organization;
+import android.provider.ContactsContract.CommonDataKinds.Nickname;
 import android.provider.ContactsContract.CommonDataKinds.Photo;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 import android.provider.ContactsContract.Contacts;
@@ -29,13 +29,8 @@ import android.provider.ContactsContract.Data;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import com.android.contacts.GroupMetaDataLoader;
@@ -46,6 +41,7 @@ import com.android.contacts.common.model.dataitem.DataKind;
 import com.android.contacts.common.model.RawContactDelta;
 import com.android.contacts.common.model.ValuesDelta;
 import com.android.contacts.common.model.RawContactModifier;
+
 import com.google.common.base.Objects;
 
 import java.util.ArrayList;
@@ -62,35 +58,31 @@ import java.util.ArrayList;
  * {@link RawContactModifier} to ensure that {@link AccountType} are enforced.
  */
 public class RawContactEditorView extends BaseRawContactEditorView {
-    private static final String KEY_ORGANIZATION_VIEW_EXPANDED = "organizationViewExpanded";
     private static final String KEY_SUPER_INSTANCE_STATE = "superInstanceState";
 
     private LayoutInflater mInflater;
 
     private StructuredNameEditorView mName;
     private PhoneticNameEditorView mPhoneticName;
-    private GroupMembershipView mGroupMembershipView;
+    private TextFieldsEditorView mNickName;
 
-    private ViewGroup mOrganizationSectionViewContainer;
-    private View mAddOrganizationButton;
-    private View mOrganizationView;
-    private boolean mOrganizationViewExpanded = false;
+    private GroupMembershipView mGroupMembershipView;
 
     private ViewGroup mFields;
 
-    private ImageView mAccountIcon;
-    private TextView mAccountTypeTextView;
-    private TextView mAccountNameTextView;
+    private View mAccountSelector;
+    private TextView mAccountSelectorTypeTextView;
+    private TextView mAccountSelectorNameTextView;
 
-    private Button mAddFieldButton;
+    private View mAccountHeader;
+    private TextView mAccountHeaderTypeTextView;
+    private TextView mAccountHeaderNameTextView;
 
     private long mRawContactId = -1;
     private boolean mAutoAddToDefaultGroup = true;
     private Cursor mGroupMetaData;
     private DataKind mGroupMembershipKind;
     private RawContactDelta mState;
-
-    private boolean mPhoneticNameAdded;
 
     public RawContactEditorView(Context context) {
         super(context);
@@ -127,8 +119,6 @@ public class RawContactEditorView extends BaseRawContactEditorView {
         if (mGroupMembershipView != null) {
             mGroupMembershipView.setEnabled(enabled);
         }
-
-        mAddFieldButton.setEnabled(enabled);
     }
 
     @Override
@@ -143,32 +133,22 @@ public class RawContactEditorView extends BaseRawContactEditorView {
         mPhoneticName = (PhoneticNameEditorView)findViewById(R.id.edit_phonetic_name);
         mPhoneticName.setDeletable(false);
 
+        mNickName = (TextFieldsEditorView)findViewById(R.id.edit_nick_name);
+
         mFields = (ViewGroup)findViewById(R.id.sect_fields);
 
-        mAccountIcon = (ImageView) findViewById(R.id.account_icon);
-        mAccountTypeTextView = (TextView) findViewById(R.id.account_type);
-        mAccountNameTextView = (TextView) findViewById(R.id.account_name);
+        mAccountHeader = findViewById(R.id.account_header_container);
+        mAccountHeaderTypeTextView = (TextView) findViewById(R.id.account_type);
+        mAccountHeaderNameTextView = (TextView) findViewById(R.id.account_name);
 
-        mOrganizationView = mInflater.inflate(
-                R.layout.organization_editor_view_switcher, mFields, false);
-        mAddOrganizationButton = mOrganizationView.findViewById(
-                R.id.add_organization_button);
-        mOrganizationSectionViewContainer =
-                (ViewGroup) mOrganizationView.findViewById(R.id.container);
-
-        mAddFieldButton = (Button) findViewById(R.id.button_add_field);
-        mAddFieldButton.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                showAddInformationPopupWindow();
-            }
-        });
+        mAccountSelector = findViewById(R.id.account_selector_container);
+        mAccountSelectorTypeTextView = (TextView) findViewById(R.id.account_type_selector);
+        mAccountSelectorNameTextView = (TextView) findViewById(R.id.account_name_selector);
     }
 
     @Override
     protected Parcelable onSaveInstanceState() {
         Bundle bundle = new Bundle();
-        bundle.putBoolean(KEY_ORGANIZATION_VIEW_EXPANDED, mOrganizationViewExpanded);
         // super implementation of onSaveInstanceState returns null
         bundle.putParcelable(KEY_SUPER_INSTANCE_STATE, super.onSaveInstanceState());
         return bundle;
@@ -178,20 +158,10 @@ public class RawContactEditorView extends BaseRawContactEditorView {
     protected void onRestoreInstanceState(Parcelable state) {
         if (state instanceof Bundle) {
             Bundle bundle = (Bundle) state;
-            mOrganizationViewExpanded = bundle.getBoolean(KEY_ORGANIZATION_VIEW_EXPANDED);
-            if (mOrganizationViewExpanded) {
-                // we have to manually perform the expansion here because
-                // onRestoreInstanceState is called after setState. So at the point
-                // of the creation of the organization view, mOrganizationViewExpanded
-                // does not have the correct value yet.
-                mOrganizationSectionViewContainer.setVisibility(VISIBLE);
-                mAddOrganizationButton.setVisibility(GONE);
-            }
             super.onRestoreInstanceState(bundle.getParcelable(KEY_SUPER_INSTANCE_STATE));
             return;
         }
         super.onRestoreInstanceState(state);
-        return;
     }
 
     /**
@@ -213,9 +183,8 @@ public class RawContactEditorView extends BaseRawContactEditorView {
 
         setId(vig.getId(state, null, null, ViewIdGenerator.NO_VIEW_INDEX));
 
-        // Make sure we have a StructuredName and Organization
+        // Make sure we have a StructuredName
         RawContactModifier.ensureKindExists(state, type, StructuredName.CONTENT_ITEM_TYPE);
-        RawContactModifier.ensureKindExists(state, type, Organization.CONTENT_ITEM_TYPE);
 
         mRawContactId = state.getRawContactId();
 
@@ -223,13 +192,13 @@ public class RawContactEditorView extends BaseRawContactEditorView {
         if (isProfile) {
             String accountName = state.getAccountName();
             if (TextUtils.isEmpty(accountName)) {
-                mAccountNameTextView.setVisibility(View.GONE);
-                mAccountTypeTextView.setText(R.string.local_profile_title);
+                mAccountHeaderNameTextView.setVisibility(View.GONE);
+                mAccountHeaderTypeTextView.setText(R.string.local_profile_title);
             } else {
                 CharSequence accountType = type.getDisplayLabel(mContext);
-                mAccountTypeTextView.setText(mContext.getString(R.string.external_profile_title,
+                mAccountHeaderTypeTextView.setText(mContext.getString(R.string.external_profile_title,
                         accountType));
-                mAccountNameTextView.setText(accountName);
+                mAccountHeaderNameTextView.setText(accountName);
             }
         } else {
             String accountName = state.getAccountName();
@@ -238,17 +207,27 @@ public class RawContactEditorView extends BaseRawContactEditorView {
                 accountType = mContext.getString(R.string.account_phone);
             }
             if (!TextUtils.isEmpty(accountName)) {
-                mAccountNameTextView.setVisibility(View.VISIBLE);
-                mAccountNameTextView.setText(
+                mAccountHeaderNameTextView.setVisibility(View.VISIBLE);
+                mAccountHeaderNameTextView.setText(
                         mContext.getString(R.string.from_account_format, accountName));
             } else {
                 // Hide this view so the other text view will be centered vertically
-                mAccountNameTextView.setVisibility(View.GONE);
+                mAccountHeaderNameTextView.setVisibility(View.GONE);
             }
-            mAccountTypeTextView.setText(
+            mAccountHeaderTypeTextView.setText(
                     mContext.getString(R.string.account_type_format, accountType));
         }
-        mAccountIcon.setImageDrawable(type.getDisplayIcon(mContext));
+        updateAccountHeaderContentDescription();
+
+        // The account selector and header are both used to display the same information.
+        mAccountSelectorTypeTextView.setText(mAccountHeaderTypeTextView.getText());
+        mAccountSelectorTypeTextView.setVisibility(mAccountHeaderTypeTextView.getVisibility());
+        mAccountSelectorNameTextView.setText(mAccountHeaderNameTextView.getText());
+        mAccountSelectorNameTextView.setVisibility(mAccountHeaderNameTextView.getVisibility());
+        // Showing the account header at the same time as the account selector drop down is
+        // confusing. They should be mutually exclusive.
+        mAccountHeader.setVisibility(mAccountSelector.getVisibility() == View.GONE
+                ? View.VISIBLE : View.GONE);
 
         // Show photo editor when supported
         RawContactModifier.ensureKindExists(state, type, Photo.CONTENT_ITEM_TYPE);
@@ -286,6 +265,22 @@ public class RawContactEditorView extends BaseRawContactEditorView {
                 mPhoneticName.setValues(
                         type.getKindForMimetype(DataKind.PSEUDO_MIME_TYPE_PHONETIC_NAME),
                         primary, state, false, vig);
+                // It is useful to use Nickname outside of a KindSectionView so that we can treat it
+                // as a part of StructuredName's fake KindSectionView, even though it uses a
+                // different CP2 mime-type. We do a bit of extra work below to make this possible.
+                final DataKind nickNameKind = type.getKindForMimetype(Nickname.CONTENT_ITEM_TYPE);
+                if (nickNameKind != null) {
+                    ValuesDelta primaryNickNameEntry = state.getPrimaryEntry(nickNameKind.mimeType);
+                    if (primaryNickNameEntry == null) {
+                        primaryNickNameEntry = RawContactModifier.insertChild(state, nickNameKind);
+                    }
+                    mNickName.setValues(nickNameKind, primaryNickNameEntry, state, false, vig);
+                    mNickName.setDeletable(false);
+                } else {
+                    mPhoneticName.setPadding(0, 0, 0, (int) getResources().getDimension(
+                            R.dimen.editor_padding_between_editor_views));
+                    mNickName.setVisibility(View.GONE);
+                }
             } else if (Photo.CONTENT_ITEM_TYPE.equals(mimeType)) {
                 // Handle special case editor for photos
                 final ValuesDelta primary = state.getPrimaryEntry(mimeType);
@@ -293,38 +288,13 @@ public class RawContactEditorView extends BaseRawContactEditorView {
             } else if (GroupMembership.CONTENT_ITEM_TYPE.equals(mimeType)) {
                 if (mGroupMembershipView != null) {
                     mGroupMembershipView.setState(state);
+                    mFields.addView(mGroupMembershipView);
                 }
-            } else if (Organization.CONTENT_ITEM_TYPE.equals(mimeType)) {
-                // Create the organization section
-                final KindSectionView section = (KindSectionView) mInflater.inflate(
-                        R.layout.item_kind_section, mFields, false);
-                section.setTitleVisible(false);
-                section.setEnabled(isEnabled());
-                section.setState(kind, state, false, vig);
-
-                // If there is organization info for the contact already, display it
-                if (!section.isEmpty()) {
-                    mFields.addView(section);
-                } else {
-                    // Otherwise provide the user with an "add organization" button that shows the
-                    // EditText fields only when clicked
-                    mOrganizationSectionViewContainer.removeAllViews();
-                    mOrganizationSectionViewContainer.addView(section);
-
-                    // Setup the click listener for the "add organization" button
-                    mAddOrganizationButton.setOnClickListener(new OnClickListener() {
-                        @Override
-                        public void onClick(View v) {
-                            // Once the user expands the organization field, the user cannot
-                            // collapse them again.
-                            EditorAnimator.getInstance().expandOrganization(mAddOrganizationButton,
-                                    mOrganizationSectionViewContainer);
-                            mOrganizationViewExpanded = true;
-                        }
-                    });
-
-                    mFields.addView(mOrganizationView);
-                }
+            } else if (DataKind.PSEUDO_MIME_TYPE_DISPLAY_NAME.equals(mimeType)
+                    || DataKind.PSEUDO_MIME_TYPE_PHONETIC_NAME.equals(mimeType)
+                    || Nickname.CONTENT_ITEM_TYPE.equals(mimeType)) {
+                // Don't create fields for each of these mime-types. They are handled specially.
+                continue;
             } else {
                 // Otherwise use generic section-based editors
                 if (kind.fieldList == null) continue;
@@ -336,18 +306,7 @@ public class RawContactEditorView extends BaseRawContactEditorView {
             }
         }
 
-        if (mGroupMembershipView != null) {
-            mFields.addView(mGroupMembershipView);
-        }
-
-        updatePhoneticNameVisibility();
-
         addToDefaultGroupIfNeeded();
-
-
-        final int sectionCount = getSectionViewsWithoutFields().size();
-        mAddFieldButton.setVisibility(sectionCount > 0 ? View.VISIBLE : View.GONE);
-        mAddFieldButton.setEnabled(isEnabled());
     }
 
     @Override
@@ -431,89 +390,12 @@ public class RawContactEditorView extends BaseRawContactEditorView {
         return mPhoneticName;
     }
 
-    private void updatePhoneticNameVisibility() {
-        boolean showByDefault =
-                getContext().getResources().getBoolean(R.bool.config_editor_include_phonetic_name);
-
-        if (showByDefault || mPhoneticName.hasData() || mPhoneticNameAdded) {
-            mPhoneticName.setVisibility(View.VISIBLE);
-        } else {
-            mPhoneticName.setVisibility(View.GONE);
-        }
+    public TextFieldsEditorView getNickNameEditor() {
+        return mNickName;
     }
 
     @Override
     public long getRawContactId() {
         return mRawContactId;
-    }
-
-    /**
-     * Return a list of KindSectionViews that have no fields yet...
-     * these are candidates to have fields added in
-     * {@link #showAddInformationPopupWindow()}
-     */
-    private ArrayList<KindSectionView> getSectionViewsWithoutFields() {
-        final ArrayList<KindSectionView> fields =
-                new ArrayList<KindSectionView>(mFields.getChildCount());
-        for (int i = 0; i < mFields.getChildCount(); i++) {
-            View child = mFields.getChildAt(i);
-            if (child instanceof KindSectionView) {
-                final KindSectionView sectionView = (KindSectionView) child;
-                // If the section is already visible (has 1 or more editors), then don't offer the
-                // option to add this type of field in the popup menu
-                if (sectionView.getEditorCount() > 0) {
-                    continue;
-                }
-                DataKind kind = sectionView.getKind();
-                // not a list and already exists? ignore
-                if ((kind.typeOverallMax == 1) && sectionView.getEditorCount() != 0) {
-                    continue;
-                }
-                if (DataKind.PSEUDO_MIME_TYPE_DISPLAY_NAME.equals(kind.mimeType)) {
-                    continue;
-                }
-
-                if (DataKind.PSEUDO_MIME_TYPE_PHONETIC_NAME.equals(kind.mimeType)
-                        && mPhoneticName.getVisibility() == View.VISIBLE) {
-                    continue;
-                }
-
-                fields.add(sectionView);
-            }
-        }
-        return fields;
-    }
-
-    private void showAddInformationPopupWindow() {
-        final ArrayList<KindSectionView> fields = getSectionViewsWithoutFields();
-        final PopupMenu popupMenu = new PopupMenu(getContext(), mAddFieldButton);
-        final Menu menu = popupMenu.getMenu();
-        for (int i = 0; i < fields.size(); i++) {
-            menu.add(Menu.NONE, i, Menu.NONE, fields.get(i).getTitle());
-        }
-
-        popupMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
-            @Override
-            public boolean onMenuItemClick(MenuItem item) {
-                final KindSectionView view = fields.get(item.getItemId());
-                if (DataKind.PSEUDO_MIME_TYPE_PHONETIC_NAME.equals(view.getKind().mimeType)) {
-                    mPhoneticNameAdded = true;
-                    updatePhoneticNameVisibility();
-                    mPhoneticName.requestFocus();
-                } else {
-                    view.addItem();
-                }
-
-                // If this was the last section without an entry, we just added one, and therefore
-                // there's no reason to show the button.
-                if (fields.size() == 1) {
-                    mAddFieldButton.setVisibility(View.GONE);
-                }
-
-                return true;
-            }
-        });
-
-        popupMenu.show();
     }
 }

@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "base/command_line.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/metrics/field_trial.h"
 #include "base/strings/string16.h"
@@ -14,9 +15,11 @@
 #include "chrome/browser/profiles/avatar_menu_observer.h"
 #include "chrome/browser/profiles/profile_info_cache.h"
 #include "chrome/browser/profiles/profiles_state.h"
+#include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile_manager.h"
-#include "grit/generated_resources.h"
+#include "components/signin/core/common/profile_management_switches.h"
+#include "content/public/test/test_browser_thread_bundle.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -86,6 +89,7 @@ class ProfileListDesktopTest : public testing::Test {
   TestingProfileManager manager_;
   scoped_ptr<MockObserver> mock_observer_;
   scoped_ptr<AvatarMenu> avatar_menu_;
+  content::TestBrowserThreadBundle thread_bundle_;
 
   DISALLOW_COPY_AND_ASSIGN(ProfileListDesktopTest);
 };
@@ -283,7 +287,9 @@ TEST_F(ProfileListDesktopTest, ShowAvatarMenuInTrial) {
 #endif
 }
 
-TEST_F(ProfileListDesktopTest, DontShowAvatarMenu) {
+TEST_F(ProfileListDesktopTest, DontShowOldAvatarMenuForSingleProfile) {
+  switches::DisableNewAvatarMenuForTesting(CommandLine::ForCurrentProcess());
+
   manager()->CreateTestingProfile("Test 1");
 
   EXPECT_FALSE(AvatarMenu::ShouldShowAvatarMenu());
@@ -296,6 +302,18 @@ TEST_F(ProfileListDesktopTest, DontShowAvatarMenu) {
   manager()->CreateTestingProfile("Test 2");
 
   EXPECT_FALSE(AvatarMenu::ShouldShowAvatarMenu());
+}
+
+TEST_F(ProfileListDesktopTest, AlwaysShowNewAvatarMenu) {
+  // If multiprofile mode is not enabled then the menu is never shown.
+  if (!profiles::IsMultipleProfilesEnabled())
+    return;
+
+  switches::EnableNewAvatarMenuForTesting(CommandLine::ForCurrentProcess());
+
+  manager()->CreateTestingProfile("Test 1");
+
+  EXPECT_TRUE(AvatarMenu::ShouldShowAvatarMenu());
 }
 
 TEST_F(ProfileListDesktopTest, ShowAvatarMenu) {
@@ -332,15 +350,15 @@ TEST_F(ProfileListDesktopTest, SyncState) {
   model->RebuildMenu();
   EXPECT_EQ(2U, model->GetNumberOfItems());
 
-  // Now check that the sync_state of a managed user shows the managed user
-  // avatar label instead.
-  base::string16 managed_user_label =
-      l10n_util::GetStringUTF16(IDS_MANAGED_USER_AVATAR_LABEL);
+  // Now check that the sync_state of a supervised user shows the supervised
+  // user avatar label instead.
+  base::string16 supervised_user_label =
+      l10n_util::GetStringUTF16(IDS_SUPERVISED_USER_AVATAR_LABEL);
   const AvatarMenu::Item& item1 = model->GetItemAt(0);
-  EXPECT_NE(item1.sync_state, managed_user_label);
+  EXPECT_NE(item1.sync_state, supervised_user_label);
 
   const AvatarMenu::Item& item2 = model->GetItemAt(1);
-  EXPECT_EQ(item2.sync_state, managed_user_label);
+  EXPECT_EQ(item2.sync_state, supervised_user_label);
 }
 
 }  // namespace

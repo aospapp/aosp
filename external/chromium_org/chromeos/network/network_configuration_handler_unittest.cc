@@ -8,7 +8,6 @@
 #include "base/strings/string_piece.h"
 #include "base/values.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
-#include "chromeos/dbus/fake_dbus_thread_manager.h"
 #include "chromeos/dbus/mock_shill_manager_client.h"
 #include "chromeos/dbus/mock_shill_profile_client.h"
 #include "chromeos/dbus/mock_shill_service_client.h"
@@ -99,15 +98,16 @@ class NetworkConfigurationHandlerTest : public testing::Test {
   virtual ~NetworkConfigurationHandlerTest() {}
 
   virtual void SetUp() OVERRIDE {
-    FakeDBusThreadManager* dbus_thread_manager = new FakeDBusThreadManager;
+    scoped_ptr<DBusThreadManagerSetter> dbus_setter =
+        DBusThreadManager::GetSetterForTesting();
     mock_manager_client_ = new MockShillManagerClient();
     mock_profile_client_ = new MockShillProfileClient();
     mock_service_client_ = new MockShillServiceClient();
-    dbus_thread_manager->SetShillManagerClient(
+    dbus_setter->SetShillManagerClient(
         scoped_ptr<ShillManagerClient>(mock_manager_client_).Pass());
-    dbus_thread_manager->SetShillProfileClient(
+    dbus_setter->SetShillProfileClient(
         scoped_ptr<ShillProfileClient>(mock_profile_client_).Pass());
-    dbus_thread_manager->SetShillServiceClient(
+    dbus_setter->SetShillServiceClient(
         scoped_ptr<ShillServiceClient>(mock_service_client_).Pass());
 
     EXPECT_CALL(*mock_service_client_, GetProperties(_, _))
@@ -118,8 +118,6 @@ class NetworkConfigurationHandlerTest : public testing::Test {
         .Times(AnyNumber());
     EXPECT_CALL(*mock_manager_client_, RemovePropertyChangedObserver(_))
         .Times(AnyNumber());
-
-    DBusThreadManager::InitializeForTesting(dbus_thread_manager);
 
     network_state_handler_.reset(NetworkStateHandler::InitializeForTest());
     network_configuration_handler_.reset(new NetworkConfigurationHandler());
@@ -217,10 +215,10 @@ TEST_F(NetworkConfigurationHandlerTest, GetProperties) {
   std::string networkName = "MyNetwork";
   std::string key = "SSID";
   scoped_ptr<base::StringValue> networkNameValue(
-      base::Value::CreateStringValue(networkName));
+      new base::StringValue(networkName));
 
   base::DictionaryValue value;
-  value.Set(key, base::Value::CreateStringValue(networkName));
+  value.Set(key, new base::StringValue(networkName));
   dictionary_value_result_ = &value;
   EXPECT_CALL(*mock_service_client_,
               SetProperty(dbus::ObjectPath(service_path), key,
@@ -251,10 +249,10 @@ TEST_F(NetworkConfigurationHandlerTest, SetProperties) {
   std::string networkName = "MyNetwork";
   std::string key = "SSID";
   scoped_ptr<base::StringValue> networkNameValue(
-      base::Value::CreateStringValue(networkName));
+      new base::StringValue(networkName));
 
   base::DictionaryValue value;
-  value.Set(key, base::Value::CreateStringValue(networkName));
+  value.Set(key, new base::StringValue(networkName));
   dictionary_value_result_ = &value;
   EXPECT_CALL(*mock_service_client_,
               SetProperties(_, _, _, _)).WillOnce(
@@ -273,11 +271,11 @@ TEST_F(NetworkConfigurationHandlerTest, ClearProperties) {
   std::string networkName = "MyNetwork";
   std::string key = "SSID";
   scoped_ptr<base::StringValue> networkNameValue(
-      base::Value::CreateStringValue(networkName));
+      new base::StringValue(networkName));
 
   // First set up a value to clear.
   base::DictionaryValue value;
-  value.Set(key, base::Value::CreateStringValue(networkName));
+  value.Set(key, new base::StringValue(networkName));
   dictionary_value_result_ = &value;
   EXPECT_CALL(*mock_service_client_,
               SetProperties(_, _, _, _)).WillOnce(
@@ -310,11 +308,11 @@ TEST_F(NetworkConfigurationHandlerTest, ClearPropertiesError) {
   std::string networkName = "MyNetwork";
   std::string key = "SSID";
   scoped_ptr<base::StringValue> networkNameValue(
-      base::Value::CreateStringValue(networkName));
+      new base::StringValue(networkName));
 
   // First set up a value to clear.
   base::DictionaryValue value;
-  value.Set(key, base::Value::CreateStringValue(networkName));
+  value.Set(key, new base::StringValue(networkName));
   dictionary_value_result_ = &value;
   EXPECT_CALL(*mock_service_client_,
               SetProperties(_, _, _, _)).WillOnce(
@@ -351,9 +349,9 @@ TEST_F(NetworkConfigurationHandlerTest, CreateConfiguration) {
   base::DictionaryValue value;
   shill_property_util::SetSSID(networkName, &value);
   value.SetWithoutPathExpansion(shill::kTypeProperty,
-                                base::Value::CreateStringValue(type));
+                                new base::StringValue(type));
   value.SetWithoutPathExpansion(shill::kProfileProperty,
-                                base::Value::CreateStringValue(profile));
+                                new base::StringValue(profile));
 
   EXPECT_CALL(*mock_manager_client_,
               ConfigureServiceForProfile(dbus::ObjectPath(profile), _, _, _))
@@ -436,7 +434,7 @@ class NetworkConfigurationHandlerStubTest : public testing::Test {
   }
 
   virtual void SetUp() OVERRIDE {
-    DBusThreadManager::InitializeWithStub();
+    DBusThreadManager::Initialize();
 
     network_state_handler_.reset(NetworkStateHandler::InitializeForTest());
     test_observer_.reset(new TestObserver());

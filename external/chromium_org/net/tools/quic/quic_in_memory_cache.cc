@@ -4,8 +4,8 @@
 
 #include "net/tools/quic/quic_in_memory_cache.h"
 
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "net/tools/balsa/balsa_headers.h"
@@ -170,8 +170,6 @@ void QuicInMemoryCache::Initialize() {
                                        file_contents.length() - processed);
     }
 
-    string response_headers_str;
-    response_headers.DumpToString(&response_headers_str);
     if (!caching_visitor.done_framing()) {
       LOG(DFATAL) << "Did not frame entire message from file: " << file.value()
                   << " (" << processed << " of " << file_contents.length()

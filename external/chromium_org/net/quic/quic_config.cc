@@ -10,7 +10,6 @@
 #include "net/quic/crypto/crypto_handshake_message.h"
 #include "net/quic/crypto/crypto_protocol.h"
 #include "net/quic/quic_flags.h"
-#include "net/quic/quic_sent_packet_manager.h"
 #include "net/quic/quic_utils.h"
 
 using std::min;
@@ -412,6 +411,7 @@ QuicErrorCode QuicFixedTagVector::ProcessPeerHello(
       *error_details = "Missing " + QuicUtils::TagToString(tag_);
       break;
     case QUIC_NO_ERROR:
+      DVLOG(1) << "Received Connection Option tags from receiver.";
       has_receive_values_ = true;
       for (size_t i = 0; i < received_tags_length; ++i) {
         receive_values_.push_back(received_tags[i]);
@@ -426,7 +426,7 @@ QuicErrorCode QuicFixedTagVector::ProcessPeerHello(
 
 QuicConfig::QuicConfig()
     : congestion_feedback_(kCGST, PRESENCE_REQUIRED),
-      congestion_options_(kCOPT, PRESENCE_OPTIONAL),
+      connection_options_(kCOPT, PRESENCE_OPTIONAL),
       loss_detection_(kLOSS, PRESENCE_OPTIONAL),
       idle_connection_state_lifetime_seconds_(kICSL, PRESENCE_REQUIRED),
       keepalive_timeout_seconds_(kKATO, PRESENCE_OPTIONAL),
@@ -434,15 +434,16 @@ QuicConfig::QuicConfig()
       max_time_before_crypto_handshake_(QuicTime::Delta::Zero()),
       initial_congestion_window_(kSWND, PRESENCE_OPTIONAL),
       initial_round_trip_time_us_(kIRTT, PRESENCE_OPTIONAL),
-      // TODO(rjshade): Make this PRESENCE_REQUIRED when retiring
-      // QUIC_VERSION_17.
+      // TODO(rjshade): Make this PRESENCE_REQUIRED when QUIC_VERSION_16 is
+      // retired.
       initial_flow_control_window_bytes_(kIFCW, PRESENCE_OPTIONAL),
       // TODO(rjshade): Make this PRESENCE_REQUIRED when retiring
       // QUIC_VERSION_19.
       initial_stream_flow_control_window_bytes_(kSFCW, PRESENCE_OPTIONAL),
       // TODO(rjshade): Make this PRESENCE_REQUIRED when retiring
       // QUIC_VERSION_19.
-      initial_session_flow_control_window_bytes_(kCFCW, PRESENCE_OPTIONAL) {
+      initial_session_flow_control_window_bytes_(kCFCW, PRESENCE_OPTIONAL),
+      socket_receive_buffer_(kSRBF, PRESENCE_OPTIONAL) {
 }
 
 QuicConfig::~QuicConfig() {}
@@ -457,17 +458,25 @@ QuicTag QuicConfig::congestion_feedback() const {
   return congestion_feedback_.GetTag();
 }
 
-void QuicConfig::SetCongestionOptionsToSend(
-    const QuicTagVector& congestion_options) {
-  congestion_options_.SetSendValues(congestion_options);
+void QuicConfig::SetConnectionOptionsToSend(
+    const QuicTagVector& connection_options) {
+  connection_options_.SetSendValues(connection_options);
 }
 
-bool QuicConfig::HasReceivedCongestionOptions() const {
-  return congestion_options_.HasReceivedValues();
+bool QuicConfig::HasReceivedConnectionOptions() const {
+  return connection_options_.HasReceivedValues();
 }
 
-QuicTagVector QuicConfig::ReceivedCongestionOptions() const {
-  return congestion_options_.GetReceivedValues();
+QuicTagVector QuicConfig::ReceivedConnectionOptions() const {
+  return connection_options_.GetReceivedValues();
+}
+
+bool QuicConfig::HasSendConnectionOptions() const {
+  return connection_options_.HasSendValues();
+}
+
+QuicTagVector QuicConfig::SendConnectionOptions() const {
+  return connection_options_.GetSendValues();
 }
 
 void QuicConfig::SetLossDetectionToSend(QuicTag loss_detection) {
@@ -542,6 +551,14 @@ uint32 QuicConfig::ReceivedInitialRoundTripTimeUs() const {
   return initial_round_trip_time_us_.GetReceivedValue();
 }
 
+bool QuicConfig::HasInitialRoundTripTimeUsToSend() const {
+  return initial_round_trip_time_us_.HasSendValue();
+}
+
+uint32 QuicConfig::GetInitialRoundTripTimeUsToSend() const {
+  return initial_round_trip_time_us_.GetSendValue();
+}
+
 void QuicConfig::SetInitialFlowControlWindowToSend(uint32 window_bytes) {
   if (window_bytes < kDefaultFlowControlSendWindow) {
     LOG(DFATAL) << "Initial flow control receive window (" << window_bytes
@@ -608,6 +625,22 @@ uint32 QuicConfig::ReceivedInitialSessionFlowControlWindowBytes() const {
   return initial_session_flow_control_window_bytes_.GetReceivedValue();
 }
 
+void QuicConfig::SetSocketReceiveBufferToSend(uint32 tcp_receive_window) {
+  socket_receive_buffer_.SetSendValue(tcp_receive_window);
+}
+
+uint32 QuicConfig::GetSocketReceiveBufferToSend() const {
+  return socket_receive_buffer_.GetSendValue();
+}
+
+bool QuicConfig::HasReceivedSocketReceiveBuffer() const {
+  return socket_receive_buffer_.HasReceivedValue();
+}
+
+uint32 QuicConfig::ReceivedSocketReceiveBuffer() const {
+  return socket_receive_buffer_.GetReceivedValue();
+}
+
 bool QuicConfig::negotiated() {
   // TODO(ianswett): Add the negotiated parameters once and iterate over all
   // of them in negotiated, ToHandshakeMessage, ProcessClientHello, and
@@ -620,32 +653,20 @@ bool QuicConfig::negotiated() {
 
 void QuicConfig::SetDefaults() {
   QuicTagVector congestion_feedback;
-  if (FLAGS_enable_quic_pacing) {
-    congestion_feedback.push_back(kPACE);
-  }
   congestion_feedback.push_back(kQBIC);
   congestion_feedback_.set(congestion_feedback, kQBIC);
-  idle_connection_state_lifetime_seconds_.set(kDefaultTimeoutSecs,
+  idle_connection_state_lifetime_seconds_.set(kMaximumIdleTimeoutSecs,
                                               kDefaultInitialTimeoutSecs);
   // kKATO is optional. Return 0 if not negotiated.
   keepalive_timeout_seconds_.set(0, 0);
-  max_streams_per_connection_.set(kDefaultMaxStreamsPerConnection,
-                                  kDefaultMaxStreamsPerConnection);
+  set_max_streams_per_connection(kDefaultMaxStreamsPerConnection,
+                                 kDefaultMaxStreamsPerConnection);
   max_time_before_crypto_handshake_ = QuicTime::Delta::FromSeconds(
       kDefaultMaxTimeForCryptoHandshakeSecs);
 
   SetInitialFlowControlWindowToSend(kDefaultFlowControlSendWindow);
   SetInitialStreamFlowControlWindowToSend(kDefaultFlowControlSendWindow);
   SetInitialSessionFlowControlWindowToSend(kDefaultFlowControlSendWindow);
-}
-
-void QuicConfig::EnablePacing(bool enable_pacing) {
-  QuicTagVector congestion_feedback;
-  if (enable_pacing) {
-    congestion_feedback.push_back(kPACE);
-  }
-  congestion_feedback.push_back(kQBIC);
-  congestion_feedback_.set(congestion_feedback, kQBIC);
 }
 
 void QuicConfig::ToHandshakeMessage(CryptoHandshakeMessage* out) const {
@@ -659,7 +680,8 @@ void QuicConfig::ToHandshakeMessage(CryptoHandshakeMessage* out) const {
   initial_flow_control_window_bytes_.ToHandshakeMessage(out);
   initial_stream_flow_control_window_bytes_.ToHandshakeMessage(out);
   initial_session_flow_control_window_bytes_.ToHandshakeMessage(out);
-  congestion_options_.ToHandshakeMessage(out);
+  socket_receive_buffer_.ToHandshakeMessage(out);
+  connection_options_.ToHandshakeMessage(out);
 }
 
 QuicErrorCode QuicConfig::ProcessPeerHello(
@@ -706,11 +728,15 @@ QuicErrorCode QuicConfig::ProcessPeerHello(
         peer_hello, hello_type, error_details);
   }
   if (error == QUIC_NO_ERROR) {
+    error = socket_receive_buffer_.ProcessPeerHello(
+        peer_hello, hello_type, error_details);
+  }
+  if (error == QUIC_NO_ERROR) {
     error = loss_detection_.ProcessPeerHello(
         peer_hello, hello_type, error_details);
   }
   if (error == QUIC_NO_ERROR) {
-    error = congestion_options_.ProcessPeerHello(
+    error = connection_options_.ProcessPeerHello(
         peer_hello, hello_type, error_details);
   }
   return error;

@@ -38,16 +38,6 @@ base::TimeDelta GetNextRequestDelayMs(base::TimeDelta last_delay) {
   return next_delay;
 }
 
-void CallOpenPersistentNSSDB() {
-  // Called from crypto_task_runner_.
-  VLOG(1) << "CallOpenPersistentNSSDB";
-
-  // Ensure we've opened the user's key/certificate database.
-  if (base::SysInfo::IsRunningOnChromeOS())
-    crypto::OpenPersistentNSSDB();
-  crypto::EnableTPMTokenForNSS();
-}
-
 void PostResultToTaskRunner(scoped_refptr<base::SequencedTaskRunner> runner,
                             const base::Callback<void(bool)>& callback,
                             bool success) {
@@ -116,17 +106,24 @@ TPMTokenLoader::~TPMTokenLoader() {
     LoginState::Get()->RemoveObserver(this);
 }
 
-void TPMTokenLoader::AddObserver(TPMTokenLoader::Observer* observer) {
-  observers_.AddObserver(observer);
+TPMTokenLoader::TPMTokenStatus TPMTokenLoader::IsTPMTokenEnabled(
+    const TPMReadyCallback& callback) {
+  if (tpm_token_state_ == TPM_TOKEN_INITIALIZED)
+    return TPM_TOKEN_STATUS_ENABLED;
+  if (!IsTPMLoadingEnabled() || tpm_token_state_ == TPM_DISABLED)
+    return TPM_TOKEN_STATUS_DISABLED;
+  // Status is not known yet.
+  if (!callback.is_null())
+    tpm_ready_callback_list_.push_back(callback);
+  return TPM_TOKEN_STATUS_UNDETERMINED;
 }
 
-void TPMTokenLoader::RemoveObserver(TPMTokenLoader::Observer* observer) {
-  observers_.RemoveObserver(observer);
-}
-
-bool TPMTokenLoader::IsTPMTokenReady() const {
-  return tpm_token_state_ == TPM_DISABLED ||
-         tpm_token_state_ == TPM_TOKEN_INITIALIZED;
+bool TPMTokenLoader::IsTPMLoadingEnabled() const {
+  // TPM loading is enabled on non-ChromeOS environments, e.g. when running
+  // tests on Linux.
+  // Treat TPM as disabled for guest users since they do not store certs.
+  return initialized_for_test_ || (base::SysInfo::IsRunningOnChromeOS() &&
+                                   !LoginState::Get()->IsGuestSessionUser());
 }
 
 void TPMTokenLoader::MaybeStartTokenInitialization() {
@@ -140,18 +137,13 @@ void TPMTokenLoader::MaybeStartTokenInitialization() {
   if (!LoginState::IsInitialized())
     return;
 
-  bool start_initialization = LoginState::Get()->IsUserLoggedIn() ||
-      LoginState::Get()->IsInSafeMode();
+  bool start_initialization = LoginState::Get()->IsUserLoggedIn();
 
   VLOG(1) << "StartTokenInitialization: " << start_initialization;
   if (!start_initialization)
     return;
 
-  if (!base::SysInfo::IsRunningOnChromeOS())
-    tpm_token_state_ = TPM_DISABLED;
-
-  // Treat TPM as disabled for guest users since they do not store certs.
-  if (LoginState::Get()->IsGuestUser())
+  if (!IsTPMLoadingEnabled())
     tpm_token_state_ = TPM_DISABLED;
 
   ContinueTokenInitialization();
@@ -167,8 +159,8 @@ void TPMTokenLoader::ContinueTokenInitialization() {
     case TPM_STATE_UNKNOWN: {
       crypto_task_runner_->PostTaskAndReply(
           FROM_HERE,
-          base::Bind(&CallOpenPersistentNSSDB),
-          base::Bind(&TPMTokenLoader::OnPersistentNSSDBOpened,
+          base::Bind(&crypto::EnableTPMTokenForNSS),
+          base::Bind(&TPMTokenLoader::OnTPMTokenEnabledForNSS,
                      weak_factory_.GetWeakPtr()));
       tpm_token_state_ = TPM_INITIALIZATION_STARTED;
       return;
@@ -177,7 +169,7 @@ void TPMTokenLoader::ContinueTokenInitialization() {
       NOTREACHED();
       return;
     }
-    case TPM_DB_OPENED: {
+    case TPM_TOKEN_ENABLED_FOR_NSS: {
       DBusThreadManager::Get()->GetCryptohomeClient()->TpmIsEnabled(
           base::Bind(&TPMTokenLoader::OnTpmIsEnabled,
                      weak_factory_.GetWeakPtr()));
@@ -195,7 +187,7 @@ void TPMTokenLoader::ContinueTokenInitialization() {
       return;
     }
     case TPM_TOKEN_READY: {
-      // Retrieve token_name_ and user_pin_ here since they will never change
+      // Retrieve user_pin_ here since they will never change
       // and CryptohomeClient calls are not thread safe.
       DBusThreadManager::Get()->GetCryptohomeClient()->Pkcs11GetTpmTokenInfo(
           base::Bind(&TPMTokenLoader::OnPkcs11GetTpmTokenInfo,
@@ -206,7 +198,7 @@ void TPMTokenLoader::ContinueTokenInitialization() {
       crypto_task_runner_->PostTask(
           FROM_HERE,
           base::Bind(
-              &crypto::InitializeTPMToken,
+              &crypto::InitializeTPMTokenAndSystemSlot,
               tpm_token_slot_id_,
               base::Bind(&PostResultToTaskRunner,
                          base::MessageLoopProxy::current(),
@@ -223,7 +215,7 @@ void TPMTokenLoader::ContinueTokenInitialization() {
 
 void TPMTokenLoader::RetryTokenInitializationLater() {
   CHECK(thread_checker_.CalledOnValidThread());
-  LOG(WARNING) << "Retry token initialization later.";
+  VLOG(1) << "Retry token initialization later.";
   base::MessageLoopProxy::current()->PostDelayedTask(
       FROM_HERE,
       base::Bind(&TPMTokenLoader::ContinueTokenInitialization,
@@ -232,9 +224,9 @@ void TPMTokenLoader::RetryTokenInitializationLater() {
   tpm_request_delay_ = GetNextRequestDelayMs(tpm_request_delay_);
 }
 
-void TPMTokenLoader::OnPersistentNSSDBOpened() {
-  VLOG(1) << "PersistentNSSDBOpened";
-  tpm_token_state_ = TPM_DB_OPENED;
+void TPMTokenLoader::OnTPMTokenEnabledForNSS() {
+  VLOG(1) << "TPMTokenEnabledForNSS";
+  tpm_token_state_ = TPM_TOKEN_ENABLED_FOR_NSS;
   ContinueTokenInitialization();
 }
 
@@ -251,7 +243,7 @@ void TPMTokenLoader::OnTpmIsEnabled(DBusMethodCallStatus call_status,
 }
 
 void TPMTokenLoader::OnPkcs11IsTpmTokenReady(DBusMethodCallStatus call_status,
-                                         bool is_tpm_token_ready) {
+                                             bool is_tpm_token_ready) {
   VLOG(1) << "OnPkcs11IsTpmTokenReady: " << is_tpm_token_ready;
 
   if (call_status == DBUS_METHOD_CALL_FAILURE || !is_tpm_token_ready) {
@@ -274,7 +266,6 @@ void TPMTokenLoader::OnPkcs11GetTpmTokenInfo(DBusMethodCallStatus call_status,
     return;
   }
 
-  tpm_token_name_ = token_name;
   tpm_token_slot_id_ = token_slot_id;
   tpm_user_pin_ = user_pin;
   tpm_token_state_ = TPM_TOKEN_INFO_RECEIVED;
@@ -293,7 +284,15 @@ void TPMTokenLoader::OnTPMTokenInitialized(bool success) {
 }
 
 void TPMTokenLoader::NotifyTPMTokenReady() {
-  FOR_EACH_OBSERVER(Observer, observers_, OnTPMTokenReady());
+  DCHECK(tpm_token_state_ == TPM_DISABLED ||
+         tpm_token_state_ == TPM_TOKEN_INITIALIZED);
+  bool tpm_status = tpm_token_state_ == TPM_TOKEN_INITIALIZED;
+  for (TPMReadyCallbackList::iterator i = tpm_ready_callback_list_.begin();
+       i != tpm_ready_callback_list_.end();
+       ++i) {
+    i->Run(tpm_status);
+  }
+  tpm_ready_callback_list_.clear();
 }
 
 void TPMTokenLoader::LoggedInStateChanged() {

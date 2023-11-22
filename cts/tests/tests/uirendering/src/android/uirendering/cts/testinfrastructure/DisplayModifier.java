@@ -32,17 +32,16 @@ import java.util.Map;
  * Modifies the canvas and paint objects when called.
  */
 public abstract class DisplayModifier {
-    private static final RectF gRect = new RectF(0, 0, 100, 100);
-    private static final float[] gPts = new float[]{
-            0, 100, 100, 0, 100, 200, 200, 100
+    private static final RectF RECT = new RectF(0, 0, 100, 100);
+    private static final float[] POINTS = new float[]{
+            0, 40, 40, 0, 40, 80, 80, 40
     };
-    private static final float[] gTriPts = new float[]{
-            75, 0, 130, 130, 130, 130, 0, 130, 0, 130, 75, 0
+    private static final float[] TRIANGLE_POINTS = new float[]{
+            40, 0, 80, 80, 80, 80, 0, 80, 0, 80, 40, 0
     };
-    private static final int NUM_PARALLEL_LINES = 24;
-    private static final float[] gLinePts = new float[NUM_PARALLEL_LINES * 8 + gTriPts.length];
-    protected static final int MODIFIER_WIDTH = 180;
-    protected static final int MODIFIER_HEIGHT = 180;
+    private static final int NUM_PARALLEL_LINES = 10;
+    private static final float[] LINES = new float[NUM_PARALLEL_LINES * 8
+            + TRIANGLE_POINTS.length];
 
     public static final PorterDuff.Mode[] PORTERDUFF_MODES = new PorterDuff.Mode[] {
         PorterDuff.Mode.SRC, PorterDuff.Mode.DST, PorterDuff.Mode.SRC_OVER,
@@ -53,25 +52,23 @@ public abstract class DisplayModifier {
     };
 
     static {
-        int index;
-        for (index = 0; index < gTriPts.length; index++) {
-            gLinePts[index] = gTriPts[index];
-        }
+        System.arraycopy(TRIANGLE_POINTS, 0, LINES, 0, TRIANGLE_POINTS.length);
+        int index = TRIANGLE_POINTS.length;
         float val = 0;
         for (int i = 0; i < NUM_PARALLEL_LINES; i++) {
-            gLinePts[index + 0] = 150;
-            gLinePts[index + 1] = val;
-            gLinePts[index + 2] = 300;
-            gLinePts[index + 3] = val;
+            LINES[index + 0] = 40;
+            LINES[index + 1] = val;
+            LINES[index + 2] = 80;
+            LINES[index + 3] = val;
             index += 4;
             val += 8 + (2.0f / NUM_PARALLEL_LINES);
         }
         val = 0;
         for (int i = 0; i < NUM_PARALLEL_LINES; i++) {
-            gLinePts[index + 0] = val;
-            gLinePts[index + 1] = 150;
-            gLinePts[index + 2] = val;
-            gLinePts[index + 3] = 300;
+            LINES[index + 0] = val;
+            LINES[index + 1] = 40;
+            LINES[index + 2] = val;
+            LINES[index + 3] = 80;
             index += 4;
             val += 8 + (2.0f / NUM_PARALLEL_LINES);
         }
@@ -81,7 +78,7 @@ public abstract class DisplayModifier {
     // paint object, like anti-aliasing or drawing. Within those LinkedHashMaps are the various
     // options for that specific topic, which contains a displaymodifier which will affect the
     // given canvas and paint objects.
-    public static final LinkedHashMap<String, LinkedHashMap<String, DisplayModifier>> sMaps =
+    public static final LinkedHashMap<String, LinkedHashMap<String, DisplayModifier>> MAPS =
             new LinkedHashMap<String, LinkedHashMap<String,DisplayModifier>>() {
                 {
                     put("aa", new LinkedHashMap<String, DisplayModifier>() {
@@ -225,7 +222,7 @@ public abstract class DisplayModifier {
                                 @Override
                                 public void modifyDrawing(Paint paint, Canvas canvas) {
                                     canvas.rotate(90);
-                                    canvas.translate(0, -200);
+                                    canvas.translate(0, -100);
                                 }
                             });
                             put("scale2x2", new DisplayModifier() {
@@ -347,13 +344,13 @@ public abstract class DisplayModifier {
                             put("roundRect", new DisplayModifier() {
                                 @Override
                                 public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.drawRoundRect(gRect, 20, 20, paint);
+                                    canvas.drawRoundRect(RECT, 20, 20, paint);
                                 }
                             });
                             put("rect", new DisplayModifier() {
                                 @Override
                                 public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.drawRect(gRect, paint);
+                                    canvas.drawRect(RECT, paint);
                                 }
                             });
                             put("circle", new DisplayModifier() {
@@ -365,36 +362,32 @@ public abstract class DisplayModifier {
                             put("oval", new DisplayModifier() {
                                 @Override
                                 public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.drawOval(gRect, paint);
+                                    canvas.drawOval(RECT, paint);
                                 }
                             });
                             put("lines", new DisplayModifier() {
                                 @Override
                                 public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.drawLines(gLinePts, paint);
+                                    canvas.drawLines(LINES, paint);
                                 }
                             });
-                            /* drawPoints does not work with zero stroke width,
-                             * but it isn't a regression
-                             * TODO: fix hardware canvas so that drawPoints works
                             put("plusPoints", new DisplayModifier() {
                                 @Override
                                 public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.drawPoints(gPts, paint);
+                                    canvas.drawPoints(POINTS, paint);
                                 }
                             });
-                             */
                             put("text", new DisplayModifier() {
                                 @Override
                                 public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setTextSize(36);
+                                    paint.setTextSize(20);
                                     canvas.drawText("TEXTTEST", 0, 50, paint);
                                 }
                             });
                             put("shadowtext", new DisplayModifier() {
                                 @Override
                                 public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setTextSize(36);
+                                    paint.setTextSize(20);
                                     paint.setShadowLayer(3.0f, 0.0f, 3.0f, 0xffff00ff);
                                     canvas.drawText("TEXTTEST", 0, 50, paint);
                                 }
@@ -410,13 +403,13 @@ public abstract class DisplayModifier {
                             put("arc", new DisplayModifier() {
                                 @Override
                                 public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.drawArc(gRect, 260, 285, false, paint);
+                                    canvas.drawArc(RECT, 260, 285, false, paint);
                                 }
                             });
                             put("arcFromCenter", new DisplayModifier() {
                                 @Override
                                 public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.drawArc(gRect, 260, 285, true, paint);
+                                    canvas.drawArc(RECT, 260, 285, true, paint);
                                 }
                             });
                         }
@@ -454,9 +447,9 @@ public abstract class DisplayModifier {
             // Create a Display Map of the valid indices
             mDisplayMap = new LinkedHashMap<String, LinkedHashMap<String, DisplayModifier>>();
             int index = 0;
-            for (String key : DisplayModifier.sMaps.keySet()) {
+            for (String key : DisplayModifier.MAPS.keySet()) {
                 if (validIndex(index)) {
-                    mDisplayMap.put(key, DisplayModifier.sMaps.get(key));
+                    mDisplayMap.put(key, DisplayModifier.MAPS.get(key));
                 }
                 index++;
             }

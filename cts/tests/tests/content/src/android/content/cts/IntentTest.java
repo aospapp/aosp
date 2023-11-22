@@ -45,6 +45,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.Set;
 
 public class IntentTest extends AndroidTestCase {
@@ -676,7 +677,7 @@ public class IntentTest extends AndroidTestCase {
 
         final String compnent =
                 "component(" + mContext.getPackageName() + "!" + MockActivity.class.getName() + ")";
-        uri = "testdata#action(test)categories(test!test2)type(mtype)launchFlags(1)" + compnent
+        uri = "testdata#action(test)categories(test!test2)type(mtype)launchFlags(5)" + compnent
                 + "extras(Stest=testString!btestbyte=1!"
                 + "Btestboolean=true!ctestchar=a!dtestdouble=1d!"
                 + "itestint=1!ltestlong=1!stestshort=1!ftestfloat=1f)";
@@ -686,7 +687,7 @@ public class IntentTest extends AndroidTestCase {
         assertEquals(mComponentName, mIntent.getComponent());
         assertEquals("test", (String) (mIntent.getCategories().toArray()[0]));
         assertEquals("mtype", mIntent.getType());
-        assertEquals(1, mIntent.getFlags());
+        assertEquals(4, mIntent.getFlags());
         assertEquals("testString", mIntent.getStringExtra("test"));
         assertTrue(mIntent.getBooleanExtra("testboolean", false));
         final byte b = 1;
@@ -812,10 +813,13 @@ public class IntentTest extends AndroidTestCase {
         target = Intent.getIntent(uri);
         assertEquals(TEST_TYPE, target.getType());
 
-        mIntent.setFlags(1);
+        mIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT
+                | Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
+                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
         uri = mIntent.toURI();
         target = Intent.getIntent(uri);
-        assertEquals(1, target.getFlags());
+        assertEquals(Intent.FLAG_ACTIVITY_NEW_DOCUMENT, target.getFlags());
 
         String stringValue = "testString";
         mIntent.putExtra(TEST_EXTRA_NAME, stringValue);
@@ -869,8 +873,8 @@ public class IntentTest extends AndroidTestCase {
     }
 
     public void testToURI() {
-        mIntent.setFlags(0);
-        assertEquals("#Intent;end", mIntent.toURI());
+        mIntent = new Intent();
+        assertEquals("", mIntent.toURI());
 
         mIntent.setData(TEST_URI);
         assertTrue(mIntent.toURI().indexOf(TEST_URI.toString()) != -1);
@@ -935,6 +939,321 @@ public class IntentTest extends AndroidTestCase {
         uri.append('=');
         uri.append(Uri.encode(value.toString()));
         return uri.toString();
+    }
+
+    static Intent makeSelector(Intent baseIntent, Intent selectorIntent) {
+        baseIntent.setSelector(selectorIntent);
+        return baseIntent;
+    }
+
+    public void testUris() {
+        checkIntentUri(
+                "intent:#Intent;action=android.test.FOO;end",
+                null,
+                new Intent().setAction("android.test.FOO"));
+        checkIntentUri(
+                "intent:#Intent;category=android.test.FOO;end",
+                null,
+                new Intent().setAction(Intent.ACTION_VIEW).addCategory("android.test.FOO"));
+        checkIntentUri(
+                "intent:#Intent;action=android.test.FOO;launchFlags=0x20;end",
+                null,
+                new Intent().setAction("android.test.FOO").setFlags(0x20));
+        checkIntentUri(
+                "intent://www.example.com/blah#Intent;scheme=http;end",
+                null,
+                new Intent().setAction(Intent.ACTION_VIEW)
+                        .setData(Uri.parse("http://www.example.com/blah")));
+        checkIntentUri(
+                "intent://www.example.com/blah#Intent;scheme=http;component=com.exfoo/com.argh.Bar;end",
+                null,
+                new Intent().setAction(Intent.ACTION_VIEW)
+                        .setData(Uri.parse("http://www.example.com/blah"))
+                        .setComponent(new ComponentName("com.exfoo", "com.argh.Bar")));
+        checkIntentUri(
+                "intent://www.example.com/blah#fragment#Intent;scheme=http;end",
+                null,
+                new Intent().setAction(Intent.ACTION_VIEW)
+                        .setData(Uri.parse("http://www.example.com/blah#fragment")));
+        checkIntentUri(
+                "intent://www.example.com/blah#Intent;scheme=http;action=android.test.foo;end",
+                null,
+                new Intent().setAction("android.test.foo")
+                        .setData(Uri.parse("http://www.example.com/blah")));
+        checkIntentUri(
+                "intent:foo#Intent;scheme=mailto;type=image/foo;end",
+                null,
+                new Intent().setAction(Intent.ACTION_VIEW)
+                        .setDataAndType(Uri.parse("mailto:foo"), "image/foo"));
+        checkIntentUri(
+                "intent:foo#Intent;scheme=mailto;S.string=text;end",
+                null,
+                new Intent().setAction(Intent.ACTION_VIEW)
+                        .setData(Uri.parse("mailto:foo"))
+                        .putExtra("string", "text"));
+        checkIntentUri(
+                "intent:#Intent;action=android.test.FOO;S.string=text;end",
+                null,
+                new Intent().setAction("android.test.FOO").putExtra("string", "text"));
+        checkIntentUri(
+                "intent:foo#Intent;scheme=mailto;i.int=1000;end",
+                null,
+                new Intent().setAction(Intent.ACTION_VIEW)
+                        .setData(Uri.parse("mailto:foo"))
+                        .putExtra("int", 1000));
+        checkIntentUri(
+                "intent:foo#Intent;scheme=mailto;l.long=1000;end",
+                null,
+                new Intent().setAction(Intent.ACTION_VIEW)
+                        .setData(Uri.parse("mailto:foo"))
+                        .putExtra("long", (long) 1000));
+        checkIntentUri(
+                "intent:foo#Intent;scheme=mailto;B.boolean=true;end",
+                null,
+                new Intent().setAction(Intent.ACTION_VIEW)
+                        .setData(Uri.parse("mailto:foo"))
+                        .putExtra("boolean", true));
+        checkIntentUri(
+                "intent:foo#Intent;scheme=mailto;f.float=10.4;end",
+                null,
+                new Intent().setAction(Intent.ACTION_VIEW)
+                        .setData(Uri.parse("mailto:foo"))
+                        .putExtra("float", 10.4f));
+        checkIntentUri(
+                "intent:foo#Intent;scheme=mailto;d.double=10.4;end",
+                null,
+                new Intent().setAction(Intent.ACTION_VIEW)
+                        .setData(Uri.parse("mailto:foo"))
+                        .putExtra("double", (double) 10.4));
+        checkIntentUri(
+                "intent:#Intent;S.string=text;i.int=1000;l.long=1000;B.boolean=true;f.float=10.4;end",
+                null,
+                new Intent().setAction(Intent.ACTION_VIEW).putExtra("string", "text")
+                        .putExtra("int", 1000).putExtra("long", (long) 1000)
+                        .putExtra("boolean", true).putExtra("float", 10.4f));
+        checkIntentUri(
+                "intent:foo#Intent;scheme=mailto;SEL;scheme=foobar;action=android.test.FOO;end",
+                null,
+                makeSelector(new Intent(Intent.ACTION_VIEW).setData(Uri.parse("mailto:foo")),
+                        new Intent("android.test.FOO").setData(Uri.parse("foobar:"))));
+        checkIntentUri(
+                "intent:foo#Intent;scheme=mailto;SEL;action=android.test.FOO;package=com.myapp;end",
+                null,
+                makeSelector(new Intent(Intent.ACTION_VIEW).setData(Uri.parse("mailto:foo")),
+                        new Intent("android.test.FOO").setPackage("com.myapp")));
+        checkIntentUri(
+                "intent:foo#Intent;scheme=mailto;SEL;action=android.test.FOO;component=com.exfoo/com.argh.Bar;end",
+                null,
+                makeSelector(new Intent(Intent.ACTION_VIEW).setData(Uri.parse("mailto:foo")),
+                        new Intent("android.test.FOO")
+                                .setComponent(new ComponentName("com.exfoo", "com.argh.Bar"))));
+
+        checkIntentUri(
+                "intent:#Intent;action=android.test.FOO;package=com.myapp;end",
+                "android-app://com.myapp#Intent;action=android.test.FOO;end",
+                new Intent().setAction("android.test.FOO").setPackage("com.myapp"));
+        checkIntentUri(
+                "intent:#Intent;action=android.intent.action.MAIN;package=com.myapp;end",
+                "android-app://com.myapp",
+                new Intent().setAction(Intent.ACTION_MAIN).setPackage("com.myapp"));
+        checkIntentUri(
+                "intent:#Intent;package=com.myapp;end",
+                "android-app://com.myapp#Intent;action=android.intent.action.VIEW;end",
+                new Intent().setAction(Intent.ACTION_VIEW).setPackage("com.myapp"));
+        checkIntentUri(
+                "intent:#Intent;category=android.test.FOO;package=com.myapp;end",
+                "android-app://com.myapp#Intent;action=android.intent.action.VIEW;category=android.test.FOO;end",
+                new Intent().setAction(Intent.ACTION_VIEW).addCategory("android.test.FOO")
+                        .setPackage("com.myapp"));
+        checkIntentUri(
+                "intent:#Intent;action=android.test.FOO;launchFlags=0x20;package=com.myapp;end",
+                "android-app://com.myapp#Intent;action=android.test.FOO;launchFlags=0x20;end",
+                new Intent().setAction("android.test.FOO").setFlags(0x20)
+                        .setPackage("com.myapp"));
+        checkIntentUri(
+                "intent://www.example.com/blah#Intent;scheme=http;package=com.myapp;end",
+                "android-app://com.myapp/http/www.example.com/blah",
+                new Intent().setAction(Intent.ACTION_VIEW)
+                        .setData(Uri.parse("http://www.example.com/blah"))
+                        .setPackage("com.myapp"));
+        checkIntentUri(
+                "intent://www.example.com/blah#Intent;scheme=http;package=com.myapp;component=com.exfoo/com.argh.Bar;end",
+                "android-app://com.myapp/http/www.example.com/blah#Intent;component=com.exfoo/com.argh.Bar;end",
+                new Intent().setAction(Intent.ACTION_VIEW)
+                        .setData(Uri.parse("http://www.example.com/blah"))
+                        .setComponent(new ComponentName("com.exfoo", "com.argh.Bar"))
+                        .setPackage("com.myapp"));
+        checkIntentUri(
+                "intent://www.example.com/blah#fragment#Intent;scheme=http;package=com.myapp;end",
+                "android-app://com.myapp/http/www.example.com/blah#fragment",
+                new Intent().setAction(Intent.ACTION_VIEW)
+                        .setData(Uri.parse("http://www.example.com/blah#fragment"))
+                        .setPackage("com.myapp"));
+        checkIntentUri(
+                "intent://www.example.com/blah#fragment#Intent;scheme=http;action=android.test.FOO;package=com.myapp;end",
+                "android-app://com.myapp/http/www.example.com/blah#fragment#Intent;action=android.test.FOO;end",
+                new Intent().setAction("android.test.FOO")
+                        .setData(Uri.parse("http://www.example.com/blah#fragment"))
+                        .setPackage("com.myapp"));
+        checkIntentUri(
+                "intent://www.example.com/blah#Intent;scheme=http;package=com.myapp;end",
+                "android-app://com.myapp/http/www.example.com/blah",
+                new Intent().setAction(Intent.ACTION_VIEW)
+                        .setData(Uri.parse("http://www.example.com/blah"))
+                        .setPackage("com.myapp"));
+        checkIntentUri(
+                "intent:#Intent;scheme=mailto;type=image/foo;package=com.myapp;end",
+                "android-app://com.myapp/mailto#Intent;type=image/foo;end",
+                new Intent().setAction(Intent.ACTION_VIEW)
+                        .setDataAndType(Uri.parse("mailto:"), "image/foo")
+                        .setPackage("com.myapp"));
+        checkIntentUri(
+                "intent:#Intent;scheme=mailto;package=com.myapp;S.string=text;end",
+                "android-app://com.myapp/mailto#Intent;S.string=text;end",
+                new Intent().setAction(Intent.ACTION_VIEW).putExtra("string", "text")
+                        .setData(Uri.parse("mailto:")).setPackage("com.myapp"));
+        checkIntentUri(
+                "intent:#Intent;action=android.test.FOO;package=com.myapp;S.string=text;end",
+                "android-app://com.myapp#Intent;action=android.test.FOO;S.string=text;end",
+                new Intent().setAction("android.test.FOO").putExtra("string", "text")
+                        .setPackage("com.myapp"));
+        checkIntentUri(
+                "intent:#Intent;scheme=mailto;package=com.myapp;i.int=1000;end",
+                "android-app://com.myapp/mailto#Intent;i.int=1000;end",
+                new Intent().setAction(Intent.ACTION_VIEW).putExtra("int", 1000)
+                        .setData(Uri.parse("mailto:")).setPackage("com.myapp"));
+        checkIntentUri(
+                "intent:#Intent;scheme=mailto;package=com.myapp;l.long=1000;end",
+                "android-app://com.myapp/mailto#Intent;l.long=1000;end",
+                new Intent().setAction(Intent.ACTION_VIEW).putExtra("long", (long) 1000)
+                        .setData(Uri.parse("mailto:")).setPackage("com.myapp"));
+        checkIntentUri(
+                "intent:#Intent;scheme=mailto;package=com.myapp;B.boolean=true;end",
+                "android-app://com.myapp/mailto#Intent;B.boolean=true;end",
+                new Intent().setAction(Intent.ACTION_VIEW).putExtra("boolean", true)
+                        .setData(Uri.parse("mailto:")).setPackage("com.myapp"));
+        checkIntentUri(
+                "intent:#Intent;scheme=mailto;package=com.myapp;f.float=10.4;end",
+                "android-app://com.myapp/mailto#Intent;f.float=10.4;end",
+                new Intent().setAction(Intent.ACTION_VIEW).putExtra("float", 10.4f)
+                        .setData(Uri.parse("mailto:")).setPackage("com.myapp"));
+        checkIntentUri(
+                "intent:#Intent;scheme=mailto;package=com.myapp;d.double=10.4;end",
+                "android-app://com.myapp/mailto#Intent;d.double=10.4;end",
+                new Intent().setAction(Intent.ACTION_VIEW).putExtra("double", (double) 10.4)
+                        .setData(Uri.parse("mailto:")).setPackage("com.myapp"));
+        checkIntentUri(
+                "intent:#Intent;package=com.myapp;S.string=text;i.int=1000;l.long=1000;B.boolean=true;f.float=10.4;end",
+                "android-app://com.myapp#Intent;action=android.intent.action.VIEW;S.string=text;i.int=1000;l.long=1000;B.boolean=true;f.float=10.4;end",
+                new Intent().setAction(Intent.ACTION_VIEW).putExtra("string", "text")
+                        .putExtra("int", 1000).putExtra("long", (long) 1000)
+                        .putExtra("boolean", true).putExtra("float", 10.4f)
+                        .setPackage("com.myapp"));
+    }
+
+    private boolean compareIntents(Intent expected, Intent actual) {
+        if (!Objects.equals(expected.getAction(), actual.getAction())) {
+            return false;
+        }
+        if (!Objects.equals(expected.getData(), actual.getData())) {
+            return false;
+        }
+        if (!Objects.equals(expected.getType(), actual.getType())) {
+            return false;
+        }
+        if (!Objects.equals(expected.getPackage(), actual.getPackage())) {
+            return false;
+        }
+        if (!Objects.equals(expected.getComponent(), actual.getComponent())) {
+            return false;
+        }
+        if (expected.getFlags() != actual.getFlags()) {
+            return false;
+        }
+        Set<String> expectedCat = expected.getCategories();
+        Set<String> actualCat = actual.getCategories();
+        if (expectedCat != actualCat) {
+            if (expectedCat == null || actualCat == null) {
+                return false;
+            }
+            for (String cat : expectedCat) {
+                if (!actual.hasCategory(cat)) {
+                    return false;
+                }
+            }
+            for (String cat : actualCat) {
+                if (!expected.hasCategory(cat)) {
+                    return false;
+                }
+            }
+        }
+        Bundle extras1 = expected.getExtras();
+        Bundle extras2 = actual.getExtras();
+        if (extras1 != extras2) {
+            if (extras1 == null || extras2 == null) {
+                return false;
+            }
+            for (String key : extras1.keySet()) {
+                if (!Objects.equals(extras1.get(key), extras2.get(key))) {
+                    return false;
+                }
+            }
+            for (String key : extras2.keySet()) {
+                if (!Objects.equals(extras1.get(key), extras2.get(key))) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private void assertEqualsIntent(String msg, Intent expected, Intent actual) {
+        if (!compareIntents(expected, actual)) {
+            failNotEquals(msg, expected, actual);
+        }
+        Intent expectedSel = expected.getSelector();
+        Intent actualSel = actual.getSelector();
+        if (expectedSel != actualSel) {
+            if (expectedSel == null || actualSel == null) {
+                failNotEquals(msg, expected, actual);
+            }
+            if (!compareIntents(expectedSel, actualSel)) {
+                failNotEquals(msg, expected, actual);
+            }
+        }
+    }
+
+    private void checkIntentUri(String intentSchemeUri, String androidAppSchemeUri, Intent intent) {
+        if (intentSchemeUri != null) {
+            try {
+                Intent genIntent = Intent.parseUri(intentSchemeUri, 0);
+                assertEqualsIntent("Implicitly converting " + intentSchemeUri + " to Intent",
+                        intent, genIntent);
+                genIntent = Intent.parseUri(intentSchemeUri, Intent.URI_INTENT_SCHEME);
+                assertEqualsIntent("Explicitly converting " + intentSchemeUri + " to Intent",
+                        intent, genIntent);
+            } catch (URISyntaxException e) {
+                fail("Failure parsing " + intentSchemeUri + ": " + e);
+            }
+            String genUri = intent.toUri(Intent.URI_INTENT_SCHEME);
+            assertEquals("Converting " + intent + " to intent: uri",
+                    intentSchemeUri, genUri);
+        }
+        if (androidAppSchemeUri != null) {
+            try {
+                Intent genIntent = Intent.parseUri(androidAppSchemeUri, 0);
+                assertEqualsIntent("Implicitly converting " + androidAppSchemeUri + " to Intent",
+                        intent, genIntent);
+                genIntent = Intent.parseUri(intentSchemeUri, Intent.URI_ANDROID_APP_SCHEME);
+                assertEqualsIntent("Explicitly converting " + androidAppSchemeUri + " to Intent",
+                        intent, genIntent);
+            } catch (URISyntaxException e) {
+                fail("Failure parsing " + androidAppSchemeUri + ": " + e);
+            }
+            String genUri = intent.toUri(Intent.URI_ANDROID_APP_SCHEME);
+            assertEquals("Converting " + intent + " to android-app: uri",
+                    androidAppSchemeUri, genUri);
+        }
     }
 
     public void testAccessFlags() {

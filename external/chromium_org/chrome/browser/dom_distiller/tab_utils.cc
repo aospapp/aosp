@@ -8,11 +8,11 @@
 #include "chrome/browser/dom_distiller/dom_distiller_service_factory.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper_delegate.h"
-#include "chrome/common/url_constants.h"
 #include "components/dom_distiller/content/distiller_page_web_contents.h"
 #include "components/dom_distiller/core/distiller_page.h"
 #include "components/dom_distiller/core/dom_distiller_service.h"
 #include "components/dom_distiller/core/task_tracker.h"
+#include "components/dom_distiller/core/url_constants.h"
 #include "components/dom_distiller/core/url_utils.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/navigation_controller.h"
@@ -61,9 +61,6 @@ class SelfDeletingRequestDelegate : public ViewRequestDelegate,
   // The handle to the view request towards the DomDistillerService. It
   // needs to be kept around to ensure the distillation request finishes.
   scoped_ptr<ViewerHandle> viewer_handle_;
-
-  // The WebContents this class is tracking.
-  content::WebContents* web_contents_;
 };
 
 void SelfDeletingRequestDelegate::DidNavigateMainFrame(
@@ -83,12 +80,10 @@ void SelfDeletingRequestDelegate::WebContentsDestroyed() {
 
 SelfDeletingRequestDelegate::SelfDeletingRequestDelegate(
     content::WebContents* web_contents)
-    : web_contents_(web_contents) {
-  content::WebContentsObserver::Observe(web_contents_);
+    : WebContentsObserver(web_contents) {
 }
 
 SelfDeletingRequestDelegate::~SelfDeletingRequestDelegate() {
-  content::WebContentsObserver::Observe(NULL);
 }
 
 void SelfDeletingRequestDelegate::OnArticleReady(
@@ -108,9 +103,9 @@ void SelfDeletingRequestDelegate::TakeViewerHandle(
 void StartNavigationToDistillerViewer(content::WebContents* web_contents,
                                       const GURL& url) {
   GURL viewer_url = dom_distiller::url_utils::GetDistillerViewUrlFromUrl(
-      chrome::kDomDistillerScheme, url);
+      dom_distiller::kDomDistillerScheme, url);
   content::NavigationController::LoadURLParams params(viewer_url);
-  params.transition_type = content::PAGE_TRANSITION_AUTO_BOOKMARK;
+  params.transition_type = ui::PAGE_TRANSITION_AUTO_BOOKMARK;
   web_contents->GetController().LoadURLWithParams(params);
 }
 
@@ -151,10 +146,15 @@ void DistillCurrentPageAndView(content::WebContents* old_web_contents) {
   new_web_contents->GetController().CopyStateFrom(
       old_web_contents->GetController());
 
+  // StartNavigationToDistillerViewer must come before swapping the tab contents
+  // to avoid triggering a reload of the page.  This reloadmakes it very
+  // difficult to distinguish between the intermediate reload and a user hitting
+  // the back button.
+  StartNavigationToDistillerViewer(new_web_contents,
+                                   old_web_contents->GetLastCommittedURL());
+
   CoreTabHelper::FromWebContents(old_web_contents)->delegate()->SwapTabContents(
       old_web_contents, new_web_contents, false, false);
 
-  StartNavigationToDistillerViewer(new_web_contents,
-                                   old_web_contents->GetLastCommittedURL());
   StartDistillation(old_web_contents);
 }

@@ -86,9 +86,15 @@ public class AccountItemView extends LinearLayout {
         if (isCurrentAccount) {
             mCheckmark.setVisibility(View.VISIBLE);
             mAccountDisplayName.setTypeface(Typeface.defaultFromStyle(Typeface.BOLD));
+            final int blackColor = getResources().getColor(R.color.text_color_black);
+            mAccountDisplayName.setTextColor(blackColor);
+            mAccountAddress.setTextColor(blackColor);
         } else {
             mCheckmark.setVisibility(View.GONE);
             mAccountDisplayName.setTypeface(Typeface.DEFAULT);
+            final int greyColor = getResources().getColor(R.color.text_color_grey);
+            mAccountDisplayName.setTextColor(greyColor);
+            mAccountAddress.setTextColor(greyColor);
         }
 
         ImageView v = (ImageView) mAvatar.findViewById(R.id.avatar);

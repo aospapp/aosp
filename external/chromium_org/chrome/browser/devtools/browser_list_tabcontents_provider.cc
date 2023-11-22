@@ -6,27 +6,17 @@
 
 #include "base/path_service.h"
 #include "base/strings/string_number_conversions.h"
-#include "chrome/browser/devtools/devtools_target_impl.h"
 #include "chrome/browser/history/top_sites.h"
-#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_iterator.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/host_desktop.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_paths.h"
-#include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
 #include "grit/browser_resources.h"
 #include "net/socket/tcp_listen_socket.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "ui/base/resource/resource_bundle.h"
-
-using content::DevToolsTarget;
-using content::RenderViewHost;
-using content::WebContents;
 
 namespace {
 
@@ -82,53 +72,6 @@ base::FilePath BrowserListTabContentsProvider::GetDebugFrontendDir() {
 #else
   return base::FilePath();
 #endif
-}
-
-std::string BrowserListTabContentsProvider::GetPageThumbnailData(
-    const GURL& url) {
-  for (chrome::BrowserIterator it; !it.done(); it.Next()) {
-    Profile* profile = (*it)->profile();
-    history::TopSites* top_sites = profile->GetTopSites();
-    if (!top_sites)
-      continue;
-    scoped_refptr<base::RefCountedMemory> data;
-    if (top_sites->GetPageThumbnail(url, false, &data))
-      return std::string(data->front_as<char>(), data->size());
-  }
-
-  return std::string();
-}
-
-scoped_ptr<DevToolsTarget>
-BrowserListTabContentsProvider::CreateNewTarget(const GURL& url) {
-  const BrowserList* browser_list =
-      BrowserList::GetInstance(host_desktop_type_);
-  WebContents* web_contents;
-  if (browser_list->empty()) {
-    chrome::NewEmptyWindow(ProfileManager::GetLastUsedProfile(),
-        host_desktop_type_);
-    if (browser_list->empty())
-      return scoped_ptr<DevToolsTarget>();
-    web_contents =
-        browser_list->get(0)->tab_strip_model()->GetActiveWebContents();
-    web_contents->GetController().LoadURL(url,
-        content::Referrer(), content::PAGE_TRANSITION_TYPED, std::string());
-  } else {
-    web_contents = chrome::AddSelectedTabWithURL(
-      browser_list->get(0),
-      url,
-      content::PAGE_TRANSITION_LINK);
-  }
-  content::RenderViewHost* rvh = web_contents->GetRenderViewHost();
-  if (!rvh)
-    return scoped_ptr<DevToolsTarget>();
-  return scoped_ptr<DevToolsTarget>(
-      DevToolsTargetImpl::CreateForRenderViewHost(rvh, true));
-}
-
-void BrowserListTabContentsProvider::EnumerateTargets(TargetCallback callback) {
-  DevToolsTargetImpl::EnumerateAllTargets(
-      *reinterpret_cast<DevToolsTargetImpl::Callback*>(&callback));
 }
 
 scoped_ptr<net::StreamListenSocket>

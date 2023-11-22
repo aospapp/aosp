@@ -284,13 +284,6 @@ function setSearch(searchText) {
   navigateTo(id);
 }
 
-// Handle the logo button UI.
-// When the user clicks the button we should navigate "home" and focus the list.
-function handleClickOnLogoButton(e) {
-  setSearch('');
-  $('list').focus();
-}
-
 /**
  * This returns the user visible path to the folder where the bookmark is
  * located.
@@ -459,9 +452,11 @@ function handleCanExecuteForDocument(e) {
           !isUnmodifiable(tree.getBookmarkNodeById(list.parentId));
       break;
     case 'undo-command':
-      // The global undo command has no visible UI, so always enable it, and
+      // If the search box is active, pass the undo command through
+      // (fixes http://crbug.com/278112). Otherwise, because
+      // the global undo command has no visible UI, always enable it, and
       // just make it a no-op if undo is not possible.
-      e.canExecute = true;
+      e.canExecute = e.currentTarget.activeElement !== $('term');
       break;
     default:
       canExecuteForList(e);
@@ -1326,18 +1321,15 @@ function continueInitializeBookmarkManager(localizedStrings) {
   // when // the user goes back and forward in the history.
   window.addEventListener('hashchange', processHash);
 
-  document.querySelector('.header form').onsubmit = function(e) {
+  document.querySelector('header form').onsubmit = function(e) {
     setSearch($('term').value);
     e.preventDefault();
   };
 
   $('term').addEventListener('search', handleSearch);
 
-  document.querySelector('.summary > button').addEventListener(
+  document.querySelector('.summary button').addEventListener(
       'click', handleOrganizeButtonClick);
-
-  document.querySelector('button.logo').addEventListener(
-      'click', handleClickOnLogoButton);
 
   document.addEventListener('canExecute', handleCanExecuteForDocument);
   document.addEventListener('command', handleCommand);

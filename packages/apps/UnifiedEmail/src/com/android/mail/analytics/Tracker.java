@@ -27,10 +27,16 @@ public interface Tracker {
     void activityStart(Activity a);
     void activityStop(Activity a);
     void sendEvent(String category, String action, String label, long value);
-    void sendTiming(String category, long millis, String name, String label);
     void sendMenuItemEvent(String category, int itemResId, String label, long value);
+    void sendTiming(String category, long millis, String name, String label);
     void sendView(String view);
     void setCustomDimension(int index, String value);
+    /**
+     * Sets the email address of the account being tracked,
+     * @param accountManagerType The accountManagerType of account in account manager.
+     */
+    public void setEmail(String emailAddress, String accountManagerType);
+
     void setCustomMetric(int index, Long value);
 
     void debugDispatchNow();

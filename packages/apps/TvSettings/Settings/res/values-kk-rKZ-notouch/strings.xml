@@ -26,6 +26,10 @@
     <string name="device_apps_app_management_force_stop_desc" msgid="221435219644064243">"Егер қолданбаны мәжбүрлеп тоқтатсаңыз, күтпеген әрекет көрсетуі мүмкін."</string>
     <string name="device_apps_app_management_uninstall" msgid="6054050725055974790">"Жою"</string>
     <string name="device_apps_app_management_uninstall_desc" msgid="3542570994262234511">"Бұл қолданбаны жоюды қалайсыз ба?"</string>
+    <string name="device_apps_app_management_disable" msgid="1461984395121717076">"Өшіру"</string>
+    <string name="device_apps_app_management_disable_desc" msgid="1362228583828208991">"Осы қолданбаны өшіру керек пе?"</string>
+    <string name="device_apps_app_management_enable" msgid="8794752872502256633">"Қосу"</string>
+    <string name="device_apps_app_management_enable_desc" msgid="6449017972628203288">"Осы қолданбаны қосу керек пе?"</string>
     <string name="device_apps_app_management_clear_data" msgid="8288695583331012586">"Деректерді тазалау"</string>
     <string name="device_apps_app_management_clear_data_desc" msgid="2197842469669426232">"Осы қолданбаның барлық деректері біржола жойылады."</string>
     <string name="device_apps_app_management_clear_data_what" msgid="376666756087041021">"Бұл барлық файлдарды, параметрлерді, есептік жазбаларды, дерекқорларды, т.б. қамтиды."</string>

@@ -5,8 +5,8 @@
 #include "chrome/browser/media_galleries/linux/mtp_read_file_worker.h"
 
 #include "base/bind.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/numerics/safe_conversions.h"
 #include "chrome/browser/media_galleries/linux/snapshot_file_details.h"
 #include "components/storage_monitor/storage_monitor.h"
@@ -66,9 +66,9 @@ void MTPReadFileWorker::ReadDataChunkFromDeviceFile(
 
   device::MediaTransferProtocolManager* mtp_device_manager =
       StorageMonitor::GetInstance()->media_transfer_protocol_manager();
-  mtp_device_manager->ReadFileChunkByPath(
+  mtp_device_manager->ReadFileChunk(
       device_handle_,
-      snapshot_file_details_ptr->device_file_path(),
+      snapshot_file_details_ptr->file_id(),
       snapshot_file_details_ptr->bytes_written(),
       snapshot_file_details_ptr->BytesToRead(),
       base::Bind(&MTPReadFileWorker::OnDidReadDataChunkFromDeviceFile,

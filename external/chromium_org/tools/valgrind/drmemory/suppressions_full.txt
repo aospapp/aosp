@@ -1030,11 +1030,6 @@ name=deliberate LazyInstance leak
 *!base::LazyInstance*::Pointer
 
 LEAK
-name=http://crbug.com/79933 (1)
-...
-*!TestURLRequestContext::Init
-
-LEAK
 name=http://crbug.com/79933 (2)
 ...
 *!TestURLRequestContext::TestURLRequestContext
@@ -1104,61 +1099,11 @@ name=http://crbug.com/64887 (GMock printing uninit data)
 # at the peak set of tests we plan to run and remove the unused ones.
 
 UNINITIALIZED READ
-name=bug_87232
-*!WebCore::base64Encode
-*!WebCore::base64Encode
-*!WebCore::ImageToDataURL<>
-
-UNINITIALIZED READ
-name=bug_75127
-...
-*!png_process_data
-*!gfx::PNGCodec::Decode*
-
-UNINITIALIZED READ
 name=bug_99307
 *!modp_b64_encode
 *!base::Base64Encode*
 *!web_ui_util::GetImageDataUrl
 *!::NetworkInfoDictionary::set_icon
-
-UNINITIALIZED READ
-name=bug_101125a
-...
-*!SkScan::AntiFillPath
-*!SkScan::AntiFillPath
-*!SkDraw::drawPath
-*!SkDevice::drawPath
-*!SkDraw::drawTextOnPath
-*!SkDevice::drawTextOnPath
-*!SkCanvas::drawTextOnPath
-*!WebCore::Font::drawGlyphs
-*!WebCore::Font::drawGlyphBuffer
-
-UNINITIALIZED READ
-name=bug_101125b
-...
-*!SkScan::AntiFillRect
-*!SkScan::AntiFillRect
-*!SkDraw::drawRect
-*!SkDevice::drawRect
-*!SkCanvas::drawRect
-*!WebCore::GraphicsContext::fillRect
-*!WebCore::GraphicsContext::drawHighlightForText
-
-UNINITIALIZED READ
-name=bug_101125c
-...
-*!morphpoints
-*!morphpath
-*!SkDraw::drawTextOnPath
-*!SkDevice::drawTextOnPath
-*!SkCanvas::drawTextOnPath
-*!WebCore::Font::drawGlyphs
-*!WebCore::Font::drawGlyphBuffer
-*!WebCore::Font::drawSimpleText
-*!WebCore::Font::drawText
-*!WebCore::GraphicsContext::drawText
 
 UNINITIALIZED READ
 name=bug_101781
@@ -1185,92 +1130,6 @@ name=bug_105907
 *!skia::BGRAConvolve2D
 *!skia::ImageOperations::ResizeBasic*
 *!skia::ImageOperations::Resize*
-
-UNINITIALIZED READ
-name=bug_106183a
-*!WebCore::RenderMarquee::updateMarqueeStyle
-*!WebCore::RenderLayer::styleChanged
-*!WebCore::RenderBoxModelObject::styleDidChange
-*!WebCore::RenderBox::styleDidChange
-*!WebCore::RenderBlock::styleDidChange
-*!WebCore::RenderObject::setStyle
-
-UNINITIALIZED READ
-name=bug_106183b
-*!WebCore::ComplexTextController*
-...
-*!WebCore::Font::selectionRectForComplexText
-*!WebCore::Font::selectionRectForText
-*!WebCore::InlineTextBox::positionForOffset
-*!WebCore::RenderText::localCaretRect
-*!WebCore::VisiblePosition::localCaretRect
-*!WebCore::CaretBase::updateCaretRect
-*!WebCore::FrameSelection::localCaretRect
-*!WebCore::FrameSelection::recomputeCaretRect
-*!WebCore::FrameSelection::updateAppearance
-
-UNINITIALIZED READ
-name=bug_106183c
-*!WebCore::ComplexTextController*
-...
-*!WebCore::Font::drawComplexText
-*!WebCore::Font::drawText
-*!WebCore::GraphicsContext::drawText
-*!WebCore::paintTextWithShadows
-...
-*!WebCore::RenderLineBoxList::paint
-*!WebCore::RenderBlock::paintContents
-*!WebCore::RenderBlock::paintObject
-*!WebCore::RenderBlock::paint
-
-UNINITIALIZED READ
-name=bug_106552
-...
-*!JSONStringValueSerializer::SerializeInternal
-*!JSONStringValueSerializer::Serialize
-*!JsonPrefStore::SerializeData
-*!ImportantFileWriter::DoScheduledWrite
-*!JsonPrefStore::CommitPendingWrite
-*!JsonPrefStore::~JsonPrefStore
-*!base::RefCounted<>::Release
-*!scoped_refptr<>::operator=
-*!PrefService::~PrefService
-*!scoped_ptr<>::~scoped_ptr
-*!TestingProfile::~TestingProfile
-*!ExtensionTestingProfile::~ExtensionTestingProfile
-
-UNINITIALIZED READ
-name=bug_108147
-...
-*!SkDraw::drawPosText
-*!SkDevice::drawPosText
-*!SkCanvas::drawPosText
-*!WebCore::Font::drawGlyphs
-*!WebCore::Font::drawGlyphBuffer
-*!WebCore::Font::drawSimpleText
-*!WebCore::Font::drawText
-
-UNINITIALIZED READ
-name=bug_108620
-*!WebCore::PlatformEvent::PlatformEvent
-*!WebCore::PlatformMouseEvent::PlatformMouseEvent
-*!WebCore::EventHandler::fakeMouseMoveEventTimerFired
-*!WebCore::Timer<>::fired
-*!WebCore::ThreadTimers::sharedTimerFiredInternal
-*!WebCore::ThreadTimers::sharedTimerFired
-*!webkit_glue::WebKitPlatformSupportImpl::DoTimeout
-*!base::BaseTimer<>::TimerTask::Run
-
-UNINITIALIZED READ
-name=bug_109496
-...
-*!WebCore::ImageBuffer::platformTransformColorSpace
-*!WebCore::ImageBuffer::transformColorSpace
-*!WebCore::RenderSVGResourceFilter::postApplyResource
-...
-*!WebCore::RenderSVGShape::paint*
-...
-*!WebCore::RenderSVGRoot*_Zpaint*_ZL9PaintInfoERKNS_*
 
 UNINITIALIZED READ
 name=bug_112278
@@ -1354,114 +1213,34 @@ name=bug_115419_2
 *!webkit::gpu::GLInProcessContext::PumpCommands
 
 UNINITIALIZED READ
-name=bug_116475
-...
-*!base::Histogram::BucketIndex
-*!base::Histogram::Add
-*!webkit_glue::WebKitPlatformSupportImpl::histogramCustomCounts
-*!WebCore::PlatformSupport::histogramCustomCounts
-*!WebCore::CCLayerTreeHostImpl::optimizeRenderPasses*
-*!WebCore::CCLayerTreeHostImpl::drawLayers
-*!WebCore::CCSingleThreadProxy::doComposite
-
-UNINITIALIZED READ
-name=bug_122245a
-...
-*!SkScalerContext::internalGetPath
-*!SkScalerContext::getMetrics
-*!SkGlyphCache::lookupMetrics
-
-UNINITIALIZED READ
-name=bug_122245b
-...
-*!SkRect::roundOut
-*!SkScalerContext::getMetrics
-*!SkGlyphCache::lookupMetrics
-*!SkGlyphCache::getGlyphIDMetrics
-*!sk_getMetrics_glyph_00
-*!SkDraw::drawPosText
-*!SkDevice::drawPosText
-*!SkGpuDevice::drawPosText
-*!SkCanvas::drawPosText
-*!WebCore::Font::drawGlyphs
-*!WebCore::Font::drawGlyphBuffer
-*!WebCore::Font::drawSimpleText
-*!WebCore::Font::drawText
-*!WebCore::GraphicsContext::drawBidiText
-*!WebCore::CanvasRenderingContext2D::drawTextInternal
-*!WebCore::CanvasRenderingContext2D::strokeText
-*!WebCore::CanvasRenderingContext2DInternal::strokeTextCallback
-*!v8::internal::HandleApiCallHelper<>
-*!v8::internal::Builtin_HandleApiCall
-
-UNINITIALIZED READ
 name=bug_138058
 ...
-*!WebCore::WebVTTParser::constructTreeFromToken
-*!WebCore::WebVTTParser::createDocumentFragmentFromCueText
-*!WebCore::TextTrackCue::getCueAsHTML
-*!WebCore::TextTrackCue::updateDisplayTree
-*!WebCore::HTMLMediaElement::updateActiveTextTrackCues
+*!blink::WebVTTParser::constructTreeFromToken
+*!blink::WebVTTParser::createDocumentFragmentFromCueText
+*!blink::TextTrackCue::getCueAsHTML
+*!blink::TextTrackCue::updateDisplayTree
+*!blink::HTMLMediaElement::updateActiveTextTrackCues
 
 UNINITIALIZED READ
 name=bug_138220_a
-*!WebCore::HTMLInputElement::dataList
-*!WebCore::HTMLInputElement::list
-*!WebCore::RenderSliderContainer::layout
-*!WebCore::RenderBlock::layoutBlockChild
-*!WebCore::RenderBlock::layoutBlockChildren
-*!WebCore::RenderBlock::layoutBlock
-*!WebCore::RenderBlock::layout
-*!WebCore::RenderSlider::layout
+*!blink::HTMLInputElement::dataList
+*!blink::HTMLInputElement::list
+*!blink::RenderSliderContainer::layout
+*!blink::RenderBlock::layoutBlockChild
+*!blink::RenderBlock::layoutBlockChildren
+*!blink::RenderBlock::layoutBlock
+*!blink::RenderBlock::layout
+*!blink::RenderSlider::layout
 
 UNINITIALIZED READ
 name=bug_138220_b
-*!WebCore::HTMLInputElement::dataList
-*!WebCore::HTMLInputElement::list
-*!WebCore::RenderTheme::paintSliderTicks
-*!WebCore::RenderThemeChromiumLinux::paintSliderTrack
-*!WebCore::RenderTheme::paint
-*!WebCore::RenderBox::paintBoxDecorations
-*!WebCore::RenderBlock::paintObject
-
-UNINITIALIZED READ
-name=bug_139467
-*!WebCore::AccessibilityTable::roleValue
-*!WebCore::AccessibilityRenderObject::ariaLiveRegionStatus
-*!WebCore::AccessibilityObject::supportsARIALiveRegion
-*!WebCore::AccessibilityObject::supportsARIAAttributes
-*!WebCore::AccessibilityRenderObject::determineAccessibilityRole
-*!WebCore::AccessibilityNodeObject::init
-*!WebCore::AccessibilityRenderObject::init
-*!WebCore::AccessibilityTable::init
-
-UNINITIALIZED READ
-name=bug_140196
-*!SkDescriptor::equals
-*!SkGlyphCache::VisitCache
-...
-*!SkPaint::descriptorProc
-
-UNINITIALIZED READ
-name=bug_143545
-*!aura::RootWindow::ShowCursor
-*!ash::Shell::ShowCursor
-*!ash::CursorManager::ShowCursor
-*!ash::test::AshTestBase::SetUp
-
-UNINITIALIZED READ
-name=bug_145244
-*!WebCore::StyleRuleImport::requestStyleSheet
-*!WebCore::StyleSheetContents::requestImportedStyleSheets
-
-UNINITIALIZED READ
-name=bug_159005
-*!WebCore::RenderMarquee::updateMarqueeStyle
-*!WebCore::RenderLayer::styleChanged
-*!WebCore::RenderLayerModelObject::styleDidChange
-*!WebCore::RenderBox::styleDidChange
-*!WebCore::RenderBlock::styleDidChange
-*!WebCore::RenderObject::setStyle
+*!blink::HTMLInputElement::dataList
+*!blink::HTMLInputElement::list
+*!blink::RenderTheme::paintSliderTicks
+*!blink::RenderThemeChromiumLinux::paintSliderTrack
+*!blink::RenderTheme::paint
+*!blink::RenderBox::paintBoxDecorations
+*!blink::RenderBlock::paintObject
 
 UNINITIALIZED READ
 name=bug_162825
@@ -1474,79 +1253,12 @@ name=bug_162825
 *!gpu::gles2::GLES2DecoderImpl::InitializeShaderTranslator
 
 UNINITIALIZED READ
-name=bug_164198
-*!WebCore::RenderBox::paintFillLayers
-...
-*!WebCore::RenderBlock::paintObject
-*!WebCore::RenderBlock::paint
-*!WebCore::RenderLayer::paintLayerContents
-*!WebCore::RenderLayer::paintLayerContentsAndReflection
-*!WebCore::RenderLayer::paintLayer
-*!WebCore::RenderLayer::paintList
-*!WebCore::RenderLayer::paintLayerContents
-*!WebCore::RenderLayer::paintLayerContentsAndReflection
-*!WebCore::RenderLayer::paintLayer
-
-UNINITIALIZED READ
-name=bug_170340
-*!WTF::AtomicString::add
-*!WTF::AtomicString::AtomicString
-*!WebCore::HTMLPreloadScanner::processToken
-*!WebCore::HTMLPreloadScanner::scan
-*!WebCore::HTMLDocumentParser::pumpTokenizer
-*!WebCore::HTMLDocumentParser::pumpTokenizerIfPossible
-*!WebCore::HTMLDocumentParser::append
-*!WebCore::DecodedDataDocumentParser::flush
-*!WebCore::DocumentWriter::end
-*!WebCore::DocumentLoader::finishedLoading
-
-UNINITIALIZED READ
-name=bug_172025
-*!WebViewHost::didCreateDataSource
-*!blink::FrameLoaderClientImpl::createDocumentLoader
-*!WebCore::FrameLoader::init
-*!WebCore::Frame::init
-*!blink::WebFrameImpl::initializeAsMainFrame
-*!blink::WebViewImpl::initializeMainFrame
-*!TestShell::createNewWindow
-*!TestShell::createMainWindow
-*!TestShell::initialize
-
-UNINITIALIZED READ
-name=bug_173096
-*!bcmp
-*!cc::LayerTreeDebugState::equal
-*!cc::LayerTreeHost::setDebugState
-*!blink::WebLayerTreeViewImpl*_Zset*
-*!blink::WebViewImpl::setIsAcceleratedCompositingActive
-*!blink::WebViewImpl::setRootGraphicsLayer
-*!blink::ChromeClientImpl::attachRootGraphicsLayer
-*!WebCore::RenderLayerCompositor::attachRootLayer
-*!WebCore::RenderLayerCompositor::ensureRootLayer
-*!WebCore::RenderLayerCompositor::enableCompositingMode
-*!WebCore::RenderLayerCompositor::updateBacking
-*!WebCore::RenderLayerCompositor::updateLayerCompositingState
-*!WebCore::RenderLayer::styleChanged
-*!WebCore::RenderLayerModelObject::styleDidChange
-*!WebCore::RenderBox::styleDidChange
-
-UNINITIALIZED READ
-name=bug_175985
-*!cc::LayerTreeHost::setDebugState
-...
-*!blink::WebLayerTreeViewImpl*
-
-UNINITIALIZED READ
-name=bug_176270
-*!cc::LayerTreeDebugState::recordRenderingStats
-
-UNINITIALIZED READ
 name=bug_176616_a
 *!WebTestRunner::WebTestProxyBase::didCreateDataSource
 *!WebTestRunner::WebTestProxy<>::didCreateDataSource
 *!blink::FrameLoaderClientImpl::createDocumentLoader
-*!WebCore::FrameLoader::init
-*!WebCore::Frame::init
+*!blink::FrameLoader::init
+*!blink::Frame::init
 *!blink::WebFrameImpl::initializeAsMainFrame
 *!blink::WebViewImpl::initializeMainFrame
 *!TestShell::createNewWindow
@@ -1571,86 +1283,29 @@ name=bug_222883
 *!v8::internal::Heap::PerformGarbageCollection*
 
 UNINITIALIZED READ
-name=bug_227278a
-...
-*!content::CompositingIOSurfaceTransformerTest::RunResizeTest
-*!content::CompositingIOSurfaceTransformerTest_ResizesTexturesCorrectly_Test::TestBody
-
-UNINITIALIZED READ
-name=bug_227278b
-...
-*!content::CompositingIOSurfaceTransformerTest::RunTransformRGBToYV12Test
-*!content::CompositingIOSurfaceTransformerTest_TransformsRGBToYV12_Test::TestBody
-
-UNINITIALIZED READ
-name=bug_227278c
-*!BitSetNextSetBit
-*!RegistersReInterfere
-*!RegistersMerge
-*!glpPPShaderLinearizeStreamMgr
-*!glpPPShaderLinearize
-*!glePrepareShaderForEmulation
-*!gleSetVPTransformFuncAll
-*!gleVPRenderQuadsSmooth
-*!gleDrawArraysOrElements_ExecCore
-*!glDrawArrays_Exec
-*!glDrawArrays
-*!content::::DrawQuad
-*!content::CompositingIOSurfaceTransformer::ResizeBilinear
-*!content::CompositingIOSurfaceTransformerTest::RunResizeTest
-*!content::CompositingIOSurfaceTransformerTest_ResizesTexturesCorrectly_Test::TestBody
-
-UNINITIALIZED READ
-name=bug_227278d
-*!glViewport_Exec
-*!glViewport
-*!content::::SetTransformationsForOffScreenRendering
-*!content::CompositingIOSurfaceTransformer::TransformRGBToYV12
-*!content::CompositingIOSurfaceTransformerTest::RunTransformRGBToYV12Test
-*!content::CompositingIOSurfaceTransformerTest_TransformsRGBToYV12_Test::TestBody
-
-UNINITIALIZED READ
 name=bug_238170a
-*!WebCore::ElementRuleCollector::collectMatchingRules
-*!WebCore::ElementRuleCollector::hasAnyMatchingRules
+*!blink::ElementRuleCollector::collectMatchingRules
+*!blink::ElementRuleCollector::hasAnyMatchingRules
 
 UNINITIALIZED READ
 name=bug_238170b
-*!WebCore::ElementRuleCollector::collectMatchingRules
-*!WebCore::StyleResolver::matchAuthorRules
+*!blink::ElementRuleCollector::collectMatchingRules
+*!blink::StyleResolver::matchAuthorRules
 
 UNINITIALIZED READ
 name=bug_238170c
-*!WebCore::ReplaceSelectionCommand::doApply
-*!WebCore::CompositeEditCommand::apply
-*!WebCore::applyCommand
-
-UNINITIALIZED READ
-name=bug_241044
-*!WebCore::Settings::setOpenGLMultisamplingEnabled
-*!blink::WebSettingsImpl::setOpenGLMultisamplingEnabled
-*!content::ApplyWebPreferences
-*!content::RenderViewImpl::OnUpdateWebPreferences
-*!content::RenderViewImpl::SetWebkitPreferences
-
-UNINITIALIZED READ
-name=bug_246153
-*!WebCore::Settings::setOpenGLMultisamplingEnabled
-*!blink::WebSettingsImpl::setOpenGLMultisamplingEnabled
-*!content::ApplyWebPreferences
-...
-*!content::RenderViewImpl::Initialize
-*!content::RenderViewImpl::Create*
-*!content::RenderThreadImpl::OnCreateNewView
+*!blink::ReplaceSelectionCommand::doApply
+*!blink::CompositeEditCommand::apply
+*!blink::applyCommand
 
 UNINITIALIZED READ
 name=bug_259789
-*!WebCore::::adjustAttributes
-*!WebCore::WebGLRenderingContext::maybeRestoreContext
-*!WebCore::Timer<>::fired
-*!WebCore::ThreadTimers::sharedTimerFiredInternal
-*!WebCore::ThreadTimers::sharedTimerFired
-*!webkit_glue::WebKitPlatformSupportImpl::DoTimeout
+*!blink::::adjustAttributes
+*!blink::WebGLRenderingContext::maybeRestoreContext
+*!blink::Timer<>::fired
+*!blink::ThreadTimers::sharedTimerFiredInternal
+*!blink::ThreadTimers::sharedTimerFired
+*!content::BlinkPlatformImpl::DoTimeout
 
 UNINITIALIZED READ
 name=bug_290405
@@ -1665,10 +1320,10 @@ name=bug_290405
 
 UNINITIALIZED READ
 name=bug_290435
-*!WebCore::AudioContext::scheduleNodeDeletion
-*!WebCore::AudioContext::handlePostRenderTasks
-*!WebCore::AudioDestinationNode::render
-*!WebCore::OfflineAudioDestinationNode::offlineRender
+*!blink::AudioContext::scheduleNodeDeletion
+*!blink::AudioContext::handlePostRenderTasks
+*!blink::AudioDestinationNode::render
+*!blink::OfflineAudioDestinationNode::offlineRender
 
 UNINITIALIZED READ
 name=bug_364724
@@ -1678,7 +1333,7 @@ name=bug_364724
 UNINITIALIZED READ
 name=bug_298143
 ...
-*!WebCore::TypeConversionsV8Internal*AttributeGetter*
+*!blink::TypeConversionsV8Internal*AttributeGetter*
 
 UNINITIALIZED READ
 name=bug_299804
@@ -1692,13 +1347,13 @@ name=bug_299804
 *!DeferredDevice::onReadPixels
 *!SkBaseDevice::readPixels
 *!SkCanvas::readPixels
-*!WebCore::GraphicsContext::readPixels
+*!blink::GraphicsContext::readPixels
 *!WTF::PassRefPtr<>
-*!WebCore::ImageBuffer::getUnmultipliedImageData
-*!WebCore::CanvasRenderingContext2D::getImageData
-*!WebCore::CanvasRenderingContext2D::getImageData
-*!WebCore::CanvasRenderingContext2DV8Internal::getImageDataMethod
-*!WebCore::CanvasRenderingContext2DV8Internal::getImageDataMethodCallback
+*!blink::ImageBuffer::getUnmultipliedImageData
+*!blink::CanvasRenderingContext2D::getImageData
+*!blink::CanvasRenderingContext2D::getImageData
+*!blink::CanvasRenderingContext2DV8Internal::getImageDataMethod
+*!blink::CanvasRenderingContext2DV8Internal::getImageDataMethodCallback
 *!v8::internal::FunctionCallbackArguments::Call
 *!v8::internal::HandleApiCallHelper<>
 
@@ -1712,22 +1367,6 @@ name=bug_309477
 *!content::RenderThreadImpl::EnsureWebKitInitialized
 *!content::RenderThreadImpl::OnCreateNewView
 
-UNINITIALIZED READ
-name=bug_312332
-...
-*!WebCore::RenderTextControl::computeIntrinsicLogicalWidths
-*!WebCore::RenderTextControl::computePreferredLogicalWidths
-...
-*!WebCore::RenderBlock::layout
-
-UNINITIALIZED READ
-name=bug_327672
-*!WebCore::StyleSheetContents::isCacheable
-*!WebCore::LinkStyle::setCSSStyleSheet
-*!WebCore::CSSStyleSheetResource::checkNotify
-...
-*!webkit_glue::WebURLLoaderImpl::Context::OnCompletedRequest
-
 ###############################################################
 # Real issues in Chromium
 
@@ -1735,18 +1374,6 @@ LEAK
 name=http://crbug.com/32085
 ...
 chrome.dll!NotificationRegistrar::Add
-
-LEAK
-name=http://crbug.com/32623
-...
-*!ssl3_HandleHandshakeMessage
-*!ssl3_HandleHandshake
-*!ssl3_HandleRecord
-*!ssl3_GatherCompleteHandshake
-...
-*!SSL_ForceHandshake
-*!net::SSLServerSocketNSS::DoHandshake
-*!net::SSLServerSocketNSS::DoHandshakeLoop
 
 UNINITIALIZED READ
 name=http://crbug.com/57266 (1)
@@ -1957,43 +1584,41 @@ osmesa.dll!_tnl_generic_interp
 UNINITIALIZED READ
 name=bug_340752
 ...
-*!WebCore::ThreadState::visitStack
-*!WebCore::ThreadState::trace
-*!WebCore::ThreadState::visitRoots
+*!*::ThreadState::visitStack
 
 UNINITIALIZED READ
 name=bug_343663
-blink_web.dll!WebCore::RenderBlock::computeInlinePreferredLogicalWidths
+blink_web.dll!blink::RenderBlock::computeInlinePreferredLogicalWidths
 
 UNINITIALIZED READ
 name=bug_343797
 ...
-blink_web.dll!WebCore::MediaQueryExp::create
-blink_web.dll!WebCore::BisonCSSParser::createFloatingMediaQueryExp
+blink_web.dll!blink::MediaQueryExp::create
+blink_web.dll!blink::BisonCSSParser::createFloatingMediaQueryExp
 blink_web.dll!cssyyparse
 
 UNINITIALIZED READ
 name=bug_343915
-blink_web.dll!WebCore::BisonCSSParser::parseFlex
-blink_web.dll!WebCore::BisonCSSParser::parseValue
+blink_web.dll!blink::BisonCSSParser::parseFlex
+blink_web.dll!blink::BisonCSSParser::parseValue
 blink_web.dll!cssyyparse
 
 UNADDRESSABLE ACCESS
 name=BUG_343958
-blink_web.dll!WebCore::Node::getFlag
-blink_web.dll!WebCore::Node::inDocument
-blink_web.dll!WebCore::Node::isDescendantOf
-blink_web.dll!WebCore::CompositeEditCommand::cloneParagraphUnderNewElement
-blink_web.dll!WebCore::CompositeEditCommand::moveParagraphWithClones
+blink_web.dll!blink::Node::getFlag
+blink_web.dll!blink::Node::inDocument
+blink_web.dll!blink::Node::isDescendantOf
+blink_web.dll!blink::CompositeEditCommand::cloneParagraphUnderNewElement
+blink_web.dll!blink::CompositeEditCommand::moveParagraphWithClones
 
 UNINITIALIZED READ
 name=BUG_344076
-blink_web.dll!WebCore::Editor::canSmartReplaceWithPasteboard
-blink_web.dll!WebCore::Editor::pasteAsPlainTextWithPasteboard
-blink_web.dll!WebCore::Editor::pasteAsPlainText
-blink_web.dll!WebCore::executePasteAndMatchStyle
-blink_web.dll!WebCore::Editor::Command::execute
-blink_web.dll!WebCore::Document::execCommand
+blink_web.dll!blink::Editor::canSmartReplaceWithPasteboard
+blink_web.dll!blink::Editor::pasteAsPlainTextWithPasteboard
+blink_web.dll!blink::Editor::pasteAsPlainText
+blink_web.dll!blink::executePasteAndMatchStyle
+blink_web.dll!blink::Editor::Command::execute
+blink_web.dll!blink::Document::execCommand
 
 UNINITIALIZED READ
 name=BUG_349128
@@ -2051,10 +1676,10 @@ content.dll!content::ScreenshotData::EncodeOnWorker
 
 UNINITIALIZED READ
 name=bug_363487
-blink_web.dll!WebCore::RenderLayerCompositor::updateIfNeeded
-blink_web.dll!WebCore::RenderLayerCompositor::updateIfNeededRecursive
-blink_web.dll!WebCore::FrameView::updateLayoutAndStyleForPainting
-blink_web.dll!WebCore::PageAnimator::updateLayoutAndStyleForPainting
+blink_web.dll!blink::RenderLayerCompositor::updateIfNeeded
+blink_web.dll!blink::RenderLayerCompositor::updateIfNeededRecursive
+blink_web.dll!blink::FrameView::updateLayoutAndStyleForPainting
+blink_web.dll!blink::PageAnimator::updateLayoutAndStyleForPainting
 
 UNINITIALIZED READ
 name=bug_365101
@@ -2083,9 +1708,9 @@ QuickTime.qts!*
 UNINITIALIZED READ
 name=bug_369141
 ...
-*!WebCore::RenderLayerClipper::updateClipRects
-*!WebCore::RenderLayerClipper::parentClipRects
-*!WebCore::RenderLayerClipper::backgroundClipRect
+*!blink::RenderLayerClipper::updateClipRects
+*!blink::RenderLayerClipper::parentClipRects
+*!blink::RenderLayerClipper::backgroundClipRect
 
 HANDLE LEAK
 name=bug_370178
@@ -2140,7 +1765,7 @@ name=bug_372254
 UNINITIALIZED READ
 name=drm_i#1546
 *!testing::internal::CmpHelperEQ<>
-*!testing::internal::EqHelper<>::Compare<>
+...
 *!content::BrowserPluginTest_ResizeFlowControl_Test::TestBody
 
 UNINITIALIZED READ
@@ -2170,8 +1795,81 @@ name=bug_377728
 *!SpellCheck::SpellCheckWord
 
 UNINITIALIZED READ
-name=bug_382921
+name=bug_387373
+*!blink::WebEmbeddedWorkerImpl::startWorkerContext
+*!content::EmbeddedWorkerDispatcher::OnStartWorker
+*!EmbeddedWorkerMsg_StartWorker::Dispatch<>
+
+UNADDRESSABLE ACCESS
+name=bug_389132
+content.dll!crypto_kernel_do_load_cipher_type
+content.dll!crypto_kernel_load_cipher_type
+content.dll!crypto_kernel_init
+content.dll!cricket::SrtpSession::SetKey
+content.dll!cricket::SrtpSession::SetSend
+content.dll!cricket::SrtpFilter::SetRtpParams
+content.dll!cricket::BaseChannel::SetupDtlsSrtp
+content.dll!cricket::BaseChannel::ChannelWritable_w
+content.dll!cricket::BaseChannel::OnWritableState
+
+UNINITIALIZED READ
+name=bug_392585
+system call NtCreateFile parameter #9
+*!testing::internal::HandleExceptionsInMethodIfSupported<>
+
+UNADDRESSABLE ACCESS
+name=bug_398850
 ...
-*!LocationBarView::OnChanged
-*!OmniboxEditModel::OnChanged
-*!OmniboxViewViews::SetWindowTextAndCaretPos
+wtf.dll!WTF::PlatformCondition::timedWait
+
+UNINITIALIZED READ
+name=bug_399293
+blink_web.dll!blink::InputMethodController::extendSelectionAndDelete
+blink_web.dll!blink::WebLocalFrameImpl::extendSelectionAndDelete
+content.dll!content::RenderFrameImpl::OnExtendSelectionAndDelete
+*!content::RenderViewImplTest_OnExtendSelectionAndDelete_Test::TestBody
+*!testing::internal::HandleExceptionsInMethodIfSupported<>
+
+UNINITIALIZED READ
+name=bug_398547
+system call NtWriteFile parameter #5
+KERNELBASE.dll!WriteFile
+KERNEL32.dll!WriteFile
+mojo_system_impl.dll!mojo::system::`anonymous namespace'::RawChannelWin::WriteNoLock
+
+HANDLE LEAK
+name=bug_403544
+system call NtCreateSemaphore
+KERNELBASE.dll!CreateSemaphoreExW
+...
+v8.dll!v8::internal::SweeperThread::SweeperThread
+...
+blink_web.dll!blink::WorkerScriptController::WorkerScriptController
+blink_web.dll!blink::WorkerGlobalScope::WorkerGlobalScope
+blink_web.dll!blink::ServiceWorkerGlobalScope::ServiceWorkerGlobalScope
+
+
+HANDLE LEAK
+name=bug_403681
+system call NtCreateTimer
+KERNELBASE.dll!CreateWaitableTimerExW
+KERNEL32.dll!CreateWaitableTimerW
+content.dll!rtc::Timing::Timing
+content.dll!content::RenderProcessHostImpl::CreateMessageFilters
+...
+content.dll!content::RenderViewHostImpl::CreateRenderView
+content.dll!content::WebContentsImpl::CreateRenderViewForRenderManager
+...
+content.dll!content::NavigationControllerImpl::LoadEntry
+...
+*!extensions::ExtensionHost::LoadInitialURL
+
+UNINITIALIZED READ
+name=bug_414268
+pdf.dll!chrome_pdf::PDFiumEngine::OnMouseMove
+pdf.dll!chrome_pdf::PDFiumEngine::HandleEvent
+pdf.dll!chrome_pdf::OutOfProcessInstance::HandleInputEvent
+pdf.dll!pp::InputEvent_HandleEvent
+ppapi_proxy.dll!ppapi::CallWhileUnlocked<>
+ppapi_proxy.dll!ppapi::proxy::PPP_InputEvent_Proxy::OnMsgHandleFilteredInputEvent
+

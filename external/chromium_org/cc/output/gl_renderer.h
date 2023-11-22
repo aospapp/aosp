@@ -20,7 +20,7 @@
 #include "cc/quads/solid_color_draw_quad.h"
 #include "cc/quads/tile_draw_quad.h"
 #include "cc/quads/yuv_video_draw_quad.h"
-#include "ui/gfx/quad_f.h"
+#include "ui/gfx/geometry/quad_f.h"
 
 class SkBitmap;
 
@@ -65,7 +65,7 @@ class CC_EXPORT GLRenderer : public DirectRenderer {
   virtual void DoNoOp() OVERRIDE;
   virtual void SwapBuffers(const CompositorFrameMetadata& metadata) OVERRIDE;
 
-  virtual bool IsContextLost() OVERRIDE;
+  virtual bool IsContextLost();
 
   static void DebugGLCall(gpu::gles2::GLES2Interface* gl,
                           const char* command,
@@ -391,9 +391,6 @@ class CC_EXPORT GLRenderer : public DirectRenderer {
 
   gpu::gles2::GLES2Interface* gl_;
   gpu::ContextSupport* context_support_;
-
-  skia::RefPtr<GrContext> gr_context_;
-  skia::RefPtr<SkCanvas> sk_canvas_;
 
   TextureMailboxDeleter* texture_mailbox_deleter_;
 

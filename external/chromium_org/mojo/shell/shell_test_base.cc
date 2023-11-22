@@ -5,13 +5,13 @@
 #include "mojo/shell/shell_test_base.h"
 
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/path_service.h"
 #include "build/build_config.h"
-#include "mojo/shell/context.h"
 #include "net/base/filename_util.h"
+#include "net/test/embedded_test_server/embedded_test_server.h"
 #include "url/gurl.h"
 
 namespace mojo {
@@ -24,38 +24,39 @@ ShellTestBase::ShellTestBase() {
 ShellTestBase::~ShellTestBase() {
 }
 
-void ShellTestBase::InitMojo() {
-  DCHECK(!message_loop_);
-  DCHECK(!shell_context_);
-  message_loop_.reset(new base::MessageLoop());
-  shell_context_.reset(new Context());
-}
-
-void ShellTestBase::LaunchServiceInProcess(
-    const GURL& service_url,
-    const std::string& service_name,
-    ScopedMessagePipeHandle client_handle) {
-  DCHECK(message_loop_);
-  DCHECK(shell_context_);
-
-  base::FilePath base_dir;
-  CHECK(PathService::Get(base::DIR_EXE, &base_dir));
-  // On android, the library is bundled with the app.
-#if defined(OS_ANDROID)
+void ShellTestBase::SetUp() {
+  shell_context_.Init();
+  test_server_.reset(new net::test_server::EmbeddedTestServer());
+  ASSERT_TRUE(test_server_->InitializeAndWaitUntilReady());
   base::FilePath service_dir;
   CHECK(PathService::Get(base::DIR_MODULE, &service_dir));
-  // On Mac and Windows, libraries are dumped beside the executables.
-#elif defined(OS_MACOSX) || defined(OS_WIN)
-  base::FilePath service_dir(base_dir);
-#else
-  // On Linux, they're under lib/.
-  base::FilePath service_dir(base_dir.AppendASCII("lib"));
-#endif
-  shell_context_->mojo_url_resolver()->set_origin(
-      net::FilePathToFileURL(service_dir).spec());
+  test_server_->ServeFilesFromDirectory(service_dir);
+}
 
-  shell_context_->service_manager()->ConnectToService(
-      service_url, service_name, client_handle.Pass(), GURL());
+ScopedMessagePipeHandle ShellTestBase::ConnectToService(
+    const GURL& application_url,
+    const std::string& service_name) {
+  // Set the MojoURLResolver origin to be the same as the base file path for
+  // local files. This is primarily for test convenience, so that references
+  // to unknown mojo: urls that do not have specific local file or custom
+  // mappings registered on the URL resolver are treated as shared libraries.
+  base::FilePath service_dir;
+  CHECK(PathService::Get(base::DIR_MODULE, &service_dir));
+  shell_context_.mojo_url_resolver()->SetBaseURL(
+      net::FilePathToFileURL(service_dir));
+
+  return shell_context_.ConnectToServiceByName(
+      application_url, service_name).Pass();
+}
+
+ScopedMessagePipeHandle ShellTestBase::ConnectToServiceViaNetwork(
+    const GURL& application_url,
+    const std::string& service_name) {
+  shell_context_.mojo_url_resolver()->SetBaseURL(
+      test_server_->base_url());
+
+  return shell_context_.ConnectToServiceByName(
+      application_url, service_name).Pass();
 }
 
 }  // namespace test

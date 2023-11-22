@@ -14,7 +14,7 @@
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
-#include "webkit/common/resource_type.h"
+#include "content/public/common/resource_type.h"
 
 class GURL;
 class Profile;
@@ -67,30 +67,21 @@ class CaptivePortalTabHelper
       content::RenderViewHost* render_view_host) OVERRIDE;
 
   virtual void DidStartProvisionalLoadForFrame(
-      int64 frame_id,
-      int64 parent_frame_id,
-      bool is_main_frame,
+      content::RenderFrameHost* render_frame_host,
       const GURL& validated_url,
       bool is_error_page,
-      bool is_iframe_srcdoc,
-      content::RenderViewHost* render_view_host) OVERRIDE;
+      bool is_iframe_srcdoc) OVERRIDE;
 
   virtual void DidCommitProvisionalLoadForFrame(
-      int64 frame_id,
-      const base::string16& frame_unique_name,
-      bool is_main_frame,
+      content::RenderFrameHost* render_frame_host,
       const GURL& url,
-      content::PageTransition transition_type,
-      content::RenderViewHost* render_view_host) OVERRIDE;
+      ui::PageTransition transition_type) OVERRIDE;
 
   virtual void DidFailProvisionalLoad(
-      int64 frame_id,
-      const base::string16& frame_unique_name,
-      bool is_main_frame,
+      content::RenderFrameHost* render_frame_host,
       const GURL& validated_url,
       int error_code,
-      const base::string16& error_description,
-      content::RenderViewHost* render_view_host) OVERRIDE;
+      const base::string16& error_description) OVERRIDE;
 
   virtual void DidStopLoading(
       content::RenderViewHost* render_view_host) OVERRIDE;
@@ -117,7 +108,7 @@ class CaptivePortalTabHelper
 
   // Called by Observe in response to the corresponding event.
   void OnRedirect(int child_id,
-                  ResourceType::Type resource_type,
+                  content::ResourceType resource_type,
                   const GURL& new_url);
 
   // Called by Observe in response to the corresponding event.

@@ -160,12 +160,14 @@ scoped_ptr<base::DictionaryValue> Decrypt(const std::string& passphrase,
 
 std::string GetSourceAsString(ONCSource source) {
   switch (source) {
+    case ONC_SOURCE_UNKNOWN:
+      return "unknown";
+    case ONC_SOURCE_NONE:
+      return "none";
     case ONC_SOURCE_DEVICE_POLICY:
       return "device policy";
     case ONC_SOURCE_USER_POLICY:
       return "user policy";
-    case ONC_SOURCE_NONE:
-      return "none";
     case ONC_SOURCE_USER_IMPORT:
       return "user import";
   }
@@ -563,8 +565,10 @@ bool ResolveServerCertRefsInObject(const CertPEMsByGUIDMap& certs_by_guid,
                                    const OncValueSignature& signature,
                                    base::DictionaryValue* onc_object) {
   if (&signature == &kCertificatePatternSignature) {
-    if (!ResolveCertRefList(certs_by_guid, certificate::kIssuerCARef,
-                            certificate::kIssuerCAPEMs, onc_object)) {
+    if (!ResolveCertRefList(certs_by_guid,
+                            client_cert::kIssuerCARef,
+                            client_cert::kIssuerCAPEMs,
+                            onc_object)) {
       return false;
     }
   } else if (&signature == &kEAPSignature) {
@@ -668,6 +672,27 @@ NetworkTypePattern NetworkTypePatternFromOncType(const std::string& type) {
     return NetworkTypePattern::Wireless();
   NOTREACHED();
   return NetworkTypePattern::Default();
+}
+
+bool IsRecommendedValue(const base::DictionaryValue* onc,
+                        const std::string& property_key) {
+  std::string property_basename, recommended_property_key;
+  size_t pos = property_key.find_last_of('.');
+  if (pos != std::string::npos) {
+    // 'WiFi.AutoConnect' -> 'AutoConnect', 'WiFi.Recommended'
+    property_basename = property_key.substr(pos + 1);
+    recommended_property_key =
+        property_key.substr(0, pos + 1) + ::onc::kRecommended;
+  } else {
+    // 'Name' -> 'Name', 'Recommended'
+    property_basename = property_key;
+    recommended_property_key = ::onc::kRecommended;
+  }
+
+  const base::ListValue* recommended_keys = NULL;
+  return (onc->GetList(recommended_property_key, &recommended_keys) &&
+          recommended_keys->Find(base::StringValue(property_basename)) !=
+          recommended_keys->end());
 }
 
 }  // namespace onc

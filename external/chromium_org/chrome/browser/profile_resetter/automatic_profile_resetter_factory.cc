@@ -31,7 +31,8 @@ AutomaticProfileResetterFactory::GetInstance() {
 // static
 void AutomaticProfileResetterFactory::RegisterPrefs(
     PrefRegistrySimple* registry) {
-  registry->RegisterDictionaryPref(prefs::kProfileResetPromptMemento);
+  registry->RegisterDictionaryPref(
+      prefs::kProfileResetPromptMementosInLocalState);
 }
 
 AutomaticProfileResetterFactory::AutomaticProfileResetterFactory()
@@ -56,7 +57,7 @@ KeyedService* AutomaticProfileResetterFactory::BuildServiceInstanceFor(
 void AutomaticProfileResetterFactory::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterStringPref(
-      prefs::kProfileResetPromptMemento,
+      prefs::kProfileResetPromptMementoInProfilePrefs,
       "",
       user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
 }

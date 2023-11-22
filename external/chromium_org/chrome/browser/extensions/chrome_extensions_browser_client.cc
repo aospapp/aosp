@@ -4,52 +4,50 @@
 
 #include "chrome/browser/extensions/chrome_extensions_browser_client.h"
 
-#include "apps/common/api/generated_api.h"
 #include "base/command_line.h"
 #include "base/path_service.h"
 #include "base/version.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/activity_log/activity_log.h"
+#include "chrome/browser/extensions/api/chrome_extensions_api_client.h"
+#include "chrome/browser/extensions/api/content_settings/content_settings_service.h"
+#include "chrome/browser/extensions/api/generated_api_registration.h"
 #include "chrome/browser/extensions/api/preference/chrome_direct_setting.h"
 #include "chrome/browser/extensions/api/preference/preference_api.h"
 #include "chrome/browser/extensions/api/runtime/chrome_runtime_api_delegate.h"
 #include "chrome/browser/extensions/chrome_app_sorting.h"
 #include "chrome/browser/extensions/chrome_component_extension_resource_manager.h"
 #include "chrome/browser/extensions/chrome_extension_host_delegate.h"
+#include "chrome/browser/extensions/chrome_process_manager_delegate.h"
+#include "chrome/browser/extensions/chrome_url_request_util.h"
+#include "chrome/browser/extensions/event_router_forwarder.h"
 #include "chrome/browser/extensions/extension_system_factory.h"
 #include "chrome/browser/extensions/extension_util.h"
-#include "chrome/browser/extensions/url_request_util.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
+#include "chrome/browser/net/chrome_net_log.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/chrome_version_info.h"
-#include "chrome/common/extensions/api/generated_api.h"
 #include "chrome/common/extensions/features/feature_channel.h"
 #include "chrome/common/pref_names.h"
+#include "extensions/browser/api/generated_api_registration.h"
 #include "extensions/browser/extension_function_registry.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/pref_names.h"
-#include "extensions/common/api/generated_api.h"
+#include "extensions/browser/url_request_util.h"
 
 #if defined(OS_CHROMEOS)
 #include "chromeos/chromeos_switches.h"
 #endif
 
-#if defined(ENABLE_EXTENSIONS)
-#include "chrome/browser/extensions/api/chrome_extensions_api_client.h"
-#include "chrome/browser/extensions/api/content_settings/content_settings_service.h"
-#endif
-
 namespace extensions {
 
 ChromeExtensionsBrowserClient::ChromeExtensionsBrowserClient() {
-#if defined(ENABLE_EXTENSIONS)
+  process_manager_delegate_.reset(new ChromeProcessManagerDelegate);
   api_client_.reset(new ChromeExtensionsAPIClient);
-#endif
   // Only set if it hasn't already been set (e.g. by a test).
   if (GetCurrentChannel() == GetDefaultChannel())
     SetCurrentChannel(chrome::VersionInfo::GetChannel());
@@ -116,11 +114,6 @@ bool ChromeExtensionsBrowserClient::CanExtensionCrossIncognito(
       || util::CanCrossIncognito(extension, context);
 }
 
-bool ChromeExtensionsBrowserClient::IsWebViewRequest(
-    net::URLRequest* request) const {
-  return url_request_util::IsWebViewRequest(request);
-}
-
 net::URLRequestJob*
 ChromeExtensionsBrowserClient::MaybeCreateResourceBundleRequestJob(
     net::URLRequest* request,
@@ -128,7 +121,7 @@ ChromeExtensionsBrowserClient::MaybeCreateResourceBundleRequestJob(
     const base::FilePath& directory_path,
     const std::string& content_security_policy,
     bool send_cors_header) {
-  return url_request_util::MaybeCreateURLRequestResourceBundleJob(
+  return chrome_url_request_util::MaybeCreateURLRequestResourceBundleJob(
       request,
       network_delegate,
       directory_path,
@@ -141,8 +134,13 @@ bool ChromeExtensionsBrowserClient::AllowCrossRendererResourceLoad(
     bool is_incognito,
     const Extension* extension,
     InfoMap* extension_info_map) {
-  return url_request_util::AllowCrossRendererResourceLoad(
-      request, is_incognito, extension, extension_info_map);
+  bool allowed = false;
+  if (chrome_url_request_util::AllowCrossRendererResourceLoad(
+          request, is_incognito, extension, extension_info_map, &allowed))
+    return allowed;
+
+  // Couldn't determine if resource is allowed. Block the load.
+  return false;
 }
 
 PrefService* ChromeExtensionsBrowserClient::GetPrefServiceForContext(
@@ -153,38 +151,12 @@ PrefService* ChromeExtensionsBrowserClient::GetPrefServiceForContext(
 void ChromeExtensionsBrowserClient::GetEarlyExtensionPrefsObservers(
     content::BrowserContext* context,
     std::vector<ExtensionPrefsObserver*>* observers) const {
-#if defined(ENABLE_EXTENSIONS)
   observers->push_back(ContentSettingsService::Get(context));
-#endif
 }
 
-bool ChromeExtensionsBrowserClient::DeferLoadingBackgroundHosts(
-    content::BrowserContext* context) const {
-  Profile* profile = static_cast<Profile*>(context);
-
-  // The profile may not be valid yet if it is still being initialized.
-  // In that case, defer loading, since it depends on an initialized profile.
-  // http://crbug.com/222473
-  if (!g_browser_process->profile_manager()->IsValidProfile(profile))
-    return true;
-
-#if defined(OS_ANDROID)
-  return false;
-#else
-  // There are no browser windows open and the browser process was
-  // started to show the app launcher.
-  return chrome::GetTotalBrowserCountForProfile(profile) == 0 &&
-         CommandLine::ForCurrentProcess()->HasSwitch(switches::kShowAppList);
-#endif
-}
-
-bool ChromeExtensionsBrowserClient::IsBackgroundPageAllowed(
-    content::BrowserContext* context) const {
-  // Returns true if current session is Guest mode session and current
-  // browser context is *not* off-the-record. Such context is artificial and
-  // background page shouldn't be created in it.
-  return !static_cast<Profile*>(context)->IsGuestSession() ||
-         context->IsOffTheRecord();
+ProcessManagerDelegate*
+ChromeExtensionsBrowserClient::GetProcessManagerDelegate() const {
+  return process_manager_delegate_.get();
 }
 
 scoped_ptr<ExtensionHostDelegate>
@@ -250,10 +222,6 @@ ChromeExtensionsBrowserClient::GetExtensionSystemFactory() {
 
 void ChromeExtensionsBrowserClient::RegisterExtensionFunctions(
     ExtensionFunctionRegistry* registry) const {
-// TODO(rockot): Figure out if and why Android really needs to build
-// ChromeExtensionsBrowserClient and refactor so this ifdef isn't necessary.
-// See http://crbug.com/349436
-#if defined(ENABLE_EXTENSIONS)
   // Preferences.
   registry->RegisterFunction<extensions::GetPreferenceFunction>();
   registry->RegisterFunction<extensions::SetPreferenceFunction>();
@@ -269,11 +237,9 @@ void ChromeExtensionsBrowserClient::RegisterExtensionFunctions(
 
   // Generated APIs from lower-level modules.
   extensions::core_api::GeneratedFunctionRegistry::RegisterAll(registry);
-  apps::api::GeneratedFunctionRegistry::RegisterAll(registry);
 
   // Generated APIs from Chrome.
   extensions::api::GeneratedFunctionRegistry::RegisterAll(registry);
-#endif
 }
 
 ComponentExtensionResourceManager*
@@ -281,6 +247,17 @@ ChromeExtensionsBrowserClient::GetComponentExtensionResourceManager() {
   if (!resource_manager_)
     resource_manager_.reset(new ChromeComponentExtensionResourceManager());
   return resource_manager_.get();
+}
+
+void ChromeExtensionsBrowserClient::BroadcastEventToRenderers(
+    const std::string& event_name,
+    scoped_ptr<base::ListValue> args) {
+  g_browser_process->extension_event_router_forwarder()
+      ->BroadcastEventToRenderers(event_name, args.Pass(), GURL());
+}
+
+net::NetLog* ChromeExtensionsBrowserClient::GetNetLog() {
+  return g_browser_process->net_log();
 }
 
 scoped_ptr<extensions::RuntimeAPIDelegate>

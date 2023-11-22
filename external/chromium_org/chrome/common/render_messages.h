@@ -16,26 +16,27 @@
 #include "base/strings/stringprintf.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "chrome/common/autocomplete_match_type.h"
 #include "chrome/common/common_param_traits.h"
-#include "chrome/common/content_settings.h"
-#include "chrome/common/content_settings_pattern.h"
 #include "chrome/common/instant_types.h"
 #include "chrome/common/ntp_logging_events.h"
 #include "chrome/common/omnibox_focus_state.h"
 #include "chrome/common/search_provider.h"
+#include "chrome/common/web_application_info.h"
+#include "components/content_settings/core/common/content_settings.h"
+#include "components/content_settings/core/common/content_settings_pattern.h"
+#include "components/content_settings/core/common/content_settings_types.h"
 #include "components/nacl/common/nacl_types.h"
 #include "content/public/common/common_param_traits.h"
 #include "content/public/common/referrer.h"
 #include "content/public/common/top_controls_state.h"
-#include "extensions/common/stack_frame.h"
 #include "ipc/ipc_channel_handle.h"
 #include "ipc/ipc_message_macros.h"
 #include "ipc/ipc_platform_file.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/WebKit/public/web/WebCache.h"
 #include "third_party/WebKit/public/web/WebConsoleMessage.h"
+#include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/gfx/ipc/gfx_param_traits.h"
 #include "ui/gfx/rect.h"
 
 // Singly-included section for enums and custom IPC traits.
@@ -184,39 +185,38 @@ IPC_STRUCT_TRAITS_BEGIN(blink::WebCache::UsageStats)
   IPC_STRUCT_TRAITS_MEMBER(deadSize)
 IPC_STRUCT_TRAITS_END()
 
-IPC_STRUCT_TRAITS_BEGIN(extensions::StackFrame)
-  IPC_STRUCT_TRAITS_MEMBER(line_number)
-  IPC_STRUCT_TRAITS_MEMBER(column_number)
-  IPC_STRUCT_TRAITS_MEMBER(source)
-  IPC_STRUCT_TRAITS_MEMBER(function)
-IPC_STRUCT_TRAITS_END()
-
 IPC_ENUM_TRAITS_MAX_VALUE(NTPLoggingEventType,
                           NTP_NUM_EVENT_TYPES)
+
+IPC_ENUM_TRAITS_MAX_VALUE(WebApplicationInfo::MobileCapable,
+                          WebApplicationInfo::MOBILE_CAPABLE_APPLE)
+
+IPC_STRUCT_TRAITS_BEGIN(WebApplicationInfo::IconInfo)
+  IPC_STRUCT_TRAITS_MEMBER(url)
+  IPC_STRUCT_TRAITS_MEMBER(width)
+  IPC_STRUCT_TRAITS_MEMBER(height)
+  IPC_STRUCT_TRAITS_MEMBER(data)
+IPC_STRUCT_TRAITS_END()
+
+IPC_STRUCT_TRAITS_BEGIN(WebApplicationInfo)
+  IPC_STRUCT_TRAITS_MEMBER(title)
+  IPC_STRUCT_TRAITS_MEMBER(description)
+  IPC_STRUCT_TRAITS_MEMBER(app_url)
+  IPC_STRUCT_TRAITS_MEMBER(icons)
+  IPC_STRUCT_TRAITS_MEMBER(mobile_capable)
+IPC_STRUCT_TRAITS_END()
 
 //-----------------------------------------------------------------------------
 // RenderView messages
 // These are messages sent from the browser to the renderer process.
 
-// Tells the renderer to set its maximum cache size to the supplied value.
-IPC_MESSAGE_CONTROL3(ChromeViewMsg_SetCacheCapacities,
-                     size_t /* min_dead_capacity */,
-                     size_t /* max_dead_capacity */,
-                     size_t /* capacity */)
-
-// Tells the renderer to clear the cache.
-IPC_MESSAGE_CONTROL1(ChromeViewMsg_ClearCache,
-                     bool /* on_navigation */)
-
-// Set the top-level frame to the provided name.
-IPC_MESSAGE_ROUTED1(ChromeViewMsg_SetName,
-                    std::string /* frame_name */)
-
+#if !defined(OS_ANDROID) && !defined(OS_IOS)
 // For WebUI testing, this message requests JavaScript to be executed at a time
 // which is late enough to not be thrown out, and early enough to be before
 // onload events are fired.
 IPC_MESSAGE_ROUTED1(ChromeViewMsg_WebUIJavaScript,
                     base::string16  /* javascript */)
+#endif
 
 // Set the content setting rules stored by the renderer.
 IPC_MESSAGE_CONTROL1(ChromeViewMsg_SetContentSettingRules,
@@ -277,11 +277,6 @@ IPC_MESSAGE_ROUTED2(ChromeViewMsg_ChromeIdentityCheckResult,
 
 IPC_MESSAGE_ROUTED0(ChromeViewMsg_SearchBoxToggleVoiceSearch)
 
-// Toggles visual muting of the render view area. This is on when a constrained
-// window is showing.
-IPC_MESSAGE_ROUTED1(ChromeViewMsg_SetVisuallyDeemphasized,
-                    bool /* deemphazied */)
-
 // Sent on process startup to indicate whether this process is running in
 // incognito mode.
 IPC_MESSAGE_CONTROL1(ChromeViewMsg_SetIsIncognitoProcess,
@@ -332,12 +327,11 @@ IPC_MESSAGE_ROUTED2(ChromeViewHostMsg_RequestThumbnailForContextNode_ACK,
                     SkBitmap /* thumbnail */,
                     gfx::Size /* original size of the image */)
 
-#if defined(OS_ANDROID)
-// Asks the renderer to return information about whether the current page can
-// be treated as a webapp.
-IPC_MESSAGE_ROUTED1(ChromeViewMsg_RetrieveWebappInformation,
-                    GURL /* expected_url */)
+// Requests application info for the page. The renderer responds back with
+// ChromeViewHostMsg_DidGetWebApplicationInfo.
+IPC_MESSAGE_ROUTED0(ChromeViewMsg_GetWebApplicationInfo)
 
+#if defined(OS_ANDROID)
 // Asks the renderer to return information about the given meta tag.
 IPC_MESSAGE_ROUTED2(ChromeViewMsg_RetrieveMetaTagContent,
                     GURL /* expected_url */,
@@ -444,6 +438,7 @@ IPC_SYNC_MESSAGE_CONTROL4_1(ChromeViewHostMsg_GetPluginInfo,
                             std::string /* mime_type */,
                             ChromeViewHostMsg_GetPluginInfo_Output /* output */)
 
+#if defined(ENABLE_PEPPER_CDMS)
 // Returns whether any internal plugin supporting |mime_type| is registered and
 // enabled. Does not determine whether the plugin can actually be instantiated
 // (e.g. whether it has all its dependencies).
@@ -456,11 +451,7 @@ IPC_SYNC_MESSAGE_CONTROL1_3(
     bool /* is_available */,
     std::vector<base::string16> /* additional_param_names */,
     std::vector<base::string16> /* additional_param_values */)
-
-// Informs the browser of updated frame names.
-IPC_MESSAGE_ROUTED2(ChromeViewHostMsg_UpdateFrameName,
-                    bool /* is_top_level */,
-                    std::string /* name */)
+#endif
 
 #if defined(ENABLE_PLUGIN_INSTALLATION)
 // Tells the browser to search for a plug-in that can handle the given MIME
@@ -566,17 +557,6 @@ IPC_MESSAGE_CONTROL1(ChromeViewHostMsg_ResourceTypeStats,
 // only when the renderer is prerendering.
 IPC_MESSAGE_ROUTED0(ChromeViewHostMsg_CancelPrerenderForPrinting)
 
-#if defined(ENABLE_EXTENSIONS)
-// Sent by the renderer to check if a URL has permission to trigger a clipboard
-// read/write operation from the DOM.
-IPC_SYNC_MESSAGE_CONTROL1_1(ChromeViewHostMsg_CanTriggerClipboardRead,
-                            GURL /* origin */,
-                            bool /* allowed */)
-IPC_SYNC_MESSAGE_CONTROL1_1(ChromeViewHostMsg_CanTriggerClipboardWrite,
-                            GURL /* origin */,
-                            bool /* allowed */)
-#endif
-
 // Sent when the renderer was prevented from displaying insecure content in
 // a secure page by a security policy.  The page may appear incomplete.
 IPC_MESSAGE_ROUTED0(ChromeViewHostMsg_DidBlockDisplayingInsecureContent)
@@ -585,44 +565,16 @@ IPC_MESSAGE_ROUTED0(ChromeViewHostMsg_DidBlockDisplayingInsecureContent)
 // a secure origin by a security policy.  The page may appear incomplete.
 IPC_MESSAGE_ROUTED0(ChromeViewHostMsg_DidBlockRunningInsecureContent)
 
-#if defined(OS_ANDROID)
-// Contains info about whether the current page can be treated as a webapp.
-IPC_MESSAGE_ROUTED4(ChromeViewHostMsg_DidRetrieveWebappInformation,
-                    bool /* success */,
-                    bool /* is_mobile_webapp_capable */,
-                    bool /* is_apple_mobile_webapp_capable */,
-                    GURL /* expected_url */)
+IPC_MESSAGE_ROUTED1(ChromeViewHostMsg_DidGetWebApplicationInfo,
+                    WebApplicationInfo)
 
+#if defined(OS_ANDROID)
 IPC_MESSAGE_ROUTED4(ChromeViewHostMsg_DidRetrieveMetaTagContent,
                     bool /* success */,
                     std::string /* tag_name */,
                     std::string /* tag_content */,
                     GURL /* expected_url */)
 #endif  // defined(OS_ANDROID)
-
-// The currently displayed PDF has an unsupported feature.
-IPC_MESSAGE_ROUTED0(ChromeViewHostMsg_PDFHasUnsupportedFeature)
-
-// Brings up SaveAs... dialog to save specified URL.
-IPC_MESSAGE_ROUTED2(ChromeViewHostMsg_PDFSaveURLAs,
-                    GURL /* url */,
-                    content::Referrer /* referrer */)
-
-// Updates the content restrictions, i.e. to disable print/copy.
-IPC_MESSAGE_ROUTED1(ChromeViewHostMsg_PDFUpdateContentRestrictions,
-                    int /* restrictions */)
-
-// Brings up a Password... dialog for protected documents.
-IPC_SYNC_MESSAGE_ROUTED1_1(ChromeViewHostMsg_PDFModalPromptForPassword,
-                           std::string /* prompt */,
-                           std::string /* actual_value */)
-
-// This message indicates the error appeared in the frame.
-IPC_MESSAGE_ROUTED1(ChromeViewHostMsg_FrameLoadingError,
-                    int /* error */)
-
-// This message indicates the monitored frame loading had completed.
-IPC_MESSAGE_ROUTED0(ChromeViewHostMsg_FrameLoadingCompleted)
 
 // Logs events from InstantExtended New Tab Pages.
 IPC_MESSAGE_ROUTED2(ChromeViewHostMsg_LogEvent,
@@ -698,17 +650,6 @@ IPC_MESSAGE_ROUTED2(ChromeViewHostMsg_SetVoiceSearchSupported,
 IPC_MESSAGE_CONTROL2(ChromeViewMsg_SetSearchURLs,
                      std::vector<GURL> /* search_urls */,
                      GURL /* new_tab_page_url */)
-
-// TODO(thestig) Eventually separate out all the extensions messages.
-#if defined(ENABLE_EXTENSIONS)
-// Tells listeners that a detailed message was reported to the console by
-// WebKit.
-IPC_MESSAGE_ROUTED4(ChromeViewHostMsg_DetailedConsoleMessageAdded,
-                    base::string16 /* message */,
-                    base::string16 /* source */,
-                    extensions::StackTrace /* stack trace */,
-                    int32 /* severity level */)
-#endif
 
 #if defined(ENABLE_PLUGINS)
 // Sent by the renderer to check if crash reporting is enabled.

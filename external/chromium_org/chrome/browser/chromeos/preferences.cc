@@ -24,8 +24,8 @@
 #include "chrome/browser/chromeos/accessibility/magnification_manager.h"
 #include "chrome/browser/chromeos/drive/file_system_util.h"
 #include "chrome/browser/chromeos/input_method/input_method_util.h"
-#include "chrome/browser/chromeos/login/session/session_manager.h"
-#include "chrome/browser/chromeos/login/users/user.h"
+#include "chrome/browser/chromeos/login/session/user_session_manager.h"
+#include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/chromeos/system/input_device_settings.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/prefs/pref_service_syncable.h"
@@ -38,6 +38,7 @@
 #include "chromeos/system/statistics_provider.h"
 #include "components/feedback/tracing_manager.h"
 #include "components/pref_registry/pref_registry_syncable.h"
+#include "components/user_manager/user.h"
 #include "third_party/icu/source/i18n/unicode/timezone.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/event_utils.h"
@@ -71,7 +72,7 @@ Preferences::Preferences(input_method::InputMethodManager* input_method_manager)
 
 Preferences::~Preferences() {
   prefs_->RemoveObserver(this);
-  UserManager::Get()->RemoveSessionStateObserver(this);
+  user_manager::UserManager::Get()->RemoveSessionStateObserver(this);
   // If shell instance is destoryed before this preferences instance, there is
   // no need to remove this shell observer.
   if (ash::Shell::HasInstance())
@@ -260,20 +261,18 @@ void Preferences::RegisterProfilePrefs(
       prefs::kLanguageSendFunctionKeys,
       false,
       user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
-  // We don't sync the following keyboard prefs since they are not user-
-  // configurable.
   registry->RegisterBooleanPref(
       prefs::kLanguageXkbAutoRepeatEnabled,
       true,
-      user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterIntegerPref(
       prefs::kLanguageXkbAutoRepeatDelay,
       language_prefs::kXkbAutoRepeatDelayInMs,
-      user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterIntegerPref(
       prefs::kLanguageXkbAutoRepeatInterval,
       language_prefs::kXkbAutoRepeatIntervalInMs,
-      user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
 
   // Mobile plan notifications default to on.
   registry->RegisterBooleanPref(
@@ -351,31 +350,46 @@ void Preferences::InitUserPrefs(PrefServiceSyncable* prefs) {
       prefs::kLanguageXkbAutoRepeatInterval, prefs, callback);
 }
 
-void Preferences::Init(PrefServiceSyncable* prefs, const User* user) {
+void Preferences::Init(Profile* profile, const user_manager::User* user) {
+  DCHECK(profile);
   DCHECK(user);
+  PrefServiceSyncable* prefs = PrefServiceSyncable::FromProfile(profile);
   user_ = user;
-  user_is_primary_ = UserManager::Get()->GetPrimaryUser() == user_;
+  user_is_primary_ =
+      user_manager::UserManager::Get()->GetPrimaryUser() == user_;
   InitUserPrefs(prefs);
 
-  UserManager::Get()->AddSessionStateObserver(this);
+  user_manager::UserManager::Get()->AddSessionStateObserver(this);
 
   // This causes OnIsSyncingChanged to be called when the value of
   // PrefService::IsSyncing() changes.
   prefs->AddObserver(this);
+
+  UserSessionManager* session_manager = UserSessionManager::GetInstance();
+  DCHECK(session_manager);
+  ime_state_ = session_manager->GetDefaultIMEState(profile);
+  input_method_manager_->SetState(ime_state_);
 
   // Initialize preferences to currently saved state.
   ApplyPreferences(REASON_INITIALIZATION, "");
 
   // If a guest is logged in, initialize the prefs as if this is the first
   // login. For a regular user this is done in
-  // SessionManager::InitProfilePreferences().
+  // UserSessionManager::InitProfilePreferences().
   if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kGuestSession))
-    SessionManager::SetFirstLoginPrefs(prefs);
+    session_manager->SetFirstLoginPrefs(profile, std::string(), std::string());
 }
 
-void Preferences::InitUserPrefsForTesting(PrefServiceSyncable* prefs,
-                                          const User* user) {
+void Preferences::InitUserPrefsForTesting(
+    PrefServiceSyncable* prefs,
+    const user_manager::User* user,
+    scoped_refptr<input_method::InputMethodManager::State> ime_state) {
   user_ = user;
+  ime_state_ = ime_state;
+
+  if (ime_state.get())
+    input_method_manager_->SetState(ime_state);
+
   InitUserPrefs(prefs);
 }
 
@@ -391,7 +405,7 @@ void Preferences::ApplyPreferences(ApplyReason reason,
                                    const std::string& pref_name) {
   DCHECK(reason != REASON_PREF_CHANGED || !pref_name.empty());
   const bool user_is_owner =
-      UserManager::Get()->GetOwnerEmail() == user_->email();
+      user_manager::UserManager::Get()->GetOwnerEmail() == user_->email();
   const bool user_is_active = user_->is_active();
 
   system::TouchpadSettings touchpad_settings;
@@ -515,10 +529,12 @@ void Preferences::ApplyPreferences(ApplyReason reason,
   }
   if (reason != REASON_PREF_CHANGED ||
       pref_name == prefs::kTouchHudProjectionEnabled) {
+#if !defined(USE_ATHENA)
     if (user_is_active) {
       const bool enabled = touch_hud_projection_enabled_.GetValue();
       ash::Shell::GetInstance()->SetTouchHudProjectionEnabled(enabled);
     }
+#endif
   }
 
   if (reason != REASON_PREF_CHANGED ||
@@ -537,25 +553,26 @@ void Preferences::ApplyPreferences(ApplyReason reason,
       UpdateAutoRepeatRate();
   }
 
-  if (reason != REASON_PREF_CHANGED && user_is_active) {
+  if (reason == REASON_INITIALIZATION)
     SetInputMethodList();
-  } else if (pref_name == prefs::kLanguagePreloadEngines && user_is_active) {
+
+  if (pref_name == prefs::kLanguagePreloadEngines &&
+      reason == REASON_PREF_CHANGED) {
     SetLanguageConfigStringListAsCSV(language_prefs::kGeneralSectionName,
                                      language_prefs::kPreloadEnginesConfigName,
                                      preload_engines_.GetValue());
   }
 
-  if (reason != REASON_PREF_CHANGED ||
-      pref_name == prefs::kLanguageEnabledExtensionImes) {
-    if (user_is_active) {
-      std::string value(enabled_extension_imes_.GetValue());
+  if ((reason == REASON_INITIALIZATION) ||
+      (pref_name == prefs::kLanguageEnabledExtensionImes &&
+       reason == REASON_PREF_CHANGED)) {
+    std::string value(enabled_extension_imes_.GetValue());
 
-      std::vector<std::string> split_values;
-      if (!value.empty())
-        base::SplitString(value, ',', &split_values);
+    std::vector<std::string> split_values;
+    if (!value.empty())
+      base::SplitString(value, ',', &split_values);
 
-      input_method_manager_->SetEnabledExtensionImes(&split_values);
-    }
+    ime_state_->SetEnabledExtensionImes(&split_values);
   }
 
   if (user_is_active) {
@@ -597,7 +614,7 @@ void Preferences::SetLanguageConfigStringListAsCSV(const char* section,
 
   if (section == std::string(language_prefs::kGeneralSectionName) &&
       name == std::string(language_prefs::kPreloadEnginesConfigName)) {
-    input_method_manager_->ReplaceEnabledInputMethods(split_values);
+    ime_state_->ReplaceEnabledInputMethods(split_values);
     return;
   }
 }
@@ -622,9 +639,11 @@ void Preferences::SetInputMethodList() {
   // which could have been modified by the SetLanguageConfigStringListAsCSV call
   // above to the original state.
   if (!previous_input_method_id.empty())
-    input_method_manager_->ChangeInputMethod(previous_input_method_id);
+    ime_state_->ChangeInputMethod(previous_input_method_id,
+                                  false /* show_message */);
   if (!current_input_method_id.empty())
-    input_method_manager_->ChangeInputMethod(current_input_method_id);
+    ime_state_->ChangeInputMethod(current_input_method_id,
+                                  false /* show_message */);
 }
 
 void Preferences::UpdateAutoRepeatRate() {
@@ -646,7 +665,7 @@ void Preferences::OnTouchHudProjectionToggled(bool enabled) {
   touch_hud_projection_enabled_.SetValue(enabled);
 }
 
-void Preferences::ActiveUserChanged(const User* active_user) {
+void Preferences::ActiveUserChanged(const user_manager::User* active_user) {
   if (active_user != user_)
     return;
   ApplyPreferences(REASON_ACTIVE_USER_CHANGED, "");

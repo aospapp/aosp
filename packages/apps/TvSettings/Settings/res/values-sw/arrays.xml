@@ -77,7 +77,7 @@
     <item msgid="4764344884232052861">"Serif monospace"</item>
     <item msgid="8561996903323025702">"Ya kawaida"</item>
     <item msgid="8403638572764467550">"Mwandiko ulioviringwa na kuunganishwa"</item>
-    <item msgid="5560655268137500927">"Herufi kubwa zenye umbo ndogo"</item>
+    <item msgid="5560655268137500927">"Herufi kubwa zenye umbo dogo"</item>
   </string-array>
   <string-array name="captioning_font_size_selector_titles">
     <item msgid="4304493614734189861">"Madogo sana"</item>
@@ -90,8 +90,8 @@
     <item msgid="5333047169042840730">"Hamna"</item>
     <item msgid="7663488423233018922">"Muhtasari"</item>
     <item msgid="7891048730741670843">"Angusha kivuli"</item>
-    <item msgid="6613725572146700438">"Imeinuliwa"</item>
-    <item msgid="1007736533206905292">"Imepunguzwa"</item>
+    <item msgid="6613725572146700438">"Iliyoinuliwa"</item>
+    <item msgid="1007736533206905292">"Iliyopunguzwa"</item>
   </string-array>
   <string-array name="captioning_opacity_selector_titles">
     <item msgid="7311196539184412021">"25%"</item>

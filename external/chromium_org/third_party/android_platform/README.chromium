@@ -9,7 +9,9 @@ License File: NOT_SHIPPED
 Security Critical: no
 
 Description:
-Android Platform engineering tools, specifically stack symbolization scripts.
+Android Platform engineering tools, specifically stack symbolization scripts
+and a jar containing the AOSP framework to build the Android WebView
+glue layer against.
 
 Local Modifications:
 Only picked the few scripts needed by chrome.
@@ -17,3 +19,4 @@ Updated output directories to use environment variable.
 When calling addr2line, check the symbol is a file (and not a directory).
 Added support for parsing LOG(FATAL) and DCHECK errors and their
     stack traces, as emitted by src/base/debug/stack_trace_android.cc
+Added support for finding symbols when library is loaded directly from the APK.

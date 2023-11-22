@@ -6,6 +6,7 @@
 #define UI_APP_LIST_APP_LIST_MODEL_H_
 
 #include <string>
+#include <vector>
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
@@ -13,6 +14,7 @@
 #include "ui/app_list/app_list_export.h"
 #include "ui/app_list/app_list_item_list.h"
 #include "ui/app_list/app_list_item_list_observer.h"
+#include "ui/app_list/search_result.h"
 #include "ui/base/models/list_model.h"
 
 namespace app_list {
@@ -22,7 +24,6 @@ class AppListItem;
 class AppListItemList;
 class AppListModelObserver;
 class SearchBoxModel;
-class SearchResult;
 
 // Master model of app list that consists of three sub models: AppListItemList,
 // SearchBoxModel and SearchResults. The AppListItemList sub model owns a list
@@ -116,6 +117,13 @@ class APP_LIST_EXPORT AppListModel : public AppListItemListObserver {
   // false, removes any non-OEM folders.
   void SetFoldersEnabled(bool folders_enabled);
 
+  // Filters the given |results| by |display_type|. The returned list is
+  // truncated to |max_results|.
+  static std::vector<SearchResult*> FilterSearchResultsByDisplayType(
+      SearchResults* results,
+      SearchResult::DisplayType display_type,
+      size_t max_results);
+
   AppListItemList* top_level_item_list() { return top_level_item_list_.get(); }
 
   SearchBoxModel* search_box() { return search_box_.get(); }
@@ -161,7 +169,7 @@ class APP_LIST_EXPORT AppListModel : public AppListItemListObserver {
   scoped_ptr<SearchResults> results_;
 
   Status status_;
-  ObserverList<AppListModelObserver> observers_;
+  ObserverList<AppListModelObserver, true> observers_;
   bool folders_enabled_;
 
   DISALLOW_COPY_AND_ASSIGN(AppListModel);

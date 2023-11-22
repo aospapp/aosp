@@ -36,6 +36,14 @@
     <string name="device_apps_app_management_uninstall">Uninstall</string>
     <!-- Application management description for uninstalling the application [CHAR LIMIT=NONE] -->
     <string name="device_apps_app_management_uninstall_desc">Do you want to uninstall this app?</string>
+    <!-- Application management choice for disabling the application [CHAR LIMIT=40] -->
+    <string name="device_apps_app_management_disable">Disable</string>
+    <!-- Application management description for disabling the application [CHAR LIMIT=NONE] -->
+    <string name="device_apps_app_management_disable_desc">Do you want to disable this app?</string>
+    <!-- Application management choice for enabling the application [CHAR LIMIT=40] -->
+    <string name="device_apps_app_management_enable">Enable</string>
+    <!-- Application management description for enabling the application [CHAR LIMIT=NONE] -->
+    <string name="device_apps_app_management_enable_desc">Do you want to enable this app?</string>
     <!-- Application management choice for clearing the application's data [CHAR LIMIT=40] -->
     <string name="device_apps_app_management_clear_data">Clear data</string>
     <!-- Application management description for clearing the application's data [CHAR LIMIT=NONE] -->

@@ -10,15 +10,16 @@
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
+#include "base/thread_task_runner_handle.h"
 #include "chrome/browser/sync_file_system/drive_backend/sync_task.h"
 #include "chrome/browser/sync_file_system/drive_backend/sync_task_manager.h"
 #include "chrome/browser/sync_file_system/drive_backend/sync_task_token.h"
 #include "chrome/browser/sync_file_system/sync_file_system_test_util.h"
+#include "storage/common/fileapi/file_system_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "webkit/common/fileapi/file_system_util.h"
 
 #define MAKE_PATH(path)                                       \
-  base::FilePath(fileapi::VirtualPath::GetNormalizedFilePath( \
+  base::FilePath(storage::VirtualPath::GetNormalizedFilePath( \
       base::FilePath(FILE_PATH_LITERAL(path))))
 
 namespace sync_file_system {
@@ -61,7 +62,7 @@ class TaskManagerClient
         last_operation_status_(SYNC_STATUS_OK) {
     task_manager_.reset(new SyncTaskManager(
         AsWeakPtr(), maximum_background_task,
-        base::MessageLoopProxy::current()));
+        base::ThreadTaskRunnerHandle::Get()));
     task_manager_->Initialize(SYNC_STATUS_OK);
     base::MessageLoop::current()->RunUntilIdle();
     maybe_schedule_next_task_count_ = 0;
@@ -191,12 +192,12 @@ class BackgroundTask : public SyncTask {
   }
 
   virtual void RunPreflight(scoped_ptr<SyncTaskToken> token) OVERRIDE {
-    scoped_ptr<BlockingFactor> blocking_factor(new BlockingFactor);
-    blocking_factor->app_id = app_id_;
-    blocking_factor->paths.push_back(path_);
+    scoped_ptr<TaskBlocker> task_blocker(new TaskBlocker);
+    task_blocker->app_id = app_id_;
+    task_blocker->paths.push_back(path_);
 
-    SyncTaskManager::UpdateBlockingFactor(
-        token.Pass(), blocking_factor.Pass(),
+    SyncTaskManager::UpdateTaskBlocker(
+        token.Pass(), task_blocker.Pass(),
         base::Bind(&BackgroundTask::RunAsBackgroundTask,
                    weak_ptr_factory_.GetWeakPtr()));
   }
@@ -264,14 +265,14 @@ class BlockerUpdateTestHelper : public SyncTask {
 
     log_->push_back(name_ + ": updating to " + updating_to);
 
-    scoped_ptr<BlockingFactor> blocking_factor(new BlockingFactor);
-    blocking_factor->app_id = app_id_;
-    blocking_factor->paths.push_back(
-        base::FilePath(fileapi::VirtualPath::GetNormalizedFilePath(
+    scoped_ptr<TaskBlocker> task_blocker(new TaskBlocker);
+    task_blocker->app_id = app_id_;
+    task_blocker->paths.push_back(
+        base::FilePath(storage::VirtualPath::GetNormalizedFilePath(
             base::FilePath::FromUTF8Unsafe(updating_to))));
 
-    SyncTaskManager::UpdateBlockingFactor(
-        token.Pass(), blocking_factor.Pass(),
+    SyncTaskManager::UpdateTaskBlocker(
+        token.Pass(), task_blocker.Pass(),
         base::Bind(&BlockerUpdateTestHelper::UpdateBlockerSoon,
                    weak_ptr_factory_.GetWeakPtr(),
                    updating_to));
@@ -396,7 +397,7 @@ TEST(SyncTaskManagerTest, ScheduleAndCancelSyncTask) {
   {
     SyncTaskManager task_manager(base::WeakPtr<SyncTaskManager::Client>(),
                                  0 /* maximum_background_task */,
-                                 base::MessageLoopProxy::current());
+                                 base::ThreadTaskRunnerHandle::Get());
     task_manager.Initialize(SYNC_STATUS_OK);
     message_loop.RunUntilIdle();
     task_manager.ScheduleSyncTask(
@@ -418,7 +419,7 @@ TEST(SyncTaskManagerTest, ScheduleTaskAtPriority) {
   base::MessageLoop message_loop;
   SyncTaskManager task_manager(base::WeakPtr<SyncTaskManager::Client>(),
                                0 /* maximum_background_task */,
-                               base::MessageLoopProxy::current());
+                               base::ThreadTaskRunnerHandle::Get());
   task_manager.Initialize(SYNC_STATUS_OK);
   message_loop.RunUntilIdle();
 
@@ -479,7 +480,7 @@ TEST(SyncTaskManagerTest, BackgroundTask_Sequential) {
   base::MessageLoop message_loop;
   SyncTaskManager task_manager(base::WeakPtr<SyncTaskManager::Client>(),
                                10 /* maximum_background_task */,
-                               base::MessageLoopProxy::current());
+                               base::ThreadTaskRunnerHandle::Get());
   task_manager.Initialize(SYNC_STATUS_OK);
 
   SyncStatusCode status = SYNC_STATUS_FAILED;
@@ -520,7 +521,7 @@ TEST(SyncTaskManagerTest, BackgroundTask_Parallel) {
   base::MessageLoop message_loop;
   SyncTaskManager task_manager(base::WeakPtr<SyncTaskManager::Client>(),
                                10 /* maximum_background_task */,
-                               base::MessageLoopProxy::current());
+                               base::ThreadTaskRunnerHandle::Get());
   task_manager.Initialize(SYNC_STATUS_OK);
 
   SyncStatusCode status = SYNC_STATUS_FAILED;
@@ -561,7 +562,7 @@ TEST(SyncTaskManagerTest, BackgroundTask_Throttled) {
   base::MessageLoop message_loop;
   SyncTaskManager task_manager(base::WeakPtr<SyncTaskManager::Client>(),
                                2 /* maximum_background_task */,
-                               base::MessageLoopProxy::current());
+                               base::ThreadTaskRunnerHandle::Get());
   task_manager.Initialize(SYNC_STATUS_OK);
 
   SyncStatusCode status = SYNC_STATUS_FAILED;
@@ -598,11 +599,11 @@ TEST(SyncTaskManagerTest, BackgroundTask_Throttled) {
   EXPECT_EQ(2, stats.max_parallel_task);
 }
 
-TEST(SyncTaskManagerTest, UpdateBlockingFactor) {
+TEST(SyncTaskManagerTest, UpdateTaskBlocker) {
   base::MessageLoop message_loop;
   SyncTaskManager task_manager(base::WeakPtr<SyncTaskManager::Client>(),
                                10 /* maximum_background_task */,
-                               base::MessageLoopProxy::current());
+                               base::ThreadTaskRunnerHandle::Get());
   task_manager.Initialize(SYNC_STATUS_OK);
 
   SyncStatusCode status1 = SYNC_STATUS_FAILED;

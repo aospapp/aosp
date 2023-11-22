@@ -16,8 +16,10 @@
 package android.media.cts;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
+import android.cts.util.MediaUtils;
 import android.media.MediaPlayer;
 import android.test.ActivityInstrumentationTestCase2;
 
@@ -142,7 +144,12 @@ public class MediaPlayerTestBase extends ActivityInstrumentationTestCase2<MediaS
         super.tearDown();
     }
 
-    protected void loadResource(int resid) throws Exception {
+    // returns true on success
+    protected boolean loadResource(int resid) throws Exception {
+        if (!MediaUtils.hasCodecsForResource(mContext, resid)) {
+            return false;
+        }
+
         AssetFileDescriptor afd = mResources.openRawResourceFd(resid);
         try {
             mMediaPlayer.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(),
@@ -159,6 +166,11 @@ public class MediaPlayerTestBase extends ActivityInstrumentationTestCase2<MediaS
             afd.close();
         }
         sUseScaleToFitMode = !sUseScaleToFitMode;  // Alternate the scaling mode
+        return true;
+    }
+
+    protected boolean checkLoadResource(int resid) throws Exception {
+        return MediaUtils.check(loadResource(resid), "no decoder found");
     }
 
     protected void loadSubtitleSource(int resid) throws Exception {
@@ -197,7 +209,10 @@ public class MediaPlayerTestBase extends ActivityInstrumentationTestCase2<MediaS
     }
 
     protected void playVideoTest(int resid, int width, int height) throws Exception {
-        loadResource(resid);
+        if (!checkLoadResource(resid)) {
+            return; // skip
+        }
+
         playLoadedVideo(width, height, 0);
     }
 
@@ -278,4 +293,19 @@ public class MediaPlayerTestBase extends ActivityInstrumentationTestCase2<MediaS
     }
 
     private static class PrepareFailedException extends Exception {}
+
+    public boolean hasAudioOutput() {
+        return getInstrumentation().getTargetContext().getPackageManager()
+            .hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT);
+    }
+
+    public boolean isTv() {
+        PackageManager pm = getInstrumentation().getTargetContext().getPackageManager();
+        return pm.hasSystemFeature(pm.FEATURE_TELEVISION)
+                && pm.hasSystemFeature(pm.FEATURE_LEANBACK);
+    }
+
+    public boolean checkTv() {
+        return MediaUtils.check(isTv(), "not a TV");
+    }
 }

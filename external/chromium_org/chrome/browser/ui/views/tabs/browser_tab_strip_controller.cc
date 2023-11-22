@@ -10,7 +10,6 @@
 #include "base/threading/sequenced_worker_pool.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
-#include "chrome/browser/autocomplete/autocomplete_match.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/extensions/tab_helper.h"
@@ -30,6 +29,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "components/metrics/proto/omnibox_event.pb.h"
+#include "components/omnibox/autocomplete_match.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/plugin_service.h"
@@ -96,7 +96,9 @@ class BrowserTabStripController::TabContextMenuContents
     model_.reset(new TabMenuModel(
         this, controller->model_,
         controller->tabstrip_->GetModelIndexOfTab(tab)));
-    menu_runner_.reset(new views::MenuRunner(model_.get()));
+    menu_runner_.reset(new views::MenuRunner(
+        model_.get(),
+        views::MenuRunner::HAS_MNEMONICS | views::MenuRunner::CONTEXT_MENU));
   }
 
   virtual ~TabContextMenuContents() {
@@ -113,9 +115,7 @@ class BrowserTabStripController::TabContextMenuContents
                                 NULL,
                                 gfx::Rect(point, gfx::Size()),
                                 views::MENU_ANCHOR_TOPLEFT,
-                                source_type,
-                                views::MenuRunner::HAS_MNEMONICS |
-                                    views::MenuRunner::CONTEXT_MENU) ==
+                                source_type) ==
         views::MenuRunner::MENU_DELETED) {
       return;
     }
@@ -300,6 +300,11 @@ void BrowserTabStripController::CloseTab(int model_index,
                              TabStripModel::CLOSE_CREATE_HISTORICAL_TAB);
 }
 
+void BrowserTabStripController::ToggleTabAudioMute(int model_index) {
+  content::WebContents* const contents = model_->GetWebContentsAt(model_index);
+  chrome::SetTabAudioMuted(contents, !chrome::IsTabAudioMuted(contents));
+}
+
 void BrowserTabStripController::ShowContextMenuForTab(
     Tab* tab,
     const gfx::Point& p,
@@ -339,7 +344,7 @@ void BrowserTabStripController::OnDropIndexUpdate(int index,
 void BrowserTabStripController::PerformDrop(bool drop_before,
                                             int index,
                                             const GURL& url) {
-  chrome::NavigateParams params(browser_, url, content::PAGE_TRANSITION_LINK);
+  chrome::NavigateParams params(browser_, url, ui::PAGE_TRANSITION_LINK);
   params.tabstrip_index = index;
 
   if (drop_before) {

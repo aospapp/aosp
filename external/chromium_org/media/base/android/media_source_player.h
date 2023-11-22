@@ -23,8 +23,8 @@
 #include "media/base/android/media_decoder_job.h"
 #include "media/base/android/media_drm_bridge.h"
 #include "media/base/android/media_player_android.h"
-#include "media/base/clock.h"
 #include "media/base/media_export.h"
+#include "media/base/time_delta_interpolator.h"
 
 namespace media {
 
@@ -41,7 +41,6 @@ class MEDIA_EXPORT MediaSourcePlayer : public MediaPlayerAndroid,
   MediaSourcePlayer(int player_id,
                     MediaPlayerManager* manager,
                     const RequestMediaResourcesCB& request_media_resources_cb,
-                    const ReleaseMediaResourcesCB& release_media_resources_cb,
                     scoped_ptr<DemuxerAndroid> demuxer,
                     const GURL& frame_url);
   virtual ~MediaSourcePlayer();
@@ -63,7 +62,6 @@ class MEDIA_EXPORT MediaSourcePlayer : public MediaPlayerAndroid,
   virtual bool CanSeekBackward() OVERRIDE;
   virtual bool IsPlayerReady() OVERRIDE;
   virtual void SetCdm(BrowserCdm* cdm) OVERRIDE;
-  virtual bool IsSurfaceInUse() const OVERRIDE;
 
   // DemuxerAndroidClient implementation.
   virtual void OnDemuxerConfigsAvailable(const DemuxerConfigs& params) OVERRIDE;
@@ -91,6 +89,8 @@ class MEDIA_EXPORT MediaSourcePlayer : public MediaPlayerAndroid,
         base::TimeDelta current_presentation_timestamp,
         base::TimeDelta max_presentation_timestamp);
 
+  bool IsPrerollFinished(bool is_audio) const;
+
   // Gets MediaCrypto object from |drm_bridge_|.
   base::android::ScopedJavaLocalRef<jobject> GetMediaCrypto();
 
@@ -108,8 +108,8 @@ class MEDIA_EXPORT MediaSourcePlayer : public MediaPlayerAndroid,
   void DecodeMoreVideo();
 
   // Functions check whether audio/video is present.
-  bool HasVideo();
-  bool HasAudio();
+  bool HasVideo() const;
+  bool HasAudio() const;
 
   // Functions that check whether audio/video stream has reached end of output
   // or are not present in player configuration.
@@ -200,11 +200,12 @@ class MEDIA_EXPORT MediaSourcePlayer : public MediaPlayerAndroid,
   base::TimeDelta duration_;
   bool playing_;
 
-  // base::TickClock used by |clock_|.
+  // base::TickClock used by |interpolator_|.
   base::DefaultTickClock default_tick_clock_;
 
-  // Reference clock. Keeps track of current playback time.
-  Clock clock_;
+  // Tracks the most recent media time update and provides interpolated values
+  // as playback progresses.
+  TimeDeltaInterpolator interpolator_;
 
   // Timestamps for providing simple A/V sync. When start decoding an audio
   // chunk, we record its presentation timestamp and the current system time.
@@ -258,8 +259,8 @@ class MEDIA_EXPORT MediaSourcePlayer : public MediaPlayerAndroid,
   // Test-only callback for hooking the completion of the next decode cycle.
   base::Closure decode_callback_for_testing_;
 
-  // Whether |surface_| is currently used by the player.
-  bool is_surface_in_use_;
+  // Whether audio or video decoder is in the process of prerolling.
+  bool prerolling_;
 
   // Weak pointer passed to media decoder jobs for callbacks.
   // NOTE: Weak pointers must be invalidated before all other member variables.

@@ -23,7 +23,6 @@
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
-#include "content/public/common/page_transition_types.h"
 #include "ipc/ipc_message.h"
 
 namespace chrome {
@@ -100,18 +99,6 @@ bool BrowserTabStripModelDelegate::CanDuplicateContentsAt(int index) {
 
 void BrowserTabStripModelDelegate::DuplicateContentsAt(int index) {
   DuplicateTabAt(browser_, index);
-}
-
-void BrowserTabStripModelDelegate::CloseFrameAfterDragSession() {
-#if !defined(OS_MACOSX)
-  // This is scheduled to run after we return to the message loop because
-  // otherwise the frame will think the drag session is still active and ignore
-  // the request.
-  base::MessageLoop::current()->PostTask(
-      FROM_HERE,
-      base::Bind(&BrowserTabStripModelDelegate::CloseFrame,
-                 weak_factory_.GetWeakPtr()));
-#endif
 }
 
 void BrowserTabStripModelDelegate::CreateHistoricalTab(

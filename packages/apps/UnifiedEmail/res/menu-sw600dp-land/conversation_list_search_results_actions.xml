@@ -18,29 +18,25 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
       xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <item android:id="@+id/search"
-        android:title="@string/menu_search"
-        app:showAsAction="always|collapseActionView"
-        android:icon="@drawable/ic_menu_search"
-        app:actionLayout="@layout/mail_actionbar_searchview" />
-
     <item
         android:id="@+id/delete"
         android:title="@string/delete"
         app:showAsAction="always"
-        android:icon="@drawable/ic_delete_wht_24dp" />
+        android:icon="@drawable/ic_delete_wht_24dp"
+        android:alphabeticShortcut="@string/trigger_delete_char" />
 
     <item
         android:id="@+id/inside_conversation_unread"
         android:title="@string/mark_read"
         app:showAsAction="always"
-        android:icon="@drawable/ic_menu_mark_unread_wht_24dp" />
+        android:icon="@drawable/ic_mark_unread_wht_24dp" />
 
     <item
         android:id="@+id/change_folders"
         android:title="@string/menu_change_folders"
         app:showAsAction="never"
-        android:icon="@drawable/ic_change_labels_wht_24dp" />
+        android:icon="@drawable/ic_change_labels_wht_24dp"
+        android:alphabeticShortcut="@string/trigger_change_label_char" />
 
     <item
         android:id="@+id/mark_important"
@@ -64,9 +60,34 @@
         android:visible="false"
         android:alphabeticShortcut="@string/trigger_compose_char" />
 
-    <item android:id="@+id/refresh"
+    <item
+        android:id="@+id/refresh"
         android:title="@string/refresh"
         android:visible="false"
         android:alphabeticShortcut="@string/trigger_refresh_char" />
+
+    <item
+        android:id="@+id/toggle_read_unread"
+        android:title="@string/toggle_read_unread"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_toggle_read_unread_char" />
+
+    <item
+        android:id="@+id/toggle_drawer"
+        android:title="@string/menu_toggle_drawer"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_toggle_drawer_char" />
+
+    <item
+        android:id="@+id/settings"
+        android:title="@string/menu_settings"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_settings_char" />
+
+    <item
+        android:id="@+id/help_info_menu_item"
+        android:title="@string/help_and_feedback"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_help_char" />
 
 </menu>

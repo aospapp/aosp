@@ -97,6 +97,18 @@ bool QuicClient::Initialize() {
   return true;
 }
 
+QuicClient::DummyPacketWriterFactory::DummyPacketWriterFactory(
+    QuicPacketWriter* writer)
+    : writer_(writer) {}
+
+QuicClient::DummyPacketWriterFactory::~DummyPacketWriterFactory() {}
+
+QuicPacketWriter* QuicClient::DummyPacketWriterFactory::Create(
+    QuicConnection* /*connection*/) const {
+  return writer_;
+}
+
+
 bool QuicClient::CreateUDPSocket() {
   int address_family = server_address_.GetSockAddrFamily();
   fd_ = socket(address_family, SOCK_DGRAM | SOCK_NONBLOCK, IPPROTO_UDP);
@@ -124,15 +136,7 @@ bool QuicClient::CreateUDPSocket() {
     return false;
   }
 
-  int get_local_ip = 1;
-  if (address_family == AF_INET) {
-    rc = setsockopt(fd_, IPPROTO_IP, IP_PKTINFO,
-                    &get_local_ip, sizeof(get_local_ip));
-  } else {
-    rc =  setsockopt(fd_, IPPROTO_IPV6, IPV6_RECVPKTINFO,
-                     &get_local_ip, sizeof(get_local_ip));
-  }
-
+  rc = QuicSocketUtils::SetGetAddressInfo(fd_, address_family);
   if (rc < 0) {
     LOG(ERROR) << "IP detection not supported" << strerror(errno);
     return false;
@@ -186,16 +190,25 @@ bool QuicClient::StartConnect() {
   DCHECK(!connected());
 
   QuicPacketWriter* writer = CreateQuicPacketWriter();
+
+  DummyPacketWriterFactory factory(writer);
+
+  session_.reset(new QuicClientSession(
+      config_,
+      new QuicConnection(GenerateConnectionId(),
+                         server_address_,
+                         helper_.get(),
+                         factory,
+                         /* owns_writer= */ false,
+                         /* is_server= */ false,
+                         supported_versions_)));
+
+  // Reset |writer_| after |session_| so that the old writer outlives the old
+  // session.
   if (writer_.get() != writer) {
     writer_.reset(writer);
   }
-
-  session_.reset(new QuicClientSession(
-      server_id_,
-      config_,
-      new QuicConnection(GenerateConnectionId(), server_address_, helper_.get(),
-                         writer_.get(), false, supported_versions_),
-      &crypto_config_));
+  session_->InitializeSession(server_id_, &crypto_config_);
   return session_->CryptoConnect();
 }
 

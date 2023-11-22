@@ -34,7 +34,7 @@
             android:key="conversation-list-swipe"
             android:persistent="true"
             android:summary="@string/preference_swipe_description"
-            android:title="@string/preference_swipe_title_archive" />
+            android:title="@string/preference_swipe_title" />
 
     <CheckBoxPreference
             android:defaultValue="true"
@@ -71,17 +71,17 @@
             android:title="@string/preference_header_action_confirmations"
             android:key="removal-actions-group">
         <CheckBoxPreference
-                android:defaultValue="true"
+                android:defaultValue="false"
                 android:key="confirm-delete"
                 android:persistent="true"
                 android:title="@string/preference_confirm_before_delete_title" />
         <CheckBoxPreference
-                android:defaultValue="true"
+                android:defaultValue="false"
                 android:key="confirm-archive"
                 android:persistent="true"
                 android:title="@string/preference_confirm_before_archive_title" />
         <CheckBoxPreference
-                android:defaultValue="true"
+                android:defaultValue="false"
                 android:key="confirm-send"
                 android:persistent="true"
                 android:title="@string/preference_confirm_before_send_title" />

@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "base/memory/scoped_ptr.h"
 #include "chrome/browser/notifications/notification_delegate.h"
 
 namespace content {
@@ -21,9 +22,11 @@ class RenderFrameHost;
 class NotificationObjectProxy
     : public NotificationDelegate {
  public:
-  // Creates a Proxy object with the necessary callback information.
-  NotificationObjectProxy(content::RenderFrameHost* render_frame_host,
-                          content::DesktopNotificationDelegate* delegate);
+  // Creates a Proxy object with the necessary callback information. The Proxy
+  // will take ownership of |delegate|.
+  NotificationObjectProxy(
+      content::RenderFrameHost* render_frame_host,
+      scoped_ptr<content::DesktopNotificationDelegate> delegate);
 
   // NotificationDelegate implementation.
   virtual void Display() OVERRIDE;
@@ -31,19 +34,18 @@ class NotificationObjectProxy
   virtual void Close(bool by_user) OVERRIDE;
   virtual void Click() OVERRIDE;
   virtual std::string id() const OVERRIDE;
-  virtual int process_id() const OVERRIDE;
   virtual content::WebContents* GetWebContents() const OVERRIDE;
 
  protected:
   friend class base::RefCountedThreadSafe<NotificationObjectProxy>;
 
-  virtual ~NotificationObjectProxy() {}
+  virtual ~NotificationObjectProxy();
 
  private:
   // Callback information to find the JS Notification object where it lives.
   int render_process_id_;
   int render_frame_id_;
-  content::DesktopNotificationDelegate* delegate_;
+  scoped_ptr<content::DesktopNotificationDelegate> delegate_;
   bool displayed_;
   std::string id_;
 };

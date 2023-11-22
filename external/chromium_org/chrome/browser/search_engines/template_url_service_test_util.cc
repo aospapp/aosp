@@ -4,87 +4,87 @@
 
 #include "chrome/browser/search_engines/template_url_service_test_util.h"
 
-#include "base/bind.h"
+#include "base/message_loop/message_loop_proxy.h"
 #include "base/run_loop.h"
-#include "base/strings/string_split.h"
-#include "base/threading/thread.h"
-#include "chrome/browser/search_engines/default_search_manager.h"
-#include "chrome/browser/search_engines/template_url_service.h"
-#include "chrome/browser/search_engines/template_url_service_factory.h"
-#include "chrome/browser/search_engines/ui_thread_search_terms_data.h"
-#include "chrome/browser/webdata/web_data_service_factory.h"
+#include "chrome/browser/search_engines/chrome_template_url_service_client.h"
 #include "chrome/test/base/testing_pref_service_syncable.h"
 #include "chrome/test/base/testing_profile.h"
-#include "components/google/core/browser/google_url_tracker.h"
+#include "components/search_engines/default_search_pref_test_util.h"
+#include "components/search_engines/keyword_table.h"
+#include "components/search_engines/keyword_web_data_service.h"
+#include "components/search_engines/template_url_service.h"
+#include "components/search_engines/testing_search_terms_data.h"
+#include "components/webdata/common/web_database_service.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-#if defined(OS_CHROMEOS)
-#include "chrome/browser/google/google_brand_chromeos.h"
-#endif
+namespace {
 
-// Trivial subclass of TemplateURLService that records the last invocation of
-// SetKeywordSearchTermsForURL.
-class TestingTemplateURLService : public TemplateURLService {
+class TestingTemplateURLServiceClient : public ChromeTemplateURLServiceClient {
  public:
-  static KeyedService* Build(content::BrowserContext* profile) {
-    return new TestingTemplateURLService(static_cast<Profile*>(profile));
-  }
+  TestingTemplateURLServiceClient(Profile* profile,
+                                  base::string16* search_term)
+      : ChromeTemplateURLServiceClient(profile),
+        search_term_(search_term) {}
 
-  explicit TestingTemplateURLService(Profile* profile)
-      : TemplateURLService(profile) {
-  }
-
-  base::string16 GetAndClearSearchTerm() {
-    base::string16 search_term;
-    search_term.swap(search_term_);
-    return search_term;
-  }
-
- protected:
   virtual void SetKeywordSearchTermsForURL(
-      const TemplateURL* t_url,
       const GURL& url,
+      TemplateURLID id,
       const base::string16& term) OVERRIDE {
-    search_term_ = term;
+    *search_term_ = term;
   }
 
  private:
-  base::string16 search_term_;
+  base::string16* search_term_;
 
-  DISALLOW_COPY_AND_ASSIGN(TestingTemplateURLService);
+  DISALLOW_COPY_AND_ASSIGN(TestingTemplateURLServiceClient);
 };
 
-// TemplateURLServiceTestUtilBase ---------------------------------------------
+}  // namespace
 
-TemplateURLServiceTestUtilBase::TemplateURLServiceTestUtilBase()
-    : changed_count_(0) {
+TemplateURLServiceTestUtil::TemplateURLServiceTestUtil()
+    : changed_count_(0),
+      search_terms_data_(NULL) {
+  // Make unique temp directory.
+  EXPECT_TRUE(temp_dir_.CreateUniqueTempDir());
+  profile_.reset(new TestingProfile(temp_dir_.path()));
+
+  scoped_refptr<WebDatabaseService> web_database_service =
+      new WebDatabaseService(temp_dir_.path().AppendASCII("webdata"),
+                             base::MessageLoopProxy::current(),
+                             base::MessageLoopProxy::current());
+  web_database_service->AddTable(
+      scoped_ptr<WebDatabaseTable>(new KeywordTable()));
+  web_database_service->LoadDatabase();
+
+  web_data_service_ =  new KeywordWebDataService(
+      web_database_service.get(), base::MessageLoopProxy::current(),
+      KeywordWebDataService::ProfileErrorCallback());
+  web_data_service_->Init();
+
+  ResetModel(false);
 }
 
-TemplateURLServiceTestUtilBase::~TemplateURLServiceTestUtilBase() {
+TemplateURLServiceTestUtil::~TemplateURLServiceTestUtil() {
+  ClearModel();
+  profile_.reset();
+
+  // Flush the message loop to make application verifiers happy.
+  base::RunLoop().RunUntilIdle();
 }
 
-void TemplateURLServiceTestUtilBase::CreateTemplateUrlService() {
-  profile()->CreateWebDataService();
-
-  TemplateURLService* service = static_cast<TemplateURLService*>(
-      TemplateURLServiceFactory::GetInstance()->SetTestingFactoryAndUse(
-          profile(), TestingTemplateURLService::Build));
-  service->AddObserver(this);
-}
-
-void TemplateURLServiceTestUtilBase::OnTemplateURLServiceChanged() {
+void TemplateURLServiceTestUtil::OnTemplateURLServiceChanged() {
   changed_count_++;
 }
 
-int TemplateURLServiceTestUtilBase::GetObserverCount() {
+int TemplateURLServiceTestUtil::GetObserverCount() {
   return changed_count_;
 }
 
-void TemplateURLServiceTestUtilBase::ResetObserverCount() {
+void TemplateURLServiceTestUtil::ResetObserverCount() {
   changed_count_ = 0;
 }
 
-void TemplateURLServiceTestUtilBase::VerifyLoad() {
+void TemplateURLServiceTestUtil::VerifyLoad() {
   ASSERT_FALSE(model()->loaded());
   model()->Load();
   base::RunLoop().RunUntilIdle();
@@ -92,45 +92,50 @@ void TemplateURLServiceTestUtilBase::VerifyLoad() {
   ResetObserverCount();
 }
 
-void TemplateURLServiceTestUtilBase::ChangeModelToLoadState() {
+void TemplateURLServiceTestUtil::ChangeModelToLoadState() {
   model()->ChangeToLoadedState();
   // Initialize the web data service so that the database gets updated with
   // any changes made.
 
-  model()->service_ = WebDataService::FromBrowserContext(profile());
+  model()->web_data_service_ = web_data_service_;
   base::RunLoop().RunUntilIdle();
 }
 
-void TemplateURLServiceTestUtilBase::ClearModel() {
-  TemplateURLServiceFactory::GetInstance()->SetTestingFactory(
-      profile(), NULL);
+void TemplateURLServiceTestUtil::ClearModel() {
+  model_->Shutdown();
+  model_.reset();
+  search_terms_data_ = NULL;
 }
 
-void TemplateURLServiceTestUtilBase::ResetModel(bool verify_load) {
-  TemplateURLServiceFactory::GetInstance()->SetTestingFactoryAndUse(
-      profile(), TestingTemplateURLService::Build);
+void TemplateURLServiceTestUtil::ResetModel(bool verify_load) {
+  if (model_)
+    ClearModel();
+  search_terms_data_ = new TestingSearchTermsData("http://www.google.com/");
+  model_.reset(new TemplateURLService(
+      profile()->GetPrefs(), scoped_ptr<SearchTermsData>(search_terms_data_),
+      web_data_service_.get(),
+      scoped_ptr<TemplateURLServiceClient>(
+          new TestingTemplateURLServiceClient(profile(), &search_term_)),
+      NULL, NULL, base::Closure()));
   model()->AddObserver(this);
   changed_count_ = 0;
   if (verify_load)
     VerifyLoad();
 }
 
-base::string16 TemplateURLServiceTestUtilBase::GetAndClearSearchTerm() {
-  return
-      static_cast<TestingTemplateURLService*>(model())->GetAndClearSearchTerm();
+base::string16 TemplateURLServiceTestUtil::GetAndClearSearchTerm() {
+  base::string16 search_term;
+  search_term.swap(search_term_);
+  return search_term;
 }
 
-void TemplateURLServiceTestUtilBase::SetGoogleBaseURL(
-    const GURL& base_url) const {
+void TemplateURLServiceTestUtil::SetGoogleBaseURL(const GURL& base_url) {
   DCHECK(base_url.is_valid());
-  UIThreadSearchTermsData data(profile());
-  GURL old_url = GURL(data.GoogleBaseURLValue());
-  UIThreadSearchTermsData::SetGoogleBaseURL(base_url.spec());
-  TemplateURLServiceFactory::GetForProfile(profile())
-      ->OnGoogleURLUpdated(old_url, base_url);
+  search_terms_data_->set_google_base_url(base_url.spec());
+  model_->GoogleBaseURLChanged();
 }
 
-void TemplateURLServiceTestUtilBase::SetManagedDefaultSearchPreferences(
+void TemplateURLServiceTestUtil::SetManagedDefaultSearchPreferences(
     bool enabled,
     const std::string& name,
     const std::string& keyword,
@@ -140,93 +145,13 @@ void TemplateURLServiceTestUtilBase::SetManagedDefaultSearchPreferences(
     const std::string& encodings,
     const std::string& alternate_url,
     const std::string& search_terms_replacement_key) {
-  TestingPrefServiceSyncable* pref_service = profile()->GetTestingPrefService();
-  scoped_ptr<base::DictionaryValue> value(new base::DictionaryValue);
-  if (!enabled) {
-    value->SetBoolean(DefaultSearchManager::kDisabledByPolicy, true);
-    pref_service->SetManagedPref(
-        DefaultSearchManager::kDefaultSearchProviderDataPrefName,
-        value.release());
-    return;
-  }
-
-  EXPECT_FALSE(keyword.empty());
-  EXPECT_FALSE(search_url.empty());
-  value->Set(DefaultSearchManager::kShortName,
-             base::Value::CreateStringValue(name));
-  value->Set(DefaultSearchManager::kKeyword,
-             base::Value::CreateStringValue(keyword));
-  value->Set(DefaultSearchManager::kURL,
-             base::Value::CreateStringValue(search_url));
-  value->Set(DefaultSearchManager::kSuggestionsURL,
-             base::Value::CreateStringValue(suggest_url));
-  value->Set(DefaultSearchManager::kFaviconURL,
-             base::Value::CreateStringValue(icon_url));
-  value->Set(DefaultSearchManager::kSearchTermsReplacementKey,
-             base::Value::CreateStringValue(search_terms_replacement_key));
-
-  std::vector<std::string> encodings_items;
-  base::SplitString(encodings, ';', &encodings_items);
-  scoped_ptr<base::ListValue> encodings_list(new base::ListValue);
-  for (std::vector<std::string>::const_iterator it = encodings_items.begin();
-       it != encodings_items.end();
-       ++it) {
-    encodings_list->AppendString(*it);
-  }
-  value->Set(DefaultSearchManager::kInputEncodings, encodings_list.release());
-
-  scoped_ptr<base::ListValue> alternate_url_list(new base::ListValue());
-  if (!alternate_url.empty())
-    alternate_url_list->Append(base::Value::CreateStringValue(alternate_url));
-  value->Set(DefaultSearchManager::kAlternateURLs,
-             alternate_url_list.release());
-
-  pref_service->SetManagedPref(
-      DefaultSearchManager::kDefaultSearchProviderDataPrefName,
-      value.release());
+  DefaultSearchPrefTestUtil::SetManagedPref(
+      profile()->GetTestingPrefService(),
+      enabled, name, keyword, search_url, suggest_url, icon_url, encodings,
+      alternate_url, search_terms_replacement_key);
 }
 
-void TemplateURLServiceTestUtilBase::RemoveManagedDefaultSearchPreferences() {
-  TestingPrefServiceSyncable* pref_service = profile()->GetTestingPrefService();
-  pref_service->RemoveManagedPref(
-      DefaultSearchManager::kDefaultSearchProviderDataPrefName);
-}
-
-TemplateURLService* TemplateURLServiceTestUtilBase::model() const {
-  return TemplateURLServiceFactory::GetForProfile(profile());
-}
-
-
-// TemplateURLServiceTestUtil -------------------------------------------------
-
-TemplateURLServiceTestUtil::TemplateURLServiceTestUtil()
-    : thread_bundle_(content::TestBrowserThreadBundle::IO_MAINLOOP) {
-}
-
-TemplateURLServiceTestUtil::~TemplateURLServiceTestUtil() {
-}
-
-void TemplateURLServiceTestUtil::SetUp() {
-  // Make unique temp directory.
-  ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
-  profile_.reset(new TestingProfile(temp_dir_.path()));
-
-  TemplateURLServiceTestUtilBase::CreateTemplateUrlService();
-
-#if defined(OS_CHROMEOS)
-  google_brand::chromeos::ClearBrandForCurrentSession();
-#endif
-}
-
-void TemplateURLServiceTestUtil::TearDown() {
-  profile_.reset();
-
-  UIThreadSearchTermsData::SetGoogleBaseURL(std::string());
-
-  // Flush the message loop to make application verifiers happy.
-  base::RunLoop().RunUntilIdle();
-}
-
-TestingProfile* TemplateURLServiceTestUtil::profile() const {
-  return profile_.get();
+void TemplateURLServiceTestUtil::RemoveManagedDefaultSearchPreferences() {
+  DefaultSearchPrefTestUtil::RemoveManagedPref(
+      profile()->GetTestingPrefService());
 }

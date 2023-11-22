@@ -80,12 +80,15 @@ public class AllTests {
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.CombinedEvents003Test.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.CombinedEventsTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.ExceptionTest.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.ExceptionWithLocationTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.FieldAccessTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.FieldModification002Test.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.FieldModificationTest.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.FieldWithLocationTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.MethodEntryTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.MethodExitTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.MethodExitWithReturnValueTest.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.SingleStepWithLocationTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.SingleStepTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.ThreadEndTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.ThreadStartTest.class);

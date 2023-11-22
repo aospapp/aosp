@@ -31,11 +31,10 @@
         <FrameLayout
             android:layout_width="@dimen/dialpad_key_text_width"
             android:layout_height="wrap_content"
-            android:layout_gravity="left|bottom" >
+            android:layout_gravity="left|center" >
             <ImageView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:paddingTop="@dimen/dialpad_voicemail_icon_padding_top"
                 android:id="@+id/dialpad_key_voicemail"
                 android:src="@drawable/ic_dialpad_voicemail"
                 android:scaleType="fitCenter"

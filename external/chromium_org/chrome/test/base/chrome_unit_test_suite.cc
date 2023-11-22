@@ -8,10 +8,13 @@
 #include "base/process/process_handle.h"
 #include "base/strings/stringprintf.h"
 #include "chrome/browser/chrome_content_browser_client.h"
+#include "chrome/browser/omaha_query_params/chrome_omaha_query_params_delegate.h"
 #include "chrome/common/chrome_content_client.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/utility/chrome_content_utility_client.h"
+#include "components/component_updater/component_updater_paths.h"
+#include "components/omaha_query_params/omaha_query_params.h"
 #include "content/public/common/content_paths.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -118,6 +121,7 @@ void ChromeUnitTestSuite::InitializeProviders() {
   chrome::RegisterPathProvider();
   content::RegisterPathProvider();
   ui::RegisterPathProvider();
+  component_updater::RegisterPathProvider(chrome::DIR_USER_DATA);
 
 #if defined(OS_CHROMEOS)
   chromeos::RegisterPathProvider();
@@ -133,13 +137,17 @@ void ChromeUnitTestSuite::InitializeProviders() {
       ChromeWebUIControllerFactory::GetInstance());
 
   gfx::GLSurface::InitializeOneOffForTests();
+
+  omaha_query_params::OmahaQueryParams::SetDelegate(
+      ChromeOmahaQueryParamsDelegate::GetInstance());
 #endif
 }
 
 void ChromeUnitTestSuite::InitializeResourceBundle() {
   // Force unittests to run using en-US so if we test against string
   // output, it'll pass regardless of the system language.
-  ResourceBundle::InitSharedInstanceWithLocale("en-US", NULL);
+  ui::ResourceBundle::InitSharedInstanceWithLocale(
+      "en-US", NULL, ui::ResourceBundle::LOAD_COMMON_RESOURCES);
   base::FilePath resources_pack_path;
 #if defined(OS_MACOSX) && !defined(OS_IOS)
   PathService::Get(base::DIR_MODULE, &resources_pack_path);

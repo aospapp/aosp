@@ -11,18 +11,19 @@
 #include "content/common/sandbox_linux/sandbox_linux.h"
 #include "sandbox/linux/seccomp-bpf-helpers/syscall_parameters_restrictions.h"
 #include "sandbox/linux/seccomp-bpf-helpers/syscall_sets.h"
-#include "sandbox/linux/seccomp-bpf/sandbox_bpf_policy.h"
 #include "sandbox/linux/services/linux_syscalls.h"
 
 using sandbox::SyscallSets;
+using sandbox::bpf_dsl::Allow;
+using sandbox::bpf_dsl::Error;
+using sandbox::bpf_dsl::ResultExpr;
 
 namespace content {
 
 PpapiProcessPolicy::PpapiProcessPolicy() {}
 PpapiProcessPolicy::~PpapiProcessPolicy() {}
 
-ErrorCode PpapiProcessPolicy::EvaluateSyscall(SandboxBPF* sandbox,
-                                              int sysno) const {
+ResultExpr PpapiProcessPolicy::EvaluateSyscall(int sysno) const {
   switch (sysno) {
     // TODO(jln): restrict prctl.
     case __NR_prctl:
@@ -35,12 +36,12 @@ ErrorCode PpapiProcessPolicy::EvaluateSyscall(SandboxBPF* sandbox,
     case __NR_sched_getscheduler:
     case __NR_sched_setscheduler:
     case __NR_times:
-      return ErrorCode(ErrorCode::ERR_ALLOWED);
+      return Allow();
     case __NR_ioctl:
-      return ErrorCode(ENOTTY);  // Flash Access.
+      return Error(ENOTTY);  // Flash Access.
     default:
       // Default on the baseline policy.
-      return SandboxBPFBasePolicy::EvaluateSyscall(sandbox, sysno);
+      return SandboxBPFBasePolicy::EvaluateSyscall(sysno);
   }
 }
 

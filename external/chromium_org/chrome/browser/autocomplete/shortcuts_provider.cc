@@ -18,21 +18,21 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
-#include "chrome/browser/autocomplete/autocomplete_input.h"
-#include "chrome/browser/autocomplete/autocomplete_match.h"
-#include "chrome/browser/autocomplete/autocomplete_provider_listener.h"
-#include "chrome/browser/autocomplete/autocomplete_result.h"
 #include "chrome/browser/autocomplete/history_provider.h"
 #include "chrome/browser/autocomplete/shortcuts_backend_factory.h"
 #include "chrome/browser/history/history_notifications.h"
 #include "chrome/browser/history/history_service.h"
 #include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/omnibox/omnibox_field_trial.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
-#include "components/autocomplete/url_prefix.h"
 #include "components/metrics/proto/omnibox_input_type.pb.h"
+#include "components/omnibox/autocomplete_input.h"
+#include "components/omnibox/autocomplete_match.h"
+#include "components/omnibox/autocomplete_result.h"
+#include "components/omnibox/omnibox_field_trial.h"
+#include "components/omnibox/url_prefix.h"
 #include "components/url_fixer/url_fixer.h"
 #include "url/url_parse.h"
 
@@ -52,10 +52,9 @@ class DestinationURLEqualsURL {
 
 const int ShortcutsProvider::kShortcutsProviderDefaultMaxRelevance = 1199;
 
-ShortcutsProvider::ShortcutsProvider(AutocompleteProviderListener* listener,
-                                     Profile* profile)
-    : AutocompleteProvider(listener, profile,
-          AutocompleteProvider::TYPE_SHORTCUTS),
+ShortcutsProvider::ShortcutsProvider(Profile* profile)
+    : AutocompleteProvider(AutocompleteProvider::TYPE_SHORTCUTS),
+      profile_(profile),
       languages_(profile_->GetPrefs()->GetString(prefs::kAcceptLanguages)),
       initialized_(false) {
   scoped_refptr<ShortcutsBackend> backend =
@@ -91,7 +90,6 @@ void ShortcutsProvider::Start(const AutocompleteInput& input,
         name, 1, 1000, 50, base::Histogram::kUmaTargetedHistogramFlag);
     counter->Add(static_cast<int>((end_time - start_time).InMilliseconds()));
   }
-  UpdateStarredStateOfMatches();
 }
 
 void ShortcutsProvider::DeleteMatch(const AutocompleteMatch& match) {
@@ -103,7 +101,7 @@ void ShortcutsProvider::DeleteMatch(const AutocompleteMatch& match) {
   // of history entirely. So nuke all shortcuts that map to this URL.
   scoped_refptr<ShortcutsBackend> backend =
       ShortcutsBackendFactory::GetForProfileIfExists(profile_);
-  if (backend) // Can be NULL in Incognito.
+  if (backend.get())  // Can be NULL in Incognito.
     backend->DeleteShortcutsWithURL(url);
 
   matches_.erase(std::remove_if(matches_.begin(), matches_.end(),
@@ -140,15 +138,13 @@ void ShortcutsProvider::GetMatches(const AutocompleteInput& input) {
   base::string16 term_string(base::i18n::ToLower(input.text()));
   DCHECK(!term_string.empty());
 
-  const GURL& input_as_gurl =
-      url_fixer::FixupURL(base::UTF16ToUTF8(input.text()), std::string());
-  const base::string16 fixed_up_input(FixupUserInput(input).second);
-
   int max_relevance;
   if (!OmniboxFieldTrial::ShortcutsScoringMaxRelevance(
       input.current_page_classification(), &max_relevance))
     max_relevance = kShortcutsProviderDefaultMaxRelevance;
-
+  TemplateURLService* template_url_service =
+      TemplateURLServiceFactory::GetForProfile(profile_);
+  const base::string16 fixed_up_input(FixupUserInput(input).second);
   for (ShortcutsBackend::ShortcutMap::const_iterator it =
            FindFirstMatch(term_string, backend.get());
        it != backend->shortcuts_map().end() &&
@@ -157,8 +153,8 @@ void ShortcutsProvider::GetMatches(const AutocompleteInput& input) {
     int relevance = CalculateScore(term_string, it->second, max_relevance);
     if (relevance) {
       matches_.push_back(ShortcutToACMatch(it->second, relevance, input,
-                                           fixed_up_input, input_as_gurl));
-      matches_.back().ComputeStrippedDestinationURL(profile_);
+                                           fixed_up_input));
+      matches_.back().ComputeStrippedDestinationURL(template_url_service);
     }
   }
   // Remove duplicates.  Duplicates don't need to be preserved in the matches
@@ -189,8 +185,7 @@ AutocompleteMatch ShortcutsProvider::ShortcutToACMatch(
     const history::ShortcutsDatabase::Shortcut& shortcut,
     int relevance,
     const AutocompleteInput& input,
-    const base::string16& fixed_up_input_text,
-    const GURL& input_as_gurl) {
+    const base::string16& fixed_up_input_text) {
   DCHECK(!input.text().empty());
   AutocompleteMatch match;
   match.provider = this;
@@ -205,8 +200,7 @@ AutocompleteMatch ShortcutsProvider::ShortcutToACMatch(
   match.description = shortcut.match_core.description;
   match.description_class = AutocompleteMatch::ClassificationsFromString(
       shortcut.match_core.description_class);
-  match.transition =
-      static_cast<content::PageTransition>(shortcut.match_core.transition);
+  match.transition = ui::PageTransitionFromInt(shortcut.match_core.transition);
   match.type = static_cast<AutocompleteMatch::Type>(shortcut.match_core.type);
   match.keyword = shortcut.match_core.keyword;
   match.RecordAdditionalInfo("number of hits", shortcut.number_of_hits);
@@ -241,16 +235,11 @@ AutocompleteMatch ShortcutsProvider::ShortcutToACMatch(
       match.allowed_to_be_default_match =
           !HistoryProvider::PreventInlineAutocomplete(input) ||
           match.inline_autocompletion.empty();
-    } else {
-      // Also allow a user's input to be marked as default if it would be fixed
-      // up to the same thing as the fill_into_edit.  This handles cases like
-      // the user input containing a trailing slash absent in fill_into_edit.
-      match.allowed_to_be_default_match =
-          (input_as_gurl ==
-           url_fixer::FixupURL(base::UTF16ToUTF8(match.fill_into_edit),
-                               std::string()));
     }
   }
+  match.EnsureUWYTIsAllowedToBeDefault(
+      input.canonicalized_url(),
+      TemplateURLServiceFactory::GetForProfile(profile_));
 
   // Try to mark pieces of the contents and description as matches if they
   // appear in |input.text()|.

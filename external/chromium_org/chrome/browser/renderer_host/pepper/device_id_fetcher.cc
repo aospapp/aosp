@@ -4,7 +4,7 @@
 
 #include "chrome/browser/renderer_host/pepper/device_id_fetcher.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/prefs/pref_service.h"
 #include "base/strings/string_number_conversions.h"
 #include "chrome/browser/profiles/profile.h"
@@ -162,13 +162,13 @@ void DeviceIDFetcher::ComputeOnUIThread(const std::string& salt,
   input.append(kDRMIdentifierFile);
   input.append(salt_bytes.begin(), salt_bytes.end());
   crypto::SHA256HashString(input, &id_buf, sizeof(id_buf));
-  std::string id = StringToLowerASCII(
+  std::string id = base::StringToLowerASCII(
       base::HexEncode(reinterpret_cast<const void*>(id_buf), sizeof(id_buf)));
   input = machine_id;
   input.append(kDRMIdentifierFile);
   input.append(id);
   crypto::SHA256HashString(input, &id_buf, sizeof(id_buf));
-  id = StringToLowerASCII(
+  id = base::StringToLowerASCII(
       base::HexEncode(reinterpret_cast<const void*>(id_buf), sizeof(id_buf)));
 
   RunCallbackOnIOThread(id, PP_OK);

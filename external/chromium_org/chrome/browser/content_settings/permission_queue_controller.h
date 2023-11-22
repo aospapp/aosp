@@ -6,7 +6,7 @@
 #define CHROME_BROWSER_CONTENT_SETTINGS_PERMISSION_QUEUE_CONTROLLER_H_
 
 #include "base/bind.h"
-#include "chrome/common/content_settings_types.h"
+#include "components/content_settings/core/common/content_settings_types.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 
@@ -35,7 +35,6 @@ class PermissionQueueController : public content::NotificationObserver {
   void CreateInfoBarRequest(const PermissionRequestID& id,
                             const GURL& requesting_frame,
                             const GURL& embedder,
-                            const std::string& accept_button_label,
                             PermissionDecidedCallback callback);
 
   // Cancels a specific infobar request.
@@ -49,6 +48,11 @@ class PermissionQueueController : public content::NotificationObserver {
                        const GURL& embedder,
                        bool update_content_setting,
                        bool allowed);
+
+  // Performs the update to content settings for a particular request frame
+  // context.
+  void UpdateContentSetting(
+      const GURL& requesting_frame, const GURL& embedder, bool allowed);
 
  protected:
   // content::NotificationObserver:
@@ -77,9 +81,6 @@ class PermissionQueueController : public content::NotificationObserver {
 
   void RegisterForInfoBarNotifications(InfoBarService* infobar_service);
   void UnregisterForInfoBarNotifications(InfoBarService* infobar_service);
-
-  void UpdateContentSetting(
-      const GURL& requesting_frame, const GURL& embedder, bool allowed);
 
   content::NotificationRegistrar registrar_;
 

@@ -63,10 +63,11 @@ class PepperMediaStreamVideoTrackHost : public PepperMediaStreamTrackHostBase,
   virtual void GetCurrentSupportedFormats(
       int max_requested_width,
       int max_requested_height,
+      double max_requested_frame_rate,
       const VideoCaptureDeviceFormatsCB& callback) OVERRIDE;
 
   virtual void StartSourceImpl(
-      const media::VideoCaptureParams& params,
+      const media::VideoCaptureFormat& format,
       const VideoCaptureDeliverFrameCB& frame_callback) OVERRIDE;
 
   virtual void StopSourceImpl() OVERRIDE;
@@ -85,7 +86,9 @@ class PepperMediaStreamVideoTrackHost : public PepperMediaStreamTrackHostBase,
       const ppapi::MediaStreamVideoTrackShared::Attributes& attributes);
 
   void InitBlinkTrack();
-  void OnTrackStarted(MediaStreamSource* source, bool success);
+  void OnTrackStarted(MediaStreamSource* source,
+                      MediaStreamRequestResult result,
+                      const blink::WebString& result_name);
 
   blink::WebMediaStreamTrack track_;
 

@@ -31,7 +31,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class RecyclerViewAnimationsTest extends BaseRecyclerViewInstrumentationTest {
@@ -278,13 +277,14 @@ public class RecyclerViewAnimationsTest extends BaseRecyclerViewInstrumentationT
         mRecyclerView.getItemAnimator().setSupportsChangeAnimations(supportsChangeAnim);
 
         final RecyclerView.ViewHolder toBeChangedVH =
-                mRecyclerView.findViewHolderForPosition(changedIndex);
+                mRecyclerView.findViewHolderForLayoutPosition(changedIndex);
         mLayoutManager.mOnLayoutCallbacks = new OnLayoutCallbacks() {
             @Override
             void afterPreLayout(RecyclerView.Recycler recycler,
                     AnimationLayoutManager layoutManager,
                     RecyclerView.State state) {
-                RecyclerView.ViewHolder vh = mRecyclerView.findViewHolderForPosition(changedIndex);
+                RecyclerView.ViewHolder vh = mRecyclerView.findViewHolderForLayoutPosition(
+                        changedIndex);
                 if (supportsChangeAnim) {
                     assertTrue(logPrefix + " changed view holder should have correct flag"
                             , vh.isChanged());
@@ -297,7 +297,8 @@ public class RecyclerViewAnimationsTest extends BaseRecyclerViewInstrumentationT
             @Override
             void afterPostLayout(RecyclerView.Recycler recycler,
                     AnimationLayoutManager layoutManager, RecyclerView.State state) {
-                RecyclerView.ViewHolder vh = mRecyclerView.findViewHolderForPosition(changedIndex);
+                RecyclerView.ViewHolder vh = mRecyclerView.findViewHolderForLayoutPosition(
+                        changedIndex);
                 assertFalse(logPrefix + "VH should not be marked as changed", vh.isChanged());
                 if (supportsChangeAnim) {
                     assertNotSame(logPrefix + "a new VH should be given if change is supported",
@@ -500,6 +501,7 @@ public class RecyclerViewAnimationsTest extends BaseRecyclerViewInstrumentationT
         int targetItemCount = mTestAdapter.getItemCount();
         for (int i = 0; i < 100; i++) {
             mTestAdapter.deleteAndNotify(new int[]{0, 1}, new int[]{7, 1});
+            checkForMainThreadException();
             targetItemCount -= 2;
         }
         // wait until main thread runnables are consumed
@@ -593,6 +595,40 @@ public class RecyclerViewAnimationsTest extends BaseRecyclerViewInstrumentationT
         });
     }
 
+    public void testNotifyDataSetChangedDuringScroll() throws Throwable {
+        setupBasic(10);
+        final AtomicInteger onLayoutItemCount = new AtomicInteger(0);
+        final AtomicInteger onScrollItemCount = new AtomicInteger(0);
+
+        mLayoutManager.setOnLayoutCallbacks(new OnLayoutCallbacks() {
+            @Override
+            void onLayoutChildren(RecyclerView.Recycler recycler,
+                    AnimationLayoutManager lm, RecyclerView.State state) {
+                onLayoutItemCount.set(state.getItemCount());
+                super.onLayoutChildren(recycler, lm, state);
+            }
+
+            @Override
+            public void onScroll(int dx, RecyclerView.Recycler recycler, RecyclerView.State state) {
+                onScrollItemCount.set(state.getItemCount());
+                super.onScroll(dx, recycler, state);
+            }
+        });
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mTestAdapter.mItems.remove(5);
+                mTestAdapter.notifyDataSetChanged();
+                mRecyclerView.scrollBy(0, 100);
+                assertTrue("scrolling while there are pending adapter updates should "
+                        + "trigger a layout", mLayoutManager.mOnLayoutCallbacks.mLayoutCount > 0);
+                assertEquals("scroll by should be called w/ updated adapter count",
+                        mTestAdapter.mItems.size(), onScrollItemCount.get());
+
+            }
+        });
+    }
+
     public void testAddInvisibleAndVisible() throws Throwable {
         setupBasic(10, 1, 7);
         mLayoutManager.expectLayouts(2);
@@ -648,6 +684,17 @@ public class RecyclerViewAnimationsTest extends BaseRecyclerViewInstrumentationT
 
     public void testFindPositionOffset() throws Throwable {
         setupBasic(10);
+        mLayoutManager.mOnLayoutCallbacks = new OnLayoutCallbacks() {
+            @Override
+            void beforePreLayout(RecyclerView.Recycler recycler,
+                    AnimationLayoutManager lm, RecyclerView.State state) {
+                super.beforePreLayout(recycler, lm, state);
+                // [0,2,4]
+                assertEquals("offset check", 0, mAdapterHelper.findPositionOffset(0));
+                assertEquals("offset check", 1, mAdapterHelper.findPositionOffset(2));
+                assertEquals("offset check", 2, mAdapterHelper.findPositionOffset(4));
+            }
+        };
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -656,14 +703,9 @@ public class RecyclerViewAnimationsTest extends BaseRecyclerViewInstrumentationT
                 mTestAdapter.notifyItemRangeRemoved(1, 1);
                 // delete 3
                 mTestAdapter.notifyItemRangeRemoved(2, 1);
-                mAdapterHelper.preProcess();
-                // [0,2,4]
-                assertEquals("offset check", 0, mAdapterHelper.findPositionOffset(0));
-                assertEquals("offset check", 1, mAdapterHelper.findPositionOffset(2));
-                assertEquals("offset check", 2, mAdapterHelper.findPositionOffset(4));
-
             }
         });
+        mLayoutManager.waitForLayout(2);
     }
 
     private void setLayoutRange(int start, int count) {
@@ -1136,7 +1178,7 @@ public class RecyclerViewAnimationsTest extends BaseRecyclerViewInstrumentationT
             for (int i = 0; i < childCount; i++) {
                 ViewHolder vh = getChildViewHolderInt(getChildAt(i));
                 TestViewHolder tvh = (TestViewHolder) vh;
-                log.append(tvh.mBindedItem).append(vh)
+                log.append(tvh.mBoundItem).append(vh)
                         .append(" hidden:")
                         .append(mChildHelper.mHiddenViews.contains(vh.itemView))
                         .append("\n");
@@ -1146,14 +1188,14 @@ public class RecyclerViewAnimationsTest extends BaseRecyclerViewInstrumentationT
                 if (vh.isInvalid()) {
                     continue;
                 }
-                if (vh.getPosition() < 0) {
+                if (vh.getLayoutPosition() < 0) {
                     LayoutManager lm = getLayoutManager();
                     for (int j = 0; j < lm.getChildCount(); j ++) {
                         assertNotSame("removed view holder should not be in LM's child list",
                                 vh.itemView, lm.getChildAt(j));
                     }
                 } else if (!mChildHelper.mHiddenViews.contains(vh.itemView)) {
-                    if (!existingOffsets.add(vh.getPosition())) {
+                    if (!existingOffsets.add(vh.getLayoutPosition())) {
                         throw new IllegalStateException("view holder position conflict for "
                                 + "existing views " + vh + "\n" + log);
                     }
@@ -1344,7 +1386,7 @@ public class RecyclerViewAnimationsTest extends BaseRecyclerViewInstrumentationT
                         viewHolder.mPreLayoutPosition == -1 ? viewHolder.mPosition :
                         viewHolder.mPreLayoutPosition);
                 assertEquals(this + ": pre-layout getPosition should match\n" + log, mPreLayoutPos,
-                        viewHolder.getPosition());
+                        viewHolder.getLayoutPosition());
                 if (mType == Type.scrap) {
                     assertEquals(this + ": old position should match\n" + log, mOldPos,
                             result.scrapResult.getOldPosition());
@@ -1352,7 +1394,7 @@ public class RecyclerViewAnimationsTest extends BaseRecyclerViewInstrumentationT
             } else if (mType == Type.adapter || mType == Type.adapterScrap || !result.scrapResult
                     .isRemoved()) {
                 assertEquals(this + ": post-layout position should match\n" + log + "\n\n"
-                        + viewHolder, mPostLayoutPos, viewHolder.getPosition());
+                        + viewHolder, mPostLayoutPos, viewHolder.getLayoutPosition());
             }
         }
     }

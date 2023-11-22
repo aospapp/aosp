@@ -52,9 +52,10 @@ class CONTENT_EXPORT PpFrameWriter
   virtual void GetCurrentSupportedFormats(
       int max_requested_width,
       int max_requested_height,
+      double max_requested_frame_rate,
       const VideoCaptureDeviceFormatsCB& callback) OVERRIDE;
   virtual void StartSourceImpl(
-      const media::VideoCaptureParams& params,
+      const media::VideoCaptureFormat& format,
       const VideoCaptureDeliverFrameCB& frame_callback) OVERRIDE;
   virtual void StopSourceImpl() OVERRIDE;
 
@@ -89,4 +90,3 @@ class CONTENT_EXPORT VideoDestinationHandler {
 }  // namespace content
 
 #endif  // CONTENT_RENDERER_MEDIA_VIDEO_DESTINATION_HANDLER_H_
-

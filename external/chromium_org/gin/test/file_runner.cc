@@ -4,14 +4,16 @@
 
 #include "gin/test/file_runner.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/message_loop/message_loop.h"
 #include "base/path_service.h"
+#include "gin/array_buffer.h"
 #include "gin/converter.h"
 #include "gin/modules/console.h"
 #include "gin/modules/module_registry.h"
 #include "gin/public/context_holder.h"
 #include "gin/public/isolate_holder.h"
+#include "gin/test/file.h"
 #include "gin/test/gc.h"
 #include "gin/test/gtest.h"
 #include "gin/try_catch.h"
@@ -36,6 +38,7 @@ FileRunnerDelegate::FileRunnerDelegate()
   AddBuiltinModule(Console::kModuleName, Console::GetModule);
   AddBuiltinModule(GTest::kModuleName, GTest::GetModule);
   AddBuiltinModule(GC::kModuleName, GC::GetModule);
+  AddBuiltinModule(File::kModuleName, File::GetModule);
 }
 
 FileRunnerDelegate::~FileRunnerDelegate() {
@@ -55,7 +58,9 @@ void RunTestFromFile(const base::FilePath& path, FileRunnerDelegate* delegate,
 
   base::MessageLoop message_loop;
 
-  gin::IsolateHolder instance(gin::IsolateHolder::kStrictMode);
+  gin::IsolateHolder::Initialize(gin::IsolateHolder::kStrictMode,
+                                 gin::ArrayBufferAllocator::SharedInstance());
+  gin::IsolateHolder instance;
   gin::ShellRunner runner(delegate, instance.isolate());
   {
     gin::Runner::Scope scope(&runner);

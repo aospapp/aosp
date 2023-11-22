@@ -8,9 +8,11 @@
 #include "base/logging.h"
 #include "base/message_loop/message_loop.h"
 #include "base/sequenced_task_runner.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/sys_byteorder.h"
 #include "base/time/time.h"
 #include "google_apis/gcm/base/encryptor.h"
+#include "google_apis/gcm/engine/account_mapping.h"
 #include "net/base/ip_endpoint.h"
 
 namespace gcm {
@@ -20,6 +22,7 @@ FakeGCMClient::FakeGCMClient(
     const scoped_refptr<base::SequencedTaskRunner>& ui_thread,
     const scoped_refptr<base::SequencedTaskRunner>& io_thread)
     : delegate_(NULL),
+      sequence_id_(0),
       status_(UNINITIALIZED),
       start_mode_(start_mode),
       ui_thread_(ui_thread),
@@ -67,6 +70,7 @@ void FakeGCMClient::Stop() {
 void FakeGCMClient::CheckOut() {
   DCHECK(io_thread_->RunsTasksOnCurrentThread());
   status_ = CHECKED_OUT;
+  sequence_id_++;
 }
 
 void FakeGCMClient::Register(const std::string& app_id,
@@ -115,6 +119,17 @@ GCMClient::GCMStatistics FakeGCMClient::GetStatistics() const {
   return GCMClient::GCMStatistics();
 }
 
+void FakeGCMClient::SetAccountsForCheckin(
+    const std::map<std::string, std::string>& account_tokens) {
+}
+
+void FakeGCMClient::UpdateAccountMapping(
+    const AccountMapping& account_mapping) {
+}
+
+void FakeGCMClient::RemoveAccountMapping(const std::string& account_id) {
+}
+
 void FakeGCMClient::PerformDelayedLoading() {
   DCHECK(ui_thread_->RunsTasksOnCurrentThread());
 
@@ -145,9 +160,8 @@ void FakeGCMClient::DeleteMessages(const std::string& app_id) {
                  app_id));
 }
 
-// static
 std::string FakeGCMClient::GetRegistrationIdFromSenderIds(
-    const std::vector<std::string>& sender_ids) {
+    const std::vector<std::string>& sender_ids) const {
   // GCMService normalizes the sender IDs by making them sorted.
   std::vector<std::string> normalized_sender_ids = sender_ids;
   std::sort(normalized_sender_ids.begin(), normalized_sender_ids.end());
@@ -163,12 +177,13 @@ std::string FakeGCMClient::GetRegistrationIdFromSenderIds(
         registration_id += ",";
       registration_id += normalized_sender_ids[i];
     }
+    registration_id += base::IntToString(sequence_id_);
   }
   return registration_id;
 }
 
 void FakeGCMClient::CheckinFinished() {
-  delegate_->OnGCMReady();
+  delegate_->OnGCMReady(std::vector<AccountMapping>());
   delegate_->OnConnected(net::IPEndPoint());
 }
 
@@ -199,6 +214,15 @@ void FakeGCMClient::SendFinished(const std::string& app_id,
                    app_id,
                    send_error_details),
         base::TimeDelta::FromMilliseconds(200));
+  } else if(message.id.find("ack") != std::string::npos) {
+    base::MessageLoop::current()->PostDelayedTask(
+        FROM_HERE,
+        base::Bind(&FakeGCMClient::SendAcknowledgement,
+                   weak_ptr_factory_.GetWeakPtr(),
+                   app_id,
+                   message.id),
+        base::TimeDelta::FromMilliseconds(200));
+
   }
 }
 
@@ -218,6 +242,12 @@ void FakeGCMClient::MessageSendError(
     const GCMClient::SendErrorDetails& send_error_details) {
   if (delegate_)
     delegate_->OnMessageSendError(app_id, send_error_details);
+}
+
+void FakeGCMClient::SendAcknowledgement(const std::string& app_id,
+                                        const std::string& message_id) {
+  if (delegate_)
+    delegate_->OnSendAcknowledged(app_id, message_id);
 }
 
 }  // namespace gcm

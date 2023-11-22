@@ -42,16 +42,25 @@ const char kAshDefaultWallpaperSmall[] = "ash-default-wallpaper-small";
 // WorkspaceLayoutManager.
 const char kAshDisableLockLayoutManager[] = "ash-disable-lock-layout-manager";
 
+// Disable the Touch Exploration Mode. Touch Exploration Mode will no longer be
+// turned on automatically when spoken feedback is enabled when this flag is
+// set.
+const char kAshDisableTouchExplorationMode[] =
+    "ash-disable-touch-exploration-mode";
+
 #if defined(OS_CHROMEOS)
 // Enables key bindings to scroll magnified screen.
 const char kAshEnableMagnifierKeyScroller[] =
     "ash-enable-magnifier-key-scroller";
-
-// Enable the Touch Exploration Mode, which will be turned on automatically
-// when spoken feedback is enabled.
-const char kAshEnableTouchExplorationMode[] =
-    "ash-enable-touch-exploration-mode";
 #endif
+
+// Enables text filtering with the keyboard in Overview Mode.
+const char kAshDisableTextFilteringInOverviewMode[] =
+    "ash-disable-text-filtering-in-overview-mode";
+
+// Enables quick, non-cancellable locking of the screen when in maximize mode.
+const char kAshEnablePowerButtonQuickLock[] =
+    "ash-enable-power-button-quick-lock";
 
 // Enables software based mirroring.
 const char kAshEnableSoftwareMirroring[] = "ash-enable-software-mirroring";
@@ -60,6 +69,10 @@ const char kAshEnableSoftwareMirroring[] = "ash-enable-software-mirroring";
 // TODO(skuhne): Remove TOGGLE_TOUCH_VIEW_TESTING accelerator once this
 // flag is removed.
 const char kAshEnableTouchViewTesting[] = "ash-enable-touch-view-testing";
+
+// Enables additional visual feedback to touch input.
+const char kAshEnableTouchViewTouchFeedback[] =
+    "ash-enable-touch-view-touch-feedback";
 
 // When this flag is set, system sounds will be played whether the
 // ChromeVox is enabled or not.

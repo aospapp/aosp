@@ -6,14 +6,14 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
 #include "chromeos/cert_loader.h"
-#include "chromeos/dbus/fake_dbus_thread_manager.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/shill_device_client.h"
 #include "chromeos/dbus/shill_manager_client.h"
 #include "chromeos/dbus/shill_profile_client.h"
@@ -25,8 +25,8 @@
 #include "chromeos/network/onc/onc_utils.h"
 #include "chromeos/tpm_token_loader.h"
 #include "components/onc/onc_constants.h"
-#include "crypto/nss_util.h"
 #include "crypto/nss_util_internal.h"
+#include "crypto/scoped_test_nss_chromeos_user.h"
 #include "net/base/net_errors.h"
 #include "net/base/test_data_directory.h"
 #include "net/cert/nss_cert_database_chromeos.h"
@@ -77,9 +77,8 @@ class NetworkConnectionHandlerTest : public testing::Test {
     CertLoader* cert_loader = CertLoader::Get();
     cert_loader->force_hardware_backed_for_test();
 
-    FakeDBusThreadManager* dbus_manager = new FakeDBusThreadManager;
-    dbus_manager->SetFakeClients();
-    DBusThreadManager::InitializeForTesting(dbus_manager);
+    DBusThreadManager::Initialize();
+    DBusThreadManager* dbus_manager = DBusThreadManager::Get();
     test_manager_client_ =
         dbus_manager->GetShillManagerClient()->GetTestInterface();
     test_service_client_ =
@@ -91,7 +90,9 @@ class NetworkConnectionHandlerTest : public testing::Test {
     test_manager_client_->AddTechnology(shill::kTypeCellular,
                                         true /* enabled */);
     dbus_manager->GetShillProfileClient()->GetTestInterface()->AddProfile(
-        "profile_path", std::string() /* shared profile */);
+        "shared_profile_path", std::string() /* shared profile */);
+    dbus_manager->GetShillProfileClient()->GetTestInterface()->AddProfile(
+        "user_profile_path", user_.username_hash());
 
     base::RunLoop().RunUntilIdle();
     LoginState::Initialize();
@@ -203,53 +204,75 @@ class NetworkConnectionHandlerTest : public testing::Test {
     base::RunLoop().RunUntilIdle();
   }
 
-  void ImportClientCertAndKey(const std::string& pkcs12_file,
-                              net::NSSCertDatabase* nssdb,
-                              net::CertificateList* loaded_certs) {
+  scoped_refptr<net::X509Certificate> ImportTestClientCert() {
+    net::CertificateList ca_cert_list =
+        net::CreateCertificateListFromFile(net::GetTestCertsDirectory(),
+                                           "websocket_cacert.pem",
+                                           net::X509Certificate::FORMAT_AUTO);
+    if (ca_cert_list.empty()) {
+      LOG(ERROR) << "No CA cert loaded.";
+      return NULL;
+    }
+    net::NSSCertDatabase::ImportCertFailureList failures;
+    EXPECT_TRUE(test_nssdb_->ImportCACerts(
+        ca_cert_list, net::NSSCertDatabase::TRUST_DEFAULT, &failures));
+    if (!failures.empty()) {
+      LOG(ERROR) << net::ErrorToString(failures[0].net_error);
+      return NULL;
+    }
+
     std::string pkcs12_data;
     base::FilePath pkcs12_path =
-        net::GetTestCertsDirectory().Append(pkcs12_file);
-    ASSERT_TRUE(base::ReadFileToString(pkcs12_path, &pkcs12_data));
+        net::GetTestCertsDirectory().Append("websocket_client_cert.p12");
+    if (!base::ReadFileToString(pkcs12_path, &pkcs12_data))
+      return NULL;
 
-    scoped_refptr<net::CryptoModule> module(
-        net::CryptoModule::CreateFromHandle(nssdb->GetPrivateSlot().get()));
-    ASSERT_EQ(
-        net::OK,
-        nssdb->ImportFromPKCS12(module, pkcs12_data, base::string16(), false,
-                                loaded_certs));
-    ASSERT_EQ(1U, loaded_certs->size());
+    net::CertificateList loaded_certs;
+    scoped_refptr<net::CryptoModule> module(net::CryptoModule::CreateFromHandle(
+        test_nssdb_->GetPrivateSlot().get()));
+    if (test_nssdb_->ImportFromPKCS12(module.get(),
+                                      pkcs12_data,
+                                      base::string16(),
+                                      false,
+                                      &loaded_certs) != net::OK) {
+      LOG(ERROR) << "Error while importing to NSSDB.";
+      return NULL;
+    }
+
+    // File contains two certs, the client cert first and the CA cert second.
+    if (loaded_certs.size() != 2U) {
+      LOG(ERROR) << "Expected two certs in file, found " << loaded_certs.size();
+      return NULL;
+    }
+    return loaded_certs[0];
   }
 
-  void SetupPolicy() {
-    const char* kNetworkConfigs =
-        "[ { \"GUID\": \"wifi1\","
-        "    \"Name\": \"wifi1\","
-        "    \"Type\": \"WiFi\","
-        "    \"WiFi\": {"
-        "      \"Security\": \"WPA-PSK\","
-        "      \"SSID\": \"wifi1\","
-        "      \"Passphrase\": \"passphrase\""
-        "    }"
-        "} ]";
-
+  void SetupPolicy(const std::string& network_configs_json,
+                   const base::DictionaryValue& global_config,
+                   bool user_policy) {
     std::string error;
     scoped_ptr<base::Value> network_configs_value(
-        base::JSONReader::ReadAndReturnError(
-            kNetworkConfigs, base::JSON_ALLOW_TRAILING_COMMAS, NULL, &error));
+        base::JSONReader::ReadAndReturnError(network_configs_json,
+                                             base::JSON_ALLOW_TRAILING_COMMAS,
+                                             NULL,
+                                             &error));
     ASSERT_TRUE(network_configs_value) << error;
 
     base::ListValue* network_configs = NULL;
     ASSERT_TRUE(network_configs_value->GetAsList(&network_configs));
 
-    base::DictionaryValue global_config;
-    global_config.SetBooleanWithoutPathExpansion(
-        ::onc::global_network_config::kAllowOnlyPolicyNetworksToAutoconnect,
-        true);
-
-    managed_config_handler_->SetPolicy(::onc::ONC_SOURCE_USER_POLICY,
-                                       "", // userhash
-                                       *network_configs,
-                                       global_config);
+    if (user_policy) {
+      managed_config_handler_->SetPolicy(
+          ::onc::ONC_SOURCE_USER_POLICY,
+          user_.username_hash(),
+          *network_configs,
+          global_config);
+    } else {
+      managed_config_handler_->SetPolicy(::onc::ONC_SOURCE_DEVICE_POLICY,
+                                         std::string(),  // no username hash
+                                         *network_configs,
+                                         global_config);
+    }
     base::RunLoop().RunUntilIdle();
   }
 
@@ -281,9 +304,6 @@ const char* kConfigConnecting =
 const char* kConfigRequiresPassphrase =
     "{ \"GUID\": \"wifi3\", \"Type\": \"wifi\", "
     "  \"PassphraseRequired\": true }";
-const char* kConfigRequiresActivation =
-    "{ \"GUID\": \"cellular1\", \"Type\": \"cellular\","
-    "  \"Cellular.ActivationState\": \"not-activated\" }";
 
 }  // namespace
 
@@ -313,32 +333,38 @@ TEST_F(NetworkConnectionHandlerTest, NetworkConnectionHandlerConnectFailure) {
   Connect("wifi3");
   EXPECT_EQ(NetworkConnectionHandler::kErrorPassphraseRequired,
             GetResultAndReset());
-
-  EXPECT_TRUE(Configure(kConfigRequiresActivation));
-  Connect("cellular1");
-  EXPECT_EQ(NetworkConnectionHandler::kErrorActivationRequired,
-            GetResultAndReset());
 }
 
 namespace {
 
-const char* kConfigRequiresCertificateTemplate =
-    "{ \"GUID\": \"wifi4\", \"Type\": \"wifi\", \"Connectable\": false,"
-    "  \"Security\": \"802_1x\","
-    "  \"UIData\": \"{"
-    "    \\\"certificate_type\\\": \\\"pattern\\\","
-    "    \\\"certificate_pattern\\\": {"
-    "      \\\"Subject\\\": {\\\"CommonName\\\": \\\"%s\\\" }"
-    "   } }\" }";
+const char* kPolicyWithCertPatternTemplate =
+    "[ { \"GUID\": \"wifi4\","
+    "    \"Name\": \"wifi4\","
+    "    \"Type\": \"WiFi\","
+    "    \"WiFi\": {"
+    "      \"Security\": \"WPA-EAP\","
+    "      \"SSID\": \"wifi_ssid\","
+    "      \"EAP\": {"
+    "        \"Outer\": \"EAP-TLS\","
+    "        \"ClientCertType\": \"Pattern\","
+    "        \"ClientCertPattern\": {"
+    "          \"Subject\": {"
+    "            \"CommonName\" : \"%s\""
+    "          }"
+    "        }"
+    "      }"
+    "    }"
+    "} ]";
 
 }  // namespace
 
 // Handle certificates.
 TEST_F(NetworkConnectionHandlerTest, ConnectCertificateMissing) {
   StartCertLoader();
+  SetupPolicy(base::StringPrintf(kPolicyWithCertPatternTemplate, "unknown"),
+              base::DictionaryValue(),  // no global config
+              true);                    // load as user policy
 
-  EXPECT_TRUE(Configure(
-      base::StringPrintf(kConfigRequiresCertificateTemplate, "unknown")));
   Connect("wifi4");
   EXPECT_EQ(NetworkConnectionHandler::kErrorCertificateRequired,
             GetResultAndReset());
@@ -346,30 +372,28 @@ TEST_F(NetworkConnectionHandlerTest, ConnectCertificateMissing) {
 
 TEST_F(NetworkConnectionHandlerTest, ConnectWithCertificateSuccess) {
   StartCertLoader();
+  scoped_refptr<net::X509Certificate> cert = ImportTestClientCert();
+  ASSERT_TRUE(cert.get());
 
-  net::CertificateList certs;
-  ImportClientCertAndKey("websocket_client_cert.p12",
-                         test_nssdb_.get(),
-                         &certs);
-
-  EXPECT_TRUE(Configure(
-      base::StringPrintf(kConfigRequiresCertificateTemplate,
-                         certs[0]->subject().common_name.c_str())));
+  SetupPolicy(base::StringPrintf(kPolicyWithCertPatternTemplate,
+                                 cert->subject().common_name.c_str()),
+              base::DictionaryValue(),  // no global config
+              true);                    // load as user policy
 
   Connect("wifi4");
   EXPECT_EQ(kSuccessResult, GetResultAndReset());
 }
 
+// Disabled, see http://crbug.com/396729.
 TEST_F(NetworkConnectionHandlerTest,
-       ConnectWithCertificateRequestedBeforeCertsAreLoaded) {
-  net::CertificateList certs;
-  ImportClientCertAndKey("websocket_client_cert.p12",
-                         test_nssdb_.get(),
-                         &certs);
+       DISABLED_ConnectWithCertificateRequestedBeforeCertsAreLoaded) {
+  scoped_refptr<net::X509Certificate> cert = ImportTestClientCert();
+  ASSERT_TRUE(cert.get());
 
-  EXPECT_TRUE(Configure(
-      base::StringPrintf(kConfigRequiresCertificateTemplate,
-                         certs[0]->subject().common_name.c_str())));
+  SetupPolicy(base::StringPrintf(kPolicyWithCertPatternTemplate,
+                                 cert->subject().common_name.c_str()),
+              base::DictionaryValue(),  // no global config
+              true);                    // load as user policy
 
   Connect("wifi4");
 
@@ -412,6 +436,17 @@ const char* kConfigManagedSharedConnectable =
     "{ \"GUID\": \"wifi1\", \"Type\": \"wifi\", \"State\": \"idle\", "
     "  \"Connectable\": true }";
 
+const char* kPolicy =
+    "[ { \"GUID\": \"wifi1\","
+    "    \"Name\": \"wifi1\","
+    "    \"Type\": \"WiFi\","
+    "    \"WiFi\": {"
+    "      \"Security\": \"WPA-PSK\","
+    "      \"SSID\": \"wifi1\","
+    "      \"Passphrase\": \"passphrase\""
+    "    }"
+    "} ]";
+
 }  // namespace
 
 TEST_F(NetworkConnectionHandlerTest, ReconnectOnLoginEarlyPolicyLoading) {
@@ -426,8 +461,14 @@ TEST_F(NetworkConnectionHandlerTest, ReconnectOnLoginEarlyPolicyLoading) {
   EXPECT_EQ(shill::kStateIdle,
             GetServiceStringProperty("wifi1", shill::kStateProperty));
 
-  // Policy application should disconnect from the shared and unmanaged network.
-  SetupPolicy();
+  // Applying the policy which restricts autoconnect should disconnect from the
+  // shared, unmanaged network.
+  base::DictionaryValue global_config;
+  global_config.SetBooleanWithoutPathExpansion(
+      ::onc::global_network_config::kAllowOnlyPolicyNetworksToAutoconnect,
+      true);
+
+  SetupPolicy(kPolicy, global_config, false /* load as device policy */);
   EXPECT_EQ(shill::kStateIdle,
             GetServiceStringProperty("wifi0", shill::kStateProperty));
   EXPECT_EQ(shill::kStateIdle,
@@ -455,7 +496,14 @@ TEST_F(NetworkConnectionHandlerTest, ReconnectOnLoginLatePolicyLoading) {
   EXPECT_EQ(shill::kStateIdle,
             GetServiceStringProperty("wifi1", shill::kStateProperty));
 
-  SetupPolicy();
+  // Applying the policy which restricts autoconnect should disconnect from the
+  // shared, unmanaged network.
+  base::DictionaryValue global_config;
+  global_config.SetBooleanWithoutPathExpansion(
+      ::onc::global_network_config::kAllowOnlyPolicyNetworksToAutoconnect,
+      true);
+
+  SetupPolicy(kPolicy, global_config, false /* load as device policy */);
   EXPECT_EQ(shill::kStateIdle,
             GetServiceStringProperty("wifi0", shill::kStateProperty));
   EXPECT_EQ(shill::kStateOnline,

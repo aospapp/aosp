@@ -78,9 +78,9 @@ accessed through the operating system.</p>
 </li>
 <li>
 <p><strong>Android Application Runtime</strong>: Android applications are most often written
-in the Java programming language and run in the Dalvik virtual machine.
+in the Java programming language and run in the Android runtime (ART).
 However, many applications, including core Android services and applications
-are native applications or include native libraries. Both Dalvik and native
+are native applications or include native libraries. Both ART and native
 applications run within the same security environment, contained within the
 Application Sandbox. Applications get a dedicated part of the filesystem in
 which they can write private data, including databases and raw files.</p>
@@ -124,7 +124,7 @@ the air (OTA).</p>
 cloud capabilities such as (<a href="https://developer.android.com/guide/topics/data/backup.html">backing
 up</a>) application
 data and settings and cloud-to-device messaging
-(<a href="https://code.google.com/android/c2dm/index.html">C2DM</a>)
+(<a href="https://developers.google.com/android/c2dm/">C2DM</a>)
 for push messaging.</p>
 </li>
 </ul>
@@ -305,7 +305,7 @@ class to allow applications to use the system credential storage for private
 keys and certificate chains.
 </p>
 
-<h2>Memory Management Security Enhancements</h2>
+<h2 id="memory-mgmt">Memory Management Security Enhancements</h2>
 
 Android includes many features that make common security issues harder to
 exploit. The Android SDK, compilers, and OS use tools to make common memory
@@ -350,7 +350,7 @@ escalation (further enhanced in Android 4.1)</li>
 
 </dl>
 
-<h2>Rooting of Devices</h2>
+<h2 id="rooting">Rooting of Devices</h2>
 <p>
 By default, on Android only the kernel and a small subset of the core
 applications run with root permissions. Android does not prevent a user or
@@ -396,7 +396,7 @@ devices uses the device password to protect the encryption key, so modifying
 the bootloader or operating system is not sufficient to access user data
 without the user’s device password.
 </p>
-<h2>User Security Features</h2>
+<h2 id="user-sec">User Security Features</h2>
 
 <h3 id="filesystem-encryption">Filesystem Encryption</h3>
 
@@ -413,7 +413,7 @@ Android provides password complexity rules that can be set by the device
 administrator and enforced by the operating system. Filesystem encryption
 requires the use of a user password, pattern-based screen lock is not supported.</p>
 <p>More details on implementation of filesystem encryption are available at
-<a href="/devices/tech/encryption/android_crypto_implementation.html">https://source.android.com/devices/tech/encryption/android_crypto_implementation.html</a></p>
+<a href="{@docRoot}devices/tech/encryption/index.html">Encryption</a>.</p>
 
 <h2 id="password-protection">Password Protection</h2>
 <p>Android can be configured to verify a user-supplied password prior to providing
@@ -441,7 +441,7 @@ oper.android.com/guide/topics/admin/device-admin.html">https://developer.android
 <p>Android provides an open source platform and application environment for mobile
 devices. The core operating system is based on the Linux kernel. Android
 applications are most often written in the Java programming language and run in
-the Dalvik virtual machine. However, applications can also be written in native
+the ART runtime. However, applications can also be written in native
 code. Applications are installed from a single file with the .apk file
 extension.</p>
 <p>The main Android application building blocks are:</p>
@@ -623,7 +623,7 @@ instance and handing it off to the system. The system locates some other piece
 of code (in this case, the Browser) that knows how to handle that Intent, and
 runs it. Intents can also be used to broadcast interesting events (such as a
 notification) system-wide. See
-[https://developer.android.com/reference/android/content/Intent.html](https://developer.android.com/reference/android/content/Intent.html.</p>
+<a href="https://developer.android.com/reference/android/content/Intent.html">https://developer.android.com/reference/android/content/Intent.html</a>.</p>
 </li>
 <li>
 <p><strong>ContentProviders</strong>: A ContentProvider is a data storehouse that provides
@@ -767,7 +767,7 @@ is implemented in two architectural layers (see figure below):</p>
 <ul>
 <li>
 <p>A DRM framework API, which is exposed to applications through the Android
-application framework and runs through the Dalvik VM for standard applications.</p>
+application framework and runs through the ART runtime for standard applications.</p>
 </li>
 <li>
 <p>A native code DRM manager, which implements the DRM framework and exposes an

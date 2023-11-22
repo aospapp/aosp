@@ -30,6 +30,9 @@
 
 #ifdef HAVE_TEST_STUFF
 
+// PROPERTY_VALUE_MAX.
+#include "cutils/properties.h"
+
 // Ability to have fake local system properties.
 #define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_
 #include <sys/_system_properties.h>
@@ -102,19 +105,22 @@ TEST_F(JNIInvocationTest, Debuggable) {
     ASSERT_EQ(0, __system_property_add(kDebuggableSystemProperty, 13, kIsDebuggableValue, 1));
     ASSERT_EQ(0, __system_property_add(kLibrarySystemProperty, 27, kTestNonNull2, 11));
 
-    const char* result = JniInvocation::GetLibrary(NULL);
+    char buffer[PROPERTY_VALUE_MAX];
+    const char* result = JniInvocation::GetLibrary(NULL, buffer);
     EXPECT_FALSE(result == NULL);
     if (result != NULL) {
         EXPECT_TRUE(strcmp(result, kTestNonNull2) == 0);
         EXPECT_FALSE(strcmp(result, kExpected) == 0);
     }
 
-    result = JniInvocation::GetLibrary(kTestNonNull);
+    result = JniInvocation::GetLibrary(kTestNonNull, buffer);
     EXPECT_FALSE(result == NULL);
     if (result != NULL) {
         EXPECT_TRUE(strcmp(result, kTestNonNull) == 0);
         EXPECT_FALSE(strcmp(result, kTestNonNull2) == 0);
     }
+#else
+    GTEST_LOG_(WARNING) << "Host testing unsupported. Please run target tests.";
 #endif
 }
 
@@ -124,7 +130,8 @@ TEST_F(JNIInvocationTest, NonDebuggable) {
     ASSERT_TRUE(pa.valid);
     ASSERT_EQ(0, __system_property_add(kDebuggableSystemProperty, 13, kIsNotDebuggableValue, 1));
 
-    const char* result = JniInvocation::GetLibrary(NULL);
+    char buffer[PROPERTY_VALUE_MAX];
+    const char* result = JniInvocation::GetLibrary(NULL, buffer);
     EXPECT_FALSE(result == NULL);
     if (result != NULL) {
         EXPECT_TRUE(strcmp(result, kExpected) == 0);
@@ -132,12 +139,14 @@ TEST_F(JNIInvocationTest, NonDebuggable) {
         EXPECT_FALSE(strcmp(result, kTestNonNull2) == 0);
     }
 
-    result = JniInvocation::GetLibrary(kTestNonNull);
+    result = JniInvocation::GetLibrary(kTestNonNull, buffer);
     EXPECT_FALSE(result == NULL);
     if (result != NULL) {
         EXPECT_TRUE(strcmp(result, kExpected) == 0);
         EXPECT_FALSE(strcmp(result, kTestNonNull) == 0);
     }
+#else
+    GTEST_LOG_(WARNING) << "Host testing unsupported. Please run target tests.";
 #endif
 }
 

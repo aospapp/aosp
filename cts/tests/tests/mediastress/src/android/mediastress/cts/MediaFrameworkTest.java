@@ -19,15 +19,13 @@ package android.mediastress.cts;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
+import android.media.MediaFormat;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
-import android.view.ViewGroup;
-import android.widget.ImageView;
 
 import com.android.cts.mediastress.R;
 
@@ -85,7 +83,7 @@ public class MediaFrameworkTest extends Activity implements SurfaceHolder.Callba
     }
 
     public void startPlayback(String filename){
-      String mimetype = "audio/mpeg";
+      String mimetype = MediaFormat.MIMETYPE_AUDIO_MPEG;
       Uri path = Uri.parse(filename);
       Intent intent = new Intent(Intent.ACTION_VIEW);
       intent.setDataAndType(path, mimetype);

@@ -7,6 +7,7 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 #include "base/callback.h"
 #include "base/files/file.h"
@@ -15,6 +16,7 @@
 #include "base/observer_list.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "chrome/browser/chromeos/file_system_provider/notification_manager_interface.h"
 #include "chrome/browser/chromeos/file_system_provider/provided_file_system_info.h"
 #include "chrome/browser/chromeos/file_system_provider/request_value.h"
 
@@ -29,6 +31,14 @@ enum RequestType {
   OPEN_FILE,
   CLOSE_FILE,
   READ_FILE,
+  CREATE_DIRECTORY,
+  DELETE_ENTRY,
+  CREATE_FILE,
+  COPY_ENTRY,
+  MOVE_ENTRY,
+  TRUNCATE,
+  WRITE_FILE,
+  ABORT,
   TESTING
 };
 
@@ -59,7 +69,9 @@ class RequestManager {
     // Error callback invoked by the providing extension in response to
     // Execute(). It can be called at most once. It can be also called if the
     // request is aborted due to a timeout.
-    virtual void OnError(int request_id, base::File::Error error) = 0;
+    virtual void OnError(int request_id,
+                         scoped_ptr<RequestValue> result,
+                         base::File::Error error) = 0;
   };
 
   // Observes activities in the request manager.
@@ -77,16 +89,20 @@ class RequestManager {
     virtual void OnRequestExecuted(int request_id) = 0;
 
     // Called when the request is fulfilled with a success.
-    virtual void OnRequestFulfilled(int request_id, bool has_more) = 0;
+    virtual void OnRequestFulfilled(int request_id,
+                                    const RequestValue& result,
+                                    bool has_more) = 0;
 
     // Called when the request is rejected with an error.
-    virtual void OnRequestRejected(int request_id, base::File::Error error) = 0;
+    virtual void OnRequestRejected(int request_id,
+                                   const RequestValue& result,
+                                   base::File::Error error) = 0;
 
     // Called when the request is timeouted.
     virtual void OnRequestTimeouted(int request_id) = 0;
   };
 
-  RequestManager();
+  explicit RequestManager(NotificationManagerInterface* notification_manager);
   virtual ~RequestManager();
 
   // Creates a request and returns its request id (greater than 0). Returns 0 in
@@ -96,22 +112,23 @@ class RequestManager {
 
   // Handles successful response for the |request_id|. If |has_more| is false,
   // then the request is disposed, after handling the |response|. On error,
-  // returns false, and the request is disposed.
+  // returns false, and the request is disposed. |response| must not be NULL.
   bool FulfillRequest(int request_id,
                       scoped_ptr<RequestValue> response,
                       bool has_more);
 
   // Handles error response for the |request_id|. If handling the error fails,
-  // returns false. Always disposes the request.
-  bool RejectRequest(int request_id, base::File::Error error);
+  // returns false. Always disposes the request. |response| must not be NULL.
+  bool RejectRequest(int request_id,
+                     scoped_ptr<RequestValue> response,
+                     base::File::Error error);
 
   // Sets a custom timeout for tests. The new timeout value will be applied to
   // new requests
   void SetTimeoutForTesting(const base::TimeDelta& timeout);
 
-  // Gets number of active requests for logging purposes.
-  // TODO(mtomasz): Introduce a logger class to gather more information
-  size_t GetActiveRequestsForLogging() const;
+  // Gets list of active request ids.
+  std::vector<int> GetActiveRequestIds() const;
 
   // Adds and removes observers.
   void AddObserver(Observer* observer);
@@ -140,11 +157,21 @@ class RequestManager {
   // Called when a request with |request_id| timeouts.
   void OnRequestTimeout(int request_id);
 
+  // Called when an user either aborts the unresponsive request or lets it
+  // continue.
+  void OnUnresponsiveNotificationResult(
+      int request_id,
+      NotificationManagerInterface::NotificationResult result);
+
+  // Resets the timeout timer for the specified request.
+  void ResetTimer(int request_id);
+
   RequestMap requests_;
+  NotificationManagerInterface* notification_manager_;  // Not owned.
   int next_id_;
   base::TimeDelta timeout_;
-  base::WeakPtrFactory<RequestManager> weak_ptr_factory_;
   ObserverList<Observer> observers_;
+  base::WeakPtrFactory<RequestManager> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(RequestManager);
 };

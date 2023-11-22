@@ -12,6 +12,7 @@
 #include "components/sync_driver/system_encryptor.h"
 #include "sync/internal_api/public/base/cancelation_signal.h"
 #include "sync/internal_api/public/sessions/type_debug_info_observer.h"
+#include "sync/internal_api/public/shutdown_reason.h"
 #include "sync/internal_api/public/sync_encryption_handler.h"
 #include "url/gurl.h"
 
@@ -36,10 +37,8 @@ struct DoInitializeOptions {
       bool delete_sync_data_folder,
       const std::string& restored_key_for_bootstrapping,
       const std::string& restored_keystore_key_for_bootstrapping,
-      scoped_ptr<syncer::InternalComponentsFactory>
-          internal_components_factory,
-      scoped_ptr<syncer::UnrecoverableErrorHandler>
-          unrecoverable_error_handler,
+      scoped_ptr<syncer::InternalComponentsFactory> internal_components_factory,
+      scoped_ptr<syncer::UnrecoverableErrorHandler> unrecoverable_error_handler,
       syncer::ReportUnrecoverableErrorFunction
           report_unrecoverable_error_function);
   ~DoInitializeOptions();
@@ -179,14 +178,8 @@ class SyncBackendHostCore
   void OnControlTypesDownloadRetry();
 
   // Called to perform tasks which require the control data to be downloaded.
-  // This includes refreshing encryption, setting up the device info change
-  // processor, etc.
+  // This includes refreshing encryption, etc.
   void DoInitialProcessControlTypes();
-
-  // Some parts of DoInitialProcessControlTypes() may be executed on a different
-  // thread.  This function asynchronously continues the work started in
-  // DoInitialProcessControlTypes() once that other thread gets back to us.
-  void DoFinishInitialProcessControlTypes();
 
   // The shutdown order is a bit complicated:
   // 1) Call ShutdownOnUIThread() from |frontend_loop_| to request sync manager
@@ -194,8 +187,8 @@ class SyncBackendHostCore
   // 2) Post DoShutdown() to sync loop to clean up backend state, save
   //    directory and destroy sync manager.
   void ShutdownOnUIThread();
-  void DoShutdown(bool sync_disabled);
-  void DoDestroySyncManager();
+  void DoShutdown(syncer::ShutdownReason reason);
+  void DoDestroySyncManager(syncer::ShutdownReason reason);
 
   // Configuration methods that must execute on sync loop.
   void DoConfigureSyncer(
@@ -217,10 +210,6 @@ class SyncBackendHostCore
   // on the IO thread. Must be removed from IO thread.
 
   syncer::SyncManager* sync_manager() { return sync_manager_.get(); }
-
-  SyncedDeviceTracker* synced_device_tracker() {
-    return synced_device_tracker_.get();
-  }
 
   void SendBufferedProtocolEventsAndEnableForwarding();
   void DisableProtocolEventForwarding();
@@ -290,10 +279,7 @@ class SyncBackendHostCore
   scoped_ptr<base::RepeatingTimer<SyncBackendHostCore> > save_changes_timer_;
 
   // Our encryptor, which uses Chrome's encryption functions.
-  SystemEncryptor encryptor_;
-
-  // A special ChangeProcessor that tracks the DEVICE_INFO type for us.
-  scoped_ptr<SyncedDeviceTracker> synced_device_tracker_;
+  sync_driver::SystemEncryptor encryptor_;
 
   // The top-level syncapi entry point.  Lives on the sync thread.
   scoped_ptr<syncer::SyncManager> sync_manager_;

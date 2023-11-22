@@ -17,27 +17,34 @@
 package com.android.server.telecom;
 
 import android.Manifest;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
-import android.os.Environment;
+import android.content.pm.UserInfo;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
+import android.os.Process;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.provider.Settings;
 import android.telecom.ConnectionService;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
-import android.telecom.TelecomManager;
-import android.content.ComponentName;
-import android.content.Context;
-import android.net.Uri;
+import android.telephony.PhoneNumberUtils;
+import android.telephony.SubscriptionManager;
 import android.text.TextUtils;
 import android.util.AtomicFile;
+import android.util.Base64;
 import android.util.Xml;
 
 // TODO: Needed for move to system service: import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.FastXmlSerializer;
+import com.android.internal.util.IndentingPrintWriter;
 import com.android.internal.util.XmlUtils;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -46,6 +53,7 @@ import org.xmlpull.v1.XmlSerializer;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -55,7 +63,6 @@ import java.lang.Integer;
 import java.lang.SecurityException;
 import java.lang.String;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -81,7 +88,7 @@ public final class PhoneAccountRegistrar {
 
     private static final String FILE_NAME = "phone-account-registrar-state.xml";
     @VisibleForTesting
-    public static final int EXPECTED_STATE_VERSION = 3;
+    public static final int EXPECTED_STATE_VERSION = 5;
 
     /** Keep in sync with the same in SipSettings.java */
     private static final String SIP_SHARED_PREFERENCES = "SIP_PREFERENCES";
@@ -89,8 +96,12 @@ public final class PhoneAccountRegistrar {
     private final List<Listener> mListeners = new CopyOnWriteArrayList<>();
     private final AtomicFile mAtomicFile;
     private final Context mContext;
+    private final UserManager mUserManager;
+    private final SubscriptionManager mSubscriptionManager;
     private State mState;
+    private UserHandle mCurrentUserHandle;
 
+    @VisibleForTesting
     public PhoneAccountRegistrar(Context context) {
         this(context, FILE_NAME);
     }
@@ -109,11 +120,38 @@ public final class PhoneAccountRegistrar {
 
         mState = new State();
         mContext = context;
+        mUserManager = UserManager.get(context);
+        mSubscriptionManager = SubscriptionManager.from(mContext);
+        mCurrentUserHandle = Process.myUserHandle();
         read();
     }
 
     /**
-     * Retrieves the default outgoing phone account supporting the specified uriScheme.
+     * Retrieves the subscription id for a given phone account if it exists. Subscription ids
+     * apply only to PSTN/SIM card phone accounts so all other accounts should not have a
+     * subscription id.
+     * @param accountHandle The handle for the phone account for which to retrieve the
+     * subscription id.
+     * @return The value of the subscription id or -1 if it does not exist or is not valid.
+     */
+    public int getSubscriptionIdForPhoneAccount(PhoneAccountHandle accountHandle) {
+        PhoneAccount account = getPhoneAccountInternal(accountHandle);
+        if (account == null
+                || !account.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)
+                || !TextUtils.isDigitsOnly(accountHandle.getId())
+                || !isVisibleForUser(accountHandle)) {
+            // Since no decimals or negative numbers can be valid subscription ids, only a string of
+            // numbers can be subscription id
+            return SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+        }
+        return Integer.parseInt(accountHandle.getId());
+    }
+
+    /**
+     * Retrieves the default outgoing phone account supporting the specified uriScheme. Note that if
+     * {@link #mCurrentUserHandle} does not have visibility into the current default, {@code null}
+     * will be returned.
+     *
      * @param uriScheme The URI scheme for the outgoing call.
      * @return The {@link PhoneAccountHandle} to use.
      */
@@ -123,8 +161,9 @@ public final class PhoneAccountRegistrar {
         if (userSelected != null) {
             // If there is a default PhoneAccount, ensure it supports calls to handles with the
             // specified uriScheme.
-            final PhoneAccount userSelectedAccount = getPhoneAccount(userSelected);
-            if (userSelectedAccount.supportsUriScheme(uriScheme)) {
+            final PhoneAccount userSelectedAccount = getPhoneAccountInternal(userSelected);
+            if (userSelectedAccount.supportsUriScheme(uriScheme)
+                    && isVisibleForUser(userSelected)) {
                 return userSelected;
             }
         }
@@ -135,20 +174,29 @@ public final class PhoneAccountRegistrar {
                 // There are no accounts, so there can be no default
                 return null;
             case 1:
-                // There is only one account, which is by definition the default
-                return outgoing.get(0);
+                // There is only one account, which is by definition the default.
+                PhoneAccountHandle onlyHandle = outgoing.get(0);
+                if (isVisibleForUser(onlyHandle)) {
+                    return outgoing.get(0);
+                }
+                return null;
             default:
                 // There are multiple accounts with no selected default
                 return null;
         }
     }
 
+    /**
+     * @return The user-selected outgoing {@link PhoneAccount}, or null if it hasn't been set (or
+     *      if it was set by another user).
+     */
     PhoneAccountHandle getUserSelectedOutgoingPhoneAccount() {
         if (mState.defaultOutgoing != null) {
             // Return the registered outgoing default iff it still exists (we keep a sticky
             // default to survive account deletion and re-addition)
             for (int i = 0; i < mState.accounts.size(); i++) {
-                if (mState.accounts.get(i).getAccountHandle().equals(mState.defaultOutgoing)) {
+                if (mState.accounts.get(i).getAccountHandle().equals(mState.defaultOutgoing)
+                        && isVisibleForUser(mState.defaultOutgoing)) {
                     return mState.defaultOutgoing;
                 }
             }
@@ -177,11 +225,19 @@ public final class PhoneAccountRegistrar {
                 return;
             }
 
-            if (!getPhoneAccount(accountHandle).hasCapabilities(
+            if (!getPhoneAccountInternal(accountHandle).hasCapabilities(
                     PhoneAccount.CAPABILITY_CALL_PROVIDER)) {
                 Log.w(this, "Trying to set non-call-provider default outgoing %s",
                         accountHandle);
                 return;
+            }
+
+            if (getPhoneAccountInternal(accountHandle).hasCapabilities(
+                    PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)) {
+                // If the account selected is a SIM account, propagate down to the subscription
+                // record.
+                int subId = getSubscriptionIdForPhoneAccount(accountHandle);
+                mSubscriptionManager.setDefaultVoiceSubId(subId);
             }
 
             mState.defaultOutgoing = accountHandle;
@@ -191,9 +247,14 @@ public final class PhoneAccountRegistrar {
         fireDefaultOutgoingChanged();
     }
 
+    boolean isUserSelectedSmsPhoneAccount(PhoneAccountHandle accountHandle) {
+        return getSubscriptionIdForPhoneAccount(accountHandle) ==
+                SubscriptionManager.getDefaultSmsSubId();
+    }
+
     public void setSimCallManager(PhoneAccountHandle callManager) {
         if (callManager != null) {
-            PhoneAccount callManagerAccount = getPhoneAccount(callManager);
+            PhoneAccount callManagerAccount = getPhoneAccountInternal(callManager);
             if (callManagerAccount == null) {
                 Log.d(this, "setSimCallManager: Nonexistent call manager: %s", callManager);
                 return;
@@ -211,6 +272,9 @@ public final class PhoneAccountRegistrar {
         fireSimCallManagerChanged();
     }
 
+    /**
+     * @return The {@link PhoneAccount}s which are visible to {@link #mCurrentUserHandle}.
+     */
     public PhoneAccountHandle getSimCallManager() {
         if (mState.simCallManager != null) {
             if (NO_ACCOUNT_SELECTED.equals(mState.simCallManager)) {
@@ -219,7 +283,9 @@ public final class PhoneAccountRegistrar {
             // Return the registered sim call manager iff it still exists (we keep a sticky
             // setting to survive account deletion and re-addition)
             for (int i = 0; i < mState.accounts.size(); i++) {
-                if (mState.accounts.get(i).getAccountHandle().equals(mState.simCallManager)) {
+                if (mState.accounts.get(i).getAccountHandle().equals(mState.simCallManager)
+                        && !resolveComponent(mState.simCallManager).isEmpty()
+                        && isVisibleForUser(mState.simCallManager)) {
                     return mState.simCallManager;
                 }
             }
@@ -229,19 +295,15 @@ public final class PhoneAccountRegistrar {
         String defaultConnectionMgr =
                 mContext.getResources().getString(R.string.default_connection_manager_component);
         if (!TextUtils.isEmpty(defaultConnectionMgr)) {
-            PackageManager pm = mContext.getPackageManager();
-
             ComponentName componentName = ComponentName.unflattenFromString(defaultConnectionMgr);
-            Intent intent = new Intent(ConnectionService.SERVICE_INTERFACE);
-            intent.setComponent(componentName);
-
             // Make sure that the component can be resolved.
-            List<ResolveInfo> resolveInfos = pm.queryIntentServices(intent, 0);
+            List<ResolveInfo> resolveInfos = resolveComponent(componentName, null);
             if (!resolveInfos.isEmpty()) {
                 // See if there is registered PhoneAccount by this component.
                 List<PhoneAccountHandle> handles = getAllPhoneAccountHandles();
                 for (PhoneAccountHandle handle : handles) {
-                    if (componentName.equals(handle.getComponentName())) {
+                    if (componentName.equals(handle.getComponentName())
+                            && isVisibleForUser(handle)) {
                         return handle;
                     }
                 }
@@ -257,6 +319,97 @@ public final class PhoneAccountRegistrar {
     }
 
     /**
+     * A version of {@link #getPhoneAccount} which does not guard for the current user.
+     *
+     * @param handle
+     * @return
+     */
+    PhoneAccount getPhoneAccountInternal(PhoneAccountHandle handle) {
+        for (PhoneAccount m : mState.accounts) {
+            if (Objects.equals(handle, m.getAccountHandle())) {
+                return m;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Update the current UserHandle to track when users are switched. This will allow the
+     * PhoneAccountRegistar to self-filter the PhoneAccounts to make sure we don't leak anything
+     * across users.
+     *
+     * @param userHandle The {@link UserHandle}, as delivered by
+     *          {@link Intent#ACTION_USER_SWITCHED}.
+     */
+    public void setCurrentUserHandle(UserHandle userHandle) {
+        if (userHandle == null) {
+            Log.d(this, "setCurrentUserHandle, userHandle = null");
+            userHandle = Process.myUserHandle();
+        }
+        Log.d(this, "setCurrentUserHandle, %s", userHandle);
+        mCurrentUserHandle = userHandle;
+    }
+
+    private boolean isVisibleForUser(PhoneAccountHandle accountHandle) {
+        if (accountHandle == null) {
+            return false;
+        }
+
+        return isVisibleForUser(getPhoneAccountInternal(accountHandle));
+    }
+
+    private boolean isVisibleForUser(PhoneAccount account) {
+        if (account == null) {
+            return false;
+        }
+
+        // If this PhoneAccount has CAPABILITY_MULTI_USER, it should be visible to all users and
+        // all profiles. Only Telephony and SIP accounts should have this capability.
+        if (account.hasCapabilities(PhoneAccount.CAPABILITY_MULTI_USER)) {
+            return true;
+        }
+
+        UserHandle phoneAccountUserHandle = account.getAccountHandle().getUserHandle();
+        if (phoneAccountUserHandle == null) {
+            return false;
+        }
+
+        if (mCurrentUserHandle == null) {
+            Log.d(this, "Current user is null; assuming true");
+            return true;
+        }
+
+        // Unlike in TelecomServiceImpl, we only care about *profiles* here. We want to make sure
+        // that we don't resolve PhoneAccount across *users*, but resolving across *profiles* is
+        // fine.
+        List<UserInfo> profileUsers = mUserManager.getProfiles(mCurrentUserHandle.getIdentifier());
+
+        for (UserInfo profileInfo : profileUsers) {
+            if (profileInfo.getUserHandle().equals(phoneAccountUserHandle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private List<ResolveInfo> resolveComponent(PhoneAccountHandle phoneAccountHandle) {
+        return resolveComponent(phoneAccountHandle.getComponentName(),
+                    phoneAccountHandle.getUserHandle());
+    }
+
+    private List<ResolveInfo> resolveComponent(ComponentName componentName,
+            UserHandle userHandle) {
+        PackageManager pm = mContext.getPackageManager();
+        Intent intent = new Intent(ConnectionService.SERVICE_INTERFACE);
+        intent.setComponent(componentName);
+        if (userHandle != null) {
+            return pm.queryIntentServicesAsUser(intent, 0, userHandle.getIdentifier());
+        } else {
+            return pm.queryIntentServices(intent, 0);
+        }
+    }
+
+    /**
      * Retrieves a list of all {@link PhoneAccountHandle}s registered.
      *
      * @return The list of {@link PhoneAccountHandle}s.
@@ -264,22 +417,21 @@ public final class PhoneAccountRegistrar {
     public List<PhoneAccountHandle> getAllPhoneAccountHandles() {
         List<PhoneAccountHandle> accountHandles = new ArrayList<>();
         for (PhoneAccount m : mState.accounts) {
-            accountHandles.add(m.getAccountHandle());
+            if (isVisibleForUser(m)) {
+                accountHandles.add(m.getAccountHandle());
+            }
         }
         return accountHandles;
     }
 
     public List<PhoneAccount> getAllPhoneAccounts() {
-        return new ArrayList<>(mState.accounts);
-    }
-
-    /**
-     * Determines the number of all {@link PhoneAccount}s.
-     *
-     * @return The total number {@link PhoneAccount}s.
-     */
-    public int getAllPhoneAccountsCount() {
-        return mState.accounts.size();
+        List<PhoneAccount> accounts = new ArrayList<>(mState.accounts.size());
+        for (PhoneAccount account : mState.accounts) {
+            if (isVisibleForUser(account)) {
+                accounts.add(account);
+            }
+        }
+        return accounts;
     }
 
     /**
@@ -313,7 +465,8 @@ public final class PhoneAccountRegistrar {
         for (PhoneAccount m : mState.accounts) {
             if (Objects.equals(
                     packageName,
-                    m.getAccountHandle().getComponentName().getPackageName())) {
+                    m.getAccountHandle().getComponentName().getPackageName())
+                    && isVisibleForUser(m)) {
                 accountHandles.add(m.getAccountHandle());
             }
         }
@@ -332,7 +485,8 @@ public final class PhoneAccountRegistrar {
 
     public PhoneAccount getPhoneAccount(PhoneAccountHandle handle) {
         for (PhoneAccount m : mState.accounts) {
-            if (Objects.equals(handle, m.getAccountHandle())) {
+            if (Objects.equals(handle, m.getAccountHandle())
+                    && isVisibleForUser(m)) {
                 return m;
             }
         }
@@ -360,6 +514,9 @@ public final class PhoneAccountRegistrar {
      * @param account The {@code PhoneAccount} to add or replace.
      */
     private void addOrReplacePhoneAccount(PhoneAccount account) {
+        Log.d(this, "addOrReplacePhoneAccount(%s -> %s)",
+                account.getAccountHandle(), account);
+
         mState.accounts.add(account);
         // Search for duplicates and remove any that are found.
         for (int i = 0; i < mState.accounts.size() - 1; i++) {
@@ -377,7 +534,8 @@ public final class PhoneAccountRegistrar {
 
     public void unregisterPhoneAccount(PhoneAccountHandle accountHandle) {
         for (int i = 0; i < mState.accounts.size(); i++) {
-            if (Objects.equals(accountHandle, mState.accounts.get(i).getAccountHandle())) {
+            PhoneAccountHandle handle = mState.accounts.get(i).getAccountHandle();
+            if (Objects.equals(accountHandle, handle)) {
                 mState.accounts.remove(i);
                 break;
             }
@@ -391,15 +549,16 @@ public final class PhoneAccountRegistrar {
      * Un-registers all phone accounts associated with a specified package.
      *
      * @param packageName The package for which phone accounts will be removed.
+     * @param userHandle The {@link UserHandle} the package is running under.
      */
-    public void clearAccounts(String packageName) {
+    public void clearAccounts(String packageName, UserHandle userHandle) {
         boolean accountsRemoved = false;
         Iterator<PhoneAccount> it = mState.accounts.iterator();
         while (it.hasNext()) {
             PhoneAccount phoneAccount = it.next();
-            if (Objects.equals(
-                    packageName,
-                    phoneAccount.getAccountHandle().getComponentName().getPackageName())) {
+            PhoneAccountHandle handle = phoneAccount.getAccountHandle();
+            if (Objects.equals(packageName, handle.getComponentName().getPackageName())
+                    && Objects.equals(userHandle, handle.getUserHandle())) {
                 Log.i(this, "Removing phone account " + phoneAccount.getLabel());
                 it.remove();
                 accountsRemoved = true;
@@ -410,6 +569,11 @@ public final class PhoneAccountRegistrar {
             write();
             fireAccountsChanged();
         }
+    }
+
+    public boolean isVoiceMailNumber(PhoneAccountHandle accountHandle, String number) {
+        int subId = getSubscriptionIdForPhoneAccount(accountHandle);
+        return PhoneNumberUtils.isVoiceMailNumber(subId, number);
     }
 
     public void addListener(Listener l) {
@@ -483,9 +647,23 @@ public final class PhoneAccountRegistrar {
     private List<PhoneAccountHandle> getPhoneAccountHandles(int flags, String uriScheme) {
         List<PhoneAccountHandle> accountHandles = new ArrayList<>();
         for (PhoneAccount m : mState.accounts) {
-            if (m.hasCapabilities(flags) && (uriScheme == null || m.supportsUriScheme(uriScheme))) {
-                accountHandles.add(m.getAccountHandle());
+            if (!m.hasCapabilities(flags)) {
+                // Account doesn't have the right capabilities; skip this one.
+                continue;
             }
+            if (uriScheme != null && !m.supportsUriScheme(uriScheme)) {
+                // Account doesn't support this URI scheme; skip this one.
+                continue;
+            }
+            if (resolveComponent(m.getAccountHandle()).isEmpty()) {
+                // This component cannot be resolved anymore; skip this one.
+                continue;
+            }
+            if (!isVisibleForUser(m)) {
+                // Account is not visible for the current user; skip this one.
+                continue;
+            }
+            accountHandles.add(m.getAccountHandle());
         }
         return accountHandles;
     }
@@ -518,6 +696,27 @@ public final class PhoneAccountRegistrar {
         public int versionNumber;
     }
 
+    /**
+     * Dumps the state of the {@link CallsManager}.
+     *
+     * @param pw The {@code IndentingPrintWriter} to write the state to.
+     */
+    public void dump(IndentingPrintWriter pw) {
+        if (mState != null) {
+            pw.println("xmlVersion: " + mState.versionNumber);
+            pw.println("defaultOutgoing: " + (mState.defaultOutgoing == null ? "none" :
+                    mState.defaultOutgoing));
+            pw.println("simCallManager: " + (mState.simCallManager == null ? "none" :
+                    mState.simCallManager));
+            pw.println("phoneAccounts:");
+            pw.increaseIndent();
+            for (PhoneAccount phoneAccount : mState.accounts) {
+                pw.println(phoneAccount);
+            }
+            pw.decreaseIndent();
+        }
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////
     //
     // State management
@@ -531,7 +730,7 @@ public final class PhoneAccountRegistrar {
             try {
                 XmlSerializer serializer = new FastXmlSerializer();
                 serializer.setOutput(new BufferedOutputStream(os), "utf-8");
-                writeToXml(mState, serializer);
+                writeToXml(mState, serializer, mContext);
                 serializer.flush();
                 success = true;
             } finally {
@@ -575,15 +774,29 @@ public final class PhoneAccountRegistrar {
             }
         }
 
+        // Verify all of the UserHandles.
+        List<PhoneAccount> badAccounts = new ArrayList<>();
+        for (PhoneAccount phoneAccount : mState.accounts) {
+            UserHandle userHandle = phoneAccount.getAccountHandle().getUserHandle();
+            if (userHandle == null) {
+                Log.w(this, "Missing UserHandle for %s", phoneAccount);
+                badAccounts.add(phoneAccount);
+            } else if (mUserManager.getSerialNumberForUser(userHandle) == -1) {
+                Log.w(this, "User does not exist for %s", phoneAccount);
+                badAccounts.add(phoneAccount);
+            }
+        }
+        mState.accounts.removeAll(badAccounts);
+
         // If an upgrade occurred, write out the changed data.
-        if (versionChanged) {
+        if (versionChanged || !badAccounts.isEmpty()) {
             write();
         }
     }
 
-    private static void writeToXml(State state, XmlSerializer serializer)
+    private static void writeToXml(State state, XmlSerializer serializer, Context context)
             throws IOException {
-        sStateXml.writeToXml(state, serializer);
+        sStateXml.writeToXml(state, serializer, context);
     }
 
     private static State readFromXml(XmlPullParser parser, Context context)
@@ -605,7 +818,7 @@ public final class PhoneAccountRegistrar {
         /**
          * Write the supplied object to XML
          */
-        public abstract void writeToXml(T o, XmlSerializer serializer)
+        public abstract void writeToXml(T o, XmlSerializer serializer, Context context)
                 throws IOException;
 
         /**
@@ -618,7 +831,7 @@ public final class PhoneAccountRegistrar {
         public abstract T readFromXml(XmlPullParser parser, int version, Context context)
                 throws IOException, XmlPullParserException;
 
-        protected void writeTextSafely(String tagName, Object value, XmlSerializer serializer)
+        protected void writeTextIfNonNull(String tagName, Object value, XmlSerializer serializer)
                 throws IOException {
             if (value != null) {
                 serializer.startTag(null, tagName);
@@ -653,7 +866,27 @@ public final class PhoneAccountRegistrar {
                 serializer.attribute(null, LENGTH_ATTRIBUTE, "0");
             }
             serializer.endTag(null, tagName);
+        }
 
+        protected void writeBitmapIfNonNull(String tagName, Bitmap value, XmlSerializer serializer)
+                throws IOException {
+            if (value != null && value.getByteCount() > 0) {
+                ByteArrayOutputStream stream = new ByteArrayOutputStream();
+                value.compress(Bitmap.CompressFormat.PNG, 100, stream);
+                byte[] imageByteArray = stream.toByteArray();
+                String text = Base64.encodeToString(imageByteArray, 0, imageByteArray.length, 0);
+
+                serializer.startTag(null, tagName);
+                serializer.text(text);
+                serializer.endTag(null, tagName);
+            }
+        }
+
+        protected void writeLong(String tagName, long value, XmlSerializer serializer)
+                throws IOException {
+            serializer.startTag(null, tagName);
+            serializer.text(Long.valueOf(value).toString());
+            serializer.endTag(null, tagName);
         }
 
         /**
@@ -686,6 +919,12 @@ public final class PhoneAccountRegistrar {
 
             return arrayEntries;
         }
+
+        protected Bitmap readBitmap(XmlPullParser parser)
+                throws IOException, XmlPullParserException {
+            byte[] imageByteArray = Base64.decode(parser.getText(), 0);
+            return BitmapFactory.decodeByteArray(imageByteArray, 0, imageByteArray.length);
+        }
     }
 
     @VisibleForTesting
@@ -698,7 +937,7 @@ public final class PhoneAccountRegistrar {
         private static final String VERSION = "version";
 
         @Override
-        public void writeToXml(State o, XmlSerializer serializer)
+        public void writeToXml(State o, XmlSerializer serializer, Context context)
                 throws IOException {
             if (o != null) {
                 serializer.startTag(null, CLASS_STATE);
@@ -706,19 +945,19 @@ public final class PhoneAccountRegistrar {
 
                 if (o.defaultOutgoing != null) {
                     serializer.startTag(null, DEFAULT_OUTGOING);
-                    sPhoneAccountHandleXml.writeToXml(o.defaultOutgoing, serializer);
+                    sPhoneAccountHandleXml.writeToXml(o.defaultOutgoing, serializer, context);
                     serializer.endTag(null, DEFAULT_OUTGOING);
                 }
 
                 if (o.simCallManager != null) {
                     serializer.startTag(null, SIM_CALL_MANAGER);
-                    sPhoneAccountHandleXml.writeToXml(o.simCallManager, serializer);
+                    sPhoneAccountHandleXml.writeToXml(o.simCallManager, serializer, context);
                     serializer.endTag(null, SIM_CALL_MANAGER);
                 }
 
                 serializer.startTag(null, ACCOUNTS);
                 for (PhoneAccount m : o.accounts) {
-                    sPhoneAccountXml.writeToXml(m, serializer);
+                    sPhoneAccountXml.writeToXml(m, serializer, context);
                 }
                 serializer.endTag(null, ACCOUNTS);
 
@@ -746,6 +985,13 @@ public final class PhoneAccountRegistrar {
                         parser.nextTag();
                         s.simCallManager = sPhoneAccountHandleXml.readFromXml(parser,
                                 s.versionNumber, context);
+                        if (s.simCallManager.getUserHandle() == null) {
+                            // This should never happen, but handle the upgrade case.
+                            s.simCallManager = new PhoneAccountHandle(
+                                    s.simCallManager.getComponentName(),
+                                    s.simCallManager.getId(),
+                                    Process.myUserHandle());
+                        }
                     } else if (parser.getName().equals(ACCOUNTS)) {
                         int accountsDepth = parser.getDepth();
                         while (XmlUtils.nextElementWithin(parser, accountsDepth)) {
@@ -773,30 +1019,37 @@ public final class PhoneAccountRegistrar {
         private static final String SUBSCRIPTION_ADDRESS = "subscription_number";
         private static final String CAPABILITIES = "capabilities";
         private static final String ICON_RES_ID = "icon_res_id";
+        private static final String ICON_PACKAGE_NAME = "icon_package_name";
+        private static final String ICON_BITMAP = "icon_bitmap";
+        private static final String ICON_TINT = "icon_tint";
+        private static final String HIGHLIGHT_COLOR = "highlight_color";
         private static final String LABEL = "label";
         private static final String SHORT_DESCRIPTION = "short_description";
         private static final String SUPPORTED_URI_SCHEMES = "supported_uri_schemes";
-        private static final String TRUE = "true";
-        private static final String FALSE = "false";
 
         @Override
-        public void writeToXml(PhoneAccount o, XmlSerializer serializer)
+        public void writeToXml(PhoneAccount o, XmlSerializer serializer, Context context)
                 throws IOException {
             if (o != null) {
                 serializer.startTag(null, CLASS_PHONE_ACCOUNT);
 
                 if (o.getAccountHandle() != null) {
                     serializer.startTag(null, ACCOUNT_HANDLE);
-                    sPhoneAccountHandleXml.writeToXml(o.getAccountHandle(), serializer);
+                    sPhoneAccountHandleXml.writeToXml(o.getAccountHandle(), serializer, context);
                     serializer.endTag(null, ACCOUNT_HANDLE);
                 }
 
-                writeTextSafely(ADDRESS, o.getAddress(), serializer);
-                writeTextSafely(SUBSCRIPTION_ADDRESS, o.getSubscriptionAddress(), serializer);
-                writeTextSafely(CAPABILITIES, Integer.toString(o.getCapabilities()), serializer);
-                writeTextSafely(ICON_RES_ID, Integer.toString(o.getIconResId()), serializer);
-                writeTextSafely(LABEL, o.getLabel(), serializer);
-                writeTextSafely(SHORT_DESCRIPTION, o.getShortDescription(), serializer);
+                writeTextIfNonNull(ADDRESS, o.getAddress(), serializer);
+                writeTextIfNonNull(SUBSCRIPTION_ADDRESS, o.getSubscriptionAddress(), serializer);
+                writeTextIfNonNull(CAPABILITIES, Integer.toString(o.getCapabilities()), serializer);
+                writeTextIfNonNull(ICON_RES_ID, Integer.toString(o.getIconResId()), serializer);
+                writeTextIfNonNull(ICON_PACKAGE_NAME, o.getIconPackageName(), serializer);
+                writeBitmapIfNonNull(ICON_BITMAP, o.getIconBitmap(), serializer);
+                writeTextIfNonNull(ICON_TINT, Integer.toString(o.getIconTint()), serializer);
+                writeTextIfNonNull(HIGHLIGHT_COLOR,
+                        Integer.toString(o.getHighlightColor()), serializer);
+                writeTextIfNonNull(LABEL, o.getLabel(), serializer);
+                writeTextIfNonNull(SHORT_DESCRIPTION, o.getShortDescription(), serializer);
                 writeStringList(SUPPORTED_URI_SCHEMES, o.getSupportedUriSchemes(), serializer);
 
                 serializer.endTag(null, CLASS_PHONE_ACCOUNT);
@@ -811,7 +1064,11 @@ public final class PhoneAccountRegistrar {
                 Uri address = null;
                 Uri subscriptionAddress = null;
                 int capabilities = 0;
-                int iconResId = 0;
+                int iconResId = PhoneAccount.NO_RESOURCE_ID;
+                String iconPackageName = null;
+                Bitmap iconBitmap = null;
+                int iconTint = PhoneAccount.NO_ICON_TINT;
+                int highlightColor = PhoneAccount.NO_HIGHLIGHT_COLOR;
                 String label = null;
                 String shortDescription = null;
                 List<String> supportedUriSchemes = null;
@@ -834,6 +1091,18 @@ public final class PhoneAccountRegistrar {
                     } else if (parser.getName().equals(ICON_RES_ID)) {
                         parser.next();
                         iconResId = Integer.parseInt(parser.getText());
+                    } else if (parser.getName().equals(ICON_PACKAGE_NAME)) {
+                        parser.next();
+                        iconPackageName = parser.getText();
+                    } else if (parser.getName().equals(ICON_BITMAP)) {
+                        parser.next();
+                        iconBitmap = readBitmap(parser);
+                    } else if (parser.getName().equals(ICON_TINT)) {
+                        parser.next();
+                        iconTint = Integer.parseInt(parser.getText());
+                    } else if (parser.getName().equals(HIGHLIGHT_COLOR)) {
+                        parser.next();
+                        highlightColor = Integer.parseInt(parser.getText());
                     } else if (parser.getName().equals(LABEL)) {
                         parser.next();
                         label = parser.getText();
@@ -866,14 +1135,28 @@ public final class PhoneAccountRegistrar {
                     }
                 }
 
-                return PhoneAccount.builder(accountHandle, label)
+                // Upgrade older phone accounts with explicit package name
+                if (version < 5) {
+                    if (iconBitmap == null) {
+                        iconPackageName = accountHandle.getComponentName().getPackageName();
+                    }
+                }
+
+                PhoneAccount.Builder builder = PhoneAccount.builder(accountHandle, label)
                         .setAddress(address)
                         .setSubscriptionAddress(subscriptionAddress)
                         .setCapabilities(capabilities)
-                        .setIconResId(iconResId)
                         .setShortDescription(shortDescription)
                         .setSupportedUriSchemes(supportedUriSchemes)
-                        .build();
+                        .setHighlightColor(highlightColor);
+
+                if (iconBitmap == null) {
+                    builder.setIcon(iconPackageName, iconResId, iconTint);
+                } else {
+                    builder.setIcon(iconBitmap);
+                }
+
+                return builder.build();
             }
             return null;
         }
@@ -898,19 +1181,26 @@ public final class PhoneAccountRegistrar {
         private static final String CLASS_PHONE_ACCOUNT_HANDLE = "phone_account_handle";
         private static final String COMPONENT_NAME = "component_name";
         private static final String ID = "id";
+        private static final String USER_SERIAL_NUMBER = "user_serial_number";
 
         @Override
-        public void writeToXml(PhoneAccountHandle o, XmlSerializer serializer)
+        public void writeToXml(PhoneAccountHandle o, XmlSerializer serializer, Context context)
                 throws IOException {
             if (o != null) {
                 serializer.startTag(null, CLASS_PHONE_ACCOUNT_HANDLE);
 
                 if (o.getComponentName() != null) {
-                    writeTextSafely(
+                    writeTextIfNonNull(
                             COMPONENT_NAME, o.getComponentName().flattenToString(), serializer);
                 }
 
-                writeTextSafely(ID, o.getId(), serializer);
+                writeTextIfNonNull(ID, o.getId(), serializer);
+
+                if (o.getUserHandle() != null && context != null) {
+                    UserManager userManager = UserManager.get(context);
+                    writeLong(USER_SERIAL_NUMBER,
+                            userManager.getSerialNumberForUser(o.getUserHandle()), serializer);
+                }
 
                 serializer.endTag(null, CLASS_PHONE_ACCOUNT_HANDLE);
             }
@@ -922,7 +1212,11 @@ public final class PhoneAccountRegistrar {
             if (parser.getName().equals(CLASS_PHONE_ACCOUNT_HANDLE)) {
                 String componentNameString = null;
                 String idString = null;
+                String userSerialNumberString = null;
                 int outerDepth = parser.getDepth();
+
+                UserManager userManager = UserManager.get(context);
+
                 while (XmlUtils.nextElementWithin(parser, outerDepth)) {
                     if (parser.getName().equals(COMPONENT_NAME)) {
                         parser.next();
@@ -930,12 +1224,25 @@ public final class PhoneAccountRegistrar {
                     } else if (parser.getName().equals(ID)) {
                         parser.next();
                         idString = parser.getText();
+                    } else if (parser.getName().equals(USER_SERIAL_NUMBER)) {
+                        parser.next();
+                        userSerialNumberString = parser.getText();
                     }
                 }
                 if (componentNameString != null) {
+                    UserHandle userHandle = null;
+                    if (userSerialNumberString != null) {
+                        try {
+                            long serialNumber = Long.parseLong(userSerialNumberString);
+                            userHandle = userManager.getUserForSerialNumber(serialNumber);
+                        } catch (NumberFormatException e) {
+                            Log.e(this, e, "Could not parse UserHandle " + userSerialNumberString);
+                        }
+                    }
                     return new PhoneAccountHandle(
                             ComponentName.unflattenFromString(componentNameString),
-                            idString);
+                            idString,
+                            userHandle);
                 }
             }
             return null;

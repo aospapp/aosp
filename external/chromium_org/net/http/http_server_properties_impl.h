@@ -42,6 +42,8 @@ class NET_EXPORT HttpServerPropertiesImpl
 
   void InitializeSpdySettingsServers(SpdySettingsMap* spdy_settings_map);
 
+  void InitializeSupportsQuic(SupportsQuicMap* supports_quic_map);
+
   // Get the list of servers (host/port) that support SPDY. The max_size is the
   // number of MRU servers that support SPDY that are to be returned.
   void GetSpdyServerList(base::ListValue* spdy_server_list,
@@ -55,7 +57,7 @@ class NET_EXPORT HttpServerPropertiesImpl
   // Debugging to simulate presence of an AlternateProtocol.
   // If we don't have an alternate protocol in the map for any given host/port
   // pair, force this ProtocolPortPair.
-  static void ForceAlternateProtocol(const PortAlternateProtocolPair& pair);
+  static void ForceAlternateProtocol(const AlternateProtocolInfo& pair);
   static void DisableForcedAlternateProtocol();
 
   // Returns the canonical host suffix for |server|, or std::string() if none
@@ -84,14 +86,15 @@ class NET_EXPORT HttpServerPropertiesImpl
 
   // Returns the Alternate-Protocol and port for |server|.
   // HasAlternateProtocol(server) must be true.
-  virtual PortAlternateProtocolPair GetAlternateProtocol(
+  virtual AlternateProtocolInfo GetAlternateProtocol(
       const HostPortPair& server) OVERRIDE;
 
   // Sets the Alternate-Protocol for |server|.
   virtual void SetAlternateProtocol(
       const HostPortPair& server,
       uint16 alternate_port,
-      AlternateProtocol alternate_protocol) OVERRIDE;
+      AlternateProtocol alternate_protocol,
+      double probability) OVERRIDE;
 
   // Sets the Alternate-Protocol for |server| to be BROKEN.
   virtual void SetBrokenAlternateProtocol(const HostPortPair& server) OVERRIDE;
@@ -111,6 +114,9 @@ class NET_EXPORT HttpServerPropertiesImpl
 
   virtual void SetAlternateProtocolExperiment(
       AlternateProtocolExperiment experiment) OVERRIDE;
+
+  virtual void SetAlternateProtocolProbabilityThreshold(
+      double threshold) OVERRIDE;
 
   virtual AlternateProtocolExperiment GetAlternateProtocolExperiment()
       const OVERRIDE;
@@ -136,6 +142,17 @@ class NET_EXPORT HttpServerPropertiesImpl
   // Returns all persistent SPDY settings.
   virtual const SpdySettingsMap& spdy_settings_map() const OVERRIDE;
 
+  // Methods for SupportsQuic.
+  virtual SupportsQuic GetSupportsQuic(
+      const HostPortPair& host_port_pair) const OVERRIDE;
+
+  virtual void SetSupportsQuic(const HostPortPair& host_port_pair,
+                               bool used_quic,
+                               const std::string& address) OVERRIDE;
+
+  virtual const SupportsQuicMap& supports_quic_map() const OVERRIDE;
+
+  // Methods for NetworkStats.
   virtual void SetServerNetworkStats(const HostPortPair& host_port_pair,
                                      NetworkStats stats) OVERRIDE;
 
@@ -163,6 +180,7 @@ class NET_EXPORT HttpServerPropertiesImpl
   // Return the canonical host for |server|, or end if none exists.
   CanonicalHostMap::const_iterator GetCanonicalHost(HostPortPair server) const;
 
+  void RemoveCanonicalHost(const HostPortPair& server);
   void ExpireBrokenAlternateProtocolMappings();
   void ScheduleBrokenAlternateProtocolMappingsExpiration();
 
@@ -174,6 +192,7 @@ class NET_EXPORT HttpServerPropertiesImpl
   AlternateProtocolExperiment alternate_protocol_experiment_;
 
   SpdySettingsMap spdy_settings_map_;
+  SupportsQuicMap supports_quic_map_;
   ServerNetworkStatsMap server_network_stats_map_;
   // Contains a map of servers which could share the same alternate protocol.
   // Map from a Canonical host/port (host is some postfix of host names) to an
@@ -182,6 +201,8 @@ class NET_EXPORT HttpServerPropertiesImpl
   // Contains list of suffixes (for exmaple ".c.youtube.com",
   // ".googlevideo.com", ".googleusercontent.com") of canoncial hostnames.
   CanonicalSufficList canoncial_suffixes_;
+
+  double alternate_protocol_probability_threshold_;
 
   base::WeakPtrFactory<HttpServerPropertiesImpl> weak_ptr_factory_;
 

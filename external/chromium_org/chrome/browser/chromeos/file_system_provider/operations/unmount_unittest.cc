@@ -2,14 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/chromeos/file_system_provider/operations/unmount.h"
+
 #include <string>
 #include <vector>
 
 #include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/memory/scoped_vector.h"
-#include "chrome/browser/chromeos/file_system_provider/operations/unmount.h"
+#include "chrome/browser/chromeos/file_system_provider/operations/test_util.h"
 #include "chrome/browser/chromeos/file_system_provider/provided_file_system_interface.h"
 #include "chrome/common/extensions/api/file_system_provider.h"
 #include "chrome/common/extensions/api/file_system_provider_internal.h"
@@ -25,50 +26,6 @@ const char kExtensionId[] = "mbflcebpggnecokmikipoihdbecnjfoj";
 const char kFileSystemId[] = "testing-file-system";
 const int kRequestId = 2;
 
-// Fake event dispatcher implementation with extra logging capability. Acts as
-// a providing extension end-point.
-class LoggingDispatchEventImpl {
- public:
-  explicit LoggingDispatchEventImpl(bool dispatch_reply)
-      : dispatch_reply_(dispatch_reply) {}
-  virtual ~LoggingDispatchEventImpl() {}
-
-  bool OnDispatchEventImpl(scoped_ptr<extensions::Event> event) {
-    events_.push_back(event->DeepCopy());
-    return dispatch_reply_;
-  }
-
-  ScopedVector<extensions::Event>& events() { return events_; }
-
- private:
-  ScopedVector<extensions::Event> events_;
-  bool dispatch_reply_;
-
-  DISALLOW_COPY_AND_ASSIGN(LoggingDispatchEventImpl);
-};
-
-// Callback invocation logger. Acts as a fileapi end-point.
-class CallbackLogger {
- public:
-  CallbackLogger() : weak_ptr_factory_(this) {}
-  virtual ~CallbackLogger() {}
-
-  void OnUnmount(base::File::Error result) { events_.push_back(result); }
-
-  std::vector<base::File::Error>& events() { return events_; }
-
-  base::WeakPtr<CallbackLogger> GetWeakPtr() {
-    return weak_ptr_factory_.GetWeakPtr();
-  }
-
- private:
-  std::vector<base::File::Error> events_;
-  bool dispatch_reply_;
-  base::WeakPtrFactory<CallbackLogger> weak_ptr_factory_;
-
-  DISALLOW_COPY_AND_ASSIGN(CallbackLogger);
-};
-
 }  // namespace
 
 class FileSystemProviderOperationsUnmountTest : public testing::Test {
@@ -80,7 +37,8 @@ class FileSystemProviderOperationsUnmountTest : public testing::Test {
     file_system_info_ =
         ProvidedFileSystemInfo(kExtensionId,
                                kFileSystemId,
-                               "" /* file_system_name */,
+                               "" /* display_name */,
+                               false /* writable */,
                                base::FilePath() /* mount_path */);
   }
 
@@ -88,15 +46,16 @@ class FileSystemProviderOperationsUnmountTest : public testing::Test {
 };
 
 TEST_F(FileSystemProviderOperationsUnmountTest, Execute) {
-  LoggingDispatchEventImpl dispatcher(true /* dispatch_reply */);
-  CallbackLogger callback_logger;
+  using extensions::api::file_system_provider::UnmountRequestedOptions;
 
-  Unmount unmount(
-      NULL,
-      file_system_info_,
-      base::Bind(&CallbackLogger::OnUnmount, callback_logger.GetWeakPtr()));
+  util::LoggingDispatchEventImpl dispatcher(true /* dispatch_reply */);
+  util::StatusCallbackLog callback_log;
+
+  Unmount unmount(NULL,
+                  file_system_info_,
+                  base::Bind(&util::LogStatusCallback, &callback_log));
   unmount.SetDispatchEventImplForTesting(
-      base::Bind(&LoggingDispatchEventImpl::OnDispatchEventImpl,
+      base::Bind(&util::LoggingDispatchEventImpl::OnDispatchEventImpl,
                  base::Unretained(&dispatcher)));
 
   EXPECT_TRUE(unmount.Execute(kRequestId));
@@ -109,28 +68,24 @@ TEST_F(FileSystemProviderOperationsUnmountTest, Execute) {
   base::ListValue* event_args = event->event_args.get();
   ASSERT_EQ(1u, event_args->GetSize());
 
-  base::DictionaryValue* options = NULL;
-  ASSERT_TRUE(event_args->GetDictionary(0, &options));
+  const base::DictionaryValue* options_as_value = NULL;
+  ASSERT_TRUE(event_args->GetDictionary(0, &options_as_value));
 
-  std::string event_file_system_id;
-  EXPECT_TRUE(options->GetString("fileSystemId", &event_file_system_id));
-  EXPECT_EQ(kFileSystemId, event_file_system_id);
-
-  int event_request_id = -1;
-  EXPECT_TRUE(options->GetInteger("requestId", &event_request_id));
-  EXPECT_EQ(kRequestId, event_request_id);
+  UnmountRequestedOptions options;
+  ASSERT_TRUE(UnmountRequestedOptions::Populate(*options_as_value, &options));
+  EXPECT_EQ(kFileSystemId, options.file_system_id);
+  EXPECT_EQ(kRequestId, options.request_id);
 }
 
 TEST_F(FileSystemProviderOperationsUnmountTest, Execute_NoListener) {
-  LoggingDispatchEventImpl dispatcher(false /* dispatch_reply */);
-  CallbackLogger callback_logger;
+  util::LoggingDispatchEventImpl dispatcher(false /* dispatch_reply */);
+  util::StatusCallbackLog callback_log;
 
-  Unmount unmount(
-      NULL,
-      file_system_info_,
-      base::Bind(&CallbackLogger::OnUnmount, callback_logger.GetWeakPtr()));
+  Unmount unmount(NULL,
+                  file_system_info_,
+                  base::Bind(&util::LogStatusCallback, &callback_log));
   unmount.SetDispatchEventImplForTesting(
-      base::Bind(&LoggingDispatchEventImpl::OnDispatchEventImpl,
+      base::Bind(&util::LoggingDispatchEventImpl::OnDispatchEventImpl,
                  base::Unretained(&dispatcher)));
 
   EXPECT_FALSE(unmount.Execute(kRequestId));
@@ -140,15 +95,14 @@ TEST_F(FileSystemProviderOperationsUnmountTest, OnSuccess) {
   using extensions::api::file_system_provider_internal::
       UnmountRequestedSuccess::Params;
 
-  LoggingDispatchEventImpl dispatcher(true /* dispatch_reply */);
-  CallbackLogger callback_logger;
+  util::LoggingDispatchEventImpl dispatcher(true /* dispatch_reply */);
+  util::StatusCallbackLog callback_log;
 
-  Unmount unmount(
-      NULL,
-      file_system_info_,
-      base::Bind(&CallbackLogger::OnUnmount, callback_logger.GetWeakPtr()));
+  Unmount unmount(NULL,
+                  file_system_info_,
+                  base::Bind(&util::LogStatusCallback, &callback_log));
   unmount.SetDispatchEventImplForTesting(
-      base::Bind(&LoggingDispatchEventImpl::OnDispatchEventImpl,
+      base::Bind(&util::LoggingDispatchEventImpl::OnDispatchEventImpl,
                  base::Unretained(&dispatcher)));
 
   EXPECT_TRUE(unmount.Execute(kRequestId));
@@ -156,31 +110,29 @@ TEST_F(FileSystemProviderOperationsUnmountTest, OnSuccess) {
   unmount.OnSuccess(kRequestId,
                     scoped_ptr<RequestValue>(new RequestValue()),
                     false /* has_more */);
-  ASSERT_EQ(1u, callback_logger.events().size());
-  base::File::Error event_result = callback_logger.events()[0];
+  ASSERT_EQ(1u, callback_log.size());
+  base::File::Error event_result = callback_log[0];
   EXPECT_EQ(base::File::FILE_OK, event_result);
 }
 
 TEST_F(FileSystemProviderOperationsUnmountTest, OnError) {
-  using extensions::api::file_system_provider_internal::UnmountRequestedError::
-      Params;
+  util::LoggingDispatchEventImpl dispatcher(true /* dispatch_reply */);
+  util::StatusCallbackLog callback_log;
 
-  LoggingDispatchEventImpl dispatcher(true /* dispatch_reply */);
-  CallbackLogger callback_logger;
-
-  Unmount unmount(
-      NULL,
-      file_system_info_,
-      base::Bind(&CallbackLogger::OnUnmount, callback_logger.GetWeakPtr()));
+  Unmount unmount(NULL,
+                  file_system_info_,
+                  base::Bind(&util::LogStatusCallback, &callback_log));
   unmount.SetDispatchEventImplForTesting(
-      base::Bind(&LoggingDispatchEventImpl::OnDispatchEventImpl,
+      base::Bind(&util::LoggingDispatchEventImpl::OnDispatchEventImpl,
                  base::Unretained(&dispatcher)));
 
   EXPECT_TRUE(unmount.Execute(kRequestId));
 
-  unmount.OnError(kRequestId, base::File::FILE_ERROR_NOT_FOUND);
-  ASSERT_EQ(1u, callback_logger.events().size());
-  base::File::Error event_result = callback_logger.events()[0];
+  unmount.OnError(kRequestId,
+                  scoped_ptr<RequestValue>(new RequestValue()),
+                  base::File::FILE_ERROR_NOT_FOUND);
+  ASSERT_EQ(1u, callback_log.size());
+  base::File::Error event_result = callback_log[0];
   EXPECT_EQ(base::File::FILE_ERROR_NOT_FOUND, event_result);
 }
 

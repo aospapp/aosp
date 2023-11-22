@@ -8,15 +8,17 @@
 #include "base/logging.h"
 #include "base/metrics/histogram.h"
 #include "base/values.h"
-#include "chrome/browser/chromeos/login/auth/key.h"
-#include "chrome/browser/chromeos/login/auth/user_context.h"
-#include "chrome/browser/chromeos/login/managed/locally_managed_user_constants.h"
-#include "chrome/browser/chromeos/login/managed/supervised_user_authentication.h"
+#include "chrome/browser/chromeos/login/supervised/supervised_user_authentication.h"
+#include "chrome/browser/chromeos/login/supervised/supervised_user_constants.h"
+#include "chrome/browser/chromeos/login/users/chrome_user_manager.h"
 #include "chrome/browser/chromeos/login/users/supervised_user_manager.h"
-#include "chrome/browser/chromeos/login/users/user.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/supervised_user/supervised_user_constants.h"
 #include "chrome/browser/supervised_user/supervised_user_sync_service.h"
+#include "chromeos/login/auth/key.h"
+#include "chromeos/login/auth/user_context.h"
+#include "components/user_manager/user.h"
+#include "components/user_manager/user_manager.h"
+#include "components/user_manager/user_type.h"
 
 namespace chromeos {
 
@@ -35,17 +37,18 @@ void ManagerPasswordService::Init(
       base::Bind(&ManagerPasswordService::OnSharedSettingsChange,
                  weak_ptr_factory_.GetWeakPtr()));
 
-  authenticator_ = new ExtendedAuthenticator(this);
-
-  UserManager* user_manager = UserManager::Get();
+  authenticator_ = ExtendedAuthenticator::Create(this);
 
   SupervisedUserManager* supervised_user_manager =
-      user_manager->GetSupervisedUserManager();
+      ChromeUserManager::Get()->GetSupervisedUserManager();
 
-  const UserList& users = user_manager->GetUsers();
+  const user_manager::UserList& users =
+      user_manager::UserManager::Get()->GetUsers();
 
-  for (UserList::const_iterator it = users.begin(); it != users.end(); ++it) {
-    if ((*it)->GetType() != User::USER_TYPE_LOCALLY_MANAGED)
+  for (user_manager::UserList::const_iterator it = users.begin();
+       it != users.end();
+       ++it) {
+    if ((*it)->GetType() != user_manager::USER_TYPE_SUPERVISED)
       continue;
     if (user_id != supervised_user_manager->GetManagerUserId((*it)->email()))
       continue;
@@ -62,8 +65,8 @@ void ManagerPasswordService::OnSharedSettingsChange(
     return;
 
   SupervisedUserManager* supervised_user_manager =
-      UserManager::Get()->GetSupervisedUserManager();
-  const User* user = supervised_user_manager->FindBySyncId(su_id);
+      ChromeUserManager::Get()->GetSupervisedUserManager();
+  const user_manager::User* user = supervised_user_manager->FindBySyncId(su_id);
   // No user on device.
   if (user == NULL)
     return;
@@ -161,9 +164,14 @@ void ManagerPasswordService::GetSupervisedUsersCallback(
       kCryptohomeSupervisedUserKeyLabel,
       cryptohome::PRIV_AUTHORIZED_UPDATE || cryptohome::PRIV_MOUNT);
   new_key_definition.revision = revision;
-
-  new_key_definition.encryption_key = encryption_key;
-  new_key_definition.signature_key = signature_key;
+  new_key_definition.authorization_data.push_back(
+      cryptohome::KeyDefinition::AuthorizationData(true /* encrypt */,
+                                                   false /* sign */,
+                                                   encryption_key));
+  new_key_definition.authorization_data.push_back(
+      cryptohome::KeyDefinition::AuthorizationData(false /* encrypt */,
+                                                   true /* sign */,
+                                                   signature_key));
 
   authenticator_->AddKey(manager_key,
                          new_key_definition,
@@ -195,7 +203,7 @@ void ManagerPasswordService::OnAddKeySuccess(
       SupervisedUserAuthentication::PASSWORD_CHANGE_RESULT_MAX_VALUE);
 
   SupervisedUserAuthentication* auth =
-      UserManager::Get()->GetSupervisedUserManager()->GetAuthentication();
+      ChromeUserManager::Get()->GetSupervisedUserManager()->GetAuthentication();
   int old_schema = auth->GetPasswordSchema(user_id);
   auth->StorePasswordData(user_id, *password_data.get());
 

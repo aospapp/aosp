@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Әкімші қолданбасын пайдалану мүмкін емес. Оның құрамдастары жетіспейді немесе ол бүлінген. АТ бөліміне хабарласыңыз."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Әкімші қолданбасын орнату мүмкін болмады"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Құрылғыңызда әкімші қолданбасы орнатылмаған"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Реттеуді тоқтату керек пе?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Реттеуді тоқтату керек пе?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Жоқ"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Иә"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Бас тартылуда…"</string>
 </resources>

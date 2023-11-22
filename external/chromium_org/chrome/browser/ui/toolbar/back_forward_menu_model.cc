@@ -17,19 +17,18 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/favicon_base/favicon_types.h"
 #include "content/public/browser/favicon_status.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
-#include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/window_open_disposition.h"
-#include "ui/gfx/favicon_size.h"
 #include "ui/gfx/text_elider.h"
 
 using base::UserMetricsAction;
@@ -255,8 +254,7 @@ void BackForwardMenuModel::FetchFavicon(NavigationEntry* entry) {
     return;
 
   favicon_service->GetFaviconImageForPageURL(
-      FaviconService::FaviconForPageURLParams(
-          entry->GetURL(), favicon_base::FAVICON, gfx::kFaviconSize),
+      entry->GetURL(),
       base::Bind(&BackForwardMenuModel::OnFavIconDataAvailable,
                  base::Unretained(this),
                  entry->GetUniqueID()),

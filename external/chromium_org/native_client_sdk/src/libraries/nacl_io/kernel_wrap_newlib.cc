@@ -46,6 +46,7 @@ EXTERN_C_BEGIN
   __libnacl_irt_##group.name = (typeof(REAL(name)))WRAP(name);
 
 extern void __libnacl_irt_dev_filename_init(void);
+extern void __libnacl_irt_dev_fdio_init(void);
 
 extern struct nacl_irt_basic __libnacl_irt_basic;
 extern struct nacl_irt_fdio __libnacl_irt_fdio;
@@ -184,8 +185,8 @@ int WRAP(munmap)(void* addr, size_t length) {
   return REAL(munmap)(addr, length);
 }
 
-int WRAP(open)(const char* pathname, int oflag, mode_t cmode, int* newfd) {
-  *newfd = ki_open(pathname, oflag);
+int WRAP(open)(const char* pathname, int oflag, mode_t mode, int* newfd) {
+  *newfd = ki_open(pathname, oflag, mode);
   ERRNO_RTN(*newfd);
 }
 
@@ -261,14 +262,18 @@ static void assign_real_pointers() {
   static bool assigned = false;
   if (!assigned) {
     __libnacl_irt_dev_filename_init();
+    __libnacl_irt_dev_fdio_init();
     EXPAND_SYMBOL_LIST_OPERATION(ASSIGN_REAL_PTR)
     assigned = true;
   }
 }
 
-#define CHECK_REAL(func) \
-  if (!REAL(func))       \
-    assign_real_pointers();
+#define CHECK_REAL(func)    \
+  if (!REAL(func)) {        \
+    assign_real_pointers(); \
+    if (!REAL(func))        \
+      return ENOSYS;        \
+  }
 
 // "real" functions, i.e. the unwrapped original functions.
 
@@ -278,7 +283,8 @@ int _real_close(int fd) {
 }
 
 void _real_exit(int status) {
-  CHECK_REAL(exit);
+  if (!REAL(exit))
+    assign_real_pointers();
   REAL(exit)(status);
 }
 
@@ -289,6 +295,12 @@ int _real_fstat(int fd, struct stat* buf) {
 
 int _real_isatty(int fd, int* result) {
   CHECK_REAL(isatty);
+  // The real isatty function can be NULL (for example if we are running
+  // withing chrome).
+  if (REAL(isatty) == NULL) {
+    *result = 0;
+    return ENOTTY;
+  }
   return REAL(isatty)(fd, result);
 }
 
@@ -303,7 +315,8 @@ int _real_lseek(int fd, off_t offset, int whence, off_t* new_offset) {
 }
 
 int _real_mkdir(const char* pathname, mode_t mode) {
-  return ENOSYS;
+  CHECK_REAL(mkdir);
+  return REAL(mkdir)(pathname, mode);
 }
 
 int _real_mmap(void** addr,
@@ -321,9 +334,9 @@ int _real_munmap(void* addr, size_t length) {
   return REAL(munmap)(addr, length);
 }
 
-int _real_open(const char* pathname, int oflag, mode_t cmode, int* newfd) {
+int _real_open(const char* pathname, int oflag, mode_t mode, int* newfd) {
   CHECK_REAL(open);
-  return REAL(open)(pathname, oflag, cmode, newfd);
+  return REAL(open)(pathname, oflag, mode, newfd);
 }
 
 int _real_open_resource(const char* file, int* fd) {
@@ -336,12 +349,18 @@ int _real_read(int fd, void* buf, size_t count, size_t* nread) {
 }
 
 int _real_rmdir(const char* pathname) {
-  return ENOSYS;
+  CHECK_REAL(rmdir);
+  return REAL(rmdir)(pathname);
 }
 
 int _real_write(int fd, const void* buf, size_t count, size_t* nwrote) {
   CHECK_REAL(write);
   return REAL(write)(fd, buf, count, nwrote);
+}
+
+int _real_getcwd(char* pathname, size_t len) {
+  CHECK_REAL(getcwd);
+  return REAL(getcwd)(pathname, len);
 }
 
 static bool s_wrapped = false;

@@ -16,7 +16,7 @@
 #include "google_apis/google_api_keys.h"
 #include "jni/JniInterface_jni.h"
 #include "media/base/yuv_convert.h"
-#include "remoting/base/url_request_context.h"
+#include "remoting/base/url_request_context_getter.h"
 #include "third_party/webrtc/modules/desktop_capture/desktop_frame.h"
 
 using base::android::ConvertJavaStringToUTF8;
@@ -77,7 +77,8 @@ static void Connect(JNIEnv* env,
                     jstring hostId,
                     jstring hostPubkey,
                     jstring pairId,
-                    jstring pairSecret) {
+                    jstring pairSecret,
+                    jstring capabilities) {
   remoting::ChromotingJniRuntime::GetInstance()->ConnectToHost(
       ConvertJavaStringToUTF8(env, username).c_str(),
       ConvertJavaStringToUTF8(env, authToken).c_str(),
@@ -85,7 +86,8 @@ static void Connect(JNIEnv* env,
       ConvertJavaStringToUTF8(env, hostId).c_str(),
       ConvertJavaStringToUTF8(env, hostPubkey).c_str(),
       ConvertJavaStringToUTF8(env, pairId).c_str(),
-      ConvertJavaStringToUTF8(env, pairSecret).c_str());
+      ConvertJavaStringToUTF8(env, pairSecret).c_str(),
+      ConvertJavaStringToUTF8(env, capabilities).c_str());
 }
 
 static void Disconnect(JNIEnv* env, jclass clazz) {
@@ -156,6 +158,15 @@ static void OnThirdPartyTokenFetched(JNIEnv* env,
       ConvertJavaStringToUTF8(env, shared_secret)));
 }
 
+static void SendExtensionMessage(JNIEnv* env,
+                                 jclass clazz,
+                                 jstring type,
+                                 jstring data) {
+  remoting::ChromotingJniRuntime::GetInstance()->session()->SendClientMessage(
+      ConvertJavaStringToUTF8(env, type),
+      ConvertJavaStringToUTF8(env, data));
+}
+
 // ChromotingJniRuntime implementation.
 
 // static
@@ -180,7 +191,8 @@ ChromotingJniRuntime::ChromotingJniRuntime() {
   display_task_runner_ = AutoThread::Create("native_disp",
                                             ui_task_runner_);
 
-  url_requester_ = new URLRequestContextGetter(network_task_runner_);
+  url_requester_ =
+      new URLRequestContextGetter(network_task_runner_, network_task_runner_);
 
   // Allows later decoding of video frames.
   media::InitializeCPUSpecificYUVConversions();
@@ -214,7 +226,8 @@ void ChromotingJniRuntime::ConnectToHost(const char* username,
                                   const char* host_id,
                                   const char* host_pubkey,
                                   const char* pairing_id,
-                                  const char* pairing_secret) {
+                                  const char* pairing_secret,
+                                  const char* capabilities) {
   DCHECK(ui_task_runner_->BelongsToCurrentThread());
   DCHECK(!session_);
   session_ = new ChromotingJniInstance(this,
@@ -224,24 +237,25 @@ void ChromotingJniRuntime::ConnectToHost(const char* username,
                                        host_id,
                                        host_pubkey,
                                        pairing_id,
-                                       pairing_secret);
+                                       pairing_secret,
+                                       capabilities);
 }
 
 void ChromotingJniRuntime::DisconnectFromHost() {
   DCHECK(ui_task_runner_->BelongsToCurrentThread());
   if (session_) {
-    session_->Cleanup();
+    session_->Disconnect();
     session_ = NULL;
   }
 }
 
-void ChromotingJniRuntime::ReportConnectionStatus(
+void ChromotingJniRuntime::OnConnectionState(
     protocol::ConnectionToHost::State state,
     protocol::ErrorCode error) {
   DCHECK(ui_task_runner_->BelongsToCurrentThread());
 
   JNIEnv* env = base::android::AttachCurrentThread();
-  Java_JniInterface_reportConnectionStatus(env, state, error);
+  Java_JniInterface_onConnectionState(env, state, error);
 }
 
 void ChromotingJniRuntime::DisplayAuthenticationPrompt(bool pairing_supported) {
@@ -258,10 +272,8 @@ void ChromotingJniRuntime::CommitPairingCredentials(const std::string& host,
 
   JNIEnv* env = base::android::AttachCurrentThread();
   ScopedJavaLocalRef<jstring> j_host = ConvertUTF8ToJavaString(env, host);
-  ScopedJavaLocalRef<jbyteArray> j_id = ToJavaByteArray(
-      env, reinterpret_cast<const uint8*>(id.data()), id.size());
-  ScopedJavaLocalRef<jbyteArray> j_secret = ToJavaByteArray(
-      env, reinterpret_cast<const uint8*>(secret.data()), secret.size());
+  ScopedJavaLocalRef<jstring> j_id = ConvertUTF8ToJavaString(env, id);
+  ScopedJavaLocalRef<jstring> j_secret = ConvertUTF8ToJavaString(env,secret);
 
   Java_JniInterface_commitPairingCredentials(
       env, j_host.obj(), j_id.obj(), j_secret.obj());
@@ -281,6 +293,27 @@ void ChromotingJniRuntime::FetchThirdPartyToken(const GURL& token_url,
 
   Java_JniInterface_fetchThirdPartyToken(
       env, j_url.obj(), j_client_id.obj(), j_scope.obj());
+}
+
+void ChromotingJniRuntime::SetCapabilities(const std::string& capabilities) {
+  DCHECK(ui_task_runner_->BelongsToCurrentThread());
+  JNIEnv* env = base::android::AttachCurrentThread();
+
+  ScopedJavaLocalRef<jstring> j_cap =
+      ConvertUTF8ToJavaString(env, capabilities);
+
+  Java_JniInterface_setCapabilities(env, j_cap.obj());
+}
+
+void ChromotingJniRuntime::HandleExtensionMessage(const std::string& type,
+                                                  const std::string& message) {
+  DCHECK(ui_task_runner_->BelongsToCurrentThread());
+  JNIEnv* env = base::android::AttachCurrentThread();
+
+  ScopedJavaLocalRef<jstring> j_type = ConvertUTF8ToJavaString(env, type);
+  ScopedJavaLocalRef<jstring> j_message = ConvertUTF8ToJavaString(env, message);
+
+  Java_JniInterface_handleExtensionMessage(env, j_type.obj(), j_message.obj());
 }
 
 base::android::ScopedJavaLocalRef<jobject> ChromotingJniRuntime::NewBitmap(

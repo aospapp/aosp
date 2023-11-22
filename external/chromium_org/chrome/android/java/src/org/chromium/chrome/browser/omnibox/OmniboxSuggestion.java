@@ -6,7 +6,7 @@ package org.chromium.chrome.browser.omnibox;
 
 import android.text.TextUtils;
 
-import com.google.common.annotations.VisibleForTesting;
+import org.chromium.base.VisibleForTesting;
 
 /**
  * Container class with information about each omnibox suggestion item.
@@ -30,7 +30,7 @@ public class OmniboxSuggestion {
 
     /**
      * This should be kept in sync with AutocompleteMatch::Type
-     * (see chrome/common/autocomplete_match_type.h).
+     * (see components/omnibox/autocomplete_match_type.h).
      * Negative types are specific to Chrome on Android front-end.
      */
     public static enum Type {
@@ -113,14 +113,6 @@ public class OmniboxSuggestion {
         } else {
             mAnswer = null;
         }
-    }
-
-    /* TODO(groby): Remove - see http://crbug.com/375482 */
-    public OmniboxSuggestion(int nativeType, int relevance, int transition,
-            String text, String description, String fillIntoEdit, String url,
-            String formattedUrl, boolean isStarred, boolean isDeletable) {
-        this(nativeType, relevance, transition, text, description, null, null, fillIntoEdit, url,
-            formattedUrl, isStarred, isDeletable);
     }
 
     public Type getType() {

@@ -18,6 +18,7 @@ package android.uirendering.cts.bitmapverifiers;
 import android.graphics.Bitmap;
 import android.uirendering.cts.bitmapcomparers.BitmapComparer;
 import android.uirendering.cts.differencevisualizers.PassFailVisualizer;
+import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 
 public class GoldenImageVerifier extends BitmapVerifier {
     private BitmapComparer mBitmapComparer;
@@ -26,7 +27,7 @@ public class GoldenImageVerifier extends BitmapVerifier {
     public GoldenImageVerifier(Bitmap goldenBitmap, BitmapComparer bitmapComparer) {
         mGoldenBitmapArray = new int[goldenBitmap.getWidth() * goldenBitmap.getHeight()];
         goldenBitmap.getPixels(mGoldenBitmapArray, 0, goldenBitmap.getWidth(), 0, 0,
-                goldenBitmap.getWidth(), goldenBitmap.getHeight());
+                ActivityTestBase.TEST_WIDTH, ActivityTestBase.TEST_HEIGHT);
         mBitmapComparer = bitmapComparer;
     }
 

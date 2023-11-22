@@ -8,6 +8,7 @@
   },
   'targets': [
     {
+      # GN version: //device/bluetooth
       'target_name': 'device_bluetooth',
       'type': 'static_library',
       'dependencies': [
@@ -21,6 +22,7 @@
         'bluetooth_strings.gyp:device_bluetooth_strings',
       ],
       'sources': [
+        # Note: file list duplicated in GN build.
         'bluetooth_adapter.cc',
         'bluetooth_adapter.h',
         'bluetooth_adapter_chromeos.cc',
@@ -63,6 +65,10 @@
         'bluetooth_init_win.h',
         'bluetooth_l2cap_channel_mac.mm',
         'bluetooth_l2cap_channel_mac.h',
+        'bluetooth_low_energy_defs_win.cc',
+        'bluetooth_low_energy_defs_win.h',
+        'bluetooth_low_energy_win.cc',
+        'bluetooth_low_energy_win.h',
         'bluetooth_pairing_chromeos.cc',
         'bluetooth_pairing_chromeos.h',
         'bluetooth_remote_gatt_characteristic_chromeos.cc',
@@ -98,6 +104,9 @@
             '../../build/linux/system.gyp:dbus',
             '../../chromeos/chromeos.gyp:chromeos',
             '../../dbus/dbus.gyp:dbus',
+          ],
+          'export_dependent_settings': [
+            '../../build/linux/system.gyp:dbus'
           ]
         }],
         ['OS=="win"', {
@@ -105,9 +114,11 @@
             'msvs_settings': {
               'VCLinkerTool': {
                 'DelayLoadDLLs': [
+                  'BluetoothApis.dll',
                   # Despite MSDN stating that Bthprops.dll contains the
                   # symbols declared by bthprops.lib, they actually reside here:
                   'Bthprops.cpl',
+                  'setupapi.dll',
                 ],
               },
             },
@@ -123,6 +134,7 @@
       ],
     },
     {
+      # GN version: //device/bluetooth:mocks
       'target_name': 'device_bluetooth_mocks',
       'type': 'static_library',
       'dependencies': [
@@ -133,6 +145,7 @@
         '../../',
       ],
       'sources': [
+        # Note: file list duplicated in GN build.
         'test/mock_bluetooth_adapter.cc',
         'test/mock_bluetooth_adapter.h',
         'test/mock_bluetooth_device.cc',

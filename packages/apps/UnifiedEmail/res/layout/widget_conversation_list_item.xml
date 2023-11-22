@@ -29,12 +29,12 @@
         android:id="@+id/widget_unread_background"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@drawable/conversation_item_background_selector" />
+        android:background="@drawable/conversation_item_background" />
     <ImageView
         android:id="@+id/widget_read_background"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@drawable/conversation_item_background_selector" />
+        android:background="@drawable/conversation_item_background" />
     <LinearLayout
         android:id="@+id/content"
         android:layout_width="match_parent"
@@ -78,7 +78,8 @@
             android:layout_marginLeft="16dp"
             android:layout_marginRight="16dp"
             android:maxLines="1"
-            android:includeFontPadding="false" />
+            android:includeFontPadding="false"
+            android:textAlignment="viewStart"/>
 
         <TextView
             android:id="@+id/widget_snippet"
@@ -87,6 +88,7 @@
             android:layout_marginLeft="16dp"
             android:layout_marginRight="16dp"
             android:includeFontPadding="false"
+            android:textAlignment="viewStart"
             android:maxLines="1"/>
 
         <LinearLayout

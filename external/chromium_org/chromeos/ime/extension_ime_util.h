@@ -15,7 +15,7 @@ namespace chromeos {
 // Extension IME related utilities.
 namespace extension_ime_util {
 
-#if defined(OFFICIAL_BUILD)
+#if defined(GOOGLE_CHROME_BUILD)
 const char kXkbExtensionId[] = "jkghodnilhceideoidjikpgommlajknk";
 const char kM17nExtensionId[] = "gjaehgfemfahhmlgpdfknkhdnemmolop";
 const char kHangulExtensionId[] = "bdgdidmhaijohebebipajioienkglgfo";
@@ -80,6 +80,12 @@ bool CHROMEOS_EXPORT IsMemberOfExtension(const std::string& input_method_id,
 // otherwise returns false.
 bool CHROMEOS_EXPORT IsKeyboardLayoutExtension(
     const std::string& input_method_id);
+
+// Returns input method component id from the extension-based InputMethodID
+// for component IME extensions. This function does not check that
+// |input_method_id| is installed.
+std::string CHROMEOS_EXPORT
+    GetComponentIDByInputMethodID(const std::string& input_method_id);
 
 // Gets legacy xkb id (e.g. xkb:us::eng) from the new extension based xkb id
 // (e.g. _comp_ime_...xkb:us::eng). If the given id is not prefixed with

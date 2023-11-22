@@ -33,6 +33,9 @@ public class CodecState {
 
     private boolean mSawInputEOS, mSawOutputEOS;
     private boolean mLimitQueueDepth;
+    private boolean mTunneled;
+    private boolean mIsAudio;
+    private int mAudioSessionId;
     private ByteBuffer[] mCodecInputBuffers;
     private ByteBuffer[] mCodecOutputBuffers;
     private int mTrackIndex;
@@ -40,8 +43,9 @@ public class CodecState {
     private LinkedList<Integer> mAvailableOutputBufferIndices;
     private LinkedList<MediaCodec.BufferInfo> mAvailableOutputBufferInfos;
     private long mPresentationTimeUs;
+    private long mSampleBaseTimeUs;
     private MediaCodec mCodec;
-    private MediaCodecCencPlayer mMediaCodecPlayer;
+    private MediaTimeProvider mMediaTimeProvider;
     private MediaExtractor mExtractor;
     private MediaFormat mFormat;
     private MediaFormat mOutputFormat;
@@ -51,19 +55,23 @@ public class CodecState {
      * Manages audio and video playback using MediaCodec and AudioTrack.
      */
     public CodecState(
-            MediaCodecCencPlayer mediaCodecPlayer,
+            MediaTimeProvider mediaTimeProvider,
             MediaExtractor extractor,
             int trackIndex,
             MediaFormat format,
             MediaCodec codec,
-            boolean limitQueueDepth) {
-
-        mMediaCodecPlayer = mediaCodecPlayer;
+            boolean limitQueueDepth,
+            boolean tunneled,
+            int audioSessionId) {
+        mMediaTimeProvider = mediaTimeProvider;
         mExtractor = extractor;
         mTrackIndex = trackIndex;
         mFormat = format;
         mSawInputEOS = mSawOutputEOS = false;
         mLimitQueueDepth = limitQueueDepth;
+        mTunneled = tunneled;
+        mAudioSessionId = audioSessionId;
+        mSampleBaseTimeUs = -1;
 
         mCodec = codec;
 
@@ -72,6 +80,10 @@ public class CodecState {
         mAvailableOutputBufferInfos = new LinkedList<MediaCodec.BufferInfo>();
 
         mPresentationTimeUs = 0;
+
+        String mime = mFormat.getString(MediaFormat.KEY_MIME);
+        Log.d(TAG, "CodecState::onOutputFormatChanged " + mime);
+        mIsAudio = mime.startsWith("audio/");
     }
 
     public void release() {
@@ -100,7 +112,9 @@ public class CodecState {
     public void start() {
         mCodec.start();
         mCodecInputBuffers = mCodec.getInputBuffers();
-        mCodecOutputBuffers = mCodec.getOutputBuffers();
+        if (!mTunneled || mIsAudio) {
+            mCodecOutputBuffers = mCodec.getOutputBuffers();
+        }
 
         if (mAudioTrack != null) {
             mAudioTrack.play();
@@ -119,15 +133,17 @@ public class CodecState {
 
     public void flush() {
         mAvailableInputBufferIndices.clear();
-        mAvailableOutputBufferIndices.clear();
-        mAvailableOutputBufferInfos.clear();
+        if (!mTunneled || mIsAudio) {
+            mAvailableOutputBufferIndices.clear();
+            mAvailableOutputBufferInfos.clear();
+        }
 
         mSawInputEOS = false;
         mSawOutputEOS = false;
 
         if (mAudioTrack != null
-                && mAudioTrack.getPlayState() == AudioTrack.PLAYSTATE_STOPPED) {
-            mAudioTrack.play();
+                && mAudioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING) {
+            mAudioTrack.flush();
         }
 
         mCodec.flush();
@@ -153,20 +169,22 @@ public class CodecState {
         while (feedInputBuffer()) {
         }
 
-        MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
-        int indexOutput = mCodec.dequeueOutputBuffer(info, 0 /* timeoutUs */);
+        if (mIsAudio || !mTunneled) {
+            MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+            int indexOutput = mCodec.dequeueOutputBuffer(info, 0 /* timeoutUs */);
 
-        if (indexOutput == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-            mOutputFormat = mCodec.getOutputFormat();
-            onOutputFormatChanged();
-        } else if (indexOutput == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
-            mCodecOutputBuffers = mCodec.getOutputBuffers();
-        } else if (indexOutput != MediaCodec.INFO_TRY_AGAIN_LATER) {
-            mAvailableOutputBufferIndices.add(indexOutput);
-            mAvailableOutputBufferInfos.add(info);
-        }
+            if (indexOutput == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                mOutputFormat = mCodec.getOutputFormat();
+                onOutputFormatChanged();
+            } else if (indexOutput == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
+                mCodecOutputBuffers = mCodec.getOutputBuffers();
+            } else if (indexOutput != MediaCodec.INFO_TRY_AGAIN_LATER) {
+                mAvailableOutputBufferIndices.add(indexOutput);
+                mAvailableOutputBufferInfos.add(info);
+            }
 
-        while (drainOutputBuffer()) {
+            while (drainOutputBuffer()) {
+            }
         }
     }
 
@@ -200,7 +218,22 @@ public class CodecState {
                 Log.d(TAG, "sampleSize: " + sampleSize + " trackIndex:" + trackIndex +
                         " sampleTime:" + sampleTime + " sampleFlags:" + sampleFlags);
                 mSawInputEOS = true;
+                // FIX-ME: in tunneled mode we currently use input EOS as output EOS indicator
+                // we should stream duration
+                if (mTunneled && !mIsAudio) {
+                    mSawOutputEOS = true;
+                }
                 return false;
+            }
+
+            if (mTunneled && !mIsAudio) {
+                if (mSampleBaseTimeUs == -1) {
+                    mSampleBaseTimeUs = sampleTime;
+                }
+                sampleTime -= mSampleBaseTimeUs;
+                // FIX-ME: in tunneled mode we currently use input buffer time
+                // as video presentation time. This is not accurate and should be fixed
+                mPresentationTimeUs = sampleTime;
             }
 
             if ((sampleFlags & MediaExtractor.SAMPLE_FLAG_ENCRYPTED) != 0) {
@@ -255,7 +288,8 @@ public class CodecState {
                     sampleRate < 8000 || sampleRate > 128000) {
                 return;
             }
-            mAudioTrack = new NonBlockingAudioTrack(sampleRate, channelCount);
+            mAudioTrack = new NonBlockingAudioTrack(sampleRate, channelCount,
+                                    mTunneled, mAudioSessionId);
             mAudioTrack.play();
         }
 
@@ -285,9 +319,9 @@ public class CodecState {
         }
 
         long realTimeUs =
-            mMediaCodecPlayer.getRealTimeUsForMediaTime(info.presentationTimeUs);
+            mMediaTimeProvider.getRealTimeUsForMediaTime(info.presentationTimeUs);
 
-        long nowUs = mMediaCodecPlayer.getNowUs();
+        long nowUs = mMediaTimeProvider.getNowUs();
 
         long lateUs = nowUs - realTimeUs;
 

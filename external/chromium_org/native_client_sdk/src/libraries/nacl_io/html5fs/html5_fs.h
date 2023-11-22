@@ -18,8 +18,8 @@ class Node;
 
 class Html5Fs : public Filesystem {
  public:
-  virtual Error Access(const Path& path, int a_mode);
-  virtual Error Open(const Path& path, int mode, ScopedNode* out_node);
+  virtual Error OpenWithMode(const Path& path, int open_flags, mode_t mode,
+                             ScopedNode* out_node);
   virtual Error Unlink(const Path& path);
   virtual Error Mkdir(const Path& path, int permissions);
   virtual Error Rmdir(const Path& path);
@@ -27,6 +27,12 @@ class Html5Fs : public Filesystem {
   virtual Error Rename(const Path& path, const Path& newpath);
 
   PP_Resource filesystem_resource() { return filesystem_resource_; }
+
+  virtual void OnNodeCreated(Node* node);
+  virtual void OnNodeDestroyed(Node* node);
+
+  static ino_t HashPathSegment(ino_t hash, const char *str, size_t len);
+  static ino_t HashPath(const Path& path);
 
  protected:
   static const int REMOVE_DIR = 1;
@@ -45,6 +51,11 @@ class Html5Fs : public Filesystem {
   static void FilesystemOpenCallbackThunk(void* user_data, int32_t result);
   void FilesystemOpenCallback(int32_t result);
   Path GetFullPath(const Path& path);
+
+  CoreInterface* core_iface_;
+  FileSystemInterface* filesystem_iface_;
+  FileRefInterface* file_ref_iface_;
+  FileIoInterface* file_io_iface_;
 
   PP_Resource filesystem_resource_;
   bool filesystem_open_has_result_;  // protected by lock_.

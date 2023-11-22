@@ -5,6 +5,7 @@
 #ifndef CONTENT_BROWSER_RENDER_WIDGET_HOST_DELEGATE_H_
 #define CONTENT_BROWSER_RENDER_WIDGET_HOST_DELEGATE_H_
 
+#include "base/basictypes.h"
 #include "build/build_config.h"
 #include "content/common/content_export.h"
 #include "ui/gfx/native_widget_types.h"
@@ -16,6 +17,7 @@ class WebGestureEvent;
 
 namespace content {
 
+class BrowserAccessibilityManager;
 class RenderWidgetHostImpl;
 struct NativeWebKeyboardEvent;
 
@@ -59,11 +61,15 @@ class CONTENT_EXPORT RenderWidgetHostDelegate {
   // Notifies that screen rects were sent to renderer process.
   virtual void DidSendScreenRects(RenderWidgetHostImpl* rwh) {}
 
-  // Notifies that RenderWidgetHost will toggle touch emulation.
-  virtual void OnTouchEmulationEnabled(bool enabled) {}
+  // Get the root BrowserAccessibilityManager for this frame tree.
+  virtual BrowserAccessibilityManager* GetRootBrowserAccessibilityManager();
+
+  // Get the root BrowserAccessibilityManager for this frame tree,
+  // or create it if it doesn't exist.
+  virtual BrowserAccessibilityManager*
+      GetOrCreateRootBrowserAccessibilityManager();
 
 #if defined(OS_WIN)
-  // Returns the widget's parent's NativeViewAccessible.
   virtual gfx::NativeViewAccessible GetParentNativeViewAccessible();
 #endif
 

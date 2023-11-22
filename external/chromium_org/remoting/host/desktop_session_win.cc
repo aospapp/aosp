@@ -552,7 +552,8 @@ void DesktopSessionWin::OnSessionAttached(uint32 session_id) {
   }
 
   // Create a launcher for the desktop process, using the per-session delegate.
-  launcher_.reset(new WorkerProcessLauncher(delegate.Pass(), this));
+  launcher_.reset(new WorkerProcessLauncher(
+      delegate.PassAs<WorkerProcessLauncher::Delegate>(), this));
 }
 
 void DesktopSessionWin::OnSessionDetached() {
@@ -572,7 +573,7 @@ void DesktopSessionWin::OnSessionDetached() {
 void DesktopSessionWin::OnDesktopSessionAgentAttached(
       IPC::PlatformFileForTransit desktop_pipe) {
   if (!daemon_process()->OnDesktopSessionAgentAttached(id(),
-                                                       desktop_process_,
+                                                       desktop_process_.Get(),
                                                        desktop_pipe)) {
     CrashDesktopProcess(FROM_HERE);
   }

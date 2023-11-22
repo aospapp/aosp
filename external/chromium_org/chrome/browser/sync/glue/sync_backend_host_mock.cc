@@ -8,11 +8,13 @@
 
 namespace browser_sync {
 
+const char kTestCacheGuid[] = "test-guid";
+
 SyncBackendHostMock::SyncBackendHostMock() : fail_initial_download_(false) {}
 SyncBackendHostMock::~SyncBackendHostMock() {}
 
 void SyncBackendHostMock::Initialize(
-    SyncFrontend* frontend,
+    sync_driver::SyncFrontend* frontend,
     scoped_ptr<base::Thread> sync_thread,
     const syncer::WeakHandle<syncer::JsEventHandler>& event_handler,
     const GURL& service_url,
@@ -26,6 +28,7 @@ void SyncBackendHostMock::Initialize(
   frontend->OnBackendInitialized(
       syncer::WeakHandle<syncer::JsBackend>(),
       syncer::WeakHandle<syncer::DataTypeDebugInfoListener>(),
+      kTestCacheGuid,
       !fail_initial_download_);
 }
 
@@ -45,7 +48,8 @@ bool SyncBackendHostMock::SetDecryptionPassphrase(
 
 void SyncBackendHostMock::StopSyncingForShutdown() {}
 
-scoped_ptr<base::Thread> SyncBackendHostMock::Shutdown(ShutdownOption option) {
+scoped_ptr<base::Thread> SyncBackendHostMock::Shutdown(
+    syncer::ShutdownReason reason) {
   return scoped_ptr<base::Thread>();
 }
 
@@ -62,15 +66,16 @@ void SyncBackendHostMock::EnableEncryptEverything() {}
 
 void SyncBackendHostMock::ActivateDataType(
     syncer::ModelType type, syncer::ModelSafeGroup group,
-    ChangeProcessor* change_processor) {}
+    sync_driver::ChangeProcessor* change_processor) {}
 void SyncBackendHostMock::DeactivateDataType(syncer::ModelType type) {}
 
 syncer::UserShare* SyncBackendHostMock::GetUserShare() const {
   return NULL;
 }
 
-scoped_ptr<syncer::SyncCoreProxy> SyncBackendHostMock::GetSyncCoreProxy() {
-  return scoped_ptr<syncer::SyncCoreProxy>();
+scoped_ptr<syncer::SyncContextProxy>
+SyncBackendHostMock::GetSyncContextProxy() {
+  return scoped_ptr<syncer::SyncContextProxy>();
 }
 
 SyncBackendHost::Status SyncBackendHostMock::GetDetailedStatus() {
@@ -105,10 +110,6 @@ bool SyncBackendHostMock::IsCryptographerReady(
 
 void SyncBackendHostMock::GetModelSafeRoutingInfo(
     syncer::ModelSafeRoutingInfo* out) const {}
-
-SyncedDeviceTracker* SyncBackendHostMock::GetSyncedDeviceTracker() const {
-  return NULL;
-}
 
 base::MessageLoop* SyncBackendHostMock::GetSyncLoopForTesting() {
   return NULL;

@@ -163,9 +163,6 @@ You are signing in with a managed account and giving its administrator control o
       <message name="IDS_ACCESSIBILITY_TAB_SWITCHER_INCOGNITO_STACK" desc="Content description for the incognito stack selection 'button'.">
         Incognito tabs
       </message>
-      <message name="IDS_ACCESSIBILITY_TAB_SWITCHER_TAB_CLOSED" desc="Content description for the tab closed message.">
-        Tab closed
-      </message>
       <message name="IDS_ACCESSIBILITY_TAB_SWITCHER_UNDO_TAB_CLOSED" desc="Content description for the undo tab closed 'button.">
         Reopen closed tab
       </message>
@@ -257,10 +254,7 @@ You are signing in with a managed account and giving its administrator control o
         There was a problem printing the page. Please try again.
       </message>
       <message name="IDS_ACCESSIBILITY_MENU_BOOKMARK" desc="Content description for the bookmark button when the page is not currently bookmarked.">
-        Bookmark page
-      </message>
-      <message name="IDS_ACCESSIBILITY_MENU_EDIT_BOOKMARK" desc="Content description for the bookmark button when the page is currently bookmarked.">
-        Edit bookmark page
+        Bookmark this page
       </message>
       <message name="IDS_ACCESSIBILITY_MENU_FORWARD" desc="Content description for the forward navigation button.">
         Go forward
@@ -268,15 +262,15 @@ You are signing in with a managed account and giving its administrator control o
       <message name="IDS_ACCESSIBILITY_MENU_BACK" desc="Content description for the backard navigation button.">
         Go back
       </message>
-      <message name="IDS_ACCESSIBILITY_MENU_RELOAD" desc="Content description for the button that reloads the page.">
-        Reload
-      </message>
       <!-- ContextMenu -->
       <message name="IDS_CONTEXTMENU_OPEN_IN_NEW_TAB" desc="Context sensitive menu item to open the selected link in a new tab. [CHAR-LIMIT=30]">
         Open in new tab
       </message>
       <message name="IDS_CONTEXTMENU_OPEN_IN_INCOGNITO_TAB" desc="Context sensitive menu item to open the selected link in a new incognito tab. [CHAR-LIMIT=30]">
         Open in incognito tab
+      </message>
+      <message name="IDS_CONTEXTMENU_COPY_EMAIL_ADDRESS" desc="Context sensitive menu item for copying email address. [CHAR-LIMIT=30]">
+        Copy email address
       </message>
       <message name="IDS_CONTEXTMENU_COPY_LINK_ADDRESS" desc="Context sensitive menu item for copying the selected link URL / address. [CHAR-LIMIT=30]">
         Copy link address
@@ -305,9 +299,20 @@ You are signing in with a managed account and giving its administrator control o
       <message name="IDS_CONTEXTMENU_COPY_IMAGE" desc="Context sensitive menu item for copying an image to the clipboard. [CHAR-LIMIT=30]">
         Copy image
       </message>
+      <message name="IDS_CONTEXTMENU_COPY_IMAGE_URL" desc="Context sensitive menu item for copying an image url to the clipboard. [CHAR-LIMIT=30]">
+        Copy image URL
+      </message>
       <message name="IDS_CONTEXTMENU_SAVE_VIDEO" desc="Context sensitive menu item for saving the selected video. [CHAR-LIMIT=30]">
         Save video
      </message>
+
+     <!-- Http authentication -->
+      <message name="IDS_ACCESSIBILITY_HTTP_AUTH_USERNAME_INPUT" desc="Content description for the http authentication pop-up username input field.">
+        Username
+      </message>
+      <message name="IDS_ACCESSIBILITY_HTTP_AUTH_PASSWORD_INPUT" desc="Content description for the http authentication pop-up password input field.">
+        Password
+      </message>
 
       <!-- Smartcard certificate support -->
       <message name="IDS_SMARTCARD_DIALOG_TITLE" desc="Title of a dialog asking whether to use Android default keystore or a smartcard for certificate authentication.">
@@ -343,6 +348,27 @@ You are signing in with a managed account and giving its administrator control o
       <message name="IDS_DISTILLATION_QUALITY_ANSWER_NO" desc="Text for the answering whether the text from a web page was extracted correctly and the answer is no.">
         No
       </message>
+      <message name="IDS_DARK_MODE" desc="Title of button that will change theme of distilled pages to dark mode.">
+        Dark
+      </message>
+      <message name="IDS_LIGHT_MODE" desc="Title of button that will change theme of distilled pages to light mode.">
+        Light
+      </message>
+      <message name="IDS_SEPIA_MODE" desc="Title of button that will change theme of distilled pages to sepia mode.">
+        Sepia
+      </message>
+      <message name="IDS_SANS_SERIF" desc="Title of the selector button that will change the typeface of distilled pages to use a SansSerif font.">
+        Sans Serif
+      </message>
+      <message name="IDS_SERIF" desc="Title of the selector button that will change the typeface of distilled pages to use a Serif font.">
+        Serif
+      </message>
+      <message name="IDS_MONOSPACE" desc="Title of the selector button that will change the typeface of distilled pages to use a Monospace font.">
+        Monospace
+      </message>
+      <message name="IDS_TEXT_SIZE_SIGNIFIER" desc="A typical letter of the alphabet.  This is drawn on either end of a slider bar that allows the user to change the font size.  On one end, it is drawn smaller and on the other end larger.">
+        A
+      </message>
 
       <!-- TalkBack upgrade -->
       <message name="IDS_OLD_TALKBACK_TITLE" desc="Title of dialog notifying user that the version of TalkBack they're running is too old.">
@@ -353,6 +379,14 @@ You are signing in with a managed account and giving its administrator control o
       </message>
       <message name="IDS_CANCEL_TALKBACK_ALERT" desc="Title of button that will cancel the TalkBack alert dialog dialog.">
         Cancel
+      </message>
+
+      <!-- Data Reduction Proxy -->
+      <message name="IDS_DATA_REDUCTION_INFOBAR_TEXT" desc="Text to be displayed in the data reduction proxy infobar" translateable="false">
+        You are part of a data reduction proxy field trial.
+      </message>
+      <message name="IDS_DATA_REDUCTION_INFOBAR_LINK_TEXT" desc="Text to be displayed in the data reduction proxy infobar link" translateable="false">
+        Settings
       </message>
 
     </messages>

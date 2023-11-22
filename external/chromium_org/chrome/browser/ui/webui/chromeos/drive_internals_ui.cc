@@ -5,9 +5,8 @@
 #include "chrome/browser/ui/webui/chromeos/drive_internals_ui.h"
 
 #include "base/bind.h"
-#include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/format_macros.h"
 #include "base/memory/scoped_vector.h"
 #include "base/memory/weak_ptr.h"
@@ -36,7 +35,6 @@
 #include "google_apis/drive/auth_service.h"
 #include "google_apis/drive/drive_api_parser.h"
 #include "google_apis/drive/gdata_errorcode.h"
-#include "google_apis/drive/gdata_wapi_parser.h"
 #include "google_apis/drive/time_util.h"
 #include "grit/browser_resources.h"
 

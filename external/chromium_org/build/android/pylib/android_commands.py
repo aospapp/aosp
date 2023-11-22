@@ -39,6 +39,7 @@ import am_instrument_parser
 import errors
 
 from pylib.device import device_blacklist
+from pylib.device import device_errors
 
 # Pattern to search for the next whole line of pexpect output and capture it
 # into a match group. We can't use ^ and $ for line start end with pexpect,
@@ -354,8 +355,15 @@ class AndroidCommands(object):
     Returns:
       True if device is in 'device' mode, False otherwise.
     """
-    out = self._adb.SendCommand('get-state')
-    return out.strip() == 'device'
+    # TODO(aurimas): revert to using adb get-state when android L adb is fixed.
+    #out = self._adb.SendCommand('get-state')
+    #return out.strip() == 'device'
+
+    out = self._adb.SendCommand('devices')
+    for line in out.split('\n'):
+      if self._device in line and 'device' in line:
+        return True
+    return False
 
   def IsRootEnabled(self):
     """Checks if root is enabled on the device."""
@@ -387,10 +395,13 @@ class AndroidCommands(object):
   def GetExternalStorage(self):
     if not self._external_storage:
       self._external_storage = self.RunShellCommand('echo $EXTERNAL_STORAGE')[0]
-      assert self._external_storage, 'Unable to find $EXTERNAL_STORAGE'
+      if not self._external_storage:
+        raise device_errors.CommandFailedError(
+            ['shell', "'echo $EXTERNAL_STORAGE'"],
+            'Unable to find $EXTERNAL_STORAGE')
     return self._external_storage
 
-  def WaitForDevicePm(self):
+  def WaitForDevicePm(self, timeout=120):
     """Blocks until the device's package manager is available.
 
     To workaround http://b/5201039, we restart the shell and retry if the
@@ -403,7 +414,7 @@ class AndroidCommands(object):
     retries = 3
     while retries:
       try:
-        self._adb.WaitForDevicePm()
+        self._adb.WaitForDevicePm(wait_time=timeout)
         return  # Success
       except errors.WaitForResponseTimedOutError as e:
         last_err = e
@@ -442,7 +453,7 @@ class AndroidCommands(object):
       timeout = 120
     # To run tests we need at least the package manager and the sd card (or
     # other external storage) to be ready.
-    self.WaitForDevicePm()
+    self.WaitForDevicePm(timeout)
     self.WaitForSdCardReady(timeout)
 
   def Shutdown(self):
@@ -648,30 +659,6 @@ class AndroidCommands(object):
       raise errors.WaitForResponseTimedOutError(
           'SD card not ready after %s seconds' % timeout_time)
 
-  def _CheckCommandIsValid(self, command):
-    """Raises a ValueError if the command is not valid."""
-
-    # A dict of commands the user should not run directly and a mapping to the
-    # API they should use instead.
-    preferred_apis = {
-        'getprop': 'system_properties[<PROPERTY>]',
-        'setprop': 'system_properties[<PROPERTY>]',
-        }
-
-    # A dict of commands to methods that may call them.
-    whitelisted_callers = {
-        'getprop': 'ProvisionDevices',
-        }
-
-    base_command = shlex.split(command)[0].strip(';')
-    if (base_command in preferred_apis and
-        (base_command not in whitelisted_callers or
-         whitelisted_callers[base_command] not in [
-          f[3] for f in inspect.stack()])):
-      error_msg = ('%s should not be run directly. Instead use: %s' %
-                   (base_command, preferred_apis[base_command]))
-      raise ValueError(error_msg)
-
   def GetAndroidToolStatusAndOutput(self, command, lib_path=None, *args, **kw):
     """Runs a native Android binary, wrapping the command as necessary.
 
@@ -714,8 +701,7 @@ class AndroidCommands(object):
     """Send a command to the adb shell and return the result.
 
     Args:
-      command: String containing the shell command to send. Must not include
-               the single quotes as we use them to escape the whole command.
+      command: String containing the shell command to send.
       timeout_time: Number of seconds to wait for command to respond before
         retrying, used by AdbInterface.SendShellCommand.
       log_result: Boolean to indicate whether we should log the result of the
@@ -724,10 +710,9 @@ class AndroidCommands(object):
     Returns:
       list containing the lines of output received from running the command
     """
-    self._CheckCommandIsValid(command)
     self._LogShell(command)
     if "'" in command:
-      logging.warning(command + " contains ' quotes")
+      command = command.replace('\'', '\'\\\'\'')
     result = self._adb.SendShellCommand(
         "'%s'" % command, timeout_time).splitlines()
     # TODO(b.kelemen): we should really be able to drop the stderr of the
@@ -778,7 +763,7 @@ class AndroidCommands(object):
         self.RunShellCommand(cmd)
     return len(pids)
 
-  def KillAllBlocking(self, process, timeout_sec):
+  def KillAllBlocking(self, process, timeout_sec, signum=9, with_su=False):
     """Blocking version of killall, connected via adb.
 
     This waits until no process matching the corresponding name appears in ps'
@@ -787,11 +772,12 @@ class AndroidCommands(object):
     Args:
       process: name of the process to kill off
       timeout_sec: the timeout in seconds
-
+      signum: same as |KillAll|
+      with_su: same as |KillAll|
     Returns:
       the number of processes killed
     """
-    processes_killed = self.KillAll(process)
+    processes_killed = self.KillAll(process, signum=signum, with_su=with_su)
     if processes_killed:
       elapsed = 0
       wait_period = 0.1
@@ -800,7 +786,7 @@ class AndroidCommands(object):
         time.sleep(wait_period)
         elapsed += wait_period
       if elapsed >= timeout_sec:
-        return 0
+        return processes_killed - self.ExtractPid(process)
     return processes_killed
 
   @staticmethod
@@ -863,11 +849,13 @@ class AndroidCommands(object):
       trace_file_name: If used, turns on and saves the trace to this file name.
       force_stop: force stop the target app before starting the activity (-S
         flag).
+    Returns:
+      The output of the underlying command as a list of lines.
     """
     cmd = self._GetActivityCommand(package, activity, wait_for_completion,
                                    action, category, data, extras,
                                    trace_file_name, force_stop, flags)
-    self.RunShellCommand(cmd)
+    return self.RunShellCommand(cmd)
 
   def StartActivityTimed(self, package, activity, wait_for_completion=False,
                          action='android.intent.action.VIEW',
@@ -879,18 +867,20 @@ class AndroidCommands(object):
     Args - as for StartActivity
 
     Returns:
-      a timestamp string for the time at which the activity started
+      A tuple containing:
+        - the output of the underlying command as a list of lines, and
+        - a timestamp string for the time at which the activity started
     """
     cmd = self._GetActivityCommand(package, activity, wait_for_completion,
                                    action, category, data, extras,
                                    trace_file_name, force_stop, flags)
     self.StartMonitoringLogcat()
-    self.RunShellCommand('log starting activity; ' + cmd)
+    out = self.RunShellCommand('log starting activity; ' + cmd)
     activity_started_re = re.compile('.*starting activity.*')
     m = self.WaitForLogMatch(activity_started_re, None)
     assert m
     start_line = m.group(0)
-    return GetLogTimestamp(start_line, self.GetDeviceYear())
+    return (out, GetLogTimestamp(start_line, self.GetDeviceYear()))
 
   def StartCrashUploadService(self, package):
     # TODO(frankf): We really need a python wrapper around Intent
@@ -1070,7 +1060,9 @@ class AndroidCommands(object):
     All pushed files can be removed by calling RemovePushedFiles().
     """
     MAX_INDIVIDUAL_PUSHES = 50
-    assert os.path.exists(host_path), 'Local path not found %s' % host_path
+    if not os.path.exists(host_path):
+      raise device_errors.CommandFailedError(
+          'Local path not found %s' % host_path, device=str(self))
 
     # See if the file on the host changed since the last push (if any) and
     # return early if it didn't. Note that this shortcut assumes that the tests
@@ -1126,8 +1118,6 @@ class AndroidCommands(object):
     # approximates the push time for each method.
     if len(changed_files) > MAX_INDIVIDUAL_PUSHES or diff_size > 0.5 * size:
       self._actual_push_size += size
-      if os.path.isdir(host_path):
-        self.RunShellCommand('mkdir -p %s' % device_path)
       Push(host_path, device_path)
     else:
       for f in changed_files:
@@ -1246,7 +1236,7 @@ class AndroidCommands(object):
     """
     # Example output:
     # /foo/bar:
-    # -rw-r----- 1 user group   102 2011-05-12 12:29:54.131623387 +0100 baz.txt
+    # -rw-r----- user group   102 2011-05-12 12:29:54.131623387 +0100 baz.txt
     re_file = re.compile('^-(?P<perms>[^\s]+)\s+'
                          '(?P<user>[^\s]+)\s+'
                          '(?P<group>[^\s]+)\s+'
@@ -1276,7 +1266,8 @@ class AndroidCommands(object):
     temp_props_file = tempfile.NamedTemporaryFile()
     properties = ''
     if self._adb.Pull(LOCAL_PROPERTIES_PATH, temp_props_file.name):
-      properties = file(temp_props_file.name).read()
+      with open(temp_props_file.name) as f:
+        properties = f.read()
     re_search = re.compile(r'^\s*' + re.escape(JAVA_ASSERT_PROPERTY) +
                            r'\s*=\s*all\s*$', re.MULTILINE)
     if enable != bool(re.search(re_search, properties)):
@@ -1351,7 +1342,7 @@ class AndroidCommands(object):
   def GetSubscriberInfo(self):
     """Returns the device subscriber info (e.g. GSM and device ID) as string."""
     iphone_sub = self.RunShellCommand('dumpsys iphonesubinfo')
-    assert iphone_sub
+    # Do not assert here. Devices (e.g. Nakasi on K) may not have iphonesubinfo.
     return '\n'.join(iphone_sub)
 
   def GetBatteryInfo(self):
@@ -1799,7 +1790,9 @@ class AndroidCommands(object):
       device_file: Absolute path to the file to retrieve from the device.
       host_file: Absolute path to the file to store on the host.
     """
-    assert self._adb.Pull(device_file, host_file)
+    if not self._adb.Pull(device_file, host_file):
+      raise device_errors.AdbCommandFailedError(
+          ['pull', device_file, host_file], 'Failed to pull file from device.')
     assert os.path.exists(host_file)
 
   def SetUtilWrapper(self, util_wrapper):
@@ -1807,30 +1800,6 @@ class AndroidCommands(object):
     binary on the device (ex.: md5sum_bin).
     """
     self._util_wrapper = util_wrapper
-
-  def RunInstrumentationTest(self, test, test_package, instr_args, timeout):
-    """Runs a single instrumentation test.
-
-    Args:
-      test: Test class/method.
-      test_package: Package name of test apk.
-      instr_args: Extra key/value to pass to am instrument.
-      timeout: Timeout time in seconds.
-
-    Returns:
-      An instance of am_instrument_parser.TestResult object.
-    """
-    instrumentation_path = ('%s/android.test.InstrumentationTestRunner' %
-                            test_package)
-    args_with_filter = dict(instr_args)
-    args_with_filter['class'] = test
-    logging.info(args_with_filter)
-    (raw_results, _) = self._adb.StartInstrumentation(
-        instrumentation_path=instrumentation_path,
-        instrumentation_args=args_with_filter,
-        timeout_time=timeout)
-    assert len(raw_results) == 1
-    return raw_results[0]
 
   def RunUIAutomatorTest(self, test, test_package, timeout):
     """Runs a single uiautomator test.
@@ -1904,7 +1873,6 @@ class AndroidCommands(object):
                                       'pylib',
                                       'efficient_android_directory_copy.sh')
       self._adb.Push(host_script_path, temp_script_file.name)
-      self.EnableAdbRoot
       out = self.RunShellCommand(
           'sh %s %s %s' % (temp_script_file.name, source, dest),
           timeout_time=120)

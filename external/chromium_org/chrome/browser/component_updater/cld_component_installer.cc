@@ -8,37 +8,36 @@
 #include <vector>
 
 #include "base/bind.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/path_service.h"
-#include "base/platform_file.h"
-#include "chrome/browser/profiles/profile.h"
-#include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_paths.h"
+#include "components/component_updater/component_updater_paths.h"
+#include "components/translate/content/browser/browser_cld_data_provider.h"
+#include "components/translate/content/common/cld_data_source.h"
 #include "content/public/browser/browser_thread.h"
 #include "net/ssl/ssl_config_service.h"
 
 using component_updater::ComponentUpdateService;
-using content::BrowserThread;
 
 namespace {
+// TODO(andrewhayden): Make the data file path into a gyp/gn define
+// If you change this, also update component_cld_data_harness.cc
+// and cld_component_installer_unittest.cc accordingly!
+const base::FilePath::CharType kCldDataFileName[] =
+  FILE_PATH_LITERAL("cld2_data.bin");
 
-// Once we have acquired a valid file from the component installer, we need to
-// make the path available to other parts of the system such as the
-// translation libraries. We create a global to hold onto the path, and a
-// lock to guard it. See GetLatestCldDataFile(...) for more info.
-base::LazyInstance<base::Lock> cld_file_lock = LAZY_INSTANCE_INITIALIZER;
-base::LazyInstance<base::FilePath> cld_file = LAZY_INSTANCE_INITIALIZER;
-
-}
+// Tracks the last value seen in SetLatestCldDataFile.
+base::LazyInstance<base::FilePath>::Leaky g_latest_cld_data_file =
+  LAZY_INSTANCE_INITIALIZER;
+}  // namespace
 
 namespace component_updater {
 
 // The SHA256 of the SubjectPublicKeyInfo used to sign the extension.
 // The extension id is: dpedmmgabcgnikllifiidmijgoiihfgf
-const uint8 kPublicKeySHA256[32] = {
+const uint8_t kPublicKeySHA256[32] = {
     0x3f, 0x43, 0xcc, 0x60, 0x12, 0x6d, 0x8a, 0xbb,
     0x85, 0x88, 0x3c, 0x89, 0x6e, 0x88, 0x75, 0x65,
     0xb9, 0x46, 0x09, 0xe8, 0xca, 0x92, 0xdd, 0x82,
@@ -67,7 +66,7 @@ base::FilePath CldComponentInstallerTraits::GetInstalledPath(
   // NB: This may change when 64-bit is officially supported.
   return base.Append(FILE_PATH_LITERAL("_platform_specific"))
       .Append(FILE_PATH_LITERAL("all"))
-      .Append(chrome::kCLDDataFilename);
+      .Append(kCldDataFileName);
 }
 
 void CldComponentInstallerTraits::ComponentReady(
@@ -93,11 +92,11 @@ bool CldComponentInstallerTraits::VerifyInstallation(
 
 base::FilePath CldComponentInstallerTraits::GetBaseDirectory() const {
   base::FilePath result;
-  PathService::Get(chrome::DIR_COMPONENT_CLD2, &result);
+  PathService::Get(DIR_COMPONENT_CLD2, &result);
   return result;
 }
 
-void CldComponentInstallerTraits::GetHash(std::vector<uint8>* hash) const {
+void CldComponentInstallerTraits::GetHash(std::vector<uint8_t>* hash) const {
   hash->assign(kPublicKeySHA256,
                kPublicKeySHA256 + arraysize(kPublicKeySHA256));
 }
@@ -107,6 +106,19 @@ std::string CldComponentInstallerTraits::GetName() const {
 }
 
 void RegisterCldComponent(ComponentUpdateService* cus) {
+  // Make sure we don't start up if the CLD data source isn't compatible.
+  if (!translate::CldDataSource::ShouldRegisterForComponentUpdates()) {
+    // This is a serious build-time configuration error.
+    LOG(ERROR) << "Wrong CLD data source: " <<
+        translate::CldDataSource::GetName();
+    NOTREACHED();
+    return;
+  }
+
+  // This log line is to help with determining which kind of provider has been
+  // configured. See also: chrome://translate-internals
+  VLOG(1) << "Registering CLD component with the component update service";
+
   scoped_ptr<ComponentInstallerTraits> traits(
       new CldComponentInstallerTraits());
   // |cus| will take ownership of |installer| during installer->Register(cus).
@@ -118,14 +130,12 @@ void RegisterCldComponent(ComponentUpdateService* cus) {
 void CldComponentInstallerTraits::SetLatestCldDataFile(
     const base::FilePath& path) {
   VLOG(1) << "Setting CLD data file location: " << path.value();
-  base::AutoLock lock(cld_file_lock.Get());
-  cld_file.Get() = path;
+  g_latest_cld_data_file.Get() = path;
+  translate::SetCldDataFilePath(path);
 }
 
-base::FilePath GetLatestCldDataFile() {
-  base::AutoLock lock(cld_file_lock.Get());
-  // cld_file is an empty path by default, meaning "file not available yet".
-  return cld_file.Get();
+base::FilePath CldComponentInstallerTraits::GetLatestCldDataFile() {
+  return g_latest_cld_data_file.Get();
 }
 
 }  // namespace component_updater

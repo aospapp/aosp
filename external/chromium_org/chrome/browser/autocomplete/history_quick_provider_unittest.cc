@@ -16,9 +16,7 @@
 #include "base/prefs/pref_service.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/autocomplete/autocomplete_match.h"
-#include "chrome/browser/autocomplete/autocomplete_provider_listener.h"
-#include "chrome/browser/autocomplete/autocomplete_result.h"
+#include "chrome/browser/autocomplete/chrome_autocomplete_scheme_classifier.h"
 #include "chrome/browser/autocomplete/history_url_provider.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/chrome_notification_types.h"
@@ -27,16 +25,20 @@
 #include "chrome/browser/history/history_service.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/history/in_memory_url_index.h"
-#include "chrome/browser/history/url_database.h"
 #include "chrome/browser/history/url_index_private_data.h"
-#include "chrome/browser/search_engines/template_url.h"
-#include "chrome/browser/search_engines/template_url_service.h"
+#include "chrome/browser/search_engines/chrome_template_url_service_client.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/bookmarks/test/bookmark_test_helpers.h"
+#include "components/history/core/browser/url_database.h"
 #include "components/metrics/proto/omnibox_event.pb.h"
+#include "components/omnibox/autocomplete_match.h"
+#include "components/omnibox/autocomplete_result.h"
+#include "components/search_engines/search_terms_data.h"
+#include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_service.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/test/test_browser_thread.h"
 #include "content/public/test/test_utils.h"
@@ -103,15 +105,11 @@ struct TestURLInfo {
    "83.A6.E4.BD.93.E5.88.B6", "Title Unimportant", 2, 2, 0}
 };
 
-class HistoryQuickProviderTest : public testing::Test,
-                                 public AutocompleteProviderListener {
+class HistoryQuickProviderTest : public testing::Test {
  public:
   HistoryQuickProviderTest()
       : ui_thread_(BrowserThread::UI, &message_loop_),
         file_thread_(BrowserThread::FILE, &message_loop_) {}
-
-  // AutocompleteProviderListener:
-  virtual void OnProviderUpdate(bool updated_matches) OVERRIDE {}
 
  protected:
   class SetShouldContain : public std::unary_function<const std::string&,
@@ -128,8 +126,13 @@ class HistoryQuickProviderTest : public testing::Test,
   };
 
   static KeyedService* CreateTemplateURLService(
-      content::BrowserContext* profile) {
-    return new TemplateURLService(static_cast<Profile*>(profile));
+      content::BrowserContext* context) {
+    Profile* profile = static_cast<Profile*>(context);
+    return new TemplateURLService(
+        profile->GetPrefs(), make_scoped_ptr(new SearchTermsData), NULL,
+        scoped_ptr<TemplateURLServiceClient>(
+            new ChromeTemplateURLServiceClient(profile)),
+        NULL, NULL, base::Closure());
   }
 
   virtual void SetUp();
@@ -150,8 +153,17 @@ class HistoryQuickProviderTest : public testing::Test,
                base::string16 expected_fill_into_edit,
                base::string16 autocompletion);
 
+  // As above, simply with a cursor position specified.
+  void RunTestWithCursor(const base::string16 text,
+                         const size_t cursor_position,
+                         bool prevent_inline_autocomplete,
+                         std::vector<std::string> expected_urls,
+                         bool can_inline_top_result,
+                         base::string16 expected_fill_into_edit,
+                         base::string16 autocompletion);
+
   history::HistoryBackend* history_backend() {
-    return history_service_->history_backend_;
+    return history_service_->history_backend_.get();
   }
 
   base::MessageLoopForUI message_loop_;
@@ -177,7 +189,7 @@ void HistoryQuickProviderTest::SetUp() {
       HistoryServiceFactory::GetForProfile(profile_.get(),
                                            Profile::EXPLICIT_ACCESS);
   EXPECT_TRUE(history_service_);
-  provider_ = new HistoryQuickProvider(this, profile_.get());
+  provider_ = new HistoryQuickProvider(profile_.get());
   TemplateURLServiceFactory::GetInstance()->SetTestingFactoryAndUse(
       profile_.get(), &HistoryQuickProviderTest::CreateTemplateURLService);
   FillData();
@@ -230,8 +242,8 @@ void HistoryQuickProviderTest::FillData() {
           "INSERT INTO \"visits\" VALUES(%" PRIuS ", %" PRIuS ", %" PRId64
           ", 0, %d, 0, 1)",
           visit_id++, i + 1, visit_time.ToInternalValue(),
-          (j < cur.typed_count) ? content::PAGE_TRANSITION_TYPED :
-                                  content::PAGE_TRANSITION_LINK);
+          (j < cur.typed_count) ? ui::PAGE_TRANSITION_TYPED :
+                                  ui::PAGE_TRANSITION_LINK);
 
       sql::Statement sql_stmt(db.GetUniqueStatement(sql_cmd_line.c_str()));
       EXPECT_TRUE(sql_stmt.Run());
@@ -253,18 +265,32 @@ void HistoryQuickProviderTest::SetShouldContain::operator()(
       << "Results did not contain '" << expected << "' but should have.";
 }
 
+void HistoryQuickProviderTest::RunTest(
+    const base::string16 text,
+    bool prevent_inline_autocomplete,
+    std::vector<std::string> expected_urls,
+    bool can_inline_top_result,
+    base::string16 expected_fill_into_edit,
+    base::string16 expected_autocompletion) {
+  RunTestWithCursor(text, base::string16::npos, prevent_inline_autocomplete,
+                    expected_urls, can_inline_top_result,
+                    expected_fill_into_edit, expected_autocompletion);
+}
 
-void HistoryQuickProviderTest::RunTest(const base::string16 text,
-                                       bool prevent_inline_autocomplete,
-                                       std::vector<std::string> expected_urls,
-                                       bool can_inline_top_result,
-                                       base::string16 expected_fill_into_edit,
-                                       base::string16 expected_autocompletion) {
+void HistoryQuickProviderTest::RunTestWithCursor(
+    const base::string16 text,
+    const size_t cursor_position,
+    bool prevent_inline_autocomplete,
+    std::vector<std::string> expected_urls,
+    bool can_inline_top_result,
+    base::string16 expected_fill_into_edit,
+    base::string16 expected_autocompletion) {
   SCOPED_TRACE(text);  // Minimal hint to query being run.
   base::MessageLoop::current()->RunUntilIdle();
-  AutocompleteInput input(text, base::string16::npos, base::string16(),
+  AutocompleteInput input(text, cursor_position, base::string16(),
                           GURL(), metrics::OmniboxEventProto::INVALID_SPEC,
-                          prevent_inline_autocomplete, false, true, true);
+                          prevent_inline_autocomplete, false, true, true,
+                          ChromeAutocompleteSchemeClassifier(profile_.get()));
   provider_->Start(input, false);
   EXPECT_TRUE(provider_->done());
 
@@ -317,6 +343,24 @@ TEST_F(HistoryQuickProviderTest, SimpleSingleMatch) {
   RunTest(ASCIIToUTF16("slashdot"), false, expected_urls, true,
           ASCIIToUTF16("slashdot.org/favorite_page.html"),
                   ASCIIToUTF16(".org/favorite_page.html"));
+}
+
+TEST_F(HistoryQuickProviderTest, SingleMatchWithCursor) {
+  std::vector<std::string> expected_urls;
+  expected_urls.push_back("http://slashdot.org/favorite_page.html");
+  // With cursor after "slash", we should retrieve the desired result but it
+  // should not be allowed to be the default match.
+  RunTestWithCursor(ASCIIToUTF16("slashfavorite_page.html"), 5, false,
+                    expected_urls, false,
+                    ASCIIToUTF16("slashdot.org/favorite_page.html"),
+                    base::string16());
+  // If the cursor is in the middle of a valid URL suggestion, it should be
+  // allowed to be the default match.  The inline completion will be empty
+  // though as no completion is necessary.
+  RunTestWithCursor(ASCIIToUTF16("slashdot.org/favorite_page.html"), 5, false,
+                    expected_urls, true,
+                    ASCIIToUTF16("slashdot.org/favorite_page.html"),
+                    base::string16());
 }
 
 TEST_F(HistoryQuickProviderTest, WordBoundariesWithPunctuationMatch) {

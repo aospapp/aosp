@@ -8,21 +8,21 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/ui/sync/one_click_signin_helper.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/infobars/core/infobar.h"
 #include "components/password_manager/core/browser/password_form_manager.h"
 #include "components/signin/core/common/profile_management_switches.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "google_apis/gaia/gaia_urls.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
 // static
 void SavePasswordInfoBarDelegate::Create(
     content::WebContents* web_contents,
-    password_manager::PasswordFormManager* form_to_save,
+    scoped_ptr<password_manager::PasswordFormManager> form_to_save,
     const std::string& uma_histogram_suffix) {
 #if defined(ENABLE_ONE_CLICK_SIGNIN)
   // Don't show the password manager infobar if this form is for a google
@@ -46,7 +46,7 @@ void SavePasswordInfoBarDelegate::Create(
   InfoBarService::FromWebContents(web_contents)->AddInfoBar(
       SavePasswordInfoBarDelegate::CreateInfoBar(
           scoped_ptr<SavePasswordInfoBarDelegate>(
-              new SavePasswordInfoBarDelegate(form_to_save,
+              new SavePasswordInfoBarDelegate(form_to_save.Pass(),
                                               uma_histogram_suffix))));
 }
 
@@ -82,10 +82,10 @@ void SavePasswordInfoBarDelegate::SetUseAdditionalPasswordAuthentication(
 }
 
 SavePasswordInfoBarDelegate::SavePasswordInfoBarDelegate(
-    password_manager::PasswordFormManager* form_to_save,
+    scoped_ptr<password_manager::PasswordFormManager> form_to_save,
     const std::string& uma_histogram_suffix)
     : ConfirmInfoBarDelegate(),
-      form_to_save_(form_to_save),
+      form_to_save_(form_to_save.Pass()),
       infobar_response_(password_manager::metrics_util::NO_RESPONSE),
       uma_histogram_suffix_(uma_histogram_suffix) {
   if (!uma_histogram_suffix_.empty()) {

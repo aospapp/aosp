@@ -10,12 +10,14 @@
 #include "base/strings/string_util.h"
 #include "base/values.h"
 #include "content/public/common/url_constants.h"
+#include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_view.h"
 #include "content/public/renderer/v8_value_converter.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_api.h"
 #include "extensions/common/extension_urls.h"
 #include "extensions/common/features/base_feature_provider.h"
+#include "gin/per_context_data.h"
 #include "third_party/WebKit/public/web/WebDataSource.h"
 #include "third_party/WebKit/public/web/WebDocument.h"
 #include "third_party/WebKit/public/web/WebFrame.h"
@@ -28,25 +30,62 @@ using content::V8ValueConverter;
 
 namespace extensions {
 
+namespace {
+
+std::string GetContextTypeDescriptionString(Feature::Context context_type) {
+  switch (context_type) {
+    case Feature::UNSPECIFIED_CONTEXT:
+      return "UNSPECIFIED";
+    case Feature::BLESSED_EXTENSION_CONTEXT:
+      return "BLESSED_EXTENSION";
+    case Feature::UNBLESSED_EXTENSION_CONTEXT:
+      return "UNBLESSED_EXTENSION";
+    case Feature::CONTENT_SCRIPT_CONTEXT:
+      return "CONTENT_SCRIPT";
+    case Feature::WEB_PAGE_CONTEXT:
+      return "WEB_PAGE";
+    case Feature::BLESSED_WEB_PAGE_CONTEXT:
+      return "BLESSED_WEB_PAGE";
+    case Feature::WEBUI_CONTEXT:
+      return "WEBUI";
+  }
+  NOTREACHED();
+  return std::string();
+}
+
+}  // namespace
+
 ScriptContext::ScriptContext(const v8::Handle<v8::Context>& v8_context,
                              blink::WebFrame* web_frame,
                              const Extension* extension,
-                             Feature::Context context_type)
+                             Feature::Context context_type,
+                             const Extension* effective_extension,
+                             Feature::Context effective_context_type)
     : v8_context_(v8_context),
       web_frame_(web_frame),
       extension_(extension),
       context_type_(context_type),
+      effective_extension_(effective_extension),
+      effective_context_type_(effective_context_type),
       safe_builtins_(this),
       isolate_(v8_context->GetIsolate()) {
   VLOG(1) << "Created context:\n"
           << "  extension id: " << GetExtensionID() << "\n"
           << "  frame:        " << web_frame_ << "\n"
-          << "  context type: " << GetContextTypeDescription();
+          << "  URL:          " << GetURL() << "\n"
+          << "  context type: " << GetContextTypeDescription() << "\n"
+          << "  effective extension id: "
+          << (effective_extension_.get() ? effective_extension_->id() : "")
+          << "  effective context type: "
+          << GetEffectiveContextTypeDescription();
+  gin::PerContextData::From(v8_context)->set_runner(this);
 }
 
 ScriptContext::~ScriptContext() {
   VLOG(1) << "Destroyed context for extension\n"
-          << "  extension id: " << GetExtensionID();
+          << "  extension id: " << GetExtensionID() << "\n"
+          << "  effective extension id: "
+          << (effective_extension_.get() ? effective_extension_->id() : "");
   Invalidate();
 }
 
@@ -66,8 +105,13 @@ const std::string& ScriptContext::GetExtensionID() const {
 content::RenderView* ScriptContext::GetRenderView() const {
   if (web_frame_ && web_frame_->view())
     return content::RenderView::FromWebView(web_frame_->view());
-  else
-    return NULL;
+  return NULL;
+}
+
+content::RenderFrame* ScriptContext::GetRenderFrame() const {
+  if (web_frame_)
+    return content::RenderFrame::FromWebFrame(web_frame_);
+  return NULL;
 }
 
 v8::Local<v8::Value> ScriptContext::CallFunction(
@@ -118,26 +162,17 @@ void ScriptContext::DispatchEvent(const char* event_name,
 }
 
 void ScriptContext::DispatchOnUnloadEvent() {
+  v8::HandleScope handle_scope(isolate());
+  v8::Context::Scope context_scope(v8_context());
   module_system_->CallModuleMethod("unload_event", "dispatch");
 }
 
 std::string ScriptContext::GetContextTypeDescription() {
-  switch (context_type_) {
-    case Feature::UNSPECIFIED_CONTEXT:
-      return "UNSPECIFIED";
-    case Feature::BLESSED_EXTENSION_CONTEXT:
-      return "BLESSED_EXTENSION";
-    case Feature::UNBLESSED_EXTENSION_CONTEXT:
-      return "UNBLESSED_EXTENSION";
-    case Feature::CONTENT_SCRIPT_CONTEXT:
-      return "CONTENT_SCRIPT";
-    case Feature::WEB_PAGE_CONTEXT:
-      return "WEB_PAGE";
-    case Feature::BLESSED_WEB_PAGE_CONTEXT:
-      return "BLESSED_WEB_PAGE";
-  }
-  NOTREACHED();
-  return std::string();
+  return GetContextTypeDescriptionString(context_type_);
+}
+
+std::string ScriptContext::GetEffectiveContextTypeDescription() {
+  return GetContextTypeDescriptionString(effective_context_type_);
 }
 
 GURL ScriptContext::GetURL() const {
@@ -162,8 +197,7 @@ GURL ScriptContext::GetDataSourceURLForFrame(const blink::WebFrame* frame) {
   blink::WebDataSource* data_source = frame->provisionalDataSource()
                                           ? frame->provisionalDataSource()
                                           : frame->dataSource();
-  CHECK(data_source);
-  return GURL(data_source->request().url());
+  return data_source ? GURL(data_source->request().url()) : GURL();
 }
 
 // static
@@ -182,10 +216,10 @@ GURL ScriptContext::GetEffectiveDocumentURL(const blink::WebFrame* frame,
   const blink::WebFrame* parent = frame;
   do {
     parent = parent->parent() ? parent->parent() : parent->opener();
-  } while (parent != NULL &&
+  } while (parent != NULL && !parent->document().isNull() &&
            GURL(parent->document().url()).SchemeIs(url::kAboutScheme));
 
-  if (parent) {
+  if (parent && !parent->document().isNull()) {
     // Only return the parent URL if the frame can access it.
     const blink::WebDocument& parent_document = parent->document();
     if (frame->document().securityOrigin().canAccess(
@@ -219,6 +253,23 @@ void ScriptContext::OnResponseReceived(const std::string& name,
   // string if a validation error has occured.
   DCHECK(retval.IsEmpty() || retval->IsUndefined())
       << *v8::String::Utf8Value(retval);
+}
+
+void ScriptContext::Run(const std::string& source,
+                        const std::string& resource_name) {
+  module_system_->RunString(source, resource_name);
+}
+
+v8::Handle<v8::Value> ScriptContext::Call(v8::Handle<v8::Function> function,
+                                          v8::Handle<v8::Value> receiver,
+                                          int argc,
+                                          v8::Handle<v8::Value> argv[]) {
+  return CallFunction(function, argc, argv);
+}
+
+gin::ContextHolder* ScriptContext::GetContextHolder() {
+  v8::HandleScope handle_scope(isolate());
+  return gin::PerContextData::From(v8_context())->context_holder();
 }
 
 }  // namespace extensions

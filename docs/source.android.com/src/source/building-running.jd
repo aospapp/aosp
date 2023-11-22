@@ -162,15 +162,13 @@ Please follow the machine setup instructions at
     https://source.android.com/source/download.html
 ************************************************************
 </code></pre>
-<p>This may be caused by</p>
+<p>This may be caused by:</p>
 <ul>
 <li>
-<p>failing to install the correct JDK as specified in <a href="initializing.html">Initializing the Build Environment</a>.</p>
+<p>Failing to install the correct JDK as specified in <a href="initializing.html">Initializing the Build Environment</a>.</p>
 </li>
 <li>
-<p>another JDK that you previously installed appearing in your path.  You can remove the offending JDK from your path with:</p>
-<pre><code>$ export PATH=${PATH/\/path\/to\/jdk\/dir:/}
-</code></pre>
+<p>Another JDK previously installed appearing in your path. Prepend the correct JDK to the beginning of your PATH or remove the problematic JDK.</p>
 </li>
 </ul>
 <h3 id="python-version-3">Python Version 3</h3>

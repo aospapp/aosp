@@ -22,6 +22,10 @@ class EventTestApi {
     event_->time_stamp_ = time_stamp;
   }
 
+  void set_source_device_id(int source_device_id) {
+    event_->source_device_id_ = source_device_id;
+  }
+
  private:
   EventTestApi();
 
@@ -45,6 +49,23 @@ class LocatedEventTestApi : public EventTestApi {
   LocatedEvent* located_event_;
 
   DISALLOW_COPY_AND_ASSIGN(LocatedEventTestApi);
+};
+
+class KeyEventTestApi : public EventTestApi {
+ public:
+  explicit KeyEventTestApi(KeyEvent* key_event);
+  virtual ~KeyEventTestApi();
+
+  void set_is_char(bool is_char) {
+    key_event_->set_is_char(is_char);
+  }
+
+ private:
+  KeyEventTestApi();
+
+  KeyEvent* key_event_;
+
+  DISALLOW_COPY_AND_ASSIGN(KeyEventTestApi);
 };
 
 class EventTargetTestApi {

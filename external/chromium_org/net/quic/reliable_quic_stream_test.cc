@@ -6,7 +6,6 @@
 
 #include "net/quic/quic_ack_notifier.h"
 #include "net/quic/quic_connection.h"
-#include "net/quic/quic_flags.h"
 #include "net/quic/quic_utils.h"
 #include "net/quic/quic_write_blocked_list.h"
 #include "net/quic/spdy_utils.h"
@@ -154,7 +153,7 @@ TEST_F(ReliableQuicStreamTest, WriteAllData) {
   Initialize(kShouldProcessData);
 
   size_t length = 1 + QuicPacketCreator::StreamFramePacketOverhead(
-      connection_->version(), PACKET_8BYTE_CONNECTION_ID, !kIncludeVersion,
+      PACKET_8BYTE_CONNECTION_ID, !kIncludeVersion,
       PACKET_6BYTE_SEQUENCE_NUMBER, 0u, NOT_IN_FEC_GROUP);
   QuicConnectionPeer::GetPacketCreator(connection_)->set_max_packet_length(
       length);
@@ -214,7 +213,7 @@ TEST_F(ReliableQuicStreamTest, WriteOrBufferData) {
 
   EXPECT_FALSE(HasWriteBlockedStreams());
   size_t length = 1 + QuicPacketCreator::StreamFramePacketOverhead(
-      connection_->version(), PACKET_8BYTE_CONNECTION_ID, !kIncludeVersion,
+      PACKET_8BYTE_CONNECTION_ID, !kIncludeVersion,
       PACKET_6BYTE_SEQUENCE_NUMBER, 0u, NOT_IN_FEC_GROUP);
   QuicConnectionPeer::GetPacketCreator(connection_)->set_max_packet_length(
       length);
@@ -249,7 +248,7 @@ TEST_F(ReliableQuicStreamTest, WriteOrBufferDataWithFecProtectAlways) {
 
   EXPECT_FALSE(HasWriteBlockedStreams());
   size_t length = 1 + QuicPacketCreator::StreamFramePacketOverhead(
-      connection_->version(), PACKET_8BYTE_CONNECTION_ID, !kIncludeVersion,
+      PACKET_8BYTE_CONNECTION_ID, !kIncludeVersion,
       PACKET_6BYTE_SEQUENCE_NUMBER, 0u, IN_FEC_GROUP);
   QuicConnectionPeer::GetPacketCreator(connection_)->set_max_packet_length(
       length);
@@ -285,7 +284,7 @@ TEST_F(ReliableQuicStreamTest, WriteOrBufferDataWithFecProtectOptional) {
 
   EXPECT_FALSE(HasWriteBlockedStreams());
   size_t length = 1 + QuicPacketCreator::StreamFramePacketOverhead(
-      connection_->version(), PACKET_8BYTE_CONNECTION_ID, !kIncludeVersion,
+      PACKET_8BYTE_CONNECTION_ID, !kIncludeVersion,
       PACKET_6BYTE_SEQUENCE_NUMBER, 0u, NOT_IN_FEC_GROUP);
   QuicConnectionPeer::GetPacketCreator(connection_)->set_max_packet_length(
       length);
@@ -395,7 +394,6 @@ TEST_F(ReliableQuicStreamTest, OnlySendOneRst) {
 }
 
 TEST_F(ReliableQuicStreamTest, StreamFlowControlMultipleWindowUpdates) {
-  ValueRestore<bool> old_flag(&FLAGS_enable_quic_stream_flow_control_2, true);
   set_initial_flow_control_window_bytes(1000);
 
   Initialize(kShouldProcessData);
@@ -431,7 +429,6 @@ TEST_F(ReliableQuicStreamTest, StreamFlowControlMultipleWindowUpdates) {
 TEST_F(ReliableQuicStreamTest, StreamFlowControlShouldNotBlockInLessThanQ017) {
   // TODO(rjshade): Remove this test when we no longer have any versions <
   //                QUIC_VERSION_17.
-  ValueRestore<bool> old_flag(&FLAGS_enable_quic_stream_flow_control_2, true);
 
   // Make sure we are using a version which does not support flow control.
   QuicVersion kTestQuicVersions[] = {QUIC_VERSION_16};
@@ -473,9 +470,7 @@ TEST_F(ReliableQuicStreamTest, WriteOrBufferDataWithQuicAckNotifier) {
 
   // Set a large flow control send window so this doesn't interfere with test.
   stream_->flow_controller()->UpdateSendWindowOffset(kDataSize + 1);
-  if (FLAGS_enable_quic_connection_flow_control_2) {
-    session_->flow_controller()->UpdateSendWindowOffset(kDataSize + 1);
-  }
+  session_->flow_controller()->UpdateSendWindowOffset(kDataSize + 1);
 
   scoped_refptr<QuicAckNotifier::DelegateInterface> proxy_delegate;
 
@@ -509,7 +504,7 @@ TEST_F(ReliableQuicStreamTest, WriteOrBufferDataWithQuicAckNotifier) {
 
   // The arguments to delegate->OnAckNotification are the sum of the
   // arguments to proxy_delegate OnAckNotification calls.
-  EXPECT_CALL(*delegate, OnAckNotification(111, 222, 333, 444, zero_));
+  EXPECT_CALL(*delegate.get(), OnAckNotification(111, 222, 333, 444, zero_));
   proxy_delegate->OnAckNotification(100, 200, 300, 400, zero_);
 }
 
@@ -528,9 +523,7 @@ TEST_F(ReliableQuicStreamTest, WriteOrBufferDataAckNotificationBeforeFlush) {
 
   // Set a large flow control send window so this doesn't interfere with test.
   stream_->flow_controller()->UpdateSendWindowOffset(kDataSize + 1);
-  if (FLAGS_enable_quic_connection_flow_control_2) {
-    session_->flow_controller()->UpdateSendWindowOffset(kDataSize + 1);
-  }
+  session_->flow_controller()->UpdateSendWindowOffset(kDataSize + 1);
 
   scoped_refptr<QuicAckNotifier::DelegateInterface> proxy_delegate;
 
@@ -552,7 +545,7 @@ TEST_F(ReliableQuicStreamTest, WriteOrBufferDataAckNotificationBeforeFlush) {
   stream_->OnCanWrite();
 
   // Handle the ack for the second write.
-  EXPECT_CALL(*delegate, OnAckNotification(101, 202, 303, 404, zero_));
+  EXPECT_CALL(*delegate.get(), OnAckNotification(101, 202, 303, 404, zero_));
   proxy_delegate->OnAckNotification(100, 200, 300, 400, zero_);
 }
 
@@ -573,7 +566,7 @@ TEST_F(ReliableQuicStreamTest, WriteAndBufferDataWithAckNotiferNoBuffer) {
   EXPECT_FALSE(HasWriteBlockedStreams());
 
   // Handle the ack.
-  EXPECT_CALL(*delegate, OnAckNotification(1, 2, 3, 4, zero_));
+  EXPECT_CALL(*delegate.get(), OnAckNotification(1, 2, 3, 4, zero_));
   proxy_delegate->OnAckNotification(1, 2, 3, 4, zero_);
 }
 
@@ -598,7 +591,7 @@ TEST_F(ReliableQuicStreamTest, BufferOnWriteAndBufferDataWithAckNotifer) {
   stream_->OnCanWrite();
 
   // Handle the ack.
-  EXPECT_CALL(*delegate, OnAckNotification(1, 2, 3, 4, zero_));
+  EXPECT_CALL(*delegate.get(), OnAckNotification(1, 2, 3, 4, zero_));
   proxy_delegate->OnAckNotification(1, 2, 3, 4, zero_);
 }
 
@@ -627,7 +620,7 @@ TEST_F(ReliableQuicStreamTest, WriteAndBufferDataWithAckNotiferOnlyFinRemains) {
 
   // Handle the acks.
   proxy_delegate->OnAckNotification(1, 2, 3, 4, zero_);
-  EXPECT_CALL(*delegate, OnAckNotification(11, 22, 33, 44, zero_));
+  EXPECT_CALL(*delegate.get(), OnAckNotification(11, 22, 33, 44, zero_));
   proxy_delegate->OnAckNotification(10, 20, 30, 40, zero_);
 }
 
@@ -636,11 +629,6 @@ TEST_F(ReliableQuicStreamTest, WriteAndBufferDataWithAckNotiferOnlyFinRemains) {
 // as we check for violation and close the connection early.
 TEST_F(ReliableQuicStreamTest,
        StreamSequencerNeverSeesPacketsViolatingFlowControl) {
-  ValueRestore<bool> old_stream_flag(
-      &FLAGS_enable_quic_stream_flow_control_2, true);
-  ValueRestore<bool> old_connection_flag(
-      &FLAGS_enable_quic_connection_flow_control_2, true);
-
   Initialize(kShouldProcessData);
 
   // Receive a stream frame that violates flow control: the byte offset is
@@ -654,7 +642,7 @@ TEST_F(ReliableQuicStreamTest,
   // Stream should not accept the frame, and the connection should be closed.
   EXPECT_CALL(*connection_,
               SendConnectionClose(QUIC_FLOW_CONTROL_RECEIVED_TOO_MUCH_DATA));
-  EXPECT_FALSE(stream_->OnStreamFrame(frame));
+  stream_->OnStreamFrame(frame);
 }
 
 TEST_F(ReliableQuicStreamTest, FinalByteOffsetFromFin) {

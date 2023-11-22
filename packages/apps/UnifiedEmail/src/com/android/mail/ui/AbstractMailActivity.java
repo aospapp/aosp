@@ -22,6 +22,9 @@ import android.os.Bundle;
 import android.os.StrictMode;
 import android.support.v7.app.ActionBarActivity;
 
+import java.io.FileDescriptor;
+import java.io.PrintWriter;
+
 /**
  * <p>
  * A complete Mail activity instance. This is the toplevel class that creates the views and handles
@@ -38,8 +41,7 @@ public abstract class AbstractMailActivity extends ActionBarActivity implements 
 
     private final UiHandler mUiHandler = new UiHandler();
 
-    // STOPSHIP: ship with false
-    private static final boolean STRICT_MODE = true;
+    private static final boolean STRICT_MODE = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,4 +88,14 @@ public abstract class AbstractMailActivity extends ActionBarActivity implements 
     public Context getActivityContext() {
         return this;
     }
+
+    @Override
+    public void dump(String prefix, FileDescriptor fd, PrintWriter writer, String[] args) {
+        super.dump(prefix, fd, writer, args);
+        // Supplementally dump the contents of the OS LoaderManager and FragmentManager.
+        // Both are still possible to use, and the supportlib dump reads from neither.
+        getLoaderManager().dump(prefix, fd, writer, args);
+        getFragmentManager().dump(prefix, fd, writer, args);
+    }
+
 }

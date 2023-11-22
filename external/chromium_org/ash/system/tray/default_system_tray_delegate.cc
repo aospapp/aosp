@@ -71,19 +71,23 @@ const base::string16 DefaultSystemTrayDelegate::GetEnterpriseMessage() const {
 }
 
 const std::string
-DefaultSystemTrayDelegate::GetLocallyManagedUserManager() const {
+DefaultSystemTrayDelegate::GetSupervisedUserManager() const {
   return std::string();
 }
 
 const base::string16
-DefaultSystemTrayDelegate::GetLocallyManagedUserManagerName()
+DefaultSystemTrayDelegate::GetSupervisedUserManagerName()
     const {
   return base::string16();
 }
 
-const base::string16 DefaultSystemTrayDelegate::GetLocallyManagedUserMessage()
+const base::string16 DefaultSystemTrayDelegate::GetSupervisedUserMessage()
     const {
   return base::string16();
+}
+
+bool DefaultSystemTrayDelegate::IsUserSupervised() const {
+  return false;
 }
 
 bool DefaultSystemTrayDelegate::SystemShouldUpgrade() const {
@@ -124,9 +128,6 @@ bool DefaultSystemTrayDelegate::ShouldShowDisplayNotification() {
   return false;
 }
 
-void DefaultSystemTrayDelegate::ShowDriveSettings() {
-}
-
 void DefaultSystemTrayDelegate::ShowIMESettings() {
 }
 
@@ -145,7 +146,7 @@ void DefaultSystemTrayDelegate::ShowPublicAccountInfo() {
 void DefaultSystemTrayDelegate::ShowEnterpriseInfo() {
 }
 
-void DefaultSystemTrayDelegate::ShowLocallyManagedUserInfo() {
+void DefaultSystemTrayDelegate::ShowSupervisedUserInfo() {
 }
 
 void DefaultSystemTrayDelegate::ShowUserLogin() {
@@ -205,20 +206,11 @@ void DefaultSystemTrayDelegate::SwitchIME(const std::string& ime_id) {
 void DefaultSystemTrayDelegate::ActivateIMEProperty(const std::string& key) {
 }
 
-void DefaultSystemTrayDelegate::CancelDriveOperation(int32 operation_id) {
-}
-
-void DefaultSystemTrayDelegate::GetDriveOperationStatusList(
-    ash::DriveOperationStatusList*) {
-}
-
 void DefaultSystemTrayDelegate::ShowNetworkConfigure(
-    const std::string& network_id,
-    gfx::NativeWindow parent_window) {
+    const std::string& network_id) {
 }
 
-bool DefaultSystemTrayDelegate::EnrollNetwork(const std::string& network_id,
-                                              gfx::NativeWindow parent_window) {
+bool DefaultSystemTrayDelegate::EnrollNetwork(const std::string& network_id) {
   return true;
 }
 
@@ -285,11 +277,6 @@ int DefaultSystemTrayDelegate::GetSystemTrayMenuWidth() {
 }
 
 void DefaultSystemTrayDelegate::ActiveUserWasChanged() {
-}
-
-bool DefaultSystemTrayDelegate::IsNetworkBehindCaptivePortal(
-    const std::string& /* service_path */) const {
-  return false;
 }
 
 bool DefaultSystemTrayDelegate::IsSearchKeyMappedToCapsLock() {

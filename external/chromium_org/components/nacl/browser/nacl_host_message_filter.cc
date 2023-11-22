@@ -15,6 +15,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "ipc/ipc_platform_file.h"
+#include "native_client/src/public/nacl_file_info.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "ppapi/shared_impl/ppapi_permissions.h"
@@ -48,6 +49,8 @@ ppapi::PpapiPermissions GetPpapiPermissions(uint32 permission_bits,
       content::RenderProcessHost::FromID(render_process_id);
   content::RenderViewHost* view_host =
       content::RenderViewHost::FromID(render_process_id, render_view_id);
+  if (!view_host)
+    return ppapi::PpapiPermissions();
   GURL document_url;
   content::WebContents* contents =
       content::WebContents::FromRenderViewHost(view_host);
@@ -115,8 +118,10 @@ net::HostResolver* NaClHostMessageFilter::GetHostResolver() {
 void NaClHostMessageFilter::OnLaunchNaCl(
     const nacl::NaClLaunchParams& launch_params,
     IPC::Message* reply_msg) {
-  // PNaCl hack
-  if (!launch_params.enable_dyncode_syscalls) {
+  // If we're running llc or ld for the PNaCl translator, we don't need to look
+  // up permissions, and we don't have the right browser state to look up some
+  // of the whitelisting parameters anyway.
+  if (!launch_params.uses_irt) {
     uint32 perms = launch_params.permission_bits & ppapi::PERMISSION_DEV;
     LaunchNaClContinuation(
         launch_params,
@@ -141,8 +146,40 @@ void NaClHostMessageFilter::LaunchNaClContinuation(
     const nacl::NaClLaunchParams& launch_params,
     IPC::Message* reply_msg,
     ppapi::PpapiPermissions permissions) {
+  NaClFileToken nexe_token = {
+      launch_params.nexe_token_lo,  // lo
+      launch_params.nexe_token_hi   // hi
+  };
+
+  base::PlatformFile nexe_file;
+#if defined(OS_WIN)
+  // Duplicate the nexe file handle from the renderer process into the browser
+  // process.
+  if (!::DuplicateHandle(PeerHandle(),
+                         launch_params.nexe_file,
+                         base::GetCurrentProcessHandle(),
+                         &nexe_file,
+                         0,  // Unused, given DUPLICATE_SAME_ACCESS.
+                         FALSE,
+                         DUPLICATE_CLOSE_SOURCE | DUPLICATE_SAME_ACCESS)) {
+    NaClHostMsg_LaunchNaCl::WriteReplyParams(
+        reply_msg,
+        NaClLaunchResult(),
+        std::string("Failed to duplicate nexe file handle"));
+    Send(reply_msg);
+    return;
+  }
+#elif defined(OS_POSIX)
+  nexe_file =
+      IPC::PlatformFileForTransitToPlatformFile(launch_params.nexe_file);
+#else
+#error Unsupported platform.
+#endif
+
   NaClProcessHost* host = new NaClProcessHost(
       GURL(launch_params.manifest_url),
+      base::File(nexe_file),
+      nexe_token,
       permissions,
       launch_params.render_view_id,
       launch_params.permission_bits,
@@ -167,10 +204,10 @@ void NaClHostMessageFilter::LaunchNaClContinuation(
 }
 
 void NaClHostMessageFilter::OnGetReadonlyPnaclFd(
-    const std::string& filename, IPC::Message* reply_msg) {
+    const std::string& filename, bool is_executable, IPC::Message* reply_msg) {
   // This posts a task to another thread, but the renderer will
   // block until the reply is sent.
-  nacl_file_host::GetReadonlyPnaclFd(this, filename, reply_msg);
+  nacl_file_host::GetReadonlyPnaclFd(this, filename, is_executable, reply_msg);
 
   // This is the first message we receive from the renderer once it knows we
   // want to use PNaCl, so start the translation cache initialization here.

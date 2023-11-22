@@ -185,6 +185,11 @@ public class PrintTestRemoteTestRunner implements IRemoteAndroidTestRunner {
     }
 
     @Override
+    public void setTestCollection(boolean b) {
+        throw new UnsupportedOperationException("Test Collection mode is not supported");
+    }
+
+    @Override
     public void setTestSize(TestSize size) {
         addInstrumentationArg(SIZE_ARG_NAME, ""/*size.getRunnerValue()*/);
     }

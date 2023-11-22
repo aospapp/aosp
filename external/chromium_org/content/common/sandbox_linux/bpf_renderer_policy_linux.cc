@@ -11,29 +11,30 @@
 #include "content/common/sandbox_linux/sandbox_linux.h"
 #include "sandbox/linux/seccomp-bpf-helpers/syscall_parameters_restrictions.h"
 #include "sandbox/linux/seccomp-bpf-helpers/syscall_sets.h"
-#include "sandbox/linux/seccomp-bpf/sandbox_bpf_policy.h"
 #include "sandbox/linux/services/linux_syscalls.h"
 
 using sandbox::SyscallSets;
+using sandbox::bpf_dsl::Allow;
+using sandbox::bpf_dsl::Error;
+using sandbox::bpf_dsl::ResultExpr;
 
 namespace content {
 
 RendererProcessPolicy::RendererProcessPolicy() {}
 RendererProcessPolicy::~RendererProcessPolicy() {}
 
-ErrorCode RendererProcessPolicy::EvaluateSyscall(SandboxBPF* sandbox,
-                                                 int sysno) const {
+ResultExpr RendererProcessPolicy::EvaluateSyscall(int sysno) const {
   switch (sysno) {
-    case __NR_ioctl:
-      return sandbox::RestrictIoctl(sandbox);
-    // Allow the system calls below.
     // The baseline policy allows __NR_clock_gettime. Allow
     // clock_getres() for V8. crbug.com/329053.
     case __NR_clock_getres:
+      return sandbox::RestrictClockID();
+    case __NR_ioctl:
+      return sandbox::RestrictIoctl();
+    // Allow the system calls below.
     case __NR_fdatasync:
     case __NR_fsync:
-    case __NR_getpriority:
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__mips__)
     case __NR_getrlimit:
 #endif
 #if defined(__i386__) || defined(__arm__)
@@ -48,16 +49,15 @@ ErrorCode RendererProcessPolicy::EvaluateSyscall(SandboxBPF* sandbox,
     case __NR_sched_getparam:
     case __NR_sched_getscheduler:
     case __NR_sched_setscheduler:
-    case __NR_setpriority:
     case __NR_sysinfo:
     case __NR_times:
     case __NR_uname:
-      return ErrorCode(ErrorCode::ERR_ALLOWED);
+      return Allow();
     case __NR_prlimit64:
-      return ErrorCode(EPERM);  // See crbug.com/160157.
+      return Error(EPERM);  // See crbug.com/160157.
     default:
       // Default on the content baseline policy.
-      return SandboxBPFBasePolicy::EvaluateSyscall(sandbox, sysno);
+      return SandboxBPFBasePolicy::EvaluateSyscall(sysno);
   }
 }
 

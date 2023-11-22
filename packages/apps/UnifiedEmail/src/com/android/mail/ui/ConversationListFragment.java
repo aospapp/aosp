@@ -21,8 +21,10 @@ import android.animation.LayoutTransition;
 import android.app.Activity;
 import android.app.Fragment;
 import android.app.LoaderManager;
+import android.content.Intent;
 import android.content.res.Resources;
 import android.database.DataSetObserver;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Parcelable;
@@ -32,6 +34,7 @@ import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemLongClickListener;
 import android.widget.ListView;
@@ -61,9 +64,11 @@ import com.android.mail.ui.SwipeableListView.ListItemSwipedListener;
 import com.android.mail.ui.SwipeableListView.ListItemsRemovedListener;
 import com.android.mail.ui.SwipeableListView.SwipeListener;
 import com.android.mail.ui.ViewMode.ModeChangeListener;
+import com.android.mail.utils.KeyboardUtils;
 import com.android.mail.utils.LogTag;
 import com.android.mail.utils.LogUtils;
 import com.android.mail.utils.Utils;
+import com.android.mail.utils.ViewUtils;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Collection;
@@ -76,7 +81,8 @@ import static android.view.View.OnKeyListener;
  */
 public final class ConversationListFragment extends Fragment implements
         OnItemLongClickListener, ModeChangeListener, ListItemSwipedListener, OnRefreshListener,
-        SwipeListener, OnKeyListener, AdapterView.OnItemClickListener {
+        SwipeListener, OnKeyListener, AdapterView.OnItemClickListener, View.OnClickListener,
+        AbsListView.OnScrollListener {
     /** Key used to pass data to {@link ConversationListFragment}. */
     private static final String CONVERSATION_LIST_KEY = "conversation-list";
     /** Key used to keep track of the scroll state of the list. */
@@ -133,12 +139,15 @@ public final class ConversationListFragment extends Fragment implements
 
     private ConversationListFooterView mFooterView;
     private ConversationListEmptyView mEmptyView;
+    private View mSecurityHoldView;
+    private TextView mSecurityHoldText;
+    private View mSecurityHoldButton;
     private View mLoadingView;
     private ErrorListener mErrorListener;
     private FolderObserver mFolderObserver;
     private DataSetObserver mConversationCursorObserver;
 
-    private ConversationSelectionSet mSelectedSet;
+    private ConversationCheckedSet mCheckedSet;
     private final AccountObserver mAccountObserver = new AccountObserver() {
         @Override
         public void onChanged(Account newAccount) {
@@ -155,33 +164,61 @@ public final class ConversationListFragment extends Fragment implements
     // True if NO DATA has returned, false if we either partially or fully loaded the data
     private boolean mInitialCursorLoading;
 
-    private @IdRes int mNextFocusLeftId;
+    private @IdRes int mNextFocusStartId;
     // Tracks if a onKey event was initiated from the listview (received ACTION_DOWN before
     // ACTION_UP). If not, the listview only receives ACTION_UP.
     private boolean mKeyInitiatedFromList;
+
+    // Default color id for what background should be while idle
+    private int mDefaultListBackgroundColor;
 
     /** Duration, in milliseconds, of the CAB mode (peek icon) animation. */
     private static long sSelectionModeAnimationDuration = -1;
 
     // Let's ensure that we are only showing one out of the three views at once
     private void showListView() {
+        setupEmptyIcon(false);
         mListView.setVisibility(View.VISIBLE);
         mEmptyView.setVisibility(View.INVISIBLE);
         mLoadingView.setVisibility(View.INVISIBLE);
+        mSecurityHoldView.setVisibility(View.INVISIBLE);
+    }
+
+    private void showSecurityHoldView() {
+        setupEmptyIcon(false);
+        mListView.setVisibility(View.INVISIBLE);
+        mEmptyView.setVisibility(View.INVISIBLE);
+        mLoadingView.setVisibility(View.INVISIBLE);
+        setupSecurityHoldView();
+        mSecurityHoldView.setVisibility(View.VISIBLE);
     }
 
     private void showEmptyView() {
-        mEmptyView.setupEmptyView(
-                mFolder, mViewContext.searchQuery, mListAdapter.getBidiFormatter());
+        // If the callbacks didn't set up the empty icon, then we should show it in the empty view.
+        final boolean shouldShowIcon = !setupEmptyIcon(true);
+        mEmptyView.setupEmptyText(mFolder, mViewContext.searchQuery,
+                mListAdapter.getBidiFormatter(), shouldShowIcon);
         mListView.setVisibility(View.INVISIBLE);
         mEmptyView.setVisibility(View.VISIBLE);
         mLoadingView.setVisibility(View.INVISIBLE);
+        mSecurityHoldView.setVisibility(View.INVISIBLE);
     }
 
     private void showLoadingView() {
+        setupEmptyIcon(false);
         mListView.setVisibility(View.INVISIBLE);
         mEmptyView.setVisibility(View.INVISIBLE);
         mLoadingView.setVisibility(View.VISIBLE);
+        mSecurityHoldView.setVisibility(View.INVISIBLE);
+    }
+
+    private boolean setupEmptyIcon(boolean isEmpty) {
+        return mCallbacks != null && mCallbacks.setupEmptyIconView(mFolder, isEmpty);
+    }
+
+    private void setupSecurityHoldView() {
+        mSecurityHoldText.setText(getString(R.string.security_hold_required_text,
+                mAccount.getDisplayName()));
     }
 
     private final Runnable mLoadingViewRunnable = new FragmentRunnable("LoadingRunnable", this) {
@@ -323,7 +360,7 @@ public final class ConversationListFragment extends Fragment implements
         }
 
         mListAdapter = new AnimatedAdapter(mActivity.getApplicationContext(), conversationCursor,
-                mActivity.getSelectedSet(), mActivity, mListView, specialItemViews);
+                mActivity.getCheckedSet(), mActivity, mListView, specialItemViews);
         mListAdapter.addFooter(mFooterView);
         // Show search result header only if we are in search mode
         final boolean showSearchHeader = ConversationListContext.isSearchResult(mViewContext);
@@ -335,8 +372,8 @@ public final class ConversationListFragment extends Fragment implements
         }
 
         mListView.setAdapter(mListAdapter);
-        mSelectedSet = mActivity.getSelectedSet();
-        mListView.setSelectionSet(mSelectedSet);
+        mCheckedSet = mActivity.getCheckedSet();
+        mListView.setCheckedSet(mCheckedSet);
         mListAdapter.setFooterVisibility(false);
         mFolderObserver = new FolderObserver(){
             @Override
@@ -349,11 +386,23 @@ public final class ConversationListFragment extends Fragment implements
         mUpdater = mActivity.getConversationUpdater();
         mUpdater.registerConversationListObserver(mConversationCursorObserver);
         mTabletDevice = Utils.useTabletUI(mActivity.getApplicationContext().getResources());
+
+        // Shadow mods to TL require background changes and scroll listening to avoid overdraw
+        mDefaultListBackgroundColor =
+                getResources().getColor(R.color.conversation_list_background_color);
+        getView().setBackgroundColor(mDefaultListBackgroundColor);
+        mListView.setOnScrollListener(this);
+
         // The onViewModeChanged callback doesn't get called when the mode
         // object is created, so
         // force setting the mode manually this time around.
         onViewModeChanged(mActivity.getViewMode().getMode());
         mActivity.getViewMode().addListener(this);
+        if (mActivity.getListHandler().shouldPreventListSwipesEntirely()) {
+            mListView.preventSwipesEntirely();
+        } else {
+            mListView.stopPreventingSwipes();
+        }
 
         if (mActivity.isFinishing()) {
             // Activity is finishing, just bail.
@@ -442,6 +491,14 @@ public final class ConversationListFragment extends Fragment implements
         sb.append(mListAdapter);
         sb.append(" folder=");
         sb.append(mViewContext.folder);
+        if (mListView != null) {
+            sb.append(" selectedPos=");
+            sb.append(mListView.getSelectedConversationPosDebug());
+            sb.append(" listSelectedPos=");
+            sb.append(mListView.getSelectedItemPosition());
+            sb.append(" isListInTouchMode=");
+            sb.append(mListView.isInTouchMode());
+        }
         sb.append("}");
         return sb.toString();
     }
@@ -450,9 +507,11 @@ public final class ConversationListFragment extends Fragment implements
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedState) {
         View rootView = inflater.inflate(R.layout.conversation_list, null);
         mEmptyView = (ConversationListEmptyView) rootView.findViewById(R.id.empty_view);
-        mLoadingView = rootView.findViewById(R.id.background_view);
-        mLoadingView.setVisibility(View.GONE);
-        mLoadingView.findViewById(R.id.loading_progress).setVisibility(View.VISIBLE);
+        mSecurityHoldView = rootView.findViewById(R.id.security_hold_view);
+        mSecurityHoldText = (TextView) rootView.findViewById(R.id.security_hold_text);
+        mSecurityHoldButton = rootView.findViewById(R.id.security_hold_button);
+        mSecurityHoldButton.setOnClickListener(this);
+        mLoadingView = rootView.findViewById(R.id.conversation_list_loading_view);
         mListView = (SwipeableListView) rootView.findViewById(R.id.conversation_list_view);
         mListView.setHeaderDividersEnabled(false);
         mListView.setOnItemLongClickListener(this);
@@ -461,9 +520,12 @@ public final class ConversationListFragment extends Fragment implements
         mListView.setSwipeListener(this);
         mListView.setOnKeyListener(this);
         mListView.setOnItemClickListener(this);
-        if (mNextFocusLeftId != 0) {
-            mListView.setNextFocusLeftId(mNextFocusLeftId);
+
+        // For tablets, the default left focus is the mini-drawer
+        if (mTabletDevice && mNextFocusStartId == 0) {
+            mNextFocusStartId = R.id.mini_drawer;
         }
+        setNextFocusStartOnList();
 
         // enable animateOnLayout (equivalent of setLayoutTransition) only for >=JB (b/14302062)
         if (Utils.isRunningJellybeanOrLater()) {
@@ -572,7 +634,7 @@ public final class ConversationListFragment extends Fragment implements
         if (!(view instanceof ConversationItemView)) {
             return false;
         }
-        return ((ConversationItemView) view).toggleSelectedStateOrBeginDrag();
+        return ((ConversationItemView) view).toggleCheckedState("long_press");
     }
 
     /**
@@ -601,13 +663,13 @@ public final class ConversationListFragment extends Fragment implements
         if (view instanceof ToggleableItem) {
             final boolean showSenderImage =
                     (mAccount.settings.convListIcon == ConversationListIcon.SENDER_IMAGE);
-            final boolean inCabMode = !mSelectedSet.isEmpty();
+            final boolean inCabMode = !mCheckedSet.isEmpty();
             if (!showSenderImage && inCabMode) {
-                ((ToggleableItem) view).toggleSelectedState();
+                ((ToggleableItem) view).toggleCheckedState();
             } else {
                 if (inCabMode) {
                     // this is a peek.
-                    Analytics.getInstance().sendEvent("peek", null, null, mSelectedSet.size());
+                    Analytics.getInstance().sendEvent("peek", null, null, mCheckedSet.size());
                 }
                 AnalyticsTimer.getInstance().trackStart(AnalyticsTimer.OPEN_CONV_VIEW_FROM_LIST);
                 viewConversation(position);
@@ -626,25 +688,41 @@ public final class ConversationListFragment extends Fragment implements
 
     @Override
     public boolean onKey(View view, int keyCode, KeyEvent keyEvent) {
-        SwipeableListView list = (SwipeableListView) view;
-        // Don't need to handle ENTER because it's auto-handled as a "click".
-        if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
-            if (keyEvent.getAction() == KeyEvent.ACTION_UP) {
-                if (mKeyInitiatedFromList) {
-                    onListItemSelected(list.getSelectedView(), list.getSelectedItemPosition());
+        if (view instanceof  SwipeableListView) {
+            SwipeableListView list = (SwipeableListView) view;
+            // Don't need to handle ENTER because it's auto-handled as a "click".
+            if (KeyboardUtils.isKeycodeDirectionEnd(keyCode, ViewUtils.isViewRtl(list))) {
+                if (keyEvent.getAction() == KeyEvent.ACTION_UP) {
+                    if (mKeyInitiatedFromList) {
+                        int currentPos = list.getSelectedItemPosition();
+                        if (currentPos < 0) {
+                            // Find the activated item if the focused item is non-existent.
+                            // This can happen when the user transitions from touch mode.
+                            currentPos = list.getCheckedItemPosition();
+                        }
+                        if (currentPos >= 0) {
+                            // We don't use onListItemSelected because right arrow should always
+                            // view the conversation even in CAB/no_sender_image mode.
+                            viewConversation(currentPos);
+                            commitDestructiveActions(Utils.useTabletUI(
+                                    mActivity.getActivityContext().getResources()));
+                        }
+                    }
+                    mKeyInitiatedFromList = false;
+                } else if (keyEvent.getAction() == KeyEvent.ACTION_DOWN) {
+                    mKeyInitiatedFromList = true;
                 }
-                mKeyInitiatedFromList = false;
-            } else if (keyEvent.getAction() == KeyEvent.ACTION_DOWN) {
-                mKeyInitiatedFromList = true;
-            }
-            return true;
-        } else if (keyEvent.getAction() == KeyEvent.ACTION_UP) {
-            if (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                return true;
+            } else if ((keyCode == KeyEvent.KEYCODE_DPAD_UP ||
+                    keyCode == KeyEvent.KEYCODE_DPAD_DOWN) &&
+                    keyEvent.getAction() == KeyEvent.ACTION_UP) {
                 final int position = list.getSelectedItemPosition();
-                final Object item = getAnimatedAdapter().getItem(position);
-                if (item != null && item instanceof ConversationCursor) {
-                    final Conversation conv = ((ConversationCursor) item).getConversation();
-                    mCallbacks.onConversationFocused(conv);
+                if (position >= 0) {
+                    final Object item = getAnimatedAdapter().getItem(position);
+                    if (item != null && item instanceof ConversationCursor) {
+                        final Conversation conv = ((ConversationCursor) item).getConversation();
+                        mCallbacks.onConversationFocused(conv);
+                    }
                 }
             }
         }
@@ -669,14 +747,14 @@ public final class ConversationListFragment extends Fragment implements
             restoreLastScrolledPosition();
         }
 
-        mSelectedSet.addObserver(mConversationSetObserver);
+        mCheckedSet.addObserver(mConversationSetObserver);
     }
 
     @Override
     public void onPause() {
         super.onPause();
 
-        mSelectedSet.removeObserver(mConversationSetObserver);
+        mCheckedSet.removeObserver(mConversationSetObserver);
 
         saveLastScrolledPosition();
     }
@@ -711,21 +789,9 @@ public final class ConversationListFragment extends Fragment implements
     public void onViewModeChanged(int newMode) {
         if (mTabletDevice) {
             if (ViewMode.isListMode(newMode)) {
-                // There are no selected conversations when in conversation list mode.
+                // There are no checked conversations when in conversation list mode.
                 clearChoicesAndActivated();
             }
-        }
-        if (mFooterView != null) {
-            mFooterView.onViewModeChanged(newMode);
-        }
-
-        // Set default navigation
-        if (ViewMode.isListMode(newMode)) {
-            mListView.setNextFocusRightId(R.id.conversation_list_view);
-            mListView.requestFocus();
-        } else if (ViewMode.isConversationMode(newMode)) {
-            // This would only happen in two_pane
-            mListView.setNextFocusRightId(R.id.conversation_pager);
         }
     }
 
@@ -741,10 +807,10 @@ public final class ConversationListFragment extends Fragment implements
         return isScrolling;
     }
 
-    private void clearChoicesAndActivated() {
-        final int currentSelected = mListView.getCheckedItemPosition();
-        if (currentSelected != ListView.INVALID_POSITION) {
-            mListView.setItemChecked(mListView.getCheckedItemPosition(), false);
+    protected void clearChoicesAndActivated() {
+        final int currentChecked = mListView.getCheckedItemPosition();
+        if (currentChecked != ListView.INVALID_POSITION) {
+            mListView.setItemChecked(currentChecked, false);
         }
     }
 
@@ -783,53 +849,88 @@ public final class ConversationListFragment extends Fragment implements
     private void viewConversation(final int position) {
         LogUtils.d(LOG_TAG, "ConversationListFragment.viewConversation(%d)", position);
 
-        final ConversationCursor cursor =
-                (ConversationCursor) getAnimatedAdapter().getItem(position);
-
-        if (cursor == null) {
-            LogUtils.e(LOG_TAG,
-                    "unable to open conv at cursor pos=%s cursor=%s getPositionOffset=%s",
-                    position, cursor, getAnimatedAdapter().getPositionOffset(position));
-            return;
-        }
-
-        final Conversation conv = cursor.getConversation();
+        final Object item = getAnimatedAdapter().getItem(position);
+        if (item != null && item instanceof ConversationCursor) {
+            final ConversationCursor cursor = (ConversationCursor) item;
+            final Conversation conv = cursor.getConversation();
         /*
          * The cursor position may be different than the position method parameter because of
          * special views in the list.
          */
-        conv.position = cursor.getPosition();
-        setSelected(conv.position, true);
-        mCallbacks.onConversationSelected(conv, false /* inLoaderCallbacks */);
+            conv.position = cursor.getPosition();
+            setActivated(conv, true);
+            mCallbacks.onConversationSelected(conv, false /* inLoaderCallbacks */);
+        } else {
+            LogUtils.e(LOG_TAG,
+                    "unable to open conv at cursor pos=%s item=%s getPositionOffset=%s",
+                    position, item, getAnimatedAdapter().getPositionOffset(position));
+        }
     }
 
     /**
-     * Sets the selected conversation to the position given here.
-     * @param cursorPosition The position of the conversation in the cursor (as opposed to
-     * in the list)
-     * @param different if the currently selected conversation is different from the one provided
+     * Sets the checked conversation to the position given here.
+     * @param conversation the activated conversation.
+     * @param different if the currently checked conversation is different from the one provided
      * here.  This is a difference in conversations, not a difference in positions. For example, a
      * conversation at position 2 can move to position 4 as a result of new mail.
      */
-    public void setSelected(final int cursorPosition, boolean different) {
-        if (mListView.getChoiceMode() == ListView.CHOICE_MODE_NONE) {
+    public void setActivated(final Conversation conversation, boolean different) {
+        if (mListView.getChoiceMode() == ListView.CHOICE_MODE_NONE || conversation == null) {
             return;
         }
 
-        final int position =
-                cursorPosition + getAnimatedAdapter().getPositionOffset(cursorPosition);
-
-        setRawSelected(position, different);
+        final int cursorPosition = conversation.position;
+        final int position = cursorPosition + mListAdapter.getPositionOffset(cursorPosition);
+        setRawActivated(position, different);
+        setRawSelected(conversation, position);
     }
 
     /**
-     * Sets the selected conversation to the position given here.
+     * Set the selected conversation (used by the framework to indicate current focus in the list).
+     * @param conversation the selected conversation.
+     */
+    public void setSelected(final Conversation conversation) {
+        if (mListView.getChoiceMode() == ListView.CHOICE_MODE_NONE || conversation == null) {
+            return;
+        }
+
+        final int cursorPosition = conversation.position;
+        final int position = cursorPosition + mListAdapter.getPositionOffset(cursorPosition);
+        setRawSelected(conversation, position);
+    }
+
+    /**
+     * Set the selected conversation (used by the framework to indicate current focus in the list).
      * @param position The position of the item in the list
-     * @param different if the currently selected conversation is different from the one provided
+     */
+    private void setRawSelected(Conversation conversation, final int position) {
+        final View selectedView = mListView.getChildAt(
+                position - mListView.getFirstVisiblePosition());
+        // Don't do anything if the view is already selected.
+        if (!(selectedView != null && selectedView.isSelected())) {
+            final int firstVisible = mListView.getFirstVisiblePosition();
+            final int lastVisible = mListView.getLastVisiblePosition();
+            // Check if the view is off the screen
+            if (selectedView == null || position < firstVisible || position > lastVisible) {
+                mListView.setSelection(position);
+            } else {
+                // If the view is on screen, we call setSelectionFromTop with a top offset. This
+                // prevents the list from stupidly scrolling the item to the top because
+                // setSelection calls setSelectionFromTop with y = 0.
+                mListView.setSelectionFromTop(position, selectedView.getTop());
+            }
+            mListView.setSelectedConversation(conversation);
+        }
+    }
+
+    /**
+     * Sets the activated conversation to the position given here.
+     * @param position The position of the item in the list
+     * @param different if the currently activated conversation is different from the one provided
      * here.  This is a difference in conversations, not a difference in positions. For example, a
      * conversation at position 2 can move to position 4 as a result of new mail.
      */
-    public void setRawSelected(final int position, final boolean different) {
+    public void setRawActivated(final int position, final boolean different) {
         if (mListView.getChoiceMode() == ListView.CHOICE_MODE_NONE) {
             return;
         }
@@ -837,6 +938,8 @@ public final class ConversationListFragment extends Fragment implements
         if (different) {
             mListView.smoothScrollToPosition(position);
         }
+        // Internally setItemChecked will set the activated bit if the item does not implement
+        // the Checkable interface. We use checked state to indicated CAB selection mode.
         mListView.setItemChecked(position, true);
     }
 
@@ -945,8 +1048,9 @@ public final class ConversationListFragment extends Fragment implements
 
         // Even though cursor might be empty, the list adapter might have teasers/footers.
         // So we check the list adapter count if the cursor is fully/partially loaded.
-        if (cursor != null && ConversationCursor.isCursorReadyToShow(cursor) &&
-                mListAdapter.getCount() == 0) {
+        if (mAccount.securityHold != 0) {
+            showSecurityHoldView();
+        } else if (mListAdapter.getCount() == 0) {
             showEmptyView();
         } else {
             showListView();
@@ -1007,7 +1111,7 @@ public final class ConversationListFragment extends Fragment implements
     }
 
     /**
-     * Changes the conversation cursor in the list and sets selected position if none is set.
+     * Changes the conversation cursor in the list and sets checked position if none is set.
      */
     private void onCursorUpdated() {
         if (mCallbacks == null || mListAdapter == null) {
@@ -1043,13 +1147,14 @@ public final class ConversationListFragment extends Fragment implements
             }
         }
 
-        // If a current conversation is available, and none is selected in the list, then ask
+        // If a current conversation is available, and none is activated in the list, then ask
         // the list to select the current conversation.
         final Conversation conv = mCallbacks.getCurrentConversation();
-        if (conv != null) {
+        final boolean currentConvIsPeeking = mCallbacks.isCurrentConversationJustPeeking();
+        if (conv != null && !currentConvIsPeeking) {
             if (mListView.getChoiceMode() != ListView.CHOICE_MODE_NONE
                     && mListView.getCheckedItemPosition() == -1) {
-                setSelected(conv.position, true);
+                setActivated(conv, true);
             }
         }
     }
@@ -1094,7 +1199,7 @@ public final class ConversationListFragment extends Fragment implements
 
     private final ConversationSetObserver mConversationSetObserver = new ConversationSetObserver() {
         @Override
-        public void onSetPopulated(final ConversationSelectionSet set) {
+        public void onSetPopulated(final ConversationCheckedSet set) {
             // Disable the swipe to refresh widget.
             mSwipeRefreshWidget.setEnabled(false);
         }
@@ -1105,13 +1210,14 @@ public final class ConversationListFragment extends Fragment implements
         }
 
         @Override
-        public void onSetChanged(final ConversationSelectionSet set) {
+        public void onSetChanged(final ConversationCheckedSet set) {
             // Do nothing
         }
     };
 
     private void saveLastScrolledPosition() {
-        if (mListAdapter.getCursor() == null) {
+        if (mFolder == null || mFolder.conversationListUri == null ||
+                mListAdapter.getCursor() == null) {
             // If you save your scroll position in an empty list, you're gonna have a bad time
             return;
         }
@@ -1211,14 +1317,63 @@ public final class ConversationListFragment extends Fragment implements
         return ConversationCursor.isCursorReadyToShow(getConversationListCursor());
     }
 
-    public ListView getListView() {
+    public SwipeableListView getListView() {
         return mListView;
     }
 
-    public void setNextFocusLeftId(@IdRes int id) {
-        mNextFocusLeftId = id;
-        if (mListView != null) {
-            mListView.setNextFocusLeftId(mNextFocusLeftId);
+    public void setNextFocusStartId(@IdRes int id) {
+        mNextFocusStartId = id;
+        setNextFocusStartOnList();
+    }
+
+    private void setNextFocusStartOnList() {
+        if (mListView != null && mNextFocusStartId != 0) {
+            // Since we manually handle right navigation from the list, let's just always set both
+            // the default left and right navigation to the left id so that whenever the framework
+            // handles one of these directions, it will go to the left side regardless of RTL.
+            mListView.setNextFocusLeftId(mNextFocusStartId);
+            mListView.setNextFocusRightId(mNextFocusStartId);
+        }
+    }
+
+    public void onClick(View view) {
+        if (view == mSecurityHoldButton) {
+            final String accountSecurityUri = mAccount.accountSecurityUri;
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(accountSecurityUri));
+            startActivity(intent);
+        }
+    }
+
+    @Override
+    public final void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount,
+            int totalItemCount) {
+        mListView.onScroll(view, firstVisibleItem, visibleItemCount, totalItemCount);
+    }
+
+    /**
+     * Used with SwipeableListView to change conv_list backgrounds to work around shadow elevation
+     * issues causing and overdraw problems due to static backgrounds.
+     *
+     * @param view
+     * @param scrollState
+     */
+    @Override
+    public void onScrollStateChanged(final AbsListView view, final int scrollState) {
+        mListView.onScrollStateChanged(view, scrollState);
+
+        final View rootView = getView();
+
+        // It seems that the list view is reading the scroll state, but the onCreateView has not
+        // yet finished and the root view is null, so check that
+        if (rootView != null) {
+            // If not scrolling, assign default background - white for tablet, transparent for phone
+            if (scrollState == AbsListView.OnScrollListener.SCROLL_STATE_IDLE) {
+                rootView.setBackgroundColor(mDefaultListBackgroundColor);
+
+                // Otherwise, list is scrolling, so remove background (corresponds to 0 input)
+            } else {
+                rootView.setBackgroundResource(0);
+            }
         }
     }
 }

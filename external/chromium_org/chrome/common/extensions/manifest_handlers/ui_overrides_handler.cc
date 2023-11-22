@@ -8,14 +8,13 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
+#include "chrome/grit/generated_resources.h"
 #include "extensions/common/error_utils.h"
-#include "extensions/common/extension_messages.h"
 #include "extensions/common/feature_switch.h"
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/permissions/manifest_permission.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "extensions/common/permissions/permissions_info.h"
-#include "grit/generated_resources.h"
 #include "ipc/ipc_message.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -63,12 +62,6 @@ class UIOverridesHandler::ManifestPermissionImpl : public ManifestPermission {
         new base::FundamentalValue(override_bookmarks_ui_permission_)).Pass();
   }
 
-  virtual ManifestPermission* Clone() const OVERRIDE {
-    return scoped_ptr<ManifestPermissionImpl>(
-        new ManifestPermissionImpl(
-            override_bookmarks_ui_permission_)).release();
-  }
-
   virtual ManifestPermission* Diff(const ManifestPermission* rhs) const
       OVERRIDE {
     const ManifestPermissionImpl* other =
@@ -97,34 +90,6 @@ class UIOverridesHandler::ManifestPermissionImpl : public ManifestPermission {
     return scoped_ptr<ManifestPermissionImpl>(new ManifestPermissionImpl(
         override_bookmarks_ui_permission_ &&
         other->override_bookmarks_ui_permission_)).release();
-  }
-
-  virtual bool Contains(const ManifestPermission* rhs) const OVERRIDE {
-    const ManifestPermissionImpl* other =
-        static_cast<const ManifestPermissionImpl*>(rhs);
-
-    return !other->override_bookmarks_ui_permission_ ||
-        override_bookmarks_ui_permission_;
-  }
-
-  virtual bool Equal(const ManifestPermission* rhs) const OVERRIDE {
-    const ManifestPermissionImpl* other =
-        static_cast<const ManifestPermissionImpl*>(rhs);
-
-    return override_bookmarks_ui_permission_ ==
-        other->override_bookmarks_ui_permission_;
-  }
-
-  virtual void Write(IPC::Message* m) const OVERRIDE {
-    IPC::WriteParam(m, override_bookmarks_ui_permission_);
-  }
-
-  virtual bool Read(const IPC::Message* m, PickleIterator* iter) OVERRIDE {
-    return IPC::ReadParam(m, iter, &override_bookmarks_ui_permission_);
-  }
-
-  virtual void Log(std::string* log) const OVERRIDE {
-    IPC::LogParam(override_bookmarks_ui_permission_, log);
   }
 
  private:

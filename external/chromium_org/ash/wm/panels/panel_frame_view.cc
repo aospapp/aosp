@@ -7,9 +7,7 @@
 #include "ash/frame/caption_buttons/frame_caption_button_container_view.h"
 #include "ash/frame/default_header_painter.h"
 #include "ash/frame/frame_border_hit_test_controller.h"
-#include "grit/ash_resources.h"
 #include "ui/base/hit_test.h"
-#include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/canvas.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/widget/widget.h"
@@ -45,12 +43,13 @@ void PanelFrameView::InitHeaderPainter() {
       FrameCaptionButtonContainerView::MINIMIZE_ALLOWED);
   AddChildView(caption_button_container_);
 
+  header_painter_->Init(frame_, this, caption_button_container_);
+
   if (frame_->widget_delegate()->ShouldShowWindowIcon()) {
     window_icon_ = new views::ImageView();
     AddChildView(window_icon_);
+    header_painter_->UpdateLeftHeaderView(window_icon_);
   }
-
-  header_painter_->Init(frame_, this, window_icon_, caption_button_container_);
 }
 
 int PanelFrameView::NonClientTopBorderHeight() const {
@@ -96,6 +95,9 @@ void PanelFrameView::UpdateWindowTitle() {
   if (!header_painter_)
     return;
   header_painter_->SchedulePaintForTitle();
+}
+
+void PanelFrameView::SizeConstraintsChanged() {
 }
 
 int PanelFrameView::NonClientHitTest(const gfx::Point& point) {

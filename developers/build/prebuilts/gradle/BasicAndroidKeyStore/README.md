@@ -1,25 +1,35 @@
 Android BasicAndroidKeyStore Sample
-==============================
+===================================
 
-Welcome to the <b>Basic Android Key Store</b> sample!
+An advanced sample displaying the creation and usage of data integrity mechanisms
 
-This sample demonstrates how to use the Android Key Store to safely create and store
-encryption keys that only your application can access.You can also sign data
-using those keys.
+Introduction
+------------
 
-To create a new KeyPair, click "Create".
+This sample demonstrates how to use the Android [KeyStore][1] to safely create and store
+encryption keys that only your application can access.
 
-To sign some data using a KeyPair, click "Sign".
+A [KeyPair][2] consisting of a [PrivateKey][3] and a [PublicKey][4] is being generated.
+The private key then is being used to sign and verify a String.
 
-To verify the data using the signature provided, click "Verify".
+Next to that appropriate exception handling for potential errors is being displayed.
 
+[1]: https://developer.android.com/reference/java/security/KeyStore.html
+[2]: https://developer.android.com/reference/java/security/KeyPair.html
+[3]: https://developer.android.com/reference/java/security/PrivateKey.html
+[4]: https://developer.android.com/reference/java/security/PublicKey.html
 
 Pre-requisites
 --------------
 
-- Android SDK v20
-- Android Build Tools v20
+- Android SDK v21
+- Android Build Tools v21.1.1
 - Android Support Repository
+
+Screenshots
+-------------
+
+<img src="screenshots/screenshot1.png" height="400" alt="Screenshot"/> <img src="screenshots/screenshot2.png" height="400" alt="Screenshot"/> <img src="screenshots/screenshot3.png" height="400" alt="Screenshot"/> <img src="screenshots/screenshot4.png" height="400" alt="Screenshot"/> <img src="screenshots/screenshot5.png" height="400" alt="Screenshot"/> 
 
 Getting Started
 ---------------
@@ -51,7 +61,7 @@ file to you under the Apache License, Version 2.0 (the "License"); you may not
 use this file except in compliance with the License.  You may obtain a copy of
 the License at
 
-  http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS, WITHOUT

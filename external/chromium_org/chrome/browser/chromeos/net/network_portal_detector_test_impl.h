@@ -12,7 +12,7 @@
 #include "base/containers/hash_tables.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/observer_list.h"
-#include "chrome/browser/chromeos/net/network_portal_detector.h"
+#include "chromeos/network/portal_detector/network_portal_detector.h"
 
 namespace chromeos {
 
@@ -21,9 +21,8 @@ class NetworkPortalDetectorTestImpl : public NetworkPortalDetector {
   NetworkPortalDetectorTestImpl();
   virtual ~NetworkPortalDetectorTestImpl();
 
-  void SetDefaultNetworkPathForTesting(const std::string& service_path,
-                                       const std::string& guid);
-  void SetDetectionResultsForTesting(const std::string& service_path,
+  void SetDefaultNetworkForTesting(const std::string& guid);
+  void SetDetectionResultsForTesting(const std::string& guid,
                                      const CaptivePortalState& state);
   void NotifyObserversForTesting();
 

@@ -17,6 +17,7 @@
 
 package com.android.mail.browse;
 
+import android.animation.AnimatorListenerAdapter;
 import android.app.FragmentManager;
 import android.content.Context;
 import android.content.res.TypedArray;
@@ -25,6 +26,7 @@ import android.database.DataSetObserver;
 import android.graphics.drawable.Drawable;
 import android.support.v4.view.ViewPager;
 import android.view.View;
+import android.view.ViewPropertyAnimator;
 
 import com.android.mail.R;
 import com.android.mail.graphics.PageMarginDrawable;
@@ -84,6 +86,9 @@ public class ConversationPagerController {
      */
     private static final boolean ENABLE_SINGLETON_INITIAL_LOAD = false;
 
+    /** Duration of pager.show(...)'s animation */
+    private static final int SHOW_ANIMATION_DURATION = 300;
+
     public ConversationPagerController(RestrictedActivity activity,
             ActivityController controller) {
         mFragmentManager = activity.getFragmentManager();
@@ -92,8 +97,18 @@ public class ConversationPagerController {
         setupPageMargin(activity.getActivityContext());
     }
 
+    /**
+     * Show the conversation pager for the given conversation and animate in if specified along
+     * with given animation listener.
+     * @param account current account
+     * @param folder current folder
+     * @param initialConversation conversation to display initially in pager
+     * @param changeVisibility true if we need to make the pager appear
+     * @param pagerAnimationListener animation listener for pager fade-in, null indicates no
+     *                               animation should take place
+     */
     public void show(Account account, Folder folder, Conversation initialConversation,
-            boolean changeVisibility) {
+            boolean changeVisibility, AnimatorListenerAdapter pagerAnimationListener) {
         mInitialConversationLoading = true;
 
         if (mShown) {
@@ -105,7 +120,7 @@ public class ConversationPagerController {
                     && !mPagerAdapter.isDetached()) {
                 final int pos = mPagerAdapter.getConversationPosition(initialConversation);
                 if (pos >= 0) {
-                    mPager.setCurrentItem(pos);
+                    setCurrentItem(pos);
                     return;
                 }
             }
@@ -114,10 +129,26 @@ public class ConversationPagerController {
         }
 
         if (changeVisibility) {
-            mPager.setVisibility(View.VISIBLE);
+            // If we have a pagerAnimationListener, go ahead and animate
+            if (pagerAnimationListener != null) {
+                // Reset alpha to 0 before animating/making it visible
+                mPager.setAlpha(0f);
+                mPager.setVisibility(View.VISIBLE);
+
+                // Fade in pager to full visibility - this can be cancelled mid-animation
+                mPager.animate().alpha(1f)
+                        .setDuration(SHOW_ANIMATION_DURATION).setListener(pagerAnimationListener);
+
+            // Otherwise, make the pager appear without animation
+            } else {
+                // In case pager animation was cancelled and alpha value was not reset,
+                // ensure that the pager is completely visible for a non-animated pager.show
+                mPager.setAlpha(1f);
+                mPager.setVisibility(View.VISIBLE);
+            }
         }
 
-        mPagerAdapter = new ConversationPagerAdapter(mPager.getResources(), mFragmentManager,
+        mPagerAdapter = new ConversationPagerAdapter(mPager.getContext(), mFragmentManager,
                 account, folder, initialConversation);
         mPagerAdapter.setSingletonMode(ENABLE_SINGLETON_INITIAL_LOAD);
         mPagerAdapter.setActivityController(mActivityController);
@@ -134,7 +165,7 @@ public class ConversationPagerController {
             final int initialPos = mPagerAdapter.getConversationPosition(initialConversation);
             if (initialPos >= 0) {
                 LogUtils.d(LOG_TAG, "*** pager fragment init pos=%d", initialPos);
-                mPager.setCurrentItem(initialPos);
+                setCurrentItem(initialPos);
             }
         }
         Utils.sConvLoadTimer.mark("pager setAdapter");
@@ -142,12 +173,20 @@ public class ConversationPagerController {
         mShown = true;
     }
 
+    /**
+     * Hide the pager and cancel any running/pending animation
+     * @param changeVisibility true if we need to make the pager disappear
+     */
     public void hide(boolean changeVisibility) {
         if (!mShown) {
             LogUtils.d(LOG_TAG, "IN CPC.hide, but already hidden");
             return;
         }
         mShown = false;
+
+        // Cancel any potential animations to avoid listener methods running when they shouldn't
+        mPager.animate().cancel();
+
         if (changeVisibility) {
             mPager.setVisibility(View.GONE);
         }
@@ -157,9 +196,28 @@ public class ConversationPagerController {
         cleanup();
     }
 
+    /**
+     * Part of a delicate dance to kill fragments on restore after rotation if
+     * the device configuration no longer calls for them. You must call
+     * {@link #show(Account, Folder, Conversation, boolean, boolean)} first, and you probably want
+     * to call {@link #hide(boolean)} afterwards to finish the cleanup. See go/xqaxk. Sorry...
+     *
+     */
+    public void killRestoredFragments() {
+        mPagerAdapter.killRestoredFragments();
+    }
+
     // Explicitly set the focus to the conversation pager, specifically the conv overlay.
     public void focusPager() {
         mPager.requestFocus();
+    }
+
+    private void setCurrentItem(int pos) {
+        // disable onPageSelected notifications during this operation. that listener is only there
+        // to update the rest of the app when the user swipes to another page.
+        mPagerAdapter.enablePageChangeListener(false);
+        mPager.setCurrentItem(pos);
+        mPagerAdapter.enablePageChangeListener(true);
     }
 
     public boolean isInitialConversationLoading() {

@@ -81,9 +81,8 @@ void WriteRegistryTree(const RegistryKeyData& data, base::win::RegKey* dest) {
   for (std::map<base::string16, RegistryKeyData>::const_iterator iter =
            data.keys.begin();
        iter != data.keys.end(); ++iter) {
-    WriteRegistryTree(iter->second,
-                      &base::win::RegKey(dest->Handle(), iter->first.c_str(),
-                                         KEY_ALL_ACCESS));
+    base::win::RegKey key(dest->Handle(), iter->first.c_str(), KEY_ALL_ACCESS);
+    WriteRegistryTree(iter->second, &key);
   }
 }
 
@@ -112,13 +111,13 @@ void InitializeRegistryOverridesForTesting(
                                        KEY_READ), &data);
   }
 
-  override_manager->OverrideRegistry(HKEY_LOCAL_MACHINE, L"rlz_temp_hklm");
-  override_manager->OverrideRegistry(HKEY_CURRENT_USER, L"rlz_temp_hkcu");
+  override_manager->OverrideRegistry(HKEY_LOCAL_MACHINE);
+  override_manager->OverrideRegistry(HKEY_CURRENT_USER);
 
   if (do_copy) {
-    WriteRegistryTree(data, &base::win::RegKey(HKEY_LOCAL_MACHINE,
-                                               kHKLMAccessProviders,
-                                               KEY_ALL_ACCESS));
+    base::win::RegKey key(
+        HKEY_LOCAL_MACHINE, kHKLMAccessProviders, KEY_ALL_ACCESS);
+    WriteRegistryTree(data, &key);
   }
 }
 

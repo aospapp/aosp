@@ -4,6 +4,9 @@
 
 #include "chrome/browser/ui/autofill/country_combobox_model.h"
 
+#include <algorithm>
+#include <iterator>
+
 #include "base/logging.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
@@ -14,14 +17,20 @@
 
 // TODO(rouslan): Remove this check. http://crbug.com/337587
 #if defined(ENABLE_AUTOFILL_DIALOG)
-#include "third_party/libaddressinput/chromium/cpp/include/libaddressinput/address_ui.h"
+#include "third_party/libaddressinput/src/cpp/include/libaddressinput/address_ui.h"
 #endif
 
 namespace autofill {
 
-CountryComboboxModel::CountryComboboxModel(
+CountryComboboxModel::CountryComboboxModel() {}
+
+CountryComboboxModel::~CountryComboboxModel() {}
+
+void CountryComboboxModel::SetCountries(
     const PersonalDataManager& manager,
     const base::Callback<bool(const std::string&)>& filter) {
+  countries_.clear();
+
   // Insert the default country at the top as well as in the ordered list.
   std::string default_country_code =
       manager.GetDefaultCountryCodeForNewAddress();
@@ -30,17 +39,30 @@ CountryComboboxModel::CountryComboboxModel(
   const std::string& app_locale = g_browser_process->GetApplicationLocale();
   if (filter.is_null() || filter.Run(default_country_code)) {
     countries_.push_back(new AutofillCountry(default_country_code, app_locale));
-    // The separator item.
+#if !defined(OS_ANDROID)
+    // The separator item. On Android, there are separators after all items, so
+    // this is unnecessary.
     countries_.push_back(NULL);
+#endif
   }
 
   // The sorted list of countries.
-#if defined(ENABLE_AUTOFILL_DIALOG)
-  const std::vector<std::string>& available_countries =
-      ::i18n::addressinput::GetRegionCodes();
-#else
   std::vector<std::string> available_countries;
   AutofillCountry::GetAvailableCountries(&available_countries);
+
+#if defined(ENABLE_AUTOFILL_DIALOG)
+  // Filter out the countries that do not have rules for address input and
+  // validation.
+  const std::vector<std::string>& addressinput_countries =
+      ::i18n::addressinput::GetRegionCodes();
+  std::vector<std::string> filtered_countries;
+  filtered_countries.reserve(available_countries.size());
+  std::set_intersection(available_countries.begin(),
+                        available_countries.end(),
+                        addressinput_countries.begin(),
+                        addressinput_countries.end(),
+                        std::back_inserter(filtered_countries));
+  available_countries.swap(filtered_countries);
 #endif
 
   std::vector<AutofillCountry*> sorted_countries;
@@ -57,8 +79,6 @@ CountryComboboxModel::CountryComboboxModel(
                     sorted_countries.begin(),
                     sorted_countries.end());
 }
-
-CountryComboboxModel::~CountryComboboxModel() {}
 
 int CountryComboboxModel::GetItemCount() const {
   return countries_.size();

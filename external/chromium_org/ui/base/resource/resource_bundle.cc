@@ -9,8 +9,8 @@
 
 #include "base/big_endian.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/metrics/histogram.h"
@@ -20,7 +20,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/lock.h"
 #include "build/build_config.h"
-#include "grit/app_locale_settings.h"
 #include "skia/ext/image_operations.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -35,6 +34,7 @@
 #include "ui/gfx/safe_integer_conversions.h"
 #include "ui/gfx/screen.h"
 #include "ui/gfx/size_conversions.h"
+#include "ui/strings/grit/app_locale_settings.h"
 
 #if defined(OS_ANDROID)
 #include "ui/base/resource/resource_bundle_android.h"
@@ -76,7 +76,7 @@ const char kPakFileSuffix[] = ".pak";
 ResourceBundle* g_shared_instance_ = NULL;
 
 void InitDefaultFontList() {
-#if defined(OS_CHROMEOS)
+#if defined(OS_CHROMEOS) && defined(USE_PANGO)
   ResourceBundle& rb = ResourceBundle::GetSharedInstance();
   std::string font_family = base::UTF16ToUTF8(
       rb.GetLocalizedString(IDS_UI_FONT_FAMILY_CROS));
@@ -164,18 +164,12 @@ class ResourceBundle::ResourceBundleImageSource : public gfx::ImageSkiaSource {
 
 // static
 std::string ResourceBundle::InitSharedInstanceWithLocale(
-    const std::string& pref_locale, Delegate* delegate) {
+    const std::string& pref_locale,
+    Delegate* delegate,
+    LoadResources load_resources) {
   InitSharedInstance(delegate);
-  g_shared_instance_->LoadCommonResources();
-  std::string result = g_shared_instance_->LoadLocaleResources(pref_locale);
-  InitDefaultFontList();
-  return result;
-}
-
-// static
-std::string ResourceBundle::InitSharedInstanceLocaleOnly(
-    const std::string& pref_locale, Delegate* delegate) {
-  InitSharedInstance(delegate);
+  if (load_resources == LOAD_COMMON_RESOURCES)
+    g_shared_instance_->LoadCommonResources();
   std::string result = g_shared_instance_->LoadLocaleResources(pref_locale);
   InitDefaultFontList();
   return result;
@@ -184,14 +178,9 @@ std::string ResourceBundle::InitSharedInstanceLocaleOnly(
 // static
 void ResourceBundle::InitSharedInstanceWithPakFileRegion(
     base::File pak_file,
-    const base::MemoryMappedFile::Region& region,
-    bool should_load_common_resources) {
+    const base::MemoryMappedFile::Region& region) {
   InitSharedInstance(NULL);
-  if (should_load_common_resources)
-    g_shared_instance_->LoadCommonResources();
-
-  scoped_ptr<DataPack> data_pack(
-      new DataPack(SCALE_FACTOR_100P));
+  scoped_ptr<DataPack> data_pack(new DataPack(SCALE_FACTOR_100P));
   if (!data_pack->LoadFromFileRegion(pak_file.Pass(), region)) {
     NOTREACHED() << "failed to load pak file";
     return;
@@ -332,8 +321,10 @@ std::string ResourceBundle::LoadLocaleResources(
 
 void ResourceBundle::LoadTestResources(const base::FilePath& path,
                                        const base::FilePath& locale_path) {
+  DCHECK(!ui::GetSupportedScaleFactors().empty());
+  const ScaleFactor scale_factor(ui::GetSupportedScaleFactors()[0]);
   // Use the given resource pak for both common and localized resources.
-  scoped_ptr<DataPack> data_pack(new DataPack(SCALE_FACTOR_100P));
+  scoped_ptr<DataPack> data_pack(new DataPack(scale_factor));
   if (!path.empty() && data_pack->LoadFromPath(path))
     AddDataPack(data_pack.release());
 
@@ -353,6 +344,12 @@ void ResourceBundle::OverrideLocalePakForTest(const base::FilePath& pak_path) {
   overridden_pak_path_ = pak_path;
 }
 
+void ResourceBundle::OverrideLocaleStringResource(
+    int message_id,
+    const base::string16& string) {
+  overridden_locale_strings_[message_id] = string;
+}
+
 const base::FilePath& ResourceBundle::GetOverriddenPakPath() {
   return overridden_pak_path_;
 }
@@ -360,6 +357,10 @@ const base::FilePath& ResourceBundle::GetOverriddenPakPath() {
 std::string ResourceBundle::ReloadLocaleResources(
     const std::string& pref_locale) {
   base::AutoLock lock_scope(*locale_resources_data_lock_);
+
+  // Remove all overriden strings, as they will not be valid for the new locale.
+  overridden_locale_strings_.clear();
+
   UnloadLocaleResources();
   return LoadLocaleResources(pref_locale);
 }
@@ -485,6 +486,11 @@ base::string16 ResourceBundle::GetLocalizedString(int message_id) {
   // we're using them.
   base::AutoLock lock_scope(*locale_resources_data_lock_);
 
+  IdToStringMap::const_iterator it =
+      overridden_locale_strings_.find(message_id);
+  if (it != overridden_locale_strings_.end())
+    return it->second;
+
   // If for some reason we were unable to load the resources , return an empty
   // string (better than crashing).
   if (!locale_resources_data_.get()) {
@@ -602,7 +608,10 @@ void ResourceBundle::InitSharedInstance(Delegate* delegate) {
     supported_scale_factors.push_back(closest);
 #elif defined(OS_IOS)
     gfx::Display display = gfx::Screen::GetNativeScreen()->GetPrimaryDisplay();
-  if (display.device_scale_factor() > 1.0) {
+  if (display.device_scale_factor() > 2.0) {
+    DCHECK_EQ(3.0, display.device_scale_factor());
+    supported_scale_factors.push_back(SCALE_FACTOR_300P);
+  } else if (display.device_scale_factor() > 1.0) {
     DCHECK_EQ(2.0, display.device_scale_factor());
     supported_scale_factors.push_back(SCALE_FACTOR_200P);
   } else {
@@ -803,8 +812,7 @@ gfx::Image& ResourceBundle::GetEmptyImage() {
   if (empty_image_.IsEmpty()) {
     // The placeholder bitmap is bright red so people notice the problem.
     SkBitmap bitmap;
-    bitmap.setConfig(SkBitmap::kARGB_8888_Config, 32, 32);
-    bitmap.allocPixels();
+    bitmap.allocN32Pixels(32, 32);
     bitmap.eraseARGB(255, 255, 0, 0);
     empty_image_ = gfx::Image::CreateFrom1xBitmap(bitmap);
   }

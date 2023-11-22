@@ -6,6 +6,7 @@
 #define CRAZY_LINKER_ELF_RELOCATIONS_H
 
 #include <string.h>
+#include <unistd.h>
 
 #include "elf_traits.h"
 
@@ -42,6 +43,12 @@ class ElfRelocations {
   bool ApplyAll(const ElfSymbols* symbols,
                 SymbolResolver* resolver,
                 Error* error);
+
+#if defined(__arm__) || defined(__aarch64__)
+  // Register packed relocations to apply.
+  // |packed_relocs| is a pointer to packed relocations data.
+  void RegisterPackedRelocations(uint8_t* packed_relocations);
+#endif
 
   // This function is used to adjust relocated addresses in a copy of an
   // existing section of an ELF binary. I.e. |src_addr|...|src_addr + size|
@@ -94,6 +101,17 @@ class ElfRelocations {
                    size_t map_addr,
                    size_t size);
 
+#if defined(__arm__) || defined(__aarch64__)
+  // Apply packed rel or rela relocations.  On error, return false.
+  bool ApplyPackedRel(const uint8_t* packed_relocations, Error* error);
+  bool ApplyPackedRela(const uint8_t* packed_relocations, Error* error);
+
+  // Apply packed relocations.
+  // On error, return false and set |error| message.  No-op if no packed
+  // relocations were registered.
+  bool ApplyPackedRelocations(Error* error);
+#endif
+
 #if defined(__mips__)
   bool RelocateMipsGot(const ElfSymbols* symbols,
                        SymbolResolver* resolver,
@@ -117,6 +135,10 @@ class ElfRelocations {
   ELF::Word mips_symtab_count_;
   ELF::Word mips_local_got_count_;
   ELF::Word mips_gotsym_;
+#endif
+
+#if defined(__arm__) || defined(__aarch64__)
+  uint8_t* packed_relocations_;
 #endif
 
   bool has_text_relocations_;

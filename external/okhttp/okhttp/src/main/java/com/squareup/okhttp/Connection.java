@@ -17,10 +17,12 @@
 package com.squareup.okhttp;
 
 import com.squareup.okhttp.internal.Platform;
+import com.squareup.okhttp.internal.Util;
 import com.squareup.okhttp.internal.http.HttpAuthenticator;
 import com.squareup.okhttp.internal.http.HttpConnection;
 import com.squareup.okhttp.internal.http.HttpEngine;
 import com.squareup.okhttp.internal.http.HttpTransport;
+import com.squareup.okhttp.internal.http.OkHeaders;
 import com.squareup.okhttp.internal.http.SpdyTransport;
 import com.squareup.okhttp.internal.spdy.SpdyConnection;
 import java.io.Closeable;
@@ -29,6 +31,8 @@ import java.net.Proxy;
 import java.net.Socket;
 import javax.net.ssl.SSLSocket;
 import okio.ByteString;
+import okio.OkBuffer;
+import okio.Source;
 
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_PROXY_AUTH;
@@ -353,12 +357,22 @@ public final class Connection implements Closeable {
       tunnelConnection.writeRequest(request.headers(), requestLine);
       tunnelConnection.flush();
       Response response = tunnelConnection.readResponse().request(request).build();
-      tunnelConnection.emptyResponseBody();
+      // The response body from a CONNECT should be empty, but if it is not then we should consume
+      // it before proceeding.
+      long contentLength = OkHeaders.contentLength(response);
+      if (contentLength != -1) {
+        Source body = tunnelConnection.newFixedLengthSource(null, contentLength);
+        Util.skipAll(body, Integer.MAX_VALUE);
+      } else {
+        tunnelConnection.emptyResponseBody();
+      }
 
       switch (response.code()) {
         case HTTP_OK:
           // Assume the server won't send a TLS ServerHello until we send a TLS ClientHello. If that
           // happens, then we will have buffered bytes that are needed by the SSLSocket!
+          // This check is imperfect: it doesn't tell us whether a handshake will succeed, just that
+          // it will almost certainly fail because the proxy has sent unexpected data.
           if (tunnelConnection.bufferSize() > 0) {
             throw new IOException("TLS tunnel buffered too many bytes!");
           }

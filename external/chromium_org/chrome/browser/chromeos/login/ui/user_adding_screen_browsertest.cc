@@ -14,9 +14,10 @@
 #include "chrome/browser/chromeos/login/ui/user_adding_screen.h"
 #include "chrome/browser/chromeos/login/ui/webui_login_view.h"
 #include "chrome/browser/chromeos/login/users/multi_profile_user_controller.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
+#include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "components/user_manager/user_manager.h"
 #include "content/public/test/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -49,7 +50,7 @@ class UserAddingScreenTest : public LoginManagerTest,
 
   virtual void OnUserAddingStarted() OVERRIDE { ++user_adding_started_; }
 
-  void SetUserCanLock(User* user, bool can_lock) {
+  void SetUserCanLock(user_manager::User* user, bool can_lock) {
     user->set_can_lock(can_lock);
   }
 
@@ -91,15 +92,15 @@ IN_PROC_BROWSER_TEST_F(UserAddingScreenTest, PRE_CancelAdding) {
 
 IN_PROC_BROWSER_TEST_F(UserAddingScreenTest, CancelAdding) {
   EXPECT_CALL(login_utils(), DoBrowserLaunch(_, _)).Times(1);
-  EXPECT_EQ(3u, UserManager::Get()->GetUsers().size());
-  EXPECT_EQ(0u, UserManager::Get()->GetLoggedInUsers().size());
+  EXPECT_EQ(3u, user_manager::UserManager::Get()->GetUsers().size());
+  EXPECT_EQ(0u, user_manager::UserManager::Get()->GetLoggedInUsers().size());
 
   EXPECT_EQ(ash::SessionStateDelegate::SESSION_STATE_LOGIN_PRIMARY,
             ash::Shell::GetInstance()->session_state_delegate()->
                 GetSessionState());
 
   LoginUser(kTestUsers[0]);
-  EXPECT_EQ(1u, UserManager::Get()->GetLoggedInUsers().size());
+  EXPECT_EQ(1u, user_manager::UserManager::Get()->GetLoggedInUsers().size());
   EXPECT_EQ(ash::SessionStateDelegate::SESSION_STATE_ACTIVE,
             ash::Shell::GetInstance()->session_state_delegate()->
                 GetSessionState());
@@ -119,8 +120,9 @@ IN_PROC_BROWSER_TEST_F(UserAddingScreenTest, CancelAdding) {
                 GetSessionState());
 
   EXPECT_TRUE(LoginDisplayHostImpl::default_host() == NULL);
-  EXPECT_EQ(1u, UserManager::Get()->GetLoggedInUsers().size());
-  EXPECT_EQ(kTestUsers[0], UserManager::Get()->GetActiveUser()->email());
+  EXPECT_EQ(1u, user_manager::UserManager::Get()->GetLoggedInUsers().size());
+  EXPECT_EQ(kTestUsers[0],
+            user_manager::UserManager::Get()->GetActiveUser()->email());
 }
 
 IN_PROC_BROWSER_TEST_F(UserAddingScreenTest, PRE_AddingSeveralUsers) {
@@ -140,7 +142,7 @@ IN_PROC_BROWSER_TEST_F(UserAddingScreenTest, AddingSeveralUsers) {
             ash::Shell::GetInstance()->session_state_delegate()->
                 GetSessionState());
 
-  UserManager* user_manager = UserManager::Get();
+  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
 
   for (int i = 1; i < 3; ++i) {
     UserAddingScreen::Get()->Start();
@@ -163,12 +165,18 @@ IN_PROC_BROWSER_TEST_F(UserAddingScreenTest, AddingSeveralUsers) {
                 GetSessionState());
 
   // Now check how unlock policy works for these users.
-  PrefService* prefs1 = user_manager->
-      GetProfileByUser(user_manager->GetLoggedInUsers()[0])->GetPrefs();
-  PrefService* prefs2 = user_manager->
-      GetProfileByUser(user_manager->GetLoggedInUsers()[1])->GetPrefs();
-  PrefService* prefs3 = user_manager->
-      GetProfileByUser(user_manager->GetLoggedInUsers()[2])->GetPrefs();
+  PrefService* prefs1 =
+      ProfileHelper::Get()
+          ->GetProfileByUserUnsafe(user_manager->GetLoggedInUsers()[0])
+          ->GetPrefs();
+  PrefService* prefs2 =
+      ProfileHelper::Get()
+          ->GetProfileByUserUnsafe(user_manager->GetLoggedInUsers()[1])
+          ->GetPrefs();
+  PrefService* prefs3 =
+      ProfileHelper::Get()
+          ->GetProfileByUserUnsafe(user_manager->GetLoggedInUsers()[2])
+          ->GetPrefs();
   ASSERT_TRUE(prefs1 != NULL);
   ASSERT_TRUE(prefs2 != NULL);
   ASSERT_TRUE(prefs3 != NULL);
@@ -185,7 +193,7 @@ IN_PROC_BROWSER_TEST_F(UserAddingScreenTest, AddingSeveralUsers) {
                     MultiProfileUserController::kBehaviorUnrestricted);
   prefs3->SetString(prefs::kMultiProfileUserBehavior,
                     MultiProfileUserController::kBehaviorUnrestricted);
-  chromeos::UserList unlock_users = user_manager->GetUnlockUsers();
+  user_manager::UserList unlock_users = user_manager->GetUnlockUsers();
   ASSERT_EQ(1UL, unlock_users.size());
   EXPECT_EQ(kTestUsers[0], unlock_users[0]->email());
 

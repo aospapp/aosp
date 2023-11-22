@@ -64,7 +64,7 @@
         selectedSize,  use ScrollAdapterCustomSize. <p>
         The value can be used in two cases: <p>
         - when selectedTakesMoreSpace is true:  ScrollAdapterView will allocate more
-        spaces surrounding the focused item.  The extra spaces is added to left/right
+        spaces surrounding the focused item.  The extra spaces is added to start/end
         depending on "scrollItemAlign". <p>
         - when selectedTakesMoreSpace is false: ScrollAdapterView will not allocate
         more spaces for focused item,  but will align the focused item using the value. <p>
@@ -85,11 +85,11 @@
             client area (size - padding) by default.  But you can also use scrollCenterOffset
             or scrollCenterOffsetPercent to customize it-->
             <enum name="keepCenter" value="0" />
-            <!-- keep scroll center as a fixed distance from left/top -->
+            <!-- keep scroll center as a fixed distance from start/top -->
             <enum name="fixed" value="1" />
             <!-- keep scroll center offset from the center of the view -->
             <enum name="fixedPercent" value="2"/>
-            <!-- keep scroll center as a fixed distance from right/bottom -->
+            <!-- keep scroll center as a fixed distance from end/bottom -->
             <enum name="fixedToEnd" value="3" />
         </attr>
 
@@ -103,9 +103,9 @@
         <attr name="scrollItemAlign">
             <!-- align the center of selected item -->
             <enum name="center" value="0" />
-            <!-- align the left/up edge of selected item -->
+            <!-- align the start/up edge of selected item -->
             <enum name="low" value="1" />
-            <!-- align the right/down edge of selected item -->
+            <!-- align the end/down edge of selected item -->
             <enum name="high" value="2" />
         </attr>
 
@@ -116,13 +116,13 @@
         <attr name="lerperDivisor" format="float" />
 
         <!--
-          distance based transform for the views on the left/top of center position,
+          distance based transform for the views on the start/top of center position,
           the duration is interpreted as "dip" instead of milliseconds
         -->
         <attr name="lowItemTransform" format="reference" />
 
         <!--
-          distance based transform for the views on the right/down of center position,
+          distance based transform for the views on the end/down of center position,
           the duration is interpreted as "dip" instead of milliseconds
         -->
         <attr name="highItemTransform" format="reference" />

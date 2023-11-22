@@ -6,9 +6,9 @@
 
 #include <algorithm>
 #include <set>
-#include <vector>
 
 #include "base/bind.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/metrics/histogram.h"
 #include "base/prefs/pref_service.h"
@@ -21,9 +21,9 @@
 #include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/pending_extension_manager.h"
-#include "chrome/browser/extensions/updater/extension_downloader.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
+#include "components/omaha_query_params/omaha_query_params.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
@@ -36,12 +36,16 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_set.h"
 #include "extensions/common/manifest.h"
+#include "extensions/common/manifest_constants.h"
 
 using base::RandDouble;
 using base::RandInt;
 using base::Time;
 using base::TimeDelta;
 using content::BrowserThread;
+using extensions::Extension;
+using extensions::ExtensionSet;
+using omaha_query_params::OmahaQueryParams;
 
 typedef extensions::ExtensionDownloaderDelegate::Error Error;
 typedef extensions::ExtensionDownloaderDelegate::PingResult PingResult;
@@ -61,6 +65,10 @@ const int kMaxUpdateFrequencySeconds = 60 * 60 * 24 * 7;  // 7 days
 // Require at least 5 seconds between consecutive non-succesful extension update
 // checks.
 const int kMinUpdateThrottleTime = 5;
+
+// The installsource query parameter to use when forcing updates due to NaCl
+// arch mismatch.
+const char kWrongMultiCrxInstallSource[] = "wrong_multi_crx";
 
 // When we've computed a days value, we want to make sure we don't send a
 // negative value (due to the system clock being set backwards, etc.), since -1
@@ -88,6 +96,87 @@ int CalculateActivePingDays(const Time& last_active_ping_day,
   if (last_active_ping_day.is_null())
     return extensions::ManifestFetchData::kNeverPinged;
   return SanitizeDays((Time::Now() - last_active_ping_day).InDays());
+}
+
+void RespondWithForcedUpdates(
+    const base::Callback<void(const std::set<std::string>&)>& callback,
+    scoped_ptr<std::set<std::string> > forced_updates) {
+  callback.Run(*forced_updates.get());
+}
+
+void DetermineForcedUpdatesOnBlockingPool(
+    scoped_ptr<std::vector<scoped_refptr<const Extension> > > extensions,
+    const base::Callback<void(const std::set<std::string>&)>& callback) {
+  scoped_ptr<std::set<std::string> > forced_updates(
+      new std::set<std::string>());
+  DCHECK(!BrowserThread::CurrentlyOn(BrowserThread::UI));
+  for (std::vector<scoped_refptr<const Extension> >::const_iterator iter =
+          extensions->begin();
+       iter != extensions->end();
+       ++iter) {
+    scoped_refptr<const Extension> extension = *iter;
+    base::FilePath platform_specific_path = extension->path().Append(
+        extensions::kPlatformSpecificFolder);
+    if (base::PathExists(platform_specific_path)) {
+      bool force = true;
+      const base::ListValue* platforms;
+      if (extension->manifest()->GetList(extensions::manifest_keys::kPlatforms,
+                                         &platforms)) {
+        for (size_t i = 0; i < platforms->GetSize(); ++i) {
+          const base::DictionaryValue* p;
+          if (platforms->GetDictionary(i, &p)) {
+            std::string nacl_arch;
+            if (p->GetString(extensions::manifest_keys::kNaClArch,
+                             &nacl_arch) &&
+                nacl_arch == OmahaQueryParams::GetNaclArch()) {
+              std::string subpath;
+              if (p->GetString(extensions::manifest_keys::kSubPackagePath,
+                               &subpath)) {
+                // _platform_specific is part of the sub_package_path entry.
+                base::FilePath platform_specific_subpath =
+                    extension->path().AppendASCII(subpath);
+                if (base::PathExists(platform_specific_subpath)) {
+                  force = false;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (force)
+        forced_updates->insert(extension->id());
+   }
+  }
+  BrowserThread::PostTask(
+      BrowserThread::UI,
+      FROM_HERE,
+      base::Bind(&RespondWithForcedUpdates,
+                 callback,
+                 base::Passed(&forced_updates)));
+}
+
+void CollectExtensionsFromSet(
+    const ExtensionSet& extensions,
+    std::vector<scoped_refptr<const Extension> >* paths) {
+  std::copy(extensions.begin(), extensions.end(), std::back_inserter(*paths));
+}
+
+void DetermineForcedUpdates(
+    content::BrowserContext* browser_context,
+    const base::Callback<void(const std::set<std::string>&)>& callback) {
+  scoped_ptr<std::vector<scoped_refptr<const Extension> > > extensions(
+      new std::vector<scoped_refptr<const Extension> >());
+  const extensions::ExtensionRegistry* registry =
+      extensions::ExtensionRegistry::Get(browser_context);
+  scoped_ptr<ExtensionSet> installed_extensions =
+      registry->GenerateInstalledExtensionsSet();
+  CollectExtensionsFromSet(*installed_extensions.get(), extensions.get());
+  BrowserThread::PostBlockingPoolTask(
+      FROM_HERE,
+      base::Bind(&DetermineForcedUpdatesOnBlockingPool,
+                 base::Passed(&extensions),
+                 callback));
 }
 
 }  // namespace
@@ -130,20 +219,27 @@ struct ExtensionUpdater::ThrottleInfo {
   Time check_start;
 };
 
-ExtensionUpdater::ExtensionUpdater(ExtensionServiceInterface* service,
-                                   ExtensionPrefs* extension_prefs,
-                                   PrefService* prefs,
-                                   Profile* profile,
-                                   int frequency_seconds,
-                                   ExtensionCache* cache)
+ExtensionUpdater::ExtensionUpdater(
+    ExtensionServiceInterface* service,
+    ExtensionPrefs* extension_prefs,
+    PrefService* prefs,
+    Profile* profile,
+    int frequency_seconds,
+    ExtensionCache* cache,
+    const ExtensionDownloader::Factory& downloader_factory)
     : alive_(false),
-      weak_ptr_factory_(this),
-      service_(service), frequency_seconds_(frequency_seconds),
-      will_check_soon_(false), extension_prefs_(extension_prefs),
-      prefs_(prefs), profile_(profile),
+      service_(service),
+      downloader_factory_(downloader_factory),
+      frequency_seconds_(frequency_seconds),
+      will_check_soon_(false),
+      extension_prefs_(extension_prefs),
+      prefs_(prefs),
+      profile_(profile),
       next_request_id_(0),
+      extension_registry_observer_(this),
       crx_install_is_running_(false),
-      extension_cache_(cache) {
+      extension_cache_(cache),
+      weak_ptr_factory_(this) {
   DCHECK_GE(frequency_seconds_, 5);
   DCHECK_LE(frequency_seconds_, kMaxUpdateFrequencySeconds);
 #if defined(NDEBUG)
@@ -152,13 +248,17 @@ ExtensionUpdater::ExtensionUpdater(ExtensionServiceInterface* service,
 #endif
   frequency_seconds_ = std::min(frequency_seconds_, kMaxUpdateFrequencySeconds);
 
-  registrar_.Add(this,
-                 chrome::NOTIFICATION_EXTENSION_INSTALLED_DEPRECATED,
-                 content::NotificationService::AllBrowserContextsAndSources());
+  extension_registry_observer_.Add(ExtensionRegistry::Get(profile));
 }
 
 ExtensionUpdater::~ExtensionUpdater() {
   Stop();
+}
+
+void ExtensionUpdater::EnsureDownloaderCreated() {
+  if (!downloader_.get()) {
+    downloader_ = downloader_factory_.Run(this);
+  }
 }
 
 // The overall goal here is to balance keeping clients up to date while
@@ -326,6 +426,16 @@ void ExtensionUpdater::AddToDownloader(
 }
 
 void ExtensionUpdater::CheckNow(const CheckParams& params) {
+  DetermineForcedUpdates(
+      profile_,
+      base::Bind(&ExtensionUpdater::OnForcedUpdatesDetermined,
+                 weak_ptr_factory_.GetWeakPtr(),
+                 params));
+}
+
+void ExtensionUpdater::OnForcedUpdatesDetermined(
+    const CheckParams& params,
+    const std::set<std::string>& forced_updates) {
   int request_id = next_request_id_++;
 
   VLOG(2) << "Starting update check " << request_id;
@@ -338,10 +448,9 @@ void ExtensionUpdater::CheckNow(const CheckParams& params) {
   request.callback = params.callback;
   request.install_immediately = params.install_immediately;
 
-  if (!downloader_.get()) {
-    downloader_.reset(
-        new ExtensionDownloader(this, profile_->GetRequestContext()));
-  }
+  EnsureDownloaderCreated();
+
+  forced_updates_ = forced_updates;
 
   // Add fetch records for extensions that should be fetched by an update URL.
   // These extensions are not yet installed. They come from group policy
@@ -530,6 +639,18 @@ bool ExtensionUpdater::GetExtensionExistingVersion(const std::string& id,
   return true;
 }
 
+bool ExtensionUpdater::ShouldForceUpdate(
+    const std::string& extension_id,
+    std::string* source) {
+  bool force = forced_updates_.find(extension_id) != forced_updates_.end();
+  // Currently the only reason to force is a NaCl arch mismatch with the
+  // installed extension contents.
+  if (force) {
+    *source = kWrongMultiCrxInstallSource;
+  }
+  return force;
+}
+
 void ExtensionUpdater::UpdatePingData(const std::string& id,
                                       const PingResult& ping_result) {
   DCHECK(alive_);
@@ -575,7 +696,7 @@ void ExtensionUpdater::MaybeInstallCRXFile() {
       // Source parameter ensures that we only see the completion event for the
       // the installer we started.
       registrar_.Add(this,
-                     chrome::NOTIFICATION_CRX_INSTALLER_DONE,
+                     extensions::NOTIFICATION_CRX_INSTALLER_DONE,
                      content::Source<CrxInstaller>(installer));
     } else {
       for (std::set<int>::const_iterator it = crx_file.request_ids.begin();
@@ -598,41 +719,35 @@ void ExtensionUpdater::MaybeInstallCRXFile() {
 void ExtensionUpdater::Observe(int type,
                                const content::NotificationSource& source,
                                const content::NotificationDetails& details) {
-  switch (type) {
-    case chrome::NOTIFICATION_CRX_INSTALLER_DONE: {
-      // No need to listen for CRX_INSTALLER_DONE anymore.
-      registrar_.Remove(this,
-                        chrome::NOTIFICATION_CRX_INSTALLER_DONE,
-                        source);
-      crx_install_is_running_ = false;
+  DCHECK_EQ(type, extensions::NOTIFICATION_CRX_INSTALLER_DONE);
 
-      const FetchedCRXFile& crx_file = current_crx_file_;
-      for (std::set<int>::const_iterator it = crx_file.request_ids.begin();
-          it != crx_file.request_ids.end(); ++it) {
-        InProgressCheck& request = requests_in_progress_[*it];
-        request.in_progress_ids_.remove(crx_file.extension_id);
-        NotifyIfFinished(*it);
-      }
+  registrar_.Remove(this, extensions::NOTIFICATION_CRX_INSTALLER_DONE, source);
+  crx_install_is_running_ = false;
 
-      // If any files are available to update, start one.
-      MaybeInstallCRXFile();
-      break;
-    }
-    case chrome::NOTIFICATION_EXTENSION_INSTALLED_DEPRECATED: {
-      const Extension* extension =
-          content::Details<const InstalledExtensionInfo>(details)->extension;
-      if (extension)
-        throttle_info_.erase(extension->id());
-      break;
-    }
-    default:
-      NOTREACHED();
+  const FetchedCRXFile& crx_file = current_crx_file_;
+  for (std::set<int>::const_iterator it = crx_file.request_ids.begin();
+      it != crx_file.request_ids.end(); ++it) {
+    InProgressCheck& request = requests_in_progress_[*it];
+    request.in_progress_ids_.remove(crx_file.extension_id);
+    NotifyIfFinished(*it);
   }
+
+  // If any files are available to update, start one.
+  MaybeInstallCRXFile();
+}
+
+void ExtensionUpdater::OnExtensionWillBeInstalled(
+    content::BrowserContext* browser_context,
+    const Extension* extension,
+    bool is_update,
+    bool from_ephemeral,
+    const std::string& old_name) {
+  throttle_info_.erase(extension->id());
 }
 
 void ExtensionUpdater::NotifyStarted() {
   content::NotificationService::current()->Notify(
-      chrome::NOTIFICATION_EXTENSION_UPDATING_STARTED,
+      extensions::NOTIFICATION_EXTENSION_UPDATING_STARTED,
       content::Source<Profile>(profile_),
       content::NotificationService::NoDetails());
 }

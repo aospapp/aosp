@@ -4,12 +4,12 @@
 
 #include "components/sync_driver/proxy_data_type_controller.h"
 
-namespace browser_sync {
+namespace sync_driver {
 
 ProxyDataTypeController::ProxyDataTypeController(
     scoped_refptr<base::MessageLoopProxy> ui_thread,
     syncer::ModelType type)
-    : DataTypeController(ui_thread, base::Closure(), DisableTypeCallback()),
+    : DataTypeController(ui_thread, base::Closure()),
       state_(NOT_RUNNING),
       type_(type) {
   DCHECK(syncer::ProxyTypes().Has(type_));
@@ -61,8 +61,8 @@ DataTypeController::State ProxyDataTypeController::state() const {
   return state_;
 }
 
-void ProxyDataTypeController::OnSingleDatatypeUnrecoverableError(
-    const tracked_objects::Location& from_here, const std::string& message) {
+void ProxyDataTypeController::OnSingleDataTypeUnrecoverableError(
+    const syncer::SyncError& error) {
   NOTIMPLEMENTED();
 }
 
@@ -70,4 +70,4 @@ void ProxyDataTypeController::OnModelLoaded() {
   NOTIMPLEMENTED();
 }
 
-}  // namespace browser_sync
+}  // namespace sync_driver

@@ -14,7 +14,6 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/common/page_transition_types.h"
 #include "content/public/common/ssl_status.h"
 #include "ipc/ipc_message_macros.h"
 #include "net/cert/cert_status_flags.h"
@@ -42,9 +41,9 @@ void ContentPasswordManagerDriver::FillPasswordForm(
 }
 
 void ContentPasswordManagerDriver::AllowPasswordGenerationForForm(
-    autofill::PasswordForm* form) {
+    const autofill::PasswordForm& form) {
   content::RenderViewHost* host = web_contents()->GetRenderViewHost();
-  host->Send(new AutofillMsg_FormNotBlacklisted(host->GetRoutingID(), *form));
+  host->Send(new AutofillMsg_FormNotBlacklisted(host->GetRoutingID(), form));
 }
 
 void ContentPasswordManagerDriver::AccountCreationFormsFound(
@@ -82,10 +81,11 @@ void ContentPasswordManagerDriver::ClearPreviewedForm() {
 
 bool ContentPasswordManagerDriver::DidLastPageLoadEncounterSSLErrors() {
   DCHECK(web_contents());
+  // TODO(vabr): This is a wrong entry to look at for HTTP basic auth,
+  // http://crbug.com/388246.
   content::NavigationEntry* entry =
       web_contents()->GetController().GetLastCommittedEntry();
   if (!entry) {
-    NOTREACHED();
     return false;
   }
 

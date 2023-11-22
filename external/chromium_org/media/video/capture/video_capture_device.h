@@ -38,15 +38,15 @@ class MEDIA_EXPORT VideoCaptureDevice {
   // VideoCaptureDevice::Create.
   class MEDIA_EXPORT Name {
    public:
-    Name() {}
-    Name(const std::string& name, const std::string& id)
-        : device_name_(name), unique_id_(id) {}
+    Name();
+    Name(const std::string& name, const std::string& id);
 
 #if defined(OS_WIN)
     // Windows targets Capture Api type: it can only be set on construction.
     enum CaptureApiType {
       MEDIA_FOUNDATION,
       DIRECT_SHOW,
+      DIRECT_SHOW_WDM_CROSSBAR,
       API_TYPE_UNKNOWN
     };
 #endif
@@ -55,16 +55,27 @@ class MEDIA_EXPORT VideoCaptureDevice {
     enum CaptureApiType {
       AVFOUNDATION,
       QTKIT,
+      DECKLINK,
       API_TYPE_UNKNOWN
+    };
+    // For AVFoundation Api, identify devices that are built-in or USB.
+    enum TransportType {
+      USB_OR_BUILT_IN,
+      OTHER_TRANSPORT
     };
 #endif
 #if defined(OS_WIN) || defined(OS_MACOSX)
     Name(const std::string& name,
          const std::string& id,
-         const CaptureApiType api_type)
-        : device_name_(name), unique_id_(id), capture_api_class_(api_type) {}
+         const CaptureApiType api_type);
 #endif
-    ~Name() {}
+#if defined(OS_MACOSX)
+    Name(const std::string& name,
+         const std::string& id,
+         const CaptureApiType api_type,
+         const TransportType transport_type);
+#endif
+    ~Name();
 
     // Friendly name of a device
     const std::string& name() const { return device_name_; }
@@ -95,6 +106,27 @@ class MEDIA_EXPORT VideoCaptureDevice {
     CaptureApiType capture_api_type() const {
       return capture_api_class_.capture_api_type();
     }
+#endif
+#if defined(OS_WIN)
+    // Certain devices need an ID different from the |unique_id_| for
+    // capabilities retrieval.
+    const std::string& capabilities_id() const {
+      return capabilities_id_;
+    }
+    void set_capabilities_id(const std::string& id) {
+      capabilities_id_ = id;
+    }
+#endif
+#if defined(OS_MACOSX)
+    TransportType transport_type() const {
+      return transport_type_;
+    }
+    bool is_blacklisted() const {
+      return is_blacklisted_;
+    }
+    void set_is_blacklisted(bool is_blacklisted) {
+      is_blacklisted_ = is_blacklisted;
+    }
 #endif  // if defined(OS_WIN)
 
    private:
@@ -117,6 +149,15 @@ class MEDIA_EXPORT VideoCaptureDevice {
     };
 
     CaptureApiClass capture_api_class_;
+#endif
+#if defined(OS_WIN)
+    // ID used for capabilities retrieval. By default is equal to |unique_id|.
+    std::string capabilities_id_;
+#endif
+#if defined(OS_MACOSX)
+    TransportType transport_type_;
+    // Flag used to mark blacklisted devices for QTKit Api.
+    bool is_blacklisted_;
 #endif
     // Allow generated copy constructor and assignment.
   };
@@ -192,22 +233,7 @@ class MEDIA_EXPORT VideoCaptureDevice {
     virtual void OnLog(const std::string& message) {}
   };
 
-  // Creates a VideoCaptureDevice object.
-  // Return NULL if the hardware is not available.
-  static VideoCaptureDevice* Create(
-      scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner,
-      const Name& device_name);
   virtual ~VideoCaptureDevice();
-
-  // Gets the names of all video capture devices connected to this computer.
-  static void GetDeviceNames(Names* device_names);
-
-  // Gets the supported formats of a particular device attached to the system.
-  // This method should be called before allocating or starting a device. In
-  // case format enumeration is not supported, or there was a problem, the
-  // formats array will be empty.
-  static void GetDeviceSupportedFormats(const Name& device,
-                                        VideoCaptureFormats* supported_formats);
 
   // Prepares the camera for use. After this function has been called no other
   // applications can use the camera. StopAndDeAllocate() must be called before

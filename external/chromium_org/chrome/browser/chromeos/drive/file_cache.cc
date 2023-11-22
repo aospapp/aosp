@@ -7,8 +7,8 @@
 #include <vector>
 
 #include "base/callback_helpers.h"
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/metrics/histogram.h"
 #include "base/strings/string_util.h"
@@ -284,7 +284,7 @@ FileError FileCache::OpenForWrite(
 
   write_opened_files_[id]++;
   file_closer->reset(new base::ScopedClosureRunner(
-      base::Bind(&google_apis::RunTaskOnThread,
+      base::Bind(&google_apis::RunTaskWithTaskRunner,
                  blocking_task_runner_,
                  base::Bind(&FileCache::CloseForWrite,
                             weak_ptr_factory_.GetWeakPtr(),

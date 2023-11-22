@@ -5,7 +5,7 @@
 #include "chrome/browser/chromeos/drive/drive_integration_service.h"
 
 #include "base/bind.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/prefs/pref_change_registrar.h"
 #include "base/prefs/pref_service.h"
 #include "base/strings/stringprintf.h"
@@ -37,6 +37,7 @@
 #include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/common/chrome_version_info.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/signin/core/browser/profile_oauth2_token_service.h"
 #include "components/signin/core/browser/signin_manager.h"
@@ -46,9 +47,8 @@
 #include "content/public/common/user_agent.h"
 #include "google_apis/drive/auth_service.h"
 #include "google_apis/drive/gdata_wapi_url_generator.h"
-#include "grit/generated_resources.h"
+#include "storage/browser/fileapi/external_mount_points.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "webkit/browser/fileapi/external_mount_points.h"
 
 using content::BrowserContext;
 using content::BrowserThread;
@@ -103,7 +103,6 @@ FileError InitializeMetadata(
     internal::ResourceMetadataStorage* metadata_storage,
     internal::FileCache* cache,
     internal::ResourceMetadata* resource_metadata,
-    const ResourceIdCanonicalizer& id_canonicalizer,
     const base::FilePath& downloads_directory) {
   // Files in temporary directory need not persist across sessions. Clean up
   // the directory content while initialization.
@@ -128,7 +127,7 @@ FileError InitializeMetadata(
       base::FILE_PERMISSION_EXECUTE_BY_OTHERS);
 
   internal::ResourceMetadataStorage::UpgradeOldDB(
-      metadata_storage->directory_path(), id_canonicalizer);
+      metadata_storage->directory_path());
 
   if (!metadata_storage->Initialize()) {
     LOG(WARNING) << "Failed to initialize the metadata storage.";
@@ -355,8 +354,8 @@ bool DriveIntegrationService::IsMounted() const {
   // Look up the registered path, and just discard it.
   // GetRegisteredPath() returns true if the path is available.
   base::FilePath unused;
-  fileapi::ExternalMountPoints* const mount_points =
-      fileapi::ExternalMountPoints::GetSystemInstance();
+  storage::ExternalMountPoints* const mount_points =
+      storage::ExternalMountPoints::GetSystemInstance();
   DCHECK(mount_points);
   return mount_points->GetRegisteredPath(mount_point_name_, &unused);
 }
@@ -435,15 +434,15 @@ void DriveIntegrationService::AddDriveMountPoint() {
       util::GetDriveMountPointPath(profile_);
   if (mount_point_name_.empty())
     mount_point_name_ = drive_mount_point.BaseName().AsUTF8Unsafe();
-  fileapi::ExternalMountPoints* const mount_points =
-      fileapi::ExternalMountPoints::GetSystemInstance();
+  storage::ExternalMountPoints* const mount_points =
+      storage::ExternalMountPoints::GetSystemInstance();
   DCHECK(mount_points);
 
-  bool success = mount_points->RegisterFileSystem(
-      mount_point_name_,
-      fileapi::kFileSystemTypeDrive,
-      fileapi::FileSystemMountOption(),
-      drive_mount_point);
+  bool success =
+      mount_points->RegisterFileSystem(mount_point_name_,
+                                       storage::kFileSystemTypeDrive,
+                                       storage::FileSystemMountOption(),
+                                       drive_mount_point);
 
   if (success) {
     logger_->Log(logging::LOG_INFO, "Drive mount point is added");
@@ -461,8 +460,8 @@ void DriveIntegrationService::RemoveDriveMountPoint() {
     FOR_EACH_OBSERVER(DriveIntegrationServiceObserver, observers_,
                       OnFileSystemBeingUnmounted());
 
-    fileapi::ExternalMountPoints* const mount_points =
-        fileapi::ExternalMountPoints::GetSystemInstance();
+    storage::ExternalMountPoints* const mount_points =
+        storage::ExternalMountPoints::GetSystemInstance();
     DCHECK(mount_points);
 
     mount_points->RevokeFileSystem(mount_point_name_);
@@ -485,7 +484,6 @@ void DriveIntegrationService::Initialize() {
                  metadata_storage_.get(),
                  cache_.get(),
                  resource_metadata_.get(),
-                 drive_service_->GetResourceIdCanonicalizer(),
                  file_manager::util::GetDownloadsFolderForProfile(profile_)),
       base::Bind(&DriveIntegrationService::InitializeAfterMetadataInitialized,
                  weak_ptr_factory_.GetWeakPtr()));
@@ -598,26 +596,12 @@ DriveIntegrationServiceFactory::ScopedFactoryForTest::~ScopedFactoryForTest() {
 // static
 DriveIntegrationService* DriveIntegrationServiceFactory::GetForProfile(
     Profile* profile) {
-  return GetForProfileRegardlessOfStates(profile);
-}
-
-// static
-DriveIntegrationService*
-DriveIntegrationServiceFactory::GetForProfileRegardlessOfStates(
-    Profile* profile) {
   return static_cast<DriveIntegrationService*>(
       GetInstance()->GetServiceForBrowserContext(profile, true));
 }
 
 // static
 DriveIntegrationService* DriveIntegrationServiceFactory::FindForProfile(
-    Profile* profile) {
-  return FindForProfileRegardlessOfStates(profile);
-}
-
-// static
-DriveIntegrationService*
-DriveIntegrationServiceFactory::FindForProfileRegardlessOfStates(
     Profile* profile) {
   return static_cast<DriveIntegrationService*>(
       GetInstance()->GetServiceForBrowserContext(profile, false));

@@ -18,7 +18,6 @@ package com.android.rs.imagejb;
 
 import java.lang.Math;
 
-import android.renderscript.Allocation;
 
 public class WhiteBalance extends TestBase {
     private ScriptC_wbalance mScript;

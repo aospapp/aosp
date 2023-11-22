@@ -65,16 +65,15 @@ class AutofillAgent : public content::RenderViewObserver,
   virtual void FrameWillClose(blink::WebFrame* frame) OVERRIDE;
   virtual void WillSubmitForm(blink::WebLocalFrame* frame,
                               const blink::WebFormElement& form) OVERRIDE;
-  virtual void ZoomLevelChanged() OVERRIDE;
   virtual void DidChangeScrollOffset(blink::WebLocalFrame* frame) OVERRIDE;
   virtual void FocusedNodeChanged(const blink::WebNode& node) OVERRIDE;
   virtual void OrientationChangeEvent() OVERRIDE;
+  virtual void Resized() OVERRIDE;
 
   // PageClickListener:
   virtual void FormControlElementClicked(
       const blink::WebFormControlElement& element,
       bool was_focused) OVERRIDE;
-  virtual void FormControlElementLostFocus() OVERRIDE;
 
   // blink::WebAutofillClient:
   virtual void textFieldDidEndEditing(
@@ -84,10 +83,6 @@ class AutofillAgent : public content::RenderViewObserver,
   virtual void textFieldDidReceiveKeyDown(
       const blink::WebInputElement& element,
       const blink::WebKeyboardEvent& event);
-  // TODO(estade): remove.
-  virtual void didRequestAutocomplete(
-      const blink::WebFormElement& form,
-      const blink::WebAutocompleteParams& details);
   virtual void didRequestAutocomplete(
       const blink::WebFormElement& form);
   virtual void setIgnoreTextChanges(bool ignore);
@@ -142,11 +137,18 @@ class AutofillAgent : public content::RenderViewObserver,
   // |datalist_only| specifies whether all of <datalist> suggestions and no
   // autofill suggestions are shown. |autofill_on_empty_values| and
   // |requires_caret_at_end| are ignored if |datalist_only| is true.
+  // |show_full_suggestion_list| specifies that all autofill suggestions should
+  // be shown and none should be elided because of the current value of
+  // |element| (relevant for inline autocomplete).
+  // |show_password_suggestions_only| specifies that only show a suggestions box
+  // if |element| is part of a password form, otherwise show no suggestions.
   void ShowSuggestions(const blink::WebFormControlElement& element,
                        bool autofill_on_empty_values,
                        bool requires_caret_at_end,
                        bool display_warning_if_disabled,
-                       bool datalist_only);
+                       bool datalist_only,
+                       bool show_full_suggestion_list,
+                       bool show_password_suggestions_only);
 
   // Queries the browser for Autocomplete and Autofill suggestions for the given
   // |element|.
@@ -195,9 +197,6 @@ class AutofillAgent : public content::RenderViewObserver,
   // The form element currently requesting an interactive autocomplete.
   blink::WebFormElement in_flight_request_form_;
 
-  // All the form elements seen in the top frame.
-  std::vector<blink::WebFormElement> form_elements_;
-
   // Pointer to the WebView. Used to access page scale factor.
   blink::WebView* web_view_;
 
@@ -213,10 +212,6 @@ class AutofillAgent : public content::RenderViewObserver,
 
   // If true we just set the node text so we shouldn't show the popup.
   bool did_set_node_text_;
-
-  // Whether or not new forms/fields have been dynamically added
-  // since the last loaded forms were sent to the browser process.
-  bool has_new_forms_for_browser_;
 
   // Whether or not to ignore text changes.  Useful for when we're committing
   // a composition when we are defocusing the WebView and we don't want to
@@ -234,24 +229,6 @@ class AutofillAgent : public content::RenderViewObserver,
   bool main_frame_processed_;
 
   base::WeakPtrFactory<AutofillAgent> weak_ptr_factory_;
-
-  friend class PasswordAutofillAgentTest;
-  friend class RequestAutocompleteRendererTest;
-  FRIEND_TEST_ALL_PREFIXES(AutofillRendererTest, FillFormElement);
-  FRIEND_TEST_ALL_PREFIXES(AutofillRendererTest, SendDynamicForms);
-  FRIEND_TEST_ALL_PREFIXES(AutofillRendererTest, ShowAutofillWarning);
-  FRIEND_TEST_ALL_PREFIXES(PasswordAutofillAgentTest, WaitUsername);
-  FRIEND_TEST_ALL_PREFIXES(PasswordAutofillAgentTest, SuggestionAccept);
-  FRIEND_TEST_ALL_PREFIXES(PasswordAutofillAgentTest, SuggestionSelect);
-  FRIEND_TEST_ALL_PREFIXES(
-      PasswordAutofillAgentTest,
-      PasswordAutofillTriggersOnChangeEventsWaitForUsername);
-  FRIEND_TEST_ALL_PREFIXES(RequestAutocompleteRendererTest,
-                           NoCancelOnMainFrameNavigateAfterDone);
-  FRIEND_TEST_ALL_PREFIXES(RequestAutocompleteRendererTest,
-                           NoCancelOnSubframeNavigateAfterDone);
-  FRIEND_TEST_ALL_PREFIXES(RequestAutocompleteRendererTest,
-                           InvokingTwiceOnlyShowsOnce);
 
   DISALLOW_COPY_AND_ASSIGN(AutofillAgent);
 };

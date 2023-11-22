@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2012,2014, The Linux Foundation. All rights reserved.
 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -73,7 +73,7 @@ int IonAlloc::alloc_buffer(alloc_data& data)
 
     ionAllocData.len = data.size;
     ionAllocData.align = data.align;
-    ionAllocData.heap_mask = data.flags & ~ION_SECURE;
+    ionAllocData.heap_id_mask = data.flags & ~ION_SECURE;
     ionAllocData.flags = data.uncached ? 0 : ION_FLAG_CACHED;
     // ToDo: replace usage of alloc data structure with
     //  ionallocdata structure.
@@ -114,16 +114,17 @@ int IonAlloc::alloc_buffer(alloc_data& data)
     data.base = base;
     data.fd = fd_data.fd;
     ioctl(mIonFd, ION_IOC_FREE, &handle_data);
-    ALOGD_IF(DEBUG, "ion: Allocated buffer base:%p size:%d fd:%d",
+    ALOGD_IF(DEBUG, "ion: Allocated buffer base:%p size:%zu fd:%d",
           data.base, ionAllocData.len, data.fd);
     return 0;
 }
 
 
-int IonAlloc::free_buffer(void* base, size_t size, int offset, int fd)
+int IonAlloc::free_buffer(void* base, unsigned int size, unsigned int offset,
+        int fd)
 {
     Locker::Autolock _l(mLock);
-    ALOGD_IF(DEBUG, "ion: Freeing buffer base:%p size:%d fd:%d",
+    ALOGD_IF(DEBUG, "ion: Freeing buffer base:%p size:%u fd:%d",
           base, size, fd);
     int err = 0;
     err = open_device();
@@ -136,7 +137,8 @@ int IonAlloc::free_buffer(void* base, size_t size, int offset, int fd)
     return err;
 }
 
-int IonAlloc::map_buffer(void **pBase, size_t size, int offset, int fd)
+int IonAlloc::map_buffer(void **pBase, unsigned int size, unsigned int offset,
+        int fd)
 {
     int err = 0;
     void *base = 0;
@@ -154,15 +156,16 @@ int IonAlloc::map_buffer(void **pBase, size_t size, int offset, int fd)
         ALOGE("ion: Failed to map memory in the client: %s",
               strerror(errno));
     } else {
-        ALOGD_IF(DEBUG, "ion: Mapped buffer base:%p size:%d offset:%d fd:%d",
+        ALOGD_IF(DEBUG, "ion: Mapped buffer base:%p size:%u offset:%u fd:%d",
               base, size, offset, fd);
     }
     return err;
 }
 
-int IonAlloc::unmap_buffer(void *base, size_t size, int offset)
+int IonAlloc::unmap_buffer(void *base, unsigned int size,
+        unsigned int /*offset*/)
 {
-    ALOGD_IF(DEBUG, "ion: Unmapping buffer  base:%p size:%d", base, size);
+    ALOGD_IF(DEBUG, "ion: Unmapping buffer  base:%p size:%u", base, size);
     int err = 0;
     if(munmap(base, size)) {
         err = -errno;
@@ -172,12 +175,12 @@ int IonAlloc::unmap_buffer(void *base, size_t size, int offset)
     return err;
 
 }
-int IonAlloc::clean_buffer(void *base, size_t size, int offset, int fd, int op)
+int IonAlloc::clean_buffer(void *base, unsigned int size, unsigned int offset,
+        int fd, int op)
 {
     struct ion_flush_data flush_data;
     struct ion_fd_data fd_data;
     struct ion_handle_data handle_data;
-    ion_user_handle_t handle;
     int err = 0;
 
     err = open_device();
@@ -195,6 +198,7 @@ int IonAlloc::clean_buffer(void *base, size_t size, int offset, int fd, int op)
     handle_data.handle = fd_data.handle;
     flush_data.handle  = fd_data.handle;
     flush_data.vaddr   = base;
+    // offset and length are unsigned int
     flush_data.offset  = offset;
     flush_data.length  = size;
 

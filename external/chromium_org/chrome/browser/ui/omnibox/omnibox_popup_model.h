@@ -8,8 +8,8 @@
 #include "base/basictypes.h"
 #include "base/observer_list.h"
 #include "chrome/browser/autocomplete/autocomplete_controller.h"
-#include "chrome/browser/autocomplete/autocomplete_result.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
+#include "components/omnibox/autocomplete_result.h"
 
 class OmniboxPopupModelObserver;
 class OmniboxPopupView;
@@ -98,6 +98,9 @@ class OmniboxPopupModel {
   // If |match| is from an extension, returns the extension icon; otherwise
   // returns an empty Image.
   gfx::Image GetIconIfExtensionMatch(const AutocompleteMatch& match) const;
+
+  // Returns true if the destination URL of the match is bookmarked.
+  bool IsStarredMatch(const AutocompleteMatch& match) const;
 
   // The match the user has manually chosen, if any.
   const AutocompleteResult::Selection& manually_selected_match() const {

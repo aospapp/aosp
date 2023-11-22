@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3477737022166975496">"Smartphone"</string>
+    <string name="telecommAppLabel" product="default" msgid="3477737022166975496">"Telefone"</string>
     <string name="unknown" msgid="6878797917991465859">"Desconhecido"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"Chamada perdida"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"Chamadas perdidas"</string>
@@ -34,10 +34,10 @@
     <string name="respond_via_sms_setting_title_2" msgid="6104662227299493906">"Editar respostas rápidas"</string>
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Resposta rápida"</string>
-    <string name="respond_via_sms_menu_reset_default_activity" msgid="1461742052902053466">"Redefinir app padrão"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Mensagem enviada para <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
-    <string name="outgoing_call_not_allowed" msgid="1434784869685645427">"Este usuário não tem permissão para fazer chamadas não emergenciais pelo smartphone"</string>
-    <string name="outgoing_call_error_no_phone_number_supplied" msgid="4987143284589568716">"Chamada não enviada: nenhum número válido foi inserido."</string>
+    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"Apenas chamadas de emergência são permitidas pelo proprietário do dispositivo"</string>
+    <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"Para realizar uma chamada, digite um número válido."</string>
+    <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"No momento, não é possível adicionar a chamada."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"Número correio de voz ausente"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Não há um número correio de voz armazenado no cartão SIM."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Adicionar número"</string>

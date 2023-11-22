@@ -25,10 +25,11 @@ class ASH_EXPORT DefaultSystemTrayDelegate : public SystemTrayDelegate {
   virtual void ChangeProfilePicture() OVERRIDE;
   virtual const std::string GetEnterpriseDomain() const OVERRIDE;
   virtual const base::string16 GetEnterpriseMessage() const OVERRIDE;
-  virtual const std::string GetLocallyManagedUserManager() const OVERRIDE;
-  virtual const base::string16 GetLocallyManagedUserManagerName() const
+  virtual const std::string GetSupervisedUserManager() const OVERRIDE;
+  virtual const base::string16 GetSupervisedUserManagerName() const
       OVERRIDE;
-  virtual const base::string16 GetLocallyManagedUserMessage() const OVERRIDE;
+  virtual const base::string16 GetSupervisedUserMessage() const OVERRIDE;
+  virtual bool IsUserSupervised() const OVERRIDE;
   virtual bool SystemShouldUpgrade() const OVERRIDE;
   virtual base::HourClockType GetHourClockType() const OVERRIDE;
   virtual void ShowSettings() OVERRIDE;
@@ -40,14 +41,13 @@ class ASH_EXPORT DefaultSystemTrayDelegate : public SystemTrayDelegate {
   virtual void ShowDisplaySettings() OVERRIDE;
   virtual void ShowChromeSlow() OVERRIDE;
   virtual bool ShouldShowDisplayNotification() OVERRIDE;
-  virtual void ShowDriveSettings() OVERRIDE;
   virtual void ShowIMESettings() OVERRIDE;
   virtual void ShowHelp() OVERRIDE;
   virtual void ShowAccessibilityHelp() OVERRIDE;
   virtual void ShowAccessibilitySettings() OVERRIDE;
   virtual void ShowPublicAccountInfo() OVERRIDE;
   virtual void ShowEnterpriseInfo() OVERRIDE;
-  virtual void ShowLocallyManagedUserInfo() OVERRIDE;
+  virtual void ShowSupervisedUserInfo() OVERRIDE;
   virtual void ShowUserLogin() OVERRIDE;
   virtual bool ShowSpringChargerReplacementDialog() OVERRIDE;
   virtual bool IsSpringChargerReplacementDialogVisible() OVERRIDE;
@@ -65,13 +65,8 @@ class ASH_EXPORT DefaultSystemTrayDelegate : public SystemTrayDelegate {
   virtual void GetCurrentIMEProperties(IMEPropertyInfoList* list) OVERRIDE;
   virtual void SwitchIME(const std::string& ime_id) OVERRIDE;
   virtual void ActivateIMEProperty(const std::string& key) OVERRIDE;
-  virtual void CancelDriveOperation(int32 operation_id) OVERRIDE;
-  virtual void GetDriveOperationStatusList(
-      ash::DriveOperationStatusList*) OVERRIDE;
-  virtual void ShowNetworkConfigure(const std::string& network_id,
-                                    gfx::NativeWindow parent_window) OVERRIDE;
-  virtual bool EnrollNetwork(const std::string& network_id,
-                             gfx::NativeWindow parent_window) OVERRIDE;
+  virtual void ShowNetworkConfigure(const std::string& network_id) OVERRIDE;
+  virtual bool EnrollNetwork(const std::string& network_id) OVERRIDE;
   virtual void ManageBluetoothDevices() OVERRIDE;
   virtual void ToggleBluetooth() OVERRIDE;
   virtual bool IsBluetoothDiscovering() OVERRIDE;
@@ -91,8 +86,6 @@ class ASH_EXPORT DefaultSystemTrayDelegate : public SystemTrayDelegate {
       base::TimeDelta* session_length_limit) OVERRIDE;
   virtual int GetSystemTrayMenuWidth() OVERRIDE;
   virtual void ActiveUserWasChanged() OVERRIDE;
-  virtual bool IsNetworkBehindCaptivePortal(
-      const std::string& service_path) const OVERRIDE;
   virtual bool IsSearchKeyMappedToCapsLock() OVERRIDE;
   virtual tray::UserAccountsDelegate* GetUserAccountsDelegate(
       const std::string& user_id) OVERRIDE;

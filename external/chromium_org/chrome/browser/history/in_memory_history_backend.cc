@@ -13,9 +13,9 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/history/history_notifications.h"
-#include "chrome/browser/history/in_memory_database.h"
-#include "chrome/browser/history/url_database.h"
 #include "chrome/browser/profiles/profile.h"
+#include "components/history/core/browser/in_memory_database.h"
+#include "components/history/core/browser/url_database.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
 
@@ -27,8 +27,7 @@ InMemoryHistoryBackend::InMemoryHistoryBackend()
 
 InMemoryHistoryBackend::~InMemoryHistoryBackend() {}
 
-bool InMemoryHistoryBackend::Init(const base::FilePath& history_filename,
-                                  URLDatabase* db) {
+bool InMemoryHistoryBackend::Init(const base::FilePath& history_filename) {
   db_.reset(new InMemoryDatabase);
   return db_->InitFromDisk(history_filename);
 }
@@ -57,7 +56,13 @@ void InMemoryHistoryBackend::AttachToHistoryService(Profile* profile) {
       this, chrome::NOTIFICATION_HISTORY_KEYWORD_SEARCH_TERM_UPDATED, source);
   registrar_.Add(
       this, chrome::NOTIFICATION_HISTORY_KEYWORD_SEARCH_TERM_DELETED, source);
-  registrar_.Add(this, chrome::NOTIFICATION_TEMPLATE_URL_REMOVED, source);
+}
+
+void InMemoryHistoryBackend::DeleteAllSearchTermsForKeyword(
+    KeywordID keyword_id) {
+  // For simplicity, this will not remove the corresponding URLRows, but
+  // this is okay, as the main database does not do so either.
+  db_->DeleteAllSearchTermsForKeyword(keyword_id);
 }
 
 void InMemoryHistoryBackend::Observe(
@@ -88,12 +93,6 @@ void InMemoryHistoryBackend::Observe(
     }
     case chrome::NOTIFICATION_HISTORY_URLS_DELETED:
       OnURLsDeleted(*content::Details<URLsDeletedDetails>(details).ptr());
-      break;
-    case chrome::NOTIFICATION_TEMPLATE_URL_REMOVED:
-      // For simplicity, this will not remove the corresponding URLRows, but
-      // this is okay, as the main database does not do so either.
-      db_->DeleteAllSearchTermsForKeyword(
-          *(content::Details<TemplateURLID>(details).ptr()));
       break;
     default:
       // For simplicity, the unit tests send us all notifications, even when

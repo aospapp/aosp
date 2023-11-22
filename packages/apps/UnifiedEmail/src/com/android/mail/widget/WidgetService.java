@@ -133,12 +133,14 @@ public class WidgetService extends RemoteViewsService {
         remoteViews.setRemoteAdapter(R.id.conversation_list, intent);
         // Open mail app when click on header
         final Intent mailIntent = Utils.createViewFolderIntent(context, folderUri, account);
+        mailIntent.setPackage(context.getPackageName());
         PendingIntent clickIntent = PendingIntent.getActivity(context, 0, mailIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT);
         remoteViews.setOnClickPendingIntent(R.id.widget_header, clickIntent);
 
         // On click intent for Compose
         final Intent composeIntent = new Intent();
+        composeIntent.setPackage(context.getPackageName());
         composeIntent.setAction(Intent.ACTION_SEND);
         composeIntent.putExtra(Utils.EXTRA_ACCOUNT, account.serialize());
         composeIntent.setData(account.composeIntentUri);
@@ -157,6 +159,7 @@ public class WidgetService extends RemoteViewsService {
 
         // On click intent for Conversation
         final Intent conversationIntent = new Intent();
+        conversationIntent.setPackage(context.getPackageName());
         conversationIntent.setAction(Intent.ACTION_VIEW);
         clickIntent = PendingIntent.getActivity(context, 0, conversationIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT);
@@ -409,7 +412,7 @@ public class WidgetService extends RemoteViewsService {
 
                 ArrayList<SpannableString> senders = new ArrayList<SpannableString>();
                 SendersView.format(mContext, conversation.conversationInfo, "",
-                        MAX_SENDERS_LENGTH, senders, null, null, mAccount.getEmailAddress(),
+                        MAX_SENDERS_LENGTH, senders, null, null, mAccount,
                         Folder.shouldShowRecipients(mFolderCapabilities), true);
                 final SpannableStringBuilder senderBuilder = elideParticipants(senders);
 

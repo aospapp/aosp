@@ -31,13 +31,13 @@ class MEDIA_EXPORT OpusAudioDecoder : public AudioDecoder {
   virtual ~OpusAudioDecoder();
 
   // AudioDecoder implementation.
+  virtual std::string GetDisplayName() const OVERRIDE;
   virtual void Initialize(const AudioDecoderConfig& config,
                           const PipelineStatusCB& status_cb,
                           const OutputCB& output_cb) OVERRIDE;
   virtual void Decode(const scoped_refptr<DecoderBuffer>& buffer,
                       const DecodeCB& decode_cb) OVERRIDE;
   virtual void Reset(const base::Closure& closure) OVERRIDE;
-  virtual void Stop() OVERRIDE;
 
  private:
   // Reads from the demuxer stream with corresponding callback method.

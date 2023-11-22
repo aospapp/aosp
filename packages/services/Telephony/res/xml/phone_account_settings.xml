@@ -16,13 +16,25 @@
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:phone="http://schemas.android.com/apk/res/com.android.phone"
-    android:title="@string/phone_account_settings">
+    android:title="@string/phone_accounts">
+
+    <PreferenceCategory
+        android:key="phone_accounts_accounts_list_category_key"
+        android:title="@string/phone_accounts_settings_header" />
 
     <com.android.phone.settings.AccountSelectionPreference
         android:key="default_outgoing_account"
         android:title="@string/phone_accounts_make_calls_with"
         android:defaultValue=""
         android:persistent="false" />
+
+    <com.android.phone.settings.TtyModeListPreference
+        android:key="@string/tty_mode_key"
+        android:title="@string/tty_mode_option_title"
+        android:summary="@string/tty_mode_option_summary"
+        android:persistent="false"
+        android:entries="@array/tty_mode_entries"
+        android:entryValues="@array/tty_mode_values"/>
 
     <PreferenceCategory
         android:key="phone_accounts_call_assistant_settings_category_key"
@@ -32,7 +44,8 @@
         <com.android.phone.settings.AccountSelectionPreference
             android:key="wifi_calling_call_assistant_preference"
             android:title="@string/wifi_calling_call_assistant"
-            android:summary="@string/wifi_calling_call_assistant_none" />
+            android:summary="@string/wifi_calling_call_assistant_none"
+            android:persistent="false" />
 
         <Preference
             android:key="wifi_calling_configure_call_assistant_preference"

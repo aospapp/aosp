@@ -39,6 +39,7 @@ import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 import android.provider.ContactsContract.Data;
 import android.provider.ContactsContract.RawContacts;
 import android.telecom.PhoneAccount;
+import android.telephony.SubscriptionManager;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.ContextMenu;
@@ -242,8 +243,16 @@ public class SimContacts extends ADNList {
 
     @Override
     protected Uri resolveIntent() {
-        Intent intent = getIntent();
-        intent.setData(Uri.parse("content://icc/adn"));
+        final Intent intent = getIntent();
+        int subId = -1;
+        if (intent.hasExtra("subscription_id")) {
+            subId = intent.getIntExtra("subscription_id", -1);
+        }
+        if (subId != -1) {
+            intent.setData(Uri.parse("content://icc/adn/subId/" + subId));
+        } else {
+            intent.setData(Uri.parse("content://icc/adn"));
+        }
         if (Intent.ACTION_PICK.equals(intent.getAction())) {
             // "index" is 1-based
             mInitialSelection = intent.getIntExtra("index", 0) - 1;

@@ -32,7 +32,7 @@ class SocketStreamDispatcherHost
       public net::SocketStream::Delegate,
       public SSLErrorHandler::Delegate {
  public:
-  typedef base::Callback<net::URLRequestContext*(ResourceType::Type)>
+  typedef base::Callback<net::URLRequestContext*(ResourceType)>
       GetRequestContextCallback;
   SocketStreamDispatcherHost(
       int render_process_id,
@@ -88,8 +88,9 @@ class SocketStreamDispatcherHost
   GetRequestContextCallback request_context_callback_;
   ResourceContext* resource_context_;
 
-  base::WeakPtrFactory<SocketStreamDispatcherHost> weak_ptr_factory_;
   bool on_shutdown_;
+
+  base::WeakPtrFactory<SocketStreamDispatcherHost> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(SocketStreamDispatcherHost);
 };

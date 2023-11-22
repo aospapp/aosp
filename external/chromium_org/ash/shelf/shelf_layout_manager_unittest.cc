@@ -27,13 +27,13 @@
 #include "base/command_line.h"
 #include "base/strings/utf_string_conversions.h"
 #include "ui/aura/client/aura_constants.h"
-#include "ui/aura/test/event_generator.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_event_dispatcher.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animator.h"
 #include "ui/compositor/scoped_animation_duration_scale_mode.h"
 #include "ui/events/gestures/gesture_configuration.h"
+#include "ui/events/test/event_generator.h"
 #include "ui/gfx/display.h"
 #include "ui/gfx/screen.h"
 #include "ui/views/controls/label.h"
@@ -388,7 +388,8 @@ void ShelfLayoutManagerTest::RunGestureDragTests(gfx::Vector2d delta) {
   widget->Show();
   widget->Maximize();
 
-  const base::TimeDelta kTimeDelta = base::TimeDelta::FromMilliseconds(40);
+  // The time delta should be large enough to prevent accidental fling creation.
+  const base::TimeDelta kTimeDelta = base::TimeDelta::FromMilliseconds(100);
 
   aura::Window* window = widget->GetNativeWindow();
   shelf->LayoutShelf();
@@ -407,7 +408,7 @@ void ShelfLayoutManagerTest::RunGestureDragTests(gfx::Vector2d delta) {
   shelf->SetAutoHideBehavior(SHELF_AUTO_HIDE_BEHAVIOR_NEVER);
   shelf->LayoutShelf();
 
-  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
   const int kNumScrollSteps = 4;
   ShelfDragCallback handler(shelf_hidden, shelf_shown);
 
@@ -827,7 +828,7 @@ TEST_F(ShelfLayoutManagerTest, ShelfUpdatedWhenStatusAreaChangesSize) {
 // Various assertions around auto-hide.
 TEST_F(ShelfLayoutManagerTest, MAYBE_AutoHide) {
   aura::Window* root = Shell::GetPrimaryRootWindow();
-  aura::test::EventGenerator generator(root, root);
+  ui::test::EventGenerator generator(root, root);
   generator.MoveMouseTo(0, 0);
 
   ShelfLayoutManager* shelf = GetShelfLayoutManager();
@@ -918,7 +919,7 @@ TEST_F(ShelfLayoutManagerTest, AutoHideShelfOnScreenBoundary) {
   int y = root_windows[0]->GetBoundsInScreen().y();
 
   // Start off the mouse nowhere near the shelf; the shelf should be hidden.
-  aura::test::EventGenerator& generator(GetEventGenerator());
+  ui::test::EventGenerator& generator(GetEventGenerator());
   generator.MoveMouseTo(right_edge - 50, y);
   UpdateAutoHideStateNow();
   EXPECT_EQ(SHELF_AUTO_HIDE_HIDDEN, shelf->auto_hide_state());
@@ -986,8 +987,8 @@ TEST_F(ShelfLayoutManagerTest, AutoHideShelfOnScreenBoundary) {
 TEST_F(ShelfLayoutManagerTest, VisibleWhenLockScreenShowing) {
   // Since ShelfLayoutManager queries for mouse location, move the mouse so
   // it isn't over the shelf.
-  aura::test::EventGenerator generator(
-      Shell::GetPrimaryRootWindow(), gfx::Point());
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow(),
+                                     gfx::Point());
   generator.MoveMouseTo(0, 0);
 
   ShelfLayoutManager* shelf = GetShelfLayoutManager();
@@ -1039,8 +1040,8 @@ TEST_F(ShelfLayoutManagerTest, VisibleWhenLockScreenShowing) {
 TEST_F(ShelfLayoutManagerTest, SetAutoHideBehavior) {
   // Since ShelfLayoutManager queries for mouse location, move the mouse so
   // it isn't over the shelf.
-  aura::test::EventGenerator generator(
-      Shell::GetPrimaryRootWindow(), gfx::Point());
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow(),
+                                     gfx::Point());
   generator.MoveMouseTo(0, 0);
 
   ShelfLayoutManager* shelf = GetShelfLayoutManager();
@@ -1073,7 +1074,14 @@ TEST_F(ShelfLayoutManagerTest, SetAutoHideBehavior) {
                 window).work_area().bottom(),
             widget->GetWorkAreaBoundsInScreen().bottom());
 
+  ui::ScopedAnimationDurationScaleMode animation_duration(
+      ui::ScopedAnimationDurationScaleMode::SLOW_DURATION);
+
   shelf->SetAutoHideBehavior(SHELF_AUTO_HIDE_BEHAVIOR_NEVER);
+  ShelfWidget* shelf_widget = GetShelfWidget();
+  EXPECT_TRUE(shelf_widget->status_area_widget()->IsVisible());
+  StepWidgetLayerAnimatorToEnd(shelf_widget);
+  StepWidgetLayerAnimatorToEnd(shelf_widget->status_area_widget());
   EXPECT_EQ(SHELF_VISIBLE, shelf->visibility_state());
   EXPECT_EQ(Shell::GetScreen()->GetDisplayNearestWindow(
                 window).work_area().bottom(),
@@ -1084,8 +1092,8 @@ TEST_F(ShelfLayoutManagerTest, SetAutoHideBehavior) {
 TEST_F(ShelfLayoutManagerTest, TestDimmingBehavior) {
   // Since ShelfLayoutManager queries for mouse location, move the mouse so
   // it isn't over the shelf.
-  aura::test::EventGenerator generator(
-      Shell::GetPrimaryRootWindow(), gfx::Point());
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow(),
+                                     gfx::Point());
   generator.MoveMouseTo(0, 0);
 
   ShelfLayoutManager* shelf = GetShelfLayoutManager();
@@ -1158,8 +1166,8 @@ TEST_F(ShelfLayoutManagerTest, TestDimmingBehavior) {
 TEST_F(ShelfLayoutManagerTest, TestDimmingBehaviorWithMenus) {
   // Since ShelfLayoutManager queries for mouse location, move the mouse so
   // it isn't over the shelf.
-  aura::test::EventGenerator generator(
-      Shell::GetPrimaryRootWindow(), gfx::Point());
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow(),
+                                     gfx::Point());
   generator.MoveMouseTo(0, 0);
 
   ShelfLayoutManager* shelf = GetShelfLayoutManager();
@@ -1228,8 +1236,8 @@ TEST_F(ShelfLayoutManagerTest, TestDimmingBehaviorWithMenus) {
 TEST_F(ShelfLayoutManagerTest, VisibleWhenStatusOrShelfFocused) {
   // Since ShelfLayoutManager queries for mouse location, move the mouse so
   // it isn't over the shelf.
-  aura::test::EventGenerator generator(
-      Shell::GetPrimaryRootWindow(), gfx::Point());
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow(),
+                                     gfx::Point());
   generator.MoveMouseTo(0, 0);
 
   ShelfLayoutManager* shelf = GetShelfLayoutManager();
@@ -1277,13 +1285,13 @@ TEST_F(ShelfLayoutManagerTest, OpenAppListWithShelfVisibleState) {
   EXPECT_FALSE(shell->GetAppListTargetVisibility());
   EXPECT_EQ(SHELF_VISIBLE, shelf->visibility_state());
 
-  // Toggle app list to show, and the shelf stays visible.
-  shell->ToggleAppList(NULL);
+  // Show app list and the shelf stays visible.
+  shell->ShowAppList(NULL);
   EXPECT_TRUE(shell->GetAppListTargetVisibility());
   EXPECT_EQ(SHELF_VISIBLE, shelf->visibility_state());
 
-  // Toggle app list to hide, and the shelf stays visible.
-  shell->ToggleAppList(NULL);
+  // Hide app list and the shelf stays visible.
+  shell->DismissAppList();
   EXPECT_FALSE(shell->GetAppListTargetVisibility());
   EXPECT_EQ(SHELF_VISIBLE, shelf->visibility_state());
 }
@@ -1307,8 +1315,8 @@ TEST_F(ShelfLayoutManagerTest, OpenAppListWithShelfAutoHideState) {
   EXPECT_FALSE(shell->GetAppListTargetVisibility());
   EXPECT_EQ(SHELF_AUTO_HIDE, shelf->visibility_state());
 
-  // Toggle app list to show.
-  shell->ToggleAppList(NULL);
+  // Show app list.
+  shell->ShowAppList(NULL);
   // The shelf's auto hide state won't be changed until the timer fires, so
   // calling shell->UpdateShelfVisibility() is kind of manually helping it to
   // update the state.
@@ -1317,8 +1325,8 @@ TEST_F(ShelfLayoutManagerTest, OpenAppListWithShelfAutoHideState) {
   EXPECT_EQ(SHELF_AUTO_HIDE, shelf->visibility_state());
   EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, shelf->auto_hide_state());
 
-  // Toggle app list to hide.
-  shell->ToggleAppList(NULL);
+  // Hide app list.
+  shell->DismissAppList();
   EXPECT_FALSE(shell->GetAppListTargetVisibility());
   EXPECT_EQ(SHELF_AUTO_HIDE, shelf->visibility_state());
 }
@@ -1342,13 +1350,13 @@ TEST_F(ShelfLayoutManagerTest, OpenAppListWithShelfHiddenState) {
   EXPECT_FALSE(shell->GetAppListTargetVisibility());
   EXPECT_EQ(SHELF_HIDDEN, shelf->visibility_state());
 
-  // Toggle app list to show.
-  shell->ToggleAppList(NULL);
+  // Show app list.
+  shell->ShowAppList(NULL);
   EXPECT_TRUE(shell->GetAppListTargetVisibility());
   EXPECT_EQ(SHELF_HIDDEN, shelf->visibility_state());
 
-  // Toggle app list to hide.
-  shell->ToggleAppList(NULL);
+  // Hide app list.
+  shell->DismissAppList();
   EXPECT_FALSE(shell->GetAppListTargetVisibility());
   EXPECT_EQ(SHELF_HIDDEN, shelf->visibility_state());
 }
@@ -1531,7 +1539,7 @@ TEST_F(ShelfLayoutManagerTest, GestureEdgeSwipe) {
   widget->Show();
   widget->Maximize();
 
-  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
 
   aura::Window* window = widget->GetNativeWindow();
   shelf->LayoutShelf();
@@ -1555,39 +1563,6 @@ TEST_F(ShelfLayoutManagerTest, GestureEdgeSwipe) {
 
   widget->SetFullscreen(true);
   wm::GetWindowState(window)->set_hide_shelf_when_fullscreen(false);
-  shelf->UpdateVisibilityState();
-
-  // Edge swipe in fullscreen + AUTO_HIDE_HIDDEN should show the shelf and
-  // remain fullscreen.
-  EXPECT_TRUE(widget->IsFullscreen());
-  EXPECT_EQ(SHELF_AUTO_HIDE, shelf->visibility_state());
-  EXPECT_EQ(SHELF_AUTO_HIDE_HIDDEN, shelf->auto_hide_state());
-  generator.GestureEdgeSwipe();
-  EXPECT_EQ(SHELF_AUTO_HIDE, shelf->visibility_state());
-  EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, shelf->auto_hide_state());
-  EXPECT_TRUE(widget->IsFullscreen());
-}
-
-// Test that starting the maximize mode does still allow the shelf to be made
-// visible when an (immersive mode) full screen app is running.
-TEST_F(ShelfLayoutManagerTest, GestureEdgeSwipeInMaximizeMode) {
-  ShelfLayoutManager* shelf = GetShelfLayoutManager();
-  shelf->SetAutoHideBehavior(SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS);
-  views::Widget* widget = new views::Widget;
-  views::Widget::InitParams params(views::Widget::InitParams::TYPE_WINDOW);
-  params.bounds = gfx::Rect(0, 0, 200, 200);
-  params.context = CurrentContext();
-  widget->Init(params);
-  widget->Show();
-  aura::Window* window = widget->GetNativeWindow();
-  wm::GetWindowState(window)->set_hide_shelf_when_fullscreen(false);
-  widget->SetFullscreen(true);
-
-  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
-
-  // The maximize mode gets started.
-  shelf->OnMaximizeModeStarted();
-  shelf->LayoutShelf();
   shelf->UpdateVisibilityState();
 
   // Edge swipe in fullscreen + AUTO_HIDE_HIDDEN should show the shelf and
@@ -1700,9 +1675,9 @@ TEST_F(ShelfLayoutManagerTest, ShelfAnimatesWhenGestureComplete) {
   {
     // Enable animations so that we can make sure that they occur.
     ui::ScopedAnimationDurationScaleMode regular_animations(
-        ui::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+        ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
 
-    aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+    ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
     gfx::Rect shelf_bounds_in_screen =
         GetShelfWidget()->GetWindowBoundsInScreen();
     gfx::Point start(shelf_bounds_in_screen.CenterPoint());
@@ -1729,12 +1704,12 @@ TEST_F(ShelfLayoutManagerTest, ShelfAnimatesWhenGestureComplete) {
   {
     // Enable the animations so that we can make sure they do occur.
     ui::ScopedAnimationDurationScaleMode regular_animations(
-        ui::ScopedAnimationDurationScaleMode::NORMAL_DURATION);
+        ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
 
     gfx::Point start =
         GetShelfWidget()->GetWindowBoundsInScreen().CenterPoint();
     gfx::Point end(start.x(), start.y() - 100);
-    aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+    ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
 
     // Test that the shelf animates to the visible bounds after a swipe up on
     // the auto hidden shelf.
@@ -1768,7 +1743,7 @@ TEST_F(ShelfLayoutManagerTest, GestureRevealsTrayBubble) {
   // Create a visible window so auto-hide behavior is enforced.
   CreateTestWidget();
 
-  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
   SystemTray* tray = GetSystemTray();
 
   // First, make sure the shelf is visible.
@@ -1909,7 +1884,7 @@ TEST_F(ShelfLayoutManagerTest, BubbleEnlargesShelfMouseHitArea) {
   CreateTestWidget();
 
   shelf->LayoutShelf();
-  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
 
   // Make two iterations - first without a message bubble which should make
   // the shelf disappear and then with a message bubble which should keep it
@@ -2005,7 +1980,7 @@ TEST_F(ShelfLayoutManagerTest, MAYBE_StatusAreaHitBoxCoversEdge) {
   ShelfLayoutManager* shelf = GetShelfLayoutManager();
   StatusAreaWidget* status_area_widget =
       Shell::GetPrimaryRootWindowController()->shelf()->status_area_widget();
-  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
   generator.MoveMouseTo(399,399);
 
   // Test bottom right pixel for bottom alignment.
@@ -2031,29 +2006,6 @@ TEST_F(ShelfLayoutManagerTest, MAYBE_StatusAreaHitBoxCoversEdge) {
   EXPECT_TRUE(status_area_widget->IsMessageBubbleShown());
   generator.ClickLeftButton();
   EXPECT_FALSE(status_area_widget->IsMessageBubbleShown());
-}
-
-// Tests that entering maximize mode resets auto-hide behaviour to be off by
-// default.
-TEST_F(ShelfLayoutManagerTest, MaximizeModeResetsAutohide) {
-  ShelfLayoutManager* shelf = GetShelfLayoutManager();
-  shelf->SetAutoHideBehavior(ash::SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS);
-  views::Widget* widget = new views::Widget;
-  views::Widget::InitParams params(views::Widget::InitParams::TYPE_WINDOW);
-  params.bounds = gfx::Rect(0, 0, 200, 200);
-  params.context = CurrentContext();
-  // Widget is now owned by the parent window.
-  widget->Init(params);
-  widget->Maximize();
-  widget->Show();
-  EXPECT_EQ(SHELF_AUTO_HIDE, shelf->visibility_state());
-  EXPECT_EQ(SHELF_AUTO_HIDE_HIDDEN, shelf->auto_hide_state());
-
-  shelf->OnMaximizeModeStarted();
-  // LayoutShelf() forces the animation to completion
-  shelf->LayoutShelf();
-  EXPECT_EQ(SHELF_VISIBLE, shelf->visibility_state());
-  EXPECT_EQ(SHELF_AUTO_HIDE_BEHAVIOR_NEVER, shelf->auto_hide_behavior());
 }
 
 // Tests that when the auto-hide behaviour is changed during an animation the

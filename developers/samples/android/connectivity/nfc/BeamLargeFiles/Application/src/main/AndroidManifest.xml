@@ -45,7 +45,7 @@
 
         <!-- Content provider, used to provide images for transmission. -->
         <provider
-            android:name=".AssetProvider"
+            android:name="com.example.android.common.assetprovider.AssetProvider"
             android:authorities="com.example.android.beamlargefiles.files"
             android:exported="true"/>
 

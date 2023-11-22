@@ -29,23 +29,25 @@ void FakeLayerUpdater::Resource::Update(ResourceUpdateQueue* queue,
   layer_->Update();
 }
 
-FakeLayerUpdater::FakeLayerUpdater() : prepare_count_(0), update_count_(0) {}
+FakeLayerUpdater::FakeLayerUpdater()
+    : prepare_count_(0), update_count_(0), last_contents_width_scale_(0.f) {
+}
 
 FakeLayerUpdater::~FakeLayerUpdater() {}
 
-void FakeLayerUpdater::PrepareToUpdate(const gfx::Rect& content_rect,
+void FakeLayerUpdater::PrepareToUpdate(const gfx::Size& content_size,
+                                       const gfx::Rect& paint_rect,
                                        const gfx::Size& tile_size,
                                        float contents_width_scale,
-                                       float contents_height_scale,
-                                       gfx::Rect* resulting_opaque_rect) {
+                                       float contents_height_scale) {
   prepare_count_++;
-  last_update_rect_ = content_rect;
+  last_update_rect_ = paint_rect;
+  last_contents_width_scale_ = contents_width_scale;
   if (!rect_to_invalidate_.IsEmpty()) {
     layer_->InvalidateContentRect(rect_to_invalidate_);
     rect_to_invalidate_ = gfx::Rect();
     layer_ = NULL;
   }
-  *resulting_opaque_rect = opaque_paint_rect_;
 }
 
 void FakeLayerUpdater::SetRectToInvalidate(const gfx::Rect& rect,
@@ -114,10 +116,6 @@ PrioritizedResourceManager* FakeTiledLayer::ResourceManager() {
 
 void FakeTiledLayer::UpdateContentsScale(float ideal_contents_scale) {
   CalculateContentsScale(ideal_contents_scale,
-                         1.f,
-                         1.f,
-                         1.f,
-                         false,  // animating_transform_to_screen
                          &draw_properties().contents_scale_x,
                          &draw_properties().contents_scale_y,
                          &draw_properties().content_bounds);
@@ -155,10 +153,6 @@ void FakeTiledLayerWithScaledBounds::SetContentBounds(
 
 void FakeTiledLayerWithScaledBounds::CalculateContentsScale(
     float ideal_contents_scale,
-    float device_scale_factor,
-    float page_scale_factor,
-    float maximum_animation_contents_scale,
-    bool animating_transform_to_screen,
     float* contents_scale_x,
     float* contents_scale_y,
     gfx::Size* content_bounds) {

@@ -19,23 +19,23 @@
     <TextView
         android:id="@+id/title_text"
         style="@style/Theme.Settings.BluetoothPairing"
-        android:layout_marginLeft="@dimen/add_accessory_padding_left"
+        android:layout_marginStart="@dimen/add_accessory_padding_start"
         android:layout_width="@dimen/width_description"
         android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
         android:layout_centerVertical="true" />
     <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        android:layout_marginLeft="@dimen/pad_left_unsafe_action"
+        android:layout_marginStart="@dimen/pad_start_unsafe_action"
         android:layout_width="@dimen/width_action"
-        android:paddingRight="@dimen/pad_right_unsafe_action"
+        android:paddingEnd="@dimen/pad_end_unsafe_action"
         android:layout_height="match_parent"
         android:layout_centerVertical="true"
-        android:layout_toRightOf="@id/title_text">
+        android:layout_toEndOf="@id/title_text">
         <EditText
             android:id="@+id/text_input"
             android:layout_width="@dimen/edit_text_width_default"
             android:layout_height="wrap_content"
-            android:layout_alignParentLeft="true"
+            android:layout_alignParentStart="true"
             android:layout_centerVertical="true"
             android:focusable="true"
             android:imeOptions="actionNext|flagNoExtractUi"
@@ -48,9 +48,9 @@
             style="@style/HintText"
             android:layout_width="@dimen/edit_text_width_default"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="@dimen/bt_secure_pair_hint_left_margin"
+            android:layout_marginStart="@dimen/bt_secure_pair_hint_start_margin"
             android:layout_marginTop="@dimen/bt_secure_pair_hint_top_margin"
             android:layout_below="@id/text_input"
-            android:layout_alignLeft="@id/text_input" />
+            android:layout_alignStart="@id/text_input" />
     </RelativeLayout>
 </RelativeLayout>

@@ -60,8 +60,10 @@ class AttachmentComposeView extends LinearLayout implements AttachmentDeletionIn
 
     @Override
     public void addDeleteListener(OnClickListener clickListener) {
-        ImageButton deleteButton = (ImageButton) findViewById(R.id.remove_attachment);
+        final ImageButton deleteButton = (ImageButton) findViewById(R.id.remove_attachment);
         deleteButton.setOnClickListener(clickListener);
+        deleteButton.setContentDescription(getResources().getString(R.string.remove_attachment_desc,
+                mAttachment.getName()));
     }
 
     private void populateAttachmentData(Context context) {

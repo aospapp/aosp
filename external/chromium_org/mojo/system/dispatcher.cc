@@ -16,8 +16,7 @@ namespace system {
 namespace test {
 
 // TODO(vtl): Maybe this should be defined in a test-only file instead.
-DispatcherTransport DispatcherTryStartTransport(
-    Dispatcher* dispatcher) {
+DispatcherTransport DispatcherTryStartTransport(Dispatcher* dispatcher) {
   return Dispatcher::HandleTableAccess::TryStartTransport(dispatcher);
 }
 
@@ -59,8 +58,8 @@ bool Dispatcher::TransportDataAccess::EndSerializeAndClose(
     size_t* actual_size,
     embedder::PlatformHandleVector* platform_handles) {
   DCHECK(dispatcher);
-  return dispatcher->EndSerializeAndClose(channel, destination, actual_size,
-                                          platform_handles);
+  return dispatcher->EndSerializeAndClose(
+      channel, destination, actual_size, platform_handles);
 }
 
 // static
@@ -84,13 +83,11 @@ scoped_refptr<Dispatcher> Dispatcher::TransportDataAccess::Deserialize(
                    << " not supported";
       return scoped_refptr<Dispatcher>();
     case kTypeSharedBuffer:
-      return scoped_refptr<Dispatcher>(
-          SharedBufferDispatcher::Deserialize(channel, source, size,
-                                              platform_handles));
+      return scoped_refptr<Dispatcher>(SharedBufferDispatcher::Deserialize(
+          channel, source, size, platform_handles));
     case kTypePlatformHandle:
-      return scoped_refptr<Dispatcher>(
-          PlatformHandleDispatcher::Deserialize(channel, source, size,
-                                                platform_handles));
+      return scoped_refptr<Dispatcher>(PlatformHandleDispatcher::Deserialize(
+          channel, source, size, platform_handles));
   }
   LOG(WARNING) << "Unknown dispatcher type " << type;
   return scoped_refptr<Dispatcher>();
@@ -106,7 +103,7 @@ MojoResult Dispatcher::Close() {
 }
 
 MojoResult Dispatcher::WriteMessage(
-    const void* bytes,
+    UserPointer<const void> bytes,
     uint32_t num_bytes,
     std::vector<DispatcherTransport>* transports,
     MojoWriteMessageFlags flags) {
@@ -120,11 +117,11 @@ MojoResult Dispatcher::WriteMessage(
   return WriteMessageImplNoLock(bytes, num_bytes, transports, flags);
 }
 
-MojoResult Dispatcher::ReadMessage(void* bytes,
-                                   uint32_t* num_bytes,
+MojoResult Dispatcher::ReadMessage(UserPointer<void> bytes,
+                                   UserPointer<uint32_t> num_bytes,
                                    DispatcherVector* dispatchers,
                                    uint32_t* num_dispatchers,
-    MojoReadMessageFlags flags) {
+                                   MojoReadMessageFlags flags) {
   DCHECK(!num_dispatchers || *num_dispatchers == 0 ||
          (dispatchers && dispatchers->empty()));
 
@@ -132,12 +129,12 @@ MojoResult Dispatcher::ReadMessage(void* bytes,
   if (is_closed_)
     return MOJO_RESULT_INVALID_ARGUMENT;
 
-  return ReadMessageImplNoLock(bytes, num_bytes, dispatchers, num_dispatchers,
-                               flags);
+  return ReadMessageImplNoLock(
+      bytes, num_bytes, dispatchers, num_dispatchers, flags);
 }
 
-MojoResult Dispatcher::WriteData(const void* elements,
-                                 uint32_t* num_bytes,
+MojoResult Dispatcher::WriteData(UserPointer<const void> elements,
+                                 UserPointer<uint32_t> num_bytes,
                                  MojoWriteDataFlags flags) {
   base::AutoLock locker(lock_);
   if (is_closed_)
@@ -146,8 +143,8 @@ MojoResult Dispatcher::WriteData(const void* elements,
   return WriteDataImplNoLock(elements, num_bytes, flags);
 }
 
-MojoResult Dispatcher::BeginWriteData(void** buffer,
-                                      uint32_t* buffer_num_bytes,
+MojoResult Dispatcher::BeginWriteData(UserPointer<void*> buffer,
+                                      UserPointer<uint32_t> buffer_num_bytes,
                                       MojoWriteDataFlags flags) {
   base::AutoLock locker(lock_);
   if (is_closed_)
@@ -164,8 +161,8 @@ MojoResult Dispatcher::EndWriteData(uint32_t num_bytes_written) {
   return EndWriteDataImplNoLock(num_bytes_written);
 }
 
-MojoResult Dispatcher::ReadData(void* elements,
-                                uint32_t* num_bytes,
+MojoResult Dispatcher::ReadData(UserPointer<void> elements,
+                                UserPointer<uint32_t> num_bytes,
                                 MojoReadDataFlags flags) {
   base::AutoLock locker(lock_);
   if (is_closed_)
@@ -174,8 +171,8 @@ MojoResult Dispatcher::ReadData(void* elements,
   return ReadDataImplNoLock(elements, num_bytes, flags);
 }
 
-MojoResult Dispatcher::BeginReadData(const void** buffer,
-                                     uint32_t* buffer_num_bytes,
+MojoResult Dispatcher::BeginReadData(UserPointer<const void*> buffer,
+                                     UserPointer<uint32_t> buffer_num_bytes,
                                      MojoReadDataFlags flags) {
   base::AutoLock locker(lock_);
   if (is_closed_)
@@ -193,7 +190,7 @@ MojoResult Dispatcher::EndReadData(uint32_t num_bytes_read) {
 }
 
 MojoResult Dispatcher::DuplicateBufferHandle(
-    const MojoDuplicateBufferHandleOptions* options,
+    UserPointer<const MojoDuplicateBufferHandleOptions> options,
     scoped_refptr<Dispatcher>* new_dispatcher) {
   base::AutoLock locker(lock_);
   if (is_closed_)
@@ -206,7 +203,7 @@ MojoResult Dispatcher::MapBuffer(
     uint64_t offset,
     uint64_t num_bytes,
     MojoMapBufferFlags flags,
-    scoped_ptr<RawSharedBufferMapping>* mapping) {
+    scoped_ptr<embedder::PlatformSharedBufferMapping>* mapping) {
   base::AutoLock locker(lock_);
   if (is_closed_)
     return MOJO_RESULT_INVALID_ARGUMENT;
@@ -214,25 +211,40 @@ MojoResult Dispatcher::MapBuffer(
   return MapBufferImplNoLock(offset, num_bytes, flags, mapping);
 }
 
+HandleSignalsState Dispatcher::GetHandleSignalsState() const {
+  base::AutoLock locker(lock_);
+  if (is_closed_)
+    return HandleSignalsState();
+
+  return GetHandleSignalsStateImplNoLock();
+}
+
 MojoResult Dispatcher::AddWaiter(Waiter* waiter,
                                  MojoHandleSignals signals,
-                                 uint32_t context) {
+                                 uint32_t context,
+                                 HandleSignalsState* signals_state) {
   base::AutoLock locker(lock_);
-  if (is_closed_)
+  if (is_closed_) {
+    if (signals_state)
+      *signals_state = HandleSignalsState();
     return MOJO_RESULT_INVALID_ARGUMENT;
+  }
 
-  return AddWaiterImplNoLock(waiter, signals, context);
+  return AddWaiterImplNoLock(waiter, signals, context, signals_state);
 }
 
-void Dispatcher::RemoveWaiter(Waiter* waiter) {
+void Dispatcher::RemoveWaiter(Waiter* waiter,
+                              HandleSignalsState* handle_signals_state) {
   base::AutoLock locker(lock_);
-  if (is_closed_)
+  if (is_closed_) {
+    if (handle_signals_state)
+      *handle_signals_state = HandleSignalsState();
     return;
-  RemoveWaiterImplNoLock(waiter);
+  }
+  RemoveWaiterImplNoLock(waiter, handle_signals_state);
 }
 
-Dispatcher::Dispatcher()
-    : is_closed_(false) {
+Dispatcher::Dispatcher() : is_closed_(false) {
 }
 
 Dispatcher::~Dispatcher() {
@@ -255,7 +267,7 @@ void Dispatcher::CloseImplNoLock() {
 }
 
 MojoResult Dispatcher::WriteMessageImplNoLock(
-    const void* /*bytes*/,
+    UserPointer<const void> /*bytes*/,
     uint32_t /*num_bytes*/,
     std::vector<DispatcherTransport>* /*transports*/,
     MojoWriteMessageFlags /*flags*/) {
@@ -265,19 +277,20 @@ MojoResult Dispatcher::WriteMessageImplNoLock(
   return MOJO_RESULT_INVALID_ARGUMENT;
 }
 
-MojoResult Dispatcher::ReadMessageImplNoLock(void* /*bytes*/,
-                                             uint32_t* /*num_bytes*/,
-                                             DispatcherVector* /*dispatchers*/,
-                                             uint32_t* /*num_dispatchers*/,
-                                             MojoReadMessageFlags /*flags*/) {
+MojoResult Dispatcher::ReadMessageImplNoLock(
+    UserPointer<void> /*bytes*/,
+    UserPointer<uint32_t> /*num_bytes*/,
+    DispatcherVector* /*dispatchers*/,
+    uint32_t* /*num_dispatchers*/,
+    MojoReadMessageFlags /*flags*/) {
   lock_.AssertAcquired();
   DCHECK(!is_closed_);
   // By default, not supported. Only needed for message pipe dispatchers.
   return MOJO_RESULT_INVALID_ARGUMENT;
 }
 
-MojoResult Dispatcher::WriteDataImplNoLock(const void* /*elements*/,
-                                           uint32_t* /*num_bytes*/,
+MojoResult Dispatcher::WriteDataImplNoLock(UserPointer<const void> /*elements*/,
+                                           UserPointer<uint32_t> /*num_bytes*/,
                                            MojoWriteDataFlags /*flags*/) {
   lock_.AssertAcquired();
   DCHECK(!is_closed_);
@@ -285,9 +298,10 @@ MojoResult Dispatcher::WriteDataImplNoLock(const void* /*elements*/,
   return MOJO_RESULT_INVALID_ARGUMENT;
 }
 
-MojoResult Dispatcher::BeginWriteDataImplNoLock(void** /*buffer*/,
-                                                uint32_t* /*buffer_num_bytes*/,
-                                                MojoWriteDataFlags /*flags*/) {
+MojoResult Dispatcher::BeginWriteDataImplNoLock(
+    UserPointer<void*> /*buffer*/,
+    UserPointer<uint32_t> /*buffer_num_bytes*/,
+    MojoWriteDataFlags /*flags*/) {
   lock_.AssertAcquired();
   DCHECK(!is_closed_);
   // By default, not supported. Only needed for data pipe dispatchers.
@@ -301,8 +315,8 @@ MojoResult Dispatcher::EndWriteDataImplNoLock(uint32_t /*num_bytes_written*/) {
   return MOJO_RESULT_INVALID_ARGUMENT;
 }
 
-MojoResult Dispatcher::ReadDataImplNoLock(void* /*elements*/,
-                                          uint32_t* /*num_bytes*/,
+MojoResult Dispatcher::ReadDataImplNoLock(UserPointer<void> /*elements*/,
+                                          UserPointer<uint32_t> /*num_bytes*/,
                                           MojoReadDataFlags /*flags*/) {
   lock_.AssertAcquired();
   DCHECK(!is_closed_);
@@ -310,9 +324,10 @@ MojoResult Dispatcher::ReadDataImplNoLock(void* /*elements*/,
   return MOJO_RESULT_INVALID_ARGUMENT;
 }
 
-MojoResult Dispatcher::BeginReadDataImplNoLock(const void** /*buffer*/,
-                                               uint32_t* /*buffer_num_bytes*/,
-                                               MojoReadDataFlags /*flags*/) {
+MojoResult Dispatcher::BeginReadDataImplNoLock(
+    UserPointer<const void*> /*buffer*/,
+    UserPointer<uint32_t> /*buffer_num_bytes*/,
+    MojoReadDataFlags /*flags*/) {
   lock_.AssertAcquired();
   DCHECK(!is_closed_);
   // By default, not supported. Only needed for data pipe dispatchers.
@@ -327,8 +342,8 @@ MojoResult Dispatcher::EndReadDataImplNoLock(uint32_t /*num_bytes_read*/) {
 }
 
 MojoResult Dispatcher::DuplicateBufferHandleImplNoLock(
-      const MojoDuplicateBufferHandleOptions* /*options*/,
-      scoped_refptr<Dispatcher>* /*new_dispatcher*/) {
+    UserPointer<const MojoDuplicateBufferHandleOptions> /*options*/,
+    scoped_refptr<Dispatcher>* /*new_dispatcher*/) {
   lock_.AssertAcquired();
   DCHECK(!is_closed_);
   // By default, not supported. Only needed for buffer dispatchers.
@@ -339,28 +354,42 @@ MojoResult Dispatcher::MapBufferImplNoLock(
     uint64_t /*offset*/,
     uint64_t /*num_bytes*/,
     MojoMapBufferFlags /*flags*/,
-    scoped_ptr<RawSharedBufferMapping>* /*mapping*/) {
+    scoped_ptr<embedder::PlatformSharedBufferMapping>* /*mapping*/) {
   lock_.AssertAcquired();
   DCHECK(!is_closed_);
   // By default, not supported. Only needed for buffer dispatchers.
   return MOJO_RESULT_INVALID_ARGUMENT;
 }
 
-MojoResult Dispatcher::AddWaiterImplNoLock(Waiter* /*waiter*/,
-                                           MojoHandleSignals /*signals*/,
-                                           uint32_t /*context*/) {
+HandleSignalsState Dispatcher::GetHandleSignalsStateImplNoLock() const {
   lock_.AssertAcquired();
   DCHECK(!is_closed_);
   // By default, waiting isn't supported. Only dispatchers that can be waited on
   // will do something nontrivial.
+  return HandleSignalsState();
+}
+
+MojoResult Dispatcher::AddWaiterImplNoLock(Waiter* /*waiter*/,
+                                           MojoHandleSignals /*signals*/,
+                                           uint32_t /*context*/,
+                                           HandleSignalsState* signals_state) {
+  lock_.AssertAcquired();
+  DCHECK(!is_closed_);
+  // By default, waiting isn't supported. Only dispatchers that can be waited on
+  // will do something nontrivial.
+  if (signals_state)
+    *signals_state = HandleSignalsState();
   return MOJO_RESULT_FAILED_PRECONDITION;
 }
 
-void Dispatcher::RemoveWaiterImplNoLock(Waiter* /*waiter*/) {
+void Dispatcher::RemoveWaiterImplNoLock(Waiter* /*waiter*/,
+                                        HandleSignalsState* signals_state) {
   lock_.AssertAcquired();
   DCHECK(!is_closed_);
   // By default, waiting isn't supported. Only dispatchers that can be waited on
   // will do something nontrivial.
+  if (signals_state)
+    *signals_state = HandleSignalsState();
 }
 
 void Dispatcher::StartSerializeImplNoLock(Channel* /*channel*/,
@@ -433,10 +462,9 @@ bool Dispatcher::EndSerializeAndClose(
   DCHECK(!is_closed_);
 
   // Like other |...Close()| methods, we mark ourselves as closed before calling
-  // the impl.
+  // the impl. But there's no need to cancel waiters: we shouldn't have any (and
+  // shouldn't be in |Core|'s handle table.
   is_closed_ = true;
-  // No need to cancel waiters: we shouldn't have any (and shouldn't be in
-  // |Core|'s handle table.
 
 #if !defined(NDEBUG)
   // See the comment above |EndSerializeAndCloseImplNoLock()|. In brief: Locking
@@ -445,8 +473,8 @@ bool Dispatcher::EndSerializeAndClose(
   base::AutoLock locker(lock_);
 #endif
 
-  return EndSerializeAndCloseImplNoLock(channel, destination, actual_size,
-                                        platform_handles);
+  return EndSerializeAndCloseImplNoLock(
+      channel, destination, actual_size, platform_handles);
 }
 
 // DispatcherTransport ---------------------------------------------------------
@@ -454,7 +482,7 @@ bool Dispatcher::EndSerializeAndClose(
 void DispatcherTransport::End() {
   DCHECK(dispatcher_);
   dispatcher_->lock_.Release();
-  dispatcher_ = NULL;
+  dispatcher_ = nullptr;
 }
 
 }  // namespace system

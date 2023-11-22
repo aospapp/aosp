@@ -37,7 +37,7 @@ class TestPackageExecutable(TestPackage):
     ret_code = 1  # Assume failure if we can't find it
     ret_code_file = tempfile.NamedTemporaryFile()
     try:
-      if not device.old_interface.Adb().Pull(
+      if not device.PullFile(
           constants.TEST_EXECUTABLE_DIR + '/' +
           TestPackageExecutable._TEST_RUNNER_RET_VAL_FILE,
           ret_code_file.name):
@@ -77,7 +77,15 @@ class TestPackageExecutable(TestPackage):
 
   #override
   def ClearApplicationState(self, device):
-    device.old_interface.KillAllBlocking(self.suite_name, 30)
+    try:
+      # We don't expect the executable to be running, so we don't attempt
+      # to retry on failure.
+      device.KillAll(self.suite_name, blocking=True, timeout=30, retries=0)
+    except device_errors.CommandFailedError:
+      # KillAll raises an exception if it can't find a process with the given
+      # name. We only care that there is no process with the given name, so
+      # we can safely eat the exception.
+      pass
 
   #override
   def CreateCommandLineFileOnDevice(self, device, test_filter, test_arguments):
@@ -97,7 +105,7 @@ class TestPackageExecutable(TestPackage):
                           TestPackageExecutable._TEST_RUNNER_RET_VAL_FILE))
     sh_script_file.flush()
     cmd_helper.RunCmd(['chmod', '+x', sh_script_file.name])
-    device.old_interface.PushIfNeeded(
+    device.PushChangedFiles(
         sh_script_file.name,
         constants.TEST_EXECUTABLE_DIR + '/chrome_test_runner.sh')
     logging.info('Conents of the test runner script: ')
@@ -115,7 +123,7 @@ class TestPackageExecutable(TestPackage):
 
   #override
   def SpawnTestProcess(self, device):
-    args = ['adb', '-s', device.old_interface.GetDevice(), 'shell', 'sh',
+    args = ['adb', '-s', str(device), 'shell', 'sh',
             constants.TEST_EXECUTABLE_DIR + '/chrome_test_runner.sh']
     logging.info(args)
     return pexpect.spawn(args[0], args[1:], logfile=sys.stdout)
@@ -140,4 +148,4 @@ class TestPackageExecutable(TestPackage):
              self.suite_name + '_stripped'))
 
     test_binary = constants.TEST_EXECUTABLE_DIR + '/' + self.suite_name
-    device.old_interface.PushIfNeeded(target_name, test_binary)
+    device.PushChangedFiles(target_name, test_binary)

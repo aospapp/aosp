@@ -35,6 +35,8 @@ public class SensorCalibratedUncalibratedVerifier {
 
     private final TestSensorManager mCalibratedSensorManager;
     private final TestSensorManager mUncalibratedSensorManager;
+    private final TestSensorEventListener mCalibratedTestListener;
+    private final TestSensorEventListener mUncalibratedTestListener;
     private final float mThreshold;
 
     public SensorCalibratedUncalibratedVerifier(
@@ -43,6 +45,8 @@ public class SensorCalibratedUncalibratedVerifier {
             float threshold) {
         mCalibratedSensorManager = new TestSensorManager(calibratedEnvironment);
         mUncalibratedSensorManager = new TestSensorManager(uncalibratedEnvironment);
+        mCalibratedTestListener = new TestSensorEventListener(calibratedEnvironment);
+        mUncalibratedTestListener = new TestSensorEventListener(uncalibratedEnvironment);
         mThreshold = threshold;
     }
 
@@ -50,10 +54,8 @@ public class SensorCalibratedUncalibratedVerifier {
      * Executes the operation: it collects the data and run verifications on it.
      */
     public void execute() throws Throwable {
-        CollectingSensorEventListener calibratedTestListener = new CollectingSensorEventListener();
-        CollectingSensorEventListener uncalibratedTestListener = new CollectingSensorEventListener();
-        mCalibratedSensorManager.registerListener(calibratedTestListener);
-        mUncalibratedSensorManager.registerListener(uncalibratedTestListener);
+        mCalibratedSensorManager.registerListener(mCalibratedTestListener);
+        mUncalibratedSensorManager.registerListener(mUncalibratedTestListener);
 
         Thread.sleep(TimeUnit.SECONDS.toMillis(10));
 
@@ -61,8 +63,8 @@ public class SensorCalibratedUncalibratedVerifier {
         mUncalibratedSensorManager.unregisterListener();
 
         verifyMeasurements(
-                calibratedTestListener.getEvents(),
-                uncalibratedTestListener.getEvents(),
+                mCalibratedTestListener.getCollectedEvents(),
+                mUncalibratedTestListener.getCollectedEvents(),
                 mThreshold);
     }
 

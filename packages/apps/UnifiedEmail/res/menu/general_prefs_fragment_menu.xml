@@ -30,7 +30,8 @@
     <item
         android:id="@+id/help_info_menu_item"
         android:icon="@android:drawable/ic_menu_help"
-        android:title="@string/help_and_feedback"/>
+        android:title="@string/help_and_feedback"
+        android:alphabeticShortcut="@string/trigger_help_char" />
 
     <!-- TODO add help menu item, once help support has been moved to UnifiedEmail -->
 </menu>

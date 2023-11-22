@@ -24,6 +24,8 @@
 #include "extensions/browser/extension_pref_value_map_factory.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/browser/extension_system.h"
+#include "extensions/browser/uninstall_reason.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_builder.h"
 #include "extensions/common/feature_switch.h"
@@ -373,11 +375,10 @@ class ExtensionMessageBubbleTest : public testing::Test {
         base::Time::Now(),
         true,    // is_enabled.
         false);  // is_incognito_enabled.
-    extension_prefs_value_map->SetExtensionPref(
-        id,
-        prefs::kProxy,
-        kExtensionPrefsScopeRegular,
-            base::Value::CreateStringValue(id));
+    extension_prefs_value_map->SetExtensionPref(id,
+                                                prefs::kProxy,
+                                                kExtensionPrefsScopeRegular,
+                                                new base::StringValue(id));
 
     if (ExtensionRegistry::Get(profile())->enabled_extensions().GetByID(id))
       return testing::AssertionSuccess();
@@ -394,7 +395,7 @@ class ExtensionMessageBubbleTest : public testing::Test {
             CommandLine::ForCurrentProcess(),
             base::FilePath(),
             false);
-    service_ = profile_->GetExtensionService();
+    service_ = ExtensionSystem::Get(profile())->extension_service();
     service_->Init();
   }
 
@@ -719,9 +720,18 @@ TEST_F(ExtensionMessageBubbleTest, MAYBE_SettingsApiControllerTest) {
     EXPECT_FALSE(prefs->HasSettingsApiBubbleBeenAcknowledged(kId3));
 
     // Clean up after ourselves.
-    service_->UninstallExtension(kId1, false, NULL);
-    service_->UninstallExtension(kId2, false, NULL);
-    service_->UninstallExtension(kId3, false, NULL);
+    service_->UninstallExtension(kId1,
+                                 extensions::UNINSTALL_REASON_FOR_TESTING,
+                                 base::Bind(&base::DoNothing),
+                                 NULL);
+    service_->UninstallExtension(kId2,
+                                 extensions::UNINSTALL_REASON_FOR_TESTING,
+                                 base::Bind(&base::DoNothing),
+                                 NULL);
+    service_->UninstallExtension(kId3,
+                                 extensions::UNINSTALL_REASON_FOR_TESTING,
+                                 base::Bind(&base::DoNothing),
+                                 NULL);
   }
 }
 
@@ -818,9 +828,18 @@ TEST_F(ExtensionMessageBubbleTest, MAYBE_NtpOverriddenControllerTest) {
   EXPECT_FALSE(prefs->HasNtpOverriddenBubbleBeenAcknowledged(kId3));
 
   // Clean up after ourselves.
-  service_->UninstallExtension(kId1, false, NULL);
-  service_->UninstallExtension(kId2, false, NULL);
-  service_->UninstallExtension(kId3, false, NULL);
+  service_->UninstallExtension(kId1,
+                               extensions::UNINSTALL_REASON_FOR_TESTING,
+                               base::Bind(&base::DoNothing),
+                               NULL);
+  service_->UninstallExtension(kId2,
+                               extensions::UNINSTALL_REASON_FOR_TESTING,
+                               base::Bind(&base::DoNothing),
+                               NULL);
+  service_->UninstallExtension(kId3,
+                               extensions::UNINSTALL_REASON_FOR_TESTING,
+                               base::Bind(&base::DoNothing),
+                               NULL);
 }
 
 void SetInstallTime(const std::string& extension_id,
@@ -834,7 +853,8 @@ void SetInstallTime(const std::string& extension_id,
 
 // The feature this is meant to test is only implemented on Windows.
 #if defined(OS_WIN)
-#define MAYBE_ProxyOverriddenControllerTest ProxyOverriddenControllerTest
+// http://crbug.com/397426
+#define MAYBE_ProxyOverriddenControllerTest DISABLED_ProxyOverriddenControllerTest
 #else
 #define MAYBE_ProxyOverriddenControllerTest DISABLED_ProxyOverriddenControllerTest
 #endif
@@ -938,9 +958,18 @@ TEST_F(ExtensionMessageBubbleTest, MAYBE_ProxyOverriddenControllerTest) {
   EXPECT_FALSE(prefs->HasProxyOverriddenBubbleBeenAcknowledged(kId3));
 
   // Clean up after ourselves.
-  service_->UninstallExtension(kId1, false, NULL);
-  service_->UninstallExtension(kId2, false, NULL);
-  service_->UninstallExtension(kId3, false, NULL);
+  service_->UninstallExtension(kId1,
+                               extensions::UNINSTALL_REASON_FOR_TESTING,
+                               base::Bind(&base::DoNothing),
+                               NULL);
+  service_->UninstallExtension(kId2,
+                               extensions::UNINSTALL_REASON_FOR_TESTING,
+                               base::Bind(&base::DoNothing),
+                               NULL);
+  service_->UninstallExtension(kId3,
+                               extensions::UNINSTALL_REASON_FOR_TESTING,
+                               base::Bind(&base::DoNothing),
+                               NULL);
 }
 
 }  // namespace extensions

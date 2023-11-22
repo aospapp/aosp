@@ -787,12 +787,16 @@ public class EmailSyncParser extends AbstractSyncParser {
     public void commit() throws RemoteException, OperationApplicationException {
         try {
             commitImpl(MAX_OPS_PER_BATCH);
-        } catch (TransactionTooLargeException e) {
+        } catch (TransactionTooLargeException e1) {
             // Try again but apply batch after every message. The max message size defined in
             // Eas.EAS12_TRUNCATION_SIZE or Eas.EAS2_5_TRUNCATION_SIZE is small enough to fit
             // in a single Binder call.
-            LogUtils.w(TAG, "Transaction too large, retrying in single mode", e);
-            commitImpl(1);
+            LogUtils.w(TAG, e1, "Transaction too large, retrying in single mode");
+            try {
+                commitImpl(1);
+            } catch (TransactionTooLargeException e2) {
+                LogUtils.wtf(TAG, e2, "Transaction too large with batch size one");
+            }
         }
     }
 
@@ -897,16 +901,6 @@ public class EmailSyncParser extends AbstractSyncParser {
             boolean force)
             throws RemoteException, OperationApplicationException {
         if (force ||  ops.size() >= maxOpsPerBatch) {
-            // STOPSHIP Remove calculating size of data before ship
-            if (LogUtils.isLoggable(TAG, Log.DEBUG)) {
-                final Parcel parcel = Parcel.obtain();
-                for (ContentProviderOperation op : ops) {
-                    op.writeToParcel(parcel, 0);
-                }
-                Log.d(TAG, String.format("Committing %d ops total size=%d",
-                        ops.size(), parcel.dataSize()));
-                parcel.recycle();
-            }
             mContentResolver.applyBatch(EmailContent.AUTHORITY, ops);
             ops.clear();
         }

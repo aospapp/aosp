@@ -65,18 +65,15 @@ public class EasSyncBase extends EasOperation {
     }
 
     @Override
-    public boolean init(final boolean allowReload) {
-        final boolean result = super.init(allowReload);
-        if (result) {
-            mCollectionTypeHandler = getCollectionTypeHandler(mMailbox.mType);
-            if (mCollectionTypeHandler == null) {
-                return false;
-            }
-            // Set up traffic stats bookkeeping.
-            final int trafficFlags = TrafficFlags.getSyncFlags(mContext, mAccount);
-            TrafficStats.setThreadStatsTag(trafficFlags | mCollectionTypeHandler.getTrafficFlag());
+    public boolean init() {
+        mCollectionTypeHandler = getCollectionTypeHandler(mMailbox.mType);
+        if (mCollectionTypeHandler == null) {
+            return false;
         }
-        return result;
+        // Set up traffic stats bookkeeping.
+        final int trafficFlags = TrafficFlags.getSyncFlags(mContext, mAccount);
+        TrafficStats.setThreadStatsTag(trafficFlags | mCollectionTypeHandler.getTrafficFlag());
+        return true;
     }
 
     @Override

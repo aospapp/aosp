@@ -6,16 +6,16 @@
 
 #include "chrome/browser/apps/ephemeral_app_browsertest.h"
 #include "chrome/browser/apps/ephemeral_app_service.h"
-#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/test/test_utils.h"
 #include "extensions/browser/extension_prefs.h"
-#include "extensions/browser/extension_system.h"
+#include "extensions/browser/extension_registry.h"
+#include "extensions/browser/notification_types.h"
 #include "extensions/common/manifest.h"
 
 using extensions::Extension;
 using extensions::ExtensionPrefs;
-using extensions::ExtensionSystem;
+using extensions::ExtensionRegistry;
 
 namespace {
 
@@ -48,6 +48,13 @@ class EphemeralAppServiceBrowserTest : public EphemeralAppTestBase {
 
   void InitEphemeralAppCount(EphemeralAppService* ephemeral_service) {
     ephemeral_service->InitEphemeralAppCount();
+  }
+
+  void DisableEphemeralAppsOnStartup() {
+    EphemeralAppService* ephemeral_service =
+        EphemeralAppService::Get(browser()->profile());
+    ASSERT_TRUE(ephemeral_service);
+    ephemeral_service->DisableEphemeralAppsOnStartup();
   }
 
   std::vector<std::string> app_ids_;
@@ -84,23 +91,23 @@ IN_PROC_BROWSER_TEST_F(EphemeralAppServiceBrowserTest,
 
   // Perform garbage collection.
   content::WindowedNotificationObserver uninstall_signal(
-      chrome::NOTIFICATION_EXTENSION_UNINSTALLED_DEPRECATED,
+      extensions::NOTIFICATION_EXTENSION_UNINSTALLED_DEPRECATED,
       content::Source<Profile>(browser()->profile()));
   GarbageCollectEphemeralApps();
   uninstall_signal.Wait();
 
-  ExtensionService* service = ExtensionSystem::Get(browser()->profile())
-      ->extension_service();
-  ASSERT_TRUE(service);
-  EXPECT_FALSE(service->GetInstalledExtension(inactive_app_id));
-  EXPECT_TRUE(service->GetInstalledExtension(active_app_id));
+  ExtensionRegistry* registry = ExtensionRegistry::Get(profile());
+  ASSERT_TRUE(registry);
+  EXPECT_FALSE(registry->GetExtensionById(inactive_app_id,
+                                          ExtensionRegistry::EVERYTHING));
+  EXPECT_TRUE(
+      registry->GetExtensionById(active_app_id, ExtensionRegistry::EVERYTHING));
 
   EXPECT_EQ(1, ephemeral_service->ephemeral_app_count());
 }
 
 // Verify that the count of ephemeral apps is maintained correctly.
-IN_PROC_BROWSER_TEST_F(EphemeralAppServiceBrowserTest,
-                       EphemeralAppCount) {
+IN_PROC_BROWSER_TEST_F(EphemeralAppServiceBrowserTest, EphemeralAppCount) {
   EphemeralAppService* ephemeral_service =
       EphemeralAppService::Get(browser()->profile());
   ASSERT_TRUE(ephemeral_service);
@@ -128,4 +135,75 @@ IN_PROC_BROWSER_TEST_F(EphemeralAppServiceBrowserTest,
   // installed app.
   PromoteEphemeralApp(app);
   EXPECT_EQ(0, ephemeral_service->ephemeral_app_count());
+}
+
+// Verify that the cache of ephemeral apps is correctly cleared. Running apps
+// should not be removed.
+IN_PROC_BROWSER_TEST_F(EphemeralAppServiceBrowserTest, ClearCachedApps) {
+  const Extension* running_app =
+      InstallAndLaunchEphemeralApp(kMessagingReceiverApp);
+  const Extension* inactive_app =
+      InstallAndLaunchEphemeralApp(kDispatchEventTestApp);
+  std::string inactive_app_id = inactive_app->id();
+  std::string running_app_id = running_app->id();
+  CloseAppWaitForUnload(inactive_app_id);
+
+  EphemeralAppService* ephemeral_service =
+      EphemeralAppService::Get(browser()->profile());
+  ASSERT_TRUE(ephemeral_service);
+  EXPECT_EQ(2, ephemeral_service->ephemeral_app_count());
+
+  ephemeral_service->ClearCachedApps();
+
+  ExtensionRegistry* registry = ExtensionRegistry::Get(profile());
+  ASSERT_TRUE(registry);
+  EXPECT_FALSE(registry->GetExtensionById(inactive_app_id,
+                                          ExtensionRegistry::EVERYTHING));
+  EXPECT_TRUE(registry->GetExtensionById(running_app_id,
+                                         ExtensionRegistry::EVERYTHING));
+
+  EXPECT_EQ(1, ephemeral_service->ephemeral_app_count());
+}
+
+// Verify that the service will unload and disable ephemeral apps on startup.
+IN_PROC_BROWSER_TEST_F(EphemeralAppServiceBrowserTest,
+                       DisableEphemeralAppsOnStartup) {
+  const Extension* installed_app = InstallPlatformApp(kNotificationsTestApp);
+  const Extension* running_app =
+      InstallAndLaunchEphemeralApp(kMessagingReceiverApp);
+  const Extension* inactive_app = InstallEphemeralApp(kDispatchEventTestApp);
+  const Extension* disabled_app = InstallEphemeralApp(kFileSystemTestApp);
+  ASSERT_TRUE(installed_app);
+  ASSERT_TRUE(running_app);
+  ASSERT_TRUE(inactive_app);
+  ASSERT_TRUE(disabled_app);
+  DisableEphemeralApp(disabled_app, Extension::DISABLE_PERMISSIONS_INCREASE);
+
+  ExtensionRegistry* registry = ExtensionRegistry::Get(profile());
+  ASSERT_TRUE(registry);
+  EXPECT_TRUE(registry->enabled_extensions().Contains(installed_app->id()));
+  EXPECT_TRUE(registry->enabled_extensions().Contains(running_app->id()));
+  EXPECT_TRUE(registry->enabled_extensions().Contains(inactive_app->id()));
+  EXPECT_TRUE(registry->disabled_extensions().Contains(disabled_app->id()));
+
+  DisableEphemeralAppsOnStartup();
+
+  // Verify that the inactive app is disabled.
+  EXPECT_TRUE(registry->enabled_extensions().Contains(installed_app->id()));
+  EXPECT_TRUE(registry->enabled_extensions().Contains(running_app->id()));
+  EXPECT_TRUE(registry->disabled_extensions().Contains(inactive_app->id()));
+  EXPECT_TRUE(registry->disabled_extensions().Contains(disabled_app->id()));
+
+  ExtensionPrefs* prefs = ExtensionPrefs::Get(profile());
+  ASSERT_TRUE(prefs);
+  EXPECT_FALSE(prefs->HasDisableReason(
+      installed_app->id(), Extension::DISABLE_INACTIVE_EPHEMERAL_APP));
+  EXPECT_FALSE(prefs->HasDisableReason(
+      running_app->id(), Extension::DISABLE_INACTIVE_EPHEMERAL_APP));
+  EXPECT_TRUE(prefs->HasDisableReason(
+      inactive_app->id(), Extension::DISABLE_INACTIVE_EPHEMERAL_APP));
+  EXPECT_TRUE(prefs->HasDisableReason(
+      disabled_app->id(), Extension::DISABLE_INACTIVE_EPHEMERAL_APP));
+  EXPECT_TRUE(prefs->HasDisableReason(
+      disabled_app->id(), Extension::DISABLE_PERMISSIONS_INCREASE));
 }

@@ -36,8 +36,6 @@
     <skip />
     <string name="meeting_allday" msgid="7251209063071628040">"Качан: <xliff:g id="EVENTDATE">%s</xliff:g> (бир күн бою)"</string>
     <string name="meeting_allday_recurring" msgid="4545762363537362545">"Качан: <xliff:g id="EVENTDATE">%s</xliff:g> (бир күн бою, улам-улам кайталанып)"</string>
-    <!-- no translation found for notification_exchange_calendar_added (8998454267739748113) -->
-    <skip />
     <!-- no translation found for app_name (1707639359526090662) -->
     <skip />
     <!-- no translation found for exception_cancel (8972887597771126871) -->

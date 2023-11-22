@@ -39,17 +39,19 @@ import android.telephony.CellIdentityCdma;
 import android.telephony.CellInfo;
 import android.telephony.CellInfoCdma;
 import android.telephony.DataConnectionRealTimeInfo;
-import android.telephony.VoLteServiceState;
+import android.telephony.RadioAccessFamily;
 import android.telephony.Rlog;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
 import android.telephony.SubscriptionManager;
+import android.telephony.VoLteServiceState;
 import android.text.TextUtils;
 
 import com.android.ims.ImsManager;
 import com.android.internal.R;
 import com.android.internal.telephony.dataconnection.DcTrackerBase;
 import com.android.internal.telephony.imsphone.ImsPhone;
+import com.android.internal.telephony.RadioCapability;
 import com.android.internal.telephony.test.SimulatedRadioControl;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppType;
 import com.android.internal.telephony.uicc.IccFileHandler;
@@ -63,8 +65,10 @@ import com.android.internal.telephony.uicc.UsimServiceTable;
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -85,11 +89,15 @@ public abstract class PhoneBase extends Handler implements Phone {
     private BroadcastReceiver mImsIntentReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            // TODO: MSIM potentially replace SUBID with information available to external
-            // service, e.g. slot ID
-            if (intent.hasExtra(ImsManager.EXTRA_SUBID)) {
-                if (intent.getLongExtra(ImsManager.EXTRA_SUBID, -1) != getSubId())
+            Rlog.d(LOG_TAG, "mImsIntentReceiver: action " + intent.getAction());
+            if (intent.hasExtra(ImsManager.EXTRA_PHONE_ID)) {
+                int extraPhoneId = intent.getIntExtra(ImsManager.EXTRA_PHONE_ID,
+                        SubscriptionManager.INVALID_PHONE_INDEX);
+                Rlog.d(LOG_TAG, "mImsIntentReceiver: extraPhoneId = " + extraPhoneId);
+                if (extraPhoneId == SubscriptionManager.INVALID_PHONE_INDEX ||
+                        extraPhoneId != getPhoneId()) {
                     return;
+                }
             }
 
             if (intent.getAction().equals(ImsManager.ACTION_IMS_SERVICE_UP)) {
@@ -151,11 +159,25 @@ public abstract class PhoneBase extends Handler implements Phone {
     // Single Radio Voice Call Continuity
     protected static final int EVENT_SRVCC_STATE_CHANGED            = 31;
     protected static final int EVENT_INITIATE_SILENT_REDIAL         = 32;
-    protected static final int EVENT_UNSOL_OEM_HOOK_RAW             = 33;
-    protected static final int EVENT_LAST                           = EVENT_UNSOL_OEM_HOOK_RAW;
+    protected static final int EVENT_RADIO_NOT_AVAILABLE            = 33;
+    protected static final int EVENT_UNSOL_OEM_HOOK_RAW             = 34;
+    protected static final int EVENT_GET_RADIO_CAPABILITY           = 35;
+    protected static final int EVENT_SS                             = 36;
+    protected static final int EVENT_LAST                           = EVENT_SS;
+
+    // For shared prefs.
+    private static final String GSM_ROAMING_LIST_OVERRIDE_PREFIX = "gsm_roaming_list_";
+    private static final String GSM_NON_ROAMING_LIST_OVERRIDE_PREFIX = "gsm_non_roaming_list_";
+    private static final String CDMA_ROAMING_LIST_OVERRIDE_PREFIX = "cdma_roaming_list_";
+    private static final String CDMA_NON_ROAMING_LIST_OVERRIDE_PREFIX = "cdma_non_roaming_list_";
 
     // Key used to read/write current CLIR setting
     public static final String CLIR_KEY = "clir_key";
+
+    // Key used for storing voice mail count
+    public static final String VM_COUNT = "vm_count_key";
+    // Key used to read/write the ID for storing the voice mail
+    public static final String VM_ID = "vm_id_key";
 
     // Key used to read/write "disable DNS server check" pref (used for testing)
     public static final String DNS_SERVER_CHECK_DISABLED_KEY = "dns_server_check_disabled_key";
@@ -174,6 +196,7 @@ public abstract class PhoneBase extends Handler implements Phone {
 
     /* Instance Variables */
     public CommandsInterface mCi;
+    private int mVmCount = 0;
     boolean mDnsCheckDisabled;
     public DcTrackerBase mDcTracker;
     boolean mDoesRilSendMultipleCallRing;
@@ -193,17 +216,21 @@ public abstract class PhoneBase extends Handler implements Phone {
     private final String mActionDetached;
     private final String mActionAttached;
 
-    // Holds the subscription information
-    protected Subscription mSubscriptionData = null;
     protected int mPhoneId;
 
     private final Object mImsLock = new Object();
     private boolean mImsServiceReady = false;
     protected ImsPhone mImsPhone = null;
 
+    protected int mRadioAccessFamily = RadioAccessFamily.RAF_UNKNOWN;
+
     @Override
     public String getPhoneName() {
         return mName;
+    }
+
+    public String getNai(){
+         return null;
     }
 
     /**
@@ -281,6 +308,9 @@ public abstract class PhoneBase extends Handler implements Phone {
     protected final RegistrantList mSuppServiceFailedRegistrants
             = new RegistrantList();
 
+    protected final RegistrantList mRadioOffOrNotAvailableRegistrants
+            = new RegistrantList();
+
     protected final RegistrantList mSimRecordsLoadedRegistrants
             = new RegistrantList();
 
@@ -323,7 +353,7 @@ public abstract class PhoneBase extends Handler implements Phone {
      */
     protected PhoneBase(String name, PhoneNotifier notifier, Context context, CommandsInterface ci,
             boolean unitTestMode) {
-        this(name, notifier, context, ci, unitTestMode, SubscriptionManager.DEFAULT_PHONE_ID);
+        this(name, notifier, context, ci, unitTestMode, SubscriptionManager.DEFAULT_PHONE_INDEX);
     }
 
     /**
@@ -459,6 +489,19 @@ public abstract class PhoneBase extends Handler implements Phone {
     public void handleMessage(Message msg) {
         AsyncResult ar;
 
+        // messages to be handled whether or not the phone is being destroyed
+        // should only include messages which are being re-directed and do not use
+        // resources of the phone being destroyed
+        // Note: make sure to add code in GSMPhone/CDMAPhone to re-direct here before
+        // they check if phone destroyed.
+        switch (msg.what) {
+            // handle the select network completion callbacks.
+            case EVENT_SET_NETWORK_MANUAL_COMPLETE:
+            case EVENT_SET_NETWORK_AUTOMATIC_COMPLETE:
+                handleSetSelectNetwork((AsyncResult) msg.obj);
+                return;
+        }
+
         if (!mIsTheCurrentActivePhone) {
             Rlog.e(LOG_TAG, "Received message " + msg +
                     "[" + msg.what + "] while being destroyed. Ignoring.");
@@ -490,12 +533,6 @@ public abstract class PhoneBase extends Handler implements Phone {
 
             case EVENT_ICC_CHANGED:
                 onUpdateIccAvailability();
-                break;
-
-            // handle the select network completion callbacks.
-            case EVENT_SET_NETWORK_MANUAL_COMPLETE:
-            case EVENT_SET_NETWORK_AUTOMATIC_COMPLETE:
-                handleSetSelectNetwork((AsyncResult) msg.obj);
                 break;
 
             case EVENT_INITIATE_SILENT_REDIAL:
@@ -533,6 +570,19 @@ public abstract class PhoneBase extends Handler implements Phone {
                 }
                 break;
 
+            case EVENT_GET_RADIO_CAPABILITY:
+                ar = (AsyncResult) msg.obj;
+                RadioCapability rc = (RadioCapability) ar.result;
+                if (ar.exception != null) {
+                    Rlog.d(LOG_TAG, "get phone radio capability fail,"
+                            + "no need to change mRadioAccessFamily");
+                } else {
+                    mRadioAccessFamily = rc.getRadioAccessFamily();
+                }
+                Rlog.d(LOG_TAG, "EVENT_GET_RADIO_CAPABILITY :"
+                        + "phone RAF : " + mRadioAccessFamily);
+                break;
+
             default:
                 throw new RuntimeException("unexpected event not handled");
         }
@@ -541,7 +591,7 @@ public abstract class PhoneBase extends Handler implements Phone {
     private void handleSrvccStateChanged(int[] ret) {
         Rlog.d(LOG_TAG, "handleSrvccStateChanged");
 
-        Connection conn = null;
+        ArrayList<Connection> conn = null;
         ImsPhone imsPhone = mImsPhone;
         Call.SrvccState srvccState = Call.SrvccState.NONE;
         if (ret != null && ret.length != 0) {
@@ -551,6 +601,7 @@ public abstract class PhoneBase extends Handler implements Phone {
                     srvccState = Call.SrvccState.STARTED;
                     if (imsPhone != null) {
                         conn = imsPhone.getHandoverConnection();
+                        migrateFrom(imsPhone);
                     } else {
                         Rlog.d(LOG_TAG, "HANDOVER_STARTED: mImsPhone null");
                     }
@@ -811,6 +862,14 @@ public abstract class PhoneBase extends Handler implements Phone {
     }
 
     @Override
+    public void registerForTtyModeReceived(Handler h, int what, Object obj) {
+    }
+
+    @Override
+    public void unregisterForTtyModeReceived(Handler h) {
+    }
+
+    @Override
     public void setNetworkSelectionModeAutomatic(Message response) {
         // wrap the response message in our own message along with
         // an empty string (to indicate automatic selection) for the
@@ -822,6 +881,13 @@ public abstract class PhoneBase extends Handler implements Phone {
 
         Message msg = obtainMessage(EVENT_SET_NETWORK_AUTOMATIC_COMPLETE, nsm);
         mCi.setNetworkSelectionModeAutomatic(msg);
+
+        updateSavedNetworkOperator(nsm);
+    }
+
+    @Override
+    public void getNetworkSelectionMode(Message message) {
+        mCi.getNetworkSelectionMode(message);
     }
 
     @Override
@@ -835,6 +901,28 @@ public abstract class PhoneBase extends Handler implements Phone {
 
         Message msg = obtainMessage(EVENT_SET_NETWORK_MANUAL_COMPLETE, nsm);
         mCi.setNetworkSelectionModeManual(network.getOperatorNumeric(), msg);
+
+        updateSavedNetworkOperator(nsm);
+    }
+
+    private void updateSavedNetworkOperator(NetworkSelectMessage nsm) {
+        int subId = getSubId();
+        if (SubscriptionManager.isValidSubscriptionId(subId)) {
+            // open the shared preferences editor, and write the value.
+            // nsm.operatorNumeric is "" if we're in automatic.selection.
+            SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(getContext());
+            SharedPreferences.Editor editor = sp.edit();
+            editor.putString(NETWORK_SELECTION_KEY + subId, nsm.operatorNumeric);
+            editor.putString(NETWORK_SELECTION_NAME_KEY + subId, nsm.operatorAlphaLong);
+
+            // commit and log the result.
+            if (!editor.commit()) {
+                Rlog.e(LOG_TAG, "failed to commit network selection preference");
+            }
+        } else {
+            Rlog.e(LOG_TAG, "Cannot update network selection preference due to invalid subId " +
+                    subId);
+        }
     }
 
     /**
@@ -856,18 +944,6 @@ public abstract class PhoneBase extends Handler implements Phone {
             AsyncResult.forMessage(nsm.message, ar.result, ar.exception);
             nsm.message.sendToTarget();
         }
-
-        // open the shared preferences editor, and write the value.
-        // nsm.operatorNumeric is "" if we're in automatic.selection.
-        SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(getContext());
-        SharedPreferences.Editor editor = sp.edit();
-        editor.putString(NETWORK_SELECTION_KEY, nsm.operatorNumeric);
-        editor.putString(NETWORK_SELECTION_NAME_KEY, nsm.operatorAlphaLong);
-
-        // commit and log the result.
-        if (!editor.commit()) {
-            Rlog.e(LOG_TAG, "failed to commit network selection preference");
-        }
     }
 
     /**
@@ -876,7 +952,7 @@ public abstract class PhoneBase extends Handler implements Phone {
     private String getSavedNetworkSelection() {
         // open the shared preferences and search with our key.
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(getContext());
-        return sp.getString(NETWORK_SELECTION_KEY, "");
+        return sp.getString(NETWORK_SELECTION_KEY + getSubId(), "");
     }
 
     /**
@@ -1169,9 +1245,9 @@ public abstract class PhoneBase extends Handler implements Phone {
     }
 
     @Override
+    /** @return true if there are messages waiting, false otherwise. */
     public boolean getMessageWaitingIndicator() {
-        IccRecords r = mIccRecords.get();
-        return (r != null) ? r.getVoiceMessageWaiting() : false;
+        return mVmCount != 0;
     }
 
     @Override
@@ -1243,6 +1319,11 @@ public abstract class PhoneBase extends Handler implements Phone {
     @Override
     public void setTTYMode(int ttyMode, Message onComplete) {
         mCi.setTTYMode(ttyMode, onComplete);
+    }
+
+    @Override
+    public void setUiTTYMode(int uiTtyMode, Message onComplete) {
+        Rlog.d(LOG_TAG, "unexpected setUiTTYMode method call");
     }
 
     @Override
@@ -1372,9 +1453,36 @@ public abstract class PhoneBase extends Handler implements Phone {
     public abstract int getPhoneType();
 
     /** @hide */
+    /** @return number of voicemails */
     @Override
     public int getVoiceMessageCount(){
-        return 0;
+        return mVmCount;
+    }
+
+    /** sets the voice mail count of the phone and notifies listeners. */
+    public void setVoiceMessageCount(int countWaiting) {
+        mVmCount = countWaiting;
+        // notify listeners of voice mail
+        notifyMessageWaitingIndicator();
+    }
+
+    /** gets the voice mail count from preferences */
+    protected int getStoredVoiceMessageCount() {
+        int countVoiceMessages = 0;
+        SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(mContext);
+        String subscriberId = sp.getString(VM_ID, null);
+        String currentSubscriberId = getSubscriberId();
+
+        Rlog.d(LOG_TAG, "Voicemail count retrieval for subscriberId = " + subscriberId +
+                " current subscriberId = " + currentSubscriberId);
+
+        if ((subscriberId != null) && (currentSubscriberId != null)
+                && (currentSubscriberId.equals(subscriberId))) {
+            // get voice mail count from preferences
+            countVoiceMessages = sp.getInt(VM_COUNT, 0);
+            Rlog.d(LOG_TAG, "Voice Mail Count from preference = " + countVoiceMessages);
+        }
+        return countVoiceMessages;
     }
 
     /**
@@ -1588,8 +1696,23 @@ public abstract class PhoneBase extends Handler implements Phone {
      }
 
     @Override
+    public void registerForRadioOffOrNotAvailable(Handler h, int what, Object obj) {
+        mRadioOffOrNotAvailableRegistrants.addUnique(h, what, obj);
+    }
+
+    @Override
+    public void unregisterForRadioOffOrNotAvailable(Handler h) {
+        mRadioOffOrNotAvailableRegistrants.remove(h);
+    }
+
+    @Override
     public String[] getActiveApnTypes() {
         return mDcTracker.getActiveApnTypes();
+    }
+
+    @Override
+    public boolean hasMatchedTetherApnSetting() {
+        return mDcTracker.hasMatchedTetherApnSetting();
     }
 
     @Override
@@ -1724,19 +1847,9 @@ public abstract class PhoneBase extends Handler implements Phone {
         return mCi.getLteOnCdmaMode();
     }
 
-    /**
-     * Sets the SIM voice message waiting indicator records.
-     * @param line GSM Subscriber Profile Number, one-based. Only '1' is supported
-     * @param countWaiting The number of messages waiting, if known. Use
-     *                     -1 to indicate that an unknown number of
-     *                      messages are waiting
-     */
-    @Override
     public void setVoiceMessageWaiting(int line, int countWaiting) {
-        IccRecords r = mIccRecords.get();
-        if (r != null) {
-            r.setVoiceMessageWaiting(line, countWaiting);
-        }
+        // This function should be overridden by class GSMPhone and CDMAPhone.
+        Rlog.e(LOG_TAG, "Error! This function should never be executed, inactive Phone.");
     }
 
     /**
@@ -1864,8 +1977,161 @@ public abstract class PhoneBase extends Handler implements Phone {
         return null;
     }
 
+    /**
+     * Returns the subscription id.
+     */
+    public int getSubId() {
+        return SubscriptionController.getInstance().getSubIdUsingPhoneId(mPhoneId);
+    }
+
+    /**
+     * Returns the phone id.
+     */
+    public int getPhoneId() {
+        return mPhoneId;
+    }
+
+    /**
+     * Return the service state of mImsPhone if it is STATE_IN_SERVICE
+     * otherwise return the current voice service state
+     */
+    @Override
+    public int getVoicePhoneServiceState() {
+        ImsPhone imsPhone = mImsPhone;
+        if (imsPhone != null
+                && imsPhone.getServiceState().getState() == ServiceState.STATE_IN_SERVICE) {
+            return ServiceState.STATE_IN_SERVICE;
+        }
+        return getServiceState().getState();
+    }
+
+    @Override
+    public boolean setOperatorBrandOverride(String brand) {
+        return false;
+    }
+
+    @Override
+    public boolean setRoamingOverride(List<String> gsmRoamingList,
+            List<String> gsmNonRoamingList, List<String> cdmaRoamingList,
+            List<String> cdmaNonRoamingList) {
+        String iccId = getIccSerialNumber();
+        if (TextUtils.isEmpty(iccId)) {
+            return false;
+        }
+
+        setRoamingOverrideHelper(gsmRoamingList, GSM_ROAMING_LIST_OVERRIDE_PREFIX, iccId);
+        setRoamingOverrideHelper(gsmNonRoamingList, GSM_NON_ROAMING_LIST_OVERRIDE_PREFIX, iccId);
+        setRoamingOverrideHelper(cdmaRoamingList, CDMA_ROAMING_LIST_OVERRIDE_PREFIX, iccId);
+        setRoamingOverrideHelper(cdmaNonRoamingList, CDMA_NON_ROAMING_LIST_OVERRIDE_PREFIX, iccId);
+
+        // Refresh.
+        ServiceStateTracker tracker = getServiceStateTracker();
+        if (tracker != null) {
+            tracker.pollState();
+        }
+        return true;
+    }
+
+    private void setRoamingOverrideHelper(List<String> list, String prefix, String iccId) {
+        SharedPreferences.Editor spEditor =
+                PreferenceManager.getDefaultSharedPreferences(mContext).edit();
+        String key = prefix + iccId;
+        if (list == null || list.isEmpty()) {
+            spEditor.remove(key).commit();
+        } else {
+            spEditor.putStringSet(key, new HashSet<String>(list)).commit();
+        }
+    }
+
+    public boolean isMccMncMarkedAsRoaming(String mccMnc) {
+        return getRoamingOverrideHelper(GSM_ROAMING_LIST_OVERRIDE_PREFIX, mccMnc);
+    }
+
+    public boolean isMccMncMarkedAsNonRoaming(String mccMnc) {
+        return getRoamingOverrideHelper(GSM_NON_ROAMING_LIST_OVERRIDE_PREFIX, mccMnc);
+    }
+
+    public boolean isSidMarkedAsRoaming(int SID) {
+        return getRoamingOverrideHelper(CDMA_ROAMING_LIST_OVERRIDE_PREFIX,
+                Integer.toString(SID));
+    }
+
+    public boolean isSidMarkedAsNonRoaming(int SID) {
+        return getRoamingOverrideHelper(CDMA_NON_ROAMING_LIST_OVERRIDE_PREFIX,
+                Integer.toString(SID));
+    }
+
+    /**
+     * Get IMS Registration Status
+     */
+    @Override
+    public boolean isImsRegistered() {
+        ImsPhone imsPhone = mImsPhone;
+        boolean isImsRegistered = false;
+        if (imsPhone != null) {
+            isImsRegistered = imsPhone.isImsRegistered();
+        } else {
+            ServiceStateTracker sst = getServiceStateTracker();
+            if (sst != null) {
+                isImsRegistered = sst.isImsRegistered();
+            }
+        }
+        Rlog.d(LOG_TAG, "isImsRegistered =" + isImsRegistered);
+        return isImsRegistered;
+    }
+
+    private boolean getRoamingOverrideHelper(String prefix, String key) {
+        String iccId = getIccSerialNumber();
+        if (TextUtils.isEmpty(iccId) || TextUtils.isEmpty(key)) {
+            return false;
+        }
+
+        SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(mContext);
+        Set<String> value = sp.getStringSet(prefix + iccId, null);
+        if (value == null) {
+            return false;
+        }
+        return value.contains(key);
+    }
+
+    @Override
+    public boolean isRadioAvailable() {
+        return mCi.getRadioState().isAvailable();
+    }
+
+    @Override
+    public void shutdownRadio() {
+        getServiceStateTracker().requestShutdown();
+    }
+
+    @Override
+    public void setRadioCapability(RadioCapability rc, Message response) {
+        mCi.setRadioCapability(rc, response);
+    }
+
+    @Override
+    public int getRadioAccessFamily() {
+        return mRadioAccessFamily;
+    }
+
+    @Override
+    public int getSupportedRadioAccessFamily() {
+        return mCi.getSupportedRadioAccessFamily();
+    }
+
+    @Override
+    public void registerForRadioCapabilityChanged(Handler h, int what, Object obj) {
+        mCi.registerForRadioCapabilityChanged(h, what, obj);
+    }
+
+    @Override
+    public void unregisterForRadioCapabilityChanged(Handler h) {
+        mCi.unregisterForRadioCapabilityChanged(this);
+    }
+
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
-        pw.println("PhoneBase:");
+        pw.println("PhoneBase: subId=" + getSubId());
+        pw.println(" mPhoneId=" + mPhoneId);
         pw.println(" mCi=" + mCi);
         pw.println(" mDnsCheckDisabled=" + mDnsCheckDisabled);
         pw.println(" mDcTracker=" + mDcTracker);
@@ -1900,53 +2166,39 @@ public abstract class PhoneBase extends Handler implements Phone {
         pw.println(" getActiveApnTypes()=" + getActiveApnTypes());
         pw.println(" isDataConnectivityPossible()=" + isDataConnectivityPossible());
         pw.println(" needsOtaServiceProvisioning=" + needsOtaServiceProvisioning());
-    }
+        pw.flush();
+        pw.println("++++++++++++++++++++++++++++++++");
 
-    /**
-     * Returns the subscription id.
-     */
-    public long getSubId() {
-        return SubscriptionController.getInstance().getSubIdUsingPhoneId(mPhoneId);
-    }
-
-    /**
-     * Returns the phone id.
-     */
-    public int getPhoneId() {
-        return mPhoneId;
-    }
-
-    //Gets Subscription information in the Phone Object
-    public Subscription getSubscriptionInfo() {
-        return mSubscriptionData;
-    }
-
-    /**
-     * Return the service state of mImsPhone if it is STATE_IN_SERVICE
-     * otherwise return the current voice service state
-     */
-    @Override
-    public int getVoicePhoneServiceState() {
-        ImsPhone imsPhone = mImsPhone;
-        if (imsPhone != null
-                && imsPhone.getServiceState().getState() == ServiceState.STATE_IN_SERVICE) {
-            return ServiceState.STATE_IN_SERVICE;
+        try {
+            mDcTracker.dump(fd, pw, args);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        return getServiceState().getState();
-    }
+        pw.flush();
+        pw.println("++++++++++++++++++++++++++++++++");
 
-    @Override
-    public boolean setOperatorBrandOverride(String brand) {
-        return false;
-    }
+        try {
+            getServiceStateTracker().dump(fd, pw, args);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        pw.flush();
+        pw.println("++++++++++++++++++++++++++++++++");
 
-    @Override
-    public boolean isRadioAvailable() {
-        return mCi.getRadioState().isAvailable();
-    }
+        try {
+            getCallTracker().dump(fd, pw, args);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        pw.flush();
+        pw.println("++++++++++++++++++++++++++++++++");
 
-    @Override
-    public void shutdownRadio() {
-        getServiceStateTracker().requestShutdown();
+        try {
+            ((RIL)mCi).dump(fd, pw, args);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        pw.flush();
+        pw.println("++++++++++++++++++++++++++++++++");
     }
 }

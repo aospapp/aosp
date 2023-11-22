@@ -16,11 +16,10 @@
 
 package com.android.mms.service;
 
-import android.content.ContentValues;
 import android.content.Context;
 import android.content.res.XmlResourceParser;
 import android.os.Bundle;
-import android.os.SystemProperties;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Base64;
@@ -93,6 +92,10 @@ public class MmsConfig {
     // FLAG(ywen): the following two is not supported yet.
     public static final String CONFIG_ENABLE_MMS_READ_REPORTS = "enableMMSReadReports";
     public static final String CONFIG_ENABLE_MMS_DELIVERY_REPORTS = "enableMMSDeliveryReports";
+    // Bouygues Telecom (20820) MMSC does not support "charset" with "Content-Type" header
+    // It would fail and return 500. See b/18604507
+    // If this is false, then we don't add "charset" to "Content-Type"
+    public static final String CONFIG_SUPPORT_HTTP_CHARSET_HEADER = "supportHttpCharsetHeader";
     public static final String CONFIG_MAX_MESSAGE_SIZE = "maxMessageSize"; // in bytes
     public static final String CONFIG_MAX_IMAGE_HEIGHT = "maxImageHeight"; // in pixels
     public static final String CONFIG_MAX_IMAGE_WIDTH = "maxImageWidth"; // in pixels
@@ -133,6 +136,8 @@ public class MmsConfig {
      */
     // The raw phone number from TelephonyManager.getLine1Number
     public static final String MACRO_LINE1 = "LINE1";
+    // The phone number without country code
+    public static final String MACRO_LINE1NOCOUNTRYCODE = "LINE1NOCOUNTRYCODE";
     // NAI (Network Access Identifier), used by Sprint for authentication
     public static final String MACRO_NAI = "NAI";
 
@@ -153,6 +158,7 @@ public class MmsConfig {
         DEFAULTS.put(CONFIG_SEND_MULTIPART_SMS_AS_SEPARATE_MESSAGES, Boolean.valueOf(false));
         DEFAULTS.put(CONFIG_ENABLE_MMS_READ_REPORTS, Boolean.valueOf(false));
         DEFAULTS.put(CONFIG_ENABLE_MMS_DELIVERY_REPORTS, Boolean.valueOf(false));
+        DEFAULTS.put(CONFIG_SUPPORT_HTTP_CHARSET_HEADER, Boolean.valueOf(false));
         DEFAULTS.put(CONFIG_MAX_MESSAGE_SIZE, Integer.valueOf(300 * 1024));
         DEFAULTS.put(CONFIG_MAX_IMAGE_HEIGHT, Integer.valueOf(MAX_IMAGE_HEIGHT));
         DEFAULTS.put(CONFIG_MAX_IMAGE_WIDTH, Integer.valueOf(MAX_IMAGE_WIDTH));
@@ -172,7 +178,7 @@ public class MmsConfig {
         DEFAULTS.put(CONFIG_NAI_SUFFIX, "");
     }
 
-    private final long mSubId;
+    private final int mSubId;
 
     /**
      * This class manages a cached copy of current MMS configuration key values for a particular
@@ -182,7 +188,7 @@ public class MmsConfig {
      * should be set to that of the subscription id
      * @param subId Subscription id of the mcc/mnc in the context
      */
-    public MmsConfig(Context context, long subId) {
+    public MmsConfig(Context context, int subId) {
         mSubId = subId;
         // Load defaults
         mKeyValues.clear();
@@ -200,7 +206,7 @@ public class MmsConfig {
      *
      * @return subId the subId associated with this MmsConfig
      */
-    public long getSubId() {
+    public int getSubId() {
         return mSubId;
     }
 
@@ -490,6 +496,10 @@ public class MmsConfig {
             return getBoolean(CONFIG_ENABLE_MMS_DELIVERY_REPORTS);
         }
 
+        public boolean getSupportHttpCharsetHeader() {
+            return getBoolean(CONFIG_SUPPORT_HTTP_CHARSET_HEADER);
+        }
+
         /**
          * Return the HTTP param macro value.
          * Example: LINE1 returns the phone number, etc.
@@ -499,9 +509,11 @@ public class MmsConfig {
          */
         public String getHttpParamMacro(Context context, String macro) {
             if (MACRO_LINE1.equals(macro)) {
-                return getLine1(context);
+                return getLine1(context, mBase.getSubId());
+            } else if (MACRO_LINE1NOCOUNTRYCODE.equals(macro)) {
+                return getLine1NoCountryCode(context, mBase.getSubId());
             } else if (MACRO_NAI.equals(macro)) {
-                return getNai();
+                return getNai(context, mBase.getSubId());
             }
             return null;
         }
@@ -509,18 +521,32 @@ public class MmsConfig {
         /**
          * @return the phone number
          */
-        private static String getLine1(Context context) {
-            // TODO: for MSIM, we will need to pass in the subId
+        private static String getLine1(Context context, int subId) {
             final TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(
                     Context.TELEPHONY_SERVICE);
-            return telephonyManager.getLine1Number();
+            return telephonyManager.getLine1NumberForSubscriber(subId);
+        }
+
+        private static String getLine1NoCountryCode(Context context, int subId) {
+            final TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(
+                    Context.TELEPHONY_SERVICE);
+            return PhoneUtils.getNationalNumber(
+                    telephonyManager,
+                    subId,
+                    telephonyManager.getLine1NumberForSubscriber(subId));
         }
 
         /**
          * @return the NAI (Network Access Identifier) from SystemProperties
          */
-        private String getNai() {
-            String nai = SystemProperties.get("persist.radio.cdma.nai");
+        private String getNai(Context context, int subId) {
+            final TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(
+                    Context.TELEPHONY_SERVICE);
+            String nai = telephonyManager.getNai(SubscriptionManager.getSlotId(subId));
+            if (Log.isLoggable(TAG, Log.VERBOSE)) {
+                Log.v(TAG, "MmsConfig.getNai: nai=" + nai);
+            }
+
             if (!TextUtils.isEmpty(nai)) {
                 String naiSuffix = getNaiSuffix();
                 if (!TextUtils.isEmpty(naiSuffix)) {

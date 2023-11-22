@@ -10,11 +10,11 @@
 #include <string>
 
 #include "content/common/content_export.h"
+#include "content/public/common/resource_type.h"
 #include "net/base/request_priority.h"
 #include "third_party/WebKit/public/platform/WebReferrerPolicy.h"
 #include "third_party/WebKit/public/platform/WebURLRequest.h"
 #include "url/gurl.h"
-#include "webkit/common/resource_type.h"
 
 namespace content {
 
@@ -54,7 +54,7 @@ struct CONTENT_EXPORT RequestInfo {
 
   // Indicates if the current request is the main frame load, a sub-frame
   // load, or a sub objects load.
-  ResourceType::Type request_type;
+  ResourceType request_type;
 
   // Indicates the priority of this request, as determined by WebKit.
   net::RequestPriority priority;
@@ -74,6 +74,13 @@ struct CONTENT_EXPORT RequestInfo {
 
   // True if the request was user initiated.
   bool has_user_gesture;
+
+  // True if the request should not be handled by the ServiceWorker.
+  bool skip_service_worker;
+
+  // TODO(mmenke): Investigate if enable_load_timing is safe to remove.
+  // True if load timing data should be collected for the request.
+  bool enable_load_timing;
 
   // Extra data associated with this request.  We do not own this pointer.
   blink::WebURLRequest::ExtraData* extra_data;

@@ -170,9 +170,9 @@
         <item name="android:windowActionBarOverlay">false</item>
         <item name="android:colorPrimaryDark">@color/actionbar_background_color_dark</item>
         <!-- Setting text. -->
-        <item name="android:textColorPrimary">@color/setting_primary_color</item>
+        <item name="android:textColorPrimary">@color/settings_text_color_primary</item>
         <!-- Setting description. -->
-        <item name="android:textColorSecondary">@color/setting_secondary_color</item>
+        <item name="android:textColorSecondary">@color/settings_text_color_secondary</item>
     </style>
 
     <style name="DialerSettingsLight" parent="SettingsLight">
@@ -183,6 +183,7 @@
     <style name="DialerAlertDialogTheme"
         parent="@android:style/Theme.Material.Light.Dialog">
         <item name="android:colorAccent">@color/dialer_theme_color</item>
+        <item name="android:textColor">?android:attr/textColorPrimaryInverseDisableOnly</item>
     </style>
 
     <style name="NetworkOperatorsSettingsTheme" parent="@android:style/Theme.Material.Light">
@@ -191,7 +192,7 @@
         <item name="android:colorPrimaryDark">@color/network_operators_color_primary_dark</item>
     </style>
 
-    <style name="Empty" parent="@android:style/Theme.Holo">
+    <style name="Empty" parent="@android:style/Theme.Material.Light">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowContentOverlay">@null</item>
@@ -225,16 +226,6 @@
              DialtactsActivity to OutgoingCallBroadcaster. -->
         <item name="*android:taskOpenEnterAnimation">@*android:anim/activity_open_enter</item>
         <item name="*android:taskOpenExitAnimation">@*android:anim/activity_open_exit</item>
-    </style>
-
-    <!-- Theme for the InCallScreen activity.  This gives us a totally black
-         window background instead of the default dark grey.  (We don't just use
-         Theme.Black.NoTitleBar directly, since we want any popups or dialogs
-         from the InCallScreen to have the correct holo style. -->
-    <style name="Theme.InCallScreen" parent="@android:style/Theme.Holo.NoActionBar">
-        <item name="android:windowBackground">@android:color/black</item>
-
-        <item name="*android:windowAnimationStyle">@style/InCallAnimationStyle</item>
     </style>
 
     <!-- Style for the call settings action bar.  Should be kept in sync with Dialer. -->
@@ -275,6 +266,8 @@
     <style name="SimImportTheme" parent="@android:style/Theme.Material.Light">
         <item name="android:actionBarStyle">@style/TelephonyActionBarStyle</item>
         <item name="android:colorPrimaryDark">@color/dialer_theme_color_dark</item>
+        <item name="android:homeAsUpIndicator">@drawable/ic_back_arrow</item>
+        <item name="android:actionOverflowButtonStyle">@style/DialtactsActionBarOverflow</item>
     </style>
 
     <style name="OutgoingCallBroadcasterTheme" parent="@android:style/Theme.Holo.NoActionBar">

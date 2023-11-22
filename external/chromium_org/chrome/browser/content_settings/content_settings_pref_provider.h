@@ -12,13 +12,14 @@
 #include "base/basictypes.h"
 #include "base/prefs/pref_change_registrar.h"
 #include "base/synchronization/lock.h"
-#include "chrome/browser/content_settings/content_settings_observable_provider.h"
-#include "chrome/browser/content_settings/content_settings_origin_identifier_value_map.h"
 #include "chrome/browser/content_settings/content_settings_utils.h"
+#include "components/content_settings/core/browser/content_settings_observable_provider.h"
+#include "components/content_settings/core/browser/content_settings_origin_identifier_value_map.h"
 
 class PrefService;
 
 namespace base {
+class Clock;
 class DictionaryValue;
 }
 
@@ -55,6 +56,18 @@ class PrefProvider : public ObservableProvider {
 
   virtual void ShutdownOnUIThread() OVERRIDE;
 
+  // Records the last time the given pattern has used a certain content setting.
+  void UpdateLastUsage(const ContentSettingsPattern& primary_pattern,
+                       const ContentSettingsPattern& secondary_pattern,
+                       ContentSettingsType content_type);
+
+  base::Time GetLastUsage(const ContentSettingsPattern& primary_pattern,
+                          const ContentSettingsPattern& secondary_pattern,
+                          ContentSettingsType content_type);
+
+  // Gains ownership of |clock|.
+  void SetClockForTesting(scoped_ptr<base::Clock> clock);
+
  private:
   friend class DeadlockCheckerThread;  // For testing.
   // Reads all content settings exceptions from the preference and load them
@@ -89,6 +102,9 @@ class PrefProvider : public ObservableProvider {
 
   // Weak; owned by the Profile and reset in ShutdownOnUIThread.
   PrefService* prefs_;
+
+  // Can be set for testing.
+  scoped_ptr<base::Clock> clock_;
 
   bool is_incognito_;
 

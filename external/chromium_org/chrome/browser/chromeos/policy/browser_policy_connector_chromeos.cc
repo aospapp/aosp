@@ -5,9 +5,13 @@
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
 
 #include <string>
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
+#include "base/location.h"
 #include "base/logging.h"
+#include "base/message_loop/message_loop.h"
 #include "base/message_loop/message_loop_proxy.h"
 #include "base/path_service.h"
 #include "base/prefs/pref_registry_simple.h"
@@ -15,12 +19,14 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/sequenced_worker_pool.h"
 #include "chrome/browser/chromeos/policy/app_pack_updater.h"
+#include "chrome/browser/chromeos/policy/consumer_management_service.h"
+#include "chrome/browser/chromeos/policy/device_cloud_policy_initializer.h"
+#include "chrome/browser/chromeos/policy/device_cloud_policy_invalidator.h"
 #include "chrome/browser/chromeos/policy/device_cloud_policy_manager_chromeos.h"
 #include "chrome/browser/chromeos/policy/device_cloud_policy_store_chromeos.h"
 #include "chrome/browser/chromeos/policy/device_local_account.h"
 #include "chrome/browser/chromeos/policy/device_local_account_policy_service.h"
 #include "chrome/browser/chromeos/policy/device_network_configuration_updater.h"
-#include "chrome/browser/chromeos/policy/device_status_collector.h"
 #include "chrome/browser/chromeos/policy/enterprise_install_attributes.h"
 #include "chrome/browser/chromeos/policy/server_backed_state_keys_broker.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
@@ -30,13 +36,13 @@
 #include "chromeos/chromeos_paths.h"
 #include "chromeos/chromeos_switches.h"
 #include "chromeos/cryptohome/system_salt_getter.h"
+#include "chromeos/dbus/cryptohome_client.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/network/network_handler.h"
 #include "chromeos/network/onc/onc_certificate_importer_impl.h"
 #include "chromeos/settings/cros_settings_names.h"
 #include "chromeos/settings/cros_settings_provider.h"
 #include "chromeos/settings/timezone_settings.h"
-#include "chromeos/system/statistics_provider.h"
 #include "components/policy/core/common/cloud/cloud_policy_client.h"
 #include "components/policy/core/common/cloud/cloud_policy_refresh_scheduler.h"
 #include "components/policy/core/common/proxy_policy_provider.h"
@@ -69,7 +75,7 @@ scoped_refptr<base::SequencedTaskRunner> GetBackgroundTaskRunner() {
       pool->GetSequenceToken(), base::SequencedWorkerPool::SKIP_ON_SHUTDOWN);
 }
 
-std::string GetConsumerDeviceManagementServerUrl() {
+std::string GetDeviceManagementServerUrlForConsumer() {
   const CommandLine* command_line = CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(
           chromeos::switches::kConsumerDeviceManagementUrl)) {
@@ -77,7 +83,7 @@ std::string GetConsumerDeviceManagementServerUrl() {
         chromeos::switches::kConsumerDeviceManagementUrl);
   }
   return kDefaultConsumerDeviceManagementServerUrl;
-};
+}
 
 }  // namespace
 
@@ -119,8 +125,6 @@ BrowserPolicyConnectorChromeOS::BrowserPolicyConnectorChromeOS()
     device_cloud_policy_manager_ =
         new DeviceCloudPolicyManagerChromeOS(device_cloud_policy_store.Pass(),
                                              base::MessageLoopProxy::current(),
-                                             GetBackgroundTaskRunner(),
-                                             install_attributes_.get(),
                                              state_keys_broker_.get());
     AddPolicyProvider(
         scoped_ptr<ConfigurationPolicyProvider>(device_cloud_policy_manager_));
@@ -140,11 +144,20 @@ void BrowserPolicyConnectorChromeOS::Init(
 
   scoped_ptr<DeviceManagementService::Configuration> configuration(
       new DeviceManagementServiceConfiguration(
-          GetConsumerDeviceManagementServerUrl()));
+          GetDeviceManagementServerUrlForConsumer()));
   consumer_device_management_service_.reset(
       new DeviceManagementService(configuration.Pass()));
   consumer_device_management_service_->ScheduleInitialization(
       kServiceInitializationStartupDelay);
+
+  const CommandLine* command_line = CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(chromeos::switches::kEnableConsumerManagement)) {
+    chromeos::CryptohomeClient* cryptohome_client =
+        chromeos::DBusThreadManager::Get()->GetCryptohomeClient();
+    consumer_management_service_.reset(
+        new ConsumerManagementService(cryptohome_client,
+                                      chromeos::DeviceSettingsService::Get()));
+  }
 
   if (device_cloud_policy_manager_) {
     // Note: for now the |device_cloud_policy_manager_| is using the global
@@ -152,13 +165,23 @@ void BrowserPolicyConnectorChromeOS::Init(
     // cloud policy for extensions is introduced. That means it'd have to be
     // initialized from here instead of BrowserPolicyConnector::Init().
 
-    scoped_ptr<CloudPolicyClient::StatusProvider> status_provider(
-        new DeviceStatusCollector(
+    device_cloud_policy_manager_->Initialize(local_state);
+
+    device_cloud_policy_initializer_.reset(
+        new DeviceCloudPolicyInitializer(
             local_state,
-            chromeos::system::StatisticsProvider::GetInstance(),
-            NULL));
-    device_cloud_policy_manager_->Connect(
-        local_state, device_management_service(), status_provider.Pass());
+            device_management_service(),
+            GetDeviceManagementServiceForConsumer(),
+            GetBackgroundTaskRunner(),
+            install_attributes_.get(),
+            state_keys_broker_.get(),
+            device_cloud_policy_manager_->device_store(),
+            device_cloud_policy_manager_,
+            chromeos::DeviceSettingsService::Get(),
+            base::Bind(&BrowserPolicyConnectorChromeOS::
+                           OnDeviceCloudPolicyManagerConnected,
+                       base::Unretained(this))));
+    device_cloud_policy_initializer_->Init();
   }
 
   device_local_account_policy_service_.reset(
@@ -173,11 +196,12 @@ void BrowserPolicyConnectorChromeOS::Init(
               content::BrowserThread::IO),
           request_context));
   device_local_account_policy_service_->Connect(device_management_service());
+  device_cloud_policy_invalidator_.reset(new DeviceCloudPolicyInvalidator);
 
   // request_context is NULL in unit tests.
-  if (request_context && install_attributes_) {
+  if (request_context.get() && install_attributes_) {
     app_pack_updater_.reset(
-        new AppPackUpdater(request_context, install_attributes_.get()));
+        new AppPackUpdater(request_context.get(), install_attributes_.get()));
   }
 
   SetTimezoneIfPolicyAvailable();
@@ -191,7 +215,24 @@ void BrowserPolicyConnectorChromeOS::Init(
           chromeos::CrosSettings::Get());
 }
 
+void BrowserPolicyConnectorChromeOS::PreShutdown() {
+  // Let the |device_cloud_policy_invalidator_| unregister itself as an
+  // observer of per-Profile InvalidationServices and the device-global
+  // invalidation::TiclInvalidationService it may have created as an observer of
+  // the DeviceOAuth2TokenService that is destroyed before Shutdown() is called.
+  device_cloud_policy_invalidator_.reset();
+
+  // The |consumer_management_service_| may be observing a
+  // ProfileOAuth2TokenService and needs to be destroyed before the token
+  // service.
+  consumer_management_service_.reset();
+}
+
 void BrowserPolicyConnectorChromeOS::Shutdown() {
+  // Verify that PreShutdown() has been called first.
+  DCHECK(!device_cloud_policy_invalidator_);
+  DCHECK(!consumer_management_service_);
+
   // The AppPackUpdater may be observing the |device_cloud_policy_manager_|.
   // Delete it first.
   app_pack_updater_.reset();
@@ -200,6 +241,9 @@ void BrowserPolicyConnectorChromeOS::Shutdown() {
 
   if (device_local_account_policy_service_)
     device_local_account_policy_service_->Shutdown();
+
+  if (device_cloud_policy_initializer_)
+    device_cloud_policy_initializer_->Shutdown();
 
   ChromeBrowserPolicyConnector::Shutdown();
 }
@@ -245,6 +289,11 @@ void BrowserPolicyConnectorChromeOS::SetUserPolicyDelegate(
   global_user_cloud_policy_provider_->SetDelegate(user_policy_provider);
 }
 
+void BrowserPolicyConnectorChromeOS::SetDeviceCloudPolicyInitializerForTesting(
+    scoped_ptr<DeviceCloudPolicyInitializer> initializer) {
+  device_cloud_policy_initializer_ = initializer.Pass();
+}
+
 void BrowserPolicyConnectorChromeOS::SetInstallAttributesForTesting(
     EnterpriseInstallAttributes* attributes) {
   DCHECK(!g_testing_install_attributes);
@@ -282,6 +331,16 @@ void BrowserPolicyConnectorChromeOS::SetTimezoneIfPolicyAvailable() {
       !timezone.empty()) {
     chromeos::system::TimezoneSettings::GetInstance()->SetTimezoneFromID(
         base::UTF8ToUTF16(timezone));
+  }
+}
+
+void BrowserPolicyConnectorChromeOS::OnDeviceCloudPolicyManagerConnected() {
+  // This function is invoked by DCPInitializer, so we should release the
+  // initializer after this function returns.
+  if (device_cloud_policy_initializer_) {
+    device_cloud_policy_initializer_->Shutdown();
+    base::MessageLoop::current()->DeleteSoon(
+        FROM_HERE, device_cloud_policy_initializer_.release());
   }
 }
 

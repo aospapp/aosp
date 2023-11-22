@@ -7,9 +7,8 @@
 
 #include <list>
 
-#include "base/basictypes.h"
+#include "base/macros.h"
 #include "mojo/system/dispatcher.h"
-#include "mojo/system/handle_signals_state.h"
 #include "mojo/system/system_impl_export.h"
 #include "mojo/system/waiter_list.h"
 
@@ -26,19 +25,20 @@ class MOJO_SYSTEM_IMPL_EXPORT SimpleDispatcher : public Dispatcher {
   virtual ~SimpleDispatcher();
 
   // To be called by subclasses when the state changes (so
-  // |GetHandleSignalsStateNoLock()| should be checked again). Must be called
-  // under lock.
+  // |GetHandleSignalsStateImplNoLock()| should be checked again). Must be
+  // called under lock.
   void HandleSignalsStateChangedNoLock();
-
-  // Never called after the dispatcher has been closed; called under |lock_|.
-  virtual HandleSignalsState GetHandleSignalsStateNoLock() const = 0;
 
   // |Dispatcher| protected methods:
   virtual void CancelAllWaitersNoLock() OVERRIDE;
-  virtual MojoResult AddWaiterImplNoLock(Waiter* waiter,
-                                         MojoHandleSignals signals,
-                                         uint32_t context) OVERRIDE;
-  virtual void RemoveWaiterImplNoLock(Waiter* waiter) OVERRIDE;
+  virtual MojoResult AddWaiterImplNoLock(
+      Waiter* waiter,
+      MojoHandleSignals signals,
+      uint32_t context,
+      HandleSignalsState* signals_state) OVERRIDE;
+  virtual void RemoveWaiterImplNoLock(
+      Waiter* waiter,
+      HandleSignalsState* signals_state) OVERRIDE;
 
  private:
   // Protected by |lock()|:

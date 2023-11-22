@@ -7,8 +7,8 @@
 #include <algorithm>
 
 #include "base/bind.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/i18n/file_util_icu.h"
 #include "base/logging.h"
 #include "base/message_loop/message_loop.h"
@@ -133,11 +133,7 @@ class SavePackageRequestHandle : public DownloadRequestHandleInterface {
 }  // namespace
 
 const base::FilePath::CharType SavePackage::kDefaultHtmlExtension[] =
-#if defined(OS_WIN)
-    FILE_PATH_LITERAL("htm");
-#else
     FILE_PATH_LITERAL("html");
-#endif
 
 SavePackage::SavePackage(WebContents* web_contents,
                          SavePageType save_type,
@@ -471,7 +467,7 @@ bool SavePackage::GenerateFileName(const std::string& disposition,
       file_path.RemoveExtension().BaseName().value();
   base::FilePath::StringType file_name_ext = file_path.Extension();
 
-  // If it is HTML resource, use ".htm{l,}" as its extension.
+  // If it is HTML resource, use ".html" as its extension.
   if (need_html_ext) {
     file_name_ext = FILE_PATH_LITERAL(".");
     file_name_ext.append(kDefaultHtmlExtension);
@@ -1248,7 +1244,7 @@ base::FilePath SavePackage::GetSuggestedNameForSaveAs(
     name_with_proper_ext = EnsureHtmlExtension(name_with_proper_ext);
 
   base::FilePath::StringType file_name = name_with_proper_ext.value();
-  file_util::ReplaceIllegalCharactersInPath(&file_name, ' ');
+  base::i18n::ReplaceIllegalCharactersInPath(&file_name, ' ');
   return base::FilePath(file_name);
 }
 
@@ -1306,10 +1302,6 @@ const base::FilePath::CharType* SavePackage::ExtensionForMimeType(
       return extensions[i].suggested_extension;
   }
   return FILE_PATH_LITERAL("");
-}
-
-WebContents* SavePackage::web_contents() const {
-  return WebContentsObserver::web_contents();
 }
 
 void SavePackage::GetSaveInfo() {

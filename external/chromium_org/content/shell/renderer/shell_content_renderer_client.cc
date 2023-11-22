@@ -7,9 +7,11 @@
 #include "base/callback.h"
 #include "base/command_line.h"
 #include "base/debug/debugger.h"
+#include "components/web_cache/renderer/web_cache_render_process_observer.h"
 #include "content/common/sandbox_win.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_switches.h"
+#include "content/public/renderer/render_thread.h"
 #include "content/public/renderer/render_view.h"
 #include "content/public/test/layouttest_support.h"
 #include "content/shell/common/shell_switches.h"
@@ -17,10 +19,12 @@
 #include "content/shell/renderer/shell_render_frame_observer.h"
 #include "content/shell/renderer/shell_render_process_observer.h"
 #include "content/shell/renderer/shell_render_view_observer.h"
-#include "content/shell/renderer/test_runner/WebTestInterfaces.h"
+#include "content/shell/renderer/test_runner/mock_credential_manager_client.h"
+#include "content/shell/renderer/test_runner/web_test_interfaces.h"
 #include "content/shell/renderer/test_runner/web_test_proxy.h"
 #include "content/shell/renderer/webkit_test_runner.h"
 #include "content/test/mock_webclipboard_impl.h"
+#include "ppapi/shared_impl/ppapi_switches.h"
 #include "third_party/WebKit/public/platform/WebMediaStreamCenter.h"
 #include "third_party/WebKit/public/web/WebPluginParams.h"
 #include "third_party/WebKit/public/web/WebView.h"
@@ -83,12 +87,15 @@ ShellContentRendererClient::~ShellContentRendererClient() {
 }
 
 void ShellContentRendererClient::RenderThreadStarted() {
+  RenderThread* thread = RenderThread::Get();
   shell_observer_.reset(new ShellRenderProcessObserver());
+  web_cache_observer_.reset(new web_cache::WebCacheRenderProcessObserver());
 #if defined(OS_MACOSX)
   // We need to call this once before the sandbox was initialized to cache the
   // value.
   base::debug::BeingDebugged();
 #endif
+  thread->AddObserver(web_cache_observer_.get());
 }
 
 void ShellContentRendererClient::RenderFrameCreated(RenderFrame* render_frame) {
@@ -104,6 +111,9 @@ void ShellContentRendererClient::RenderViewCreated(RenderView* render_view) {
   test_runner->Reset();
   render_view->GetWebView()->setSpellCheckClient(
       test_runner->proxy()->GetSpellCheckClient());
+
+  render_view->GetWebView()->setCredentialManagerClient(
+      test_runner->proxy()->GetCredentialManagerClientMock());
   WebTestDelegate* delegate =
       ShellRenderProcessObserver::GetInstance()->test_delegate();
   if (delegate == static_cast<WebTestDelegate*>(test_runner))
@@ -126,7 +136,7 @@ ShellContentRendererClient::OverrideCreateWebMediaStreamCenter(
 #if defined(ENABLE_WEBRTC)
   WebTestInterfaces* interfaces =
       ShellRenderProcessObserver::GetInstance()->test_interfaces();
-  return interfaces->createMediaStreamCenter(client);
+  return interfaces->CreateMediaStreamCenter(client);
 #else
   return NULL;
 #endif
@@ -140,7 +150,7 @@ ShellContentRendererClient::OverrideCreateWebRTCPeerConnectionHandler(
 #if defined(ENABLE_WEBRTC)
   WebTestInterfaces* interfaces =
       ShellRenderProcessObserver::GetInstance()->test_interfaces();
-  return interfaces->createWebRTCPeerConnectionHandler(client);
+  return interfaces->CreateWebRTCPeerConnectionHandler(client);
 #else
   return NULL;
 #endif
@@ -151,7 +161,7 @@ ShellContentRendererClient::OverrideCreateMIDIAccessor(
     WebMIDIAccessorClient* client) {
   WebTestInterfaces* interfaces =
       ShellRenderProcessObserver::GetInstance()->test_interfaces();
-  return interfaces->createMIDIAccessor(client);
+  return interfaces->CreateMIDIAccessor(client);
 }
 
 WebAudioDevice*
@@ -161,7 +171,7 @@ ShellContentRendererClient::OverrideCreateAudioDevice(
     return NULL;
   WebTestInterfaces* interfaces =
       ShellRenderProcessObserver::GetInstance()->test_interfaces();
-  return interfaces->createAudioDevice(sample_rate);
+  return interfaces->CreateAudioDevice(sample_rate);
 }
 
 WebClipboard* ShellContentRendererClient::OverrideWebClipboard() {
@@ -175,8 +185,9 @@ WebClipboard* ShellContentRendererClient::OverrideWebClipboard() {
 WebThemeEngine* ShellContentRendererClient::OverrideThemeEngine() {
   if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kDumpRenderTree))
     return NULL;
-  return ShellRenderProcessObserver::GetInstance()->test_interfaces()
-      ->themeEngine();
+  return ShellRenderProcessObserver::GetInstance()
+      ->test_interfaces()
+      ->ThemeEngine();
 }
 
 void ShellContentRendererClient::WebTestProxyCreated(RenderView* render_view,
@@ -189,6 +200,23 @@ void ShellContentRendererClient::WebTestProxyCreated(RenderView* render_view,
       ShellRenderProcessObserver::GetInstance()->test_interfaces());
   test_runner->proxy()->SetDelegate(
       ShellRenderProcessObserver::GetInstance()->test_delegate());
+}
+
+bool ShellContentRendererClient::IsPluginAllowedToUseCompositorAPI(
+    const GURL& url) {
+  return CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnablePepperTesting);
+}
+
+bool ShellContentRendererClient::IsPluginAllowedToUseVideoDecodeAPI(
+    const GURL& url) {
+  return CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnablePepperTesting);
+}
+
+bool ShellContentRendererClient::IsPluginAllowedToUseDevChannelAPIs() {
+  return CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnablePepperTesting);
 }
 
 }  // namespace content

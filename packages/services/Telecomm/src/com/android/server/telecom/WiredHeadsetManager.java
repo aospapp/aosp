@@ -22,6 +22,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.AudioManager;
 
+import com.android.internal.util.IndentingPrintWriter;
+
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -90,5 +92,14 @@ class WiredHeadsetManager {
                 listener.onWiredHeadsetPluggedInChanged(oldIsPluggedIn, mIsPluggedIn);
             }
         }
+    }
+
+    /**
+     * Dumps the state of the {@link WiredHeadsetManager}.
+     *
+     * @param pw The {@code IndentingPrintWriter} to write the state to.
+     */
+    public void dump(IndentingPrintWriter pw) {
+        pw.println("mIsPluggedIn: " + mIsPluggedIn);
     }
 }

@@ -16,7 +16,9 @@
 package com.android.cts.javascanner;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Class that searches a source directory for native gTests and outputs a
@@ -31,12 +33,12 @@ public class CtsJavaScanner {
     }
 
     public static void main(String[] args) throws Exception {
-        File sourceDir = null;
+        List<File> sourceDirs = new ArrayList<File>();
         File docletPath = null;
 
         for (int i = 0; i < args.length; i++) {
             if ("-s".equals(args[i])) {
-                sourceDir = new File(getArg(args, ++i, "Missing value for source directory"));
+                sourceDirs.add(new File(getArg(args, ++i, "Missing value for source directory")));
             } else if ("-d".equals(args[i])) {
                 docletPath = new File(getArg(args, ++i, "Missing value for docletPath"));
             } else {
@@ -45,7 +47,7 @@ public class CtsJavaScanner {
             }
         }
 
-        if (sourceDir == null) {
+        if (sourceDirs.isEmpty()) {
             System.err.println("Source directory is required");
             usage(args);
         }
@@ -55,7 +57,7 @@ public class CtsJavaScanner {
             usage(args);
         }
 
-        DocletRunner runner = new DocletRunner(sourceDir, docletPath);
+        DocletRunner runner = new DocletRunner(sourceDirs, docletPath);
         System.exit(runner.runJavaDoc());
     }
 

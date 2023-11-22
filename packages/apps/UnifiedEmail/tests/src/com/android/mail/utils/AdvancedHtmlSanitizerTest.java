@@ -73,7 +73,9 @@ public class AdvancedHtmlSanitizerTest extends AndroidTestCase {
     }
 
     /**
-     * Technically, RFC 2392 doesn't limit where CID urls may appear; they are accepted everywhere.
+     * Technically, RFC 2392 doesn't limit where CID urls may appear. But, Webview is unhappy
+     * handling them within link tags, so we only allow them in img src attributes until we see a
+     * reason to expand their acceptance.
      */
     public void testCIDurls() {
         sanitize("<img src=\"http://www.here.com/awesome.png\"/>",
@@ -87,8 +89,7 @@ public class AdvancedHtmlSanitizerTest extends AndroidTestCase {
                 "<a href=\"http://www.here.com/awesome.png\"></a>");
         sanitize("<a href=\"https://www.here.com/awesome.png\"/>",
                 "<a href=\"https://www.here.com/awesome.png\"></a>");
-        sanitize("<a href=\"cid:ii_145bda161daf6f9c\"/>",
-                "<a href=\"cid:ii_145bda161daf6f9c\"></a>");
+        sanitize("<a href=\"cid:ii_145bda161daf6f9c\"/>", "");
     }
 
     // todo the stock CssSchema in OWASP does NOT allow the float property; I experiment with adding

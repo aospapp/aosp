@@ -239,7 +239,6 @@
         'message_loop/message_pump_glib.h',
         'message_loop/message_pump_io_ios.cc',
         'message_loop/message_pump_io_ios.h',
-        'message_loop/message_pump_observer.h',
         'message_loop/message_pump_libevent.cc',
         'message_loop/message_pump_libevent.h',
         'message_loop/message_pump_mac.h',
@@ -251,6 +250,9 @@
         'sync_socket.h',
         'sync_socket_win.cc',
         'sync_socket_posix.cc',
+      ],
+      'includes': [
+        '../build/android/increase_size_for_speed.gypi',
       ],
     },
     {
@@ -289,8 +291,9 @@
       'export_dependent_settings': [
         'base',
       ],
-
-
+      'includes': [
+        '../build/android/increase_size_for_speed.gypi',
+      ],
     },
     {
       'target_name': 'base_message_loop_tests',
@@ -358,6 +361,9 @@
         'prefs/value_map_pref_store.h',
         'prefs/writeable_pref_store.h',
       ],
+      'includes': [
+        '../build/android/increase_size_for_speed.gypi',
+      ],
     },
     {
       'target_name': 'base_prefs_test_support',
@@ -396,6 +402,9 @@
       ],
       'include_dirs': [
         '..',
+      ],
+      'includes': [
+        '../build/android/increase_size_for_speed.gypi',
       ],
     },
     # Include this target for a main() function that simply instantiates
@@ -448,6 +457,8 @@
         'debug/leak_tracker_unittest.cc',
         'debug/proc_maps_linux_unittest.cc',
         'debug/stack_trace_unittest.cc',
+        'debug/task_annotator_unittest.cc',
+        'debug/trace_event_argument_unittest.cc',
         'debug/trace_event_memory_unittest.cc',
         'debug/trace_event_synthetic_delay_unittest.cc',
         'debug/trace_event_system_stats_monitor_unittest.cc',
@@ -456,13 +467,13 @@
         'debug/trace_event_win_unittest.cc',
         'deferred_sequenced_task_runner_unittest.cc',
         'environment_unittest.cc',
-        'file_util_unittest.cc',
         'file_version_info_unittest.cc',
         'files/dir_reader_posix_unittest.cc',
         'files/file_path_unittest.cc',
         'files/file_proxy_unittest.cc',
         'files/file_unittest.cc',
         'files/file_util_proxy_unittest.cc',
+        'files/file_util_unittest.cc',
         'files/important_file_writer_unittest.cc',
         'files/memory_mapped_file_unittest.cc',
         'files/scoped_temp_dir_unittest.cc',
@@ -481,7 +492,6 @@
         'i18n/string_search_unittest.cc',
         'i18n/time_formatting_unittest.cc',
         'i18n/timezone_unittest.cc',
-        'ini_parser_unittest.cc',
         'ios/device_util_unittest.mm',
         'json/json_parser_unittest.cc',
         'json/json_reader_unittest.cc',
@@ -497,6 +507,7 @@
         'mac/mac_util_unittest.mm',
         'mac/objc_property_releaser_unittest.mm',
         'mac/scoped_nsobject_unittest.mm',
+        'mac/scoped_objc_class_swizzler_unittest.mm',
         'mac/scoped_sending_event_unittest.mm',
         'md5_unittest.cc',
         'memory/aligned_memory_unittest.cc',
@@ -533,7 +544,6 @@
         'os_compat_android_unittest.cc',
         'path_service_unittest.cc',
         'pickle_unittest.cc',
-        'platform_file_unittest.cc',
         'posix/file_descriptor_shuffle_unittest.cc',
         'posix/unix_domain_socket_linux_unittest.cc',
         'power_monitor/power_monitor_unittest.cc',
@@ -560,7 +570,6 @@
         'scoped_clear_errno_unittest.cc',
         'scoped_generic_unittest.cc',
         'scoped_native_library_unittest.cc',
-        'scoped_observer.h',
         'security_unittest.cc',
         'sequence_checker_unittest.cc',
         'sha1_unittest.cc',
@@ -593,7 +602,8 @@
         'template_util_unittest.cc',
         'test/expectations/expectation_unittest.cc',
         'test/expectations/parser_unittest.cc',
-        'test/statistics_delta_reader_unittest.cc',
+        'test/histogram_tester_unittest.cc',
+        'test/test_pending_task_unittest.cc',
         'test/test_reg_util_win_unittest.cc',
         'test/trace_event_analyzer_unittest.cc',
         'threading/non_thread_safe_unittest.cc',
@@ -756,6 +766,14 @@
                 '../third_party/icu/icu.gyp:icudata',
               ],
             }],
+            ['incremental_chrome_dll', {
+              'defines': [
+                # Used only to workaround a linker bug, do not use this
+                # otherwise, and don't make it broader scope. See
+                # http://crbug.com/251251.
+                'INCREMENTAL_LINKING',
+              ],
+            }],
           ],
         }, {  # OS != "win"
           'dependencies': [
@@ -823,6 +841,7 @@
       ],
     },
     {
+      # GN: //base/test:test_support
       'target_name': 'test_support_base',
       'type': 'static_library',
       'dependencies': [
@@ -903,8 +922,8 @@
         'test/simple_test_clock.h',
         'test/simple_test_tick_clock.cc',
         'test/simple_test_tick_clock.h',
-        'test/statistics_delta_reader.cc',
-        'test/statistics_delta_reader.h',
+        'test/histogram_tester.cc',
+        'test/histogram_tester.h',
         'test/task_runner_test_template.cc',
         'test/task_runner_test_template.h',
         'test/test_file_util.cc',
@@ -914,12 +933,12 @@
         'test/test_file_util_mac.cc',
         'test/test_file_util_posix.cc',
         'test/test_file_util_win.cc',
+        'test/test_io_thread.cc',
+        'test/test_io_thread.h',
         'test/test_listener_ios.h',
         'test/test_listener_ios.mm',
         'test/test_pending_task.cc',
         'test/test_pending_task.h',
-        'test/test_process_killer_win.cc',
-        'test/test_process_killer_win.h',
         'test/test_reg_util_win.cc',
         'test/test_reg_util_win.h',
         'test/test_shortcut_win.cc',
@@ -940,6 +959,8 @@
         'test/thread_test_helper.h',
         'test/trace_event_analyzer.cc',
         'test/trace_event_analyzer.h',
+        'test/trace_to_file.cc',
+        'test/trace_to_file.h',
         'test/values_test_util.cc',
         'test/values_test_util.h',
       ],
@@ -971,51 +992,6 @@
       'direct_dependent_settings': {
         'defines': [
           'PERF_TEST',
-        ],
-      },
-    },
-    {
-      'target_name': 'sanitizer_options',
-      'type': 'static_library',
-      'toolsets': ['host', 'target'],
-      'variables': {
-         # Every target is going to depend on sanitizer_options, so allow
-         # this one to depend on itself.
-         'prune_self_dependency': 1,
-         # Do not let 'none' targets depend on this one, they don't need to.
-         'link_dependency': 1,
-       },
-      'sources': [
-        'debug/sanitizer_options.cc',
-      ],
-      'include_dirs': [
-        '..',
-      ],
-      # Some targets may want to opt-out from ASan, TSan and MSan and link
-      # without the corresponding runtime libraries. We drop the libc++
-      # dependency and omit the compiler flags to avoid bringing instrumented
-      # code to those targets.
-      'conditions': [
-        ['use_custom_libcxx==1', {
-          'dependencies!': [
-            '../third_party/libc++/libc++.gyp:libcxx_proxy',
-          ],
-        }],
-        ['tsan==1', {
-          'sources': [
-            'debug/tsan_suppressions.cc',
-          ],
-        }],
-      ],
-      'cflags!': [
-        '-fsanitize=address',
-        '-fsanitize=thread',
-        '-fsanitize=memory',
-        '-fsanitize-memory-track-origins',
-      ],
-      'direct_dependent_settings': {
-        'ldflags': [
-          '-Wl,-u_sanitizer_options_link_helper',
         ],
       },
     },
@@ -1130,7 +1106,6 @@
             'linux_util.h',
             'md5.cc',
             'md5.h',
-            'message_loop/message_pump_observer.h',
             'message_loop/message_pump_libevent.cc',
             'message_loop/message_pump_libevent.h',
             'metrics/field_trial.cc',
@@ -1240,6 +1215,9 @@
           'include_dirs': [
             '..',
           ],
+          'includes': [
+            '../build/android/increase_size_for_speed.gypi',
+          ],
         },
         {
           'target_name': 'xdg_mime',
@@ -1269,12 +1247,16 @@
             'third_party/xdg_mime/xdgmimeparent.c',
             'third_party/xdg_mime/xdgmimeparent.h',
           ],
+          'includes': [
+            '../build/android/increase_size_for_speed.gypi',
+          ],
         },
       ],
     }],
     ['OS == "android"', {
       'targets': [
         {
+          # GN: //base:base_jni_headers
           'target_name': 'base_jni_headers',
           'type': 'none',
           'sources': [
@@ -1284,6 +1266,7 @@
             'android/java/src/org/chromium/base/ContentUriUtils.java',
             'android/java/src/org/chromium/base/CpuFeatures.java',
             'android/java/src/org/chromium/base/EventLog.java',
+            'android/java/src/org/chromium/base/FieldTrialList.java',
             'android/java/src/org/chromium/base/ImportantFileWriterAndroid.java',
             'android/java/src/org/chromium/base/JNIUtils.java',
             'android/java/src/org/chromium/base/library_loader/LibraryLoader.java',
@@ -1303,6 +1286,7 @@
           'includes': [ '../build/jni_generator.gypi' ],
         },
         {
+          # TODO(GN)
           'target_name': 'base_unittests_jni_headers',
           'type': 'none',
           'sources': [
@@ -1314,6 +1298,7 @@
           'includes': [ '../build/jni_generator.gypi' ],
         },
         {
+          # GN: //base:base_native_libraries_gen
           'target_name': 'base_native_libraries_gen',
           'type': 'none',
           'sources': [
@@ -1321,14 +1306,12 @@
           ],
           'variables': {
             'package_name': 'org/chromium/base/library_loader',
-            'include_path': 'android/java/templates',
-            'template_deps': [
-              'android/java/templates/native_libraries_array.h'
-            ],
+            'template_deps': [],
           },
           'includes': [ '../build/android/java_cpp_template.gypi' ],
         },
         {
+          # GN: //base:base_java
           'target_name': 'base_java',
           'type': 'none',
           'variables': {
@@ -1350,6 +1333,7 @@
           ],
         },
         {
+          # GN: //base:base_java_unittest_support
           'target_name': 'base_java_unittest_support',
           'type': 'none',
           'dependencies': [
@@ -1361,6 +1345,7 @@
           'includes': [ '../build/java.gypi' ],
         },
         {
+          # GN: //base:base_java_application_state
           'target_name': 'base_java_application_state',
           'type': 'none',
           # This target is used to auto-generate ApplicationState.java
@@ -1377,6 +1362,7 @@
           'includes': [ '../build/android/java_cpp_template.gypi' ],
         },
         {
+          # GN: //base:base_java_memory_pressure_level_list
           'target_name': 'base_java_memory_pressure_level_list',
           'type': 'none',
           'sources': [
@@ -1389,6 +1375,7 @@
           'includes': [ '../build/android/java_cpp_template.gypi' ],
         },
         {
+          # GN: //base:base_java_test_support
           'target_name': 'base_java_test_support',
           'type': 'none',
           'dependencies': [
@@ -1400,6 +1387,7 @@
           'includes': [ '../build/java.gypi' ],
         },
         {
+          # GN: //base:base_javatests
           'target_name': 'base_javatests',
           'type': 'none',
           'dependencies': [
@@ -1412,15 +1400,14 @@
           'includes': [ '../build/java.gypi' ],
         },
         {
+          # TODO(GN)
           'target_name': 'chromium_android_linker',
           'type': 'shared_library',
           'conditions': [
-            ['android_webview_build == 0 and target_arch != "x64" and \
-               target_arch != "arm64"', {
-              # Avoid breaking the webview/64-bit build because they
-              # don't have <(android_ndk_root)/crazy_linker.gyp.
-              # Note that webview never uses the linker anyway.
-              # Note there is no 64-bit support in the linker.
+            # Avoid breaking the webview build because it
+            # does not have <(android_ndk_root)/crazy_linker.gyp.
+            # Note that webview never uses the linker anyway.
+            ['android_webview_build == 0', {
               'sources': [
                 'android/linker/linker_jni.cc',
               ],
@@ -1437,12 +1424,8 @@
             }],
           ],
         },
-
-      ],
-    }],
-    ['OS == "android"', {
-      'targets': [
         {
+          # TODO(GN)
           'target_name': 'base_perftests_apk',
           'type': 'none',
           'dependencies': [
@@ -1450,6 +1433,19 @@
           ],
           'variables': {
             'test_suite_name': 'base_perftests',
+          },
+          'includes': [ '../build/apk_test.gypi' ],
+        },
+        {
+          # GN: //base:base_unittests_apk
+          'target_name': 'base_unittests_apk',
+          'type': 'none',
+          'dependencies': [
+            'base_java',
+            'base_unittests',
+          ],
+          'variables': {
+            'test_suite_name': 'base_unittests',
           },
           'includes': [ '../build/apk_test.gypi' ],
         },
@@ -1471,22 +1467,6 @@
         },
       ],
     }],
-    ['OS == "android"', {
-      'targets': [
-        {
-          'target_name': 'base_unittests_apk',
-          'type': 'none',
-          'dependencies': [
-            'base_java',
-            'base_unittests',
-          ],
-          'variables': {
-            'test_suite_name': 'base_unittests',
-          },
-          'includes': [ '../build/apk_test.gypi' ],
-        },
-      ],
-    }],
     ['test_isolation_mode != "noop"', {
       'targets': [
         {
@@ -1501,6 +1481,13 @@
           ],
           'sources': [
             'base_unittests.isolate',
+          ],
+          'conditions': [
+            ['use_x11 == 1', {
+              'dependencies': [
+                '../tools/xdisplaycheck/xdisplaycheck.gyp:xdisplaycheck',
+              ],
+            }],
           ],
         },
       ],

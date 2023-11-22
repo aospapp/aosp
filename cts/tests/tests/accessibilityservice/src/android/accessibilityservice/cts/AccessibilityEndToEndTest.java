@@ -342,6 +342,7 @@ public class AccessibilityEndToEndTest extends
                             (NotificationManager) getActivity().getSystemService(
                                     Service.NOTIFICATION_SERVICE);
                         notificationManager.notify(notificationId, notification);
+                        getActivity().finish();
                     }
                 });
             }},

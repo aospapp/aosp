@@ -3,6 +3,7 @@ include_rules = [
   # basic rules followed by temporary exceptions.  Please don't
   # add to the list of exceptions!
   "-chrome/browser",
+  "-components/search_engines",
   "+chrome/browser/chrome_notification_types.h",
   "+chrome/browser/common",
   "+chrome/browser/favicon",
@@ -16,11 +17,10 @@ include_rules = [
   # Do not add to the list of temporarily-allowed dependencies below,
   # and please do not introduce more #includes of these files.
   # http://crbug.com/370850
-  "!chrome/browser/autocomplete/autocomplete_match.h",
-  "!chrome/browser/autocomplete/autocomplete_result.h",
-  "!chrome/browser/autocomplete/history_provider_util.h",
   "!chrome/browser/autocomplete/history_url_provider.h",
   "!chrome/browser/bookmarks/bookmark_model_factory.h",
+  "!chrome/browser/bookmarks/chrome_bookmark_client.h",
+  "!chrome/browser/bookmarks/chrome_bookmark_client_factory.h",
   "!chrome/browser/browser_process.h",
   "!chrome/browser/chromeos/login/existing_user_controller.h",
   "!chrome/browser/content_settings/cookie_settings.h",
@@ -46,9 +46,11 @@ include_rules = [
   "!chrome/browser/ui/profile_error_dialog.h",
   "!chrome/browser/ui/webui/ntp/most_visited_handler.h",
   "!chrome/browser/ui/webui/ntp/new_tab_ui.h",
-  "!components/autocomplete/url_prefix.h",
   "!components/bookmarks/browser/bookmark_model.h",
   "!components/bookmarks/browser/bookmark_utils.h",
+  "!components/omnibox/autocomplete_match.h",
+  "!components/omnibox/autocomplete_result.h",
+  "!components/omnibox/url_prefix.h",
 ]
 
 specific_include_rules = {

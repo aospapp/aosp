@@ -115,14 +115,20 @@ bool ParseContentRange(const StringMap_t& headers,
   // bytes is "bytes 0-9/*". Convert it to a half-open range by incrementing
   // read_end.
   if (result == 2) {
-    *read_start = read_start_int;
-    *read_end = read_end_int + 1;
-    *entity_length = 0;
+    if (read_start)
+      *read_start = read_start_int;
+    if (read_end)
+      *read_end = read_end_int + 1;
+    if (entity_length)
+      *entity_length = 0;
     return true;
   } else if (result == 3) {
-    *read_start = read_start_int;
-    *read_end = read_end_int + 1;
-    *entity_length = entity_length_int;
+    if (read_start)
+      *read_start = read_start_int;
+    if (read_end)
+      *read_end = read_end_int + 1;
+    if (entity_length)
+      *entity_length = entity_length_int;
     return true;
   }
 
@@ -222,12 +228,16 @@ HttpFsNode::HttpFsNode(Filesystem* filesystem,
                        bool cache_content)
     : Node(filesystem),
       url_(url),
+      buffer_(NULL),
+      buffer_len_(0),
       cache_content_(cache_content),
       has_cached_size_(false) {
+  // http nodes are read-only by default
+  SetMode(S_IRALL);
 }
 
-void HttpFsNode::SetMode(int mode) {
-  stat_.st_mode = mode;
+HttpFsNode::~HttpFsNode() {
+  free(buffer_);
 }
 
 Error HttpFsNode::GetStat_Locked(struct stat* stat) {
@@ -241,7 +251,17 @@ Error HttpFsNode::GetStat_Locked(struct stat* stat) {
     ScopedResource response(filesystem_->ppapi());
     int32_t statuscode;
     StringMap_t response_headers;
-    Error error = OpenUrl("HEAD",
+    const char* method = "HEAD";
+
+    if (filesystem->is_blob_url_) {
+      // Blob URLs do not support HEAD requests, but do give the content length
+      // in their response headers. We issue a single-byte GET request to
+      // retrieve the content length.
+      method = "GET";
+      headers["Range"] = "bytes=0-0";
+    }
+
+    Error error = OpenUrl(method,
                           &headers,
                           &loader,
                           &request,
@@ -252,7 +272,9 @@ Error HttpFsNode::GetStat_Locked(struct stat* stat) {
       return error;
 
     off_t entity_length;
-    if (ParseContentLength(response_headers, &entity_length)) {
+    if (ParseContentRange(response_headers, NULL, NULL, &entity_length)) {
+      SetCachedSize(static_cast<off_t>(entity_length));
+    } else if (ParseContentLength(response_headers, &entity_length)) {
       SetCachedSize(static_cast<off_t>(entity_length));
     } else if (cache_content_) {
       // The server didn't give a content length; download the data to memory
@@ -277,7 +299,7 @@ Error HttpFsNode::GetStat_Locked(struct stat* stat) {
     stat_.st_mtime = 0;
     stat_.st_ctime = 0;
 
-    stat_.st_mode |= S_IFREG;
+    SetType(S_IFREG);
   }
 
   // Fill the stat structure if provided
@@ -539,12 +561,18 @@ Error HttpFsNode::ReadEntireResponseToTemp(const ScopedResource& loader,
   *out_bytes = 0;
 
   const int kBytesToRead = MAX_READ_BUFFER_SIZE;
-  buffer_.resize(kBytesToRead);
+  buffer_ = (char*)realloc(buffer_, kBytesToRead);
+  assert(buffer_);
+  if (!buffer_) {
+    buffer_len_ = 0;
+    return ENOMEM;
+  }
+  buffer_len_ = kBytesToRead;
 
   while (true) {
     int bytes_read;
     Error error =
-        ReadResponseToBuffer(loader, buffer_.data(), kBytesToRead, &bytes_read);
+        ReadResponseToBuffer(loader, buffer_, kBytesToRead, &bytes_read);
     if (error)
       return error;
 
@@ -586,16 +614,23 @@ Error HttpFsNode::ReadResponseToTemp(const ScopedResource& loader,
                                      int* out_bytes) {
   *out_bytes = 0;
 
-  if (buffer_.size() < static_cast<size_t>(count))
-    buffer_.resize(std::min(count, MAX_READ_BUFFER_SIZE));
+  if (buffer_len_ < count) {
+    int new_len = std::min(count, MAX_READ_BUFFER_SIZE);
+    buffer_ = (char*)realloc(buffer_, new_len);
+    assert(buffer_);
+    if (!buffer_) {
+      buffer_len_ = 0;
+      return ENOMEM;
+    }
+    buffer_len_ = new_len;
+  }
 
   int bytes_left = count;
   while (bytes_left > 0) {
-    int bytes_to_read =
-        std::min(static_cast<size_t>(bytes_left), buffer_.size());
+    int bytes_to_read = std::min(bytes_left, buffer_len_);
     int bytes_read;
     Error error = ReadResponseToBuffer(
-        loader, buffer_.data(), bytes_to_read, &bytes_read);
+        loader, buffer_, bytes_to_read, &bytes_read);
     if (error)
       return error;
 

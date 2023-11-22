@@ -124,6 +124,12 @@ public class ActionBarActivity extends FragmentActivity implements ActionBar.Cal
     }
 
     @Override
+    protected void onPostCreate(Bundle savedInstanceState) {
+        super.onPostCreate(savedInstanceState);
+        getDelegate().onPostCreate(savedInstanceState);
+    }
+
+    @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         getDelegate().onConfigurationChanged(newConfig);
@@ -139,15 +145,6 @@ public class ActionBarActivity extends FragmentActivity implements ActionBar.Cal
     protected void onPostResume() {
         super.onPostResume();
         getDelegate().onPostResume();
-    }
-
-    @Override
-    public View onCreatePanelView(int featureId) {
-        if (featureId == Window.FEATURE_OPTIONS_PANEL) {
-            return getDelegate().onCreatePanelView(featureId);
-        } else {
-            return super.onCreatePanelView(featureId);
-        }
     }
 
     @Override
@@ -519,12 +516,11 @@ public class ActionBarActivity extends FragmentActivity implements ActionBar.Cal
     }
 
     @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-        // First let the Activity try and handle it (for back, etc)
-        if (super.onKeyDown(keyCode, event)) {
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (getDelegate().dispatchKeyEvent(event)) {
             return true;
         }
-        return getDelegate().onKeyDown(keyCode, event);
+        return super.dispatchKeyEvent(event);
     }
 
     /**
@@ -549,7 +545,7 @@ public class ActionBarActivity extends FragmentActivity implements ActionBar.Cal
             return result;
         }
         // If we reach here super didn't create a View, so let our delegate attempt it
-        return getDelegate().createView(name, attrs);
+        return getDelegate().createView(name, context, attrs);
     }
 
     private ActionBarActivityDelegate getDelegate() {

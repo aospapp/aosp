@@ -15,14 +15,14 @@
 #include "base/memory/scoped_vector.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
-#include "chrome/browser/sessions/session_id.h"
 #include "chrome/browser/sessions/session_types.h"
-#include "chrome/browser/sync/glue/device_info.h"
 #include "chrome/browser/sync/glue/favicon_cache.h"
 #include "chrome/browser/sync/glue/synced_session.h"
 #include "chrome/browser/sync/glue/synced_session_tracker.h"
 #include "chrome/browser/sync/open_tabs_ui_delegate.h"
 #include "chrome/browser/sync/sessions/tab_node_pool.h"
+#include "components/sessions/session_id.h"
+#include "components/sync_driver/device_info.h"
 #include "components/sync_driver/sync_prefs.h"
 #include "sync/api/syncable_service.h"
 
@@ -30,6 +30,10 @@ class Profile;
 
 namespace syncer {
 class SyncErrorFactory;
+}
+
+namespace sync_driver {
+class LocalDeviceInfoProvider;
 }
 
 namespace sync_pb {
@@ -82,21 +86,8 @@ class SessionsSyncManager : public syncer::SyncableService,
                             public OpenTabsUIDelegate,
                             public LocalSessionEventHandler {
  public:
-  // Isolates SessionsSyncManager from having to depend on sync internals.
-  class SyncInternalApiDelegate {
-   public:
-    virtual ~SyncInternalApiDelegate() {}
-
-    // Returns sync's representation of the local device info.
-    // Return value is an empty scoped_ptr if the device info is unavailable.
-    virtual scoped_ptr<DeviceInfo> GetLocalDeviceInfo() const = 0;
-
-    // Used for creation of the machine tag for this local session.
-    virtual std::string GetLocalSyncCacheGUID() const = 0;
-  };
-
   SessionsSyncManager(Profile* profile,
-                      SyncInternalApiDelegate* delegate,
+                      sync_driver::LocalDeviceInfoProvider* local_device,
                       scoped_ptr<LocalSessionEventRouter> router);
   virtual ~SessionsSyncManager();
 
@@ -148,6 +139,8 @@ class SessionsSyncManager : public syncer::SyncableService,
 
   FaviconCache* GetFaviconCache();
 
+  SyncedWindowDelegatesGetter* GetSyncedWindowDelegatesGetter() const;
+
   // Triggers garbage collection of stale sessions (as defined by
   // |stale_session_threshold_days_|). This is called automatically every
   // time we start up (via AssociateModels) and when new sessions data is
@@ -191,6 +184,10 @@ class SessionsSyncManager : public syncer::SyncableService,
   FRIEND_TEST_ALL_PREFIXES(SessionsSyncManagerTest, PopulateSessionWindow);
   FRIEND_TEST_ALL_PREFIXES(SessionsSyncManagerTest, ValidTabs);
   FRIEND_TEST_ALL_PREFIXES(SessionsSyncManagerTest, SetSessionTabFromDelegate);
+  FRIEND_TEST_ALL_PREFIXES(SessionsSyncManagerTest,
+                           SetSessionTabFromDelegateNavigationIndex);
+  FRIEND_TEST_ALL_PREFIXES(SessionsSyncManagerTest,
+                           SetSessionTabFromDelegateCurrentInvalid);
   FRIEND_TEST_ALL_PREFIXES(SessionsSyncManagerTest, BlockedNavigations);
   FRIEND_TEST_ALL_PREFIXES(SessionsSyncManagerTest, DeleteForeignSession);
   FRIEND_TEST_ALL_PREFIXES(SessionsSyncManagerTest,
@@ -329,6 +326,10 @@ class SessionsSyncManager : public syncer::SyncableService,
   // See |local_tab_pool_out_of_sync_|.
   void RebuildAssociations();
 
+  // Validates the content of a SessionHeader protobuf.
+  // Returns false if validation fails.
+  static bool IsValidSessionHeader(const sync_pb::SessionHeader& header);
+
   // Mapping of current open (local) tabs to their sync identifiers.
   TabLinksMap local_tab_map_;
 
@@ -354,7 +355,8 @@ class SessionsSyncManager : public syncer::SyncableService,
   scoped_ptr<syncer::SyncErrorFactory> error_handler_;
   scoped_ptr<syncer::SyncChangeProcessor> sync_processor_;
 
-  const SyncInternalApiDelegate* const delegate_;
+  // Local device info provider, owned by ProfileSyncService.
+  const sync_driver::LocalDeviceInfoProvider* const local_device_;
 
   // Unique client tag.
   std::string current_machine_tag_;

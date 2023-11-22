@@ -17,6 +17,7 @@
 package com.android.phone;
 
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import com.android.internal.telephony.OperatorInfo;
 import android.os.AsyncResult;
@@ -26,6 +27,7 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
+import android.telephony.SubscriptionManager;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
 import android.util.Log;
@@ -34,20 +36,20 @@ import java.util.ArrayList;
 
 /**
  * Service code used to assist in querying the network for service
- * availability.   
+ * availability.
  */
 public class NetworkQueryService extends Service {
     // debug data
     private static final String LOG_TAG = "NetworkQuery";
-    private static final boolean DBG = false;
+    private static final boolean DBG = true;
 
     // static events
-    private static final int EVENT_NETWORK_SCAN_COMPLETED = 100; 
-    
-    // static states indicating the query status of the service 
+    private static final int EVENT_NETWORK_SCAN_COMPLETED = 100;
+
+    // static states indicating the query status of the service
     private static final int QUERY_READY = -1;
     private static final int QUERY_IS_RUNNING = -2;
-    
+
     // error statuses that will be retured in the callback.
     public static final int QUERY_OK = 0;
     public static final int QUERY_EXCEPTION = 1;
@@ -142,24 +144,32 @@ public class NetworkQueryService extends Service {
             // currently we just unregister the callback, since there is 
             // no way to tell the RIL to terminate the query request.  
             // This means that the RIL may still be busy after the stop 
-            // request was made, but the state tracking logic ensures 
-            // that the delay will only last for 1 request even with 
-            // repeated button presses in the NetworkSetting activity. 
+            // request was made, but the state tracking logic ensures
+            // that the delay will only last for 1 request even with
+            // repeated button presses in the NetworkSetting activity.
+            unregisterCallback(cb);
+        }
+
+        /**
+         * Unregisters the callback without impacting an underlying query.
+         */
+        public void unregisterCallback(INetworkQueryServiceCallback cb) {
             if (cb != null) {
                 synchronized (mCallbacks) {
                     if (DBG) log("unregistering callback " + cb.getClass().toString());
                     mCallbacks.unregister(cb);
                 }
-            }            
+            }
         }
     };
-    
+
     @Override
     public void onCreate() {
-        mState = QUERY_READY;
-        mPhone = PhoneFactory.getDefaultPhone();
+        mState = QUERY_READY;        
+        mPhone = PhoneFactory.getPhone(
+                SubscriptionManager.getPhoneId(SubscriptionManager.getDefaultSubId()));
     }
-    
+
     /**
      * Required for service implementation.
      */

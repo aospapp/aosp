@@ -5,19 +5,15 @@
 package org.chromium.android_webview.test;
 
 import android.test.suitebuilder.annotation.MediumTest;
-import android.view.KeyEvent;
-import android.view.View;
 
 import junit.framework.Assert;
 
 import org.chromium.android_webview.test.util.JavascriptEventObserver;
 import org.chromium.android_webview.test.util.VideoTestWebServer;
-import org.chromium.base.CommandLine;
 import org.chromium.base.test.util.Feature;
 import org.chromium.content.browser.ContentViewCore;
 import org.chromium.content.browser.test.util.DOMUtils;
 import org.chromium.content.browser.test.util.TouchCommon;
-import org.chromium.content.common.ContentSwitches;
 
 /**
  * Test WebChromeClient::onShow/HideCustomView.
@@ -25,26 +21,26 @@ import org.chromium.content.common.ContentSwitches;
 public class AwContentsClientFullScreenVideoTest extends AwTestBase {
     private FullScreenVideoTestAwContentsClient mContentsClient;
     private ContentViewCore mContentViewCore;
-    private VideoTestWebServer webServer;
-    private AwTestContainerView testContainerView;
+    private VideoTestWebServer mWebServer;
+    private AwTestContainerView mTestContainerView;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         mContentsClient = new FullScreenVideoTestAwContentsClient(getActivity());
-        testContainerView =
+        mTestContainerView =
                 createAwTestContainerViewOnMainSync(mContentsClient);
-        mContentViewCore = testContainerView.getContentViewCore();
-        enableJavaScriptOnUiThread(testContainerView.getAwContents());
+        mContentViewCore = mTestContainerView.getContentViewCore();
+        enableJavaScriptOnUiThread(mTestContainerView.getAwContents());
         mTestContainerView.getAwContents().getSettings().setFullscreenSupported(true);
-        webServer = new VideoTestWebServer(
+        mWebServer = new VideoTestWebServer(
                 getInstrumentation().getTargetContext());
     }
 
     @Override
     protected void tearDown() throws Exception {
         super.tearDown();
-        if (webServer != null) webServer.getTestWebServer().shutdown();
+        if (mWebServer != null) mWebServer.getTestWebServer().shutdown();
     }
 
     @MediumTest
@@ -54,26 +50,6 @@ public class AwContentsClientFullScreenVideoTest extends AwTestBase {
             @Override
             public void run() {
                 mContentsClient.getExitCallback().onCustomViewHidden();
-            }
-        });
-    }
-
-    @MediumTest
-    @Feature({"AndroidWebView"})
-    public void testOnShowAndHideCustomViewWithBackKeyLegacy() throws Throwable {
-        // When html controls are enabled we skip this test because pressing the back key
-        // moves away from the current activity instead of exiting fullscreen mode.
-        if (areHtmlControlsEnabled())
-            return;
-
-        doOnShowAndHideCustomViewTest(new Runnable() {
-            @Override
-            public void run() {
-                View customView = mContentsClient.getCustomView();
-                customView.dispatchKeyEvent(
-                        new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK));
-                customView.dispatchKeyEvent(
-                        new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_BACK));
             }
         });
     }
@@ -92,9 +68,6 @@ public class AwContentsClientFullScreenVideoTest extends AwTestBase {
     @MediumTest
     @Feature({"AndroidWebView"})
     public void testOnShowCustomViewAndPlayWithHtmlControl() throws Throwable {
-        if (!areHtmlControlsEnabled())
-            return;
-
         doOnShowCustomViewTest();
         Assert.assertFalse(DOMUtils.hasVideoEnded(
                 mContentViewCore, VideoTestWebServer.VIDEO_ID));
@@ -130,11 +103,6 @@ public class AwContentsClientFullScreenVideoTest extends AwTestBase {
         Assert.assertFalse(mContentsClient.wasCustomViewShownCalled());
     }
 
-    private static boolean areHtmlControlsEnabled() {
-        return !CommandLine.getInstance().hasSwitch(
-                ContentSwitches.DISABLE_OVERLAY_FULLSCREEN_VIDEO_SUBTITLE);
-    }
-
     private void doOnShowAndHideCustomViewTest(final Runnable existFullscreen)
             throws Throwable {
         doOnShowCustomViewTest();
@@ -150,10 +118,10 @@ public class AwContentsClientFullScreenVideoTest extends AwTestBase {
     private void loadTestPageAndClickFullscreen() throws Exception {
         loadUrlSync(mTestContainerView.getAwContents(),
                 mContentsClient.getOnPageFinishedHelper(),
-                webServer.getFullScreenVideoTestURL());
+                mWebServer.getFullScreenVideoTestURL());
 
         // Click the button in full_screen_video_test.html to enter fullscreen.
         TouchCommon touchCommon = new TouchCommon(this);
-        touchCommon.singleClickView(testContainerView);
+        touchCommon.singleClickView(mTestContainerView);
     }
 }

@@ -7,9 +7,9 @@
 #include <set>
 
 #include "base/basictypes.h"
-#include "base/file_util.h"
 #include "base/file_version_info.h"
 #include "base/file_version_info_win.h"
+#include "base/files/file_util.h"
 #include "base/files/memory_mapped_file.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
@@ -384,9 +384,9 @@ bool PluginList::ShouldLoadPluginUsingPluginList(
   if (should_check_version) {
     for (size_t j = 0; j < plugins->size(); ++j) {
       base::FilePath::StringType plugin1 =
-          StringToLowerASCII((*plugins)[j].path.BaseName().value());
+          base::StringToLowerASCII((*plugins)[j].path.BaseName().value());
       base::FilePath::StringType plugin2 =
-          StringToLowerASCII(info.path.BaseName().value());
+          base::StringToLowerASCII(info.path.BaseName().value());
       if ((plugin1 == plugin2 && HaveSharedMimeType((*plugins)[j], info)) ||
           (plugin1 == kJavaDeploy1 && plugin2 == kJavaDeploy2) ||
           (plugin1 == kJavaDeploy2 && plugin2 == kJavaDeploy1)) {
@@ -413,7 +413,7 @@ bool PluginList::ShouldLoadPluginUsingPluginList(
 
   // Troublemakers.
   base::FilePath::StringType filename =
-      StringToLowerASCII(info.path.BaseName().value());
+      base::StringToLowerASCII(info.path.BaseName().value());
   // Depends on XPCOM.
   if (filename == kMozillaActiveXPlugin)
     return false;

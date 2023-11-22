@@ -11,10 +11,10 @@
 #include "base/time/time.h"
 #include "remoting/base/constants.h"
 #include "remoting/host/host_config.h"
-#include "remoting/jingle_glue/iq_sender.h"
-#include "remoting/jingle_glue/signal_strategy.h"
-#include "third_party/libjingle/source/talk/xmllite/xmlelement.h"
+#include "remoting/signaling/iq_sender.h"
+#include "remoting/signaling/signal_strategy.h"
 #include "third_party/libjingle/source/talk/xmpp/constants.h"
+#include "third_party/webrtc/libjingle/xmllite/xmlelement.h"
 
 using buzz::QName;
 using buzz::XmlElement;

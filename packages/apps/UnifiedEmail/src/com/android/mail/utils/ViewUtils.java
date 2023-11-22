@@ -17,8 +17,15 @@
 package com.android.mail.utils;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.content.Context;
+import android.support.annotation.ColorRes;
 import android.support.v4.view.ViewCompat;
 import android.view.View;
+import android.view.ViewParent;
+import android.view.Window;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityManager;
 
 /**
  * Utility class to perform some common operations on views.
@@ -57,6 +64,43 @@ public class ViewUtils {
     public static void setTextAlignment(View view, int textAlignment) {
         if (Utils.isRunningJBMR1OrLater()) {
             view.setTextAlignment(textAlignment);
+        }
+    }
+
+    /**
+     * Convenience method for sending a {@link android.view.accessibility.AccessibilityEvent#TYPE_ANNOUNCEMENT}
+     * {@link android.view.accessibility.AccessibilityEvent} to make an announcement which is related to some
+     * sort of a context change for which none of the events representing UI transitions
+     * is a good fit. For example, announcing a new page in a book. If accessibility
+     * is not enabled this method does nothing.
+     *
+     * @param view view to perform the accessibility announcement
+     * @param text The announcement text.
+     */
+    public static void announceForAccessibility(View view, CharSequence text) {
+        final AccessibilityManager accessibilityManager = (AccessibilityManager)
+                view.getContext().getSystemService(Context.ACCESSIBILITY_SERVICE);
+        final ViewParent parent = view.getParent();
+        if (accessibilityManager.isEnabled() && parent != null) {
+            AccessibilityEvent event = AccessibilityEvent.obtain(
+                    AccessibilityEvent.TYPE_ANNOUNCEMENT);
+            view.onInitializeAccessibilityEvent(event);
+            event.getText().add(text);
+            event.setContentDescription(null);
+            parent.requestSendAccessibilityEvent(view, event);
+        }
+    }
+
+    /**
+     * Sets the status bar color of the provided activity.
+     */
+    @SuppressLint("NewApi")
+    public static void setStatusBarColor(Activity activity, @ColorRes int colorId) {
+        if (Utils.isRunningLOrLater() && activity != null) {
+            final Window window = activity.getWindow();
+            if (window != null) {
+                window.setStatusBarColor(activity.getResources().getColor(colorId));
+            }
         }
     }
 }

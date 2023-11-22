@@ -1,6 +1,4 @@
-<?xml version="1.0" ?>
-<!DOCTYPE translationbundle>
-<translationbundle lang="no">
+<?xml version="1.0" ?><!DOCTYPE translationbundle><translationbundle lang="no">
 <translation id="777702478322588152">Prefektur</translation>
 <translation id="3713769522066937702">Postnummerformatet ble ikke gjenkjent. Eksempel på et gyldig postnummer: <ph name="EXAMPLE"/>. Vet du ikke hva postnummeret ditt er? Du kan finne det ut <ph name="BEGIN_LINK"/>her<ph name="END_LINK"/>.</translation>
 <translation id="7393381084163773901">Gateadresse</translation>
@@ -12,6 +10,7 @@
 <translation id="3885155851504623709">Kommune</translation>
 <translation id="8184169487503545976">Dette postnummerformatet gjenkjennes ikke.</translation>
 <translation id="7602447984296396718">Dette postnummeret samsvarer ikke med resten av denne adressen.</translation>
+<translation id="6247152910634872706">Organisasjon</translation>
 <translation id="2053553514270667976">Postnummer</translation>
 <translation id="7087282848513945231">Fylke</translation>
 <translation id="2096368010154057602">Avdeling</translation>
@@ -28,6 +27,7 @@
 <translation id="43113324827158664">Du kan ikke la dette feltet stå tomt.</translation>
 <translation id="3050787670591910834">Du må oppgi et postnummer, for eksempel <ph name="EXAMPLE"/>.</translation>
 <translation id="6282194474023008486">Postnummer</translation>
+<translation id="5937097533660449554">Oblast</translation>
 <translation id="4376888869070172068">Dette postnummerformatet gjenkjennes ikke.</translation>
 <translation id="8446364922515257065">Do / Si</translation>
 <translation id="4518701284698680367">Du må oppgi et postnummer, for eksempel <ph name="EXAMPLE"/>. Vet du ikke hva postnummeret ditt er? Du kan finne det <ph name="BEGIN_LINK"/>her<ph name="END_LINK"/>.</translation>

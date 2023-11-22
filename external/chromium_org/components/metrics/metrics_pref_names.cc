@@ -7,6 +7,10 @@
 namespace metrics {
 namespace prefs {
 
+// Set once, to the current epoch time, on the first run of chrome on this
+// machine. Attached to metrics reports forever thereafter.
+const char kInstallDate[] = "uninstall_metrics.installation_date2";
+
 // The metrics client GUID.
 // Note: The name client_id2 is a result of creating
 // new prefs to do a one-time reset of the previous values.
@@ -17,8 +21,6 @@ const char kMetricsClientID[] = "user_experience_metrics.client_id2";
 // info, etc.
 const char kMetricsInitialLogs[] =
     "user_experience_metrics.initial_logs_list";
-const char kMetricsInitialLogsOld[] =
-    "user_experience_metrics.initial_logs_as_protobufs";
 
 // The metrics entropy source.
 // Note: The name low_entropy_source2 is a result of creating
@@ -44,8 +46,6 @@ const char kMetricsOldLowEntropySource[] =
 // user activities.
 const char kMetricsOngoingLogs[] =
     "user_experience_metrics.ongoing_logs_list";
-const char kMetricsOngoingLogsOld[] =
-    "user_experience_metrics.ongoing_logs_as_protobufs";
 
 // Boolean that indicates a cloned install has been detected and the metrics
 // client id and low entropy source should be reset.

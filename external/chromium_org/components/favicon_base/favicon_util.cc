@@ -116,10 +116,7 @@ SkBitmap ResizeBitmapByDownsamplingIfPossible(
     // Use nearest neighbour resampling if upsampling by an integer. This
     // makes the result look similar to the result of SelectFaviconFrames().
     SkBitmap bitmap;
-    bitmap.setConfig(SkBitmap::kARGB_8888_Config,
-                     desired_size_in_pixel,
-                     desired_size_in_pixel);
-    bitmap.allocPixels();
+    bitmap.allocN32Pixels(desired_size_in_pixel, desired_size_in_pixel);
     if (!best_bitmap.isOpaque())
       bitmap.eraseARGB(0, 0, 0, 0);
 
@@ -187,14 +184,12 @@ gfx::Image SelectFaviconFramesFromPNGs(
 
   std::vector<float> favicon_scales_to_generate = favicon_scales;
   for (size_t i = 0; i < png_reps.size(); ++i) {
-    for (int j = static_cast<int>(favicon_scales_to_generate.size()) - 1;
-         j >= 0;
-         --j) {
-      if (png_reps[i].scale == favicon_scales_to_generate[j]) {
-        favicon_scales_to_generate.erase(favicon_scales_to_generate.begin() +
-                                         j);
-      }
-    }
+    std::vector<float>::iterator iter = std::find(
+        favicon_scales_to_generate.begin(),
+        favicon_scales_to_generate.end(),
+        png_reps[i].scale);
+    if (iter != favicon_scales_to_generate.end())
+      favicon_scales_to_generate.erase(iter);
   }
 
   if (favicon_scales_to_generate.empty())

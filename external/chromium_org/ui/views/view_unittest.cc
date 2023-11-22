@@ -7,8 +7,8 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/rand_util.h"
 #include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
-#include "grit/ui_strings.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -17,11 +17,11 @@
 #include "ui/compositor/layer_animator.h"
 #include "ui/compositor/test/draw_waiter_for_test.h"
 #include "ui/events/event.h"
-#include "ui/events/gestures/gesture_recognizer.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/path.h"
 #include "ui/gfx/transform.h"
+#include "ui/strings/grit/ui_strings.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/native/native_view_host.h"
 #include "ui/views/controls/scroll_view.h"
@@ -176,18 +176,6 @@ void ScrambleTree(views::View* view) {
     view->SetVisible(!view->visible());
 }
 
-// Convenience to make constructing a GestureEvent simpler.
-class GestureEventForTest : public ui::GestureEvent {
- public:
-  GestureEventForTest(ui::EventType type, int x, int y, int flags)
-      : GestureEvent(type, x, y, flags, base::TimeDelta(),
-                     ui::GestureEventDetails(type, 0.0f, 0.0f), 0) {
-  }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(GestureEventForTest);
-};
-
 }  // namespace
 
 namespace views {
@@ -211,8 +199,6 @@ class TestView : public View {
     location_.SetPoint(0, 0);
     received_mouse_enter_ = false;
     received_mouse_exit_ = false;
-    last_gesture_event_type_ = 0;
-    last_gesture_event_was_handled_ = false;
     last_clip_.setEmpty();
     accelerator_count_map_.clear();
     can_process_events_within_subtree_ = true;
@@ -244,9 +230,6 @@ class TestView : public View {
   virtual void OnMouseEntered(const ui::MouseEvent& event) OVERRIDE;
   virtual void OnMouseExited(const ui::MouseEvent& event) OVERRIDE;
 
-  // Ignores GestureEvent by default.
-  virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
-
   virtual void Paint(gfx::Canvas* canvas, const CullSet& cull_set) OVERRIDE;
   virtual void SchedulePaintInRect(const gfx::Rect& rect) OVERRIDE;
   virtual bool AcceleratorPressed(const ui::Accelerator& accelerator) OVERRIDE;
@@ -268,10 +251,6 @@ class TestView : public View {
   // Painting.
   std::vector<gfx::Rect> scheduled_paint_rects_;
 
-  // GestureEvent
-  int last_gesture_event_type_;
-  bool last_gesture_event_was_handled_;
-
   // Painting.
   SkRect last_clip_;
 
@@ -283,53 +262,6 @@ class TestView : public View {
 
   // Value to return from CanProcessEventsWithinSubtree().
   bool can_process_events_within_subtree_;
-};
-
-// A view subclass that consumes all Gesture events for testing purposes.
-class TestViewConsumeGesture : public TestView {
- public:
-  TestViewConsumeGesture() : TestView() {}
-  virtual ~TestViewConsumeGesture() {}
-
- protected:
-  virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE {
-    last_gesture_event_type_ = event->type();
-    location_.SetPoint(event->x(), event->y());
-    event->StopPropagation();
-  }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(TestViewConsumeGesture);
-};
-
-// A view subclass that ignores all Gesture events.
-class TestViewIgnoreGesture: public TestView {
- public:
-  TestViewIgnoreGesture() : TestView() {}
-  virtual ~TestViewIgnoreGesture() {}
-
- private:
-  virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE {
-  }
-
-  DISALLOW_COPY_AND_ASSIGN(TestViewIgnoreGesture);
-};
-
-// A view subclass that ignores all scroll-gesture events, but consume all other
-// gesture events.
-class TestViewIgnoreScrollGestures : public TestViewConsumeGesture {
- public:
-  TestViewIgnoreScrollGestures() {}
-  virtual ~TestViewIgnoreScrollGestures() {}
-
- private:
-  virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE {
-    if (event->IsScrollGestureEvent())
-      return;
-    TestViewConsumeGesture::OnGestureEvent(event);
-  }
-
-  DISALLOW_COPY_AND_ASSIGN(TestViewIgnoreScrollGestures);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -478,205 +410,6 @@ TEST_F(ViewTest, DeleteOnPressed) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// GestureEvent
-////////////////////////////////////////////////////////////////////////////////
-
-void TestView::OnGestureEvent(ui::GestureEvent* event) {
-}
-
-TEST_F(ViewTest, GestureEvent) {
-  // Views hierarchy for non delivery of GestureEvent.
-  TestView* v1 = new TestViewConsumeGesture();
-  v1->SetBoundsRect(gfx::Rect(0, 0, 300, 300));
-
-  TestView* v2 = new TestViewConsumeGesture();
-  v2->SetBoundsRect(gfx::Rect(100, 100, 100, 100));
-
-  TestView* v3 = new TestViewIgnoreGesture();
-  v3->SetBoundsRect(gfx::Rect(0, 0, 100, 100));
-
-  scoped_ptr<Widget> widget(new Widget());
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
-  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
-  params.bounds = gfx::Rect(50, 50, 650, 650);
-  widget->Init(params);
-  internal::RootView* root =
-      static_cast<internal::RootView*>(widget->GetRootView());
-  ui::EventDispatchDetails details;
-
-  root->AddChildView(v1);
-  v1->AddChildView(v2);
-  v2->AddChildView(v3);
-
-  // |v3| completely obscures |v2|, but all the gesture events on |v3| should
-  // reach |v2| because |v3| doesn't process any gesture events. However, since
-  // |v2| does process gesture events, gesture events on |v3| or |v2| should not
-  // reach |v1|.
-
-  v1->Reset();
-  v2->Reset();
-  v3->Reset();
-
-  // Gesture on |v3|
-  GestureEventForTest g1(ui::ET_GESTURE_TAP, 110, 110, 0);
-  details = root->OnEventFromSource(&g1);
-  EXPECT_FALSE(details.dispatcher_destroyed);
-  EXPECT_FALSE(details.target_destroyed);
-
-  EXPECT_EQ(ui::ET_GESTURE_TAP, v2->last_gesture_event_type_);
-  EXPECT_EQ(gfx::Point(10, 10), v2->location_);
-  EXPECT_EQ(ui::ET_UNKNOWN, v1->last_gesture_event_type_);
-
-  // Simulate an up so that RootView is no longer targetting |v3|.
-  GestureEventForTest g1_up(ui::ET_GESTURE_END, 110, 110, 0);
-  details = root->OnEventFromSource(&g1_up);
-  EXPECT_FALSE(details.dispatcher_destroyed);
-  EXPECT_FALSE(details.target_destroyed);
-
-  v1->Reset();
-  v2->Reset();
-  v3->Reset();
-
-  // Gesture on |v1|
-  GestureEventForTest g2(ui::ET_GESTURE_TAP, 80, 80, 0);
-  details = root->OnEventFromSource(&g2);
-  EXPECT_FALSE(details.dispatcher_destroyed);
-  EXPECT_FALSE(details.target_destroyed);
-
-  EXPECT_EQ(ui::ET_GESTURE_TAP, v1->last_gesture_event_type_);
-  EXPECT_EQ(gfx::Point(80, 80), v1->location_);
-  EXPECT_EQ(ui::ET_UNKNOWN, v2->last_gesture_event_type_);
-
-  // Send event |g1| again. Even though the coordinates target |v3| it should go
-  // to |v1| as that is the view the touch was initially down on.
-  v1->last_gesture_event_type_ = ui::ET_UNKNOWN;
-  v3->last_gesture_event_type_ = ui::ET_UNKNOWN;
-  details = root->OnEventFromSource(&g1);
-  EXPECT_FALSE(details.dispatcher_destroyed);
-  EXPECT_FALSE(details.target_destroyed);
-
-  EXPECT_EQ(ui::ET_GESTURE_TAP, v1->last_gesture_event_type_);
-  EXPECT_EQ(ui::ET_UNKNOWN, v3->last_gesture_event_type_);
-  EXPECT_EQ("110,110", v1->location_.ToString());
-
-  widget->CloseNow();
-}
-
-TEST_F(ViewTest, ScrollGestureEvent) {
-  // Views hierarchy for non delivery of GestureEvent.
-  TestView* v1 = new TestViewConsumeGesture();
-  v1->SetBoundsRect(gfx::Rect(0, 0, 300, 300));
-
-  TestView* v2 = new TestViewIgnoreScrollGestures();
-  v2->SetBoundsRect(gfx::Rect(100, 100, 100, 100));
-
-  TestView* v3 = new TestViewIgnoreGesture();
-  v3->SetBoundsRect(gfx::Rect(0, 0, 100, 100));
-
-  scoped_ptr<Widget> widget(new Widget());
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
-  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
-  params.bounds = gfx::Rect(50, 50, 650, 650);
-  widget->Init(params);
-  internal::RootView* root =
-      static_cast<internal::RootView*>(widget->GetRootView());
-  ui::EventDispatchDetails details;
-
-  root->AddChildView(v1);
-  v1->AddChildView(v2);
-  v2->AddChildView(v3);
-
-  // |v3| completely obscures |v2|, but all the gesture events on |v3| should
-  // reach |v2| because |v3| doesn't process any gesture events. However, since
-  // |v2| does process gesture events, gesture events on |v3| or |v2| should not
-  // reach |v1|.
-
-  v1->Reset();
-  v2->Reset();
-  v3->Reset();
-
-  // Gesture on |v3|
-  GestureEventForTest g1(ui::ET_GESTURE_TAP, 110, 110, 0);
-  details = root->OnEventFromSource(&g1);
-  EXPECT_FALSE(details.dispatcher_destroyed);
-  EXPECT_FALSE(details.target_destroyed);
-
-  EXPECT_EQ(ui::ET_GESTURE_TAP, v2->last_gesture_event_type_);
-  EXPECT_EQ(gfx::Point(10, 10), v2->location_);
-  EXPECT_EQ(ui::ET_UNKNOWN, v1->last_gesture_event_type_);
-
-  v2->Reset();
-
-  // Send scroll gestures on |v3|. The gesture should reach |v2|, however,
-  // since it does not process scroll-gesture events, these events should reach
-  // |v1|.
-  GestureEventForTest gscroll_begin(ui::ET_GESTURE_SCROLL_BEGIN, 115, 115, 0);
-  details = root->OnEventFromSource(&gscroll_begin);
-  EXPECT_FALSE(details.dispatcher_destroyed);
-  EXPECT_FALSE(details.target_destroyed);
-
-  EXPECT_EQ(ui::ET_UNKNOWN, v2->last_gesture_event_type_);
-  EXPECT_EQ(ui::ET_GESTURE_SCROLL_BEGIN, v1->last_gesture_event_type_);
-  v1->Reset();
-
-  // Send a second tap on |v1|. The event should reach |v2| since it is the
-  // default gesture handler, and not |v1| (even though it is the view under the
-  // point, and is the scroll event handler).
-  GestureEventForTest second_tap(ui::ET_GESTURE_TAP, 70, 70, 0);
-  details = root->OnEventFromSource(&second_tap);
-  EXPECT_FALSE(details.dispatcher_destroyed);
-  EXPECT_FALSE(details.target_destroyed);
-
-  EXPECT_EQ(ui::ET_GESTURE_TAP, v2->last_gesture_event_type_);
-  EXPECT_EQ(ui::ET_UNKNOWN, v1->last_gesture_event_type_);
-  v2->Reset();
-
-  GestureEventForTest gscroll_end(ui::ET_GESTURE_SCROLL_END, 50, 50, 0);
-  details = root->OnEventFromSource(&gscroll_end);
-  EXPECT_FALSE(details.dispatcher_destroyed);
-  EXPECT_FALSE(details.target_destroyed);
-
-  EXPECT_EQ(ui::ET_GESTURE_SCROLL_END, v1->last_gesture_event_type_);
-  v1->Reset();
-
-  // Simulate an up so that RootView is no longer targetting |v3|.
-  GestureEventForTest g1_up(ui::ET_GESTURE_END, 110, 110, 0);
-  details = root->OnEventFromSource(&g1_up);
-  EXPECT_FALSE(details.dispatcher_destroyed);
-  EXPECT_FALSE(details.target_destroyed);
-
-  EXPECT_EQ(ui::ET_GESTURE_END, v2->last_gesture_event_type_);
-
-  v1->Reset();
-  v2->Reset();
-  v3->Reset();
-
-  // Gesture on |v1|
-  GestureEventForTest g2(ui::ET_GESTURE_TAP, 80, 80, 0);
-  details = root->OnEventFromSource(&g2);
-  EXPECT_FALSE(details.dispatcher_destroyed);
-  EXPECT_FALSE(details.target_destroyed);
-
-  EXPECT_EQ(ui::ET_GESTURE_TAP, v1->last_gesture_event_type_);
-  EXPECT_EQ(gfx::Point(80, 80), v1->location_);
-  EXPECT_EQ(ui::ET_UNKNOWN, v2->last_gesture_event_type_);
-
-  // Send event |g1| again. Even though the coordinates target |v3| it should go
-  // to |v1| as that is the view the touch was initially down on.
-  v1->last_gesture_event_type_ = ui::ET_UNKNOWN;
-  v3->last_gesture_event_type_ = ui::ET_UNKNOWN;
-  details = root->OnEventFromSource(&g1);
-  EXPECT_FALSE(details.dispatcher_destroyed);
-  EXPECT_FALSE(details.target_destroyed);
-
-  EXPECT_EQ(ui::ET_GESTURE_TAP, v1->last_gesture_event_type_);
-  EXPECT_EQ(ui::ET_UNKNOWN, v3->last_gesture_event_type_);
-  EXPECT_EQ("110,110", v1->location_.ToString());
-
-  widget->CloseNow();
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // Painting
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -785,50 +518,6 @@ TEST_F(ViewTest, RemoveNotification) {
 }
 
 namespace {
-class HitTestView : public View {
- public:
-  explicit HitTestView(bool has_hittest_mask)
-      : has_hittest_mask_(has_hittest_mask) {
-  }
-  virtual ~HitTestView() {}
-
- protected:
-  // Overridden from View:
-  virtual bool HasHitTestMask() const OVERRIDE {
-    return has_hittest_mask_;
-  }
-  virtual void GetHitTestMask(HitTestSource source,
-                              gfx::Path* mask) const OVERRIDE {
-    DCHECK(has_hittest_mask_);
-    DCHECK(mask);
-
-    SkScalar w = SkIntToScalar(width());
-    SkScalar h = SkIntToScalar(height());
-
-    // Create a triangular mask within the bounds of this View.
-    mask->moveTo(w / 2, 0);
-    mask->lineTo(w, h);
-    mask->lineTo(0, h);
-    mask->close();
-  }
-
- private:
-  bool has_hittest_mask_;
-
-  DISALLOW_COPY_AND_ASSIGN(HitTestView);
-};
-
-gfx::Point ConvertPointToView(View* view, const gfx::Point& p) {
-  gfx::Point tmp(p);
-  View::ConvertPointToTarget(view->GetWidget()->GetRootView(), view, &tmp);
-  return tmp;
-}
-
-gfx::Rect ConvertRectToView(View* view, const gfx::Rect& r) {
-  gfx::Rect tmp(r);
-  tmp.set_origin(ConvertPointToView(view, r.origin()));
-  return tmp;
-}
 
 void RotateCounterclockwise(gfx::Transform* transform) {
   transform->matrix().set3x3(0, -1, 0,
@@ -843,72 +532,6 @@ void RotateClockwise(gfx::Transform* transform) {
 }
 
 }  // namespace
-
-TEST_F(ViewTest, HitTestMasks) {
-  Widget* widget = new Widget;
-  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
-  widget->Init(params);
-  View* root_view = widget->GetRootView();
-  root_view->SetBoundsRect(gfx::Rect(0, 0, 500, 500));
-
-  gfx::Rect v1_bounds = gfx::Rect(0, 0, 100, 100);
-  HitTestView* v1 = new HitTestView(false);
-  v1->SetBoundsRect(v1_bounds);
-  root_view->AddChildView(v1);
-
-  gfx::Rect v2_bounds = gfx::Rect(105, 0, 100, 100);
-  HitTestView* v2 = new HitTestView(true);
-  v2->SetBoundsRect(v2_bounds);
-  root_view->AddChildView(v2);
-
-  gfx::Point v1_centerpoint = v1_bounds.CenterPoint();
-  gfx::Point v2_centerpoint = v2_bounds.CenterPoint();
-  gfx::Point v1_origin = v1_bounds.origin();
-  gfx::Point v2_origin = v2_bounds.origin();
-
-  gfx::Rect r1(10, 10, 110, 15);
-  gfx::Rect r2(106, 1, 98, 98);
-  gfx::Rect r3(0, 0, 300, 300);
-  gfx::Rect r4(115, 342, 200, 10);
-
-  // Test HitTestPoint
-  EXPECT_TRUE(v1->HitTestPoint(ConvertPointToView(v1, v1_centerpoint)));
-  EXPECT_TRUE(v2->HitTestPoint(ConvertPointToView(v2, v2_centerpoint)));
-
-  EXPECT_TRUE(v1->HitTestPoint(ConvertPointToView(v1, v1_origin)));
-  EXPECT_FALSE(v2->HitTestPoint(ConvertPointToView(v2, v2_origin)));
-
-  // Test HitTestRect
-  EXPECT_TRUE(v1->HitTestRect(ConvertRectToView(v1, r1)));
-  EXPECT_FALSE(v2->HitTestRect(ConvertRectToView(v2, r1)));
-
-  EXPECT_FALSE(v1->HitTestRect(ConvertRectToView(v1, r2)));
-  EXPECT_TRUE(v2->HitTestRect(ConvertRectToView(v2, r2)));
-
-  EXPECT_TRUE(v1->HitTestRect(ConvertRectToView(v1, r3)));
-  EXPECT_TRUE(v2->HitTestRect(ConvertRectToView(v2, r3)));
-
-  EXPECT_FALSE(v1->HitTestRect(ConvertRectToView(v1, r4)));
-  EXPECT_FALSE(v2->HitTestRect(ConvertRectToView(v2, r4)));
-
-  // Test GetEventHandlerForPoint
-  EXPECT_EQ(v1, root_view->GetEventHandlerForPoint(v1_centerpoint));
-  EXPECT_EQ(v2, root_view->GetEventHandlerForPoint(v2_centerpoint));
-
-  EXPECT_EQ(v1, root_view->GetEventHandlerForPoint(v1_origin));
-  EXPECT_EQ(root_view, root_view->GetEventHandlerForPoint(v2_origin));
-
-  // Test GetTooltipHandlerForPoint
-  EXPECT_EQ(v1, root_view->GetTooltipHandlerForPoint(v1_centerpoint));
-  EXPECT_EQ(v2, root_view->GetTooltipHandlerForPoint(v2_centerpoint));
-
-  EXPECT_EQ(v1, root_view->GetTooltipHandlerForPoint(v1_origin));
-  EXPECT_EQ(root_view, root_view->GetTooltipHandlerForPoint(v2_origin));
-
-  EXPECT_FALSE(v1->GetTooltipHandlerForPoint(v2_origin));
-
-  widget->CloseNow();
-}
 
 // Tests the correctness of the rect-based targeting algorithm implemented in
 // View::GetEventHandlerForRect(). See http://goo.gl/3Jp2BD for a description
@@ -1514,7 +1137,6 @@ TEST_F(ViewTest, Textfield) {
   const base::string16 kText = ASCIIToUTF16(
       "Reality is that which, when you stop believing it, doesn't go away.");
   const base::string16 kExtraText = ASCIIToUTF16("Pretty deep, Philip!");
-  const base::string16 kEmptyString;
 
   Widget* widget = new Widget;
   Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
@@ -1531,15 +1153,15 @@ TEST_F(ViewTest, Textfield) {
   textfield->AppendText(kExtraText);
   EXPECT_EQ(kText + kExtraText, textfield->text());
   textfield->SetText(base::string16());
-  EXPECT_EQ(kEmptyString, textfield->text());
+  EXPECT_TRUE(textfield->text().empty());
 
   // Test selection related methods.
   textfield->SetText(kText);
-  EXPECT_EQ(kEmptyString, textfield->GetSelectedText());
+  EXPECT_TRUE(textfield->GetSelectedText().empty());
   textfield->SelectAll(false);
   EXPECT_EQ(kText, textfield->text());
   textfield->ClearSelection();
-  EXPECT_EQ(kEmptyString, textfield->GetSelectedText());
+  EXPECT_TRUE(textfield->GetSelectedText().empty());
 
   widget->CloseNow();
 }
@@ -2186,7 +1808,7 @@ class VisibleBoundsView : public View {
 
  private:
   // Overridden from View:
-  virtual bool NeedsNotificationWhenVisibleBoundsChange() const OVERRIDE {
+  virtual bool GetNeedsNotificationWhenVisibleBoundsChange() const OVERRIDE {
      return true;
   }
   virtual void OnVisibleBoundsChanged() OVERRIDE {
@@ -2533,7 +2155,7 @@ TEST_F(ViewTest, ConversionsToFromScreen) {
   child->SetTransform(t);
 
   gfx::Point point_in_screen(100, 90);
-  gfx::Point point_in_child(80,60);
+  gfx::Point point_in_child(80, 60);
 
   gfx::Point point = point_in_screen;
   View::ConvertPointFromScreen(child, &point);
@@ -3017,6 +2639,69 @@ TEST_F(ViewTest, AddExistingChild) {
   v1.AddChildView(&v3);
   EXPECT_EQ(0, v1.GetIndexOf(&v2));
   EXPECT_EQ(1, v1.GetIndexOf(&v3));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// FocusManager
+////////////////////////////////////////////////////////////////////////////////
+
+// A widget that always claims to be active, regardless of its real activation
+// status.
+class ActiveWidget : public Widget {
+ public:
+  ActiveWidget() {}
+  virtual ~ActiveWidget() {}
+
+  virtual bool IsActive() const OVERRIDE {
+    return true;
+  }
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(ActiveWidget);
+};
+
+TEST_F(ViewTest, AdvanceFocusIfNecessaryForUnfocusableView) {
+  // Create a widget with two views and give the first one focus.
+  ActiveWidget widget;
+  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_POPUP);
+  params.ownership = Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
+  widget.Init(params);
+
+  View* view1 = new View();
+  view1->SetFocusable(true);
+  widget.GetRootView()->AddChildView(view1);
+  View* view2 = new View();
+  view2->SetFocusable(true);
+  widget.GetRootView()->AddChildView(view2);
+
+  FocusManager* focus_manager = widget.GetFocusManager();
+  ASSERT_TRUE(focus_manager);
+
+  focus_manager->SetFocusedView(view1);
+  EXPECT_EQ(view1, focus_manager->GetFocusedView());
+
+  // Disable the focused view and check if the next view gets focused.
+  view1->SetEnabled(false);
+  EXPECT_EQ(view2, focus_manager->GetFocusedView());
+
+  // Re-enable and re-focus.
+  view1->SetEnabled(true);
+  focus_manager->SetFocusedView(view1);
+  EXPECT_EQ(view1, focus_manager->GetFocusedView());
+
+  // Hide the focused view and check it the next view gets focused.
+  view1->SetVisible(false);
+  EXPECT_EQ(view2, focus_manager->GetFocusedView());
+
+  // Re-show and re-focus.
+  view1->SetVisible(true);
+  focus_manager->SetFocusedView(view1);
+  EXPECT_EQ(view1, focus_manager->GetFocusedView());
+
+  // Set the focused view as not focusable and check if the next view gets
+  // focused.
+  view1->SetFocusable(false);
+  EXPECT_EQ(view2, focus_manager->GetFocusedView());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3903,6 +3588,54 @@ TEST_F(ViewLayerTest, BoundsTreeMoveViewMovesBounds) {
   EXPECT_EQ(1U, widget_view->last_cull_set_.count(widget_view));
   EXPECT_EQ(1U, widget_view->last_cull_set_.count(v2));
   EXPECT_EQ(1U, widget_view->last_cull_set_.count(v3));
+}
+
+namespace {
+
+std::string ToString(const gfx::Vector2dF& vector) {
+  return base::StringPrintf("%.2f %0.2f", vector.x(), vector.y());
+}
+
+}  // namespace
+
+TEST_F(ViewLayerTest, SnapLayerToPixel) {
+  View* v1 = new View;
+
+  View* v11 = new View;
+  v1->AddChildView(v11);
+
+  widget()->SetContentsView(v1);
+
+  const gfx::Size& size = GetRootLayer()->GetCompositor()->size();
+  GetRootLayer()->GetCompositor()->SetScaleAndSize(1.25f, size);
+
+  v11->SetBoundsRect(gfx::Rect(1, 1, 10, 10));
+  v1->SetBoundsRect(gfx::Rect(1, 1, 10, 10));
+  v11->SetPaintToLayer(true);
+
+  EXPECT_EQ("0.40 0.40", ToString(v11->layer()->subpixel_position_offset()));
+
+  // Creating a layer in parent should update the child view's layer offset.
+  v1->SetPaintToLayer(true);
+  EXPECT_EQ("-0.20 -0.20", ToString(v1->layer()->subpixel_position_offset()));
+  EXPECT_EQ("-0.20 -0.20", ToString(v11->layer()->subpixel_position_offset()));
+
+  // DSF change should get propagated and update offsets.
+  GetRootLayer()->GetCompositor()->SetScaleAndSize(1.5f, size);
+  EXPECT_EQ("0.33 0.33", ToString(v1->layer()->subpixel_position_offset()));
+  EXPECT_EQ("0.33 0.33", ToString(v11->layer()->subpixel_position_offset()));
+
+  // Deleting parent's layer should update the child view's layer's offset.
+  v1->SetPaintToLayer(false);
+  EXPECT_EQ("0.00 0.00", ToString(v11->layer()->subpixel_position_offset()));
+
+  // Setting parent view should update the child view's layer's offset.
+  v1->SetBoundsRect(gfx::Rect(2, 2, 10, 10));
+  EXPECT_EQ("0.33 0.33", ToString(v11->layer()->subpixel_position_offset()));
+
+  // Setting integral DSF should reset the offset.
+  GetRootLayer()->GetCompositor()->SetScaleAndSize(2.0f, size);
+  EXPECT_EQ("0.00 0.00", ToString(v11->layer()->subpixel_position_offset()));
 }
 
 TEST_F(ViewTest, FocusableAssertions) {

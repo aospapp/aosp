@@ -10,13 +10,12 @@
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/chromeos/login/auth/authenticator.h"
-#include "chrome/browser/chromeos/login/auth/extended_authenticator.h"
-#include "chrome/browser/chromeos/login/auth/login_status_consumer.h"
-#include "chrome/browser/chromeos/login/auth/online_attempt_host.h"
-#include "chrome/browser/chromeos/login/auth/user_context.h"
 #include "chrome/browser/chromeos/policy/wildcard_login_checker.h"
-#include "chrome/browser/profiles/profile_manager.h"
+#include "chromeos/login/auth/auth_status_consumer.h"
+#include "chromeos/login/auth/authenticator.h"
+#include "chromeos/login/auth/extended_authenticator.h"
+#include "chromeos/login/auth/online_attempt_host.h"
+#include "chromeos/login/auth/user_context.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "google_apis/gaia/google_service_auth_error.h"
@@ -35,7 +34,7 @@ namespace chromeos {
 // If auth is succeeded, cookie fetcher is executed, LP instance deletes itself.
 //
 // If |delegate_| is not NULL it will handle error messages, password input.
-class LoginPerformer : public LoginStatusConsumer,
+class LoginPerformer : public AuthStatusConsumer,
                        public OnlineAttemptHost::Delegate {
  public:
   typedef enum AuthorizationMode {
@@ -46,7 +45,7 @@ class LoginPerformer : public LoginStatusConsumer,
   } AuthorizationMode;
 
   // Delegate class to get notifications from the LoginPerformer.
-  class Delegate : public LoginStatusConsumer {
+  class Delegate : public AuthStatusConsumer {
    public:
     virtual ~Delegate() {}
     virtual void WhiteListCheckFailed(const std::string& email) = 0;
@@ -57,12 +56,12 @@ class LoginPerformer : public LoginStatusConsumer,
   explicit LoginPerformer(Delegate* delegate);
   virtual ~LoginPerformer();
 
-  // LoginStatusConsumer implementation:
-  virtual void OnLoginFailure(const LoginFailure& error) OVERRIDE;
-  virtual void OnRetailModeLoginSuccess(
+  // AuthStatusConsumer implementation:
+  virtual void OnAuthFailure(const AuthFailure& error) OVERRIDE;
+  virtual void OnRetailModeAuthSuccess(
       const UserContext& user_context) OVERRIDE;
-  virtual void OnLoginSuccess(const UserContext& user_context) OVERRIDE;
-  virtual void OnOffTheRecordLoginSuccess() OVERRIDE;
+  virtual void OnAuthSuccess(const UserContext& user_context) OVERRIDE;
+  virtual void OnOffTheRecordAuthSuccess() OVERRIDE;
   virtual void OnPasswordChangeDetected() OVERRIDE;
 
   // Performs a login for |user_context|.
@@ -71,8 +70,8 @@ class LoginPerformer : public LoginStatusConsumer,
   void PerformLogin(const UserContext& user_context,
                     AuthorizationMode auth_mode);
 
-  // Performs locally managed user login with a given |user_context|.
-  void LoginAsLocallyManagedUser(const UserContext& user_context);
+  // Performs supervised user login with a given |user_context|.
+  void LoginAsSupervisedUser(const UserContext& user_context);
 
   // Performs retail mode login.
   void LoginRetailMode();
@@ -80,8 +79,8 @@ class LoginPerformer : public LoginStatusConsumer,
   // Performs actions to prepare guest mode login.
   void LoginOffTheRecord();
 
-  // Performs a login into the public account identified by |username|.
-  void LoginAsPublicAccount(const std::string& username);
+  // Performs public session login with a given |user_context|.
+  void LoginAsPublicSession(const UserContext& user_context);
 
   // Performs a login into the kiosk mode account with |app_user_id|.
   void LoginAsKioskAccount(const std::string& app_user_id,
@@ -139,8 +138,8 @@ class LoginPerformer : public LoginStatusConsumer,
   OnlineAttemptHost online_attempt_host_;
 
   // Represents last login failure that was encountered when communicating to
-  // sign-in server. LoginFailure.LoginFailureNone() by default.
-  LoginFailure last_login_failure_;
+  // sign-in server. AuthFailure.LoginFailureNone() by default.
+  AuthFailure last_login_failure_;
 
   // User credentials for the current login attempt.
   UserContext user_context_;

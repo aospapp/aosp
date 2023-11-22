@@ -17,6 +17,7 @@
 package com.android.incallui;
 
 import android.net.Uri;
+
 import com.google.common.base.Preconditions;
 
 import android.app.Notification;
@@ -30,8 +31,11 @@ import android.graphics.drawable.BitmapDrawable;
 import android.os.Handler;
 import android.os.Message;
 import android.telecom.PhoneAccount;
+import android.text.BidiFormatter;
+import android.text.TextDirectionHeuristics;
 import android.text.TextUtils;
 
+import com.android.contacts.common.util.BitmapUtil;
 import com.android.incallui.ContactInfoCache.ContactCacheEntry;
 import com.android.incallui.ContactInfoCache.ContactInfoCacheCallback;
 import com.android.incallui.InCallApp.NotificationBroadcastReceiver;
@@ -146,8 +150,10 @@ public class StatusBarNotifier implements InCallPresenter.InCallStateListener {
      * @see #updateInCallNotification(InCallState,CallList)
      */
     private void cancelInCall() {
-        Log.d(this, "cancelInCall()...");
-        mNotificationManager.cancel(IN_CALL_NOTIFICATION);
+        if (mIsShowingNotification) {
+            Log.d(this, "cancelInCall()...");
+            mNotificationManager.cancel(IN_CALL_NOTIFICATION);
+        }
         mIsShowingNotification = false;
     }
 
@@ -258,15 +264,12 @@ public class StatusBarNotifier implements InCallPresenter.InCallStateListener {
         }
 
         final int state = call.getState();
-        final boolean isConference = call.isConferenceCall();
-        final boolean isVideoUpgradeRequest = call.getSessionModificationState()
-                == Call.SessionModificationState.RECEIVED_UPGRADE_TO_VIDEO_REQUEST;
 
         // Check if data has changed; if nothing is different, don't issue another notification.
         final int iconResId = getIconToDisplay(call);
-        final Bitmap largeIcon = getLargeIconToDisplay(contactInfo, isConference);
+        final Bitmap largeIcon = getLargeIconToDisplay(contactInfo, call);
         final int contentResId = getContentString(call);
-        final String contentTitle = getContentTitle(contactInfo, isConference);
+        final String contentTitle = getContentTitle(contactInfo, call);
 
         if (!checkForChangeAndSaveData(iconResId, contentResId, largeIcon, contentTitle, state)) {
             return;
@@ -285,6 +288,8 @@ public class StatusBarNotifier implements InCallPresenter.InCallStateListener {
         if ((state == Call.State.INCOMING || state == Call.State.CALL_WAITING) &&
                 !InCallPresenter.getInstance().isShowingInCallUi()) {
             configureFullScreenIntent(builder, inCallPendingIntent, call);
+            // Set the notification category for incoming calls
+            builder.setCategory(Notification.CATEGORY_CALL);
         }
 
         // Set the content
@@ -294,6 +299,8 @@ public class StatusBarNotifier implements InCallPresenter.InCallStateListener {
         builder.setLargeIcon(largeIcon);
         builder.setColor(mContext.getResources().getColor(R.color.dialer_theme_color));
 
+        final boolean isVideoUpgradeRequest = call.getSessionModificationState()
+                == Call.SessionModificationState.RECEIVED_UPGRADE_TO_VIDEO_REQUEST;
         if (isVideoUpgradeRequest) {
             builder.setUsesChronometer(false);
             addDismissUpgradeRequestAction(builder);
@@ -380,12 +387,15 @@ public class StatusBarNotifier implements InCallPresenter.InCallStateListener {
     /**
      * Returns the main string to use in the notification.
      */
-    private String getContentTitle(ContactCacheEntry contactInfo, boolean isConference) {
-        if (isConference) {
+    private String getContentTitle(ContactCacheEntry contactInfo, Call call) {
+        if (call.isConferenceCall()
+                && !call.can(android.telecom.Call.Details.CAPABILITY_GENERIC_CONFERENCE)) {
             return mContext.getResources().getString(R.string.card_title_conf_call);
         }
         if (TextUtils.isEmpty(contactInfo.name)) {
-            return contactInfo.number;
+            return TextUtils.isEmpty(contactInfo.number) ? null
+                    : BidiFormatter.getInstance().unicodeWrap(
+                            contactInfo.number.toString(), TextDirectionHeuristics.LTR);
         }
 
         return contactInfo.name;
@@ -404,9 +414,10 @@ public class StatusBarNotifier implements InCallPresenter.InCallStateListener {
     /**
      * Gets a large icon from the contact info object to display in the notification.
      */
-    private Bitmap getLargeIconToDisplay(ContactCacheEntry contactInfo, boolean isConference) {
+    private Bitmap getLargeIconToDisplay(ContactCacheEntry contactInfo, Call call) {
         Bitmap largeIcon = null;
-        if (isConference) {
+        if (call.isConferenceCall()
+                && !call.can(android.telecom.Call.Details.CAPABILITY_GENERIC_CONFERENCE)) {
             largeIcon = BitmapFactory.decodeResource(mContext.getResources(),
                     R.drawable.img_conference);
         }
@@ -419,9 +430,8 @@ public class StatusBarNotifier implements InCallPresenter.InCallStateListener {
                     android.R.dimen.notification_large_icon_height);
             final int width = (int) mContext.getResources().getDimension(
                     android.R.dimen.notification_large_icon_width);
-            largeIcon = Bitmap.createScaledBitmap(largeIcon, width, height, false);
+            largeIcon = BitmapUtil.getRoundedBitmap(largeIcon, width, height);
         }
-
         return largeIcon;
     }
 
@@ -492,7 +502,7 @@ public class StatusBarNotifier implements InCallPresenter.InCallStateListener {
         PendingIntent answerVoicePendingIntent = createNotificationPendingIntent(
                 mContext, InCallApp.ACTION_ANSWER_VOICE_INCOMING_CALL);
         builder.addAction(R.drawable.ic_call_white_24dp,
-                mContext.getText(R.string.description_target_answer),
+                mContext.getText(R.string.notification_action_answer),
                 answerVoicePendingIntent);
     }
 
@@ -617,7 +627,8 @@ public class StatusBarNotifier implements InCallPresenter.InCallStateListener {
     private PendingIntent createLaunchPendingIntent() {
 
         final Intent intent = InCallPresenter.getInstance().getInCallIntent(
-                false /* showDialpad */, false /* newOutgoingCall */);
+                false /* showDialpad */, false /* newOutgoingCall */,
+                        false /* showCircularReveal */);
 
         // PendingIntent that can be used to launch the InCallActivity.  The
         // system fires off this intent if the user pulls down the windowshade

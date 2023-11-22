@@ -15,9 +15,6 @@ import org.chromium.base.TraceEvent;
 
 /**
  * Notifies clients of the default displays's vertical sync pulses.
- * This class works in "burst" mode: once the update is requested, the listener will be
- * called MAX_VSYNC_COUNT times on the vertical sync pulses (on JB) or on every refresh
- * period (on ICS, see below), unless stop() is called.
  * On ICS, VSyncMonitor relies on setVSyncPointForICS() being called to set a reasonable
  * approximation of a vertical sync starting point; see also http://crbug.com/156397.
  */
@@ -26,7 +23,8 @@ public class VSyncMonitor {
     private static final long NANOSECONDS_PER_SECOND = 1000000000;
     private static final long NANOSECONDS_PER_MILLISECOND = 1000000;
     private static final long NANOSECONDS_PER_MICROSECOND = 1000;
-    public static final int MAX_AUTO_ONVSYNC_COUNT = 5;
+
+    private boolean mInsideVSync = false;
 
     /**
      * VSync listener class
@@ -46,7 +44,6 @@ public class VSyncMonitor {
     private final long mRefreshPeriodNano;
 
     private boolean mHaveRequestInFlight;
-    private int mTriggerNextVSyncCount;
 
     // Choreographer is used to detect vsync on >= JB.
     private final Choreographer mChoreographer;
@@ -84,7 +81,6 @@ public class VSyncMonitor {
                 .getDefaultDisplay().getRefreshRate();
         if (refreshRate <= 0) refreshRate = 60;
         mRefreshPeriodNano = (long) (NANOSECONDS_PER_SECOND / refreshRate);
-        mTriggerNextVSyncCount = 0;
 
         if (enableJBVSync && Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
             // Use Choreographer on JB+ to get notified of vsync.
@@ -141,20 +137,10 @@ public class VSyncMonitor {
     }
 
     /**
-     * Stop reporting vsync events. Note that at most one pending vsync event can still be delivered
-     * after this function is called.
-     */
-    public void stop() {
-        mTriggerNextVSyncCount = 0;
-    }
-
-    /**
      * Request to be notified of the closest display vsync events.
      * Listener.onVSync() will be called soon after the upcoming vsync pulses.
-     * It will be called at most MAX_AUTO_ONVSYNC_COUNT times unless requestUpdate() is called.
      */
     public void requestUpdate() {
-        mTriggerNextVSyncCount = MAX_AUTO_ONVSYNC_COUNT;
         postCallback();
     }
 
@@ -166,20 +152,32 @@ public class VSyncMonitor {
         mGoodStartingPointNano = goodStartingPointNano;
     }
 
+    /**
+     * @return true if onVSync handler is executing. If onVSync handler
+     * introduces invalidations, View#invalidate() should be called. If
+     * View#postInvalidateOnAnimation is called instead, the corresponding onDraw
+     * will be delayed by one frame. The embedder of VSyncMonitor should check
+     * this value if it wants to post an invalidation.
+     */
+    public boolean isInsideVSync() {
+        return mInsideVSync;
+    }
+
     private long getCurrentNanoTime() {
         return System.nanoTime();
     }
 
     private void onVSyncCallback(long frameTimeNanos, long currentTimeNanos) {
         assert mHaveRequestInFlight;
+        mInsideVSync = true;
         mHaveRequestInFlight = false;
         mLastVSyncCpuTimeNano = currentTimeNanos;
-        if (mTriggerNextVSyncCount >= 0) {
-            mTriggerNextVSyncCount--;
-            postCallback();
-        }
-        if (mListener != null) {
-            mListener.onVSync(this, frameTimeNanos / NANOSECONDS_PER_MICROSECOND);
+        try {
+            if (mListener != null) {
+                mListener.onVSync(this, frameTimeNanos / NANOSECONDS_PER_MICROSECOND);
+            }
+        } finally {
+            mInsideVSync = false;
         }
     }
 

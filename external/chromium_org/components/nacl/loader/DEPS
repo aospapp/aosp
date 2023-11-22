@@ -2,6 +2,7 @@ include_rules = [
   "+components/nacl",
   "+content/public/app/startup_helper_win.h",
   "+crypto",
+  "+sandbox/linux/bpf_dsl",
   "+sandbox/linux/seccomp-bpf",
   "+sandbox/linux/services",
   "+sandbox/linux/suid",
@@ -15,6 +16,7 @@ include_rules = [
   "+native_client/src/trusted/desc",
   "+native_client/src/trusted/service_runtime/include",
   "+native_client/src/trusted/service_runtime/nacl_error_code.h",
+  "+native_client/src/trusted/validator/rich_file_info.h",
   "+native_client/src/trusted/validator/validation_cache.h",
   "+native_client/src/untrusted/irt/irt.h",
 

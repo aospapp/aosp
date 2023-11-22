@@ -18,8 +18,17 @@
 <resources>
     <style name="WaitFragmentTitleBase" parent="android:Widget.Material.TextView" />
 
-    <style name="AbstractNewMessageButtonStyleBase"
-        parent="@android:style/Widget.Material.Light.Button">
+    <style name="ActionBarOverflowButtonStyle" parent="@android:style/Widget.Material.ActionButton.Overflow" />
+
+    <style name="ActionBarShadow">
+        <item name="android:visibility">gone</item>
+    </style>
+
+    <!-- Use elevation with FAB to produce a shadow instead of working with an asset -->
+    <style name="FloatingActionButtonBackgroundStyle" parent="AbstractFloatingActionButtonStyle">
+        <item name="android:background">@drawable/compose_button</item>
+        <item name="android:src">@drawable/ic_pencil_wht_24dp</item>
+        <item name="android:elevation">@dimen/compose_button_elevation</item>
     </style>
 
     <style name="ConversationListFadeBase" parent="android:Widget.Material.Light.ListView" />
@@ -28,12 +37,31 @@
 
     <style name="MinTimeProgressDialogStyleBase" parent="@android:style/Theme.Material.Light.Dialog" />
 
-    <style name="MessageButtonStyleBase" parent="android:Widget.Material.Button.Borderless" />
-
-    <style name="AbstractVacationResponderDateSpinnerBase"
-           parent="android:Widget.Material.Light.Spinner" />
+    <style name="MessageButtonStyleBase" parent="android:Widget.Material.Button.Borderless">
+        <item name="android:background">?android:attr/selectableItemBackgroundBorderless</item>
+    </style>
 
     <style name="RecipientEditTextViewStyle" parent="@style/RecipientEditTextViewStyleBase">
         <item name="android:popupElevation">0dp</item>
+    </style>
+
+    <style name="NotificationPrimaryText">
+        <item name="android:textColor">@color/text_color_black</item>
+    </style>
+
+    <style name="NotificationSecondaryText">
+        <item name="android:textColor">@color/text_color_grey</item>
+    </style>
+
+    <style name="DrawerFontStyle">
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="FolderListItemStyle" parent="@style/FolderListItemStyleBase">
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="DrawerUnreadCount" parent="@style/UnreadCount">
+        <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 </resources>

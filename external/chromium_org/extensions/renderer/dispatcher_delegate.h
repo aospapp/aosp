@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef EXTENSIONS_RENDERER_DISPATCHER_DELEGATE_H
-#define EXTENSIONS_RENDERER_DISPATCHER_DELEGATE_H
+#ifndef EXTENSIONS_RENDERER_DISPATCHER_DELEGATE_H_
+#define EXTENSIONS_RENDERER_DISPATCHER_DELEGATE_H_
 
 #include <set>
 #include <string>
@@ -36,13 +36,15 @@ class DispatcherDelegate {
       const v8::Handle<v8::Context>& v8_context,
       blink::WebFrame* frame,
       const Extension* extension,
-      Feature::Context context_type) = 0;
+      Feature::Context context_type,
+      const Extension* effective_extension,
+      Feature::Context effective_context_type) = 0;
 
   // Initializes origin permissions for a newly created extension context.
   virtual void InitOriginPermissions(const Extension* extension,
                                      bool is_extension_active) {}
 
-  // Includes additional native handlers in a given ModuleSystem.
+  // Includes additional native handlers in a ScriptContext's ModuleSystem.
   virtual void RegisterNativeHandlers(Dispatcher* dispatcher,
                                       ModuleSystem* module_system,
                                       ScriptContext* context) {}
@@ -51,9 +53,7 @@ class DispatcherDelegate {
   virtual void PopulateSourceMap(ResourceBundleSourceMap* source_map) {}
 
   // Requires additional modules within an extension context's module system.
-  virtual void RequireAdditionalModules(ModuleSystem* module_system,
-                                        const Extension* extension,
-                                        Feature::Context context_type,
+  virtual void RequireAdditionalModules(ScriptContext* context,
                                         bool is_within_platform_app) {}
 
   // Allows the delegate to respond to an updated set of active extensions in
@@ -79,16 +79,12 @@ class DispatcherDelegate {
   // See http://crbug.com/368431.
   virtual void UpdateTabSpecificPermissions(
       const extensions::Dispatcher* dispatcher,
-      int page_id,
+      const GURL& url,
       int tab_id,
       const std::string& extension_id,
       const extensions::URLPatternSet& origin_set) {}
-
-  // Allows the delegate to respond to reports from the browser about WebRequest
-  // API usage from within this process.
-  virtual void HandleWebRequestAPIUsage(bool webrequest_used) {}
 };
 
 }  // namespace extensions
 
-#endif  // EXTENSIONS_RENDERER_DISPATCHER_DELEGATE_H
+#endif  // EXTENSIONS_RENDERER_DISPATCHER_DELEGATE_H_

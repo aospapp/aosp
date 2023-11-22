@@ -1188,7 +1188,6 @@ static void audioTrack_callBack_pullFromBuffQueue(int event, void* user, void *i
 
     case android::AudioTrack::EVENT_MORE_DATA: {
         //SL_LOGV("received event EVENT_MORE_DATA from AudioTrack TID=%d", gettid());
-        slBufferQueueCallback callback = NULL;
         slPrefetchCallback prefetchCallback = NULL;
         void *prefetchContext = NULL;
         SLuint32 prefetchEvents = SL_PREFETCHEVENT_NONE;
@@ -1197,6 +1196,18 @@ static void audioTrack_callBack_pullFromBuffQueue(int event, void* user, void *i
         // retrieve data from the buffer queue
         interface_lock_exclusive(&ap->mBufferQueue);
 
+        if (ap->mBufferQueue.mCallbackPending) {
+            // call callback with lock not held
+            slBufferQueueCallback callback = ap->mBufferQueue.mCallback;
+            if (NULL != callback) {
+                callbackPContext = ap->mBufferQueue.mContext;
+                interface_unlock_exclusive(&ap->mBufferQueue);
+                (*callback)(&ap->mBufferQueue.mItf, callbackPContext);
+                interface_lock_exclusive(&ap->mBufferQueue);
+                ap->mBufferQueue.mCallbackPending = false;
+            }
+        }
+
         if (ap->mBufferQueue.mState.count != 0) {
             //SL_LOGV("nbBuffers in queue = %u",ap->mBufferQueue.mState.count);
             assert(ap->mBufferQueue.mFront != ap->mBufferQueue.mRear);
@@ -1204,20 +1215,19 @@ static void audioTrack_callBack_pullFromBuffQueue(int event, void* user, void *i
             BufferHeader *oldFront = ap->mBufferQueue.mFront;
             BufferHeader *newFront = &oldFront[1];
 
-            // declared as void * because this code supports both 8-bit and 16-bit PCM data
+            size_t availSource = oldFront->mSize - ap->mBufferQueue.mSizeConsumed;
+            size_t availSink = pBuff->size;
+            size_t bytesToCopy = availSource < availSink ? availSource : availSink;
             void *pSrc = (char *)oldFront->mBuffer + ap->mBufferQueue.mSizeConsumed;
-            if (ap->mBufferQueue.mSizeConsumed + pBuff->size < oldFront->mSize) {
-                // can't consume the whole or rest of the buffer in one shot
-                ap->mBufferQueue.mSizeConsumed += pBuff->size;
-                // leave pBuff->size untouched
-                // consume data
-                // FIXME can we avoid holding the lock during the copy?
-                memcpy (pBuff->raw, pSrc, pBuff->size);
-            } else {
-                // finish consuming the buffer or consume the buffer in one shot
-                pBuff->size = oldFront->mSize - ap->mBufferQueue.mSizeConsumed;
-                ap->mBufferQueue.mSizeConsumed = 0;
+            memcpy(pBuff->raw, pSrc, bytesToCopy);
 
+            if (bytesToCopy < availSource) {
+                ap->mBufferQueue.mSizeConsumed += bytesToCopy;
+                // pBuff->size is already equal to bytesToCopy in this case
+            } else {
+                // consumed an entire buffer, dequeue
+                pBuff->size = bytesToCopy;
+                ap->mBufferQueue.mSizeConsumed = 0;
                 if (newFront ==
                         &ap->mBufferQueue.mArray
                             [ap->mBufferQueue.mNumBuffers + 1])
@@ -1228,16 +1238,7 @@ static void audioTrack_callBack_pullFromBuffQueue(int event, void* user, void *i
 
                 ap->mBufferQueue.mState.count--;
                 ap->mBufferQueue.mState.playIndex++;
-
-                // consume data
-                // FIXME can we avoid holding the lock during the copy?
-                memcpy (pBuff->raw, pSrc, pBuff->size);
-
-                // data has been consumed, and the buffer queue state has been updated
-                // we will notify the client if applicable
-                callback = ap->mBufferQueue.mCallback;
-                // save callback data
-                callbackPContext = ap->mBufferQueue.mContext;
+                ap->mBufferQueue.mCallbackPending = true;
             }
         } else { // empty queue
             // signal no data available
@@ -1276,9 +1277,6 @@ static void audioTrack_callBack_pullFromBuffQueue(int event, void* user, void *i
                 (*prefetchCallback)(&ap->mPrefetchStatus.mItf, prefetchContext,
                         SL_PREFETCHEVENT_FILLLEVELCHANGE);
             }
-        }
-        if (NULL != callback) {
-            (*callback)(&ap->mBufferQueue.mItf, callbackPContext);
         }
     }
     break;

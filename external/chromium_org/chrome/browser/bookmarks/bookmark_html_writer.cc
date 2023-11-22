@@ -12,6 +12,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop/message_loop.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
@@ -459,9 +460,9 @@ bool BookmarkFaviconFetcher::FetchNextFavicon() {
       FaviconService* favicon_service = FaviconServiceFactory::GetForProfile(
           profile_, Profile::EXPLICIT_ACCESS);
       favicon_service->GetRawFaviconForPageURL(
-          FaviconService::FaviconForPageURLParams(
-              GURL(url), favicon_base::FAVICON, gfx::kFaviconSize),
-          1.0f,
+          GURL(url),
+          favicon_base::FAVICON,
+          gfx::kFaviconSize,
           base::Bind(&BookmarkFaviconFetcher::OnFaviconDataAvailable,
                      base::Unretained(this)),
           &cancelable_task_tracker_);

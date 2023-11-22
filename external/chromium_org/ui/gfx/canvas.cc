@@ -12,6 +12,7 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/effects/SkGradientShader.h"
 #include "ui/gfx/font_list.h"
+#include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/size_conversions.h"
 #include "ui/gfx/skia_util.h"
@@ -131,6 +132,8 @@ ImageSkiaRep Canvas::ExtractImageRep() const {
 }
 
 void Canvas::DrawDashedRect(const Rect& rect, SkColor color) {
+  if (rect.IsEmpty())
+    return;
   // Create a 2D bitmap containing alternating on/off pixels - we do this
   // so that you never get two pixels of the same color around the edges
   // of the focus rect (this may mean that opposing edges of the rect may
@@ -207,9 +210,12 @@ bool Canvas::IsClipEmpty() const {
 
 bool Canvas::GetClipBounds(Rect* bounds) {
   SkRect out;
-  bool has_non_empty_clip = canvas_->getClipBounds(&out);
-  bounds->SetRect(out.left(), out.top(), out.width(), out.height());
-  return has_non_empty_clip;
+  if (canvas_->getClipBounds(&out)) {
+    *bounds = ToEnclosingRect(SkRectToRectF(out));
+    return true;
+  }
+  *bounds = gfx::Rect();
+  return false;
 }
 
 void Canvas::Translate(const Vector2d& offset) {

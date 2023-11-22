@@ -5,6 +5,7 @@
 {
   'targets': [
     {
+      # GN version: //components/bookmarks/browser
       'target_name': 'bookmarks_browser',
       'type': 'static_library',
       'include_dirs': [
@@ -57,8 +58,23 @@
         'bookmarks/browser/scoped_group_bookmark_actions.cc',
         'bookmarks/browser/scoped_group_bookmark_actions.h',
       ],
+      'conditions': [
+        ['OS == "android"', {
+          'dependencies': [
+            'bookmarks_jni_headers',
+          ],
+          'sources' : [
+            'bookmarks/common/android/bookmark_id.cc',
+            'bookmarks/common/android/bookmark_id.h',
+            'bookmarks/common/android/bookmark_type_list.h',
+            'bookmarks/common/android/component_jni_registrar.cc',
+            'bookmarks/common/android/component_jni_registrar.h',
+          ],
+        }],
+      ],
     },
     {
+      # GN version: //components/bookmarks/common
       'target_name': 'bookmarks_common',
       'type': 'static_library',
       'include_dirs': [
@@ -75,6 +91,7 @@
       ],
     },
     {
+      # GN version: //components/bookmarks/test
       'target_name': 'bookmarks_test_support',
       'type': 'static_library',
       'include_dirs': [
@@ -103,5 +120,46 @@
         }],
       ],
     },
+  ],
+  'conditions' : [
+    ['OS=="android"', {
+      'targets': [
+        {
+          'target_name': 'bookmarks_java',
+          'type': 'none',
+          'dependencies': [
+            '../base/base.gyp:base_java',
+            'bookmark_type_java',
+          ],
+          'variables': {
+            'java_in_dir': 'bookmarks/common/android/java',
+          },
+          'includes': [ '../build/java.gypi' ],
+        },
+        {
+          'target_name': 'bookmarks_jni_headers',
+          'type': 'none',
+          'sources': [
+            'bookmarks/common/android/java/src/org/chromium/components/bookmarks/BookmarkId.java',
+          ],
+          'variables': {
+            'jni_gen_package': 'components/bookmarks',
+          },
+          'includes': [ '../build/jni_generator.gypi' ],
+        },
+        {
+          'target_name': 'bookmark_type_java',
+          'type': 'none',
+          'sources': [
+            'bookmarks/common/android/java/src/org/chromium/components/bookmarks/BookmarkType.template',
+          ],
+          'variables': {
+            'package_name': 'org/chromium/components/bookmarks',
+            'template_deps': ['bookmarks/common/android/bookmark_type_list.h'],
+          },
+          'includes': [ '../build/android/java_cpp_template.gypi' ],
+        },
+      ],
+    }]
   ],
 }

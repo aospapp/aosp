@@ -35,11 +35,11 @@ DnsSdRegistry::ServiceTypeData::~ServiceTypeData() {}
 
 void DnsSdRegistry::ServiceTypeData::ListenerAdded() {
   ref_count++;
-};
+}
 
 bool DnsSdRegistry::ServiceTypeData::ListenerRemoved() {
   return --ref_count == 0;
-};
+}
 
 int DnsSdRegistry::ServiceTypeData::GetListenerCount() {
   return ref_count;
@@ -71,7 +71,7 @@ bool DnsSdRegistry::ServiceTypeData::UpdateService(
           << ", known: " << known
           << ", updated or added: " << updated_or_added;
   return updated_or_added;
-};
+}
 
 bool DnsSdRegistry::ServiceTypeData::RemoveService(
     const std::string& service_name) {
@@ -83,9 +83,11 @@ bool DnsSdRegistry::ServiceTypeData::RemoveService(
     }
   }
   return false;
-};
+}
 
 bool DnsSdRegistry::ServiceTypeData::ClearServices() {
+  lister_->Discover(false);
+
   if (service_list_.empty())
     return false;
 
@@ -138,7 +140,7 @@ void DnsSdRegistry::RegisterDnsSdListener(std::string service_type) {
   }
 
   scoped_ptr<DnsSdDeviceLister> dns_sd_device_lister(CreateDnsSdDeviceLister(
-      this, service_type, service_discovery_client_));
+      this, service_type, service_discovery_client_.get()));
   dns_sd_device_lister->Discover(false);
   linked_ptr<ServiceTypeData> service_type_data(
       new ServiceTypeData(dns_sd_device_lister.Pass()));

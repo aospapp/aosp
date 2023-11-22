@@ -20,6 +20,7 @@
 #undef Bool
 #undef None
 #include "ui/events/test/events_test_utils_x11.h"
+#include "ui/events/x/device_data_manager_x11.h"
 #elif defined(USE_OZONE)
 #include "ui/events/event.h"
 #endif
@@ -39,7 +40,11 @@ class TestMenuItemView : public MenuItemView {
 
 class TestPlatformEventSource : public ui::PlatformEventSource {
  public:
-  TestPlatformEventSource() {}
+  TestPlatformEventSource() {
+#if defined(USE_X11)
+    ui::DeviceDataManagerX11::CreateInstance();
+#endif
+  }
   virtual ~TestPlatformEventSource() {}
 
   uint32_t Dispatch(const ui::PlatformEvent& event) {
@@ -196,8 +201,8 @@ class MenuControllerTest : public ViewsTestBase {
     memset(&msg, 0, sizeof(MSG));
     dispatcher_client_.dispatcher()->Dispatch(msg);
 #elif defined(USE_OZONE)
-    ui::KeyEvent event(ui::ET_KEY_PRESSED, ui::VKEY_SPACE, 0, true);
-    dispatcher_client_.dispatcher()->Dispatch(&event);
+    ui::KeyEvent event(' ', ui::VKEY_SPACE, ui::EF_NONE);
+    event_source_.Dispatch(&event);
 #else
 #error Unsupported platform
 #endif

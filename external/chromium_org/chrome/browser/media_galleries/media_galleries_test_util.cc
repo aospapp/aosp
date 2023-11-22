@@ -9,17 +9,18 @@
 #endif
 
 #include "base/base_paths.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/path_service.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/media_galleries/fileapi/picasa_finder.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_paths.h"
+#include "components/crx_file/id_util.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_system.h"
-#include "extensions/common/extension.h"
 #include "extensions/common/manifest_constants.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -44,15 +45,14 @@ scoped_refptr<extensions::Extension> AddMediaGalleriesApp(
   manifest->SetString(extensions::manifest_keys::kVersion, "0.1");
   manifest->SetInteger(extensions::manifest_keys::kManifestVersion, 2);
   base::ListValue* background_script_list = new base::ListValue;
-  background_script_list->Append(
-      base::Value::CreateStringValue("background.js"));
+  background_script_list->Append(new base::StringValue("background.js"));
   manifest->Set(extensions::manifest_keys::kPlatformAppBackgroundScripts,
                 background_script_list);
 
   base::ListValue* permission_detail_list = new base::ListValue;
   for (size_t i = 0; i < media_galleries_permissions.size(); i++)
     permission_detail_list->Append(
-        base::Value::CreateStringValue(media_galleries_permissions[i]));
+        new base::StringValue(media_galleries_permissions[i]));
   base::DictionaryValue* media_galleries_permission =
       new base::DictionaryValue();
   media_galleries_permission->Set("mediaGalleries", permission_detail_list);
@@ -69,8 +69,8 @@ scoped_refptr<extensions::Extension> AddMediaGalleriesApp(
                                     *manifest.get(),
                                     extensions::Extension::NO_FLAGS, &errors);
   EXPECT_TRUE(extension.get() != NULL) << errors;
-  EXPECT_TRUE(extensions::Extension::IdIsValid(extension->id()));
-  if (!extension.get() || !extensions::Extension::IdIsValid(extension->id()))
+  EXPECT_TRUE(crx_file::id_util::IdIsValid(extension->id()));
+  if (!extension.get() || !crx_file::id_util::IdIsValid(extension->id()))
     return NULL;
 
   extension_prefs->OnExtensionInstalled(
@@ -87,7 +87,7 @@ scoped_refptr<extensions::Extension> AddMediaGalleriesApp(
 }
 
 EnsureMediaDirectoriesExists::EnsureMediaDirectoriesExists()
-    : num_galleries_(0) {
+    : num_galleries_(0), times_overrides_changed_(0) {
   Init();
 }
 
@@ -96,6 +96,38 @@ EnsureMediaDirectoriesExists::~EnsureMediaDirectoriesExists() {
   iapps::SetMacPreferencesForTesting(NULL);
   picasa::SetMacPreferencesForTesting(NULL);
 #endif  // OS_MACOSX
+}
+
+void EnsureMediaDirectoriesExists::ChangeMediaPathOverrides() {
+  // Each pointer must be reset an extra time so as to destroy the existing
+  // override prior to creating a new one. This is because the PathService,
+  // which supports these overrides, only allows one override to exist per path
+  // in its internal bookkeeping; attempting to add a second override invokes
+  // a CHECK crash.
+  music_override_.reset();
+  std::string music_path_string("music");
+  music_path_string.append(base::IntToString(times_overrides_changed_));
+  music_override_.reset(new base::ScopedPathOverride(
+      chrome::DIR_USER_MUSIC,
+      fake_dir_.path().AppendASCII(music_path_string)));
+
+  pictures_override_.reset();
+  std::string pictures_path_string("pictures");
+  pictures_path_string.append(base::IntToString(times_overrides_changed_));
+  pictures_override_.reset(new base::ScopedPathOverride(
+      chrome::DIR_USER_PICTURES,
+      fake_dir_.path().AppendASCII(pictures_path_string)));
+
+  video_override_.reset();
+  std::string videos_path_string("videos");
+  videos_path_string.append(base::IntToString(times_overrides_changed_));
+  video_override_.reset(new base::ScopedPathOverride(
+      chrome::DIR_USER_VIDEOS,
+      fake_dir_.path().AppendASCII(videos_path_string)));
+
+  times_overrides_changed_++;
+
+  num_galleries_ = 3;
 }
 
 base::FilePath EnsureMediaDirectoriesExists::GetFakeAppDataPath() const {
@@ -125,7 +157,7 @@ void EnsureMediaDirectoriesExists::SetCustomPicasaAppDataPath(
       base::SysUTF8ToNSString(path.value()),
       false);
 }
-#endif // OS_MACOSX
+#endif  // OS_MACOSX
 
 #if defined(OS_WIN) || defined(OS_MACOSX)
 base::FilePath
@@ -166,7 +198,7 @@ void EnsureMediaDirectoriesExists::Init() {
   local_app_data_override_.reset(new base::ScopedPathOverride(
       base::DIR_LOCAL_APP_DATA, GetFakeLocalAppDataPath()));
   // Picasa also looks in the registry for an alternate path.
-  registry_override_.OverrideRegistry(HKEY_CURRENT_USER, L"hkcu_picasa");
+  registry_override_.OverrideRegistry(HKEY_CURRENT_USER);
 #endif  // OS_WIN
 
 #if defined(OS_MACOSX)
@@ -190,15 +222,9 @@ void EnsureMediaDirectoriesExists::Init() {
 
   iapps::SetMacPreferencesForTesting(mac_preferences_.get());
   picasa::SetMacPreferencesForTesting(mac_preferences_.get());
-#endif // OS_MACOSX
+#endif  // OS_MACOSX
 
-  music_override_.reset(new base::ScopedPathOverride(
-      chrome::DIR_USER_MUSIC, fake_dir_.path().AppendASCII("music")));
-  pictures_override_.reset(new base::ScopedPathOverride(
-      chrome::DIR_USER_PICTURES, fake_dir_.path().AppendASCII("pictures")));
-  video_override_.reset(new base::ScopedPathOverride(
-      chrome::DIR_USER_VIDEOS, fake_dir_.path().AppendASCII("videos")));
-  num_galleries_ = 3;
+  ChangeMediaPathOverrides();
 #endif  // OS_CHROMEOS || OS_ANDROID
 }
 

@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"நிர்வாகப் பயன்பாட்டைப் பயன்படுத்த முடியவில்லை. இதில் கூறுகள் இல்லாமல் இருக்கலாம் அல்லது இது சேதமடைந்து இருக்கலாம். IT துறையைத் தொடர்புகொள்ளவும்."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"நிர்வாகிப் பயன்பாட்டை நிறுவ முடியவில்லை"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"சாதனத்தில் நிர்வாகிப் பயன்பாடு நிறுவப்படவில்லை"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"அமைப்பதை நிறுத்தவா?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"அமைப்பதை நிச்சயமாக நிறுத்தவா?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"வேண்டாம்"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"ஆம்"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"ரத்துசெய்கிறது..."</string>
 </resources>

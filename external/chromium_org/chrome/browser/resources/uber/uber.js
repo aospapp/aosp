@@ -149,6 +149,7 @@ cr.define('uber', function() {
    * @param {Event} e The posted object.
    */
   function handleWindowMessage(e) {
+    e = /** @type{!MessageEvent.<!{method: string, params: *}>} */(e);
     if (e.data.method === 'beginInterceptingEvents') {
       backgroundNavigation();
     } else if (e.data.method === 'stopInterceptingEvents') {
@@ -167,9 +168,9 @@ cr.define('uber', function() {
     } else if (e.data.method === 'navigationControlsLoaded') {
       onNavigationControlsLoaded();
     } else if (e.data.method === 'adjustToScroll') {
-      adjustToScroll(e.data.params);
+      adjustToScroll(/** @type {number} */(e.data.params));
     } else if (e.data.method === 'mouseWheel') {
-      forwardMouseWheel(e.data.params);
+      forwardMouseWheel(/** @type {Object} */(e.data.params));
     } else {
       console.error('Received unexpected message', e.data);
     }
@@ -203,20 +204,21 @@ cr.define('uber', function() {
 
     if (isRTL()) {
       uber.invokeMethodOnWindow(navFrame.firstChild.contentWindow,
-                                'setContentChanging',
-                                enabled);
+                                'setContentChanging', enabled);
     }
   }
 
   /**
    * Get an iframe based on the origin of a received post message.
    * @param {string} origin The origin of a post message.
-   * @return {!HTMLElement} The frame associated to |origin| or null.
+   * @return {!Element} The frame associated to |origin| or null.
    */
   function getIframeFromOrigin(origin) {
     assert(origin.substr(-1) != '/', 'invalid origin given');
     var query = '.iframe-container > iframe[src^="' + origin + '/"]';
-    return document.querySelector(query);
+    var element = document.querySelector(query);
+    assert(element);
+    return /** @type {!Element} */(element);
   }
 
   /**
@@ -313,7 +315,7 @@ cr.define('uber', function() {
   /**
    * Selects and navigates a subpage. This is called from uber-frame.
    * @param {string} pageId Should match an id of one of the iframe containers.
-   * @param {integer} historyOption Indicates whether we should push or replace
+   * @param {number} historyOption Indicates whether we should push or replace
    *     browser history.
    * @param {string} path A sub-page path.
    */
@@ -357,6 +359,7 @@ cr.define('uber', function() {
 
     // Trigger a layout after making it visible and before setting
     // the class to 'selected', so that it animates in.
+    /** @suppress {uselessCode} */
     container.offsetTop;
     container.classList.add('selected');
 
@@ -365,14 +368,18 @@ cr.define('uber', function() {
 
     var selectedFrame = getSelectedIframe().querySelector('iframe');
     uber.invokeMethodOnWindow(selectedFrame.contentWindow, 'frameSelected');
+    selectedFrame.contentWindow.focus();
 
     if (historyOption != HISTORY_STATE_OPTION.NONE)
       changePathTo({}, path, historyOption);
 
     if (container.dataset.title)
       document.title = container.dataset.title;
-    $('favicon').href = 'chrome://theme/' + container.dataset.favicon;
-    $('favicon2x').href = 'chrome://theme/' + container.dataset.favicon + '@2x';
+    assert('favicon' in container.dataset);
+
+    var dataset = /** @type {{favicon: string}} */(container.dataset);
+    $('favicon').href = 'chrome://theme/' + dataset.favicon;
+    $('favicon2x').href = 'chrome://theme/' + dataset.favicon + '@2x';
 
     updateNavigationControls();
   }

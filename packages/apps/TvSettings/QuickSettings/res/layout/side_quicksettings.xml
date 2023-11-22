@@ -29,8 +29,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingTop="@dimen/side_panel_title_padding_top"
-        android:paddingStart="@dimen/side_panel_title_padding_left"
-        android:paddingEnd="@dimen/side_panel_title_padding_right"
+        android:paddingStart="@dimen/side_panel_title_padding_start"
+        android:paddingEnd="@dimen/side_panel_title_padding_end"
         android:background="@color/side_panel_title_background">
 
         <TextView android:id="@+id/side_panel_title"

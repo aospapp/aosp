@@ -21,6 +21,7 @@ public class BasicHtmlSanitizerTest extends AndroidTestCase {
         // allowed attributes
         sanitize("<a coords=\"something\"></a>", "<a coords=\"something\"></a>");
         sanitize("<a href=\"http://www.here.com\"></a>", "<a href=\"http://www.here.com\"></a>");
+        sanitize("<a href=\"https://www.here.com\"></a>", "<a href=\"https://www.here.com\"></a>");
         sanitize("<a name=\"something\"></a>", "<a name=\"something\"></a>");
         sanitize("<a shape=\"something\"></a>", "<a shape=\"something\"></a>");
 
@@ -30,6 +31,7 @@ public class BasicHtmlSanitizerTest extends AndroidTestCase {
         sanitize("<a datasrc=\"something\"></a>", "");
         sanitize("<a download=\"something\"></a>", "");
         sanitize("<a href=\"javascript:badness()\"></a>", "");
+        sanitize("<a href=\"cid:ii_hyw5v8ej0\"></a>", "");
         sanitize("<a hreflang=\"something\"></a>", "");
         sanitize("<a media=\"something\"></a>", "");
         sanitize("<a methods=\"something\"></a>", "");
@@ -70,6 +72,7 @@ public class BasicHtmlSanitizerTest extends AndroidTestCase {
         sanitize("<area alt=\"something\"/>", "<area alt=\"something\" />");
         sanitize("<area coords=\"something\"/>", "<area coords=\"something\" />");
         sanitize("<area href=\"http://www.here.com\"/>", "<area href=\"http://www.here.com\" />");
+        sanitize("<area href=\"https://www.here.com\"/>", "<area href=\"https://www.here.com\" />");
         sanitize("<area name=\"something\"/>", "<area name=\"something\" />");
         sanitize("<area nohref />", "<area nohref=\"nohref\" />");
         sanitize("<area shape=\"something\"/>", "<area shape=\"something\" />");
@@ -78,6 +81,7 @@ public class BasicHtmlSanitizerTest extends AndroidTestCase {
         sanitize("<area accessKey=\"A\"/>", "<area />");
         sanitize("<area download=\"something\"/>", "<area />");
         sanitize("<area href=\"javascript:badness()\"/>", "<area />");
+        sanitize("<area href=\"cid:ii_hyw5v8ej0\"/>", "<area />");
         sanitize("<area hreflang=\"something\"/>", "<area />");
         sanitize("<area media=\"something\"/>", "<area />");
         sanitize("<area rel=\"something\"/>", "<area />");
@@ -106,10 +110,13 @@ public class BasicHtmlSanitizerTest extends AndroidTestCase {
         // allowed attributes
         sanitize("<base href=\"http://www.example.com/\">",
                 "<base href=\"http://www.example.com/\" />");
+        sanitize("<base href=\"https://www.example.com/\">",
+                "<base href=\"https://www.example.com/\" />");
 
         // disallowed attributes
         sanitize("<base target=\"_blank\">", "<base />");
         sanitize("<base href=\"javascript:badness()\">", "<base />");
+        sanitize("<base href=\"cid:ii_hyw5v8ej0\">", "<base />");
         sanitize("<base href=\"javascript:alert('XSS');//\">", "<base />");
     }
 
@@ -485,11 +492,18 @@ public class BasicHtmlSanitizerTest extends AndroidTestCase {
         sanitize("<img width=\"22\"/>", "<img width=\"22\" />");
         sanitize("<img src=\"http://www.overhere.com/\"></img>",
                 "<img src=\"http://www.overhere.com/\" />");
+        sanitize("<img src=\"https://www.overhere.com/\"></img>",
+                "<img src=\"https://www.overhere.com/\" />");
+        sanitize("<img src=\"cid:ii_hyw5v8ej0\"></img>",
+                "<img src=\"cid:ii_hyw5v8ej0\" />");
         sanitize("<img longdesc=\"http://www.overhere.com/\"></img>",
                 "<img longdesc=\"http://www.overhere.com/\" />");
+        sanitize("<img longdesc=\"https://www.overhere.com/\"></img>",
+                "<img longdesc=\"https://www.overhere.com/\" />");
 
         sanitize("<img src=\"javascript:badness()\"></img>", "");
         sanitize("<img longdesc=\"javascript:badness()\"></img>", "");
+        sanitize("<img longdesc=\"cid:ii_hyw5v8ej0\"></img>", "");
         sanitize("<img src=javascript:alert('XSS')>", "");
         sanitize("<img src=JaVaScRiPt:alert('XSS')>", "");
         sanitize("<img src=javascript:alert(\"XSS\")>", "");
@@ -555,10 +569,16 @@ public class BasicHtmlSanitizerTest extends AndroidTestCase {
         sanitize("<input width=\"50\"/>", "<input width=\"50\" />");
         sanitize("<input src=\"http://www.overhere.com/\"></input>",
                 "<input src=\"http://www.overhere.com/\" />");
+        sanitize("<input src=\"https://www.overhere.com/\"></input>",
+                "<input src=\"https://www.overhere.com/\" />");
         sanitize("<input formaction=\"http://www.overhere.com/\"></input>",
                 "<input formaction=\"http://www.overhere.com/\" />");
+        sanitize("<input formaction=\"https://www.overhere.com/\"></input>",
+                "<input formaction=\"https://www.overhere.com/\" />");
 
+        sanitize("<input src=\"cid:ii_hyw5v8ej0\"></input>", "");
         sanitize("<input src=\"javascript:badness()\"></input>", "");
+        sanitize("<input formaction=\"cid:ii_hyw5v8ej0\"></input>", "");
         sanitize("<input formaction=\"javascript:badness()\"></input>", "");
         sanitize("<input type=\"image\" src=\"javascript:alert('XSS');\">",
                 "<input type=\"image\" />");
@@ -575,8 +595,13 @@ public class BasicHtmlSanitizerTest extends AndroidTestCase {
         sanitize("<ins cite=\"javascript:badness();\">something</ins>", "<ins>something</ins>");
         sanitize("<ins cite=\"http://www.reason.com/\">something</ins>",
                 "<ins cite=\"http://www.reason.com/\">something</ins>");
+        sanitize("<ins cite=\"https://www.reason.com/\">something</ins>",
+                "<ins cite=\"https://www.reason.com/\">something</ins>");
         sanitize("<ins datetime=\"something\">something</ins>",
                 "<ins datetime=\"something\">something</ins>");
+
+        sanitize("<ins cite=\"cid:ii_hyw5v8ej0\">something</ins>",
+                "<ins>something</ins>");
     }
 
     public void testKbd() {
@@ -614,6 +639,8 @@ public class BasicHtmlSanitizerTest extends AndroidTestCase {
     public void testLink() {
         sanitize("<link charset=\"utf8\"/>", "");
         sanitize("<link href=\"http://www.reason.com/\"/>", "");
+        sanitize("<link href=\"https://www.reason.com/\"/>", "");
+        sanitize("<link href=\"cid:ii_hyw5v8ej0\"/>", "");
         sanitize("<link hreflang=\"fr_CA\"/>", "");
         sanitize("<link media=\"tv\"/>", "");
         sanitize("<link rel=\"alternate\"/>", "");
@@ -655,6 +682,8 @@ public class BasicHtmlSanitizerTest extends AndroidTestCase {
                 "<menuitem disabled=\"disabled\"></menuitem>");
         sanitize("<menuitem icon=\"http://www.reason.com/\"></menuitem>",
                 "<menuitem icon=\"http://www.reason.com/\"></menuitem>");
+        sanitize("<menuitem icon=\"https://www.reason.com/\"></menuitem>",
+                "<menuitem icon=\"https://www.reason.com/\"></menuitem>");
         sanitize("<menuitem label=\"something\"></menuitem>",
                 "<menuitem label=\"something\"></menuitem>");
         sanitize("<menuitem type=\"checkbox\"></menuitem>",
@@ -662,6 +691,7 @@ public class BasicHtmlSanitizerTest extends AndroidTestCase {
         sanitize("<menuitem radiogroup=\"something\"></menuitem>",
                 "<menuitem radiogroup=\"something\"></menuitem>");
 
+        sanitize("<menuitem icon=\"cid:ii_hyw5v8ej0\"></menuitem>", "<menuitem></menuitem>");
         sanitize("<menuitem icon=\"javascript:badness()\"></menuitem>", "<menuitem></menuitem>");
     }
 
@@ -773,6 +803,10 @@ public class BasicHtmlSanitizerTest extends AndroidTestCase {
         sanitize("<q>something</q>", "<q>something</q>");
         sanitize("<q cite=\"http://www.reason.com/\">something</q>",
                 "<q cite=\"http://www.reason.com/\">something</q>");
+        sanitize("<q cite=\"https://www.reason.com/\">something</q>",
+                "<q cite=\"https://www.reason.com/\">something</q>");
+
+        sanitize("<q cite=\"cid:ii_hyw5v8ej0\">something</q>", "<q>something</q>");
         sanitize("<q cite=\"javascript:badness()\">something</q>", "<q>something</q>");
     }
 
@@ -843,12 +877,8 @@ public class BasicHtmlSanitizerTest extends AndroidTestCase {
     }
 
     public void testSource() {
-        sanitize("<source/>", "<source />");
-        sanitize("<source media=\"something\"/>", "<source media=\"something\" />");
-        sanitize("<source type=\"mimeType\"/>", "<source type=\"mimeType\" />");
-        sanitize("<source src=\"http://www.reason.com/\"/source>",
-                "<source src=\"http://www.reason.com/\" />");
-        sanitize("<source src=\"javascript:badness()\"/source>", "<source />");
+        sanitize("<source/>", "");
+        sanitize("<source></source>", "");
     }
 
     public void testSpan() {
@@ -1012,15 +1042,8 @@ public class BasicHtmlSanitizerTest extends AndroidTestCase {
     }
 
     public void testTrack() {
-        sanitize("<track/>", "<track />");
-        sanitize("<track default=\"default\"/>", "<track default=\"default\" />");
-        sanitize("<track kind=\"captions\"/>", "<track kind=\"captions\" />");
-        sanitize("<track label=\"something\"/>", "<track label=\"something\" />");
-        sanitize("<track src=\"http://www.reason.com/\"/>",
-                "<track src=\"http://www.reason.com/\" />");
-        sanitize("<track srclang=\"fr_CA\"/>", "<track srclang=\"fr_CA\" />");
-
-        sanitize("<track src=\"javascript:badness()\"/>", "<track />");
+        sanitize("<track/>", "");
+        sanitize("<track></track>", "");
     }
 
     public void testTt() {

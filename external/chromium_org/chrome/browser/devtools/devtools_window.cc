@@ -26,6 +26,7 @@
 #include "chrome/browser/ui/prefs/prefs_tab_helper.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/devtools_ui.h"
+#include "chrome/browser/ui/zoom/zoom_controller.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/render_messages.h"
@@ -33,24 +34,19 @@
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/devtools_agent_host.h"
-#include "content/public/browser/devtools_client_host.h"
-#include "content/public/browser/devtools_manager.h"
 #include "content/public/browser/native_web_keyboard_event.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
-#include "content/public/browser/notification_source.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/content_client.h"
-#include "content/public/common/page_transition_types.h"
 #include "content/public/common/url_constants.h"
-#include "content/public/test/test_utils.h"
 #include "third_party/WebKit/public/web/WebInputEvent.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 
 using base::DictionaryValue;
@@ -67,6 +63,111 @@ base::LazyInstance<DevToolsWindows>::Leaky g_instances =
 
 static const char kKeyUpEventName[] = "keyup";
 static const char kKeyDownEventName[] = "keydown";
+
+bool FindInspectedBrowserAndTabIndex(
+    WebContents* inspected_web_contents, Browser** browser, int* tab) {
+  if (!inspected_web_contents)
+    return false;
+
+  for (chrome::BrowserIterator it; !it.done(); it.Next()) {
+    int tab_index = it->tab_strip_model()->GetIndexOfWebContents(
+        inspected_web_contents);
+    if (tab_index != TabStripModel::kNoTab) {
+      *browser = *it;
+      *tab = tab_index;
+      return true;
+    }
+  }
+  return false;
+}
+
+// DevToolsToolboxDelegate ----------------------------------------------------
+
+class DevToolsToolboxDelegate
+    : public content::WebContentsObserver,
+      public content::WebContentsDelegate {
+ public:
+  DevToolsToolboxDelegate(
+      WebContents* toolbox_contents,
+      DevToolsWindow::ObserverWithAccessor* web_contents_observer);
+  virtual ~DevToolsToolboxDelegate();
+
+  virtual content::WebContents* OpenURLFromTab(
+      content::WebContents* source,
+      const content::OpenURLParams& params) OVERRIDE;
+  virtual bool PreHandleKeyboardEvent(
+      content::WebContents* source,
+      const content::NativeWebKeyboardEvent& event,
+      bool* is_keyboard_shortcut) OVERRIDE;
+  virtual void HandleKeyboardEvent(
+      content::WebContents* source,
+      const content::NativeWebKeyboardEvent& event) OVERRIDE;
+  virtual void WebContentsDestroyed() OVERRIDE;
+
+ private:
+  BrowserWindow* GetInspectedBrowserWindow();
+  DevToolsWindow::ObserverWithAccessor* inspected_contents_observer_;
+  DISALLOW_COPY_AND_ASSIGN(DevToolsToolboxDelegate);
+};
+
+DevToolsToolboxDelegate::DevToolsToolboxDelegate(
+    WebContents* toolbox_contents,
+    DevToolsWindow::ObserverWithAccessor* web_contents_observer)
+    : WebContentsObserver(toolbox_contents),
+      inspected_contents_observer_(web_contents_observer) {
+}
+
+DevToolsToolboxDelegate::~DevToolsToolboxDelegate() {
+}
+
+content::WebContents* DevToolsToolboxDelegate::OpenURLFromTab(
+    content::WebContents* source,
+    const content::OpenURLParams& params) {
+  DCHECK(source == web_contents());
+  if (!params.url.SchemeIs(content::kChromeDevToolsScheme))
+    return NULL;
+  content::NavigationController::LoadURLParams load_url_params(params.url);
+  source->GetController().LoadURLWithParams(load_url_params);
+  return source;
+}
+
+bool DevToolsToolboxDelegate::PreHandleKeyboardEvent(
+    content::WebContents* source,
+    const content::NativeWebKeyboardEvent& event,
+    bool* is_keyboard_shortcut) {
+  BrowserWindow* window = GetInspectedBrowserWindow();
+  if (window)
+    return window->PreHandleKeyboardEvent(event, is_keyboard_shortcut);
+  return false;
+}
+
+void DevToolsToolboxDelegate::HandleKeyboardEvent(
+    content::WebContents* source,
+    const content::NativeWebKeyboardEvent& event) {
+  if (event.windowsKeyCode == 0x08) {
+    // Do not navigate back in history on Windows (http://crbug.com/74156).
+    return;
+  }
+  BrowserWindow* window = GetInspectedBrowserWindow();
+  if (window)
+    window->HandleKeyboardEvent(event);
+}
+
+void DevToolsToolboxDelegate::WebContentsDestroyed() {
+  delete this;
+}
+
+BrowserWindow* DevToolsToolboxDelegate::GetInspectedBrowserWindow() {
+  WebContents* inspected_contents =
+      inspected_contents_observer_->web_contents();
+  if (!inspected_contents)
+    return NULL;
+  Browser* browser = NULL;
+  int tab = 0;
+  if (FindInspectedBrowserAndTabIndex(inspected_contents, &browser, &tab))
+    return browser->window();
+  return NULL;
+}
 
 }  // namespace
 
@@ -181,64 +282,23 @@ int DevToolsEventForwarder::VirtualKeyCodeWithoutLocation(int key_code)
   }
 }
 
-// DevToolsWindow::InspectedWebContentsObserver -------------------------------
+// DevToolsWindow::ObserverWithAccessor -------------------------------
 
-class DevToolsWindow::InspectedWebContentsObserver
-    : public content::WebContentsObserver {
- public:
-  explicit InspectedWebContentsObserver(WebContents* web_contents);
-  virtual ~InspectedWebContentsObserver();
-
-  WebContents* web_contents() {
-    return WebContentsObserver::web_contents();
-  }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(InspectedWebContentsObserver);
-};
-
-DevToolsWindow::InspectedWebContentsObserver::InspectedWebContentsObserver(
+DevToolsWindow::ObserverWithAccessor::ObserverWithAccessor(
     WebContents* web_contents)
     : WebContentsObserver(web_contents) {
 }
 
-DevToolsWindow::InspectedWebContentsObserver::~InspectedWebContentsObserver() {
+DevToolsWindow::ObserverWithAccessor::~ObserverWithAccessor() {
 }
-
-// DevToolsToolboxDelegate ----------------------------------------------------
-
-class DevToolsToolboxDelegate
-    : public content::WebContentsObserver,
-      public content::WebContentsDelegate {
- public:
-  explicit DevToolsToolboxDelegate(WebContents* web_contents)
-      : WebContentsObserver(web_contents) { }
-  virtual ~DevToolsToolboxDelegate() { }
-
-  virtual content::WebContents* OpenURLFromTab(
-      content::WebContents* source,
-      const content::OpenURLParams& params) OVERRIDE {
-    DCHECK(source == web_contents());
-    if (!params.url.SchemeIs(content::kChromeDevToolsScheme))
-      return NULL;
-    content::NavigationController::LoadURLParams load_url_params(params.url);
-    source->GetController().LoadURLWithParams(load_url_params);
-    return source;
-  }
-
-  virtual void WebContentsDestroyed() OVERRIDE {
-    delete this;
-  }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(DevToolsToolboxDelegate);
-};
 
 // DevToolsWindow -------------------------------------------------------------
 
 const char DevToolsWindow::kDevToolsApp[] = "DevToolsApp";
 
 DevToolsWindow::~DevToolsWindow() {
+  life_stage_ = kClosing;
+
   UpdateBrowserWindow();
   UpdateBrowserToolbar();
 
@@ -250,12 +310,11 @@ DevToolsWindow::~DevToolsWindow() {
       std::find(instances->begin(), instances->end(), this));
   DCHECK(it != instances->end());
   instances->erase(it);
-}
 
-// static
-std::string DevToolsWindow::GetDevToolsWindowPlacementPrefKey() {
-  return std::string(prefs::kBrowserWindowPlacement) + "_" +
-      std::string(kDevToolsApp);
+  if (!close_callback_.is_null()) {
+    close_callback_.Run();
+    close_callback_ = base::Closure();
+  }
 }
 
 // static
@@ -269,10 +328,6 @@ void DevToolsWindow::RegisterProfilePrefs(
       user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
   registry->RegisterStringPref(
       prefs::kDevToolsAdbKey, std::string(),
-      user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
-
-  registry->RegisterDictionaryPref(
-      GetDevToolsWindowPlacementPrefKey().c_str(),
       user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
 
   registry->RegisterBooleanPref(
@@ -298,13 +353,13 @@ content::WebContents* DevToolsWindow::GetInTabWebContents(
     DevToolsContentsResizingStrategy* out_strategy) {
   DevToolsWindow* window = GetInstanceForInspectedWebContents(
       inspected_web_contents);
-  if (!window)
+  if (!window || window->life_stage_ == kClosing)
     return NULL;
 
   // Not yet loaded window is treated as docked, but we should not present it
   // until we decided on docking.
-  bool is_docked_set = window->load_state_ == kLoadCompleted ||
-      window->load_state_ == kIsDockedSet;
+  bool is_docked_set = window->life_stage_ == kLoadCompleted ||
+      window->life_stage_ == kIsDockedSet;
   if (!is_docked_set)
     return NULL;
 
@@ -320,40 +375,41 @@ content::WebContents* DevToolsWindow::GetInTabWebContents(
 }
 
 // static
-DevToolsWindow* DevToolsWindow::GetInstanceForInspectedRenderViewHost(
-      content::RenderViewHost* inspected_rvh) {
-  if (!inspected_rvh || !DevToolsAgentHost::HasFor(inspected_rvh))
-    return NULL;
-
-  scoped_refptr<DevToolsAgentHost> agent(DevToolsAgentHost::GetOrCreateFor(
-      inspected_rvh));
-  return FindDevToolsWindow(agent.get());
-}
-
-// static
 DevToolsWindow* DevToolsWindow::GetInstanceForInspectedWebContents(
     WebContents* inspected_web_contents) {
-  if (!inspected_web_contents)
+  if (!inspected_web_contents || g_instances == NULL)
     return NULL;
-  return GetInstanceForInspectedRenderViewHost(
-      inspected_web_contents->GetRenderViewHost());
+  DevToolsWindows* instances = g_instances.Pointer();
+  for (DevToolsWindows::iterator it(instances->begin()); it != instances->end();
+       ++it) {
+    if ((*it)->GetInspectedWebContents() == inspected_web_contents)
+      return *it;
+  }
+  return NULL;
 }
 
 // static
-bool DevToolsWindow::IsDevToolsWindow(content::RenderViewHost* window_rvh) {
-  return AsDevToolsWindow(window_rvh) != NULL;
+bool DevToolsWindow::IsDevToolsWindow(content::WebContents* web_contents) {
+  if (!web_contents || g_instances == NULL)
+    return false;
+  DevToolsWindows* instances = g_instances.Pointer();
+  for (DevToolsWindows::iterator it(instances->begin()); it != instances->end();
+       ++it) {
+    if ((*it)->main_web_contents_ == web_contents ||
+        (*it)->toolbox_web_contents_ == web_contents)
+      return true;
+  }
+  return false;
 }
 
 // static
 DevToolsWindow* DevToolsWindow::OpenDevToolsWindowForWorker(
     Profile* profile,
-    DevToolsAgentHost* worker_agent) {
-  DevToolsWindow* window = FindDevToolsWindow(worker_agent);
+    const scoped_refptr<DevToolsAgentHost>& worker_agent) {
+  DevToolsWindow* window = FindDevToolsWindow(worker_agent.get());
   if (!window) {
     window = DevToolsWindow::CreateDevToolsWindowForWorker(profile);
-    // Will disconnect the current client host if there is one.
-    content::DevToolsManager::GetInstance()->RegisterDevToolsClientHostFor(
-        worker_agent, window->bindings_->frontend_host());
+    window->bindings_->AttachTo(worker_agent);
   }
   window->ScheduleShow(DevToolsToggleAction::Show());
   return window;
@@ -363,40 +419,21 @@ DevToolsWindow* DevToolsWindow::OpenDevToolsWindowForWorker(
 DevToolsWindow* DevToolsWindow::CreateDevToolsWindowForWorker(
     Profile* profile) {
   content::RecordAction(base::UserMetricsAction("DevTools_InspectWorker"));
-  return Create(profile, GURL(), NULL, true, false, false);
+  return Create(profile, GURL(), NULL, true, false, false, "");
 }
 
 // static
 DevToolsWindow* DevToolsWindow::OpenDevToolsWindow(
-    content::RenderViewHost* inspected_rvh) {
+    content::WebContents* inspected_web_contents) {
   return ToggleDevToolsWindow(
-      inspected_rvh, true, DevToolsToggleAction::Show());
+      inspected_web_contents, true, DevToolsToggleAction::Show(), "");
 }
 
 // static
 DevToolsWindow* DevToolsWindow::OpenDevToolsWindow(
-    content::RenderViewHost* inspected_rvh,
+    content::WebContents* inspected_web_contents,
     const DevToolsToggleAction& action) {
-  return ToggleDevToolsWindow(
-      inspected_rvh, true, action);
-}
-
-// static
-DevToolsWindow* DevToolsWindow::OpenDevToolsWindowForTest(
-    content::RenderViewHost* inspected_rvh,
-    bool is_docked) {
-  DevToolsWindow* window = OpenDevToolsWindow(inspected_rvh);
-  window->SetIsDockedAndShowImmediatelyForTest(is_docked);
-  return window;
-}
-
-// static
-DevToolsWindow* DevToolsWindow::OpenDevToolsWindowForTest(
-    Browser* browser,
-    bool is_docked) {
-  return OpenDevToolsWindowForTest(
-      browser->tab_strip_model()->GetActiveWebContents()->GetRenderViewHost(),
-      is_docked);
+  return ToggleDevToolsWindow(inspected_web_contents, true, action, "");
 }
 
 // static
@@ -410,43 +447,44 @@ DevToolsWindow* DevToolsWindow::ToggleDevToolsWindow(
   }
 
   return ToggleDevToolsWindow(
-      browser->tab_strip_model()->GetActiveWebContents()->GetRenderViewHost(),
-      action.type() == DevToolsToggleAction::kInspect, action);
+      browser->tab_strip_model()->GetActiveWebContents(),
+      action.type() == DevToolsToggleAction::kInspect,
+      action, "");
 }
 
 // static
 void DevToolsWindow::OpenExternalFrontend(
     Profile* profile,
     const std::string& frontend_url,
-    content::DevToolsAgentHost* agent_host) {
-  DevToolsWindow* window = FindDevToolsWindow(agent_host);
+    const scoped_refptr<content::DevToolsAgentHost>& agent_host,
+    bool isWorker) {
+  DevToolsWindow* window = FindDevToolsWindow(agent_host.get());
   if (!window) {
     window = Create(profile, DevToolsUI::GetProxyURL(frontend_url), NULL,
-                    false, true, false);
-    content::DevToolsManager::GetInstance()->RegisterDevToolsClientHostFor(
-        agent_host, window->bindings_->frontend_host());
+                    isWorker, true, false, "");
+    window->bindings_->AttachTo(agent_host);
   }
   window->ScheduleShow(DevToolsToggleAction::Show());
 }
 
 // static
 DevToolsWindow* DevToolsWindow::ToggleDevToolsWindow(
-    content::RenderViewHost* inspected_rvh,
+    content::WebContents* inspected_web_contents,
     bool force_open,
-    const DevToolsToggleAction& action) {
+    const DevToolsToggleAction& action,
+    const std::string& settings) {
   scoped_refptr<DevToolsAgentHost> agent(
-      DevToolsAgentHost::GetOrCreateFor(inspected_rvh));
-  content::DevToolsManager* manager = content::DevToolsManager::GetInstance();
+      DevToolsAgentHost::GetOrCreateFor(inspected_web_contents));
   DevToolsWindow* window = FindDevToolsWindow(agent.get());
   bool do_open = force_open;
   if (!window) {
     Profile* profile = Profile::FromBrowserContext(
-        inspected_rvh->GetProcess()->GetBrowserContext());
+        inspected_web_contents->GetBrowserContext());
     content::RecordAction(
         base::UserMetricsAction("DevTools_InspectRenderer"));
-    window = Create(profile, GURL(), inspected_rvh, false, false, true);
-    manager->RegisterDevToolsClientHostFor(agent.get(),
-                                           window->bindings_->frontend_host());
+    window = Create(
+        profile, GURL(), inspected_web_contents, false, false, true, settings);
+    window->bindings_->AttachTo(agent.get());
     do_open = true;
   }
 
@@ -464,23 +502,24 @@ DevToolsWindow* DevToolsWindow::ToggleDevToolsWindow(
 }
 
 // static
-void DevToolsWindow::InspectElement(content::RenderViewHost* inspected_rvh,
-                                    int x,
-                                    int y) {
+void DevToolsWindow::InspectElement(
+    content::WebContents* inspected_web_contents,
+    int x,
+    int y) {
   scoped_refptr<DevToolsAgentHost> agent(
-      DevToolsAgentHost::GetOrCreateFor(inspected_rvh));
+      DevToolsAgentHost::GetOrCreateFor(inspected_web_contents));
   agent->InspectElement(x, y);
   bool should_measure_time = FindDevToolsWindow(agent.get()) == NULL;
   base::TimeTicks start_time = base::TimeTicks::Now();
   // TODO(loislo): we should initiate DevTools window opening from within
   // renderer. Otherwise, we still can hit a race condition here.
-  DevToolsWindow* window = OpenDevToolsWindow(inspected_rvh);
+  DevToolsWindow* window = OpenDevToolsWindow(inspected_web_contents);
   if (should_measure_time)
     window->inspect_element_start_time_ = start_time;
 }
 
 void DevToolsWindow::ScheduleShow(const DevToolsToggleAction& action) {
-  if (load_state_ == kLoadCompleted) {
+  if (life_stage_ == kLoadCompleted) {
     Show(action);
     return;
   }
@@ -496,6 +535,9 @@ void DevToolsWindow::ScheduleShow(const DevToolsToggleAction& action) {
 }
 
 void DevToolsWindow::Show(const DevToolsToggleAction& action) {
+  if (life_stage_ == kClosing)
+    return;
+
   if (action.type() == DevToolsToggleAction::kNoOp)
     return;
 
@@ -552,8 +594,7 @@ void DevToolsWindow::Show(const DevToolsToggleAction& action) {
 // static
 bool DevToolsWindow::HandleBeforeUnload(WebContents* frontend_contents,
     bool proceed, bool* proceed_to_fire_unload) {
-  DevToolsWindow* window = AsDevToolsWindow(
-      frontend_contents->GetRenderViewHost());
+  DevToolsWindow* window = AsDevToolsWindow(frontend_contents);
   if (!window)
     return false;
   if (!window->intercepted_page_beforeunload_)
@@ -566,13 +607,12 @@ bool DevToolsWindow::HandleBeforeUnload(WebContents* frontend_contents,
 // static
 bool DevToolsWindow::InterceptPageBeforeUnload(WebContents* contents) {
   DevToolsWindow* window =
-      DevToolsWindow::GetInstanceForInspectedRenderViewHost(
-          contents->GetRenderViewHost());
+      DevToolsWindow::GetInstanceForInspectedWebContents(contents);
   if (!window || window->intercepted_page_beforeunload_)
     return false;
 
   // Not yet loaded frontend will not handle beforeunload.
-  if (window->load_state_ != kLoadCompleted)
+  if (window->life_stage_ != kLoadCompleted)
     return false;
 
   window->intercepted_page_beforeunload_ = true;
@@ -588,8 +628,7 @@ bool DevToolsWindow::InterceptPageBeforeUnload(WebContents* contents) {
 bool DevToolsWindow::NeedsToInterceptBeforeUnload(
     WebContents* contents) {
   DevToolsWindow* window =
-      DevToolsWindow::GetInstanceForInspectedRenderViewHost(
-          contents->GetRenderViewHost());
+      DevToolsWindow::GetInstanceForInspectedWebContents(contents);
   return window && !window->intercepted_page_beforeunload_;
 }
 
@@ -604,7 +643,7 @@ bool DevToolsWindow::HasFiredBeforeUnloadEventForDevToolsBrowser(
     return true;
   WebContents* contents =
       browser->tab_strip_model()->GetWebContentsAt(0);
-  DevToolsWindow* window = AsDevToolsWindow(contents->GetRenderViewHost());
+  DevToolsWindow* window = AsDevToolsWindow(contents);
   if (!window)
     return false;
   return window->intercepted_page_beforeunload_;
@@ -613,8 +652,7 @@ bool DevToolsWindow::HasFiredBeforeUnloadEventForDevToolsBrowser(
 // static
 void DevToolsWindow::OnPageCloseCanceled(WebContents* contents) {
   DevToolsWindow *window =
-      DevToolsWindow::GetInstanceForInspectedRenderViewHost(
-          contents->GetRenderViewHost());
+      DevToolsWindow::GetInstanceForInspectedWebContents(contents);
   if (!window)
     return;
   window->intercepted_page_beforeunload_ = false;
@@ -624,7 +662,7 @@ void DevToolsWindow::OnPageCloseCanceled(WebContents* contents) {
 
 DevToolsWindow::DevToolsWindow(Profile* profile,
                                const GURL& url,
-                               content::RenderViewHost* inspected_rvh,
+                               content::WebContents* inspected_web_contents,
                                bool can_dock)
     : profile_(profile),
       main_web_contents_(
@@ -637,25 +675,45 @@ DevToolsWindow::DevToolsWindow(Profile* profile,
       // This initialization allows external front-end to work without changes.
       // We don't wait for docking call, but instead immediately show undocked.
       // Passing "dockSide=undocked" parameter ensures proper UI.
-      load_state_(can_dock ? kNotLoaded : kIsDockedSet),
+      life_stage_(can_dock ? kNotLoaded : kIsDockedSet),
       action_on_load_(DevToolsToggleAction::NoOp()),
-      ignore_set_is_docked_(false),
       intercepted_page_beforeunload_(false) {
   // Set up delegate, so we get fully-functional window immediately.
-  // It will not appear in UI though until |load_state_ == kLoadCompleted|.
+  // It will not appear in UI though until |life_stage_ == kLoadCompleted|.
   main_web_contents_->SetDelegate(this);
-  bindings_ = new DevToolsUIBindings(
-      main_web_contents_,
-      DevToolsUIBindings::ApplyThemeToURL(profile, url));
+
+  main_web_contents_->GetController().LoadURL(
+      DevToolsUIBindings::ApplyThemeToURL(profile, url), content::Referrer(),
+      ui::PAGE_TRANSITION_AUTO_TOPLEVEL, std::string());
+
+  bindings_ = DevToolsUIBindings::ForWebContents(main_web_contents_);
+  DCHECK(bindings_);
+
   // Bindings take ownership over devtools as its delegate.
   bindings_->SetDelegate(this);
+  // DevTools uses chrome_page_zoom::Zoom(), so main_web_contents_ requires a
+  // ZoomController.
+  ZoomController::CreateForWebContents(main_web_contents_);
+  ZoomController::FromWebContents(main_web_contents_)
+      ->SetShowsNotificationBubble(false);
 
   g_instances.Get().push_back(this);
 
-  // There is no inspected_rvh in case of shared workers.
-  if (inspected_rvh)
-    inspected_contents_observer_.reset(new InspectedWebContentsObserver(
-        content::WebContents::FromRenderViewHost(inspected_rvh)));
+  // There is no inspected_web_contents in case of various workers.
+  if (inspected_web_contents)
+    inspected_contents_observer_.reset(
+        new ObserverWithAccessor(inspected_web_contents));
+
+  // Initialize docked page to be of the right size.
+  if (can_dock_ && inspected_web_contents) {
+    content::RenderWidgetHostView* inspected_view =
+        inspected_web_contents->GetRenderWidgetHostView();
+    if (inspected_view && main_web_contents_->GetRenderWidgetHostView()) {
+      gfx::Size size = inspected_view->GetViewBounds().size();
+      main_web_contents_->GetRenderWidgetHostView()->SetSize(size);
+    }
+  }
+
   event_forwarder_.reset(new DevToolsEventForwarder(this));
 }
 
@@ -663,19 +721,17 @@ DevToolsWindow::DevToolsWindow(Profile* profile,
 DevToolsWindow* DevToolsWindow::Create(
     Profile* profile,
     const GURL& frontend_url,
-    content::RenderViewHost* inspected_rvh,
+    content::WebContents* inspected_web_contents,
     bool shared_worker_frontend,
     bool external_frontend,
-    bool can_dock) {
-  if (inspected_rvh) {
+    bool can_dock,
+    const std::string& settings) {
+  if (inspected_web_contents) {
     // Check for a place to dock.
     Browser* browser = NULL;
     int tab;
-    WebContents* inspected_web_contents =
-        content::WebContents::FromRenderViewHost(inspected_rvh);
     if (!FindInspectedBrowserAndTabIndex(inspected_web_contents,
                                          &browser, &tab) ||
-        inspected_rvh->GetMainFrame()->IsCrossProcessSubframe() ||
         browser->is_type_popup()) {
       can_dock = false;
     }
@@ -685,8 +741,8 @@ DevToolsWindow* DevToolsWindow::Create(
   GURL url(GetDevToolsURL(profile, frontend_url,
                           shared_worker_frontend,
                           external_frontend,
-                          can_dock));
-  return new DevToolsWindow(profile, url, inspected_rvh, can_dock);
+                          can_dock, settings));
+  return new DevToolsWindow(profile, url, inspected_web_contents, can_dock);
 }
 
 // static
@@ -694,7 +750,8 @@ GURL DevToolsWindow::GetDevToolsURL(Profile* profile,
                                     const GURL& base_url,
                                     bool shared_worker_frontend,
                                     bool external_frontend,
-                                    bool can_dock) {
+                                    bool can_dock,
+                                    const std::string& settings) {
   // Compatibility errors are encoded with data urls, pass them
   // through with no decoration.
   if (base_url.SchemeIs("data"))
@@ -711,18 +768,20 @@ GURL DevToolsWindow::GetDevToolsURL(Profile* profile,
     url_string += "&remoteFrontend=true";
   if (can_dock)
     url_string += "&can_dock=true";
+  if (settings.size())
+    url_string += "&settings=" + settings;
   return GURL(url_string);
 }
 
 // static
 DevToolsWindow* DevToolsWindow::FindDevToolsWindow(
     DevToolsAgentHost* agent_host) {
+  if (!agent_host || g_instances == NULL)
+    return NULL;
   DevToolsWindows* instances = g_instances.Pointer();
-  content::DevToolsManager* manager = content::DevToolsManager::GetInstance();
   for (DevToolsWindows::iterator it(instances->begin()); it != instances->end();
        ++it) {
-    if (manager->GetDevToolsAgentHostFor((*it)->bindings_->frontend_host()) ==
-        agent_host)
+    if ((*it)->bindings_->IsAttachedTo(agent_host))
       return *it;
   }
   return NULL;
@@ -730,13 +789,13 @@ DevToolsWindow* DevToolsWindow::FindDevToolsWindow(
 
 // static
 DevToolsWindow* DevToolsWindow::AsDevToolsWindow(
-    content::RenderViewHost* window_rvh) {
-  if (g_instances == NULL)
+    content::WebContents* web_contents) {
+  if (!web_contents || g_instances == NULL)
     return NULL;
   DevToolsWindows* instances = g_instances.Pointer();
   for (DevToolsWindows::iterator it(instances->begin()); it != instances->end();
        ++it) {
-    if ((*it)->main_web_contents_->GetRenderViewHost() == window_rvh)
+    if ((*it)->main_web_contents_ == web_contents)
       return *it;
   }
   return NULL;
@@ -752,14 +811,7 @@ WebContents* DevToolsWindow::OpenURLFromTab(
         inspected_web_contents->OpenURL(params) : NULL;
   }
 
-  content::DevToolsManager* manager = content::DevToolsManager::GetInstance();
-  scoped_refptr<DevToolsAgentHost> agent_host(
-      manager->GetDevToolsAgentHostFor(bindings_->frontend_host()));
-  if (!agent_host.get())
-    return NULL;
-  manager->ClientHostClosing(bindings_->frontend_host());
-  manager->RegisterDevToolsClientHostFor(agent_host.get(),
-                                         bindings_->frontend_host());
+  bindings_->Reattach();
 
   content::NavigationController::LoadURLParams load_url_params(params.url);
   main_web_contents_->GetController().LoadURLWithParams(load_url_params);
@@ -783,10 +835,14 @@ void DevToolsWindow::AddNewContents(WebContents* source,
                                     bool* was_blocked) {
   if (new_contents == toolbox_web_contents_) {
     toolbox_web_contents_->SetDelegate(
-        new DevToolsToolboxDelegate(toolbox_web_contents_));
-    gfx::Size size = main_web_contents_->GetViewBounds().size();
-    if (toolbox_web_contents_->GetRenderWidgetHostView())
+        new DevToolsToolboxDelegate(toolbox_web_contents_,
+                                    inspected_contents_observer_.get()));
+    if (main_web_contents_->GetRenderWidgetHostView() &&
+        toolbox_web_contents_->GetRenderWidgetHostView()) {
+      gfx::Size size =
+          main_web_contents_->GetRenderWidgetHostView()->GetViewBounds().size();
       toolbox_web_contents_->GetRenderWidgetHostView()->SetSize(size);
+    }
     UpdateBrowserWindow();
     return;
   }
@@ -813,14 +869,7 @@ void DevToolsWindow::WebContentsCreated(WebContents* source_contents,
 
 void DevToolsWindow::CloseContents(WebContents* source) {
   CHECK(is_docked_);
-  // Do this first so that when GetDockedInstanceForInspectedTab is called
-  // from UpdateDevTools it won't return this instance
-  // see crbug.com/372504
-  content::DevToolsManager::GetInstance()->ClientHostClosing(
-      bindings_->frontend_host());
-  // This will prevent any activity after frontend is loaded.
-  action_on_load_ = DevToolsToggleAction::NoOp();
-  ignore_set_is_docked_ = true;
+  life_stage_ = kClosing;
   UpdateBrowserWindow();
   // In case of docked main_web_contents_, we own it so delete here.
   // Embedding DevTools window will be deleted as a result of
@@ -839,10 +888,8 @@ void DevToolsWindow::BeforeUnloadFired(WebContents* tab,
                                        bool* proceed_to_fire_unload) {
   if (!intercepted_page_beforeunload_) {
     // Docked devtools window closed directly.
-    if (proceed) {
-      content::DevToolsManager::GetInstance()->ClientHostClosing(
-          bindings_->frontend_host());
-    }
+    if (proceed)
+      bindings_->Detach();
     *proceed_to_fire_unload = proceed;
   } else {
     // Inspected page is attempting to close.
@@ -863,12 +910,10 @@ bool DevToolsWindow::PreHandleKeyboardEvent(
     WebContents* source,
     const content::NativeWebKeyboardEvent& event,
     bool* is_keyboard_shortcut) {
-  if (is_docked_) {
-    BrowserWindow* inspected_window = GetInspectedBrowserWindow();
-    if (inspected_window) {
-      return inspected_window->PreHandleKeyboardEvent(event,
-                                                      is_keyboard_shortcut);
-    }
+  BrowserWindow* inspected_window = GetInspectedBrowserWindow();
+  if (inspected_window) {
+    return inspected_window->PreHandleKeyboardEvent(event,
+                                                    is_keyboard_shortcut);
   }
   return false;
 }
@@ -876,15 +921,13 @@ bool DevToolsWindow::PreHandleKeyboardEvent(
 void DevToolsWindow::HandleKeyboardEvent(
     WebContents* source,
     const content::NativeWebKeyboardEvent& event) {
-  if (is_docked_) {
-    if (event.windowsKeyCode == 0x08) {
-      // Do not navigate back in history on Windows (http://crbug.com/74156).
-      return;
-    }
-    BrowserWindow* inspected_window = GetInspectedBrowserWindow();
-    if (inspected_window)
-      inspected_window->HandleKeyboardEvent(event);
+  if (event.windowsKeyCode == 0x08) {
+    // Do not navigate back in history on Windows (http://crbug.com/74156).
+    return;
   }
+  BrowserWindow* inspected_window = GetInspectedBrowserWindow();
+  if (inspected_window)
+    inspected_window->HandleKeyboardEvent(event);
 }
 
 content::JavaScriptDialogManager* DevToolsWindow::GetJavaScriptDialogManager() {
@@ -933,24 +976,12 @@ void DevToolsWindow::ActivateWindow() {
 
 void DevToolsWindow::CloseWindow() {
   DCHECK(is_docked_);
-  // This will prevent any activity after frontend is loaded.
-  action_on_load_ = DevToolsToggleAction::NoOp();
-  ignore_set_is_docked_ = true;
+  life_stage_ = kClosing;
   main_web_contents_->DispatchBeforeUnload(false);
 }
 
 void DevToolsWindow::SetInspectedPageBounds(const gfx::Rect& rect) {
   DevToolsContentsResizingStrategy strategy(rect);
-  if (contents_resizing_strategy_.Equals(strategy))
-    return;
-
-  contents_resizing_strategy_.CopyFrom(strategy);
-  UpdateBrowserWindow();
-}
-
-void DevToolsWindow::SetContentsResizingStrategy(
-    const gfx::Insets& insets, const gfx::Size& min_size) {
-  DevToolsContentsResizingStrategy strategy(insets, min_size);
   if (contents_resizing_strategy_.Equals(strategy))
     return;
 
@@ -974,26 +1005,8 @@ void DevToolsWindow::MoveWindow(int x, int y) {
   }
 }
 
-void DevToolsWindow::SetIsDockedAndShowImmediatelyForTest(bool is_docked) {
-  DCHECK(!is_docked || can_dock_);
-  if (load_state_ == kLoadCompleted) {
-    SetIsDocked(is_docked);
-  } else {
-    is_docked_ = is_docked;
-    // Load is completed when both kIsDockedSet and kOnLoadFired happened.
-    // Note that kIsDockedSet may be already set when can_dock_ is false.
-    load_state_ = load_state_ == kOnLoadFired ? kLoadCompleted : kIsDockedSet;
-    // Note that action_on_load_ will be performed after the load is actually
-    // completed. For now, just show the window.
-    Show(DevToolsToggleAction::Show());
-    if (load_state_ == kLoadCompleted)
-      LoadCompleted();
-  }
-  ignore_set_is_docked_ = true;
-}
-
 void DevToolsWindow::SetIsDocked(bool dock_requested) {
-  if (ignore_set_is_docked_)
+  if (life_stage_ == kClosing)
     return;
 
   DCHECK(can_dock_ || !dock_requested);
@@ -1003,10 +1016,10 @@ void DevToolsWindow::SetIsDocked(bool dock_requested) {
   bool was_docked = is_docked_;
   is_docked_ = dock_requested;
 
-  if (load_state_ != kLoadCompleted) {
+  if (life_stage_ != kLoadCompleted) {
     // This is a first time call we waited for to initialize.
-    load_state_ = load_state_ == kOnLoadFired ? kLoadCompleted : kIsDockedSet;
-    if (load_state_ == kLoadCompleted)
+    life_stage_ = life_stage_ == kOnLoadFired ? kLoadCompleted : kIsDockedSet;
+    if (life_stage_ == kLoadCompleted)
       LoadCompleted();
     return;
   }
@@ -1031,7 +1044,7 @@ void DevToolsWindow::SetIsDocked(bool dock_requested) {
 void DevToolsWindow::OpenInNewTab(const std::string& url) {
   content::OpenURLParams params(
       GURL(url), content::Referrer(), NEW_FOREGROUND_TAB,
-      content::PAGE_TRANSITION_LINK, false);
+      ui::PAGE_TRANSITION_LINK, false);
   WebContents* inspected_web_contents = GetInspectedWebContents();
   if (inspected_web_contents) {
     inspected_web_contents->OpenURL(params);
@@ -1065,9 +1078,7 @@ void DevToolsWindow::SetWhitelistedShortcuts(
 
 void DevToolsWindow::InspectedContentsClosing() {
   intercepted_page_beforeunload_ = false;
-  // This will prevent any activity after frontend is loaded.
-  action_on_load_ = DevToolsToggleAction::NoOp();
-  ignore_set_is_docked_ = true;
+  life_stage_ = kClosing;
   main_web_contents_->GetRenderViewHost()->ClosePage();
 }
 
@@ -1098,29 +1109,32 @@ void DevToolsWindow::OnLoadCompleted() {
     }
   }
 
+  if (life_stage_ == kClosing)
+    return;
+
   // We could be in kLoadCompleted state already if frontend reloads itself.
-  if (load_state_ != kLoadCompleted) {
+  if (life_stage_ != kLoadCompleted) {
     // Load is completed when both kIsDockedSet and kOnLoadFired happened.
     // Here we set kOnLoadFired.
-    load_state_ = load_state_ == kIsDockedSet ? kLoadCompleted : kOnLoadFired;
+    life_stage_ = life_stage_ == kIsDockedSet ? kLoadCompleted : kOnLoadFired;
   }
-  if (load_state_ == kLoadCompleted)
+  if (life_stage_ == kLoadCompleted)
     LoadCompleted();
 }
 
 void DevToolsWindow::CreateDevToolsBrowser() {
-  std::string wp_key = GetDevToolsWindowPlacementPrefKey();
   PrefService* prefs = profile_->GetPrefs();
-  const base::DictionaryValue* wp_pref = prefs->GetDictionary(wp_key.c_str());
-  if (!wp_pref || wp_pref->empty()) {
-    DictionaryPrefUpdate update(prefs, wp_key.c_str());
-    base::DictionaryValue* defaults = update.Get();
-    defaults->SetInteger("left", 100);
-    defaults->SetInteger("top", 100);
-    defaults->SetInteger("right", 740);
-    defaults->SetInteger("bottom", 740);
-    defaults->SetBoolean("maximized", false);
-    defaults->SetBoolean("always_on_top", false);
+  if (!prefs->GetDictionary(prefs::kAppWindowPlacement)->HasKey(kDevToolsApp)) {
+    DictionaryPrefUpdate update(prefs, prefs::kAppWindowPlacement);
+    base::DictionaryValue* wp_prefs = update.Get();
+    base::DictionaryValue* dev_tools_defaults = new base::DictionaryValue;
+    wp_prefs->Set(kDevToolsApp, dev_tools_defaults);
+    dev_tools_defaults->SetInteger("left", 100);
+    dev_tools_defaults->SetInteger("top", 100);
+    dev_tools_defaults->SetInteger("right", 740);
+    dev_tools_defaults->SetInteger("bottom", 740);
+    dev_tools_defaults->SetBoolean("maximized", false);
+    dev_tools_defaults->SetBoolean("always_on_top", false);
   }
 
   browser_ = new Browser(Browser::CreateParams::CreateForDevTools(
@@ -1128,27 +1142,9 @@ void DevToolsWindow::CreateDevToolsBrowser() {
       chrome::GetHostDesktopTypeForNativeView(
           main_web_contents_->GetNativeView())));
   browser_->tab_strip_model()->AddWebContents(
-      main_web_contents_, -1, content::PAGE_TRANSITION_AUTO_TOPLEVEL,
+      main_web_contents_, -1, ui::PAGE_TRANSITION_AUTO_TOPLEVEL,
       TabStripModel::ADD_ACTIVE);
   main_web_contents_->GetRenderViewHost()->SyncRendererPrefs();
-}
-
-// static
-bool DevToolsWindow::FindInspectedBrowserAndTabIndex(
-    WebContents* inspected_web_contents, Browser** browser, int* tab) {
-  if (!inspected_web_contents)
-    return false;
-
-  for (chrome::BrowserIterator it; !it.done(); it.Next()) {
-    int tab_index = it->tab_strip_model()->GetIndexOfWebContents(
-        inspected_web_contents);
-    if (tab_index != TabStripModel::kNoTab) {
-      *browser = *it;
-      *tab = tab_index;
-      return true;
-    }
-  }
-  return false;
 }
 
 BrowserWindow* DevToolsWindow::GetInspectedBrowserWindow() {
@@ -1207,8 +1203,9 @@ void DevToolsWindow::UpdateBrowserWindow() {
 }
 
 WebContents* DevToolsWindow::GetInspectedWebContents() {
-  return inspected_contents_observer_ ?
-      inspected_contents_observer_->web_contents() : NULL;
+  return inspected_contents_observer_
+             ? inspected_contents_observer_->web_contents()
+             : NULL;
 }
 
 void DevToolsWindow::LoadCompleted() {
@@ -1221,7 +1218,7 @@ void DevToolsWindow::LoadCompleted() {
 }
 
 void DevToolsWindow::SetLoadCompletedCallback(const base::Closure& closure) {
-  if (load_state_ == kLoadCompleted) {
+  if (life_stage_ == kLoadCompleted || life_stage_ == kClosing) {
     if (!closure.is_null())
       closure.Run();
     return;

@@ -27,7 +27,7 @@ namespace {
 scoped_ptr<base::Value> ConvertValue(const base::Value& value,
                                      const Schema& schema) {
   if (!schema.valid())
-    return make_scoped_ptr(value.DeepCopy());
+    return make_scoped_ptr(value.DeepCopy()).Pass();
 
   // If the type is good already, go with it.
   if (value.IsType(schema.type())) {
@@ -43,7 +43,7 @@ scoped_ptr<base::Value> ConvertValue(const base::Value& value,
         if (converted)
           result->SetWithoutPathExpansion(entry.key(), converted.release());
       }
-      return result.Pass();
+      return result.PassAs<base::Value>();
     } else if (value.GetAsList(&list)) {
       scoped_ptr<base::ListValue> result(new base::ListValue());
       for (base::ListValue::const_iterator entry(list->begin());
@@ -53,9 +53,9 @@ scoped_ptr<base::Value> ConvertValue(const base::Value& value,
         if (converted)
           result->Append(converted.release());
       }
-      return result.Pass();
+      return result.PassAs<base::Value>();
     }
-    return make_scoped_ptr(value.DeepCopy());
+    return make_scoped_ptr(value.DeepCopy()).Pass();
   }
 
   // Else, do some conversions to map windows registry data types to JSON types.
@@ -63,14 +63,15 @@ scoped_ptr<base::Value> ConvertValue(const base::Value& value,
   int int_value = 0;
   switch (schema.type()) {
     case base::Value::TYPE_NULL: {
-      return make_scoped_ptr(base::Value::CreateNullValue());
+      return make_scoped_ptr(base::Value::CreateNullValue()).Pass();
     }
     case base::Value::TYPE_BOOLEAN: {
       // Accept booleans encoded as either string or integer.
       if (value.GetAsInteger(&int_value) ||
           (value.GetAsString(&string_value) &&
            base::StringToInt(string_value, &int_value))) {
-        return make_scoped_ptr(base::Value::CreateBooleanValue(int_value != 0));
+        return scoped_ptr<base::Value>(
+            new base::FundamentalValue(int_value != 0));
       }
       break;
     }
@@ -78,18 +79,18 @@ scoped_ptr<base::Value> ConvertValue(const base::Value& value,
       // Integers may be string-encoded.
       if (value.GetAsString(&string_value) &&
           base::StringToInt(string_value, &int_value)) {
-        return make_scoped_ptr(base::Value::CreateIntegerValue(int_value));
+        return scoped_ptr<base::Value>(new base::FundamentalValue(int_value));
       }
       break;
     }
     case base::Value::TYPE_DOUBLE: {
       // Doubles may be string-encoded or integer-encoded.
       double double_value = 0;
-      if (value.GetAsInteger(&int_value)) {
-        return make_scoped_ptr(base::Value::CreateDoubleValue(int_value));
-      } else if (value.GetAsString(&string_value) &&
-                 base::StringToDouble(string_value, &double_value)) {
-        return make_scoped_ptr(base::Value::CreateDoubleValue(double_value));
+      if (value.GetAsDouble(&double_value) ||
+          (value.GetAsString(&string_value) &&
+           base::StringToDouble(string_value, &double_value))) {
+        return scoped_ptr<base::Value>(
+            new base::FundamentalValue(double_value));
       }
       break;
     }
@@ -107,7 +108,7 @@ scoped_ptr<base::Value> ConvertValue(const base::Value& value,
           if (converted)
             result->Append(converted.release());
         }
-        return result.Pass();
+        return result.PassAs<base::Value>();
       }
       // Fall through in order to accept lists encoded as JSON strings.
     }
@@ -228,7 +229,7 @@ void RegistryDict::Merge(const RegistryDict& other) {
 
   for (ValueMap::const_iterator entry(other.values_.begin());
        entry != other.values_.end(); ++entry) {
-    SetValue(entry->first, make_scoped_ptr(entry->second->DeepCopy()));
+    SetValue(entry->first, make_scoped_ptr(entry->second->DeepCopy()).Pass());
   }
 }
 
@@ -247,10 +248,9 @@ void RegistryDict::ReadRegistry(HKEY hive, const base::string16& root) {
     switch (it.Type()) {
       case REG_SZ:
       case REG_EXPAND_SZ:
-        SetValue(
-            name,
-            make_scoped_ptr(
-                new base::StringValue(base::UTF16ToUTF8(it.Value()))));
+        SetValue(name,
+                 scoped_ptr<base::Value>(
+                     new base::StringValue(base::UTF16ToUTF8(it.Value()))));
         continue;
       case REG_DWORD_LITTLE_ENDIAN:
       case REG_DWORD_BIG_ENDIAN:
@@ -260,9 +260,9 @@ void RegistryDict::ReadRegistry(HKEY hive, const base::string16& root) {
             dword_value = base::NetToHost32(dword_value);
           else
             dword_value = base::ByteSwapToLE32(dword_value);
-          SetValue(
-              name,
-              make_scoped_ptr(base::Value::CreateIntegerValue(dword_value)));
+          SetValue(name,
+                   scoped_ptr<base::Value>(new base::FundamentalValue(
+                       static_cast<int>(dword_value))));
           continue;
         }
       case REG_NONE:
@@ -315,7 +315,7 @@ scoped_ptr<base::Value> RegistryDict::ConvertToJSON(
         if (converted)
           result->SetWithoutPathExpansion(entry->first, converted.release());
       }
-      return result.Pass();
+      return result.PassAs<base::Value>();
     }
     case base::Value::TYPE_LIST: {
       scoped_ptr<base::ListValue> result(new base::ListValue());
@@ -338,7 +338,7 @@ scoped_ptr<base::Value> RegistryDict::ConvertToJSON(
         }
         break;
       }
-      return result.Pass();
+      return result.PassAs<base::Value>();
     }
     default:
       LOG(WARNING) << "Can't convert registry key to schema type " << type;

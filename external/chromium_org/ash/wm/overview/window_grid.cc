@@ -4,6 +4,7 @@
 
 #include "ash/wm/overview/window_grid.h"
 
+#include "ash/ash_switches.h"
 #include "ash/screen_util.h"
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
@@ -13,6 +14,8 @@
 #include "ash/wm/overview/window_selector_panels.h"
 #include "ash/wm/overview/window_selector_window.h"
 #include "ash/wm/window_state.h"
+#include "base/command_line.h"
+#include "base/i18n/string_search.h"
 #include "base/memory/scoped_vector.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/aura/window.h"
@@ -101,6 +104,10 @@ const int kOverviewSelectorTransitionMilliseconds = 100;
 const SkColor kWindowOverviewSelectionColor = SK_ColorBLACK;
 const unsigned char kWindowOverviewSelectorOpacity = 128;
 
+// The minimum amount of spacing between the bottom of the text filtering
+// text field and the top of the selection widget on the first row of items.
+const int kTextFilterBottomMargin = 5;
+
 // Returns the vector for the fade in animation.
 gfx::Vector2d GetSlideVectorForFadeIn(WindowSelector::Direction direction,
                                       const gfx::Rect& bounds) {
@@ -177,6 +184,17 @@ void WindowGrid::PositionWindows(bool animate) {
       ScreenUtil::GetDisplayWorkAreaBoundsInParent(
           Shell::GetContainer(root_window_, kShellWindowId_DefaultContainer)));
 
+  // If the text filtering feature is enabled, reserve space at the top for the
+  // text filtering textbox to appear.
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kAshDisableTextFilteringInOverviewMode)) {
+    total_bounds.Inset(
+        0,
+        WindowSelector::kTextFilterBottomEdge + kTextFilterBottomMargin,
+        0,
+        0);
+  }
+
   // Find the minimum number of windows per row that will fit all of the
   // windows on screen.
   num_columns_ = std::max(
@@ -195,6 +213,7 @@ void WindowGrid::PositionWindows(bool animate) {
       (total_bounds.width() - num_columns_ * window_size.width())) / 2;
   int y_offset = total_bounds.y() + (total_bounds.height() -
       num_rows * window_size.height()) / 2;
+
   for (size_t i = 0; i < window_list_.size(); ++i) {
     gfx::Transform transform;
     int column = i % num_columns_;
@@ -216,7 +235,7 @@ void WindowGrid::PositionWindows(bool animate) {
     MoveSelectionWidgetToTarget(animate);
 }
 
-bool WindowGrid::Move(WindowSelector::Direction direction) {
+bool WindowGrid::Move(WindowSelector::Direction direction, bool animate) {
   bool recreate_selection_widget = false;
   bool out_of_bounds = false;
   if (!selection_widget_) {
@@ -233,7 +252,8 @@ bool WindowGrid::Move(WindowSelector::Direction direction) {
        selected_index_ = 0;
        break;
      }
-  } else {
+  }
+  while (SelectedWindow()->dimmed() || selection_widget_) {
     switch (direction) {
       case WindowSelector::RIGHT:
         if (selected_index_ >= window_list_.size() - 1)
@@ -270,9 +290,13 @@ bool WindowGrid::Move(WindowSelector::Direction direction) {
         }
         break;
     }
+    // Exit the loop if we broke free from the grid or found an active item.
+    if (out_of_bounds || !SelectedWindow()->dimmed())
+      break;
   }
 
-  MoveSelectionWidget(direction, recreate_selection_widget, out_of_bounds);
+  MoveSelectionWidget(direction, recreate_selection_widget,
+                      out_of_bounds, animate);
   return out_of_bounds;
 }
 
@@ -285,6 +309,20 @@ bool WindowGrid::Contains(const aura::Window* window) const {
   return std::find_if(window_list_.begin(), window_list_.end(),
                       WindowSelectorItemTargetComparator(window)) !=
                           window_list_.end();
+}
+
+void WindowGrid::FilterItems(const base::string16& pattern) {
+  base::i18n::FixedPatternStringSearchIgnoringCaseAndAccents finder(pattern);
+  for (ScopedVector<WindowSelectorItem>::iterator iter = window_list_.begin();
+       iter != window_list_.end(); iter++) {
+    if (finder.Search((*iter)->SelectionWindow()->title(), NULL, NULL)) {
+      (*iter)->SetDimmed(false);
+    } else {
+      (*iter)->SetDimmed(true);
+      if (selection_widget_ && SelectedWindow() == *iter)
+        selection_widget_.reset();
+    }
+  }
 }
 
 void WindowGrid::OnWindowDestroying(aura::Window* window) {
@@ -381,7 +419,8 @@ void WindowGrid::InitSelectionWidget(WindowSelector::Direction direction) {
 
 void WindowGrid::MoveSelectionWidget(WindowSelector::Direction direction,
                                      bool recreate_selection_widget,
-                                     bool out_of_bounds) {
+                                     bool out_of_bounds,
+                                     bool animate) {
   // If the selection widget is already active, fade it out in the selection
   // direction.
   if (selection_widget_ && (recreate_selection_widget || out_of_bounds)) {
@@ -418,7 +457,7 @@ void WindowGrid::MoveSelectionWidget(WindowSelector::Direction direction,
   SelectedWindow()->SendFocusAlert();
   // The selection widget is moved to the newly selected item in the same
   // grid.
-  MoveSelectionWidgetToTarget(true);
+  MoveSelectionWidgetToTarget(animate);
 }
 
 void WindowGrid::MoveSelectionWidgetToTarget(bool animate) {

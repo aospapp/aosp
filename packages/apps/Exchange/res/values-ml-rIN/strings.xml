@@ -27,7 +27,6 @@
     <string name="meeting_recurring" msgid="2752008481765880928">"എപ്പോൾ: <xliff:g id="EVENTDATE">%s</xliff:g> (ആവർത്തിക്കുന്നത്‌)"</string>
     <string name="meeting_allday" msgid="7251209063071628040">"എപ്പോൾ: <xliff:g id="EVENTDATE">%s</xliff:g> (എല്ലാ ദിവസവും)"</string>
     <string name="meeting_allday_recurring" msgid="4545762363537362545">"എപ്പോൾ: <xliff:g id="EVENTDATE">%s</xliff:g> (എല്ലാ ദിവസവും, ആവർത്തിക്കുന്നത്)"</string>
-    <string name="notification_exchange_calendar_added" msgid="8998454267739748113">"Exchange കലണ്ടർ ചേർത്തു"</string>
     <string name="app_name" msgid="1707639359526090662">"Exchange സേവനങ്ങൾ"</string>
     <string name="exception_cancel" msgid="8972887597771126871">"ഈ തീയതിയ്‌ക്കുള്ള ഇവന്റ് റദ്ദാക്കി: <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="exception_updated" msgid="329192591551400871">"ഈ ഇവന്റിനായുള്ള വിശദാംശങ്ങൾ മാറ്റി: <xliff:g id="DATE">%s</xliff:g>"</string>
@@ -35,7 +34,7 @@
     <string name="policy_dont_allow_unsigned_apps" msgid="7663879438028397642">"സൈൻ ചെയ്‌തിട്ടില്ലാത്ത അപ്ലിക്കേഷനുകളെ അനുവദിക്കരുത്"</string>
     <string name="policy_dont_allow_unsigned_installers" msgid="8227232531632246827">"സൈൻ ചെയ്‌തിട്ടില്ലാത്ത അപ്ലിക്കേഷൻ ഇൻസ്റ്റാളറുകളെ അനുവദിക്കരുത്"</string>
     <string name="policy_dont_allow_wifi" msgid="8501275982154914194">"Wi-Fi അനുവദിക്കരുത്"</string>
-    <string name="policy_dont_allow_text_messaging" msgid="860590081742537792">"വാചക സന്ദേശമയയ്‌ക്കൽ അനുവദിക്കരുത്"</string>
+    <string name="policy_dont_allow_text_messaging" msgid="860590081742537792">"വാചക സന്ദേശം അനുവദിക്കരുത്"</string>
     <string name="policy_dont_allow_pop_imap" msgid="5772539239469636191">"POP3 അല്ലെങ്കിൽ IMAP അക്കൗണ്ടുകൾ അനുവദിക്കരുത്"</string>
     <string name="policy_dont_allow_irda" msgid="8230803019935893114">"ഇൻഫ്രാറെഡ് ആശയവിനിമയങ്ങൾ അനുവദിക്കരുത്"</string>
     <string name="policy_dont_allow_html" msgid="3909470006782362967">"HTML ഇമെയിൽ അനുവദിക്കരുത്"</string>

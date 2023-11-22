@@ -22,7 +22,6 @@ class SK_API AnalysisCanvas : public SkCanvas, public SkDrawPictureCallback {
 
   // Returns true when a SkColor can be used to represent result.
   bool GetColorIfSolid(SkColor* color) const;
-  bool HasText() const;
 
   void SetForceNotSolid(bool flag);
   void SetForceNotTransparent(bool flag);
@@ -85,6 +84,8 @@ class SK_API AnalysisCanvas : public SkCanvas, public SkDrawPictureCallback {
   virtual void onClipPath(const SkPath& path,
                           SkRegion::Op op,
                           ClipEdgeStyle edge_style) OVERRIDE;
+  virtual void onClipRegion(const SkRegion& deviceRgn,
+                            SkRegion::Op op) OVERRIDE;
 
   virtual void onDrawText(const void* text,
                           size_t byteLength,
@@ -105,11 +106,17 @@ class SK_API AnalysisCanvas : public SkCanvas, public SkDrawPictureCallback {
                                 const SkPath& path,
                                 const SkMatrix* matrix,
                                 const SkPaint&) OVERRIDE;
+  virtual void onDrawTextBlob(const SkTextBlob* blob,
+                              SkScalar x,
+                              SkScalar y,
+                              const SkPaint& paint) OVERRIDE;
   virtual void onDrawDRRect(const SkRRect& outer,
                             const SkRRect& inner,
                             const SkPaint&) OVERRIDE;
 
-private:
+  void OnComplexClip();
+
+ private:
   typedef SkCanvas INHERITED;
 
   int saved_stack_size_;
@@ -121,7 +128,7 @@ private:
   bool is_solid_color_;
   SkColor color_;
   bool is_transparent_;
-  bool has_text_;
+  int draw_op_count_;
 };
 
 }  // namespace skia

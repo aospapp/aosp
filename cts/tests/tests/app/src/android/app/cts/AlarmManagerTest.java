@@ -18,14 +18,17 @@ package android.app.cts;
 
 
 import android.app.AlarmManager;
+import android.app.AlarmManager.AlarmClockInfo;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.cts.util.PollingCheck;
+import android.os.Build;
 import android.os.SystemClock;
 import android.test.AndroidTestCase;
 import android.util.Log;
+import android.test.MoreAsserts;
 
 public class AlarmManagerTest extends AndroidTestCase {
     public static final String MOCKACTION = "android.app.AlarmManagerTest.TEST_ALARMRECEIVER";
@@ -47,6 +50,7 @@ public class AlarmManagerTest extends AndroidTestCase {
 
     private static final int TIME_DELTA = 1000;
     private static final int TIME_DELAY = 10000;
+    private static final int REPEAT_PERIOD = 60000;
 
     // Receiver registration/unregistration between tests races with the system process, so
     // we add a little buffer time here to allow the system to process before we proceed.
@@ -221,46 +225,54 @@ public class AlarmManagerTest extends AndroidTestCase {
 
     public void testSetRepeating() throws Exception {
         mMockAlarmReceiver.setAlarmedFalse();
-        mWakeupTime = System.currentTimeMillis() + SNOOZE_DELAY;
-        mAm.setRepeating(AlarmManager.RTC_WAKEUP, mWakeupTime, TIME_DELAY / 2, mSender);
-        new PollingCheck(SNOOZE_DELAY + TIME_DELAY) {
+        mWakeupTime = System.currentTimeMillis() + TEST_ALARM_FUTURITY;
+        mAm.setRepeating(AlarmManager.RTC_WAKEUP, mWakeupTime, REPEAT_PERIOD, mSender);
+
+        // wait beyond the initial alarm's possible delivery window to verify that it fires the first time
+        new PollingCheck(TEST_ALARM_FUTURITY + REPEAT_PERIOD) {
             @Override
             protected boolean check() {
                 return mMockAlarmReceiver.alarmed;
             }
         }.run();
+        assertTrue(mMockAlarmReceiver.alarmed);
+
+        // Now reset the receiver and wait for the intended repeat alarm to fire as expected
         mMockAlarmReceiver.setAlarmedFalse();
-        new PollingCheck(TIME_DELAY) {
+        new PollingCheck(REPEAT_PERIOD*2) {
             @Override
             protected boolean check() {
                 return mMockAlarmReceiver.alarmed;
             }
         }.run();
+        assertTrue(mMockAlarmReceiver.alarmed);
+
         mAm.cancel(mSender);
     }
 
     public void testCancel() throws Exception {
         mMockAlarmReceiver.setAlarmedFalse();
-        mWakeupTime = System.currentTimeMillis() + SNOOZE_DELAY;
-        mAm.setRepeating(AlarmManager.RTC_WAKEUP, mWakeupTime, 1000, mSender);
-        new PollingCheck(SNOOZE_DELAY + TIME_DELAY) {
-            @Override
-            protected boolean check() {
-                return mMockAlarmReceiver.alarmed;
-            }
-        }.run();
-        mMockAlarmReceiver.setAlarmedFalse();
+        mMockAlarmReceiver2.setAlarmedFalse();
+
+        // set two alarms
+        final long when1 = System.currentTimeMillis() + TEST_ALARM_FUTURITY;
+        mAm.setExact(AlarmManager.RTC_WAKEUP, when1, mSender);
+        final long when2 = when1 + TIME_DELTA; // will fire after when1's target time
+        mAm.setExact(AlarmManager.RTC_WAKEUP, when2, mSender2);
+
+        // cancel the earlier one
+        mAm.cancel(mSender);
+
+        // and verify that only the later one fired
         new PollingCheck(TIME_DELAY) {
             @Override
             protected boolean check() {
-                return mMockAlarmReceiver.alarmed;
+                return mMockAlarmReceiver2.alarmed;
             }
         }.run();
-        mAm.cancel(mSender);
-        Thread.sleep(TIME_DELAY);
-        mMockAlarmReceiver.setAlarmedFalse();
-        Thread.sleep(TIME_DELAY * 5);
+
         assertFalse(mMockAlarmReceiver.alarmed);
+        assertTrue(mMockAlarmReceiver2.alarmed);
     }
 
     public void testSetInexactRepeating() throws Exception {
@@ -272,5 +284,67 @@ public class AlarmManagerTest extends AndroidTestCase {
         // write the system time, there will be log as
         // " Unable to open alarm driver: Permission denied". But still fail
         // after tried many permission.
+    }
+
+    public void testSetAlarmClock() throws Exception {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            mMockAlarmReceiver.setAlarmedFalse();
+            mMockAlarmReceiver2.setAlarmedFalse();
+
+            // Set first alarm clock.
+            final long wakeupTimeFirst = System.currentTimeMillis()
+                    + 2 * TEST_ALARM_FUTURITY;
+            mAm.setAlarmClock(new AlarmClockInfo(wakeupTimeFirst, null), mSender);
+
+            // Verify getNextAlarmClock returns first alarm clock.
+            AlarmClockInfo nextAlarmClock = mAm.getNextAlarmClock();
+            assertEquals(wakeupTimeFirst, nextAlarmClock.getTriggerTime());
+            assertNull(nextAlarmClock.getShowIntent());
+
+            // Set second alarm clock, earlier than first.
+            final long wakeupTimeSecond = System.currentTimeMillis()
+                    + TEST_ALARM_FUTURITY;
+            PendingIntent showIntentSecond = PendingIntent.getBroadcast(getContext(), 0,
+                    new Intent(getContext(), AlarmManagerTest.class).setAction("SHOW_INTENT"), 0);
+            mAm.setAlarmClock(new AlarmClockInfo(wakeupTimeSecond, showIntentSecond),
+                    mSender2);
+
+            // Verify getNextAlarmClock returns second alarm clock now.
+            nextAlarmClock = mAm.getNextAlarmClock();
+            assertEquals(wakeupTimeSecond, nextAlarmClock.getTriggerTime());
+            assertEquals(showIntentSecond, nextAlarmClock.getShowIntent());
+
+            // Cancel second alarm.
+            mAm.cancel(mSender2);
+
+            // Verify getNextAlarmClock returns first alarm clock again.
+            nextAlarmClock = mAm.getNextAlarmClock();
+            assertEquals(wakeupTimeFirst, nextAlarmClock.getTriggerTime());
+            assertNull(nextAlarmClock.getShowIntent());
+
+            // Wait for first alarm to trigger.
+            assertFalse(mMockAlarmReceiver.alarmed);
+            new PollingCheck(2 * TEST_ALARM_FUTURITY + TIME_DELAY) {
+                @Override
+                protected boolean check() {
+                    return mMockAlarmReceiver.alarmed;
+                }
+            }.run();
+
+            // Verify first alarm fired at the right time.
+            assertEquals(mMockAlarmReceiver.rtcTime, wakeupTimeFirst, TIME_DELTA);
+
+            // Verify second alarm didn't fire.
+            assertFalse(mMockAlarmReceiver2.alarmed);
+
+            // Verify the next alarm is not returning neither the first nor the second alarm.
+            nextAlarmClock = mAm.getNextAlarmClock();
+            MoreAsserts.assertNotEqual(wakeupTimeFirst, nextAlarmClock != null
+                    ? nextAlarmClock.getTriggerTime()
+                    : null);
+            MoreAsserts.assertNotEqual(wakeupTimeSecond, nextAlarmClock != null
+                    ? nextAlarmClock.getTriggerTime()
+                    : null);
+        }
     }
 }

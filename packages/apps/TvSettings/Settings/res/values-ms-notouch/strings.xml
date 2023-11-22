@@ -20,57 +20,6 @@
     <string name="wifi_setup_input_password" msgid="4324884380214448502">"Masukkan kata laluan untuk <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="wifi_setup_waiting_for_join" msgid="42826539810553389">"Menyertai ^1"</string>
     <string name="wifi_setup_connection_success" msgid="3362351168182711828">"Berjaya disambungkan!"</string>
-    <string name="setup_ir" msgid="8305193430921797241">"Konfigurasikan kawalan jauh"</string>
-    <string name="remote_setup_welcome_message_description" msgid="9134446428396720516">"Kawalan jauh anda boleh mengawal kuasa, penukaran input dan kelantangan untuk TV atau penerima AV"</string>
-    <string name="remote_setup_welcome_message_hint" msgid="3193005012448600181">"Anda boleh menukar perkara ini selepas ini dalam Tetapan"</string>
-    <string name="remote_setup_welcome_message_choice_yes" msgid="5685232858099010013">"Sediakannya"</string>
-    <string name="remote_setup_welcome_message_choice_no" msgid="4512130141361047728">"Bukan sekarang"</string>
-    <string name="remote_setup_welcome_message_choice_learn_more" msgid="1450743243355011188">"Ketahui lebih lanjut"</string>
-    <string name="remote_setup_configuring_title" msgid="426693490088036953">"Mengkonfigurasikan"</string>
-    <string name="tv_brand_selection_title" msgid="115806286404235523">"Pilih jenama TV anda"</string>
-    <string name="verify_tv_works_title" msgid="3032439000825004562">"Cubalah"</string>
-    <string name="verify_tv_works_title_second" msgid="385858407975452465">"Sekarang bagaimana?"</string>
-    <string name="remote_setup_tv_works_choice_yes" msgid="4845224377319634589">"Berfungsi"</string>
-    <string name="remote_setup_tv_works_choice_no" msgid="4592512199517822882">"Tidak berfungsi"</string>
-    <string name="remote_setup_tv_works_choice_exit" msgid="3284401175722431348">"Selesaikan perkara ini kemudian"</string>
-    <string name="remote_setup_av_receiver_message_title" msgid="6684021872456430428">"Adakah anda menggunakan penerima AV untuk mengawal kelantangan atau menukar sumber video?"</string>
-    <string name="remote_setup_av_receiver_message_choice_yes" msgid="4425950273612887422">"Ya, ada"</string>
-    <string name="remote_setup_av_receiver_message_choice_no" msgid="4110689241054488465">"Tidak, TV sahaja"</string>
-    <string name="remote_setup_av_receiver_message_choice_unknown" msgid="7929184207846917118">"Saya tidak pasti"</string>
-    <string name="av_receiver_brand_selection_title" msgid="6590559258588648873">"Pilih jenama penerima AV anda"</string>
-    <string name="verify_av_receiver_works_title" msgid="269543338100774333">"Cubalah"</string>
-    <string name="verify_av_receiver_works_title_second" msgid="5746428972280536169">"Sekarang bagaimana?"</string>
-    <string name="remote_setup_av_receiver_works_choice_yes" msgid="3958668567541773813">"Berfungsi"</string>
-    <string name="remote_setup_av_receiver_works_choice_no" msgid="4298074971218301801">"Tidak berfungsi"</string>
-    <string name="remote_setup_complete_title" msgid="5621039651988402414">"Alat kawalan jauh anda sudah disediakan"</string>
-    <string name="remote_setup_complete_indicator" msgid="7561911666937200298">"✔"</string>
-    <string name="remote_setup_complete_hint" msgid="895288876842034764">"Anda boleh menukar atau mengemas kini perkara ini dalam Tetapan"</string>
-    <string name="remote_setup_failure_title" msgid="5556977469090883888">"Nampaknya anda sudah mencuba semua kod yang tersedia untuk Sony TV dan tidak menemui sebarang kod yang dapat digunakan"</string>
-    <string name="remote_setup_no_more_codes_title" msgid="8248001602463811004">"Tidak terdapat pilihan lagi untuk jenama yang telah anda pilih."</string>
-    <string name="remote_volume_control_title" msgid="42790796387499754">"Kawalan kelantangan"</string>
-    <string name="remote_volume_control_description" msgid="1709266463890271158">"Manakah peranti yang harus dikawal oleh kunci kelantangan kawalan jauh anda?"</string>
-    <string name="remote_volume_control_tv" msgid="8238742772961949484">"TV"</string>
-    <string name="remote_volume_control_avr" msgid="1210344689909782196">"Penerima AV"</string>
-    <string name="remote_volume_control_more_info" msgid="3974235951312948896">"Ketahui lebih lanjut"</string>
-    <string name="remote_input_control_title" msgid="2162123799829832793">"Kawalan input"</string>
-    <string name="remote_input_control_description" msgid="4463232750558670880">"Manakah peranti yang harus dikawal oleh kunci input kawalan jauh anda?"</string>
-    <string name="remote_input_control_tv" msgid="1161797798141087133">"TV"</string>
-    <string name="remote_input_control_avr" msgid="4332681403776201898">"Penerima AV"</string>
-    <string name="remote_input_control_more_info" msgid="2288173413092344097">"Ketahui lebih lanjut"</string>
-    <string name="remote_power_control_title" msgid="6900887500636256080">"Kawalan kuasa"</string>
-    <string name="remote_power_control_description" msgid="3169112762029996294">"Manakah peranti yang harus dikawal oleh kunci kuasa kawalan jauh anda?"</string>
-    <string name="remote_power_control_tv" msgid="20401013011107997">"TV"</string>
-    <string name="remote_power_control_avr" msgid="7915107400409384444">"Penerima AV"</string>
-    <string name="remote_power_control_more_info" msgid="6548476606481318540">"Ketahui lebih lanjut"</string>
-    <string name="remote_setup_tv_unable_to_configure_title" msgid="4278769121940609448">"Tidak boleh mengkonfigurasikan TV ini"</string>
-    <string name="remote_setup_tv_unable_to_configure_hint" msgid="1731804913207624724">"Anda boleh melakukan perkara ini kemudian dalam Tetapan."</string>
-    <string name="remote_setup_tv_unable_to_configure_continue" msgid="3805427230334915588">"Teruskan dengan persediaan"</string>
-    <string name="remote_setup_tv_unable_to_configure_try_again" msgid="6302613495483136852">"Cuba lagi"</string>
-    <string name="remote_setup_avr_unable_to_configure_title" msgid="7801918594788868621">"Tidak dapat mengkonfigurasikan penerima AV ini"</string>
-    <string name="remote_setup_avr_unable_to_configure_hint" msgid="1160999973083806587">"Anda boleh melakukan perkara ini kemudian dalam Tetapan."</string>
-    <string name="remote_setup_avr_unable_to_configure_continue" msgid="6233717853267060396">"Teruskan dengan persediaan"</string>
-    <string name="remote_setup_avr_unable_to_configure_try_again" msgid="4693947869846354939">"Cuba lagi"</string>
-    <string name="remote_programmed_successfully_ok" msgid="1375513531893934307">"OK"</string>
     <string name="device_apps_app_management_version" msgid="6315648665194084382">"versi <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_force_stop" msgid="1803832648099079651">"Henti paksa"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="221435219644064243">"Jika anda menghentikan aplikasi secara paksa, aplikasi itu mungkin tidak berfungsi dengan betul."</string>

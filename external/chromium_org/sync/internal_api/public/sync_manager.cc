@@ -6,11 +6,24 @@
 
 namespace syncer {
 
+SyncCredentials::SyncCredentials() {}
+
+SyncCredentials::~SyncCredentials() {}
+
 SyncManager::ChangeDelegate::~ChangeDelegate() {}
 
 SyncManager::ChangeObserver::~ChangeObserver() {}
 
 SyncManager::Observer::~Observer() {}
+
+SyncManager::InitArgs::InitArgs()
+    : extensions_activity(NULL),
+      change_delegate(NULL),
+      encryptor(NULL),
+      cancelation_signal(NULL) {
+}
+
+SyncManager::InitArgs::~InitArgs() {}
 
 SyncManager::SyncManager() {}
 

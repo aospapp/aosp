@@ -4,20 +4,26 @@
 
 """Finds android browsers that can be controlled by telemetry."""
 
+import logging
 import os
-import logging as real_logging
 import re
 import subprocess
 import sys
 
 from telemetry import decorators
 from telemetry.core import browser
-from telemetry.core import platform
+from telemetry.core import exceptions
 from telemetry.core import possible_browser
+from telemetry.core import platform
 from telemetry.core import util
 from telemetry.core.backends import adb_commands
+from telemetry.core.platform import android_device
 from telemetry.core.backends.chrome import android_browser_backend
-from telemetry.core.platform import android_platform_backend
+
+try:
+  import psutil  # pylint: disable=F0401
+except ImportError:
+  psutil = None
 
 
 CHROME_PACKAGE_NAMES = {
@@ -30,9 +36,13 @@ CHROME_PACKAGE_NAMES = {
        android_browser_backend.ChromeShellBackendSettings,
        'ChromeShell.apk'],
   'android-webview':
-      ['com.android.webview.chromium.shell',
+      ['org.chromium.telemetry_shell',
        android_browser_backend.WebviewBackendSettings,
        None],
+  'android-webview-shell':
+      ['org.chromium.android_webview.shell',
+       android_browser_backend.WebviewShellBackendSettings,
+       'AndroidWebView.apk'],
   'android-chrome':
       ['com.google.android.apps.chrome',
        android_browser_backend.ChromeBackendSettings,
@@ -55,21 +65,20 @@ CHROME_PACKAGE_NAMES = {
        None]
 }
 
-ALL_BROWSER_TYPES = CHROME_PACKAGE_NAMES.keys()
-
-# adb shell pm list packages
-# adb
-# intents to run (pass -D url for the rest)
-#   com.android.chrome/.Main
-#   com.google.android.apps.chrome/.Main
 
 class PossibleAndroidBrowser(possible_browser.PossibleBrowser):
   """A launchable android browser instance."""
-  def __init__(self, browser_type, finder_options, backend_settings, apk_name):
+  def __init__(self, browser_type, finder_options, android_platform,
+               backend_settings, apk_name):
     super(PossibleAndroidBrowser, self).__init__(browser_type, 'android',
-        finder_options)
-    assert browser_type in ALL_BROWSER_TYPES, \
-        'Please add %s to ALL_BROWSER_TYPES' % browser_type
+        finder_options, backend_settings.supports_tab_control)
+    assert browser_type in FindAllBrowserTypes(finder_options), \
+        ('Please add %s to android_browser_finder.FindAllBrowserTypes' %
+         browser_type)
+    self._platform = android_platform
+    self._platform_backend = (
+        android_platform._platform_backend  # pylint: disable=W0212
+        )
     self._backend_settings = backend_settings
     self._local_apk = None
 
@@ -88,18 +97,15 @@ class PossibleAndroidBrowser(possible_browser.PossibleBrowser):
         newest_apk_path = sorted(candidate_apks)[-1][1]
         self._local_apk = newest_apk_path
 
-
   def __repr__(self):
     return 'PossibleAndroidBrowser(browser_type=%s)' % self.browser_type
 
-  @property
-  @decorators.Cache
-  def _platform_backend(self):
-    return android_platform_backend.AndroidPlatformBackend(
-        self._backend_settings.adb.device(),
-        self.finder_options.no_performance_mode)
+  def _InitPlatformIfNeeded(self):
+    pass
 
   def Create(self):
+    self._InitPlatformIfNeeded()
+
     use_rndis_forwarder = (self.finder_options.android_rndis or
                            self.finder_options.browser_options.netsim or
                            platform.GetHostPlatform().GetOSName() != 'linux')
@@ -107,8 +113,15 @@ class PossibleAndroidBrowser(possible_browser.PossibleBrowser):
         self.finder_options.browser_options, self._backend_settings,
         use_rndis_forwarder,
         output_profile_path=self.finder_options.output_profile_path,
-        extensions_to_load=self.finder_options.extensions_to_load)
-    b = browser.Browser(backend, self._platform_backend)
+        extensions_to_load=self.finder_options.extensions_to_load,
+        target_arch=self.finder_options.target_arch,
+        android_platform_backend=self._platform_backend)
+    b = browser.Browser(backend,
+                        self._platform_backend,
+                        self._archive_path,
+                        self._append_to_existing_wpr,
+                        self._make_javascript_deterministic,
+                        self._credentials_path)
     return b
 
   def SupportsOptions(self, finder_options):
@@ -122,14 +135,14 @@ class PossibleAndroidBrowser(possible_browser.PossibleBrowser):
   @decorators.Cache
   def UpdateExecutableIfNeeded(self):
     if self.HaveLocalAPK():
-      real_logging.warn(
-          'Refreshing %s on device if needed.' % self._local_apk)
-      self._backend_settings.adb.Install(self._local_apk)
+      logging.warn('Installing %s on device if needed.' % self._local_apk)
+      self.platform.InstallApplication(self._local_apk)
 
   def last_modification_time(self):
     if self.HaveLocalAPK():
       return os.path.getmtime(self._local_apk)
     return -1
+
 
 def SelectDefaultBrowser(possible_browsers):
   local_builds_by_date = sorted(possible_browsers,
@@ -140,113 +153,91 @@ def SelectDefaultBrowser(possible_browsers):
     return newest_browser
   return None
 
-adb_works = None
-def CanFindAvailableBrowsers(logging=real_logging):
+
+def CanFindAvailableBrowsers():
   if not adb_commands.IsAndroidSupported():
+    logging.info('Android build commands unavailable on this machine. Have '
+                 'you installed Android build dependencies?')
     return False
 
-  global adb_works
+  try:
+    with open(os.devnull, 'w') as devnull:
+      proc = subprocess.Popen(
+          ['adb', 'devices'],
+          stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=devnull)
+      stdout, _ = proc.communicate()
+    if re.search(re.escape('????????????\tno permissions'), stdout) != None:
+      logging.warn('adb devices reported a permissions error. Consider '
+                   'restarting adb as root:')
+      logging.warn('  adb kill-server')
+      logging.warn('  sudo `which adb` devices\n\n')
+    return True
+  except OSError:
+    platform_tools_path = os.path.join(util.GetChromiumSrcDir(),
+        'third_party', 'android_tools', 'sdk', 'platform-tools')
+    if (sys.platform.startswith('linux') and
+        os.path.exists(os.path.join(platform_tools_path, 'adb'))):
+      os.environ['PATH'] = os.pathsep.join([platform_tools_path,
+                                            os.environ['PATH']])
+      return True
+  return False
 
-  if adb_works == None:
-    try:
-      with open(os.devnull, 'w') as devnull:
-        proc = subprocess.Popen(['adb', 'devices'],
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
-                                stdin=devnull)
-        stdout, _ = proc.communicate()
-        if re.search(re.escape('????????????\tno permissions'), stdout) != None:
-          logging.warn(
-              ('adb devices reported a permissions error. Consider '
-               'restarting adb as root:'))
-          logging.warn('  adb kill-server')
-          logging.warn('  sudo `which adb` devices\n\n')
-        adb_works = True
-    except OSError:
-      platform_tools_path = os.path.join(util.GetChromiumSrcDir(),
-          'third_party', 'android_tools', 'sdk', 'platform-tools')
-      if (sys.platform.startswith('linux') and
-          os.path.exists(os.path.join(platform_tools_path, 'adb'))):
-        os.environ['PATH'] = os.pathsep.join([platform_tools_path,
-                                              os.environ['PATH']])
-        adb_works = True
-      else:
-        adb_works = False
-  return adb_works
 
-def FindAllAvailableBrowsers(finder_options, logging=real_logging):
+def FindAllBrowserTypes(_options):
+  return CHROME_PACKAGE_NAMES.keys()
+
+
+def FindAllAvailableBrowsers(finder_options):
   """Finds all the desktop browsers available on this machine."""
-  if not CanFindAvailableBrowsers(logging=logging):
+  if not CanFindAvailableBrowsers():
     logging.info('No adb command found. ' +
                  'Will not try searching for Android browsers.')
     return []
-
-  device = None
   if finder_options.android_device:
-    devices = [finder_options.android_device]
+    devices = [android_device.AndroidDevice(finder_options.android_device,
+                                            finder_options.no_performance_mode)]
   else:
-    devices = adb_commands.GetAttachedDevices()
+    devices = android_device.AndroidDevice.GetAllConnectedDevices()
 
   if len(devices) == 0:
     logging.info('No android devices found.')
     return []
-
-  if len(devices) > 1:
+  elif len(devices) > 1:
     logging.warn(
         'Multiple devices attached. Please specify one of the following:\n' +
-        '\n'.join(['  --device=%s' % d for d in devices]))
+        '\n'.join(['  --device=%s' % d.device_id for d in devices]))
     return []
 
-  device = devices[0]
+  try:
+    android_platform = platform.GetPlatformForDevice(devices[0])
+  except exceptions.PlatformError:
+    return []
 
-  adb = adb_commands.AdbCommands(device=device)
-  # Trying to root the device, if possible.
-  if not adb.IsRootEnabled():
-    # Ignore result.
-    adb.EnableAdbRoot()
+  # Host side workaround for crbug.com/268450 (adb instability).
+  # The adb server has a race which is mitigated by binding to a single core.
+  if psutil:
+    for proc in psutil.process_iter():
+      try:
+        if 'adb' in proc.name:
+          if 'cpu_affinity' in dir(proc):
+            proc.cpu_affinity([0])      # New versions of psutil.
+          elif 'set_cpu_affinity' in dir(proc):
+            proc.set_cpu_affinity([0])  # Older versions.
+          else:
+            logging.warn(
+                'Cannot set CPU affinity due to stale psutil version: %s',
+                '.'.join(str(x) for x in psutil.version_info))
+      except (psutil.NoSuchProcess, psutil.AccessDenied):
+        logging.warn('Failed to set adb process CPU affinity')
 
-  if sys.platform.startswith('linux'):
-    # Host side workaround for crbug.com/268450 (adb instability)
-    # The adb server has a race which is mitigated by binding to a single core.
-    import psutil  # pylint: disable=F0401
-    pids  = [p.pid for p in psutil.process_iter() if 'adb' in p.name]
-    with open(os.devnull, 'w') as devnull:
-      for pid in pids:
-        ret = subprocess.call(['taskset', '-p', '-c', '0', str(pid)],
-                              stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE,
-                              stdin=devnull)
-        if ret:
-          logging.warn('Failed to taskset %d (%s)', pid, ret)
-
-  if not os.environ.get('BUILDBOT_BUILDERNAME'):
-    # Killing adbd before running tests has proven to make them less likely to
-    # flake out during the test. We skip this if Telemetry is running under a
-    # buildbot because build/android/test_runner.py wrapper already took care
-    # of it before starting the shards.
-    adb.RestartAdbdOnDevice()
-
-  packages = adb.RunShellCommand('pm list packages')
   possible_browsers = []
-
   for name, package_info in CHROME_PACKAGE_NAMES.iteritems():
     [package, backend_settings, local_apk] = package_info
-    b = PossibleAndroidBrowser(
-        name,
-        finder_options,
-        backend_settings(adb, package),
-        local_apk)
-
-    if 'package:' + package in packages or b.HaveLocalAPK():
+    b = PossibleAndroidBrowser(name,
+                               finder_options,
+                               android_platform,
+                               backend_settings(package),
+                               local_apk)
+    if b.platform.CanLaunchApplication(package) or b.HaveLocalAPK():
       possible_browsers.append(b)
-
-  if possible_browsers:
-    installed_prebuilt_tools = adb_commands.SetupPrebuiltTools(adb)
-    if not installed_prebuilt_tools:
-      logging.error(
-          'Android device detected, however prebuilt android tools could not '
-          'be used. To run on Android you must build them first:\n'
-          '  $ ninja -C out/Release android_tools')
-      return []
-
   return possible_browsers

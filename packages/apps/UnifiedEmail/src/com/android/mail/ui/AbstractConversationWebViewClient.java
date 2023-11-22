@@ -100,9 +100,6 @@ public class AbstractConversationWebViewClient extends WebViewClient {
         }
 
         final Uri queryUri = Uri.withAppendedPath(message.attachmentByCidUri, cid);
-        if (queryUri == null) {
-            return null;
-        }
 
         // query for the attachment using its cid
         final ContentResolver cr = getActivity().getContentResolver();

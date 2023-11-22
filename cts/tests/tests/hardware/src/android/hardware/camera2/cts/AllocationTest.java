@@ -310,7 +310,7 @@ public class AllocationTest extends AndroidTestCase {
      */
     private static float[] convertPixelYuvToRgb(byte[] yuvData) {
         final int CHANNELS = 3; // yuv
-        final float COLOR_RANGE = 256f;
+        final float COLOR_RANGE = 255f;
 
         assertTrue("YUV pixel must be at least 3 bytes large", CHANNELS <= yuvData.length);
 

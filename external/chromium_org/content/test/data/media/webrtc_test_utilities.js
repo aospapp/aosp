@@ -34,8 +34,7 @@ function sendValueToTest(value) {
   window.domAutomationController.send(value);
 }
 
-// Immediately fails the test on the C++ side and throw an exception to
-// stop execution on the javascript side.
+// Immediately fails the test on the C++ side.
 function failTest(reason) {
   var error = new Error(reason);
   window.domAutomationController.send(error.stack);
@@ -49,6 +48,14 @@ function detectVideoStopped(videoElementName, callback) {
   detectVideo(videoElementName,
               function (pixels, previous_pixels) {
                 return !isVideoPlaying(pixels, previous_pixels);
+              },
+              callback);
+}
+
+function detectBlackVideo(videoElementName, callback) {
+  detectVideo(videoElementName,
+              function (pixels, previous_pixels) {
+                return isVideoBlack(pixels);
               },
               callback);
 }
@@ -98,6 +105,49 @@ function waitForVideoToStop(videoElement) {
   detectVideoStopped(videoElement, function () { eventOccured(); });
 }
 
+function waitForBlackVideo(videoElement) {
+  addExpectedEvent();
+  detectBlackVideo(videoElement, function () { eventOccured(); });
+}
+
+// Calculates the current frame rate and compares to |expected_frame_rate|
+// |callback| is triggered with value |true| if the calculated frame rate
+// is +-1 the expected or |false| if five calculations fail to match
+// |expected_frame_rate|.
+function validateFrameRate(videoElementName, expected_frame_rate, callback) {
+  var videoElement = $(videoElementName);
+  var startTime = new Date().getTime();
+  var decodedFrames = videoElement.webkitDecodedFrameCount;
+  var attempts = 0;
+
+  if (videoElement.readyState <= HTMLMediaElement.HAVE_CURRENT_DATA ||
+          videoElement.paused || videoElement.ended) {
+    failTest("getFrameRate - " + videoElementName + " is not plaing.");
+    return;
+  }
+
+  var waitVideo = setInterval(function() {
+    attempts++;
+    currentTime = new Date().getTime();
+    deltaTime = (currentTime - startTime) / 1000;
+    startTime = currentTime;
+
+    // Calculate decoded frames per sec.
+    var fps =
+        (videoElement.webkitDecodedFrameCount - decodedFrames) / deltaTime;
+    decodedFrames = videoElement.webkitDecodedFrameCount;
+
+    console.log('FrameRate in ' + videoElementName + ' is ' + fps);
+    if (fps < expected_frame_rate + 1  && fps > expected_frame_rate - 1) {
+      clearInterval(waitVideo);
+      callback(true);
+    } else if (attempts == 5) {
+      clearInterval(waitVideo);
+      callback(false);
+    }
+  }, 1000);
+}
+
 function waitForConnectionToStabilize(peerConnection, callback) {
   peerConnection.onsignalingstatechange = function(event) {
     if (peerConnection.signalingState == 'stable') {
@@ -132,6 +182,18 @@ function isVideoPlaying(pixels, previousPixels) {
     }
   }
   return false;
+}
+
+function isVideoBlack(pixels) {
+  for (var i = 0; i < pixels.length; i++) {
+    // |pixels| is in RGBA. Ignore the alpha channel.
+    // We allow it to be off by 1, to account for rounding errors in YUV
+    // conversion.
+    if (pixels[i] != 0 && pixels[i] != 1 && (i + 1) % 4 != 0) {
+      return false;
+    }
+  }
+  return true;
 }
 
 // This function matches |left| and |right| and fails the test if the

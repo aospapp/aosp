@@ -11,13 +11,12 @@
 #include "base/strings/string16.h"
 #include "base/time/time.h"
 #include "chrome/browser/autocomplete/autocomplete_controller_delegate.h"
-#include "chrome/browser/autocomplete/autocomplete_input.h"
-#include "chrome/browser/autocomplete/autocomplete_match.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/common/instant_types.h"
 #include "chrome/common/omnibox_focus_state.h"
 #include "components/metrics/proto/omnibox_event.pb.h"
-#include "content/public/common/page_transition_types.h"
+#include "components/omnibox/autocomplete_input.h"
+#include "components/omnibox/autocomplete_match.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/native_widget_types.h"
 #include "url/gurl.h"
@@ -230,6 +229,9 @@ class OmniboxEditModel {
   // is_keyword_hint_).
   const base::string16& keyword() const { return keyword_; }
   bool is_keyword_hint() const { return is_keyword_hint_; }
+  bool is_keyword_selected() const {
+    return !is_keyword_hint_ && !keyword_.empty();
+  }
 
   // Accepts the current keyword hint as a keyword. It always returns true for
   // caller convenience. |entered_method| indicates how the use entered
@@ -375,9 +377,6 @@ class OmniboxEditModel {
 
   // Called whenever user_text_ should change.
   void InternalSetUserText(const base::string16& text);
-
-  // Returns true if a keyword is selected.
-  bool KeywordIsSelected() const;
 
   // Turns off keyword mode for the current match.
   void ClearPopupKeywordMode() const;

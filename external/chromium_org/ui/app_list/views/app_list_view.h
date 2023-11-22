@@ -18,6 +18,14 @@ namespace base {
 class FilePath;
 }
 
+namespace test {
+class AppListViewTestApi;
+}
+
+namespace views {
+class ImageView;
+}
+
 namespace app_list {
 class ApplicationDragAndDropHost;
 class AppListMainView;
@@ -34,7 +42,7 @@ class APP_LIST_EXPORT AppListView : public views::BubbleDelegateView,
                                     public AppListViewDelegateObserver,
                                     public SpeechUIModelObserver {
  public:
-  // Takes ownership of |delegate|.
+  // Does not take ownership of |delegate|.
   explicit AppListView(AppListViewDelegate* delegate);
   virtual ~AppListView();
 
@@ -74,6 +82,10 @@ class APP_LIST_EXPORT AppListView : public views::BubbleDelegateView,
 
   void UpdateBounds();
 
+  // Enables/disables a semi-transparent overlay over the app list (good for
+  // hiding the app list when a modal dialog is being shown).
+  void SetAppListOverlayVisible(bool visible);
+
   // Returns true if the app list should be centered and in landscape mode.
   bool ShouldCenterWindow() const;
 
@@ -88,6 +100,7 @@ class APP_LIST_EXPORT AppListView : public views::BubbleDelegateView,
 
   // Overridden from AppListViewDelegateObserver:
   virtual void OnProfilesChanged() OVERRIDE;
+  virtual void OnShutdown() OVERRIDE;
 
   void Prerender();
 
@@ -109,6 +122,8 @@ class APP_LIST_EXPORT AppListView : public views::BubbleDelegateView,
   PaginationModel* GetAppsPaginationModel();
 
  private:
+  friend class ::test::AppListViewTestApi;
+
   void InitAsBubbleInternal(gfx::NativeView parent,
                             int initial_apps_page,
                             views::BubbleBorder::Arrow arrow,
@@ -142,10 +157,17 @@ class APP_LIST_EXPORT AppListView : public views::BubbleDelegateView,
   virtual void OnSpeechRecognitionStateChanged(
       SpeechRecognitionState new_state) OVERRIDE;
 
-  scoped_ptr<AppListViewDelegate> delegate_;
+  AppListViewDelegate* delegate_;  // Weak. Owned by AppListService.
 
   AppListMainView* app_list_main_view_;
   SpeechView* speech_view_;
+
+  // The red "experimental" banner for the experimental app list.
+  views::ImageView* experimental_banner_view_;
+
+  // A semi-transparent white overlay that covers the app list while dialogs are
+  // open.
+  views::View* overlay_view_;
 
   ObserverList<AppListViewObserver> observers_;
   scoped_ptr<HideViewAnimationObserver> animation_observer_;

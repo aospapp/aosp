@@ -5,15 +5,20 @@
 #include "chrome/browser/importer/in_process_importer_bridge.h"
 
 #include "base/bind.h"
-#include "base/file_util.h"
+#include "base/debug/dump_without_crashing.h"
+#include "base/files/file_util.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/importer/external_process_importer_host.h"
-#include "chrome/browser/search_engines/template_url.h"
-#include "chrome/browser/search_engines/template_url_parser.h"
-#include "chrome/browser/search_engines/template_url_prepopulate_data.h"
+#include "chrome/browser/search_engines/ui_thread_search_terms_data.h"
 #include "chrome/common/importer/imported_bookmark_entry.h"
 #include "chrome/common/importer/imported_favicon_usage.h"
+#include "chrome/common/importer/importer_autofill_form_data_entry.h"
+#include "components/autofill/core/browser/webdata/autofill_entry.h"
 #include "components/autofill/core/common/password_form.h"
+#include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_parser.h"
+#include "components/search_engines/template_url_prepopulate_data.h"
 #include "content/public/browser/browser_thread.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -58,6 +63,15 @@ history::VisitSource ConvertImporterVisitSourceToHistoryVisitSource(
   return history::SOURCE_SYNCED;
 }
 
+// http://crbug.com/404012. Let's see where the empty fields come from.
+void CheckForEmptyUsernameAndPassword(const autofill::PasswordForm& form) {
+  if (form.username_value.empty() &&
+      form.password_value.empty() &&
+      !form.blacklisted_by_user) {
+    base::debug::DumpWithoutCrashing();
+  }
+}
+
 }  // namespace
 
 using content::BrowserThread;
@@ -74,7 +88,7 @@ class FirefoxURLParameterFilter : public TemplateURLParser::ParameterFilter {
   // TemplateURLParser::ParameterFilter method.
   virtual bool KeepParameter(const std::string& key,
                              const std::string& value) OVERRIDE {
-    std::string low_value = StringToLowerASCII(value);
+    std::string low_value = base::StringToLowerASCII(value);
     if (low_value.find("mozilla") != std::string::npos ||
         low_value.find("firefox") != std::string::npos ||
         low_value.find("moz:") != std::string::npos) {
@@ -124,7 +138,8 @@ void ParseSearchEnginesFromFirefoxXMLData(
   SearchEnginesMap::const_iterator default_turl = search_engine_for_url.end();
   for (std::vector<std::string>::const_iterator xml_iter =
            xml_data.begin(); xml_iter != xml_data.end(); ++xml_iter) {
-    TemplateURL* template_url = TemplateURLParser::Parse(NULL, true,
+    TemplateURL* template_url = TemplateURLParser::Parse(
+        UIThreadSearchTermsData(NULL), true,
         xml_iter->data(), xml_iter->length(), &param_filter);
     if (template_url) {
       SearchEnginesMap::iterator iter =
@@ -246,9 +261,27 @@ void InProcessImporterBridge::SetFirefoxSearchEnginesXMLData(
 
 void InProcessImporterBridge::SetPasswordForm(
     const autofill::PasswordForm& form) {
+  CheckForEmptyUsernameAndPassword(form);
   BrowserThread::PostTask(
       BrowserThread::UI, FROM_HERE,
       base::Bind(&ProfileWriter::AddPasswordForm, writer_, form));
+}
+
+void InProcessImporterBridge::SetAutofillFormData(
+    const std::vector<ImporterAutofillFormDataEntry>& entries) {
+  std::vector<autofill::AutofillEntry> autofill_entries;
+  for (size_t i = 0; i < entries.size(); ++i) {
+    autofill_entries.push_back(autofill::AutofillEntry(
+        autofill::AutofillKey(entries[i].name, entries[i].value),
+        entries[i].first_used,
+        entries[i].last_used));
+  }
+
+  BrowserThread::PostTask(BrowserThread::UI,
+                          FROM_HERE,
+                          base::Bind(&ProfileWriter::AddAutofillFormDataEntries,
+                                     writer_,
+                                     autofill_entries));
 }
 
 void InProcessImporterBridge::NotifyStarted() {

@@ -10,62 +10,192 @@
 # and we only select subset to run
 # A*
 Act*
-Adv*
+Ad*
 All*
 AppA*
+AppB*
 AppL*
 AppW*
-Autof*.Do*
-Autof*.Hi*
-Autof*Edit*
-AutofillTest.*
+Auto*
 # B*
-BackgroundApp*.R*
-Bluetooth*
-BitmapFetcher*
-BookmarksT*
-BrowserAcc*
-BrowserActionA*.*
-BrowserCloseM*
-BrowserN*
-BrowserT*
+BaseD*
+Bac*App*.R*
+Blue*
+Bit*
+Bo*sT*
+Br*erA*
+Br*erC*
+Br*erN*
+Br*erT*
 # C*
+Cal*
 Cap*
 Cas*
+Clou*cy
 Clear*
 Click*
 Com*
+ChromeA*
 ChromeC*
 ChromeR*
+Col*
 Con*UITest.*
 Con*.Re*
+Con*Se*
+Cont*ns
+Context*
+Coo*
 # D*
+Dia*E*
 Dec*
 Dev*
-DnsP*
+Dns*
 DoNot*
-Down*Ext*.*
-DownloadTest.*
+Down*Ext*
+Down*UI*
+Do*adTest.*
+Do*tTest.*All
 Drive*
 # E*
-F*
-G*
-H*
-I*
-J*
-K*
-L*
-M*
-N*
-O*
-P*
-Q*
-R*
-S*
-T*
-U*
-V*
-W*
-X*
-Y*
-Z*
+ECK*
+Ed*
+Enc*
+Ep*
+Er*
+Exe*
+Ext*.D*
+Ext*.P*
+Ext*.N*
+Ext*.RS*
+Ext*Api*
+Ext*Man*
+Ext*Se*
+Ext*re*
+Ext*Re*
+Ext*nB*
+Ext*Crx*
+# F*
+FileSys*
+Find*
+Fl*
+Font*gs
+Ftp*
+# G*
+GcdPri*.*Remove
+GcdPri*.*Query
+Gcm*.R*
+GetA*
+Ge*Br*
+# H*
+Hot*
+His*
+HostR*
+Ht*
+# I*
+IE*
+Ide*
+Inv*
+Insp*
+Inl*Safe*
+# J*
+# K*
+# L*
+Lan*
+Lau*
+Laz*
+LoadT*
+Loc*
+Log*hs
+# M*
+MDn*
+Med*B*
+Med*Se*
+Med*Ge*
+Mock*
+MSC_C*
+MSE*
+Man*t.*
+# N*
+NaCl*lib*
+NaCl*Pn*
+NaCl*Vc*
+NetIn*
+Noti*
+NoSe*
+# O*
+Opt*WebUI*
+Out*PPAPITe*
+# P*
+Pag*
+Pas*erBro*
+Pe*
+Plat*Bro*
+Policy*H*
+Port*
+Prefe*
+PrefsF*
+Print*
+Prox*
+Prof*ta
+Prof*t
+Prer*
+PPA*ib*
+PPA*lT*.*
+PPAPIT*.F*
+PPAPIT*.W*
+PPAPIT*.U*3
+# Q*
+QU*
+# R*
+# RangeHistoryWebUITest.*
+Ran*
+Red*
+Ref*
+Reg*
+Rem*De*
+Rem*Ad*
+Res*
+# RequestContentScriptAPITest.PermissionMatcherAgreementInjection
+Req*.Per*ion
+# S*
+Sa*
+Sea*Pr*
+Ses*
+Set*
+Scr*
+Soc*
+Spe*
+SRC*.Pl*
+SRC*.Fr*
+SSL*ed
+Sup*Mo*
+Str*
+SyncF*
+SyncInt*
+Sys*Di*
+Sys*In*
+Sys*Ne*
+# T*
+Tab*
+Tas*
+Tran*Bu*
+Tran*Up*
+Tran*ag
+# U*
+Us*
+Un*.Br*
+# V*
+# W*
+WebViewT*
+WebRtcB*
+WebUIA*
+WebUIBr*
+WebC*
+WebN*
+WebstoreIn*
+WebstoreSt*
+WebSo*
+Win*.Cl*
+# X*
+# Y*
+# Z*

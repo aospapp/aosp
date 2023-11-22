@@ -60,7 +60,7 @@ static bool CheckVisitOrdering(const history::VisitVector& visits) {
 TypedUrlModelAssociator::TypedUrlModelAssociator(
     ProfileSyncService* sync_service,
     history::HistoryBackend* history_backend,
-    DataTypeErrorHandler* error_handler)
+    sync_driver::DataTypeErrorHandler* error_handler)
     : sync_service_(sync_service),
       history_backend_(history_backend),
       expected_loop_(base::MessageLoop::current()),
@@ -103,7 +103,7 @@ bool TypedUrlModelAssociator::FixupURLAndGetVisits(
     }
 
     history::VisitRow visit(
-        url->id(), url->last_visit(), 0, content::PAGE_TRANSITION_TYPED, 0);
+        url->id(), url->last_visit(), 0, ui::PAGE_TRANSITION_TYPED, 0);
     visits->push_back(visit);
   }
 
@@ -188,8 +188,8 @@ syncer::SyncError TypedUrlModelAssociator::DoAssociateModels() {
       history_backend_ && history_backend_->GetAllTypedURLs(&typed_urls);
 
   history::URLRows new_urls;
+  history::URLRows updated_urls;
   TypedUrlVisitVector new_visits;
-  TypedUrlUpdateVector updated_urls;
   {
     base::AutoLock au(abort_lock_);
     if (abort_requested_) {
@@ -290,8 +290,8 @@ syncer::SyncError TypedUrlModelAssociator::DoAssociateModels() {
           WriteToSyncNode(new_url, visits, &write_node);
         }
         if (difference & DIFF_LOCAL_ROW_CHANGED) {
-          updated_urls.push_back(
-              std::pair<history::URLID, history::URLRow>(ix->id(), new_url));
+          DCHECK_EQ(ix->id(), new_url.id());
+          updated_urls.push_back(new_url);
         }
         if (difference & DIFF_LOCAL_VISITS_ADDED) {
           new_visits.push_back(
@@ -407,7 +407,7 @@ void TypedUrlModelAssociator::UpdateFromSyncDB(
     const sync_pb::TypedUrlSpecifics& typed_url,
     TypedUrlVisitVector* visits_to_add,
     history::VisitVector* visits_to_remove,
-    TypedUrlUpdateVector* updated_urls,
+    history::URLRows* updated_urls,
     history::URLRows* new_urls) {
   history::URLRow new_url(GURL(typed_url.url()));
   history::VisitVector existing_visits;
@@ -434,8 +434,7 @@ void TypedUrlModelAssociator::UpdateFromSyncDB(
              visits_to_remove);
 
   if (existing_url) {
-    updated_urls->push_back(
-        std::pair<history::URLID, history::URLRow>(new_url.id(), new_url));
+    updated_urls->push_back(new_url);
   } else {
     new_urls->push_back(new_url);
   }
@@ -511,28 +510,22 @@ bool TypedUrlModelAssociator::SyncModelHasUserCreatedNodes(bool* has_nodes) {
 
 void TypedUrlModelAssociator::WriteToHistoryBackend(
     const history::URLRows* new_urls,
-    const TypedUrlUpdateVector* updated_urls,
+    const history::URLRows* updated_urls,
     const TypedUrlVisitVector* new_visits,
     const history::VisitVector* deleted_visits) {
   if (new_urls) {
     history_backend_->AddPagesWithDetails(*new_urls, history::SOURCE_SYNCED);
   }
   if (updated_urls) {
-    for (TypedUrlUpdateVector::const_iterator url = updated_urls->begin();
-         url != updated_urls->end(); ++url) {
-      // This is an existing entry in the URL database. We don't verify the
-      // visit_count or typed_count values here, because either one (or both)
-      // could be zero in the case of bookmarks, or in the case of a URL
-      // transitioning from non-typed to typed as a result of this sync.
-      ++num_db_accesses_;
-      if (!history_backend_->UpdateURL(url->first, url->second)) {
-        // In the field we sometimes run into errors on specific URLs. It's OK
-        // to just continue on (we can try writing again on the next model
-        // association).
-        ++num_db_errors_;
-        DLOG(ERROR) << "Could not update page: " << url->second.url().spec();
-      }
-    }
+    ++num_db_accesses_;
+    // These are existing entries in the URL database. We don't verify the
+    // visit_count or typed_count values here, because either one (or both)
+    // could be zero in the case of bookmarks, or in the case of a URL
+    // transitioning from non-typed to typed as a result of this sync.
+    // In the field we sometimes run into errors on specific URLs. It's OK to
+    // just continue, as we can try writing again on the next model association.
+    size_t num_successful_updates = history_backend_->UpdateURLs(*updated_urls);
+    num_db_errors_ += updated_urls->size() - num_successful_updates;
   }
   if (new_visits) {
     for (TypedUrlVisitVector::const_iterator visits = new_visits->begin();
@@ -641,7 +634,7 @@ TypedUrlModelAssociator::MergeResult TypedUrlModelAssociator::MergeUrls(
         different |= DIFF_LOCAL_VISITS_ADDED;
         new_visits->push_back(history::VisitInfo(
             node_time,
-            content::PageTransitionFromInt(
+            ui::PageTransitionFromInt(
                 node.visit_transitions(node_visit_index))));
       }
       // This visit is added to visits below.
@@ -711,13 +704,13 @@ void TypedUrlModelAssociator::WriteToTypedUrlSpecifics(
     // Walk the passed-in visit vector and count the # of typed visits.
     for (history::VisitVector::const_iterator visit = visits.begin();
          visit != visits.end(); ++visit) {
-      content::PageTransition transition = content::PageTransitionFromInt(
-          visit->transition & content::PAGE_TRANSITION_CORE_MASK);
+      ui::PageTransition transition =
+          ui::PageTransitionStripQualifier(visit->transition);
       // We ignore reload visits.
-      if (transition == content::PAGE_TRANSITION_RELOAD)
+      if (transition == ui::PAGE_TRANSITION_RELOAD)
         continue;
       ++total;
-      if (transition == content::PAGE_TRANSITION_TYPED)
+      if (transition == ui::PAGE_TRANSITION_TYPED)
         ++typed_count;
     }
     // We should have at least one typed visit. This can sometimes happen if
@@ -737,20 +730,20 @@ void TypedUrlModelAssociator::WriteToTypedUrlSpecifics(
 
   for (history::VisitVector::const_iterator visit = visits.begin();
        visit != visits.end(); ++visit) {
-    content::PageTransition transition = content::PageTransitionFromInt(
-        visit->transition & content::PAGE_TRANSITION_CORE_MASK);
+    ui::PageTransition transition =
+        ui::PageTransitionStripQualifier(visit->transition);
     // Skip reload visits.
-    if (transition == content::PAGE_TRANSITION_RELOAD)
+    if (transition == ui::PAGE_TRANSITION_RELOAD)
       continue;
 
     // If we only have room for typed visits, then only add typed visits.
-    if (only_typed && transition != content::PAGE_TRANSITION_TYPED)
+    if (only_typed && transition != ui::PAGE_TRANSITION_TYPED)
       continue;
 
     if (skip_count > 0) {
       // We have too many entries to fit, so we need to skip the oldest ones.
       // Only skip typed URLs if there are too many typed URLs to fit.
-      if (only_typed || transition != content::PAGE_TRANSITION_TYPED) {
+      if (only_typed || transition != ui::PAGE_TRANSITION_TYPED) {
         --skip_count;
         continue;
       }
@@ -767,7 +760,7 @@ void TypedUrlModelAssociator::WriteToTypedUrlSpecifics(
     // it's not legal to have an empty visit array (yet another workaround
     // for http://crbug.com/84258).
     typed_url->add_visits(url.last_visit().ToInternalValue());
-    typed_url->add_visit_transitions(content::PAGE_TRANSITION_RELOAD);
+    typed_url->add_visit_transitions(ui::PAGE_TRANSITION_RELOAD);
   }
   CHECK_GT(typed_url->visits_size(), 0);
   CHECK_LE(typed_url->visits_size(), kMaxTypedUrlVisits);
@@ -800,7 +793,7 @@ void TypedUrlModelAssociator::DiffVisits(
     } else if (old_visits[old_index].visit_time > new_visit_time) {
       new_visits->push_back(history::VisitInfo(
           new_visit_time,
-          content::PageTransitionFromInt(
+          ui::PageTransitionFromInt(
               new_url.visit_transitions(new_index))));
       ++new_index;
     } else {
@@ -818,7 +811,7 @@ void TypedUrlModelAssociator::DiffVisits(
   for ( ; new_index < new_visit_count; ++new_index) {
     new_visits->push_back(history::VisitInfo(
         base::Time::FromInternalValue(new_url.visits(new_index)),
-        content::PageTransitionFromInt(new_url.visit_transitions(new_index))));
+        ui::PageTransitionFromInt(new_url.visit_transitions(new_index))));
   }
 }
 

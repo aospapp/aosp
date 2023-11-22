@@ -21,7 +21,7 @@
 
 #include "base/bind.h"
 #include "base/compiler_specific.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/message_loop/message_loop.h"
 #include "base/strings/string_util.h"
 #include "base/synchronization/lock.h"
@@ -265,7 +265,8 @@ void URLRequestFileJob::DidOpen(int result) {
   DCHECK_GE(remaining_bytes_, 0);
 
   if (remaining_bytes_ > 0 && byte_range_.first_byte_position() != 0) {
-    int rv = stream_->Seek(FROM_BEGIN, byte_range_.first_byte_position(),
+    int rv = stream_->Seek(base::File::FROM_BEGIN,
+                           byte_range_.first_byte_position(),
                            base::Bind(&URLRequestFileJob::DidSeek,
                                       weak_ptr_factory_.GetWeakPtr()));
     if (rv != ERR_IO_PENDING) {

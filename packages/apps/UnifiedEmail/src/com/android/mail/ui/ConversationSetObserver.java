@@ -25,7 +25,7 @@ package com.android.mail.ui;
  * listen to such user actions.
  */
 public interface ConversationSetObserver {
-    // TODO(viki): Consider passing a mutable instance of ConversationSelectionSet. In the current
+    // TODO(viki): Consider passing a mutable instance of ConversationCheckedSet. In the current
     // implementation, the observers can wreck the selection set unknowingly!!
 
     /**
@@ -37,11 +37,11 @@ public interface ConversationSetObserver {
      * Handle when the selection set is populated with some items. The observer should not make any
      * modifications to the set while handling this event.
      */
-    void onSetPopulated(ConversationSelectionSet set);
+    void onSetPopulated(ConversationCheckedSet set);
 
     /**
      * Handle when the selection set gets an element added or removed. The observer should not
      * make any modifications to the set while handling this event.
      */
-    void onSetChanged(ConversationSelectionSet set);
+    void onSetChanged(ConversationCheckedSet set);
 }

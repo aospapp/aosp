@@ -291,16 +291,28 @@ bool HwcLayerList::initialize()
             // by default use GPU composition
             hwcLayer->setType(HwcLayer::LAYER_FB);
             mFBLayers.add(hwcLayer);
-            if (checkCursorSupported(hwcLayer)) {
-                mCursorCandidates.add(hwcLayer);
-            } else if (checkRgbOverlaySupported(hwcLayer)) {
-                rgbOverlayLayers.add(hwcLayer);
-            } else if (checkSupported(DisplayPlane::PLANE_SPRITE, hwcLayer)) {
-                mSpriteCandidates.add(hwcLayer);
-            } else if (checkSupported(DisplayPlane::PLANE_OVERLAY, hwcLayer)) {
-                mOverlayCandidates.add(hwcLayer);
+            if (!DisplayQuery::forceFbScaling(mDisplayIndex)) {
+                if (checkCursorSupported(hwcLayer)) {
+                    mCursorCandidates.add(hwcLayer);
+                } else if (checkRgbOverlaySupported(hwcLayer)) {
+                    rgbOverlayLayers.add(hwcLayer);
+                } else if (checkSupported(DisplayPlane::PLANE_SPRITE, hwcLayer)) {
+                    mSpriteCandidates.add(hwcLayer);
+                } else if (checkSupported(DisplayPlane::PLANE_OVERLAY, hwcLayer)) {
+                    mOverlayCandidates.add(hwcLayer);
+                } else {
+                    // noncandidate layer
+                }
             } else {
-                // noncandidate layer
+                if (checkSupported(DisplayPlane::PLANE_SPRITE, hwcLayer) &&
+                    mLayerCount == 2) {
+                    // if fb scaling, support only one RGB layer on HWC
+                    mSpriteCandidates.add(hwcLayer);
+                } else if (checkSupported(DisplayPlane::PLANE_OVERLAY, hwcLayer)) {
+                    mOverlayCandidates.add(hwcLayer);
+                } else {
+                    // noncandidate layer
+                }
             }
         } else if (layer->compositionType == HWC_SIDEBAND){
             hwcLayer->setType(HwcLayer::LAYER_SIDEBAND);
@@ -337,14 +349,7 @@ bool HwcLayerList::initialize()
         rgbOverlayLayers.removeItemsAt(0);
     }
 
-    if (!DisplayQuery::forceFbScaling(mDisplayIndex)) {
-        allocatePlanes();
-    } else {
-        // force GLES composition on all layers, then use GPU or hardware
-        // overlay to scale buffer to match display resolution
-        assignPrimaryPlane();
-    }
-
+    allocatePlanes();
     //dump();
     return true;
 }
@@ -596,15 +601,6 @@ bool HwcLayerList::assignPrimaryPlane()
 bool HwcLayerList::assignPrimaryPlaneHelper(HwcLayer *hwcLayer, int zorder)
 {
     int type = DisplayPlane::PLANE_PRIMARY;
-    if (DisplayQuery::forceFbScaling(mDisplayIndex)) {
-        type = DisplayPlane::PLANE_OVERLAY;
-        // use overlay plane as primary plane. Color is converted to NV12 first then overlay
-        // hardware will perform scaling to display resolution.
-
-        // can use primary plane as well, but frame buffer needs to be scaled to match display resolution,
-        // (primary plane does not support RGB scaling). There is issue in DDK blit function (RGB scaling
-        // yields corrupt output)
-    }
 
     ZOrderLayer *zlayer = addZOrderLayer(type, hwcLayer, zorder);
     bool ok = attachPlanes();

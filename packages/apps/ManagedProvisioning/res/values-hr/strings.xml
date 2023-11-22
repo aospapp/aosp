@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Administratorska aplikacija ne može se upotrebljavati. Nedostaju joj neke komponente ili je oštećena. Obratite se IT odjelu."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Instaliranje administratorske aplikacije nije uspjelo"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Na uređaju nije instalirana administratorska aplikacija"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Želite li prekinuti postavljanje?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Jeste li sigurni da želite prekinuti postavljanje?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Ne"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Da"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Otkazivanje..."</string>
 </resources>

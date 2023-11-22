@@ -10,8 +10,13 @@
 #include "chrome/browser/prefs/pref_service_syncable.h"
 #include "chrome/browser/profiles/profile_info_cache.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/common/chrome_constants.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "testing/gtest/include/gtest/gtest.h"
+
+#if defined(OS_CHROMEOS)
+#include "chrome/browser/chromeos/profiles/profile_helper.h"
+#endif
 
 const std::string kGuestProfileName = "Guest";
 
@@ -34,7 +39,8 @@ class ProfileManager : public ::ProfileManagerWithoutInit {
 TestingProfileManager::TestingProfileManager(TestingBrowserProcess* process)
     : called_set_up_(false),
       browser_process_(process),
-      local_state_(process) {
+      local_state_(process),
+      profile_manager_(NULL) {
 }
 
 TestingProfileManager::~TestingProfileManager() {
@@ -59,7 +65,18 @@ TestingProfile* TestingProfileManager::CreateTestingProfile(
 
   // Create a path for the profile based on the name.
   base::FilePath profile_path(profiles_dir_.path());
+#if defined(OS_CHROMEOS)
+  if (profile_name != chrome::kInitialProfile) {
+    profile_path =
+        profile_path.Append(chromeos::ProfileHelper::Get()->GetUserProfileDir(
+            chromeos::ProfileHelper::GetUserIdHashByUserIdForTesting(
+                profile_name)));
+  } else {
+    profile_path = profile_path.AppendASCII(profile_name);
+  }
+#else
   profile_path = profile_path.AppendASCII(profile_name);
+#endif
 
   // Create the profile and register it.
   TestingProfile::Builder builder;
@@ -101,11 +118,6 @@ TestingProfile* TestingProfileManager::CreateTestingProfile(
 TestingProfile* TestingProfileManager::CreateGuestProfile() {
   DCHECK(called_set_up_);
 
-  // Set up a profile with an off the record profile.
-  TestingProfile::Builder otr_builder;
-  otr_builder.SetIncognito();
-  scoped_ptr<TestingProfile> otr_profile(otr_builder.Build());
-
   // Create the profile and register it.
   TestingProfile::Builder builder;
   builder.SetGuestSession();
@@ -115,8 +127,9 @@ TestingProfile* TestingProfileManager::CreateGuestProfile() {
   TestingProfile* profile = builder.Build().release();
   profile->set_profile_name(kGuestProfileName);
 
-  otr_profile->SetOriginalProfile(profile);
-  profile->SetOffTheRecordProfile(otr_profile.PassAs<Profile>());
+  // Set up a profile with an off the record profile.
+  TestingProfile::Builder().BuildIncognito(profile);
+
   profile_manager_->AddProfile(profile);  // Takes ownership.
   profile_manager_->SetGuestProfilePrefs(profile);
 
@@ -138,6 +151,17 @@ void TestingProfileManager::DeleteTestingProfile(const std::string& name) {
 
   profile_manager_->profiles_info_.erase(profile->GetPath());
 }
+
+void TestingProfileManager::DeleteAllTestingProfiles() {
+  for (TestingProfilesMap::iterator it = testing_profiles_.begin();
+       it != testing_profiles_.end(); ++it) {
+    TestingProfile* profile = it->second;
+    ProfileInfoCache& cache = profile_manager_->GetProfileInfoCache();
+    cache.DeleteProfileFromCache(profile->GetPath());
+  }
+  testing_profiles_.clear();
+}
+
 
 void TestingProfileManager::DeleteGuestProfile() {
   DCHECK(called_set_up_);

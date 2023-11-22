@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"관리 앱을 사용할 수 없습니다. 구성요소가 없거나 손상되었습니다. IT 부서에 문의해 주시기 바랍니다."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"관리 앱을 설치할 수 없습니다."</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"기기에 관리 앱이 설치되어 있지 않습니다."</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"설정을 중지하시겠습니까?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"설정을 중지하시겠습니까?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"아니요"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"예"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"취소 중..."</string>
 </resources>

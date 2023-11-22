@@ -27,12 +27,12 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/spellcheck_common.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/translate/core/browser/translate_download_manager.h"
 #include "components/translate/core/browser/translate_prefs.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_ui.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
 using base::UserMetricsAction;
@@ -132,7 +132,7 @@ void LanguageOptionsHandlerCommon::GetLocalizedValues(
                                default_target_language);
 
   std::vector<std::string> languages;
-  TranslateDownloadManager::GetSupportedLanguages(&languages);
+  translate::TranslateDownloadManager::GetSupportedLanguages(&languages);
 
   base::ListValue* languages_list = new base::ListValue();
   for (std::vector<std::string>::iterator it = languages.begin();
@@ -266,7 +266,7 @@ void LanguageOptionsHandlerCommon::UpdateLanguageListCallback(
   }
 
   Profile* profile = Profile::FromWebUI(web_ui());
-  scoped_ptr<TranslatePrefs> translate_prefs =
+  scoped_ptr<translate::TranslatePrefs> translate_prefs =
       ChromeTranslateClient::CreateTranslatePrefs(profile->GetPrefs());
   translate_prefs->UpdateLanguageList(languages);
 }

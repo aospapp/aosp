@@ -21,8 +21,6 @@
 #include "base/threading/thread.h"
 #include "base/values.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/history/most_visited_tiles_experiment.h"
-#include "chrome/browser/history/page_usage_data.h"
 #include "chrome/browser/history/top_sites.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/thumbnails/thumbnail_list_source.h"
@@ -36,6 +34,7 @@
 #include "chrome/browser/ui/webui/ntp/thumbnail_source.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
+#include "components/history/core/browser/page_usage_data.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
@@ -44,10 +43,6 @@
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
-#include "grit/locale_settings.h"
-#include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
 
 using base::UserMetricsAction;
@@ -67,7 +62,7 @@ MostVisitedHandler::~MostVisitedHandler() {
         web_ui()->GetWebContents()->GetController().GetLastCommittedEntry();
     if (entry && (entry->GetURL() != ntp_url)) {
       action_id =
-          content::PageTransitionStripQualifier(entry->GetTransitionType());
+          ui::PageTransitionStripQualifier(entry->GetTransitionType());
     }
 
     UMA_HISTOGRAM_ENUMERATION("NewTabPage.MostVisitedAction", action_id,
@@ -144,11 +139,8 @@ void MostVisitedHandler::SendPagesValue() {
         profile->GetPrefs()->GetDictionary(prefs::kNtpMostVisitedURLsBlacklist);
     bool has_blacklisted_urls = !url_blacklist->empty();
     history::TopSites* ts = profile->GetTopSites();
-    if (ts) {
+    if (ts)
       has_blacklisted_urls = ts->HasBlacklistedItems();
-
-      MaybeRemovePageValues();
-    }
 
     base::FundamentalValue has_blacklisted_urls_value(has_blacklisted_urls);
     web_ui()->CallJavascriptFunction("ntp.setMostVisitedPages",
@@ -223,8 +215,6 @@ void MostVisitedHandler::SetPagesValueFromTopSites(
   pages_value_.reset(new base::ListValue);
 
   history::MostVisitedURLList top_sites(data);
-  history::MostVisitedTilesExperiment::MaybeShuffle(&top_sites);
-
   for (size_t i = 0; i < top_sites.size(); i++) {
     const history::MostVisitedURL& url = top_sites[i];
     base::DictionaryValue* page_value = new base::DictionaryValue();
@@ -267,25 +257,6 @@ void MostVisitedHandler::BlacklistUrl(const GURL& url) {
 
 std::string MostVisitedHandler::GetDictionaryKeyForUrl(const std::string& url) {
   return base::MD5String(url);
-}
-
-void MostVisitedHandler::MaybeRemovePageValues() {
-  if (!history::MostVisitedTilesExperiment::IsDontShowOpenURLsEnabled())
-    return;
-
-  TabStripModel* tab_strip_model = chrome::FindBrowserWithWebContents(
-      web_ui()->GetWebContents())->tab_strip_model();
-  history::TopSites* top_sites = Profile::FromWebUI(web_ui())->GetTopSites();
-  if (!tab_strip_model || !top_sites) {
-    NOTREACHED();
-    return;
-  }
-
-  std::set<std::string> open_urls;
-  chrome::GetOpenUrls(*tab_strip_model, *top_sites, &open_urls);
-  history::MostVisitedTilesExperiment::RemovePageValuesMatchingOpenTabs(
-      open_urls,
-      pages_value_.get());
 }
 
 // static

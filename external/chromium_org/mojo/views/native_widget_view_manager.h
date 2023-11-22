@@ -6,9 +6,14 @@
 #define MOJO_VIEWS_NATIVE_WIDGET_VIEW_MANAGER_H_
 
 #include "mojo/aura/window_tree_host_mojo_delegate.h"
-#include "mojo/services/public/cpp/view_manager/node_observer.h"
 #include "mojo/services/public/cpp/view_manager/view_observer.h"
 #include "ui/views/widget/native_widget_aura.h"
+
+namespace aura {
+namespace client {
+class DefaultCaptureClient;
+}
+}
 
 namespace ui {
 namespace internal {
@@ -26,24 +31,26 @@ class WindowTreeHostMojo;
 
 class NativeWidgetViewManager : public views::NativeWidgetAura,
                                 public WindowTreeHostMojoDelegate,
-                                public view_manager::ViewObserver,
-                                public view_manager::NodeObserver {
+                                public ViewObserver {
  public:
   NativeWidgetViewManager(views::internal::NativeWidgetDelegate* delegate,
-                          view_manager::Node* node);
+                          View* view);
   virtual ~NativeWidgetViewManager();
 
  private:
-  // Overridden from internal::NativeWidgetPrivate:
+  // Overridden from internal::NativeWidgetAura:
   virtual void InitNativeWidget(
       const views::Widget::InitParams& in_params) OVERRIDE;
 
   // WindowTreeHostMojoDelegate:
   virtual void CompositorContentsChanged(const SkBitmap& bitmap) OVERRIDE;
 
-  // view_manager::ViewObserver
-  virtual void OnViewInputEvent(view_manager::View* view,
-                                const EventPtr& event) OVERRIDE;
+  // ViewObserver:
+  virtual void OnViewDestroyed(View* view) OVERRIDE;
+  virtual void OnViewBoundsChanged(View* view,
+                                   const gfx::Rect& old_bounds,
+                                   const gfx::Rect& new_bounds) OVERRIDE;
+  virtual void OnViewInputEvent(View* view, const EventPtr& event) OVERRIDE;
 
   scoped_ptr<WindowTreeHostMojo> window_tree_host_;
 
@@ -51,7 +58,9 @@ class NativeWidgetViewManager : public views::NativeWidgetAura,
 
   scoped_ptr<ui::internal::InputMethodDelegate> ime_filter_;
 
-  view_manager::Node* node_;
+  View* view_;
+
+  scoped_ptr<aura::client::DefaultCaptureClient> capture_client_;
 
   DISALLOW_COPY_AND_ASSIGN(NativeWidgetViewManager);
 };

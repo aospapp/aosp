@@ -18,24 +18,13 @@ package com.android.rs.imagejb;
 
 import android.app.Activity;
 import android.content.Context;
-import android.os.Bundle;
-import android.graphics.BitmapFactory;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.renderscript.ScriptC;
 import android.renderscript.RenderScript;
-import android.renderscript.Type;
 import android.renderscript.Allocation;
-import android.renderscript.Element;
-import android.renderscript.Script;
-import android.view.SurfaceView;
-import android.view.SurfaceHolder;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.view.View;
 import android.util.Log;
-import java.lang.Math;
 import android.widget.Spinner;
 
 public class TestBase  {
@@ -46,18 +35,6 @@ public class TestBase  {
     protected Allocation mInPixelsAllocation2;
     protected Allocation mOutPixelsAllocation;
     protected ImageProcessingActivityJB act;
-
-    private class MessageProcessor extends RenderScript.RSMessageHandler {
-        ImageProcessingActivityJB mAct;
-
-        MessageProcessor(ImageProcessingActivityJB act) {
-            mAct = act;
-        }
-
-        public void run() {
-            mAct.updateDisplay();
-        }
-    }
 
     // Override to use UI elements
     public void onBar1Changed(int progress) {
@@ -99,6 +76,9 @@ public class TestBase  {
         return false;
     }
 
+    public void animateBars(float time) {
+    }
+
     public boolean onSpinner1Setup(Spinner s) {
         s.setVisibility(View.INVISIBLE);
         return false;
@@ -107,7 +87,6 @@ public class TestBase  {
     public final void createBaseTest(ImageProcessingActivityJB ipact) {
         act = ipact;
         mRS = ipact.mProcessor.mRS;
-        mRS.setMessageHandler(new MessageProcessor(act));
 
         mInPixelsAllocation = ipact.mProcessor.mInPixelsAllocation;
         mInPixelsAllocation2 = ipact.mProcessor.mInPixelsAllocation2;
@@ -124,28 +103,6 @@ public class TestBase  {
     public void runTest() {
     }
 
-    final public void runTestSendMessage() {
-        runTest();
-        mRS.sendMessage(0, null);
-    }
-
-    public void finish() {
-        mRS.finish();
-    }
-
     public void destroy() {
-        mRS.setMessageHandler(null);
-    }
-
-    public void updateBitmap(Bitmap b) {
-        mOutPixelsAllocation.copyTo(b);
-    }
-
-    // Override to configure specific benchmark config.
-    public void setupBenchmark() {
-    }
-
-    // Override to reset after benchmark.
-    public void exitBenchmark() {
     }
 }

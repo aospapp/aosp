@@ -144,13 +144,11 @@
 /* Define to 1 if you have the `fmodf' function. */
 #define HAVE_FMODF 1
 
-#ifdef __APPLE__
 /* Define to 1 if you have the `futimes' function. */
 #define HAVE_FUTIMES 1
-#else
+
 /* Define to 1 if you have the `futimens' function. */
-#define HAVE_FUTIMENS 1
-#endif  // __APPLE__
+/* #undef HAVE_FUTIMENS */
 
 /* Define to 1 if you have the `getcwd' function. */
 #define HAVE_GETCWD 1

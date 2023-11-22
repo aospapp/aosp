@@ -9,6 +9,7 @@
 #include "base/bind.h"
 #include "base/values.h"
 #include "chrome/common/chrome_utility_messages.h"
+#include "chrome/common/extensions/chrome_utility_extensions_messages.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/utility_process_host.h"
 #include "net/base/load_flags.h"
@@ -88,8 +89,10 @@ void WebstoreInstallHelper::OnURLFetchComplete(
     const net::URLFetcher* source) {
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   CHECK(source == url_fetcher_.get());
-  if (source->GetStatus().status() != net::URLRequestStatus::SUCCESS ||
-      source->GetResponseCode() != 200) {
+  int response_code =
+      source->GetStatus().is_success() ? source->GetResponseCode() : 0;
+  if (!source->GetStatus().is_success() ||
+      response_code / 100 == 4 || response_code / 100 == 5) {
     BrowserThread::PostTask(
         BrowserThread::IO,
         FROM_HERE,
@@ -111,7 +114,8 @@ void WebstoreInstallHelper::OnURLFetchComplete(
 void WebstoreInstallHelper::StartFetchedImageDecode() {
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   CHECK(utility_host_.get());
-  utility_host_->Send(new ChromeUtilityMsg_DecodeImage(fetched_icon_data_));
+  utility_host_->Send(new ChromeUtilityMsg_DecodeImage(fetched_icon_data_,
+                                                       false));
 }
 
 

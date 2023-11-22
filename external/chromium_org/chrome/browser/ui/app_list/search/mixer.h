@@ -6,12 +6,18 @@
 #define CHROME_BROWSER_UI_APP_LIST_SEARCH_MIXER_H_
 
 #include "base/basictypes.h"
+#include "base/gtest_prod_util.h"
 #include "base/memory/scoped_vector.h"
 #include "chrome/browser/ui/app_list/search/history_types.h"
 #include "ui/app_list/app_list_model.h"
 
 namespace app_list {
 
+namespace test {
+FORWARD_DECLARE_TEST(MixerTest, Publish);
+}
+
+class ChromeSearchResult;
 class SearchProvider;
 
 // Mixer collects results from providers, sorts them and publishes them to the
@@ -44,8 +50,31 @@ class Mixer {
   void MixAndPublish(const KnownResults& known_results);
 
  private:
+  FRIEND_TEST_ALL_PREFIXES(test::MixerTest, Publish);
+
+  // Used for sorting and mixing results.
+  struct SortData {
+    SortData();
+    SortData(ChromeSearchResult* result, double score);
+
+    bool operator<(const SortData& other) const;
+
+    ChromeSearchResult* result;  // Not owned.
+    double score;
+  };
+  typedef std::vector<Mixer::SortData> SortedResults;
+
   class Group;
   typedef ScopedVector<Group> Groups;
+
+  // Publishes the given |new_results| to |ui_results|, deleting any existing
+  // results that are not in |new_results|. Results that already exist in
+  // |ui_results| are reused to avoid flickering caused by icon reload.
+  static void Publish(const SortedResults& results,
+                      AppListModel::SearchResults* ui_results);
+
+  // Removes duplicates from |results|.
+  static void RemoveDuplicates(SortedResults* results);
 
   void FetchResults(const KnownResults& known_results);
 

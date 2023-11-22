@@ -177,7 +177,7 @@ class ShillPropertyHandlerTest : public testing::Test {
 
   virtual void SetUp() OVERRIDE {
     // Initialize DBusThreadManager with a stub implementation.
-    DBusThreadManager::InitializeWithStub();
+    DBusThreadManager::Initialize();
     // Get the test interface for manager / device / service and clear the
     // default stub properties.
     manager_test_ =
@@ -216,7 +216,12 @@ class ShillPropertyHandlerTest : public testing::Test {
                   const std::string& state) {
     VLOG(2) << "AddService: " << type << ": " << id << ": " << state;
     ASSERT_TRUE(IsValidType(type));
-    service_test_->AddService(id, id, type, state, true /* visible */);
+    service_test_->AddService(id /* service_path */,
+                              id /* guid */,
+                              id /* name */,
+                              type,
+                              state,
+                              true /* visible */);
   }
 
   void AddServiceWithIPConfig(const std::string& type,
@@ -225,7 +230,7 @@ class ShillPropertyHandlerTest : public testing::Test {
                               const std::string& ipconfig_path) {
     ASSERT_TRUE(IsValidType(type));
     service_test_->AddServiceWithIPConfig(id, /* service_path */
-                                          "" /* guid */,
+                                          id /* guid */,
                                           id /* name */,
                                           type,
                                           state,
@@ -236,7 +241,12 @@ class ShillPropertyHandlerTest : public testing::Test {
   void AddServiceToProfile(const std::string& type,
                            const std::string& id,
                            bool visible) {
-    service_test_->AddService(id, id, type, shill::kStateIdle, visible);
+    service_test_->AddService(id /* service_path */,
+                              id /* guid */,
+                              id /* name */,
+                              type,
+                              shill::kStateIdle,
+                              visible);
     std::vector<std::string> profiles;
     profile_test_->GetProfilePaths(&profiles);
     ASSERT_TRUE(profiles.size() > 0);
@@ -422,8 +432,8 @@ TEST_F(ShillPropertyHandlerTest, ShillPropertyHandlerIPConfigPropertyChanged) {
       shill::kAddressProperty, ip_address,
       base::Bind(&DoNothingWithCallStatus));
   base::ListValue dns_servers;
-  dns_servers.Append(base::Value::CreateStringValue("192.168.1.100"));
-  dns_servers.Append(base::Value::CreateStringValue("192.168.1.101"));
+  dns_servers.Append(new base::StringValue("192.168.1.100"));
+  dns_servers.Append(new base::StringValue("192.168.1.101"));
   DBusThreadManager::Get()->GetShillIPConfigClient()->SetProperty(
       dbus::ObjectPath(kTestIPConfigPath),
       shill::kNameServersProperty, dns_servers,

@@ -17,7 +17,6 @@
 class Browser;
 class BrowserActionsContainer;
 class BrowserActionView;
-
 class IconUpdater;
 
 namespace views {
@@ -41,15 +40,19 @@ class BrowserActionOverflowMenuController : public views::MenuDelegate {
       Browser* browser,
       views::MenuButton* menu_button,
       const std::vector<BrowserActionView*>& views,
-      int start_index);
+      int start_index,
+      bool for_drop);
 
   void set_observer(Observer* observer) { observer_ = observer; }
 
   // Shows the overflow menu.
-  bool RunMenu(views::Widget* widget, bool for_drop);
+  bool RunMenu(views::Widget* widget);
 
   // Closes the overflow menu (and its context menu if open as well).
   void CancelMenu();
+
+  // Notify the menu that the associated BrowserActionViews have been deleted.
+  void NotifyBrowserActionViewsDeleting();
 
   // Overridden from views::MenuDelegate:
   virtual bool IsCommandEnabled(int id) const OVERRIDE;
@@ -85,10 +88,8 @@ class BrowserActionOverflowMenuController : public views::MenuDelegate {
   // This class manages its own lifetime.
   virtual ~BrowserActionOverflowMenuController();
 
-  // Converts a menu item |id| into a BrowserActionView by adding the |id| value
-  // to the number of visible views (according to the container owner). If
-  // |index| is specified, it will point to the absolute index of the view.
-  BrowserActionView* ViewForId(int id, size_t* index);
+  // Returns the offset into |views_| for the given |id|.
+  size_t IndexForId(int id) const;
 
   // A pointer to the browser action container that owns the overflow menu.
   BrowserActionsContainer* owner_;
@@ -109,7 +110,8 @@ class BrowserActionOverflowMenuController : public views::MenuDelegate {
 
   // The views vector of all the browser actions the container knows about. We
   // won't show all items, just the one starting at |start_index| and above.
-  const std::vector<BrowserActionView*>* views_;
+  // Owned by |owner_|.
+  const std::vector<BrowserActionView*>& views_;
 
   // The index into the BrowserActionView vector, indicating where to start
   // picking browser actions to draw.

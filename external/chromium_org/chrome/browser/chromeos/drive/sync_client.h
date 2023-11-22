@@ -14,6 +14,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "chrome/browser/chromeos/drive/file_errors.h"
+#include "chrome/browser/chromeos/drive/job_scheduler.h"
 #include "chrome/browser/chromeos/drive/resource_metadata.h"
 
 namespace base {
@@ -29,7 +30,7 @@ struct ClientContext;
 
 namespace file_system {
 class DownloadOperation;
-class OperationObserver;
+class OperationDelegate;
 }
 
 namespace internal {
@@ -49,7 +50,7 @@ class ResourceMetadata;
 class SyncClient {
  public:
   SyncClient(base::SequencedTaskRunner* blocking_task_runner,
-             file_system::OperationObserver* observer,
+             file_system::OperationDelegate* delegate,
              JobScheduler* scheduler,
              ResourceMetadata* metadata,
              FileCache* cache,
@@ -66,6 +67,11 @@ class SyncClient {
   // Adds a update task.
   void AddUpdateTask(const ClientContext& context, const std::string& local_id);
 
+  // Waits for the update task to complete and runs the callback.
+  // Returns false if no task is found for the spcecified ID.
+  bool WaitForUpdateTaskToComplete(const std::string& local_id,
+                                   const FileOperationCallback& callback);
+
   // Starts processing the backlog (i.e. pinned-but-not-filed files and
   // dirty-but-not-uploaded files). Kicks off retrieval of the local
   // IDs of these files, and then starts the sync loop.
@@ -81,9 +87,6 @@ class SyncClient {
     delay_ = delay;
   }
 
-  // Starts the sync loop if it's not running.
-  void StartSyncLoop();
-
  private:
   // Types of sync tasks.
   enum SyncType {
@@ -93,24 +96,38 @@ class SyncClient {
 
   // States of sync tasks.
   enum SyncState {
-    PENDING,
-    RUNNING,
+    SUSPENDED,  // Task is currently inactive.
+    PENDING,  // Task is going to run.
+    RUNNING,  // Task is running.
   };
+
+  typedef std::pair<SyncType, std::string> SyncTaskKey;
 
   struct SyncTask {
     SyncTask();
     ~SyncTask();
     SyncState state;
-    base::Callback<base::Closure()> task;
+    ClientContext context;
+    base::Callback<base::Closure(const ClientContext& context)> task;
     bool should_run_again;
     base::Closure cancel_closure;
+    std::vector<SyncTaskKey> dependent_tasks;
+    std::vector<FileOperationCallback> waiting_callbacks;
   };
 
-  typedef std::map<std::pair<SyncType, std::string>, SyncTask> SyncTasks;
+  typedef std::map<SyncTaskKey, SyncTask> SyncTasks;
+
+  // Performs a FETCH task.
+  base::Closure PerformFetchTask(const std::string& local_id,
+                                 const ClientContext& context);
 
   // Adds a FETCH task.
   void AddFetchTaskInternal(const std::string& local_id,
                             const base::TimeDelta& delay);
+
+  // Performs a UPDATE task.
+  base::Closure PerformUpdateTask(const std::string& local_id,
+                                  const ClientContext& context);
 
   // Adds a UPDATE task.
   void AddUpdateTaskInternal(const ClientContext& context,
@@ -124,6 +141,9 @@ class SyncClient {
 
   // Called when a task is ready to start.
   void StartTask(const SyncTasks::key_type& key);
+  void StartTaskAfterGetParentResourceEntry(const SyncTasks::key_type& key,
+                                            const ResourceEntry* parent,
+                                            FileError error);
 
   // Called when the local IDs of files in the backlog are obtained.
   void OnGetLocalIdsOfBacklog(const std::vector<std::string>* to_fetch,
@@ -132,8 +152,10 @@ class SyncClient {
   // Adds fetch tasks.
   void AddFetchTasks(const std::vector<std::string>* local_ids);
 
-  // Erases the task and returns true if task is completed.
-  bool OnTaskComplete(SyncType type, const std::string& local_id);
+  // Called when a task is completed.
+  void OnTaskComplete(SyncType type,
+                      const std::string& local_id,
+                      FileError error);
 
   // Called when the file for |local_id| is fetched.
   void OnFetchFileComplete(const std::string& local_id,
@@ -141,15 +163,8 @@ class SyncClient {
                            const base::FilePath& local_path,
                            scoped_ptr<ResourceEntry> entry);
 
-  // Called when the entry is updated.
-  void OnUpdateComplete(const std::string& local_id, FileError error);
-
-  // Adds update tasks for |entries|.
-  void AddChildUpdateTasks(const ResourceEntryVector* entries,
-                           FileError error);
-
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;
-  file_system::OperationObserver* operation_observer_;
+  file_system::OperationDelegate* operation_delegate_;
   ResourceMetadata* metadata_;
   FileCache* cache_;
 

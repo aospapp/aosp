@@ -19,6 +19,7 @@
 #include "ui/aura/env.h"
 #include "ui/aura/input_state_lookup.h"
 #include "ui/aura/test/env_test_helper.h"
+#include "ui/aura/test/event_generator_delegate_aura.h"
 #include "ui/base/ime/input_method_initializer.h"
 #include "ui/compositor/scoped_animation_duration_scale_mode.h"
 #include "ui/compositor/test/context_factories_for_test.h"
@@ -51,6 +52,7 @@ AshTestHelper::AshTestHelper(base::MessageLoopForUI* message_loop)
 #if defined(USE_X11)
   aura::test::SetUseOverrideRedirectWindowByDefault(true);
 #endif
+  aura::test::InitializeAuraEventGeneratorDelegate();
 }
 
 AshTestHelper::~AshTestHelper() {
@@ -79,7 +81,7 @@ void AshTestHelper::SetUp(bool start_session) {
 #if defined(OS_CHROMEOS)
   // Create DBusThreadManager for testing.
   if (!chromeos::DBusThreadManager::IsInitialized()) {
-    chromeos::DBusThreadManager::InitializeWithStub();
+    chromeos::DBusThreadManager::Initialize();
     dbus_thread_manager_initialized_ = true;
   }
   // Create CrasAudioHandler for testing since g_browser_process is not

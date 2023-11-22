@@ -17,6 +17,7 @@
 #include "chrome/common/chrome_version_info.h"
 #include "chrome/common/extensions/features/feature_channel.h"
 #include "chrome/common/pref_names.h"
+#include "components/crx_file/id_util.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
@@ -54,11 +55,6 @@ ErrorConsole::ErrorConsole(Profile* profile)
        profile_(profile),
        prefs_(NULL),
        registry_observer_(this) {
-// TODO(rdevlin.cronin): Remove once crbug.com/159265 is fixed.
-#if !defined(ENABLE_EXTENSIONS)
-  return;
-#endif
-
   pref_registrar_.Init(profile_->GetPrefs());
   pref_registrar_.Add(prefs::kExtensionsUIDeveloperMode,
                       base::Bind(&ErrorConsole::OnPrefChanged,
@@ -82,7 +78,7 @@ void ErrorConsole::SetReportingForExtension(const std::string& extension_id,
                                             ExtensionError::Type type,
                                             bool enabled) {
   DCHECK(thread_checker_.CalledOnValidThread());
-  if (!enabled_ || !Extension::IdIsValid(extension_id))
+  if (!enabled_ || !crx_file::id_util::IdIsValid(extension_id))
     return;
 
   int mask = default_mask_;
@@ -97,13 +93,13 @@ void ErrorConsole::SetReportingForExtension(const std::string& extension_id,
 
   prefs_->UpdateExtensionPref(extension_id,
                               kStoreExtensionErrorsPref,
-                              base::Value::CreateIntegerValue(mask));
+                              new base::FundamentalValue(mask));
 }
 
 void ErrorConsole::SetReportingAllForExtension(
     const std::string& extension_id, bool enabled) {
   DCHECK(thread_checker_.CalledOnValidThread());
-  if (!enabled_ || !Extension::IdIsValid(extension_id))
+  if (!enabled_ || !crx_file::id_util::IdIsValid(extension_id))
     return;
 
   int mask = 0;
@@ -112,13 +108,13 @@ void ErrorConsole::SetReportingAllForExtension(
 
   prefs_->UpdateExtensionPref(extension_id,
                               kStoreExtensionErrorsPref,
-                              base::Value::CreateIntegerValue(mask));
+                              new base::FundamentalValue(mask));
 }
 
 bool ErrorConsole::IsReportingEnabledForExtension(
     const std::string& extension_id) const {
   DCHECK(thread_checker_.CalledOnValidThread());
-  if (!enabled_ || !Extension::IdIsValid(extension_id))
+  if (!enabled_ || !crx_file::id_util::IdIsValid(extension_id))
     return false;
 
   return GetMaskForExtension(extension_id) != 0;
@@ -127,7 +123,7 @@ bool ErrorConsole::IsReportingEnabledForExtension(
 void ErrorConsole::UseDefaultReportingForExtension(
     const std::string& extension_id) {
   DCHECK(thread_checker_.CalledOnValidThread());
-  if (!enabled_ || !Extension::IdIsValid(extension_id))
+  if (!enabled_ || !crx_file::id_util::IdIsValid(extension_id))
     return;
 
   prefs_->UpdateExtensionPref(extension_id, kStoreExtensionErrorsPref, NULL);
@@ -135,7 +131,7 @@ void ErrorConsole::UseDefaultReportingForExtension(
 
 void ErrorConsole::ReportError(scoped_ptr<ExtensionError> error) {
   DCHECK(thread_checker_.CalledOnValidThread());
-  if (!enabled_ || !Extension::IdIsValid(error->extension_id()))
+  if (!enabled_ || !crx_file::id_util::IdIsValid(error->extension_id()))
     return;
 
   int mask = GetMaskForExtension(error->extension_id());
@@ -226,7 +222,8 @@ void ErrorConsole::OnExtensionLoaded(content::BrowserContext* browser_context,
 
 void ErrorConsole::OnExtensionInstalled(
     content::BrowserContext* browser_context,
-    const Extension* extension) {
+    const Extension* extension,
+    bool is_update) {
   // We don't want to have manifest errors from previous installs. We want
   // to keep runtime errors, though, because extensions are reloaded on a
   // refresh of chrome:extensions, and we don't want to wipe our history
@@ -238,7 +235,8 @@ void ErrorConsole::OnExtensionInstalled(
 
 void ErrorConsole::OnExtensionUninstalled(
     content::BrowserContext* browser_context,
-    const Extension* extension) {
+    const Extension* extension,
+    extensions::UninstallReason reason) {
   errors_.Remove(extension->id());
 }
 

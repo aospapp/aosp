@@ -2,13 +2,20 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import page_sets
 from measurements import polymer_load
-from telemetry import test
+import page_sets
+from telemetry import benchmark
 
 
-class PolymerLoadPica(test.Test):
-  """Measures time to polymer-ready for PICA
-  """
+@benchmark.Enabled('android')
+class PolymerLoadPica(benchmark.Benchmark):
+  """Measures time to polymer-ready for Pica (News Reader)."""
   test = polymer_load.PolymerLoadMeasurement
   page_set = page_sets.PicaPageSet
+
+
+@benchmark.Enabled('android')
+class PolymerLoadTopeka(benchmark.Benchmark):
+  """Measures time to polymer-ready for Topeka (Quiz App)."""
+  test = polymer_load.PolymerLoadMeasurement
+  page_set = page_sets.TopekaPageSet

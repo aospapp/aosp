@@ -32,7 +32,9 @@ public class ProgramTest extends ActivityInstrumentationTestCase2<OpenGLES20Acti
         intent.putExtra(OpenGLES20NativeActivityOne.EXTRA_VIEW_TYPE, viewType);
         intent.putExtra(OpenGLES20NativeActivityOne.EXTRA_VIEW_INDEX, viewIndex);
         setActivityIntent(intent);
-        return getActivity();
+        OpenGLES20ActivityOne activity = getActivity();
+        assertTrue(activity.waitForFrameDrawn());
+        return activity;
     }
 
     public void test_glAttachShader_program() throws Throwable {

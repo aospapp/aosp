@@ -44,10 +44,9 @@
     "tc-stl-rbtree",
     "tc-stl-vector",
     "tc-stl-hashtable",
-    "tc-stl-node",
+    "tc-stl-other",
     "tc-webcore-fontcache",
     "tc-skia",
-    "tc-renderobject",
     "tc-renderstyle",
     "tc-webcore-sharedbuf",
     "tc-webcore-XHRcreate",
@@ -58,11 +57,11 @@
     "tc-webcore-element-wrapper",
     "tc-webcore-stylepropertyset",
     "tc-webcore-style-createsheet",
-    "tc-webcore-cachedresource",
+    "tc-webcore-resource",
     "tc-webcore-script-execute",
     "tc-webcore-events-related",
     "tc-webcore-document-write",
-    "tc-webcore-node-create-renderer",
+    "tc-webcore-element-create-renderer",
     "tc-webcore-render-catch-all",
     "tc-webcore-setInnerHTML-except-node",
     "tc-wtf-StringImpl-user-catch-all",
@@ -71,11 +70,6 @@
     "tc-webkit-from-v8-catch-all",
     "tc-webkit-catch-all",
     "tc-v8-catch-all",
-    "tc-toplevel-string",
-    "tc-std-treemap",
-    "tc-std-hashmap",
-    "tc-std-vector",
-    "tc-std-other",
     "tc-catch-all",
     "tc-unused",
     "UNTIL_HERE_FOR_TOTAL",
@@ -315,13 +309,13 @@
       "allocator": "malloc"
     },
     {
-      "name": "tc-stl-node",
-      "stacktrace": ".*std::priv::_Impl_vector::.*",
+      "name": "tc-stl-other",
+      "stacktrace": ".*std::__stl_new.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-fontcache",
-      "stacktrace": ".*WebCore::FontCache::getCachedFontData.*",
+      "stacktrace": ".*(WebCore|blink)::FontCache::getCachedFontData.*",
       "allocator": "malloc"
     },
     {
@@ -330,188 +324,178 @@
       "allocator": "malloc"
     },
     {
-      "name": "tc-renderobject",
-      "stacktrace": ".*WebCore::RenderArena::allocate.*",
+      "name": "tc-renderstyle",
+      "stacktrace": ".*(WebCore|blink)::RenderStyle::create.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-renderstyle",
-      "stacktrace": ".*WebCore::RenderStyle::create.*",
-      "allocator": "malloc"
-    },
-    {
-      "name": "tc-renderstyle",
-      "stacktrace": ".*WebCore::RenderStyle::clone.*",
+      "stacktrace": ".*(WebCore|blink)::RenderStyle::clone.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-sharedbuf",
-      "stacktrace": ".*WebCore::SharedBuffer::create.*",
+      "stacktrace": ".*(WebCore|blink)::SharedBuffer::create.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-sharedbuf",
-      "stacktrace": ".*WebCore::SharedBuffer::buffer.*",
+      "stacktrace": ".*(WebCore|blink)::SharedBuffer::buffer.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-sharedbuf",
-      "stacktrace": ".*WebCore::SharedBuffer::append.*",
+      "stacktrace": ".*(WebCore|blink)::SharedBuffer::append.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-XHRcreate",
-      "stacktrace": ".*WebCore::XMLHttpRequest::create .*",
+      "stacktrace": ".*(WebCore|blink)::XMLHttpRequest::create .*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-XHRreceived",
-      "stacktrace": ".*WebCore::XMLHttpRequest::didReceiveData.*",
+      "stacktrace": ".*(WebCore|blink)::XMLHttpRequest::didReceiveData.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-docwriter-add",
-      "stacktrace": ".*WebCore::DocumentWriter::addData.*",
+      "stacktrace": ".*(WebCore|blink)::DocumentWriter::addData.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-node-and-doc",
-      "stacktrace": ".*WebCore::HTML[a-zA-Z0-9_]*Element::create .*",
+      "stacktrace": ".*(WebCore|blink)::HTML[a-zA-Z0-9_]*Element::create .*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-node-and-doc",
-      "stacktrace": ".*WebCore::Text::create .*",
+      "stacktrace": ".*(WebCore|blink)::Text::create .*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-node-and-doc",
-      "stacktrace": ".*WebCore::Comment::create .*",
+      "stacktrace": ".*(WebCore|blink)::Comment::create .*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-node-and-doc",
-      "stacktrace": ".*WebCore::HTMLDocument::create .*",
+      "stacktrace": ".*(WebCore|blink)::HTMLDocument::create .*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-node-and-doc",
-      "stacktrace": ".*WebCore::CSSStyleRule::create .*",
+      "stacktrace": ".*(WebCore|blink)::CSSStyleRule::create .*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-node-and-doc",
-      "stacktrace": ".*WebCore::Attribute::create .*",
+      "stacktrace": ".*(WebCore|blink)::Attribute::create .*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-node-and-doc",
-      "stacktrace": ".*WebCore::DOMWindow::create .*",
+      "stacktrace": ".*(WebCore|blink)::DOMWindow::create .*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-node-factory",
-      "stacktrace": ".*WebCore::HTML[a-zA-Z0-9_]*Factory::create[a-zA-Z0-9_]*Element.*",
+      "stacktrace": ".*(WebCore|blink)::HTML[a-zA-Z0-9_]*Factory::create[a-zA-Z0-9_]*Element.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-element-wrapper",
-      "stacktrace": ".*WebCore::createHTML[a-zA-Z0-9_]*ElementWrapper.*",
+      "stacktrace": ".*(WebCore|blink)::createHTML[a-zA-Z0-9_]*ElementWrapper.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-stylepropertyset",
-      "stacktrace": ".*WebCore::StylePropertySet::create .*",
+      "stacktrace": ".*(WebCore|blink)::StylePropertySet::create .*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-style-createsheet",
-      "stacktrace": ".*WebCore::StyleElement::createSheet.*",
+      "stacktrace": ".*(WebCore|blink)::StyleElement::createSheet.*",
       "allocator": "malloc"
     },
     {
-      "name": "tc-webcore-cachedresource",
-      "stacktrace": ".*WebCore::CachedResource::data .*",
-      "allocator": "malloc"
-    },
-    {
-      "name": "tc-webcore-cachedresource",
-      "stacktrace": ".*WebCore::CachedResource::load .*",
+      "name": "tc-webcore-resource",
+      "stacktrace": ".*(WebCore|blink)::ResourceFetcher::requestResource .*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-script-execute",
-      "stacktrace": ".*WebCore::ScriptElement::execute.*",
+      "stacktrace": ".*(WebCore|blink)::ScriptLoader::execute.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-events-related",
-      "stacktrace": ".*WebCore::createAttributeEventListener.*",
+      "stacktrace": ".*(WebCore|blink)::createAttributeEventListener.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-events-related",
-      "stacktrace": ".*WebCore::V8LazyEventListener::create.*",
+      "stacktrace": ".*(WebCore|blink)::V8LazyEventListener::create.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-events-related",
-      "stacktrace": ".*WebCore::V8EventListener::create.*",
+      "stacktrace": ".*(WebCore|blink)::V8EventListener::create.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-events-related",
-      "stacktrace": ".*WebCore::Event::create .*",
+      "stacktrace": ".*(WebCore|blink)::Event::create .*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-events-related",
-      "stacktrace": ".*WebCore::EventListener::create .*",
+      "stacktrace": ".*(WebCore|blink)::EventListener::create .*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-document-write",
-      "stacktrace": ".*WebCore::Document::write.*",
+      "stacktrace": ".*(WebCore|blink)::Document::write.*",
       "allocator": "malloc"
     },
     {
-      "name": "tc-webcore-node-create-renderer",
-      "stacktrace": ".*WebCore::Node::createRendererIfNeeded.*",
-      "allocator": "malloc"
-    },
-    {
-      "name": "tc-webcore-render-catch-all",
-      "stacktrace": ".*WebCore::RenderLayer.*",
+      "name": "tc-webcore-element-create-renderer",
+      "stacktrace": ".*(WebCore|blink)::[a-zA-Z0-9_]*Element::createRenderer .*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-render-catch-all",
-      "stacktrace": ".*WebCore::RenderBlock.*",
+      "stacktrace": ".*(WebCore|blink)::RenderLayer.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-render-catch-all",
-      "stacktrace": ".*WebCore::RenderWidget.*",
+      "stacktrace": ".*(WebCore|blink)::RenderBlock.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-render-catch-all",
-      "stacktrace": ".*WebCore::RenderView.*",
+      "stacktrace": ".*(WebCore|blink)::RenderWidget.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-render-catch-all",
-      "stacktrace": ".*WebCore::RenderViewImpl.*",
+      "stacktrace": ".*(WebCore|blink)::RenderView.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-render-catch-all",
-      "stacktrace": ".*WebCore::RenderStyle.*",
+      "stacktrace": ".*(WebCore|blink)::RenderViewImpl.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webcore-render-catch-all",
-      "stacktrace": ".*WebCore::RenderText.*",
+      "stacktrace": ".*(WebCore|blink)::RenderStyle.*",
+      "allocator": "malloc"
+    },
+    {
+      "name": "tc-webcore-render-catch-all",
+      "stacktrace": ".*(WebCore|blink)::RenderText.*",
       "allocator": "malloc"
     },
     {
@@ -521,7 +505,7 @@
     },
     {
       "name": "tc-webcore-setInnerHTML-except-node",
-      "stacktrace": ".*WebCore::HTMLElement::setInnerHTML.*",
+      "stacktrace": ".*(WebCore|blink)::Element::setInnerHTML.*",
       "allocator": "malloc"
     },
     {
@@ -541,47 +525,22 @@
     },
     {
       "name": "tc-webcore-everything-create",
-      "stacktrace": ".*WebCore::[a-zA-Z0-9_]*::create .*",
+      "stacktrace": ".*(WebCore|blink)::[a-zA-Z0-9_]*::create .*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webkit-from-v8-catch-all",
-      "stacktrace": ".*(WTF::|WebCore::|WebKit::).*v8::.*",
+      "stacktrace": ".*(WTF::|WebCore::|blink::|WebKit::).*v8::.*",
       "allocator": "malloc"
     },
     {
       "name": "tc-webkit-catch-all",
-      "stacktrace": ".*(WTF::|WebCore::|WebKit::).*",
+      "stacktrace": ".*(WTF::|WebCore::|blink::|WebKit::).*",
       "allocator": "malloc"
     },
     {
       "name": "tc-v8-catch-all",
       "stacktrace": ".*v8::.*",
-      "allocator": "malloc"
-    },
-    {
-      "name": "tc-toplevel-string",
-      "stacktrace": "std::basic_string::_Rep::_S_create",
-      "allocator": "malloc"
-    },
-    {
-      "name": "tc-std-treemap",
-      "stacktrace": ".*::allocate std::(_Rb_tree|__1::__tree).*",
-      "allocator": "malloc"
-    },
-    {
-      "name": "tc-std-hashmap",
-      "stacktrace": ".*(std::vector::reserve __gnu_cxx::hashtable|::allocate std::_Hashtable|::allocate std::__1::__hash_table).*",
-      "allocator": "malloc"
-    },
-    {
-      "name": "tc-std-vector",
-      "stacktrace": ".*std::(_Vector_base::_M_allocate|__1::vector::allocate).*",
-      "allocator": "malloc"
-    },
-    {
-      "name": "tc-std-other",
-      "stacktrace": ".*(__gnu_cxx::new_allocator::allocate|std::__1::allocator::allocate).*",
       "allocator": "malloc"
     },
     {

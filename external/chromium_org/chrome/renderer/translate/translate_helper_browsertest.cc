@@ -3,11 +3,14 @@
 // found in the LICENSE file.
 
 #include "base/time/time.h"
-#include "chrome/renderer/translate/translate_helper.h"
+#include "chrome/renderer/isolated_world_ids.h"
 #include "chrome/test/base/chrome_render_view_test.h"
 #include "components/translate/content/common/translate_messages.h"
+#include "components/translate/content/renderer/translate_helper.h"
 #include "components/translate/core/common/translate_constants.h"
 #include "content/public/renderer/render_view.h"
+#include "extensions/common/constants.h"
+#include "extensions/renderer/extension_groups.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/WebKit/public/web/WebLocalFrame.h"
@@ -16,11 +19,14 @@ using testing::AtLeast;
 using testing::Return;
 using testing::_;
 
-class TestTranslateHelper : public TranslateHelper {
+class TestTranslateHelper : public translate::TranslateHelper {
  public:
   explicit TestTranslateHelper(content::RenderView* render_view)
-      : TranslateHelper(render_view) {
-  }
+      : translate::TranslateHelper(
+            render_view,
+            chrome::ISOLATED_WORLD_ID_TRANSLATE,
+            extensions::EXTENSION_GROUP_INTERNAL_TRANSLATE_SCRIPTS,
+            extensions::kExtensionScheme) {}
 
   virtual base::TimeDelta AdjustDelay(int delayInMs) OVERRIDE {
     // Just returns base::TimeDelta() which has initial value 0.
@@ -28,11 +34,10 @@ class TestTranslateHelper : public TranslateHelper {
     return base::TimeDelta();
   }
 
-  void TranslatePage(int page_id,
-                     const std::string& source_lang,
+  void TranslatePage(const std::string& source_lang,
                      const std::string& target_lang,
                      const std::string& translate_script) {
-    OnTranslatePage(page_id, translate_script, source_lang, target_lang);
+    OnTranslatePage(0, translate_script, source_lang, target_lang);
   }
 
   MOCK_METHOD0(IsTranslateLibAvailable, bool());
@@ -66,25 +71,22 @@ class TranslateHelperBrowserTest : public ChromeRenderViewTest {
     ChromeRenderViewTest::TearDown();
   }
 
-  bool GetPageTranslatedMessage(int* page_id,
-                                std::string* original_lang,
+  bool GetPageTranslatedMessage(std::string* original_lang,
                                 std::string* target_lang,
-                                TranslateErrors::Type* error) {
+                                translate::TranslateErrors::Type* error) {
     const IPC::Message* message = render_thread_->sink().
         GetUniqueMessageMatching(ChromeViewHostMsg_PageTranslated::ID);
     if (!message)
       return false;
-    Tuple4<int, std::string, std::string, TranslateErrors::Type>
+    Tuple3<std::string, std::string, translate::TranslateErrors::Type>
         translate_param;
     ChromeViewHostMsg_PageTranslated::Read(message, &translate_param);
-    if (page_id)
-      *page_id = translate_param.a;
     if (original_lang)
-      *original_lang = translate_param.b;
+      *original_lang = translate_param.a;
     if (target_lang)
-      *target_lang = translate_param.c;
+      *target_lang = translate_param.b;
     if (error)
-      *error = translate_param.d;
+      *error = translate_param.c;
     return true;
   }
 
@@ -108,15 +110,12 @@ TEST_F(TranslateHelperBrowserTest, TranslateLibNeverReady) {
                           // translate_helper.cc
       .WillRepeatedly(Return(false));
 
-  translate_helper_->TranslatePage(
-      view_->GetPageId(), "en", "fr", std::string());
+  translate_helper_->TranslatePage("en", "fr", std::string());
   base::MessageLoop::current()->RunUntilIdle();
 
-  int page_id;
-  TranslateErrors::Type error;
-  ASSERT_TRUE(GetPageTranslatedMessage(&page_id, NULL, NULL, &error));
-  EXPECT_EQ(view_->GetPageId(), page_id);
-  EXPECT_EQ(TranslateErrors::INITIALIZATION_ERROR, error);
+  translate::TranslateErrors::Type error;
+  ASSERT_TRUE(GetPageTranslatedMessage(NULL, NULL, &error));
+  EXPECT_EQ(translate::TranslateErrors::INITIALIZATION_ERROR, error);
 }
 
 // Tests that the browser gets notified of the translation success when the
@@ -148,22 +147,18 @@ TEST_F(TranslateHelperBrowserTest, TranslateSuccess) {
 
   std::string original_lang("en");
   std::string target_lang("fr");
-  translate_helper_->TranslatePage(
-      view_->GetPageId(), original_lang, target_lang, std::string());
+  translate_helper_->TranslatePage(original_lang, target_lang, std::string());
   base::MessageLoop::current()->RunUntilIdle();
 
-  int page_id;
   std::string received_original_lang;
   std::string received_target_lang;
-  TranslateErrors::Type error;
-  ASSERT_TRUE(GetPageTranslatedMessage(&page_id,
-                                       &received_original_lang,
+  translate::TranslateErrors::Type error;
+  ASSERT_TRUE(GetPageTranslatedMessage(&received_original_lang,
                                        &received_target_lang,
                                        &error));
-  EXPECT_EQ(view_->GetPageId(), page_id);
   EXPECT_EQ(original_lang, received_original_lang);
   EXPECT_EQ(target_lang, received_target_lang);
-  EXPECT_EQ(TranslateErrors::NONE, error);
+  EXPECT_EQ(translate::TranslateErrors::NONE, error);
 }
 
 // Tests that the browser gets notified of the translation failure when the
@@ -195,15 +190,12 @@ TEST_F(TranslateHelperBrowserTest, TranslateFailure) {
   EXPECT_CALL(*translate_helper_,
               ExecuteScriptAndGetDoubleResult(_)).Times(2);
 
-  translate_helper_->TranslatePage(
-      view_->GetPageId(), "en", "fr", std::string());
+  translate_helper_->TranslatePage("en", "fr", std::string());
   base::MessageLoop::current()->RunUntilIdle();
 
-  int page_id;
-  TranslateErrors::Type error;
-  ASSERT_TRUE(GetPageTranslatedMessage(&page_id, NULL, NULL, &error));
-  EXPECT_EQ(view_->GetPageId(), page_id);
-  EXPECT_EQ(TranslateErrors::TRANSLATION_ERROR, error);
+  translate::TranslateErrors::Type error;
+  ASSERT_TRUE(GetPageTranslatedMessage(NULL, NULL, &error));
+  EXPECT_EQ(translate::TranslateErrors::TRANSLATION_ERROR, error);
 }
 
 // Tests that when the browser translate a page for which the language is
@@ -232,21 +224,18 @@ TEST_F(TranslateHelperBrowserTest, UndefinedSourceLang) {
   EXPECT_CALL(*translate_helper_,
               ExecuteScriptAndGetDoubleResult(_)).Times(3);
 
-  translate_helper_->TranslatePage(view_->GetPageId(),
-                                   translate::kUnknownLanguageCode, "fr",
+  translate_helper_->TranslatePage(translate::kUnknownLanguageCode,
+                                   "fr",
                                    std::string());
   base::MessageLoop::current()->RunUntilIdle();
 
-  int page_id;
-  TranslateErrors::Type error;
+  translate::TranslateErrors::Type error;
   std::string original_lang;
   std::string target_lang;
-  ASSERT_TRUE(GetPageTranslatedMessage(&page_id, &original_lang, &target_lang,
-                                       &error));
-  EXPECT_EQ(view_->GetPageId(), page_id);
+  ASSERT_TRUE(GetPageTranslatedMessage(&original_lang, &target_lang, &error));
   EXPECT_EQ("de", original_lang);
   EXPECT_EQ("fr", target_lang);
-  EXPECT_EQ(TranslateErrors::NONE, error);
+  EXPECT_EQ(translate::TranslateErrors::NONE, error);
 }
 
 // Tests that starting a translation while a similar one is pending does not
@@ -273,26 +262,21 @@ TEST_F(TranslateHelperBrowserTest, MultipleSimilarTranslations) {
 
   std::string original_lang("en");
   std::string target_lang("fr");
-  translate_helper_->TranslatePage(
-      view_->GetPageId(), original_lang, target_lang, std::string());
+  translate_helper_->TranslatePage(original_lang, target_lang, std::string());
   // While this is running call again TranslatePage to make sure noting bad
   // happens.
-  translate_helper_->TranslatePage(
-      view_->GetPageId(), original_lang, target_lang, std::string());
+  translate_helper_->TranslatePage(original_lang, target_lang, std::string());
   base::MessageLoop::current()->RunUntilIdle();
 
-  int page_id;
   std::string received_original_lang;
   std::string received_target_lang;
-  TranslateErrors::Type error;
-  ASSERT_TRUE(GetPageTranslatedMessage(&page_id,
-                                       &received_original_lang,
+  translate::TranslateErrors::Type error;
+  ASSERT_TRUE(GetPageTranslatedMessage(&received_original_lang,
                                        &received_target_lang,
                                        &error));
-  EXPECT_EQ(view_->GetPageId(), page_id);
   EXPECT_EQ(original_lang, received_original_lang);
   EXPECT_EQ(target_lang, received_target_lang);
-  EXPECT_EQ(TranslateErrors::NONE, error);
+  EXPECT_EQ(translate::TranslateErrors::NONE, error);
 }
 
 // Tests that starting a translation while a different one is pending works.
@@ -315,26 +299,22 @@ TEST_F(TranslateHelperBrowserTest, MultipleDifferentTranslations) {
 
   std::string original_lang("en");
   std::string target_lang("fr");
-  translate_helper_->TranslatePage(
-      view_->GetPageId(), original_lang, target_lang, std::string());
+  translate_helper_->TranslatePage(original_lang, target_lang, std::string());
   // While this is running call again TranslatePage with a new target lang.
   std::string new_target_lang("de");
   translate_helper_->TranslatePage(
-      view_->GetPageId(), original_lang, new_target_lang, std::string());
+      original_lang, new_target_lang, std::string());
   base::MessageLoop::current()->RunUntilIdle();
 
-  int page_id;
   std::string received_original_lang;
   std::string received_target_lang;
-  TranslateErrors::Type error;
-  ASSERT_TRUE(GetPageTranslatedMessage(&page_id,
-                                       &received_original_lang,
+  translate::TranslateErrors::Type error;
+  ASSERT_TRUE(GetPageTranslatedMessage(&received_original_lang,
                                        &received_target_lang,
                                        &error));
-  EXPECT_EQ(view_->GetPageId(), page_id);
   EXPECT_EQ(original_lang, received_original_lang);
   EXPECT_EQ(new_target_lang, received_target_lang);
-  EXPECT_EQ(TranslateErrors::NONE, error);
+  EXPECT_EQ(translate::TranslateErrors::NONE, error);
 }
 
 // Tests that we send the right translate language message for a page and that

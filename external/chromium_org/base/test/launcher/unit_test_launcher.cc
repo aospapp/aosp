@@ -9,7 +9,7 @@
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/debug/debugger.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/format_macros.h"
 #include "base/message_loop/message_loop.h"
@@ -187,7 +187,7 @@ class UnitTestLauncherDelegate : public TestLauncherDelegate {
         cmd_line,
         std::string(),
         TestTimeouts::test_launcher_timeout(),
-        use_job_objects_,
+        use_job_objects_ ? TestLauncher::USE_JOB_OBJECTS : 0,
         Bind(&UnitTestLauncherDelegate::SerialGTestCallback,
              Unretained(this),
              callback_state,
@@ -229,7 +229,7 @@ class UnitTestLauncherDelegate : public TestLauncherDelegate {
         cmd_line,
         std::string(),
         timeout,
-        use_job_objects_,
+        use_job_objects_ ? TestLauncher::USE_JOB_OBJECTS : 0,
         Bind(&UnitTestLauncherDelegate::GTestCallback,
              Unretained(this),
              callback_state));

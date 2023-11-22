@@ -119,30 +119,30 @@ public class StreamingVideoActivity extends PassFailButtons.TestListActivity {
         new Stream("H263 Video, AMR Audio", "http_h263_amr",
                 "http://redirector.c.play.google.com/"
                 + "videoplayback?id=271de9756065677e"
-                + "&itag=13&ip=0.0.0.0&ipbits=0&expire=999999999999999999"
-                + "&sparams=ip,ipbits,expire,ip,ipbits,expire,id,itag"
-                + "&signature=372FA4C532AA49D14EAF049BCDA66460EEE161E9"
-                + ".6D8BF096B73B7A68A7032CA8685053CFB498D30A"
+                + "&itag=13&ip=0.0.0.0&ipbits=0&expire=19000000000"
+                + "&sparams=ip,ipbits,expire,id,itag"
+                + "&signature=073A731E2BDF1E05206AC7B9B895C922ABCBA01D"
+                + ".1DDA3F999541D2136E6755F16FC44CA972767169"
                 + "&source=youtube"
-                + "&key=test_key1&user=android-device-test"),
+                + "&key=ik0&user=android-device-test"),
         new Stream("MPEG4 SP Video, AAC Audio", "http_mpeg4_aac",
                 "http://redirector.c.play.google.com/"
                 + "videoplayback?id=271de9756065677e"
-                + "&itag=17&ip=0.0.0.0&ipbits=0&expire=999999999999999999"
-                + "&sparams=ip,ipbits,expire,ip,ipbits,expire,id,itag"
-                + "&signature=3DCD3F79E045F95B6AF661765F046FB0440FF016"
-                + ".06A42661B3AF6BAF046F012549CC9BA34EBC80A9"
+                + "&itag=17&ip=0.0.0.0&ipbits=0&expire=19000000000"
+                + "&sparams=ip,ipbits,expire,id,itag"
+                + "&signature=6B0F8B8A6A7FD9E4CDF123349C2E061ED2020D74"
+                + ".3460FC81D6C8894BA2D241597D2E1D059845F5F0"
                 + "&source=youtube"
-                + "&key=test_key1&user=android-device-test"),
+                + "&key=ik0&user=android-device-test"),
         new Stream("H264 Base Video, AAC Audio", "http_h264_aac",
                 "http://redirector.c.play.google.com/"
                 + "videoplayback?id=271de9756065677e"
-                + "&itag=18&ip=0.0.0.0&ipbits=0&expire=999999999999999999"
-                + "&sparams=ip,ipbits,expire,ip,ipbits,expire,id,itag"
-                + "&signature=1219C2B07AF0638C27916307A6093C0E43CB894E"
-                + ".126B6B916BD57157782738AA7C03E59F21DBC168"
+                + "&itag=18&ip=0.0.0.0&ipbits=0&expire=19000000000"
+                + "&sparams=ip,ipbits,expire,id,itag"
+                + "&signature=75627CD4CEA73D7868CBDE3CE5C4011955164107"
+                + ".1DCFB0EF1372B48DDCFBE69645FE137AC02AF561"
                 + "&source=youtube"
-                + "&key=test_key1&user=android-device-test"),
+                + "&key=ik0&user=android-device-test"),
     };
 
     @Override

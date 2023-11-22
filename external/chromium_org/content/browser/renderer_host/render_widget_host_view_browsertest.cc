@@ -29,7 +29,7 @@
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "ui/base/layout.h"
 #include "ui/base/ui_base_switches.h"
-#include "ui/gfx/size_conversions.h"
+#include "ui/gfx/geometry/size_conversions.h"
 #include "ui/gfx/switches.h"
 #include "ui/gl/gl_switches.h"
 
@@ -157,7 +157,7 @@ class RenderWidgetHostViewBrowserTest : public ContentBrowserTest {
               &RenderWidgetHostViewBrowserTest::FinishCopyFromBackingStore,
               base::Unretained(this),
               run_loop.QuitClosure()),
-          SkBitmap::kARGB_8888_Config);
+          kN32_SkColorType);
       run_loop.Run();
 
       if (frames_captured())
@@ -247,7 +247,8 @@ class FakeFrameSubscriber : public RenderWidgetHostViewFrameSubscriber {
       : callback_(callback) {
   }
 
-  virtual bool ShouldCaptureFrame(base::TimeTicks present_time,
+  virtual bool ShouldCaptureFrame(const gfx::Rect& damage_rect,
+                                  base::TimeTicks present_time,
                                   scoped_refptr<media::VideoFrame>* storage,
                                   DeliverFrameCallback* callback) OVERRIDE {
     // Only allow one frame capture to be made.  Otherwise, the compositor could
@@ -291,7 +292,7 @@ IN_PROC_BROWSER_TEST_P(CompositingRenderWidgetHostViewBrowserTest,
       base::Bind(&RenderWidgetHostViewBrowserTest::FinishCopyFromBackingStore,
                  base::Unretained(this),
                  run_loop.QuitClosure()),
-      SkBitmap::kARGB_8888_Config);
+      kN32_SkColorType);
   // Delete the surface before the callback is run.
   GetRenderWidgetHostView()->AcceleratedSurfaceRelease();
   run_loop.Run();
@@ -429,7 +430,7 @@ class CompositingRenderWidgetHostViewBrowserTestTabCapture
         expected_copy_from_compositing_surface_bitmap_;
     EXPECT_EQ(expected_bitmap.width(), bitmap.width());
     EXPECT_EQ(expected_bitmap.height(), bitmap.height());
-    EXPECT_EQ(expected_bitmap.config(), bitmap.config());
+    EXPECT_EQ(expected_bitmap.colorType(), bitmap.colorType());
     SkAutoLockPixels expected_bitmap_lock(expected_bitmap);
     SkAutoLockPixels bitmap_lock(bitmap);
     int fails = 0;
@@ -488,17 +489,11 @@ class CompositingRenderWidgetHostViewBrowserTestTabCapture
     media::SkCanvasVideoRenderer video_renderer;
 
     SkBitmap bitmap;
-    bitmap.allocPixels(SkImageInfo::Make(video_frame->visible_rect().width(),
-                                         video_frame->visible_rect().height(),
-                                         kPMColor_SkColorType,
-                                         kPremul_SkAlphaType));
-    bitmap.eraseColor(SK_ColorTRANSPARENT);
+    bitmap.allocN32Pixels(video_frame->visible_rect().width(),
+                          video_frame->visible_rect().height());
+    // Don't clear the canvas because drawing a video frame by Src mode.
     SkCanvas canvas(bitmap);
-
-    video_renderer.Paint(video_frame.get(),
-                         &canvas,
-                         video_frame->visible_rect(),
-                         0xff);
+    video_renderer.Copy(video_frame, &canvas);
 
     CopyFromCompositingSurfaceCallback(quit_callback,
                                        result,
@@ -523,15 +518,12 @@ class CompositingRenderWidgetHostViewBrowserTestTabCapture
   // Loads a page two boxes side-by-side, each half the width of
   // |html_rect_size|, and with different background colors. The test then
   // copies from |copy_rect| region of the page into a bitmap of size
-  // |output_size|, and compares that with a bitmap of size
-  // |expected_bitmap_size|.
+  // |output_size|, and examines the resulting bitmap/VideoFrame.
   // Note that |output_size| may not have the same size as |copy_rect| (e.g.
-  // when the output is scaled). Also note that |expected_bitmap_size| may not
-  // be the same as |output_size| (e.g. when the device scale factor is not 1).
+  // when the output is scaled).
   void PerformTestWithLeftRightRects(const gfx::Size& html_rect_size,
                                      const gfx::Rect& copy_rect,
                                      const gfx::Size& output_size,
-                                     const gfx::Size& expected_bitmap_size,
                                      bool video_frame) {
     const gfx::Size box_size(html_rect_size.width() / 2,
                              html_rect_size.height());
@@ -592,7 +584,7 @@ class CompositingRenderWidgetHostViewBrowserTestTabCapture
       GiveItSomeTime();
 
     SkBitmap expected_bitmap;
-    SetupLeftRightBitmap(expected_bitmap_size, &expected_bitmap);
+    SetupLeftRightBitmap(output_size, &expected_bitmap);
     SetExpectedCopyFromCompositingSurfaceResult(true, expected_bitmap);
 
     base::RunLoop run_loop;
@@ -605,9 +597,9 @@ class CompositingRenderWidgetHostViewBrowserTestTabCapture
 
       scoped_refptr<media::VideoFrame> video_frame =
           media::VideoFrame::CreateFrame(media::VideoFrame::YV12,
-                                         expected_bitmap_size,
-                                         gfx::Rect(expected_bitmap_size),
-                                         expected_bitmap_size,
+                                         output_size,
+                                         gfx::Rect(output_size),
+                                         output_size,
                                          base::TimeDelta());
 
       base::Callback<void(bool success)> callback =
@@ -620,16 +612,16 @@ class CompositingRenderWidgetHostViewBrowserTestTabCapture
                                                     video_frame,
                                                     callback);
     } else {
-#if defined(USE_AURA)
-      if (!content::GpuDataManager::GetInstance()
-               ->CanUseGpuBrowserCompositor()) {
-        // Skia rendering can cause color differences, particularly in the
-        // middle two columns.
-        SetAllowableError(2);
-        SetExcludeRect(
-            gfx::Rect(output_size.width() / 2 - 1, 0, 2, output_size.height()));
+      if (IsDelegatedRendererEnabled()) {
+        if (!content::GpuDataManager::GetInstance()
+                 ->CanUseGpuBrowserCompositor()) {
+          // Skia rendering can cause color differences, particularly in the
+          // middle two columns.
+          SetAllowableError(2);
+          SetExcludeRect(gfx::Rect(
+              output_size.width() / 2 - 1, 0, 2, output_size.height()));
+        }
       }
-#endif
 
       base::Callback<void(bool, const SkBitmap&)> callback =
           base::Bind(&CompositingRenderWidgetHostViewBrowserTestTabCapture::
@@ -639,7 +631,7 @@ class CompositingRenderWidgetHostViewBrowserTestTabCapture
       rwhvp->CopyFromCompositingSurface(copy_rect,
                                         output_size,
                                         callback,
-                                        SkBitmap::kARGB_8888_Config);
+                                        kN32_SkColorType);
     }
     run_loop.Run();
   }
@@ -647,9 +639,7 @@ class CompositingRenderWidgetHostViewBrowserTestTabCapture
   // Sets up |bitmap| to have size |copy_size|. It floods the left half with
   // #0ff and the right half with #ff0.
   void SetupLeftRightBitmap(const gfx::Size& copy_size, SkBitmap* bitmap) {
-    bitmap->setConfig(
-        SkBitmap::kARGB_8888_Config, copy_size.width(), copy_size.height());
-    bitmap->allocPixels();
+    bitmap->allocN32Pixels(copy_size.width(), copy_size.height());
     // Left half is #0ff.
     bitmap->eraseARGB(255, 0, 255, 255);
     // Right half is #ff0.
@@ -681,13 +671,11 @@ IN_PROC_BROWSER_TEST_P(CompositingRenderWidgetHostViewBrowserTestTabCapture,
                        CopyFromCompositingSurface_Origin_Unscaled) {
   gfx::Rect copy_rect(400, 300);
   gfx::Size output_size = copy_rect.size();
-  gfx::Size expected_bitmap_size = output_size;
   gfx::Size html_rect_size(400, 300);
   bool video_frame = false;
   PerformTestWithLeftRightRects(html_rect_size,
                                 copy_rect,
                                 output_size,
-                                expected_bitmap_size,
                                 video_frame);
 }
 
@@ -695,13 +683,11 @@ IN_PROC_BROWSER_TEST_P(CompositingRenderWidgetHostViewBrowserTestTabCapture,
                        CopyFromCompositingSurface_Origin_Scaled) {
   gfx::Rect copy_rect(400, 300);
   gfx::Size output_size(200, 100);
-  gfx::Size expected_bitmap_size = output_size;
   gfx::Size html_rect_size(400, 300);
   bool video_frame = false;
   PerformTestWithLeftRightRects(html_rect_size,
                                 copy_rect,
                                 output_size,
-                                expected_bitmap_size,
                                 video_frame);
 }
 
@@ -712,13 +698,11 @@ IN_PROC_BROWSER_TEST_P(CompositingRenderWidgetHostViewBrowserTestTabCapture,
   copy_rect = gfx::Rect(copy_rect.CenterPoint() - gfx::Vector2d(30, 30),
                         gfx::Size(60, 60));
   gfx::Size output_size = copy_rect.size();
-  gfx::Size expected_bitmap_size = output_size;
   gfx::Size html_rect_size(400, 300);
   bool video_frame = false;
   PerformTestWithLeftRightRects(html_rect_size,
                                 copy_rect,
                                 output_size,
-                                expected_bitmap_size,
                                 video_frame);
 }
 
@@ -729,13 +713,11 @@ IN_PROC_BROWSER_TEST_P(CompositingRenderWidgetHostViewBrowserTestTabCapture,
   copy_rect = gfx::Rect(copy_rect.CenterPoint() - gfx::Vector2d(30, 30),
                         gfx::Size(60, 60));
   gfx::Size output_size(20, 10);
-  gfx::Size expected_bitmap_size = output_size;
   gfx::Size html_rect_size(400, 300);
   bool video_frame = false;
   PerformTestWithLeftRightRects(html_rect_size,
                                 copy_rect,
                                 output_size,
-                                expected_bitmap_size,
                                 video_frame);
 }
 
@@ -746,13 +728,11 @@ IN_PROC_BROWSER_TEST_P(CompositingRenderWidgetHostViewBrowserTestTabCapture,
   copy_rect = gfx::Rect(copy_rect.CenterPoint() - gfx::Vector2d(45, 30),
                         gfx::Size(90, 60));
   gfx::Size output_size = copy_rect.size();
-  gfx::Size expected_bitmap_size = output_size;
   gfx::Size html_rect_size(400, 300);
   bool video_frame = true;
   PerformTestWithLeftRightRects(html_rect_size,
                                 copy_rect,
                                 output_size,
-                                expected_bitmap_size,
                                 video_frame);
 }
 
@@ -764,101 +744,176 @@ IN_PROC_BROWSER_TEST_P(CompositingRenderWidgetHostViewBrowserTestTabCapture,
                         gfx::Size(90, 60));
   // Scale to 30 x 20 (preserve aspect ratio).
   gfx::Size output_size(30, 20);
-  gfx::Size expected_bitmap_size = output_size;
   gfx::Size html_rect_size(400, 300);
   bool video_frame = true;
   PerformTestWithLeftRightRects(html_rect_size,
                                 copy_rect,
                                 output_size,
-                                expected_bitmap_size,
                                 video_frame);
 }
 
-class CompositingRenderWidgetHostViewTabCaptureHighDPI
+class CompositingRenderWidgetHostViewBrowserTestTabCaptureHighDPI
     : public CompositingRenderWidgetHostViewBrowserTestTabCapture {
  public:
-  CompositingRenderWidgetHostViewTabCaptureHighDPI() : kScale(2.f) {}
+  CompositingRenderWidgetHostViewBrowserTestTabCaptureHighDPI() {}
 
-  virtual void SetUpOnMainThread() OVERRIDE {
-    CommandLine* cmd = CommandLine::ForCurrentProcess();
+ protected:
+  virtual void SetUpCommandLine(base::CommandLine* cmd) OVERRIDE {
+    CompositingRenderWidgetHostViewBrowserTestTabCapture::SetUpCommandLine(cmd);
     cmd->AppendSwitchASCII(switches::kForceDeviceScaleFactor,
                            base::StringPrintf("%f", scale()));
-#if defined(OS_WIN)
-    gfx::ForceHighDPISupportForTesting(scale());
-    gfx::EnableHighDPISupport();
-#endif
   }
 
-  float scale() const { return kScale; }
-
- private:
   virtual bool ShouldContinueAfterTestURLLoad() OVERRIDE {
     // Short-circuit a pass for platforms where setting up high-DPI fails.
-    if (ui::GetScaleForScaleFactor(ui::GetSupportedScaleFactor(
-            GetScaleFactorForView(GetRenderWidgetHostView()))) != scale()) {
-      LOG(WARNING) << "Blindly passing this test: failed to set up "
-          "scale factor: " << scale();
+    const float actual_scale_factor =
+        GetScaleFactorForView(GetRenderWidgetHostView());
+    if (actual_scale_factor != scale()) {
+      LOG(WARNING) << "Blindly passing this test; unable to force device scale "
+                   << "factor: seems to be " << actual_scale_factor
+                   << " but expected " << scale();
       return false;
     }
+    VLOG(1) << ("Successfully forced device scale factor.  Moving forward with "
+                "this test!  :-)");
     return true;
   }
 
-  const float kScale;
+  static float scale() { return 2.0f; }
 
-  DISALLOW_COPY_AND_ASSIGN(CompositingRenderWidgetHostViewTabCaptureHighDPI);
+ private:
+  DISALLOW_COPY_AND_ASSIGN(
+      CompositingRenderWidgetHostViewBrowserTestTabCaptureHighDPI);
 };
 
-IN_PROC_BROWSER_TEST_P(CompositingRenderWidgetHostViewTabCaptureHighDPI,
-                       CopyFromCompositingSurface) {
-  gfx::Rect copy_rect(200, 150);
-  gfx::Size output_size = copy_rect.size();
-  gfx::Size expected_bitmap_size =
-      gfx::ToFlooredSize(gfx::ScaleSize(output_size, scale(), scale()));
+// ImageSkia (related to ResourceBundle) implementation crashes the process on
+// Windows when this content_browsertest forces a device scale factor.
+// http://crbug.com/399349
+//
+// These tests are flaky on ChromeOS builders.  See http://crbug.com/406018.
+#if defined(OS_WIN) || defined(OS_CHROMEOS)
+#define MAYBE_CopyToBitmap_EntireRegion DISABLED_CopyToBitmap_EntireRegion
+#define MAYBE_CopyToBitmap_CenterRegion DISABLED_CopyToBitmap_CenterRegion
+#define MAYBE_CopyToBitmap_ScaledResult DISABLED_CopyToBitmap_ScaledResult
+#define MAYBE_CopyToVideoFrame_EntireRegion \
+            DISABLED_CopyToVideoFrame_EntireRegion
+#define MAYBE_CopyToVideoFrame_CenterRegion \
+            DISABLED_CopyToVideoFrame_CenterRegion
+#define MAYBE_CopyToVideoFrame_ScaledResult \
+            DISABLED_CopyToVideoFrame_ScaledResult
+#else
+#define MAYBE_CopyToBitmap_EntireRegion CopyToBitmap_EntireRegion
+#define MAYBE_CopyToBitmap_CenterRegion CopyToBitmap_CenterRegion
+#define MAYBE_CopyToBitmap_ScaledResult CopyToBitmap_ScaledResult
+#define MAYBE_CopyToVideoFrame_EntireRegion CopyToVideoFrame_EntireRegion
+#define MAYBE_CopyToVideoFrame_CenterRegion CopyToVideoFrame_CenterRegion
+#define MAYBE_CopyToVideoFrame_ScaledResult CopyToVideoFrame_ScaledResult
+#endif
+
+IN_PROC_BROWSER_TEST_P(
+    CompositingRenderWidgetHostViewBrowserTestTabCaptureHighDPI,
+    MAYBE_CopyToBitmap_EntireRegion) {
   gfx::Size html_rect_size(200, 150);
+  gfx::Rect copy_rect(200, 150);
+  // Scale the output size so that, internally, scaling is not occurring.
+  gfx::Size output_size =
+      gfx::ToRoundedSize(gfx::ScaleSize(copy_rect.size(), scale()));
   bool video_frame = false;
   PerformTestWithLeftRightRects(html_rect_size,
                                 copy_rect,
                                 output_size,
-                                expected_bitmap_size,
                                 video_frame);
 }
 
-IN_PROC_BROWSER_TEST_P(CompositingRenderWidgetHostViewTabCaptureHighDPI,
-                       CopyFromCompositingSurfaceVideoFrame) {
+IN_PROC_BROWSER_TEST_P(
+    CompositingRenderWidgetHostViewBrowserTestTabCaptureHighDPI,
+    MAYBE_CopyToBitmap_CenterRegion) {
   gfx::Size html_rect_size(200, 150);
   // Grab 90x60 pixels from the center of the tab contents.
   gfx::Rect copy_rect =
       gfx::Rect(gfx::Rect(html_rect_size).CenterPoint() - gfx::Vector2d(45, 30),
                 gfx::Size(90, 60));
-  gfx::Size output_size = copy_rect.size();
-  gfx::Size expected_bitmap_size =
-      gfx::ToFlooredSize(gfx::ScaleSize(output_size, scale(), scale()));
+  // Scale the output size so that, internally, scaling is not occurring.
+  gfx::Size output_size =
+      gfx::ToRoundedSize(gfx::ScaleSize(copy_rect.size(), scale()));
+  bool video_frame = false;
+  PerformTestWithLeftRightRects(html_rect_size,
+                                copy_rect,
+                                output_size,
+                                video_frame);
+}
+
+IN_PROC_BROWSER_TEST_P(
+    CompositingRenderWidgetHostViewBrowserTestTabCaptureHighDPI,
+    MAYBE_CopyToBitmap_ScaledResult) {
+  gfx::Size html_rect_size(200, 100);
+  gfx::Rect copy_rect(200, 100);
+  // Output is being down-scaled since output_size is in phyiscal pixels.
+  gfx::Size output_size(200, 100);
+  bool video_frame = false;
+  PerformTestWithLeftRightRects(html_rect_size,
+                                copy_rect,
+                                output_size,
+                                video_frame);
+}
+
+IN_PROC_BROWSER_TEST_P(
+    CompositingRenderWidgetHostViewBrowserTestTabCaptureHighDPI,
+    MAYBE_CopyToVideoFrame_EntireRegion) {
+  gfx::Size html_rect_size(200, 150);
+  gfx::Rect copy_rect(200, 150);
+  // Scale the output size so that, internally, scaling is not occurring.
+  gfx::Size output_size =
+      gfx::ToRoundedSize(gfx::ScaleSize(copy_rect.size(), scale()));
   bool video_frame = true;
   PerformTestWithLeftRightRects(html_rect_size,
                                 copy_rect,
                                 output_size,
-                                expected_bitmap_size,
                                 video_frame);
 }
 
-#if !defined(USE_AURA) && !defined(OS_MACOSX)
-// TODO(danakj): Remove this case when GTK linux is no more and move the
-// values inline to testing::Values() below.
-static const CompositingMode kAllCompositingModes[] = {GL_COMPOSITING};
-#else
-static const CompositingMode kAllCompositingModes[] = {GL_COMPOSITING,
-                                                       SOFTWARE_COMPOSITING};
-#endif
+IN_PROC_BROWSER_TEST_P(
+    CompositingRenderWidgetHostViewBrowserTestTabCaptureHighDPI,
+    MAYBE_CopyToVideoFrame_CenterRegion) {
+  gfx::Size html_rect_size(200, 150);
+  // Grab 90x60 pixels from the center of the tab contents.
+  gfx::Rect copy_rect =
+      gfx::Rect(gfx::Rect(html_rect_size).CenterPoint() - gfx::Vector2d(45, 30),
+                gfx::Size(90, 60));
+  // Scale the output size so that, internally, scaling is not occurring.
+  gfx::Size output_size =
+      gfx::ToRoundedSize(gfx::ScaleSize(copy_rect.size(), scale()));
+  bool video_frame = true;
+  PerformTestWithLeftRightRects(html_rect_size,
+                                copy_rect,
+                                output_size,
+                                video_frame);
+}
+
+IN_PROC_BROWSER_TEST_P(
+    CompositingRenderWidgetHostViewBrowserTestTabCaptureHighDPI,
+    MAYBE_CopyToVideoFrame_ScaledResult) {
+  gfx::Size html_rect_size(200, 100);
+  gfx::Rect copy_rect(200, 100);
+  // Output is being down-scaled since output_size is in phyiscal pixels.
+  gfx::Size output_size(200, 100);
+  bool video_frame = true;
+  PerformTestWithLeftRightRects(html_rect_size,
+                                copy_rect,
+                                output_size,
+                                video_frame);
+}
 
 INSTANTIATE_TEST_CASE_P(GLAndSoftwareCompositing,
                         CompositingRenderWidgetHostViewBrowserTest,
-                        testing::ValuesIn(kAllCompositingModes));
+                        testing::Values(GL_COMPOSITING, SOFTWARE_COMPOSITING));
 INSTANTIATE_TEST_CASE_P(GLAndSoftwareCompositing,
                         CompositingRenderWidgetHostViewBrowserTestTabCapture,
-                        testing::ValuesIn(kAllCompositingModes));
-INSTANTIATE_TEST_CASE_P(GLAndSoftwareCompositing,
-                        CompositingRenderWidgetHostViewTabCaptureHighDPI,
-                        testing::ValuesIn(kAllCompositingModes));
+                        testing::Values(GL_COMPOSITING, SOFTWARE_COMPOSITING));
+INSTANTIATE_TEST_CASE_P(
+    GLAndSoftwareCompositing,
+    CompositingRenderWidgetHostViewBrowserTestTabCaptureHighDPI,
+    testing::Values(GL_COMPOSITING, SOFTWARE_COMPOSITING));
 
 #endif  // !defined(OS_ANDROID) && !defined(OS_IOS)
 

@@ -8,7 +8,7 @@
 #include <sstream>
 
 #include "base/command_line.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/memory/singleton.h"
 #include "base/message_loop/message_loop.h"
 #include "base/metrics/histogram.h"
@@ -36,11 +36,16 @@
 #include "chrome/common/chrome_version_info.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/installer/util/browser_distribution.h"
-#include "chrome/installer/util/google_update_settings.h"
-#include "chrome/installer/util/install_util.h"
 #include "content/public/browser/browser_thread.h"
 #include "ui/app_list/views/app_list_view.h"
 #include "ui/base/win/shell.h"
+
+#if defined(GOOGLE_CHROME_BUILD)
+#include "chrome/installer/util/google_update_settings.h"
+#include "chrome/installer/util/install_util.h"
+#include "chrome/installer/util/updating_app_registration_data.h"
+#include "chrome/installer/util/util_constants.h"
+#endif  // GOOGLE_CHROME_BUILD
 
 // static
 AppListService* AppListService::Get(chrome::HostDesktopType desktop_type) {
@@ -122,6 +127,7 @@ base::string16 GetAppModelId() {
   return ShellIntegration::GetAppListAppModelIdForProfile(initial_profile_path);
 }
 
+#if defined(GOOGLE_CHROME_BUILD)
 void SetDidRunForNDayActiveStats() {
   DCHECK(content::BrowserThread::GetBlockingPool()->RunsTasksOnCurrentThread());
   base::FilePath exe_path;
@@ -140,14 +146,13 @@ void SetDidRunForNDayActiveStats() {
           BrowserDistribution::CHROME_BINARIES);
   if (chrome_binaries_dist &&
       InstallUtil::IsMultiInstall(chrome_binaries_dist, system_install)) {
-    BrowserDistribution* app_launcher_dist =
-        BrowserDistribution::GetSpecificDistribution(
-            BrowserDistribution::CHROME_APP_HOST);
+    UpdatingAppRegistrationData app_launcher_reg_data(
+        installer::kAppLauncherGuid);
     GoogleUpdateSettings::UpdateDidRunStateForApp(
-        app_launcher_dist->GetAppRegistrationData(),
-        true /* did_run */);
+        app_launcher_reg_data, true /* did_run */);
   }
 }
+#endif  // GOOGLE_CHROME_BUILD
 
 // The start menu shortcut is created on first run by users that are
 // upgrading. The desktop and taskbar shortcuts are created the first time the
@@ -260,8 +265,11 @@ AppListServiceWin::~AppListServiceWin() {
 
 void AppListServiceWin::ShowForProfile(Profile* requested_profile) {
   AppListServiceViews::ShowForProfile(requested_profile);
+
+#if defined(GOOGLE_CHROME_BUILD)
   content::BrowserThread::PostBlockingPoolTask(
       FROM_HERE, base::Bind(SetDidRunForNDayActiveStats));
+#endif  // GOOGLE_CHROME_BUILD
 }
 
 void AppListServiceWin::OnLoadProfileForWarmup(Profile* initial_profile) {
@@ -275,9 +283,10 @@ void AppListServiceWin::OnLoadProfileForWarmup(Profile* initial_profile) {
 }
 
 void AppListServiceWin::SetAppListNextPaintCallback(void (*callback)()) {
-  // This should only be called during startup.
-  DCHECK(!shower().app_list());
-  next_paint_callback_ = base::Bind(callback);
+  if (shower().app_list())
+    shower().app_list()->SetNextPaintCallback(base::Bind(callback));
+  else
+    next_paint_callback_ = base::Bind(callback);
 }
 
 void AppListServiceWin::HandleFirstRun() {

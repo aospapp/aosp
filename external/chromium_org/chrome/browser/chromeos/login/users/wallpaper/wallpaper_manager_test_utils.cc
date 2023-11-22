@@ -6,8 +6,8 @@
 
 #include "ash/ash_switches.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/logging.h"
 #include "base/run_loop.h"
@@ -78,8 +78,7 @@ bool CreateJPEGImage(int width,
                      SkColor color,
                      std::vector<unsigned char>* output) {
   SkBitmap bitmap;
-  bitmap.setConfig(SkBitmap::kARGB_8888_Config, width, height, 0);
-  bitmap.allocPixels();
+  bitmap.allocN32Pixels(width, height);
   bitmap.eraseColor(color);
 
   const int kQuality = 80;
@@ -99,8 +98,7 @@ bool CreateJPEGImage(int width,
 
 gfx::ImageSkia CreateTestImage(int width, int height, SkColor color) {
   SkBitmap bitmap;
-  bitmap.setConfig(SkBitmap::kARGB_8888_Config, width, height);
-  bitmap.allocPixels();
+  bitmap.allocN32Pixels(width, height);
   bitmap.eraseColor(color);
   return gfx::ImageSkia::CreateFrom1xBitmap(bitmap);
 }

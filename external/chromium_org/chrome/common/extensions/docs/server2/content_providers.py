@@ -11,6 +11,7 @@ from content_provider import ContentProvider
 import environment
 from extensions_paths import CONTENT_PROVIDERS, LOCAL_DEBUG_DIR
 from future import Future
+from gitiles_file_system import GitilesFileSystem
 from local_file_system import LocalFileSystem
 from third_party.json_schema_compiler.memoize import memoize
 
@@ -54,7 +55,7 @@ class ContentProviders(object):
 
     # If running the devserver and there is a LOCAL_DEBUG_DIR, we
     # will read the content_provider configuration from there instead
-    # of fetching it from SVN trunk or patch.
+    # of fetching it from Gitiles or patch.
     if environment.IsDevServer() and os.path.exists(LOCAL_DEBUG_DIR):
       local_fs = LocalFileSystem(LOCAL_DEBUG_DIR)
       conf_stat = None
@@ -122,6 +123,16 @@ class ContentProviders(object):
         logging.error('%s: "chromium" must have a "dir" property' % name)
         return None
       file_system = ChrootFileSystem(self._host_file_system,
+
+                                     chromium_config['dir'])
+    # TODO(rockot): Remove this in a future patch. It should not be needed once
+    # the new content_providers.json is committed.
+    elif 'gitiles' in config:
+      chromium_config = config['gitiles']
+      if 'dir' not in chromium_config:
+        logging.error('%s: "chromium" must have a "dir" property' % name)
+        return None
+      file_system = ChrootFileSystem(self._host_file_system,
                                      chromium_config['dir'])
     elif 'gcs' in config:
       gcs_config = config['gcs']
@@ -159,23 +170,28 @@ class ContentProviders(object):
                            supports_templates=supports_templates,
                            supports_zip=supports_zip)
 
-  def Cron(self):
+  def GetRefreshPaths(self):
+    return self._GetConfig().keys()
+
+  def Refresh(self, path):
     def safe(name, action, callback):
       '''Safely runs |callback| for a ContentProvider called |name| by
       swallowing exceptions and turning them into a None return value. It's
-      important to run all ContentProvider Crons even if some of them fail.
+      important to run all ContentProvider Refreshes even if some of them fail.
       '''
       try:
         return callback()
       except:
         if not _IGNORE_MISSING_CONTENT_PROVIDERS[0]:
-          logging.error('Error %s Cron for ContentProvider "%s":\n%s' %
+          logging.error('Error %s Refresh for ContentProvider "%s":\n%s' %
                         (action, name, traceback.format_exc()))
         return None
 
-    futures = [(name, safe(name,
-                           'initializing',
-                           self._CreateContentProvider(name, config).Cron))
-               for name, config in self._GetConfig().iteritems()]
-    return Future(callback=
-        lambda: [safe(name, 'resolving', f.Get) for name, f in futures if f])
+    config = self._GetConfig()[path]
+    provider = self._CreateContentProvider(path, config)
+    future = safe(path,
+                  'initializing',
+                  self._CreateContentProvider(path, config).Refresh)
+    if future is None:
+      return Future(callback=lambda: True)
+    return Future(callback=lambda: safe(path, 'resolving', future.Get))

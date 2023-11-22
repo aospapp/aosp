@@ -5,20 +5,119 @@
 'use strict';
 
 /**
- * Object representing an image item (a photo or a video).
+ * Object representing an image item (a photo).
  *
  * @param {FileEntry} entry Image entry.
+ * @param {EntryLocation} locationInfo Entry location information.
+ * @param {Object} metadata Metadata for the entry.
+ * @param {MetadataCache} metadataCache Metadata cache instance.
+ * @param {boolean} original Whether the entry is original or edited.
  * @constructor
  */
-Gallery.Item = function(entry) {
+Gallery.Item = function(
+    entry, locationInfo, metadata, metadataCache, original) {
+  /**
+   * @type {FileEntry}
+   * @private
+   */
   this.entry_ = entry;
-  this.original_ = true;
+
+  /**
+   * @type {EntryLocation}
+   * @private
+   */
+  this.locationInfo_ = locationInfo;
+
+  /**
+   * @type {Object}
+   * @private
+   */
+  this.metadata_ = Object.freeze(metadata);
+
+  /**
+   * @type {MetadataCache}
+   * @private
+   */
+  this.metadataCache_ = metadataCache;
+
+  /**
+   * The content cache is used for prefetching the next image when going through
+   * the images sequentially. The real life photos can be large (18Mpix = 72Mb
+   * pixel array) so we want only the minimum amount of caching.
+   * @type {Canvas}
+   */
+  this.screenImage = null;
+
+  /**
+   * We reuse previously generated screen-scale images so that going back to a
+   * recently loaded image looks instant even if the image is not in the content
+   * cache any more. Screen-scale images are small (~1Mpix) so we can afford to
+   * cache more of them.
+   * @type {Canvas}
+   */
+  this.contentImage = null;
+
+  /**
+   * Last accessed date to be used for selecting items whose cache are evicted.
+   * @type {number}
+   * @private
+   */
+  this.lastAccessed_ = Date.now();
+
+  /**
+   * @type {boolean}
+   * @private
+   */
+  this.original_ = original;
+
+  Object.seal(this);
 };
 
 /**
  * @return {FileEntry} Image entry.
  */
-Gallery.Item.prototype.getEntry = function() { return this.entry_ };
+Gallery.Item.prototype.getEntry = function() { return this.entry_; };
+
+/**
+ * @return {EntryLocation} Entry location information.
+ */
+Gallery.Item.prototype.getLocationInfo = function() {
+  return this.locationInfo_;
+};
+
+/**
+ * @return {Object} Metadata.
+ */
+Gallery.Item.prototype.getMetadata = function() { return this.metadata_; };
+
+/**
+ * Obtains the latest media metadata.
+ *
+ * This is a heavy operation since it forces to load the image data to obtain
+ * the metadata.
+ * @return {Promise} Promise to be fulfilled with fetched metadata.
+ */
+Gallery.Item.prototype.getFetchedMedia = function() {
+  return new Promise(function(fulfill, reject) {
+    this.metadataCache_.getLatest(
+        [this.entry_],
+        'fetchedMedia',
+        function(metadata) {
+          if (metadata[0])
+            fulfill(metadata[0]);
+          else
+            reject('Failed to load metadata.');
+        });
+  }.bind(this));
+};
+
+/**
+ * Sets the metadata.
+ * @param {Object} metadata New metadata.
+ */
+Gallery.Item.prototype.setMetadata = function(metadata) {
+  this.metadata_ = Object.freeze(metadata);
+};
 
 /**
  * @return {string} File name.
@@ -30,7 +129,22 @@ Gallery.Item.prototype.getFileName = function() {
 /**
  * @return {boolean} True if this image has not been created in this session.
  */
-Gallery.Item.prototype.isOriginal = function() { return this.original_ };
+Gallery.Item.prototype.isOriginal = function() { return this.original_; };
+
+/**
+ * Obtains the last accessed date.
+ * @return {number} Last accessed date.
+ */
+Gallery.Item.prototype.getLastAccessedDate = function() {
+  return this.lastAccessed_;
+};
+
+/**
+ * Updates the last accessed date.
+ */
+Gallery.Item.prototype.touch = function() {
+  this.lastAccessed_ = Date.now();
+};
 
 // TODO: Localize?
 /**
@@ -55,7 +169,7 @@ Gallery.Item.REGEXP_COPY_N =
 /**
  * Creates a name for an edited copy of the file.
  *
- * @param {Entry} dirEntry Entry.
+ * @param {DirectoryEntry} dirEntry Entry.
  * @param {function} callback Callback.
  * @private
  */
@@ -111,35 +225,43 @@ Gallery.Item.prototype.createCopyName_ = function(dirEntry, callback) {
 };
 
 /**
- * Writes the new item content to the file.
+ * Writes the new item content to either the existing or a new file.
  *
- * @param {Entry} overrideDir Directory to save to. If null, save to the same
- *   directory as the original.
- * @param {boolean} overwrite True if overwrite, false if copy.
+ * @param {VolumeManager} volumeManager Volume manager instance.
+ * @param {string} fallbackDir Fallback directory in case the current directory
+ *     is read only.
+ * @param {boolean} overwrite Whether to overwrite the image to the item or not.
  * @param {HTMLCanvasElement} canvas Source canvas.
  * @param {ImageEncoder.MetadataEncoder} metadataEncoder MetadataEncoder.
  * @param {function(boolean)=} opt_callback Callback accepting true for success.
  */
 Gallery.Item.prototype.saveToFile = function(
-    overrideDir, overwrite, canvas, metadataEncoder, opt_callback) {
+    volumeManager, fallbackDir, overwrite, canvas, metadataEncoder,
+    opt_callback) {
   ImageUtil.metrics.startInterval(ImageUtil.getMetricName('SaveTime'));
 
   var name = this.getFileName();
 
-  var onSuccess = function(entry) {
+  var onSuccess = function(entry, locationInfo) {
     ImageUtil.metrics.recordEnum(ImageUtil.getMetricName('SaveResult'), 1, 2);
     ImageUtil.metrics.recordInterval(ImageUtil.getMetricName('SaveTime'));
+
     this.entry_ = entry;
-    if (opt_callback) opt_callback(true);
+    this.locationInfo_ = locationInfo;
+
+    this.metadataCache_.clear([this.entry_], 'fetchedMedia');
+    if (opt_callback)
+      opt_callback(true);
   }.bind(this);
 
-  function onError(error) {
+  var onError = function(error) {
     console.error('Error saving from gallery', name, error);
     ImageUtil.metrics.recordEnum(ImageUtil.getMetricName('SaveResult'), 0, 2);
-    if (opt_callback) opt_callback(false);
+    if (opt_callback)
+      opt_callback(false);
   }
 
-  function doSave(newFile, fileEntry) {
+  var doSave = function(newFile, fileEntry) {
     fileEntry.createWriter(function(fileWriter) {
       function writeContent() {
         fileWriter.onwriteend = onSuccess.bind(null, fileEntry);
@@ -160,19 +282,27 @@ Gallery.Item.prototype.saveToFile = function(
     }, onError);
   }
 
-  function getFile(dir, newFile) {
+  var getFile = function(dir, newFile) {
     dir.getFile(name, {create: newFile, exclusive: newFile},
-        doSave.bind(null, newFile), onError);
-  }
+        function(fileEntry) {
+          var locationInfo = volumeManager.getLocationInfo(fileEntry);
+          // If the volume is gone, then abort the saving operation.
+          if (!locationInfo) {
+            onError('NotFound');
+            return;
+          }
+          doSave(newFile, fileEntry, locationInfo);
+        }.bind(this), onError);
+  }.bind(this);
 
-  function checkExistence(dir) {
+  var checkExistence = function(dir) {
     dir.getFile(name, {create: false, exclusive: false},
         getFile.bind(null, dir, false /* existing file */),
         getFile.bind(null, dir, true /* create new file */));
   }
 
   var saveToDir = function(dir) {
-    if (overwrite) {
+    if (overwrite && !this.locationInfo_.isReadOnly) {
       checkExistence(dir);
     } else {
       this.createCopyName_(dir, function(copyName) {
@@ -183,46 +313,46 @@ Gallery.Item.prototype.saveToFile = function(
     }
   }.bind(this);
 
-  if (overrideDir) {
-    saveToDir(overrideDir);
+  if (this.locationInfo_.isReadOnly) {
+    saveToDir(fallbackDir);
   } else {
     this.entry_.getParent(saveToDir, onError);
   }
 };
 
 /**
- * Renames the file.
+ * Renames the item.
  *
  * @param {string} displayName New display name (without the extension).
- * @param {function()} onSuccess Success callback.
- * @param {function()} onExists Called if the file with the new name exists.
+ * @return {Promise} Promise fulfilled with when renaming completes, or rejected
+ *     with the error message.
  */
-Gallery.Item.prototype.rename = function(displayName, onSuccess, onExists) {
+Gallery.Item.prototype.rename = function(displayName) {
   var newFileName = this.entry_.name.replace(
       ImageUtil.getDisplayNameFromName(this.entry_.name), displayName);
 
   if (newFileName === this.entry_.name)
-    return;
+    return Promise.reject('NOT_CHANGED');
 
-  var onRenamed = function(entry) {
+  if (/^\s*$/.test(displayName))
+    return Promise.reject(str('ERROR_WHITESPACE_NAME'));
+
+  var parentDirectoryPromise = new Promise(
+      this.entry_.getParent.bind(this.entry_));
+  return parentDirectoryPromise.then(function(parentDirectory) {
+    var nameValidatingPromise =
+        util.validateFileName(parentDirectory, newFileName, true);
+    return nameValidatingPromise.then(function() {
+      var existingFilePromise = new Promise(parentDirectory.getFile.bind(
+          parentDirectory, newFileName, {create: false, exclusive: false}));
+      return existingFilePromise.then(function() {
+        return Promise.reject(str('GALLERY_FILE_EXISTS'));
+      }, function() {
+        return new Promise(
+            this.entry_.moveTo.bind(this.entry_, parentDirectory, newFileName));
+      }.bind(this));
+    }.bind(this));
+  }.bind(this)).then(function(entry) {
     this.entry_ = entry;
-    onSuccess();
-  }.bind(this);
-
-  var onError = function() {
-    console.error(
-        'Rename error: "' + this.entry_.name + '" to "' + newFileName + '"');
-  };
-
-  var moveIfDoesNotExist = function(parentDir) {
-    parentDir.getFile(
-        newFileName,
-        {create: false, exclusive: false},
-        onExists,
-        function() {
-          this.entry_.moveTo(parentDir, newFileName, onRenamed, onError);
-        }.bind(this));
-  }.bind(this);
-
-  this.entry_.getParent(moveIfDoesNotExist, onError);
+  }.bind(this));
 };

@@ -135,6 +135,11 @@ API levels and NDK releases provided for convenience:</p>
 <td>4.4 - 4.4.4</td>
 <td>API level 19</td>
 </tr>
+<tr>
+<td>Lollipop</td>
+<td>5.0</td>
+<td>API level 21</td>
+</tr>
 </tbody>
 </table>
 <p>Starting with Cupcake, individual builds are identified with a short
@@ -168,10 +173,28 @@ following table. Factory images and binaries for Nexus devices can be downloaded
 <th>Supported devices</th>
 </tr>
 <tr>
+  <td>LRX21M</td>
+  <td>android-5.0.0_r2</td>
+  <td>Lollipop</td>
+  <td>Nexus Player (fugu)</td>
+</tr>
+<tr>
+  <td>LRX21L</td>
+  <td>android-5.0.0_r1</td>
+  <td>Lollipop</td>
+  <td>Nexus 9 (volantis)</td>
+</tr>
+<tr>
+  <td>KTU84Q</td>
+  <td>android-4.4.4_r2</td>
+  <td>KitKat</td>
+  <td>Nexus 5 (hammerhead) (For 2Degrees/NZ, Telstra/AUS and India ONLY)</td>
+</tr>
+<tr>
   <td>KTU84P</td>
   <td>android-4.4.4_r1</td>
   <td>KitKat</td>
-  <td>Nexus 5, Nexus 7 (flo/grouper/tilapia), Nexus 4, Nexus 10</td>
+  <td>Nexus 5, Nexus 7 (flo/deb/grouper/tilapia), Nexus 4, Nexus 10</td>
 </tr>
 <tr>
   <td>KTU84M</td>
@@ -211,7 +234,7 @@ following table. Factory images and binaries for Nexus devices can be downloaded
 </tr>
 <tr>
   <td>KRT16M</td>
-  <td>android-4.4.2_r1</td>
+  <td>android-4.4_r1</td>
   <td>KitKat</td>
   <td>Nexus 5 (hammerhead)</td>
 </tr>

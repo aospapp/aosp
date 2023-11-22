@@ -120,6 +120,43 @@ private:
     return 0;
   }
 
+  bool isStepOptSupported(llvm::Type *AllocType) {
+
+    llvm::PointerType *PT = llvm::dyn_cast<llvm::PointerType>(AllocType);
+    llvm::Type *VoidPtrTy = llvm::Type::getInt8PtrTy(*Context);
+
+    if (mEnableStepOpt) {
+      return false;
+    }
+
+    if (AllocType == VoidPtrTy) {
+      return false;
+    }
+
+    if (!PT) {
+      return false;
+    }
+
+    // remaining conditions are 64-bit only
+    if (VoidPtrTy->getPrimitiveSizeInBits() == 32) {
+      return true;
+    }
+
+    // coerce suggests an upconverted struct type, which we can't support
+    if (AllocType->getStructName().find("coerce") != llvm::StringRef::npos) {
+      return false;
+    }
+
+    // 2xi64 and i128 suggest an upconverted struct type, which are also unsupported
+    llvm::Type *V2xi64Ty = llvm::VectorType::get(llvm::Type::getInt64Ty(*Context), 2);
+    llvm::Type *Int128Ty = llvm::Type::getIntNTy(*Context, 128);
+    if (AllocType == V2xi64Ty || AllocType == Int128Ty) {
+      return false;
+    }
+
+    return true;
+  }
+
   // Get the actual value we should use to step through an allocation.
   //
   // Normally the value we use to step through an allocation is given to us by
@@ -136,8 +173,7 @@ private:
     bccAssert(AllocType);
     bccAssert(OrigStep);
     llvm::PointerType *PT = llvm::dyn_cast<llvm::PointerType>(AllocType);
-    llvm::Type *VoidPtrTy = llvm::Type::getInt8PtrTy(*Context);
-    if (mEnableStepOpt && AllocType != VoidPtrTy && PT) {
+    if (isStepOptSupported(AllocType)) {
       llvm::Type *ET = PT->getElementType();
       uint64_t ETSize = DL->getTypeAllocSize(ET);
       llvm::Type *Int32Ty = llvm::Type::getInt32Ty(*Context);

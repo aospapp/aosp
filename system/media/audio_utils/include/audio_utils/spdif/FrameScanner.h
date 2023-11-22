@@ -74,12 +74,9 @@ public:
     virtual int getDataType()      const { return mDataType; }
     virtual int getDataTypeInfo()  const { return mDataTypeInfo; }
 
-    /**
-     * lengthCode is defined by the SPDIF standard
-     * @return length of the frame in bits or bytes, depending on the format.
-     */
-    virtual int getLengthCode()  const = 0;
     virtual int getMaxChannels() const = 0;
+
+    virtual void resetBurst() = 0;
 
     /**
      * @return the number of pcm frames that correspond to one encoded frame
@@ -113,6 +110,7 @@ protected:
 #define EAC3_RATE_MULTIPLIER                       4
 #define EAC3_NUM_SAMPLE_RATE_TABLE_ENTRIES         3
 #define EAC3_NUM_BLOCKS_PER_FRAME_TABLE_ENTRIES   38
+#define EAC3_MAX_SUBSTREAMS                        8
 
 class AC3FrameScanner : public FrameScanner
 {
@@ -127,7 +125,6 @@ public:
 
     virtual int getDataType()      const { return mDataType; }
     virtual int getDataTypeInfo()  const { return 0; }
-    virtual int getLengthCode()    const { return mLengthCode; }
     virtual int getMaxChannels()   const { return 5 + 1; }
 
     virtual int getMaxSampleFramesPerSyncFrame() const { return EAC3_RATE_MULTIPLIER
@@ -136,6 +133,7 @@ public:
 
     virtual bool isFirstInBurst();
     virtual bool isLastInBurst();
+    virtual void resetBurst();
 
 protected:
 
@@ -152,7 +150,7 @@ protected:
     State    mState;
     uint32_t mBytesSkipped;
     uint8_t  mHeaderBuffer[6];
-    int      mLengthCode;
+    uint8_t  mSubstreamBlockCounts[EAC3_MAX_SUBSTREAMS];
     int      mAudioBlocksPerSyncFrame;
     uint     mCursor;
     uint     mStreamType;

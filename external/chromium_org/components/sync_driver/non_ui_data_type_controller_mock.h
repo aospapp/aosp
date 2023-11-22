@@ -9,7 +9,7 @@
 #include "sync/api/sync_error.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
-namespace browser_sync {
+namespace sync_driver {
 
 class NonUIDataTypeControllerMock
     : public NonUIDataTypeController {
@@ -26,9 +26,8 @@ class NonUIDataTypeControllerMock
   MOCK_CONST_METHOD0(name, std::string());
   MOCK_CONST_METHOD0(model_safe_group, syncer::ModelSafeGroup());
   MOCK_CONST_METHOD0(state, State());
-  MOCK_METHOD2(OnSingleDataTypeUnrecoverableError,
-               void(const tracked_objects::Location&,
-                    const std::string&));
+  MOCK_METHOD1(OnSingleDataTypeUnrecoverableError,
+               void(const syncer::SyncError& error));
 
   // NonUIDataTypeController mocks.
   MOCK_METHOD0(StartModels, bool());
@@ -37,21 +36,21 @@ class NonUIDataTypeControllerMock
                bool(const tracked_objects::Location&,
                     const base::Closure&));
   MOCK_METHOD3(StartDone,
-               void(DataTypeController::StartResult result,
+               void(DataTypeController::ConfigureResult result,
                     const syncer::SyncMergeResult& local_merge_result,
                     const syncer::SyncMergeResult& syncer_merge_result));
   MOCK_METHOD4(StartDoneImpl,
-               void(DataTypeController::StartResult result,
+               void(DataTypeController::ConfigureResult result,
                     DataTypeController::State new_state,
                     const syncer::SyncMergeResult& local_merge_result,
                     const syncer::SyncMergeResult& syncer_merge_result));
   MOCK_METHOD1(RecordAssociationTime, void(base::TimeDelta time));
-  MOCK_METHOD1(RecordStartFailure, void(StartResult result));
+  MOCK_METHOD1(RecordStartFailure, void(ConfigureResult result));
 
  protected:
   virtual ~NonUIDataTypeControllerMock();
 };
 
-}  // namespace browser_sync
+}  // namespace sync_driver
 
 #endif  // CHROME_BROWSER_SYNC_GLUE_NON_UI_DATA_TYPE_CONTROLLER_MOCK_H_

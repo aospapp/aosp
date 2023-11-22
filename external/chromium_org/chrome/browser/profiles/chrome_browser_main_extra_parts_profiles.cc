@@ -14,6 +14,7 @@
 #include "chrome/browser/dom_distiller/dom_distiller_service_factory.h"
 #include "chrome/browser/domain_reliability/service_factory.h"
 #include "chrome/browser/download/download_service_factory.h"
+#include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/geolocation/geolocation_permission_context_factory.h"
 #include "chrome/browser/google/google_url_tracker_factory.h"
@@ -26,11 +27,11 @@
 #include "chrome/browser/policy/profile_policy_connector_factory.h"
 #include "chrome/browser/predictors/autocomplete_action_predictor_factory.h"
 #include "chrome/browser/predictors/predictor_database_factory.h"
+#include "chrome/browser/predictors/resource_prefetch_predictor_factory.h"
 #include "chrome/browser/prerender/prerender_link_manager_factory.h"
 #include "chrome/browser/prerender/prerender_manager_factory.h"
 #include "chrome/browser/printing/cloud_print/cloud_print_proxy_service_factory.h"
 #include "chrome/browser/profiles/gaia_info_update_service_factory.h"
-#include "chrome/browser/search/hotword_service_factory.h"
 #include "chrome/browser/search/instant_service_factory.h"
 #include "chrome/browser/search/suggestions/suggestions_service_factory.h"
 #include "chrome/browser/search_engines/template_url_fetcher_factory.h"
@@ -38,6 +39,7 @@
 #include "chrome/browser/sessions/session_service_factory.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/signin/about_signin_internals_factory.h"
+#include "chrome/browser/signin/account_tracker_service_factory.h"
 #include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/themes/theme_service_factory.h"
@@ -55,6 +57,8 @@
 #include "chrome/browser/apps/ephemeral_app_service_factory.h"
 #include "chrome/browser/apps/shortcut_manager_factory.h"
 #include "chrome/browser/extensions/browser_context_keyed_service_factories.h"
+#include "chrome/browser/search/hotword_service_factory.h"
+#include "chrome/browser/signin/easy_unlock_service_factory.h"
 #include "extensions/browser/browser_context_keyed_service_factories.h"
 #endif
 
@@ -67,7 +71,7 @@
 #include "chrome/browser/policy/cloud/user_cloud_policy_invalidator_factory.h"
 #include "chrome/browser/policy/schema_registry_service_factory.h"
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/ownership/owner_settings_service_factory.h"
+#include "chrome/browser/chromeos/ownership/owner_settings_service_chromeos_factory.h"
 #include "chrome/browser/chromeos/policy/policy_cert_service_factory.h"
 #include "chrome/browser/chromeos/policy/recommendation_restorer_factory.h"
 #include "chrome/browser/chromeos/policy/user_cloud_policy_manager_factory_chromeos.h"
@@ -98,7 +102,6 @@
 #include "chrome/browser/media/protected_media_identifier_permission_context_factory.h"
 #else
 #include "chrome/browser/notifications/sync_notifier/chrome_notifier_service_factory.h"
-#include "chrome/browser/notifications/sync_notifier/synced_notification_app_info_service_factory.h"
 #include "chrome/browser/profile_resetter/automatic_profile_resetter_factory.h"
 #endif
 
@@ -140,6 +143,7 @@ EnsureBrowserContextKeyedServiceFactoriesBuilt() {
 #if defined(ENABLE_EXTENSIONS)
   apps::EnsureBrowserContextKeyedServiceFactoriesBuilt();
   extensions::EnsureBrowserContextKeyedServiceFactoriesBuilt();
+  extensions::ExtensionManagementFactory::GetInstance();
   chrome_extensions::EnsureBrowserContextKeyedServiceFactoriesBuilt();
   AppShortcutManagerFactory::GetInstance();
   EphemeralAppServiceFactory::GetInstance();
@@ -150,6 +154,7 @@ EnsureBrowserContextKeyedServiceFactoriesBuilt() {
 #endif
 
   AboutSigninInternalsFactory::GetInstance();
+  AccountTrackerServiceFactory::GetInstance();
   autofill::PersonalDataManagerFactory::GetInstance();
 #if !defined(OS_ANDROID)
   AutomaticProfileResetterFactory::GetInstance();
@@ -158,9 +163,7 @@ EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   BackgroundContentsServiceFactory::GetInstance();
 #endif
   BookmarkModelFactory::GetInstance();
-#if !defined(OS_ANDROID)
   BookmarkUndoServiceFactory::GetInstance();
-#endif
 #if defined(ENABLE_CAPTIVE_PORTAL_DETECTION)
   CaptivePortalServiceFactory::GetInstance();
 #endif
@@ -178,6 +181,9 @@ EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   dom_distiller::DomDistillerServiceFactory::GetInstance();
   domain_reliability::DomainReliabilityServiceFactory::GetInstance();
   DownloadServiceFactory::GetInstance();
+#if defined(ENABLE_EXTENSIONS)
+  EasyUnlockServiceFactory::GetInstance();
+#endif
   FaviconServiceFactory::GetInstance();
   FindBarStateFactory::GetInstance();
   GAIAInfoUpdateServiceFactory::GetInstance();
@@ -187,7 +193,9 @@ EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   GlobalErrorServiceFactory::GetInstance();
   GoogleURLTrackerFactory::GetInstance();
   HistoryServiceFactory::GetInstance();
+#if defined(ENABLE_EXTENSIONS)
   HotwordServiceFactory::GetInstance();
+#endif
   invalidation::ProfileInvalidationProviderFactory::GetInstance();
   InstantServiceFactory::GetInstance();
 #if defined(ENABLE_SERVICE_DISCOVERY)
@@ -204,7 +212,6 @@ EnsureBrowserContextKeyedServiceFactoriesBuilt() {
 #if !defined(OS_ANDROID)
   MediaGalleriesPreferencesFactory::GetInstance();
   notifier::ChromeNotifierServiceFactory::GetInstance();
-  notifier::SyncedNotificationAppInfoServiceFactory::GetInstance();
   NTPResourceCacheFactory::GetInstance();
 #endif
   PasswordStoreFactory::GetInstance();
@@ -217,7 +224,7 @@ EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   policy::ProfilePolicyConnectorFactory::GetInstance();
 #if defined(ENABLE_CONFIGURATION_POLICY)
 #if defined(OS_CHROMEOS)
-  chromeos::OwnerSettingsServiceFactory::GetInstance();
+  chromeos::OwnerSettingsServiceChromeOSFactory::GetInstance();
   policy::PolicyCertServiceFactory::GetInstance();
   policy::RecommendationRestorerFactory::GetInstance();
   policy::UserCloudPolicyManagerFactoryChromeOS::GetInstance();
@@ -235,6 +242,7 @@ EnsureBrowserContextKeyedServiceFactoriesBuilt() {
 #endif
   predictors::AutocompleteActionPredictorFactory::GetInstance();
   predictors::PredictorDatabaseFactory::GetInstance();
+  predictors::ResourcePrefetchPredictorFactory::GetInstance();
   prerender::PrerenderManagerFactory::GetInstance();
   prerender::PrerenderLinkManagerFactory::GetInstance();
   ProfileSyncServiceFactory::GetInstance();

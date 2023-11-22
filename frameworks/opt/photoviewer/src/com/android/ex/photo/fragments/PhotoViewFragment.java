@@ -399,6 +399,7 @@ public class PhotoViewFragment extends Fragment implements
             mEmptyText.setVisibility(View.VISIBLE);
             mCallback.onFragmentPhotoLoadComplete(this, false /* success */);
         } else {
+            mEmptyText.setVisibility(View.GONE);
             final Drawable data = result.getDrawable(getResources());
             bindPhoto(data);
             mCallback.onFragmentPhotoLoadComplete(this, true /* success */);

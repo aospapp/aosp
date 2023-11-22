@@ -26,14 +26,7 @@ import android.content.res.Resources;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.BitmapShader;
-import android.graphics.Canvas;
-import android.graphics.Paint;
-import android.graphics.PorterDuff;
-import android.graphics.PorterDuffXfermode;
-import android.graphics.RectF;
-import android.graphics.Rect;
-import android.graphics.Shader;
+import android.net.MailTo;
 import android.net.Uri;
 import android.os.Looper;
 import android.provider.ContactsContract;
@@ -58,7 +51,7 @@ import com.android.mail.analytics.Analytics;
 import com.android.mail.browse.ConversationItemView;
 import com.android.mail.browse.MessageCursor;
 import com.android.mail.browse.SendersView;
-import com.android.mail.photo.ContactPhotoFetcher;
+import com.android.mail.photo.ContactFetcher;
 import com.android.mail.photomanager.LetterTileProvider;
 import com.android.mail.preferences.AccountPreferences;
 import com.android.mail.preferences.FolderPreferences;
@@ -347,10 +340,10 @@ public class NotificationUtils {
      * This happens when locale changes.
      **/
     public static void cancelAndResendNotificationsOnLocaleChange(
-            Context context, final ContactPhotoFetcher photoFetcher) {
+            Context context, final ContactFetcher contactFetcher) {
         LogUtils.d(LOG_TAG, "cancelAndResendNotificationsOnLocaleChange");
         sBidiFormatter = BidiFormatter.getInstance();
-        resendNotifications(context, true, null, null, photoFetcher);
+        resendNotifications(context, true, null, null, contactFetcher);
     }
 
     /**
@@ -364,14 +357,17 @@ public class NotificationUtils {
      * @param cancelExisting True, if all notifications should be canceled before resending.
      *                       False, otherwise.
      * @param accountUri The {@link Uri} of the {@link Account} of the notification
-     *                   upon which an action occurred.
+     *                   upon which an action occurred, or {@code null}.
      * @param folderUri The {@link Uri} of the {@link Folder} of the notification
-     *                  upon which an action occurred.
+     *                  upon which an action occurred, or {@code null}.
      */
     public static void resendNotifications(Context context, final boolean cancelExisting,
             final Uri accountUri, final FolderUri folderUri,
-            final ContactPhotoFetcher photoFetcher) {
-        LogUtils.d(LOG_TAG, "resendNotifications ");
+            final ContactFetcher contactFetcher) {
+        LogUtils.i(LOG_TAG, "resendNotifications cancelExisting: %b, account: %s, folder: %s",
+                cancelExisting,
+                accountUri == null ? null : LogUtils.sanitizeName(LOG_TAG, accountUri.toString()),
+                folderUri == null ? null : LogUtils.sanitizeName(LOG_TAG, folderUri.toString()));
 
         if (cancelExisting) {
             LogUtils.d(LOG_TAG, "resendNotifications - cancelling all");
@@ -403,7 +399,7 @@ public class NotificationUtils {
                     NotificationActionUtils.sUndoNotifications.get(notificationId);
             if (undoableAction == null) {
                 validateNotifications(context, folder, notification.account, true,
-                        false, notification, photoFetcher);
+                        false, notification, contactFetcher);
             } else {
                 // Create an undo notification
                 NotificationActionUtils.createUndoNotification(context, undoableAction);
@@ -497,7 +493,7 @@ public class NotificationUtils {
      */
     public static void setNewEmailIndicator(Context context, final int unreadCount,
             final int unseenCount, final Account account, final Folder folder,
-            final boolean getAttention, final ContactPhotoFetcher photoFetcher) {
+            final boolean getAttention, final ContactFetcher contactFetcher) {
         LogUtils.d(LOG_TAG, "setNewEmailIndicator unreadCount = %d, unseenCount = %d, account = %s,"
                 + " folder = %s, getAttention = %b", unreadCount, unseenCount,
                 account.getEmailAddress(), folder.folderUri, getAttention);
@@ -540,7 +536,7 @@ public class NotificationUtils {
 
         if (NotificationActionUtils.sUndoNotifications.get(notificationId) == null) {
             validateNotifications(context, folder, account, getAttention, ignoreUnobtrusiveSetting,
-                    key, photoFetcher);
+                    key, contactFetcher);
         }
     }
 
@@ -549,7 +545,7 @@ public class NotificationUtils {
      */
     private static void validateNotifications(Context context, final Folder folder,
             final Account account, boolean getAttention, boolean ignoreUnobtrusiveSetting,
-            NotificationKey key, final ContactPhotoFetcher photoFetcher) {
+            NotificationKey key, final ContactFetcher contactFetcher) {
 
         NotificationManagerCompat nm = NotificationManagerCompat.from(context);
 
@@ -633,13 +629,17 @@ public class NotificationUtils {
 
             if (com.android.mail.utils.Utils.isRunningLOrLater()) {
                 notification.setColor(
-                        context.getResources().getColor(R.color.notification_icon_gmail_red));
+                        context.getResources().getColor(R.color.notification_icon_color));
             }
-            // TODO(shahrk) - fix for multiple mail
-            // if(folder.notificationIconResId != 0 || unseenCount <=  2)
-            notification.setSmallIcon(R.drawable.ic_notification_mail_24dp);
+
+            if(unseenCount > 1) {
+                notification.setSmallIcon(R.drawable.ic_notification_multiple_mail_24dp);
+            } else {
+                notification.setSmallIcon(R.drawable.ic_notification_mail_24dp);
+            }
             notification.setTicker(account.getDisplayName());
             notification.setVisibility(NotificationCompat.VISIBILITY_PRIVATE);
+            notification.setCategory(NotificationCompat.CATEGORY_EMAIL);
 
             final long when;
 
@@ -720,7 +720,7 @@ public class NotificationUtils {
                     configureLatestEventInfoFromConversation(context, account, folderPreferences,
                             notification, wearableExtender, msgNotifications, notificationId,
                             cursor, clickIntent, notificationIntent, unreadCount, unseenCount,
-                            folder, when, photoFetcher);
+                            folder, when, contactFetcher);
                     eventInfoConfigured = true;
                 }
             }
@@ -852,19 +852,18 @@ public class NotificationUtils {
     private static Notification createPublicNotification(Context context, Account account,
             Folder folder, long when, int unseenCount, int unreadCount, PendingIntent clickIntent) {
         final boolean multipleUnseen = unseenCount > 1;
-        final Bitmap largeIcon = getDefaultNotificationIcon(context, folder, multipleUnseen);
 
         final NotificationCompat.Builder builder = new NotificationCompat.Builder(context)
                 .setContentTitle(createTitle(context, unseenCount))
                 .setContentText(account.getDisplayName())
                 .setContentIntent(clickIntent)
-                .setLargeIcon(largeIcon)
                 .setNumber(unreadCount)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setCategory(NotificationCompat.CATEGORY_EMAIL)
                 .setWhen(when);
 
         if (com.android.mail.utils.Utils.isRunningLOrLater()) {
-            builder.setColor(context.getResources().getColor(R.color.notification_icon_gmail_red));
+            builder.setColor(context.getResources().getColor(R.color.notification_icon_color));
         }
 
         // if this public notification summarizes multiple single notifications, mark it as the
@@ -872,13 +871,10 @@ public class NotificationUtils {
         if (multipleUnseen) {
             builder.setGroup(createGroupKey(account, folder));
             builder.setGroupSummary(true);
+            builder.setSmallIcon(R.drawable.ic_notification_multiple_mail_24dp);
+        } else {
+            builder.setSmallIcon(R.drawable.ic_notification_mail_24dp);
         }
-
-        // TODO(shahrk) - fix for multiple mail
-        // If the folder is a special label or only has 1 unseen, tack on the badge
-        // if (folder.notificationIconResId != 0 || !multipleUnseen) {
-        builder.setSmallIcon(R.drawable.ic_notification_mail_24dp);
-
 
         return builder.build();
     }
@@ -945,26 +941,6 @@ public class NotificationUtils {
         return intent;
     }
 
-    private static Bitmap getDefaultNotificationIcon(
-            final Context context, final Folder folder, final boolean multipleNew) {
-        final int resId;
-        if (folder.notificationIconResId != 0) {
-            resId = folder.notificationIconResId;
-        } else if (multipleNew) {
-            resId = R.drawable.ic_notification_multiple_mail_24dp;
-        } else {
-            resId = R.drawable.ic_notification_anonymous_avatar_32dp;
-        }
-
-        final Bitmap icon = getIcon(context, resId);
-
-        if (icon == null) {
-            LogUtils.e(LOG_TAG, "Couldn't decode notif icon res id %d", resId);
-        }
-
-        return icon;
-    }
-
     private static Bitmap getIcon(final Context context, final int resId) {
         final Bitmap cachedIcon = sNotificationIcons.get(resId);
         if (cachedIcon != null) {
@@ -981,23 +957,21 @@ public class NotificationUtils {
         Bitmap bg = sDefaultWearableBg.get();
         if (bg == null) {
             bg = BitmapFactory.decodeResource(context.getResources(), R.drawable.bg_email);
-            sDefaultWearableBg = new WeakReference<Bitmap>(bg);
+            sDefaultWearableBg = new WeakReference<>(bg);
         }
         return bg;
     }
 
     private static void configureLatestEventInfoFromConversation(final Context context,
             final Account account, final FolderPreferences folderPreferences,
-            final NotificationCompat.Builder notification,
+            final NotificationCompat.Builder notificationBuilder,
             final NotificationCompat.WearableExtender wearableExtender,
             final Map<Integer, NotificationBuilders> msgNotifications,
             final int summaryNotificationId, final Cursor conversationCursor,
             final PendingIntent clickIntent, final Intent notificationIntent,
             final int unreadCount, final int unseenCount,
-            final Folder folder, final long when, final ContactPhotoFetcher photoFetcher) {
+            final Folder folder, final long when, final ContactFetcher contactFetcher) {
         final Resources res = context.getResources();
-        final String notificationAccountDisplayName = account.getDisplayName();
-        final String notificationAccountEmail = account.getEmailAddress();
         final boolean multipleUnseen = unseenCount > 1;
 
         LogUtils.i(LOG_TAG, "Showing notification with unreadCount of %d and unseenCount of %d",
@@ -1015,15 +989,11 @@ public class NotificationUtils {
             // Build the string that describes the number of new messages
             final String newMessagesString = createTitle(context, unseenCount);
 
-            // Use the default notification icon
-            notification.setLargeIcon(
-                    getDefaultNotificationIcon(context, folder, true /* multiple new messages */));
-
             // The ticker initially start as the new messages string.
             notificationTicker = newMessagesString;
 
             // The title of the notification is the new messages string
-            notification.setContentTitle(newMessagesString);
+            notificationBuilder.setContentTitle(newMessagesString);
 
             // TODO(skennedy) Can we remove this check?
             if (com.android.mail.utils.Utils.isRunningJellybeanOrLater()) {
@@ -1032,15 +1002,17 @@ public class NotificationUtils {
                         R.integer.max_num_notification_digest_items);
 
                 // The body of the notification is the account name, or the label name.
-                notification.setSubText(
-                        isInbox ? notificationAccountDisplayName : notificationLabelName);
+                notificationBuilder.setSubText(
+                        isInbox ? account.getDisplayName() : notificationLabelName);
 
                 final NotificationCompat.InboxStyle digest =
-                        new NotificationCompat.InboxStyle(notification);
+                        new NotificationCompat.InboxStyle(notificationBuilder);
 
                 // Group by account and folder
                 final String notificationGroupKey = createGroupKey(account, folder);
-                notification.setGroup(notificationGroupKey).setGroupSummary(true);
+                // Track all senders to later tag them along with the digest notification
+                final HashSet<String> senderAddressesSet = new HashSet<String>();
+                notificationBuilder.setGroup(notificationGroupKey).setGroupSummary(true);
 
                 ConfigResult firstResult = null;
                 int numDigestItems = 0;
@@ -1070,13 +1042,14 @@ public class NotificationUtils {
                                     fromAddress = "";
                                 }
                                 from = getDisplayableSender(fromAddress);
+                                addEmailAddressToSet(fromAddress, senderAddressesSet);
                             }
                             while (messageCursor.moveToPosition(messageCursor.getPosition() - 1)) {
                                 final Message message = messageCursor.getMessage();
                                 if (!message.read &&
                                         !fromAddress.contentEquals(message.getFrom())) {
                                     multipleUnreadThread = true;
-                                    break;
+                                    addEmailAddressToSet(message.getFrom(), senderAddressesSet);
                                 }
                             }
                             final SpannableStringBuilder sendersBuilder;
@@ -1085,7 +1058,7 @@ public class NotificationUtils {
                                         res.getInteger(R.integer.swipe_senders_length);
 
                                 sendersBuilder = getStyledSenders(context, conversationCursor,
-                                        sendersLength, notificationAccountEmail);
+                                        sendersLength, account);
                             } else {
                                 sendersBuilder =
                                         new SpannableStringBuilder(getWrappedFromString(from));
@@ -1100,18 +1073,15 @@ public class NotificationUtils {
                             // Adding conversation notification for Wear.
                             NotificationCompat.Builder conversationNotif =
                                     new NotificationCompat.Builder(context);
+                            conversationNotif.setCategory(NotificationCompat.CATEGORY_EMAIL);
 
-                            // TODO(shahrk) - fix for multiple mail
-                            // Check that the group's folder is assigned an icon res (one of the
-                            // 4 sections). If it is, we can add the gmail badge. If not, it is
-                            // accompanied by the multiple_mail_24dp icon and we don't want a badge
-                            // if (folder.notificationIconResId != 0) {
-                            conversationNotif.setSmallIcon(R.drawable.ic_notification_mail_24dp);
+                            conversationNotif.setSmallIcon(
+                                    R.drawable.ic_notification_multiple_mail_24dp);
 
                             if (com.android.mail.utils.Utils.isRunningLOrLater()) {
                                 conversationNotif.setColor(
                                         context.getResources()
-                                                .getColor(R.color.notification_icon_gmail_red));
+                                                .getColor(R.color.notification_icon_color));
                             }
                             conversationNotif.setContentText(digestLine);
                             Intent conversationNotificationIntent = createViewConversationIntent(
@@ -1128,6 +1098,7 @@ public class NotificationUtils {
                                     (Long.MAX_VALUE - conversation.orderKey));
                             conversationNotif.setGroup(notificationGroupKey);
                             conversationNotif.setSortKey(groupSortKey);
+                            conversationNotif.setWhen(conversation.dateMs);
 
                             int conversationNotificationId = getNotificationId(
                                     summaryNotificationId, conversation.hashCode());
@@ -1138,9 +1109,8 @@ public class NotificationUtils {
                                     configureNotifForOneConversation(context, account,
                                     folderPreferences, conversationNotif, conversationWearExtender,
                                     conversationCursor, notificationIntent, folder, when, res,
-                                    notificationAccountDisplayName, notificationAccountEmail,
                                     isInbox, notificationLabelName, conversationNotificationId,
-                                    photoFetcher);
+                                    contactFetcher);
                             msgNotifications.put(conversationNotificationId,
                                     NotificationBuilders.of(conversationNotif,
                                             conversationWearExtender));
@@ -1159,6 +1129,9 @@ public class NotificationUtils {
                     }
                 } while (numDigestItems <= maxNumDigestItems && conversationCursor.moveToNext());
 
+                // Tag main digest notification with the senders
+                tagNotificationsWithPeople(notificationBuilder, senderAddressesSet);
+
                 if (firstResult != null && firstResult.contactIconInfo != null) {
                     wearableExtender.setBackground(firstResult.contactIconInfo.wearableBg);
                 } else {
@@ -1167,8 +1140,8 @@ public class NotificationUtils {
                 }
             } else {
                 // The body of the notification is the account name, or the label name.
-                notification.setContentText(
-                        isInbox ? notificationAccountDisplayName : notificationLabelName);
+                notificationBuilder.setContentText(
+                        isInbox ? account.getDisplayName() : notificationLabelName);
             }
         } else {
             // For notifications for a single new conversation, we want to get the information
@@ -1178,10 +1151,9 @@ public class NotificationUtils {
             seekToLatestUnreadConversation(conversationCursor);
 
             final ConfigResult result = configureNotifForOneConversation(context, account,
-                    folderPreferences, notification, wearableExtender, conversationCursor,
-                    notificationIntent, folder, when, res, notificationAccountDisplayName,
-                    notificationAccountEmail, isInbox, notificationLabelName,
-                    summaryNotificationId, photoFetcher);
+                    folderPreferences, notificationBuilder, wearableExtender, conversationCursor,
+                    notificationIntent, folder, when, res, isInbox, notificationLabelName,
+                    summaryNotificationId, contactFetcher);
             notificationTicker = result.notificationTicker;
 
             if (result.contactIconInfo != null) {
@@ -1200,15 +1172,15 @@ public class NotificationUtils {
 
         if (notificationTicker != null) {
             // If we didn't generate a notification ticker, it will default to account name
-            notification.setTicker(notificationTicker);
+            notificationBuilder.setTicker(notificationTicker);
         }
 
         // Set the number in the notification
         if (unreadCount > 1) {
-            notification.setNumber(unreadCount);
+            notificationBuilder.setNumber(unreadCount);
         }
 
-        notification.setContentIntent(clickIntent);
+        notificationBuilder.setContentIntent(clickIntent);
     }
 
     /**
@@ -1217,17 +1189,18 @@ public class NotificationUtils {
      */
     private static ConfigResult configureNotifForOneConversation(Context context,
             Account account, FolderPreferences folderPreferences,
-            NotificationCompat.Builder notification,
+            NotificationCompat.Builder notificationBuilder,
             NotificationCompat.WearableExtender wearExtender, Cursor conversationCursor,
             Intent notificationIntent, Folder folder, long when, Resources res,
-            String notificationAccountDisplayName, String notificationAccountEmail,
             boolean isInbox, String notificationLabelName, int notificationId,
-            final ContactPhotoFetcher photoFetcher) {
+            final ContactFetcher contactFetcher) {
 
         final ConfigResult result = new ConfigResult();
 
         final Conversation conversation = new Conversation(conversationCursor);
 
+        // Set of all unique senders for unseen messages
+        final HashSet<String> senderAddressesSet = new HashSet<String>();
         Cursor cursor = null;
         MessageCursor messageCursor = null;
         boolean multipleUnseenThread = false;
@@ -1253,8 +1226,9 @@ public class NotificationUtils {
                 from = getDisplayableSender(fromAddress);
                 result.contactIconInfo = getContactIcon(
                         context, account.getAccountManagerAccount().name, from,
-                        getSenderAddress(fromAddress), folder, photoFetcher);
-                notification.setLargeIcon(result.contactIconInfo.icon);
+                        getSenderAddress(fromAddress), folder, contactFetcher);
+                addEmailAddressToSet(fromAddress, senderAddressesSet);
+                notificationBuilder.setLargeIcon(result.contactIconInfo.icon);
             }
 
             // Assume that the last message in this conversation is unread
@@ -1264,6 +1238,7 @@ public class NotificationUtils {
                 final boolean unseen = !message.seen;
                 if (unseen) {
                     firstUnseenMessagePos = messageCursor.getPosition();
+                    addEmailAddressToSet(message.getFrom(), senderAddressesSet);
                     if (!multipleUnseenThread
                             && !fromAddress.contentEquals(message.getFrom())) {
                         multipleUnseenThread = true;
@@ -1282,35 +1257,30 @@ public class NotificationUtils {
                     int sendersLength = res.getInteger(R.integer.swipe_senders_length);
 
                     final SpannableStringBuilder sendersBuilder = getStyledSenders(
-                            context, conversationCursor, sendersLength,
-                            notificationAccountEmail);
+                            context, conversationCursor, sendersLength, account);
 
-                    notification.setContentTitle(sendersBuilder);
+                    notificationBuilder.setContentTitle(sendersBuilder);
                     // For a single new conversation, the ticker is based on the sender's name.
                     result.notificationTicker = sendersBuilder.toString();
                 } else {
                     from = getWrappedFromString(from);
                     // The title of a single message the sender.
-                    notification.setContentTitle(from);
+                    notificationBuilder.setContentTitle(from);
                     // For a single new conversation, the ticker is based on the sender's name.
                     result.notificationTicker = from;
                 }
 
                 // The notification content will be the subject of the conversation.
-                notification.setContentText(getSingleMessageLittleText(context, subject));
+                notificationBuilder.setContentText(getSingleMessageLittleText(context, subject));
 
                 // The notification subtext will be the subject of the conversation for inbox
                 // notifications, or will based on the the label name for user label
                 // notifications.
-                notification.setSubText(isInbox ?
-                        notificationAccountDisplayName : notificationLabelName);
+                notificationBuilder.setSubText(isInbox ?
+                        account.getDisplayName() : notificationLabelName);
 
-                if (multipleUnseenThread) {
-                    notification.setLargeIcon(
-                            getDefaultNotificationIcon(context, folder, true));
-                }
                 final NotificationCompat.BigTextStyle bigText =
-                        new NotificationCompat.BigTextStyle(notification);
+                        new NotificationCompat.BigTextStyle(notificationBuilder);
 
                 // Seek the message cursor to the first unread message
                 final Message message;
@@ -1327,7 +1297,7 @@ public class NotificationUtils {
                             folderPreferences.getNotificationActions(account);
 
                     NotificationActionUtils.addNotificationActions(context, notificationIntent,
-                            notification, wearExtender, account, conversation, message,
+                            notificationBuilder, wearExtender, account, conversation, message,
                             folder, notificationId, when, notificationActions);
                 }
             } else {
@@ -1335,18 +1305,20 @@ public class NotificationUtils {
 
                 // The title of a single conversation notification is built from both the sender
                 // and subject of the new message.
-                notification.setContentTitle(
+                notificationBuilder.setContentTitle(
                         getSingleMessageNotificationTitle(context, from, subject));
 
                 // The notification content will be the subject of the conversation for inbox
                 // notifications, or will based on the the label name for user label
                 // notifications.
-                notification.setContentText(
-                        isInbox ? notificationAccountDisplayName : notificationLabelName);
+                notificationBuilder.setContentText(
+                        isInbox ? account.getDisplayName() : notificationLabelName);
 
                 // For a single new conversation, the ticker is based on the sender's name.
                 result.notificationTicker = from;
             }
+
+            tagNotificationsWithPeople(notificationBuilder, senderAddressesSet);
         } finally {
             if (messageCursor != null) {
                 messageCursor.close();
@@ -1356,6 +1328,23 @@ public class NotificationUtils {
             }
         }
         return result;
+    }
+
+    /**
+     * Iterates through all senders and adds their respective Uris to the notifications. Each Uri
+     * string consists of the prefix "mailto:" followed by the sender address.
+     * @param notificationBuilder
+     * @param senderAddressesSet List of unique senders to be tagged with the conversation
+     */
+    private static void tagNotificationsWithPeople(NotificationCompat.Builder notificationBuilder,
+            HashSet<String> senderAddressesSet) {
+        for (final String sender : senderAddressesSet) {
+            if (TextUtils.isEmpty(sender)) {
+                continue;
+            }
+            // Tag a notification with a person using "mailto:<sender address>"
+            notificationBuilder.addPerson(MailTo.MAILTO_SCHEME.concat(sender));
+        }
     }
 
     private static String getWrappedFromString(String from) {
@@ -1368,11 +1357,11 @@ public class NotificationUtils {
     }
 
     private static SpannableStringBuilder getStyledSenders(final Context context,
-            final Cursor conversationCursor, final int maxLength, final String account) {
+            final Cursor conversationCursor, final int maxLength, final Account account) {
         final Conversation conversation = new Conversation(conversationCursor);
         final com.android.mail.providers.ConversationInfo conversationInfo =
                 conversation.conversationInfo;
-        final ArrayList<SpannableString> senders = new ArrayList<SpannableString>();
+        final ArrayList<SpannableString> senders = new ArrayList<>();
         if (sNotificationUnreadStyleSpan == null) {
             sNotificationUnreadStyleSpan = new TextAppearanceSpan(
                     context, R.style.NotificationSendersUnreadTextAppearance);
@@ -1690,14 +1679,14 @@ public class NotificationUtils {
 
     private static ContactIconInfo getContactIcon(final Context context, String accountName,
             final String displayName, final String senderAddress, final Folder folder,
-            final ContactPhotoFetcher photoFetcher) {
+            final ContactFetcher contactFetcher) {
         if (Looper.myLooper() == Looper.getMainLooper()) {
             throw new IllegalStateException(
                     "getContactIcon should not be called on the main thread.");
         }
 
         final ContactIconInfo contactIconInfo;
-        if (senderAddress == null) {
+        if (TextUtils.isEmpty(senderAddress)) {
             contactIconInfo = new ContactIconInfo();
         } else {
             // Get the ideal size for this icon.
@@ -1711,8 +1700,8 @@ public class NotificationUtils {
             final int idealWearableBgHeight =
                     res.getDimensionPixelSize(R.dimen.wearable_background_height);
 
-            if (photoFetcher != null) {
-                contactIconInfo = photoFetcher.getContactPhoto(context, accountName,
+            if (contactFetcher != null) {
+                contactIconInfo = contactFetcher.getContactPhoto(context, accountName,
                         senderAddress, idealIconWidth, idealIconHeight, idealWearableBgWidth,
                         idealWearableBgHeight);
             } else {
@@ -1725,16 +1714,20 @@ public class NotificationUtils {
                 final Dimensions dimensions = new Dimensions(idealIconWidth, idealIconHeight,
                         Dimensions.SCALE_ONE);
 
-                contactIconInfo.icon = new LetterTileProvider(context).getLetterTile(dimensions,
-                        displayName, senderAddress);
+                contactIconInfo.icon = new LetterTileProvider(context.getResources())
+                        .getLetterTile(dimensions, displayName, senderAddress);
             }
-            contactIconInfo.icon = cropSquareIconToCircle(contactIconInfo.icon);
+
+            // Only turn the square photo/letter tile into a circle for L and later
+            if (Utils.isRunningLOrLater()) {
+                contactIconInfo.icon = BitmapUtil.frameBitmapInCircle(contactIconInfo.icon);
+            }
         }
 
         if (contactIconInfo.icon == null) {
-            // Icon should be the default mail icon.
-            contactIconInfo.icon = getDefaultNotificationIcon(context, folder,
-                    false /* single new message */);
+            // Use anonymous icon due to lack of sender
+            contactIconInfo.icon = getIcon(context,
+                    R.drawable.ic_notification_anonymous_avatar_32dp);
         }
 
         if (contactIconInfo.wearableBg == null) {
@@ -1815,28 +1808,6 @@ public class NotificationUtils {
         return contactIconInfo;
     }
 
-    /**
-     * Crop a square bitmap into a circular one. Used for both contact photos and letter tiles.
-     * @param icon Square bitmap to crop
-     * @return Circular bitmap
-     */
-    private static Bitmap cropSquareIconToCircle(Bitmap icon) {
-        final int iconWidth = icon.getWidth();
-        final Bitmap newIcon = Bitmap.createBitmap(iconWidth, iconWidth, Bitmap.Config.ARGB_8888);
-        final Canvas canvas = new Canvas(newIcon);
-        final Paint paint = new Paint();
-        final Rect rect = new Rect(0, 0, icon.getWidth(),
-                icon.getHeight());
-
-        paint.setAntiAlias(true);
-        canvas.drawARGB(0, 0, 0, 0);
-        canvas.drawCircle(iconWidth/2, iconWidth/2, iconWidth/2, paint);
-        paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
-        canvas.drawBitmap(icon, rect, rect, paint);
-
-        return newIcon;
-    }
-
     private static String getMessageBodyWithoutElidedText(final Message message) {
         return getMessageBodyWithoutElidedText(message.getBodyAsHtml());
     }
@@ -1900,6 +1871,28 @@ public class NotificationUtils {
             tokenizedAddress = sender;
         }
         return tokenizedAddress;
+    }
+
+    /**
+     * Given a sender, retrieve the email address. If an email address is extracted, add it to the
+     * input set, otherwise ignore it.
+     * @param sender
+     * @param senderAddressesSet
+     */
+    private static void addEmailAddressToSet(String sender, HashSet<String> senderAddressesSet) {
+        // Only continue if we have a non-empty, non-null sender
+        if (!TextUtils.isEmpty(sender)) {
+            final EmailAddress address = EmailAddress.getEmailAddress(sender);
+            final String senderEmailAddress = address.getAddress();
+
+            // Add to set only if we have a non-empty email address
+            if (!TextUtils.isEmpty(senderEmailAddress)) {
+                senderAddressesSet.add(senderEmailAddress);
+            } else {
+                LogUtils.i(LOG_TAG, "Unable to grab email from \"%s\" for notification tagging",
+                        LogUtils.sanitizeName(LOG_TAG, sender));
+            }
+        }
     }
 
     public static int getNotificationId(final android.accounts.Account account,

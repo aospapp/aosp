@@ -7,7 +7,6 @@
     'chromium_code': 1,
 
     'linux_link_kerberos%': 0,
-    'use_tracing_cache_backend%': 0,
     'conditions': [
       ['chromeos==1 or embedded==1 or OS=="android" or OS=="ios"', {
         # Disable Kerberos on ChromeOS, Android and iOS, at least for now.
@@ -87,6 +86,7 @@
       'dependencies': [
         '../base/base.gyp:base',
         '../base/base.gyp:base_i18n',
+        '../base/base.gyp:base_prefs',
         '../base/third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
         '../crypto/crypto.gyp:crypto',
         '../sdch/sdch.gyp:sdch',
@@ -202,11 +202,6 @@
             'dns/dns_client.cc',
           ],
         }],
-        ['use_tracing_cache_backend==1', {
-          'defines': [
-            'USE_TRACING_CACHE_BACKEND'
-          ],
-         }],
         ['use_openssl==1', {
             'sources!': [
               'base/crypto_module_nss.cc',
@@ -254,7 +249,7 @@
               'third_party/mozilla_security_manager/nsPKCS12Blob.h',
             ],
             'dependencies': [
-              '../third_party/openssl/openssl.gyp:openssl',
+              '../third_party/boringssl/boringssl.gyp:boringssl',
             ],
           },
           {  # else !use_openssl: remove the unneeded files
@@ -265,6 +260,7 @@
               'cert/jwk_serializer_openssl.cc',
               'cert/x509_util_openssl.cc',
               'cert/x509_util_openssl.h',
+              'crypto/scoped_openssl_types.h',
               'quic/crypto/aead_base_decrypter_openssl.cc',
               'quic/crypto/aead_base_encrypter_openssl.cc',
               'quic/crypto/aes_128_gcm_12_decrypter_openssl.cc',
@@ -275,14 +271,17 @@
               'quic/crypto/p256_key_exchange_openssl.cc',
               'quic/crypto/scoped_evp_aead_ctx.cc',
               'quic/crypto/scoped_evp_aead_ctx.h',
-              'socket/openssl_ssl_util.cc',
-              'socket/openssl_ssl_util.h',
               'socket/ssl_client_socket_openssl.cc',
               'socket/ssl_client_socket_openssl.h',
               'socket/ssl_server_socket_openssl.cc',
               'socket/ssl_server_socket_openssl.h',
               'socket/ssl_session_cache_openssl.cc',
               'socket/ssl_session_cache_openssl.h',
+              'ssl/openssl_platform_key_mac.cc',
+              'ssl/openssl_platform_key_win.cc',
+              'ssl/openssl_platform_key.h',
+              'ssl/openssl_ssl_util.cc',
+              'ssl/openssl_ssl_util.h',
             ],
           },
         ],
@@ -392,6 +391,8 @@
         [ 'OS == "win"', {
             'sources!': [
               'http/http_auth_handler_ntlm_portable.cc',
+              'socket/socket_libevent.cc',
+              'socket/socket_libevent.h',
               'socket/tcp_socket_libevent.cc',
               'socket/tcp_socket_libevent.h',
               'udp/udp_socket_libevent.cc',
@@ -462,7 +463,7 @@
         }],
         [ 'OS == "android"', {
             'dependencies': [
-              '../third_party/openssl/openssl.gyp:openssl',
+              '../third_party/boringssl/boringssl.gyp:boringssl',
               'net_jni_headers',
             ],
             'sources!': [
@@ -470,11 +471,6 @@
               'cert/cert_database_openssl.cc',
               'cert/cert_verify_proc_openssl.cc',
               'cert/test_root_certs_openssl.cc',
-            ],
-            # The net/android/keystore_openssl.cc source file needs to
-            # access an OpenSSL-internal header.
-            'include_dirs': [
-              '../third_party/openssl',
             ],
           },
         ],
@@ -535,8 +531,10 @@
       'dependencies': [
         '../base/base.gyp:base',
         '../base/base.gyp:base_i18n',
+        '../base/base.gyp:base_prefs_test_support',
         '../base/third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
         '../crypto/crypto.gyp:crypto',
+        '../crypto/crypto.gyp:crypto_test_support',
         '../testing/gmock.gyp:gmock',
         '../testing/gtest.gyp:gtest',
         '../third_party/zlib/zlib.gyp:zlib',
@@ -545,7 +543,9 @@
         'http_server',
         'net',
         'net_derived_sources',
+        'net_extras',
         'net_test_support',
+        'quic_tools',
       ],
       'sources': [
         '<@(net_test_sources)',
@@ -563,7 +563,6 @@
         }],
         ['chromeos==1', {
           'sources!': [
-            'base/network_change_notifier_linux_unittest.cc',
             'proxy/proxy_config_service_linux_unittest.cc',
           ],
         }],
@@ -589,7 +588,7 @@
         [ 'use_openssl == 1', {
           # Avoid compiling/linking with the system library.
           'dependencies': [
-            '../third_party/openssl/openssl.gyp:openssl',
+            '../third_party/boringssl/boringssl.gyp:boringssl',
           ],
         }, {  # use_openssl == 0
           'conditions': [
@@ -638,8 +637,6 @@
             # TODO(bulach): Add equivalent tests when the underlying
             #               functionality is ported to OpenSSL.
             'sources!': [
-              'cert/ct_objects_extractor_unittest.cc',
-              'cert/multi_log_ct_verifier_unittest.cc',
               'cert/nss_cert_database_unittest.cc',
               'cert/nss_cert_database_chromeos_unittest.cc',
               'cert/nss_profile_filter_chromeos_unittest.cc',
@@ -784,7 +781,9 @@
               # The following tests are disabled because they don't apply to
               # iOS.
               # OS is not "linux" or "freebsd" or "openbsd".
-              'socket/unix_domain_socket_posix_unittest.cc',
+              'socket/unix_domain_client_socket_posix_unittest.cc',
+              'socket/unix_domain_listen_socket_posix_unittest.cc',
+              'socket/unix_domain_server_socket_posix_unittest.cc',
 
               # See bug http://crbug.com/344533.
               'disk_cache/blockfile/index_table_v3_unittest.cc',
@@ -792,7 +791,7 @@
         }],
         [ 'OS == "android"', {
             'dependencies': [
-              '../third_party/openssl/openssl.gyp:openssl',
+              '../third_party/boringssl/boringssl.gyp:boringssl',
             ],
             'sources!': [
               'dns/dns_config_service_posix_unittest.cc',
@@ -845,6 +844,7 @@
         'cookies/cookie_monster_perftest.cc',
         'disk_cache/blockfile/disk_cache_perftest.cc',
         'proxy/proxy_resolver_perftest.cc',
+        'websockets/websocket_frame_perftest.cc',
       ],
       'conditions': [
         [ 'use_v8_in_net==1', {
@@ -869,6 +869,11 @@
             ],
             # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
             'msvs_disabled_warnings': [4267, ],
+        }],
+        [ 'enable_websockets != 1', {
+          'sources!': [
+            'websockets/websocket_frame_perftest.cc',
+          ],
         }],
       ],
     },
@@ -933,6 +938,7 @@
         'socket/socket_test_util.h',
         'test/cert_test_util.cc',
         'test/cert_test_util.h',
+        'test/cert_test_util_nss.cc',
         'test/ct_test_util.cc',
         'test/ct_test_util.h',
         'test/embedded_test_server/embedded_test_server.cc',
@@ -958,8 +964,14 @@
         'test/spawned_test_server/spawned_test_server.h',
         'test/spawned_test_server/spawner_communicator.cc',
         'test/spawned_test_server/spawner_communicator.h',
+        'test/url_request/url_request_failed_job.cc',
+        'test/url_request/url_request_failed_job.h',
+        'test/url_request/url_request_mock_http_job.cc',
+        'test/url_request/url_request_mock_http_job.h',
         'url_request/test_url_fetcher_factory.cc',
         'url_request/test_url_fetcher_factory.h',
+        'url_request/test_url_request_interceptor.cc',
+        'url_request/test_url_request_interceptor.h',
         'url_request/url_request_test_util.cc',
         'url_request/url_request_test_util.h',
       ],
@@ -973,7 +985,7 @@
           'conditions': [
             ['use_openssl==1', {
               'dependencies': [
-                '../third_party/openssl/openssl.gyp:openssl',
+                '../third_party/boringssl/boringssl.gyp:boringssl',
               ],
             }, {
               'dependencies': [
@@ -1016,6 +1028,11 @@
               'dns/mock_mdns_socket_factory.h'
             ]
         }],
+        [ 'use_nss != 1', {
+            'sources!': [
+              'test/cert_test_util_nss.cc',
+            ],
+        }],
       ],
       # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
       'msvs_disabled_warnings': [4267, ],
@@ -1035,7 +1052,19 @@
           'includes': [ '../build/grit_action.gypi' ],
         },
       ],
-      'includes': [ '../build/grit_target.gypi' ],
+    },
+    {
+      'target_name': 'net_extras',
+      'type': 'static_library',
+      'variables': { 'enable_wexit_time_destructors': 1, },
+      'dependencies': [
+        '../base/base.gyp:base',
+        '../sql/sql.gyp:sql',
+        'net',
+      ],
+      'sources': [
+        '<@(net_extras_sources)',
+      ],
     },
     {
       'target_name': 'http_server',
@@ -1104,8 +1133,6 @@
         'tools/dump_cache/dump_files.h',
         'tools/dump_cache/simple_cache_dumper.cc',
         'tools/dump_cache/simple_cache_dumper.h',
-        'tools/dump_cache/upgrade_win.cc',
-        'tools/dump_cache/upgrade_win.h',
         'tools/dump_cache/url_to_filename_encoder.cc',
         'tools/dump_cache/url_to_filename_encoder.h',
         'tools/dump_cache/url_utilities.h',
@@ -1113,6 +1140,36 @@
       ],
       # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
       'msvs_disabled_warnings': [4267, ],
+    },
+    {
+      # This is a temporary target which will be merged into 'net' once the
+      # dependency on balsa is eliminated and the classes are actually used.
+      'target_name': 'quic_tools',
+      'type': 'static_library',
+      'dependencies': [
+	'../base/base.gyp:base',
+	'../base/third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
+	'../url/url.gyp:url_lib',
+	'net',
+      ],
+      'sources': [
+	'quic/quic_dispatcher.cc',
+	'quic/quic_dispatcher.h',
+	'quic/quic_in_memory_cache.cc',
+	'quic/quic_in_memory_cache.h',
+	'quic/quic_per_connection_packet_writer.cc',
+	'quic/quic_per_connection_packet_writer.h',
+	'quic/quic_server.cc',
+	'quic/quic_server.h',
+	'quic/quic_server_packet_writer.cc',
+	'quic/quic_server_packet_writer.h',
+	'quic/quic_server_session.cc',
+	'quic/quic_server_session.h',
+	'quic/quic_spdy_server_stream.cc',
+	'quic/quic_spdy_server_stream.h',
+	'quic/quic_time_wait_list_manager.cc',
+	'quic/quic_time_wait_list_manager.h',
+      ],
     },
   ],
   'conditions': [
@@ -1341,7 +1398,7 @@
           ],
           'dependencies': [
             '../base/base.gyp:base',
-            '../third_party/openssl/openssl.gyp:openssl',
+            '../third_party/boringssl/boringssl.gyp:boringssl',
             'balsa',
             'epoll_server',
             'net',
@@ -1386,7 +1443,7 @@
           'dependencies': [
               '../testing/gtest.gyp:gtest',
               '../testing/gmock.gyp:gmock',
-              '../third_party/openssl/openssl.gyp:openssl',
+              '../third_party/boringssl/boringssl.gyp:boringssl',
               'flip_in_mem_edsm_server_base',
               'net',
               'net_test_support',
@@ -1443,6 +1500,8 @@
             'tools/quic/quic_in_memory_cache.h',
             'tools/quic/quic_packet_writer_wrapper.cc',
             'tools/quic/quic_packet_writer_wrapper.h',
+            'tools/quic/quic_per_connection_packet_writer.cc',
+            'tools/quic/quic_per_connection_packet_writer.h',
             'tools/quic/quic_server.cc',
             'tools/quic/quic_server.h',
             'tools/quic/quic_server_session.cc',
@@ -1475,10 +1534,10 @@
           'dependencies': [
             '../base/base.gyp:base',
             'net',
-            'quic_base',
+            'quic_tools',
           ],
           'sources': [
-            'tools/quic/quic_server_bin.cc',
+            'quic/quic_server_bin.cc',
           ],
         },
       ]
@@ -1621,10 +1680,6 @@
           },
           'includes': [ '../build/android/java_cpp_template.gypi' ],
         },
-      ],
-    }],
-    ['OS == "android"', {
-      'targets': [
         {
           'target_name': 'net_unittests_apk',
           'type': 'none',

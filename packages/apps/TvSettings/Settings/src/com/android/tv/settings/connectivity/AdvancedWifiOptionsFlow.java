@@ -434,7 +434,7 @@ public class AdvancedWifiOptionsFlow {
             if (!TextUtils.isEmpty(dns2)) {
                 try {
                     staticConfig.dnsServers.add(
-                            (Inet4Address) NetworkUtils.numericToInetAddress(dns1));
+                            (Inet4Address) NetworkUtils.numericToInetAddress(dns2));
                 } catch (IllegalArgumentException|ClassCastException e) {
                     return R.string.wifi_ip_settings_invalid_dns;
                 }

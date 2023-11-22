@@ -298,13 +298,6 @@ void DirectoryLoader::ReadDirectoryAfterGetEntry(
   if (pending_load_callback_[local_id].size() > 1)
     return;
 
-  // Note: To be precise, we need to call UpdateAboutResource() here. However,
-  // - It is costly to do GetAboutResource HTTP request every time.
-  // - The chance using an old value is small; it only happens when
-  //   ReadDirectory is called during one GetAboutResource roundtrip time
-  //   of a change list fetching.
-  // - Even if the value is old, it just marks the directory as older. It may
-  //   trigger one future unnecessary re-fetch, but it'll never lose data.
   about_resource_loader_->GetAboutResource(
       base::Bind(&DirectoryLoader::ReadDirectoryAfterGetAboutResource,
                  weak_ptr_factory_.GetWeakPtr(), local_id));
@@ -359,7 +352,7 @@ void DirectoryLoader::ReadDirectoryAfterGetAboutResource(
   ResourceEntry* entry = new ResourceEntry;
   int64* local_changestamp = new int64;
   base::PostTaskAndReplyWithResult(
-      blocking_task_runner_,
+      blocking_task_runner_.get(),
       FROM_HERE,
       base::Bind(&CheckLocalState,
                  resource_metadata_,
@@ -403,9 +396,12 @@ void DirectoryLoader::ReadDirectoryAfterCheckLocalState(
   DirectoryFetchInfo directory_fetch_info(
       local_id, entry->resource_id(), remote_changestamp);
 
-  // If the directory's changestamp is new enough, just schedule to run the
-  // callback, as there is no need to fetch the directory.
-  if (directory_changestamp + kMinimumChangestampGap > remote_changestamp) {
+  // If the directory's changestamp is up-to-date or the global changestamp of
+  // the metadata DB is new enough (which means the normal changelist loading
+  // should finish very soon), just schedule to run the callback, as there is no
+  // need to fetch the directory.
+  if (directory_changestamp >= remote_changestamp ||
+      *local_changestamp + kMinimumChangestampGap > remote_changestamp) {
     OnDirectoryLoadComplete(local_id, FILE_ERROR_OK);
   } else {
     // Start fetching the directory content, and mark it with the changestamp
@@ -567,8 +563,9 @@ void DirectoryLoader::LoadDirectoryFromServerAfterUpdateChangestamp(
 
   // Also notify the observers.
   if (error == FILE_ERROR_OK && !directory_path->empty()) {
-    FOR_EACH_OBSERVER(ChangeListLoaderObserver, observers_,
-                      OnDirectoryChanged(*directory_path));
+    FOR_EACH_OBSERVER(ChangeListLoaderObserver,
+                      observers_,
+                      OnDirectoryReloaded(*directory_path));
   }
 }
 

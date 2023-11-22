@@ -5,6 +5,7 @@
 #ifndef EXTENSIONS_BROWSER_EXTENSION_REGISTRY_OBSERVER_H_
 #define EXTENSIONS_BROWSER_EXTENSION_REGISTRY_OBSERVER_H_
 
+#include "extensions/browser/uninstall_reason.h"
 #include "extensions/common/extension.h"
 
 namespace content {
@@ -63,12 +64,14 @@ class ExtensionRegistryObserver {
   // extension is tracked in one of the ExtensionRegistry sets, but is not
   // necessarily enabled.
   virtual void OnExtensionInstalled(content::BrowserContext* browser_context,
-                                    const Extension* extension) {}
+                                    const Extension* extension,
+                                    bool is_update) {}
 
   // Called after an extension is uninstalled. The extension no longer exists in
   // any of the ExtensionRegistry sets (enabled, disabled, etc.).
   virtual void OnExtensionUninstalled(content::BrowserContext* browser_context,
-                                      const Extension* extension) {}
+                                      const Extension* extension,
+                                      UninstallReason reason) {}
 
   // Notifies observers that the observed object is going away.
   virtual void OnShutdown(ExtensionRegistry* registry) {}

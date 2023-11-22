@@ -4,7 +4,7 @@
 
 #include <libudev.h>
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "chrome/browser/extensions/api/image_writer_private/removable_storage_provider.h"
 #include "content/public/browser/browser_thread.h"
@@ -97,6 +97,7 @@ bool RemovableStorageProvider::PopulateDeviceList(
     device->storage_unit_id = udev_device_get_devnode(dev);
     device->capacity = get_int_attr(udev_device_get_sysattr_value(dev, "size"))
       * get_device_blk_size(device->storage_unit_id);
+    device->removable = removable;
 
     device_list->data.push_back(device);
 

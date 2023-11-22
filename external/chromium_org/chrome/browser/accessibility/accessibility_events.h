@@ -8,6 +8,7 @@
 #include <string>
 #include "base/compiler_specific.h"
 #include "ui/accessibility/ax_enums.h"
+#include "ui/gfx/rect.h"
 
 class AccessibilityControlInfo;
 class AccessibilityMenuInfo;
@@ -70,6 +71,9 @@ class AccessibilityControlInfo : public AccessibilityEventInfo {
 
   const std::string& context() const { return context_; }
 
+  void set_bounds(const gfx::Rect& bounds) { bounds_ = bounds; }
+  const gfx::Rect& bounds() const { return bounds_; }
+
  protected:
   AccessibilityControlInfo(Profile* profile,
                            const std::string& name);
@@ -82,6 +86,9 @@ class AccessibilityControlInfo : public AccessibilityEventInfo {
   // A string describing the context of the control, such as the name of
   // the group or toolbar it's contained in.
   std::string context_;
+
+  // The bounds of the control in global screen coordinates.
+  gfx::Rect bounds_;
 };
 
 // Accessibility information about a window passed to onWindowOpened
@@ -99,6 +106,17 @@ class AccessibilityButtonInfo : public AccessibilityControlInfo {
  public:
   AccessibilityButtonInfo(Profile* profile,
                           const std::string& button_name,
+                          const std::string& context);
+
+  virtual const char* type() const OVERRIDE;
+};
+
+// Accessibility information about static text passed to onControlFocused
+// and onControlAction event listeners.
+class AccessibilityStaticTextInfo : public AccessibilityControlInfo {
+ public:
+  AccessibilityStaticTextInfo(Profile* profile,
+                          const std::string& text,
                           const std::string& context);
 
   virtual const char* type() const OVERRIDE;

@@ -18,11 +18,11 @@ GYP_CONFIGURATION := Release
 ifeq ($(PRODUCT_PREBUILT_WEBVIEWCHROMIUM),yes)
 GYP_MAKEFILE_STEMS := \
 	$(addprefix $(CHROMIUM_DIR)/v8/tools/gyp/, \
-		generate_trig_table.host \
 		js2c.host \
 		mksnapshot.host \
 		v8_base.host \
 		v8_libbase.host \
+		v8_libplatform.host \
 		v8_nosnapshot.host \
 		v8_base.target \
 		v8_libbase.target \

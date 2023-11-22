@@ -184,10 +184,6 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
     persist.sys.usb.config=mtp
 
-# Allows healthd to boot directly from charger mode rather than initiating a reboot.
-PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
-    ro.enable_boot_charger_mode=1
-
 # for off charging mode
 PRODUCT_PACKAGES += \
     charger_res_images

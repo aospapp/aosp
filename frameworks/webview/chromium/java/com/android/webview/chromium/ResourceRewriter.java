@@ -17,7 +17,6 @@
 package com.android.webview.chromium;
 
 import android.content.Context;
-import android.util.SparseArray;
 
 /**
  * Helper class used to fix up resource ids.
@@ -27,29 +26,15 @@ import android.util.SparseArray;
  */
 class ResourceRewriter {
 
-    public static void rewriteRValues(Context ctx) {
-        // Rewrite the R 'constants' for the WebView library apk.
-        SparseArray<String> packageIdentifiers = ctx.getResources().getAssets()
-                .getAssignedPackageIdentifiers();
-
-        final int N = packageIdentifiers.size();
-        for (int i = 0; i < N; i++) {
-            final String name = packageIdentifiers.valueAt(i);
-
-            // The resources are always called com.android.webview even if the manifest has had the
-            // package renamed.
-            if ("com.android.webview".equals(name)) {
-                final int id = packageIdentifiers.keyAt(i);
-
-                // TODO: We should use jarjar to remove the redundant R classes here, but due
-                // to a bug in jarjar it's not possible to rename classes with '$' in their name.
-                // See b/15684775.
-                com.android.webview.chromium.R.onResourcesLoaded(id);
-                org.chromium.ui.R.onResourcesLoaded(id);
-                org.chromium.content.R.onResourcesLoaded(id);
-
-                break;
-            }
-        }
+    /**
+     * Rewrite the R 'constants' for the WebView library apk.
+     */
+    public static void rewriteRValues(final int packageId) {
+        // TODO: We should use jarjar to remove the redundant R classes here, but due
+        // to a bug in jarjar it's not possible to rename classes with '$' in their name.
+        // See b/15684775.
+        com.android.webview.chromium.R.onResourcesLoaded(packageId);
+        org.chromium.ui.R.onResourcesLoaded(packageId);
+        org.chromium.content.R.onResourcesLoaded(packageId);
     }
 }

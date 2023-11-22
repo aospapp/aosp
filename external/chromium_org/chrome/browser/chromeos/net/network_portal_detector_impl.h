@@ -17,10 +17,10 @@
 #include "base/observer_list.h"
 #include "base/threading/non_thread_safe.h"
 #include "base/time/time.h"
-#include "chrome/browser/chromeos/net/network_portal_detector.h"
-#include "chrome/browser/chromeos/net/network_portal_detector_strategy.h"
 #include "chrome/browser/chromeos/net/network_portal_notification_controller.h"
 #include "chromeos/network/network_state_handler_observer.h"
+#include "chromeos/network/portal_detector/network_portal_detector.h"
+#include "chromeos/network/portal_detector/network_portal_detector_strategy.h"
 #include "components/captive_portal/captive_portal_detector.h"
 #include "components/captive_portal/captive_portal_types.h"
 #include "content/public/browser/notification_observer.h"
@@ -60,6 +60,9 @@ class NetworkPortalDetectorImpl
   static const char kSessionShillOfflineHistogram[];
   static const char kSessionPortalToOnlineHistogram[];
 
+  // Creates an instance of NetworkPortalDetectorImpl.
+  static void Initialize(net::URLRequestContextGetter* url_context);
+
   explicit NetworkPortalDetectorImpl(
       const scoped_refptr<net::URLRequestContextGetter>& request_context);
   virtual ~NetworkPortalDetectorImpl();
@@ -69,7 +72,7 @@ class NetworkPortalDetectorImpl
   virtual void AddAndFireObserver(Observer* observer) OVERRIDE;
   virtual void RemoveObserver(Observer* observer) OVERRIDE;
   virtual CaptivePortalState GetCaptivePortalState(
-      const std::string& service_path) OVERRIDE;
+      const std::string& guid) OVERRIDE;
   virtual bool IsEnabled() OVERRIDE;
   virtual void Enable(bool start_detection) OVERRIDE;
   virtual bool StartDetectionIfIdle() OVERRIDE;
@@ -79,13 +82,31 @@ class NetworkPortalDetectorImpl
   virtual void DefaultNetworkChanged(const NetworkState* network) OVERRIDE;
 
   // PortalDetectorStrategy::Delegate implementation:
-  virtual int AttemptCount() OVERRIDE;
+  virtual int NoResponseResultCount() OVERRIDE;
   virtual base::TimeTicks AttemptStartTime() OVERRIDE;
   virtual base::TimeTicks GetCurrentTimeTicks() OVERRIDE;
 
  private:
   friend class NetworkPortalDetectorImplTest;
   friend class NetworkPortalDetectorImplBrowserTest;
+
+  struct DetectionAttemptCompletedReport {
+    DetectionAttemptCompletedReport();
+
+    DetectionAttemptCompletedReport(const std::string network_name,
+                                    const std::string network_id,
+                                    captive_portal::CaptivePortalResult result,
+                                    int response_code);
+
+    void Report() const;
+
+    bool Equals(const DetectionAttemptCompletedReport& o) const;
+
+    std::string network_name;
+    std::string network_id;
+    captive_portal::CaptivePortalResult result;
+    int response_code;
+  };
 
   typedef std::string NetworkId;
   typedef base::hash_map<NetworkId, CaptivePortalState> CaptivePortalStateMap;
@@ -105,12 +126,7 @@ class NetworkPortalDetectorImpl
   // Stops whole detection process.
   void StopDetection();
 
-  // Internal predicate which describes set of states from which
-  // DetectCaptivePortal() can be called.
-  bool CanPerformAttempt() const;
-
   // Initiates Captive Portal detection attempt after |delay|.
-  // You should check CanPerformAttempt() before calling this method.
   void ScheduleAttempt(const base::TimeDelta& delay);
 
   // Starts detection attempt.
@@ -149,12 +165,16 @@ class NetworkPortalDetectorImpl
     return state_ == STATE_CHECKING_FOR_PORTAL;
   }
 
-  int attempt_count_for_testing() {
-    return attempt_count_;
+  int same_detection_result_count_for_testing() const {
+    return same_detection_result_count_;
   }
 
-  void set_attempt_count_for_testing(int attempt_count) {
-    attempt_count_ = attempt_count;
+  int no_response_result_count_for_testing() const {
+    return no_response_result_count_;
+  }
+
+  void set_no_response_result_count_for_testing(int count) {
+    no_response_result_count_ = count;
   }
 
   // Returns delay before next portal check. Used by unit tests.
@@ -171,6 +191,10 @@ class NetworkPortalDetectorImpl
   void RecordDetectionStats(const NetworkState* network,
                             CaptivePortalStatus status);
 
+  // Resets strategy and all counters used in computations of
+  // timeouts.
+  void ResetStrategyAndCounters();
+
   // Sets current test time ticks. Used by unit tests.
   void set_time_ticks_for_testing(const base::TimeTicks& time_ticks) {
     time_ticks_for_testing_ = time_ticks;
@@ -186,9 +210,6 @@ class NetworkPortalDetectorImpl
 
   // Unique identifier of the default network.
   std::string default_network_id_;
-
-  // Service path of the default network.
-  std::string default_service_path_;
 
   // Connection state of the default network.
   std::string default_connection_state_;
@@ -209,22 +230,26 @@ class NetworkPortalDetectorImpl
   // True if the NetworkPortalDetector is enabled.
   bool enabled_;
 
-  base::WeakPtrFactory<NetworkPortalDetectorImpl> weak_factory_;
-
   // Start time of portal detection.
   base::TimeTicks detection_start_time_;
 
   // Start time of detection attempt.
   base::TimeTicks attempt_start_time_;
 
-  // Number of already performed detection attempts.
-  int attempt_count_;
-
   // Delay before next portal detection.
   base::TimeDelta next_attempt_delay_;
 
   // Current detection strategy.
   scoped_ptr<PortalDetectorStrategy> strategy_;
+
+  // Last received result from captive portal detector.
+  CaptivePortalStatus last_detection_result_;
+
+  // Number of detection attempts with same result in a row.
+  int same_detection_result_count_;
+
+  // Number of detection attempts in a row with NO RESPONSE result.
+  int no_response_result_count_;
 
   // UI notification controller about captive portal state.
   NetworkPortalNotificationController notification_controller_;
@@ -233,6 +258,11 @@ class NetworkPortalDetectorImpl
 
   // Test time ticks used by unit tests.
   base::TimeTicks time_ticks_for_testing_;
+
+  // Contents of a last log message about completed detection attempt.
+  DetectionAttemptCompletedReport attempt_completed_report_;
+
+  base::WeakPtrFactory<NetworkPortalDetectorImpl> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(NetworkPortalDetectorImpl);
 };

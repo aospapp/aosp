@@ -47,16 +47,21 @@ class ChromeSigninClient : public SigninClient,
   virtual PrefService* GetPrefs() OVERRIDE;
   virtual scoped_refptr<TokenWebData> GetDatabase() OVERRIDE;
   virtual bool CanRevokeCredentials() OVERRIDE;
+  virtual std::string GetSigninScopedDeviceId() OVERRIDE;
+  virtual void ClearSigninScopedDeviceId() OVERRIDE;
   virtual net::URLRequestContextGetter* GetURLRequestContext() OVERRIDE;
   virtual bool ShouldMergeSigninCredentialsIntoCookieJar() OVERRIDE;
+  virtual bool IsFirstRun() const OVERRIDE;
+  virtual base::Time GetInstallDate() OVERRIDE;
 
   // Returns a string describing the chrome version environment. Version format:
   // <Build Info> <OS> <Version number> (<Last change>)<channel or "-devel">
   // If version information is unavailable, returns "invalid."
   virtual std::string GetProductVersion() OVERRIDE;
-  virtual void SetCookieChangedCallback(const CookieChangedCallback& callback)
-      OVERRIDE;
-  virtual void GoogleSigninSucceeded(const std::string& username,
+  virtual scoped_ptr<CookieChangedCallbackList::Subscription>
+      AddCookieChangedCallback(const CookieChangedCallback& callback) OVERRIDE;
+  virtual void GoogleSigninSucceeded(const std::string& account_id,
+                                     const std::string& username,
                                      const std::string& password) OVERRIDE;
 
   // content::NotificationObserver implementation.
@@ -71,9 +76,9 @@ class ChromeSigninClient : public SigninClient,
   Profile* profile_;
   content::NotificationRegistrar registrar_;
 
-  // The callback that if non-empty will be called when notifications about
-  // cookie changes are received.
-  CookieChangedCallback callback_;
+  // The callbacks that will be called when notifications about cookie changes
+  // are received.
+  base::CallbackList<void(const net::CanonicalCookie* cookie)> callbacks_;
 
   // See SetSigninProcess. Tracks the currently active signin process
   // by ID, if there is one.

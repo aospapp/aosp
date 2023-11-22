@@ -20,6 +20,7 @@
 
     <!-- Test Apk is signed with platform key in order to use this permission. -->
     <uses-permission android:name="android.permission.BROADCAST_SMS"/>
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL"/>
 
     <!-- We add an application tag here just so that we can indicate that
          this package needs to link against the android.test library,

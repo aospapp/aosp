@@ -9,6 +9,7 @@
 #include "base/memory/shared_memory.h"
 #include "base/timer/timer.h"
 #include "content/browser/browser_thread_impl.h"
+#include "content/browser/gpu/compositor_util.h"
 #include "content/browser/renderer_host/input/input_router_impl.h"
 #include "content/browser/renderer_host/render_widget_host_delegate.h"
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
@@ -28,13 +29,15 @@
 #include "content/browser/renderer_host/render_widget_host_view_android.h"
 #endif
 
+#if defined(USE_AURA) || (defined(OS_MACOSX) && !defined(OS_IOS))
+#include "content/browser/compositor/test/no_transport_image_transport_factory.h"
+#endif
+
 #if defined(USE_AURA)
-#include "content/browser/compositor/image_transport_factory.h"
 #include "content/browser/renderer_host/render_widget_host_view_aura.h"
 #include "content/browser/renderer_host/ui_events_helper.h"
 #include "ui/aura/env.h"
 #include "ui/aura/test/test_screen.h"
-#include "ui/compositor/test/in_process_context_factory.h"
 #include "ui/events/event.h"
 #endif
 
@@ -141,9 +144,11 @@ class MockRenderWidgetHost : public RenderWidgetHostImpl {
   }
 
   // Allow poking at a few private members.
+  using RenderWidgetHostImpl::GetResizeParams;
   using RenderWidgetHostImpl::OnUpdateRect;
   using RenderWidgetHostImpl::RendererExited;
-  using RenderWidgetHostImpl::last_requested_size_;
+  using RenderWidgetHostImpl::SetInitialRenderSizeParams;
+  using RenderWidgetHostImpl::old_resize_params_;
   using RenderWidgetHostImpl::is_hidden_;
   using RenderWidgetHostImpl::resize_ack_pending_;
   using RenderWidgetHostImpl::input_router_;
@@ -200,15 +205,11 @@ class RenderWidgetHostProcess : public MockRenderProcessHost {
  public:
   explicit RenderWidgetHostProcess(BrowserContext* browser_context)
       : MockRenderProcessHost(browser_context),
-        update_msg_should_reply_(false),
         update_msg_reply_flags_(0) {
   }
   virtual ~RenderWidgetHostProcess() {
   }
 
-  void set_update_msg_should_reply(bool reply) {
-    update_msg_should_reply_ = reply;
-  }
   void set_update_msg_reply_flags(int flags) {
     update_msg_reply_flags_ = flags;
   }
@@ -219,14 +220,6 @@ class RenderWidgetHostProcess : public MockRenderProcessHost {
   virtual bool HasConnection() const OVERRIDE { return true; }
 
  protected:
-  virtual bool WaitForBackingStoreMsg(int render_widget_id,
-                                      const base::TimeDelta& max_delay,
-                                      IPC::Message* msg) OVERRIDE;
-
-  // Set to true when WaitForBackingStoreMsg should return a successful update
-  // message reply. False implies timeout.
-  bool update_msg_should_reply_;
-
   // Indicates the flags that should be sent with a repaint request. This
   // only has an effect when update_msg_should_reply_ is true.
   int update_msg_reply_flags_;
@@ -240,22 +233,6 @@ void RenderWidgetHostProcess::InitUpdateRectParams(
 
   params->view_size = gfx::Size(w, h);
   params->flags = update_msg_reply_flags_;
-}
-
-bool RenderWidgetHostProcess::WaitForBackingStoreMsg(
-    int render_widget_id,
-    const base::TimeDelta& max_delay,
-    IPC::Message* msg) {
-  if (!update_msg_should_reply_)
-    return false;
-
-  // Construct a fake update reply.
-  ViewHostMsg_UpdateRect_Params params;
-  InitUpdateRectParams(&params);
-
-  ViewHostMsg_UpdateRect message(render_widget_id, params);
-  *msg = message;
-  return true;
 }
 
 // TestView --------------------------------------------------------------------
@@ -456,15 +433,20 @@ class RenderWidgetHostTest : public testing::Test {
  protected:
   // testing::Test
   virtual void SetUp() {
-    CommandLine* command_line = CommandLine::ForCurrentProcess();
+    base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
     command_line->AppendSwitch(switches::kValidateInputEventStream);
 
     browser_context_.reset(new TestBrowserContext());
     delegate_.reset(new MockRenderWidgetHostDelegate());
     process_ = new RenderWidgetHostProcess(browser_context_.get());
+#if defined(USE_AURA) || (defined(OS_MACOSX) && !defined(OS_IOS))
+    if (IsDelegatedRendererEnabled()) {
+      ImageTransportFactory::InitializeForUnitTests(
+          scoped_ptr<ImageTransportFactory>(
+              new NoTransportImageTransportFactory));
+    }
+#endif
 #if defined(USE_AURA)
-    ImageTransportFactory::InitializeForUnitTests(
-        scoped_ptr<ui::ContextFactory>(new ui::InProcessContextFactory));
     aura::Env::CreateInstance(true);
     screen_.reset(aura::TestScreen::Create(gfx::Size()));
     gfx::Screen::SetScreenInstance(gfx::SCREEN_TYPE_NATIVE, screen_.get());
@@ -472,10 +454,13 @@ class RenderWidgetHostTest : public testing::Test {
     host_.reset(
         new MockRenderWidgetHost(delegate_.get(), process_, MSG_ROUTING_NONE));
     view_.reset(new TestView(host_.get()));
+    ConfigureView(view_.get());
     host_->SetView(view_.get());
+    SetInitialRenderSizeParams();
     host_->Init();
     host_->DisableGestureDebounce();
   }
+
   virtual void TearDown() {
     view_.reset();
     host_.reset();
@@ -486,11 +471,23 @@ class RenderWidgetHostTest : public testing::Test {
 #if defined(USE_AURA)
     aura::Env::DeleteInstance();
     screen_.reset();
-    ImageTransportFactory::Terminate();
+#endif
+#if defined(USE_AURA) || (defined(OS_MACOSX) && !defined(OS_IOS))
+    if (IsDelegatedRendererEnabled())
+      ImageTransportFactory::Terminate();
 #endif
 
     // Process all pending tasks to avoid leaks.
     base::MessageLoop::current()->RunUntilIdle();
+  }
+
+  void SetInitialRenderSizeParams() {
+    ViewMsg_Resize_Params render_size_params;
+    host_->GetResizeParams(&render_size_params);
+    host_->SetInitialRenderSizeParams(render_size_params);
+  }
+
+  virtual void ConfigureView(TestView* view) {
   }
 
   int64 GetLatencyComponentId() {
@@ -659,7 +656,7 @@ TEST_F(RenderWidgetHostTest, Resize) {
   view_->SetMockPhysicalBackingSize(gfx::Size());
   host_->WasResized();
   EXPECT_FALSE(host_->resize_ack_pending_);
-  EXPECT_EQ(original_size.size(), host_->last_requested_size_);
+  EXPECT_EQ(original_size.size(), host_->old_resize_params_->new_size);
   EXPECT_TRUE(process_->sink().GetUniqueMessageMatching(ViewMsg_Resize::ID));
 
   // Setting the bounds to a "real" rect should send out the notification.
@@ -668,7 +665,7 @@ TEST_F(RenderWidgetHostTest, Resize) {
   view_->ClearMockPhysicalBackingSize();
   host_->WasResized();
   EXPECT_FALSE(host_->resize_ack_pending_);
-  EXPECT_EQ(original_size.size(), host_->last_requested_size_);
+  EXPECT_EQ(original_size.size(), host_->old_resize_params_->new_size);
   EXPECT_TRUE(process_->sink().GetUniqueMessageMatching(ViewMsg_Resize::ID));
 
   // Send out a update that's not a resize ack after setting resize ack pending
@@ -683,7 +680,7 @@ TEST_F(RenderWidgetHostTest, Resize) {
   process_->InitUpdateRectParams(&params);
   host_->OnUpdateRect(params);
   EXPECT_TRUE(host_->resize_ack_pending_);
-  EXPECT_EQ(second_size.size(), host_->last_requested_size_);
+  EXPECT_EQ(second_size.size(), host_->old_resize_params_->new_size);
 
   // Sending out a new notification should NOT send out a new IPC message since
   // a resize ACK is pending.
@@ -692,7 +689,7 @@ TEST_F(RenderWidgetHostTest, Resize) {
   view_->set_bounds(third_size);
   host_->WasResized();
   EXPECT_TRUE(host_->resize_ack_pending_);
-  EXPECT_EQ(second_size.size(), host_->last_requested_size_);
+  EXPECT_EQ(second_size.size(), host_->old_resize_params_->new_size);
   EXPECT_FALSE(process_->sink().GetUniqueMessageMatching(ViewMsg_Resize::ID));
 
   // Send a update that's a resize ack, but for the original_size we sent. Since
@@ -703,7 +700,7 @@ TEST_F(RenderWidgetHostTest, Resize) {
   params.view_size = original_size.size();
   host_->OnUpdateRect(params);
   EXPECT_TRUE(host_->resize_ack_pending_);
-  EXPECT_EQ(third_size.size(), host_->last_requested_size_);
+  EXPECT_EQ(third_size.size(), host_->old_resize_params_->new_size);
   ASSERT_TRUE(process_->sink().GetUniqueMessageMatching(ViewMsg_Resize::ID));
 
   // Send the resize ack for the latest size.
@@ -711,7 +708,7 @@ TEST_F(RenderWidgetHostTest, Resize) {
   params.view_size = third_size.size();
   host_->OnUpdateRect(params);
   EXPECT_FALSE(host_->resize_ack_pending_);
-  EXPECT_EQ(third_size.size(), host_->last_requested_size_);
+  EXPECT_EQ(third_size.size(), host_->old_resize_params_->new_size);
   ASSERT_FALSE(process_->sink().GetFirstMessageMatching(ViewMsg_Resize::ID));
 
   // Now clearing the bounds should send out a notification but we shouldn't
@@ -721,7 +718,7 @@ TEST_F(RenderWidgetHostTest, Resize) {
   view_->set_bounds(gfx::Rect());
   host_->WasResized();
   EXPECT_FALSE(host_->resize_ack_pending_);
-  EXPECT_EQ(gfx::Size(), host_->last_requested_size_);
+  EXPECT_EQ(gfx::Size(), host_->old_resize_params_->new_size);
   EXPECT_TRUE(process_->sink().GetUniqueMessageMatching(ViewMsg_Resize::ID));
 
   // Send a rect that has no area but has either width or height set.
@@ -729,21 +726,21 @@ TEST_F(RenderWidgetHostTest, Resize) {
   view_->set_bounds(gfx::Rect(0, 0, 0, 30));
   host_->WasResized();
   EXPECT_FALSE(host_->resize_ack_pending_);
-  EXPECT_EQ(gfx::Size(0, 30), host_->last_requested_size_);
+  EXPECT_EQ(gfx::Size(0, 30), host_->old_resize_params_->new_size);
   EXPECT_TRUE(process_->sink().GetUniqueMessageMatching(ViewMsg_Resize::ID));
 
   // Set the same size again. It should not be sent again.
   process_->sink().ClearMessages();
   host_->WasResized();
   EXPECT_FALSE(host_->resize_ack_pending_);
-  EXPECT_EQ(gfx::Size(0, 30), host_->last_requested_size_);
+  EXPECT_EQ(gfx::Size(0, 30), host_->old_resize_params_->new_size);
   EXPECT_FALSE(process_->sink().GetFirstMessageMatching(ViewMsg_Resize::ID));
 
   // A different size should be sent again, however.
   view_->set_bounds(gfx::Rect(0, 0, 0, 31));
   host_->WasResized();
   EXPECT_FALSE(host_->resize_ack_pending_);
-  EXPECT_EQ(gfx::Size(0, 31), host_->last_requested_size_);
+  EXPECT_EQ(gfx::Size(0, 31), host_->old_resize_params_->new_size);
   EXPECT_TRUE(process_->sink().GetUniqueMessageMatching(ViewMsg_Resize::ID));
 }
 
@@ -758,7 +755,7 @@ TEST_F(RenderWidgetHostTest, ResizeThenCrash) {
   view_->set_bounds(original_size);
   host_->WasResized();
   EXPECT_TRUE(host_->resize_ack_pending_);
-  EXPECT_EQ(original_size.size(), host_->last_requested_size_);
+  EXPECT_EQ(original_size.size(), host_->old_resize_params_->new_size);
   EXPECT_TRUE(process_->sink().GetUniqueMessageMatching(ViewMsg_Resize::ID));
 
   // Simulate a renderer crash before the update message.  Ensure all the
@@ -767,7 +764,7 @@ TEST_F(RenderWidgetHostTest, ResizeThenCrash) {
   host_->SetView(NULL);
   host_->RendererExited(base::TERMINATION_STATUS_PROCESS_CRASHED, -1);
   EXPECT_FALSE(host_->resize_ack_pending_);
-  EXPECT_EQ(gfx::Size(), host_->last_requested_size_);
+  EXPECT_EQ(gfx::Size(), host_->old_resize_params_->new_size);
 
   // Reset the view so we can exit the test cleanly.
   host_->SetView(view_.get());
@@ -825,14 +822,14 @@ TEST_F(RenderWidgetHostTest, HiddenPaint) {
 
   // Now unhide.
   process_->sink().ClearMessages();
-  host_->WasShown();
+  host_->WasShown(ui::LatencyInfo());
   EXPECT_FALSE(host_->is_hidden_);
 
   // It should have sent out a restored message with a request to paint.
   const IPC::Message* restored = process_->sink().GetUniqueMessageMatching(
       ViewMsg_WasShown::ID);
   ASSERT_TRUE(restored);
-  Tuple1<bool> needs_repaint;
+  Tuple2<bool, ui::LatencyInfo> needs_repaint;
   ViewMsg_WasShown::Read(restored, &needs_repaint);
   EXPECT_TRUE(needs_repaint.a);
 }
@@ -1049,8 +1046,7 @@ TEST_F(RenderWidgetHostTest, TouchEmulator) {
   simulated_event_time_delta_seconds_ = 0.1;
   // Immediately ack all touches instead of sending them to the renderer.
   host_->OnMessageReceived(ViewHostMsg_HasTouchEventHandlers(0, false));
-  host_->OnMessageReceived(
-      ViewHostMsg_SetTouchEventEmulationEnabled(0, true, true));
+  host_->SetTouchEventEmulationEnabled(true);
   process_->sink().ClearMessages();
   view_->set_bounds(gfx::Rect(0, 0, 400, 200));
   view_->Show();
@@ -1149,8 +1145,7 @@ TEST_F(RenderWidgetHostTest, TouchEmulator) {
   EXPECT_EQ(0U, process_->sink().message_count());
 
   // Turn off emulation during a pinch.
-  host_->OnMessageReceived(
-      ViewHostMsg_SetTouchEventEmulationEnabled(0, false, false));
+  host_->SetTouchEventEmulationEnabled(false);
   EXPECT_EQ(WebInputEvent::TouchCancel, host_->acked_touch_event_type());
   EXPECT_EQ("GesturePinchEnd GestureScrollEnd",
             GetInputMessageTypes(process_));
@@ -1165,8 +1160,7 @@ TEST_F(RenderWidgetHostTest, TouchEmulator) {
   EXPECT_EQ(0U, process_->sink().message_count());
 
   // Turn on emulation.
-  host_->OnMessageReceived(
-      ViewHostMsg_SetTouchEventEmulationEnabled(0, true, true));
+  host_->SetTouchEventEmulationEnabled(true);
   EXPECT_EQ(0U, process_->sink().message_count());
 
   // Another touch.
@@ -1185,8 +1179,7 @@ TEST_F(RenderWidgetHostTest, TouchEmulator) {
                     INPUT_EVENT_ACK_STATE_CONSUMED);
 
   // Turn off emulation during a scroll.
-  host_->OnMessageReceived(
-      ViewHostMsg_SetTouchEventEmulationEnabled(0, false, false));
+  host_->SetTouchEventEmulationEnabled(false);
   EXPECT_EQ(WebInputEvent::TouchCancel, host_->acked_touch_event_type());
 
   EXPECT_EQ("GestureScrollEnd", GetInputMessageTypes(process_));
@@ -1355,21 +1348,24 @@ TEST_F(RenderWidgetHostTest, InputRouterReceivesHasTouchEventHandlers) {
   EXPECT_TRUE(host_->mock_input_router()->message_received_);
 }
 
+ui::LatencyInfo GetLatencyInfoFromInputEvent(RenderWidgetHostProcess* process) {
+  const IPC::Message* message = process->sink().GetUniqueMessageMatching(
+      InputMsg_HandleInputEvent::ID);
+  EXPECT_TRUE(message);
+  InputMsg_HandleInputEvent::Param params;
+  EXPECT_TRUE(InputMsg_HandleInputEvent::Read(message, &params));
+  process->sink().ClearMessages();
+  return params.b;
+}
 
 void CheckLatencyInfoComponentInMessage(RenderWidgetHostProcess* process,
                                         int64 component_id,
                                         WebInputEvent::Type input_type) {
-  const IPC::Message* message = process->sink().GetUniqueMessageMatching(
-      InputMsg_HandleInputEvent::ID);
-  ASSERT_TRUE(message);
-  InputMsg_HandleInputEvent::Param params;
-  EXPECT_TRUE(InputMsg_HandleInputEvent::Read(message, &params));
-  ui::LatencyInfo latency_info = params.b;
+  ui::LatencyInfo latency_info = GetLatencyInfoFromInputEvent(process);
   EXPECT_TRUE(latency_info.FindLatency(
       ui::INPUT_EVENT_LATENCY_BEGIN_RWH_COMPONENT,
       component_id,
       NULL));
-  process->sink().ClearMessages();
 }
 
 // Tests that after input event passes through RWHI through ForwardXXXEvent()
@@ -1428,6 +1424,79 @@ TEST_F(RenderWidgetHostTest, InputEventRWHLatencyComponent) {
   SendInputEventACK(WebInputEvent::TouchStart, INPUT_EVENT_ACK_STATE_CONSUMED);
 }
 
+// Tests that after input event passes through RWHI through
+// ForwardXXXEventWithLatencyInfo(), input event coordinates will be present in
+// the latency info.
+TEST_F(RenderWidgetHostTest, InputEventRWHLatencyInfoCoordinates) {
+  host_->OnMessageReceived(ViewHostMsg_HasTouchEventHandlers(0, true));
+  process_->sink().ClearMessages();
+
+  {
+    WebMouseWheelEvent event =
+        SyntheticWebMouseWheelEventBuilder::Build(-5, 0, 0, true);
+    event.x = 100;
+    event.y = 200;
+    host_->ForwardWheelEvent(event);
+    ui::LatencyInfo latency_info = GetLatencyInfoFromInputEvent(process_);
+    EXPECT_EQ(1u, latency_info.input_coordinates_size);
+    EXPECT_EQ(100, latency_info.input_coordinates[0].x);
+    EXPECT_EQ(200, latency_info.input_coordinates[0].y);
+    SendInputEventACK(WebInputEvent::MouseWheel,
+                      INPUT_EVENT_ACK_STATE_CONSUMED);
+  }
+
+  {
+    WebMouseEvent event =
+        SyntheticWebMouseEventBuilder::Build(WebInputEvent::MouseMove);
+    event.x = 300;
+    event.y = 400;
+    host_->ForwardMouseEvent(event);
+    ui::LatencyInfo latency_info = GetLatencyInfoFromInputEvent(process_);
+    EXPECT_EQ(1u, latency_info.input_coordinates_size);
+    EXPECT_EQ(300, latency_info.input_coordinates[0].x);
+    EXPECT_EQ(400, latency_info.input_coordinates[0].y);
+    SendInputEventACK(WebInputEvent::MouseMove, INPUT_EVENT_ACK_STATE_CONSUMED);
+  }
+
+  {
+    WebGestureEvent event = SyntheticWebGestureEventBuilder::Build(
+        WebInputEvent::GestureScrollBegin, blink::WebGestureDeviceTouchscreen);
+    event.x = 500;
+    event.y = 600;
+    host_->ForwardGestureEvent(event);
+    ui::LatencyInfo latency_info = GetLatencyInfoFromInputEvent(process_);
+    EXPECT_EQ(1u, latency_info.input_coordinates_size);
+    EXPECT_EQ(500, latency_info.input_coordinates[0].x);
+    EXPECT_EQ(600, latency_info.input_coordinates[0].y);
+    SendInputEventACK(WebInputEvent::GestureScrollBegin,
+                      INPUT_EVENT_ACK_STATE_CONSUMED);
+  }
+
+  {
+    PressTouchPoint(700, 800);
+    PressTouchPoint(900, 1000);
+    PressTouchPoint(1100, 1200);  // LatencyInfo only holds two coordinates.
+    SendTouchEvent();
+    ui::LatencyInfo latency_info = GetLatencyInfoFromInputEvent(process_);
+    EXPECT_EQ(2u, latency_info.input_coordinates_size);
+    EXPECT_EQ(700, latency_info.input_coordinates[0].x);
+    EXPECT_EQ(800, latency_info.input_coordinates[0].y);
+    EXPECT_EQ(900, latency_info.input_coordinates[1].x);
+    EXPECT_EQ(1000, latency_info.input_coordinates[1].y);
+    SendInputEventACK(WebInputEvent::TouchStart,
+                      INPUT_EVENT_ACK_STATE_CONSUMED);
+  }
+
+  {
+    NativeWebKeyboardEvent event;
+    event.type = WebKeyboardEvent::KeyDown;
+    host_->ForwardKeyboardEvent(event);
+    ui::LatencyInfo latency_info = GetLatencyInfoFromInputEvent(process_);
+    EXPECT_EQ(0u, latency_info.input_coordinates_size);
+    SendInputEventACK(WebInputEvent::KeyDown, INPUT_EVENT_ACK_STATE_CONSUMED);
+  }
+}
+
 TEST_F(RenderWidgetHostTest, RendererExitedResetsInputRouter) {
   // RendererExited will delete the view.
   host_->SetView(new TestView(host_.get()));
@@ -1449,6 +1518,41 @@ TEST_F(RenderWidgetHostTest, RendererExitedResetsIsHidden) {
 
   // Make sure the input router is in a fresh state.
   ASSERT_FALSE(host_->input_router()->HasPendingEvents());
+}
+
+TEST_F(RenderWidgetHostTest, ResizeParams) {
+  gfx::Rect bounds(0, 0, 100, 100);
+  gfx::Size physical_backing_size(40, 50);
+  view_->set_bounds(bounds);
+  view_->SetMockPhysicalBackingSize(physical_backing_size);
+
+  ViewMsg_Resize_Params resize_params;
+  host_->GetResizeParams(&resize_params);
+  EXPECT_EQ(bounds.size(), resize_params.new_size);
+  EXPECT_EQ(physical_backing_size, resize_params.physical_backing_size);
+}
+
+class RenderWidgetHostInitialSizeTest : public RenderWidgetHostTest {
+ public:
+  RenderWidgetHostInitialSizeTest()
+      : RenderWidgetHostTest(), initial_size_(200, 100) {}
+
+  virtual void ConfigureView(TestView* view) override {
+    view->set_bounds(gfx::Rect(initial_size_));
+  }
+
+ protected:
+  gfx::Size initial_size_;
+};
+
+TEST_F(RenderWidgetHostInitialSizeTest, InitialSize) {
+  // Having an initial size set means that the size information had been sent
+  // with the reqiest to new up the RenderView and so subsequent WasResized
+  // calls should not result in new IPC (unless the size has actually changed).
+  host_->WasResized();
+  EXPECT_FALSE(process_->sink().GetUniqueMessageMatching(ViewMsg_Resize::ID));
+  EXPECT_EQ(initial_size_, host_->old_resize_params_->new_size);
+  EXPECT_TRUE(host_->resize_ack_pending_);
 }
 
 }  // namespace content

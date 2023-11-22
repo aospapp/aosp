@@ -12,6 +12,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "url/gurl.h"
 
@@ -90,7 +91,8 @@ bool PendingExtensionManager::AddFromSync(
     const GURL& update_url,
     PendingExtensionInfo::ShouldAllowInstallPredicate should_allow_install,
     bool install_silently,
-    bool remote_install) {
+    bool remote_install,
+    bool installed_by_custodian) {
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   if (ExtensionRegistry::Get(context_)->GetExtensionById(
@@ -103,9 +105,14 @@ bool PendingExtensionManager::AddFromSync(
   // Make sure we don't ever try to install the CWS app, because even though
   // it is listed as a syncable app (because its values need to be synced) it
   // should already be installed on every instance.
-  if (id == extension_misc::kWebStoreAppId) {
+  if (id == extensions::kWebStoreAppId) {
     NOTREACHED();
     return false;
+  }
+
+  int creation_flags = Extension::NO_FLAGS;
+  if (installed_by_custodian) {
+    creation_flags |= Extension::WAS_INSTALLED_BY_CUSTODIAN;
   }
 
   static const bool kIsFromSync = true;
@@ -120,7 +127,7 @@ bool PendingExtensionManager::AddFromSync(
                           kIsFromSync,
                           install_silently,
                           kSyncLocation,
-                          Extension::NO_FLAGS,
+                          creation_flags,
                           kMarkAcknowledged,
                           remote_install);
 }

@@ -35,6 +35,8 @@ LOCAL_MANIFEST_FILE := AndroidManifest.xml
 
 LOCAL_MODULE_TAGS := optional
 
+LOCAL_SDK_VERSION := system_current
+
 LOCAL_STATIC_JAVA_LIBRARIES += android_webview_java_with_new_resources
 
 LOCAL_SRC_FILES := $(call all-java-files-under, java)
@@ -58,6 +60,9 @@ LOCAL_AAPT_FLAGS += --version-code "$(version_code)" --version-name "$(version_n
 LOCAL_JNI_SHARED_LIBRARIES += libwebviewchromium
 
 LOCAL_MULTILIB := both
+
+# See Bug 17409149.
+LOCAL_DEX_PREOPT := false
 
 # TODO: filter webviewchromium_webkit_strings based on PRODUCT_LOCALES.
 LOCAL_REQUIRED_MODULES := \

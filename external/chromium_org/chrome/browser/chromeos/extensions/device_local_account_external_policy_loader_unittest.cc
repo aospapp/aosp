@@ -7,7 +7,7 @@
 #include <string>
 
 #include "base/callback.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/message_loop/message_loop.h"
 #include "base/message_loop/message_loop_proxy.h"
@@ -16,11 +16,9 @@
 #include "base/strings/stringprintf.h"
 #include "base/values.h"
 #include "base/version.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/extensions/external_provider_impl.h"
 #include "chrome/browser/extensions/updater/extension_downloader.h"
 #include "chrome/common/chrome_paths.h"
-#include "chrome/common/extensions/extension_constants.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "components/policy/core/common/cloud/mock_cloud_policy_store.h"
 #include "components/policy/core/common/policy_map.h"
@@ -30,7 +28,9 @@
 #include "content/public/test/test_browser_thread_bundle.h"
 #include "content/public/test/test_utils.h"
 #include "extensions/browser/external_provider_interface.h"
+#include "extensions/browser/notification_types.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/extension_urls.h"
 #include "extensions/common/manifest.h"
 #include "net/url_request/test_url_fetcher_factory.h"
 #include "net/url_request/url_fetcher_delegate.h"
@@ -252,7 +252,7 @@ TEST_F(DeviceLocalAccountExternalPolicyLoaderTest, ForceInstallListSet) {
 
   // Wait for the manifest to be parsed.
   content::WindowedNotificationObserver(
-      chrome::NOTIFICATION_EXTENSION_UPDATE_FOUND,
+      extensions::NOTIFICATION_EXTENSION_UPDATE_FOUND,
       content::NotificationService::AllSources()).Wait();
 
   // Verify that the downloader is attempting to download a CRX file.

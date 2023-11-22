@@ -6,9 +6,10 @@
 
 #include <stdio.h>
 
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_file.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/ref_counted.h"
 #include "mojo/common/test/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -18,16 +19,20 @@ namespace system {
 namespace {
 
 TEST(PlatformHandleDispatcherTest, Basic) {
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+
   static const char kHelloWorld[] = "hello world";
 
   base::FilePath unused;
-  base::ScopedFILE fp(CreateAndOpenTemporaryFile(&unused));
+  base::ScopedFILE fp(
+      CreateAndOpenTemporaryFileInDir(temp_dir.path(), &unused));
   ASSERT_TRUE(fp);
   EXPECT_EQ(sizeof(kHelloWorld),
             fwrite(kHelloWorld, 1, sizeof(kHelloWorld), fp.get()));
 
-  embedder::ScopedPlatformHandle
-      h(mojo::test::PlatformHandleFromFILE(fp.Pass()));
+  embedder::ScopedPlatformHandle h(
+      mojo::test::PlatformHandleFromFILE(fp.Pass()));
   EXPECT_FALSE(fp);
   ASSERT_TRUE(h.is_valid());
 
@@ -57,10 +62,14 @@ TEST(PlatformHandleDispatcherTest, Basic) {
 }
 
 TEST(PlatformHandleDispatcherTest, CreateEquivalentDispatcherAndClose) {
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+
   static const char kFooBar[] = "foo bar";
 
   base::FilePath unused;
-  base::ScopedFILE fp(CreateAndOpenTemporaryFile(&unused));
+  base::ScopedFILE fp(
+      CreateAndOpenTemporaryFileInDir(temp_dir.path(), &unused));
   EXPECT_EQ(sizeof(kFooBar), fwrite(kFooBar, 1, sizeof(kFooBar), fp.get()));
 
   scoped_refptr<PlatformHandleDispatcher> dispatcher(
@@ -75,11 +84,11 @@ TEST(PlatformHandleDispatcherTest, CreateEquivalentDispatcherAndClose) {
 
   scoped_refptr<Dispatcher> generic_dispatcher =
       transport.CreateEquivalentDispatcherAndClose();
-  ASSERT_TRUE(generic_dispatcher);
+  ASSERT_TRUE(generic_dispatcher.get());
 
   transport.End();
   EXPECT_TRUE(dispatcher->HasOneRef());
-  dispatcher = NULL;
+  dispatcher = nullptr;
 
   ASSERT_EQ(Dispatcher::kTypePlatformHandle, generic_dispatcher->GetType());
   dispatcher = static_cast<PlatformHandleDispatcher*>(generic_dispatcher.get());

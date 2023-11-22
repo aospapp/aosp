@@ -83,6 +83,7 @@ PpFrameWriter::~PpFrameWriter() {
 void PpFrameWriter::GetCurrentSupportedFormats(
     int max_requested_width,
     int max_requested_height,
+    double max_requested_frame_rate,
     const VideoCaptureDeviceFormatsCB& callback) {
   DCHECK(CalledOnValidThread());
   DVLOG(3) << "PpFrameWriter::GetCurrentSupportedFormats()";
@@ -93,13 +94,13 @@ void PpFrameWriter::GetCurrentSupportedFormats(
 }
 
 void PpFrameWriter::StartSourceImpl(
-    const media::VideoCaptureParams& params,
+    const media::VideoCaptureFormat& format,
     const VideoCaptureDeliverFrameCB& frame_callback) {
   DCHECK(CalledOnValidThread());
-  DCHECK(!delegate_);
+  DCHECK(!delegate_.get());
   DVLOG(3) << "PpFrameWriter::StartSourceImpl()";
   delegate_ = new FrameWriterDelegate(io_message_loop(), frame_callback);
-  OnStartDone(true);
+  OnStartDone(MEDIA_DEVICE_OK);
 }
 
 void PpFrameWriter::StopSourceImpl() {
@@ -145,7 +146,7 @@ void PpFrameWriter::PutFrame(PPB_ImageData_Impl* image_data,
                               gfx::Rect(frame_size), frame_size, timestamp);
   media::VideoCaptureFormat format(
       frame_size,
-      MediaStreamVideoSource::kDefaultFrameRate,
+      MediaStreamVideoSource::kUnknownFrameRate,
       media::PIXEL_FORMAT_YV12);
 
   libyuv::BGRAToI420(reinterpret_cast<uint8*>(bitmap->getPixels()),

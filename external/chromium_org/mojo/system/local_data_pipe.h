@@ -5,7 +5,7 @@
 #ifndef MOJO_SYSTEM_LOCAL_DATA_PIPE_H_
 #define MOJO_SYSTEM_LOCAL_DATA_PIPE_H_
 
-#include "base/basictypes.h"
+#include "base/macros.h"
 #include "base/memory/aligned_memory.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
@@ -31,31 +31,39 @@ class MOJO_SYSTEM_IMPL_EXPORT LocalDataPipe : public DataPipe {
 
   // |DataPipe| implementation:
   virtual void ProducerCloseImplNoLock() OVERRIDE;
-  virtual MojoResult ProducerWriteDataImplNoLock(const void* elements,
-                                                 uint32_t* num_bytes,
-                                                 bool all_or_none) OVERRIDE;
+  virtual MojoResult ProducerWriteDataImplNoLock(
+      UserPointer<const void> elements,
+      UserPointer<uint32_t> num_bytes,
+      uint32_t max_num_bytes_to_write,
+      uint32_t min_num_bytes_to_write) OVERRIDE;
   virtual MojoResult ProducerBeginWriteDataImplNoLock(
-      void** buffer,
-      uint32_t* buffer_num_bytes,
-      bool all_or_none) OVERRIDE;
+      UserPointer<void*> buffer,
+      UserPointer<uint32_t> buffer_num_bytes,
+      uint32_t min_num_bytes_to_write) OVERRIDE;
   virtual MojoResult ProducerEndWriteDataImplNoLock(
       uint32_t num_bytes_written) OVERRIDE;
-  virtual HandleSignalsState
-      ProducerGetHandleSignalsStateNoLock() const OVERRIDE;
+  virtual HandleSignalsState ProducerGetHandleSignalsStateImplNoLock()
+      const OVERRIDE;
   virtual void ConsumerCloseImplNoLock() OVERRIDE;
-  virtual MojoResult ConsumerReadDataImplNoLock(void* elements,
-                                                uint32_t* num_bytes,
-                                                bool all_or_none) OVERRIDE;
-  virtual MojoResult ConsumerDiscardDataImplNoLock(uint32_t* num_bytes,
-                                                   bool all_or_none) OVERRIDE;
-  virtual MojoResult ConsumerQueryDataImplNoLock(uint32_t* num_bytes) OVERRIDE;
-  virtual MojoResult ConsumerBeginReadDataImplNoLock(const void** buffer,
-                                                     uint32_t* buffer_num_bytes,
-                                                     bool all_or_none) OVERRIDE;
+  virtual MojoResult ConsumerReadDataImplNoLock(
+      UserPointer<void> elements,
+      UserPointer<uint32_t> num_bytes,
+      uint32_t max_num_bytes_to_read,
+      uint32_t min_num_bytes_to_read) OVERRIDE;
+  virtual MojoResult ConsumerDiscardDataImplNoLock(
+      UserPointer<uint32_t> num_bytes,
+      uint32_t max_num_bytes_to_discard,
+      uint32_t min_num_bytes_to_discard) OVERRIDE;
+  virtual MojoResult ConsumerQueryDataImplNoLock(
+      UserPointer<uint32_t> num_bytes) OVERRIDE;
+  virtual MojoResult ConsumerBeginReadDataImplNoLock(
+      UserPointer<const void*> buffer,
+      UserPointer<uint32_t> buffer_num_bytes,
+      uint32_t min_num_bytes_to_read) OVERRIDE;
   virtual MojoResult ConsumerEndReadDataImplNoLock(
       uint32_t num_bytes_read) OVERRIDE;
-  virtual HandleSignalsState
-      ConsumerGetHandleSignalsStateNoLock() const OVERRIDE;
+  virtual HandleSignalsState ConsumerGetHandleSignalsStateImplNoLock()
+      const OVERRIDE;
 
   void EnsureBufferNoLock();
   void DestroyBufferNoLock();

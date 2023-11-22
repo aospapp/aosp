@@ -6,13 +6,12 @@
 
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
-#include "chrome/browser/extensions/extension_renderer_state.h"
-#include "chrome/common/extensions/extension_constants.h"
-#include "chrome/common/url_constants.h"
 #include "content/public/browser/resource_request_info.h"
+#include "extensions/browser/guest_view/web_view/web_view_renderer_state.h"
 #include "extensions/browser/info_map.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/extension_urls.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "net/url_request/url_request.h"
 #include "url/gurl.h"
@@ -85,17 +84,14 @@ bool WebRequestPermissions::HideRequest(
   const ResourceRequestInfo* info = ResourceRequestInfo::ForRequest(request);
   if (info) {
     int process_id = info->GetChildID();
-    int route_id = info->GetRouteID();
-    ExtensionRendererState::WebViewInfo webview_info;
     // Never hide requests from guest processes.
-    if (ExtensionRendererState::GetInstance()->GetWebViewInfo(
-        process_id, route_id, &webview_info)) {
+    if (extensions::WebViewRendererState::GetInstance()->IsGuest(process_id))
       return false;
-    }
+
     if (extension_info_map && (
         extension_info_map->IsSigninProcess(process_id) ||
         extension_info_map->process_map().Contains(
-            extension_misc::kWebStoreAppId, process_id))) {
+            extensions::kWebStoreAppId, process_id))) {
       return true;
     }
   }

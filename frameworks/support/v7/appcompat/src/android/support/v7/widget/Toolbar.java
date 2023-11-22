@@ -114,6 +114,7 @@ public class Toolbar extends ViewGroup {
     private ImageView mLogoView;
 
     private Drawable mCollapseIcon;
+    private CharSequence mCollapseDescription;
     private ImageButton mCollapseButtonView;
     View mExpandedActionView;
 
@@ -146,6 +147,7 @@ public class Toolbar extends ViewGroup {
     private int mSubtitleTextColor;
 
     private boolean mEatingTouch;
+    private boolean mEatingHover;
 
     // Clear me after use.
     private final ArrayList<View> mTempViews = new ArrayList<View>();
@@ -200,7 +202,7 @@ public class Toolbar extends ViewGroup {
         mTitleTextAppearance = a.getResourceId(R.styleable.Toolbar_titleTextAppearance, 0);
         mSubtitleTextAppearance = a.getResourceId(R.styleable.Toolbar_subtitleTextAppearance, 0);
         mGravity = a.getInteger(R.styleable.Toolbar_android_gravity, mGravity);
-        mButtonGravity = a.getInteger(R.styleable.Toolbar_buttonGravity, Gravity.TOP);
+        mButtonGravity = Gravity.TOP;
         mTitleMarginStart = mTitleMarginEnd = mTitleMarginTop = mTitleMarginBottom =
                 a.getDimensionPixelOffset(R.styleable.Toolbar_titleMargins, 0);
 
@@ -246,6 +248,7 @@ public class Toolbar extends ViewGroup {
         }
 
         mCollapseIcon = a.getDrawable(R.styleable.Toolbar_collapseIcon);
+        mCollapseDescription = a.getText(R.styleable.Toolbar_collapseContentDescription);
 
         final CharSequence title = a.getText(R.styleable.Toolbar_title);
         if (!TextUtils.isEmpty(title)) {
@@ -1001,6 +1004,7 @@ public class Toolbar extends ViewGroup {
             mCollapseButtonView = new ImageButton(getContext(), null,
                     R.attr.toolbarNavigationButtonStyle);
             mCollapseButtonView.setImageDrawable(mCollapseIcon);
+            mCollapseButtonView.setContentDescription(mCollapseDescription);
             final LayoutParams lp = generateDefaultLayoutParams();
             lp.gravity = GravityCompat.START | (mButtonGravity & Gravity.VERTICAL_GRAVITY_MASK);
             lp.mViewType = LayoutParams.EXPANDED;
@@ -1090,6 +1094,30 @@ public class Toolbar extends ViewGroup {
 
         if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
             mEatingTouch = false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public boolean onHoverEvent(MotionEvent ev) {
+        // Same deal as onTouchEvent() above. Eat all hover events, but still
+        // respect the touch event dispatch contract.
+
+        final int action = MotionEventCompat.getActionMasked(ev);
+        if (action == MotionEvent.ACTION_HOVER_ENTER) {
+            mEatingHover = false;
+        }
+
+        if (!mEatingHover) {
+            final boolean handled = super.onHoverEvent(ev);
+            if (action == MotionEvent.ACTION_HOVER_ENTER && !handled) {
+                mEatingHover = true;
+            }
+        }
+
+        if (action == MotionEvent.ACTION_HOVER_EXIT || action == MotionEvent.ACTION_CANCEL) {
+            mEatingHover = false;
         }
 
         return true;

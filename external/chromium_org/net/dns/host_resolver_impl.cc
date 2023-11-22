@@ -35,6 +35,7 @@
 #include "net/base/dns_reloader.h"
 #include "net/base/dns_util.h"
 #include "net/base/host_port_pair.h"
+#include "net/base/ip_endpoint.h"
 #include "net/base/net_errors.h"
 #include "net/base/net_log.h"
 #include "net/base/net_util.h"
@@ -182,7 +183,7 @@ bool IsGloballyReachable(const IPAddressNumber& dest,
   rv = socket->GetLocalAddress(&endpoint);
   if (rv != OK)
     return false;
-  DCHECK(endpoint.GetFamily() == ADDRESS_FAMILY_IPV6);
+  DCHECK_EQ(ADDRESS_FAMILY_IPV6, endpoint.GetFamily());
   const IPAddressNumber& address = endpoint.address();
   bool is_link_local = (address[0] == 0xFE) && ((address[1] & 0xC0) == 0x80);
   if (is_link_local)
@@ -766,7 +767,7 @@ class HostResolverImpl::ProcTask
                                    const int error,
                                    const int os_error) const {
     DCHECK(origin_loop_->BelongsToCurrentThread());
-    enum Category {  // Used in HISTOGRAM_ENUMERATION.
+    enum Category {  // Used in UMA_HISTOGRAM_ENUMERATION.
       RESOLVE_SUCCESS,
       RESOLVE_FAIL,
       RESOLVE_SPECULATIVE_SUCCESS,
@@ -2032,10 +2033,18 @@ bool HostResolverImpl::ResolveAsIP(const Key& key,
       ~(HOST_RESOLVER_CANONNAME | HOST_RESOLVER_LOOPBACK_ONLY |
         HOST_RESOLVER_DEFAULT_FAMILY_SET_DUE_TO_NO_IPV6),
             0) << " Unhandled flag";
-  bool ipv6_disabled = (default_address_family_ == ADDRESS_FAMILY_IPV4) &&
-      !probe_ipv6_support_;
+
   *net_error = OK;
-  if ((ip_number.size() == kIPv6AddressSize) && ipv6_disabled) {
+  AddressFamily family = GetAddressFamily(ip_number);
+  if (family == ADDRESS_FAMILY_IPV6 &&
+      !probe_ipv6_support_ &&
+      default_address_family_ == ADDRESS_FAMILY_IPV4) {
+    // Don't return IPv6 addresses if default address family is set to IPv4,
+    // and probes are disabled.
+    *net_error = ERR_NAME_NOT_RESOLVED;
+  } else if (key.address_family != ADDRESS_FAMILY_UNSPECIFIED &&
+             key.address_family != family) {
+    // Don't return IPv6 addresses for IPv4 queries, and vice versa.
     *net_error = ERR_NAME_NOT_RESOLVED;
   } else {
     *addresses = AddressList::CreateFromIPAddress(ip_number, info.port());
@@ -2077,7 +2086,7 @@ bool HostResolverImpl::ServeFromHosts(const Key& key,
   addresses->clear();
 
   // HOSTS lookups are case-insensitive.
-  std::string hostname = StringToLowerASCII(key.hostname);
+  std::string hostname = base::StringToLowerASCII(key.hostname);
 
   const DnsHosts& hosts = dns_client_->GetConfig()->hosts;
 

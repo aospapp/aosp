@@ -37,6 +37,10 @@ public class LibraryLoader {
     // One-way switch becomes true when the libraries are loaded.
     private static boolean sLoaded = false;
 
+    // One-way switch becomes true when the Java command line is switched to
+    // native.
+    private static boolean sCommandLineSwitched = false;
+
     // One-way switch becomes true when the libraries are initialized (
     // by calling nativeLibraryLoaded, which forwards to LibraryLoaded(...) in
     // library_loader_hooks.cc).
@@ -83,7 +87,7 @@ public class LibraryLoader {
                 return;
             }
             loadAlreadyLocked(context, shouldDeleteOldWorkaroundLibraries);
-            initializeAlreadyLocked(CommandLine.getJavaSwitchesOrNull());
+            initializeAlreadyLocked();
         }
     }
 
@@ -130,12 +134,10 @@ public class LibraryLoader {
      * initializes the library here and now: must be called on the thread that the
      * native will call its "main" thread. The library must have previously been
      * loaded with loadNow.
-     * @param initCommandLine The command line arguments that native command line will
-     * be initialized with.
      */
-    public static void initialize(String[] initCommandLine) throws ProcessInitException {
+    public static void initialize() throws ProcessInitException {
         synchronized (sLock) {
-            initializeAlreadyLocked(initCommandLine);
+            initializeAlreadyLocked();
         }
     }
 
@@ -150,13 +152,47 @@ public class LibraryLoader {
                 long startTime = SystemClock.uptimeMillis();
                 boolean useChromiumLinker = Linker.isUsed();
 
-                if (useChromiumLinker) Linker.prepareLibraryLoad();
+                if (useChromiumLinker) {
+                    // Load libraries using the Chromium linker.
+                    Linker.prepareLibraryLoad();
 
-                for (String library : NativeLibraries.LIBRARIES) {
-                    Log.i(TAG, "Loading: " + library);
-                    if (useChromiumLinker) {
-                        Linker.loadLibrary(library);
-                    } else {
+                    for (String library : NativeLibraries.LIBRARIES) {
+                        String zipfile = null;
+                        if (Linker.isInZipFile()) {
+                            zipfile = context.getApplicationInfo().sourceDir;
+                            Log.i(TAG, "Loading " + library + " from within " + zipfile);
+                        } else {
+                            Log.i(TAG, "Loading: " + library);
+                        }
+
+                        boolean isLoaded = false;
+                        if (Linker.isUsingBrowserSharedRelros()) {
+                            try {
+                                if (zipfile != null) {
+                                    Linker.loadLibraryInZipFile(zipfile, library);
+                                } else {
+                                    Linker.loadLibrary(library);
+                                }
+                                isLoaded = true;
+                            } catch (UnsatisfiedLinkError e) {
+                                Log.w(TAG, "Failed to load native library with shared RELRO, " +
+                                      "retrying without");
+                                Linker.disableSharedRelros();
+                            }
+                        }
+                        if (!isLoaded) {
+                            if (zipfile != null) {
+                                Linker.loadLibraryInZipFile(zipfile, library);
+                            } else {
+                                Linker.loadLibrary(library);
+                            }
+                        }
+                    }
+
+                    Linker.finishLibraryLoad();
+                } else {
+                    // Load libraries using the system linker.
+                    for (String library : NativeLibraries.LIBRARIES) {
                         try {
                             System.loadLibrary(library);
                         } catch (UnsatisfiedLinkError e) {
@@ -170,7 +206,6 @@ public class LibraryLoader {
                         }
                     }
                 }
-                if (useChromiumLinker) Linker.finishLibraryLoad();
 
                 if (context != null
                     && shouldDeleteOldWorkaroundLibraries
@@ -184,6 +219,7 @@ public class LibraryLoader {
                         stopTime - startTime,
                         startTime % 10000,
                         stopTime % 10000));
+
                 sLoaded = true;
             }
         } catch (UnsatisfiedLinkError e) {
@@ -200,13 +236,40 @@ public class LibraryLoader {
         }
     }
 
+    // The WebView requires the Command Line to be switched over before
+    // initialization is done. This is okay in the WebView's case since the
+    // JNI is already loaded by this point.
+    public static void switchCommandLineForWebView() {
+        synchronized (sLock) {
+            ensureCommandLineSwitchedAlreadyLocked();
+        }
+    }
+
+    // Switch the CommandLine over from Java to native if it hasn't already been done.
+    // This must happen after the code is loaded and after JNI is ready (since after the
+    // switch the Java CommandLine will delegate all calls the native CommandLine).
+    private static void ensureCommandLineSwitchedAlreadyLocked() {
+        assert sLoaded;
+        if (sCommandLineSwitched) {
+            return;
+        }
+        nativeInitCommandLine(CommandLine.getJavaSwitchesOrNull());
+        CommandLine.enableNativeProxy();
+        sCommandLineSwitched = true;
+    }
+
     // Invoke base::android::LibraryLoaded in library_loader_hooks.cc
-    private static void initializeAlreadyLocked(String[] initCommandLine)
-            throws ProcessInitException {
+    private static void initializeAlreadyLocked() throws ProcessInitException {
         if (sInitialized) {
             return;
         }
-        if (!nativeLibraryLoaded(initCommandLine)) {
+
+        // Setup the native command line if necessary.
+        if (!sCommandLineSwitched) {
+            nativeInitCommandLine(CommandLine.getJavaSwitchesOrNull());
+        }
+
+        if (!nativeLibraryLoaded()) {
             Log.e(TAG, "error calling nativeLibraryLoaded");
             throw new ProcessInitException(LoaderErrors.LOADER_ERROR_FAILED_TO_REGISTER_JNI);
         }
@@ -214,11 +277,20 @@ public class LibraryLoader {
         // shouldn't complain from now on (and in fact, it's used by the
         // following calls).
         sInitialized = true;
-        CommandLine.enableNativeProxy();
+
+        // The Chrome JNI is registered by now so we can switch the Java
+        // command line over to delegating to native if it's necessary.
+        if (!sCommandLineSwitched) {
+            CommandLine.enableNativeProxy();
+            sCommandLineSwitched = true;
+        }
 
         // From now on, keep tracing in sync with native.
         TraceEvent.registerNativeEnabledObserver();
+    }
 
+    // Called after all native initializations are complete.
+    public static void onNativeInitializationComplete() {
         // Record histogram for the Chromium linker.
         if (Linker.isUsed()) {
             nativeRecordChromiumAndroidLinkerHistogram(Linker.loadAtFixedAddressFailed(),
@@ -228,13 +300,15 @@ public class LibraryLoader {
         nativeRecordNativeLibraryHack(sNativeLibraryHackWasUsed);
     }
 
+    private static native void nativeInitCommandLine(String[] initCommandLine);
+
     // Only methods needed before or during normal JNI registration are during System.OnLoad.
     // nativeLibraryLoaded is then called to register everything else.  This process is called
     // "initialization".  This method will be mapped (by generated code) to the LibraryLoaded
     // definition in base/android/library_loader/library_loader_hooks.cc.
     //
     // Return true on success and false on failure.
-    private static native boolean nativeLibraryLoaded(String[] initCommandLine);
+    private static native boolean nativeLibraryLoaded();
 
     // Method called to record statistics about the Chromium linker operation,
     // i.e. whether the library failed to be loaded at a fixed address, and

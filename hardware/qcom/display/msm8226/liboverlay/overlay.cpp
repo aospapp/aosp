@@ -33,16 +33,11 @@
 #include "mdp_version.h"
 #include "qdMetaData.h"
 
-#ifdef USES_QSEED_SCALAR
-#include <scale/scale.h>
-using namespace scale;
-#endif
-
 #define PIPE_DEBUG 0
 
 namespace overlay {
 using namespace utils;
-
+using namespace qdutils;
 
 Overlay::Overlay() {
     int numPipes = qdutils::MDPVersion::getInstance().getTotalPipes();
@@ -158,6 +153,107 @@ eDest Overlay::nextPipe(eMdpPipeType type, int dpy, int mixer) {
     return dest;
 }
 
+utils::eDest Overlay::getPipe(const PipeSpecs& pipeSpecs) {
+    if(MDPVersion::getInstance().is8x26()) {
+        return getPipe_8x26(pipeSpecs);
+    } else if(MDPVersion::getInstance().is8x16()) {
+        return getPipe_8x16(pipeSpecs);
+    } else if(MDPVersion::getInstance().is8x39()) {
+        return getPipe_8x39(pipeSpecs);
+    }
+
+    eDest dest = OV_INVALID;
+
+    //The default behavior is to assume RGB and VG pipes have scalars
+    if(pipeSpecs.formatClass == FORMAT_YUV) {
+        return nextPipe(OV_MDP_PIPE_VG, pipeSpecs.dpy, pipeSpecs.mixer);
+    } else if(pipeSpecs.fb == false) { //RGB App layers
+        if(not pipeSpecs.needsScaling) {
+            dest = nextPipe(OV_MDP_PIPE_DMA, pipeSpecs.dpy, pipeSpecs.mixer);
+        }
+        if(dest == OV_INVALID) {
+            dest = nextPipe(OV_MDP_PIPE_RGB, pipeSpecs.dpy, pipeSpecs.mixer);
+        }
+        if(dest == OV_INVALID) {
+            dest = nextPipe(OV_MDP_PIPE_VG, pipeSpecs.dpy, pipeSpecs.mixer);
+        }
+    } else { //FB layer
+        dest = nextPipe(OV_MDP_PIPE_RGB, pipeSpecs.dpy, pipeSpecs.mixer);
+        if(dest == OV_INVALID) {
+            dest = nextPipe(OV_MDP_PIPE_VG, pipeSpecs.dpy, pipeSpecs.mixer);
+        }
+        //Some features can cause FB to have scaling as well.
+        //If we ever come to this block with FB needing scaling,
+        //the screen will be black for a frame, since the FB won't get a pipe
+        //but atleast this will prevent a hang
+        if(dest == OV_INVALID and (not pipeSpecs.needsScaling)) {
+            dest = nextPipe(OV_MDP_PIPE_DMA, pipeSpecs.dpy, pipeSpecs.mixer);
+        }
+    }
+    return dest;
+}
+
+utils::eDest Overlay::getPipe_8x26(const PipeSpecs& pipeSpecs) {
+    //Use this to hide all the 8x26 requirements that cannot be humanly
+    //described in a generic way
+    eDest dest = OV_INVALID;
+    if(pipeSpecs.formatClass == FORMAT_YUV) { //video
+        return nextPipe(OV_MDP_PIPE_VG, pipeSpecs.dpy, pipeSpecs.mixer);
+    } else if(pipeSpecs.fb == false) { //RGB app layers
+        if((not pipeSpecs.needsScaling) and
+          (not (pipeSpecs.numActiveDisplays > 1 &&
+                pipeSpecs.dpy == DPY_PRIMARY))) {
+            dest = nextPipe(OV_MDP_PIPE_DMA, pipeSpecs.dpy, pipeSpecs.mixer);
+        }
+        if(dest == OV_INVALID) {
+            dest = nextPipe(OV_MDP_PIPE_RGB, pipeSpecs.dpy, pipeSpecs.mixer);
+        }
+        if(dest == OV_INVALID) {
+            dest = nextPipe(OV_MDP_PIPE_VG, pipeSpecs.dpy, pipeSpecs.mixer);
+        }
+    } else { //FB layer
+        //For 8x26 Secondary we use DMA always for FB for inline rotation
+        if(pipeSpecs.dpy == DPY_PRIMARY) {
+            dest = nextPipe(OV_MDP_PIPE_RGB, pipeSpecs.dpy, pipeSpecs.mixer);
+            if(dest == OV_INVALID) {
+                dest = nextPipe(OV_MDP_PIPE_VG, pipeSpecs.dpy, pipeSpecs.mixer);
+            }
+        }
+        if(dest == OV_INVALID and (not pipeSpecs.needsScaling) and
+          (not (pipeSpecs.numActiveDisplays > 1 &&
+                pipeSpecs.dpy == DPY_PRIMARY))) {
+            dest = nextPipe(OV_MDP_PIPE_DMA, pipeSpecs.dpy, pipeSpecs.mixer);
+        }
+    }
+    return dest;
+}
+
+utils::eDest Overlay::getPipe_8x16(const PipeSpecs& pipeSpecs) {
+    //Having such functions help keeping the interface generic but code specific
+    //and rife with assumptions
+    eDest dest = OV_INVALID;
+    if(pipeSpecs.formatClass == FORMAT_YUV or pipeSpecs.needsScaling) {
+        return nextPipe(OV_MDP_PIPE_VG, pipeSpecs.dpy, pipeSpecs.mixer);
+    } else {
+        //Since this is a specific func, we can assume stuff like RGB pipe not
+        //having scalar blocks
+        dest = nextPipe(OV_MDP_PIPE_RGB, pipeSpecs.dpy, pipeSpecs.mixer);
+        if(dest == OV_INVALID) {
+            dest = nextPipe(OV_MDP_PIPE_DMA, pipeSpecs.dpy, pipeSpecs.mixer);
+        }
+        if(dest == OV_INVALID) {
+            dest = nextPipe(OV_MDP_PIPE_VG, pipeSpecs.dpy, pipeSpecs.mixer);
+        }
+    }
+    return dest;
+}
+
+utils::eDest Overlay::getPipe_8x39(const PipeSpecs& pipeSpecs) {
+    //8x16 & 8x36 has same number of pipes, pipe-types & scaling capabilities.
+    //Rely on 8x16 until we see a need to change.
+    return getPipe_8x16(pipeSpecs);
+}
+
 void Overlay::endAllSessions() {
     for(int i = 0; i < PipeBook::NUM_PIPES; i++) {
         if(mPipeBook[i].valid() && mPipeBook[i].mSession==PipeBook::START)
@@ -175,16 +271,28 @@ bool Overlay::isPipeTypeAttached(eMdpPipeType type) {
     return false;
 }
 
+int Overlay::comparePipePriority(utils::eDest pipe1Index,
+        utils::eDest pipe2Index) {
+    validate((int)pipe1Index);
+    validate((int)pipe2Index);
+    uint8_t pipe1Prio = mPipeBook[(int)pipe1Index].mPipe->getPriority();
+    uint8_t pipe2Prio = mPipeBook[(int)pipe2Index].mPipe->getPriority();
+    if(pipe1Prio > pipe2Prio)
+        return -1;
+    if(pipe1Prio < pipe2Prio)
+        return 1;
+    return 0;
+}
+
 bool Overlay::commit(utils::eDest dest) {
     bool ret = false;
-    int index = (int)dest;
-    validate(index);
+    validate((int)dest);
 
-    if(mPipeBook[index].mPipe->commit()) {
+    if(mPipeBook[dest].mPipe->commit()) {
         ret = true;
         PipeBook::setUse((int)dest);
     } else {
-        int dpy = mPipeBook[index].mDisplay;
+        int dpy = mPipeBook[dest].mDisplay;
         for(int i = 0; i < PipeBook::NUM_PIPES; i++) {
             if (mPipeBook[i].mDisplay == dpy) {
                 PipeBook::resetAllocation(i);
@@ -197,73 +305,59 @@ bool Overlay::commit(utils::eDest dest) {
 
 bool Overlay::queueBuffer(int fd, uint32_t offset,
         utils::eDest dest) {
-    int index = (int)dest;
     bool ret = false;
-    validate(index);
+    validate((int)dest);
     //Queue only if commit() has succeeded (and the bit set)
     if(PipeBook::isUsed((int)dest)) {
-        ret = mPipeBook[index].mPipe->queueBuffer(fd, offset);
+        ret = mPipeBook[dest].mPipe->queueBuffer(fd, offset);
     }
     return ret;
 }
 
 void Overlay::setCrop(const utils::Dim& d,
         utils::eDest dest) {
-    int index = (int)dest;
-    validate(index);
-    mPipeBook[index].mPipe->setCrop(d);
+    validate((int)dest);
+    mPipeBook[dest].mPipe->setCrop(d);
 }
 
 void Overlay::setColor(const uint32_t color,
         utils::eDest dest) {
-    int index = (int)dest;
-    validate(index);
-    mPipeBook[index].mPipe->setColor(color);
+    validate((int)dest);
+    mPipeBook[dest].mPipe->setColor(color);
 }
 
 void Overlay::setPosition(const utils::Dim& d,
         utils::eDest dest) {
-    int index = (int)dest;
-    validate(index);
-    mPipeBook[index].mPipe->setPosition(d);
+    validate((int)dest);
+    mPipeBook[dest].mPipe->setPosition(d);
 }
 
 void Overlay::setTransform(const int orient,
         utils::eDest dest) {
-    int index = (int)dest;
-    validate(index);
+    validate((int)dest);
 
     utils::eTransform transform =
             static_cast<utils::eTransform>(orient);
-    mPipeBook[index].mPipe->setTransform(transform);
+    mPipeBook[dest].mPipe->setTransform(transform);
 
 }
 
 void Overlay::setSource(const utils::PipeArgs args,
         utils::eDest dest) {
-    int index = (int)dest;
-    validate(index);
+    validate((int)dest);
 
-    PipeArgs newArgs(args);
-    if(PipeBook::getPipeType(dest) == OV_MDP_PIPE_VG) {
-        setMdpFlags(newArgs.mdpFlags, OV_MDP_PIPE_SHARE);
-    } else {
-        clearMdpFlags(newArgs.mdpFlags, OV_MDP_PIPE_SHARE);
-    }
-
-    if(PipeBook::getPipeType(dest) == OV_MDP_PIPE_DMA) {
-        setMdpFlags(newArgs.mdpFlags, OV_MDP_PIPE_FORCE_DMA);
-    } else {
-        clearMdpFlags(newArgs.mdpFlags, OV_MDP_PIPE_FORCE_DMA);
-    }
-
-    mPipeBook[index].mPipe->setSource(newArgs);
+    setPipeType(dest, PipeBook::getPipeType(dest));
+    mPipeBook[dest].mPipe->setSource(args);
 }
 
 void Overlay::setVisualParams(const MetaData_t& metadata, utils::eDest dest) {
-    int index = (int)dest;
-    validate(index);
-    mPipeBook[index].mPipe->setVisualParams(metadata);
+    validate((int)dest);
+    mPipeBook[dest].mPipe->setVisualParams(metadata);
+}
+
+void Overlay::setPipeType(utils::eDest pipeIndex,
+        const utils::eMdpPipeType pType) {
+    mPipeBook[pipeIndex].mPipe->setPipeType(pType);
 }
 
 Overlay* Overlay::getInstance() {
@@ -365,19 +459,24 @@ int Overlay::initOverlay() {
 }
 
 bool Overlay::displayCommit(const int& fd) {
-    utils::Dim roi;
-    return displayCommit(fd, roi);
+    utils::Dim lRoi, rRoi;
+    return displayCommit(fd, lRoi, rRoi);
 }
 
-bool Overlay::displayCommit(const int& fd, const utils::Dim& roi) {
+bool Overlay::displayCommit(const int& fd, const utils::Dim& lRoi,
+        const utils::Dim& rRoi) {
     //Commit
     struct mdp_display_commit info;
     memset(&info, 0, sizeof(struct mdp_display_commit));
     info.flags = MDP_DISPLAY_COMMIT_OVERLAY;
-    info.roi.x = roi.x;
-    info.roi.y = roi.y;
-    info.roi.w = roi.w;
-    info.roi.h = roi.h;
+    info.l_roi.x = lRoi.x;
+    info.l_roi.y = lRoi.y;
+    info.l_roi.w = lRoi.w;
+    info.l_roi.h = lRoi.h;
+    info.r_roi.x = rRoi.x;
+    info.r_roi.y = rRoi.y;
+    info.r_roi.w = rRoi.w;
+    info.r_roi.h = rRoi.h;
 
     if(!mdp_wrapper::displayCommit(fd, info)) {
         ALOGE("%s: commit failed", __func__);
@@ -424,7 +523,7 @@ void Overlay::clear(int dpy) {
 
 bool Overlay::validateAndSet(const int& dpy, const int& fbFd) {
     GenericPipe* pipeArray[PipeBook::NUM_PIPES];
-    memset(&pipeArray, 0, sizeof(pipeArray));
+    memset(pipeArray, 0, sizeof(GenericPipe*)*(PipeBook::NUM_PIPES));
 
     int num = 0;
     for(int i = 0; i < PipeBook::NUM_PIPES; i++) {
@@ -439,39 +538,20 @@ bool Overlay::validateAndSet(const int& dpy, const int& fbFd) {
 }
 
 void Overlay::initScalar() {
-#ifdef USES_QSEED_SCALAR
     if(sLibScaleHandle == NULL) {
         sLibScaleHandle = dlopen("libscale.so", RTLD_NOW);
-    }
-
-    if(sLibScaleHandle) {
-        if(sScale == NULL) {
-            Scale* (*getInstance)();
-            *(void **) &getInstance = dlsym(sLibScaleHandle, "getInstance");
-            if(getInstance) {
-                sScale = getInstance();
-            }
+        if(sLibScaleHandle) {
+            *(void **) &sFnProgramScale =
+                    dlsym(sLibScaleHandle, "programScale");
         }
     }
-#endif
 }
 
 void Overlay::destroyScalar() {
-#ifdef USES_QSEED_SCALAR
     if(sLibScaleHandle) {
-        if(sScale) {
-            void (*destroyInstance)(Scale*);
-            *(void **) &destroyInstance = dlsym(sLibScaleHandle,
-                    "destroyInstance");
-            if(destroyInstance) {
-                destroyInstance(sScale);
-                sScale = NULL;
-            }
-        }
         dlclose(sLibScaleHandle);
         sLibScaleHandle = NULL;
     }
-#endif
 }
 
 void Overlay::PipeBook::init() {
@@ -501,6 +581,6 @@ int Overlay::PipeBook::sAllocatedBitmap = 0;
 utils::eMdpPipeType Overlay::PipeBook::pipeTypeLUT[utils::OV_MAX] =
     {utils::OV_MDP_PIPE_ANY};
 void *Overlay::sLibScaleHandle = NULL;
-scale::Scale *Overlay::sScale = NULL;
+int (*Overlay::sFnProgramScale)(struct mdp_overlay_list *) = NULL;
 
 }; // namespace overlay

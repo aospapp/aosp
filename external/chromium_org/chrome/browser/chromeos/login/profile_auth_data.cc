@@ -4,17 +4,29 @@
 
 #include "chrome/browser/chromeos/login/profile_auth_data.h"
 
+#include <string>
+
+#include "base/bind.h"
+#include "base/bind_helpers.h"
+#include "base/callback.h"
+#include "base/location.h"
+#include "base/logging.h"
+#include "base/memory/ref_counted.h"
+#include "base/message_loop/message_loop.h"
+#include "base/time/time.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
+#include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_monster.h"
 #include "net/cookies/cookie_store.h"
 #include "net/http/http_auth_cache.h"
 #include "net/http/http_network_session.h"
 #include "net/http/http_transaction_factory.h"
-#include "net/ssl/server_bound_cert_service.h"
-#include "net/ssl/server_bound_cert_store.h"
+#include "net/ssl/channel_id_service.h"
+#include "net/ssl/channel_id_store.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_getter.h"
+#include "url/gurl.h"
 
 using content::BrowserThread;
 
@@ -22,62 +34,117 @@ namespace chromeos {
 
 namespace {
 
+const char kSAMLStartCookie[] = "google-accounts-saml-start";
+const char kSAMLEndCookie[] = "google-accounts-saml-end";
+
 class ProfileAuthDataTransferer {
  public:
   ProfileAuthDataTransferer(
       content::BrowserContext* from_context,
       content::BrowserContext* to_context,
-      bool transfer_cookies,
+      bool transfer_auth_cookies_and_channel_ids_on_first_login,
+      bool transfer_saml_auth_cookies_on_subsequent_login,
       const base::Closure& completion_callback);
 
   void BeginTransfer();
 
  private:
   void BeginTransferOnIOThread();
-  void MaybeDoCookieAndCertTransfer();
-  void Finish();
 
-  void OnTransferCookiesIfEmptyJar(const net::CookieList& cookies_in_jar);
-  void OnGetCookiesToTransfer(const net::CookieList& cookies_to_transfer);
-  void RetrieveDefaultCookies();
-  void OnGetServerBoundCertsToTransfer(
-      const net::ServerBoundCertStore::ServerBoundCertList& certs);
-  void RetrieveDefaultServerBoundCerts();
-  void TransferDefaultAuthCache();
+  // Transfer the proxy auth cache from |from_context_| to |to_context_|. If
+  // the user was required to authenticate with a proxy during login, this
+  // authentication information will be transferred into the user's session.
+  void TransferProxyAuthCache();
+
+  // Callback that receives the content of |to_context_|'s cookie jar. Checks
+  // whether this is the user's first login, based on the state of the cookie
+  // jar, and starts retrieval of the data that should be transfered. Calls
+  // Finish() if there is no data to transfer.
+  void OnTargetCookieJarContentsRetrieved(
+      const net::CookieList& target_cookies);
+
+  // Retrieve the contents of |from_context_|'s cookie jar. When the retrieval
+  // finishes, OnCookiesToTransferRetrieved will be called with the result.
+  void RetrieveCookiesToTransfer();
+
+  // Callback that receives the contents of |from_context_|'s cookie jar. Calls
+  // MaybeTransferCookiesAndChannelIDs() to try and perform the transfer.
+  void OnCookiesToTransferRetrieved(const net::CookieList& cookies_to_transfer);
+
+  // Retrieve |from_context_|'s channel IDs. When the retrieval finishes,
+  // OnChannelIDsToTransferRetrieved will be called with the result.
+  void RetrieveChannelIDsToTransfer();
+
+  // Callback that receives |from_context_|'s channel IDs. Calls
+  // MaybeTransferCookiesAndChannelIDs() to try and perform the transfer.
+  void OnChannelIDsToTransferRetrieved(
+      const net::ChannelIDStore::ChannelIDList& channel_ids_to_transfer);
+
+  // Given a |cookie| set during login, returns true if the cookie may have been
+  // set by GAIA. The main criterion is the |cookie|'s creation date. The points
+  // in time at which redirects from GAIA to SAML IdP and back occur are stored
+  // in |saml_start_time_| and |saml_end_time_|. If the cookie was set between
+  // these two times, it was created by the SAML IdP. Otherwise, it was created
+  // by GAIA.
+  // As an additional precaution, the cookie's domain is checked. If the domain
+  // contains "google" or "youtube", the cookie is considered to have been set
+  // by GAIA as well.
+  bool IsGAIACookie(const net::CanonicalCookie& cookie);
+
+  // If all data to be transferred has been retrieved already, transfer it to
+  // |to_context_| and call Finish().
+  void MaybeTransferCookiesAndChannelIDs();
+
+  // Post the |completion_callback_| to the UI thread and schedule destruction
+  // of |this|.
+  void Finish();
 
   scoped_refptr<net::URLRequestContextGetter> from_context_;
   scoped_refptr<net::URLRequestContextGetter> to_context_;
-  bool transfer_cookies_;
+  bool transfer_auth_cookies_and_channel_ids_on_first_login_;
+  bool transfer_saml_auth_cookies_on_subsequent_login_;
   base::Closure completion_callback_;
 
   net::CookieList cookies_to_transfer_;
-  net::ServerBoundCertStore::ServerBoundCertList certs_to_transfer_;
+  net::ChannelIDStore::ChannelIDList channel_ids_to_transfer_;
 
-  bool got_cookies_;
-  bool got_server_bound_certs_;
+  // The time at which a redirect from GAIA to a SAML IdP occurred.
+  base::Time saml_start_time_;
+  // The time at which a redirect from a SAML IdP back to GAIA occurred.
+  base::Time saml_end_time_;
+
+  bool first_login_;
+  bool waiting_for_auth_cookies_;
+  bool waiting_for_channel_ids_;
 };
 
 ProfileAuthDataTransferer::ProfileAuthDataTransferer(
     content::BrowserContext* from_context,
     content::BrowserContext* to_context,
-    bool transfer_cookies,
+    bool transfer_auth_cookies_and_channel_ids_on_first_login,
+    bool transfer_saml_auth_cookies_on_subsequent_login,
     const base::Closure& completion_callback)
     : from_context_(from_context->GetRequestContext()),
       to_context_(to_context->GetRequestContext()),
-      transfer_cookies_(transfer_cookies),
+      transfer_auth_cookies_and_channel_ids_on_first_login_(
+          transfer_auth_cookies_and_channel_ids_on_first_login),
+      transfer_saml_auth_cookies_on_subsequent_login_(
+          transfer_saml_auth_cookies_on_subsequent_login),
       completion_callback_(completion_callback),
-      got_cookies_(false),
-      got_server_bound_certs_(false) {
+      first_login_(false),
+      waiting_for_auth_cookies_(false),
+      waiting_for_channel_ids_(false) {
 }
 
 void ProfileAuthDataTransferer::BeginTransfer() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  // If we aren't transferring cookies, post the completion callback
-  // immediately.  Otherwise, it will be called when both cookies and channel
-  // ids are finished transferring.
-  if (!transfer_cookies_) {
+  // If we aren't transferring auth cookies or channel IDs, post the completion
+  // callback immediately. Otherwise, it will be called when the transfer
+  // finishes.
+  if (!transfer_auth_cookies_and_channel_ids_on_first_login_ &&
+      !transfer_saml_auth_cookies_on_subsequent_login_) {
     BrowserThread::PostTask(BrowserThread::UI, FROM_HERE, completion_callback_);
-    // Null the callback so that when Finish is called the callback won't be
+    // Null the callback so that when Finish is called, the callback won't be
     // called again.
     completion_callback_.Reset();
   }
@@ -89,118 +156,23 @@ void ProfileAuthDataTransferer::BeginTransfer() {
 
 void ProfileAuthDataTransferer::BeginTransferOnIOThread() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  TransferDefaultAuthCache();
-
-  if (transfer_cookies_) {
-    RetrieveDefaultCookies();
-    RetrieveDefaultServerBoundCerts();
+  TransferProxyAuthCache();
+  if (transfer_auth_cookies_and_channel_ids_on_first_login_ ||
+      transfer_saml_auth_cookies_on_subsequent_login_) {
+    // Retrieve the contents of |to_context_|'s cookie jar.
+    net::CookieStore* to_store =
+        to_context_->GetURLRequestContext()->cookie_store();
+    net::CookieMonster* to_monster = to_store->GetCookieMonster();
+    to_monster->GetAllCookiesAsync(
+        base::Bind(
+            &ProfileAuthDataTransferer::OnTargetCookieJarContentsRetrieved,
+        base::Unretained(this)));
   } else {
     Finish();
   }
 }
 
-// If both cookies and server bound certs have been retrieved, see if we need to
-// do the actual transfer.
-void ProfileAuthDataTransferer::MaybeDoCookieAndCertTransfer() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  if (!(got_cookies_ && got_server_bound_certs_))
-    return;
-
-  // Nothing to transfer over?
-  if (!cookies_to_transfer_.size()) {
-    Finish();
-    return;
-  }
-
-  // Now let's see if the target cookie monster's jar is even empty.
-  net::CookieStore* to_store =
-      to_context_->GetURLRequestContext()->cookie_store();
-  net::CookieMonster* to_monster = to_store->GetCookieMonster();
-  to_monster->GetAllCookiesAsync(
-      base::Bind(&ProfileAuthDataTransferer::OnTransferCookiesIfEmptyJar,
-                 base::Unretained(this)));
-}
-
-// Post the |completion_callback_| and delete ourself.
-void ProfileAuthDataTransferer::Finish() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  if (!completion_callback_.is_null())
-    BrowserThread::PostTask(BrowserThread::UI, FROM_HERE, completion_callback_);
-  delete this;
-}
-
-// Callback for transferring |cookies_to_transfer_| into |to_context_|'s
-// CookieMonster if its jar is completely empty.  If authentication was
-// performed by an extension, then the set of cookies that was acquired through
-// such that process will be automatically transfered into the BrowserContext.
-void ProfileAuthDataTransferer::OnTransferCookiesIfEmptyJar(
-    const net::CookieList& cookies_in_jar) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  // Transfer only if the existing cookie jar is empty.
-  if (!cookies_in_jar.size()) {
-    net::CookieStore* to_store =
-        to_context_->GetURLRequestContext()->cookie_store();
-    net::CookieMonster* to_monster = to_store->GetCookieMonster();
-    to_monster->InitializeFrom(cookies_to_transfer_);
-
-    net::ServerBoundCertService* to_cert_service =
-        to_context_->GetURLRequestContext()->server_bound_cert_service();
-    to_cert_service->GetCertStore()->InitializeFrom(certs_to_transfer_);
-  }
-
-  Finish();
-}
-
-// Callback for receiving |cookies_to_transfer| from the authentication profile
-// cookie jar.
-void ProfileAuthDataTransferer::OnGetCookiesToTransfer(
-    const net::CookieList& cookies_to_transfer) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-
-  got_cookies_ = true;
-  cookies_to_transfer_ = cookies_to_transfer;
-  MaybeDoCookieAndCertTransfer();
-}
-
-// Retrieves initial set of Profile cookies from the |from_context_|.
-void ProfileAuthDataTransferer::RetrieveDefaultCookies() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-
-  net::CookieStore* from_store =
-      from_context_->GetURLRequestContext()->cookie_store();
-  net::CookieMonster* from_monster = from_store->GetCookieMonster();
-  from_monster->SetKeepExpiredCookies();
-  from_monster->GetAllCookiesAsync(
-      base::Bind(&ProfileAuthDataTransferer::OnGetCookiesToTransfer,
-                 base::Unretained(this)));
-}
-
-// Callback for receiving |cookies_to_transfer| from the authentication profile
-// cookie jar.
-void ProfileAuthDataTransferer::OnGetServerBoundCertsToTransfer(
-    const net::ServerBoundCertStore::ServerBoundCertList& certs) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  certs_to_transfer_ = certs;
-  got_server_bound_certs_ = true;
-  MaybeDoCookieAndCertTransfer();
-}
-
-// Retrieves server bound certs of |from_context_|.
-void ProfileAuthDataTransferer::RetrieveDefaultServerBoundCerts() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  net::ServerBoundCertService* from_service =
-      from_context_->GetURLRequestContext()->server_bound_cert_service();
-
-  from_service->GetCertStore()->GetAllServerBoundCerts(
-      base::Bind(&ProfileAuthDataTransferer::OnGetServerBoundCertsToTransfer,
-                 base::Unretained(this)));
-}
-
-// Transfers HTTP authentication cache from the |from_context_|
-// into the |to_context_|. If user was required to authenticate with a proxy
-// during the login, this authentication information will be transferred
-// into the new session.
-void ProfileAuthDataTransferer::TransferDefaultAuthCache() {
+void ProfileAuthDataTransferer::TransferProxyAuthCache() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   net::HttpAuthCache* new_cache = to_context_->GetURLRequestContext()->
       http_transaction_factory()->GetSession()->http_auth_cache();
@@ -208,16 +180,152 @@ void ProfileAuthDataTransferer::TransferDefaultAuthCache() {
       http_transaction_factory()->GetSession()->http_auth_cache());
 }
 
+void ProfileAuthDataTransferer::OnTargetCookieJarContentsRetrieved(
+    const net::CookieList& target_cookies) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  first_login_ = target_cookies.empty();
+  if (first_login_) {
+    // On first login, transfer all auth cookies and channel IDs if
+    // |transfer_auth_cookies_and_channel_ids_on_first_login_| is true.
+    waiting_for_auth_cookies_ =
+        transfer_auth_cookies_and_channel_ids_on_first_login_;
+    waiting_for_channel_ids_ =
+        transfer_auth_cookies_and_channel_ids_on_first_login_;
+  } else {
+    // On subsequent login, transfer auth cookies set by the SAML IdP if
+    // |transfer_saml_auth_cookies_on_subsequent_login_| is true.
+    waiting_for_auth_cookies_ = transfer_saml_auth_cookies_on_subsequent_login_;
+  }
+
+  if (!waiting_for_auth_cookies_ && !waiting_for_channel_ids_) {
+    Finish();
+    return;
+  }
+
+  if (waiting_for_auth_cookies_)
+    RetrieveCookiesToTransfer();
+  if (waiting_for_channel_ids_)
+    RetrieveChannelIDsToTransfer();
+}
+
+void ProfileAuthDataTransferer::RetrieveCookiesToTransfer() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  net::CookieStore* from_store =
+      from_context_->GetURLRequestContext()->cookie_store();
+  net::CookieMonster* from_monster = from_store->GetCookieMonster();
+  from_monster->SetKeepExpiredCookies();
+  from_monster->GetAllCookiesAsync(
+      base::Bind(&ProfileAuthDataTransferer::OnCookiesToTransferRetrieved,
+                 base::Unretained(this)));
+}
+
+void ProfileAuthDataTransferer::OnCookiesToTransferRetrieved(
+    const net::CookieList& cookies_to_transfer) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  waiting_for_auth_cookies_ = false;
+  cookies_to_transfer_ = cookies_to_transfer;
+
+  // Look for cookies indicating the points in time at which redirects from GAIA
+  // to SAML IdP and back occurred. These cookies are synthesized by
+  // chrome/browser/resources/gaia_auth/background.js. If the cookies are found,
+  // their creation times are stored in |saml_start_time_| and
+  // |cookies_to_transfer_| and the cookies are deleted.
+  for (net::CookieList::iterator it = cookies_to_transfer_.begin();
+       it != cookies_to_transfer_.end(); ) {
+    if (it->Name() == kSAMLStartCookie) {
+      saml_start_time_ = it->CreationDate();
+      it = cookies_to_transfer_.erase(it);
+    } else if (it->Name() == kSAMLEndCookie) {
+      saml_end_time_ = it->CreationDate();
+      it = cookies_to_transfer_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+
+  MaybeTransferCookiesAndChannelIDs();
+}
+
+void ProfileAuthDataTransferer::RetrieveChannelIDsToTransfer() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  net::ChannelIDService* from_service =
+      from_context_->GetURLRequestContext()->channel_id_service();
+  from_service->GetChannelIDStore()->GetAllChannelIDs(
+      base::Bind(
+          &ProfileAuthDataTransferer::OnChannelIDsToTransferRetrieved,
+          base::Unretained(this)));
+}
+
+void ProfileAuthDataTransferer::OnChannelIDsToTransferRetrieved(
+    const net::ChannelIDStore::ChannelIDList& channel_ids_to_transfer) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  channel_ids_to_transfer_ = channel_ids_to_transfer;
+  waiting_for_channel_ids_ = false;
+  MaybeTransferCookiesAndChannelIDs();
+}
+
+bool ProfileAuthDataTransferer::IsGAIACookie(
+    const net::CanonicalCookie& cookie) {
+  const base::Time& creation_date = cookie.CreationDate();
+  if (creation_date < saml_start_time_)
+    return true;
+  if (!saml_end_time_.is_null() && creation_date > saml_end_time_)
+    return true;
+
+  const std::string& domain = cookie.Domain();
+  return domain.find("google") != std::string::npos ||
+         domain.find("youtube") != std::string::npos;
+}
+
+void ProfileAuthDataTransferer::MaybeTransferCookiesAndChannelIDs() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  if (waiting_for_auth_cookies_ || waiting_for_channel_ids_)
+    return;
+
+  net::CookieStore* to_store =
+      to_context_->GetURLRequestContext()->cookie_store();
+  net::CookieMonster* to_monster = to_store->GetCookieMonster();
+  if (first_login_) {
+    to_monster->ImportCookies(cookies_to_transfer_);
+    net::ChannelIDService* to_cert_service =
+        to_context_->GetURLRequestContext()->channel_id_service();
+    to_cert_service->GetChannelIDStore()->InitializeFrom(
+        channel_ids_to_transfer_);
+  } else {
+    net::CookieList non_gaia_cookies;
+    for (net::CookieList::const_iterator it = cookies_to_transfer_.begin();
+         it != cookies_to_transfer_.end(); ++it) {
+      if (!IsGAIACookie(*it))
+        non_gaia_cookies.push_back(*it);
+    }
+    to_monster->ImportCookies(non_gaia_cookies);
+  }
+
+  Finish();
+}
+
+void ProfileAuthDataTransferer::Finish() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  if (!completion_callback_.is_null())
+    BrowserThread::PostTask(BrowserThread::UI, FROM_HERE, completion_callback_);
+  base::MessageLoop::current()->DeleteSoon(FROM_HERE, this);
+}
+
 }  // namespace
 
 void ProfileAuthData::Transfer(
     content::BrowserContext* from_context,
     content::BrowserContext* to_context,
-    bool transfer_cookies,
+    bool transfer_auth_cookies_and_channel_ids_on_first_login,
+    bool transfer_saml_auth_cookies_on_subsequent_login,
     const base::Closure& completion_callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  (new ProfileAuthDataTransferer(from_context, to_context, transfer_cookies,
-                                 completion_callback))->BeginTransfer();
+  (new ProfileAuthDataTransferer(
+       from_context,
+       to_context,
+       transfer_auth_cookies_and_channel_ids_on_first_login,
+       transfer_saml_auth_cookies_on_subsequent_login,
+       completion_callback))->BeginTransfer();
 }
 
 }  // namespace chromeos

@@ -21,17 +21,9 @@ namespace system {
 class MOJO_SYSTEM_IMPL_EXPORT MessageInTransitQueue {
  public:
   MessageInTransitQueue();
-
-  struct PassContents {};
-  // Constructor that takes over the contents of another
-  // |MessageInTransitQueue|, leaving it empty.
-  MessageInTransitQueue(PassContents, MessageInTransitQueue* other);
-
   ~MessageInTransitQueue();
 
-  bool IsEmpty() const {
-    return queue_.empty();
-  }
+  bool IsEmpty() const { return queue_.empty(); }
 
   void AddMessage(scoped_ptr<MessageInTransit> message) {
     queue_.push_back(message.release());
@@ -43,9 +35,7 @@ class MOJO_SYSTEM_IMPL_EXPORT MessageInTransitQueue {
     return make_scoped_ptr(rv);
   }
 
-  MessageInTransit* PeekMessage() {
-    return queue_.front();
-  }
+  MessageInTransit* PeekMessage() { return queue_.front(); }
 
   void DiscardMessage() {
     delete queue_.front();
@@ -54,6 +44,9 @@ class MOJO_SYSTEM_IMPL_EXPORT MessageInTransitQueue {
 
   void Clear();
 
+  // Efficiently swaps contents with |*other|.
+  void Swap(MessageInTransitQueue* other);
+
  private:
   // TODO(vtl): When C++11 is available, switch this to a deque of
   // |scoped_ptr|/|unique_ptr|s.
@@ -61,7 +54,6 @@ class MOJO_SYSTEM_IMPL_EXPORT MessageInTransitQueue {
 
   DISALLOW_COPY_AND_ASSIGN(MessageInTransitQueue);
 };
-
 
 }  // namespace system
 }  // namespace mojo

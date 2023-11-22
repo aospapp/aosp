@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.contextmenu;
 
 import android.content.Context;
+import android.net.MailTo;
 import android.os.Build;
 import android.text.TextUtils;
 import android.view.ContextMenu;
@@ -20,6 +21,7 @@ import org.chromium.chrome.browser.search_engines.TemplateUrlService;
 public class ChromeContextMenuPopulator implements ContextMenuPopulator {
     private final ChromeContextMenuItemDelegate mDelegate;
     private MenuInflater mMenuInflater;
+    private static final String BLANK_URL = "about:blank";
 
     /**
      * Builds a {@link ChromeContextMenuPopulator}.
@@ -38,7 +40,8 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
 
     @Override
     public void buildContextMenu(ContextMenu menu, Context context, ContextMenuParams params) {
-        if (!TextUtils.isEmpty(params.getLinkUrl())) menu.setHeaderTitle(params.getLinkUrl());
+        if (!TextUtils.isEmpty(params.getLinkUrl()) && !params.getLinkUrl().equals(BLANK_URL))
+                menu.setHeaderTitle(params.getLinkUrl());
 
         if (mMenuInflater == null) mMenuInflater = new MenuInflater(context);
 
@@ -56,14 +59,20 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             menu.findItem(R.id.contextmenu_copy_link_text).setVisible(false);
         }
 
-        menu.findItem(R.id.contextmenu_save_link_as).setEnabled(
+        if (MailTo.isMailTo(params.getLinkUrl())) {
+            menu.findItem(R.id.contextmenu_copy_link_address_text).setVisible(false);
+        } else {
+            menu.findItem(R.id.contextmenu_copy_email_address).setVisible(false);
+        }
+
+        menu.findItem(R.id.contextmenu_save_link_as).setVisible(
                 UrlUtilities.isDownloadableScheme(params.getLinkUrl()));
 
         if (params.isVideo()) {
-            menu.findItem(R.id.contextmenu_save_video).setEnabled(
+            menu.findItem(R.id.contextmenu_save_video).setVisible(
                     UrlUtilities.isDownloadableScheme(params.getSrcUrl()));
         } else if (params.isImage()) {
-            menu.findItem(R.id.contextmenu_save_image).setEnabled(
+            menu.findItem(R.id.contextmenu_save_image).setVisible(
                     UrlUtilities.isDownloadableScheme(params.getSrcUrl()));
 
             if (mDelegate.canLoadOriginalImage()) {
@@ -72,6 +81,10 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                 menu.findItem(R.id.contextmenu_open_original_image_in_new_tab).setVisible(false);
             }
 
+            // Avoid showing open image option for same image which is already opened.
+            if (mDelegate.getPageUrl().equals(params.getSrcUrl())) {
+                menu.findItem(R.id.contextmenu_open_image).setVisible(false);
+            }
             final TemplateUrlService templateUrlServiceInstance = TemplateUrlService.getInstance();
             final boolean isSearchByImageAvailable =
                     UrlUtilities.isDownloadableScheme(params.getSrcUrl()) &&
@@ -105,17 +118,25 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             mDelegate.onOpenImageInNewTab(params.getSrcUrl(), params.getReferrer());
         } else if (itemId == R.id.contextmenu_copy_link_address_text) {
             mDelegate.onSaveToClipboard(params.getUnfilteredLinkUrl(), true);
+        } else if (itemId == R.id.contextmenu_copy_email_address) {
+            mDelegate.onSaveToClipboard(MailTo.parse(params.getLinkUrl()).getTo(), false);
         } else if (itemId == R.id.contextmenu_copy_link_text) {
             mDelegate.onSaveToClipboard(params.getLinkText(), false);
         } else if (itemId == R.id.contextmenu_save_image ||
                 itemId == R.id.contextmenu_save_video) {
-            if (mDelegate.startDownload(false)) helper.startContextMenuDownload(false);
+            if (mDelegate.startDownload(params.getSrcUrl(), false)) {
+                helper.startContextMenuDownload(false);
+            }
         } else if (itemId == R.id.contextmenu_save_link_as) {
-            if (mDelegate.startDownload(true)) helper.startContextMenuDownload(true);
+            if (mDelegate.startDownload(params.getUnfilteredLinkUrl(), true)) {
+                helper.startContextMenuDownload(true);
+            }
         } else if (itemId == R.id.contextmenu_search_by_image) {
             mDelegate.onSearchByImageInNewTab();
         } else if (itemId == R.id.contextmenu_copy_image) {
             mDelegate.onSaveImageToClipboard(params.getSrcUrl());
+        } else if (itemId == R.id.contextmenu_copy_image_url) {
+            mDelegate.onSaveToClipboard(params.getSrcUrl(), true);
         } else {
             assert false;
         }

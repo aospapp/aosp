@@ -22,6 +22,30 @@ common_cflags := \
 	-fvisibility=hidden \
 	-Wno-unused-parameter \
 
+# These parameters change the way jemalloc works.
+#   ANDROID_ALWAYS_PURGE
+#     If defined, always purge immediately when a page is purgeable.
+#   ANDROID_MAX_ARENAS=XX
+#     The total number of arenas will be less than or equal to this number.
+#     The number of arenas will be calculated as 2 * the number of cpus
+#     but no larger than XX.
+#   ANDROID_TCACHE_NSLOTS_SMALL_MAX=XX
+#     The number of small slots held in the tcache. The higher this number
+#     is, the higher amount of PSS consumed. If this number is set too low
+#     then small allocations will take longer to complete.
+#   ANDROID_TCACHE_NSLOTS_LARGE=XX
+#     The number of large slots held in the tcache. The higher this number
+#     is, the higher amount of PSS consumed. If this number is set too low
+#     then large allocations will take longer to complete.
+#   ANDROID_LG_TCACHE_MAXCLASS_DEFAULT=XX
+#     1 << XX is the maximum sized allocation that will be in the tcache.
+common_cflags += \
+	-DANDROID_ALWAYS_PURGE \
+	-DANDROID_MAX_ARENAS=2 \
+	-DANDROID_TCACHE_NSLOTS_SMALL_MAX=8 \
+	-DANDROID_TCACHE_NSLOTS_LARGE=16 \
+	-DANDROID_LG_TCACHE_MAXCLASS_DEFAULT=16 \
+
 common_c_includes := \
 	$(LOCAL_PATH)/src \
 	$(LOCAL_PATH)/include \

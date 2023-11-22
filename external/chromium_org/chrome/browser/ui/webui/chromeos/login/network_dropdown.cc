@@ -6,8 +6,6 @@
 
 #include <string>
 
-#include "ash/system/chromeos/network/network_icon.h"
-#include "ash/system/chromeos/network/network_icon_animation.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "chrome/browser/chromeos/login/ui/login_display_host.h"
@@ -16,6 +14,8 @@
 #include "content/public/browser/web_ui.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/base/webui/web_ui_util.h"
+#include "ui/chromeos/network/network_icon.h"
+#include "ui/chromeos/network/network_icon_animation.h"
 #include "ui/gfx/font_list.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_skia.h"
@@ -128,7 +128,7 @@ NetworkDropdown::NetworkDropdown(Actor* actor,
 }
 
 NetworkDropdown::~NetworkDropdown() {
-  ash::network_icon::NetworkIconAnimation::GetInstance()->RemoveObserver(this);
+  ui::network_icon::NetworkIconAnimation::GetInstance()->RemoveObserver(this);
   if (NetworkHandler::IsInitialized()) {
     NetworkHandler::Get()->network_state_handler()->RemoveObserver(
         this, FROM_HERE);
@@ -151,9 +151,8 @@ bool NetworkDropdown::ShouldOpenButtonOptions() const {
   return !oobe_;
 }
 
-void NetworkDropdown::OnConnectToNetworkRequested(
-    const std::string& service_path) {
-  actor_->OnConnectToNetworkRequested(service_path);
+void NetworkDropdown::OnConnectToNetworkRequested() {
+  actor_->OnConnectToNetworkRequested();
 }
 
 void NetworkDropdown::DefaultNetworkChanged(const NetworkState* network) {
@@ -182,13 +181,12 @@ void NetworkDropdown::SetNetworkIconAndText() {
   base::string16 text;
   gfx::ImageSkia icon_image;
   bool animating = false;
-  ash::network_icon::GetDefaultNetworkImageAndLabel(
-      ash::network_icon::ICON_TYPE_LIST, &icon_image, &text, &animating);
+  ui::network_icon::GetDefaultNetworkImageAndLabel(
+      ui::network_icon::ICON_TYPE_LIST, &icon_image, &text, &animating);
   if (animating) {
-    ash::network_icon::NetworkIconAnimation::GetInstance()->AddObserver(this);
+    ui::network_icon::NetworkIconAnimation::GetInstance()->AddObserver(this);
   } else {
-    ash::network_icon::NetworkIconAnimation::GetInstance()->
-        RemoveObserver(this);
+    ui::network_icon::NetworkIconAnimation::GetInstance()->RemoveObserver(this);
   }
   SkBitmap icon_bitmap = icon_image.GetRepresentation(
       web_ui_->GetDeviceScaleFactor()).sk_bitmap();

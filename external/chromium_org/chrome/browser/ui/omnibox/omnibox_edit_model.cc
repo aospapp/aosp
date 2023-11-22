@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 
+#include <algorithm>
 #include <string>
 
 #include "base/auto_reset.h"
@@ -17,11 +18,9 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
-#include "chrome/browser/autocomplete/autocomplete_provider.h"
-#include "chrome/browser/autocomplete/extension_app_provider.h"
+#include "chrome/browser/autocomplete/chrome_autocomplete_scheme_classifier.h"
 #include "chrome/browser/autocomplete/history_url_provider.h"
-#include "chrome/browser/autocomplete/keyword_provider.h"
-#include "chrome/browser/autocomplete/search_provider.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/bookmarks/bookmark_stats.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/command_updater.h"
@@ -37,9 +36,6 @@
 #include "chrome/browser/prerender/prerender_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/search.h"
-#include "chrome/browser/search_engines/template_url.h"
-#include "chrome/browser/search_engines/template_url_prepopulate_data.h"
-#include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/search_engines/ui_thread_search_terms_data.h"
 #include "chrome/browser/sessions/session_tab_helper.h"
@@ -56,8 +52,15 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
-#include "components/metrics/proto/omnibox_event.pb.h"
+#include "components/bookmarks/browser/bookmark_model.h"
 #include "components/google/core/browser/google_url_tracker.h"
+#include "components/metrics/proto/omnibox_event.pb.h"
+#include "components/omnibox/autocomplete_provider.h"
+#include "components/omnibox/keyword_provider.h"
+#include "components/omnibox/search_provider.h"
+#include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_prepopulate_data.h"
+#include "components/search_engines/template_url_service.h"
 #include "components/url_fixer/url_fixer.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
@@ -116,7 +119,7 @@ const int kPercentageMatchHistogramWidthBuckets[] = { 400, 700, 1200 };
 void RecordPercentageMatchHistogram(const base::string16& old_text,
                                     const base::string16& new_text,
                                     bool url_replacement_active,
-                                    content::PageTransition transition,
+                                    ui::PageTransition transition,
                                     int omnibox_width) {
   size_t avg_length = (old_text.length() + new_text.length()) / 2;
 
@@ -132,7 +135,7 @@ void RecordPercentageMatchHistogram(const base::string16& old_text,
 
   std::string histogram_name;
   if (url_replacement_active) {
-    if (transition == content::PAGE_TRANSITION_TYPED) {
+    if (transition == ui::PAGE_TRANSITION_TYPED) {
       histogram_name = "InstantExtended.PercentageMatchV2_QuerytoURL";
       UMA_HISTOGRAM_PERCENTAGE(histogram_name, percent);
     } else {
@@ -140,7 +143,7 @@ void RecordPercentageMatchHistogram(const base::string16& old_text,
       UMA_HISTOGRAM_PERCENTAGE(histogram_name, percent);
     }
   } else {
-    if (transition == content::PAGE_TRANSITION_TYPED) {
+    if (transition == ui::PAGE_TRANSITION_TYPED) {
       histogram_name = "InstantExtended.PercentageMatchV2_URLtoURL";
       UMA_HISTOGRAM_PERCENTAGE(histogram_name, percent);
     } else {
@@ -477,7 +480,7 @@ void OmniboxEditModel::AdjustTextForCopy(int sel_min,
   // screw up our calculation of the desired_tld.
   AutocompleteMatch match;
   AutocompleteClassifierFactory::GetForProfile(profile_)->Classify(
-      *text, KeywordIsSelected(), true, ClassifyPage(), &match, NULL);
+      *text, is_keyword_selected(), true, ClassifyPage(), &match, NULL);
   if (AutocompleteMatch::IsSearchType(match.type))
     return;
   *url = match.destination_url;
@@ -579,19 +582,15 @@ void OmniboxEditModel::StartAutocomplete(
   GURL current_url =
       (delegate_->CurrentPageExists() && view_->IsIndicatingQueryRefinement()) ?
       delegate_->GetURL() : GURL();
-  bool keyword_is_selected = KeywordIsSelected();
   input_ = AutocompleteInput(
-      user_text_,
-      cursor_position,
-      base::string16(),
-      current_url,
+      user_text_, cursor_position, base::string16(), current_url,
       ClassifyPage(),
       prevent_inline_autocomplete || just_deleted_text_ ||
-      (has_selected_text && inline_autocomplete_text_.empty()) ||
-      (paste_state_ != NONE),
-      keyword_is_selected,
-      keyword_is_selected || allow_exact_keyword_match_,
-      true);
+          (has_selected_text && inline_autocomplete_text_.empty()) ||
+          (paste_state_ != NONE),
+      is_keyword_selected(),
+      is_keyword_selected() || allow_exact_keyword_match_,
+      true, ChromeAutocompleteSchemeClassifier(profile_));
 
   omnibox_controller_->StartAutocomplete(input_);
 }
@@ -637,7 +636,7 @@ void OmniboxEditModel::AcceptInput(WindowOpenDisposition disposition,
   // typed. If we can successfully generate a URL_WHAT_YOU_TYPED match doing
   // that, then we use this. These matches are marked as generated by the
   // HistoryURLProvider so we only generate them if this provider is present.
-  if (control_key_state_ == DOWN_WITHOUT_CHANGE && !KeywordIsSelected() &&
+  if (control_key_state_ == DOWN_WITHOUT_CHANGE && !is_keyword_selected() &&
       autocomplete_controller()->history_url_provider()) {
     // Generate a new AutocompleteInput, copying the latest one but using "com"
     // as the desired TLD. Then use this autocomplete input to generate a
@@ -650,11 +649,11 @@ void OmniboxEditModel::AcceptInput(WindowOpenDisposition disposition,
     input_ = AutocompleteInput(
       has_temporary_text_ ?
           UserTextFromDisplayText(view_->GetText())  : input_.text(),
-      input_.cursor_position(), base::ASCIIToUTF16("com"),
-      GURL(), input_.current_page_classification(),
+      input_.cursor_position(), base::ASCIIToUTF16("com"), GURL(),
+      input_.current_page_classification(),
       input_.prevent_inline_autocomplete(), input_.prefer_keyword(),
-      input_.allow_exact_keyword_match(),
-      input_.want_asynchronous_matches());
+      input_.allow_exact_keyword_match(), input_.want_asynchronous_matches(),
+      ChromeAutocompleteSchemeClassifier(profile_));
     AutocompleteMatch url_match(
         autocomplete_controller()->history_url_provider()->SuggestExactInput(
             input_.text(), input_.canonicalized_url(), false));
@@ -670,7 +669,7 @@ void OmniboxEditModel::AcceptInput(WindowOpenDisposition disposition,
   if (!match.destination_url.is_valid())
     return;
 
-  if ((match.transition == content::PAGE_TRANSITION_TYPED) &&
+  if ((match.transition == ui::PAGE_TRANSITION_TYPED) &&
       (match.destination_url == PermanentURL())) {
     // When the user hit enter on the existing permanent URL, treat it like a
     // reload for scoring purposes.  We could detect this by just checking
@@ -681,16 +680,18 @@ void OmniboxEditModel::AcceptInput(WindowOpenDisposition disposition,
     // different from the current URL, even if it wound up at the same place
     // (e.g. manually retyping the same search query), and it seems wrong to
     // treat this as a reload.
-    match.transition = content::PAGE_TRANSITION_RELOAD;
+    match.transition = ui::PAGE_TRANSITION_RELOAD;
   } else if (for_drop || ((paste_state_ != NONE) &&
                           match.is_history_what_you_typed_match)) {
     // When the user pasted in a URL and hit enter, score it like a link click
     // rather than a normal typed URL, so it doesn't get inline autocompleted
     // as aggressively later.
-    match.transition = content::PAGE_TRANSITION_LINK;
+    match.transition = ui::PAGE_TRANSITION_LINK;
   }
 
-  const TemplateURL* template_url = match.GetTemplateURL(profile_, false);
+  TemplateURLService* service =
+      TemplateURLServiceFactory::GetForProfile(profile_);
+  const TemplateURL* template_url = match.GetTemplateURL(service, false);
   if (template_url && template_url->url_ref().HasGoogleBaseURLs(
           UIThreadSearchTermsData(profile_))) {
     GoogleURLTracker* tracker =
@@ -712,7 +713,7 @@ void OmniboxEditModel::OpenMatch(AutocompleteMatch match,
   const base::TimeTicks& now(base::TimeTicks::Now());
   base::TimeDelta elapsed_time_since_user_first_modified_omnibox(
       now - time_user_first_modified_omnibox_);
-  autocomplete_controller()->UpdateMatchDestinationURL(
+  autocomplete_controller()->UpdateMatchDestinationURLWithQueryFormulationTime(
       elapsed_time_since_user_first_modified_omnibox, &match);
 
   base::string16 input_text(pasted_text);
@@ -782,14 +783,16 @@ void OmniboxEditModel::OpenMatch(AutocompleteMatch match,
       chrome::NOTIFICATION_OMNIBOX_OPENED_URL,
       content::Source<Profile>(profile_),
       content::Details<OmniboxLog>(&log));
-  HISTOGRAM_ENUMERATION("Omnibox.EventCount", 1, 2);
+  LOCAL_HISTOGRAM_BOOLEAN("Omnibox.EventCount", true);
   DCHECK(!last_omnibox_focus_.is_null())
       << "An omnibox focus should have occurred before opening a match.";
   UMA_HISTOGRAM_TIMES(kFocusToOpenTimeHistogram, now - last_omnibox_focus_);
 
-  TemplateURL* template_url = match.GetTemplateURL(profile_, false);
+  TemplateURLService* service =
+      TemplateURLServiceFactory::GetForProfile(profile_);
+  TemplateURL* template_url = match.GetTemplateURL(service, false);
   if (template_url) {
-    if (match.transition == content::PAGE_TRANSITION_KEYWORD) {
+    if (match.transition == ui::PAGE_TRANSITION_KEYWORD) {
       // The user is using a non-substituting keyword or is explicitly in
       // keyword mode.
 
@@ -806,7 +809,7 @@ void OmniboxEditModel::OpenMatch(AutocompleteMatch match,
       TemplateURLServiceFactory::GetForProfile(profile_)->IncrementUsageCount(
           template_url);
     } else {
-      DCHECK_EQ(content::PAGE_TRANSITION_GENERATED, match.transition);
+      DCHECK_EQ(ui::PAGE_TRANSITION_GENERATED, match.transition);
       // NOTE: We purposefully don't increment the usage count of the default
       // search engine here like we do for explicit keywords above; see comments
       // in template_url.h.
@@ -827,36 +830,32 @@ void OmniboxEditModel::OpenMatch(AutocompleteMatch match,
     view_->RevertAll();  // Revert the box to its unedited state.
   }
 
-  if (match.type == AutocompleteMatchType::EXTENSION_APP) {
-    ExtensionAppProvider::LaunchAppFromOmnibox(match, profile_, disposition);
-    observer->OnSuccessfulNavigation();
-  } else {
-    RecordPercentageMatchHistogram(
-        permanent_text_, current_text,
-        controller_->GetToolbarModel()->WouldReplaceURL(),
-        match.transition, view_->GetWidth());
+  RecordPercentageMatchHistogram(
+      permanent_text_, current_text,
+      controller_->GetToolbarModel()->WouldReplaceURL(),
+      match.transition, view_->GetWidth());
 
-    // Track whether the destination URL sends us to a search results page
-    // using the default search provider.
-    if (TemplateURLServiceFactory::GetForProfile(profile_)->
-        IsSearchResultsPageFromDefaultSearchProvider(match.destination_url)) {
-      content::RecordAction(
-          base::UserMetricsAction("OmniboxDestinationURLIsSearchOnDSP"));
-    }
-
-    if (match.destination_url.is_valid()) {
-      // This calls RevertAll again.
-      base::AutoReset<bool> tmp(&in_revert_, true);
-      controller_->OnAutocompleteAccept(
-          match.destination_url, disposition,
-          content::PageTransitionFromInt(
-              match.transition | content::PAGE_TRANSITION_FROM_ADDRESS_BAR));
-      if (observer->load_state() != OmniboxNavigationObserver::LOAD_NOT_SEEN)
-        ignore_result(observer.release());  // The observer will delete itself.
-    }
+  // Track whether the destination URL sends us to a search results page
+  // using the default search provider.
+  if (TemplateURLServiceFactory::GetForProfile(profile_)->
+      IsSearchResultsPageFromDefaultSearchProvider(match.destination_url)) {
+    content::RecordAction(
+        base::UserMetricsAction("OmniboxDestinationURLIsSearchOnDSP"));
   }
 
-  if (match.starred)
+  if (match.destination_url.is_valid()) {
+    // This calls RevertAll again.
+    base::AutoReset<bool> tmp(&in_revert_, true);
+    controller_->OnAutocompleteAccept(
+        match.destination_url, disposition,
+        ui::PageTransitionFromInt(
+            match.transition | ui::PAGE_TRANSITION_FROM_ADDRESS_BAR));
+    if (observer->load_state() != OmniboxNavigationObserver::LOAD_NOT_SEEN)
+      ignore_result(observer.release());  // The observer will delete itself.
+  }
+
+  BookmarkModel* bookmark_model = BookmarkModelFactory::GetForProfile(profile_);
+  if (bookmark_model && bookmark_model->IsBookmarked(match.destination_url))
     RecordBookmarkLaunch(NULL, BOOKMARK_LAUNCH_LOCATION_OMNIBOX);
 }
 
@@ -879,6 +878,8 @@ bool OmniboxEditModel::AcceptKeyword(EnteredKeywordModeMethod entered_method) {
   view_->OnTemporaryTextMaybeChanged(
       DisplayTextFromUserText(CurrentMatch(NULL).fill_into_edit),
       save_original_selection, true);
+
+  view_->UpdatePlaceholderText();
 
   content::RecordAction(base::UserMetricsAction("AcceptedKeywordHint"));
   UMA_HISTOGRAM_ENUMERATION(kEnteredKeywordModeHistogram, entered_method,
@@ -919,6 +920,8 @@ void OmniboxEditModel::ClearKeyword(const base::string16& visible_text) {
     view_->SetWindowTextAndCaretPos(window_text.c_str(), keyword_.length(),
         false, true);
   }
+
+  view_->UpdatePlaceholderText();
 }
 
 void OmniboxEditModel::OnSetFocus(bool control_down) {
@@ -947,7 +950,8 @@ void OmniboxEditModel::OnSetFocus(bool control_down) {
     // |permanent_text_| is empty.
     autocomplete_controller()->StartZeroSuggest(AutocompleteInput(
         permanent_text_, base::string16::npos, base::string16(),
-        delegate_->GetURL(), ClassifyPage(), false, false, true, true));
+        delegate_->GetURL(), ClassifyPage(), false, false, true, true,
+        ChromeAutocompleteSchemeClassifier(profile_)));
   }
 
   if (user_input_in_progress_ || !in_revert_)
@@ -1114,7 +1118,7 @@ void OmniboxEditModel::OnPopupDataChanged(
 
   const base::string16& user_text =
       user_input_in_progress_ ? user_text_ : permanent_text_;
-  if (keyword_state_changed && KeywordIsSelected()) {
+  if (keyword_state_changed && is_keyword_selected()) {
     // If we reach here, the user most likely entered keyword mode by inserting
     // a space between a keyword name and a search string (as pressing space or
     // tab after the keyword name alone would have been be handled in
@@ -1232,13 +1236,14 @@ bool OmniboxEditModel::OnAfterPossibleChange(const base::string16& old_text,
       !just_deleted_text && no_selection &&
       CreatedKeywordSearchByInsertingSpaceInMiddle(old_text, user_text_,
                                                    selection_start);
+  view_->UpdatePopup();
   if (allow_exact_keyword_match_) {
+    view_->UpdatePlaceholderText();
     UMA_HISTOGRAM_ENUMERATION(kEnteredKeywordModeHistogram,
                               ENTERED_KEYWORD_MODE_VIA_SPACE_IN_MIDDLE,
                               ENTERED_KEYWORD_MODE_NUM_ITEMS);
+    allow_exact_keyword_match_ = false;
   }
-  view_->UpdatePopup();
-  allow_exact_keyword_match_ = false;
 
   // Change to keyword mode if the user is now pressing space after a keyword
   // name.  Note that if this is the case, then even if there was no keyword
@@ -1267,7 +1272,9 @@ void OmniboxEditModel::OnCurrentMatchChanged() {
   // OnPopupDataChanged use their previous state to detect changes.
   base::string16 keyword;
   bool is_keyword_hint;
-  match.GetKeywordUIState(profile_, &keyword, &is_keyword_hint);
+  TemplateURLService* service =
+      TemplateURLServiceFactory::GetForProfile(profile_);
+  match.GetKeywordUIState(service, &keyword, &is_keyword_hint);
   if (popup_model())
     popup_model()->OnResultChanged();
   // OnPopupDataChanged() resets OmniboxController's |current_match_| early
@@ -1297,23 +1304,19 @@ void OmniboxEditModel::InternalSetUserText(const base::string16& text) {
   view_->OnInlineAutocompleteTextCleared();
 }
 
-bool OmniboxEditModel::KeywordIsSelected() const {
-  return !is_keyword_hint_ && !keyword_.empty();
-}
-
 void OmniboxEditModel::ClearPopupKeywordMode() const {
   omnibox_controller_->ClearPopupKeywordMode();
 }
 
 base::string16 OmniboxEditModel::DisplayTextFromUserText(
     const base::string16& text) const {
-  return KeywordIsSelected() ?
+  return is_keyword_selected() ?
       KeywordProvider::SplitReplacementStringFromInput(text, false) : text;
 }
 
 base::string16 OmniboxEditModel::UserTextFromDisplayText(
     const base::string16& text) const {
-  return KeywordIsSelected() ? (keyword_ + base::char16(' ') + text) : text;
+  return is_keyword_selected() ? (keyword_ + base::char16(' ') + text) : text;
 }
 
 void OmniboxEditModel::GetInfoForCurrentText(AutocompleteMatch* match,
@@ -1336,7 +1339,7 @@ void OmniboxEditModel::GetInfoForCurrentText(AutocompleteMatch* match,
     match->provider = autocomplete_controller()->search_provider();
     match->destination_url =
         delegate_->GetNavigationController().GetVisibleEntry()->GetURL();
-    match->transition = content::PAGE_TRANSITION_RELOAD;
+    match->transition = ui::PAGE_TRANSITION_RELOAD;
   } else if (query_in_progress() ||
              (popup_model() && popup_model()->IsOpen())) {
     if (query_in_progress()) {
@@ -1360,7 +1363,7 @@ void OmniboxEditModel::GetInfoForCurrentText(AutocompleteMatch* match,
       *alternate_nav_url = result().alternate_nav_url();
   } else {
     AutocompleteClassifierFactory::GetForProfile(profile_)->Classify(
-        UserTextFromDisplayText(view_->GetText()), KeywordIsSelected(), true,
+        UserTextFromDisplayText(view_->GetText()), is_keyword_selected(), true,
         ClassifyPage(), match, alternate_nav_url);
   }
 }

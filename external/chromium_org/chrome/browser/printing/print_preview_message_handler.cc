@@ -38,7 +38,7 @@ void StopWorker(int document_cookie) {
       g_browser_process->print_job_manager()->queue();
   scoped_refptr<printing::PrinterQuery> printer_query =
       queue->PopPrinterQuery(document_cookie);
-  if (printer_query) {
+  if (printer_query.get()) {
     BrowserThread::PostTask(BrowserThread::IO, FROM_HERE,
                             base::Bind(&printing::PrinterQuery::StopWorker,
                                        printer_query));
@@ -194,11 +194,12 @@ void PrintPreviewMessageHandler::OnInvalidPrinterSettings(int document_cookie) {
   print_preview_ui->OnInvalidPrinterSettings();
 }
 
-void PrintPreviewMessageHandler::OnPrintPreviewScalingDisabled() {
+void PrintPreviewMessageHandler::OnSetOptionsFromDocument(
+    const PrintHostMsg_SetOptionsFromDocument_Params& params) {
   PrintPreviewUI* print_preview_ui = GetPrintPreviewUI();
   if (!print_preview_ui)
     return;
-  print_preview_ui->OnPrintPreviewScalingDisabled();
+  print_preview_ui->OnSetOptionsFromDocument(params);
 }
 
 bool PrintPreviewMessageHandler::OnMessageReceived(
@@ -221,8 +222,8 @@ bool PrintPreviewMessageHandler::OnMessageReceived(
                         OnPrintPreviewCancelled)
     IPC_MESSAGE_HANDLER(PrintHostMsg_PrintPreviewInvalidPrinterSettings,
                         OnInvalidPrinterSettings)
-    IPC_MESSAGE_HANDLER(PrintHostMsg_PrintPreviewScalingDisabled,
-                        OnPrintPreviewScalingDisabled)
+    IPC_MESSAGE_HANDLER(PrintHostMsg_SetOptionsFromDocument,
+                        OnSetOptionsFromDocument)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;

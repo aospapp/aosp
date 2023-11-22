@@ -197,7 +197,11 @@ public class ConnectivityManagerTest extends AndroidTestCase {
     }
 
     private boolean isSupported(int networkType) {
-        return mNetworks.containsKey(networkType);
+        // Change-Id I02eb5f22737720095f646f8db5c87fd66da129d6 added VPN support
+        // to all devices directly in software, independent of any external
+        // configuration.
+        return mNetworks.containsKey(networkType) ||
+               (networkType == ConnectivityManager.TYPE_VPN);
     }
 
     // true if only the system can turn it on

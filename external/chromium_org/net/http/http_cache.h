@@ -23,7 +23,6 @@
 #include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/message_loop/message_loop_proxy.h"
 #include "base/threading/non_thread_safe.h"
 #include "base/time/time.h"
 #include "net/base/cache_type.h"
@@ -36,14 +35,20 @@
 
 class GURL;
 
+namespace base {
+class SingleThreadTaskRunner;
+}  // namespace base
+
 namespace disk_cache {
 class Backend;
 class Entry;
-}
+}  // namespace disk_cache
 
 namespace net {
 
 class CertVerifier;
+class ChannelIDService;
+class DiskBasedCertCache;
 class HostResolver;
 class HttpAuthHandlerFactory;
 class HttpNetworkSession;
@@ -52,7 +57,6 @@ class HttpServerProperties;
 class IOBuffer;
 class NetLog;
 class NetworkDelegate;
-class ServerBoundCertService;
 class ProxyService;
 class SSLConfigService;
 class TransportSecurityState;
@@ -96,11 +100,13 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory,
   class NET_EXPORT DefaultBackend : public BackendFactory {
    public:
     // |path| is the destination for any files used by the backend, and
-    // |cache_thread| is the thread where disk operations should take place. If
+    // |thread| is the thread where disk operations should take place. If
     // |max_bytes| is  zero, a default value will be calculated automatically.
-    DefaultBackend(CacheType type, BackendType backend_type,
-                   const base::FilePath& path, int max_bytes,
-                   base::MessageLoopProxy* thread);
+    DefaultBackend(CacheType type,
+                   BackendType backend_type,
+                   const base::FilePath& path,
+                   int max_bytes,
+                   const scoped_refptr<base::SingleThreadTaskRunner>& thread);
     virtual ~DefaultBackend();
 
     // Returns a factory for an in-memory cache.
@@ -116,7 +122,7 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory,
     BackendType backend_type_;
     const base::FilePath path_;
     int max_bytes_;
-    scoped_refptr<base::MessageLoopProxy> thread_;
+    scoped_refptr<base::SingleThreadTaskRunner> thread_;
   };
 
   // The disk cache is initialized lazily (by CreateTransaction) in this case.
@@ -141,6 +147,8 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory,
   virtual ~HttpCache();
 
   HttpTransactionFactory* network_layer() { return network_layer_.get(); }
+
+  DiskBasedCertCache* cert_cache() const { return cert_cache_.get(); }
 
   // Retrieves the cache backend for this HttpCache instance. If the backend
   // is not initialized yet, this method will initialize it. The return value is
@@ -186,6 +194,12 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory,
 
   // Initializes the Infinite Cache, if selected by the field trial.
   void InitializeInfiniteCache(const base::FilePath& path);
+
+  // Causes all transactions created after this point to effectively bypass
+  // the cache lock whenever there is lock contention.
+  void BypassLockForTest() {
+    bypass_lock_for_test_ = true;
+  }
 
   // HttpTransactionFactory implementation:
   virtual int CreateTransaction(RequestPriority priority,
@@ -389,6 +403,7 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory,
   // Used when lazily constructing the disk_cache_.
   scoped_ptr<BackendFactory> backend_factory_;
   bool building_backend_;
+  bool bypass_lock_for_test_;
 
   Mode mode_;
 
@@ -397,6 +412,8 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory,
   scoped_ptr<HttpTransactionFactory> network_layer_;
 
   scoped_ptr<disk_cache::Backend> disk_cache_;
+
+  scoped_ptr<DiskBasedCertCache> cert_cache_;
 
   // The set of active entries indexed by cache key.
   ActiveEntriesMap active_entries_;

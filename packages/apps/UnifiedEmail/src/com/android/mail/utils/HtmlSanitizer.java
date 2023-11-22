@@ -44,6 +44,17 @@ import java.util.List;
  * or comparable.
  */
 public final class HtmlSanitizer {
+
+    /**
+     * This version number should be bumped each time a meaningful change is made to this sanitizer
+     * configuration which influences its output. It is compared against a minimum target version
+     * number. If it meets or exceeds the minimum target version, the result of the sanitizer is
+     * free to be shown in a standard webview. If it does not meet the minimum target version then
+     * the sanitized output is deemed untrustworthy and is shown in a sandboxed webview with
+     * javascript execution disabled.
+     */
+    public static final int VERSION = 1;
+
     private static final String LOG_TAG = LogTag.getLogTag();
 
     /**
@@ -90,7 +101,7 @@ public final class HtmlSanitizer {
                 final String value = attrs.remove(idIndex + 1);
                 attrs.remove(idIndex);
 
-                // AOL uses a specifc id value to indicate quoted text
+                // AOL uses a specific id value to indicate quoted text
                 showHideQuotedText = value.startsWith("AOLMsgPart");
             }
 
@@ -105,10 +116,22 @@ public final class HtmlSanitizer {
     };
 
     /**
-     * Disallow the "mailto:" url on images so that "Show pictures" can't be used to start composing
-     * a bajillion emails.
+     * Disallow "cid:" and "mailto:" urls on all tags not &lt;a&gt; or &lt;img&gt;.
      */
-    private static final AttributePolicy NO_MAILTO_URL =
+    private static final AttributePolicy URL_PROTOCOLS =
+            new FilterUrlByProtocolAttributePolicy(ImmutableList.of("http", "https"));
+
+    /**
+     * Disallow the "cid:" url on links. Do allow "mailto:" urls to support sending mail.
+     */
+    private static final AttributePolicy A_HREF_PROTOCOLS =
+            new FilterUrlByProtocolAttributePolicy(ImmutableList.of("mailto", "http", "https"));
+
+    /**
+     * Disallow the "mailto:" url on images so that "Show pictures" can't be used to start composing
+     * a bajillion emails. Do allow "cid:" urls to support inline image attachments.
+     */
+    private static final AttributePolicy IMG_SRC_PROTOCOLS =
             new FilterUrlByProtocolAttributePolicy(ImmutableList.of("cid", "http", "https"));
 
     /**
@@ -169,17 +192,20 @@ public final class HtmlSanitizer {
             .allowUrlProtocols("cid", "http", "https", "mailto")
             .allowStyling(CssSchema.union(CssSchema.DEFAULT, ADDITIONAL_CSS))
             .disallowTextIn("applet", "frameset", "object", "script", "style", "title")
-            .allowElements("a").allowAttributes("coords", "href", "name", "shape").onElements("a")
+            .allowElements("a")
+                .allowAttributes("coords", "name", "shape").onElements("a")
+                .allowAttributes("href").matching(A_HREF_PROTOCOLS).onElements("a")
             .allowElements("abbr").allowAttributes("title").onElements("abbr")
             .allowElements("acronym").allowAttributes("title").onElements("acronym")
             .allowElements("address")
             .allowElements("area")
-                .allowAttributes("alt", "coords", "href", "nohref", "name", "shape")
-            .onElements("area")
+                .allowAttributes("alt", "coords", "nohref", "name", "shape").onElements("area")
+                .allowAttributes("href").matching(URL_PROTOCOLS).onElements("area")
             .allowElements("article")
             .allowElements("aside")
             .allowElements("b")
-            .allowElements("base").allowAttributes("href").onElements("base")
+            .allowElements("base")
+                .allowAttributes("href").matching(URL_PROTOCOLS).onElements("base")
             .allowElements("bdi").allowAttributes("dir").onElements("bdi")
             .allowElements("bdo").allowAttributes("dir").onElements("bdo")
             .allowElements("big")
@@ -196,7 +222,7 @@ public final class HtmlSanitizer {
             .allowElements("cite")
             .allowElements("code")
             .allowElements("col")
-            .   allowAttributes("align", "bgcolor", "char", "charoff", "span", "valign", "width")
+                .allowAttributes("align", "bgcolor", "char", "charoff", "span", "valign", "width")
             .onElements("col")
             .allowElements("colgroup")
                 .allowAttributes("align", "char", "charoff", "span", "valign", "width")
@@ -236,18 +262,23 @@ public final class HtmlSanitizer {
             .onElements("hr")
             .allowElements("i")
             .allowElements("img")
+                .allowAttributes("src").matching(IMG_SRC_PROTOCOLS).onElements("img")
+                .allowAttributes("longdesc").matching(URL_PROTOCOLS).onElements("img")
                 .allowAttributes("align", "alt", "border", "crossorigin", "height", "hspace",
-                        "ismap", "longdesc", "usemap", "vspace", "width")
+                        "ismap", "usemap", "vspace", "width")
             .onElements("img")
-            .allowAttributes("src").matching(NO_MAILTO_URL).onElements("img")
             .allowElements("input")
+                .allowAttributes("src").matching(URL_PROTOCOLS).onElements("input")
+                .allowAttributes("formaction").matching(URL_PROTOCOLS).onElements("input")
                 .allowAttributes("accept", "align", "alt", "autocomplete", "autofocus", "checked",
-                        "disabled", "form", "formaction", "formenctype", "formmethod",
-                        "formnovalidate", "formtarget", "height", "list", "max", "maxlength", "min",
-                        "multiple", "name", "pattern", "placeholder", "readonly", "required",
-                        "size", "src", "step", "type", "value", "width")
+                        "disabled", "form", "formenctype", "formmethod", "formnovalidate",
+                        "formtarget", "height", "list", "max", "maxlength", "min", "multiple",
+                        "name", "pattern", "placeholder", "readonly", "required", "size", "step",
+                        "type", "value", "width")
             .onElements("input")
-            .allowElements("ins").allowAttributes("cite", "datetime").onElements("ins")
+            .allowElements("ins")
+                .allowAttributes("cite").matching(URL_PROTOCOLS).onElements("ins")
+                .allowAttributes("datetime").onElements("ins")
             .allowElements("kbd")
             .allowElements("keygen")
                 .allowAttributes("autofocus", "challenge", "disabled", "form", "keytype", "name")
@@ -260,9 +291,9 @@ public final class HtmlSanitizer {
             .allowElements("mark")
             .allowElements("menu").allowAttributes("label", "type").onElements("menu")
             .allowElements("menuitem")
-                .allowAttributes("checked", "command", "default", "disabled", "icon", "label",
-                        "type", "radiogroup")
-            .onElements("menuitem")
+                .allowAttributes("icon").matching(URL_PROTOCOLS).onElements("menuitem")
+                .allowAttributes("checked", "command", "default", "disabled", "label", "type",
+                        "radiogroup").onElements("menuitem")
             .allowElements("meter")
                 .allowAttributes("form", "high", "low", "max", "min", "optimum", "value")
             .onElements("meter")
@@ -278,7 +309,7 @@ public final class HtmlSanitizer {
             .allowElements("p").allowAttributes("align").onElements("p")
             .allowElements("pre").allowAttributes("width").onElements("pre")
             .allowElements("progress").allowAttributes("max", "value").onElements("progress")
-            .allowElements("q").allowAttributes("cite").onElements("q")
+            .allowElements("q").allowAttributes("cite").matching(URL_PROTOCOLS).onElements("q")
             .allowElements("rp")
             .allowElements("rt")
             .allowElements("ruby")
@@ -290,7 +321,6 @@ public final class HtmlSanitizer {
                         "size")
             .onElements("select")
             .allowElements("small")
-            .allowElements("source").allowAttributes("media", "src", "type").onElements("source")
             .allowElements("span")
             .allowElements("strike")
             .allowElements("strong")
@@ -322,8 +352,6 @@ public final class HtmlSanitizer {
             .allowElements("time").allowAttributes("datetime").onElements("time")
             .allowElements("tr")
                 .allowAttributes("align", "bgcolor", "char", "charoff", "valign").onElements("tr")
-            .allowElements("track")
-                .allowAttributes("default", "kind", "label", "src", "srclang").onElements("track")
             .allowElements("tt")
             .allowElements("u")
             .allowElements("ul").allowAttributes("compact", "type").onElements("ul")

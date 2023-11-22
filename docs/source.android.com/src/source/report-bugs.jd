@@ -78,7 +78,7 @@ issue is to be resolved. Below, there are some examples of a good bug report
 and a poor bug report.</p>
 
 <h2 id="a-poor-bug-report">A Poor Bug Report</h2>
-<pre>
+<blockquote>
 Title: Error message
 
 When running Eclipse I get an "Internal Error" that says "See the .log file for more details".
@@ -91,18 +91,18 @@ I wouldn't get the error message--would work with Object o = null.
 
 Observed results:
 See above.
-</pre>
+</blockquote>
 <p>This is a poor bug report because it doesn't provide any context for the
-issue; is it a problem in the Dalvik virtual machine, the core framework, or
+issue; is it a problem in the ART runtime, the core framework, or
 something else? It also doesn't provide any code or hint on how to reproduce
 it. In other words, this bug report doesn't provide enough information for
 anyone to take action on, so it would be ignored.</p>
 <h2 id="a-good-bug-report">A Good Bug Report</h2>
-<pre>
+<blockquote>
 Title: Stepping over "Object o = null" causes Eclipse "Internal Error"
 
 Interesting bug, while using Eclipse 3.3.1.1 with m37a of android and the following code:
-
+<pre>
 package com.saville.android;
 
 import android.app.Activity;
@@ -125,7 +125,7 @@ public class TestObjectNull extends Activity {
 
     static final String TAG = "TestObjectNull";
 }
-
+</pre>
 Eclipse indicates an "Internal Error" with "See the .log file for more
 details" and then asks if I want to exit the workbench. This occurs when I
 place a break point on "setContentView(R.layout.main);" and then single
@@ -134,7 +134,7 @@ step over "Object o = null;"
 If I change "Object o = null;" to "Object o" all is well.
 
 The last lines of the .log file are:
-
+<pre>
 !ENTRY org.eclipse.core.jobs 4 2 2008-01-01 13:04:15.825
 !MESSAGE An internal error occurred during: "has children update".
 !STACK 0
@@ -163,3 +163,4 @@ org.eclipse.debug.internal.ui.model.elements.ElementContentProvider.updateHasChi
 org.eclipse.debug.internal.ui.model.elements.ElementContentProvider$3.run(ElementContentProvider.java:200)
         at org.eclipse.core.internal.jobs.Worker.run(Worker.java:55)
 </pre>
+</blockquote>

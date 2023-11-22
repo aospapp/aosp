@@ -69,7 +69,7 @@ class CertLibrary : public CertLoader::Observer {
   // Retreives the certificate property for |type| at |index|.
   base::string16 GetCertDisplayStringAt(CertType type, int index) const;
   std::string GetServerCACertPEMAt(int index) const;
-  std::string GetUserCertPkcs11IdAt(int index) const;
+  std::string GetUserCertPkcs11IdAt(int index, int* slot_id) const;
   bool IsCertHardwareBackedAt(CertType type, int index) const;
 
   // Returns the index of a Certificate matching |pem_encoded| or -1 if none

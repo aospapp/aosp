@@ -22,6 +22,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Trace;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.telecom.PhoneAccount;
@@ -85,8 +86,6 @@ public class CallActivity extends Activity {
                 Intent.ACTION_CALL_PRIVILEGED.equals(action) ||
                 Intent.ACTION_CALL_EMERGENCY.equals(action)) {
             processOutgoingCallIntent(intent);
-        } else if (TelecomManager.ACTION_INCOMING_CALL.equals(action)) {
-            processIncomingCallIntent(intent);
         }
     }
 
@@ -124,20 +123,7 @@ public class CallActivity extends Activity {
         }
 
         intent.putExtra(CallReceiver.KEY_IS_DEFAULT_DIALER, isDefaultDialer());
-
-        if (UserHandle.myUserId() == UserHandle.USER_OWNER) {
-            CallReceiver.processOutgoingCallIntent(getApplicationContext(), intent);
-        } else {
-            sendBroadcastToReceiver(intent, false /* isIncoming */);
-        }
-    }
-
-    private void processIncomingCallIntent(Intent intent) {
-        if (UserHandle.myUserId() == UserHandle.USER_OWNER) {
-            CallReceiver.processIncomingCallIntent(intent);
-        } else {
-            sendBroadcastToReceiver(intent, true /* isIncoming */);
-        }
+        sendBroadcastToReceiver(intent);
     }
 
     private boolean isDefaultDialer() {
@@ -166,11 +152,11 @@ public class CallActivity extends Activity {
     /**
      * Trampolines the intent to the broadcast receiver that runs only as the primary user.
      */
-    private boolean sendBroadcastToReceiver(Intent intent, boolean incoming) {
-        intent.putExtra(CallReceiver.KEY_IS_INCOMING_CALL, incoming);
+    private boolean sendBroadcastToReceiver(Intent intent) {
+        intent.putExtra(CallReceiver.KEY_IS_INCOMING_CALL, false);
         intent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         intent.setClass(this, CallReceiver.class);
-        Log.d(this, "Sending broadcast as user to CallReceiver- isIncoming: %s", incoming);
+        Log.d(this, "Sending broadcast as user to CallReceiver");
         sendBroadcastAsUser(intent, UserHandle.OWNER);
         return true;
     }

@@ -17,21 +17,22 @@
 package com.android.mail.ui;
 
 import android.content.Context;
-import android.support.annotation.LayoutRes;
+import android.database.DataSetObserver;
+import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ListAdapter;
 
 import com.android.mail.R;
-import com.android.mail.bitmap.AccountAvatarDrawable;
 import com.android.mail.content.ObjectCursor;
-import com.android.mail.providers.Account;
 import com.android.mail.providers.Folder;
-import com.google.common.collect.Lists;
+import com.android.mail.utils.LogUtils;
 
-import java.util.List;
+import java.util.ArrayDeque;
+import java.util.Queue;
 
 /**
  * A smaller version of the account- and folder-switching drawer view for tablet UIs.
@@ -39,16 +40,8 @@ import java.util.List;
 public class MiniDrawerView extends LinearLayout {
 
     private FolderListFragment mController;
-    private final int mDrawWidth;
-    // use the same dimen as AccountItemView to participate in recycling
-    // TODO: but Material account switcher doesn't recycle...
-    private final int mAvatarDecodeSize;
 
-    private View mDotdotdot;
     private View mSpacer;
-
-    private AccountItem mCurrentAccount;
-    private final List<AccountItem> mRecentAccounts = Lists.newArrayList();
 
     private final LayoutInflater mInflater;
 
@@ -61,9 +54,6 @@ public class MiniDrawerView extends LinearLayout {
     public MiniDrawerView(Context context, AttributeSet attrs) {
         super(context, attrs);
 
-        mDrawWidth = getResources().getDimensionPixelSize(R.dimen.two_pane_drawer_width_mini);
-        mAvatarDecodeSize = getResources().getDimensionPixelSize(R.dimen.account_avatar_dimension);
-
         mInflater = LayoutInflater.from(context);
     }
 
@@ -71,68 +61,80 @@ public class MiniDrawerView extends LinearLayout {
     protected void onFinishInflate() {
         super.onFinishInflate();
 
-        mCurrentAccount = new AccountItem((ImageView) findViewById(R.id.current_account_avatar));
         mSpacer = findViewById(R.id.spacer);
-        mDotdotdot = findViewById(R.id.dotdotdot);
-        mDotdotdot.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mController.toggleDrawerState();
-            }
-        });
+    }
+
+    @Override
+    public boolean requestFocus(int direction, Rect previouslyFocusedRect) {
+        // This ViewGroup is focusable purely so it can act as a stable target for other views to
+        // designate as their left/right focus ID. When focus comes to this view, the XML
+        // declaration of descendantFocusability=FOCUS_AFTER_DESCENDANTS means it will always try
+        // to focus one of its children before resorting to this (great! we basically never want
+        // this container to gain focus).
+        //
+        // But the usual focus search towards the LEFT (in LTR) actually starts at the bottom,
+        // which is weird. So override all focus requests that land on this parent to use the
+        // FORWARD direction so the top-most item gets first focus. This will not affect focus
+        // traversal within this ViewGroup as the descendantFocusability prevents the parent from
+        // gaining focus.
+        return super.requestFocus(FOCUS_DOWN, previouslyFocusedRect);
     }
 
     public void setController(FolderListFragment flf) {
         mController = flf;
+        final ListAdapter adapter = mController.getMiniDrawerAccountsAdapter();
+        adapter.registerDataSetObserver(new Observer());
+    }
 
-        if (!mController.isMiniDrawerEnabled()) {
-            return;
+    private class Observer extends DataSetObserver {
+
+        @Override
+        public void onChanged() {
+            refresh();
         }
-
-        // wait for the controller to set these up
-        mCurrentAccount.setupDrawable();
     }
 
     public void refresh() {
-        if (mController == null) {
+        if (mController == null || !mController.isAdded()) {
             return;
         }
 
-        final Account currentAccount = mController.getCurrentAccount();
-        if (currentAccount != null) {
-            mCurrentAccount.setAccount(currentAccount);
+        final ListAdapter adapter =
+                mController.getMiniDrawerAccountsAdapter();
+
+        if (adapter.getCount() > 0) {
+            final View oldCurrentAccountView = getChildAt(0);
+            if (oldCurrentAccountView != null) {
+                removeView(oldCurrentAccountView);
+            }
+            final View newCurrentAccountView = adapter.getView(0, oldCurrentAccountView, this);
+            newCurrentAccountView.setClickable(false);
+            newCurrentAccountView.setFocusable(false);
+            addView(newCurrentAccountView, 0);
+        }
+
+        final int removePos = indexOfChild(mSpacer) + 1;
+        final int recycleCount = getChildCount() - removePos;
+        final Queue<View> recycleViews = new ArrayDeque<>(recycleCount);
+        for (int recycleIndex = 0; recycleIndex < recycleCount; recycleIndex++) {
+            final View recycleView = getChildAt(removePos);
+            recycleViews.add(recycleView);
+            removeView(recycleView);
+        }
+
+        final int adapterCount = Math.min(adapter.getCount(), NUM_RECENT_ACCOUNTS + 1);
+        for (int accountIndex = 1; accountIndex < adapterCount; accountIndex++) {
+            final View recycleView = recycleViews.poll();
+            final View accountView = adapter.getView(accountIndex, recycleView, this);
+            addView(accountView);
         }
 
         View child;
-
-        // TODO: figure out the N most recent accounts, don't just take the first few
-        final int removePos = indexOfChild(mSpacer) + 1;
-        if (getChildCount() > removePos) {
-            removeViews(removePos, getChildCount() - removePos);
-        }
-        final Account[] accounts = mController.getAllAccounts();
-        int count = 0;
-        for (Account a : accounts) {
-            if (count >= NUM_RECENT_ACCOUNTS) {
-                break;
-            }
-            if (currentAccount.uri.equals(a.uri)) {
-                continue;
-            }
-            final ImageView iv = (ImageView) mInflater.inflate(
-                    R.layout.mini_drawer_recent_account_item, this, false /* attachToRoot */);
-            final AccountItem item = new AccountItem(iv);
-            item.setupDrawable();
-            item.setAccount(a);
-            iv.setTag(item);
-            addView(iv);
-            count++;
-        }
-
         // reset the inbox views for this account
-        while ((child=getChildAt(1)) != mDotdotdot) {
+        while ((child=getChildAt(1)) != mSpacer) {
             removeView(child);
         }
+
         final ObjectCursor<Folder> folderCursor = mController.getFoldersCursor();
         if (folderCursor != null && !folderCursor.isClosed()) {
             int pos = -1;
@@ -140,10 +142,13 @@ public class MiniDrawerView extends LinearLayout {
             while (folderCursor.moveToPosition(++pos)) {
                 final Folder f = folderCursor.getModel();
                 if (f.isInbox()) {
-                    final ImageView iv = (ImageView) mInflater.inflate(
+                    final View view = mInflater.inflate(
                             R.layout.mini_drawer_folder_item, this, false /* attachToRoot */);
+                    final ImageView iv = (ImageView) view.findViewById(R.id.image_view);
                     iv.setTag(new FolderItem(f, iv));
-                    addView(iv, 1 + numInboxes);
+                    iv.setContentDescription(f.name);
+                    view.setActivated(mController.isSelectedFolder(f));
+                    addView(view, 1 + numInboxes);
                     numInboxes++;
                 }
             }
@@ -167,36 +172,84 @@ public class MiniDrawerView extends LinearLayout {
         }
     }
 
-    private class AccountItem implements View.OnClickListener {
-        private Account mAccount;
-        // FIXME: this codepath doesn't use GMS Core, resulting in inconsistent avatars
-        // vs. ownerslib. switch to a generic photo getter+listener interface on FLF
-        // so these drawables are obtainable regardless of how they are loaded.
-        private AccountAvatarDrawable mDrawable;
-        public final ImageView view;
-
-        public AccountItem(ImageView iv) {
-            view = iv;
-            view.setOnClickListener(this);
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        // We want to make sure that all children get measured. These will be re-hidden in onLayout
+        // according to space constraints.
+        // This means we can't set views to Gone elsewhere, which is kind of unfortunate.
+        final int childCount = getChildCount();
+        for (int i = 0; i < childCount; i++) {
+            final View child = getChildAt(i);
+            child.setVisibility(View.VISIBLE);
         }
-
-        public void setupDrawable() {
-            mDrawable = new AccountAvatarDrawable(getResources(),
-                    mController.getBitmapCache(), mController.getContactResolver());
-            mDrawable.setDecodeDimensions(mAvatarDecodeSize, mAvatarDecodeSize);
-            view.setImageDrawable(mDrawable);
-        }
-
-        public void setAccount(Account acct) {
-            mAccount = acct;
-            mDrawable.bind(mAccount.getSenderName(), mAccount.getEmailAddress());
-        }
-
-        @Override
-        public void onClick(View v) {
-            mController.onAccountSelected(mAccount);
-        }
-
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
     }
 
+    @Override
+    protected void onLayout(boolean changed, int l, int t, int r, int b) {
+        if (getChildCount() == 0) {
+            return;
+        }
+        final int availableHeight = getMeasuredHeight() - getPaddingBottom() - getPaddingTop();
+
+        int childHeight = 0;
+        final int childCount = getChildCount();
+        for (int i = 0; i < childCount; i++) {
+            final View child = getChildAt(i);
+            if (child.equals(mSpacer) || child.getVisibility() == View.GONE) {
+                continue;
+            }
+            final LayoutParams params = (LayoutParams) child.getLayoutParams();
+            childHeight += params.topMargin + params.bottomMargin + child.getMeasuredHeight();
+        }
+
+        if (childHeight <= availableHeight) {
+            // Nothing to do here
+            super.onLayout(changed, l, t, r, b);
+            return;
+        }
+
+        // Check again
+        if (childHeight <= availableHeight) {
+            // Fit the spacer to the remaining height
+            measureSpacer(availableHeight - childHeight);
+            super.onLayout(changed, l, t, r, b);
+            return;
+        }
+
+        // Sanity check
+        if (getChildAt(getChildCount() - 1).equals(mSpacer)) {
+            LogUtils.v(LogUtils.TAG, "The ellipsis was the last item in the minidrawer and " +
+                    "hiding it didn't help fit all the views");
+            return;
+        }
+
+        final View childToHide = getChildAt(indexOfChild(mSpacer) + 1);
+        childToHide.setVisibility(View.GONE);
+
+        final LayoutParams childToHideParams = (LayoutParams) childToHide.getLayoutParams();
+        childHeight -= childToHideParams.topMargin + childToHideParams.bottomMargin +
+                childToHide.getMeasuredHeight();
+
+        // Check again
+        if (childHeight <= availableHeight) {
+            // Fit the spacer to the remaining height
+            measureSpacer(availableHeight - childHeight);
+            super.onLayout(changed, l, t, r, b);
+            return;
+        }
+
+        LogUtils.v(LogUtils.TAG, "Hid two children in the minidrawer and still couldn't fit " +
+                "all the views");
+    }
+
+    private void measureSpacer(int height) {
+        final LayoutParams spacerParams = (LayoutParams) mSpacer.getLayoutParams();
+        final int spacerHeight = height -
+                spacerParams.bottomMargin - spacerParams.topMargin;
+        final int spacerWidth = getMeasuredWidth() - getPaddingLeft() - getPaddingRight();
+        mSpacer.measure(MeasureSpec.makeMeasureSpec(spacerWidth, MeasureSpec.AT_MOST),
+                MeasureSpec.makeMeasureSpec(spacerHeight, MeasureSpec.EXACTLY));
+
+    }
 }

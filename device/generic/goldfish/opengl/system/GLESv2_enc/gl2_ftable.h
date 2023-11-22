@@ -4,7 +4,7 @@
 #define __gl2_client_ftable_t_h
 
 
-static struct _gl2_funcs_by_name {
+static const struct _gl2_funcs_by_name {
 	const char *name;
 	void *proc;
 } gl2_funcs_by_name[] = {
@@ -210,7 +210,7 @@ static struct _gl2_funcs_by_name {
 	{"glStartTilingQCOM", (void*)glStartTilingQCOM},
 	{"glEndTilingQCOM", (void*)glEndTilingQCOM},
 };
-static int gl2_num_funcs = sizeof(gl2_funcs_by_name) / sizeof(struct _gl2_funcs_by_name);
+static const int gl2_num_funcs = sizeof(gl2_funcs_by_name) / sizeof(struct _gl2_funcs_by_name);
 
 
 #endif

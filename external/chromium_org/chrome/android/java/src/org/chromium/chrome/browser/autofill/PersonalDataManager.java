@@ -47,9 +47,10 @@ public class PersonalDataManager {
         private String mDependentLocality;
         private String mPostalCode;
         private String mSortingCode;
-        private String mCountry;
+        private String mCountryCode;
         private String mPhoneNumber;
         private String mEmailAddress;
+        private String mLabel;
         private String mLanguageCode;
 
         @CalledByNative("AutofillProfile")
@@ -69,7 +70,7 @@ public class PersonalDataManager {
                 String region,
                 String locality, String dependentLocality,
                 String postalCode, String sortingCode,
-                String country, String phoneNumber, String emailAddress, String languageCode) {
+                String countryCode, String phoneNumber, String emailAddress, String languageCode) {
             mGUID = guid;
             mOrigin = origin;
             mFullName = fullName;
@@ -80,7 +81,7 @@ public class PersonalDataManager {
             mDependentLocality = dependentLocality;
             mPostalCode = postalCode;
             mSortingCode = sortingCode;
-            mCountry = country;
+            mCountryCode = countryCode;
             mPhoneNumber = phoneNumber;
             mEmailAddress = emailAddress;
             mLanguageCode = languageCode;
@@ -126,6 +127,10 @@ public class PersonalDataManager {
             return mDependentLocality;
         }
 
+        public String getLabel() {
+            return mLabel;
+        }
+
         @CalledByNative("AutofillProfile")
         public String getPostalCode() {
             return mPostalCode;
@@ -137,12 +142,8 @@ public class PersonalDataManager {
         }
 
         @CalledByNative("AutofillProfile")
-        public String getCountry() {
-            return mCountry;
-        }
-
         public String getCountryCode() {
-            return nativeToCountryCode(mCountry);
+            return mCountryCode;
         }
 
         @CalledByNative("AutofillProfile")
@@ -162,6 +163,10 @@ public class PersonalDataManager {
 
         public void setGUID(String guid) {
             mGUID = guid;
+        }
+
+        public void setLabel(String label) {
+            mLabel = label;
         }
 
         public void setOrigin(String origin) {
@@ -200,8 +205,8 @@ public class PersonalDataManager {
             mSortingCode = sortingCode;
         }
 
-        public void setCountry(String country) {
-            mCountry = country;
+        public void setCountryCode(String countryCode) {
+            mCountryCode = countryCode;
         }
 
         public void setPhoneNumber(String phoneNumber) {
@@ -363,11 +368,17 @@ public class PersonalDataManager {
 
     public List<AutofillProfile> getProfiles() {
         ThreadUtils.assertOnUiThread();
+
+        String[] profileLabels = nativeGetProfileLabels(mPersonalDataManagerAndroid);
+
         int profileCount = nativeGetProfileCount(mPersonalDataManagerAndroid);
         List<AutofillProfile> profiles = new ArrayList<AutofillProfile>(profileCount);
         for (int i = 0; i < profileCount; i++) {
-            profiles.add(nativeGetProfileByIndex(mPersonalDataManagerAndroid, i));
+            AutofillProfile profile = nativeGetProfileByIndex(mPersonalDataManagerAndroid, i);
+            profile.setLabel(profileLabels[i]);
+            profiles.add(profile);
         }
+
         return profiles;
     }
 
@@ -435,6 +446,7 @@ public class PersonalDataManager {
 
     private native long nativeInit();
     private native int nativeGetProfileCount(long nativePersonalDataManagerAndroid);
+    private native String[] nativeGetProfileLabels(long nativePersonalDataManagerAndroid);
     private native AutofillProfile nativeGetProfileByIndex(long nativePersonalDataManagerAndroid,
             int index);
     private native AutofillProfile nativeGetProfileByGUID(long nativePersonalDataManagerAndroid,

@@ -15,7 +15,7 @@
 ** limitations under the License.
 */
 
-#define LOG_TAG "AudioHardwareTungsten"
+#define LOG_TAG "AudioSPDIF"
 
 #include <utils/Log.h>
 #include <audio_utils/spdif/FrameScanner.h>
@@ -104,13 +104,13 @@ AC3FrameScanner::AC3FrameScanner()
  : FrameScanner(SPDIF_DATA_TYPE_AC3)
  , mState(STATE_EXPECTING_SYNC_1)
  , mBytesSkipped(0)
- , mLengthCode(0)
  , mAudioBlocksPerSyncFrame(6)
  , mCursor(AC3_SYNCWORD_SIZE) // past sync word
  , mStreamType(0)
  , mSubstreamID(0)
  , mFormatDumpCount(0)
 {
+    memset(mSubstreamBlockCounts, 0, sizeof(mSubstreamBlockCounts));
     // Define beginning of syncinfo for getSyncAddress()
     mHeaderBuffer[0] = kAC3SyncByte1;
     mHeaderBuffer[1] = kAC3SyncByte2;
@@ -125,14 +125,36 @@ int AC3FrameScanner::getSampleFramesPerSyncFrame() const
     return mRateMultiplier * AC3_MAX_BLOCKS_PER_SYNC_FRAME_BLOCK * AC3_PCM_FRAMES_PER_BLOCK;
 }
 
+void AC3FrameScanner::resetBurst()
+{
+    for (int i = 0; i < EAC3_MAX_SUBSTREAMS; i++) {
+        if (mSubstreamBlockCounts[i] >= AC3_MAX_BLOCKS_PER_SYNC_FRAME_BLOCK) {
+            mSubstreamBlockCounts[i] -= AC3_MAX_BLOCKS_PER_SYNC_FRAME_BLOCK;
+        } else if (mSubstreamBlockCounts[i] > 0) {
+            ALOGW("EAC3 substream[%d] has only %d audio blocks!",
+                i, mSubstreamBlockCounts[i]);
+            mSubstreamBlockCounts[i] = 0;
+        }
+    }
+}
+
 // per IEC 61973-3 Paragraph 5.3.3
+// We have to send 6 audio blocks on all active substreams.
+// Substream zero must be the first.
+// We don't know if we have all the blocks we need until we see
+// the 7th block of substream#0.
 bool AC3FrameScanner::isFirstInBurst()
 {
     if (mDataType == SPDIF_DATA_TYPE_E_AC3) {
-        return (((mStreamType == 0) || (mStreamType == 2)) && (mSubstreamID == 0));
-    } else {
-        return false; // For AC3 just flush at end.
+        if (((mStreamType == 0) || (mStreamType == 2))
+            && (mSubstreamID == 0)
+            // The ">" is intentional. We have to see the beginning of the block
+            // in the next burst before we can send the current burst.
+            && (mSubstreamBlockCounts[0] > AC3_MAX_BLOCKS_PER_SYNC_FRAME_BLOCK)) {
+            return true;
+        }
     }
+    return false;
 }
 
 bool AC3FrameScanner::isLastInBurst()
@@ -165,13 +187,8 @@ AC3FrameScanner::State AC3FrameScanner::parseHeader()
     // The names fscod, frmsiz are from the AC3 spec.
     int fscod = mHeaderBuffer[4] >> 6;
     if (mDataType == SPDIF_DATA_TYPE_E_AC3) {
-        mStreamType = mHeaderBuffer[2] >> 6;
+        mStreamType = mHeaderBuffer[2] >> 6; // strmtyp in spec
         mSubstreamID = (mHeaderBuffer[2] >> 3) & 0x07;
-
-        // Print enough so we can see all the substreams.
-        ALOGD_IF((mFormatDumpCount < 3*8 ),
-                "EAC3 strmtyp = %d, substreamid = %d",
-                mStreamType, mSubstreamID);
 
         // Frame size is explicit in EAC3. Paragraph E2.3.1.3
         int frmsiz = ((mHeaderBuffer[2] & 0x07) << 8) + mHeaderBuffer[3];
@@ -191,8 +208,17 @@ AC3FrameScanner::State AC3FrameScanner::parseHeader()
             numblkscod = (mHeaderBuffer[4] >> 4) & 0x03;
         }
         mRateMultiplier = EAC3_RATE_MULTIPLIER; // per IEC 61973-3 Paragraph 5.3.3
-        // TODO Don't send data burst until we have 6 blocks per substream.
+        // Don't send data burst until we have 6 blocks per substream.
         mAudioBlocksPerSyncFrame = kEAC3BlocksPerFrameTable[numblkscod];
+        // Keep track of how many audio blocks we have for each substream.
+        // This should be safe because mSubstreamID is ANDed with 0x07 above.
+        // And the array is allocated as [8].
+        mSubstreamBlockCounts[mSubstreamID] += mAudioBlocksPerSyncFrame;
+
+        // Print enough so we can see all the substreams.
+        ALOGD_IF((mFormatDumpCount < 3*8 ),
+                "EAC3 mStreamType = %d, mSubstreamID = %d",
+                mStreamType, mSubstreamID);
     } else { // regular AC3
         // Extract sample rate and frame size from codes.
         unsigned int frmsizcod = mHeaderBuffer[4] & 0x3F; // frame size code
@@ -211,7 +237,6 @@ AC3FrameScanner::State AC3FrameScanner::parseHeader()
         }
         mAudioBlocksPerSyncFrame = 6;
     }
-    mLengthCode = 8 * mFrameSizeBytes; // size in bits
     ALOGI_IF((mFormatDumpCount == 0),
             "AC3 frame rate = %d * %d, size = %d, audioBlocksPerSyncFrame = %d\n",
             mSampleRate, mRateMultiplier, mFrameSizeBytes, mAudioBlocksPerSyncFrame);

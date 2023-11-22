@@ -20,13 +20,14 @@ tests are not included in this suite.
 
 import os
 
-from telemetry import test
-from telemetry.page import page_measurement
+from telemetry import benchmark
 from telemetry.page import page_set
+from telemetry.page import page_test
+from telemetry.value import scalar
 
-class _BrowsermarkMeasurement(page_measurement.PageMeasurement):
+class _BrowsermarkMeasurement(page_test.PageTest):
 
-  def MeasurePage(self, _, tab, results):
+  def ValidateAndMeasurePage(self, _, tab, results):
     # Select nearest server(North America=1) and start test.
     js_start_test =  """
         for (var i=0; i < $('#continent a').length; i++) {
@@ -41,10 +42,12 @@ class _BrowsermarkMeasurement(page_measurement.PageMeasurement):
       'window.location.pathname.indexOf("results") != -1', 600)
     result = int(tab.EvaluateJavaScript(
         'document.getElementsByClassName("score")[0].innerHTML'))
-    results.Add('Score', 'score', result)
+    results.AddValue(
+        scalar.ScalarValue(results.current_page, 'Score', 'score', result))
 
 
-class Browsermark(test.Test):
+@benchmark.Disabled
+class Browsermark(benchmark.Benchmark):
   """Browsermark suite tests CSS, DOM, resize, page load, WebGL and JS."""
   test = _BrowsermarkMeasurement
   def CreatePageSet(self, options):

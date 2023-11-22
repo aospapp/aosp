@@ -27,7 +27,6 @@
     <string name="meeting_recurring" msgid="2752008481765880928">"Quan: <xliff:g id="EVENTDATE">%s</xliff:g> (periòdica)"</string>
     <string name="meeting_allday" msgid="7251209063071628040">"Quan: <xliff:g id="EVENTDATE">%s</xliff:g> (tot el dia)"</string>
     <string name="meeting_allday_recurring" msgid="4545762363537362545">"Quan: <xliff:g id="EVENTDATE">%s</xliff:g> (tot el dia, periòdic)"</string>
-    <string name="notification_exchange_calendar_added" msgid="8998454267739748113">"S\'ha afegit el calendari d\'Exchange."</string>
     <string name="app_name" msgid="1707639359526090662">"Serveis d\'Exchange"</string>
     <string name="exception_cancel" msgid="8972887597771126871">"Aquest esdeveniment s\'ha cancel·lat al dia <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="exception_updated" msgid="329192591551400871">"Els detalls d\'aquest esdeveniment han canviat al dia <xliff:g id="DATE">%s</xliff:g>"</string>

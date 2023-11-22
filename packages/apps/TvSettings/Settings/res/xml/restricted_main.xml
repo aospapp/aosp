@@ -27,6 +27,5 @@
     <header
         android:id="@+id/accessories"
         android:title="@string/header_category_accessories" />
-        canvassettings:preference="@xml/accessories" />
 
 </preference-headers>

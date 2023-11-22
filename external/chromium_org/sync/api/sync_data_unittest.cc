@@ -8,12 +8,12 @@
 
 #include "base/memory/ref_counted_memory.h"
 #include "base/message_loop/message_loop.h"
-#include "base/message_loop/message_loop_proxy.h"
+#include "base/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "sync/api/attachments/attachment_id.h"
-#include "sync/api/attachments/attachment_service.h"
-#include "sync/api/attachments/attachment_service_impl.h"
-#include "sync/api/attachments/attachment_service_proxy.h"
+#include "sync/internal_api/public/attachments/attachment_service.h"
+#include "sync/internal_api/public/attachments/attachment_service_impl.h"
+#include "sync/internal_api/public/attachments/attachment_service_proxy.h"
 #include "sync/protocol/sync.pb.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -35,7 +35,7 @@ class SyncDataTest : public testing::Test {
       : attachment_service(AttachmentServiceImpl::CreateForTest()),
         attachment_service_weak_ptr_factory(attachment_service.get()),
         attachment_service_proxy(
-            base::MessageLoopProxy::current(),
+            base::ThreadTaskRunnerHandle::Get(),
             attachment_service_weak_ptr_factory.GetWeakPtr()) {}
   base::MessageLoop loop;
   sync_pb::EntitySpecifics specifics;
@@ -71,30 +71,28 @@ TEST_F(SyncDataTest, CreateLocalData) {
 
 TEST_F(SyncDataTest, CreateLocalDataWithAttachments) {
   specifics.mutable_preference();
-  scoped_refptr<base::RefCountedMemory> bytes(new base::RefCountedString);
-  AttachmentList attachments;
-  attachments.push_back(Attachment::Create(bytes));
-  attachments.push_back(Attachment::Create(bytes));
-  attachments.push_back(Attachment::Create(bytes));
+  AttachmentIdList attachment_ids;
+  attachment_ids.push_back(AttachmentId::Create());
+  attachment_ids.push_back(AttachmentId::Create());
+  attachment_ids.push_back(AttachmentId::Create());
 
   SyncData data = SyncData::CreateLocalDataWithAttachments(
-      kSyncTag, kNonUniqueTitle, specifics, attachments);
+      kSyncTag, kNonUniqueTitle, specifics, attachment_ids);
   EXPECT_TRUE(data.IsValid());
   EXPECT_TRUE(data.IsLocal());
   EXPECT_EQ(kSyncTag, SyncDataLocal(data).GetTag());
   EXPECT_EQ(kDatatype, data.GetDataType());
   EXPECT_EQ(kNonUniqueTitle, data.GetTitle());
   EXPECT_TRUE(data.GetSpecifics().has_preference());
-  AttachmentIdList attachment_ids = data.GetAttachmentIds();
+  attachment_ids = data.GetAttachmentIds();
   EXPECT_EQ(3U, attachment_ids.size());
-  EXPECT_EQ(3U, SyncDataLocal(data).GetLocalAttachmentsForUpload().size());
 }
 
 TEST_F(SyncDataTest, CreateLocalDataWithAttachments_EmptyListOfAttachments) {
   specifics.mutable_preference();
-  AttachmentList attachments;
+  AttachmentIdList attachment_ids;
   SyncData data = SyncData::CreateLocalDataWithAttachments(
-      kSyncTag, kNonUniqueTitle, specifics, attachments);
+      kSyncTag, kNonUniqueTitle, specifics, attachment_ids);
   EXPECT_TRUE(data.IsValid());
   EXPECT_TRUE(data.IsLocal());
   EXPECT_EQ(kSyncTag, SyncDataLocal(data).GetTag());
@@ -102,7 +100,6 @@ TEST_F(SyncDataTest, CreateLocalDataWithAttachments_EmptyListOfAttachments) {
   EXPECT_EQ(kNonUniqueTitle, data.GetTitle());
   EXPECT_TRUE(data.GetSpecifics().has_preference());
   EXPECT_TRUE(data.GetAttachmentIds().empty());
-  EXPECT_TRUE(SyncDataLocal(data).GetLocalAttachmentsForUpload().empty());
 }
 
 TEST_F(SyncDataTest, CreateRemoteData) {

@@ -65,6 +65,7 @@ class PanelFrameView : public views::NonClientFrameView,
   virtual void ResetWindowControls() OVERRIDE;
   virtual void UpdateWindowIcon() OVERRIDE;
   virtual void UpdateWindowTitle() OVERRIDE;
+  virtual void SizeConstraintsChanged() OVERRIDE;
 
   // Overridden from views::View:
   virtual gfx::Size GetPreferredSize() const OVERRIDE;
@@ -99,6 +100,9 @@ class PanelFrameView : public views::NonClientFrameView,
 
   // Retrieves the drawing metrics based on the current painting state.
   SkColor GetTitleColor(PaintState paint_state) const;
+
+  // Returns true if |mouse_location| is within the panel's resizing area.
+  bool IsWithinResizingArea(const gfx::Point& mouse_location) const;
 
   static const char kViewClassName[];
 

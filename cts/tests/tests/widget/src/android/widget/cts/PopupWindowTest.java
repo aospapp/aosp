@@ -273,18 +273,21 @@ public class PopupWindowTest extends
     }
 
     public void testShowAtLocation() {
-        int[] viewInWindowXY = new int[2];
-        int[] viewOnScreenXY = new int[2];
+        int[] popupContentViewInWindowXY = new int[2];
+        int[] popupContentViewOnScreenXY = new int[2];
 
         mPopupWindow = createPopupWindow(createPopupContent());
+        // Do not attach within the decor; we will be measuring location
+        // with regard to screen coordinates.
+        mPopupWindow.setAttachedInDecor(false);
         final View upperAnchor = mActivity.findViewById(R.id.anchor_upper);
 
         final int xOff = 10;
         final int yOff = 21;
         assertFalse(mPopupWindow.isShowing());
-        mPopupWindow.getContentView().getLocationInWindow(viewInWindowXY);
-        assertEquals(0, viewInWindowXY[0]);
-        assertEquals(0, viewInWindowXY[1]);
+        mPopupWindow.getContentView().getLocationInWindow(popupContentViewInWindowXY);
+        assertEquals(0, popupContentViewInWindowXY[0]);
+        assertEquals(0, popupContentViewInWindowXY[1]);
 
         mInstrumentation.runOnMainSync(new Runnable() {
             public void run() {
@@ -294,12 +297,12 @@ public class PopupWindowTest extends
         mInstrumentation.waitForIdleSync();
 
         assertTrue(mPopupWindow.isShowing());
-        mPopupWindow.getContentView().getLocationInWindow(viewInWindowXY);
-        mPopupWindow.getContentView().getLocationOnScreen(viewOnScreenXY);
-        assertTrue(viewInWindowXY[0] >= 0);
-        assertTrue(viewInWindowXY[1] >= 0);
-        assertEquals(viewInWindowXY[0] + xOff, viewOnScreenXY[0]);
-        assertEquals(viewInWindowXY[1] + yOff, viewOnScreenXY[1]);
+        mPopupWindow.getContentView().getLocationInWindow(popupContentViewInWindowXY);
+        mPopupWindow.getContentView().getLocationOnScreen(popupContentViewOnScreenXY);
+        assertTrue(popupContentViewInWindowXY[0] >= 0);
+        assertTrue(popupContentViewInWindowXY[1] >= 0);
+        assertEquals(popupContentViewInWindowXY[0] + xOff, popupContentViewOnScreenXY[0]);
+        assertEquals(popupContentViewInWindowXY[1] + yOff, popupContentViewOnScreenXY[1]);
 
         dismissPopup();
     }
@@ -453,6 +456,9 @@ public class PopupWindowTest extends
         mInstrumentation.runOnMainSync(new Runnable() {
             public void run() {
                 mPopupWindow = createPopupWindow(createPopupContent());
+                // Do not attach within the decor; we will be measuring location
+                // with regard to screen coordinates.
+                mPopupWindow.setAttachedInDecor(false);
             }
         });
 

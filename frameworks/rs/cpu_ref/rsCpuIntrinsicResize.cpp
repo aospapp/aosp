@@ -83,7 +83,7 @@ static float cubicInterpolate(float p0,float p1,float p2,float p3 , float x) {
 
 static uchar4 OneBiCubic(const uchar4 *yp0, const uchar4 *yp1, const uchar4 *yp2, const uchar4 *yp3,
                          float xf, float yf, int width) {
-    int startx = (int) floor(xf - 2);
+    int startx = (int) floor(xf - 1);
     xf = xf - floor(xf);
     int maxx = width - 1;
     int xs0 = rsMax(0, startx + 0);
@@ -112,13 +112,13 @@ static uchar4 OneBiCubic(const uchar4 *yp0, const uchar4 *yp1, const uchar4 *yp2
                                   convert_float4(yp3[xs3]), xf);
 
     float4 p  = cubicInterpolate(p0, p1, p2, p3, yf);
-    p = clamp(p, 0.f, 255.f);
+    p = clamp(p + 0.5f, 0.f, 255.f);
     return convert_uchar4(p);
 }
 
 static uchar2 OneBiCubic(const uchar2 *yp0, const uchar2 *yp1, const uchar2 *yp2, const uchar2 *yp3,
                          float xf, float yf, int width) {
-    int startx = (int) floor(xf - 2);
+    int startx = (int) floor(xf - 1);
     xf = xf - floor(xf);
     int maxx = width - 1;
     int xs0 = rsMax(0, startx + 0);
@@ -147,13 +147,13 @@ static uchar2 OneBiCubic(const uchar2 *yp0, const uchar2 *yp1, const uchar2 *yp2
                                   convert_float2(yp3[xs3]), xf);
 
     float2 p  = cubicInterpolate(p0, p1, p2, p3, yf);
-    p = clamp(p, 0.f, 255.f);
+    p = clamp(p + 0.5f, 0.f, 255.f);
     return convert_uchar2(p);
 }
 
 static uchar OneBiCubic(const uchar *yp0, const uchar *yp1, const uchar *yp2, const uchar *yp3,
                         float xf, float yf, int width) {
-    int startx = (int) floor(xf - 2);
+    int startx = (int) floor(xf - 1);
     xf = xf - floor(xf);
     int maxx = width - 1;
     int xs0 = rsMax(0, startx + 0);
@@ -171,7 +171,7 @@ static uchar OneBiCubic(const uchar *yp0, const uchar *yp1, const uchar *yp2, co
                                  (float)yp3[xs2], (float)yp3[xs3], xf);
 
     float p  = cubicInterpolate(p0, p1, p2, p3, yf);
-    p = clamp(p, 0.f, 255.f);
+    p = clamp(p + 0.5f, 0.f, 255.f);
     return (uchar)p;
 }
 
@@ -189,8 +189,8 @@ void RsdCpuScriptIntrinsicResize::kernelU4(const RsForEachStubParamStruct *p,
     const int srcWidth = cp->mAlloc->mHal.drvState.lod[0].dimX;
     const size_t stride = cp->mAlloc->mHal.drvState.lod[0].stride;
 
-    float yf = p->y * cp->scaleY;
-    int starty = (int) floor(yf - 2);
+    float yf = (p->y + 0.5f) * cp->scaleY - 0.5f;
+    int starty = (int) floor(yf - 1);
     yf = yf - floor(yf);
     int maxy = srcHeight - 1;
     int ys0 = rsMax(0, starty + 0);
@@ -208,7 +208,7 @@ void RsdCpuScriptIntrinsicResize::kernelU4(const RsForEachStubParamStruct *p,
     uint32_t x2 = xend;
 
     while(x1 < x2) {
-        float xf = x1 * cp->scaleX;
+        float xf = (x1 + 0.5f) * cp->scaleX - 0.5f;
         *out = OneBiCubic(yp0, yp1, yp2, yp3, xf, yf, srcWidth);
         out++;
         x1++;
@@ -229,8 +229,8 @@ void RsdCpuScriptIntrinsicResize::kernelU2(const RsForEachStubParamStruct *p,
     const int srcWidth = cp->mAlloc->mHal.drvState.lod[0].dimX;
     const size_t stride = cp->mAlloc->mHal.drvState.lod[0].stride;
 
-    float yf = p->y * cp->scaleY;
-    int starty = (int) floor(yf - 2);
+    float yf = (p->y + 0.5f) * cp->scaleY - 0.5f;
+    int starty = (int) floor(yf - 1);
     yf = yf - floor(yf);
     int maxy = srcHeight - 1;
     int ys0 = rsMax(0, starty + 0);
@@ -248,7 +248,7 @@ void RsdCpuScriptIntrinsicResize::kernelU2(const RsForEachStubParamStruct *p,
     uint32_t x2 = xend;
 
     while(x1 < x2) {
-        float xf = x1 * cp->scaleX;
+        float xf = (x1 + 0.5f) * cp->scaleX - 0.5f;
         *out = OneBiCubic(yp0, yp1, yp2, yp3, xf, yf, srcWidth);
         out++;
         x1++;
@@ -269,8 +269,8 @@ void RsdCpuScriptIntrinsicResize::kernelU1(const RsForEachStubParamStruct *p,
     const int srcWidth = cp->mAlloc->mHal.drvState.lod[0].dimX;
     const size_t stride = cp->mAlloc->mHal.drvState.lod[0].stride;
 
-    float yf = p->y * cp->scaleY;
-    int starty = (int) floor(yf - 2);
+    float yf = (p->y + 0.5f) * cp->scaleY - 0.5f;
+    int starty = (int) floor(yf - 1);
     yf = yf - floor(yf);
     int maxy = srcHeight - 1;
     int ys0 = rsMax(0, starty + 0);
@@ -288,7 +288,7 @@ void RsdCpuScriptIntrinsicResize::kernelU1(const RsForEachStubParamStruct *p,
     uint32_t x2 = xend;
 
     while(x1 < x2) {
-        float xf = x1 * cp->scaleX;
+        float xf = (x1 + 0.5f) * cp->scaleX - 0.5f;
         *out = OneBiCubic(yp0, yp1, yp2, yp3, xf, yf, srcWidth);
         out++;
         x1++;

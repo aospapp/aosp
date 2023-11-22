@@ -7,6 +7,7 @@
 #include <setupapi.h>
 #include <winioctl.h>
 
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/scoped_handle.h"
@@ -33,7 +34,6 @@ bool AddDeviceInfo(HANDLE interface_enumerator,
     PLOG(ERROR) << "SetupDiGetDeviceInterfaceDetail failed";
     return false;
   }
-
 
   scoped_ptr<char[]> interface_detail_data_buffer(
       new char[interface_detail_data_size]);
@@ -69,7 +69,7 @@ bool AddDeviceInfo(HANDLE interface_enumerator,
       0,              // No optional flags.
       NULL));          // No template file.
 
-  if (!device_handle) {
+  if (!device_handle.IsValid()) {
     PLOG(ERROR) << "Opening device handle failed.";
     return false;
   }
@@ -77,7 +77,7 @@ bool AddDeviceInfo(HANDLE interface_enumerator,
   DISK_GEOMETRY geometry;
   DWORD bytes_returned;
   status = DeviceIoControl(
-      device_handle,                 // Device handle.
+      device_handle.Get(),           // Device handle.
       IOCTL_DISK_GET_DRIVE_GEOMETRY, // Flag to request disk size.
       NULL,                          // Optional additional parameters.
       0,                             // Optional parameter size.
@@ -103,7 +103,7 @@ bool AddDeviceInfo(HANDLE interface_enumerator,
 
   scoped_ptr<char[]> output_buf(new char[1024]);
   status = DeviceIoControl(
-      device_handle,                  // Device handle.
+      device_handle.Get(),            // Device handle.
       IOCTL_STORAGE_QUERY_PROPERTY,   // Flag to request device properties.
       &query,                         // Query parameters.
       sizeof(STORAGE_PROPERTY_QUERY), // query parameters size.
@@ -121,17 +121,38 @@ bool AddDeviceInfo(HANDLE interface_enumerator,
   STORAGE_DEVICE_DESCRIPTOR* device_descriptor =
       reinterpret_cast<STORAGE_DEVICE_DESCRIPTOR*>(output_buf.get());
 
-  if (!device_descriptor->RemovableMedia) {
+  if (!device_descriptor->RemovableMedia &&
+      !(device_descriptor->BusType == BusTypeUsb)) {
+    // Reject non-removable and non-USB devices.
     // Return true to indicate success but not add anything to the device list.
     return true;
   }
 
+  // Create a drive identifier from the drive number.
+  STORAGE_DEVICE_NUMBER device_number = {0};
+  status = DeviceIoControl(
+      device_handle.Get(),            // Device handle.
+      IOCTL_STORAGE_GET_DEVICE_NUMBER,// Flag to request device number.
+      NULL,                           // Query parameters, should be NULL.
+      0,                              // Query parameters size, should be 0.
+      &device_number,                 // output buffer.
+      sizeof(device_number),          // Size of buffer.
+      &bytes_returned,                // Number of bytes returned.
+      NULL);                          // Optional unused overlapped perameter.
+
+  if (status == FALSE) {
+    PLOG(ERROR) << "Storage device number query failed.";
+    return false;
+  }
+
+  std::string drive_id = "\\\\.\\PhysicalDrive";
+  drive_id.append(base::Uint64ToString(device_number.DeviceNumber));
+
   linked_ptr<api::image_writer_private::RemovableStorageDevice> device(
     new api::image_writer_private::RemovableStorageDevice());
   device->capacity = disk_capacity;
-
-  base::string16 device_path_16(interface_detail_data->DevicePath);
-  device->storage_unit_id = base::UTF16ToUTF8(device_path_16);
+  device->storage_unit_id = drive_id;
+  device->removable = device_descriptor->RemovableMedia == TRUE;
 
   if (device_descriptor->VendorIdOffset &&
       output_buf[device_descriptor->VendorIdOffset]) {

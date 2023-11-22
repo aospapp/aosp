@@ -44,7 +44,7 @@ size_t GetReceivedFlowControlWindow(QuicSession* session) {
     return kDefaultFlowControlSendWindow;
   }
 
-  // Version must be >= QUIC_VERSION_20, so we check for stream specific flow
+  // Version must be >= QUIC_VERSION_21, so we check for stream specific flow
   // control window.
   if (session->config()->HasReceivedInitialStreamFlowControlWindowBytes()) {
     return session->config()->ReceivedInitialStreamFlowControlWindowBytes();
@@ -159,22 +159,23 @@ ReliableQuicStream::ReliableQuicStream(QuicStreamId id, QuicSession* session)
           GetReceivedFlowControlWindow(session),
           GetInitialStreamFlowControlWindowToSend(session),
           GetInitialStreamFlowControlWindowToSend(session)),
-      connection_flow_controller_(session_->flow_controller()) {
+      connection_flow_controller_(session_->flow_controller()),
+      stream_contributes_to_connection_flow_control_(true) {
 }
 
 ReliableQuicStream::~ReliableQuicStream() {
 }
 
-bool ReliableQuicStream::OnStreamFrame(const QuicStreamFrame& frame) {
+void ReliableQuicStream::OnStreamFrame(const QuicStreamFrame& frame) {
   if (read_side_closed_) {
     DVLOG(1) << ENDPOINT << "Ignoring frame " << frame.stream_id;
     // We don't want to be reading: blackhole the data.
-    return true;
+    return;
   }
 
   if (frame.stream_id != id_) {
-    LOG(ERROR) << "Error!";
-    return false;
+    session_->connection()->SendConnectionClose(QUIC_INTERNAL_ERROR);
+    return;
   }
 
   if (frame.fin) {
@@ -193,11 +194,11 @@ bool ReliableQuicStream::OnStreamFrame(const QuicStreamFrame& frame) {
         connection_flow_controller_->FlowControlViolation()) {
       session_->connection()->SendConnectionClose(
           QUIC_FLOW_CONTROL_RECEIVED_TOO_MUCH_DATA);
-      return false;
+      return;
     }
   }
 
-  return sequencer_.OnStreamFrame(frame);
+  sequencer_.OnStreamFrame(frame);
 }
 
 int ReliableQuicStream::num_frames_received() const {
@@ -233,6 +234,7 @@ void ReliableQuicStream::OnConnectionClosed(QuicErrorCode error,
 
 void ReliableQuicStream::OnFinRead() {
   DCHECK(sequencer_.IsClosed());
+  fin_received_ = true;
   CloseReadSide();
 }
 
@@ -332,6 +334,9 @@ void ReliableQuicStream::OnCanWrite() {
 
 void ReliableQuicStream::MaybeSendBlocked() {
   flow_controller_.MaybeSendBlocked();
+  if (!stream_contributes_to_connection_flow_control_) {
+    return;
+  }
   connection_flow_controller_->MaybeSendBlocked();
   // If we are connection level flow control blocked, then add the stream
   // to the write blocked list. It will be given a chance to write when a
@@ -361,7 +366,10 @@ QuicConsumedData ReliableQuicStream::WritevData(
   if (flow_controller_.IsEnabled()) {
     // How much data we are allowed to write from flow control.
     uint64 send_window = flow_controller_.SendWindowSize();
-    if (connection_flow_controller_->IsEnabled()) {
+    // TODO(rjshade): Remove connection_flow_controller_->IsEnabled() check when
+    // removing QUIC_VERSION_19.
+    if (stream_contributes_to_connection_flow_control_ &&
+        connection_flow_controller_->IsEnabled()) {
       send_window =
           min(send_window, connection_flow_controller_->SendWindowSize());
     }
@@ -471,7 +479,6 @@ void ReliableQuicStream::OnWindowUpdateFrame(
     DLOG(DFATAL) << "Flow control not enabled! " << version();
     return;
   }
-
   if (flow_controller_.UpdateSendWindowOffset(frame.byte_offset)) {
     // We can write again!
     // TODO(rjshade): This does not respect priorities (e.g. multiple
@@ -483,26 +490,32 @@ void ReliableQuicStream::OnWindowUpdateFrame(
 }
 
 bool ReliableQuicStream::MaybeIncreaseHighestReceivedOffset(uint64 new_offset) {
-  if (flow_controller_.IsEnabled()) {
-    uint64 increment =
-        new_offset - flow_controller_.highest_received_byte_offset();
-    if (flow_controller_.UpdateHighestReceivedOffset(new_offset)) {
-      // If |new_offset| increased the stream flow controller's highest received
-      // offset, then we need to increase the connection flow controller's value
-      // by the incremental difference.
-      connection_flow_controller_->UpdateHighestReceivedOffset(
-          connection_flow_controller_->highest_received_byte_offset() +
-          increment);
-      return true;
-    }
+  if (!flow_controller_.IsEnabled()) {
+    return false;
   }
-  return false;
+  uint64 increment =
+      new_offset - flow_controller_.highest_received_byte_offset();
+  if (!flow_controller_.UpdateHighestReceivedOffset(new_offset)) {
+    return false;
+  }
+
+  // If |new_offset| increased the stream flow controller's highest received
+  // offset, then we need to increase the connection flow controller's value
+  // by the incremental difference.
+  if (stream_contributes_to_connection_flow_control_) {
+    connection_flow_controller_->UpdateHighestReceivedOffset(
+        connection_flow_controller_->highest_received_byte_offset() +
+        increment);
+  }
+  return true;
 }
 
 void ReliableQuicStream::AddBytesSent(uint64 bytes) {
   if (flow_controller_.IsEnabled()) {
     flow_controller_.AddBytesSent(bytes);
-    connection_flow_controller_->AddBytesSent(bytes);
+    if (stream_contributes_to_connection_flow_control_) {
+      connection_flow_controller_->AddBytesSent(bytes);
+    }
   }
 }
 
@@ -513,13 +526,24 @@ void ReliableQuicStream::AddBytesConsumed(uint64 bytes) {
       flow_controller_.AddBytesConsumed(bytes);
     }
 
-    connection_flow_controller_->AddBytesConsumed(bytes);
+    if (stream_contributes_to_connection_flow_control_) {
+      connection_flow_controller_->AddBytesConsumed(bytes);
+    }
+  }
+}
+
+void ReliableQuicStream::UpdateSendWindowOffset(uint64 new_window) {
+  if (flow_controller_.UpdateSendWindowOffset(new_window)) {
+    OnCanWrite();
   }
 }
 
 bool ReliableQuicStream::IsFlowControlBlocked() {
-  return flow_controller_.IsBlocked() ||
-         connection_flow_controller_->IsBlocked();
+  if (flow_controller_.IsBlocked()) {
+    return true;
+  }
+  return stream_contributes_to_connection_flow_control_ &&
+      connection_flow_controller_->IsBlocked();
 }
 
 }  // namespace net

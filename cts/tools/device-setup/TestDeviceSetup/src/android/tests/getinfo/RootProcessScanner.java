@@ -29,12 +29,16 @@ class RootProcessScanner {
     /** Processes that are allowed to run as root. */
     private static final Pattern ROOT_PROCESS_WHITELIST_PATTERN = getRootProcessWhitelistPattern(
             "debuggerd",
+            "debuggerd64",
+            "healthd",
             "init",
             "installd",
+            "lmkd",
             "netd",
             "servicemanager",
             "ueventd",
             "vold",
+            "watchdogd",
             "zygote"
     );
 

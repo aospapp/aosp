@@ -85,13 +85,24 @@ public class IntrinsicConvolve5x5 extends IntrinsicBase {
                        -1.f,  0.f,  0.f,  0.f, -1.f,
                        -1.f, -1.f, -1.f, -1.f, -1.f};
 
+        float irCoeff1 = 3.1415927f;
+        float irCoeff2 = -irCoeff1;
+        float cf3[] = {irCoeff1, -1.f, -1.f, -1.f, irCoeff2,
+                       irCoeff1,  0.f,  0.f,  0.f, irCoeff2,
+                       irCoeff1,  0.f,  7.f,  0.f, irCoeff2,
+                       irCoeff1,  0.f,  0.f,  0.f, irCoeff2,
+                       irCoeff1, -1.f, -1.f, -1.f, irCoeff2};
+
         Element e = makeElement(dt, vecSize);
         makeBuffers(w, h, e);
+
+        mVerify.set_gAllowedIntError(1);
 
         ScriptIntrinsicConvolve5x5 si = ScriptIntrinsicConvolve5x5.create(mRS, e);
         ScriptC_intrinsic_convolve5x5 sr = new ScriptC_intrinsic_convolve5x5(mRS);
         test5(sr, si, e, cf1, "test convolve", 1, w, h, sc);
         test5(sr, si, e, cf2, "test convolve", 2, w, h, sc);
+        test5(sr, si, e, cf3, "test convolve", 3, w, h, sc);
     }
 
     public void test_U8_4() {

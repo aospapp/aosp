@@ -22,7 +22,6 @@
 #include "cc/base/switches.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/boot_times_loader.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
@@ -31,6 +30,7 @@
 #include "chromeos/chromeos_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/session_manager_client.h"
+#include "chromeos/login/user_names.h"
 #include "components/policy/core/common/policy_switches.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/content_switches.h"
@@ -43,7 +43,7 @@
 #include "ui/events/event_switches.h"
 #include "ui/gfx/switches.h"
 #include "ui/gl/gl_switches.h"
-#include "ui/ozone/ozone_switches.h"
+#include "ui/ozone/public/ozone_switches.h"
 #include "ui/wm/core/wm_core_switches.h"
 #include "url/gurl.h"
 
@@ -71,11 +71,10 @@ std::string DeriveCommandLine(const GURL& start_url,
 
   static const char* kForwardSwitches[] = {
     ::switches::kDisableAccelerated2dCanvas,
-    ::switches::kDisableAcceleratedOverflowScroll,
     ::switches::kDisableAcceleratedVideoDecode,
     ::switches::kDisableDelegatedRenderer,
     ::switches::kDisableDistanceFieldText,
-    ::switches::kDisableFastTextAutosizing,
+    ::switches::kDisableGpu,
     ::switches::kDisableGpuShaderDiskCache,
     ::switches::kDisableGpuWatchdog,
     ::switches::kDisableGpuCompositing,
@@ -83,25 +82,22 @@ std::string DeriveCommandLine(const GURL& start_url,
     ::switches::kDisableImplSidePainting,
     ::switches::kDisableLowResTiling,
     ::switches::kDisableMediaSource,
+    ::switches::kDisablePreferCompositingToLCDText,
     ::switches::kDisablePrefixedEncryptedMedia,
     ::switches::kDisablePanelFitting,
-    ::switches::kDisableRepaintAfterLayout,
     ::switches::kDisableSeccompFilterSandbox,
     ::switches::kDisableSetuidSandbox,
-    ::switches::kDisableThreadedCompositing,
+    ::switches::kDisableThreadedScrolling,
     ::switches::kDisableTouchDragDrop,
     ::switches::kDisableTouchEditing,
-    ::switches::kDisableAcceleratedFixedRootBackground,
     ::switches::kDisableZeroCopy,
-    ::switches::kEnableAcceleratedFixedRootBackground,
-    ::switches::kEnableAcceleratedOverflowScroll,
+    ::switches::kEnableAcceleratedJpegDecoding,
     ::switches::kEnableBeginFrameScheduling,
-    ::switches::kEnableCompositingForFixedPosition,
+    ::switches::kEnablePreferCompositingToLCDText,
     ::switches::kEnableDelegatedRenderer,
+    ::switches::kDisableDisplayList2dCanvas,
+    ::switches::kEnableDisplayList2dCanvas,
     ::switches::kEnableEncryptedMedia,
-    ::switches::kEnableFastTextAutosizing,
-    ::switches::kEnableGestureTapHighlight,
-    ::switches::kDisableGestureTapHighlight,
     ::switches::kDisableGpuSandbox,
     ::switches::kDisableDeferredFilters,
     ::switches::kEnableContainerCulling,
@@ -112,8 +108,6 @@ std::string DeriveCommandLine(const GURL& start_url,
     ::switches::kEnableLowResTiling,
     ::switches::kEnableOneCopy,
     ::switches::kEnablePinch,
-    ::switches::kEnableRepaintAfterLayout,
-    ::switches::kEnableThreadedCompositing,
     ::switches::kEnableTouchDragDrop,
     ::switches::kEnableTouchEditing,
     ::switches::kEnableViewport,
@@ -125,7 +119,7 @@ std::string DeriveCommandLine(const GURL& start_url,
     ::switches::kGpuStartupDialog,
     ::switches::kGpuSandboxAllowSysVShm,
     ::switches::kGpuSandboxFailuresFatal,
-    ::switches::kGpuSandboxStartAfterInitialization,
+    ::switches::kGpuSandboxStartEarly,
     ::switches::kIgnoreResolutionLimitsForAcceleratedVideoDecode,
     ::switches::kNoSandbox,
     ::switches::kNumRasterThreads,
@@ -159,9 +153,12 @@ std::string DeriveCommandLine(const GURL& start_url,
     ::switches::kDisableWebRtcHWDecoding,
     ::switches::kDisableWebRtcHWEncoding,
     ::switches::kEnableWebRtcHWVp8Encoding,
+    ::switches::kEnableWebRtcHWH264Encoding,
 #endif
+    ::switches::kDisableVaapiAcceleratedVideoEncode,
 #if defined(USE_OZONE)
     ::switches::kOzonePlatform,
+    ::switches::kOzoneUseSurfaceless,
 #endif
     app_list::switches::kDisableSyncAppList,
     app_list::switches::kEnableSyncAppList,
@@ -177,7 +174,6 @@ std::string DeriveCommandLine(const GURL& start_url,
     // content/browser/renderer_host/render_process_host_impl.cc.
     cc::switches::kCompositeToMailbox,
     cc::switches::kDisableCompositedAntialiasing,
-    cc::switches::kDisableCompositorTouchHitTesting,
     cc::switches::kDisableMainFrameBeforeActivation,
     cc::switches::kDisableMainFrameBeforeDraw,
     cc::switches::kDisablePinchVirtualViewport,
@@ -201,6 +197,7 @@ std::string DeriveCommandLine(const GURL& start_url,
     cc::switches::kUIDisablePartialSwap,
     chromeos::switches::kConsumerDeviceManagementUrl,
     chromeos::switches::kDbusStub,
+    chromeos::switches::kDbusUnstubClients,
     chromeos::switches::kDisableLoginAnimations,
     chromeos::switches::kEnableConsumerManagement,
     chromeos::switches::kEnterpriseEnableForcedReEnrollment,
@@ -210,7 +207,6 @@ std::string DeriveCommandLine(const GURL& start_url,
     chromeos::switches::kNaturalScrollDefault,
     chromeos::switches::kSystemInDevMode,
     policy::switches::kDeviceManagementUrl,
-    ::switches::kEnableBrowserTextSubpixelPositioning,
     ::switches::kEnableWebkitTextSubpixelPositioning,
     wm::switches::kWindowAnimationsDisabled,
   };
@@ -343,7 +339,7 @@ std::string GetOffTheRecordCommandLine(
   otr_switches.SetString(switches::kGuestSession, std::string());
   otr_switches.SetString(::switches::kIncognito, std::string());
   otr_switches.SetString(::switches::kLoggingLevel, kGuestModeLoggingLevel);
-  otr_switches.SetString(switches::kLoginUser, UserManager::kGuestUserName);
+  otr_switches.SetString(switches::kLoginUser, chromeos::login::kGuestUserName);
 
   // Override the home page.
   otr_switches.SetString(::switches::kHomePage,

@@ -17,18 +17,26 @@
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="?android:attr/selectableItemBackground">
+
+    <TextView
+        android:id="@+id/spinner_account_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAlignment="viewStart"
+        style="@style/SpinnerAccountNameStyle" />
 
     <TextView
         android:id="@+id/spinner_account_address"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:singleLine="true"
         android:textAlignment="viewStart"
         style="@style/ComposeFromTextViewStyle" />
 
     <ImageView
+        android:background="@null"
         android:src="@drawable/ic_expand_more_24dp"
         style="@style/ComposeFieldButton" />
 

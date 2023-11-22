@@ -21,8 +21,6 @@
 #include "OMXVideoDecoderVP9HWR.h"
 
 #include <system/window.h>
-#include <ui/GraphicBufferMapper.h>
-#include <ui/Rect.h>
 #include <HardwareAPI.h>
 #include <hardware/hardware.h>
 #include <hardware/gralloc.h>

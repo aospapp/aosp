@@ -8,31 +8,37 @@
 
 NaClTrustedListener::NaClTrustedListener(
     const IPC::ChannelHandle& handle,
-    base::SingleThreadTaskRunner* ipc_task_runner) {
-  channel_proxy_ = IPC::ChannelProxy::Create(
-      handle,
-      IPC::Channel::MODE_SERVER,
-      this,
-      ipc_task_runner).Pass();
+    base::SingleThreadTaskRunner* ipc_task_runner,
+    base::WaitableEvent* shutdown_event)
+    : channel_handle_(handle) {
+  channel_ = IPC::SyncChannel::Create(handle,
+                                      IPC::Channel::MODE_SERVER,
+                                      this,
+                                      ipc_task_runner,
+                                      true,  /* create_channel_now */
+                                      shutdown_event).Pass();
 }
 
 NaClTrustedListener::~NaClTrustedListener() {
 }
 
+IPC::ChannelHandle NaClTrustedListener::TakeClientChannelHandle() {
+  IPC::ChannelHandle handle = channel_handle_;
 #if defined(OS_POSIX)
-int NaClTrustedListener::TakeClientFileDescriptor() {
-  return channel_proxy_->TakeClientFileDescriptor();
-}
+  handle.socket =
+      base::FileDescriptor(channel_->TakeClientFileDescriptor(), true);
 #endif
+  return handle;
+}
 
 bool NaClTrustedListener::OnMessageReceived(const IPC::Message& msg) {
   return false;
 }
 
 void NaClTrustedListener::OnChannelError() {
-  channel_proxy_->Close();
+  channel_->Close();
 }
 
 bool NaClTrustedListener::Send(IPC::Message* msg) {
-  return channel_proxy_->Send(msg);
+  return channel_->Send(msg);
 }

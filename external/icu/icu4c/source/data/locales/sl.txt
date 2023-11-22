@@ -211,7 +211,7 @@ sl{
                 "EEEE, dd. MMMM y G",
                 "dd. MMMM y G",
                 "d. MMM y G",
-                "d. MM. yy GGGGG",
+                "d. M. yy GGGGG", // android-changed: http://b/17431155
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -229,7 +229,7 @@ sl{
                 Hm{"HH.mm"}
                 Hms{"HH.mm.ss"}
                 M{"L"}
-                MEd{"E, d. MM."}
+                MEd{"E, d. M."} // android-changed: http://b/17431155
                 MMM{"LLL"}
                 MMMEd{"E, d. MMM"}
                 MMMd{"d. MMM"}
@@ -360,7 +360,7 @@ sl{
                 "EEEE, dd. MMMM y",
                 "dd. MMMM y",
                 "d. MMM y",
-                "d. MM. yy",
+                "d. M. yy", // android-changed: http://b/17431155
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -385,7 +385,7 @@ sl{
                 Hm{"HH.mm"}
                 Hms{"HH.mm.ss"}
                 M{"L"}
-                MEd{"E, d. MM."}
+                MEd{"E, d. M."} // android-changed: http://b/17431155
                 MMM{"LLL"}
                 MMMEd{"E, d. MMM"}
                 MMMd{"d. MMM"}

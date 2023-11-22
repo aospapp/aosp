@@ -21,7 +21,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/version.h"
 #include "base/win/windows_version.h"
-#include "chrome/app/chrome_breakpad_client.h"
+#include "chrome/app/chrome_crash_reporter_client.h"
 #include "chrome/app/client_util.h"
 #include "chrome/app/image_pre_reader_win.h"
 #include "chrome/common/chrome_constants.h"
@@ -32,8 +32,9 @@
 #include "chrome/installer/util/google_update_settings.h"
 #include "chrome/installer/util/install_util.h"
 #include "chrome/installer/util/util_constants.h"
-#include "components/breakpad/app/breakpad_client.h"
-#include "components/breakpad/app/breakpad_win.h"
+#include "components/crash/app/breakpad_win.h"
+#include "components/crash/app/crash_reporter_client.h"
+#include "components/metrics/client_info.h"
 #include "content/public/app/startup_helper_win.h"
 #include "sandbox/win/src/sandbox.h"
 
@@ -43,8 +44,8 @@ typedef int (*DLL_MAIN)(HINSTANCE, sandbox::SandboxInterfaceInfo*);
 
 typedef void (*RelaunchChromeBrowserWithNewCommandLineIfNeededFunc)();
 
-base::LazyInstance<chrome::ChromeBreakpadClient>::Leaky
-    g_chrome_breakpad_client = LAZY_INSTANCE_INITIALIZER;
+base::LazyInstance<chrome::ChromeCrashReporterClient>::Leaky
+    g_chrome_crash_client = LAZY_INSTANCE_INITIALIZER;
 
 // Returns true if the build date for this module precedes the expiry date
 // for the pre-read experiment.
@@ -75,14 +76,14 @@ bool PreReadExperimentIsActive() {
 void GetPreReadPopulationAndGroup(double* population, double* group) {
   // By default we use the metrics id for the user as stable pseudo-random
   // input to a hash.
-  std::string metrics_id;
-  GoogleUpdateSettings::GetMetricsId(&metrics_id);
+  scoped_ptr<metrics::ClientInfo> client_info =
+      GoogleUpdateSettings::LoadMetricsClientInfo();
 
-  // If this user has not metrics id, we fall back to a purely random value
-  // per browser session.
+  // If this user has no metrics id, we fall back to a purely random value per
+  // browser session.
   const size_t kLength = 16;
-  std::string random_value(metrics_id.empty() ? base::RandBytesAsString(kLength)
-                                              : metrics_id);
+  std::string random_value(client_info ? client_info->client_id
+                                       : base::RandBytesAsString(kLength));
 
   // To interpret the value as a random number we hash it and read the first 8
   // bytes of the hash as a unit-interval representing a die-toss for being in
@@ -289,7 +290,7 @@ int MainDllLoader::Launch(HINSTANCE instance) {
   sandbox::SandboxInterfaceInfo sandbox_info = {0};
   content::InitializeSandboxInfo(&sandbox_info);
 
-  breakpad::SetBreakpadClient(g_chrome_breakpad_client.Pointer());
+  crash_reporter::SetCrashReporterClient(g_chrome_crash_client.Pointer());
   bool exit_now = true;
   if (process_type_.empty()) {
     if (breakpad::ShowRestartDialogIfCrashed(&exit_now)) {

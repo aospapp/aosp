@@ -138,20 +138,15 @@ void DeterminePossibleFieldTypesForUpload(
     AutofillField* field = submitted_form->field(i);
     ServerFieldTypeSet matching_types;
 
-    // If it's a password field, set the type directly.
-    if (field->form_control_type == "password") {
-      matching_types.insert(PASSWORD);
-    } else {
-      base::string16 value;
-      base::TrimWhitespace(field->value, base::TRIM_ALL, &value);
-      for (std::vector<AutofillProfile>::const_iterator it = profiles.begin();
-           it != profiles.end(); ++it) {
-        it->GetMatchingTypes(value, app_locale, &matching_types);
-      }
-      for (std::vector<CreditCard>::const_iterator it = credit_cards.begin();
-            it != credit_cards.end(); ++it) {
-        it->GetMatchingTypes(value, app_locale, &matching_types);
-      }
+    base::string16 value;
+    base::TrimWhitespace(field->value, base::TRIM_ALL, &value);
+    for (std::vector<AutofillProfile>::const_iterator it = profiles.begin();
+         it != profiles.end(); ++it) {
+      it->GetMatchingTypes(value, app_locale, &matching_types);
+    }
+    for (std::vector<CreditCard>::const_iterator it = credit_cards.begin();
+         it != credit_cards.end(); ++it) {
+      it->GetMatchingTypes(value, app_locale, &matching_types);
     }
 
     if (matching_types.empty())
@@ -199,17 +194,17 @@ void AutofillManager::RegisterProfilePrefs(
       prefs::kAutofillEnabled,
       true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
-#if defined(OS_MACOSX) || defined(OS_ANDROID)
+#if defined(OS_MACOSX)
   registry->RegisterBooleanPref(
       prefs::kAutofillAuxiliaryProfilesEnabled,
       true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
-#else  // defined(OS_MACOSX) || defined(OS_ANDROID)
+#else  // defined(OS_MACOSX)
   registry->RegisterBooleanPref(
       prefs::kAutofillAuxiliaryProfilesEnabled,
       false,
       user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
-#endif  // defined(OS_MACOSX) || defined(OS_ANDROID)
+#endif  // defined(OS_MACOSX)
 #if defined(OS_MACOSX)
   registry->RegisterBooleanPref(
       prefs::kAutofillMacAddressBookQueried,
@@ -229,6 +224,10 @@ void AutofillManager::RegisterProfilePrefs(
   registry->RegisterBooleanPref(
       prefs::kAutofillUseMacAddressBook,
       false,
+      user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
+  registry->RegisterIntegerPref(
+      prefs::kAutofillMacAddressBookShowedCount,
+      0,
       user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
 #endif  // defined(OS_MACOSX) && !defined(OS_IOS)
 }
@@ -285,11 +284,15 @@ void AutofillManager::ShowAutofillSettings() {
 bool AutofillManager::ShouldShowAccessAddressBookSuggestion(
     const FormData& form,
     const FormFieldData& field) {
-  if (!personal_data_)
+  if (!personal_data_ || !field.should_autocomplete)
     return false;
+
   FormStructure* form_structure = NULL;
   AutofillField* autofill_field = NULL;
   if (!GetCachedFormAndField(form, field, &form_structure, &autofill_field))
+    return false;
+
+  if (!form_structure->IsAutofillable())
     return false;
 
   return personal_data_->ShouldShowAccessAddressBookSuggestion(
@@ -300,6 +303,18 @@ bool AutofillManager::AccessAddressBook() {
   if (!personal_data_)
     return false;
   return personal_data_->AccessAddressBook();
+}
+
+void AutofillManager::ShowedAccessAddressBookPrompt() {
+  if (!personal_data_)
+    return;
+  return personal_data_->ShowedAccessAddressBookPrompt();
+}
+
+int AutofillManager::AccessAddressBookPromptCount() {
+  if (!personal_data_)
+    return 0;
+  return personal_data_->AccessAddressBookPromptCount();
 }
 #endif  // defined(OS_MACOSX) && !defined(OS_IOS)
 
@@ -328,7 +343,7 @@ bool AutofillManager::OnFormSubmitted(const FormData& form,
     return false;
 
   submitted_form->UpdateFromCache(*cached_submitted_form);
-  if (submitted_form->IsAutofillable(true))
+  if (submitted_form->IsAutofillable())
     ImportFormData(*submitted_form);
 
   // Only upload server statistics and UMA metrics if at least some local data
@@ -453,15 +468,20 @@ void AutofillManager::OnQueryFormFieldAutofill(int query_id,
       driver_->RendererIsAvailable() &&
       GetCachedFormAndField(form, field, &form_structure, &autofill_field) &&
       // Don't send suggestions for forms that aren't auto-fillable.
-      form_structure->IsAutofillable(false)) {
+      form_structure->IsAutofillable()) {
     AutofillType type = autofill_field->Type();
     bool is_filling_credit_card = (type.group() == CREDIT_CARD);
     if (is_filling_credit_card) {
       GetCreditCardSuggestions(
           field, type, &values, &labels, &icons, &unique_ids);
     } else {
-      GetProfileSuggestions(
-          form_structure, field, type, &values, &labels, &icons, &unique_ids);
+      GetProfileSuggestions(*form_structure,
+                            field,
+                            *autofill_field,
+                            &values,
+                            &labels,
+                            &icons,
+                            &unique_ids);
     }
 
     DCHECK_EQ(values.size(), labels.size());
@@ -473,9 +493,7 @@ void AutofillManager::OnQueryFormFieldAutofill(int query_id,
       // provide credit card suggestions for non-HTTPS pages. However, provide a
       // warning to the user in these cases.
       int warning = 0;
-      if (!form_structure->IsAutofillable(true))
-        warning = IDS_AUTOFILL_WARNING_FORM_DISABLED;
-      else if (is_filling_credit_card && !FormIsHTTPS(*form_structure))
+      if (is_filling_credit_card && !FormIsHTTPS(*form_structure))
         warning = IDS_AUTOFILL_WARNING_INSECURE_CONNECTION;
       if (warning) {
         values.assign(1, l10n_util::GetStringUTF16(warning));
@@ -550,9 +568,12 @@ void AutofillManager::FillOrPreviewForm(
   FormData result = form;
 
   base::string16 profile_full_name;
+  std::string profile_language_code;
   if (!is_credit_card) {
     profile_full_name = data_model->GetInfo(
         AutofillType(NAME_FULL), app_locale_);
+    profile_language_code =
+        static_cast<const AutofillProfile*>(data_model)->language_code();
   }
 
   // If the relevant section is auto-filled, we should fill |field| but not the
@@ -563,8 +584,11 @@ void AutofillManager::FillOrPreviewForm(
       if ((*iter) == field) {
         base::string16 value = data_model->GetInfoForVariant(
             autofill_field->Type(), variant, app_locale_);
-        if (AutofillField::FillFormField(
-            *autofill_field, value, app_locale_, &(*iter))) {
+        if (AutofillField::FillFormField(*autofill_field,
+                                         value,
+                                         profile_language_code,
+                                         app_locale_,
+                                         &(*iter))) {
           // Mark the cached field as autofilled, so that we can detect when a
           // user edits an autofilled field (for metrics).
           autofill_field->is_autofilled = true;
@@ -620,8 +644,11 @@ void AutofillManager::FillOrPreviewForm(
           (result.fields[i] == field ||
            result.fields[i].form_control_type == "select-one" ||
            result.fields[i].value.empty());
-      if (AutofillField::FillFormField(
-          *cached_field, value, app_locale_, &result.fields[i])) {
+      if (AutofillField::FillFormField(*cached_field,
+                                       value,
+                                       profile_language_code,
+                                       app_locale_,
+                                       &result.fields[i])) {
         // Mark the cached field as autofilled, so that we can detect when a
         // user edits an autofilled field (for metrics).
         form_structure->field(i)->is_autofilled = true;
@@ -684,6 +711,7 @@ void AutofillManager::OnHidePopup() {
   if (!IsAutofillEnabled())
     return;
 
+  autocomplete_history_manager_->CancelPendingQuery();
   client_->HideAutofillPopup();
 }
 
@@ -804,17 +832,14 @@ void AutofillManager::UploadFormData(const FormStructure& submitted_form) {
 
   ServerFieldTypeSet non_empty_types;
   personal_data_->GetNonEmptyTypes(&non_empty_types);
-  // Always add PASSWORD to |non_empty_types| so that if |submitted_form|
-  // contains a password field it will be uploaded to the server. If
-  // |submitted_form| doesn't contain a password field, there is no side
-  // effect from adding PASSWORD to |non_empty_types|.
-  non_empty_types.insert(PASSWORD);
 
   download_manager_->StartUploadRequest(submitted_form, was_autofilled,
                                         non_empty_types);
 }
 
-bool AutofillManager::UploadPasswordGenerationForm(const FormData& form) {
+bool AutofillManager::UploadPasswordForm(
+    const FormData& form,
+    const ServerFieldType& password_type) {
   FormStructure form_structure(form);
 
   if (!ShouldUploadForm(form_structure))
@@ -822,8 +847,6 @@ bool AutofillManager::UploadPasswordGenerationForm(const FormData& form) {
 
   if (!form_structure.ShouldBeCrowdsourced())
     return false;
-
-  // TODO(gcasto): Check that PasswordGeneration is enabled?
 
   // Find the first password field to label. We don't try to label anything
   // else.
@@ -833,7 +856,7 @@ bool AutofillManager::UploadPasswordGenerationForm(const FormData& form) {
 
     ServerFieldTypeSet types;
     if (!found_password_field && field->form_control_type == "password") {
-      types.insert(ACCOUNT_CREATION_PASSWORD);
+      types.insert(password_type);
       found_password_field = true;
     } else {
       types.insert(UNKNOWN_TYPE);
@@ -844,7 +867,7 @@ bool AutofillManager::UploadPasswordGenerationForm(const FormData& form) {
 
   // Only one field type should be present.
   ServerFieldTypeSet available_field_types;
-  available_field_types.insert(ACCOUNT_CREATION_PASSWORD);
+  available_field_types.insert(password_type);
 
   // Force uploading as these events are relatively rare and we want to make
   // sure to receive them. It also makes testing easier if these requests
@@ -978,7 +1001,7 @@ bool AutofillManager::GetCachedFormAndField(const FormData& form,
   // If we do not have this form in our cache but it is parseable, we'll add it
   // in the call to |UpdateCachedForm()|.
   if (!FindCachedForm(form, form_structure) &&
-      !FormStructure(form).ShouldBeParsed(false)) {
+      !FormStructure(form).ShouldBeParsed()) {
     return false;
   }
 
@@ -1060,23 +1083,31 @@ bool AutofillManager::UpdateCachedForm(const FormData& live_form,
 }
 
 void AutofillManager::GetProfileSuggestions(
-    FormStructure* form,
+    const FormStructure& form,
     const FormFieldData& field,
-    const AutofillType& type,
+    const AutofillField& autofill_field,
     std::vector<base::string16>* values,
     std::vector<base::string16>* labels,
     std::vector<base::string16>* icons,
     std::vector<int>* unique_ids) const {
-  std::vector<ServerFieldType> field_types(form->field_count());
-  for (size_t i = 0; i < form->field_count(); ++i) {
-    field_types.push_back(form->field(i)->Type().GetStorableType());
+  std::vector<ServerFieldType> field_types(form.field_count());
+  for (size_t i = 0; i < form.field_count(); ++i) {
+    field_types.push_back(form.field(i)->Type().GetStorableType());
   }
   std::vector<GUIDPair> guid_pairs;
 
   personal_data_->GetProfileSuggestions(
-      type, field.value, field.is_autofilled, field_types,
+      autofill_field.Type(), field.value, field.is_autofilled, field_types,
       base::Callback<bool(const AutofillProfile&)>(),
       values, labels, icons, &guid_pairs);
+
+  // Adjust phone number to display in prefix/suffix case.
+  if (autofill_field.Type().GetStorableType() == PHONE_HOME_NUMBER) {
+    for (size_t i = 0; i < values->size(); ++i) {
+      (*values)[i] = AutofillField::GetPhoneNumberValue(
+          autofill_field, (*values)[i], field);
+    }
+  }
 
   for (size_t i = 0; i < guid_pairs.size(); ++i) {
     unique_ids->push_back(PackGUIDs(GUIDPair(std::string(), 0),
@@ -1105,7 +1136,7 @@ void AutofillManager::ParseForms(const std::vector<FormData>& forms) {
   for (std::vector<FormData>::const_iterator iter = forms.begin();
        iter != forms.end(); ++iter) {
     scoped_ptr<FormStructure> form_structure(new FormStructure(*iter));
-    if (!form_structure->ShouldBeParsed(false))
+    if (!form_structure->ShouldBeParsed())
       continue;
 
     form_structure->DetermineHeuristicTypes(*metric_logger_);
@@ -1211,7 +1242,7 @@ bool AutofillManager::ShouldUploadForm(const FormStructure& form) {
     return false;
 
   // Disregard forms that we wouldn't ever autofill in the first place.
-  if (!form.ShouldBeParsed(true))
+  if (!form.ShouldBeParsed())
     return false;
 
   return true;

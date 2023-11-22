@@ -31,22 +31,23 @@ class MOJO_SYSTEM_IMPL_EXPORT LocalMessagePipeEndpoint
   // implement/override these:
   virtual void Close() OVERRIDE;
   virtual void CancelAllWaiters() OVERRIDE;
-  virtual MojoResult ReadMessage(void* bytes,
-                                 uint32_t* num_bytes,
+  virtual MojoResult ReadMessage(UserPointer<void> bytes,
+                                 UserPointer<uint32_t> num_bytes,
                                  DispatcherVector* dispatchers,
                                  uint32_t* num_dispatchers,
                                  MojoReadMessageFlags flags) OVERRIDE;
+  virtual HandleSignalsState GetHandleSignalsState() const OVERRIDE;
   virtual MojoResult AddWaiter(Waiter* waiter,
                                MojoHandleSignals signals,
-                               uint32_t context) OVERRIDE;
-  virtual void RemoveWaiter(Waiter* waiter) OVERRIDE;
+                               uint32_t context,
+                               HandleSignalsState* signals_state) OVERRIDE;
+  virtual void RemoveWaiter(Waiter* waiter,
+                            HandleSignalsState* signals_state) OVERRIDE;
 
-  // This is only to be used by |ProxyMessagePipeEndpoint|:
+  // This is only to be used by |MessagePipe|:
   MessageInTransitQueue* message_queue() { return &message_queue_; }
 
  private:
-  HandleSignalsState GetHandleSignalsState();
-
   bool is_open_;
   bool is_peer_open_;
 

@@ -23,7 +23,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerVertical="true"
-        android:layout_marginLeft="50dp"
+        android:layout_marginStart="50dp"
         android:maxLines="1"
         android:ellipsize="end"
         android:text="@string/accessories_add_title_multiple" />
@@ -34,7 +34,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_above="@id/multiple_title"
-        android:layout_alignLeft="@id/multiple_title"
+        android:layout_alignStart="@id/multiple_title"
         android:layout_marginBottom="16dp"
         android:scaleType="fitCenter" />
 
@@ -45,7 +45,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/multiple_title"
-        android:layout_alignLeft="@id/multiple_title"
+        android:layout_alignStart="@id/multiple_title"
         android:maxLines="1"
         android:ellipsize="end"
         android:text="@string/accessories_add_multiple" />
@@ -54,10 +54,10 @@
         android:id="@+id/progress_bar"
         style="@android:style/Widget.Holo.ProgressBar.Horizontal"
         android:layout_below="@id/multiple_instructions"
-        android:layout_alignLeft="@id/multiple_title"
+        android:layout_alignStart="@id/multiple_title"
         android:layout_width="600dp"
         android:layout_height="wrap_content"
-        android:layout_marginRight="40dp"
+        android:layout_marginEnd="40dp"
         android:layout_marginTop="5dp"
         android:layout_marginBottom="5dp"
         android:indeterminate="true"
@@ -72,8 +72,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/progress_bar"
-        android:layout_alignLeft="@id/multiple_title"
-        android:layout_marginRight="60dp"
+        android:layout_alignStart="@id/multiple_title"
+        android:layout_marginEnd="60dp"
         android:maxLines="2"
         android:ellipsize="end"
         android:text="@string/accessories_add_multiple_select" />

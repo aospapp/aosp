@@ -10,21 +10,26 @@
 
 namespace gfx {
 
-GLImageSurfaceTexture::GLImageSurfaceTexture(gfx::Size size)
-    : size_(size), texture_id_(0) {}
+GLImageSurfaceTexture::GLImageSurfaceTexture(const gfx::Size& size)
+    : size_(size), texture_id_(0) {
+}
 
-GLImageSurfaceTexture::~GLImageSurfaceTexture() { Destroy(); }
+GLImageSurfaceTexture::~GLImageSurfaceTexture() {
+  DCHECK(!surface_texture_);
+  DCHECK_EQ(0, texture_id_);
+}
 
-bool GLImageSurfaceTexture::Initialize(gfx::GpuMemoryBufferHandle buffer) {
+bool GLImageSurfaceTexture::Initialize(
+    const gfx::GpuMemoryBufferHandle& handle) {
   DCHECK(!surface_texture_);
   surface_texture_ =
       SurfaceTextureTracker::GetInstance()->AcquireSurfaceTexture(
-          buffer.surface_texture_id.primary_id,
-          buffer.surface_texture_id.secondary_id);
+          handle.surface_texture_id.primary_id,
+          handle.surface_texture_id.secondary_id);
   return !!surface_texture_;
 }
 
-void GLImageSurfaceTexture::Destroy() {
+void GLImageSurfaceTexture::Destroy(bool have_context) {
   surface_texture_ = NULL;
   texture_id_ = 0;
 }
@@ -70,6 +75,18 @@ bool GLImageSurfaceTexture::BindTexImage(unsigned target) {
 
   surface_texture_->UpdateTexImage();
   return true;
+}
+
+bool GLImageSurfaceTexture::CopyTexImage(unsigned target) {
+  return false;
+}
+
+bool GLImageSurfaceTexture::ScheduleOverlayPlane(gfx::AcceleratedWidget widget,
+                                                 int z_order,
+                                                 OverlayTransform transform,
+                                                 const Rect& bounds_rect,
+                                                 const RectF& crop_rect) {
+  return false;
 }
 
 }  // namespace gfx

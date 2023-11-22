@@ -58,26 +58,31 @@ public class ConnectivityListener {
     private static final String TAG = "ConnectivityListener";
     private static final boolean DEBUG = false;
 
-    class WifiReceiver extends BroadcastReceiver {
-        public void onReceive(Context context, Intent intent) {
-            for (WifiNetworkListener listener : mWifiNetworkListeners) {
-                listener.onWifiListChanged();
-            }
-        }
-    }
-
     private final Context mContext;
     private final Listener mListener;
     private final IntentFilter mFilter;
     private final BroadcastReceiver mReceiver;
-    private boolean mIsRegistered;
+    private boolean mStarted;
 
     private final ConnectivityManager mConnectivityManager;
     private final WifiManager mWifiManager;
-    private WifiReceiver mWifiReceiver;
     private final EthernetManager mEthernetManager;
-    private final ArrayList<WifiNetworkListener> mWifiNetworkListeners =
-            new ArrayList<WifiNetworkListener>();
+    private WifiNetworkListener mWifiListener;
+    private final BroadcastReceiver mWifiReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (mWifiListener != null) {
+                mWifiListener.onWifiListChanged();
+                mWifiListener = null;
+            }
+        }
+    };
+    private final EthernetManager.Listener mEthernetListener = new EthernetManager.Listener() {
+        @Override
+        public void onAvailabilityChanged(boolean isAvailable) {
+            mListener.onConnectivityChange(null);
+        }
+    };
 
     public static class ConnectivityStatus {
         public static final int NETWORK_NONE = 1;
@@ -131,43 +136,43 @@ public class ConnectivityListener {
         };
     }
 
+    /**
+     * Starts {@link ConnectivityListener}.
+     * This should be called only from main thread.
+     */
     public void start() {
-        if (!mIsRegistered) {
-            boolean hasChanged = updateConnectivityStatus();
+        if (!mStarted) {
+            mStarted = true;
+            updateConnectivityStatus();
             mContext.registerReceiver(mReceiver, mFilter);
-            mIsRegistered = true;
+            mContext.registerReceiver(mWifiReceiver, new IntentFilter(
+                    WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
+            mEthernetManager.addListener(mEthernetListener);
         }
     }
 
+    /**
+     * Stops {@link ConnectivityListener}.
+     * This should be called only from main thread.
+     */
     public void stop() {
-        if (mIsRegistered) {
+        if (mStarted) {
+            mStarted = false;
             mContext.unregisterReceiver(mReceiver);
-            mIsRegistered = false;
-        }
-        if (mWifiReceiver != null) {
             mContext.unregisterReceiver(mWifiReceiver);
-            mWifiReceiver = null;
+            mWifiListener = null;
+            mEthernetManager.removeListener(mEthernetListener);
         }
     }
 
-    public void startScanningWifi(WifiNetworkListener wifiNetworkListener) {
-        if (!mWifiNetworkListeners.contains(wifiNetworkListener)) {
-            mWifiNetworkListeners.add(wifiNetworkListener);
-            if (mWifiNetworkListeners.size () == 1) {
-                mWifiReceiver = new WifiReceiver();
-                mContext.registerReceiver(mWifiReceiver, new IntentFilter(
-                        WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
-                mWifiManager.startScan();
-            }
-        }
-    }
-
-    public void stopScanningWifi(WifiNetworkListener wifiNetworkListener) {
-        mWifiNetworkListeners.remove(wifiNetworkListener);
-        if (mWifiNetworkListeners.isEmpty() && mWifiReceiver != null) {
-            mContext.unregisterReceiver(mWifiReceiver);
-            mWifiReceiver = null;
-        }
+    /**
+     * Listener is notified when results are available via onWifiListChanged.
+     * Listener should call {@link getAvailableNetworks} to retrieve results.
+     */
+    public void scanWifiAccessPoints(WifiNetworkListener callbackListener) {
+        if (DEBUG) Log.d(TAG, "scanning for wifi access points");
+        mWifiListener = callbackListener;
+        mWifiManager.startScan();
     }
 
     public ConnectivityStatus getConnectivityStatus() {
@@ -195,6 +200,17 @@ public class ConnectivityListener {
         } else {
             return "";
         }
+    }
+
+    /**
+     * Return whether Ethernet port is available.
+     */
+    public boolean isEthernetAvailable() {
+        if (mConnectivityManager.isNetworkSupported(ConnectivityManager.TYPE_ETHERNET)) {
+            return mEthernetManager.isAvailable();
+        }
+
+        return false;
     }
 
     public String getEthernetMacAddress() {
@@ -263,6 +279,7 @@ public class ConnectivityListener {
      * as the first item on the list.
      */
     public List<ScanResult> getAvailableNetworks() {
+        if (DEBUG) Log.d(TAG, "getAvailableNetworks");
         WifiInfo connectedWifiInfo = mWifiManager.getConnectionInfo();
         String currentConnectedSSID = connectedWifiInfo == null ? "" : connectedWifiInfo.getSSID();
         currentConnectedSSID = WifiInfo.removeDoubleQuotes(currentConnectedSSID);

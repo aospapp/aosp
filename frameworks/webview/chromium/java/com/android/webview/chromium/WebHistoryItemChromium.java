@@ -16,7 +16,7 @@
 
 package com.android.webview.chromium;
 
-import org.chromium.content.browser.NavigationEntry;
+import org.chromium.content_public.browser.NavigationEntry;
 
 import android.graphics.Bitmap;
 import android.webkit.WebHistoryItem;

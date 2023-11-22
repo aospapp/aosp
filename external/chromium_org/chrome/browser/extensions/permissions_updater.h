@@ -27,7 +27,14 @@ class PermissionSet;
 // and notifies interested parties of the changes.
 class PermissionsUpdater {
  public:
+  enum InitFlag {
+    INIT_FLAG_NONE = 0,
+    INIT_FLAG_TRANSIENT = 1 << 0,
+  };
+
   explicit PermissionsUpdater(content::BrowserContext* browser_context);
+  PermissionsUpdater(content::BrowserContext* browser_context,
+                     InitFlag init_flag);
   ~PermissionsUpdater();
 
   // Adds the set of |permissions| to the |extension|'s active permission set
@@ -48,7 +55,13 @@ class PermissionsUpdater {
   // Initializes the |extension|'s active permission set to include only
   // permissions currently requested by the extension and all the permissions
   // required by the extension.
-  void InitializeActivePermissions(const Extension* extension);
+  void InitializePermissions(const Extension* extension);
+
+  // Grants any withheld all-hosts (or all-hosts-like) permissions.
+  void GrantWithheldImpliedAllHosts(const Extension* extension);
+
+  // Revokes any requests all-hosts (or all-hosts-like) permissions.
+  void WithholdImpliedAllHosts(const Extension* extension);
 
  private:
   enum EventType {
@@ -56,10 +69,13 @@ class PermissionsUpdater {
     REMOVED,
   };
 
-  // Sets the |extension|'s active permissions to |permissions| and records the
-  // change in the prefs.
-  void SetActivePermissions(const Extension* extension,
-                            const PermissionSet* permisssions);
+  // Sets the |extension|'s active permissions to |active| and records the
+  // change in the prefs. If |withheld| is non-null, also sets the extension's
+  // withheld permissions to |withheld|. Otherwise, |withheld| permissions are
+  // not changed.
+  void SetPermissions(const Extension* extension,
+                      const scoped_refptr<const PermissionSet>& active,
+                      scoped_refptr<const PermissionSet> withheld);
 
   // Dispatches specified event to the extension.
   void DispatchEvent(const std::string& extension_id,
@@ -77,6 +93,10 @@ class PermissionsUpdater {
 
   // The associated BrowserContext.
   content::BrowserContext* browser_context_;
+
+  // Initialization flag that determines whether prefs is consulted about the
+  // extension. Transient extensions should not have entries in prefs.
+  InitFlag init_flag_;
 };
 
 }  // namespace extensions

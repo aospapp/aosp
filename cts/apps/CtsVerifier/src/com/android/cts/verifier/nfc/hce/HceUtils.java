@@ -22,6 +22,9 @@ public final class HceUtils {
     public static final String TRANSPORT_PREFIX_AID = "F001020304";
     public static final String ACCESS_PREFIX_AID = "F005060708";
 
+    public static final String LARGE_NUM_AIDS_PREFIX = "F00102030414";
+    public static final String LARGE_NUM_AIDS_POSTFIX ="81";
+
     public static void enableComponent(PackageManager pm, ComponentName component) {
         pm.setComponentEnabledSetting(
                 component,

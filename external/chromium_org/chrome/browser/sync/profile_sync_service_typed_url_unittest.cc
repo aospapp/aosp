@@ -23,7 +23,6 @@
 #include "chrome/browser/history/history_notifications.h"
 #include "chrome/browser/history/history_service.h"
 #include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/history/history_types.h"
 #include "chrome/browser/invalidation/fake_invalidation_service.h"
 #include "chrome/browser/invalidation/profile_invalidation_provider_factory.h"
 #include "chrome/browser/prefs/pref_service_syncable.h"
@@ -45,6 +44,7 @@
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
+#include "components/history/core/browser/history_types.h"
 #include "components/invalidation/invalidation_service.h"
 #include "components/invalidation/profile_invalidation_provider.h"
 #include "components/keyed_service/content/refcounted_browser_context_keyed_service.h"
@@ -111,18 +111,45 @@ class HistoryBackendMock : public HistoryBackend {
 
 class HistoryServiceMock : public HistoryService {
  public:
-  explicit HistoryServiceMock(history::HistoryClient* client, Profile* profile)
-      : HistoryService(client, profile) {}
-  MOCK_METHOD2(ScheduleDBTask, void(history::HistoryDBTask*,
-                                    CancelableRequestConsumerBase*));
+  HistoryServiceMock(history::HistoryClient* client, Profile* profile)
+      : HistoryService(client, profile), backend_(NULL) {}
+
+  virtual void ScheduleDBTask(scoped_ptr<history::HistoryDBTask> task,
+                              base::CancelableTaskTracker* tracker) OVERRIDE {
+    history::HistoryDBTask* task_raw = task.get();
+    task_runner_->PostTaskAndReply(
+        FROM_HERE,
+        base::Bind(&HistoryServiceMock::RunTaskOnDBThread,
+                   base::Unretained(this), task_raw),
+        base::Bind(&base::DeletePointer<history::HistoryDBTask>,
+                   task.release()));
+  }
+
   MOCK_METHOD0(Shutdown, void());
 
   void ShutdownBaseService() {
     HistoryService::Shutdown();
   }
 
+  void set_task_runner(
+      scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
+    DCHECK(task_runner.get());
+    task_runner_ = task_runner;
+  }
+
+  void set_backend(scoped_refptr<history::HistoryBackend> backend) {
+    backend_ = backend;
+  }
+
  private:
   virtual ~HistoryServiceMock() {}
+
+  void RunTaskOnDBThread(history::HistoryDBTask* task) {
+    EXPECT_TRUE(task->RunOnDBThread(backend_.get(), NULL));
+  }
+
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
+  scoped_refptr<history::HistoryBackend> backend_;
 };
 
 KeyedService* BuildFakeProfileInvalidationProvider(
@@ -141,7 +168,7 @@ class TestTypedUrlModelAssociator : public TypedUrlModelAssociator {
   TestTypedUrlModelAssociator(
       ProfileSyncService* sync_service,
       history::HistoryBackend* history_backend,
-      browser_sync::DataTypeErrorHandler* error_handler) :
+      sync_driver::DataTypeErrorHandler* error_handler) :
       TypedUrlModelAssociator(sync_service, history_backend, error_handler) {}
 
  protected:
@@ -149,20 +176,6 @@ class TestTypedUrlModelAssociator : public TypedUrlModelAssociator {
   // tests.
   virtual void ClearErrorStats() OVERRIDE {}
 };
-
-void RunOnDBThreadCallback(HistoryBackend* backend,
-                           history::HistoryDBTask* task) {
-  task->RunOnDBThread(backend, NULL);
-}
-
-ACTION_P2(RunTaskOnDBThread, thread, backend) {
-  // ScheduleDBTask takes ownership of its task argument, so we
-  // should, too.
-  scoped_refptr<history::HistoryDBTask> task(arg0);
-  thread->message_loop()->PostTask(
-      FROM_HERE, base::Bind(&RunOnDBThreadCallback, base::Unretained(backend),
-                            task));
-}
 
 ACTION_P2(ShutdownHistoryService, thread, service) {
   service->ShutdownBaseService();
@@ -223,14 +236,13 @@ class ProfileSyncServiceTypedUrlTest : public AbstractProfileSyncServiceTest {
         testing_factories);
     invalidation::ProfileInvalidationProviderFactory::GetInstance()->
         SetTestingFactory(profile_, BuildFakeProfileInvalidationProvider);
+    history_thread_->Start();
     history_backend_ = new HistoryBackendMock();
     history_service_ = static_cast<HistoryServiceMock*>(
         HistoryServiceFactory::GetInstance()->SetTestingFactoryAndUse(
             profile_, BuildHistoryService));
-    EXPECT_CALL((*history_service_), ScheduleDBTask(_, _))
-        .WillRepeatedly(RunTaskOnDBThread(history_thread_.get(),
-                                          history_backend_.get()));
-    history_thread_->Start();
+    history_service_->set_task_runner(history_thread_->task_runner());
+    history_service_->set_backend(history_backend_);
   }
 
   virtual void TearDown() {
@@ -261,7 +273,7 @@ class ProfileSyncServiceTypedUrlTest : public AbstractProfileSyncServiceTest {
                                               data_type_controller,
                                               &error_handler_,
                                               &model_associator));
-      EXPECT_CALL(*components, CreateDataTypeManager(_, _, _, _, _, _)).
+      EXPECT_CALL(*components, CreateDataTypeManager(_, _, _, _, _)).
           WillOnce(ReturnNewDataTypeManager());
 
       ProfileOAuth2TokenService* oauth2_token_service =
@@ -340,7 +352,7 @@ class ProfileSyncServiceTypedUrlTest : public AbstractProfileSyncServiceTest {
     history_url.set_hidden(hidden);
     visits->push_back(history::VisitRow(
         history_url.id(), history_url.last_visit(), 0,
-        content::PAGE_TRANSITION_TYPED, 0));
+        ui::PAGE_TRANSITION_TYPED, 0));
     history_url.set_visit_count(visits->size());
     return history_url;
   }
@@ -350,7 +362,7 @@ class ProfileSyncServiceTypedUrlTest : public AbstractProfileSyncServiceTest {
   TestingProfile* profile_;
   scoped_refptr<HistoryBackendMock> history_backend_;
   HistoryServiceMock* history_service_;
-  browser_sync::DataTypeErrorHandlerMock error_handler_;
+  sync_driver::DataTypeErrorHandlerMock error_handler_;
 };
 
 void AddTypedUrlEntries(ProfileSyncServiceTypedUrlTest* test,
@@ -360,7 +372,7 @@ void AddTypedUrlEntries(ProfileSyncServiceTypedUrlTest* test,
     history::VisitVector visits;
     visits.push_back(history::VisitRow(
         entries[i].id(), entries[i].last_visit(), 0,
-        content::PageTransitionFromInt(0), 0));
+        ui::PageTransitionFromInt(0), 0));
     test->AddTypedUrlSyncNode(entries[i], visits);
   }
 }
@@ -515,7 +527,7 @@ TEST_F(ProfileSyncServiceTypedUrlTest, HasNativeHasSyncMerge) {
   history::VisitVector merged_visits;
   merged_visits.push_back(history::VisitRow(
       sync_entry.id(), base::Time::FromInternalValue(15), 0,
-      content::PageTransitionFromInt(0), 0));
+      ui::PageTransitionFromInt(0), 0));
 
   history::URLRow merged_entry(MakeTypedUrlEntry("http://native.com", "name",
                                                  2, 17, false, &merged_visits));
@@ -692,7 +704,7 @@ TEST_F(ProfileSyncServiceTypedUrlTest, ProcessUserChangeAddFromVisit) {
 
   history::URLVisitedDetails details;
   details.row = added_entry;
-  details.transition = content::PAGE_TRANSITION_TYPED;
+  details.transition = ui::PAGE_TRANSITION_TYPED;
   scoped_refptr<ThreadNotifier> notifier(
       new ThreadNotifier(history_thread_.get()));
   notifier->Notify(chrome::NOTIFICATION_HISTORY_URL_VISITED,
@@ -731,7 +743,7 @@ TEST_F(ProfileSyncServiceTypedUrlTest, ProcessUserChangeUpdateFromVisit) {
 
   history::URLVisitedDetails details;
   details.row = updated_entry;
-  details.transition = content::PAGE_TRANSITION_TYPED;
+  details.transition = ui::PAGE_TRANSITION_TYPED;
   scoped_refptr<ThreadNotifier> notifier(
       new ThreadNotifier(history_thread_.get()));
   notifier->Notify(chrome::NOTIFICATION_HISTORY_URL_VISITED,
@@ -772,7 +784,7 @@ TEST_F(ProfileSyncServiceTypedUrlTest, ProcessUserIgnoreChangeUpdateFromVisit) {
   details.row = updated_entry;
 
   // Should ignore this change because it's not TYPED.
-  details.transition = content::PAGE_TRANSITION_RELOAD;
+  details.transition = ui::PAGE_TRANSITION_RELOAD;
   scoped_refptr<ThreadNotifier> notifier(
       new ThreadNotifier(history_thread_.get()));
   notifier->Notify(chrome::NOTIFICATION_HISTORY_URL_VISITED,
@@ -791,7 +803,7 @@ TEST_F(ProfileSyncServiceTypedUrlTest, ProcessUserIgnoreChangeUpdateFromVisit) {
                                                   12, 15, false,
                                                   &updated_visits));
   details.row = twelve_visits;
-  details.transition = content::PAGE_TRANSITION_TYPED;
+  details.transition = ui::PAGE_TRANSITION_TYPED;
   notifier->Notify(chrome::NOTIFICATION_HISTORY_URL_VISITED,
                    content::Source<Profile>(profile_),
                    content::Details<history::URLVisitedDetails>(&details));
@@ -806,7 +818,7 @@ TEST_F(ProfileSyncServiceTypedUrlTest, ProcessUserIgnoreChangeUpdateFromVisit) {
                                                   20, 15, false,
                                                   &updated_visits));
   details.row = twenty_visits;
-  details.transition = content::PAGE_TRANSITION_TYPED;
+  details.transition = ui::PAGE_TRANSITION_TYPED;
   notifier->Notify(chrome::NOTIFICATION_HISTORY_URL_VISITED,
                    content::Source<Profile>(profile_),
                    content::Details<history::URLVisitedDetails>(&details));
@@ -958,7 +970,7 @@ TEST_F(ProfileSyncServiceTypedUrlTest, FailWriteToHistoryBackend) {
   // Errors writing to the DB should be recorded, but should not cause an
   // unrecoverable error.
   ASSERT_FALSE(
-      sync_service_->failed_data_types_handler().GetFailedTypes().Has(
+      sync_service_->data_type_status_table().GetFailedTypes().Has(
           syncer::TYPED_URLS));
   // Some calls should have succeeded, so the error percentage should be
   // somewhere > 0 and < 100.
@@ -992,10 +1004,10 @@ TEST_F(ProfileSyncServiceTypedUrlTest, FailToGetTypedURLs) {
   // Errors getting typed URLs will cause an unrecoverable error (since we can
   // do *nothing* in that case).
   ASSERT_TRUE(
-      sync_service_->failed_data_types_handler().GetFailedTypes().Has(
+      sync_service_->data_type_status_table().GetFailedTypes().Has(
           syncer::TYPED_URLS));
   ASSERT_EQ(
-      1u, sync_service_->failed_data_types_handler().GetFailedTypes().Size());
+      1u, sync_service_->data_type_status_table().GetFailedTypes().Size());
   // Can't check GetErrorPercentage(), because generating an unrecoverable
   // error will free the model associator.
 }

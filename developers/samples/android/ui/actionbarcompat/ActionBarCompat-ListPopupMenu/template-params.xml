@@ -19,7 +19,7 @@
     <group>UI</group>
     <package>com.example.android.actionbarcompat.listpopupmenu</package>
 
-    <dependency>com.android.support:appcompat-v7:+</dependency>
+    <dependency>com.android.support:appcompat-v7:21.0.2</dependency>
 
     <!-- change minSdk if needed-->
     <minSdk>7</minSdk>
@@ -34,5 +34,39 @@
     </strings>
 
     <template src="base"/>
+
+    <metadata>
+        <status>PUBLISHED</status>
+        <categories>UI</categories>
+        <technologies>Android</technologies>
+        <languages>Java</languages>
+        <solutions>Mobile</solutions>
+        <level>INTERMEDIATE</level>
+        <icon>screenshots/icon-web.png</icon>
+        <screenshots>
+            <img>screenshots/1-main.png</img>
+            <img>screenshots/2-popup.png</img>
+        </screenshots>
+        <api_refs>
+            <android>android.support.v7.widget.PopupMenu</android>
+        </api_refs>
+
+        <description>
+<![CDATA[
+This sample shows how to display a pop up menu using PopupMenu from the v7 appcompat library.
+]]>
+        </description>
+
+        <intro>
+<![CDATA[
+This sample displays a list of items and for each item, an icon can be clicked. When it is clicked, a pop up menu is shown, placed below the item, using the [PopupMenu][1] from the v7 appcompat support library.
+
+The sample uses [ListFragment][2] from the v4 support library to display the list. It shows how to instantiate and display the [PopupMenu][1], as well as how to use `setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener())` to process the user actions on the [PopupMenu][1].
+
+[1]: https://developer.android.com/reference/android/support/v7/widget/PopupMenu.html
+[2]: https://developer.android.com/reference/android/support/v4/app/ListFragment.html
+]]>
+        </intro>
+    </metadata>
 
 </sample>

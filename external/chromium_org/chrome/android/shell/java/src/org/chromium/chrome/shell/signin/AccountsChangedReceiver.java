@@ -35,7 +35,7 @@ public class AccountsChangedReceiver extends BroadcastReceiver {
                     @Override
                     public void onSuccess(boolean alreadyStarted) {
                         OAuth2TokenService.getForProfile(Profile.getLastUsedProfile())
-                                .validateAccounts(context);
+                                .validateAccounts(context, false);
                     }
 
                     @Override
@@ -55,8 +55,7 @@ public class AccountsChangedReceiver extends BroadcastReceiver {
             public void run() {
                 try {
                     BrowserStartupController.get(context).startBrowserProcessesAsync(callback);
-                }
-                catch (ProcessInitException e) {
+                } catch (ProcessInitException e) {
                     Log.e(TAG, "Unable to load native library.", e);
                     System.exit(-1);
                 }

@@ -754,15 +754,19 @@ OMX_ERRORTYPE PortBase::RetainAndReturnBuffer( OMX_BUFFERHEADERTYPE *pRetain, OM
     length = queue_length(&bufferq);
     OMX_BUFFERHEADERTYPE *p;
     /* remove returned buffer from the queue */
-    for (OMX_U32 i = 0; i < length; i++) {
+    OMX_U32 i = 0;
+    for (i = 0; i < length; i++) {
         p = (OMX_BUFFERHEADERTYPE *)queue_pop_head(&bufferq);
         if (p == pReturn) {
             break;
         }
         queue_push_tail(&bufferq, p);
     }
-
     pthread_mutex_unlock(&bufferq_lock);
+
+    if (i == length) {
+        return OMX_ErrorNone;
+    }
 
     return ReturnThisBuffer(pReturn);
 }

@@ -126,6 +126,15 @@ message OmniboxEventProto {
     // omnibox before the user started editing it, not the search terms.
     SEARCH_RESULT_PAGE_NO_SEARCH_TERM_REPLACEMENT = 9;
 
+    // The user is on the home screen.
+    APP_HOME = 10;
+
+    // The user is in the search app.
+    APP_SEARCH = 11;
+
+    // The user is in the maps app.
+    APP_MAPS = 12;
+
     // When adding new classifications, please consider adding them in
     // chrome/browser/resources/omnibox/omnibox.html
     // so that these new options are displayed on about:omnibox.
@@ -145,31 +154,35 @@ message OmniboxEventProto {
     KEYWORD = 5;           // Keyword-triggered searches
     BUILTIN = 6;           // Built-in URLs, such as chrome://version
     SHORTCUTS = 7;         // Recently selected omnibox suggestions
-    EXTENSION_APPS = 8;    // Custom suggestions from extensions and/or apps
+    EXTENSION_APPS = 8;    // DEPRECATED. Suggestions from extensions or apps
     CONTACT = 9;           // DEPRECATED. The user's contacts
     BOOKMARK = 10;         // The user's bookmarks
     ZERO_SUGGEST = 11;     // Suggestions based on the current page
     // This enum value is currently only used by Android GSA. It represents
     // a suggestion from the phone.
     ON_DEVICE = 12;
+    // This enum value is currently only used by Android GSA. It represents
+    // a suggestion powered by a Chrome content provider.
+    ON_DEVICE_CHROME = 13;
   }
 
   // The result set displayed on the completion popup
-  // Next tag: 6
+  // Next tag: 7
   message Suggestion {
     // Where does this result come from?
     optional ProviderType provider = 1;
 
     // What kind of result this is.
     // This corresponds to the AutocompleteMatch::Type enumeration in
-    // chrome/browser/autocomplete/autocomplete_match.h (except for Android
+    // components/omnibox/autocomplete_match.h (except for Android
     // GSA result types).
     enum ResultType {
       UNKNOWN_RESULT_TYPE = 0;    // Unknown type (should not reach here)
       URL_WHAT_YOU_TYPED = 1;     // The input as a URL
       HISTORY_URL = 2;            // A past page whose URL contains the input
       HISTORY_TITLE = 3;          // A past page whose title contains the input
-      HISTORY_BODY = 4;           // A past page whose body contains the input
+      HISTORY_BODY = 4;           // DEPRECATED. A past page whose body
+                                  // contains the input
       HISTORY_KEYWORD = 5;        // A past page whose keyword contains the
                                   // input
       NAVSUGGEST = 6;             // A suggested URL
@@ -180,8 +193,8 @@ message OmniboxEventProto {
       SEARCH_SUGGEST = 9;         // A suggested search (with the default
                                   // engine) for a query.
       SEARCH_OTHER_ENGINE = 10;   // A search with a non-default engine
-      EXTENSION_APP = 11;         // An Extension App with a title/url that
-                                  // contains the input
+      EXTENSION_APP = 11;         // DEPRECATED. An Extension App with a
+                                  // title/url that contains the input.
       CONTACT = 12;               // One of the user's contacts
       BOOKMARK_TITLE = 13;        // A bookmark whose title contains the input.
       SEARCH_SUGGEST_ENTITY = 14; // A suggested search for an entity.
@@ -218,7 +231,10 @@ message OmniboxEventProto {
     optional int32 typed_count = 5;
 
     // Whether this item is starred (bookmarked) or not.
-    optional bool is_starred = 4;
+    optional bool is_starred = 4 [deprecated=true];
+
+    // Whether this item is disabled in the UI (not clickable).
+    optional bool is_disabled = 6;
   }
   repeated Suggestion suggestion = 9;
 

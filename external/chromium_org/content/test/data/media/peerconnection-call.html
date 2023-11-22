@@ -18,7 +18,6 @@
   // Default transform functions, overridden by some test cases.
   var transformSdp = function(sdp) { return sdp; };
   var transformRemoteSdp = function(sdp) { return sdp; };
-  var transformCandidate = function(candidate) { return candidate; };
   var onLocalDescriptionError = function(error) { failTest(error); };
   var onRemoteDescriptionError = function(error) { failTest(error); };
 
@@ -28,11 +27,15 @@
   var maybeForceIsac16K = function(sdp) { return sdp; };
   function forceIsac16KInSdp() {
     maybeForceIsac16K = function(sdp) {
+      if (sdp.search('m=audio') == -1)
+        return sdp;
+
       sdp = sdp.replace(/m=audio (\d+) RTP\/SAVPF.*\r\n/g,
                         'm=audio $1 RTP/SAVPF 103 126\r\n');
       sdp = sdp.replace('a=fmtp:111 minptime=10', 'a=fmtp:103 minptime=10');
       if (sdp.search('a=rtpmap:103 ISAC/16000') == -1)
         failTest('Missing iSAC 16K codec on Android; cannot force codec.');
+
       return sdp;
     };
     sendValueToTest('isac-forced');
@@ -48,10 +51,6 @@
         'inline:NzB4d1BINUAvLEw6UzF3WSJ+PSdFcGdUJShpX1Zj'
   };
 
-  // When using GICE, the ICE credentials can be chosen by javascript.
-  var EXTERNAL_GICE_UFRAG = '1234567890123456';
-  var EXTERNAL_GICE_PWD = '123456789012345678901234';
-
   setAllEventsOccuredHandler(reportTestSuccess);
 
   // Test that we can setup call with an audio and video track.
@@ -61,6 +60,20 @@
       addStreamToBothConnectionsAndNegotiate, printGetUserMediaError);
     waitForVideo('remote-view-1');
     waitForVideo('remote-view-2');
+  }
+
+  // Test that we can setup a call with a video track and that the remote peer
+  // receives black frames if the local video track is disabled.
+  function callAndDisableLocalVideo(constraints) {
+    createConnections(null);
+    navigator.webkitGetUserMedia(constraints,
+        addStreamToBothConnectionsAndNegotiate, printGetUserMediaError);
+    detectVideoPlaying('remote-view-1',
+        function () {
+          assertEquals(gLocalStream.getVideoTracks().length, 1);
+          gLocalStream.getVideoTracks()[0].enabled = false;
+          waitForBlackVideo('remote-view-1');
+        });
   }
 
   // Test that we can setup call with an audio and video track and check that
@@ -141,6 +154,30 @@
     detectVideoPlaying('remote-view-2', onRemoteStream2);
   }
 
+  // First makes a call between pc1 and pc2, and then construct a new media
+  // stream using the remote audio and video tracks, connect the new media
+  // stream to a video element. These operations should not crash Chrome.
+  function ConnectChromiumSinkToRemoteAudioTrack() {
+    createConnections(null);
+    navigator.webkitGetUserMedia({audio: true, video: true},
+                                 addStreamToBothConnectionsAndNegotiate,
+                                 printGetUserMediaError);
+
+    detectVideoPlaying('remote-view-2', function() {
+      // Construct a new media stream with remote tracks.
+      var newStream = new webkitMediaStream();
+      newStream.addTrack(
+          gSecondConnection.getRemoteStreams()[0].getAudioTracks()[0]);
+      newStream.addTrack(
+          gSecondConnection.getRemoteStreams()[0].getVideoTracks()[0]);
+      var videoElement = document.createElement('video');
+
+      // No crash for this operation.
+      videoElement.src = URL.createObjectURL(newStream);
+      waitForVideo('remote-view-2');
+    });
+  }
+
   // Test that we can setup call with an audio and video track and
   // simulate that the remote peer don't support MSID.
   function callWithoutMsidAndBundle() {
@@ -201,7 +238,6 @@
     transformSdp = function(sdp) {
       return removeBundle(useGice(useExternalSdes(sdp)));
     };
-    transformCandidate = addGiceCredsToCandidate;
     createConnections({
       'mandatory': {'RtpDataChannels': true, 'DtlsSrtpKeyAgreement': false}
     });
@@ -289,55 +325,87 @@
     detectVideoPlaying('remote-view-2', onCallEstablished);
   }
 
-  function enableRemoteVideo(peerConnection, enabled) {
-    remoteStream = peerConnection.getRemoteStreams()[0];
-    remoteVideoTrack = remoteStream.getVideoTracks()[0];
-    remoteVideoTrack.enabled = enabled;
-  }
+  function testCreateOfferOptions() {
+    createConnections(null);
+    var offerOptions = {
+      'offerToReceiveAudio': false,
+      'offerToReceiveVideo': true
+    };
 
-  function enableRemoteAudio(peerConnection, enabled) {
-    remoteStream = peerConnection.getRemoteStreams()[0];
-    remoteAudioTrack = remoteStream.getAudioTracks()[0];
-    remoteAudioTrack.enabled = enabled;
+    gFirstConnection.createOffer(
+        function(offer) {
+          assertEquals(-1, offer.sdp.search('m=audio'));
+          assertNotEquals(-1, offer.sdp.search('m=video'));
+
+          reportTestSuccess();
+        },
+        function(error) { failTest(error); },
+        offerOptions);
   }
 
   function callAndEnsureAudioIsPlaying(beLenient, constraints) {
     createConnections(null);
-    navigator.webkitGetUserMedia(constraints,
-      addStreamToBothConnectionsAndNegotiate, printGetUserMediaError);
 
-    // Wait until we have gathered samples and can conclude if audio is playing.
-    addExpectedEvent();
+    // Add the local stream to gFirstConnection to play one-way audio.
+    navigator.webkitGetUserMedia(constraints,
+      addStreamToTheFirstConnectionAndNegotiate, printGetUserMediaError);
+
     var onCallEstablished = function() {
-      // Gather 50 samples per second for 2 seconds.
-      gatherAudioLevelSamples(gSecondConnection, 100, 50, function(samples) {
-        verifyAudioIsPlaying(samples, beLenient);
-        eventOccured();
-      });
+      ensureAudioPlaying(gSecondConnection, beLenient);
     };
 
     waitForConnectionToStabilize(gFirstConnection, onCallEstablished);
   }
 
-  function callAndEnsureAudioTrackMutingWorks(beLenient) {
+  function enableRemoteVideo(peerConnection, enabled) {
+    remoteStream = peerConnection.getRemoteStreams()[0];
+    remoteStream.getVideoTracks()[0].enabled = enabled;
+  }
+
+  function enableRemoteAudio(peerConnection, enabled) {
+    remoteStream = peerConnection.getRemoteStreams()[0];
+    remoteStream.getAudioTracks()[0].enabled = enabled;
+  }
+
+  function enableLocalVideo(peerConnection, enabled) {
+    localStream = peerConnection.getLocalStreams()[0];
+    localStream.getVideoTracks()[0].enabled = enabled;
+  }
+
+  function enableLocalAudio(peerConnection, enabled) {
+    localStream = peerConnection.getLocalStreams()[0];
+    localStream.getAudioTracks()[0].enabled = enabled;
+  }
+
+  function callAndEnsureRemoteAudioTrackMutingWorks(beLenient) {
     callAndEnsureAudioIsPlaying(beLenient, {audio: true, video: true});
     setAllEventsOccuredHandler(function() {
-      // Call is up, now mute the track and check everything goes silent (give
-      // it a small delay though, we don't expect it to happen instantly).
-      enableRemoteAudio(gSecondConnection, false);
+      setAllEventsOccuredHandler(reportTestSuccess);
 
-      setTimeout(function() {
-        gatherAudioLevelSamples(gSecondConnection, 100, 50, function(samples) {
-          verifyIsSilent(samples);
-          reportTestSuccess();
-        });
-      }, 500);
+      // Call is up, now mute the remote track and check we stop playing out
+      // audio (after a small delay, we don't expect it to happen instantly).
+      enableRemoteAudio(gSecondConnection, false);
+      ensureSilence(gSecondConnection);
+    });
+  }
+
+  function callAndEnsureLocalAudioTrackMutingWorks(beLenient) {
+    callAndEnsureAudioIsPlaying(beLenient, {audio: true, video: true});
+    setAllEventsOccuredHandler(function() {
+      setAllEventsOccuredHandler(reportTestSuccess);
+
+      // Call is up, now mute the local track of the sending side and ensure
+      // the receiving side stops receiving audio.
+      enableLocalAudio(gFirstConnection, false);
+      ensureSilence(gSecondConnection);
     });
   }
 
   function callAndEnsureAudioTrackUnmutingWorks(beLenient) {
     callAndEnsureAudioIsPlaying(beLenient, {audio: true, video: true});
     setAllEventsOccuredHandler(function() {
+      setAllEventsOccuredHandler(reportTestSuccess);
+
       // Mute, wait a while, unmute, verify audio gets back up.
       // (Also, ensure video muting doesn't affect audio).
       enableRemoteAudio(gSecondConnection, false);
@@ -348,13 +416,26 @@
       }, 500);
 
       setTimeout(function() {
-        // Sample for four seconds here; it can take a bit of time for audio to
-        // get back up after the unmute.
-        gatherAudioLevelSamples(gSecondConnection, 200, 50, function(samples) {
-          verifyAudioIsPlaying(samples, beLenient);
-          reportTestSuccess();
-        });
+        ensureAudioPlaying(gSecondConnection, beLenient);
       }, 1500);
+    });
+  }
+
+  function callAndEnsureLocalVideoMutingDoesntMuteAudio(beLenient) {
+    callAndEnsureAudioIsPlaying(beLenient, {audio: true, video: true});
+    setAllEventsOccuredHandler(function() {
+      setAllEventsOccuredHandler(reportTestSuccess);
+      enableLocalVideo(gFirstConnection, false);
+      ensureAudioPlaying(gSecondConnection, beLenient);
+    });
+  }
+
+  function callAndEnsureRemoteVideoMutingDoesntMuteAudio(beLenient) {
+    callAndEnsureAudioIsPlaying(beLenient, {audio: true, video: true});
+    setAllEventsOccuredHandler(function() {
+      setAllEventsOccuredHandler(reportTestSuccess);
+      enableRemoteVideo(gSecondConnection, false);
+      ensureAudioPlaying(gSecondConnection, beLenient);
     });
   }
 
@@ -766,10 +847,6 @@
     sdp = sdp.replace(/t=.*\r\n/g, function(subString) {
       return subString + 'a=ice-options:google-ice\r\n';
     });
-    sdp = sdp.replace(/a=ice-ufrag:.*\r\n/g,
-                      'a=ice-ufrag:' + EXTERNAL_GICE_UFRAG + '\r\n');
-    sdp = sdp.replace(/a=ice-pwd:.*\r\n/g,
-                      'a=ice-pwd:' + EXTERNAL_GICE_PWD + '\r\n');
     return sdp;
   }
 
@@ -811,15 +888,9 @@
     callee.onicecandidate = function(event) { onIceCandidate(event, caller); }
   }
 
-  function addGiceCredsToCandidate(candidate) {
-    return candidate.trimRight() +
-        ' username ' + EXTERNAL_GICE_UFRAG + ' password ' + EXTERNAL_GICE_PWD;
-  }
-
   function onIceCandidate(event, target) {
     if (event.candidate) {
       var candidate = new RTCIceCandidate(event.candidate);
-      candidate.candidate = transformCandidate(candidate.candidate);
       target.addIceCandidate(candidate);
     }
   }
@@ -848,16 +919,16 @@
       <td>Remote Stream for Connection 4</td>
     </tr>
     <tr>
-      <td><video width="320" height="240" id="local-view"
-          autoplay="autoplay"></video></td>
-      <td><video width="320" height="240" id="remote-view-1"
-          autoplay="autoplay"></video></td>
-      <td><video width="320" height="240" id="remote-view-2"
-          autoplay="autoplay"></video></td>
-      <td><video width="320" height="240" id="remote-view-3"
-          autoplay="autoplay"></video></td>
-      <td><video width="320" height="240" id="remote-view-4"
-          autoplay="autoplay"></video></td>
+      <td><video width="320" height="240" id="local-view" autoplay muted>
+          </video></td>
+      <td><video width="320" height="240" id="remote-view-1" autoplay>
+          </video></td>
+      <td><video width="320" height="240" id="remote-view-2" autoplay>
+          </video></td>
+      <td><video width="320" height="240" id="remote-view-3" autoplay>
+          </video></td>
+      <td><video width="320" height="240" id="remote-view-4" autoplay>
+          </video></td>
       <!-- Canvases are named after their corresponding video elements. -->
       <td><canvas width="320" height="240" id="remote-view-1-canvas"
           style="display:none"></canvas></td>

@@ -34,6 +34,7 @@ cts_security_apps_list := \
     CtsSplitApp_arm64-v8a \
     CtsSplitApp_mips64 \
     CtsSplitApp_mips \
+    CtsSplitAppDiffRevision \
     CtsSplitAppDiffVersion \
     CtsSplitAppDiffCert \
     CtsSplitAppFeature \
@@ -68,11 +69,15 @@ cts_support_packages := \
     CtsDeviceTaskswitchingAppB \
     CtsDeviceTaskswitchingControl \
     CtsDeviceUi \
+    CtsHostsideNetworkTestsApp \
     CtsIntentReceiverApp \
     CtsIntentSenderApp \
+    CtsLauncherAppsTests \
+    CtsLauncherAppsTestsSupport \
     CtsManagedProfileApp \
     CtsMonkeyApp \
     CtsMonkeyApp2 \
+    CtsSimpleApp \
     CtsSomeAccessibilityServices \
     CtsThemeDeviceApp \
     TestDeviceSetup \
@@ -100,6 +105,7 @@ cts_test_packages := \
     CtsDeviceBrowserBench \
     CtsDeviceVideoPerf \
     CtsDeviceOpenGl \
+    CtsDeviceTvProviderPerf \
     CtsAccelerationTestCases \
     CtsAccountManagerTestCases \
     CtsAccessibilityServiceTestCases \
@@ -107,6 +113,7 @@ cts_test_packages := \
     CtsAdminTestCases \
     CtsAnimationTestCases \
     CtsAppTestCases \
+    CtsAppWidgetTestCases \
     CtsBluetoothTestCases \
     CtsCalendarcommon2TestCases \
     CtsContentTestCases \
@@ -171,7 +178,9 @@ cts_host_libraries := \
     CtsAdbTests \
     CtsAppSecurityTests \
     CtsDevicePolicyManagerTestCases \
+    CtsDumpsysHostTestCases \
     CtsHostJank \
+    CtsHostsideNetworkTests \
     CtsHostUi \
     CtsMonkeyTestCases \
     CtsThemeHostTestCases \

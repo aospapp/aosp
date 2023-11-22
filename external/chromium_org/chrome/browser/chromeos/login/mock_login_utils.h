@@ -9,10 +9,10 @@
 
 #include "base/command_line.h"
 #include "base/memory/ref_counted.h"
-#include "chrome/browser/chromeos/login/auth/authenticator.h"
 #include "chrome/browser/chromeos/login/fake_login_utils.h"
 #include "chrome/browser/chromeos/login/login_utils.h"
 #include "chrome/browser/chromeos/login/ui/login_display_host.h"
+#include "chromeos/login/auth/authenticator.h"
 #include "google_apis/gaia/gaia_auth_consumer.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "url/gurl.h"
@@ -22,7 +22,7 @@ class Profile;
 
 namespace chromeos {
 
-class LoginStatusConsumer;
+class AuthStatusConsumer;
 class UserContext;
 
 class MockLoginUtils : public LoginUtils {
@@ -30,6 +30,8 @@ class MockLoginUtils : public LoginUtils {
   MockLoginUtils();
   virtual ~MockLoginUtils();
 
+  MOCK_METHOD2(RespectLocalePreference, void(Profile*,
+                                             const base::Closure& callback));
   MOCK_METHOD2(DoBrowserLaunch, void(Profile*, LoginDisplayHost*));
   MOCK_METHOD4(PrepareProfile,
                void(const UserContext&,
@@ -37,12 +39,14 @@ class MockLoginUtils : public LoginUtils {
   MOCK_METHOD1(DelegateDeleted, void(LoginUtils::Delegate*));
   MOCK_METHOD1(CompleteOffTheRecordLogin, void(const GURL&));
   MOCK_METHOD1(CreateAuthenticator,
-               scoped_refptr<Authenticator>(LoginStatusConsumer*));
+               scoped_refptr<Authenticator>(AuthStatusConsumer*));
   MOCK_METHOD1(StartTokenServices, void(Profile*));
-  MOCK_METHOD2(TransferDefaultCookiesAndServerBoundCerts,
+  MOCK_METHOD2(TransferDefaultCookiesAndChannelIDs,
                void(Profile*, Profile*));
   MOCK_METHOD2(TransferDefaultAuthCache, void(Profile*, Profile*));
   MOCK_METHOD0(StopBackgroundFetchers, void(void));
+  MOCK_METHOD2(RestartToApplyPerSessionFlagsIfNeed,
+               bool(Profile*, bool early_restart));
 
   void DelegateToFake();
   FakeLoginUtils* GetFakeLoginUtils();

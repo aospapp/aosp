@@ -4,8 +4,8 @@
 
 #include "content/renderer/media/media_stream_audio_processor_options.h"
 
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/metrics/field_trial.h"
 #include "base/path_service.h"
@@ -49,11 +49,11 @@ struct {
 } const kDefaultAudioConstraints[] = {
   { MediaAudioConstraints::kEchoCancellation, true },
   { MediaAudioConstraints::kGoogEchoCancellation, true },
-#if defined(OS_CHROMEOS) || defined(OS_MACOSX)
-  // Enable the extended filter mode AEC on platforms with known echo issues.
-  { MediaAudioConstraints::kGoogExperimentalEchoCancellation, true },
-#else
+#if defined(OS_ANDROID) || defined(OS_IOS)
   { MediaAudioConstraints::kGoogExperimentalEchoCancellation, false },
+#else
+  // Enable the extended filter mode AEC on all non-mobile platforms.
+  { MediaAudioConstraints::kGoogExperimentalEchoCancellation, true },
 #endif
   { MediaAudioConstraints::kGoogAutoGainControl, true },
   { MediaAudioConstraints::kGoogExperimentalAutoGainControl, true },
@@ -233,10 +233,6 @@ void EnableNoiseSuppression(AudioProcessing* audio_processing) {
   CHECK_EQ(err, 0);
 }
 
-void EnableExperimentalNoiseSuppression(AudioProcessing* audio_processing) {
-  CHECK_EQ(audio_processing->EnableExperimentalNs(true), 0);
-}
-
 void EnableHighPassFilter(AudioProcessing* audio_processing) {
   CHECK_EQ(audio_processing->high_pass_filter()->Enable(true), 0);
 }
@@ -250,12 +246,6 @@ void EnableTypingDetection(AudioProcessing* audio_processing,
 
   // Configure the update period to 1s (100 * 10ms) in the typing detector.
   typing_detector->SetParameters(0, 0, 0, 0, 0, 100);
-}
-
-void EnableExperimentalEchoCancellation(AudioProcessing* audio_processing) {
-  webrtc::Config config;
-  config.Set<webrtc::DelayCorrection>(new webrtc::DelayCorrection(true));
-  audio_processing->SetExtraOptions(config);
 }
 
 void StartEchoCancellationDump(AudioProcessing* audio_processing,

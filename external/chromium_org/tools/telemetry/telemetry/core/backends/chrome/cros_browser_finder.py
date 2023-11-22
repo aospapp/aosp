@@ -6,40 +6,37 @@
 
 import logging
 
-from telemetry import decorators
+from telemetry.core import platform as platform_module
 from telemetry.core import browser
 from telemetry.core import possible_browser
-from telemetry.core.backends.chrome import cros_browser_with_oobe
+from telemetry.core.platform import cros_device
+from telemetry.core.platform import cros_interface
 from telemetry.core.backends.chrome import cros_browser_backend
-from telemetry.core.backends.chrome import cros_interface
-from telemetry.core.platform import cros_platform_backend
+from telemetry.core.backends.chrome import cros_browser_with_oobe
 
-ALL_BROWSER_TYPES = [
-    'cros-chrome',
-    'cros-chrome-guest',
-    'system',
-    'system-guest',
-    ]
+
+def _IsRunningOnCrOS():
+  return platform_module.GetHostPlatform().GetOSName() == 'chromeos'
 
 
 class PossibleCrOSBrowser(possible_browser.PossibleBrowser):
   """A launchable CrOS browser instance."""
-  def __init__(self, browser_type, finder_options, cri, is_guest):
+  def __init__(self, browser_type, finder_options, cros_platform, is_guest):
     super(PossibleCrOSBrowser, self).__init__(browser_type, 'cros',
-        finder_options)
-    assert browser_type in ALL_BROWSER_TYPES, \
-        'Please add %s to ALL_BROWSER_TYPES' % browser_type
-    self._cri = cri
+        finder_options, True)
+    assert browser_type in FindAllBrowserTypes(finder_options), \
+        ('Please add %s to cros_browser_finder.FindAllBrowserTypes()' %
+         browser_type)
+    self._platform = cros_platform
+    self._platform_backend = (
+        cros_platform._platform_backend)  # pylint: disable=W0212
     self._is_guest = is_guest
-    self._platform = None
 
   def __repr__(self):
     return 'PossibleCrOSBrowser(browser_type=%s)' % self.browser_type
 
-  @property
-  @decorators.Cache
-  def _platform_backend(self):
-    return cros_platform_backend.CrosPlatformBackend(self._cri)
+  def _InitPlatformIfNeeded(self):
+    pass
 
   def Create(self):
     if self.finder_options.output_profile_path:
@@ -48,12 +45,22 @@ class PossibleCrOSBrowser(possible_browser.PossibleBrowser):
 
     browser_options = self.finder_options.browser_options
     backend = cros_browser_backend.CrOSBrowserBackend(
-        self.browser_type, browser_options, self._cri, self._is_guest,
+        browser_options, self._platform_backend.cri, self._is_guest,
         extensions_to_load=self.finder_options.extensions_to_load)
     if browser_options.create_browser_with_oobe:
       return cros_browser_with_oobe.CrOSBrowserWithOOBE(
-          backend, self._platform_backend)
-    return browser.Browser(backend, self._platform_backend)
+          backend,
+          self._platform_backend,
+          self._archive_path,
+          self._append_to_existing_wpr,
+          self._make_javascript_deterministic,
+          self._credentials_path)
+    return browser.Browser(backend,
+                           self._platform_backend,
+                           self._archive_path,
+                           self._append_to_existing_wpr,
+                           self._make_javascript_deterministic,
+                           self._credentials_path)
 
   def SupportsOptions(self, finder_options):
     if (len(finder_options.extensions_to_load) != 0) and self._is_guest:
@@ -64,25 +71,33 @@ class PossibleCrOSBrowser(possible_browser.PossibleBrowser):
     pass
 
 def SelectDefaultBrowser(possible_browsers):
-  if cros_interface.IsRunningOnCrosDevice():
+  if _IsRunningOnCrOS():
     for b in possible_browsers:
       if b.browser_type == 'system':
         return b
   return None
 
 def CanFindAvailableBrowsers(finder_options):
-  return (cros_interface.IsRunningOnCrosDevice() or
+  return (_IsRunningOnCrOS() or
           finder_options.cros_remote or
           cros_interface.HasSSH())
 
+def FindAllBrowserTypes(_):
+  return [
+      'cros-chrome',
+      'cros-chrome-guest',
+      'system',
+      'system-guest',
+  ]
+
 def FindAllAvailableBrowsers(finder_options):
   """Finds all available CrOS browsers, locally and remotely."""
-  if cros_interface.IsRunningOnCrosDevice():
+  if _IsRunningOnCrOS():
     return [PossibleCrOSBrowser('system', finder_options,
-                                cros_interface.CrOSInterface(),
+                                platform_module.GetHostPlatform(),
                                 is_guest=False),
             PossibleCrOSBrowser('system-guest', finder_options,
-                                cros_interface.CrOSInterface(),
+                                platform_module.GetHostPlatform(),
                                 is_guest=True)]
 
   if finder_options.cros_remote == None:
@@ -92,12 +107,11 @@ def FindAllAvailableBrowsers(finder_options):
   if not cros_interface.HasSSH():
     logging.debug('ssh not found. Cannot talk to CrOS devices.')
     return []
-  cri = cros_interface.CrOSInterface(finder_options.cros_remote,
-                                     finder_options.cros_ssh_identity)
-
+  device = cros_device.CrOSDevice(
+      finder_options.cros_remote, finder_options.cros_ssh_identity)
   # Check ssh
   try:
-    cri.TryLogin()
+    platform = platform_module.GetPlatformForDevice(device)
   except cros_interface.LoginException, ex:
     if isinstance(ex, cros_interface.KeylessLoginRequiredException):
       logging.warn('Could not ssh into %s. Your device must be configured',
@@ -119,14 +133,10 @@ def FindAllAvailableBrowsers(finder_options):
       logging.warn('There, that was easy!')
       logging.warn('')
       logging.warn('P.S. Please, tell your manager how INANE this is.')
-
     from telemetry.core import browser_finder
     raise browser_finder.BrowserFinderException(str(ex))
 
-  if not cri.FileExistsOnDevice('/opt/google/chrome/chrome'):
-    logging.warn('Could not find a chrome on ' % cri.hostname)
-
-  return [PossibleCrOSBrowser('cros-chrome', finder_options, cri,
+  return [PossibleCrOSBrowser('cros-chrome', finder_options, platform,
                               is_guest=False),
-          PossibleCrOSBrowser('cros-chrome-guest', finder_options, cri,
+          PossibleCrOSBrowser('cros-chrome-guest', finder_options, platform,
                               is_guest=True)]

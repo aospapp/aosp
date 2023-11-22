@@ -9,8 +9,8 @@
 
 #include "base/bind.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/metrics/histogram.h"
 #include "base/path_service.h"
 #include "base/prefs/pref_registry_simple.h"
@@ -22,10 +22,8 @@
 #include "chrome/browser/about_flags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/first_run/upgrade_util.h"
-#include "chrome/browser/jankometer.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/service_process/service_process_control.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/crash_keys.h"
@@ -46,6 +44,10 @@
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/boot_times_loader.h"
+#endif
+
+#if defined(ENABLE_FULL_PRINTING)
+#include "chrome/browser/service_process/service_process_control.h"
 #endif
 
 using base::Time;
@@ -141,16 +143,17 @@ bool ShutdownPreThreadsStop() {
   chromeos::BootTimesLoader::Get()->AddLogoutTimeMarker(
       "BrowserShutdownStarted", false);
 #endif
-
+#if defined(ENABLE_FULL_PRINTING)
   // Shutdown the IPC channel to the service processes.
   ServiceProcessControl::GetInstance()->Disconnect();
+#endif  // ENABLE_FULL_PRINTING
 
   // WARNING: During logoff/shutdown (WM_ENDSESSION) we may not have enough
   // time to get here. If you have something that *must* happen on end session,
   // consider putting it in BrowserProcessImpl::EndSession.
   PrefService* prefs = g_browser_process->local_state();
 
-  MetricsService* metrics = g_browser_process->metrics_service();
+  metrics::MetricsService* metrics = g_browser_process->metrics_service();
   if (metrics)
     metrics->RecordCompletedSessionEnd();
 
@@ -192,8 +195,6 @@ bool ShutdownPreThreadsStop() {
 }
 
 void ShutdownPostThreadsStop(bool restart_last_session) {
-  // The jank'o'meter requires that the browser process has been destroyed
-  // before calling UninstallJankometer().
   delete g_browser_process;
   g_browser_process = NULL;
 
@@ -205,9 +206,6 @@ void ShutdownPostThreadsStop(bool restart_last_session) {
   chromeos::BootTimesLoader::Get()->AddLogoutTimeMarker("BrowserDeleted",
                                                         true);
 #endif
-
-  // Uninstall Jank-O-Meter here after the IO thread is no longer running.
-  UninstallJankometer();
 
 #if defined(OS_WIN)
   if (!browser_util::IsBrowserAlreadyRunning() &&

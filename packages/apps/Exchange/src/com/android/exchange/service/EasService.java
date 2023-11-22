@@ -20,6 +20,7 @@ import android.app.Service;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -47,6 +48,7 @@ import com.android.exchange.eas.EasFolderSync;
 import com.android.exchange.eas.EasFullSyncOperation;
 import com.android.exchange.eas.EasLoadAttachment;
 import com.android.exchange.eas.EasOperation;
+import com.android.exchange.eas.EasPing;
 import com.android.exchange.eas.EasSearch;
 import com.android.exchange.eas.EasSearchGal;
 import com.android.exchange.eas.EasSendMeetingResponse;
@@ -54,6 +56,7 @@ import com.android.exchange.eas.EasSyncCalendar;
 import com.android.exchange.eas.EasSyncContacts;
 import com.android.exchange.provider.GalResult;
 import com.android.mail.utils.LogUtils;
+import com.google.common.annotations.VisibleForTesting;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -67,6 +70,13 @@ public class EasService extends Service {
 
     private static final String TAG = Eas.LOG_TAG;
 
+    private static final String PREFERENCES_FILE = "ExchangePrefs";
+    private static final String PROTOCOL_LOGGING_PREF = "ProtocolLogging";
+    private static final String FILE_LOGGING_PREF = "FileLogging";
+
+    public static final String EXTRA_START_PING = "START_PING";
+    public static final String EXTRA_PING_ACCOUNT = "PING_ACCOUNT";
+
     /**
      * The content authorities that can be synced for EAS accounts. Initialization must wait until
      * after we have a chance to call {@link EmailContent#init} (and, for future content types,
@@ -76,6 +86,9 @@ public class EasService extends Service {
 
     /** Bookkeeping for ping tasks & sync threads management. */
     private final PingSyncSynchronizer mSynchronizer;
+
+    private static boolean sProtocolLogging;
+    private static boolean sFileLogging;
 
     /**
      * Implementation of the IEmailService interface.
@@ -87,15 +100,22 @@ public class EasService extends Service {
         public void loadAttachment(final IEmailServiceCallback callback, final long accountId,
                 final long attachmentId, final boolean background) {
             LogUtils.d(TAG, "IEmailService.loadAttachment: %d", attachmentId);
-            final EasLoadAttachment operation = new EasLoadAttachment(EasService.this, accountId,
-                    attachmentId, callback);
-            doOperation(operation, "IEmailService.loadAttachment");
+            final Account account = loadAccount(EasService.this, accountId);
+            if (account != null) {
+                final EasLoadAttachment operation = new EasLoadAttachment(EasService.this, account,
+                        attachmentId, callback);
+                doOperation(operation, "IEmailService.loadAttachment");
+            }
         }
 
         @Override
         public void updateFolderList(final long accountId) {
-            final EasFolderSync operation = new EasFolderSync(EasService.this, accountId);
-            doOperation(operation, "IEmailService.updateFolderList");
+            LogUtils.d(TAG, "IEmailService.updateFolderList: %d", accountId);
+            final Account account = loadAccount(EasService.this, accountId);
+            if (account != null) {
+                final EasFolderSync operation = new EasFolderSync(EasService.this, account);
+                doOperation(operation, "IEmailService.updateFolderList");
+            }
         }
 
         public void sendMail(final long accountId) {
@@ -104,15 +124,27 @@ public class EasService extends Service {
         }
 
         public int sync(final long accountId, Bundle syncExtras) {
-            EasFullSyncOperation op = new EasFullSyncOperation(EasService.this, accountId, syncExtras);
-            return convertToEmailServiceStatus(doOperation(op, "IEmailService.sync"));
+            LogUtils.d(TAG, "IEmailService.updateFolderList: %d", accountId);
+            final Account account = loadAccount(EasService.this, accountId);
+            if (account != null) {
+                EasFullSyncOperation op = new EasFullSyncOperation(EasService.this, account,
+                        syncExtras);
+                final int result = doOperation(op, "IEmailService.sync");
+                if (result == EasFullSyncOperation.RESULT_SECURITY_HOLD) {
+                    LogUtils.i(LogUtils.TAG, "Security Hold trying to sync");
+                    return EmailServiceStatus.INTERNAL_ERROR;
+                }
+                return convertToEmailServiceStatus(result);
+            } else {
+                return EmailServiceStatus.INTERNAL_ERROR;
+            }
         }
 
         @Override
         public void pushModify(final long accountId) {
             LogUtils.d(TAG, "IEmailService.pushModify: %d", accountId);
             final Account account = Account.restoreAccountWithId(EasService.this, accountId);
-            if (pingNeededForAccount(account)) {
+            if (pingNeededForAccount(EasService.this, account)) {
                 mSynchronizer.pushModify(account);
             } else {
                 mSynchronizer.pushStop(accountId);
@@ -121,6 +153,7 @@ public class EasService extends Service {
 
         @Override
         public Bundle validate(final HostAuthCompat hostAuthCom) {
+            LogUtils.d(TAG, "IEmailService.validate");
             final HostAuth hostAuth = hostAuthCom.toHostAuth();
             final EasFolderSync operation = new EasFolderSync(EasService.this, hostAuth);
             doOperation(operation, "IEmailService.validate");
@@ -130,24 +163,33 @@ public class EasService extends Service {
         @Override
         public int searchMessages(final long accountId, final SearchParams searchParams,
                 final long destMailboxId) {
-            final EasSearch operation = new EasSearch(EasService.this, accountId, searchParams,
-                    destMailboxId);
-            doOperation(operation, "IEmailService.searchMessages");
-            return operation.getTotalResults();
+            LogUtils.d(TAG, "IEmailService.searchMessages");
+            final Account account = loadAccount(EasService.this, accountId);
+            if (account != null) {
+                final EasSearch operation = new EasSearch(EasService.this, account, searchParams,
+                        destMailboxId);
+                doOperation(operation, "IEmailService.searchMessages");
+                return operation.getTotalResults();
+            } else {
+                return 0;
+            }
         }
 
         @Override
         public void sendMeetingResponse(final long messageId, final int response) {
             EmailContent.Message msg = EmailContent.Message.restoreMessageWithId(EasService.this,
                     messageId);
+            LogUtils.d(TAG, "IEmailService.sendMeetingResponse");
             if (msg == null) {
                 LogUtils.e(TAG, "Could not load message %d in sendMeetingResponse", messageId);
                 return;
             }
-
-            final EasSendMeetingResponse operation = new EasSendMeetingResponse(EasService.this,
-                    msg.mAccountKey, msg, response);
-            doOperation(operation, "IEmailService.sendMeetingResponse");
+            final Account account = loadAccount(EasService.this, msg.mAccountKey);
+            if (account != null) {
+                final EasSendMeetingResponse operation = new EasSendMeetingResponse(EasService.this,
+                        account, msg, response);
+                doOperation(operation, "IEmailService.sendMeetingResponse");
+            }
         }
 
         @Override
@@ -206,7 +248,13 @@ public class EasService extends Service {
 
         @Override
         public void setLogging(final int flags) {
-            LogUtils.d(TAG, "IEmailService.setLogging");
+            sProtocolLogging = ((flags & EmailServiceProxy.DEBUG_EXCHANGE_BIT) != 0);
+            sFileLogging = ((flags & EmailServiceProxy.DEBUG_FILE_BIT) != 0);
+            SharedPreferences sharedPrefs = EasService.this.getSharedPreferences(PREFERENCES_FILE,
+                    Context.MODE_PRIVATE);
+            sharedPrefs.edit().putBoolean(PROTOCOL_LOGGING_PREF, sProtocolLogging).apply();
+            sharedPrefs.edit().putBoolean(FILE_LOGGING_PREF, sFileLogging).apply();
+            LogUtils.d(TAG, "IEmailService.setLogging %d, storing to shared pref", flags);
         }
 
         @Override
@@ -225,6 +273,14 @@ public class EasService extends Service {
         }
     };
 
+    private static Account loadAccount(final Context context, final long accountId) {
+        Account account = Account.restoreAccountWithId(context, accountId);
+        if (account == null) {
+            LogUtils.e(TAG, "Could not load account %d", accountId);
+        }
+        return account;
+    }
+
     /**
      * Content selection string for getting all accounts that are configured for push.
      * TODO: Add protocol check so that we don't get e.g. IMAP accounts here.
@@ -240,15 +296,16 @@ public class EasService extends Service {
 
         @Override
         protected Void doInBackground(Void... params) {
+            LogUtils.i(TAG, "RestartPingTask");
             final Cursor c = EasService.this.getContentResolver().query(Account.CONTENT_URI,
                     Account.CONTENT_PROJECTION, PUSH_ACCOUNTS_SELECTION, null, null);
             if (c != null) {
                 try {
                     while (c.moveToNext()) {
                         final Account account = new Account();
-                        LogUtils.d(TAG, "RestartPingsTask starting ping for %s", account);
                         account.restore(c);
-                        if (EasService.this.pingNeededForAccount(account)) {
+                        LogUtils.i(TAG, "RestartPingsTask starting ping for %d", account.getId());
+                        if (pingNeededForAccount(EasService.this, account)) {
                             mHasRestartedPing = true;
                             EasService.this.mSynchronizer.pushModify(account);
                         }
@@ -263,7 +320,7 @@ public class EasService extends Service {
         @Override
         protected void onPostExecute(Void result) {
             if (!mHasRestartedPing) {
-                LogUtils.d(TAG, "RestartPingsTask did not start any pings.");
+                LogUtils.i(TAG, "RestartPingsTask did not start any pings.");
                 EasService.this.mSynchronizer.stopServiceIfIdle();
             }
         }
@@ -276,7 +333,7 @@ public class EasService extends Service {
 
     @Override
     public void onCreate() {
-        LogUtils.d(TAG, "EasService.onCreate");
+        LogUtils.i(TAG, "EasService.onCreate");
         super.onCreate();
         TempDirectory.setTempDirectory(this);
         EmailContent.init(this);
@@ -285,7 +342,10 @@ public class EasService extends Service {
                 CalendarContract.AUTHORITY,
                 ContactsContract.AUTHORITY
         };
-
+        SharedPreferences sharedPrefs = EasService.this.getSharedPreferences(PREFERENCES_FILE,
+                Context.MODE_PRIVATE);
+        sProtocolLogging = sharedPrefs.getBoolean(PROTOCOL_LOGGING_PREF, false);
+        sFileLogging = sharedPrefs.getBoolean(FILE_LOGGING_PREF, false);
         // Restart push for all accounts that need it. Because this requires DB loads, we do it in
         // an AsyncTask, and we startService to ensure that we stick around long enough for the
         // task to complete. The task will stop the service if necessary after it's done.
@@ -295,6 +355,7 @@ public class EasService extends Service {
 
     @Override
     public void onDestroy() {
+        LogUtils.i(TAG, "onDestroy");
         mSynchronizer.stopAllPings();
     }
 
@@ -315,6 +376,13 @@ public class EasService extends Service {
                 // if accounts disappear out from under us.
                 LogUtils.d(TAG, "Forced shutdown, killing process");
                 System.exit(-1);
+            } else if (intent.getBooleanExtra(EXTRA_START_PING, false)) {
+                LogUtils.d(LogUtils.TAG, "Restarting ping");
+                final Account account = intent.getParcelableExtra(EXTRA_PING_ACCOUNT);
+                final android.accounts.Account amAccount =
+                                new android.accounts.Account(account.mEmailAddress,
+                                    Eas.EXCHANGE_ACCOUNT_MANAGER_TYPE);
+                EasPing.requestPing(amAccount);
             }
         }
         return START_STICKY;
@@ -334,7 +402,7 @@ public class EasService extends Service {
             LogUtils.d(TAG, "Operation result %d", result);
             return result;
         } finally {
-            mSynchronizer.syncEnd(result >= EasOperation.RESULT_MIN_OK_RESULT,
+            mSynchronizer.syncEnd(result < EasOperation.RESULT_MIN_OK_RESULT,
                     operation.getAccount());
         }
     }
@@ -343,9 +411,10 @@ public class EasService extends Service {
      * Determine whether this account is configured with folders that are ready for push
      * notifications.
      * @param account The {@link Account} that we're interested in.
+     * @param context The context
      * @return Whether this account needs to ping.
      */
-    public boolean pingNeededForAccount(final Account account) {
+    public static boolean pingNeededForAccount(final Context context, final Account account) {
         // Check account existence.
         if (account == null || account.mId == Account.NO_ACCOUNT) {
             LogUtils.d(TAG, "Do not ping: Account not found or not valid");
@@ -379,12 +448,13 @@ public class EasService extends Service {
         final Set<String> authsToSync = getAuthoritiesToSync(amAccount, AUTHORITIES_TO_SYNC);
         // If we have at least one sync-enabled content type, check for syncing mailboxes.
         if (!authsToSync.isEmpty()) {
-            final Cursor c = Mailbox.getMailboxesForPush(getContentResolver(), account.mId);
+            final Cursor c = Mailbox.getMailboxesForPush(context.getContentResolver(), account.mId);
             if (c != null) {
                 try {
                     while (c.moveToNext()) {
                         final int mailboxType = c.getInt(Mailbox.CONTENT_TYPE_COLUMN);
                         if (authsToSync.contains(Mailbox.getAuthority(mailboxType))) {
+                            LogUtils.d(TAG, "should ping for account %d", account.mId);
                             return true;
                         }
                     }
@@ -399,18 +469,21 @@ public class EasService extends Service {
 
     static public GalResult searchGal(final Context context, final long accountId,
                                       final String filter, final int limit) {
-        final EasSearchGal operation = new EasSearchGal(context, accountId, filter, limit);
-        // We don't use doOperation() here for two reasons:
-        // 1. This is a static function, doOperation is not, and we don't have an instance of
-        // EasService.
-        // 2. All doOperation() does besides this is stop the ping and then restart it. This is
-        // required during syncs, but not for GalSearches.
-        final int result = operation.performOperation();
-        if (result == EasSearchGal.RESULT_OK) {
-            return operation.getResult();
-        } else {
-            return null;
+        GalResult galResult = null;
+        final Account account = loadAccount(context, accountId);
+        if (account != null) {
+            final EasSearchGal operation = new EasSearchGal(context, account, filter, limit);
+            // We don't use doOperation() here for two reasons:
+            // 1. This is a static function, doOperation is not, and we don't have an instance of
+            // EasService.
+            // 2. All doOperation() does besides this is stop the ping and then restart it. This is
+            // required during syncs, but not for GalSearches.
+            final int result = operation.performOperation();
+            if (result == EasSearchGal.RESULT_OK) {
+                galResult = operation.getResult();
+            }
         }
+        return galResult;
     }
 
     /**
@@ -486,4 +559,23 @@ public class EasService extends Service {
         }
         return authsToSync;
     }
+
+    @VisibleForTesting
+    public static void setProtocolLogging(final boolean val) {
+        sProtocolLogging = val;
+    }
+
+    @VisibleForTesting
+    public static void setFileLogging(final boolean val) {
+        sFileLogging = val;
+    }
+
+    public static boolean getProtocolLogging() {
+        return sProtocolLogging;
+    }
+
+    public static boolean getFileLogging() {
+        return sFileLogging;
+    }
+
 }

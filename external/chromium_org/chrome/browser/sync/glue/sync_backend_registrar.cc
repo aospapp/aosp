@@ -66,7 +66,9 @@ SyncBackendRegistrar::SyncBackendRegistrar(
   sync_thread_ = sync_thread.Pass();
   if (!sync_thread_) {
     sync_thread_.reset(new base::Thread("Chrome_SyncThread"));
-    CHECK(sync_thread_->Start());
+    base::Thread::Options options;
+    options.timer_slack = base::TIMER_SLACK_MAXIMUM;
+    CHECK(sync_thread_->StartWithOptions(options));
   }
 
   workers_[syncer::GROUP_DB] = new DatabaseModelWorker(this);
@@ -200,7 +202,7 @@ void SyncBackendRegistrar::RequestWorkerStopOnUIThread() {
 void SyncBackendRegistrar::ActivateDataType(
     syncer::ModelType type,
     syncer::ModelSafeGroup group,
-    ChangeProcessor* change_processor,
+    sync_driver::ChangeProcessor* change_processor,
     syncer::UserShare* user_share) {
   DVLOG(1) << "Activate: " << syncer::ModelTypeToString(type);
 
@@ -242,7 +244,7 @@ void SyncBackendRegistrar::OnChangesApplied(
     int64 model_version,
     const syncer::BaseTransaction* trans,
     const syncer::ImmutableChangeRecordList& changes) {
-  ChangeProcessor* processor = GetProcessor(model_type);
+  sync_driver::ChangeProcessor* processor = GetProcessor(model_type);
   if (!processor)
     return;
 
@@ -250,7 +252,7 @@ void SyncBackendRegistrar::OnChangesApplied(
 }
 
 void SyncBackendRegistrar::OnChangesComplete(syncer::ModelType model_type) {
-  ChangeProcessor* processor = GetProcessor(model_type);
+  sync_driver::ChangeProcessor* processor = GetProcessor(model_type);
   if (!processor)
     return;
 
@@ -277,10 +279,10 @@ void SyncBackendRegistrar::GetModelSafeRoutingInfo(
   out->swap(copy);
 }
 
-ChangeProcessor* SyncBackendRegistrar::GetProcessor(
+sync_driver::ChangeProcessor* SyncBackendRegistrar::GetProcessor(
     syncer::ModelType type) const {
   base::AutoLock lock(lock_);
-  ChangeProcessor* processor = GetProcessorUnsafe(type);
+  sync_driver::ChangeProcessor* processor = GetProcessorUnsafe(type);
   if (!processor)
     return NULL;
 
@@ -290,10 +292,10 @@ ChangeProcessor* SyncBackendRegistrar::GetProcessor(
   return processor;
 }
 
-ChangeProcessor* SyncBackendRegistrar::GetProcessorUnsafe(
+sync_driver::ChangeProcessor* SyncBackendRegistrar::GetProcessorUnsafe(
     syncer::ModelType type) const {
   lock_.AssertAcquired();
-  std::map<syncer::ModelType, ChangeProcessor*>::const_iterator
+  std::map<syncer::ModelType, sync_driver::ChangeProcessor*>::const_iterator
       it = processors_.find(type);
 
   // Until model association happens for a datatype, it will not

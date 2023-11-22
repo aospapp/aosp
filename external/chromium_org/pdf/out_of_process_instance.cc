@@ -19,7 +19,6 @@
 #include "base/values.h"
 #include "chrome/common/content_restriction.h"
 #include "net/base/escape.h"
-#include "pdf/draw_utils.h"
 #include "pdf/pdf.h"
 #include "ppapi/c/dev/ppb_cursor_control_dev.h"
 #include "ppapi/c/pp_errors.h"
@@ -34,6 +33,7 @@
 #include "ppapi/cpp/module.h"
 #include "ppapi/cpp/point.h"
 #include "ppapi/cpp/private/pdf.h"
+#include "ppapi/cpp/private/var_private.h"
 #include "ppapi/cpp/rect.h"
 #include "ppapi/cpp/resource.h"
 #include "ppapi/cpp/url_request_info.h"
@@ -47,13 +47,6 @@
 
 namespace chrome_pdf {
 
-// URL reference parameters.
-// For more possible parameters, see RFC 3778 and the "PDF Open Parameters"
-// document from Adobe.
-const char kDelimiters[] = "#&";
-const char kNamedDest[] = "nameddest";
-const char kPage[] = "page";
-
 const char kChromePrint[] = "chrome://print/";
 const char kChromeExtension[] =
     "chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai";
@@ -64,71 +57,76 @@ const char kAccessibleLoaded[] = "loaded";
 const char kAccessibleCopyable[] = "copyable";
 
 // Constants used in handling postMessage() messages.
-const char* kType = "type";
+const char kType[] = "type";
 // Viewport message arguments. (Page -> Plugin).
-const char* kJSViewportType = "viewport";
-const char* kJSXOffset = "xOffset";
-const char* kJSYOffset = "yOffset";
-const char* kJSZoom = "zoom";
+const char kJSViewportType[] = "viewport";
+const char kJSXOffset[] = "xOffset";
+const char kJSYOffset[] = "yOffset";
+const char kJSZoom[] = "zoom";
+// Stop scrolling message (Page -> Plugin)
+const char kJSStopScrollingType[] = "stopScrolling";
 // Document dimension arguments (Plugin -> Page).
-const char* kJSDocumentDimensionsType = "documentDimensions";
-const char* kJSDocumentWidth = "width";
-const char* kJSDocumentHeight = "height";
-const char* kJSPageDimensions = "pageDimensions";
-const char* kJSPageX = "x";
-const char* kJSPageY = "y";
-const char* kJSPageWidth = "width";
-const char* kJSPageHeight = "height";
+const char kJSDocumentDimensionsType[] = "documentDimensions";
+const char kJSDocumentWidth[] = "width";
+const char kJSDocumentHeight[] = "height";
+const char kJSPageDimensions[] = "pageDimensions";
+const char kJSPageX[] = "x";
+const char kJSPageY[] = "y";
+const char kJSPageWidth[] = "width";
+const char kJSPageHeight[] = "height";
 // Document load progress arguments (Plugin -> Page)
-const char* kJSLoadProgressType = "loadProgress";
-const char* kJSProgressPercentage = "progress";
+const char kJSLoadProgressType[] = "loadProgress";
+const char kJSProgressPercentage[] = "progress";
 // Get password arguments (Plugin -> Page)
-const char* kJSGetPasswordType = "getPassword";
+const char kJSGetPasswordType[] = "getPassword";
 // Get password complete arguments (Page -> Plugin)
-const char* kJSGetPasswordCompleteType = "getPasswordComplete";
-const char* kJSPassword = "password";
+const char kJSGetPasswordCompleteType[] = "getPasswordComplete";
+const char kJSPassword[] = "password";
 // Print (Page -> Plugin)
-const char* kJSPrintType = "print";
+const char kJSPrintType[] = "print";
 // Go to page (Plugin -> Page)
-const char* kJSGoToPageType = "goToPage";
-const char* kJSPageNumber = "page";
+const char kJSGoToPageType[] = "goToPage";
+const char kJSPageNumber[] = "page";
 // Reset print preview mode (Page -> Plugin)
-const char* kJSResetPrintPreviewModeType = "resetPrintPreviewMode";
-const char* kJSPrintPreviewUrl = "url";
-const char* kJSPrintPreviewGrayscale = "grayscale";
-const char* kJSPrintPreviewPageCount = "pageCount";
+const char kJSResetPrintPreviewModeType[] = "resetPrintPreviewMode";
+const char kJSPrintPreviewUrl[] = "url";
+const char kJSPrintPreviewGrayscale[] = "grayscale";
+const char kJSPrintPreviewPageCount[] = "pageCount";
 // Load preview page (Page -> Plugin)
-const char* kJSLoadPreviewPageType = "loadPreviewPage";
-const char* kJSPreviewPageUrl = "url";
-const char* kJSPreviewPageIndex = "index";
+const char kJSLoadPreviewPageType[] = "loadPreviewPage";
+const char kJSPreviewPageUrl[] = "url";
+const char kJSPreviewPageIndex[] = "index";
 // Set scroll position (Plugin -> Page)
-const char* kJSSetScrollPositionType = "setScrollPosition";
-const char* kJSPositionX = "x";
-const char* kJSPositionY = "y";
+const char kJSSetScrollPositionType[] = "setScrollPosition";
+const char kJSPositionX[] = "x";
+const char kJSPositionY[] = "y";
 // Set translated strings (Plugin -> Page)
-const char* kJSSetTranslatedStringsType = "setTranslatedStrings";
-const char* kJSGetPasswordString = "getPasswordString";
-const char* kJSLoadingString = "loadingString";
-const char* kJSLoadFailedString = "loadFailedString";
+const char kJSSetTranslatedStringsType[] = "setTranslatedStrings";
+const char kJSGetPasswordString[] = "getPasswordString";
+const char kJSLoadingString[] = "loadingString";
+const char kJSLoadFailedString[] = "loadFailedString";
 // Request accessibility JSON data (Page -> Plugin)
-const char* kJSGetAccessibilityJSONType = "getAccessibilityJSON";
-const char* kJSAccessibilityPageNumber = "page";
+const char kJSGetAccessibilityJSONType[] = "getAccessibilityJSON";
+const char kJSAccessibilityPageNumber[] = "page";
 // Reply with accessibility JSON data (Plugin -> Page)
-const char* kJSGetAccessibilityJSONReplyType = "getAccessibilityJSONReply";
-const char* kJSAccessibilityJSON = "json";
+const char kJSGetAccessibilityJSONReplyType[] = "getAccessibilityJSONReply";
+const char kJSAccessibilityJSON[] = "json";
 // Cancel the stream URL request (Plugin -> Page)
-const char* kJSCancelStreamUrlType = "cancelStreamUrl";
+const char kJSCancelStreamUrlType[] = "cancelStreamUrl";
 // Navigate to the given URL (Plugin -> Page)
-const char* kJSNavigateType = "navigate";
-const char* kJSNavigateUrl = "url";
-const char* kJSNavigateNewTab = "newTab";
+const char kJSNavigateType[] = "navigate";
+const char kJSNavigateUrl[] = "url";
+const char kJSNavigateNewTab[] = "newTab";
 // Open the email editor with the given parameters (Plugin -> Page)
-const char* kJSEmailType = "email";
-const char* kJSEmailTo = "to";
-const char* kJSEmailCc = "cc";
-const char* kJSEmailBcc = "bcc";
-const char* kJSEmailSubject = "subject";
-const char* kJSEmailBody = "body";
+const char kJSEmailType[] = "email";
+const char kJSEmailTo[] = "to";
+const char kJSEmailCc[] = "cc";
+const char kJSEmailBcc[] = "bcc";
+const char kJSEmailSubject[] = "subject";
+const char kJSEmailBody[] = "body";
+// Rotation (Page -> Plugin)
+const char kJSRotateClockwiseType[] = "rotateClockwise";
+const char kJSRotateCounterclockwiseType[] = "rotateCounterclockwise";
 
 const int kFindResultCooldownMs = 100;
 
@@ -244,7 +242,8 @@ OutOfProcessInstance::OutOfProcessInstance(PP_Instance instance)
       last_progress_sent_(0),
       recently_sent_find_update_(false),
       received_viewport_message_(false),
-      did_call_start_loading_(false) {
+      did_call_start_loading_(false),
+      stop_scrolling_(false) {
   loader_factory_.Initialize(this);
   timer_factory_.Initialize(this);
   form_factory_.Initialize(this);
@@ -355,20 +354,17 @@ void OutOfProcessInstance::HandleMessage(const pp::Var& message) {
       dict.Get(pp::Var(kJSYOffset)).is_int() &&
       dict.Get(pp::Var(kJSZoom)).is_number()) {
     received_viewport_message_ = true;
+    stop_scrolling_ = false;
     double zoom = dict.Get(pp::Var(kJSZoom)).AsDouble();
-    int x = dict.Get(pp::Var(kJSXOffset)).AsInt();
-    int y = dict.Get(pp::Var(kJSYOffset)).AsInt();
+    pp::Point scroll_offset(dict.Get(pp::Var(kJSXOffset)).AsInt(),
+                            dict.Get(pp::Var(kJSYOffset)).AsInt());
 
     // Bound the input parameters.
     zoom = std::max(kMinZoom, zoom);
-    int max_x = document_size_.width() * zoom - plugin_dip_size_.width();
-    x = std::max(std::min(x, max_x), 0);
-    int max_y = document_size_.height() * zoom - plugin_dip_size_.height();
-    y = std::max(std::min(y, max_y), 0);
-
     SetZoom(zoom);
-    engine_->ScrolledToXPosition(x * device_scale_);
-    engine_->ScrolledToYPosition(y * device_scale_);
+    scroll_offset = BoundScrollOffsetToDocument(scroll_offset);
+    engine_->ScrolledToXPosition(scroll_offset.x() * device_scale_);
+    engine_->ScrolledToYPosition(scroll_offset.y() * device_scale_);
   } else if (type == kJSGetPasswordCompleteType &&
              dict.Get(pp::Var(kJSPassword)).is_string()) {
     if (password_callback_) {
@@ -381,6 +377,10 @@ void OutOfProcessInstance::HandleMessage(const pp::Var& message) {
     }
   } else if (type == kJSPrintType) {
     Print();
+  } else if (type == kJSRotateClockwiseType) {
+    RotateClockwise();
+  } else if (type == kJSRotateCounterclockwiseType) {
+    RotateCounterclockwise();
   } else if (type == kJSResetPrintPreviewModeType &&
              dict.Get(pp::Var(kJSPrintPreviewUrl)).is_string() &&
              dict.Get(pp::Var(kJSPrintPreviewGrayscale)).is_bool() &&
@@ -425,6 +425,8 @@ void OutOfProcessInstance::HandleMessage(const pp::Var& message) {
       reply.Set(pp::Var(kJSAccessibilityJSON), pp::Var(json));
     }
     PostMessage(reply);
+  } else if (type == kJSStopScrollingType) {
+    stop_scrolling_ = true;
   } else {
     NOTREACHED();
   }
@@ -507,32 +509,38 @@ void OutOfProcessInstance::DidChangeView(const pp::View& view) {
   pp::Size view_device_size(view_rect.width() * device_scale,
                             view_rect.height() * device_scale);
 
-  if (view_device_size == plugin_size_ && device_scale == device_scale_)
-    return; // We don't care about the position, only the size.
+  if (view_device_size != plugin_size_ || device_scale != device_scale_) {
+    device_scale_ = device_scale;
+    plugin_dip_size_ = view_rect.size();
+    plugin_size_ = view_device_size;
 
-  device_scale_ = device_scale;
-  plugin_dip_size_ = view_rect.size();
-  plugin_size_ = view_device_size;
+    paint_manager_.SetSize(view_device_size, device_scale_);
 
-  paint_manager_.SetSize(view_device_size, device_scale_);
+    pp::Size new_image_data_size = PaintManager::GetNewContextSize(
+        image_data_.size(),
+        plugin_size_);
+    if (new_image_data_size != image_data_.size()) {
+      image_data_ = pp::ImageData(this,
+                                  PP_IMAGEDATAFORMAT_BGRA_PREMUL,
+                                  new_image_data_size,
+                                  false);
+      first_paint_ = true;
+    }
 
-  pp::Size new_image_data_size = PaintManager::GetNewContextSize(
-      image_data_.size(),
-      plugin_size_);
-  if (new_image_data_size != image_data_.size()) {
-    image_data_ = pp::ImageData(this,
-                                PP_IMAGEDATAFORMAT_BGRA_PREMUL,
-                                new_image_data_size,
-                                false);
-    first_paint_ = true;
+    if (image_data_.is_null()) {
+      DCHECK(plugin_size_.IsEmpty());
+      return;
+    }
+
+    OnGeometryChanged(zoom_, old_device_scale);
   }
 
-  if (image_data_.is_null()) {
-    DCHECK(plugin_size_.IsEmpty());
-    return;
+  if (!stop_scrolling_) {
+    pp::Point scroll_offset(
+        BoundScrollOffsetToDocument(view.GetScrollOffset()));
+    engine_->ScrolledToXPosition(scroll_offset.x() * device_scale_);
+    engine_->ScrolledToYPosition(scroll_offset.y() * device_scale_);
   }
-
-  OnGeometryChanged(zoom_, old_device_scale);
 }
 
 pp::Var OutOfProcessInstance::GetLinkAtPosition(
@@ -620,11 +628,7 @@ void OutOfProcessInstance::OnPaint(
   if (first_paint_) {
     first_paint_ = false;
     pp::Rect rect = pp::Rect(pp::Point(), image_data_.size());
-    unsigned int color = kBackgroundColorA << 24 |
-                         kBackgroundColorR << 16 |
-                         kBackgroundColorG << 8 |
-                         kBackgroundColorB;
-    FillRect(rect, color);
+    FillRect(rect, kBackgroundColor);
     ready->push_back(PaintManager::ReadyRect(rect, image_data_, true));
   }
 
@@ -715,12 +719,10 @@ void OutOfProcessInstance::CalculateBackgroundParts() {
 
   // Add the left, right, and bottom rectangles.  Note: we assume only
   // horizontal centering.
-  BackgroundPart part;
-  part.color = kBackgroundColorA << 24 |
-               kBackgroundColorR << 16 |
-               kBackgroundColorG << 8 |
-               kBackgroundColorB;
-  part.location = pp::Rect(0, 0, left_width, bottom);
+  BackgroundPart part = {
+    pp::Rect(0, 0, left_width, bottom),
+    kBackgroundColor
+  };
   if (!part.location.IsEmpty())
     background_parts_.push_back(part);
   part.location = pp::Rect(right_start, 0, right_width, bottom);
@@ -741,11 +743,11 @@ int OutOfProcessInstance::GetDocumentPixelHeight() const {
       ceil(document_size_.height() * zoom_ * device_scale_));
 }
 
-void OutOfProcessInstance::FillRect(const pp::Rect& rect, unsigned int color) {
+void OutOfProcessInstance::FillRect(const pp::Rect& rect, uint32 color) {
   DCHECK(!image_data_.is_null() || rect.IsEmpty());
-  unsigned int* buffer_start = static_cast<unsigned int*>(image_data_.data());
+  uint32* buffer_start = static_cast<uint32*>(image_data_.data());
   int stride = image_data_.stride();
-  unsigned int* ptr = buffer_start + rect.y() * stride / 4 + rect.x();
+  uint32* ptr = buffer_start + rect.y() * stride / 4 + rect.x();
   int height = rect.height();
   int width = rect.width();
   for (int y = 0; y < height; ++y) {
@@ -786,7 +788,8 @@ void OutOfProcessInstance::Invalidate(const pp::Rect& rect) {
 }
 
 void OutOfProcessInstance::Scroll(const pp::Point& point) {
-  paint_manager_.ScrollRect(available_area_, point);
+  if (!image_data_.is_null())
+    paint_manager_.ScrollRect(available_area_, point);
 }
 
 void OutOfProcessInstance::ScrollToX(int x) {
@@ -821,6 +824,11 @@ void OutOfProcessInstance::NavigateTo(const std::string& url,
   // Skip the code below so an empty URL does not turn into "http://", which
   // will cause GURL to fail a DCHECK.
   if (!url_copy.empty()) {
+    // If |url_copy| starts with '#', then it's for the same URL with a
+    // different URL fragment.
+    if (url_copy[0] == '#') {
+      url_copy = url_ + url_copy;
+    }
     // If there's no scheme, add http.
     if (url_copy.find("://") == std::string::npos &&
         url_copy.find("mailto:") == std::string::npos) {
@@ -830,6 +838,7 @@ void OutOfProcessInstance::NavigateTo(const std::string& url,
     if (url_copy.find("http://") != 0 &&
         url_copy.find("https://") != 0 &&
         url_copy.find("ftp://") != 0 &&
+        url_copy.find("file://") != 0 &&
         url_copy.find("mailto:") != 0) {
       return;
     }
@@ -837,6 +846,7 @@ void OutOfProcessInstance::NavigateTo(const std::string& url,
     if (url_copy == "http://" ||
         url_copy == "https://" ||
         url_copy == "ftp://" ||
+        url_copy == "file://" ||
         url_copy == "mailto:") {
       return;
     }
@@ -1062,11 +1072,7 @@ void OutOfProcessInstance::DocumentLoadComplete(int page_count) {
 
   // Note: If we are in print preview mode the scroll location is retained
   // across document loads so we don't want to scroll again and override it.
-  if (!IsPrintPreview()) {
-    int initial_page = GetInitialPage(url_);
-    if (initial_page >= 0)
-      ScrollToPage(initial_page);
-  } else {
+  if (IsPrintPreview()) {
     AppendBlankPrintPreviewPages();
     OnGeometryChanged(0, 0);
   }
@@ -1293,53 +1299,6 @@ pp::URLLoader OutOfProcessInstance::CreateURLLoaderInternal() {
   return loader;
 }
 
-int OutOfProcessInstance::GetInitialPage(const std::string& url) {
-#if defined(OS_NACL)
-  return -1;
-#else
-  size_t found_idx = url.find('#');
-  if (found_idx == std::string::npos)
-    return -1;
-
-  const std::string& ref = url.substr(found_idx + 1);
-  std::vector<std::string> fragments;
-  Tokenize(ref, kDelimiters, &fragments);
-
-  // Page number to return, zero-based.
-  int page = -1;
-
-  // Handle the case of http://foo.com/bar#NAMEDDEST. This is not explicitly
-  // mentioned except by example in the Adobe "PDF Open Parameters" document.
-  if ((fragments.size() == 1) && (fragments[0].find('=') == std::string::npos))
-    return engine_->GetNamedDestinationPage(fragments[0]);
-
-  for (size_t i = 0; i < fragments.size(); ++i) {
-    std::vector<std::string> key_value;
-    base::SplitString(fragments[i], '=', &key_value);
-    if (key_value.size() != 2)
-      continue;
-    const std::string& key = key_value[0];
-    const std::string& value = key_value[1];
-
-    if (base::strcasecmp(kPage, key.c_str()) == 0) {
-      // |page_value| is 1-based.
-      int page_value = -1;
-      if (base::StringToInt(value, &page_value) && page_value > 0)
-        page = page_value - 1;
-      continue;
-    }
-    if (base::strcasecmp(kNamedDest, key.c_str()) == 0) {
-      // |page_value| is 0-based.
-      int page_value = engine_->GetNamedDestinationPage(value);
-      if (page_value >= 0)
-        page = page_value;
-      continue;
-    }
-  }
-  return page;
-#endif
-}
-
 void OutOfProcessInstance::SetZoom(double scale) {
   double old_zoom = zoom_;
   zoom_ = scale;
@@ -1402,6 +1361,15 @@ void OutOfProcessInstance::UserMetricsRecordAction(
     const std::string& action) {
   // TODO(raymes): Move this function to PPB_UMA_Private.
   pp::PDF::UserMetricsRecordAction(this, pp::Var(action));
+}
+
+pp::Point OutOfProcessInstance::BoundScrollOffsetToDocument(
+    const pp::Point& scroll_offset) {
+  int max_x = document_size_.width() * zoom_ - plugin_dip_size_.width();
+  int x = std::max(std::min(scroll_offset.x(), max_x), 0);
+  int max_y = document_size_.height() * zoom_ - plugin_dip_size_.height();
+  int y = std::max(std::min(scroll_offset.y(), max_y), 0);
+  return pp::Point(x, y);
 }
 
 }  // namespace chrome_pdf

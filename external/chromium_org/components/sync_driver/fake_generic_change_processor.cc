@@ -6,20 +6,24 @@
 
 #include "base/location.h"
 #include "base/memory/weak_ptr.h"
-#include "sync/api/attachments/attachment_service_impl.h"
 #include "sync/api/syncable_service.h"
+#include "sync/internal_api/public/attachments/attachment_service_impl.h"
 
-namespace browser_sync {
+namespace sync_driver {
 
 FakeGenericChangeProcessor::FakeGenericChangeProcessor(
+    syncer::ModelType type,
     SyncApiComponentFactory* sync_factory)
-    : GenericChangeProcessor(NULL,
+    : GenericChangeProcessor(type,
+                             NULL,
                              base::WeakPtr<syncer::SyncableService>(),
                              base::WeakPtr<syncer::SyncMergeResult>(),
                              NULL,
-                             sync_factory),
+                             sync_factory,
+                             scoped_refptr<syncer::AttachmentStore>()),
       sync_model_has_user_created_nodes_(true),
-      sync_model_has_user_created_nodes_success_(true) {}
+      sync_model_has_user_created_nodes_success_(true) {
+}
 
 FakeGenericChangeProcessor::~FakeGenericChangeProcessor() {}
 
@@ -39,28 +43,25 @@ syncer::SyncError FakeGenericChangeProcessor::ProcessSyncChanges(
 }
 
 syncer::SyncError FakeGenericChangeProcessor::GetAllSyncDataReturnError(
-    syncer::ModelType type, syncer::SyncDataList* current_sync_data) const {
+    syncer::SyncDataList* current_sync_data) const {
   return syncer::SyncError();
 }
 
 bool FakeGenericChangeProcessor::GetDataTypeContext(
-    syncer::ModelType type,
     std::string* context) const {
   return false;
 }
 
-int FakeGenericChangeProcessor::GetSyncCountForType(syncer::ModelType type) {
+int FakeGenericChangeProcessor::GetSyncCount() {
   return 0;
 }
 
-bool FakeGenericChangeProcessor::SyncModelHasUserCreatedNodes(
-    syncer::ModelType type, bool* has_nodes) {
+bool FakeGenericChangeProcessor::SyncModelHasUserCreatedNodes(bool* has_nodes) {
   *has_nodes = sync_model_has_user_created_nodes_;
   return sync_model_has_user_created_nodes_success_;
 }
 
-bool FakeGenericChangeProcessor::CryptoReadyIfNecessary(
-    syncer::ModelType type) {
+bool FakeGenericChangeProcessor::CryptoReadyIfNecessary() {
   return true;
 }
 
@@ -72,12 +73,13 @@ FakeGenericChangeProcessorFactory::~FakeGenericChangeProcessorFactory() {}
 
 scoped_ptr<GenericChangeProcessor>
 FakeGenericChangeProcessorFactory::CreateGenericChangeProcessor(
+    syncer::ModelType type,
     syncer::UserShare* user_share,
-    browser_sync::DataTypeErrorHandler* error_handler,
+    DataTypeErrorHandler* error_handler,
     const base::WeakPtr<syncer::SyncableService>& local_service,
     const base::WeakPtr<syncer::SyncMergeResult>& merge_result,
     SyncApiComponentFactory* sync_factory) {
   return processor_.PassAs<GenericChangeProcessor>();
 }
 
-}  // namespace browser_sync
+}  // namespace sync_driver

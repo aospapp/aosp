@@ -10,7 +10,6 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/values.h"
 #include "base/version.h"
-#include "chrome/browser/omaha_query_params/omaha_query_params.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/hotword_service.h"
 #include "chrome/browser/ui/app_list/app_list_controller_delegate.h"
@@ -20,6 +19,7 @@
 #include "chrome/browser/ui/host_desktop.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
 #include "chrome/common/pref_names.h"
+#include "components/omaha_query_params/omaha_query_params.h"
 #include "content/public/browser/web_ui.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
@@ -35,7 +35,7 @@ namespace app_list {
 namespace {
 
 #if defined(OS_CHROMEOS)
-const char kOldHotwordExtensionVersionString[] = "0.1.1.5014_0";
+const char kOldHotwordExtensionVersionString[] = "0.1.1.5023";
 #endif
 
 scoped_ptr<base::DictionaryValue> CreateAppInfo(
@@ -144,7 +144,8 @@ void StartPageHandler::OnHotwordEnabledChanged() {
                                  extensions::ExtensionRegistry::ENABLED);
   if (hotword_extension &&
       hotword_extension->version()->CompareTo(
-          base::Version(kOldHotwordExtensionVersionString)) <= 0) {
+          base::Version(kOldHotwordExtensionVersionString)) <= 0 &&
+      !HotwordService::IsExperimentalHotwordingEnabled()) {
     StartPageService* service = StartPageService::Get(profile);
     web_ui()->CallJavascriptFunction(
         "appList.startPage.setHotwordEnabled",
@@ -177,16 +178,29 @@ void StartPageHandler::HandleInitialize(const base::ListValue* args) {
     extension_registry_observer_.Add(
         extensions::ExtensionRegistry::Get(profile));
   }
+
+  extensions::ExtensionRegistry* registry =
+      extensions::ExtensionRegistry::Get(profile);
+  const extensions::Extension* hotword_extension =
+      registry->GetExtensionById(extension_misc::kHotwordExtensionId,
+                                 extensions::ExtensionRegistry::ENABLED);
+  if (hotword_extension &&
+      hotword_extension->version()->CompareTo(
+          base::Version(kOldHotwordExtensionVersionString)) <= 0) {
+    web_ui()->CallJavascriptFunction(
+        "appList.startPage.setNaclArch",
+        base::StringValue(omaha_query_params::OmahaQueryParams::GetNaclArch()));
+  }
 #endif
 
-  web_ui()->CallJavascriptFunction(
-      "appList.startPage.setNaclArch",
-      base::StringValue(chrome::OmahaQueryParams::GetNaclArch()));
-
   if (!app_list::switches::IsExperimentalAppListEnabled()) {
+    // If experimental hotwording is enabled, don't enable hotwording in the
+    // start page, since the hotword extension is taking care of this.
+    bool hotword_enabled = service->HotwordEnabled() &&
+        !HotwordService::IsExperimentalHotwordingEnabled();
     web_ui()->CallJavascriptFunction(
         "appList.startPage.onAppListShown",
-        base::FundamentalValue(service->HotwordEnabled()));
+        base::FundamentalValue(hotword_enabled));
   }
 }
 

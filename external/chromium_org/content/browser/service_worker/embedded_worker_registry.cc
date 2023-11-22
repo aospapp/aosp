@@ -17,9 +17,22 @@
 
 namespace content {
 
-EmbeddedWorkerRegistry::EmbeddedWorkerRegistry(
-    base::WeakPtr<ServiceWorkerContextCore> context)
-    : context_(context), next_embedded_worker_id_(0) {
+// static
+scoped_refptr<EmbeddedWorkerRegistry> EmbeddedWorkerRegistry::Create(
+    const base::WeakPtr<ServiceWorkerContextCore>& context) {
+  return make_scoped_refptr(new EmbeddedWorkerRegistry(context, 0));
+}
+
+// static
+scoped_refptr<EmbeddedWorkerRegistry> EmbeddedWorkerRegistry::Create(
+    const base::WeakPtr<ServiceWorkerContextCore>& context,
+    EmbeddedWorkerRegistry* old_registry) {
+  scoped_refptr<EmbeddedWorkerRegistry> registry =
+      new EmbeddedWorkerRegistry(
+          context,
+          old_registry->next_embedded_worker_id_);
+  registry->process_sender_map_.swap(old_registry->process_sender_map_);
+  return registry;
 }
 
 scoped_ptr<EmbeddedWorkerInstance> EmbeddedWorkerRegistry::CreateWorker() {
@@ -40,10 +53,9 @@ bool EmbeddedWorkerRegistry::OnMessageReceived(const IPC::Message& message) {
   // ServiceWorkerDispatcherHost.
 
   WorkerInstanceMap::iterator found = worker_map_.find(message.routing_id());
-  if (found == worker_map_.end()) {
-    LOG(ERROR) << "Worker " << message.routing_id() << " not registered";
+  DCHECK(found != worker_map_.end());
+  if (found == worker_map_.end())
     return false;
-  }
   return found->second->OnMessageReceived(message);
 }
 
@@ -55,64 +67,71 @@ void EmbeddedWorkerRegistry::Shutdown() {
   }
 }
 
-void EmbeddedWorkerRegistry::OnWorkerScriptLoaded(int process_id,
-                                                  int embedded_worker_id) {
+void EmbeddedWorkerRegistry::OnWorkerReadyForInspection(
+    int process_id,
+    int embedded_worker_id) {
   WorkerInstanceMap::iterator found = worker_map_.find(embedded_worker_id);
-  if (found == worker_map_.end()) {
-    LOG(ERROR) << "Worker " << embedded_worker_id << " not registered";
+  DCHECK(found != worker_map_.end());
+  DCHECK_EQ(found->second->process_id(), process_id);
+  if (found == worker_map_.end() || found->second->process_id() != process_id)
     return;
-  }
-  if (found->second->process_id() != process_id) {
-    LOG(ERROR) << "Incorrect embedded_worker_id";
+  found->second->OnReadyForInspection();
+}
+
+void EmbeddedWorkerRegistry::OnWorkerScriptLoaded(
+    int process_id,
+    int thread_id,
+    int embedded_worker_id ) {
+  WorkerInstanceMap::iterator found = worker_map_.find(embedded_worker_id);
+  DCHECK(found != worker_map_.end());
+  DCHECK_EQ(found->second->process_id(), process_id);
+  if (found == worker_map_.end() || found->second->process_id() != process_id)
     return;
-  }
-  found->second->OnScriptLoaded();
+  found->second->OnScriptLoaded(thread_id);
 }
 
 void EmbeddedWorkerRegistry::OnWorkerScriptLoadFailed(int process_id,
                                                       int embedded_worker_id) {
   WorkerInstanceMap::iterator found = worker_map_.find(embedded_worker_id);
-  if (found == worker_map_.end()) {
-    LOG(ERROR) << "Worker " << embedded_worker_id << " not registered";
+  DCHECK(found != worker_map_.end());
+  DCHECK_EQ(found->second->process_id(), process_id);
+  if (found == worker_map_.end() || found->second->process_id() != process_id)
     return;
-  }
-  if (found->second->process_id() != process_id) {
-    LOG(ERROR) << "Incorrect embedded_worker_id";
-    return;
-  }
   found->second->OnScriptLoadFailed();
 }
 
 void EmbeddedWorkerRegistry::OnWorkerStarted(
-    int process_id, int thread_id, int embedded_worker_id) {
+    int process_id, int embedded_worker_id) {
   DCHECK(!ContainsKey(worker_process_map_, process_id) ||
          worker_process_map_[process_id].count(embedded_worker_id) == 0);
   WorkerInstanceMap::iterator found = worker_map_.find(embedded_worker_id);
-  if (found == worker_map_.end()) {
-    LOG(ERROR) << "Worker " << embedded_worker_id << " not registered";
+  DCHECK(found != worker_map_.end());
+  DCHECK_EQ(found->second->process_id(), process_id);
+  if (found == worker_map_.end() || found->second->process_id() != process_id)
     return;
-  }
-  if (found->second->process_id() != process_id) {
-    LOG(ERROR) << "Incorrect embedded_worker_id";
-    return;
-  }
   worker_process_map_[process_id].insert(embedded_worker_id);
-  found->second->OnStarted(thread_id);
+  found->second->OnStarted();
 }
 
 void EmbeddedWorkerRegistry::OnWorkerStopped(
     int process_id, int embedded_worker_id) {
   WorkerInstanceMap::iterator found = worker_map_.find(embedded_worker_id);
-  if (found == worker_map_.end()) {
-    LOG(ERROR) << "Worker " << embedded_worker_id << " not registered";
+  DCHECK(found != worker_map_.end());
+  DCHECK_EQ(found->second->process_id(), process_id);
+  if (found == worker_map_.end() || found->second->process_id() != process_id)
     return;
-  }
-  if (found->second->process_id() != process_id) {
-    LOG(ERROR) << "Incorrect embedded_worker_id";
-    return;
-  }
   worker_process_map_[process_id].erase(embedded_worker_id);
   found->second->OnStopped();
+}
+
+void EmbeddedWorkerRegistry::OnPausedAfterDownload(
+    int process_id, int embedded_worker_id) {
+  WorkerInstanceMap::iterator found = worker_map_.find(embedded_worker_id);
+  DCHECK(found != worker_map_.end());
+  DCHECK_EQ(found->second->process_id(), process_id);
+  if (found == worker_map_.end() || found->second->process_id() != process_id)
+    return;
+  found->second->OnPausedAfterDownload();
 }
 
 void EmbeddedWorkerRegistry::OnReportException(
@@ -122,10 +141,9 @@ void EmbeddedWorkerRegistry::OnReportException(
     int column_number,
     const GURL& source_url) {
   WorkerInstanceMap::iterator found = worker_map_.find(embedded_worker_id);
-  if (found == worker_map_.end()) {
-    LOG(ERROR) << "Worker " << embedded_worker_id << " not registered";
+  DCHECK(found != worker_map_.end());
+  if (found == worker_map_.end())
     return;
-  }
   found->second->OnReportException(
       error_message, line_number, column_number, source_url);
 }
@@ -138,10 +156,9 @@ void EmbeddedWorkerRegistry::OnReportConsoleMessage(
     int line_number,
     const GURL& source_url) {
   WorkerInstanceMap::iterator found = worker_map_.find(embedded_worker_id);
-  if (found == worker_map_.end()) {
-    LOG(ERROR) << "Worker " << embedded_worker_id << " not registered";
+  DCHECK(found != worker_map_.end());
+  if (found == worker_map_.end())
     return;
-  }
   found->second->OnReportConsoleMessage(
       source_identifier, message_level, message, line_number, source_url);
 }
@@ -175,6 +192,22 @@ EmbeddedWorkerInstance* EmbeddedWorkerRegistry::GetWorker(
   if (found == worker_map_.end())
     return NULL;
   return found->second;
+}
+
+bool EmbeddedWorkerRegistry::CanHandle(int embedded_worker_id) const {
+  if (embedded_worker_id < initial_embedded_worker_id_ ||
+      next_embedded_worker_id_ <= embedded_worker_id) {
+    return false;
+  }
+  return true;
+}
+
+EmbeddedWorkerRegistry::EmbeddedWorkerRegistry(
+    const base::WeakPtr<ServiceWorkerContextCore>& context,
+    int initial_embedded_worker_id)
+    : context_(context),
+      next_embedded_worker_id_(initial_embedded_worker_id),
+      initial_embedded_worker_id_(initial_embedded_worker_id) {
 }
 
 EmbeddedWorkerRegistry::~EmbeddedWorkerRegistry() {

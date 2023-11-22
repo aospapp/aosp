@@ -7,6 +7,7 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/metrics/statistics_recorder.h"
 #include "base/test/test_suite.h"
 #include "base/threading/sequenced_worker_pool.h"
 #include "content/browser/browser_thread_impl.h"
@@ -28,6 +29,7 @@
 #include "base/android/jni_android.h"
 #include "content/browser/android/browser_jni_registrar.h"
 #include "content/common/android/common_jni_registrar.h"
+#include "content/public/browser/android/compositor.h"
 #include "media/base/android/media_jni_registrar.h"
 #include "net/android/net_jni_registrar.h"
 #include "ui/base/android/ui_base_jni_registrar.h"
@@ -43,7 +45,7 @@ class ContentTestSuiteBaseListener : public testing::EmptyTestEventListener {
   ContentTestSuiteBaseListener() {
   }
   virtual void OnTestEnd(const testing::TestInfo& test_info) OVERRIDE {
-    BrowserThreadImpl::FlushThreadPoolHelper();
+    BrowserThreadImpl::FlushThreadPoolHelperForTesting();
   }
  private:
   DISALLOW_COPY_AND_ASSIGN(ContentTestSuiteBaseListener);
@@ -56,6 +58,11 @@ ContentTestSuiteBase::ContentTestSuiteBase(int argc, char** argv)
 void ContentTestSuiteBase::Initialize() {
   base::TestSuite::Initialize();
 
+  // Initialize the histograms subsystem, so that any histograms hit in tests
+  // are correctly registered with the statistics recorder and can be queried
+  // by tests.
+  base::StatisticsRecorder::Initialize();
+
 #if defined(OS_ANDROID)
   // Register JNI bindings for android.
   JNIEnv* env = base::android::AttachCurrentThread();
@@ -66,6 +73,8 @@ void ContentTestSuiteBase::Initialize() {
   net::android::RegisterJni(env);
   ui::android::RegisterJni(env);
   ui::shell_dialogs::RegisterJni(env);
+
+  content::Compositor::Initialize();
 #endif
 
   testing::UnitTest::GetInstance()->listeners().Append(

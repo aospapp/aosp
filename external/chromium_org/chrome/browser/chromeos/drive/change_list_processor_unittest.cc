@@ -1,4 +1,4 @@
-// Copyright 2013 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,12 +10,12 @@
 #include "chrome/browser/chromeos/drive/drive.pb.h"
 #include "chrome/browser/chromeos/drive/fake_free_disk_space_getter.h"
 #include "chrome/browser/chromeos/drive/file_cache.h"
+#include "chrome/browser/chromeos/drive/file_change.h"
 #include "chrome/browser/chromeos/drive/file_system_util.h"
 #include "chrome/browser/chromeos/drive/resource_metadata.h"
 #include "chrome/browser/chromeos/drive/test_util.h"
 #include "content/public/test/test_browser_thread_bundle.h"
 #include "google_apis/drive/drive_api_parser.h"
-#include "google_apis/drive/gdata_wapi_parser.h"
 #include "google_apis/drive/test_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -49,24 +49,24 @@ ScopedVector<ChangeList> CreateBaseChangeList() {
   directory.mutable_file_info()->set_is_directory(true);
 
   directory.set_title("Directory 1");
-  directory.set_resource_id("folder:1_folder_resource_id");
+  directory.set_resource_id("1_folder_resource_id");
   change_lists[0]->mutable_entries()->push_back(directory);
   change_lists[0]->mutable_parent_resource_ids()->push_back(kRootId);
 
   directory.set_title("Sub Directory Folder");
-  directory.set_resource_id("folder:sub_dir_folder_resource_id");
+  directory.set_resource_id("sub_dir_folder_resource_id");
   change_lists[0]->mutable_entries()->push_back(directory);
   change_lists[0]->mutable_parent_resource_ids()->push_back(
-      "folder:1_folder_resource_id");
+      "1_folder_resource_id");
 
   directory.set_title("Sub Sub Directory Folder");
-  directory.set_resource_id("folder:sub_sub_directory_folder_id");
+  directory.set_resource_id("sub_sub_directory_folder_id");
   change_lists[0]->mutable_entries()->push_back(directory);
   change_lists[0]->mutable_parent_resource_ids()->push_back(
-      "folder:sub_dir_folder_resource_id");
+      "sub_dir_folder_resource_id");
 
   directory.set_title("Directory 2 excludeDir-test");
-  directory.set_resource_id("folder:sub_dir_folder_2_self_link");
+  directory.set_resource_id("sub_dir_folder_2_self_link");
   change_lists[0]->mutable_entries()->push_back(directory);
   change_lists[0]->mutable_parent_resource_ids()->push_back(kRootId);
 
@@ -74,18 +74,18 @@ ScopedVector<ChangeList> CreateBaseChangeList() {
   ResourceEntry file;
 
   file.set_title("File 1.txt");
-  file.set_resource_id("file:2_file_resource_id");
+  file.set_resource_id("2_file_resource_id");
   change_lists[0]->mutable_entries()->push_back(file);
   change_lists[0]->mutable_parent_resource_ids()->push_back(kRootId);
 
   file.set_title("SubDirectory File 1.txt");
-  file.set_resource_id("file:subdirectory_file_1_id");
+  file.set_resource_id("subdirectory_file_1_id");
   change_lists[0]->mutable_entries()->push_back(file);
   change_lists[0]->mutable_parent_resource_ids()->push_back(
-      "folder:1_folder_resource_id");
+      "1_folder_resource_id");
 
   file.set_title("Orphan File 1.txt");
-  file.set_resource_id("file:1_orphanfile_resource_id");
+  file.set_resource_id("1_orphanfile_resource_id");
   change_lists[0]->mutable_entries()->push_back(file);
   change_lists[0]->mutable_parent_resource_ids()->push_back("");
 
@@ -132,7 +132,7 @@ class ChangeListProcessorTest : public testing::Test {
   // Applies the |changes| to |metadata_| as a delta update. Delta changelists
   // should contain their changestamp in themselves.
   FileError ApplyChangeList(ScopedVector<ChangeList> changes,
-                            std::set<base::FilePath>* changed_dirs) {
+                            FileChange* changed_files) {
     scoped_ptr<google_apis::AboutResource> about_resource(
         new google_apis::AboutResource);
     about_resource->set_largest_change_id(kBaseResourceListChangestamp);
@@ -142,7 +142,7 @@ class ChangeListProcessorTest : public testing::Test {
     FileError error = processor.Apply(about_resource.Pass(),
                                       changes.Pass(),
                                       true /* is_delta_update */);
-    *changed_dirs = processor.changed_dirs();
+    *changed_files = processor.changed_files();
     return error;
   }
 
@@ -175,23 +175,23 @@ TEST_F(ChangeListProcessorTest, ApplyFullResourceList) {
       // Root files
       {"drive/root", kRootId, "", DIRECTORY},
       {"drive/root/File 1.txt",
-          "file:2_file_resource_id", kRootId, FILE},
+          "2_file_resource_id", kRootId, FILE},
       // Subdirectory files
       {"drive/root/Directory 1",
-          "folder:1_folder_resource_id", kRootId, DIRECTORY},
+          "1_folder_resource_id", kRootId, DIRECTORY},
       {"drive/root/Directory 1/SubDirectory File 1.txt",
-          "file:subdirectory_file_1_id", "folder:1_folder_resource_id", FILE},
+          "subdirectory_file_1_id", "1_folder_resource_id", FILE},
       {"drive/root/Directory 2 excludeDir-test",
-          "folder:sub_dir_folder_2_self_link", kRootId, DIRECTORY},
+          "sub_dir_folder_2_self_link", kRootId, DIRECTORY},
       // Deeper
       {"drive/root/Directory 1/Sub Directory Folder",
-          "folder:sub_dir_folder_resource_id",
-          "folder:1_folder_resource_id", DIRECTORY},
+          "sub_dir_folder_resource_id",
+          "1_folder_resource_id", DIRECTORY},
       {"drive/root/Directory 1/Sub Directory Folder/Sub Sub Directory Folder",
-          "folder:sub_sub_directory_folder_id",
-          "folder:sub_dir_folder_resource_id", DIRECTORY},
+          "sub_sub_directory_folder_id",
+          "sub_dir_folder_resource_id", DIRECTORY},
       // Orphan
-      {"drive/other/Orphan File 1.txt", "file:1_orphanfile_resource_id",
+      {"drive/other/Orphan File 1.txt", "1_orphanfile_resource_id",
            "", FILE},
   };
 
@@ -218,14 +218,14 @@ TEST_F(ChangeListProcessorTest, DeltaFileAddedInNewDirectory) {
   change_lists.push_back(new ChangeList);
 
   ResourceEntry new_folder;
-  new_folder.set_resource_id("folder:new_folder_resource_id");
+  new_folder.set_resource_id("new_folder_resource_id");
   new_folder.set_title("New Directory");
   new_folder.mutable_file_info()->set_is_directory(true);
   change_lists[0]->mutable_entries()->push_back(new_folder);
   change_lists[0]->mutable_parent_resource_ids()->push_back(kRootId);
 
   ResourceEntry new_file;
-  new_file.set_resource_id("document:file_added_in_new_dir_id");
+  new_file.set_resource_id("file_added_in_new_dir_id");
   new_file.set_title("File in new dir.txt");
   change_lists[0]->mutable_entries()->push_back(new_file);
   change_lists[0]->mutable_parent_resource_ids()->push_back(
@@ -235,8 +235,10 @@ TEST_F(ChangeListProcessorTest, DeltaFileAddedInNewDirectory) {
 
   // Apply the changelist and check the effect.
   EXPECT_EQ(FILE_ERROR_OK, ApplyFullResourceList(CreateBaseChangeList()));
-  std::set<base::FilePath> changed_dirs;
-  EXPECT_EQ(FILE_ERROR_OK, ApplyChangeList(change_lists.Pass(), &changed_dirs));
+
+  FileChange changed_files;
+  EXPECT_EQ(FILE_ERROR_OK,
+            ApplyChangeList(change_lists.Pass(), &changed_files));
 
   int64 changestamp = 0;
   EXPECT_EQ(FILE_ERROR_OK, metadata_->GetLargestChangestamp(&changestamp));
@@ -245,10 +247,10 @@ TEST_F(ChangeListProcessorTest, DeltaFileAddedInNewDirectory) {
   EXPECT_TRUE(GetResourceEntry(
       "drive/root/New Directory/File in new dir.txt"));
 
-  EXPECT_EQ(2U, changed_dirs.size());
-  EXPECT_TRUE(changed_dirs.count(
-      base::FilePath::FromUTF8Unsafe("drive/root")));
-  EXPECT_TRUE(changed_dirs.count(
+  EXPECT_EQ(2U, changed_files.size());
+  EXPECT_TRUE(changed_files.count(base::FilePath::FromUTF8Unsafe(
+      "drive/root/New Directory/File in new dir.txt")));
+  EXPECT_TRUE(changed_files.count(
       base::FilePath::FromUTF8Unsafe("drive/root/New Directory")));
 }
 
@@ -257,19 +259,21 @@ TEST_F(ChangeListProcessorTest, DeltaDirMovedFromRootToDirectory) {
   change_lists.push_back(new ChangeList);
 
   ResourceEntry entry;
-  entry.set_resource_id("folder:1_folder_resource_id");
+  entry.set_resource_id("1_folder_resource_id");
   entry.set_title("Directory 1");
   entry.mutable_file_info()->set_is_directory(true);
   change_lists[0]->mutable_entries()->push_back(entry);
   change_lists[0]->mutable_parent_resource_ids()->push_back(
-      "folder:sub_dir_folder_2_self_link");
+      "sub_dir_folder_2_self_link");
 
   change_lists[0]->set_largest_changestamp(16809);
 
   // Apply the changelist and check the effect.
   EXPECT_EQ(FILE_ERROR_OK, ApplyFullResourceList(CreateBaseChangeList()));
-  std::set<base::FilePath> changed_dirs;
-  EXPECT_EQ(FILE_ERROR_OK, ApplyChangeList(change_lists.Pass(), &changed_dirs));
+
+  FileChange changed_files;
+  EXPECT_EQ(FILE_ERROR_OK,
+            ApplyChangeList(change_lists.Pass(), &changed_files));
 
   int64 changestamp = 0;
   EXPECT_EQ(FILE_ERROR_OK, metadata_->GetLargestChangestamp(&changestamp));
@@ -278,17 +282,15 @@ TEST_F(ChangeListProcessorTest, DeltaDirMovedFromRootToDirectory) {
   EXPECT_TRUE(GetResourceEntry(
       "drive/root/Directory 2 excludeDir-test/Directory 1"));
 
-  EXPECT_EQ(4U, changed_dirs.size());
-  EXPECT_TRUE(changed_dirs.count(
+  EXPECT_EQ(2U, changed_files.size());
+  EXPECT_TRUE(changed_files.CountDirectory(
       base::FilePath::FromUTF8Unsafe("drive/root")));
-  EXPECT_TRUE(changed_dirs.count(
+  EXPECT_TRUE(changed_files.count(
       base::FilePath::FromUTF8Unsafe("drive/root/Directory 1")));
-  EXPECT_TRUE(changed_dirs.count(
-      base::FilePath::FromUTF8Unsafe(
-          "drive/root/Directory 2 excludeDir-test")));
-  EXPECT_TRUE(changed_dirs.count(
-      base::FilePath::FromUTF8Unsafe(
-          "drive/root/Directory 2 excludeDir-test/Directory 1")));
+  EXPECT_TRUE(changed_files.CountDirectory(base::FilePath::FromUTF8Unsafe(
+      "drive/root/Directory 2 excludeDir-test")));
+  EXPECT_TRUE(changed_files.count(base::FilePath::FromUTF8Unsafe(
+      "drive/root/Directory 2 excludeDir-test/Directory 1")));
 }
 
 TEST_F(ChangeListProcessorTest, DeltaFileMovedFromDirectoryToRoot) {
@@ -296,7 +298,7 @@ TEST_F(ChangeListProcessorTest, DeltaFileMovedFromDirectoryToRoot) {
   change_lists.push_back(new ChangeList);
 
   ResourceEntry entry;
-  entry.set_resource_id("file:subdirectory_file_1_id");
+  entry.set_resource_id("subdirectory_file_1_id");
   entry.set_title("SubDirectory File 1.txt");
   change_lists[0]->mutable_entries()->push_back(entry);
   change_lists[0]->mutable_parent_resource_ids()->push_back(kRootId);
@@ -305,8 +307,9 @@ TEST_F(ChangeListProcessorTest, DeltaFileMovedFromDirectoryToRoot) {
 
   // Apply the changelist and check the effect.
   EXPECT_EQ(FILE_ERROR_OK, ApplyFullResourceList(CreateBaseChangeList()));
-  std::set<base::FilePath> changed_dirs;
-  EXPECT_EQ(FILE_ERROR_OK, ApplyChangeList(change_lists.Pass(), &changed_dirs));
+  FileChange changed_files;
+  EXPECT_EQ(FILE_ERROR_OK,
+            ApplyChangeList(change_lists.Pass(), &changed_files));
 
   int64 changestamp = 0;
   EXPECT_EQ(FILE_ERROR_OK, metadata_->GetLargestChangestamp(&changestamp));
@@ -315,11 +318,11 @@ TEST_F(ChangeListProcessorTest, DeltaFileMovedFromDirectoryToRoot) {
       "drive/root/Directory 1/SubDirectory File 1.txt"));
   EXPECT_TRUE(GetResourceEntry("drive/root/SubDirectory File 1.txt"));
 
-  EXPECT_EQ(2U, changed_dirs.size());
-  EXPECT_TRUE(changed_dirs.count(
-      base::FilePath::FromUTF8Unsafe("drive/root")));
-  EXPECT_TRUE(changed_dirs.count(
-      base::FilePath::FromUTF8Unsafe("drive/root/Directory 1")));
+  EXPECT_EQ(2U, changed_files.size());
+  EXPECT_TRUE(changed_files.count(
+      base::FilePath::FromUTF8Unsafe("drive/root/SubDirectory File 1.txt")));
+  EXPECT_TRUE(changed_files.count(base::FilePath::FromUTF8Unsafe(
+      "drive/root/Directory 1/SubDirectory File 1.txt")));
 }
 
 TEST_F(ChangeListProcessorTest, DeltaFileRenamedInDirectory) {
@@ -327,18 +330,19 @@ TEST_F(ChangeListProcessorTest, DeltaFileRenamedInDirectory) {
   change_lists.push_back(new ChangeList);
 
   ResourceEntry entry;
-  entry.set_resource_id("file:subdirectory_file_1_id");
+  entry.set_resource_id("subdirectory_file_1_id");
   entry.set_title("New SubDirectory File 1.txt");
   change_lists[0]->mutable_entries()->push_back(entry);
   change_lists[0]->mutable_parent_resource_ids()->push_back(
-      "folder:1_folder_resource_id");
+      "1_folder_resource_id");
 
   change_lists[0]->set_largest_changestamp(16767);
 
   // Apply the changelist and check the effect.
   EXPECT_EQ(FILE_ERROR_OK, ApplyFullResourceList(CreateBaseChangeList()));
-  std::set<base::FilePath> changed_dirs;
-  EXPECT_EQ(FILE_ERROR_OK, ApplyChangeList(change_lists.Pass(), &changed_dirs));
+  FileChange changed_files;
+  EXPECT_EQ(FILE_ERROR_OK,
+            ApplyChangeList(change_lists.Pass(), &changed_files));
 
   int64 changestamp = 0;
   EXPECT_EQ(FILE_ERROR_OK, metadata_->GetLargestChangestamp(&changestamp));
@@ -348,9 +352,11 @@ TEST_F(ChangeListProcessorTest, DeltaFileRenamedInDirectory) {
   EXPECT_TRUE(GetResourceEntry(
       "drive/root/Directory 1/New SubDirectory File 1.txt"));
 
-  EXPECT_EQ(1U, changed_dirs.size());
-  EXPECT_TRUE(changed_dirs.count(
-      base::FilePath::FromUTF8Unsafe("drive/root/Directory 1")));
+  EXPECT_EQ(2U, changed_files.size());
+  EXPECT_TRUE(changed_files.count(base::FilePath::FromUTF8Unsafe(
+      "drive/root/Directory 1/SubDirectory File 1.txt")));
+  EXPECT_TRUE(changed_files.count(base::FilePath::FromUTF8Unsafe(
+      "drive/root/Directory 1/New SubDirectory File 1.txt")));
 }
 
 TEST_F(ChangeListProcessorTest, DeltaAddAndDeleteFileInRoot) {
@@ -359,7 +365,7 @@ TEST_F(ChangeListProcessorTest, DeltaAddAndDeleteFileInRoot) {
   change_lists.push_back(new ChangeList);
 
   ResourceEntry entry;
-  entry.set_resource_id("document:added_in_root_id");
+  entry.set_resource_id("added_in_root_id");
   entry.set_title("Added file.txt");
   change_lists[0]->mutable_entries()->push_back(entry);
   change_lists[0]->mutable_parent_resource_ids()->push_back(kRootId);
@@ -368,15 +374,17 @@ TEST_F(ChangeListProcessorTest, DeltaAddAndDeleteFileInRoot) {
 
   // Apply.
   EXPECT_EQ(FILE_ERROR_OK, ApplyFullResourceList(CreateBaseChangeList()));
-  std::set<base::FilePath> changed_dirs;
-  EXPECT_EQ(FILE_ERROR_OK, ApplyChangeList(change_lists.Pass(), &changed_dirs));
+  FileChange changed_files;
+  EXPECT_EQ(FILE_ERROR_OK,
+            ApplyChangeList(change_lists.Pass(), &changed_files));
+
   int64 changestamp = 0;
   EXPECT_EQ(FILE_ERROR_OK, metadata_->GetLargestChangestamp(&changestamp));
   EXPECT_EQ(16683, changestamp);
   EXPECT_TRUE(GetResourceEntry("drive/root/Added file.txt"));
-  EXPECT_EQ(1U, changed_dirs.size());
-  EXPECT_TRUE(changed_dirs.count(
-      base::FilePath::FromUTF8Unsafe("drive/root")));
+  EXPECT_EQ(1U, changed_files.size());
+  EXPECT_TRUE(changed_files.count(
+      base::FilePath::FromUTF8Unsafe("drive/root/Added file.txt")));
 
   // Create ChangeList to delete the file.
   change_lists.push_back(new ChangeList);
@@ -388,13 +396,14 @@ TEST_F(ChangeListProcessorTest, DeltaAddAndDeleteFileInRoot) {
   change_lists[0]->set_largest_changestamp(16687);
 
   // Apply.
-  EXPECT_EQ(FILE_ERROR_OK, ApplyChangeList(change_lists.Pass(), &changed_dirs));
+  EXPECT_EQ(FILE_ERROR_OK,
+            ApplyChangeList(change_lists.Pass(), &changed_files));
   EXPECT_EQ(FILE_ERROR_OK, metadata_->GetLargestChangestamp(&changestamp));
   EXPECT_EQ(16687, changestamp);
   EXPECT_FALSE(GetResourceEntry("drive/root/Added file.txt"));
-  EXPECT_EQ(1U, changed_dirs.size());
-  EXPECT_TRUE(changed_dirs.count(
-      base::FilePath::FromUTF8Unsafe("drive/root")));
+  EXPECT_EQ(1U, changed_files.size());
+  EXPECT_TRUE(changed_files.count(
+      base::FilePath::FromUTF8Unsafe("drive/root/Added file.txt")));
 }
 
 
@@ -404,26 +413,27 @@ TEST_F(ChangeListProcessorTest, DeltaAddAndDeleteFileFromExistingDirectory) {
   change_lists.push_back(new ChangeList);
 
   ResourceEntry entry;
-  entry.set_resource_id("document:added_in_root_id");
+  entry.set_resource_id("added_in_root_id");
   entry.set_title("Added file.txt");
   change_lists[0]->mutable_entries()->push_back(entry);
   change_lists[0]->mutable_parent_resource_ids()->push_back(
-      "folder:1_folder_resource_id");
+      "1_folder_resource_id");
 
   change_lists[0]->set_largest_changestamp(16730);
 
   // Apply.
   EXPECT_EQ(FILE_ERROR_OK, ApplyFullResourceList(CreateBaseChangeList()));
-  std::set<base::FilePath> changed_dirs;
-  EXPECT_EQ(FILE_ERROR_OK, ApplyChangeList(change_lists.Pass(), &changed_dirs));
+  FileChange changed_files;
+  EXPECT_EQ(FILE_ERROR_OK,
+            ApplyChangeList(change_lists.Pass(), &changed_files));
   int64 changestamp = 0;
   EXPECT_EQ(FILE_ERROR_OK, metadata_->GetLargestChangestamp(&changestamp));
   EXPECT_EQ(16730, changestamp);
   EXPECT_TRUE(GetResourceEntry("drive/root/Directory 1/Added file.txt"));
 
-  EXPECT_EQ(1U, changed_dirs.size());
-  EXPECT_TRUE(changed_dirs.count(
-      base::FilePath::FromUTF8Unsafe("drive/root/Directory 1")));
+  EXPECT_EQ(1U, changed_files.size());
+  EXPECT_TRUE(changed_files.count(
+      base::FilePath::FromUTF8Unsafe("drive/root/Directory 1/Added file.txt")));
 
   // Create ChangeList to delete the file.
   change_lists.push_back(new ChangeList);
@@ -431,19 +441,20 @@ TEST_F(ChangeListProcessorTest, DeltaAddAndDeleteFileFromExistingDirectory) {
   entry.set_deleted(true);
   change_lists[0]->mutable_entries()->push_back(entry);
   change_lists[0]->mutable_parent_resource_ids()->push_back(
-      "folder:1_folder_resource_id");
+      "1_folder_resource_id");
 
   change_lists[0]->set_largest_changestamp(16770);
 
   // Apply.
-  EXPECT_EQ(FILE_ERROR_OK, ApplyChangeList(change_lists.Pass(), &changed_dirs));
+  EXPECT_EQ(FILE_ERROR_OK,
+            ApplyChangeList(change_lists.Pass(), &changed_files));
   EXPECT_EQ(FILE_ERROR_OK, metadata_->GetLargestChangestamp(&changestamp));
   EXPECT_EQ(16770, changestamp);
   EXPECT_FALSE(GetResourceEntry("drive/root/Directory 1/Added file.txt"));
 
-  EXPECT_EQ(1U, changed_dirs.size());
-  EXPECT_TRUE(changed_dirs.count(
-      base::FilePath::FromUTF8Unsafe("drive/root/Directory 1")));
+  EXPECT_EQ(1U, changed_files.size());
+  EXPECT_TRUE(changed_files.count(
+      base::FilePath::FromUTF8Unsafe("drive/root/Directory 1/Added file.txt")));
 }
 
 TEST_F(ChangeListProcessorTest, DeltaAddFileToNewButDeletedDirectory) {
@@ -455,15 +466,15 @@ TEST_F(ChangeListProcessorTest, DeltaAddFileToNewButDeletedDirectory) {
   change_lists.push_back(new ChangeList);
 
   ResourceEntry file;
-  file.set_resource_id("pdf:file_added_in_deleted_id");
+  file.set_resource_id("file_added_in_deleted_id");
   file.set_title("new_pdf_file.pdf");
   file.set_deleted(true);
   change_lists[0]->mutable_entries()->push_back(file);
   change_lists[0]->mutable_parent_resource_ids()->push_back(
-      "folder:new_folder_resource_id");
+      "new_folder_resource_id");
 
   ResourceEntry directory;
-  directory.set_resource_id("folder:new_folder_resource_id");
+  directory.set_resource_id("new_folder_resource_id");
   directory.set_title("New Directory");
   directory.mutable_file_info()->set_is_directory(true);
   directory.set_deleted(true);
@@ -474,15 +485,16 @@ TEST_F(ChangeListProcessorTest, DeltaAddFileToNewButDeletedDirectory) {
 
   // Apply the changelist and check the effect.
   EXPECT_EQ(FILE_ERROR_OK, ApplyFullResourceList(CreateBaseChangeList()));
-  std::set<base::FilePath> changed_dirs;
-  EXPECT_EQ(FILE_ERROR_OK, ApplyChangeList(change_lists.Pass(), &changed_dirs));
+  FileChange changed_files;
+  EXPECT_EQ(FILE_ERROR_OK,
+            ApplyChangeList(change_lists.Pass(), &changed_files));
 
   int64 changestamp = 0;
   EXPECT_EQ(FILE_ERROR_OK, metadata_->GetLargestChangestamp(&changestamp));
   EXPECT_EQ(16730, changestamp);
   EXPECT_FALSE(GetResourceEntry("drive/root/New Directory/new_pdf_file.pdf"));
 
-  EXPECT_TRUE(changed_dirs.empty());
+  EXPECT_TRUE(changed_files.empty());
 }
 
 TEST_F(ChangeListProcessorTest, RefreshDirectory) {
@@ -578,8 +590,9 @@ TEST_F(ChangeListProcessorTest, SharedFilesWithNoParentInFeed) {
   change_lists[0]->mutable_parent_resource_ids()->push_back("nonexisting");
   change_lists[0]->set_largest_changestamp(kBaseResourceListChangestamp + 1);
 
-  std::set<base::FilePath> changed_dirs;
-  EXPECT_EQ(FILE_ERROR_OK, ApplyChangeList(change_lists.Pass(), &changed_dirs));
+  FileChange changed_files;
+  EXPECT_EQ(FILE_ERROR_OK,
+            ApplyChangeList(change_lists.Pass(), &changed_files));
 
   // "new_file" should be added under drive/other.
   ResourceEntry entry;
@@ -622,8 +635,9 @@ TEST_F(ChangeListProcessorTest, ModificationDate) {
   EXPECT_EQ(FILE_ERROR_OK, metadata_->AddEntry(new_file_local, &local_id));
 
   // Apply the change.
-  std::set<base::FilePath> changed_dirs;
-  EXPECT_EQ(FILE_ERROR_OK, ApplyChangeList(change_lists.Pass(), &changed_dirs));
+  FileChange changed_files;
+  EXPECT_EQ(FILE_ERROR_OK,
+            ApplyChangeList(change_lists.Pass(), &changed_files));
 
   // The change is rejected due to the old modification date.
   ResourceEntry entry;

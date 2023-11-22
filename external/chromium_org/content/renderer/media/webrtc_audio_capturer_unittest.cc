@@ -105,7 +105,7 @@ class WebRtcAudioCapturerTest : public testing::Test {
 
     scoped_refptr<WebRtcLocalAudioTrackAdapter> adapter(
         WebRtcLocalAudioTrackAdapter::Create(std::string(), NULL));
-    track_.reset(new WebRtcLocalAudioTrack(adapter, capturer_, NULL));
+    track_.reset(new WebRtcLocalAudioTrack(adapter.get(), capturer_, NULL));
     track_->Start();
 
     // Connect a mock sink to the track.
@@ -124,13 +124,15 @@ class WebRtcAudioCapturerTest : public testing::Test {
     audio_bus->Zero();
 
     media::AudioCapturerSource::CaptureCallback* callback =
-        static_cast<media::AudioCapturerSource::CaptureCallback*>(capturer_);
+        static_cast<media::AudioCapturerSource::CaptureCallback*>(
+            capturer_.get());
 
     // Verify the sink is getting the correct values.
     EXPECT_CALL(*sink, FormatIsSet());
     EXPECT_CALL(*sink,
                 OnDataCallback(_, _, delay_ms, expected_volume_value,
-                               need_audio_processing, key_pressed));
+                               need_audio_processing, key_pressed))
+        .Times(AtLeast(1));
     callback->Capture(audio_bus.get(), delay_ms, volume, key_pressed);
 
     // Verify the cached values in the capturer fits what we expect.
@@ -184,7 +186,7 @@ TEST_F(WebRtcAudioCapturerTest, FailToCreateCapturerWithWrongConstraints) {
                                params_.frames_per_buffer()),
           constraint_factory.CreateWebMediaConstraints(), NULL, NULL)
   );
-  EXPECT_TRUE(capturer == NULL);
+  EXPECT_TRUE(capturer.get() == NULL);
 }
 
 

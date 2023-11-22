@@ -61,14 +61,14 @@ test.util.sync.getWindows = function() {
   for (var id in background.appWindows) {
     var windowWrapper = background.appWindows[id];
     windows[id] = {
-      innerWidth: windowWrapper.contentWindow.innerWidth,
-      innerHeight: windowWrapper.contentWindow.innerHeight
+      outerWidth: windowWrapper.contentWindow.outerWidth,
+      outerHeight: windowWrapper.contentWindow.outerHeight
     };
   }
   for (var id in background.dialogs) {
     windows[id] = {
-      innerWidth: background.dialogs[id].innerWidth,
-      innerHeight: background.dialogs[id].innerHeight
+      outerWidth: background.dialogs[id].outerWidth,
+      outerHeight: background.dialogs[id].outerHeight
     };
   }
   return windows;
@@ -565,7 +565,7 @@ test.util.sync.overrideInstallWebstoreItemApi =
         message ? {message: message} : null;
   };
 
-  var installWebstoreItem = function(itemId, callback) {
+  var installWebstoreItem = function(itemId, silentInstallation, callback) {
     setTimeout(function() {
       if (itemId !== expectedItemId) {
         setLastError('Invalid Chrome Web Store item ID');
@@ -579,7 +579,7 @@ test.util.sync.overrideInstallWebstoreItemApi =
   };
 
   test.util.executedTasks_ = [];
-  contentWindow.chrome.fileBrowserPrivate.installWebstoreItem =
+  contentWindow.chrome.fileManagerPrivate.installWebstoreItem =
       installWebstoreItem;
   return true;
 };
@@ -589,11 +589,11 @@ test.util.sync.overrideInstallWebstoreItemApi =
  *
  * @param {Window} contentWindow Window to be tested.
  * @param {Array.<Object>} taskList List of tasks to be returned in
- *     fileBrowserPrivate.getFileTasks().
+ *     fileManagerPrivate.getFileTasks().
  * @return {boolean} Always return true.
  */
 test.util.sync.overrideTasks = function(contentWindow, taskList) {
-  var getFileTasks = function(urls, mime, onTasks) {
+  var getFileTasks = function(urls, onTasks) {
     // Call onTask asynchronously (same with original getFileTasks).
     setTimeout(function() {
       onTasks(taskList);
@@ -611,9 +611,9 @@ test.util.sync.overrideTasks = function(contentWindow, taskList) {
   };
 
   test.util.executedTasks_ = [];
-  contentWindow.chrome.fileBrowserPrivate.getFileTasks = getFileTasks;
-  contentWindow.chrome.fileBrowserPrivate.executeTask = executeTask;
-  contentWindow.chrome.fileBrowserPrivate.setDefaultTask = setDefaultTask;
+  contentWindow.chrome.fileManagerPrivate.getFileTasks = getFileTasks;
+  contentWindow.chrome.fileManagerPrivate.executeTask = executeTask;
+  contentWindow.chrome.fileManagerPrivate.setDefaultTask = setDefaultTask;
   return true;
 };
 
@@ -631,7 +631,7 @@ test.util.sync.getExecutedTasks = function(contentWindow) {
 };
 
 /**
- * Invoke chrome.fileBrowserPrivate.visitDesktop(profileId) to cause window
+ * Invoke chrome.fileManagerPrivate.visitDesktop(profileId) to cause window
  * teleportation.
  *
  * @param {Window} contentWindow Window to be tested.
@@ -639,7 +639,7 @@ test.util.sync.getExecutedTasks = function(contentWindow) {
  * @return {boolean} Always return true.
  */
 test.util.sync.visitDesktop = function(contentWindow, profileId) {
-  contentWindow.chrome.fileBrowserPrivate.visitDesktop(profileId);
+  contentWindow.chrome.fileManagerPrivate.visitDesktop(profileId);
   return true;
 };
 

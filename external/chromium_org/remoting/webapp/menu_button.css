@@ -8,8 +8,10 @@
 }
 
 .menu-button-activator + ul {
-  visibility: hidden;
+  display: none;
   position: absolute;
+  line-height: normal;
+  text-align: __MSG_@@bidi_start_edge__;
 }
 
 .menu-button-activator + ul:not(.right-align) {
@@ -21,10 +23,10 @@
 }
 
 .menu-button-activator.active + ul {
-  visibility: visible;
+  display: block;
 }
 
-.menu-button-activator.active {
+button.menu-button-activator.active {
   background-color: #EEE;
   background-image: -webkit-gradient(linear, left top, left bottom,
                                      from(#EEE), to(#E0E0E0));
@@ -47,7 +49,7 @@
   outline: 1px solid rgba(0, 0, 0, 0.2);
   padding: 0 0 6px;
   box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
-  z-index: 1;
+  z-index: 2;
 }
 
 .menu-button li {
@@ -86,4 +88,13 @@
 #help-feedback-toolbar {
   margin-left: 8px;
   margin-top: 4px;
+}
+
+.menu-button-click-trap {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
 }

@@ -11,8 +11,8 @@
 #include "base/memory/ref_counted.h"
 #include "base/supports_user_data.h"
 #include "content/common/content_export.h"
+#include "storage/common/data_element.h"
 #include "url/gurl.h"
-#include "webkit/common/data_element.h"
 
 namespace base {
 class FilePath;
@@ -23,10 +23,10 @@ namespace content {
 // A struct used to represent upload data. The data field is populated by
 // WebURLLoader from the data given as WebHTTPBody.
 class CONTENT_EXPORT ResourceRequestBody
-    : public base::RefCounted<ResourceRequestBody>,
+    : public base::RefCountedThreadSafe<ResourceRequestBody>,
       public base::SupportsUserData {
  public:
-  typedef webkit_common::DataElement Element;
+  typedef storage::DataElement Element;
 
   ResourceRequestBody();
 
@@ -51,7 +51,7 @@ class CONTENT_EXPORT ResourceRequestBody
   int64 identifier() const { return identifier_; }
 
  private:
-  friend class base::RefCounted<ResourceRequestBody>;
+  friend class base::RefCountedThreadSafe<ResourceRequestBody>;
   virtual ~ResourceRequestBody();
 
   std::vector<Element> elements_;

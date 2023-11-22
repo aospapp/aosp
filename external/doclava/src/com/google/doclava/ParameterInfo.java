@@ -18,7 +18,9 @@ package com.google.doclava;
 
 import com.google.clearsilver.jsilver.data.Data;
 
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map;
 
 public class ParameterInfo {
   public ParameterInfo(String name, String typeName, TypeInfo type, boolean isVarArg,
@@ -28,6 +30,14 @@ public class ParameterInfo {
     mType = type;
     mIsVarArg = isVarArg;
     mPosition = position;
+  }
+
+  /**
+   * Clone this Parameter, but replace the type according to the typeArgumentMapping provided.
+   */
+  public ParameterInfo cloneWithTypeArguments(Map<String, TypeInfo> typeArgumentMapping) {
+    return new ParameterInfo(
+        mName, mTypeName, mType.getTypeWithArguments(typeArgumentMapping), mIsVarArg, mPosition);
   }
 
   TypeInfo type() {
@@ -45,23 +55,35 @@ public class ParameterInfo {
   SourcePositionInfo position() {
     return mPosition;
   }
-  
+
   boolean isVarArg() {
     return mIsVarArg;
   }
 
   public void makeHDF(Data data, String base, boolean isLastVararg, HashSet<String> typeVariables) {
+    makeHDF(data, base, isLastVararg, typeVariables, Collections.<String, TypeInfo>emptyMap());
+  }
+
+  public void makeHDF(Data data, String base, boolean isLastVararg, HashSet<String> typeVariables,
+      Map<String, TypeInfo> typeMapping) {
     data.setValue(base + ".name", this.name());
-    type().makeHDF(data, base + ".type", isLastVararg, typeVariables);
+    type().getTypeWithArguments(typeMapping).makeHDF(
+        data, base + ".type", isLastVararg, typeVariables);
   }
 
   public static void makeHDF(Data data, String base, ParameterInfo[] params, boolean isVararg,
       HashSet<String> typeVariables) {
+    makeHDF(data, base, params, isVararg, typeVariables, Collections.<String, TypeInfo>emptyMap());
+  }
+
+  public static void makeHDF(Data data, String base, ParameterInfo[] params, boolean isVararg,
+      HashSet<String> typeVariables, Map<String, TypeInfo> typeMapping) {
     for (int i = 0; i < params.length; i++) {
-      params[i].makeHDF(data, base + "." + i, isVararg && (i == params.length - 1), typeVariables);
+      params[i].makeHDF(
+          data, base + "." + i, isVararg && (i == params.length - 1), typeVariables, typeMapping);
     }
   }
-  
+
   /**
    * Returns true if this parameter's dimension information agrees
    * with the represented callee's dimension information.

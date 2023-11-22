@@ -5,6 +5,11 @@
                                api:api/}}
 </div>
 <div class="description">
+  {{?availability}}
+  <p class="availability">
+    {{+availability.partial content:availability item:function/}}
+  </p>
+  {{/availability}}
   {{?description}}
   <p>
     {{{description}}}
@@ -17,7 +22,6 @@
       {{+partials.parameter_full
           parameter:p
           parentName:name
-          parentCallback:callback
           hideParamTOC:true /}}
     {{/parameters}}
   </table>

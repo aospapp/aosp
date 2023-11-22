@@ -15,9 +15,20 @@ Polymer('audio-player', {
   // Attributes of the element (lower characters only).
   // These values must be used only to data binding and shouldn't be assigned
   // any value nowhere except in the handler.
-  playing: false,
-  currenttrackurl: '',
-  playcount: 0,
+  publish: {
+    playing: {
+      value: true,
+      reflect: true
+    },
+    currenttrackurl: {
+      value: '',
+      reflect: true
+    },
+    playcount: {
+      value: 0,
+      reflect: true
+    }
+  },
 
   /**
    * Model object of the Audio Player.
@@ -250,15 +261,29 @@ Polymer('audio-player', {
    */
   scheduleAutoAdvance_: function(forward, repeat) {
     this.cancelAutoAdvance_();
-    this.autoAdvanceTimer_ = setTimeout(
+    var currentTrackIndex = this.currentTrackIndex;
+
+    var timerId = setTimeout(
         function() {
+          // If the other timer is scheduled, do nothing.
+          if (this.autoAdvanceTimer_ !== timerId)
+            return;
+
           this.autoAdvanceTimer_ = null;
+
+          // If the track has been changed since the advance was scheduled, do
+          // nothing.
+          if (this.currentTrackIndex !== currentTrackIndex)
+            return;
+
           // We are advancing only if the next track is not known to be invalid.
           // This prevents an endless auto-advancing in the case when all tracks
           // are invalid (we will only visit each track once).
           this.advance_(forward, repeat, true /* only if valid */);
         }.bind(this),
         3000);
+
+    this.autoAdvanceTimer_ = timerId;
   },
 
   /**
@@ -338,6 +363,19 @@ Polymer('audio-player', {
       case 'PageDown':
         if (this.audioController.volumeSliderShown && this.model.volume > 9)
           this.model.volume -= 10;
+        break;
+      case 'MediaNextTrack':
+        this.onControllerNextClicked();
+        break;
+      case 'MediaPlayPause':
+        var playing = this.audioController.playing;
+        this.onControllerPlayingChanged(playing, !playing);
+        break;
+      case 'MediaPreviousTrack':
+        this.onControllerPreviousClicked();
+        break;
+      case 'MediaStop':
+        // TODO: Define "Stop" behavior.
         break;
     }
   },

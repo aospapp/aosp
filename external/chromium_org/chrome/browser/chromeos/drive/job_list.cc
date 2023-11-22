@@ -38,8 +38,6 @@ std::string JobTypeToString(JobType type) {
       return "TYPE_COPY_RESOURCE";
     case TYPE_UPDATE_RESOURCE:
       return "TYPE_UPDATE_RESOURCE";
-    case TYPE_RENAME_RESOURCE:
-      return "TYPE_RENAME_RESOURCE";
     case TYPE_ADD_RESOURCE_TO_DIRECTORY:
       return "TYPE_ADD_RESOURCE_TO_DIRECTORY";
     case TYPE_REMOVE_RESOURCE_FROM_DIRECTORY:
@@ -102,14 +100,6 @@ std::string JobInfo::ToString() const {
 bool IsActiveFileTransferJobInfo(const JobInfo& job_info) {
   // Using switch statement so that compiler can warn when new states or types
   // are added.
-  switch (job_info.state) {
-    case STATE_NONE:
-      return false;
-    case STATE_RUNNING:
-    case STATE_RETRY:
-      break;
-  }
-
   switch (job_info.job_type) {
     case TYPE_GET_ABOUT_RESOURCE:
     case TYPE_GET_APP_LIST:
@@ -124,7 +114,6 @@ bool IsActiveFileTransferJobInfo(const JobInfo& job_info) {
     case TYPE_TRASH_RESOURCE:
     case TYPE_COPY_RESOURCE:
     case TYPE_UPDATE_RESOURCE:
-    case TYPE_RENAME_RESOURCE:
     case TYPE_ADD_RESOURCE_TO_DIRECTORY:
     case TYPE_REMOVE_RESOURCE_FROM_DIRECTORY:
     case TYPE_ADD_NEW_DIRECTORY:

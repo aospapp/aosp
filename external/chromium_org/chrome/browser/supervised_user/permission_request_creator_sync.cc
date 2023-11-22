@@ -5,11 +5,11 @@
 #include "chrome/browser/supervised_user/permission_request_creator_sync.h"
 
 #include "base/callback.h"
-#include "base/command_line.h"
 #include "base/values.h"
 #include "chrome/browser/supervised_user/supervised_user_settings_service.h"
 #include "chrome/browser/supervised_user/supervised_user_shared_settings_service.h"
-#include "chrome/common/chrome_switches.h"
+#include "net/base/escape.h"
+#include "url/gurl.h"
 
 using base::Time;
 
@@ -37,11 +37,12 @@ PermissionRequestCreatorSync::PermissionRequestCreatorSync(
 PermissionRequestCreatorSync::~PermissionRequestCreatorSync() {}
 
 void PermissionRequestCreatorSync::CreatePermissionRequest(
-    const std::string& url_requested,
+    const GURL& url_requested,
     const base::Closure& callback) {
-  // Add the prefix.
+  // Escape the URL and add the prefix.
   std::string key = SupervisedUserSettingsService::MakeSplitSettingKey(
-      kSupervisedUserAccessRequestKeyPrefix, url_requested);
+      kSupervisedUserAccessRequestKeyPrefix,
+      net::EscapeQueryParamValue(url_requested.spec(), true));
 
   scoped_ptr<base::DictionaryValue> dict(new base::DictionaryValue);
 
@@ -55,10 +56,7 @@ void PermissionRequestCreatorSync::CreatePermissionRequest(
   const base::Value* value = shared_settings_service_->GetValue(
       supervised_user_id_, kNotificationSetting);
   bool notifications_enabled = false;
-  if (CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableAccessRequestNotifications)) {
-    notifications_enabled = true;
-  } else if (value) {
+  if (value) {
     bool success = value->GetAsBoolean(&notifications_enabled);
     DCHECK(success);
   }

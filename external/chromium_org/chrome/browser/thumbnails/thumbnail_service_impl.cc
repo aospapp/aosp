@@ -8,11 +8,11 @@
 #include "base/memory/ref_counted_memory.h"
 #include "base/time/time.h"
 #include "chrome/browser/history/history_service.h"
-#include "chrome/browser/search/search.h"
 #include "chrome/browser/thumbnails/content_based_thumbnailing_algorithm.h"
 #include "chrome/browser/thumbnails/simple_thumbnail_crop.h"
 #include "chrome/browser/thumbnails/thumbnailing_context.h"
 #include "chrome/common/chrome_switches.h"
+#include "components/search/search.h"
 #include "url/gurl.h"
 
 using content::BrowserThread;
@@ -21,7 +21,7 @@ namespace {
 
 // The thumbnail size in DIP.
 const int kThumbnailWidth = 212;
-const int kThumbnailHeight = 132;
+const int kThumbnailHeight = 142;
 
 // True if thumbnail retargeting feature is enabled (Finch/flags).
 bool IsThumbnailRetargetingEnabled() {

@@ -1,4 +1,5 @@
 import init.flounder.usb.rc
+import init.flounder_svelte.rc
 
 on init
     start watchdogd
@@ -165,6 +166,7 @@ on property:ro.hw.ks.ready=1
 
 on property:ro.boot.baseband=ROW
     stop ril-daemon
+    setprop persist.radio.apm_sim_not_pwdn 1
     enable kickstart
     mkdir /dev/socket/qmux_radio 0770 radio radio
     chmod 2770 /dev/socket/qmux_radio
@@ -173,9 +175,11 @@ on property:ro.boot.baseband=ROW
     enable netmgrd
     setprop rild.libpath /vendor/lib64/libril-qc-qmi-1.so
     setprop rild.libargs "-e wwan0"
+    setprop persist.radio.snapshot_enabled 1
 
 on property:ro.boot.baseband=US
     stop ril-daemon
+    setprop persist.radio.apm_sim_not_pwdn 1
     enable kickstart
     mkdir /dev/socket/qmux_radio 0770 radio radio
     chmod 2770 /dev/socket/qmux_radio
@@ -184,6 +188,7 @@ on property:ro.boot.baseband=US
     enable netmgrd
     setprop rild.libpath /vendor/lib64/libril-qc-qmi-1.so
     setprop rild.libargs "-e wwan0"
+    setprop persist.radio.snapshot_enabled 1
 
 # bugreport is triggered by holding down volume down, volume up and power
 service bugreport /system/bin/dumpstate -d -p -B \

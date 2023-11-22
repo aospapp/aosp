@@ -8,8 +8,7 @@
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/location_bar/zoom_bubble_view.h"
 #include "chrome/browser/ui/zoom/zoom_controller.h"
-#include "grit/generated_resources.h"
-#include "grit/theme_resources.h"
+#include "chrome/grit/generated_resources.h"
 #include "ui/accessibility/ax_view_state.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -33,8 +32,8 @@ void ZoomView::Update(ZoomController* zoom_controller) {
     return;
   }
 
-  SetTooltipText(l10n_util::GetStringFUTF16Int(IDS_TOOLTIP_ZOOM,
-      zoom_controller->zoom_percent()));
+  SetTooltipText(l10n_util::GetStringFUTF16Int(
+      IDS_TOOLTIP_ZOOM, zoom_controller->GetZoomPercent()));
   SetImage(ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
       zoom_controller->GetResourceForZoomLevel()));
   SetVisible(true);

@@ -14,23 +14,18 @@ import android.util.Log;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import org.chromium.net.ChromiumUrlRequestFactory;
 import org.chromium.net.HttpUrlRequest;
 import org.chromium.net.HttpUrlRequestFactory;
 import org.chromium.net.HttpUrlRequestFactoryConfig;
 import org.chromium.net.HttpUrlRequestListener;
-import org.chromium.net.LibraryLoader;
-import org.chromium.net.UrlRequest;
-import org.chromium.net.UrlRequestContext;
-import org.chromium.net.UrlRequestPriority;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
-import java.nio.channels.WritableByteChannel;
 import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Activity for managing the Cronet Sample.
@@ -43,8 +38,7 @@ public class CronetSampleActivity extends Activity {
     public static final String POST_DATA_KEY = "postData";
     public static final String CONFIG_KEY = "config";
 
-    UrlRequestContext mRequestContext;
-
+    ChromiumUrlRequestFactory mChromiumRequestFactory;
     HttpUrlRequestFactory mRequestFactory;
 
     String mUrl;
@@ -52,43 +46,6 @@ public class CronetSampleActivity extends Activity {
     boolean mLoading = false;
 
     int mHttpStatusCode = 0;
-
-    class SampleRequestContext extends UrlRequestContext {
-        public SampleRequestContext() {
-            super(getApplicationContext(), "Cronet Sample",
-                  new HttpUrlRequestFactoryConfig().toString());
-        }
-    }
-
-    class SampleRequest extends UrlRequest {
-        public SampleRequest(UrlRequestContext requestContext, String url,
-                int priority, Map<String, String> headers,
-                WritableByteChannel sink) {
-            super(requestContext, url, priority, headers, sink);
-        }
-
-        @Override
-        protected void onRequestComplete() {
-            mHttpStatusCode = super.getHttpStatusCode();
-            Log.i(TAG, "****** Request Complete, status code is "
-                    + mHttpStatusCode);
-            Intent intent = new Intent(getApplicationContext(),
-                    CronetSampleActivity.class);
-            startActivity(intent);
-            final String url = super.getUrl();
-            final CharSequence text = "Completed " + url + " ("
-                    + mHttpStatusCode + ")";
-            CronetSampleActivity.this.runOnUiThread(new Runnable() {
-                public void run() {
-                    mLoading = false;
-                    Toast toast = Toast.makeText(getApplicationContext(), text,
-                            Toast.LENGTH_SHORT);
-                    toast.show();
-                    promptForURL(url);
-                }
-            });
-        }
-    }
 
     class SampleHttpUrlRequestListener implements HttpUrlRequestListener {
         public SampleHttpUrlRequestListener() {
@@ -98,6 +55,7 @@ public class CronetSampleActivity extends Activity {
         public void onResponseStarted(HttpUrlRequest request) {
             Log.i(TAG, "****** Response Started, content length is "
                     + request.getContentLength());
+            Log.i(TAG, "*** Headers Are *** " + request.getAllHeaders());
         }
 
         @Override
@@ -127,15 +85,6 @@ public class CronetSampleActivity extends Activity {
     protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        try {
-            LibraryLoader.ensureInitialized();
-        } catch (UnsatisfiedLinkError e) {
-            Log.e(TAG, "libcronet_sample initialization failed.", e);
-            finish();
-            return;
-        }
-
-        mRequestContext = new SampleRequestContext();
         HttpUrlRequestFactoryConfig config = new HttpUrlRequestFactoryConfig();
         config.enableHttpCache(HttpUrlRequestFactoryConfig.HttpCache.IN_MEMORY,
                                100 * 1024)
@@ -156,6 +105,9 @@ public class CronetSampleActivity extends Activity {
         }
 
         mRequestFactory = HttpUrlRequestFactory.createFactory(
+                getApplicationContext(), config);
+
+        mChromiumRequestFactory = new ChromiumUrlRequestFactory(
                 getApplicationContext(), config);
 
         String appUrl = getUrlFromIntent(getIntent());
@@ -206,39 +158,28 @@ public class CronetSampleActivity extends Activity {
         return null;
     }
 
-    private void applyCommandLineToRequest(UrlRequest request) {
+    private void applyCommandLineToHttpUrlRequest(HttpUrlRequest request) {
         String postData = getCommandLineArg(POST_DATA_KEY);
         if (postData != null) {
             InputStream dataStream = new ByteArrayInputStream(
                     postData.getBytes());
             ReadableByteChannel dataChannel = Channels.newChannel(dataStream);
-            request.setUploadChannel("text/plain", dataChannel);
+            request.setUploadChannel("text/plain", dataChannel,
+                    postData.length());
+            request.setHttpMethod("POST");
         }
     }
 
-    private void startWithURL(String url) {
+    public void startWithURL(String url) {
         Log.i(TAG, "Cronet started: " + url);
         mUrl = url;
         mLoading = true;
 
         HashMap<String, String> headers = new HashMap<String, String>();
         HttpUrlRequestListener listener = new SampleHttpUrlRequestListener();
-
         HttpUrlRequest request = mRequestFactory.createRequest(
-                url, UrlRequestPriority.MEDIUM, headers, listener);
-        request.start();
-    }
-
-    public void startWithURL_UrlRequest(String url) {
-        Log.i(TAG, "Cronet started: " + url);
-        mUrl = url;
-        mLoading = true;
-
-        HashMap<String, String> headers = new HashMap<String, String>();
-        WritableByteChannel sink = Channels.newChannel(System.out);
-        UrlRequest request = new SampleRequest(mRequestContext, url,
-                UrlRequestPriority.MEDIUM, headers, sink);
-        applyCommandLineToRequest(request);
+                url, HttpUrlRequest.REQUEST_PRIORITY_MEDIUM, headers, listener);
+        applyCommandLineToHttpUrlRequest(request);
         request.start();
     }
 
@@ -255,11 +196,12 @@ public class CronetSampleActivity extends Activity {
     }
 
     public void startNetLog() {
-        mRequestContext.startNetLogToFile(
-                Environment.getExternalStorageDirectory().getPath() + "/cronet_sample_netlog.json");
+        mChromiumRequestFactory.getRequestContext().startNetLogToFile(
+                Environment.getExternalStorageDirectory().getPath() +
+                        "/cronet_sample_netlog.json");
     }
 
     public void stopNetLog() {
-        mRequestContext.stopNetLog();
+        mChromiumRequestFactory.getRequestContext().stopNetLog();
     }
 }

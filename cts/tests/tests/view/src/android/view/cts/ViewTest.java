@@ -22,6 +22,7 @@ import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.PorterDuff;
 
+import android.os.Bundle;
 import com.android.cts.view.R;
 import com.android.internal.view.menu.ContextMenuBuilder;
 import com.google.android.collect.Lists;
@@ -3665,6 +3666,11 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
 
         @Override
         public boolean onNestedPreFling(View target, float velocityX, float velocityY) {
+            return false;
+        }
+
+        @Override
+        public boolean onNestedPrePerformAccessibilityAction(View target, int action, Bundle args) {
             return false;
         }
     }

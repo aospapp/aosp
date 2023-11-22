@@ -32,6 +32,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
+import android.widget.CheckedTextView;
 import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -318,7 +319,7 @@ public class FolderSelectorAdapter extends BaseAdapter {
         final Folder folder = row.getFolder();
         final String folderDisplay = !TextUtils.isEmpty(row.mPathName) ?
                 row.mPathName : folder.name;
-        final CompoundButton checkBox = (CompoundButton) view.findViewById(R.id.checkbox);
+        final CheckedTextView checkBox = (CheckedTextView) view.findViewById(R.id.checkbox);
         if (checkBox != null) {
             // Suppress the checkbox selection, and handle the toggling of the
             // folder on the parent list item's click handler.
@@ -330,8 +331,9 @@ public class FolderSelectorAdapter extends BaseAdapter {
         if (display != null) {
             display.setText(folderDisplay);
         }
-        final View colorBlock = view.findViewById(R.id.color_block);
-        Folder.setFolderBlockColor(folder, colorBlock);
+
+        final ImageView folderIcon = (ImageView) view.findViewById(R.id.folder_icon);
+        Folder.setIcon(folder, folderIcon);
         return view;
     }
 }

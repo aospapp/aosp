@@ -25,11 +25,13 @@ class RttStats;
 
 class NET_EXPORT_PRIVATE SendAlgorithmInterface {
  public:
-  typedef std::map<QuicPacketSequenceNumber, TransmissionInfo> CongestionMap;
+  // A sorted vector of packets.
+  typedef std::vector<std::pair<QuicPacketSequenceNumber, TransmissionInfo>>
+      CongestionVector;
 
   static SendAlgorithmInterface* Create(const QuicClock* clock,
                                         const RttStats* rtt_stats,
-                                        CongestionFeedbackType type,
+                                        CongestionControlType type,
                                         QuicConnectionStats* stats);
 
   virtual ~SendAlgorithmInterface() {}
@@ -48,8 +50,8 @@ class NET_EXPORT_PRIVATE SendAlgorithmInterface {
   // any packets considered acked or lost as a result of the congestion event.
   virtual void OnCongestionEvent(bool rtt_updated,
                                  QuicByteCount bytes_in_flight,
-                                 const CongestionMap& acked_packets,
-                                 const CongestionMap& lost_packets) = 0;
+                                 const CongestionVector& acked_packets,
+                                 const CongestionVector& lost_packets) = 0;
 
   // Inform that we sent |bytes| to the wire, and if the packet is
   // retransmittable. Returns true if the packet should be tracked by the
@@ -67,6 +69,9 @@ class NET_EXPORT_PRIVATE SendAlgorithmInterface {
   // nor OnPacketLost will be called for these packets.
   virtual void OnRetransmissionTimeout(bool packets_retransmitted) = 0;
 
+  // Called when the last retransmission timeout was spurious.
+  virtual void RevertRetransmissionTimeout() = 0;
+
   // Calculate the time until we can send the next packet.
   virtual QuicTime::Delta TimeUntilSend(
       QuicTime now,
@@ -77,6 +82,9 @@ class NET_EXPORT_PRIVATE SendAlgorithmInterface {
   // Returns 0 when it does not have an estimate.
   virtual QuicBandwidth BandwidthEstimate() const = 0;
 
+  // Returns true if the current bandwidth estimate is reliable.
+  virtual bool HasReliableBandwidthEstimate() const = 0;
+
   // Get the send algorithm specific retransmission delay, called RTO in TCP,
   // Note 1: the caller is responsible for sanity checking this value.
   // Note 2: this will return zero if we don't have enough data for an estimate.
@@ -86,6 +94,20 @@ class NET_EXPORT_PRIVATE SendAlgorithmInterface {
   // not the *available* window.  Some send algorithms may not use a congestion
   // window and will return 0.
   virtual QuicByteCount GetCongestionWindow() const = 0;
+
+  // Whether the send algorithm is currently in slow start.  When true, the
+  // BandwidthEstimate is expected to be too low.
+  virtual bool InSlowStart() const = 0;
+
+  // Whether the send algorithm is currently in recovery.
+  virtual bool InRecovery() const = 0;
+
+  // Returns the size of the slow start congestion window in bytes,
+  // aka ssthresh.  Some send algorithms do not define a slow start
+  // threshold and will return 0.
+  virtual QuicByteCount GetSlowStartThreshold() const = 0;
+
+  virtual CongestionControlType GetCongestionControlType() const = 0;
 };
 
 }  // namespace net

@@ -14,6 +14,7 @@
 #include "base/containers/hash_tables.h"
 #include "base/memory/scoped_ptr.h"
 #include "net/quic/quic_crypto_server_stream.h"
+#include "net/quic/quic_per_connection_packet_writer.h"
 #include "net/quic/quic_protocol.h"
 #include "net/quic/quic_session.h"
 
@@ -38,7 +39,7 @@ class QuicServerSessionVisitor {
 
   virtual void OnConnectionClosed(QuicConnectionId connection_id,
                                   QuicErrorCode error) = 0;
-  virtual void OnWriteBlocked(QuicBlockedWriterInterface* writer) = 0;
+  virtual void OnWriteBlocked(QuicBlockedWriterInterface* blocked_writer) = 0;
 };
 
 class QuicServerSession : public QuicSession {
@@ -51,12 +52,23 @@ class QuicServerSession : public QuicSession {
   virtual void OnConnectionClosed(QuicErrorCode error, bool from_peer) OVERRIDE;
   virtual void OnWriteBlocked() OVERRIDE;
 
+  // Sends a server config update to the client, containing new bandwidth
+  // estimate.
+  virtual void OnCongestionWindowChange(QuicTime now) OVERRIDE;
+
   virtual ~QuicServerSession();
 
   virtual void InitializeSession(const QuicCryptoServerConfig& crypto_config);
 
   const QuicCryptoServerStream* crypto_stream() const {
     return crypto_stream_.get();
+  }
+
+  // Override base class to process FEC config received from client.
+  virtual void OnConfigNegotiated() OVERRIDE;
+
+  void set_serving_region(string serving_region) {
+    serving_region_ = serving_region;
   }
 
  protected:
@@ -78,6 +90,16 @@ class QuicServerSession : public QuicSession {
 
   scoped_ptr<QuicCryptoServerStream> crypto_stream_;
   QuicServerSessionVisitor* visitor_;
+
+  // The most recent bandwidth estimate sent to the client.
+  QuicBandwidth bandwidth_estimate_sent_to_client_;
+
+  // Text describing server location. Sent to the client as part of the bandwith
+  // estimate in the source-address token. Optional, can be left empty.
+  string serving_region_;
+
+  // Time at which we send the last SCUP to the client.
+  QuicTime last_server_config_update_time_;
 
   DISALLOW_COPY_AND_ASSIGN(QuicServerSession);
 };

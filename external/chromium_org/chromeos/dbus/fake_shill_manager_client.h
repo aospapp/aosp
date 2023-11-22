@@ -12,6 +12,10 @@
 #include "chromeos/chromeos_export.h"
 #include "chromeos/dbus/shill_manager_client.h"
 
+namespace net {
+class IPEndPoint;
+}
+
 namespace chromeos {
 
 // A fake implementation of ShillManagerClient. This works in close coordination
@@ -77,6 +81,18 @@ class CHROMEOS_EXPORT FakeShillManagerClient
   virtual void ConnectToBestServices(
       const base::Closure& callback,
       const ErrorCallback& error_callback) OVERRIDE;
+  virtual void AddWakeOnPacketConnection(
+      const net::IPEndPoint& ip_connection,
+      const base::Closure& callback,
+      const ErrorCallback& error_callback) OVERRIDE;
+  virtual void RemoveWakeOnPacketConnection(
+      const net::IPEndPoint& ip_endpoint,
+      const base::Closure& callback,
+      const ErrorCallback& error_callback) OVERRIDE;
+  virtual void RemoveAllWakeOnPacketConnections(
+      const base::Closure& callback,
+      const ErrorCallback& error_callback) OVERRIDE;
+
   virtual ShillManagerClient::TestInterface* GetTestInterface() OVERRIDE;
 
   // ShillManagerClient::TestInterface overrides.
@@ -106,7 +122,7 @@ class CHROMEOS_EXPORT FakeShillManagerClient
       const std::string& service_path) OVERRIDE;
 
   // Constants used for testing.
-  static const char kFakeEthernetNetworkPath[];
+  static const char kFakeEthernetNetworkGuid[];
 
  private:
   void SetDefaultProperties();
@@ -144,6 +160,9 @@ class CHROMEOS_EXPORT FakeShillManagerClient
 
   // Initial state for fake services.
   std::map<std::string, std::string> shill_initial_state_map_;
+  typedef std::map<std::string, base::Value*> ShillPropertyMap;
+  typedef std::map<std::string, ShillPropertyMap> DevicePropertyMap;
+  DevicePropertyMap shill_device_property_map_;
 
   ObserverList<ShillPropertyChangedObserver> observer_list_;
 

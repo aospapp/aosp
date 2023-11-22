@@ -26,21 +26,22 @@ import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.animation.LinearInterpolator;
 import android.view.animation.PathInterpolator;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.android.mail.R;
 import com.android.mail.utils.Utils;
+import com.android.mail.utils.ViewUtils;
 
 /**
  * A custom {@link View} that exposes an action to the user.
  */
 public class ActionableToastBar extends FrameLayout {
 
-    private boolean mHidden = false;
+    private boolean mHidden = true;
     private final Runnable mHideToastBarRunnable;
     private final Handler mHideToastBarHandler;
 
@@ -88,6 +89,12 @@ public class ActionableToastBar extends FrameLayout {
      * always <tt>null</tt> in two-pane layouts. */
     private TextView mMultiLineActionView;
 
+    /** The minimum width of this view; applicable when description text is very short. */
+    private int mMinWidth;
+
+    /** The maximum width of this view; applicable when description text is long enough to wrap. */
+    private int mMaxWidth;
+
     private ToastBarOperation mOperation;
 
     public ActionableToastBar(Context context) {
@@ -104,6 +111,8 @@ public class ActionableToastBar extends FrameLayout {
         mAnimationDuration = getResources().getInteger(R.integer.toast_bar_animation_duration_ms);
         mMinToastDuration = getResources().getInteger(R.integer.toast_bar_min_duration_ms);
         mMaxToastDuration = getResources().getInteger(R.integer.toast_bar_max_duration_ms);
+        mMinWidth = getResources().getDimensionPixelOffset(R.dimen.snack_bar_min_width);
+        mMaxWidth = getResources().getDimensionPixelOffset(R.dimen.snack_bar_max_width);
         mHideToastBarHandler = new Handler();
         mHideToastBarRunnable = new Runnable() {
             @Override
@@ -150,13 +159,27 @@ public class ActionableToastBar extends FrameLayout {
         // measure the view and its content
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
 
-        // if the description does not fit, switch to multi line display if one is present
-        final boolean descriptionIsMultiLine = mSingleLineDescriptionView.getLineCount() > 1;
-        final boolean haveMultiLineView = mMultiLineDescriptionView != null;
-        if (descriptionIsMultiLine && haveMultiLineView) {
-            setVisibility(true /* multiLine */, showAction);
+        // if specific views exist to handle the multiline case
+        if (mMultiLineDescriptionView != null) {
+            // if the description does not fit on a single line
+            if (mSingleLineDescriptionView.getLineCount() > 1) {
+                //switch to multi line display views
+                setVisibility(true /* multiLine */, showAction);
 
-            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+                super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+            }
+        // if width constraints were given explicitly, honor them; otherwise use the natural width
+        } else if (mMinWidth >= 0 && mMaxWidth >= 0) {
+            // otherwise, adjust the the single line view so wrapping occurs at the desired width
+            // (the total width of the toast bar must always fall between the given min and max
+            // width; if max width cannot accommodate all of the description text, it wraps)
+            if (getMeasuredWidth() < mMinWidth) {
+                widthMeasureSpec = View.MeasureSpec.makeMeasureSpec(mMinWidth, MeasureSpec.EXACTLY);
+                super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+            } else if (getMeasuredWidth() > mMaxWidth) {
+                widthMeasureSpec = View.MeasureSpec.makeMeasureSpec(mMaxWidth, MeasureSpec.EXACTLY);
+                super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+            }
         }
     }
 
@@ -173,11 +196,14 @@ public class ActionableToastBar extends FrameLayout {
      * @param actionTextResourceId resource ID for the text to show in the action button
      * @param replaceVisibleToast if true, this toast should replace any currently visible toast.
      *                            Otherwise, skip showing this toast.
+     * @param autohide <tt>true</tt> indicates the toast will be automatically hidden after a time
+     *                 delay; <tt>false</tt> indicate the toast will remain visible until the user
+     *                 dismisses it
      * @param op the operation that corresponds to the specific toast being shown
      */
     public void show(final ActionClickedListener listener, final CharSequence descriptionText,
                      @StringRes final int actionTextResourceId, final boolean replaceVisibleToast,
-                     final ToastBarOperation op) {
+                     final boolean autohide, final ToastBarOperation op) {
         if (!mHidden && !replaceVisibleToast) {
             return;
         }
@@ -190,7 +216,7 @@ public class ActionableToastBar extends FrameLayout {
         setActionClickListener(new OnClickListener() {
             @Override
             public void onClick(View widget) {
-                if (op.shouldTakeOnActionClickedPrecedence()) {
+                if (op != null && op.shouldTakeOnActionClickedPrecedence()) {
                     op.onActionClicked(getContext());
                 } else {
                     listener.onActionClicked(getContext());
@@ -200,14 +226,20 @@ public class ActionableToastBar extends FrameLayout {
         });
 
         setDescriptionText(descriptionText);
+        ViewUtils.announceForAccessibility(this, descriptionText);
         setActionText(actionTextResourceId);
 
-        mHidden = false;
+        // if this toast bar is not yet hidden, animate it in place; otherwise we just update the
+        // text that it displays
+        if (mHidden) {
+            mHidden = false;
+            popupToast();
+        }
 
-        popupToast();
-
-        // Set up runnable to execute hide toast once delay is completed
-        mHideToastBarHandler.postDelayed(mHideToastBarRunnable, mMaxToastDuration);
+        if (autohide) {
+            // Set up runnable to execute hide toast once delay is completed
+            mHideToastBarHandler.postDelayed(mHideToastBarRunnable, mMaxToastDuration);
+        }
     }
 
     public ToastBarOperation getOperation() {
@@ -416,7 +448,7 @@ public class ActionableToastBar extends FrameLayout {
      */
     private int getAnimationDistance() {
         // total height over which the animation takes place is the toast bar height + bottom margin
-        final LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) getLayoutParams();
+        final ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) getLayoutParams();
         return getHeight() + params.bottomMargin;
     }
 

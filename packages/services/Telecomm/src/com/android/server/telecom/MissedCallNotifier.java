@@ -29,6 +29,7 @@ import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.UserHandle;
 import android.provider.CallLog;
 import android.provider.CallLog.Calls;
@@ -45,7 +46,6 @@ import android.text.TextUtils;
 /**
  * Creates a notification for calls that the user missed (neither answered nor rejected).
  * TODO: Make TelephonyManager.clearMissedCalls call into this class.
- * STOPSHIP: Resolve b/13769374 about moving this class to InCall.
  */
 class MissedCallNotifier extends CallsManagerListenerBase {
 
@@ -57,6 +57,14 @@ class MissedCallNotifier extends CallsManagerListenerBase {
         Calls.DURATION,
         Calls.TYPE,
     };
+
+    private static final int CALL_LOG_COLUMN_ID = 0;
+    private static final int CALL_LOG_COLUMN_NUMBER = 1;
+    private static final int CALL_LOG_COLUMN_NUMBER_PRESENTATION = 2;
+    private static final int CALL_LOG_COLUMN_DATE = 3;
+    private static final int CALL_LOG_COLUMN_DURATION = 4;
+    private static final int CALL_LOG_COLUMN_TYPE = 5;
+
     private static final int MISSED_CALL_NOTIFICATION_ID = 1;
 
     private final Context mContext;
@@ -84,18 +92,22 @@ class MissedCallNotifier extends CallsManagerListenerBase {
 
     /** Clears missed call notification and marks the call log's missed calls as read. */
     void clearMissedCalls() {
-        // Clear the list of new missed calls from the call log.
-        ContentValues values = new ContentValues();
-        values.put(Calls.NEW, 0);
-        values.put(Calls.IS_READ, 1);
-        StringBuilder where = new StringBuilder();
-        where.append(Calls.NEW);
-        where.append(" = 1 AND ");
-        where.append(Calls.TYPE);
-        where.append(" = ?");
-        mContext.getContentResolver().update(Calls.CONTENT_URI, values, where.toString(),
-                new String[]{ Integer.toString(Calls.MISSED_TYPE) });
-
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                // Clear the list of new missed calls from the call log.
+                ContentValues values = new ContentValues();
+                values.put(Calls.NEW, 0);
+                values.put(Calls.IS_READ, 1);
+                StringBuilder where = new StringBuilder();
+                where.append(Calls.NEW);
+                where.append(" = 1 AND ");
+                where.append(Calls.TYPE);
+                where.append(" = ?");
+                mContext.getContentResolver().update(Calls.CONTENT_URI, values, where.toString(),
+                        new String[]{ Integer.toString(Calls.MISSED_TYPE) });
+            }
+        });
         cancelMissedCallNotification();
     }
 
@@ -280,10 +292,10 @@ class MissedCallNotifier extends CallsManagerListenerBase {
                     try {
                         while (cursor.moveToNext()) {
                             // Get data about the missed call from the cursor
-                            final String handleString = cursor.getString(
-                                    cursor.getColumnIndexOrThrow(Calls.NUMBER));
-                            final int presentation = cursor.getInt(cursor.getColumnIndexOrThrow(
-                                    Calls.NUMBER_PRESENTATION));
+                            final String handleString = cursor.getString(CALL_LOG_COLUMN_NUMBER);
+                            final int presentation =
+                                    cursor.getInt(CALL_LOG_COLUMN_NUMBER_PRESENTATION);
+                            final long date = cursor.getLong(CALL_LOG_COLUMN_DATE);
 
                             final Uri handle;
                             if (presentation != Calls.PRESENTATION_ALLOWED
@@ -300,6 +312,7 @@ class MissedCallNotifier extends CallsManagerListenerBase {
                                     false);
                             call.setDisconnectCause(new DisconnectCause(DisconnectCause.MISSED));
                             call.setState(CallState.DISCONNECTED);
+                            call.setCreationTimeMillis(date);
 
                             // Listen for the update to the caller information before posting the
                             // notification so that we have the contact info and photo.

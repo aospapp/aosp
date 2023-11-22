@@ -38,7 +38,6 @@
 #include "net/base/net_errors.h"
 #include "net/base/net_log.h"
 #include "net/socket/nss_ssl_util.h"
-#include "net/socket/ssl_error_params.h"
 
 // SSL plaintext fragments are shorter than 16KB. Although the record layer
 // overhead is allowed to be 2K + 5 bytes, in practice the overhead is much
@@ -446,7 +445,7 @@ int SSLServerSocketNSS::InitializeSSLOptions() {
   }
 
   SECKEYPrivateKeyStr* private_key = NULL;
-  PK11SlotInfo* slot = crypto::GetPrivateNSSKeySlot();
+  PK11SlotInfo* slot = PK11_GetInternalSlot();
   if (!slot) {
     CERT_DestroyCertificate(cert);
     return ERR_UNEXPECTED;

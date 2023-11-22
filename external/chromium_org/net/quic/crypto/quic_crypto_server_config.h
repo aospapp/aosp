@@ -16,8 +16,10 @@
 #include "net/base/ip_endpoint.h"
 #include "net/base/net_export.h"
 #include "net/quic/crypto/crypto_handshake.h"
+#include "net/quic/crypto/crypto_handshake_message.h"
 #include "net/quic/crypto/crypto_protocol.h"
 #include "net/quic/crypto/crypto_secret_boxer.h"
+#include "net/quic/crypto/source_address_token.h"
 #include "net/quic/quic_time.h"
 
 namespace net {
@@ -39,32 +41,6 @@ struct ClientHelloInfo;
 namespace test {
 class QuicCryptoServerConfigPeer;
 }  // namespace test
-
-enum HandshakeFailureReason {
-  HANDSHAKE_OK = 0,
-
-  // Failure reasons for an invalid client nonce.
-  // TODO(rtenneti): Implement capturing of error from strike register.
-  CLIENT_NONCE_UNKNOWN_FAILURE = 100,
-  CLIENT_NONCE_INVALID_FAILURE,
-
-  // Failure reasons for an invalid server nonce.
-  SERVER_NONCE_INVALID_FAILURE = 200,
-  SERVER_NONCE_DECRYPTION_FAILURE,
-  SERVER_NONCE_NOT_UNIQUE_FAILURE,
-
-  // Failure reasons for an invalid server config.
-  SERVER_CONFIG_INCHOATE_HELLO_FAILURE = 300,
-  SERVER_CONFIG_UNKNOWN_CONFIG_FAILURE,
-
-  // Failure reasons for an invalid source adddress token.
-  SOURCE_ADDRESS_TOKEN_INVALID_FAILURE = 400,
-  SOURCE_ADDRESS_TOKEN_DECRYPTION_FAILURE,
-  SOURCE_ADDRESS_TOKEN_PARSE_FAILURE,
-  SOURCE_ADDRESS_TOKEN_DIFFERENT_IP_ADDRESS_FAILURE,
-  SOURCE_ADDRESS_TOKEN_CLOCK_SKEW_FAILURE,
-  SOURCE_ADDRESS_TOKEN_EXPIRED_FAILURE,
-};
 
 // Hook that allows application code to subscribe to primary config changes.
 class PrimaryConfigChangedCallback {
@@ -236,6 +212,20 @@ class NET_EXPORT_PRIVATE QuicCryptoServerConfig {
       CryptoHandshakeMessage* out,
       std::string* error_details) const;
 
+  // BuildServerConfigUpdateMessage sets |out| to be a SCUP message containing
+  // the current primary config, an up to date source-address token, and cert
+  // chain and proof in the case of secure QUIC. Returns true if successfully
+  // filled |out|.
+  //
+  // |cached_network_params| is optional, and can be NULL.
+  bool BuildServerConfigUpdateMessage(
+      const IPEndPoint& client_ip,
+      const QuicClock* clock,
+      QuicRandom* rand,
+      const QuicCryptoNegotiatedParameters& params,
+      const CachedNetworkParameters* cached_network_params,
+      CryptoHandshakeMessage* out) const;
+
   // SetProofSource installs |proof_source| as the ProofSource for handshakes.
   // This object takes ownership of |proof_source|.
   void SetProofSource(ProofSource* proof_source);
@@ -397,6 +387,7 @@ class NET_EXPORT_PRIVATE QuicCryptoServerConfig {
       const CryptoHandshakeMessage& client_hello,
       const ClientHelloInfo& info,
       QuicRandom* rand,
+      QuicCryptoNegotiatedParameters *params,
       CryptoHandshakeMessage* out) const;
 
   // ParseConfigProtobuf parses the given config protobuf and returns a
@@ -405,11 +396,13 @@ class NET_EXPORT_PRIVATE QuicCryptoServerConfig {
   scoped_refptr<Config> ParseConfigProtobuf(QuicServerConfigProtobuf* protobuf);
 
   // NewSourceAddressToken returns a fresh source address token for the given
-  // IP address.
-  std::string NewSourceAddressToken(const Config& config,
-                                    const IPEndPoint& ip,
-                                    QuicRandom* rand,
-                                    QuicWallTime now) const;
+  // IP address. |cached_network_params| is optional, and can be NULL.
+  std::string NewSourceAddressToken(
+      const Config& config,
+      const IPEndPoint& ip,
+      QuicRandom* rand,
+      QuicWallTime now,
+      const CachedNetworkParameters* cached_network_params) const;
 
   // ValidateSourceAddressToken returns HANDSHAKE_OK if the source address token
   // in |token| is a valid and timely token for the IP address |ip| given that

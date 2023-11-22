@@ -33,6 +33,8 @@ public class ComposeAttachmentTile extends AttachmentTile implements AttachmentD
     public void render(Attachment attachment, AttachmentPreviewCache attachmentPreviewCache) {
         // the super implementation is good enough. just broaden its access.
         super.render(attachment, attachmentPreviewCache);
+        mDeleteButton.setContentDescription(
+                getResources().getString(R.string.remove_attachment_desc, attachment.getName()));
     }
 
     @Override

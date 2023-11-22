@@ -74,7 +74,6 @@ public class Resize extends TestBase {
             mIntrinsic.forEach_bicubic(mOutPixelsAllocation);
         } else {
             mScript.forEach_bicubic(mOutPixelsAllocation);
-            //mScript.forEach_nearest(mOutPixelsAllocation);
         }
     }
 

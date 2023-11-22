@@ -28,7 +28,7 @@ namespace {
 //  - writing a message to a port, closing the other (would be the source) port,
 //    and reading it
 TEST(MessagePipeTest, Basic) {
-  scoped_refptr<MessagePipe> mp(new MessagePipe());
+  scoped_refptr<MessagePipe> mp(MessagePipe::CreateLocalLocal());
 
   int32_t buffer[2];
   const uint32_t kBufferSize = static_cast<uint32_t>(sizeof(buffer));
@@ -40,8 +40,10 @@ TEST(MessagePipeTest, Basic) {
   buffer_size = kBufferSize;
   EXPECT_EQ(MOJO_RESULT_SHOULD_WAIT,
             mp->ReadMessage(0,
-                            buffer, &buffer_size,
-                            0, NULL,
+                            UserPointer<void>(buffer),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_NONE));
   EXPECT_EQ(kBufferSize, buffer_size);
   EXPECT_EQ(123, buffer[0]);
@@ -53,8 +55,10 @@ TEST(MessagePipeTest, Basic) {
   buffer_size = kBufferSize;
   EXPECT_EQ(MOJO_RESULT_SHOULD_WAIT,
             mp->ReadMessage(1,
-                            buffer, &buffer_size,
-                            0, NULL,
+                            UserPointer<void>(buffer),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_NONE));
 
   // Write from port 1 (to port 0).
@@ -62,8 +66,9 @@ TEST(MessagePipeTest, Basic) {
   buffer[1] = 0;
   EXPECT_EQ(MOJO_RESULT_OK,
             mp->WriteMessage(1,
-                             buffer, static_cast<uint32_t>(sizeof(buffer[0])),
-                             NULL,
+                             UserPointer<const void>(buffer),
+                             static_cast<uint32_t>(sizeof(buffer[0])),
+                             nullptr,
                              MOJO_WRITE_MESSAGE_FLAG_NONE));
 
   // Read from port 0.
@@ -72,8 +77,10 @@ TEST(MessagePipeTest, Basic) {
   buffer_size = kBufferSize;
   EXPECT_EQ(MOJO_RESULT_OK,
             mp->ReadMessage(0,
-                            buffer, &buffer_size,
-                            0, NULL,
+                            UserPointer<void>(buffer),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_NONE));
   EXPECT_EQ(static_cast<uint32_t>(sizeof(buffer[0])), buffer_size);
   EXPECT_EQ(789012345, buffer[0]);
@@ -83,8 +90,10 @@ TEST(MessagePipeTest, Basic) {
   buffer_size = kBufferSize;
   EXPECT_EQ(MOJO_RESULT_SHOULD_WAIT,
             mp->ReadMessage(0,
-                            buffer, &buffer_size,
-                            0, NULL,
+                            UserPointer<void>(buffer),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_NONE));
 
   // Write two messages from port 0 (to port 1).
@@ -92,15 +101,17 @@ TEST(MessagePipeTest, Basic) {
   buffer[1] = 0;
   EXPECT_EQ(MOJO_RESULT_OK,
             mp->WriteMessage(0,
-                             buffer, static_cast<uint32_t>(sizeof(buffer[0])),
-                             NULL,
+                             UserPointer<const void>(buffer),
+                             static_cast<uint32_t>(sizeof(buffer[0])),
+                             nullptr,
                              MOJO_WRITE_MESSAGE_FLAG_NONE));
   buffer[0] = 234567890;
   buffer[1] = 0;
   EXPECT_EQ(MOJO_RESULT_OK,
             mp->WriteMessage(0,
-                             buffer, static_cast<uint32_t>(sizeof(buffer[0])),
-                             NULL,
+                             UserPointer<const void>(buffer),
+                             static_cast<uint32_t>(sizeof(buffer[0])),
+                             nullptr,
                              MOJO_WRITE_MESSAGE_FLAG_NONE));
 
   // Read from port 1 with buffer size 0 (should get the size of next message).
@@ -108,8 +119,10 @@ TEST(MessagePipeTest, Basic) {
   buffer_size = 0;
   EXPECT_EQ(MOJO_RESULT_RESOURCE_EXHAUSTED,
             mp->ReadMessage(1,
-                            NULL, &buffer_size,
-                            0, NULL,
+                            NullUserPointer(),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_NONE));
   EXPECT_EQ(static_cast<uint32_t>(sizeof(buffer[0])), buffer_size);
 
@@ -120,8 +133,10 @@ TEST(MessagePipeTest, Basic) {
   buffer_size = 1;
   EXPECT_EQ(MOJO_RESULT_RESOURCE_EXHAUSTED,
             mp->ReadMessage(1,
-                            buffer, &buffer_size,
-                            0, NULL,
+                            UserPointer<void>(buffer),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_NONE));
   EXPECT_EQ(static_cast<uint32_t>(sizeof(buffer[0])), buffer_size);
   EXPECT_EQ(123, buffer[0]);
@@ -133,8 +148,10 @@ TEST(MessagePipeTest, Basic) {
   buffer_size = kBufferSize;
   EXPECT_EQ(MOJO_RESULT_OK,
             mp->ReadMessage(1,
-                            buffer, &buffer_size,
-                            0, NULL,
+                            UserPointer<void>(buffer),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_NONE));
   EXPECT_EQ(static_cast<uint32_t>(sizeof(buffer[0])), buffer_size);
   EXPECT_EQ(123456789, buffer[0]);
@@ -146,8 +163,10 @@ TEST(MessagePipeTest, Basic) {
   buffer_size = kBufferSize;
   EXPECT_EQ(MOJO_RESULT_OK,
             mp->ReadMessage(1,
-                            buffer, &buffer_size,
-                            0, NULL,
+                            UserPointer<void>(buffer),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_NONE));
   EXPECT_EQ(static_cast<uint32_t>(sizeof(buffer[0])), buffer_size);
   EXPECT_EQ(234567890, buffer[0]);
@@ -157,8 +176,10 @@ TEST(MessagePipeTest, Basic) {
   buffer_size = kBufferSize;
   EXPECT_EQ(MOJO_RESULT_SHOULD_WAIT,
             mp->ReadMessage(1,
-                            buffer, &buffer_size,
-                            0, NULL,
+                            UserPointer<void>(buffer),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_NONE));
 
   // Write from port 0 (to port 1).
@@ -166,8 +187,9 @@ TEST(MessagePipeTest, Basic) {
   buffer[1] = 0;
   EXPECT_EQ(MOJO_RESULT_OK,
             mp->WriteMessage(0,
-                             buffer, static_cast<uint32_t>(sizeof(buffer[0])),
-                             NULL,
+                             UserPointer<const void>(buffer),
+                             static_cast<uint32_t>(sizeof(buffer[0])),
+                             nullptr,
                              MOJO_WRITE_MESSAGE_FLAG_NONE));
 
   // Close port 0.
@@ -178,8 +200,9 @@ TEST(MessagePipeTest, Basic) {
   buffer[1] = 0;
   EXPECT_EQ(MOJO_RESULT_FAILED_PRECONDITION,
             mp->WriteMessage(1,
-                             buffer, static_cast<uint32_t>(sizeof(buffer[0])),
-                             NULL,
+                             UserPointer<const void>(buffer),
+                             static_cast<uint32_t>(sizeof(buffer[0])),
+                             nullptr,
                              MOJO_WRITE_MESSAGE_FLAG_NONE));
 
   // Read from port 1; should still get message (even though port 0 was closed).
@@ -188,8 +211,10 @@ TEST(MessagePipeTest, Basic) {
   buffer_size = kBufferSize;
   EXPECT_EQ(MOJO_RESULT_OK,
             mp->ReadMessage(1,
-                            buffer, &buffer_size,
-                            0, NULL,
+                            UserPointer<void>(buffer),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_NONE));
   EXPECT_EQ(static_cast<uint32_t>(sizeof(buffer[0])), buffer_size);
   EXPECT_EQ(345678901, buffer[0]);
@@ -199,15 +224,17 @@ TEST(MessagePipeTest, Basic) {
   buffer_size = kBufferSize;
   EXPECT_EQ(MOJO_RESULT_FAILED_PRECONDITION,
             mp->ReadMessage(1,
-                            buffer, &buffer_size,
-                            0, NULL,
+                            UserPointer<void>(buffer),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_NONE));
 
   mp->Close(1);
 }
 
 TEST(MessagePipeTest, CloseWithQueuedIncomingMessages) {
-  scoped_refptr<MessagePipe> mp(new MessagePipe());
+  scoped_refptr<MessagePipe> mp(MessagePipe::CreateLocalLocal());
 
   int32_t buffer[1];
   const uint32_t kBufferSize = static_cast<uint32_t>(sizeof(buffer));
@@ -218,8 +245,9 @@ TEST(MessagePipeTest, CloseWithQueuedIncomingMessages) {
     buffer[0] = i;
     EXPECT_EQ(MOJO_RESULT_OK,
               mp->WriteMessage(1,
-                               buffer, kBufferSize,
-                               NULL,
+                               UserPointer<const void>(buffer),
+                               kBufferSize,
+                               nullptr,
                                MOJO_WRITE_MESSAGE_FLAG_NONE));
   }
 
@@ -227,8 +255,10 @@ TEST(MessagePipeTest, CloseWithQueuedIncomingMessages) {
   buffer_size = 0;
   EXPECT_EQ(MOJO_RESULT_RESOURCE_EXHAUSTED,
             mp->ReadMessage(0,
-                            NULL, &buffer_size,
-                            0, NULL,
+                            NullUserPointer(),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_NONE));
   EXPECT_EQ(kBufferSize, buffer_size);
 
@@ -238,7 +268,7 @@ TEST(MessagePipeTest, CloseWithQueuedIncomingMessages) {
 }
 
 TEST(MessagePipeTest, DiscardMode) {
-  scoped_refptr<MessagePipe> mp(new MessagePipe());
+  scoped_refptr<MessagePipe> mp(MessagePipe::CreateLocalLocal());
 
   int32_t buffer[2];
   const uint32_t kBufferSize = static_cast<uint32_t>(sizeof(buffer));
@@ -249,16 +279,19 @@ TEST(MessagePipeTest, DiscardMode) {
   buffer[1] = 0;
   EXPECT_EQ(MOJO_RESULT_OK,
             mp->WriteMessage(1,
-                             buffer, static_cast<uint32_t>(sizeof(buffer[0])),
-                             NULL,
+                             UserPointer<const void>(buffer),
+                             static_cast<uint32_t>(sizeof(buffer[0])),
+                             nullptr,
                              MOJO_WRITE_MESSAGE_FLAG_NONE));
 
   // Read/discard from port 0 (no buffer); get size.
   buffer_size = 0;
   EXPECT_EQ(MOJO_RESULT_RESOURCE_EXHAUSTED,
             mp->ReadMessage(0,
-                            NULL, &buffer_size,
-                            0, NULL,
+                            NullUserPointer(),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_MAY_DISCARD));
   EXPECT_EQ(static_cast<uint32_t>(sizeof(buffer[0])), buffer_size);
 
@@ -266,8 +299,10 @@ TEST(MessagePipeTest, DiscardMode) {
   buffer_size = kBufferSize;
   EXPECT_EQ(MOJO_RESULT_SHOULD_WAIT,
             mp->ReadMessage(0,
-                            buffer, &buffer_size,
-                            0, NULL,
+                            UserPointer<void>(buffer),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_MAY_DISCARD));
 
   // Write from port 1 (to port 0).
@@ -275,8 +310,9 @@ TEST(MessagePipeTest, DiscardMode) {
   buffer[1] = 0;
   EXPECT_EQ(MOJO_RESULT_OK,
             mp->WriteMessage(1,
-                             buffer, static_cast<uint32_t>(sizeof(buffer[0])),
-                             NULL,
+                             UserPointer<const void>(buffer),
+                             static_cast<uint32_t>(sizeof(buffer[0])),
+                             nullptr,
                              MOJO_WRITE_MESSAGE_FLAG_NONE));
 
   // Read from port 0 (buffer big enough).
@@ -285,8 +321,10 @@ TEST(MessagePipeTest, DiscardMode) {
   buffer_size = kBufferSize;
   EXPECT_EQ(MOJO_RESULT_OK,
             mp->ReadMessage(0,
-                            buffer, &buffer_size,
-                            0, NULL,
+                            UserPointer<void>(buffer),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_MAY_DISCARD));
   EXPECT_EQ(static_cast<uint32_t>(sizeof(buffer[0])), buffer_size);
   EXPECT_EQ(890123456, buffer[0]);
@@ -296,8 +334,10 @@ TEST(MessagePipeTest, DiscardMode) {
   buffer_size = kBufferSize;
   EXPECT_EQ(MOJO_RESULT_SHOULD_WAIT,
             mp->ReadMessage(0,
-                            buffer, &buffer_size,
-                            0, NULL,
+                            UserPointer<void>(buffer),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_MAY_DISCARD));
 
   // Write from port 1 (to port 0).
@@ -305,16 +345,19 @@ TEST(MessagePipeTest, DiscardMode) {
   buffer[1] = 0;
   EXPECT_EQ(MOJO_RESULT_OK,
             mp->WriteMessage(1,
-                             buffer, static_cast<uint32_t>(sizeof(buffer[0])),
-                             NULL,
+                             UserPointer<const void>(buffer),
+                             static_cast<uint32_t>(sizeof(buffer[0])),
+                             nullptr,
                              MOJO_WRITE_MESSAGE_FLAG_NONE));
 
   // Read/discard from port 0 (buffer too small); get size.
   buffer_size = 1;
   EXPECT_EQ(MOJO_RESULT_RESOURCE_EXHAUSTED,
             mp->ReadMessage(0,
-                            buffer, &buffer_size,
-                            0, NULL,
+                            UserPointer<void>(buffer),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_MAY_DISCARD));
   EXPECT_EQ(static_cast<uint32_t>(sizeof(buffer[0])), buffer_size);
 
@@ -322,8 +365,10 @@ TEST(MessagePipeTest, DiscardMode) {
   buffer_size = kBufferSize;
   EXPECT_EQ(MOJO_RESULT_SHOULD_WAIT,
             mp->ReadMessage(0,
-                            buffer, &buffer_size,
-                            0, NULL,
+                            UserPointer<void>(buffer),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_MAY_DISCARD));
 
   // Write from port 1 (to port 0).
@@ -331,24 +376,29 @@ TEST(MessagePipeTest, DiscardMode) {
   buffer[1] = 0;
   EXPECT_EQ(MOJO_RESULT_OK,
             mp->WriteMessage(1,
-                             buffer, static_cast<uint32_t>(sizeof(buffer[0])),
-                             NULL,
+                             UserPointer<const void>(buffer),
+                             static_cast<uint32_t>(sizeof(buffer[0])),
+                             nullptr,
                              MOJO_WRITE_MESSAGE_FLAG_NONE));
 
   // Discard from port 0.
   buffer_size = 1;
   EXPECT_EQ(MOJO_RESULT_RESOURCE_EXHAUSTED,
             mp->ReadMessage(0,
-                            NULL, NULL,
-                            0, NULL,
+                            NullUserPointer(),
+                            NullUserPointer(),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_MAY_DISCARD));
 
   // Read again from port 0 -- it should be empty.
   buffer_size = kBufferSize;
   EXPECT_EQ(MOJO_RESULT_SHOULD_WAIT,
             mp->ReadMessage(0,
-                            buffer, &buffer_size,
-                            0, NULL,
+                            UserPointer<void>(buffer),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_MAY_DISCARD));
 
   mp->Close(0);
@@ -356,8 +406,9 @@ TEST(MessagePipeTest, DiscardMode) {
 }
 
 TEST(MessagePipeTest, BasicWaiting) {
-  scoped_refptr<MessagePipe> mp(new MessagePipe());
+  scoped_refptr<MessagePipe> mp(MessagePipe::CreateLocalLocal());
   Waiter waiter;
+  HandleSignalsState hss;
 
   int32_t buffer[1];
   const uint32_t kBufferSize = static_cast<uint32_t>(sizeof(buffer));
@@ -365,74 +416,115 @@ TEST(MessagePipeTest, BasicWaiting) {
 
   // Always writable (until the other port is closed).
   waiter.Init();
+  hss = HandleSignalsState();
   EXPECT_EQ(MOJO_RESULT_ALREADY_EXISTS,
-            mp->AddWaiter(0, &waiter, MOJO_HANDLE_SIGNAL_WRITABLE, 0));
+            mp->AddWaiter(0, &waiter, MOJO_HANDLE_SIGNAL_WRITABLE, 0, &hss));
+  EXPECT_EQ(MOJO_HANDLE_SIGNAL_WRITABLE, hss.satisfied_signals);
+  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_WRITABLE,
+            hss.satisfiable_signals);
   waiter.Init();
-  EXPECT_EQ(MOJO_RESULT_ALREADY_EXISTS,
-            mp->AddWaiter(0,
-                          &waiter,
-                          MOJO_HANDLE_SIGNAL_READABLE |
-                              MOJO_HANDLE_SIGNAL_WRITABLE,
-                          0));
+  hss = HandleSignalsState();
+  EXPECT_EQ(
+      MOJO_RESULT_ALREADY_EXISTS,
+      mp->AddWaiter(0,
+                    &waiter,
+                    MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_WRITABLE,
+                    0,
+                    &hss));
+  EXPECT_EQ(MOJO_HANDLE_SIGNAL_WRITABLE, hss.satisfied_signals);
+  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_WRITABLE,
+            hss.satisfiable_signals);
 
   // Not yet readable.
   waiter.Init();
-  EXPECT_EQ(MOJO_RESULT_OK,
-            mp->AddWaiter(0, &waiter, MOJO_HANDLE_SIGNAL_READABLE, 1));
-  EXPECT_EQ(MOJO_RESULT_DEADLINE_EXCEEDED, waiter.Wait(0, NULL));
-  mp->RemoveWaiter(0, &waiter);
+  ASSERT_EQ(MOJO_RESULT_OK,
+            mp->AddWaiter(0, &waiter, MOJO_HANDLE_SIGNAL_READABLE, 1, nullptr));
+  EXPECT_EQ(MOJO_RESULT_DEADLINE_EXCEEDED, waiter.Wait(0, nullptr));
+  hss = HandleSignalsState();
+  mp->RemoveWaiter(0, &waiter, &hss);
+  EXPECT_EQ(MOJO_HANDLE_SIGNAL_WRITABLE, hss.satisfied_signals);
+  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_WRITABLE,
+            hss.satisfiable_signals);
 
   // Write from port 0 (to port 1), to make port 1 readable.
   buffer[0] = 123456789;
   EXPECT_EQ(MOJO_RESULT_OK,
             mp->WriteMessage(0,
-                             buffer, kBufferSize,
-                             NULL,
+                             UserPointer<const void>(buffer),
+                             kBufferSize,
+                             nullptr,
                              MOJO_WRITE_MESSAGE_FLAG_NONE));
 
   // Port 1 should already be readable now.
   waiter.Init();
+  hss = HandleSignalsState();
   EXPECT_EQ(MOJO_RESULT_ALREADY_EXISTS,
-            mp->AddWaiter(1, &waiter, MOJO_HANDLE_SIGNAL_READABLE, 2));
+            mp->AddWaiter(1, &waiter, MOJO_HANDLE_SIGNAL_READABLE, 2, &hss));
+  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_WRITABLE,
+            hss.satisfied_signals);
+  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_WRITABLE,
+            hss.satisfiable_signals);
   waiter.Init();
-  EXPECT_EQ(MOJO_RESULT_ALREADY_EXISTS,
-            mp->AddWaiter(1,
-                          &waiter,
-                          MOJO_HANDLE_SIGNAL_READABLE |
-                              MOJO_HANDLE_SIGNAL_WRITABLE,
-                          0));
+  hss = HandleSignalsState();
+  EXPECT_EQ(
+      MOJO_RESULT_ALREADY_EXISTS,
+      mp->AddWaiter(1,
+                    &waiter,
+                    MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_WRITABLE,
+                    0,
+                    &hss));
+  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_WRITABLE,
+            hss.satisfied_signals);
+  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_WRITABLE,
+            hss.satisfiable_signals);
   // ... and still writable.
   waiter.Init();
+  hss = HandleSignalsState();
   EXPECT_EQ(MOJO_RESULT_ALREADY_EXISTS,
-            mp->AddWaiter(1, &waiter, MOJO_HANDLE_SIGNAL_WRITABLE, 3));
+            mp->AddWaiter(1, &waiter, MOJO_HANDLE_SIGNAL_WRITABLE, 3, &hss));
+  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_WRITABLE,
+            hss.satisfied_signals);
+  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_WRITABLE,
+            hss.satisfiable_signals);
 
   // Close port 0.
   mp->Close(0);
 
   // Now port 1 should not be writable.
   waiter.Init();
+  hss = HandleSignalsState();
   EXPECT_EQ(MOJO_RESULT_FAILED_PRECONDITION,
-            mp->AddWaiter(1, &waiter, MOJO_HANDLE_SIGNAL_WRITABLE, 4));
+            mp->AddWaiter(1, &waiter, MOJO_HANDLE_SIGNAL_WRITABLE, 4, &hss));
+  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE, hss.satisfied_signals);
+  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE, hss.satisfiable_signals);
 
   // But it should still be readable.
   waiter.Init();
+  hss = HandleSignalsState();
   EXPECT_EQ(MOJO_RESULT_ALREADY_EXISTS,
-            mp->AddWaiter(1, &waiter, MOJO_HANDLE_SIGNAL_READABLE, 5));
+            mp->AddWaiter(1, &waiter, MOJO_HANDLE_SIGNAL_READABLE, 5, &hss));
+  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE, hss.satisfied_signals);
+  EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE, hss.satisfiable_signals);
 
   // Read from port 1.
   buffer[0] = 0;
   buffer_size = kBufferSize;
   EXPECT_EQ(MOJO_RESULT_OK,
             mp->ReadMessage(1,
-                            buffer, &buffer_size,
-                            0, NULL,
+                            UserPointer<void>(buffer),
+                            MakeUserPointer(&buffer_size),
+                            0,
+                            nullptr,
                             MOJO_READ_MESSAGE_FLAG_NONE));
   EXPECT_EQ(123456789, buffer[0]);
 
   // Now port 1 should no longer be readable.
   waiter.Init();
+  hss = HandleSignalsState();
   EXPECT_EQ(MOJO_RESULT_FAILED_PRECONDITION,
-            mp->AddWaiter(1, &waiter, MOJO_HANDLE_SIGNAL_READABLE, 6));
+            mp->AddWaiter(1, &waiter, MOJO_HANDLE_SIGNAL_READABLE, 6, nullptr));
+  EXPECT_EQ(0u, hss.satisfied_signals);
+  EXPECT_EQ(0u, hss.satisfiable_signals);
 
   mp->Close(1);
 }
@@ -446,24 +538,30 @@ TEST(MessagePipeTest, ThreadedWaiting) {
 
   // Write to wake up waiter waiting for read.
   {
-    scoped_refptr<MessagePipe> mp(new MessagePipe());
+    scoped_refptr<MessagePipe> mp(MessagePipe::CreateLocalLocal());
     test::SimpleWaiterThread thread(&result, &context);
 
     thread.waiter()->Init();
-    EXPECT_EQ(MOJO_RESULT_OK,
-              mp->AddWaiter(1, thread.waiter(), MOJO_HANDLE_SIGNAL_READABLE,
-                            1));
+    ASSERT_EQ(MOJO_RESULT_OK,
+              mp->AddWaiter(
+                  1, thread.waiter(), MOJO_HANDLE_SIGNAL_READABLE, 1, nullptr));
     thread.Start();
 
     buffer[0] = 123456789;
     // Write from port 0 (to port 1), which should wake up the waiter.
     EXPECT_EQ(MOJO_RESULT_OK,
               mp->WriteMessage(0,
-                               buffer, kBufferSize,
-                               NULL,
+                               UserPointer<const void>(buffer),
+                               kBufferSize,
+                               nullptr,
                                MOJO_WRITE_MESSAGE_FLAG_NONE));
 
-    mp->RemoveWaiter(1, thread.waiter());
+    HandleSignalsState hss;
+    mp->RemoveWaiter(1, thread.waiter(), &hss);
+    EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_WRITABLE,
+              hss.satisfied_signals);
+    EXPECT_EQ(MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_WRITABLE,
+              hss.satisfiable_signals);
 
     mp->Close(0);
     mp->Close(1);
@@ -474,13 +572,13 @@ TEST(MessagePipeTest, ThreadedWaiting) {
 
   // Close to cancel waiter.
   {
-    scoped_refptr<MessagePipe> mp(new MessagePipe());
+    scoped_refptr<MessagePipe> mp(MessagePipe::CreateLocalLocal());
     test::SimpleWaiterThread thread(&result, &context);
 
     thread.waiter()->Init();
-    EXPECT_EQ(MOJO_RESULT_OK,
-              mp->AddWaiter(1, thread.waiter(), MOJO_HANDLE_SIGNAL_READABLE,
-                            2));
+    ASSERT_EQ(MOJO_RESULT_OK,
+              mp->AddWaiter(
+                  1, thread.waiter(), MOJO_HANDLE_SIGNAL_READABLE, 2, nullptr));
     thread.Start();
 
     // Close port 1 first -- this should result in the waiter being cancelled.
@@ -497,13 +595,13 @@ TEST(MessagePipeTest, ThreadedWaiting) {
 
   // Close to make waiter un-wake-up-able.
   {
-    scoped_refptr<MessagePipe> mp(new MessagePipe());
+    scoped_refptr<MessagePipe> mp(MessagePipe::CreateLocalLocal());
     test::SimpleWaiterThread thread(&result, &context);
 
     thread.waiter()->Init();
-    EXPECT_EQ(MOJO_RESULT_OK,
-              mp->AddWaiter(1, thread.waiter(), MOJO_HANDLE_SIGNAL_READABLE,
-                            3));
+    ASSERT_EQ(MOJO_RESULT_OK,
+              mp->AddWaiter(
+                  1, thread.waiter(), MOJO_HANDLE_SIGNAL_READABLE, 3, nullptr));
     thread.Start();
 
     // Close port 0 first -- this should wake the waiter up, since port 1 will
@@ -511,7 +609,10 @@ TEST(MessagePipeTest, ThreadedWaiting) {
     mp->CancelAllWaiters(0);
     mp->Close(0);
 
-    mp->RemoveWaiter(1, thread.waiter());
+    HandleSignalsState hss;
+    mp->RemoveWaiter(1, thread.waiter(), &hss);
+    EXPECT_EQ(0u, hss.satisfied_signals);
+    EXPECT_EQ(0u, hss.satisfiable_signals);
 
     mp->CancelAllWaiters(1);
     mp->Close(1);

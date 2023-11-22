@@ -9,12 +9,12 @@
 #if defined(ENABLE_EXTENSIONS)
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/api/proxy/proxy_api.h"
-#include "chrome/browser/extensions/api/web_request/web_request_api.h"
 #include "chrome/browser/extensions/event_router_forwarder.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/resource_request_info.h"
+#include "extensions/browser/api/web_request/web_request_api.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/info_map.h"
 #include "extensions/browser/process_manager.h"
@@ -64,6 +64,11 @@ void ForwardRequestStatus(
   const ResourceRequestInfo* info = ResourceRequestInfo::ForRequest(request);
   if (!info)
     return;
+
+  if (status == REQUEST_STARTED && request->url_chain().size() > 1) {
+    // It's a redirect, this request has already been counted.
+    return;
+  }
 
   int process_id, render_frame_id;
   if (info->GetAssociatedRenderFrame(&process_id, &render_frame_id)) {

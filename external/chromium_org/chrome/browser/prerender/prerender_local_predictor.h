@@ -11,8 +11,8 @@
 #include "base/containers/hash_tables.h"
 #include "base/memory/scoped_vector.h"
 #include "base/memory/weak_ptr.h"
+#include "base/task/cancelable_task_tracker.h"
 #include "base/timer/timer.h"
-#include "chrome/browser/common/cancelable_request.h"
 #include "chrome/browser/history/visit_database.h"
 #include "content/public/browser/session_storage_namespace.h"
 #include "net/url_request/url_fetcher_delegate.h"
@@ -46,6 +46,8 @@ class PrerenderLocalPredictor : public history::VisitDatabaseObserver,
  public:
   struct LocalPredictorURLInfo;
   struct CandidatePrerenderInfo;
+  // A class simulating a set of URLs prefetched, for statistical purposes.
+  class PrefetchList;
   enum Event {
     EVENT_CONSTRUCTED = 0,
     EVENT_INIT_SCHEDULED = 1,
@@ -131,12 +133,18 @@ class PrerenderLocalPredictor : public history::VisitDatabaseObserver,
     EVENT_NAMESPACE_MISMATCH_MERGE_RESULT_MERGEABLE = 81,
     EVENT_INIT_FAILED_UNENCRYPTED_SYNC_NOT_ENABLED = 82,
     EVENT_CONTINUE_PRERENDER_CHECK_EXAMINE_NEXT_URL_NOT_SKIPPED = 83,
-    EVENT_PRERENDER_SERIVCE_RETURNED_HINTING_CANDIDATES = 84,
+    EVENT_PRERENDER_SERVICE_RETURNED_HINTING_CANDIDATES = 84,
     EVENT_NAMESPACE_MISMATCH_MERGE_RESULT_NAMESPACE_NOT_ALIAS = 85,
     EVENT_TAB_HELPER_URL_SEEN_MATCH_ENTRY = 86,
     EVENT_TAB_HELPER_URL_SEEN_MATCH_BROWSER_NAVIGATE = 87,
     EVENT_TAB_HELPER_URL_SEEN_NAMESPACE_MATCH_ENTRY = 88,
     EVENT_TAB_HELPER_URL_SEEN_NAMESPACE_MATCH_BROWSER_NAVIGATE = 89,
+    EVENT_PREFETCH_LIST_ADDED = 90,
+    EVENT_PREFETCH_LIST_SEEN_TABCONTENTS = 91,
+    EVENT_PREFETCH_LIST_SEEN_HISTORY = 92,
+    EVENT_ISSUE_PRERENDER_CALLED = 93,
+    EVENT_ISSUE_PRERENDER_PREFETCH_ENABLED = 94,
+    EVENT_ISSUE_PRERENDER_PREFETCH_ISSUED = 95,
     EVENT_MAX_VALUE
   };
 
@@ -188,8 +196,7 @@ class PrerenderLocalPredictor : public history::VisitDatabaseObserver,
   void ContinuePrerenderCheck(scoped_ptr<CandidatePrerenderInfo> info);
   void LogCandidateURLStats(const GURL& url) const;
   void IssuePrerender(CandidatePrerenderInfo* info,
-                      LocalPredictorURLInfo* url_info,
-                      PrerenderProperties* prerender_properties);
+                      LocalPredictorURLInfo* url_info);
   void MaybeCancelURLFetcher(net::URLFetcher* fetcher);
   // Returns true if the parsed response is semantically correct and could
   // be fully applied.
@@ -215,7 +222,7 @@ class PrerenderLocalPredictor : public history::VisitDatabaseObserver,
   // history::VisitDatabaseObserver.
   bool is_visit_database_observer_;
 
-  CancelableRequestConsumer history_db_consumer_;
+  base::CancelableTaskTracker history_db_tracker_;
 
   scoped_ptr<std::vector<history::BriefVisitInfo> > visit_history_;
 
@@ -227,6 +234,8 @@ class PrerenderLocalPredictor : public history::VisitDatabaseObserver,
   base::hash_set<int64> url_whitelist_;
 
   base::WeakPtrFactory<PrerenderLocalPredictor> weak_factory_;
+
+  scoped_ptr<PrefetchList> prefetch_list_;
 
   DISALLOW_COPY_AND_ASSIGN(PrerenderLocalPredictor);
 };

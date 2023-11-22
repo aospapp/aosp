@@ -18,12 +18,12 @@ public class UnclippedBlueView extends FrameLayout {
 
     public UnclippedBlueView(Context context, AttributeSet attrs, int defStyleAttr) {
         this(context, attrs, defStyleAttr, 0);
-        setWillNotDraw(false);
     }
 
     public UnclippedBlueView(Context context, AttributeSet attrs,
             int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
+        setWillNotDraw(false);
     }
 
     @Override

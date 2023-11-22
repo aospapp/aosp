@@ -22,18 +22,14 @@ class BluetoothSocketThread;
 class BluetoothDeviceWin : public BluetoothDevice {
  public:
   explicit BluetoothDeviceWin(
-      const BluetoothTaskManagerWin::DeviceState& state,
-      scoped_refptr<base::SequencedTaskRunner> ui_task_runner,
-      scoped_refptr<BluetoothSocketThread> socket_thread,
+      const BluetoothTaskManagerWin::DeviceState& device_state,
+      const scoped_refptr<base::SequencedTaskRunner>& ui_task_runner,
+      const scoped_refptr<BluetoothSocketThread>& socket_thread,
       net::NetLog* net_log,
       const net::NetLog::Source& net_log_source);
   virtual ~BluetoothDeviceWin();
 
   // BluetoothDevice override
-  virtual void AddObserver(
-      device::BluetoothDevice::Observer* observer) OVERRIDE;
-  virtual void RemoveObserver(
-      device::BluetoothDevice::Observer* observer) OVERRIDE;
   virtual uint32 GetBluetoothClass() const OVERRIDE;
   virtual std::string GetAddress() const OVERRIDE;
   virtual VendorIDSource GetVendorIDSource() const OVERRIDE;
@@ -80,6 +76,14 @@ class BluetoothDeviceWin : public BluetoothDevice {
   const BluetoothServiceRecordWin* GetServiceRecord(
       const device::BluetoothUUID& uuid) const;
 
+  // Returns true if all fields and services of this instance are equal to the
+  // fields and services stored in |device_state|.
+  bool IsEqual(const BluetoothTaskManagerWin::DeviceState& device_state);
+
+  // Updates this instance with all fields and properties stored in
+  // |device_state|.
+  void Update(const BluetoothTaskManagerWin::DeviceState& device_state);
+
  protected:
   // BluetoothDevice override
   virtual std::string GetDeviceName() const OVERRIDE;
@@ -91,13 +95,13 @@ class BluetoothDeviceWin : public BluetoothDevice {
   // discovery.
   void SetVisible(bool visible);
 
+  // Updates the services with services stored in |device_state|.
+  void UpdateServices(const BluetoothTaskManagerWin::DeviceState& device_state);
+
   scoped_refptr<base::SequencedTaskRunner> ui_task_runner_;
   scoped_refptr<BluetoothSocketThread> socket_thread_;
   net::NetLog* net_log_;
   net::NetLog::Source net_log_source_;
-
-  // List of observers interested in event notifications from us.
-  ObserverList<Observer> observers_;
 
   // The Bluetooth class of the device, a bitmask that may be decoded using
   // https://www.bluetooth.org/Technical/AssignedNumbers/baseband.htm

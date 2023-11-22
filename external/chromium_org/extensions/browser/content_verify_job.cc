@@ -6,8 +6,10 @@
 
 #include <algorithm>
 
+#include "base/metrics/histogram.h"
 #include "base/stl_util.h"
 #include "base/task_runner_util.h"
+#include "base/timer/elapsed_timer.h"
 #include "content/public/browser/browser_thread.h"
 #include "crypto/secure_hash.h"
 #include "crypto/sha2.h"
@@ -18,6 +20,22 @@ namespace extensions {
 namespace {
 
 ContentVerifyJob::TestDelegate* g_test_delegate = NULL;
+ContentVerifyJob::TestObserver* g_test_observer = NULL;
+
+class ScopedElapsedTimer {
+ public:
+  ScopedElapsedTimer(base::TimeDelta* total) : total_(total) { DCHECK(total_); }
+
+  ~ScopedElapsedTimer() { *total_ += timer.Elapsed(); }
+
+ private:
+  // Some total amount of time we should add our elapsed time to at
+  // destruction.
+  base::TimeDelta* total_;
+
+  // A timer for how long this object has been alive.
+  base::ElapsedTimer timer;
+};
 
 }  // namespace
 
@@ -37,10 +55,15 @@ ContentVerifyJob::ContentVerifyJob(ContentHashReader* hash_reader,
 }
 
 ContentVerifyJob::~ContentVerifyJob() {
+  UMA_HISTOGRAM_COUNTS("ExtensionContentVerifyJob.TimeSpentUS",
+                       time_spent_.InMicroseconds());
 }
 
 void ContentVerifyJob::Start() {
   DCHECK(thread_checker_.CalledOnValidThread());
+  if (g_test_observer)
+    g_test_observer->JobStarted(hash_reader_->extension_id(),
+                                hash_reader_->relative_path());
   base::PostTaskAndReplyWithResult(
       content::BrowserThread::GetBlockingPool(),
       FROM_HERE,
@@ -49,6 +72,7 @@ void ContentVerifyJob::Start() {
 }
 
 void ContentVerifyJob::BytesRead(int count, const char* data) {
+  ScopedElapsedTimer timer(&time_spent_);
   DCHECK(thread_checker_.CalledOnValidThread());
   if (failed_)
     return;
@@ -95,6 +119,7 @@ void ContentVerifyJob::BytesRead(int count, const char* data) {
 }
 
 void ContentVerifyJob::DoneReading() {
+  ScopedElapsedTimer timer(&time_spent_);
   DCHECK(thread_checker_.CalledOnValidThread());
   if (failed_)
     return;
@@ -109,6 +134,10 @@ void ContentVerifyJob::DoneReading() {
   done_reading_ = true;
   if (hashes_ready_ && !FinishBlock())
     DispatchFailureCallback(HASH_MISMATCH);
+
+  if (!failed_ && g_test_observer)
+    g_test_observer->JobFinished(
+        hash_reader_->extension_id(), hash_reader_->relative_path(), failed_);
 }
 
 bool ContentVerifyJob::FinishBlock() {
@@ -116,25 +145,30 @@ bool ContentVerifyJob::FinishBlock() {
     return true;
   std::string final(crypto::kSHA256Length, 0);
   current_hash_->Finish(string_as_array(&final), final.size());
+  current_hash_.reset();
+  current_hash_byte_count_ = 0;
+
+  int block = current_block_++;
 
   const std::string* expected_hash = NULL;
-  if (!hash_reader_->GetHashForBlock(current_block_, &expected_hash) ||
+  if (!hash_reader_->GetHashForBlock(block, &expected_hash) ||
       *expected_hash != final)
     return false;
 
-  current_hash_.reset();
-  current_hash_byte_count_ = 0;
-  current_block_++;
   return true;
 }
 
 void ContentVerifyJob::OnHashesReady(bool success) {
   if (!success && !g_test_delegate) {
-    if (hash_reader_->have_verified_contents() &&
-        hash_reader_->have_computed_hashes())
+    if (!hash_reader_->content_exists()) {
+      // Ignore verification of non-existent resources.
+      return;
+    } else if (hash_reader_->have_verified_contents() &&
+               hash_reader_->have_computed_hashes()) {
       DispatchFailureCallback(NO_HASHES_FOR_FILE);
-    else
+    } else {
       DispatchFailureCallback(MISSING_ALL_HASHES);
+    }
     return;
   }
 
@@ -144,13 +178,21 @@ void ContentVerifyJob::OnHashesReady(bool success) {
     queue_.swap(tmp);
     BytesRead(tmp.size(), string_as_array(&tmp));
   }
-  if (done_reading_ && !FinishBlock())
-    DispatchFailureCallback(HASH_MISMATCH);
+  if (done_reading_) {
+    ScopedElapsedTimer timer(&time_spent_);
+    if (!FinishBlock())
+      DispatchFailureCallback(HASH_MISMATCH);
+  }
 }
 
 // static
 void ContentVerifyJob::SetDelegateForTests(TestDelegate* delegate) {
   g_test_delegate = delegate;
+}
+
+// static
+void ContentVerifyJob::SetObserverForTests(TestObserver* observer) {
+  g_test_observer = observer;
 }
 
 void ContentVerifyJob::DispatchFailureCallback(FailureReason reason) {
@@ -163,6 +205,9 @@ void ContentVerifyJob::DispatchFailureCallback(FailureReason reason) {
     failure_callback_.Run(reason);
     failure_callback_.Reset();
   }
+  if (g_test_observer)
+    g_test_observer->JobFinished(
+        hash_reader_->extension_id(), hash_reader_->relative_path(), failed_);
 }
 
 }  // namespace extensions

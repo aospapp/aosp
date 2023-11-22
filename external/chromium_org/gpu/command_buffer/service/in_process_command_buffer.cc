@@ -24,14 +24,14 @@
 #include "base/sequence_checker.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/threading/thread.h"
-#include "gpu/command_buffer/client/gpu_memory_buffer_factory.h"
 #include "gpu/command_buffer/service/command_buffer_service.h"
 #include "gpu/command_buffer/service/context_group.h"
 #include "gpu/command_buffer/service/gl_context_virtual.h"
-#include "gpu/command_buffer/service/gpu_control_service.h"
 #include "gpu/command_buffer/service/gpu_scheduler.h"
 #include "gpu/command_buffer/service/image_manager.h"
 #include "gpu/command_buffer/service/mailbox_manager.h"
+#include "gpu/command_buffer/service/memory_tracking.h"
+#include "gpu/command_buffer/service/query_manager.h"
 #include "gpu/command_buffer/service/transfer_buffer_manager.h"
 #include "ui/gfx/size.h"
 #include "ui/gl/gl_context.h"
@@ -47,7 +47,7 @@ namespace gpu {
 
 namespace {
 
-static GpuMemoryBufferFactory* g_gpu_memory_buffer_factory = NULL;
+static InProcessGpuMemoryBufferFactory* g_gpu_memory_buffer_factory = NULL;
 
 template <typename T>
 static void RunTaskWithResult(base::Callback<T(void)> task,
@@ -179,16 +179,18 @@ void SyncPointManager::WaitSyncPoint(uint32 sync_point) {
 base::LazyInstance<SyncPointManager> g_sync_point_manager =
     LAZY_INSTANCE_INITIALIZER;
 
-bool WaitSyncPoint(uint32 sync_point) {
-  g_sync_point_manager.Get().WaitSyncPoint(sync_point);
-  return true;
-}
-
 }  // anonyous namespace
 
 InProcessCommandBuffer::Service::Service() {}
 
 InProcessCommandBuffer::Service::~Service() {}
+
+scoped_refptr<gles2::MailboxManager>
+InProcessCommandBuffer::Service::mailbox_manager() {
+  if (!mailbox_manager_.get())
+    mailbox_manager_ = new gles2::MailboxManager();
+  return mailbox_manager_;
+}
 
 scoped_refptr<InProcessCommandBuffer::Service>
 InProcessCommandBuffer::GetDefaultService() {
@@ -212,7 +214,7 @@ InProcessCommandBuffer::InProcessCommandBuffer(
       flush_event_(false, false),
       service_(service.get() ? service : GetDefaultService()),
       gpu_thread_weak_ptr_factory_(this) {
-  if (!service) {
+  if (!service.get()) {
     base::AutoLock lock(default_thread_clients_lock_.Get());
     default_thread_clients_.Get().insert(this);
   }
@@ -268,10 +270,10 @@ bool InProcessCommandBuffer::Initialize(
     gfx::GpuPreference gpu_preference,
     const base::Closure& context_lost_callback,
     InProcessCommandBuffer* share_group) {
-  DCHECK(!share_group || service_ == share_group->service_);
+  DCHECK(!share_group || service_.get() == share_group->service_.get());
   context_lost_callback_ = WrapCallback(context_lost_callback);
 
-  if (surface) {
+  if (surface.get()) {
     // GPU thread must be the same as client thread due to GLSurface not being
     // thread safe.
     sequence_checker_.reset(new base::SequenceChecker);
@@ -342,8 +344,7 @@ bool InProcessCommandBuffer::InitializeOnGpuThread(
   decoder_.reset(gles2::GLES2Decoder::Create(
       params.context_group
           ? params.context_group->decoder_->GetContextGroup()
-          : new gles2::ContextGroup(NULL,
-                                    NULL,
+          : new gles2::ContextGroup(service_->mailbox_manager(),
                                     NULL,
                                     service_->shader_translator_cache(),
                                     NULL,
@@ -357,7 +358,7 @@ bool InProcessCommandBuffer::InitializeOnGpuThread(
 
   decoder_->set_engine(gpu_scheduler_.get());
 
-  if (!surface_) {
+  if (!surface_.get()) {
     if (params.is_offscreen)
       surface_ = gfx::GLSurface::CreateOffscreenGLSurface(params.size);
     else
@@ -370,7 +371,11 @@ bool InProcessCommandBuffer::InitializeOnGpuThread(
     return false;
   }
 
-  if (service_->UseVirtualizedGLContexts()) {
+  if (service_->UseVirtualizedGLContexts() ||
+      decoder_->GetContextGroup()
+          ->feature_info()
+          ->workarounds()
+          .use_virtualized_gl_contexts) {
     context_ = gl_share_group_->GetSharedContext();
     if (!context_.get()) {
       context_ = gfx::GLContext::CreateGLContext(
@@ -416,15 +421,13 @@ bool InProcessCommandBuffer::InitializeOnGpuThread(
   }
   *params.capabilities = decoder_->GetCapabilities();
 
-  gpu_control_.reset(
-      new GpuControlService(decoder_->GetContextGroup()->image_manager(),
-                            decoder_->GetQueryManager()));
-
   if (!params.is_offscreen) {
     decoder_->SetResizeCallback(base::Bind(
         &InProcessCommandBuffer::OnResizeView, gpu_thread_weak_ptr_));
   }
-  decoder_->SetWaitSyncPointCallback(base::Bind(&WaitSyncPoint));
+  decoder_->SetWaitSyncPointCallback(
+      base::Bind(&InProcessCommandBuffer::WaitSyncPointOnGpuThread,
+                 base::Unretained(this)));
 
   return true;
 }
@@ -446,7 +449,7 @@ bool InProcessCommandBuffer::DestroyOnGpuThread() {
   gpu_thread_weak_ptr_factory_.InvalidateWeakPtrs();
   command_buffer_.reset();
   // Clean up GL resources if possible.
-  bool have_context = context_ && context_->MakeCurrent(surface_);
+  bool have_context = context_.get() && context_->MakeCurrent(surface_.get());
   if (decoder_) {
     decoder_->Destroy(have_context);
     decoder_.reset();
@@ -595,14 +598,14 @@ scoped_refptr<Buffer> InProcessCommandBuffer::CreateTransferBuffer(size_t size,
 void InProcessCommandBuffer::DestroyTransferBuffer(int32 id) {
   CheckSequencedThread();
   base::Closure task =
-      base::Bind(&InProcessCommandBuffer::DestroyTransferBufferOnGputhread,
+      base::Bind(&InProcessCommandBuffer::DestroyTransferBufferOnGpuThread,
                  base::Unretained(this),
                  id);
 
   QueueTask(task);
 }
 
-void InProcessCommandBuffer::DestroyTransferBufferOnGputhread(int32 id) {
+void InProcessCommandBuffer::DestroyTransferBufferOnGpuThread(int32 id) {
   base::AutoLock lock(command_buffer_lock_);
   command_buffer_->DestroyTransferBuffer(id);
 }
@@ -620,39 +623,75 @@ gfx::GpuMemoryBuffer* InProcessCommandBuffer::CreateGpuMemoryBuffer(
   CheckSequencedThread();
 
   *id = -1;
-  linked_ptr<gfx::GpuMemoryBuffer> buffer =
-      make_linked_ptr(g_gpu_memory_buffer_factory->CreateGpuMemoryBuffer(
-          width, height, internalformat, usage));
+
+  scoped_ptr<gfx::GpuMemoryBuffer> buffer =
+      g_gpu_memory_buffer_factory->AllocateGpuMemoryBuffer(
+          width, height, internalformat, usage);
   if (!buffer.get())
     return NULL;
 
   static int32 next_id = 1;
-  *id = next_id++;
+  int32 new_id = next_id++;
 
-  base::Closure task = base::Bind(&GpuControlService::RegisterGpuMemoryBuffer,
-                                  base::Unretained(gpu_control_.get()),
-                                  *id,
-                                  buffer->GetHandle(),
-                                  width,
-                                  height,
-                                  internalformat);
+  base::Closure task =
+      base::Bind(&InProcessCommandBuffer::RegisterGpuMemoryBufferOnGpuThread,
+                 base::Unretained(this),
+                 new_id,
+                 buffer->GetHandle(),
+                 width,
+                 height,
+                 internalformat);
 
   QueueTask(task);
 
-  gpu_memory_buffers_[*id] = buffer;
-  return buffer.get();
+  *id = new_id;
+  DCHECK(gpu_memory_buffers_.find(new_id) == gpu_memory_buffers_.end());
+  return gpu_memory_buffers_.add(new_id, buffer.Pass()).first->second;
+}
+
+void InProcessCommandBuffer::RegisterGpuMemoryBufferOnGpuThread(
+    int32 id,
+    const gfx::GpuMemoryBufferHandle& handle,
+    size_t width,
+    size_t height,
+    unsigned internalformat) {
+  scoped_refptr<gfx::GLImage> image =
+      g_gpu_memory_buffer_factory->CreateImageForGpuMemoryBuffer(
+          handle, gfx::Size(width, height), internalformat);
+  if (!image.get())
+    return;
+
+  // For Android specific workaround.
+  gles2::ContextGroup* context_group = decoder_->GetContextGroup();
+  if (context_group->feature_info()->workarounds().release_image_after_use)
+    image->SetReleaseAfterUse();
+
+  if (decoder_) {
+    gpu::gles2::ImageManager* image_manager = decoder_->GetImageManager();
+    DCHECK(image_manager);
+    image_manager->AddImage(image.get(), id);
+  }
 }
 
 void InProcessCommandBuffer::DestroyGpuMemoryBuffer(int32 id) {
   CheckSequencedThread();
-  GpuMemoryBufferMap::iterator it = gpu_memory_buffers_.find(id);
-  if (it != gpu_memory_buffers_.end())
-    gpu_memory_buffers_.erase(it);
-  base::Closure task = base::Bind(&GpuControlService::UnregisterGpuMemoryBuffer,
-                                  base::Unretained(gpu_control_.get()),
-                                  id);
+
+  base::Closure task =
+      base::Bind(&InProcessCommandBuffer::UnregisterGpuMemoryBufferOnGpuThread,
+                 base::Unretained(this),
+                 id);
 
   QueueTask(task);
+
+  gpu_memory_buffers_.erase(id);
+}
+
+void InProcessCommandBuffer::UnregisterGpuMemoryBufferOnGpuThread(int32 id) {
+  if (decoder_) {
+    gpu::gles2::ImageManager* image_manager = decoder_->GetImageManager();
+    DCHECK(image_manager);
+    image_manager->RemoveImage(id);
+  }
 }
 
 uint32 InProcessCommandBuffer::InsertSyncPoint() {
@@ -661,6 +700,16 @@ uint32 InProcessCommandBuffer::InsertSyncPoint() {
                        base::Unretained(this),
                        sync_point));
   return sync_point;
+}
+
+uint32 InProcessCommandBuffer::InsertFutureSyncPoint() {
+  return g_sync_point_manager.Get().GenerateSyncPoint();
+}
+
+void InProcessCommandBuffer::RetireSyncPoint(uint32 sync_point) {
+  QueueTask(base::Bind(&InProcessCommandBuffer::RetireSyncPointOnGpuThread,
+                       base::Unretained(this),
+                       sync_point));
 }
 
 void InProcessCommandBuffer::RetireSyncPointOnGpuThread(uint32 sync_point) {
@@ -673,7 +722,7 @@ void InProcessCommandBuffer::RetireSyncPointOnGpuThread(uint32 sync_point) {
       make_current_success = MakeCurrent();
     }
     if (make_current_success)
-      mailbox_manager->PushTextureUpdates();
+      mailbox_manager->PushTextureUpdates(sync_point);
   }
   g_sync_point_manager.Get().RetireSyncPoint(sync_point);
 }
@@ -685,6 +734,14 @@ void InProcessCommandBuffer::SignalSyncPoint(unsigned sync_point,
                        base::Unretained(this),
                        sync_point,
                        WrapCallback(callback)));
+}
+
+bool InProcessCommandBuffer::WaitSyncPointOnGpuThread(unsigned sync_point) {
+  g_sync_point_manager.Get().WaitSyncPoint(sync_point);
+  gles2::MailboxManager* mailbox_manager =
+      decoder_->GetContextGroup()->mailbox_manager();
+  mailbox_manager->PullTextureUpdates(sync_point);
+  return true;
 }
 
 void InProcessCommandBuffer::SignalSyncPointOnGpuThread(
@@ -701,13 +758,26 @@ void InProcessCommandBuffer::SignalSyncPointOnGpuThread(
   }
 }
 
-void InProcessCommandBuffer::SignalQuery(unsigned query,
+void InProcessCommandBuffer::SignalQuery(unsigned query_id,
                                          const base::Closure& callback) {
   CheckSequencedThread();
-  QueueTask(base::Bind(&GpuControlService::SignalQuery,
-                       base::Unretained(gpu_control_.get()),
-                       query,
+  QueueTask(base::Bind(&InProcessCommandBuffer::SignalQueryOnGpuThread,
+                       base::Unretained(this),
+                       query_id,
                        WrapCallback(callback)));
+}
+
+void InProcessCommandBuffer::SignalQueryOnGpuThread(
+    unsigned query_id,
+    const base::Closure& callback) {
+  gles2::QueryManager* query_manager_ = decoder_->GetQueryManager();
+  DCHECK(query_manager_);
+
+  gles2::QueryManager::Query* query = query_manager_->GetQuery(query_id);
+  if (!query)
+    callback.Run();
+  else
+    query->AddCallback(callback);
 }
 
 void InProcessCommandBuffer::SetSurfaceVisible(bool visible) {}
@@ -790,7 +860,7 @@ InProcessCommandBuffer::GetSurfaceTexture(uint32 stream_id) {
 
 // static
 void InProcessCommandBuffer::SetGpuMemoryBufferFactory(
-    GpuMemoryBufferFactory* factory) {
+    InProcessGpuMemoryBufferFactory* factory) {
   g_gpu_memory_buffer_factory = factory;
 }
 

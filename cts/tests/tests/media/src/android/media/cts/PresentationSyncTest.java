@@ -109,7 +109,20 @@ public class PresentationSyncTest extends ActivityInstrumentationTestCase2<Media
         CpuWaster cpuWaster = new CpuWaster();
         try {
             cpuWaster.start();
-            runThroughputTest(output, refreshNsec, 0.75f);
+            // Tests with mult < 1.0f are flaky, for two reasons:
+            //
+            // (a) They assume that the GPU can render the test scene in less than mult*refreshNsec.
+            //     It's a simple scene, but CTS/CDD don't currently require being able to do more
+            //     than a full-screen clear in refreshNsec.
+            //
+            // (b) More importantly, it assumes that the only rate-limiting happening is
+            //     backpressure from the buffer queue. If the EGL implementation is doing its own
+            //     rate-limiting (to limit the amount of work queued to the GPU at any time), then
+            //     depending on how that's implemented the buffer queue may not have two frames
+            //     pending very often. So the consumer won't be able to drop many frames, and the
+            //     throughput won't be much better than with mult=1.0.
+            //
+            // runThroughputTest(output, refreshNsec, 0.75f);
             cpuWaster.stop();
             runThroughputTest(output, refreshNsec, 1.0f);
             runThroughputTest(output, refreshNsec, 2.0f);

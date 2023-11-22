@@ -18,9 +18,21 @@ extern const base::FilePath::CharType kDatabaseName[];
 
 extern const char kDatabaseVersionKey[];
 extern const int64 kCurrentDatabaseVersion;
+extern const int64 kDatabaseOnDiskVersion;
 extern const char kServiceMetadataKey[];
 extern const char kFileMetadataKeyPrefix[];
 extern const char kFileTrackerKeyPrefix[];
+extern const char kLastValidationTimeKey[];
+
+extern const char kAppRootIDByAppIDKeyPrefix[];
+extern const char kActiveTrackerIDByFileIDKeyPrefix[];
+extern const char kTrackerIDByFileIDKeyPrefix[];
+extern const char kMultiTrackerByFileIDKeyPrefix[];
+extern const char kActiveTrackerIDByParentAndTitleKeyPrefix[];
+extern const char kTrackerIDByParentAndTitleKeyPrefix[];
+extern const char kMultiBackingParentAndTitleKeyPrefix[];
+extern const char kDirtyIDKeyPrefix[];
+extern const char kDemotedDirtyIDKeyPrefix[];
 
 extern const int kMaxRetry;
 extern const int64 kListChangesRetryDelaySeconds;

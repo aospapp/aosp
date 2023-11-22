@@ -7,19 +7,13 @@
 #include <math.h>
 #include <set>
 
-#include "ash/accelerators/accelerator_commands.h"
-#include "ash/wm/coordinate_conversion.h"
-#include "ash/wm/window_state.h"
 #include "base/auto_reset.h"
 #include "base/callback.h"
-#include "base/command_line.h"
 #include "base/i18n/rtl.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/app_modal_dialogs/javascript_dialog_manager.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/media_utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -28,8 +22,6 @@
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/tabs/window_finder.h"
-#include "chrome/common/chrome_switches.h"
-#include "content/public/browser/invalidate_type.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
@@ -38,23 +30,22 @@
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_function_dispatcher.h"
 #include "ui/aura/env.h"
-#include "ui/aura/env.h"
 #include "ui/aura/window.h"
-#include "ui/aura/window_event_dispatcher.h"
-#include "ui/base/resource/resource_bundle.h"
 #include "ui/events/event_constants.h"
-#include "ui/events/event_utils.h"
 #include "ui/events/gestures/gesture_recognizer.h"
 #include "ui/gfx/geometry/point_conversions.h"
 #include "ui/gfx/screen.h"
 #include "ui/views/focus/view_storage.h"
 #include "ui/views/widget/root_view.h"
 #include "ui/views/widget/widget.h"
+#include "ui/wm/core/coordinate_conversion.h"
 #include "ui/wm/core/window_modality_controller.h"
 
-#if defined(OS_WIN)
-#include "ui/aura/window.h"
-#include "ui/events/gestures/gesture_recognizer.h"
+#if defined(USE_ASH)
+#include "ash/accelerators/accelerator_commands.h"
+#include "ash/shell.h"
+#include "ash/wm/maximize_mode/maximize_mode_controller.h"
+#include "ash/wm/window_state.h"
 #endif
 
 using base::UserMetricsAction;
@@ -82,6 +73,7 @@ const int kHorizontalMoveThreshold = 16;  // Pixels.
 // close enough to trigger moving.
 const int kStackedDistance = 36;
 
+#if defined(USE_ASH)
 void SetWindowPositionManaged(gfx::NativeWindow window, bool value) {
   ash::wm::GetWindowState(window)->set_window_position_managed(value);
 }
@@ -93,6 +85,14 @@ bool IsDockedOrSnapped(const TabStrip* tab_strip) {
       ash::wm::GetWindowState(tab_strip->GetWidget()->GetNativeWindow());
   return window_state->IsDocked() || window_state->IsSnapped();
 }
+#else
+void SetWindowPositionManaged(gfx::NativeWindow window, bool value) {
+}
+
+bool IsDockedOrSnapped(const TabStrip* tab_strip) {
+  return false;
+}
+#endif
 
 // Returns true if |bounds| contains the y-coordinate |y|. The y-coordinate
 // of |bounds| is adjusted by |vertical_adjustment|.
@@ -158,7 +158,6 @@ class EscapeTracker : public ui::EventHandler {
 
 TabDragController::TabDragData::TabDragData()
     : contents(NULL),
-      original_delegate(NULL),
       source_model_index(-1),
       attached_tab(NULL),
       pinned(false) {
@@ -177,13 +176,12 @@ const int TabDragController::kTouchVerticalDetachMagnetism = 50;
 const int TabDragController::kVerticalDetachMagnetism = 15;
 
 TabDragController::TabDragController()
-    : detach_into_browser_(true),
-      event_source_(EVENT_SOURCE_MOUSE),
+    : event_source_(EVENT_SOURCE_MOUSE),
       source_tabstrip_(NULL),
       attached_tabstrip_(NULL),
       screen_(NULL),
       host_desktop_type_(chrome::HOST_DESKTOP_TYPE_NATIVE),
-      use_aura_capture_policy_(false),
+      can_release_capture_(true),
       offset_to_width_ratio_(0),
       old_focused_view_id_(
           views::ViewStorage::GetInstance()->CreateStorageID()),
@@ -222,16 +220,11 @@ TabDragController::~TabDragController() {
     SetWindowPositionManaged(move_loop_widget_->GetNativeView(), true);
   }
 
-  if (source_tabstrip_ && detach_into_browser_)
+  if (source_tabstrip_)
     GetModel(source_tabstrip_)->RemoveObserver(this);
 
-  // Reset the delegate of the dragged WebContents. This ends up doing nothing
-  // if the drag was completed.
-  if (!detach_into_browser_)
-    ResetDelegates();
-
   if (event_source_ == EVENT_SOURCE_TOUCH) {
-    TabStrip* capture_tabstrip = (attached_tabstrip_ && detach_into_browser_) ?
+    TabStrip* capture_tabstrip = attached_tabstrip_ ?
         attached_tabstrip_ : source_tabstrip_;
     capture_tabstrip->GetWidget()->ReleaseCapture();
   }
@@ -244,7 +237,6 @@ void TabDragController::Init(
     const gfx::Point& mouse_offset,
     int source_tab_offset,
     const ui::ListSelectionModel& initial_selection_model,
-    DetachBehavior detach_behavior,
     MoveBehavior move_behavior,
     EventSource event_source) {
   DCHECK(!tabs.empty());
@@ -256,26 +248,29 @@ void TabDragController::Init(
       source_tabstrip->GetWidget()->GetNativeView());
   host_desktop_type_ = chrome::GetHostDesktopTypeForNativeView(
       source_tabstrip->GetWidget()->GetNativeView());
+  // Do not release capture when transferring capture between widgets on:
+  // - Desktop Linux
+  //     Mouse capture is not synchronous on desktop Linux. Chrome makes
+  //     transferring capture between widgets without releasing capture appear
+  //     synchronous on desktop Linux, so use that.
+  // - Ash
+  //     Releasing capture on Ash cancels gestures so avoid it.
 #if defined(OS_LINUX)
-  use_aura_capture_policy_ = true;
+  can_release_capture_ = false;
 #else
-  use_aura_capture_policy_ =
-      (host_desktop_type_ == chrome::HOST_DESKTOP_TYPE_ASH);
+  can_release_capture_ =
+      (host_desktop_type_ != chrome::HOST_DESKTOP_TYPE_ASH);
 #endif
   start_point_in_screen_ = gfx::Point(source_tab_offset, mouse_offset.y());
   views::View::ConvertPointToScreen(source_tab, &start_point_in_screen_);
   event_source_ = event_source;
   mouse_offset_ = mouse_offset;
-  detach_behavior_ = detach_behavior;
   move_behavior_ = move_behavior;
   last_point_in_screen_ = start_point_in_screen_;
   last_move_screen_loc_ = start_point_in_screen_.x();
   initial_tab_positions_ = source_tabstrip->GetTabXCoordinates();
-  if (detach_behavior == NOT_DETACHABLE)
-    detach_into_browser_ = false;
 
-  if (detach_into_browser_)
-    GetModel(source_tabstrip_)->AddObserver(this);
+  GetModel(source_tabstrip_)->AddObserver(this);
 
   drag_data_.resize(tabs.size());
   for (size_t i = 0; i < tabs.size(); ++i)
@@ -301,6 +296,14 @@ void TabDragController::Init(
   // the same time, so we explicitly capture.
   if (event_source == EVENT_SOURCE_TOUCH)
     source_tabstrip_->GetWidget()->SetCapture(source_tabstrip_);
+
+#if defined(USE_ASH)
+  if (ash::Shell::HasInstance() &&
+      ash::Shell::GetInstance()->maximize_mode_controller()->
+          IsMaximizeModeWindowManagerEnabled()) {
+    detach_behavior_ = NOT_DETACHABLE;
+  }
+#endif
 }
 
 // static
@@ -344,7 +347,7 @@ void TabDragController::Drag(const gfx::Point& point_in_screen) {
     }
     started_drag_ = true;
     Attach(source_tabstrip_, gfx::Point());
-    if (detach_into_browser_ && static_cast<int>(drag_data_.size()) ==
+    if (static_cast<int>(drag_data_.size()) ==
         GetModel(source_tabstrip_)->count()) {
       if (was_source_maximized_ || was_source_fullscreen_) {
         did_restore_window_ = true;
@@ -400,89 +403,6 @@ void TabDragController::InitTabDragData(Tab* tab,
       this,
       content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
       content::Source<WebContents>(drag_data->contents));
-
-  if (!detach_into_browser_) {
-    drag_data->original_delegate = drag_data->contents->GetDelegate();
-    drag_data->contents->SetDelegate(this);
-  }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// TabDragController, PageNavigator implementation:
-
-WebContents* TabDragController::OpenURLFromTab(
-    WebContents* source,
-    const OpenURLParams& params) {
-  if (source_tab_drag_data()->original_delegate) {
-    OpenURLParams forward_params = params;
-    if (params.disposition == CURRENT_TAB)
-      forward_params.disposition = NEW_WINDOW;
-
-    return source_tab_drag_data()->original_delegate->OpenURLFromTab(
-        source, forward_params);
-  }
-  return NULL;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// TabDragController, content::WebContentsDelegate implementation:
-
-void TabDragController::NavigationStateChanged(const WebContents* source,
-                                               unsigned changed_flags) {
-  if (attached_tabstrip_ ||
-      changed_flags == content::INVALIDATE_TYPE_PAGE_ACTIONS) {
-    for (size_t i = 0; i < drag_data_.size(); ++i) {
-      if (drag_data_[i].contents == source) {
-        // Pass the NavigationStateChanged call to the original delegate so
-        // that the title is updated. Do this only when we are attached as
-        // otherwise the Tab isn't in the TabStrip (except for page action
-        // updates).
-        drag_data_[i].original_delegate->NavigationStateChanged(source,
-                                                                changed_flags);
-        break;
-      }
-    }
-  }
-}
-
-void TabDragController::AddNewContents(WebContents* source,
-                                       WebContents* new_contents,
-                                       WindowOpenDisposition disposition,
-                                       const gfx::Rect& initial_pos,
-                                       bool user_gesture,
-                                       bool* was_blocked) {
-  DCHECK_NE(CURRENT_TAB, disposition);
-
-  // Theoretically could be called while dragging if the page tries to
-  // spawn a window. Route this message back to the browser in most cases.
-  if (source_tab_drag_data()->original_delegate) {
-    source_tab_drag_data()->original_delegate->AddNewContents(
-        source, new_contents, disposition, initial_pos, user_gesture,
-        was_blocked);
-  }
-}
-
-bool TabDragController::ShouldSuppressDialogs() {
-  // When a dialog is about to be shown we revert the drag. Otherwise a modal
-  // dialog might appear and attempt to parent itself to a hidden tabcontents.
-  EndDragImpl(CANCELED);
-  return false;
-}
-
-content::JavaScriptDialogManager*
-TabDragController::GetJavaScriptDialogManager() {
-  return GetJavaScriptDialogManagerInstance();
-}
-
-void TabDragController::RequestMediaAccessPermission(
-    content::WebContents* web_contents,
-    const content::MediaStreamRequest& request,
-    const content::MediaResponseCallback& callback) {
-  ::RequestMediaAccessPermission(
-      web_contents,
-      Profile::FromBrowserContext(web_contents->GetBrowserContext()),
-      request,
-      callback);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -498,10 +418,7 @@ void TabDragController::Observe(
   for (size_t i = 0; i < drag_data_.size(); ++i) {
     if (drag_data_[i].contents == destroyed_web_contents) {
       // One of the tabs we're dragging has been destroyed. Cancel the drag.
-      if (destroyed_web_contents->GetDelegate() == this)
-        destroyed_web_contents->SetDelegate(NULL);
       drag_data_[i].contents = NULL;
-      drag_data_[i].original_delegate = NULL;
       EndDragImpl(TAB_DESTROYED);
       return;
     }
@@ -519,7 +436,6 @@ void TabDragController::OnWidgetBoundsChanged(views::Widget* widget,
 }
 
 void TabDragController::TabStripEmpty() {
-  DCHECK(detach_into_browser_);
   GetModel(source_tabstrip_)->RemoveObserver(this);
   // NULL out source_tabstrip_ so that we don't attempt to add back to it (in
   // the case of a revert).
@@ -604,7 +520,7 @@ void TabDragController::ContinueDragging(const gfx::Point& point_in_screen) {
   TRACE_EVENT1("views", "TabDragController::ContinueDragging",
                "point_in_screen", point_in_screen.ToString());
 
-  DCHECK(!detach_into_browser_ || attached_tabstrip_);
+  DCHECK(attached_tabstrip_);
 
   TabStrip* target_tabstrip = detach_behavior_ == DETACHABLE ?
       GetTargetTabStripForPoint(point_in_screen) : source_tabstrip_;
@@ -622,15 +538,9 @@ void TabDragController::ContinueDragging(const gfx::Point& point_in_screen) {
   if (tab_strip_changed) {
     is_dragging_new_browser_ = false;
     did_restore_window_ = false;
-    if (detach_into_browser_ &&
-        DragBrowserToNewTabStrip(target_tabstrip, point_in_screen) ==
+    if (DragBrowserToNewTabStrip(target_tabstrip, point_in_screen) ==
         DRAG_BROWSER_RESULT_STOP) {
       return;
-    } else if (!detach_into_browser_) {
-      if (attached_tabstrip_)
-        Detach(RELEASE_CAPTURE);
-      if (target_tabstrip)
-        Attach(target_tabstrip, point_in_screen);
     }
   }
   if (is_dragging_window_) {
@@ -669,7 +579,7 @@ TabDragController::DragBrowserToNewTabStrip(
     // ReleaseCapture() is going to result in calling back to us (because it
     // results in a move). That'll cause all sorts of problems.  Reset the
     // observer so we don't get notified and process the event.
-    if (use_aura_capture_policy_) {
+    if (host_desktop_type_ == chrome::HOST_DESKTOP_TYPE_ASH) {
       move_loop_widget_->RemoveObserver(this);
       move_loop_widget_ = NULL;
     }
@@ -680,12 +590,10 @@ TabDragController::DragBrowserToNewTabStrip(
     target_tabstrip->OwnDragController(this);
     // Disable animations so that we don't see a close animation on aero.
     browser_widget->SetVisibilityChangedAnimationsEnabled(false);
-    // For aura we can't release capture, otherwise it'll cancel a gesture.
-    // Instead we have to directly change capture.
-    if (use_aura_capture_policy_)
-      target_tabstrip->GetWidget()->SetCapture(attached_tabstrip_);
-    else
+    if (can_release_capture_)
       browser_widget->ReleaseCapture();
+    else
+      target_tabstrip->GetWidget()->SetCapture(attached_tabstrip_);
 #if defined(OS_WIN)
     // The Gesture recognizer does not work well currently when capture changes
     // while a touch gesture is in progress. So we need to manually transfer
@@ -710,20 +618,21 @@ TabDragController::DragBrowserToNewTabStrip(
 #endif
     browser_widget->EndMoveLoop();
 
-    // Ideally we would always swap the tabs now, but on non-ash it seems that
-    // running the move loop implicitly activates the window when done, leading
-    // to all sorts of flicker. So, on non-ash, instead we process the move
-    // after the loop completes. But on chromeos, we can do tab swapping now to
-    // avoid the tab flashing issue(crbug.com/116329).
-    if (use_aura_capture_policy_) {
+    // Ideally we would always swap the tabs now, but on non-ash Windows, it
+    // seems that running the move loop implicitly activates the window when
+    // done, leading to all sorts of flicker. So, on non-ash Windows, instead
+    // we process the move after the loop completes. But on chromeos, we can
+    // do tab swapping now to avoid the tab flashing issue
+    // (crbug.com/116329).
+    if (can_release_capture_) {
+      tab_strip_to_attach_to_after_exit_ = target_tabstrip;
+    } else {
       is_dragging_window_ = false;
       Detach(DONT_RELEASE_CAPTURE);
       Attach(target_tabstrip, point_in_screen);
       // Move the tabs into position.
       MoveAttached(point_in_screen);
       attached_tabstrip_->GetWidget()->Activate();
-    } else {
-      tab_strip_to_attach_to_after_exit_ = target_tabstrip;
     }
 
     waiting_for_run_loop_to_exit_ = true;
@@ -905,7 +814,6 @@ TabStrip* TabDragController::GetTargetTabStripForPoint(
                "point_in_screen", point_in_screen.ToString());
 
   if (move_only() && attached_tabstrip_) {
-    DCHECK_EQ(DETACHABLE, detach_behavior_);
     // move_only() is intended for touch, in which case we only want to detach
     // if the touch point moves significantly in the vertical distance.
     gfx::Rect tabstrip_bounds = GetViewScreenBounds(attached_tabstrip_);
@@ -979,18 +887,6 @@ void TabDragController::Attach(TabStrip* attached_tabstrip,
 
     selection_model_before_attach_.Copy(attached_tabstrip->GetSelectionModel());
 
-    if (!detach_into_browser_) {
-      // Remove ourselves as the delegate now that the dragged WebContents is
-      // being inserted back into a Browser.
-      for (size_t i = 0; i < drag_data_.size(); ++i) {
-        drag_data_[i].contents->SetDelegate(NULL);
-        drag_data_[i].original_delegate = NULL;
-      }
-
-      // Return the WebContents to normalcy.
-      source_dragged_contents()->DecrementCapturerCount();
-    }
-
     // Inserting counts as a move. We don't want the tabs to jitter when the
     // user moves the tab immediately after attaching it.
     last_move_screen_loc_ = point_in_screen.x();
@@ -1047,18 +943,8 @@ void TabDragController::Attach(TabStrip* attached_tabstrip,
   // Transfer ownership of us to the new tabstrip as well as making sure the
   // window has capture. This is important so that if activation changes the
   // drag isn't prematurely canceled.
-  if (detach_into_browser_) {
-    attached_tabstrip_->GetWidget()->SetCapture(attached_tabstrip_);
-    attached_tabstrip_->OwnDragController(this);
-  }
-
-  // Redirect all mouse events to the TabStrip so that the tab that originated
-  // the drag can safely be deleted.
-  if (detach_into_browser_ || attached_tabstrip_ == source_tabstrip_) {
-    static_cast<views::internal::RootView*>(
-        attached_tabstrip_->GetWidget()->GetRootView())->SetMouseHandler(
-            attached_tabstrip_);
-  }
+  attached_tabstrip_->GetWidget()->SetCapture(attached_tabstrip_);
+  attached_tabstrip_->OwnDragController(this);
 }
 
 void TabDragController::Detach(ReleaseCapture release_capture) {
@@ -1072,18 +958,11 @@ void TabDragController::Detach(ReleaseCapture release_capture) {
 
   // Release ownership of the drag controller and mouse capture. When we
   // reattach ownership is transfered.
-  if (detach_into_browser_) {
-    attached_tabstrip_->ReleaseDragController();
-    if (release_capture == RELEASE_CAPTURE)
-      attached_tabstrip_->GetWidget()->ReleaseCapture();
-  }
+  attached_tabstrip_->ReleaseDragController();
+  if (release_capture == RELEASE_CAPTURE)
+    attached_tabstrip_->GetWidget()->ReleaseCapture();
 
   mouse_move_direction_ = kMovedMouseLeft | kMovedMouseRight;
-
-  // Prevent the WebContents HWND from being hidden by any of the model
-  // operations performed during the drag.
-  if (!detach_into_browser_)
-    source_dragged_contents()->IncrementCapturerCount(gfx::Size());
 
   std::vector<gfx::Rect> drag_bounds = CalculateBoundsForDraggedTabs();
   TabStripModel* attached_model = GetModel(attached_tabstrip_);
@@ -1098,10 +977,6 @@ void TabDragController::Detach(ReleaseCapture release_capture) {
     drag_data_[i].attached_tab->set_detached();
 
     attached_model->DetachWebContentsAt(index);
-
-    // Detaching resets the delegate, but we still want to be the delegate.
-    if (!detach_into_browser_)
-      drag_data_[i].contents->SetDelegate(this);
 
     // Detaching may end up deleting the tab, drop references to it.
     drag_data_[i].attached_tab = NULL;
@@ -1146,7 +1021,7 @@ void TabDragController::DetachIntoNewBrowserAndRunMoveLoop(
   gfx::NativeView attached_native_view =
     attached_tabstrip_->GetWidget()->GetNativeView();
 #endif
-  Detach(use_aura_capture_policy_ ? DONT_RELEASE_CAPTURE : RELEASE_CAPTURE);
+  Detach(can_release_capture_ ? RELEASE_CAPTURE : DONT_RELEASE_CAPTURE);
   BrowserView* dragged_browser_view =
       BrowserView::GetBrowserViewForBrowser(browser);
   views::Widget* dragged_widget = dragged_browser_view->GetWidget();
@@ -1191,10 +1066,10 @@ void TabDragController::RunMoveLoop(const gfx::Vector2d& drag_offset) {
   move_loop_widget_->AddObserver(this);
   is_dragging_window_ = true;
   base::WeakPtr<TabDragController> ref(weak_factory_.GetWeakPtr());
-  // Running the move loop releases mouse capture on non-ash, which triggers
-  // destroying the drag loop. Release mouse capture ourself before this while
-  // the DragController isn't owned by the TabStrip.
-  if (host_desktop_type_ != chrome::HOST_DESKTOP_TYPE_ASH) {
+  if (can_release_capture_) {
+    // Running the move loop releases mouse capture, which triggers destroying
+    // the drag loop. Release mouse capture now while the DragController is not
+    // owned by the TabStrip.
     attached_tabstrip_->ReleaseDragController();
     attached_tabstrip_->GetWidget()->ReleaseCapture();
     attached_tabstrip_->OwnDragController(this);
@@ -1217,7 +1092,6 @@ void TabDragController::RunMoveLoop(const gfx::Vector2d& drag_offset) {
 
   if (!ref)
     return;
-  // Under chromeos we immediately set the |move_loop_widget_| to NULL.
   if (move_loop_widget_) {
     move_loop_widget_->RemoveObserver(this);
     move_loop_widget_ = NULL;
@@ -1484,16 +1358,14 @@ void TabDragController::EndDragImpl(EndDragType type) {
     }
   } else if (drag_data_.size() > 1) {
     initial_selection_model_.Clear();
-    RevertDrag();
+    if (started_drag_)
+      RevertDrag();
   }  // else case the only tab we were dragging was deleted. Nothing to do.
-
-  if (!detach_into_browser_)
-    ResetDelegates();
 
   // Clear out drag data so we don't attempt to do anything with it.
   drag_data_.clear();
 
-  TabStrip* owning_tabstrip = (attached_tabstrip_ && detach_into_browser_) ?
+  TabStrip* owning_tabstrip = attached_tabstrip_ ?
       attached_tabstrip_ : source_tabstrip_;
   owning_tabstrip->DestroyDragController();
 }
@@ -1508,8 +1380,6 @@ void TabDragController::RevertDrag() {
     }
   }
 
-  bool restore_frame = !detach_into_browser_ &&
-                       attached_tabstrip_ != source_tabstrip_;
   if (attached_tabstrip_) {
     if (did_restore_window_)
       MaximizeAttachedWindow();
@@ -1527,21 +1397,8 @@ void TabDragController::RevertDrag() {
   else
     GetModel(source_tabstrip_)->SetSelectionFromModel(initial_selection_model_);
 
-  // If we're not attached to any TabStrip, or attached to some other TabStrip,
-  // we need to restore the bounds of the original TabStrip's frame, in case
-  // it has been hidden.
-  if (restore_frame && !restore_bounds_.IsEmpty())
-    source_tabstrip_->GetWidget()->SetBounds(restore_bounds_);
-
-  if (detach_into_browser_ && source_tabstrip_)
+  if (source_tabstrip_)
     source_tabstrip_->GetWidget()->Activate();
-
-  // Return the WebContents to normalcy.  If the tab was attached to a
-  // TabStrip before the revert, the decrement has already occurred.
-  // If the tab was destroyed, don't attempt to dereference the
-  // WebContents pointer.
-  if (!detach_into_browser_ && !attached_tabstrip_ && source_dragged_contents())
-    source_dragged_contents()->DecrementCapturerCount();
 }
 
 void TabDragController::ResetSelection(TabStripModel* model) {
@@ -1670,34 +1527,19 @@ void TabDragController::CompleteDrag() {
             contentses, window_bounds, widget->IsMaximized());
     ResetSelection(new_browser->tab_strip_model());
     new_browser->window()->Show();
-
-    // Return the WebContents to normalcy.
-    if (!detach_into_browser_)
-      source_dragged_contents()->DecrementCapturerCount();
   }
-
-  CleanUpHiddenFrame();
 }
 
 void TabDragController::MaximizeAttachedWindow() {
   GetAttachedBrowserWidget()->Maximize();
+#if defined(USE_ASH)
   if (was_source_fullscreen_ &&
       host_desktop_type_ == chrome::HOST_DESKTOP_TYPE_ASH) {
     // In fullscreen mode it is only possible to get here if the source
     // was in "immersive fullscreen" mode, so toggle it back on.
     ash::accelerators::ToggleFullscreen();
   }
-}
-
-void TabDragController::ResetDelegates() {
-  DCHECK(!detach_into_browser_);
-  for (size_t i = 0; i < drag_data_.size(); ++i) {
-    if (drag_data_[i].contents &&
-        drag_data_[i].contents->GetDelegate() == this) {
-      drag_data_[i].contents->SetDelegate(
-          drag_data_[i].original_delegate);
-    }
-  }
+#endif
 }
 
 gfx::Rect TabDragController::GetViewScreenBounds(
@@ -1707,13 +1549,6 @@ gfx::Rect TabDragController::GetViewScreenBounds(
   gfx::Rect view_screen_bounds = view->GetLocalBounds();
   view_screen_bounds.Offset(view_topleft.x(), view_topleft.y());
   return view_screen_bounds;
-}
-
-void TabDragController::CleanUpHiddenFrame() {
-  // If the model we started dragging from is now empty, we must ask the
-  // delegate to close the frame.
-  if (!detach_into_browser_ && GetModel(source_tabstrip_)->empty())
-    GetModel(source_tabstrip_)->delegate()->CloseFrameAfterDragSession();
 }
 
 void TabDragController::BringWindowUnderPointToFront(
@@ -1911,7 +1746,7 @@ gfx::Point TabDragController::GetCursorScreenPoint() {
     // TODO(tdresser): Switch to using gfx::PointF. See crbug.com/337824.
     gfx::Point touch_point = gfx::ToFlooredPoint(touch_point_f);
     DCHECK(got_touch_point);
-    ash::wm::ConvertPointToScreen(widget_window->GetRootWindow(), &touch_point);
+    wm::ConvertPointToScreen(widget_window->GetRootWindow(), &touch_point);
     return touch_point;
   }
 
@@ -1920,7 +1755,7 @@ gfx::Point TabDragController::GetCursorScreenPoint() {
 
 gfx::Vector2d TabDragController::GetWindowOffset(
     const gfx::Point& point_in_screen) {
-  TabStrip* owning_tabstrip = (attached_tabstrip_ && detach_into_browser_) ?
+  TabStrip* owning_tabstrip = attached_tabstrip_ ?
       attached_tabstrip_ : source_tabstrip_;
   views::View* toplevel_view = owning_tabstrip->GetWidget()->GetContentsView();
 

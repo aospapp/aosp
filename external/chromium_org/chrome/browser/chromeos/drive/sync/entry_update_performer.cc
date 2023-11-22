@@ -5,11 +5,12 @@
 #include "chrome/browser/chromeos/drive/sync/entry_update_performer.h"
 
 #include "base/callback_helpers.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "chrome/browser/chromeos/drive/change_list_loader.h"
 #include "chrome/browser/chromeos/drive/drive.pb.h"
 #include "chrome/browser/chromeos/drive/file_cache.h"
-#include "chrome/browser/chromeos/drive/file_system/operation_observer.h"
+#include "chrome/browser/chromeos/drive/file_change.h"
+#include "chrome/browser/chromeos/drive/file_system/operation_delegate.h"
 #include "chrome/browser/chromeos/drive/file_system_util.h"
 #include "chrome/browser/chromeos/drive/job_scheduler.h"
 #include "chrome/browser/chromeos/drive/resource_metadata.h"
@@ -17,7 +18,6 @@
 #include "chrome/browser/chromeos/drive/sync/remove_performer.h"
 #include "content/public/browser/browser_thread.h"
 #include "google_apis/drive/drive_api_parser.h"
-#include "google_apis/drive/gdata_wapi_parser.h"
 
 using content::BrowserThread;
 
@@ -119,12 +119,18 @@ FileError FinishUpdate(ResourceMetadata* metadata,
                        FileCache* cache,
                        const std::string& local_id,
                        scoped_ptr<google_apis::FileResource> file_resource,
-                       base::FilePath* changed_directory) {
+                       FileChange* changed_files) {
+  ResourceEntry entry;
+  FileError error = metadata->GetResourceEntryById(local_id, &entry);
+  if (error != FILE_ERROR_OK)
+    return error;
+
   // When creating new entries, update check may add a new entry with the same
   // resource ID before us. If such an entry exists, remove it.
   std::string existing_local_id;
-  FileError error = metadata->GetIdByResourceId(
-      file_resource->file_id(), &existing_local_id);
+  error =
+      metadata->GetIdByResourceId(file_resource->file_id(), &existing_local_id);
+
   switch (error) {
     case FILE_ERROR_OK:
       if (existing_local_id != local_id) {
@@ -135,7 +141,7 @@ FileError FinishUpdate(ResourceMetadata* metadata,
         error = metadata->RemoveEntry(existing_local_id);
         if (error != FILE_ERROR_OK)
           return error;
-        *changed_directory = existing_entry_path.DirName();
+        changed_files->Update(existing_entry_path, entry, FileChange::DELETE);
       }
       break;
     case FILE_ERROR_NOT_FOUND:
@@ -143,11 +149,6 @@ FileError FinishUpdate(ResourceMetadata* metadata,
     default:
       return error;
   }
-
-  ResourceEntry entry;
-  error = metadata->GetResourceEntryById(local_id, &entry);
-  if (error != FILE_ERROR_OK)
-    return error;
 
   // Update metadata_edit_state and MD5.
   switch (entry.metadata_edit_state()) {
@@ -165,6 +166,11 @@ FileError FinishUpdate(ResourceMetadata* metadata,
   error = metadata->RefreshEntry(entry);
   if (error != FILE_ERROR_OK)
     return error;
+  base::FilePath entry_path;
+  error = metadata->GetFilePath(local_id, &entry_path);
+  if (error != FILE_ERROR_OK)
+    return error;
+  changed_files->Update(entry_path, entry, FileChange::ADD_OR_UPDATE);
 
   // Clear dirty bit unless the file has been edited during update.
   if (entry.file_specific_info().cache_state().is_dirty() &&
@@ -181,23 +187,23 @@ FileError FinishUpdate(ResourceMetadata* metadata,
 
 EntryUpdatePerformer::EntryUpdatePerformer(
     base::SequencedTaskRunner* blocking_task_runner,
-    file_system::OperationObserver* observer,
+    file_system::OperationDelegate* delegate,
     JobScheduler* scheduler,
     ResourceMetadata* metadata,
     FileCache* cache,
     LoaderController* loader_controller)
     : blocking_task_runner_(blocking_task_runner),
-      observer_(observer),
+      delegate_(delegate),
       scheduler_(scheduler),
       metadata_(metadata),
       cache_(cache),
       loader_controller_(loader_controller),
       remove_performer_(new RemovePerformer(blocking_task_runner,
-                                            observer,
+                                            delegate,
                                             scheduler,
                                             metadata)),
       entry_revert_performer_(new EntryRevertPerformer(blocking_task_runner,
-                                                       observer,
+                                                       delegate,
                                                        scheduler,
                                                        metadata)),
       weak_ptr_factory_(this) {
@@ -369,27 +375,30 @@ void EntryUpdatePerformer::UpdateEntryAfterUpdateResource(
     return;
   }
 
-  base::FilePath* changed_directory = new base::FilePath;
+  FileChange* changed_files = new FileChange;
   base::PostTaskAndReplyWithResult(
       blocking_task_runner_.get(),
       FROM_HERE,
       base::Bind(&FinishUpdate,
-                 metadata_, cache_, local_id, base::Passed(&entry),
-                 changed_directory),
+                 metadata_,
+                 cache_,
+                 local_id,
+                 base::Passed(&entry),
+                 changed_files),
       base::Bind(&EntryUpdatePerformer::UpdateEntryAfterFinish,
-                 weak_ptr_factory_.GetWeakPtr(), callback,
-                 base::Owned(changed_directory)));
+                 weak_ptr_factory_.GetWeakPtr(),
+                 callback,
+                 base::Owned(changed_files)));
 }
 
 void EntryUpdatePerformer::UpdateEntryAfterFinish(
     const FileOperationCallback& callback,
-    const base::FilePath* changed_directory,
+    const FileChange* changed_files,
     FileError error) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!callback.is_null());
 
-  if (!changed_directory->empty())
-    observer_->OnDirectoryChangedByOperation(*changed_directory);
+  delegate_->OnFileChangedByOperation(*changed_files);
   callback.Run(error);
 }
 

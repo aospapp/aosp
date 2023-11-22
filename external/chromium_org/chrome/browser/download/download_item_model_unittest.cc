@@ -14,10 +14,8 @@
 #include "base/strings/utf_string_conversions.h"
 #include "content/public/test/mock_download_item.h"
 #include "extensions/common/extension.h"
-#include "grit/generated_resources.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/text/bytes_formatting.h"
 #include "ui/gfx/font_list.h"
@@ -162,6 +160,10 @@ TEST_F(DownloadItemModelTest, InterruptedStatus) {
       "Failed - Download error" },
     { content::DOWNLOAD_INTERRUPT_REASON_SERVER_BAD_CONTENT,
       "Failed - No file" },
+    { content::DOWNLOAD_INTERRUPT_REASON_SERVER_UNAUTHORIZED,
+      "Failed - Needs authorization" },
+    { content::DOWNLOAD_INTERRUPT_REASON_SERVER_CERT_PROBLEM,
+      "Failed - Bad certificate" },
     { content::DOWNLOAD_INTERRUPT_REASON_USER_CANCELED,
       "Cancelled" },
     { content::DOWNLOAD_INTERRUPT_REASON_USER_SHUTDOWN,
@@ -234,6 +236,10 @@ TEST_F(DownloadItemModelTest, InterruptTooltip) {
       "foo.bar\nDownload error" },
     { content::DOWNLOAD_INTERRUPT_REASON_SERVER_BAD_CONTENT,
       "foo.bar\nNo file" },
+    { content::DOWNLOAD_INTERRUPT_REASON_SERVER_UNAUTHORIZED,
+      "foo.bar\nNeeds authorization" },
+    { content::DOWNLOAD_INTERRUPT_REASON_SERVER_CERT_PROBLEM,
+      "foo.bar\nBad certificate" },
     { content::DOWNLOAD_INTERRUPT_REASON_USER_CANCELED,
       "foo.bar" },
     { content::DOWNLOAD_INTERRUPT_REASON_USER_SHUTDOWN,

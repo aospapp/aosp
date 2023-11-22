@@ -5,8 +5,8 @@
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_FAKE_LOGIN_UTILS_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_FAKE_LOGIN_UTILS_H_
 
-#include "chrome/browser/chromeos/login/auth/user_context.h"
 #include "chrome/browser/chromeos/login/login_utils.h"
+#include "chromeos/login/auth/user_context.h"
 
 namespace chromeos {
 
@@ -21,6 +21,8 @@ class FakeLoginUtils : public LoginUtils {
  public:
   FakeLoginUtils();
   virtual ~FakeLoginUtils();
+  virtual void RespectLocalePreference(Profile*,
+                                       const base::Closure& callback) OVERRIDE;
   virtual void DoBrowserLaunch(Profile* profile,
                                LoginDisplayHost* login_host) OVERRIDE;
   virtual void PrepareProfile(const UserContext& user_context,
@@ -30,7 +32,9 @@ class FakeLoginUtils : public LoginUtils {
   virtual void DelegateDeleted(LoginUtils::Delegate* delegate) OVERRIDE;
   virtual void CompleteOffTheRecordLogin(const GURL& start_url) OVERRIDE;
   virtual scoped_refptr<Authenticator> CreateAuthenticator(
-      LoginStatusConsumer* consumer) OVERRIDE;
+      AuthStatusConsumer* consumer) OVERRIDE;
+  virtual bool RestartToApplyPerSessionFlagsIfNeed(Profile* profile,
+                                                   bool early_restart) OVERRIDE;
 
   void SetExpectedCredentials(const UserContext& user_context);
   void set_should_launch_browser(bool should_launch_browser) {

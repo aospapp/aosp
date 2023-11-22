@@ -266,7 +266,9 @@ class MockURLRequestContext : public URLRequestContext {
                                       include_subdomains);
   }
 
-  virtual ~MockURLRequestContext() {}
+  virtual ~MockURLRequestContext() {
+    AssertNoURLRequests();
+  }
 
  private:
   TransportSecurityState transport_security_state_;
@@ -1103,9 +1105,9 @@ void WebSocketJobTest::TestThrottlingLimit() {
     scoped_refptr<WebSocketJob> job = new WebSocketJob(NULL);
     job->addresses_ = AddressList(AddressList::CreateFromIPAddress(ip, 80));
     if (i >= kMaxWebSocketJobsThrottled)
-      EXPECT_FALSE(WebSocketThrottle::GetInstance()->PutInQueue(job));
+      EXPECT_FALSE(WebSocketThrottle::GetInstance()->PutInQueue(job.get()));
     else
-      EXPECT_TRUE(WebSocketThrottle::GetInstance()->PutInQueue(job));
+      EXPECT_TRUE(WebSocketThrottle::GetInstance()->PutInQueue(job.get()));
     jobs.push_back(job);
   }
 

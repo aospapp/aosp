@@ -11,7 +11,6 @@
 #include "base/message_loop/message_loop.h"
 #include "mojo/common/message_pump_mojo.h"
 #include "mojo/shell/context.h"
-#include "mojo/shell/shell_test_base.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace mojo {
@@ -32,13 +31,13 @@ class TestChildProcessHostDelegate : public ChildProcessHost::Delegate {
   }
 };
 
-typedef ShellTestBase ChildProcessHostTest;
+typedef testing::Test ChildProcessHostTest;
 
 TEST_F(ChildProcessHostTest, Basic) {
+  Context context;
   base::MessageLoop message_loop(
       scoped_ptr<base::MessagePump>(new common::MessagePumpMojo()));
-
-  Context context;
+  context.Init();
   TestChildProcessHostDelegate child_process_host_delegate;
   ChildProcessHost child_process_host(&context,
                                       &child_process_host_delegate,

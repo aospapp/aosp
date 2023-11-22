@@ -15,7 +15,6 @@
 #include "cc/resources/returned_resource.h"
 
 namespace cc {
-class BlockingTaskRunner;
 
 class CC_EXPORT DelegatedRendererLayer : public Layer {
  public:
@@ -32,6 +31,7 @@ class CC_EXPORT DelegatedRendererLayer : public Layer {
   // Called by the DelegatedFrameProvider when a new frame is available to be
   // picked up.
   void ProviderHasNewFrame();
+  virtual bool HasDelegatedContent() const OVERRIDE;
 
  protected:
   DelegatedRendererLayer(
@@ -46,7 +46,6 @@ class CC_EXPORT DelegatedRendererLayer : public Layer {
   DelegatedFrameData* frame_data_;
   gfx::RectF frame_damage_;
 
-  scoped_refptr<BlockingTaskRunner> main_thread_runner_;
   base::WeakPtrFactory<DelegatedRendererLayer> weak_ptrs_;
 
   DISALLOW_COPY_AND_ASSIGN(DelegatedRendererLayer);

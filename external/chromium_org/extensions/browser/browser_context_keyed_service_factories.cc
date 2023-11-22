@@ -6,6 +6,7 @@
 
 #include "extensions/browser/api/api_resource_manager.h"
 #include "extensions/browser/api/runtime/runtime_api.h"
+#include "extensions/browser/api/serial/serial_connection.h"
 #include "extensions/browser/api/socket/socket.h"
 #include "extensions/browser/api/socket/tcp_socket.h"
 #include "extensions/browser/api/socket/udp_socket.h"
@@ -13,6 +14,7 @@
 #include "extensions/browser/api/sockets_tcp_server/tcp_server_socket_event_dispatcher.h"
 #include "extensions/browser/api/sockets_udp/udp_socket_event_dispatcher.h"
 #include "extensions/browser/api/storage/storage_frontend.h"
+#include "extensions/browser/api/system_info/system_info_api.h"
 #include "extensions/browser/extension_prefs_factory.h"
 #include "extensions/browser/renderer_startup_helper.h"
 
@@ -23,6 +25,7 @@ void EnsureBrowserContextKeyedServiceFactoriesBuilt() {
       extensions::ResumableTCPServerSocket>::GetFactoryInstance();
   ApiResourceManager<extensions::ResumableTCPSocket>::GetFactoryInstance();
   ApiResourceManager<extensions::ResumableUDPSocket>::GetFactoryInstance();
+  ApiResourceManager<extensions::SerialConnection>::GetFactoryInstance();
   ApiResourceManager<extensions::Socket>::GetFactoryInstance();
   core_api::TCPServerSocketEventDispatcher::GetFactoryInstance();
   core_api::TCPSocketEventDispatcher::GetFactoryInstance();
@@ -31,6 +34,7 @@ void EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   RendererStartupHelperFactory::GetInstance();
   RuntimeAPI::GetFactoryInstance();
   StorageFrontend::GetFactoryInstance();
+  SystemInfoAPI::GetFactoryInstance();
 }
 
 }  // namespace extensions

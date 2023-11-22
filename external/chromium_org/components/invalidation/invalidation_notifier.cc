@@ -8,10 +8,10 @@
 #include "base/logging.h"
 #include "base/message_loop/message_loop_proxy.h"
 #include "base/metrics/histogram.h"
+#include "components/invalidation/invalidation_handler.h"
 #include "google/cacheinvalidation/include/invalidation-client-factory.h"
 #include "jingle/notifier/listener/push_client.h"
 #include "net/url_request/url_request_context.h"
-#include "sync/notifier/invalidation_handler.h"
 #include "talk/xmpp/jid.h"
 #include "talk/xmpp/xmppclientsettings.h"
 
@@ -22,11 +22,15 @@ InvalidationNotifier::InvalidationNotifier(
     const std::string& invalidator_client_id,
     const UnackedInvalidationsMap& saved_invalidations,
     const std::string& invalidation_bootstrap_data,
-    const WeakHandle<InvalidationStateTracker>& invalidation_state_tracker,
+    const base::WeakPtr<InvalidationStateTracker>& invalidation_state_tracker,
+    scoped_refptr<base::SingleThreadTaskRunner>
+        invalidation_state_tracker_task_runner,
     const std::string& client_info)
     : state_(STOPPED),
       saved_invalidations_(saved_invalidations),
       invalidation_state_tracker_(invalidation_state_tracker),
+      invalidation_state_tracker_task_runner_(
+          invalidation_state_tracker_task_runner),
       client_info_(client_info),
       invalidator_client_id_(invalidator_client_id),
       invalidation_bootstrap_data_(invalidation_bootstrap_data),
@@ -64,9 +68,12 @@ void InvalidationNotifier::UpdateCredentials(
   if (state_ == STOPPED) {
     invalidation_listener_.Start(
         base::Bind(&invalidation::CreateInvalidationClient),
-        invalidator_client_id_, client_info_, invalidation_bootstrap_data_,
+        invalidator_client_id_,
+        client_info_,
+        invalidation_bootstrap_data_,
         saved_invalidations_,
         invalidation_state_tracker_,
+        invalidation_state_tracker_task_runner_,
         this);
     state_ = STARTED;
   }

@@ -50,6 +50,10 @@ public class ContactResolver implements Runnable {
 
     private static final String TAG = LogTag.getLogTag();
 
+    // The maximum size returned from ContactsContract.Contacts.Photo.PHOTO is 96px by 96px.
+    private static final int MAXIMUM_PHOTO_SIZE = 96;
+    private static final int HALF_MAXIMUM_PHOTO_SIZE = 48;
+
     protected final ContentResolver mResolver;
     private final BitmapCache mCache;
     /** Insertion ordered set allows us to work from the top down. */
@@ -219,10 +223,12 @@ public class ContactResolver implements Runnable {
                 // Synchronously decode the photo bytes. We are already in a background
                 // thread, and we want decodes to finish in order. The decodes are blazing
                 // fast so we don't need to kick off multiple threads.
+                final int width = HALF_MAXIMUM_PHOTO_SIZE >= request.destination.getDecodeWidth()
+                        ? HALF_MAXIMUM_PHOTO_SIZE : MAXIMUM_PHOTO_SIZE;
+                final int height = HALF_MAXIMUM_PHOTO_SIZE >= request.destination.getDecodeHeight()
+                        ? HALF_MAXIMUM_PHOTO_SIZE : MAXIMUM_PHOTO_SIZE;
                 final DecodeTask.DecodeOptions opts = new DecodeTask.DecodeOptions(
-                        request.destination.getDecodeWidth(),
-                        request.destination.getDecodeHeight(), 1 / 2f,
-                        DecodeTask.DecodeOptions.STRATEGY_ROUND_NEAREST);
+                        width, height, 1 / 2f, DecodeTask.DecodeOptions.STRATEGY_ROUND_NEAREST);
                 final ReusableBitmap result = new DecodeTask(request.contactRequest, opts, null,
                         null, mCache).decode();
                 request.contactRequest.bytes = null;
@@ -236,6 +242,9 @@ public class ContactResolver implements Runnable {
         }
 
         protected ImmutableMap<String, ContactInfo> loadContactPhotos(Set<String> emails) {
+            if (mResolver == null) {
+                return null;
+            }
             return SenderInfoLoader.loadContactPhotos(mResolver, emails, false /* decodeBitmaps */);
         }
 
@@ -249,7 +258,7 @@ public class ContactResolver implements Runnable {
             final ReusableBitmap bitmap = values[0].bitmap;
 
             // DecodeTask does not add null results to the cache.
-            if (bitmap == null) {
+            if (bitmap == null && mCache != null) {
                 // Cache null result.
                 mCache.put(request.contactRequest, null);
             }

@@ -30,7 +30,7 @@ FrontendDataTypeController::FrontendDataTypeController(
     ProfileSyncComponentsFactory* profile_sync_factory,
     Profile* profile,
     ProfileSyncService* sync_service)
-    : DataTypeController(ui_thread, error_callback, DisableTypeCallback()),
+    : DataTypeController(ui_thread, error_callback),
       profile_sync_factory_(profile_sync_factory),
       profile_(profile),
       sync_service_(sync_service),
@@ -44,7 +44,7 @@ FrontendDataTypeController::FrontendDataTypeController(
 void FrontendDataTypeController::LoadModels(
     const ModelLoadCallback& model_load_callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(!model_load_callback.is_null());
+  model_load_callback_ = model_load_callback;
 
   if (state_ != NOT_RUNNING) {
     model_load_callback.Run(type(),
@@ -55,9 +55,6 @@ void FrontendDataTypeController::LoadModels(
     return;
   }
 
-  DCHECK(model_load_callback_.is_null());
-
-  model_load_callback_ = model_load_callback;
   state_ = MODEL_STARTING;
   if (!StartModels()) {
     // If we are waiting for some external service to load before associating
@@ -72,20 +69,16 @@ void FrontendDataTypeController::LoadModels(
 
 void FrontendDataTypeController::OnModelLoaded() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(!model_load_callback_.is_null());
   DCHECK_EQ(state_, MODEL_STARTING);
 
   state_ = MODEL_LOADED;
-  ModelLoadCallback model_load_callback = model_load_callback_;
-  model_load_callback_.Reset();
-  model_load_callback.Run(type(), syncer::SyncError());
+  model_load_callback_.Run(type(), syncer::SyncError());
 }
 
 void FrontendDataTypeController::StartAssociating(
     const StartCallback& start_callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!start_callback.is_null());
-  DCHECK(start_callback_.is_null());
   DCHECK_EQ(state_, MODEL_LOADED);
 
   start_callback_ = start_callback;
@@ -102,6 +95,9 @@ void FrontendDataTypeController::StartAssociating(
 void FrontendDataTypeController::Stop() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
+  if (state_ == NOT_RUNNING)
+    return;
+
   State prev_state = state_;
   state_ = STOPPING;
 
@@ -113,7 +109,6 @@ void FrontendDataTypeController::Stop() {
     // still in MODEL_STARTING.
     return;
   }
-  DCHECK(start_callback_.is_null());
 
   CleanUpState();
 
@@ -140,19 +135,26 @@ std::string FrontendDataTypeController::name() const {
   return syncer::ModelTypeToString(type());
 }
 
-DataTypeController::State FrontendDataTypeController::state() const {
+sync_driver::DataTypeController::State FrontendDataTypeController::state()
+    const {
   return state_;
 }
 
-void FrontendDataTypeController::OnSingleDatatypeUnrecoverableError(
-    const tracked_objects::Location& from_here, const std::string& message) {
-  RecordUnrecoverableError(from_here, message);
-  sync_service_->DisableDatatype(type(), from_here, message);
+void FrontendDataTypeController::OnSingleDataTypeUnrecoverableError(
+    const syncer::SyncError& error) {
+  DCHECK_EQ(type(), error.model_type());
+  RecordUnrecoverableError(error.location(), error.message());
+  if (!model_load_callback_.is_null()) {
+    syncer::SyncMergeResult local_merge_result(type());
+    local_merge_result.set_error(error);
+    base::MessageLoop::current()->PostTask(
+        FROM_HERE,
+        base::Bind(model_load_callback_, type(), error));
+  }
 }
 
 FrontendDataTypeController::FrontendDataTypeController()
-    : DataTypeController(base::MessageLoopProxy::current(), base::Closure(),
-                         DisableTypeCallback()),
+    : DataTypeController(base::MessageLoopProxy::current(), base::Closure()),
       profile_sync_factory_(NULL),
       profile_(NULL),
       sync_service_(NULL),
@@ -249,17 +251,10 @@ void FrontendDataTypeController::AbortModelLoad() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   CleanUp();
   state_ = NOT_RUNNING;
-  ModelLoadCallback model_load_callback = model_load_callback_;
-  model_load_callback_.Reset();
-  model_load_callback.Run(type(),
-                          syncer::SyncError(FROM_HERE,
-                                            syncer::SyncError::DATATYPE_ERROR,
-                                            "Aborted",
-                                            type()));
 }
 
 void FrontendDataTypeController::StartDone(
-    StartResult start_result,
+    ConfigureResult start_result,
     const syncer::SyncMergeResult& local_merge_result,
     const syncer::SyncMergeResult& syncer_merge_result) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
@@ -276,12 +271,7 @@ void FrontendDataTypeController::StartDone(
     RecordStartFailure(start_result);
   }
 
-  // We have to release the callback before we call it, since it's possible
-  // invoking the callback will trigger a call to STOP(), which will get
-  // confused by the non-NULL start_callback_.
-  StartCallback callback = start_callback_;
-  start_callback_.Reset();
-  callback.Run(start_result, local_merge_result, syncer_merge_result);
+  start_callback_.Run(start_result, local_merge_result, syncer_merge_result);
 }
 
 void FrontendDataTypeController::RecordAssociationTime(base::TimeDelta time) {
@@ -292,7 +282,7 @@ void FrontendDataTypeController::RecordAssociationTime(base::TimeDelta time) {
 #undef PER_DATA_TYPE_MACRO
 }
 
-void FrontendDataTypeController::RecordStartFailure(StartResult result) {
+void FrontendDataTypeController::RecordStartFailure(ConfigureResult result) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   UMA_HISTOGRAM_ENUMERATION("Sync.DataTypeStartFailures",
                             ModelTypeToHistogramInt(type()),
@@ -304,21 +294,23 @@ void FrontendDataTypeController::RecordStartFailure(StartResult result) {
 #undef PER_DATA_TYPE_MACRO
 }
 
-AssociatorInterface* FrontendDataTypeController::model_associator() const {
+sync_driver::AssociatorInterface* FrontendDataTypeController::model_associator()
+    const {
   return model_associator_.get();
 }
 
 void FrontendDataTypeController::set_model_associator(
-    AssociatorInterface* model_associator) {
+    sync_driver::AssociatorInterface* model_associator) {
   model_associator_.reset(model_associator);
 }
 
-ChangeProcessor* FrontendDataTypeController::GetChangeProcessor() const {
+sync_driver::ChangeProcessor* FrontendDataTypeController::GetChangeProcessor()
+    const {
   return change_processor_.get();
 }
 
 void FrontendDataTypeController::set_change_processor(
-    ChangeProcessor* change_processor) {
+    sync_driver::ChangeProcessor* change_processor) {
   change_processor_.reset(change_processor);
 }
 

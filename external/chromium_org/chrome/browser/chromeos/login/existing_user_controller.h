@@ -20,19 +20,23 @@
 #include "chrome/browser/chromeos/login/auth/login_performer.h"
 #include "chrome/browser/chromeos/login/login_utils.h"
 #include "chrome/browser/chromeos/login/ui/login_display.h"
-#include "chrome/browser/chromeos/login/users/user.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/chromeos/settings/device_settings_service.h"
+#include "chromeos/login/auth/user_context.h"
+#include "components/user_manager/user.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "ui/gfx/rect.h"
 #include "url/gurl.h"
 
+namespace base {
+class ListValue;
+}
+
 namespace chromeos {
 
 class CrosSettings;
 class LoginDisplayHost;
-class UserContext;
 
 namespace login {
 class NetworkStateHelper;
@@ -60,7 +64,7 @@ class ExistingUserController : public LoginDisplay::Delegate,
   }
 
   // Creates and shows login UI for known users.
-  void Init(const UserList& users);
+  void Init(const user_manager::UserList& users);
 
   // Tells the controller to enter the Enterprise Enrollment screen when
   // appropriate.
@@ -81,15 +85,10 @@ class ExistingUserController : public LoginDisplay::Delegate,
   virtual void CompleteLogin(const UserContext& user_context) OVERRIDE;
   virtual base::string16 GetConnectedNetworkName() OVERRIDE;
   virtual bool IsSigninInProgress() const OVERRIDE;
-  virtual void Login(const UserContext& user_context) OVERRIDE;
+  virtual void Login(const UserContext& user_context,
+                     const SigninSpecifics& specifics) OVERRIDE;
   virtual void MigrateUserData(const std::string& old_password) OVERRIDE;
-  virtual void LoginAsRetailModeUser() OVERRIDE;
-  virtual void LoginAsGuest() OVERRIDE;
-  virtual void LoginAsPublicAccount(const std::string& username) OVERRIDE;
-  virtual void LoginAsKioskApp(const std::string& app_id,
-                               bool diagnostic_mode) OVERRIDE;
   virtual void OnSigninScreenReady() OVERRIDE;
-  virtual void OnUserSelected(const std::string& username) OVERRIDE;
   virtual void OnStartEnterpriseEnrollment() OVERRIDE;
   virtual void OnStartKioskEnableScreen() OVERRIDE;
   virtual void OnStartKioskAutolaunchScreen() OVERRIDE;
@@ -99,15 +98,20 @@ class ExistingUserController : public LoginDisplay::Delegate,
   virtual void ShowWrongHWIDScreen() OVERRIDE;
   virtual void Signout() OVERRIDE;
 
+  void LoginAsRetailModeUser();
+  void LoginAsGuest();
+  void LoginAsPublicSession(const UserContext& user_context);
+  void LoginAsKioskApp(const std::string& app_id, bool diagnostic_mode);
+
   // content::NotificationObserver implementation.
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
-  // Set a delegate that we will pass LoginStatusConsumer events to.
+  // Set a delegate that we will pass AuthStatusConsumer events to.
   // Used for testing.
-  void set_login_status_consumer(LoginStatusConsumer* consumer) {
-    login_status_consumer_ = consumer;
+  void set_login_status_consumer(AuthStatusConsumer* consumer) {
+    auth_status_consumer_ = consumer;
   }
 
   // Returns the LoginDisplay created and owned by this controller.
@@ -120,6 +124,14 @@ class ExistingUserController : public LoginDisplay::Delegate,
   LoginDisplayHost* login_display_host() {
     return host_;
   }
+
+  // Returns value of LoginPerformer::auth_mode() (cached if performer is
+  // destroyed).
+  LoginPerformer::AuthorizationMode auth_mode() const;
+
+  // Returns value of LoginPerformer::password_changed() (cached if performer is
+  // destroyed).
+  bool password_changed() const;
 
  private:
   friend class ExistingUserControllerTest;
@@ -134,9 +146,9 @@ class ExistingUserController : public LoginDisplay::Delegate,
   void OnPublicSessionAutoLoginTimerFire();
 
   // LoginPerformer::Delegate implementation:
-  virtual void OnLoginFailure(const LoginFailure& error) OVERRIDE;
-  virtual void OnLoginSuccess(const UserContext& user_context) OVERRIDE;
-  virtual void OnOffTheRecordLoginSuccess() OVERRIDE;
+  virtual void OnAuthFailure(const AuthFailure& error) OVERRIDE;
+  virtual void OnAuthSuccess(const UserContext& user_context) OVERRIDE;
+  virtual void OnOffTheRecordAuthSuccess() OVERRIDE;
   virtual void OnPasswordChangeDetected() OVERRIDE;
   virtual void WhiteListCheckFailed(const std::string& email) OVERRIDE;
   virtual void PolicyLoadFailed() OVERRIDE;
@@ -206,15 +218,22 @@ class ExistingUserController : public LoginDisplay::Delegate,
   void PerformLogin(const UserContext& user_context,
                     LoginPerformer::AuthorizationMode auth_mode);
 
-  void set_login_performer_delegate(LoginPerformer::Delegate* d) {
-    login_performer_delegate_.reset(d);
-  }
-
   // Updates the |login_display_| attached to this controller.
-  void UpdateLoginDisplay(const UserList& users);
+  void UpdateLoginDisplay(const user_manager::UserList& users);
 
   // Sends an accessibility alert event to extension listeners.
   void SendAccessibilityAlert(const std::string& alert_text);
+
+  // Callback invoked when the keyboard layouts available for a public session
+  // have been retrieved. Selects the first layout from the list and continues
+  // login.
+  void SetPublicSessionKeyboardLayoutAndLogin(
+      const UserContext& user_context,
+      scoped_ptr<base::ListValue> keyboard_layouts);
+
+  // Starts the actual login process for a public session. Invoked when all
+  // preconditions have been verified.
+  void LoginAsPublicSessionInternal(const UserContext& user_context);
 
   // Public session auto-login timer.
   scoped_ptr<base::OneShotTimer<ExistingUserController> > auto_login_timer_;
@@ -228,16 +247,15 @@ class ExistingUserController : public LoginDisplay::Delegate,
   // Used to execute login operations.
   scoped_ptr<LoginPerformer> login_performer_;
 
-  // Delegate for login performer to be overridden by tests.
-  // |this| is used if |login_performer_delegate_| is NULL.
-  scoped_ptr<LoginPerformer::Delegate> login_performer_delegate_;
-
-  // Delegate to forward all login status events to.
-  // Tests can use this to receive login status events.
-  LoginStatusConsumer* login_status_consumer_;
+  // Delegate to forward all authentication status events to.
+  // Tests can use this to receive authentication status events.
+  AuthStatusConsumer* auth_status_consumer_;
 
   // Username of the last login attempt.
   std::string last_login_attempt_username_;
+
+  // Auth flow of the last login attempt.
+  UserContext::AuthFlow last_login_attempt_auth_flow_;
 
   // OOBE/login display host.
   LoginDisplayHost* host_;
@@ -262,9 +280,6 @@ class ExistingUserController : public LoginDisplay::Delegate,
   // Used for notifications during the login process.
   content::NotificationRegistrar registrar_;
 
-  // Factory of callbacks.
-  base::WeakPtrFactory<ExistingUserController> weak_factory_;
-
   // The displayed email for the next login attempt set by |SetDisplayEmail|.
   std::string display_email_;
 
@@ -280,6 +295,10 @@ class ExistingUserController : public LoginDisplay::Delegate,
   // True if password has been changed for user who is completing sign in.
   // Set in OnLoginSuccess. Before that use LoginPerformer::password_changed().
   bool password_changed_;
+
+  // Set in OnLoginSuccess. Before that use LoginPerformer::auth_mode().
+  // Initialized with AUTH_MODE_EXTENSION as more restricted mode.
+  LoginPerformer::AuthorizationMode auth_mode_;
 
   // True if auto-enrollment should be performed before starting the user's
   // session.
@@ -315,6 +334,9 @@ class ExistingUserController : public LoginDisplay::Delegate,
       local_account_auto_login_delay_subscription_;
 
   FRIEND_TEST_ALL_PREFIXES(ExistingUserControllerTest, ExistingUserLogin);
+
+  // Factory of callbacks.
+  base::WeakPtrFactory<ExistingUserController> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(ExistingUserController);
 };

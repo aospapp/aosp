@@ -77,7 +77,7 @@
         <item name="android:layout_width">fill_parent</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:textColor">@color/text_black</item>
-        <item name="android:paddingTop">@dimen/main_text_padding_top</item>
+        <item name="android:paddingTop">@dimen/main_text_padding_between_text</item>
         <item name="android:textSize">@dimen/main_text_size</item>
     </style>
 
@@ -119,9 +119,22 @@
         <item name="android:layout_marginRight">@dimen/main_text_margins_left_right</item>
         <item name="android:paddingLeft">@dimen/main_text_padding_left_right</item>
         <item name="android:paddingRight">@dimen/main_text_padding_left_right</item>
-        <item name="android:paddingTop">@dimen/main_text_container_padding_top</item>
+        <item name="android:paddingTop">@dimen/main_text_padding_top</item>
         <item name="android:textSize">@dimen/main_text_size</item>
     </style>
+
+    <style name="DialogFragmentTextContainer">
+        <item name="android:layout_width">fill_parent</item>
+        <item name="android:layout_height">fill_parent</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:background">@color/white</item>
+        <item name="android:paddingBottom">@dimen/dialog_text_padding_bottom</item>
+        <item name="android:paddingLeft">@dimen/dialog_text_padding_left_right</item>
+        <item name="android:paddingRight">@dimen/dialog_text_padding_left_right</item>
+        <item name="android:paddingTop">@dimen/dialog_text_padding_top</item>
+        <item name="android:textSize">@dimen/main_text_size</item>
+    </style>
+
 
     <style name="ScrollView" parent="@android:style/Widget.Material.Light.ScrollView">
         <item name="android:theme">@style/ControlOverlayTheme</item>
@@ -132,7 +145,7 @@
     <style name="ProgressBar" parent="@android:Widget.Material.ProgressBar">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_marginTop">@dimen/main_text_padding_top</item>
+        <item name="android:layout_marginTop">@dimen/main_text_padding_between_text</item>
         <item name="android:indeterminate">true</item>
     </style>
 

@@ -40,7 +40,7 @@ struct region_iterator : public copybit_region_t {
 
     region_iterator(hwc_region_t region) {
         mRegion = region;
-        r.end = region.numRects;
+        r.end = (int)region.numRects;
         r.current = 0;
         this->next = iterate;
     }
@@ -131,6 +131,144 @@ unsigned int CopyBit::getRGBRenderingArea
     return renderArea;
 }
 
+int CopyBit::getLayersChanging(hwc_context_t *ctx,
+                      hwc_display_contents_1_t *list,
+                      int dpy){
+
+   int changingLayerIndex = -1;
+   if(mLayerCache.layerCount != ctx->listStats[dpy].numAppLayers) {
+        mLayerCache.reset();
+        mFbCache.reset();
+        mLayerCache.updateCounts(ctx,list,dpy);
+        return -1;
+    }
+
+    int updatingLayerCount = 0;
+    for (int k = ctx->listStats[dpy].numAppLayers-1; k >= 0 ; k--){
+       //swap rect will kick in only for single updating layer
+       if(mLayerCache.hnd[k] != list->hwLayers[k].handle){
+           updatingLayerCount ++;
+           if(updatingLayerCount == 1)
+             changingLayerIndex = k;
+       }
+    }
+    //since we are using more than one framebuffers,we have to
+    //kick in swap rect only if we are getting continuous same
+    //dirty rect for same layer at least equal of number of
+    //framebuffers
+
+    if ( updatingLayerCount ==  1 ) {
+       hwc_rect_t dirtyRect = list->hwLayers[changingLayerIndex].displayFrame;
+#ifdef QCOM_BSP
+       dirtyRect = list->hwLayers[changingLayerIndex].dirtyRect;
+#endif
+
+       for (int k = ctx->listStats[dpy].numAppLayers-1; k >= 0 ; k--){
+            //disable swap rect for overlapping visible layer(s)
+            hwc_rect_t displayFrame = list->hwLayers[k].displayFrame;
+            hwc_rect_t result = getIntersection(displayFrame,dirtyRect);
+            if((k != changingLayerIndex) && isValidRect(result)){
+              return -1;
+           }
+       }
+       mFbCache.insertAndUpdateFbCache(dirtyRect);
+       if(mFbCache.getUnchangedFbDRCount(dirtyRect) <
+                                             NUM_RENDER_BUFFERS)
+              changingLayerIndex =  -1;
+    }else {
+       mFbCache.reset();
+       changingLayerIndex =  -1;
+    }
+    mLayerCache.updateCounts(ctx,list,dpy);
+    return changingLayerIndex;
+}
+
+int CopyBit::checkDirtyRect(hwc_context_t *ctx,
+                           hwc_display_contents_1_t *list,
+                           int dpy) {
+
+   //dirty rect will enable only if
+   //1.Only single layer is updating.
+   //2.No overlapping
+   //3.No scaling
+   //4.No video layer
+   if(mSwapRectEnable == false)
+      return -1;
+   int changingLayerIndex =  getLayersChanging(ctx, list, dpy);
+   //swap rect will kick in only for single updating layer
+   if(changingLayerIndex == -1){
+      return -1;
+   }
+   if(!needsScaling(&list->hwLayers[changingLayerIndex])){
+     private_handle_t *hnd =
+         (private_handle_t *)list->hwLayers[changingLayerIndex].handle;
+      if( hnd && !isYuvBuffer(hnd))
+           return  changingLayerIndex;
+   }
+   return -1;
+}
+
+bool CopyBit::prepareOverlap(hwc_context_t *ctx,
+                             hwc_display_contents_1_t *list) {
+
+    if (ctx->mMDP.version < qdutils::MDP_V4_0) {
+        ALOGE("%s: Invalid request", __FUNCTION__);
+        return false;
+    }
+
+    if (mEngine == NULL || !(validateParams(ctx, list))) {
+        ALOGE("%s: Invalid Params", __FUNCTION__);
+        return false;
+    }
+    PtorInfo* ptorInfo = &(ctx->mPtorInfo);
+
+    // Allocate render buffers if they're not allocated
+    int alignW = 0, alignH = 0;
+    int finalW = 0, finalH = 0;
+    for (int i = 0; i < ptorInfo->count; i++) {
+        int ovlapIndex = ptorInfo->layerIndex[i];
+        hwc_rect_t overlap = list->hwLayers[ovlapIndex].displayFrame;
+        // render buffer width will be the max of two layers
+        // Align Widht and height to 32, Mdp would be configured
+        // with Aligned overlap w/h
+        finalW = max(finalW, ALIGN((overlap.right - overlap.left), 32));
+        finalH += ALIGN((overlap.bottom - overlap.top), 32);
+        if(finalH > ALIGN((overlap.bottom - overlap.top), 32)) {
+            // Calculate the offset for RGBA(4BPP)
+            ptorInfo->mRenderBuffOffset[i] = finalW *
+                (finalH - ALIGN((overlap.bottom - overlap.top), 32)) * 4;
+            // Calculate the dest top, left will always be zero
+            ptorInfo->displayFrame[i].top = (finalH -
+                                (ALIGN((overlap.bottom - overlap.top), 32)));
+        }
+        // calculate the right and bottom values
+        ptorInfo->displayFrame[i].right =  ptorInfo->displayFrame[i].left +
+                                            (overlap.right - overlap.left);
+        ptorInfo->displayFrame[i].bottom = ptorInfo->displayFrame[i].top +
+                                            (overlap.bottom - overlap.top);
+    }
+
+    getBufferSizeAndDimensions(finalW, finalH, HAL_PIXEL_FORMAT_RGBA_8888,
+                               alignW, alignH);
+
+    if ((mAlignedWidth != alignW) || (mAlignedHeight != alignH)) {
+        // Overlap rect has changed, so free render buffers
+        freeRenderBuffers();
+    }
+
+    int ret = allocRenderBuffers(alignW, alignH, HAL_PIXEL_FORMAT_RGBA_8888);
+
+    if (ret < 0) {
+        ALOGE("%s: Render buffer allocation failed", __FUNCTION__);
+        return false;
+    }
+
+    mAlignedWidth = alignW;
+    mAlignedHeight = alignH;
+    mCurRenderBufferIndex = (mCurRenderBufferIndex + 1) % NUM_RENDER_BUFFERS;
+    return true;
+}
+
 bool CopyBit::prepare(hwc_context_t *ctx, hwc_display_contents_1_t *list,
                                                             int dpy) {
 
@@ -195,8 +333,8 @@ bool CopyBit::prepare(hwc_context_t *ctx, hwc_display_contents_1_t *list,
                          __FUNCTION__, dst_w,src_w,dst_h,src_h);
               return false;
             }
-            dx = (float)dst_w/src_w;
-            dy = (float)dst_h/src_h;
+            dx = (float)dst_w/(float)src_w;
+            dy = (float)dst_h/(float)src_h;
 
             if (dx > MAX_SCALE_FACTOR || dx < MIN_SCALE_FACTOR)
                 return false;
@@ -209,8 +347,8 @@ bool CopyBit::prepare(hwc_context_t *ctx, hwc_display_contents_1_t *list,
     //Allocate render buffers if they're not allocated
     if (ctx->mMDP.version != qdutils::MDP_V3_0_4 &&
             (useCopybitForYUV || useCopybitForRGB)) {
-        int ret = allocRenderBuffers(mAlignedFBWidth,
-                                     mAlignedFBHeight,
+        int ret = allocRenderBuffers(mAlignedWidth,
+                                     mAlignedHeight,
                                      HAL_PIXEL_FORMAT_RGBA_8888);
         if (ret < 0) {
             return false;
@@ -232,11 +370,11 @@ bool CopyBit::prepare(hwc_context_t *ctx, hwc_display_contents_1_t *list,
         // Mark all layers to be drawn by copybit
         for (int i = ctx->listStats[dpy].numAppLayers-1; i >= 0 ; i--) {
             layerProp[i].mFlags |= HWC_COPYBIT;
-            if (ctx->mMDP.version == qdutils::MDP_V3_0_4) {
-                LOG_ALWAYS_FATAL("Cannot handle HWC_BLIT");
-                //list->hwLayers[i].compositionType = HWC_BLIT;
-            }
+#ifdef QCOM_BSP
+            if (ctx->mMDP.version == qdutils::MDP_V3_0_4)
+                list->hwLayers[i].compositionType = HWC_BLIT;
             else
+#endif
                 list->hwLayers[i].compositionType = HWC_OVERLAY;
         }
     }
@@ -263,8 +401,81 @@ int CopyBit::clear (private_handle_t* hnd, hwc_rect_t& rect)
     return ret;
 }
 
-bool CopyBit::draw(hwc_context_t *ctx, hwc_display_contents_1_t *list,
-                                                        int dpy, int32_t *fd) {
+bool CopyBit::drawUsingAppBufferComposition(hwc_context_t *ctx,
+                                      hwc_display_contents_1_t *list,
+                                      int dpy, int *copybitFd) {
+     int layerCount = 0;
+     uint32_t last = (uint32_t)list->numHwLayers - 1;
+     hwc_layer_1_t *fbLayer = &list->hwLayers[last];
+     private_handle_t *fbhnd = (private_handle_t *)fbLayer->handle;
+
+    if(ctx->enableABC == false)
+       return false;
+
+    if(ctx->listStats[dpy].numAppLayers > MAX_LAYERS_FOR_ABC )
+       return false;
+
+    layerCount = ctx->listStats[dpy].numAppLayers;
+    //bottom most layer should
+    //equal to FB
+    hwc_layer_1_t *tmpLayer = &list->hwLayers[0];
+    private_handle_t *hnd = (private_handle_t *)tmpLayer->handle;
+    if(hnd && fbhnd && (hnd->size == fbhnd->size) &&
+    (hnd->width == fbhnd->width) && (hnd->height == fbhnd->height)){
+       if(tmpLayer->transform  ||
+       (!(hnd->format == HAL_PIXEL_FORMAT_RGBA_8888 ||
+       hnd->format == HAL_PIXEL_FORMAT_RGBX_8888))  ||
+                   (needsScaling(tmpLayer) == true)) {
+          return false;
+       }else {
+          ctx->listStats[dpy].renderBufIndexforABC = 0;
+       }
+    }
+
+    if(ctx->listStats[dpy].renderBufIndexforABC == 0) {
+       if(layerCount == 1)
+          return true;
+
+       if(layerCount ==  MAX_LAYERS_FOR_ABC) {
+          int abcRenderBufIdx = ctx->listStats[dpy].renderBufIndexforABC;
+          //enable ABC only for non intersecting layers.
+          hwc_rect_t displayFrame =
+                  list->hwLayers[abcRenderBufIdx].displayFrame;
+          for (int i = abcRenderBufIdx + 1; i < layerCount; i++) {
+             hwc_rect_t tmpDisplayFrame = list->hwLayers[i].displayFrame;
+             hwc_rect_t result = getIntersection(displayFrame,tmpDisplayFrame);
+             if (isValidRect(result)) {
+                ctx->listStats[dpy].renderBufIndexforABC = -1;
+                return false;
+             }
+          }
+          // Pass the Acquire Fence FD to driver for base layer
+          private_handle_t *renderBuffer =
+          (private_handle_t *)list->hwLayers[abcRenderBufIdx].handle;
+          copybit_device_t *copybit = getCopyBitDevice();
+          if(list->hwLayers[abcRenderBufIdx].acquireFenceFd >=0){
+             copybit->set_sync(copybit,
+             list->hwLayers[abcRenderBufIdx].acquireFenceFd);
+          }
+          for(int i = abcRenderBufIdx + 1; i < layerCount; i++){
+             int retVal = drawLayerUsingCopybit(ctx,
+               &(list->hwLayers[i]),renderBuffer, 0);
+             if(retVal < 0) {
+                ALOGE("%s : Copybit failed", __FUNCTION__);
+             }
+          }
+          // Get Release Fence FD of copybit for the App layer(s)
+          copybit->flush_get_fence(copybit, copybitFd);
+          close(list->hwLayers[abcRenderBufIdx].acquireFenceFd);
+          list->hwLayers[abcRenderBufIdx].acquireFenceFd = -1;
+          return true;
+       }
+    }
+    return false;
+}
+
+bool  CopyBit::draw(hwc_context_t *ctx, hwc_display_contents_1_t *list,
+                                                          int dpy, int32_t *fd) {
     // draw layers marked for COPYBIT
     int retVal = true;
     int copybitLayerCount = 0;
@@ -272,12 +483,17 @@ bool CopyBit::draw(hwc_context_t *ctx, hwc_display_contents_1_t *list,
     LayerProp *layerProp = ctx->layerProp[dpy];
     private_handle_t *renderBuffer;
 
-    if(mCopyBitDraw == false) // there is no layer marked for copybit
-        return false ;
+    if(mCopyBitDraw == false){
+       mFbCache.reset(); // there is no layer marked for copybit
+       return false ;
+    }
 
+    if(drawUsingAppBufferComposition(ctx, list, dpy, fd)) {
+       return true;
+    }
     //render buffer
     if (ctx->mMDP.version == qdutils::MDP_V3_0_4) {
-        last = list->numHwLayers - 1;
+        last = (uint32_t)list->numHwLayers - 1;
         renderBuffer = (private_handle_t *)list->hwLayers[last].handle;
     } else {
         renderBuffer = getCurrentRenderBuffer();
@@ -301,21 +517,29 @@ bool CopyBit::draw(hwc_context_t *ctx, hwc_display_contents_1_t *list,
         }
     }
 
-    //Clear the transparent or left out region on the render buffer
-    hwc_rect_t clearRegion = {0,0,0,0};
-    if(CBUtils::getuiClearRegion(list, clearRegion, layerProp))
-        clear(renderBuffer, clearRegion);
+    mDirtyLayerIndex =  checkDirtyRect(ctx, list, dpy);
+    if( mDirtyLayerIndex != -1){
+          hwc_layer_1_t *layer = &list->hwLayers[mDirtyLayerIndex];
+#ifdef QCOM_BSP
+          clear(renderBuffer,layer->dirtyRect);
+#else
+          clear(renderBuffer,layer->displayFrame);
+#endif
+    } else {
+          hwc_rect_t clearRegion = {0,0,0,0};
+          if(CBUtils::getuiClearRegion(list, clearRegion, layerProp))
+             clear(renderBuffer, clearRegion);
+    }
 
     // numAppLayers-1, as we iterate from 0th layer index with HWC_COPYBIT flag
     for (int i = 0; i <= (ctx->listStats[dpy].numAppLayers-1); i++) {
-        hwc_layer_1_t *layer = &list->hwLayers[i];
         if(!(layerProp[i].mFlags & HWC_COPYBIT)) {
             ALOGD_IF(DEBUG_COPYBIT, "%s: Not Marked for copybit", __FUNCTION__);
             continue;
         }
-        if(layer->flags & HWC_SKIP_HWC_COMPOSITION){
+        //skip non updating layers
+        if((mDirtyLayerIndex != -1) && (mDirtyLayerIndex != i) )
             continue;
-        }
         int ret = -1;
         if (list->hwLayers[i].acquireFenceFd != -1
                 && ctx->mMDP.version >= qdutils::MDP_V4_0) {
@@ -329,7 +553,7 @@ bool CopyBit::draw(hwc_context_t *ctx, hwc_display_contents_1_t *list,
             list->hwLayers[i].acquireFenceFd = -1;
         }
         retVal = drawLayerUsingCopybit(ctx, &(list->hwLayers[i]),
-                                                    renderBuffer, !i);
+                                          renderBuffer, !i);
         copybitLayerCount++;
         if(retVal < 0) {
             ALOGE("%s : drawLayerUsingCopybit failed", __FUNCTION__);
@@ -347,6 +571,149 @@ bool CopyBit::draw(hwc_context_t *ctx, hwc_display_contents_1_t *list,
         }
     }
     return true;
+}
+
+int CopyBit::drawOverlap(hwc_context_t *ctx, hwc_display_contents_1_t *list) {
+    int fd = -1;
+    PtorInfo* ptorInfo = &(ctx->mPtorInfo);
+
+    if (ctx->mMDP.version < qdutils::MDP_V4_0) {
+        ALOGE("%s: Invalid request", __FUNCTION__);
+        return fd;
+    }
+
+    private_handle_t *renderBuffer = getCurrentRenderBuffer();
+
+    if (!renderBuffer) {
+        ALOGE("%s: Render buffer layer handle is NULL", __FUNCTION__);
+        return fd;
+    }
+
+    int copybitLayerCount = 0;
+    for(int j = 0; j < ptorInfo->count; j++) {
+        int ovlapIndex = ptorInfo->layerIndex[j];
+        hwc_rect_t overlap = list->hwLayers[ovlapIndex].displayFrame;
+
+        // Draw overlapped content of layers on render buffer
+        for (int i = 0; i <= ovlapIndex; i++) {
+            hwc_layer_1_t *layer = &list->hwLayers[i];
+            if(!isValidRect(getIntersection(layer->displayFrame,
+                                               overlap))) {
+                continue;
+            }
+            if ((list->hwLayers[i].acquireFenceFd != -1)) {
+                // Wait for acquire fence on the App buffers.
+                if(sync_wait(list->hwLayers[i].acquireFenceFd, 1000) < 0) {
+                    ALOGE("%s: sync_wait error!! error no = %d err str = %s",
+                          __FUNCTION__, errno, strerror(errno));
+                }
+                close(list->hwLayers[i].acquireFenceFd);
+                list->hwLayers[i].acquireFenceFd = -1;
+            }
+
+            int retVal = drawRectUsingCopybit(ctx, layer, renderBuffer, overlap,
+                                                ptorInfo->displayFrame[j]);
+            copybitLayerCount++;
+            if(retVal < 0) {
+                ALOGE("%s: drawRectUsingCopybit failed", __FUNCTION__);
+                copybitLayerCount = 0;
+            }
+        }
+    }
+
+    if (copybitLayerCount) {
+        copybit_device_t *copybit = getCopyBitDevice();
+        copybit->flush_get_fence(copybit, &fd);
+    }
+
+    ALOGD_IF(DEBUG_COPYBIT, "%s: done! copybitLayerCount = %d", __FUNCTION__,
+             copybitLayerCount);
+    return fd;
+}
+
+int CopyBit::drawRectUsingCopybit(hwc_context_t *dev, hwc_layer_1_t *layer,
+                        private_handle_t *renderBuffer, hwc_rect_t overlap,
+                        hwc_rect_t destRect)
+{
+    hwc_context_t* ctx = (hwc_context_t*)(dev);
+    if (!ctx) {
+        ALOGE("%s: null context ", __FUNCTION__);
+        return -1;
+    }
+
+    private_handle_t *hnd = (private_handle_t *)layer->handle;
+    if (!hnd) {
+        ALOGE("%s: invalid handle", __FUNCTION__);
+        return -1;
+    }
+
+    private_handle_t *dstHandle = (private_handle_t *)renderBuffer;
+    if (!dstHandle) {
+        ALOGE("%s: RenderBuffer handle is NULL", __FUNCTION__);
+        return -1;
+    }
+
+    // Set the Copybit Source
+    copybit_image_t src;
+    src.handle = (native_handle_t *)layer->handle;
+    src.w = hnd->width;
+    src.h = hnd->height;
+    src.base = (void *)hnd->base;
+    src.format = hnd->format;
+    src.horiz_padding = 0;
+    src.vert_padding = 0;
+
+
+    hwc_rect_t dispFrame = layer->displayFrame;
+    hwc_rect_t iRect = getIntersection(dispFrame, overlap);
+    hwc_rect_t crop = integerizeSourceCrop(layer->sourceCropf);
+    qhwc::calculate_crop_rects(crop, dispFrame, iRect,
+                               layer->transform);
+
+    // Copybit source rect
+    copybit_rect_t srcRect = {crop.left, crop.top, crop.right,
+        crop.bottom};
+
+    // Copybit destination rect
+    copybit_rect_t dstRect = {destRect.left, destRect.top, destRect.right,
+        destRect.bottom};
+
+    // Copybit dst
+    copybit_image_t dst;
+    dst.handle = (native_handle_t *)dstHandle;
+    dst.w = ALIGN(dstHandle->width, 32);
+    dst.h = dstHandle->height;
+    dst.base = (void *)dstHandle->base;
+    dst.format = dstHandle->format;
+
+    copybit_device_t *copybit = mEngine;
+
+    // Copybit region is the destRect
+    hwc_rect_t regRect = {dstRect.l,dstRect.t, dstRect.r, dstRect.b};
+    hwc_region_t region;
+    region.numRects = 1;
+    region.rects  = &regRect;
+    region_iterator copybitRegion(region);
+    int acquireFd = layer->acquireFenceFd;
+
+    copybit->set_parameter(copybit, COPYBIT_FRAMEBUFFER_WIDTH,
+                           renderBuffer->width);
+    copybit->set_parameter(copybit, COPYBIT_FRAMEBUFFER_HEIGHT,
+                           renderBuffer->height);
+    copybit->set_parameter(copybit, COPYBIT_TRANSFORM, layer->transform);
+    copybit->set_parameter(copybit, COPYBIT_PLANE_ALPHA, layer->planeAlpha);
+    copybit->set_parameter(copybit, COPYBIT_BLEND_MODE, layer->blending);
+    copybit->set_parameter(copybit, COPYBIT_DITHER,
+        (dst.format == HAL_PIXEL_FORMAT_RGB_565) ? COPYBIT_ENABLE :
+        COPYBIT_DISABLE);
+    copybit->set_sync(copybit, acquireFd);
+    int err = copybit->stretch(copybit, &dst, &src, &dstRect, &srcRect,
+                               &copybitRegion);
+
+    if (err < 0)
+        ALOGE("%s: copybit stretch failed",__FUNCTION__);
+
+    return err;
 }
 
 int  CopyBit::drawLayerUsingCopybit(hwc_context_t *dev, hwc_layer_1_t *layer,
@@ -429,7 +796,16 @@ int  CopyBit::drawLayerUsingCopybit(hwc_context_t *dev, hwc_layer_1_t *layer,
     copybit_rect_t dstRect = {displayFrame.left, displayFrame.top,
                               displayFrame.right,
                               displayFrame.bottom};
-
+#ifdef QCOM_BSP
+    //change src and dst with dirtyRect
+    if(mDirtyLayerIndex != -1) {
+      srcRect.l = layer->dirtyRect.left;
+      srcRect.t = layer->dirtyRect.top;
+      srcRect.r = layer->dirtyRect.right;
+      srcRect.b = layer->dirtyRect.bottom;
+      dstRect = srcRect;
+    }
+#endif
     // Copybit dst
     copybit_image_t dst;
     dst.w = ALIGN(fbHandle->width,32);
@@ -466,8 +842,8 @@ int  CopyBit::drawLayerUsingCopybit(hwc_context_t *dev, hwc_layer_1_t *layer,
         return -1;
     }
 
-    float dsdx = (float)screen_w/src_crop_width;
-    float dtdy = (float)screen_h/src_crop_height;
+    float dsdx = (float)screen_w/(float)src_crop_width;
+    float dtdy = (float)screen_h/(float)src_crop_height;
 
     float scaleLimitMax = copybitsMaxScale * copybitsMaxScale;
     float scaleLimitMin = copybitsMinScale * copybitsMinScale;
@@ -498,14 +874,14 @@ int  CopyBit::drawLayerUsingCopybit(hwc_context_t *dev, hwc_layer_1_t *layer,
        int tmp_h =  src_crop_height;
 
        if (dsdx > copybitsMaxScale || dtdy > copybitsMaxScale ){
-         tmp_w = src_crop_width*copybitsMaxScale;
-         tmp_h = src_crop_height*copybitsMaxScale;
+         tmp_w = (int)((float)src_crop_width*copybitsMaxScale);
+         tmp_h = (int)((float)src_crop_height*copybitsMaxScale);
        }else if (dsdx < 1/copybitsMinScale ||dtdy < 1/copybitsMinScale ){
          // ceil the tmp_w and tmp_h value to maintain proper ratio
          // b/w src and dst (should not cross the desired scale limit
          // due to float -> int )
-         tmp_w = ceil(src_crop_width/copybitsMinScale);
-         tmp_h = ceil(src_crop_height/copybitsMinScale);
+         tmp_w = (int)ceil((float)src_crop_width/copybitsMinScale);
+         tmp_h = (int)ceil((float)src_crop_height/copybitsMinScale);
        }
        ALOGD("%s:%d::tmp_w = %d,tmp_h = %d",__FUNCTION__,__LINE__,tmp_w,tmp_h);
 
@@ -710,18 +1086,30 @@ void CopyBit::setReleaseFd(int fd) {
     mRelFd[mCurRenderBufferIndex] = dup(fd);
 }
 
+void CopyBit::setReleaseFdSync(int fd) {
+    if (mRelFd[mCurRenderBufferIndex] >=0) {
+        int ret = -1;
+        ret = sync_wait(mRelFd[mCurRenderBufferIndex], 1000);
+        if (ret < 0)
+            ALOGE("%s: sync_wait error! errno = %d, err str = %s",
+                  __FUNCTION__, errno, strerror(errno));
+        close(mRelFd[mCurRenderBufferIndex]);
+    }
+    mRelFd[mCurRenderBufferIndex] = dup(fd);
+}
+
 struct copybit_device_t* CopyBit::getCopyBitDevice() {
     return mEngine;
 }
 
-CopyBit::CopyBit(hwc_context_t *ctx, const int& dpy) : mIsModeOn(false),
-        mCopyBitDraw(false), mCurRenderBufferIndex(0) {
+CopyBit::CopyBit(hwc_context_t *ctx, const int& dpy) :  mEngine(0),
+    mIsModeOn(false), mCopyBitDraw(false), mCurRenderBufferIndex(0) {
 
     getBufferSizeAndDimensions(ctx->dpyAttr[dpy].xres,
             ctx->dpyAttr[dpy].yres,
             HAL_PIXEL_FORMAT_RGBA_8888,
-            mAlignedFBWidth,
-            mAlignedFBHeight);
+            mAlignedWidth,
+            mAlignedHeight);
 
     hw_module_t const *module;
     for (int i = 0; i < NUM_RENDER_BUFFERS; i++) {
@@ -733,6 +1121,9 @@ CopyBit::CopyBit(hwc_context_t *ctx, const int& dpy) : mIsModeOn(false),
     property_get("debug.hwc.dynThreshold", value, "2");
     mDynThreshold = atof(value);
 
+    property_get("debug.sf.swaprect", value, "0");
+    mSwapRectEnable = atoi(value) ? true:false ;
+    mDirtyLayerIndex = -1;
     if (hw_get_module(COPYBIT_HARDWARE_MODULE_ID, &module) == 0) {
         if(copybit_open(module, &mEngine) < 0) {
             ALOGE("FATAL ERROR: copybit open failed.");
@@ -751,4 +1142,43 @@ CopyBit::~CopyBit()
         mEngine = NULL;
     }
 }
+CopyBit::LayerCache::LayerCache() {
+    reset();
+}
+void CopyBit::LayerCache::reset() {
+    memset(&hnd, 0, sizeof(hnd));
+    layerCount = 0;
+}
+void CopyBit::LayerCache::updateCounts(hwc_context_t *ctx,
+              hwc_display_contents_1_t *list, int dpy)
+{
+   layerCount = ctx->listStats[dpy].numAppLayers;
+   for (int i=0; i<ctx->listStats[dpy].numAppLayers; i++){
+      hnd[i] = list->hwLayers[i].handle;
+   }
+}
+
+CopyBit::FbCache::FbCache() {
+     reset();
+}
+void CopyBit::FbCache::reset() {
+     memset(&FbdirtyRect, 0, sizeof(FbdirtyRect));
+     FbIndex =0;
+}
+
+void CopyBit::FbCache::insertAndUpdateFbCache(hwc_rect_t dirtyRect) {
+   FbIndex =  FbIndex % NUM_RENDER_BUFFERS;
+   FbdirtyRect[FbIndex] = dirtyRect;
+   FbIndex++;
+}
+
+int CopyBit::FbCache::getUnchangedFbDRCount(hwc_rect_t dirtyRect){
+    int sameDirtyCount = 0;
+    for (int i = 0 ; i < NUM_RENDER_BUFFERS ; i++ ){
+      if( FbdirtyRect[i] == dirtyRect)
+           sameDirtyCount++;
+   }
+   return sameDirtyCount;
+}
+
 }; //namespace qhwc

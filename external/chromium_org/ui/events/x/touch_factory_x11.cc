@@ -18,8 +18,9 @@
 #include "base/message_loop/message_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
+#include "base/sys_info.h"
 #include "ui/events/event_switches.h"
-#include "ui/events/x/device_data_manager.h"
+#include "ui/events/x/device_data_manager_x11.h"
 #include "ui/events/x/device_list_cache_x.h"
 #include "ui/gfx/x/x11_types.h"
 
@@ -31,8 +32,9 @@ TouchFactory::TouchFactory()
       touch_events_disabled_(false),
       touch_device_list_(),
       max_touch_points_(-1),
+      virtual_core_keyboard_device_(-1),
       id_generator_(0) {
-  if (!DeviceDataManager::GetInstance()->IsXInput2Available())
+  if (!DeviceDataManagerX11::GetInstance()->IsXInput2Available())
     return;
 
   XDisplay* display = gfx::GetXDisplay();
@@ -104,7 +106,7 @@ void TouchFactory::UpdateDeviceList(Display* display) {
   }
 #endif
 
-  if (!DeviceDataManager::GetInstance()->IsXInput2Available())
+  if (!DeviceDataManagerX11::GetInstance()->IsXInput2Available())
     return;
 
   // Instead of asking X for the list of devices all the time, let's maintain a
@@ -143,6 +145,8 @@ void TouchFactory::UpdateDeviceList(Display* display) {
       }
 #endif
       pointer_device_lookup_[devinfo->deviceid] = true;
+    } else if (devinfo->use == XIMasterKeyboard) {
+      virtual_core_keyboard_device_ = devinfo->deviceid;
     }
 
 #if defined(USE_XI2_MT)
@@ -174,6 +178,12 @@ bool TouchFactory::ShouldProcessXI2Event(XEvent* xev) {
     return !touch_events_disabled_ && IsTouchDevice(xiev->deviceid);
   }
 #endif
+  // Make sure only key-events from the virtual core keyboard are processed.
+  if (event->evtype == XI_KeyPress || event->evtype == XI_KeyRelease) {
+    return (virtual_core_keyboard_device_ < 0) ||
+           (virtual_core_keyboard_device_ == xiev->deviceid);
+  }
+
   if (event->evtype != XI_ButtonPress &&
       event->evtype != XI_ButtonRelease &&
       event->evtype != XI_Motion)
@@ -206,6 +216,12 @@ void TouchFactory::SetupXI2ForXWindow(Window window) {
   XISetMask(mask, XI_ButtonPress);
   XISetMask(mask, XI_ButtonRelease);
   XISetMask(mask, XI_Motion);
+#if defined(OS_CHROMEOS)
+  if (base::SysInfo::IsRunningOnChromeOS()) {
+    XISetMask(mask, XI_KeyPress);
+    XISetMask(mask, XI_KeyRelease);
+  }
+#endif
 
   XIEventMask evmask;
   evmask.deviceid = XIAllDevices;
@@ -250,8 +266,14 @@ int TouchFactory::GetSlotForTrackingID(uint32 tracking_id) {
   return id_generator_.GetGeneratedID(tracking_id);
 }
 
+void TouchFactory::AcquireSlotForTrackingID(uint32 tracking_id) {
+  tracking_id_refcounts_[tracking_id]++;
+}
+
 void TouchFactory::ReleaseSlotForTrackingID(uint32 tracking_id) {
-  id_generator_.ReleaseNumber(tracking_id);
+  tracking_id_refcounts_[tracking_id]--;
+  if (tracking_id_refcounts_[tracking_id] == 0)
+    id_generator_.ReleaseNumber(tracking_id);
 }
 
 bool TouchFactory::IsTouchDevicePresent() {
@@ -260,6 +282,18 @@ bool TouchFactory::IsTouchDevicePresent() {
 
 int TouchFactory::GetMaxTouchPoints() const {
   return max_touch_points_;
+}
+
+void TouchFactory::ResetForTest() {
+  pointer_device_lookup_.reset();
+  touch_device_lookup_.reset();
+  touch_device_available_ = false;
+  touch_events_disabled_ = false;
+  touch_device_list_.clear();
+  touchscreen_ids_.clear();
+  tracking_id_refcounts_.clear();
+  max_touch_points_ = -1;
+  id_generator_.ResetForTest();
 }
 
 void TouchFactory::SetTouchDeviceForTest(

@@ -18,6 +18,7 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/notification_types.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/resource_request_details.h"
@@ -26,6 +27,7 @@
 #include "net/ssl/ssl_info.h"
 
 using captive_portal::CaptivePortalResult;
+using content::ResourceType;
 
 DEFINE_WEB_CONTENTS_USER_DATA_KEY(CaptivePortalTabHelper);
 
@@ -67,19 +69,18 @@ void CaptivePortalTabHelper::RenderViewDeleted(
 }
 
 void CaptivePortalTabHelper::DidStartProvisionalLoadForFrame(
-    int64 frame_id,
-    int64 parent_frame_id,
-    bool is_main_frame,
+    content::RenderFrameHost* render_frame_host,
     const GURL& validated_url,
     bool is_error_page,
-    bool is_iframe_srcdoc,
-    content::RenderViewHost* render_view_host) {
+    bool is_iframe_srcdoc) {
   DCHECK(CalledOnValidThread());
 
   // Ignore subframes.
-  if (!is_main_frame)
+  if (render_frame_host->GetParent())
     return;
 
+  content::RenderViewHost* render_view_host =
+      render_frame_host->GetRenderViewHost();
   if (provisional_render_view_host_) {
     // If loading an error page for a previous failure, treat this as part of
     // the previous load.  Link Doctor pages act like two error page loads in a
@@ -97,19 +98,16 @@ void CaptivePortalTabHelper::DidStartProvisionalLoadForFrame(
 }
 
 void CaptivePortalTabHelper::DidCommitProvisionalLoadForFrame(
-    int64 frame_id,
-    const base::string16& frame_unique_name,
-    bool is_main_frame,
+    content::RenderFrameHost* render_frame_host,
     const GURL& url,
-    content::PageTransition transition_type,
-    content::RenderViewHost* render_view_host) {
+    ui::PageTransition transition_type) {
   DCHECK(CalledOnValidThread());
 
   // Ignore subframes.
-  if (!is_main_frame)
+  if (render_frame_host->GetParent())
     return;
 
-  if (provisional_render_view_host_ == render_view_host) {
+  if (provisional_render_view_host_ == render_frame_host->GetRenderViewHost()) {
     tab_reloader_->OnLoadCommitted(pending_error_code_);
   } else {
     // This may happen if the active RenderView commits a page before a cross
@@ -127,17 +125,15 @@ void CaptivePortalTabHelper::DidCommitProvisionalLoadForFrame(
 }
 
 void CaptivePortalTabHelper::DidFailProvisionalLoad(
-    int64 frame_id,
-    const base::string16& frame_unique_name,
-    bool is_main_frame,
+    content::RenderFrameHost* render_frame_host,
     const GURL& validated_url,
     int error_code,
-    const base::string16& error_description,
-    content::RenderViewHost* render_view_host) {
+    const base::string16& error_description) {
   DCHECK(CalledOnValidThread());
 
   // Ignore subframes and unexpected RenderViewHosts.
-  if (!is_main_frame || render_view_host != provisional_render_view_host_)
+  if (render_frame_host->GetParent() ||
+      render_frame_host->GetRenderViewHost() != provisional_render_view_host_)
     return;
 
   // Aborts generally aren't followed by loading an error page, so go ahead and
@@ -198,10 +194,10 @@ bool CaptivePortalTabHelper::IsLoginTab() const {
 }
 
 void CaptivePortalTabHelper::OnRedirect(int child_id,
-                                        ResourceType::Type resource_type,
+                                        ResourceType resource_type,
                                         const GURL& new_url) {
   // Only main frame redirects for the provisional RenderViewHost matter.
-  if (resource_type != ResourceType::MAIN_FRAME ||
+  if (resource_type != content::RESOURCE_TYPE_MAIN_FRAME ||
       !provisional_render_view_host_ ||
       provisional_render_view_host_->GetProcess()->GetID() != child_id) {
     return;
@@ -264,7 +260,7 @@ void CaptivePortalTabHelper::OpenLoginTab() {
   content::WebContents* web_contents = chrome::AddSelectedTabWithURL(
           browser,
           CaptivePortalServiceFactory::GetForProfile(profile_)->test_url(),
-          content::PAGE_TRANSITION_TYPED);
+          ui::PAGE_TRANSITION_TYPED);
   CaptivePortalTabHelper* captive_portal_tab_helper =
       CaptivePortalTabHelper::FromWebContents(web_contents);
   captive_portal_tab_helper->SetIsLoginTab();

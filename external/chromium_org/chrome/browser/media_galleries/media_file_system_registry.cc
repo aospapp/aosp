@@ -15,6 +15,7 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/media_galleries/fileapi/media_file_system_backend.h"
 #include "chrome/browser/media_galleries/fileapi/mtp_device_map_service.h"
+#include "chrome/browser/media_galleries/gallery_watch_manager.h"
 #include "chrome/browser/media_galleries/imported_media_gallery_registry.h"
 #include "chrome/browser/media_galleries/media_file_system_context.h"
 #include "chrome/browser/media_galleries/media_galleries_dialog_controller.h"
@@ -37,15 +38,15 @@
 #include "extensions/browser/extension_system.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_set.h"
-#include "webkit/browser/fileapi/external_mount_points.h"
-#include "webkit/common/fileapi/file_system_mount_option.h"
-#include "webkit/common/fileapi/file_system_types.h"
+#include "storage/browser/fileapi/external_mount_points.h"
+#include "storage/common/fileapi/file_system_mount_option.h"
+#include "storage/common/fileapi/file_system_types.h"
 
 using content::BrowserThread;
 using content::NavigationController;
 using content::RenderProcessHost;
 using content::WebContents;
-using fileapi::ExternalMountPoints;
+using storage::ExternalMountPoints;
 using storage_monitor::MediaStorageUtil;
 using storage_monitor::StorageInfo;
 using storage_monitor::StorageMonitor;
@@ -280,6 +281,8 @@ class ExtensionGalleriesHost
   void GetMediaFileSystems(const MediaGalleryPrefIdSet& galleries,
                            const MediaGalleriesPrefInfoMap& galleries_info,
                            const MediaFileSystemsCallback& callback) {
+    DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
     // Extract all the device ids so we can make sure they are attached.
     MediaStorageUtil::DeviceIdSet* device_ids =
         new MediaStorageUtil::DeviceIdSet;
@@ -492,7 +495,8 @@ void MediaFileSystemRegistry::GetMediaFileSystemsForExtension(
     const content::RenderViewHost* rvh,
     const extensions::Extension* extension,
     const MediaFileSystemsCallback& callback) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  // TODO(tommycli): Change to DCHECK after fixing http://crbug.com/374330.
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   Profile* profile =
       Profile::FromBrowserContext(rvh->GetProcess()->GetBrowserContext());
@@ -565,6 +569,12 @@ MediaScanManager* MediaFileSystemRegistry::media_scan_manager() {
   if (!media_scan_manager_)
     media_scan_manager_.reset(new MediaScanManager);
   return media_scan_manager_.get();
+}
+
+GalleryWatchManager* MediaFileSystemRegistry::gallery_watch_manager() {
+  if (!gallery_watch_manager_)
+    gallery_watch_manager_.reset(new GalleryWatchManager);
+  return gallery_watch_manager_.get();
 }
 
 void MediaFileSystemRegistry::OnRemovableStorageDetached(
@@ -693,8 +703,10 @@ class MediaFileSystemRegistry::MediaFileSystemContextImpl
       result = registry->RegisterIPhotoFilesystemOnUIThread(fs_name, path);
     } else {
       result = ExternalMountPoints::GetSystemInstance()->RegisterFileSystem(
-          fs_name, fileapi::kFileSystemTypeNativeMedia,
-          fileapi::FileSystemMountOption(), path);
+          fs_name,
+          storage::kFileSystemTypeNativeMedia,
+          storage::FileSystemMountOption(),
+          path);
     }
     return result;
   }
@@ -708,8 +720,10 @@ class MediaFileSystemRegistry::MediaFileSystemContextImpl
     // Sanity checks for |path|.
     CHECK(MediaStorageUtil::CanCreateFileSystem(device_id, path));
     bool result = ExternalMountPoints::GetSystemInstance()->RegisterFileSystem(
-        fs_name, fileapi::kFileSystemTypeDeviceMedia,
-        fileapi::FileSystemMountOption(), path);
+        fs_name,
+        storage::kFileSystemTypeDeviceMedia,
+        storage::FileSystemMountOption(),
+        path);
     CHECK(result);
     BrowserThread::PostTask(BrowserThread::IO, FROM_HERE, base::Bind(
         &MTPDeviceMapService::RegisterMTPFileSystem,

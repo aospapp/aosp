@@ -9,6 +9,12 @@
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/layout_constants.h"
 
+namespace {
+
+// The spacing between the key and the value labels in the Details section.
+const int kSpacingBetweenKeyAndStartOfValue = 3;
+}
+
 AppInfoPanel::AppInfoPanel(Profile* profile, const extensions::Extension* app)
     : profile_(profile), app_(app) {
 }
@@ -24,12 +30,33 @@ views::Label* AppInfoPanel::CreateHeading(const base::string16& text) const {
   return label;
 }
 
-views::View* AppInfoPanel::CreateVerticalStack() const {
+views::View* AppInfoPanel::CreateVerticalStack(int child_spacing) const {
   views::View* vertically_stacked_view = new views::View();
   vertically_stacked_view->SetLayoutManager(
-      new views::BoxLayout(views::BoxLayout::kVertical,
-                           0,
-                           0,
-                           views::kRelatedControlVerticalSpacing));
+      new views::BoxLayout(views::BoxLayout::kVertical, 0, 0, child_spacing));
   return vertically_stacked_view;
+}
+
+views::View* AppInfoPanel::CreateVerticalStack() const {
+  return CreateVerticalStack(views::kRelatedControlVerticalSpacing);
+}
+
+views::View* AppInfoPanel::CreateHorizontalStack(int child_spacing) const {
+  views::View* vertically_stacked_view = new views::View();
+  vertically_stacked_view->SetLayoutManager(
+      new views::BoxLayout(views::BoxLayout::kHorizontal, 0, 0, child_spacing));
+  return vertically_stacked_view;
+}
+
+views::View* AppInfoPanel::CreateHorizontalStack() const {
+  return CreateVerticalStack(views::kRelatedControlHorizontalSpacing);
+}
+
+views::View* AppInfoPanel::CreateKeyValueField(views::View* key,
+                                               views::View* value) const {
+  views::View* horizontal_stack =
+      CreateHorizontalStack(kSpacingBetweenKeyAndStartOfValue);
+  horizontal_stack->AddChildView(key);
+  horizontal_stack->AddChildView(value);
+  return horizontal_stack;
 }

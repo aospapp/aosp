@@ -54,17 +54,25 @@ class AutofillRendererTest : public ChromeRenderViewTest {
     SendContentStateImmediately();
   }
 
+  void SimulateRequestAutocompleteResult(
+      const blink::WebFormElement::AutocompleteResult& result,
+      const base::string16& message) {
+    AutofillMsg_RequestAutocompleteResult msg(0, result, message, FormData());
+    static_cast<content::RenderViewObserver*>(autofill_agent_)
+        ->OnMessageReceived(msg);
+  }
+
  private:
   DISALLOW_COPY_AND_ASSIGN(AutofillRendererTest);
 };
 
 TEST_F(AutofillRendererTest, SendForms) {
-  LoadHTML("<form method=\"POST\">"
-           "  <input type=\"text\" id=\"firstname\"/>"
-           "  <input type=\"text\" id=\"middlename\"/>"
-           "  <input type=\"text\" id=\"lastname\" autoComplete=\"off\"/>"
-           "  <input type=\"hidden\" id=\"email\"/>"
-           "  <select id=\"state\"/>"
+  LoadHTML("<form method='POST'>"
+           "  <input type='text' id='firstname'/>"
+           "  <input type='text' id='middlename'/>"
+           "  <input type='text' id='lastname' autoComplete='off'/>"
+           "  <input type='hidden' id='email'/>"
+           "  <select id='state'/>"
            "    <option>?</option>"
            "    <option>California</option>"
            "    <option>Texas</option>"
@@ -161,9 +169,9 @@ TEST_F(AutofillRendererTest, SendForms) {
 }
 
 TEST_F(AutofillRendererTest, EnsureNoFormSeenIfTooFewFields) {
-  LoadHTML("<form method=\"POST\">"
-           "  <input type=\"text\" id=\"firstname\"/>"
-           "  <input type=\"text\" id=\"middlename\"/>"
+  LoadHTML("<form method='POST'>"
+           "  <input type='text' id='firstname'/>"
+           "  <input type='text' id='middlename'/>"
            "</form>");
 
   // Verify that "FormsSeen" isn't sent, as there are too few fields.
@@ -177,10 +185,10 @@ TEST_F(AutofillRendererTest, EnsureNoFormSeenIfTooFewFields) {
 }
 
 TEST_F(AutofillRendererTest, ShowAutofillWarning) {
-  LoadHTML("<form method=\"POST\" autocomplete=\"Off\">"
-           "  <input id=\"firstname\" autocomplete=\"OFF\"/>"
-           "  <input id=\"middlename\"/>"
-           "  <input id=\"lastname\"/>"
+  LoadHTML("<form method='POST' autocomplete='Off'>"
+           "  <input id='firstname' autocomplete='OFF'/>"
+           "  <input id='middlename'/>"
+           "  <input id='lastname'/>"
            "</form>");
 
   // Verify that "QueryFormFieldAutofill" isn't sent prior to a user
@@ -199,7 +207,8 @@ TEST_F(AutofillRendererTest, ShowAutofillWarning) {
   // Simulate attempting to Autofill the form from the first element, which
   // specifies autocomplete="off".  This should still trigger an IPC which
   // shouldn't display warnings.
-  autofill_agent_->FormControlElementClicked(firstname, true);
+  static_cast<PageClickListener*>(autofill_agent_)
+      ->FormControlElementClicked(firstname, true);
   const IPC::Message* message1 = render_thread_->sink().GetFirstMessageMatching(
       AutofillHostMsg_QueryFormFieldAutofill::ID);
   EXPECT_NE(static_cast<IPC::Message*>(NULL), message1);
@@ -213,7 +222,8 @@ TEST_F(AutofillRendererTest, ShowAutofillWarning) {
   // does not specify autocomplete="off".  This should trigger an IPC that will
   // show warnings, as we *do* show warnings for elements that don't themselves
   // set autocomplete="off", but for which the form does.
-  autofill_agent_->FormControlElementClicked(middlename, true);
+  static_cast<PageClickListener*>(autofill_agent_)
+      ->FormControlElementClicked(middlename, true);
   const IPC::Message* message2 = render_thread_->sink().GetFirstMessageMatching(
       AutofillHostMsg_QueryFormFieldAutofill::ID);
   ASSERT_NE(static_cast<IPC::Message*>(NULL), message2);
@@ -229,7 +239,7 @@ TEST_F(AutofillRendererTest, DontCrashWhileAssociatingForms) {
            "<script id='script'>"
            "document.documentElement.appendChild(foo);"
            "newDoc = document.implementation.createDocument("
-           "    \"http://www.w3.org/1999/xhtml\", \"html\");"
+           "    'http://www.w3.org/1999/xhtml', 'html');"
            "foo.insertBefore(form, script);"
            "newDoc.adoptNode(foo);"
            "</script>");
@@ -253,7 +263,7 @@ class RequestAutocompleteRendererTest : public AutofillRendererTest {
 
     GURL url("data:text/html;charset=utf-8,"
              "<form><input autocomplete=cc-number></form>");
-    const char kDoubleIframeHtml[] = "<iframe id=subframe src=\"%s\"></iframe>"
+    const char kDoubleIframeHtml[] = "<iframe id=subframe src='%s'></iframe>"
                                      "<iframe id=sibling></iframe>";
     LoadHTML(base::StringPrintf(kDoubleIframeHtml, url.spec().c_str()).c_str());
 
@@ -277,7 +287,8 @@ class RequestAutocompleteRendererTest : public AutofillRendererTest {
     render_thread_->sink().ClearMessages();
 
     // Invoke requestAutocomplete to show the dialog.
-    autofill_agent_->didRequestAutocomplete(invoking_form());
+    static_cast<blink::WebAutofillClient*>(autofill_agent_)
+        ->didRequestAutocomplete(invoking_form());
     ASSERT_TRUE(render_thread_->sink().GetFirstMessageMatching(
         AutofillHostMsg_RequestAutocomplete::ID));
 
@@ -329,10 +340,9 @@ TEST_F(RequestAutocompleteRendererTest, MainFrameNavigateCancels) {
 
 TEST_F(RequestAutocompleteRendererTest, NoCancelOnSubframeNavigateAfterDone) {
   // Pretend that the dialog was cancelled.
-  autofill_agent_->OnRequestAutocompleteResult(
+  SimulateRequestAutocompleteResult(
       WebFormElement::AutocompleteResultErrorCancel,
-      base::ASCIIToUTF16("Print me to the console"),
-      FormData());
+      base::ASCIIToUTF16("Print me to the console"));
 
   // Additional navigations should not crash nor send cancels.
   NavigateFrame(invoking_frame());
@@ -342,10 +352,9 @@ TEST_F(RequestAutocompleteRendererTest, NoCancelOnSubframeNavigateAfterDone) {
 
 TEST_F(RequestAutocompleteRendererTest, NoCancelOnMainFrameNavigateAfterDone) {
   // Pretend that the dialog was cancelled.
-  autofill_agent_->OnRequestAutocompleteResult(
+  SimulateRequestAutocompleteResult(
       WebFormElement::AutocompleteResultErrorCancel,
-      base::ASCIIToUTF16("Print me to the console"),
-      FormData());
+      base::ASCIIToUTF16("Print me to the console"));
 
   // Additional navigations should not crash nor send cancels.
   NavigateFrame(GetMainFrame());
@@ -355,7 +364,8 @@ TEST_F(RequestAutocompleteRendererTest, NoCancelOnMainFrameNavigateAfterDone) {
 
 TEST_F(RequestAutocompleteRendererTest, InvokingTwiceOnlyShowsOnce) {
   // Attempting to show the requestAutocomplete dialog again should be ignored.
-  autofill_agent_->didRequestAutocomplete(invoking_form());
+  static_cast<blink::WebAutofillClient*>(autofill_agent_)
+      ->didRequestAutocomplete(invoking_form());
   EXPECT_FALSE(render_thread_->sink().GetFirstMessageMatching(
       AutofillHostMsg_RequestAutocomplete::ID));
 }

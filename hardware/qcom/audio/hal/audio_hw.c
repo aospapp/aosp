@@ -209,19 +209,6 @@ static int get_snd_codec_id(audio_format_t format)
     return id;
 }
 
-int pcm_ioctl(void *pcm, int request, ...)
-{
-    va_list ap;
-    void * arg;
-    int pcm_fd = *(int*)pcm;
-
-    va_start(ap, request);
-    arg = va_arg(ap, void *);
-    va_end(ap);
-
-    return ioctl(pcm_fd, request, arg);
-}
-
 int enable_audio_route(struct audio_device *adev,
                        struct audio_usecase *usecase)
 {
@@ -564,7 +551,8 @@ int select_devices(struct audio_device *adev,
                                             usecase->stream.out->devices);
                 if (usecase->stream.out == adev->primary_output &&
                         adev->active_input &&
-                        adev->active_input->source == AUDIO_SOURCE_VOICE_COMMUNICATION) {
+                        adev->active_input->source == AUDIO_SOURCE_VOICE_COMMUNICATION &&
+                        out_snd_device != usecase->out_snd_device) {
                     select_devices(adev, adev->active_input->usecase);
                 }
             }
@@ -576,6 +564,7 @@ int select_devices(struct audio_device *adev,
                 if (adev->active_input->source == AUDIO_SOURCE_VOICE_COMMUNICATION &&
                         adev->primary_output && !adev->primary_output->standby) {
                     out_device = adev->primary_output->devices;
+                    platform_set_echo_reference(adev, false, AUDIO_DEVICE_NONE);
                 } else if (usecase->id == USECASE_AUDIO_RECORD_AFE_PROXY) {
                     out_device = AUDIO_DEVICE_OUT_TELEPHONY_TX;
                 }
@@ -849,6 +838,8 @@ static void *offload_thread_loop(void *context)
             compress_partial_drain(out->compr);
             send_callback = true;
             event = STREAM_CBK_EVENT_DRAIN_READY;
+            /* Resend the metadata for next iteration */
+            out->send_new_metadata = 1;
             break;
         case OFFLOAD_CMD_DRAIN:
             compress_drain(out->compr);
@@ -863,6 +854,7 @@ static void *offload_thread_loop(void *context)
         out->offload_thread_blocked = false;
         pthread_cond_signal(&out->cond);
         if (send_callback) {
+            ALOGVV("%s: sending offload_callback event %d", __func__, event);
             out->offload_callback(event, NULL, out->offload_cookie);
         }
         free(cmd);
@@ -1997,8 +1989,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
                 get_snd_codec_id(config->offload_info.format);
         out->compr_config.fragment_size = COMPRESS_OFFLOAD_FRAGMENT_SIZE;
         out->compr_config.fragments = COMPRESS_OFFLOAD_NUM_FRAGMENTS;
-        out->compr_config.codec->sample_rate =
-                    compress_get_alsa_rate(config->offload_info.sample_rate);
+        out->compr_config.codec->sample_rate = config->offload_info.sample_rate;
         out->compr_config.codec->bit_rate =
                     config->offload_info.bit_rate;
         out->compr_config.codec->ch_in =

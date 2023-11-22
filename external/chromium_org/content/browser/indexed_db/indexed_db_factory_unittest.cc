@@ -2,9 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "content/browser/indexed_db/indexed_db_factory.h"
-
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/logging.h"
 #include "base/message_loop/message_loop.h"
@@ -12,13 +10,14 @@
 #include "base/test/test_simple_task_runner.h"
 #include "content/browser/indexed_db/indexed_db_connection.h"
 #include "content/browser/indexed_db/indexed_db_context_impl.h"
+#include "content/browser/indexed_db/indexed_db_factory_impl.h"
 #include "content/browser/indexed_db/mock_indexed_db_callbacks.h"
 #include "content/browser/indexed_db/mock_indexed_db_database_callbacks.h"
+#include "storage/common/database/database_identifier.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/WebKit/public/platform/WebIDBDatabaseException.h"
 #include "third_party/WebKit/public/platform/WebIDBTypes.h"
 #include "url/gurl.h"
-#include "webkit/common/database/database_identifier.h"
 
 using base::ASCIIToUTF16;
 
@@ -26,10 +25,10 @@ namespace content {
 
 namespace {
 
-class MockIDBFactory : public IndexedDBFactory {
+class MockIDBFactory : public IndexedDBFactoryImpl {
  public:
   explicit MockIDBFactory(IndexedDBContextImpl* context)
-      : IndexedDBFactory(context) {}
+      : IndexedDBFactoryImpl(context) {}
   scoped_refptr<IndexedDBBackingStore> TestOpenBackingStore(
       const GURL& origin,
       const base::FilePath& data_directory) {
@@ -37,13 +36,15 @@ class MockIDBFactory : public IndexedDBFactory {
         blink::WebIDBDataLossNone;
     std::string data_loss_message;
     bool disk_full;
+    leveldb::Status s;
     scoped_refptr<IndexedDBBackingStore> backing_store =
         OpenBackingStore(origin,
                          data_directory,
                          NULL /* request_context */,
                          &data_loss,
                          &data_loss_message,
-                         &disk_full);
+                         &disk_full,
+                         &s);
     EXPECT_EQ(blink::WebIDBDataLossNone, data_loss);
     return backing_store;
   }
@@ -108,8 +109,8 @@ TEST_F(IndexedDBFactoryTest, BackingStoreLifetime) {
   scoped_refptr<IndexedDBBackingStore> disk_store3 =
       factory()->TestOpenBackingStore(origin2, temp_directory.path());
 
-  factory()->TestCloseBackingStore(disk_store1);
-  factory()->TestCloseBackingStore(disk_store3);
+  factory()->TestCloseBackingStore(disk_store1.get());
+  factory()->TestCloseBackingStore(disk_store3.get());
 
   EXPECT_FALSE(disk_store1->HasOneRef());
   EXPECT_FALSE(disk_store2->HasOneRef());
@@ -161,8 +162,8 @@ TEST_F(IndexedDBFactoryTest, MemoryBackingStoreLifetime) {
   scoped_refptr<IndexedDBBackingStore> mem_store3 =
       factory()->TestOpenBackingStore(origin2, base::FilePath());
 
-  factory()->TestCloseBackingStore(mem_store1);
-  factory()->TestCloseBackingStore(mem_store3);
+  factory()->TestCloseBackingStore(mem_store1.get());
+  factory()->TestCloseBackingStore(mem_store3.get());
 
   EXPECT_FALSE(mem_store1->HasOneRef());
   EXPECT_FALSE(mem_store2->HasOneRef());
@@ -189,18 +190,18 @@ TEST_F(IndexedDBFactoryTest, RejectLongOrigins) {
   GURL too_long_origin("http://" + origin + ":81/");
   scoped_refptr<IndexedDBBackingStore> diskStore1 =
       factory()->TestOpenBackingStore(too_long_origin, base_path);
-  EXPECT_FALSE(diskStore1);
+  EXPECT_FALSE(diskStore1.get());
 
   GURL ok_origin("http://someorigin.com:82/");
   scoped_refptr<IndexedDBBackingStore> diskStore2 =
       factory()->TestOpenBackingStore(ok_origin, base_path);
-  EXPECT_TRUE(diskStore2);
+  EXPECT_TRUE(diskStore2.get());
 }
 
-class DiskFullFactory : public IndexedDBFactory {
+class DiskFullFactory : public IndexedDBFactoryImpl {
  public:
   explicit DiskFullFactory(IndexedDBContextImpl* context)
-      : IndexedDBFactory(context) {}
+      : IndexedDBFactoryImpl(context) {}
 
  private:
   virtual ~DiskFullFactory() {}
@@ -210,8 +211,10 @@ class DiskFullFactory : public IndexedDBFactory {
       net::URLRequestContext* request_context,
       blink::WebIDBDataLoss* data_loss,
       std::string* data_loss_message,
-      bool* disk_full) OVERRIDE {
+      bool* disk_full,
+      leveldb::Status* s) OVERRIDE {
     *disk_full = true;
+    *s = leveldb::Status::IOError("Disk is full");
     return scoped_refptr<IndexedDBBackingStore>();
   }
 

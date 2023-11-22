@@ -53,7 +53,7 @@ import org.xmlpull.v1.XmlSerializer;
 
 /**
  * Removes all system apps with a launcher that are not required.
- * Also disables sharing via Bluetooth and Nfc, and components that listen to
+ * Also disables sharing via Bluetooth, and components that listen to
  * ACTION_INSTALL_SHORTCUT.
  * This class is called a first time when a user is created, but also after a system update.
  * In this case, it checks if the system apps that have been added need to be disabled.
@@ -67,8 +67,8 @@ public class DeleteNonRequiredAppsTask {
     private final int mReqAppsList;
     private final int mVendorReqAppsList;
     private final int mUserId;
-    private final boolean mNewProfile; // If we are provisioning a new profile.
-    private final boolean mDisableInstallShortcutListeners;
+    private final boolean mNewProfile; // If we are provisioning a new managed profile/device.
+    private final boolean mDisableInstallShortcutListenersAndTelecom;
 
     private static final String TAG_SYSTEM_APPS = "system-apps";
     private static final String TAG_PACKAGE_LIST_ITEM = "item";
@@ -76,7 +76,7 @@ public class DeleteNonRequiredAppsTask {
 
     public DeleteNonRequiredAppsTask(Context context, String mdmPackageName, int userId,
             int requiredAppsList, int vendorRequiredAppsList, boolean newProfile,
-            boolean disableInstallShortcutListeners, Callback callback) {
+            boolean disableInstallShortcutListenersAndTelecom, Callback callback) {
         mCallback = callback;
         mContext = context;
         mMdmPackageName = mdmPackageName;
@@ -86,19 +86,26 @@ public class DeleteNonRequiredAppsTask {
         mReqAppsList = requiredAppsList;
         mVendorReqAppsList = vendorRequiredAppsList;
         mNewProfile = newProfile;
-        mDisableInstallShortcutListeners = disableInstallShortcutListeners;
+        mDisableInstallShortcutListenersAndTelecom = disableInstallShortcutListenersAndTelecom;
     }
 
     public void run() {
         if (mNewProfile) {
-            disableNfcBluetoothSharing();
+            disableBluetoothSharing();
         }
         deleteNonRequiredApps();
     }
 
-    private void disableNfcBluetoothSharing() {
-        ProvisionLogger.logd("Disabling Nfc and Bluetooth sharing.");
-        disableComponent(new ComponentName("com.android.nfc", "com.android.nfc.BeamShareActivity"));
+    /**
+     * Returns if this task should be run on OTA.
+     * This is indicated by the presence of the system apps file.
+     */
+    public static boolean shouldDeleteNonRequiredApps(Context context, int userId) {
+        return getSystemAppsFile(context, userId).exists();
+    }
+
+    private void disableBluetoothSharing() {
+        ProvisionLogger.logd("Disabling Bluetooth sharing.");
         disableComponent(new ComponentName("com.android.bluetooth",
                 "com.android.bluetooth.opp.BluetoothOppLauncherActivity"));
     }
@@ -106,32 +113,34 @@ public class DeleteNonRequiredAppsTask {
     private void deleteNonRequiredApps() {
         ProvisionLogger.logd("Deleting non required apps.");
 
-        File file = new File(mContext.getFilesDir() + File.separator + "system_apps"
-                + File.separator + "user" + mUserId + ".xml");
-        file.getParentFile().mkdirs(); // Creating the folder if it does not exist
+        File systemAppsFile = getSystemAppsFile(mContext, mUserId);
+        systemAppsFile.getParentFile().mkdirs(); // Creating the folder if it does not exist
 
         Set<String> currentApps = getCurrentSystemApps();
         Set<String> previousApps;
         if (mNewProfile) {
+            // Provisioning case.
+
             // If this userId was a managed profile before, file may exist. In this case, we ignore
             // what is in this file.
             previousApps = new HashSet<String>();
         } else {
-            if (file.exists()) {
-                previousApps = readSystemApps(file);
-            } else {
-                // If for some reason, the system apps have not been written to file before, we will
-                // not delete any system apps this time.
-                writeSystemApps(currentApps, file);
-                mCallback.onSuccess();
+            // OTA case.
+
+            if (!systemAppsFile.exists()) {
+                // Error, this task should not have been run.
+                ProvisionLogger.loge("No system apps list found for user " + mUserId);
+                mCallback.onError();
                 return;
             }
+
+            previousApps = readSystemApps(systemAppsFile);
         }
-        writeSystemApps(currentApps, file);
+        writeSystemApps(currentApps, systemAppsFile);
         Set<String> newApps = currentApps;
         newApps.removeAll(previousApps);
 
-        if (mDisableInstallShortcutListeners) {
+        if (mDisableInstallShortcutListenersAndTelecom) {
             Intent actionShortcut = new Intent("com.android.launcher.action.INSTALL_SHORTCUT");
             if (previousApps.isEmpty()) {
                 // Here, all the apps are in newApps.
@@ -150,27 +159,34 @@ public class DeleteNonRequiredAppsTask {
         packagesToDelete.removeAll(getRequiredApps());
         packagesToDelete.retainAll(getCurrentAppsWithLauncher());
         // com.android.server.telecom should not handle CALL intents in the managed profile.
-        if (mNewProfile) {
+        if (mDisableInstallShortcutListenersAndTelecom && mNewProfile) {
             packagesToDelete.add("com.android.server.telecom");
         }
-        int size = packagesToDelete.size();
-        if (size > 0) {
-            PackageDeleteObserver packageDeleteObserver =
-                        new PackageDeleteObserver(packagesToDelete.size());
-            for (String packageName : packagesToDelete) {
-                try {
-                    mIpm.deletePackageAsUser(packageName, packageDeleteObserver, mUserId,
-                            PackageManager.DELETE_SYSTEM_APP);
-                } catch (RemoteException neverThrown) {
-                    // Never thrown, as we are making local calls.
-                    ProvisionLogger.loge("This should not happen.", neverThrown);
-                }
-            }
-        } else {
+        if (packagesToDelete.isEmpty()) {
             mCallback.onSuccess();
+            return;
+        }
+        PackageDeleteObserver packageDeleteObserver =
+                new PackageDeleteObserver(packagesToDelete.size());
+        for (String packageName : packagesToDelete) {
+            try {
+                mIpm.deletePackageAsUser(packageName, packageDeleteObserver, mUserId,
+                        PackageManager.DELETE_SYSTEM_APP);
+            } catch (RemoteException neverThrown) {
+                    // Never thrown, as we are making local calls.
+                ProvisionLogger.loge("This should not happen.", neverThrown);
+            }
         }
     }
 
+    static File getSystemAppsFile(Context context, int userId) {
+        return new File(context.getFilesDir() + File.separator + "system_apps"
+                + File.separator + "user" + userId + ".xml");
+    }
+
+    /**
+     * Disable all components that can handle the specified broadcast intent.
+     */
     private void disableReceivers(Intent intent) {
         List<ResolveInfo> receivers = mPm.queryBroadcastReceivers(intent, 0, mUserId);
         for (ResolveInfo ri : receivers) {
@@ -235,9 +251,9 @@ public class DeleteNonRequiredAppsTask {
         return apps;
     }
 
-    private void writeSystemApps(Set<String> packageNames, File file) {
+    private void writeSystemApps(Set<String> packageNames, File systemAppsFile) {
         try {
-            FileOutputStream stream = new FileOutputStream(file, false);
+            FileOutputStream stream = new FileOutputStream(systemAppsFile, false);
             XmlSerializer serializer = new FastXmlSerializer();
             serializer.setOutput(stream, "utf-8");
             serializer.startDocument(null, true);
@@ -255,13 +271,13 @@ public class DeleteNonRequiredAppsTask {
         }
     }
 
-    private Set<String> readSystemApps(File file) {
+    private Set<String> readSystemApps(File systemAppsFile) {
         Set<String> result = new HashSet<String>();
-        if (!file.exists()) {
+        if (!systemAppsFile.exists()) {
             return result;
         }
         try {
-            FileInputStream stream = new FileInputStream(file);
+            FileInputStream stream = new FileInputStream(systemAppsFile);
 
             XmlPullParser parser = Xml.newPullParser();
             parser.setInput(stream, null);

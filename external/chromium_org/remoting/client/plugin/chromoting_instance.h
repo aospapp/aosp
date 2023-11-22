@@ -15,6 +15,7 @@
 #include "ppapi/c/pp_rect.h"
 #include "ppapi/c/pp_resource.h"
 #include "ppapi/cpp/instance.h"
+#include "ppapi/cpp/text_input_controller.h"
 #include "ppapi/cpp/var.h"
 #include "remoting/client/client_context.h"
 #include "remoting/client/client_user_interface.h"
@@ -102,10 +103,6 @@ class ChromotingInstance :
   // an older version of the API.
   static const int kApiMinScriptableVersion = 5;
 
-  // Helper method to parse authentication_methods parameter.
-  static bool ParseAuthMethods(const std::string& auth_methods,
-                               ClientConfig* config);
-
   explicit ChromotingInstance(PP_Instance instance);
   virtual ~ChromotingInstance();
 
@@ -130,8 +127,6 @@ class ChromotingInstance :
       const protocol::ExtensionMessage& message) OVERRIDE;
   virtual protocol::ClipboardStub* GetClipboardStub() OVERRIDE;
   virtual protocol::CursorShapeStub* GetCursorShapeStub() OVERRIDE;
-  virtual scoped_ptr<protocol::ThirdPartyClientAuthenticator::TokenFetcher>
-  GetTokenFetcher(const std::string& host_public_key) OVERRIDE;
 
   // protocol::ClipboardStub interface.
   virtual void InjectClipboardEvent(
@@ -213,10 +208,6 @@ class ChromotingInstance :
   void HandleSendMouseInputWhenUnfocused();
   void HandleDelegateLargeCursors();
 
-  // Helper method called from Connect() to connect with parsed config.
-  void ConnectWithConfig(const ClientConfig& config,
-                         const std::string& local_jid);
-
   // Helper method to post messages to the webapp.
   void PostChromotingMessage(const std::string& method,
                              const pp::VarDictionary& data);
@@ -277,7 +268,6 @@ class ChromotingInstance :
 
   scoped_ptr<DelegatingSignalStrategy> signal_strategy_;
 
-  scoped_ptr<protocol::ConnectionToHost> host_connection_;
   scoped_ptr<ChromotingClient> client_;
 
   // Input pipeline components, in reverse order of distance from input source.
@@ -286,6 +276,9 @@ class ChromotingInstance :
   KeyEventMapper key_mapper_;
   scoped_ptr<protocol::InputFilter> normalizing_input_filter_;
   PepperInputHandler input_handler_;
+
+  // Used to control text input settings, such as whether to show the IME.
+  pp::TextInputController text_input_controller_;
 
   // PIN Fetcher.
   bool use_async_pin_dialog_;

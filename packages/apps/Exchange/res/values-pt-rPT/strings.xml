@@ -27,7 +27,6 @@
     <string name="meeting_recurring" msgid="2752008481765880928">"Quando: <xliff:g id="EVENTDATE">%s</xliff:g> (periódica)"</string>
     <string name="meeting_allday" msgid="7251209063071628040">"Quando: <xliff:g id="EVENTDATE">%s</xliff:g> (todo o dia)"</string>
     <string name="meeting_allday_recurring" msgid="4545762363537362545">"Quando: <xliff:g id="EVENTDATE">%s</xliff:g> (todo o dia, recorrente)"</string>
-    <string name="notification_exchange_calendar_added" msgid="8998454267739748113">"Calendário do Exchange adicionado"</string>
     <string name="app_name" msgid="1707639359526090662">"Serviços do Exchange"</string>
     <string name="exception_cancel" msgid="8972887597771126871">"Este evento foi cancelado para: <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="exception_updated" msgid="329192591551400871">"Os detalhes deste evento foram alterados para: <xliff:g id="DATE">%s</xliff:g>"</string>

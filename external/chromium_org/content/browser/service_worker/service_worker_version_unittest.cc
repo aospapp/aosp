@@ -119,18 +119,21 @@ class ServiceWorkerVersionTest : public testing::Test {
   virtual void SetUp() OVERRIDE {
     helper_.reset(new MessageReceiver());
 
+    pattern_ = GURL("http://www.example.com/");
     registration_ = new ServiceWorkerRegistration(
-        GURL("http://www.example.com/*"),
-        GURL("http://www.example.com/service_worker.js"),
+        pattern_,
         1L,
         helper_->context()->AsWeakPtr());
     version_ = new ServiceWorkerVersion(
-        registration_, 1L, helper_->context()->AsWeakPtr());
+        registration_.get(),
+        GURL("http://www.example.com/service_worker.js"),
+        1L,
+        helper_->context()->AsWeakPtr());
 
-    // Simulate adding one process to the worker.
-    int embedded_worker_id = version_->embedded_worker()->embedded_worker_id();
-    helper_->SimulateAddProcessToWorker(embedded_worker_id, kRenderProcessId);
-    ASSERT_TRUE(version_->HasProcessToRun());
+    // Simulate adding one process to the pattern.
+    helper_->SimulateAddProcessToPattern(pattern_, kRenderProcessId);
+    ASSERT_TRUE(helper_->context()->process_manager()
+        ->PatternHasProcessToRun(pattern_));
   }
 
   virtual void TearDown() OVERRIDE {
@@ -143,6 +146,9 @@ class ServiceWorkerVersionTest : public testing::Test {
   scoped_ptr<MessageReceiver> helper_;
   scoped_refptr<ServiceWorkerRegistration> registration_;
   scoped_refptr<ServiceWorkerVersion> version_;
+  GURL pattern_;
+
+ private:
   DISALLOW_COPY_AND_ASSIGN(ServiceWorkerVersionTest);
 };
 
@@ -261,7 +267,7 @@ TEST_F(ServiceWorkerVersionTest, ReceiveMessageFromWorker) {
 }
 
 TEST_F(ServiceWorkerVersionTest, InstallAndWaitCompletion) {
-  EXPECT_EQ(ServiceWorkerVersion::NEW, version_->status());
+  version_->SetStatus(ServiceWorkerVersion::INSTALLING);
 
   // Dispatch an install event.
   ServiceWorkerStatusCode status = SERVICE_WORKER_ERROR_FAILED;
@@ -274,16 +280,14 @@ TEST_F(ServiceWorkerVersionTest, InstallAndWaitCompletion) {
 
   base::RunLoop().RunUntilIdle();
 
-  // After successful completion, version's status must be changed to
-  // INSTALLED, and status change callback must have been fired.
+  // Version's status must not have changed during installation.
   EXPECT_EQ(SERVICE_WORKER_OK, status);
-  EXPECT_TRUE(status_change_called);
-  EXPECT_EQ(ServiceWorkerVersion::INSTALLED, version_->status());
+  EXPECT_FALSE(status_change_called);
+  EXPECT_EQ(ServiceWorkerVersion::INSTALLING, version_->status());
 }
 
 TEST_F(ServiceWorkerVersionTest, ActivateAndWaitCompletion) {
-  version_->SetStatus(ServiceWorkerVersion::INSTALLED);
-  EXPECT_EQ(ServiceWorkerVersion::INSTALLED, version_->status());
+  version_->SetStatus(ServiceWorkerVersion::ACTIVATING);
 
   // Dispatch an activate event.
   ServiceWorkerStatusCode status = SERVICE_WORKER_ERROR_FAILED;
@@ -296,11 +300,10 @@ TEST_F(ServiceWorkerVersionTest, ActivateAndWaitCompletion) {
 
   base::RunLoop().RunUntilIdle();
 
-  // After successful completion, version's status must be changed to
-  // ACTIVE, and status change callback must have been fired.
+  // Version's status must not have changed during activation.
   EXPECT_EQ(SERVICE_WORKER_OK, status);
-  EXPECT_TRUE(status_change_called);
-  EXPECT_EQ(ServiceWorkerVersion::ACTIVE, version_->status());
+  EXPECT_FALSE(status_change_called);
+  EXPECT_EQ(ServiceWorkerVersion::ACTIVATING, version_->status());
 }
 
 TEST_F(ServiceWorkerVersionTest, RepeatedlyObserveStatusChanges) {
@@ -311,45 +314,59 @@ TEST_F(ServiceWorkerVersionTest, RepeatedlyObserveStatusChanges) {
   version_->RegisterStatusChangeCallback(
       base::Bind(&ObserveStatusChanges, version_, &statuses));
 
-  // Dispatch some events.
-  ServiceWorkerStatusCode status = SERVICE_WORKER_ERROR_FAILED;
-  version_->DispatchInstallEvent(-1, CreateReceiverOnCurrentThread(&status));
-  base::RunLoop().RunUntilIdle();
-  EXPECT_EQ(SERVICE_WORKER_OK, status);
-
-  status = SERVICE_WORKER_ERROR_FAILED;
-  version_->DispatchActivateEvent(CreateReceiverOnCurrentThread(&status));
-  base::RunLoop().RunUntilIdle();
-  EXPECT_EQ(SERVICE_WORKER_OK, status);
+  version_->SetStatus(ServiceWorkerVersion::INSTALLING);
+  version_->SetStatus(ServiceWorkerVersion::INSTALLED);
+  version_->SetStatus(ServiceWorkerVersion::ACTIVATING);
+  version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
+  version_->SetStatus(ServiceWorkerVersion::REDUNDANT);
 
   // Verify that we could successfully observe repeated status changes.
-  ASSERT_EQ(4U, statuses.size());
+  ASSERT_EQ(5U, statuses.size());
   ASSERT_EQ(ServiceWorkerVersion::INSTALLING, statuses[0]);
   ASSERT_EQ(ServiceWorkerVersion::INSTALLED, statuses[1]);
   ASSERT_EQ(ServiceWorkerVersion::ACTIVATING, statuses[2]);
-  ASSERT_EQ(ServiceWorkerVersion::ACTIVE, statuses[3]);
+  ASSERT_EQ(ServiceWorkerVersion::ACTIVATED, statuses[3]);
+  ASSERT_EQ(ServiceWorkerVersion::REDUNDANT, statuses[4]);
 }
 
-TEST_F(ServiceWorkerVersionTest, AddAndRemoveProcesses) {
-  // Preparation (to reset the process count to 0).
-  ASSERT_TRUE(version_->HasProcessToRun());
-  version_->RemoveProcessFromWorker(kRenderProcessId);
-  ASSERT_FALSE(version_->HasProcessToRun());
+TEST_F(ServiceWorkerVersionTest, ScheduleStopWorker) {
+  // Verify the timer is not running when version initializes its status.
+  version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
+  EXPECT_FALSE(version_->stop_worker_timer_.IsRunning());
 
-  // Add another process to the worker twice, and then remove process once.
-  const int another_process_id = kRenderProcessId + 1;
-  version_->AddProcessToWorker(another_process_id);
-  version_->AddProcessToWorker(another_process_id);
-  version_->RemoveProcessFromWorker(another_process_id);
+  // Verify the timer is running when version status changes frome ACTIVATING
+  // to ACTIVATED.
+  ServiceWorkerStatusCode status = SERVICE_WORKER_ERROR_FAILED;
+  version_->StartWorker(CreateReceiverOnCurrentThread(&status));
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(SERVICE_WORKER_OK, status);
+  version_->SetStatus(ServiceWorkerVersion::ACTIVATING);
+  version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
+  EXPECT_TRUE(version_->stop_worker_timer_.IsRunning());
 
-  // We're ref-counting the process internally, so adding the same process
-  // multiple times should be handled correctly.
-  ASSERT_TRUE(version_->HasProcessToRun());
+  // The timer should be running if the worker is restarted without controllee.
+  status = SERVICE_WORKER_ERROR_FAILED;
+  version_->StopWorker(CreateReceiverOnCurrentThread(&status));
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(SERVICE_WORKER_OK, status);
+  status = SERVICE_WORKER_ERROR_FAILED;
+  version_->StartWorker(CreateReceiverOnCurrentThread(&status));
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(SERVICE_WORKER_OK, status);
+  EXPECT_TRUE(version_->stop_worker_timer_.IsRunning());
 
-  // Removing the process again (so that # of AddProcess == # of RemoveProcess
-  // for the process) should remove all process references.
-  version_->RemoveProcessFromWorker(another_process_id);
-  ASSERT_FALSE(version_->HasProcessToRun());
+  // The timer should not be running if a controllee is added.
+  scoped_ptr<ServiceWorkerProviderHost> host(
+      new ServiceWorkerProviderHost(33 /* dummy render process id */,
+                                    1 /* dummy provider_id */,
+                                    helper_->context()->AsWeakPtr(),
+                                    NULL));
+  version_->AddControllee(host.get());
+  EXPECT_FALSE(version_->stop_worker_timer_.IsRunning());
+
+  // The timer should be running if the controllee is removed.
+  version_->RemoveControllee(host.get());
+  EXPECT_TRUE(version_->stop_worker_timer_.IsRunning());
 }
 
 }  // namespace content

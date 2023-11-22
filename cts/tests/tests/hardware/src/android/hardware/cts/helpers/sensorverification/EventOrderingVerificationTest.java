@@ -22,6 +22,7 @@ import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.TestSensorEvent;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -96,11 +97,13 @@ public class EventOrderingVerificationTest extends TestCase {
         assertTrue(indices.contains(4));
     }
 
-    private EventOrderingVerification getVerification(long ... timestamps) {
-        EventOrderingVerification verification = new EventOrderingVerification();
+    private static EventOrderingVerification getVerification(long ... timestamps) {
+        Collection<TestSensorEvent> events = new ArrayList<>(timestamps.length);
         for (long timestamp : timestamps) {
-            verification.addSensorEvent(new TestSensorEvent(null, timestamp, 0, null));
+            events.add(new TestSensorEvent(null, timestamp, 0, null));
         }
+        EventOrderingVerification verification = new EventOrderingVerification();
+        verification.addSensorEvents(events);
         return verification;
     }
 

@@ -12,8 +12,8 @@
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/environment.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/json/json_writer.h"
 #include "base/logging.h"
 #include "base/md5.h"
@@ -53,7 +53,7 @@ std::string GetMd5(const std::string& value) {
   base::MD5Update(&ctx, value);
   base::MD5Digest digest;
   base::MD5Final(&digest, &ctx);
-  return StringToLowerASCII(base::HexEncode(digest.a, sizeof(digest.a)));
+  return base::StringToLowerASCII(base::HexEncode(digest.a, sizeof(digest.a)));
 }
 
 base::FilePath GetConfigPath() {

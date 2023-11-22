@@ -24,7 +24,7 @@ LOCAL_PACKAGE_SPLITS := v7
 LOCAL_ASSET_DIR := $(LOCAL_PATH)/assets
 
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/cts-testkey1
-LOCAL_AAPT_FLAGS := --version-code 100 --version-name OneHundred --replace-version -c mdpi -c hdpi -c xhdpi -c xxhdpi
+LOCAL_AAPT_FLAGS := --version-code 100 --version-name OneHundred --replace-version
 
 LOCAL_MODULE_TAGS := tests
 

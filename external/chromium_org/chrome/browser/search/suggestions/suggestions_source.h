@@ -11,7 +11,7 @@
 #include "base/basictypes.h"
 #include "base/callback.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/search/suggestions/proto/suggestions.pb.h"
+#include "components/suggestions/proto/suggestions.pb.h"
 #include "content/public/browser/url_data_source.h"
 #include "url/gurl.h"
 
@@ -37,8 +37,6 @@ class SuggestionsSource : public content::URLDataSource {
   virtual std::string GetMimeType(const std::string& path) const OVERRIDE;
   virtual base::MessageLoop* MessageLoopForRequestPath(
       const std::string& path) const OVERRIDE;
-  virtual bool ShouldServiceRequest(
-      const net::URLRequest* request) const OVERRIDE;
 
  private:
   virtual ~SuggestionsSource();
@@ -60,7 +58,7 @@ class SuggestionsSource : public content::URLDataSource {
       const content::URLDataSource::GotDataCallback& callback,
       const SuggestionsProfile& suggestions_profile);
 
-  // Callback for responses from each ThumbnailManager request.
+  // Callback for responses from each Thumbnail request.
   void OnThumbnailAvailable(RequestContext* context, base::Closure barrier,
                             const GURL& url, const SkBitmap* bitmap);
 

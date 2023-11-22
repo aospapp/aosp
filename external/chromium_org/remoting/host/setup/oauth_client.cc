@@ -4,6 +4,8 @@
 
 #include "remoting/host/setup/oauth_client.h"
 
+#include "base/logging.h"
+
 namespace {
 const int kMaxGaiaRetries = 3;
 }  // namespace
@@ -12,7 +14,7 @@ namespace remoting {
 
 OAuthClient::OAuthClient(
     scoped_refptr<net::URLRequestContextGetter> url_request_context_getter)
-    : gaia_oauth_client_(url_request_context_getter) {
+    : gaia_oauth_client_(url_request_context_getter.get()) {
 }
 
 OAuthClient::~OAuthClient() {

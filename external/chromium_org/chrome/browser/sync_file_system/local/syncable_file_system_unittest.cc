@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "base/stl_util.h"
+#include "base/thread_task_runner_handle.h"
 #include "chrome/browser/sync_file_system/local/canned_syncable_file_system.h"
 #include "chrome/browser/sync_file_system/local/local_file_change_tracker.h"
 #include "chrome/browser/sync_file_system/local/local_file_sync_context.h"
@@ -11,23 +12,23 @@
 #include "content/public/test/async_file_test_helper.h"
 #include "content/public/test/sandbox_file_system_test_helper.h"
 #include "content/public/test/test_browser_thread_bundle.h"
+#include "storage/browser/fileapi/file_system_context.h"
+#include "storage/browser/fileapi/file_system_operation_context.h"
+#include "storage/browser/fileapi/isolated_context.h"
+#include "storage/browser/quota/quota_manager.h"
+#include "storage/common/fileapi/file_system_types.h"
+#include "storage/common/quota/quota_types.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/leveldatabase/src/helpers/memenv/memenv.h"
 #include "third_party/leveldatabase/src/include/leveldb/env.h"
-#include "webkit/browser/fileapi/file_system_context.h"
-#include "webkit/browser/fileapi/file_system_operation_context.h"
-#include "webkit/browser/fileapi/isolated_context.h"
-#include "webkit/browser/quota/quota_manager.h"
-#include "webkit/common/fileapi/file_system_types.h"
-#include "webkit/common/quota/quota_types.h"
 
 using content::SandboxFileSystemTestHelper;
-using fileapi::FileSystemContext;
-using fileapi::FileSystemOperationContext;
-using fileapi::FileSystemURL;
-using fileapi::FileSystemURLSet;
-using quota::QuotaManager;
-using quota::QuotaStatusCode;
+using storage::FileSystemContext;
+using storage::FileSystemOperationContext;
+using storage::FileSystemURL;
+using storage::FileSystemURLSet;
+using storage::QuotaManager;
+using storage::QuotaStatusCode;
 
 namespace sync_file_system {
 
@@ -37,8 +38,8 @@ class SyncableFileSystemTest : public testing::Test {
       : in_memory_env_(leveldb::NewMemEnv(leveldb::Env::Default())),
         file_system_(GURL("http://example.com/"),
                      in_memory_env_.get(),
-                     base::MessageLoopProxy::current().get(),
-                     base::MessageLoopProxy::current().get()),
+                     base::ThreadTaskRunnerHandle::Get().get(),
+                     base::ThreadTaskRunnerHandle::Get().get()),
         weak_factory_(this) {}
 
   virtual void SetUp() {
@@ -48,8 +49,8 @@ class SyncableFileSystemTest : public testing::Test {
     sync_context_ =
         new LocalFileSyncContext(data_dir_.path(),
                                  in_memory_env_.get(),
-                                 base::MessageLoopProxy::current().get(),
-                                 base::MessageLoopProxy::current().get());
+                                 base::ThreadTaskRunnerHandle::Get().get(),
+                                 base::ThreadTaskRunnerHandle::Get().get());
     ASSERT_EQ(
         sync_file_system::SYNC_STATUS_OK,
         file_system_.MaybeInitializeFileSystemContext(sync_context_.get()));
@@ -97,8 +98,6 @@ class SyncableFileSystemTest : public testing::Test {
     return file_system_.backend()->change_tracker();
   }
 
-  ScopedEnableSyncFSDirectoryOperation enable_directory_operation_;
-
   base::ScopedTempDir data_dir_;
   content::TestBrowserThreadBundle thread_bundle_;
   scoped_ptr<leveldb::Env> in_memory_env_;
@@ -129,7 +128,7 @@ TEST_F(SyncableFileSystemTest, SyncableLocalSandboxCombined) {
   const int64 kQuota = 12345 * 1024;
   QuotaManager::kSyncableStorageDefaultHostQuota = kQuota;
   int64 usage, quota;
-  EXPECT_EQ(quota::kQuotaStatusOk,
+  EXPECT_EQ(storage::kQuotaStatusOk,
             file_system_.GetUsageAndQuota(&usage, &quota));
 
   // Returned quota must be what we overrode. Usage must be greater than 0
@@ -146,7 +145,7 @@ TEST_F(SyncableFileSystemTest, SyncableLocalSandboxCombined) {
             file_system_.TruncateFile(URL("dir/foo"), kFileSizeToExtend));
 
   int64 new_usage;
-  EXPECT_EQ(quota::kQuotaStatusOk,
+  EXPECT_EQ(storage::kQuotaStatusOk,
             file_system_.GetUsageAndQuota(&new_usage, &quota));
   EXPECT_EQ(kFileSizeToExtend, new_usage - usage);
 
@@ -157,7 +156,7 @@ TEST_F(SyncableFileSystemTest, SyncableLocalSandboxCombined) {
             file_system_.TruncateFile(URL("dir/foo"), kFileSizeToExtend + 1));
 
   usage = new_usage;
-  EXPECT_EQ(quota::kQuotaStatusOk,
+  EXPECT_EQ(storage::kQuotaStatusOk,
             file_system_.GetUsageAndQuota(&new_usage, &quota));
   EXPECT_EQ(usage, new_usage);
 
@@ -166,7 +165,7 @@ TEST_F(SyncableFileSystemTest, SyncableLocalSandboxCombined) {
             file_system_.DeleteFileSystem());
 
   // Now the usage must be zero.
-  EXPECT_EQ(quota::kQuotaStatusOk,
+  EXPECT_EQ(storage::kQuotaStatusOk,
             file_system_.GetUsageAndQuota(&usage, &quota));
   EXPECT_EQ(0, usage);
 
@@ -247,44 +246,6 @@ TEST_F(SyncableFileSystemTest, ChangeTrackerSimple) {
   VerifyAndClearChange(URL(kPath2),
                        FileChange(FileChange::FILE_CHANGE_DELETE,
                                   sync_file_system::SYNC_FILE_TYPE_FILE));
-}
-
-// Make sure directory operation is disabled (when it's configured so).
-TEST_F(SyncableFileSystemTest, DisableDirectoryOperations) {
-  ScopedDisableSyncFSV2 scoped_disable_v2;
-
-  bool was_enabled = IsSyncFSDirectoryOperationEnabled();
-  SetEnableSyncFSDirectoryOperation(false);
-  EXPECT_EQ(base::File::FILE_OK,
-            file_system_.OpenFileSystem());
-
-  // Try some directory operations (which should fail).
-  EXPECT_EQ(base::File::FILE_ERROR_INVALID_OPERATION,
-            file_system_.CreateDirectory(URL("dir")));
-
-  // Set up another (non-syncable) local file system.
-  SandboxFileSystemTestHelper other_file_system_(
-      GURL("http://foo.com/"), fileapi::kFileSystemTypeTemporary);
-  other_file_system_.SetUp(file_system_.file_system_context());
-
-  // Create directory '/a' and file '/a/b' in the other file system.
-  const FileSystemURL kSrcDir = other_file_system_.CreateURLFromUTF8("/a");
-  const FileSystemURL kSrcChild = other_file_system_.CreateURLFromUTF8("/a/b");
-
-  EXPECT_EQ(base::File::FILE_OK,
-            content::AsyncFileTestHelper::CreateDirectory(
-                other_file_system_.file_system_context(), kSrcDir));
-  EXPECT_EQ(base::File::FILE_OK,
-            content::AsyncFileTestHelper::CreateFile(
-                other_file_system_.file_system_context(), kSrcChild));
-
-  // Now try copying the directory into the syncable file system, which should
-  // fail if directory operation is disabled. (http://crbug.com/161442)
-  EXPECT_NE(base::File::FILE_OK,
-            file_system_.Copy(kSrcDir, URL("dest")));
-
-  other_file_system_.TearDown();
-  SetEnableSyncFSDirectoryOperation(was_enabled);
 }
 
 }  // namespace sync_file_system

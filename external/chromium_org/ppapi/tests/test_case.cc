@@ -100,13 +100,6 @@ bool TestCase::Init() {
 std::string TestCase::MakeFailureMessage(const char* file,
                                          int line,
                                          const char* cmd) {
-  // The mere presence of this local variable works around a gcc-4.2.4
-  // compiler bug in official Chrome Linux builds.  If you remove it,
-  // confirm this compile command still works:
-  // GYP_DEFINES='branding=Chrome buildtype=Official target_arch=x64'
-  //     gclient runhooks
-  // make -k -j4 BUILDTYPE=Release ppapi_tests
-
   std::ostringstream output;
   output << "Failure in " << file << "(" << line << "): " << cmd;
   return output.str();
@@ -258,7 +251,7 @@ void TestCase::RunOnThreadInternal(
     void (*thread_func)(void*),
     void* thread_param,
     const PPB_Testing_Private* testing_interface) {
-  PP_ThreadType thread;
+  PP_Thread thread;
   PP_CreateThread(&thread, thread_func, thread_param);
   // Run a message loop so pepper calls can be dispatched. The background
   // thread will set result_ and make us Quit when it's done.

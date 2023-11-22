@@ -10,14 +10,14 @@
 #include "chrome/browser/ui/sync/one_click_signin_helper.h"
 #include "chrome/browser/ui/sync/one_click_signin_histogram.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/google/core/browser/google_util.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
-#include "grit/theme_resources.h"
-#include "grit/ui_resources.h"
+#include "grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/events/keycodes/keyboard_codes.h"
+#include "ui/resources/grit/ui_resources.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/image_view.h"
@@ -284,12 +284,12 @@ void OneClickSigninBubbleView::GetButtons(views::LabelButton** ok_button,
 
   // The default size of the buttons is too large.  To allow them to be smaller
   // ignore the minimum default size.,
-  (*ok_button)->set_min_size(gfx::Size());
+  (*ok_button)->SetMinSize(gfx::Size());
 
   if (is_sync_dialog_) {
     *undo_button = new views::LabelButton(this, base::string16());
     (*undo_button)->SetStyle(views::Button::STYLE_BUTTON);
-    (*undo_button)->set_min_size(gfx::Size());
+    (*undo_button)->SetMinSize(gfx::Size());
 
     base::string16 undo_label =
         l10n_util::GetStringUTF16(IDS_ONE_CLICK_SIGNIN_DIALOG_UNDO_BUTTON);

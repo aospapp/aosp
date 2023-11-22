@@ -25,12 +25,10 @@
 #include "content/public/common/content_switches.h"
 #include "gpu/command_buffer/common/mailbox.h"
 #include "gpu/command_buffer/service/gpu_scheduler.h"
-#include "gpu/command_buffer/service/image_manager.h"
 #include "gpu/command_buffer/service/mailbox_manager.h"
 #include "ipc/ipc_channel.h"
 #include "ipc/message_filter.h"
 #include "ui/gl/gl_context.h"
-#include "ui/gl/gl_image.h"
 #include "ui/gl/gl_surface.h"
 
 #if defined(OS_POSIX)
@@ -74,14 +72,16 @@ class GpuChannelMessageFilter : public IPC::MessageFilter {
  public:
   GpuChannelMessageFilter(base::WeakPtr<GpuChannel> gpu_channel,
                           scoped_refptr<SyncPointManager> sync_point_manager,
-                          scoped_refptr<base::MessageLoopProxy> message_loop)
+                          scoped_refptr<base::MessageLoopProxy> message_loop,
+                          bool future_sync_points)
       : preemption_state_(IDLE),
         gpu_channel_(gpu_channel),
         sender_(NULL),
         sync_point_manager_(sync_point_manager),
         message_loop_(message_loop),
         messages_forwarded_to_channel_(0),
-        a_stub_is_descheduled_(false) {}
+        a_stub_is_descheduled_(false),
+        future_sync_points_(future_sync_points) {}
 
   virtual void OnFilterAdded(IPC::Sender* sender) OVERRIDE {
     DCHECK(!sender_);
@@ -97,34 +97,48 @@ class GpuChannelMessageFilter : public IPC::MessageFilter {
     DCHECK(sender_);
 
     bool handled = false;
-    if (message.type() == GpuCommandBufferMsg_RetireSyncPoint::ID) {
-      // This message should not be sent explicitly by the renderer.
-      DLOG(ERROR) << "Client should not send "
+    if ((message.type() == GpuCommandBufferMsg_RetireSyncPoint::ID) &&
+        !future_sync_points_) {
+      DLOG(ERROR) << "Untrusted client should not send "
                      "GpuCommandBufferMsg_RetireSyncPoint message";
+      return true;
+    }
+
+    if (message.type() == GpuCommandBufferMsg_InsertSyncPoint::ID) {
+      Tuple1<bool> retire;
+      IPC::Message* reply = IPC::SyncMessage::GenerateReply(&message);
+      if (!GpuCommandBufferMsg_InsertSyncPoint::ReadSendParam(&message,
+                                                              &retire)) {
+        reply->set_reply_error();
+        Send(reply);
+        return true;
+      }
+      if (!future_sync_points_ && !retire.a) {
+        LOG(ERROR) << "Untrusted contexts can't create future sync points";
+        reply->set_reply_error();
+        Send(reply);
+        return true;
+      }
+      uint32 sync_point = sync_point_manager_->GenerateSyncPoint();
+      GpuCommandBufferMsg_InsertSyncPoint::WriteReplyParams(reply, sync_point);
+      Send(reply);
+      message_loop_->PostTask(
+          FROM_HERE,
+          base::Bind(&GpuChannelMessageFilter::InsertSyncPointOnMainThread,
+                     gpu_channel_,
+                     sync_point_manager_,
+                     message.routing_id(),
+                     retire.a,
+                     sync_point));
       handled = true;
     }
 
     // All other messages get processed by the GpuChannel.
-    if (!handled) {
-      messages_forwarded_to_channel_++;
-      if (preempting_flag_.get())
-        pending_messages_.push(PendingMessage(messages_forwarded_to_channel_));
-      UpdatePreemptionState();
-    }
+    messages_forwarded_to_channel_++;
+    if (preempting_flag_.get())
+      pending_messages_.push(PendingMessage(messages_forwarded_to_channel_));
+    UpdatePreemptionState();
 
-    if (message.type() == GpuCommandBufferMsg_InsertSyncPoint::ID) {
-      uint32 sync_point = sync_point_manager_->GenerateSyncPoint();
-      IPC::Message* reply = IPC::SyncMessage::GenerateReply(&message);
-      GpuCommandBufferMsg_InsertSyncPoint::WriteReplyParams(reply, sync_point);
-      Send(reply);
-      message_loop_->PostTask(FROM_HERE, base::Bind(
-          &GpuChannelMessageFilter::InsertSyncPointOnMainThread,
-          gpu_channel_,
-          sync_point_manager_,
-          message.routing_id(),
-          sync_point));
-      handled = true;
-    }
     return handled;
   }
 
@@ -336,6 +350,7 @@ class GpuChannelMessageFilter : public IPC::MessageFilter {
       base::WeakPtr<GpuChannel> gpu_channel,
       scoped_refptr<SyncPointManager> manager,
       int32 routing_id,
+      bool retire,
       uint32 sync_point) {
     // This function must ensure that the sync point will be retired. Normally
     // we'll find the stub based on the routing ID, and associate the sync point
@@ -346,8 +361,10 @@ class GpuChannelMessageFilter : public IPC::MessageFilter {
       GpuCommandBufferStub* stub = gpu_channel->LookupCommandBuffer(routing_id);
       if (stub) {
         stub->AddSyncPoint(sync_point);
-        GpuCommandBufferMsg_RetireSyncPoint message(routing_id, sync_point);
-        gpu_channel->OnMessageReceived(message);
+        if (retire) {
+          GpuCommandBufferMsg_RetireSyncPoint message(routing_id, sync_point);
+          gpu_channel->OnMessageReceived(message);
+        }
         return;
       } else {
         gpu_channel->MessageProcessed();
@@ -372,6 +389,9 @@ class GpuChannelMessageFilter : public IPC::MessageFilter {
   base::OneShotTimer<GpuChannelMessageFilter> timer_;
 
   bool a_stub_is_descheduled_;
+
+  // True if this channel can create future sync points.
+  bool future_sync_points_;
 };
 
 GpuChannel::GpuChannel(GpuChannelManager* gpu_channel_manager,
@@ -379,24 +399,26 @@ GpuChannel::GpuChannel(GpuChannelManager* gpu_channel_manager,
                        gfx::GLShareGroup* share_group,
                        gpu::gles2::MailboxManager* mailbox,
                        int client_id,
-                       bool software)
+                       bool software,
+                       bool allow_future_sync_points)
     : gpu_channel_manager_(gpu_channel_manager),
       messages_processed_(0),
       client_id_(client_id),
       share_group_(share_group ? share_group : new gfx::GLShareGroup),
       mailbox_manager_(mailbox ? mailbox : new gpu::gles2::MailboxManager),
-      image_manager_(new gpu::gles2::ImageManager),
       watchdog_(watchdog),
       software_(software),
       handle_messages_scheduled_(false),
       currently_processing_message_(NULL),
-      weak_factory_(this),
-      num_stubs_descheduled_(0) {
+      num_stubs_descheduled_(0),
+      allow_future_sync_points_(allow_future_sync_points),
+      weak_factory_(this) {
   DCHECK(gpu_channel_manager);
   DCHECK(client_id);
 
   channel_id_ = IPC::Channel::GenerateVerifiedChannelID("gpu");
-  const CommandLine* command_line = CommandLine::ForCurrentProcess();
+  const base::CommandLine* command_line =
+      base::CommandLine::ForCurrentProcess();
   log_messages_ = command_line->HasSwitch(switches::kLogPluginMessages);
 }
 
@@ -421,7 +443,8 @@ void GpuChannel::Init(base::MessageLoopProxy* io_message_loop,
   filter_ =
       new GpuChannelMessageFilter(weak_factory_.GetWeakPtr(),
                                   gpu_channel_manager_->sync_point_manager(),
-                                  base::MessageLoopProxy::current());
+                                  base::MessageLoopProxy::current(),
+                                  allow_future_sync_points_);
   io_message_loop_ = io_message_loop;
   channel_->AddFilter(filter_.get());
 
@@ -552,7 +575,6 @@ CreateCommandBufferResult GpuChannel::CreateViewCommandBuffer(
                                share_group,
                                window,
                                mailbox_manager_.get(),
-                               image_manager_.get(),
                                gfx::Size(),
                                disallowed_features_,
                                init_params.attribs,
@@ -576,39 +598,6 @@ CreateCommandBufferResult GpuChannel::CreateViewCommandBuffer(
 
 GpuCommandBufferStub* GpuChannel::LookupCommandBuffer(int32 route_id) {
   return stubs_.Lookup(route_id);
-}
-
-void GpuChannel::CreateImage(
-    gfx::PluginWindowHandle window,
-    int32 image_id,
-    gfx::Size* size) {
-  TRACE_EVENT1("gpu",
-               "GpuChannel::CreateImage",
-               "image_id",
-               image_id);
-
-  *size = gfx::Size();
-
-  if (image_manager_->LookupImage(image_id)) {
-    LOG(ERROR) << "CreateImage failed, image_id already in use.";
-    return;
-  }
-
-  scoped_refptr<gfx::GLImage> image = gfx::GLImage::CreateGLImage(window);
-  if (!image.get())
-    return;
-
-  image_manager_->AddImage(image.get(), image_id);
-  *size = image->GetSize();
-}
-
-void GpuChannel::DeleteImage(int32 image_id) {
-  TRACE_EVENT1("gpu",
-               "GpuChannel::DeleteImage",
-               "image_id",
-               image_id);
-
-  image_manager_->RemoveImage(image_id);
 }
 
 void GpuChannel::LoseAllContexts() {
@@ -673,16 +662,46 @@ bool GpuChannel::OnControlMessageReceived(const IPC::Message& msg) {
   return handled;
 }
 
+size_t GpuChannel::MatchSwapBufferMessagesPattern(
+    IPC::Message* current_message) {
+  DCHECK(current_message);
+  if (deferred_messages_.empty() || !current_message)
+    return 0;
+  // Only care about AsyncFlush message.
+  if (current_message->type() != GpuCommandBufferMsg_AsyncFlush::ID)
+    return 0;
+
+  size_t index = 0;
+  int32 routing_id = current_message->routing_id();
+
+  // Fetch the first message and move index to point to the second message.
+  IPC::Message* first_message = deferred_messages_[index++];
+
+  // If the current message is AsyncFlush, the expected message sequence for
+  // SwapBuffer should be AsyncFlush->Echo. We only try to match Echo message.
+  if (current_message->type() == GpuCommandBufferMsg_AsyncFlush::ID &&
+      first_message->type() == GpuCommandBufferMsg_Echo::ID &&
+      first_message->routing_id() == routing_id) {
+    return 1;
+  }
+
+  // No matched message is found.
+  return 0;
+}
+
 void GpuChannel::HandleMessage() {
   handle_messages_scheduled_ = false;
   if (deferred_messages_.empty())
     return;
 
-  bool should_fast_track_ack = false;
-  IPC::Message* m = deferred_messages_.front();
-  GpuCommandBufferStub* stub = stubs_.Lookup(m->routing_id());
+  size_t matched_messages_num = 0;
+  bool should_handle_swapbuffer_msgs_immediate = false;
+  IPC::Message* m = NULL;
+  GpuCommandBufferStub* stub = NULL;
 
   do {
+    m = deferred_messages_.front();
+    stub = stubs_.Lookup(m->routing_id());
     if (stub) {
       if (!stub->IsScheduled())
         return;
@@ -726,17 +745,29 @@ void GpuChannel::HandleMessage() {
     if (message_processed)
       MessageProcessed();
 
-    // We want the EchoACK following the SwapBuffers to be sent as close as
-    // possible, avoiding scheduling other channels in the meantime.
-    should_fast_track_ack = false;
-    if (!deferred_messages_.empty()) {
-      m = deferred_messages_.front();
-      stub = stubs_.Lookup(m->routing_id());
-      should_fast_track_ack =
-          (m->type() == GpuCommandBufferMsg_Echo::ID) &&
-          stub && stub->IsScheduled();
+    if (deferred_messages_.empty())
+      break;
+
+    // We process the pending messages immediately if these messages matches
+    // the pattern of SwapBuffers, for example, GLRenderer always issues
+    // SwapBuffers calls with a specific IPC message patterns, for example,
+    // it should be AsyncFlush->Echo sequence.
+    //
+    // Instead of posting a task to message loop, it could avoid the possibility
+    // of being blocked by other channels, and make SwapBuffers executed as soon
+    // as possible.
+    if (!should_handle_swapbuffer_msgs_immediate) {
+      // Start from the current processing message to match SwapBuffer pattern.
+      matched_messages_num = MatchSwapBufferMessagesPattern(message.get());
+      should_handle_swapbuffer_msgs_immediate =
+          matched_messages_num > 0 && stub;
+    } else {
+      DCHECK_GT(matched_messages_num, 0u);
+      --matched_messages_num;
+      if (!stub || matched_messages_num == 0)
+        should_handle_swapbuffer_msgs_immediate = false;
     }
-  } while (should_fast_track_ack);
+  } while (should_handle_swapbuffer_msgs_immediate);
 
   if (!deferred_messages_.empty()) {
     OnScheduled();
@@ -756,7 +787,6 @@ void GpuChannel::OnCreateOffscreenCommandBuffer(
       share_group,
       gfx::GLSurfaceHandle(),
       mailbox_manager_.get(),
-      image_manager_.get(),
       size,
       disallowed_features_,
       init_params.attribs,

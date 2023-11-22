@@ -15,10 +15,10 @@
 #include "base/memory/scoped_ptr.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/aura/test/aura_test_base.h"
-#include "ui/aura/test/event_generator.h"
 #include "ui/aura/test/test_windows.h"
 #include "ui/aura/window.h"
 #include "ui/events/event.h"
+#include "ui/events/test/event_generator.h"
 #include "ui/gfx/rect.h"
 
 namespace ash {
@@ -31,7 +31,7 @@ TEST_F(AcceleratorFilterTest, TestFilterWithoutFocus) {
   const TestScreenshotDelegate* delegate = GetScreenshotDelegate();
   EXPECT_EQ(0, delegate->handle_take_screenshot_count());
 
-  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
   // AcceleratorController calls ScreenshotDelegate::HandleTakeScreenshot() when
   // VKEY_PRINT is pressed. See kAcceleratorData[] in accelerator_controller.cc.
   generator.PressKey(ui::VKEY_PRINT, 0);
@@ -54,7 +54,7 @@ TEST_F(AcceleratorFilterTest, TestFilterWithFocus) {
 
   // AcceleratorFilter should ignore the key events since the root window is
   // not focused.
-  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
   generator.PressKey(ui::VKEY_PRINT, 0);
   EXPECT_EQ(0, delegate->handle_take_screenshot_count());
   generator.ReleaseKey(ui::VKEY_PRINT, 0);
@@ -69,7 +69,7 @@ TEST_F(AcceleratorFilterTest, TestCapsLockMask) {
   const TestScreenshotDelegate* delegate = GetScreenshotDelegate();
   EXPECT_EQ(0, delegate->handle_take_screenshot_count());
 
-  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
   generator.PressKey(ui::VKEY_PRINT, 0);
   EXPECT_EQ(1, delegate->handle_take_screenshot_count());
   generator.ReleaseKey(ui::VKEY_PRINT, 0);
@@ -92,7 +92,7 @@ TEST_F(AcceleratorFilterTest, CanConsumeSystemKeys) {
   aura::Window* root_window = Shell::GetPrimaryRootWindow();
 
   // Normal keys are not consumed.
-  ui::KeyEvent press_a(ui::ET_KEY_PRESSED, ui::VKEY_A, ui::EF_NONE, false);
+  ui::KeyEvent press_a(ui::ET_KEY_PRESSED, ui::VKEY_A, ui::EF_NONE);
   {
     ui::Event::DispatcherApi dispatch_helper(&press_a);
     dispatch_helper.set_target(root_window);
@@ -102,7 +102,7 @@ TEST_F(AcceleratorFilterTest, CanConsumeSystemKeys) {
 
   // System keys are directly consumed.
   ui::KeyEvent press_mute(
-      ui::ET_KEY_PRESSED, ui::VKEY_VOLUME_MUTE, ui::EF_NONE, false);
+      ui::ET_KEY_PRESSED, ui::VKEY_VOLUME_MUTE, ui::EF_NONE);
   {
     ui::Event::DispatcherApi dispatch_helper(&press_mute);
     dispatch_helper.set_target(root_window);
@@ -114,7 +114,7 @@ TEST_F(AcceleratorFilterTest, CanConsumeSystemKeys) {
   scoped_ptr<aura::Window> window(CreateTestWindowInShellWithId(1));
   wm::GetWindowState(window.get())->set_can_consume_system_keys(true);
   ui::KeyEvent press_volume_up(
-      ui::ET_KEY_PRESSED, ui::VKEY_VOLUME_UP, ui::EF_NONE, false);
+      ui::ET_KEY_PRESSED, ui::VKEY_VOLUME_UP, ui::EF_NONE);
   ui::Event::DispatcherApi dispatch_helper(&press_volume_up);
   dispatch_helper.set_target(window.get());
   filter.OnKeyEvent(&press_volume_up);

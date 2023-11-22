@@ -43,13 +43,11 @@ MetricsLogManager::MetricsLogManager(PrefService* local_state,
     : unsent_logs_loaded_(false),
       initial_log_queue_(local_state,
                          prefs::kMetricsInitialLogs,
-                         prefs::kMetricsInitialLogsOld,
                          kInitialLogsPersistLimit,
                          kStorageByteLimitPerLogType,
                          0),
       ongoing_log_queue_(local_state,
                          prefs::kMetricsOngoingLogs,
-                         prefs::kMetricsOngoingLogsOld,
                          kOngoingLogsPersistLimit,
                          kStorageByteLimitPerLogType,
                          max_ongoing_log_size) {}
@@ -113,22 +111,6 @@ void MetricsLogManager::StoreLog(const std::string& log_data,
       ongoing_log_queue_.StoreLog(log_data);
       break;
   }
-}
-
-void MetricsLogManager::StoreStagedLogAsUnsent(
-    PersistedLogs::StoreType store_type) {
-  DCHECK(has_staged_log());
-  if (initial_log_queue_.has_staged_log())
-    initial_log_queue_.StoreStagedLogAsUnsent(store_type);
-  else
-    ongoing_log_queue_.StoreStagedLogAsUnsent(store_type);
-}
-
-void MetricsLogManager::DiscardLastProvisionalStore() {
-  // We have at most one provisional store, (since at most one log is being
-  // uploaded at a time), so at least one of these will be a no-op.
-  initial_log_queue_.DiscardLastProvisionalStore();
-  ongoing_log_queue_.DiscardLastProvisionalStore();
 }
 
 void MetricsLogManager::PersistUnsentLogs() {

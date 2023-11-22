@@ -7,7 +7,8 @@
 #include <map>
 
 #include "chrome/browser/extensions/./extension_prefs_unittest.h"
-#include "chrome/common/extensions/extension_constants.h"
+#include "components/crx_file/id_util.h"
+#include "extensions/common/constants.h"
 #include "extensions/common/manifest_constants.h"
 #include "sync/api/string_ordinal.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -226,9 +227,9 @@ class ChromeAppSortingInitializeWithNoApps : public PrefsPrepopulatedTestBase {
     // Make sure that the web store has valid ordinals.
     syncer::StringOrdinal initial_ordinal =
         syncer::StringOrdinal::CreateInitialOrdinal();
-    app_sorting->SetPageOrdinal(extension_misc::kWebStoreAppId,
+    app_sorting->SetPageOrdinal(extensions::kWebStoreAppId,
                                 initial_ordinal);
-    app_sorting->SetAppLaunchOrdinal(extension_misc::kWebStoreAppId,
+    app_sorting->SetAppLaunchOrdinal(extensions::kWebStoreAppId,
                                      initial_ordinal);
 
     ExtensionIdList ids;
@@ -239,7 +240,7 @@ class ChromeAppSortingInitializeWithNoApps : public PrefsPrepopulatedTestBase {
         static_cast<ChromeAppSorting*>(prefs()->app_sorting());
 
     syncer::StringOrdinal page =
-        app_sorting->GetPageOrdinal(extension_misc::kWebStoreAppId);
+        app_sorting->GetPageOrdinal(extensions::kWebStoreAppId);
     EXPECT_TRUE(page.IsValid());
 
     ChromeAppSorting::PageOrdinalMap::iterator page_it =
@@ -247,7 +248,7 @@ class ChromeAppSortingInitializeWithNoApps : public PrefsPrepopulatedTestBase {
     EXPECT_TRUE(page_it != app_sorting->ntp_ordinal_map_.end());
 
     syncer::StringOrdinal app_launch =
-        app_sorting->GetPageOrdinal(extension_misc::kWebStoreAppId);
+        app_sorting->GetPageOrdinal(extensions::kWebStoreAppId);
     EXPECT_TRUE(app_launch.IsValid());
 
     ChromeAppSorting::AppLaunchOrdinalMap::iterator app_launch_it =
@@ -813,7 +814,7 @@ class ChromeAppSortingDefaultOrdinalsBase : public ChromeAppSortingTest {
         prefs_.temp_dir().AppendASCII(name), Manifest::EXTERNAL_PREF,
         simple_dict, Extension::NO_FLAGS, &errors);
     EXPECT_TRUE(app.get()) << errors;
-    EXPECT_TRUE(Extension::IdIsValid(app->id()));
+    EXPECT_TRUE(crx_file::id_util::IdIsValid(app->id()));
     return app;
   }
 
@@ -958,5 +959,43 @@ class ChromeAppSortingDefaultOrdinalNoCollision
 };
 TEST_F(ChromeAppSortingDefaultOrdinalNoCollision,
        ChromeAppSortingDefaultOrdinalNoCollision) {}
+
+// Tests that SetExtensionVisible() correctly hides and unhides extensions.
+class ChromeAppSortingSetExtensionVisible : public ChromeAppSortingTest {
+ public:
+  ChromeAppSortingSetExtensionVisible() {}
+  virtual ~ChromeAppSortingSetExtensionVisible() {}
+
+  virtual void Initialize() OVERRIDE {
+    first_app_ = prefs_.AddApp("first_app");
+    second_app_ = prefs_.AddApp("second_app");
+  }
+
+  virtual void Verify() OVERRIDE {
+    ChromeAppSorting* sorting = app_sorting();
+    syncer::StringOrdinal page1 = sorting->GetPageOrdinal(first_app_->id());
+    syncer::StringOrdinal page2 = sorting->GetPageOrdinal(second_app_->id());
+    EXPECT_TRUE(sorting->GetAppLaunchOrdinal(first_app_->id()).IsValid());
+    EXPECT_TRUE(sorting->GetAppLaunchOrdinal(second_app_->id()).IsValid());
+    EXPECT_TRUE(page1.IsValid());
+    EXPECT_TRUE(page2.IsValid());
+    EXPECT_TRUE(page1.Equals(page2));
+
+    sorting->SetExtensionVisible(first_app_->id(), false);
+    EXPECT_EQ(
+        1U, sorting->CountItemsVisibleOnNtp(sorting->ntp_ordinal_map_[page1]));
+
+    sorting->SetExtensionVisible(first_app_->id(), true);
+    EXPECT_EQ(
+        2U, sorting->CountItemsVisibleOnNtp(sorting->ntp_ordinal_map_[page1]));
+  }
+
+ private:
+  scoped_refptr<Extension> first_app_;
+  scoped_refptr<Extension> second_app_;
+};
+TEST_F(ChromeAppSortingSetExtensionVisible,
+       ChromeAppSortingSetExtensionVisible) {
+}
 
 }  // namespace extensions

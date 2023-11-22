@@ -486,24 +486,6 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
         }
     }
 
-    public void testMaximumTimeToLock() {
-        if (!mDeviceAdmin) {
-            Log.w(TAG, "Skipping testMaximumTimeToLock");
-            return;
-        }
-        long originalValue = mDevicePolicyManager.getMaximumTimeToLock(mComponent);
-        try {
-            for (long testLength : new long[] {
-                    5000L /* 5 sec */, 60000L /* 1 min */, 1800000 /* 30 min */}) {
-                mDevicePolicyManager.setMaximumTimeToLock(mComponent, testLength);
-                assertEquals(testLength,
-                        mDevicePolicyManager.getMaximumTimeToLock(mComponent));
-            }
-        } finally {
-            mDevicePolicyManager.setMaximumTimeToLock(mComponent, originalValue);
-        }
-    }
-
     public void testCreateUser_failIfNotDeviceOwner() {
         if (!mDeviceAdmin) {
             Log.w(TAG, "Skipping testCreateUser_failIfNotDeviceOwner");

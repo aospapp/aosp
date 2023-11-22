@@ -4,8 +4,6 @@
 
 #include "chrome/browser/ui/ash/chrome_shell_delegate.h"
 
-#include "apps/app_window.h"
-#include "apps/app_window_registry.h"
 #include "ash/content_support/gpu_support_impl.h"
 #include "ash/magnifier/magnifier_constants.h"
 #include "ash/wm/window_state.h"
@@ -14,22 +12,20 @@
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profiles_state.h"
-#include "chrome/browser/ui/app_list/app_list_service.h"
 #include "chrome/browser/ui/app_list/app_list_view_delegate.h"
-#include "chrome/browser/ui/ash/app_list/app_list_controller_ash.h"
+#include "chrome/browser/ui/ash/app_list/app_list_service_ash.h"
 #include "chrome/browser/ui/ash/ash_keyboard_controller_proxy.h"
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller.h"
 #include "chrome/browser/ui/ash/launcher/launcher_context_menu.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/grit/chromium_strings.h"
 #include "components/signin/core/common/profile_management_switches.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/accessibility/accessibility_manager.h"
 #include "chrome/browser/chromeos/display/display_configuration_observer.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
+#include "components/user_manager/user_manager.h"
 #endif
 
 // static
@@ -52,12 +48,13 @@ bool ChromeShellDelegate::IsMultiProfilesEnabled() const {
 #if defined(OS_CHROMEOS)
   // If there is a user manager, we need to see that we can at least have 2
   // simultaneous users to allow this feature.
-  if (!chromeos::UserManager::IsInitialized())
+  if (!user_manager::UserManager::IsInitialized())
     return false;
-  size_t admitted_users_to_be_added =
-      chromeos::UserManager::Get()->GetUsersAdmittedForMultiProfile().size();
+  size_t admitted_users_to_be_added = user_manager::UserManager::Get()
+                                          ->GetUsersAdmittedForMultiProfile()
+                                          .size();
   size_t logged_in_users =
-      chromeos::UserManager::Get()->GetLoggedInUsers().size();
+      user_manager::UserManager::Get()->GetLoggedInUsers().size();
   if (!logged_in_users) {
     // The shelf gets created on the login screen and as such we have to create
     // all multi profile items of the the system tray menu before the user logs
@@ -88,7 +85,7 @@ bool ChromeShellDelegate::IsRunningInForcedAppMode() const {
 
 bool ChromeShellDelegate::IsMultiAccountEnabled() const {
 #if defined(OS_CHROMEOS)
-  return switches::IsNewProfileManagement();
+  return switches::IsEnableAccountConsistency();
 #endif
   return false;
 }
@@ -99,20 +96,15 @@ void ChromeShellDelegate::Exit() {
 
 content::BrowserContext* ChromeShellDelegate::GetActiveBrowserContext() {
 #if defined(OS_CHROMEOS)
-  DCHECK(chromeos::UserManager::Get()->GetLoggedInUsers().size());
+  DCHECK(user_manager::UserManager::Get()->GetLoggedInUsers().size());
 #endif
   return ProfileManager::GetActiveUserProfile();
 }
 
-app_list::AppListViewDelegate*
-ChromeShellDelegate::CreateAppListViewDelegate() {
+app_list::AppListViewDelegate* ChromeShellDelegate::GetAppListViewDelegate() {
   DCHECK(ash::Shell::HasInstance());
-  // Shell will own the created delegate, and the delegate will own
-  // the controller.
-  return new AppListViewDelegate(
-      Profile::FromBrowserContext(GetActiveBrowserContext()),
-      AppListService::Get(chrome::HOST_DESKTOP_TYPE_ASH)->
-      GetControllerDelegate());
+  return AppListServiceAsh::GetInstance()->GetViewDelegate(
+      Profile::FromBrowserContext(GetActiveBrowserContext()));
 }
 
 ash::ShelfDelegate* ChromeShellDelegate::CreateShelfDelegate(

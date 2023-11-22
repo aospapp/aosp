@@ -48,6 +48,8 @@ public class GalResult {
         // PackedString constants for GalData
         public static final String ID = "_id";
         public static final String DISPLAY_NAME = "displayName";
+        public static final String DISPLAY_NAME_SOURCE = "display_name_source";
+        public static final String DISPLAY_NAME_ALTERNATIVE = "display_name_alt";
         public static final String EMAIL_ADDRESS = "emailAddress";
         public static final String WORK_PHONE = "workPhone";
         public static final String HOME_PHONE = "homePhone";

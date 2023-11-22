@@ -10,14 +10,12 @@
 
 #include <string>
 
-#include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/path_service.h"
-#include "base/process/launch.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -25,7 +23,6 @@
 #include "base/win/windows_version.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/installer/launcher_support/chrome_launcher_support.h"
 #include "chrome/installer/setup/install_worker.h"
 #include "chrome/installer/setup/setup_constants.h"
 #include "chrome/installer/util/auto_launch_util.h"
@@ -247,11 +244,8 @@ installer::InstallStatus InstallNewVersion(
   return installer::INSTALL_FAILED;
 }
 
-// Deletes the old "Uninstall Google Chrome" shortcut in the Start menu and, if
-// this is a system-level install, also deletes the old Default user Quick
-// Launch shortcut. Both of these were created prior to Chrome 24; in Chrome 24,
-// the uninstall shortcut was removed and the Default user Quick Launch shortcut
-// was replaced by per-user shortcuts created via Active Setup.
+// Deletes the old "Uninstall Google Chrome" shortcut in the Start menu which
+// was installed prior to Chrome 24.
 void CleanupLegacyShortcuts(const installer::InstallerState& installer_state,
                             BrowserDistribution* dist,
                             const base::FilePath& chrome_exe) {
@@ -263,12 +257,6 @@ void CleanupLegacyShortcuts(const installer::InstallerState& installer_state,
   uninstall_shortcut_path = uninstall_shortcut_path.Append(
       dist->GetUninstallLinkName() + installer::kLnkExt);
   base::DeleteFile(uninstall_shortcut_path, false);
-
-  if (installer_state.system_install()) {
-    ShellUtil::RemoveShortcuts(
-        ShellUtil::SHORTCUT_LOCATION_QUICK_LAUNCH, dist,
-        ShellUtil::SYSTEM_LEVEL, chrome_exe);
-  }
 }
 
 // Returns the appropriate shortcut operations for App Launcher,
@@ -689,17 +677,6 @@ void HandleActiveSetupForBrowser(const base::FilePath& installation_root,
   base::FilePath chrome_exe(installation_root.Append(kChromeExe));
   CreateOrUpdateShortcuts(
       chrome_exe, chrome, prefs, CURRENT_USER, install_operation);
-}
-
-bool InstallFromWebstore(const std::string& app_code) {
-  base::FilePath app_host_path(chrome_launcher_support::GetAnyAppHostPath());
-  if (app_host_path.empty())
-    return false;
-
-  CommandLine cmd(app_host_path);
-  cmd.AppendSwitchASCII(::switches::kInstallFromWebstore, app_code);
-  VLOG(1) << "App install command: " << cmd.GetCommandLineString();
-  return base::LaunchProcess(cmd, base::LaunchOptions(), NULL);
 }
 
 }  // namespace installer

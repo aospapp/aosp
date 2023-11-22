@@ -12,6 +12,7 @@ class FilePath;
 class ListValue;
 }
 
+struct Session;
 class Status;
 class WebView;
 
@@ -38,5 +39,10 @@ bool Base64Decode(const std::string& base64, std::string* bytes);
 Status UnzipSoleFile(const base::FilePath& unzip_dir,
                      const std::string& bytes,
                      base::FilePath* file);
+
+// Calls BeforeCommand for each of |session|'s |CommandListener|s.
+// If an error is encountered, will mark |session| for deletion and return.
+Status NotifyCommandListenersBeforeCommand(Session* session,
+                                           const std::string& command_name);
 
 #endif  // CHROME_TEST_CHROMEDRIVER_UTIL_H_

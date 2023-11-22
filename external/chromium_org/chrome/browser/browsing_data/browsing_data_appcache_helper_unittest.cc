@@ -4,6 +4,8 @@
 
 #include "chrome/browser/browsing_data/browsing_data_appcache_helper.h"
 
+#include <set>
+
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/stl_util.h"
@@ -56,7 +58,7 @@ TEST_F(CannedBrowsingDataAppCacheHelperTest, SetInfo) {
                                    base::Unretained(&callback)));
   ASSERT_TRUE(callback.have_result());
 
-  std::map<GURL, appcache::AppCacheInfoVector>& collection =
+  std::map<GURL, content::AppCacheInfoVector>& collection =
       helper->info_collection()->infos_by_origin;
 
   ASSERT_EQ(2u, collection.size());
@@ -88,7 +90,7 @@ TEST_F(CannedBrowsingDataAppCacheHelperTest, Unique) {
                                    base::Unretained(&callback)));
   ASSERT_TRUE(callback.have_result());
 
-  std::map<GURL, appcache::AppCacheInfoVector>& collection =
+  std::map<GURL, content::AppCacheInfoVector>& collection =
       helper->info_collection()->infos_by_origin;
 
   ASSERT_EQ(1u, collection.size());

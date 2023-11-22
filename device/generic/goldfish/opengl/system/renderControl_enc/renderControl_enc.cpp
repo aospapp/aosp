@@ -9,7 +9,10 @@
 
 
 #include <stdio.h>
-static void enc_unsupported()
+
+namespace {
+
+void enc_unsupported()
 {
 	ALOGE("Function is unsupported\n");
 }
@@ -311,7 +314,6 @@ void rcCloseColorBuffer_enc(void *self , uint32_t colorbuffer)
 	memcpy(ptr, &packetSize, 4);  ptr += 4;
 
 		memcpy(ptr, &colorbuffer, 4); ptr += 4;
-
 	stream->flush();
 }
 
@@ -524,35 +526,37 @@ int rcOpenColorBuffer2_enc(void *self , uint32_t colorbuffer)
 	return retval;
 }
 
+}  // namespace
+
 renderControl_encoder_context_t::renderControl_encoder_context_t(IOStream *stream)
 {
 	m_stream = stream;
 
-	set_rcGetRendererVersion(rcGetRendererVersion_enc);
-	set_rcGetEGLVersion(rcGetEGLVersion_enc);
-	set_rcQueryEGLString(rcQueryEGLString_enc);
-	set_rcGetGLString(rcGetGLString_enc);
-	set_rcGetNumConfigs(rcGetNumConfigs_enc);
-	set_rcGetConfigs(rcGetConfigs_enc);
-	set_rcChooseConfig(rcChooseConfig_enc);
-	set_rcGetFBParam(rcGetFBParam_enc);
-	set_rcCreateContext(rcCreateContext_enc);
-	set_rcDestroyContext(rcDestroyContext_enc);
-	set_rcCreateWindowSurface(rcCreateWindowSurface_enc);
-	set_rcDestroyWindowSurface(rcDestroyWindowSurface_enc);
-	set_rcCreateColorBuffer(rcCreateColorBuffer_enc);
-	set_rcOpenColorBuffer(rcOpenColorBuffer_enc);
-	set_rcCloseColorBuffer(rcCloseColorBuffer_enc);
-	set_rcSetWindowColorBuffer(rcSetWindowColorBuffer_enc);
-	set_rcFlushWindowColorBuffer(rcFlushWindowColorBuffer_enc);
-	set_rcMakeCurrent(rcMakeCurrent_enc);
-	set_rcFBPost(rcFBPost_enc);
-	set_rcFBSetSwapInterval(rcFBSetSwapInterval_enc);
-	set_rcBindTexture(rcBindTexture_enc);
-	set_rcBindRenderbuffer(rcBindRenderbuffer_enc);
-	set_rcColorBufferCacheFlush(rcColorBufferCacheFlush_enc);
-	set_rcReadColorBuffer(rcReadColorBuffer_enc);
-	set_rcUpdateColorBuffer(rcUpdateColorBuffer_enc);
-	set_rcOpenColorBuffer2(rcOpenColorBuffer2_enc);
+	this->rcGetRendererVersion = &rcGetRendererVersion_enc;
+	this->rcGetEGLVersion = &rcGetEGLVersion_enc;
+	this->rcQueryEGLString = &rcQueryEGLString_enc;
+	this->rcGetGLString = &rcGetGLString_enc;
+	this->rcGetNumConfigs = &rcGetNumConfigs_enc;
+	this->rcGetConfigs = &rcGetConfigs_enc;
+	this->rcChooseConfig = &rcChooseConfig_enc;
+	this->rcGetFBParam = &rcGetFBParam_enc;
+	this->rcCreateContext = &rcCreateContext_enc;
+	this->rcDestroyContext = &rcDestroyContext_enc;
+	this->rcCreateWindowSurface = &rcCreateWindowSurface_enc;
+	this->rcDestroyWindowSurface = &rcDestroyWindowSurface_enc;
+	this->rcCreateColorBuffer = &rcCreateColorBuffer_enc;
+	this->rcOpenColorBuffer = &rcOpenColorBuffer_enc;
+	this->rcCloseColorBuffer = &rcCloseColorBuffer_enc;
+	this->rcSetWindowColorBuffer = &rcSetWindowColorBuffer_enc;
+	this->rcFlushWindowColorBuffer = &rcFlushWindowColorBuffer_enc;
+	this->rcMakeCurrent = &rcMakeCurrent_enc;
+	this->rcFBPost = &rcFBPost_enc;
+	this->rcFBSetSwapInterval = &rcFBSetSwapInterval_enc;
+	this->rcBindTexture = &rcBindTexture_enc;
+	this->rcBindRenderbuffer = &rcBindRenderbuffer_enc;
+	this->rcColorBufferCacheFlush = &rcColorBufferCacheFlush_enc;
+	this->rcReadColorBuffer = &rcReadColorBuffer_enc;
+	this->rcUpdateColorBuffer = &rcUpdateColorBuffer_enc;
+	this->rcOpenColorBuffer2 = &rcOpenColorBuffer2_enc;
 }
 

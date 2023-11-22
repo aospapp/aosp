@@ -1,8 +1,7 @@
 # Copyright 2013 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-import json
-import logging
+
 
 class InspectorConsole(object):
   def __init__(self, inspector_backend):
@@ -16,7 +15,6 @@ class InspectorConsole(object):
     self._console_enabled = False
 
   def _OnNotification(self, msg):
-    logging.debug('Notification: %s', json.dumps(msg, indent=2))
     if msg['method'] == 'Console.messageAdded':
       if msg['params']['message']['url'] == 'chrome://newtab/':
         return

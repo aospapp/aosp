@@ -12,15 +12,17 @@
 #include "base/files/file_path.h"
 #include "content/public/browser/browser_message_filter.h"
 
+class GURL;
+
 namespace net {
 class URLRequestContextGetter;
 }
 
-namespace quota {
+namespace storage {
 class QuotaManager;
 }
 
-namespace webkit_database {
+namespace storage {
 class DatabaseTracker;
 }
 
@@ -29,8 +31,8 @@ namespace content {
 class ShellMessageFilter : public BrowserMessageFilter {
  public:
   ShellMessageFilter(int render_process_id,
-                     webkit_database::DatabaseTracker* database_tracker,
-                     quota::QuotaManager* quota_manager,
+                     storage::DatabaseTracker* database_tracker,
+                     storage::QuotaManager* quota_manager,
                      net::URLRequestContextGetter* request_context_getter);
 
  private:
@@ -48,13 +50,17 @@ class ShellMessageFilter : public BrowserMessageFilter {
       std::string* filesystem_id);
   void OnClearAllDatabases();
   void OnSetDatabaseQuota(int quota);
+  void OnCheckWebNotificationPermission(const GURL& origin, int* result);
+  void OnGrantWebNotificationPermission(const GURL& origin,
+                                        bool permission_granted);
+  void OnClearWebNotificationPermissions();
   void OnAcceptAllCookies(bool accept);
   void OnDeleteAllCookies();
 
   int render_process_id_;
 
-  webkit_database::DatabaseTracker* database_tracker_;
-  quota::QuotaManager* quota_manager_;
+  storage::DatabaseTracker* database_tracker_;
+  storage::QuotaManager* quota_manager_;
   net::URLRequestContextGetter* request_context_getter_;
 
   DISALLOW_COPY_AND_ASSIGN(ShellMessageFilter);

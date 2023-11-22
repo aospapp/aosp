@@ -17,7 +17,7 @@
 package android.hardware.cts.helpers;
 
 import android.hardware.Sensor;
-import android.hardware.cts.helpers.sensoroperations.ISensorOperation;
+import android.hardware.cts.helpers.sensoroperations.SensorOperation;
 import android.util.Log;
 
 import java.io.BufferedWriter;
@@ -34,28 +34,29 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 /**
- * Class used to store stats related to {@link ISensorOperation}s.  Sensor stats may be linked
+ * Class used to store stats related to {@link SensorOperation}s. Sensor stats may be linked
  * together so that they form a tree.
  */
 public class SensorStats {
     public static final String DELIMITER = "__";
 
-    public static final String FIRST_TIMESTAMP_KEY = "first_timestamp";
-    public static final String LAST_TIMESTAMP_KEY = "last_timestamp";
     public static final String ERROR = "error";
-    public static final String EVENT_COUNT_KEY = "event_count";
     public static final String EVENT_GAP_COUNT_KEY = "event_gap_count";
     public static final String EVENT_GAP_POSITIONS_KEY = "event_gap_positions";
     public static final String EVENT_OUT_OF_ORDER_COUNT_KEY = "event_out_of_order_count";
     public static final String EVENT_OUT_OF_ORDER_POSITIONS_KEY = "event_out_of_order_positions";
+    public static final String EVENT_TIME_SYNCHRONIZATION_COUNT_KEY =
+            "event_time_synchronization_count";
+    public static final String EVENT_TIME_SYNCHRONIZATION_POSITIONS_KEY =
+            "event_time_synchronization_positions";
     public static final String FREQUENCY_KEY = "frequency";
     public static final String JITTER_95_PERCENTILE_PERCENT_KEY = "jitter_95_percentile_percent";
     public static final String MEAN_KEY = "mean";
     public static final String STANDARD_DEVIATION_KEY = "standard_deviation";
     public static final String MAGNITUDE_KEY = "magnitude";
 
-    private final Map<String, Object> mValues = new HashMap<String, Object>();
-    private final Map<String, SensorStats> mSensorStats = new HashMap<String, SensorStats>();
+    private final Map<String, Object> mValues = new HashMap<>();
+    private final Map<String, SensorStats> mSensorStats = new HashMap<>();
 
     /**
      * Add a value.
@@ -72,7 +73,7 @@ public class SensorStats {
 
     /**
      * Add a nested {@link SensorStats}. This is useful for keeping track of stats in a
-     * {@link ISensorOperation} tree.
+     * {@link SensorOperation} tree.
      *
      * @param key the key
      * @param stats the sub {@link SensorStats} object.
@@ -103,13 +104,13 @@ public class SensorStats {
     /**
      * Flattens the map and all sub {@link SensorStats} objects. Keys will be flattened using
      * {@value #DELIMITER}. For example, if a sub {@link SensorStats} is added with key
-     * {@code "key1"} containing the key value pair {@code ("key2", "value")}, the flattened map
-     * will contain the entry {@code ("key1__key2", "value")}.
+     * {@code "key1"} containing the key value pair {@code \("key2", "value"\)}, the flattened map
+     * will contain the entry {@code \("key1__key2", "value"\)}.
      *
      * @return a {@link Map} containing all stats from the value and sub {@link SensorStats}.
      */
     public synchronized Map<String, Object> flatten() {
-        final Map<String, Object> flattenedMap = new HashMap<String, Object>(mValues);
+        final Map<String, Object> flattenedMap = new HashMap<>(mValues);
         for (Entry<String, SensorStats> statsEntry : mSensorStats.entrySet()) {
             for (Entry<String, Object> valueEntry : statsEntry.getValue().flatten().entrySet()) {
                 String key = statsEntry.getKey() + DELIMITER + valueEntry.getKey();
@@ -122,8 +123,8 @@ public class SensorStats {
     /**
      * Utility method to log the stats to the logcat.
      */
-    public static void logStats(String tag, SensorStats stats) {
-        final Map<String, Object> flattened = stats.flatten();
+    public void log(String tag) {
+        final Map<String, Object> flattened = flatten();
         for (String key : getSortedKeys(flattened)) {
             Object value = flattened.get(key);
             Log.v(tag, String.format("%s: %s", key, getValueString(value)));
@@ -133,39 +134,29 @@ public class SensorStats {
     /**
      * Utility method to log the stats to a file. Will overwrite the file if it already exists.
      */
-    public static void logStatsToFile(String fileName, SensorStats stats) throws IOException {
+    public void logToFile(String fileName) throws IOException {
         File statsDirectory = SensorCtsHelper.getSensorTestDataDirectory("stats/");
         File logFile = new File(statsDirectory, fileName);
-        final BufferedWriter writer =
-                new BufferedWriter(new FileWriter(logFile, false /* append */));
-        final Map<String, Object> flattened = stats.flatten();
-        try {
+        final Map<String, Object> flattened = flatten();
+        FileWriter fileWriter = new FileWriter(logFile, false /* append */);
+        try (BufferedWriter writer = new BufferedWriter(fileWriter)) {
             for (String key : getSortedKeys(flattened)) {
                 Object value = flattened.get(key);
                 writer.write(String.format("%s: %s\n", key, getValueString(value)));
             }
-        } finally {
-            writer.flush();
-            writer.close();
         }
     }
 
     /**
      * Provides a sanitized sensor name, that can be used in file names.
-     * See {@link #logStatsToFile(String, SensorStats)}.
+     * See {@link #logToFile(String)}.
      */
-    public static String getSanitizedSensorName(Sensor sensor) throws IOException {
-        String sensorType = sensor.getStringType();
-        String sanitizedSensorType = sensorType.replaceAll("[^a-zA-Z0-9_\\-]", "_");
-        if (sanitizedSensorType.matches("_*")) {
-            throw new IOException("Unable to sanitize sensor type (" + sensorType + "). This is a"
-                    + " 'test framework' issue and the sanitation routine must be fixed.");
-        }
-        return sanitizedSensorType;
+    public static String getSanitizedSensorName(Sensor sensor) throws SensorTestPlatformException {
+        return SensorCtsHelper.sanitizeStringForFileName(sensor.getStringType());
     }
 
     private static List<String> getSortedKeys(Map<String, Object> flattenedStats) {
-        List<String> keys = new ArrayList<String>(flattenedStats.keySet());
+        List<String> keys = new ArrayList<>(flattenedStats.keySet());
         Collections.sort(keys);
         return keys;
     }

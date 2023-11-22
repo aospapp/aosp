@@ -62,8 +62,6 @@ base::File::Error ProviderErrorToFileError(
       return base::File::FILE_ERROR_INVALID_OPERATION;
     case api::file_system_provider::PROVIDER_ERROR_SECURITY:
       return base::File::FILE_ERROR_SECURITY;
-    case api::file_system_provider::PROVIDER_ERROR_ABORT:
-      return base::File::FILE_ERROR_ABORT;
     case api::file_system_provider::PROVIDER_ERROR_NOT_A_FILE:
       return base::File::FILE_ERROR_NOT_A_FILE;
     case api::file_system_provider::PROVIDER_ERROR_NOT_EMPTY:
@@ -83,8 +81,9 @@ FileSystemProviderInternalFunction::FileSystemProviderInternalFunction()
 }
 
 void FileSystemProviderInternalFunction::RejectRequest(
+    scoped_ptr<chromeos::file_system_provider::RequestValue> value,
     base::File::Error error) {
-  if (!request_manager_->RejectRequest(request_id_, error))
+  if (!request_manager_->RejectRequest(request_id_, value.Pass(), error))
     SetErrorResponse(kSecurityErrorName, kResponseFailedErrorMessage);
 }
 

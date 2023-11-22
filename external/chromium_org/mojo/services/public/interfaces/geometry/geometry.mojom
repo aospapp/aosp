@@ -26,9 +26,16 @@ struct Rect {
   int32 height;
 };
 
+struct RectF {
+  float x;
+  float y;
+  float width;
+  float height;
+};
+
 struct Transform {
-  // Should have exactly 16 entries.
-  float[] matrix;
+  // Row major order.
+  float[16]? matrix;
 };
 
 }

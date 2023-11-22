@@ -1,14 +1,15 @@
 # Copyright 2013 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-from telemetry import test
 
 from measurements import startup
 import page_sets
+from telemetry import benchmark
 
 
-@test.Disabled('snowleopard') # crbug.com/336913
-class StartupColdBlankPage(test.Test):
+@benchmark.Enabled('has tabs')
+@benchmark.Disabled('snowleopard') # crbug.com/336913
+class StartupColdBlankPage(benchmark.Benchmark):
   tag = 'cold'
   test = startup.Startup
   page_set = page_sets.BlankPageSet
@@ -16,15 +17,17 @@ class StartupColdBlankPage(test.Test):
              'pageset_repeat': 5}
 
 
-class StartupWarmBlankPage(test.Test):
+@benchmark.Enabled('has tabs')
+class StartupWarmBlankPage(benchmark.Benchmark):
   tag = 'warm'
   test = startup.Startup
   page_set = page_sets.BlankPageSet
   options = {'warm': True,
              'pageset_repeat': 20}
 
-@test.Disabled('snowleopard') # crbug.com/336913
-class StartupColdTheme(test.Test):
+
+@benchmark.Disabled  # crbug.com/336913
+class StartupColdTheme(benchmark.Benchmark):
   tag = 'theme_cold'
   test = startup.Startup
   page_set = page_sets.BlankPageSet
@@ -33,7 +36,8 @@ class StartupColdTheme(test.Test):
              'pageset_repeat': 5}
 
 
-class StartupWarmTheme(test.Test):
+@benchmark.Disabled
+class StartupWarmTheme(benchmark.Benchmark):
   tag = 'theme_warm'
   test = startup.Startup
   page_set = page_sets.BlankPageSet
@@ -41,8 +45,9 @@ class StartupWarmTheme(test.Test):
   options = {'warm': True,
              'pageset_repeat': 20}
 
-@test.Disabled('snowleopard') # crbug.com/336913
-class StartupColdManyExtensions(test.Test):
+
+@benchmark.Disabled  # crbug.com/336913
+class StartupColdManyExtensions(benchmark.Benchmark):
   tag = 'many_extensions_cold'
   test = startup.Startup
   page_set = page_sets.BlankPageSet
@@ -51,7 +56,8 @@ class StartupColdManyExtensions(test.Test):
              'pageset_repeat': 5}
 
 
-class StartupWarmManyExtensions(test.Test):
+@benchmark.Disabled
+class StartupWarmManyExtensions(benchmark.Benchmark):
   tag = 'many_extensions_warm'
   test = startup.Startup
   page_set = page_sets.BlankPageSet

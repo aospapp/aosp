@@ -7,10 +7,10 @@
 
 #include "base/basictypes.h"
 #include "content/common/content_export.h"
-#include "content/public/common/page_transition_types.h"
+#include "content/public/common/resource_type.h"
 #include "third_party/WebKit/public/platform/WebReferrerPolicy.h"
 #include "third_party/WebKit/public/web/WebPageVisibilityState.h"
-#include "webkit/common/resource_type.h"
+#include "ui/base/page_transition_types.h"
 
 namespace net {
 class URLRequest;
@@ -30,14 +30,13 @@ class ResourceRequestInfo {
   // Allocates a new, dummy ResourceRequestInfo and associates it with the
   // given URLRequest.
   // NOTE: Add more parameters if you need to initialize other fields.
-  CONTENT_EXPORT static void AllocateForTesting(
-      net::URLRequest* request,
-      ResourceType::Type resource_type,
-      ResourceContext* context,
-      int render_process_id,
-      int render_view_id,
-      int render_frame_id,
-      bool is_async);
+  CONTENT_EXPORT static void AllocateForTesting(net::URLRequest* request,
+                                                ResourceType resource_type,
+                                                ResourceContext* context,
+                                                int render_process_id,
+                                                int render_view_id,
+                                                int render_frame_id,
+                                                bool is_async);
 
   // Returns the associated RenderFrame for a given process. Returns false, if
   // there is no associated RenderFrame. This method does not rely on the
@@ -82,7 +81,7 @@ class ResourceRequestInfo {
   virtual int GetParentRenderFrameID() const = 0;
 
   // Returns the associated resource type.
-  virtual ResourceType::Type GetResourceType() const = 0;
+  virtual ResourceType GetResourceType() const = 0;
 
   // Returns the process type that initiated this request.
   virtual int GetProcessType() const = 0;
@@ -95,7 +94,7 @@ class ResourceRequestInfo {
   virtual blink::WebPageVisibilityState GetVisibilityState() const = 0;
 
   // Returns the associated page transition type.
-  virtual PageTransition GetPageTransition() const = 0;
+  virtual ui::PageTransition GetPageTransition() const = 0;
 
   // True if the request was initiated by a user action (like a tap to follow
   // a link).

@@ -83,29 +83,32 @@ public class PingSyncSynchronizer {
     private static final String TAG = Eas.LOG_TAG;
 
     private static final long SYNC_ERROR_BACKOFF_MILLIS =  DateUtils.MINUTE_IN_MILLIS;
-    private static final String EXTRA_START_PING = "START_PING";
-    private static final String EXTRA_PING_ACCOUNT = "PING_ACCOUNT";
 
     // Enable this to make pings get automatically renewed every hour. This
     // should not be needed, but if there is a software error that results in
     // the ping being lost, this is a fallback to make sure that messages are
     // not delayed more than an hour.
-    private static final boolean SCHEDULE_KICK = false;
+    private static final boolean SCHEDULE_KICK = true;
     private static final long KICK_SYNC_INTERVAL_SECONDS =
             DateUtils.HOUR_IN_MILLIS / DateUtils.SECOND_IN_MILLIS;
 
     /**
      * This class handles bookkeeping for a single account.
      */
-    private static class AccountSyncState {
+    private class AccountSyncState {
         /** The currently running {@link PingTask}, or null if we aren't in the middle of a Ping. */
         private PingTask mPingTask;
+
+        // Values for mPushEnabled.
+        public static final int PUSH_UNKNOWN = 0;
+        public static final int PUSH_ENABLED = 1;
+        public static final int PUSH_DISABLED = 2;
 
         /**
          * Tracks whether this account wants to get push notifications, based on calls to
          * {@link #pushModify} and {@link #pushStop} (i.e. it tracks the last requested push state).
          */
-        private boolean mPushEnabled;
+        private int mPushEnabled;
 
         /**
          * The number of syncs that are blocked waiting for the current operation to complete.
@@ -117,11 +120,18 @@ public class PingSyncSynchronizer {
         /** The condition on which to block syncs that need to wait. */
         private Condition mCondition;
 
-        public AccountSyncState(final Lock lock ) {
+        /** The accountId for this accountState, used for logging */
+        private long mAccountId;
+
+        public AccountSyncState(final Lock lock, final long accountId) {
             mPingTask = null;
-            mPushEnabled = false;
+            // We don't yet have enough information to know whether or not push should be enabled.
+            // We need to look up the account and it's folders, which won't yet exist for a newly
+            // created account.
+            mPushEnabled = PUSH_UNKNOWN;
             mSyncCount = 0;
             mCondition = lock.newCondition();
+            mAccountId = accountId;
         }
 
         /**
@@ -133,17 +143,18 @@ public class PingSyncSynchronizer {
             ++mSyncCount;
             if (mPingTask != null) {
                 // Syncs are higher priority than Ping -- terminate the Ping.
-                LogUtils.d(TAG, "Sync is pre-empting a ping");
+                LogUtils.i(TAG, "PSS Sync is pre-empting a ping acct:%d", mAccountId);
                 mPingTask.stop();
             }
             if (mPingTask != null || mSyncCount > 1) {
                 // There’s something we need to wait for before we can proceed.
                 try {
-                    LogUtils.d(TAG, "Sync needs to wait: Ping: %s, Pending tasks: %d",
-                            mPingTask != null ? "yes" : "no", mSyncCount);
+                    LogUtils.i(TAG, "PSS Sync needs to wait: Ping: %s, Pending tasks: %d acct: %d",
+                            mPingTask != null ? "yes" : "no", mSyncCount, mAccountId);
                     mCondition.await();
                 } catch (final InterruptedException e) {
                     // TODO: Handle this properly. Not catching it might be the right answer.
+                    LogUtils.i(TAG, "PSS InterruptedException acct:%d", mAccountId);
                 }
             }
         }
@@ -157,18 +168,25 @@ public class PingSyncSynchronizer {
                                final PingSyncSynchronizer synchronizer) {
             --mSyncCount;
             if (mSyncCount > 0) {
-                LogUtils.d(TAG, "Signalling a pending sync to proceed.");
+                LogUtils.i(TAG, "PSS Signalling a pending sync to proceed acct:%d.",
+                        account.getId());
                 mCondition.signal();
                 return false;
             } else {
-                if (mPushEnabled) {
+                if (mPushEnabled == PUSH_UNKNOWN) {
+                    LogUtils.i(TAG, "PSS push enabled is unknown");
+                    mPushEnabled = (EasService.pingNeededForAccount(mService, account) ?
+                            PUSH_ENABLED : PUSH_DISABLED);
+                }
+                if (mPushEnabled == PUSH_ENABLED) {
                     if (lastSyncHadError) {
-                        final android.accounts.Account amAccount =
-                                new android.accounts.Account(account.mEmailAddress,
-                                    Eas.EXCHANGE_ACCOUNT_MANAGER_TYPE);
-                        scheduleDelayedPing(synchronizer.getContext(), amAccount);
+                        LogUtils.i(TAG, "PSS last sync had error, scheduling delayed ping acct:%d.",
+                                account.getId());
+                        scheduleDelayedPing(synchronizer.getContext(), account);
                         return true;
                     } else {
+                        LogUtils.i(TAG, "PSS last sync succeeded, starting new ping acct:%d.",
+                                account.getId());
                         final android.accounts.Account amAccount =
                                 new android.accounts.Account(account.mEmailAddress,
                                         Eas.EXCHANGE_ACCOUNT_MANAGER_TYPE);
@@ -179,6 +197,7 @@ public class PingSyncSynchronizer {
                     }
                 }
             }
+            LogUtils.i(TAG, "PSS no push enabled acct:%d.", account.getId());
             return true;
         }
 
@@ -189,10 +208,20 @@ public class PingSyncSynchronizer {
         private boolean pingEnd(final android.accounts.Account amAccount) {
             mPingTask = null;
             if (mSyncCount > 0) {
+                LogUtils.i(TAG, "PSS pingEnd, syncs still in progress acct:%d.", mAccountId);
                 mCondition.signal();
                 return false;
             } else {
-                if (mPushEnabled) {
+                if (mPushEnabled == PUSH_ENABLED || mPushEnabled == PUSH_UNKNOWN) {
+                    if (mPushEnabled == PUSH_UNKNOWN) {
+                        // This should not occur. If mPushEnabled is unknown, we should not
+                        // have started a ping. Still, we'd rather err on the side of restarting
+                        // the ping, so log an error and request a new ping. Eventually we should
+                        // do a sync, and then we'll correctly initialize mPushEnabled in
+                        // syncEnd().
+                        LogUtils.e(TAG, "PSS pingEnd, with mPushEnabled UNKNOWN?");
+                    }
+                    LogUtils.i(TAG, "PSS pingEnd, starting new ping acct:%d.", mAccountId);
                     /**
                      * This situation only arises if we encountered some sort of error that
                      * stopped our ping but not due to a sync interruption. In this scenario
@@ -202,16 +231,18 @@ public class PingSyncSynchronizer {
                     return false;
                 }
             }
+            LogUtils.i(TAG, "PSS pingEnd, no longer need ping acct:%d.", mAccountId);
             return true;
         }
 
         private void scheduleDelayedPing(final Context context,
-                                         final android.accounts.Account amAccount) {
-            LogUtils.d(TAG, "Scheduling a delayed ping.");
-            final Intent intent = new Intent(context, EmailSyncAdapterService.class);
+                                         final Account account) {
+            LogUtils.i(TAG, "PSS Scheduling a delayed ping acct:%d.", account.getId());
+            final Intent intent = new Intent(context, EasService.class);
             intent.setAction(Eas.EXCHANGE_SERVICE_INTENT_ACTION);
-            intent.putExtra(EXTRA_START_PING, true);
-            intent.putExtra(EXTRA_PING_ACCOUNT, amAccount);
+            intent.putExtra(EasService.EXTRA_START_PING, true);
+            intent.putExtra(EasService.EXTRA_PING_ACCOUNT, account);
+
             final PendingIntent pi = PendingIntent.getService(context, 0, intent,
                     PendingIntent.FLAG_ONE_SHOT);
             final AlarmManager am = (AlarmManager)context.getSystemService(
@@ -224,20 +255,25 @@ public class PingSyncSynchronizer {
          * Modifies or starts a ping for this account if no syncs are running.
          */
         public void pushModify(final Account account, final PingSyncSynchronizer synchronizer) {
-            mPushEnabled = true;
+            LogUtils.i(LogUtils.TAG, "PSS pushModify acct:%d", account.getId());
+            mPushEnabled = PUSH_ENABLED;
             final android.accounts.Account amAccount =
                     new android.accounts.Account(account.mEmailAddress,
                             Eas.EXCHANGE_ACCOUNT_MANAGER_TYPE);
             if (mSyncCount == 0) {
                 if (mPingTask == null) {
                     // No ping, no running syncs -- start a new ping.
+                    LogUtils.i(LogUtils.TAG, "PSS starting ping task acct:%d", account.getId());
                     mPingTask = new PingTask(synchronizer.getContext(), account, amAccount,
                             synchronizer);
                     mPingTask.start();
                 } else {
                     // Ping is already running, so tell it to restart to pick up any new params.
+                    LogUtils.i(LogUtils.TAG, "PSS restarting ping task acct:%d", account.getId());
                     mPingTask.restart();
                 }
+            } else {
+                LogUtils.i(LogUtils.TAG, "PSS syncs still in progress acct:%d", account.getId());
             }
             if (SCHEDULE_KICK) {
                 final Bundle extras = new Bundle(1);
@@ -251,7 +287,8 @@ public class PingSyncSynchronizer {
          * Stop the currently running ping.
          */
         public void pushStop() {
-            mPushEnabled = false;
+            LogUtils.i(LogUtils.TAG, "PSS pushStop acct:%d", mAccountId);
+            mPushEnabled = PUSH_DISABLED;
             if (mPingTask != null) {
                 mPingTask.stop();
             }
@@ -298,8 +335,8 @@ public class PingSyncSynchronizer {
         assert mLock.isHeldByCurrentThread();
         AccountSyncState state = mAccountStateMap.get(accountId);
         if (state == null && createIfNeeded) {
-            LogUtils.d(TAG, "PSS adding account state for %d", accountId);
-            state = new AccountSyncState(mLock);
+            LogUtils.i(TAG, "PSS adding account state for acct:%d", accountId);
+            state = new AccountSyncState(mLock, accountId);
             mAccountStateMap.put(accountId, state);
             // TODO: Is this too late to startService?
             if (mAccountStateMap.size() == 1) {
@@ -317,7 +354,7 @@ public class PingSyncSynchronizer {
      */
     private void removeAccount(final long accountId) {
         assert mLock.isHeldByCurrentThread();
-        LogUtils.d(TAG, "PSS removing account state for %d", accountId);
+        LogUtils.i(TAG, "PSS removing account state for acct:%d", accountId);
         mAccountStateMap.delete(accountId);
         if (mAccountStateMap.size() == 0) {
             LogUtils.i(TAG, "PSS removed last account; stopping service.");
@@ -328,7 +365,7 @@ public class PingSyncSynchronizer {
     public void syncStart(final long accountId) {
         mLock.lock();
         try {
-            LogUtils.d(TAG, "PSS syncStart for account %d", accountId);
+            LogUtils.i(TAG, "PSS syncStart for account acct:%d", accountId);
             final AccountSyncState accountState = getAccountState(accountId, true);
             accountState.syncStart();
         } finally {
@@ -340,7 +377,7 @@ public class PingSyncSynchronizer {
         mLock.lock();
         try {
             final long accountId = account.getId();
-            LogUtils.d(TAG, "PSS syncEnd for account %d", account.getId());
+            LogUtils.i(TAG, "PSS syncEnd for account acct:%d", account.getId());
             final AccountSyncState accountState = getAccountState(accountId, false);
             if (accountState == null) {
                 LogUtils.w(TAG, "PSS syncEnd for account %d but no state found", accountId);
@@ -357,7 +394,7 @@ public class PingSyncSynchronizer {
     public void pingEnd(final long accountId, final android.accounts.Account amAccount) {
         mLock.lock();
         try {
-            LogUtils.d(TAG, "PSS pingEnd for account %d", accountId);
+            LogUtils.i(TAG, "PSS pingEnd for account %d", accountId);
             final AccountSyncState accountState = getAccountState(accountId, false);
             if (accountState == null) {
                 LogUtils.w(TAG, "PSS pingEnd for account %d but no state found", accountId);
@@ -375,7 +412,7 @@ public class PingSyncSynchronizer {
         mLock.lock();
         try {
             final long accountId = account.getId();
-            LogUtils.d(TAG, "PSS pushModify for account %d", accountId);
+            LogUtils.i(TAG, "PSS pushModify acct:%d", accountId);
             final AccountSyncState accountState = getAccountState(accountId, true);
             accountState.pushModify(account, this);
         } finally {
@@ -386,7 +423,7 @@ public class PingSyncSynchronizer {
     public void pushStop(final long accountId) {
         mLock.lock();
         try {
-            LogUtils.d(TAG, "PSS pushStop for account %d", accountId);
+            LogUtils.i(TAG, "PSS pushStop acct:%d", accountId);
             final AccountSyncState accountState = getAccountState(accountId, false);
             if (accountState != null) {
                 accountState.pushStop();
@@ -402,7 +439,7 @@ public class PingSyncSynchronizer {
     public void stopServiceIfIdle() {
         mLock.lock();
         try {
-            LogUtils.d(TAG, "PSS stopIfIdle");
+            LogUtils.i(TAG, "PSS stopIfIdle");
             if (mAccountStateMap.size() == 0) {
                 LogUtils.i(TAG, "PSS has no active accounts; stopping service.");
                 mService.stopSelf();

@@ -186,9 +186,19 @@ static const FormatKey s_extSrgbNonRenderableTexFormats[] =
 	GL_SRGB8,
 };
 
-static const FormatKey s_nvSrgbFormatsFormats[] =
+static const FormatKey s_nvSrgbFormatsRboFormats[] =
 {
 	GL_SRGB8,
+};
+
+static const FormatKey s_nvSrgbFormatsTextureFormats[] =
+{
+	GL_SRGB8,
+
+	// The extension does not actually require any unsized format
+	// to be renderable. However, the renderablility of unsized
+	// SRGB,UBYTE internalformat-type pair is implied.
+	GLS_UNSIZED_FORMATKEY(GL_SRGB,			GL_UNSIGNED_BYTE),
 };
 
 static const FormatKey s_oesRgb8Rgba8TexFormats[] =
@@ -306,8 +316,13 @@ static const FormatExtEntry s_esExtFormats[] =
 	},
 	{
 		"GL_NV_sRGB_formats",
-		REQUIRED_RENDERABLE | COLOR_RENDERABLE | TEXTURE_VALID | RENDERBUFFER_VALID,
-		GLS_ARRAY_RANGE(s_nvSrgbFormatsFormats)
+		REQUIRED_RENDERABLE | COLOR_RENDERABLE | RENDERBUFFER_VALID,
+		GLS_ARRAY_RANGE(s_nvSrgbFormatsRboFormats)
+	},
+	{
+		"GL_NV_sRGB_formats",
+		REQUIRED_RENDERABLE | COLOR_RENDERABLE | TEXTURE_VALID,
+		GLS_ARRAY_RANGE(s_nvSrgbFormatsTextureFormats)
 	},
 
 	 // In Khronos bug 7333 discussion, the consensus is that these texture

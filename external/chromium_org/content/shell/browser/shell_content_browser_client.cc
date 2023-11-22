@@ -6,8 +6,8 @@
 
 #include "base/base_switches.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file.h"
+#include "base/files/file_util.h"
 #include "base/path_service.h"
 #include "base/strings/utf_string_conversions.h"
 #include "content/public/browser/render_process_host.h"
@@ -15,12 +15,15 @@
 #include "content/public/browser/storage_partition.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/url_constants.h"
+#include "content/public/common/web_preferences.h"
+#include "content/shell/browser/ipc_echo_message_filter.h"
 #include "content/shell/browser/shell.h"
 #include "content/shell/browser/shell_browser_context.h"
 #include "content/shell/browser/shell_browser_main_parts.h"
 #include "content/shell/browser/shell_devtools_delegate.h"
 #include "content/shell/browser/shell_message_filter.h"
 #include "content/shell/browser/shell_net_log.h"
+#include "content/shell/browser/shell_notification_manager.h"
 #include "content/shell/browser/shell_quota_permission_context.h"
 #include "content/shell/browser/shell_resource_dispatcher_host_delegate.h"
 #include "content/shell/browser/shell_web_contents_view_delegate_creator.h"
@@ -31,19 +34,17 @@
 #include "content/shell/geolocation/shell_access_token_store.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "url/gurl.h"
-#include "webkit/common/webpreferences.h"
 
 #if defined(OS_ANDROID)
 #include "base/android/path_utils.h"
-#include "base/path_service.h"
-#include "components/breakpad/browser/crash_dump_manager_android.h"
+#include "components/crash/browser/crash_dump_manager_android.h"
 #include "content/shell/android/shell_descriptors.h"
 #endif
 
 #if defined(OS_POSIX) && !defined(OS_MACOSX)
 #include "base/debug/leak_annotations.h"
-#include "components/breakpad/app/breakpad_linux.h"
-#include "components/breakpad/browser/crash_handler_host_linux.h"
+#include "components/crash/app/breakpad_linux.h"
+#include "components/crash/browser/crash_handler_host_linux.h"
 #include "content/public/common/content_descriptors.h"
 #endif
 
@@ -114,6 +115,18 @@ int GetCrashSignalFD(const CommandLine& command_line) {
 }
 #endif  // defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_ANDROID)
 
+void RequestDesktopNotificationPermissionOnIO(
+    const GURL& source_origin,
+    RenderFrameHost* render_frame_host,
+    const base::Callback<void(blink::WebNotificationPermission)>& callback) {
+  ShellNotificationManager* manager =
+      ShellContentBrowserClient::Get()->GetShellNotificationManager();
+  if (manager)
+    manager->RequestPermission(source_origin, callback);
+  else
+    callback.Run(blink::WebNotificationPermissionAllowed);
+}
+
 }  // namespace
 
 ShellContentBrowserClient* ShellContentBrowserClient::Get() {
@@ -137,6 +150,18 @@ ShellContentBrowserClient::~ShellContentBrowserClient() {
   g_browser_client = NULL;
 }
 
+ShellNotificationManager*
+ShellContentBrowserClient::GetShellNotificationManager() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kDumpRenderTree))
+    return NULL;
+
+  if (!shell_notification_manager_)
+    shell_notification_manager_.reset(new ShellNotificationManager());
+
+  return shell_notification_manager_.get();
+}
+
 BrowserMainParts* ShellContentBrowserClient::CreateBrowserMainParts(
     const MainFunctionParams& parameters) {
   shell_browser_main_parts_ = new ShellBrowserMainParts(parameters);
@@ -145,6 +170,8 @@ BrowserMainParts* ShellContentBrowserClient::CreateBrowserMainParts(
 
 void ShellContentBrowserClient::RenderProcessWillLaunch(
     RenderProcessHost* host) {
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kExposeIpcEcho))
+    host->AddFilter(new IPCEchoMessageFilter());
   if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kDumpRenderTree))
     return;
   host->AddFilter(new ShellMessageFilter(
@@ -187,7 +214,7 @@ ShellContentBrowserClient::CreateRequestContextForStoragePartition(
 bool ShellContentBrowserClient::IsHandledURL(const GURL& url) {
   if (!url.is_valid())
     return false;
-  DCHECK_EQ(url.scheme(), StringToLowerASCII(url.scheme()));
+  DCHECK_EQ(url.scheme(), base::StringToLowerASCII(url.scheme()));
   // Keep in sync with ProtocolHandlers added by
   // ShellURLRequestContextGetter::GetURLRequestContext().
   static const char* const kProtocolList[] = {
@@ -215,6 +242,9 @@ void ShellContentBrowserClient::AppendExtraCommandLineSwitches(
   if (CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kExposeInternalsForTesting))
     command_line->AppendSwitch(switches::kExposeInternalsForTesting);
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kExposeIpcEcho))
+    command_line->AppendSwitch(switches::kExposeIpcEcho);
   if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kStableReleaseMode))
     command_line->AppendSwitch(switches::kStableReleaseMode);
   if (CommandLine::ForCurrentProcess()->HasSwitch(
@@ -228,8 +258,12 @@ void ShellContentBrowserClient::AppendExtraCommandLineSwitches(
             switches::kCrashDumpsDir));
   }
   if (CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableLeakDetection))
-    command_line->AppendSwitch(switches::kEnableLeakDetection);
+          switches::kEnableLeakDetection)) {
+    command_line->AppendSwitchASCII(
+        switches::kEnableLeakDetection,
+        CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+            switches::kEnableLeakDetection));
+  }
   if (CommandLine::ForCurrentProcess()->HasSwitch(
         switches::kRegisterFontFiles)) {
     command_line->AppendSwitchASCII(
@@ -273,6 +307,31 @@ ShellContentBrowserClient::CreateQuotaPermissionContext() {
   return new ShellQuotaPermissionContext();
 }
 
+void ShellContentBrowserClient::RequestDesktopNotificationPermission(
+    const GURL& source_origin,
+    RenderFrameHost* render_frame_host,
+    const base::Callback<void(blink::WebNotificationPermission)>& callback) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  BrowserThread::PostTask(BrowserThread::IO,
+                          FROM_HERE,
+                          base::Bind(&RequestDesktopNotificationPermissionOnIO,
+                              source_origin,
+                              render_frame_host,
+                              callback));
+}
+
+blink::WebNotificationPermission
+ShellContentBrowserClient::CheckDesktopNotificationPermission(
+    const GURL& source_url,
+    ResourceContext* context,
+    int render_process_id) {
+  ShellNotificationManager* manager = GetShellNotificationManager();
+  if (manager)
+    return manager->CheckPermission(source_url);
+
+  return blink::WebNotificationPermissionAllowed;
+}
+
 SpeechRecognitionManagerDelegate*
     ShellContentBrowserClient::GetSpeechRecognitionManagerDelegate() {
   return new ShellSpeechRecognitionManagerDelegate();
@@ -287,6 +346,11 @@ bool ShellContentBrowserClient::ShouldSwapProcessesForRedirect(
     const GURL& current_url,
     const GURL& new_url) {
   return g_swap_processes_for_redirect;
+}
+
+DevToolsManagerDelegate*
+ShellContentBrowserClient::GetDevToolsManagerDelegate() {
+  return new ShellDevToolsManagerDelegate(browser_context());
 }
 
 #if defined(OS_POSIX) && !defined(OS_MACOSX)

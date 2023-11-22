@@ -191,11 +191,11 @@ class MEDIA_EXPORT AudioInputController
       SyncWriter* sync_writer,
       UserInputMonitor* user_input_monitor);
 
-  // Factory method for creating an AudioInputController for low-latency mode,
-  // taking ownership of |stream|.  The stream will be opened on the audio
-  // thread, and when that is done, the event handler will receive an
-  // OnCreated() call from that same thread. |user_input_monitor| is used for
-  // typing detection and can be NULL.
+  // Factory method for creating an AudioInputController with an existing
+  // |stream| for low-latency mode, taking ownership of |stream|. The stream
+  // will be opened on the audio thread, and when that is done, the event
+  // handler will receive an OnCreated() call from that same thread.
+  // |user_input_monitor| is used for typing detection and can be NULL.
   static scoped_refptr<AudioInputController> CreateForStream(
       const scoped_refptr<base::SingleThreadTaskRunner>& task_runner,
       EventHandler* event_handler,
@@ -246,23 +246,46 @@ class MEDIA_EXPORT AudioInputController
     CLOSED
   };
 
+#if defined(AUDIO_POWER_MONITORING)
+  // Used to log a silence report (see OnData).
+  // Elements in this enum should not be deleted or rearranged; the only
+  // permitted operation is to add new elements before SILENCE_STATE_MAX and
+  // update SILENCE_STATE_MAX.
+  // Possible silence state transitions:
+  //           SILENCE_STATE_AUDIO_AND_SILENCE
+  //               ^                  ^
+  // SILENCE_STATE_ONLY_AUDIO   SILENCE_STATE_ONLY_SILENCE
+  //               ^                  ^
+  //            SILENCE_STATE_NO_MEASUREMENT
+  enum SilenceState {
+    SILENCE_STATE_NO_MEASUREMENT = 0,
+    SILENCE_STATE_ONLY_AUDIO = 1,
+    SILENCE_STATE_ONLY_SILENCE = 2,
+    SILENCE_STATE_AUDIO_AND_SILENCE = 3,
+    SILENCE_STATE_MAX = SILENCE_STATE_AUDIO_AND_SILENCE
+  };
+#endif
+
   AudioInputController(EventHandler* handler,
                        SyncWriter* sync_writer,
                        UserInputMonitor* user_input_monitor);
   virtual ~AudioInputController();
 
   // Methods called on the audio thread (owned by the AudioManager).
-  void DoCreate(AudioManager* audio_manager, const AudioParameters& params,
+  void DoCreate(AudioManager* audio_manager,
+                const AudioParameters& params,
                 const std::string& device_id);
-  void DoCreateForStream(AudioInputStream* stream_to_control,
-                         bool enable_nodata_timer);
+  void DoCreateForLowLatency(AudioManager* audio_manager,
+                             const AudioParameters& params,
+                             const std::string& device_id);
+  void DoCreateForStream(AudioInputStream* stream_to_control);
   void DoRecord();
   void DoClose();
   void DoReportError();
   void DoSetVolume(double volume);
   void DoSetAutomaticGainControl(bool enabled);
   void DoOnData(scoped_ptr<AudioBus> data);
-  void DoLogAudioLevel(float level_dbfs);
+  void DoLogAudioLevels(float level_dbfs, int microphone_volume_percent);
 
   // Method to check if we get recorded data after a stream was started,
   // and log the result to UMA.
@@ -277,6 +300,15 @@ class MEDIA_EXPORT AudioInputController
 
   void SetDataIsActive(bool enabled);
   bool GetDataIsActive();
+
+#if defined(AUDIO_POWER_MONITORING)
+  // Updates the silence state, see enum SilenceState above for state
+  // transitions.
+  void UpdateSilenceState(bool silence);
+
+  // Logs the silence state as UMA stat.
+  void LogSilenceState(SilenceState value);
+#endif
 
   // Gives access to the task runner of the creating thread.
   scoped_refptr<base::SingleThreadTaskRunner> creator_task_runner_;
@@ -327,9 +359,18 @@ class MEDIA_EXPORT AudioInputController
   // We need these to be able to feed data to the AudioPowerMonitor.
   media::AudioParameters audio_params_;
   base::TimeTicks last_audio_level_log_time_;
+
+  // Whether the silence state should sent as UMA stat.
+  bool log_silence_state_;
+
+  // The silence report sent as UMA stat at the end of a session.
+  SilenceState silence_state_;
 #endif
 
   size_t prev_key_down_count_;
+
+  // Time when a low-latency stream is created.
+  base::TimeTicks low_latency_create_time_;
 
   DISALLOW_COPY_AND_ASSIGN(AudioInputController);
 };

@@ -252,7 +252,7 @@ final class Ringer extends CallsManagerListenerBase {
 
     private boolean shouldVibrate(Context context) {
         AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-        int ringerMode = audioManager.getRingerMode();
+        int ringerMode = audioManager.getRingerModeInternal();
         if (getVibrateWhenRinging(context)) {
             return ringerMode != AudioManager.RINGER_MODE_SILENT;
         } else {

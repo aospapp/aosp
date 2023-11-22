@@ -14,15 +14,21 @@
 namespace extensions {
 
 // static
-MenuManager* MenuManagerFactory::GetForProfile(
-    Profile* profile) {
+MenuManager* MenuManagerFactory::GetForBrowserContext(
+    content::BrowserContext* context) {
   return static_cast<MenuManager*>(
-      GetInstance()->GetServiceForBrowserContext(profile, true));
+      GetInstance()->GetServiceForBrowserContext(context, true));
 }
 
 // static
 MenuManagerFactory* MenuManagerFactory::GetInstance() {
   return Singleton<MenuManagerFactory>::get();
+}
+
+// static
+KeyedService* MenuManagerFactory::BuildServiceInstanceForTesting(
+    content::BrowserContext* context) {
+  return GetInstance()->BuildServiceInstanceFor(context);
 }
 
 MenuManagerFactory::MenuManagerFactory()
@@ -37,9 +43,7 @@ MenuManagerFactory::~MenuManagerFactory() {}
 KeyedService* MenuManagerFactory::BuildServiceInstanceFor(
     content::BrowserContext* context) const {
   Profile* profile = Profile::FromBrowserContext(context);
-  return new MenuManager(
-      profile,
-      ExtensionSystem::Get(profile)->state_store());
+  return new MenuManager(profile, ExtensionSystem::Get(profile)->state_store());
 }
 
 content::BrowserContext* MenuManagerFactory::GetBrowserContextToUse(

@@ -37,14 +37,22 @@ public:
     SPDIFEncoder();
     virtual ~SPDIFEncoder();
 
+    // Write encoded data to be wrapped for SPDIF.
+    // The compressed frames do not have to be aligned.
     ssize_t write( const void* buffer, size_t numBytes );
 
     // Called by SPDIFEncoder when it is ready to output a data burst.
     // Must be implemented by caller.
     virtual ssize_t writeOutput( const void* buffer, size_t numBytes ) = 0;
 
+    // Get ration of the encoded data burst sample rate to the encoded rate.
+    // For example, EAC3 data bursts are 4X the encoded rate.
     uint32_t getRateMultiplier() const { return mRateMultiplier; }
+
+    // Return the number of PCM frames in a data burst.
     uint32_t getBurstFrames() const { return mBurstFrames; }
+
+    // Return number of bytes per PCM frame for the data burst.
     int      getBytesPerOutputFrame();
 
 protected:
@@ -54,7 +62,8 @@ protected:
     void   writeBurstBufferBytes(const uint8_t* buffer, size_t numBytes);
     void   sendZeroPad();
     void   flushBurstBuffer();
-    size_t startDataBurst();
+    void   startDataBurst();
+    size_t startSyncFrame();
 
     // State machine states.
     enum State {

@@ -6,6 +6,7 @@
 
 #include "base/files/file_path.h"
 #include "base/metrics/histogram.h"
+#include "base/metrics/sparse_histogram.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread_restrictions.h"
@@ -17,13 +18,12 @@
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/extensions/api/managed_mode_private/managed_mode_handler.h"
-#include "chrome/common/extensions/extension_constants.h"
+#include "chrome/common/extensions/api/supervised_user_private/supervised_user_handler.h"
 #include "chrome/common/extensions/manifest_url_handler.h"
 #include "chrome/common/pref_names.h"
+#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/user_metrics.h"
-#include "extensions/browser/api/runtime/runtime_api.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
@@ -31,6 +31,7 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_l10n_util.h"
 #include "extensions/common/extension_set.h"
+#include "extensions/common/extension_urls.h"
 #include "extensions/common/file_util.h"
 #include "extensions/common/manifest.h"
 #include "extensions/common/manifest_constants.h"
@@ -134,6 +135,27 @@ void RecordCreationFlags(const Extension* extension) {
   }
 }
 
+// Helper to record a single disable reason histogram value (see
+// RecordDisableReasons below).
+void RecordDisbleReasonHistogram(int reason) {
+  UMA_HISTOGRAM_SPARSE_SLOWLY("Extensions.DisableReason", reason);
+}
+
+// Records the disable reasons for a single extension grouped by
+// Extension::DisableReason.
+void RecordDisableReasons(int reasons) {
+  // |reasons| is a bitmask with values from Extension::DisabledReason
+  // which are increasing powers of 2.
+  if (reasons == Extension::DISABLE_NONE) {
+    RecordDisbleReasonHistogram(Extension::DISABLE_NONE);
+    return;
+  }
+  for (int reason = 1; reason < Extension::DISABLE_REASON_LAST; reason <<= 1) {
+    if (reasons & reason)
+      RecordDisbleReasonHistogram(reason);
+  }
+}
+
 }  // namespace
 
 InstalledLoader::InstalledLoader(ExtensionService* extension_service)
@@ -180,7 +202,8 @@ void InstalledLoader::Load(const ExtensionInfo& info, bool write_to_prefs) {
       error = errors::kDisabledByPolicy;
       extension = NULL;
     } else if (!extension_prefs_->IsExtensionDisabled(extension->id()) &&
-               policy->MustRemainDisabled(extension, &disable_reason, NULL)) {
+               policy->MustRemainDisabled(
+                   extension.get(), &disable_reason, NULL)) {
       extension_prefs_->SetExtensionState(extension->id(), Extension::DISABLED);
       extension_prefs_->AddDisableReason(extension->id(), disable_reason);
       force_disabled = true;
@@ -308,7 +331,7 @@ void InstalledLoader::LoadAllExtensions() {
   for (ExtensionSet::const_iterator iter = extensions.begin();
        iter != extensions.end();
        ++iter) {
-    const Extension* extension = *iter;
+    const Extension* extension = iter->get();
     Manifest::Location location = extension->location();
     Manifest::Type type = extension->GetType();
 
@@ -436,7 +459,7 @@ void InstalledLoader::LoadAllExtensions() {
     if (extension_action_manager->GetBrowserAction(*extension))
       ++browser_action_count;
 
-    if (ManagedModeInfo::IsContentPack(extension))
+    if (SupervisedUserInfo::IsContentPack(extension))
       ++content_pack_count;
 
     RecordCreationFlags(extension);
@@ -473,9 +496,10 @@ void InstalledLoader::LoadAllExtensions() {
     if (extension_prefs_->DidExtensionEscalatePermissions((*ex)->id())) {
       ++disabled_for_permissions_count;
     }
+    RecordDisableReasons(extension_prefs_->GetDisableReasons((*ex)->id()));
     if (Manifest::IsExternalLocation((*ex)->location())) {
       // See loop above for ENABLED.
-      if (ManifestURL::UpdatesFromGallery(*ex)) {
+      if (ManifestURL::UpdatesFromGallery(ex->get())) {
         UMA_HISTOGRAM_ENUMERATION("Extensions.ExternalItemState",
                                   EXTERNAL_ITEM_WEBSTORE_DISABLED,
                                   EXTERNAL_ITEM_MAX_ITEMS);
@@ -522,7 +546,9 @@ void InstalledLoader::LoadAllExtensions() {
                            extension_external_count);
   UMA_HISTOGRAM_COUNTS_100("Extensions.LoadUserScript", user_script_count);
   UMA_HISTOGRAM_COUNTS_100("Extensions.LoadTheme", theme_count);
-  UMA_HISTOGRAM_COUNTS_100("Extensions.LoadPageAction", page_action_count);
+  // Histogram name different for legacy reasons.
+  UMA_HISTOGRAM_COUNTS_100("PageActionController.ExtensionsWithPageActions",
+                           page_action_count);
   UMA_HISTOGRAM_COUNTS_100("Extensions.LoadBrowserAction",
                            browser_action_count);
   UMA_HISTOGRAM_COUNTS_100("Extensions.LoadContentPack", content_pack_count);
@@ -542,6 +568,8 @@ void InstalledLoader::LoadAllExtensions() {
     UMA_HISTOGRAM_COUNTS_100("Extensions.FileAccessNotAllowed",
                              file_access_not_allowed_count);
   }
+  UMA_HISTOGRAM_COUNTS_100("Extensions.CorruptExtensionTotalDisables",
+                           extension_prefs_->GetCorruptedDisableCount());
 }
 
 int InstalledLoader::GetCreationFlags(const ExtensionInfo* info) {

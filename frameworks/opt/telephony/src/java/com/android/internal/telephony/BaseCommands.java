@@ -1,3 +1,4 @@
+
 /*
  * Copyright (C) 2006 The Android Open Source Project
  *
@@ -16,14 +17,16 @@
 
 package com.android.internal.telephony;
 
-
 import android.content.Context;
 import android.os.Message;
 import android.os.RegistrantList;
 import android.os.Registrant;
 import android.os.Handler;
 import android.os.AsyncResult;
+import android.telephony.RadioAccessFamily;
 import android.telephony.TelephonyManager;
+
+import com.android.internal.telephony.RadioCapability;
 
 /**
  * {@hide}
@@ -68,6 +71,8 @@ public abstract class BaseCommands implements CommandsInterface {
     protected RegistrantList mSubscriptionStatusRegistrants = new RegistrantList();
     protected RegistrantList mSrvccStateRegistrants = new RegistrantList();
     protected RegistrantList mHardwareConfigChangeRegistrants = new RegistrantList();
+    protected RegistrantList mPhoneRadioCapabilityChangedRegistrants =
+            new RegistrantList();
 
     protected Registrant mGsmSmsRegistrant;
     protected Registrant mCdmaSmsRegistrant;
@@ -86,6 +91,8 @@ public abstract class BaseCommands implements CommandsInterface {
     protected Registrant mRingRegistrant;
     protected Registrant mRestrictedStateRegistrant;
     protected Registrant mGsmBroadcastSmsRegistrant;
+    protected Registrant mCatCcAlphaRegistrant;
+    protected Registrant mSsRegistrant;
 
     // Preferred network type received from PhoneFactory.
     // This is used when establishing a connection to the
@@ -97,6 +104,8 @@ public abstract class BaseCommands implements CommandsInterface {
     protected int mPhoneType;
     // RIL Version
     protected int mRilVersion = -1;
+    // Supported Radio Access Family
+    protected int mSupportedRaf = RadioAccessFamily.RAF_UNKNOWN;
 
     public BaseCommands(Context context) {
         mContext = context;  // May be null (if so we won't log statistics)
@@ -492,6 +501,26 @@ public abstract class BaseCommands implements CommandsInterface {
     }
 
     @Override
+    public void setOnSs(Handler h, int what, Object obj) {
+        mSsRegistrant = new Registrant (h, what, obj);
+    }
+
+    @Override
+    public void unSetOnSs(Handler h) {
+        mSsRegistrant.clear();
+    }
+
+    @Override
+    public void setOnCatCcAlphaNotify(Handler h, int what, Object obj) {
+        mCatCcAlphaRegistrant = new Registrant (h, what, obj);
+    }
+
+    @Override
+    public void unSetOnCatCcAlphaNotify(Handler h) {
+        mCatCcAlphaRegistrant.clear();
+    }
+
+    @Override
     public void registerForInCallVoicePrivacyOn(Handler h, int what, Object obj) {
         Registrant r = new Registrant (h, what, obj);
         mVoicePrivacyOnRegistrants.add(r);
@@ -818,6 +847,11 @@ public abstract class BaseCommands implements CommandsInterface {
         return mRilVersion;
     }
 
+    @Override
+    public int getSupportedRadioAccessFamily() {
+        return mSupportedRaf;
+    }
+
     public void setUiccSubscription(int slotId, int appIndex, int subId, int subStatus,
             Message response) {
     }
@@ -827,5 +861,24 @@ public abstract class BaseCommands implements CommandsInterface {
 
     @Override
     public void requestShutdown(Message result) {
+    }
+
+    @Override
+    public void getRadioCapability(Message result) {
+    }
+
+    @Override
+    public void setRadioCapability(RadioCapability rc, Message response) {
+    }
+
+    @Override
+    public void registerForRadioCapabilityChanged(Handler h, int what, Object obj) {
+        Registrant r = new Registrant(h, what, obj);
+        mPhoneRadioCapabilityChangedRegistrants.add(r);
+    }
+
+    @Override
+    public void unregisterForRadioCapabilityChanged(Handler h) {
+        mPhoneRadioCapabilityChangedRegistrants.remove(h);
     }
 }

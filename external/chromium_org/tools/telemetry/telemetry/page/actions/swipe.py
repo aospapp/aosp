@@ -4,18 +4,17 @@
 
 import os
 
-from telemetry.page.actions.gesture_action import GestureAction
 from telemetry.page.actions import page_action
 
-class SwipeAction(GestureAction):
+
+class SwipeAction(page_action.PageAction):
   def __init__(self, selector=None, text=None, element_function=None,
                left_start_ratio=0.5, top_start_ratio=0.5,
-               direction='left', distance=100, speed=800):
-    super(SwipeAction, self).__init__(None)
+               direction='left', distance=100, speed_in_pixels_per_second=800):
+    super(SwipeAction, self).__init__()
     if direction not in ['down', 'up', 'left', 'right']:
       raise page_action.PageActionNotSupported(
           'Invalid swipe direction: %s' % self.direction)
-    self.automatically_record_interaction = False
     self._selector = selector
     self._text = text
     self._element_function = element_function
@@ -23,7 +22,7 @@ class SwipeAction(GestureAction):
     self._top_start_ratio = top_start_ratio
     self._direction = direction
     self._distance = distance
-    self._speed = speed
+    self._speed = speed_in_pixels_per_second
 
   def WillRunAction(self, tab):
     for js_file in ['gesture_common.js', 'swipe.js']:
@@ -36,12 +35,12 @@ class SwipeAction(GestureAction):
       raise page_action.PageActionNotSupported(
           'Synthetic swipe not supported for this browser')
 
-    if (GestureAction.GetGestureSourceTypeFromOptions(tab) ==
+    if (page_action.GetGestureSourceTypeFromOptions(tab) ==
         'chrome.gpuBenchmarking.MOUSE_INPUT'):
       raise page_action.PageActionNotSupported(
           'Swipe page action does not support mouse input')
 
-    if not GestureAction.IsGestureSourceTypeSupported(tab, 'touch'):
+    if not page_action.IsGestureSourceTypeSupported(tab, 'touch'):
       raise page_action.PageActionNotSupported(
           'Touch input not supported for this browser')
 
@@ -51,7 +50,7 @@ class SwipeAction(GestureAction):
         window.__swipeAction = new __SwipeAction(%s);"""
         % (done_callback))
 
-  def RunGesture(self, tab):
+  def RunAction(self, tab):
     if (self._selector is None and self._text is None and
         self._element_function is None):
       self._element_function = 'document.body'

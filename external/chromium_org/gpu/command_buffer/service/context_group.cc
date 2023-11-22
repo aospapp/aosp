@@ -15,7 +15,6 @@
 #include "gpu/command_buffer/service/framebuffer_manager.h"
 #include "gpu/command_buffer/service/gles2_cmd_decoder.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
-#include "gpu/command_buffer/service/image_manager.h"
 #include "gpu/command_buffer/service/mailbox_manager.h"
 #include "gpu/command_buffer/service/memory_tracking.h"
 #include "gpu/command_buffer/service/program_manager.h"
@@ -29,14 +28,12 @@ namespace gpu {
 namespace gles2 {
 
 ContextGroup::ContextGroup(
-    MailboxManager* mailbox_manager,
-    ImageManager* image_manager,
-    MemoryTracker* memory_tracker,
-    ShaderTranslatorCache* shader_translator_cache,
-    FeatureInfo* feature_info,
+    const scoped_refptr<MailboxManager>& mailbox_manager,
+    const scoped_refptr<MemoryTracker>& memory_tracker,
+    const scoped_refptr<ShaderTranslatorCache>& shader_translator_cache,
+    const scoped_refptr<FeatureInfo>& feature_info,
     bool bind_generates_resource)
-    : mailbox_manager_(mailbox_manager ? mailbox_manager : new MailboxManager),
-      image_manager_(image_manager ? image_manager : new ImageManager),
+    : mailbox_manager_(mailbox_manager),
       memory_tracker_(memory_tracker),
       shader_translator_cache_(shader_translator_cache),
       enforce_gl_minimums_(CommandLine::ForCurrentProcess()->HasSwitch(
@@ -52,9 +49,13 @@ ContextGroup::ContextGroup(
       max_color_attachments_(1u),
       max_draw_buffers_(1u),
       program_cache_(NULL),
-      feature_info_(feature_info ? feature_info : new FeatureInfo),
+      feature_info_(feature_info),
       draw_buffer_(GL_BACK) {
   {
+    if (!mailbox_manager_.get())
+      mailbox_manager_ = new MailboxManager;
+    if (!feature_info.get())
+      feature_info_ = new FeatureInfo;
     TransferBufferManager* manager = new TransferBufferManager();
     transfer_buffer_manager_.reset(manager);
     manager->Initialize();

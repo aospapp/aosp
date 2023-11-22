@@ -23,6 +23,14 @@ views::View* AppsGridViewTestApi::GetViewAtModelIndex(int index) const {
 }
 
 void AppsGridViewTestApi::LayoutToIdealBounds() {
+  if (view_->reorder_timer_.IsRunning()) {
+    view_->reorder_timer_.Stop();
+    view_->OnReorderTimer();
+  }
+  if (view_->folder_dropping_timer_.IsRunning()) {
+    view_->folder_dropping_timer_.Stop();
+    view_->OnFolderDroppingTimer();
+  }
   view_->bounds_animator_.Cancel();
   view_->Layout();
 }
@@ -33,7 +41,7 @@ void AppsGridViewTestApi::SetPageFlipDelay(int page_flip_delay_in_ms) {
 
 void AppsGridViewTestApi::PressItemAt(int index) {
   GetViewAtModelIndex(index)->OnKeyPressed(
-      ui::KeyEvent(ui::ET_KEY_PRESSED, ui::VKEY_RETURN, 0, false));
+      ui::KeyEvent(ui::ET_KEY_PRESSED, ui::VKEY_RETURN, ui::EF_NONE));
 }
 
 void AppsGridViewTestApi::DisableSynchronousDrag() {

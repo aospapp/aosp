@@ -11,16 +11,16 @@
 #include <set>
 
 #include "base/bind.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/process/process_iterator.h"
 #include "base/process/process_metrics.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/common/chrome_constants.h"
+#include "chrome/grit/chromium_strings.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/process_type.h"
-#include "grit/chromium_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 
 using base::ProcessEntry;
@@ -69,7 +69,8 @@ static const struct {
 };
 
 MemoryDetails::MemoryDetails()
-    : user_metrics_mode_(UPDATE_USER_METRICS) {
+    : user_metrics_mode_(UPDATE_USER_METRICS),
+      memory_growth_tracker_(NULL) {
 }
 
 ProcessData* MemoryDetails::ChromeBrowser() {

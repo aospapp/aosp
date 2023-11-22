@@ -40,7 +40,6 @@ namespace qhwc {
 #define PANEL_ON_STR "panel_power_on ="
 #define ARRAY_LENGTH(array) (sizeof((array))/sizeof((array)[0]))
 const int MAX_DATA = 64;
-bool logvsync = false;
 
 int hwc_vsync_control(hwc_context_t* ctx, int dpy, int enable)
 {
@@ -63,7 +62,7 @@ static void handle_vsync_event(hwc_context_t* ctx, int dpy, char *data)
         timestamp = strtoull(data + strlen("VSYNC="), NULL, 0);
     }
     // send timestamp to SurfaceFlinger
-    ALOGD_IF (logvsync, "%s: timestamp %"PRIu64" sent to SF for dpy=%d",
+    ALOGD_IF (ctx->vstate.debug, "%s: timestamp %"PRIu64" sent to SF for dpy=%d",
             __FUNCTION__, timestamp, dpy);
     ctx->proc->vsync(ctx->proc, dpy, timestamp);
 }
@@ -71,8 +70,8 @@ static void handle_vsync_event(hwc_context_t* ctx, int dpy, char *data)
 static void handle_blank_event(hwc_context_t* ctx, int dpy, char *data)
 {
     if (!strncmp(data, PANEL_ON_STR, strlen(PANEL_ON_STR))) {
-        uint32_t poweron = strtoul(data + strlen(PANEL_ON_STR), NULL, 0);
-        ALOGI("%s: dpy:%d panel power state: %d", __FUNCTION__, dpy, poweron);
+        unsigned long int poweron = strtoul(data + strlen(PANEL_ON_STR), NULL, 0);
+        ALOGI("%s: dpy:%d panel power state: %ld", __FUNCTION__, dpy, poweron);
         ctx->dpyAttr[dpy].isActive = poweron ? true: false;
     }
 }
@@ -109,11 +108,6 @@ static void *vsync_loop(void *param)
     if(property_get("debug.hwc.fakevsync", property, NULL) > 0) {
         if(atoi(property) == 1)
             ctx->vstate.fakevsync = true;
-    }
-
-    if(property_get("debug.hwc.logvsync", property, 0) > 0) {
-        if(atoi(property) == 1)
-            logvsync = true;
     }
 
     char node_path[MAX_SYSFS_FILE_PATH];
@@ -155,13 +149,13 @@ static void *vsync_loop(void *param)
 
     if (LIKELY(!ctx->vstate.fakevsync)) {
         do {
-            int err = poll(*pfd, num_displays * num_events, -1);
+            int err = poll(*pfd, (int)(num_displays * num_events), -1);
             if(err > 0) {
                 for (int dpy = HWC_DISPLAY_PRIMARY; dpy < num_displays; dpy++) {
                     for(size_t ev = 0; ev < num_events; ev++) {
                         if (pfd[dpy][ev].revents & POLLPRI) {
-                            err = pread(pfd[dpy][ev].fd, vdata, MAX_DATA, 0);
-                            if (UNLIKELY(err < 0)) {
+                            ssize_t len = pread(pfd[dpy][ev].fd, vdata, MAX_DATA, 0);
+                            if (UNLIKELY(len < 0)) {
                                 // If the read was just interrupted - it is not
                                 // a fatal error. Just continue in this case
                                 ALOGE ("%s: Unable to read event:%zu for \

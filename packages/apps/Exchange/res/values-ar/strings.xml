@@ -27,7 +27,6 @@
     <string name="meeting_recurring" msgid="2752008481765880928">"الموعد: <xliff:g id="EVENTDATE">%s</xliff:g> (متكرر)"</string>
     <string name="meeting_allday" msgid="7251209063071628040">"الموعد: <xliff:g id="EVENTDATE">%s</xliff:g> (اليوم كله)"</string>
     <string name="meeting_allday_recurring" msgid="4545762363537362545">"الموعد: <xliff:g id="EVENTDATE">%s</xliff:g> (اليوم كله، بشكل متكرر)"</string>
-    <string name="notification_exchange_calendar_added" msgid="8998454267739748113">"‏تمت إضافة تقويم Exchange"</string>
     <string name="app_name" msgid="1707639359526090662">"‏خدمات Exchange"</string>
     <string name="exception_cancel" msgid="8972887597771126871">"تم إلغاء هذا الحدث لـ: <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="exception_updated" msgid="329192591551400871">"تم تغيير التفاصيل لهذا الحدث لـ: <xliff:g id="DATE">%s</xliff:g>"</string>

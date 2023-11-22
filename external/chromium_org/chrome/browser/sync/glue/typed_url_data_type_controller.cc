@@ -92,20 +92,10 @@ syncer::ModelSafeGroup TypedUrlDataTypeController::model_safe_group()
   return syncer::GROUP_HISTORY;
 }
 
-void TypedUrlDataTypeController::LoadModels(
-    const ModelLoadCallback& model_load_callback) {
-  if (profile()->GetPrefs()->GetBoolean(prefs::kSavingBrowserHistoryDisabled)) {
-    model_load_callback.Run(
-        type(),
-        syncer::SyncError(FROM_HERE,
-                          syncer::SyncError::DATATYPE_ERROR,
-                          "History sync disabled by policy.",
-                          type()));
-    return;
-  }
-
-  set_state(MODEL_LOADED);
-  model_load_callback.Run(type(), syncer::SyncError());
+bool TypedUrlDataTypeController::ReadyForStart() const {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  return !profile()->GetPrefs()->GetBoolean(
+      prefs::kSavingBrowserHistoryDisabled);
 }
 
 void TypedUrlDataTypeController::SetBackend(history::HistoryBackend* backend) {
@@ -121,10 +111,12 @@ void TypedUrlDataTypeController::OnSavingBrowserHistoryDisabledChanged() {
     // generate an unrecoverable error. This can be fixed by restarting
     // Chrome (on restart, typed urls will not be a registered type).
     if (state() != NOT_RUNNING && state() != STOPPING) {
-      profile_sync_service()->DisableDatatype(
-          syncer::TYPED_URLS,
+      syncer::SyncError error(
           FROM_HERE,
-          "History saving is now disabled by policy.");
+          syncer::SyncError::DATATYPE_POLICY_ERROR,
+          "History saving is now disabled by policy.",
+          syncer::TYPED_URLS);
+      DisableImpl(error);
     }
   }
 }
@@ -136,8 +128,10 @@ bool TypedUrlDataTypeController::PostTaskOnBackendThread(
   HistoryService* history = HistoryServiceFactory::GetForProfile(
       profile(), Profile::IMPLICIT_ACCESS);
   if (history) {
-    history->ScheduleDBTask(new RunTaskOnHistoryThread(task, this),
-                            &cancelable_consumer_);
+    history->ScheduleDBTask(
+        scoped_ptr<history::HistoryDBTask>(
+            new RunTaskOnHistoryThread(task, this)),
+        &task_tracker_);
     return true;
   } else {
     // History must be disabled - don't start.
@@ -158,7 +152,7 @@ TypedUrlDataTypeController::CreateSyncComponents() {
 }
 
 void TypedUrlDataTypeController::DisconnectProcessor(
-    ChangeProcessor* processor) {
+    sync_driver::ChangeProcessor* processor) {
   static_cast<TypedUrlChangeProcessor*>(processor)->Disconnect();
 }
 

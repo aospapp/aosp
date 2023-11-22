@@ -7,6 +7,7 @@ import unittest
 
 from telemetry.core import browser_credentials
 
+
 SIMPLE_CREDENTIALS_STRING = """
 {
   "google": {
@@ -22,7 +23,7 @@ class BackendStub(object):
     self.login_no_longer_needed_called = None
     self.credentials_type = credentials_type
 
-  def LoginNeeded(self, config, tab):
+  def LoginNeeded(self, config, _, tab):
     self.login_needed_called = (config, tab)
     return True
 

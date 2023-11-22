@@ -40,13 +40,11 @@ import java.util.regex.Pattern;
  */
 public class TestUsbTest extends DeviceTestCase implements IAbiReceiver, IBuildReceiver {
 
-    private static final String LOG_TAG = "TestUsbTest";
     private static final String CTS_RUNNER = "android.support.test.runner.AndroidJUnitRunner";
     private static final String PACKAGE_NAME = "com.android.cts.usb.serialtest";
     private static final String APK_NAME="CtsUsbSerialTestApp.apk";
     private ITestDevice mDevice;
     private IAbi mAbi;
-    private String mAbiBitness;
     private CtsBuildHelper mBuild;
 
     @Override
@@ -118,7 +116,8 @@ public class TestUsbTest extends DeviceTestCase implements IAbiReceiver, IBuildR
         if (runResult.isRunFailure()) {
             fail(runResult.getRunFailureMessage());
         }
-        String logs = mDevice.executeAdbCommand("logcat", "-d", "CtsUsbSerialTest:W", "*:S");
+        String logs = mDevice.executeAdbCommand(
+                "logcat", "-v", "brief", "-d", "CtsUsbSerialTest:W", "*:S");
         pattern = Pattern.compile("^.*CtsUsbSerialTest\\(.*\\):\\s+([a-zA-Z0-9]{6,20})",
                 Pattern.MULTILINE);
         matcher = pattern.matcher(logs);

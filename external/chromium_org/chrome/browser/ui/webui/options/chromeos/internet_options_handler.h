@@ -10,13 +10,11 @@
 #include "base/compiler_specific.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/webui/options/options_ui.h"
-#include "chromeos/login/login_state.h"
 #include "chromeos/network/network_state_handler_observer.h"
-#include "content/public/browser/notification_observer.h"
-#include "content/public/browser/notification_registrar.h"
 #include "ui/gfx/native_widget_types.h"
 
 class Browser;
+class PrefService;
 
 namespace chromeos {
 class DeviceState;
@@ -38,9 +36,7 @@ namespace options {
 // ChromeOS internet options page UI handler.
 class InternetOptionsHandler
     : public ::options::OptionsPageUIHandler,
-      public chromeos::NetworkStateHandlerObserver,
-      public chromeos::LoginState::Observer,
-      public content::NotificationObserver {
+      public chromeos::NetworkStateHandlerObserver {
  public:
   InternetOptionsHandler();
   virtual ~InternetOptionsHandler();
@@ -55,23 +51,22 @@ class InternetOptionsHandler
   virtual void RegisterMessages() OVERRIDE;
 
   // Callbacks to set network state properties.
-  void EnableWifiCallback(const base::ListValue* args);
-  void DisableWifiCallback(const base::ListValue* args);
-  void EnableCellularCallback(const base::ListValue* args);
-  void DisableCellularCallback(const base::ListValue* args);
-  void EnableWimaxCallback(const base::ListValue* args);
-  void DisableWimaxCallback(const base::ListValue* args);
   void ShowMorePlanInfoCallback(const base::ListValue* args);
-  void BuyDataPlanCallback(const base::ListValue* args);
   void SetApnCallback(const base::ListValue* args);
   void SetApnProperties(const base::ListValue* args,
                         const std::string& service_path,
                         const base::DictionaryValue& shill_properties);
   void CarrierStatusCallback();
   void SetCarrierCallback(const base::ListValue* args);
-  void SetSimCardLockCallback(const base::ListValue* args);
-  void ChangePinCallback(const base::ListValue* args);
-  void RefreshNetworksCallback(const base::ListValue* args);
+  void SimOperationCallback(const base::ListValue* args);
+
+  // networkingPrvate callbacks
+  void DisableNetworkTypeCallback(const base::ListValue* args);
+  void EnableNetworkTypeCallback(const base::ListValue* args);
+  void GetManagedPropertiesCallback(const base::ListValue* args);
+  void RequestNetworkScanCallback(const base::ListValue* args);
+  void StartConnectCallback(const base::ListValue* args);
+  void StartDisconnectCallback(const base::ListValue* args);
 
   // Retrieves a data url for a resource.
   std::string GetIconDataUrl(int resource_id) const;
@@ -95,17 +90,11 @@ class InternetOptionsHandler
       const chromeos::NetworkState* network) OVERRIDE;
   virtual void NetworkPropertiesUpdated(
       const chromeos::NetworkState* network) OVERRIDE;
-
-  // chromeos::LoginState::Observer
-  virtual void LoggedInStateChanged() OVERRIDE;
+  virtual void DevicePropertiesUpdated(
+      const chromeos::DeviceState* device) OVERRIDE;
 
   // Updates the logged in user type.
   void UpdateLoggedInUserType();
-
-  // content::NotificationObserver
-  virtual void Observe(int type,
-                       const content::NotificationSource& source,
-                       const content::NotificationDetails& details) OVERRIDE;
 
   // Additional callbacks to set network state properties.
   void SetServerHostnameCallback(const base::ListValue* args);
@@ -116,7 +105,7 @@ class InternetOptionsHandler
                              const std::string& service_path,
                              const base::DictionaryValue& shill_properties);
 
-  // Retrieves the properties for |service_path| and calls showDetailedInfo
+  // Retrieves the properties for |service_path| and calls sendNetworkDetails
   // with the results.
   void PopulateDictionaryDetailsCallback(
       const std::string& service_path,
@@ -124,6 +113,12 @@ class InternetOptionsHandler
 
   // Gets the native window for hosting dialogs, etc.
   gfx::NativeWindow GetNativeWindow() const;
+
+  // Gets the UI scale factor.
+  float GetScaleFactor() const;
+
+  // Gets the user PrefService associated with the WebUI.
+  const PrefService* GetPrefs() const;
 
   // Handle various network commands and clicks on a network item
   // in the network list.
@@ -133,6 +128,7 @@ class InternetOptionsHandler
 
   // Helper functions called by NetworkCommandCallback(...)
   void AddConnection(const std::string& type);
+  void SendShowDetailedInfo(const std::string& service_path);
 
   // Creates the map of wired networks.
   base::ListValue* GetWiredList();
@@ -148,8 +144,6 @@ class InternetOptionsHandler
 
   // Fills network information into JS dictionary for displaying network lists.
   void FillNetworkInfo(base::DictionaryValue* dictionary);
-
-  content::NotificationRegistrar registrar_;
 
   // Keep track of the service path for the network shown in the Details view.
   std::string details_path_;

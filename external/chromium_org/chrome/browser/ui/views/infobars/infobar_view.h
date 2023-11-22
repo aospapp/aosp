@@ -26,7 +26,6 @@ class LabelButton;
 class Link;
 class LinkListener;
 class MenuButton;
-class MenuButtonListener;
 class MenuRunner;
 }  // namespace views
 
@@ -55,12 +54,6 @@ class InfoBarView : public infobars::InfoBar,
   // NOTE: Subclasses must ignore link clicks if we're unowned.
   views::Link* CreateLink(const base::string16& text,
                           views::LinkListener* listener) const;
-
-  // Creates a menu button with an infobar-specific appearance.
-  // NOTE: Subclasses must ignore button presses if we're unowned.
-  static views::MenuButton* CreateMenuButton(
-      const base::string16& text,
-      views::MenuButtonListener* menu_button_listener);
 
   // Creates a button with an infobar-specific appearance.
   // NOTE: Subclasses must ignore button presses if we're unowned.

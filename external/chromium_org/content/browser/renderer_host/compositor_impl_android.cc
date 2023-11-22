@@ -14,6 +14,7 @@
 #include "base/containers/hash_tables.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
+#include "base/memory/weak_ptr.h"
 #include "base/single_thread_task_runner.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/thread.h"
@@ -56,9 +57,12 @@ const unsigned int kMaxSwapBuffers = 2U;
 class OutputSurfaceWithoutParent : public cc::OutputSurface {
  public:
   OutputSurfaceWithoutParent(const scoped_refptr<
-      content::ContextProviderCommandBuffer>& context_provider)
+      content::ContextProviderCommandBuffer>& context_provider,
+      base::WeakPtr<content::CompositorImpl> compositor_impl)
       : cc::OutputSurface(context_provider) {
     capabilities_.adjust_deadline_for_parent = false;
+    compositor_impl_ = compositor_impl;
+    main_thread_ = base::MessageLoopProxy::current();
   }
 
   virtual void SwapBuffers(cc::CompositorFrame* frame) OVERRIDE {
@@ -72,6 +76,22 @@ class OutputSurfaceWithoutParent : public cc::OutputSurface {
 
     OutputSurface::SwapBuffers(frame);
   }
+
+  virtual bool BindToClient(cc::OutputSurfaceClient* client) OVERRIDE {
+    if (!OutputSurface::BindToClient(client))
+      return false;
+
+    main_thread_->PostTask(
+        FROM_HERE,
+        base::Bind(&content::CompositorImpl::PopulateGpuCapabilities,
+                   compositor_impl_,
+                   context_provider_->ContextCapabilities().gpu));
+
+    return true;
+  }
+
+  scoped_refptr<base::MessageLoopProxy> main_thread_;
+  base::WeakPtr<content::CompositorImpl> compositor_impl_;
 };
 
 class SurfaceTextureTrackerImpl : public gfx::SurfaceTextureTracker {
@@ -281,10 +301,9 @@ void CompositorImpl::Composite(CompositingTrigger trigger) {
   if (!factory->GetGpuChannel() || factory->GetGpuChannel()->IsLost()) {
     CauseForGpuLaunch cause =
         CAUSE_FOR_GPU_LAUNCH_WEBGRAPHICSCONTEXT3DCOMMANDBUFFERIMPL_INITIALIZE;
-    factory->EstablishGpuChannel(
-        cause,
-        base::Bind(&CompositorImpl::OnGpuChannelEstablished,
-                   weak_factory_.GetWeakPtr()));
+    factory->EstablishGpuChannel(cause,
+                                 base::Bind(&CompositorImpl::ScheduleComposite,
+                                            weak_factory_.GetWeakPtr()));
     return;
   }
 
@@ -314,7 +333,6 @@ void CompositorImpl::Composite(CompositingTrigger trigger) {
   // animation updates that will already be reflected in the current frame
   // we are about to draw.
   ignore_schedule_composite_ = true;
-  client_->Layout();
 
   const base::TimeTicks frame_time = gfx::FrameTime::Now();
   if (needs_animate_) {
@@ -332,12 +350,12 @@ void CompositorImpl::Composite(CompositingTrigger trigger) {
   root_window_->RequestVSyncUpdate();
 }
 
-void CompositorImpl::OnGpuChannelEstablished() {
-  ScheduleComposite();
-}
-
 UIResourceProvider& CompositorImpl::GetUIResourceProvider() {
   return ui_resource_provider_;
+}
+
+ui::SystemUIResourceManager& CompositorImpl::GetSystemUIResourceManager() {
+  return ui_resource_provider_.GetSystemUIResourceManager();
 }
 
 void CompositorImpl::SetRootLayer(scoped_refptr<cc::Layer> root_layer) {
@@ -400,6 +418,21 @@ void CompositorImpl::SetSurface(jobject surface) {
 
 void CompositorImpl::SetVisible(bool visible) {
   if (!visible) {
+    DCHECK(host_);
+    // Look for any layers that were attached to the root for readback
+    // and are waiting for Composite() to happen.
+    bool readback_pending = false;
+    for (size_t i = 0; i < root_layer_->children().size(); ++i) {
+      if (root_layer_->children()[i]->HasCopyRequest()) {
+        readback_pending = true;
+        break;
+      }
+    }
+    if (readback_pending) {
+      ignore_schedule_composite_ = true;
+      host_->Composite(base::TimeTicks::Now());
+      ignore_schedule_composite_ = false;
+    }
     if (WillComposite())
       CancelComposite();
     ui_resource_provider_.SetLayerTreeHost(NULL);
@@ -407,7 +440,6 @@ void CompositorImpl::SetVisible(bool visible) {
   } else if (!host_) {
     DCHECK(!WillComposite());
     needs_composite_ = false;
-    needs_animate_ = false;
     pending_swapbuffers_ = 0;
     cc::LayerTreeSettings settings;
     settings.refresh_rate = 60.0;
@@ -417,14 +449,20 @@ void CompositorImpl::SetVisible(bool visible) {
     settings.top_controls_height = 0.f;
     settings.highp_threshold_min = 2048;
 
-    CommandLine* command_line = CommandLine::ForCurrentProcess();
+    base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
     settings.initial_debug_state.SetRecordRenderingStats(
         command_line->HasSwitch(cc::switches::kEnableGpuBenchmarking));
     settings.initial_debug_state.show_fps_counter =
         command_line->HasSwitch(cc::switches::kUIShowFPSCounter);
+    // TODO(enne): Update this this compositor to use the scheduler.
+    settings.single_thread_proxy_scheduler = false;
 
     host_ = cc::LayerTreeHost::CreateSingleThreaded(
-        this, this, HostSharedBitmapManager::current(), settings);
+        this,
+        this,
+        HostSharedBitmapManager::current(),
+        settings,
+        base::MessageLoopProxy::current());
     host_->SetRootLayer(root_layer_);
 
     host_->SetVisible(true);
@@ -500,14 +538,29 @@ CreateGpuProcessViewContext(
 }
 
 void CompositorImpl::Layout() {
-  // TODO: If we get this callback from the SingleThreadProxy, we need
-  // to stop calling it ourselves in CompositorImpl::Composite().
-  NOTREACHED();
+  ignore_schedule_composite_ = true;
   client_->Layout();
+  ignore_schedule_composite_ = false;
 }
 
-scoped_ptr<cc::OutputSurface> CompositorImpl::CreateOutputSurface(
-    bool fallback) {
+void CompositorImpl::RequestNewOutputSurface(bool fallback) {
+  BrowserGpuChannelHostFactory* factory =
+      BrowserGpuChannelHostFactory::instance();
+  if (!factory->GetGpuChannel() || factory->GetGpuChannel()->IsLost()) {
+    CauseForGpuLaunch cause =
+        CAUSE_FOR_GPU_LAUNCH_WEBGRAPHICSCONTEXT3DCOMMANDBUFFERIMPL_INITIALIZE;
+    factory->EstablishGpuChannel(
+        cause,
+        base::Bind(&CompositorImpl::CreateOutputSurface,
+                   weak_factory_.GetWeakPtr(),
+                   fallback));
+    return;
+  }
+
+  CreateOutputSurface(fallback);
+}
+
+void CompositorImpl::CreateOutputSurface(bool fallback) {
   blink::WebGraphicsContext3D::Attributes attrs;
   attrs.shareResources = true;
   attrs.noAutomaticFlushes = true;
@@ -527,16 +580,23 @@ scoped_ptr<cc::OutputSurface> CompositorImpl::CreateOutputSurface(
   }
   if (!context_provider.get()) {
     LOG(ERROR) << "Failed to create 3D context for compositor.";
-    return scoped_ptr<cc::OutputSurface>();
+    host_->SetOutputSurface(scoped_ptr<cc::OutputSurface>());
+    return;
   }
 
-  return scoped_ptr<cc::OutputSurface>(
-      new OutputSurfaceWithoutParent(context_provider));
+  host_->SetOutputSurface(
+      scoped_ptr<cc::OutputSurface>(new OutputSurfaceWithoutParent(
+          context_provider, weak_factory_.GetWeakPtr())));
+}
+
+void CompositorImpl::PopulateGpuCapabilities(
+    gpu::Capabilities gpu_capabilities) {
+  ui_resource_provider_.SetSupportsETC1NonPowerOfTwo(
+      gpu_capabilities.texture_format_etc1_npot);
 }
 
 void CompositorImpl::OnLostResources() {
   client_->DidLoseResources();
-  ui_resource_provider_.UIResourcesAreInvalid();
 }
 
 void CompositorImpl::ScheduleComposite() {
@@ -552,7 +612,6 @@ void CompositorImpl::ScheduleComposite() {
 }
 
 void CompositorImpl::ScheduleAnimation() {
-  DCHECK(!needs_animate_ || needs_composite_);
   DCHECK(!needs_composite_ || WillComposite());
   needs_animate_ = true;
 
@@ -582,6 +641,7 @@ void CompositorImpl::DidAbortSwapBuffers() {
   // This really gets called only once from
   // SingleThreadProxy::DidLoseOutputSurfaceOnImplThread() when the
   // context was lost.
+  ScheduleComposite();
   client_->OnSwapBuffersCompleted(0);
 }
 

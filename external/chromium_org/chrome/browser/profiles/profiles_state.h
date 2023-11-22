@@ -26,14 +26,24 @@ base::FilePath GetDefaultProfileDir(const base::FilePath& user_data_dir);
 // Register multi-profile related preferences in Local State.
 void RegisterPrefs(PrefRegistrySimple* registry);
 
-// Returns the display name of the active on-the-record profile (or guest)
-// used in the avatar button. If there is only one local profile present, it
-// will return IDS_SINGLE_PROFILE_DISPLAY_NAME, unless the profile has a
-// user entered custom name.
-base::string16 GetAvatarNameForProfile(Profile* profile);
+// Returns the display name of the specified on-the-record profile (or guest),
+// specified by |profile_path|, used in the avatar button or user manager. If
+// |profile_path| is the guest path, it will return IDS_GUEST_PROFILE_NAME. If
+// there is only one local profile present, it will return
+// IDS_SINGLE_PROFILE_DISPLAY_NAME, unless the profile has a user entered
+// custom name.
+base::string16 GetAvatarNameForProfile(const base::FilePath& profile_path);
+
+// Returns the string to use in the avatar button for the specified profile.
+// This is essentially the name returned by GetAvatarNameForProfile, but it
+// may be elided and contain an indicator for supervised users.
+base::string16 GetAvatarButtonTextForProfile(Profile* profile);
 
 // Update the name of |profile| to |new_profile_name|. This updates the
 // profile preferences, which triggers an update in the ProfileInfoCache.
+// This method should be called when the user is explicitely changing
+// the profile name, as it will always set |prefs::kProfileUsingDefaultName|
+// to false.
 void UpdateProfileName(Profile* profile,
                        const base::string16& new_profile_name);
 
@@ -57,6 +67,11 @@ void UpdateGaiaProfilePhotoIfNeeded(Profile* profile);
 // like guest profiles, may not have a controller so this function may return
 // NULL.
 SigninErrorController* GetSigninErrorController(Profile* profile);
+
+// If the current active profile (given by prefs::kProfileLastUsed) is locked,
+// changes the active profile to the Guest profile and returns it, otherwise
+// returns NULL. This assumes that the Guest profile has been loaded.
+Profile* SetActiveProfileToGuestIfLocked();
 
 }  // namespace profiles
 

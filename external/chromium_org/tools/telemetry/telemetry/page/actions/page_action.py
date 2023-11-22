@@ -4,6 +4,9 @@
 
 import re
 
+from telemetry import decorators
+
+
 class PageActionNotSupported(Exception):
   pass
 
@@ -13,11 +16,6 @@ class PageActionFailed(Exception):
 
 class PageAction(object):
   """Represents an action that a user might try to perform to a page."""
-
-  def __init__(self, attributes=None):
-    if attributes:
-      for k, v in attributes.iteritems():
-        setattr(self, k, v)
 
   def WillRunAction(self, tab):
     """Override to do action-specific setup before
@@ -30,10 +28,9 @@ class PageAction(object):
   def CleanUp(self, tab):
     pass
 
-
 def EvaluateCallbackWithElement(
     tab, callback_js, selector=None, text=None, element_function=None,
-    wait=False, timeout=60):
+    wait=False, timeout_in_seconds=60):
   """Evaluates the JavaScript callback with the given element.
 
   The element may be selected via selector, text, or element_function.
@@ -61,7 +58,7 @@ def EvaluateCallbackWithElement(
         to retrieve the element. For example:
         '(function() { return foo.element; })()'.
     wait: Whether to wait for the return value to be true.
-    timeout: The timeout for wait (if waiting).
+    timeout_in_seconds: The timeout for wait (if waiting).
   """
   count = 0
   info_msg = ''
@@ -107,10 +104,30 @@ def EvaluateCallbackWithElement(
       })()''' % (element_function, callback_js, info_msg)
 
   if wait:
-    tab.WaitForJavaScriptExpression(code, timeout)
+    tab.WaitForJavaScriptExpression(code, timeout_in_seconds)
     return True
   else:
     return tab.EvaluateJavaScript(code)
 
 def _EscapeSelector(selector):
   return selector.replace('\'', '\\\'')
+
+def GetGestureSourceTypeFromOptions(tab):
+  gesture_source_type = tab.browser.synthetic_gesture_source_type
+  return 'chrome.gpuBenchmarking.' + gesture_source_type.upper() + '_INPUT'
+
+@decorators.Cache
+def IsGestureSourceTypeSupported(tab, gesture_source_type):
+  # TODO(dominikg): remove once support for
+  #                 'chrome.gpuBenchmarking.gestureSourceTypeSupported' has
+  #                 been rolled into reference build.
+  if tab.EvaluateJavaScript("""
+      typeof chrome.gpuBenchmarking.gestureSourceTypeSupported ===
+          'undefined'"""):
+    return (tab.browser.platform.GetOSName() != 'mac' or
+            gesture_source_type.lower() != 'touch')
+
+  return tab.EvaluateJavaScript("""
+      chrome.gpuBenchmarking.gestureSourceTypeSupported(
+          chrome.gpuBenchmarking.%s_INPUT)"""
+      % (gesture_source_type.upper()))

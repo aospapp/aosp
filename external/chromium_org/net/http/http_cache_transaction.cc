@@ -15,13 +15,16 @@
 
 #include "base/bind.h"
 #include "base/compiler_specific.h"
+#include "base/format_macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
 #include "base/metrics/sparse_histogram.h"
 #include "base/rand_util.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/time/time.h"
 #include "net/base/completion_callback.h"
 #include "net/base/io_buffer.h"
@@ -32,6 +35,7 @@
 #include "net/base/upload_data_stream.h"
 #include "net/cert/cert_status_flags.h"
 #include "net/disk_cache/disk_cache.h"
+#include "net/http/disk_based_cert_cache.h"
 #include "net/http/http_network_session.h"
 #include "net/http/http_request_info.h"
 #include "net/http/http_response_headers.h"
@@ -46,6 +50,114 @@ using base::TimeDelta;
 using base::TimeTicks;
 
 namespace {
+
+// TODO(ricea): Move this to HttpResponseHeaders once it is standardised.
+static const char kFreshnessHeader[] = "Resource-Freshness";
+
+// Stores data relevant to the statistics of writing and reading entire
+// certificate chains using DiskBasedCertCache. |num_pending_ops| is the number
+// of certificates in the chain that have pending operations in the
+// DiskBasedCertCache. |start_time| is the time that the read and write
+// commands began being issued to the DiskBasedCertCache.
+// TODO(brandonsalmon): Remove this when it is no longer necessary to
+// collect data.
+class SharedChainData : public base::RefCounted<SharedChainData> {
+ public:
+  SharedChainData(int num_ops, TimeTicks start)
+      : num_pending_ops(num_ops), start_time(start) {}
+
+  int num_pending_ops;
+  TimeTicks start_time;
+
+ private:
+  friend class base::RefCounted<SharedChainData>;
+  ~SharedChainData() {}
+  DISALLOW_COPY_AND_ASSIGN(SharedChainData);
+};
+
+// Used to obtain a cache entry key for an OSCertHandle.
+// TODO(brandonsalmon): Remove this when cache keys are stored
+// and no longer have to be recomputed to retrieve the OSCertHandle
+// from the disk.
+std::string GetCacheKeyForCert(net::X509Certificate::OSCertHandle cert_handle) {
+  net::SHA1HashValue fingerprint =
+      net::X509Certificate::CalculateFingerprint(cert_handle);
+
+  return "cert:" +
+         base::HexEncode(fingerprint.data, arraysize(fingerprint.data));
+}
+
+// |dist_from_root| indicates the position of the read certificate in the
+// certificate chain, 0 indicating it is the root. |is_leaf| indicates
+// whether or not the read certificate was the leaf of the chain.
+// |shared_chain_data| contains data shared by each certificate in
+// the chain.
+void OnCertReadIOComplete(
+    int dist_from_root,
+    bool is_leaf,
+    const scoped_refptr<SharedChainData>& shared_chain_data,
+    net::X509Certificate::OSCertHandle cert_handle) {
+  // If |num_pending_ops| is one, this was the last pending read operation
+  // for this chain of certificates. The total time used to read the chain
+  // can be calculated by subtracting the starting time from Now().
+  shared_chain_data->num_pending_ops--;
+  if (!shared_chain_data->num_pending_ops) {
+    const TimeDelta read_chain_wait =
+        TimeTicks::Now() - shared_chain_data->start_time;
+    UMA_HISTOGRAM_CUSTOM_TIMES("DiskBasedCertCache.ChainReadTime",
+                               read_chain_wait,
+                               base::TimeDelta::FromMilliseconds(1),
+                               base::TimeDelta::FromMinutes(10),
+                               50);
+  }
+
+  bool success = (cert_handle != NULL);
+  if (is_leaf)
+    UMA_HISTOGRAM_BOOLEAN("DiskBasedCertCache.CertIoReadSuccessLeaf", success);
+
+  if (success)
+    UMA_HISTOGRAM_CUSTOM_COUNTS(
+        "DiskBasedCertCache.CertIoReadSuccess", dist_from_root, 0, 10, 7);
+  else
+    UMA_HISTOGRAM_CUSTOM_COUNTS(
+        "DiskBasedCertCache.CertIoReadFailure", dist_from_root, 0, 10, 7);
+}
+
+// |dist_from_root| indicates the position of the written certificate in the
+// certificate chain, 0 indicating it is the root. |is_leaf| indicates
+// whether or not the written certificate was the leaf of the chain.
+// |shared_chain_data| contains data shared by each certificate in
+// the chain.
+void OnCertWriteIOComplete(
+    int dist_from_root,
+    bool is_leaf,
+    const scoped_refptr<SharedChainData>& shared_chain_data,
+    const std::string& key) {
+  // If |num_pending_ops| is one, this was the last pending write operation
+  // for this chain of certificates. The total time used to write the chain
+  // can be calculated by subtracting the starting time from Now().
+  shared_chain_data->num_pending_ops--;
+  if (!shared_chain_data->num_pending_ops) {
+    const TimeDelta write_chain_wait =
+        TimeTicks::Now() - shared_chain_data->start_time;
+    UMA_HISTOGRAM_CUSTOM_TIMES("DiskBasedCertCache.ChainWriteTime",
+                               write_chain_wait,
+                               base::TimeDelta::FromMilliseconds(1),
+                               base::TimeDelta::FromMinutes(10),
+                               50);
+  }
+
+  bool success = !key.empty();
+  if (is_leaf)
+    UMA_HISTOGRAM_BOOLEAN("DiskBasedCertCache.CertIoWriteSuccessLeaf", success);
+
+  if (success)
+    UMA_HISTOGRAM_CUSTOM_COUNTS(
+        "DiskBasedCertCache.CertIoWriteSuccess", dist_from_root, 0, 10, 7);
+  else
+    UMA_HISTOGRAM_CUSTOM_COUNTS(
+        "DiskBasedCertCache.CertIoWriteFailure", dist_from_root, 0, 10, 7);
+}
 
 // From http://tools.ietf.org/html/draft-ietf-httpbis-p6-cache-21#section-6
 //      a "non-error response" is one with a 2xx (Successful) or 3xx
@@ -125,6 +237,13 @@ void RecordNoStoreHeaderHistogram(int load_flags,
         response->headers->HasHeaderValue("cache-control", "no-store"));
   }
 }
+
+enum ExternallyConditionalizedType {
+  EXTERNALLY_CONDITIONALIZED_CACHE_REQUIRES_VALIDATION,
+  EXTERNALLY_CONDITIONALIZED_CACHE_USABLE,
+  EXTERNALLY_CONDITIONALIZED_MISMATCHED_VALIDATORS,
+  EXTERNALLY_CONDITIONALIZED_MAX
+};
 
 }  // namespace
 
@@ -212,19 +331,21 @@ HttpCache::Transaction::Transaction(
       done_reading_(false),
       vary_mismatch_(false),
       couldnt_conditionalize_request_(false),
+      bypass_lock_for_test_(false),
       io_buf_len_(0),
       read_offset_(0),
       effective_load_flags_(0),
       write_len_(0),
-      weak_factory_(this),
-      io_callback_(base::Bind(&Transaction::OnIOComplete,
-                              weak_factory_.GetWeakPtr())),
       transaction_pattern_(PATTERN_UNDEFINED),
       total_received_bytes_(0),
-      websocket_handshake_stream_base_create_helper_(NULL) {
+      websocket_handshake_stream_base_create_helper_(NULL),
+      weak_factory_(this) {
   COMPILE_ASSERT(HttpCache::Transaction::kNumValidationHeaders ==
                  arraysize(kValidationHeaders),
                  Invalid_number_of_validation_headers);
+
+  io_callback_ = base::Bind(&Transaction::OnIOComplete,
+                              weak_factory_.GetWeakPtr());
 }
 
 HttpCache::Transaction::~Transaction() {
@@ -234,7 +355,7 @@ HttpCache::Transaction::~Transaction() {
 
   if (cache_) {
     if (entry_) {
-      bool cancel_request = reading_ && response_.headers;
+      bool cancel_request = reading_ && response_.headers.get();
       if (cancel_request) {
         if (partial_) {
           entry_->disk_entry->CancelSparseIO();
@@ -565,6 +686,12 @@ void HttpCache::Transaction::SetBeforeNetworkStartCallback(
   before_network_start_callback_ = callback;
 }
 
+void HttpCache::Transaction::SetBeforeProxyHeadersSentCallback(
+    const BeforeProxyHeadersSentCallback& callback) {
+  DCHECK(!network_trans_);
+  before_proxy_headers_sent_callback_ = callback;
+}
+
 int HttpCache::Transaction::ResumeNetworkStart() {
   if (network_trans_)
     return network_trans_->ResumeNetworkStart();
@@ -595,7 +722,7 @@ int HttpCache::Transaction::HandleResult(int rv) {
 
 // A few common patterns: (Foo* means Foo -> FooComplete)
 //
-// Not-cached entry:
+// 1. Not-cached entry:
 //   Start():
 //   GetBackend* -> InitEntry -> OpenEntry* -> CreateEntry* -> AddToEntry* ->
 //   SendRequest* -> SuccessfulSendRequest -> OverwriteCachedResponse ->
@@ -605,15 +732,16 @@ int HttpCache::Transaction::HandleResult(int rv) {
 //   Read():
 //   NetworkRead* -> CacheWriteData*
 //
-// Cached entry, no validation:
+// 2. Cached entry, no validation:
 //   Start():
 //   GetBackend* -> InitEntry -> OpenEntry* -> AddToEntry* -> CacheReadResponse*
-//   -> BeginPartialCacheValidation() -> BeginCacheValidation()
+//   -> BeginPartialCacheValidation() -> BeginCacheValidation() ->
+//   SetupEntryForRead()
 //
 //   Read():
 //   CacheReadData*
 //
-// Cached entry, validation (304):
+// 3. Cached entry, validation (304):
 //   Start():
 //   GetBackend* -> InitEntry -> OpenEntry* -> AddToEntry* -> CacheReadResponse*
 //   -> BeginPartialCacheValidation() -> BeginCacheValidation() ->
@@ -624,7 +752,7 @@ int HttpCache::Transaction::HandleResult(int rv) {
 //   Read():
 //   CacheReadData*
 //
-// Cached entry, validation and replace (200):
+// 4. Cached entry, validation and replace (200):
 //   Start():
 //   GetBackend* -> InitEntry -> OpenEntry* -> AddToEntry* -> CacheReadResponse*
 //   -> BeginPartialCacheValidation() -> BeginCacheValidation() ->
@@ -635,7 +763,7 @@ int HttpCache::Transaction::HandleResult(int rv) {
 //   Read():
 //   NetworkRead* -> CacheWriteData*
 //
-// Sparse entry, partially cached, byte range request:
+// 5. Sparse entry, partially cached, byte range request:
 //   Start():
 //   GetBackend* -> InitEntry -> OpenEntry* -> AddToEntry* -> CacheReadResponse*
 //   -> BeginPartialCacheValidation() -> CacheQueryData* ->
@@ -657,6 +785,42 @@ int HttpCache::Transaction::HandleResult(int rv) {
 //   CompletePartialCacheValidation -> BeginCacheValidation() -> SendRequest* ->
 //   SuccessfulSendRequest -> UpdateCachedResponse* -> OverwriteCachedResponse
 //   -> PartialHeadersReceived -> NetworkRead* -> CacheWriteData*
+//
+// 6. HEAD. Not-cached entry:
+//   Pass through. Don't save a HEAD by itself.
+//   Start():
+//   GetBackend* -> InitEntry -> OpenEntry* -> SendRequest*
+//
+// 7. HEAD. Cached entry, no validation:
+//   Start():
+//   The same flow as for a GET request (example #2)
+//
+//   Read():
+//   CacheReadData (returns 0)
+//
+// 8. HEAD. Cached entry, validation (304):
+//   The request updates the stored headers.
+//   Start(): Same as for a GET request (example #3)
+//
+//   Read():
+//   CacheReadData (returns 0)
+//
+// 9. HEAD. Cached entry, validation and replace (200):
+//   Pass through. The request dooms the old entry, as a HEAD won't be stored by
+//   itself.
+//   Start():
+//   GetBackend* -> InitEntry -> OpenEntry* -> AddToEntry* -> CacheReadResponse*
+//   -> BeginPartialCacheValidation() -> BeginCacheValidation() ->
+//   SendRequest* -> SuccessfulSendRequest -> OverwriteCachedResponse
+//
+// 10. HEAD. Sparse entry, partially cached:
+//   Serve the request from the cache, as long as it doesn't require
+//   revalidation. Ignore missing ranges when deciding to revalidate. If the
+//   entry requires revalidation, ignore the whole request and go to full pass
+//   through (the result of the HEAD request will NOT update the entry).
+//
+//   Start(): Basically the same as example 7, as we never create a partial_
+//   object for this request.
 //
 int HttpCache::Transaction::DoLoop(int result) {
   DCHECK(next_state_ != STATE_NONE);
@@ -860,6 +1024,14 @@ int HttpCache::Transaction::DoGetBackendComplete(int result) {
     mode_ = NONE;
   }
 
+  // Note that if mode_ == UPDATE (which is tied to external_validation_), the
+  // transaction behaves the same for GET and HEAD requests at this point: if it
+  // was not modified, the entry is updated and a response is not returned from
+  // the cache. If we receive 200, it doesn't matter if there was a validation
+  // header or not.
+  if (request_->method == "HEAD" && mode_ == WRITE)
+    mode_ = NONE;
+
   // If must use cache, then we must fail.  This can happen for back/forward
   // navigations to a page generated via a form post.
   if (!(mode_ & READ) && effective_load_flags_ & LOAD_ONLY_FROM_CACHE)
@@ -893,6 +1065,8 @@ int HttpCache::Transaction::DoSendRequest() {
   if (rv != OK)
     return rv;
   network_trans_->SetBeforeNetworkStartCallback(before_network_start_callback_);
+  network_trans_->SetBeforeProxyHeadersSentCallback(
+      before_proxy_headers_sent_callback_);
 
   // Old load timing information, if any, is now obsolete.
   old_network_trans_load_timing_.reset();
@@ -1040,7 +1214,7 @@ int HttpCache::Transaction::DoSuccessfulSendRequest() {
 
   if (new_response_->headers->response_code() == 416 &&
       (request_->method == "GET" || request_->method == "POST")) {
-    // If there is an ective entry it may be destroyed with this transaction.
+    // If there is an active entry it may be destroyed with this transaction.
     response_ = *new_response_;
     return OK;
   }
@@ -1120,8 +1294,9 @@ int HttpCache::Transaction::DoOpenEntryComplete(int result) {
     return OK;
   }
 
-  if (request_->method == "PUT" || request_->method == "DELETE") {
-    DCHECK(mode_ == READ_WRITE || mode_ == WRITE);
+  if (request_->method == "PUT" || request_->method == "DELETE" ||
+      (request_->method == "HEAD" && mode_ == READ_WRITE)) {
+    DCHECK(mode_ == READ_WRITE || mode_ == WRITE || request_->method == "HEAD");
     mode_ = NONE;
     next_state_ = STATE_SEND_REQUEST;
     return OK;
@@ -1210,7 +1385,38 @@ int HttpCache::Transaction::DoAddToEntry() {
   net_log_.BeginEvent(NetLog::TYPE_HTTP_CACHE_ADD_TO_ENTRY);
   DCHECK(entry_lock_waiting_since_.is_null());
   entry_lock_waiting_since_ = TimeTicks::Now();
-  return cache_->AddTransactionToEntry(new_entry_, this);
+  int rv = cache_->AddTransactionToEntry(new_entry_, this);
+  if (rv == ERR_IO_PENDING) {
+    if (bypass_lock_for_test_) {
+      OnAddToEntryTimeout(entry_lock_waiting_since_);
+    } else {
+      int timeout_milliseconds = 20 * 1000;
+      if (partial_ && new_entry_->writer &&
+          new_entry_->writer->range_requested_) {
+        // Quickly timeout and bypass the cache if we're a range request and
+        // we're blocked by the reader/writer lock. Doing so eliminates a long
+        // running issue, http://crbug.com/31014, where two of the same media
+        // resources could not be played back simultaneously due to one locking
+        // the cache entry until the entire video was downloaded.
+        //
+        // Bypassing the cache is not ideal, as we are now ignoring the cache
+        // entirely for all range requests to a resource beyond the first. This
+        // is however a much more succinct solution than the alternatives, which
+        // would require somewhat significant changes to the http caching logic.
+        //
+        // Allow some timeout slack for the entry addition to complete in case
+        // the writer lock is imminently released; we want to avoid skipping
+        // the cache if at all possible. See http://crbug.com/408765
+        timeout_milliseconds = 25;
+      }
+      base::MessageLoop::current()->PostDelayedTask(
+          FROM_HERE,
+          base::Bind(&HttpCache::Transaction::OnAddToEntryTimeout,
+                     weak_factory_.GetWeakPtr(), entry_lock_waiting_since_),
+          TimeDelta::FromMilliseconds(timeout_milliseconds));
+    }
+  }
+  return rv;
 }
 
 int HttpCache::Transaction::DoAddToEntryComplete(int result) {
@@ -1232,6 +1438,17 @@ int HttpCache::Transaction::DoAddToEntryComplete(int result) {
 
   if (result == ERR_CACHE_RACE) {
     next_state_ = STATE_INIT_ENTRY;
+    return OK;
+  }
+
+  if (result == ERR_CACHE_LOCK_TIMEOUT) {
+    // The cache is busy, bypass it for this transaction.
+    mode_ = NONE;
+    next_state_ = STATE_SEND_REQUEST;
+    if (partial_) {
+      partial_->RestoreHeaders(&custom_request_->extra_headers);
+      partial_.reset();
+    }
     return OK;
   }
 
@@ -1360,12 +1577,11 @@ int HttpCache::Transaction::DoOverwriteCachedResponse() {
 
   response_ = *new_response_;
 
-  if (handling_206_ && !CanResume(false)) {
-    // There is no point in storing this resource because it will never be used.
+  if (request_->method == "HEAD") {
+    // This response is replacing the cached one.
     DoneWritingToEntry(false);
-    if (partial_.get())
-      partial_->FixResponseHeaders(response_.headers.get(), true);
-    next_state_ = STATE_PARTIAL_HEADERS_RECEIVED;
+    mode_ = NONE;
+    new_response_ = NULL;
     return OK;
   }
 
@@ -1461,6 +1677,10 @@ int HttpCache::Transaction::DoCacheReadResponseComplete(int result) {
                                     &response_, &truncated_)) {
     return OnCacheReadError(result, true);
   }
+
+  // cert_cache() will be null if the CertCacheTrial field trial is disabled.
+  if (cache_->cert_cache() && response_.ssl_info.is_valid())
+    ReadCertChain();
 
   // Some resources may have slipped in as truncated when they're not.
   int current_size = entry_->disk_entry->GetDataSize(kResponseContentIndex);
@@ -1674,6 +1894,63 @@ int HttpCache::Transaction::DoCacheWriteDataComplete(int result) {
 
 //-----------------------------------------------------------------------------
 
+void HttpCache::Transaction::ReadCertChain() {
+  std::string key =
+      GetCacheKeyForCert(response_.ssl_info.cert->os_cert_handle());
+  const X509Certificate::OSCertHandles& intermediates =
+      response_.ssl_info.cert->GetIntermediateCertificates();
+  int dist_from_root = intermediates.size();
+
+  scoped_refptr<SharedChainData> shared_chain_data(
+      new SharedChainData(intermediates.size() + 1, TimeTicks::Now()));
+  cache_->cert_cache()->GetCertificate(key,
+                                       base::Bind(&OnCertReadIOComplete,
+                                                  dist_from_root,
+                                                  true /* is leaf */,
+                                                  shared_chain_data));
+
+  for (X509Certificate::OSCertHandles::const_iterator it =
+           intermediates.begin();
+       it != intermediates.end();
+       ++it) {
+    --dist_from_root;
+    key = GetCacheKeyForCert(*it);
+    cache_->cert_cache()->GetCertificate(key,
+                                         base::Bind(&OnCertReadIOComplete,
+                                                    dist_from_root,
+                                                    false /* is not leaf */,
+                                                    shared_chain_data));
+  }
+  DCHECK_EQ(0, dist_from_root);
+}
+
+void HttpCache::Transaction::WriteCertChain() {
+  const X509Certificate::OSCertHandles& intermediates =
+      response_.ssl_info.cert->GetIntermediateCertificates();
+  int dist_from_root = intermediates.size();
+
+  scoped_refptr<SharedChainData> shared_chain_data(
+      new SharedChainData(intermediates.size() + 1, TimeTicks::Now()));
+  cache_->cert_cache()->SetCertificate(
+      response_.ssl_info.cert->os_cert_handle(),
+      base::Bind(&OnCertWriteIOComplete,
+                 dist_from_root,
+                 true /* is leaf */,
+                 shared_chain_data));
+  for (X509Certificate::OSCertHandles::const_iterator it =
+           intermediates.begin();
+       it != intermediates.end();
+       ++it) {
+    --dist_from_root;
+    cache_->cert_cache()->SetCertificate(*it,
+                                         base::Bind(&OnCertWriteIOComplete,
+                                                    dist_from_root,
+                                                    false /* is not leaf */,
+                                                    shared_chain_data));
+  }
+  DCHECK_EQ(0, dist_from_root);
+}
+
 void HttpCache::Transaction::SetRequest(const BoundNetLog& net_log,
                                         const HttpRequestInfo* request) {
   net_log_ = net_log;
@@ -1685,7 +1962,7 @@ void HttpCache::Transaction::SetRequest(const BoundNetLog& net_log,
       break;
     case RECORD:
       // When in record mode, we want to NEVER load from the cache.
-      // The reason for this is beacuse we save the Set-Cookie headers
+      // The reason for this is because we save the Set-Cookie headers
       // (intentionally).  If we read from the cache, we replay them
       // prematurely.
       effective_load_flags_ |= LOAD_BYPASS_CACHE;
@@ -1793,7 +2070,7 @@ bool HttpCache::Transaction::ShouldPassThrough() {
   if (effective_load_flags_ & LOAD_DISABLE_CACHE)
     return true;
 
-  if (request_->method == "GET")
+  if (request_->method == "GET" || request_->method == "HEAD")
     return false;
 
   if (request_->method == "POST" && request_->upload_data_stream &&
@@ -1807,7 +2084,6 @@ bool HttpCache::Transaction::ShouldPassThrough() {
   if (request_->method == "DELETE")
     return false;
 
-  // TODO(darin): add support for caching HEAD responses
   return true;
 }
 
@@ -1817,6 +2093,9 @@ int HttpCache::Transaction::BeginCacheRead() {
     NOTREACHED();
     return ERR_CACHE_MISS;
   }
+
+  if (request_->method == "HEAD")
+    FixHeadersForHead();
 
   // We don't have the whole resource.
   if (truncated_)
@@ -1832,6 +2111,18 @@ int HttpCache::Transaction::BeginCacheValidation() {
   DCHECK(mode_ == READ_WRITE);
 
   bool skip_validation = !RequiresValidation();
+
+  if (request_->method == "HEAD" &&
+      (truncated_ || response_.headers->response_code() == 206)) {
+    DCHECK(!partial_);
+    if (skip_validation)
+      return SetupEntryForRead();
+
+    // Bail out!
+    next_state_ = STATE_SEND_REQUEST;
+    mode_ = NONE;
+    return OK;
+  }
 
   if (truncated_) {
     // Truncated entries can cause partial gets, so we shouldn't record this
@@ -1886,7 +2177,12 @@ int HttpCache::Transaction::BeginPartialCacheValidation() {
     next_state_ = STATE_CACHE_QUERY_DATA;
     return OK;
   }
+
   // The request is not for a range, but we have stored just ranges.
+
+  if (request_->method == "HEAD")
+    return BeginCacheValidation();
+
   partial_.reset(new PartialData());
   partial_->SetHeaders(request_->extra_headers);
   if (!custom_request_.get()) {
@@ -1940,6 +2236,22 @@ int HttpCache::Transaction::BeginExternallyConditionalizedRequest() {
       DoneWritingToEntry(true);
     }
   }
+
+  // TODO(ricea): This calculation is expensive to perform just to collect
+  // statistics. Either remove it or use the result, depending on the result of
+  // the experiment.
+  ExternallyConditionalizedType type =
+      EXTERNALLY_CONDITIONALIZED_CACHE_USABLE;
+  if (mode_ == NONE)
+    type = EXTERNALLY_CONDITIONALIZED_MISMATCHED_VALIDATORS;
+  else if (RequiresValidation())
+    type = EXTERNALLY_CONDITIONALIZED_CACHE_REQUIRES_VALIDATION;
+
+  // TODO(ricea): Add CACHE_USABLE_STALE once stale-while-revalidate CL landed.
+  // TODO(ricea): Either remove this histogram or make it permanent by M40.
+  UMA_HISTOGRAM_ENUMERATION("HttpCache.ExternallyConditionalized",
+                            type,
+                            EXTERNALLY_CONDITIONALIZED_MAX);
 
   next_state_ = STATE_SEND_REQUEST;
   return OK;
@@ -2028,9 +2340,10 @@ bool HttpCache::Transaction::ConditionalizeRequest() {
     return false;
   }
 
-  // We should have handled this case before.
-  DCHECK(response_.headers->response_code() != 206 ||
-         response_.headers->HasStrongValidators());
+  if (response_.headers->response_code() == 206 &&
+      !response_.headers->HasStrongValidators()) {
+    return false;
+  }
 
   // Just use the first available ETag and/or Last-Modified header value.
   // TODO(darin): Or should we use the last?
@@ -2057,6 +2370,28 @@ bool HttpCache::Transaction::ConditionalizeRequest() {
 
   bool use_if_range = partial_.get() && !partial_->IsCurrentRangeCached() &&
                       !invalid_range_;
+
+  if (!use_if_range) {
+    // stale-while-revalidate is not useful when we only have a partial response
+    // cached, so don't set the header in that case.
+    TimeDelta stale_while_revalidate;
+    if (response_.headers->GetStaleWhileRevalidateValue(
+            &stale_while_revalidate) &&
+        stale_while_revalidate > TimeDelta()) {
+      TimeDelta max_age =
+          response_.headers->GetFreshnessLifetime(response_.response_time);
+      TimeDelta current_age = response_.headers->GetCurrentAge(
+          response_.request_time, response_.response_time, Time::Now());
+
+      custom_request_->extra_headers.SetHeader(
+          kFreshnessHeader,
+          base::StringPrintf("max-age=%" PRId64
+                             ",stale-while-revalidate=%" PRId64 ",age=%" PRId64,
+                             max_age.InSeconds(),
+                             stale_while_revalidate.InSeconds(),
+                             current_age.InSeconds()));
+    }
+  }
 
   if (!etag_value.empty()) {
     if (use_if_range) {
@@ -2214,6 +2549,14 @@ void HttpCache::Transaction::IgnoreRangeRequest() {
   mode_ = NONE;
 }
 
+void HttpCache::Transaction::FixHeadersForHead() {
+  if (response_.headers->response_code() == 206) {
+    response_.headers->RemoveHeader("Content-Length");
+    response_.headers->RemoveHeader("Content-Range");
+    response_.headers->ReplaceStatusLine("HTTP/1.1 200 OK");
+  }
+}
+
 void HttpCache::Transaction::FailRangeRequest() {
   response_ = *new_response_;
   partial_->FixResponseHeaders(response_.headers.get(), false);
@@ -2235,6 +2578,9 @@ int HttpCache::Transaction::SetupEntryForRead() {
   cache_->ConvertWriterToReader(entry_);
   mode_ = READ;
 
+  if (request_->method == "HEAD")
+    FixHeadersForHead();
+
   if (entry_->disk_entry->GetDataSize(kMetadataIndex))
     next_state_ = STATE_CACHE_READ_METADATA;
   return OK;
@@ -2249,6 +2595,9 @@ int HttpCache::Transaction::ReadFromNetwork(IOBuffer* data, int data_len) {
 }
 
 int HttpCache::Transaction::ReadFromEntry(IOBuffer* data, int data_len) {
+  if (request_->method == "HEAD")
+    return 0;
+
   read_buf_ = data;
   io_buf_len_ = data_len;
   next_state_ = STATE_CACHE_READ_DATA;
@@ -2293,6 +2642,10 @@ int HttpCache::Transaction::WriteResponseInfoToEntry(bool truncated) {
       net_log_.EndEvent(NetLog::TYPE_HTTP_CACHE_WRITE_INFO);
     return OK;
   }
+
+  // cert_cache() will be null if the CertCacheTrial field trial is disabled.
+  if (cache_->cert_cache() && response_.ssl_info.is_valid())
+    WriteCertChain();
 
   // When writing headers, we normally only write the non-transient
   // headers; when in record mode, record everything.
@@ -2358,6 +2711,19 @@ int HttpCache::Transaction::OnCacheReadError(int result, bool restart) {
   }
 
   return ERR_CACHE_READ_FAILURE;
+}
+
+void HttpCache::Transaction::OnAddToEntryTimeout(base::TimeTicks start_time) {
+  if (entry_lock_waiting_since_ != start_time)
+    return;
+
+  DCHECK_EQ(next_state_, STATE_ADD_TO_ENTRY_COMPLETE);
+
+  if (!cache_)
+    return;
+
+  cache_->RemovePendingTransaction(this);
+  OnIOComplete(ERR_CACHE_LOCK_TIMEOUT);
 }
 
 void HttpCache::Transaction::DoomPartialEntry(bool delete_object) {

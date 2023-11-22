@@ -3,19 +3,32 @@
 # found in the LICENSE file.
 
 import logging
+import tempfile
 
-from telemetry import test
+from telemetry import benchmark
 from telemetry.core import bitmap
-from telemetry.core import video
-from telemetry.core import util
 from telemetry.core import exceptions
-from telemetry.core.backends.chrome import tracing_backend
+from telemetry.core import util
+from telemetry.core import video
+from telemetry.core.platform import tracing_category_filter
+from telemetry.core.platform import tracing_options
 from telemetry.timeline import model
 from telemetry.unittest import tab_test_case
 
 
 def _IsDocumentVisible(tab):
   return not tab.EvaluateJavaScript('document.hidden || document.webkitHidden')
+
+
+class FakePlatformBackend(object):
+  def __init__(self):
+    self.platform = FakePlatform()
+
+  def DidStartBrowser(self, _, _2):
+    pass
+
+  def WillCloseBrowser(self, _, _2):
+    pass
 
 
 class FakePlatform(object):
@@ -28,10 +41,7 @@ class FakePlatform(object):
 
   def StopVideoCapture(self):
     self._is_video_capture_running = False
-    return video.Video(self, None)
-
-  def SetFullPerformanceModeEnabled(self, enabled):
-    pass
+    return video.Video(tempfile.NamedTemporaryFile())
 
   @property
   def is_video_capture_running(self):
@@ -39,14 +49,12 @@ class FakePlatform(object):
 
 
 class TabTest(tab_test_case.TabTestCase):
-  def testNavigateAndWaitToForCompleteState(self):
-    self._browser.SetHTTPServerDirectories(util.GetUnittestDataDir())
-    self._tab.Navigate(self._browser.http_server.UrlOf('blank.html'))
+  def testNavigateAndWaitForCompleteState(self):
+    self._tab.Navigate(self.UrlOfUnittestFile('blank.html'))
     self._tab.WaitForDocumentReadyStateToBeComplete()
 
-  def testNavigateAndWaitToForInteractiveState(self):
-    self._browser.SetHTTPServerDirectories(util.GetUnittestDataDir())
-    self._tab.Navigate(self._browser.http_server.UrlOf('blank.html'))
+  def testNavigateAndWaitForInteractiveState(self):
+    self._tab.Navigate(self.UrlOfUnittestFile('blank.html'))
     self._tab.WaitForDocumentReadyStateToBeInteractiveOrBetter()
 
   def testTabBrowserIsRightBrowser(self):
@@ -57,11 +65,8 @@ class TabTest(tab_test_case.TabTestCase):
                       lambda: self._tab.Navigate('chrome://crash',
                                                  timeout=5))
 
+  @benchmark.Enabled('has tabs')
   def testActivateTab(self):
-    if not self._browser.supports_tab_control:
-      logging.warning('Browser does not support tab control, skipping test.')
-      return
-
     util.WaitFor(lambda: _IsDocumentVisible(self._tab), timeout=5)
     new_tab = self._browser.tabs.New()
     new_tab.Navigate('about:blank')
@@ -73,8 +78,9 @@ class TabTest(tab_test_case.TabTestCase):
 
   def testTabUrl(self):
     self.assertEquals(self._tab.url, 'about:blank')
-    self.Navigate('blank.html')
-    self.assertEquals(self._tab.url, self.test_url)
+    url = self.UrlOfUnittestFile('blank.html')
+    self._tab.Navigate(url)
+    self.assertEquals(self._tab.url, url)
 
   def testIsTimelineRecordingRunningTab(self):
     self.assertFalse(self._tab.is_timeline_recording_running)
@@ -85,21 +91,27 @@ class TabTest(tab_test_case.TabTestCase):
 
   #pylint: disable=W0212
   def testIsVideoCaptureRunning(self):
-    original_platform = self._tab.browser._platform
-    self._tab.browser._platform = FakePlatform()
-    self.assertFalse(self._tab.is_video_capture_running)
-    self._tab.StartVideoCapture(min_bitrate_mbps=2)
-    self.assertTrue(self._tab.is_video_capture_running)
-    self.assertIsNotNone(self._tab.StopVideoCapture())
-    self.assertFalse(self._tab.is_video_capture_running)
-    self._tab.browser._platform = original_platform
+    original_platform_backend = self._tab.browser._platform_backend
+    try:
+      self._tab.browser._platform_backend = FakePlatformBackend()
+      self.assertFalse(self._tab.is_video_capture_running)
+      self._tab.StartVideoCapture(min_bitrate_mbps=2)
+      self.assertTrue(self._tab.is_video_capture_running)
+      self.assertIsNotNone(self._tab.StopVideoCapture())
+      self.assertFalse(self._tab.is_video_capture_running)
+    finally:
+      self._tab.browser._platform_backend = original_platform_backend
 
+  @benchmark.Disabled('chromeos') # crbug.com/412713.
   def testHighlight(self):
     self.assertEquals(self._tab.url, 'about:blank')
-    self._browser.StartTracing(tracing_backend.DEFAULT_TRACE_CATEGORIES)
+    options = tracing_options.TracingOptions()
+    options.enable_chrome_trace = True
+    self._browser.platform.tracing_controller.Start(
+        options, tracing_category_filter.CreateNoOverheadFilter())
     self._tab.Highlight(bitmap.WEB_PAGE_TEST_ORANGE)
     self._tab.ClearHighlight(bitmap.WEB_PAGE_TEST_ORANGE)
-    trace_data = self._browser.StopTracing()
+    trace_data = self._browser.platform.tracing_controller.Stop()
     timeline_model = model.TimelineModel(trace_data)
     renderer_thread = timeline_model.GetRendererThreadFromTabId(
         self._tab.id)
@@ -110,9 +122,12 @@ class TabTest(tab_test_case.TabTestCase):
         break
     self.assertTrue(found_video_start_event)
 
+  @benchmark.Enabled('has tabs')
+  @benchmark.Disabled('chromeos') # crbug.com/412713.
   def testGetRendererThreadFromTabId(self):
     self.assertEquals(self._tab.url, 'about:blank')
-    # Create 3 tabs. The third tab is closed before we call StartTracing.
+    # Create 3 tabs. The third tab is closed before we call
+    # tracing_controller.Start.
     first_tab = self._tab
     second_tab = self._browser.tabs.New()
     second_tab.Navigate('about:blank')
@@ -121,13 +136,15 @@ class TabTest(tab_test_case.TabTestCase):
     third_tab.Navigate('about:blank')
     third_tab.WaitForDocumentReadyStateToBeInteractiveOrBetter()
     third_tab.Close()
-
-    self._browser.StartTracing(tracing_backend.MINIMAL_TRACE_CATEGORIES)
+    options = tracing_options.TracingOptions()
+    options.enable_chrome_trace = True
+    self._browser.platform.tracing_controller.Start(
+        options, tracing_category_filter.CreateNoOverheadFilter())
     first_tab.ExecuteJavaScript('console.time("first-tab-marker");')
     first_tab.ExecuteJavaScript('console.timeEnd("first-tab-marker");')
     second_tab.ExecuteJavaScript('console.time("second-tab-marker");')
     second_tab.ExecuteJavaScript('console.timeEnd("second-tab-marker");')
-    trace_data = self._browser.StopTracing()
+    trace_data = self._browser.platform.tracing_controller.Stop()
     timeline_model = model.TimelineModel(trace_data)
 
     # Assert that the renderer_thread of the first tab contains
@@ -153,12 +170,12 @@ class TabTest(tab_test_case.TabTestCase):
 
 
 class GpuTabTest(tab_test_case.TabTestCase):
-  def setUp(self):
-    self._extra_browser_args = ['--enable-gpu-benchmarking']
-    super(GpuTabTest, self).setUp()
+  @classmethod
+  def CustomizeBrowserOptions(cls, options):
+    options.AppendExtraBrowserArgs('--enable-gpu-benchmarking')
 
   # Test flaky on mac: http://crbug.com/358664
-  @test.Disabled('android', 'mac')
+  @benchmark.Disabled('android', 'mac')
   def testScreenshot(self):
     if not self._tab.screenshot_supported:
       logging.warning('Browser does not support screenshots, skipping test.')

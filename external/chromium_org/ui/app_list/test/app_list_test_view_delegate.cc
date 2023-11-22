@@ -5,6 +5,7 @@
 #include "ui/app_list/test/app_list_test_view_delegate.h"
 
 #include <string>
+#include <vector>
 
 #include "base/callback.h"
 #include "base/files/file_path.h"
@@ -22,8 +23,7 @@ AppListTestViewDelegate::AppListTestViewDelegate()
       toggle_speech_recognition_count_(0),
       open_search_result_count_(0),
       next_profile_app_count_(0),
-      model_(new AppListTestModel),
-      speech_ui_(SPEECH_RECOGNITION_OFF) {
+      model_(new AppListTestModel) {
   model_->SetFoldersEnabled(true);
 }
 
@@ -95,6 +95,10 @@ gfx::ImageSkia AppListTestViewDelegate::GetWindowIcon() {
 views::View* AppListTestViewDelegate::CreateStartPageWebView(
     const gfx::Size& size) {
   return NULL;
+}
+std::vector<views::View*> AppListTestViewDelegate::CreateCustomPageWebViews(
+    const gfx::Size& size) {
+  return std::vector<views::View*>();
 }
 #endif
 

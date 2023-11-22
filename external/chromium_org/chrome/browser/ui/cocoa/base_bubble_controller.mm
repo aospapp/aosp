@@ -12,9 +12,8 @@
 #include "base/strings/string_util.h"
 #import "chrome/browser/ui/cocoa/browser_window_controller.h"
 #import "chrome/browser/ui/cocoa/info_bubble_view.h"
+#import "chrome/browser/ui/cocoa/info_bubble_window.h"
 #import "chrome/browser/ui/cocoa/tabs/tab_strip_model_observer_bridge.h"
-#include "grit/generated_resources.h"
-#include "ui/base/l10n/l10n_util.h"
 
 @interface BaseBubbleController (Private)
 - (void)registerForNotifications;
@@ -73,7 +72,6 @@
   DCHECK(theWindow);
   if ((self = [super initWithWindow:theWindow])) {
     parentWindow_ = parentWindow;
-    anchor_ = anchoredAt;
     shouldOpenAsKeyWindow_ = YES;
     shouldCloseOnResignKey_ = YES;
 
@@ -87,6 +85,7 @@
 
     [self registerForNotifications];
     [self awakeFromNib];
+    [self setAnchorPoint:anchoredAt];
   }
   return self;
 }
@@ -242,16 +241,43 @@
 - (void)windowDidResignKey:(NSNotification*)notification {
   NSWindow* window = [self window];
   DCHECK_EQ([notification object], window);
-  if ([window isVisible] && [self shouldCloseOnResignKey]) {
-    // If the window isn't visible, it is already closed, and this notification
-    // has been sent as part of the closing operation, so no need to close.
+
+  // If the window isn't visible, it is already closed, and this notification
+  // has been sent as part of the closing operation, so no need to close.
+  if (![window isVisible])
+    return;
+
+  // Don't close when explicily disabled, or if there's an attached sheet (e.g.
+  // Open File dialog).
+  if ([self shouldCloseOnResignKey] && ![window attachedSheet]) {
     [self close];
+    return;
   }
+
+  // The bubble should not receive key events when it is no longer key window,
+  // so disable sharing parent key state. Share parent key state is only used
+  // to enable the close/minimize/maximize buttons of the parent window when
+  // the bubble has key state, so disabling it here is safe.
+  InfoBubbleWindow* bubbleWindow =
+      base::mac::ObjCCastStrict<InfoBubbleWindow>([self window]);
+  [bubbleWindow setAllowShareParentKeyState:NO];
 }
 
-// Since the bubble shares first responder with its parent window, set
-// event handlers to dismiss the bubble when it would normally lose key
-// state.
+- (void)windowDidBecomeKey:(NSNotification*)notification {
+  // Re-enable share parent key state to make sure the close/minimize/maximize
+  // buttons of the parent window are active.
+  InfoBubbleWindow* bubbleWindow =
+      base::mac::ObjCCastStrict<InfoBubbleWindow>([self window]);
+  [bubbleWindow setAllowShareParentKeyState:YES];
+}
+
+// Since the bubble shares first responder with its parent window, set event
+// handlers to dismiss the bubble when it would normally lose key state.
+// Events on sheets are ignored: this assumes the sheet belongs to the bubble
+// since, to affect a sheet on a different window, the bubble would also lose
+// key status in -[NSWindowDelegate windowDidResignKey:]. This keeps the logic
+// simple, since -[NSWindow attachedSheet] returns nil while the sheet is still
+// closing.
 - (void)registerKeyStateEventTap {
   // Parent key state sharing is only avaiable on 10.7+.
   if (!base::mac::IsOSLionOrLater())
@@ -268,7 +294,7 @@
       addLocalMonitorForEventsMatchingMask:NSLeftMouseDownMask |
                                            NSRightMouseDownMask
       handler:^NSEvent* (NSEvent* event) {
-          if (event.window != window) {
+          if ([event window] != window && ![[event window] isSheet]) {
             // Do it right now, because if this event is right mouse event,
             // it may pop up a menu. windowDidResignKey: will not run until
             // the menu is closed.
@@ -287,7 +313,8 @@
                           object:nil
                            queue:[NSOperationQueue mainQueue]
                       usingBlock:^(NSNotification* notif) {
-                          [self windowDidResignKey:note];
+                          if (![[notif object] isSheet])
+                            [self windowDidResignKey:note];
                       }];
 }
 

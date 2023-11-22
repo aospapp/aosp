@@ -22,6 +22,8 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
+using content::ResourceType;
+
 const int kNonInstantRendererPID = 0;
 const char kNonInstantOrigin[] = "http://evil";
 const int kInstantRendererPID = 1;
@@ -91,26 +93,28 @@ class IframeSourceTest : public testing::Test {
     return "";
   }
 
-  net::URLRequest* MockRequest(
+  scoped_ptr<net::URLRequest> MockRequest(
       const std::string& url,
       bool allocate_info,
       int render_process_id,
       int render_frame_id) {
-    net::URLRequest* request =
-        new net::URLRequest(GURL(url),
-                            net::DEFAULT_PRIORITY,
-                            NULL,
-                            resource_context_.GetRequestContext());
+    scoped_ptr<net::URLRequest> request(
+        resource_context_.GetRequestContext()->CreateRequest(
+            GURL(url),
+            net::DEFAULT_PRIORITY,
+            NULL,
+            NULL));
     if (allocate_info) {
-      content::ResourceRequestInfo::AllocateForTesting(request,
-                                                       ResourceType::SUB_FRAME,
-                                                       &resource_context_,
-                                                       render_process_id,
-                                                       render_frame_id,
-                                                       MSG_ROUTING_NONE,
-                                                       false);
+      content::ResourceRequestInfo::AllocateForTesting(
+          request.get(),
+          content::RESOURCE_TYPE_SUB_FRAME,
+          &resource_context_,
+          render_process_id,
+          render_frame_id,
+          MSG_ROUTING_NONE,
+          false);
     }
-    return request;
+    return request.Pass();
   }
 
   void SendResource(int resource_id) {
@@ -157,23 +161,23 @@ class IframeSourceTest : public testing::Test {
 
 TEST_F(IframeSourceTest, ShouldServiceRequest) {
   scoped_ptr<net::URLRequest> request;
-  request.reset(MockRequest("http://test/loader.js", true,
-                            kNonInstantRendererPID, 0));
+  request = MockRequest("http://test/loader.js", true,
+                        kNonInstantRendererPID, 0);
   EXPECT_FALSE(source()->ShouldServiceRequest(request.get()));
-  request.reset(MockRequest("chrome-search://bogus/valid.js", true,
-                            kInstantRendererPID, 0));
+  request = MockRequest("chrome-search://bogus/valid.js", true,
+                        kInstantRendererPID, 0);
   EXPECT_FALSE(source()->ShouldServiceRequest(request.get()));
-  request.reset(MockRequest("chrome-search://test/bogus.js", true,
-                            kInstantRendererPID, 0));
+  request = MockRequest("chrome-search://test/bogus.js", true,
+                        kInstantRendererPID, 0);
   EXPECT_FALSE(source()->ShouldServiceRequest(request.get()));
-  request.reset(MockRequest("chrome-search://test/valid.js", true,
-                            kInstantRendererPID, 0));
+  request = MockRequest("chrome-search://test/valid.js", true,
+                        kInstantRendererPID, 0);
   EXPECT_TRUE(source()->ShouldServiceRequest(request.get()));
-  request.reset(MockRequest("chrome-search://test/valid.js", true,
-                            kNonInstantRendererPID, 0));
+  request = MockRequest("chrome-search://test/valid.js", true,
+                        kNonInstantRendererPID, 0);
   EXPECT_FALSE(source()->ShouldServiceRequest(request.get()));
-  request.reset(MockRequest("chrome-search://test/valid.js", true,
-                            kInvalidRendererPID, 0));
+  request = MockRequest("chrome-search://test/valid.js", true,
+                        kInvalidRendererPID, 0);
   EXPECT_FALSE(source()->ShouldServiceRequest(request.get()));
 }
 

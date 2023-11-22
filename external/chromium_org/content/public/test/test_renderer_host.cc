@@ -13,6 +13,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/mock_render_process_host.h"
 #include "content/public/test/test_browser_context.h"
+#include "content/test/test_render_frame_host.h"
 #include "content/test/test_render_frame_host_factory.h"
 #include "content/test/test_render_view_host.h"
 #include "content/test/test_render_view_host_factory.h"
@@ -29,6 +30,13 @@
 #endif
 
 namespace content {
+
+// RenderFrameHostTester ------------------------------------------------------
+
+// static
+RenderFrameHostTester* RenderFrameHostTester::For(RenderFrameHost* host) {
+  return static_cast<TestRenderFrameHost*>(host);
+}
 
 // RenderViewHostTester -------------------------------------------------------
 
@@ -92,12 +100,13 @@ WebContents* RenderViewHostTestHarness::web_contents() {
 }
 
 RenderViewHost* RenderViewHostTestHarness::rvh() {
-  return web_contents()->GetRenderViewHost();
+  RenderViewHost* result = web_contents()->GetRenderViewHost();
+  CHECK_EQ(result, web_contents()->GetMainFrame()->GetRenderViewHost());
+  return result;
 }
 
 RenderViewHost* RenderViewHostTestHarness::pending_rvh() {
-  return static_cast<TestWebContents*>(web_contents())->
-      GetRenderManagerForTesting()->pending_render_view_host();
+  return pending_main_rfh() ? pending_main_rfh()->GetRenderViewHost() : NULL;
 }
 
 RenderViewHost* RenderViewHostTestHarness::active_rvh() {
@@ -105,9 +114,11 @@ RenderViewHost* RenderViewHostTestHarness::active_rvh() {
 }
 
 RenderFrameHost* RenderViewHostTestHarness::main_rfh() {
-  WebContentsImpl* web_contents = static_cast<WebContentsImpl*>(
-      this->web_contents());
-  return web_contents->GetFrameTree()->GetMainFrame();
+  return web_contents()->GetMainFrame();
+}
+
+RenderFrameHost* RenderViewHostTestHarness::pending_main_rfh() {
+  return WebContentsTester::For(web_contents())->GetPendingMainFrame();
 }
 
 BrowserContext* RenderViewHostTestHarness::browser_context() {
@@ -151,7 +162,7 @@ void RenderViewHostTestHarness::Reload() {
   controller().Reload(false);
   static_cast<TestRenderViewHost*>(
       rvh())->SendNavigateWithTransition(
-          entry->GetPageID(), entry->GetURL(), PAGE_TRANSITION_RELOAD);
+          entry->GetPageID(), entry->GetURL(), ui::PAGE_TRANSITION_RELOAD);
 }
 
 void RenderViewHostTestHarness::FailedReload() {

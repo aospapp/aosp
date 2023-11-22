@@ -71,6 +71,7 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
     private static final Location sTestLocation0 = new Location(LocationManager.GPS_PROVIDER);
     private static final Location sTestLocation1 = new Location(LocationManager.GPS_PROVIDER);
     private static final Location sTestLocation2 = new Location(LocationManager.NETWORK_PROVIDER);
+    private static final int RELAXED_CAPTURE_IMAGE_TIMEOUT_MS = CAPTURE_IMAGE_TIMEOUT_MS + 1000;
     static {
         sTestLocation0.setTime(1199145600L);
         sTestLocation0.setLatitude(37.736071);
@@ -263,11 +264,6 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
                 Log.i(TAG, "Testing Still preview capture combination for Camera " + id);
                 openDevice(id);
 
-                if (mStaticInfo.isHardwareLevelLegacy()) {
-                    Log.i(TAG, "Skipping test for legacy devices");
-                    continue;
-                }
-
                 previewStillCombinationTestByCamera();
             } finally {
                 closeDevice();
@@ -291,6 +287,12 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
             try {
                 Log.i(TAG, "Testing AE compensation for Camera " + id);
                 openDevice(id);
+
+                if (mStaticInfo.isHardwareLevelLegacy()) {
+                    Log.i(TAG, "Skipping test on legacy devices");
+                    continue;
+                }
+
                 aeCompensationTestByCamera();
             } finally {
                 closeDevice();
@@ -307,11 +309,6 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
             try {
                 Log.i(TAG, "Testing AE regions for Camera " + id);
                 openDevice(id);
-
-                if (mStaticInfo.isHardwareLevelLegacy()) {
-                    Log.i(TAG, "Skipping test on legacy devices");
-                    continue;
-                }
 
                 boolean aeRegionsSupported = isRegionsSupportedFor3A(MAX_REGIONS_AE_INDEX);
                 if (!aeRegionsSupported) {
@@ -362,11 +359,6 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
             try {
                 Log.i(TAG, "Testing AF regions for Camera " + id);
                 openDevice(id);
-
-                if (mStaticInfo.isHardwareLevelLegacy()) {
-                    Log.i(TAG, "Skipping test on legacy devices");
-                    continue;
-                }
 
                 boolean afRegionsSupported = isRegionsSupportedFor3A(MAX_REGIONS_AF_INDEX);
                 if (!afRegionsSupported) {
@@ -646,7 +638,8 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
                 prepareStillCaptureAndStartPreview(previewRequest, stillRequest, previewSz,
                         stillSz, resultListener, imageListener);
                 mSession.capture(stillRequest.build(), resultListener, mHandler);
-                Image image = imageListener.getImage(CAPTURE_IMAGE_TIMEOUT_MS);
+                Image image = imageListener.getImage((mStaticInfo.isHardwareLevelLegacy()) ?
+                        RELAXED_CAPTURE_IMAGE_TIMEOUT_MS : CAPTURE_IMAGE_TIMEOUT_MS);
                 validateJpegCapture(image, stillSz);
                 // stopPreview must be called here to make sure next time a preview stream
                 // is created with new size.
@@ -1239,6 +1232,11 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
 
     private void aeCompensationTestByCamera() throws Exception {
         Range<Integer> compensationRange = mStaticInfo.getAeCompensationRangeChecked();
+        // Skip the test if exposure compensation is not supported.
+        if (compensationRange.equals(Range.create(0, 0))) {
+            return;
+        }
+
         Rational step = mStaticInfo.getAeCompensationStepChecked();
         float stepF = (float) step.getNumerator() / step.getDenominator();
         int stepsPerEv = (int) Math.round(1.0 / stepF);
@@ -1253,6 +1251,8 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
         CaptureRequest.Builder stillRequest =
                 mCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
         stillRequest.set(CaptureRequest.CONTROL_AE_LOCK, true);
+        CaptureResult normalResult;
+        CaptureResult compensatedResult;
 
         // The following variables should only be read under the MANUAL_SENSOR capability guard:
         long minExposureValue = -1;
@@ -1284,13 +1284,13 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
 
             // Wait for AE to be stabilized before capture: CONVERGED or FLASH_REQUIRED.
             waitForAeStable(resultListener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
-            CaptureResult result = resultListener.getCaptureResult(WAIT_FOR_RESULT_TIMEOUT_MS);
+            normalResult = resultListener.getCaptureResult(WAIT_FOR_RESULT_TIMEOUT_MS);
 
             long normalExposureValue = -1;
             if (mStaticInfo.isCapabilitySupported(
                     CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR)) {
                 // get and check if current exposure value is valid
-                normalExposureValue = getExposureValue(result);
+                normalExposureValue = getExposureValue(normalResult);
                 mCollector.expectInRange("Exposure setting out of bound", normalExposureValue,
                         minExposureValue, maxExposureValuePreview);
 
@@ -1300,6 +1300,12 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
                     expectedExposureValue > maxExposureValueStill) {
                     continue;
                 }
+                Log.v(TAG, "Expect ratio: " + expectedRatio +
+                        " normalExposureValue: " + normalExposureValue +
+                        " expectedExposureValue: " + expectedExposureValue +
+                        " minExposureValue: " + minExposureValue +
+                        " maxExposureValuePreview: " + maxExposureValuePreview +
+                        " maxExposureValueStill: " + maxExposureValueStill);
             }
 
             // Now issue exposure compensation and wait for AE locked. AE could take a few
@@ -1320,29 +1326,39 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
             CaptureRequest request = stillRequest.build();
             mSession.capture(request, resultListener, mHandler);
 
-            result = resultListener.getCaptureResultForRequest(request, WAIT_FOR_RESULT_TIMEOUT_MS);
+            compensatedResult = resultListener.getCaptureResultForRequest(
+                    request, WAIT_FOR_RESULT_TIMEOUT_MS);
 
             if (mStaticInfo.isCapabilitySupported(
                     CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR)) {
                 // Verify the exposure value compensates as requested
-                long compensatedExposureValue = getExposureValue(result);
+                long compensatedExposureValue = getExposureValue(compensatedResult);
                 mCollector.expectInRange("Exposure setting out of bound", compensatedExposureValue,
                         minExposureValue, maxExposureValueStill);
                 double observedRatio = (double) compensatedExposureValue / normalExposureValue;
                 double error = observedRatio / expectedRatio;
-                mCollector.expectInRange(String.format(
-                        "Exposure compensation ratio exceeds error tolerence:"
-                        + " expected(%f) observed(%f) ", expectedRatio, observedRatio),
-                        error,
+                String errorString = String.format(
+                        "Exposure compensation ratio exceeds error tolerence:" +
+                        " expected(%f) observed(%f)." +
+                        " Normal exposure time %d us, sensitivity %d." +
+                        " Compensated exposure time %d us, sensitivity %d",
+                        expectedRatio, observedRatio,
+                        (int) (getValueNotNull(
+                                normalResult, CaptureResult.SENSOR_EXPOSURE_TIME) / 1000),
+                        getValueNotNull(normalResult, CaptureResult.SENSOR_SENSITIVITY),
+                        (int) (getValueNotNull(
+                                compensatedResult, CaptureResult.SENSOR_EXPOSURE_TIME) / 1000),
+                        getValueNotNull(compensatedResult, CaptureResult.SENSOR_SENSITIVITY));
+                mCollector.expectInRange(errorString, error,
                         1.0 - AE_COMPENSATION_ERROR_TOLERANCE,
                         1.0 + AE_COMPENSATION_ERROR_TOLERANCE);
             }
 
             mCollector.expectEquals("Exposure compensation result should match requested value.",
                     exposureCompensation,
-                    result.get(CaptureResult.CONTROL_AE_EXPOSURE_COMPENSATION));
+                    compensatedResult.get(CaptureResult.CONTROL_AE_EXPOSURE_COMPENSATION));
             mCollector.expectTrue("Exposure lock should be set",
-                    result.get(CaptureResult.CONTROL_AE_LOCK));
+                    compensatedResult.get(CaptureResult.CONTROL_AE_LOCK));
 
             Image image = imageListener.getImage(CAPTURE_IMAGE_TIMEOUT_MS);
             validateJpegCapture(image, maxStillSz);

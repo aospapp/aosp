@@ -12,14 +12,13 @@
 #include "base/prefs/pref_service.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/custom_handlers/register_protocol_handler_infobar_delegate.h"
-#include "chrome/browser/net/chrome_url_request_context.h"
 #include "chrome/browser/profiles/profile_io_data.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/custom_handlers/protocol_handler.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/pref_registry/pref_registry_syncable.h"
+#include "components/user_prefs/user_prefs.h"
 #include "content/public/browser/child_process_security_policy.h"
-#include "grit/generated_resources.h"
 #include "net/base/network_delegate.h"
 #include "net/url_request/url_request_redirect_job.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -309,9 +308,9 @@ void ProtocolHandlerRegistry::Delegate::RegisterWithOSAsDefaultClient(
 
 // ProtocolHandlerRegistry -----------------------------------------------------
 
-ProtocolHandlerRegistry::ProtocolHandlerRegistry(Profile* profile,
-    Delegate* delegate)
-    : profile_(profile),
+ProtocolHandlerRegistry::ProtocolHandlerRegistry(
+    content::BrowserContext* context, Delegate* delegate)
+    : context_(context),
       delegate_(delegate),
       enabled_(true),
       is_loading_(false),
@@ -435,7 +434,7 @@ void ProtocolHandlerRegistry::InitProtocolSettings() {
   is_loaded_ = true;
   is_loading_ = true;
 
-  PrefService* prefs = profile_->GetPrefs();
+  PrefService* prefs = user_prefs::UserPrefs::Get(context_);
   if (prefs->HasPrefPath(prefs::kCustomHandlersEnabled)) {
     if (prefs->GetBoolean(prefs::kCustomHandlersEnabled)) {
       Enable();
@@ -534,6 +533,17 @@ bool ProtocolHandlerRegistry::IsRegistered(
       handlers->end();
 }
 
+bool ProtocolHandlerRegistry::IsRegisteredByUser(
+    const ProtocolHandler& handler) {
+  return HandlerExists(handler, &user_protocol_handlers_);
+}
+
+bool ProtocolHandlerRegistry::HasPolicyRegisteredHandler(
+    const std::string& scheme) {
+  return (policy_protocol_handlers_.find(scheme) !=
+          policy_protocol_handlers_.end());
+}
+
 bool ProtocolHandlerRegistry::IsIgnored(const ProtocolHandler& handler) const {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   ProtocolHandlerList::const_iterator i;
@@ -606,10 +616,9 @@ void ProtocolHandlerRegistry::RemoveHandler(
   if (HandlerExists(handler, handlers) &&
       HandlerExists(handler, &user_protocol_handlers_)) {
     EraseHandler(handler, &user_protocol_handlers_);
-    if (!HandlerExists(handler, &policy_protocol_handlers_)) {
-      erase_success = true;
+    erase_success = true;
+    if (!HandlerExists(handler, &policy_protocol_handlers_))
       EraseHandler(handler, &protocol_handlers_);
-    }
   }
   ProtocolHandlerMap::iterator q = default_handlers_.find(handler.protocol());
   if (erase_success && q != default_handlers_.end() && q->second == handler) {
@@ -739,12 +748,13 @@ void ProtocolHandlerRegistry::Save() {
   scoped_ptr<base::Value> registered_protocol_handlers(
       EncodeRegisteredHandlers());
   scoped_ptr<base::Value> ignored_protocol_handlers(EncodeIgnoredHandlers());
-  scoped_ptr<base::Value> enabled(base::Value::CreateBooleanValue(enabled_));
-  profile_->GetPrefs()->Set(prefs::kRegisteredProtocolHandlers,
+  PrefService* prefs = user_prefs::UserPrefs::Get(context_);
+
+  prefs->Set(prefs::kRegisteredProtocolHandlers,
       *registered_protocol_handlers);
-  profile_->GetPrefs()->Set(prefs::kIgnoredProtocolHandlers,
+  prefs->Set(prefs::kIgnoredProtocolHandlers,
       *ignored_protocol_handlers);
-  profile_->GetPrefs()->Set(prefs::kCustomHandlersEnabled, *enabled);
+  prefs->SetBoolean(prefs::kCustomHandlersEnabled, enabled_);
 }
 
 const ProtocolHandlerRegistry::ProtocolHandlerList*
@@ -800,7 +810,7 @@ base::Value* ProtocolHandlerRegistry::EncodeRegisteredHandlers() {
          j != i->second.end(); ++j) {
       base::DictionaryValue* encoded = j->Encode();
       if (IsDefault(*j)) {
-        encoded->Set("default", base::Value::CreateBooleanValue(true));
+        encoded->Set("default", new base::FundamentalValue(true));
       }
       protocol_handlers->Append(encoded);
     }
@@ -824,7 +834,7 @@ void ProtocolHandlerRegistry::NotifyChanged() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   content::NotificationService::current()->Notify(
       chrome::NOTIFICATION_PROTOCOL_HANDLER_REGISTRY_CHANGED,
-      content::Source<Profile>(profile_),
+      content::Source<content::BrowserContext>(context_),
       content::NotificationService::NoDetails());
 }
 
@@ -851,7 +861,7 @@ std::vector<const base::DictionaryValue*>
 ProtocolHandlerRegistry::GetHandlersFromPref(const char* pref_name) const {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   std::vector<const base::DictionaryValue*> result;
-  PrefService* prefs = profile_->GetPrefs();
+  PrefService* prefs = user_prefs::UserPrefs::Get(context_);
   if (!prefs->HasPrefPath(pref_name)) {
     return result;
   }

@@ -21,6 +21,7 @@
 #include "content/browser/renderer_host/image_transport_factory_android.h"
 #include "content/browser/renderer_host/ime_adapter_android.h"
 #include "content/browser/renderer_host/input/gesture_text_selector.h"
+#include "content/browser/renderer_host/input/touch_selection_controller.h"
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "content/common/content_export.h"
 #include "gpu/command_buffer/common/mailbox.h"
@@ -57,6 +58,29 @@ class RenderWidgetHostImpl;
 struct DidOverscrollParams;
 struct NativeWebKeyboardEvent;
 
+class ReadbackRequest {
+ public:
+  explicit ReadbackRequest(
+      float scale,
+      SkColorType color_type,
+      gfx::Rect src_subrect,
+      const base::Callback<void(bool, const SkBitmap&)>& result_callback);
+  ~ReadbackRequest();
+  float GetScale() { return scale_; }
+  SkColorType GetColorFormat() { return color_type_; }
+  const gfx::Rect GetCaptureRect() { return src_subrect_; }
+  const base::Callback<void(bool, const SkBitmap&)>& GetResultCallback() {
+    return result_callback_;
+  }
+
+ private:
+  ReadbackRequest();
+  float scale_;
+  SkColorType color_type_;
+  gfx::Rect src_subrect_;
+  base::Callback<void(bool, const SkBitmap&)> result_callback_;
+};
+
 // -----------------------------------------------------------------------------
 // See comments in render_widget_host_view.h about this class and its members.
 // -----------------------------------------------------------------------------
@@ -67,7 +91,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
       public ui::GestureProviderClient,
       public ui::WindowAndroidObserver,
       public DelegatedFrameEvictorClient,
-      public GestureTextSelectorClient {
+      public GestureTextSelectorClient,
+      public TouchSelectionControllerClient {
  public:
   RenderWidgetHostViewAndroid(RenderWidgetHostImpl* widget,
                               ContentViewCoreImpl* content_view_core);
@@ -85,6 +110,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   virtual void WasHidden() OVERRIDE;
   virtual void SetSize(const gfx::Size& size) OVERRIDE;
   virtual void SetBounds(const gfx::Rect& rect) OVERRIDE;
+  virtual gfx::Vector2dF GetLastScrollOffset() const OVERRIDE;
   virtual gfx::NativeView GetNativeView() const OVERRIDE;
   virtual gfx::NativeViewId GetNativeViewId() const OVERRIDE;
   virtual gfx::NativeViewAccessible GetNativeViewAccessible() OVERRIDE;
@@ -99,11 +125,12 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   virtual bool IsShowing() OVERRIDE;
   virtual gfx::Rect GetViewBounds() const OVERRIDE;
   virtual gfx::Size GetPhysicalBackingSize() const OVERRIDE;
-  virtual float GetOverdrawBottomHeight() const OVERRIDE;
+  virtual float GetTopControlsLayoutHeight() const OVERRIDE;
   virtual void UpdateCursor(const WebCursor& cursor) OVERRIDE;
   virtual void SetIsLoading(bool is_loading) OVERRIDE;
-  virtual void TextInputStateChanged(
-      const ViewHostMsg_TextInputState_Params& params) OVERRIDE;
+  virtual void TextInputTypeChanged(ui::TextInputType type,
+                                    ui::TextInputMode input_mode,
+                                    bool can_compose_inline) OVERRIDE;
   virtual void ImeCancelComposition() OVERRIDE;
   virtual void FocusedNodeChanged(bool is_editable_node) OVERRIDE;
   virtual void RenderProcessGone(base::TerminationStatus status,
@@ -115,7 +142,6 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
                                 const gfx::Range& range) OVERRIDE;
   virtual void SelectionBoundsChanged(
       const ViewHostMsg_SelectionBounds_Params& params) OVERRIDE;
-  virtual void ScrollOffsetChanged() OVERRIDE;
   virtual void AcceleratedSurfaceInitialized(int host_id,
                                              int route_id) OVERRIDE;
   virtual void AcceleratedSurfaceBuffersSwapped(
@@ -131,8 +157,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   virtual void CopyFromCompositingSurface(
       const gfx::Rect& src_subrect,
       const gfx::Size& dst_size,
-      const base::Callback<void(bool, const SkBitmap&)>& callback,
-      const SkBitmap::Config config) OVERRIDE;
+      CopyFromCompositingSurfaceCallback& callback,
+      const SkColorType color_type) OVERRIDE;
   virtual void CopyFromCompositingSurfaceToVideoFrame(
       const gfx::Rect& src_subrect,
       const scoped_refptr<media::VideoFrame>& target,
@@ -148,7 +174,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   virtual void OnSetNeedsFlushInput() OVERRIDE;
   virtual void GestureEventAck(const blink::WebGestureEvent& event,
                                InputEventAckState ack_result) OVERRIDE;
-  virtual void CreateBrowserAccessibilityManagerIfNeeded() OVERRIDE;
+  virtual BrowserAccessibilityManager* CreateBrowserAccessibilityManager(
+      BrowserAccessibilityDelegate* delegate) OVERRIDE;
   virtual bool LockMouse() OVERRIDE;
   virtual void UnlockMouse() OVERRIDE;
   virtual void OnSwapCompositorFrame(
@@ -156,7 +183,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
       scoped_ptr<cc::CompositorFrame> frame) OVERRIDE;
   virtual void DidOverscroll(const DidOverscrollParams& params) OVERRIDE;
   virtual void DidStopFlinging() OVERRIDE;
-  virtual void ShowDisambiguationPopup(const gfx::Rect& target_rect,
+  virtual void ShowDisambiguationPopup(const gfx::Rect& rect_pixels,
                                        const SkBitmap& zoomed_bitmap) OVERRIDE;
   virtual scoped_ptr<SyntheticGestureTarget> CreateSyntheticGestureTarget()
       OVERRIDE;
@@ -174,7 +201,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
 
   // ui::WindowAndroidObserver implementation.
   virtual void OnCompositingDidCommit() OVERRIDE;
-  virtual void OnAttachCompositor() OVERRIDE {}
+  virtual void OnAttachCompositor() OVERRIDE;
   virtual void OnDetachCompositor() OVERRIDE;
   virtual void OnVSync(base::TimeTicks frame_time,
                        base::TimeDelta vsync_period) OVERRIDE;
@@ -186,7 +213,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   // DelegatedFrameEvictor implementation
   virtual void EvictDelegatedFrame() OVERRIDE;
 
-  virtual SkBitmap::Config PreferredReadbackFormat() OVERRIDE;
+  virtual SkColorType PreferredReadbackFormat() OVERRIDE;
 
   // GestureTextSelectorClient implementation.
   virtual void ShowSelectionHandlesAutomatically() OVERRIDE;
@@ -198,11 +225,11 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void SetContentViewCore(ContentViewCoreImpl* content_view_core);
   SkColor GetCachedBackgroundColor() const;
   void SendKeyEvent(const NativeWebKeyboardEvent& event);
-  void SendTouchEvent(const blink::WebTouchEvent& event);
   void SendMouseEvent(const blink::WebMouseEvent& event);
   void SendMouseWheelEvent(const blink::WebMouseWheelEvent& event);
   void SendGestureEvent(const blink::WebGestureEvent& event);
 
+  void OnTextInputStateChanged(const ViewHostMsg_TextInputState_Params& params);
   void OnDidChangeBodyBackgroundColor(SkColor color);
   void OnStartContentIntent(const GURL& content_url);
   void OnSetNeedsBeginFrame(bool enabled);
@@ -211,6 +238,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
                                 const gfx::Rect rect);
 
   bool OnTouchEvent(const ui::MotionEvent& event);
+  bool OnTouchHandleEvent(const ui::MotionEvent& event);
   void ResetGestureDetection();
   void SetDoubleTapSupportEnabled(bool enabled);
   void SetMultiTouchZoomSupportEnabled(bool enabled);
@@ -221,13 +249,19 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
 
   void GetScaledContentBitmap(
       float scale,
-      SkBitmap::Config bitmap_config,
+      SkColorType color_type,
       gfx::Rect src_subrect,
       const base::Callback<void(bool, const SkBitmap&)>& result_callback);
+
+  scoped_refptr<cc::DelegatedRendererLayer>
+      CreateDelegatedLayerForFrameProvider() const;
 
   bool HasValidFrame() const;
 
   void MoveCaret(const gfx::Point& point);
+  void DismissTextHandles();
+  void SetTextHandlesTemporarilyHidden(bool hidden);
+  void OnShowingPastePopup(const gfx::PointF& point);
 
   void SynchronousFrameMetadata(
       const cc::CompositorFrameMetadata& frame_metadata);
@@ -241,6 +275,16 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
       const TextSurroundingSelectionCallback& callback);
 
  private:
+  // TouchSelectionControllerClient implementation.
+  virtual bool SupportsAnimation() const OVERRIDE;
+  virtual void SetNeedsAnimate() OVERRIDE;
+  virtual void MoveCaret(const gfx::PointF& position) OVERRIDE;
+  virtual void SelectBetweenCoordinates(const gfx::PointF& start,
+                                        const gfx::PointF& end) OVERRIDE;
+  virtual void OnSelectionEvent(SelectionEventType event,
+                                const gfx::PointF& anchor_position) OVERRIDE;
+  virtual scoped_ptr<TouchHandleDrawable> CreateDrawable() OVERRIDE;
+
   void RunAckCallbacks();
 
   void DestroyDelegatedContent();
@@ -252,8 +296,6 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void OnFrameMetadataUpdated(
       const cc::CompositorFrameMetadata& frame_metadata);
   void ComputeContentsSize(const cc::CompositorFrameMetadata& frame_metadata);
-  void ResetClipping();
-  void ClipContents(const gfx::Rect& clipping, const gfx::Size& content_size);
 
   void AttachLayers();
   void RemoveLayers();
@@ -262,13 +304,13 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   // of the copy.
   static void PrepareTextureCopyOutputResult(
       const gfx::Size& dst_size_in_pixel,
-      const SkBitmap::Config config,
+      const SkColorType color_type,
       const base::TimeTicks& start_time,
       const base::Callback<void(bool, const SkBitmap&)>& callback,
       scoped_ptr<cc::CopyOutputResult> result);
   static void PrepareTextureCopyOutputResultForDelegatedReadback(
       const gfx::Size& dst_size_in_pixel,
-      const SkBitmap::Config config,
+      const SkColorType color_type,
       const base::TimeTicks& start_time,
       scoped_refptr<cc::Layer> readback_layer,
       const base::Callback<void(bool, const SkBitmap&)>& callback,
@@ -279,9 +321,9 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
       const gfx::Rect& src_subrect_in_pixel,
       const gfx::Size& dst_size_in_pixel,
       const base::Callback<void(bool, const SkBitmap&)>& callback,
-      const SkBitmap::Config config);
+      const SkColorType color_type);
 
-  bool IsReadbackConfigSupported(SkBitmap::Config bitmap_config);
+  bool IsReadbackConfigSupported(SkColorType color_type);
 
   // If we have locks on a frame during a ContentViewCore swap or a context
   // lost, the frame is no longer valid and we can safely release all the locks.
@@ -296,14 +338,25 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void InternalSwapCompositorFrame(uint32 output_surface_id,
                                    scoped_ptr<cc::CompositorFrame> frame);
 
-  void SetNeedsAnimate();
+  enum VSyncRequestType {
+    FLUSH_INPUT = 1 << 0,
+    BEGIN_FRAME = 1 << 1,
+    PERSISTENT_BEGIN_FRAME = 1 << 2
+  };
+  void RequestVSyncUpdate(uint32 requests);
+  void StartObservingRootWindow();
+  void StopObservingRootWindow();
+  void SendBeginFrame(base::TimeTicks frame_time, base::TimeDelta vsync_period);
   bool Animate(base::TimeTicks frame_time);
+
+  // Handles all unprocessed and pending readback requests.
+  void AbortPendingReadbackRequests();
 
   // The model object.
   RenderWidgetHostImpl* host_;
 
-  // Used to track whether this render widget needs a BeginFrame.
-  bool needs_begin_frame_;
+  // Used to control action dispatch at the next |OnVSync()| call.
+  uint32 outstanding_vsync_requests_;
 
   bool is_showing_;
 
@@ -325,19 +378,14 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   // The most recent content size that was pushed to the texture layer.
   gfx::Size content_size_in_layer_;
 
-  // The device scale of the last received frame.
-  float device_scale_factor_;
-
   // The output surface id of the last received frame.
   uint32_t last_output_surface_id_;
 
-  base::WeakPtrFactory<RenderWidgetHostViewAndroid> weak_ptr_factory_;
 
   std::queue<base::Closure> ack_callbacks_;
 
   const bool overscroll_effect_enabled_;
   // Used to render overscroll overlays.
-  // Note: |overscroll_effect_| will never be NULL, even if it's never enabled.
   scoped_ptr<OverscrollGlow> overscroll_effect_;
 
   // Provides gesture synthesis given a stream of touch events (derived from
@@ -347,14 +395,16 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   // Handles gesture based text selection
   GestureTextSelector gesture_text_selector_;
 
-  bool flush_input_requested_;
+  // Manages selection handle rendering and manipulation.
+  // This will always be NULL if |content_view_core_| is NULL.
+  scoped_ptr<TouchSelectionController> selection_controller_;
 
   int accelerated_surface_route_id_;
 
   // Size to use if we have no backing ContentViewCore
   gfx::Size default_size_;
 
-  const bool using_synchronous_compositor_;
+  const bool using_browser_compositor_;
 
   scoped_ptr<DelegatedFrameEvictor> frame_evictor_;
 
@@ -372,6 +422,14 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   scoped_ptr<LastFrameInfo> last_frame_info_;
 
   TextSurroundingSelectionCallback text_surrounding_selection_callback_;
+
+  // List of readbackrequests waiting for arrival of a valid frame.
+  std::queue<ReadbackRequest> readbacks_waiting_for_frame_;
+
+  // The last scroll offset of the view.
+  gfx::Vector2dF last_scroll_offset_;
+
+  base::WeakPtrFactory<RenderWidgetHostViewAndroid> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostViewAndroid);
 };

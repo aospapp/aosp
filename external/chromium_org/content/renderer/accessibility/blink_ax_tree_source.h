@@ -11,13 +11,20 @@
 
 namespace content {
 
-class RenderViewImpl;
+class RenderFrameImpl;
 
 class BlinkAXTreeSource
     : public ui::AXTreeSource<blink::WebAXObject> {
  public:
-  BlinkAXTreeSource(RenderViewImpl* render_view);
+  BlinkAXTreeSource(RenderFrameImpl* render_frame);
   virtual ~BlinkAXTreeSource();
+
+  // Call this to have BlinkAXTreeSource collect a mapping from
+  // node ids to the frame routing id for an out-of-process iframe during
+  // calls to SerializeNode.
+  void CollectChildFrameIdMapping(
+      std::map<int32, int>* node_to_frame_routing_id_map,
+      std::map<int32, int>* node_to_browser_plugin_instance_id_map);
 
   // Walks up the ancestor chain to see if this is a descendant of the root.
   bool IsInTree(blink::WebAXObject node) const;
@@ -41,7 +48,9 @@ class BlinkAXTreeSource
   blink::WebDocument GetMainDocument() const;
 
  private:
-  RenderViewImpl* render_view_;
+  RenderFrameImpl* render_frame_;
+  std::map<int32, int>* node_to_frame_routing_id_map_;
+  std::map<int32, int>* node_to_browser_plugin_instance_id_map_;
 };
 
 }  // namespace content

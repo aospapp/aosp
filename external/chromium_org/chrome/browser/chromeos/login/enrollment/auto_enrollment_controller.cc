@@ -92,12 +92,12 @@ void AutoEnrollmentController::Start() {
   // accepted, or right after a reboot if the EULA has already been accepted.
 
   // Do not communicate auto-enrollment data to the server if
-  // 1. we are running integration or perf tests with telemetry.
+  // 1. we are running telemetry tests.
   // 2. modulus configuration is not present.
   // 3. Auto-enrollment is disabled via the command line.
 
   CommandLine* command_line = CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(chromeos::switches::kOobeSkipPostLogin) ||
+  if (command_line->HasSwitch(chromeos::switches::kDisableGaiaServices) ||
       (!command_line->HasSwitch(
            chromeos::switches::kEnterpriseEnrollmentInitialModulus) &&
        !command_line->HasSwitch(
@@ -164,7 +164,7 @@ void AutoEnrollmentController::OnOwnershipStatusCheckDone(
 }
 
 void AutoEnrollmentController::StartClient(
-    const std::vector<std::string>& state_keys) {
+    const std::vector<std::string>& state_keys, bool first_boot) {
   policy::BrowserPolicyConnectorChromeOS* connector =
       g_browser_process->platform_part()->browser_policy_connector_chromeos();
   policy::DeviceManagementService* service =
@@ -185,7 +185,8 @@ void AutoEnrollmentController::StartClient(
   std::string device_id;
   if (GetMode() == MODE_FORCED_RE_ENROLLMENT) {
     retrieve_device_state = true;
-    device_id = state_keys.empty() ? std::string() : state_keys.front();
+    if (!state_keys.empty() && !first_boot)
+      device_id = state_keys.front();
   } else {
     device_id = policy::DeviceCloudPolicyManagerChromeOS::GetMachineID();
   }
@@ -207,6 +208,7 @@ void AutoEnrollmentController::StartClient(
 
 void AutoEnrollmentController::UpdateState(
     policy::AutoEnrollmentState new_state) {
+  VLOG(1) << "New state: " << new_state << ".";
   state_ = new_state;
   progress_callbacks_.Notify(state_);
 }

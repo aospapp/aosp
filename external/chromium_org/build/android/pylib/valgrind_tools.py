@@ -39,7 +39,7 @@ def SetChromeTimeoutScale(device, scale):
     # Delete if scale is None/0.0/1.0 since the default timeout scale is 1.0
     device.RunShellCommand('rm %s' % path)
   else:
-    device.old_interface.SetProtectedFileContents(path, '%f' % scale)
+    device.WriteFile(path, '%f' % scale, as_root=True)
 
 
 class BaseTool(object):
@@ -117,7 +117,7 @@ class AddressSanitizerTool(BaseTool):
     """Copies ASan tools to the device."""
     subprocess.call([os.path.join(DIR_SOURCE_ROOT,
                                   'tools/android/asan/asan_device_setup.sh'),
-                     '--device', self._device.old_interface.GetDevice(),
+                     '--device', str(self._device),
                      '--lib', self._lib,
                      '--extra-options', AddressSanitizerTool.EXTRA_OPTIONS])
     self._device.WaitUntilFullyBooted()
@@ -173,7 +173,7 @@ class ValgrindTool(BaseTool):
                                 ValgrindTool.VGLOGS_DIR))
     files = self.GetFilesForTool()
     for f in files:
-      self._device.old_interface.PushIfNeeded(
+      self._device.PushChangedFiles(
           os.path.join(DIR_SOURCE_ROOT, f),
           os.path.join(ValgrindTool.VG_DIR, os.path.basename(f)))
 

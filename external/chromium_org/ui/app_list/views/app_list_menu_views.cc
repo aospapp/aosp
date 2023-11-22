@@ -4,9 +4,7 @@
 
 #include "ui/app_list/views/app_list_menu_views.h"
 
-#include "grit/ui_resources.h"
 #include "ui/app_list/app_list_view_delegate.h"
-#include "ui/base/resource/resource_bundle.h"
 #include "ui/views/controls/button/menu_button.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
@@ -23,7 +21,7 @@ AppListMenuViews::AppListMenuViews(AppListViewDelegate* delegate)
     : AppListMenu(delegate) {
   menu_delegate_.reset(new views::MenuModelAdapter(menu_model()));
   menu_ = new MenuItemView(menu_delegate_.get());
-  menu_runner_.reset(new views::MenuRunner(menu_));
+  menu_runner_.reset(new views::MenuRunner(menu_, 0));
   menu_delegate_->BuildMenu(menu_);
 }
 
@@ -35,8 +33,7 @@ void AppListMenuViews::RunMenuAt(views::MenuButton* button,
                                         button,
                                         gfx::Rect(point, gfx::Size()),
                                         views::MENU_ANCHOR_TOPRIGHT,
-                                        ui::MENU_SOURCE_NONE,
-                                        0));
+                                        ui::MENU_SOURCE_NONE));
 }
 
 void AppListMenuViews::Cancel() {

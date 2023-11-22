@@ -9,11 +9,21 @@
 #include "net/quic/crypto/crypto_protocol.h"
 #include "net/quic/crypto/crypto_utils.h"
 #include "net/quic/crypto/quic_crypto_server_config.h"
+#include "net/quic/crypto/source_address_token.h"
 #include "net/quic/quic_config.h"
 #include "net/quic/quic_protocol.h"
 #include "net/quic/quic_session.h"
 
 namespace net {
+
+void ServerHelloNotifier::OnAckNotification(
+    int num_original_packets,
+    int num_original_bytes,
+    int num_retransmitted_packets,
+    int num_retransmitted_bytes,
+    QuicTime::Delta delta_largest_observed) {
+  server_stream_->OnServerHelloAcked();
+}
 
 QuicCryptoServerStream::QuicCryptoServerStream(
     const QuicCryptoServerConfig& crypto_config,
@@ -21,7 +31,8 @@ QuicCryptoServerStream::QuicCryptoServerStream(
     : QuicCryptoStream(session),
       crypto_config_(crypto_config),
       validate_client_hello_cb_(NULL),
-      num_handshake_messages_(0) {
+      num_handshake_messages_(0),
+      num_server_config_update_messages_sent_(0) {
 }
 
 QuicCryptoServerStream::~QuicCryptoServerStream() {
@@ -116,7 +127,16 @@ void QuicCryptoServerStream::FinishProcessingHandshakeMessage(
   session()->connection()->SetDecrypter(
       crypto_negotiated_params_.initial_crypters.decrypter.release(),
       ENCRYPTION_INITIAL);
-  SendHandshakeMessage(reply);
+
+  // We want to be notified when the SHLO is ACKed so that we can disable
+  // HANDSHAKE_MODE in the sent packet manager.
+  if (session()->connection()->version() <= QUIC_VERSION_21) {
+    SendHandshakeMessage(reply);
+  } else {
+    scoped_refptr<ServerHelloNotifier> server_hello_notifier(
+        new ServerHelloNotifier(this));
+    SendHandshakeMessage(reply, server_hello_notifier.get());
+  }
 
   session()->connection()->SetEncrypter(
       ENCRYPTION_FORWARD_SECURE,
@@ -130,6 +150,41 @@ void QuicCryptoServerStream::FinishProcessingHandshakeMessage(
   encryption_established_ = true;
   handshake_confirmed_ = true;
   session()->OnCryptoHandshakeEvent(QuicSession::HANDSHAKE_CONFIRMED);
+
+  // Now that the handshake is complete, send an updated server config and
+  // source-address token to the client.
+  SendServerConfigUpdate(NULL);
+}
+
+void QuicCryptoServerStream::SendServerConfigUpdate(
+    const CachedNetworkParameters* cached_network_params) {
+  if (session()->connection()->version() <= QUIC_VERSION_21 ||
+      !handshake_confirmed_) {
+    return;
+  }
+
+  CryptoHandshakeMessage server_config_update_message;
+  if (!crypto_config_.BuildServerConfigUpdateMessage(
+          session()->connection()->peer_address(),
+          session()->connection()->clock(),
+          session()->connection()->random_generator(),
+          crypto_negotiated_params_,
+          cached_network_params,
+          &server_config_update_message)) {
+    DVLOG(1) << "Server: Failed to build server config update (SCUP)!";
+    return;
+  }
+
+  DVLOG(1) << "Server: Sending server config update: "
+           << server_config_update_message.DebugString();
+  const QuicData& data = server_config_update_message.GetSerialized();
+  WriteOrBufferData(string(data.data(), data.length()), false, NULL);
+
+  ++num_server_config_update_messages_sent_;
+}
+
+void QuicCryptoServerStream::OnServerHelloAcked() {
+  session()->connection()->OnHandshakeComplete();
 }
 
 bool QuicCryptoServerStream::GetBase64SHA256ClientChannelID(

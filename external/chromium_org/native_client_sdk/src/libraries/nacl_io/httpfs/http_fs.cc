@@ -41,43 +41,19 @@ std::string NormalizeHeaderKey(const std::string& s) {
   return result;
 }
 
-Error HttpFs::Access(const Path& path, int a_mode) {
-  assert(url_root_.empty() || url_root_[url_root_.length() - 1] == '/');
-
-  NodeMap_t::iterator iter = node_cache_.find(path.Join());
-  if (iter == node_cache_.end()) {
-    // If we can't find the node in the cache, fetch it
-    std::string url = MakeUrl(path);
-    ScopedNode node(new HttpFsNode(this, url, cache_content_));
-    Error error = node->Init(0);
-    if (error)
-      return error;
-
-    error = node->GetStat(NULL);
-    if (error)
-      return error;
-  }
-
-  // Don't allow write or execute access.
-  if (a_mode & (W_OK | X_OK))
-    return EACCES;
-
-  return 0;
-}
-
-Error HttpFs::Open(const Path& path, int open_flags, ScopedNode* out_node) {
+Error HttpFs::OpenWithMode(const Path& path, int open_flags, mode_t mode,
+                           ScopedNode* out_node) {
   out_node->reset(NULL);
-  assert(url_root_.empty() || url_root_[url_root_.length() - 1] == '/');
 
-  NodeMap_t::iterator iter = node_cache_.find(path.Join());
-  if (iter != node_cache_.end()) {
-    *out_node = iter->second;
+  ScopedNode node = FindExistingNode(path);
+  if (node.get() != NULL) {
+    *out_node = node;
     return 0;
   }
 
   // If we can't find the node in the cache, create it
   std::string url = MakeUrl(path);
-  ScopedNode node(new HttpFsNode(this, url, cache_content_));
+  node.reset(new HttpFsNode(this, url, cache_content_));
   Error error = node->Init(open_flags);
   if (error)
     return error;
@@ -100,48 +76,54 @@ Error HttpFs::Open(const Path& path, int open_flags, ScopedNode* out_node) {
   return 0;
 }
 
-Error HttpFs::Unlink(const Path& path) {
+ScopedNode HttpFs::FindExistingNode(const Path& path) {
   NodeMap_t::iterator iter = node_cache_.find(path.Join());
   if (iter == node_cache_.end())
+    return ScopedNode();
+  return iter->second;
+}
+
+Error HttpFs::Unlink(const Path& path) {
+  ScopedNode node = FindExistingNode(path);
+  if (node.get() == NULL)
     return ENOENT;
 
-  if (iter->second->IsaDir())
+  if (node->IsaDir())
     return EISDIR;
 
   return EACCES;
 }
 
 Error HttpFs::Mkdir(const Path& path, int permissions) {
-  NodeMap_t::iterator iter = node_cache_.find(path.Join());
-  if (iter != node_cache_.end()) {
-    if (iter->second->IsaDir())
-      return EEXIST;
-  }
+  ScopedNode node = FindExistingNode(path);
+  if (node.get() != NULL && node->IsaDir())
+    return EEXIST;
+
   return EACCES;
 }
 
 Error HttpFs::Rmdir(const Path& path) {
-  NodeMap_t::iterator iter = node_cache_.find(path.Join());
-  if (iter == node_cache_.end())
+  ScopedNode node = FindExistingNode(path);
+  if (node.get() == NULL)
     return ENOENT;
 
-  if (!iter->second->IsaDir())
+  if (!node->IsaDir())
     return ENOTDIR;
 
   return EACCES;
 }
 
 Error HttpFs::Remove(const Path& path) {
-  NodeMap_t::iterator iter = node_cache_.find(path.Join());
-  if (iter == node_cache_.end())
+  ScopedNode node = FindExistingNode(path);
+  if (node.get() == NULL)
     return ENOENT;
 
   return EACCES;
 }
 
 Error HttpFs::Rename(const Path& path, const Path& newpath) {
-  NodeMap_t::iterator iter = node_cache_.find(path.Join());
-  if (iter == node_cache_.end())
+  ScopedNode node = FindExistingNode(path);
+  if (node.get() == NULL)
     return ENOENT;
 
   return EACCES;
@@ -200,7 +182,8 @@ HttpFs::HttpFs()
     : allow_cors_(false),
       allow_credentials_(false),
       cache_stat_(true),
-      cache_content_(true) {
+      cache_content_(true),
+      is_blob_url_(false) {
 }
 
 Error HttpFs::Init(const FsInitArgs& args) {
@@ -214,11 +197,8 @@ Error HttpFs::Init(const FsInitArgs& args) {
        ++iter) {
     if (iter->first == "SOURCE") {
       url_root_ = iter->second;
+      is_blob_url_ = strncmp(url_root_.c_str(), "blob:", 5) == 0;
 
-      // Make sure url_root_ ends with a slash.
-      if (!url_root_.empty() && url_root_[url_root_.length() - 1] != '/') {
-        url_root_ += '/';
-      }
     } else if (iter->first == "manifest") {
       char* text;
       error = LoadManifest(iter->second, &text);
@@ -227,11 +207,11 @@ Error HttpFs::Init(const FsInitArgs& args) {
 
       error = ParseManifest(text);
       if (error) {
-        delete[] text;
+        free(text);
         return error;
       }
 
-      delete[] text;
+      free(text);
     } else if (iter->first == "allow_cross_origin_requests") {
       allow_cors_ = iter->second == "true";
     } else if (iter->first == "allow_credentials") {
@@ -246,6 +226,18 @@ Error HttpFs::Init(const FsInitArgs& args) {
     }
   }
 
+  if (!is_blob_url_) {
+    if (!url_root_.empty() && url_root_[url_root_.length() - 1] != '/') {
+      // Make sure url_root_ ends with a slash, except for blob URLs.
+      url_root_ += '/';
+    }
+
+    ScopedNode root;
+    error = FindOrCreateDir(Path("/"), &root);
+    if (error)
+      return error;
+  }
+
   return 0;
 }
 
@@ -254,18 +246,20 @@ void HttpFs::Destroy() {
 
 Error HttpFs::FindOrCreateDir(const Path& path, ScopedNode* out_node) {
   out_node->reset(NULL);
-  std::string strpath = path.Join();
-  NodeMap_t::iterator iter = node_cache_.find(strpath);
-  if (iter != node_cache_.end()) {
-    *out_node = iter->second;
+
+  ScopedNode node = FindExistingNode(path);
+  if (node.get() != NULL) {
+    *out_node = node;
     return 0;
   }
 
   // If the node does not exist, create it.
-  ScopedNode node(new DirNode(this));
+  node.reset(new DirNode(this));
   Error error = node->Init(0);
   if (error)
     return error;
+  // Directorys in http filesystems are never writable.
+  node->SetMode(node->GetMode() & ~S_IWALL);
 
   // If not the root node, find the parent node and add it to the parent
   if (!path.IsRoot()) {
@@ -280,7 +274,7 @@ Error HttpFs::FindOrCreateDir(const Path& path, ScopedNode* out_node) {
   }
 
   // Add it to the node cache.
-  node_cache_[strpath] = node;
+  node_cache_[path.Join()] = node;
   *out_node = node;
   return 0;
 }
@@ -312,13 +306,13 @@ Error HttpFs::ParseManifest(const char* text) {
 
       // Only support regular and streams for now
       // Ignore EXEC bit
-      int mode = S_IFREG;
+      int type = 0;
       switch (modestr[0]) {
         case '-':
-          mode = S_IFREG;
+          type = S_IFREG;
           break;
         case 'c':
-          mode = S_IFCHR;
+          type = S_IFCHR;
           break;
         default:
           LOG_ERROR("Unable to parse type %s for %s.",
@@ -327,6 +321,7 @@ Error HttpFs::ParseManifest(const char* text) {
           return EINVAL;
       }
 
+      int mode = 0;
       switch (modestr[1]) {
         case '-':
           break;
@@ -357,8 +352,9 @@ Error HttpFs::ParseManifest(const char* text) {
       std::string url = MakeUrl(path);
 
       HttpFsNode* http_node = new HttpFsNode(this, url, cache_content_);
-      http_node->SetMode(mode);
       ScopedNode node(http_node);
+      node->SetMode(mode);
+      node->SetType(type);
 
       Error error = node->Init(0);
       if (error)
@@ -374,8 +370,7 @@ Error HttpFs::ParseManifest(const char* text) {
       if (error)
         return error;
 
-      std::string pname = path.Join();
-      node_cache_[pname] = node;
+      node_cache_[path.Join()] = node;
     }
   }
 
@@ -397,7 +392,10 @@ Error HttpFs::LoadManifest(const std::string& manifest_name,
   if (error)
     return error;
 
-  char* text = new char[size + 1];
+  char* text = (char*)malloc(size + 1);
+  assert(text != NULL);
+  if (text == NULL)
+    return ENOMEM;
   int len;
   error = manifest_node->Read(HandleAttr(), text, size, &len);
   if (error)

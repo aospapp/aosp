@@ -19,27 +19,25 @@ package com.android.server.ethernet;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.DhcpResults;
+import android.net.EthernetManager;
+import android.net.IEthernetServiceListener;
 import android.net.InterfaceConfiguration;
-import android.net.NetworkUtils;
 import android.net.IpConfiguration;
 import android.net.IpConfiguration.IpAssignment;
 import android.net.IpConfiguration.ProxySettings;
-import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.net.NetworkAgent;
 import android.net.NetworkCapabilities;
 import android.net.NetworkFactory;
 import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
-import android.net.NetworkRequest;
-import android.net.EthernetManager;
+import android.net.NetworkUtils;
 import android.net.StaticIpConfiguration;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.INetworkManagementService;
 import android.os.Looper;
-import android.os.Message;
-import android.os.Messenger;
+import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.text.TextUtils;
@@ -50,9 +48,6 @@ import com.android.server.net.BaseNetworkObserver;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
-import java.net.Inet4Address;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
@@ -96,6 +91,9 @@ class EthernetNetworkFactory {
     /** Product-dependent regular expression of interface names we track. */
     private static String mIfaceMatch = "";
 
+    /** To notify Ethernet status. */
+    private final RemoteCallbackList<IEthernetServiceListener> mListeners;
+
     /** Data members. All accesses to these must be synchronized(this). */
     private static String mIface = "";
     private String mHwAddr;
@@ -103,10 +101,11 @@ class EthernetNetworkFactory {
     private NetworkInfo mNetworkInfo;
     private LinkProperties mLinkProperties;
 
-    EthernetNetworkFactory() {
+    EthernetNetworkFactory(RemoteCallbackList<IEthernetServiceListener> listeners) {
         mNetworkInfo = new NetworkInfo(ConnectivityManager.TYPE_ETHERNET, 0, NETWORK_TYPE, "");
         mLinkProperties = new LinkProperties();
         initNetworkCapabilities();
+        mListeners = listeners;
     }
 
     private class LocalNetworkFactory extends NetworkFactory {
@@ -177,9 +176,8 @@ class EthernetNetworkFactory {
             }
 
             synchronized (this) {
-                if (mIface.isEmpty()) {
-                    mIface = iface;
-                    mHwAddr = config.getHardwareAddress();
+                if (!isTrackingInterface()) {
+                    setInterfaceInfoLocked(iface, config.getHardwareAddress());
                     mNetworkInfo.setIsAvailable(true);
                     mNetworkInfo.setExtraInfo(mHwAddr);
                 } else {
@@ -195,7 +193,7 @@ class EthernetNetworkFactory {
     private boolean maybeTrackInterface(String iface) {
         // If we don't already have an interface, and if this interface matches
         // our regex, start tracking it.
-        if (!iface.matches(mIfaceMatch) || !mIface.isEmpty())
+        if (!iface.matches(mIfaceMatch) || isTrackingInterface())
             return false;
 
         Log.d(TAG, "Started tracking interface " + iface);
@@ -211,8 +209,7 @@ class EthernetNetworkFactory {
         // TODO: Unify this codepath with stop().
         synchronized (this) {
             NetworkUtils.stopDhcp(mIface);
-            mIface = "";
-            mHwAddr = null;
+            setInterfaceInfoLocked("", null);
             mNetworkInfo.setExtraInfo(null);
             mLinkUp = false;
             mNetworkInfo.setDetailedState(DetailedState.DISCONNECTED, null, mHwAddr);
@@ -413,8 +410,7 @@ class EthernetNetworkFactory {
         updateAgent();
         mLinkProperties = new LinkProperties();
         mNetworkAgent = null;
-        mIface = "";
-        mHwAddr = null;
+        setInterfaceInfoLocked("", null);
         mNetworkInfo = new NetworkInfo(ConnectivityManager.TYPE_ETHERNET, 0, NETWORK_TYPE, "");
         mFactory.unregister();
     }
@@ -429,8 +425,35 @@ class EthernetNetworkFactory {
         mNetworkCapabilities.setLinkDownstreamBandwidthKbps(100 * 1000);
     }
 
+    public synchronized boolean isTrackingInterface() {
+        return !TextUtils.isEmpty(mIface);
+    }
+
+    /**
+     * Set interface information and notify listeners if availability is changed.
+     * This should be called with the lock held.
+     */
+    private void setInterfaceInfoLocked(String iface, String hwAddr) {
+        boolean oldAvailable = isTrackingInterface();
+        mIface = iface;
+        mHwAddr = hwAddr;
+        boolean available = isTrackingInterface();
+
+        if (oldAvailable != available) {
+            int n = mListeners.beginBroadcast();
+            for (int i = 0; i < n; i++) {
+                try {
+                    mListeners.getBroadcastItem(i).onAvailabilityChanged(available);
+                } catch (RemoteException e) {
+                    // Do nothing here.
+                }
+            }
+            mListeners.finishBroadcast();
+        }
+    }
+
     synchronized void dump(FileDescriptor fd, IndentingPrintWriter pw, String[] args) {
-        if (!TextUtils.isEmpty(mIface)) {
+        if (isTrackingInterface()) {
             pw.println("Tracking interface: " + mIface);
             pw.increaseIndent();
             pw.println("MAC address: " + mHwAddr);

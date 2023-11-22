@@ -6,14 +6,13 @@
 
 #include "base/bind.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
-#include "grit/theme_resources.h"
-#include "grit/ui_strings.h"
 #include "ui/accessibility/ax_view_state.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/base/theme_provider.h"
 #include "ui/gfx/display.h"
 #include "ui/gfx/screen.h"
+#include "ui/strings/grit/ui_strings.h"
 #include "ui/views/controls/button/label_button_border.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/controls/menu/menu_model_adapter.h"
@@ -213,27 +212,27 @@ void ToolbarButton::ShowDropDownMenu(ui::MenuSourceType source_type) {
   if (model_.get()) {
     views::MenuModelAdapter menu_delegate(model_.get());
     menu_delegate.set_triggerable_event_flags(triggerable_event_flags());
-    menu_runner_.reset(new views::MenuRunner(menu_delegate.CreateMenu()));
+    menu_runner_.reset(new views::MenuRunner(menu_delegate.CreateMenu(),
+                                             views::MenuRunner::HAS_MNEMONICS));
     views::MenuRunner::RunResult result =
         menu_runner_->RunMenuAt(GetWidget(),
                                 NULL,
                                 gfx::Rect(menu_position, gfx::Size(0, 0)),
                                 views::MENU_ANCHOR_TOPLEFT,
-                                source_type,
-                                views::MenuRunner::HAS_MNEMONICS);
+                                source_type);
     if (result == views::MenuRunner::MENU_DELETED)
       return;
   } else {
     views::MenuDelegate menu_delegate;
     views::MenuItemView* menu = new views::MenuItemView(&menu_delegate);
-    menu_runner_.reset(new views::MenuRunner(menu));
+    menu_runner_.reset(
+        new views::MenuRunner(menu, views::MenuRunner::HAS_MNEMONICS));
     views::MenuRunner::RunResult result =
         menu_runner_->RunMenuAt(GetWidget(),
                                 NULL,
                                 gfx::Rect(menu_position, gfx::Size(0, 0)),
                                 views::MENU_ANCHOR_TOPLEFT,
-                                source_type,
-                                views::MenuRunner::HAS_MNEMONICS);
+                                source_type);
     if (result == views::MenuRunner::MENU_DELETED)
       return;
   }

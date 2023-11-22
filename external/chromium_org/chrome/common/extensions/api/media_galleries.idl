@@ -6,6 +6,14 @@
 // images, video) from the user's local disks (with the user's consent).
 namespace mediaGalleries {
 
+  [inline_doc] enum GalleryChangeType {
+    // The contents of the gallery have changed.
+    contents_changed,
+    // The watch has been dropped because the device has been detached,
+    // the gallery permission has been removed, or any other reason.
+    watch_dropped
+  };
+
   [inline_doc] enum GetMediaFileSystemsInteractivity {
     // Do not act interactively.
     no,
@@ -35,6 +43,14 @@ namespace mediaGalleries {
     finish,
     // The scan encountered an error and could not proceed.
     error
+  };
+  
+  [inline_doc] dictionary GalleryChangeDetails {
+    // Type of change event.
+    GalleryChangeType type;
+    
+    // Identifies the modified gallery.
+    DOMString galleryId;
   };
 
   [inline_doc] dictionary MediaFileSystemsDetails {
@@ -152,10 +168,19 @@ namespace mediaGalleries {
 
     // The images embedded in the media file's metadata. This is most often
     // used for album art or video thumbnails.
-    [instanceof=Blob] object[] attachedImages;
+    [instanceOf=Blob] object[] attachedImages;
   };
 
   callback MediaMetadataCallback = void (MediaMetadata metadata);
+
+  // A dictionary that describes the add gallery watch request results.
+  dictionary AddGalleryWatchResult {
+    DOMString galleryId;
+    boolean success;
+  };
+
+  callback AddGalleryWatchCallback = void (AddGalleryWatchResult result);
+  callback GetAllGalleryWatchCallback = void (DOMString[] galleryIds);
 
   interface Functions {
     // Get the media galleries configured in this user agent. If none are
@@ -204,9 +229,26 @@ namespace mediaGalleries {
     static void getMetadata([instanceOf=Blob] object mediaFile,
                             optional MediaMetadataOptions options,
                             MediaMetadataCallback callback);
+
+    // Adds a gallery watch for the gallery with the specified gallery ID.
+    // The given callback is then fired with a success or failure result.
+    static void addGalleryWatch(DOMString galleryId,
+                                AddGalleryWatchCallback callback);
+
+    // Removes a gallery watch for the gallery with the specified gallery ID.
+    static void removeGalleryWatch(DOMString galleryId);
+
+    // Notifies which galleries are being watched via the given callback.
+    static void getAllGalleryWatch(GetAllGalleryWatchCallback callback);
+
+    // Removes all gallery watches.
+    static void removeAllGalleryWatch();
   };
 
   interface Events {
+    // Fired when a media gallery is changed or a gallery watch is dropped.
+    static void onGalleryChanged(GalleryChangeDetails details);
+
     // The pending media scan has changed state. See details for more
     // information.
     static void onScanProgress(ScanProgressDetails details);

@@ -78,8 +78,7 @@ public class ContentShellActivity extends Activity {
 
         if (CommandLine.getInstance().hasSwitch(ContentSwitches.DUMP_RENDER_TREE)) {
             try {
-                BrowserStartupController.get(this).startBrowserProcessesSync(
-                       BrowserStartupController.MAX_RENDERERS_LIMIT);
+                BrowserStartupController.get(this).startBrowserProcessesSync(false);
             } catch (ProcessInitException e) {
                 Log.e(TAG, "Failed to load native library.", e);
                 System.exit(-1);
@@ -127,7 +126,7 @@ public class ContentShellActivity extends Activity {
         super.onSaveInstanceState(outState);
         ContentViewCore contentViewCore = getActiveContentViewCore();
         if (contentViewCore != null) {
-            outState.putString(ACTIVE_SHELL_URL_KEY, contentViewCore.getUrl());
+            outState.putString(ACTIVE_SHELL_URL_KEY, contentViewCore.getWebContents().getUrl());
         }
 
         mWindowAndroid.saveInstanceState(outState);
@@ -145,8 +144,9 @@ public class ContentShellActivity extends Activity {
     public boolean onKeyUp(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             ContentViewCore contentViewCore = getActiveContentViewCore();
-            if (contentViewCore != null && contentViewCore.canGoBack()) {
-                contentViewCore.goBack();
+            if (contentViewCore != null && contentViewCore.getWebContents()
+                    .getNavigationController().canGoBack()) {
+                contentViewCore.getWebContents().getNavigationController().goBack();
                 return true;
             }
         }

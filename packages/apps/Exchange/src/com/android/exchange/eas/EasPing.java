@@ -368,7 +368,8 @@ public class EasPing extends EasOperation {
                         case Mailbox.TYPE_CONTACTS:
                             contactsMailboxIds.add(mailboxId);
                         default:
-                            LogUtils.e(LOG_TAG, "unexpected collectiontype %d in EasPing", contentType);
+                            LogUtils.e(LOG_TAG, "unexpected collectiontype %d in EasPing",
+                                    contentType);
                     }
                 }
             } finally {

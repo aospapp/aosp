@@ -17,6 +17,10 @@ namespace {
 // detection pipeline.
 const float kMinGestureBoundsLengthDips = 24.f;
 
+// This value is somewhat arbitrary, but provides a reasonable maximum
+// approximating a large thumb depression.
+const float kMaxGestureBoundsLengthDips = kMinGestureBoundsLengthDips * 4.f;
+
 GestureDetector::Config DefaultGestureDetectorConfig(
     const gfx::Display& display) {
   GestureDetector::Config config;
@@ -45,14 +49,13 @@ ScaleGestureDetector::Config DefaultScaleGestureDetectorConfig(
     const gfx::Display& display) {
   ScaleGestureDetector::Config config;
 
-  config.gesture_detector_config = DefaultGestureDetectorConfig(display);
-  config.quick_scale_enabled = true;
-
   const float px_to_dp = 1.f / display.device_scale_factor();
+  config.span_slop = ViewConfiguration::GetTouchSlopInPixels() * 2.f * px_to_dp;
   config.min_scaling_touch_major =
       ViewConfiguration::GetMinScalingTouchMajorInPixels() * px_to_dp;
   config.min_scaling_span =
       ViewConfiguration::GetMinScalingSpanInPixels() * px_to_dp;
+  config.min_pinch_update_span_delta = 0.f;
 
   return config;
 }
@@ -67,6 +70,7 @@ GestureProvider::Config DefaultGestureProviderConfig() {
       DefaultScaleGestureDetectorConfig(config.display);
   config.gesture_begin_end_types_enabled = false;
   config.min_gesture_bounds_length = kMinGestureBoundsLengthDips;
+  config.max_gesture_bounds_length = kMaxGestureBoundsLengthDips;
   return config;
 }
 

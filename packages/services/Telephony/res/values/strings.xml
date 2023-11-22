@@ -20,7 +20,7 @@
          and other settings UIs.  This is the version of the label for
          tablet devices, where the phone app handles mobile data but not
          actual phone calls. -->
-    <string name="phoneAppLabel" product="tablet">Mobile Data</string>
+    <string name="phoneAppLabel" product="tablet">Cellular Data</string>
 
     <!-- Official label of the phone app, as seen in "Manage Applications"
          and other settings UIs. -->
@@ -39,7 +39,7 @@
     <!-- Incoming call screen, string when number hidden -->
     <string name="private_num">Private number</string>
     <!-- Incoming call screen, string when called from a pay phone -->
-    <string name="payphone">Pay phone</string>
+    <string name="payphone">Payphone</string>
     <!-- In-call screen: status label for a call that's on hold -->
     <string name="onHold">On hold</string>
     <!-- Possible error messages with outgoing calls --><skip/>
@@ -126,7 +126,7 @@
     <string name="settings_label">Network settings</string>
 
     <!-- Label for settings screen for phone accounts. -->
-    <string name="phone_accounts">Phone account settings</string>
+    <string name="phone_accounts">Calling accounts</string>
     <!-- Label for list item which opens a dialog to select the default outgoing account -->
     <string name="phone_accounts_make_calls_with">Make calls with</string>
     <!-- Label for list item which opens a dialog to select the default outgoing account for SIP calls. -->
@@ -134,8 +134,9 @@
     <!-- Entry in dialog to "ask first" for accounts when making a call -->
     <string name="phone_accounts_ask_every_time">Ask first</string>
 
-    <!-- Label for heading of the accounts section in the phone accounts settings screen. -->
-    <string name="phone_accounts_accounts_header">Accounts</string>
+    <!-- Label for heading of the per-account settings section in the phone accounts settings
+         screen. -->
+    <string name="phone_accounts_settings_header">Settings</string>
     <!-- Label for invoking phone account selection screen -->
     <string name="phone_accounts_choose_accounts">Choose accounts</string>
     <!-- Label for heading in the phone account selection screen -->
@@ -160,13 +161,11 @@
     <!-- Label for selectecting a Wi-Fi call manager -->
     <string name="wifi_calling_select_call_assistant">Choose call assistant</string>
     <!-- Summary for the label of a setting to select the SIM call managers to use.-->
-    <string name="wifi_calling_select_call_assistant_summary">Choose an app or service to manage the networks used for calls</string>
+    <string name="wifi_calling_select_call_assistant_summary">Manage the networks used for calls with</string>
     <!-- Summary for the label of a switch setting to enable/disable the use of SIM call managers. -->
     <string name="wifi_calling_use_call_assistant_summary">Let apps or services manage networks used for calls</string>
     <!-- Label for setting to configure the selected call assistant. -->
     <string name="wifi_calling_call_assistant_configure">Configure</string>
-    <!-- Label for setting to configure the selected call assistant when no call assistant is chosen. -->
-    <string name="wifi_calling_call_assistant_configure_no_selection">Call assistant off</string>
 
     <!-- Built-in label for the default connection service setting. -->
     <string name="connection_service_default_label">Built-in connection service</string>
@@ -178,12 +177,12 @@
     <string name="networks">Network operators</string>
     <!-- Cell Broadcast settings title.  [CHAR LIMIT=50] -->
     <string name="cell_broadcast_settings">Emergency broadcasts</string>
-    <!-- Phone account settings screen title -->
-    <string name="phone_account_settings">Phone account settings</string>
     <!-- Call settings screen title -->
-    <string name="call_settings">Call Settings</string>
+    <string name="call_settings">Call settings</string>
     <!-- GSM Call settings screen, setting option name -->
     <string name="additional_gsm_call_settings">Additional settings</string>
+    <!-- GSM Call settings screen, setting option name, with label identifying the SIM the settings are for. -->
+    <string name="additional_gsm_call_settings_with_label">Additional settings (<xliff:g id="subscriptionlabel" example="Verizon">%s</xliff:g>)</string>
     <!-- GSM-only Call settings screen, setting option name-->
     <string name="sum_gsm_call_settings">Additional GSM only call settings</string>
     <!-- CDMA Call settings screen, setting option name -->
@@ -210,6 +209,8 @@
     <string name="sum_cw_disabled">During a call, notify me of incoming calls</string>
     <!-- Call forwarding settings screen, section heading -->
     <string name="call_forwarding_settings">Call forwarding settings</string>
+    <!-- Call forwarding settings screen, section heading, with a label identifying the SIM the settings are for. -->
+    <string name="call_forwarding_settings_with_label">Call forwarding settings (<xliff:g id="subscriptionlabel" example="Verizon">%s</xliff:g>)</string>
     <!-- Call settings screen, setting option name -->
     <string name="labelCF">Call forwarding</string>
 
@@ -261,6 +262,10 @@
 
     <!-- Title of the progress dialog displayed while updating Call settings -->
     <string name="updating_title">Call settings</string>
+    <!-- Toast in Call settings when asked to launch settings for a secondary user -->
+    <string name="call_settings_primary_user_only">Call settings can only be changed by the primary user.</string>
+    <!-- Title of the "Call settings" settings screen, with a text label identifying which SIM the settings are for. -->
+    <string name="call_settings_with_label">Call settings (<xliff:g id="subscriptionlabel" example="Verizon">%s</xliff:g>)</string>
     <!-- Title of the alert dialog displayed if an error occurs while updating Call settings -->
     <string name="error_updating_title">Call settings error</string>
     <!-- Toast in Call settings dialog while settings are being read -->
@@ -281,9 +286,9 @@
     <!-- Button label used to dismiss the "Call settings error" dialog -->
     <string name="close_dialog">OK</string>
     <!-- Button label used in several settings-related dialogs -->
-    <string name="enable">Enable</string>
+    <string name="enable">Turn on</string>
     <!-- Button label used in several settings-related dialogs -->
-    <string name="disable">Disable</string>
+    <string name="disable">Turn off</string>
     <!-- Button label which indicates the user wants to update a stored
          phone number; used in several settings-related dialogs -->
     <string name="change_num">Update</string>
@@ -383,7 +388,10 @@
     <string name="preferred_network_mode_global_summary">Preferred network mode: Global</string>
     <!-- Mobile network settings, summary for preferred network mode LTE / WCDMA[CHAR LIMIT=100] -->
     <string name="preferred_network_mode_lte_wcdma_summary">Preferred network mode: LTE / WCDMA</string>
-
+     <!-- Mobile network settings, summary for preferred network mode LTE / GSM / UMTS [CHAR LIMIT=100] -->
+     <string name="preferred_network_mode_lte_gsm_umts_summary">Preferred network mode: LTE / GSM / UMTS</string>
+     <!-- Mobile network settings, summary for preferred network mode LTE / CDMA [CHAR LIMIT=100] -->
+     <string name="preferred_network_mode_lte_cdma_summary">Preferred network mode: LTE / CDMA</string>
 
     <string-array name="preferred_network_mode_choices">
         <item>LTE / WCDMA</item>
@@ -434,7 +442,7 @@
          "data roaming" feature turned off. -->
     <string name="roaming_reenable_message">You\'ve lost data connectivity because you left your home network with data roaming turned off.</string>
     <!-- Mobile network settings screen, dialog message when user selects the Data roaming check box -->
-    <string name="roaming_warning">Allow data roaming? You may incur significant roaming charges!</string>
+    <string name="roaming_warning">Allow data usage when roaming? Significant charges may apply.</string>
 
     <!-- USSD aggregation dialog box: separator strings between messages (new-lines will be added before and after) -->
     <string name="ussd_dialog_sep" translatable="false">----------</string>
@@ -641,6 +649,24 @@
         <item>"10"</item>
     </string-array>
 
+    <string-array name="enabled_networks_cdma_no_lte_choices" translatable="false">
+        <item>@string/network_3G</item>
+        <item>@string/network_1x</item>
+    </string-array>
+    <string-array name="enabled_networks_cdma_no_lte_values" translatable="false">
+        <item>"4"</item>
+        <item>"5"</item>
+    </string-array>
+
+    <string-array name="enabled_networks_cdma_only_lte_choices" translatable="false">
+        <item>@string/network_lte</item>
+        <item>@string/network_global</item>
+    </string-array>
+    <string-array name="enabled_networks_cdma_only_lte_values" translatable="false">
+        <item>"8"</item>
+        <item>"10"</item>
+    </string-array>
+
     <!-- CDMA System select strings -->
     <!-- Mobile network settings screen, setting option name -->
     <string name="cdma_system_select_title">System select</string>
@@ -686,11 +712,17 @@
     <string name="carrier_settings_title">Carrier settings</string>
 
     <!-- FDN settings strings -->
-    <!-- Call settings screen, setting option name -->
+    <!-- Label for "Fixed Dialing Number" settings in call settings. -->
     <string name="fdn">Fixed Dialing Numbers</string>
-    <!-- Call settings screen, button label that takes you to
-         the Fixed Dialing Number management screen -->
+    <!-- Title for "Fixed Dialing Number" settings, with a label to identify the SIM the settings
+        apply to. -->
+    <string name="fdn_with_label">Fixed Dialing Numbers (<xliff:g id="subscriptionlabel" example="Verizon">%s</xliff:g>)</string>
+
+    <!-- Call settings screen, button label that takes you to the Fixed Dialing Number management screen -->
     <string name="manage_fdn_list">FDN list</string>
+    <!-- Title for settings screen to manage Fixed Dialing Number contacts, with a label to identify
+         the SIM the settings apply to. -->
+    <string name="fdn_list_with_label">FDN list (<xliff:g id="subscriptionlabel" example="Verizon">%s</xliff:g>)</string>
     <!-- Call settings screen, preference item label -->
     <string name="fdn_activation">FDN activation</string>
     <!-- Call settings setting option name when FDN is enabled -->
@@ -799,21 +831,21 @@
     <!-- SIM PIN screen: error message when PIN is too short or too long -->
     <string name="invalidPin">Type a PIN that is 4 to 8 numbers.</string>
     <!-- Title of "Disable SIM PIN" screen -->
-    <string name="disable_sim_pin">Disable SIM PIN</string>
+    <string name="disable_sim_pin">Clear SIM PIN</string>
     <!-- Title of "Enable SIM PIN" screen -->
-    <string name="enable_sim_pin">Enable SIM PIN</string>
+    <string name="enable_sim_pin">Set SIM PIN</string>
     <!-- SIM PIN screen: progress message displayed while enabling -->
-    <string name="enable_in_progress">Please wait\u2026</string>
+    <string name="enable_in_progress">Setting PIN\u2026</string>
     <!-- SIM PIN screen: status message displayed in a popup (toast) -->
-    <string name="enable_pin_ok">SIM PIN enabled.</string>
+    <string name="enable_pin_ok">PIN set</string>
     <!-- SIM PIN screen: status message displayed in a popup (toast) -->
-    <string name="disable_pin_ok">SIM PIN disabled.</string>
+    <string name="disable_pin_ok">PIN cleared</string>
     <!-- SIM PIN screen: error message displayed in a popup (toast) -->
-    <string name="pin_failed">The PIN you typed was incorrect.</string>
+    <string name="pin_failed">PIN incorrect</string>
     <!-- SIM PIN screen: status message displayed in a popup (toast) -->
-    <string name="pin_changed">SIM PIN changed successfully.</string>
+    <string name="pin_changed">PIN updated</string>
     <!-- SIM PIN screen: error message displayed in a dialog -->
-    <string name="puk_requested">Password incorrect, PIN Blocked! PUK requested.</string>
+    <string name="puk_requested">Password incorrect. PIN now blocked. PUK requested.</string>
 
     <!-- SIM PIN2 strings -->
     <!-- SIM PIN2 screen: label for PIN entry widget -->
@@ -825,35 +857,32 @@
     <!-- SIM PIN2 screen: label for PIN entry widget -->
     <string name="confirmPin2Label">Confirm new PIN2</string>
     <!-- SIM PIN2 screen: error message -->
-    <string name="badPuk2">The PUK2 you typed isn\'t correct. Try again. </string>
+    <string name="badPuk2">PUK2 incorrect. Try again.</string>
     <!-- SIM PIN2 screen: error message -->
-    <string name="badPin2">The old PIN2 you typed isn\'t correct. Try again.</string>
+    <string name="badPin2">Old PIN2 incorrect. Try again.</string>
     <!-- SIM PIN2 screen: error message -->
-    <string name="mismatchPin2">The PIN2s you typed don\'t match. Try again.</string>
+    <string name="mismatchPin2">PIN2s don\'t match. Try again.</string>
     <!-- SIM PIN2 screen: error message -->
-    <string name="invalidPin2">Type a PIN2 that is 4 to 8 numbers.</string>
+    <string name="invalidPin2">Enter a PIN2 that is 4 to 8 numbers.</string>
     <!-- SIM PIN2 screen: error message -->
-    <string name="invalidPuk2">Type a PUK2 that is 8 numbers.</string>
+    <string name="invalidPuk2">Enter a PUK2 that is 8 numbers.</string>
     <!-- SIM PIN2 screen: status message displayed in a popup (toast) -->
-    <string name="pin2_changed">PIN2 changed successfully.</string>
+    <string name="pin2_changed">PIN2 updated</string>
     <!-- SIM PIN2 screen: label for PUK2 entry widget -->
-    <string name="label_puk2_code">Type PUK2 code</string>
+    <string name="label_puk2_code">Enter PUK2 code</string>
     <!-- SIM PIN2 screen: error message displayed in a dialog -->
-    <string name="fdn_enable_puk2_requested">Password incorrect, PIN2 Blocked. Please change PIN2 and retry!</string>
+    <string name="fdn_enable_puk2_requested">Password incorrect. PIN2 now Blocked. To try again, change PIN 2.</string>
     <!-- SIM PIN2 screen: error message displayed in a dialog -->
-    <string name="puk2_requested">Password incorrect, SIM is locked. PUK2 requested.</string>
+    <string name="puk2_requested">Password incorrect. SIM now locked. Enter PUK2.</string>
     <!-- SIM PIN2 screen: error message -->
     <string name="puk2_blocked">PUK2 is permanently blocked.</string>
     <!-- SIM PIN2 screen: error message -->
-    <string name="pin2_attempts">\nThere are <xliff:g id="number">%d</xliff:g> remaining attempts.</string>
+    <string name="pin2_attempts">\nYou have <xliff:g id="number">%d</xliff:g> remaining attempts.</string>
     <!-- SIM PIN screen: status message displayed in a popup (toast) -->
-    <string name="pin2_unblocked">PIN2 Unblocked!</string>
+    <string name="pin2_unblocked">PIN2 no longer blocked</string>
 
     <!-- SIM PIN screen: button label -->
     <string name="doneButton">Done</string>
-
-    <!-- In-call screen: status label for a conference call -->
-    <string name="caller_manage_header">Conference call <xliff:g id="conf_call_time">%s</xliff:g></string>
 
     <!-- Used in FakePhoneActivity test code.  DO NOT TRANSLATE. -->
     <string name="fake_phone_activity_phoneNumber_text" translatable="false">(650) 555-1234</string>
@@ -869,7 +898,7 @@
     <!-- In-call screen: status label for a call in the "dialing" state -->
     <string name="card_title_dialing">Dialing</string>
     <!-- In-call screen: status label for a re-dialing call -->
-    <string name="card_title_redialing">Retrying</string>
+    <string name="card_title_redialing">Redialing</string>
     <!-- In-call screen: status label for a conference call -->
     <string name="card_title_conf_call">Conference call</string>
     <!-- In-call screen: status label for an incoming call -->
@@ -882,9 +911,6 @@
     <string name="card_title_hanging_up">Hanging up</string>
     <!-- In-call screen: status label for a call that's in CDMA flash mode -->
     <string name="card_title_in_call">In call</string>
-    <!-- In-call screen: special status label that shows your own phone
-         number during emergency callback mode (ECM) [CHAR LIMIT=30] -->
-    <string name="card_title_my_phone_number">My number is <xliff:g id="my_phone_number">%s</xliff:g></string>
 
     <!-- Notification strings -->
     <!-- The "label" of the in-call Notification for a dialing call, used
@@ -944,38 +970,38 @@
     <!-- In-call screen: call failure message displayed in an error dialog -->
     <string name="incall_error_out_of_service">Cellular network not available.</string>
     <!-- In-call screen: call failure message displayed in an error dialog -->
-    <string name="incall_error_no_phone_number_supplied">Call not sent, no valid number entered.</string>
+    <string name="incall_error_no_phone_number_supplied">To place a call, enter a valid number.</string>
     <!-- In-call screen: call failure message displayed in an error dialog -->
-    <string name="incall_error_call_failed">Call not sent.</string>
+    <string name="incall_error_call_failed">Can\'t call.</string>
     <!-- In-call screen: status message displayed in a dialog when starting an MMI -->
     <string name="incall_status_dialed_mmi">Starting MMI sequence\u2026</string>
     <!-- In-call screen: message displayed in an error dialog -->
-    <string name="incall_error_supp_service_unknown">Unsupported service.</string>
+    <string name="incall_error_supp_service_unknown">Service not supported</string>
     <!-- In-call screen: message displayed in an error dialog -->
-    <string name="incall_error_supp_service_switch">Unable to switch calls.</string>
+    <string name="incall_error_supp_service_switch">Can\'t switch calls.</string>
     <!-- In-call screen: message displayed in an error dialog -->
-    <string name="incall_error_supp_service_separate">Unable to separate call.</string>
+    <string name="incall_error_supp_service_separate">Can\'t separate call.</string>
     <!-- In-call screen: message displayed in an error dialog -->
-    <string name="incall_error_supp_service_transfer">Unable to transfer call.</string>
+    <string name="incall_error_supp_service_transfer">Can\'t transfer.</string>
     <!-- In-call screen: message displayed in an error dialog -->
     <string name="incall_error_supp_service_conference">Unable to conference calls.</string>
     <!-- In-call screen: message displayed in an error dialog -->
-    <string name="incall_error_supp_service_reject">Unable to reject call.</string>
+    <string name="incall_error_supp_service_reject">Can\'t reject call.</string>
     <!-- In-call screen: message displayed in an error dialog -->
-    <string name="incall_error_supp_service_hangup">Unable to release call(s).</string>
+    <string name="incall_error_supp_service_hangup">Can\'t release call(s).</string>
 
     <!-- Dialog title for the "radio enable" UI for emergency calls -->
     <string name="emergency_enable_radio_dialog_title">Emergency call</string>
     <!-- Status message for the "radio enable" UI for emergency calls -->
     <string name="emergency_enable_radio_dialog_message">Turning on radio\u2026</string>
     <!-- Status message for the "radio enable" UI for emergency calls -->
-    <string name="emergency_enable_radio_dialog_retry">Out of service area, retrying\u2026</string>
+    <string name="emergency_enable_radio_dialog_retry">No service. Trying again\u2026</string>
 
     <!-- Dialer text on Emergency Dialer -->
     <!-- Emergency dialer: message displayed in an error dialog -->
-    <string name="dial_emergency_error">Call not sent. <xliff:g id="non_emergency_number">%s</xliff:g> is not an emergency number!</string>
+    <string name="dial_emergency_error">Can\'t call. <xliff:g id="non_emergency_number">%s</xliff:g> is not an emergency number.</string>
     <!-- Emergency dialer: message displayed in an error dialog -->
-    <string name="dial_emergency_empty_error">Call not sent. Dial an emergency number!</string>
+    <string name="dial_emergency_empty_error">Can\'t call. Dial an emergency number.</string>
 
     <!-- Displayed in the text entry box in the dialer when in landscape mode to guide the user
          to dial using the physical keyboard -->
@@ -1056,7 +1082,9 @@
     </string-array>
 
     <!-- Title for the dialog used to display CDMA DisplayInfo -->
-    <string name="network_message">Network message</string>
+    <string name="network_info_message">Network message</string>
+    <!-- Title for the dialog used to display a network error message to the user -->
+    <string name="network_error_message">Error message</string>
 
     <!-- OTA-specific strings -->
     <!-- Title shown on OTA screen -->
@@ -1090,9 +1118,9 @@
     <string name="ota_speaker">Speaker</string>
     <!-- String to be displayed on OTA listen screen once user has selected the
          correct option to begin provisioning -->
-    <string name="ota_progress">Wait while your phone is being programmed.</string>
+    <string name="ota_progress">Programming your phone\u2026</string>
     <!-- String to display within the OTA Fail Notice dialog -->
-    <string name="ota_failure">Programming unsuccessful</string>
+    <string name="ota_failure">Couldn\'t program your phone</string>
     <!-- String to be displayed on the OTA Fail/Success screen upon successful provisioning -->
     <string name="ota_successful">Your phone is now activated.  It may take up to 15 minutes for service to start.</string>
     <!-- String to be displayed on the OTA Fail/Success screen upon unsuccessful provisioning -->
@@ -1212,7 +1240,7 @@
 
     <!--  Setting option name to enable or disable dialpad autocomplete functionality
          [CHAR LIMIT=30] -->
-    <string name="dial_pad_autocomplete">Dial pad autocomplete</string>
+    <string name="dial_pad_autocomplete">Dialpad autocomplete</string>
 
     <!-- Title for the category "ringtone", which is shown above ringtone and vibration
          related settings.
@@ -1230,9 +1258,9 @@
     <string name="enable_video_calling_title">Turn on video calling</string>
 
     <!-- Message for dialog shown when the user tries to turn on video calling but enhanced 4G LTE
-         is disabled. -->
+         is disabled. They have to turn on Enhanced 4G LTE capability in network settings first. -->
     <string name="enable_video_calling_dialog_msg">
-        To turn on video calling, you need to enable Enhanced 4G LTE Mode in system settings.
+        To turn on video calling, you need to enable Enhanced 4G LTE Mode in network settings.
     </string>
 
     <!-- Label for action button in dialog which opens mobile network settings, for video calling
@@ -1246,4 +1274,13 @@
     <string name="sim_label_emergency_calls">Emergency calls</string>
     <string name="sim_description_emergency_calls">Emergency calling only</string>
     <string name="sim_description_default">SIM card, slot: <xliff:g id="slot_id">%s</xliff:g></string>
+    <!-- Configuration setting for world mode Format is <true;GID if any to be checked>-->
+    <string translatable="false" name="config_world_mode"/>
+
+    <!-- DO NOT TRANSLATE. Internal key for a voicemail notification preference. -->
+    <string name="voicemail_notification_ringtone_key">voicemail_notification_ringtone_key</string>
+    <!-- DO NOT TRANSLATE. Internal key for a voicemail notification preference. -->
+    <string name="voicemail_notification_vibrate_key">voicemail_notification_vibrate_key</string>
+    <!-- DO NOT TRANSLATE. Internal key for tty mode preference. -->
+    <string name="tty_mode_key">button_tty_mode_key</string>
 </resources>

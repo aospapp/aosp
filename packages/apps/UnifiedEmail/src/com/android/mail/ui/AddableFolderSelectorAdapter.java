@@ -124,8 +124,6 @@ public class AddableFolderSelectorAdapter extends FolderSelectorAdapter {
                     folder[UIProvider.FOLDER_TYPE_COLUMN] = type;
                     folder[UIProvider.FOLDER_ICON_RES_ID_COLUMN] = folderCursor
                             .getInt(UIProvider.FOLDER_ICON_RES_ID_COLUMN);
-                    folder[UIProvider.FOLDER_NOTIFICATION_ICON_RES_ID_COLUMN] = folderCursor
-                            .getInt(UIProvider.FOLDER_NOTIFICATION_ICON_RES_ID_COLUMN);
                     folder[UIProvider.FOLDER_BG_COLOR_COLUMN] = folderCursor
                             .getString(UIProvider.FOLDER_BG_COLOR_COLUMN);
                     folder[UIProvider.FOLDER_FG_COLOR_COLUMN] = folderCursor

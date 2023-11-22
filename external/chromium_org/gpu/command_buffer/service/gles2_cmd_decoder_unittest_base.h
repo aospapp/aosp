@@ -75,17 +75,15 @@ class GLES2DecoderTestBase : public ::testing::TestWithParam<bool> {
   template <typename T>
   error::Error ExecuteCmd(const T& cmd) {
     COMPILE_ASSERT(T::kArgFlags == cmd::kFixed, Cmd_kArgFlags_not_kFixed);
-    return decoder_->DoCommand(cmd.kCmdId,
-                               ComputeNumEntries(sizeof(cmd)) - 1,
-                               &cmd);
+    return decoder_->DoCommands(
+        1, (const void*)&cmd, ComputeNumEntries(sizeof(cmd)), 0);
   }
 
   template <typename T>
   error::Error ExecuteImmediateCmd(const T& cmd, size_t data_size) {
     COMPILE_ASSERT(T::kArgFlags == cmd::kAtLeastN, Cmd_kArgFlags_not_kAtLeastN);
-    return decoder_->DoCommand(cmd.kCmdId,
-                               ComputeNumEntries(sizeof(cmd) + data_size) - 1,
-                               &cmd);
+    return decoder_->DoCommands(
+        1, (const void*)&cmd, ComputeNumEntries(sizeof(cmd) + data_size), 0);
   }
 
   template <typename T>
@@ -141,6 +139,8 @@ class GLES2DecoderTestBase : public ::testing::TestWithParam<bool> {
   ProgramManager* program_manager() {
     return group_->program_manager();
   }
+
+  ImageManager* GetImageManager() { return decoder_->GetImageManager(); }
 
   void DoCreateProgram(GLuint client_id, GLuint service_id);
   void DoCreateShader(GLenum shader_type, GLuint client_id, GLuint service_id);
@@ -217,6 +217,14 @@ class GLES2DecoderTestBase : public ::testing::TestWithParam<bool> {
   void DoBindBuffer(GLenum target, GLuint client_id, GLuint service_id);
   void DoBindFramebuffer(GLenum target, GLuint client_id, GLuint service_id);
   void DoBindRenderbuffer(GLenum target, GLuint client_id, GLuint service_id);
+  void DoRenderbufferStorageMultisampleCHROMIUM(GLenum target,
+                                                GLsizei samples,
+                                                GLenum internal_format,
+                                                GLenum gl_format,
+                                                GLsizei width,
+                                                GLsizei height);
+  void RestoreRenderbufferBindings();
+  void EnsureRenderbufferBound(bool expect_bind);
   void DoBindTexture(GLenum target, GLuint client_id, GLuint service_id);
   void DoBindVertexArrayOES(GLuint client_id, GLuint service_id);
 
@@ -339,8 +347,7 @@ class GLES2DecoderTestBase : public ::testing::TestWithParam<bool> {
                                      bool green,
                                      bool blue,
                                      bool alpha);
-  void SetupExpectationsForStencilMask(uint32 front_mask,
-                                       uint32 back_mask);
+  void SetupExpectationsForStencilMask(GLuint front_mask, GLuint back_mask);
 
   void SetupExpectationsForApplyingDirtyState(
       bool framebuffer_is_rgb,
@@ -517,7 +524,10 @@ class GLES2DecoderTestBase : public ::testing::TestWithParam<bool> {
   void* shared_memory_address_;
   void* shared_memory_base_;
 
-  int8 immediate_buffer_[256];
+  GLuint service_renderbuffer_id_;
+  bool service_renderbuffer_valid_;
+
+  uint32 immediate_buffer_[64];
 
   const bool ignore_cached_state_for_test_;
   bool cached_color_mask_red_;
@@ -525,8 +535,8 @@ class GLES2DecoderTestBase : public ::testing::TestWithParam<bool> {
   bool cached_color_mask_blue_;
   bool cached_color_mask_alpha_;
   bool cached_depth_mask_;
-  uint32 cached_stencil_front_mask_;
-  uint32 cached_stencil_back_mask_;
+  GLuint cached_stencil_front_mask_;
+  GLuint cached_stencil_back_mask_;
 
   struct EnableFlags {
     EnableFlags();

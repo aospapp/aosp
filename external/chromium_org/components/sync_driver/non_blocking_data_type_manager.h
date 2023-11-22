@@ -18,11 +18,11 @@ class SequencedTaskRunner;
 }  // namespace base
 
 namespace syncer {
-class NonBlockingTypeProcessor;
-class SyncCoreProxy;
+class ModelTypeSyncProxyImpl;
+class SyncContextProxy;
 }  //namespace syncer
 
-namespace browser_sync {
+namespace sync_driver {
 
 class NonBlockingDataTypeController;
 
@@ -42,16 +42,16 @@ class NonBlockingDataTypeManager {
   // The |preferred| flag indicates whether or not this type should be synced.
   void RegisterType(syncer::ModelType type, bool preferred);
 
-  // Connects the NonBlockingTypeProcessor and associated model type
+  // Connects the ModelTypeSyncProxyImpl and associated model type
   // thread to its NonBlockingDataTypeController on the UI thread.
-  void InitializeTypeProcessor(
+  void InitializeType(
       syncer::ModelType type,
       const scoped_refptr<base::SequencedTaskRunner>& task_runner,
-      const base::WeakPtr<syncer::NonBlockingTypeProcessor>& processor);
+      const base::WeakPtr<syncer::ModelTypeSyncProxyImpl>& type_sync_proxy);
 
-  // Connects the sync backend, as represented by a SyncCoreProxy, to the
+  // Connects the sync backend, as represented by a SyncContextProxy, to the
   // NonBlockingDataTypeController on the UI thread.
-  void ConnectSyncBackend(scoped_ptr<syncer::SyncCoreProxy> proxy);
+  void ConnectSyncBackend(scoped_ptr<syncer::SyncContextProxy> proxy);
 
   // Disconnects the sync backend from the UI thread.  Should be called
   // early on during shutdown, but the whole procedure is asynchronous so
@@ -67,7 +67,7 @@ class NonBlockingDataTypeManager {
 
  private:
   typedef
-      std::map<syncer::ModelType, browser_sync::NonBlockingDataTypeController*>
+      std::map<syncer::ModelType, NonBlockingDataTypeController*>
       NonBlockingDataTypeControllerMap;
 
   // List of data type controllers for non-blocking types.
@@ -78,6 +78,6 @@ class NonBlockingDataTypeManager {
       non_blocking_data_type_controllers_deleter_;
 };
 
-}  // namespace browser_sync
+}  // namespace sync_driver
 
 #endif  // COMPONENTS_SYNC_DRIVER_NON_BLOCKING_DATA_TYPE_MANAGER_H_

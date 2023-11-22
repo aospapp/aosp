@@ -4,7 +4,7 @@
 import gpu_process_expectations as expectations
 import page_sets
 
-from telemetry import test
+from telemetry import benchmark
 from telemetry.page import page_set
 from telemetry.page import page_test
 
@@ -27,22 +27,21 @@ class _GpuProcessValidator(page_test.PageTest):
   def CustomizeBrowserOptions(self, options):
     options.AppendExtraBrowserArgs('--enable-gpu-benchmarking')
 
-  def ValidatePage(self, page, tab, results):
+  def ValidateAndMeasurePage(self, page, tab, results):
     has_gpu_process_js = 'chrome.gpuBenchmarking.hasGpuProcess()'
     has_gpu_process = tab.EvaluateJavaScript(has_gpu_process_js)
     if not has_gpu_process:
       raise page_test.Failure('No GPU process detected')
 
-class GpuProcess(test.Test):
+class GpuProcess(benchmark.Benchmark):
   """Tests that accelerated content triggers the creation of a GPU process"""
   test = _GpuProcessValidator
-  page_set = page_sets.GpuProcessTestsPageSet
 
   def CreateExpectations(self, page_set):
     return expectations.GpuProcessExpectations()
 
   def CreatePageSet(self, options):
-    page_set = super(GpuProcess, self).CreatePageSet(options)
+    page_set = page_sets.GpuProcessTestsPageSet()
     for page in page_set.pages:
       page.script_to_evaluate_on_commit = test_harness_script
     return page_set

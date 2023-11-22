@@ -11,7 +11,10 @@
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop/message_loop.h"
+#include "base/metrics/field_trial.h"
 #include "base/prefs/pref_service.h"
+#include "base/process/kill.h"
+#include "base/process/process.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
@@ -38,7 +41,6 @@
 #if defined(OS_CHROMEOS)
 #include "base/sys_info.h"
 #include "chrome/browser/chromeos/boot_times_loader.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/session_manager_client.h"
 #include "chromeos/dbus/update_engine_client.h"
@@ -179,7 +181,7 @@ void StartShutdownTracing() {
     base::debug::TraceLog::GetInstance()->SetEnabled(
         category_filter,
         base::debug::TraceLog::RECORDING_MODE,
-        base::debug::TraceLog::RECORD_UNTIL_FULL);
+        base::debug::TraceOptions());
   }
   TRACE_EVENT0("shutdown", "StartShutdownTracing");
 }
@@ -247,6 +249,16 @@ void ExitCleanly() {
 }
 #endif
 
+namespace {
+
+bool ExperimentUseBrokenSynchronization() {
+  const std::string group_name =
+      base::FieldTrialList::FindFullName("WindowsLogoffRace");
+  return group_name == "BrokenSynchronization";
+}
+
+}  // namespace
+
 void SessionEnding() {
   // This is a time-limited shutdown where we need to write as much to
   // disk as we can as soon as we can, and where we must kill the
@@ -276,20 +288,29 @@ void SessionEnding() {
   // Write important data first.
   g_browser_process->EndSession();
 
-  CloseAllBrowsers();
-
-  // Send out notification. This is used during testing so that the test harness
-  // can properly shutdown before we exit.
-  content::NotificationService::current()->Notify(
-      chrome::NOTIFICATION_SESSION_END,
-      content::NotificationService::AllSources(),
-      content::NotificationService::NoDetails());
-
 #if defined(OS_WIN)
   base::win::SetShouldCrashOnProcessDetach(false);
 #endif
-  // This will end by terminating the process.
-  content::ImmediateShutdownAndExitProcess();
+
+  if (ExperimentUseBrokenSynchronization()) {
+    CloseAllBrowsers();
+
+    // Send out notification. This is used during testing so that the test
+    // harness can properly shutdown before we exit.
+    content::NotificationService::current()->Notify(
+        chrome::NOTIFICATION_SESSION_END,
+        content::NotificationService::AllSources(),
+        content::NotificationService::NoDetails());
+
+    // This will end by terminating the process.
+    content::ImmediateShutdownAndExitProcess();
+  } else {
+    // On Windows 7 and later, the system will consider the process ripe for
+    // termination as soon as it hides or destroys its windows. Since any
+    // execution past that point will be non-deterministically cut short, we
+    // might as well put ourselves out of that misery deterministically.
+    base::KillProcess(base::Process::Current().handle(), 0, false);
+  }
 }
 
 void IncrementKeepAliveCount() {

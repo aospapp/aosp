@@ -17,30 +17,28 @@
 package android.hardware.cts.helpers.sensoroperations;
 
 import android.hardware.cts.helpers.SensorCtsHelper;
-import android.hardware.cts.helpers.SensorStats;
+import android.hardware.cts.helpers.reporting.ISensorTestNode;
 
 import java.util.concurrent.TimeUnit;
 
 /**
- * An {@link ISensorOperation} which delays for a specified period of time before performing another
- * {@link ISensorOperation}.
+ * An {@link SensorOperation} which delays for a specified period of time before performing another
+ * {@link SensorOperation}.
  */
-public class DelaySensorOperation implements ISensorOperation {
-    private final ISensorOperation mOperation;
+public class DelaySensorOperation extends SensorOperation {
+    private final SensorOperation mOperation;
     private final long mDelay;
     private final TimeUnit mTimeUnit;
 
     /**
      * Constructor for {@link DelaySensorOperation}
      *
-     * @param operation the child {@link ISensorOperation} to perform after the delay
+     * @param operation the child {@link SensorOperation} to perform after the delay
      * @param delay the amount of time to delay
      * @param timeUnit the unit of the delay
      */
-    public DelaySensorOperation(ISensorOperation operation, long delay, TimeUnit timeUnit) {
-        if (operation == null || timeUnit == null) {
-            throw new IllegalArgumentException("Arguments cannot be null");
-        }
+    public DelaySensorOperation(SensorOperation operation, long delay, TimeUnit timeUnit) {
+        super(operation.getStats());
         mOperation = operation;
         mDelay = delay;
         mTimeUnit = timeUnit;
@@ -50,17 +48,9 @@ public class DelaySensorOperation implements ISensorOperation {
      * {@inheritDoc}
      */
     @Override
-    public void execute() throws InterruptedException {
+    public void execute(ISensorTestNode parent) throws InterruptedException {
         SensorCtsHelper.sleep(mDelay, mTimeUnit);
-        mOperation.execute();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public SensorStats getStats() {
-        return mOperation.getStats();
+        mOperation.execute(asTestNode(parent));
     }
 
     /**

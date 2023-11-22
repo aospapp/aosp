@@ -34,7 +34,6 @@
 #include "external.h"
 #include "overlayUtils.h"
 #include "overlay.h"
-#include "mdp_version.h"
 #include "qd_utils.h"
 
 using namespace android;
@@ -192,7 +191,7 @@ void ExternalDisplay::readCEUnderscanInfo()
         return;
     } else {
         len = read(hdmiScanInfoFile, scanInfo, sizeof(scanInfo)-1);
-        ALOGD("%s: Scan Info string: %s length = %zu",
+        ALOGD("%s: Scan Info string: %s length = %zd",
                  __FUNCTION__, scanInfo, len);
         if (len <= 0) {
             close(hdmiScanInfoFile);
@@ -314,7 +313,7 @@ bool ExternalDisplay::readResolution()
         return false;
     } else {
         len = read(hdmiEDIDFile, edidStr, sizeof(edidStr)-1);
-        ALOGD_IF(DEBUG, "%s: EDID string: %s length = %zu",
+        ALOGD_IF(DEBUG, "%s: EDID string: %s length = %zd",
                  __FUNCTION__, edidStr, len);
         if ( len <= 0) {
             ALOGE("%s: edid_modes file empty '%s'",
@@ -586,7 +585,7 @@ void ExternalDisplay::setAttributes() {
         mHwcContext->dpyAttr[HWC_DISPLAY_EXTERNAL].xres = width;
         mHwcContext->dpyAttr[HWC_DISPLAY_EXTERNAL].yres = height;
         mHwcContext->dpyAttr[HWC_DISPLAY_EXTERNAL].mDownScaleMode = false;
-        if(!qdutils::MDPVersion::getInstance().is8x26()
+        if(mHwcContext->mOverlay->isUIScalingOnExternalSupported()
                 && mHwcContext->mMDPDownscaleEnabled) {
             int priW = mHwcContext->dpyAttr[HWC_DISPLAY_PRIMARY].xres;
             int priH = mHwcContext->dpyAttr[HWC_DISPLAY_PRIMARY].yres;
@@ -621,6 +620,13 @@ void ExternalDisplay::setAttributes() {
                 mHwcContext->dpyAttr[HWC_DISPLAY_EXTERNAL].mDownScaleMode =true;
             }
         }
+        //Initialize the display viewFrame info
+        mHwcContext->mViewFrame[HWC_DISPLAY_EXTERNAL].left = 0;
+        mHwcContext->mViewFrame[HWC_DISPLAY_EXTERNAL].top = 0;
+        mHwcContext->mViewFrame[HWC_DISPLAY_EXTERNAL].right =
+            (int)mHwcContext->dpyAttr[HWC_DISPLAY_EXTERNAL].xres;
+        mHwcContext->mViewFrame[HWC_DISPLAY_EXTERNAL].bottom =
+            (int)mHwcContext->dpyAttr[HWC_DISPLAY_EXTERNAL].yres;
         mHwcContext->dpyAttr[HWC_DISPLAY_EXTERNAL].vsync_period =
                 (int) 1000000000l / fps;
     }

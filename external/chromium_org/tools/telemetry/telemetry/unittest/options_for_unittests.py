@@ -9,25 +9,24 @@ if unit tests are not running.
 
 This allows multiple unit tests to use a specific
 browser, in face of multiple options."""
-_options = None
-_browser_type = None
-def Set(options, browser_type):
-  global _options
-  global _browser_type
 
-  _options = options
-  _browser_type = browser_type
+
+_options = []
+
+
+def Push(options):
+  _options.append(options)
+
+
+def Pop():
+  return _options.pop()
+
 
 def GetCopy():
-  if not _options:
+  if not AreSet():
     return None
+  return _options[-1].Copy()
 
-  return _options.Copy()
 
 def AreSet():
-  if _options:
-    return True
-  return False
-
-def GetBrowserType():
-  return _browser_type
+  return bool(_options)

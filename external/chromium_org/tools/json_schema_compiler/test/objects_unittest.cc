@@ -12,12 +12,12 @@ using namespace test::api::objects;
 TEST(JsonSchemaCompilerObjectsTest, ObjectParamParamsCreate) {
   {
     scoped_ptr<base::ListValue> strings(new base::ListValue());
-    strings->Append(base::Value::CreateStringValue("one"));
-    strings->Append(base::Value::CreateStringValue("two"));
+    strings->Append(new base::StringValue("one"));
+    strings->Append(new base::StringValue("two"));
     scoped_ptr<base::DictionaryValue> info_value(new base::DictionaryValue());
     info_value->Set("strings", strings.release());
-    info_value->Set("integer", base::Value::CreateIntegerValue(5));
-    info_value->Set("boolean", base::Value::CreateBooleanValue(true));
+    info_value->Set("integer", new base::FundamentalValue(5));
+    info_value->Set("boolean", new base::FundamentalValue(true));
 
     scoped_ptr<base::ListValue> params_value(new base::ListValue());
     params_value->Append(info_value.release());
@@ -32,11 +32,11 @@ TEST(JsonSchemaCompilerObjectsTest, ObjectParamParamsCreate) {
   }
   {
     scoped_ptr<base::ListValue> strings(new base::ListValue());
-    strings->Append(base::Value::CreateStringValue("one"));
-    strings->Append(base::Value::CreateStringValue("two"));
+    strings->Append(new base::StringValue("one"));
+    strings->Append(new base::StringValue("two"));
     scoped_ptr<base::DictionaryValue> info_value(new base::DictionaryValue());
     info_value->Set("strings", strings.release());
-    info_value->Set("integer", base::Value::CreateIntegerValue(5));
+    info_value->Set("integer", new base::FundamentalValue(5));
 
     scoped_ptr<base::ListValue> params_value(new base::ListValue());
     params_value->Append(info_value.release());

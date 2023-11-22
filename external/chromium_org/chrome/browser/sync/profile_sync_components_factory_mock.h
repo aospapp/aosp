@@ -12,31 +12,29 @@
 #include "components/sync_driver/data_type_error_handler.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
-namespace browser_sync {
+namespace sync_driver {
 class AssociatorInterface;
 class ChangeProcessor;
 class DataTypeEncryptionHandler;
-class FailedDataTypesHandler;
+class DataTypeStatusTable;
 }
 
 class ProfileSyncComponentsFactoryMock : public ProfileSyncComponentsFactory {
  public:
   ProfileSyncComponentsFactoryMock();
   ProfileSyncComponentsFactoryMock(
-      browser_sync::AssociatorInterface* model_associator,
-      browser_sync::ChangeProcessor* change_processor);
+      sync_driver::AssociatorInterface* model_associator,
+      sync_driver::ChangeProcessor* change_processor);
   virtual ~ProfileSyncComponentsFactoryMock();
 
   MOCK_METHOD1(RegisterDataTypes, void(ProfileSyncService*));
-  MOCK_METHOD6(CreateDataTypeManager,
-               browser_sync::DataTypeManager*(
+  MOCK_METHOD5(CreateDataTypeManager,
+               sync_driver::DataTypeManager*(
                    const syncer::WeakHandle<syncer::DataTypeDebugInfoListener>&,
-                   const browser_sync::DataTypeController::TypeMap*,
-                   const browser_sync::DataTypeEncryptionHandler*,
+                   const sync_driver::DataTypeController::TypeMap*,
+                   const sync_driver::DataTypeEncryptionHandler*,
                    browser_sync::SyncBackendHost*,
-                   browser_sync::DataTypeManagerObserver* observer,
-                   browser_sync::FailedDataTypesHandler*
-                       failed_datatypes_handler));
+                   sync_driver::DataTypeManagerObserver* observer));
   MOCK_METHOD5(CreateSyncBackendHost,
                browser_sync::SyncBackendHost*(
                    const std::string& name,
@@ -44,29 +42,40 @@ class ProfileSyncComponentsFactoryMock : public ProfileSyncComponentsFactory {
                    invalidation::InvalidationService* invalidator,
                    const base::WeakPtr<sync_driver::SyncPrefs>& sync_prefs,
                    const base::FilePath& sync_folder));
+
+  virtual scoped_ptr<sync_driver::LocalDeviceInfoProvider>
+      CreateLocalDeviceInfoProvider() OVERRIDE;
+  void SetLocalDeviceInfoProvider(
+      scoped_ptr<sync_driver::LocalDeviceInfoProvider> local_device);
+
   MOCK_METHOD1(GetSyncableServiceForType,
                base::WeakPtr<syncer::SyncableService>(syncer::ModelType));
   virtual scoped_ptr<syncer::AttachmentService> CreateAttachmentService(
+      const scoped_refptr<syncer::AttachmentStore>& attachment_store,
+      const syncer::UserShare& user_share,
       syncer::AttachmentService::Delegate* delegate) OVERRIDE;
   MOCK_METHOD2(CreateBookmarkSyncComponents,
       SyncComponents(ProfileSyncService* profile_sync_service,
-                     browser_sync::DataTypeErrorHandler* error_handler));
+                     sync_driver::DataTypeErrorHandler* error_handler));
 #if defined(ENABLE_THEMES)
   MOCK_METHOD2(CreateThemeSyncComponents,
       SyncComponents(ProfileSyncService* profile_sync_service,
-                     browser_sync::DataTypeErrorHandler* error_handler));
+                     sync_driver::DataTypeErrorHandler* error_handler));
 #endif
   MOCK_METHOD3(CreateTypedUrlSyncComponents,
                SyncComponents(
                    ProfileSyncService* profile_sync_service,
                    history::HistoryBackend* history_backend,
-                   browser_sync::DataTypeErrorHandler* error_handler));
+                   sync_driver::DataTypeErrorHandler* error_handler));
 
  private:
   SyncComponents MakeSyncComponents();
 
-  scoped_ptr<browser_sync::AssociatorInterface> model_associator_;
-  scoped_ptr<browser_sync::ChangeProcessor> change_processor_;
+  scoped_ptr<sync_driver::AssociatorInterface> model_associator_;
+  scoped_ptr<sync_driver::ChangeProcessor> change_processor_;
+  // LocalDeviceInfoProvider is initially owned by this class,
+  // transferred to caller when CreateLocalDeviceInfoProvider is called.
+  scoped_ptr<sync_driver::LocalDeviceInfoProvider> local_device_;
 };
 
 #endif  // CHROME_BROWSER_SYNC_PROFILE_SYNC_COMPONENTS_FACTORY_MOCK_H__

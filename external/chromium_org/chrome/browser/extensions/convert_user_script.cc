@@ -8,14 +8,14 @@
 #include <vector>
 
 #include "base/base64.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/json/json_file_value_serializer.h"
 #include "base/path_service.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/extensions/user_script_master.h"
+#include "chrome/browser/extensions/user_script_loader.h"
 #include "chrome/common/chrome_paths.h"
 #include "crypto/sha2.h"
 #include "extensions/common/constants.h"
@@ -45,8 +45,7 @@ scoped_refptr<Extension> ConvertUserScriptToExtension(
   }
 
   UserScript script;
-  if (!UserScriptMaster::ScriptReloader::ParseMetadataHeader(content,
-                                                             &script)) {
+  if (!UserScriptLoader::ParseMetadataHeader(content, &script)) {
     *error = base::ASCIIToUTF16("Invalid script header.");
     return NULL;
   }

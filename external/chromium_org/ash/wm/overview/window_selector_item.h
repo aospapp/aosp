@@ -7,6 +7,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
+#include "ui/aura/window_observer.h"
 #include "ui/gfx/rect.h"
 #include "ui/views/controls/button/button.h"
 
@@ -15,6 +16,7 @@ class Window;
 }
 
 namespace views {
+class Label;
 class Widget;
 }
 
@@ -24,7 +26,8 @@ class TransparentActivateWindowButton;
 // This class represents an item in overview mode. An item can have one or more
 // windows, of which only one can be activated by keyboard (i.e. alt+tab) but
 // any can be selected with a pointer (touch or mouse).
-class WindowSelectorItem : public views::ButtonListener {
+class WindowSelectorItem : public views::ButtonListener,
+                           public aura::WindowObserver {
  public:
   WindowSelectorItem();
   virtual ~WindowSelectorItem();
@@ -76,12 +79,20 @@ class WindowSelectorItem : public views::ButtonListener {
   // label is read.
   void SendFocusAlert() const;
 
+  // Sets if the item is dimmed in the overview. Changing the value will also
+  // change the visibility of the transform windows.
+  virtual void SetDimmed(bool dimmed);
+  bool dimmed() const { return dimmed_; }
+
   const gfx::Rect& bounds() const { return bounds_; }
   const gfx::Rect& target_bounds() const { return target_bounds_; }
 
   // views::ButtonListener:
   virtual void ButtonPressed(views::Button* sender,
                              const ui::Event& event) OVERRIDE;
+
+  // aura::WindowObserver:
+  virtual void OnWindowTitleChanged(aura::Window* window) OVERRIDE;
 
  protected:
   // Sets the bounds of this selector's items to |target_bounds| in
@@ -94,6 +105,13 @@ class WindowSelectorItem : public views::ButtonListener {
   // Sets the bounds used by the selector item's windows.
   void set_bounds(const gfx::Rect& bounds) { bounds_ = bounds; }
 
+  // Changes the opacity of all the windows the item owns.
+  virtual void SetOpacity(float opacity);
+
+  // True if the item is being shown in the overview, false if it's being
+  // filtered.
+  bool dimmed_;
+
  private:
   friend class WindowSelectorTest;
 
@@ -105,6 +123,9 @@ class WindowSelectorItem : public views::ButtonListener {
   void UpdateWindowLabels(const gfx::Rect& target_bounds,
                           aura::Window* root_window,
                           bool animate);
+
+  // Initializes window_label_.
+  void CreateWindowLabel(const base::string16& title);
 
   // The root window this item is being displayed on.
   aura::Window* root_window_;
@@ -123,6 +144,9 @@ class WindowSelectorItem : public views::ButtonListener {
 
   // Label under the window displaying its active tab name.
   scoped_ptr<views::Widget> window_label_;
+
+  // View for the label under the window.
+  views::Label* window_label_view_;
 
   // An easy to access close button for the window in this item.
   scoped_ptr<views::Widget> close_button_;

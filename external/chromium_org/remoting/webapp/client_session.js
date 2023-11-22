@@ -23,6 +23,16 @@
 var remoting = remoting || {};
 
 /**
+ * True if Cast capability is supported.
+ *
+ * @type {boolean}
+ */
+remoting.enableCast = false;
+
+/**
+ * @param {remoting.SignalStrategy} signalStrategy Signal strategy.
+ * @param {HTMLElement} container Container element for the client view.
+ * @param {string} hostDisplayName A human-readable name for the host.
  * @param {string} accessCode The IT2Me access code. Blank for Me2Me.
  * @param {function(boolean, function(string): void): void} fetchPin
  *     Called by Me2Me connections when a PIN needs to be obtained
@@ -46,16 +56,23 @@ var remoting = remoting || {};
  * @constructor
  * @extends {base.EventSource}
  */
-remoting.ClientSession = function(accessCode, fetchPin, fetchThirdPartyToken,
-                                  authenticationMethods,
-                                  hostId, hostJid, hostPublicKey, mode,
-                                  clientPairingId, clientPairedSecret) {
+remoting.ClientSession = function(signalStrategy, container, hostDisplayName,
+                                  accessCode, fetchPin, fetchThirdPartyToken,
+                                  authenticationMethods, hostId, hostJid,
+                                  hostPublicKey, mode, clientPairingId,
+                                  clientPairedSecret) {
   /** @private */
   this.state_ = remoting.ClientSession.State.CREATED;
 
   /** @private */
   this.error_ = remoting.Error.NONE;
 
+  /** @type {HTMLElement}
+    * @private */
+  this.container_ = container;
+
+  /** @private */
+  this.hostDisplayName_ = hostDisplayName;
   /** @private */
   this.hostJid_ = hostJid;
   /** @private */
@@ -91,10 +108,26 @@ remoting.ClientSession = function(accessCode, fetchPin, fetchThirdPartyToken,
   this.hasReceivedFrame_ = false;
   this.logToServer = new remoting.LogToServer();
 
+  /** @private */
+  this.signalStrategy_ = signalStrategy;
+  base.debug.assert(this.signalStrategy_.getState() ==
+                    remoting.SignalStrategy.State.CONNECTED);
+  this.signalStrategy_.setIncomingStanzaCallback(
+      this.onIncomingMessage_.bind(this));
+  remoting.formatIq.setJids(this.signalStrategy_.getJid(), hostJid);
+
   /** @type {number?} @private */
   this.notifyClientResolutionTimer_ = null;
   /** @type {number?} @private */
   this.bumpScrollTimer_ = null;
+
+  // Bump-scroll test variables. Override to use a fake value for the width
+  // and height of the client plugin so that bump-scrolling can be tested
+  // without relying on the actual size of the host desktop.
+  /** @type {number} @private */
+  this.pluginWidthForBumpScrollTesting = 0;
+  /** @type {number} @private */
+  this.pluginHeightForBumpScrollTesting = 0;
 
   /**
    * Allow host-offline error reporting to be suppressed in situations where it
@@ -109,27 +142,10 @@ remoting.ClientSession = function(accessCode, fetchPin, fetchThirdPartyToken,
   /** @private */
   this.callPluginGotFocus_ = this.pluginGotFocus_.bind(this);
   /** @private */
-  this.callSetScreenMode_ = this.onSetScreenMode_.bind(this);
-  /** @private */
-  this.callToggleFullScreen_ = remoting.fullscreen.toggle.bind(
-      remoting.fullscreen);
-  /** @private */
   this.callOnFullScreenChanged_ = this.onFullScreenChanged_.bind(this)
-
-  /** @private */
-  this.screenOptionsMenu_ = new remoting.MenuButton(
-      document.getElementById('screen-options-menu'),
-      this.onShowOptionsMenu_.bind(this));
-  /** @private */
-  this.sendKeysMenu_ = new remoting.MenuButton(
-      document.getElementById('send-keys-menu')
-  );
 
   /** @type {HTMLMediaElement} @private */
   this.video_ = null;
-
-  /** @type {Element} @private */
-  this.container_ = document.getElementById('video-container');
 
   /** @type {Element} @private */
   this.mouseCursorOverlay_ =
@@ -143,30 +159,15 @@ remoting.ClientSession = function(accessCode, fetchPin, fetchThirdPartyToken,
     img.style.left = event.x + 'px';
   };
 
-  /** @type {HTMLElement} @private */
-  this.resizeToClientButton_ =
-      document.getElementById('screen-resize-to-client');
-  /** @type {HTMLElement} @private */
-  this.shrinkToFitButton_ = document.getElementById('screen-shrink-to-fit');
-  /** @type {HTMLElement} @private */
-  this.fullScreenButton_ = document.getElementById('toggle-full-screen');
-
   /** @type {remoting.GnubbyAuthHandler} @private */
   this.gnubbyAuthHandler_ = null;
 
-  if (this.mode_ == remoting.ClientSession.Mode.IT2ME) {
-    // Resize-to-client is not supported for IT2Me hosts.
-    this.resizeToClientButton_.hidden = true;
-  } else {
-    this.resizeToClientButton_.hidden = false;
-    this.resizeToClientButton_.addEventListener(
-        'click', this.callSetScreenMode_, false);
-  }
+  /** @type {remoting.CastExtensionHandler} @private */
+  this.castExtensionHandler_ = null;
 
-  this.shrinkToFitButton_.addEventListener(
-      'click', this.callSetScreenMode_, false);
-  this.fullScreenButton_.addEventListener(
-      'click', this.callToggleFullScreen_, false);
+  /** @type {remoting.VideoFrameRecorder} @private */
+  this.videoFrameRecorder_ = null;
+
   this.defineEvents(Object.keys(remoting.ClientSession.Events));
 };
 
@@ -175,7 +176,18 @@ base.extend(remoting.ClientSession, base.EventSource);
 /** @enum {string} */
 remoting.ClientSession.Events = {
   stateChanged: 'stateChanged',
-  videoChannelStateChanged: 'videoChannelStateChanged'
+  videoChannelStateChanged: 'videoChannelStateChanged',
+  bumpScrollStarted: 'bumpScrollStarted',
+  bumpScrollStopped: 'bumpScrollStopped'
+};
+
+/**
+ * Get host display name.
+ *
+ * @return {string}
+ */
+remoting.ClientSession.prototype.getHostDisplayName = function() {
+  return this.hostDisplayName_;
 };
 
 /**
@@ -192,15 +204,15 @@ remoting.ClientSession.prototype.updateScrollbarVisibility = function() {
     // Determine whether or not horizontal or vertical scrollbars are
     // required, taking into account their width.
     var clientArea = this.getClientArea_();
-    needsVerticalScroll = clientArea.height < this.plugin_.desktopHeight;
-    needsHorizontalScroll = clientArea.width < this.plugin_.desktopWidth;
+    needsVerticalScroll = clientArea.height < this.plugin_.getDesktopHeight();
+    needsHorizontalScroll = clientArea.width < this.plugin_.getDesktopWidth();
     var kScrollBarWidth = 16;
     if (needsHorizontalScroll && !needsVerticalScroll) {
       needsVerticalScroll =
-          clientArea.height - kScrollBarWidth < this.plugin_.desktopHeight;
+          clientArea.height - kScrollBarWidth < this.plugin_.getDesktopHeight();
     } else if (!needsHorizontalScroll && needsVerticalScroll) {
       needsHorizontalScroll =
-          clientArea.width - kScrollBarWidth < this.plugin_.desktopWidth;
+          clientArea.width - kScrollBarWidth < this.plugin_.getDesktopWidth();
     }
   }
 
@@ -215,6 +227,20 @@ remoting.ClientSession.prototype.updateScrollbarVisibility = function() {
   } else {
     scroller.classList.add('no-vertical-scroll');
   }
+};
+
+/**
+ * @return {boolean} True if shrink-to-fit is enabled; false otherwise.
+ */
+remoting.ClientSession.prototype.getShrinkToFit = function() {
+  return this.shrinkToFit_;
+};
+
+/**
+ * @return {boolean} True if resize-to-client is enabled; false otherwise.
+ */
+remoting.ClientSession.prototype.getResizeToClient = function() {
+  return this.resizeToClient_;
 };
 
 // Note that the positive values in both of these enums are copied directly
@@ -323,13 +349,6 @@ remoting.ClientSession.KEY_RESIZE_TO_CLIENT = 'resizeToClient';
 remoting.ClientSession.KEY_SHRINK_TO_FIT = 'shrinkToFit';
 
 /**
- * The id of the client plugin
- *
- * @const
- */
-remoting.ClientSession.prototype.PLUGIN_ID = 'session-client-plugin';
-
-/**
  * Set of capabilities for which hasCapability_() can be used to test.
  *
  * @enum {string}
@@ -339,7 +358,9 @@ remoting.ClientSession.Capability = {
   // resolution to the host once connection has been established. See
   // this.plugin_.notifyClientResolution().
   SEND_INITIAL_RESOLUTION: 'sendInitialResolution',
-  RATE_LIMIT_RESIZE_REQUESTS: 'rateLimitResizeRequests'
+  RATE_LIMIT_RESIZE_REQUESTS: 'rateLimitResizeRequests',
+  VIDEO_RECORDER: 'videoRecorder',
+  CAST: 'casting'
 };
 
 /**
@@ -364,40 +385,6 @@ remoting.ClientSession.prototype.hasCapability_ = function(capability) {
 };
 
 /**
- * @param {Element} container The element to add the plugin to.
- * @param {string} id Id to use for the plugin element .
- * @param {function(string, string):boolean} onExtensionMessage The handler for
- *     protocol extension messages. Returns true if a message is recognized;
- *     false otherwise.
- * @return {remoting.ClientPlugin} Create plugin object for the locally
- * installed plugin.
- */
-remoting.ClientSession.prototype.createClientPlugin_ =
-    function(container, id, onExtensionMessage) {
-  var plugin = /** @type {remoting.ViewerPlugin} */
-      document.createElement('embed');
-
-  plugin.id = id;
-  if (remoting.settings.CLIENT_PLUGIN_TYPE == 'pnacl') {
-    plugin.src = 'remoting_client_pnacl.nmf';
-    plugin.type = 'application/x-pnacl';
-  } else if (remoting.settings.CLIENT_PLUGIN_TYPE == 'nacl') {
-    plugin.src = 'remoting_client_nacl.nmf';
-    plugin.type = 'application/x-nacl';
-  } else {
-    plugin.src = 'about://none';
-    plugin.type = 'application/vnd.chromium.remoting-viewer';
-  }
-
-  plugin.width = 0;
-  plugin.height = 0;
-  plugin.tabIndex = 0;  // Required, otherwise focus() doesn't work.
-  container.appendChild(plugin);
-
-  return new remoting.ClientPlugin(plugin, onExtensionMessage);
-};
-
-/**
  * Callback function called when the plugin element gets focus.
  */
 remoting.ClientSession.prototype.pluginGotFocus_ = function() {
@@ -416,8 +403,7 @@ remoting.ClientSession.prototype.pluginLostFocus_ = function() {
       // Due to crbug.com/246335, we can't restore the focus immediately,
       // otherwise the plugin gets confused about whether or not it has focus.
       window.setTimeout(
-          this.plugin_.element().focus.bind(this.plugin_.element()),
-          0);
+          this.plugin_.element().focus.bind(this.plugin_.element()), 0);
     }
   }
 };
@@ -425,15 +411,15 @@ remoting.ClientSession.prototype.pluginLostFocus_ = function() {
 /**
  * Adds <embed> element to |container| and readies the sesion object.
  *
- * @param {Element} container The element to add the plugin to.
  * @param {function(string, string):boolean} onExtensionMessage The handler for
  *     protocol extension messages. Returns true if a message is recognized;
  *     false otherwise.
  */
 remoting.ClientSession.prototype.createPluginAndConnect =
-    function(container, onExtensionMessage) {
-  this.plugin_ = this.createClientPlugin_(container, this.PLUGIN_ID,
-                                          onExtensionMessage);
+    function(onExtensionMessage) {
+  this.plugin_ = remoting.ClientPlugin.factory.createPlugin(
+      this.container_.querySelector('.client-plugin-container'),
+      onExtensionMessage);
   remoting.HostSettings.load(this.hostId_,
                              this.onHostSettingsLoaded_.bind(this));
 };
@@ -483,8 +469,9 @@ remoting.ClientSession.prototype.setFocusHandlers_ = function() {
  * @param {remoting.Error} error
  */
 remoting.ClientSession.prototype.resetWithError_ = function(error) {
-  this.plugin_.cleanup();
-  delete this.plugin_;
+  this.signalStrategy_.setIncomingStanzaCallback(null);
+  this.plugin_.dispose();
+  this.plugin_ = null;
   this.error_ = error;
   this.setState_(remoting.ClientSession.State.FAILED);
 }
@@ -520,7 +507,6 @@ remoting.ClientSession.prototype.onPluginInitialized_ = function(initialized) {
     this.applyRemapKeys_(true);
   }
 
-
   // Enable MediaSource-based rendering on Chrome 37 and above.
   var chromeVersionMajor =
       parseInt((remoting.getChromeVersion() || '0').split('.')[0], 10);
@@ -528,7 +514,7 @@ remoting.ClientSession.prototype.onPluginInitialized_ = function(initialized) {
       this.plugin_.hasFeature(
           remoting.ClientPlugin.Feature.MEDIA_SOURCE_RENDERING)) {
     this.video_ = /** @type {HTMLMediaElement} */(
-        document.getElementById('mediasource-video-output'));
+        this.container_.querySelector('video'));
     // Make sure that the <video> element is hidden until we get the first
     // frame.
     this.video_.style.width = '0px';
@@ -536,28 +522,29 @@ remoting.ClientSession.prototype.onPluginInitialized_ = function(initialized) {
 
     var renderer = new remoting.MediaSourceRenderer(this.video_);
     this.plugin_.enableMediaSourceRendering(renderer);
-    /** @type {HTMLElement} */(document.getElementById('video-container'))
-        .classList.add('mediasource-rendering');
+    this.container_.classList.add('mediasource-rendering');
   } else {
-    /** @type {HTMLElement} */(document.getElementById('video-container'))
-        .classList.remove('mediasource-rendering');
+    this.container_.classList.remove('mediasource-rendering');
   }
 
-  /** @param {string} msg The IQ stanza to send. */
-  this.plugin_.onOutgoingIqHandler = this.sendIq_.bind(this);
-  /** @param {string} msg The message to log. */
-  this.plugin_.onDebugMessageHandler = function(msg) {
-    console.log('plugin: ' + msg.trimRight());
-  };
+  this.plugin_.setOnOutgoingIqHandler(this.sendIq_.bind(this));
+  this.plugin_.setOnDebugMessageHandler(
+      /** @param {string} msg */
+      function(msg) {
+        console.log('plugin: ' + msg.trimRight());
+      });
 
-  this.plugin_.onConnectionStatusUpdateHandler =
-      this.onConnectionStatusUpdate_.bind(this);
-  this.plugin_.onConnectionReadyHandler = this.onConnectionReady_.bind(this);
-  this.plugin_.onDesktopSizeUpdateHandler =
-      this.onDesktopSizeChanged_.bind(this);
-  this.plugin_.onSetCapabilitiesHandler = this.onSetCapabilities_.bind(this);
-  this.plugin_.onGnubbyAuthHandler = this.processGnubbyAuthMessage_.bind(this);
-  this.plugin_.updateMouseCursorImage = this.updateMouseCursorImage_.bind(this);
+  this.plugin_.setConnectionStatusUpdateHandler(
+      this.onConnectionStatusUpdate_.bind(this));
+  this.plugin_.setConnectionReadyHandler(this.onConnectionReady_.bind(this));
+  this.plugin_.setDesktopSizeUpdateHandler(
+      this.onDesktopSizeChanged_.bind(this));
+  this.plugin_.setCapabilitiesHandler(this.onSetCapabilities_.bind(this));
+  this.plugin_.setGnubbyAuthHandler(
+      this.processGnubbyAuthMessage_.bind(this));
+  this.plugin_.setMouseCursorHandler(this.updateMouseCursorImage_.bind(this));
+  this.plugin_.setCastExtensionHandler(
+      this.processCastExtensionMessage_.bind(this));
   this.initiateConnection_();
 };
 
@@ -574,34 +561,28 @@ remoting.ClientSession.prototype.removePlugin = function() {
         'focus', this.callPluginGotFocus_, false);
     this.plugin_.element().removeEventListener(
         'blur', this.callPluginLostFocus_, false);
-    this.plugin_.cleanup();
+    this.plugin_.dispose();
     this.plugin_ = null;
   }
 
-  // Delete event handlers that aren't relevent when not connected.
-  this.resizeToClientButton_.removeEventListener(
-      'click', this.callSetScreenMode_, false);
-  this.shrinkToFitButton_.removeEventListener(
-      'click', this.callSetScreenMode_, false);
-  this.fullScreenButton_.removeEventListener(
-      'click', this.callToggleFullScreen_, false);
-
   // Leave full-screen mode, and stop listening for related events.
   var listener = this.callOnFullScreenChanged_;
-  remoting.fullscreen.syncWithMaximize(false);
   remoting.fullscreen.activate(
       false,
       function() {
         remoting.fullscreen.removeListener(listener);
       });
   if (remoting.windowFrame) {
-    remoting.windowFrame.setConnected(false);
+    remoting.windowFrame.setClientSession(null);
+  } else {
+    remoting.toolbar.setClientSession(null);
   }
+  remoting.optionsMenu.setClientSession(null);
+  document.body.classList.remove('connected');
 
-  // Remove mediasource-rendering class from video-contained - this will also
+  // Remove mediasource-rendering class from the container - this will also
   // hide the <video> element.
-  /** @type {HTMLElement} */(document.getElementById('video-container'))
-      .classList.remove('mediasource-rendering');
+  this.container_.classList.remove('mediasource-rendering');
 
   this.container_.removeEventListener('mousemove',
                                       this.updateMouseCursorPosition_,
@@ -635,7 +616,6 @@ remoting.ClientSession.prototype.disconnect = function(error) {
  * @return {void} Nothing.
  */
 remoting.ClientSession.prototype.cleanup = function() {
-  remoting.wcsSandbox.setOnIq(null);
   this.sendIq_(
       '<cli:iq ' +
           'to="' + this.hostJid_ + '" ' +
@@ -696,6 +676,7 @@ remoting.ClientSession.prototype.sendKeyCombination_ = function(keys) {
  * @return {void} Nothing.
  */
 remoting.ClientSession.prototype.sendCtrlAltDel = function() {
+  console.log('Sending Ctrl-Alt-Del.');
   this.sendKeyCombination_([0x0700e0, 0x0700e2, 0x07004c]);
 }
 
@@ -705,6 +686,7 @@ remoting.ClientSession.prototype.sendCtrlAltDel = function() {
  * @return {void} Nothing.
  */
 remoting.ClientSession.prototype.sendPrintScreen = function() {
+  console.log('Sending Print Screen.');
   this.sendKeyCombination_([0x070046]);
 }
 
@@ -767,26 +749,6 @@ remoting.ClientSession.prototype.applyRemapKeys_ = function(apply) {
 }
 
 /**
- * Callback for the two "screen mode" related menu items: Resize desktop to
- * fit and Shrink to fit.
- *
- * @param {Event} event The click event indicating which mode was selected.
- * @return {void} Nothing.
- * @private
- */
-remoting.ClientSession.prototype.onSetScreenMode_ = function(event) {
-  var shrinkToFit = this.shrinkToFit_;
-  var resizeToClient = this.resizeToClient_;
-  if (event.target == this.shrinkToFitButton_) {
-    shrinkToFit = !shrinkToFit;
-  }
-  if (event.target == this.resizeToClientButton_) {
-    resizeToClient = !resizeToClient;
-  }
-  this.setScreenMode_(shrinkToFit, resizeToClient);
-};
-
-/**
  * Set the shrink-to-fit and resize-to-client flags and save them if this is
  * a Me2Me connection.
  *
@@ -798,9 +760,8 @@ remoting.ClientSession.prototype.onSetScreenMode_ = function(event) {
  *     false to disable this behaviour for subsequent window resizes--the
  *     current host desktop size is not restored in this case.
  * @return {void} Nothing.
- * @private
  */
-remoting.ClientSession.prototype.setScreenMode_ =
+remoting.ClientSession.prototype.setScreenMode =
     function(shrinkToFit, resizeToClient) {
   if (resizeToClient && !this.resizeToClient_) {
     var clientArea = this.getClientArea_();
@@ -847,16 +808,16 @@ remoting.ClientSession.prototype.hasReceivedFrame = function() {
 };
 
 /**
- * Sends an IQ stanza via the http xmpp proxy.
+ * Sends a signaling message.
  *
  * @private
- * @param {string} msg XML string of IQ stanza to send to server.
+ * @param {string} message XML string of IQ stanza to send to server.
  * @return {void} Nothing.
  */
-remoting.ClientSession.prototype.sendIq_ = function(msg) {
+remoting.ClientSession.prototype.sendIq_ = function(message) {
   // Extract the session id, so we can close the session later.
   var parser = new DOMParser();
-  var iqNode = parser.parseFromString(msg, 'text/xml').firstChild;
+  var iqNode = parser.parseFromString(message, 'text/xml').firstChild;
   var jingleNode = iqNode.firstChild;
   if (jingleNode) {
     var action = jingleNode.getAttribute('action');
@@ -865,76 +826,46 @@ remoting.ClientSession.prototype.sendIq_ = function(msg) {
     }
   }
 
-  // HACK: Add 'x' prefix to the IDs of the outgoing messages to make sure that
-  // stanza IDs used by host and client do not match. This is necessary to
-  // workaround bug in the signaling endpoint used by chromoting.
-  // TODO(sergeyu): Remove this hack once the server-side bug is fixed.
-  var type = iqNode.getAttribute('type');
-  if (type == 'set') {
-    var id = iqNode.getAttribute('id');
-    iqNode.setAttribute('id', 'x' + id);
-    msg = (new XMLSerializer()).serializeToString(iqNode);
+  console.log(remoting.timestamp(), remoting.formatIq.prettifySendIq(message));
+  if (this.signalStrategy_.getState() !=
+      remoting.SignalStrategy.State.CONNECTED) {
+    console.log("Message above is dropped because signaling is not connected.");
+    return;
   }
 
-  console.log(remoting.timestamp(), remoting.formatIq.prettifySendIq(msg));
-
-  // Send the stanza.
-  remoting.wcsSandbox.sendIq(msg);
+  this.signalStrategy_.sendMessage(message);
 };
 
+/**
+ * @private
+ * @param {Element} message
+ */
+remoting.ClientSession.prototype.onIncomingMessage_ = function(message) {
+  if (!this.plugin_) {
+    return;
+  }
+  var formatted = new XMLSerializer().serializeToString(message);
+  console.log(remoting.timestamp(),
+              remoting.formatIq.prettifyReceiveIq(formatted));
+  this.plugin_.onIncomingIq(formatted);
+}
+
+/**
+ * @private
+ */
 remoting.ClientSession.prototype.initiateConnection_ = function() {
   /** @type {remoting.ClientSession} */
   var that = this;
 
-  remoting.wcsSandbox.connect(onWcsConnected, this.resetWithError_.bind(this));
-
-  /** @param {string} localJid Local JID. */
-  function onWcsConnected(localJid) {
-    that.connectPluginToWcs_(localJid);
-    that.getSharedSecret_(onSharedSecretReceived.bind(null, localJid));
-  }
-
-  /** @param {string} localJid Local JID.
-    * @param {string} sharedSecret Shared secret. */
-  function onSharedSecretReceived(localJid, sharedSecret) {
+  /** @param {string} sharedSecret Shared secret. */
+  function onSharedSecretReceived(sharedSecret) {
     that.plugin_.connect(
-        that.hostJid_, that.hostPublicKey_, localJid, sharedSecret,
-        that.authenticationMethods_, that.hostId_, that.clientPairingId_,
-        that.clientPairedSecret_);
+        that.hostJid_, that.hostPublicKey_, that.signalStrategy_.getJid(),
+        sharedSecret, that.authenticationMethods_, that.hostId_,
+        that.clientPairingId_, that.clientPairedSecret_);
   };
-}
 
-/**
- * Connects the plugin to WCS.
- *
- * @private
- * @param {string} localJid Local JID.
- * @return {void} Nothing.
- */
-remoting.ClientSession.prototype.connectPluginToWcs_ = function(localJid) {
-  remoting.formatIq.setJids(localJid, this.hostJid_);
-  var forwardIq = this.plugin_.onIncomingIq.bind(this.plugin_);
-  /** @param {string} stanza The IQ stanza received. */
-  var onIncomingIq = function(stanza) {
-    // HACK: Remove 'x' prefix added to the id in sendIq_().
-    try {
-      var parser = new DOMParser();
-      var iqNode = parser.parseFromString(stanza, 'text/xml').firstChild;
-      var type = iqNode.getAttribute('type');
-      var id = iqNode.getAttribute('id');
-      if (type != 'set' && id.charAt(0) == 'x') {
-        iqNode.setAttribute('id', id.substr(1));
-        stanza = (new XMLSerializer()).serializeToString(iqNode);
-      }
-    } catch (err) {
-      // Pass message as is when it is malformed.
-    }
-
-    console.log(remoting.timestamp(),
-                remoting.formatIq.prettifyReceiveIq(stanza));
-    forwardIq(stanza);
-  };
-  remoting.wcsSandbox.setOnIq(onIncomingIq);
+  this.getSharedSecret_(onSharedSecretReceived);
 }
 
 /**
@@ -954,7 +885,7 @@ remoting.ClientSession.prototype.getSharedSecret_ = function(callback) {
           tokenUrl, hostPublicKey, scope,
           that.plugin_.onThirdPartyTokenFetched.bind(that.plugin_));
     };
-    this.plugin_.fetchThirdPartyTokenHandler = fetchThirdPartyToken;
+    this.plugin_.setFetchThirdPartyTokenHandler(fetchThirdPartyToken);
   }
   if (this.accessCode_) {
     // Shared secret was already supplied before connecting (It2Me case).
@@ -968,7 +899,7 @@ remoting.ClientSession.prototype.getSharedSecret_ = function(callback) {
       that.fetchPin_(pairingSupported,
                      that.plugin_.onPinFetched.bind(that.plugin_));
     };
-    this.plugin_.fetchPinHandler = fetchPin;
+    this.plugin_.setFetchPinHandler(fetchPin);
     callback('');
   } else {
     // Clients that don't support asking for a PIN asynchronously also don't
@@ -998,10 +929,13 @@ remoting.ClientSession.prototype.onConnectionStatusUpdate_ =
     }
     // Activate full-screen related UX.
     remoting.fullscreen.addListener(this.callOnFullScreenChanged_);
-    remoting.fullscreen.syncWithMaximize(true);
     if (remoting.windowFrame) {
-      remoting.windowFrame.setConnected(true);
+      remoting.windowFrame.setClientSession(this);
+    } else {
+      remoting.toolbar.setClientSession(this);
     }
+    remoting.optionsMenu.setClientSession(this);
+    document.body.classList.add('connected');
 
     this.container_.addEventListener('mousemove',
                                      this.updateMouseCursorPosition_,
@@ -1039,12 +973,10 @@ remoting.ClientSession.prototype.onConnectionStatusUpdate_ =
  * @param {boolean} ready True if the connection is ready.
  */
 remoting.ClientSession.prototype.onConnectionReady_ = function(ready) {
-  var container = /** @type {HTMLMediaElement} */(
-      document.getElementById('video-container'));
   if (!ready) {
-    container.classList.add('session-client-inactive');
+    this.container_.classList.add('session-client-inactive');
   } else {
-    container.classList.remove('session-client-inactive');
+    this.container_.classList.remove('session-client-inactive');
   }
 
   this.raiseEvent(remoting.ClientSession.Events.videoChannelStateChanged,
@@ -1072,6 +1004,10 @@ remoting.ClientSession.prototype.onSetCapabilities_ = function(capabilities) {
     this.plugin_.notifyClientResolution(clientArea.width,
                                         clientArea.height,
                                         window.devicePixelRatio);
+  }
+  if (this.hasCapability_(
+      remoting.ClientSession.Capability.VIDEO_RECORDER)) {
+    this.videoFrameRecorder_ = new remoting.VideoFrameRecorder(this.plugin_);
   }
 };
 
@@ -1102,6 +1038,7 @@ remoting.ClientSession.prototype.setState_ = function(newState) {
   this.logToServer.logClientSessionStateChange(state, this.error_, this.mode_);
   if (this.state_ == remoting.ClientSession.State.CONNECTED) {
     this.createGnubbyAuthHandler_();
+    this.createCastExtensionHandler_();
   }
 
   this.raiseEvent(remoting.ClientSession.Events.stateChanged,
@@ -1179,10 +1116,10 @@ remoting.ClientSession.prototype.pauseAudio = function(pause) {
  */
 remoting.ClientSession.prototype.onDesktopSizeChanged_ = function() {
   console.log('desktop size changed: ' +
-              this.plugin_.desktopWidth + 'x' +
-              this.plugin_.desktopHeight +' @ ' +
-              this.plugin_.desktopXDpi + 'x' +
-              this.plugin_.desktopYDpi + ' DPI');
+              this.plugin_.getDesktopWidth() + 'x' +
+              this.plugin_.getDesktopHeight() +' @ ' +
+              this.plugin_.getDesktopXDpi() + 'x' +
+              this.plugin_.getDesktopYDpi() + ' DPI');
   this.updateDimensions();
   this.updateScrollbarVisibility();
 };
@@ -1194,14 +1131,14 @@ remoting.ClientSession.prototype.onDesktopSizeChanged_ = function() {
  * @return {void} Nothing.
  */
 remoting.ClientSession.prototype.updateDimensions = function() {
-  if (this.plugin_.desktopWidth == 0 ||
-      this.plugin_.desktopHeight == 0) {
+  if (this.plugin_.getDesktopWidth() == 0 ||
+      this.plugin_.getDesktopHeight() == 0) {
     return;
   }
 
   var clientArea = this.getClientArea_();
-  var desktopWidth = this.plugin_.desktopWidth;
-  var desktopHeight = this.plugin_.desktopHeight;
+  var desktopWidth = this.plugin_.getDesktopWidth();
+  var desktopHeight = this.plugin_.getDesktopHeight();
 
   // When configured to display a host at its original size, we aim to display
   // it as close to its physical size as possible, without losing data:
@@ -1215,8 +1152,8 @@ remoting.ClientSession.prototype.updateDimensions = function() {
   // an initial scale factor based on the client devicePixelRatio and host DPI.
 
   // Determine the effective device pixel ratio of the host, based on DPI.
-  var hostPixelRatioX = Math.ceil(this.plugin_.desktopXDpi / 96);
-  var hostPixelRatioY = Math.ceil(this.plugin_.desktopYDpi / 96);
+  var hostPixelRatioX = Math.ceil(this.plugin_.getDesktopXDpi() / 96);
+  var hostPixelRatioY = Math.ceil(this.plugin_.getDesktopYDpi() / 96);
   var hostPixelRatio = Math.min(hostPixelRatioX, hostPixelRatioY);
 
   // Down-scale by the smaller of the client and host ratios.
@@ -1336,19 +1273,6 @@ remoting.ClientSession.prototype.onFullScreenChanged_ = function (fullscreen) {
 };
 
 /**
- * Updates the options menu to reflect the current scale-to-fit and full-screen
- * settings.
- * @return {void} Nothing.
- * @private
- */
-remoting.ClientSession.prototype.onShowOptionsMenu_ = function() {
-  remoting.MenuButton.select(this.resizeToClientButton_, this.resizeToClient_);
-  remoting.MenuButton.select(this.shrinkToFitButton_, this.shrinkToFit_);
-  remoting.MenuButton.select(this.fullScreenButton_,
-                             remoting.fullscreen.isActive());
-};
-
-/**
  * Scroll the client plugin by the specified amount, keeping it visible.
  * Note that this is only used in content full-screen mode (not windowed or
  * browser full-screen modes), where window.scrollBy and the scrollTop and
@@ -1362,9 +1286,6 @@ remoting.ClientSession.prototype.onShowOptionsMenu_ = function() {
  * @private
  */
 remoting.ClientSession.prototype.scroll_ = function(dx, dy) {
-  var plugin = this.plugin_.element();
-  var style = plugin.style;
-
   /**
    * Helper function for x- and y-scrolling
    * @param {number|string} curr The current margin, eg. "10px".
@@ -1384,23 +1305,24 @@ remoting.ClientSession.prototype.scroll_ = function(dx, dy) {
     return result + 'px';
   };
 
+  var plugin = this.plugin_.element();
+  var style = this.container_.style;
+
   var stopX = { stop: false };
   var clientArea = this.getClientArea_();
-  style.marginLeft = adjustMargin(style.marginLeft, dx,
-                                  clientArea.width, plugin.clientWidth, stopX);
+  style.marginLeft = adjustMargin(style.marginLeft, dx, clientArea.width,
+      this.pluginWidthForBumpScrollTesting || plugin.clientWidth, stopX);
 
   var stopY = { stop: false };
   style.marginTop = adjustMargin(
-      style.marginTop, dy, clientArea.height, plugin.clientHeight, stopY);
+      style.marginTop, dy, clientArea.height,
+      this.pluginHeightForBumpScrollTesting || plugin.clientHeight, stopY);
   return stopX.stop && stopY.stop;
 };
 
 remoting.ClientSession.prototype.resetScroll_ = function() {
-  if (this.plugin_) {
-    var plugin = this.plugin_.element();
-    plugin.style.marginTop = '0px';
-    plugin.style.marginLeft = '0px';
-  }
+  this.container_.style.marginTop = '0px';
+  this.container_.style.marginLeft = '0px';
 };
 
 /**
@@ -1453,6 +1375,7 @@ remoting.ClientSession.prototype.onMouseMove_ = function(event) {
   var dy = computeDelta(event.y, clientArea.height);
 
   if (dx != 0 || dy != 0) {
+    this.raiseEvent(remoting.ClientSession.Events.bumpScrollStarted);
     /** @type {remoting.ClientSession} */
     var that = this;
     /**
@@ -1466,7 +1389,9 @@ remoting.ClientSession.prototype.onMouseMove_ = function(event) {
       /** @type {number} */
       var timeout = 10;
       var lateAdjustment = 1 + (now - expected) / timeout;
-      if (!that.scroll_(lateAdjustment * dx, lateAdjustment * dy)) {
+      if (that.scroll_(lateAdjustment * dx, lateAdjustment * dy)) {
+        that.raiseEvent(remoting.ClientSession.Events.bumpScrollStopped);
+      } else {
         that.bumpScrollTimer_ = window.setTimeout(
             function() { repeatScroll(now + timeout); },
             timeout);
@@ -1554,4 +1479,96 @@ remoting.ClientSession.prototype.updateMouseCursorImage_ =
     this.mouseCursorOverlay_.style.marginTop = '-' + hotspotY + 'px';
     this.mouseCursorOverlay_.src = url;
   }
- };
+};
+
+/**
+ * @return {{top: number, left:number}} The top-left corner of the plugin.
+ */
+remoting.ClientSession.prototype.getPluginPositionForTesting = function() {
+  var style = this.container_.style;
+  return {
+    top: parseFloat(style.marginTop),
+    left: parseFloat(style.marginLeft)
+  };
+};
+
+/**
+ * Send a Cast extension message to the host.
+ * @param {Object} data The cast message data.
+ */
+remoting.ClientSession.prototype.sendCastExtensionMessage = function(data) {
+  if (!this.plugin_)
+    return;
+  this.plugin_.sendClientMessage('cast_message', JSON.stringify(data));
+};
+
+/**
+ * Process a remote Cast extension message from the host.
+ * @param {string} data Remote cast extension data message.
+ * @private
+ */
+remoting.ClientSession.prototype.processCastExtensionMessage_ = function(data) {
+  if (this.castExtensionHandler_) {
+    try {
+      this.castExtensionHandler_.onMessage(data);
+    } catch (err) {
+      console.error('Failed to process cast message: ',
+          /** @type {*} */ (err));
+    }
+  } else {
+    console.error('Received unexpected cast message');
+  }
+};
+
+/**
+ * Create a CastExtensionHandler and inform the host that cast extension
+ * is supported.
+ * @private
+ */
+remoting.ClientSession.prototype.createCastExtensionHandler_ = function() {
+  if (remoting.enableCast && this.mode_ == remoting.ClientSession.Mode.ME2ME) {
+    this.castExtensionHandler_ = new remoting.CastExtensionHandler(this);
+  }
+};
+
+/**
+ * Returns true if the ClientSession can record video frames to a file.
+ * @return {boolean}
+ */
+remoting.ClientSession.prototype.canRecordVideo = function() {
+  return !!this.videoFrameRecorder_;
+}
+
+/**
+ * Returns true if the ClientSession is currently recording video frames.
+ * @return {boolean}
+ */
+remoting.ClientSession.prototype.isRecordingVideo = function() {
+  if (!this.videoFrameRecorder_) {
+    return false;
+  }
+  return this.videoFrameRecorder_.isRecording();
+}
+
+/**
+ * Starts or stops recording of video frames.
+ */
+remoting.ClientSession.prototype.startStopRecording = function() {
+  if (this.videoFrameRecorder_) {
+    this.videoFrameRecorder_.startStopRecording();
+  }
+}
+
+/**
+ * Handles protocol extension messages.
+ * @param {string} type Type of extension message.
+ * @param {string} data Contents of the extension message.
+ * @return {boolean} True if the message was recognized, false otherwise.
+ */
+remoting.ClientSession.prototype.handleExtensionMessage =
+    function(type, data) {
+  if (this.videoFrameRecorder_) {
+    return this.videoFrameRecorder_.handleMessage(type, data);
+  }
+  return false;
+}

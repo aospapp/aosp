@@ -23,19 +23,42 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
+import android.view.Window;
 import android.widget.Toast;
 
 import java.io.IOException;
 
 /** Top-level {@link ListActivity} for launching tests and managing results. */
-public class TestListActivity extends AbstractTestListActivity {
+public class TestListActivity extends AbstractTestListActivity implements View.OnClickListener {
 
     private static final String TAG = TestListActivity.class.getSimpleName();
 
     @Override
+    public void onClick (View v) {
+        handleMenuItemSelected(v.getId());
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        if (!isTaskRoot()) {
+            finish();
+        }
+
         setTitle(getString(R.string.title_version, Version.getVersionName(this)));
+
+        if (!getWindow().hasFeature(Window.FEATURE_ACTION_BAR)) {
+            View footer = getLayoutInflater().inflate(R.layout.test_list_footer, null);
+
+            footer.findViewById(R.id.clear).setOnClickListener(this);
+            footer.findViewById(R.id.view).setOnClickListener(this);
+            footer.findViewById(R.id.export).setOnClickListener(this);
+
+            getListView().addFooterView(footer);
+        }
+
         setTestListAdapter(new ManifestTestListAdapter(this, null));
     }
 
@@ -48,22 +71,7 @@ public class TestListActivity extends AbstractTestListActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.clear:
-                handleClearItemSelected();
-                return true;
-
-            case R.id.view:
-                handleViewItemSelected();
-                return true;
-
-            case R.id.export:
-                handleExportItemSelected();
-                return true;
-
-            default:
-                return super.onOptionsItemSelected(item);
-        }
+        return handleMenuItemSelected(item.getItemId()) ? true : super.onOptionsItemSelected(item);
     }
 
     private void handleClearItemSelected() {
@@ -85,5 +93,24 @@ public class TestListActivity extends AbstractTestListActivity {
 
     private void handleExportItemSelected() {
         new ReportExporter(this, mAdapter).execute();
+    }
+
+    private boolean handleMenuItemSelected(int id) {
+        switch (id) {
+            case R.id.clear:
+                handleClearItemSelected();
+                return true;
+
+            case R.id.view:
+                handleViewItemSelected();
+                return true;
+
+            case R.id.export:
+                handleExportItemSelected();
+                return true;
+
+            default:
+                return false;
+        }
     }
 }

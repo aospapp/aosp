@@ -22,36 +22,35 @@ class MediaStreamManager;
 class ResourceContext;
 
 // MediaStreamDispatcherHost is a delegate for Media Stream API messages used by
-// MediaStreamImpl. It's the complement of MediaStreamDispatcher
-// (owned by RenderView).
+// MediaStreamImpl.  There is one MediaStreamDispatcherHost per
+// RenderProcessHost, the former owned by the latter.
 class CONTENT_EXPORT MediaStreamDispatcherHost : public BrowserMessageFilter,
                                                  public MediaStreamRequester {
  public:
   MediaStreamDispatcherHost(
       int render_process_id,
       const ResourceContext::SaltCallback& salt_callback,
-      MediaStreamManager* media_stream_manager,
-      ResourceContext* resource_context);
+      MediaStreamManager* media_stream_manager);
 
   // MediaStreamRequester implementation.
   virtual void StreamGenerated(
-      int render_view_id,
+      int render_frame_id,
       int page_request_id,
       const std::string& label,
       const StreamDeviceInfoArray& audio_devices,
       const StreamDeviceInfoArray& video_devices) OVERRIDE;
   virtual void StreamGenerationFailed(
-      int render_view_id,
+      int render_frame_id,
       int page_request_id,
       content::MediaStreamRequestResult result) OVERRIDE;
-  virtual void DeviceStopped(int render_view_id,
+  virtual void DeviceStopped(int render_frame_id,
                              const std::string& label,
                              const StreamDeviceInfo& device) OVERRIDE;
-  virtual void DevicesEnumerated(int render_view_id,
+  virtual void DevicesEnumerated(int render_frame_id,
                                  int page_request_id,
                                  const std::string& label,
                                  const StreamDeviceInfoArray& devices) OVERRIDE;
-  virtual void DeviceOpened(int render_view_id,
+  virtual void DeviceOpened(int render_frame_id,
                             int page_request_id,
                             const std::string& label,
                             const StreamDeviceInfo& video_device) OVERRIDE;
@@ -66,35 +65,34 @@ class CONTENT_EXPORT MediaStreamDispatcherHost : public BrowserMessageFilter,
  private:
   friend class MockMediaStreamDispatcherHost;
 
-  void OnGenerateStream(int render_view_id,
+  void OnGenerateStream(int render_frame_id,
                         int page_request_id,
                         const StreamOptions& components,
                         const GURL& security_origin,
                         bool user_gesture);
-  void OnCancelGenerateStream(int render_view_id,
+  void OnCancelGenerateStream(int render_frame_id,
                               int page_request_id);
-  void OnStopStreamDevice(int render_view_id,
+  void OnStopStreamDevice(int render_frame_id,
                           const std::string& device_id);
 
-  void OnEnumerateDevices(int render_view_id,
+  void OnEnumerateDevices(int render_frame_id,
                           int page_request_id,
                           MediaStreamType type,
-                          const GURL& security_origin,
-                          bool hide_labels_if_no_access);
+                          const GURL& security_origin);
 
-  void OnCancelEnumerateDevices(int render_view_id,
+  void OnCancelEnumerateDevices(int render_frame_id,
                                 int page_request_id);
 
-  void OnOpenDevice(int render_view_id,
+  void OnOpenDevice(int render_frame_id,
                     int page_request_id,
                     const std::string& device_id,
                     MediaStreamType type,
                     const GURL& security_origin);
 
-  void OnCloseDevice(int render_view_id,
+  void OnCloseDevice(int render_frame_id,
                      const std::string& label);
 
-  void StoreRequest(int render_view_id,
+  void StoreRequest(int render_frame_id,
                     int page_request_id,
                     const std::string& label);
 
@@ -103,9 +101,6 @@ class CONTENT_EXPORT MediaStreamDispatcherHost : public BrowserMessageFilter,
   int render_process_id_;
   ResourceContext::SaltCallback salt_callback_;
   MediaStreamManager* media_stream_manager_;
-
-  // Owned by ProfileIOData which is guaranteed to outlive MSDH.
-  ResourceContext* const resource_context_;
 
   DISALLOW_COPY_AND_ASSIGN(MediaStreamDispatcherHost);
 };

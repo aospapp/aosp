@@ -5,18 +5,15 @@
 #include "chrome/browser/ui/views/renderer_context_menu/render_view_context_menu_views.h"
 
 #include "base/logging.h"
-#include "base/strings/utf_string_conversions.h"
+#include "base/strings/string16.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/grit/generated_resources.h"
+#include "components/renderer_context_menu/views/toolkit_delegate_views.h"
 #include "content/public/browser/render_view_host.h"
-#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
-#include "grit/generated_resources.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/events/keycodes/keyboard_codes.h"
-#include "ui/gfx/point.h"
-#include "ui/views/controls/menu/menu_item_view.h"
-#include "ui/views/controls/menu/menu_runner.h"
 
 using content::WebContents;
 
@@ -28,6 +25,8 @@ RenderViewContextMenuViews::RenderViewContextMenuViews(
     const content::ContextMenuParams& params)
     : RenderViewContextMenu(render_frame_host, params),
       bidi_submenu_model_(this) {
+  scoped_ptr<ToolkitDelegate> delegate(new ToolkitDelegateViews);
+  set_toolkit_delegate(delegate.Pass());
 }
 
 RenderViewContextMenuViews::~RenderViewContextMenuViews() {
@@ -43,29 +42,12 @@ RenderViewContextMenuViews* RenderViewContextMenuViews::Create(
 void RenderViewContextMenuViews::RunMenuAt(views::Widget* parent,
                                            const gfx::Point& point,
                                            ui::MenuSourceType type) {
-  views::MenuAnchorPosition anchor_position =
-      (type == ui::MENU_SOURCE_TOUCH || type == ui::MENU_SOURCE_TOUCH_EDIT_MENU)
-          ? views::MENU_ANCHOR_BOTTOMCENTER
-          : views::MENU_ANCHOR_TOPLEFT;
-
-  if (menu_runner_->RunMenuAt(parent, NULL, gfx::Rect(point, gfx::Size()),
-      anchor_position, type, views::MenuRunner::HAS_MNEMONICS |
-          views::MenuRunner::CONTEXT_MENU) ==
-      views::MenuRunner::MENU_DELETED)
-    return;
+  static_cast<ToolkitDelegateViews*>(toolkit_delegate())->
+      RunMenuAt(parent, point, type);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // RenderViewContextMenuViews, protected:
-
-void RenderViewContextMenuViews::PlatformInit() {
-  menu_runner_.reset(new views::MenuRunner(&menu_model_));
-}
-
-void RenderViewContextMenuViews::PlatformCancel() {
-  DCHECK(menu_runner_.get());
-  menu_runner_->Cancel();
-}
 
 bool RenderViewContextMenuViews::GetAcceleratorForCommandId(
     int command_id,
@@ -184,24 +166,4 @@ void RenderViewContextMenuViews::AppendPlatformEditableItems() {
       IDC_WRITING_DIRECTION_MENU,
       l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_WRITING_DIRECTION_MENU),
       &bidi_submenu_model_);
-}
-
-void RenderViewContextMenuViews::UpdateMenuItem(int command_id,
-                                                bool enabled,
-                                                bool hidden,
-                                                const base::string16& title) {
-  views::MenuItemView* item =
-      menu_runner_->GetMenu()->GetMenuItemByID(command_id);
-  if (!item)
-    return;
-
-  item->SetEnabled(enabled);
-  item->SetTitle(title);
-  item->SetVisible(!hidden);
-
-  views::MenuItemView* parent = item->GetParentMenuItem();
-  if (!parent)
-    return;
-
-  parent->ChildrenChanged();
 }

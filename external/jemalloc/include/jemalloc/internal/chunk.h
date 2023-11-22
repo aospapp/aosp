@@ -5,11 +5,7 @@
  * Size and alignment of memory chunks that are allocated by the OS's virtual
  * memory system.
  */
-#if defined(__ANDROID__)
-#define	LG_CHUNK_DEFAULT	20
-#else
 #define	LG_CHUNK_DEFAULT	22
-#endif
 
 /* Return the chunk address for allocation address a. */
 #define	CHUNK_ADDR2BASE(a)						\

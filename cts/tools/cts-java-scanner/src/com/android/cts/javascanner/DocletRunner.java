@@ -25,11 +25,11 @@ import java.util.List;
 
 class DocletRunner {
 
-    private final File mSourceDir;
+    private final List<File> mSourceDirs;
     private final File mDocletPath;
 
-    DocletRunner(File sourceDir, File docletPath) {
-        mSourceDir = sourceDir;
+    DocletRunner(List<File> sourceDirs, File docletPath) {
+        mSourceDirs = sourceDirs;
         mDocletPath = docletPath;
     }
 
@@ -41,10 +41,12 @@ class DocletRunner {
         args.add("-docletpath");
         args.add(mDocletPath.toString());
         args.add("-sourcepath");
-        args.add(getSourcePath(mSourceDir));
+        args.add(getSourcePath(mSourceDirs));
         args.add("-classpath");
         args.add(getClassPath());
-        args.addAll(getSourceFiles(mSourceDir));
+        for (File sourceDir : mSourceDirs) {
+            args.addAll(getSourceFiles(sourceDir));
+        }
 
 
         // NOTE: We redirect the error stream to make sure the child process
@@ -67,7 +69,7 @@ class DocletRunner {
         return process.waitFor();
     }
 
-    private String getSourcePath(File sourceDir) {
+    private String getSourcePath(List<File> sourceDirs) {
         List<String> sourcePath = new ArrayList<String>();
         sourcePath.add("./frameworks/base/core/java");
         sourcePath.add("./frameworks/base/test-runner/src");
@@ -77,7 +79,9 @@ class DocletRunner {
         sourcePath.add("./cts/tests/src");
         sourcePath.add("./cts/libs/commonutil/src");
         sourcePath.add("./cts/libs/deviceutil/src");
-        sourcePath.add(sourceDir.toString());
+        for (File sourceDir : sourceDirs) {
+            sourcePath.add(sourceDir.toString());
+        }
         return join(sourcePath, ":");
     }
 

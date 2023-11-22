@@ -182,6 +182,10 @@ public class ContactSaveService extends IntentService {
 
     @Override
     protected void onHandleIntent(Intent intent) {
+        if (intent == null) {
+            Log.d(TAG, "onHandleIntent: could not handle null intent");
+            return;
+        }
         // Call an appropriate method. If we're sure it affects how incoming phone calls are
         // handled, then notify the fact to in-call screen.
         String action = intent.getAction();
@@ -514,8 +518,12 @@ public class ContactSaveService extends IntentService {
     private long getInsertedRawContactId(
             final ArrayList<ContentProviderOperation> diff,
             final ContentProviderResult[] results) {
+        if (results == null) {
+            return -1;
+        }
         final int diffSize = diff.size();
-        for (int i = 0; i < diffSize; i++) {
+        final int numResults = results.length;
+        for (int i = 0; i < diffSize && i < numResults; i++) {
             ContentProviderOperation operation = diff.get(i);
             if (operation.getType() == ContentProviderOperation.TYPE_INSERT
                     && operation.getUri().getEncodedPath().contains(
@@ -816,6 +824,9 @@ public class ContactSaveService extends IntentService {
         // Undemote the contact if necessary
         final Cursor c = getContentResolver().query(contactUri, new String[] {Contacts._ID},
                 null, null, null);
+        if (c == null) {
+            return;
+        }
         try {
             if (c.moveToFirst()) {
                 final long id = c.getLong(0);
@@ -1004,6 +1015,11 @@ public class ContactSaveService extends IntentService {
                 JoinContactQuery.PROJECTION,
                 JoinContactQuery.SELECTION,
                 new String[]{String.valueOf(contactId1), String.valueOf(contactId2)}, null);
+        if (c == null) {
+            Log.e(TAG, "Unable to open Contacts DB cursor");
+            showToast(R.string.contactSavedErrorToast);
+            return;
+        }
 
         long rawContactIds[];
         long verifiedNameRawContactId = -1;

@@ -448,4 +448,17 @@ public class ServiceTest extends ActivityTestsBase {
             // expected
         }
     }
+
+    @MediumTest
+    public void testImplicitIntentFailsOnApiLevel21() throws Exception {
+        Intent intent = new Intent(LocalService.SERVICE_LOCAL);
+        EmptyConnection conn = new EmptyConnection();
+        try {
+            mContext.bindService(intent, conn, 0);
+            mContext.unbindService(conn);
+            fail("Implicit intents should be disallowed for apps targeting API 21+");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+    }
 }

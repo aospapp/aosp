@@ -14,7 +14,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "chrome/browser/extensions/app_icon_loader.h"
-#include "chrome/common/content_settings.h"
+#include "components/content_settings/core/common/content_settings.h"
 #include "components/favicon_base/favicon_types.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_observer.h"
@@ -23,7 +23,7 @@
 #include "ui/message_center/notifier_settings.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/login/users/user_manager.h"
+#include "components/user_manager/user_manager.h"
 #endif
 
 class Profile;
@@ -47,7 +47,7 @@ class MessageCenterSettingsController
     : public message_center::NotifierSettingsProvider,
       public content::NotificationObserver,
 #if defined(OS_CHROMEOS)
-      public chromeos::UserManager::UserSessionStateObserver,
+      public user_manager::UserManager::UserSessionStateObserver,
 #endif
       public extensions::AppIconLoader::Delegate {
  public:
@@ -79,8 +79,9 @@ class MessageCenterSettingsController
       const std::string* notification_id) OVERRIDE;
 
 #if defined(OS_CHROMEOS)
-  // Overridden from chromeos::UserManager::UserSessionStateObserver.
-  virtual void ActiveUserChanged(const chromeos::User* active_user) OVERRIDE;
+  // Overridden from user_manager::UserManager::UserSessionStateObserver.
+  virtual void ActiveUserChanged(
+      const user_manager::User* active_user) OVERRIDE;
 #endif
 
   // Overridden from extensions::AppIconLoader::Delegate.

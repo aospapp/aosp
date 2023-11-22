@@ -182,6 +182,27 @@ public class AnimatorTest extends ActivityInstrumentationTestCase2<AnimationActi
         assertNull(listListenersTwo);
     }
 
+    public void testNullObjectAnimator()  throws Throwable {
+        Object object = mActivity.view.newBall;
+        final ObjectAnimator animator = ObjectAnimator.ofFloat(object, "y", 0, 100);
+        MyListener listener = new MyListener();
+        animator.addListener(listener);
+        mActivity.view.newBall.setY(0);
+        startAnimation(animator);
+        int sleepCount = 0;
+        while (mActivity.view.newBall.getY() == 0 && sleepCount++ < 50) {
+            Thread.sleep(1);
+        }
+        assertNotSame(0, mActivity.view.newBall.getY());
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                animator.setTarget(null);
+            }
+        });
+        assertTrue(listener.mCancel);
+    }
+
     class MyListener implements Animator.AnimatorListener{
         boolean mStart = false;
         boolean mEnd = false;

@@ -49,7 +49,6 @@ PDFiumPage::PDFiumPage(PDFiumEngine* engine,
 }
 
 PDFiumPage::~PDFiumPage() {
-  Unload();
 }
 
 void PDFiumPage::Unload() {
@@ -189,8 +188,8 @@ base::Value* PDFiumPage::GetTextBoxAsValue(double page_height,
       DCHECK(targets[i].url[targets[i].url.size() - 1] != '\0');
 
       // PDFium may change the case of generated links.
-      std::string lowerCaseURL = StringToLowerASCII(targets[i].url);
-      std::string lowerCaseText = StringToLowerASCII(text_utf8);
+      std::string lowerCaseURL = base::StringToLowerASCII(targets[i].url);
+      std::string lowerCaseText = base::StringToLowerASCII(text_utf8);
       size_t pos = lowerCaseText.find(lowerCaseURL, start);
       size_t length = targets[i].url.size();
       if (pos == std::string::npos) {

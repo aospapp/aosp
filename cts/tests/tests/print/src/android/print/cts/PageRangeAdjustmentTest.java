@@ -62,6 +62,10 @@ public class PageRangeAdjustmentTest extends BasePrintTest {
     private static final String FIRST_PRINTER = "First printer";
 
     public void testAllPagesWantedAndAllPagesWritten() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
+
         // Create a callback for the target print service.
         PrintServiceCallbacks firstServiceCallbacks = createMockPrintServiceCallbacks(
             new Answer<PrinterDiscoverySessionCallbacks>() {
@@ -161,6 +165,10 @@ public class PageRangeAdjustmentTest extends BasePrintTest {
     }
 
     public void testSomePagesWantedAndAllPagesWritten() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
+
         // Create a callback for the target print service.
         PrintServiceCallbacks firstServiceCallbacks = createMockPrintServiceCallbacks(
             new Answer<PrinterDiscoverySessionCallbacks>() {
@@ -269,6 +277,10 @@ public class PageRangeAdjustmentTest extends BasePrintTest {
     }
 
     public void testSomePagesWantedAndSomeMorePagesWritten() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
+
         // Create a callback for the target print service.
         PrintServiceCallbacks firstServiceCallbacks = createMockPrintServiceCallbacks(
             new Answer<PrinterDiscoverySessionCallbacks>() {
@@ -393,6 +405,10 @@ public class PageRangeAdjustmentTest extends BasePrintTest {
     }
 
     public void testSomePagesWantedAndNotWritten() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
+
         // Create a callback for the target print service.
         PrintServiceCallbacks firstServiceCallbacks = createMockPrintServiceCallbacks(
             new Answer<PrinterDiscoverySessionCallbacks>() {
@@ -481,6 +497,10 @@ public class PageRangeAdjustmentTest extends BasePrintTest {
     }
 
     public void testWantedPagesAlreadyWrittenForPreview() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
+
         // Create a callback for the target print service.
         PrintServiceCallbacks firstServiceCallbacks = createMockPrintServiceCallbacks(
             new Answer<PrinterDiscoverySessionCallbacks>() {

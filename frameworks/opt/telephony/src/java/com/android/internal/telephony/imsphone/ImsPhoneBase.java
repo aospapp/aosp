@@ -58,6 +58,7 @@ abstract class ImsPhoneBase extends PhoneBase {
 
     private RegistrantList mRingbackRegistrants = new RegistrantList();
     private RegistrantList mOnHoldRegistrants = new RegistrantList();
+    private RegistrantList mTtyModeReceivedRegistrants = new RegistrantList();
     private PhoneConstants.State mState = PhoneConstants.State.IDLE;
 
     public ImsPhoneBase(String name, Context context, PhoneNotifier notifier) {
@@ -115,6 +116,21 @@ abstract class ImsPhoneBase extends PhoneBase {
     protected void stopOnHoldTone() {
         AsyncResult result = new AsyncResult(null, Boolean.FALSE, null);
         mOnHoldRegistrants.notifyRegistrants(result);
+    }
+
+    @Override
+    public void registerForTtyModeReceived(Handler h, int what, Object obj){
+        mTtyModeReceivedRegistrants.addUnique(h, what, obj);
+    }
+
+    @Override
+    public void unregisterForTtyModeReceived(Handler h) {
+        mTtyModeReceivedRegistrants.remove(h);
+    }
+
+    public void onTtyModeReceived(int mode) {
+        AsyncResult result = new AsyncResult(null, Integer.valueOf(mode), null);
+        mTtyModeReceivedRegistrants.notifyRegistrants(result);
     }
 
     @Override
@@ -340,10 +356,9 @@ abstract class ImsPhoneBase extends PhoneBase {
     }
 
     @Override
-    public void setLine1Number(String alphaTag, String number, Message onComplete) {
+    public boolean setLine1Number(String alphaTag, String number, Message onComplete) {
         // FIXME: what to reply for Volte?
-        AsyncResult.forMessage(onComplete, null, null);
-        onComplete.sendToTarget();
+        return false;
     }
 
     @Override

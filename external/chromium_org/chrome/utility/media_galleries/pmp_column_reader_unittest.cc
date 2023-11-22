@@ -5,8 +5,8 @@
 #include <algorithm>
 #include <vector>
 
-#include "base/file_util.h"
 #include "base/files/file.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "chrome/common/media_galleries/pmp_constants.h"
 #include "chrome/common/media_galleries/pmp_test_util.h"
@@ -140,7 +140,7 @@ TEST(PmpColumnReaderTest, HeaderParsingAndValidation) {
   PmpColumnReader reader_bad_magic_bytes;
   std::vector<char> bad_magic_bytes =
       PmpTestUtil::MakeHeader(PMP_TYPE_STRING, 0);
-  bad_magic_bytes[0] = (char)0xff;
+  bad_magic_bytes[0] = static_cast<char>(-128);
   EXPECT_FALSE(InitColumnReaderFromBytes(&reader_bad_magic_bytes,
                                          bad_magic_bytes,
                                          PMP_TYPE_STRING));
@@ -148,7 +148,7 @@ TEST(PmpColumnReaderTest, HeaderParsingAndValidation) {
   PmpColumnReader reader_inconsistent_types;
   std::vector<char> inconsistent_type =
       PmpTestUtil::MakeHeader(PMP_TYPE_STRING, 0);
-  inconsistent_type[kPmpFieldType1Offset] = (char)0xff;
+  inconsistent_type[kPmpFieldType1Offset] = static_cast<char>(-128);
   EXPECT_FALSE(InitColumnReaderFromBytes(&reader_inconsistent_types,
                                          inconsistent_type,
                                          PMP_TYPE_STRING));
@@ -156,8 +156,8 @@ TEST(PmpColumnReaderTest, HeaderParsingAndValidation) {
   PmpColumnReader reader_invalid_type;
   std::vector<char> invalid_type =
       PmpTestUtil::MakeHeader(PMP_TYPE_STRING, 0);
-  invalid_type[kPmpFieldType1Offset] = (char)0xff;
-  invalid_type[kPmpFieldType2Offset] = (char)0xff;
+  invalid_type[kPmpFieldType1Offset] = static_cast<char>(-128);
+  invalid_type[kPmpFieldType2Offset] = static_cast<char>(-128);
   EXPECT_FALSE(InitColumnReaderFromBytes(&reader_invalid_type,
                                          invalid_type,
                                          PMP_TYPE_STRING));

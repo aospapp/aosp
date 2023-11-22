@@ -1,16 +1,37 @@
 Android MediaRecorder Sample
-==============================
+===================================
 
 This sample uses the camera/camcorder as the A/V source for the MediaRecorder API.
 A TextureView is used as the camera preview which limits the code to API 14+. This
 can be easily replaced with a SurfaceView to run on older devices.
 
+Introduction
+------------
+
+This sample shows how to use the [MediaRecorder][1] API.
+It uses the [Camera][2] as input source and displays a preview on a [TextureView][3]
+The sample features a button to capture the input and stop capturing afterwards.
+
+It demonstrates how to correctly gain control and release the camera.
+The sample also shows how to save the captured audio and video to persistant storage
+and basic error handling.
+
+
+[1]: https://developer.android.com/reference/android/media/MediaRecorder.html
+[2]: https://developer.android.com/reference/android/graphics/Camera.html
+[3]: https://developer.android.com/reference/android/view/TextureView.html
+
 Pre-requisites
 --------------
 
-- Android SDK v20
-- Android Build Tools v20
+- Android SDK v21
+- Android Build Tools v21.1.1
 - Android Support Repository
+
+Screenshots
+-------------
+
+<img src="screenshots/screenshot1.png" height="400" alt="Screenshot"/> <img src="screenshots/screenshot2.png" height="400" alt="Screenshot"/> 
 
 Getting Started
 ---------------
@@ -42,7 +63,7 @@ file to you under the Apache License, Version 2.0 (the "License"); you may not
 use this file except in compliance with the License.  You may obtain a copy of
 the License at
 
-  http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS, WITHOUT

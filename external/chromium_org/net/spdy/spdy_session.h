@@ -70,6 +70,7 @@ class BoundNetLog;
 struct LoadTimingInfo;
 class SpdyStream;
 class SSLInfo;
+class TransportSecurityState;
 
 // NOTE: There's an enum of the same name (also with numeric suffixes)
 // in histograms.xml. Be sure to add new values there also.
@@ -222,6 +223,13 @@ class NET_EXPORT SpdySession : public BufferedSpdyFramerVisitorInterface,
     FLOW_CONTROL_STREAM_AND_SESSION
   };
 
+  // Returns true if |hostname| can be pooled into an existing connection
+  // associated with |ssl_info|.
+  static bool CanPool(TransportSecurityState* transport_security_state,
+                      const SSLInfo& ssl_info,
+                      const std::string& old_hostname,
+                      const std::string& new_hostname);
+
   // Create a new SpdySession.
   // |spdy_session_key| is the host/port that this session connects to, privacy
   // and proxy configuration settings that it's using.
@@ -229,6 +237,7 @@ class NET_EXPORT SpdySession : public BufferedSpdyFramerVisitorInterface,
   // network events to.
   SpdySession(const SpdySessionKey& spdy_session_key,
               const base::WeakPtr<HttpServerProperties>& http_server_properties,
+              TransportSecurityState* transport_security_state,
               bool verify_domain_authentication,
               bool enable_sending_initial_data,
               bool enable_compression,
@@ -427,9 +436,14 @@ class NET_EXPORT SpdySession : public BufferedSpdyFramerVisitorInterface,
   // available for testing and diagnostics.
   size_t num_active_streams() const { return active_streams_.size(); }
   size_t num_unclaimed_pushed_streams() const {
-      return unclaimed_pushed_streams_.size();
+    return unclaimed_pushed_streams_.size();
   }
   size_t num_created_streams() const { return created_streams_.size(); }
+
+  size_t num_pushed_streams() const { return num_pushed_streams_; }
+  size_t num_active_pushed_streams() const {
+    return num_active_pushed_streams_;
+  }
 
   size_t pending_create_stream_queue_size(RequestPriority priority) const {
     DCHECK_GE(priority, MINIMUM_PRIORITY);
@@ -526,6 +540,12 @@ class NET_EXPORT SpdySession : public BufferedSpdyFramerVisitorInterface,
   FRIEND_TEST_ALL_PREFIXES(SpdySessionTest, StreamIdSpaceExhausted);
   FRIEND_TEST_ALL_PREFIXES(SpdySessionTest, UnstallRacesWithStreamCreation);
   FRIEND_TEST_ALL_PREFIXES(SpdySessionTest, GoAwayOnSessionFlowControlError);
+  FRIEND_TEST_ALL_PREFIXES(SpdySessionTest,
+                           RejectPushedStreamExceedingConcurrencyLimit);
+  FRIEND_TEST_ALL_PREFIXES(SpdySessionTest, IgnoreReservedRemoteStreamsCount);
+  FRIEND_TEST_ALL_PREFIXES(SpdySessionTest,
+                           CancelReservedStreamOnHeadersReceived);
+  FRIEND_TEST_ALL_PREFIXES(SpdySessionTest, RejectInvalidUnknownFrames);
 
   typedef std::deque<base::WeakPtr<SpdyStreamRequest> >
       PendingStreamRequestQueue;
@@ -830,6 +850,7 @@ class NET_EXPORT SpdySession : public BufferedSpdyFramerVisitorInterface,
       SpdyStreamId stream_id,
       bool fin,
       const SpdyHeaderBlock& headers) OVERRIDE;
+  virtual bool OnUnknownFrame(SpdyStreamId stream_id, int frame_type) OVERRIDE;
 
   // SpdyFramerDebugVisitorInterface
   virtual void OnSendCompressedFrame(
@@ -919,6 +940,10 @@ class NET_EXPORT SpdySession : public BufferedSpdyFramerVisitorInterface,
     hung_interval_ = duration;
   }
 
+  void set_max_concurrent_pushed_streams(size_t value) {
+    max_concurrent_pushed_streams_ = value;
+  }
+
   int64 pings_in_flight() const { return pings_in_flight_; }
 
   uint32 next_ping_id() const { return next_ping_id_; }
@@ -949,6 +974,8 @@ class NET_EXPORT SpdySession : public BufferedSpdyFramerVisitorInterface,
   SpdySessionPool* pool_;
   const base::WeakPtr<HttpServerProperties> http_server_properties_;
 
+  TransportSecurityState* transport_security_state_;
+
   // The socket handle for this session.
   scoped_ptr<ClientSocketHandle> connection_;
 
@@ -956,6 +983,9 @@ class NET_EXPORT SpdySession : public BufferedSpdyFramerVisitorInterface,
   scoped_refptr<IOBuffer> read_buffer_;
 
   SpdyStreamId stream_hi_water_mark_;  // The next stream id to use.
+
+  // Used to ensure the server increments push stream ids correctly.
+  SpdyStreamId last_accepted_push_stream_id_;
 
   // Queue, for each priority, of pending stream requests that have
   // not yet been satisfied.
@@ -983,6 +1013,16 @@ class NET_EXPORT SpdySession : public BufferedSpdyFramerVisitorInterface,
   //
   // |created_streams_| owns all its SpdyStream objects.
   CreatedStreamSet created_streams_;
+
+  // Number of pushed streams. All active streams are stored in
+  // |active_streams_|, but it's better to know the number of push streams
+  // without traversing the whole collection.
+  size_t num_pushed_streams_;
+
+  // Number of active pushed streams in |active_streams_|, i.e. not in reserved
+  // remote state. Streams in reserved state are not counted towards any
+  // concurrency limits.
+  size_t num_active_pushed_streams_;
 
   // The write queue.
   SpdyWriteQueue write_queue_;
@@ -1022,6 +1062,7 @@ class NET_EXPORT SpdySession : public BufferedSpdyFramerVisitorInterface,
   // Limits
   size_t max_concurrent_streams_;  // 0 if no limit
   size_t max_concurrent_streams_limit_;
+  size_t max_concurrent_pushed_streams_;
 
   // Some statistics counters for the session.
   int streams_initiated_count_;

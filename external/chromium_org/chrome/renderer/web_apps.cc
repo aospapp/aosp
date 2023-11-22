@@ -12,12 +12,11 @@
 #include "base/strings/string16.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/web_application_info.h"
-#include "grit/common_resources.h"
-#include "grit/generated_resources.h"
 #include "third_party/WebKit/public/platform/WebString.h"
 #include "third_party/WebKit/public/platform/WebURL.h"
 #include "third_party/WebKit/public/web/WebDocument.h"
@@ -25,8 +24,6 @@
 #include "third_party/WebKit/public/web/WebFrame.h"
 #include "third_party/WebKit/public/web/WebNode.h"
 #include "third_party/WebKit/public/web/WebNodeList.h"
-#include "ui/base/l10n/l10n_util.h"
-#include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/size.h"
 #include "url/gurl.h"
 
@@ -121,16 +118,15 @@ bool ParseIconSizes(const base::string16& text,
   return (*is_any || !sizes->empty());
 }
 
-bool ParseWebAppFromWebDocument(WebFrame* frame,
-                                WebApplicationInfo* app_info,
-                                base::string16* error) {
+void ParseWebAppFromWebDocument(WebFrame* frame,
+                                WebApplicationInfo* app_info) {
   WebDocument document = frame->document();
   if (document.isNull())
-    return true;
+    return;
 
   WebElement head = document.head();
   if (head.isNull())
-    return true;
+    return;
 
   GURL document_url = document.url();
   WebNodeList children = head.childNodes();
@@ -140,7 +136,7 @@ bool ParseWebAppFromWebDocument(WebFrame* frame,
       continue;
     WebElement elem = child.to<WebElement>();
 
-    if (elem.hasTagName("link")) {
+    if (elem.hasHTMLTagName("link")) {
       std::string rel = elem.getAttribute("rel").utf8();
       // "rel" attribute may use either "icon" or "shortcut icon".
       // see also
@@ -157,7 +153,7 @@ bool ParseWebAppFromWebDocument(WebFrame* frame,
              LowerCaseEqualsASCII(rel, "apple-touch-icon-precomposed")))) {
         AddInstallIcon(elem, &app_info->icons);
       }
-    } else if (elem.hasTagName("meta") && elem.hasAttribute("name")) {
+    } else if (elem.hasHTMLTagName("meta") && elem.hasAttribute("name")) {
       std::string name = elem.getAttribute("name").utf8();
       WebString content = elem.getAttribute("content");
       if (name == "application-name") {
@@ -170,11 +166,17 @@ bool ParseWebAppFromWebDocument(WebFrame* frame,
             document_url.Resolve(url) : GURL(url);
         if (!app_info->app_url.is_valid())
           app_info->app_url = GURL();
+      } else if (name == "mobile-web-app-capable" &&
+                 LowerCaseEqualsASCII(content, "yes")) {
+        app_info->mobile_capable = WebApplicationInfo::MOBILE_CAPABLE;
+      } else if (name == "apple-mobile-web-app-capable" &&
+                 LowerCaseEqualsASCII(content, "yes") &&
+                 app_info->mobile_capable ==
+                     WebApplicationInfo::MOBILE_CAPABLE_UNSPECIFIED) {
+        app_info->mobile_capable = WebApplicationInfo::MOBILE_CAPABLE_APPLE;
       }
     }
   }
-
-  return true;
 }
 
 }  // namespace web_apps

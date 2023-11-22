@@ -703,6 +703,9 @@ public class WebViewSslTest extends ActivityInstrumentationTestCase2<WebViewCtsA
     }
 
     public void testSecureServerRequestingClientCertDoesNotCancelRequest() throws Throwable {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
         mWebServer = new CtsTestServer(getActivity(), CtsTestServer.SslMode.WANTS_CLIENT_AUTH);
         final String url = mWebServer.getAssetUrl(TestHtmlConstants.HELLO_WORLD_URL);
         final SslErrorWebViewClient webViewClient = new SslErrorWebViewClient(mOnUiThread);
@@ -716,6 +719,9 @@ public class WebViewSslTest extends ActivityInstrumentationTestCase2<WebViewCtsA
     }
 
     public void testSecureServerRequiringClientCertDoesCancelRequest() throws Throwable {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
         mWebServer = new CtsTestServer(getActivity(), CtsTestServer.SslMode.NEEDS_CLIENT_AUTH);
         final String url = mWebServer.getAssetUrl(TestHtmlConstants.HELLO_WORLD_URL);
         final SslErrorWebViewClient webViewClient = new SslErrorWebViewClient(mOnUiThread);
@@ -732,6 +738,9 @@ public class WebViewSslTest extends ActivityInstrumentationTestCase2<WebViewCtsA
     }
 
     public void testProceedClientCertRequest() throws Throwable {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
         mWebServer = new CtsTestServer(getActivity(), CtsTestServer.SslMode.NEEDS_CLIENT_AUTH);
         String url = mWebServer.getAssetUrl(TestHtmlConstants.HELLO_WORLD_URL);
         final ClientCertWebViewClient webViewClient = new ClientCertWebViewClient(mOnUiThread);
@@ -756,6 +765,9 @@ public class WebViewSslTest extends ActivityInstrumentationTestCase2<WebViewCtsA
     }
 
     public void testIgnoreClientCertRequest() throws Throwable {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
         mWebServer = new CtsTestServer(getActivity(), CtsTestServer.SslMode.NEEDS_CLIENT_AUTH);
         String url = mWebServer.getAssetUrl(TestHtmlConstants.HELLO_WORLD_URL);
         final ClientCertWebViewClient webViewClient = new ClientCertWebViewClient(mOnUiThread);
@@ -784,6 +796,9 @@ public class WebViewSslTest extends ActivityInstrumentationTestCase2<WebViewCtsA
     }
 
     public void testCancelClientCertRequest() throws Throwable {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
         mWebServer = new CtsTestServer(getActivity(), CtsTestServer.SslMode.NEEDS_CLIENT_AUTH);
         final String url = mWebServer.getAssetUrl(TestHtmlConstants.HELLO_WORLD_URL);
         final ClientCertWebViewClient webViewClient = new ClientCertWebViewClient(mOnUiThread);
@@ -830,6 +845,9 @@ public class WebViewSslTest extends ActivityInstrumentationTestCase2<WebViewCtsA
     }
 
     public void testClientCertIssuersReceivedCorrectly() throws Throwable {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
         mWebServer = new CtsTestServer(getActivity(), CtsTestServer.SslMode.NEEDS_CLIENT_AUTH,
                 new TrustManager());
         final String url = mWebServer.getAssetUrl(TestHtmlConstants.HELLO_WORLD_URL);

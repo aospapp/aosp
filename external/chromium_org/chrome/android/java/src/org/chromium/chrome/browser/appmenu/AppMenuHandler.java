@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.appmenu;
 
 import android.app.Activity;
 import android.content.res.TypedArray;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.view.ContextThemeWrapper;
@@ -14,8 +15,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.PopupMenu;
 
-import com.google.common.annotations.VisibleForTesting;
-
+import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.browser.UmaBridge;
 
 import java.util.ArrayList;
@@ -94,15 +94,25 @@ public class AppMenuHandler {
         // Get the height and width of the display.
         Rect appRect = new Rect();
         mActivity.getWindow().getDecorView().getWindowVisibleDisplayFrame(appRect);
+
+        // Use full size of window for abnormal appRect.
+        if (appRect.left < 0 && appRect.top < 0) {
+            appRect.left = 0;
+            appRect.top = 0;
+            appRect.right = mActivity.getWindow().getDecorView().getWidth();
+            appRect.bottom = mActivity.getWindow().getDecorView().getHeight();
+        }
         int rotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
-        mAppMenu.show(wrapper, anchorView, isByHardwareButton, rotation, appRect);
+        Point pt = new Point();
+        mActivity.getWindowManager().getDefaultDisplay().getSize(pt);
+        mAppMenu.show(wrapper, anchorView, isByHardwareButton, rotation, appRect, pt.y);
         mAppMenuDragHelper.onShow(startDragging);
         UmaBridge.menuShow();
         return true;
     }
 
     void appMenuDismissed() {
-        mAppMenuDragHelper.onDismiss();
+        mAppMenuDragHelper.finishDragging();
     }
 
     /**

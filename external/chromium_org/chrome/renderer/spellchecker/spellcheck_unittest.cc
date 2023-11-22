@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/message_loop/message_loop.h"
 #include "base/path_service.h"
 #include "base/strings/sys_string_conversions.h"
@@ -15,7 +15,6 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/WebKit/public/web/WebTextCheckingCompletion.h"
 #include "third_party/WebKit/public/web/WebTextCheckingResult.h"
-#include "ui/base/l10n/l10n_util.h"
 
 namespace {
 
@@ -127,7 +126,7 @@ class MockTextCheckingCompletion : public blink::WebTextCheckingCompletion {
   blink::WebVector<blink::WebTextCheckingResult> last_results_;
 };
 
-// Operates unit tests for the webkit_glue::SpellCheckWord() function
+// Operates unit tests for the content::SpellCheck::SpellCheckWord() function
 // with the US English dictionary.
 // The unit tests in this function consist of:
 //   * Tests for the function with empty strings;

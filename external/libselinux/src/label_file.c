@@ -11,12 +11,12 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
-#include <regex.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include "callbacks.h"
 #include "label_internal.h"
+#include <pcre.h>
 
 /*
  * Internals, mostly moved over from matchpathcon.c
@@ -27,7 +27,8 @@ typedef struct spec {
 	struct selabel_lookup_rec lr;	/* holds contexts for lookup result */
 	char *regex_str;	/* regular expession string for diagnostics */
 	char *type_str;		/* type string for diagnostic messages */
-	regex_t regex;		/* compiled regular expression */
+	pcre *regex;		/* compiled regular expression */
+	pcre_extra *sd;         /* pcre study result */
 	char regcomp;           /* regex_str has been compiled to regex */
 	mode_t mode;		/* mode format value */
 	int matches;		/* number of matching pathnames */
@@ -224,12 +225,13 @@ static void spec_hasMetaChars(struct spec *spec)
 	return;
 }
 
-static int compile_regex(struct saved_data *data, spec_t *spec, char **errbuf)
+static int compile_regex(struct saved_data *data, spec_t *spec, const char **errbuf)
 {
+	const char *tmperrbuf;
 	char *reg_buf, *anchored_regex, *cp;
 	stem_t *stem_arr = data->stem_arr;
 	size_t len;
-	int regerr;
+	int erroff;
 
 	if (spec->regcomp)
 		return 0; /* already done */
@@ -254,21 +256,20 @@ static int compile_regex(struct saved_data *data, spec_t *spec, char **errbuf)
 	*cp = '\0';
 
 	/* Compile the regular expression. */
-	regerr = regcomp(&spec->regex, anchored_regex, 
-			 REG_EXTENDED | REG_NOSUB);
-	if (regerr != 0) {
-		size_t errsz = 0;
-		errsz = regerror(regerr, &spec->regex, NULL, 0);
-		if (errsz && errbuf)
-			*errbuf = (char *) malloc(errsz);
-		if (errbuf && *errbuf)
-			(void)regerror(regerr, &spec->regex,
-				       *errbuf, errsz);
-
-		free(anchored_regex);
+	spec->regex = pcre_compile(anchored_regex, 0, &tmperrbuf, &erroff, NULL);
+	free(anchored_regex);
+	if (!spec->regex) {
+		if (errbuf)
+			*errbuf=tmperrbuf;
 		return -1;
 	}
-	free(anchored_regex);
+
+	spec->sd = pcre_study(spec->regex, 0, &tmperrbuf);
+	if (!spec->sd) {
+		if (errbuf)
+			*errbuf=tmperrbuf;
+		return -1;
+	}
 
 	/* Done. */
 	spec->regcomp = 1;
@@ -317,7 +318,7 @@ static int process_line(struct selabel_handle *rec,
 
 	if (pass == 1) {
 		/* On the second pass, process and store the specification in spec. */
-		char *errbuf = NULL;
+		const char *errbuf = NULL;
 		spec_arr[nspec].stem_id = find_stem_from_spec(data, regex);
 		spec_arr[nspec].regex_str = strdup(regex);
 		if (!spec_arr[nspec].regex_str) {
@@ -552,8 +553,10 @@ static void closef(struct selabel_handle *rec)
 		free(spec->type_str);
 		free(spec->lr.ctx_raw);
 		free(spec->lr.ctx_trans);
-		if (spec->regcomp)
-			regfree(&spec->regex);
+		if (spec->regcomp) {
+			pcre_free(spec->regex);
+			pcre_free_study(spec->sd);
+		}
 	}
 
 	for (i = 0; i < (unsigned int)data->num_stems; i++) {
@@ -576,14 +579,13 @@ static spec_t *lookup_common(struct selabel_handle *rec,
 {
 	struct saved_data *data = (struct saved_data *)rec->data;
 	spec_t *spec_arr = data->spec_arr;
-	int i, rc, file_stem;
+	int i, rc, file_stem, pcre_options = 0;
 	mode_t mode = (mode_t)type;
 	const char *buf;
 	spec_t *ret = NULL;
 	char *clean_key = NULL;
 	const char *prev_slash, *next_slash;
 	unsigned int sofar = 0;
-	size_t keylen = strlen(key);
 
 	if (!data->nspec) {
 		errno = ENOENT;
@@ -610,6 +612,9 @@ static spec_t *lookup_common(struct selabel_handle *rec,
 	file_stem = find_stem_from_file(data, &buf);
 	mode &= S_IFMT;
 
+	if (partial)
+		pcre_options |= PCRE_PARTIAL_SOFT;
+
 	/* 
 	 * Check for matching specifications in reverse order, so that
 	 * the last matching specification is used.
@@ -626,38 +631,17 @@ static spec_t *lookup_common(struct selabel_handle *rec,
 			if (compile_regex(data, &spec_arr[i], NULL) < 0)
 				goto finish;
 			if (spec_arr[i].stem_id == -1)
-				rc = regexec(&spec_arr[i].regex, key, 0, 0, 0);
+				rc = pcre_exec(spec_arr[i].regex, spec_arr[i].sd, key, strlen(key), 0, pcre_options, NULL, 0);
 			else
-				rc = regexec(&spec_arr[i].regex, buf, 0, 0, 0);
+				rc = pcre_exec(spec_arr[i].regex, spec_arr[i].sd, buf, strlen(buf), 0, pcre_options, NULL, 0);
 
 			if (rc == 0) {
 				spec_arr[i].matches++;
 				break;
-			}
+			} else if (partial && rc == PCRE_ERROR_PARTIAL)
+				break;
 
-			if (partial) {
-				/*
-				 * We already checked above to see if the
-				 * key has any direct match.  Now we just need
-				 * to check for partial matches.
-				 * Since POSIX regex functions do not support
-				 * partial match, we crudely approximate it
-				 * via a prefix match.
-				 * This is imprecise and could yield
-				 * false positives or negatives but
-				 * appears to work with our current set of
-				 * regex strings.
-				 * Convert to using pcre partial match
-				 * if/when pcre becomes available in Android.
-				 */
-				if (spec_arr[i].prefix_len > 1 &&
-				    !strncmp(key, spec_arr[i].regex_str,
-					     keylen < spec_arr[i].prefix_len ?
-					     keylen : spec_arr[i].prefix_len))
-					break;
-			}
-
-			if (rc == REG_NOMATCH)
+			if (rc == PCRE_ERROR_NOMATCH)
 				continue;
 			/* else it's an error */
 			goto finish;

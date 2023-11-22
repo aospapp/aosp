@@ -8,13 +8,12 @@
 
 #include "ash/shell.h"
 #include "ash/shell_delegate.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "ash/system/chromeos/network/network_connect.h"
-#include "ash/system/chromeos/network/network_icon.h"
 #include "base/bind.h"
 #include "base/logging.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/chromeos/mobile_config.h"
 #include "chrome/browser/chromeos/options/network_config_view.h"
 #include "chrome/browser/chromeos/sim_dialog_delegate.h"
@@ -22,16 +21,16 @@
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/generated_resources.h"
 #include "chromeos/network/device_state.h"
 #include "chromeos/network/network_state.h"
 #include "chromeos/network/network_state_handler.h"
-#include "grit/ash_resources.h"
-#include "grit/ash_strings.h"
-#include "grit/generated_resources.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/chromeos/network/network_icon.h"
+#include "ui/chromeos/strings/grit/ui_chromeos_strings.h"
 #include "ui/gfx/image/image_skia.h"
 
 namespace chromeos {
@@ -75,8 +74,11 @@ class NetworkMenuModel : public ui::MenuModel {
           sub_menu_model(NULL),
           flags(0) {
     }
-    MenuItem(ui::MenuModel::ItemType type, base::string16 label, gfx::ImageSkia icon,
-             const std::string& service_path, int flags)
+    MenuItem(ui::MenuModel::ItemType type,
+             base::string16 label,
+             gfx::ImageSkia icon,
+             const std::string& service_path,
+             int flags)
         : type(type),
           label(label),
           icon(icon),
@@ -84,8 +86,11 @@ class NetworkMenuModel : public ui::MenuModel {
           sub_menu_model(NULL),
           flags(flags) {
     }
-    MenuItem(ui::MenuModel::ItemType type, base::string16 label, gfx::ImageSkia icon,
-             NetworkMenuModel* sub_menu_model, int flags)
+    MenuItem(ui::MenuModel::ItemType type,
+             base::string16 label,
+             gfx::ImageSkia icon,
+             NetworkMenuModel* sub_menu_model,
+             int flags)
         : type(type),
           label(label),
           icon(icon),
@@ -212,8 +217,7 @@ class MainMenuModel : public NetworkMenuModel {
 
 void NetworkMenuModel::ConnectToNetworkAt(int index) {
   const std::string& service_path = menu_items_[index].service_path;
-  gfx::NativeWindow native_window = owner_->delegate()->GetNativeWindow();
-  ash::network_connect::ConnectToNetwork(service_path, native_window);
+  ash::network_connect::ConnectToNetwork(service_path);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -308,12 +312,10 @@ void NetworkMenuModel::ActivatedAt(int index) {
   } else if (flags & FLAG_TOGGLE_MOBILE) {
     ToggleTechnology(NetworkTypePattern::Mobile());
   } else if (flags & FLAG_ETHERNET) {
-    owner_->delegate()->OnConnectToNetworkRequested(
-        menu_items_[index].service_path);
+    owner_->delegate()->OnConnectToNetworkRequested();
   } else if (flags & (FLAG_WIFI | FLAG_WIMAX | FLAG_CELLULAR)) {
     ConnectToNetworkAt(index);
-    owner_->delegate()->OnConnectToNetworkRequested(
-        menu_items_[index].service_path);
+    owner_->delegate()->OnConnectToNetworkRequested();
   } else if (flags & FLAG_ADD_WIFI) {
     ShowOther(shill::kTypeWifi);
   } else if (flags & FLAG_ADD_CELLULAR) {
@@ -363,8 +365,8 @@ void MainMenuModel::AddWirelessNetworkMenuItem(const NetworkState* network,
 
   if (ShouldHighlightNetwork(network))
     flag |= FLAG_ASSOCIATED;
-  const gfx::ImageSkia icon = ash::network_icon::GetImageForNetwork(
-      network, ash::network_icon::ICON_TYPE_LIST);
+  const gfx::ImageSkia icon = ui::network_icon::GetImageForNetwork(
+      network, ui::network_icon::ICON_TYPE_LIST);
   menu_items_.push_back(
       MenuItem(ui::MenuModel::TYPE_COMMAND,
                label, icon, network->path(), flag));
@@ -403,8 +405,8 @@ void MainMenuModel::InitMenuItems(bool should_open_button_options) {
     int flag = FLAG_ETHERNET;
     if (ShouldHighlightNetwork(ethernet_network))
       flag |= FLAG_ASSOCIATED;
-    const gfx::ImageSkia icon = ash::network_icon::GetImageForNetwork(
-        ethernet_network, ash::network_icon::ICON_TYPE_LIST);
+    const gfx::ImageSkia icon = ui::network_icon::GetImageForNetwork(
+        ethernet_network, ui::network_icon::ICON_TYPE_LIST);
     menu_items_.push_back(MenuItem(ui::MenuModel::TYPE_COMMAND,
                                    label, icon, std::string(), flag));
   }
@@ -444,8 +446,8 @@ void MainMenuModel::InitMenuItems(bool should_open_button_options) {
       bool isActive = ShouldHighlightNetwork(network);
       if (isActive)
         flag |= FLAG_ASSOCIATED;
-      const gfx::ImageSkia icon = ash::network_icon::GetImageForNetwork(
-          network, ash::network_icon::ICON_TYPE_LIST);
+      const gfx::ImageSkia icon = ui::network_icon::GetImageForNetwork(
+          network, ui::network_icon::ICON_TYPE_LIST);
       menu_items_.push_back(
           MenuItem(ui::MenuModel::TYPE_COMMAND,
                    label, icon, network->path(), flag));
@@ -456,8 +458,8 @@ void MainMenuModel::InitMenuItems(bool should_open_button_options) {
         handler->GetDeviceStateByType(NetworkTypePattern::Cellular());
     if (cellular_device && cellular_device->support_network_scan()) {
       const gfx::ImageSkia icon =
-          ash::network_icon::GetImageForDisconnectedNetwork(
-              ash::network_icon::ICON_TYPE_LIST, shill::kTypeCellular);
+          ui::network_icon::GetImageForDisconnectedNetwork(
+              ui::network_icon::ICON_TYPE_LIST, shill::kTypeCellular);
       menu_items_.push_back(MenuItem(
           ui::MenuModel::TYPE_COMMAND,
           l10n_util::GetStringUTF16(
@@ -466,7 +468,7 @@ void MainMenuModel::InitMenuItems(bool should_open_button_options) {
     }
   } else {
     int initializing_message_id =
-        ash::network_icon::GetCellularUninitializedMsg();
+        ui::network_icon::GetCellularUninitializedMsg();
     if (initializing_message_id) {
       // Initializing cellular modem...
       AddMessageItem(l10n_util::GetStringUTF16(initializing_message_id));
@@ -505,9 +507,8 @@ void MainMenuModel::InitMenuItems(bool should_open_button_options) {
     }
     if (scanning_msg)
       AddMessageItem(l10n_util::GetStringUTF16(scanning_msg));
-    const gfx::ImageSkia icon =
-        ash::network_icon::GetImageForConnectedNetwork(
-            ash::network_icon::ICON_TYPE_LIST, shill::kTypeWifi);
+    const gfx::ImageSkia icon = ui::network_icon::GetImageForConnectedNetwork(
+        ui::network_icon::ICON_TYPE_LIST, shill::kTypeWifi);
     menu_items_.push_back(MenuItem(
         ui::MenuModel::TYPE_COMMAND,
         l10n_util::GetStringUTF16(IDS_OPTIONS_SETTINGS_OTHER_WIFI_NETWORKS),

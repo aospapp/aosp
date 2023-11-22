@@ -277,8 +277,7 @@ structure of the program.</p>
 <h3 id="define-fields-in-standard-places">Define Fields in Standard Places</h3>
 <p>Fields should be defined either at the top of the file, or immediately before the methods that use them.</p>
 <h3 id="limit-variable-scope">Limit Variable Scope</h3>
-<p>The scope of local variables should be kept to a minimum (<em>Effective
-Java</em> Item 29). By doing so, you increase the readability and
+<p>The scope of local variables should be kept to a minimum. By doing so, you increase the readability and
 maintainability of your code and reduce the likelihood of error. Each variable
 should be declared in the innermost block that encloses all uses of the
 variable.</p>
@@ -537,8 +536,7 @@ refactored to isolate the software elements where the annotation applies.</p>
 <p>Both the JDK and the Android code bases are very inconsistent with regards
 to acronyms, therefore, it is virtually impossible to be consistent with the
 code around you. Bite the bullet, and treat acronyms as words.</p>
-<p>For further justifications of this style rule, see <em>Effective Java</em>
-Item 38 and <em>Java Puzzlers</em> Number 68.</p>
+
 <h3 id="use-todo-comments">Use TODO Comments</h3>
 <p>Use TODO comments for code that is temporary, a short-term solution, or
 good-enough but not perfect.</p>
@@ -553,10 +551,9 @@ you either include a very specific date ("Fix by November 2005") or a very
 specific event ("Remove this code after all production mixers understand
 protocol V7.").</p>
 <h3 id="log-sparingly">Log Sparingly</h3>
-<p>While logging is necessary it has a significantly negative impact on
+<p>While logging is necessary, it has a significantly negative impact on
 performance and quickly loses its usefulness if it's not kept reasonably
-terse. The logging facilities provides five different levels of logging. Below
-are the different levels and when and how they should be used.</p>
+terse. The logging facilities provides five different levels of logging:</p>
 <ul>
 <li>
 <p><code>ERROR</code>: 

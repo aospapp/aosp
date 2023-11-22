@@ -9,7 +9,7 @@
 #include "sync/api/sync_error.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
-namespace browser_sync {
+namespace sync_driver {
 
 class DataTypeManagerMock : public DataTypeManager {
  public:
@@ -17,6 +17,8 @@ class DataTypeManagerMock : public DataTypeManager {
   virtual ~DataTypeManagerMock();
 
   MOCK_METHOD2(Configure, void(syncer::ModelTypeSet, syncer::ConfigureReason));
+  MOCK_METHOD1(ReenableType, void(syncer::ModelType));
+  MOCK_METHOD0(ResetDataTypeErrors, void());
   MOCK_METHOD2(PurgeForMigration, void(syncer::ModelTypeSet,
                                        syncer::ConfigureReason));
   MOCK_METHOD0(Stop, void());
@@ -24,9 +26,9 @@ class DataTypeManagerMock : public DataTypeManager {
   MOCK_CONST_METHOD0(state, State());
 
  private:
-  browser_sync::DataTypeManager::ConfigureResult result_;
+  DataTypeManager::ConfigureResult result_;
 };
 
-}  // namespace browser_sync
+}  // namespace sync_driver
 
 #endif  // COMPONENTS_SYNC_DRIVER_DATA_TYPE_MANAGER_MOCK_H__

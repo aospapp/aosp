@@ -23,6 +23,26 @@ class ChromeExtensionsAPIClient : public ExtensionsAPIClient {
       const scoped_refptr<ObserverListThreadSafe<SettingsObserver> >& observers,
       std::map<settings_namespace::Namespace, ValueStoreCache*>* caches)
       OVERRIDE;
+  virtual AppViewGuestDelegate* CreateAppViewGuestDelegate() const OVERRIDE;
+  virtual ExtensionOptionsGuestDelegate* CreateExtensionOptionsGuestDelegate(
+      ExtensionOptionsGuest* guest) const OVERRIDE;
+  virtual scoped_ptr<MimeHandlerViewGuestDelegate>
+      CreateMimeHandlerViewGuestDelegate(
+          MimeHandlerViewGuest* guest) const OVERRIDE;
+  virtual WebViewGuestDelegate* CreateWebViewGuestDelegate(
+      WebViewGuest* web_view_guest) const OVERRIDE;
+  virtual WebViewPermissionHelperDelegate*
+      CreateWebViewPermissionHelperDelegate(
+          WebViewPermissionHelper* web_view_permission_helper) const OVERRIDE;
+  virtual scoped_refptr<RulesRegistry> GetRulesRegistry(
+      content::BrowserContext* browser_context,
+      const RulesRegistry::WebViewKey& webview_key,
+      const std::string& event_name) OVERRIDE;
+  virtual WebRequestEventRouterDelegate* CreateWebRequestEventRouterDelegate()
+      const OVERRIDE;
+  virtual scoped_refptr<ContentRulesRegistry> CreateContentRulesRegistry(
+      content::BrowserContext* browser_context,
+      RulesCacheDelegate* cache_delegate) const OVERRIDE;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ChromeExtensionsAPIClient);

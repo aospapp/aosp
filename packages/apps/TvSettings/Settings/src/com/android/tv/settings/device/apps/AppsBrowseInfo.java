@@ -69,13 +69,6 @@ public class AppsBrowseInfo extends BrowseInfoBase implements ApplicationsState.
     }
 
     @Override
-    public void refreshContent() {
-        mHeaderItems.clear();
-        loadBrowseHeaders();
-        updateAppList();
-    }
-
-    @Override
     public void onRunningStateChanged(boolean running) {
     }
 
@@ -150,9 +143,9 @@ public class AppsBrowseInfo extends BrowseInfoBase implements ApplicationsState.
     }
 
     private void loadBrowseHeaders() {
-        mHeaderItems.add(new HeaderItem(DOWNLOADED_ID, mContext.getString(R.string.apps_downloaded), null));
-        mHeaderItems.add(new HeaderItem(SYSTEM_ID, mContext.getString(R.string.apps_system), null));
-        mHeaderItems.add(new HeaderItem(RUNNING_ID, mContext.getString(R.string.apps_running), null));
+        mHeaderItems.add(new HeaderItem(DOWNLOADED_ID, mContext.getString(R.string.apps_downloaded)));
+        mHeaderItems.add(new HeaderItem(SYSTEM_ID, mContext.getString(R.string.apps_system)));
+        mHeaderItems.add(new HeaderItem(RUNNING_ID, mContext.getString(R.string.apps_running)));
     }
 
     void init() {

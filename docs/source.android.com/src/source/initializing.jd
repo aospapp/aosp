@@ -95,6 +95,11 @@ Building using an older version of Ubuntu is not supported on master or recent r
 $ sudo ln -s /usr/lib/i386-linux-gnu/mesa/libGL.so.1 /usr/lib/i386-linux-gnu/libGL.so
 </code></pre>
 
+<h3 id="installing-required-packages-ubuntu-1404">Installing required packages (Ubuntu 14.04)</h3>
+<p>Building on Ubuntu 14.04 is experimental at the moment but will eventually become the recommended
+environment.</p>
+<pre><code>$ sudo apt-get install bison g++-multilib git gperf libxml2-utils</code></pre>
+
 <h3 id="installing-required-packages-ubuntu-1004-1110">Installing required packages (Ubuntu 10.04 -- 11.10)</h3>
 <p>Building on Ubuntu 10.04-11.10 is no longer supported, but may be useful for building older
 releases of AOSP.</p>

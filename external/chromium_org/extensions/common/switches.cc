@@ -16,9 +16,42 @@ const char kAllowHTTPBackgroundPage[] = "allow-http-background-page";
 const char kAllowLegacyExtensionManifests[] =
     "allow-legacy-extension-manifests";
 
+// Enables the <appview> tag in platform apps.
+const char kAppView[] = "app-view";
+
+// Enables extension options to be embedded in chrome://extensions rather than
+// a new tab.
+const char kEmbeddedExtensionOptions[] = "embedded-extension-options";
+
+// Show apps windows after the first paint. Windows will be shown significantly
+// later for heavy apps loading resources synchronously but it will be
+// insignificant for apps that load most of their resources asynchronously.
+const char kEnableAppsShowOnFirstPaint[] = "enable-apps-show-on-first-paint";
+
+// Hack so that feature switch can work with about_flags. See
+// kEnableScriptsRequireAction.
+const char kEnableAppView[] = "enable-app-view";
+
+// Enables the <window-controls> tag in platform apps.
+const char kEnableAppWindowControls[] = "enable-app-window-controls";
+
+// Hack so that feature switch can work with about_flags. See
+// kEnableScriptsRequireAction.
+const char kEnableEmbeddedExtensionOptions[] =
+    "enable-embedded-extension-options";
+
 // Enables extension APIs that are in development.
 const char kEnableExperimentalExtensionApis[] =
     "enable-experimental-extension-apis";
+
+// Hack so that feature switch can work with about_flags. See
+// kEnableScriptsRequireAction.
+const char kEnableExtensionActionRedesign[] =
+    "enable-extension-action-redesign";
+
+// Hack so that feature switch can work with about_flags. See
+// kEnableScriptsRequireAction.
+const char kEnableMimeHandlerView[] = "enable-mime-handler-view";
 
 // Enables extensions to hide bookmarks UI elements.
 const char kEnableOverrideBookmarksUI[] = "enable-override-bookmarks-ui";
@@ -27,23 +60,8 @@ const char kEnableOverrideBookmarksUI[] = "enable-override-bookmarks-ui";
 // them in the chrome:extensions page.
 const char kErrorConsole[] = "error-console";
 
-// The time in milliseconds that an extension event page can be idle before it
-// is shut down.
-const char kEventPageIdleTime[] = "event-page-idle-time";
-
-// The time in milliseconds that an extension event page has between being
-// notified of its impending unload and that unload happening.
-const char kEventPageSuspendingTime[] = "event-page-unloading-time";
-
-// Values for the kExtensionContentVerification flag. See ContentVerifier::Mode
-// for more explanation.
-const char kExtensionContentVerificationBootstrap[] = "bootstrap";
-const char kExtensionContentVerificationEnforceStrict[] = "enforce_strict";
-const char kExtensionContentVerificationEnforce[] = "enforce";
-
-// Name of the command line flag to force content verification to be on in one
-// of various modes.
-const char kExtensionContentVerification[] = "extension-content-verification";
+// Whether to switch to extension action redesign mode (experimental).
+const char kExtensionActionRedesign[] = "extension-action-redesign";
 
 // Marks a renderer as extension process.
 const char kExtensionProcess[] = "extension-process";
@@ -56,8 +74,8 @@ const char kExtensionsOnChromeURLs[] = "extensions-on-chrome-urls";
 // Whether to force developer mode extensions highlighting.
 const char kForceDevModeHighlighting[] = "force-dev-mode-highlighting";
 
-// Enables setting global commands through the Extensions Commands API.
-const char kGlobalCommands[] = "global-commands";
+// Whether or not mime handler view guests are enabled.
+const char kMimeHandlerView[] = "mime-handler-view";
 
 // Notify the user and require consent for extensions running scripts.
 // Appending --scripts-require-action=1 has the same effect as

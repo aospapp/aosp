@@ -15,7 +15,6 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<View xmlns:android="http://schemas.android.com/apk/res/android"
+<Space xmlns:android="http://schemas.android.com/apk/res/android"
       android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:background="@color/conversation_view_item_background_color" />
+      android:layout_height="wrap_content" />

@@ -25,8 +25,6 @@
 #include "ui/app_list/views/start_page_view.h"
 #include "ui/app_list/views/test/apps_grid_view_test_api.h"
 #include "ui/app_list/views/tile_item_view.h"
-#include "ui/aura/test/aura_test_base.h"
-#include "ui/aura/window.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/test/views_test_base.h"
 #include "ui/views/views_delegate.h"
@@ -63,11 +61,20 @@ size_t GetVisibleTileItemViews(const std::vector<TileItemView*>& tiles) {
 // Choose a set that is 3 regular app list pages and 2 landscape app list pages.
 const int kInitialItems = 34;
 
+class TestTileSearchResult : public SearchResult {
+ public:
+  TestTileSearchResult() { set_display_type(DISPLAY_TILE); }
+  virtual ~TestTileSearchResult() {}
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(TestTileSearchResult);
+};
+
 // Allows the same tests to run with different contexts: either an Ash-style
 // root window or a desktop window tree host.
 class AppListViewTestContext {
  public:
-  AppListViewTestContext(int test_type, aura::Window* parent);
+  AppListViewTestContext(int test_type, gfx::NativeView parent);
   ~AppListViewTestContext();
 
   // Test displaying the app list and performs a standard set of checks on its
@@ -123,7 +130,7 @@ class AppListViewTestContext {
   const TestType test_type_;
   scoped_ptr<base::RunLoop> run_loop_;
   app_list::AppListView* view_;  // Owned by native widget.
-  app_list::test::AppListTestViewDelegate* delegate_;  // Owned by |view_|;
+  scoped_ptr<app_list::test::AppListTestViewDelegate> delegate_;
 
   DISALLOW_COPY_AND_ASSIGN(AppListViewTestContext);
 };
@@ -150,7 +157,7 @@ class UnitTestViewDelegate : public app_list::test::AppListTestViewDelegate {
 };
 
 AppListViewTestContext::AppListViewTestContext(int test_type,
-                                               aura::Window* parent)
+                                               gfx::NativeView parent)
     : test_type_(static_cast<TestType>(test_type)) {
   switch (test_type_) {
     case NORMAL:
@@ -168,8 +175,8 @@ AppListViewTestContext::AppListViewTestContext(int test_type,
       break;
   }
 
-  delegate_ = new UnitTestViewDelegate(this);
-  view_ = new app_list::AppListView(delegate_);
+  delegate_.reset(new UnitTestViewDelegate(this));
+  view_ = new app_list::AppListView(delegate_.get());
 
   // Initialize centered around a point that ensures the window is wholly shown.
   view_->InitAsBubbleAtFixedLocation(parent,
@@ -231,6 +238,28 @@ void AppListViewTestContext::RunDisplayTest() {
   delegate_->GetTestModel()->PopulateApps(kInitialItems);
 
   Show();
+
+  // Explicitly enforce the exact dimensions of the app list. Feel free to
+  // change these if you need to (they are just here to prevent against
+  // accidental changes to the window size).
+  switch (test_type_) {
+    case NORMAL:
+      EXPECT_EQ("400x500", view_->bounds().size().ToString());
+      break;
+    case LANDSCAPE:
+      // NOTE: Height should not exceed 402, because otherwise there might not
+      // be enough space to accomodate the virtual keyboard. (LANDSCAPE mode is
+      // enabled by default when the virtual keyboard is enabled.)
+      EXPECT_EQ("576x402", view_->bounds().size().ToString());
+      break;
+    case EXPERIMENTAL:
+      EXPECT_EQ("768x560", view_->bounds().size().ToString());
+      break;
+    default:
+      NOTREACHED();
+      break;
+  }
+
   if (is_landscape())
     EXPECT_EQ(2, GetPaginationModel()->total_pages());
   else
@@ -240,8 +269,11 @@ void AppListViewTestContext::RunDisplayTest() {
   // Checks on the main view.
   AppListMainView* main_view = view_->app_list_main_view();
   EXPECT_NO_FATAL_FAILURE(CheckView(main_view));
-  EXPECT_NO_FATAL_FAILURE(CheckView(main_view->search_box_view()));
   EXPECT_NO_FATAL_FAILURE(CheckView(main_view->contents_view()));
+
+  EXPECT_TRUE(main_view->contents_view()->IsNamedPageActive(
+      test_type_ == EXPERIMENTAL ? ContentsView::NAMED_PAGE_START
+                                 : ContentsView::NAMED_PAGE_APPS));
 
   Close();
 }
@@ -307,21 +339,28 @@ void AppListViewTestContext::RunStartPageTest() {
   if (test_type_ == EXPERIMENTAL) {
     EXPECT_NO_FATAL_FAILURE(CheckView(start_page_view));
 
+    // Show the start page view.
     ContentsView* contents_view = main_view->contents_view();
     ShowContentsViewPageAndVerify(contents_view->GetPageIndexForNamedPage(
         ContentsView::NAMED_PAGE_START));
     EXPECT_FALSE(main_view->search_box_view()->visible());
-    EXPECT_EQ(3u, GetVisibleTileItemViews(start_page_view->tile_views()));
 
+    gfx::Size view_size(view_->GetPreferredSize());
     ShowContentsViewPageAndVerify(
         contents_view->GetPageIndexForNamedPage(ContentsView::NAMED_PAGE_APPS));
     EXPECT_TRUE(main_view->search_box_view()->visible());
 
+    // Hiding and showing the search box should not affect the app list's
+    // preferred size. This is a regression test for http://crbug.com/386912.
+    EXPECT_EQ(view_size.ToString(), view_->GetPreferredSize().ToString());
+
     // Check tiles hide and show on deletion and addition.
-    model->CreateAndAddItem("Test app");
-    EXPECT_EQ(4u, GetVisibleTileItemViews(start_page_view->tile_views()));
-    model->DeleteItem(model->GetItemName(0));
-    EXPECT_EQ(3u, GetVisibleTileItemViews(start_page_view->tile_views()));
+    model->results()->Add(new TestTileSearchResult());
+    start_page_view->UpdateForTesting();
+    EXPECT_EQ(1u, GetVisibleTileItemViews(start_page_view->tile_views()));
+    model->results()->DeleteAll();
+    start_page_view->UpdateForTesting();
+    EXPECT_EQ(0u, GetVisibleTileItemViews(start_page_view->tile_views()));
   } else {
     EXPECT_EQ(NULL, start_page_view);
   }
@@ -403,21 +442,25 @@ void AppListViewTestContext::RunProfileChangeTest() {
     EXPECT_EQ(view_->app_list_main_view()->contents_view(),
               contents_switcher_view->contents_view());
     EXPECT_NO_FATAL_FAILURE(CheckView(start_page_view));
-    EXPECT_EQ(1u, GetVisibleTileItemViews(start_page_view->tile_views()));
   } else {
     EXPECT_EQ(NULL, contents_switcher_view);
     EXPECT_EQ(NULL, start_page_view);
   }
 
   // New model updates should be processed by the start page view.
-  delegate_->GetTestModel()->CreateAndAddItem("Test App");
-  if (test_type_ == EXPERIMENTAL)
-    EXPECT_EQ(2u, GetVisibleTileItemViews(start_page_view->tile_views()));
+  delegate_->GetTestModel()->results()->Add(new TestTileSearchResult());
+  if (test_type_ == EXPERIMENTAL) {
+    start_page_view->UpdateForTesting();
+    EXPECT_EQ(1u, GetVisibleTileItemViews(start_page_view->tile_views()));
+  }
 
   // Old model updates should be ignored.
-  original_test_model->CreateAndAddItem("Test App 2");
-  if (test_type_ == EXPERIMENTAL)
-    EXPECT_EQ(2u, GetVisibleTileItemViews(start_page_view->tile_views()));
+  original_test_model->results()->Add(new TestTileSearchResult());
+  original_test_model->results()->Add(new TestTileSearchResult());
+  if (test_type_ == EXPERIMENTAL) {
+    start_page_view->UpdateForTesting();
+    EXPECT_EQ(1u, GetVisibleTileItemViews(start_page_view->tile_views()));
+  }
 
   Close();
 }
@@ -434,7 +477,6 @@ void AppListViewTestContext::RunSearchResultsTest() {
   ContentsView* contents_view = main_view->contents_view();
   ShowContentsViewPageAndVerify(
       contents_view->GetPageIndexForNamedPage(ContentsView::NAMED_PAGE_APPS));
-  EXPECT_TRUE(IsViewAtOrigin(contents_view->apps_container_view()));
   EXPECT_TRUE(main_view->search_box_view()->visible());
 
   // Show the search results.
@@ -457,19 +499,16 @@ void AppListViewTestContext::RunSearchResultsTest() {
   contents_view->ShowSearchResults(false);
   contents_view->Layout();
   EXPECT_FALSE(contents_view->IsShowingSearchResults());
-  if (test_type_ == EXPERIMENTAL) {
-    EXPECT_TRUE(
-        contents_view->IsNamedPageActive(ContentsView::NAMED_PAGE_START));
-    EXPECT_TRUE(IsViewAtOrigin(contents_view->start_page_view()));
-    EXPECT_FALSE(main_view->search_box_view()->visible());
-  } else {
-    EXPECT_TRUE(
-        contents_view->IsNamedPageActive(ContentsView::NAMED_PAGE_APPS));
-    EXPECT_TRUE(IsViewAtOrigin(contents_view->apps_container_view()));
-    EXPECT_TRUE(main_view->search_box_view()->visible());
-  }
+
+  // Check that we return to the page that we were on before the search.
+  EXPECT_TRUE(contents_view->IsNamedPageActive(ContentsView::NAMED_PAGE_APPS));
+  EXPECT_TRUE(IsViewAtOrigin(contents_view->apps_container_view()));
+  EXPECT_TRUE(main_view->search_box_view()->visible());
 
   if (test_type_ == EXPERIMENTAL) {
+    ShowContentsViewPageAndVerify(contents_view->GetPageIndexForNamedPage(
+        ContentsView::NAMED_PAGE_START));
+
     // Check that typing into the dummy search box triggers the search page.
     base::string16 search_text = base::UTF8ToUTF16("test");
     SearchBoxView* dummy_search_box =
@@ -525,7 +564,17 @@ class AppListViewTestAura : public views::ViewsTestBase,
   // testing::Test overrides:
   virtual void SetUp() OVERRIDE {
     views::ViewsTestBase::SetUp();
-    test_context_.reset(new AppListViewTestContext(GetParam(), GetContext()));
+
+    // On Ash (only) the app list is placed into an aura::Window "container",
+    // which is also used to determine the context. In tests, use the ash root
+    // window as the parent. This only works on aura where the root window is a
+    // NativeView as well as a NativeWindow.
+    gfx::NativeView container = NULL;
+#if defined(USE_AURA)
+    container = GetContext();
+#endif
+
+    test_context_.reset(new AppListViewTestContext(GetParam(), container));
   }
 
   virtual void TearDown() OVERRIDE {

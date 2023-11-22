@@ -2,7 +2,7 @@ page.title=Compatibility Test Suite
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project     
+    Copyright 2014 The Android Open Source Project     
 
     Licensed under the Apache License, Version 2.0 (the "License");    
     you may not use this file except in compliance with the License.   
@@ -140,7 +140,7 @@ to exercise a full set of APIs and Android runtime services.</p>
 </tr>
 <tr>
 <td>Dalvik VM Tests</td>
-<td>The tests focus on testing the Dalvik VM.</td>
+<td>The tests focus on testing the Dalvik Executable Format.</td>
 </tr>
 <tr>
 <td>Platform Data Model</td>

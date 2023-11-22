@@ -23,6 +23,7 @@
 #include <va/va_vpp.h>
 #include <ips/common/Wsbm.h>
 #include <utils/Timers.h>
+#include <utils/KeyedVector.h>
 #include <va/va_android.h>
 #include <ips/common/VideoPayloadBuffer.h>
 

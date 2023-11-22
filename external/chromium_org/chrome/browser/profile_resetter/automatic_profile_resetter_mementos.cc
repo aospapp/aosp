@@ -6,8 +6,8 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/prefs/pref_service.h"
 #include "base/prefs/scoped_user_pref_update.h"
@@ -31,13 +31,13 @@ PreferenceHostedPromptMemento::~PreferenceHostedPromptMemento() {}
 std::string PreferenceHostedPromptMemento::ReadValue() const {
   PrefService* prefs = profile_->GetPrefs();
   DCHECK(prefs);
-  return prefs->GetString(prefs::kProfileResetPromptMemento);
+  return prefs->GetString(prefs::kProfileResetPromptMementoInProfilePrefs);
 }
 
 void PreferenceHostedPromptMemento::StoreValue(const std::string& value) {
   PrefService* prefs = profile_->GetPrefs();
   DCHECK(prefs);
-  prefs->SetString(prefs::kProfileResetPromptMemento, value);
+  prefs->SetString(prefs::kProfileResetPromptMementoInProfilePrefs, value);
 }
 
 
@@ -52,8 +52,8 @@ std::string LocalStateHostedPromptMemento::ReadValue() const {
   PrefService* local_state = g_browser_process->local_state();
   DCHECK(local_state);
 
-  const base::DictionaryValue* prompt_shown_dict =
-      local_state->GetDictionary(prefs::kProfileResetPromptMemento);
+  const base::DictionaryValue* prompt_shown_dict = local_state->GetDictionary(
+      prefs::kProfileResetPromptMementosInLocalState);
   std::string profile_key = GetProfileKey();
   if (!prompt_shown_dict || profile_key.empty()) {
     NOTREACHED();
@@ -69,7 +69,7 @@ void LocalStateHostedPromptMemento::StoreValue(const std::string& value) {
   DCHECK(local_state);
 
   DictionaryPrefUpdate prompt_shown_dict_update(
-      local_state, prefs::kProfileResetPromptMemento);
+      local_state, prefs::kProfileResetPromptMementosInLocalState);
   std::string profile_key = GetProfileKey();
   if (profile_key.empty()) {
     NOTREACHED();

@@ -47,6 +47,9 @@
     <!-- Activity title when the user is selecting a contact for a direct message shortcut. -->
     <string name="messageShortcutActivityTitle">Choose a number to message</string>
 
+    <!-- Activity title when the user is inserting into an existing contact, or creating a new one.  [CHAR LIMIT=128] -->
+    <string name="contactInsertOrEditActivityTitle">Add to contact</string>
+
     <!-- Activity title when the user is selecting a contact.  [CHAR LIMIT=128] -->
     <string name="contactPickerActivityTitle">Choose a contact</string>
 
@@ -370,9 +373,6 @@
     <!-- String describing which account a contact came from when editing it -->
     <string name="from_account_format"><xliff:g id="source" example="user@gmail.com">%1$s</xliff:g></string>
 
-    <!-- Checkbox asking the user if they want to display a particular photo for a contact -->
-    <string name="use_photo_as_primary">Use this photo</string>
-
     <!-- Text used to explain that a contact cannot be edited from the People application since the data is read only [CHAR LIMIT=40] -->
     <string name="contact_read_only">Not editable from this app.</string>
 
@@ -423,9 +423,6 @@
     <!-- Label to clear all selection in multiple picker -->
     <string name="menu_select_none">"Unselect all"</string>
 
-    <!-- The add field button shown in the editor under each editable Raw Contact [CHAR LIMIT=30] -->
-    <string name="add_field">Add another field</string>
-
     <!-- The button to add another entry of a specific data type (i.e. email, phone, address) to a contact in the Raw Contact Editor [CHAR LIMIT=22] -->
     <string name="add_new_entry_for_section">Add new</string>
 
@@ -437,6 +434,12 @@
 
     <!-- The button to add an organization field to a contact in the Raw Contact Editor [CHAR LIMIT=15] -->
     <string name="group_edit_field_hint_text">Group name</string>
+
+    <!-- Button used for changing a photo in the Raw Contact Editor [CHAR LIMIT=15] -->
+    <string name="change_photo">Change</string>
+
+    <!-- RadioButton that determines whether a raw contact's photo should be used for the entire contact [CHAR LIMIT=15] -->
+    <string name="primary_photo">Primary photo</string>
 
     <!-- String describing the Star/Favorite checkbox
 
@@ -702,12 +705,27 @@
     <string name="header_event_entry">Event</string>
     <!-- Header for the Relation entry [CHAR LIMIT=40] -->
     <string name="header_relation_entry">Relation</string>
+    <!-- Content description for the account field header image. Example accounts listed in this field: Google, Hotmail and Exchange. [CHAR LIMIT=NONE] -->
+    <string name="header_account_entry">Account</string>
+    <!-- Content description for the name fields header entry [CHAR LIMIT=NONE] -->
+    <string name="header_name_entry">Name</string>
+    <!-- Content description for the email fields header entry [CHAR LIMIT=NONE] -->
+    <string name="header_email_entry">Email</string>
+    <!-- Content description for the phone fields header entry [CHAR LIMIT=NONE] -->
+    <string name="header_phone_entry">Phone</string>
+    <!-- Content description for the camera icon beside the photo section in the Raw Contact Editor [CHAR LIMIT=NONE] -->
+    <string name="header_photo_entry">Photo</string>
+
+    <!-- Content description for the expand button inside the raw contact editor's header. [CHAR LIMIT=NONE] -->
+    <string name="content_description_expand_editor">Click to expand contact editor.</string>
+    <!-- Content description for the collapse button inside the raw contact editor's header. [CHAR LIMIT=NONE] -->
+    <string name="content_description_collapse_editor">Click to collapse contact editor.</string>
 
     <!-- Content description for directions secondary button [CHAR LIMIT=NONE] -->
     <string name="content_description_directions">directions to location</string>
 
     <!-- Content description for recent sms interaction [CHAR LIMIT=NONE] -->
-    <string name="content_description_recent_sms">recent sms. <xliff:g id="message_details">%s</xliff:g>. click to respond</string>
+    <string name="content_description_recent_sms">recent sms. <xliff:g id="message_body">%s</xliff:g>. <xliff:g id="phone_number">%s</xliff:g>. <xliff:g id="date">%s</xliff:g>. click to respond</string>
 
     <!-- Header for the Relation entry [CHAR LIMIT=NONE] -->
     <string name="content_description_recent_call_type_incoming">incoming</string>
@@ -717,11 +735,14 @@
     <string name="content_description_recent_call_type_missed">missed</string>
 
     <!-- Content description for recent sms interaction [CHAR LIMIT=NONE] -->
-    <string name="content_description_recent_call">recent call. <xliff:g id="call_details">%s</xliff:g>. click to call back</string>
+    <string name="content_description_recent_call">recent call. <xliff:g id="call_type">%s</xliff:g>. <xliff:g id="phone_number">%s</xliff:g>. <xliff:g id="date">%s</xliff:g>. click to call back</string>
 
     <!-- Prefix for messages that you sent [CHAR LIMIT=40] -->
     <string name="message_from_you_prefix">You: <xliff:g id="sms_body">%s</xliff:g></string>
 
     <!-- File Authority for the photo picker -->
     <string name="photo_file_provider_authority" translatable="false">com.android.contacts.files</string>
+
+    <!-- When a user tries to create an IM Hangouts field, an alert dialog pops up displaying this message. We don't want users entering email addresses of phone numbers into the IM field. [CHAR LIMIT=200] -->
+    <string name="contact_editor_hangouts_im_alert">Hangouts works better when you enter the person\'s Hangouts identifier into the email field or phone field.</string>
 </resources>

@@ -18,6 +18,9 @@
 // NOTES:
 //   - CHANGE THE ABOVE NUMBERS IF YOU ADD A NEW ENGINE; ID conflicts = bad!
 //   - Make sure you update the int_variables below as required.
+//   - NOTIFY the Chrome Webstore team if you add/delete a search engine or 
+//     change domain of an existing one (send email to webstore-eng@google.com).
+//     They need to know the mapping between an engine's "id" and its URLs.
 
 {
   "int_variables": {
@@ -27,7 +30,7 @@
 
     // Increment this if you change the data in ways that mean users with
     // existing data should get a new version.
-    "kCurrentDataVersion": 76
+    "kCurrentDataVersion": 79
   },
 
   // The following engines are included in country lists and are added to the
@@ -526,7 +529,7 @@
       "keyword": "google.com",
       "favicon_url": "http://www.google.com/favicon.ico",
       "search_url": "{google:baseURL}search?q={searchTerms}&{google:RLZ}{google:originalQueryForSuggestion}{google:assistedQueryStats}{google:searchFieldtrialParameter}{google:bookmarkBarPinned}{google:searchClient}{google:sourceId}{google:instantExtendedEnabledParameter}{google:omniboxStartMarginParameter}{google:contextualSearchVersion}ie={inputEncoding}",
-      "suggest_url": "{google:baseSuggestURL}search?{google:searchFieldtrialParameter}client={google:suggestClient}&gs_ri={google:suggestRid}&xssi=t&q={searchTerms}&{google:inputType}{google:cursorPosition}{google:currentPageUrl}{google:pageClassification}{google:searchVersion}{google:sessionToken}sugkey={google:suggestAPIKeyParameter}",
+      "suggest_url": "{google:baseSuggestURL}search?{google:searchFieldtrialParameter}client={google:suggestClient}&gs_ri={google:suggestRid}&xssi=t&q={searchTerms}&{google:inputType}{google:cursorPosition}{google:currentPageUrl}{google:pageClassification}{google:searchVersion}{google:sessionToken}{google:prefetchQuery}sugkey={google:suggestAPIKeyParameter}",
       "instant_url": "{google:baseURL}webhp?sourceid=chrome-instant&{google:RLZ}{google:forceInstantResults}{google:instantExtendedEnabledParameter}{google:ntpIsThemedParameter}{google:omniboxStartMarginParameter}ie={inputEncoding}",
       "image_url": "{google:baseURL}searchbyimage/upload",
       "new_tab_url": "{google:baseURL}_/chrome/newtab?{google:RLZ}{google:instantExtendedEnabledParameter}{google:ntpIsThemedParameter}ie={inputEncoding}",
@@ -535,7 +538,8 @@
       "alternate_urls": [
         "{google:baseURL}#q={searchTerms}",
         "{google:baseURL}search#q={searchTerms}",
-        "{google:baseURL}webhp#q={searchTerms}"
+        "{google:baseURL}webhp#q={searchTerms}",
+        "{google:baseURL}s?q={searchTerms}"
       ],
       "search_terms_replacement_key": "{google:instantExtendedEnabledKey}",
       "type": "SEARCH_ENGINE_GOOGLE",
@@ -633,7 +637,7 @@
       "keyword": "yahoo.com",
       "favicon_url": "https://search.yahoo.com/favicon.ico",
       "search_url": "https://search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://ff.search.yahoo.com/gossip?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -643,7 +647,7 @@
       "keyword": "ar.yahoo.com",
       "favicon_url": "https://ar.search.yahoo.com/favicon.ico",
       "search_url": "https://ar.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://ar-sayt.ff.search.yahoo.com/gossip-ar-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://ar.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -653,7 +657,7 @@
       "keyword": "at.yahoo.com",
       "favicon_url": "https://at.search.yahoo.com/favicon.ico",
       "search_url": "https://at.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://de-sayt.ff.search.yahoo.com/gossip-de-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://at.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -663,7 +667,7 @@
       "keyword": "au.yahoo.com",
       "favicon_url": "https://au.search.yahoo.com/favicon.ico",
       "search_url": "https://au.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://aue-sayt.ff.search.yahoo.com/gossip-au-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://au.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -673,7 +677,7 @@
       "keyword": "br.yahoo.com",
       "favicon_url": "https://br.search.yahoo.com/favicon.ico",
       "search_url": "https://br.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://br-sayt.ff.search.yahoo.com/gossip-br-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://br.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -683,7 +687,7 @@
       "keyword": "ca.yahoo.com",
       "favicon_url": "https://ca.search.yahoo.com/favicon.ico",
       "search_url": "https://ca.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://gossip.ca.yahoo.com/gossip-ca-sayt?output=fxjsonp&command={searchTerms}",
+      "suggest_url": "https://ca.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -693,7 +697,7 @@
       "keyword": "ch.yahoo.com",
       "favicon_url": "https://ch.search.yahoo.com/favicon.ico",
       "search_url": "https://ch.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://de-sayt.ff.search.yahoo.com/gossip-de-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://ch.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -703,7 +707,7 @@
       "keyword": "cl.yahoo.com",
       "favicon_url": "https://cl.search.yahoo.com/favicon.ico",
       "search_url": "https://cl.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://gossip.telemundo.yahoo.com/gossip-e1-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://cl.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -713,7 +717,7 @@
       "keyword": "co.yahoo.com",
       "favicon_url": "https://co.search.yahoo.com/favicon.ico",
       "search_url": "https://co.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://gossip.telemundo.yahoo.com/gossip-e1-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://co.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -721,9 +725,9 @@
     "yahoo_de": {
       "name": "Yahoo! Deutschland",
       "keyword": "de.yahoo.com",
-      "favicon_url": "http://de.search.yahoo.com/favicon.ico",
-      "search_url": "http://de.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://de-sayt.ff.search.yahoo.com/gossip-de-sayt?output=fxjson&command={searchTerms}",
+      "favicon_url": "https://de.search.yahoo.com/favicon.ico",
+      "search_url": "https://de.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
+      "suggest_url": "https://de.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -734,8 +738,8 @@
     "yahoo_dk": {
       "name": "Yahoo! Danmark",
       "keyword": "dk.yahoo.com",
-      "favicon_url": "http://dk.search.yahoo.com/favicon.ico",
-      "search_url": "http://dk.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
+      "favicon_url": "https://dk.search.yahoo.com/favicon.ico",
+      "search_url": "https://dk.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -745,7 +749,7 @@
       "keyword": "es.yahoo.com",
       "favicon_url": "https://es.search.yahoo.com/favicon.ico",
       "search_url": "https://es.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://es-sayt.ff.search.yahoo.com/gossip-es-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://es.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -764,7 +768,7 @@
       "keyword": "fr.yahoo.com",
       "favicon_url": "https://fr.search.yahoo.com/favicon.ico",
       "search_url": "https://fr.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://fr-sayt.ff.search.yahoo.com/gossip-fr-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://fr.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 5  // Can't be 2 as this has to appear in the Belgium list alongside
                // yahoo.
@@ -784,7 +788,7 @@
       "keyword": "hk.yahoo.com",
       "favicon_url": "https://hk.search.yahoo.com/favicon.ico",
       "search_url": "https://hk.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://hk-sayt.ff.search.yahoo.com/gossip-hk-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://hk.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -794,7 +798,7 @@
       "keyword": "id.yahoo.com",
       "favicon_url": "https://id.search.yahoo.com/favicon.ico",
       "search_url": "https://id.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://id-sayt.ff.search.yahoo.com/gossip-id-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://id.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -804,7 +808,7 @@
       "keyword": "in.yahoo.com",
       "favicon_url": "https://in.search.yahoo.com/favicon.ico",
       "search_url": "https://in.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://in-sayt.ff.search.yahoo.com/gossip-in-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://in.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -833,7 +837,7 @@
       "keyword": "mx.yahoo.com",
       "favicon_url": "https://mx.search.yahoo.com/favicon.ico",
       "search_url": "https://mx.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://gossip.mx.yahoo.com/gossip-mx-sayt?output=fxjsonp&command={searchTerms}",
+      "suggest_url": "https://mx.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -843,7 +847,7 @@
       "keyword": "malaysia.yahoo.com",
       "favicon_url": "https://malaysia.search.yahoo.com/favicon.ico",
       "search_url": "https://malaysia.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://my-sayt.ff.search.yahoo.com/gossip-my-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://malaysia.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -853,7 +857,7 @@
       "keyword": "nl.yahoo.com",
       "favicon_url": "https://nl.search.yahoo.com/favicon.ico",
       "search_url": "https://nl.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://ff.search.yahoo.com/gossip?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://nl.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -863,7 +867,7 @@
       "keyword": "nz.yahoo.com",
       "favicon_url": "https://nz.search.yahoo.com/favicon.ico",
       "search_url": "https://nz.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://aue-sayt.ff.search.yahoo.com/gossip-nz-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://nz.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -873,7 +877,7 @@
       "keyword": "pe.yahoo.com",
       "favicon_url": "https://pe.search.yahoo.com/favicon.ico",
       "search_url": "https://pe.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://gossip.telemundo.yahoo.com/gossip-e1-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://pe.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -883,7 +887,7 @@
       "keyword": "ph.yahoo.com",
       "favicon_url": "https://ph.search.yahoo.com/favicon.ico",
       "search_url": "https://ph.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://ph-sayt.ff.search.yahoo.com/gossip-ph-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://ph.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -893,7 +897,7 @@
       "keyword": "qc.yahoo.com",
       "favicon_url": "https://qc.search.yahoo.com/favicon.ico",
       "search_url": "https://qc.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://gossip.ca.yahoo.com/gossip-ca-sayt?output=fxjsonp&command={searchTerms}",
+      "suggest_url": "https://qc.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 5  // Can't be 2 as this has to appear in the Canada list alongside
                // yahoo_ca.
@@ -931,7 +935,7 @@
       "keyword": "sg.yahoo.com",
       "favicon_url": "https://sg.search.yahoo.com/favicon.ico",
       "search_url": "https://sg.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://sg-sayt.ff.search.yahoo.com/gossip-sg-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://sg.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -941,7 +945,7 @@
       "keyword": "th.yahoo.com",
       "favicon_url": "https://th.search.yahoo.com/favicon.ico",
       "search_url": "https://th.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://th-sayt.ff.search.yahoo.com/gossip-th-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://th.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -960,7 +964,7 @@
       "keyword": "tw.yahoo.com",
       "favicon_url": "https://tw.search.yahoo.com/favicon.ico",
       "search_url": "https://tw.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://hk-sayt.ff.search.yahoo.com/gossip-hk-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://tw.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -970,7 +974,7 @@
       "keyword": "uk.yahoo.com",
       "favicon_url": "https://uk.search.yahoo.com/favicon.ico",
       "search_url": "https://uk.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://uk-sayt.ff.search.yahoo.com/gossip-uk-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://uk.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -980,7 +984,7 @@
       "keyword": "ve.yahoo.com",
       "favicon_url": "https://ve.search.yahoo.com/favicon.ico",
       "search_url": "https://ve.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://gossip.telemundo.yahoo.com/gossip-e1-sayt?output=fxjson&command={searchTerms}",
+      "suggest_url": "https://ve.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },
@@ -988,9 +992,9 @@
     "yahoo_vn": {
       "name": "Yahoo! Vi\u1ec7t Nam",
       "keyword": "vn.yahoo.com",
-      "favicon_url": "http://vn.search.yahoo.com/favicon.ico",
-      "search_url": "http://vn.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
-      "suggest_url": "http://vn-sayt.ff.search.yahoo.com/gossip-vn-sayt?output=fxjson&command={searchTerms}",
+      "favicon_url": "https://vn.search.yahoo.com/favicon.ico",
+      "search_url": "https://vn.search.yahoo.com/search?ei={inputEncoding}&fr=crmas&p={searchTerms}",
+      "suggest_url": "https://vn.search.yahoo.com/sugg/chrome?output=fxjson&appid=crmas&command={searchTerms}",
       "type": "SEARCH_ENGINE_YAHOO",
       "id": 2
     },

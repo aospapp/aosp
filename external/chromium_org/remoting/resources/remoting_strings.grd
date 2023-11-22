@@ -424,6 +424,15 @@
         <message desc="Text shown in tooltip when user touches an offline host on the device." name="IDS_HOST_OFFLINE_TOOLTIP" formatter_data="android_java">
           Host is offline.
         </message>
+        <message desc="Error that is shown in tooltip if the app loses its connection to the Cast device." name="IDS_CONNECTION_TO_CAST_FAILED" formatter_data="android_java">
+          Failed to connect to Cast device.
+        </message>
+         <message desc="Text shown in tooltip when the application has closed its connection to the Cast device." name="IDS_CONNECTION_TO_CAST_CLOSED" formatter_data="android_java">
+          Closed connection to Cast device.
+        </message>
+        <message desc="Title for Cast button in Android application menu." name="IDS_CAST_BUTTON_TITLE" formatter_data="android_java">
+          Cast
+        </message>
 
 <!-- Play Store listings text. These Android-specific strings are not marked
      with formatter_data="android_java" since they are used only for the Play
@@ -454,7 +463,7 @@ Remote computers with non US-English keyboards may receive incorrect text input.
 For information about privacy, please see the Google Privacy Policy (http://goo.gl/SyrVzj) and the Chrome Privacy Policy (http://goo.gl/0uXE5d).
         </message>
         <message name="IDS_PLAY_STORE_CHANGES" desc="List of what's changed in this release of Chrome Remote Desktop for Android. [CHAR-LIMIT=500] [NAME=play_store_changes]">
-• Fixed a crash on startup.
+• Improved error-handling on failed connection.
         </message>
       </if>
 
@@ -562,6 +571,9 @@ For information about privacy, please see the Google Privacy Policy (http://goo.
       </message>
       <message desc="Tool-tip for the window's restore icon." name="IDS_RESTORE_WINDOW">
         Restore window
+      </message>
+      <message desc="Tool-tip for the window's options menu icon." name="IDS_OPTIONS_MENU">
+        Options
       </message>
       <message desc="Button displayed underneath explanatory text for app features. Clicking causes the text, infographic and the button itself to be replaced by the actual UI for that feature." name="IDS_GET_STARTED">
         Get started
@@ -704,6 +716,12 @@ For information about privacy, please see the Google Privacy Policy (http://goo.
       <message desc="Label for button to reconnect to the previous Me2Me host. This button appears on the 'session-finished' page." name="IDS_RECONNECT">
         Reconnect
       </message>
+      <message desc="Button for starting video frame recording, to capture frame sequences for debugging purposes." name="IDS_START_RECORDING">
+        Start Recording
+      </message>
+      <message desc="Button for stopping recording of video frames." name="IDS_STOP_RECORDING">
+        Stop Recording
+      </message>
       <message desc="Button for enabling or disabling the 'resize-to-client' functionality, whereby the host desktop is resized to match the client size as closely as possible." name="IDS_RESIZE_TO_CLIENT">
         Resize desktop to fit
       </message>
@@ -714,13 +732,13 @@ For information about privacy, please see the Google Privacy Policy (http://goo.
         Screen options
       </message>
       <message desc="Label for the client-side menu button that sends a Ctrl-Alt-Del sequence to the host. Clicking this button behaves as if Ctrl, Alt and Del were pressed and then released at the host." name="IDS_SEND_CTRL_ALT_DEL" formatter_data="android_java">
-        Ctrl-Alt-Del
+        Send Ctrl-Alt-Del
       </message>
       <message desc="Tool-bar button used to access buttons for pressing and releasing keys or sequences of keys that might not otherwise be available. For example, Ctrl-Alt-Del, which if pressed at a client would take effect there, rather than being sent to the host as the user expected." name="IDS_SEND_KEYS">
         Send keys
       </message>
       <message desc="Label for the client-side menu button that sends a PrtScn key press to the host. The 'PrtScn' abbreviation (as typically printed on the keycap on English keyboards) is preferred over 'Print Screen', to make it clearer that this refers to the physical PrtScn key, and not the OS-specific keyboard shortcut for the screen capture functionality." name="IDS_SEND_PRINT_SCREEN">
-        PrtScn
+        Send PrtScn
       </message>
       <message desc="Menu option for enabling shrink-to-fit. When clicked, the remote desktop will be scaled down so that it fits in the browser window." name="IDS_SHRINK_TO_FIT">
         Shrink to fit
@@ -835,6 +853,21 @@ For information about privacy, please see the Google Privacy Policy (http://goo.
       </message>
       <message desc="Label for the Feedback button displayed in the Android Help screen. Pressing this button causes the Feedback screen to be shown." name="IDS_ACTIONBAR_FEEDBACK" formatter_data="android_java">
         Feedback
+      </message>
+      <message desc="Message displayed in the Hangouts confirm dialog. This message is shown to the Hangouts participant receiving remote assistance before the access code is generated.  The dialog informs the user of the implications of accepting remote assistance.  It also provides a way for the user to decline the assistance." name="IDS_HANGOUTS_CONFIRM_DIALOG_MESSAGE_1" >
+        A participant in this hangout has offered to help you by controlling your computer.  If you accept:
+      </message>
+      <message desc="Message displayed in the Hangouts confirm dialog. This message is shown to the Hangouts participant receiving remote assistance before the access code is generated.  The dialog informs the user of the implications of accepting remote assistance.  It also provides a way for the user to decline the assistance." name="IDS_HANGOUTS_CONFIRM_DIALOG_MESSAGE_2" >
+        The person helping you will be able to control your mouse and keyboard.
+      </message>
+      <message desc="Message displayed in the Hangouts confirm dialog. This message is shown to the Hangouts participant receiving remote assistance before the access code is generated.  The dialog informs the user of the implications of accepting remote assistance.  It also provides a way for the user to decline the assistance." name="IDS_HANGOUTS_CONFIRM_DIALOG_MESSAGE_3" >
+        You can end at any time.
+      </message>
+      <message desc="Label for button to accept remote assistance.  This button appears in the Hangouts confirm dialog." name="IDS_HANGOUTS_CONFIRM_DIALOG_ACCEPT" >
+        Accept
+      </message>
+      <message desc="Label for button to decline remote assistance.  This button appears in the Hangouts confirm dialog." name="IDS_HANGOUTS_CONFIRM_DIALOG_DECLINE" >
+        Decline
       </message>
     </messages>
   </release>

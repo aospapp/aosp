@@ -116,7 +116,7 @@
         <item>Art|ARTS</item>
         <item>Auto Racing|SPORTS</item>
         <item>Aviation|SPORTS</item>
-        <item>Biography|EDUCATION</item>
+        <item>Biography|NEWS</item>
         <item>Boating|SPORTS</item>
         <item>Bowling|SPORTS</item>
         <item>Boxing|SPORTS</item>
@@ -320,5 +320,88 @@
         <item>Trip, fishing, outdoor entertainment|ANIMAL_WILDLIFE</item>
         <item>University students, examinations|EDUCATION</item>
         <item>Weather report|NEWS</item>
+    </string-array>
+
+    <!-- Category mapping from ISDB in Brazil to canonical genre -->
+    <string-array name="genre_mapping_isdb_br">
+        <item>Biografia|NEWS</item>
+        <item>Culinária|LIFE_STYLE</item>
+        <item>Documentário|NEWS</item>
+        <item>Educativo|EDUCATION</item>
+        <item>Erótico|MOVIES</item>
+        <item>Esporte|SPORTS</item>
+        <item>Filme|MOVIES</item>
+        <item>Game show|GAMING</item>
+        <item>Humorístico|COMEDY</item>
+        <item>Infantil|FAMILY_KIDS</item>
+        <item>Informação|LIFE_STYLE</item>
+        <item>Jornalismo|NEWS</item>
+        <item>Minissérie|DRAMA</item>
+        <item>Moda|LIFE_STYLE</item>
+        <item>Musical|MUSIC</item>
+        <item>Premiação|ENTERTAINMENT</item>
+        <item>Reality show|ENTERTAINMENT</item>
+        <item>Religioso|LIFE_STYLE</item>
+        <item>Reportagem|NEWS</item>
+        <item>Rural|LIFE_STYLE</item>
+        <item>Saúde|LIFE_STYLE</item>
+        <item>Série|DRAMA</item>
+        <item>Série/seriado|DRAMA</item>
+        <item>Show|ENTERTAINMENT</item>
+        <item>Telejornais|NEWS</item>
+        <item>Televendas|SHOPPING</item>
+        <item>Turismo|TRAVEL</item>
+        <item>Variedade|ENTERTAINMENT</item>
+        <item>Auditorium|ENTERTAINMENT</item>
+        <item>Awards|ENTERTAINMENT</item>
+        <item>Biography|NEWS</item>
+        <item>Child|FAMILY_KIDS</item>
+        <item>Children|FAMILY_KIDS</item>
+        <item>Comical|COMEDY</item>
+        <item>Cooking|LIFE_STYLE</item>
+        <item>Country|LIFE_STYLE</item>
+        <item>Discussion/interview|NEWS</item>
+        <item>Discussion|NEWS</item>
+        <item>Documentary|NEWS</item>
+        <item>Education|EDUCATION</item>
+        <item>Educative|EDUCATION</item>
+        <item>Enginnering services|TECH_SCIENCE</item>
+        <item>Erotic|MOVIES</item>
+        <item>Fashion|LIFE_STYLE</item>
+        <item>Feminine|ENTERTAINMENT</item>
+        <item>Game show|GAMING</item>
+        <item>Health|LIFE_STYLE</item>
+        <item>Humorous|COMEDY</item>
+        <item>Information|LIFE_STYLE</item>
+        <item>Interview|NEWS</item>
+        <item>Journalism|NEWS</item>
+        <item>Making of|ENTERTAINMENT</item>
+        <item>Mini-series|DRAMA</item>
+        <item>Miniseries|DRAMA</item>
+        <item>Movie (Film)|MOVIES</item>
+        <item>Movie|MOVIES</item>
+        <item>Musical|ENTERTAINMENT</item>
+        <item>News|NEWS</item>
+        <item>Prizing|SHOPPING</item>
+        <item>Raffle|SHOPPING</item>
+        <item>Raffle, television sales, prizing|SHOPPING</item>
+        <item>Reality show|ENTERTAINMENT</item>
+        <item>Religious|LIFE_STYLE</item>
+        <item>Reporting|NEWS</item>
+        <item>Report|NEWS</item>
+        <item>Rural|LIFE_STYLE</item>
+        <item>Series|DRAMA</item>
+        <item>Series / TV show|DRAMA</item>
+        <item>Show|ENTERTAINMENT</item>
+        <item>Soap opera|DRAMA</item>
+        <item>Sport|SPORTS</item>
+        <item>Sports|SPORTS</item>
+        <item>Telesales|SHOPPING</item>
+        <item>Television sales|SHOPPING</item>
+        <item>Tourism|TRAVEL</item>
+        <item>Travel|TRAVEL</item>
+        <item>TV news|NEWS</item>
+        <item>Variety|ENTERTAINMENT</item>
+        <item>Variety show|ENTERTAINMENT</item>
     </string-array>
 </resources>

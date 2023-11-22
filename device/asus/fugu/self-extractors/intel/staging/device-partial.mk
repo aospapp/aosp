@@ -50,7 +50,6 @@ PRODUCT_COPY_FILES := \
     vendor/intel/fugu/proprietary/libcamera_metadata.so:system/lib/arm/libcamera_metadata.so:intel \
     vendor/intel/fugu/proprietary/libcommon_time_client.so:system/lib/arm/libcommon_time_client.so:intel \
     vendor/intel/fugu/proprietary/libcompiler_rt.so:system/lib/arm/libcompiler_rt.so:intel \
-    vendor/intel/fugu/proprietary/libc_orig.so:system/lib/arm/libc_orig.so:intel \
     vendor/intel/fugu/proprietary/libcrypto.so:system/lib/arm/libcrypto.so:intel \
     vendor/intel/fugu/proprietary/libc.so:system/lib/arm/libc.so:intel \
     vendor/intel/fugu/proprietary/libc++.so:system/lib/arm/libc++.so:intel \
@@ -87,7 +86,6 @@ PRODUCT_COPY_FILES := \
     vendor/intel/fugu/proprietary/libmedia.so:system/lib/arm/libmedia.so:intel \
     vendor/intel/fugu/proprietary/libmemtrack.so:system/lib/arm/libmemtrack.so:intel \
     vendor/intel/fugu/proprietary/libminikin.so:system/lib/arm/libminikin.so:intel \
-    vendor/intel/fugu/proprietary/libm_orig.so:system/lib/arm/libm_orig.so:intel \
     vendor/intel/fugu/proprietary/libm.so:system/lib/arm/libm.so:intel \
     vendor/intel/fugu/proprietary/libnativebridge.so:system/lib/arm/libnativebridge.so:intel \
     vendor/intel/fugu/proprietary/libnativehelper.so:system/lib/arm/libnativehelper.so:intel \
@@ -134,7 +132,6 @@ PRODUCT_COPY_FILES := \
     vendor/intel/fugu/proprietary/libvorbisidec.so:system/lib/arm/libvorbisidec.so:intel \
     vendor/intel/fugu/proprietary/libwebrtc_audio_coding.so:system/lib/arm/libwebrtc_audio_coding.so:intel \
     vendor/intel/fugu/proprietary/libwilhelm.so:system/lib/arm/libwilhelm.so:intel \
-    vendor/intel/fugu/proprietary/libz_orig.so:system/lib/arm/libz_orig.so:intel \
     vendor/intel/fugu/proprietary/libz.so:system/lib/arm/libz.so:intel \
     vendor/intel/fugu/proprietary/linker:system/lib/arm/linker:intel \
     vendor/intel/fugu/proprietary/libDecoderVP9Hybrid.so:system/lib/libDecoderVP9Hybrid.so:intel \
@@ -169,11 +166,11 @@ PRODUCT_COPY_FILES := \
     vendor/intel/fugu/proprietary/gralloc.moorefield.so:system/vendor/lib/hw/gralloc.moorefield.so:intel \
     vendor/intel/fugu/proprietary/libbcc.moorefield.so:system/vendor/lib/libbcc.moorefield.so:intel \
     vendor/intel/fugu/proprietary/libbcinfo.moorefield.so:system/vendor/lib/libbcinfo.moorefield.so:intel \
+    vendor/intel/fugu/proprietary/libcptcompiler.so:system/vendor/lib/libcptcompiler.so:intel \
     vendor/intel/fugu/proprietary/libcreatesurface.so:system/vendor/lib/libcreatesurface.so:intel \
     vendor/intel/fugu/proprietary/libglslcompiler.so:system/vendor/lib/libglslcompiler.so:intel \
     vendor/intel/fugu/proprietary/libIMGegl.so:system/vendor/lib/libIMGegl.so:intel \
     vendor/intel/fugu/proprietary/libLLVM.moorefield.so:system/vendor/lib/libLLVM.moorefield.so:intel \
-    vendor/intel/fugu/proprietary/libcptcompiler.so:system/vendor/lib/libcptcompiler.so:intel \
     vendor/intel/fugu/proprietary/libpvr2d.so:system/vendor/lib/libpvr2d.so:intel \
     vendor/intel/fugu/proprietary/libpvrANDROID_WSEGL.so:system/vendor/lib/libpvrANDROID_WSEGL.so:intel \
     vendor/intel/fugu/proprietary/libpvrcpt.so:system/vendor/lib/libpvrcpt.so:intel \

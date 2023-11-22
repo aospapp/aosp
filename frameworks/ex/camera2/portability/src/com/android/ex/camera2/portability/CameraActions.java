@@ -47,7 +47,6 @@ class CameraActions {
     public static final int SET_FACE_DETECTION_LISTENER = 461;
     public static final int START_FACE_DETECTION =        462;
     public static final int STOP_FACE_DETECTION =         463;
-    public static final int SET_ERROR_CALLBACK =          464;
     // Presentation
     public static final int ENABLE_SHUTTER_SOUND =    501;
     public static final int SET_DISPLAY_ORIENTATION = 502;
@@ -107,8 +106,6 @@ class CameraActions {
                 return "START_FACE_DETECTION";
             case STOP_FACE_DETECTION:
                 return "STOP_FACE_DETECTION";
-            case SET_ERROR_CALLBACK:
-                return "SET_ERROR_CALLBACK";
             case ENABLE_SHUTTER_SOUND:
                 return "ENABLE_SHUTTER_SOUND";
             case SET_DISPLAY_ORIENTATION:

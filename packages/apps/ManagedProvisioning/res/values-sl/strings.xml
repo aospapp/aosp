@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Skrbniške aplikacije ni mogoče uporabljati. Manjkajo ji komponente ali pa je poškodovana. Obrnite se na oddelek za IT."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Skrbniške aplikacije ni bilo mogoče namestiti"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Skrbniška aplikacija ni nameščena v napravi"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Želite ustaviti namestitev?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Ali res želite ustaviti namestitev?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Ne"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Da"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Preklic ..."</string>
 </resources>

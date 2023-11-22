@@ -27,6 +27,7 @@ class BrowserContext;
 class BrowserMessageFilter;
 class RenderProcessHostObserver;
 class RenderWidgetHost;
+class ServiceRegistry;
 class StoragePartition;
 struct GlobalRequestID;
 
@@ -78,13 +79,6 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
   // remove the observer before they go away.
   virtual void AddObserver(RenderProcessHostObserver* observer) = 0;
   virtual void RemoveObserver(RenderProcessHostObserver* observer) = 0;
-
-  // Called to wait for the next UpdateRect message for the specified render
-  // widget.  Returns true if successful, and the msg out-param will contain a
-  // copy of the received UpdateRect message.
-  virtual bool WaitForBackingStoreMsg(int render_widget_id,
-                                      const base::TimeDelta& max_delay,
-                                      IPC::Message* msg) = 0;
 
   // Called when a received message cannot be decoded.
   virtual void ReceivedBadMessage() = 0;
@@ -232,6 +226,9 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
   // have changed.
   virtual void NotifyTimezoneChange() = 0;
 
+  // Returns the ServiceRegistry for this process.
+  virtual ServiceRegistry* GetServiceRegistry() = 0;
+
   // Static management functions -----------------------------------------------
 
   // Flag to run the renderer in process.  This is primarily
@@ -282,8 +279,8 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
   // A value of zero means to use the default heuristic.
   static void SetMaxRendererProcessCount(size_t count);
 
-  // Returns the current max number of renderer processes used by the content
-  // module.
+  // Returns the current maximum number of renderer process hosts kept by the
+  // content module.
   static size_t GetMaxRendererProcessCount();
 };
 

@@ -4,14 +4,18 @@
 
 #include "chrome/browser/ui/toolbar/recent_tabs_sub_menu_model.h"
 
+#include <string>
+#include <vector>
+
 #include "base/command_line.h"
 #include "base/run_loop.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/sessions/persistent_tab_restore_service.h"
 #include "chrome/browser/sessions/session_service.h"
 #include "chrome/browser/sessions/session_service_factory.h"
 #include "chrome/browser/sessions/session_types.h"
-#include "chrome/browser/sessions/persistent_tab_restore_service.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
+#include "chrome/browser/sync/glue/local_device_info_provider_mock.h"
 #include "chrome/browser/sync/glue/synced_session.h"
 #include "chrome/browser/sync/profile_sync_service_mock.h"
 #include "chrome/browser/sync/sessions/sessions_sync_manager.h"
@@ -25,6 +29,7 @@
 #include "chrome/test/base/testing_profile.h"
 #include "components/sessions/serialized_navigation_entry_test_helper.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/test/test_utils.h"
 #include "grit/generated_resources.h"
 #include "sync/api/fake_sync_change_processor.h"
 #include "sync/api/sync_error_factory_mock.h"
@@ -109,14 +114,20 @@ class DummyRouter : public browser_sync::LocalSessionEventRouter {
 }  // namespace
 
 class RecentTabsSubMenuModelTest
-    : public BrowserWithTestWindowTest,
-      public browser_sync::SessionsSyncManager::SyncInternalApiDelegate {
+    : public BrowserWithTestWindowTest {
  public:
   RecentTabsSubMenuModelTest()
-      : sync_service_(&testing_profile_) {
+      : sync_service_(&testing_profile_),
+        local_device_(new browser_sync::LocalDeviceInfoProviderMock(
+                      "RecentTabsSubMenuModelTest",
+                      "Test Machine",
+                      "Chromium 10k",
+                      "Chrome 10k",
+                      sync_pb::SyncEnums_DeviceType_TYPE_LINUX,
+                      "device_id")) {
     manager_.reset(new browser_sync::SessionsSyncManager(
         &testing_profile_,
-        this,
+        local_device_.get(),
         scoped_ptr<browser_sync::LocalSessionEventRouter>(
             new DummyRouter())));
     manager_->MergeDataAndStartSyncing(
@@ -129,9 +140,7 @@ class RecentTabsSubMenuModelTest
   }
 
   void WaitForLoadFromLastSession() {
-    content::BrowserThread::GetBlockingPool()->FlushForTesting();
-    base::RunLoop().RunUntilIdle();
-    content::BrowserThread::GetBlockingPool()->FlushForTesting();
+    content::RunAllBlockingPoolTasksUntilIdle();
   }
 
   static KeyedService* GetTabRestoreService(
@@ -141,7 +150,6 @@ class RecentTabsSubMenuModelTest
         Profile::FromBrowserContext(browser_context), NULL);
   }
 
-
   browser_sync::OpenTabsUIDelegate* GetOpenTabsDelegate() {
     return manager_.get();
   }
@@ -150,25 +158,12 @@ class RecentTabsSubMenuModelTest
     helper->ExportToSessionsSyncManager(manager_.get());
   }
 
-  virtual scoped_ptr<browser_sync::DeviceInfo> GetLocalDeviceInfo()
-      const OVERRIDE {
-    return scoped_ptr<browser_sync::DeviceInfo>(
-        new browser_sync::DeviceInfo(GetLocalSyncCacheGUID(),
-                       "Test Machine",
-                       "Chromium 10k",
-                       "Chrome 10k",
-                       sync_pb::SyncEnums_DeviceType_TYPE_LINUX));
-  }
-
-  virtual std::string GetLocalSyncCacheGUID() const OVERRIDE {
-    return "RecentTabsSubMenuModelTest";
-  }
-
  private:
   TestingProfile testing_profile_;
   testing::NiceMock<ProfileSyncServiceMock> sync_service_;
 
   scoped_ptr<browser_sync::SessionsSyncManager> manager_;
+  scoped_ptr<browser_sync::LocalDeviceInfoProviderMock> local_device_;
 };
 
 // Test disabled "Recently closed" header with no foreign tabs.
@@ -290,7 +285,7 @@ TEST_F(RecentTabsSubMenuModelTest,
   TabRestoreServiceFactory::GetInstance()->SetTestingFactory(
       profile(), RecentTabsSubMenuModelTest::GetTabRestoreService);
   // Let the shutdown of previous TabRestoreService run.
-  content::BrowserThread::GetBlockingPool()->FlushForTesting();
+  content::RunAllBlockingPoolTasksUntilIdle();
 
   TestRecentTabsSubMenuModel model(NULL, browser(), NULL);
   TestRecentTabsMenuModelDelegate delegate(&model);

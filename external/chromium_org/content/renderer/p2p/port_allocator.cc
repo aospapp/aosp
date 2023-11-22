@@ -51,8 +51,7 @@ bool ParsePortNumber(
 }  // namespace
 
 P2PPortAllocator::Config::Config()
-    : stun_server_port(0),
-      legacy_relay(true),
+    : legacy_relay(true),
       disable_tcp_transport(false) {
 }
 
@@ -69,8 +68,8 @@ P2PPortAllocator::Config::RelayServerConfig::~RelayServerConfig() {
 P2PPortAllocator::P2PPortAllocator(
     blink::WebFrame* web_frame,
     P2PSocketDispatcher* socket_dispatcher,
-    talk_base::NetworkManager* network_manager,
-    talk_base::PacketSocketFactory* socket_factory,
+    rtc::NetworkManager* network_manager,
+    rtc::PacketSocketFactory* socket_factory,
     const Config& config)
     : cricket::BasicPortAllocator(network_manager, socket_factory),
       web_frame_(web_frame),
@@ -203,7 +202,7 @@ void P2PPortAllocatorSession::AllocateLegacyRelaySession() {
 }
 
 void P2PPortAllocatorSession::ParseRelayResponse() {
-  std::vector<std::pair<std::string, std::string> > value_pairs;
+  base::StringPairs value_pairs;
   if (!base::SplitStringIntoKeyValuePairs(relay_session_response_, '=', '\n',
                                           &value_pairs)) {
     LOG(ERROR) << "Received invalid response from relay server";
@@ -215,8 +214,7 @@ void P2PPortAllocatorSession::ParseRelayResponse() {
   relay_tcp_port_ = 0;
   relay_ssltcp_port_ = 0;
 
-  for (std::vector<std::pair<std::string, std::string> >::iterator
-           it = value_pairs.begin();
+  for (base::StringPairs::iterator it = value_pairs.begin();
        it != value_pairs.end(); ++it) {
     std::string key;
     std::string value;
@@ -259,8 +257,7 @@ void P2PPortAllocatorSession::ParseRelayResponse() {
 void P2PPortAllocatorSession::AddConfig() {
   const P2PPortAllocator::Config& config = allocator_->config_;
   cricket::PortConfiguration* port_config = new cricket::PortConfiguration(
-      talk_base::SocketAddress(config.stun_server, config.stun_server_port),
-      std::string(), std::string());
+      config.stun_servers, std::string(), std::string());
 
   for (size_t i = 0; i < config.relays.size(); ++i) {
     cricket::RelayCredentials credentials(config.relays[i].username,
@@ -278,7 +275,7 @@ void P2PPortAllocatorSession::AddConfig() {
     }
 
     relay_server.ports.push_back(cricket::ProtocolAddress(
-        talk_base::SocketAddress(config.relays[i].server_address,
+        rtc::SocketAddress(config.relays[i].server_address,
                                  config.relays[i].port),
         protocol,
         config.relays[i].secure));

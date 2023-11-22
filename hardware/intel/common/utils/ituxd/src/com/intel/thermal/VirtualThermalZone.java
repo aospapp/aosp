@@ -175,14 +175,15 @@ public class VirtualThermalZone extends ThermalZone {
             // In UEvent mode, the obtained temperature is the zone temperature
             return true;
         } else {
-            for (ThermalSensor ts : getThermalSensorList()) {
-                if (ts != null && ts.getSensorActiveStatus()) {
+            for (int i = 0; i < mThermalSensors.size(); i++) {
+                if (mThermalSensors.get(i) != null
+                        && mThermalSensors.get(i).getSensorActiveStatus()) {
                     if (flag == false) {
                         // one time initialization of zone temp
                         curZoneTemp = 0;
                         flag = true;
                     }
-                    weightedTemp = getWeightedTemp(ts);
+                    weightedTemp = getWeightedTemp(mThermalSensors.get(i));
                     if (weightedTemp != ThermalManager.INVALID_TEMP) {
                         curZoneTemp += weightedTemp;
                     }

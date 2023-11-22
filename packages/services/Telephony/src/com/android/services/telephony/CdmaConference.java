@@ -16,13 +16,16 @@
 
 package com.android.services.telephony;
 
+import android.content.Context;
+import android.content.res.Resources;
 import android.telecom.Conference;
 import android.telecom.Connection;
 import android.telecom.PhoneAccountHandle;
-import android.telecom.PhoneCapabilities;
 
 import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallStateException;
+import com.android.phone.PhoneGlobals;
+import com.android.phone.common.R;
 
 import java.util.List;
 
@@ -30,18 +33,18 @@ import java.util.List;
  * CDMA-based conference call.
  */
 public class CdmaConference extends Conference {
+    private int mCapabilities;
 
-    private int mCapabilities = PhoneCapabilities.MUTE;
-
-    public CdmaConference(PhoneAccountHandle phoneAccount, int capabilities) {
+    public CdmaConference(PhoneAccountHandle phoneAccount) {
         super(phoneAccount);
-        setCapabilities(mCapabilities | capabilities);
         setActive();
     }
 
-    private void updateCapabilities() {
-        setCapabilities(mCapabilities);
+    public void updateCapabilities(int capabilities) {
+        capabilities |= Connection.CAPABILITY_MUTE | Connection.CAPABILITY_GENERIC_CONFERENCE;
+        setCapabilities(capabilities);
     }
+
     /**
      * Invoked when the Conference and all it's {@link Connection}s should be disconnected.
      */
@@ -80,10 +83,12 @@ public class CdmaConference extends Conference {
     public void onMerge() {
         Log.i(this, "Merging CDMA conference call.");
         // Can only merge once
-        mCapabilities &= ~PhoneCapabilities.MERGE_CONFERENCE;
+        mCapabilities &= ~Connection.CAPABILITY_MERGE_CONFERENCE;
         // Once merged, swap is enabled.
-        mCapabilities |= PhoneCapabilities.SWAP_CONFERENCE;
-        updateCapabilities();
+        if (isSwapSupportedAfterMerge()){
+            mCapabilities |= Connection.CAPABILITY_SWAP_CONFERENCE;
+        }
+        updateCapabilities(mCapabilities);
         sendFlash();
     }
 
@@ -147,6 +152,27 @@ public class CdmaConference extends Conference {
             }
         }
         return null;
+    }
+
+    /**
+     * Return whether network support swap after merge conference call.
+     *
+     * @return true to support, false not support.
+     */
+    private final boolean isSwapSupportedAfterMerge()
+    {
+        boolean supportSwapAfterMerge = true;
+        Context context = PhoneGlobals.getInstance();
+
+        if (context != null) {
+            Resources r = context.getResources();
+            if (r != null) {
+                supportSwapAfterMerge = r.getBoolean(R.bool.support_swap_after_merge);
+                Log.d(this, "Current network support swap after call merged capability is "
+                        + supportSwapAfterMerge);
+            }
+        }
+        return supportSwapAfterMerge;
     }
 
     private com.android.internal.telephony.Connection getOriginalConnection(Connection connection) {

@@ -25,20 +25,58 @@
     <minSdk>21</minSdk>
     <compileSdkVersion>21</compileSdkVersion>
 
-    <dependency_external>'libs/volley.jar'</dependency_external>
+    <dependency>com.squareup.picasso:picasso:2.4.0</dependency>
 
     <strings>
         <intro>
             <![CDATA[
             Demonstrates how to the use Activity scene transitions when transitions
-            from one Activity to another. Uses a combination of moveImage and changeBounds
-            to nicely transition a grid of images to an Activity with a large image and detail
-            text.
+            from one Activity to another. Uses a combination of changeImageTransform and
+            changeBounds to nicely transition a grid of images to an Activity with a large image
+            and detail text.
             ]]>
         </intro>
     </strings>
 
+    <attribution>
+        <copyright>Copyright 2013 Square, Inc.</copyright>
+        <license>APACHE2</license>
+    </attribution>
+
     <template src="base"/>
     <common src="logger"/>
+
+    <metadata>
+        <status>PUBLISHED</status>
+        <categories>UI</categories>
+        <technologies>Android</technologies>
+        <languages>Java</languages>
+        <solutions>Mobile</solutions>
+        <level>INTERMEDIATE</level>
+        <icon>screenshots/icon-web.png</icon>
+        <screenshots>
+            <img>screenshots/1-main.png</img>
+            <img>screenshots/2-transition.png</img>
+            <img>screenshots/3-transition.png</img>
+            <img>screenshots/4-detail.png</img>
+        </screenshots>
+        <api_refs>
+            <android>android.transition.Transition</android>
+            <android>android.app.ActivityOptions</android>
+        </api_refs>
+        <description>
+This sample shows how to use scene transitions from one Activity to another in Lollipop.
+Uses a combination of changeImageTransform and changeBounds to transition a grid of images
+to an Activity with a large image and detail text.
+        </description>
+        <intro>
+Android Lollipop has introduced the ability to transition between activities by using a shared element.
+This sample demonstrates how to do this using the theme of your application.
+
+See [Defining Custom Animations][1] for all the details on how to do this.
+
+[1]: https://developer.android.com/training/material/animations.html#Transitions
+        </intro>
+    </metadata>
 
 </sample>

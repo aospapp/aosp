@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     Copyright (C) 2012 Google Inc.
+     Copyright (C) 2014 Google Inc.
      Licensed to The Android Open Source Project.
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,5 +16,5 @@
      limitations under the License.
 -->
 <resources>
-    <dimen name="search_view_width">500dip</dimen>
+    <dimen name="vacation_responder_padding_horizontal">80dp</dimen>
 </resources>

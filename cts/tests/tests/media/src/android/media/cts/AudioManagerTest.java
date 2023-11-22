@@ -38,10 +38,10 @@ import static android.provider.Settings.System.SOUND_EFFECTS_ENABLED;
 
 import com.android.cts.media.R;
 
-
 import android.content.Context;
 import android.content.res.Resources;
 import android.media.AudioManager;
+import android.content.pm.PackageManager;
 import android.media.MediaPlayer;
 import android.os.Vibrator;
 import android.provider.Settings;
@@ -49,13 +49,19 @@ import android.telephony.TelephonyManager;
 import android.test.AndroidTestCase;
 import android.view.SoundEffectConstants;
 
+import java.util.TreeMap;
+
 public class AudioManagerTest extends AndroidTestCase {
 
     private final static int MP3_TO_PLAY = R.raw.testmp3;
     private final static long TIME_TO_PLAY = 2000;
     private AudioManager mAudioManager;
     private boolean mHasVibrator;
+    private boolean mUseMasterVolume;
     private boolean mUseFixedVolume;
+    private int[] mMasterVolumeRamp;
+    private TreeMap<Integer, Integer> mMasterVolumeMap = new TreeMap<Integer, Integer>();
+    private boolean mIsTelevision;
 
     @Override
     protected void setUp() throws Exception {
@@ -63,8 +69,20 @@ public class AudioManagerTest extends AndroidTestCase {
         mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
         Vibrator vibrator = (Vibrator) mContext.getSystemService(Context.VIBRATOR_SERVICE);
         mHasVibrator = (vibrator != null) && vibrator.hasVibrator();
+        mUseMasterVolume = mContext.getResources().getBoolean(
+                Resources.getSystem().getIdentifier("config_useMasterVolume", "bool", "android"));
         mUseFixedVolume = mContext.getResources().getBoolean(
                 Resources.getSystem().getIdentifier("config_useFixedVolume", "bool", "android"));
+        mMasterVolumeRamp = mContext.getResources().getIntArray(
+                Resources.getSystem().getIdentifier("config_masterVolumeRamp", "array", "android"));
+        assertTrue((mMasterVolumeRamp.length > 0) && (mMasterVolumeRamp.length % 2 == 0));
+        for (int i = 0; i < mMasterVolumeRamp.length; i+=2) {
+            mMasterVolumeMap.put(mMasterVolumeRamp[i], mMasterVolumeRamp[i+1]);
+        }
+        PackageManager packageManager = mContext.getPackageManager();
+        mIsTelevision = packageManager != null
+                && (packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+                        || packageManager.hasSystemFeature(PackageManager.FEATURE_TELEVISION));
     }
 
     public void testMicrophoneMute() throws Exception {
@@ -171,7 +189,7 @@ public class AudioManagerTest extends AndroidTestCase {
     }
 
     public void testVibrateNotification() throws Exception {
-        if (mUseFixedVolume) {
+        if (mUseFixedVolume || !mHasVibrator) {
             return;
         }
         // VIBRATE_SETTING_ON
@@ -232,7 +250,7 @@ public class AudioManagerTest extends AndroidTestCase {
     }
 
     public void testVibrateRinger() throws Exception {
-        if (mUseFixedVolume) {
+        if (mUseFixedVolume || !mHasVibrator) {
             return;
         }
         // VIBRATE_TYPE_RINGER
@@ -298,14 +316,16 @@ public class AudioManagerTest extends AndroidTestCase {
         assertEquals(RINGER_MODE_NORMAL, mAudioManager.getRingerMode());
 
         mAudioManager.setRingerMode(RINGER_MODE_SILENT);
-        if (mUseFixedVolume) {
+        // AudioService#setRingerMode() has:
+        // if (isTelevision) return;
+        if (mUseFixedVolume || mIsTelevision) {
             assertEquals(RINGER_MODE_NORMAL, mAudioManager.getRingerMode());
         } else {
             assertEquals(RINGER_MODE_SILENT, mAudioManager.getRingerMode());
         }
 
         mAudioManager.setRingerMode(RINGER_MODE_VIBRATE);
-        if (mUseFixedVolume) {
+        if (mUseFixedVolume || mIsTelevision) {
             assertEquals(RINGER_MODE_NORMAL, mAudioManager.getRingerMode());
         } else {
             assertEquals(mHasVibrator ? RINGER_MODE_VIBRATE : RINGER_MODE_SILENT,
@@ -314,6 +334,7 @@ public class AudioManagerTest extends AndroidTestCase {
     }
 
     public void testVolume() throws Exception {
+        int volume, volumeDelta;
         int[] streams = { AudioManager.STREAM_ALARM,
                           AudioManager.STREAM_MUSIC,
                           AudioManager.STREAM_VOICE_CALL,
@@ -356,22 +377,32 @@ public class AudioManagerTest extends AndroidTestCase {
             mAudioManager.adjustStreamVolume(streams[i], ADJUST_RAISE, 0);
             assertEquals(maxVolume, mAudioManager.getStreamVolume(streams[i]));
 
+            volumeDelta = getVolumeDelta(mAudioManager.getStreamVolume(streams[i]));
             mAudioManager.adjustSuggestedStreamVolume(ADJUST_LOWER, streams[i], 0);
-            assertEquals(maxVolume - 1, mAudioManager.getStreamVolume(streams[i]));
+            assertEquals(maxVolume - volumeDelta, mAudioManager.getStreamVolume(streams[i]));
 
             // volume lower
             mAudioManager.setStreamVolume(streams[i], maxVolume, 0);
-            for (int k = maxVolume; k > 0; k--) {
+            volume = mAudioManager.getStreamVolume(streams[i]);
+            while (volume > 0) {
+                volumeDelta = getVolumeDelta(mAudioManager.getStreamVolume(streams[i]));
                 mAudioManager.adjustStreamVolume(streams[i], ADJUST_LOWER, 0);
-                assertEquals(k - 1, mAudioManager.getStreamVolume(streams[i]));
+                assertEquals(Math.max(0, volume - volumeDelta),
+                             mAudioManager.getStreamVolume(streams[i]));
+                volume = mAudioManager.getStreamVolume(streams[i]);
             }
 
             mAudioManager.adjustStreamVolume(streams[i], ADJUST_SAME, 0);
+
             // volume raise
             mAudioManager.setStreamVolume(streams[i], 1, 0);
-            for (int k = 1; k < maxVolume; k++) {
+            volume = mAudioManager.getStreamVolume(streams[i]);
+            while (volume < maxVolume) {
+                volumeDelta = getVolumeDelta(mAudioManager.getStreamVolume(streams[i]));
                 mAudioManager.adjustStreamVolume(streams[i], ADJUST_RAISE, 0);
-                assertEquals(1 + k, mAudioManager.getStreamVolume(streams[i]));
+                assertEquals(Math.min(volume + volumeDelta, maxVolume),
+                             mAudioManager.getStreamVolume(streams[i]));
+                volume = mAudioManager.getStreamVolume(streams[i]);
             }
 
             // volume same
@@ -406,18 +437,20 @@ public class AudioManagerTest extends AndroidTestCase {
         }
 
         // adjust volume as ADJUST_RAISE
-        mAudioManager.setStreamVolume(STREAM_MUSIC, 1, 0);
-        for (int k = 0; k < maxMusicVolume - 1; k++) {
-            mAudioManager.adjustVolume(ADJUST_RAISE, 0);
-            assertEquals(2 + k, mAudioManager.getStreamVolume(STREAM_MUSIC));
-        }
+        mAudioManager.setStreamVolume(STREAM_MUSIC, 0, 0);
+        volumeDelta = getVolumeDelta(mAudioManager.getStreamVolume(STREAM_MUSIC));
+        mAudioManager.adjustVolume(ADJUST_RAISE, 0);
+        assertEquals(Math.min(volumeDelta, maxMusicVolume),
+                     mAudioManager.getStreamVolume(STREAM_MUSIC));
 
         // adjust volume as ADJUST_LOWER
         mAudioManager.setStreamVolume(STREAM_MUSIC, maxMusicVolume, 0);
         maxMusicVolume = mAudioManager.getStreamVolume(STREAM_MUSIC);
-
+        volumeDelta = getVolumeDelta(mAudioManager.getStreamVolume(STREAM_MUSIC));
         mAudioManager.adjustVolume(ADJUST_LOWER, 0);
-        assertEquals(maxMusicVolume - 1, mAudioManager.getStreamVolume(STREAM_MUSIC));
+        assertEquals(Math.max(0, maxMusicVolume - volumeDelta),
+                     mAudioManager.getStreamVolume(STREAM_MUSIC));
+
         mp.stop();
         mp.release();
         Thread.sleep(TIME_TO_PLAY);
@@ -431,5 +464,14 @@ public class AudioManagerTest extends AndroidTestCase {
 
         mAudioManager.setRingerMode(-3007);
         assertEquals(ringerMode, mAudioManager.getRingerMode());
+    }
+
+    private int getVolumeDelta(int volume) {
+        if (!mUseMasterVolume) {
+            return 1;
+        }
+        int volumeDelta = mMasterVolumeMap.floorEntry(volume).getValue();
+        assertTrue(volumeDelta > 0);
+        return volumeDelta;
     }
 }

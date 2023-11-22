@@ -34,10 +34,14 @@
 #include "third_party/WebKit/public/platform/WebRTCConfiguration.h"
 #include "third_party/WebKit/public/platform/WebRTCDataChannelInit.h"
 #include "third_party/WebKit/public/platform/WebRTCICECandidate.h"
+#include "third_party/WebKit/public/platform/WebRTCOfferOptions.h"
 #include "third_party/WebKit/public/platform/WebRTCSessionDescription.h"
 #include "third_party/WebKit/public/platform/WebRTCSessionDescriptionRequest.h"
 #include "third_party/WebKit/public/platform/WebRTCVoidRequest.h"
 #include "third_party/WebKit/public/platform/WebURL.h"
+
+using webrtc::StatsReport;
+using webrtc::StatsReports;
 
 namespace content {
 
@@ -129,10 +133,10 @@ CreateWebKitSessionDescription(
 
 // Converter functions from WebKit types to libjingle types.
 
-static void GetNativeIceServers(
+static void GetNativeRtcConfiguration(
     const blink::WebRTCConfiguration& server_configuration,
-    webrtc::PeerConnectionInterface::IceServers* servers) {
-  if (server_configuration.isNull() || !servers)
+    webrtc::PeerConnectionInterface::RTCConfiguration* config) {
+  if (server_configuration.isNull() || !config)
     return;
   for (size_t i = 0; i < server_configuration.numberOfServers(); ++i) {
     webrtc::PeerConnectionInterface::IceServer server;
@@ -141,7 +145,21 @@ static void GetNativeIceServers(
     server.username = base::UTF16ToUTF8(webkit_server.username());
     server.password = base::UTF16ToUTF8(webkit_server.credential());
     server.uri = webkit_server.uri().spec();
-    servers->push_back(server);
+    config->servers.push_back(server);
+  }
+
+  switch (server_configuration.iceTransports()) {
+  case blink::WebRTCIceTransportsNone:
+    config->type = webrtc::PeerConnectionInterface::kNone;
+    break;
+  case blink::WebRTCIceTransportsRelay:
+    config->type = webrtc::PeerConnectionInterface::kRelay;
+    break;
+  case blink::WebRTCIceTransportsAll:
+    config->type = webrtc::PeerConnectionInterface::kAll;
+    break;
+  default:
+    NOTREACHED();
   }
 }
 
@@ -240,13 +258,12 @@ class StatsResponse : public webrtc::StatsObserver {
     TRACE_EVENT_ASYNC_BEGIN0("webrtc", "getStats_Native", this);
   }
 
-  virtual void OnComplete(
-      const std::vector<webrtc::StatsReport>& reports) OVERRIDE {
+  virtual void OnComplete(const StatsReports& reports) OVERRIDE {
     TRACE_EVENT0("webrtc", "StatsResponse::OnComplete")
-    for (std::vector<webrtc::StatsReport>::const_iterator it = reports.begin();
+    for (StatsReports::const_iterator it = reports.begin();
          it != reports.end(); ++it) {
-      if (it->values.size() > 0) {
-        AddReport(*it);
+      if ((*it)->values.size() > 0) {
+        AddReport(*(*it));
       }
     }
 
@@ -259,26 +276,24 @@ class StatsResponse : public webrtc::StatsObserver {
   }
 
  private:
-  void AddReport(const webrtc::StatsReport& report) {
+  void AddReport(const StatsReport& report) {
     int idx = response_->addReport(blink::WebString::fromUTF8(report.id),
                                    blink::WebString::fromUTF8(report.type),
                                    report.timestamp);
-    for (webrtc::StatsReport::Values::const_iterator value_it =
-         report.values.begin();
+    for (StatsReport::Values::const_iterator value_it = report.values.begin();
          value_it != report.values.end(); ++value_it) {
-      AddStatistic(idx, value_it->name, value_it->value);
+      AddStatistic(idx, value_it->display_name(), value_it->value);
     }
   }
 
-  void AddStatistic(int idx, const std::string& name,
-                    const std::string& value) {
+  void AddStatistic(int idx, const char* name, const std::string& value) {
     response_->addStatistic(idx,
                             blink::WebString::fromUTF8(name),
                             blink::WebString::fromUTF8(value));
   }
 
-  talk_base::scoped_refptr<LocalRTCStatsRequest> request_;
-  talk_base::scoped_refptr<LocalRTCStatsResponse> response_;
+  rtc::scoped_refptr<LocalRTCStatsRequest> request_;
+  rtc::scoped_refptr<LocalRTCStatsResponse> response_;
 };
 
 // Implementation of LocalRTCStatsRequest.
@@ -300,7 +315,7 @@ blink::WebMediaStreamTrack LocalRTCStatsRequest::component() const {
 
 scoped_refptr<LocalRTCStatsResponse> LocalRTCStatsRequest::createResponse() {
   DCHECK(!response_);
-  response_ = new talk_base::RefCountedObject<LocalRTCStatsResponse>(
+  response_ = new rtc::RefCountedObject<LocalRTCStatsResponse>(
       impl_.createResponse());
   return response_.get();
 }
@@ -375,7 +390,9 @@ RTCPeerConnectionHandler::RTCPeerConnectionHandler(
       dependency_factory_(dependency_factory),
       frame_(NULL),
       peer_connection_tracker_(NULL),
-      num_data_channels_created_(0) {
+      num_data_channels_created_(0),
+      num_local_candidates_ipv4_(0),
+      num_local_candidates_ipv6_(0) {
   g_peer_connection_handlers.Get().insert(this);
 }
 
@@ -401,6 +418,32 @@ void RTCPeerConnectionHandler::DestructAllHandlers() {
   }
 }
 
+void RTCPeerConnectionHandler::ConvertOfferOptionsToConstraints(
+    const blink::WebRTCOfferOptions& options,
+    RTCMediaConstraints* output) {
+  output->AddMandatory(
+      webrtc::MediaConstraintsInterface::kOfferToReceiveAudio,
+      options.offerToReceiveAudio() > 0 ? "true" : "false",
+      true);
+
+  output->AddMandatory(
+      webrtc::MediaConstraintsInterface::kOfferToReceiveVideo,
+      options.offerToReceiveVideo() > 0 ? "true" : "false",
+      true);
+
+  if (!options.voiceActivityDetection()) {
+    output->AddMandatory(
+        webrtc::MediaConstraintsInterface::kVoiceActivityDetection,
+        "false",
+        true);
+  }
+
+  if (options.iceRestart()) {
+    output->AddMandatory(
+        webrtc::MediaConstraintsInterface::kIceRestart, "true", true);
+  }
+}
+
 void RTCPeerConnectionHandler::associateWithFrame(blink::WebFrame* frame) {
   DCHECK(frame);
   frame_ = frame;
@@ -414,23 +457,24 @@ bool RTCPeerConnectionHandler::initialize(
   peer_connection_tracker_ =
       RenderThreadImpl::current()->peer_connection_tracker();
 
-  webrtc::PeerConnectionInterface::IceServers servers;
-  GetNativeIceServers(server_configuration, &servers);
+  webrtc::PeerConnectionInterface::RTCConfiguration config;
+  GetNativeRtcConfiguration(server_configuration, &config);
 
   RTCMediaConstraints constraints(options);
 
   native_peer_connection_ =
       dependency_factory_->CreatePeerConnection(
-          servers, &constraints, frame_, this);
+          config, &constraints, frame_, this);
+
   if (!native_peer_connection_.get()) {
     LOG(ERROR) << "Failed to initialize native PeerConnection.";
     return false;
   }
   if (peer_connection_tracker_)
     peer_connection_tracker_->RegisterPeerConnection(
-        this, servers, constraints, frame_);
+        this, config, constraints, frame_);
 
-  uma_observer_ = new talk_base::RefCountedObject<PeerConnectionUMAObserver>();
+  uma_observer_ = new rtc::RefCountedObject<PeerConnectionUMAObserver>();
   native_peer_connection_->RegisterUMAObserver(uma_observer_.get());
   return true;
 }
@@ -439,13 +483,13 @@ bool RTCPeerConnectionHandler::InitializeForTest(
     const blink::WebRTCConfiguration& server_configuration,
     const blink::WebMediaConstraints& options,
     PeerConnectionTracker* peer_connection_tracker) {
-  webrtc::PeerConnectionInterface::IceServers servers;
-  GetNativeIceServers(server_configuration, &servers);
+  webrtc::PeerConnectionInterface::RTCConfiguration config;
+  GetNativeRtcConfiguration(server_configuration, &config);
 
   RTCMediaConstraints constraints(options);
   native_peer_connection_ =
       dependency_factory_->CreatePeerConnection(
-          servers, &constraints, NULL, this);
+          config, &constraints, NULL, this);
   if (!native_peer_connection_.get()) {
     LOG(ERROR) << "Failed to initialize native PeerConnection.";
     return false;
@@ -458,9 +502,24 @@ void RTCPeerConnectionHandler::createOffer(
     const blink::WebRTCSessionDescriptionRequest& request,
     const blink::WebMediaConstraints& options) {
   scoped_refptr<CreateSessionDescriptionRequest> description_request(
-      new talk_base::RefCountedObject<CreateSessionDescriptionRequest>(
+      new rtc::RefCountedObject<CreateSessionDescriptionRequest>(
           request, this, PeerConnectionTracker::ACTION_CREATE_OFFER));
   RTCMediaConstraints constraints(options);
+  native_peer_connection_->CreateOffer(description_request.get(), &constraints);
+
+  if (peer_connection_tracker_)
+    peer_connection_tracker_->TrackCreateOffer(this, constraints);
+}
+
+void RTCPeerConnectionHandler::createOffer(
+    const blink::WebRTCSessionDescriptionRequest& request,
+    const blink::WebRTCOfferOptions& options) {
+  scoped_refptr<CreateSessionDescriptionRequest> description_request(
+      new rtc::RefCountedObject<CreateSessionDescriptionRequest>(
+          request, this, PeerConnectionTracker::ACTION_CREATE_OFFER));
+
+  RTCMediaConstraints constraints;
+  ConvertOfferOptionsToConstraints(options, &constraints);
   native_peer_connection_->CreateOffer(description_request.get(), &constraints);
 
   if (peer_connection_tracker_)
@@ -471,7 +530,7 @@ void RTCPeerConnectionHandler::createAnswer(
     const blink::WebRTCSessionDescriptionRequest& request,
     const blink::WebMediaConstraints& options) {
   scoped_refptr<CreateSessionDescriptionRequest> description_request(
-      new talk_base::RefCountedObject<CreateSessionDescriptionRequest>(
+      new rtc::RefCountedObject<CreateSessionDescriptionRequest>(
           request, this, PeerConnectionTracker::ACTION_CREATE_ANSWER));
   RTCMediaConstraints constraints(options);
   native_peer_connection_->CreateAnswer(description_request.get(),
@@ -501,7 +560,7 @@ void RTCPeerConnectionHandler::setLocalDescription(
         this, description, PeerConnectionTracker::SOURCE_LOCAL);
 
   scoped_refptr<SetSessionDescriptionRequest> set_request(
-      new talk_base::RefCountedObject<SetSessionDescriptionRequest>(
+      new rtc::RefCountedObject<SetSessionDescriptionRequest>(
           request, this, PeerConnectionTracker::ACTION_SET_LOCAL_DESCRIPTION));
   native_peer_connection_->SetLocalDescription(set_request.get(), native_desc);
 }
@@ -526,7 +585,7 @@ void RTCPeerConnectionHandler::setRemoteDescription(
         this, description, PeerConnectionTracker::SOURCE_REMOTE);
 
   scoped_refptr<SetSessionDescriptionRequest> set_request(
-      new talk_base::RefCountedObject<SetSessionDescriptionRequest>(
+      new rtc::RefCountedObject<SetSessionDescriptionRequest>(
           request, this, PeerConnectionTracker::ACTION_SET_REMOTE_DESCRIPTION));
   native_peer_connection_->SetRemoteDescription(set_request.get(), native_desc);
 }
@@ -552,14 +611,14 @@ RTCPeerConnectionHandler::remoteDescription() {
 bool RTCPeerConnectionHandler::updateICE(
     const blink::WebRTCConfiguration& server_configuration,
     const blink::WebMediaConstraints& options) {
-  webrtc::PeerConnectionInterface::IceServers servers;
-  GetNativeIceServers(server_configuration, &servers);
+  webrtc::PeerConnectionInterface::RTCConfiguration config;
+  GetNativeRtcConfiguration(server_configuration, &config);
   RTCMediaConstraints constraints(options);
 
   if (peer_connection_tracker_)
-    peer_connection_tracker_->TrackUpdateIce(this, servers, constraints);
+    peer_connection_tracker_->TrackUpdateIce(this, config, constraints);
 
-  return native_peer_connection_->UpdateIce(servers,
+  return native_peer_connection_->UpdateIce(config.servers,
                                             &constraints);
 }
 
@@ -584,19 +643,20 @@ bool RTCPeerConnectionHandler::addICECandidate(
           base::UTF16ToUTF8(candidate.sdpMid()),
           candidate.sdpMLineIndex(),
           base::UTF16ToUTF8(candidate.candidate())));
-  if (!native_candidate) {
+  bool return_value = false;
+
+  if (native_candidate) {
+    return_value =
+        native_peer_connection_->AddIceCandidate(native_candidate.get());
+    LOG_IF(ERROR, !return_value) << "Error processing ICE candidate.";
+  } else {
     LOG(ERROR) << "Could not create native ICE candidate.";
-    return false;
   }
 
-  bool return_value =
-      native_peer_connection_->AddIceCandidate(native_candidate.get());
-  LOG_IF(ERROR, !return_value) << "Error processing ICE candidate.";
-
-  if (peer_connection_tracker_)
+  if (peer_connection_tracker_) {
     peer_connection_tracker_->TrackAddIceCandidate(
-        this, candidate, PeerConnectionTracker::SOURCE_REMOTE);
-
+        this, candidate, PeerConnectionTracker::SOURCE_REMOTE, return_value);
+  }
   return return_value;
 }
 
@@ -657,27 +717,27 @@ void RTCPeerConnectionHandler::removeStream(
       break;
     }
   }
-  DCHECK(webrtc_stream);
-  native_peer_connection_->RemoveStream(webrtc_stream);
+  DCHECK(webrtc_stream.get());
+  native_peer_connection_->RemoveStream(webrtc_stream.get());
 
   if (peer_connection_tracker_)
     peer_connection_tracker_->TrackRemoveStream(
         this, stream, PeerConnectionTracker::SOURCE_LOCAL);
   PerSessionWebRTCAPIMetrics::GetInstance()->DecrementStreamCounter();
   track_metrics_.RemoveStream(MediaStreamTrackMetrics::SENT_STREAM,
-                              webrtc_stream);
+                              webrtc_stream.get());
 }
 
 void RTCPeerConnectionHandler::getStats(
     const blink::WebRTCStatsRequest& request) {
   scoped_refptr<LocalRTCStatsRequest> inner_request(
-      new talk_base::RefCountedObject<LocalRTCStatsRequest>(request));
+      new rtc::RefCountedObject<LocalRTCStatsRequest>(request));
   getStats(inner_request.get());
 }
 
 void RTCPeerConnectionHandler::getStats(LocalRTCStatsRequest* request) {
-  talk_base::scoped_refptr<webrtc::StatsObserver> observer(
-      new talk_base::RefCountedObject<StatsResponse>(request));
+  rtc::scoped_refptr<webrtc::StatsObserver> observer(
+      new rtc::RefCountedObject<StatsResponse>(request));
   webrtc::MediaStreamTrackInterface* track = NULL;
   if (request->hasSelector()) {
     blink::WebMediaStreamSource::Type type =
@@ -702,8 +762,7 @@ void RTCPeerConnectionHandler::getStats(LocalRTCStatsRequest* request) {
     if (!track) {
       DVLOG(1) << "GetStats: Track not found.";
       // TODO(hta): Consider how to get an error back.
-      std::vector<webrtc::StatsReport> no_reports;
-      observer->OnComplete(no_reports);
+      observer->OnComplete(StatsReports());
       return;
     }
   }
@@ -720,10 +779,13 @@ void RTCPeerConnectionHandler::GetStats(
   if (!native_peer_connection_->GetStats(observer, track, level)) {
     DVLOG(1) << "GetStats failed.";
     // TODO(hta): Consider how to get an error back.
-    std::vector<webrtc::StatsReport> no_reports;
-    observer->OnComplete(no_reports);
+    observer->OnComplete(StatsReports());
     return;
   }
+}
+
+void RTCPeerConnectionHandler::CloseClientPeerConnection() {
+  client_->closePeerConnection();
 }
 
 blink::WebRTCDataChannelHandler* RTCPeerConnectionHandler::createDataChannel(
@@ -741,7 +803,7 @@ blink::WebRTCDataChannelHandler* RTCPeerConnectionHandler::createDataChannel(
   config.maxRetransmitTime = init.maxRetransmitTime;
   config.protocol = base::UTF16ToUTF8(init.protocol);
 
-  talk_base::scoped_refptr<webrtc::DataChannelInterface> webrtc_channel(
+  rtc::scoped_refptr<webrtc::DataChannelInterface> webrtc_channel(
       native_peer_connection_->CreateDataChannel(base::UTF16ToUTF8(label),
                                                  &config));
   if (!webrtc_channel) {
@@ -769,7 +831,7 @@ blink::WebRTCDTMFSenderHandler* RTCPeerConnectionHandler::createDTMFSender(
   }
 
   webrtc::AudioTrackInterface* audio_track = native_track->GetAudioAdapter();
-  talk_base::scoped_refptr<webrtc::DtmfSenderInterface> sender(
+  rtc::scoped_refptr<webrtc::DtmfSenderInterface> sender(
       native_peer_connection_->CreateDtmfSender(audio_track));
   if (!sender) {
     DLOG(ERROR) << "Could not create native DTMF sender.";
@@ -806,6 +868,18 @@ void RTCPeerConnectionHandler::OnSignalingChange(
 // Called any time the IceConnectionState changes
 void RTCPeerConnectionHandler::OnIceConnectionChange(
     webrtc::PeerConnectionInterface::IceConnectionState new_state) {
+  if (new_state == webrtc::PeerConnectionInterface::kIceConnectionChecking) {
+    ice_connection_checking_start_ = base::TimeTicks::Now();
+  } else if (new_state ==
+      webrtc::PeerConnectionInterface::kIceConnectionConnected) {
+    // If the state becomes connected, send the time needed for PC to become
+    // connected from checking to UMA. UMA data will help to know how much
+    // time needed for PC to connect with remote peer.
+    UMA_HISTOGRAM_MEDIUM_TIMES(
+        "WebRTC.PeerConnection.TimeToConnect",
+        base::TimeTicks::Now() - ice_connection_checking_start_);
+  }
+
   track_metrics_.IceConnectionChange(new_state);
   blink::WebRTCPeerConnectionHandlerClient::ICEConnectionState state =
       GetWebKitIceConnectionState(new_state);
@@ -822,6 +896,18 @@ void RTCPeerConnectionHandler::OnIceGatheringChange(
     // to signal end of candidates.
     blink::WebRTCICECandidate null_candidate;
     client_->didGenerateICECandidate(null_candidate);
+
+    UMA_HISTOGRAM_COUNTS_100("WebRTC.PeerConnection.IPv4LocalCandidates",
+                             num_local_candidates_ipv4_);
+
+    UMA_HISTOGRAM_COUNTS_100("WebRTC.PeerConnection.IPv6LocalCandidates",
+                             num_local_candidates_ipv6_);
+  } else if (new_state ==
+             webrtc::PeerConnectionInterface::kIceGatheringGathering) {
+    // ICE restarts will change gathering state back to "gathering",
+    // reset the counter.
+    num_local_candidates_ipv6_ = 0;
+    num_local_candidates_ipv4_ = 0;
   }
 
   blink::WebRTCPeerConnectionHandlerClient::ICEGatheringState state =
@@ -894,8 +980,20 @@ void RTCPeerConnectionHandler::OnIceCandidate(
                            candidate->sdp_mline_index());
   if (peer_connection_tracker_)
     peer_connection_tracker_->TrackAddIceCandidate(
-        this, web_candidate, PeerConnectionTracker::SOURCE_LOCAL);
+        this, web_candidate, PeerConnectionTracker::SOURCE_LOCAL, true);
 
+  // Only the first m line's first component is tracked to avoid
+  // miscounting when doing BUNDLE or rtcp mux.
+  if (candidate->sdp_mline_index() == 0 &&
+      candidate->candidate().component() == 1) {
+    if (candidate->candidate().address().family() == AF_INET) {
+      num_local_candidates_ipv4_++;
+    } else if (candidate->candidate().address().family() == AF_INET6) {
+      num_local_candidates_ipv6_++;
+    } else {
+      NOTREACHED();
+    }
+  }
   client_->didGenerateICECandidate(web_candidate);
 }
 

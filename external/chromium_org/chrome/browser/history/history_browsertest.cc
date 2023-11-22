@@ -86,12 +86,12 @@ class HistoryBrowserTest : public InProcessBrowserTest {
   }
 
   void WaitForHistoryBackendToRun() {
-    CancelableRequestConsumerTSimple<int> request_consumer;
-    scoped_refptr<history::HistoryDBTask> task(new WaitForHistoryTask());
+    base::CancelableTaskTracker task_tracker;
+    scoped_ptr<history::HistoryDBTask> task(new WaitForHistoryTask());
     HistoryService* history =
         HistoryServiceFactory::GetForProfile(GetProfile(),
                                              Profile::EXPLICIT_ACCESS);
-    history->HistoryService::ScheduleDBTask(task.get(), &request_consumer);
+    history->HistoryService::ScheduleDBTask(task.Pass(), &task_tracker);
     content::RunMessageLoop();
   }
 

@@ -9,8 +9,8 @@
 #include "base/memory/scoped_ptr.h"
 #include "chrome/browser/chromeos/file_system_provider/operations/operation.h"
 #include "chrome/browser/chromeos/file_system_provider/provided_file_system_info.h"
+#include "chrome/browser/chromeos/file_system_provider/provided_file_system_interface.h"
 #include "chrome/browser/chromeos/file_system_provider/request_value.h"
-#include "webkit/browser/fileapi/async_file_util.h"
 
 namespace base {
 class FilePath;
@@ -24,14 +24,15 @@ namespace chromeos {
 namespace file_system_provider {
 namespace operations {
 
-// Bridge between fileapi read directory operation and providing extension's
-// read directory request. Created per request.
+// Bridge between fileapi get metadata operation and providing extension's get
+// metadata request. Created per request.
 class GetMetadata : public Operation {
  public:
   GetMetadata(extensions::EventRouter* event_router,
               const ProvidedFileSystemInfo& file_system_info,
-              const base::FilePath& directory_path,
-              const fileapi::AsyncFileUtil::GetFileInfoCallback& callback);
+              const base::FilePath& entry_path,
+              ProvidedFileSystemInterface::MetadataFieldMask fields,
+              const ProvidedFileSystemInterface::GetMetadataCallback& callback);
   virtual ~GetMetadata();
 
   // Operation overrides.
@@ -39,11 +40,14 @@ class GetMetadata : public Operation {
   virtual void OnSuccess(int request_id,
                          scoped_ptr<RequestValue> result,
                          bool has_more) OVERRIDE;
-  virtual void OnError(int request_id, base::File::Error error) OVERRIDE;
+  virtual void OnError(int request_id,
+                       scoped_ptr<RequestValue> result,
+                       base::File::Error error) OVERRIDE;
 
  private:
   base::FilePath entry_path_;
-  const fileapi::AsyncFileUtil::GetFileInfoCallback callback_;
+  ProvidedFileSystemInterface::MetadataFieldMask fields_;
+  const ProvidedFileSystemInterface::GetMetadataCallback callback_;
 
   DISALLOW_COPY_AND_ASSIGN(GetMetadata);
 };

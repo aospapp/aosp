@@ -23,7 +23,6 @@
 #include "ui/base/win/touch_input.h"
 #include "ui/events/event.h"
 #include "ui/events/event_utils.h"
-#include "ui/events/gestures/gesture_sequence.h"
 #include "ui/events/keycodes/keyboard_code_conversion_win.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/canvas_skia_paint.h"
@@ -359,7 +358,8 @@ HWNDMessageHandler::HWNDMessageHandler(HWNDMessageHandlerDelegate* delegate)
       in_size_loop_(false),
       touch_down_contexts_(0),
       last_mouse_hwheel_time_(0),
-      msg_handled_(FALSE) {
+      msg_handled_(FALSE),
+      dwm_transition_desired_(false) {
 }
 
 HWNDMessageHandler::~HWNDMessageHandler() {
@@ -794,36 +794,18 @@ void HWNDMessageHandler::SetCursor(HCURSOR cursor) {
 }
 
 void HWNDMessageHandler::FrameTypeChanged() {
-  // Called when the frame type could possibly be changing (theme change or
-  // DWM composition change).
-  UpdateDwmNcRenderingPolicy();
-
-  // Don't redraw the window here, because we need to hide and show the window
-  // which will also trigger a redraw.
-  ResetWindowRegion(true, false);
-
-  // The non-client view needs to update too.
-  delegate_->HandleFrameChanged();
-
-  if (IsVisible() && !delegate_->IsUsingCustomFrame()) {
-    // For some reason, we need to hide the window after we change from a custom
-    // frame to a native frame.  If we don't, the client area will be filled
-    // with black.  This seems to be related to an interaction between DWM and
-    // SetWindowRgn, but the details aren't clear. Additionally, we need to
-    // specify SWP_NOZORDER here, otherwise if you have multiple chrome windows
-    // open they will re-appear with a non-deterministic Z-order.
-    UINT flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER;
-    SetWindowPos(hwnd(), NULL, 0, 0, 0, 0, flags | SWP_HIDEWINDOW);
-    SetWindowPos(hwnd(), NULL, 0, 0, 0, 0, flags | SWP_SHOWWINDOW);
-    // Invalidate the window to force a paint. There may be child windows which
-    // could resize in this context. Don't paint right away.
-    ::InvalidateRect(hwnd(), NULL, FALSE);
+  if (base::win::GetVersion() < base::win::VERSION_VISTA) {
+    // Don't redraw the window here, because we invalidate the window later.
+    ResetWindowRegion(true, false);
+    // The non-client view needs to update too.
+    delegate_->HandleFrameChanged();
+    InvalidateRect(hwnd(), NULL, FALSE);
+  } else {
+    if (!custom_window_region_ && !delegate_->IsUsingCustomFrame())
+      dwm_transition_desired_ = true;
+    if (!dwm_transition_desired_ || !fullscreen_handler_->fullscreen())
+      PerformDwmTransition();
   }
-
-  // WM_DWMCOMPOSITIONCHANGED is only sent to top level windows, however we want
-  // to notify our children too, since we can have MDI child windows who need to
-  // update their appearance.
-  EnumChildWindows(hwnd(), &SendDwmCompositionChanged, NULL);
 }
 
 void HWNDMessageHandler::SchedulePaintInRect(const gfx::Rect& rect) {
@@ -878,6 +860,35 @@ void HWNDMessageHandler::SetWindowIcons(const gfx::ImageSkia& window_icon,
   }
 }
 
+void HWNDMessageHandler::SetFullscreen(bool fullscreen) {
+  fullscreen_handler()->SetFullscreen(fullscreen);
+  // If we are out of fullscreen and there was a pending DWM transition for the
+  // window, then go ahead and do it now.
+  if (!fullscreen && dwm_transition_desired_)
+    PerformDwmTransition();
+}
+
+void HWNDMessageHandler::SizeConstraintsChanged() {
+  LONG style = GetWindowLong(hwnd(), GWL_STYLE);
+  // Ignore if this is not a standard window.
+  if (!(style & WS_OVERLAPPED))
+    return;
+
+  if (delegate_->CanResize()) {
+    style |= WS_THICKFRAME | WS_MAXIMIZEBOX;
+    if (!delegate_->CanMaximize())
+      style &= ~WS_MAXIMIZEBOX;
+  } else {
+    style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+  }
+  if (delegate_->CanMinimize()) {
+    style |= WS_MINIMIZEBOX;
+  } else {
+    style &= ~WS_MINIMIZEBOX;
+  }
+  SetWindowLong(hwnd(), GWL_STYLE, style);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // HWNDMessageHandler, InputMethodDelegate implementation:
 
@@ -915,12 +926,13 @@ LRESULT HWNDMessageHandler::OnWndProc(UINT message,
     return 0;
   msg_handled_ = old_msg_handled;
 
-  if (!processed)
+  if (!processed) {
     result = DefWindowProc(window, message, w_param, l_param);
-
-  // DefWindowProc() may have destroyed the window in a nested message loop.
-  if (!::IsWindow(window))
-    return result;
+    // DefWindowProc() may have destroyed the window and/or us in a nested
+    // message loop.
+    if (!ref || !::IsWindow(window))
+      return result;
+  }
 
   if (delegate_) {
     delegate_->PostHandleMSG(message, w_param, l_param);
@@ -935,35 +947,55 @@ LRESULT HWNDMessageHandler::OnWndProc(UINT message,
 
 LRESULT HWNDMessageHandler::HandleMouseMessage(unsigned int message,
                                                WPARAM w_param,
-                                               LPARAM l_param) {
+                                               LPARAM l_param,
+                                               bool* handled) {
   // Don't track forwarded mouse messages. We expect the caller to track the
   // mouse.
-  return HandleMouseEventInternal(message, w_param, l_param, false);
-}
-
-LRESULT HWNDMessageHandler::HandleTouchMessage(unsigned int message,
-                                               WPARAM w_param,
-                                               LPARAM l_param) {
-  return OnTouchEvent(message, w_param, l_param);
+  base::WeakPtr<HWNDMessageHandler> ref(weak_factory_.GetWeakPtr());
+  LRESULT ret = HandleMouseEventInternal(message, w_param, l_param, false);
+  *handled = IsMsgHandled();
+  return ret;
 }
 
 LRESULT HWNDMessageHandler::HandleKeyboardMessage(unsigned int message,
                                                   WPARAM w_param,
-                                                  LPARAM l_param) {
-  return OnKeyEvent(message, w_param, l_param);
+                                                  LPARAM l_param,
+                                                  bool* handled) {
+  base::WeakPtr<HWNDMessageHandler> ref(weak_factory_.GetWeakPtr());
+  LRESULT ret = OnKeyEvent(message, w_param, l_param);
+  *handled = IsMsgHandled();
+  return ret;
+}
+
+LRESULT HWNDMessageHandler::HandleTouchMessage(unsigned int message,
+                                               WPARAM w_param,
+                                               LPARAM l_param,
+                                               bool* handled) {
+  base::WeakPtr<HWNDMessageHandler> ref(weak_factory_.GetWeakPtr());
+  LRESULT ret = OnTouchEvent(message, w_param, l_param);
+  *handled = IsMsgHandled();
+  return ret;
 }
 
 LRESULT HWNDMessageHandler::HandleScrollMessage(unsigned int message,
                                                 WPARAM w_param,
-                                                LPARAM l_param) {
-  return OnScrollMessage(message, w_param, l_param);
+                                                LPARAM l_param,
+                                                bool* handled) {
+  base::WeakPtr<HWNDMessageHandler> ref(weak_factory_.GetWeakPtr());
+  LRESULT ret = OnScrollMessage(message, w_param, l_param);
+  *handled = IsMsgHandled();
+  return ret;
 }
 
 LRESULT HWNDMessageHandler::HandleNcHitTestMessage(unsigned int message,
                                                    WPARAM w_param,
-                                                   LPARAM l_param) {
-  return OnNCHitTest(
+                                                   LPARAM l_param,
+                                                   bool* handled) {
+  base::WeakPtr<HWNDMessageHandler> ref(weak_factory_.GetWeakPtr());
+  LRESULT ret = OnNCHitTest(
       gfx::Point(CR_GET_X_LPARAM(l_param), CR_GET_Y_LPARAM(l_param)));
+  *handled = IsMsgHandled();
+  return ret;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1133,6 +1165,9 @@ void HWNDMessageHandler::ResetWindowRegion(bool force, bool redraw) {
 
 void HWNDMessageHandler::UpdateDwmNcRenderingPolicy() {
   if (base::win::GetVersion() < base::win::VERSION_VISTA)
+    return;
+
+  if (fullscreen_handler_->fullscreen())
     return;
 
   DWMNCRENDERINGPOLICY policy =
@@ -1383,6 +1418,9 @@ void HWNDMessageHandler::OnGetMinMaxInfo(MINMAXINFO* minmax_info) {
   gfx::Size min_window_size;
   gfx::Size max_window_size;
   delegate_->GetMinMaxSize(&min_window_size, &max_window_size);
+  min_window_size = gfx::win::DIPToScreenSize(min_window_size);
+  max_window_size = gfx::win::DIPToScreenSize(max_window_size);
+
 
   // Add the native frame border size to the minimum and maximum size if the
   // view reports its size as the client size.
@@ -1438,8 +1476,11 @@ LRESULT HWNDMessageHandler::OnImeMessages(UINT message,
                                           WPARAM w_param,
                                           LPARAM l_param) {
   LRESULT result = 0;
-  SetMsgHandled(delegate_->HandleIMEMessage(
-      message, w_param, l_param, &result));
+  base::WeakPtr<HWNDMessageHandler> ref(weak_factory_.GetWeakPtr());
+  const bool msg_handled =
+      delegate_->HandleIMEMessage(message, w_param, l_param, &result);
+  if (ref.get())
+    SetMsgHandled(msg_handled);
   return result;
 }
 
@@ -1456,9 +1497,7 @@ void HWNDMessageHandler::OnInitMenu(HMENU menu) {
   EnableMenuItemByCommand(menu, SC_SIZE, delegate_->CanResize() && is_restored);
   EnableMenuItemByCommand(menu, SC_MAXIMIZE, delegate_->CanMaximize() &&
                           !is_fullscreen && !is_maximized);
-  // TODO: unfortunately, WidgetDelegate does not declare CanMinimize() and some
-  // code depends on this check, see http://crbug.com/341010.
-  EnableMenuItemByCommand(menu, SC_MINIMIZE, delegate_->CanMaximize() &&
+  EnableMenuItemByCommand(menu, SC_MINIMIZE, delegate_->CanMinimize() &&
                           !is_minimized);
 
   if (is_maximized && delegate_->CanResize())
@@ -1476,7 +1515,7 @@ LRESULT HWNDMessageHandler::OnKeyEvent(UINT message,
                                        WPARAM w_param,
                                        LPARAM l_param) {
   MSG msg = { hwnd(), message, w_param, l_param, GetMessageTime() };
-  ui::KeyEvent key(msg, message == WM_CHAR);
+  ui::KeyEvent key(msg);
   if (!delegate_->HandleUntranslatedKeyEvent(key))
     DispatchKeyEventPostIME(key);
   return 0;
@@ -2365,9 +2404,6 @@ LRESULT HWNDMessageHandler::HandleMouseEventInternal(UINT message,
   if (IsSynthesizedMouseMessage(message, message_time, l_param))
     event.set_flags(event.flags() | ui::EF_FROM_TOUCH);
 
-  if (!(event.flags() & ui::EF_IS_NON_CLIENT))
-    delegate_->HandleTooltipMouseMove(message, w_param, l_param);
-
   if (event.type() == ui::ET_MOUSE_MOVED && !HasCapture() && track_mouse) {
     // Windows only fires WM_MOUSELEAVE events if the application begins
     // "tracking" mouse events for a given HWND during WM_MOUSEMOVE events.
@@ -2426,6 +2462,33 @@ bool HWNDMessageHandler::IsSynthesizedMouseMessage(unsigned int message,
     return true;
   }
   return false;
+}
+
+void HWNDMessageHandler::PerformDwmTransition() {
+  dwm_transition_desired_ = false;
+
+  UpdateDwmNcRenderingPolicy();
+  // Don't redraw the window here, because we need to hide and show the window
+  // which will also trigger a redraw.
+  ResetWindowRegion(true, false);
+  // The non-client view needs to update too.
+  delegate_->HandleFrameChanged();
+
+  if (IsVisible() && !delegate_->IsUsingCustomFrame()) {
+    // For some reason, we need to hide the window after we change from a custom
+    // frame to a native frame.  If we don't, the client area will be filled
+    // with black.  This seems to be related to an interaction between DWM and
+    // SetWindowRgn, but the details aren't clear. Additionally, we need to
+    // specify SWP_NOZORDER here, otherwise if you have multiple chrome windows
+    // open they will re-appear with a non-deterministic Z-order.
+    UINT flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER;
+    SetWindowPos(hwnd(), NULL, 0, 0, 0, 0, flags | SWP_HIDEWINDOW);
+    SetWindowPos(hwnd(), NULL, 0, 0, 0, 0, flags | SWP_SHOWWINDOW);
+  }
+  // WM_DWMCOMPOSITIONCHANGED is only sent to top level windows, however we want
+  // to notify our children too, since we can have MDI child windows who need to
+  // update their appearance.
+  EnumChildWindows(hwnd(), &SendDwmCompositionChanged, NULL);
 }
 
 }  // namespace views

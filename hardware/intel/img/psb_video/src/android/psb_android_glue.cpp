@@ -44,9 +44,6 @@
 #ifdef TARGET_HAS_MULTIPLE_DISPLAY
 #include "psb_mds.h"
 #endif
-#if defined (PSBVIDEO_MRFL_VPP_SETTING) && !defined (TARGET_HAS_MULTIPLE_DISPLAY)
-#include <VPPSetting.h>
-#endif
 
 #ifdef  LOG_TAG
 #undef  LOG_TAG
@@ -147,14 +144,11 @@ int psb_android_get_mds_vpp_state(void* output) {
 #else //TARGET_HAS_MULTIPLE_DISPLAY
 
 #ifdef PSBVIDEO_MRFL_VPP
-
+/* VPP is always enabled. It disables decoder rotate.
+ * TODO: remove the dependency the on libVPP. Get it form ISB configure
+ */
 int psb_android_get_vpp_state() {
-#ifdef PSBVIDEO_MRFL_VPP_SETTING
-    bool ret = VPPSetting::isVppOn();
-    return (ret ? 1 : 0);
-#else
-    return 0;
-#endif
+    return 1;
 }
 
 #endif

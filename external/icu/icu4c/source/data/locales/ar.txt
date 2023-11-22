@@ -43,7 +43,7 @@ ar{
                 minusSign{"‏-"}
                 nan{"ليس رقم"}
                 perMille{"؉"}
-                percentSign{"٪"}
+                percentSign{"‏٪"} // Android-changed: http://b/15476051.
                 plusSign{"‏+"}
                 superscriptingExponent{"×"}
             }

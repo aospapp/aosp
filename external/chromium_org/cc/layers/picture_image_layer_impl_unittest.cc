@@ -5,13 +5,14 @@
 #include "cc/layers/picture_image_layer_impl.h"
 
 #include "cc/layers/append_quads_data.h"
+#include "cc/quads/draw_quad.h"
 #include "cc/resources/tile_priority.h"
 #include "cc/test/fake_impl_proxy.h"
 #include "cc/test/fake_layer_tree_host_impl.h"
 #include "cc/test/fake_output_surface.h"
 #include "cc/test/fake_picture_layer_tiling_client.h"
 #include "cc/test/impl_side_painting_settings.h"
-#include "cc/test/mock_quad_culler.h"
+#include "cc/test/mock_occlusion_tracker.h"
 #include "cc/test/test_shared_bitmap_manager.h"
 #include "cc/trees/layer_tree_impl.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -66,7 +67,7 @@ class PictureImageLayerImplTest : public testing::Test {
     layer->SetContentBounds(gfx::Size(100, 200));
     layer->tilings_.reset(new PictureLayerTilingSet(&tiling_client_,
                                                     layer->bounds()));
-    layer->pile_ = tiling_client_.pile();
+    layer->pile_ = tiling_client_.GetPile();
     return make_scoped_ptr(layer);
   }
 
@@ -83,7 +84,8 @@ class PictureImageLayerImplTest : public testing::Test {
         maximum_animation_contents_scale;
     layer->draw_properties().screen_space_transform_is_animating =
         animating_transform_to_screen;
-    layer->UpdateTiles();
+    bool resourceless_software_draw = false;
+    layer->UpdateTiles(Occlusion(), resourceless_software_draw);
   }
 
  protected:
@@ -126,7 +128,7 @@ TEST_F(PictureImageLayerImplTest, IgnoreIdealContentScale) {
 
   // Push to active layer.
   host_impl_.pending_tree()->SetRootLayer(pending_layer.PassAs<LayerImpl>());
-  host_impl_.ActivatePendingTree();
+  host_impl_.ActivateSyncTree();
   TestablePictureImageLayerImpl* active_layer =
       static_cast<TestablePictureImageLayerImpl*>(
           host_impl_.active_tree()->root_layer());
@@ -148,16 +150,15 @@ TEST_F(PictureImageLayerImplTest, IgnoreIdealContentScale) {
       gfx::Rect(active_layer->bounds());
   MockOcclusionTracker<LayerImpl> occlusion_tracker;
   scoped_ptr<RenderPass> render_pass = RenderPass::Create();
-  MockQuadCuller quad_culler(render_pass.get(), &occlusion_tracker);
   AppendQuadsData data;
   active_layer->WillDraw(DRAW_MODE_SOFTWARE, NULL);
-  active_layer->AppendQuads(&quad_culler, &data);
+  active_layer->AppendQuads(render_pass.get(), occlusion_tracker, &data);
   active_layer->DidDraw(NULL);
 
-  EXPECT_EQ(DrawQuad::TILED_CONTENT, quad_culler.quad_list()[0]->material);
+  EXPECT_EQ(DrawQuad::TILED_CONTENT, render_pass->quad_list.front()->material);
 
   // Tiles are ready at correct scale, so should not set had_incomplete_tile.
-  EXPECT_FALSE(data.had_incomplete_tile);
+  EXPECT_EQ(0, data.num_incomplete_tiles);
 }
 
 }  // namespace

@@ -59,7 +59,8 @@ class CastSessionDelegate {
   // This will start the session by configuring and creating the Cast transport
   // and the Cast sender.
   // Must be called before initialization of audio or video.
-  void StartUDP(const net::IPEndPoint& remote_endpoint);
+  void StartUDP(const net::IPEndPoint& remote_endpoint,
+                scoped_ptr<base::DictionaryValue> options);
 
   // After calling StartAudio() or StartVideo() encoding of that media will
   // begin as soon as data is delivered to its sink, if the second method is
@@ -89,19 +90,21 @@ class CastSessionDelegate {
   // If this callback is called with STATUS_INITIALIZED it will report back
   // to the sinks that it's ready to accept incoming audio / video frames.
   void InitializationResultCB(
+      const ErrorCallback& error_callback,
       media::cast::CastInitializationStatus result) const;
 
  private:
   void StatusNotificationCB(
-      media::cast::transport::CastTransportStatus status);
+      media::cast::CastTransportStatus status);
 
   // Adds logs collected from transport on browser side.
-  void LogRawEvents(const std::vector<media::cast::PacketEvent>& packet_events);
+  void LogRawEvents(const std::vector<media::cast::PacketEvent>& packet_events,
+                    const std::vector<media::cast::FrameEvent>& frame_events);
 
   base::ThreadChecker thread_checker_;
   scoped_refptr<media::cast::CastEnvironment> cast_environment_;
   scoped_ptr<media::cast::CastSender> cast_sender_;
-  scoped_ptr<media::cast::transport::CastTransportSender> cast_transport_;
+  scoped_ptr<media::cast::CastTransportSender> cast_transport_;
 
   AudioFrameInputAvailableCallback audio_frame_input_available_callback_;
   VideoFrameInputAvailableCallback video_frame_input_available_callback_;

@@ -16,6 +16,10 @@
 
 package android.mediastress.cts;
 
+import android.media.CamcorderProfile;
+import android.media.MediaRecorder.AudioEncoder;
+import android.media.MediaRecorder.VideoEncoder;
+
 import com.android.cts.util.TimeoutReq;
 
 public class H263QcifLongPlayerTest extends MediaPlayerStressTest {
@@ -23,6 +27,10 @@ public class H263QcifLongPlayerTest extends MediaPlayerStressTest {
     private final String[] mMedias = { // indentation shortened due to long file name
         "bbb_full.ffmpeg.176x144.3gp.h263_56kbps_12fps.libfaac_mono_24kbps_11025Hz.3gp"
     };
+
+    public H263QcifLongPlayerTest() {
+        super(CamcorderProfile.QUALITY_QCIF, VideoEncoder.H263, AudioEncoder.AAC);
+    }
 
     @TimeoutReq(minutes = 11)
     public void testPlay00() throws Exception {

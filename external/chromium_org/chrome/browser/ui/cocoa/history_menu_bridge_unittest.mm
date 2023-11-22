@@ -11,7 +11,6 @@
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
-#include "chrome/browser/common/cancelable_request.h"
 #include "chrome/browser/sessions/persistent_tab_restore_service.h"
 #include "chrome/browser/ui/cocoa/cocoa_profile_test.h"
 #include "chrome/browser/ui/cocoa/history_menu_bridge.h"
@@ -110,11 +109,6 @@ class HistoryMenuBridgeTest : public CocoaProfileTest {
   void GotFaviconData(HistoryMenuBridge::HistoryItem* item,
                       const favicon_base::FaviconImageResult& image_result) {
     bridge_->GotFaviconData(item, image_result);
-  }
-
-  CancelableRequestConsumerTSimple<HistoryMenuBridge::HistoryItem*>&
-      favicon_consumer() {
-    return bridge_->favicon_consumer_;
   }
 
   scoped_ptr<MockBridge> bridge_;
@@ -343,8 +337,7 @@ TEST_F(HistoryMenuBridgeTest, GetFaviconForHistoryItem) {
 TEST_F(HistoryMenuBridgeTest, GotFaviconData) {
   // Create a dummy bitmap.
   SkBitmap bitmap;
-  bitmap.setConfig(SkBitmap::kARGB_8888_Config, 25, 25);
-  bitmap.allocPixels();
+  bitmap.allocN32Pixels(25, 25);
   bitmap.eraseARGB(255, 255, 0, 0);
 
   // Set up the HistoryItem.

@@ -5,8 +5,10 @@
 #include "chrome/browser/ui/webui/chromeos/login/demo_mode_detector.h"
 
 #include "base/command_line.h"
+#include "base/prefs/pref_registry_simple.h"
 #include "base/prefs/pref_service.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/sys_info.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/login/ui/login_display_host.h"
 #include "chrome/browser/chromeos/login/ui/login_display_host_impl.h"
@@ -30,7 +32,21 @@ DemoModeDetector::DemoModeDetector()
 DemoModeDetector::~DemoModeDetector() {
 }
 
+// Public methods.
+
 void DemoModeDetector::InitDetection() {
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableDemoMode))
+    return;
+
+  if (base::SysInfo::IsRunningOnChromeOS()) {
+    std::string track;
+    // We're running on an actual device; if we cannot find our release track
+    // value or if the track contains "testimage", don't start demo mode.
+    if (!base::SysInfo::GetLsbReleaseValue("CHROMEOS_RELEASE_TRACK", &track) ||
+        track.find("testimage") != std::string::npos)
+      return;
+  }
+
   if (IsDerelict())
     StartIdleDetection();
   else
@@ -40,6 +56,13 @@ void DemoModeDetector::InitDetection() {
 void DemoModeDetector::StopDetection() {
   idle_detector_.reset();
 }
+
+// static
+void DemoModeDetector::RegisterPrefs(PrefRegistrySimple* registry) {
+  registry->RegisterInt64Pref(prefs::kTimeOnOobe, 0);
+}
+
+// Private methods.
 
 void DemoModeDetector::StartIdleDetection() {
   if (!idle_detector_.get()) {

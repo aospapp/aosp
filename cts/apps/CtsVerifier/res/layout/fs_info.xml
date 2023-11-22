@@ -13,62 +13,44 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="fill_parent" android:layout_height="wrap_content">
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent" android:layout_height="fill_parent">
+    <GridLayout
+        android:columnCount="2"
+        android:orientation="horizontal"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content">
 
-    <ImageView android:id="@+id/fs_legend_good_image"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:src="@drawable/fs_good"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentLeft="true" />
-    <TextView android:id="@+id/fs_legend_good_text"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/fs_legend_good"
-        android:layout_toRightOf="@id/fs_legend_good_image"
-        android:layout_alignTop="@id/fs_legend_good_image"
-        android:layout_marginLeft="3dip" />
+        <ImageView android:id="@+id/fs_legend_good_image"
+            android:src="@drawable/fs_good"
+            android:layout_gravity="top|left" />
+        <TextView android:id="@+id/fs_legend_good_text"
+            android:text="@string/fs_legend_good"
+            android:layout_marginLeft="3dip"
+            android:layout_gravity="top|left" />
 
-    <ImageView android:id="@+id/fs_legend_indeterminate_image"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:src="@drawable/fs_indeterminate"
-        android:layout_alignParentLeft="true"
-        android:layout_below="@id/fs_legend_good_image" />
-    <TextView android:id="@+id/fs_legend_indeterminate_text"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/fs_legend_indeterminate"
-        android:layout_toRightOf="@id/fs_legend_indeterminate_image"
-        android:layout_alignTop="@id/fs_legend_indeterminate_image"
-        android:layout_marginLeft="3dip" />
+        <ImageView android:id="@+id/fs_legend_indeterminate_image"
+            android:src="@drawable/fs_indeterminate"
+            android:layout_gravity="top|left" />
+        <TextView android:id="@+id/fs_legend_indeterminate_text"
+            android:text="@string/fs_legend_indeterminate"
+            android:layout_marginLeft="3dip"
+            android:layout_gravity="top|left" />
 
-    <ImageView android:id="@+id/fs_legend_warning_image"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:src="@drawable/fs_warning"
-        android:layout_alignParentLeft="true"
-        android:layout_below="@id/fs_legend_indeterminate_image" />
-    <TextView android:id="@+id/fs_legend_warning_text"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/fs_legend_warning"
-        android:layout_toRightOf="@id/fs_legend_warning_image"
-        android:layout_alignTop="@id/fs_legend_warning_image"
-        android:layout_marginLeft="3dip" />
+        <ImageView android:id="@+id/fs_legend_warning_image"
+            android:src="@drawable/fs_warning"
+            android:layout_gravity="top|left" />
+        <TextView android:id="@+id/fs_legend_warning_text"
+            android:text="@string/fs_legend_warning"
+            android:layout_marginLeft="3dip"
+            android:layout_gravity="top|left" />
 
-    <ImageView android:id="@+id/fs_legend_error_image"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:src="@drawable/fs_error"
-        android:layout_alignParentLeft="true"
-        android:layout_below="@id/fs_legend_warning_image" />
-    <TextView android:id="@+id/fs_legend_error_text"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/fs_legend_error"
-        android:layout_toRightOf="@id/fs_legend_error_image"
-        android:layout_alignTop="@id/fs_legend_error_image"
-        android:layout_marginLeft="3dip" />
-</RelativeLayout>
+        <ImageView android:id="@+id/fs_legend_error_image"
+            android:src="@drawable/fs_error"
+            android:layout_gravity="top|left" />
+        <TextView android:id="@+id/fs_legend_error_text"
+            android:text="@string/fs_legend_error"
+            android:layout_marginLeft="3dip"
+            android:layout_gravity="top|left" />
+    </GridLayout>
+</ScrollView>

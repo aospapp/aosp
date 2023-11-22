@@ -23,18 +23,18 @@ import android.content.Context;
 import android.widget.FrameLayout;
 import android.widget.ListView;
 
+import com.android.mail.providers.Account;
 import com.android.mail.providers.Conversation;
 import com.android.mail.providers.Folder;
-import com.android.mail.providers.UIProvider;
 import com.android.mail.ui.AnimatedAdapter;
 import com.android.mail.ui.ControllableActivity;
-import com.android.mail.ui.ConversationSelectionSet;
+import com.android.mail.ui.ConversationCheckedSet;
 
 public class SwipeableConversationItemView extends FrameLayout implements ToggleableItem {
 
     private final ConversationItemView mConversationItemView;
 
-    public SwipeableConversationItemView(Context context, String account) {
+    public SwipeableConversationItemView(Context context, Account account) {
         super(context);
         mConversationItemView = new ConversationItemView(context, account);
         addView(mConversationItemView);
@@ -53,18 +53,10 @@ public class SwipeableConversationItemView extends FrameLayout implements Toggle
     }
 
     public void bind(final Conversation conversation, final ControllableActivity activity,
-            final ConversationSelectionSet set, final Folder folder,
+            final ConversationCheckedSet set, final Folder folder,
             final int checkboxOrSenderImage, boolean swipeEnabled,
             final boolean importanceMarkersEnabled, final boolean showChevronsEnabled,
             final AnimatedAdapter animatedAdapter) {
-        // Only enable delete for failed items in the Outbox.
-        // Necessary to do it here because Outbox is the only place where we selectively enable
-        // swipe on a item-by-item basis.
-        if (folder.isType(UIProvider.FolderType.OUTBOX)) {
-            swipeEnabled &=
-                    conversation.sendingState != UIProvider.ConversationSendingState.SENDING &&
-                    conversation.sendingState != UIProvider.ConversationSendingState.RETRYING;
-        }
         mConversationItemView.bind(conversation, activity, set, folder, checkboxOrSenderImage,
                 swipeEnabled, importanceMarkersEnabled, showChevronsEnabled, animatedAdapter);
     }
@@ -84,12 +76,12 @@ public class SwipeableConversationItemView extends FrameLayout implements Toggle
     }
 
     @Override
-    public boolean toggleSelectedStateOrBeginDrag() {
-        return mConversationItemView.toggleSelectedStateOrBeginDrag();
+    public boolean toggleCheckedState(String sourceForAnalytics) {
+        return mConversationItemView.toggleCheckedState(sourceForAnalytics);
     }
 
     @Override
-    public boolean toggleSelectedState() {
-        return mConversationItemView.toggleSelectedState();
+    public boolean toggleCheckedState() {
+        return mConversationItemView.toggleCheckedState();
     }
 }

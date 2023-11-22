@@ -19,7 +19,9 @@ package com.android.dialer.calllog;
 import android.content.Context;
 import android.content.res.Resources;
 import android.provider.CallLog.Calls;
+import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
+import android.util.Log;
 
 import com.android.contacts.common.CallUtil;
 import com.android.dialer.PhoneCallDetails;
@@ -30,6 +32,8 @@ import com.android.dialer.R;
  * Helper class to fill in the views of a call log entry.
  */
 /* package */class CallLogListItemHelper {
+    private static final String TAG = "CallLogListItemHelper";
+
     /** Helper for populating the details of a phone call. */
     private final PhoneCallDetailsHelper mPhoneCallDetailsHelper;
     /** Helper for handling phone numbers. */
@@ -78,17 +82,30 @@ import com.android.dialer.R;
      * @param views The views associated with the current call log entry.
      */
     public void setActionContentDescriptions(CallLogListItemViews views) {
+        if (views.nameOrNumber == null) {
+            Log.e(TAG, "setActionContentDescriptions; name or number is null.");
+        }
+
+        // Calling expandTemplate with a null parameter will cause a NullPointerException.
+        // Although we don't expect a null name or number, it is best to protect against it.
+        CharSequence nameOrNumber = views.nameOrNumber == null ? "" : views.nameOrNumber;
+
         views.callBackButtonView.setContentDescription(
-                mResources.getString(R.string.description_call_back_action, views.nameOrNumber));
+                TextUtils.expandTemplate(
+                        mResources.getString(R.string.description_call_back_action), nameOrNumber));
 
         views.videoCallButtonView.setContentDescription(
-                mResources.getString(R.string.description_video_call_action, views.nameOrNumber));
+                TextUtils.expandTemplate(
+                        mResources.getString(R.string.description_video_call_action),
+                        nameOrNumber));
 
         views.voicemailButtonView.setContentDescription(
-                mResources.getString(R.string.description_voicemail_action, views.nameOrNumber));
+                TextUtils.expandTemplate(
+                        mResources.getString(R.string.description_voicemail_action), nameOrNumber));
 
         views.detailsButtonView.setContentDescription(
-                mResources.getString(R.string.description_details_action, views.nameOrNumber));
+                TextUtils.expandTemplate(
+                        mResources.getString(R.string.description_details_action), nameOrNumber));
     }
 
     /**
@@ -105,7 +122,7 @@ import com.android.dialer.R;
      * Returns the accessibility description of the "return call/call" action for a call log
      * entry.
      * Accessibility text is a combination of:
-     * {Voicemail Prefix}. {Number of Calls}. {Caller information}.
+     * {Voicemail Prefix}. {Number of Calls}. {Caller information} {Phone Account}.
      * If most recent call is a voicemail, {Voicemail Prefix} is "New Voicemail.", otherwise "".
      *
      * If more than one call for the caller, {Number of Calls} is:
@@ -124,9 +141,13 @@ import com.android.dialer.R;
      * {Call type} is the contact phone number type (eg mobile) or location.
      * {Call Time} is the time since the last call for the contact occurred.
      *
+     * The {Phone Account} refers to the account/SIM through which the call was placed or received
+     * in multi-SIM devices.
+     *
      * Examples:
-     * 3 calls.  New Voicemail.  Missed call from Joe Smith mobile 2 hours ago.
-     * 2 calls.  Answered call from John Doe mobile.  Last called 1 hour ago.
+     * 3 calls.  New Voicemail.  Missed call from Joe Smith mobile 2 hours ago on SIM 1.
+     *
+     * 2 calls.  Answered call from John Doe mobile 1 hour ago.
      *
      * @param context The application context.
      * @param details Details of call.
@@ -145,7 +166,7 @@ import com.android.dialer.R;
         // Get the time/date of the call
         final CharSequence timeOfCall = mPhoneCallDetailsHelper.getCallDate(details);
 
-        StringBuilder callDescription = new StringBuilder();
+        SpannableStringBuilder callDescription = new SpannableStringBuilder();
 
         // Prepend the voicemail indication.
         if (isVoiceMail) {
@@ -165,13 +186,22 @@ import com.android.dialer.R;
         }
 
         int stringID = getCallDescriptionStringID(details);
+        String accountLabel = PhoneAccountUtils.getAccountLabel(context, details.accountHandle);
 
         // Use chosen string resource to build up the message.
-        callDescription.append(mResources.getString(stringID,
-                nameOrNumber,
-                // If no type or location can be determined, sub in empty string.
-                typeOrLocation == null ? "" : typeOrLocation,
-                timeOfCall));
+        CharSequence onAccountLabel = accountLabel == null
+                ? ""
+                : TextUtils.expandTemplate(
+                        mResources.getString(R.string.description_phone_account),
+                        accountLabel);
+        callDescription.append(
+                TextUtils.expandTemplate(
+                        mResources.getString(stringID),
+                        nameOrNumber,
+                        // If no type or location can be determined, sub in empty string.
+                        typeOrLocation == null ? "" : typeOrLocation,
+                        timeOfCall,
+                        onAccountLabel));
 
         return callDescription;
     }
@@ -187,13 +217,15 @@ import com.android.dialer.R;
         int stringID;
 
         if (lastCallType == Calls.VOICEMAIL_TYPE || lastCallType == Calls.MISSED_TYPE) {
-            //Message: Missed call from <NameOrNumber>, <TypeOrLocation>, <TimeOfCall>.
+            //Message: Missed call from <NameOrNumber>, <TypeOrLocation>, <TimeOfCall>,
+            //<PhoneAccount>.
             stringID = R.string.description_incoming_missed_call;
         } else if (lastCallType == Calls.INCOMING_TYPE) {
-            //Message: Answered call from <NameOrNumber>, <TypeOrLocation>, <TimeOfCall>.
+            //Message: Answered call from <NameOrNumber>, <TypeOrLocation>, <TimeOfCall>,
+            //<PhoneAccount>.
             stringID = R.string.description_incoming_answered_call;
         } else {
-            //Message: Call to <NameOrNumber>, <TypeOrLocation>, <TimeOfCall>.
+            //Message: Call to <NameOrNumber>, <TypeOrLocation>, <TimeOfCall>, <PhoneAccount>.
             stringID = R.string.description_outgoing_call;
         }
         return stringID;
@@ -222,7 +254,7 @@ import com.android.dialer.R;
         if (!TextUtils.isEmpty(details.name)) {
             recipient = details.name;
         } else {
-            recipient = mPhoneNumberHelper.getDisplayNumber(
+            recipient = mPhoneNumberHelper.getDisplayNumber(details.accountHandle,
                     details.number, details.numberPresentation, details.formattedNumber);
         }
         return recipient;

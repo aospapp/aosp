@@ -16,7 +16,9 @@
 
 package com.android.internal.telephony;
 
+import android.net.Uri;
 import android.os.SystemClock;
+import android.telecom.ConferenceParticipant;
 import android.telephony.Rlog;
 import android.util.Log;
 
@@ -32,6 +34,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 public abstract class Connection {
     public interface PostDialListener {
         void onPostDialWait();
+        void onPostDialChar(char c);
     }
 
     /**
@@ -45,6 +48,7 @@ public abstract class Connection {
         public void onVideoProviderChanged(
                 android.telecom.Connection.VideoProvider videoProvider);
         public void onAudioQualityChanged(int audioQuality);
+        public void onConferenceParticipantsChanged(List<ConferenceParticipant> participants);
     }
 
     /**
@@ -62,6 +66,8 @@ public abstract class Connection {
                 android.telecom.Connection.VideoProvider videoProvider) {}
         @Override
         public void onAudioQualityChanged(int audioQuality) {}
+        @Override
+        public void onConferenceParticipantsChanged(List<ConferenceParticipant> participants) {}
     }
 
     public static final int AUDIO_QUALITY_STANDARD = 1;
@@ -104,6 +110,7 @@ public abstract class Connection {
     private boolean mRemoteVideoCapable;
     private int mAudioQuality;
     private android.telecom.Connection.VideoProvider mVideoProvider;
+    public Call.State mPreHandoverState = Call.State.IDLE;
 
     /* Instance Methods */
 
@@ -166,6 +173,15 @@ public abstract class Connection {
      */
     public long getConnectTime() {
         return mConnectTime;
+    }
+
+    /**
+     * Sets the Connection connect time in currentTimeMillis() format.
+     *
+     * @param connectTime the new connect time.
+     */
+    public void setConnectTime(long connectTime) {
+        mConnectTime = connectTime;
     }
 
     /**
@@ -254,6 +270,14 @@ public abstract class Connection {
     }
 
     /**
+     * If this connection went through handover return the state of the
+     * call that contained this connection before handover.
+     */
+    public Call.State getStateBeforeHandover() {
+        return mPreHandoverState;
+    }
+
+    /**
      * isAlive()
      *
      * @return true if the connection isn't disconnected
@@ -335,6 +359,12 @@ public abstract class Connection {
             for (PostDialListener listener : new ArrayList<>(mPostDialListeners)) {
                 listener.onPostDialWait();
             }
+        }
+    }
+
+    protected final void notifyPostDialListenersNextChar(char c) {
+        for (PostDialListener listener : new ArrayList<>(mPostDialListeners)) {
+            listener.onPostDialChar(c);
         }
     }
 
@@ -540,6 +570,26 @@ public abstract class Connection {
         mConvertedNumber = mAddress;
         mAddress = oriNumber;
         mDialString = oriNumber;
+    }
+
+    /**
+     * Notifies listeners of a change to conference participant(s).
+     *
+     * @param conferenceParticipants The participant(s).
+     */
+    public void updateConferenceParticipants(List<ConferenceParticipant> conferenceParticipants) {
+        for (Listener l : mListeners) {
+            l.onConferenceParticipantsChanged(conferenceParticipants);
+        }
+    }
+
+    /**
+     * Notifies this Connection of a request to disconnect a participant of the conference managed
+     * by the connection.
+     *
+     * @param endpoint the {@link Uri} of the participant to disconnect.
+     */
+    public void onDisconnectConferenceParticipant(Uri endpoint) {
     }
 
     /**

@@ -139,7 +139,7 @@ int TestOpenThread(DWORD thread_id) {
   }
 }
 
-SBOX_TESTS_COMMAND int OpenFile(int argc, wchar_t **argv) {
+SBOX_TESTS_COMMAND int OpenFileCmd(int argc, wchar_t **argv) {
   if (1 != argc)
     return SBOX_TEST_FAILED_TO_EXECUTE_COMMAND;
 
@@ -161,7 +161,7 @@ int TestOpenWriteFile(int argc, wchar_t **argv) {
   trim_quote(&path);
 
   return TestOpenWriteFile(path);
-  }
+}
 
 int TestOpenWriteFile(const base::string16& path) {
   return TestOpenFile(path, true);
@@ -267,7 +267,7 @@ int TestOpenAlternateDesktop(wchar_t *desktop_name) {
                                        DACL_SECURITY_INFORMATION, NULL, NULL,
                                        NULL, NULL);
       ::CloseHandle(test_handle);
-      if (result != ERROR_ACCESS_DENIED) {
+      if (result == ERROR_SUCCESS) {
         return SBOX_TEST_SUCCEEDED;
       }
     } else if (::GetLastError() != ERROR_ACCESS_DENIED) {
@@ -276,8 +276,8 @@ int TestOpenAlternateDesktop(wchar_t *desktop_name) {
   }
 
   // Open by name with WRITE_DAC.
-  if ((desktop = ::OpenDesktop(desktop_name, 0, FALSE, WRITE_DAC)) ||
-      ::GetLastError() != ERROR_ACCESS_DENIED) {
+  desktop = ::OpenDesktop(desktop_name, 0, FALSE, WRITE_DAC);
+  if (desktop || ::GetLastError() != ERROR_ACCESS_DENIED) {
     ::CloseDesktop(desktop);
     return SBOX_TEST_SUCCEEDED;
   }

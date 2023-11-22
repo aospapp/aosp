@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Kan ikke bruke admin-appen. Den mangler komponenter eller er korrupt. Ta kontakt med IT-avdelingen."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Kan ikke installere administratorappen"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Administratorappen er ikke installert på enheten din"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Vil du stoppe konfigureringen?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Er du sikker på at du vil stoppe konfigureringen?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Nei"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Ja"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Avbryter ..."</string>
 </resources>

@@ -29,6 +29,7 @@
     <string name="save_draft" msgid="2669523480789672118">"مسودہ محفوظ کریں"</string>
     <string name="discard" msgid="4905982179911608430">"مسترد کریں"</string>
     <string name="compose" msgid="2602861958391035523">"تحریر کریں"</string>
+    <string name="compose_title" msgid="5673376086133995913">"تحریر کریں"</string>
   <string-array name="compose_modes">
     <item msgid="9000553538766397816">"جواب دیں"</item>
     <item msgid="2767793214788399009">"سب کو جواب دیں"</item>
@@ -43,9 +44,8 @@
     <string name="too_large_to_attach_multiple" msgid="1620163295709036343">"ایک یا زائد فائلیں منسلک نہیں ہوئیں۔ حد <xliff:g id="MAXSIZE">%1$s</xliff:g>۔"</string>
     <string name="too_large_to_attach_additional" msgid="4964155563465970480">"فائل منسلک نہیں ہے۔ <xliff:g id="MAXSIZE">%1$s</xliff:g> کی حد کو پہنچ گیا۔"</string>
     <string name="generic_attachment_problem" msgid="4683974765387240723">"فائل منسلک نہیں کی جاسکی۔"</string>
+    <string name="attachment_permission_denied" msgid="2274397783497640486">"منسلکہ کیلئے اجازت مسترد کر دی گئی۔"</string>
     <string name="recipient_needed" msgid="319816879398937214">"کم از کم ایک وصول کنندہ شامل کریں۔"</string>
-    <string name="recipient_error_dialog_title" msgid="760741480291963706">"وصول کنندہ کی خرابی"</string>
-    <string name="confirm_send_title" msgid="4664971589247101530">"پیغام بھیجیں؟"</string>
     <string name="confirm_send_message_with_no_subject" msgid="1442628074022609987">"پیغام کے موضوع میں کوئی متن نہیں ہے۔"</string>
     <string name="confirm_send_message_with_no_body" msgid="3329355318700201516">"پیغام کے نفس مضمون میں کوئی متن نہیں ہے۔"</string>
     <string name="confirm_send_message" msgid="6211518590166222735">"یہ پیغام بھیجیں؟"</string>
@@ -55,6 +55,7 @@
     <string name="send" msgid="4269810089682120826">"بھیجیں"</string>
     <string name="mark_read" msgid="579388143288052493">"پڑھی ہوئی کا نشان لگائیں"</string>
     <string name="mark_unread" msgid="6245060538061533191">"بغیر پڑھا ہوا کا نشان لگائیں"</string>
+    <string name="toggle_read_unread" msgid="1006469736520919028">"پڑھے ہوئے بغیر پڑھے ہوئے کو ٹوگل کریں"</string>
     <string name="mute" msgid="9164839998562321569">"خاموش کریں"</string>
     <string name="add_star" msgid="3275117671153616270">"ستارے کا نشان شامل کریں"</string>
     <string name="remove_star" msgid="9126690774161840733">"ستارے کا نشان ہٹائیں"</string>
@@ -79,6 +80,7 @@
     <string name="menu_show_original" msgid="2330398228979616661">"خودکار سائزنگ پر لوٹیں"</string>
     <string name="menu_settings" msgid="7993485401501778040">"ترتیبات"</string>
     <string name="menu_search" msgid="1949652467806052768">"تلاش کریں"</string>
+    <string name="menu_toggle_drawer" msgid="8653049392208282481">"دراز کو ٹوگل کریں"</string>
     <string name="drawer_title" msgid="3766219846644975778">"نیویگیشن"</string>
     <string name="mark_important" msgid="8781680450177768820">"اہم کا نشان لگائیں"</string>
     <string name="mark_not_important" msgid="3342258155408116917">"اہم نہیں کا نشان لگائیں"</string>
@@ -101,10 +103,8 @@
     <string name="attachment_unknown" msgid="3360536730101083926">"<xliff:g id="ATTACHMENTEXTENSION">%s</xliff:g> فائل"</string>
     <string name="preview_attachment" msgid="6265457626086113833">"پیش منظر"</string>
     <string name="save_attachment" msgid="375685179032130033">"محفوظ کریں"</string>
-    <string name="cancel_attachment" msgid="6900093625792891122">"منسوخ کریں"</string>
-    <string name="open_attachment" msgid="6100396056314739761">"کھولیں"</string>
-    <string name="install_attachment" msgid="8119470822958087928">"انسٹال کریں"</string>
     <string name="download_again" msgid="8195787340878328119">"دوبارہ ڈاؤن لوڈ کریں"</string>
+    <string name="remove_attachment_desc" msgid="1478445871170879140">"منسلکہ <xliff:g id="ATTACHMENTNAME">%s</xliff:g> ہٹائیں"</string>
     <string name="more_info_attachment" msgid="2899691682394864507">"معلومات"</string>
     <string name="no_application_found" msgid="7309485680354949680">"کوئی بھی ایپلیکیشن اس منسلکہ کو دیکھنے کیلئے نہیں کھول سکتی۔"</string>
     <string name="fetching_attachment" msgid="2286628490159574159">"منسلکہ کو بازیافت کر رہا ہے"</string>
@@ -127,16 +127,10 @@
     <string name="contextmenu_send_mail" msgid="3834654593200105396">"ای میل بھیجیں"</string>
     <string name="contextmenu_map" msgid="5118951927399465521">"نقشہ"</string>
     <string name="contextmenu_sharelink" msgid="8670940060477758709">"لنک کا اشتراک کریں"</string>
-    <string name="contextmenu_help" msgid="4209674157707873384">"مدد"</string>
-    <string name="contextmenu_feedback" msgid="8319100902136337085">"تاثرات بھیجیں"</string>
-    <!-- no translation found for num_selected (7990204488812654380) -->
-    <skip />
-  <plurals name="move_conversation">
-    <item quantity="one" msgid="237882018518207244">"گفتگو منتقل کریں"</item>
-    <item quantity="other" msgid="6639576653114141743">"<xliff:g id="ID_1">%1$d</xliff:g> گفتگوئیں منتقل کریں"</item>
-  </plurals>
     <string name="content_description" msgid="854320355052962069">"<xliff:g id="TOHEADER">%1$s</xliff:g><xliff:g id="PARTICIPANT">%2$s</xliff:g> <xliff:g id="SUBJECT">%3$s</xliff:g> کے بارے میں، <xliff:g id="SNIPPET">%4$s</xliff:g> بتاریخ <xliff:g id="DATE">%5$s</xliff:g>، <xliff:g id="READSTATE">%6$s</xliff:g>"</string>
     <string name="content_description_today" msgid="1634422834354116955">"<xliff:g id="TOHEADER">%1$s</xliff:g><xliff:g id="PARTICIPANT">%2$s</xliff:g> <xliff:g id="SUBJECT">%3$s</xliff:g> کے بارے میں، <xliff:g id="SNIPPET">%4$s</xliff:g> بوقت <xliff:g id="TIME">%5$s</xliff:g>، <xliff:g id="READSTATE">%6$s</xliff:g>"</string>
+    <string name="content_description_with_folders" msgid="482368474097191879">"<xliff:g id="TOHEADER">%1$s</xliff:g><xliff:g id="PARTICIPANT">%2$s</xliff:g> <xliff:g id="SUBJECT">%3$s</xliff:g> کے بارے میں، <xliff:g id="SNIPPET">%4$s</xliff:g> بتاریخ <xliff:g id="DATE">%5$s</xliff:g>, <xliff:g id="READSTATE">%6$s</xliff:g>, لیبلز: <xliff:g id="FOLDERS">%7$s</xliff:g>"</string>
+    <string name="content_description_today_with_folders" msgid="860548626146933495">"<xliff:g id="TOHEADER">%1$s</xliff:g><xliff:g id="PARTICIPANT">%2$s</xliff:g> <xliff:g id="SUBJECT">%3$s</xliff:g> کے بارے میں، <xliff:g id="SNIPPET">%4$s</xliff:g> بوقت <xliff:g id="TIME">%5$s</xliff:g>, <xliff:g id="READSTATE">%6$s</xliff:g>, لیبلز: <xliff:g id="FOLDERS">%7$s</xliff:g>"</string>
     <string name="read_string" msgid="5495929677508576520">"گفتگو پڑھ لی گئی"</string>
     <string name="unread_string" msgid="7342558841698083381">"بغیر پڑھی ہوئی گفتگو"</string>
     <string name="filtered_tag" msgid="721666921386074505">"[<xliff:g id="TAG">%1$s</xliff:g>]<xliff:g id="SUBJECT">%2$s</xliff:g>"</string>
@@ -173,59 +167,64 @@
     <string name="getting_messages" msgid="8403333791332403244">"آپ کے پیغامات کو حاصل کیا جا رہا ہے"</string>
     <string name="undo" msgid="8256285267701059609">"کالعدم کریں"</string>
   <plurals name="conversation_unstarred">
-    <item quantity="one" msgid="839233699150563831">"<xliff:g id="COUNT">%1$d</xliff:g> گفتگو سے ستارہ کا نشان ہٹایا جا رہا ہے۔"</item>
-    <item quantity="other" msgid="7677305734833709789">"<xliff:g id="COUNT">%1$d</xliff:g> گفتگوؤں سے ستارے کا نشان ہٹایا جا رہا ہے۔"</item>
+    <item quantity="one" msgid="1701235480675303125">"<xliff:g id="COUNT">%1$d</xliff:g> گفتگو سے ستارے کا نشان ہٹایا جا رہا ہے"</item>
+    <item quantity="other" msgid="1154441830432477256">"<xliff:g id="COUNT">%1$d</xliff:g> گفتگوؤں سے ستارے کا نشان ہٹایا جا رہا ہے"</item>
   </plurals>
   <plurals name="conversation_muted">
-    <item quantity="one" msgid="3339638225564408438">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کو خاموش کر دیا گیا۔"</item>
-    <item quantity="other" msgid="4276111931404654219">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کو خاموش کر دیا گیا۔"</item>
+    <item quantity="one" msgid="3622533556738049499">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کو خاموش کر دیا گیا"</item>
+    <item quantity="other" msgid="4559007262578295280">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کو خاموش کر دیا گیا"</item>
   </plurals>
   <plurals name="conversation_spammed">
-    <item quantity="one" msgid="6986172030710967687">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کی سپام کے بطور اطلاع دی گئی۔"</item>
-    <item quantity="other" msgid="5900913789259199137">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کی سپام کے بطور اطلاع دی گئی۔"</item>
+    <item quantity="one" msgid="1749550834135461470">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کی سپام کے بطور اطلاع دی گئی"</item>
+    <item quantity="other" msgid="664292592683692920">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کی سپام کے بطور اطلاع دی گئی"</item>
   </plurals>
   <plurals name="conversation_not_spam">
-    <item quantity="one" msgid="2294904093653094150">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کی سپام نہیں کے بطور اطلاع دی گئی۔"</item>
-    <item quantity="other" msgid="4966164423991098144">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کی سپام نہیں کے بطور اطلاع دی گئی۔"</item>
+    <item quantity="one" msgid="3680479171846552641">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کی سپام نہیں کے بطور اطلاع دی گئی"</item>
+    <item quantity="other" msgid="6351739502184556635">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کی سپام نہیں کے بطور اطلاع دی گئی"</item>
   </plurals>
   <plurals name="conversation_not_important">
-    <item quantity="one" msgid="3824809189993339030">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ پر غیر اہم کا نشان لگایا گیا۔"</item>
-    <item quantity="other" msgid="1215472798075869124">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ پر اہم نہیں کا نشان لگایا گیا۔"</item>
+    <item quantity="one" msgid="7432667428974709669">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کو غیر اہم کے بطور نشان زد کر دیا گیا"</item>
+    <item quantity="other" msgid="4823331037057239763">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کو غیر اہم کے بطور نشان زد کر دیا گیا"</item>
   </plurals>
   <plurals name="conversation_phished">
-    <item quantity="one" msgid="4330095881258771201">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کی فریب دہی کے بطور اطلاع دی گئی۔"</item>
-    <item quantity="other" msgid="9218674052779504277">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کی فریب دہی کے بطور اطلاع دی گئی۔"</item>
+    <item quantity="one" msgid="3511804715065046338">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کی فریب دہی کے بطور اطلاع دی گئی"</item>
+    <item quantity="other" msgid="8400382886585779414">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کی فریب دہی کے بطور اطلاع دی گئی"</item>
   </plurals>
   <plurals name="conversation_archived">
-    <item quantity="one" msgid="4127890884907503696">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ آرکائیو ہوگئی۔"</item>
-    <item quantity="other" msgid="7789480176789922968">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ آرکائیو ہوگئیں۔"</item>
+    <item quantity="one" msgid="4859172326053399351">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کو آرکائیو کر دیا گیا"</item>
+    <item quantity="other" msgid="8520761617935818623">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کو آرکائیو کر دیا گیا"</item>
   </plurals>
   <plurals name="conversation_deleted">
-    <item quantity="one" msgid="5591889079235938982">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ حذف ہوگئی۔"</item>
-    <item quantity="other" msgid="7060256058737892078">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ حذف ہو گئیں۔"</item>
+    <item quantity="one" msgid="4819167474123685161">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کو حذف کر دیا گیا"</item>
+    <item quantity="other" msgid="6287534453625638257">"‏‎&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;‎ کو حذف کر دیا گیا"</item>
   </plurals>
     <string name="deleted" msgid="7378013910782008375">"حذف ہو گئی"</string>
     <string name="archived" msgid="6283673603512713022">"آرکائیو ہو گئی"</string>
     <string name="folder_removed" msgid="5656281444688183676">"<xliff:g id="FOLDERNAME">%1$s</xliff:g> سے ہٹا دی گئی"</string>
   <plurals name="conversation_folder_changed">
-    <item quantity="one" msgid="6463727361987396734">"فولڈر تبدیل کردیا۔"</item>
-    <item quantity="other" msgid="8815390494333090939">"فولڈرز تبدیل کردیے۔"</item>
+    <item quantity="one" msgid="7787126147584620603">"فولڈر تبدیل کر دیا گیا"</item>
+    <item quantity="other" msgid="6307772984911017972">"فولڈرز تبدیل کر دیے گئے"</item>
   </plurals>
     <string name="conversation_folder_moved" msgid="6475872337373081683">"<xliff:g id="FOLDERNAME">%1$s</xliff:g> میں منتقل کر دی گئی"</string>
     <string name="search_results_header" msgid="1529438451150580188">"نتائج"</string>
     <string name="search_unsupported" msgid="2873920566477359177">"تلاش اس اکاؤنٹ پر تعاون یافتہ نہیں ہے۔"</string>
+    <string name="search_suggestion_desc" msgid="4165491276003825492">"تجویز: <xliff:g id="SUGGESTION">%s</xliff:g>"</string>
     <string name="add_label" msgid="3285338046038610902">"فولڈر شامل کریں"</string>
-    <string name="new_incoming_messages_one" msgid="5933087567495998661">"<xliff:g id="SENDER">%s</xliff:g> کی جانب سے نیا پیغام دکھائیں۔"</string>
-  <plurals name="new_incoming_messages_many">
-    <item quantity="other" msgid="4394042684501388790">"<xliff:g id="COUNT">%1$d</xliff:g> نئے پیغامات دکھائیں۔"</item>
+  <plurals name="new_incoming_messages">
+    <item quantity="one" msgid="1532079301006372605">"<xliff:g id="COUNT">%1$d</xliff:g> نیا پیغام"</item>
+    <item quantity="other" msgid="4085982174357328926">"<xliff:g id="COUNT">%1$d</xliff:g> نئے پیغامات"</item>
   </plurals>
     <string name="date_and_view_details" msgid="2952994746916149969">"‏<xliff:g id="DATE">%1$s</xliff:g> &lt;a href=\'http://www.example.com\'&gt;تفصیل دیکھیں&lt;/a&gt;"</string>
     <string name="hide_details" msgid="8018801050702453314">"تفصیلات چھپائیں"</string>
     <string name="to_message_header" msgid="3954385178027011919">"بنام <xliff:g id="RECIPIENTS">%1$s</xliff:g>"</string>
+    <string name="bcc_header_for_recipient_summary" msgid="1834716758549842454">"bcc:‎ "</string>
     <string name="contact_info_string" msgid="6484930184867405276">"<xliff:g id="NAME">%1$s</xliff:g> کیلئے رابطے کی معلومات دکھائیں"</string>
     <string name="contact_info_string_default" msgid="6204228921864816351">"رابطے کی معلومات دکھائیں"</string>
   <plurals name="show_messages_read">
-    <item quantity="other" msgid="5285673397387128129">"<xliff:g id="COUNT">%1$d</xliff:g> قدیم تر پیغامات"</item>
+    <item quantity="other" msgid="8094857552036574099">"<xliff:g id="COUNT">%1$d</xliff:g> پرانے پیغامات کو پھیلائیں"</item>
+  </plurals>
+  <plurals name="super_collapsed_block_accessibility_announcement">
+    <item quantity="other" msgid="2016326586162784420">"<xliff:g id="COUNT">%1$d</xliff:g> پرانے پیغامات کو پھیلایا گیا"</item>
   </plurals>
     <string name="from_heading" msgid="48290556829713090">"منجانب:"</string>
     <string name="replyto_heading" msgid="8275255318292059079">"جواب دیں بنام:"</string>
@@ -260,10 +259,10 @@
     <string name="previous" msgid="8985379053279804274">"پچھلا"</string>
   <string-array name="sync_status">
     <item msgid="4600303222943450797">"کامیابی"</item>
-    <item msgid="2972425114100316260">"کوئی کنکشن نہیں ہے۔"</item>
-    <item msgid="8594593386776437871">"سائن ان نہیں کر سکے۔"</item>
-    <item msgid="1375193906551623606">"سیکیورٹی کی خرابی۔"</item>
-    <item msgid="195177374927979967">"مطابقت پذیری نہیں کی جا سکی۔"</item>
+    <item msgid="2835492307658712596">"کوئی کنکشن نہیں ہے"</item>
+    <item msgid="5932644761344898987">"سائن ان نہیں کیا جا سکا"</item>
+    <item msgid="7335227237106118306">"سیکیورٹی سے متعلق خرابی"</item>
+    <item msgid="8148525741623865182">"مطابقت پذیری نہیں کی جا سکی"</item>
     <item msgid="8026148967150231130">"داخلی خرابی"</item>
     <item msgid="5442620760791553027">"سرور کی خرابی"</item>
   </string-array>
@@ -276,7 +275,6 @@
   <plurals name="actionbar_unread_messages">
     <item quantity="other" msgid="3863201473731766006">"<xliff:g id="COUNT">%1$d</xliff:g> بغیر پڑھے ہوئے"</item>
   </plurals>
-    <string name="actionbar_large_unread_count" msgid="753635978542372792">"‏<xliff:g id="COUNT">%1$d</xliff:g>+‎ بغیر پڑھا ہوا"</string>
     <string name="view_more_conversations" msgid="8377920000247101901">"مزید گفتگوئیں دیکھیں"</string>
     <string name="loading_conversation" msgid="7931600025861500397">"لوڈ ہو رہی ہے…"</string>
     <string name="activity_mailbox_selection" msgid="7489813868539767701">"اکاؤنٹ منتخب کریں"</string>
@@ -284,9 +282,13 @@
     <string name="folder_shortcut_widget_label" msgid="6466292659577092915">"ای میل فولڈر"</string>
     <string name="change_folders_selection_dialog_title" msgid="9174464298613273814">"فولڈرز تبدیل کریں"</string>
     <string name="move_to_selection_dialog_title" msgid="4052506464467083621">"اس میں منتقل کریں"</string>
-    <string name="search_hint" msgid="4916671414132334289">"میل تلاش کریں"</string>
+    <string name="search_hint" msgid="7060626585689391003">"تلاش کریں"</string>
     <!-- no translation found for search_results_loaded (1784879343458807514) -->
     <skip />
+    <string name="voice_search_not_supported" msgid="8493517060419469738">"صوتی تلاش اس آلہ پر تعاون یافتہ نہیں ہے۔"</string>
+    <string name="search_back_desc" msgid="8038224690392783652">"تلاش بند کریں"</string>
+    <string name="search_voice_desc" msgid="9103854398344077204">"صوتی تلاش شروع کریں"</string>
+    <string name="search_clear_desc" msgid="3044261775183044862">"تلاش کا متن صاف کریں"</string>
     <string name="network_error" msgid="5931164247644972255">"کوئی کنکشن نہیں ہے"</string>
     <string name="retry" msgid="916102442074217293">"دوبارہ کوشش کریں"</string>
     <string name="load_more" msgid="8702691358453560575">"مزید لوڈ کریں"</string>
@@ -307,6 +309,7 @@
     <string name="signin" msgid="4699091478139791244">"سائن ان کریں"</string>
     <string name="info" msgid="1357564480946178121">"معلومات"</string>
     <string name="report" msgid="4318141326014579036">"اطلاع دیں"</string>
+    <string name="show" msgid="2874876876336599985">"دکھائیں"</string>
     <string name="sync_error" msgid="1795794969006241678">"مطابقت پذیر نہیں بنایا جا سکا۔"</string>
     <string name="sync_error_message" msgid="4182644657243736635">"مطابقت پذیر بنانے کیلئے آپ کے آلہ میں کافی اسٹوریج نہیں ہے۔"</string>
     <string name="storage" msgid="4783683938444150638">"اسٹوریج"</string>
@@ -353,22 +356,19 @@
   </plurals>
     <string name="single_new_message_notification_title" msgid="7954710563222504868">"<xliff:g id="SENDER">%1$s</xliff:g>: <xliff:g id="SUBJECT">%2$s</xliff:g>"</string>
     <string name="silent_ringtone" msgid="1570794756474381886">"خاموش"</string>
-    <string name="preference_removal_action_title" msgid="4703834472477137634">"‏آرکائیو کرنے اور‎ حذف کرنے کی کارروائیاں"</string>
+    <string name="preference_removal_action_title" msgid="3128186577060329884">"ڈیفالٹ کارروائی"</string>
   <string-array name="prefEntries_removal_action">
-    <item msgid="954772302016538814">"صرف آرکائیو دکھائیں"</item>
-    <item msgid="7212690302706180254">"صرف حذف دکھائیں"</item>
-    <item msgid="2539051197590685708">"آرکائیو اور حذف کریں دکھائیں"</item>
+    <item msgid="7381624742404593351">"آرکائیو کریں"</item>
+    <item msgid="2567465476369142505">"حذف کریں"</item>
   </string-array>
   <string-array name="prefSummaries_removal_action_summary">
-    <item msgid="6877416142040695022">"صرف آرکائیو دکھائیں"</item>
-    <item msgid="1510017057984222376">"صرف حذف کریں دکھائیں"</item>
-    <item msgid="3196207224108008441">"آرکائیو اور حذف کریں دکھائیں"</item>
+    <item msgid="4080896545573973751">"آرکائیو کریں"</item>
+    <item msgid="6088164268501960435">"حذف کریں"</item>
   </string-array>
-    <string name="prefDialogTitle_removal_action" msgid="266548424110393246">"کارروائیاں آرکائیو اور حذف کریں"</string>
+    <string name="prefDialogTitle_removal_action" msgid="7914272565548361304">"ڈیفالٹ کارروائی"</string>
     <string name="preferences_default_reply_all_title" msgid="7255858488369635327">"سب کو جواب دیں"</string>
     <string name="preferences_default_reply_all_summary_impl" msgid="895581085692979709">"پیغام کے جوابات کیلئے بطور ڈیفالٹ استعمال کریں"</string>
-    <string name="preference_swipe_title_archive" msgid="9122333537761282714">"آرکائیو کرنے کیلئے سوائپ کریں"</string>
-    <string name="preference_swipe_title_delete" msgid="4860474024917543711">"حذف کرنے کیلئے سوائپ کریں"</string>
+    <string name="preference_swipe_title" msgid="2073613840893904205">"سوائپ کارروائیاں"</string>
     <string name="preference_swipe_description" msgid="3036560323237015010">"گفتگو کی فہرست میں"</string>
     <string name="preference_sender_image_title" msgid="7890813537985591865">"مرسل کی تصویر"</string>
     <string name="preference_sender_image_description" msgid="3586817690132199889">"گفتگو کی فہرست میں نام کے ساتھ دکھائیں"</string>
@@ -387,18 +387,15 @@
     <string name="folder_icon_desc" msgid="6272938864914794739">"فولڈر کا آئیکن"</string>
     <string name="add_account" msgid="5905863370226612377">"اکاؤنٹ شامل کریں"</string>
     <string name="dismiss_tip_hover_text" msgid="5400049020835024519">"تجویز برخاست کریں"</string>
-    <string name="auto_sync_off" msgid="3664082916022670831">"خودکار مطابقت پذیری آف ہے۔"</string>
-    <string name="tap_to_enable_sync" msgid="30588010316606899">"آن کرنے کیلئے چھوئیں۔"</string>
-    <string name="account_sync_off" msgid="1351286883806741348">"اکاؤنٹ کی مطابقت پذیری آف ہے۔"</string>
-    <string name="enable_sync_in_account_settings" msgid="2596841920743507047">"<xliff:g id="ACCOUNT_SETTINGS">%1$s</xliff:g> میں آن کردیں۔"</string>
-    <string name="account_settings_param" msgid="3649244241101156660">"اکاؤنٹ کی ترتیبات"</string>
+    <string name="auto_sync_off" msgid="3691189864057581214">"خود کار مطابقت پذیری آف ہے۔ آن کرنے کیلئے ٹچ کریں"</string>
+    <string name="account_sync_off" msgid="5720018952998097061">"‏اکاؤنٹ کی مطابقت پذیری آف ہے۔ ‎&lt;a href=\'http://www.example.com\'&gt;‎اکاؤنٹ کی ترتیبات‎&lt;/a&gt;‎ میں آن کریں۔"</string>
     <string name="unsent_messages_in_outbox" msgid="146722891559469589">"<xliff:g id="OUTBOX">%2$s</xliff:g> میں <xliff:g id="NUMBER">%1$s</xliff:g> غیر مرسلہ"</string>
     <string name="turn_auto_sync_on_dialog_title" msgid="543412762396502297">"خودکار مطابقت پذیری آن کریں؟"</string>
     <string name="turn_auto_sync_on_dialog_body" msgid="614939812938149398">"‏صرف Gmail نہیں بلکہ سبھی ایپس اور اکاؤنٹس میں آپ جو تبدیلیاں کرتے ہیں وہ ویب، آپ کے دوسرے آلات اور آپ کے <xliff:g id="PHONE_OR_TABLET">%1$s</xliff:g> کے بیچ مطابقت پذیر ہوں گی۔"</string>
     <string name="phone" msgid="4142617042507912053">"فون"</string>
     <string name="tablet" msgid="4593581125469224791">"ٹیبلٹ"</string>
     <string name="turn_auto_sync_on_dialog_confirm_btn" msgid="7239160845196929866">"آن کریں"</string>
-    <string name="show_n_more_folders" msgid="5769610839632786654">"<xliff:g id="NUMBER">%1$s</xliff:g> مزید فولڈرز دکھائیں"</string>
+    <string name="show_n_more_folders" msgid="1005879825500056552">"<xliff:g id="NUMBER">%1$s</xliff:g> فولڈرز دکھائیں"</string>
     <string name="hide_folders" msgid="7618891933409521283">"فولڈرز چھپائیں"</string>
     <string name="print" msgid="7987949243936577207">"پرنٹ کریں"</string>
     <string name="print_all" msgid="4011022762279519941">"سبھی پرنٹ کریں"</string>
@@ -480,4 +477,8 @@
     <string name="manage_accounts_menu_item" msgid="4734660452395086786">"اکاؤنٹس کا نظم کریں"</string>
     <string name="general_preferences_title" msgid="4212138728220418162">"عام ترتیبات"</string>
     <string name="activity_preferences" msgid="8966077432517613292">"ترتیبات"</string>
+    <string name="overflow_description" msgid="7886090597023240426">"مزید اختیارات"</string>
+    <string name="security_hold_required_text" msgid="6619955920101834286">"<xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g> کیلئے سیکیورٹی اپ ڈیٹ درکار ہے"</string>
+    <string name="update_security_text" msgid="3527335757205741077">"ابھی اپ ڈیٹ کریں"</string>
+    <string name="forms_are_disabled" msgid="2876312737118986789">"‏Gmail میں فارمز غیر فعال ہیں"</string>
 </resources>

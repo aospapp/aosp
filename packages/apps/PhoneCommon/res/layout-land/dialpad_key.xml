@@ -38,6 +38,6 @@
             android:id="@+id/dialpad_key_letters"
             style="@style/DialpadKeyLettersStyle"
             android:layout_width="@dimen/dialpad_key_text_width"
-            android:layout_gravity="right|bottom" />
+            android:layout_gravity="right|center" />
     </LinearLayout>
 </com.android.phone.common.dialpad.DialpadKeyButton>

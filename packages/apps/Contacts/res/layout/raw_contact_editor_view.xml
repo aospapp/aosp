@@ -16,49 +16,41 @@
 
 <com.android.contacts.editor.RawContactEditorView
     xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/body"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:paddingTop="@dimen/editor_padding_top">
+    android:orientation="vertical" >
 
+    <!-- There are two mutually exclusive account headers that look significantly different.
+        The editor_account_selector is used when an account needs to be chosen. -->
     <include
-        layout="@layout/editor_account_header_with_dropdown" />
+        layout="@layout/editor_account_header_expandable" />
+    <include
+        layout="@layout/editor_account_selector" />
 
     <LinearLayout
-        android:id="@+id/body"
+        android:id="@+id/collapsable_section"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical" >
 
-        <LinearLayout
-            android:layout_height="wrap_content"
-            android:layout_width="match_parent"
-            android:orientation="horizontal"
-            android:paddingTop="8dip">
+        <include
+            android:id="@+id/edit_name"
+            layout="@layout/structured_name_editor_view" />
 
-            <LinearLayout
-                android:layout_height="wrap_content"
-                android:layout_width="0dip"
-                android:layout_weight="1"
-                android:orientation="vertical">
+        <include
+            android:id="@+id/edit_phonetic_name"
+            layout="@layout/phonetic_name_editor_view" />
 
-                <include
-                    android:id="@+id/edit_name"
-                    layout="@layout/structured_name_editor_view" />
+        <include
+            android:id="@+id/edit_nick_name"
+            layout="@layout/nick_name_editor_view" />
 
-                <include
-                    android:id="@+id/edit_phonetic_name"
-                    layout="@layout/phonetic_name_editor_view" />
-
-            </LinearLayout>
-
-            <include
-                android:id="@+id/edit_photo"
-                android:layout_marginRight="8dip"
-                android:layout_marginEnd="8dip"
-                layout="@layout/item_photo_editor" />
-
-        </LinearLayout>
+        <include
+            android:id="@+id/edit_photo"
+            android:layout_marginRight="8dip"
+            android:layout_marginEnd="8dip"
+            layout="@layout/item_photo_editor" />
 
         <LinearLayout
             android:id="@+id/sect_fields"
@@ -67,13 +59,11 @@
             android:orientation="vertical"
             android:layout_marginBottom="16dip"/>
 
-        <Button
-            android:id="@+id/button_add_field"
-            android:text="@string/add_field"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_marginBottom="32dip"/>
-
     </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/divider_line_height"
+        android:background="@color/divider_line_color_light" />
+
 </com.android.contacts.editor.RawContactEditorView>

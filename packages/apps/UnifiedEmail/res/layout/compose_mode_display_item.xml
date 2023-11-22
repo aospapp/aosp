@@ -17,7 +17,6 @@
 -->
 <TextView xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/mode"
-    style="?android:attr/spinnerItemStyle"
     android:layout_width="match_parent"
-    android:layout_height="?android:attr/listPreferredItemHeightSmall"
-    android:ellipsize="end"/>
+    android:layout_height="wrap_content"
+    style="@style/ToolbarTitleStyle" />

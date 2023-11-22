@@ -696,6 +696,12 @@ OMX_ERRORTYPE Exynos_OSAL_SetANBParameter(
             pExynosPort->bufferProcessType = BUFFER_SHARE;
             pExynosPort->portDefinition.format.video.eColorFormat = (OMX_COLOR_FORMATTYPE)OMX_SEC_COLOR_FormatNV12Tiled;
             Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "OMX_IndexParamEnableAndroidBuffers & bufferProcessType change to BUFFER_SHARE");
+        } else if ((portIndex == OUTPUT_PORT_INDEX) &&
+            (pExynosPort->bStoreMetaData == OMX_FALSE && pExynosPort->bIsANBEnabled == OMX_FALSE) &&
+            pExynosPort->bufferProcessType == BUFFER_SHARE) {
+            pExynosPort->bufferProcessType = (EXYNOS_OMX_BUFFERPROCESS_TYPE)(BUFFER_COPY | BUFFER_ANBSHARE);
+            pExynosPort->portDefinition.format.video.eColorFormat = OMX_COLOR_FormatYUV420Planar;
+            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "No OMX_IndexParamEnableAndroidBuffers => reset bufferProcessType");
         }
     }
         break;
@@ -789,6 +795,12 @@ OMX_ERRORTYPE Exynos_OSAL_SetANBParameter(
                 pExynosPort->bufferProcessType = BUFFER_SHARE;
                 pExynosPort->portDefinition.format.video.eColorFormat = (OMX_COLOR_FORMATTYPE)OMX_SEC_COLOR_FormatNV12Tiled;
                 Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "OMX_IndexParamStoreMetaDataBuffer & bufferProcessType change to BUFFER_SHARE");
+            } else if ((portIndex == OUTPUT_PORT_INDEX) &&
+                (pExynosPort->bStoreMetaData == OMX_FALSE && pExynosPort->bIsANBEnabled == OMX_FALSE) &&
+                pExynosPort->bufferProcessType == BUFFER_SHARE) {
+                pExynosPort->bufferProcessType = (EXYNOS_OMX_BUFFERPROCESS_TYPE)(BUFFER_COPY | BUFFER_ANBSHARE);
+                pExynosPort->portDefinition.format.video.eColorFormat = OMX_COLOR_FormatYUV420Planar;
+                Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "No OMX_IndexParamStoreMetaDataBuffer => reset bufferProcessType");
             }
 
         }

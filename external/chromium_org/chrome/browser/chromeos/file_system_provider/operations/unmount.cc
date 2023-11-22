@@ -13,7 +13,7 @@ namespace operations {
 
 Unmount::Unmount(extensions::EventRouter* event_router,
                  const ProvidedFileSystemInfo& file_system_info,
-                 const fileapi::AsyncFileUtil::StatusCallback& callback)
+                 const storage::AsyncFileUtil::StatusCallback& callback)
     : Operation(event_router, file_system_info), callback_(callback) {
 }
 
@@ -21,11 +21,17 @@ Unmount::~Unmount() {
 }
 
 bool Unmount::Execute(int request_id) {
-  scoped_ptr<base::DictionaryValue> values(new base::DictionaryValue);
+  using extensions::api::file_system_provider::UnmountRequestedOptions;
+
+  UnmountRequestedOptions options;
+  options.file_system_id = file_system_info_.file_system_id();
+  options.request_id = request_id;
+
   return SendEvent(
       request_id,
       extensions::api::file_system_provider::OnUnmountRequested::kEventName,
-      values.Pass());
+      extensions::api::file_system_provider::OnUnmountRequested::Create(
+          options));
 }
 
 void Unmount::OnSuccess(int /* request_id */,
@@ -34,7 +40,9 @@ void Unmount::OnSuccess(int /* request_id */,
   callback_.Run(base::File::FILE_OK);
 }
 
-void Unmount::OnError(int /* request_id */, base::File::Error error) {
+void Unmount::OnError(int /* request_id */,
+                      scoped_ptr<RequestValue> /* result */,
+                      base::File::Error error) {
   callback_.Run(error);
 }
 

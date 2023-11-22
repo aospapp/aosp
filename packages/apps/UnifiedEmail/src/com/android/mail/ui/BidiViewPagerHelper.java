@@ -33,19 +33,19 @@ public class BidiViewPagerHelper {
     }
 
     public int getFirstPage() {
-        return getBidiIndex(0);
+        return getIndexFromBidiIndex(0);
     }
 
     public int getLastPage() {
-        return getBidiIndex(mViewPager.getAdapter().getCount() - 1);
+        return getIndexFromBidiIndex(mViewPager.getAdapter().getCount() - 1);
     }
 
     public int getPreviousPage() {
-        return clampToBounds(getBidiIndex(mViewPager.getCurrentItem() - 1));
+        return clampToBounds(getIndexFromBidiIndex(getBidiIndex(mViewPager.getCurrentItem()) - 1));
     }
 
     public int getNextPage() {
-        return clampToBounds(getBidiIndex(mViewPager.getCurrentItem() + 1));
+        return clampToBounds(getIndexFromBidiIndex(getBidiIndex(mViewPager.getCurrentItem()) + 1));
     }
 
     private int clampToBounds(int position) {
@@ -58,5 +58,11 @@ public class BidiViewPagerHelper {
         } else {
             return position;
         }
+    }
+
+    /** Inverse of {@link #getBidiIndex} function. */
+    private int getIndexFromBidiIndex(int position) {
+        // getBidiIndex is equal to its inverse function so we are just calling getBidiIndex.
+        return getBidiIndex(position);
     }
 }

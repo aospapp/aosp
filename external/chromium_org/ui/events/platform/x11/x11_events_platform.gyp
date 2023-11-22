@@ -7,6 +7,7 @@
     'chromium_code': 1,
   },
   'targets': [{
+    # GN version: //ui/events/platform/x11
     'target_name': 'x11_events_platform',
     'type': '<(component)',
     'defines': [
@@ -16,6 +17,7 @@
       '../../../../build/linux/system.gyp:x11',
       '../../../gfx/x/gfx_x11.gyp:gfx_x11',
       '../../events.gyp:events',
+      '../../events.gyp:events_base',
       '../events_platform.gyp:events_platform',
     ],
     'sources': [

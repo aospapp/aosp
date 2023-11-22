@@ -2,8 +2,63 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+cr.exportPath('options');
+
+/** @typedef {{appsEnforced: boolean,
+ *             appsRegistered: boolean,
+ *             appsSynced: boolean,
+ *             autofillEnforced: boolean,
+ *             autofillRegistered: boolean,
+ *             autofillSynced: boolean,
+ *             bookmarksEnforced: boolean,
+ *             bookmarksRegistered: boolean,
+ *             bookmarksSynced: boolean,
+ *             encryptAllData: boolean,
+ *             encryptAllDataAllowed: boolean,
+ *             enterGooglePassphraseBody: (string|undefined),
+ *             enterPassphraseBody: (string|undefined),
+ *             extensionsEnforced: boolean,
+ *             extensionsRegistered: boolean,
+ *             extensionsSynced: boolean,
+ *             fullEncryptionBody: string,
+ *             passphraseFailed: boolean,
+ *             passwordsEnforced: boolean,
+ *             passwordsRegistered: boolean,
+ *             passwordsSynced: boolean,
+ *             preferencesEnforced: boolean,
+ *             preferencesRegistered: boolean,
+ *             preferencesSynced: boolean,
+ *             showPassphrase: boolean,
+ *             showSyncEverythingPage: boolean,
+ *             syncAllDataTypes: boolean,
+ *             syncNothing: boolean,
+ *             tabsEnforced: boolean,
+ *             tabsRegistered: boolean,
+ *             tabsSynced: boolean,
+ *             themesEnforced: boolean,
+ *             themesRegistered: boolean,
+ *             themesSynced: boolean,
+ *             typedUrlsEnforced: boolean,
+ *             typedUrlsRegistered: boolean,
+ *             typedUrlsSynced: boolean,
+ *             usePassphrase: boolean}}
+ */
+var SyncConfig;
+
+/**
+ * The user's selection in the synced data type drop-down menu, as an index.
+ * @enum {number}
+ * @const
+ */
+options.DataTypeSelection = {
+  SYNC_EVERYTHING: 0,
+  CHOOSE_WHAT_TO_SYNC: 1,
+  SYNC_NOTHING: 2
+};
+
 cr.define('options', function() {
-  /** @const */ var OptionsPage = options.OptionsPage;
+  /** @const */ var Page = cr.ui.pageManager.Page;
+  /** @const */ var PageManager = cr.ui.pageManager.PageManager;
 
   // True if the synced account uses a custom passphrase.
   var usePassphrase_ = false;
@@ -24,7 +79,13 @@ cr.define('options', function() {
   // the "Sync everything" menu-item is selected, and unchecked and disabled
   // when "Sync nothing" is selected. When "Choose what to sync" is selected,
   // the boxes are restored to their most recent checked state from this cache.
-  var dataTypeBoxes_ = {};
+  var dataTypeBoxesChecked_ = {};
+
+  // A dictionary that maps the sync data type checkbox names to their disabled
+  // state (when a data type is enabled programmatically without user choice).
+  // Initialized when the advanced settings dialog is first brought up, and
+  // reset when the dialog is closed.
+  var dataTypeBoxesDisabled_ = {};
 
   // Used to determine whether to bring the OK button / passphrase field into
   // focus.
@@ -32,43 +93,38 @@ cr.define('options', function() {
   var customizePageVisible_ = false;
 
   /**
-   * The user's selection in the synced data type drop-down menu, as an index.
-   * @enum {number}
-   * @const
-   */
-  var DataTypeSelection = {
-    SYNC_EVERYTHING: 0,
-    CHOOSE_WHAT_TO_SYNC: 1,
-    SYNC_NOTHING: 2
-  };
-
-  /**
    * SyncSetupOverlay class
    * Encapsulated handling of the 'Sync Setup' overlay page.
    * @class
    */
   function SyncSetupOverlay() {
-    OptionsPage.call(this, 'syncSetup',
-                     loadTimeData.getString('syncSetupOverlayTabTitle'),
-                     'sync-setup-overlay');
+    Page.call(this, 'syncSetup',
+              loadTimeData.getString('syncSetupOverlayTabTitle'),
+              'sync-setup-overlay');
   }
 
   cr.addSingletonGetter(SyncSetupOverlay);
 
   SyncSetupOverlay.prototype = {
-    __proto__: OptionsPage.prototype,
+    __proto__: Page.prototype,
 
-    /**
-     * Initializes the page.
-     */
+    /** @override */
     initializePage: function() {
-      OptionsPage.prototype.initializePage.call(this);
+      Page.prototype.initializePage.call(this);
 
       var self = this;
+
+      // If 'profilesInfo' doesn't exist, it's forbidden to delete profile.
+      // So don't display the delete-profile checkbox.
+      if (!loadTimeData.valueExists('profilesInfo') &&
+          $('sync-setup-delete-profile')) {
+        $('sync-setup-delete-profile').hidden = true;
+      }
+
       $('basic-encryption-option').onchange =
           $('full-encryption-option').onchange = function() {
         self.onEncryptionRadioChanged_();
-      }
+      };
       $('choose-datatypes-cancel').onclick =
           $('confirm-everything-cancel').onclick =
           $('stop-syncing-cancel').onclick =
@@ -91,16 +147,17 @@ cr.define('options', function() {
     },
 
     showOverlay_: function() {
-      OptionsPage.navigateToPage('syncSetup');
+      PageManager.showPageByName('syncSetup');
     },
 
     closeOverlay_: function() {
       this.syncConfigureArgs_ = null;
-      this.dataTypeBoxes_ = {};
+      this.dataTypeBoxesChecked_ = {};
+      this.dataTypeBoxesDisabled_ = {};
 
       var overlay = $('sync-setup-overlay');
       if (!overlay.hidden)
-        OptionsPage.closeOverlay();
+        PageManager.closeOverlay();
     },
 
     /** @override */
@@ -148,8 +205,8 @@ cr.define('options', function() {
      * @private
      */
     restoreDataTypeCheckboxes_: function() {
-      for (dataType in dataTypeBoxes_) {
-        $(dataType).checked = dataTypeBoxes_[dataType];
+      for (var dataType in dataTypeBoxesChecked_) {
+        $(dataType).checked = dataTypeBoxesChecked_[dataType];
       }
     },
 
@@ -160,9 +217,8 @@ cr.define('options', function() {
      * @private
      */
     setDataTypeCheckboxesEnabled_: function(enabled) {
-      var checkboxes = $('choose-data-types-body').querySelectorAll('input');
-      for (var i = 0; i < checkboxes.length; i++) {
-        checkboxes[i].disabled = !enabled;
+      for (var dataType in dataTypeBoxesDisabled_) {
+        $(dataType).disabled = !enabled || dataTypeBoxesDisabled_[dataType];
       }
     },
 
@@ -170,17 +226,18 @@ cr.define('options', function() {
      * Sets the state of the sync data type checkboxes based on whether "Sync
      * everything", "Choose what to sync", or "Sync nothing" are selected in the
      * drop-down menu of the advanced settings dialog.
-     * @param {cr.DataTypeSelection} selectedIndex Index of user's selection.
+     * @param {options.DataTypeSelection} selectedIndex Index of user's
+     *     selection.
      * @private
      */
     setDataTypeCheckboxes_: function(selectedIndex) {
-      if (selectedIndex == DataTypeSelection.CHOOSE_WHAT_TO_SYNC) {
+      if (selectedIndex == options.DataTypeSelection.CHOOSE_WHAT_TO_SYNC) {
         this.setDataTypeCheckboxesEnabled_(true);
         this.restoreDataTypeCheckboxes_();
       } else {
         this.setDataTypeCheckboxesEnabled_(false);
-        this.checkAllDataTypeCheckboxes_(selectedIndex ==
-                                         DataTypeSelection.SYNC_EVERYTHING);
+        this.checkAllDataTypeCheckboxes_(
+            selectedIndex == options.DataTypeSelection.SYNC_EVERYTHING);
       }
     },
 
@@ -251,9 +308,9 @@ cr.define('options', function() {
       // These values need to be kept in sync with where they are read in
       // SyncSetupFlow::GetDataTypeChoiceData().
       var syncAll = $('sync-select-datatypes').selectedIndex ==
-                    DataTypeSelection.SYNC_EVERYTHING;
+                    options.DataTypeSelection.SYNC_EVERYTHING;
       var syncNothing = $('sync-select-datatypes').selectedIndex ==
-                        DataTypeSelection.SYNC_NOTHING;
+                        options.DataTypeSelection.SYNC_NOTHING;
       var result = JSON.stringify({
         'syncAllDataTypes': syncAll,
         'syncNothing': syncNothing,
@@ -283,6 +340,7 @@ cr.define('options', function() {
      * @private
      */
     setInputElementsDisabledState_: function(disabled) {
+      var self = this;
       var configureElements =
           $('customize-sync-preferences').querySelectorAll('input');
       for (var i = 0; i < configureElements.length; i++)
@@ -291,41 +349,46 @@ cr.define('options', function() {
 
       $('customize-link').hidden = disabled;
       $('customize-link').disabled = disabled;
-      $('customize-link').onclick = (disabled ? null : function() {
-        SyncSetupOverlay.showCustomizePage(null,
-                                           DataTypeSelection.SYNC_EVERYTHING);
+      $('customize-link').onclick = disabled ? null : function() {
+        SyncSetupOverlay.showCustomizePage(self.syncConfigureArgs_,
+            options.DataTypeSelection.SYNC_EVERYTHING);
         return false;
-      });
+      };
     },
 
     /**
      * Shows or hides the sync data type checkboxes in the advanced sync
-     * settings dialog. Also initializes |dataTypeBoxes_| with their values, and
-     * makes their onclick handlers update |dataTypeBoxes_|.
-     * @param {Object} args The configuration data used to show/hide UI.
+     * settings dialog. Also initializes |dataTypeBoxesChecked_| and
+     * |dataTypeBoxedDisabled_| with their values, and makes their onclick
+     * handlers update |dataTypeBoxesChecked_|.
+     * @param {SyncConfig} args The configuration data used to show/hide UI.
      * @private
      */
     setChooseDataTypesCheckboxes_: function(args) {
       var datatypeSelect = $('sync-select-datatypes');
       datatypeSelect.selectedIndex = args.syncAllDataTypes ?
-                                         DataTypeSelection.SYNC_EVERYTHING :
-                                         DataTypeSelection.CHOOSE_WHAT_TO_SYNC;
+          options.DataTypeSelection.SYNC_EVERYTHING :
+          options.DataTypeSelection.CHOOSE_WHAT_TO_SYNC;
 
       $('bookmarks-checkbox').checked = args.bookmarksSynced;
-      dataTypeBoxes_['bookmarks-checkbox'] = args.bookmarksSynced;
+      dataTypeBoxesChecked_['bookmarks-checkbox'] = args.bookmarksSynced;
+      dataTypeBoxesDisabled_['bookmarks-checkbox'] = args.bookmarksEnforced;
       $('bookmarks-checkbox').onclick = this.handleDataTypeClick_;
 
       $('preferences-checkbox').checked = args.preferencesSynced;
-      dataTypeBoxes_['preferences-checkbox'] = args.preferencesSynced;
+      dataTypeBoxesChecked_['preferences-checkbox'] = args.preferencesSynced;
+      dataTypeBoxesDisabled_['preferences-checkbox'] = args.preferencesEnforced;
       $('preferences-checkbox').onclick = this.handleDataTypeClick_;
 
       $('themes-checkbox').checked = args.themesSynced;
-      dataTypeBoxes_['themes-checkbox'] = args.themesSynced;
+      dataTypeBoxesChecked_['themes-checkbox'] = args.themesSynced;
+      dataTypeBoxesDisabled_['themes-checkbox'] = args.themesEnforced;
       $('themes-checkbox').onclick = this.handleDataTypeClick_;
 
       if (args.passwordsRegistered) {
         $('passwords-checkbox').checked = args.passwordsSynced;
-        dataTypeBoxes_['passwords-checkbox'] = args.passwordsSynced;
+        dataTypeBoxesChecked_['passwords-checkbox'] = args.passwordsSynced;
+        dataTypeBoxesDisabled_['passwords-checkbox'] = args.passwordsEnforced;
         $('passwords-checkbox').onclick = this.handleDataTypeClick_;
         $('passwords-item').hidden = false;
       } else {
@@ -333,7 +396,8 @@ cr.define('options', function() {
       }
       if (args.autofillRegistered) {
         $('autofill-checkbox').checked = args.autofillSynced;
-        dataTypeBoxes_['autofill-checkbox'] = args.autofillSynced;
+        dataTypeBoxesChecked_['autofill-checkbox'] = args.autofillSynced;
+        dataTypeBoxesDisabled_['autofill-checkbox'] = args.autofillEnforced;
         $('autofill-checkbox').onclick = this.handleDataTypeClick_;
         $('autofill-item').hidden = false;
       } else {
@@ -341,7 +405,8 @@ cr.define('options', function() {
       }
       if (args.extensionsRegistered) {
         $('extensions-checkbox').checked = args.extensionsSynced;
-        dataTypeBoxes_['extensions-checkbox'] = args.extensionsSynced;
+        dataTypeBoxesChecked_['extensions-checkbox'] = args.extensionsSynced;
+        dataTypeBoxesDisabled_['extensions-checkbox'] = args.extensionsEnforced;
         $('extensions-checkbox').onclick = this.handleDataTypeClick_;
         $('extensions-item').hidden = false;
       } else {
@@ -349,7 +414,8 @@ cr.define('options', function() {
       }
       if (args.typedUrlsRegistered) {
         $('typed-urls-checkbox').checked = args.typedUrlsSynced;
-        dataTypeBoxes_['typed-urls-checkbox'] = args.typedUrlsSynced;
+        dataTypeBoxesChecked_['typed-urls-checkbox'] = args.typedUrlsSynced;
+        dataTypeBoxesDisabled_['typed-urls-checkbox'] = args.typedUrlsEnforced;
         $('typed-urls-checkbox').onclick = this.handleDataTypeClick_;
         $('omnibox-item').hidden = false;
       } else {
@@ -357,7 +423,8 @@ cr.define('options', function() {
       }
       if (args.appsRegistered) {
         $('apps-checkbox').checked = args.appsSynced;
-        dataTypeBoxes_['apps-checkbox'] = args.appsSynced;
+        dataTypeBoxesChecked_['apps-checkbox'] = args.appsSynced;
+        dataTypeBoxesDisabled_['apps-checkbox'] = args.appsEnforced;
         $('apps-checkbox').onclick = this.handleDataTypeClick_;
         $('apps-item').hidden = false;
       } else {
@@ -365,7 +432,8 @@ cr.define('options', function() {
       }
       if (args.tabsRegistered) {
         $('tabs-checkbox').checked = args.tabsSynced;
-        dataTypeBoxes_['tabs-checkbox'] = args.tabsSynced;
+        dataTypeBoxesChecked_['tabs-checkbox'] = args.tabsSynced;
+        dataTypeBoxesDisabled_['tabs-checkbox'] = args.tabsEnforced;
         $('tabs-checkbox').onclick = this.handleDataTypeClick_;
         $('tabs-item').hidden = false;
       } else {
@@ -377,15 +445,19 @@ cr.define('options', function() {
 
     /**
      * Updates the cached values of the sync data type checkboxes stored in
-     * |dataTypeBoxes_|. Used as an onclick handler for each data type checkbox.
+     * |dataTypeBoxesChecked_|. Used as an onclick handler for each data type
+     * checkbox.
      * @private
      */
     handleDataTypeClick_: function() {
-      dataTypeBoxes_[this.id] = this.checked;
+      dataTypeBoxesChecked_[this.id] = this.checked;
       chrome.send('coreOptionsUserMetricsAction',
                   ['Options_SyncToggleDataType']);
     },
 
+    /**
+     * @param {SyncConfig} args
+     */
     setEncryptionRadios_: function(args) {
       if (!args.encryptAllData && !args.usePassphrase) {
         $('basic-encryption-option').checked = true;
@@ -396,11 +468,17 @@ cr.define('options', function() {
       }
     },
 
+    /**
+     * @param {SyncConfig} args
+     */
     setCheckboxesAndErrors_: function(args) {
       this.setChooseDataTypesCheckboxes_(args);
       this.setEncryptionRadios_(args);
     },
 
+    /**
+     * @param {SyncConfig} args
+     */
     showConfigure_: function(args) {
       var datatypeSelect = $('sync-select-datatypes');
       var self = this;
@@ -425,11 +503,11 @@ cr.define('options', function() {
       // data type checkboxes, and restore their checked state to the last time
       // the "Choose what to sync" was selected while the dialog was still up.
       datatypeSelect.onchange = function() {
-        if (this.selectedIndex == DataTypeSelection.SYNC_NOTHING) {
+        if (this.selectedIndex == options.DataTypeSelection.SYNC_NOTHING) {
           self.showSyncNothingPage_();
         } else {
           self.showCustomizePage_(self.syncConfigureArgs_, this.selectedIndex);
-          if (this.selectedIndex == DataTypeSelection.SYNC_EVERYTHING)
+          if (this.selectedIndex == options.DataTypeSelection.SYNC_EVERYTHING)
             self.checkAllDataTypeCheckboxes_(true);
           else
             self.restoreDataTypeCheckboxes_();
@@ -458,8 +536,8 @@ cr.define('options', function() {
         if (args.showSyncEverythingPage == false || this.usePassphrase_ ||
             args.syncAllDataTypes == false || args.showPassphrase) {
           var index = args.syncAllDataTypes ?
-                          DataTypeSelection.SYNC_EVERYTHING :
-                          DataTypeSelection.CHOOSE_WHAT_TO_SYNC;
+                          options.DataTypeSelection.SYNC_EVERYTHING :
+                          options.DataTypeSelection.CHOOSE_WHAT_TO_SYNC;
           this.showCustomizePage_(args, index);
         } else {
           this.showSyncEverythingPage_();
@@ -493,7 +571,7 @@ cr.define('options', function() {
       $('sync-select-datatypes').selectedIndex = 0;
 
       // The default state is to sync everything.
-      this.setDataTypeCheckboxes_(DataTypeSelection.SYNC_EVERYTHING);
+      this.setDataTypeCheckboxes_(options.DataTypeSelection.SYNC_EVERYTHING);
 
       if (!this.usePassphrase_)
         $('sync-custom-passphrase').hidden = true;
@@ -514,7 +592,8 @@ cr.define('options', function() {
      */
     showSyncNothingPage_: function() {
       // Reset the selection to 'Sync nothing'.
-      $('sync-select-datatypes').selectedIndex = DataTypeSelection.SYNC_NOTHING;
+      $('sync-select-datatypes').selectedIndex =
+          options.DataTypeSelection.SYNC_NOTHING;
 
       // Uncheck and disable the individual data type checkboxes.
       this.checkAllDataTypeCheckboxes_(false);
@@ -535,7 +614,7 @@ cr.define('options', function() {
      * Reveals the UI for entering a custom passphrase during initial setup.
      * This happens if the user has previously enabled a custom passphrase on a
      * different machine.
-     * @param {Array} args The args that contain the passphrase UI
+     * @param {SyncConfig} args The args that contain the passphrase UI
      *     configuration.
      * @private
      */
@@ -574,7 +653,8 @@ cr.define('options', function() {
     /**
      * Displays the advanced sync setting dialog, and pre-selects either the
      * "Sync everything" or the "Choose what to sync" drop-down menu item.
-     * @param {cr.DataTypeSelection} index Index of item to pre-select.
+     * @param {SyncConfig} args
+     * @param {options.DataTypeSelection} index Index of item to pre-select.
      * @private
      */
     showCustomizePage_: function(args, index) {
@@ -588,19 +668,19 @@ cr.define('options', function() {
 
       $('sync-custom-passphrase-container').hidden = false;
       $('sync-new-encryption-section-container').hidden = false;
-      $('customize-sync-encryption-new').hidden = false;
+      $('customize-sync-encryption-new').hidden = !args.encryptAllDataAllowed;
 
       $('sync-existing-passphrase-container').hidden = true;
 
       $('sync-select-datatypes').selectedIndex = index;
       this.setDataTypeCheckboxesEnabled_(
-          index == DataTypeSelection.CHOOSE_WHAT_TO_SYNC);
+          index == options.DataTypeSelection.CHOOSE_WHAT_TO_SYNC);
 
       // Give the OK button focus only when the dialog wasn't already visible.
       if (wasCustomizePageHidden)
         $('choose-datatypes-ok').focus();
 
-      if (args && args.showPassphrase) {
+      if (args.showPassphrase) {
         this.showPassphraseContainer_(args);
         // Give the passphrase field focus only when the dialog wasn't already
         // visible.
@@ -621,7 +701,7 @@ cr.define('options', function() {
     /**
      * Shows the appropriate sync setup page.
      * @param {string} page A page of the sync setup to show.
-     * @param {object} args Data from the C++ to forward on to the right
+     * @param {SyncConfig} args Data from the C++ to forward on to the right
      *     section.
      */
     showSyncSetupPage_: function(page, args) {
@@ -684,7 +764,7 @@ cr.define('options', function() {
      * initial state.
      * The initial state is specified by adding a class to the descendant
      * element in sync_setup_overlay.html.
-     * @param {HTMLElement} pageElementId The root page element id.
+     * @param {string} pageElementId The root page element id.
      * @private
      */
     resetPage_: function(pageElementId) {
@@ -720,7 +800,7 @@ cr.define('options', function() {
       for (var i = 0; i < overlay.children.length; i++)
         overlay.children[i].hidden = true;
 
-      // Bypass OptionsPage.navigateToPage because it will call didShowPage
+      // Bypass PageManager.showPageByName because it will call didShowPage
       // which will set its own visible page, based on the flow state.
       this.visible = true;
 
@@ -735,7 +815,7 @@ cr.define('options', function() {
      */
     showSetupUI_: function() {
       chrome.send('SyncSetupShowSetupUI');
-      chrome.send('coreOptionsUserMetricsAction', ['Options_SyncShowAdvanced']);
+      chrome.send('coreOptionsUserMetricsAction', ['Options_ShowSyncAdvanced']);
     },
 
     /**

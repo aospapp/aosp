@@ -61,7 +61,7 @@ class ASH_EXPORT WindowGrid : public aura::WindowObserver {
   // Updates |selected_index_| according to the specified |direction| and calls
   // MoveSelectionWidget(). Returns |true| if the new selection index is out of
   // this window grid bounds.
-  bool Move(WindowSelector::Direction direction);
+  bool Move(WindowSelector::Direction direction, bool animate);
 
   // Returns the target selected window, or NULL if there is none selected.
   WindowSelectorItem* SelectedWindow() const;
@@ -69,6 +69,12 @@ class ASH_EXPORT WindowGrid : public aura::WindowObserver {
   // Returns true if a window is contained in any of the WindowSelectorItems
   // this grid owns.
   bool Contains(const aura::Window* window) const;
+
+  // Dims the items whose titles do not contain |pattern| and prevents their
+  // selection. The pattern has its accents removed and is converted to
+  // lowercase in a l10n sensitive context.
+  // If |pattern| is empty, no item is dimmed.
+  void FilterItems(const base::string16& pattern);
 
   // Returns true if the grid has no more windows.
   bool empty() const { return window_list_.empty(); }
@@ -88,7 +94,7 @@ class ASH_EXPORT WindowGrid : public aura::WindowObserver {
 
   // aura::WindowObserver:
   virtual void OnWindowDestroying(aura::Window* window) OVERRIDE;
-  // TODO(nsatragno): Handle window bounds changed in WindowSelectorItem.
+  // TODO(flackr): Handle window bounds changed in WindowSelectorItem.
   virtual void OnWindowBoundsChanged(aura::Window* window,
                                      const gfx::Rect& old_bounds,
                                      const gfx::Rect& new_bounds) OVERRIDE;
@@ -102,7 +108,8 @@ class ASH_EXPORT WindowGrid : public aura::WindowObserver {
   // Moves the selection widget to the specified |direction|.
   void MoveSelectionWidget(WindowSelector::Direction direction,
                            bool recreate_selection_widget,
-                           bool out_of_bounds);
+                           bool out_of_bounds,
+                           bool animate);
 
   // Moves the selection widget to the targeted window.
   void MoveSelectionWidgetToTarget(bool animate);

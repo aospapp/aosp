@@ -11,6 +11,7 @@
   ],
   'targets': [
     {
+      # GN version: //ppapi:ppapi_c
       'target_name': 'ppapi_c',
       'type': 'none',
       'all_dependent_settings': {
@@ -23,6 +24,7 @@
       ],
     },
     {
+      # GN version: //ppapi:ppapi_cpp_objects
       'target_name': 'ppapi_cpp_objects',
       'type': 'static_library',
       'dependencies': [
@@ -56,6 +58,7 @@
       ],
     },
     {
+      # GN version: //ppapi:ppapi_cpp
       'target_name': 'ppapi_cpp',
       'type': 'static_library',
       'dependencies': [
@@ -79,6 +82,18 @@
            },
         }]
       ],
+    },
+    {
+      # GN version: //ppapi:ppapi_internal_module
+      'target_name': 'ppapi_internal_module',
+      'type': 'static_library',
+      'include_dirs+': [
+        '..',
+      ],
+      'sources': [
+        'cpp/private/internal_module.cc',
+        'cpp/private/internal_module.h',
+      ]
     },
   ],
 }

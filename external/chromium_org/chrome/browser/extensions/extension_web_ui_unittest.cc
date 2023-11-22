@@ -9,13 +9,14 @@
 #include "chrome/browser/extensions/test_extension_system.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/test/test_browser_thread.h"
+#include "extensions/browser/extension_system.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_builder.h"
 #include "extensions/common/manifest_constants.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/login/users/user_manager.h"
+#include "chrome/browser/chromeos/login/users/scoped_test_user_manager.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/chromeos/settings/device_settings_service.h"
 #endif
@@ -57,18 +58,18 @@ class ExtensionWebUITest : public testing::Test {
 // non-component extension url overrides.
 TEST_F(ExtensionWebUITest, ExtensionURLOverride) {
   // Register a non-component extension.
-  extensions::DictionaryBuilder manifest;
+  DictionaryBuilder manifest;
   manifest.Set(manifest_keys::kName, "ext1")
       .Set(manifest_keys::kVersion, "0.1")
       .Set(std::string(manifest_keys::kChromeURLOverrides),
-           extensions::DictionaryBuilder().Set("bookmarks", "1.html"));
+           DictionaryBuilder().Set("bookmarks", "1.html"));
   scoped_refptr<Extension> ext_unpacked(
-      extensions::ExtensionBuilder()
+      ExtensionBuilder()
           .SetManifest(manifest)
           .SetLocation(Manifest::UNPACKED)
           .SetID("abcdefghijabcdefghijabcdefghijaa")
           .Build());
-  profile_->GetExtensionService()->AddExtension(ext_unpacked.get());
+  extension_service_->AddExtension(ext_unpacked.get());
 
   GURL expected_unpacked_override_url(std::string(ext_unpacked->url().spec()) +
                                       "1.html");
@@ -77,18 +78,18 @@ TEST_F(ExtensionWebUITest, ExtensionURLOverride) {
   EXPECT_EQ(url, expected_unpacked_override_url);
 
   // Register a component extension
-  extensions::DictionaryBuilder manifest2;
+  DictionaryBuilder manifest2;
   manifest2.Set(manifest_keys::kName, "ext2")
       .Set(manifest_keys::kVersion, "0.1")
       .Set(std::string(manifest_keys::kChromeURLOverrides),
-           extensions::DictionaryBuilder().Set("bookmarks", "2.html"));
+           DictionaryBuilder().Set("bookmarks", "2.html"));
   scoped_refptr<Extension> ext_component(
-      extensions::ExtensionBuilder()
+      ExtensionBuilder()
           .SetManifest(manifest2)
           .SetLocation(Manifest::COMPONENT)
           .SetID("bbabcdefghijabcdefghijabcdefghij")
           .Build());
-  profile_->GetExtensionService()->AddComponentExtension(ext_component.get());
+  extension_service_->AddComponentExtension(ext_component.get());
 
   // Despite being registered more recently, the component extension should
   // not take precedence over the non-component extension.

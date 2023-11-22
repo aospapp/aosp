@@ -27,7 +27,6 @@ import android.preference.CheckBoxPreference;
 import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.Preference.OnPreferenceChangeListener;
-import android.provider.SearchRecentSuggestions;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -122,7 +121,6 @@ public class GeneralPrefsFragment extends MailPreferenceFragment
         if (PreferenceKeys.REMOVAL_ACTION.equals(key)) {
             final String removalAction = newValue.toString();
             mMailPrefs.setRemovalAction(removalAction);
-            updateListSwipeTitle(removalAction);
         } else if (AUTO_ADVANCE_WIDGET.equals(key)) {
             final int prefsAutoAdvanceMode =
                     AUTO_ADVANCE_VALUES[mAutoAdvance.findIndexOfValue((String) newValue)];
@@ -168,12 +166,10 @@ public class GeneralPrefsFragment extends MailPreferenceFragment
                 new AsyncTask<Void, Void, Void>() {
                     @Override
                     protected Void doInBackground(Void... params) {
-                        final String authority = context.getString(
-                                com.android.mail.R.string.suggestions_authority);
-                        final SearchRecentSuggestions suggestions =
-                                new SearchRecentSuggestions(context, authority,
-                                        SuggestionsProvider.MODE);
+                        final SuggestionsProvider suggestions =
+                                new SuggestionsProvider(context);
                         suggestions.clearHistory();
+                        suggestions.cleanup();
                         return null;
                     }
                 }.execute();
@@ -203,9 +199,6 @@ public class GeneralPrefsFragment extends MailPreferenceFragment
         final int autoAdvanceModeIndex = prefValueToWidgetIndex(AUTO_ADVANCE_VALUES,
                 mMailPrefs.getAutoAdvanceMode(), AutoAdvance.DEFAULT);
         mAutoAdvance.setValueIndex(autoAdvanceModeIndex);
-
-        final String removalAction = mMailPrefs.getRemovalAction(supportsArchive());
-        updateListSwipeTitle(removalAction);
 
         listenForPreferenceChange(
                 PreferenceKeys.REMOVAL_ACTION,
@@ -257,12 +250,5 @@ public class GeneralPrefsFragment extends MailPreferenceFragment
                 p.setOnPreferenceChangeListener(this);
             }
         }
-    }
-
-    private void updateListSwipeTitle(final String removalAction) {
-        final CheckBoxPreference listSwipePreference = (CheckBoxPreference)
-                findPreference(MailPrefs.PreferenceKeys.CONVERSATION_LIST_SWIPE);
-        listSwipePreference.setTitle(MailPrefs.RemovalActions.DELETE.equals(removalAction) ?
-                R.string.preference_swipe_title_delete : R.string.preference_swipe_title_archive);
     }
 }

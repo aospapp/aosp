@@ -8,6 +8,7 @@
 #include "chrome/browser/extensions/api/commands/command_service.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/extensions/accelerator_priority.h"
 #include "content/public/browser/native_web_keyboard_event.h"
 #include "content/public/browser/notification_service.h"
 #include "extensions/common/extension.h"
@@ -38,7 +39,8 @@ ExtensionKeybindingRegistryCocoa::~ExtensionKeybindingRegistryCocoa() {
 }
 
 bool ExtensionKeybindingRegistryCocoa::ProcessKeyEvent(
-    const content::NativeWebKeyboardEvent& event) {
+    const content::NativeWebKeyboardEvent& event,
+    ui::AcceleratorManager::HandlerPriority priority) {
   if (shortcut_handling_suspended_)
     return false;
 
@@ -51,11 +53,17 @@ bool ExtensionKeybindingRegistryCocoa::ProcessKeyEvent(
   if (!GetFirstTarget(accelerator, &extension_id, &command_name))
     return false;
 
+  const ui::AcceleratorManager::HandlerPriority accelerator_priority =
+      GetAcceleratorPriorityById(accelerator, extension_id, profile_);
+  // Only handle the event if it has the right priority.
+  if (priority != accelerator_priority)
+    return false;
+
   int type = 0;
   if (command_name == values::kPageActionCommandEvent) {
-    type = chrome::NOTIFICATION_EXTENSION_COMMAND_PAGE_ACTION_MAC;
+    type = extensions::NOTIFICATION_EXTENSION_COMMAND_PAGE_ACTION_MAC;
   } else if (command_name == values::kBrowserActionCommandEvent) {
-    type = chrome::NOTIFICATION_EXTENSION_COMMAND_BROWSER_ACTION_MAC;
+    type = extensions::NOTIFICATION_EXTENSION_COMMAND_BROWSER_ACTION_MAC;
   } else {
     // Not handled by using notifications. Route it through the Browser Event
     // Router using the base class (it will iterate through all targets).

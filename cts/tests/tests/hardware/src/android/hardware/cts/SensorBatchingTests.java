@@ -20,9 +20,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.TestSensorEnvironment;
-import android.hardware.cts.helpers.sensoroperations.TestSensorFlushOperation;
 import android.hardware.cts.helpers.sensoroperations.TestSensorOperation;
-import android.hardware.cts.helpers.sensoroperations.VerifiableSensorOperation;
 import android.hardware.cts.helpers.sensorverification.ISensorVerification;
 
 import java.util.concurrent.TimeUnit;
@@ -263,7 +261,7 @@ public class SensorBatchingTests extends SensorTestCase {
                 rateUs,
                 maxBatchReportLatencyUs);
         TestSensorOperation operation =
-                new TestSensorOperation(environment, testDurationSec, TimeUnit.SECONDS);
+                TestSensorOperation.createOperation(environment, testDurationSec, TimeUnit.SECONDS);
 
         executeTest(environment, operation, false /* flushExpected */);
     }
@@ -279,23 +277,23 @@ public class SensorBatchingTests extends SensorTestCase {
                 shouldEmulateSensorUnderLoad(),
                 rateUs,
                 maxBatchReportLatencyUs);
-        TestSensorFlushOperation operation =
-                new TestSensorFlushOperation(environment, flushDurationSec, TimeUnit.SECONDS);
+        TestSensorOperation operation = TestSensorOperation
+                .createFlushOperation(environment, flushDurationSec, TimeUnit.SECONDS);
 
         executeTest(environment, operation, true /* flushExpected */);
     }
 
     private void executeTest(
             TestSensorEnvironment environment,
-            VerifiableSensorOperation operation,
+            TestSensorOperation operation,
             boolean flushExpected) throws Throwable {
         operation.addDefaultVerifications();
-        operation.setLogEvents(true);
 
         try {
-            operation.execute();
+            operation.execute(getCurrentTestNode());
         } finally {
-            SensorStats.logStats(TAG, operation.getStats());
+            SensorStats stats = operation.getStats();
+            stats.log(TAG);
 
             String sensorRate;
             if (environment.getRequestedSamplingPeriodUs() == SensorManager.SENSOR_DELAY_FASTEST) {
@@ -311,7 +309,7 @@ public class SensorBatchingTests extends SensorTestCase {
                     sensorRate,
                     batching,
                     flush);
-            SensorStats.logStatsToFile(fileName, operation.getStats());
+            stats.logToFile(fileName);
         }
     }
 }

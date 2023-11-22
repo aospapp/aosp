@@ -118,7 +118,7 @@ class IPC_EXPORT Channel : public Sender {
   // TODO(morrita): Replace CreateByModeForProxy() with one of above Create*().
   //
   static scoped_ptr<Channel> Create(
-      const IPC::ChannelHandle &channel_handle, Mode mode,Listener* listener);
+      const IPC::ChannelHandle &channel_handle, Mode mode, Listener* listener);
 
   static scoped_ptr<Channel> CreateClient(
       const IPC::ChannelHandle &channel_handle, Listener* listener);
@@ -169,6 +169,9 @@ class IPC_EXPORT Channel : public Sender {
   // been connected), or you wait for the "connected" notification on the
   // listener.
   virtual base::ProcessId GetPeerPID() const = 0;
+
+  // Get its own process id. This value is told to the peer.
+  virtual base::ProcessId GetSelfPID() const = 0;
 
   // Send a message over the Channel to the listener on the other end.
   //

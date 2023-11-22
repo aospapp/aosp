@@ -41,6 +41,7 @@ namespace cc {
 class CompletionEvent;
 class CompositorFrameMetadata;
 class DebugRectHistory;
+class EvictionTilePriorityQueue;
 class FrameRateCounter;
 class LayerImpl;
 class LayerTreeHostImplTimeSourceAdapter;
@@ -49,6 +50,7 @@ class MemoryHistory;
 class PageScaleAnimation;
 class PaintTimeCounter;
 class PictureLayerImpl;
+class RasterTilePriorityQueue;
 class RasterWorkerPool;
 class RenderPassDrawQuad;
 class RenderingStatsInstrumentation;
@@ -94,7 +96,7 @@ class LayerTreeHostImplClient {
   virtual void PostDelayedScrollbarFadeOnImplThread(
       const base::Closure& start_fade,
       base::TimeDelta delay) = 0;
-  virtual void DidActivatePendingTree() = 0;
+  virtual void DidActivateSyncTree() = 0;
   virtual void DidManageTiles() = 0;
 
  protected:
@@ -126,6 +128,9 @@ class CC_EXPORT LayerTreeHostImpl
   virtual InputHandler::ScrollStatus ScrollBegin(
       const gfx::Point& viewport_point,
       InputHandler::ScrollInputType type) OVERRIDE;
+  virtual InputHandler::ScrollStatus ScrollAnimated(
+      const gfx::Point& viewport_point,
+      const gfx::Vector2dF& scroll_delta) OVERRIDE;
   virtual bool ScrollBy(const gfx::Point& viewport_point,
                         const gfx::Vector2dF& scroll_delta) OVERRIDE;
   virtual bool ScrollVerticallyByPage(const gfx::Point& viewport_point,
@@ -140,10 +145,6 @@ class CC_EXPORT LayerTreeHostImpl
   virtual void PinchGestureUpdate(float magnify_delta,
                                   const gfx::Point& anchor) OVERRIDE;
   virtual void PinchGestureEnd() OVERRIDE;
-  virtual void StartPageScaleAnimation(const gfx::Vector2d& target_offset,
-                                       bool anchor_point,
-                                       float page_scale,
-                                       base::TimeDelta duration) OVERRIDE;
   virtual void SetNeedsAnimate() OVERRIDE;
   virtual bool IsCurrentlyScrollingLayerAt(
       const gfx::Point& viewport_point,
@@ -154,13 +155,15 @@ class CC_EXPORT LayerTreeHostImpl
       ui::LatencyInfo* latency) OVERRIDE;
 
   // TopControlsManagerClient implementation.
+  virtual void SetControlsTopOffset(float offset) OVERRIDE;
+  virtual float ControlsTopOffset() const OVERRIDE;
   virtual void DidChangeTopControlsPosition() OVERRIDE;
   virtual bool HaveRootScrollLayer() const OVERRIDE;
 
   struct CC_EXPORT FrameData : public RenderPassSink {
     FrameData();
     virtual ~FrameData();
-    scoped_ptr<base::Value> AsValue() const;
+    void AsValueInto(base::debug::TracedValue* value) const;
 
     std::vector<gfx::Rect> occluding_screen_space_rects;
     std::vector<gfx::Rect> non_occluding_screen_space_rects;
@@ -223,20 +226,18 @@ class CC_EXPORT LayerTreeHostImpl
   // Viewport rect in view space used for tiling prioritization.
   const gfx::Rect ViewportRectForTilePriority() const;
 
-  // Viewport size for scrolling and fixed-position compensation. This value
-  // excludes the URL bar and non-overlay scrollbars and is in DIP (and
-  // invariant relative to page scale).
-  gfx::SizeF UnscaledScrollableViewportSize() const;
-  float VerticalAdjust() const;
-
   // RendererClient implementation.
   virtual void SetFullRootLayerDamage() OVERRIDE;
-  virtual void RunOnDemandRasterTask(Task* on_demand_raster_task) OVERRIDE;
 
   // TileManagerClient implementation.
-  virtual const std::vector<PictureLayerImpl*>& GetPictureLayers() OVERRIDE;
+  virtual const std::vector<PictureLayerImpl*>& GetPictureLayers()
+      const OVERRIDE;
   virtual void NotifyReadyToActivate() OVERRIDE;
   virtual void NotifyTileStateChanged(const Tile* tile) OVERRIDE;
+  virtual void BuildRasterQueue(RasterTilePriorityQueue* queue,
+                                TreePriority tree_priority) OVERRIDE;
+  virtual void BuildEvictionQueue(EvictionTilePriorityQueue* queue,
+                                  TreePriority tree_priority) OVERRIDE;
 
   // ScrollbarAnimationControllerClient implementation.
   virtual void PostDelayedScrollbarFade(const base::Closure& start_fade,
@@ -280,7 +281,6 @@ class CC_EXPORT LayerTreeHostImpl
   int SourceAnimationFrameNumber() const;
 
   virtual bool InitializeRenderer(scoped_ptr<OutputSurface> output_surface);
-  bool IsContextLost();
   TileManager* tile_manager() { return tile_manager_.get(); }
   void SetUseGpuRasterization(bool use_gpu);
   bool use_gpu_rasterization() const { return use_gpu_rasterization_; }
@@ -304,14 +304,11 @@ class CC_EXPORT LayerTreeHostImpl
   const LayerTreeImpl* recycle_tree() const { return recycle_tree_.get(); }
   // Returns the tree LTH synchronizes with.
   LayerTreeImpl* sync_tree() {
-    // In impl-side painting, synchronize to the pending tree so that it has
-    // time to raster before being displayed.
-    return settings_.impl_side_painting ? pending_tree_.get()
-                                        : active_tree_.get();
+    return pending_tree_ ? pending_tree_.get() : active_tree_.get();
   }
   virtual void CreatePendingTree();
   virtual void UpdateVisibleTiles();
-  virtual void ActivatePendingTree();
+  virtual void ActivateSyncTree();
 
   // Shortcuts to layers on the active tree.
   LayerImpl* RootLayer() const;
@@ -325,8 +322,10 @@ class CC_EXPORT LayerTreeHostImpl
   bool scroll_affects_scroll_handler() const {
     return scroll_affects_scroll_handler_;
   }
+  void QueueSwapPromiseForMainThreadScrollUpdate(
+      scoped_ptr<SwapPromise> swap_promise);
 
-  bool IsCurrentlyScrolling() const;
+  bool IsActivelyScrolling() const;
 
   virtual void SetVisible(bool visible);
   bool visible() const { return visible_; }
@@ -341,9 +340,6 @@ class CC_EXPORT LayerTreeHostImpl
 
   void SetViewportSize(const gfx::Size& device_viewport_size);
   gfx::Size device_viewport_size() const { return device_viewport_size_; }
-
-  void SetOverdrawBottomHeight(float overdraw_bottom_height);
-  float overdraw_bottom_height() const { return overdraw_bottom_height_; }
 
   void SetOverhangUIResource(UIResourceId overhang_ui_resource_id,
                              const gfx::Size& overhang_ui_resource_size);
@@ -419,18 +415,26 @@ class CC_EXPORT LayerTreeHostImpl
 
   void SetTreePriority(TreePriority priority);
 
-  void UpdateCurrentFrameTime();
-  void ResetCurrentFrameTimeForNextFrame();
-  virtual base::TimeTicks CurrentFrameTimeTicks();
+  void UpdateCurrentBeginFrameArgs(const BeginFrameArgs& args);
+  void ResetCurrentBeginFrameArgsForNextFrame();
+  virtual BeginFrameArgs CurrentBeginFrameArgs() const;
 
   // Expected time between two begin impl frame calls.
   base::TimeDelta begin_impl_frame_interval() const {
     return begin_impl_frame_interval_;
   }
 
-  scoped_ptr<base::Value> AsValue() const { return AsValueWithFrame(NULL); }
-  scoped_ptr<base::Value> AsValueWithFrame(FrameData* frame) const;
-  scoped_ptr<base::Value> ActivationStateAsValue() const;
+  void AsValueInto(base::debug::TracedValue* value) const {
+    return AsValueWithFrameInto(NULL, value);
+  }
+  void AsValueWithFrameInto(FrameData* frame,
+                            base::debug::TracedValue* value) const;
+  scoped_refptr<base::debug::ConvertableToTraceFormat> AsValue() const;
+  scoped_refptr<base::debug::ConvertableToTraceFormat> AsValueWithFrame(
+      FrameData* frame) const;
+  scoped_refptr<base::debug::ConvertableToTraceFormat> ActivationStateAsValue()
+      const;
+  void ActivationStateAsValueInto(base::debug::TracedValue* value) const;
 
   bool page_scale_animation_active() const { return !!page_scale_animation_; }
 
@@ -471,6 +475,11 @@ class CC_EXPORT LayerTreeHostImpl
   void RegisterPictureLayerImpl(PictureLayerImpl* layer);
   void UnregisterPictureLayerImpl(PictureLayerImpl* layer);
 
+  void GetPictureLayerImplPairs(
+      std::vector<PictureLayerImpl::Pair>* layers) const;
+
+  void SetTopControlsLayoutHeight(float height);
+
  protected:
   LayerTreeHostImpl(
       const LayerTreeSettings& settings,
@@ -480,7 +489,6 @@ class CC_EXPORT LayerTreeHostImpl
       SharedBitmapManager* manager,
       int id);
 
-  gfx::SizeF ComputeInnerViewportContainerSize() const;
   void UpdateInnerViewportContainerSize();
 
   // Virtual for testing.
@@ -506,8 +514,9 @@ class CC_EXPORT LayerTreeHostImpl
   void ReleaseTreeResources();
   void EnforceZeroBudget(bool zero_budget);
 
-  bool UseZeroCopyTextureUpload() const;
-  bool UseOneCopyTextureUpload() const;
+  bool UsePendingTreeForSync() const;
+  bool UseZeroCopyRasterizer() const;
+  bool UseOneCopyRasterizer() const;
 
   void ScrollViewportBy(gfx::Vector2dF scroll_delta);
   void AnimatePageScale(base::TimeTicks monotonic_time);
@@ -557,6 +566,7 @@ class CC_EXPORT LayerTreeHostImpl
   void MarkUIResourceNotEvicted(UIResourceId uid);
 
   void NotifySwapPromiseMonitorsOfSetNeedsRedraw();
+  void NotifySwapPromiseMonitorsOfForwardingToMainThread();
 
   typedef base::hash_map<UIResourceId, UIResourceData>
       UIResourceMap;
@@ -568,7 +578,6 @@ class CC_EXPORT LayerTreeHostImpl
   std::set<UIResourceId> evicted_ui_resources_;
 
   scoped_ptr<OutputSurface> output_surface_;
-  scoped_refptr<ContextProvider> offscreen_context_provider_;
 
   // |resource_provider_| and |tile_manager_| can be NULL, e.g. when using tile-
   // free rendering - see OutputSurface::ForcedDrawToSoftwareDevice().
@@ -579,10 +588,6 @@ class CC_EXPORT LayerTreeHostImpl
   scoped_ptr<ResourcePool> resource_pool_;
   scoped_ptr<ResourcePool> staging_resource_pool_;
   scoped_ptr<Renderer> renderer_;
-
-  TaskGraphRunner synchronous_task_graph_runner_;
-  TaskGraphRunner* on_demand_task_graph_runner_;
-  NamespaceToken on_demand_task_namespace_;
 
   GlobalStateThatImpactsTilePriority global_tile_state_;
 
@@ -603,6 +608,7 @@ class CC_EXPORT LayerTreeHostImpl
   bool wheel_scrolling_;
   bool scroll_affects_scroll_handler_;
   int scroll_layer_id_when_mouse_over_scrollbar_;
+  ScopedPtrVector<SwapPromise> swap_promises_for_main_thread_scroll_update_;
 
   bool tile_priorities_dirty_;
 
@@ -653,12 +659,6 @@ class CC_EXPORT LayerTreeHostImpl
   UIResourceId overhang_ui_resource_id_;
   gfx::Size overhang_ui_resource_size_;
 
-  // Vertical amount of the viewport size that's known to covered by a
-  // browser-side UI element, such as an on-screen-keyboard.  This affects
-  // scrollable size since we want to still be able to scroll to the bottom of
-  // the page when the keyboard is up.
-  float overdraw_bottom_height_;
-
   // Optional top-level constraints that can be set by the OutputSurface.
   // - external_transform_ applies a transform above the root layer
   // - external_viewport_ is used DrawProperties, tile management and
@@ -674,7 +674,7 @@ class CC_EXPORT LayerTreeHostImpl
 
   gfx::Rect viewport_damage_rect_;
 
-  base::TimeTicks current_frame_timeticks_;
+  BeginFrameArgs current_begin_frame_args_;
 
   // Expected time between two begin impl frame calls.
   base::TimeDelta begin_impl_frame_interval_;
@@ -685,9 +685,6 @@ class CC_EXPORT LayerTreeHostImpl
   MicroBenchmarkControllerImpl micro_benchmark_controller_;
 
   bool need_to_update_visible_tiles_before_draw_;
-#if DCHECK_IS_ON
-  bool did_lose_called_;
-#endif
 
   // Optional callback to notify of new tree activations.
   base::Closure tree_activation_callback_;
@@ -697,9 +694,8 @@ class CC_EXPORT LayerTreeHostImpl
 
   std::set<SwapPromiseMonitor*> swap_promise_monitor_;
 
-  size_t transfer_buffer_memory_limit_;
-
   std::vector<PictureLayerImpl*> picture_layers_;
+  std::vector<PictureLayerImpl::Pair> picture_layer_pairs_;
 
   DISALLOW_COPY_AND_ASSIGN(LayerTreeHostImpl);
 };

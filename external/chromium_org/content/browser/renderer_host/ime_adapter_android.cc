@@ -21,6 +21,7 @@
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_view_android.h"
 #include "content/common/frame_messages.h"
+#include "content/common/input_messages.h"
 #include "content/common/view_messages.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/native_web_keyboard_event.h"
@@ -28,6 +29,7 @@
 #include "jni/ImeAdapter_jni.h"
 #include "third_party/WebKit/public/web/WebCompositionUnderline.h"
 #include "third_party/WebKit/public/web/WebInputEvent.h"
+#include "third_party/WebKit/public/web/WebTextInputType.h"
 
 using base::android::AttachCurrentThread;
 using base::android::ConvertJavaStringToUTF16;
@@ -86,6 +88,14 @@ bool RegisterImeAdapter(JNIEnv* env) {
       ui::TEXT_INPUT_TYPE_TELEPHONE,
       ui::TEXT_INPUT_TYPE_NUMBER,
       ui::TEXT_INPUT_TYPE_CONTENT_EDITABLE);
+  Java_ImeAdapter_initializeTextInputFlags(
+      env,
+      blink::WebTextInputFlagAutocompleteOn,
+      blink::WebTextInputFlagAutocompleteOff,
+      blink::WebTextInputFlagAutocorrectOn,
+      blink::WebTextInputFlagAutocorrectOff,
+      blink::WebTextInputFlagSpellcheckOn,
+      blink::WebTextInputFlagSpellcheckOff);
   return true;
 }
 
@@ -147,9 +157,10 @@ bool ImeAdapterAndroid::SendSyntheticKeyEvent(JNIEnv*,
                                               int type,
                                               long time_ms,
                                               int key_code,
+                                              int modifiers,
                                               int text) {
   NativeWebKeyboardEvent event(static_cast<blink::WebInputEvent::Type>(type),
-                               0 /* modifiers */, time_ms / 1000.0, key_code,
+                               modifiers, time_ms / 1000.0, key_code,
                                text, false /* is_system_key */);
   rwhva_->SendKeyEvent(event);
   return true;
@@ -276,7 +287,7 @@ void ImeAdapterAndroid::SetComposingRegion(JNIEnv*, jobject,
   underlines.push_back(blink::WebCompositionUnderline(
       0, end - start, SK_ColorBLACK, false, SK_ColorTRANSPARENT));
 
-  rfh->Send(new FrameMsg_SetCompositionFromExistingText(
+  rfh->Send(new InputMsg_SetCompositionFromExistingText(
       rfh->GetRoutingID(), start, end, underlines));
 }
 

@@ -21,6 +21,7 @@ import com.android.cts.media.R;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.media.AudioManager;
 import android.media.Ringtone;
@@ -28,11 +29,13 @@ import android.media.RingtoneManager;
 import android.net.Uri;
 import android.provider.Settings;
 import android.test.ActivityInstrumentationTestCase2;
+import android.util.Log;
 
 public class RingtoneManagerTest
         extends ActivityInstrumentationTestCase2<RingtonePickerActivity> {
 
     private static final String PKG = "com.android.cts.media";
+    private static final String TAG = "RingtoneManagerTest";
 
     private RingtonePickerActivity mActivity;
     private Instrumentation mInstrumentation;
@@ -74,12 +77,21 @@ public class RingtoneManagerTest
         super.tearDown();
     }
 
+    private boolean hasAudioOutput() {
+        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT);
+    }
+
     public void testConstructors() {
         new RingtoneManager(mActivity);
         new RingtoneManager(mContext);
     }
 
     public void testAccessMethods() {
+        if (!hasAudioOutput()) {
+            Log.i(TAG, "Skipping testAccessMethods(): device doesn't have audio output.");
+            return;
+        }
+
         Cursor c = mRingtoneManager.getCursor();
         assertTrue("Must have at least one ring tone available", c.getCount() > 0);
 
@@ -115,6 +127,11 @@ public class RingtoneManagerTest
     }
 
     public void testStopPreviousRingtone() {
+        if (!hasAudioOutput()) {
+            Log.i(TAG, "Skipping testStopPreviousRingtone(): device doesn't have audio output.");
+            return;
+        }
+
         Cursor c = mRingtoneManager.getCursor();
         assertTrue("Must have at least one ring tone available", c.getCount() > 0);
 

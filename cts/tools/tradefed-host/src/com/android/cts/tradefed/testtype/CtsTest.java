@@ -707,9 +707,9 @@ public class CtsTest implements IDeviceTest, IResumableTest, IShardableTest, IBu
             }
             mTestPackageList.addAll(shardTestPackageList);
         } catch (FileNotFoundException e) {
-            throw new IllegalArgumentException("failed to find XTS plan file", e);
+            throw new IllegalArgumentException("failed to find test plan file", e);
         } catch (ParseException e) {
-            throw new IllegalArgumentException("failed to parse XTS plan file", e);
+            throw new IllegalArgumentException("failed to parse test plan file", e);
         } catch (ConfigurationException e) {
             throw new IllegalArgumentException("failed to process arguments", e);
         }
@@ -747,7 +747,7 @@ public class CtsTest implements IDeviceTest, IResumableTest, IShardableTest, IBu
                 testPkgDefs.add(testPackageDef);
             }
         } else if (mPackageNames.size() > 0){
-            Log.i(LOG_TAG, String.format("Executing XTS test packages %s", mPackageNames));
+            Log.i(LOG_TAG, String.format("Executing test packages %s", mPackageNames));
 
             Map<String, List<ITestPackageDef>> testPackageDefMap =
                     testRepo.getTestPackageDefsByName();

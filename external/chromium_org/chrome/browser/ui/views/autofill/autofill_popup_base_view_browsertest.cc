@@ -7,6 +7,7 @@
 #include "chrome/browser/ui/autofill/autofill_popup_view_delegate.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -41,14 +42,16 @@ class AutofillPopupBaseViewTest : public InProcessBrowserTest {
   virtual ~AutofillPopupBaseViewTest() {}
 
   virtual void SetUpOnMainThread() OVERRIDE {
-    gfx::NativeWindow window = browser()->window()->GetNativeWindow();
+    gfx::NativeView native_view =
+        browser()->tab_strip_model()->GetActiveWebContents()->GetNativeView();
     EXPECT_CALL(mock_delegate_, container_view())
-        .WillRepeatedly(Return(window));
+        .WillRepeatedly(Return(native_view));
     EXPECT_CALL(mock_delegate_, ViewDestroyed());
 
-    view_ = new AutofillPopupBaseView(
-        &mock_delegate_,
-        views::Widget::GetWidgetForNativeWindow(window));
+    view_ =
+        new AutofillPopupBaseView(&mock_delegate_,
+                                  views::Widget::GetWidgetForNativeWindow(
+                                      browser()->window()->GetNativeWindow()));
   }
 
   void ShowView() {
@@ -56,13 +59,11 @@ class AutofillPopupBaseViewTest : public InProcessBrowserTest {
   }
 
   ui::GestureEvent CreateGestureEvent(ui::EventType type, gfx::Point point) {
-    return ui::GestureEvent(type,
-                            point.x(),
+    return ui::GestureEvent(point.x(),
                             point.y(),
                             0,
                             ui::EventTimeForNow(),
-                            ui::GestureEventDetails(type, 0, 0),
-                            0);
+                            ui::GestureEventDetails(type));
   }
 
   void SimulateGesture(ui::GestureEvent* event) {
@@ -74,8 +75,8 @@ class AutofillPopupBaseViewTest : public InProcessBrowserTest {
   AutofillPopupBaseView* view_;
 };
 
-// Flaky on Win only.  http://crbug.com/376299
-#if defined(OS_WIN)
+// Flaky on Win and Linux.  http://crbug.com/376299
+#if defined(OS_LINUX) || defined(OS_WIN)
 #define MAYBE_GestureTest DISABLED_GestureTest
 #else
 #define MAYBE_GestureTest GestureTest
@@ -128,6 +129,19 @@ IN_PROC_BROWSER_TEST_F(AutofillPopupBaseViewTest, DoubleClickTest) {
   // Ignore double clicks.
   mouse_down.SetClickCount(2);
   EXPECT_FALSE(static_cast<views::View*>(view_)->OnMousePressed(mouse_down));
+}
+
+// Regression test for crbug.com/391316
+IN_PROC_BROWSER_TEST_F(AutofillPopupBaseViewTest, CorrectBoundsTest) {
+  gfx::Rect bounds(100, 150, 5, 5);
+  EXPECT_CALL(mock_delegate_, popup_bounds()).WillRepeatedly(ReturnRef(bounds));
+
+  ShowView();
+
+  gfx::Point display_point =
+      static_cast<views::View*>(view_)->GetBoundsInScreen().origin();
+  gfx::Point expected_point = bounds.origin();
+  EXPECT_EQ(expected_point, display_point);
 }
 
 }  // namespace autofill

@@ -43,6 +43,10 @@ class Callback<void()> {
       sink_->Run();
   }
 
+  bool is_null() const {
+    return !sink_.get();
+  }
+
  private:
   template <typename Sink>
   struct Adapter : public Runnable {
@@ -75,11 +79,13 @@ class Callback<void(A1)> {
   template <typename Sink>
   Callback(const Sink& sink) : sink_(new Adapter<Sink>(sink)) {}
 
-  void Run(
-      typename internal::Callback_ParamTraits<A1>::ForwardType a1) const {
+  void Run(typename internal::Callback_ParamTraits<A1>::ForwardType a1) const {
     if (sink_.get())
-      sink_->Run(
-          internal::Forward(a1));
+      sink_->Run(internal::Forward(a1));
+  }
+
+  bool is_null() const {
+    return !sink_.get();
   }
 
  private:
@@ -89,8 +95,7 @@ class Callback<void(A1)> {
     virtual void Run(
         typename internal::Callback_ParamTraits<A1>::ForwardType a1) const
             MOJO_OVERRIDE {
-      sink.Run(
-          internal::Forward(a1));
+      sink.Run(internal::Forward(a1));
     }
     Sink sink;
   };
@@ -125,6 +130,10 @@ class Callback<void(A1, A2)> {
       sink_->Run(
           internal::Forward(a1),
           internal::Forward(a2));
+  }
+
+  bool is_null() const {
+    return !sink_.get();
   }
 
  private:
@@ -175,6 +184,10 @@ class Callback<void(A1, A2, A3)> {
           internal::Forward(a1),
           internal::Forward(a2),
           internal::Forward(a3));
+  }
+
+  bool is_null() const {
+    return !sink_.get();
   }
 
  private:
@@ -230,6 +243,10 @@ class Callback<void(A1, A2, A3, A4)> {
           internal::Forward(a2),
           internal::Forward(a3),
           internal::Forward(a4));
+  }
+
+  bool is_null() const {
+    return !sink_.get();
   }
 
  private:
@@ -290,6 +307,10 @@ class Callback<void(A1, A2, A3, A4, A5)> {
           internal::Forward(a3),
           internal::Forward(a4),
           internal::Forward(a5));
+  }
+
+  bool is_null() const {
+    return !sink_.get();
   }
 
  private:
@@ -356,6 +377,10 @@ class Callback<void(A1, A2, A3, A4, A5, A6)> {
           internal::Forward(a4),
           internal::Forward(a5),
           internal::Forward(a6));
+  }
+
+  bool is_null() const {
+    return !sink_.get();
   }
 
  private:
@@ -429,6 +454,10 @@ class Callback<void(A1, A2, A3, A4, A5, A6, A7)> {
           internal::Forward(a7));
   }
 
+  bool is_null() const {
+    return !sink_.get();
+  }
+
  private:
   template <typename Sink>
   struct Adapter : public Runnable {
@@ -456,6 +485,8 @@ class Callback<void(A1, A2, A3, A4, A5, A6, A7)> {
 
   internal::SharedPtr<Runnable> sink_;
 };
+
+typedef Callback<void()> Closure;
 
 }  // namespace mojo
 

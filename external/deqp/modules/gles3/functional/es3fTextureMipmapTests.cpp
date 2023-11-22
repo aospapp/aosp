@@ -38,8 +38,6 @@
 #include "glwFunctions.hpp"
 #include "glwEnums.hpp"
 
-#include "tcuImageIO.hpp"
-
 using std::vector;
 using std::string;
 using namespace deqp::gls;
@@ -723,7 +721,7 @@ TextureCubeMipmapCase::IterateResult TextureCubeMipmapCase::iterate (void)
 		lookupPrec.coordBits			= isProjected ? tcu::IVec3(8) : tcu::IVec3(10);
 		lookupPrec.uvwBits				= tcu::IVec3(5,5,0);
 		lodPrec.derivateBits			= 10;
-		lodPrec.lodBits					= isProjected ? 4 : 6;
+		lodPrec.lodBits					= isProjected ? 3 : 6;
 
 		for (int cellNdx = 0; cellNdx < (int)gridLayout.size(); cellNdx++)
 		{

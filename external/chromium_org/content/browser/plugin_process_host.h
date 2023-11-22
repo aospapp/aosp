@@ -16,14 +16,15 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
+#include "base/process/process_handle.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/browser_child_process_host_delegate.h"
 #include "content/public/browser/browser_child_process_host_iterator.h"
 #include "content/public/common/process_type.h"
+#include "content/public/common/resource_type.h"
 #include "content/public/common/webplugininfo.h"
 #include "ipc/ipc_channel_proxy.h"
 #include "ui/gfx/native_widget_types.h"
-#include "webkit/common/resource_type.h"
 
 struct ResourceHostMsg_Request;
 
@@ -120,6 +121,12 @@ class CONTENT_EXPORT PluginProcessHost : public BrowserChildProcessHostDelegate,
   void AddWindow(HWND window);
 #endif
 
+  // Given a pid of a plugin process, returns the plugin information in |info|
+  // if we know about that process. Otherwise returns false.
+  // This method can be called on any thread.
+  static bool GetWebPluginInfoFromPluginPid(base::ProcessId pid,
+                                            WebPluginInfo* info);
+
  private:
   // Sends a message to the plugin process to request creation of a new channel
   // for the given mime type.
@@ -134,8 +141,6 @@ class CONTENT_EXPORT PluginProcessHost : public BrowserChildProcessHostDelegate,
 #endif
 
 #if defined(OS_MACOSX)
-  void OnPluginSelectWindow(uint32 window_id, gfx::Rect window_rect,
-                            bool modal);
   void OnPluginShowWindow(uint32 window_id, gfx::Rect window_rect,
                           bool modal);
   void OnPluginHideWindow(uint32 window_id, gfx::Rect window_rect);
@@ -162,6 +167,9 @@ class CONTENT_EXPORT PluginProcessHost : public BrowserChildProcessHostDelegate,
 
   // Information about the plugin.
   WebPluginInfo info_;
+
+  // The pid of the plugin process.
+  int pid_;
 
 #if defined(OS_WIN)
   // Tracks plugin parent windows created on the UI thread.

@@ -24,8 +24,9 @@
 #include "chrome/browser/ui/app_list/search/webstore/webstore_provider.h"
 #include "chrome/browser/ui/app_list/start_page_service.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/user_metrics.h"
-#include "grit/generated_resources.h"
+#include "grit/components_scaled_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/app_list/search_box_model.h"
 #include "ui/app_list/speech_ui_model.h"
@@ -35,6 +36,9 @@
 namespace {
   const char kAppListSearchResultOpenTypeHistogram[] =
       "Apps.AppListSearchResultOpenType";
+
+  // Maximum time (in milliseconds) to wait to the search providers to finish.
+  const int kStopTimeMS = 1500;
 }
 
 namespace app_list {
@@ -109,8 +113,6 @@ void SearchController::Start() {
 
   OnResultsChanged();
 
-  // Maximum time (in milliseconds) to wait to the search providers to finish.
-  const int kStopTimeMS = 1500;
   stop_timer_.Start(FROM_HERE,
                     base::TimeDelta::FromMilliseconds(kStopTimeMS),
                     base::Bind(&SearchController::Stop,

@@ -33,9 +33,6 @@ import android.view.MenuItem;
  * Helper class to manage the "Respond via SMS Message" feature for incoming calls.
  */
 public class RespondViaSmsSettings {
-    private static final String KEY_PREFERRED_PACKAGE = "preferred_package_pref";
-    private static final String KEY_INSTANT_TEXT_DEFAULT_COMPONENT = "instant_text_def_component";
-
     // TODO: This class is newly copied into Telecom (com.android.server.telecom) from it previous
     // location in Telephony (com.android.phone). User's preferences stored in the old location
     // will be lost. We need code here to migrate KLP -> LMP settings values.
@@ -125,24 +122,9 @@ public class RespondViaSmsSettings {
                 case android.R.id.home:
                     goUpToTopLevelSetting(this);
                     return true;
-                case R.id.respond_via_message_reset:
-                    // Reset the preferences settings
-                    SharedPreferences prefs = getSharedPreferences(
-                            QuickResponseUtils.SHARED_PREFERENCES_NAME, Context.MODE_PRIVATE);
-                    SharedPreferences.Editor editor = prefs.edit();
-                    editor.remove(KEY_INSTANT_TEXT_DEFAULT_COMPONENT);
-                    editor.apply();
-
-                    return true;
                 default:
             }
             return super.onOptionsItemSelected(item);
-        }
-
-        @Override
-        public boolean onCreateOptionsMenu(Menu menu) {
-            getMenuInflater().inflate(R.menu.respond_via_message_settings_menu, menu);
-            return super.onCreateOptionsMenu(menu);
         }
     }
 

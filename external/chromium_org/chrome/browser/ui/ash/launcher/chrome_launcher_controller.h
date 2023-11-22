@@ -31,8 +31,7 @@
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_types.h"
 #include "chrome/browser/ui/extensions/extension_enable_flow_delegate.h"
 #include "chrome/common/extensions/extension_constants.h"
-#include "content/public/browser/notification_observer.h"
-#include "content/public/browser/notification_registrar.h"
+#include "extensions/browser/extension_registry_observer.h"
 #include "ui/aura/window_observer.h"
 
 class AppSyncUIState;
@@ -56,6 +55,7 @@ class Window;
 }
 
 namespace content {
+class BrowserContext;
 class WebContents;
 }
 
@@ -78,7 +78,6 @@ class ChromeLauncherControllerUserSwitchObserver {
   virtual ~ChromeLauncherControllerUserSwitchObserver() {}
 
  private:
-
   DISALLOW_COPY_AND_ASSIGN(ChromeLauncherControllerUserSwitchObserver);
 };
 
@@ -94,7 +93,7 @@ class ChromeLauncherController : public ash::ShelfDelegate,
                                  public ash::ShelfModelObserver,
                                  public ash::ShellObserver,
                                  public ash::DisplayController::Observer,
-                                 public content::NotificationObserver,
+                                 public extensions::ExtensionRegistryObserver,
                                  public extensions::AppIconLoader::Delegate,
                                  public PrefServiceSyncableObserver,
                                  public AppSyncUIStateObserver,
@@ -309,16 +308,20 @@ class ChromeLauncherController : public ash::ShelfDelegate,
                                 const ash::ShelfItem& old_item) OVERRIDE;
   virtual void ShelfStatusChanged() OVERRIDE;
 
-  // content::NotificationObserver overrides:
-  virtual void Observe(int type,
-                       const content::NotificationSource& source,
-                       const content::NotificationDetails& details) OVERRIDE;
-
   // ash::ShellObserver overrides:
   virtual void OnShelfAlignmentChanged(aura::Window* root_window) OVERRIDE;
 
   // ash::DisplayController::Observer overrides:
   virtual void OnDisplayConfigurationChanged() OVERRIDE;
+
+  // ExtensionRegistryObserver overrides:
+  virtual void OnExtensionLoaded(
+      content::BrowserContext* browser_context,
+      const extensions::Extension* extension) OVERRIDE;
+  virtual void OnExtensionUnloaded(
+      content::BrowserContext* browser_context,
+      const extensions::Extension* extension,
+      extensions::UnloadedExtensionInfo::Reason reason) OVERRIDE;
 
   // PrefServiceSyncableObserver overrides:
   virtual void OnIsSyncingChanged() OVERRIDE;
@@ -384,6 +387,13 @@ class ChromeLauncherController : public ash::ShelfDelegate,
 
   // Returns true if |browser| is owned by the active user.
   bool IsBrowserFromActiveUser(Browser* browser);
+
+  // Check if the shelf visibility (location, visibility) will change with a new
+  // user profile or not. However, since the full visibility calculation of the
+  // shelf cannot be performed here, this is only a probability used for
+  // animation predictions.
+  bool ShelfBoundsChangesProbablyWithUser(aura::Window* root_window,
+                                          const std::string& user_id) const;
 
   // Access to the BrowserStatusMonitor for tests.
   BrowserStatusMonitor* browser_status_monitor_for_test() {
@@ -474,7 +484,7 @@ class ChromeLauncherController : public ash::ShelfDelegate,
   // Returns the shelf item status for the given |app_id|, which can be either
   // STATUS_ACTIVE (if the app is active), STATUS_RUNNING (if there is such an
   // app) or STATUS_CLOSED.
-  ash::ShelfItemStatus GetAppState(const::std::string& app_id);
+  ash::ShelfItemStatus GetAppState(const std::string& app_id);
 
   // Creates an app launcher to insert at |index|. Note that |index| may be
   // adjusted by the model to meet ordering constraints.
@@ -527,7 +537,8 @@ class ChromeLauncherController : public ash::ShelfDelegate,
 
   // Close all windowed V1 applications of a certain extension which was already
   // deleted.
-  void CloseWindowedAppsFromRemovedExtension(const std::string& app_id);
+  void CloseWindowedAppsFromRemovedExtension(const std::string& app_id,
+                                             const Profile* profile);
 
   // Set ShelfItemDelegate |item_delegate| for |id| and take an ownership.
   // TODO(simon.hong81): Make this take a scoped_ptr of |item_delegate|.
@@ -568,8 +579,6 @@ class ChromeLauncherController : public ash::ShelfDelegate,
 
   // Used to load the image for an app item.
   scoped_ptr<extensions::AppIconLoader> app_icon_loader_;
-
-  content::NotificationRegistrar notification_registrar_;
 
   PrefChangeRegistrar pref_change_registrar_;
 

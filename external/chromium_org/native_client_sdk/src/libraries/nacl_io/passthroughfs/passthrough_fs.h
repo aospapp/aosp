@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 #ifndef LIBRARIES_NACL_IO_PASSTHROUGHFS_PASSTHROUGH_FS_H_
-
 #define LIBRARIES_NACL_IO_PASSTHROUGHFS_PASSTHROUGH_FS_H_
 
 #include "nacl_io/filesystem.h"
@@ -19,8 +18,8 @@ class PassthroughFs : public Filesystem {
   virtual void Destroy();
 
  public:
-  virtual Error Access(const Path& path, int a_mode);
-  virtual Error Open(const Path& path, int mode, ScopedNode* out_node);
+  virtual Error OpenWithMode(const Path& path, int open_flags, mode_t mode,
+                             ScopedNode* out_node);
   virtual Error OpenResource(const Path& path, ScopedNode* out_node);
   virtual Error Unlink(const Path& path);
   virtual Error Mkdir(const Path& path, int perm);

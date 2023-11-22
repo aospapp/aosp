@@ -231,6 +231,8 @@ void ExtensionFunctionDispatcher::DispatchOnIOThread(
     const ExtensionHostMsg_Request_Params& params) {
   const Extension* extension =
       extension_info_map->extensions().GetByID(params.extension_id);
+  if (!extension)
+    return;
 
   ExtensionFunction::ResponseCallback callback(
       base::Bind(&IOThreadResponseCallback, ipc_sender, routing_id,
@@ -258,7 +260,7 @@ void ExtensionFunctionDispatcher::DispatchOnIOThread(
   function->set_include_incognito(
       extension_info_map->IsIncognitoEnabled(extension->id()));
 
-  if (!CheckPermissions(function.get(), extension, params, callback))
+  if (!CheckPermissions(function.get(), params, callback))
     return;
 
   QuotaService* quota = extension_info_map->GetQuotaService();
@@ -309,13 +311,6 @@ void ExtensionFunctionDispatcher::Dispatch(
       callback_wrapper->CreateCallback(params.request_id));
 }
 
-void ExtensionFunctionDispatcher::DispatchWithCallback(
-    const ExtensionHostMsg_Request_Params& params,
-    content::RenderFrameHost* render_frame_host,
-    const ExtensionFunction::ResponseCallback& callback) {
-  DispatchWithCallbackInternal(params, NULL, render_frame_host, callback);
-}
-
 void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
     const ExtensionHostMsg_Request_Params& params,
     RenderViewHost* render_view_host,
@@ -329,8 +324,8 @@ void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
     return;
 
   ExtensionRegistry* registry = ExtensionRegistry::Get(browser_context_);
-  const Extension* extension = registry->enabled_extensions().GetByID(
-      params.extension_id);
+  const Extension* extension =
+      registry->enabled_extensions().GetByID(params.extension_id);
   if (!extension) {
     extension =
         registry->enabled_extensions().GetHostedAppByURL(params.source_url);
@@ -362,12 +357,21 @@ void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
   }
   function_ui->set_dispatcher(AsWeakPtr());
   function_ui->set_browser_context(browser_context_);
-  function->set_include_incognito(
+  if (extension &&
       ExtensionsBrowserClient::Get()->CanExtensionCrossIncognito(
-          extension, browser_context_));
+          extension, browser_context_)) {
+    function->set_include_incognito(true);
+  }
 
-  if (!CheckPermissions(function.get(), extension, params, callback))
+  if (!CheckPermissions(function.get(), params, callback))
     return;
+
+  if (!extension) {
+    // Skip all of the UMA, quota, event page, activity logging stuff if there
+    // isn't an extension, e.g. if the function call was from WebUI.
+    function->Run()->Execute();
+    return;
+  }
 
   ExtensionSystem* extension_system = ExtensionSystem::Get(browser_context_);
   QuotaService* quota = extension_system->quota_service();
@@ -375,6 +379,7 @@ void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
                                               function.get(),
                                               &params.arguments,
                                               base::TimeTicks::Now());
+
   if (violation_error.empty()) {
     scoped_ptr<base::ListValue> args(params.arguments.DeepCopy());
 
@@ -405,54 +410,25 @@ void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
 
 void ExtensionFunctionDispatcher::OnExtensionFunctionCompleted(
     const Extension* extension) {
-  ExtensionSystem::Get(browser_context_)->process_manager()->
-      DecrementLazyKeepaliveCount(extension);
+  if (extension) {
+    ExtensionSystem::Get(browser_context_)
+        ->process_manager()
+        ->DecrementLazyKeepaliveCount(extension);
+  }
 }
 
 // static
 bool ExtensionFunctionDispatcher::CheckPermissions(
     ExtensionFunction* function,
-    const Extension* extension,
     const ExtensionHostMsg_Request_Params& params,
     const ExtensionFunction::ResponseCallback& callback) {
   if (!function->HasPermission()) {
-    LOG(ERROR) << "Extension " << extension->id() << " does not have "
-               << "permission to function: " << params.name;
+    LOG(ERROR) << "Permission denied for " << params.name;
     SendAccessDenied(callback);
     return false;
   }
   return true;
 }
-
-namespace {
-
-// Only COMPONENT hosted apps may call extension APIs, and they are limited
-// to just the permissions they explicitly request. They should not have access
-// to extension APIs like eg chrome.runtime, chrome.windows, etc. that normally
-// are available without permission.
-// TODO(mpcomplete): move this to ExtensionFunction::HasPermission (or remove
-// it altogether).
-bool AllowHostedAppAPICall(const Extension& extension,
-                           const GURL& source_url,
-                           const std::string& function_name) {
-  if (extension.location() != Manifest::COMPONENT)
-    return false;
-
-  if (!extension.web_extent().MatchesURL(source_url))
-    return false;
-
-  // Note: Not BLESSED_WEB_PAGE_CONTEXT here because these component hosted app
-  // entities have traditionally been treated as blessed extensions, for better
-  // or worse.
-  Feature::Availability availability =
-      ExtensionAPI::GetSharedInstance()->IsAvailable(
-          function_name, &extension, Feature::BLESSED_EXTENSION_CONTEXT,
-          source_url);
-  return availability.is_available();
-}
-
-}  // namespace
-
 
 // static
 ExtensionFunction* ExtensionFunctionDispatcher::CreateExtensionFunction(
@@ -463,30 +439,6 @@ ExtensionFunction* ExtensionFunctionDispatcher::CreateExtensionFunction(
     ExtensionAPI* api,
     void* profile_id,
     const ExtensionFunction::ResponseCallback& callback) {
-  if (!extension) {
-    LOG(ERROR) << "Specified extension does not exist.";
-    SendAccessDenied(callback);
-    return NULL;
-  }
-
-  // Most hosted apps can't call APIs.
-  bool allowed = true;
-  if (extension->is_hosted_app())
-    allowed = AllowHostedAppAPICall(*extension, params.source_url, params.name);
-
-  // Privileged APIs can only be called from the process the extension
-  // is running in.
-  if (allowed && api->IsPrivileged(params.name))
-    allowed = process_map.Contains(extension->id(), requesting_process_id);
-
-  if (!allowed) {
-    LOG(ERROR) << "Extension API call disallowed - name:" << params.name
-               << " pid:" << requesting_process_id
-               << " from URL " << params.source_url.spec();
-    SendAccessDenied(callback);
-    return NULL;
-  }
-
   ExtensionFunction* function =
       ExtensionFunctionRegistry::GetInstance()->NewFunction(params.name);
   if (!function) {
@@ -504,6 +456,8 @@ ExtensionFunction* ExtensionFunctionDispatcher::CreateExtensionFunction(
   function->set_profile_id(profile_id);
   function->set_response_callback(callback);
   function->set_source_tab_id(params.source_tab_id);
+  function->set_source_context_type(
+      process_map.GetMostLikelyContextType(extension, requesting_process_id));
 
   return function;
 }

@@ -26,9 +26,7 @@
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "grit/theme_resources.h"
-#include "grit/ui_resources.h"
 #include "third_party/skia/include/core/SkColor.h"
-#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/combobox_model.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -63,6 +61,7 @@
 #include "ui/views/layout/grid_layout.h"
 #include "ui/views/layout/layout_constants.h"
 #include "ui/views/painter.h"
+#include "ui/views/view_targeter.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/dialog_client_view.h"
 #include "ui/views/window/non_client_view.h"
@@ -507,7 +506,7 @@ void AutofillDialogViews::AccountChooser::Update() {
   gfx::Image icon = delegate_->AccountChooserImage();
   image_->SetImage(icon.AsImageSkia());
   menu_button_->SetText(delegate_->AccountChooserText());
-  menu_button_->set_min_size(gfx::Size());
+  menu_button_->SetMinSize(gfx::Size());
 
   bool show_link = !delegate_->MenuModelForAccountChooser();
   menu_button_->SetVisible(!show_link);
@@ -528,13 +527,13 @@ void AutofillDialogViews::AccountChooser::OnMenuButtonClicked(
   if (!model)
     return;
 
-  menu_runner_.reset(new views::MenuRunner(model));
+  menu_runner_.reset(new views::MenuRunner(model, 0));
   if (menu_runner_->RunMenuAt(source->GetWidget(),
                               NULL,
                               source->GetBoundsInScreen(),
                               views::MENU_ANCHOR_TOPRIGHT,
-                              ui::MENU_SOURCE_NONE,
-                              0) == views::MenuRunner::MENU_DELETED) {
+                              ui::MENU_SOURCE_NONE) ==
+      views::MenuRunner::MENU_DELETED) {
     return;
   }
 }
@@ -854,6 +853,9 @@ AutofillDialogViews::SectionContainer::SectionContainer(
   SetLayoutManager(new views::BoxLayout(views::BoxLayout::kVertical, 0, 0, 0));
   AddChildView(label_bar);
   AddChildView(controls);
+
+  SetEventTargeter(
+      scoped_ptr<views::ViewTargeter>(new views::ViewTargeter(this)));
 }
 
 AutofillDialogViews::SectionContainer::~SectionContainer() {}
@@ -929,12 +931,12 @@ void AutofillDialogViews::SectionContainer::OnGestureEvent(
   proxy_button_->OnGestureEvent(event);
 }
 
-views::View* AutofillDialogViews::SectionContainer::GetEventHandlerForRect(
+views::View* AutofillDialogViews::SectionContainer::TargetForRect(
+    views::View* root,
     const gfx::Rect& rect) {
-  // TODO(tdanderson): Modify this function to support rect-based event
-  // targeting.
+  CHECK_EQ(root, this);
+  views::View* handler = views::ViewTargeterDelegate::TargetForRect(root, rect);
 
-  views::View* handler = views::View::GetEventHandlerForRect(rect);
   // If the event is not in the label bar and there's no background to be
   // cleared, let normal event handling take place.
   if (!background() &&
@@ -1733,8 +1735,8 @@ void AutofillDialogViews::OnMenuButtonClicked(views::View* source,
   if (!group->suggested_button->visible())
     return;
 
-  menu_runner_.reset(new views::MenuRunner(
-                         delegate_->MenuModelForSection(group->section)));
+  menu_runner_.reset(
+      new views::MenuRunner(delegate_->MenuModelForSection(group->section), 0));
 
   group->container->SetActive(true);
   views::Button::ButtonState state = group->suggested_button->state();
@@ -1746,8 +1748,8 @@ void AutofillDialogViews::OnMenuButtonClicked(views::View* source,
                               NULL,
                               screen_bounds,
                               views::MENU_ANCHOR_TOPRIGHT,
-                              ui::MENU_SOURCE_NONE,
-                              0) == views::MenuRunner::MENU_DELETED) {
+                              ui::MENU_SOURCE_NONE) ==
+      views::MenuRunner::MENU_DELETED) {
     return;
   }
 

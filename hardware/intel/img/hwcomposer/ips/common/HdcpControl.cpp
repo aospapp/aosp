@@ -36,7 +36,8 @@ HdcpControl::HdcpControl()
       mStopped(true),
       mAuthenticated(false),
       mActionDelay(0),
-      mAuthRetryCount(0)
+      mAuthRetryCount(0),
+      mEnableAuthenticationLog(true)
 {
 }
 
@@ -173,9 +174,17 @@ bool HdcpControl::enableAuthentication()
     int fd = Hwcomposer::getInstance().getDrm()->getDrmFd();
     int ret = drmCommandNone(fd, DRM_PSB_ENABLE_HDCP);
     if (ret != 0) {
-        ELOGTRACE("failed to enable HDCP authentication");
+        if (mEnableAuthenticationLog) {
+            ELOGTRACE("failed to enable HDCP authentication");
+        } else {
+            VLOGTRACE("failed to enable HDCP authentication");
+        }
+
+        mEnableAuthenticationLog = false;
         return false;
     }
+
+    mEnableAuthenticationLog = true;
     return true;
 }
 
@@ -275,7 +284,11 @@ bool HdcpControl::runHdcp()
         }
 
         if (!enableAuthentication()) {
-            ELOGTRACE("HDCP authentication failed. Retry");
+            if (mAuthenticated)
+                ELOGTRACE("HDCP authentication failed. Retry");
+            else
+                VLOGTRACE("HDCP authentication failed. Retry");
+
             mAuthenticated = false;
             ret = true;
         } else {

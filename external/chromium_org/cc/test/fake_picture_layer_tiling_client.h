@@ -23,7 +23,7 @@ class FakePictureLayerTilingClient : public PictureLayerTilingClient {
   // PictureLayerTilingClient implementation.
   virtual scoped_refptr<Tile> CreateTile(
       PictureLayerTiling* tiling, const gfx::Rect& rect) OVERRIDE;
-  virtual void UpdatePile(Tile* tile) OVERRIDE {}
+  virtual PicturePileImpl* GetPile() OVERRIDE;
   virtual gfx::Size CalculateTileSize(
       const gfx::Size& content_bounds) const OVERRIDE;
   virtual size_t GetMaxTilesForInterestArea() const OVERRIDE;
@@ -32,14 +32,13 @@ class FakePictureLayerTilingClient : public PictureLayerTilingClient {
 
   void SetTileSize(const gfx::Size& tile_size);
   gfx::Size TileSize() const { return tile_size_; }
-  scoped_refptr<PicturePileImpl> pile() { return pile_; }
-  const PicturePileImpl* pile() const { return pile_.get(); }
 
   virtual const Region* GetInvalidation() OVERRIDE;
   virtual const PictureLayerTiling* GetTwinTiling(
       const PictureLayerTiling* tiling) const OVERRIDE;
   virtual PictureLayerTiling* GetRecycledTwinTiling(
       const PictureLayerTiling* tiling) OVERRIDE;
+  virtual WhichTree GetTree() const OVERRIDE;
 
   void set_twin_tiling(PictureLayerTiling* tiling) { twin_tiling_ = tiling; }
   void set_recycled_twin_tiling(PictureLayerTiling* tiling) {
@@ -57,6 +56,7 @@ class FakePictureLayerTilingClient : public PictureLayerTilingClient {
   void set_skewport_extrapolation_limit_in_content_pixels(int limit) {
     skewport_extrapolation_limit_in_content_pixels_ = limit;
   }
+  void set_tree(WhichTree tree) { tree_ = tree; }
 
   TileManager* tile_manager() const {
     return tile_manager_.get();
@@ -76,6 +76,7 @@ class FakePictureLayerTilingClient : public PictureLayerTilingClient {
   size_t max_tiles_for_interest_area_;
   float skewport_target_time_in_seconds_;
   int skewport_extrapolation_limit_in_content_pixels_;
+  WhichTree tree_;
 };
 
 }  // namespace cc

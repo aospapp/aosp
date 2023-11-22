@@ -4,7 +4,9 @@
 
 #include "chrome/browser/sync_file_system/local/local_file_sync_service.h"
 
+#include "base/single_thread_task_runner.h"
 #include "base/stl_util.h"
+#include "base/thread_task_runner_handle.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync_file_system/file_change.h"
@@ -20,13 +22,13 @@
 #include "content/public/browser/storage_partition.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/extension_set.h"
+#include "storage/browser/fileapi/file_system_context.h"
+#include "storage/browser/fileapi/file_system_url.h"
+#include "storage/common/blob/scoped_file.h"
 #include "url/gurl.h"
-#include "webkit/browser/fileapi/file_system_context.h"
-#include "webkit/browser/fileapi/file_system_url.h"
-#include "webkit/common/blob/scoped_file.h"
 
 using content::BrowserThread;
-using fileapi::FileSystemURL;
+using storage::FileSystemURL;
 
 namespace sync_file_system {
 
@@ -36,8 +38,14 @@ void PrepareForProcessRemoteChangeCallbackAdapter(
     const RemoteChangeProcessor::PrepareChangeCallback& callback,
     SyncStatusCode status,
     const LocalFileSyncInfo& sync_file_info,
-    webkit_blob::ScopedFile snapshot) {
+    storage::ScopedFile snapshot) {
   callback.Run(status, sync_file_info.metadata, sync_file_info.changes);
+}
+
+void InvokeCallbackOnNthInvocation(int* count, const base::Closure& callback) {
+  --*count;
+  if (*count <= 0)
+    callback.Run();
 }
 
 }  // namespace
@@ -105,7 +113,10 @@ scoped_ptr<LocalFileSyncService> LocalFileSyncService::Create(
 scoped_ptr<LocalFileSyncService> LocalFileSyncService::CreateForTesting(
     Profile* profile,
     leveldb::Env* env) {
-  return make_scoped_ptr(new LocalFileSyncService(profile, env));
+  scoped_ptr<LocalFileSyncService> sync_service(
+      new LocalFileSyncService(profile, env));
+  sync_service->sync_context_->set_mock_notify_changes_duration_in_sec(0);
+  return sync_service.Pass();
 }
 
 LocalFileSyncService::~LocalFileSyncService() {
@@ -120,7 +131,7 @@ void LocalFileSyncService::Shutdown() {
 
 void LocalFileSyncService::MaybeInitializeFileSystemContext(
     const GURL& app_origin,
-    fileapi::FileSystemContext* file_system_context,
+    storage::FileSystemContext* file_system_context,
     const SyncStatusCallback& callback) {
   sync_context_->MaybeInitializeFileSystemContext(
       app_origin, file_system_context,
@@ -175,7 +186,7 @@ void LocalFileSyncService::HasPendingLocalChanges(
     const FileSystemURL& url,
     const HasPendingLocalChangeCallback& callback) {
   if (!ContainsKey(origin_to_contexts_, url.origin())) {
-    base::MessageLoopProxy::current()->PostTask(
+    base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE,
         base::Bind(callback, SYNC_FILE_ERROR_INVALID_URL, false));
     return;
@@ -184,10 +195,20 @@ void LocalFileSyncService::HasPendingLocalChanges(
       origin_to_contexts_[url.origin()], url, callback);
 }
 
-void LocalFileSyncService::PromoteDemotedChanges() {
+void LocalFileSyncService::PromoteDemotedChanges(
+    const base::Closure& callback) {
+  if (origin_to_contexts_.empty()) {
+    callback.Run();
+    return;
+  }
+
+  base::Closure completion_callback =
+      base::Bind(&InvokeCallbackOnNthInvocation,
+                 base::Owned(new int(origin_to_contexts_.size())), callback);
   for (OriginToContext::iterator iter = origin_to_contexts_.begin();
        iter != origin_to_contexts_.end(); ++iter)
-    sync_context_->PromoteDemotedChanges(iter->first, iter->second);
+    sync_context_->PromoteDemotedChanges(iter->first, iter->second,
+                                         completion_callback);
 }
 
 void LocalFileSyncService::GetLocalFileMetadata(
@@ -226,9 +247,9 @@ void LocalFileSyncService::PrepareForProcessRemoteChange(
     GURL site_url =
         extensions::util::GetSiteForExtensionId(extension->id(), profile_);
     DCHECK(!site_url.is_empty());
-    scoped_refptr<fileapi::FileSystemContext> file_system_context =
-        content::BrowserContext::GetStoragePartitionForSite(
-            profile_, site_url)->GetFileSystemContext();
+    scoped_refptr<storage::FileSystemContext> file_system_context =
+        content::BrowserContext::GetStoragePartitionForSite(profile_, site_url)
+            ->GetFileSystemContext();
     MaybeInitializeFileSystemContext(
         url.origin(),
         file_system_context.get(),
@@ -336,7 +357,7 @@ LocalFileSyncService::LocalFileSyncService(Profile* profile,
 
 void LocalFileSyncService::DidInitializeFileSystemContext(
     const GURL& app_origin,
-    fileapi::FileSystemContext* file_system_context,
+    storage::FileSystemContext* file_system_context,
     const SyncStatusCallback& callback,
     SyncStatusCode status) {
   if (status != SYNC_STATUS_OK) {
@@ -365,7 +386,7 @@ void LocalFileSyncService::DidInitializeFileSystemContext(
 
 void LocalFileSyncService::DidInitializeForRemoteSync(
     const FileSystemURL& url,
-    fileapi::FileSystemContext* file_system_context,
+    storage::FileSystemContext* file_system_context,
     const PrepareChangeCallback& callback,
     SyncStatusCode status) {
   if (status != SYNC_STATUS_OK) {
@@ -402,7 +423,7 @@ void LocalFileSyncService::DidApplyRemoteChange(
 void LocalFileSyncService::DidGetFileForLocalSync(
     SyncStatusCode status,
     const LocalFileSyncInfo& sync_file_info,
-    webkit_blob::ScopedFile snapshot) {
+    storage::ScopedFile snapshot) {
   DCHECK(!local_sync_callback_.is_null());
   if (status != SYNC_STATUS_OK) {
     RunLocalSyncCallback(status, sync_file_info.url);
@@ -431,7 +452,7 @@ void LocalFileSyncService::DidGetFileForLocalSync(
 }
 
 void LocalFileSyncService::ProcessNextChangeForURL(
-    webkit_blob::ScopedFile snapshot,
+    storage::ScopedFile snapshot,
     const LocalFileSyncInfo& sync_file_info,
     const FileChange& processed_change,
     const FileChangeList& changes,

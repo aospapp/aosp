@@ -14,6 +14,8 @@
 #include "base/strings/string16.h"
 #include "components/translate/core/common/translate_errors.h"
 
+namespace translate {
+
 class LanguageState;
 class TranslateClient;
 class TranslateDriver;
@@ -24,7 +26,7 @@ class TranslatePrefs;
 // feature to the user.
 class TranslateUIDelegate {
  public:
-  enum { NO_INDEX = -1, };
+  static const size_t kNoIndex = static_cast<size_t>(-1);
 
   TranslateUIDelegate(const base::WeakPtr<TranslateManager>& translate_manager,
                       const std::string& original_language,
@@ -127,5 +129,7 @@ class TranslateUIDelegate {
 
   DISALLOW_COPY_AND_ASSIGN(TranslateUIDelegate);
 };
+
+}  // namespace translate
 
 #endif  // COMPONENTS_TRANSLATE_CORE_BROWSER_TRANSLATE_UI_DELEGATE_H_

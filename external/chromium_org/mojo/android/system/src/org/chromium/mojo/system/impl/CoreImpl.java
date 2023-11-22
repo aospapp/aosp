@@ -64,7 +64,6 @@ public class CoreImpl implements Core, AsyncWaiter {
     }
 
     private CoreImpl() {
-        nativeConstructor();
     }
 
     /**
@@ -79,12 +78,12 @@ public class CoreImpl implements Core, AsyncWaiter {
      * @see Core#waitMany(List, long)
      */
     @Override
-    public WaitManyResult waitMany(List<Pair<Handle, WaitFlags>> handles, long deadline) {
+    public WaitManyResult waitMany(List<Pair<Handle, HandleSignals>> handles, long deadline) {
         // Allocate a direct buffer to allow native code not to reach back to java. Buffer will
         // contain all mojo handles, followed by all flags values.
         ByteBuffer buffer = allocateDirectBuffer(handles.size() * 8);
         int index = 0;
-        for (Pair<Handle, WaitFlags> handle : handles) {
+        for (Pair<Handle, HandleSignals> handle : handles) {
             buffer.putInt(HANDLE_SIZE * index, getMojoHandle(handle.first));
             buffer.putInt(HANDLE_SIZE * handles.size() + FLAG_SIZE * index,
                     handle.second.getFlags());
@@ -100,20 +99,27 @@ public class CoreImpl implements Core, AsyncWaiter {
     }
 
     /**
-     * @see Core#wait(Handle, WaitFlags, long)
+     * @see Core#wait(Handle, HandleSignals, long)
      */
     @Override
-    public int wait(Handle handle, WaitFlags flags, long deadline) {
+    public int wait(Handle handle, HandleSignals signals, long deadline) {
         return filterMojoResultForWait(nativeWait(getMojoHandle(handle),
-                flags.getFlags(), deadline));
+                signals.getFlags(), deadline));
     }
 
     /**
-     * @see Core#createMessagePipe()
+     * @see Core#createMessagePipe(MessagePipeHandle.CreateOptions)
      */
     @Override
-    public Pair<MessagePipeHandle, MessagePipeHandle> createMessagePipe() {
-        NativeCreationResult result = nativeCreateMessagePipe();
+    public Pair<MessagePipeHandle, MessagePipeHandle> createMessagePipe(
+            MessagePipeHandle.CreateOptions options) {
+        ByteBuffer optionsBuffer = null;
+        if (options != null) {
+            optionsBuffer = allocateDirectBuffer(8);
+            optionsBuffer.putInt(0, 8);
+            optionsBuffer.putInt(4, options.getFlags().getFlags());
+        }
+        NativeCreationResult result = nativeCreateMessagePipe(optionsBuffer);
         if (result.getMojoResult() != MojoResult.OK) {
             throw new MojoException(result.getMojoResult());
         }
@@ -165,6 +171,14 @@ public class CoreImpl implements Core, AsyncWaiter {
     }
 
     /**
+     * @see org.chromium.mojo.system.Core#acquireNativeHandle(int)
+     */
+    @Override
+    public UntypedHandle acquireNativeHandle(int handle) {
+        return new UntypedHandleImpl(this, handle);
+    }
+
+    /**
      * @see Core#getDefaultAsyncWaiter()
      */
     @Override
@@ -173,13 +187,12 @@ public class CoreImpl implements Core, AsyncWaiter {
     }
 
     /**
-     * @see AsyncWaiter#asyncWait(Handle, Core.WaitFlags, long, Callback)
+     * @see AsyncWaiter#asyncWait(Handle, Core.HandleSignals, long, Callback)
      */
     @Override
-    public Cancellable asyncWait(Handle handle, WaitFlags flags, long deadline,
+    public Cancellable asyncWait(Handle handle, HandleSignals signals, long deadline,
             Callback callback) {
-        return nativeAsyncWait(getMojoHandle(handle),
-                flags.getFlags(), deadline, callback);
+        return nativeAsyncWait(getMojoHandle(handle), signals.getFlags(), deadline, callback);
     }
 
     int closeWithResult(int mojoHandle) {
@@ -606,13 +619,11 @@ public class CoreImpl implements Core, AsyncWaiter {
         return result;
     }
 
-    private native void nativeConstructor();
-
     private native long nativeGetTimeTicksNow();
 
     private native int nativeWaitMany(ByteBuffer buffer, long deadline);
 
-    private native NativeCreationResult nativeCreateMessagePipe();
+    private native NativeCreationResult nativeCreateMessagePipe(ByteBuffer optionsBuffer);
 
     private native NativeCreationResult nativeCreateDataPipe(ByteBuffer optionsBuffer);
 
@@ -621,7 +632,7 @@ public class CoreImpl implements Core, AsyncWaiter {
 
     private native int nativeClose(int mojoHandle);
 
-    private native int nativeWait(int mojoHandle, int flags, long deadline);
+    private native int nativeWait(int mojoHandle, int signals, long deadline);
 
     private native int nativeWriteMessage(int mojoHandle, ByteBuffer bytes, int numBytes,
             ByteBuffer handlesBuffer, int flags);
@@ -653,7 +664,7 @@ public class CoreImpl implements Core, AsyncWaiter {
 
     private native int nativeUnmap(ByteBuffer buffer);
 
-    private native AsyncWaiterCancellableImpl nativeAsyncWait(int mojoHandle, int flags,
+    private native AsyncWaiterCancellableImpl nativeAsyncWait(int mojoHandle, int signals,
             long deadline, AsyncWaiter.Callback callback);
 
     private native void nativeCancelAsyncWait(long mId, long dataPtr);

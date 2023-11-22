@@ -9,15 +9,17 @@
 
 #include "base/basictypes.h"
 #include "base/callback.h"
+#include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/threading/thread_checker.h"
+#include "components/invalidation/invalidation.h"
+#include "components/invalidation/invalidation_handler.h"
 #include "components/policy/core/common/cloud/cloud_policy_core.h"
 #include "components/policy/core/common/cloud/cloud_policy_store.h"
 #include "google/cacheinvalidation/include/types.h"
-#include "sync/internal_api/public/base/invalidation.h"
-#include "sync/notifier/invalidation_handler.h"
+#include "policy/proto/device_management_backend.pb.h"
 
 namespace base {
 class Clock;
@@ -56,15 +58,20 @@ class CloudPolicyInvalidator : public syncer::InvalidationHandler,
   // invalidation timestamps when determining if an invalidation is expired.
   static const int kMaxInvalidationTimeDelta;
 
+  // |type| indicates the policy type that this invalidator is responsible for.
   // |core| is the cloud policy core which connects the various policy objects.
   // It must remain valid until Shutdown is called.
   // |task_runner| is used for scheduling delayed tasks. It must post tasks to
   // the main policy thread.
   // |clock| is used to get the current time.
+  // |highest_handled_invalidation_version| is the highest invalidation version
+  // that was handled already before this invalidator was created.
   CloudPolicyInvalidator(
+      enterprise_management::DeviceRegisterRequest::Type type,
       CloudPolicyCore* core,
       const scoped_refptr<base::SequencedTaskRunner>& task_runner,
-      scoped_ptr<base::Clock> clock);
+      scoped_ptr<base::Clock> clock,
+      int64 highest_handled_invalidation_version);
   virtual ~CloudPolicyInvalidator();
 
   // Initializes the invalidator. No invalidations will be generated before this
@@ -80,6 +87,11 @@ class CloudPolicyInvalidator : public syncer::InvalidationHandler,
   // Whether the invalidator currently has the ability to receive invalidations.
   bool invalidations_enabled() {
     return invalidations_enabled_;
+  }
+
+  // The highest invalidation version that was handled already.
+  int64 highest_handled_invalidation_version() const {
+    return highest_handled_invalidation_version_;
   }
 
   // syncer::InvalidationHandler:
@@ -156,6 +168,9 @@ class CloudPolicyInvalidator : public syncer::InvalidationHandler,
   };
   State state_;
 
+  // The policy type this invalidator is responsible for.
+  const enterprise_management::DeviceRegisterRequest::Type type_;
+
   // The cloud policy core.
   CloudPolicyCore* core_;
 
@@ -200,11 +215,11 @@ class CloudPolicyInvalidator : public syncer::InvalidationHandler,
   // invalidation_version_ when such invalidations occur.
   int unknown_version_invalidation_count_;
 
+  // The highest invalidation version that was handled already.
+  int64 highest_handled_invalidation_version_;
+
   // The most up to date invalidation.
   scoped_ptr<syncer::Invalidation> invalidation_;
-
-  // WeakPtrFactory used to create callbacks to this object.
-  base::WeakPtrFactory<CloudPolicyInvalidator> weak_factory_;
 
   // The maximum random delay, in ms, between receiving an invalidation and
   // fetching the new policy.
@@ -217,6 +232,9 @@ class CloudPolicyInvalidator : public syncer::InvalidationHandler,
   // A thread checker to make sure that callbacks are invoked on the correct
   // thread.
   base::ThreadChecker thread_checker_;
+
+  // WeakPtrFactory used to create callbacks to this object.
+  base::WeakPtrFactory<CloudPolicyInvalidator> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(CloudPolicyInvalidator);
 };

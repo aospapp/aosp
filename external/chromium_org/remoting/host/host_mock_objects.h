@@ -19,6 +19,7 @@
 #include "remoting/host/screen_resolution.h"
 #include "remoting/proto/control.pb.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#include "third_party/webrtc/modules/desktop_capture/mouse_cursor_monitor.h"
 
 namespace base {
 class SingleThreadTaskRunner;
@@ -34,7 +35,8 @@ class MockDesktopEnvironment : public DesktopEnvironment {
   MOCK_METHOD0(CreateAudioCapturerPtr, AudioCapturer*());
   MOCK_METHOD0(CreateInputInjectorPtr, InputInjector*());
   MOCK_METHOD0(CreateScreenControlsPtr, ScreenControls*());
-  MOCK_METHOD0(CreateVideoCapturerPtr, webrtc::ScreenCapturer*());
+  MOCK_METHOD0(CreateVideoCapturerPtr, webrtc::DesktopCapturer*());
+  MOCK_METHOD0(CreateMouseCursorMonitorPtr, webrtc::MouseCursorMonitor*());
   MOCK_CONST_METHOD0(GetCapabilities, std::string());
   MOCK_METHOD1(SetCapabilities, void(const std::string&));
   MOCK_METHOD1(CreateGnubbyAuthHandlerPtr, GnubbyAuthHandler*(
@@ -44,9 +46,11 @@ class MockDesktopEnvironment : public DesktopEnvironment {
   virtual scoped_ptr<AudioCapturer> CreateAudioCapturer() OVERRIDE;
   virtual scoped_ptr<InputInjector> CreateInputInjector() OVERRIDE;
   virtual scoped_ptr<ScreenControls> CreateScreenControls() OVERRIDE;
-  virtual scoped_ptr<webrtc::ScreenCapturer> CreateVideoCapturer() OVERRIDE;
+  virtual scoped_ptr<webrtc::DesktopCapturer> CreateVideoCapturer() OVERRIDE;
   virtual scoped_ptr<GnubbyAuthHandler> CreateGnubbyAuthHandler(
       protocol::ClientStub* client_stub) OVERRIDE;
+  virtual scoped_ptr<webrtc::MouseCursorMonitor> CreateMouseCursorMonitor()
+      OVERRIDE;
 };
 
 class MockClientSessionControl : public ClientSessionControl {
@@ -58,6 +62,7 @@ class MockClientSessionControl : public ClientSessionControl {
   MOCK_METHOD0(DisconnectSession, void());
   MOCK_METHOD1(OnLocalMouseMoved, void(const webrtc::DesktopVector&));
   MOCK_METHOD1(SetDisableInputs, void(bool));
+  MOCK_METHOD0(ResetVideoPipeline, void());
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockClientSessionControl);
@@ -71,11 +76,8 @@ class MockClientSessionEventHandler : public ClientSession::EventHandler {
   MOCK_METHOD1(OnSessionAuthenticating, void(ClientSession* client));
   MOCK_METHOD1(OnSessionAuthenticated, bool(ClientSession* client));
   MOCK_METHOD1(OnSessionChannelsConnected, void(ClientSession* client));
-  MOCK_METHOD1(OnSessionClientCapabilities, void(ClientSession* client));
   MOCK_METHOD1(OnSessionAuthenticationFailed, void(ClientSession* client));
   MOCK_METHOD1(OnSessionClosed, void(ClientSession* client));
-  MOCK_METHOD2(OnSessionSequenceNumber, void(ClientSession* client,
-                                             int64 sequence_number));
   MOCK_METHOD3(OnSessionRouteChange, void(
       ClientSession* client,
       const std::string& channel_name,
@@ -147,6 +149,18 @@ class MockGnubbyAuthHandler : public GnubbyAuthHandler {
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockGnubbyAuthHandler);
+};
+
+class MockMouseCursorMonitor : public webrtc::MouseCursorMonitor {
+ public:
+  MockMouseCursorMonitor();
+  virtual ~MockMouseCursorMonitor();
+
+  MOCK_METHOD2(Init, void(Callback* callback, Mode mode));
+  MOCK_METHOD0(Capture, void());
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(MockMouseCursorMonitor);
 };
 
 }  // namespace remoting

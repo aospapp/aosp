@@ -50,7 +50,7 @@ public class ListPresentation extends ProjectedPresentation {
         setContentView(view);
 
         for (int i = 0; i < NUM_ITEMS; ++i) {
-            mItemList.add("Item #" + 1 + i);
+            mItemList.add("Item #" + (1 + i));
         }
 
         ListView listView = (ListView) view.findViewById(R.id.pla_list);

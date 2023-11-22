@@ -24,7 +24,7 @@
 #include "chrome/browser/ui/browser_instant_controller.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/host_desktop.h"
-#include "chrome/browser/ui/omnibox/location_bar.h"
+#include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/search/instant_search_prerenderer.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/status_bubble.h"
@@ -39,15 +39,19 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
-#include "extensions/browser/extension_registry.h"
-#include "extensions/common/extension.h"
-#include "extensions/common/extension_set.h"
 
 #if defined(USE_ASH)
 #include "chrome/browser/ui/ash/multi_user/multi_user_window_manager.h"
 #endif
+
 #if defined(USE_AURA)
 #include "ui/aura/window.h"
+#endif
+
+#if defined(ENABLE_EXTENSIONS)
+#include "extensions/browser/extension_registry.h"
+#include "extensions/common/extension.h"
+#include "extensions/common/extension_set.h"
 #endif
 
 using content::GlobalRequestID;
@@ -394,7 +398,7 @@ namespace chrome {
 
 NavigateParams::NavigateParams(Browser* a_browser,
                                const GURL& a_url,
-                               content::PageTransition a_transition)
+                               ui::PageTransition a_transition)
     : url(a_url),
       frame_tree_node_id(-1),
       uses_post(false),
@@ -425,7 +429,7 @@ NavigateParams::NavigateParams(Browser* a_browser,
       source_contents(NULL),
       disposition(CURRENT_TAB),
       trusted_source(false),
-      transition(content::PAGE_TRANSITION_LINK),
+      transition(ui::PAGE_TRANSITION_LINK),
       is_renderer_initiated(false),
       tabstrip_index(-1),
       tabstrip_add_types(TabStripModel::ADD_ACTIVE),
@@ -442,7 +446,7 @@ NavigateParams::NavigateParams(Browser* a_browser,
 
 NavigateParams::NavigateParams(Profile* a_profile,
                                const GURL& a_url,
-                               content::PageTransition a_transition)
+                               ui::PageTransition a_transition)
     : url(a_url),
       frame_tree_node_id(-1),
       uses_post(false),
@@ -493,12 +497,14 @@ void Navigate(NavigateParams* params) {
   if (!AdjustNavigateParamsForURL(params))
     return;
 
+#if defined(ENABLE_EXTENSIONS)
   const extensions::Extension* extension =
     extensions::ExtensionRegistry::Get(params->initiating_profile)->
         enabled_extensions().GetExtensionOrAppByURL(params->url);
   // Platform apps cannot navigate. Block the request.
   if (extension && extension->is_platform_app())
     params->url = GURL(chrome::kExtensionInvalidRequestURL);
+#endif
 
   // The browser window may want to adjust the disposition.
   if (params->disposition == NEW_POPUP &&
@@ -571,16 +577,16 @@ void Navigate(NavigateParams* params) {
 
   // Determine if the navigation was user initiated. If it was, we need to
   // inform the target WebContents, and we may need to update the UI.
-  content::PageTransition base_transition =
-      content::PageTransitionStripQualifier(params->transition);
+  ui::PageTransition base_transition =
+      ui::PageTransitionStripQualifier(params->transition);
   bool user_initiated =
-      params->transition & content::PAGE_TRANSITION_FROM_ADDRESS_BAR ||
-      base_transition == content::PAGE_TRANSITION_TYPED ||
-      base_transition == content::PAGE_TRANSITION_AUTO_BOOKMARK ||
-      base_transition == content::PAGE_TRANSITION_GENERATED ||
-      base_transition == content::PAGE_TRANSITION_AUTO_TOPLEVEL ||
-      base_transition == content::PAGE_TRANSITION_RELOAD ||
-      base_transition == content::PAGE_TRANSITION_KEYWORD;
+      params->transition & ui::PAGE_TRANSITION_FROM_ADDRESS_BAR ||
+      base_transition == ui::PAGE_TRANSITION_TYPED ||
+      base_transition == ui::PAGE_TRANSITION_AUTO_BOOKMARK ||
+      base_transition == ui::PAGE_TRANSITION_GENERATED ||
+      base_transition == ui::PAGE_TRANSITION_AUTO_TOPLEVEL ||
+      base_transition == ui::PAGE_TRANSITION_RELOAD ||
+      base_transition == ui::PAGE_TRANSITION_KEYWORD;
 
   // Check if this is a singleton tab that already exists
   int singleton_index = chrome::GetIndexOfSingletonTab(params);
@@ -734,7 +740,8 @@ bool IsURLAllowedInIncognito(const GURL& url,
        url.host() == chrome::kChromeUIThumbnailHost2 ||
        url.host() == chrome::kChromeUIThumbnailListHost ||
        url.host() == chrome::kChromeUISuggestionsHost ||
-       url.host() == chrome::kChromeUIDevicesHost)) {
+       url.host() == chrome::kChromeUIDevicesHost ||
+       url.host() == chrome::kChromeUIVoiceSearchHost)) {
     return false;
   }
 

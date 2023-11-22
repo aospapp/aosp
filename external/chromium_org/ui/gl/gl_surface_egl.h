@@ -47,6 +47,10 @@ class GL_EXPORT GLSurfaceEGL : public GLSurface {
   virtual ~GLSurfaceEGL();
 
  private:
+#if defined(OS_WIN)
+  static EGLDisplay GetPlatformDisplay(EGLNativeDisplayType native_display);
+#endif
+
   DISALLOW_COPY_AND_ASSIGN(GLSurfaceEGL);
 };
 
@@ -75,10 +79,10 @@ class GL_EXPORT NativeViewGLSurfaceEGL : public GLSurfaceEGL {
 
  protected:
   virtual ~NativeViewGLSurfaceEGL();
-  void SetHandle(EGLSurface surface);
+
+  EGLNativeWindowType window_;
 
  private:
-  EGLNativeWindowType window_;
   EGLSurface surface_;
   bool supports_post_sub_buffer_;
   EGLConfig config_;

@@ -9,12 +9,14 @@
 #include "base/metrics/sparse_histogram.h"
 #include "base/strings/string_util.h"
 #include "content/public/browser/resource_request_info.h"
+#include "content/public/common/resource_type.h"
 #include "net/http/http_response_headers.h"
 #include "net/url_request/url_request.h"
 #include "url/url_canon.h"
 #include "url/url_parse.h"
 #include "url/url_util.h"
-#include "webkit/common/resource_type.h"
+
+using content::ResourceType;
 
 namespace prerender {
 
@@ -161,10 +163,10 @@ bool IsControlGroupExperiment(uint8 experiment_id) {
   return experiment_id == 7 || experiment_id == 8;
 }
 
-void GatherPagespeedData(const ResourceType::Type resource_type,
+void GatherPagespeedData(const ResourceType resource_type,
                          const GURL& request_url,
                          const net::HttpResponseHeaders* response_headers) {
-  if (resource_type != ResourceType::MAIN_FRAME ||
+  if (resource_type != content::RESOURCE_TYPE_MAIN_FRAME ||
       !request_url.SchemeIsHTTPOrHTTPS())
     return;
 

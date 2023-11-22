@@ -11,8 +11,8 @@
 #include <vector>
 
 #include "base/base_paths.h"
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/path_service.h"
 #include "base/process/kill.h"
 #include "base/strings/string16.h"
@@ -26,7 +26,6 @@
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_result_codes.h"
-#include "chrome/installer/launcher_support/chrome_launcher_support.h"
 #include "chrome/installer/setup/install.h"
 #include "chrome/installer/setup/install_worker.h"
 #include "chrome/installer/setup/setup_constants.h"
@@ -47,6 +46,7 @@
 #include "chrome/installer/util/shell_util.h"
 #include "chrome/installer/util/util_constants.h"
 #include "chrome/installer/util/work_item.h"
+#include "chrome_elf/chrome_elf_constants.h"
 #include "content/public/common/result_codes.h"
 #include "rlz/lib/rlz_lib.h"
 
@@ -282,13 +282,13 @@ void CloseChromeFrameHelperProcess() {
   ::GetWindowThreadProcessId(window, &pid);
   DCHECK_NE(pid, 0U);
   base::win::ScopedHandle process(::OpenProcess(SYNCHRONIZE, FALSE, pid));
-  PLOG_IF(INFO, !process) << "Failed to open process: " << pid;
+  PLOG_IF(INFO, !process.IsValid()) << "Failed to open process: " << pid;
 
   bool kill = true;
   if (SendMessageTimeout(window, WM_CLOSE, 0, 0, SMTO_BLOCK, kWaitMs, NULL) &&
-      process) {
+      process.IsValid()) {
     VLOG(1) << "Waiting for " << installer::kChromeFrameHelperExe;
-    DWORD wait = ::WaitForSingleObject(process, kWaitMs);
+    DWORD wait = ::WaitForSingleObject(process.Get(), kWaitMs);
     if (wait != WAIT_OBJECT_0) {
       LOG(WARNING) << "Wait for " << installer::kChromeFrameHelperExe
                    << " to exit failed or timed out.";
@@ -441,12 +441,12 @@ DeleteResult DeleteUserDataDir(const base::FilePath& user_data_dir,
   if (result == DELETE_REQUIRES_REBOOT) {
     ScheduleParentAndGrandparentForDeletion(user_data_dir);
   } else {
-    const base::FilePath user_data_dir(user_data_dir.DirName());
-    if (!user_data_dir.empty() &&
-        DeleteEmptyDir(user_data_dir) == DELETE_SUCCEEDED) {
-      const base::FilePath product_dir(user_data_dir.DirName());
-      if (!product_dir.empty())
-        DeleteEmptyDir(product_dir);
+    const base::FilePath product_dir1(user_data_dir.DirName());
+    if (!product_dir1.empty() &&
+        DeleteEmptyDir(product_dir1) == DELETE_SUCCEEDED) {
+      const base::FilePath product_dir2(product_dir1.DirName());
+      if (!product_dir2.empty())
+        DeleteEmptyDir(product_dir2);
     }
   }
 
@@ -864,6 +864,20 @@ void UninstallActiveSetupEntries(const InstallerState& installer_state,
   }
 }
 
+// Removes the persistent blacklist state for the current user.  Note: this will
+// not remove the state for users other than the one uninstalling chrome on a
+// system-level install (http://crbug.com/388725). Doing so would require
+// extracting the per-user registry hive iteration from
+// UninstallActiveSetupEntries so that it could service multiple tasks.
+void RemoveBlacklistState() {
+  InstallUtil::DeleteRegistryKey(HKEY_CURRENT_USER,
+                                 blacklist::kRegistryBeaconPath,
+                                 0);  // wow64_access
+  InstallUtil::DeleteRegistryKey(HKEY_CURRENT_USER,
+                                 blacklist::kRegistryFinchListPath,
+                                 0);  // wow64_access
+}
+
 }  // namespace
 
 DeleteResult DeleteChromeDirectoriesIfEmpty(
@@ -1258,30 +1272,26 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
 
     UninstallFirewallRules(browser_dist, base::FilePath(chrome_exe));
 
+    RemoveBlacklistState();
+
     // Notify the shell that associations have changed since Chrome was likely
     // unregistered.
     SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
 
     // TODO(huangs): Implement actual migration code and remove the hack below.
     // Remove the "shadow" App Launcher registry keys.
+    // TODO(hunags): Management of this key should not be conditional on
+    // multi-install since the app list feature is available regardless of how
+    // chrome is installed.
     if (installer_state.is_multi_install()) {
-      // If we're not uninstalling the legacy App Launcher, and if it was
-      // not installed in the first place, then delete the "shadow" keys.
-      chrome_launcher_support::InstallationState level_to_check =
-          installer_state.system_install() ?
-              chrome_launcher_support::INSTALLED_AT_SYSTEM_LEVEL :
-              chrome_launcher_support::INSTALLED_AT_USER_LEVEL;
-      bool has_legacy_app_launcher = level_to_check ==
-          chrome_launcher_support::GetAppLauncherInstallationState();
-      if (!has_legacy_app_launcher) {
-        BrowserDistribution* shadow_app_launcher_dist =
-            BrowserDistribution::GetSpecificDistribution(
-                BrowserDistribution::CHROME_APP_HOST);
-        InstallUtil::DeleteRegistryKey(
-            reg_root,
-            shadow_app_launcher_dist->GetVersionKey(),
-            KEY_WOW64_32KEY);
-      }
+      // Delete the "shadow" keys.
+      BrowserDistribution* shadow_app_launcher_dist =
+          BrowserDistribution::GetSpecificDistribution(
+              BrowserDistribution::CHROME_APP_HOST);
+      InstallUtil::DeleteRegistryKey(
+          reg_root,
+          shadow_app_launcher_dist->GetVersionKey(),
+          KEY_WOW64_32KEY);
     }
   }
 

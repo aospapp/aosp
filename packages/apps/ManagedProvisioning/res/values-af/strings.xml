@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Kan nie die administrasieprogram gebruik nie. Komponente ontbreek of dit is korrup. Kontak jou IT-afdeling."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Kon nie die administrasieprogram installeer nie"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Die administrasieprogram is nie op jou toestel geïnstalleer nie"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Hou op om op te stel?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Is jy seker jy wil ophou om op te stel?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Nee"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Ja"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Kanselleer tans …"</string>
 </resources>

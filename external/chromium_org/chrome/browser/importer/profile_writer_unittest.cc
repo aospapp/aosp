@@ -11,7 +11,6 @@
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/history/history_service.h"
 #include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/history/history_types.h"
 #include "chrome/browser/importer/importer_unittest_utils.h"
 #include "chrome/common/importer/imported_bookmark_entry.h"
 #include "chrome/test/base/testing_profile.h"
@@ -19,6 +18,7 @@
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_utils.h"
 #include "components/bookmarks/test/bookmark_test_helpers.h"
+#include "components/history/core/browser/history_types.h"
 #include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -95,18 +95,17 @@ class ProfileWriterTest : public testing::Test {
         HistoryServiceFactory::GetForProfile(profile,
                                              Profile::EXPLICIT_ACCESS);
     history::QueryOptions options;
-    CancelableRequestConsumer history_request_consumer;
+    base::CancelableTaskTracker history_task_tracker;
     history_service->QueryHistory(
         base::string16(),
         options,
-        &history_request_consumer,
         base::Bind(&ProfileWriterTest::HistoryQueryComplete,
-                   base::Unretained(this)));
+                   base::Unretained(this)),
+        &history_task_tracker);
     base::MessageLoop::current()->Run();
   }
 
-  void HistoryQueryComplete(HistoryService::Handle handle,
-                            history::QueryResults* results) {
+  void HistoryQueryComplete(history::QueryResults* results) {
     base::MessageLoop::current()->Quit();
     history_count_ = results->size();
   }
@@ -143,9 +142,8 @@ TEST_F(ProfileWriterTest, CheckBookmarksWithMultiProfile) {
   BookmarkModel* bookmark_model2 =
       BookmarkModelFactory::GetForProfile(&profile2);
   test::WaitForBookmarkModelToLoad(bookmark_model2);
-  bookmark_utils::AddIfNotBookmarked(bookmark_model2,
-                                     GURL("http://www.bing.com"),
-                                     base::ASCIIToUTF16("Bing"));
+  bookmarks::AddIfNotBookmarked(
+      bookmark_model2, GURL("http://www.bing.com"), base::ASCIIToUTF16("Bing"));
   TestingProfile profile1;
   profile1.CreateBookmarkModel(true);
 

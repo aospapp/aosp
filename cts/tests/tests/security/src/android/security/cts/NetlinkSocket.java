@@ -18,6 +18,7 @@ package android.security.cts;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
+import java.net.SocketException;
 
 public class NetlinkSocket {
 
@@ -25,7 +26,7 @@ public class NetlinkSocket {
         System.loadLibrary("ctssecurity_jni");
     }
 
-    private static native void create_native(FileDescriptor fd);
+    private static native void create_native(FileDescriptor fd) throws SocketException;
     private static native int sendmsg(FileDescriptor fd, int pid, byte[] bytes);
 
     private FileDescriptor fd = new FileDescriptor();
@@ -33,7 +34,7 @@ public class NetlinkSocket {
     /** no public constructors */
     private NetlinkSocket() { }
 
-    public static NetlinkSocket create() {
+    public static NetlinkSocket create() throws SocketException {
         NetlinkSocket retval = new NetlinkSocket();
         create_native(retval.fd);
         return retval;

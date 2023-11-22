@@ -17,18 +17,13 @@
 #include "content/browser/dom_storage/session_storage_namespace_impl.h"
 #include "content/browser/power_monitor_message_broadcaster.h"
 #include "content/common/content_export.h"
+#include "content/common/mojo/service_registry_impl.h"
 #include "content/public/browser/gpu_data_manager_observer.h"
 #include "content/public/browser/render_process_host.h"
 #include "ipc/ipc_channel_proxy.h"
 #include "ipc/ipc_platform_file.h"
 #include "mojo/public/cpp/bindings/interface_ptr.h"
-
-#if defined(OS_MACOSX)
-#include <IOSurface/IOSurfaceAPI.h>
-#include "base/mac/scoped_cftyperef.h"
-#endif
-
-struct ViewHostMsg_CompositorSurfaceBuffersSwapped_Params;
+#include "ui/gfx/gpu_memory_buffer.h"
 
 namespace base {
 class CommandLine;
@@ -37,11 +32,15 @@ class MessageLoop;
 
 namespace gfx {
 class Size;
-struct GpuMemoryBufferHandle;
+}
+
+namespace IPC {
+class ChannelMojoHost;
 }
 
 namespace content {
 class AudioRendererHost;
+class BrowserCdmManager;
 class BrowserDemuxerAndroid;
 class GpuMessageFilter;
 class MessagePortMessageFilter;
@@ -51,7 +50,6 @@ class P2PSocketDispatcherHost;
 #endif
 class PeerConnectionTrackerHost;
 class RendererMainThread;
-class RenderProcessHostMojoImpl;
 class RenderWidgetHelper;
 class RenderWidgetHost;
 class RenderWidgetHostImpl;
@@ -99,9 +97,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
   virtual void RemoveRoute(int32 routing_id) OVERRIDE;
   virtual void AddObserver(RenderProcessHostObserver* observer) OVERRIDE;
   virtual void RemoveObserver(RenderProcessHostObserver* observer) OVERRIDE;
-  virtual bool WaitForBackingStoreMsg(int render_widget_id,
-                                      const base::TimeDelta& max_delay,
-                                      IPC::Message* msg) OVERRIDE;
   virtual void ReceivedBadMessage() OVERRIDE;
   virtual void WidgetRestored() OVERRIDE;
   virtual void WidgetHidden() OVERRIDE;
@@ -143,6 +138,7 @@ class CONTENT_EXPORT RenderProcessHostImpl
   virtual void ResumeDeferredNavigation(const GlobalRequestID& request_id)
       OVERRIDE;
   virtual void NotifyTimezoneChange() OVERRIDE;
+  virtual ServiceRegistry* GetServiceRegistry() OVERRIDE;
 
   // IPC::Sender via RenderProcessHost.
   virtual bool Send(IPC::Message* msg) OVERRIDE;
@@ -236,8 +232,14 @@ class CONTENT_EXPORT RenderProcessHostImpl
   }
 #endif
 
+#if defined(ENABLE_BROWSER_CDMS)
+  const scoped_refptr<BrowserCdmManager>& browser_cdm_manager() {
+    return browser_cdm_manager_;
+  }
+#endif
+
   MessagePortMessageFilter* message_port_message_filter() const {
-    return message_port_message_filter_;
+    return message_port_message_filter_.get();
   }
 
   void set_is_isolated_guest_for_testing(bool is_isolated_guest) {
@@ -250,23 +252,21 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void IncrementWorkerRefCount();
   void DecrementWorkerRefCount();
 
-  // Establish a connection to a renderer-provided service. See
-  // content/common/mojo/mojo_service_names.h for a list of services.
-  void ConnectTo(const base::StringPiece& service_name,
-                 mojo::ScopedMessagePipeHandle handle);
+  // Call this function to resume the navigation when it was deferred
+  // immediately after receiving response headers.
+  void ResumeResponseDeferredAtStart(const GlobalRequestID& request_id);
 
-  template <typename Interface>
-  void ConnectTo(const base::StringPiece& service_name,
-                 mojo::InterfacePtr<Interface>* ptr) {
-    mojo::MessagePipe pipe;
-    ptr->Bind(pipe.handle0.Pass());
-    ConnectTo(service_name, pipe.handle1.Pass());
-  }
+  // Activates Mojo for this process. Does nothing if Mojo is already activated.
+  void EnsureMojoActivated();
 
  protected:
   // A proxy for our IPC::Channel that lives on the IO thread (see
   // browser_process.h)
   scoped_ptr<IPC::ChannelProxy> channel_;
+
+  // A host object ChannelMojo needs. The lifetime is bound to
+  // the RenderProcessHostImpl, not the channel.
+  scoped_ptr<IPC::ChannelMojoHost> channel_mojo_host_;
 
   // True if fast shutdown has been performed on this RPH.
   bool fast_shutdown_started_;
@@ -288,6 +288,9 @@ class CONTENT_EXPORT RenderProcessHostImpl
   friend class VisitRelayingRenderProcessHost;
 
   void MaybeActivateMojo();
+  bool ShouldUseMojoChannel() const;
+  scoped_ptr<IPC::ChannelProxy> CreateChannelProxy(
+      const std::string& channel_id);
 
   // Creates and adds the IO thread message filters.
   void CreateMessageFilters();
@@ -299,10 +302,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void OnUserMetricsRecordAction(const std::string& action);
   void OnSavedPageAsMHTML(int job_id, int64 mhtml_file_size);
   void OnCloseACK(int old_route_id);
-
-  // CompositorSurfaceBuffersSwapped handler when there's no RWH.
-  void OnCompositorSurfaceBuffersSwappedNoHost(
-      const ViewHostMsg_CompositorSurfaceBuffersSwapped_Params& params);
 
   // Generates a command line to be used to spawn a renderer and appends the
   // results to |*command_line|.
@@ -334,15 +333,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
                                  IPC::PlatformFileForTransit file_for_transit);
   void SendDisableAecDumpToRenderer();
 #endif
-
-  // GpuMemoryBuffer allocation handler.
-  void OnAllocateGpuMemoryBuffer(uint32 width,
-                                 uint32 height,
-                                 uint32 internalformat,
-                                 uint32 usage,
-                                 IPC::Message* reply);
-  void GpuMemoryBufferAllocated(IPC::Message* reply,
-                                const gfx::GpuMemoryBufferHandle& handle);
 
   scoped_ptr<MojoApplicationHost> mojo_application_host_;
   bool mojo_activation_required_;
@@ -445,6 +435,10 @@ class CONTENT_EXPORT RenderProcessHostImpl
   scoped_refptr<BrowserDemuxerAndroid> browser_demuxer_android_;
 #endif
 
+#if defined(ENABLE_BROWSER_CDMS)
+  scoped_refptr<BrowserCdmManager> browser_cdm_manager_;
+#endif
+
 #if defined(ENABLE_WEBRTC)
   base::Callback<void(const std::string&)> webrtc_log_message_callback_;
 
@@ -462,10 +456,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
   base::TimeTicks survive_for_worker_start_time_;
 
   base::WeakPtrFactory<RenderProcessHostImpl> weak_factory_;
-
-#if defined(OS_MACOSX)
-  base::ScopedCFTypeRef<IOSurfaceRef> last_io_surface_;
-#endif
 
   DISALLOW_COPY_AND_ASSIGN(RenderProcessHostImpl);
 };

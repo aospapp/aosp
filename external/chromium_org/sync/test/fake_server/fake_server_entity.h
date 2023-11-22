@@ -26,6 +26,9 @@ class FakeServerEntity {
   static std::string CreateId(const syncer::ModelType& model_type,
                               const std::string& inner_id);
 
+  // Returns the ID string of the top level node for the specified type.
+  static std::string GetTopLevelId(const syncer::ModelType& model_type);
+
   virtual ~FakeServerEntity();
   const std::string& GetId() const;
   syncer::ModelType GetModelType() const;
@@ -35,7 +38,7 @@ class FakeServerEntity {
 
   // Common data items needed by server
   virtual std::string GetParentId() const = 0;
-  virtual sync_pb::SyncEntity* SerializeAsProto() = 0;
+  virtual void SerializeAsProto(sync_pb::SyncEntity* proto) = 0;
   virtual bool IsDeleted() const = 0;
   virtual bool IsFolder() const = 0;
 
@@ -51,12 +54,12 @@ class FakeServerEntity {
 
   void SerializeBaseProtoFields(sync_pb::SyncEntity* sync_entity);
 
+  // The ModelType that categorizes this entity.
+  syncer::ModelType model_type_;
+
  private:
   // The entity's ID.
   std::string id_;
-
-  // The ModelType that categorizes this entity.
-  syncer::ModelType model_type_;
 
   // The version of this entity.
   int64 version_;

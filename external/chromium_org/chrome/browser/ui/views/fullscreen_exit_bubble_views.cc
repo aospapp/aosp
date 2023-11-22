@@ -12,15 +12,15 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/notification_service.h"
-#include "grit/generated_resources.h"
-#include "grit/ui_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/animation/slide_animation.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/screen.h"
+#include "ui/strings/grit/ui_strings.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/link.h"
@@ -225,7 +225,7 @@ void FullscreenExitBubbleViews::FullscreenExitView::UpdateContent(
     mouse_lock_exit_instruction_->SetVisible(false);
     button_view_->SetVisible(true);
     button_view_->deny_button()->SetText(bubble_->GetCurrentDenyButtonText());
-    button_view_->deny_button()->set_min_size(gfx::Size());
+    button_view_->deny_button()->SetMinSize(gfx::Size());
   } else {
     bool link_visible = true;
     base::string16 accelerator;

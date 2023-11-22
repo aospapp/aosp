@@ -28,12 +28,10 @@
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/form_field_data_predictions.h"
 #include "third_party/icu/source/i18n/unicode/regex.h"
-#include "third_party/libjingle/source/talk/xmllite/xmlelement.h"
+#include "third_party/webrtc/libjingle/xmllite/xmlelement.h"
 
 namespace autofill {
 namespace {
-
-const char kFormMethodPost[] = "post";
 
 // XML elements and attributes.
 const char kAttributeAutofillUsed[] = "autofillused";
@@ -286,6 +284,12 @@ HtmlFieldType FieldTypeFromAutocompleteAttributeValue(
   if (autocomplete_attribute_value == "cc-type")
     return HTML_TYPE_CREDIT_CARD_TYPE;
 
+  if (autocomplete_attribute_value == "transaction-amount")
+    return HTML_TYPE_TRANSACTION_AMOUNT;
+
+  if (autocomplete_attribute_value == "transaction-currency")
+    return HTML_TYPE_TRANSACTION_CURRENCY;
+
   if (autocomplete_attribute_value == "tel")
     return HTML_TYPE_TEL;
 
@@ -374,15 +378,6 @@ FormStructure::FormStructure(const FormData& form)
         base::IntToString16(unique_names[field->name]);
     fields_.push_back(new AutofillField(*field, unique_name));
   }
-
-  std::string method = base::UTF16ToUTF8(form.method);
-  if (StringToLowerASCII(method) == kFormMethodPost) {
-    method_ = POST;
-  } else {
-    // Either the method is 'get', or we don't know.  In this case we default
-    // to GET.
-    method_ = GET;
-  }
 }
 
 FormStructure::~FormStructure() {}
@@ -412,7 +407,7 @@ void FormStructure::DetermineHeuristicTypes(
   UpdateAutofillCount();
   IdentifySections(has_author_specified_sections);
 
-  if (IsAutofillable(true)) {
+  if (IsAutofillable()) {
     metric_logger.LogDeveloperEngagementMetric(
         AutofillMetrics::FILLABLE_FORM_PARSED);
     if (has_author_specified_types_) {
@@ -629,8 +624,6 @@ void FormStructure::GetFieldTypePredictions(
     FormStructure* form_structure = form_structures[i];
     FormDataPredictions form;
     form.data.name = form_structure->form_name_;
-    form.data.method =
-        base::ASCIIToUTF16((form_structure->method_ == POST) ? "POST" : "GET");
     form.data.origin = form_structure->source_url_;
     form.data.action = form_structure->target_url_;
     form.signature = form_structure->FormSignature();
@@ -676,11 +669,11 @@ bool FormStructure::ShouldSkipField(const FormFieldData& field) const {
   return field.is_checkable;
 }
 
-bool FormStructure::IsAutofillable(bool require_method_post) const {
+bool FormStructure::IsAutofillable() const {
   if (autofill_count() < kRequiredAutofillFields)
     return false;
 
-  return ShouldBeParsed(require_method_post);
+  return ShouldBeParsed();
 }
 
 void FormStructure::UpdateAutofillCount() {
@@ -693,7 +686,7 @@ void FormStructure::UpdateAutofillCount() {
   }
 }
 
-bool FormStructure::ShouldBeParsed(bool require_method_post) const {
+bool FormStructure::ShouldBeParsed() const {
   if (active_field_count() < kRequiredAutofillFields)
     return false;
 
@@ -708,14 +701,12 @@ bool FormStructure::ShouldBeParsed(bool require_method_post) const {
        it != end() && !has_text_field; ++it) {
     has_text_field |= (*it)->form_control_type != "select-one";
   }
-  if (!has_text_field)
-    return false;
 
-  return !require_method_post || (method_ == POST);
+  return has_text_field;
 }
 
 bool FormStructure::ShouldBeCrowdsourced() const {
-  return !has_author_specified_types_ && ShouldBeParsed(true);
+  return !has_author_specified_types_ && ShouldBeParsed();
 }
 
 void FormStructure::UpdateFromCache(const FormStructure& cached_form) {
@@ -925,7 +916,6 @@ FormData FormStructure::ToFormData() const {
   data.name = form_name_;
   data.origin = source_url_;
   data.action = target_url_;
-  data.method = base::ASCIIToUTF16(method_ == POST ? "POST" : "GET");
 
   for (size_t i = 0; i < fields_.size(); ++i) {
     data.fields.push_back(FormFieldData(*fields_[i]));
@@ -1027,7 +1017,7 @@ void FormStructure::ParseFieldTypesFromAutocompleteAttributes(
     // non-space characters (e.g. tab) to spaces, and converting to lowercase.
     std::string autocomplete_attribute =
         base::CollapseWhitespaceASCII(field->autocomplete_attribute, false);
-    autocomplete_attribute = StringToLowerASCII(autocomplete_attribute);
+    autocomplete_attribute = base::StringToLowerASCII(autocomplete_attribute);
 
     // The autocomplete attribute is overloaded: it can specify either a field
     // type hint or whether autocomplete should be enabled at all.  Ignore the
@@ -1117,6 +1107,7 @@ bool FormStructure::FillFields(
     const std::vector<ServerFieldType>& types,
     const InputFieldComparator& matches,
     const base::Callback<base::string16(const AutofillType&)>& get_info,
+    const std::string& address_language_code,
     const std::string& app_locale) {
   bool filled_something = false;
   for (size_t i = 0; i < field_count(); ++i) {
@@ -1124,6 +1115,7 @@ bool FormStructure::FillFields(
       if (matches.Run(types[j], *field(i))) {
         AutofillField::FillFormField(*field(i),
                                      get_info.Run(field(i)->Type()),
+                                     address_language_code,
                                      app_locale,
                                      field(i));
         filled_something = true;
@@ -1161,6 +1153,24 @@ std::set<base::string16> FormStructure::PossibleValues(ServerFieldType type) {
   }
 
   return values;
+}
+
+base::string16 FormStructure::GetUniqueValue(HtmlFieldType type) const {
+  base::string16 value;
+  for (std::vector<AutofillField*>::const_iterator iter = fields_.begin();
+       iter != fields_.end(); ++iter) {
+    const AutofillField* field = *iter;
+    if (field->html_type() != type)
+      continue;
+
+    // More than one value found; abort rather than choosing one arbitrarily.
+    if (!value.empty() && !field->value.empty())
+      return base::string16();
+
+    value = field->value;
+  }
+
+  return value;
 }
 
 void FormStructure::IdentifySections(bool has_author_specified_sections) {

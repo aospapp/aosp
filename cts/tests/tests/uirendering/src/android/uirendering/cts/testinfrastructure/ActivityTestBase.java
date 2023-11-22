@@ -38,18 +38,19 @@ import java.util.List;
  */
 public abstract class ActivityTestBase extends
         ActivityInstrumentationTestCase2<DrawActivity> {
-    public static final String TAG_NAME = "ActivityTestBase";
+    public static final String TAG = "ActivityTestBase";
     public static final boolean DEBUG = false;
     public static final boolean USE_RS = false;
-    public static final int TEST_WIDTH = 180;
-    public static final int TEST_HEIGHT = 180; //The minimum height and width of a device
+
+    //The minimum height and width of a device
+    public static final int TEST_WIDTH = 90;
+    public static final int TEST_HEIGHT = 90;
+
     public static final int MAX_SCREEN_SHOTS = 100;
 
     private int[] mHardwareArray = new int[TEST_HEIGHT * TEST_WIDTH];
     private int[] mSoftwareArray = new int[TEST_HEIGHT * TEST_WIDTH];
     private DifferenceVisualizer mDifferenceVisualizer;
-    private Allocation mIdealAllocation;
-    private Allocation mGivenAllocation;
     private RenderScript mRenderScript;
     private TestCaseBuilder mTestCaseBuilder;
 
@@ -97,7 +98,7 @@ public abstract class ActivityTestBase extends
 
             for (TestCase testCase : testCases) {
                 if (!testCase.wasTestRan) {
-                    Log.w(TAG_NAME, getName() + " not all of the tests were ran");
+                    Log.w(TAG, getName() + " not all of the tests ran");
                     break;
                 }
             }
@@ -115,16 +116,31 @@ public abstract class ActivityTestBase extends
         getActivity().runOnUiThread(finishRunnable);
     }
 
+    static int[] getBitmapPixels(Bitmap bitmap) {
+        int[] pixels = new int[bitmap.getWidth() * bitmap.getHeight()];
+        bitmap.getPixels(pixels, 0, bitmap.getWidth(),
+                0, 0, bitmap.getWidth(), bitmap.getHeight());
+        return pixels;
+    }
+
+    private Bitmap takeScreenshotImpl() {
+        Bitmap source = getInstrumentation().getUiAutomation().takeScreenshot();
+        int x = (source.getWidth() - TEST_WIDTH) / 2;
+        int y = (source.getHeight() - TEST_HEIGHT) / 2;
+        return Bitmap.createBitmap(source, x, y, TEST_WIDTH, TEST_HEIGHT);
+    }
+
     public Bitmap takeScreenshot() {
         getInstrumentation().waitForIdleSync();
-        Bitmap bitmap1 = getInstrumentation().getUiAutomation().takeScreenshot();
+        Bitmap bitmap1 = takeScreenshotImpl();
         Bitmap bitmap2;
         int count = 0;
         do  {
             bitmap2 = bitmap1;
-            bitmap1 = getInstrumentation().getUiAutomation().takeScreenshot();
+            bitmap1 = takeScreenshotImpl();
             count++;
-        } while (count < MAX_SCREEN_SHOTS && !Arrays.equals(bitmap2.mBuffer, bitmap1.mBuffer));
+        } while (count < MAX_SCREEN_SHOTS &&
+                !Arrays.equals(getBitmapPixels(bitmap2), getBitmapPixels(bitmap1)));
         return bitmap1;
     }
 
@@ -154,12 +170,12 @@ public abstract class ActivityTestBase extends
         boolean success;
 
         if (USE_RS && comparer.supportsRenderScript()) {
-            mIdealAllocation = Allocation.createFromBitmap(mRenderScript, bitmap1,
+            Allocation idealAllocation = Allocation.createFromBitmap(mRenderScript, bitmap1,
                     Allocation.MipmapControl.MIPMAP_NONE, Allocation.USAGE_SCRIPT);
-            mGivenAllocation = Allocation.createFromBitmap(mRenderScript, bitmap2,
+            Allocation givenAllocation = Allocation.createFromBitmap(mRenderScript, bitmap2,
                     Allocation.MipmapControl.MIPMAP_NONE, Allocation.USAGE_SCRIPT);
-            success = comparer.verifySameRS(getActivity().getResources(), mIdealAllocation,
-                    mGivenAllocation, 0, TEST_WIDTH, TEST_WIDTH, TEST_HEIGHT, mRenderScript);
+            success = comparer.verifySameRS(getActivity().getResources(), idealAllocation,
+                    givenAllocation, 0, TEST_WIDTH, TEST_WIDTH, TEST_HEIGHT, mRenderScript);
         } else {
             bitmap1.getPixels(mSoftwareArray, 0, TEST_WIDTH, 0, 0, TEST_WIDTH, TEST_HEIGHT);
             bitmap2.getPixels(mHardwareArray, 0, TEST_WIDTH, 0, 0, TEST_WIDTH, TEST_HEIGHT);
@@ -213,6 +229,11 @@ public abstract class ActivityTestBase extends
          * every test case is tested against it.
          */
         public void runWithComparer(BitmapComparer bitmapComparer) {
+            if (getActivity().getOnWatch()) {
+                Log.d(TAG, getName() + "skipped");
+                return;
+            }
+
             if (mTestCases.size() == 0) {
                 throw new IllegalStateException("Need at least one test to run");
             }
@@ -231,6 +252,11 @@ public abstract class ActivityTestBase extends
          * the verifier given.
          */
         public void runWithVerifier(BitmapVerifier bitmapVerifier) {
+            if (getActivity().getOnWatch()) {
+                Log.d(TAG, getName() + "skipped");
+                return;
+            }
+
             if (mTestCases.size() == 0) {
                 throw new IllegalStateException("Need at least one test to run");
             }

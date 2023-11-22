@@ -22,6 +22,30 @@
   bug: 17595050
 },
 {
+  description: "the SSLCertificateSocketFactoryTest often fails because of lack of live internet or short timeout, it should be refactored to do a local server testing",
+  names: [
+    "android.net.cts.SSLCertificateSocketFactoryTest#testCreateSocket",
+    "android.net.cts.SSLCertificateSocketFactoryTest#test_createSocket_bind",
+    "android.net.cts.SSLCertificateSocketFactoryTest#test_createSocket_simple",
+    "android.net.cts.SSLCertificateSocketFactoryTest#test_createSocket_wrapping"
+  ],
+  bug: 18682315
+},
+{
+  description: "the test result are too much dependent on live-internet connection, which for some devices might not exist",
+  names: [
+    "android.net.wifi.cts.NsdManagerTest#testAndroidTestCaseSetupProperly"
+  ],
+  bug: 18680089
+},
+{
+  description: "AudioPolicyBinder tests are not yet robust enough",
+  names: [
+    "android.security.cts.AudioPolicyBinderTest"
+  ],
+  bug: 18461670
+},
+{
   description: "Not all jdwp features are currently supported. These tests will fail",
   names: [
     "org.apache.harmony.jpda.tests.jdwp.DebuggerOnDemand.OnthrowDebuggerLaunchTest#testDebuggerLaunch001",
@@ -70,6 +94,13 @@
   bug: 17748398
 },
 {
+  description: "WebGL test uniformMatrixBadArgs is too strict. Disabled until it's fixed upstream.",
+  names: [
+    "android.webgl.cts.WebGLTest#test_conformance_more_functions_uniformMatrixBadArgs_html"
+  ],
+  bug: 18638404
+},
+{
   description: "permissions for the API previously used in the test has changed, making it impossible to pass",
   names: [
     "android.openglperf.cts.GlAppSwitchTest#testGlActivitySwitchingFast",
@@ -93,37 +124,6 @@
   bug: 17530117
 },
 {
-  description: "this test removes the stay-awake option, causing the screen to turn off during the execution of subsequent tests",
-  names: [
-    "android.admin.cts.DevicePolicyManagerTest#testMaximumTimeToLock"
-  ],
-  bug: 18002490
-},
-{
-  description: "these tests locks the screen with an emtpy password or swipe-to-unlock, blocking subsequent test to dismiss keyguard",
-  names: [
-    "android.admin.cts.DevicePolicyManagerTest#testPasswordQuality_something",
-    "android.admin.cts.DevicePolicyManagerTest#testPasswordQuality_numeric",
-    "android.admin.cts.DevicePolicyManagerTest#testPasswordQuality_alphabetic",
-    "android.admin.cts.DevicePolicyManagerTest#testPasswordQuality_alphanumeric",
-    "android.admin.cts.DevicePolicyManagerTest#testPasswordQuality_complexUpperCase",
-    "android.admin.cts.DevicePolicyManagerTest#testPasswordQuality_complexLowerCase",
-    "android.admin.cts.DevicePolicyManagerTest#testPasswordQuality_complexLetters",
-    "android.admin.cts.DevicePolicyManagerTest#testPasswordQuality_complexNumeric",
-    "android.admin.cts.DevicePolicyManagerTest#testPasswordQuality_complexSymbols",
-    "android.admin.cts.DevicePolicyManagerTest#testPasswordQuality_complexNonLetter",
-    "android.admin.cts.DevicePolicyManagerTest#testGetMaximumFailedPasswordsForWipe"
-  ],
-  bug: 17496766
-},
-{
-  description: "these tests locks the screen with an emtpy password or swipe-to-unlock, blocking subsequent test to dismiss keyguard",
-  names: [
-    "com.android.cts.devicepolicy.DeviceOwnerTest#testKeyManagement"
-  ],
-  bug: 17496766
-},
-{
   description: "Current implementation of uninstallAllUserCaCerts does not throw expected security exception, wait for fix from framework",
   names: [
     "android.admin.cts.DevicePolicyManagerTest#testUninstallAllUserCaCerts_failIfNotProfileOwner"
@@ -133,38 +133,20 @@
 {
   description: "New tests recently added for Android Enterprise. To be moved out of CTS-staging as soon as they show that they are stable",
   names: [
-    "com.android.cts.devicepolicy.DeviceOwnerTest#testApplicationRestrictions",
-    "com.android.cts.devicepolicy.DeviceOwnerTest#testCaCertManagement",
-    "com.android.cts.devicepolicy.DeviceOwnerTest#testDeviceOwnerSetup",
-    "com.android.cts.devicepolicy.DeviceOwnerTest#testPersistentIntentResolving",
-    "com.android.cts.devicepolicy.DeviceOwnerTest#testScreenCaptureDisabled",
-    "com.android.cts.devicepolicy.ManagedProfileTest#testManagedProfileSetup",
-    "com.android.cts.devicepolicy.ManagedProfileTest#testWipeData",
-    "com.android.cts.devicepolicy.ManagedProfileTest#testCrossProfileIntentFilters",
-    "com.android.cts.devicepolicy.ManagedProfileTest#testCrossProfileContent",
-    "com.android.cts.devicepolicy.ManagedProfileTest#testNoDebuggingFeaturesRestriction"
+    "com.android.cts.devicepolicy.LauncherAppsMultiUserTest#testGetActivitiesForNonProfileFails",
+    "com.android.cts.devicepolicy.LauncherAppsMultiUserTest#testNoLauncherCallbackPackageAddedSecondaryUser",
+    "com.android.cts.devicepolicy.LauncherAppsProfileTest#testGetActivitiesWithProfile",
+    "com.android.cts.devicepolicy.LauncherAppsProfileTest#testLauncherCallbackPackageAddedProfile",
+    "com.android.cts.devicepolicy.LauncherAppsProfileTest#testLauncherCallbackPackageRemovedProfile",
+    "com.android.cts.devicepolicy.LauncherAppsProfileTest#testLauncherCallbackPackageChangedProfile",
+    "com.android.cts.devicepolicy.LauncherAppsSingleUserTest#testInstallAppMainUser",
+    "com.android.cts.devicepolicy.LauncherAppsSingleUserTest#testLauncherCallbackPackageAddedMainUser",
+    "com.android.cts.devicepolicy.LauncherAppsSingleUserTest#testLauncherCallbackPackageRemovedMainUser",
+    "com.android.cts.devicepolicy.LauncherAppsSingleUserTest#testLauncherCallbackPackageChangedMainUser",
+    "com.android.cts.devicepolicy.LauncherAppsSingleUserTest#testLauncherNonExportedAppFails",
+    "com.android.cts.devicepolicy.LauncherAppsSingleUserTest#testLaunchNonExportActivityFails",
+    "com.android.cts.devicepolicy.LauncherAppsSingleUserTest#testLaunchMainActivity"
   ]
-},
-{
-  description: "Flaky test which ocassionally fails",
-  names: [
-    "com.android.cts.devicepolicy.DeviceOwnerTest#testLockTask"
-  ],
-  bug: 17890673
-},
-{
-
-  description: "These tests fail on some devices.",
-  names: [
-    "android.uirendering.cts.testclasses.ExactCanvasTests#testBlueRect",
-    "android.uirendering.cts.testclasses.ExactCanvasTests#testBluePaddedSquare",
-    "android.uirendering.cts.testclasses.ViewClippingTests#testSimplePaddingClip",
-    "android.uirendering.cts.testclasses.ViewClippingTests#testSimpleClipBoundsClip",
-    "android.uirendering.cts.testclasses.ViewClippingTests#testSimpleOutlineClip",
-    "android.uirendering.cts.testclasses.ViewClippingTests#testSimpleBoundsClip",
-    "android.uirendering.cts.testclasses.InfrastructureTests#testViewInitializer"
-  ],
-  bug: 17511118
 },
 {
   description: "This test failed on devices that use effect off loading. In addition it uses hidden apis",
@@ -335,10 +317,7 @@
     "android.hardware.cts.SingleSensorTests#testLinearAcceleration_10hz",
     "android.hardware.cts.SingleSensorTests#testLinearAcceleration_5hz",
     "android.hardware.cts.SingleSensorTests#testLinearAcceleration_1hz",
-    "android.hardware.cts.SensorTest#testValuesForAllSensors",
-    "android.hardware.cts.SensorTest#testSensorTimeStamps",
-    "android.hardware.cts.SensorTest#testBatchAndFlush",
-    "android.hardware.cts.SensorTest#testBatchAndFlushWithHandler"
+    "android.hardware.cts.SensorTest#testSensorTimeStamps"
   ],
   bug: 17675466
 },
@@ -364,5 +343,19 @@
     "com.android.org.conscrypt.SignatureTest#test_getInstance_OpenSSL_ENGINE"
   ],
   bug: 18030049
+},
+{
+  description: "The new recording test is not yet passing on all devices",
+  names: [
+    "android.hardware.camera2.cts.RecordingTest#testRecordingFramerateLowToHigh"
+  ],
+  bug: 18705837
+},
+{
+  description: "The new image reader test is not yet passing on all devices",
+  names: [
+    "android.hardware.camera2.cts.ImageReaderTest#testAllOutputYUVResolutions"
+  ],
+  bug: 18689511
 }
 ]

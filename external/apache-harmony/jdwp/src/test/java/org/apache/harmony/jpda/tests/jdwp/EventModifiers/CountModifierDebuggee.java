@@ -27,7 +27,6 @@ import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 public class CountModifierDebuggee extends SyncDebuggee {
     static int locationEventCount = 0;
     static int exceptionEventCount = 0;
-    static int threadRunCount = 0;
     static int fieldReadWriteCount = 0;
 
     static int watchedField = 0;
@@ -62,18 +61,6 @@ public class CountModifierDebuggee extends SyncDebuggee {
         }
     }
 
-    void runThread() {
-        ++threadRunCount;
-        System.out.println("CountModifierDebuggee.startThread: threadRunCount=" + threadRunCount);
-        Thread t = new Thread("TestThread-" + threadRunCount);
-        t.start();
-        try {
-            t.join();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-
     void readAndWriteField() {
         ++fieldReadWriteCount;
         System.out.println("CountModifierDebuggee.readAndWriteField: fieldReadWriteCount=" + fieldReadWriteCount);
@@ -100,11 +87,6 @@ public class CountModifierDebuggee extends SyncDebuggee {
         exceptionEventCount = 0;
         for (int i = 0; i < EVENT_COUNT; ++i) {
             catchException(obj);
-        }
-
-        threadRunCount = 0;
-        for (int i = 0; i < EVENT_COUNT; ++i) {
-            runThread();
         }
 
         fieldReadWriteCount = 0;

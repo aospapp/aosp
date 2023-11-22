@@ -1,8 +1,8 @@
-/*	$OpenBSD: eval.c,v 1.39 2013/07/01 17:25:27 jca Exp $	*/
+/*	$OpenBSD: eval.c,v 1.40 2013/09/14 20:09:30 millert Exp $	*/
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013
+ *		 2011, 2012, 2013, 2014
  *	Thorsten Glaser <tg@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -23,7 +23,7 @@
 
 #include "sh.h"
 
-__RCSID("$MirOS: src/bin/mksh/eval.c,v 1.142 2013/07/24 18:03:57 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/eval.c,v 1.153 2014/10/07 15:22:16 tg Exp $");
 
 /*
  * string expansion
@@ -62,6 +62,7 @@ typedef struct {
 #define IFS_WORD	0	/* word has chars (or quotes) */
 #define IFS_WS		1	/* have seen IFS white-space */
 #define IFS_NWS		2	/* have seen IFS non-white-space */
+#define IFS_IWS		3	/* begin of word, ignore IFS WS */
 
 static int varsub(Expand *, const char *, const char *, int *, int *);
 static int comsub(Expand *, const char *, int);
@@ -74,7 +75,7 @@ static const char *maybe_expand_tilde(const char *, XString *, char **, int);
 static char *homedir(char *);
 #endif
 static void alt_expand(XPtrV *, char *, char *, char *, int);
-static int utflen(const char *);
+static int utflen(const char *) MKSH_A_PURE;
 static void utfincptr(const char *, mksh_ari_t *);
 
 /* UTFMODE functions */
@@ -244,8 +245,8 @@ expand(
 		internal_errorf("expand(NULL)");
 	/* for alias, readonly, set, typeset commands */
 	if ((f & DOVACHECK) && is_wdvarassign(ccp)) {
-		f &= ~(DOVACHECK|DOBLANK|DOGLOB|DOTILDE);
-		f |= DOASNTILDE;
+		f &= ~(DOVACHECK | DOBLANK | DOGLOB | DOTILDE);
+		f |= DOASNTILDE | DOASNFIELD;
 	}
 	if (Flag(FNOGLOB))
 		f &= ~DOGLOB;
@@ -261,7 +262,7 @@ expand(
 	fdo = 0;
 	saw_eq = false;
 	/* must be 1/0 */
-	tilde_ok = (f & (DOTILDE|DOASNTILDE)) ? 1 : 0;
+	tilde_ok = (f & (DOTILDE | DOASNTILDE)) ? 1 : 0;
 	doblank = 0;
 	make_magic = false;
 	word = (f&DOBLANK) ? IFS_WS : IFS_WORD;
@@ -324,9 +325,9 @@ expand(
 				}
 				continue;
 			case EXPRSUB:
-				word = IFS_WORD;
 				tilde_ok = 0;
 				if (f & DONTRUNCOMMAND) {
+					word = IFS_WORD;
 					*dp++ = '$'; *dp++ = '('; *dp++ = '(';
 					while (*sp != '\0') {
 						Xcheck(ds, dp);
@@ -343,11 +344,10 @@ expand(
 					v_evaluate(&v, substitute(sp, 0),
 					    KSH_UNWIND_ERROR, true);
 					sp = strnul(sp) + 1;
-					cp = str_val(&v);
-					while (*cp) {
-						Xcheck(ds, dp);
-						*dp++ = *cp++;
-					}
+					x.str = str_val(&v);
+					type = XSUB;
+					if (f & DOBLANK)
+						doblank++;
 				}
 				continue;
 			case OSUBST: {
@@ -412,27 +412,10 @@ expand(
 					if (stype)
 						sp += slen;
 					switch (stype & 0x17F) {
-					case 0x100 | '#': {
-						char *beg, *end;
-						mksh_ari_t seed;
-						register uint32_t h;
-
-						beg = wdcopy(sp, ATEMP);
-						end = beg + (wdscan(sp, CSUBST) - sp);
-						end[-2] = EOS;
-						end = wdstrip(beg, 0);
-						afree(beg, ATEMP);
-						evaluate(substitute(end, 0),
-						    &seed, KSH_UNWIND_ERROR, true);
-						/* hash with seed, for now */
-						h = seed;
-						NZATUpdateString(h,
-						    str_val(st->var));
-						NZAATFinish(h);
+					case 0x100 | '#':
 						x.str = shf_smprintf("%08X",
-						    (unsigned int)h);
+						    (unsigned int)hash(str_val(st->var)));
 						break;
-					}
 					case 0x100 | 'Q': {
 						struct shf shf;
 
@@ -440,7 +423,7 @@ expand(
 						print_value_quoted(&shf, str_val(st->var));
 						x.str = shf_sclose(&shf);
 						break;
-					}
+					    }
 					case '0': {
 						char *beg, *mid, *end, *stg;
 						mksh_ari_t from = 0, num = -1, flen, finc = 0;
@@ -490,7 +473,7 @@ expand(
 							utfincptr(beg, &num);
 						strndupx(x.str, beg, num, ATEMP);
 						goto do_CSUBST;
-					}
+					    }
 					case '/': {
 						char *s, *p, *d, *sbeg, *end;
 						char *pat, *rrep;
@@ -634,7 +617,7 @@ expand(
 						if (rrep != null)
 							afree(rrep, ATEMP);
 						goto do_CSUBST;
-					}
+					    }
 					case '#':
 					case '%':
 						/* ! DOBLANK,DOBRACE,DOTILDE */
@@ -667,7 +650,7 @@ expand(
 						 * a arithmetic operator.
 						 */
 						if (!(x.var->flag & INTEGER))
-							f |= DOASNTILDE|DOTILDE;
+							f |= DOASNTILDE | DOTILDE;
 						f |= DOTEMP;
 						/*
 						 * These will be done after the
@@ -681,6 +664,7 @@ expand(
 						f |= DOTEMP;
 						/* FALLTHROUGH */
 					default:
+						word = quote ? IFS_WORD : IFS_IWS;
 						/* Enable tilde expansion */
 						tilde_ok = 1;
 						f |= DOTILDE;
@@ -689,7 +673,7 @@ expand(
 					/* skip word */
 					sp += wdscan(sp, CSUBST) - sp;
 				continue;
-			}
+			    }
 			case CSUBST:
 				/* only get here if expanding word */
  do_CSUBST:
@@ -700,7 +684,7 @@ expand(
 				*dp = '\0';
 				quote = st->quotep;
 				f = st->f;
-				if (f&DOBLANK)
+				if (f & DOBLANK)
 					doblank--;
 				switch (st->stype & 0x17F) {
 				case '#':
@@ -719,11 +703,12 @@ expand(
 					 */
 					x.str = trimsub(str_val(st->var),
 						dp, st->stype);
-					if (x.str[0] != '\0' || st->quotep)
+					if (x.str[0] != '\0') {
+						word = IFS_WS;
 						type = XSUB;
-					else
-						type = XNULLSUB;
-					if (f&DOBLANK)
+					} else
+						type = quote ? XSUB : XNULLSUB;
+					if (f & DOBLANK)
 						doblank++;
 					st = st->prev;
 					continue;
@@ -755,9 +740,10 @@ expand(
 					    dp, len), KSH_UNWIND_ERROR);
 					x.str = str_val(st->var);
 					type = XSUB;
-					if (f&DOBLANK)
+					if (f & DOBLANK)
 						doblank++;
 					st = st->prev;
+					word = quote || (!*x.str && (f & DOASNFIELD)) ? IFS_WORD : IFS_WS;
 					continue;
 				case '?': {
 					char *s = Xrestpos(ds, dp, st->base);
@@ -766,14 +752,15 @@ expand(
 					    dp == s ?
 					    "parameter null or not set" :
 					    (debunk(s, s, strlen(s) + 1), s));
-				}
+				    }
 				case '0':
 				case '/':
 				case 0x100 | '#':
 				case 0x100 | 'Q':
 					dp = Xrestpos(ds, dp, st->base);
 					type = XSUB;
-					if (f&DOBLANK)
+					word = quote || (!*x.str && (f & DOASNFIELD)) ? IFS_WORD : IFS_WS;
+					if (f & DOBLANK)
 						doblank++;
 					st = st->prev;
 					continue;
@@ -810,13 +797,8 @@ expand(
 			 * other stuff inside the quotes).
 			 */
 			type = XBASE;
-			if (f&DOBLANK) {
+			if (f & DOBLANK) {
 				doblank--;
-				/*
-				 * not really correct: x=; "$x$@" should
-				 * generate a null argument and
-				 * set A; "${@:+}" shouldn't.
-				 */
 				if (dp == Xstring(ds, dp))
 					word = IFS_WS;
 			}
@@ -826,7 +808,7 @@ expand(
 		case XSUBMID:
 			if ((c = *x.str++) == 0) {
 				type = XBASE;
-				if (f&DOBLANK)
+				if (f & DOBLANK)
 					doblank--;
 				continue;
 			}
@@ -840,20 +822,32 @@ expand(
 			if ((c = *x.str++) == '\0') {
 				/*
 				 * force null words to be created so
-				 * set -- '' 2 ''; foo "$@" will do
+				 * set -- "" 2 ""; echo "$@" will do
 				 * the right thing
 				 */
 				if (quote && x.split)
 					word = IFS_WORD;
 				if ((x.str = *x.u.strv++) == NULL) {
 					type = XBASE;
-					if (f&DOBLANK)
+					if (f & DOBLANK)
 						doblank--;
 					continue;
 				}
 				c = ifs0;
+				if ((f & DOASNFIELD)) {
+					/* assignment, do not field-split */
+					if (x.split) {
+						c = ' ';
+						break;
+					}
+					if (c == 0) {
+						continue;
+					}
+				}
 				if (c == 0) {
 					if (quote && !x.split)
+						continue;
+					if (!quote && word == IFS_WS)
 						continue;
 					/* this is so we don't terminate */
 					c = ' ';
@@ -896,7 +890,7 @@ expand(
 				if (x.split)
 					subst_exstat = waitlast();
 				type = XBASE;
-				if (f&DOBLANK)
+				if (f & DOBLANK)
 					doblank--;
 				continue;
 			}
@@ -912,14 +906,14 @@ expand(
 			 *	word		|	ws	nws	0
 			 *	-----------------------------------
 			 *	IFS_WORD		w/WS	w/NWS	w
-			 *	IFS_WS			-/WS	w/NWS	-
-			 *	IFS_NWS			-/NWS	w/NWS	w
+			 *	IFS_WS			-/WS	-/NWS	-
+			 *	IFS_NWS			-/NWS	w/NWS	-
+			 *	IFS_IWS			-/WS	w/NWS	-
 			 * (w means generate a word)
-			 * Note that IFS_NWS/0 generates a word (AT&T ksh
-			 * doesn't do this, but POSIX does).
 			 */
-			if (word == IFS_WORD ||
-			    (!ctype(c, C_IFSWS) && c && word == IFS_NWS)) {
+			if ((word == IFS_WORD) || (c &&
+			    (word == IFS_IWS || word == IFS_NWS) &&
+			    !ctype(c, C_IFSWS))) {
  emit_word:
 				*dp++ = '\0';
 				cp = Xclose(ds, dp);
@@ -937,7 +931,8 @@ expand(
 					    strlen(cp) + 1));
 				fdo = 0;
 				saw_eq = false;
-				tilde_ok = (f & (DOTILDE|DOASNTILDE)) ? 1 : 0;
+				/* must be 1/0 */
+				tilde_ok = (f & (DOTILDE | DOASNTILDE)) ? 1 : 0;
 				if (c == 0)
 					return;
 				Xinit(ds, dp, 128, ATEMP);
@@ -1021,7 +1016,7 @@ expand(
 					 * through the sequence ${A=a=}~
 					 */
 					if (type == XBASE &&
-					    (f & (DOTILDE|DOASNTILDE)) &&
+					    (f & (DOTILDE | DOASNTILDE)) &&
 					    (tilde_ok & 2)) {
 						const char *tcp;
 						char *tdp = dp;
@@ -1269,17 +1264,12 @@ varsub(Expand *xp, const char *sp, const char *word,
 			if (*sp == '!' && sp[1]) {
 				++sp;
 				xp->var = global(sp);
-				if (vstrchr(sp, '[')) {
-					if (xp->var->flag & ISSET)
-						xp->str = shf_smprintf("%lu",
-						    arrayindex(xp->var));
-					else
-						xp->str = null;
-				} else if (xp->var->flag & ISSET)
-					xp->str = xp->var->name;
+				if (vstrchr(sp, '['))
+					xp->str = shf_smprintf("%s[%lu]",
+					    xp->var->name,
+					    arrayindex(xp->var));
 				else
-					/* ksh93 compat */
-					xp->str = "0";
+					xp->str = xp->var->name;
 			} else {
 				xp->var = global(sp);
 				xp->str = str_val(xp->var);

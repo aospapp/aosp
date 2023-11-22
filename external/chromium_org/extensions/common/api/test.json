@@ -95,12 +95,6 @@
         ]
       },
       {
-        "name": "resetQuota",
-        "type": "function",
-        "description": "Resets all accumulated quota state for all extensions.  This is only used for internal unit testing.",
-        "parameters": []
-      },
-      {
         "name": "log",
         "type": "function",
         "description": "Logs a message during internal unit testing.",
@@ -150,6 +144,18 @@
         "nocompile": true,
         "parameters": [
           {"type": "any", "name": "message", "optional": true}
+        ]
+      },
+      {
+        "name": "runWithModuleSystem",
+        "type": "function",
+        "nocompile": true,
+        "description": "Gets a module system suitable for use in the context of a test.",
+        "parameters": [
+          {
+            "type": "function",
+            "name": "callback"
+          }
         ]
       },
       {

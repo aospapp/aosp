@@ -43,6 +43,8 @@ Contents:
    community/security-contest/contest-announcement.rst
    community/security-contest/contest-terms.rst
    community/security-contest/contest-faq.rst
+   c-api.rst
+   cpp-api.rst
    pepper_stable/c/index.rst
    pepper_stable/cpp/index.rst
    pepper_beta/c/index.rst
@@ -57,6 +59,7 @@ Contents:
    reference/sandbox_internals/index.rst
    reference/sandbox_internals/arm-32-bit-sandbox.rst
    reference/sandbox_internals/x86-64-sandbox.rst
+   reference/design-docs.rst
    publications-and-presentations.rst
    faq.rst
    help.rst

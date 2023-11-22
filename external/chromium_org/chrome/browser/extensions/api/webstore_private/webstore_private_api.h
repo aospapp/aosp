@@ -7,14 +7,14 @@
 
 #include <string>
 
+#include "chrome/browser/extensions/active_install_data.h"
 #include "chrome/browser/extensions/bundle_installer.h"
 #include "chrome/browser/extensions/chrome_extension_function.h"
 #include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/webstore_install_helper.h"
 #include "chrome/browser/extensions/webstore_installer.h"
-#include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/common/extensions/api/webstore_private.h"
-#include "components/signin/core/browser/signin_tracker.h"
+#include "chrome/common/extensions/webstore_install_result.h"
 #include "content/public/browser/gpu_data_manager_observer.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
@@ -22,7 +22,6 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 
 class ProfileSyncService;
-class SigninManagerBase;
 
 namespace content {
 class GpuDataManager;
@@ -77,8 +76,7 @@ class WebstorePrivateInstallBundleFunction
 class WebstorePrivateBeginInstallWithManifest3Function
     : public ChromeAsyncExtensionFunction,
       public ExtensionInstallPrompt::Delegate,
-      public WebstoreInstallHelper::Delegate,
-      public SigninTracker::Observer {
+      public WebstoreInstallHelper::Delegate {
  public:
   DECLARE_EXTENSION_FUNCTION("webstorePrivate.beginInstallWithManifest3",
                              WEBSTOREPRIVATE_BEGININSTALLWITHMANIFEST3)
@@ -110,9 +108,6 @@ class WebstorePrivateBeginInstallWithManifest3Function
     // Invalid icon url.
     INVALID_ICON_URL,
 
-    // Signin has failed.
-    SIGNIN_FAILED,
-
     // An extension with the same extension id has already been installed.
     ALREADY_INSTALLED,
   };
@@ -143,15 +138,6 @@ class WebstorePrivateBeginInstallWithManifest3Function
   void SetResultCode(ResultCode code);
 
  private:
-  // SigninTracker::Observer override.
-  virtual void SigninFailed(const GoogleServiceAuthError& error) OVERRIDE;
-  virtual void SigninSuccess() OVERRIDE;
-  virtual void MergeSessionComplete(
-      const GoogleServiceAuthError& error) OVERRIDE;
-
-  // Called when signin is complete or not needed.
-  void SigninCompletedOrNotNeeded();
-
   const char* ResultCodeToString(ResultCode code);
 
   // These store the input parameters to the function.
@@ -168,7 +154,7 @@ class WebstorePrivateBeginInstallWithManifest3Function
   // The class that displays the install prompt.
   scoped_ptr<ExtensionInstallPrompt> install_prompt_;
 
-  scoped_ptr<SigninTracker> signin_tracker_;
+  scoped_ptr<ScopedActiveInstall> scoped_active_install_;
 
   // The authuser query parameter value which should be used with CRX download
   // requests. This is empty if authuser should not be set on download requests.
@@ -199,6 +185,7 @@ class WebstorePrivateCompleteInstallFunction
 
  private:
   scoped_ptr<WebstoreInstaller::Approval> approval_;
+  scoped_ptr<ScopedActiveInstall> scoped_active_install_;
 
   void OnInstallSuccess(const std::string& id);
 };
@@ -312,37 +299,41 @@ class WebstorePrivateIsInIncognitoModeFunction
   virtual bool RunSync() OVERRIDE;
 };
 
-class WebstorePrivateSignInFunction : public ChromeAsyncExtensionFunction,
-                                      public SigninManagerFactory::Observer,
-                                      public SigninTracker::Observer {
+class WebstorePrivateLaunchEphemeralAppFunction
+    : public ChromeAsyncExtensionFunction {
  public:
-  DECLARE_EXTENSION_FUNCTION("webstorePrivate.signIn",
-                             WEBSTOREPRIVATE_SIGNINFUNCTION)
+  DECLARE_EXTENSION_FUNCTION("webstorePrivate.launchEphemeralApp",
+                             WEBSTOREPRIVATE_LAUNCHEPHEMERALAPP)
 
-  WebstorePrivateSignInFunction();
+  WebstorePrivateLaunchEphemeralAppFunction();
 
  protected:
-  virtual ~WebstorePrivateSignInFunction();
+  virtual ~WebstorePrivateLaunchEphemeralAppFunction();
 
   // ExtensionFunction:
   virtual bool RunAsync() OVERRIDE;
 
-  // SigninManagerFactory::Observer:
-  virtual void SigninManagerShutdown(SigninManagerBase* manager) OVERRIDE;
-
-  // SigninTracker::Observer:
-  virtual void SigninFailed(const GoogleServiceAuthError& error) OVERRIDE;
-  virtual void SigninSuccess() OVERRIDE;
-  virtual void MergeSessionComplete(const GoogleServiceAuthError& error)
-      OVERRIDE;
-
  private:
-  // The sign-in manager for the invoking tab's Chrome Profile. Weak reference.
-  SigninManagerBase* signin_manager_;
+  void OnLaunchComplete(webstore_install::Result result,
+                        const std::string& error);
+  void SetResult(
+      api::webstore_private::LaunchEphemeralApp::Results::Result result,
+      const std::string& error);
+};
 
-  // Tracks changes to sign-in state. Used to notify the page when an existing
-  // in-progress sign-in completes, either with success or failure.
-  scoped_ptr<SigninTracker> signin_tracker_;
+class WebstorePrivateGetEphemeralAppsEnabledFunction
+    : public ChromeSyncExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("webstorePrivate.getEphemeralAppsEnabled",
+                             WEBSTOREPRIVATE_GETEPHEMERALAPPSENABLED)
+
+  WebstorePrivateGetEphemeralAppsEnabledFunction();
+
+ protected:
+  virtual ~WebstorePrivateGetEphemeralAppsEnabledFunction();
+
+  // ExtensionFunction:
+  virtual bool RunSync() OVERRIDE;
 };
 
 }  // namespace extensions

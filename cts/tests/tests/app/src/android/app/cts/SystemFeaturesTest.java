@@ -32,6 +32,9 @@ import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.hardware.Camera.CameraInfo;
 import android.hardware.Camera.Parameters;
+import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraMetadata;
 import android.location.LocationManager;
 import android.net.sip.SipManager;
 import android.net.wifi.WifiManager;
@@ -59,6 +62,7 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
     private SensorManager mSensorManager;
     private TelephonyManager mTelephonyManager;
     private WifiManager mWifiManager;
+    private CameraManager mCameraManager;
 
     @Override
     protected void setUp() throws Exception {
@@ -77,6 +81,7 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
         mSensorManager = (SensorManager) mContext.getSystemService(Context.SENSOR_SERVICE);
         mTelephonyManager = (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
         mWifiManager = (WifiManager) mContext.getSystemService(Context.WIFI_SERVICE);
+        mCameraManager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
     }
 
     /**
@@ -106,7 +111,7 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
         }
     }
 
-    public void testCameraFeatures() {
+    public void testCameraFeatures() throws Exception {
         int numCameras = Camera.getNumberOfCameras();
         if (numCameras == 0) {
             assertNotAvailable(PackageManager.FEATURE_CAMERA);
@@ -114,6 +119,11 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
             assertNotAvailable(PackageManager.FEATURE_CAMERA_FLASH);
             assertNotAvailable(PackageManager.FEATURE_CAMERA_FRONT);
             assertNotAvailable(PackageManager.FEATURE_CAMERA_ANY);
+            assertNotAvailable(PackageManager.FEATURE_CAMERA_LEVEL_FULL);
+            assertNotAvailable(PackageManager.FEATURE_CAMERA_CAPABILITY_MANUAL_SENSOR);
+            assertNotAvailable(PackageManager.FEATURE_CAMERA_CAPABILITY_MANUAL_POST_PROCESSING);
+            assertNotAvailable(PackageManager.FEATURE_CAMERA_CAPABILITY_RAW);
+
             assertFalse("Devices supporting external cameras must have a representative camera " +
                     "connected for testing",
                     mPackageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_EXTERNAL));
@@ -121,7 +131,46 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
             assertAvailable(PackageManager.FEATURE_CAMERA_ANY);
             checkFrontCamera();
             checkRearCamera();
+            checkCamera2Features();
         }
+    }
+
+    private void checkCamera2Features() throws Exception {
+        String[] cameraIds = mCameraManager.getCameraIdList();
+        boolean fullCamera = false;
+        boolean manualSensor = false;
+        boolean manualPostProcessing = false;
+        boolean raw = false;
+        CameraCharacteristics[] cameraChars = new CameraCharacteristics[cameraIds.length];
+        for (String cameraId : cameraIds) {
+            CameraCharacteristics chars = mCameraManager.getCameraCharacteristics(cameraId);
+            Integer hwLevel = chars.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL);
+            int[] capabilities = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES);
+            if (hwLevel == CameraMetadata.INFO_SUPPORTED_HARDWARE_LEVEL_FULL) {
+                fullCamera = true;
+            }
+            for (int capability : capabilities) {
+                switch (capability) {
+                    case CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR:
+                        manualSensor = true;
+                        break;
+                    case CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_POST_PROCESSING:
+                        manualPostProcessing = true;
+                        break;
+                    case CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW:
+                        raw = true;
+                        break;
+                    default:
+                        // Capabilities don't have a matching system feature
+                        break;
+                }
+            }
+        }
+        assertFeature(fullCamera, PackageManager.FEATURE_CAMERA_LEVEL_FULL);
+        assertFeature(manualSensor, PackageManager.FEATURE_CAMERA_CAPABILITY_MANUAL_SENSOR);
+        assertFeature(manualPostProcessing,
+                PackageManager.FEATURE_CAMERA_CAPABILITY_MANUAL_POST_PROCESSING);
+        assertFeature(raw, PackageManager.FEATURE_CAMERA_CAPABILITY_RAW);
     }
 
     private void checkFrontCamera() {
@@ -243,14 +292,57 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
                 Sensor.TYPE_STEP_COUNTER);
         assertFeatureForSensor(featuresLeft, PackageManager.FEATURE_SENSOR_STEP_DETECTOR,
                 Sensor.TYPE_STEP_DETECTOR);
-        assertFeatureForSensor(featuresLeft, PackageManager.FEATURE_SENSOR_HEART_RATE,
-                Sensor.TYPE_HEART_RATE);
-        assertFeatureForSensor(featuresLeft, PackageManager.FEATURE_SENSOR_HEART_RATE_ECG,
-                Sensor.TYPE_HEART_RATE);
         assertFeatureForSensor(featuresLeft, PackageManager.FEATURE_SENSOR_AMBIENT_TEMPERATURE,
                 Sensor.TYPE_AMBIENT_TEMPERATURE);
         assertFeatureForSensor(featuresLeft, PackageManager.FEATURE_SENSOR_RELATIVE_HUMIDITY,
                 Sensor.TYPE_RELATIVE_HUMIDITY);
+
+
+        /*
+         * We have three cases to test for :
+         * Case 1:  Device does not have an HRM
+         * FEATURE_SENSOR_HEART_RATE               false
+         * FEATURE_SENSOR_HEART_RATE_ECG           false
+         * assertFeatureForSensor(TYPE_HEART_RATE) false
+         *
+         * Case 2:  Device has a PPG HRM
+         * FEATURE_SENSOR_HEART_RATE               true
+         * FEATURE_SENSOR_HEART_RATE_ECG           false
+         * assertFeatureForSensor(TYPE_HEART_RATE) true
+         *
+         * Case 3:  Device has an ECG HRM
+         * FEATURE_SENSOR_HEART_RATE               false
+         * FEATURE_SENSOR_HEART_RATE_ECG           true
+         * assertFeatureForSensor(TYPE_HEART_RATE) true
+         */
+
+        if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_SENSOR_HEART_RATE_ECG)) {
+                /* Case 3 for FEATURE_SENSOR_HEART_RATE_ECG true case */
+                assertFeatureForSensor(featuresLeft, PackageManager.FEATURE_SENSOR_HEART_RATE_ECG,
+                        Sensor.TYPE_HEART_RATE);
+
+                /* Remove HEART_RATE from featuresLeft, no way to test that one */
+                assertTrue("Features left " + featuresLeft + " to check did not include "
+                        + PackageManager.FEATURE_SENSOR_HEART_RATE,
+                        featuresLeft.remove(PackageManager.FEATURE_SENSOR_HEART_RATE));
+        } else if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_SENSOR_HEART_RATE)) {
+                /* Case 1 & 2 for FEATURE_SENSOR_HEART_RATE_ECG false case */
+                assertFeatureForSensor(featuresLeft, PackageManager.FEATURE_SENSOR_HEART_RATE_ECG,
+                        Sensor.TYPE_HEART_RATE);
+
+                /* Case 1 & 3 for FEATURE_SENSOR_HEART_RATE false case */
+                assertFeatureForSensor(featuresLeft, PackageManager.FEATURE_SENSOR_HEART_RATE,
+                        Sensor.TYPE_HEART_RATE);
+        } else {
+                /* Case 2 for FEATURE_SENSOR_HEART_RATE true case */
+                assertFeatureForSensor(featuresLeft, PackageManager.FEATURE_SENSOR_HEART_RATE,
+                        Sensor.TYPE_HEART_RATE);
+
+                /* Remove HEART_RATE_ECG from featuresLeft, no way to test that one */
+                assertTrue("Features left " + featuresLeft + " to check did not include "
+                        + PackageManager.FEATURE_SENSOR_HEART_RATE_ECG,
+                        featuresLeft.remove(PackageManager.FEATURE_SENSOR_HEART_RATE_ECG));
+        }
 
         assertTrue("Assertions need to be added to this test for " + featuresLeft,
                 featuresLeft.isEmpty());
@@ -399,5 +491,13 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
                 mPackageManager.hasSystemFeature(feature));
         assertFalse("PackageManager#getSystemAvailableFeatures should NOT have " + feature,
                 mAvailableFeatures.contains(feature));
+    }
+
+    private void assertFeature(boolean exist, String feature) {
+        if (exist) {
+            assertAvailable(feature);
+        } else {
+            assertNotAvailable(feature);
+        }
     }
 }

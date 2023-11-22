@@ -4,6 +4,7 @@
 
 #include "base/prefs/pref_member.h"
 #include "base/prefs/pref_service.h"
+#include "base/run_loop.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/test/integration/bookmarks_helper.h"
 #include "chrome/browser/sync/test/integration/passwords_helper.h"
@@ -36,8 +37,32 @@ class SyncDisabledChecker : public SingleClientStatusChangeChecker {
   }
 };
 
+class TypeDisabledChecker : public SingleClientStatusChangeChecker {
+ public:
+  explicit TypeDisabledChecker(ProfileSyncService* service,
+                               syncer::ModelType type)
+      : SingleClientStatusChangeChecker(service), type_(type) {}
+
+  virtual bool IsExitConditionSatisfied() OVERRIDE {
+    return !service()->GetActiveDataTypes().Has(type_);
+  }
+
+  virtual std::string GetDebugMessage() const OVERRIDE {
+    return "Type disabled";
+  }
+ private:
+   syncer::ModelType type_;
+};
+
 bool AwaitSyncDisabled(ProfileSyncService* service) {
   SyncDisabledChecker checker(service);
+  checker.Wait();
+  return !checker.TimedOut();
+}
+
+bool AwaitTypeDisabled(ProfileSyncService* service,
+                       syncer::ModelType type) {
+  TypeDisabledChecker checker(service, type);
   checker.Wait();
   return !checker.TimedOut();
 }
@@ -166,7 +191,7 @@ IN_PROC_BROWSER_TEST_F(LegacySyncErrorTest, DISABLED_ErrorWhileSettingUp) {
 }
 
 IN_PROC_BROWSER_TEST_F(LegacySyncErrorTest,
-    BirthdayErrorUsingActionableErrorTest) {
+    DISABLED_BirthdayErrorUsingActionableErrorTest) {
   ASSERT_TRUE(SetupSync()) << "SetupSync() failed.";
 
   const BookmarkNode* node1 = AddFolder(0, 0, "title1");
@@ -193,18 +218,18 @@ IN_PROC_BROWSER_TEST_F(LegacySyncErrorTest,
       protocol_error.error_description);
 }
 
-// TODO(lipalani): Fix the typed_url dtc so this test case can pass.
-IN_PROC_BROWSER_TEST_F(LegacySyncErrorTest,
-                       DISABLED_DisableDatatypeWhileRunning) {
+IN_PROC_BROWSER_TEST_F(LegacySyncErrorTest, DisableDatatypeWhileRunning) {
   ASSERT_TRUE(SetupSync()) << "SetupSync() failed.";
   syncer::ModelTypeSet synced_datatypes =
-      GetSyncService((0))->GetPreferredDataTypes();
+      GetSyncService((0))->GetActiveDataTypes();
   ASSERT_TRUE(synced_datatypes.Has(syncer::TYPED_URLS));
+  ASSERT_TRUE(synced_datatypes.Has(syncer::SESSIONS));
   GetProfile(0)->GetPrefs()->SetBoolean(
       prefs::kSavingBrowserHistoryDisabled, true);
 
-  synced_datatypes = GetSyncService((0))->GetPreferredDataTypes();
-  ASSERT_FALSE(synced_datatypes.Has(syncer::TYPED_URLS));
+  // Wait for reconfigurations.
+  ASSERT_TRUE(AwaitTypeDisabled(GetSyncService(0), syncer::TYPED_URLS));
+  ASSERT_TRUE(AwaitTypeDisabled(GetSyncService(0), syncer::SESSIONS));
 
   const BookmarkNode* node1 = AddFolder(0, 0, "title1");
   SetTitle(0, node1, "new_title1");

@@ -108,7 +108,8 @@ TEST_F(ServiceProcessStateTest, Singleton) {
   LaunchAndWait("ServiceProcessStateTestSingleton");
 }
 
-TEST_F(ServiceProcessStateTest, ReadyState) {
+// http://crbug.com/396390
+TEST_F(ServiceProcessStateTest, DISABLED_ReadyState) {
   ASSERT_FALSE(CheckServiceProcessReady());
   ServiceProcessState state;
   ASSERT_TRUE(state.Initialize());
@@ -167,7 +168,8 @@ TEST_F(ServiceProcessStateTest, AutoRun) {
 #endif  // defined(OS_WIN)
 }
 
-TEST_F(ServiceProcessStateTest, SharedMem) {
+// http://crbug.com/396390
+TEST_F(ServiceProcessStateTest, DISABLED_SharedMem) {
   std::string version;
   base::ProcessId pid;
 #if defined(OS_WIN)
@@ -242,8 +244,8 @@ MULTIPROCESS_TEST_MAIN(ServiceProcessStateTestShutdown) {
 
 #include <CoreFoundation/CoreFoundation.h>
 
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/mac/mac_util.h"
 #include "base/test/test_timeouts.h"
@@ -343,10 +345,13 @@ TEST_F(ServiceProcessStateFileManipulationTest, VerifyLaunchD) {
   // on Mac and "launch_msg(): Socket is not connected" appears.
   // This test is designed to make sure that launchd is working.
   // http://crbug/75518
+  // Note: This particular problem no longer affects launchd in 10.10+, since
+  // there is no user owned launchd process and sockets are no longer made at
+  // /tmp/launchd*/sock. This test is still useful as a sanity check to make
+  // sure that launchd appears to be working.
 
   CommandLine cl(base::FilePath("/bin/launchctl"));
-  cl.AppendArg("list");
-  cl.AppendArg("com.apple.launchctl.Aqua");
+  cl.AppendArg("limit");
 
   std::string output;
   int exit_code = -1;

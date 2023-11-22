@@ -43,6 +43,9 @@
 #define CONTEXT(id) ((object_context_p) object_heap_lookup( &driver_data->context_heap, id ))
 #define SURFACE(id)    ((object_surface_p) object_heap_lookup( &driver_data->surface_heap, id ))
 #define BUFFER(id)  ((object_buffer_p) object_heap_lookup( &driver_data->buffer_heap, id ))
+#define SHARE_INFO_INIT_VALUE   0x12345678
+
+static pthread_mutex_t gralloc_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /*FIXME: include hal_public.h instead of define it here*/
 enum {
@@ -62,6 +65,7 @@ VAStatus psb_DestroySurfaceGralloc(object_surface_p obj_surface)
     usage |= GRALLOC_USAGE_SW_WRITE_OFTEN;
 #endif
 
+    pthread_mutex_lock(&gralloc_mutex);
     if (!gralloc_lock(handle, usage, 0, 0,
                       obj_surface->width, obj_surface->height, (void **)&vaddr[GRALLOC_SUB_BUFFER0])){
         if (obj_surface->share_info && vaddr[GRALLOC_SUB_BUFFER1] == obj_surface->share_info) {
@@ -79,6 +83,7 @@ VAStatus psb_DestroySurfaceGralloc(object_surface_p obj_surface)
         }
         gralloc_unlock(handle);
     }
+    pthread_mutex_unlock(&gralloc_mutex);
 
     return VA_STATUS_SUCCESS;
 }
@@ -190,6 +195,7 @@ VAStatus psb_CreateSurfacesFromGralloc(
         usage |= GRALLOC_USAGE_HW_VIDEO_ENCODER;
 
         handle = (unsigned long)external_buffers->buffers[i];
+        pthread_mutex_lock(&gralloc_mutex);
         if (gralloc_lock(handle, usage, 0, 0, width, height, (void **)&vaddr)) {
             vaStatus = VA_STATUS_ERROR_UNKNOWN;
         } else {
@@ -203,6 +209,7 @@ VAStatus psb_CreateSurfacesFromGralloc(
             obj_surface->share_info = NULL;
             gralloc_unlock(handle);
         }
+        pthread_mutex_unlock(&gralloc_mutex);
 
         if (VA_STATUS_SUCCESS != vaStatus) {
             free(psb_surface);
@@ -256,6 +263,7 @@ VAStatus psb_CreateSurfacesFromGralloc(
     unsigned long handle;
     int size = num_surfaces * sizeof(unsigned int);
     void *vaddr[GRALLOC_SUB_BUFFER_MAX];
+    unsigned char * surface_data = NULL;
 
 
     /* follow are gralloc-buffers */
@@ -270,7 +278,7 @@ VAStatus psb_CreateSurfacesFromGralloc(
     /* We only support one format */
     if ((VA_RT_FORMAT_YUV420 != format)
         && (VA_RT_FORMAT_YUV422 != format)
-	&& (VA_RT_FORMAT_RGB32 != format)) {
+        && (VA_RT_FORMAT_RGB32 != format)) {
         vaStatus = VA_STATUS_ERROR_UNSUPPORTED_RT_FORMAT;
         DEBUG_FAILURE;
         return vaStatus;
@@ -293,7 +301,7 @@ VAStatus psb_CreateSurfacesFromGralloc(
 
     /* get native window from the reserved field */
     driver_data->native_window = (void *)external_buffers->reserved[0];
-    
+
     for (i = 0; i < num_surfaces; i++) {
         int surfaceID;
         object_surface_p obj_surface;
@@ -332,7 +340,7 @@ VAStatus psb_CreateSurfacesFromGralloc(
         case VA_RT_FORMAT_YUV422:
             fourcc = VA_FOURCC_YV16;
             break;
-	case VA_RT_FORMAT_RGB32:
+        case VA_RT_FORMAT_RGB32:
             fourcc = VA_FOURCC_RGBA;
             break;
         case VA_RT_FORMAT_YUV420:
@@ -356,12 +364,13 @@ VAStatus psb_CreateSurfacesFromGralloc(
         }
 
         handle = (unsigned long)external_buffers->buffers[i];
+        pthread_mutex_lock(&gralloc_mutex);
         if (gralloc_lock((buffer_handle_t)handle, usage, 0, 0, width, height, (void **)&vaddr[GRALLOC_SUB_BUFFER0])) {
             vaStatus = VA_STATUS_ERROR_UNKNOWN;
         } else {
             int cache_flag = PSB_USER_BUFFER_UNCACHED;
 #ifdef PSBVIDEO_MRFL
-            cache_flag = 0;
+            //cache_flag = 0;
 #endif
             vaStatus = psb_surface_create_from_ub(driver_data, width, height, fourcc,
                     (VASurfaceAttributeTPI *)external_buffers, psb_surface,
@@ -371,53 +380,72 @@ VAStatus psb_CreateSurfacesFromGralloc(
 
             if ((gfx_colorformat != HAL_PIXEL_FORMAT_NV12) &&
                 (gfx_colorformat != HAL_PIXEL_FORMAT_YV12) &&
-		(format != VA_RT_FORMAT_RGB32)) {
+                (format != VA_RT_FORMAT_RGB32)) {
+
+                unsigned int decoder_share_info = (unsigned int)external_buffers->reserved[2];
+                drv_debug_msg(VIDEO_DEBUG_GENERAL, "%s : Create graphic buffer initialized share info %d",__FUNCTION__, decoder_share_info);
                 obj_surface->share_info = (psb_surface_share_info_t *)vaddr[GRALLOC_SUB_BUFFER1];
-                memset(obj_surface->share_info, 0, sizeof(struct psb_surface_share_info_s));
-                // Set clear video the default output method as OUTPUT_FORCE_OVERLAY_FOR_SW_DECODE
-                // if the video can be decoded by HW, will reset the output method as 0 in psb_BeginPicture
-                obj_surface->share_info->force_output_method = protected ? OUTPUT_FORCE_OVERLAY : OUTPUT_FORCE_OVERLAY_FOR_SW_DECODE;
+
+                if (obj_surface->share_info->initialized != SHARE_INFO_INIT_VALUE) {
+                    memset(obj_surface->share_info, 0, sizeof(struct psb_surface_share_info_s));
+                    // Set clear video the default output method as OUTPUT_FORCE_OVERLAY_FOR_SW_DECODE
+                    // if the video can be decoded by HW, will reset the output method as 0 in psb_BeginPicture
 #ifdef PSBVIDEO_MSVDX_DEC_TILING
-                obj_surface->share_info->tiling = external_buffers->tiling;
+                    obj_surface->share_info->tiling = external_buffers->tiling;
 #endif
-                obj_surface->share_info->width = obj_surface->width;
-                obj_surface->share_info->height = obj_surface->height_origin;
+                    obj_surface->share_info->width = obj_surface->width;
+                    obj_surface->share_info->height = obj_surface->height_origin;
 
-                obj_surface->share_info->luma_stride = psb_surface->stride;
-                obj_surface->share_info->chroma_u_stride = psb_surface->stride;
-                obj_surface->share_info->chroma_v_stride = psb_surface->stride;
-                obj_surface->share_info->format = VA_FOURCC_NV12;
+                    obj_surface->share_info->luma_stride = psb_surface->stride;
+                    obj_surface->share_info->chroma_u_stride = psb_surface->stride;
+                    obj_surface->share_info->chroma_v_stride = psb_surface->stride;
+                    obj_surface->share_info->format = VA_FOURCC_NV12;
 
-                obj_surface->share_info->khandle = (uint32_t)(wsbmKBufHandle(wsbmKBuf(psb_surface->buf.drm_buf)));
+                    obj_surface->share_info->khandle = (uint32_t)(wsbmKBufHandle(wsbmKBuf(psb_surface->buf.drm_buf)));
 
-                obj_surface->share_info->renderStatus = 0;
-                obj_surface->share_info->used_by_widi = 0;
-                obj_surface->share_info->native_window = (void *)external_buffers->reserved[0];
-
-                attribute_tpi->reserved[1] = (unsigned long)obj_surface->share_info;
-
-                obj_surface->share_info->surface_protected = driver_data->protected;
-                if (driver_data->render_rect.width == 0 || driver_data->render_rect.height == 0) {
-                    obj_surface->share_info->crop_width = obj_surface->share_info->width;
-                    obj_surface->share_info->crop_height = obj_surface->share_info->height;
-                } else {
-                    obj_surface->share_info->crop_width = driver_data->render_rect.width;
-                    obj_surface->share_info->crop_height = driver_data->render_rect.height;
+                    obj_surface->share_info->initialized = SHARE_INFO_INIT_VALUE;
                 }
 
-                if (obj_surface->share_info->coded_width == 0 || obj_surface->share_info->coded_height == 0) {
-                    obj_surface->share_info->coded_width = (obj_surface->share_info->width + 0xf) & ~0xf;
-                    obj_surface->share_info->coded_height = (obj_surface->share_info->height + 0xf) & ~0xf;
-                }
+                if (decoder_share_info) {
+                    obj_surface->share_info->force_output_method = protected ? OUTPUT_FORCE_OVERLAY : OUTPUT_FORCE_OVERLAY_FOR_SW_DECODE;
+                    obj_surface->share_info->native_window = (void *)external_buffers->reserved[0];
 
-                drv_debug_msg(VIDEO_DEBUG_GENERAL, "%s : Create graphic buffer success"
-                                         "surface_id= 0x%x, vaddr[0] (0x%x), vaddr[1] (0x%x)\n",
-                                         __FUNCTION__, surfaceID, vaddr[GRALLOC_SUB_BUFFER0], vaddr[GRALLOC_SUB_BUFFER1]);
+                    attribute_tpi->reserved[1] = (unsigned long)obj_surface->share_info;
+
+                    obj_surface->share_info->surface_protected = driver_data->protected;
+                    if (driver_data->render_rect.width == 0 || driver_data->render_rect.height == 0) {
+                        obj_surface->share_info->crop_width = obj_surface->share_info->width;
+                        obj_surface->share_info->crop_height = obj_surface->share_info->height;
+                    } else {
+                        obj_surface->share_info->crop_width = driver_data->render_rect.width;
+                        obj_surface->share_info->crop_height = driver_data->render_rect.height;
+                    }
+
+                    if (obj_surface->share_info->coded_width == 0 || obj_surface->share_info->coded_height == 0) {
+                        obj_surface->share_info->coded_width = (obj_surface->share_info->width + 0xf) & ~0xf;
+                        obj_surface->share_info->coded_height = (obj_surface->share_info->height + 0xf) & ~0xf;
+                    }
+
+                    drv_debug_msg(VIDEO_DEBUG_GENERAL, "%s : Create graphic buffer success"
+                            "surface_id= 0x%x, vaddr[0] (0x%x), vaddr[1] (0x%x)\n",
+                            __FUNCTION__, surfaceID, vaddr[GRALLOC_SUB_BUFFER0], vaddr[GRALLOC_SUB_BUFFER1]);
+                }
             }
             gralloc_unlock((buffer_handle_t)handle);
             psb_surface->buf.user_ptr = NULL;
+
+            if (psb_buffer_map(&psb_surface->buf, &surface_data)) {
+                drv_debug_msg(VIDEO_DEBUG_ERROR, "Failed to map rotation buffer before clear it");
+            }
+            else {
+                size = psb_surface->chroma_offset;
+                memset(surface_data, 0, size);
+                memset(surface_data + size, 0x80, psb_surface->size - size);
+                psb_buffer_unmap(&psb_surface->buf);
+            }
         }
-                
+        pthread_mutex_unlock(&gralloc_mutex);
+
         if (VA_STATUS_SUCCESS != vaStatus) {
             free(psb_surface);
             object_heap_free(&driver_data->surface_heap, (object_base_p) obj_surface);
@@ -429,6 +457,8 @@ VAStatus psb_CreateSurfacesFromGralloc(
         buffer_stride = psb_surface->stride;
         /* by default, surface fourcc is NV12 */
         psb_surface->extra_info[4] = fourcc;
+        /* save the pixel format set by application */
+        psb_surface->extra_info[8] = external_buffers->pixel_format;
 #ifdef PSBVIDEO_MSVDX_DEC_TILING
         psb_surface->extra_info[7] = external_buffers->tiling;
 #endif
@@ -444,7 +474,7 @@ VAStatus psb_CreateSurfacesFromGralloc(
             surface_list[i] = VA_INVALID_SURFACE;
         }
         drv_debug_msg(VIDEO_DEBUG_ERROR, "CreateSurfaces failed\n");
-        
+
         return vaStatus;
     }
 

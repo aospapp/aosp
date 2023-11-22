@@ -16,17 +16,18 @@
 #include "content/public/browser/storage_partition.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/page_state.h"
+#include "content/public/common/web_preferences.h"
+#include "content/test/test_render_frame_host.h"
 #include "content/test/test_web_contents.h"
 #include "media/base/video_frame.h"
 #include "ui/gfx/rect.h"
-#include "webkit/common/webpreferences.h"
 
 namespace content {
 
 void InitNavigateParams(FrameHostMsg_DidCommitProvisionalLoad_Params* params,
                         int page_id,
                         const GURL& url,
-                        PageTransition transition) {
+                        ui::PageTransition transition) {
   params->page_id = page_id;
   params->url = url;
   params->referrer = Referrer();
@@ -54,6 +55,10 @@ TestRenderWidgetHostView::~TestRenderWidgetHostView() {
 
 RenderWidgetHost* TestRenderWidgetHostView::GetRenderWidgetHost() const {
   return NULL;
+}
+
+gfx::Vector2dF TestRenderWidgetHostView::GetLastScrollOffset() const {
+  return gfx::Vector2dF();
 }
 
 gfx::NativeView TestRenderWidgetHostView::GetNativeView() const {
@@ -106,8 +111,8 @@ gfx::Rect TestRenderWidgetHostView::GetViewBounds() const {
 void TestRenderWidgetHostView::CopyFromCompositingSurface(
     const gfx::Rect& src_subrect,
     const gfx::Size& dst_size,
-    const base::Callback<void(bool, const SkBitmap&)>& callback,
-    const SkBitmap::Config config) {
+    CopyFromCompositingSurfaceCallback& callback,
+    const SkColorType color_type) {
   callback.Run(false, SkBitmap());
 }
 
@@ -267,7 +272,7 @@ void TestRenderViewHost::SendFailedNavigate(int page_id, const GURL& url) {
 void TestRenderViewHost::SendNavigateWithTransition(
     int page_id,
     const GURL& url,
-    PageTransition transition) {
+    ui::PageTransition transition) {
   main_render_frame_host_->SendNavigateWithTransition(page_id, url, transition);
 }
 
@@ -294,7 +299,7 @@ void TestRenderViewHost::SendNavigateWithParams(
 void TestRenderViewHost::SendNavigateWithTransitionAndResponseCode(
     int page_id,
     const GURL& url,
-    PageTransition transition,
+    ui::PageTransition transition,
     int response_code) {
   main_render_frame_host_->SendNavigateWithTransitionAndResponseCode(
       page_id, url, transition, response_code);
@@ -303,7 +308,7 @@ void TestRenderViewHost::SendNavigateWithTransitionAndResponseCode(
 void TestRenderViewHost::SendNavigateWithParameters(
     int page_id,
     const GURL& url,
-    PageTransition transition,
+    ui::PageTransition transition,
     const GURL& original_request_url,
     int response_code,
     const base::FilePath* file_path_for_history_item) {
@@ -333,7 +338,7 @@ void TestRenderViewHost::SimulateWasHidden() {
 }
 
 void TestRenderViewHost::SimulateWasShown() {
-  WasShown();
+  WasShown(ui::LatencyInfo());
 }
 
 void TestRenderViewHost::TestOnStartDragging(
@@ -345,9 +350,9 @@ void TestRenderViewHost::TestOnStartDragging(
 }
 
 void TestRenderViewHost::TestOnUpdateStateWithFile(
-    int process_id,
+    int page_id,
     const base::FilePath& file_path) {
-  OnUpdateState(process_id,
+  OnUpdateState(page_id,
                 PageState::CreateForTesting(GURL("http://www.google.com"),
                                             false,
                                             "data",
@@ -374,11 +379,13 @@ RenderViewHostImplTestHarness::~RenderViewHostImplTestHarness() {
 }
 
 TestRenderViewHost* RenderViewHostImplTestHarness::test_rvh() {
-  return static_cast<TestRenderViewHost*>(rvh());
+  return contents()->GetRenderViewHost();
 }
 
 TestRenderViewHost* RenderViewHostImplTestHarness::pending_test_rvh() {
-  return static_cast<TestRenderViewHost*>(pending_rvh());
+  return contents()->GetPendingMainFrame() ?
+      contents()->GetPendingMainFrame()->GetRenderViewHost() :
+      NULL;
 }
 
 TestRenderViewHost* RenderViewHostImplTestHarness::active_test_rvh() {
@@ -386,7 +393,7 @@ TestRenderViewHost* RenderViewHostImplTestHarness::active_test_rvh() {
 }
 
 TestRenderFrameHost* RenderViewHostImplTestHarness::main_test_rfh() {
-  return static_cast<TestRenderFrameHost*>(main_rfh());
+  return contents()->GetMainFrame();
 }
 
 TestWebContents* RenderViewHostImplTestHarness::contents() {

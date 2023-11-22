@@ -8,7 +8,7 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"  // For CHECK macros.
 #include "base/memory/ref_counted.h"
 #include "base/message_loop/message_loop_proxy.h"
@@ -18,6 +18,7 @@
 #include "chrome/test/chromedriver/basic_types.h"
 #include "chrome/test/chromedriver/capabilities.h"
 #include "chrome/test/chromedriver/chrome/automation_extension.h"
+#include "chrome/test/chromedriver/chrome/browser_info.h"
 #include "chrome/test/chromedriver/chrome/chrome.h"
 #include "chrome/test/chromedriver/chrome/chrome_android_impl.h"
 #include "chrome/test/chromedriver/chrome/chrome_desktop_impl.h"
@@ -25,9 +26,9 @@
 #include "chrome/test/chromedriver/chrome/devtools_event_listener.h"
 #include "chrome/test/chromedriver/chrome/geoposition.h"
 #include "chrome/test/chromedriver/chrome/status.h"
-#include "chrome/test/chromedriver/chrome/version.h"
 #include "chrome/test/chromedriver/chrome/web_view.h"
 #include "chrome/test/chromedriver/chrome_launcher.h"
+#include "chrome/test/chromedriver/command_listener.h"
 #include "chrome/test/chromedriver/logging.h"
 #include "chrome/test/chromedriver/net/url_request_context_getter.h"
 #include "chrome/test/chromedriver/session.h"
@@ -124,12 +125,19 @@ Status InitSessionHelper(
 
   // Create Log's and DevToolsEventListener's for ones that are DevTools-based.
   // Session will own the Log's, Chrome will own the listeners.
+  // Also create |CommandListener|s for the appropriate logs.
   ScopedVector<DevToolsEventListener> devtools_event_listeners;
+  ScopedVector<CommandListener> command_listeners;
   status = CreateLogs(capabilities,
+                      session,
                       &session->devtools_logs,
-                      &devtools_event_listeners);
+                      &devtools_event_listeners,
+                      &command_listeners);
   if (status.IsError())
     return status;
+
+  // |session| will own the |CommandListener|s.
+  session->command_listeners.swap(command_listeners);
 
   status = LaunchChrome(bound_params.context_getter.get(),
                         bound_params.socket_factory,
@@ -477,7 +485,8 @@ Status ExecuteSetWindowPosition(
     Session* session,
     const base::DictionaryValue& params,
     scoped_ptr<base::Value>* value) {
-  double x, y;
+  double x = 0;
+  double y = 0;
   if (!params.GetDouble("x", &x) || !params.GetDouble("y", &y))
     return Status(kUnknownError, "missing or invalid 'x' or 'y'");
 
@@ -528,7 +537,8 @@ Status ExecuteSetWindowSize(
     Session* session,
     const base::DictionaryValue& params,
     scoped_ptr<base::Value>* value) {
-  double width, height;
+  double width = 0;
+  double height = 0;
   if (!params.GetDouble("width", &width) ||
       !params.GetDouble("height", &height))
     return Status(kUnknownError, "missing or invalid 'width' or 'height'");

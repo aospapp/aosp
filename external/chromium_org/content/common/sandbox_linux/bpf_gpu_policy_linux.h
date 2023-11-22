@@ -22,8 +22,8 @@ class GpuProcessPolicy : public SandboxBPFBasePolicy {
   GpuProcessPolicy();
   virtual ~GpuProcessPolicy();
 
-  virtual ErrorCode EvaluateSyscall(SandboxBPF* sandbox_compiler,
-                                    int system_call_number) const OVERRIDE;
+  virtual sandbox::bpf_dsl::ResultExpr EvaluateSyscall(
+      int system_call_number) const OVERRIDE;
 
   virtual bool PreSandboxHook() OVERRIDE;
 
@@ -35,7 +35,8 @@ class GpuProcessPolicy : public SandboxBPFBasePolicy {
   // names that should be whitelisted by the broker process, in addition to
   // the basic ones.
   void InitGpuBrokerProcess(
-      sandbox::SandboxBPFPolicy* (*broker_sandboxer_allocator)(void),
+      sandbox::bpf_dsl::SandboxBPFDSLPolicy* (*broker_sandboxer_allocator)(
+          void),
       const std::vector<std::string>& read_whitelist_extra,
       const std::vector<std::string>& write_whitelist_extra);
 

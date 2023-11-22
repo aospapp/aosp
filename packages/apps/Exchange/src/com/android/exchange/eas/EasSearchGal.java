@@ -2,6 +2,7 @@ package com.android.exchange.eas;
 
 import android.content.Context;
 
+import com.android.emailcommon.provider.Account;
 import com.android.exchange.CommandStatusException;
 import com.android.exchange.EasResponse;
 import com.android.exchange.adapter.GalParser;
@@ -25,9 +26,9 @@ public class EasSearchGal extends EasOperation {
     final private int mLimit;
     private GalResult mResult;
 
-    public EasSearchGal(Context context, final long accountId, final String filter,
+    public EasSearchGal(Context context, final Account account, final String filter,
                         final int limit) {
-        super(context, accountId);
+        super(context, account);
         mFilter = filter;
         mLimit = limit;
     }

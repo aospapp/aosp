@@ -5,6 +5,7 @@
 #include "chrome/browser/chromeos/drive/file_system/create_directory_operation.h"
 
 #include "chrome/browser/chromeos/drive/file_system/operation_test_base.h"
+#include "content/public/test/test_utils.h"
 #include "google_apis/drive/test_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -25,7 +26,7 @@ class CreateDirectoryOperationTest : public OperationTestBase {
 
 TEST_F(CreateDirectoryOperationTest, CreateDirectory) {
   CreateDirectoryOperation operation(blocking_task_runner(),
-                                     observer(),
+                                     delegate(),
                                      metadata());
 
   const base::FilePath kExistingFile(
@@ -46,12 +47,13 @@ TEST_F(CreateDirectoryOperationTest, CreateDirectory) {
       true, // is_exclusive
       false,  // is_recursive
       google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_OK, error);
   EXPECT_EQ(FILE_ERROR_OK, FindDirectory(kNewDirectory1));
-  EXPECT_EQ(1U, observer()->get_changed_paths().size());
-  EXPECT_EQ(1U,
-            observer()->get_changed_paths().count(kNewDirectory1.DirName()));
+  EXPECT_EQ(1U, delegate()->get_changed_files().size());
+  EXPECT_EQ(
+      1U,
+      delegate()->get_changed_files().CountDirectory(kNewDirectory1.DirName()));
 
   ResourceEntry entry;
   EXPECT_EQ(FILE_ERROR_OK, GetLocalResourceEntry(kNewDirectory1, &entry));
@@ -61,8 +63,8 @@ TEST_F(CreateDirectoryOperationTest, CreateDirectory) {
       entry.file_info().last_modified()).is_null());
   EXPECT_FALSE(base::Time::FromInternalValue(
       entry.file_info().last_accessed()).is_null());
-  EXPECT_EQ(1U, observer()->updated_local_ids().size());
-  EXPECT_EQ(1U, observer()->updated_local_ids().count(entry.local_id()));
+  EXPECT_EQ(1U, delegate()->updated_local_ids().size());
+  EXPECT_EQ(1U, delegate()->updated_local_ids().count(entry.local_id()));
 
   // Create a new directory recursively.
   EXPECT_EQ(FILE_ERROR_NOT_FOUND, FindDirectory(kNewDirectory2));
@@ -71,7 +73,7 @@ TEST_F(CreateDirectoryOperationTest, CreateDirectory) {
       true, // is_exclusive
       false,  // is_recursive
       google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_NOT_FOUND, error);
   EXPECT_EQ(FILE_ERROR_NOT_FOUND, FindDirectory(kNewDirectory2));
 
@@ -80,7 +82,7 @@ TEST_F(CreateDirectoryOperationTest, CreateDirectory) {
       true, // is_exclusive
       true,  // is_recursive
       google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_OK, error);
   EXPECT_EQ(FILE_ERROR_OK, FindDirectory(kNewDirectory2));
 
@@ -90,7 +92,7 @@ TEST_F(CreateDirectoryOperationTest, CreateDirectory) {
       true, // is_exclusive
       false,  // is_recursive
       google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_EXISTS, error);
 
   operation.CreateDirectory(
@@ -98,7 +100,7 @@ TEST_F(CreateDirectoryOperationTest, CreateDirectory) {
       false, // is_exclusive
       false,  // is_recursive
       google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_OK, error);
 
   // Try to create a directory with a path for an existing file.
@@ -107,7 +109,7 @@ TEST_F(CreateDirectoryOperationTest, CreateDirectory) {
       false, // is_exclusive
       true,  // is_recursive
       google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_NOT_A_DIRECTORY, error);
 
   // Try to create a directory under a file.
@@ -116,7 +118,7 @@ TEST_F(CreateDirectoryOperationTest, CreateDirectory) {
       false, // is_exclusive
       true,  // is_recursive
       google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_NOT_A_DIRECTORY, error);
 }
 

@@ -28,14 +28,16 @@
             android:id="@+id/empty_icon"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
+
     <TextView
             android:id="@+id/empty_text"
-            android:layout_width="@dimen/empty_view_text_width"
+            android:maxWidth="@dimen/empty_view_text_width"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/empty_view_space"
             android:fontFamily="sans-serif-light"
-            android:textAlignment="center"
-            android:textColor="#80000000"
+            android:gravity="center"
+            android:textColor="@color/text_color_grey"
             android:textSize="@dimen/empty_view_text_size" />
 
 </com.android.mail.ui.ConversationListEmptyView>

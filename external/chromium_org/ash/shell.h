@@ -141,6 +141,7 @@ class TouchTransformerController;
 class TouchObserverHUD;
 class UserActivityDetector;
 class UserWallpaperDelegate;
+class VirtualKeyboardController;
 class VideoActivityNotifier;
 class VideoDetector;
 class WebNotificationTray;
@@ -231,9 +232,15 @@ class ASH_EXPORT Shell : public SystemModalContainerEventFilterDelegate,
   void ShowContextMenu(const gfx::Point& location_in_screen,
                        ui::MenuSourceType source_type);
 
-  // Toggles the app list. |window| specifies in which display the app
+  // Shows the app list. |window| specifies in which display the app
   // list should be shown. If this is NULL, the active root window
   // will be used.
+  void ShowAppList(aura::Window* anchor);
+
+  // Dismisses the app list.
+  void DismissAppList();
+
+  // Shows the app list if it's not visible. Dismisses it otherwise.
   void ToggleAppList(aura::Window* anchor);
 
   // Returns app list target visibility.
@@ -660,6 +667,7 @@ class ASH_EXPORT Shell : public SystemModalContainerEventFilterDelegate,
   scoped_ptr<WindowSelectorController> window_selector_controller_;
   scoped_ptr<FocusCycler> focus_cycler_;
   scoped_ptr<DisplayController> display_controller_;
+  scoped_ptr<VirtualKeyboardController> virtual_keyboard_controller_;
   scoped_ptr<HighContrastController> high_contrast_controller_;
   scoped_ptr<MagnificationController> magnification_controller_;
   scoped_ptr<PartialMagnificationController> partial_magnification_controller_;

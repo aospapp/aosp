@@ -50,14 +50,14 @@ public class EncoderTest extends AndroidTestCase {
 
         for (int j = 0; j < kBitRates.length; ++j) {
             MediaFormat format  = new MediaFormat();
-            format.setString(MediaFormat.KEY_MIME, "audio/3gpp");
+            format.setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_AUDIO_AMR_NB);
             format.setInteger(MediaFormat.KEY_SAMPLE_RATE, 8000);
             format.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 1);
             format.setInteger(MediaFormat.KEY_BIT_RATE, kBitRates[j]);
             formats.push(format);
         }
 
-        testEncoderWithFormats("audio/3gpp", formats);
+        testEncoderWithFormats(MediaFormat.MIMETYPE_AUDIO_AMR_NB, formats);
     }
 
     public void testAMRWBEncoders() {
@@ -68,14 +68,14 @@ public class EncoderTest extends AndroidTestCase {
 
         for (int j = 0; j < kBitRates.length; ++j) {
             MediaFormat format  = new MediaFormat();
-            format.setString(MediaFormat.KEY_MIME, "audio/amr-wb");
+            format.setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_AUDIO_AMR_WB);
             format.setInteger(MediaFormat.KEY_SAMPLE_RATE, 16000);
             format.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 1);
             format.setInteger(MediaFormat.KEY_BIT_RATE, kBitRates[j]);
             formats.push(format);
         }
 
-        testEncoderWithFormats("audio/amr-wb", formats);
+        testEncoderWithFormats(MediaFormat.MIMETYPE_AUDIO_AMR_WB, formats);
     }
 
     public void testAACEncoders() {
@@ -99,7 +99,7 @@ public class EncoderTest extends AndroidTestCase {
                 for (int j = 0; j < kBitRates.length; ++j) {
                     for (int ch = 1; ch <= 2; ++ch) {
                         MediaFormat format  = new MediaFormat();
-                        format.setString(MediaFormat.KEY_MIME, "audio/mp4a-latm");
+                        format.setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_AUDIO_AAC);
 
                         format.setInteger(
                                 MediaFormat.KEY_AAC_PROFILE, kAACProfiles[k]);
@@ -115,7 +115,7 @@ public class EncoderTest extends AndroidTestCase {
             }
         }
 
-        testEncoderWithFormats("audio/mp4a-latm", formats);
+        testEncoderWithFormats(MediaFormat.MIMETYPE_AUDIO_AAC, formats);
     }
 
     private void testEncoderWithFormats(
@@ -135,27 +135,13 @@ public class EncoderTest extends AndroidTestCase {
     private List<String> getEncoderNamesForType(String mime) {
         LinkedList<String> names = new LinkedList<String>();
 
-        int n = MediaCodecList.getCodecCount();
-        for (int i = 0; i < n; ++i) {
-            MediaCodecInfo info = MediaCodecList.getCodecInfoAt(i);
-
+        MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+        for (MediaCodecInfo info : mcl.getCodecInfos()) {
             if (!info.isEncoder()) {
                 continue;
             }
-
-            if (!info.getName().startsWith("OMX.")) {
-                // Unfortunately for legacy reasons, "AACEncoder", a
-                // non OMX component had to be in this list for the video
-                // editor code to work... but it cannot actually be instantiated
-                // using MediaCodec.
-                Log.d(TAG, "skipping '" + info.getName() + "'.");
-                continue;
-            }
-
-            String[] supportedTypes = info.getSupportedTypes();
-
-            for (int j = 0; j < supportedTypes.length; ++j) {
-                if (supportedTypes[j].equalsIgnoreCase(mime)) {
+            for (String type : info.getSupportedTypes()) {
+                if (type.equalsIgnoreCase(mime)) {
                     names.push(info.getName());
                     break;
                 }

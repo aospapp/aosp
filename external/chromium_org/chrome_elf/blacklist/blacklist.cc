@@ -29,12 +29,13 @@ namespace blacklist{
 // For more information about how this list is generated, and how to get off
 // of it, see:
 // https://sites.google.com/a/chromium.org/dev/Home/third-party-developers
+// NOTE: Please remember to update the DllHash enum in histograms.xml when
+//       adding a new value to the blacklist.
 const wchar_t* g_troublesome_dlls[kTroublesomeDllsMaxCount] = {
   L"activedetect32.dll",                // Lenovo One Key Theater.
                                         // See crbug.com/379218.
   L"activedetect64.dll",                // Lenovo One Key Theater.
   L"bitguard.dll",                      // Unknown (suspected malware).
-  L"cespy.dll",                         // CovenantEyes.
   L"chrmxtn.dll",                       // Unknown (keystroke logger).
   L"cplushook.dll",                     // Unknown (suspected malware).
   L"datamngr.dll",                      // Unknown (suspected adware).
@@ -50,6 +51,8 @@ const wchar_t* g_troublesome_dlls[kTroublesomeDllsMaxCount] = {
   L"scdetour.dll",                      // Quick Heal Antivirus.
                                         // See crbug.com/382561.
   L"systemk.dll",                       // Unknown (suspected adware).
+  L"wajam_goblin_64.dll",               // Wajam Internet Technologies.
+  L"wajam_goblin.dll",                  // Wajam Internet Technologies.
   L"windowsapihookdll32.dll",           // Lenovo One Key Theater.
                                         // See crbug.com/379218.
   L"windowsapihookdll64.dll",           // Lenovo One Key Theater.
@@ -85,7 +88,13 @@ DWORD SetDWValue(HKEY* key, const wchar_t* property, DWORD value) {
 
 bool GenerateStateFromBeaconAndAttemptCount(HKEY* key, DWORD blacklist_state) {
   LONG result = 0;
-  if (blacklist_state == blacklist::BLACKLIST_SETUP_RUNNING) {
+  if (blacklist_state == blacklist::BLACKLIST_ENABLED) {
+    // If the blacklist succeeded on the previous run reset the failure
+    // counter.
+    return (SetDWValue(key,
+                       blacklist::kBeaconAttemptCount,
+                       static_cast<DWORD>(0)) == ERROR_SUCCESS);
+  } else {
     // Some part of the blacklist setup failed last time.  If this has occured
     // blacklist::kBeaconMaxAttempts times in a row we switch the state to
     // failed and skip setting up the blacklist.
@@ -109,18 +118,10 @@ bool GenerateStateFromBeaconAndAttemptCount(HKEY* key, DWORD blacklist_state) {
     if (attempt_count >= blacklist::kBeaconMaxAttempts) {
       blacklist_state = blacklist::BLACKLIST_SETUP_FAILED;
       SetDWValue(key, blacklist::kBeaconState, blacklist_state);
-      return false;
     }
-  } else if (blacklist_state == blacklist::BLACKLIST_ENABLED) {
-    // If the blacklist succeeded on the previous run reset the failure
-    // counter.
-    result =
-        SetDWValue(key, blacklist::kBeaconAttemptCount, static_cast<DWORD>(0));
-    if (result != ERROR_SUCCESS) {
-      return false;
-    }
+
+    return false;
   }
-  return true;
 }
 
 }  // namespace
@@ -226,6 +227,14 @@ int BlacklistSize() {
 
 bool IsBlacklistInitialized() {
   return g_blacklist_initialized;
+}
+
+int GetBlacklistIndex(const wchar_t* dll_name) {
+  for (int i = 0; i < kTroublesomeDllsMaxCount, g_troublesome_dlls[i]; ++i) {
+    if (_wcsicmp(dll_name, g_troublesome_dlls[i]) == 0)
+      return i;
+  }
+  return -1;
 }
 
 bool AddDllToBlacklist(const wchar_t* dll_name) {
@@ -392,7 +401,7 @@ bool Initialize(bool force) {
   return NT_SUCCESS(ret) && page_executable;
 }
 
-bool AddDllsFromRegistryToBlacklist() {
+void AddDllsFromRegistryToBlacklist() {
   HKEY key = NULL;
   LONG result = ::RegOpenKeyEx(HKEY_CURRENT_USER,
                                kRegistryFinchListPath,
@@ -401,9 +410,9 @@ bool AddDllsFromRegistryToBlacklist() {
                                &key);
 
   if (result != ERROR_SUCCESS)
-    return false;
+    return;
 
-  // We add dlls from the registry to the blacklist, and then clear registry.
+  // We add dlls from the registry to the blacklist.
   DWORD value_len;
   DWORD name_len = MAX_PATH;
   std::vector<wchar_t> name_buffer(name_len);
@@ -412,24 +421,23 @@ bool AddDllsFromRegistryToBlacklist() {
     value_len = 0;
     result = ::RegEnumValue(
         key, i, &name_buffer[0], &name_len, NULL, NULL, NULL, &value_len);
+    if (result != ERROR_SUCCESS)
+      break;
+
     name_len = name_len + 1;
     value_len = value_len + 1;
     std::vector<wchar_t> value_buffer(value_len);
     result = ::RegEnumValue(key, i, &name_buffer[0], &name_len, NULL, NULL,
                             reinterpret_cast<BYTE*>(&value_buffer[0]),
                             &value_len);
+    if (result != ERROR_SUCCESS)
+      break;
     value_buffer[value_len - 1] = L'\0';
-
-    if (result == ERROR_SUCCESS) {
-      AddDllToBlacklist(&value_buffer[0]);
-    }
+    AddDllToBlacklist(&value_buffer[0]);
   }
 
-  // Delete the finch registry key to clear the values.
-  result = ::RegDeleteKey(key, L"");
-
   ::RegCloseKey(key);
-  return result == ERROR_SUCCESS;
+  return;
 }
 
 }  // namespace blacklist

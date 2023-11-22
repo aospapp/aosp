@@ -40,7 +40,7 @@ FirstRunHelperImpl::FirstRunHelperImpl()
 }
 
 FirstRunHelperImpl::~FirstRunHelperImpl() {
-  Shell::GetInstance()->overlay_filter()->Deactivate();
+  Shell::GetInstance()->overlay_filter()->Deactivate(this);
   if (IsTrayBubbleOpened())
     CloseTrayBubble();
   widget_->Close();
@@ -51,15 +51,11 @@ views::Widget* FirstRunHelperImpl::GetOverlayWidget() {
 }
 
 void FirstRunHelperImpl::OpenAppList() {
-  if (Shell::GetInstance()->GetAppListTargetVisibility())
-    return;
-  Shell::GetInstance()->ToggleAppList(NULL);
+  Shell::GetInstance()->ShowAppList(NULL);
 }
 
 void FirstRunHelperImpl::CloseAppList() {
-  if (!Shell::GetInstance()->GetAppListTargetVisibility())
-    return;
-  Shell::GetInstance()->ToggleAppList(NULL);
+  Shell::GetInstance()->DismissAppList();
 }
 
 gfx::Rect FirstRunHelperImpl::GetLauncherBounds() {

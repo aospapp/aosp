@@ -15,32 +15,26 @@
  */
 package android.uirendering.cts.testclasses;
 
+import android.graphics.Color;
+import android.graphics.Rect;
+import android.uirendering.cts.bitmapverifiers.ColorVerifier;
+import android.uirendering.cts.bitmapverifiers.RectVerifier;
 import com.android.cts.uirendering.R;
 
 import android.test.suitebuilder.annotation.SmallTest;
-import android.uirendering.cts.bitmapcomparers.BitmapComparer;
-import android.uirendering.cts.bitmapcomparers.ExactComparer;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 
-
-/**
- * Created to see how custom views made with XML and programatic code will work.
- */
 public class LayoutTests extends ActivityTestBase {
-    private BitmapComparer mBitmapComparer;
-
-    public LayoutTests() {
-        mBitmapComparer = new ExactComparer();
-    }
-
     @SmallTest
     public void testSimpleRedLayout() {
-        createTest().addLayout(R.layout.simple_red_layout, null).runWithComparer(mBitmapComparer);
+        createTest().addLayout(R.layout.simple_red_layout, null, false).runWithVerifier(
+                new ColorVerifier(Color.RED));
     }
 
     @SmallTest
     public void testSimpleRectLayout() {
-        createTest().addLayout(R.layout.simple_rect_layout, null).runWithComparer(mBitmapComparer);
+        createTest().addLayout(R.layout.simple_rect_layout, null, false).runWithVerifier(
+                new RectVerifier(Color.WHITE, Color.BLUE, new Rect(5, 5, 85, 85)));
     }
 }
 

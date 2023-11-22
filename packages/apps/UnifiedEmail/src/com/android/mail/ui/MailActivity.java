@@ -18,7 +18,6 @@
 package com.android.mail.ui;
 
 import android.app.Dialog;
-import android.app.LoaderManager;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -29,8 +28,8 @@ import android.nfc.NfcAdapter;
 import android.nfc.NfcEvent;
 import android.os.Bundle;
 import android.support.v7.app.ActionBar;
+import android.support.v7.view.ActionMode;
 import android.support.v7.widget.Toolbar;
-import android.view.DragEvent;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -40,13 +39,17 @@ import android.view.accessibility.AccessibilityManager;
 import com.android.bitmap.BitmapCache;
 import com.android.bitmap.UnrefedBitmapCache;
 import com.android.mail.R;
+import com.android.mail.analytics.Analytics;
 import com.android.mail.analytics.AnalyticsTimer;
 import com.android.mail.bitmap.ContactResolver;
 import com.android.mail.compose.ComposeActivity;
 import com.android.mail.providers.Account;
 import com.android.mail.providers.Folder;
+import com.android.mail.providers.SearchRecentSuggestionsProvider;
+import com.android.mail.providers.SuggestionsProvider;
 import com.android.mail.utils.StorageLowState;
 import com.android.mail.utils.Utils;
+import com.android.mail.utils.ViewUtils;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
@@ -85,6 +88,8 @@ public class MailActivity extends AbstractMailActivity implements ControllableAc
     protected static String sAccountName = null;
 
     private BitmapCache mSendersImageCache;
+
+    private CustomViewToolbar mCustomViewToolbar;
 
     /**
      * Create an NFC message (in the NDEF: Nfc Data Exchange Format) to instruct the recepient to
@@ -171,12 +176,15 @@ public class MailActivity extends AbstractMailActivity implements ControllableAc
         setContentView(mController.getContentViewResource());
 
         final Toolbar toolbar = (Toolbar) findViewById(R.id.mail_toolbar);
-        // Toolbar is currently only used on phone layout, so this is expected to be null
-        // on tablets
-        if (toolbar != null) {
-            setSupportActionBar(toolbar);
-            toolbar.setNavigationOnClickListener(mController.getNavigationViewClickListener());
+        if (toolbar instanceof CustomViewToolbar) {
+            // Tablets use CustomViewToolbar to override the default search menu item positioning.
+            mCustomViewToolbar = (CustomViewToolbar) toolbar;
+            mCustomViewToolbar.setController(this, mController, mViewMode);
+            mController.addConversationListLayoutListener(mCustomViewToolbar);
         }
+
+        setSupportActionBar(toolbar);
+        toolbar.setNavigationOnClickListener(mController.getNavigationViewClickListener());
 
         final ActionBar actionBar = getSupportActionBar();
         if (actionBar != null) {
@@ -194,6 +202,16 @@ public class MailActivity extends AbstractMailActivity implements ControllableAc
         final NfcAdapter nfcAdapter = NfcAdapter.getDefaultAdapter(this);
         if (nfcAdapter != null) {
             nfcAdapter.setNdefPushMessageCallback(mNdefHandler, this);
+        }
+
+        // Detect presence of hardware keyboard and log it on Analytics
+        final int hardKeyboardHidden = getResources().getConfiguration().hardKeyboardHidden;
+        if (hardKeyboardHidden == Configuration.HARDKEYBOARDHIDDEN_NO) {
+            Analytics.getInstance().sendEvent("configuration", "keyboard", "use_hardware_keyboard",
+                    0);
+        } else {
+            Analytics.getInstance().sendEvent("configuration", "keyboard",
+                    "do_not_use_hardware_keyboard", 0);
         }
     }
 
@@ -313,6 +331,10 @@ public class MailActivity extends AbstractMailActivity implements ControllableAc
     protected void onDestroy() {
         super.onDestroy();
         mController.onDestroy();
+
+        if (mCustomViewToolbar != null) {
+            mCustomViewToolbar.onDestroy();
+        }
     }
 
     @Override
@@ -328,17 +350,14 @@ public class MailActivity extends AbstractMailActivity implements ControllableAc
         sb.append(mViewMode);
         sb.append(" controller=");
         sb.append(mController);
+        sb.append(" current_focus=");
+        sb.append(getCurrentFocus());
         sb.append("}");
         return sb.toString();
     }
 
     @Override
     public ConversationListCallbacks getListHandler() {
-        return mController;
-    }
-
-    @Override
-    public FolderChangeListener getFolderChangeListener() {
         return mController;
     }
 
@@ -353,18 +372,8 @@ public class MailActivity extends AbstractMailActivity implements ControllableAc
     }
 
     @Override
-    public ConversationSelectionSet getSelectedSet() {
-        return mController.getSelectedSet();
-    }
-
-    @Override
-    public boolean supportsDrag(DragEvent event, Folder folder) {
-        return mController.supportsDrag(event, folder);
-    }
-
-    @Override
-    public void handleDrop(DragEvent event, Folder folder) {
-        mController.handleDrop(event, folder);
+    public ConversationCheckedSet getCheckedSet() {
+        return mController.getCheckedSet();
     }
 
     @Override
@@ -423,23 +432,8 @@ public class MailActivity extends AbstractMailActivity implements ControllableAc
     }
 
     @Override
-    public void onFooterViewErrorActionClick(Folder folder, int errorStatus) {
-        mController.onFooterViewErrorActionClick(folder, errorStatus);
-    }
-
-    @Override
     public void onFooterViewLoadMoreClick(Folder folder) {
         mController.onFooterViewLoadMoreClick(folder);
-    }
-
-    @Override
-    public void startDragMode() {
-        mController.startDragMode();
-    }
-
-    @Override
-    public void stopDragMode() {
-        mController.stopDragMode();
     }
 
     @Override
@@ -497,29 +491,19 @@ public class MailActivity extends AbstractMailActivity implements ControllableAc
         Utils.showHelp(this, account, getString(helpContext));
     }
 
-    /**
-     * Returns the loader callback that can create a
-     * {@link AbstractActivityController#LOADER_WELCOME_TOUR_ACCOUNTS} followed by a
-     * {@link AbstractActivityController#LOADER_WELCOME_TOUR} which determines whether the welcome
-     * tour should be displayed.
-     *
-     * The base implementation returns {@code null} and subclasses should return an actual
-     * implementation if they want to be invoked at appropriate time.
-     */
-    public LoaderManager.LoaderCallbacks<?> getWelcomeCallbacks() {
-        return null;
+    public SearchRecentSuggestionsProvider getSuggestionsProvider() {
+        return new SuggestionsProvider(this);
     }
 
-    /**
-     * Returns whether the latest version of the welcome tour was shown on this device.
-     * <p>
-     * The base implementation returns {@code true} and applications that implement a welcome tour
-     * should override this method in order to optimize
-     * {@link AbstractActivityController#perhapsStartWelcomeTour()}.
-     *
-     * @return Whether the latest version of the welcome tour was shown.
-     */
-    public boolean wasLatestWelcomeTourShownOnDeviceForAllAccounts() {
-        return true;
+    @Override
+    public void onSupportActionModeStarted(ActionMode mode) {
+        super.onSupportActionModeStarted(mode);
+        ViewUtils.setStatusBarColor(this, R.color.action_mode_statusbar_color);
+    }
+
+    @Override
+    public void onSupportActionModeFinished(ActionMode mode) {
+        super.onSupportActionModeFinished(mode);
+        ViewUtils.setStatusBarColor(this, R.color.mail_activity_status_bar_color);
     }
 }

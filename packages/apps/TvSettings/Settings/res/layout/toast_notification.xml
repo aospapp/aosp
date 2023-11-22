@@ -37,7 +37,7 @@
             android:layout_width="80dip"
             android:layout_height="80dip"
             android:layout_centerVertical="true"
-            android:layout_toLeftOf="@id/text"
+            android:layout_toStartOf="@id/text"
             android:scaleType="fitCenter"
             android:visibility="gone"
             tools:ignore="ContentDescription" />

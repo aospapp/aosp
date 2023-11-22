@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/basictypes.h"
+#include "base/callback.h"
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_ptr.h"
@@ -15,15 +16,15 @@
 #include "base/threading/thread_checker.h"
 #include "components/data_reduction_proxy/browser/data_reduction_proxy_configurator.h"
 #include "components/data_reduction_proxy/browser/data_reduction_proxy_params.h"
+#include "components/data_reduction_proxy/browser/data_reduction_proxy_statistics_prefs.h"
+#include "net/base/net_util.h"
 #include "net/base/network_change_notifier.h"
 #include "net/url_request/url_fetcher_delegate.h"
 
 class PrefService;
 
 namespace net {
-class AuthChallengeInfo;
 class HostPortPair;
-class HttpAuthCache;
 class HttpNetworkSession;
 class HttpResponseHeaders;
 class URLFetcher;
@@ -103,7 +104,6 @@ class DataReductionProxySettings
   // |DataReductionProxySettings| instance.
   void InitDataReductionProxySettings(
       PrefService* prefs,
-      PrefService* local_state_prefs,
       net::URLRequestContextGetter* url_request_context_getter);
 
   // Initializes the data reduction proxy with profile and local state prefs,
@@ -113,29 +113,23 @@ class DataReductionProxySettings
   // TODO(marq): Remove when iOS supports the new interface above.
   void InitDataReductionProxySettings(
       PrefService* prefs,
-      PrefService* local_state_prefs,
       net::URLRequestContextGetter* url_request_context_getter,
-      scoped_ptr<DataReductionProxyConfigurator> configurator);
+      DataReductionProxyConfigurator* configurator);
+
+  // Sets the |statistics_prefs_| to be used for data reduction proxy pref reads
+  // and writes.
+  void SetDataReductionProxyStatisticsPrefs(
+      DataReductionProxyStatisticsPrefs* statistics_prefs);
+
+  // Sets the |on_data_reduction_proxy_enabled_| callback and runs to register
+  // the DataReductionProxyEnabled synthetic field trial.
+  void SetOnDataReductionEnabledCallback(
+      const base::Callback<void(bool)>& on_data_reduction_proxy_enabled);
 
   // Sets the logic the embedder uses to set the networking configuration that
   // causes traffic to be proxied.
   void SetProxyConfigurator(
-      scoped_ptr<DataReductionProxyConfigurator> configurator);
-
-  // If proxy authentication is compiled in, pre-cache authentication
-  // keys for all configured proxies in |session|.
-  static void InitDataReductionProxySession(
-      net::HttpNetworkSession* session,
-      const DataReductionProxyParams* params);
-
-  // Returns true if |auth_info| represents an authentication challenge from
-  // a compatible, configured proxy.
-  bool IsAcceptableAuthChallenge(net::AuthChallengeInfo* auth_info);
-
-  // Returns a UTF16 string suitable for use as an authentication token in
-  // response to the challenge represented by |auth_info|. If the token can't
-  // be correctly generated for |auth_info|, returns an empty UTF16 string.
-  base::string16 GetTokenForAuthChallenge(net::AuthChallengeInfo* auth_info);
+      DataReductionProxyConfigurator* configurator);
 
   // Returns true if the proxy is enabled.
   bool IsDataReductionProxyEnabled();
@@ -163,9 +157,26 @@ class DataReductionProxySettings
   // data reduction proxy. Each element in the vector contains one day of data.
   ContentLengthList GetDailyOriginalContentLengths();
 
+  // Returns aggregate received and original content lengths over the specified
+  // number of days, as well as the time these stats were last updated.
+  void GetContentLengths(unsigned int days,
+                         int64* original_content_length,
+                         int64* received_content_length,
+                         int64* last_update_time);
+
+  // Records that the data reduction proxy is unreachable or not.
+  void SetUnreachable(bool unreachable);
+
+  // Returns whether the data reduction proxy is unreachable. Returns true
+  // if no request has successfully completed through proxy, even though atleast
+  // some of them should have.
+  bool IsDataReductionProxyUnreachable();
+
   // Returns an vector containing the aggregate received HTTP content in the
   // last |kNumDaysInHistory| days.
   ContentLengthList GetDailyReceivedContentLengths();
+
+  ContentLengthList GetDailyContentLengths(const char* pref_name);
 
   // net::URLFetcherDelegate:
   virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
@@ -177,19 +188,8 @@ class DataReductionProxySettings
   // Virtual for testing.
   virtual net::URLFetcher* GetURLFetcherForAvailabilityCheck();
 
-  // Returns a fetcher to warm up the connection to the data reduction proxy.
-  // Virtual for testing.
-  virtual net::URLFetcher* GetURLFetcherForWarmup();
-
   // Virtualized for unit test support.
   virtual PrefService* GetOriginalProfilePrefs();
-  virtual PrefService* GetLocalStatePrefs();
-
-  void GetContentLengths(unsigned int days,
-                         int64* original_content_length,
-                         int64* received_content_length,
-                         int64* last_update_time);
-  ContentLengthList GetDailyContentLengths(const char* pref_name);
 
   // Sets the proxy configs, enabling or disabling the proxy according to
   // the value of |enabled| and |alternative_enabled|. Use the alternative
@@ -211,14 +211,22 @@ class DataReductionProxySettings
   // customer feedback. Virtual so tests can mock it for verification.
   virtual void LogProxyState(bool enabled, bool restricted, bool at_startup);
 
-  // Virtualized for mocking
+  // Virtualized for mocking. Records UMA containing the result of requesting
+  // the probe URL.
   virtual void RecordProbeURLFetchResult(
       data_reduction_proxy::ProbeURLFetchResult result);
+
+  // Virtualized for mocking. Records UMA specifying whether the proxy was
+  // enabled or disabled at startup.
   virtual void RecordStartupState(
       data_reduction_proxy::ProxyStartupState state);
 
+  // Virtualized for mocking. Returns the list of network interfaces in use.
+  virtual void GetNetworkList(net::NetworkInterfaceList* interfaces,
+                              int policy);
+
   DataReductionProxyConfigurator* configurator() {
-    return configurator_.get();
+    return configurator_;
   }
 
   // Reset params for tests.
@@ -257,15 +265,11 @@ class DataReductionProxySettings
                            CheckInitMetricsWhenNotAllowed);
   FRIEND_TEST_ALL_PREFIXES(DataReductionProxySettingsTest,
                            TestSetProxyConfigs);
+  FRIEND_TEST_ALL_PREFIXES(DataReductionProxySettingsTest,
+                           TestSetProxyConfigsHoldback);
 
   // NetworkChangeNotifier::IPAddressObserver:
   virtual void OnIPAddressChanged() OVERRIDE;
-
-  // Underlying implementation of InitDataReductionProxySession(), factored
-  // out to be testable without creating a full HttpNetworkSession.
-  static void InitDataReductionAuthentication(
-      net::HttpAuthCache* auth_cache,
-      const DataReductionProxyParams* params);
 
   void OnProxyEnabledPrefChange();
   void OnProxyAlternativeEnabledPrefChange();
@@ -279,34 +283,32 @@ class DataReductionProxySettings
   // failure.
   void ProbeWhetherDataReductionProxyIsAvailable();
 
-  // Warms the connection to the data reduction proxy.
-  void WarmProxyConnection();
+  // Disables use of the data reduction proxy on VPNs. Returns true if the
+  // data reduction proxy has been disabled.
+  bool DisableIfVPN();
 
   // Generic method to get a URL fetcher.
   net::URLFetcher* GetBaseURLFetcher(const GURL& gurl, int load_flags);
 
-  // Returns a UTF16 string that's the hash of the configured authentication
-  // |key| and |salt|. Returns an empty UTF16 string if no key is configured or
-  // the data reduction proxy feature isn't available.
-  static base::string16 AuthHashForSalt(int64 salt,
-                                        const std::string& key);
-
   std::string key_;
   bool restricted_by_carrier_;
   bool enabled_by_user_;
+  bool disabled_on_vpn_;
+  bool unreachable_;
 
   scoped_ptr<net::URLFetcher> fetcher_;
-  scoped_ptr<net::URLFetcher> warmup_fetcher_;
 
   BooleanPrefMember spdy_proxy_auth_enabled_;
   BooleanPrefMember data_reduction_proxy_alternative_enabled_;
 
   PrefService* prefs_;
-  PrefService* local_state_prefs_;
+  DataReductionProxyStatisticsPrefs* statistics_prefs_;
 
   net::URLRequestContextGetter* url_request_context_getter_;
 
-  scoped_ptr<DataReductionProxyConfigurator> configurator_;
+  base::Callback<void(bool)> on_data_reduction_proxy_enabled_;
+
+  DataReductionProxyConfigurator* configurator_;
 
   base::ThreadChecker thread_checker_;
 

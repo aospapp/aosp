@@ -16,7 +16,6 @@
 #include "base/sys_info.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/chromeos/proxy_cros_settings_parser.h"
@@ -25,10 +24,11 @@
 #include "chrome/browser/ui/webui/chromeos/ui_account_tweaks.h"
 #include "chrome/browser/ui/webui/options/chromeos/accounts_options_handler.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/generated_resources.h"
+#include "components/user_manager/user_manager.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_ui.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
 namespace chromeos {
@@ -57,7 +57,7 @@ base::DictionaryValue* CreateUserInfo(const std::string& username,
   user_dict->SetString("name", display_email);
   user_dict->SetString("email", display_name);
 
-  bool is_owner = UserManager::Get()->GetOwnerEmail() == username;
+  bool is_owner = user_manager::UserManager::Get()->GetOwnerEmail() == username;
   user_dict->SetBoolean("owner", is_owner);
   return user_dict;
 }
@@ -68,7 +68,7 @@ base::Value* CreateUsersWhitelist(const base::Value *pref_value) {
   const base::ListValue* list_value =
       static_cast<const base::ListValue*>(pref_value);
   base::ListValue* user_list = new base::ListValue();
-  UserManager* user_manager = UserManager::Get();
+  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
 
   for (base::ListValue::const_iterator i = list_value->begin();
        i != list_value->end(); ++i) {
@@ -241,10 +241,15 @@ void CoreChromeOSOptionsHandler::StopObservingPref(const std::string& path) {
 base::Value* CoreChromeOSOptionsHandler::CreateValueForPref(
     const std::string& pref_name,
     const std::string& controlling_pref_name) {
+  // Athena doesn't have ash::Shell and its session_state_delegate, so the
+  // following code will cause crash.
+  // TODO(mukai|antrim): re-enable this after having session_state_delegate.
+  // http://crbug.com/370175
+#if !defined(USE_ATHENA)
   // The screen lock setting is shared if multiple users are logged in and at
   // least one has chosen to require passwords.
   if (pref_name == prefs::kEnableAutoScreenLock &&
-      UserManager::Get()->GetLoggedInUsers().size() > 1 &&
+      user_manager::UserManager::Get()->GetLoggedInUsers().size() > 1 &&
       controlling_pref_name.empty()) {
     PrefService* user_prefs = Profile::FromWebUI(web_ui())->GetPrefs();
     const PrefService::Preference* pref =
@@ -268,6 +273,7 @@ base::Value* CoreChromeOSOptionsHandler::CreateValueForPref(
       }
     }
   }
+#endif
 
   return CoreOptionsHandler::CreateValueForPref(pref_name,
                                                 controlling_pref_name);
@@ -281,11 +287,11 @@ void CoreChromeOSOptionsHandler::GetLocalizedValues(
   Profile* profile = Profile::FromWebUI(web_ui());
   AddAccountUITweaksLocalizedValues(localized_strings, profile);
 
-  UserManager* user_manager = UserManager::Get();
+  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
 
   // Check at load time whether this is a secondary user in a multi-profile
   // session.
-  User* user = user_manager->GetUserByProfile(profile);
+  user_manager::User* user = ProfileHelper::Get()->GetUserByProfile(profile);
   if (user && user->email() != user_manager->GetPrimaryUser()->email()) {
     const std::string& primary_email = user_manager->GetPrimaryUser()->email();
 

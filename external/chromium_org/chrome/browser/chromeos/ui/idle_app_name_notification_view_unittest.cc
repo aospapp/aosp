@@ -9,9 +9,9 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/test_extension_system.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "extensions/common/manifest_constants.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
 namespace {
@@ -71,8 +71,12 @@ class IdleAppNameNotificationViewTest : public BrowserWithTestWindowTest {
     BrowserWithTestWindowTest::TearDown();
   }
 
-  extensions::Extension* correct_extension() { return correct_extension_; }
-  extensions::Extension* incorrect_extension() { return incorrect_extension_; }
+  extensions::Extension* correct_extension() {
+    return correct_extension_.get();
+  }
+  extensions::Extension* incorrect_extension() {
+    return incorrect_extension_.get();
+  }
 
  private:
   // Extensions to test with.

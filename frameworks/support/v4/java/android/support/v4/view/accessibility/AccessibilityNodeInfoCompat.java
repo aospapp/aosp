@@ -36,6 +36,16 @@ public class AccessibilityNodeInfoCompat {
     public static class AccessibilityActionCompat {
         private final Object mAction;
 
+        /**
+         * Creates a new instance.
+         *
+         * @param actionId The action id.
+         * @param label The action label.
+         */
+        public AccessibilityActionCompat(int actionId, CharSequence label) {
+            this(IMPL.newAccessibilityAction(actionId, label));
+        }
+
         private AccessibilityActionCompat(Object action) {
             mAction = action;
         }
@@ -46,7 +56,7 @@ public class AccessibilityNodeInfoCompat {
          * @return The action id.
          */
         public int getId() {
-            return AccessibilityNodeInfoCompatApi21.AccessibilityAction.getId(mAction);
+            return IMPL.getAccessibilityActionId(mAction);
         }
 
         /**
@@ -56,7 +66,7 @@ public class AccessibilityNodeInfoCompat {
          * @return The label.
          */
         public CharSequence getLabel() {
-            return AccessibilityNodeInfoCompatApi21.AccessibilityAction.getLabel(mAction);
+            return IMPL.getAccessibilityActionLabel(mAction);
         }
     }
 
@@ -176,6 +186,7 @@ public class AccessibilityNodeInfoCompat {
     }
 
     static interface AccessibilityNodeInfoImpl {
+        public Object newAccessibilityAction(int actionId, CharSequence label);
         public Object obtain();
         public Object obtain(View source);
         public Object obtain(Object info);
@@ -191,6 +202,9 @@ public class AccessibilityNodeInfoCompat {
         public void addChild(Object info, View child, int virtualDescendantId);
         public int getActions(Object info);
         public void addAction(Object info, int action);
+        public void addAction(Object info, Object action);
+        public int getAccessibilityActionId(Object action);
+        public CharSequence getAccessibilityActionLabel(Object action);
         public boolean performAction(Object info, int action);
         public boolean performAction(Object info, int action, Bundle arguments);
         public void setMovementGranularities(Object info, int granularities);
@@ -246,7 +260,6 @@ public class AccessibilityNodeInfoCompat {
         public void setCollectionItemInfo(Object info, Object collectionItemInfo);
         public Object getRangeInfo(Object info);
         public List<Object> getActionList(Object info);
-        public void addAction(Object info, int id, CharSequence label);
         public Object obtainCollectionInfo(int rowCount, int columnCount, boolean hierarchical,
                 int selectionMode);
         public int getCollectionInfoColumnCount(Object info);
@@ -260,9 +273,20 @@ public class AccessibilityNodeInfoCompat {
         public int getCollectionItemRowSpan(Object info);
         public boolean isCollectionItemHeading(Object info);
         public boolean isCollectionItemSelected(Object info);
+        public AccessibilityNodeInfoCompat getTraversalBefore(Object info);
+        public void setTraversalBefore(Object info, View view);
+        public void setTraversalBefore(Object info, View root, int virtualDescendantId);
+        public AccessibilityNodeInfoCompat getTraversalAfter(Object info);
+        public void setTraversalAfter(Object info, View view);
+        public void setTraversalAfter(Object info, View root, int virtualDescendantId);
     }
 
     static class AccessibilityNodeInfoStubImpl implements AccessibilityNodeInfoImpl {
+        @Override
+        public Object newAccessibilityAction(int actionId, CharSequence label) {
+            return null;
+        }
+
         @Override
         public Object obtain() {
             return null;
@@ -286,6 +310,21 @@ public class AccessibilityNodeInfoCompat {
         @Override
         public void addAction(Object info, int action) {
 
+        }
+
+        @Override
+        public void addAction(Object info, Object action) {
+
+        }
+
+        @Override
+        public int getAccessibilityActionId(Object action) {
+            return 0;
+        }
+
+        @Override
+        public CharSequence getAccessibilityActionLabel(Object action) {
+            return null;
         }
 
         @Override
@@ -612,10 +651,6 @@ public class AccessibilityNodeInfoCompat {
         }
 
         @Override
-        public void addAction(Object info, int id, CharSequence label) {
-        }
-
-        @Override
         public Object obtainCollectionInfo(int rowCount, int columnCount, boolean hierarchical,
                 int selectionMode) {
             return null;
@@ -670,6 +705,32 @@ public class AccessibilityNodeInfoCompat {
         @Override
         public boolean isCollectionItemSelected(Object info) {
             return false;
+        }
+
+        @Override
+        public AccessibilityNodeInfoCompat getTraversalBefore(Object info) {
+            return null;
+        }
+
+        @Override
+        public void setTraversalBefore(Object info, View view) {
+        }
+
+        @Override
+        public void setTraversalBefore(Object info, View root, int virtualDescendantId) {
+        }
+
+        @Override
+        public AccessibilityNodeInfoCompat getTraversalAfter(Object info) {
+            return null;
+        }
+
+        @Override
+        public void setTraversalAfter(Object info, View view) {
+        }
+
+        @Override
+        public void setTraversalAfter(Object info, View root, int virtualDescendantId) {
         }
     }
 
@@ -908,13 +969,6 @@ public class AccessibilityNodeInfoCompat {
         public void recycle(Object info) {
             AccessibilityNodeInfoCompatIcs.recycle(info);
         }
-
-        @Override
-        public void addAction(Object info, int id, CharSequence label) {
-            if (Integer.bitCount(id) == 1) {
-                addAction(info, id);
-            }
-        }
     }
 
     static class AccessibilityNodeInfoJellybeanImpl extends AccessibilityNodeInfoIcsImpl {
@@ -1090,6 +1144,11 @@ public class AccessibilityNodeInfoCompat {
 
     static class AccessibilityNodeInfoApi21Impl extends AccessibilityNodeInfoKitKatImpl {
         @Override
+        public Object newAccessibilityAction(int actionId, CharSequence label) {
+            return AccessibilityNodeInfoCompatApi21.newAccessibilityAction(actionId, label);
+        }
+
+        @Override
         public List<Object> getActionList(Object info) {
             return AccessibilityNodeInfoCompatApi21.getActionList(info);
         }
@@ -1102,8 +1161,18 @@ public class AccessibilityNodeInfoCompat {
         }
 
         @Override
-        public void addAction(Object info, int id, CharSequence label) {
-            AccessibilityNodeInfoCompatApi21.addAction(info, id, label);
+        public void addAction(Object info, Object action) {
+            AccessibilityNodeInfoCompatApi21.addAction(info, action);
+        }
+
+        @Override
+        public int getAccessibilityActionId(Object action) {
+            return AccessibilityNodeInfoCompatApi21.getAccessibilityActionId(action);
+        }
+
+        @Override
+        public CharSequence getAccessibilityActionLabel(Object action) {
+            return AccessibilityNodeInfoCompatApi21.getAccessibilityActionLabel(action);
         }
 
         @Override
@@ -1119,8 +1188,52 @@ public class AccessibilityNodeInfoCompat {
         }
     }
 
+    static class AccessibilityNodeInfoApi22Impl extends AccessibilityNodeInfoApi21Impl {
+        @Override
+        public AccessibilityNodeInfoCompat getTraversalBefore(Object info) {
+            Object nodeInfo = AccessibilityNodeInfoCompatApi22.getTraversalBefore(info);
+            if (nodeInfo == null) {
+                return null;
+            }
+
+            return new AccessibilityNodeInfoCompat(nodeInfo);
+        }
+
+        @Override
+        public void setTraversalBefore(Object info, View view) {
+            AccessibilityNodeInfoCompatApi22.setTraversalBefore(info, view);
+        }
+
+        @Override
+        public void setTraversalBefore(Object info, View root, int virtualDescendantId) {
+            AccessibilityNodeInfoCompatApi22.setTraversalBefore(info, root, virtualDescendantId);
+        }
+
+        @Override
+        public AccessibilityNodeInfoCompat getTraversalAfter(Object info) {
+            Object nodeInfo = AccessibilityNodeInfoCompatApi22.getTraversalAfter(info);
+            if (nodeInfo == null) {
+                return null;
+            }
+
+            return new AccessibilityNodeInfoCompat(nodeInfo);
+        }
+
+        @Override
+        public void setTraversalAfter(Object info, View view) {
+            AccessibilityNodeInfoCompatApi22.setTraversalAfter(info, view);
+        }
+
+        @Override
+        public void setTraversalAfter(Object info, View root, int virtualDescendantId) {
+            AccessibilityNodeInfoCompatApi22.setTraversalAfter(info, root, virtualDescendantId);
+        }
+    }
+
     static {
-        if (Build.VERSION.SDK_INT >= 21) {
+        if (Build.VERSION.SDK_INT >= 22) {
+            IMPL = new AccessibilityNodeInfoApi22Impl();
+        } else if (Build.VERSION.SDK_INT >= 21) {
             IMPL = new AccessibilityNodeInfoApi21Impl();
         } else if (Build.VERSION.SDK_INT >= 19) { // KitKat
             IMPL = new AccessibilityNodeInfoKitKatImpl();
@@ -1690,6 +1803,21 @@ public class AccessibilityNodeInfoCompat {
      */
     public void addAction(int action) {
         IMPL.addAction(mInfo, action);
+    }
+
+    /**
+     * Adds an action that can be performed on the node.
+     * <p>
+     * <strong>Note:</strong> Cannot be called from an
+     * {@link android.accessibilityservice.AccessibilityService}. This class is
+     * made immutable before being delivered to an AccessibilityService.
+     * </p>
+     *
+     * @param action The action.
+     * @throws IllegalStateException If called from an AccessibilityService.
+     */
+    public void addAction(AccessibilityActionCompat action) {
+        IMPL.addAction(mInfo, action.mAction);
     }
 
     /**
@@ -2389,14 +2517,18 @@ public class AccessibilityNodeInfoCompat {
      * @return A list of AccessibilityActions.
      */
     public List<AccessibilityActionCompat> getActionList() {
-        List<AccessibilityActionCompat> result = new ArrayList<AccessibilityActionCompat>();
         List<Object> actions = IMPL.getActionList(mInfo);
-        final int actionCount = actions.size();
-        for (int i = 0; i < actionCount; i++) {
-            Object action = actions.get(i);
-            result.add(new AccessibilityActionCompat(action));
+        if (actions != null) {
+            List<AccessibilityActionCompat> result = new ArrayList<AccessibilityActionCompat>();
+            final int actionCount = actions.size();
+            for (int i = 0; i < actionCount; i++) {
+                Object action = actions.get(i);
+                result.add(new AccessibilityActionCompat(action));
+            }
+            return result;
+        } else {
+            return Collections.<AccessibilityActionCompat>emptyList();
         }
-        return result;
     }
 
 

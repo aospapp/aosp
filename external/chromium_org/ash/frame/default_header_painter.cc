@@ -9,12 +9,12 @@
 #include "base/debug/leak_annotations.h"
 #include "base/logging.h"  // DCHECK
 #include "grit/ash_resources.h"
-#include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkPaint.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/animation/slide_animation.h"
 #include "ui/gfx/canvas.h"
+#include "ui/gfx/color_utils.h"
 #include "ui/gfx/font_list.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/rect.h"
@@ -35,12 +35,15 @@ const SkColor kHeaderContentSeparatorColor = SkColorSetRGB(150, 150, 152);
 // Color of the inactive window header/content separator line.
 const SkColor kHeaderContentSeparatorInactiveColor =
     SkColorSetRGB(180, 180, 182);
+// The color of the frame.
+const SkColor kFrameColor = SkColorSetRGB(242, 242, 242);
+// The alpha of the inactive frame.
+const SkAlpha kInactiveFrameAlpha = 204;
 // Duration of crossfade animation for activating and deactivating frame.
 const int kActivationCrossfadeDurationMs = 200;
 
 // Tiles an image into an area, rounding the top corners.
 void TileRoundRect(gfx::Canvas* canvas,
-                   const gfx::ImageSkia& image,
                    const SkPaint& paint,
                    const gfx::Rect& bounds,
                    int corner_radius) {
@@ -53,7 +56,7 @@ void TileRoundRect(gfx::Canvas* canvas,
       0, 0};  // bottom-left
   SkPath path;
   path.addRoundRect(rect, radii, SkPath::kCW_Direction);
-  canvas->DrawImageInPath(image, 0, 0, path, paint);
+  canvas->DrawPath(path, paint);
 }
 
 // Returns the FontList to use for the title.
@@ -74,8 +77,8 @@ namespace ash {
 DefaultHeaderPainter::DefaultHeaderPainter()
     : frame_(NULL),
       view_(NULL),
-      window_icon_(NULL),
-      window_icon_size_(HeaderPainterUtil::GetDefaultIconSize()),
+      left_header_view_(NULL),
+      left_view_x_inset_(HeaderPainterUtil::GetDefaultLeftViewXInset()),
       caption_button_container_(NULL),
       height_(0),
       mode_(MODE_INACTIVE),
@@ -89,15 +92,12 @@ DefaultHeaderPainter::~DefaultHeaderPainter() {
 void DefaultHeaderPainter::Init(
     views::Widget* frame,
     views::View* header_view,
-    views::View* window_icon,
     FrameCaptionButtonContainerView* caption_button_container) {
   DCHECK(frame);
   DCHECK(header_view);
-  // window_icon may be NULL.
   DCHECK(caption_button_container);
   frame_ = frame;
   view_ = header_view;
-  window_icon_ = window_icon;
   caption_button_container_ = caption_button_container;
 
   caption_button_container_->SetButtonImages(
@@ -106,12 +106,7 @@ void DefaultHeaderPainter::Init(
       IDR_AURA_WINDOW_CONTROL_ICON_MINIMIZE_I,
       IDR_AURA_WINDOW_CONTROL_BACKGROUND_H,
       IDR_AURA_WINDOW_CONTROL_BACKGROUND_P);
-  caption_button_container_->SetButtonImages(
-      CAPTION_BUTTON_ICON_MAXIMIZE_RESTORE,
-      IDR_AURA_WINDOW_CONTROL_ICON_SIZE,
-      IDR_AURA_WINDOW_CONTROL_ICON_SIZE_I,
-      IDR_AURA_WINDOW_CONTROL_BACKGROUND_H,
-      IDR_AURA_WINDOW_CONTROL_BACKGROUND_P);
+  UpdateSizeButtonImages();
   caption_button_container_->SetButtonImages(
       CAPTION_BUTTON_ICON_CLOSE,
       IDR_AURA_WINDOW_CONTROL_ICON_CLOSE,
@@ -166,26 +161,12 @@ void DefaultHeaderPainter::PaintHeader(gfx::Canvas* canvas, Mode mode) {
   int corner_radius = (frame_->IsMaximized() || frame_->IsFullscreen()) ?
       0 : HeaderPainterUtil::GetTopCornerRadiusWhenRestored();
 
-  int active_alpha = activation_animation_->CurrentValueBetween(0, 255);
-  int inactive_alpha = 255 - active_alpha;
-
   SkPaint paint;
-  if (inactive_alpha > 0) {
-    if (active_alpha > 0)
-      paint.setXfermodeMode(SkXfermode::kPlus_Mode);
+  int active_alpha = activation_animation_->CurrentValueBetween(0, 255);
+  paint.setColor(color_utils::AlphaBlend(
+      kFrameColor, GetInactiveFrameColor(), active_alpha));
 
-    paint.setAlpha(inactive_alpha);
-    gfx::ImageSkia inactive_frame = *GetInactiveFrameImage();
-    TileRoundRect(canvas, inactive_frame, paint, GetLocalBounds(),
-        corner_radius);
-  }
-
-  if (active_alpha > 0) {
-    paint.setAlpha(active_alpha);
-    gfx::ImageSkia active_frame = *GetActiveFrameImage();
-    TileRoundRect(canvas, active_frame, paint, GetLocalBounds(),
-        corner_radius);
-  }
+  TileRoundRect(canvas, paint, GetLocalBounds(), corner_radius);
 
   if (!frame_->IsMaximized() &&
       !frame_->IsFullscreen() &&
@@ -200,6 +181,7 @@ void DefaultHeaderPainter::PaintHeader(gfx::Canvas* canvas, Mode mode) {
 }
 
 void DefaultHeaderPainter::LayoutHeader() {
+  UpdateSizeButtonImages();
   caption_button_container_->Layout();
 
   gfx::Size caption_button_container_size =
@@ -210,15 +192,7 @@ void DefaultHeaderPainter::LayoutHeader() {
       caption_button_container_size.width(),
       caption_button_container_size.height());
 
-  if (window_icon_) {
-    // Vertically center the window icon with respect to the caption button
-    // container.
-    // Floor when computing the center of |caption_button_container_|.
-    int icon_offset_y =
-        caption_button_container_->height() / 2 - window_icon_size_ / 2;
-    window_icon_->SetBounds(HeaderPainterUtil::GetIconXOffset(), icon_offset_y,
-                            window_icon_size_, window_icon_size_);
-  }
+  LayoutLeftHeaderView();
 
   // The header/content separator line overlays the caption buttons.
   SetHeaderHeightForPainting(caption_button_container_->height());
@@ -236,10 +210,15 @@ void DefaultHeaderPainter::SchedulePaintForTitle() {
   view_->SchedulePaintInRect(GetTitleBounds());
 }
 
-void DefaultHeaderPainter::UpdateWindowIcon(views::View* window_icon,
-                                            int window_icon_size) {
-  window_icon_ = window_icon;
-  window_icon_size_ = window_icon_size;
+void DefaultHeaderPainter::UpdateLeftViewXInset(int left_view_x_inset) {
+  if (left_view_x_inset_ != left_view_x_inset) {
+    left_view_x_inset_ = left_view_x_inset;
+    LayoutLeftHeaderView();
+  }
+}
+
+void DefaultHeaderPainter::UpdateLeftHeaderView(views::View* left_header_view) {
+  left_header_view_ = left_header_view;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -313,26 +292,55 @@ void DefaultHeaderPainter::PaintHeaderContentSeparator(gfx::Canvas* canvas) {
   canvas->sk_canvas()->drawLine(0, y, SkIntToScalar(view_->width()), y, paint);
 }
 
+void DefaultHeaderPainter::LayoutLeftHeaderView() {
+  if (left_header_view_) {
+    // Vertically center the left header view with respect to the caption button
+    // container.
+    // Floor when computing the center of |caption_button_container_|.
+    gfx::Size size = left_header_view_->GetPreferredSize();
+    int icon_offset_y = caption_button_container_->height() / 2 -
+                        size.height() / 2;
+    left_header_view_->SetBounds(
+        left_view_x_inset_, icon_offset_y, size.width(), size.height());
+  }
+}
+
+void DefaultHeaderPainter::UpdateSizeButtonImages() {
+  int icon_id = 0;
+  int inactive_icon_id = 0;
+  if (frame_->IsMaximized() || frame_->IsFullscreen()) {
+    icon_id = IDR_AURA_WINDOW_CONTROL_ICON_RESTORE;
+    inactive_icon_id = IDR_AURA_WINDOW_CONTROL_ICON_RESTORE_I;
+  } else {
+    icon_id = IDR_AURA_WINDOW_CONTROL_ICON_MAXIMIZE;
+    inactive_icon_id = IDR_AURA_WINDOW_CONTROL_ICON_MAXIMIZE_I;
+  }
+  caption_button_container_->SetButtonImages(
+      CAPTION_BUTTON_ICON_MAXIMIZE_RESTORE,
+      icon_id,
+      inactive_icon_id,
+      IDR_AURA_WINDOW_CONTROL_BACKGROUND_H,
+      IDR_AURA_WINDOW_CONTROL_BACKGROUND_P);
+}
+
 gfx::Rect DefaultHeaderPainter::GetLocalBounds() const {
   return gfx::Rect(view_->width(), height_);
 }
 
 gfx::Rect DefaultHeaderPainter::GetTitleBounds() const {
   return HeaderPainterUtil::GetTitleBounds(
-      window_icon_, caption_button_container_, GetTitleFontList());
+      left_header_view_, caption_button_container_, GetTitleFontList());
 }
 
-gfx::ImageSkia* DefaultHeaderPainter::GetActiveFrameImage() const {
-  return ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
-      IDR_AURA_WINDOW_HEADER_BASE);
-}
-
-gfx::ImageSkia* DefaultHeaderPainter::GetInactiveFrameImage() const {
-  int frame_image_id = (frame_->IsMaximized() || frame_->IsFullscreen()) ?
-      IDR_AURA_WINDOW_HEADER_BASE :
-      IDR_AURA_WINDOW_HEADER_BASE_RESTORED_INACTIVE;
-  return ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
-      frame_image_id);
+SkColor DefaultHeaderPainter::GetInactiveFrameColor() const {
+  SkColor color = kFrameColor;
+  if (!frame_->IsMaximized() && !frame_->IsFullscreen()) {
+    color = SkColorSetARGB(kInactiveFrameAlpha,
+                           SkColorGetR(color),
+                           SkColorGetG(color),
+                           SkColorGetB(color));
+  }
+  return color;
 }
 
 }  // namespace ash

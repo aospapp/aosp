@@ -8,8 +8,8 @@
 #include <string>
 
 #include "base/bind.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
 #include "base/metrics/sparse_histogram.h"
@@ -17,9 +17,9 @@
 #include "base/timer/elapsed_timer.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/metrics/chromeos_metrics_provider.h"
-#include "components/metrics/chromeos/metric_sample.h"
-#include "components/metrics/chromeos/serialization_utils.h"
 #include "components/metrics/metrics_service.h"
+#include "components/metrics/serialization/metric_sample.h"
+#include "components/metrics/serialization/serialization_utils.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/user_metrics.h"
 

@@ -18,9 +18,11 @@ def IsDownloadError(error):
 # This will attempt to import the actual App Engine modules, and if it fails,
 # they will be replaced with fake modules. This is useful during testing.
 try:
+  import google.appengine.api.app_identity as app_identity
   import google.appengine.api.files as files
   import google.appengine.api.logservice as logservice
   import google.appengine.api.memcache as memcache
+  import google.appengine.api.taskqueue as taskqueue
   import google.appengine.api.urlfetch as urlfetch
   import google.appengine.ext.blobstore as blobstore
   from google.appengine.ext.blobstore.blobstore import BlobReferenceProperty
@@ -61,6 +63,12 @@ except ImportError:
     def wait(self):
       pass
 
+  class FakeAppIdentity(object):
+    """A fake app_identity module that returns no access tokens."""
+    def get_access_token(self, scope):
+      return (None, None)
+  app_identity = FakeAppIdentity()
+
   class FakeUrlFetch(object):
     """A fake urlfetch module that uses the current
     |FAKE_URL_FETCHER_CONFIGURATION| to map urls to fake fetchers.
@@ -81,7 +89,7 @@ except ImportError:
         response.status_code = 404
       return response
 
-    def create_rpc(self):
+    def create_rpc(self, **kwargs):
       return _RPC()
 
     def make_fetch_call(self, rpc, url, **kwargs):
@@ -268,3 +276,37 @@ except ImportError:
 
   class BlobReferenceProperty(object):
     pass
+
+  # Executes any queued tasks synchronously as they are queued.
+  _task_runner = None
+
+  def SetTaskRunnerForTest(task_runner):
+    global _task_runner
+    _task_runner = task_runner
+
+  class SynchronousTaskQueue(object):
+    class Task(object):
+      def __init__(self, url=None, params={}):
+        self.url_ = url
+        self.params_ = params
+
+      def GetUrl(self):
+        return self.url_
+
+      def GetCommit(self):
+        return self.params_.get('commit')
+
+    class Queue(object):
+      def __init__(self, name='default'):
+        pass
+
+      def add(self, task):
+        global _task_runner
+        if _task_runner:
+          _task_runner(task.GetUrl(), task.GetCommit())
+        return _RPC()
+
+      def purge(self):
+        return _RPC()
+
+  taskqueue = SynchronousTaskQueue()

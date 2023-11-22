@@ -374,8 +374,7 @@ extern const uchar __attribute__((overloadable))
 
 #endif // (defined(RS_VERSION) && (RS_VERSION >= 18))
 
-
-#if (defined(RS_VERSION) && (RS_VERSION >= 999))
+#if (defined(RS_VERSION) && (RS_VERSION >= 22))
 
 #define VOP(T)                                                                   \
     extern T __attribute__((overloadable))                                       \
@@ -424,7 +423,7 @@ VOP(double4)
 
 #undef VOP
 
-#endif //(defined(RS_VERSION) && (RS_VERSION >= 999))
+#endif //(defined(RS_VERSION) && (RS_VERSION >= 22))
 
 
 #endif

@@ -7,8 +7,9 @@ import logging
 import os
 import re
 import shutil
+import tempfile
 
-from telemetry.page import cloud_storage
+from telemetry.util import cloud_storage
 
 
 class PageSetArchiveInfo(object):
@@ -22,28 +23,16 @@ class PageSetArchiveInfo(object):
 
     # Download all .wpr files.
     if not ignore_archive:
-      # TODO(tbarzic): Remove this once http://crbug.com/351143 is diagnosed.
-      log_cloud_storage_exception = True
       for archive_path in data['archives']:
         archive_path = self._WprFileNameToPath(archive_path)
         try:
           cloud_storage.GetIfChanged(archive_path)
-        except (cloud_storage.CredentialsError,
-                cloud_storage.PermissionError) as e:
+        except (cloud_storage.CredentialsError, cloud_storage.PermissionError):
           if os.path.exists(archive_path):
             # If the archive exists, assume the user recorded their own and
             # simply warn.
             logging.warning('Need credentials to update WPR archive: %s',
                             archive_path)
-          elif log_cloud_storage_exception:
-            # Log access errors only once, as they should stay the same in other
-            # iterations.
-            log_cloud_storage_exception = False
-            logging.warning('Error getting WPR archive %s: %s ' %
-                                (archive_path, str(e)))
-            logging.info(
-                'HOME: "%s"; USER: "%s"' %
-                (os.environ.get('HOME', ''), os.environ.get('USER', '')))
 
     # Map from the relative path (as it appears in the metadata file) of the
     # .wpr file to a list of page names it supports.
@@ -65,8 +54,6 @@ class PageSetArchiveInfo(object):
       with open(file_path, 'r') as f:
         data = json.load(f)
         return cls(file_path, data, ignore_archive=ignore_archive)
-    # TODO(tbarzic): Remove this once http://crbug.com/351143 is diagnosed.
-    logging.warning('Page set archives not found: %s' % file_path)
     return cls(file_path, {'archives': {}}, ignore_archive=ignore_archive)
 
   def WprFilePathForPage(self, page):
@@ -81,13 +68,20 @@ class PageSetArchiveInfo(object):
       return self._WprFileNameToPath(wpr_file)
     return None
 
-  def AddNewTemporaryRecording(self, temp_target_wpr_file_path):
-    self.temp_target_wpr_file_path = temp_target_wpr_file_path
+  def AddNewTemporaryRecording(self, temp_wpr_file_path=None):
+    if temp_wpr_file_path is None:
+      temp_wpr_file_handle, temp_wpr_file_path = tempfile.mkstemp()
+      os.close(temp_wpr_file_handle)
+    self.temp_target_wpr_file_path = temp_wpr_file_path
 
-  def AddRecordedPages(self, page_names):
+  def AddRecordedPages(self, pages):
+    if not pages:
+      os.remove(self.temp_target_wpr_file_path)
+      return
+
     (target_wpr_file, target_wpr_file_path) = self._NextWprFileName()
-    for page_name in page_names:
-      self._SetWprFileForPage(page_name, target_wpr_file)
+    for page in pages:
+      self._SetWprFileForPage(page.display_name, target_wpr_file)
     shutil.move(self.temp_target_wpr_file_path, target_wpr_file_path)
 
     # Update the hash file.

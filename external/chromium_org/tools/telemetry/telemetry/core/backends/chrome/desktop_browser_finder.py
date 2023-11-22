@@ -8,25 +8,12 @@ import os
 import subprocess
 import sys
 
+from telemetry.core import platform as platform_module
 from telemetry.core import browser
 from telemetry.core import possible_browser
-from telemetry.core import util
-from telemetry.core.backends.chrome import cros_interface
 from telemetry.core.backends.chrome import desktop_browser_backend
-from telemetry.core.platform import factory
+from telemetry.util import path
 
-ALL_BROWSER_TYPES = [
-    'exact',
-    'release',
-    'release_x64',
-    'debug',
-    'debug_x64',
-    'canary',
-    'content-shell-debug',
-    'content-shell-debug_x64',
-    'content-shell-release',
-    'content-shell-release_x64',
-    'system']
 
 class PossibleDesktopBrowser(possible_browser.PossibleBrowser):
   """A desktop browser that can be controlled."""
@@ -35,9 +22,10 @@ class PossibleDesktopBrowser(possible_browser.PossibleBrowser):
                is_content_shell, browser_directory, is_local_build=False):
     target_os = sys.platform.lower()
     super(PossibleDesktopBrowser, self).__init__(browser_type, target_os,
-        finder_options)
-    assert browser_type in ALL_BROWSER_TYPES, \
-        'Please add %s to ALL_BROWSER_TYPES' % browser_type
+        finder_options, not is_content_shell)
+    assert browser_type in FindAllBrowserTypes(finder_options), \
+        ('Please add %s to desktop_browser_finder.FindAllBrowserTypes' %
+          browser_type)
     self._local_executable = executable
     self._flash_path = flash_path
     self._is_content_shell = is_content_shell
@@ -45,12 +33,17 @@ class PossibleDesktopBrowser(possible_browser.PossibleBrowser):
     self.is_local_build = is_local_build
 
   def __repr__(self):
-    return 'PossibleDesktopBrowser(browser_type=%s, executable=%s)' % (
-        self.browser_type, self._local_executable)
+    return 'PossibleDesktopBrowser(type=%s, executable=%s, flash=%s)' % (
+        self.browser_type, self._local_executable, self._flash_path)
 
-  @property
-  def _platform_backend(self):
-    return factory.GetPlatformBackendForCurrentOS()
+  def _InitPlatformIfNeeded(self):
+    if self._platform:
+      return
+
+    self._platform = platform_module.GetHostPlatform()
+
+    # pylint: disable=W0212
+    self._platform_backend = self._platform._platform_backend
 
   def Create(self):
     if self._flash_path and not os.path.exists(self._flash_path):
@@ -60,12 +53,19 @@ class PossibleDesktopBrowser(possible_browser.PossibleBrowser):
           self._flash_path)
       self._flash_path = None
 
+    self._InitPlatformIfNeeded()
+
     backend = desktop_browser_backend.DesktopBrowserBackend(
         self.finder_options.browser_options, self._local_executable,
         self._flash_path, self._is_content_shell, self._browser_directory,
         output_profile_path=self.finder_options.output_profile_path,
         extensions_to_load=self.finder_options.extensions_to_load)
-    return browser.Browser(backend, self._platform_backend)
+    return browser.Browser(backend,
+                           self._platform_backend,
+                           self._archive_path,
+                           self._append_to_existing_wpr,
+                           self._make_javascript_deterministic,
+                           self._credentials_path)
 
   def SupportsOptions(self, finder_options):
     if (len(finder_options.extensions_to_load) != 0) and self._is_content_shell:
@@ -90,7 +90,22 @@ def SelectDefaultBrowser(possible_browsers):
   return None
 
 def CanFindAvailableBrowsers():
-  return not cros_interface.IsRunningOnCrosDevice()
+  return not platform_module.GetHostPlatform().GetOSName() == 'chromeos'
+
+def FindAllBrowserTypes(_):
+  return [
+      'exact',
+      'reference',
+      'release',
+      'release_x64',
+      'debug',
+      'debug_x64',
+      'canary',
+      'content-shell-debug',
+      'content-shell-debug_x64',
+      'content-shell-release',
+      'content-shell-release_x64',
+      'system']
 
 def FindAllAvailableBrowsers(finder_options):
   """Finds all the desktop browsers available on this machine."""
@@ -108,7 +123,7 @@ def FindAllAvailableBrowsers(finder_options):
   if finder_options.chrome_root:
     chrome_root = finder_options.chrome_root
   else:
-    chrome_root = util.GetChromiumSrcDir()
+    chrome_root = path.GetChromiumSrcDir()
 
   flash_bin_dir = os.path.join(
       chrome_root, 'third_party', 'adobe', 'flash', 'binaries', 'ppapi')
@@ -136,14 +151,11 @@ def FindAllAvailableBrowsers(finder_options):
   else:
     raise Exception('Platform not recognized')
 
-  def IsExecutable(path):
-    return os.path.isfile(path) and os.access(path, os.X_OK)
-
   # Add the explicit browser executable if given.
   if finder_options.browser_executable:
     normalized_executable = os.path.expanduser(
         finder_options.browser_executable)
-    if IsExecutable(normalized_executable):
+    if path.IsExecutable(normalized_executable):
       browser_directory = os.path.dirname(finder_options.browser_executable)
       browsers.append(PossibleDesktopBrowser('exact', finder_options,
                                              normalized_executable, flash_path,
@@ -155,7 +167,7 @@ def FindAllAvailableBrowsers(finder_options):
   def AddIfFound(browser_type, build_dir, type_dir, app_name, content_shell):
     browser_directory = os.path.join(chrome_root, build_dir, type_dir)
     app = os.path.join(browser_directory, app_name)
-    if IsExecutable(app):
+    if path.IsExecutable(app):
       is_64 = browser_type.endswith('_x64')
       browsers.append(PossibleDesktopBrowser(
           browser_type, finder_options, app,
@@ -165,12 +177,15 @@ def FindAllAvailableBrowsers(finder_options):
     return False
 
   # Add local builds
-  for build_dir, build_type in util.GetBuildDirectories():
+  for build_dir, build_type in path.GetBuildDirectories():
     for chromium_app_name in chromium_app_names:
       AddIfFound(build_type.lower(), build_dir, build_type,
                  chromium_app_name, False)
     AddIfFound('content-shell-' + build_type.lower(), build_dir, build_type,
                content_shell_app_name, True)
+
+  reference_build_root = os.path.join(
+     chrome_root, 'chrome', 'tools', 'test', 'reference_build')
 
   # Mac-specific options.
   if sys.platform == 'darwin':
@@ -178,15 +193,21 @@ def FindAllAvailableBrowsers(finder_options):
     mac_canary = mac_canary_root + 'Contents/MacOS/Google Chrome Canary'
     mac_system_root = '/Applications/Google Chrome.app'
     mac_system = mac_system_root + '/Contents/MacOS/Google Chrome'
-    if IsExecutable(mac_canary):
+    mac_reference_root = reference_build_root + '/chrome_mac/Google Chrome.app/'
+    mac_reference = mac_reference_root + 'Contents/MacOS/Google Chrome'
+    if path.IsExecutable(mac_canary):
       browsers.append(PossibleDesktopBrowser('canary', finder_options,
                                              mac_canary, None, False,
                                              mac_canary_root))
 
-    if IsExecutable(mac_system):
+    if path.IsExecutable(mac_system):
       browsers.append(PossibleDesktopBrowser('system', finder_options,
                                              mac_system, None, False,
                                              mac_system_root))
+    if path.IsExecutable(mac_reference):
+      browsers.append(PossibleDesktopBrowser('reference', finder_options,
+                                             mac_reference, None, False,
+                                             mac_reference_root))
 
   # Linux specific options.
   if sys.platform.startswith('linux'):
@@ -202,38 +223,29 @@ def FindAllAvailableBrowsers(finder_options):
       browsers.append(PossibleDesktopBrowser('system', finder_options,
                                              'google-chrome', None, False,
                                              '/opt/google/chrome'))
+    linux_reference_root = os.path.join(reference_build_root, 'chrome_linux')
+    linux_reference = os.path.join(linux_reference_root, 'chrome')
+    if path.IsExecutable(linux_reference):
+      browsers.append(PossibleDesktopBrowser('reference', finder_options,
+                                             linux_reference, None, False,
+                                             linux_reference_root))
 
   # Win32-specific options.
   if sys.platform.startswith('win'):
-    system_path = os.path.join('Google', 'Chrome', 'Application')
-    canary_path = os.path.join('Google', 'Chrome SxS', 'Application')
+    app_paths = (
+        ('system', os.path.join('Google', 'Chrome', 'Application')),
+        ('canary', os.path.join('Google', 'Chrome SxS', 'Application')),
+        ('reference', os.path.join(reference_build_root, 'chrome_win')),
+    )
 
-    win_search_paths = [os.getenv('PROGRAMFILES(X86)'),
-                        os.getenv('PROGRAMFILES'),
-                        os.getenv('LOCALAPPDATA')]
-
-    def AddIfFoundWin(browser_name, search_path, app_path):
-      browser_directory = os.path.join(search_path, app_path)
+    for browser_name, app_path in app_paths:
       for chromium_app_name in chromium_app_names:
-        app = os.path.join(browser_directory, chromium_app_name)
-        if IsExecutable(app):
-          browsers.append(PossibleDesktopBrowser(browser_name, finder_options,
-                                                 app, None, False,
-                                                 browser_directory))
-          return True
-      return False
-
-    for path in win_search_paths:
-      if not path:
-        continue
-      if AddIfFoundWin('canary', path, canary_path):
-        break
-
-    for path in win_search_paths:
-      if not path:
-        continue
-      if AddIfFoundWin('system', path, system_path):
-        break
+        app_path = os.path.join(app_path, chromium_app_name)
+        app_path = path.FindInstalledWindowsApplication(app_path)
+        if app_path:
+          browsers.append(PossibleDesktopBrowser(
+              browser_name, finder_options, app_path,
+              None, False, os.path.dirname(app_path)))
 
   if len(browsers) and not has_display:
     logging.warning(

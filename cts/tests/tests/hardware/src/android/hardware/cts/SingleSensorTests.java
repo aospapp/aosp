@@ -105,7 +105,7 @@ public class SingleSensorTests extends SensorTestCase {
      */
     public void testSensorProperties() {
         // sensor type: [getMinDelay()]
-        Map<Integer, Object[]> expectedProperties = new HashMap<Integer, Object[]>(3);
+        Map<Integer, Object[]> expectedProperties = new HashMap<>(3);
         expectedProperties.put(Sensor.TYPE_ACCELEROMETER, new Object[]{10000});
         expectedProperties.put(Sensor.TYPE_GYROSCOPE, new Object[]{10000});
         expectedProperties.put(Sensor.TYPE_MAGNETIC_FIELD, new Object[]{100000});
@@ -541,25 +541,21 @@ public class SingleSensorTests extends SensorTestCase {
                 sensorType,
                 shouldEmulateSensorUnderLoad(),
                 rateUs);
-        TestSensorOperation op = new TestSensorOperation(environment, 5, TimeUnit.SECONDS);
+        TestSensorOperation op =
+                TestSensorOperation.createOperation(environment, 5, TimeUnit.SECONDS);
         op.addDefaultVerifications();
-        op.setLogEvents(true);
-        try {
-            op.execute();
-        } finally {
-            SensorStats.logStats(TAG, op.getStats());
 
-            String sensorRate;
-            if (rateUs == SensorManager.SENSOR_DELAY_FASTEST) {
-                sensorRate = "fastest";
-            } else {
-                sensorRate = String.format("%.0fhz", environment.getFrequencyHz());
-            }
+        try {
+            op.execute(getCurrentTestNode());
+        } finally {
+            SensorStats stats = op.getStats();
+            stats.log(TAG);
+
             String fileName = String.format(
                     "single_%s_%s.txt",
                     SensorStats.getSanitizedSensorName(environment.getSensor()),
-                    sensorRate);
-            SensorStats.logStatsToFile(fileName, op.getStats());
+                    environment.getFrequencyString());
+            stats.logToFile(fileName);
         }
     }
 }

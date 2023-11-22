@@ -4,28 +4,23 @@
 
 #include "chrome/browser/extensions/tab_helper.h"
 
-#include "base/command_line.h"
 #include "base/logging.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/extensions/active_script_controller.h"
 #include "chrome/browser/extensions/activity_log/activity_log.h"
-#include "chrome/browser/extensions/api/declarative/rules_registry_service.h"
-#include "chrome/browser/extensions/api/declarative_content/content_rules_registry.h"
+#include "chrome/browser/extensions/api/declarative_content/chrome_content_rules_registry.h"
+#include "chrome/browser/extensions/api/extension_action/extension_action_api.h"
 #include "chrome/browser/extensions/api/webstore/webstore_api.h"
 #include "chrome/browser/extensions/bookmark_app_helper.h"
 #include "chrome/browser/extensions/error_console/error_console.h"
-#include "chrome/browser/extensions/extension_action.h"
-#include "chrome/browser/extensions/extension_action_manager.h"
-#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
+#include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/location_bar_controller.h"
-#include "chrome/browser/extensions/script_executor.h"
 #include "chrome/browser/extensions/webstore_inline_installer.h"
 #include "chrome/browser/extensions/webstore_inline_installer_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/sessions/session_id.h"
 #include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/shell_integration.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -34,7 +29,6 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/host_desktop.h"
 #include "chrome/browser/web_applications/web_app.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/chrome_extension_messages.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
@@ -49,9 +43,9 @@
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
-#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/frame_navigate_params.h"
+#include "extensions/browser/api/declarative/rules_registry_service.h"
 #include "extensions/browser/extension_error.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
@@ -82,32 +76,21 @@ DEFINE_WEB_CONTENTS_USER_DATA_KEY(extensions::TabHelper);
 
 namespace extensions {
 
-TabHelper::ScriptExecutionObserver::ScriptExecutionObserver(
-    TabHelper* tab_helper)
-    : tab_helper_(tab_helper) {
-  tab_helper_->AddScriptExecutionObserver(this);
-}
-
-TabHelper::ScriptExecutionObserver::ScriptExecutionObserver()
-    : tab_helper_(NULL) {
-}
-
-TabHelper::ScriptExecutionObserver::~ScriptExecutionObserver() {
-  if (tab_helper_)
-    tab_helper_->RemoveScriptExecutionObserver(this);
-}
-
 TabHelper::TabHelper(content::WebContents* web_contents)
     : content::WebContentsObserver(web_contents),
       extension_app_(NULL),
       extension_function_dispatcher_(
-          Profile::FromBrowserContext(web_contents->GetBrowserContext()), this),
+          Profile::FromBrowserContext(web_contents->GetBrowserContext()),
+          this),
       pending_web_app_action_(NONE),
-      script_executor_(new ScriptExecutor(web_contents,
-                                          &script_execution_observers_)),
+      last_committed_page_id_(-1),
+      update_shortcut_on_load_complete_(false),
+      script_executor_(
+          new ScriptExecutor(web_contents, &script_execution_observers_)),
       location_bar_controller_(new LocationBarController(web_contents)),
-      image_loader_ptr_factory_(this),
-      webstore_inline_installer_factory_(new WebstoreInlineInstallerFactory()) {
+      active_script_controller_(new ActiveScriptController(web_contents)),
+      webstore_inline_installer_factory_(new WebstoreInlineInstallerFactory()),
+      image_loader_ptr_factory_(this) {
   // The ActiveTabPermissionManager requires a session ID; ensure this
   // WebContents has one.
   SessionTabHelper::CreateForWebContents(web_contents);
@@ -115,16 +98,14 @@ TabHelper::TabHelper(content::WebContents* web_contents)
     SetTabId(web_contents->GetRenderViewHost());
   active_tab_permission_granter_.reset(new ActiveTabPermissionGranter(
       web_contents,
-      SessionID::IdForTab(web_contents),
+      SessionTabHelper::IdForTab(web_contents),
       Profile::FromBrowserContext(web_contents->GetBrowserContext())));
 
   // If more classes need to listen to global content script activity, then
   // a separate routing class with an observer interface should be written.
   profile_ = Profile::FromBrowserContext(web_contents->GetBrowserContext());
 
-#if defined(ENABLE_EXTENSIONS)
   AddScriptExecutionObserver(ActivityLog::GetInstance(profile_));
-#endif
 
   registrar_.Add(this,
                  content::NOTIFICATION_LOAD_STOP,
@@ -133,37 +114,21 @@ TabHelper::TabHelper(content::WebContents* web_contents)
 }
 
 TabHelper::~TabHelper() {
-#if defined(ENABLE_EXTENSIONS)
   RemoveScriptExecutionObserver(ActivityLog::GetInstance(profile_));
-#endif
 }
 
 void TabHelper::CreateApplicationShortcuts() {
   DCHECK(CanCreateApplicationShortcuts());
-  NavigationEntry* entry =
-      web_contents()->GetController().GetLastCommittedEntry();
-  if (!entry)
-    return;
-
-  pending_web_app_action_ = CREATE_SHORTCUT;
-
   // Start fetching web app info for CreateApplicationShortcut dialog and show
   // the dialog when the data is available in OnDidGetApplicationInfo.
-  GetApplicationInfo(entry->GetPageID());
+  GetApplicationInfo(CREATE_SHORTCUT);
 }
 
 void TabHelper::CreateHostedAppFromWebContents() {
   DCHECK(CanCreateBookmarkApp());
-  NavigationEntry* entry =
-      web_contents()->GetController().GetLastCommittedEntry();
-  if (!entry)
-    return;
-
-  pending_web_app_action_ = CREATE_HOSTED_APP;
-
   // Start fetching web app info for CreateApplicationShortcut dialog and show
   // the dialog when the data is available in OnDidGetApplicationInfo.
-  GetApplicationInfo(entry->GetPageID());
+  GetApplicationInfo(CREATE_HOSTED_APP);
 }
 
 bool TabHelper::CanCreateApplicationShortcuts() const {
@@ -182,6 +147,15 @@ bool TabHelper::CanCreateBookmarkApp() const {
   return IsValidBookmarkAppUrl(web_contents()->GetURL()) &&
          pending_web_app_action_ == NONE;
 #endif
+}
+
+void TabHelper::AddScriptExecutionObserver(ScriptExecutionObserver* observer) {
+  script_execution_observers_.AddObserver(observer);
+}
+
+void TabHelper::RemoveScriptExecutionObserver(
+    ScriptExecutionObserver* observer) {
+  script_execution_observers_.RemoveObserver(observer);
 }
 
 void TabHelper::SetExtensionApp(const Extension* extension) {
@@ -219,7 +193,7 @@ SkBitmap* TabHelper::GetExtensionAppIcon() {
 }
 
 void TabHelper::FinishCreateBookmarkApp(
-    const extensions::Extension* extension,
+    const Extension* extension,
     const WebApplicationInfo& web_app_info) {
   pending_web_app_action_ = NONE;
 
@@ -231,13 +205,10 @@ void TabHelper::FinishCreateBookmarkApp(
   ChromeLauncherController::instance()->PinAppWithID(extension->id());
 #endif
 
-// Android does not implement browser_finder.cc.
-#if !defined(OS_ANDROID)
   Browser* browser = chrome::FindBrowserWithWebContents(web_contents());
   if (browser) {
     browser->window()->ShowBookmarkAppBubble(web_app_info, extension->id());
   }
-#endif
 }
 
 void TabHelper::RenderViewCreated(RenderViewHost* render_view_host) {
@@ -247,21 +218,17 @@ void TabHelper::RenderViewCreated(RenderViewHost* render_view_host) {
 void TabHelper::DidNavigateMainFrame(
     const content::LoadCommittedDetails& details,
     const content::FrameNavigateParams& params) {
-#if defined(ENABLE_EXTENSIONS)
   if (ExtensionSystem::Get(profile_)->extension_service() &&
       RulesRegistryService::Get(profile_)) {
     RulesRegistryService::Get(profile_)->content_rules_registry()->
         DidNavigateMainFrame(web_contents(), details, params);
   }
-#endif  // defined(ENABLE_EXTENSIONS)
 
   content::BrowserContext* context = web_contents()->GetBrowserContext();
   ExtensionRegistry* registry = ExtensionRegistry::Get(context);
   const ExtensionSet& enabled_extensions = registry->enabled_extensions();
 
-  if (CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableStreamlinedHostedApps)) {
-#if !defined(OS_ANDROID)
+  if (util::IsStreamlinedHostedAppsEnabled()) {
     Browser* browser = chrome::FindBrowserWithWebContents(web_contents());
     if (browser && browser->is_app()) {
       SetExtensionApp(registry->GetExtensionById(
@@ -271,37 +238,20 @@ void TabHelper::DidNavigateMainFrame(
       UpdateExtensionAppIcon(
           enabled_extensions.GetExtensionOrAppByURL(params.url));
     }
-#endif
   } else {
     UpdateExtensionAppIcon(
         enabled_extensions.GetExtensionOrAppByURL(params.url));
   }
 
-  if (details.is_in_page)
-    return;
-
-  ExtensionActionManager* extension_action_manager =
-      ExtensionActionManager::Get(Profile::FromBrowserContext(context));
-  for (ExtensionSet::const_iterator it = enabled_extensions.begin();
-       it != enabled_extensions.end();
-       ++it) {
-    ExtensionAction* browser_action =
-        extension_action_manager->GetBrowserAction(*it->get());
-    if (browser_action) {
-      browser_action->ClearAllValuesForTab(SessionID::IdForTab(web_contents()));
-      content::NotificationService::current()->Notify(
-          chrome::NOTIFICATION_EXTENSION_BROWSER_ACTION_UPDATED,
-          content::Source<ExtensionAction>(browser_action),
-          content::NotificationService::NoDetails());
-    }
-  }
+  if (!details.is_in_page)
+    ExtensionActionAPI::Get(context)->ClearAllValuesForTab(web_contents());
 }
 
 bool TabHelper::OnMessageReceived(const IPC::Message& message) {
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(TabHelper, message)
-    IPC_MESSAGE_HANDLER(ChromeExtensionHostMsg_DidGetApplicationInfo,
-                        OnDidGetApplicationInfo)
+    IPC_MESSAGE_HANDLER(ChromeViewHostMsg_DidGetWebApplicationInfo,
+                        OnDidGetWebApplicationInfo)
     IPC_MESSAGE_HANDLER(ExtensionHostMsg_InlineWebstoreInstall,
                         OnInlineWebstoreInstall)
     IPC_MESSAGE_HANDLER(ExtensionHostMsg_GetAppInstallState,
@@ -318,16 +268,12 @@ bool TabHelper::OnMessageReceived(const IPC::Message& message) {
 
 bool TabHelper::OnMessageReceived(const IPC::Message& message,
                                   content::RenderFrameHost* render_frame_host) {
-#if defined(ENABLE_EXTENSIONS)
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(TabHelper, message)
-    IPC_MESSAGE_HANDLER(ChromeViewHostMsg_DetailedConsoleMessageAdded,
+    IPC_MESSAGE_HANDLER(ExtensionHostMsg_DetailedConsoleMessageAdded,
                         OnDetailedConsoleMessageAdded)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
-#else
-  bool handled = false;
-#endif
   return handled;
 }
 
@@ -342,16 +288,15 @@ void TabHelper::DidCloneToNewWebContents(WebContents* old_web_contents,
   new_helper->extension_app_icon_ = extension_app_icon_;
 }
 
-void TabHelper::OnDidGetApplicationInfo(int32 page_id,
-                                        const WebApplicationInfo& info) {
-  // Android does not implement BrowserWindow.
-#if !defined(OS_MACOSX) && !defined(OS_ANDROID)
+void TabHelper::OnDidGetWebApplicationInfo(const WebApplicationInfo& info) {
+#if !defined(OS_MACOSX)
   web_app_info_ = info;
 
   NavigationEntry* entry =
       web_contents()->GetController().GetLastCommittedEntry();
-  if (!entry || (entry->GetPageID() != page_id))
+  if (!entry || last_committed_page_id_ != entry->GetPageID())
     return;
+  last_committed_page_id_ = -1;
 
   switch (pending_web_app_action_) {
     case CREATE_SHORTCUT: {
@@ -370,7 +315,8 @@ void TabHelper::OnDidGetApplicationInfo(int32 page_id,
         web_app_info_.title = base::UTF8ToUTF16(web_app_info_.app_url.spec());
 
       bookmark_app_helper_.reset(new BookmarkAppHelper(
-          profile_->GetExtensionService(), web_app_info_, web_contents()));
+          ExtensionSystem::Get(profile_)->extension_service(),
+          web_app_info_, web_contents()));
       bookmark_app_helper_->Create(base::Bind(
           &TabHelper::FinishCreateBookmarkApp, base::Unretained(this)));
       break;
@@ -396,7 +342,6 @@ void TabHelper::OnInlineWebstoreInstall(int install_id,
                                         const std::string& webstore_item_id,
                                         const GURL& requestor_url,
                                         int listeners_mask) {
-#if defined(ENABLE_EXTENSIONS)
   // Check that the listener is reasonable. We should never get anything other
   // than an install stage listener, a download listener, or both.
   if ((listeners_mask & ~(api::webstore::INSTALL_STAGE_LISTENER |
@@ -410,11 +355,12 @@ void TabHelper::OnInlineWebstoreInstall(int install_id,
       Profile::FromBrowserContext(web_contents()->GetBrowserContext());
   WebstoreAPI::Get(profile)->OnInlineInstallStart(
       return_route_id, this, webstore_item_id, listeners_mask);
-#endif
 
   WebstoreStandaloneInstaller::Callback callback =
-      base::Bind(&TabHelper::OnInlineInstallComplete, base::Unretained(this),
-                 install_id, return_route_id);
+      base::Bind(&TabHelper::OnInlineInstallComplete,
+                 base::Unretained(this),
+                 install_id,
+                 return_route_id);
   scoped_refptr<WebstoreInlineInstaller> installer(
       webstore_inline_installer_factory_->CreateInstaller(
           web_contents(),
@@ -451,24 +397,20 @@ void TabHelper::OnRequest(const ExtensionHostMsg_Request_Params& request) {
 
 void TabHelper::OnContentScriptsExecuting(
     const ScriptExecutionObserver::ExecutingScriptsMap& executing_scripts_map,
-    int32 on_page_id,
     const GURL& on_url) {
-  FOR_EACH_OBSERVER(ScriptExecutionObserver, script_execution_observers_,
-                    OnScriptsExecuted(web_contents(),
-                                      executing_scripts_map,
-                                      on_page_id,
-                                      on_url));
+  FOR_EACH_OBSERVER(
+      ScriptExecutionObserver,
+      script_execution_observers_,
+      OnScriptsExecuted(web_contents(), executing_scripts_map, on_url));
 }
 
 void TabHelper::OnWatchedPageChange(
     const std::vector<std::string>& css_selectors) {
-#if defined(ENABLE_EXTENSIONS)
   if (ExtensionSystem::Get(profile_)->extension_service() &&
       RulesRegistryService::Get(profile_)) {
     RulesRegistryService::Get(profile_)->content_rules_registry()->Apply(
         web_contents(), css_selectors);
   }
-#endif  // defined(ENABLE_EXTENSIONS)
 }
 
 void TabHelper::OnDetailedConsoleMessageAdded(
@@ -476,7 +418,6 @@ void TabHelper::OnDetailedConsoleMessageAdded(
     const base::string16& source,
     const StackTrace& stack_trace,
     int32 severity_level) {
-#if defined(ENABLE_EXTENSIONS)
   if (IsSourceFromAnExtension(source)) {
     content::RenderViewHost* rvh = web_contents()->GetRenderViewHost();
     ErrorConsole::Get(profile_)->ReportError(
@@ -492,22 +433,15 @@ void TabHelper::OnDetailedConsoleMessageAdded(
             rvh->GetRoutingID(),
             rvh->GetProcess()->GetID())));
   }
-#endif
 }
 
 const Extension* TabHelper::GetExtension(const std::string& extension_app_id) {
   if (extension_app_id.empty())
     return NULL;
 
-  Profile* profile =
-      Profile::FromBrowserContext(web_contents()->GetBrowserContext());
-  ExtensionService* extension_service = profile->GetExtensionService();
-  if (!extension_service || !extension_service->is_ready())
-    return NULL;
-
-  const Extension* extension =
-      extension_service->GetExtensionById(extension_app_id, false);
-  return extension;
+  content::BrowserContext* context = web_contents()->GetBrowserContext();
+  return ExtensionRegistry::Get(context)->enabled_extensions().GetByID(
+      extension_app_id);
 }
 
 void TabHelper::UpdateExtensionAppIcon(const Extension* extension) {
@@ -519,7 +453,7 @@ void TabHelper::UpdateExtensionAppIcon(const Extension* extension) {
   if (extension) {
     Profile* profile =
         Profile::FromBrowserContext(web_contents()->GetBrowserContext());
-    extensions::ImageLoader* loader = extensions::ImageLoader::Get(profile);
+    ImageLoader* loader = ImageLoader::Get(profile);
     loader->LoadImageAsync(
         extension,
         IconsInfo::GetIconResource(extension,
@@ -556,48 +490,55 @@ WindowController* TabHelper::GetExtensionWindowController() const  {
 void TabHelper::OnInlineInstallComplete(int install_id,
                                         int return_route_id,
                                         bool success,
-                                        const std::string& error) {
+                                        const std::string& error,
+                                        webstore_install::Result result) {
   Send(new ExtensionMsg_InlineWebstoreInstallResponse(
-      return_route_id, install_id, success, success ? std::string() : error));
+      return_route_id,
+      install_id,
+      success,
+      success ? std::string() : error,
+      result));
 }
 
 WebContents* TabHelper::GetAssociatedWebContents() const {
   return web_contents();
 }
 
-void TabHelper::GetApplicationInfo(int32 page_id) {
-  Send(new ChromeExtensionMsg_GetApplicationInfo(routing_id(), page_id));
+void TabHelper::GetApplicationInfo(WebAppAction action) {
+  NavigationEntry* entry =
+      web_contents()->GetController().GetLastCommittedEntry();
+  if (!entry)
+    return;
+
+  pending_web_app_action_ = action;
+  last_committed_page_id_ = entry->GetPageID();
+
+  Send(new ChromeViewMsg_GetWebApplicationInfo(routing_id()));
 }
 
 void TabHelper::Observe(int type,
                         const content::NotificationSource& source,
                         const content::NotificationDetails& details) {
-  switch (type) {
-    case content::NOTIFICATION_LOAD_STOP: {
-      const NavigationController& controller =
-          *content::Source<NavigationController>(source).ptr();
-      DCHECK_EQ(controller.GetWebContents(), web_contents());
+  DCHECK_EQ(content::NOTIFICATION_LOAD_STOP, type);
+  const NavigationController& controller =
+      *content::Source<NavigationController>(source).ptr();
+  DCHECK_EQ(controller.GetWebContents(), web_contents());
 
-      if (pending_web_app_action_ == UPDATE_SHORTCUT) {
-        // Schedule a shortcut update when web application info is available if
-        // last committed entry is not NULL. Last committed entry could be NULL
-        // when an interstitial page is injected (e.g. bad https certificate,
-        // malware site etc). When this happens, we abort the shortcut update.
-        NavigationEntry* entry = controller.GetLastCommittedEntry();
-        if (entry)
-          GetApplicationInfo(entry->GetPageID());
-        else
-          pending_web_app_action_ = NONE;
-      }
-      break;
-    }
+  if (update_shortcut_on_load_complete_) {
+    update_shortcut_on_load_complete_ = false;
+    // Schedule a shortcut update when web application info is available if
+    // last committed entry is not NULL. Last committed entry could be NULL
+    // when an interstitial page is injected (e.g. bad https certificate,
+    // malware site etc). When this happens, we abort the shortcut update.
+    if (controller.GetLastCommittedEntry())
+      GetApplicationInfo(UPDATE_SHORTCUT);
   }
 }
 
 void TabHelper::SetTabId(RenderViewHost* render_view_host) {
   render_view_host->Send(
       new ExtensionMsg_SetTabId(render_view_host->GetRoutingID(),
-                                SessionID::IdForTab(web_contents())));
+                                SessionTabHelper::IdForTab(web_contents())));
 }
 
 }  // namespace extensions

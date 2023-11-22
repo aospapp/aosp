@@ -10,11 +10,11 @@
 #include "base/strings/string16.h"
 #include "chrome/browser/task_manager/resource_provider.h"
 #include "chrome/browser/task_manager/task_manager.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/nacl/common/nacl_process_type.h"
 #include "content/public/browser/browser_child_process_host_iterator.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/child_process_data.h"
-#include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -193,10 +193,6 @@ base::string16 ChildProcessResource::GetLocalizedTitle() const {
     case content::PROCESS_TYPE_MAX:
       NOTREACHED();
       break;
-
-    case content::PROCESS_TYPE_WORKER:
-      NOTREACHED() << "Workers are not handled by this provider.";
-      break;
     case content::PROCESS_TYPE_UNKNOWN:
       NOTREACHED() << "Need localized name for child process type.";
   }
@@ -259,9 +255,6 @@ void ChildProcessResourceProvider::BrowserChildProcessHostConnected(
     const content::ChildProcessData& data) {
   DCHECK(updating_);
 
-  // Workers are handled by WorkerResourceProvider.
-  if (data.process_type == content::PROCESS_TYPE_WORKER)
-    return;
   if (resources_.count(data.handle)) {
     // The case may happen that we have added a child_process_info as part of
     // the iteration performed during StartUpdating() call but the notification
@@ -277,8 +270,6 @@ void ChildProcessResourceProvider::
         const content::ChildProcessData& data) {
   DCHECK(updating_);
 
-  if (data.process_type == content::PROCESS_TYPE_WORKER)
-    return;
   ChildProcessMap::iterator iter = resources_.find(data.handle);
   if (iter == resources_.end()) {
     // ChildProcessData disconnection notifications are asynchronous, so we
@@ -321,8 +312,6 @@ void ChildProcessResourceProvider::RetrieveChildProcessData() {
   for (BrowserChildProcessHostIterator iter; !iter.Done(); ++iter) {
     // Only add processes which are already started, since we need their handle.
     if (iter.GetData().handle == base::kNullProcessHandle)
-      continue;
-    if (iter.GetData().process_type == content::PROCESS_TYPE_WORKER)
       continue;
     child_processes.push_back(iter.GetData());
   }

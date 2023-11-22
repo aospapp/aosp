@@ -148,12 +148,49 @@
         <attr name="closed_captioning" format="reference"/>
     </declare-styleable>
 
+    <declare-styleable name="lbSlide">
+        <!-- A duplication of Slide attribute slideEdge for KitKat -->
+        <attr name="lb_slideEdge">
+            <!-- Slide to and from the left edge of the Scene. -->
+            <enum name="left" value="0x03" />
+            <!-- Slide to and from the top edge of the Scene. -->
+            <enum name="top" value="0x30" />
+            <!-- Slide to and from the right edge of the Scene. -->
+            <enum name="right" value="0x05" />
+            <!-- Slide to and from the bottom edge of the Scene. -->
+            <enum name="bottom" value="0x50" />
+            <!-- Slide to and from the x-axis position at the start of the Scene root. -->
+            <enum name="start" value="0x00800003"/>
+            <!-- Slide to and from the x-axis position at the end of the Scene root. -->
+            <enum name="end" value="0x00800005"/>
+        </attr>
+        <attr name="android:duration" />
+        <attr name="android:startDelay" />
+        <attr name="android:interpolator" />
+    </declare-styleable>
+
+    <declare-styleable name="lbResizingTextView">
+        <!-- Conditions used to trigger text resizing -->
+        <attr name="resizeTrigger">
+            <!-- Resize text whenever it lays out into the maximum number of lines -->
+            <flag name="maxLines" value="0x01" />
+        </attr>
+        <!-- Text size for resized text -->
+        <attr name="resizedTextSize" format="dimension" />
+        <!-- Whether to maintain the same line spacing when text is resized, default is false -->
+        <attr name="maintainLineSpacing" format="boolean" />
+        <!-- Adjustment to top padding for resized text -->
+        <attr name="resizedPaddingAdjustmentTop" format="dimension" />
+        <!-- Adjustment to bottom padding for resized text -->
+        <attr name="resizedPaddingAdjustmentBottom" format="dimension" />
+    </declare-styleable>
+
     <declare-styleable name="LeanbackTheme">
 
-        <!-- left padding of BrowseFragment, RowsFragment, DetailsFragment -->
-        <attr name="browsePaddingLeft" format="dimension" />
-        <!-- right padding of BrowseFragment, RowsFragment, DetailsFragment -->
-        <attr name="browsePaddingRight" format="dimension" />
+        <!-- start padding of BrowseFragment, RowsFragment, DetailsFragment -->
+        <attr name="browsePaddingStart" format="dimension" />
+        <!-- end padding of BrowseFragment, RowsFragment, DetailsFragment -->
+        <attr name="browsePaddingEnd" format="dimension" />
         <!-- top padding of BrowseFragment -->
         <attr name="browsePaddingTop" format="dimension" />
         <!-- bottom padding of BrowseFragment -->
@@ -204,6 +241,7 @@
 
         <!-- for playback controls -->
         <attr name="playbackControlsButtonStyle" format="reference" />
+        <attr name="playbackControlButtonLabelStyle" format="reference" />
         <attr name="playbackControlsTimeStyle" format="reference" />
 
         <!-- style for a vertical grid of items -->

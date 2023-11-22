@@ -67,8 +67,7 @@ class PermissionBubbleManager
   // WebContentsObserver:
   virtual void DocumentOnLoadCompletedInMainFrame() OVERRIDE;
   virtual void DocumentLoadedInFrame(
-      int64 frame_id,
-      content::RenderViewHost* render_view_host) OVERRIDE;
+      content::RenderFrameHost* render_frame_host) OVERRIDE;
 
   // If a page on which permissions requests are pending is navigated,
   // they will be finalized as if canceled by the user.
@@ -96,7 +95,7 @@ class PermissionBubbleManager
   // Cancel any pending requests. This is called if the WebContents
   // on which permissions calls are pending is destroyed or navigated away
   // from the requesting page.
-  void CancelPendingQueue();
+  void CancelPendingQueues();
 
   // Returns whether or not |request| has already been added to |queue|.
   // |same_object| must be non-null.  It will be set to true if |request|

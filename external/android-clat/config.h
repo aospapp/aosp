@@ -19,22 +19,21 @@
 #define __CONFIG_H__
 
 #include <netinet/in.h>
-#include <sys/system_properties.h>
 
-#define DEFAULT_IPV4_LOCAL_SUBNET "192.168.255.1"
-#define DEFAULT_IPV6_LOCAL_ADDRESS "fe80::c000:0004"
-
-#define DEFAULT_DNS64_DETECTION_HOSTNAME "ipv4.google.com"
+#define DEFAULT_IPV4_LOCAL_SUBNET "192.0.0.4"
+#define DEFAULT_IPV4_LOCAL_PREFIXLEN "29"
+#define DEFAULT_DNS64_DETECTION_HOSTNAME "ipv4only.arpa"
 
 struct clat_config {
   int16_t mtu, ipv4mtu;
-  struct in6_addr ipv6_local_address;
   struct in6_addr ipv6_local_subnet;
   struct in6_addr ipv6_host_id;
   struct in_addr ipv4_local_subnet;
+  int16_t ipv4_local_prefixlen;
   struct in6_addr plat_subnet;
-  char default_pdp_interface[PROP_VALUE_MAX];
+  char *default_pdp_interface;
   char *plat_from_dns64_hostname;
+  int use_dynamic_iid;
 };
 
 extern struct clat_config Global_Clatd_Config;
@@ -42,5 +41,9 @@ extern struct clat_config Global_Clatd_Config;
 int read_config(const char *file, const char *uplink_interface, const char *plat_prefix,
         unsigned net_id);
 void config_generate_local_ipv6_subnet(struct in6_addr *interface_ip);
+in_addr_t config_select_ipv4_address(const struct in_addr *ip, int16_t prefixlen);
+int ipv6_prefix_equal(struct in6_addr *a1, struct in6_addr *a2);
+
+typedef int (*addr_free_func)(in_addr_t addr);
 
 #endif /* __CONFIG_H__ */

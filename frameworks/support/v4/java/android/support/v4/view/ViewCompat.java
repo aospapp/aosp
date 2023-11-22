@@ -23,6 +23,7 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.support.annotation.IdRes;
 import android.support.annotation.IntDef;
+import android.support.annotation.Nullable;
 import android.support.v4.view.accessibility.AccessibilityNodeInfoCompat;
 import android.support.v4.view.accessibility.AccessibilityNodeProviderCompat;
 import android.util.Log;
@@ -261,7 +262,7 @@ public class ViewCompat {
         public void onInitializeAccessibilityEvent(View v, AccessibilityEvent event);
         public void onPopulateAccessibilityEvent(View v, AccessibilityEvent event);
         public void onInitializeAccessibilityNodeInfo(View v, AccessibilityNodeInfoCompat info);
-        public void setAccessibilityDelegate(View v, AccessibilityDelegateCompat delegate);
+        public void setAccessibilityDelegate(View v, @Nullable AccessibilityDelegateCompat delegate);
         public boolean hasAccessibilityDelegate(View v);
         public boolean hasTransientState(View view);
         public void setHasTransientState(View view, boolean hasTransientState);
@@ -271,6 +272,7 @@ public class ViewCompat {
         public void postOnAnimationDelayed(View view, Runnable action, long delayMillis);
         public int getImportantForAccessibility(View view);
         public void setImportantForAccessibility(View view, int mode);
+        public boolean isImportantForAccessibility(View view);
         public boolean performAccessibilityAction(View view, int action, Bundle arguments);
         public AccessibilityNodeProviderCompat getAccessibilityNodeProvider(View view);
         public float getAlpha(View view);
@@ -330,8 +332,11 @@ public class ViewCompat {
         public void requestApplyInsets(View view);
         public void setChildrenDrawingOrderEnabled(ViewGroup viewGroup, boolean enabled);
         public boolean getFitsSystemWindows(View view);
+        void setFitsSystemWindows(View view, boolean fitSystemWindows);
         void jumpDrawablesToCurrentState(View v);
         void setOnApplyWindowInsetsListener(View view, OnApplyWindowInsetsListener listener);
+        void setSaveFromParentEnabled(View view, boolean enabled);
+        void setActivated(View view, boolean activated);
     }
 
     static class BaseViewCompatImpl implements ViewCompatImpl {
@@ -398,6 +403,9 @@ public class ViewCompat {
         }
         public void setImportantForAccessibility(View view, int mode) {
 
+        }
+        public boolean isImportantForAccessibility(View view) {
+            return true;
         }
         public boolean performAccessibilityAction(View view, int action, Bundle arguments) {
             return false;
@@ -715,6 +723,11 @@ public class ViewCompat {
         }
 
         @Override
+        public void setFitsSystemWindows(View view, boolean fitSystemWindows) {
+            // noop
+        }
+
+        @Override
         public void jumpDrawablesToCurrentState(View view) {
             // Do nothing; API didn't exist.
         }
@@ -722,6 +735,16 @@ public class ViewCompat {
         @Override
         public void setOnApplyWindowInsetsListener(View view,
                 OnApplyWindowInsetsListener listener) {
+            // noop
+        }
+
+        @Override
+        public void setSaveFromParentEnabled(View v, boolean enabled) {
+            // noop
+        }
+
+        @Override
+        public void setActivated(View view, boolean activated) {
             // noop
         }
     }
@@ -893,6 +916,16 @@ public class ViewCompat {
         public void jumpDrawablesToCurrentState(View view) {
             ViewCompatHC.jumpDrawablesToCurrentState(view);
         }
+
+        @Override
+        public void setSaveFromParentEnabled(View view, boolean enabled) {
+            ViewCompatHC.setSaveFromParentEnabled(view, enabled);
+        }
+
+        @Override
+        public void setActivated(View view, boolean activated) {
+            ViewCompatHC.setActivated(view, activated);
+        }
     }
 
     static class ICSViewCompatImpl extends HCViewCompatImpl {
@@ -919,8 +952,10 @@ public class ViewCompat {
             ViewCompatICS.onInitializeAccessibilityNodeInfo(v, info.getInfo());
         }
         @Override
-        public void setAccessibilityDelegate(View v, AccessibilityDelegateCompat delegate) {
-            ViewCompatICS.setAccessibilityDelegate(v, delegate.getBridge());
+        public void setAccessibilityDelegate(View v,
+                @Nullable AccessibilityDelegateCompat delegate) {
+            ViewCompatICS.setAccessibilityDelegate(v,
+                    delegate == null ? null : delegate.getBridge());
         }
 
         @Override
@@ -958,6 +993,11 @@ public class ViewCompat {
                 mViewPropertyAnimatorCompatMap.put(view, vpa);
             }
             return vpa;
+        }
+
+        @Override
+        public void setFitsSystemWindows(View view, boolean fitSystemWindows) {
+            ViewCompatICS.setFitsSystemWindows(view, fitSystemWindows);
         }
     }
 
@@ -1143,6 +1183,11 @@ public class ViewCompat {
         @Override
         public void setOnApplyWindowInsetsListener(View view, OnApplyWindowInsetsListener listener) {
             ViewCompatApi21.setOnApplyWindowInsetsListener(view, listener);
+        }
+
+        @Override
+        public boolean isImportantForAccessibility(View view) {
+            return ViewCompatApi21.isImportantForAccessibility(view);
         }
     }
 
@@ -2243,6 +2288,16 @@ public class ViewCompat {
     }
 
     /**
+     * Sets whether or not this view should account for system screen decorations
+     * such as the status bar and inset its content; that is, controlling whether
+     * the default implementation of {@link View#fitSystemWindows(Rect)} will be
+     * executed. See that method for more details.
+     */
+    public static void setFitsSystemWindows(View view, boolean fitSystemWindows) {
+        IMPL.setFitsSystemWindows(view, fitSystemWindows);
+    }
+
+    /**
      * On API 11 devices and above, call <code>Drawable.jumpToCurrentState()</code>
      * on all Drawable objects associated with this view.
      * <p>
@@ -2260,6 +2315,30 @@ public class ViewCompat {
     public static void setOnApplyWindowInsetsListener(View v,
             OnApplyWindowInsetsListener listener) {
         IMPL.setOnApplyWindowInsetsListener(v, listener);
+    }
+
+    /**
+     * Controls whether the entire hierarchy under this view will save its
+     * state when a state saving traversal occurs from its parent.
+     *
+     * @param enabled Set to false to <em>disable</em> state saving, or true
+     * (the default) to allow it.
+     */
+    public static void setSaveFromParentEnabled(View v, boolean enabled) {
+        IMPL.setSaveFromParentEnabled(v, enabled);
+    }
+
+    /**
+     * Changes the activated state of this view. A view can be activated or not.
+     * Note that activation is not the same as selection.  Selection is
+     * a transient property, representing the view (hierarchy) the user is
+     * currently interacting with.  Activation is a longer-term state that the
+     * user can move views in and out of.
+     *
+     * @param activated true if the view must be activated, false otherwise
+     */
+    public static void setActivated(View view, boolean activated) {
+        IMPL.setActivated(view, activated);
     }
 
     // TODO: getters for various view properties (rotation, etc)

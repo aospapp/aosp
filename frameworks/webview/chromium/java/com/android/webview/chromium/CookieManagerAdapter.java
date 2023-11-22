@@ -88,6 +88,12 @@ public class CookieManagerAdapter extends CookieManager {
         return getCookie(url);
     }
 
+    // TODO(igsolla): remove this override once the WebView apk does not longer need
+    // to be binary compatibility with the API 21 version of the framework
+    /**
+     * IMPORTANT: This override is required for compatibility with the API 21 version of
+     * {@link CookieManager}.
+     */
     @Override
     public synchronized String getCookie(WebAddress uri) {
         return mChromeCookieManager.getCookie(uri.toString());
@@ -129,7 +135,7 @@ public class CookieManagerAdapter extends CookieManager {
     }
 
     @Override
-    protected void flushCookieStore() {
+    public void flush() {
         mChromeCookieManager.flushCookieStore();
     }
 

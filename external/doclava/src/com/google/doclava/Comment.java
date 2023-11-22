@@ -310,8 +310,10 @@ public class Comment {
       mParamTagsList.add(new ParamTagInfo("@param", "@param", text, mBase, pos));
     } else if (name.equals("@see")) {
       mSeeTagsList.add(new SeeTagInfo("@see", "@see", text, mBase, pos));
-    } else if (name.equals("@link") || name.equals("@linkplain")) {
+    } else if (name.equals("@link")) {
       mInlineTagsList.add(new SeeTagInfo(name, "@see", text, mBase, pos));
+    } else if (name.equals("@linkplain")) {
+      mInlineTagsList.add(new SeeTagInfo(name, "@linkplain", text, mBase, pos));
     } else if (name.equals("@value")) {
       mInlineTagsList.add(new SeeTagInfo(name, "@value", text, mBase, pos));
     } else if (name.equals("@throws") || name.equals("@exception")) {

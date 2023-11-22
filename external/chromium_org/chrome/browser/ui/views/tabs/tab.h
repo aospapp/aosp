@@ -17,8 +17,10 @@
 #include "ui/views/context_menu_controller.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/glow_hover_controller.h"
+#include "ui/views/masked_targeter_delegate.h"
 #include "ui/views/view.h"
 
+class MediaIndicatorButton;
 class TabController;
 
 namespace gfx {
@@ -41,13 +43,16 @@ class Label;
 class Tab : public gfx::AnimationDelegate,
             public views::ButtonListener,
             public views::ContextMenuController,
+            public views::MaskedTargeterDelegate,
             public views::View {
  public:
-  // The menu button's class name.
+  // The Tab's class name.
   static const char kViewClassName[];
 
   explicit Tab(TabController* controller);
   virtual ~Tab();
+
+  TabController* controller() const { return controller_; }
 
   // Used to set/check whether this Tab is being animated closed.
   void set_closing(bool closing) { closing_ = closing; }
@@ -94,11 +99,11 @@ class Tab : public gfx::AnimationDelegate,
   }
 
   // Returns true if this tab became the active tab selected in
-  // response to the last ui::ET_GESTURE_BEGIN gesture dispatched to
+  // response to the last ui::ET_TAP_DOWN gesture dispatched to
   // this tab. Only used for collecting UMA metrics.
   // See ash/touch/touch_uma.cc.
-  bool tab_activated_with_last_gesture_begin() const {
-    return tab_activated_with_last_gesture_begin_;
+  bool tab_activated_with_last_tap_down() const {
+    return tab_activated_with_last_tap_down_;
   }
 
   views::GlowHoverController* hover_controller() {
@@ -164,28 +169,28 @@ class Tab : public gfx::AnimationDelegate,
 
   typedef std::list<ImageCacheEntry> ImageCache;
 
-  // Overridden from gfx::AnimationDelegate:
+  // gfx::AnimationDelegate:
   virtual void AnimationProgressed(const gfx::Animation* animation) OVERRIDE;
   virtual void AnimationCanceled(const gfx::Animation* animation) OVERRIDE;
   virtual void AnimationEnded(const gfx::Animation* animation) OVERRIDE;
 
-  // Overridden from views::ButtonListener:
+  // views::ButtonListener:
   virtual void ButtonPressed(views::Button* sender,
                              const ui::Event& event) OVERRIDE;
 
-  // Overridden from views::ContextMenuController:
+  // views::ContextMenuController:
   virtual void ShowContextMenuForView(views::View* source,
                                       const gfx::Point& point,
                                       ui::MenuSourceType source_type) OVERRIDE;
 
-  // Overridden from views::View:
+  // views::MaskedTargeterDelegate:
+  virtual bool GetHitTestMask(gfx::Path* mask) const OVERRIDE;
+
+  // views::View:
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE;
   virtual void Layout() OVERRIDE;
   virtual void OnThemeChanged() OVERRIDE;
   virtual const char* GetClassName() const OVERRIDE;
-  virtual bool HasHitTestMask() const OVERRIDE;
-  virtual void GetHitTestMask(HitTestSource source,
-                              gfx::Path* path) const OVERRIDE;
   virtual bool GetTooltipText(const gfx::Point& p,
                               base::string16* tooltip) const OVERRIDE;
   virtual bool GetTooltipTextOrigin(const gfx::Point& p,
@@ -199,7 +204,7 @@ class Tab : public gfx::AnimationDelegate,
   virtual void OnMouseExited(const ui::MouseEvent& event) OVERRIDE;
   virtual void GetAccessibleState(ui::AXViewState* state) OVERRIDE;
 
-  // Overridden from ui::EventHandler:
+  // ui::EventHandler:
   virtual void OnGestureEvent(ui::GestureEvent* event) OVERRIDE;
 
   // Invoked from Layout to adjust the position of the favicon or media
@@ -223,9 +228,8 @@ class Tab : public gfx::AnimationDelegate,
                                                  int tab_id);
   void PaintActiveTabBackground(gfx::Canvas* canvas);
 
-  // Paints the favicon and media indicator icon, mirrored for RTL if needed.
+  // Paints the favicon, mirrored for RTL if needed.
   void PaintIcon(gfx::Canvas* canvas);
-  void PaintMediaIndicator(gfx::Canvas* canvas);
 
   // Invoked if data_.network_state changes, or the network_state is not none.
   void AdvanceLoadingAnimation(TabRendererData::NetworkState old_state,
@@ -262,10 +266,6 @@ class Tab : public gfx::AnimationDelegate,
   // Returns true if the crash animation is currently running.
   bool IsPerformingCrashAnimation() const;
 
-  // Starts the media indicator fade-in/out animation. There's no stop method
-  // because this is not a continuous animation.
-  void StartMediaIndicatorAnimation();
-
   // Schedules repaint task for icon.
   void ScheduleIconPaint();
 
@@ -276,6 +276,9 @@ class Tab : public gfx::AnimationDelegate,
   void GetTabIdAndFrameId(views::Widget* widget,
                           int* tab_id,
                           int* frame_id) const;
+
+  // Returns |media_indicator_button_|, creating it on-demand.
+  MediaIndicatorButton* GetMediaIndicatorButton();
 
   // Performs a one-time initialization of static resources such as tab images.
   static void InitTabResources();
@@ -299,7 +302,7 @@ class Tab : public gfx::AnimationDelegate,
                              const gfx::ImageSkia& image);
 
   // The controller, never NULL.
-  TabController* controller_;
+  TabController* const controller_;
 
   TabRendererData data_;
 
@@ -333,23 +336,18 @@ class Tab : public gfx::AnimationDelegate,
   // Crash icon animation (in place of favicon).
   scoped_ptr<gfx::LinearAnimation> crash_icon_animation_;
 
-  // Media indicator fade-in/out animation (i.e., only on show/hide, not a
-  // continuous animation).
-  scoped_ptr<gfx::Animation> media_indicator_animation_;
-  TabMediaState animating_media_state_;
-
   scoped_refptr<gfx::AnimationContainer> animation_container_;
 
   views::ImageButton* close_button_;
+  MediaIndicatorButton* media_indicator_button_;  // NULL until first use.
   views::Label* title_;
 
-  bool tab_activated_with_last_gesture_begin_;
+  bool tab_activated_with_last_tap_down_;
 
   views::GlowHoverController hover_controller_;
 
   // The bounds of various sections of the display.
   gfx::Rect favicon_bounds_;
-  gfx::Rect media_indicator_bounds_;
 
   // The offset used to paint the inactive background image.
   gfx::Point background_offset_;

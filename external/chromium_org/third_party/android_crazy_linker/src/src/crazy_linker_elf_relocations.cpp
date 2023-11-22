@@ -10,6 +10,8 @@
 #include "crazy_linker_elf_symbols.h"
 #include "crazy_linker_elf_view.h"
 #include "crazy_linker_error.h"
+#include "crazy_linker_leb128.h"
+#include "crazy_linker_system.h"
 #include "crazy_linker_util.h"
 #include "linker_phdr.h"
 
@@ -41,6 +43,8 @@
 #define R_ARM_COPY 20
 #define R_ARM_RELATIVE 23
 
+#define RELATIVE_RELOCATION_CODE R_ARM_RELATIVE
+
 #endif  // __arm__
 
 #ifdef __aarch64__
@@ -51,6 +55,8 @@
 #define R_AARCH64_GLOB_DAT 1025
 #define R_AARCH64_JUMP_SLOT 1026
 #define R_AARCH64_RELATIVE 1027
+
+#define RELATIVE_RELOCATION_CODE R_AARCH64_RELATIVE
 
 #endif  // __aarch64__
 
@@ -64,6 +70,17 @@
 #define R_386_RELATIVE 8
 
 #endif  // __i386__
+
+#ifdef __x86_64__
+
+/* x86_64 relocations */
+#define R_X86_64_64 1
+#define R_X86_64_PC32 2
+#define R_X86_64_GLOB_DAT 6
+#define R_X86_64_JMP_SLOT 7
+#define R_X86_64_RELATIVE 8
+
+#endif  // __x86_64__
 
 namespace crazy {
 
@@ -118,6 +135,19 @@ RelocationType GetRelocationType(ELF::Word r_type) {
       return RELOCATION_TYPE_RELATIVE;
 
     case R_386_PC32:
+      return RELOCATION_TYPE_PC_RELATIVE;
+#endif
+
+#ifdef __x86_64__
+    case R_X86_64_JMP_SLOT:
+    case R_X86_64_GLOB_DAT:
+    case R_X86_64_64:
+      return RELOCATION_TYPE_ABSOLUTE;
+
+    case R_X86_64_RELATIVE:
+      return RELOCATION_TYPE_RELATIVE;
+
+    case R_X86_64_PC32:
       return RELOCATION_TYPE_PC_RELATIVE;
 #endif
 
@@ -242,9 +272,18 @@ bool ElfRelocations::Init(const ElfView* view, Error* error) {
     }
   }
 
-  if (relocations_type_ != DT_REL && relocations_type_ != DT_RELA) {
-    *error = "Unsupported or missing DT_PLTREL in dynamic section";
+  if (has_rel_relocations && has_rela_relocations) {
+    *error = "Combining DT_REL and DT_RELA is not currently supported";
     return false;
+  }
+
+  // If DT_PLTREL did not explicitly assign relocations_type_, set it
+  // here based on the type of relocations found.
+  if (relocations_type_ != DT_REL && relocations_type_ != DT_RELA) {
+    if (has_rel_relocations)
+      relocations_type_ = DT_REL;
+    else if (has_rela_relocations)
+      relocations_type_ = DT_RELA;
   }
 
   if (relocations_type_ == DT_REL && has_rela_relocations) {
@@ -286,7 +325,7 @@ bool ElfRelocations::ApplyAll(const ElfSymbols* symbols,
       return false;
   }
 
-  else if (relocations_type_ == DT_RELA) {
+  if (relocations_type_ == DT_RELA) {
     if (!ApplyRelaRelocs(reinterpret_cast<ELF::Rela*>(plt_relocations_),
                          plt_relocations_size_ / sizeof(ELF::Rela),
                          symbols,
@@ -300,6 +339,11 @@ bool ElfRelocations::ApplyAll(const ElfSymbols* symbols,
                          error))
       return false;
   }
+
+#if defined(__arm__) || defined(__aarch64__)
+  if (!ApplyPackedRelocations(error))
+    return false;
+#endif
 
 #ifdef __mips__
   if (!RelocateMipsGot(symbols, resolver, error))
@@ -316,6 +360,110 @@ bool ElfRelocations::ApplyAll(const ElfSymbols* symbols,
   LOG("%s: Done\n", __FUNCTION__);
   return true;
 }
+
+#if defined(__arm__) || defined(__aarch64__)
+
+void ElfRelocations::RegisterPackedRelocations(uint8_t* packed_relocations) {
+  packed_relocations_ = packed_relocations;
+}
+
+bool ElfRelocations::ApplyPackedRel(const uint8_t* packed_relocations,
+                                    Error* error) {
+  Leb128Decoder decoder(packed_relocations);
+
+  // Find the count of pairs and the start address.
+  size_t pairs = decoder.Dequeue();
+  const ELF::Addr start_address = decoder.Dequeue();
+
+  // Emit initial relative relocation.
+  ELF::Rel relocation;
+  relocation.r_offset = start_address;
+  relocation.r_info = ELF_R_INFO(0, RELATIVE_RELOCATION_CODE);
+  const ELF::Addr sym_addr = 0;
+  const bool resolved = false;
+  if (!ApplyRelReloc(&relocation, sym_addr, resolved, error))
+    return false;
+
+  size_t unpacked_count = 1;
+
+  // Emit relocations for each count-delta pair.
+  while (pairs) {
+    size_t count = decoder.Dequeue();
+    const size_t delta = decoder.Dequeue();
+
+    // Emit count relative relocations with delta offset.
+    while (count) {
+      relocation.r_offset += delta;
+      if (!ApplyRelReloc(&relocation, sym_addr, resolved, error))
+        return false;
+      unpacked_count++;
+      count--;
+    }
+    pairs--;
+  }
+
+  RLOG("%s: unpacked_count=%d\n", __FUNCTION__, unpacked_count);
+  return true;
+}
+
+bool ElfRelocations::ApplyPackedRela(const uint8_t* packed_relocations,
+                                     Error* error) {
+  Sleb128Decoder decoder(packed_relocations);
+
+  // Find the count of pairs.
+  size_t pairs = decoder.Dequeue();
+
+  ELF::Addr offset = 0;
+  ELF::Sxword addend = 0;
+
+  const ELF::Addr sym_addr = 0;
+  const bool resolved = false;
+
+  size_t unpacked_count = 0;
+
+  // Emit relocations for each deltas pair.
+  while (pairs) {
+    offset += decoder.Dequeue();
+    addend += decoder.Dequeue();
+
+    ELF::Rela relocation;
+    relocation.r_offset = offset;
+    relocation.r_info = ELF_R_INFO(0, RELATIVE_RELOCATION_CODE);
+    relocation.r_addend = addend;
+    if (!ApplyRelaReloc(&relocation, sym_addr, resolved, error))
+      return false;
+    unpacked_count++;
+    pairs--;
+  }
+
+  RLOG("%s: unpacked_count=%d\n", __FUNCTION__, unpacked_count);
+  return true;
+}
+
+bool ElfRelocations::ApplyPackedRelocations(Error* error) {
+  if (!packed_relocations_)
+    return true;
+
+  // Check for an initial APR1 header, packed relocations.
+  if (packed_relocations_[0] == 'A' &&
+      packed_relocations_[1] == 'P' &&
+      packed_relocations_[2] == 'R' &&
+      packed_relocations_[3] == '1') {
+    return ApplyPackedRel(packed_relocations_ + 4, error);
+  }
+
+  // Check for an initial APA1 header, packed relocations with addend.
+  if (packed_relocations_[0] == 'A' &&
+      packed_relocations_[1] == 'P' &&
+      packed_relocations_[2] == 'A' &&
+      packed_relocations_[3] == '1') {
+    return ApplyPackedRela(packed_relocations_ + 4, error);
+  }
+
+  error->Format("Bad packed relocations ident, expected APR1 or APA1");
+  return false;
+}
+#endif  // __arm__ || __aarch64__
 
 bool ElfRelocations::ApplyRelaReloc(const ELF::Rela* rela,
                                     ELF::Addr sym_addr,
@@ -377,6 +525,32 @@ bool ElfRelocations::ApplyRelaReloc(const ELF::Rela* rela,
       *error = "Invalid R_AARCH64_COPY relocation in shared library";
       return false;
 #endif  // __aarch64__
+
+#ifdef __x86_64__
+    case R_X86_64_JMP_SLOT:
+      *target = sym_addr + addend;
+      break;
+
+    case R_X86_64_GLOB_DAT:
+      *target = sym_addr + addend;
+      break;
+
+    case R_X86_64_RELATIVE:
+      if (rela_symbol) {
+        *error = "Invalid relative relocation with symbol";
+        return false;
+      }
+      *target = load_bias_ + addend;
+      break;
+
+    case R_X86_64_64:
+      *target = sym_addr + addend;
+      break;
+
+    case R_X86_64_PC32:
+      *target = sym_addr + (addend - reloc);
+      break;
+#endif  // __x86_64__
 
     default:
       error->Format("Invalid relocation type (%d)", rela_type);
@@ -578,13 +752,16 @@ bool ElfRelocations::ApplyRelRelocs(const ELF::Rel* rel,
 
     // If this is a symbolic relocation, compute the symbol's address.
     if (__builtin_expect(rel_symbol != 0, 0)) {
-      resolved = ResolveSymbol(rel_type,
-                               rel_symbol,
-                               symbols,
-                               resolver,
-                               reloc,
-                               &sym_addr,
-                               error);
+      if (!ResolveSymbol(rel_type,
+                         rel_symbol,
+                         symbols,
+                         resolver,
+                         reloc,
+                         &sym_addr,
+                         error)) {
+        return false;
+      }
+      resolved = true;
     }
 
     if (!ApplyRelReloc(rel, sym_addr, resolved, error))
@@ -625,13 +802,16 @@ bool ElfRelocations::ApplyRelaRelocs(const ELF::Rela* rela,
 
     // If this is a symbolic relocation, compute the symbol's address.
     if (__builtin_expect(rel_symbol != 0, 0)) {
-      resolved = ResolveSymbol(rel_type,
-                               rel_symbol,
-                               symbols,
-                               resolver,
-                               reloc,
-                               &sym_addr,
-                               error);
+      if (!ResolveSymbol(rel_type,
+                         rel_symbol,
+                         symbols,
+                         resolver,
+                         reloc,
+                         &sym_addr,
+                         error)) {
+        return false;
+      }
+      resolved = true;
     }
 
     if (!ApplyRelaReloc(rela, sym_addr, resolved, error))
@@ -710,6 +890,12 @@ void ElfRelocations::AdjustRelocation(ELF::Word rel_type,
 
 #ifdef __i386__
     case R_386_RELATIVE:
+      *dst_ptr += map_delta;
+      break;
+#endif
+
+#ifdef __x86_64__
+    case R_X86_64_RELATIVE:
       *dst_ptr += map_delta;
       break;
 #endif
@@ -803,7 +989,7 @@ void ElfRelocations::CopyAndRelocate(size_t src_addr,
   if (relocations_type_ == DT_REL)
     RelocateRel(src_addr, dst_addr, map_addr, size);
 
-  else if (relocations_type_ == DT_RELA)
+  if (relocations_type_ == DT_RELA)
     RelocateRela(src_addr, dst_addr, map_addr, size);
 
 #ifdef __mips__

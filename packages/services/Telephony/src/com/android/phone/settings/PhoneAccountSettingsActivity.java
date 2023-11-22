@@ -1,4 +1,4 @@
-/*
+/**
  * Copyright (C) 2014 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,27 +20,22 @@ import android.os.Bundle;
 import android.preference.PreferenceActivity;
 import android.view.MenuItem;
 
-import com.android.internal.telephony.PhoneConstants;
-import com.android.phone.PhoneGlobals;
 import com.android.phone.R;
 
-// TODO: Convert FeatureCallSettings into a preference fragment based activity, and load the
-// PhoneAccountSettings fragment directly instead of starting this PreferenceActivity.
 public class PhoneAccountSettingsActivity extends PreferenceActivity {
 
     @Override
     protected void onCreate(Bundle icicle) {
         super.onCreate(icicle);
 
-        getActionBar().setTitle(R.string.phone_account_settings);
+        getActionBar().setTitle(R.string.phone_accounts);
         getFragmentManager().beginTransaction().replace(
                 android.R.id.content, new PhoneAccountSettingsFragment()).commit();
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        final int itemId = item.getItemId();
-        if (itemId == android.R.id.home) {
+        if (item.getItemId() == android.R.id.home) {
             onBackPressed();
             return true;
         }

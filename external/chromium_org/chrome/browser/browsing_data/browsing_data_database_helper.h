@@ -14,9 +14,9 @@
 #include "base/memory/ref_counted.h"
 #include "base/synchronization/lock.h"
 #include "chrome/common/url_constants.h"
+#include "storage/browser/database/database_tracker.h"
+#include "storage/common/database/database_identifier.h"
 #include "url/gurl.h"
-#include "webkit/browser/database/database_tracker.h"
-#include "webkit/common/database/database_identifier.h"
 
 class Profile;
 
@@ -30,14 +30,14 @@ class BrowsingDataDatabaseHelper
  public:
   // Contains detailed information about a web database.
   struct DatabaseInfo {
-    DatabaseInfo(const webkit_database::DatabaseIdentifier& identifier,
+    DatabaseInfo(const storage::DatabaseIdentifier& identifier,
                  const std::string& database_name,
                  const std::string& description,
                  int64 size,
                  base::Time last_modified);
     ~DatabaseInfo();
 
-    webkit_database::DatabaseIdentifier identifier;
+    storage::DatabaseIdentifier identifier;
     std::string database_name;
     std::string description;
     int64 size;
@@ -72,13 +72,13 @@ class BrowsingDataDatabaseHelper
   // thread.
   std::list<DatabaseInfo> database_info_;
 
-  // This only mutates on the UI thread.
+  // This member is only mutated on the UI thread.
   base::Callback<void(const std::list<DatabaseInfo>&)> completion_callback_;
 
   // Indicates whether or not we're currently fetching information:
   // it's true when StartFetching() is called in the UI thread, and it's reset
   // after we notify the callback in the UI thread.
-  // This only mutates on the UI thread.
+  // This member is only mutated on the UI thread.
   bool is_fetching_;
 
  private:
@@ -89,7 +89,7 @@ class BrowsingDataDatabaseHelper
   void DeleteDatabaseOnFileThread(const std::string& origin,
                                   const std::string& name);
 
-  scoped_refptr<webkit_database::DatabaseTracker> tracker_;
+  scoped_refptr<storage::DatabaseTracker> tracker_;
 
   DISALLOW_COPY_AND_ASSIGN(BrowsingDataDatabaseHelper);
 };
@@ -114,11 +114,6 @@ class CannedBrowsingDataDatabaseHelper : public BrowsingDataDatabaseHelper {
   };
 
   explicit CannedBrowsingDataDatabaseHelper(Profile* profile);
-
-  // Return a copy of the database helper. Only one consumer can use the
-  // StartFetching method at a time, so we need to create a copy of the helper
-  // everytime we instantiate a cookies tree model for it.
-  CannedBrowsingDataDatabaseHelper* Clone();
 
   // Add a database to the set of canned databases that is returned by this
   // helper.
@@ -149,8 +144,6 @@ class CannedBrowsingDataDatabaseHelper : public BrowsingDataDatabaseHelper {
   virtual ~CannedBrowsingDataDatabaseHelper();
 
   std::set<PendingDatabaseInfo> pending_database_info_;
-
-  Profile* profile_;
 
   DISALLOW_COPY_AND_ASSIGN(CannedBrowsingDataDatabaseHelper);
 };

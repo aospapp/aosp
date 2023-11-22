@@ -552,9 +552,9 @@ TEST_F(CloudPrintProxyPolicyStartupTest, StartBrowserWithoutPolicy) {
       SetTestingFactory(profile, CloudPrintProxyServiceFactoryForPolicyTest);
 
   TestingPrefServiceSyncable* prefs = profile->GetTestingPrefService();
-  prefs->SetUserPref(prefs::kCloudPrintEmail,
-                     base::Value::CreateStringValue(
-                         MockServiceIPCServer::EnabledUserId()));
+  prefs->SetUserPref(
+      prefs::kCloudPrintEmail,
+      new base::StringValue(MockServiceIPCServer::EnabledUserId()));
 
   CommandLine command_line(CommandLine::NO_PROGRAM);
   command_line.AppendSwitch(switches::kCheckCloudPrintConnectorPolicy);
@@ -600,11 +600,11 @@ TEST_F(CloudPrintProxyPolicyStartupTest, StartBrowserWithPolicy) {
       SetTestingFactory(profile, CloudPrintProxyServiceFactoryForPolicyTest);
 
   TestingPrefServiceSyncable* prefs = profile->GetTestingPrefService();
-  prefs->SetUserPref(prefs::kCloudPrintEmail,
-                     base::Value::CreateStringValue(
-                         MockServiceIPCServer::EnabledUserId()));
+  prefs->SetUserPref(
+      prefs::kCloudPrintEmail,
+      new base::StringValue(MockServiceIPCServer::EnabledUserId()));
   prefs->SetManagedPref(prefs::kCloudPrintProxyEnabled,
-                        base::Value::CreateBooleanValue(false));
+                        new base::FundamentalValue(false));
 
   CommandLine command_line(CommandLine::NO_PROGRAM);
   command_line.AppendSwitch(switches::kCheckCloudPrintConnectorPolicy);

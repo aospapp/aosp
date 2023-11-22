@@ -71,18 +71,16 @@ bool EnsureJniRegistered(JNIEnv* env) {
   return true;
 }
 
-bool LibraryLoaded(JNIEnv* env, jclass clazz,
-                          jobjectArray init_command_line) {
-  base::android::InitNativeCommandLineFromJavaArray(env, init_command_line);
-
-  CommandLine* command_line = CommandLine::ForCurrentProcess();
+bool LibraryLoaded(JNIEnv* env, jclass clazz) {
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
 
   if (command_line->HasSwitch(switches::kTraceStartup)) {
     base::debug::CategoryFilter category_filter(
         command_line->GetSwitchValueASCII(switches::kTraceStartup));
-    base::debug::TraceLog::GetInstance()->SetEnabled(category_filter,
+    base::debug::TraceLog::GetInstance()->SetEnabled(
+        category_filter,
         base::debug::TraceLog::RECORDING_MODE,
-        base::debug::TraceLog::RECORD_UNTIL_FULL);
+        base::debug::TraceOptions());
   }
 
   // Android's main browser loop is custom so we set the browser

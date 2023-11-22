@@ -212,9 +212,9 @@ class OneClickSigninHelper
   // Handles cross account sign in error. If the supplied |email| does not match
   // the last signed in email of the current profile, then Chrome will show a
   // confirmation dialog before starting sync. It returns true if there is a
-  // cross ccount error, and false otherwise.
+  // cross account error, and false otherwise.
   static bool HandleCrossAccountError(
-      content::WebContents* contents,
+      Profile* profile,
       const std::string& session_index,
       const std::string& email,
       const std::string& password,
@@ -231,8 +231,6 @@ class OneClickSigninHelper
   // the NTP/Apps page.
   static void RedirectToNtpOrAppsPageIfNecessary(
       content::WebContents* contents, signin::Source source);
-
-  static void ShowSigninErrorBubble(Browser* browser, const std::string& error);
 
   // Remove the item currently at the top of the history list if it's
   // the Gaia redirect URL. Due to limitations of the NavigationController

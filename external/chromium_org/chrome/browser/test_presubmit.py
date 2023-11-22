@@ -18,7 +18,59 @@ sys.path.extend([
 
 import find_depot_tools # pylint: disable=W0611
 from testing_support.super_mox import SuperMoxTestBase
-from web_dev_style import css_checker, js_checker # pylint: disable=F0401
+from web_dev_style import resource_checker, css_checker, js_checker # pylint: disable=F0401
+
+
+def GetHighlight(line, error):
+  """Returns the substring of |line| that is highlighted in |error|."""
+  error_lines = error.split('\n')
+  highlight = error_lines[error_lines.index(line) + 1]
+  return ''.join(ch1 for (ch1, ch2) in zip(line, highlight) if ch2 == '^')
+
+
+class ResourceStyleGuideTest(SuperMoxTestBase):
+  def setUp(self):
+    SuperMoxTestBase.setUp(self)
+
+    input_api = self.mox.CreateMockAnything()
+    input_api.re = re
+    output_api = self.mox.CreateMockAnything()
+    self.checker = resource_checker.ResourceChecker(input_api, output_api)
+
+  def ShouldFailIncludeCheck(self, line):
+    """Checks that the '</include>' checker flags |line| as a style error."""
+    error = self.checker.IncludeCheck(1, line)
+    self.assertNotEqual('', error,
+        'Should be flagged as style error: ' + line)
+    highlight = GetHighlight(line, error).strip()
+    self.assertTrue('include' in highlight and highlight[0] == '<')
+
+  def ShouldPassIncludeCheck(self, line):
+    """Checks that the '</include>' checker doesn't flag |line| as an error."""
+    self.assertEqual('', self.checker.IncludeCheck(1, line),
+        'Should not be flagged as style error: ' + line)
+
+  def testIncludeFails(self):
+    lines = [
+        "</include>   ",
+        "    </include>",
+        "    </include>   ",
+        '  <include src="blah.js" />   ',
+        '<include src="blee.js"/>',
+    ]
+    for line in lines:
+      self.ShouldFailIncludeCheck(line)
+
+  def testIncludePasses(self):
+    lines = [
+        '<include src="assert.js">',
+        "<include src='../../assert.js'>",
+        "<i>include src='blah'</i>",
+        "</i>nclude",
+        "</i>include",
+    ]
+    for line in lines:
+      self.ShouldPassIncludeCheck(line)
 
 
 class JsStyleGuideTest(SuperMoxTestBase):
@@ -30,18 +82,12 @@ class JsStyleGuideTest(SuperMoxTestBase):
     output_api = self.mox.CreateMockAnything()
     self.checker = js_checker.JSChecker(input_api, output_api)
 
-  def GetHighlight(self, line, error):
-    """Returns the substring of |line| that is highlighted in |error|."""
-    error_lines = error.split('\n')
-    highlight = error_lines[error_lines.index(line) + 1]
-    return ''.join(ch1 for (ch1, ch2) in zip(line, highlight) if ch2 == '^')
-
   def ShouldFailConstCheck(self, line):
     """Checks that the 'const' checker flags |line| as a style error."""
     error = self.checker.ConstCheck(1, line)
     self.assertNotEqual('', error,
         'Should be flagged as style error: ' + line)
-    self.assertEqual(self.GetHighlight(line, error), 'const')
+    self.assertEqual(GetHighlight(line, error), 'const')
 
   def ShouldPassConstCheck(self, line):
     """Checks that the 'const' checker doesn't flag |line| as a style error."""
@@ -100,7 +146,7 @@ class JsStyleGuideTest(SuperMoxTestBase):
     error = self.checker.ChromeSendCheck(1, line)
     self.assertNotEqual('', error,
         'Should be flagged as style error: ' + line)
-    self.assertEqual(self.GetHighlight(line, error), ', []')
+    self.assertEqual(GetHighlight(line, error), ', []')
 
   def ShouldPassChromeSendCheck(self, line):
     """Checks that the 'chrome.send' checker doesn't flag |line| as a style
@@ -132,7 +178,7 @@ class JsStyleGuideTest(SuperMoxTestBase):
     error = self.checker.EndJsDocCommentCheck(1, line)
     self.assertNotEqual('', error,
         'Should be flagged as style error: ' + line)
-    self.assertEqual(self.GetHighlight(line, error), '**/')
+    self.assertEqual(GetHighlight(line, error), '**/')
 
   def ShouldPassEndJsDocCommentCheck(self, line):
     """Checks that the **/ checker doesn't flag |line| as a style error."""
@@ -167,7 +213,7 @@ class JsStyleGuideTest(SuperMoxTestBase):
     error = self.checker.GetElementByIdCheck(1, line)
     self.assertNotEqual('', error,
         'Should be flagged as style error: ' + line)
-    self.assertEqual(self.GetHighlight(line, error), 'document.getElementById')
+    self.assertEqual(GetHighlight(line, error), 'document.getElementById')
 
   def ShouldPassGetElementByIdCheck(self, line):
     """Checks that the 'getElementById' checker doesn't flag |line| as a style
@@ -207,7 +253,7 @@ class JsStyleGuideTest(SuperMoxTestBase):
     error = self.checker.InheritDocCheck(1, line)
     self.assertNotEqual('', error,
         msg='Should be flagged as style error: ' + line)
-    self.assertEqual(self.GetHighlight(line, error), '@inheritDoc')
+    self.assertEqual(GetHighlight(line, error), '@inheritDoc')
 
   def ShouldPassInheritDocCheck(self, line):
     """Checks that the '@inheritDoc' checker doesn't flag |line| as a style
@@ -241,7 +287,7 @@ class JsStyleGuideTest(SuperMoxTestBase):
     error = self.checker.WrapperTypeCheck(1, line)
     self.assertNotEqual('', error,
         msg='Should be flagged as style error: ' + line)
-    highlight = self.GetHighlight(line, error)
+    highlight = GetHighlight(line, error)
     self.assertTrue(highlight in ('Boolean', 'Number', 'String'))
 
   def ShouldPassWrapperTypeCheck(self, line):
@@ -283,7 +329,7 @@ class JsStyleGuideTest(SuperMoxTestBase):
     error = self.checker.VarNameCheck(1, line)
     self.assertNotEqual('', error,
         msg='Should be flagged as style error: ' + line)
-    highlight = self.GetHighlight(line, error)
+    highlight = GetHighlight(line, error)
     self.assertFalse('var ' in highlight);
 
   def ShouldPassVarNameCheck(self, line):
@@ -319,6 +365,76 @@ class JsStyleGuideTest(SuperMoxTestBase):
       self.ShouldPassVarNameCheck(line)
 
 
+class ClosureLintTest(SuperMoxTestBase):
+  def setUp(self):
+    SuperMoxTestBase.setUp(self)
+
+    input_api = self.mox.CreateMockAnything()
+    input_api.os_path = os.path
+    input_api.re = re
+
+    input_api.change = self.mox.CreateMockAnything()
+    self.mox.StubOutWithMock(input_api.change, 'RepositoryRoot')
+    src_root = os.path.join(os.path.dirname(__file__), '..', '..')
+    input_api.change.RepositoryRoot().MultipleTimes().AndReturn(src_root)
+
+    output_api = self.mox.CreateMockAnything()
+
+    self.mox.ReplayAll()
+
+    self.checker = js_checker.JSChecker(input_api, output_api)
+
+  def ShouldPassClosureLint(self, source):
+    errors = self.checker.ClosureLint('', source=source)
+
+    for error in errors:
+      print 'Error: ' + error.message
+
+    self.assertListEqual([], errors)
+
+  def testBindFalsePositives(self):
+    sources = [
+      [
+        'var addOne = function(prop) {\n',
+        '  this[prop] += 1;\n',
+        '}.bind(counter, timer);\n',
+        '\n',
+        'setInterval(addOne, 1000);\n',
+        '\n',
+      ],
+      [
+        '/** Da clickz. */\n',
+        'button.onclick = function() { this.add_(this.total_); }.bind(this);\n',
+      ],
+    ]
+    for source in sources:
+      self.ShouldPassClosureLint(source)
+
+  def testPromiseFalsePositives(self):
+    sources = [
+      [
+        'Promise.reject(1).catch(function(error) {\n',
+        '  alert(error);\n',
+        '});\n',
+      ],
+      [
+        'var loaded = new Promise();\n',
+        'loaded.then(runAwesomeApp);\n',
+        'loaded.catch(showSadFace);\n',
+        '\n',
+        '/** Da loadz. */\n',
+        'document.onload = function() { loaded.resolve(); };\n',
+        '\n',
+        '/** Da errorz. */\n',
+        'document.onerror = function() { loaded.reject(); };\n',
+        '\n',
+        "if (document.readystate == 'complete') loaded.resolve();\n",
+      ],
+    ]
+    for source in sources:
+      self.ShouldPassClosureLint(source)
+
+
 class CssStyleGuideTest(SuperMoxTestBase):
   def setUp(self):
     SuperMoxTestBase.setUp(self)
@@ -342,15 +458,20 @@ class CssStyleGuideTest(SuperMoxTestBase):
     self.mox.StubOutWithMock(self.output_api, 'PresubmitPromptWarning',
                              use_mock_anything=True)
 
-    author_msg = ('Was the CSS checker useful? '
-                  'Send feedback or hate mail to dbeam@chromium.org.')
     self.output_api = self.mox.CreateMockAnything()
     self.mox.StubOutWithMock(self.output_api, 'PresubmitNotifyResult',
                              use_mock_anything=True)
-    self.output_api.PresubmitNotifyResult(author_msg).AndReturn(None)
+
+  def VerifyContentsIsValid(self, contents):
+    self.fake_file.NewContents().AndReturn(contents.splitlines())
+    self.mox.ReplayAll()
+    css_checker.CSSChecker(self.input_api, self.output_api).RunChecks()
 
   def VerifyContentsProducesOutput(self, contents, output):
     self.fake_file.NewContents().AndReturn(contents.splitlines())
+    author_msg = ('Was the CSS checker useful? '
+                  'Send feedback or hate mail to dbeam@chromium.org.')
+    self.output_api.PresubmitNotifyResult(author_msg).AndReturn(None)
     self.output_api.PresubmitPromptWarning(
         self.fake_file_name + ':\n' + output.strip()).AndReturn(None)
     self.mox.ReplayAll()
@@ -394,6 +515,24 @@ class CssStyleGuideTest(SuperMoxTestBase):
 
     z-index: 5;
     color: black;""")
+
+  def testCssStringWithAt(self):
+    self.VerifyContentsIsValid("""
+#logo {
+  background-image: url('images/google_logo.png@2x');
+}
+
+body.alternate-logo #logo {
+  -webkit-mask-image: url('images/google_logo.png@2x');
+  background: none;
+}
+
+.stuff1 {
+}
+
+.stuff2 {
+}
+      """)
 
   def testCssAlphaWithNonStandard(self):
     self.VerifyContentsProducesOutput("""

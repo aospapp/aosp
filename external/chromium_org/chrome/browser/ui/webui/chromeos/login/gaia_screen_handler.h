@@ -5,11 +5,18 @@
 #ifndef CHROME_BROWSER_UI_WEBUI_CHROMEOS_LOGIN_GAIA_SCREEN_HANDLER_H_
 #define CHROME_BROWSER_UI_WEBUI_CHROMEOS_LOGIN_GAIA_SCREEN_HANDLER_H_
 
+#include <string>
+
 #include "base/basictypes.h"
 #include "base/command_line.h"
 #include "base/memory/ref_counted.h"
+#include "chrome/browser/chromeos/login/screens/core_oobe_actor.h"
 #include "chrome/browser/ui/webui/chromeos/login/network_state_informer.h"
 #include "net/base/net_errors.h"
+
+namespace policy {
+class ConsumerManagementService;
+}
 
 namespace chromeos {
 
@@ -39,6 +46,9 @@ struct GaiaContext {
 
   // Email of current user.
   std::string email;
+
+  // Whether consumer management enrollment is in progress.
+  bool is_enrolling_consumer_management;
 };
 
 // A class that handles WebUI hooks in Gaia screen.
@@ -51,13 +61,19 @@ class GaiaScreenHandler : public BaseScreenHandler {
     FRAME_STATE_ERROR
   };
 
-  explicit GaiaScreenHandler(
-      const scoped_refptr<NetworkStateInformer>& network_state_informer);
+  GaiaScreenHandler(
+      CoreOobeActor* core_oobe_actor,
+      const scoped_refptr<NetworkStateInformer>& network_state_informer,
+      policy::ConsumerManagementService* consumer_management);
   virtual ~GaiaScreenHandler();
 
   void LoadGaia(const GaiaContext& context);
   void UpdateGaia(const GaiaContext& context);
-  void ReloadGaia();
+
+  // Sends request to reload Gaia. If |force_reload| is true, request
+  // will be sent in any case, otherwise it will be sent only when Gaia is
+  // not loading right now.
+  void ReloadGaia(bool force_reload);
 
   FrameState frame_state() const { return frame_state_; }
   net::Error frame_error() const { return frame_error_; }
@@ -88,6 +104,17 @@ class GaiaScreenHandler : public BaseScreenHandler {
 
   void HandleGaiaUIReady();
 
+  // This is called when ConsumerManagementService::SetOwner() returns.
+  void OnSetOwnerDone(const std::string& typed_email,
+                      const std::string& password,
+                      bool using_saml,
+                      bool success);
+
+  // Really handles the complete login message.
+  void DoCompleteLogin(const std::string& typed_email,
+                       const std::string& password,
+                       bool using_saml);
+
   // Fill GAIA user name.
   void PopulateEmail(const std::string& user_id);
 
@@ -112,7 +139,7 @@ class GaiaScreenHandler : public BaseScreenHandler {
   // principals API was used during SAML login.
   void SetSAMLPrincipalsAPIUsed(bool api_used);
 
-  void ShowGaia();
+  void ShowGaia(bool is_enrolling_consumer_management);
 
   // Shows signin screen after dns cache and cookie cleanup operations finish.
   void ShowGaiaScreenIfReady();
@@ -146,6 +173,11 @@ class GaiaScreenHandler : public BaseScreenHandler {
   // Network state informer used to keep signin screen up.
   scoped_refptr<NetworkStateInformer> network_state_informer_;
 
+  // Consumer management service for checking if enrollment is in progress.
+  policy::ConsumerManagementService* consumer_management_;
+
+  CoreOobeActor* core_oobe_actor_;
+
   // Email to pre-populate with.
   std::string populated_email_;
 
@@ -173,6 +205,9 @@ class GaiaScreenHandler : public BaseScreenHandler {
   // If the user authenticated via SAML, this indicates whether the principals
   // API was used.
   bool using_saml_api_;
+
+  // Whether consumer management enrollment is in progress.
+  bool is_enrolling_consumer_management_;
 
   // Test credentials.
   std::string test_user_;

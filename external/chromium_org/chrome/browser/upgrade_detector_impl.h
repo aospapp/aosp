@@ -8,11 +8,14 @@
 #include "base/memory/weak_ptr.h"
 #include "base/timer/timer.h"
 #include "base/version.h"
+#include "chrome/browser/metrics/variations/variations_service.h"
 #include "chrome/browser/upgrade_detector.h"
 
 template <typename T> struct DefaultSingletonTraits;
 
-class UpgradeDetectorImpl : public UpgradeDetector {
+class UpgradeDetectorImpl :
+    public UpgradeDetector,
+    public chrome_variations::VariationsService::Observer {
  public:
   virtual ~UpgradeDetectorImpl();
 
@@ -24,16 +27,29 @@ class UpgradeDetectorImpl : public UpgradeDetector {
   // Returns the singleton instance.
   static UpgradeDetectorImpl* GetInstance();
 
+ protected:
+  UpgradeDetectorImpl();
+
+  // chrome_variations::VariationsService::Observer:
+  virtual void OnExperimentChangesDetected(Severity severity) OVERRIDE;
+
+  // Trigger an "on upgrade" notification based on the specified |time_passed|
+  // interval. Exposed as protected for testing.
+  void NotifyOnUpgradeWithTimePassed(base::TimeDelta time_passed);
+
  private:
   friend struct DefaultSingletonTraits<UpgradeDetectorImpl>;
-
-  UpgradeDetectorImpl();
 
   // Start the timer that will call |CheckForUpgrade()|.
   void StartTimerForUpgradeCheck();
 
   // Launches a task on the file thread to check if we have the latest version.
   void CheckForUpgrade();
+
+  // Starts the upgrade notification timer that will check periodically whether
+  // enough time has elapsed to update the severity (which maps to visual
+  // badging) of the notification.
+  void StartUpgradeNotificationTimer();
 
   // Sends out a notification and starts a one shot timer to wait until
   // notifying the user.
@@ -63,19 +79,23 @@ class UpgradeDetectorImpl : public UpgradeDetector {
   // has passed and we should start notifying the user.
   base::RepeatingTimer<UpgradeDetectorImpl> upgrade_notification_timer_;
 
-  // We use this factory to create callback tasks for UpgradeDetected. We pass
-  // the task to the actual upgrade detection code, which is in
-  // DetectUpgradeTask.
-  base::WeakPtrFactory<UpgradeDetectorImpl> weak_factory_;
-
   // True if this build is a dev or canary channel build.
   bool is_unstable_channel_;
 
   // True if auto update is turned on.
   bool is_auto_update_enabled_;
 
+  // When the upgrade was detected - either a software update or a variations
+  // update, whichever happened first.
+  base::TimeTicks upgrade_detected_time_;
+
   // The date the binaries were built.
   base::Time build_date_;
+
+  // We use this factory to create callback tasks for UpgradeDetected. We pass
+  // the task to the actual upgrade detection code, which is in
+  // DetectUpgradeTask.
+  base::WeakPtrFactory<UpgradeDetectorImpl> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(UpgradeDetectorImpl);
 };

@@ -22,6 +22,8 @@ using ::testing::Eq;
 using ::testing::Mock;
 using ::testing::NiceMock;
 using ::testing::Return;
+using sync_driver::DataTypeManager;
+using sync_driver::DataTypeManagerMock;
 
 namespace browser_sync {
 
@@ -77,13 +79,9 @@ class SyncBackendMigratorTest : public testing::Test {
       DataTypeManager::ConfigureResult result(status, requested_types);
       migrator_->OnConfigureDone(result);
     } else {
-      std::map<syncer::ModelType, syncer::SyncError> errors;
       DataTypeManager::ConfigureResult result(
           status,
-          requested_types,
-          errors,
-          syncer::ModelTypeSet(),
-          syncer::ModelTypeSet());
+          requested_types);
       migrator_->OnConfigureDone(result);
     }
     message_loop_.RunUntilIdle();

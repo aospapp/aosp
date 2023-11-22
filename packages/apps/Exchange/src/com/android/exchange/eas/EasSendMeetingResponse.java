@@ -52,9 +52,9 @@ public class EasSendMeetingResponse extends EasOperation {
     private final int mMeetingResponse;
     private int mEasResponse;
 
-    public EasSendMeetingResponse(final Context context, final long accountId,
+    public EasSendMeetingResponse(final Context context, final Account account,
                                   final EmailContent.Message message, final int meetingResponse) {
-        super(context, accountId);
+        super(context, account);
         mMessage = message;
         mMeetingResponse = meetingResponse;
     }

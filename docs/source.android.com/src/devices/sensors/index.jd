@@ -28,19 +28,19 @@ page.title=Sensors
     <p>Android sensors give applications access to a mobile device's underlying
       physical sensors. They are data-providing virtual devices defined by the
       implementation of <a
-      href="{@docRoot}devices/reference/sensors_8h.html">sensors.h</a>,
+      href="{@docRoot}devices/halref/sensors_8h.html">sensors.h</a>,
       the sensor Hardware Abstraction Layer (HAL).</p>
     <ul>
       <li> Those virtual devices provide data coming from a set of physical sensors:
         accelerometers, gyroscopes, magnetometers, barometer, humidity, pressure,
-        light, proximity and heart rate sensors… </li>
+        light, proximity and heart rate sensors.</li>
       <li> Notably, camera, fingerprint sensor, microphone and touch screen are currently
         not in the list of physical devices providing data through “Android sensors.”
-        They have their own reporting mechanism. </li>
+        They have their own reporting mechanism.</li>
       <li> The separation is arbitrary, but in general, Android sensors provide lower
         bandwidth data. For example, “100hz x 3 channels” for an accelerometer versus
         “25hz x 8 MP x 3 channels” for a camera or “44kHz x 1 channel” for a
-        microphone. </li>
+        microphone.</li>
     </ul>
     <p>How the different physical sensors are connected to the system on chip
        (SoC) is not defined by Android.</p>
@@ -62,7 +62,7 @@ page.title=Sensors
     <p>Each Android sensor has a “type” representing how the sensor behaves and what
       data it provides.</p>
     <ul>
-      <li> The official Android <a href="sensor-types.html">Sensor types</a> are defined in <a href="{@docRoot}devices/reference/sensors_8h.html">sensors.h</a> under the names SENSOR_TYPE_…
+      <li> The official Android <a href="sensor-types.html">Sensor types</a> are defined in <a href="{@docRoot}devices/halref/sensors_8h.html">sensors.h</a> under the names SENSOR_TYPE_…
         <ul>
           <li> The vast majority of sensors have an official sensor type. </li>
           <li> Those types are documented in the Android SDK. </li>
@@ -144,7 +144,7 @@ page.title=Sensors
       </li>
       <li> Hardware abstraction layer (HAL)
         <ul>
-          <li> <a href="{@docRoot}devices/reference/sensors_8h_source.html">https://source.android.com/devices/reference/sensors_8h_source.html</a></li>
+          <li> <a href="{@docRoot}devices/halref/sensors_8h_source.html">https://source.android.com/devices/halref/sensors_8h_source.html</a></li>
           <li> Also known as “sensors.h” </li>
           <li> The source of truth. First document to be updated when new features are
             developed. </li>

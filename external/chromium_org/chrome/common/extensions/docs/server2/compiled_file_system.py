@@ -4,17 +4,37 @@
 
 import sys
 
-import schema_util
 from docs_server_utils import ToUnicode
 from file_system import FileNotFoundError
 from future import Future
-from path_util import AssertIsDirectory, AssertIsFile
-from third_party.handlebar import Handlebar
+from path_util import AssertIsDirectory, AssertIsFile, ToDirectory
 from third_party.json_schema_compiler import json_parse
 from third_party.json_schema_compiler.memoize import memoize
+from third_party.motemplate import Motemplate
 
 
+_CACHEABLE_FUNCTIONS = set()
 _SINGLE_FILE_FUNCTIONS = set()
+
+
+def _GetUnboundFunction(fn):
+  '''Functions bound to an object are separate from the unbound
+  defintion. This causes issues when checking for cache membership,
+  so always get the unbound function, if possible.
+  '''
+  return getattr(fn, 'im_func', fn)
+
+
+def Cache(fn):
+  '''A decorator which can be applied to the compilation function
+  passed to CompiledFileSystem.Create, indicating that file/list data
+  should be cached.
+
+  This decorator should be listed first in any list of decorators, along
+  with the SingleFile decorator below.
+  '''
+  _CACHEABLE_FUNCTIONS.add(_GetUnboundFunction(fn))
+  return fn
 
 
 def SingleFile(fn):
@@ -26,7 +46,7 @@ def SingleFile(fn):
   Note that this decorator must be listed first in any list of decorators to
   have any effect.
   '''
-  _SINGLE_FILE_FUNCTIONS.add(fn)
+  _SINGLE_FILE_FUNCTIONS.add(_GetUnboundFunction(fn))
   return fn
 
 
@@ -50,7 +70,7 @@ def Unicode(fn):
 class _CacheEntry(object):
   def __init__(self, cache_data, version):
 
-    self._cache_data = cache_data
+    self.cache_data = cache_data
     self.version = version
 
 
@@ -100,21 +120,10 @@ class CompiledFileSystem(object):
       These are memoized over file systems tied to different branches.
       '''
       return self.Create(file_system,
-                         SingleFile(lambda _, data:
-                             json_parse.Parse(ToUnicode(data))),
+                         Cache(SingleFile(lambda _, data:
+                             json_parse.Parse(ToUnicode(data)))),
                          CompiledFileSystem,
                          category='json')
-
-    @memoize
-    def ForAPISchema(self, file_system):
-      '''Creates a CompiledFileSystem for parsing raw JSON or IDL API schema
-      data and formatting it so that it can be used by other classes, such
-      as Model and APISchemaGraph.
-      '''
-      return self.Create(file_system,
-                         SingleFile(Unicode(schema_util.ProcessSchema)),
-                         CompiledFileSystem,
-                         category='api-schema')
 
     @memoize
     def ForTemplates(self, file_system):
@@ -122,7 +131,7 @@ class CompiledFileSystem(object):
       '''
       return self.Create(
           file_system,
-          SingleFile(lambda path, text: Handlebar(ToUnicode(text), name=path)),
+          SingleFile(lambda path, text: Motemplate(ToUnicode(text), name=path)),
           CompiledFileSystem)
 
     @memoize
@@ -144,6 +153,15 @@ class CompiledFileSystem(object):
     self._compilation_function = compilation_function
     self._file_object_store = file_object_store
     self._list_object_store = list_object_store
+
+  def _Get(self, store, key):
+    if _GetUnboundFunction(self._compilation_function) in _CACHEABLE_FUNCTIONS:
+      return store.Get(key)
+    return Future(value=None)
+
+  def _Set(self, store, key, value):
+    if _GetUnboundFunction(self._compilation_function) in _CACHEABLE_FUNCTIONS:
+      store.Set(key, value)
 
   def _RecursiveList(self, path):
     '''Returns a Future containing the recursive directory listing of |path| as
@@ -173,56 +191,54 @@ class CompiledFileSystem(object):
     if not first_layer_dirs:
       return Future(value=first_layer_files)
 
-    second_layer_listing = self._file_system.Read(
-        add_prefix(path, first_layer_dirs))
+    def get_from_future_listing(listings):
+      '''Recursively lists files from directory listing |futures|.
+      '''
+      dirs, files = [], []
+      for dir_name, listing in listings.iteritems():
+        new_dirs, new_files = split_dirs_from_files(listing)
+        # |dirs| are paths for reading. Add the full prefix relative to
+        # |path| so that |file_system| can find the files.
+        dirs += add_prefix(dir_name, new_dirs)
+        # |files| are not for reading, they are for returning to the caller.
+        # This entire function set (i.e. GetFromFileListing) is defined to
+        # not include the fetched-path in the result, however, |dir_name|
+        # will be prefixed with |path|. Strip it.
+        assert dir_name.startswith(path)
+        files += add_prefix(dir_name[len(path):], new_files)
+      if dirs:
+        files += self._file_system.Read(dirs).Then(
+            get_from_future_listing).Get()
+      return files
 
-    def resolve():
-      def get_from_future_listing(futures):
-        '''Recursively lists files from directory listing |futures|.
-        '''
-        dirs, files = [], []
-        for dir_name, listing in futures.Get().iteritems():
-          new_dirs, new_files = split_dirs_from_files(listing)
-          # |dirs| are paths for reading. Add the full prefix relative to
-          # |path| so that |file_system| can find the files.
-          dirs += add_prefix(dir_name, new_dirs)
-          # |files| are not for reading, they are for returning to the caller.
-          # This entire function set (i.e. GetFromFileListing) is defined to
-          # not include the fetched-path in the result, however, |dir_name|
-          # will be prefixed with |path|. Strip it.
-          assert dir_name.startswith(path)
-          files += add_prefix(dir_name[len(path):], new_files)
-        if dirs:
-          files += get_from_future_listing(self._file_system.Read(dirs))
-        return files
+    return self._file_system.Read(add_prefix(path, first_layer_dirs)).Then(
+        lambda results: first_layer_files + get_from_future_listing(results))
 
-      return first_layer_files + get_from_future_listing(second_layer_listing)
-
-    return Future(callback=resolve)
-
-  def GetFromFile(self, path):
-    '''Calls |compilation_function| on the contents of the file at |path|.  If
-    |binary| is True then the file will be read as binary - but this will only
-    apply for the first time the file is fetched; if already cached, |binary|
-    will be ignored.
+  def GetFromFile(self, path, skip_not_found=False):
+    '''Calls |compilation_function| on the contents of the file at |path|.
+    If |skip_not_found| is True, then None is passed to |compilation_function|.
     '''
     AssertIsFile(path)
 
     try:
       version = self._file_system.Stat(path).version
     except FileNotFoundError:
-      return Future(exc_info=sys.exc_info())
+      if skip_not_found:
+        version = None
+      else:
+        return Future(exc_info=sys.exc_info())
 
-    cache_entry = self._file_object_store.Get(path).Get()
+    cache_entry = self._Get(self._file_object_store, path).Get()
     if (cache_entry is not None) and (version == cache_entry.version):
-      return Future(value=cache_entry._cache_data)
+      return Future(value=cache_entry.cache_data)
 
-    future_files = self._file_system.ReadSingle(path)
-    def resolve():
-      cache_data = self._compilation_function(path, future_files.Get())
-      self._file_object_store.Set(path, _CacheEntry(cache_data, version))
+    def compile_(files):
+      cache_data = self._compilation_function(path, files)
+      self._Set(self._file_object_store, path, _CacheEntry(cache_data, version))
       return cache_data
-    return Future(callback=resolve)
+
+    return self._file_system.ReadSingle(
+        path, skip_not_found=skip_not_found).Then(compile_)
 
   def GetFromFileListing(self, path):
     '''Calls |compilation_function| on the listing of the files at |path|.
@@ -235,33 +251,35 @@ class CompiledFileSystem(object):
     except FileNotFoundError:
       return Future(exc_info=sys.exc_info())
 
-    cache_entry = self._list_object_store.Get(path).Get()
+    cache_entry = self._Get(self._list_object_store, path).Get()
     if (cache_entry is not None) and (version == cache_entry.version):
-      return Future(value=cache_entry._cache_data)
+      return Future(value=cache_entry.cache_data)
 
-    recursive_list_future = self._RecursiveList(path)
-    def resolve():
-      cache_data = self._compilation_function(path, recursive_list_future.Get())
-      self._list_object_store.Set(path, _CacheEntry(cache_data, version))
+    def compile_(files):
+      cache_data = self._compilation_function(path, files)
+      self._Set(self._list_object_store, path, _CacheEntry(cache_data, version))
       return cache_data
-    return Future(callback=resolve)
+    return self._RecursiveList(path).Then(compile_)
 
-  def GetFileVersion(self, path):
-    cache_entry = self._file_object_store.Get(path).Get()
+  # _GetFileVersionFromCache and _GetFileListingVersionFromCache are exposed
+  # *only* so that ChainedCompiledFileSystem can optimise its caches. *Do not*
+  # use these methods otherwise, they don't do what you want. Use
+  # FileSystem.Stat on the FileSystem that this CompiledFileSystem uses.
+
+  def _GetFileVersionFromCache(self, path):
+    cache_entry = self._Get(self._file_object_store, path).Get()
     if cache_entry is not None:
-      return cache_entry.version
-    return self._file_system.Stat(path).version
+      return Future(value=cache_entry.version)
+    stat_future = self._file_system.StatAsync(path)
+    return Future(callback=lambda: stat_future.Get().version)
 
-  def GetFileListingVersion(self, path):
-    if not path.endswith('/'):
-      path += '/'
-    cache_entry = self._list_object_store.Get(path).Get()
+  def _GetFileListingVersionFromCache(self, path):
+    path = ToDirectory(path)
+    cache_entry = self._Get(self._list_object_store, path).Get()
     if cache_entry is not None:
-      return cache_entry.version
-    return self._file_system.Stat(path).version
-
-  def FileExists(self, path):
-    return self._file_system.Exists(path)
+      return Future(value=cache_entry.version)
+    stat_future = self._file_system.StatAsync(path)
+    return Future(callback=lambda: stat_future.Get().version)
 
   def GetIdentity(self):
     return self._file_system.GetIdentity()

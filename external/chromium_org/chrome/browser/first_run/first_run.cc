@@ -8,8 +8,8 @@
 
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/memory/ref_counted.h"
 #include "base/metrics/histogram.h"
@@ -33,7 +33,6 @@
 #include "chrome/browser/prefs/chrome_pref_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profiles_state.h"
-#include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/shell_integration.h"
 #include "chrome/browser/signin/signin_manager_factory.h"
@@ -54,6 +53,7 @@
 #include "chrome/installer/util/master_preferences_constants.h"
 #include "chrome/installer/util/util_constants.h"
 #include "components/pref_registry/pref_registry_syncable.h"
+#include "components/search_engines/template_url_service.h"
 #include "components/signin/core/browser/signin_manager.h"
 #include "components/signin/core/browser/signin_tracker.h"
 #include "content/public/browser/notification_observer.h"
@@ -62,6 +62,7 @@
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
+#include "extensions/browser/extension_system.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "url/gurl.h"
 
@@ -125,7 +126,8 @@ class FirstRunDelayedTasks : public content::NotificationObserver {
 
   explicit FirstRunDelayedTasks(Tasks task) {
     if (task == INSTALL_EXTENSIONS) {
-      registrar_.Add(this, chrome::NOTIFICATION_EXTENSIONS_READY,
+      registrar_.Add(this,
+                     extensions::NOTIFICATION_EXTENSIONS_READY_DEPRECATED,
                      content::NotificationService::AllSources());
     }
     registrar_.Add(this, chrome::NOTIFICATION_BROWSER_CLOSED,
@@ -136,9 +138,11 @@ class FirstRunDelayedTasks : public content::NotificationObserver {
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE {
     // After processing the notification we always delete ourselves.
-    if (type == chrome::NOTIFICATION_EXTENSIONS_READY) {
-      DoExtensionWork(
-          content::Source<Profile>(source).ptr()->GetExtensionService());
+    if (type == extensions::NOTIFICATION_EXTENSIONS_READY_DEPRECATED) {
+      Profile* profile = content::Source<Profile>(source).ptr();
+      ExtensionService* service =
+          extensions::ExtensionSystem::Get(profile)->extension_service();
+      DoExtensionWork(service);
     }
     delete this;
   }

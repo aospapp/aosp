@@ -10,13 +10,15 @@
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/single_thread_task_runner.h"
+#include "base/stl_util.h"
 #include "base/task_runner.h"
 #include "base/thread_task_runner_handle.h"
 #include "base/threading/sequenced_worker_pool.h"
 #include "base/threading/worker_pool.h"
+#include "content/child/webcrypto/algorithm_dispatch.h"
 #include "content/child/webcrypto/crypto_data.h"
-#include "content/child/webcrypto/shared_crypto.h"
 #include "content/child/webcrypto/status.h"
+#include "content/child/webcrypto/structured_clone.h"
 #include "content/child/webcrypto/webcrypto_util.h"
 #include "content/child/worker_thread_task_runner.h"
 #include "third_party/WebKit/public/platform/WebCryptoKeyAlgorithm.h"
@@ -108,7 +110,7 @@ void CompleteWithError(const Status& status, blink::WebCryptoResult* result) {
 }
 
 void CompleteWithBufferOrError(const Status& status,
-                               const std::vector<uint8>& buffer,
+                               const std::vector<uint8_t>& buffer,
                                blink::WebCryptoResult* result) {
   if (status.IsError()) {
     CompleteWithError(status, result);
@@ -118,8 +120,7 @@ void CompleteWithBufferOrError(const Status& status,
       // theoretically this could overflow.
       CompleteWithError(Status::ErrorUnexpected(), result);
     } else {
-      result->completeWithBuffer(webcrypto::Uint8VectorStart(buffer),
-                                 buffer.size());
+      result->completeWithBuffer(vector_as_array(&buffer), buffer.size());
     }
   }
 }
@@ -198,9 +199,9 @@ struct EncryptState : public BaseState {
 
   const blink::WebCryptoAlgorithm algorithm;
   const blink::WebCryptoKey key;
-  const std::vector<uint8> data;
+  const std::vector<uint8_t> data;
 
-  std::vector<uint8> buffer;
+  std::vector<uint8_t> buffer;
 };
 
 typedef EncryptState DecryptState;
@@ -247,7 +248,7 @@ struct ImportKeyState : public BaseState {
         key(blink::WebCryptoKey::createNull()) {}
 
   const blink::WebCryptoKeyFormat format;
-  const std::vector<uint8> key_data;
+  const std::vector<uint8_t> key_data;
   const blink::WebCryptoAlgorithm algorithm;
   const bool extractable;
   const blink::WebCryptoKeyUsageMask usage_mask;
@@ -264,7 +265,7 @@ struct ExportKeyState : public BaseState {
   const blink::WebCryptoKeyFormat format;
   const blink::WebCryptoKey key;
 
-  std::vector<uint8> buffer;
+  std::vector<uint8_t> buffer;
 };
 
 typedef EncryptState SignState;
@@ -286,8 +287,8 @@ struct VerifySignatureState : public BaseState {
 
   const blink::WebCryptoAlgorithm algorithm;
   const blink::WebCryptoKey key;
-  const std::vector<uint8> signature;
-  const std::vector<uint8> data;
+  const std::vector<uint8_t> signature;
+  const std::vector<uint8_t> data;
 
   bool verify_result;
 };
@@ -309,7 +310,7 @@ struct WrapKeyState : public BaseState {
   const blink::WebCryptoKey wrapping_key;
   const blink::WebCryptoAlgorithm wrap_algorithm;
 
-  std::vector<uint8> buffer;
+  std::vector<uint8_t> buffer;
 };
 
 struct UnwrapKeyState : public BaseState {
@@ -333,7 +334,7 @@ struct UnwrapKeyState : public BaseState {
         unwrapped_key(blink::WebCryptoKey::createNull()) {}
 
   const blink::WebCryptoKeyFormat format;
-  const std::vector<uint8> wrapped_key;
+  const std::vector<uint8_t> wrapped_key;
   const blink::WebCryptoKey wrapping_key;
   const blink::WebCryptoAlgorithm unwrap_algorithm;
   const blink::WebCryptoAlgorithm unwrapped_key_algorithm;
@@ -480,8 +481,7 @@ void DoExportKeyReply(scoped_ptr<ExportKeyState> state) {
     CompleteWithError(state->status, &state->result);
   } else {
     state->result.completeWithJson(
-        reinterpret_cast<const char*>(
-            webcrypto::Uint8VectorStart(&state->buffer)),
+        reinterpret_cast<const char*>(vector_as_array(&state->buffer)),
         state->buffer.size());
   }
 }
@@ -525,12 +525,11 @@ void DoVerify(scoped_ptr<VerifySignatureState> passed_state) {
   VerifySignatureState* state = passed_state.get();
   if (state->cancelled())
     return;
-  state->status =
-      webcrypto::VerifySignature(state->algorithm,
-                                 state->key,
-                                 webcrypto::CryptoData(state->signature),
-                                 webcrypto::CryptoData(state->data),
-                                 &state->verify_result);
+  state->status = webcrypto::Verify(state->algorithm,
+                                    state->key,
+                                    webcrypto::CryptoData(state->signature),
+                                    webcrypto::CryptoData(state->data),
+                                    &state->verify_result);
 
   state->origin_thread->PostTask(
       FROM_HERE, base::Bind(DoVerifyReply, Passed(&passed_state)));
@@ -582,10 +581,6 @@ WebCryptoImpl::WebCryptoImpl() {
 }
 
 WebCryptoImpl::~WebCryptoImpl() {
-}
-
-void WebCryptoImpl::EnsureInit() {
-  webcrypto::Init();
 }
 
 void WebCryptoImpl::encrypt(const blink::WebCryptoAlgorithm& algorithm,

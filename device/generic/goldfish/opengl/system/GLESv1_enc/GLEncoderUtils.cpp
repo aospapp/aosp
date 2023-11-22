@@ -17,8 +17,12 @@
 #include <stdlib.h>
 #include "GLEncoder.h"
 
+namespace glesv1_enc {
+
 size_t pixelDataSize(void *self, GLsizei width, GLsizei height, GLenum format, GLenum type, int pack)
 {
     GLEncoder *ctx = (GLEncoder *)self;
     return ctx->pixelDataSize(width, height, format, type, pack);
 }
+
+}  // namespace glesv1_enc

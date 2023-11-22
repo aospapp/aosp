@@ -62,20 +62,11 @@ using content::RenderViewHost;
 #if defined(DISABLE_NACL)
 
 #define TEST_PPAPI_NACL(test_name)
-#define TEST_PPAPI_NACL_NO_PNACL(test_name)
 #define TEST_PPAPI_NACL_DISALLOWED_SOCKETS(test_name)
 #define TEST_PPAPI_NACL_WITH_SSL_SERVER(test_name)
+#define TEST_PPAPI_NACL_SUBTESTS(test_name, run_statement)
 
 #else
-
-// TODO(dmichael): Remove this macro, crbug.com/384539
-#define TEST_PPAPI_NACL_NO_PNACL(test_name) \
-    IN_PROC_BROWSER_TEST_F(PPAPINaClNewlibTest, test_name) { \
-      RunTestViaHTTP(STRIP_PREFIXES(test_name)); \
-    } \
-    IN_PROC_BROWSER_TEST_F(PPAPINaClGLibcTest, MAYBE_GLIBC(test_name)) { \
-      RunTestViaHTTP(STRIP_PREFIXES(test_name)); \
-    } \
 
 // NaCl based PPAPI tests
 #define TEST_PPAPI_NACL(test_name) \
@@ -91,6 +82,22 @@ using content::RenderViewHost;
     IN_PROC_BROWSER_TEST_F(PPAPINaClPNaClNonSfiTest, \
                            MAYBE_PNACL_NONSFI(test_name)) { \
       RunTestViaHTTP(STRIP_PREFIXES(test_name)); \
+    }
+
+// NaCl based PPAPI tests
+#define TEST_PPAPI_NACL_SUBTESTS(test_name, run_statement) \
+    IN_PROC_BROWSER_TEST_F(PPAPINaClNewlibTest, test_name) { \
+      run_statement; \
+    } \
+    IN_PROC_BROWSER_TEST_F(PPAPINaClGLibcTest, MAYBE_GLIBC(test_name)) { \
+      run_statement; \
+    } \
+    IN_PROC_BROWSER_TEST_F(PPAPINaClPNaClTest, test_name) { \
+      run_statement; \
+    } \
+    IN_PROC_BROWSER_TEST_F(PPAPINaClPNaClNonSfiTest, \
+                           MAYBE_PNACL_NONSFI(test_name)) { \
+      run_statement; \
     }
 
 // NaCl based PPAPI tests with disallowed socket API
@@ -431,11 +438,14 @@ TEST_PPAPI_NACL(HostResolverPrivate_ResolveIPv4)
   )
 
 // Note: we do not support Trusted APIs in NaCl, so these will be skipped.
+// XRequestedWithHeader isn't trusted per-se, but the header isn't provided
+// for NaCl and thus must be skipped.
 #define RUN_URLLOADER_TRUSTED_SUBTESTS \
   RunTestViaHTTP( \
       LIST_TEST(URLLoader_TrustedSameOriginRestriction) \
       LIST_TEST(URLLoader_TrustedCrossOriginRequest) \
       LIST_TEST(URLLoader_TrustedHttpRequests) \
+      LIST_TEST(URLLoader_XRequestedWithHeader) \
   )
 
 IN_PROC_BROWSER_TEST_F(PPAPITest, URLLoader0) {
@@ -595,7 +605,13 @@ TEST_PPAPI_NACL(VarResource)
 #undef PostMessage
 #endif
 
-IN_PROC_BROWSER_TEST_F(OutOfProcessPPAPITest, PostMessage) {
+#if defined(OS_WIN)
+// http://crbug.com/95557
+#define MAYBE_PostMessage DISABLED_PostMessage
+#else
+#define MAYBE_PostMessage PostMessage
+#endif
+IN_PROC_BROWSER_TEST_F(OutOfProcessPPAPITest, MAYBE_PostMessage) {
   RUN_POSTMESSAGE_SUBTESTS;
 }
 IN_PROC_BROWSER_TEST_F(PPAPINaClNewlibTest, PostMessage) {
@@ -657,19 +673,13 @@ IN_PROC_BROWSER_TEST_F(OutOfProcessPPAPIPrivateTest, MAYBE_FileIO_Private) {
   RUN_FILEIO_PRIVATE_SUBTESTS;
 }
 
-// Flaky on XP; times out, http://crbug.com/313401
-#if defined(OS_WIN)
-#define MAYBE_NaCl_Newlib_FileIO DISABLED_FileIO
-#define MAYBE_NaCl_Newlib_FileIO_Private DISABLED_FileIO_Private
-#else
-#define MAYBE_NaCl_Newlib_FileIO FileIO
-#define MAYBE_NaCl_Newlib_FileIO_Private FileIO_Private
-#endif
-IN_PROC_BROWSER_TEST_F(PPAPINaClNewlibTest, MAYBE_NaCl_Newlib_FileIO) {
+// http://crbug.com/313401
+IN_PROC_BROWSER_TEST_F(PPAPINaClNewlibTest, DISABLED_FileIO) {
   RUN_FILEIO_SUBTESTS;
 }
+// http://crbug.com/313401
 IN_PROC_BROWSER_TEST_F(PPAPIPrivateNaClNewlibTest,
-                       MAYBE_NaCl_Newlib_FileIO_Private) {
+                       DISABLED_NaCl_Newlib_FileIO_Private) {
   RUN_FILEIO_PRIVATE_SUBTESTS;
 }
 
@@ -682,18 +692,12 @@ IN_PROC_BROWSER_TEST_F(PPAPIPrivateNaClGLibcTest, DISABLED_FileIO_Private) {
   RUN_FILEIO_PRIVATE_SUBTESTS;
 }
 
-// Flaky on XP; times out, http://crbug.com/313205
-#if defined(OS_WIN)
-#define MAYBE_PNaCl_FileIO DISABLED_FileIO
-#define MAYBE_PNaCl_FileIO_Private DISABLED_FileIO_Private
-#else
-#define MAYBE_PNaCl_FileIO FileIO
-#define MAYBE_PNaCl_FileIO_Private FileIO_Private
-#endif
-IN_PROC_BROWSER_TEST_F(PPAPINaClPNaClTest, MAYBE_PNaCl_FileIO) {
+// http://crbug.com/313205
+IN_PROC_BROWSER_TEST_F(PPAPINaClPNaClTest, DISABLED_FileIO) {
   RUN_FILEIO_SUBTESTS;
 }
-IN_PROC_BROWSER_TEST_F(PPAPIPrivateNaClPNaClTest, MAYBE_PNaCl_FileIO_Private) {
+IN_PROC_BROWSER_TEST_F(PPAPIPrivateNaClPNaClTest,
+                       DISABLED_PNaCl_FileIO_Private) {
   RUN_FILEIO_PRIVATE_SUBTESTS;
 }
 
@@ -964,6 +968,7 @@ IN_PROC_BROWSER_TEST_F(OutOfProcessPPAPITest, Flash) {
       LIST_TEST(WebSocket_AbortSendMessageCall) \
       LIST_TEST(WebSocket_AbortCloseCall) \
       LIST_TEST(WebSocket_AbortReceiveMessageCall) \
+      LIST_TEST(WebSocket_ClosedFromServerWhileSending) \
       LIST_TEST(WebSocket_CcInterfaces) \
       LIST_TEST(WebSocket_UtilityInvalidConnect) \
       LIST_TEST(WebSocket_UtilityProtocols) \
@@ -974,10 +979,8 @@ IN_PROC_BROWSER_TEST_F(OutOfProcessPPAPITest, Flash) {
       LIST_TEST(WebSocket_UtilityGetProtocol) \
       LIST_TEST(WebSocket_UtilityTextSendReceive) \
       LIST_TEST(WebSocket_UtilityBinarySendReceive) \
+      LIST_TEST(WebSocket_UtilityBufferedAmount) \
   )
-// TODO(yhirano): List this test in SUBTESTS_2 once the close ordering
-// is implemented correctly.
-//    LIST_TEST(WebSocket_UtilityBufferedAmount)
 
 IN_PROC_BROWSER_TEST_F(PPAPITest, WebSocket1) {
   RUN_WEBSOCKET_SUBTESTS_1;
@@ -991,16 +994,16 @@ IN_PROC_BROWSER_TEST_F(OutOfProcessPPAPITest, WebSocket1) {
 IN_PROC_BROWSER_TEST_F(OutOfProcessPPAPITest, WebSocket2) {
   RUN_WEBSOCKET_SUBTESTS_2;
 }
-IN_PROC_BROWSER_TEST_F(PPAPINaClNewlibTest, WebSocket1) {
-  RUN_WEBSOCKET_SUBTESTS_1;
-}
-IN_PROC_BROWSER_TEST_F(PPAPINaClNewlibTest, WebSocket2) {
-  RUN_WEBSOCKET_SUBTESTS_2;
-}
 IN_PROC_BROWSER_TEST_F(PPAPINaClGLibcTest, MAYBE_GLIBC(WebSocket1)) {
   RUN_WEBSOCKET_SUBTESTS_1;
 }
 IN_PROC_BROWSER_TEST_F(PPAPINaClGLibcTest, MAYBE_GLIBC(WebSocket2)) {
+  RUN_WEBSOCKET_SUBTESTS_2;
+}
+IN_PROC_BROWSER_TEST_F(PPAPINaClNewlibTest, WebSocket1) {
+  RUN_WEBSOCKET_SUBTESTS_1;
+}
+IN_PROC_BROWSER_TEST_F(PPAPINaClNewlibTest, WebSocket2) {
   RUN_WEBSOCKET_SUBTESTS_2;
 }
 IN_PROC_BROWSER_TEST_F(PPAPINaClPNaClTest, WebSocket1) {
@@ -1058,8 +1061,14 @@ IN_PROC_BROWSER_TEST_F(PPAPINaClPNaClNonSfiTest,
       LIST_TEST(Audio_AudioCallback4) \
   )
 
+#if defined(OS_LINUX)
+// http://crbug.com/396464
+#define MAYBE_Audio DISABLED_Audio
+#else
+#define MAYBE_Audio Audio
+#endif
 // PPB_Audio is not supported in-process.
-IN_PROC_BROWSER_TEST_F(OutOfProcessPPAPITest, Audio) {
+IN_PROC_BROWSER_TEST_F(OutOfProcessPPAPITest, MAYBE_Audio) {
   RUN_AUDIO_SUBTESTS;
 }
 IN_PROC_BROWSER_TEST_F(PPAPINaClNewlibTest, Audio) {
@@ -1106,13 +1115,13 @@ TEST_PPAPI_NACL(View_CreatedVisible);
 IN_PROC_BROWSER_TEST_F(OutOfProcessPPAPITest, View_CreateInvisible) {
   // Make a second tab in the foreground.
   GURL url = GetTestFileUrl("View_CreatedInvisible");
-  chrome::NavigateParams params(browser(), url, content::PAGE_TRANSITION_LINK);
+  chrome::NavigateParams params(browser(), url, ui::PAGE_TRANSITION_LINK);
   params.disposition = NEW_BACKGROUND_TAB;
   ui_test_utils::NavigateToURL(&params);
 }
 
 // This test messes with tab visibility so is custom.
-IN_PROC_BROWSER_TEST_F(OutOfProcessPPAPITest, View_PageHideShow) {
+IN_PROC_BROWSER_TEST_F(OutOfProcessPPAPITest, DISABLED_View_PageHideShow) {
   // The plugin will be loaded in the foreground tab and will send us a message.
   PPAPITestMessageHandler handler;
   content::JavascriptTestObserver observer(
@@ -1129,7 +1138,7 @@ IN_PROC_BROWSER_TEST_F(OutOfProcessPPAPITest, View_PageHideShow) {
   // Make a new tab to cause the original one to hide, this should trigger the
   // next phase of the test.
   chrome::NavigateParams params(
-      browser(), GURL(url::kAboutBlankURL), content::PAGE_TRANSITION_LINK);
+      browser(), GURL(url::kAboutBlankURL), ui::PAGE_TRANSITION_LINK);
   params.disposition = NEW_FOREGROUND_TAB;
   ui_test_utils::NavigateToURL(&params);
 
@@ -1208,18 +1217,43 @@ IN_PROC_BROWSER_TEST_F(OutOfProcessPPAPITest, MAYBE_FlashMessageLoop) {
   RUN_FLASH_MESSAGE_LOOP_SUBTESTS;
 }
 
+// The compositor test timeouts sometimes, so we have to split it to two
+// subtests.
+#define RUN_COMPOSITOR_SUBTESTS_0 \
+  RunTestViaHTTP( \
+      LIST_TEST(Compositor_BindUnbind) \
+      LIST_TEST(Compositor_Release) \
+      LIST_TEST(Compositor_ReleaseUnbound) \
+      LIST_TEST(Compositor_ReleaseWithoutCommit) \
+      LIST_TEST(Compositor_ReleaseWithoutCommitUnbound) \
+  )
+
+#define RUN_COMPOSITOR_SUBTESTS_1 \
+  RunTestViaHTTP( \
+      LIST_TEST(Compositor_CommitTwoTimesWithoutChange) \
+      LIST_TEST(Compositor_CommitTwoTimesWithoutChangeUnbound) \
+      LIST_TEST(Compositor_General) \
+      LIST_TEST(Compositor_GeneralUnbound) \
+  )
+
 #if defined(OS_WIN)
 // This test fails with the test compositor which is what's used by default for
 // browser tests on Windows. Renable when the software compositor is available.
-#define MAYBE_Compositor DISABLED_Compositor
+#define MAYBE_Compositor0 DISABLED_Compositor0
+#define MAYBE_Compositor1 DISABLED_Compositor1
 #elif defined(OS_MACOSX)
 // This test fails when using the legacy software mode. Reenable when the
 // software compositor is enabled crbug.com/286038
-#define MAYBE_Compositor DISABLED_Compositor
+#define MAYBE_Compositor0 DISABLED_Compositor0
+#define MAYBE_Compositor1 DISABLED_Compositor1
 #else
-#define MAYBE_Compositor Compositor
+// flaky on Linux: http://crbug.com/396482
+#define MAYBE_Compositor0 DISABLED_Compositor0
+#define MAYBE_Compositor1 DISABLED_Compositor1
 #endif
-TEST_PPAPI_NACL(MAYBE_Compositor)
+
+TEST_PPAPI_NACL_SUBTESTS(MAYBE_Compositor0, RUN_COMPOSITOR_SUBTESTS_0)
+TEST_PPAPI_NACL_SUBTESTS(MAYBE_Compositor1, RUN_COMPOSITOR_SUBTESTS_1)
 
 TEST_PPAPI_NACL(MediaStreamAudioTrack)
 
@@ -1244,9 +1278,7 @@ TEST_PPAPI_NACL(VideoSource)
 // Printing doesn't work in content_browsertests.
 TEST_PPAPI_OUT_OF_PROCESS(Printing)
 
-// TODO(dmichael): Make this work on PNaCl and remove the macro.
-//                 crbug.com/384539
-TEST_PPAPI_NACL_NO_PNACL(MessageHandler)
+TEST_PPAPI_NACL(MessageHandler)
 
 TEST_PPAPI_NACL(MessageLoop_Basics)
 TEST_PPAPI_NACL(MessageLoop_Post)
@@ -1264,7 +1296,8 @@ TEST_PPAPI_OUT_OF_PROCESS(FlashFile)
 // Mac/Aura reach NOTIMPLEMENTED/time out.
 // mac: http://crbug.com/96767
 // aura: http://crbug.com/104384
-#if defined(OS_MACOSX)
+// cros: http://crbug.com/396502
+#if defined(OS_MACOSX) || defined(OS_CHROMEOS)
 #define MAYBE_FlashFullscreen DISABLED_FlashFullscreen
 #else
 #define MAYBE_FlashFullscreen FlashFullscreen

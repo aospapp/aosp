@@ -11,7 +11,8 @@
 
 namespace content {
 
-DevToolsPowerHandler::DevToolsPowerHandler() {
+DevToolsPowerHandler::DevToolsPowerHandler()
+    : is_profiling_(false) {
   RegisterCommandHandler(devtools::Power::start::kName,
                          base::Bind(&DevToolsPowerHandler::OnStart,
                                     base::Unretained(this)));
@@ -21,10 +22,14 @@ DevToolsPowerHandler::DevToolsPowerHandler() {
   RegisterCommandHandler(devtools::Power::canProfilePower::kName,
                          base::Bind(&DevToolsPowerHandler::OnCanProfilePower,
                                     base::Unretained(this)));
+  RegisterCommandHandler(devtools::Power::getAccuracyLevel::kName,
+                         base::Bind(&DevToolsPowerHandler::OnGetAccuracyLevel,
+                                    base::Unretained(this)));
 }
 
 DevToolsPowerHandler::~DevToolsPowerHandler() {
-  PowerProfilerService::GetInstance()->RemoveObserver(this);
+  if (is_profiling_)
+    PowerProfilerService::GetInstance()->RemoveObserver(this);
 }
 
 void DevToolsPowerHandler::OnPowerEvent(const PowerEventVector& events) {
@@ -54,6 +59,7 @@ DevToolsPowerHandler::OnStart(
     scoped_refptr<DevToolsProtocol::Command> command) {
   if (PowerProfilerService::GetInstance()->IsAvailable()) {
     PowerProfilerService::GetInstance()->AddObserver(this);
+    is_profiling_ = true;
     return command->SuccessResponse(NULL);
   }
 
@@ -64,6 +70,7 @@ scoped_refptr<DevToolsProtocol::Response>
 DevToolsPowerHandler::OnEnd(scoped_refptr<DevToolsProtocol::Command> command) {
   if (PowerProfilerService::GetInstance()->IsAvailable()) {
     PowerProfilerService::GetInstance()->RemoveObserver(this);
+    is_profiling_ = false;
     return command->SuccessResponse(NULL);
   }
 
@@ -78,6 +85,24 @@ DevToolsPowerHandler::OnCanProfilePower(
                      PowerProfilerService::GetInstance()->IsAvailable());
 
   return command->SuccessResponse(result);
+}
+
+scoped_refptr<DevToolsProtocol::Response>
+DevToolsPowerHandler::OnGetAccuracyLevel(
+    scoped_refptr<DevToolsProtocol::Command> command) {
+  if (PowerProfilerService::GetInstance()->IsAvailable()) {
+    base::DictionaryValue* result = new base::DictionaryValue();
+    result->SetString(
+        devtools::kResult,
+        PowerProfilerService::GetInstance()->GetAccuracyLevel());
+    return command->SuccessResponse(result);
+  }
+  return command->InternalErrorResponse("Power profiler service unavailable");
+}
+
+void DevToolsPowerHandler::OnClientDetached() {
+  if (is_profiling_)
+    PowerProfilerService::GetInstance()->RemoveObserver(this);
 }
 
 }  // namespace content

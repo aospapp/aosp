@@ -35,7 +35,7 @@ checkPath adb
 checkPath java
 
 # check java version
-JAVA_VERSION=$(java -version 2>&1 | head -n 1 | grep '[ "]1\.[67][\. "$$]')
+JAVA_VERSION=$(java -version 2>&1 | head -n 2 | grep '[ "]1\.[67][\. "$$]')
 if [ "${JAVA_VERSION}" == "" ]; then
     echo "Wrong java version. 1.6 or 1.7 is required."
     exit

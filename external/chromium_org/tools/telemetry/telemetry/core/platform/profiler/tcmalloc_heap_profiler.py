@@ -36,11 +36,11 @@ class _TCMallocHeapProfilerAndroid(object):
     # This profiler requires adb root to set properties.
     self._browser_backend.adb.device().old_interface.EnableAdbRoot()
     for values in properties.itervalues():
-      device_property = self._browser_backend.adb.system_properties[values[0]]
+      device_property = self._browser_backend.adb.device().GetProp(values[0])
       if not device_property or not device_property.strip():
-        self._browser_backend.adb.system_properties[values[0]] = values[1]
+        self._browser_backend.adb.device().SetProp(values[0], values[1])
         device_configured = True
-    if not self._browser_backend.adb.device().old_interface.FileExistsOnDevice(
+    if not self._browser_backend.adb.device().FileExists(
         self._DEFAULT_DEVICE_DIR):
       self._browser_backend.adb.RunShellCommand(
           'mkdir -p ' + self._DEFAULT_DEVICE_DIR)
@@ -121,6 +121,20 @@ class TCMallocHeapProfiler(profiler.Profiler):
   def CustomizeBrowserOptions(cls, browser_type, options):
     options.AppendExtraBrowserArgs('--no-sandbox')
     options.AppendExtraBrowserArgs('--enable-memory-benchmarking')
+
+  @classmethod
+  def WillCloseBrowser(cls, browser_backend, platform_backend):
+    # The tcmalloc_heap_profiler dumps files at regular
+    # intervals (~20 secs).
+    # This is a minor optimization to ensure it'll dump the last file when
+    # the test completes.
+    for i in xrange(len(browser_backend.browser.tabs)):
+      browser_backend.browser.tabs[i].ExecuteJavaScript("""
+        if (chrome && chrome.memoryBenchmarking) {
+          chrome.memoryBenchmarking.heapProfilerDump('renderer', 'final');
+          chrome.memoryBenchmarking.heapProfilerDump('browser', 'final');
+        }
+      """)
 
   def CollectProfile(self):
     return self._platform_profiler.CollectProfile()

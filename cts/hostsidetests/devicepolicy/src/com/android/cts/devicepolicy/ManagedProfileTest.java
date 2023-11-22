@@ -37,6 +37,7 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
     private static final String ADMIN_RECEIVER_TEST_CLASS =
             MANAGED_PROFILE_PKG + ".BaseManagedProfileTest$BasicAdminReceiver";
 
+    private static final String FEATURE_BLUETOOTH = "android.hardware.bluetooth";
     private int mUserId;
 
     @Override
@@ -49,6 +50,8 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
         if (mHasFeature) {
             mUserId = createManagedProfile();
             installApp(MANAGED_PROFILE_APK);
+            installApp(INTENT_RECEIVER_APK);
+            installApp(INTENT_SENDER_APK);
             setProfileOwner(MANAGED_PROFILE_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId);
             startUser(mUserId);
         }
@@ -59,8 +62,9 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
         if (mHasFeature) {
             removeUser(mUserId);
             getDevice().uninstallPackage(MANAGED_PROFILE_PKG);
+            getDevice().uninstallPackage(INTENT_SENDER_PKG);
+            getDevice().uninstallPackage(INTENT_RECEIVER_PKG);
         }
-
         super.tearDown();
     }
 
@@ -106,7 +110,14 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
               + getDevice().executeShellCommand(command));
         assertTrue(runDeviceTests(MANAGED_PROFILE_PKG, MANAGED_PROFILE_PKG + ".PrimaryUserTest"));
         // TODO: Test with startActivity
-        // TODO: Test with CtsVerifier for disambiguation cases
+    }
+
+    public void testSettingsIntents() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        assertTrue(runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".SettingsIntentsTest", mUserId));
     }
 
     public void testCrossProfileContent() throws Exception {
@@ -114,30 +125,58 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
             return;
         }
 
-        try {
-            getDevice().uninstallPackage(INTENT_SENDER_PKG);
-            getDevice().uninstallPackage(INTENT_RECEIVER_PKG);
-            installAppAsUser(INTENT_SENDER_APK, 0);
-            installAppAsUser(INTENT_RECEIVER_APK, mUserId);
+        // Test from parent to managed
+        assertTrue(runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
+                "removeAllFilters", mUserId));
+        assertTrue(runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
+                "addManagedCanAccessParentFilters", mUserId));
+        assertTrue(runDeviceTestsAsUser(INTENT_SENDER_PKG, ".ContentTest", 0));
 
-            // Test from parent to managed
-            assertTrue(runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
-                    "addManagedCanAccessParentFilters", mUserId));
-            assertTrue(runDeviceTestsAsUser(INTENT_SENDER_PKG, ".IntentSenderTest", 0));
+        // Test from managed to parent
+        assertTrue(runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
+                "removeAllFilters", mUserId));
+        assertTrue(runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
+                "addParentCanAccessManagedFilters", mUserId));
+        assertTrue(runDeviceTestsAsUser(INTENT_SENDER_PKG, ".ContentTest", mUserId));
 
-            getDevice().uninstallPackage(INTENT_SENDER_PKG);
-            getDevice().uninstallPackage(INTENT_RECEIVER_PKG);
-            installAppAsUser(INTENT_SENDER_APK, mUserId);
-            installAppAsUser(INTENT_RECEIVER_APK, 0);
+    }
 
-            // Test from managed to parent
-            assertTrue(runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
-                    "addParentCanAccessManagedFilters", mUserId));
-            assertTrue(runDeviceTestsAsUser(INTENT_SENDER_PKG, ".IntentSenderTest", mUserId));
+    public void testCrossProfileCopyPaste() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
 
-        } finally {
-            getDevice().uninstallPackage(INTENT_SENDER_PKG);
-            getDevice().uninstallPackage(INTENT_RECEIVER_PKG);
+        assertTrue(runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
+                "allowCrossProfileCopyPaste", mUserId));
+        // Test that managed can see what is copied in the parent.
+        testCrossProfileCopyPasteInternal(mUserId, true);
+        // Test that the parent can see what is copied in managed.
+        testCrossProfileCopyPasteInternal(0, true);
+
+        assertTrue(runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
+                "disallowCrossProfileCopyPaste", mUserId));
+        // Test that managed can still see what is copied in the parent.
+        testCrossProfileCopyPasteInternal(mUserId, true);
+        // Test that the parent cannot see what is copied in managed.
+        testCrossProfileCopyPasteInternal(0, false);
+    }
+
+    private void testCrossProfileCopyPasteInternal(int userId, boolean shouldSucceed)
+            throws DeviceNotAvailableException {
+        final String direction = (userId == 0) ? "addManagedCanAccessParentFilters"
+                : "addParentCanAccessManagedFilters";
+        assertTrue(runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
+                "removeAllFilters", mUserId));
+        assertTrue(runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileUtils",
+                direction, mUserId));
+        if (shouldSucceed) {
+            assertTrue(runDeviceTestsAsUser(INTENT_SENDER_PKG, ".CopyPasteTest",
+                    "testCanReadAcrossProfiles", userId));
+            assertTrue(runDeviceTestsAsUser(INTENT_SENDER_PKG, ".CopyPasteTest",
+                    "testIsNotified", userId));
+        } else {
+            assertTrue(runDeviceTestsAsUser(INTENT_SENDER_PKG, ".CopyPasteTest",
+                    "testCannotReadAcrossProfiles", userId));
         }
     }
 
@@ -167,6 +206,23 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
                 addRestrictionCommandOutput.contains("SecurityException"));
     }
 
+    // Test the bluetooth API from a managed profile.
+    public void testBluetooth() throws Exception {
+        boolean mHasBluetooth = hasDeviceFeatures(new String[] {FEATURE_BLUETOOTH});
+        if (!mHasFeature || !mHasBluetooth) {
+            return ;
+        }
+
+        assertTrue(runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".BluetoothTest",
+                "testEnableDisable", mUserId));
+        assertTrue(runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".BluetoothTest",
+                "testGetAddress", mUserId));
+        assertTrue(runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".BluetoothTest",
+                "testListenUsingRfcommWithServiceRecord", mUserId));
+        assertTrue(runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".BluetoothTest",
+                "testGetRemoteDevice", mUserId));
+    }
+
     private void disableActivityForUser(String activityName, int userId)
             throws DeviceNotAvailableException {
         String command = "am start -W --user " + userId
@@ -188,28 +244,5 @@ public class ManagedProfileTest extends BaseDevicePolicyTest {
         CLog.logAndDisplay(LogLevel.INFO,
                 "Output for command " + adbCommand + ": " + commandOutput);
         return commandOutput;
-    }
-
-    private int createManagedProfile() throws DeviceNotAvailableException {
-        String command =
-                "pm create-user --profileOf 0 --managed TestProfile_" + System.currentTimeMillis();
-        String commandOutput = getDevice().executeShellCommand(command);
-        CLog.logAndDisplay(LogLevel.INFO, "Output for command " + command + ": " + commandOutput);
-
-        // Extract the id of the new user.
-        String[] tokens = commandOutput.split("\\s+");
-        assertTrue(commandOutput + " expected to have format \"Success: {USER_ID}\"",
-                tokens.length > 0);
-        assertEquals(commandOutput, "Success:", tokens[0]);
-        return Integer.parseInt(tokens[tokens.length-1]);
-    }
-
-    private void setProfileOwner(String componentName, int userId)
-            throws DeviceNotAvailableException {
-        String command = "dpm set-profile-owner '" + componentName + "' " + userId;
-        String commandOutput = getDevice().executeShellCommand(command);
-        CLog.logAndDisplay(LogLevel.INFO, "Output for command " + command + ": " + commandOutput);
-        assertTrue(commandOutput + " expected to start with \"Success:\"",
-                commandOutput.startsWith("Success:"));
     }
 }

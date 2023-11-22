@@ -27,7 +27,9 @@
 #include "chrome/browser/safe_browsing/client_side_detection_service.h"
 #include "chrome/browser/safe_browsing/database_manager.h"
 #include "chrome/browser/safe_browsing/download_protection_service.h"
-#include "chrome/browser/safe_browsing/incident_reporting_service.h"
+#include "chrome/browser/safe_browsing/incident_reporting/binary_integrity_analyzer.h"
+#include "chrome/browser/safe_browsing/incident_reporting/blacklist_load_analyzer.h"
+#include "chrome/browser/safe_browsing/incident_reporting/incident_reporting_service.h"
 #include "chrome/browser/safe_browsing/malware_details.h"
 #include "chrome/browser/safe_browsing/ping_manager.h"
 #include "chrome/browser/safe_browsing/protocol_manager.h"
@@ -224,6 +226,7 @@ void SafeBrowsingService::Initialize() {
           make_scoped_refptr(g_browser_process->system_request_context())));
 
 #if defined(FULL_SAFE_BROWSING)
+#if !defined(OS_ANDROID)
   if (!CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDisableClientSidePhishingDetection)) {
     csd_service_.reset(safe_browsing::ClientSideDetectionService::Create(
@@ -231,6 +234,7 @@ void SafeBrowsingService::Initialize() {
   }
   download_service_.reset(new safe_browsing::DownloadProtectionService(
       this, url_request_context_getter_.get()));
+#endif
 
   if (IsIncidentReportingServiceEnabled()) {
     incident_service_.reset(new safe_browsing::IncidentReportingService(
@@ -256,6 +260,11 @@ void SafeBrowsingService::Initialize() {
                        content::NotificationService::AllSources());
   prefs_registrar_.Add(this, chrome::NOTIFICATION_PROFILE_DESTROYED,
                        content::NotificationService::AllSources());
+
+#if defined(FULL_SAFE_BROWSING)
+  // Register all the delayed analysis to the incident reporting service.
+  RegisterAllDelayedAnalysis();
+#endif
 }
 
 void SafeBrowsingService::ShutDown() {
@@ -330,6 +339,14 @@ SafeBrowsingService::CreatePreferenceValidationDelegate(
   return scoped_ptr<TrackedPreferenceValidationDelegate>();
 }
 
+void SafeBrowsingService::RegisterDelayedAnalysisCallback(
+    const safe_browsing::DelayedAnalysisCallback& callback) {
+#if defined(FULL_SAFE_BROWSING)
+  if (incident_service_)
+    incident_service_->RegisterDelayedAnalysisCallback(callback);
+#endif
+}
+
 SafeBrowsingUIManager* SafeBrowsingService::CreateUIManager() {
   return new SafeBrowsingUIManager(this);
 }
@@ -340,6 +357,11 @@ SafeBrowsingDatabaseManager* SafeBrowsingService::CreateDatabaseManager() {
 #else
   return NULL;
 #endif
+}
+
+void SafeBrowsingService::RegisterAllDelayedAnalysis() {
+  safe_browsing::RegisterBinaryIntegrityAnalysis();
+  safe_browsing::RegisterBlacklistLoadAnalysis();
 }
 
 void SafeBrowsingService::InitURLRequestContextOnIOThread(

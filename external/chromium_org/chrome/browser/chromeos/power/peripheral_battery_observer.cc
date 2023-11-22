@@ -7,21 +7,22 @@
 #include <vector>
 
 #include "ash/shell.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "base/bind.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/notifications/notification.h"
 #include "chrome/browser/notifications/notification_ui_manager.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/grit/theme_resources.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "content/public/browser/browser_thread.h"
 #include "device/bluetooth/bluetooth_adapter_factory.h"
 #include "device/bluetooth/bluetooth_device.h"
-#include "grit/ash_strings.h"
-#include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image.h"
@@ -59,7 +60,7 @@ std::string ExtractBluetoothAddress(const std::string& path) {
   if (key_len <= 0)
     return std::string();
   std::string reverse_address = path.substr(header_size, key_len);
-  StringToLowerASCII(&reverse_address);
+  base::StringToLowerASCII(&reverse_address);
   std::vector<std::string> result;
   base::SplitString(reverse_address, ':', &result);
   std::reverse(result.begin(), result.end());
@@ -187,7 +188,7 @@ void PeripheralBatteryObserver::InitializeOnBluetoothReady(
 void PeripheralBatteryObserver::RemoveBattery(const std::string& address) {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
   std::string address_lowercase = address;
-  StringToLowerASCII(&address_lowercase);
+  base::StringToLowerASCII(&address_lowercase);
   std::map<std::string, BatteryInfo>::iterator it =
       batteries_.find(address_lowercase);
   if (it != batteries_.end()) {
@@ -215,16 +216,20 @@ bool PeripheralBatteryObserver::PostNotification(const std::string& address,
       battery.level);
 
   Notification notification(
-      // TODO(mukai): add SYSTEM priority and use here.
+      message_center::NOTIFICATION_TYPE_SIMPLE,
       GURL(kNotificationOriginUrl),
-      ui::ResourceBundle::GetSharedInstance().GetImageNamed(
-          IDR_NOTIFICATION_PERIPHERAL_BATTERY_LOW),
       base::UTF8ToUTF16(battery.name),
       string_text,
+      ui::ResourceBundle::GetSharedInstance().GetImageNamed(
+          IDR_NOTIFICATION_PERIPHERAL_BATTERY_LOW),
       blink::WebTextDirectionDefault,
+      message_center::NotifierId(GURL(kNotificationOriginUrl)),
       base::string16(),
       base::UTF8ToUTF16(address),
+      message_center::RichNotificationData(),
       new PeripheralBatteryNotificationDelegate(address));
+
+  notification.set_priority(message_center::SYSTEM_PRIORITY);
 
   notification_manager->Add(
       notification,

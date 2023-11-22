@@ -228,6 +228,11 @@ public class AndroidCamera2Settings extends CameraSettings {
         } else if (setting == CONTROL_AWB_LOCK) {
             return Objects.equals(mAutoWhiteBalanceLocked, mTemplateSettings.get(CONTROL_AWB_LOCK));
         } else if (setting == JPEG_THUMBNAIL_SIZE) {
+            if (mExifThumbnailSize == null) {
+                // It doesn't matter if this is true or false since setting this
+                // to null in the request settings will use the default anyway.
+                return false;
+            }
             android.util.Size defaultThumbnailSize = mTemplateSettings.get(JPEG_THUMBNAIL_SIZE);
             return (mExifThumbnailSize.width() == 0 && mExifThumbnailSize.height() == 0) ||
                     (defaultThumbnailSize != null &&
@@ -273,9 +278,13 @@ public class AndroidCamera2Settings extends CameraSettings {
         updateRequestSettingOrForceToDefault(CONTROL_AWB_LOCK, mAutoWhiteBalanceLocked);
         // TODO: mRecordingHintEnabled
         updateRequestGpsData();
-        updateRequestSettingOrForceToDefault(JPEG_THUMBNAIL_SIZE,
-                new android.util.Size(
-                        mExifThumbnailSize.width(), mExifThumbnailSize.height()));
+        if (mExifThumbnailSize != null) {
+            updateRequestSettingOrForceToDefault(JPEG_THUMBNAIL_SIZE,
+                    new android.util.Size(
+                            mExifThumbnailSize.width(), mExifThumbnailSize.height()));
+        } else {
+            updateRequestSettingOrForceToDefault(JPEG_THUMBNAIL_SIZE, null);
+        }
 
         return mRequestSettings;
     }

@@ -97,6 +97,19 @@ struct ResourceResponseInfo {
 
   // Remote address of the socket which fetched this resource.
   net::HostPortPair socket_address;
+
+  // True if the response was fetched by a ServiceWorker.
+  bool was_fetched_via_service_worker;
+
+  // The original URL of the response which was fetched by the ServiceWorker.
+  // This may be empty if the response was created inside the ServiceWorker.
+  GURL original_url_via_service_worker;
+
+  // ServiceWorker Timing Information. These will be set if the response is
+  // provided by the ServiceWorker, or kept empty.
+  base::TimeTicks service_worker_fetch_start;
+  base::TimeTicks service_worker_fetch_ready;
+  base::TimeTicks service_worker_fetch_end;
 };
 
 }  // namespace content

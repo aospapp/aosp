@@ -4,13 +4,12 @@
 
 #include "chrome/browser/ui/app_list/search/app_result.h"
 
+#include "base/time/time.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/app_list/app_context_menu.h"
 #include "chrome/browser/ui/app_list/app_list_controller_delegate.h"
-#include "chrome/browser/ui/app_list/search/tokenized_string.h"
-#include "chrome/browser/ui/app_list/search/tokenized_string_match.h"
 #include "chrome/browser/ui/extensions/extension_enable_flow.h"
 #include "chrome/browser/ui/webui/ntp/core_app_launcher_handler.h"
 #include "content/public/browser/user_metrics.h"
@@ -22,6 +21,9 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_icon_set.h"
 #include "extensions/common/manifest_handlers/icons_handler.h"
+#include "ui/app_list/app_list_switches.h"
+#include "ui/app_list/search/tokenized_string.h"
+#include "ui/app_list/search/tokenized_string_match.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/image/image_skia_operations.h"
 
@@ -35,6 +37,8 @@ AppResult::AppResult(Profile* profile,
       controller_(controller),
       extension_registry_(NULL) {
   set_id(extensions::Extension::GetBaseURLFromExtensionId(app_id_).spec());
+  if (app_list::switches::IsExperimentalAppListEnabled())
+    set_display_type(DISPLAY_TILE);
 
   const extensions::Extension* extension =
       extensions::ExtensionSystem::Get(profile_)->extension_service()
@@ -43,13 +47,13 @@ AppResult::AppResult(Profile* profile,
 
   is_platform_app_ = extension->is_platform_app();
 
-  icon_.reset(new extensions::IconImage(
-      profile_,
-      extension,
-      extensions::IconsInfo::GetIcons(extension),
-      extension_misc::EXTENSION_ICON_SMALL,
-      extensions::util::GetDefaultAppIcon(),
-      this));
+  icon_.reset(
+      new extensions::IconImage(profile_,
+                                extension,
+                                extensions::IconsInfo::GetIcons(extension),
+                                GetPreferredIconDimension(),
+                                extensions::util::GetDefaultAppIcon(),
+                                this));
   UpdateIcon();
 
   StartObservingExtensionRegistry();
@@ -73,11 +77,26 @@ void AppResult::UpdateFromMatch(const TokenizedString& title,
   set_relevance(match.relevance());
 }
 
+void AppResult::UpdateFromLastLaunched(const base::Time& current_time,
+                                       const base::Time& last_launched) {
+  base::TimeDelta delta = current_time - last_launched;
+  DCHECK_LE(0, delta.InSeconds());
+  const int kSecondsInWeek = 60 * 60 * 24 * 7;
+
+  // Set the relevance to a value between 0 and 1. This function decays as the
+  // time delta increases and reaches a value of 0.5 at 1 week.
+  set_relevance(1 / (1 + delta.InSecondsF() / kSecondsInWeek));
+}
+
 void AppResult::Open(int event_flags) {
   const extensions::Extension* extension =
       extensions::ExtensionSystem::Get(profile_)->extension_service()
           ->GetInstalledExtension(app_id_);
   if (!extension)
+    return;
+
+  // Don't auto-enable apps that cannot be launched.
+  if (!extensions::util::IsAppLaunchable(app_id_, profile_))
     return;
 
   // Check if enable flow is already running or should be started
@@ -188,7 +207,8 @@ void AppResult::OnExtensionLoaded(content::BrowserContext* browser_context,
 }
 
 void AppResult::OnExtensionUninstalled(content::BrowserContext* browser_context,
-                                       const extensions::Extension* extension) {
+                                       const extensions::Extension* extension,
+                                       extensions::UninstallReason reason) {
   if (extension->id() != app_id_)
     return;
 

@@ -19,6 +19,7 @@ package android.media.cts;
 import com.android.cts.media.R;
 
 import android.content.res.AssetFileDescriptor;
+import android.cts.util.MediaUtils;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
@@ -35,7 +36,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-
 /**
  * General MediaCodec tests.
  *
@@ -50,14 +50,15 @@ public class MediaCodecTest extends AndroidTestCase {
     private static final boolean VERBOSE = false;           // lots of logging
 
     // parameters for the video encoder
-    private static final String MIME_TYPE = "video/avc";    // H.264 Advanced Video Coding
+                                                            // H.264 Advanced Video Coding
+    private static final String MIME_TYPE = MediaFormat.MIMETYPE_VIDEO_AVC;
     private static final int BIT_RATE = 2000000;            // 2Mbps
     private static final int FRAME_RATE = 15;               // 15fps
     private static final int IFRAME_INTERVAL = 10;          // 10 seconds between I-frames
     private static final int WIDTH = 1280;
     private static final int HEIGHT = 720;
     // parameters for the audio encoder
-    private static final String MIME_TYPE_AUDIO = "audio/mp4a-latm";
+    private static final String MIME_TYPE_AUDIO = MediaFormat.MIMETYPE_AUDIO_AAC;
     private static final int AUDIO_SAMPLE_RATE = 44100;
     private static final int AUDIO_AAC_PROFILE = 2; /* OMX_AUDIO_AACObjectLC */
     private static final int AUDIO_CHANNEL_COUNT = 2; // mono
@@ -79,21 +80,28 @@ public class MediaCodecTest extends AndroidTestCase {
      * methods when called in incorrect operational states.
      */
     public void testException() throws Exception {
-        MediaFormat[] formatList = new MediaFormat[2];
+        boolean tested = false;
+        // audio decoder (MP3 should be present on all Android devices)
+        MediaFormat format = MediaFormat.createAudioFormat(
+                MediaFormat.MIMETYPE_AUDIO_MPEG, 44100 /* sampleRate */, 2 /* channelCount */);
+        tested = verifyException(format, false /* isEncoder */) || tested;
 
-        // use audio format
-        formatList[0] = new MediaFormat();
-        formatList[0].setString(MediaFormat.KEY_MIME, "audio/amr-wb");
-        formatList[0].setInteger(MediaFormat.KEY_SAMPLE_RATE, 16000);
-        formatList[0].setInteger(MediaFormat.KEY_CHANNEL_COUNT, 1);
-        formatList[0].setInteger(MediaFormat.KEY_BIT_RATE, 19850);
+        // audio encoder (AMR-WB may not be present on some Android devices)
+        format = MediaFormat.createAudioFormat(
+                MediaFormat.MIMETYPE_AUDIO_AMR_WB, 16000 /* sampleRate */, 1 /* channelCount */);
+        format.setInteger(MediaFormat.KEY_BIT_RATE, 19850);
+        tested = verifyException(format, true /* isEncoder */) || tested;
 
-        // use video format
-        formatList[1] = createMediaFormat();
+        // video decoder (H.264/AVC may not be present on some Android devices)
+        format = createMediaFormat();
+        tested = verifyException(format, false /* isEncoder */) || tested;
 
-        for (MediaFormat format : formatList) {
-            verifyIllegalStateException(format, false);
-            verifyIllegalStateException(format, true);
+        // video encoder (H.264/AVC may not be present on some Android devices)
+        tested = verifyException(format, true /* isEncoder */) || tested;
+
+        // signal test is skipped due to no device media codecs.
+        if (!tested) {
+            MediaUtils.skipTest(TAG, "cannot find any compatible device codecs");
         }
     }
 
@@ -116,11 +124,17 @@ public class MediaCodecTest extends AndroidTestCase {
         }
     }
 
-    private static void verifyIllegalStateException(MediaFormat format, boolean isEncoder)
+    private static boolean verifyException(MediaFormat format, boolean isEncoder)
             throws IOException {
-        MediaCodec codec;
+        String mimeType = format.getString(MediaFormat.KEY_MIME);
+        if (!supportsCodec(mimeType, isEncoder)) {
+            Log.i(TAG, "No " + (isEncoder ? "encoder" : "decoder")
+                    + " found for mimeType= " + mimeType);
+            return false;
+        }
 
         // create codec (enter Initialized State)
+        MediaCodec codec;
 
         // create improperly
         final String methodName = isEncoder ? "createEncoderByType" : "createDecoderByType";
@@ -263,6 +277,7 @@ public class MediaCodecTest extends AndroidTestCase {
             fail("stop should not return MediaCodec.CodecException on wrong state");
         } catch (IllegalStateException e) { // expected
         }
+        return true;
     }
 
     /**
@@ -272,6 +287,11 @@ public class MediaCodecTest extends AndroidTestCase {
      * <br> calling createInputSurface() with a non-Surface color format throws exception
      */
     public void testCreateInputSurfaceErrors() {
+        if (!supportsCodec(MIME_TYPE, true)) {
+            Log.i(TAG, "No encoder found for mimeType= " + MIME_TYPE);
+            return;
+        }
+
         MediaFormat format = createMediaFormat();
         MediaCodec encoder = null;
         Surface surface = null;
@@ -326,6 +346,11 @@ public class MediaCodecTest extends AndroidTestCase {
      * <br> submitting a frame after EOS throws exception [TODO]
      */
     public void testSignalSurfaceEOS() {
+        if (!supportsCodec(MIME_TYPE, true)) {
+            Log.i(TAG, "No encoder found for mimeType= " + MIME_TYPE);
+            return;
+        }
+
         MediaFormat format = createMediaFormat();
         MediaCodec encoder = null;
         InputSurface inputSurface = null;
@@ -378,6 +403,11 @@ public class MediaCodecTest extends AndroidTestCase {
      * <br> stopping with buffers in flight doesn't crash or hang
      */
     public void testAbruptStop() {
+        if (!supportsCodec(MIME_TYPE, true)) {
+            Log.i(TAG, "No encoder found for mimeType= " + MIME_TYPE);
+            return;
+        }
+
         // There appears to be a race, so run it several times with a short delay between runs
         // to allow any previous activity to shut down.
         for (int i = 0; i < 50; i++) {
@@ -432,6 +462,11 @@ public class MediaCodecTest extends AndroidTestCase {
      * <br> dequeueInputBuffer() fails when encoder configured with an input Surface
      */
     public void testDequeueSurface() {
+        if (!supportsCodec(MIME_TYPE, true)) {
+            Log.i(TAG, "No encoder found for mimeType= " + MIME_TYPE);
+            return;
+        }
+
         MediaFormat format = createMediaFormat();
         MediaCodec encoder = null;
         Surface surface = null;
@@ -470,6 +505,11 @@ public class MediaCodecTest extends AndroidTestCase {
      * <br> sending EOS with signalEndOfInputStream on non-Surface encoder fails
      */
     public void testReconfigureWithoutSurface() {
+        if (!supportsCodec(MIME_TYPE, true)) {
+            Log.i(TAG, "No encoder found for mimeType= " + MIME_TYPE);
+            return;
+        }
+
         MediaFormat format = createMediaFormat();
         MediaCodec encoder = null;
         Surface surface = null;
@@ -553,8 +593,13 @@ public class MediaCodecTest extends AndroidTestCase {
             mediaExtractor = getMediaExtractorForMimeType(inputResourceId, "video/");
             MediaFormat mediaFormat =
                     mediaExtractor.getTrackFormat(mediaExtractor.getSampleTrackIndex());
+            String mimeType = mediaFormat.getString(MediaFormat.KEY_MIME);
+            if (!supportsCodec(mimeType, false)) {
+                Log.i(TAG, "No decoder found for mimeType= " + MIME_TYPE);
+                return true;
+            }
             mediaCodec =
-                    MediaCodec.createDecoderByType(mediaFormat.getString(MediaFormat.KEY_MIME));
+                    MediaCodec.createDecoderByType(mimeType);
             mediaCodec.configure(mediaFormat, outputSurface.getSurface(), null, 0);
             mediaCodec.start();
             boolean eos = false;
@@ -669,6 +714,16 @@ public class MediaCodecTest extends AndroidTestCase {
      * Tests creating an encoder and decoder for {@link #MIME_TYPE_AUDIO} at the same time.
      */
     public void testCreateAudioDecoderAndEncoder() {
+        if (!supportsCodec(MIME_TYPE_AUDIO, true)) {
+            Log.i(TAG, "No encoder found for mimeType= " + MIME_TYPE_AUDIO);
+            return;
+        }
+
+        if (!supportsCodec(MIME_TYPE_AUDIO, false)) {
+            Log.i(TAG, "No decoder found for mimeType= " + MIME_TYPE_AUDIO);
+            return;
+        }
+
         final MediaFormat encoderFormat = MediaFormat.createAudioFormat(
                 MIME_TYPE_AUDIO, AUDIO_SAMPLE_RATE, AUDIO_CHANNEL_COUNT);
         encoderFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, AUDIO_AAC_PROFILE);
@@ -716,6 +771,16 @@ public class MediaCodecTest extends AndroidTestCase {
     }
 
     public void testConcurrentAudioVideoEncodings() throws InterruptedException {
+        if (!supportsCodec(MIME_TYPE_AUDIO, true)) {
+            Log.i(TAG, "No encoder found for mimeType= " + MIME_TYPE_AUDIO);
+            return;
+        }
+
+        if (!supportsCodec(MIME_TYPE, true)) {
+            Log.i(TAG, "No decoder found for mimeType= " + MIME_TYPE);
+            return;
+        }
+
         final int VIDEO_NUM_SWAPS = 100;
         // audio only checks this and stop
         mVideoEncodingOngoing = true;
@@ -948,18 +1013,17 @@ public class MediaCodecTest extends AndroidTestCase {
      * match was found.
      */
     private static MediaCodecInfo selectCodec(String mimeType) {
-        int numCodecs = MediaCodecList.getCodecCount();
-        for (int i = 0; i < numCodecs; i++) {
-            MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
-
-            if (!codecInfo.isEncoder()) {
+        // FIXME: select codecs based on the complete use-case, not just the mime
+        MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+        for (MediaCodecInfo info : mcl.getCodecInfos()) {
+            if (!info.isEncoder()) {
                 continue;
             }
 
-            String[] types = codecInfo.getSupportedTypes();
+            String[] types = info.getSupportedTypes();
             for (int j = 0; j < types.length; j++) {
                 if (types[j].equalsIgnoreCase(mimeType)) {
-                    return codecInfo;
+                    return info;
                 }
             }
         }
@@ -1005,5 +1069,24 @@ public class MediaCodecTest extends AndroidTestCase {
         }
 
         return mediaExtractor;
+    }
+
+    private static boolean supportsCodec(String mimeType, boolean encoder) {
+        MediaCodecList list = new MediaCodecList(MediaCodecList.ALL_CODECS);
+        for (MediaCodecInfo info : list.getCodecInfos()) {
+            if (encoder && !info.isEncoder()) {
+                continue;
+            }
+            if (!encoder && info.isEncoder()) {
+                continue;
+            }
+            
+            for (String type : info.getSupportedTypes()) {
+                if (type.equalsIgnoreCase(mimeType)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

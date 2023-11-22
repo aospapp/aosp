@@ -1256,7 +1256,7 @@ std::string WiFiServiceImpl::SecurityFromDot11AuthAlg(
     case DOT11_AUTH_ALGO_80211_SHARED_KEY:
       return onc::wifi::kWEP_PSK;
     case DOT11_AUTH_ALGO_80211_OPEN:
-      return onc::wifi::kNone;
+      return onc::wifi::kSecurityNone;
     default:
       return onc::wifi::kWPA_EAP;
   }
@@ -1466,13 +1466,14 @@ Frequency WiFiServiceImpl::GetFrequencyToConnect(
     const std::string& network_guid) const {
   // Check whether desired frequency is set in |connect_properties_|.
   const base::DictionaryValue* properties;
-  const base::DictionaryValue* wifi;
-  int frequency;
-  if (connect_properties_.GetDictionaryWithoutPathExpansion(
-          network_guid, &properties) &&
-      properties->GetDictionary(onc::network_type::kWiFi, &wifi) &&
-      wifi->GetInteger(onc::wifi::kFrequency, &frequency)) {
-    return GetNormalizedFrequency(frequency);
+  if (connect_properties_.GetDictionaryWithoutPathExpansion(network_guid,
+                                                            &properties)) {
+    const base::DictionaryValue* wifi;
+    if (properties->GetDictionary(onc::network_type::kWiFi, &wifi)) {
+      int frequency;
+      if (wifi->GetInteger(onc::wifi::kFrequency, &frequency))
+        return GetNormalizedFrequency(frequency);
+    }
   }
   return kFrequencyAny;
 }
@@ -1600,7 +1601,7 @@ DWORD WiFiServiceImpl::Connect(const std::string& network_guid,
       if (error_string.empty() &&
           properties->GetDictionary(onc::network_type::kWiFi, &wifi) &&
           wifi->GetString(onc::wifi::kSecurity, &wifi_security) &&
-          wifi_security != onc::wifi::kNone) {
+          wifi_security != onc::wifi::kSecurityNone) {
         error = ERROR_ACCESS_DENIED;
         LOG(ERROR) << error;
         return error;
@@ -1743,7 +1744,7 @@ bool WiFiServiceImpl::AuthEncryptionFromSecurity(
     std::string* authentication,
     std::string* encryption,
     std::string* key_type) const {
-  if (security == onc::wifi::kNone) {
+  if (security == onc::wifi::kSecurityNone) {
     *authentication = kAuthenticationOpen;
     *encryption = kEncryptionNone;
   } else if (security == onc::wifi::kWEP_PSK) {

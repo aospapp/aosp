@@ -17,7 +17,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
-#include "chrome/browser/autocomplete/autocomplete_result.h"
+#include "chrome/browser/autocomplete/chrome_autocomplete_scheme_classifier.h"
 #include "chrome/browser/autocomplete/history_url_provider.h"
 #include "chrome/browser/history/history_database.h"
 #include "chrome/browser/history/history_service.h"
@@ -25,17 +25,17 @@
 #include "chrome/browser/history/in_memory_url_index.h"
 #include "chrome/browser/history/in_memory_url_index_types.h"
 #include "chrome/browser/history/scored_history_match.h"
-#include "chrome/browser/omnibox/omnibox_field_trial.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/search/search.h"
-#include "chrome/browser/search_engines/template_url.h"
-#include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
-#include "chrome/common/autocomplete_match_type.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "components/metrics/proto/omnibox_input_type.pb.h"
+#include "components/omnibox/autocomplete_match_type.h"
+#include "components/omnibox/autocomplete_result.h"
+#include "components/omnibox/omnibox_field_trial.h"
+#include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_service.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/notification_types.h"
 #include "net/base/escape.h"
@@ -50,11 +50,8 @@ using history::ScoredHistoryMatches;
 
 bool HistoryQuickProvider::disabled_ = false;
 
-HistoryQuickProvider::HistoryQuickProvider(
-    AutocompleteProviderListener* listener,
-    Profile* profile)
-    : HistoryProvider(listener, profile,
-          AutocompleteProvider::TYPE_HISTORY_QUICK),
+HistoryQuickProvider::HistoryQuickProvider(Profile* profile)
+    : HistoryProvider(profile, AutocompleteProvider::TYPE_HISTORY_QUICK),
       languages_(profile_->GetPrefs()->GetString(prefs::kAcceptLanguages)) {
 }
 
@@ -85,7 +82,6 @@ void HistoryQuickProvider::Start(const AutocompleteInput& input,
           name, 1, 1000, 50, base::Histogram::kUmaTargetedHistogramFlag);
       counter->Add(static_cast<int>((end_time - start_time).InMilliseconds()));
     }
-    UpdateStarredStateOfMatches();
   }
 }
 
@@ -245,7 +241,8 @@ AutocompleteMatch HistoryQuickProvider::QuickMatchToACMatch(
       AutocompleteInput::FormattedStringWithEquivalentMeaning(
           info.url(),
           net::FormatUrl(info.url(), languages_, format_types,
-                         net::UnescapeRule::SPACES, NULL, NULL, NULL));
+                         net::UnescapeRule::SPACES, NULL, NULL, NULL),
+          ChromeAutocompleteSchemeClassifier(profile_));
   std::vector<size_t> offsets =
       OffsetsFromTermMatches(history_match.url_matches());
   base::OffsetAdjuster::Adjustments adjustments;
@@ -274,6 +271,9 @@ AutocompleteMatch HistoryQuickProvider::QuickMatchToACMatch(
     match.allowed_to_be_default_match = match.inline_autocompletion.empty() ||
         !PreventInlineAutocomplete(autocomplete_input_);
   }
+  match.EnsureUWYTIsAllowedToBeDefault(
+      autocomplete_input_.canonicalized_url(),
+      TemplateURLServiceFactory::GetForProfile(profile_));
 
   // Format the description autocomplete presentation.
   match.description = info.title();

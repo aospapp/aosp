@@ -69,8 +69,9 @@ struct psb_surface_s {
      * extra_info[5]: surface skippeded or not for encode, rotate info for decode
      * extra_info[6]: mfld protected surface
      * extra_info[7]: linear or tiled
+     * extra_info[8]: the fourcc set by application
      */
-    int extra_info[8];
+    int extra_info[9];
     int size;
     unsigned int bc_buffer;
     void *handle;

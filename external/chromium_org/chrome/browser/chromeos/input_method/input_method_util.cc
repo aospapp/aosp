@@ -16,14 +16,14 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/common/extensions/extension_constants.h"
+// TODO(nona): move this header from this file.
+#include "chrome/grit/generated_resources.h"
 #include "chromeos/ime/component_extension_ime_manager.h"
 #include "chromeos/ime/extension_ime_util.h"
 // For SetHardwareKeyboardLayoutForTesting.
 #include "chromeos/ime/fake_input_method_delegate.h"
 #include "chromeos/ime/input_method_delegate.h"
 #include "chromeos/ime/input_method_whitelist.h"
-// TODO(nona): move this header from this file.
-#include "grit/generated_resources.h"
 
 namespace {
 
@@ -42,10 +42,12 @@ const struct {
   { "zh-t-i0-pinyin", "\xe6\x8b\xbc" },  // U+62FC
   { "zh-t-i0-wubi-1986", "\xe4\xba\x94" }, // U+4E94
   // For traditional Chinese input methods
+  { "zh-hant-t-i0-pinyin", "\xe6\x8b\xbc" },  // U+62FC
   { "zh-hant-t-i0-und", "\xE6\xB3\xA8" },  // U+9177
   { "zh-hant-t-i0-cangjie-1987", "\xe5\x80\x89" },  // U+5009
   { "zh-hant-t-i0-cangjie-1987-x-m0-simplified", "\xe9\x80\x9f" },  // U+901F
   // For Hangul input method.
+  { "hangul_ahnmatae", "\xed\x95\x9c" },  // U+D55C
   { "hangul_2set", "\xed\x95\x9c" },  // U+D55C
   { "hangul_3set390", "\xed\x95\x9c" },  // U+D55C
   { "hangul_3setfinal", "\xed\x95\x9c" },  // U+D55C
@@ -167,6 +169,44 @@ const char* const kExtensionIdMigrationMap[][2] = {
   {"habcdindjejkmepknlhkkloncjcpcnbf", "gjaehgfemfahhmlgpdfknkhdnemmolop"},
 };
 
+// The engine ID map for migration. This migration is for input method IDs from
+// VPD so it's NOT a temporary migration.
+const char* const kEngineIdMigrationMap[][2] = {
+    {"ime:jp:mozc_jp", "nacl_mozc_jp"},
+    {"ime:jp:mozc_us", "nacl_mozc_us"},
+    {"ime:ko:hangul_2set", "hangul_2set"},
+    {"ime:ko:hangul", "hangul_2set"},
+    {"ime:zh-t:array", "zh-hant-t-i0-array-1992"},
+    {"ime:zh-t:cangjie", "zh-hant-t-i0-cangjie-1987"},
+    {"ime:zh-t:dayi", "zh-hant-t-i0-dayi-1988"},
+    {"ime:zh-t:pinyin", "zh-hant-t-i0-pinyin"},
+    {"ime:zh-t:quick", "zh-hant-t-i0-cangjie-1987-x-m0-simplified"},
+    {"ime:zh-t:zhuyin", "zh-hant-t-i0-und"},
+    {"ime:zh:pinyin", "zh-t-i0-pinyin"},
+    {"ime:zh:wubi", "zh-t-i0-wubi-1986"},
+    {"m17n:", "vkd_"},
+    {"t13n:am", "am-t-i0-und"},
+    {"t13n:ar", "ar-t-i0-und"},
+    {"t13n:bn", "bn-t-i0-und"},
+    {"t13n:el", "el-t-i0-und"},
+    {"t13n:fa", "fa-t-i0-und"},
+    {"t13n:gu", "gu-t-i0-und"},
+    {"t13n:he", "he-t-i0-und"},
+    {"t13n:hi", "hi-t-i0-und"},
+    {"t13n:kn", "kn-t-i0-und"},
+    {"t13n:ml", "ml-t-i0-und"},
+    {"t13n:mr", "mr-t-i0-und"},
+    {"t13n:ne", "ne-t-i0-und"},
+    {"t13n:or", "or-t-i0-und"},
+    {"t13n:pa", "pa-t-i0-und"},
+    {"t13n:sa", "sa-t-i0-und"},
+    {"t13n:sr", "sr-t-i0-und"},
+    {"t13n:ta", "ta-t-i0-und"},
+    {"t13n:te", "te-t-i0-und"},
+    {"t13n:ti", "ti-t-i0-und"},
+    {"t13n:ur", "ur-t-i0-und"},
+};
+
 const size_t kExtensionIdLen = 32;
 
 const struct EnglishToResouceId {
@@ -245,16 +285,11 @@ namespace chromeos {
 
 namespace input_method {
 
-InputMethodUtil::InputMethodUtil(
-    InputMethodDelegate* delegate,
-    scoped_ptr<InputMethodDescriptors> supported_input_methods)
+InputMethodUtil::InputMethodUtil(InputMethodDelegate* delegate)
     : delegate_(delegate) {
-  // Makes sure the supported input methods at least have the fallback ime.
-  // So that it won't cause massive test failures.
-  if (supported_input_methods->empty())
-    supported_input_methods->push_back(GetFallbackInputMethodDescriptor());
-
-  ResetInputMethods(*supported_input_methods);
+  InputMethodDescriptors default_input_methods;
+  default_input_methods.push_back(GetFallbackInputMethodDescriptor());
+  ResetInputMethods(default_input_methods);
 
   // Initialize a map from English string to Chrome string resource ID as well.
   for (size_t i = 0; i < kEnglishToResourceIdArraySize; ++i) {
@@ -577,8 +612,19 @@ bool InputMethodUtil::MigrateInputMethods(
   bool rewritten = false;
   std::vector<std::string>& ids = *input_method_ids;
   for (size_t i = 0; i < ids.size(); ++i) {
+    std::string engine_id = ids[i];
+    // Migrates some Engine IDs from VPD.
+    for (size_t j = 0; j < arraysize(kEngineIdMigrationMap); ++j) {
+      size_t pos = engine_id.find(kEngineIdMigrationMap[j][0]);
+      if (pos == 0) {
+        engine_id.replace(0,
+                          strlen(kEngineIdMigrationMap[j][0]),
+                          kEngineIdMigrationMap[j][1]);
+        break;
+      }
+    }
     std::string id =
-        extension_ime_util::GetInputMethodIDByEngineID(ids[i]);
+        extension_ime_util::GetInputMethodIDByEngineID(engine_id);
     // Migrates old ime id's to new ones.
     for (size_t j = 0; j < arraysize(kExtensionIdMigrationMap); ++j) {
       size_t pos = id.find(kExtensionIdMigrationMap[j][0]);

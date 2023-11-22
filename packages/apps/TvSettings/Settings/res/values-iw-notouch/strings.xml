@@ -26,6 +26,10 @@
     <string name="device_apps_app_management_force_stop_desc" msgid="221435219644064243">"אם אתה מאלץ עצירה של אפליקציה, ייתכן שהיא לא תפעל כהלכה."</string>
     <string name="device_apps_app_management_uninstall" msgid="6054050725055974790">"הסר התקנה"</string>
     <string name="device_apps_app_management_uninstall_desc" msgid="3542570994262234511">"האם אתה רוצה להסיר את ההתקנה של האפליקציה הזו?"</string>
+    <string name="device_apps_app_management_disable" msgid="1461984395121717076">"השבת"</string>
+    <string name="device_apps_app_management_disable_desc" msgid="1362228583828208991">"האם ברצונך להשבית את האפליקציה הזו?"</string>
+    <string name="device_apps_app_management_enable" msgid="8794752872502256633">"הפעל"</string>
+    <string name="device_apps_app_management_enable_desc" msgid="6449017972628203288">"האם ברצונך להפעיל את האפליקציה הזו?"</string>
     <string name="device_apps_app_management_clear_data" msgid="8288695583331012586">"נקה נתונים"</string>
     <string name="device_apps_app_management_clear_data_desc" msgid="2197842469669426232">"כל הנתונים של האפליקציה הזו יימחקו לצמיתות."</string>
     <string name="device_apps_app_management_clear_data_what" msgid="376666756087041021">"הפעולה הזו כוללת את כל הקבצים, ההגדרות, החשבונות, מסדי הנתונים וכו\'."</string>

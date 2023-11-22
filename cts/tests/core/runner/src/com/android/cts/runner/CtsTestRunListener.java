@@ -35,6 +35,7 @@ import java.net.Authenticator;
 import java.net.CookieHandler;
 import java.net.ResponseCache;
 import java.util.Locale;
+import java.util.Properties;
 import java.util.TimeZone;
 
 import javax.net.ssl.HostnameVerifier;
@@ -57,7 +58,7 @@ public class CtsTestRunListener extends InstrumentationRunListener {
 
     @Override
     public void testRunStarted(Description description) throws Exception {
-        mEnvironment = new TestEnvironment();
+        mEnvironment = new TestEnvironment(getInstrumentation().getContext());
 
         // We might want to move this to /sdcard, if is is mounted/writable.
         File cacheDir = getInstrumentation().getTargetContext().getCacheDir();
@@ -149,21 +150,29 @@ public class CtsTestRunListener extends InstrumentationRunListener {
     static class TestEnvironment {
         private final Locale mDefaultLocale;
         private final TimeZone mDefaultTimeZone;
-        private final String mJavaIoTmpDir;
         private final HostnameVerifier mHostnameVerifier;
         private final SSLSocketFactory mSslSocketFactory;
+        private final Properties mProperties = new Properties();
 
-        TestEnvironment() {
+        TestEnvironment(Context context) {
             mDefaultLocale = Locale.getDefault();
             mDefaultTimeZone = TimeZone.getDefault();
-            mJavaIoTmpDir = System.getProperty("java.io.tmpdir");
             mHostnameVerifier = HttpsURLConnection.getDefaultHostnameVerifier();
             mSslSocketFactory = HttpsURLConnection.getDefaultSSLSocketFactory();
+
+            mProperties.setProperty("user.home", "");
+            mProperties.setProperty("java.io.tmpdir", System.getProperty("java.io.tmpdir"));
+            // The CDD mandates that devices that support WiFi are the only ones that will have 
+            // multicast.
+            PackageManager pm = context.getPackageManager();
+            mProperties.setProperty("android.cts.device.multicast",
+                    Boolean.toString(pm.hasSystemFeature(PackageManager.FEATURE_WIFI)));
+
         }
 
         void reset() {
             System.setProperties(null);
-            System.setProperty("java.io.tmpdir", mJavaIoTmpDir);
+            System.setProperties(mProperties);
             Locale.setDefault(mDefaultLocale);
             TimeZone.setDefault(mDefaultTimeZone);
             Authenticator.setDefault(null);

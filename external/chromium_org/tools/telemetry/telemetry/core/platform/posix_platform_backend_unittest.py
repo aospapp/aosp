@@ -5,8 +5,8 @@ import os
 import sys
 import unittest
 
-from telemetry import test
-from telemetry.core.platform import factory
+from telemetry import benchmark
+from telemetry.core import platform as platform_module
 from telemetry.core.platform import posix_platform_backend
 
 
@@ -21,7 +21,7 @@ class TestBackend(posix_platform_backend.PosixPlatformBackend):
   def SetMockPsOutput(self, output):
     self._mock_ps_output = output
 
-  def _GetPsOutput(self, columns, pid=None):
+  def GetPsOutput(self, columns, pid=None):
     return self._mock_ps_output
 
 
@@ -51,12 +51,12 @@ class PosixPlatformBackendTest(unittest.TestCase):
     result = backend.GetChildPids(1)
     self.assertEquals(set(result), set([2, 3]))
 
-  @test.Enabled('linux', 'mac')
+  @benchmark.Enabled('linux', 'mac')
   def testIsApplicationRunning(self):
-    backend = factory.GetPlatformBackendForCurrentOS()
+    platform = platform_module.GetHostPlatform()
 
-    self.assertFalse(backend.IsApplicationRunning('This_Is_A_Bad___App__Name'))
+    self.assertFalse(platform.IsApplicationRunning('This_Is_A_Bad___App__Name'))
     sys_exe = os.path.basename(sys.executable)
-    self.assertTrue(backend.IsApplicationRunning(sys_exe))
+    self.assertTrue(platform.IsApplicationRunning(sys_exe))
     self.assertFalse(
-        backend.IsApplicationRunning('%s append_bad_after_space' % sys_exe))
+        platform.IsApplicationRunning('%s append_bad_after_space' % sys_exe))

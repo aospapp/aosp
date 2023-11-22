@@ -11,12 +11,13 @@ fills, shadows and text functions.
 
 import os
 
-from telemetry import test
-from telemetry.page import page_measurement
+from telemetry import benchmark
 from telemetry.page import page_set
+from telemetry.page import page_test
+from telemetry.value import scalar
 
 
-class _CanvasMarkMeasurement(page_measurement.PageMeasurement):
+class _CanvasMarkMeasurement(page_test.PageTest):
 
   def WillNavigateToPage(self, page, tab):
     page.script_to_evaluate_on_commit = """
@@ -28,7 +29,7 @@ class _CanvasMarkMeasurement(page_measurement.PageMeasurement):
         }
         """
 
-  def MeasurePage(self, _, tab, results):
+  def ValidateAndMeasurePage(self, _, tab, results):
     tab.WaitForJavaScriptExpression('__results.length == 8', 300)
     results_log = tab.EvaluateJavaScript('__results')
     total = 0
@@ -40,13 +41,16 @@ class _CanvasMarkMeasurement(page_measurement.PageMeasurement):
         'Unexpected result format "%s"' % score_and_name
       score = int(score_and_name[0])
       name = score_and_name[1][:-1]
-      results.Add(name, 'score', score, data_type='unimportant')
+      results.AddValue(scalar.ScalarValue(
+          results.current_page, name, 'score', score, important=False))
       # Aggregate total score for all tests.
       total += score
-    results.Add('Score', 'score', total)
+    results.AddValue(scalar.ScalarValue(
+        results.current_page, 'Score', 'score', total))
 
 
-class CanvasMark(test.Test):
+@benchmark.Disabled
+class CanvasMark(benchmark.Benchmark):
   test = _CanvasMarkMeasurement
 
   def CreatePageSet(self, options):

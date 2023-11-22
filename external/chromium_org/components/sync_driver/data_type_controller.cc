@@ -8,26 +8,24 @@
 #include "sync/internal_api/public/user_share.h"
 #include "sync/util/data_type_histogram.h"
 
-namespace browser_sync {
+namespace sync_driver {
 
 DataTypeController::DataTypeController(
     scoped_refptr<base::MessageLoopProxy> ui_thread,
-    const base::Closure& error_callback,
-    const DisableTypeCallback& disable_callback)
+    const base::Closure& error_callback)
     : base::RefCountedDeleteOnMessageLoop<DataTypeController>(ui_thread),
       error_callback_(error_callback),
-      disable_callback_(disable_callback),
       user_share_(NULL) {
 }
 
 DataTypeController::~DataTypeController() {
 }
 
-bool DataTypeController::IsUnrecoverableResult(StartResult result) {
+bool DataTypeController::IsUnrecoverableResult(ConfigureResult result) {
   return (result == UNRECOVERABLE_ERROR);
 }
 
-bool DataTypeController::IsSuccessfulResult(StartResult result) {
+bool DataTypeController::IsSuccessfulResult(ConfigureResult result) {
   return (result == OK || result == OK_FIRST_RUN);
 }
 
@@ -51,13 +49,8 @@ syncer::UserShare* DataTypeController::user_share() const {
   return user_share_;
 }
 
-DataTypeController::DisableTypeCallback
-DataTypeController::disable_callback() {
-  return disable_callback_;
-}
-
 bool DataTypeController::ReadyForStart() const {
   return true;
 }
 
-}  // namespace browser_sync
+}  // namespace sync_driver

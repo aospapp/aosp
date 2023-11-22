@@ -12,6 +12,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/font.h"
+#include "ui/gfx/font_render_params.h"
 
 namespace gfx {
 
@@ -125,6 +126,12 @@ int PlatformFontMac::GetFontSize() const {
   return font_size_;
 }
 
+const FontRenderParams& PlatformFontMac::GetFontRenderParams() const {
+  NOTIMPLEMENTED();
+  static FontRenderParams params;
+  return params;
+}
+
 NativeFont PlatformFontMac::GetNativeFont() const {
   return [[native_font_.get() retain] autorelease];
 }
@@ -159,9 +166,9 @@ void PlatformFontMac::CalculateMetrics() {
 
   base::scoped_nsobject<NSLayoutManager> layout_manager(
       [[NSLayoutManager alloc] init]);
-  height_ = [layout_manager defaultLineHeightForFont:font];
-  ascent_ = [font ascender];
-  cap_height_ = [font capHeight];
+  height_ = SkScalarCeilToInt([layout_manager defaultLineHeightForFont:font]);
+  ascent_ = SkScalarCeilToInt([font ascender]);
+  cap_height_ = SkScalarCeilToInt([font capHeight]);
   average_width_ =
       NSWidth([font boundingRectForGlyph:[font glyphWithName:@"x"]]);
 }

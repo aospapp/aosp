@@ -9,7 +9,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/common/cancelable_request.h"
+#include "base/task/cancelable_task_tracker.h"
 #include "chrome/browser/download/download_path_reservation_tracker.h"
 #include "chrome/browser/download/download_target_determiner_delegate.h"
 #include "chrome/browser/download/download_target_info.h"
@@ -304,6 +304,7 @@ class DownloadTargetDeterminer
   bool create_target_directory_;
   DownloadPathReservationTracker::FilenameConflictAction conflict_action_;
   content::DownloadDangerType danger_type_;
+  bool is_dangerous_file_;  // See DownloadTargetInfo::is_dangerous_file
   base::FilePath virtual_path_;
   base::FilePath local_path_;
   base::FilePath intermediate_path_;
@@ -315,7 +316,7 @@ class DownloadTargetDeterminer
   DownloadPrefs* download_prefs_;
   DownloadTargetDeterminerDelegate* delegate_;
   CompletionCallback completion_callback_;
-  CancelableRequestConsumer history_consumer_;
+  base::CancelableTaskTracker history_tracker_;
 
   base::WeakPtrFactory<DownloadTargetDeterminer> weak_ptr_factory_;
 

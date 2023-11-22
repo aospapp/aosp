@@ -11,6 +11,7 @@
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "third_party/skia/include/core/SkColorPriv.h"
 #include "third_party/skia/include/core/SkUnPreMultiply.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/color_utils.h"
@@ -129,15 +130,19 @@ class KMeanCluster {
   uint32_t weight;
 };
 
-// Un-premultiplies each pixel in |bitmap| into an output |buffer|. Requires
-// approximately 10 microseconds for a 16x16 icon on an Intel Core i5.
+// Un-premultiplies each pixel in |bitmap| into an output |buffer|.
 void UnPreMultiply(const SkBitmap& bitmap, uint32_t* buffer, int buffer_size) {
   SkAutoLockPixels auto_lock(bitmap);
   uint32_t* in = static_cast<uint32_t*>(bitmap.getPixels());
   uint32_t* out = buffer;
   int pixel_count = std::min(bitmap.width() * bitmap.height(), buffer_size);
-  for (int i = 0; i < pixel_count; ++i)
-    *out++ = SkUnPreMultiply::PMColorToColor(*in++);
+  for (int i = 0; i < pixel_count; ++i) {
+    int alpha = SkGetPackedA32(*in);
+    if (alpha != 0 && alpha != 255)
+      *out++ = SkUnPreMultiply::PMColorToColor(*in++);
+    else
+      *out++ = *in++;
+  }
 }
 
 } // namespace
@@ -419,7 +424,7 @@ gfx::Matrix3F ComputeColorCovariance(const SkBitmap& bitmap) {
     return covariance;
 
   // Assume ARGB_8888 format.
-  DCHECK(bitmap.colorType() == kPMColor_SkColorType);
+  DCHECK(bitmap.colorType() == kN32_SkColorType);
 
   int64_t r_sum = 0;
   int64_t g_sum = 0;
@@ -434,7 +439,13 @@ gfx::Matrix3F ComputeColorCovariance(const SkBitmap& bitmap) {
   for (int y = 0; y < bitmap.height(); ++y) {
     SkPMColor* current_color = static_cast<uint32_t*>(bitmap.getAddr32(0, y));
     for (int x = 0; x < bitmap.width(); ++x, ++current_color) {
-      SkColor c = SkUnPreMultiply::PMColorToColor(*current_color);
+      SkColor c;
+      int alpha = SkGetPackedA32(*current_color);
+      if (alpha != 0 && alpha != 255)
+        c = SkUnPreMultiply::PMColorToColor(*current_color);
+      else
+        c = *current_color;
+
       SkColor r = SkColorGetR(c);
       SkColor g = SkColorGetG(c);
       SkColor b = SkColorGetB(c);
@@ -488,7 +499,7 @@ bool ApplyColorReduction(const SkBitmap& source_bitmap,
 
   DCHECK(source_bitmap.getPixels());
   DCHECK(target_bitmap->getPixels());
-  DCHECK_EQ(kPMColor_SkColorType, source_bitmap.colorType());
+  DCHECK_EQ(kN32_SkColorType, source_bitmap.colorType());
   DCHECK_EQ(kAlpha_8_SkColorType, target_bitmap->colorType());
   DCHECK_EQ(source_bitmap.height(), target_bitmap->height());
   DCHECK_EQ(source_bitmap.width(), target_bitmap->width());
@@ -511,7 +522,13 @@ bool ApplyColorReduction(const SkBitmap& source_bitmap,
       const SkPMColor* source_color_row = static_cast<SkPMColor*>(
           source_bitmap.getAddr32(0, y));
       for (int x = 0; x < source_bitmap.width(); ++x) {
-        SkColor c = SkUnPreMultiply::PMColorToColor(source_color_row[x]);
+        SkColor c;
+        int alpha = SkGetPackedA32(source_color_row[x]);
+        if (alpha != 0 && alpha != 255)
+          c = SkUnPreMultiply::PMColorToColor(source_color_row[x]);
+        else
+          c = source_color_row[x];
+
         float r = SkColorGetR(c);
         float g = SkColorGetG(c);
         float b = SkColorGetB(c);
@@ -537,7 +554,13 @@ bool ApplyColorReduction(const SkBitmap& source_bitmap,
         source_bitmap.getAddr32(0, y));
     uint8_t* target_color_row = target_bitmap->getAddr8(0, y);
     for (int x = 0; x < source_bitmap.width(); ++x) {
-      SkColor c = SkUnPreMultiply::PMColorToColor(source_color_row[x]);
+      SkColor c;
+      int alpha = SkGetPackedA32(source_color_row[x]);
+      if (alpha != 0 && alpha != 255)
+        c = SkUnPreMultiply::PMColorToColor(source_color_row[x]);
+      else
+        c = source_color_row[x];
+
       float r = SkColorGetR(c);
       float g = SkColorGetG(c);
       float b = SkColorGetB(c);

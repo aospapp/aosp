@@ -15,7 +15,7 @@
 #include "net/base/io_buffer.h"
 #include "net/base/net_errors.h"
 #include "net/base/net_util.h"
-#include "third_party/libjingle/source/talk/base/asyncpacketsocket.h"
+#include "third_party/webrtc/base/asyncpacketsocket.h"
 
 namespace {
 
@@ -52,7 +52,7 @@ namespace content {
 P2PSocketHostUdp::PendingPacket::PendingPacket(
     const net::IPEndPoint& to,
     const std::vector<char>& content,
-    const talk_base::PacketOptions& options,
+    const rtc::PacketOptions& options,
     uint64 id)
     : to(to),
       data(new net::IOBuffer(content.size())),
@@ -68,7 +68,7 @@ P2PSocketHostUdp::PendingPacket::~PendingPacket() {
 P2PSocketHostUdp::P2PSocketHostUdp(IPC::Sender* message_sender,
                                    int socket_id,
                                    P2PMessageThrottler* throttler)
-    : P2PSocketHost(message_sender, socket_id),
+    : P2PSocketHost(message_sender, socket_id, P2PSocketHost::UDP),
       socket_(
           new net::UDPServerSocket(GetContentClient()->browser()->GetNetLog(),
                                    net::NetLog::Source())),
@@ -113,7 +113,9 @@ bool P2PSocketHostUdp::Init(const net::IPEndPoint& local_address,
 
   state_ = STATE_OPEN;
 
-  message_sender_->Send(new P2PMsg_OnSocketCreated(id_, address));
+  // NOTE: Remote address will be same as what renderer provided.
+  message_sender_->Send(new P2PMsg_OnSocketCreated(
+      id_, address, remote_address.ip_address));
 
   recv_buffer_ = new net::IOBuffer(kReadBufferSize);
   DoRead();
@@ -184,7 +186,7 @@ void P2PSocketHostUdp::HandleReadResult(int result) {
 
 void P2PSocketHostUdp::Send(const net::IPEndPoint& to,
                             const std::vector<char>& data,
-                            const talk_base::PacketOptions& options,
+                            const rtc::PacketOptions& options,
                             uint64 packet_id) {
   if (!socket_) {
     // The Send message may be sent after the an OnError message was
@@ -209,8 +211,12 @@ void P2PSocketHostUdp::Send(const net::IPEndPoint& to,
     }
   }
 
+  IncrementTotalSentPackets();
+
   if (send_pending_) {
     send_queue_.push_back(PendingPacket(to, data, options, packet_id));
+    IncrementDelayedBytes(data.size());
+    IncrementDelayedPackets();
   } else {
     // TODO(mallinath: Remove unnecessary memcpy in this case.
     PendingPacket packet(to, data, options, packet_id);
@@ -279,8 +285,10 @@ void P2PSocketHostUdp::OnSend(uint64 packet_id, int result) {
 
   // Send next packets if we have them waiting in the buffer.
   while (state_ == STATE_OPEN && !send_queue_.empty() && !send_pending_) {
-    DoSend(send_queue_.front());
+    PendingPacket packet = send_queue_.front();
+    DoSend(packet);
     send_queue_.pop_front();
+    DecrementDelayedBytes(packet.size);
   }
 }
 

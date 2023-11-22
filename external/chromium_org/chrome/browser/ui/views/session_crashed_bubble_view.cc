@@ -10,13 +10,14 @@
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/metrics/field_trial.h"
+#include "base/metrics/histogram.h"
 #include "base/prefs/pref_service.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
+#include "chrome/browser/metrics/metrics_reporting_state.h"
 #include "chrome/browser/sessions/session_restore.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_list_observer.h"
-#include "chrome/browser/ui/options/options_util.h"
 #include "chrome/browser/ui/startup/session_crashed_bubble.h"
 #include "chrome/browser/ui/startup/startup_browser_creator_impl.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -25,17 +26,15 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
+#include "chrome/grit/google_chrome_strings.h"
 #include "chrome/installer/util/google_update_settings.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/web_contents.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
-#include "grit/google_chrome_strings.h"
-#include "grit/ui_resources.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/resource/resource_bundle.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/button/checkbox.h"
 #include "ui/views/controls/button/label_button.h"
@@ -65,17 +64,21 @@ const SkColor kTextColor = SkColorSetRGB(102, 102, 102);
 const char kEnableBubbleUIFinchName[] = "EnableSessionCrashedBubbleUI";
 const char kEnableBubbleUIGroupEnabled[] = "Enabled";
 
-bool ShouldOfferMetricsReporting() {
-// Stats collection only applies to Google Chrome builds.
-#if defined(GOOGLE_CHROME_BUILD)
-  // Only show metrics reporting option if user didn't already consent to it.
-  if (GoogleUpdateSettings::GetCollectStatsConsent())
-    return false;
-  return g_browser_process->local_state()->FindPreference(
-      prefs::kMetricsReportingEnabled)->IsUserModifiable();
-#else
-  return false;
-#endif  // defined(GOOGLE_CHROME_BUILD)
+enum SessionCrashedBubbleHistogramValue {
+  SESSION_CRASHED_BUBBLE_SHOWN,
+  SESSION_CRASHED_BUBBLE_ERROR,
+  SESSION_CRASHED_BUBBLE_RESTORED,
+  SESSION_CRASHED_BUBBLE_ALREADY_UMA_OPTIN,
+  SESSION_CRASHED_BUBBLE_UMA_OPTIN,
+  SESSION_CRASHED_BUBBLE_HELP,
+  SESSION_CRASHED_BUBBLE_IGNORED,
+  SESSION_CRASHED_BUBBLE_OPTIN_BAR_SHOWN,
+  SESSION_CRASHED_BUBBLE_MAX,
+};
+
+void RecordBubbleHistogramValue(SessionCrashedBubbleHistogramValue value) {
+  UMA_HISTOGRAM_ENUMERATION(
+      "SessionCrashed.Bubble", value, SESSION_CRASHED_BUBBLE_MAX);
 }
 
 // Whether or not the bubble UI should be used.
@@ -129,38 +132,63 @@ void SessionCrashedBubbleView::Show(Browser* browser) {
   scoped_ptr<BrowserRemovalObserver> browser_observer(
       new BrowserRemovalObserver(browser));
 
-  // Schedule a task to run ShouldOfferMetricsReporting() on FILE thread, since
-  // GoogleUpdateSettings::GetCollectStatsConsent() does IO. Then, call
+// Stats collection only applies to Google Chrome builds.
+#if defined(GOOGLE_CHROME_BUILD)
+  // Schedule a task to run GoogleUpdateSettings::GetCollectStatsConsent() on
+  // FILE thread, since it does IO. Then, call
   // SessionCrashedBubbleView::ShowForReal with the result.
   content::BrowserThread::PostTaskAndReplyWithResult(
       content::BrowserThread::FILE,
       FROM_HERE,
-      base::Bind(&ShouldOfferMetricsReporting),
+      base::Bind(&GoogleUpdateSettings::GetCollectStatsConsent),
       base::Bind(&SessionCrashedBubbleView::ShowForReal,
                  base::Passed(&browser_observer)));
+#else
+  SessionCrashedBubbleView::ShowForReal(browser_observer.Pass(), false);
+#endif  // defined(GOOGLE_CHROME_BUILD)
 }
 
 // static
 void SessionCrashedBubbleView::ShowForReal(
     scoped_ptr<BrowserRemovalObserver> browser_observer,
-    bool offer_uma_optin) {
+    bool uma_opted_in_already) {
+  // Determine whether or not the UMA opt-in option should be offered. It is
+  // offered only when it is a Google chrome build, user hasn't opted in yet,
+  // and the preference is modifiable by the user.
+  bool offer_uma_optin = false;
+
+#if defined(GOOGLE_CHROME_BUILD)
+  if (!uma_opted_in_already) {
+    offer_uma_optin = g_browser_process->local_state()->FindPreference(
+        prefs::kMetricsReportingEnabled)->IsUserModifiable();
+  }
+#endif  // defined(GOOGLE_CHROME_BUILD)
+
   Browser* browser = browser_observer->browser();
 
-  if (!browser)
+  if (!browser) {
+    RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_ERROR);
     return;
+  }
 
   views::View* anchor_view =
       BrowserView::GetBrowserViewForBrowser(browser)->toolbar()->app_menu();
   content::WebContents* web_contents =
       browser->tab_strip_model()->GetActiveWebContents();
 
-  if (!web_contents)
+  if (!web_contents) {
+    RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_ERROR);
     return;
+  }
 
   SessionCrashedBubbleView* crash_bubble =
       new SessionCrashedBubbleView(anchor_view, browser, web_contents,
                                    offer_uma_optin);
   views::BubbleDelegateView::CreateBubble(crash_bubble)->Show();
+
+  RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_SHOWN);
+  if (uma_opted_in_already)
+    RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_ALREADY_UMA_OPTIN);
 }
 
 SessionCrashedBubbleView::SessionCrashedBubbleView(
@@ -175,7 +203,8 @@ SessionCrashedBubbleView::SessionCrashedBubbleView(
       restore_button_(NULL),
       uma_option_(NULL),
       offer_uma_optin_(offer_uma_optin),
-      started_navigation_(false) {
+      started_navigation_(false),
+      restored_(false) {
   set_close_on_deactivate(false);
   registrar_.Add(
       this,
@@ -203,6 +232,12 @@ bool SessionCrashedBubbleView::ShouldShowWindowTitle() const {
 
 bool SessionCrashedBubbleView::ShouldShowCloseButton() const {
   return true;
+}
+
+void SessionCrashedBubbleView::OnWidgetDestroying(views::Widget* widget) {
+  if (!restored_)
+    RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_IGNORED);
+  BubbleDelegateView::OnWidgetDestroying(widget);
 }
 
 void SessionCrashedBubbleView::Init() {
@@ -246,23 +281,38 @@ void SessionCrashedBubbleView::Init() {
   layout->AddView(restore_button_);
   layout->AddPaddingRow(0, views::kRelatedControlVerticalSpacing);
 
-  // Metrics reporting option.
-  if (offer_uma_optin_)
-    CreateUmaOptinView(layout);
+  int bottom_margin = 1;
 
-  set_margins(gfx::Insets());
+  // Metrics reporting option.
+  if (offer_uma_optin_) {
+    const int kUMAOptionColumnSetId = 2;
+    cs = layout->AddColumnSet(kUMAOptionColumnSetId);
+    cs->AddColumn(
+        GridLayout::FILL, GridLayout::FILL, 1, GridLayout::USE_PREF, 0, 0);
+    layout->StartRow(1, kUMAOptionColumnSetId);
+    layout->AddView(new views::Separator(views::Separator::HORIZONTAL));
+    layout->StartRow(1, kUMAOptionColumnSetId);
+    layout->AddView(CreateUMAOptinView());
+
+    // Since the UMA optin row has a different background than the default
+    // background color of bubbles, the bottom margin has to be 0 to make sure
+    // the background extends to the bottom edge of the bubble.
+    bottom_margin = 0;
+
+    RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_OPTIN_BAR_SHOWN);
+  }
+
+  set_margins(gfx::Insets(1, 0, bottom_margin, 0));
   Layout();
 }
 
-void SessionCrashedBubbleView::CreateUmaOptinView(GridLayout* layout) {
+views::View* SessionCrashedBubbleView::CreateUMAOptinView() {
   // Checkbox for metric reporting setting.
   // Since the text to the right of the checkbox can't be a simple string (needs
   // a hyperlink in it), this checkbox contains an empty string as its label,
   // and the real text will be added as a separate view.
   uma_option_ = new views::Checkbox(base::string16());
   uma_option_->SetChecked(false);
-  uma_option_->set_background(
-      views::Background::CreateSolidBackground(kBackgroundColor));
 
   // The text to the right of the checkbox.
   size_t offset;
@@ -273,8 +323,6 @@ void SessionCrashedBubbleView::CreateUmaOptinView(GridLayout* layout) {
       link_text,
       &offset);
   views::StyledLabel* uma_label = new views::StyledLabel(uma_text, this);
-  uma_label->set_background(
-      views::Background::CreateSolidBackground(kBackgroundColor));
   views::StyledLabel::RangeStyleInfo link_style =
       views::StyledLabel::RangeStyleInfo::CreateForLink();
   link_style.font_style = gfx::Font::NORMAL;
@@ -289,35 +337,30 @@ void SessionCrashedBubbleView::CreateUmaOptinView(GridLayout* layout) {
   if (!after_link_range.is_empty())
     uma_label->AddStyleRange(after_link_range, uma_style);
 
-  // We use a border instead of padding so that the background color reaches
-  // the edges of the bubble.
-  const gfx::Insets title_insets = GetBubbleFrameView()->GetTitleInsets();
-  uma_option_->SetBorder(views::Border::CreateSolidSidedBorder(
-      0, title_insets.left(), 0, 0, kBackgroundColor));
-  uma_label->SetBorder(views::Border::CreateSolidSidedBorder(
-      views::kRelatedControlVerticalSpacing, kCheckboxTextDistance,
-      views::kRelatedControlVerticalSpacing, title_insets.left(),
-      kBackgroundColor));
+  // Create a view to hold the checkbox and the text.
+  views::View* uma_view = new views::View();
+  GridLayout* uma_layout = new GridLayout(uma_view);
+  uma_view->SetLayoutManager(uma_layout);
 
-  // Separator.
-  const int kSeparatorColumnSetId = 2;
-  views::ColumnSet* cs = layout->AddColumnSet(kSeparatorColumnSetId);
-  cs->AddColumn(GridLayout::FILL, GridLayout::FILL, 1,
-                GridLayout::USE_PREF, 0, 0);
+  uma_view->set_background(
+      views::Background::CreateSolidBackground(kBackgroundColor));
+  int inset_left = GetBubbleFrameView()->GetTitleInsets().left();
+  uma_layout->SetInsets(views::kRelatedControlVerticalSpacing, inset_left,
+                        views::kRelatedControlVerticalSpacing, inset_left);
 
-  // Reporting row.
-  const int kReportColumnSetId = 3;
-  cs = layout->AddColumnSet(kReportColumnSetId);
-  cs->AddColumn(GridLayout::CENTER, GridLayout::FILL, 0,
+  const int kReportColumnSetId = 0;
+  views::ColumnSet* cs = uma_layout->AddColumnSet(kReportColumnSetId);
+  cs->AddColumn(GridLayout::CENTER, GridLayout::LEADING, 0,
                 GridLayout::USE_PREF, 0, 0);
+  cs->AddPaddingColumn(0, kCheckboxTextDistance);
   cs->AddColumn(GridLayout::FILL, GridLayout::FILL, 0,
                 GridLayout::FIXED, kWidthOfDescriptionText, 0);
 
-  layout->StartRow(0, kSeparatorColumnSetId);
-  layout->AddView(new views::Separator(views::Separator::HORIZONTAL));
-  layout->StartRow(0, kReportColumnSetId);
-  layout->AddView(uma_option_);
-  layout->AddView(uma_label);
+  uma_layout->StartRow(0, kReportColumnSetId);
+  uma_layout->AddView(uma_option_);
+  uma_layout->AddView(uma_label);
+
+  return uma_view;
 }
 
 void SessionCrashedBubbleView::ButtonPressed(views::Button* sender,
@@ -332,8 +375,9 @@ void SessionCrashedBubbleView::StyledLabelLinkClicked(const gfx::Range& range,
       GURL("https://support.google.com/chrome/answer/96817"),
       content::Referrer(),
       NEW_FOREGROUND_TAB,
-      content::PAGE_TRANSITION_LINK,
+      ui::PAGE_TRANSITION_LINK,
       false));
+  RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_HELP);
 }
 
 void SessionCrashedBubbleView::DidStartNavigationToPendingEntry(
@@ -343,10 +387,8 @@ void SessionCrashedBubbleView::DidStartNavigationToPendingEntry(
 }
 
 void SessionCrashedBubbleView::DidFinishLoad(
-      int64 frame_id,
-      const GURL& validated_url,
-      bool is_main_frame,
-      content::RenderViewHost* render_view_host) {
+    content::RenderFrameHost* render_frame_host,
+    const GURL& validated_url) {
   if (started_navigation_)
     CloseBubble();
 }
@@ -375,15 +417,14 @@ void SessionCrashedBubbleView::TabDetachedAt(content::WebContents* contents,
 
 void SessionCrashedBubbleView::RestorePreviousSession(views::Button* sender) {
   SessionRestore::RestoreSessionAfterCrash(browser_);
+  RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_RESTORED);
+  restored_ = true;
 
   // Record user's choice for opting in to UMA.
   // There's no opting-out choice in the crash restore bubble.
   if (uma_option_ && uma_option_->checked()) {
-    // TODO: Clean up function ResolveMetricsReportingEnabled so that user pref
-    // is stored automatically.
-    OptionsUtil::ResolveMetricsReportingEnabled(true);
-    g_browser_process->local_state()->SetBoolean(
-        prefs::kMetricsReportingEnabled, true);
+    InitiateMetricsReportingChange(true, OnMetricsReportingCallbackType());
+    RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_UMA_OPTIN);
   }
   CloseBubble();
 }

@@ -5,24 +5,20 @@
 #include "base/memory/ref_counted.h"
 #include "base/path_service.h"
 #include "base/strings/stringprintf.h"
-#include "chrome/browser/extensions/api/dns/mock_host_resolver_creator.h"
 #include "chrome/browser/extensions/extension_apitest.h"
-#include "chrome/browser/extensions/extension_function_test_utils.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/extensions/extension_test_message_listener.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "extensions/browser/api/dns/host_resolver_wrapper.h"
+#include "extensions/browser/api/dns/mock_host_resolver_creator.h"
 #include "extensions/browser/api/sockets_tcp/sockets_tcp_api.h"
+#include "extensions/test/extension_test_message_listener.h"
+#include "extensions/test/result_catcher.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/spawned_test_server/spawned_test_server.h"
-
-using extensions::Extension;
-
-namespace utils = extension_function_test_utils;
 
 namespace {
 
@@ -47,7 +43,7 @@ class SocketsTcpApiTest : public ExtensionApiTest {
         resolver_creator_->CreateMockHostResolver());
   }
 
-  virtual void CleanUpOnMainThread() OVERRIDE {
+  virtual void TearDownOnMainThread() OVERRIDE {
     extensions::HostResolverWrapper::GetInstance()->
         SetHostResolverForTesting(NULL);
     resolver_creator_->DeleteMockHostResolver();
@@ -64,25 +60,6 @@ class SocketsTcpApiTest : public ExtensionApiTest {
 
 }  // namespace
 
-IN_PROC_BROWSER_TEST_F(SocketsTcpApiTest, SocketsTcpCreateGood) {
-  scoped_refptr<extensions::core_api::SocketsTcpCreateFunction>
-      socket_create_function(
-          new extensions::core_api::SocketsTcpCreateFunction());
-  scoped_refptr<Extension> empty_extension(utils::CreateEmptyExtension());
-
-  socket_create_function->set_extension(empty_extension.get());
-  socket_create_function->set_has_callback(true);
-
-  scoped_ptr<base::Value> result(utils::RunFunctionAndReturnSingleResult(
-      socket_create_function.get(), "[]", browser(), utils::NONE));
-  ASSERT_EQ(base::Value::TYPE_DICTIONARY, result->GetType());
-  base::DictionaryValue *value =
-      static_cast<base::DictionaryValue*>(result.get());
-  int socketId = -1;
-  EXPECT_TRUE(value->GetInteger("socketId", &socketId));
-  ASSERT_TRUE(socketId > 0);
-}
-
 IN_PROC_BROWSER_TEST_F(SocketsTcpApiTest, SocketTcpExtension) {
   scoped_ptr<net::SpawnedTestServer> test_server(
       new net::SpawnedTestServer(
@@ -98,8 +75,8 @@ IN_PROC_BROWSER_TEST_F(SocketsTcpApiTest, SocketTcpExtension) {
   // Test that connect() is properly resolving hostnames.
   host_port_pair.set_host("lOcAlHoSt");
 
-  ResultCatcher catcher;
-  catcher.RestrictToProfile(browser()->profile());
+  extensions::ResultCatcher catcher;
+  catcher.RestrictToBrowserContext(browser()->profile());
 
   ExtensionTestMessageListener listener("info_please", true);
 
@@ -107,6 +84,31 @@ IN_PROC_BROWSER_TEST_F(SocketsTcpApiTest, SocketTcpExtension) {
   EXPECT_TRUE(listener.WaitUntilSatisfied());
   listener.Reply(
       base::StringPrintf("tcp:%s:%d", host_port_pair.host().c_str(), port));
+
+  EXPECT_TRUE(catcher.GetNextResult()) << catcher.message();
+}
+
+IN_PROC_BROWSER_TEST_F(SocketsTcpApiTest, SocketTcpExtensionTLS) {
+  scoped_ptr<net::SpawnedTestServer> test_https_server(
+      new net::SpawnedTestServer(
+          net::SpawnedTestServer::TYPE_HTTPS,
+          net::BaseTestServer::SSLOptions(),
+          base::FilePath(FILE_PATH_LITERAL("net/data"))));
+  EXPECT_TRUE(test_https_server->Start());
+
+  net::HostPortPair https_host_port_pair = test_https_server->host_port_pair();
+  int https_port = https_host_port_pair.port();
+  ASSERT_GT(https_port, 0);
+
+  extensions::ResultCatcher catcher;
+  catcher.RestrictToBrowserContext(browser()->profile());
+
+  ExtensionTestMessageListener listener("info_please", true);
+
+  ASSERT_TRUE(LoadExtension(test_data_dir_.AppendASCII("sockets_tcp/api")));
+  EXPECT_TRUE(listener.WaitUntilSatisfied());
+  listener.Reply(base::StringPrintf(
+      "https:%s:%d", https_host_port_pair.host().c_str(), https_port));
 
   EXPECT_TRUE(catcher.GetNextResult()) << catcher.message();
 }

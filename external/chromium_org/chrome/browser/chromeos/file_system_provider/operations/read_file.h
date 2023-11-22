@@ -13,7 +13,7 @@
 #include "chrome/browser/chromeos/file_system_provider/provided_file_system_interface.h"
 #include "chrome/browser/chromeos/file_system_provider/request_value.h"
 #include "net/base/io_buffer.h"
-#include "webkit/browser/fileapi/async_file_util.h"
+#include "storage/browser/fileapi/async_file_util.h"
 
 namespace base {
 class FilePath;
@@ -46,7 +46,9 @@ class ReadFile : public Operation {
   virtual void OnSuccess(int request_id,
                          scoped_ptr<RequestValue> result,
                          bool has_more) OVERRIDE;
-  virtual void OnError(int request_id, base::File::Error error) OVERRIDE;
+  virtual void OnError(int request_id,
+                       scoped_ptr<RequestValue> result,
+                       base::File::Error error) OVERRIDE;
 
  private:
   int file_handle_;

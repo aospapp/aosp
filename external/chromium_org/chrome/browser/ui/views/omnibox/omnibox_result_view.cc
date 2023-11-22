@@ -20,7 +20,8 @@
 #include "chrome/browser/ui/omnibox/omnibox_popup_model.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_contents_view.h"
-#include "grit/generated_resources.h"
+#include "chrome/grit/generated_resources.h"
+#include "grit/components_scaled_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/theme_provider.h"
@@ -29,7 +30,6 @@
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/range/range.h"
 #include "ui/gfx/render_text.h"
-#include "ui/gfx/text_elider.h"
 #include "ui/gfx/text_utils.h"
 #include "ui/native_theme/native_theme.h"
 
@@ -338,6 +338,7 @@ int OmniboxResultView::DrawRenderText(
 scoped_ptr<gfx::RenderText> OmniboxResultView::CreateRenderText(
     const base::string16& text) const {
   scoped_ptr<gfx::RenderText> render_text(gfx::RenderText::CreateInstance());
+  render_text->SetDisplayRect(gfx::Rect(gfx::Size(INT_MAX, 0)));
   render_text->SetCursorEnabled(false);
   render_text->SetElideBehavior(gfx::ELIDE_TAIL);
   render_text->SetFontList(font_list_);
@@ -428,7 +429,7 @@ gfx::ImageSkia OmniboxResultView::GetIcon() const {
   if (!image.IsEmpty())
     return image.AsImageSkia();
 
-  int icon = match_.starred ?
+  int icon = model_->IsStarredMatch(match_) ?
       IDR_OMNIBOX_STAR : AutocompleteMatch::TypeToIcon(match_.type);
   if (GetState() == SELECTED) {
     switch (icon) {

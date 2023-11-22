@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2012,2014, The Linux Foundation. All rights reserved.
 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -181,6 +181,7 @@ void AdrenoMemInfo::getAlignedWidthAndHeight(int width, int height, int format,
     } else {
         switch (format)
         {
+            case HAL_PIXEL_FORMAT_YCrCb_420_SP:
             case HAL_PIXEL_FORMAT_YCrCb_420_SP_ADRENO:
             case HAL_PIXEL_FORMAT_RAW_SENSOR:
                 aligned_w = ALIGN(width, 32);
@@ -189,7 +190,6 @@ void AdrenoMemInfo::getAlignedWidthAndHeight(int width, int height, int format,
                 aligned_w = ALIGN(width, 128);
                 break;
             case HAL_PIXEL_FORMAT_YCbCr_420_SP:
-            case HAL_PIXEL_FORMAT_YCrCb_420_SP:
             case HAL_PIXEL_FORMAT_YV12:
             case HAL_PIXEL_FORMAT_YCbCr_422_SP:
             case HAL_PIXEL_FORMAT_YCrCb_422_SP:
@@ -271,7 +271,12 @@ IAllocController* IAllocController::getInstance(void)
 //-------------- IonController-----------------------//
 IonController::IonController()
 {
-    mIonAlloc = new IonAlloc();
+    allocateIonMem();
+}
+
+void IonController::allocateIonMem()
+{
+   mIonAlloc = new IonAlloc();
 }
 
 int IonController::allocate(alloc_data& data, int usage)
@@ -389,9 +394,9 @@ bool isMacroTileEnabled(int format, int usage)
 }
 
 // helper function
-size_t getSize(int format, int width, int height, const int alignedw,
+unsigned int getSize(int format, int width, int height, const int alignedw,
         const int alignedh) {
-    size_t size = 0;
+    unsigned int size = 0;
 
     switch (format) {
         case HAL_PIXEL_FORMAT_RGBA_8888:
@@ -428,7 +433,7 @@ size_t getSize(int format, int width, int height, const int alignedw,
             }
             size = alignedw*alignedh +
                     (ALIGN(alignedw/2, 16) * (alignedh/2))*2;
-            size = ALIGN(size, 4096);
+            size = ALIGN(size, (unsigned int)4096);
             break;
         case HAL_PIXEL_FORMAT_YCbCr_420_SP:
         case HAL_PIXEL_FORMAT_YCrCb_420_SP:
@@ -496,10 +501,10 @@ size_t getSize(int format, int width, int height, const int alignedw,
     return size;
 }
 
-size_t getBufferSizeAndDimensions(int width, int height, int format,
+unsigned int getBufferSizeAndDimensions(int width, int height, int format,
         int& alignedw, int &alignedh)
 {
-    size_t size;
+    unsigned int size;
 
     AdrenoMemInfo::getInstance().getAlignedWidthAndHeight(width,
             height,
@@ -514,10 +519,10 @@ size_t getBufferSizeAndDimensions(int width, int height, int format,
 }
 
 
-size_t getBufferSizeAndDimensions(int width, int height, int format, int usage,
-        int& alignedw, int &alignedh)
+unsigned int getBufferSizeAndDimensions(int width, int height, int format,
+        int usage, int& alignedw, int &alignedh)
 {
-    size_t size;
+    unsigned int size;
     int tileEnabled = isMacroTileEnabled(format, usage);
 
     AdrenoMemInfo::getInstance().getAlignedWidthAndHeight(width,
@@ -534,7 +539,7 @@ size_t getBufferSizeAndDimensions(int width, int height, int format, int usage,
 
 
 void getBufferAttributes(int width, int height, int format, int usage,
-        int& alignedw, int &alignedh, int& tileEnabled, size_t& size)
+        int& alignedw, int &alignedh, int& tileEnabled, unsigned int& size)
 {
     tileEnabled = isMacroTileEnabled(format, usage);
 
@@ -545,6 +550,69 @@ void getBufferAttributes(int width, int height, int format, int usage,
             alignedw,
             alignedh);
     size = getSize(format, width, height, alignedw, alignedh);
+}
+
+int getYUVPlaneInfo(private_handle_t* hnd, struct android_ycbcr* ycbcr)
+{
+    int err = 0;
+    unsigned int ystride, cstride;
+    memset(ycbcr->reserved, 0, sizeof(ycbcr->reserved));
+
+    // Get the chroma offsets from the handle width/height. We take advantage
+    // of the fact the width _is_ the stride
+    switch (hnd->format) {
+        //Semiplanar
+        case HAL_PIXEL_FORMAT_YCbCr_420_SP:
+        case HAL_PIXEL_FORMAT_YCbCr_422_SP:
+        case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
+        case HAL_PIXEL_FORMAT_NV12_ENCODEABLE: //Same as YCbCr_420_SP_VENUS
+            ystride = cstride = hnd->width;
+            ycbcr->y  = (void*)hnd->base;
+            ycbcr->cb = (void*)(hnd->base + ystride * hnd->height);
+            ycbcr->cr = (void*)(hnd->base + ystride * hnd->height + 1);
+            ycbcr->ystride = ystride;
+            ycbcr->cstride = cstride;
+            ycbcr->chroma_step = 2;
+        break;
+
+        case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+        case HAL_PIXEL_FORMAT_YCrCb_422_SP:
+        case HAL_PIXEL_FORMAT_YCrCb_420_SP_ADRENO:
+        case HAL_PIXEL_FORMAT_NV21_ZSL:
+        case HAL_PIXEL_FORMAT_RAW_SENSOR:
+            ystride = cstride = hnd->width;
+            ycbcr->y  = (void*)hnd->base;
+            ycbcr->cr = (void*)(hnd->base + ystride * hnd->height);
+            ycbcr->cb = (void*)(hnd->base + ystride * hnd->height + 1);
+            ycbcr->ystride = ystride;
+            ycbcr->cstride = cstride;
+            ycbcr->chroma_step = 2;
+        break;
+
+        //Planar
+        case HAL_PIXEL_FORMAT_YV12:
+            ystride = hnd->width;
+            cstride = ALIGN(hnd->width/2, 16);
+            ycbcr->y  = (void*)hnd->base;
+            ycbcr->cr = (void*)(hnd->base + ystride * hnd->height);
+            ycbcr->cb = (void*)(hnd->base + ystride * hnd->height +
+                    cstride * hnd->height/2);
+            ycbcr->ystride = ystride;
+            ycbcr->cstride = cstride;
+            ycbcr->chroma_step = 1;
+
+        break;
+        //Unsupported formats
+        case HAL_PIXEL_FORMAT_YCbCr_422_I:
+        case HAL_PIXEL_FORMAT_YCrCb_422_I:
+        case HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
+        default:
+        ALOGD("%s: Invalid format passed: 0x%x", __FUNCTION__,
+                hnd->format);
+        err = -EINVAL;
+    }
+    return err;
+
 }
 
 
@@ -577,7 +645,7 @@ int alloc_buffer(private_handle_t **pHnd, int w, int h, int format, int usage)
     private_handle_t* hnd = new private_handle_t(data.fd, data.size,
                                                  data.allocType, 0, format,
                                                  alignedw, alignedh);
-    hnd->base = (int) data.base;
+    hnd->base = (uint64_t) data.base;
     hnd->offset = data.offset;
     hnd->gpuaddr = 0;
     *pHnd = hnd;

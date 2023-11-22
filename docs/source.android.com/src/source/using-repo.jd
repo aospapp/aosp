@@ -147,7 +147,7 @@ delays to all servers worldwide.</p>
 <p><code>REPO_PATH</code> is the path relative to the root of the client.</p>
 </li>
 <li>
-<p><code>REPO_REMOTE</code> is the name of the remote sstem from the manifest.</p>
+<p><code>REPO_REMOTE</code> is the name of the remote system from the manifest.</p>
 </li>
 <li>
 <p><code>REPO_LREV</code> is the name of the revision from the manifest, translated to a local tracking branch.  Used if you need to pass the manifest revision to a locally executed git command.</p>

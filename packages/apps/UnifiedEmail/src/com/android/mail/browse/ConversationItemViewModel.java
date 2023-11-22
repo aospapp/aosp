@@ -24,7 +24,6 @@ import android.text.SpannableStringBuilder;
 import android.text.StaticLayout;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
-import android.text.style.CharacterStyle;
 import android.util.LruCache;
 import android.util.Pair;
 
@@ -119,21 +118,20 @@ public class ConversationItemViewModel {
     private String mContentDescription;
 
     /**
-     * Email addresses corresponding to the senders/recipients that will be displayed on the top
-     * line; used to generate the conversation icon.
+     * The email address and name of the sender whose avatar will be drawn as a conversation icon.
      */
-    public ArrayList<String> displayableEmails;
+    public final SenderAvatarModel mSenderAvatarModel = new SenderAvatarModel();
 
     /**
      * Display names corresponding to the email address for the senders/recipients that will be
      * displayed on the top line.
      */
-    public ArrayList<String> displayableNames;
+    public final ArrayList<String> displayableNames = new ArrayList<>();
 
     /**
      * A styled version of the {@link #displayableNames} to be displayed on the top line.
      */
-    public ArrayList<SpannableString> styledNames;
+    public final ArrayList<SpannableString> styledNames = new ArrayList<>();
 
     /**
      * Returns the view model for a conversation. If the model doesn't exist for this conversation
@@ -237,40 +235,6 @@ public class ConversationItemViewModel {
     }
 
     /**
-     * Describes the style of a Senders fragment.
-     */
-    static class SenderFragment {
-        // Indices that determine which substring of mSendersText we are
-        // displaying.
-        int start;
-        int end;
-
-        // The style to apply to the TextPaint object.
-        CharacterStyle style;
-
-        // Width of the fragment.
-        int width;
-
-        // Ellipsized text.
-        String ellipsizedText;
-
-        // Whether the fragment is fixed or not.
-        boolean isFixed;
-
-        // Should the fragment be displayed or not.
-        boolean shouldDisplay;
-
-        SenderFragment(int start, int end, CharSequence sendersText, CharacterStyle style,
-                boolean isFixed) {
-            this.start = start;
-            this.end = end;
-            this.style = style;
-            this.isFixed = isFixed;
-        }
-    }
-
-
-    /**
      * Reset the content description; enough content has changed that we need to
      * regenerate it.
      */
@@ -281,7 +245,8 @@ public class ConversationItemViewModel {
     /**
      * Get conversation information to use for accessibility.
      */
-    public CharSequence getContentDescription(Context context, boolean showToHeader) {
+    public CharSequence getContentDescription(Context context, boolean showToHeader,
+            String foldersDesc) {
         if (mContentDescription == null) {
             // If any are unread, get the first unread sender.
             // If all are unread, get the first sender.
@@ -325,9 +290,16 @@ public class ConversationItemViewModel {
                     .toString();
             String readString = context.getString(
                     conversation.read ? R.string.read_string : R.string.unread_string);
-            int res = isToday ? R.string.content_description_today : R.string.content_description;
+            final int res;
+            if (foldersDesc == null) {
+                res = isToday ? R.string.content_description_today : R.string.content_description;
+            } else {
+                res = isToday ? R.string.content_description_today_with_folders :
+                        R.string.content_description_with_folders;
+            }
             mContentDescription = context.getString(res, toHeader, participant,
-                    conversation.subject, conversation.getSnippet(), date, readString);
+                    conversation.subject, conversation.getSnippet(), date, readString,
+                    foldersDesc);
         }
         return mContentDescription;
     }
@@ -350,6 +322,52 @@ public class ConversationItemViewModel {
         if (!old.equals(newUri)) {
             sCachedModelsFolder = folder;
             sConversationHeaderMap.evictAll();
+        }
+    }
+
+    /**
+     * This mutable model stores the name and email address of the sender for whom an avatar will
+     * be drawn as the conversation icon.
+     */
+    public static final class SenderAvatarModel {
+        private String mEmailAddress;
+        private String mName;
+
+        public String getEmailAddress() {
+            return mEmailAddress;
+        }
+
+        public String getName() {
+            return mName;
+        }
+
+        /**
+         * Removes the name and email address of the participant of this avatar.
+         */
+        public void clear() {
+            mName = null;
+            mEmailAddress = null;
+        }
+
+        /**
+         * @param name the name of the participant of this avatar
+         * @param emailAddress the email address of the participant of this avatar; may not be null
+         */
+        public void populate(String name, String emailAddress) {
+            if (TextUtils.isEmpty(emailAddress)) {
+                throw new IllegalArgumentException("email address may not be null or empty");
+            }
+
+            mName = name;
+            mEmailAddress = emailAddress;
+        }
+
+        /**
+         * @return <tt>true</tt> if this model does not yet contain enough data to produce an
+         *      avatar image; <tt>false</tt> otherwise
+         */
+        public boolean isNotPopulated() {
+            return TextUtils.isEmpty(mEmailAddress);
         }
     }
 }

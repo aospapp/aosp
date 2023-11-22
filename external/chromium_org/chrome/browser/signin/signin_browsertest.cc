@@ -184,12 +184,9 @@ class BackOnNTPCommitObserver : public content::WebContentsObserver {
   }
 
   virtual void DidCommitProvisionalLoadForFrame(
-      int64 frame_id,
-      const base::string16& frame_unique_name,
-      bool is_main_frame,
+      content::RenderFrameHost* render_frame_host,
       const GURL& url,
-      content::PageTransition transition_type,
-      content::RenderViewHost* render_view_host) OVERRIDE {
+      ui::PageTransition transition_type) OVERRIDE {
     if (url == GURL(chrome::kChromeUINewTabURL) ||
         url == GURL(chrome::kChromeSearchLocalNtpUrl)) {
       content::WindowedNotificationObserver observer(
@@ -228,7 +225,7 @@ IN_PROC_BROWSER_TEST_F(SigninBrowserTest, SigninSkipForNowAndGoBack) {
   // from the history.
   chrome::NavigateParams navigate_params(browser(),
                                          skip_url,
-                                         content::PAGE_TRANSITION_LINK);
+                                         ui::PAGE_TRANSITION_LINK);
   ui_test_utils::NavigateToURL(&navigate_params);
 
   // Register an observer that will navigate back immediately on the commit of

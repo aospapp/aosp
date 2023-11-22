@@ -9,16 +9,17 @@
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
+#include "components/policy/core/common/policy_service.h"
 
 #if defined(ENABLE_CONFIGURATION_POLICY)
 #include "chrome/browser/policy/schema_registry_service.h"
 #include "chrome/browser/policy/schema_registry_service_factory.h"
+#include "components/policy/core/common/policy_service_impl.h"
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/login/users/user.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/chromeos/policy/user_cloud_policy_manager_chromeos.h"
 #include "chrome/browser/chromeos/policy/user_cloud_policy_manager_factory_chromeos.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
+#include "components/user_manager/user.h"
 #else
 #include "chrome/browser/policy/cloud/user_cloud_policy_manager_factory.h"
 #include "components/policy/core/common/cloud/user_cloud_policy_manager.h"
@@ -52,6 +53,13 @@ void ProfilePolicyConnectorFactory::SetServiceForTesting(
   CHECK(!map_entry);
   map_entry = connector;
 }
+
+#if defined(ENABLE_CONFIGURATION_POLICY)
+void ProfilePolicyConnectorFactory::PushProviderForTesting(
+    ConfigurationPolicyProvider* provider) {
+  test_providers_.push_back(provider);
+}
+#endif
 
 ProfilePolicyConnectorFactory::ProfilePolicyConnectorFactory()
     : BrowserContextKeyedBaseFactory(
@@ -95,10 +103,9 @@ ProfilePolicyConnectorFactory::CreateForProfileInternal(
       SchemaRegistryServiceFactory::GetForContext(profile)->registry();
 
 #if defined(OS_CHROMEOS)
-  chromeos::User* user = NULL;
+  user_manager::User* user = NULL;
   if (!chromeos::ProfileHelper::IsSigninProfile(profile)) {
-    chromeos::UserManager* user_manager = chromeos::UserManager::Get();
-    user = user_manager->GetUserByProfile(profile);
+    user = chromeos::ProfileHelper::Get()->GetUserByProfile(profile);
     CHECK(user);
   }
   user_cloud_policy_manager =
@@ -110,12 +117,26 @@ ProfilePolicyConnectorFactory::CreateForProfileInternal(
 #endif  // defined(ENABLE_CONFIGURATION_POLICY)
 
   ProfilePolicyConnector* connector = new ProfilePolicyConnector();
-  connector->Init(force_immediate_load,
-#if defined(ENABLE_CONFIGURATION_POLICY) && defined(OS_CHROMEOS)
-                  user,
+
+#if defined(ENABLE_CONFIGURATION_POLICY)
+  if (test_providers_.empty()) {
+    connector->Init(force_immediate_load,
+#if defined(OS_CHROMEOS)
+                    user,
 #endif
-                  schema_registry,
-                  user_cloud_policy_manager);
+                    schema_registry,
+                    user_cloud_policy_manager);
+  } else {
+    PolicyServiceImpl::Providers providers;
+    providers.push_back(test_providers_.front());
+    test_providers_.pop_front();
+    scoped_ptr<PolicyService> service(new PolicyServiceImpl(providers));
+    connector->InitForTesting(service.Pass());
+  }
+#else
+  connector->Init(false, NULL, NULL);
+#endif
+
   connectors_[profile] = connector;
   return make_scoped_ptr(connector);
 }

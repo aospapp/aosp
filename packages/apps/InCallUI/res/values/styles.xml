@@ -61,11 +61,11 @@
     </style>
 
     <!-- "Compound button" variation of InCallButton.
-         These buttons have the concept of two states: checked and unchecked.
-         (This style is just like "InCallButton" except that we also
-         clear out android:textOn and android:textOff, to avoid the default
-         text label behavior of the ToggleButton class.) -->
+         These buttons have the concept of two states: checked and unchecked. This style is just
+         like "InCallButton" except that we also clear out android:background, android:textOn,
+         android:textOff, to avoid the default behavior of the ToggleButton class. -->
     <style name="InCallCompoundButton" parent="InCallButton">
+        <item name="android:background">@null</item>
         <item name="android:textOn">@null</item>
         <item name="android:textOff">@null</item>
     </style>
@@ -84,10 +84,21 @@
                (Note that InCallActivity won't be destroyed once it is created)
 
              TODO: try removing the flag instead -->
-        <item name="android:taskOpenEnterAnimation">@anim/activity_open_enter</item>
+        <item name="android:taskOpenEnterAnimation">@null</item>
         <item name="android:taskOpenExitAnimation">@anim/activity_open_exit</item>
         <item name="android:taskToFrontEnterAnimation">@anim/activity_open_enter</item>
         <item name="android:taskToFrontExitAnimation">@anim/activity_open_exit</item>
+    </style>
+
+    <style name="OutgoingCallAnimationStyle" parent="@android:style/Animation.Activity">
+        <item name="android:taskOpenEnterAnimation">@null</item>
+        <item name="android:taskOpenExitAnimation">@null</item>
+        <item name="android:activityOpenEnterAnimation">@null</item>
+        <item name="android:activityOpenExitAnimation">@null</item>
+        <item name="android:activityCloseEnterAnimation">@null</item>
+        <item name="android:activityCloseExitAnimation">@null</item>
+        <item name="android:taskToFrontEnterAnimation">@null</item>
+        <item name="android:taskToFrontExitAnimation">@null</item>
     </style>
 
     <!-- Theme for the InCallActivity activity. Should have a transparent background for the
@@ -104,6 +115,16 @@
         <item name="android:colorPrimaryDark">@color/dialer_theme_color_dark</item>
         <item name="android:popupMenuStyle">@style/InCallPopupMenuStyle</item>
         <item name="android:actionBarStyle">@style/InCallActionBarStyle</item>
+        <item name="android:buttonStyleToggle">@style/InCallCompoundButton</item>
+    </style>
+
+    <style name="Theme.CircularRevealAnimation" parent="@android:style/Theme.Material.Light">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:colorPrimaryDark">@color/dialer_theme_color_dark</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@null</item>
     </style>
 
     <style name="InCallPopupMenuStyle" parent="@android:style/Theme.Material.Light">

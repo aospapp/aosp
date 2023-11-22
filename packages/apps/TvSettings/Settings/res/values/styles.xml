@@ -69,8 +69,8 @@
     <style name="SetupPane">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">match_parent</item>
-        <item name="android:paddingLeft">@dimen/remote_settings_pane_padding</item>
-        <item name="android:paddingRight">@dimen/remote_settings_pane_padding</item>
+        <item name="android:paddingStart">@dimen/remote_settings_pane_padding</item>
+        <item name="android:paddingEnd">@dimen/remote_settings_pane_padding</item>
         <item name="android:gravity">center</item>
         <item name="android:orientation">vertical</item>
     </style>
@@ -102,7 +102,7 @@
     </style>
 
     <style name="SetupText.LeftPane">
-        <item name="android:gravity">right</item>
+        <item name="android:gravity">end</item>
     </style>
 
     <style name="SetupText.LeftPane.Header">
@@ -131,7 +131,7 @@
     </style>
 
     <style name="SetupText.RightPane">
-        <item name="android:gravity">left</item>
+        <item name="android:gravity">start</item>
     </style>
 
     <style name="SetupText.RightPane.List">
@@ -202,10 +202,10 @@
 
     <style name="SettingsText.Header">
         <item name="android:paddingBottom">@dimen/progress_bar_vertical_padding</item>
-        <item name="android:paddingLeft">@dimen/progress_bar_horizontal_padding</item>
-        <item name="android:paddingRight">@dimen/progress_bar_horizontal_padding</item>
+        <item name="android:paddingStart">@dimen/progress_bar_horizontal_padding</item>
+        <item name="android:paddingEnd">@dimen/progress_bar_horizontal_padding</item>
         <item name="android:paddingTop">@dimen/progress_bar_vertical_padding</item>
-        <item name="android:layout_gravity">left|top</item>
+        <item name="android:layout_gravity">start|top</item>
     </style>
 
     <style name="SettingsText.List">
@@ -228,7 +228,7 @@
 
     <style name="SettingsText.List.CenterLeft">
         <item name="android:layout_centerVertical">true</item>
-        <item name="android:layout_alignParentLeft">true</item>
+        <item name="android:layout_alignParentStart">true</item>
     </style>
 
     <style name="SettingsList">
@@ -248,8 +248,8 @@
         <item name="android:layout_width">@dimen/app_icon_size</item>
         <item name="android:layout_height">@dimen/app_icon_size</item>
         <item name="android:layout_centerVertical">true</item>
-        <item name="android:layout_marginRight">@dimen/app_icon_margin_right</item>
-        <item name="android:layout_marginLeft">@dimen/app_icon_margin_left</item>
+        <item name="android:layout_marginEnd">@dimen/app_icon_margin_end</item>
+        <item name="android:layout_marginStart">@dimen/app_icon_margin_start</item>
     </style>
 
     <style name="SettingsImage.AppIcon.List">
@@ -257,11 +257,11 @@
     </style>
 
     <style name="SettingsImage.AppIcon.Right">
-        <item name="android:layout_alignParentRight">true</item>
+        <item name="android:layout_alignParentEnd">true</item>
     </style>
 
     <style name="SettingsImage.AppIcon.Left">
-        <item name="android:layout_alignParentLeft">true</item>
+        <item name="android:layout_alignParentStart">true</item>
     </style>
 
     <style name="ContentFragment">
@@ -311,7 +311,7 @@
 
     <style name="Canvas.Text.Dialog.Content.Description">
         <item name="android:fontFamily">sans-serif</item>
-        <item name="android:gravity">right</item>
+        <item name="android:gravity">end</item>
         <item name="android:textColor">@color/content_description_text_color</item>
         <item name="android:textSize">@dimen/content_fragment_description_text_size</item>
         <item name="android:lineSpacingExtra">3dp</item>

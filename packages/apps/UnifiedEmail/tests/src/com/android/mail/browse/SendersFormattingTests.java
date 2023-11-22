@@ -21,11 +21,18 @@ import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.text.SpannableString;
 
+import com.android.mail.providers.Account;
 import com.android.mail.providers.ConversationInfo;
 import com.android.mail.providers.ParticipantInfo;
+import com.android.mail.providers.UIProvider;
 import com.google.common.collect.Lists;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 @SmallTest
 public class SendersFormattingTests extends AndroidTestCase {
@@ -40,7 +47,8 @@ public class SendersFormattingTests extends AndroidTestCase {
         final ArrayList<SpannableString> strings = Lists.newArrayList();
         assertEquals(0, strings.size());
 
-        SendersView.format(getContext(), conv, "", 100, strings, null, null, null, false, false);
+        final Account account = createAccount();
+        SendersView.format(getContext(), conv, "", 100, strings, null, null, account, false, false);
         assertEquals(1, strings.size());
         assertEquals("me", strings.get(0).toString());
     }
@@ -51,7 +59,8 @@ public class SendersFormattingTests extends AndroidTestCase {
         final ArrayList<SpannableString> strings = Lists.newArrayList();
         assertEquals(0, strings.size());
 
-        SendersView.format(getContext(), conv, "", 100, strings, null, null, null, false, false);
+        final Account account = createAccount();
+        SendersView.format(getContext(), conv, "", 100, strings, null, null, account, false, false);
         assertEquals(1, strings.size());
         assertEquals("me", strings.get(0).toString());
     }
@@ -63,7 +72,8 @@ public class SendersFormattingTests extends AndroidTestCase {
         final ArrayList<SpannableString> strings = Lists.newArrayList();
         assertEquals(0, strings.size());
 
-        SendersView.format(getContext(), conv, "", 100, strings, null, null, null, false, false);
+        final Account account = createAccount();
+        SendersView.format(getContext(), conv, "", 100, strings, null, null, account, false, false);
         assertEquals(2, strings.size());
         assertNull(strings.get(0));
         assertEquals("me", strings.get(1).toString());
@@ -77,7 +87,8 @@ public class SendersFormattingTests extends AndroidTestCase {
         final ArrayList<SpannableString> strings = Lists.newArrayList();
         assertEquals(0, strings.size());
 
-        SendersView.format(getContext(), conv, "", 100, strings, null, null, null, false, false);
+        final Account account = createAccount();
+        SendersView.format(getContext(), conv, "", 100, strings, null, null, account, false, false);
         assertEquals(2, strings.size());
         assertNull(strings.get(0));
         assertEquals("Something", strings.get(1).toString());
@@ -111,5 +122,165 @@ public class SendersFormattingTests extends AndroidTestCase {
         assertEquals(before.firstSnippet, after.firstSnippet);
         assertEquals(before.firstUnreadSnippet, after.firstUnreadSnippet);
         assertEquals(before.lastSnippet, after.lastSnippet);
+    }
+
+    public void testSenderAvatarIsSenderOfFirstUnreadMessage() {
+        final ConversationInfo conv = createConversationInfo();
+        conv.addParticipant(new ParticipantInfo("a", "a@a.com", 0, true));
+        conv.addParticipant(new ParticipantInfo("b", "b@b.com", 0, false));
+        conv.addParticipant(new ParticipantInfo("c", "c@c.com", 0, false));
+
+        final ArrayList<SpannableString> styledSenders = Lists.newArrayList();
+        final ArrayList<String> displayableSenderNames = Lists.newArrayList();
+        final ConversationItemViewModel.SenderAvatarModel senderAvatarModel =
+                new ConversationItemViewModel.SenderAvatarModel();
+
+        final Account account = createAccount();
+        SendersView.format(getContext(), conv, "", 100, styledSenders, displayableSenderNames,
+                senderAvatarModel, account, false, false);
+
+        // b is the first unread message with a valid email address
+        assertEquals("b@b.com", senderAvatarModel.getEmailAddress());
+        assertEquals("b", senderAvatarModel.getName());
+    }
+
+    public void testSenderAvatarDoesNotChooseEmptyEmailAddress() {
+        final ConversationInfo conv = createConversationInfo();
+        conv.addParticipant(new ParticipantInfo("a", "a@a.com", 0, true));
+        conv.addParticipant(new ParticipantInfo("b", "", 0, false));
+        conv.addParticipant(new ParticipantInfo("c", "c@c.com", 0, false));
+
+        final ArrayList<SpannableString> styledSenders = Lists.newArrayList();
+        final ArrayList<String> displayableSenderNames = Lists.newArrayList();
+        final ConversationItemViewModel.SenderAvatarModel senderAvatarModel =
+                new ConversationItemViewModel.SenderAvatarModel();
+
+        final Account account = createAccount();
+        SendersView.format(getContext(), conv, "", 100, styledSenders, displayableSenderNames,
+                senderAvatarModel, account, false, false);
+
+        // b is unread but has an invalid email address so email address is set to the name
+        assertEquals("b", senderAvatarModel.getEmailAddress());
+        assertEquals("b", senderAvatarModel.getName());
+    }
+
+    public void testSenderAvatarIsLastSenderIfAllMessagesAreRead() {
+        final ConversationInfo conv = createConversationInfo();
+        conv.addParticipant(new ParticipantInfo("a", "a@a.com", 0, true));
+        conv.addParticipant(new ParticipantInfo("b", "b@b.com", 0, true));
+        conv.addParticipant(new ParticipantInfo("c", "c@c.com", 0, true));
+
+        final ArrayList<SpannableString> styledSenders = Lists.newArrayList();
+        final ArrayList<String> displayableSenderNames = Lists.newArrayList();
+        final ConversationItemViewModel.SenderAvatarModel senderAvatarModel =
+                new ConversationItemViewModel.SenderAvatarModel();
+
+        final Account account = createAccount();
+        SendersView.format(getContext(), conv, "", 100, styledSenders, displayableSenderNames,
+                senderAvatarModel, account, false, false);
+
+        // all are read, so c is chosen because it is the last sender
+        assertEquals("c@c.com", senderAvatarModel.getEmailAddress());
+        assertEquals("c", senderAvatarModel.getName());
+    }
+
+    public void testSenderAvatarIsLastSenderWithValidEmailAddressIfAllMessagesAreRead() {
+        final ConversationInfo conv = createConversationInfo();
+        conv.addParticipant(new ParticipantInfo("a", "a@a.com", 0, true));
+        conv.addParticipant(new ParticipantInfo("b", "b@b.com", 0, true));
+        conv.addParticipant(new ParticipantInfo("c", "", 0, true));
+
+        final ArrayList<SpannableString> styledSenders = Lists.newArrayList();
+        final ArrayList<String> displayableSenderNames = Lists.newArrayList();
+        final ConversationItemViewModel.SenderAvatarModel senderAvatarModel =
+                new ConversationItemViewModel.SenderAvatarModel();
+
+        final Account account = createAccount();
+        SendersView.format(getContext(), conv, "", 100, styledSenders, displayableSenderNames,
+                senderAvatarModel, account, false, false);
+
+        // all are read, c has an invalid email address, so email address is set to the name
+        assertEquals("c", senderAvatarModel.getEmailAddress());
+        assertEquals("c", senderAvatarModel.getName());
+    }
+
+    public void testSenderAvatarIsLastSenderThatIsNotTheCurrentAccountIfAllMessagesAreRead() {
+        final ConversationInfo conv = createConversationInfo();
+        conv.addParticipant(new ParticipantInfo("a", "a@a.com", 0, true));
+        conv.addParticipant(new ParticipantInfo("b", "b@b.com", 0, true));
+        // empty name indicates it is the current account
+        conv.addParticipant(new ParticipantInfo("", "c@c.com", 0, true));
+
+        final ArrayList<SpannableString> styledSenders = Lists.newArrayList();
+        final ArrayList<String> displayableSenderNames = Lists.newArrayList();
+        final ConversationItemViewModel.SenderAvatarModel senderAvatarModel =
+                new ConversationItemViewModel.SenderAvatarModel();
+
+        final Account account = createAccount();
+        SendersView.format(getContext(), conv, "", 100, styledSenders, displayableSenderNames,
+                senderAvatarModel, account, false, false);
+
+        // c is the last sender, but it is the current account, so b is chosen instead
+        assertEquals("b@b.com", senderAvatarModel.getEmailAddress());
+        assertEquals("b", senderAvatarModel.getName());
+    }
+
+    public void testSenderAvatarIsCurrentAccountIfAllSendersAreCurrentAccount() {
+        final ConversationInfo conv = createConversationInfo();
+        // empty name indicates it is the current account
+        conv.addParticipant(new ParticipantInfo("", "a@a.com", 0, true));
+
+        final ArrayList<SpannableString> styledSenders = Lists.newArrayList();
+        final ArrayList<String> displayableSenderNames = Lists.newArrayList();
+        final ConversationItemViewModel.SenderAvatarModel senderAvatarModel =
+                new ConversationItemViewModel.SenderAvatarModel();
+
+        final Account account = createAccount();
+        SendersView.format(getContext(), conv, "", 100, styledSenders, displayableSenderNames,
+                senderAvatarModel, account, false, false);
+
+        // only one sender exists and it is the current account, so the current account is chosen
+        assertEquals("fflintstone@example.com", senderAvatarModel.getEmailAddress());
+        assertEquals("Fred Flintstone", senderAvatarModel.getName());
+    }
+
+    /**
+     * Two senders in a thread should be kept distinct if they have unique email addresses, even if
+     * they happen to share the same name.
+     */
+    public void testSenderNamesWhenNamesMatchButEmailAddressesDiffer() {
+        final ConversationInfo conv = createConversationInfo();
+        conv.addParticipant(new ParticipantInfo("Andrew", "aholmes@awesome.com", 0, true));
+        conv.addParticipant(new ParticipantInfo("Andrew", "ajohnson@wicked.com", 0, true));
+
+        final ArrayList<SpannableString> styledSenders = Lists.newArrayList();
+        final ArrayList<String> displayableSenderNames = Lists.newArrayList();
+        final ConversationItemViewModel.SenderAvatarModel senderAvatarModel =
+                new ConversationItemViewModel.SenderAvatarModel();
+
+        final Account account = createAccount();
+        SendersView.format(getContext(), conv, "", 100, styledSenders, displayableSenderNames,
+                senderAvatarModel, account, false, false);
+
+        assertEquals(2, displayableSenderNames.size());
+        assertEquals("Andrew", displayableSenderNames.get(0));
+        assertEquals("Andrew", displayableSenderNames.get(1));
+    }
+
+    private static Account createAccount() {
+        try {
+            final Map<String, Object> map = new HashMap<>(2);
+            map.put(UIProvider.AccountColumns.NAME, "Fred Flintstone");
+            map.put(UIProvider.AccountColumns.ACCOUNT_MANAGER_NAME, "fflintstone@example.com");
+            map.put(UIProvider.AccountColumns.TYPE, "IMAP");
+            map.put(UIProvider.AccountColumns.PROVIDER_VERSION, 1);
+            map.put(UIProvider.AccountColumns.CAPABILITIES, 0);
+
+            final JSONObject json = new JSONObject(map);
+
+            return Account.builder().buildFrom(json);
+        } catch (JSONException je) {
+            throw new RuntimeException(je);
+        }
     }
 }

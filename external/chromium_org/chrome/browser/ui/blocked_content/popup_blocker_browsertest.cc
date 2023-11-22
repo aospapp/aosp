@@ -8,8 +8,6 @@
 #include "base/path_service.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/autocomplete/autocomplete_match.h"
-#include "chrome/browser/autocomplete/autocomplete_result.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/browser/content_settings/tab_specific_content_settings.h"
@@ -20,7 +18,7 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/omnibox/location_bar.h"
+#include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -29,6 +27,8 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/test_switches.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/omnibox/autocomplete_match.h"
+#include "components/omnibox/autocomplete_result.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_frame_host.h"
@@ -113,19 +113,6 @@ class PopupBlockerBrowserTest : public InProcessBrowserTest {
     return popup_blocker_helper->GetBlockedPopupsCount();
   }
 
-  void NavigateAndCheckPopupShown(const GURL& url) {
-    content::WindowedNotificationObserver observer(
-        chrome::NOTIFICATION_TAB_ADDED,
-        content::NotificationService::AllSources());
-    ui_test_utils::NavigateToURL(browser(), url);
-    observer.Wait();
-
-    ASSERT_EQ(2u, chrome::GetBrowserCount(browser()->profile(),
-                                          browser()->host_desktop_type()));
-
-    ASSERT_EQ(0, GetBlockedContentsCount());
-  }
-
   enum WhatToExpect {
     ExpectPopup,
     ExpectTab
@@ -135,6 +122,28 @@ class PopupBlockerBrowserTest : public InProcessBrowserTest {
     CheckTitle,
     DontCheckTitle
   };
+
+  void NavigateAndCheckPopupShown(const GURL& url,
+                                  WhatToExpect what_to_expect) {
+    content::WindowedNotificationObserver observer(
+        chrome::NOTIFICATION_TAB_ADDED,
+        content::NotificationService::AllSources());
+    ui_test_utils::NavigateToURL(browser(), url);
+    observer.Wait();
+
+    if (what_to_expect == ExpectPopup) {
+      ASSERT_EQ(2u,
+                chrome::GetBrowserCount(browser()->profile(),
+                                        browser()->host_desktop_type()));
+    } else {
+      ASSERT_EQ(1u,
+                chrome::GetBrowserCount(browser()->profile(),
+                                        browser()->host_desktop_type()));
+      ASSERT_EQ(2, browser()->tab_strip_model()->count());
+    }
+
+    ASSERT_EQ(0, GetBlockedContentsCount());
+  }
 
   // Navigates to the test indicated by |test_name| using |browser| which is
   // expected to try to open a popup. Verifies that the popup was blocked and
@@ -290,7 +299,7 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest,
                           std::string(),
                           CONTENT_SETTING_ALLOW);
 
-  NavigateAndCheckPopupShown(url);
+  NavigateAndCheckPopupShown(url, ExpectTab);
 }
 
 // Verify that content settings are applied based on the top-level frame URL.
@@ -306,7 +315,7 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest,
 
   // Popup from the iframe should be allowed since the top-level URL is
   // whitelisted.
-  NavigateAndCheckPopupShown(url);
+  NavigateAndCheckPopupShown(url, ExpectTab);
 
   // Whitelist iframe URL instead.
   GURL::Replacements replace_host;
@@ -337,7 +346,8 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest,
       embedded_test_server()->GetURL("/popup_blocker/popup-on-unload.html"));
   ui_test_utils::NavigateToURL(browser(), url);
 
-  NavigateAndCheckPopupShown(embedded_test_server()->GetURL("/popup_blocker/"));
+  NavigateAndCheckPopupShown(embedded_test_server()->GetURL("/popup_blocker/"),
+                             ExpectPopup);
 }
 
 // Verify that when you unblock popup, the popup shows in history and omnibox.
@@ -347,7 +357,7 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest,
       switches::kDisablePopupBlocking);
   GURL url(embedded_test_server()->GetURL(
       "/popup_blocker/popup-blocked-to-post-blank.html"));
-  NavigateAndCheckPopupShown(url);
+  NavigateAndCheckPopupShown(url, ExpectTab);
 
   std::string search_string =
       "data:text/html,<title>Popup Success!</title>you should not see this "

@@ -16,7 +16,7 @@
 
 package com.android.webview.chromium;
 
-import org.chromium.content.browser.NavigationHistory;
+import org.chromium.content_public.browser.NavigationHistory;
 
 import android.webkit.WebBackForwardList;
 import android.webkit.WebHistoryItem;

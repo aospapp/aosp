@@ -11,11 +11,11 @@
 #include "base/strings/string16.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/metrics/proto/omnibox_event.pb.h"
+#include "components/omnibox/autocomplete_scheme_classifier.h"
 
 class AutocompleteController;
 struct AutocompleteMatch;
 class GURL;
-class Profile;
 
 class AutocompleteClassifier : public KeyedService {
  public:
@@ -24,7 +24,9 @@ class AutocompleteClassifier : public KeyedService {
   // AutocompleteController().
   static const int kDefaultOmniboxProviders;
 
-  explicit AutocompleteClassifier(Profile* profile);
+  AutocompleteClassifier(
+      scoped_ptr<AutocompleteController> controller_,
+      scoped_ptr<AutocompleteSchemeClassifier> scheme_classifier);
   virtual ~AutocompleteClassifier();
 
   // Given some string |text| that the user wants to use for navigation,
@@ -56,6 +58,7 @@ class AutocompleteClassifier : public KeyedService {
   virtual void Shutdown() OVERRIDE;
 
   scoped_ptr<AutocompleteController> controller_;
+  scoped_ptr<AutocompleteSchemeClassifier> scheme_classifier_;
 
   // Are we currently in Classify? Used to verify Classify isn't invoked
   // recursively, since this can corrupt state and cause crashes.

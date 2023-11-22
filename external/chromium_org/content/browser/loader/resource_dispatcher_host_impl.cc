@@ -27,11 +27,11 @@
 #include "content/browser/appcache/chrome_appcache_service.h"
 #include "content/browser/cert_store_impl.h"
 #include "content/browser/child_process_security_policy_impl.h"
-#include "content/browser/cross_site_request_manager.h"
 #include "content/browser/download/download_resource_handler.h"
 #include "content/browser/download/save_file_manager.h"
 #include "content/browser/download/save_file_resource_handler.h"
 #include "content/browser/fileapi/chrome_blob_storage_context.h"
+#include "content/browser/frame_host/navigation_request_info.h"
 #include "content/browser/loader/async_resource_handler.h"
 #include "content/browser/loader/buffered_resource_handler.h"
 #include "content/browser/loader/cross_site_resource_handler.h"
@@ -44,7 +44,6 @@
 #include "content/browser/loader/sync_resource_handler.h"
 #include "content/browser/loader/throttling_resource_handler.h"
 #include "content/browser/loader/upload_data_stream_builder.h"
-#include "content/browser/plugin_service_impl.h"
 #include "content/browser/renderer_host/render_view_host_delegate.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/resource_context_impl.h"
@@ -52,10 +51,9 @@
 #include "content/browser/streams/stream.h"
 #include "content/browser/streams/stream_context.h"
 #include "content/browser/streams/stream_registry.h"
-#include "content/browser/worker_host/worker_service_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
+#include "content/common/appcache_interfaces.h"
 #include "content/common/resource_messages.h"
-#include "content/common/resource_request_body.h"
 #include "content/common/ssl_status_serialization.h"
 #include "content/common/view_messages.h"
 #include "content/public/browser/browser_thread.h"
@@ -87,20 +85,23 @@
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_job_factory.h"
+#include "storage/browser/blob/blob_data_handle.h"
+#include "storage/browser/blob/blob_storage_context.h"
+#include "storage/browser/blob/blob_url_request_job_factory.h"
+#include "storage/browser/fileapi/file_permission_policy.h"
+#include "storage/browser/fileapi/file_system_context.h"
+#include "storage/common/blob/blob_data.h"
+#include "storage/common/blob/shareable_file_reference.h"
 #include "url/url_constants.h"
-#include "webkit/common/blob/blob_data.h"
-#include "webkit/browser/blob/blob_data_handle.h"
-#include "webkit/browser/blob/blob_storage_context.h"
-#include "webkit/browser/blob/blob_url_request_job_factory.h"
-#include "webkit/browser/fileapi/file_permission_policy.h"
-#include "webkit/browser/fileapi/file_system_context.h"
-#include "webkit/common/appcache/appcache_interfaces.h"
-#include "webkit/common/blob/shareable_file_reference.h"
+
+#if defined(ENABLE_PLUGINS)
+#include "content/browser/plugin_service_impl.h"
+#endif
 
 using base::Time;
 using base::TimeDelta;
 using base::TimeTicks;
-using webkit_blob::ShareableFileReference;
+using storage::ShareableFileReference;
 
 // ----------------------------------------------------------------------------
 
@@ -137,10 +138,64 @@ const double kMaxRequestsPerProcessRatio = 0.45;
 // same resource (see bugs 46104 and 31014).
 const int kDefaultDetachableCancelDelayMs = 30000;
 
-bool IsDetachableResourceType(ResourceType::Type type) {
+enum SHA1HistogramTypes {
+  // SHA-1 is not present in the certificate chain.
+  SHA1_NOT_PRESENT = 0,
+  // SHA-1 is present in the certificate chain, and the leaf expires on or
+  // after January 1, 2017.
+  SHA1_EXPIRES_AFTER_JANUARY_2017 = 1,
+  // SHA-1 is present in the certificate chain, and the leaf expires on or
+  // after June 1, 2016.
+  SHA1_EXPIRES_AFTER_JUNE_2016 = 2,
+  // SHA-1 is present in the certificate chain, and the leaf expires on or
+  // after January 1, 2016.
+  SHA1_EXPIRES_AFTER_JANUARY_2016 = 3,
+  // SHA-1 is present in the certificate chain, but the leaf expires before
+  // January 1, 2016
+  SHA1_PRESENT = 4,
+  // Always keep this at the end.
+  SHA1_HISTOGRAM_TYPES_MAX,
+};
+
+void RecordCertificateHistograms(const net::SSLInfo& ssl_info,
+                                 ResourceType resource_type) {
+  // The internal representation of the dates for UI treatment of SHA-1.
+  // See http://crbug.com/401365 for details
+  static const int64_t kJanuary2017 = INT64_C(13127702400000000);
+  static const int64_t kJune2016 = INT64_C(13109213000000000);
+  static const int64_t kJanuary2016 = INT64_C(13096080000000000);
+
+  SHA1HistogramTypes sha1_histogram = SHA1_NOT_PRESENT;
+  if (ssl_info.cert_status & net::CERT_STATUS_SHA1_SIGNATURE_PRESENT) {
+    DCHECK(ssl_info.cert.get());
+    if (ssl_info.cert->valid_expiry() >=
+        base::Time::FromInternalValue(kJanuary2017)) {
+      sha1_histogram = SHA1_EXPIRES_AFTER_JANUARY_2017;
+    } else if (ssl_info.cert->valid_expiry() >=
+               base::Time::FromInternalValue(kJune2016)) {
+      sha1_histogram = SHA1_EXPIRES_AFTER_JUNE_2016;
+    } else if (ssl_info.cert->valid_expiry() >=
+               base::Time::FromInternalValue(kJanuary2016)) {
+      sha1_histogram = SHA1_EXPIRES_AFTER_JANUARY_2016;
+    } else {
+      sha1_histogram = SHA1_PRESENT;
+    }
+  }
+  if (resource_type == RESOURCE_TYPE_MAIN_FRAME) {
+    UMA_HISTOGRAM_ENUMERATION("Net.Certificate.SHA1.MainFrame",
+                              sha1_histogram,
+                              SHA1_HISTOGRAM_TYPES_MAX);
+  } else {
+    UMA_HISTOGRAM_ENUMERATION("Net.Certificate.SHA1.Subresource",
+                              sha1_histogram,
+                              SHA1_HISTOGRAM_TYPES_MAX);
+  }
+}
+
+bool IsDetachableResourceType(ResourceType type) {
   switch (type) {
-    case ResourceType::PREFETCH:
-    case ResourceType::PING:
+    case RESOURCE_TYPE_PREFETCH:
+    case RESOURCE_TYPE_PING:
       return true;
     default:
       return false;
@@ -172,7 +227,8 @@ void AbortRequestBeforeItStarts(ResourceMessageFilter* filter,
 
 void SetReferrerForRequest(net::URLRequest* request, const Referrer& referrer) {
   if (!referrer.url.is_valid() ||
-      CommandLine::ForCurrentProcess()->HasSwitch(switches::kNoReferrers)) {
+      base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kNoReferrers)) {
     request->SetReferrer(std::string());
   } else {
     request->SetReferrer(referrer.url.spec());
@@ -201,7 +257,7 @@ void SetReferrerForRequest(net::URLRequest* request, const Referrer& referrer) {
 bool ShouldServiceRequest(int process_type,
                           int child_id,
                           const ResourceHostMsg_Request& request_data,
-                          fileapi::FileSystemContext* file_system_context)  {
+                          storage::FileSystemContext* file_system_context) {
   if (process_type == PROCESS_TYPE_PLUGIN)
     return true;
 
@@ -228,7 +284,7 @@ bool ShouldServiceRequest(int process_type,
         return false;
       }
       if (iter->type() == ResourceRequestBody::Element::TYPE_FILE_FILESYSTEM) {
-        fileapi::FileSystemURL url =
+        storage::FileSystemURL url =
             file_system_context->CrackURL(iter->filesystem_url());
         if (!policy->CanReadFileSystemFile(child_id, url)) {
           NOTREACHED() << "Denied unauthorized upload of "
@@ -247,16 +303,6 @@ void RemoveDownloadFileFromChildSecurityPolicy(int child_id,
   ChildProcessSecurityPolicyImpl::GetInstance()->RevokeAllPermissionsForFile(
       child_id, path);
 }
-
-#if defined(OS_WIN)
-#pragma warning(disable: 4748)
-#pragma optimize("", off)
-#endif
-
-#if defined(OS_WIN)
-#pragma optimize("", on)
-#pragma warning(default: 4748)
-#endif
 
 DownloadInterruptReason CallbackAndReturn(
     const DownloadUrlParameters::OnStartedCallback& started_cb,
@@ -310,11 +356,31 @@ bool IsValidatedSCT(
   return sct_status.status == net::ct::SCT_STATUS_OK;
 }
 
-webkit_blob::BlobStorageContext* GetBlobStorageContext(
+storage::BlobStorageContext* GetBlobStorageContext(
     ResourceMessageFilter* filter) {
   if (!filter->blob_storage_context())
     return NULL;
   return filter->blob_storage_context()->context();
+}
+
+void AttachRequestBodyBlobDataHandles(
+    ResourceRequestBody* body,
+    storage::BlobStorageContext* blob_context) {
+  DCHECK(blob_context);
+  for (size_t i = 0; i < body->elements()->size(); ++i) {
+    const ResourceRequestBody::Element& element = (*body->elements())[i];
+    if (element.type() != ResourceRequestBody::Element::TYPE_BLOB)
+      continue;
+    scoped_ptr<storage::BlobDataHandle> handle =
+        blob_context->GetBlobDataFromUUID(element.blob_uuid());
+    DCHECK(handle);
+    if (!handle)
+      continue;
+    // Ensure the blob and any attached shareable files survive until
+    // upload completion. The |body| takes ownership of |handle|.
+    const void* key = handle.get();
+    body->SetUserData(key, handle.release());
+  }
 }
 
 }  // namespace
@@ -385,6 +451,17 @@ void ResourceDispatcherHostImpl::RemoveResourceContext(
     ResourceContext* context) {
   CHECK(ContainsKey(active_resource_contexts_, context));
   active_resource_contexts_.erase(context);
+}
+
+void ResourceDispatcherHostImpl::ResumeResponseDeferredAtStart(
+    const GlobalRequestID& id) {
+  ResourceLoader* loader = GetLoader(id);
+  if (loader) {
+    // The response we were meant to resume could have already been canceled.
+    ResourceRequestInfoImpl* info = loader->GetRequestInfo();
+    if (info->cross_site_handler())
+      info->cross_site_handler()->ResumeResponseDeferredAtStart(id.request_id);
+  }
 }
 
 void ResourceDispatcherHostImpl::CancelRequestsForContext(
@@ -517,6 +594,15 @@ DownloadInterruptReason ResourceDispatcherHostImpl::BeginDownload(
   }
   request->SetLoadFlags(request->load_flags() | extra_load_flags);
 
+  // We treat a download as a main frame load, and thus update the policy URL on
+  // redirects.
+  //
+  // TODO(davidben): Is this correct? If this came from a
+  // ViewHostMsg_DownloadUrl in a frame, should it have first-party URL set
+  // appropriately?
+  request->set_first_party_url_policy(
+      net::URLRequest::UPDATE_FIRST_PARTY_URL_ON_REDIRECT);
+
   // Check if the renderer is permitted to request the requested URL.
   if (!ChildProcessSecurityPolicyImpl::GetInstance()->
           CanRequestURL(child_id, url)) {
@@ -543,7 +629,7 @@ DownloadInterruptReason ResourceDispatcherHostImpl::BeginDownload(
   if (request->url().SchemeIs(url::kBlobScheme)) {
     ChromeBlobStorageContext* blob_context =
         GetChromeBlobStorageContextForResourceContext(context);
-    webkit_blob::BlobProtocolHandler::SetRequestedBlobDataHandle(
+    storage::BlobProtocolHandler::SetRequestedBlobDataHandle(
         request.get(),
         blob_context->context()->GetBlobDataFromPublicURL(request->url()));
   }
@@ -667,7 +753,7 @@ bool ResourceDispatcherHostImpl::HandleExternalProtocol(ResourceLoader* loader,
 
   ResourceRequestInfoImpl* info = loader->GetRequestInfo();
 
-  if (!ResourceType::IsFrame(info->GetResourceType()))
+  if (!IsResourceTypeFrame(info->GetResourceType()))
     return false;
 
   const net::URLRequestJobFactory* job_factory =
@@ -713,7 +799,7 @@ void ResourceDispatcherHostImpl::DidReceiveResponse(ResourceLoader* loader) {
 
   if (loader->request()->was_fetched_via_proxy() &&
       loader->request()->was_fetched_via_spdy() &&
-      loader->request()->url().SchemeIs("http")) {
+      loader->request()->url().SchemeIs(url::kHttpScheme)) {
     scheduler_->OnReceivedSpdyProxiedHttpResponse(
         info->GetChildID(), info->GetRouteID());
   }
@@ -737,7 +823,7 @@ void ResourceDispatcherHostImpl::DidFinishLoading(ResourceLoader* loader) {
   ResourceRequestInfo* info = loader->GetRequestInfo();
 
   // Record final result of all resource loads.
-  if (info->GetResourceType() == ResourceType::MAIN_FRAME) {
+  if (info->GetResourceType() == RESOURCE_TYPE_MAIN_FRAME) {
     // This enumeration has "3" appended to its name to distinguish it from
     // older versions.
     UMA_HISTOGRAM_SPARSE_SLOWLY(
@@ -758,7 +844,7 @@ void ResourceDispatcherHostImpl::DidFinishLoading(ResourceLoader* loader) {
           "Net.CertificateTransparency.MainFrameValidSCTCount", num_valid_scts);
     }
   } else {
-    if (info->GetResourceType() == ResourceType::IMAGE) {
+    if (info->GetResourceType() == RESOURCE_TYPE_IMAGE) {
       UMA_HISTOGRAM_SPARSE_SLOWLY(
           "Net.ErrorCodesForImages",
           -loader->request()->status().error());
@@ -767,6 +853,11 @@ void ResourceDispatcherHostImpl::DidFinishLoading(ResourceLoader* loader) {
     UMA_HISTOGRAM_SPARSE_SLOWLY(
         "Net.ErrorCodesForSubresources2",
         -loader->request()->status().error());
+  }
+
+  if (loader->request()->url().SchemeIsSecure()) {
+    RecordCertificateHistograms(loader->request()->ssl_info(),
+                                info->GetResourceType());
   }
 
   if (delegate_)
@@ -999,9 +1090,7 @@ void ResourceDispatcherHostImpl::BeginRequest(
   }
 
   // Allow the observer to block/handle the request.
-  if (delegate_ && !delegate_->ShouldBeginRequest(child_id,
-                                                  route_id,
-                                                  request_data.method,
+  if (delegate_ && !delegate_->ShouldBeginRequest(request_data.method,
                                                   request_data.url,
                                                   request_data.resource_type,
                                                   resource_context)) {
@@ -1034,6 +1123,13 @@ void ResourceDispatcherHostImpl::BeginRequest(
   new_request->set_first_party_for_cookies(
       request_data.first_party_for_cookies);
 
+  // If the request is a MAIN_FRAME request, the first-party URL gets updated on
+  // redirects.
+  if (request_data.resource_type == RESOURCE_TYPE_MAIN_FRAME) {
+    new_request->set_first_party_url_policy(
+        net::URLRequest::UPDATE_FIRST_PARTY_URL_ON_REDIRECT);
+  }
+
   const Referrer referrer(request_data.referrer, request_data.referrer_policy);
   SetReferrerForRequest(new_request.get(), referrer);
 
@@ -1043,18 +1139,26 @@ void ResourceDispatcherHostImpl::BeginRequest(
 
   new_request->SetLoadFlags(load_flags);
 
+  storage::BlobStorageContext* blob_context =
+      GetBlobStorageContext(filter_);
   // Resolve elements from request_body and prepare upload data.
   if (request_data.request_body.get()) {
+    // Attaches the BlobDataHandles to request_body not to free the blobs and
+    // any attached shareable files until upload completion. These data will be
+    // used in UploadDataStream and ServiceWorkerURLRequestJob.
+    AttachRequestBodyBlobDataHandles(
+        request_data.request_body.get(),
+        blob_context);
     new_request->set_upload(UploadDataStreamBuilder::Build(
         request_data.request_body.get(),
-        GetBlobStorageContext(filter_),
+        blob_context,
         filter_->file_system_context(),
         BrowserThread::GetMessageLoopProxyForThread(BrowserThread::FILE)
             .get()));
   }
 
   bool allow_download = request_data.allow_download &&
-      ResourceType::IsFrame(request_data.resource_type);
+      IsResourceTypeFrame(request_data.resource_type);
 
   // Make extra info and read footer (contains request ID).
   ResourceRequestInfoImpl* extra_info =
@@ -1075,6 +1179,7 @@ void ResourceDispatcherHostImpl::BeginRequest(
           false,  // is stream
           allow_download,
           request_data.has_user_gesture,
+          request_data.enable_load_timing,
           request_data.referrer_policy,
           request_data.visiblity_state,
           resource_context,
@@ -1086,20 +1191,22 @@ void ResourceDispatcherHostImpl::BeginRequest(
   if (new_request->url().SchemeIs(url::kBlobScheme)) {
     // Hang on to a reference to ensure the blob is not released prior
     // to the job being started.
-    webkit_blob::BlobProtocolHandler::SetRequestedBlobDataHandle(
+    storage::BlobProtocolHandler::SetRequestedBlobDataHandle(
         new_request.get(),
-        filter_->blob_storage_context()->context()->
-            GetBlobDataFromPublicURL(new_request->url()));
+        filter_->blob_storage_context()->context()->GetBlobDataFromPublicURL(
+            new_request->url()));
   }
 
   // Initialize the service worker handler for the request.
   ServiceWorkerRequestHandler::InitializeHandler(
       new_request.get(),
       filter_->service_worker_context(),
-      GetBlobStorageContext(filter_),
+      blob_context,
       child_id,
       request_data.service_worker_provider_id,
-      request_data.resource_type);
+      request_data.skip_service_worker,
+      request_data.resource_type,
+      request_data.request_body);
 
   // Have the appcache associate its extra info with the request.
   AppCacheInterceptor::SetExtraRequestInfo(
@@ -1157,12 +1264,13 @@ scoped_ptr<ResourceHandler> ResourceDispatcherHostImpl::CreateResourceHandler(
   // let us check whether a transfer is required and pause for the unload
   // handler either if so or if a cross-process navigation is already under way.
   bool is_swappable_navigation =
-      request_data.resource_type == ResourceType::MAIN_FRAME;
+      request_data.resource_type == RESOURCE_TYPE_MAIN_FRAME;
   // If we are using --site-per-process, install it for subframes as well.
   if (!is_swappable_navigation &&
-      CommandLine::ForCurrentProcess()->HasSwitch(switches::kSitePerProcess)) {
+      base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kSitePerProcess)) {
     is_swappable_navigation =
-        request_data.resource_type == ResourceType::SUB_FRAME;
+        request_data.resource_type == RESOURCE_TYPE_SUB_FRAME;
   }
   if (is_swappable_navigation && process_type == PROCESS_TYPE_RENDERER)
     handler.reset(new CrossSiteResourceHandler(handler.Pass(), request));
@@ -1177,8 +1285,6 @@ scoped_ptr<ResourceHandler> ResourceDispatcherHostImpl::CreateResourceHandler(
                                 resource_context,
                                 filter_->appcache_service(),
                                 request_data.resource_type,
-                                child_id,
-                                route_id,
                                 &throttles);
   }
 
@@ -1208,7 +1314,7 @@ void ResourceDispatcherHostImpl::RegisterDownloadedTempFile(
     int child_id, int request_id, const base::FilePath& file_path) {
   scoped_refptr<ShareableFileReference> reference =
       ShareableFileReference::Get(file_path);
-  DCHECK(reference);
+  DCHECK(reference.get());
 
   registered_temp_files_[child_id][request_id] = reference;
   ChildProcessSecurityPolicyImpl::GetInstance()->GrantReadFile(
@@ -1288,13 +1394,14 @@ ResourceRequestInfoImpl* ResourceDispatcherHostImpl::CreateRequestInfo(
       false,     // is_main_frame
       false,     // parent_is_main_frame
       -1,        // parent_render_frame_id
-      ResourceType::SUB_RESOURCE,
-      PAGE_TRANSITION_LINK,
+      RESOURCE_TYPE_SUB_RESOURCE,
+      ui::PAGE_TRANSITION_LINK,
       false,     // should_replace_current_entry
       download,  // is_download
       false,     // is_stream
       download,  // allow_download
       false,     // has_user_gesture
+      false,     // enable_load_timing
       blink::WebReferrerPolicyDefault,
       blink::WebPageVisibilityStateVisible,
       context,
@@ -1304,8 +1411,9 @@ ResourceRequestInfoImpl* ResourceDispatcherHostImpl::CreateRequestInfo(
 
 void ResourceDispatcherHostImpl::OnRenderViewHostCreated(
     int child_id,
-    int route_id) {
-  scheduler_->OnClientCreated(child_id, route_id);
+    int route_id,
+    bool is_visible) {
+  scheduler_->OnClientCreated(child_id, route_id, is_visible);
 }
 
 void ResourceDispatcherHostImpl::OnRenderViewHostDeleted(
@@ -1313,6 +1421,24 @@ void ResourceDispatcherHostImpl::OnRenderViewHostDeleted(
     int route_id) {
   scheduler_->OnClientDeleted(child_id, route_id);
   CancelRequestsForRoute(child_id, route_id);
+}
+
+void ResourceDispatcherHostImpl::OnRenderViewHostSetIsLoading(int child_id,
+                                                              int route_id,
+                                                              bool is_loading) {
+  scheduler_->OnLoadingStateChanged(child_id, route_id, !is_loading);
+}
+
+void ResourceDispatcherHostImpl::OnRenderViewHostWasHidden(
+    int child_id,
+    int route_id) {
+  scheduler_->OnVisibilityChanged(child_id, route_id, false);
+}
+
+void ResourceDispatcherHostImpl::OnRenderViewHostWasShown(
+    int child_id,
+    int route_id) {
+  scheduler_->OnVisibilityChanged(child_id, route_id, true);
 }
 
 // This function is only used for saving feature.
@@ -1388,12 +1514,9 @@ void ResourceDispatcherHostImpl::CancelTransferringNavigation(
 void ResourceDispatcherHostImpl::ResumeDeferredNavigation(
     const GlobalRequestID& id) {
   ResourceLoader* loader = GetLoader(id);
-  if (loader) {
-    // The response we were meant to resume could have already been canceled.
-    ResourceRequestInfoImpl* info = loader->GetRequestInfo();
-    if (info->cross_site_handler())
-      info->cross_site_handler()->ResumeResponse();
-  }
+  // The response we were meant to resume could have already been canceled.
+  if (loader)
+    loader->CompleteTransfer();
 }
 
 // The object died, so cancel and detach all requests associated with it except
@@ -1595,6 +1718,20 @@ void ResourceDispatcherHostImpl::FinishedWithResourcesForRequest(
   const ResourceRequestInfoImpl* info =
       ResourceRequestInfoImpl::ForRequest(request_);
   IncrementOutstandingRequestsCount(-1, *info);
+}
+
+void ResourceDispatcherHostImpl::StartNavigationRequest(
+    const NavigationRequestInfo& info,
+    scoped_refptr<ResourceRequestBody> request_body,
+    int64 navigation_request_id,
+    int64 frame_node_id) {
+  NOTIMPLEMENTED();
+}
+
+void ResourceDispatcherHostImpl::CancelNavigationRequest(
+    int64 navigation_request_id,
+    int64 frame_node_id) {
+  NOTIMPLEMENTED();
 }
 
 // static
@@ -1925,15 +2062,15 @@ int ResourceDispatcherHostImpl::BuildLoadFlagsForRequest(
   // keep-alive connection created to load a sub-frame or a sub-resource could
   // be reused to load a main frame.
   load_flags |= net::LOAD_VERIFY_EV_CERT;
-  if (request_data.resource_type == ResourceType::MAIN_FRAME) {
+  if (request_data.resource_type == RESOURCE_TYPE_MAIN_FRAME) {
     load_flags |= net::LOAD_MAIN_FRAME;
-  } else if (request_data.resource_type == ResourceType::SUB_FRAME) {
+  } else if (request_data.resource_type == RESOURCE_TYPE_SUB_FRAME) {
     load_flags |= net::LOAD_SUB_FRAME;
-  } else if (request_data.resource_type == ResourceType::PREFETCH) {
+  } else if (request_data.resource_type == RESOURCE_TYPE_PREFETCH) {
     load_flags |= (net::LOAD_PREFETCH | net::LOAD_DO_NOT_PROMPT_FOR_LOGIN);
-  } else if (request_data.resource_type == ResourceType::FAVICON) {
+  } else if (request_data.resource_type == RESOURCE_TYPE_FAVICON) {
     load_flags |= net::LOAD_DO_NOT_PROMPT_FOR_LOGIN;
-  } else if (request_data.resource_type == ResourceType::IMAGE) {
+  } else if (request_data.resource_type == RESOURCE_TYPE_IMAGE) {
     // Prevent third-party image content from prompting for login, as this
     // is often a scam to extract credentials for another domain from the user.
     // Only block image loads, as the attack applies largely to the "src"
@@ -1968,6 +2105,11 @@ int ResourceDispatcherHostImpl::BuildLoadFlagsForRequest(
     VLOG(1) << "Denied unauthorized request for raw headers";
     load_flags &= ~net::LOAD_REPORT_RAW_HEADERS;
   }
+
+  // Add a flag to selectively bypass the data reduction proxy if the resource
+  // type is not an image.
+  if (request_data.resource_type != RESOURCE_TYPE_IMAGE)
+    load_flags |= net::LOAD_BYPASS_DATA_REDUCTION_PROXY;
 
   return load_flags;
 }

@@ -27,6 +27,7 @@
 #include "content/renderer/media/webrtc/webrtc_video_capturer_adapter.h"
 #include "content/renderer/media/webrtc_audio_device_impl.h"
 #include "content/renderer/media/webrtc_local_audio_track.h"
+#include "content/renderer/media/webrtc_logging.h"
 #include "content/renderer/media/webrtc_uma_histograms.h"
 #include "content/renderer/p2p/ipc_network_manager.h"
 #include "content/renderer/p2p/ipc_socket_factory.h"
@@ -44,7 +45,7 @@
 #include "third_party/libjingle/source/talk/app/webrtc/mediaconstraintsinterface.h"
 
 #if defined(USE_OPENSSL)
-#include "third_party/libjingle/source/talk/base/ssladapter.h"
+#include "third_party/webrtc/base/ssladapter.h"
 #else
 #include "net/socket/nss_ssl_util.h"
 #endif
@@ -98,6 +99,14 @@ void HarmonizeConstraintsAndEffects(RTCMediaConstraints* constraints,
         }
         DVLOG(1) << "Disabling constraint: "
                  << kConstraintEffectMap[i].constraint;
+      } else if (kConstraintEffectMap[i].effect ==
+                 media::AudioParameters::DUCKING && value && !is_mandatory) {
+        // Special handling of the DUCKING flag that sets the optional
+        // constraint to |false| to match what the device will support.
+        constraints->AddOptional(kConstraintEffectMap[i].constraint,
+            webrtc::MediaConstraintsInterface::kValueFalse, true);
+        // No need to modify |effects| since the ducking flag is already off.
+        DCHECK((*effects & media::AudioParameters::DUCKING) == 0);
       }
     }
   }
@@ -107,8 +116,8 @@ class P2PPortAllocatorFactory : public webrtc::PortAllocatorFactoryInterface {
  public:
   P2PPortAllocatorFactory(
       P2PSocketDispatcher* socket_dispatcher,
-      talk_base::NetworkManager* network_manager,
-      talk_base::PacketSocketFactory* socket_factory,
+      rtc::NetworkManager* network_manager,
+      rtc::PacketSocketFactory* socket_factory,
       blink::WebFrame* web_frame)
       : socket_dispatcher_(socket_dispatcher),
         network_manager_(network_manager),
@@ -121,9 +130,10 @@ class P2PPortAllocatorFactory : public webrtc::PortAllocatorFactoryInterface {
       const std::vector<TurnConfiguration>& turn_configurations) OVERRIDE {
     CHECK(web_frame_);
     P2PPortAllocator::Config config;
-    if (stun_servers.size() > 0) {
-      config.stun_server = stun_servers[0].server.hostname();
-      config.stun_server_port = stun_servers[0].server.port();
+    for (size_t i = 0; i < stun_servers.size(); ++i) {
+      config.stun_servers.insert(rtc::SocketAddress(
+          stun_servers[i].server.hostname(),
+          stun_servers[i].server.port()));
     }
     config.legacy_relay = false;
     for (size_t i = 0; i < turn_configurations.size(); ++i) {
@@ -135,12 +145,11 @@ class P2PPortAllocatorFactory : public webrtc::PortAllocatorFactoryInterface {
       relay_config.transport_type = turn_configurations[i].transport_type;
       relay_config.secure = turn_configurations[i].secure;
       config.relays.push_back(relay_config);
-    }
 
-    // Use first turn server as the stun server.
-    if (turn_configurations.size() > 0) {
-      config.stun_server = config.relays[0].server_address;
-      config.stun_server_port = config.relays[0].port;
+      // Use turn servers as stun servers.
+      config.stun_servers.insert(rtc::SocketAddress(
+          turn_configurations[i].server.hostname(),
+          turn_configurations[i].server.port()));
     }
 
     return new P2PPortAllocator(
@@ -155,8 +164,8 @@ class P2PPortAllocatorFactory : public webrtc::PortAllocatorFactoryInterface {
   scoped_refptr<P2PSocketDispatcher> socket_dispatcher_;
   // |network_manager_| and |socket_factory_| are a weak references, owned by
   // PeerConnectionDependencyFactory.
-  talk_base::NetworkManager* network_manager_;
-  talk_base::PacketSocketFactory* socket_factory_;
+  rtc::NetworkManager* network_manager_;
+  rtc::PacketSocketFactory* socket_factory_;
   // Raw ptr to the WebFrame that created the P2PPortAllocatorFactory.
   blink::WebFrame* web_frame_;
 };
@@ -172,7 +181,7 @@ PeerConnectionDependencyFactory::PeerConnectionDependencyFactory(
 
 PeerConnectionDependencyFactory::~PeerConnectionDependencyFactory() {
   CleanupPeerConnectionFactory();
-  if (aec_dump_message_filter_)
+  if (aec_dump_message_filter_.get())
     aec_dump_message_filter_->RemoveDelegate(this);
 }
 
@@ -208,15 +217,17 @@ bool PeerConnectionDependencyFactory::InitializeMediaStreamAudioSource(
       CreateAudioCapturer(render_view_id, device_info, audio_constraints,
                           source_data));
   if (!capturer.get()) {
-    DLOG(WARNING) << "Failed to create the capturer for device "
-        << device_info.device.id;
+    const std::string log_string =
+        "PCDF::InitializeMediaStreamAudioSource: fails to create capturer";
+    WebRtcLogMessage(log_string);
+    DVLOG(1) << log_string;
     // TODO(xians): Don't we need to check if source_observer is observing
     // something? If not, then it looks like we have a leak here.
     // OTOH, if it _is_ observing something, then the callback might
     // be called multiple times which is likely also a bug.
     return false;
   }
-  source_data->SetAudioCapturer(capturer);
+  source_data->SetAudioCapturer(capturer.get());
 
   // Creates a LocalAudioSource object which holds audio options.
   // TODO(xians): The option should apply to the track instead of the source.
@@ -229,7 +240,7 @@ bool PeerConnectionDependencyFactory::InitializeMediaStreamAudioSource(
     DLOG(WARNING) << "Failed to create rtc LocalAudioSource.";
     return false;
   }
-  source_data->SetLocalAudioSource(rtc_source);
+  source_data->SetLocalAudioSource(rtc_source.get());
   return true;
 }
 
@@ -240,7 +251,7 @@ PeerConnectionDependencyFactory::CreateVideoCapturer(
   // before we can use an instance of a WebRtcVideoCapturerAdapter. This is
   // since the base class of WebRtcVideoCapturerAdapter is a
   // cricket::VideoCapturer and it uses the libjingle thread wrappers.
-  if (!GetPcFactory())
+  if (!GetPcFactory().get())
     return NULL;
   return new WebRtcVideoCapturerAdapter(is_screeencast);
 }
@@ -257,9 +268,9 @@ PeerConnectionDependencyFactory::CreateVideoSource(
 
 const scoped_refptr<webrtc::PeerConnectionFactoryInterface>&
 PeerConnectionDependencyFactory::GetPcFactory() {
-  if (!pc_factory_)
+  if (!pc_factory_.get())
     CreatePeerConnectionFactory();
-  CHECK(pc_factory_);
+  CHECK(pc_factory_.get());
   return pc_factory_;
 }
 
@@ -301,7 +312,7 @@ void PeerConnectionDependencyFactory::CreatePeerConnectionFactory() {
 
   // Init SSL, which will be needed by PeerConnection.
 #if defined(USE_OPENSSL)
-  if (!talk_base::InitializeSSL()) {
+  if (!rtc::InitializeSSL()) {
     LOG(ERROR) << "Failed on InitializeSSL.";
     NOTREACHED();
     return;
@@ -318,12 +329,12 @@ void PeerConnectionDependencyFactory::CreatePeerConnectionFactory() {
   scoped_refptr<media::GpuVideoAcceleratorFactories> gpu_factories =
       RenderThreadImpl::current()->GetGpuFactories();
   if (!cmd_line->HasSwitch(switches::kDisableWebRtcHWDecoding)) {
-    if (gpu_factories)
+    if (gpu_factories.get())
       decoder_factory.reset(new RTCVideoDecoderFactory(gpu_factories));
   }
 
   if (!cmd_line->HasSwitch(switches::kDisableWebRtcHWEncoding)) {
-    if (gpu_factories)
+    if (gpu_factories.get())
       encoder_factory.reset(new RTCVideoEncoderFactory(gpu_factories));
   }
 
@@ -340,7 +351,7 @@ void PeerConnectionDependencyFactory::CreatePeerConnectionFactory() {
                                           audio_device_.get(),
                                           encoder_factory.release(),
                                           decoder_factory.release()));
-  CHECK(factory);
+  CHECK(factory.get());
 
   pc_factory_ = factory;
   webrtc::PeerConnectionFactoryInterface::Options factory_options;
@@ -356,7 +367,7 @@ void PeerConnectionDependencyFactory::CreatePeerConnectionFactory() {
     // In unit tests not creating a message filter, |aec_dump_message_filter_|
     // will be NULL. We can just ignore that. Other unit tests and browser tests
     // ensure that we do get the filter when we should.
-    if (aec_dump_message_filter_)
+    if (aec_dump_message_filter_.get())
       aec_dump_message_filter_->AddDelegate(this);
   }
 }
@@ -367,17 +378,17 @@ bool PeerConnectionDependencyFactory::PeerConnectionFactoryCreated() {
 
 scoped_refptr<webrtc::PeerConnectionInterface>
 PeerConnectionDependencyFactory::CreatePeerConnection(
-    const webrtc::PeerConnectionInterface::IceServers& ice_servers,
+    const webrtc::PeerConnectionInterface::RTCConfiguration& config,
     const webrtc::MediaConstraintsInterface* constraints,
     blink::WebFrame* web_frame,
     webrtc::PeerConnectionObserver* observer) {
   CHECK(web_frame);
   CHECK(observer);
-  if (!GetPcFactory())
+  if (!GetPcFactory().get())
     return NULL;
 
   scoped_refptr<P2PPortAllocatorFactory> pa_factory =
-        new talk_base::RefCountedObject<P2PPortAllocatorFactory>(
+        new rtc::RefCountedObject<P2PPortAllocatorFactory>(
             p2p_socket_dispatcher_.get(),
             network_manager_,
             socket_factory_.get(),
@@ -387,11 +398,11 @@ PeerConnectionDependencyFactory::CreatePeerConnection(
       new PeerConnectionIdentityService(
           GURL(web_frame->document().url().spec()).GetOrigin());
 
-  return GetPcFactory()->CreatePeerConnection(ice_servers,
-                                            constraints,
-                                            pa_factory.get(),
-                                            identity_service,
-                                            observer).get();
+  return GetPcFactory()->CreatePeerConnection(config,
+                                              constraints,
+                                              pa_factory.get(),
+                                              identity_service,
+                                              observer).get();
 }
 
 scoped_refptr<webrtc::MediaStreamInterface>
@@ -441,10 +452,8 @@ void PeerConnectionDependencyFactory::CreateLocalAudioTrack(
   // TODO(xians): Merge |source| to the capturer(). We can't do this today
   // because only one capturer() is supported while one |source| is created
   // for each audio track.
-  scoped_ptr<WebRtcLocalAudioTrack> audio_track(
-      new WebRtcLocalAudioTrack(adapter,
-                                source_data->GetAudioCapturer(),
-                                webaudio_source));
+  scoped_ptr<WebRtcLocalAudioTrack> audio_track(new WebRtcLocalAudioTrack(
+      adapter.get(), source_data->GetAudioCapturer(), webaudio_source.get()));
 
   StartLocalAudioTrack(audio_track.get());
 
@@ -541,7 +550,7 @@ PeerConnectionDependencyFactory::GetWebRtcAudioDevice() {
 }
 
 void PeerConnectionDependencyFactory::InitializeWorkerThread(
-    talk_base::Thread** thread,
+    rtc::Thread** thread,
     base::WaitableEvent* event) {
   jingle_glue::JingleThreadWrapper::EnsureForCurrentMessageLoop();
   jingle_glue::JingleThreadWrapper::current()->set_send_allowed(true);
@@ -648,7 +657,7 @@ void PeerConnectionDependencyFactory::OnIpcClosing() {
 }
 
 void PeerConnectionDependencyFactory::EnsureWebRtcAudioDeviceImpl() {
-  if (audio_device_)
+  if (audio_device_.get())
     return;
 
   audio_device_ = new WebRtcAudioDeviceImpl();

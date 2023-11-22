@@ -8,7 +8,6 @@
 #include "base/callback.h"
 #include "base/location.h"
 #include "remoting/base/constants.h"
-#include "remoting/jingle_glue/signal_strategy.h"
 #include "remoting/protocol/audio_reader.h"
 #include "remoting/protocol/audio_stub.h"
 #include "remoting/protocol/auth_util.h"
@@ -16,20 +15,18 @@
 #include "remoting/protocol/client_control_dispatcher.h"
 #include "remoting/protocol/client_event_dispatcher.h"
 #include "remoting/protocol/client_stub.h"
+#include "remoting/protocol/client_video_dispatcher.h"
 #include "remoting/protocol/clipboard_stub.h"
 #include "remoting/protocol/errors.h"
 #include "remoting/protocol/jingle_session_manager.h"
 #include "remoting/protocol/transport.h"
-#include "remoting/protocol/video_reader.h"
 #include "remoting/protocol/video_stub.h"
 
 namespace remoting {
 namespace protocol {
 
-ConnectionToHost::ConnectionToHost(
-    bool allow_nat_traversal)
-    : allow_nat_traversal_(allow_nat_traversal),
-      event_callback_(NULL),
+ConnectionToHost::ConnectionToHost()
+    : event_callback_(NULL),
       client_stub_(NULL),
       clipboard_stub_(NULL),
       audio_stub_(NULL),
@@ -55,11 +52,20 @@ void ConnectionToHost::Connect(SignalStrategy* signal_strategy,
                                scoped_ptr<TransportFactory> transport_factory,
                                scoped_ptr<Authenticator> authenticator,
                                const std::string& host_jid,
-                               const std::string& host_public_key,
                                HostEventCallback* event_callback) {
   DCHECK(client_stub_);
   DCHECK(clipboard_stub_);
   DCHECK(monitored_video_stub_);
+
+  // Initialize default |candidate_config_| if set_candidate_config() wasn't
+  // called.
+  if (!candidate_config_) {
+    candidate_config_ = CandidateSessionConfig::CreateDefault();
+    if (!audio_stub_) {
+      candidate_config_->DisableAudioChannel();
+    }
+    candidate_config_->EnableVideoCodec(ChannelConfig::CODEC_VP9);
+  }
 
   signal_strategy_ = signal_strategy;
   event_callback_ = event_callback;
@@ -68,7 +74,6 @@ void ConnectionToHost::Connect(SignalStrategy* signal_strategy,
   // Save jid of the host. The actual connection is created later after
   // |signal_strategy_| is connected.
   host_jid_ = host_jid;
-  host_public_key_ = host_public_key;
 
   signal_strategy_->AddListener(this);
   signal_strategy_->Connect();
@@ -78,6 +83,14 @@ void ConnectionToHost::Connect(SignalStrategy* signal_strategy,
 
   SetState(CONNECTING, OK);
 }
+
+void ConnectionToHost::set_candidate_config(
+    scoped_ptr<CandidateSessionConfig> config) {
+  DCHECK_EQ(state_, INITIALIZING);
+
+  candidate_config_ = config.Pass();
+}
+
 
 const SessionConfig& ConnectionToHost::config() {
   return session_->config();
@@ -140,15 +153,8 @@ void ConnectionToHost::OnSessionManagerReady() {
   DCHECK(CalledOnValidThread());
 
   // After SessionManager is initialized we can try to connect to the host.
-  scoped_ptr<CandidateSessionConfig> candidate_config =
-      CandidateSessionConfig::CreateDefault();
-  if (!audio_stub_) {
-    candidate_config->DisableAudioChannel();
-  }
-  candidate_config->EnableVideoCodec(ChannelConfig::CODEC_VP9);
-
   session_ = session_manager_->Connect(
-      host_jid_, authenticator_.Pass(), candidate_config.Pass());
+      host_jid_, authenticator_.Pass(), candidate_config_.Pass());
   session_->SetEventHandler(this);
 }
 
@@ -191,8 +197,9 @@ void ConnectionToHost::OnSessionStateChange(
           base::Bind(&ConnectionToHost::OnChannelInitialized,
                      base::Unretained(this)));
 
-      video_reader_ = VideoReader::Create(session_->config());
-      video_reader_->Init(session_.get(), monitored_video_stub_.get(),
+      video_dispatcher_.reset(
+          new ClientVideoDispatcher(monitored_video_stub_.get()));
+      video_dispatcher_->Init(session_.get(), session_->config().video_config(),
                           base::Bind(&ConnectionToHost::OnChannelInitialized,
                                      base::Unretained(this)));
 
@@ -257,7 +264,7 @@ void ConnectionToHost::NotifyIfChannelsReady() {
     return;
   if (!event_dispatcher_.get() || !event_dispatcher_->is_connected())
     return;
-  if (!video_reader_.get() || !video_reader_->is_connected())
+  if (!video_dispatcher_.get() || !video_dispatcher_->is_connected())
     return;
   if ((!audio_reader_.get() || !audio_reader_->is_connected()) &&
       session_->config().is_audio_enabled()) {
@@ -282,7 +289,7 @@ void ConnectionToHost::CloseChannels() {
   event_dispatcher_.reset();
   clipboard_forwarder_.set_clipboard_stub(NULL);
   event_forwarder_.set_input_stub(NULL);
-  video_reader_.reset();
+  video_dispatcher_.reset();
   audio_reader_.reset();
 }
 

@@ -20,6 +20,7 @@
 #include "extensions/browser/extension_function_histogram_value.h"
 #include "extensions/browser/info_map.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/features/feature.h"
 #include "ipc/ipc_message.h"
 
 class ExtensionFunction;
@@ -52,7 +53,7 @@ class Sender;
 #define EXTENSION_FUNCTION_VALIDATE(test) \
   do {                                    \
     if (!(test)) {                        \
-      bad_message_ = true;                \
+      this->bad_message_ = true;          \
       return ValidationFailure(this);     \
     }                                     \
   } while (0)
@@ -63,7 +64,7 @@ class Sender;
 #define EXTENSION_FUNCTION_ERROR(error) \
   do {                                  \
     error_ = error;                     \
-    bad_message_ = true;                \
+    this->bad_message_ = true;          \
     return ValidationFailure(this);     \
   } while (0)
 
@@ -212,10 +213,11 @@ class ExtensionFunction
   void set_profile_id(void* profile_id) { profile_id_ = profile_id; }
   void* profile_id() const { return profile_id_; }
 
-  void set_extension(const extensions::Extension* extension) {
+  void set_extension(
+      const scoped_refptr<const extensions::Extension>& extension) {
     extension_ = extension;
   }
-  const extensions::Extension* GetExtension() const { return extension_.get(); }
+  const extensions::Extension* extension() const { return extension_.get(); }
   const std::string& extension_id() const { return extension_->id(); }
 
   void set_request_id(int request_id) { request_id_ = request_id; }
@@ -245,6 +247,13 @@ class ExtensionFunction
 
   void set_source_tab_id(int source_tab_id) { source_tab_id_ = source_tab_id; }
   int source_tab_id() const { return source_tab_id_; }
+
+  void set_source_context_type(extensions::Feature::Context type) {
+    source_context_type_ = type;
+  }
+  extensions::Feature::Context source_context_type() const {
+    return source_context_type_;
+  }
 
  protected:
   friend struct ExtensionFunctionDeleteTraits;
@@ -371,6 +380,9 @@ class ExtensionFunction
 
   // The ID of the tab triggered this function call, or -1 if there is no tab.
   int source_tab_id_;
+
+  // The type of the JavaScript context where this call originated.
+  extensions::Feature::Context source_context_type_;
 
  private:
   void OnRespondingLater(ResponseValue response);
@@ -541,7 +553,7 @@ class AsyncExtensionFunction : public UIThreadExtensionFunction {
   // Deprecated: Override UIThreadExtensionFunction and implement Run() instead.
   //
   // AsyncExtensionFunctions implement this method. Return true to indicate that
-  // nothing has gone wrong yet; SendResponse must be called later. Return true
+  // nothing has gone wrong yet; SendResponse must be called later. Return false
   // to respond immediately with an error.
   virtual bool RunAsync() = 0;
 

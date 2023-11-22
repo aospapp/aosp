@@ -26,6 +26,8 @@ import junit.framework.TestResult;
 
 import android.content.Context;
 import android.hardware.cts.SensorTestCase;
+import android.hardware.cts.helpers.SensorTestPlatformException;
+import android.hardware.cts.helpers.reporting.ISensorTestNode;
 
 import java.util.Enumeration;
 
@@ -138,10 +140,24 @@ class SensorCtsTestResult extends TestResult {
             SensorTestCase sensorTestCase = (SensorTestCase) testCase;
             sensorTestCase.setContext(mContext);
             sensorTestCase.setEmulateSensorUnderLoad(false);
+            sensorTestCase.setCurrentTestNode(new TestNode(testCase));
             // TODO: set delayed assertion provider
         } else {
             throw new IllegalStateException("TestCase must be an instance of SensorTestCase.");
         }
         super.run(testCase);
+    }
+
+    private class TestNode implements ISensorTestNode {
+        private final TestCase mTestCase;
+
+        public TestNode(TestCase testCase) {
+            mTestCase = testCase;
+        }
+
+        @Override
+        public String getName() throws SensorTestPlatformException {
+            return mTestCase.getClass().getSimpleName() + "_" + mTestCase.getName();
+        }
     }
 }

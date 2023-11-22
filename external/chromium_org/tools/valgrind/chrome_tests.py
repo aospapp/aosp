@@ -254,11 +254,23 @@ class ChromeTests:
     self.SetupLdPath(False)
     return tool.Run(cmd, None)
 
+  def TestAccessibility(self):
+    return self.SimpleTest("accessibility", "accessibility_unittests")
+
+  def TestAddressInput(self):
+    return self.SimpleTest("addressinput", "libaddressinput_unittests")
+
+  def TestAngle(self):
+    return self.SimpleTest("angle", "angle_unittests")
+
   def TestAppList(self):
     return self.SimpleTest("app_list", "app_list_unittests")
 
   def TestAsh(self):
     return self.SimpleTest("ash", "ash_unittests")
+
+  def TestAshShell(self):
+    return self.SimpleTest("ash_shelf", "ash_shell_unittests")
 
   def TestAura(self):
     return self.SimpleTest("aura", "aura_unittests")
@@ -266,11 +278,35 @@ class ChromeTests:
   def TestBase(self):
     return self.SimpleTest("base", "base_unittests")
 
+  def TestBlinkHeap(self):
+    return self.SimpleTest("blink_heap", "blink_heap_unittests")
+
+  def TestBlinkPlatform(self):
+    return self.SimpleTest("blink_platform", "blink_platform_unittests")
+
+  def TestCacheInvalidation(self):
+    return self.SimpleTest("cacheinvalidation", "cacheinvalidation_unittests")
+
   def TestCast(self):
     return self.SimpleTest("chrome", "cast_unittests")
 
+  def TestCC(self):
+    return self.SimpleTest("cc", "cc_unittests")
+
+  def TestChromeApp(self):
+    return self.SimpleTest("chrome_app", "chrome_app_unittests")
+
+  def TestChromeElf(self):
+    return self.SimpleTest("chrome_elf", "chrome_elf_unittests")
+
+  def TestChromeDriver(self):
+    return self.SimpleTest("chromedriver", "chromedriver_unittests")
+
   def TestChromeOS(self):
     return self.SimpleTest("chromeos", "chromeos_unittests")
+
+  def TestCloudPrint(self):
+    return self.SimpleTest("cloud_print", "cloud_print_unittests")
 
   def TestComponents(self):
     return self.SimpleTest("components", "components_unittests")
@@ -290,8 +326,14 @@ class ChromeTests:
   def TestDevice(self):
     return self.SimpleTest("device", "device_unittests")
 
+  def TestDisplay(self):
+    return self.SimpleTest("display", "display_unittests")
+
   def TestEvents(self):
     return self.SimpleTest("events", "events_unittests")
+
+  def TestExtensions(self):
+    return self.SimpleTest("extensions", "extensions_unittests")
 
   def TestFFmpeg(self):
     return self.SimpleTest("chrome", "ffmpeg_unittests")
@@ -302,6 +344,15 @@ class ChromeTests:
   def TestGCM(self):
     return self.SimpleTest("gcm", "gcm_unit_tests")
 
+  def TestGfx(self):
+    return self.SimpleTest("gfx", "gfx_unittests")
+
+  def TestGin(self):
+    return self.SimpleTest("gin", "gin_unittests")
+
+  def TestGoogleApis(self):
+    return self.SimpleTest("google_apis", "google_apis_unittests")
+
   def TestGPU(self):
     return self.SimpleTest("gpu", "gpu_unittests")
 
@@ -309,8 +360,14 @@ class ChromeTests:
     return self.SimpleTest("ipc", "ipc_tests",
                            valgrind_test_args=["--trace_children"])
 
+  def TestInstallerUtil(self):
+    return self.SimpleTest("installer_util", "installer_util_unittests")
+
   def TestJingle(self):
     return self.SimpleTest("chrome", "jingle_unittests")
+
+  def TestKeyboard(self):
+    return self.SimpleTest("keyboard", "keyboard_unittests")
 
   def TestMedia(self):
     return self.SimpleTest("chrome", "media_unittests")
@@ -318,11 +375,53 @@ class ChromeTests:
   def TestMessageCenter(self):
     return self.SimpleTest("message_center", "message_center_unittests")
 
+  def TestMojoAppsJS(self):
+    return self.SimpleTest("mojo_apps_js", "mojo_apps_js_unittests")
+
+  def TestMojoCommon(self):
+    return self.SimpleTest("mojo_common", "mojo_common_unittests")
+
+  def TestMojoJS(self):
+    return self.SimpleTest("mojo_js", "mojo_js_unittests")
+
+  def TestMojoPublicBindings(self):
+    return self.SimpleTest("mojo_public_bindings",
+                           "mojo_public_bindings_unittests")
+
+  def TestMojoPublicEnv(self):
+    return self.SimpleTest("mojo_public_env",
+                           "mojo_public_environment_unittests")
+
+  def TestMojoPublicSystem(self):
+    return self.SimpleTest("mojo_public_system",
+                           "mojo_public_system_unittests")
+
+  def TestMojoPublicSysPerf(self):
+    return self.SimpleTest("mojo_public_sysperf",
+                           "mojo_public_system_perftests")
+
+  def TestMojoPublicUtility(self):
+    return self.SimpleTest("mojo_public_utility",
+                           "mojo_public_utility_unittests")
+
+  def TestMojoApplicationManager(self):
+    return self.SimpleTest("mojo_application_manager",
+                           "mojo_application_manager_unittests")
+
+  def TestMojoSystem(self):
+    return self.SimpleTest("mojo_system", "mojo_system_unittests")
+
+  def TestMojoViewManager(self):
+    return self.SimpleTest("mojo_view_manager", "mojo_view_manager_unittests")
+
   def TestNet(self):
     return self.SimpleTest("net", "net_unittests")
 
   def TestNetPerf(self):
     return self.SimpleTest("net", "net_perftests")
+
+  def TestPhoneNumber(self):
+    return self.SimpleTest("phonenumber", "libphonenumber_unittests")
 
   def TestPPAPI(self):
     return self.SimpleTest("chrome", "ppapi_unittests")
@@ -363,63 +462,6 @@ class ChromeTests:
   def TestViews(self):
     return self.SimpleTest("views", "views_unittests")
 
-  def TestCloudPrint(self):
-    return self.SimpleTest("cloud_print", "cloud_print_unittests")
-
-  def TestCacheInvalidation(self):
-    return self.SimpleTest("cacheinvalidation", "cacheinvalidation_unittests")
-
-  def TestAddressInput(self):
-    return self.SimpleTest("addressinput", "libaddressinput_unittests")
-
-  def TestPhoneNumber(self):
-    return self.SimpleTest("phonenumber", "libphonenumber_unittests")
-
-  def TestMojoSystem(self):
-    return self.SimpleTest("mojo_system", "mojo_system_unittests")
-
-  def TestMojoPublicSystem(self):
-    return self.SimpleTest("mojo_public_system",
-                           "mojo_public_system_unittests")
-
-  def TestMojoPublicUtility(self):
-    return self.SimpleTest("mojo_public_utility",
-                           "mojo_public_utility_unittests")
-
-  def TestMojoPublicBindings(self):
-    return self.SimpleTest("mojo_public_bindings",
-                           "mojo_public_bindings_unittests")
-
-  def TestMojoPublicEnv(self):
-    return self.SimpleTest("mojo_public_env",
-                           "mojo_public_environment_unittests")
-
-  def TestMojoPublicSysPerf(self):
-    return self.SimpleTest("mojo_public_sysperf",
-                           "mojo_public_system_perftests")
-
-  def TestMojoCommon(self):
-    return self.SimpleTest("mojo_common", "mojo_common_unittests")
-
-  def TestMojoAppsJS(self):
-    return self.SimpleTest("mojo_apps_js", "mojo_apps_js_unittests")
-
-  def TestMojoJS(self):
-    return self.SimpleTest("mojo_js", "mojo_js_unittests")
-
-  def TestMojoServiceManager(self):
-    return self.SimpleTest("mojo_service_manager",
-                           "mojo_service_manager_unittests")
-
-  def TestMojoViewManager(self):
-    return self.SimpleTest("mojo_view_manager", "mojo_view_manager_unittests")
-
-  def TestMojoViewManagerLib(self):
-    return self.SimpleTest("mojo_view_manager_lib",
-                           "mojo_view_manager_lib_unittests")
-
-  def TestDisplay(self):
-    return self.SimpleTest("display", "display_unittests")
 
   # Valgrind timeouts are in seconds.
   UI_VALGRIND_ARGS = ["--timeout=14400", "--trace_children", "--indirect"]
@@ -436,11 +478,6 @@ class ChromeTests:
                        "--ui-test-action-max-timeout=800000",
                        "--no-sandbox"]
 
-  def TestAutomatedUI(self):
-    return self.SimpleTest("chrome", "automated_ui_tests",
-                           valgrind_test_args=self.UI_VALGRIND_ARGS,
-                           cmd_args=self.UI_TEST_ARGS)
-
   def TestBrowser(self):
     return self.SimpleTest("chrome", "browser_tests",
                            valgrind_test_args=self.BROWSER_VALGRIND_ARGS,
@@ -455,14 +492,6 @@ class ChromeTests:
     return self.SimpleTest("chrome", "interactive_ui_tests",
                            valgrind_test_args=self.UI_VALGRIND_ARGS,
                            cmd_args=self.UI_TEST_ARGS)
-
-  def TestReliability(self):
-    script_dir = path_utils.ScriptDir()
-    url_list_file = os.path.join(script_dir, "reliability", "url_list.txt")
-    return self.SimpleTest("chrome", "reliability_tests",
-                           valgrind_test_args=self.UI_VALGRIND_ARGS,
-                           cmd_args=(self.UI_TEST_ARGS +
-                                     ["--list=%s" % url_list_file]))
 
   def TestSafeBrowsing(self):
     return self.SimpleTest("chrome", "safe_browsing_tests",
@@ -479,7 +508,7 @@ class ChromeTests:
     # list of tests.  Wrap around to beginning of list at end.
     # If chunk_size is zero, run all tests in the list once.
     # If a text file is given as argument, it is used as the list of tests.
-    #
+    assert((chunk_size == 0) != (len(self._args) == 0))
     # Build the ginormous commandline in 'cmd'.
     # It's going to be roughly
     #  python valgrind_test.py ... python run_webkit_tests.py ...
@@ -559,7 +588,7 @@ class ChromeTests:
     # to continuously run small slices of the layout tests under valgrind rather
     # than having to run all of them in one shot.
     chunk_size = self._options.num_tests
-    if (chunk_size == 0):
+    if chunk_size == 0 or len(self._args):
       return self.TestLayoutChunk(0, 0)
     chunk_num = 0
     chunk_file = os.path.join("valgrind_layout_chunk.txt")
@@ -600,14 +629,28 @@ class ChromeTests:
   # Recognise the original abbreviations as well as full executable names.
   _test_list = {
     "cmdline" : RunCmdLine,
+    "addressinput": TestAddressInput,
+    "libaddressinput_unittests": TestAddressInput,
+    "accessibility": TestAccessibility,
+    "angle": TestAngle,          "angle_unittests": TestAngle,
     "app_list": TestAppList,     "app_list_unittests": TestAppList,
     "ash": TestAsh,              "ash_unittests": TestAsh,
+    "ash_shell": TestAshShell,   "ash_shell_unittests": TestAshShell,
     "aura": TestAura,            "aura_unittests": TestAura,
-    "automated_ui" : TestAutomatedUI,
     "base": TestBase,            "base_unittests": TestBase,
+    "blink_heap": TestBlinkHeap,
+    "blink_platform": TestBlinkPlatform,
     "browser": TestBrowser,      "browser_tests": TestBrowser,
+    "cacheinvalidation": TestCacheInvalidation,
+    "cacheinvalidation_unittests": TestCacheInvalidation,
     "cast": TestCast,            "cast_unittests": TestCast,
+    "cc": TestCC,                "cc_unittests": TestCC,
+    "chrome_app": TestChromeApp,
+    "chrome_elf": TestChromeElf,
+    "chromedriver": TestChromeDriver,
     "chromeos": TestChromeOS,    "chromeos_unittests": TestChromeOS,
+    "cloud_print": TestCloudPrint,
+    "cloud_print_unittests": TestCloudPrint,
     "components": TestComponents,"components_unittests": TestComponents,
     "compositor": TestCompositor,"compositor_unittests": TestCompositor,
     "content": TestContent,      "content_unittests": TestContent,
@@ -615,24 +658,42 @@ class ChromeTests:
     "courgette": TestCourgette,  "courgette_unittests": TestCourgette,
     "crypto": TestCrypto,        "crypto_unittests": TestCrypto,
     "device": TestDevice,        "device_unittests": TestDevice,
+    "display": TestDisplay,      "display_unittests": TestDisplay,
     "events": TestEvents,        "events_unittests": TestEvents,
+    "extensions": TestExtensions, "extensions_unittests": TestExtensions,
     "ffmpeg": TestFFmpeg,        "ffmpeg_unittests": TestFFmpeg,
     "ffmpeg_regression_tests": TestFFmpegRegressions,
     "gcm": TestGCM,              "gcm_unit_tests": TestGCM,
+    "gin": TestGin,              "gin_unittests": TestGin,
+    "gfx": TestGfx,              "gfx_unittests": TestGfx,
+    "google_apis": TestGoogleApis,
     "gpu": TestGPU,              "gpu_unittests": TestGPU,
     "ipc": TestIpc,              "ipc_tests": TestIpc,
+    "installer_util": TestInstallerUtil,
     "interactive_ui": TestInteractiveUI,
     "jingle": TestJingle,        "jingle_unittests": TestJingle,
+    "keyboard": TestKeyboard,    "keyboard_unittests": TestKeyboard,
     "layout": TestLayout,        "layout_tests": TestLayout,
-    "webkit": TestLayout,
     "media": TestMedia,          "media_unittests": TestMedia,
     "message_center": TestMessageCenter,
     "message_center_unittests" : TestMessageCenter,
+    "mojo_apps_js": TestMojoAppsJS,
+    "mojo_common": TestMojoCommon,
+    "mojo_js": TestMojoJS,
+    "mojo_system": TestMojoSystem,
+    "mojo_public_system": TestMojoPublicSystem,
+    "mojo_public_utility": TestMojoPublicUtility,
+    "mojo_public_bindings": TestMojoPublicBindings,
+    "mojo_public_env": TestMojoPublicEnv,
+    "mojo_public_sysperf": TestMojoPublicSysPerf,
+    "mojo_application_manager": TestMojoApplicationManager,
+    "mojo_view_manager": TestMojoViewManager,
     "net": TestNet,              "net_unittests": TestNet,
     "net_perf": TestNetPerf,     "net_perftests": TestNetPerf,
+    "phonenumber": TestPhoneNumber,
+    "libphonenumber_unittests": TestPhoneNumber,
     "ppapi": TestPPAPI,          "ppapi_unittests": TestPPAPI,
     "printing": TestPrinting,    "printing_unittests": TestPrinting,
-    "reliability": TestReliability, "reliability_tests": TestReliability,
     "remoting": TestRemoting,    "remoting_unittests": TestRemoting,
     "safe_browsing": TestSafeBrowsing, "safe_browsing_tests": TestSafeBrowsing,
     "sandbox": TestLinuxSandbox, "sandbox_linux_unittests": TestLinuxSandbox,
@@ -644,27 +705,7 @@ class ChromeTests:
     "unit": TestUnit,            "unit_tests": TestUnit,
     "url": TestURL,              "url_unittests": TestURL,
     "views": TestViews,          "views_unittests": TestViews,
-    "cloud_print": TestCloudPrint,
-    "cloud_print_unittests": TestCloudPrint,
-    "cacheinvalidation": TestCacheInvalidation,
-    "cacheinvalidation_unittests": TestCacheInvalidation,
-    "addressinput": TestAddressInput,
-    "libaddressinput_unittests": TestAddressInput,
-    "phonenumber": TestPhoneNumber,
-    "libphonenumber_unittests": TestPhoneNumber,
-    "mojo_system": TestMojoSystem,
-    "mojo_public_system": TestMojoPublicSystem,
-    "mojo_public_utility": TestMojoPublicUtility,
-    "mojo_public_bindings": TestMojoPublicBindings,
-    "mojo_public_env": TestMojoPublicEnv,
-    "mojo_public_sysperf": TestMojoPublicSysPerf,
-    "mojo_common": TestMojoCommon,
-    "mojo_apps_js": TestMojoAppsJS,
-    "mojo_js": TestMojoJS,
-    "mojo_service_manager": TestMojoServiceManager,
-    "mojo_view_manager": TestMojoViewManager,
-    "mojo_view_manager_lib": TestMojoViewManagerLib,
-    "display": TestDisplay,
+    "webkit": TestLayout,
   }
 
 

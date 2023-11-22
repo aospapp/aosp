@@ -4,17 +4,24 @@
 
 import re
 
-from telemetry import decorators
 import telemetry.timeline.bounds as timeline_bounds
+from telemetry import decorators
 
-
-IS_SMOOTH = 'is_smooth'
+# Enables the fast metric for this interaction
+IS_FAST = 'is_fast'
+# Enables the responsiveness metric for this interaction
 IS_RESPONSIVE = 'is_responsive'
+# Enables the smoothness metric for this interaction
+IS_SMOOTH = 'is_smooth'
+# Allows multiple duplicate interactions of the same type
+REPEATABLE = 'repeatable'
 
-FLAGS = [
-    IS_SMOOTH,
-    IS_RESPONSIVE
+METRICS = [
+    IS_FAST,
+    IS_RESPONSIVE,
+    IS_SMOOTH
 ]
+FLAGS = METRICS + [REPEATABLE]
 
 
 class ThreadTimeRangeOverlappedException(Exception):
@@ -29,6 +36,32 @@ class NoThreadTimeDataException(ThreadTimeRangeOverlappedException):
 def IsTimelineInteractionRecord(event_name):
   return event_name.startswith('Interaction.')
 
+def _AssertFlagsAreValid(flags):
+  assert isinstance(flags, list)
+  for f in flags:
+    if f not in FLAGS:
+      raise AssertionError(
+          'Unrecognized flag for a timeline interaction record: %s' % f)
+
+def GetJavaScriptMarker(label, flags):
+  """Computes the marker string of an interaction record.
+
+  This marker string can be used with JavaScript API console.time()
+  and console.timeEnd() to mark the beginning and end of the
+  interaction record..
+
+  Args:
+    label: The label used to identify the interaction record.
+    flags: the flags for the interaction record see FLAGS above.
+
+  Returns:
+    The interaction record marker string (e.g., Interaction.Label/flag1,flag2).
+
+  Raises:
+    AssertionError: If one or more of the flags is unrecognized.
+  """
+  _AssertFlagsAreValid(flags)
+  return 'Interaction.%s/%s' % (label, ','.join(flags))
 
 class TimelineInteractionRecord(object):
   """Represents an interaction that took place during a timeline recording.
@@ -40,8 +73,8 @@ class TimelineInteractionRecord(object):
   interactions.
 
   From the point of view of the page, each interaction might have a different
-  logical name: ClickComposeButton and SendEmail, for instance. From the point
-  of view of the benchmarking harness, the names aren't so interesting as what
+  label: ClickComposeButton and SendEmail, for instance. From the point
+  of view of the benchmarking harness, the labels aren't so interesting as what
   the performance expectations are for that interaction: was it loading
   resources from the network? was there an animation?
 
@@ -51,37 +84,70 @@ class TimelineInteractionRecord(object):
   story.
 
   Instead, we expect pages to mark up the timeline what they are doing, with
-  logical names, and flags indicating the semantics of that interaction. This
+  label and flags indicating the semantics of that interaction. This
   is currently done by pushing markers into the console.time/timeEnd API: this
   for instance can be issued in JS:
 
-     var str = 'Interaction.SendEmail/is_smooth,is_responsive';
+     var str = 'Interaction.SendEmail/is_smooth,is_responsive,is_fast';
      console.time(str);
      setTimeout(function() {
        console.timeEnd(str);
      }, 1000);
 
   When run with perf.measurements.timeline_based_measurement running, this will
-  then cause a TimelineInteractionRecord to be created for this range and both
-  smoothness and network metrics to be reported for the marked up 1000ms
+  then cause a TimelineInteractionRecord to be created for this range with
+  smoothness, responsive, and fast metrics reported for the marked up 1000ms
   time-range.
 
+  The valid interaction flags are:
+     * is_fast: Enables the fast metric
+     * is_responsive: Enables the responsiveness metric
+     * is_smooth: Enables the smoothness metric
+     * repeatable: Allows other interactions to use the same label
   """
 
-  def __init__(self, logical_name, start, end, async_event=None):
-    assert logical_name
-    self.logical_name = logical_name
-    self.start = start
-    self.end = end
-    self.is_smooth = False
-    self.is_responsive = False
+  def __init__(self, label, start, end, async_event=None, flags=None):
+    assert label
+    self._label = label
+    self._start = start
+    self._end = end
     self._async_event = async_event
+    self._flags = flags if flags is not None else []
+    _AssertFlagsAreValid(self._flags)
+
+  @property
+  def label(self):
+    return self._label
+
+  @property
+  def start(self):
+    return self._start
+
+  @property
+  def end(self):
+    return self._end
+
+  @property
+  def is_fast(self):
+    return IS_FAST in self._flags
+
+  @property
+  def is_responsive(self):
+    return IS_RESPONSIVE in self._flags
+
+  @property
+  def is_smooth(self):
+    return IS_SMOOTH in self._flags
+
+  @property
+  def repeatable(self):
+    return REPEATABLE in self._flags
 
   # TODO(nednguyen): After crbug.com/367175 is marked fixed, we should be able
   # to get rid of perf.measurements.smooth_gesture_util and make this the only
   # constructor method for TimelineInteractionRecord.
-  @staticmethod
-  def FromAsyncEvent(async_event):
+  @classmethod
+  def FromAsyncEvent(cls, async_event):
     """Construct an timeline_interaction_record from an async event.
     Args:
       async_event: An instance of
@@ -90,31 +156,12 @@ class TimelineInteractionRecord(object):
     assert async_event.start_thread == async_event.end_thread, (
         'Start thread of this record\'s async event is not the same as its '
         'end thread')
-    m = re.match('Interaction\.(.+)\/(.+)', async_event.name)
-    if m:
-      logical_name = m.group(1)
-      if m.group(1) != '':
-        flags = m.group(2).split(',')
-      else:
-        flags = []
-    else:
-      m = re.match('Interaction\.(.+)', async_event.name)
-      assert m
-      logical_name = m.group(1)
-      flags = []
-
-    record = TimelineInteractionRecord(logical_name, async_event.start,
-                                       async_event.end, async_event)
-    for f in flags:
-      if not f in FLAGS:
-        raise Exception(
-            'Unrecognized flag in timeline Interaction record: %s' % f)
-    record.is_smooth = IS_SMOOTH in flags
-    record.is_responsive = IS_RESPONSIVE in flags
-    return record
-
-  def GetResultNameFor(self, result_name):
-    return '%s-%s' % (self.logical_name, result_name)
+    m = re.match('Interaction\.(?P<label>.+?)(/(?P<flags>[^/]+))?$',
+                 async_event.name)
+    assert m, "Async event is not an interaction record."
+    label = m.group('label')
+    flags = m.group('flags').split(',') if m.group('flags') is not None else []
+    return cls(label, async_event.start, async_event.end, async_event, flags)
 
   @decorators.Cache
   def GetBounds(self):
@@ -123,17 +170,11 @@ class TimelineInteractionRecord(object):
     bounds.AddValue(self.end)
     return bounds
 
-  @staticmethod
-  def GetJavaScriptMarker(logical_name, flags):
-    """ Get the marker string of an interaction record with logical_name
-    and flags.
-    """
-    assert isinstance(flags, list)
-    for f in flags:
-      if f not in FLAGS:
-        raise AssertionError(
-            'Unrecognized flag for a timeline Interaction record: %s' % f)
-    return 'Interaction.%s/%s' % (logical_name, ','.join(flags))
+  def HasMetric(self, metric_type):
+    if metric_type not in METRICS:
+      raise AssertionError('Unrecognized metric type for a timeline '
+                           'interaction record: %s' % metric_type)
+    return metric_type in self._flags
 
   def GetOverlappedThreadTimeForSlice(self, timeline_slice):
     """Get the thread duration of timeline_slice that overlaps with this record.
@@ -214,16 +255,10 @@ class TimelineInteractionRecord(object):
             record_scheduled_ratio)
 
   def __repr__(self):
-    flags = []
-    if self.is_smooth:
-      flags.append(IS_SMOOTH)
-    elif self.is_responsive:
-      flags.append(IS_RESPONSIVE)
-    flags_str = ','.join(flags)
-
-    return ('TimelineInteractionRecord(logical_name=\'%s\', start=%f, end=%f,' +
+    flags_str = ','.join(self._flags)
+    return ('TimelineInteractionRecord(label=\'%s\', start=%f, end=%f,' +
             ' flags=%s, async_event=%s)') % (
-                self.logical_name,
+                self.label,
                 self.start,
                 self.end,
                 flags_str,

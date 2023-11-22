@@ -34,10 +34,10 @@
     <string name="respond_via_sms_setting_title_2" msgid="6104662227299493906">"द्रुत प्रतिसाद संपादित करा"</string>
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"द्रुत प्रतिसाद"</string>
-    <string name="respond_via_sms_menu_reset_default_activity" msgid="1461742052902053466">"डीफॉल्ट अ‍ॅप रीसेट करा"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"संदेश <xliff:g id="PHONE_NUMBER">%s</xliff:g> वर पाठविला."</string>
-    <string name="outgoing_call_not_allowed" msgid="1434784869685645427">"या वापरकर्त्यास आणीबाणी-नसलेले फोन कॉल करण्‍याची अनुमती नाही"</string>
-    <string name="outgoing_call_error_no_phone_number_supplied" msgid="4987143284589568716">"कॉल पाठविला नाही, वैध नंबर प्रविेष्‍ट केला नाही."</string>
+    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"डिव्हाइस मालकाद्वारे केवळ आणीबाणी कॉलना अनुमती आहे"</string>
+    <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"कॉल करण्यासाठी, एक वैध नंबर प्रविष्ट करा."</string>
+    <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"यावेळी कॉल जोडला जाऊ शकत नाही."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"व्हॉइसमेल नंबर गहाळ"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"सिम कार्डवर कोणताही व्हॉइसमेल नंबर संचयित केला नाही."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"नंबर जोडा"</string>

@@ -19,20 +19,50 @@ package com.google.doclava;
 import com.google.clearsilver.jsilver.data.Data;
 import com.sun.javadoc.ClassDoc;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
-import java.util.Vector;
 
 public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Scoped, Resolvable {
+
+  /**
+   * Contains a ClassInfo and a TypeInfo.
+   * <p>
+   * This is used to match a ClassInfo, which doesn't keep track of its type parameters
+   * and a type which does.
+   */
+  private class ClassTypePair {
+    private final ClassInfo mClassInfo;
+    private final TypeInfo mTypeInfo;
+
+    public ClassTypePair(ClassInfo cl, TypeInfo t) {
+      mClassInfo = cl;
+      mTypeInfo = t;
+    }
+
+    public ClassInfo classInfo() {
+      return mClassInfo;
+    }
+
+    public TypeInfo typeInfo() {
+      return mTypeInfo;
+    }
+
+    public Map<String, TypeInfo> getTypeArgumentMapping() {
+      return TypeInfo.getTypeArgumentMapping(classInfo(), typeInfo());
+    }
+  }
+
   public static final Comparator<ClassInfo> comparator = new Comparator<ClassInfo>() {
     public int compare(ClassInfo a, ClassInfo b) {
       return a.name().compareTo(b.name());
@@ -148,6 +178,9 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
     mSelfFields = null;
     mSelfAttributes = null;
     mDeprecatedKnown = false;
+    mSuperclassesWithTypes = null;
+    mInterfacesWithTypes = null;
+    mAllInterfacesWithTypes = null;
 
     Collections.sort(mEnumConstants, FieldInfo.comparator);
     Collections.sort(mInnerClasses, ClassInfo.comparator);
@@ -277,6 +310,130 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
       cl = cl.containingClass();
     }
     return result;
+  }
+
+  /**
+   * List of only direct interface's classes, without worrying about type param mapping.
+   * This can't be lazy loaded, because its overloads depend on changing type parameters
+   * passed in from the callers.
+   */
+  private List<ClassTypePair> justMyInterfacesWithTypes() {
+    return justMyInterfacesWithTypes(Collections.<String, TypeInfo>emptyMap());
+  }
+
+  /**
+   * List of only direct interface's classes and their parameterized types.
+   * This can't be lazy loaded, because of the passed in typeArgumentsMap.
+   */
+  private List<ClassTypePair> justMyInterfacesWithTypes(Map<String, TypeInfo> typeArgumentsMap) {
+    if (mRealInterfaces == null || mRealInterfaceTypes == null) {
+      return Collections.<ClassTypePair>emptyList();
+    }
+
+    List<ClassTypePair> list = new ArrayList<ClassTypePair>();
+    for (int i = 0; i < mRealInterfaces.size(); i++) {
+      ClassInfo iface = mRealInterfaces.get(i);
+      TypeInfo type = mRealInterfaceTypes.get(i);
+      if (iface != null && type != null) {
+        type = type.getTypeWithArguments(typeArgumentsMap);
+        if (iface.checkLevel()) {
+          list.add(new ClassTypePair(iface, type));
+        } else {
+          // add the interface's interfaces
+          Map<String, TypeInfo> map = TypeInfo.getTypeArgumentMapping(iface.asTypeInfo(), type);
+          list.addAll(iface.justMyInterfacesWithTypes(map));
+        }
+      }
+    }
+    return list;
+  }
+
+  /**
+   * List of only direct interface's classes, and any hidden superclass's direct interfaces
+   * between this class and the first visible superclass and those interface class's parameterized types.
+   */
+  private ArrayList<ClassTypePair> interfacesWithTypes() {
+    if (mInterfacesWithTypes == null) {
+      mInterfacesWithTypes = new ArrayList<ClassTypePair>();
+
+      Iterator<ClassTypePair> itr = superClassesWithTypes().iterator();
+      // skip the first one, which is this class
+      itr.next();
+      while (itr.hasNext()) {
+        ClassTypePair ctp = itr.next();
+        if (ctp.classInfo().checkLevel()) {
+          break;
+        } else {
+          // fill mInterfacesWithTypes from the hidden superclass
+          mInterfacesWithTypes.addAll(
+              ctp.classInfo().justMyInterfacesWithTypes(ctp.getTypeArgumentMapping()));
+        }
+      }
+      mInterfacesWithTypes.addAll(
+          justMyInterfacesWithTypes());
+    }
+    return mInterfacesWithTypes;
+  }
+
+  /**
+   * List of all interface's classes reachable in this class's inheritance hierarchy
+   * and those interface class's parameterized types.
+   */
+  private ArrayList<ClassTypePair> allInterfacesWithTypes() {
+    if (mAllInterfacesWithTypes == null) {
+        mAllInterfacesWithTypes = new ArrayList<ClassTypePair>();
+        Queue<ClassTypePair> toParse = new ArrayDeque<ClassTypePair>();
+        Set<String> visited = new HashSet<String>();
+
+        Iterator<ClassTypePair> itr = superClassesWithTypes().iterator();
+        // skip the first one, which is this class
+        itr.next();
+        while (itr.hasNext()) {
+          ClassTypePair ctp = itr.next();
+          toParse.addAll(
+              ctp.classInfo().justMyInterfacesWithTypes(ctp.getTypeArgumentMapping()));
+        }
+        toParse.addAll(justMyInterfacesWithTypes());
+        while (!toParse.isEmpty()) {
+          ClassTypePair ctp = toParse.remove();
+          if (!visited.contains(ctp.typeInfo().fullName())) {
+            mAllInterfacesWithTypes.add(ctp);
+            visited.add(ctp.typeInfo().fullName());
+            toParse.addAll(ctp.classInfo().justMyInterfacesWithTypes(ctp.getTypeArgumentMapping()));
+          }
+        }
+    }
+    return mAllInterfacesWithTypes;
+  }
+
+  /**
+   * A list of ClassTypePairs that contain all superclasses
+   * and their corresponding types. The types will have type parameters
+   * cascaded upwards so they match, if any classes along the way set them.
+   * The list includes the current class, and is an ascending order up the
+   * heirarchy tree.
+   * */
+  private ArrayList<ClassTypePair> superClassesWithTypes() {
+    if (mSuperclassesWithTypes == null) {
+      mSuperclassesWithTypes = new ArrayList<ClassTypePair>();
+
+      ClassTypePair lastCtp = new ClassTypePair(this, this.asTypeInfo());
+      mSuperclassesWithTypes.add(lastCtp);
+
+      Map<String, TypeInfo> typeArgumentsMap;
+      ClassInfo superclass = mRealSuperclass;
+      TypeInfo supertype = mRealSuperclassType;
+      TypeInfo nextType;
+      while (superclass != null && supertype != null) {
+        typeArgumentsMap = lastCtp.getTypeArgumentMapping();
+        lastCtp = new ClassTypePair(superclass, supertype.getTypeWithArguments(typeArgumentsMap));
+        mSuperclassesWithTypes.add(lastCtp);
+
+        supertype = superclass.mRealSuperclassType;
+        superclass = superclass.mRealSuperclass;
+      }
+    }
+    return mSuperclassesWithTypes;
   }
 
   private static void gatherHiddenInterfaces(ClassInfo cl, HashSet<ClassInfo> interfaces) {
@@ -526,10 +683,10 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
     return mAllSelfFields;
   }
 
-  private void gatherMethods(ClassInfo owner, ClassInfo cl, HashMap<String, MethodInfo> methods) {
-    for (MethodInfo m : cl.selfMethods()) {
+  private void gatherMethods(ClassInfo owner, ClassTypePair ctp, HashMap<String, MethodInfo> methods) {
+    for (MethodInfo m : ctp.classInfo().selfMethods()) {
       if (m.checkLevel()) {
-        methods.put(m.name() + m.signature(), m.cloneForClass(owner));
+        methods.put(m.name() + m.signature(), m.cloneForClass(owner, ctp.getTypeArgumentMapping()));
       }
     }
   }
@@ -538,12 +695,18 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
     if (mSelfMethods == null) {
         HashMap<String, MethodInfo> methods = new HashMap<String, MethodInfo>();
       // our hidden parents
-      if (mRealSuperclass != null && !mRealSuperclass.checkLevel()) {
-        gatherMethods(this, mRealSuperclass, methods);
+      for (ClassTypePair ctp : superClassesWithTypes()) {
+        // this class is included in this list, so skip it!
+        if (ctp.classInfo() != this) {
+          if (ctp.classInfo().checkLevel()) {
+            break;
+          }
+          gatherMethods(this, ctp, methods);
+        }
       }
-      for (ClassInfo iface : mRealInterfaces) {
-        if (!iface.checkLevel()) {
-          gatherMethods(this, iface, methods);
+      for (ClassTypePair ctp : justMyInterfacesWithTypes(Collections.<String, TypeInfo>emptyMap())) {
+        if (!ctp.classInfo().checkLevel()) {
+          gatherMethods(this, ctp, methods);
         }
       }
       // mine
@@ -1093,23 +1256,19 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
     containingPackage().makeClassLinkListHDF(data, "class.package");
 
     // inheritance hierarchy
-    Vector<ClassInfo> superClasses = new Vector<ClassInfo>();
-    superClasses.add(this);
-    ClassInfo supr = superclass();
-    while (supr != null) {
-      superClasses.add(supr);
-      supr = supr.superclass();
-    }
-    n = superClasses.size();
-    for (i = 0; i < n; i++) {
-      supr = superClasses.elementAt(n - i - 1);
-
-      supr.asTypeInfo().makeQualifiedHDF(data, "class.inheritance." + i + ".class");
-      supr.asTypeInfo().makeHDF(data, "class.inheritance." + i + ".short_class");
-      j = 0;
-      for (TypeInfo t : supr.interfaceTypes()) {
-        t.makeHDF(data, "class.inheritance." + i + ".interfaces." + j);
-        j++;
+    List<ClassTypePair> ctplist = superClassesWithTypes();
+    n = ctplist.size();
+    for (i = 0; i < ctplist.size(); i++) {
+      // go in reverse order
+      ClassTypePair ctp = ctplist.get(n - i - 1);
+      if (ctp.classInfo().checkLevel()) {
+        ctp.typeInfo().makeQualifiedHDF(data, "class.inheritance." + i + ".class");
+        ctp.typeInfo().makeHDF(data, "class.inheritance." + i + ".short_class");
+        j = 0;
+        for (ClassTypePair t : ctp.classInfo().interfacesWithTypes()) {
+          t.typeInfo().makeHDF(data, "class.inheritance." + i + ".interfaces." + j);
+          j++;
+        }
       }
     }
 
@@ -1281,70 +1440,68 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
     }
 
     // inherited methods
-    Set<ClassInfo> interfaces = new TreeSet<ClassInfo>();
-    addInterfaces(interfaces(), interfaces);
-    ClassInfo cl = superclass();
+    Iterator<ClassTypePair> superclassesItr = superClassesWithTypes().iterator();
+    superclassesItr.next(); // skip the first one, which is the current class
+    ClassTypePair superCtp;
     i = 0;
-    while (cl != null) {
-      addInterfaces(cl.interfaces(), interfaces);
-      makeInheritedHDF(data, i, cl);
-      cl = cl.superclass();
-      i++;
+    while (superclassesItr.hasNext()) {
+      superCtp = superclassesItr.next();
+      if (superCtp.classInfo().checkLevel()) {
+        makeInheritedHDF(data, i, superCtp);
+        i++;
+      }
     }
-    for (ClassInfo iface : interfaces) {
-      makeInheritedHDF(data, i, iface);
-      i++;
-    }
-  }
-
-  private static void addInterfaces(ArrayList<ClassInfo> ifaces, Set<ClassInfo> out) {
-    for (ClassInfo cl : ifaces) {
-      out.add(cl);
-      addInterfaces(cl.interfaces(), out);
+    Iterator<ClassTypePair> interfacesItr = allInterfacesWithTypes().iterator();
+    while (interfacesItr.hasNext()) {
+      superCtp = interfacesItr.next();
+      if (superCtp.classInfo().checkLevel()) {
+        makeInheritedHDF(data, i, superCtp);
+        i++;
+      }
     }
   }
 
-  private static void makeInheritedHDF(Data data, int index, ClassInfo cl) {
+  private static void makeInheritedHDF(Data data, int index, ClassTypePair ctp) {
     int i;
 
     String base = "class.inherited." + index;
-    data.setValue(base + ".qualified", cl.qualifiedName());
-    if (cl.checkLevel()) {
-      data.setValue(base + ".link", cl.htmlPage());
+    data.setValue(base + ".qualified", ctp.classInfo().qualifiedName());
+    if (ctp.classInfo().checkLevel()) {
+      data.setValue(base + ".link", ctp.classInfo().htmlPage());
     }
-    String kind = cl.kind();
+    String kind = ctp.classInfo().kind();
     if (kind != null) {
       data.setValue(base + ".kind", kind);
     }
 
-    if (cl.mIsIncluded) {
+    if (ctp.classInfo().mIsIncluded) {
       data.setValue(base + ".included", "true");
     } else {
-      Doclava.federationTagger.tagAll(new ClassInfo[] {cl});
-      if (!cl.getFederatedReferences().isEmpty()) {
-        FederatedSite site = cl.getFederatedReferences().iterator().next();
-        data.setValue(base + ".link", site.linkFor(cl.htmlPage()));
+      Doclava.federationTagger.tagAll(new ClassInfo[] {ctp.classInfo()});
+      if (!ctp.classInfo().getFederatedReferences().isEmpty()) {
+        FederatedSite site = ctp.classInfo().getFederatedReferences().iterator().next();
+        data.setValue(base + ".link", site.linkFor(ctp.classInfo().htmlPage()));
         data.setValue(base + ".federated", site.name());
       }
     }
 
     // xml attributes
     i = 0;
-    for (AttributeInfo attr : cl.selfAttributes()) {
+    for (AttributeInfo attr : ctp.classInfo().selfAttributes()) {
       attr.makeHDF(data, base + ".attrs." + i);
       i++;
     }
 
     // methods
     i = 0;
-    for (MethodInfo method : cl.selfMethods()) {
-      method.makeHDF(data, base + ".methods." + i);
+    for (MethodInfo method : ctp.classInfo().selfMethods()) {
+      method.makeHDF(data, base + ".methods." + i, ctp.getTypeArgumentMapping());
       i++;
     }
 
     // fields
     i = 0;
-    for (FieldInfo field : cl.selfFields()) {
+    for (FieldInfo field : ctp.classInfo().selfFields()) {
       if (!field.isConstant()) {
         field.makeHDF(data, base + ".fields." + i);
         i++;
@@ -1353,7 +1510,7 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
 
     // constants
     i = 0;
-    for (FieldInfo field : cl.selfFields()) {
+    for (FieldInfo field : ctp.classInfo().selfFields()) {
       if (field.isConstant()) {
         field.makeHDF(data, base + ".constants." + i);
         i++;
@@ -1727,6 +1884,9 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
   private boolean mDeprecatedKnown;
 
   // lazy
+  private ArrayList<ClassTypePair> mSuperclassesWithTypes;
+  private ArrayList<ClassTypePair> mInterfacesWithTypes;
+  private ArrayList<ClassTypePair> mAllInterfacesWithTypes;
   private ArrayList<MethodInfo> mConstructors;
   private ArrayList<ClassInfo> mRealInnerClasses;
   private ArrayList<MethodInfo> mSelfMethods;

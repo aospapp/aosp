@@ -616,6 +616,14 @@ public class WifiMonitor {
         }
 
         public synchronized void killSupplicant(boolean p2pSupported) {
+            String suppState = System.getProperty("init.svc.wpa_supplicant");
+            if (suppState == null) suppState = "unknown";
+            String p2pSuppState = System.getProperty("init.svc.p2p_supplicant");
+            if (p2pSuppState == null) p2pSuppState = "unknown";
+
+            Log.e(TAG, "killSupplicant p2p" + p2pSupported
+                    + " init.svc.wpa_supplicant=" + suppState
+                    + " init.svc.p2p_supplicant=" + p2pSuppState);
             WifiNative.killSupplicant(p2pSupported);
             mConnected = false;
             for (WifiMonitor m : mIfaceMap.values()) {
@@ -666,10 +674,23 @@ public class WifiMonitor {
             } else {
                 if (DBG) Log.d(TAG, "Sending to all monitors because there's no matching iface");
                 boolean done = false;
+                boolean isMonitoring = false;
+                boolean isTerminating = false;
+                if (eventStr.startsWith(EVENT_PREFIX_STR)
+                        && eventStr.contains(TERMINATING_STR)) {
+                    isTerminating = true;
+                }
                 for (WifiMonitor monitor : mIfaceMap.values()) {
-                    if (monitor.mMonitoring && monitor.dispatchEvent(eventStr, iface)) {
-                        done = true;
+                    if (monitor.mMonitoring) {
+                        isMonitoring = true;
+                        if (monitor.dispatchEvent(eventStr, iface)) {
+                            done = true;
+                        }
                     }
+                }
+
+                if (!isMonitoring && isTerminating) {
+                    done = true;
                 }
 
                 if (done) {
@@ -952,8 +973,6 @@ public class WifiMonitor {
         Matcher match = mTargetBSSIDPattern.matcher(eventStr);
         if (match.find()) {
             BSSID = match.group(1);
-        } else {
-            Log.d(TAG, "didn't find BSSID " + eventStr);
         }
         mStateMachine.sendMessage(WifiStateMachine.CMD_TARGET_BSSID, eventLogCounter, 0, BSSID);
     }
@@ -963,8 +982,6 @@ public class WifiMonitor {
         Matcher match = mAssociatedPattern.matcher(eventStr);
         if (match.find()) {
             BSSID = match.group(1);
-        } else {
-            Log.d(TAG, "handleAssociatedBSSIDEvent: didn't find BSSID " + eventStr);
         }
         mStateMachine.sendMessage(WifiStateMachine.CMD_ASSOCIATED_BSSID, eventLogCounter, 0, BSSID);
     }

@@ -33,14 +33,20 @@ class StreamTexture : public gfx::GLImage,
   virtual ~StreamTexture();
 
   // gfx::GLImage implementation:
-  virtual void Destroy() OVERRIDE;
+  virtual void Destroy(bool have_context) OVERRIDE;
   virtual gfx::Size GetSize() OVERRIDE;
   virtual bool BindTexImage(unsigned target) OVERRIDE;
   virtual void ReleaseTexImage(unsigned target) OVERRIDE;
+  virtual bool CopyTexImage(unsigned target) OVERRIDE;
   virtual void WillUseTexImage() OVERRIDE;
   virtual void DidUseTexImage() OVERRIDE {}
   virtual void WillModifyTexImage() OVERRIDE {}
   virtual void DidModifyTexImage() OVERRIDE {}
+  virtual bool ScheduleOverlayPlane(gfx::AcceleratedWidget widget,
+                                    int z_order,
+                                    gfx::OverlayTransform transform,
+                                    const gfx::Rect& bounds_rect,
+                                    const gfx::RectF& crop_rect) OVERRIDE;
 
   // GpuCommandBufferStub::DestructionObserver implementation.
   virtual void OnWillDestroyStub() OVERRIDE;

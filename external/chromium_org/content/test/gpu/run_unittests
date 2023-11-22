@@ -3,29 +3,25 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import os
-import sys
-
 """This script runs unit tests for code in gpu_tests/ that does telemetry
 performance measurement.
 
 This script DOES NOT run benchmarks. run_gpu_tests does that.
 """
 
+import os
+import sys
+
 sys.path.append(os.path.join(os.path.dirname(__file__),
     os.pardir, os.pardir, os.pardir, 'tools', 'telemetry'))
 
-from telemetry.unittest import gtest_testrunner
+from telemetry.unittest import gtest_progress_reporter
 from telemetry.unittest import run_tests
 
 
 if __name__ == '__main__':
-  top_level_dir = os.path.abspath(os.path.dirname(__file__))
-  runner = gtest_testrunner.GTestTestRunner(print_result_after_run=False)
-  ret = run_tests.Main(sys.argv[1:], top_level_dir, top_level_dir, runner)
-
-  if runner.result:
-    runner.result.PrintSummary()
-    sys.exit(min(ret + runner.result.num_errors, 255))
-  else:
-    sys.exit(ret)
+  base_dir = os.path.dirname(os.path.realpath(__file__))
+  progress_reporters = [
+      gtest_progress_reporter.GTestProgressReporter(sys.stdout)]
+  run_tests.config = run_tests.Config(base_dir, [base_dir], progress_reporters)
+  sys.exit(run_tests.RunTestsCommand.main())

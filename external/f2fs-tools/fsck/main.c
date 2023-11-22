@@ -11,15 +11,16 @@
 #include "fsck.h"
 #include <libgen.h>
 
-struct f2fs_fsck gfsck = {
-	.sbi = { .fsck = &gfsck, },
-};
+struct f2fs_fsck gfsck;
 
 void fsck_usage()
 {
 	MSG(0, "\nUsage: fsck.f2fs [options] device\n");
 	MSG(0, "[options]:\n");
+	MSG(0, "  -a check/fix potential corruption, reported by f2fs\n");
 	MSG(0, "  -d debug level [default:0]\n");
+	MSG(0, "  -f check/fix entire partition\n");
+	MSG(0, "  -t show directory tree [-d -1]\n");
 	exit(1);
 }
 
@@ -42,22 +43,31 @@ void f2fs_parse_options(int argc, char *argv[])
 	char *prog = basename(argv[0]);
 
 	if (!strcmp("fsck.f2fs", prog)) {
-		const char *option_string = "d:t";
+		const char *option_string = "ad:ft";
 
 		config.func = FSCK;
 		while ((option = getopt(argc, argv, option_string)) != EOF) {
 			switch (option) {
-				case 'd':
-					config.dbg_lv = atoi(optarg);
-					MSG(0, "Info: Debug level = %d\n", config.dbg_lv);
-					break;
-				case 't':
-					config.dbg_lv = -1;
-					break;
-				default:
-					MSG(0, "\tError: Unknown option %c\n",option);
-					fsck_usage();
-					break;
+			case 'a':
+				config.auto_fix = 1;
+				MSG(0, "Info: Fix the reported corruption.\n");
+				break;
+			case 'd':
+				config.dbg_lv = atoi(optarg);
+				MSG(0, "Info: Debug level = %d\n",
+							config.dbg_lv);
+				break;
+			case 'f':
+				config.fix_on = 1;
+				MSG(0, "Info: Force to fix corruption\n");
+				break;
+			case 't':
+				config.dbg_lv = -1;
+				break;
+			default:
+				MSG(0, "\tError: Unknown option %c\n", option);
+				fsck_usage();
+				break;
 			}
 		}
 	} else if (!strcmp("dump.f2fs", prog)) {
@@ -73,34 +83,46 @@ void f2fs_parse_options(int argc, char *argv[])
 
 		config.func = DUMP;
 		while ((option = getopt(argc, argv, option_string)) != EOF) {
+			int ret = 0;
+
 			switch (option) {
-				case 'd':
-					config.dbg_lv = atoi(optarg);
-					MSG(0, "Info: Debug level = %d\n", config.dbg_lv);
-					break;
-				case 'i':
-					if (strncmp(optarg, "0x", 2))
-						sscanf(optarg, "%d", &dump_opt.nid);
-					else
-						sscanf(optarg, "%x", &dump_opt.nid);
-					break;
-				case 's':
-					sscanf(optarg, "%d~%d", &dump_opt.start_sit, &dump_opt.end_sit);
-					break;
-				case 'a':
-					sscanf(optarg, "%d~%d", &dump_opt.start_ssa, &dump_opt.end_ssa);
-					break;
-				case 'b':
-					if (strncmp(optarg, "0x", 2))
-						sscanf(optarg, "%d", &dump_opt.blk_addr);
-					else
-						sscanf(optarg, "%x", &dump_opt.blk_addr);
-					break;
-				default:
-					MSG(0, "\tError: Unknown option %c\n", option);
-					dump_usage();
-					break;
+			case 'd':
+				config.dbg_lv = atoi(optarg);
+				MSG(0, "Info: Debug level = %d\n",
+							config.dbg_lv);
+				break;
+			case 'i':
+				if (strncmp(optarg, "0x", 2))
+					ret = sscanf(optarg, "%d",
+							&dump_opt.nid);
+				else
+					ret = sscanf(optarg, "%x",
+							&dump_opt.nid);
+				break;
+			case 's':
+				ret = sscanf(optarg, "%d~%d",
+							&dump_opt.start_sit,
+							&dump_opt.end_sit);
+				break;
+			case 'a':
+				ret = sscanf(optarg, "%d~%d",
+							&dump_opt.start_ssa,
+							&dump_opt.end_ssa);
+				break;
+			case 'b':
+				if (strncmp(optarg, "0x", 2))
+					ret = sscanf(optarg, "%d",
+							&dump_opt.blk_addr);
+				else
+					ret = sscanf(optarg, "%x",
+							&dump_opt.blk_addr);
+				break;
+			default:
+				MSG(0, "\tError: Unknown option %c\n", option);
+				dump_usage();
+				break;
 			}
+			ASSERT(ret >= 0);
 		}
 
 		config.private = &dump_opt;
@@ -116,43 +138,27 @@ void f2fs_parse_options(int argc, char *argv[])
 	config.device_name = argv[optind];
 }
 
-int do_fsck(struct f2fs_sb_info *sbi)
+static void do_fsck(struct f2fs_sb_info *sbi)
 {
 	u32 blk_cnt;
-	int ret;
 
-	ret = fsck_init(sbi);
-	if (ret < 0)
-		return ret;
+	fsck_init(sbi);
 
 	fsck_chk_orphan_node(sbi);
 
-	/* Travses all block recursively from root inode  */
+	/* Traverse all block recursively from root inode */
 	blk_cnt = 1;
-	ret = fsck_chk_node_blk(sbi,
-			NULL,
-			sbi->root_ino_num,
-			F2FS_FT_DIR,
-			TYPE_INODE,
-			&blk_cnt);
-	if (ret < 0)
-		goto out1;
-
-	ret = fsck_verify(sbi);
-
-out1:
+	fsck_chk_node_blk(sbi, NULL, sbi->root_ino_num,
+			F2FS_FT_DIR, TYPE_INODE, &blk_cnt);
+	fsck_verify(sbi);
 	fsck_free(sbi);
-	return ret;
 }
 
-int do_dump(struct f2fs_sb_info *sbi)
+static void do_dump(struct f2fs_sb_info *sbi)
 {
 	struct dump_option *opt = (struct dump_option *)config.private;
-	int ret;
 
-	ret = fsck_init(sbi);
-	if (ret < 0)
-		return ret;
+	fsck_init(sbi);
 
 	if (opt->end_sit == -1)
 		opt->end_sit = SM_I(sbi)->main_segments;
@@ -166,17 +172,14 @@ int do_dump(struct f2fs_sb_info *sbi)
 		dump_inode_from_blkaddr(sbi, opt->blk_addr);
 		goto cleanup;
 	}
-
 	dump_node(sbi, opt->nid);
-
 cleanup:
 	fsck_free(sbi);
-	return 0;
 }
 
-int main (int argc, char **argv)
+int main(int argc, char **argv)
 {
-	struct f2fs_sb_info *sbi = &gfsck.sbi;
+	struct f2fs_sb_info *sbi;
 	int ret = 0;
 
 	f2fs_init_configuration(&config);
@@ -189,23 +192,50 @@ int main (int argc, char **argv)
 	/* Get device */
 	if (f2fs_get_device_info(&config) < 0)
 		return -1;
+fsck_again:
+	memset(&gfsck, 0, sizeof(gfsck));
+	gfsck.sbi.fsck = &gfsck;
+	sbi = &gfsck.sbi;
 
-	if (f2fs_do_mount(sbi) < 0)
+	ret = f2fs_do_mount(sbi);
+	if (ret == 1) {
+		free(sbi->ckpt);
+		free(sbi->raw_super);
+		goto out;
+	} else if (ret < 0)
 		return -1;
 
 	switch (config.func) {
-		case FSCK:
-			ret = do_fsck(sbi);
-			break;
-		case DUMP:
-			ret = do_dump(sbi);
-			break;
+	case FSCK:
+		do_fsck(sbi);
+		break;
+	case DUMP:
+		do_dump(sbi);
+		break;
 	}
 
 	f2fs_do_umount(sbi);
+out:
+	if (config.func == FSCK && config.bug_on) {
+		if (config.fix_on == 0 && config.auto_fix == 0) {
+			char ans[255] = {0};
+retry:
+			printf("Do you want to fix this partition? [Y/N] ");
+			ret = scanf("%s", ans);
+			ASSERT(ret >= 0);
+			if (!strcasecmp(ans, "y"))
+				config.fix_on = 1;
+			else if (!strcasecmp(ans, "n"))
+				config.fix_on = 0;
+			else
+				goto retry;
 
+			if (config.fix_on)
+				goto fsck_again;
+		}
+	}
 	f2fs_finalize_device(&config);
 
 	printf("\nDone.\n");
-	return ret;
+	return 0;
 }

@@ -16,23 +16,18 @@
 
 package com.android.mail.ui;
 
-import android.animation.Animator;
-import android.animation.ObjectAnimator;
-import android.animation.Animator.AnimatorListener;
 import android.app.Activity;
-import android.app.LoaderManager;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.Resources;
-import android.os.Bundle;
+import android.text.Html;
+import android.text.Spannable;
 import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.style.TextAppearanceSpan;
-import android.util.AttributeSet;
+import android.util.Log;
 import android.view.View;
-import android.view.animation.DecelerateInterpolator;
-import android.widget.FrameLayout;
-import android.widget.TextView;
 
 import com.android.mail.R;
 import com.android.mail.analytics.Analytics;
@@ -43,44 +38,22 @@ import com.android.mail.providers.Account;
 import com.android.mail.providers.Folder;
 import com.android.mail.utils.LogTag;
 import com.android.mail.utils.LogUtils;
+import com.android.mail.utils.StyleUtils;
 import com.android.mail.utils.Utils;
 
 /**
  * A tip displayed on top of conversation view to indicate that Gmail sync is
  * currently disabled on this account.
  */
-public class ConversationSyncDisabledTipView extends FrameLayout
-        implements ConversationSpecialItemView, SwipeableItemView {
-
-    private static final String LOG_TAG = LogTag.getLogTag();
-
-    private static int sScrollSlop = 0;
-    private static int sShrinkAnimationDuration;
-
+public class ConversationSyncDisabledTipView extends ConversationTipView {
+    public static final String LOG_TAG = LogTag.getLogTag();
     private Account mAccount = null;
     private Folder mFolder = null;
     private final MailPrefs mMailPrefs;
     private AccountPreferences mAccountPreferences;
-    private AnimatedAdapter mAdapter;
     private Activity mActivity;
 
-    private View mSwipeableContent;
-    private TextView mText1;
-    private TextView mText2;
-    private View mTextArea;
-    private SpannableString mEnableSyncInAccountSettingsText;
-    private final OnClickListener mAutoSyncOffTextClickedListener;
-    private final OnClickListener mAccountSyncOffTextClickedListener;
-
-    private int mAnimatedHeight = -1;
-
     private int mReasonSyncOff = ReasonSyncOff.NONE;
-
-    private View mTeaserRightEdge;
-    /** Whether we are on a tablet device or not */
-    private final boolean mTabletDevice;
-    /** When in conversation mode, true if the list is hidden */
-    private final boolean mListCollapsible;
 
     public interface ReasonSyncOff {
         // Background sync is enabled for current account, do not display this tip
@@ -92,87 +65,31 @@ public class ConversationSyncDisabledTipView extends FrameLayout
     }
 
     public ConversationSyncDisabledTipView(final Context context) {
-        this(context, null);
-    }
-
-    public ConversationSyncDisabledTipView(final Context context, final AttributeSet attrs) {
-        this(context, attrs, -1);
-    }
-
-    public ConversationSyncDisabledTipView(
-            final Context context, final AttributeSet attrs, final int defStyle) {
-        super(context, attrs, defStyle);
-
-        final Resources resources = context.getResources();
-
-        if (sScrollSlop == 0) {
-            sScrollSlop = resources.getInteger(R.integer.swipeScrollSlop);
-            sShrinkAnimationDuration = resources.getInteger(
-                    R.integer.shrink_animation_duration);
-        }
+        super(context);
 
         mMailPrefs = MailPrefs.get(context);
+    }
 
-        mAutoSyncOffTextClickedListener = new OnClickListener() {
+    @Override
+    protected OnClickListener getTextAreaOnClickListener() {
+        return new OnClickListener() {
             @Override
-            public void onClick(View v) {
-                final TurnAutoSyncOnDialog dialog = TurnAutoSyncOnDialog.newInstance(
-                        mAccount.getAccountManagerAccount(), mAccount.syncAuthority);
-                dialog.show(mActivity.getFragmentManager(), TurnAutoSyncOnDialog.DIALOG_TAG);
+            public void onClick(View view) {
+                if (mReasonSyncOff == ReasonSyncOff.AUTO_SYNC_OFF) {
+                    final TurnAutoSyncOnDialog dialog = TurnAutoSyncOnDialog.newInstance(
+                            mAccount.getAccountManagerAccount(), mAccount.syncAuthority);
+                    dialog.show(mActivity.getFragmentManager(), TurnAutoSyncOnDialog.DIALOG_TAG);
+                } else if (mReasonSyncOff == ReasonSyncOff.ACCOUNT_SYNC_OFF) {
+                    Utils.showAccountSettings(getContext(), mAccount);
+                }
             }
         };
-
-        mAccountSyncOffTextClickedListener = new OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Utils.showAccountSettings(getContext(), mAccount);
-            }
-        };
-
-        // Create the "Turn on in Account settings." text where "Account settings" appear as
-        // a blue link.
-        final String subString = resources.getString(R.string.account_settings_param);
-        final String entireString = resources.getString(
-                R.string.enable_sync_in_account_settings, subString);
-        mEnableSyncInAccountSettingsText = new SpannableString(entireString);
-        final int index = entireString.indexOf(subString);
-        mEnableSyncInAccountSettingsText.setSpan(
-                new TextAppearanceSpan(context, R.style.LinksInTipTextAppearance),
-                index,
-                index + subString.length(),
-                0);
-
-        mTabletDevice = Utils.useTabletUI(resources);
-        mListCollapsible = resources.getBoolean(R.bool.list_collapsible);
     }
 
     public void bindAccount(Account account, ControllableActivity activity) {
         mAccount = account;
         mAccountPreferences = AccountPreferences.get(getContext(), account);
         mActivity = (Activity) activity;
-    }
-
-    @Override
-    public void onGetView() {
-        // Do nothing
-    }
-
-    @Override
-    protected void onFinishInflate() {
-        mSwipeableContent = findViewById(R.id.swipeable_content);
-
-        mText1 = (TextView) findViewById(R.id.text_line1);
-        mText2 = (TextView) findViewById(R.id.text_line2);
-        mTextArea = findViewById(R.id.text_area);
-
-        findViewById(R.id.dismiss_button).setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                dismiss();
-            }
-        });
-
-        mTeaserRightEdge = findViewById(R.id.teaser_right_edge);
     }
 
     @Override
@@ -238,73 +155,22 @@ public class ConversationSyncDisabledTipView extends FrameLayout
     private void setReasonSyncOff(int reason) {
         if (mReasonSyncOff != reason) {
             mReasonSyncOff = reason;
+            final Resources resources = getResources();
             switch (mReasonSyncOff) {
                 case ReasonSyncOff.AUTO_SYNC_OFF:
-                    mText1.setText(R.string.auto_sync_off);
-                    mText2.setText(R.string.tap_to_enable_sync);
-                    mText2.setVisibility(View.VISIBLE);
-                    mTextArea.setClickable(true);
-                    mTextArea.setOnClickListener(mAutoSyncOffTextClickedListener);
+                    setText(resources.getString(R.string.auto_sync_off));
                     break;
                 case ReasonSyncOff.ACCOUNT_SYNC_OFF:
-                    mText1.setText(R.string.account_sync_off);
-                    mText2.setText(mEnableSyncInAccountSettingsText);
-                    mText2.setVisibility(View.VISIBLE);
-                    mTextArea.setClickable(true);
-                    mTextArea.setOnClickListener(mAccountSyncOffTextClickedListener);
+                    // Create the "Turn on in Account settings." text where "Account settings" appear as
+                    // a blue link.
+                    Spannable accountSyncOff = new SpannableString(
+                            Html.fromHtml(resources.getString(R.string.account_sync_off)));
+                    StyleUtils.stripUnderlinesAndLinkUrls(accountSyncOff, null);
+                    setText(accountSyncOff);
                     break;
                 default:
-                    // Doesn't matter what mText is since this view is not displayed
             }
         }
-    }
-
-    @Override
-    public int getPosition() {
-        // We want this teaser to go before the first real conversation
-        return 0;
-    }
-
-    @Override
-    public void setAdapter(AnimatedAdapter adapter) {
-        mAdapter = adapter;
-    }
-
-    @Override
-    public void bindFragment(LoaderManager loaderManager, final Bundle savedInstanceState) {
-    }
-
-    @Override
-    public void cleanup() {
-    }
-
-    @Override
-    public void onConversationSelected() {
-        // DO NOTHING
-    }
-
-    @Override
-    public void onCabModeEntered() {
-    }
-
-    @Override
-    public void onCabModeExited() {
-        // Do nothing
-    }
-
-    @Override
-    public void onConversationListVisibilityChanged(final boolean visible) {
-        // Do nothing
-    }
-
-    @Override
-    public void saveInstanceState(final Bundle outState) {
-        // Do nothing
-    }
-
-    @Override
-    public boolean acceptsUserTaps() {
-        return true;
     }
 
     @Override
@@ -324,87 +190,6 @@ public class ConversationSyncDisabledTipView extends FrameLayout
                 break;
         }
         Analytics.getInstance().sendEvent("list_swipe", "sync_disabled_tip", reason, 0);
-        startDestroyAnimation();
-    }
-
-    @Override
-    public SwipeableView getSwipeableView() {
-        return SwipeableView.from(mSwipeableContent);
-    }
-
-    @Override
-    public boolean canChildBeDismissed() {
-        return true;
-    }
-
-    @Override
-    public float getMinAllowScrollDistance() {
-        return sScrollSlop;
-    }
-
-    private void startDestroyAnimation() {
-        final int start = getHeight();
-        final int end = 0;
-        mAnimatedHeight = start;
-        final ObjectAnimator heightAnimator =
-                ObjectAnimator.ofInt(this, "animatedHeight", start, end);
-        heightAnimator.setInterpolator(new DecelerateInterpolator(2.0f));
-        heightAnimator.setDuration(sShrinkAnimationDuration);
-        heightAnimator.addListener(new AnimatorListener() {
-            @Override
-            public void onAnimationStart(final Animator animation) {
-                // Do nothing
-            }
-
-            @Override
-            public void onAnimationRepeat(final Animator animation) {
-                // Do nothing
-            }
-
-            @Override
-            public void onAnimationEnd(final Animator animation) {
-                // We should no longer exist, so notify the adapter
-                mAdapter.notifyDataSetChanged();
-            }
-
-            @Override
-            public void onAnimationCancel(final Animator animation) {
-                // Do nothing
-            }
-        });
-        heightAnimator.start();
-    }
-
-    /**
-     * This method is used by the animator.  It is explicitly kept in proguard.flags to prevent it
-     * from being removed, inlined, or obfuscated.
-     * Edit ./vendor/unbundled/packages/apps/UnifiedGmail/proguard.flags
-     * In the future, we want to use @Keep
-     */
-    public void setAnimatedHeight(final int height) {
-        mAnimatedHeight = height;
-        requestLayout();
-    }
-
-    @Override
-    protected void onMeasure(final int widthMeasureSpec, final int heightMeasureSpec) {
-        if (Utils.getDisplayListRightEdgeEffect(mTabletDevice, mListCollapsible,
-                mAdapter.getViewMode())) {
-            mTeaserRightEdge.setVisibility(VISIBLE);
-        } else {
-            mTeaserRightEdge.setVisibility(GONE);
-        }
-
-        if (mAnimatedHeight == -1) {
-            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-        } else {
-            setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), mAnimatedHeight);
-        }
-    }
-
-    @Override
-    public boolean commitLeaveBehindItem() {
-        // This view has no leave-behind
-        return false;
+        super.dismiss();
     }
 }

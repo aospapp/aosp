@@ -7,7 +7,6 @@
 #include "base/callback.h"
 #include "base/logging.h"
 #include "base/memory/weak_ptr.h"
-#include "base/strings/stringprintf.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "net/base/net_errors.h"
@@ -60,19 +59,37 @@ const struct NetErrorMapping {
   { net::ERR_CONNECTION_TIMED_OUT, "tcp.connection.timed_out" },
   { net::ERR_NAME_RESOLUTION_FAILED, "dns" },
   { net::ERR_SSL_PINNED_KEY_NOT_IN_CERT_CHAIN,
-        "ssl.pinned_key_not_in_cert_chain" },
+        "ssl.cert.pinned_key_not_in_cert_chain" },
   { net::ERR_CERT_COMMON_NAME_INVALID, "ssl.cert.name_invalid" },
   { net::ERR_CERT_DATE_INVALID, "ssl.cert.date_invalid" },
   { net::ERR_CERT_AUTHORITY_INVALID, "ssl.cert.authority_invalid" },
   { net::ERR_CERT_REVOKED, "ssl.cert.revoked" },
   { net::ERR_CERT_INVALID, "ssl.cert.invalid" },
-  { net::ERR_EMPTY_RESPONSE, "http.empty_response" },
+  { net::ERR_EMPTY_RESPONSE, "http.response.empty" },
   { net::ERR_SPDY_PING_FAILED, "spdy.ping_failed" },
   { net::ERR_SPDY_PROTOCOL_ERROR, "spdy.protocol" },
   { net::ERR_QUIC_PROTOCOL_ERROR, "quic.protocol" },
   { net::ERR_DNS_MALFORMED_RESPONSE, "dns.protocol" },
   { net::ERR_DNS_SERVER_FAILED, "dns.server" },
   { net::ERR_DNS_TIMED_OUT, "dns.timed_out" },
+  { net::ERR_INSECURE_RESPONSE, "ssl" },
+  { net::ERR_CONTENT_LENGTH_MISMATCH, "http.response.content_length_mismatch" },
+  { net::ERR_INCOMPLETE_CHUNKED_ENCODING,
+        "http.response.incomplete_chunked_encoding" },
+  { net::ERR_SSL_VERSION_OR_CIPHER_MISMATCH,
+        "ssl.version_or_cipher_mismatch" },
+  { net::ERR_BAD_SSL_CLIENT_AUTH_CERT, "ssl.bad_client_auth_cert" },
+  { net::ERR_INVALID_CHUNKED_ENCODING,
+        "http.response.invalid_chunked_encoding" },
+  { net::ERR_RESPONSE_HEADERS_TRUNCATED, "http.response.headers.truncated" },
+  { net::ERR_REQUEST_RANGE_NOT_SATISFIABLE,
+        "http.request.range_not_satisfiable" },
+  { net::ERR_INVALID_RESPONSE, "http.response.invalid" },
+  { net::ERR_RESPONSE_HEADERS_MULTIPLE_CONTENT_DISPOSITION,
+        "http.response.headers.multiple_content_disposition" },
+  { net::ERR_RESPONSE_HEADERS_MULTIPLE_CONTENT_LENGTH,
+        "http.response.headers.multiple_content_length" },
+  { net::ERR_SSL_UNRECOGNIZED_NAME_ALERT, "ssl.unrecognized_name_alert" }
 };
 
 }  // namespace
@@ -84,7 +101,7 @@ bool GetDomainReliabilityBeaconStatus(
     std::string* beacon_status_out) {
   if (net_error == net::OK) {
     if (http_response_code >= 400 && http_response_code < 600)
-      *beacon_status_out = base::StringPrintf("http.%d", http_response_code);
+      *beacon_status_out = "http.error";
     else
       *beacon_status_out = "ok";
     return true;
@@ -98,6 +115,30 @@ bool GetDomainReliabilityBeaconStatus(
     }
   }
   return false;
+}
+
+// TODO(ttuttle): Consider using NPN/ALPN instead, if there's a good way to
+//                differentiate HTTP and HTTPS.
+std::string GetDomainReliabilityProtocol(
+    net::HttpResponseInfo::ConnectionInfo connection_info,
+    bool ssl_info_populated) {
+  switch (connection_info) {
+    case net::HttpResponseInfo::CONNECTION_INFO_UNKNOWN:
+      return "";
+    case net::HttpResponseInfo::CONNECTION_INFO_HTTP1:
+      return ssl_info_populated ? "HTTPS" : "HTTP";
+    case net::HttpResponseInfo::CONNECTION_INFO_DEPRECATED_SPDY2:
+    case net::HttpResponseInfo::CONNECTION_INFO_SPDY3:
+    case net::HttpResponseInfo::CONNECTION_INFO_SPDY4:
+      return "SPDY";
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC1_SPDY3:
+      return "QUIC";
+    case net::HttpResponseInfo::NUM_OF_CONNECTION_INFOS:
+      NOTREACHED();
+      return "";
+  }
+  NOTREACHED();
+  return "";
 }
 
 MockableTime::Timer::~Timer() {}

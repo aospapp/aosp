@@ -22,23 +22,21 @@ import static android.support.v17.leanback.widget.ObjectAdapter.NO_ID;
 public class HeaderItem {
 
     private final long mId;
-    private final String mImageUri;
     private final String mName;
 
     /**
      * Create a header item.  All fields are optional.
      */
-    public HeaderItem(long id, String name, String imageUri) {
+    public HeaderItem(long id, String name) {
         mId = id;
         mName = name;
-        mImageUri = imageUri;
     }
 
     /**
-     * Create a header item.  All fields are optional.
+     * Create a header item.
      */
-    public HeaderItem(String name, String imageUri) {
-        this(NO_ID, name, imageUri);
+    public HeaderItem(String name) {
+        this(NO_ID, name);
     }
 
     /**
@@ -54,12 +52,4 @@ public class HeaderItem {
     public final String getName() {
         return mName;
     }
-
-    /**
-     * Returns the icon for this header item.
-     */
-    public final String getImageUri() {
-        return mImageUri;
-    }
-
 }

@@ -7,10 +7,10 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ui/views/constrained_window_views.h"
 #include "chrome/browser/ui/views/extensions/media_gallery_checkbox_view.h"
-#include "components/web_modal/web_contents_modal_dialog_manager.h"
+#include "chrome/grit/generated_resources.h"
+#include "chrome/grit/locale_settings.h"
+#include "components/web_modal/popup_manager.h"
 #include "content/public/browser/web_contents.h"
-#include "grit/generated_resources.h"
-#include "grit/locale_settings.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/views/border.h"
@@ -79,12 +79,10 @@ MediaGalleriesDialogViews::~MediaGalleriesDialogViews() {
 void MediaGalleriesDialogViews::AcceptDialogForTesting() {
   accepted_ = true;
 
-  web_modal::WebContentsModalDialogManager* web_contents_modal_dialog_manager =
-      web_modal::WebContentsModalDialogManager::FromWebContents(
-          controller_->WebContents());
-  DCHECK(web_contents_modal_dialog_manager);
-  web_modal::WebContentsModalDialogManager::TestApi(
-      web_contents_modal_dialog_manager).CloseAllDialogs();
+  web_modal::PopupManager* popup_manager =
+      web_modal::PopupManager::FromWebContents(controller_->WebContents());
+  DCHECK(popup_manager);
+  popup_manager->CloseAllDialogsForTesting(controller_->WebContents());
 }
 
 void MediaGalleriesDialogViews::InitChildViews() {
@@ -310,15 +308,14 @@ void MediaGalleriesDialogViews::ShowContextMenu(const gfx::Point& point,
                                                 ui::MenuSourceType source_type,
                                                 MediaGalleryPrefId id) {
   context_menu_runner_.reset(new views::MenuRunner(
-      controller_->GetContextMenu(id)));
+      controller_->GetContextMenu(id),
+      views::MenuRunner::HAS_MNEMONICS | views::MenuRunner::CONTEXT_MENU));
 
-  if (context_menu_runner_->RunMenuAt(
-          GetWidget(),
-          NULL,
-          gfx::Rect(point.x(), point.y(), 0, 0),
-          views::MENU_ANCHOR_TOPLEFT,
-          source_type,
-          views::MenuRunner::HAS_MNEMONICS | views::MenuRunner::CONTEXT_MENU) ==
+  if (context_menu_runner_->RunMenuAt(GetWidget(),
+                                      NULL,
+                                      gfx::Rect(point.x(), point.y(), 0, 0),
+                                      views::MENU_ANCHOR_TOPLEFT,
+                                      source_type) ==
       views::MenuRunner::MENU_DELETED) {
     return;
   }

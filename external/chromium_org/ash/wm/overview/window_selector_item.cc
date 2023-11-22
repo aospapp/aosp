@@ -73,42 +73,16 @@ static const int kVerticalShadowOffset = 1;
 // Amount of blur applied to the label shadow
 static const int kShadowBlur = 10;
 
-views::Widget* CreateWindowLabel(aura::Window* root_window,
-                                 const base::string16 title) {
-  views::Widget* widget = new views::Widget;
-  views::Widget::InitParams params;
-  params.type = views::Widget::InitParams::TYPE_POPUP;
-  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
-  params.opacity = views::Widget::InitParams::TRANSLUCENT_WINDOW;
-  params.parent =
-      Shell::GetContainer(root_window, ash::kShellWindowId_OverlayContainer);
-  params.accept_events = false;
-  params.visible_on_all_workspaces = true;
-  widget->set_focus_on_creation(false);
-  widget->Init(params);
-  views::Label* label = new views::Label;
-  label->SetEnabledColor(kLabelColor);
-  label->SetBackgroundColor(kLabelBackground);
-  label->set_shadows(gfx::ShadowValues(1, gfx::ShadowValue(
-      gfx::Point(0, kVerticalShadowOffset), kShadowBlur, kLabelShadow)));
-  ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
-  label->SetFontList(bundle.GetFontList(ui::ResourceBundle::BoldFont));
-  label->SetText(title);
-  views::BoxLayout* layout = new views::BoxLayout(views::BoxLayout::kVertical,
-                                                  0,
-                                                  kVerticalLabelPadding,
-                                                  0);
-  label->SetLayoutManager(layout);
-  widget->SetContentsView(label);
-  widget->Show();
-  return widget;
-}
-
 const int WindowSelectorItem::kFadeInMilliseconds = 80;
 
+// Opacity for dimmed items.
+static const float kDimmedItemOpacity = 0.5f;
+
 WindowSelectorItem::WindowSelectorItem()
-    : root_window_(NULL),
-      in_bounds_update_(false) {
+    : dimmed_(false),
+      root_window_(NULL),
+      in_bounds_update_(false),
+      window_label_view_(NULL) {
 }
 
 WindowSelectorItem::~WindowSelectorItem() {
@@ -141,7 +115,6 @@ void WindowSelectorItem::SetBounds(aura::Window* root_window,
   }
   activate_window_button_->SetBounds(target_bounds);
 
-  // TODO(nsatragno): Handle window title updates.
   UpdateWindowLabels(target_bounds, root_window, animate);
 
   gfx::Rect inset_bounds(target_bounds);
@@ -165,9 +138,21 @@ void WindowSelectorItem::SendFocusAlert() const {
   activate_window_button_->SendFocusAlert();
 }
 
+void WindowSelectorItem::SetDimmed(bool dimmed) {
+  dimmed_ = dimmed;
+  SetOpacity(dimmed ? kDimmedItemOpacity : 1.0f);
+}
+
 void WindowSelectorItem::ButtonPressed(views::Button* sender,
                                        const ui::Event& event) {
   views::Widget::GetWidgetForNativeView(SelectionWindow())->Close();
+}
+
+void WindowSelectorItem::OnWindowTitleChanged(aura::Window* window) {
+  // TODO(flackr): Maybe add the new title to a vector of titles so that we can
+  // filter any of the titles the window had while in the overview session.
+  if (window == SelectionWindow())
+    window_label_view_->SetText(window->title());
 }
 
 void WindowSelectorItem::UpdateCloseButtonBounds(aura::Window* root_window,
@@ -233,6 +218,11 @@ void WindowSelectorItem::UpdateCloseButtonBounds(aura::Window* root_window,
   }
 }
 
+void WindowSelectorItem::SetOpacity(float opacity) {
+  window_label_->GetNativeWindow()->layer()->SetOpacity(opacity);
+  close_button_->GetNativeWindow()->layer()->SetOpacity(opacity);
+}
+
 void WindowSelectorItem::UpdateWindowLabels(const gfx::Rect& window_bounds,
                                             aura::Window* root_window,
                                             bool animate) {
@@ -251,12 +241,10 @@ void WindowSelectorItem::UpdateWindowLabels(const gfx::Rect& window_bounds,
   }
 
   if (!window_label_) {
-    window_label_.reset(CreateWindowLabel(root_window,
-                                          SelectionWindow()->title()));
-    label_bounds.set_height(window_label_->
-                                GetContentsView()->GetPreferredSize().height());
-    label_bounds.set_y(label_bounds.y() - window_label_->
-                           GetContentsView()->GetPreferredSize().height());
+    CreateWindowLabel(SelectionWindow()->title());
+    label_bounds.set_height(window_label_view_->GetPreferredSize().height());
+    label_bounds.set_y(label_bounds.y() - window_label_view_->
+                           GetPreferredSize().height());
     window_label_->GetNativeWindow()->SetBounds(label_bounds);
     ui::Layer* layer = window_label_->GetNativeWindow()->layer();
 
@@ -291,6 +279,38 @@ void WindowSelectorItem::UpdateWindowLabels(const gfx::Rect& window_bounds,
       window_label_->GetNativeWindow()->SetBounds(label_bounds);
     }
   }
+}
+
+void WindowSelectorItem::CreateWindowLabel(const base::string16& title) {
+  window_label_.reset(new views::Widget);
+  views::Widget::InitParams params;
+  params.type = views::Widget::InitParams::TYPE_POPUP;
+  params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
+  params.opacity = views::Widget::InitParams::TRANSLUCENT_WINDOW;
+  params.parent =
+      Shell::GetContainer(root_window_, ash::kShellWindowId_OverlayContainer);
+  params.accept_events = false;
+  params.visible_on_all_workspaces = true;
+  window_label_->set_focus_on_creation(false);
+  window_label_->Init(params);
+  window_label_view_ = new views::Label;
+  window_label_view_->SetEnabledColor(kLabelColor);
+  window_label_view_->SetBackgroundColor(kLabelBackground);
+  window_label_view_->SetShadows(gfx::ShadowValues(
+      1,
+      gfx::ShadowValue(
+          gfx::Point(0, kVerticalShadowOffset), kShadowBlur, kLabelShadow)));
+  ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
+  window_label_view_->SetFontList(
+      bundle.GetFontList(ui::ResourceBundle::BoldFont));
+  window_label_view_->SetText(title);
+  views::BoxLayout* layout = new views::BoxLayout(views::BoxLayout::kVertical,
+                                                  0,
+                                                  kVerticalLabelPadding,
+                                                  0);
+  window_label_view_->SetLayoutManager(layout);
+  window_label_->SetContentsView(window_label_view_);
+  window_label_->Show();
 }
 
 }  // namespace ash

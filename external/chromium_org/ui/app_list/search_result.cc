@@ -4,6 +4,7 @@
 
 #include "ui/app_list/search_result.h"
 
+#include "ui/app_list/app_list_constants.h"
 #include "ui/app_list/search_result_observer.h"
 
 namespace app_list {
@@ -25,10 +26,15 @@ SearchResult::Action::Action(const base::string16& label_text,
 SearchResult::Action::~Action() {}
 
 SearchResult::SearchResult()
-    : relevance_(0), is_installing_(false), percent_downloaded_(0) {
+    : relevance_(0),
+      display_type_(DISPLAY_LIST),
+      is_installing_(false),
+      percent_downloaded_(0) {
 }
 
-SearchResult::~SearchResult() {}
+SearchResult::~SearchResult() {
+  FOR_EACH_OBSERVER(SearchResultObserver, observers_, OnResultDestroying());
+}
 
 void SearchResult::SetIcon(const gfx::ImageSkia& icon) {
   icon_ = icon;
@@ -62,6 +68,17 @@ void SearchResult::SetPercentDownloaded(int percent_downloaded) {
   FOR_EACH_OBSERVER(SearchResultObserver,
                     observers_,
                     OnPercentDownloadedChanged());
+}
+
+int SearchResult::GetPreferredIconDimension() const {
+  switch (display_type_) {
+    case DISPLAY_TILE:
+      return kTileIconSize;
+    case DISPLAY_LIST:
+      return kListIconSize;
+  }
+  NOTREACHED();
+  return 0;
 }
 
 void SearchResult::NotifyItemInstalled() {

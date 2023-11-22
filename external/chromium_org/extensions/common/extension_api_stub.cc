@@ -8,6 +8,7 @@
 #include "extensions/common/extension_api.h"
 
 #include "extensions/common/features/feature.h"
+#include "url/gurl.h"
 
 namespace extensions {
 
@@ -29,14 +30,6 @@ Feature::Availability ExtensionAPI::IsAvailable(
   return Feature::CreateAvailability(Feature::NOT_PRESENT, "");
 }
 
-Feature::Availability ExtensionAPI::IsAvailable(
-    const Feature& api,
-    const Extension* extension,
-    Feature::Context context,
-    const GURL& url) {
-  return Feature::CreateAvailability(Feature::NOT_PRESENT, "");
-}
-
 bool ExtensionAPI::IsAnyFeatureAvailableToContext(const Feature& api,
                                                   const Extension* extension,
                                                   Feature::Context context,
@@ -44,12 +37,22 @@ bool ExtensionAPI::IsAnyFeatureAvailableToContext(const Feature& api,
   return false;
 }
 
-bool ExtensionAPI::IsPrivileged(const std::string& full_name) {
+bool ExtensionAPI::IsAvailableInUntrustedContext(const std::string& full_name,
+                                                 const Extension* extension) {
+  return false;
+}
+
+bool ExtensionAPI::IsAvailableToWebUI(const std::string& name,
+                                      const GURL& url) {
   return false;
 }
 
 const base::DictionaryValue* ExtensionAPI::GetSchema(
     const std::string& full_name) {
+  return NULL;
+}
+
+Feature* ExtensionAPI::GetFeatureDependency(const std::string& name) {
   return NULL;
 }
 

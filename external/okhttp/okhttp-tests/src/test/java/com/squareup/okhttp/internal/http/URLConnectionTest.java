@@ -65,6 +65,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -429,6 +430,11 @@ public final class URLConnectionTest {
     HttpURLConnection connection1 = client.open(server.getUrl("/a"));
     connection1.setReadTimeout(100);
     assertContent("This connection won't pool properly", connection1);
+
+    // Give the server time to enact the socket policy if it's one that could happen after the
+    // client has received the response.
+    Thread.sleep(500);
+
     assertEquals(0, server.takeRequest().getSequenceNumber());
     HttpURLConnection connection2 = client.open(server.getUrl("/b"));
     connection2.setReadTimeout(100);
@@ -686,6 +692,10 @@ public final class URLConnectionTest {
     client.setHostnameVerifier(new RecordingHostnameVerifier());
 
     assertContent("abc", client.open(server.getUrl("/")));
+
+    // Give the server time to disconnect.
+    Thread.sleep(500);
+
     assertContent("def", client.open(server.getUrl("/")));
 
     RecordedRequest request1 = server.takeRequest();
@@ -1029,7 +1039,9 @@ public final class URLConnectionTest {
   }
 
   @Test public void disconnectedConnection() throws IOException {
-    server.enqueue(new MockResponse().setBody("ABCDEFGHIJKLMNOPQR"));
+    server.enqueue(new MockResponse()
+        .throttleBody(2, 100, TimeUnit.MILLISECONDS)
+        .setBody("ABCD"));
     server.play();
 
     connection = client.open(server.getUrl("/"));
@@ -1037,6 +1049,10 @@ public final class URLConnectionTest {
     assertEquals('A', (char) in.read());
     connection.disconnect();
     try {
+      // Reading 'B' may succeed if it's buffered.
+      in.read();
+
+      // But 'C' shouldn't be buffered (the response is throttled) and this should fail.
       in.read();
       fail("Expected a connection closed exception");
     } catch (IOException expected) {
@@ -1272,6 +1288,9 @@ public final class URLConnectionTest {
     // Seed the pool with a bad connection.
     assertContent("a", client.open(server.getUrl("/")));
 
+    // Give the server time to disconnect.
+    Thread.sleep(500);
+
     // This connection will need to be recovered. When it is, transparent gzip should still work!
     assertContent("b", client.open(server.getUrl("/")));
 
@@ -1317,11 +1336,13 @@ public final class URLConnectionTest {
     HttpURLConnection connection1 = client.open(server.getUrl("/"));
     InputStream in1 = connection1.getInputStream();
     assertEquals("ABCDE", readAscii(in1, 5));
+    in1.close();
     connection1.disconnect();
 
     HttpURLConnection connection2 = client.open(server.getUrl("/"));
     InputStream in2 = connection2.getInputStream();
     assertEquals("LMNOP", readAscii(in2, 5));
+    in2.close();
     connection2.disconnect();
 
     assertEquals(0, server.takeRequest().getSequenceNumber());
@@ -2621,6 +2642,9 @@ public final class URLConnectionTest {
 
     assertContent("A", client.open(server.getUrl("/a")));
 
+    // Give the server time to disconnect.
+    Thread.sleep(500);
+
     // If the request body is larger than OkHttp's replay buffer, the failure may still occur.
     byte[] requestBody = new byte[requestSize];
     new Random(0).nextBytes(requestBody);
@@ -2934,6 +2958,39 @@ public final class URLConnectionTest {
 
     RecordedRequest requestB = server.takeRequest();
     assertEquals(1, requestB.getSequenceNumber());
+  }
+
+  /**
+   * Tolerate bad https proxy response when using HttpResponseCache. Android bug 6754912.
+   */
+  @Test
+  public void testConnectViaHttpProxyToHttpsUsingBadProxyAndHttpResponseCache() throws Exception {
+    initResponseCache();
+
+    server.useHttps(sslContext.getSocketFactory(), true);
+    // The inclusion of a body in the response to a CONNECT is key to reproducing b/6754912.
+    MockResponse
+        badProxyResponse = new MockResponse()
+        .setSocketPolicy(SocketPolicy.UPGRADE_TO_SSL_AT_END)
+        .clearHeaders()
+        .setBody("bogus proxy connect response content");
+
+    server.enqueue(badProxyResponse);
+    server.enqueue(new MockResponse().setBody("response"));
+
+    server.play();
+
+    URL url = new URL("https://android.com/foo");
+    client.setSslSocketFactory(sslContext.getSocketFactory());
+    client.setHostnameVerifier(new RecordingHostnameVerifier());
+
+    ProxyConfig proxyConfig = ProxyConfig.PROXY_SYSTEM_PROPERTY;
+    HttpsURLConnection connection = (HttpsURLConnection) proxyConfig.connect(server, client, url);
+    assertContent("response", connection);
+
+    RecordedRequest connect = server.takeRequest();
+    assertEquals("CONNECT android.com:443 HTTP/1.1", connect.getRequestLine());
+    assertContains(connect.getHeaders(), "Host: android.com");
   }
 
   /**

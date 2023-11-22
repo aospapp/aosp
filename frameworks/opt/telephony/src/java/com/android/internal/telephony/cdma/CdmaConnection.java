@@ -346,6 +346,12 @@ public class CdmaConnection extends Connection {
                 return DisconnectCause.CALL_BARRED;
             case CallFailCause.FDN_BLOCKED:
                 return DisconnectCause.FDN_BLOCKED;
+            case CallFailCause.DIAL_MODIFIED_TO_USSD:
+                return DisconnectCause.DIAL_MODIFIED_TO_USSD;
+            case CallFailCause.DIAL_MODIFIED_TO_SS:
+                return DisconnectCause.DIAL_MODIFIED_TO_SS;
+            case CallFailCause.DIAL_MODIFIED_TO_DIAL:
+                return DisconnectCause.DIAL_MODIFIED_TO_DIAL;
             case CallFailCause.CDMA_LOCKED_UNTIL_POWER_CYCLE:
                 return DisconnectCause.CDMA_LOCKED_UNTIL_POWER_CYCLE;
             case CallFailCause.CDMA_DROP:
@@ -373,7 +379,7 @@ public class CdmaConnection extends Connection {
                 int serviceState = phone.getServiceState().getState();
                 UiccCardApplication app = UiccController
                         .getInstance()
-                        .getUiccCardApplication(UiccController.APP_FAM_3GPP2);
+                        .getUiccCardApplication(phone.getPhoneId(), UiccController.APP_FAM_3GPP2);
                 AppState uiccAppState = (app != null) ? app.getState() : AppState.APPSTATE_UNKNOWN;
                 if (serviceState == ServiceState.STATE_POWER_OFF) {
                     return DisconnectCause.POWER_OFF;
@@ -683,6 +689,9 @@ public class CdmaConnection extends Connection {
             }
         }
 
+        notifyPostDialListenersNextChar(c);
+
+        // TODO: remove the following code since the handler no longer executes anything.
         postDialHandler = mOwner.mPhone.mPostDialHandler;
 
         Message notifyMessage;

@@ -18,8 +18,8 @@
 #include "media/cast/logging/logging_defines.h"
 #include "media/cast/logging/proto/raw_events.pb.h"
 #include "media/cast/logging/raw_event_subscriber_bundle.h"
-#include "media/cast/transport/cast_transport_config.h"
-#include "media/cast/transport/cast_transport_sender.h"
+#include "media/cast/net/cast_transport_config.h"
+#include "media/cast/net/cast_transport_sender.h"
 
 using media::cast::AudioSenderConfig;
 using media::cast::CastEnvironment;
@@ -33,7 +33,7 @@ CastSessionDelegate::CastSessionDelegate()
     : io_message_loop_proxy_(
           content::RenderThread::Get()->GetIOMessageLoopProxy()),
       weak_factory_(this) {
-  DCHECK(io_message_loop_proxy_);
+  DCHECK(io_message_loop_proxy_.get());
 }
 
 CastSessionDelegate::~CastSessionDelegate() {
@@ -55,7 +55,7 @@ void CastSessionDelegate::StartAudio(
   cast_sender_->InitializeAudio(
       config,
       base::Bind(&CastSessionDelegate::InitializationResultCB,
-                 weak_factory_.GetWeakPtr()));
+                 weak_factory_.GetWeakPtr(), error_callback));
 }
 
 void CastSessionDelegate::StartVideo(
@@ -77,12 +77,13 @@ void CastSessionDelegate::StartVideo(
   cast_sender_->InitializeVideo(
       config,
       base::Bind(&CastSessionDelegate::InitializationResultCB,
-                 weak_factory_.GetWeakPtr()),
+                 weak_factory_.GetWeakPtr(), error_callback),
       create_vea_cb,
       create_video_encode_mem_cb);
 }
 
-void CastSessionDelegate::StartUDP(const net::IPEndPoint& remote_endpoint) {
+void CastSessionDelegate::StartUDP(const net::IPEndPoint& remote_endpoint,
+                                   scoped_ptr<base::DictionaryValue> options) {
   DCHECK(io_message_loop_proxy_->BelongsToCurrentThread());
 
   // CastSender uses the renderer's IO thread as the main thread. This reduces
@@ -100,12 +101,12 @@ void CastSessionDelegate::StartUDP(const net::IPEndPoint& remote_endpoint) {
   // destruction of CastTransportSenderIPC, and they both share the same thread.
   cast_transport_.reset(new CastTransportSenderIPC(
       remote_endpoint,
+      options.Pass(),
       base::Bind(&CastSessionDelegate::StatusNotificationCB,
                  base::Unretained(this)),
       base::Bind(&CastSessionDelegate::LogRawEvents, base::Unretained(this))));
 
   cast_sender_ = CastSender::Create(cast_environment_, cast_transport_.get());
-  cast_transport_->SetPacketReceiver(cast_sender_->packet_receiver());
 }
 
 void CastSessionDelegate::ToggleLogging(bool is_audio, bool enable) {
@@ -198,27 +199,56 @@ void CastSessionDelegate::GetStatsAndReset(bool is_audio,
 }
 
 void CastSessionDelegate::StatusNotificationCB(
-    media::cast::transport::CastTransportStatus unused_status) {
+    media::cast::CastTransportStatus unused_status) {
   DCHECK(io_message_loop_proxy_->BelongsToCurrentThread());
   // TODO(hubbe): Call javascript UDPTransport error function.
 }
 
 void CastSessionDelegate::InitializationResultCB(
+    const ErrorCallback& error_callback,
     media::cast::CastInitializationStatus result) const {
   DCHECK(cast_sender_);
 
-  // TODO(pwestin): handle the error codes.
-  if (result == media::cast::STATUS_AUDIO_INITIALIZED) {
-    audio_frame_input_available_callback_.Run(
-        cast_sender_->audio_frame_input());
-  } else if (result == media::cast::STATUS_VIDEO_INITIALIZED) {
-    video_frame_input_available_callback_.Run(
-        cast_sender_->video_frame_input());
+  switch (result) {
+    case media::cast::STATUS_AUDIO_INITIALIZED:
+      audio_frame_input_available_callback_.Run(
+          cast_sender_->audio_frame_input());
+      break;
+    case media::cast::STATUS_VIDEO_INITIALIZED:
+      video_frame_input_available_callback_.Run(
+          cast_sender_->video_frame_input());
+      break;
+    case media::cast::STATUS_INVALID_CAST_ENVIRONMENT:
+      error_callback.Run("Invalid cast environment.");
+      break;
+    case media::cast::STATUS_INVALID_CRYPTO_CONFIGURATION:
+      error_callback.Run("Invalid encryption keys.");
+      break;
+    case media::cast::STATUS_UNSUPPORTED_AUDIO_CODEC:
+      error_callback.Run("Audio codec not supported.");
+      break;
+    case media::cast::STATUS_UNSUPPORTED_VIDEO_CODEC:
+      error_callback.Run("Video codec not supported.");
+      break;
+    case media::cast::STATUS_INVALID_AUDIO_CONFIGURATION:
+      error_callback.Run("Invalid audio configuration.");
+      break;
+    case media::cast::STATUS_INVALID_VIDEO_CONFIGURATION:
+      error_callback.Run("Invalid video configuration.");
+      break;
+    case media::cast::STATUS_HW_VIDEO_ENCODER_NOT_SUPPORTED:
+      error_callback.Run("Hardware video encoder not supported.");
+      break;
+    case media::cast::STATUS_AUDIO_UNINITIALIZED:
+    case media::cast::STATUS_VIDEO_UNINITIALIZED:
+      NOTREACHED() << "Not an error.";
+      break;
   }
 }
 
 void CastSessionDelegate::LogRawEvents(
-    const std::vector<media::cast::PacketEvent>& packet_events) {
+    const std::vector<media::cast::PacketEvent>& packet_events,
+    const std::vector<media::cast::FrameEvent>& frame_events) {
   DCHECK(io_message_loop_proxy_->BelongsToCurrentThread());
 
   for (std::vector<media::cast::PacketEvent>::const_iterator it =
@@ -233,5 +263,26 @@ void CastSessionDelegate::LogRawEvents(
                                                     it->packet_id,
                                                     it->max_packet_id,
                                                     it->size);
+  }
+  for (std::vector<media::cast::FrameEvent>::const_iterator it =
+           frame_events.begin();
+       it != frame_events.end();
+       ++it) {
+    if (it->type == media::cast::FRAME_PLAYOUT) {
+      cast_environment_->Logging()->InsertFrameEventWithDelay(
+          it->timestamp,
+          it->type,
+          it->media_type,
+          it->rtp_timestamp,
+          it->frame_id,
+          it->delay_delta);
+    } else {
+      cast_environment_->Logging()->InsertFrameEvent(
+          it->timestamp,
+          it->type,
+          it->media_type,
+          it->rtp_timestamp,
+          it->frame_id);
+    }
   }
 }

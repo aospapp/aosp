@@ -12,6 +12,12 @@
 #include "third_party/icu/source/common/unicode/uscript.h"
 #include "ui/gfx/render_text.h"
 
+namespace base {
+namespace i18n {
+class BreakIterator;
+}
+}
+
 namespace gfx {
 
 namespace internal {
@@ -29,15 +35,21 @@ struct GFX_EXPORT TextRunHarfBuzz {
   // value is in run-space (0 corresponds to the first glyph in the run).
   Range CharRangeToGlyphRange(const Range& range) const;
 
+  // Returns the number of missing glyphs in the shaped text run.
+  size_t CountMissingGlyphs() const;
+
+  // Writes the character and glyph ranges of the cluster containing |pos|.
+  void GetClusterAt(size_t pos, Range* chars, Range* glyphs) const;
+
+  // Returns the grapheme bounds at |text_index|. Handles multi-grapheme glyphs.
+  Range GetGraphemeBounds(base::i18n::BreakIterator* grapheme_iterator,
+                          size_t text_index);
+
   // Returns whether the given shaped run contains any missing glyphs.
   bool HasMissingGlyphs() const;
 
-  // Returns the X coordinate of the leading or |trailing| edge of the glyph
-  // starting at |text_index|, relative to the left of the text (not the view).
-  int GetGlyphXBoundary(size_t text_index, bool trailing) const;
-
-  int width;
-  int preceding_run_widths;
+  float width;
+  float preceding_run_widths;
   Range range;
   bool is_rtl;
   UBiDiLevel level;
@@ -45,10 +57,11 @@ struct GFX_EXPORT TextRunHarfBuzz {
 
   scoped_ptr<uint16[]> glyphs;
   scoped_ptr<SkPoint[]> positions;
-  scoped_ptr<uint32[]> glyph_to_char;
+  std::vector<uint32> glyph_to_char;
   size_t glyph_count;
 
   skia::RefPtr<SkTypeface> skia_face;
+  FontRenderParams render_params;
   int font_size;
   int font_style;
   bool strike;
@@ -68,8 +81,10 @@ class GFX_EXPORT RenderTextHarfBuzz : public RenderText {
 
   // Overridden from RenderText.
   virtual Size GetStringSize() OVERRIDE;
+  virtual SizeF GetStringSizeF() OVERRIDE;
   virtual SelectionModel FindCursorPosition(const Point& point) OVERRIDE;
   virtual std::vector<FontSpan> GetFontSpansForTesting() OVERRIDE;
+  virtual Range GetGlyphBounds(size_t index) OVERRIDE;
 
  protected:
   // Overridden from RenderText.
@@ -80,7 +95,6 @@ class GFX_EXPORT RenderTextHarfBuzz : public RenderText {
   virtual SelectionModel AdjacentWordSelectionModel(
       const SelectionModel& selection,
       VisualCursorDirection direction) OVERRIDE;
-  virtual Range GetGlyphBounds(size_t index) OVERRIDE;
   virtual std::vector<Rect> GetSubstringBounds(const Range& range) OVERRIDE;
   virtual size_t TextIndexToLayoutIndex(size_t index) const OVERRIDE;
   virtual size_t LayoutIndexToTextIndex(size_t index) const OVERRIDE;
@@ -93,6 +107,9 @@ class GFX_EXPORT RenderTextHarfBuzz : public RenderText {
   friend class RenderTextTest;
   FRIEND_TEST_ALL_PREFIXES(RenderTextTest, HarfBuzz_RunDirection);
   FRIEND_TEST_ALL_PREFIXES(RenderTextTest, HarfBuzz_BreakRunsByUnicodeBlocks);
+  FRIEND_TEST_ALL_PREFIXES(RenderTextTest, HarfBuzz_SubglyphGraphemeCases);
+  FRIEND_TEST_ALL_PREFIXES(RenderTextTest, HarfBuzz_SubglyphGraphemePartition);
+  FRIEND_TEST_ALL_PREFIXES(RenderTextTest, HarfBuzz_NonExistentFont);
 
   // Return the run index that contains the argument; or the length of the
   // |runs_| vector if argument exceeds the text length or width.
@@ -112,6 +129,8 @@ class GFX_EXPORT RenderTextHarfBuzz : public RenderText {
 
   // Shape the glyphs needed for the text |run|.
   void ShapeRun(internal::TextRunHarfBuzz* run);
+  bool ShapeRunWithFont(internal::TextRunHarfBuzz* run,
+                        const std::string& font);
 
   // Text runs in logical order.
   ScopedVector<internal::TextRunHarfBuzz> runs_;
@@ -121,6 +140,10 @@ class GFX_EXPORT RenderTextHarfBuzz : public RenderText {
   std::vector<int32_t> logical_to_visual_;
 
   bool needs_layout_;
+
+  // ICU grapheme iterator for the layout text. Valid when |!needs_layout_|. Can
+  // be NULL in case of an error.
+  scoped_ptr<base::i18n::BreakIterator> grapheme_iterator_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderTextHarfBuzz);
 };

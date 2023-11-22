@@ -10,13 +10,15 @@
 #include "tools/gn/commands.h"
 #include "tools/gn/config.h"
 #include "tools/gn/config_values_extractors.h"
-#include "tools/gn/file_template.h"
+#include "tools/gn/deps_iterator.h"
 #include "tools/gn/filesystem_utils.h"
 #include "tools/gn/item.h"
 #include "tools/gn/label.h"
 #include "tools/gn/setup.h"
 #include "tools/gn/standard_out.h"
+#include "tools/gn/substitution_writer.h"
 #include "tools/gn/target.h"
+#include "tools/gn/variables.h"
 
 namespace commands {
 
@@ -49,41 +51,53 @@ void RecursiveCollectDeps(const Target* target, std::set<Label>* result) {
 }
 
 void RecursiveCollectChildDeps(const Target* target, std::set<Label>* result) {
-  const LabelTargetVector& deps = target->deps();
-  for (size_t i = 0; i < deps.size(); i++)
-    RecursiveCollectDeps(deps[i].ptr, result);
-
-  const LabelTargetVector& datadeps = target->datadeps();
-  for (size_t i = 0; i < datadeps.size(); i++)
-    RecursiveCollectDeps(datadeps[i].ptr, result);
+  for (DepsIterator iter(target); !iter.done(); iter.Advance())
+    RecursiveCollectDeps(iter.target(), result);
 }
 
-// Prints dependencies of the given target (not the target itself).
+// Prints dependencies of the given target (not the target itself). If the
+// set is non-null, new targets encountered will be added to the set, and if
+// a dependency is in the set already, it will not be recused into. When the
+// set is null, all dependencies will be printed.
 void RecursivePrintDeps(const Target* target,
                         const Label& default_toolchain,
+                        std::set<const Target*>* seen_targets,
                         int indent_level) {
-  LabelTargetVector sorted_deps = target->deps();
-  const LabelTargetVector& datadeps = target->datadeps();
-  sorted_deps.insert(sorted_deps.end(), datadeps.begin(), datadeps.end());
+  // Combine all deps into one sorted list.
+  std::vector<LabelTargetPair> sorted_deps;
+  for (DepsIterator iter(target); !iter.done(); iter.Advance())
+    sorted_deps.push_back(iter.pair());
   std::sort(sorted_deps.begin(), sorted_deps.end(),
             LabelPtrLabelLess<Target>());
 
   std::string indent(indent_level * 2, ' ');
   for (size_t i = 0; i < sorted_deps.size(); i++) {
-    // Don't print groups. Groups are flattened such that the deps of the
-    // group are added directly to the target that depended on the group.
-    // Printing and recursing into groups here will cause such targets to be
-    // duplicated.
-    //
-    // It would be much more intuitive to do the opposite and not display the
-    // deps that were copied from the group to the target and instead display
-    // the group, but the source of those dependencies is not tracked.
-    if (sorted_deps[i].ptr->output_type() == Target::GROUP)
-      continue;
+    const Target* cur_dep = sorted_deps[i].ptr;
 
     OutputString(indent +
-        sorted_deps[i].label.GetUserVisibleName(default_toolchain) + "\n");
-    RecursivePrintDeps(sorted_deps[i].ptr, default_toolchain, indent_level + 1);
+        cur_dep->label().GetUserVisibleName(default_toolchain));
+    bool print_children = true;
+    if (seen_targets) {
+      if (seen_targets->find(cur_dep) == seen_targets->end()) {
+        // New target, mark it visited.
+        seen_targets->insert(cur_dep);
+      } else {
+        // Already seen.
+        print_children = false;
+        // Only print "..." if something is actually elided, which means that
+        // the current target has children.
+        if (!cur_dep->public_deps().empty() ||
+            !cur_dep->private_deps().empty() ||
+            !cur_dep->data_deps().empty())
+          OutputString("...");
+      }
+    }
+
+    OutputString("\n");
+    if (print_children) {
+      RecursivePrintDeps(cur_dep, default_toolchain, seen_targets,
+                         indent_level + 1);
+    }
   }
 }
 
@@ -95,13 +109,22 @@ void PrintDeps(const Target* target, bool display_header) {
   if (cmdline->HasSwitch("tree")) {
     if (display_header)
       OutputString("\nDependency tree:\n");
-    RecursivePrintDeps(target, toolchain_label, 1);
+
+    if (cmdline->HasSwitch("all")) {
+      // Show all tree deps with no eliding.
+      RecursivePrintDeps(target, toolchain_label, NULL, 1);
+    } else {
+      // Don't recurse into duplicates.
+      std::set<const Target*> seen_targets;
+      RecursivePrintDeps(target, toolchain_label, &seen_targets, 1);
+    }
     return;
   }
 
   // Collect the deps to display.
   std::vector<Label> deps;
   if (cmdline->HasSwitch("all")) {
+    // Show all dependencies.
     if (display_header)
       OutputString("\nAll recursive dependencies:\n");
 
@@ -111,18 +134,14 @@ void PrintDeps(const Target* target, bool display_header) {
          i != all_deps.end(); ++i)
       deps.push_back(*i);
   } else {
+    // Show direct dependencies only.
     if (display_header) {
-      OutputString("\nDirect dependencies "
-                   "(try also \"--all\" and \"--tree\"):\n");
+      OutputString(
+          "\nDirect dependencies "
+          "(try also \"--all\", \"--tree\", or even \"--all --tree\"):\n");
     }
-
-    const LabelTargetVector& target_deps = target->deps();
-    for (size_t i = 0; i < target_deps.size(); i++)
-      deps.push_back(target_deps[i].label);
-
-    const LabelTargetVector& target_datadeps = target->datadeps();
-    for (size_t i = 0; i < target_datadeps.size(); i++)
-      deps.push_back(target_datadeps[i].label);
+    for (DepsIterator iter(target); !iter.done(); iter.Advance())
+      deps.push_back(iter.label());
   }
 
   std::sort(deps.begin(), deps.end());
@@ -191,11 +210,42 @@ void PrintPublic(const Target* target, bool display_header) {
     OutputString("  " + public_headers[i].value() + "\n");
 }
 
+void PrintCheckIncludes(const Target* target, bool display_header) {
+  if (display_header)
+    OutputString("\ncheck_includes:\n");
+
+  if (target->check_includes())
+    OutputString("  true\n");
+  else
+    OutputString("  false\n");
+}
+
+void PrintAllowCircularIncludesFrom(const Target* target, bool display_header) {
+  if (display_header)
+    OutputString("\nallow_circular_includes_from:\n");
+
+  Label toolchain_label = target->label().GetToolchainLabel();
+  const std::set<Label>& allow = target->allow_circular_includes_from();
+  for (std::set<Label>::const_iterator iter = allow.begin();
+       iter != allow.end(); ++iter)
+    OutputString("  " + iter->GetUserVisibleName(toolchain_label) + "\n");
+}
+
 void PrintVisibility(const Target* target, bool display_header) {
   if (display_header)
     OutputString("\nvisibility:\n");
 
   OutputString(target->visibility().Describe(2, false));
+}
+
+void PrintTestonly(const Target* target, bool display_header) {
+  if (display_header)
+    OutputString("\ntestonly:\n");
+
+  if (target->testonly())
+    OutputString("  true\n");
+  else
+    OutputString("  false\n");
 }
 
 void PrintConfigsVector(const Target* target,
@@ -216,13 +266,32 @@ void PrintConfigsVector(const Target* target,
   }
 }
 
-void PrintConfigs(const Target* target, bool display_header) {
-  PrintConfigsVector(target, target->configs(), "configs", display_header);
+void PrintConfigsVector(const Target* target,
+                        const UniqueVector<LabelConfigPair>& configs,
+                        const std::string& heading,
+                        bool display_header) {
+  if (configs.empty())
+    return;
+
+  // Don't sort since the order determines how things are processed.
+  if (display_header)
+    OutputString("\n" + heading + " (in order applying):\n");
+
+  Label toolchain_label = target->label().GetToolchainLabel();
+  for (size_t i = 0; i < configs.size(); i++) {
+    OutputString("  " +
+        configs[i].label.GetUserVisibleName(toolchain_label) + "\n");
+  }
 }
 
-void PrintDirectDependentConfigs(const Target* target, bool display_header) {
-  PrintConfigsVector(target, target->direct_dependent_configs(),
-                     "direct_dependent_configs", display_header);
+void PrintConfigs(const Target* target, bool display_header) {
+  PrintConfigsVector(target, target->configs().vector(), "configs",
+                     display_header);
+}
+
+void PrintPublicConfigs(const Target* target, bool display_header) {
+  PrintConfigsVector(target, target->public_configs(),
+                     "public_configs", display_header);
 }
 
 void PrintAllDependentConfigs(const Target* target, bool display_header) {
@@ -257,31 +326,35 @@ void PrintInputs(const Target* target, bool display_header) {
 }
 
 void PrintOutputs(const Target* target, bool display_header) {
+  if (display_header)
+    OutputString("\noutputs:\n");
+
   if (target->output_type() == Target::ACTION) {
-    // Just display the outputs directly.
-    PrintFileList(target->action_values().outputs(), "outputs", false,
-                  display_header);
-  } else if (target->output_type() == Target::ACTION_FOREACH) {
-    // Display both the output pattern and resolved list.
-    if (display_header)
-      OutputString("\noutputs:\n");
-
-    // Display the pattern.
-    OutputString("  Output pattern:\n");
-    PrintFileList(target->action_values().outputs(), "", true, false);
-
-    // Now display what that resolves to given the sources.
-    OutputString("\n  Resolved output file list:\n");
-
-    std::vector<std::string> output_strings;
-    FileTemplate file_template = FileTemplate::GetForTargetOutputs(target);
-    for (size_t i = 0; i < target->sources().size(); i++)
-      file_template.Apply(target->sources()[i], &output_strings);
-
-    std::sort(output_strings.begin(), output_strings.end());
-    for (size_t i = 0; i < output_strings.size(); i++) {
-      OutputString("    " + output_strings[i] + "\n");
+    // Action, print out outputs, don't apply sources to it.
+    for (size_t i = 0; i < target->action_values().outputs().list().size();
+         i++) {
+      OutputString("  " +
+                   target->action_values().outputs().list()[i].AsString() +
+                   "\n");
     }
+  } else {
+    const SubstitutionList& outputs = target->action_values().outputs();
+    if (!outputs.required_types().empty()) {
+      // Display the pattern and resolved pattern separately, since there are
+      // subtitutions used.
+      OutputString("  Output pattern:\n");
+      for (size_t i = 0; i < outputs.list().size(); i++)
+        OutputString("    " + outputs.list()[i].AsString() + "\n");
+
+      // Now display what that resolves to given the sources.
+      OutputString("\n  Resolved output file list:\n");
+    }
+
+    // Resolved output list.
+    std::vector<SourceFile> output_files;
+    SubstitutionWriter::ApplyListToSources(target->settings(), outputs,
+                                           target->sources(), &output_files);
+    PrintFileList(output_files, "", true, false);
   }
 }
 
@@ -294,16 +367,18 @@ void PrintScript(const Target* target, bool display_header) {
 void PrintArgs(const Target* target, bool display_header) {
   if (display_header)
     OutputString("\nargs:\n");
-  for (size_t i = 0; i < target->action_values().args().size(); i++)
-    OutputString("  " + target->action_values().args()[i] + "\n");
+  for (size_t i = 0; i < target->action_values().args().list().size(); i++) {
+    OutputString("  " +
+                 target->action_values().args().list()[i].AsString() + "\n");
+  }
 }
 
 void PrintDepfile(const Target* target, bool display_header) {
-  if (target->action_values().depfile().value().empty())
+  if (target->action_values().depfile().empty())
     return;
   if (display_header)
     OutputString("\ndepfile:\n");
-  OutputString("  " + target->action_values().depfile().value() + "\n");
+  OutputString("  " + target->action_values().depfile().AsString() + "\n");
 }
 
 // Attribute the origin for attributing from where a target came from. Does
@@ -376,8 +451,12 @@ const char kDesc[] = "desc";
 const char kDesc_HelpShort[] =
     "desc: Show lots of insightful information about a target.";
 const char kDesc_Help[] =
-    "gn desc <target label> [<what to show>] [--blame] [--all | --tree]\n"
-    "  Displays information about a given labeled target.\n"
+    "gn desc <out_dir> <target label> [<what to show>]\n"
+    "        [--blame] [--all | --tree]\n"
+    "\n"
+    "  Displays information about a given labeled target for the given build.\n"
+    "  The build parameters will be taken for the build in the given\n"
+    "  <out_dir>.\n"
     "\n"
     "Possibilities for <what to show>:\n"
     "  (If unspecified an overall summary will be displayed.)\n"
@@ -391,8 +470,17 @@ const char kDesc_Help[] =
     "  public\n"
     "      Public header files.\n"
     "\n"
+    "  check_includes\n"
+    "      Whether \"gn check\" checks this target for include usage.\n"
+    "\n"
+    "  allow_circular_includes_from\n"
+    "      Permit includes from these targets.\n"
+    "\n"
     "  visibility\n"
     "      Prints which targets can depend on this one.\n"
+    "\n"
+    "  testonly\n"
+    "      Whether this target may only be used in tests.\n"
     "\n"
     "  configs\n"
     "      Shows configs applied to the given target, sorted in the order\n"
@@ -404,10 +492,12 @@ const char kDesc_Help[] =
     "  deps [--all | --tree]\n"
     "      Show immediate (or, when \"--all\" or \"--tree\" is specified,\n"
     "      recursive) dependencies of the given target. \"--tree\" shows them\n"
-    "      in a tree format.  Otherwise, they will be sorted alphabetically.\n"
-    "      Both \"deps\" and \"datadeps\" will be included.\n"
+    "      in a tree format with duplicates elided (noted by \"...\").\n"
+    "      \"--all\" shows them sorted alphabetically. Using both flags will\n"
+    "      print a tree with no omissions. The \"deps\", \"public_deps\", and\n"
+    "      \"data_deps\" will all be included.\n"
     "\n"
-    "  direct_dependent_configs\n"
+    "  public_configs\n"
     "  all_dependent_configs\n"
     "      Shows the labels of configs applied to targets that depend on this\n"
     "      one (either directly or all of them).\n"
@@ -449,14 +539,14 @@ const char kDesc_Help[] =
     "  mean the same thing).\n"
     "\n"
     "Examples:\n"
-    "  gn desc //base:base\n"
+    "  gn desc out/Debug //base:base\n"
     "      Summarizes the given target.\n"
     "\n"
-    "  gn desc :base_unittests deps --tree\n"
+    "  gn desc out/Foo :base_unittests deps --tree\n"
     "      Shows a dependency tree of the \"base_unittests\" project in\n"
     "      the current directory.\n"
     "\n"
-    "  gn desc //base defines --blame\n"
+    "  gn desc out/Debug //base defines --blame\n"
     "      Shows defines set for the //base:base target, annotated by where\n"
     "      each one was set from.\n";
 
@@ -464,51 +554,65 @@ const char kDesc_Help[] =
     OutputRecursiveTargetConfig<type>(target, #name, &ConfigValues::name);
 
 int RunDesc(const std::vector<std::string>& args) {
-  if (args.size() != 1 && args.size() != 2) {
+  if (args.size() != 2 && args.size() != 3) {
     Err(Location(), "You're holding it wrong.",
-        "Usage: \"gn desc <target_name> <what to display>\"").PrintToStdout();
+        "Usage: \"gn desc <out_dir> <target_name> [<what to display>]\"")
+        .PrintToStdout();
     return 1;
   }
 
-  const Target* target = GetTargetForDesc(args);
+  // Deliberately leaked to avoid expensive process teardown.
+  Setup* setup = new Setup;
+  if (!setup->DoSetup(args[0], false))
+    return 1;
+  if (!setup->Run())
+    return 1;
+
+  const Target* target = ResolveTargetFromCommandLineString(setup, args[1]);
   if (!target)
     return 1;
 
 #define CONFIG_VALUE_HANDLER(name, type) \
     } else if (what == #name) { OUTPUT_CONFIG_VALUE(name, type)
 
-  if (args.size() == 2) {
+  if (args.size() == 3) {
     // User specified one thing to display.
-    const std::string& what = args[1];
-    if (what == "configs") {
+    const std::string& what = args[2];
+    if (what == variables::kConfigs) {
       PrintConfigs(target, false);
-    } else if (what == "direct_dependent_configs") {
-      PrintDirectDependentConfigs(target, false);
-    } else if (what == "all_dependent_configs") {
+    } else if (what == variables::kPublicConfigs) {
+      PrintPublicConfigs(target, false);
+    } else if (what == variables::kAllDependentConfigs) {
       PrintAllDependentConfigs(target, false);
-    } else if (what == "forward_dependent_configs_from") {
+    } else if (what == variables::kForwardDependentConfigsFrom) {
       PrintForwardDependentConfigsFrom(target, false);
-    } else if (what == "sources") {
+    } else if (what == variables::kSources) {
       PrintSources(target, false);
-    } else if (what == "public") {
+    } else if (what == variables::kPublic) {
       PrintPublic(target, false);
-    } else if (what == "visibility") {
+    } else if (what == variables::kCheckIncludes) {
+      PrintCheckIncludes(target, false);
+    } else if (what == variables::kAllowCircularIncludesFrom) {
+      PrintAllowCircularIncludesFrom(target, false);
+    } else if (what == variables::kVisibility) {
       PrintVisibility(target, false);
-    } else if (what == "inputs") {
+    } else if (what == variables::kTestonly) {
+      PrintTestonly(target, false);
+    } else if (what == variables::kInputs) {
       PrintInputs(target, false);
-    } else if (what == "script") {
+    } else if (what == variables::kScript) {
       PrintScript(target, false);
-    } else if (what == "args") {
+    } else if (what == variables::kArgs) {
       PrintArgs(target, false);
-    } else if (what == "depfile") {
+    } else if (what == variables::kDepfile) {
       PrintDepfile(target, false);
-    } else if (what == "outputs") {
+    } else if (what == variables::kOutputs) {
       PrintOutputs(target, false);
-    } else if (what == "deps") {
+    } else if (what == variables::kDeps) {
       PrintDeps(target, false);
-    } else if (what == "lib_dirs") {
+    } else if (what == variables::kLibDirs) {
       PrintLibDirs(target, false);
-    } else if (what == "libs") {
+    } else if (what == variables::kLibs) {
       PrintLibs(target, false);
 
     CONFIG_VALUE_HANDLER(defines, std::string)
@@ -553,13 +657,18 @@ int RunDesc(const std::vector<std::string>& args) {
   OutputString(target_toolchain.GetUserVisibleName(false) + "\n");
 
   PrintSources(target, true);
-  if (is_binary_output)
+  if (is_binary_output) {
     PrintPublic(target, true);
+    PrintCheckIncludes(target, true);
+    PrintAllowCircularIncludesFrom(target, true);
+  }
   PrintVisibility(target, true);
-  if (is_binary_output)
+  if (is_binary_output) {
+    PrintTestonly(target, true);
     PrintConfigs(target, true);
+  }
 
-  PrintDirectDependentConfigs(target, true);
+  PrintPublicConfigs(target, true);
   PrintAllDependentConfigs(target, true);
   PrintForwardDependentConfigsFrom(target, true);
 

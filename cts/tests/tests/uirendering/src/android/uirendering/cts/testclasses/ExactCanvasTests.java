@@ -16,8 +16,6 @@
 
 package android.uirendering.cts.testclasses;
 
-import com.android.cts.uirendering.R;
-
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -31,15 +29,14 @@ import android.uirendering.cts.bitmapverifiers.BitmapVerifier;
 import android.uirendering.cts.bitmapverifiers.RectVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.CanvasClient;
-import android.uirendering.cts.testinfrastructure.ViewInitializer;
-import android.view.View;
+import com.android.cts.uirendering.R;
 
 public class ExactCanvasTests extends ActivityTestBase {
     private final BitmapComparer mExactComparer = new ExactComparer();
 
     @SmallTest
     public void testBlueRect() {
-        final Rect rect = new Rect(10, 10, 100, 100);
+        final Rect rect = new Rect(10, 10, 80, 80);
         createTest()
                 .addCanvasClient(new CanvasClient() {
                     @Override
@@ -61,8 +58,6 @@ public class ExactCanvasTests extends ActivityTestBase {
                     public void draw(Canvas canvas, int width, int height) {
                         Paint p = new Paint();
                         p.setAntiAlias(false);
-                        p.setColor(Color.WHITE);
-                        canvas.drawRect(0, 0, 100, 100, p);
                         p.setStrokeWidth(1f);
                         p.setColor(Color.BLACK);
                         for (int i = 0; i < 10; i++) {
@@ -84,8 +79,8 @@ public class ExactCanvasTests extends ActivityTestBase {
                         canvas.drawRect(0, 0, ActivityTestBase.TEST_WIDTH,
                                 ActivityTestBase.TEST_HEIGHT, p);
                         p.setColor(Color.BLACK);
-                        p.setStrokeWidth(10);
-                        canvas.drawRect(10, 10, 20, 20, p);
+                        p.setStrokeWidth(5);
+                        canvas.drawRect(10, 10, 80, 80, p);
                     }
                 })
                 .runWithComparer(mExactComparer);
@@ -97,10 +92,8 @@ public class ExactCanvasTests extends ActivityTestBase {
                 .addCanvasClient(new CanvasClient() {
                     @Override
                     public void draw(Canvas canvas, int width, int height) {
+                        canvas.drawColor(Color.GREEN);
                         Paint p = new Paint();
-                        p.setColor(Color.GREEN);
-                        canvas.drawRect(0, 0, ActivityTestBase.TEST_WIDTH,
-                                ActivityTestBase.TEST_HEIGHT, p);
                         p.setColor(Color.BLACK);
                         p.setStrokeWidth(10);
                         canvas.drawLine(0, 0, 50, 0, p);
@@ -134,7 +127,7 @@ public class ExactCanvasTests extends ActivityTestBase {
                         canvas.drawColor(Color.WHITE);
                         p.setColor(Color.BLACK);
                         float[] pts = {
-                                0, 0, 100, 100, 100, 0, 0, 100, 50, 50, 75, 75
+                                0, 0, 80, 80, 80, 0, 0, 80, 40, 50, 60, 50
                         };
                         canvas.drawLines(pts, p);
                     }
@@ -188,10 +181,10 @@ public class ExactCanvasTests extends ActivityTestBase {
     public void testBluePaddedSquare() {
         final NinePatchDrawable ninePatchDrawable = (NinePatchDrawable)
             getActivity().getResources().getDrawable(R.drawable.blue_padded_square);
-        ninePatchDrawable.setBounds(0, 0, 100, 100);
+        ninePatchDrawable.setBounds(0, 0, 90, 90);
 
         BitmapVerifier verifier = new RectVerifier(Color.WHITE, Color.BLUE,
-                new Rect(10, 10, 90, 90));
+                new Rect(10, 10, 80, 80));
 
         createTest()
                 .addCanvasClient(new CanvasClient() {
@@ -200,7 +193,7 @@ public class ExactCanvasTests extends ActivityTestBase {
                         canvas.drawColor(Color.WHITE);
                         Paint p = new Paint();
                         p.setColor(Color.BLUE);
-                        canvas.drawRect(10, 10, 90, 90, p);
+                        canvas.drawRect(10, 10, 80, 80, p);
                     }
                 })
                 .addCanvasClient(new CanvasClient() {
@@ -211,15 +204,5 @@ public class ExactCanvasTests extends ActivityTestBase {
                 })
                 .addLayout(R.layout.blue_padded_square, null)
                 .runWithVerifier(verifier);
-    }
-
-    @SmallTest
-    public void testClipping() {
-        createTest().addLayout(R.layout.simple_red_layout, new ViewInitializer() {
-            @Override
-            public void intializeView(View view) {
-                view.setClipBounds(new Rect(0, 0, 50, 50));
-            }
-        }).runWithComparer(mExactComparer);
     }
 }

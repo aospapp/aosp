@@ -55,12 +55,12 @@
 #include "ui/base/l10n/time_format.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
 #include "chrome/browser/chromeos/policy/device_cloud_policy_manager_chromeos.h"
 #include "chrome/browser/chromeos/policy/device_local_account_policy_service.h"
 #include "chrome/browser/chromeos/policy/user_cloud_policy_manager_chromeos.h"
 #include "chrome/browser/chromeos/policy/user_cloud_policy_manager_factory_chromeos.h"
+#include "components/user_manager/user_manager.h"
 #else
 #include "chrome/browser/policy/cloud/user_cloud_policy_manager_factory.h"
 #include "components/policy/core/common/cloud/user_cloud_policy_manager.h"
@@ -536,7 +536,8 @@ void PolicyUIHandler::RegisterMessages() {
   if (connector->IsEnterpriseManaged())
     device_status_provider_.reset(new DevicePolicyStatusProvider(connector));
 
-  const chromeos::UserManager* user_manager = chromeos::UserManager::Get();
+  const user_manager::UserManager* user_manager =
+      user_manager::UserManager::Get();
   if (user_manager->IsLoggedInAsPublicAccount()) {
     policy::DeviceLocalAccountPolicyService* local_account_service =
         connector->GetDeviceLocalAccountPolicyService();
@@ -577,10 +578,10 @@ void PolicyUIHandler::RegisterMessages() {
   GetPolicyService()->AddObserver(policy::POLICY_DOMAIN_EXTENSIONS, this);
 
   registrar_.Add(this,
-                 chrome::NOTIFICATION_EXTENSION_LOADED_DEPRECATED,
+                 extensions::NOTIFICATION_EXTENSION_LOADED_DEPRECATED,
                  content::NotificationService::AllSources());
   registrar_.Add(this,
-                 chrome::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED,
+                 extensions::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED,
                  content::NotificationService::AllSources());
 
   web_ui()->RegisterMessageCallback(
@@ -595,8 +596,8 @@ void PolicyUIHandler::RegisterMessages() {
 void PolicyUIHandler::Observe(int type,
                               const content::NotificationSource& source,
                               const content::NotificationDetails& details) {
-  DCHECK(type == chrome::NOTIFICATION_EXTENSION_LOADED_DEPRECATED ||
-         type == chrome::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED);
+  DCHECK(type == extensions::NOTIFICATION_EXTENSION_LOADED_DEPRECATED ||
+         type == extensions::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED);
   SendPolicyNames();
   SendPolicyValues();
 }

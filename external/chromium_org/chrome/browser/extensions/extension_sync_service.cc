@@ -28,6 +28,7 @@
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_util.h"
+#include "extensions/browser/uninstall_reason.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_icon_set.h"
 #include "extensions/common/feature_switch.h"
@@ -449,7 +450,8 @@ bool ExtensionSyncService::ProcessExtensionSyncDataHelper(
 
   // Handle uninstalls first.
   if (extension_sync_data.uninstalled()) {
-    if (!extension_service_->UninstallExtensionHelper(extension_service_, id)) {
+    if (!extension_service_->UninstallExtensionHelper(
+            extension_service_, id, extensions::UNINSTALL_REASON_SYNC)) {
       LOG(WARNING) << "Could not uninstall extension " << id
                    << " for sync";
     }
@@ -525,7 +527,8 @@ bool ExtensionSyncService::ProcessExtensionSyncDataHelper(
             extension_sync_data.update_url(),
             filter,
             kInstallSilently,
-            extension_sync_data.remote_install())) {
+            extension_sync_data.remote_install(),
+            extension_sync_data.installed_by_custodian())) {
       LOG(WARNING) << "Could not add pending extension for " << id;
       // This means that the extension is already pending installation, with a
       // non-INTERNAL location.  Add to pending_sync_data, even though it will

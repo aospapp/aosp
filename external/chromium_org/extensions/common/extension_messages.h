@@ -20,10 +20,13 @@
 #include "extensions/common/permissions/permission_set.h"
 #include "extensions/common/permissions/socket_permission_data.h"
 #include "extensions/common/permissions/usb_device_permission_data.h"
+#include "extensions/common/stack_frame.h"
 #include "extensions/common/url_pattern.h"
 #include "extensions/common/url_pattern_set.h"
+#include "extensions/common/user_script.h"
 #include "extensions/common/view_type.h"
 #include "ipc/ipc_message_macros.h"
+#include "ui/gfx/ipc/gfx_param_traits.h"
 #include "url/gurl.h"
 
 #define IPC_MESSAGE_START ExtensionMsgStart
@@ -31,6 +34,9 @@
 IPC_ENUM_TRAITS_MAX_VALUE(extensions::ViewType, extensions::VIEW_TYPE_LAST)
 IPC_ENUM_TRAITS_MAX_VALUE(content::SocketPermissionRequest::OperationType,
                           content::SocketPermissionRequest::OPERATION_TYPE_LAST)
+
+IPC_ENUM_TRAITS_MAX_VALUE(extensions::UserScript::InjectionType,
+                          extensions::UserScript::INJECTION_TYPE_LAST)
 
 // Parameters structure for ExtensionHostMsg_AddAPIActionToActivityLog and
 // ExtensionHostMsg_AddEventToActivityLog.
@@ -155,16 +161,6 @@ IPC_STRUCT_BEGIN(ExtensionMsg_ExternalConnectionInfo)
   IPC_STRUCT_MEMBER(GURL, source_url)
 IPC_STRUCT_END()
 
-// Parameters structure for ExtensionMsg_UpdatePermissions.
-IPC_STRUCT_BEGIN(ExtensionMsg_UpdatePermissions_Params)
-  IPC_STRUCT_MEMBER(int /* UpdateExtensionPermissionsInfo::REASON */, reason_id)
-  IPC_STRUCT_MEMBER(std::string, extension_id)
-  IPC_STRUCT_MEMBER(extensions::APIPermissionSet, apis)
-  IPC_STRUCT_MEMBER(extensions::ManifestPermissionSet, manifest_permissions)
-  IPC_STRUCT_MEMBER(extensions::URLPatternSet, explicit_hosts)
-  IPC_STRUCT_MEMBER(extensions::URLPatternSet, scriptable_hosts)
-IPC_STRUCT_END()
-
 IPC_STRUCT_TRAITS_BEGIN(extensions::DraggableRegion)
   IPC_STRUCT_TRAITS_MEMBER(draggable)
   IPC_STRUCT_TRAITS_MEMBER(bounds)
@@ -183,6 +179,13 @@ IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(extensions::SocketPermissionData)
   IPC_STRUCT_TRAITS_MEMBER(entry())
+IPC_STRUCT_TRAITS_END()
+
+IPC_STRUCT_TRAITS_BEGIN(extensions::StackFrame)
+  IPC_STRUCT_TRAITS_MEMBER(line_number)
+  IPC_STRUCT_TRAITS_MEMBER(column_number)
+  IPC_STRUCT_TRAITS_MEMBER(source)
+  IPC_STRUCT_TRAITS_MEMBER(function)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(extensions::UsbDevicePermissionData)
@@ -211,6 +214,20 @@ typedef std::map<std::string, std::string> SubstitutionMap;
 // Map of extensions IDs to the executing script paths.
 typedef std::map<std::string, std::set<std::string> > ExecutingScriptsMap;
 
+struct ExtensionMsg_PermissionSetStruct {
+  ExtensionMsg_PermissionSetStruct();
+  explicit ExtensionMsg_PermissionSetStruct(
+      const extensions::PermissionSet& permissions);
+  ~ExtensionMsg_PermissionSetStruct();
+
+  scoped_refptr<const extensions::PermissionSet> ToPermissionSet() const;
+
+  extensions::APIPermissionSet apis;
+  extensions::ManifestPermissionSet manifest_permissions;
+  extensions::URLPatternSet explicit_hosts;
+  extensions::URLPatternSet scriptable_hosts;
+};
+
 struct ExtensionMsg_Loaded_Params {
   ExtensionMsg_Loaded_Params();
   ~ExtensionMsg_Loaded_Params();
@@ -230,11 +247,9 @@ struct ExtensionMsg_Loaded_Params {
   // to generate the extension ID for extensions that are loaded unpacked.
   base::FilePath path;
 
-  // The extension's active permissions.
-  extensions::APIPermissionSet apis;
-  extensions::ManifestPermissionSet manifest_permissions;
-  extensions::URLPatternSet explicit_hosts;
-  extensions::URLPatternSet scriptable_hosts;
+  // The extension's active and withheld permissions.
+  ExtensionMsg_PermissionSetStruct active_permissions;
+  ExtensionMsg_PermissionSetStruct withheld_permissions;
 
   // We keep this separate so that it can be used in logging.
   std::string id;
@@ -286,6 +301,14 @@ struct ParamTraits<extensions::ManifestPermissionSet> {
 };
 
 template <>
+struct ParamTraits<ExtensionMsg_PermissionSetStruct> {
+  typedef ExtensionMsg_PermissionSetStruct param_type;
+  static void Write(Message* m, const param_type& p);
+  static bool Read(const Message* m, PickleIterator* iter, param_type* p);
+  static void Log(const param_type& p, std::string* l);
+};
+
+template <>
 struct ParamTraits<ExtensionMsg_Loaded_Params> {
   typedef ExtensionMsg_Loaded_Params param_type;
   static void Write(Message* m, const param_type& p);
@@ -296,6 +319,13 @@ struct ParamTraits<ExtensionMsg_Loaded_Params> {
 }  // namespace IPC
 
 #endif  // EXTENSIONS_COMMON_EXTENSION_MESSAGES_H_
+
+// Parameters structure for ExtensionMsg_UpdatePermissions.
+IPC_STRUCT_BEGIN(ExtensionMsg_UpdatePermissions_Params)
+  IPC_STRUCT_MEMBER(std::string, extension_id)
+  IPC_STRUCT_MEMBER(ExtensionMsg_PermissionSetStruct, active_permissions)
+  IPC_STRUCT_MEMBER(ExtensionMsg_PermissionSetStruct, withheld_permissions)
+IPC_STRUCT_END()
 
 // Messages sent from the browser to the renderer.
 
@@ -326,6 +356,10 @@ IPC_MESSAGE_ROUTED5(ExtensionMsg_MessageInvoke,
 // Tell the renderer process all known extension function names.
 IPC_MESSAGE_CONTROL1(ExtensionMsg_SetFunctionNames,
                      std::vector<std::string>)
+
+// Set the top-level frame to the provided name.
+IPC_MESSAGE_ROUTED1(ExtensionMsg_SetFrameName,
+                    std::string /* frame_name */)
 
 // Tell the renderer process the platforms system font.
 IPC_MESSAGE_CONTROL2(ExtensionMsg_SetSystemFont,
@@ -359,11 +393,25 @@ IPC_MESSAGE_ROUTED1(ExtensionMsg_ExecuteCode,
 // Notification that the user scripts have been updated. It has one
 // SharedMemoryHandle argument consisting of the pickled script data. This
 // handle is valid in the context of the renderer.
+// If |owner| is not empty, then the shared memory handle refers to |owner|'s
+// programmatically-defined scripts. Otherwise, the handle refers to all
+// extensions' statically defined scripts.
 // If |changed_extensions| is not empty, only the extensions in that set will
-// be updated. Otherwise, all extensions will be updated.
-IPC_MESSAGE_CONTROL2(ExtensionMsg_UpdateUserScripts,
+// be updated. Otherwise, all extensions that have scripts in the shared memory
+// region will be updated. Note that the empty set => all extensions case is not
+// supported for per-extension programmatically-defined script regions; in such
+// regions, the owner is expected to list itself as the only changed extension.
+IPC_MESSAGE_CONTROL3(ExtensionMsg_UpdateUserScripts,
                      base::SharedMemoryHandle,
+                     extensions::ExtensionId /* owner */,
                      std::set<std::string> /* changed extensions */)
+
+// Trigger to execute declarative content script under browser control.
+IPC_MESSAGE_ROUTED4(ExtensionMsg_ExecuteDeclarativeScript,
+                    int /* tab identifier */,
+                    extensions::ExtensionId /* extension identifier */,
+                    int /* script identifier */,
+                    GURL /* page URL where script should be injected */)
 
 // Tell the render view which browser window it's being attached to.
 IPC_MESSAGE_ROUTED1(ExtensionMsg_UpdateBrowserWindowId,
@@ -379,7 +427,7 @@ IPC_MESSAGE_CONTROL1(ExtensionMsg_UpdatePermissions,
 
 // Tell the renderer about new tab-specific permissions for an extension.
 IPC_MESSAGE_CONTROL4(ExtensionMsg_UpdateTabSpecificPermissions,
-                     int32 /* page_id (only relevant for the target tab) */,
+                     GURL /* url */,
                      int /* tab_id */,
                      std::string /* extension_id */,
                      extensions::URLPatternSet /* hosts */)
@@ -402,7 +450,7 @@ IPC_MESSAGE_CONTROL1(ExtensionMsg_UsingWebRequestAPI,
 // sequence_id so that we can tell which message it is responding to.
 IPC_MESSAGE_CONTROL2(ExtensionMsg_ShouldSuspend,
                      std::string /* extension_id */,
-                     int /* sequence_id */)
+                     uint64 /* sequence_id */)
 
 // If we complete a round of ShouldSuspend->ShouldSuspendAck messages without
 // the lazy background page becoming active again, we are ready to unload. This
@@ -464,6 +512,16 @@ IPC_MESSAGE_CONTROL1(ExtensionMsg_WatchPages,
 IPC_MESSAGE_CONTROL1(ExtensionMsg_TransferBlobs,
                      std::vector<std::string> /* blob_uuids */)
 
+// The ACK for ExtensionHostMsg_CreateMimeHandlerViewGuest.
+IPC_MESSAGE_CONTROL1(ExtensionMsg_CreateMimeHandlerViewGuestACK,
+                     int /* element_instance_id */)
+
+// Once a RenderView proxy has been created for the guest in the embedder render
+// process, this IPC informs the embedder of the proxy's routing ID.
+IPC_MESSAGE_ROUTED2(ExtensionMsg_GuestAttached,
+                    int /* element_instance_id */,
+                    int /* source_routing_id */)
+
 // Messages sent from the renderer to the browser.
 
 // A renderer sends this message when an extension process starts an API
@@ -478,14 +536,16 @@ IPC_MESSAGE_CONTROL2(ExtensionHostMsg_RequestForIOThread,
                      ExtensionHostMsg_Request_Params)
 
 // Notify the browser that the given extension added a listener to an event.
-IPC_MESSAGE_CONTROL2(ExtensionHostMsg_AddListener,
+IPC_MESSAGE_CONTROL3(ExtensionHostMsg_AddListener,
                      std::string /* extension_id */,
+                     GURL /* listener_url */,
                      std::string /* name */)
 
 // Notify the browser that the given extension removed a listener from an
 // event.
-IPC_MESSAGE_CONTROL2(ExtensionHostMsg_RemoveListener,
+IPC_MESSAGE_CONTROL3(ExtensionHostMsg_RemoveListener,
                      std::string /* extension_id */,
+                     GURL /* listener_url */,
                      std::string /* name */)
 
 // Notify the browser that the given extension added a listener to an event from
@@ -563,39 +623,34 @@ IPC_SYNC_MESSAGE_CONTROL1_1(ExtensionHostMsg_GetMessageBundle,
                             SubstitutionMap /* message bundle */)
 
 // Sent from the renderer to the browser to return the script running result.
-IPC_MESSAGE_ROUTED5(
+IPC_MESSAGE_ROUTED4(
     ExtensionHostMsg_ExecuteCodeFinished,
     int /* request id */,
     std::string /* error; empty implies success */,
-    int32 /* page_id the code executed on.  May be -1 if unsuccessful */,
     GURL /* URL of the code executed on. May be empty if unsuccessful. */,
     base::ListValue /* result of the script */)
 
 // Sent from the renderer to the browser to notify that content scripts are
 // running in the renderer that the IPC originated from.
-// Note that the page_id is for the parent (or more accurately the topmost)
-// frame (e.g. if executing in an iframe this is the page ID of the parent,
-// unless the parent is an iframe... etc).
-IPC_MESSAGE_ROUTED3(ExtensionHostMsg_ContentScriptsExecuting,
+IPC_MESSAGE_ROUTED2(ExtensionHostMsg_ContentScriptsExecuting,
                     ExecutingScriptsMap,
-                    int32 /* page_id of the _topmost_ frame */,
                     GURL /* url of the _topmost_ frame */)
 
-// Sent from the renderer to the browser to request permission for a content
-// script to execute on a given page.
+// Sent from the renderer to the browser to request permission for a script
+// injection.
 // If request id is -1, this signals that the request has already ran, and this
 // merely serves as a notification. This happens when the feature to disable
 // scripts running without user consent is not enabled.
-IPC_MESSAGE_ROUTED3(ExtensionHostMsg_RequestContentScriptPermission,
+IPC_MESSAGE_ROUTED3(ExtensionHostMsg_RequestScriptInjectionPermission,
                     std::string /* extension id */,
-                    int /* page id */,
-                    int /* request id */)
+                    extensions::UserScript::InjectionType /* script type */,
+                    int64 /* request id */)
 
 // Sent from the browser to the renderer in reply to a
-// RequestContentScriptPermission message, granting permission for a content
+// RequestScriptInjectionPermission message, granting permission for a script
 // script to run.
-IPC_MESSAGE_ROUTED1(ExtensionMsg_GrantContentScriptPermission,
-                    int /* request id */)
+IPC_MESSAGE_ROUTED1(ExtensionMsg_PermitScriptInjection,
+                    int64 /* request id */)
 
 // Sent by the renderer when a web page is checking if its app is installed.
 IPC_MESSAGE_ROUTED3(ExtensionHostMsg_GetAppInstallState,
@@ -611,7 +666,7 @@ IPC_MESSAGE_ROUTED1(ExtensionHostMsg_ResponseAck,
 // Response to ExtensionMsg_ShouldSuspend.
 IPC_MESSAGE_CONTROL2(ExtensionHostMsg_ShouldSuspendAck,
                      std::string /* extension_id */,
-                     int /* sequence_id */)
+                     uint64 /* sequence_id */)
 
 // Response to ExtensionMsg_Suspend, after we dispatch the suspend event.
 IPC_MESSAGE_CONTROL1(ExtensionHostMsg_SuspendAck,
@@ -667,3 +722,31 @@ IPC_MESSAGE_ROUTED1(ExtensionHostMsg_OnWatchedPageChange,
 // Sent by the renderer when it has received a Blob handle from the browser.
 IPC_MESSAGE_CONTROL1(ExtensionHostMsg_TransferBlobsAck,
                      std::vector<std::string> /* blob_uuids */)
+
+// Informs of updated frame names.
+IPC_MESSAGE_ROUTED2(ExtensionHostMsg_FrameNameChanged,
+                    bool /* is_top_level */,
+                    std::string /* name */)
+
+// Tells listeners that a detailed message was reported to the console by
+// WebKit.
+IPC_MESSAGE_ROUTED4(ExtensionHostMsg_DetailedConsoleMessageAdded,
+                    base::string16 /* message */,
+                    base::string16 /* source */,
+                    extensions::StackTrace /* stack trace */,
+                    int32 /* severity level */)
+
+// Sent by the renderer to set initialization parameters of a Browser Plugin
+// that is identified by |element_instance_id|.
+IPC_MESSAGE_CONTROL4(ExtensionHostMsg_AttachGuest,
+                     int /* routing_id */,
+                     int /* element_instance_id */,
+                     int /* guest_instance_id */,
+                     base::DictionaryValue /* attach_params */)
+
+// Tells the browser to create a mime handler guest view for a plugin.
+IPC_MESSAGE_CONTROL4(ExtensionHostMsg_CreateMimeHandlerViewGuest,
+                     int /* render_frame_id */,
+                     std::string /* embedder_url */,
+                     std::string /* mime_type */,
+                     int /* element_instance_id */)

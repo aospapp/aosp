@@ -17,6 +17,12 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "content/browser/appcache/appcache.h"
+#include "content/browser/appcache/appcache_group.h"
+#include "content/browser/appcache/appcache_policy.h"
+#include "content/browser/appcache/appcache_response.h"
+#include "content/browser/appcache/appcache_service_impl.h"
+#include "content/browser/appcache/appcache_storage.h"
 #include "net/base/escape.h"
 #include "net/base/io_buffer.h"
 #include "net/base/net_errors.h"
@@ -24,24 +30,6 @@
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_simple_job.h"
 #include "net/url_request/view_cache_helper.h"
-#include "webkit/browser/appcache/appcache.h"
-#include "webkit/browser/appcache/appcache_group.h"
-#include "webkit/browser/appcache/appcache_policy.h"
-#include "webkit/browser/appcache/appcache_response.h"
-#include "webkit/browser/appcache/appcache_service_impl.h"
-#include "webkit/browser/appcache/appcache_storage.h"
-
-using appcache::AppCacheGroup;
-using appcache::AppCacheInfo;
-using appcache::AppCacheInfoCollection;
-using appcache::AppCacheInfoVector;
-using appcache::AppCacheServiceImpl;
-using appcache::AppCacheStorage;
-using appcache::AppCacheStorageReference;
-using appcache::AppCacheResourceInfo;
-using appcache::AppCacheResourceInfoVector;
-using appcache::AppCacheResponseInfo;
-using appcache::AppCacheResponseReader;
 
 namespace content {
 namespace {
@@ -664,8 +652,8 @@ net::URLRequestJob* ViewAppCacheInternalsJobFactory::CreateJobForRequest(
                                DecodeBase64URL(param));
 
   std::vector<std::string> tokens;
-  int64 response_id;
-  int64 group_id;
+  int64 response_id = 0;
+  int64 group_id = 0;
   if (command == kViewEntryCommand && Tokenize(param, "|", &tokens) == 4u &&
       base::StringToInt64(tokens[2], &response_id) &&
       base::StringToInt64(tokens[3], &group_id)) {

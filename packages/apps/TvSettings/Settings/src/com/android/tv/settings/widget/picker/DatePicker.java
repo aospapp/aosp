@@ -105,7 +105,7 @@ public class DatePicker extends Picker {
     private void initYearsArray(int startYear, int yearRange) {
         mYears = new String[yearRange];
         for (int i = 0; i < yearRange; i++) {
-            mYears[i] = String.valueOf(startYear + i);
+            mYears[i] = String.format("%d", startYear + i);
         }
     }
 

@@ -7,9 +7,9 @@
 
 #include <string>
 
-#include "chrome/browser/autocomplete/autocomplete_input.h"
-#include "chrome/browser/autocomplete/autocomplete_match.h"
-#include "chrome/browser/autocomplete/autocomplete_provider.h"
+#include "components/omnibox/autocomplete_input.h"
+#include "components/omnibox/autocomplete_match.h"
+#include "components/omnibox/autocomplete_provider.h"
 #include "components/query_parser/snippet.h"
 
 class BookmarkModel;
@@ -29,7 +29,7 @@ struct BookmarkMatch;
 // and visit counts and last visit dates, etc. into consideration while scoring.
 class BookmarkProvider : public AutocompleteProvider {
  public:
-  BookmarkProvider(AutocompleteProviderListener* listener, Profile* profile);
+  explicit BookmarkProvider(Profile* profile);
 
   // When |minimal_changes| is true short circuit any additional searching and
   // leave the previous matches for this provider unchanged, otherwise perform
@@ -70,10 +70,8 @@ class BookmarkProvider : public AutocompleteProvider {
       size_t text_length,
       bool is_url);
 
+  Profile* profile_;
   BookmarkModel* bookmark_model_;
-
-  // True if we should use matches in the URL for scoring.
-  const bool score_using_url_matches_;
 
   // Languages used during the URL formatting.
   std::string languages_;

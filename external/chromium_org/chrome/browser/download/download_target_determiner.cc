@@ -12,20 +12,23 @@
 #include "chrome/browser/download/download_crx_util.h"
 #include "chrome/browser/download/download_extensions.h"
 #include "chrome/browser/download/download_prefs.h"
-#include "chrome/browser/extensions/webstore_installer.h"
 #include "chrome/browser/history/history_service.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/download_interrupt_reasons.h"
 #include "extensions/common/constants.h"
-#include "extensions/common/feature_switch.h"
-#include "grit/generated_resources.h"
 #include "net/base/filename_util.h"
 #include "net/base/mime_util.h"
 #include "ui/base/l10n/l10n_util.h"
+
+#if defined(ENABLE_EXTENSIONS)
+#include "chrome/browser/extensions/webstore_installer.h"
+#include "extensions/common/feature_switch.h"
+#endif
 
 #if defined(ENABLE_PLUGINS)
 #include "chrome/browser/plugins/plugin_prefs.h"
@@ -51,7 +54,6 @@ const base::FilePath::CharType kCrdownloadSuffix[] =
 // midnight.
 void VisitCountsToVisitedBefore(
     const base::Callback<void(bool)>& callback,
-    HistoryService::Handle unused_handle,
     bool found_visits,
     int count,
     base::Time first_visit) {
@@ -87,6 +89,7 @@ DownloadTargetDeterminer::DownloadTargetDeterminer(
       create_target_directory_(false),
       conflict_action_(DownloadPathReservationTracker::OVERWRITE),
       danger_type_(download->GetDangerType()),
+      is_dangerous_file_(false),
       virtual_path_(initial_virtual_path),
       is_filetype_handled_safely_(false),
       download_(download),
@@ -517,8 +520,10 @@ DownloadTargetDeterminer::Result
 #if defined(OS_WIN)
   if (!local_path_.MatchesExtension(FILE_PATH_LITERAL(".pdf")))
     return CONTINUE;
-  if (!IsAdobeReaderDefaultPDFViewer())
+  if (!IsAdobeReaderDefaultPDFViewer()) {
+    g_is_adobe_reader_up_to_date_ = false;
     return CONTINUE;
+  }
 
   base::PostTaskAndReplyWithResult(
       BrowserThread::GetBlockingPool(),
@@ -572,10 +577,9 @@ DownloadTargetDeterminer::Result
   next_state_ = STATE_DETERMINE_INTERMEDIATE_PATH;
 
   // Checking if there are prior visits to the referrer is only necessary if the
-  // danger level of the download depends on the file type. This excludes cases
-  // where the download has already been deemed dangerous, or where the user is
-  // going to be prompted or where this is a programmatic download.
-  if (danger_type_ != content::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS)
+  // danger level of the download depends on the file type.
+  if (danger_type_ != content::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS &&
+      danger_type_ != content::DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT)
     return CONTINUE;
 
   // Assume that:
@@ -592,10 +596,13 @@ DownloadTargetDeterminer::Result
 
       if (history_service && download_->GetReferrerUrl().is_valid()) {
         history_service->GetVisibleVisitCountToHost(
-            download_->GetReferrerUrl(), &history_consumer_,
-            base::Bind(&VisitCountsToVisitedBefore, base::Bind(
-                &DownloadTargetDeterminer::CheckVisitedReferrerBeforeDone,
-                weak_ptr_factory_.GetWeakPtr())));
+            download_->GetReferrerUrl(),
+            base::Bind(
+                &VisitCountsToVisitedBefore,
+                base::Bind(
+                    &DownloadTargetDeterminer::CheckVisitedReferrerBeforeDone,
+                    weak_ptr_factory_.GetWeakPtr())),
+            &history_tracker_);
         return QUIT_DOLOOP;
       }
     }
@@ -603,7 +610,9 @@ DownloadTargetDeterminer::Result
     // If the danger level doesn't depend on having visited the refererrer URL
     // or if original profile doesn't have a HistoryService or the referrer url
     // is invalid, then assume the referrer has not been visited before.
-    danger_type_ = content::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE;
+    is_dangerous_file_ = true;
+    if (danger_type_ == content::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS)
+      danger_type_ = content::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE;
   }
   return CONTINUE;
 }
@@ -612,9 +621,12 @@ void DownloadTargetDeterminer::CheckVisitedReferrerBeforeDone(
     bool visited_referrer_before) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK_EQ(STATE_DETERMINE_INTERMEDIATE_PATH, next_state_);
-  if (IsDangerousFile(
-          visited_referrer_before ? VISITED_REFERRER : NO_VISITS_TO_REFERRER))
-    danger_type_ = content::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE;
+  if (IsDangerousFile(visited_referrer_before ? VISITED_REFERRER
+                                              : NO_VISITS_TO_REFERRER)) {
+    is_dangerous_file_ = true;
+    if (danger_type_ == content::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS)
+      danger_type_ = content::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE;
+  }
   DoLoop();
 }
 
@@ -700,7 +712,8 @@ void DownloadTargetDeterminer::ScheduleCallbackAndDeleteSelf() {
             << " Local:" << local_path_.AsUTF8Unsafe()
             << " Intermediate:" << intermediate_path_.AsUTF8Unsafe()
             << " Should prompt:" << should_prompt_
-            << " Danger type:" << danger_type_;
+            << " Danger type:" << danger_type_
+            << " Is dangerous file:" << is_dangerous_file_;
   scoped_ptr<DownloadTargetInfo> target_info(new DownloadTargetInfo);
 
   target_info->target_path = local_path_;
@@ -709,6 +722,7 @@ void DownloadTargetDeterminer::ScheduleCallbackAndDeleteSelf() {
            ? DownloadItem::TARGET_DISPOSITION_PROMPT
            : DownloadItem::TARGET_DISPOSITION_OVERWRITE);
   target_info->danger_type = danger_type_;
+  target_info->is_dangerous_file = is_dangerous_file_;
   target_info->intermediate_path = intermediate_path_;
   target_info->mime_type = mime_type_;
   target_info->is_filetype_handled_safely = is_filetype_handled_safely_;
@@ -811,6 +825,7 @@ bool DownloadTargetDeterminer::IsDangerousFile(PriorVisitsToReferrer visits) {
     return false;
   }
 
+#if defined(ENABLE_EXTENSIONS)
   // Extensions that are not from the gallery are considered dangerous.
   // When off-store install is disabled we skip this, since in this case, we
   // will not offer to install the extension.
@@ -819,6 +834,7 @@ bool DownloadTargetDeterminer::IsDangerousFile(PriorVisitsToReferrer visits) {
       !extensions::WebstoreInstaller::GetAssociatedApproval(*download_)) {
     return true;
   }
+#endif
 
   // Anything the user has marked auto-open is OK if it's user-initiated.
   if (download_prefs_->IsAutoOpenEnabledBasedOnExtension(virtual_path_) &&
@@ -833,7 +849,7 @@ bool DownloadTargetDeterminer::IsDangerousFile(PriorVisitsToReferrer visits) {
       // "Allow on user gesture" is OK when we have a user gesture and the
       // hosting page has been visited before today.
       if (download_->GetTransitionType() &
-          content::PAGE_TRANSITION_FROM_ADDRESS_BAR) {
+          ui::PAGE_TRANSITION_FROM_ADDRESS_BAR) {
         return false;
       }
       return !download_->HasUserGesture() || visits == NO_VISITS_TO_REFERRER;

@@ -24,7 +24,7 @@ class SyncError;
 struct UserShare;
 }
 
-namespace browser_sync {
+namespace sync_driver {
 
 class ChangeProcessor;
 
@@ -51,7 +51,7 @@ class DataTypeController
                     // so it is disabled waiting for it to be stopped.
   };
 
-  enum StartResult {
+  enum ConfigureResult {
     OK,                   // The data type has started normally.
     OK_FIRST_RUN,         // Same as OK, but sent on first successful
                           // start for this type for this user as
@@ -61,10 +61,11 @@ class DataTypeController
     UNRECOVERABLE_ERROR,  // An unrecoverable error occured.
     NEEDS_CRYPTO,         // The data type cannot be started yet because it
                           // depends on the cryptographer.
+    RUNTIME_ERROR,        // After starting, a runtime error was encountered.
     MAX_START_RESULT
   };
 
-  typedef base::Callback<void(StartResult,
+  typedef base::Callback<void(ConfigureResult,
                               const syncer::SyncMergeResult&,
                               const syncer::SyncMergeResult&)> StartCallback;
 
@@ -80,10 +81,10 @@ class DataTypeController
 
   // Returns true if the start result should trigger an unrecoverable error.
   // Public so unit tests can use this function as well.
-  static bool IsUnrecoverableResult(StartResult result);
+  static bool IsUnrecoverableResult(ConfigureResult result);
 
   // Returns true if the datatype started successfully.
-  static bool IsSuccessfulResult(StartResult result);
+  static bool IsSuccessfulResult(ConfigureResult result);
 
   // Begins asynchronous operation of loading the model to get it ready for
   // model association. Once the models are loaded the callback will be invoked
@@ -148,8 +149,7 @@ class DataTypeController
   friend class base::DeleteHelper<DataTypeController>;
 
   DataTypeController(scoped_refptr<base::MessageLoopProxy> ui_thread,
-                     const base::Closure& error_callback,
-                     const DisableTypeCallback& disable_callback);
+                     const base::Closure& error_callback);
 
   // If the DTC is waiting for models to load, once the models are
   // loaded the datatype service will call this function on DTC to let
@@ -159,19 +159,15 @@ class DataTypeController
   virtual ~DataTypeController();
 
   syncer::UserShare* user_share() const;
-  DisableTypeCallback disable_callback();
 
   // The callback that will be invoked when an unrecoverable error occurs.
   // TODO(sync): protected for use by legacy controllers.
   base::Closure error_callback_;
 
  private:
-  // TODO(tim): Bug 383480. Do we need two callbacks?
-  DisableTypeCallback disable_callback_;
-
   syncer::UserShare* user_share_;
 };
 
-}  // namespace browser_sync
+}  // namespace sync_driver
 
 #endif  // COMPONENTS_SYNC_DRIVER_DATA_TYPE_CONTROLLER_H__

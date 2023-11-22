@@ -8,7 +8,7 @@
 
 #include "base/bind.h"
 #include "remoting/base/auto_thread.h"
-#include "remoting/base/url_request_context.h"
+#include "remoting/base/url_request_context_getter.h"
 
 namespace remoting {
 
@@ -40,7 +40,7 @@ ChromotingHostContext::ChromotingHostContext(
       "ChromotingEncodeThread", ui_task_runner_);
 
   url_request_context_getter_ = new URLRequestContextGetter(
-      network_task_runner_);
+      network_task_runner_, file_task_runner_);
 }
 
 ChromotingHostContext::~ChromotingHostContext() {

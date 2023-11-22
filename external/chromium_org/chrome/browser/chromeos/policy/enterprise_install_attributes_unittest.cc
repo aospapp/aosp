@@ -6,12 +6,11 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
-#include "base/threading/worker_pool.h"
 #include "chrome/browser/chromeos/policy/proto/install_attributes.pb.h"
 #include "chromeos/chromeos_paths.h"
 #include "chromeos/cryptohome/cryptohome_util.h"
@@ -48,7 +47,7 @@ class EnterpriseInstallAttributesTest : public testing::Test {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
     ASSERT_TRUE(PathService::OverrideAndCreateIfNeeded(
         chromeos::FILE_INSTALL_ATTRIBUTES, GetTempPath(), true, false));
-    chromeos::DBusThreadManager::InitializeWithStub();
+    chromeos::DBusThreadManager::Initialize();
     install_attributes_.reset(new EnterpriseInstallAttributes(
         chromeos::DBusThreadManager::Get()->GetCryptohomeClient()));
   }
@@ -278,11 +277,6 @@ TEST_F(EnterpriseInstallAttributesTest, VerifyFakeInstallAttributesCache) {
   ASSERT_TRUE(cryptohome_util::InstallAttributesSet(
       EnterpriseInstallAttributes::kAttrEnterpriseUser, kTestUser));
   ASSERT_TRUE(cryptohome_util::InstallAttributesFinalize());
-  // Wait for the async write.
-  base::RunLoop loop;
-  base::WorkerPool::PostTaskAndReply(
-      FROM_HERE, base::Bind(&base::DoNothing), loop.QuitClosure(), false);
-  loop.Run();
 
   // Verify that EnterpriseInstallAttributes correctly decodes the stub
   // cache file.

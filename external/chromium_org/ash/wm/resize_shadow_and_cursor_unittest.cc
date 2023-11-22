@@ -11,10 +11,10 @@
 #include "ash/wm/resize_shadow_controller.h"
 #include "ash/wm/window_state.h"
 #include "base/bind.h"
-#include "ui/aura/test/event_generator.h"
 #include "ui/aura/window_event_dispatcher.h"
 #include "ui/base/cursor/cursor.h"
 #include "ui/base/hit_test.h"
+#include "ui/events/test/event_generator.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
 
@@ -34,6 +34,9 @@ class TestWidgetDelegate : public views::WidgetDelegateView {
     return true;
   }
   virtual bool CanMaximize() const OVERRIDE {
+    return true;
+  }
+  virtual bool CanMinimize() const OVERRIDE {
     return true;
   }
   virtual views::NonClientFrameView* CreateNonClientFrameView(
@@ -116,7 +119,7 @@ class ResizeShadowAndCursorTest : public AshTestBase {
 // Test whether the resize shadows are visible and the cursor type based on the
 // mouse's position.
 TEST_F(ResizeShadowAndCursorTest, MouseHover) {
-  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
   ASSERT_TRUE(ash::wm::GetWindowState(window())->IsNormalStateType());
 
   generator.MoveMouseTo(50, 50);
@@ -159,7 +162,7 @@ TEST_F(ResizeShadowAndCursorTest, MouseHover) {
 // Test that the resize shadows stay visible and that the cursor stays the same
 // as long as a user is resizing a window.
 TEST_F(ResizeShadowAndCursorTest, MouseDrag) {
-  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
   ASSERT_TRUE(ash::wm::GetWindowState(window())->IsNormalStateType());
   gfx::Size initial_size(window()->bounds().size());
 
@@ -183,7 +186,7 @@ TEST_F(ResizeShadowAndCursorTest, MouseDrag) {
 // Test that the resize shadows stay visible while resizing a window via touch.
 TEST_F(ResizeShadowAndCursorTest, Touch) {
   ASSERT_TRUE(ash::wm::GetWindowState(window())->IsNormalStateType());
-  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
 
   int start_x = 200 + ash::kResizeOutsideBoundsSize - 1;
   int start_y = 100 + ash::kResizeOutsideBoundsSize - 1;
@@ -199,7 +202,7 @@ TEST_F(ResizeShadowAndCursorTest, Touch) {
 // Test that the resize shadows are not visible and that the default cursor is
 // used when the window is maximized.
 TEST_F(ResizeShadowAndCursorTest, MaximizeRestore) {
-  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
+  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
   ASSERT_TRUE(ash::wm::GetWindowState(window())->IsNormalStateType());
 
   generator.MoveMouseTo(200, 50);

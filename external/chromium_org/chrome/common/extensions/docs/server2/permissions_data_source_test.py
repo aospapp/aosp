@@ -10,7 +10,7 @@ import unittest
 from extensions_paths import CHROME_EXTENSIONS
 from permissions_data_source import PermissionsDataSource
 from server_instance import ServerInstance
-from third_party.handlebar import Handlebar
+from third_party.motemplate import Motemplate
 from test_file_system import TestFileSystem
 
 
@@ -39,6 +39,7 @@ _PERMISSION_FEATURES = {
   'cookies': {
     'extension_types': ['platform_app']
   },
+  'host-permissions': {}
 }
 
 
@@ -82,21 +83,24 @@ class PermissionsDataSourceTest(unittest.TestCase):
       {
         'anchor': 'custom-anchor',
         'description': 'host permissions',
+        'extension_types': ['platform_app', 'extension'],
         'literal_name': True,
         'name': 'match pattern',
-        'platforms': ['apps', 'extensions']
+        'channel': 'stable'
       },
       {
         'anchor': 'activeTab',
         'description': 'active tab',
+        'extension_types': ['extension'],
         'name': 'activeTab',
-        'platforms': ['extensions'],
+        'channel': 'stable'
       },
       {
         'anchor': 'alarms',
         'description': 'generic description',
+        'extension_types': ['platform_app', 'extension'],
         'name': 'alarms',
-        'platforms': ['apps', 'extensions'],
+        'channel': 'stable'
       },
     ]
 
@@ -104,21 +108,24 @@ class PermissionsDataSourceTest(unittest.TestCase):
       {
         'anchor': 'custom-anchor',
         'description': 'host permissions',
+        'extension_types': ['platform_app', 'extension'],
         'literal_name': True,
         'name': 'match pattern',
-        'platforms': ['apps', 'extensions'],
+        'channel': 'stable'
       },
       {
         'anchor': 'alarms',
         'description': 'generic description',
+        'extension_types': ['platform_app', 'extension'],
         'name': 'alarms',
-        'platforms': ['apps', 'extensions'],
+        'channel': 'stable'
       },
       {
         'anchor': 'cookies',
         'description': 'generic description',
+        'extension_types': ['platform_app'],
         'name': 'cookies',
-        'platforms': ['apps'],
+        'channel': 'stable'
       },
     ]
 
@@ -151,13 +158,13 @@ class PermissionsDataSourceTest(unittest.TestCase):
     #   - Sort keys. Since the tests don't use OrderedDicts we can't make
     #     assertions about the order, which is unfortunate. Oh well.
     #   - Render all of the Handlerbar instances so that we can use ==.
-    #     Handlebars don't implement __eq__, but they probably should.
+    #     Motemplates don't implement __eq__, but they probably should.
     for lst in (actual_apps, actual_extensions,
                 expected_apps, expected_extensions):
       lst.sort(key=itemgetter('name'))
       for mapping in lst:
         for key, value in mapping.iteritems():
-          if isinstance(value, Handlebar):
+          if isinstance(value, Motemplate):
             mapping[key] = value.Render().text
 
     self.assertEqual(expected_extensions, actual_extensions)

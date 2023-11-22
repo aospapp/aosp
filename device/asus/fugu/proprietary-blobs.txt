@@ -56,7 +56,6 @@
 /system/lib/arm/libcamera_metadata.so
 /system/lib/arm/libcommon_time_client.so
 /system/lib/arm/libcompiler_rt.so
-/system/lib/arm/libc_orig.so
 /system/lib/arm/libcrypto.so
 /system/lib/arm/libc.so
 /system/lib/arm/libc++.so
@@ -94,7 +93,6 @@
 /system/lib/arm/libmedia.so
 /system/lib/arm/libmemtrack.so
 /system/lib/arm/libminikin.so
-/system/lib/arm/libm_orig.so
 /system/lib/arm/libm.so
 /system/lib/arm/libnativebridge.so
 /system/lib/arm/libnativehelper.so
@@ -141,7 +139,6 @@
 /system/lib/arm/libvorbisidec.so
 /system/lib/arm/libwebrtc_audio_coding.so
 /system/lib/arm/libwilhelm.so
-/system/lib/arm/libz_orig.so
 /system/lib/arm/libz.so
 /system/lib/arm/linker
 /system/lib/hw/hdmi_cec.fugu.so
@@ -164,6 +161,7 @@
 /system/lib/libOMXVideoDecoderAVCSecure.so
 /system/lib/libsepdrm_cc54.so
 /system/lib/libstlport-mfx.so
+/system/priv-app/AtvRemoteService/AtvRemoteService.apk
 /system/priv-app/LeanbackLauncher/LeanbackLauncher.apk
 /system/priv-app/TV/TV.apk
 /system/usr/share/librscruntime.bc

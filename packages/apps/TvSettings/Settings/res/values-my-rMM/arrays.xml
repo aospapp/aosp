@@ -28,13 +28,13 @@
     <item msgid="2366780999250675263">"အဆက် ဖြတ်လိုက်ပြီ"</item>
     <item msgid="944848437579938960">"မအောင်မြင်ပါ"</item>
     <item msgid="6501589509838730555">"ပိတ်ဆို့ထား"</item>
-    <item msgid="1877062378387320625">"ညံ့သည့် ချိတ်ဆက်မှုကို ယာယီ ရှောင်ရှားနေ"</item>
+    <item msgid="1877062378387320625">"ညံ့သည့် ချိတ်ဆက်မှုကို ယာယီ ရှောင်ရှားနေ"</item>
   </string-array>
   <string-array name="wifi_status_with_ssid">
     <item msgid="8339598300796362026"></item>
     <item msgid="4703591207522320165">"စကင်လုပ်နေ…"</item>
     <item msgid="7351421574703844779">"<xliff:g id="NETWORK_NAME">%1$s</xliff:g> နှင့် ဆက်သွယ်နေ…"</item>
-    <item msgid="874502389678205660">"<xliff:g id="NETWORK_NAME">%1$s</xliff:g> နှင့် အထောက်အထားကို စိစစ်နေ…"</item>
+    <item msgid="874502389678205660">"<xliff:g id="NETWORK_NAME">%1$s</xliff:g> နှင့် အထောက်အထားကို စိစစ်နေ…"</item>
     <item msgid="7964187733783647040">"<xliff:g id="NETWORK_NAME">%1$s</xliff:g> မှ IP လိပ်စာ ရယူနေ…"</item>
     <item msgid="4990222034464002805">"<xliff:g id="NETWORK_NAME">%1$s</xliff:g> နှင့် ဆက်သွယ်ထားပြီ"</item>
     <item msgid="5347651564202902346">"ရွှေ့ဆိုင်းထား"</item>
@@ -42,7 +42,7 @@
     <item msgid="4985746712759777559">"ချိတ်ဆက်မှု ပြတ်သွား"</item>
     <item msgid="6482743140170037710">"မအောင်မြင်ပါ"</item>
     <item msgid="7486075980265993798">"ပိတ်ဆို့ထား"</item>
-    <item msgid="6842213039083339420">"ညံ့သည့် ချိတ်ဆက်မှုကို ယာယီ ရှောင်ရှားနေ"</item>
+    <item msgid="6842213039083339420">"ညံ့သည့် ချိတ်ဆက်မှုကို ယာယီ ရှောင်ရှားနေ"</item>
   </string-array>
   <string-array name="sleep_timeout_entries">
     <item msgid="1213527366819650274">"၅ မိနစ်"</item>
@@ -57,7 +57,7 @@
     <item msgid="5216959047515554188">"၃ နာရီ"</item>
     <item msgid="4152882798140628647">"၆ နာရီ"</item>
     <item msgid="412984226950404956">"၁၂ နာရီ"</item>
-    <item msgid="2178434662173258997">"မည်သည့်အခါမှ"</item>
+    <item msgid="2178434662173258997">"မည်သည့်အခါမှ"</item>
   </string-array>
   <string-array name="debug_hw_overdraw_entries">
     <item msgid="6733816499120044964">"မရှိ"</item>

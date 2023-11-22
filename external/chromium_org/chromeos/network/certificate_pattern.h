@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "base/memory/scoped_ptr.h"
 #include "chromeos/chromeos_export.h"
 
 namespace base {
@@ -30,7 +31,7 @@ class CHROMEOS_EXPORT IssuerSubjectPattern {
   // Returns true if all fields in the pattern are empty.
   bool Empty() const;
 
-  // Clears out all values in this pattern (so Empty returns true).
+  // Clears out all values in this pattern.
   void Clear();
 
   void set_common_name(const std::string& name) { common_name_ = name; }
@@ -55,11 +56,9 @@ class CHROMEOS_EXPORT IssuerSubjectPattern {
     return organizational_unit_;
   }
 
-  // Creates a new dictionary with the issuer subject pattern as its contents.
-  // Caller assumes ownership.
-  base::DictionaryValue* CreateAsDictionary() const;
-
-  bool CopyFromDictionary(const base::DictionaryValue& dictionary);
+  // Replaces the content of this object with the values of |dictionary|.
+  // |dictionary| should be a valid ONC IssuerSubjectPattern dictionary.
+  void ReadFromONCDictionary(const base::DictionaryValue& dictionary);
 
  private:
   std::string common_name_;
@@ -78,9 +77,6 @@ class CHROMEOS_EXPORT CertificatePattern {
   // Returns true if this pattern has nothing set (and so would match
   // all certs).  Ignores enrollment_uri_;
   bool Empty() const;
-
-  // Clears out all the values in this pattern (so Empty returns true).
-  void Clear();
 
   void set_issuer(const IssuerSubjectPattern& issuer) { issuer_ = issuer; }
   void set_subject(const IssuerSubjectPattern& subject) { subject_ = subject; }
@@ -101,15 +97,15 @@ class CHROMEOS_EXPORT CertificatePattern {
     return enrollment_uri_list_;
   }
 
-  // Creates a new dictionary containing the data in the certificate pattern.
-  base::DictionaryValue* CreateAsDictionary() const;
-
-  // Replaces the contents of this CertificatePattern object with
-  // the values in the dictionary.  Returns false if the dictionary is
-  // malformed.
-  bool CopyFromDictionary(const base::DictionaryValue& dictionary);
+  // Replaces the content of this object with the values of |dictionary|.
+  // |dictionary| should be a valid ONC CertificatePattern dictionary. Returns
+  // whether all required fields were present.
+  bool ReadFromONCDictionary(const base::DictionaryValue& dictionary);
 
  private:
+  // Clears out all the values in this pattern.
+  void Clear();
+
   std::vector<std::string> issuer_ca_pems_;
   IssuerSubjectPattern issuer_;
   IssuerSubjectPattern subject_;

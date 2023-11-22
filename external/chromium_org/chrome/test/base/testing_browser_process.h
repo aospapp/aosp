@@ -61,7 +61,7 @@ class TestingBrowserProcess : public BrowserProcess {
   virtual void ResourceDispatcherHostCreated() OVERRIDE;
   virtual void EndSession() OVERRIDE;
   virtual MetricsServicesManager* GetMetricsServicesManager() OVERRIDE;
-  virtual MetricsService* metrics_service() OVERRIDE;
+  virtual metrics::MetricsService* metrics_service() OVERRIDE;
   virtual rappor::RapporService* rappor_service() OVERRIDE;
   virtual IOThread* io_thread() OVERRIDE;
   virtual WatchDogThread* watchdog_thread() OVERRIDE;
@@ -155,8 +155,11 @@ class TestingBrowserProcess : public BrowserProcess {
   scoped_ptr<ProfileManager> profile_manager_;
   scoped_ptr<NotificationUIManager> notification_ui_manager_;
 
-#if defined(ENABLE_FULL_PRINTING)
+#if defined(ENABLE_PRINTING)
   scoped_ptr<printing::PrintJobManager> print_job_manager_;
+#endif
+
+#if defined(ENABLE_FULL_PRINTING)
   scoped_ptr<printing::BackgroundPrintingManager> background_printing_manager_;
   scoped_refptr<printing::PrintPreviewDialogController>
       print_preview_dialog_controller_;
@@ -165,10 +168,6 @@ class TestingBrowserProcess : public BrowserProcess {
   scoped_ptr<prerender::PrerenderTracker> prerender_tracker_;
   scoped_refptr<SafeBrowsingService> sb_service_;
 #endif  // !defined(OS_IOS)
-
-#if !defined(OS_IOS) && !defined(OS_ANDROID)
-  scoped_ptr<MediaFileSystemRegistry> media_file_system_registry_;
-#endif
 
   scoped_ptr<network_time::NetworkTimeTracker> network_time_tracker_;
 
@@ -179,7 +178,11 @@ class TestingBrowserProcess : public BrowserProcess {
 
   scoped_ptr<BrowserProcessPlatformPart> platform_part_;
 
+#if defined(ENABLE_EXTENSIONS)
+  scoped_ptr<MediaFileSystemRegistry> media_file_system_registry_;
+
   scoped_ptr<extensions::ExtensionsBrowserClient> extensions_browser_client_;
+#endif
 
   DISALLOW_COPY_AND_ASSIGN(TestingBrowserProcess);
 };

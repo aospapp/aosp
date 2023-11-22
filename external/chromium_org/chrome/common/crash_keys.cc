@@ -11,7 +11,6 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/installer/util/google_update_settings.h"
 
 #if defined(OS_MACOSX)
 #include "breakpad/src/common/simple_string_dictionary.h"
@@ -56,11 +55,13 @@ COMPILE_ASSERT(kMediumSize <= kSingleChunkLength,
                mac_has_medium_size_crash_key_chunks);
 #endif
 
-const char kClientID[] = "guid";
+const char kClientId[] = "guid";
 
 const char kChannel[] = "channel";
 
 const char kActiveURL[] = "url-chunk";
+
+const char kFontKeyName[] = "font_key_name";
 
 const char kSwitch[] = "switch-%" PRIuS;
 const char kNumSwitches[] = "num-switches";
@@ -119,7 +120,7 @@ size_t RegisterChromeCrashKeys() {
   // The following keys may be chunked by the underlying crash logging system,
   // but ultimately constitute a single key-value pair.
   base::debug::CrashKey fixed_keys[] = {
-    { kClientID, kSmallSize },
+    { kClientId, kSmallSize },
     { kChannel, kSmallSize },
     { kActiveURL, kLargeSize },
     { kNumSwitches, kSmallSize },
@@ -145,6 +146,7 @@ size_t RegisterChromeCrashKeys() {
     // base/:
     { "dm-usage", kSmallSize },
     // content/:
+    { kFontKeyName, kSmallSize},
     { "ppapi_path", kMediumSize },
     { "subresource_url", kLargeSize },
 #if defined(OS_CHROMEOS)
@@ -225,15 +227,14 @@ size_t RegisterChromeCrashKeys() {
                                     kSingleChunkLength);
 }
 
-void SetClientID(const std::string& client_id) {
-  std::string guid(client_id);
+void SetCrashClientIdFromGUID(const std::string& client_guid) {
+  std::string stripped_guid(client_guid);
   // Remove all instance of '-' char from the GUID. So BCD-WXY becomes BCDWXY.
-  ReplaceSubstringsAfterOffset(&guid, 0, "-", "");
-  if (guid.empty())
+  ReplaceSubstringsAfterOffset(&stripped_guid, 0, "-", "");
+  if (stripped_guid.empty())
     return;
 
-  base::debug::SetCrashKeyValue(kClientID, guid);
-  GoogleUpdateSettings::SetMetricsId(guid);
+  base::debug::SetCrashKeyValue(kClientId, stripped_guid);
 }
 
 static bool IsBoringSwitch(const std::string& flag) {
@@ -265,7 +266,6 @@ static bool IsBoringSwitch(const std::string& flag) {
          flag == "--flag-switches-end";
 #elif defined(OS_CHROMEOS)
   static const char* kIgnoreSwitches[] = {
-    ::switches::kEnableCompositingForFixedPosition,
     ::switches::kEnableImplSidePainting,
     ::switches::kEnableLogging,
     ::switches::kFlagSwitchesBegin,

@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop/message_loop.h"
@@ -446,9 +446,9 @@ TEST_F(DownloadPathReservationTrackerTest, UnwriteableDirectory) {
   ASSERT_FALSE(IsPathInUse(path));
 
   {
-    // Scope for PermissionRestorer
-    file_util::PermissionRestorer restorer(dir);
-    EXPECT_TRUE(file_util::MakeFileUnwritable(dir));
+    // Scope for FilePermissionRestorer
+    base::FilePermissionRestorer restorer(dir);
+    EXPECT_TRUE(base::MakeFileUnwritable(dir));
     base::FilePath reserved_path;
     bool verified = true;
     DownloadPathReservationTracker::FilenameConflictAction conflict_action =

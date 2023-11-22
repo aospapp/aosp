@@ -135,6 +135,7 @@ GLES2Implementation::GLES2Implementation(
 
   share_group_ =
       (share_group ? share_group : new ShareGroup(bind_generates_resource));
+  DCHECK(share_group_->bind_generates_resource() == bind_generates_resource);
 
   memset(&reserved_ids_, 0, sizeof(reserved_ids_));
 }
@@ -192,6 +193,7 @@ bool GLES2Implementation::Initialize(
   buffer_tracker_.reset(new BufferTracker(mapped_memory_.get()));
   gpu_memory_buffer_tracker_.reset(new GpuMemoryBufferTracker(gpu_control_));
 
+  query_id_allocator_.reset(new IdAllocator());
 #if defined(GLES2_SUPPORT_CLIENT_SIDE_ARRAYS)
   GetIdHandler(id_namespaces::kBuffers)->MakeIds(
       this, kClientSideArrayId, arraysize(reserved_ids_), &reserved_ids_[0]);
@@ -323,6 +325,14 @@ GLES2CmdHelper* GLES2Implementation::helper() const {
 
 IdHandlerInterface* GLES2Implementation::GetIdHandler(int namespace_id) const {
   return share_group_->GetIdHandler(namespace_id);
+}
+
+IdAllocatorInterface* GLES2Implementation::GetIdAllocator(
+    int namespace_id) const {
+  if (namespace_id == id_namespaces::kQueries)
+    return query_id_allocator_.get();
+  NOTREACHED();
+  return NULL;
 }
 
 void* GLES2Implementation::GetResultBuffer() {
@@ -568,7 +578,7 @@ bool GLES2Implementation::GetBucketContents(uint32 bucket_id,
       offset += size_to_copy;
       size -= size_to_copy;
       buffer.Release();
-    };
+    }
     // Free the bucket. This is not required but it does free up the memory.
     // and we don't have to wait for the result so from the client's perspective
     // it's cheap.
@@ -1321,7 +1331,10 @@ void GLES2Implementation::VertexAttribDivisorANGLE(
 }
 
 void GLES2Implementation::ShaderSource(
-    GLuint shader, GLsizei count, const GLchar* const* source, const GLint* length) {
+    GLuint shader,
+    GLsizei count,
+    const GLchar* const* source,
+    const GLint* length) {
   GPU_CLIENT_SINGLE_THREAD_CHECK();
   GPU_CLIENT_LOG("[" << GetLogPrefix() << "] glShaderSource("
       << shader << ", " << count << ", "
@@ -1581,8 +1594,7 @@ BufferTracker::Buffer*
 GLES2Implementation::GetBoundPixelUnpackTransferBufferIfValid(
     GLuint buffer_id,
     const char* function_name,
-    GLuint offset, GLsizei size)
-{
+    GLuint offset, GLsizei size) {
   DCHECK(buffer_id);
   BufferTracker::Buffer* buffer = buffer_tracker_->GetBuffer(buffer_id);
   if (!buffer) {
@@ -2202,6 +2214,8 @@ const GLubyte* GLES2Implementation::GetStringHelper(GLenum name) {
           // The first space character is intentional.
           str += " GL_CHROMIUM_map_image";
         }
+        if (capabilities_.future_sync_points)
+          str += " GL_CHROMIUM_future_sync_point";
         break;
       default:
         break;
@@ -3285,7 +3299,7 @@ void GLES2Implementation::GetProgramInfoCHROMIUM(
   }
   // Make sure they've set size to 0 else the value will be undefined on
   // lost context.
-  DCHECK(*size == 0);
+  DCHECK_EQ(0, *size);
   std::vector<int8> result;
   GetProgramInfoCHROMIUMHelper(program, &result);
   if (result.empty()) {
@@ -3332,24 +3346,12 @@ void GLES2Implementation::PostSubBufferCHROMIUM(
 
 void GLES2Implementation::DeleteQueriesEXTHelper(
     GLsizei n, const GLuint* queries) {
-  // TODO(gman): Remove this as queries are not shared resources.
-  if (!GetIdHandler(id_namespaces::kQueries)->FreeIds(
-      this, n, queries, &GLES2Implementation::DeleteQueriesStub)) {
-    SetGLError(
-        GL_INVALID_VALUE,
-        "glDeleteTextures", "id not created by this context.");
-    return;
+  for (GLsizei ii = 0; ii < n; ++ii) {
+    query_tracker_->RemoveQuery(queries[ii]);
+    query_id_allocator_->FreeID(queries[ii]);
   }
 
-  for (GLsizei ii = 0; ii < n; ++ii)
-    query_tracker_->RemoveQuery(queries[ii]);
-
   helper_->DeleteQueriesEXTImmediate(n, queries);
-}
-
-// TODO(gman): Remove this. Queries are not shared resources.
-void GLES2Implementation::DeleteQueriesStub(
-    GLsizei /* n */, const GLuint* /* queries */) {
 }
 
 GLboolean GLES2Implementation::IsQueryEXT(GLuint id) {
@@ -3382,7 +3384,11 @@ void GLES2Implementation::BeginQueryEXT(GLenum target, GLuint id) {
     return;
   }
 
-  // TODO(gman) if id not GENned INV_OPERATION
+  // if not GENned INV_OPERATION
+  if (!query_id_allocator_->InUse(id)) {
+    SetGLError(GL_INVALID_OPERATION, "glBeginQueryEXT", "invalid id");
+    return;
+  }
 
   // if id does not have an object
   QueryTracker::Query* query = query_tracker_->GetQuery(id);
@@ -3989,6 +3995,23 @@ GLuint GLES2Implementation::InsertSyncPointCHROMIUM() {
   GPU_CLIENT_LOG("[" << GetLogPrefix() << "] glInsertSyncPointCHROMIUM");
   helper_->CommandBufferHelper::Flush();
   return gpu_control_->InsertSyncPoint();
+}
+
+GLuint GLES2Implementation::InsertFutureSyncPointCHROMIUM() {
+  GPU_CLIENT_SINGLE_THREAD_CHECK();
+  GPU_CLIENT_LOG("[" << GetLogPrefix() << "] glInsertFutureSyncPointCHROMIUM");
+  DCHECK(capabilities_.future_sync_points);
+  helper_->CommandBufferHelper::Flush();
+  return gpu_control_->InsertFutureSyncPoint();
+}
+
+void GLES2Implementation::RetireSyncPointCHROMIUM(GLuint sync_point) {
+  GPU_CLIENT_SINGLE_THREAD_CHECK();
+  GPU_CLIENT_LOG("[" << GetLogPrefix() << "] glRetireSyncPointCHROMIUM("
+                     << sync_point << ")");
+  DCHECK(capabilities_.future_sync_points);
+  helper_->CommandBufferHelper::Flush();
+  gpu_control_->RetireSyncPoint(sync_point);
 }
 
 GLuint GLES2Implementation::CreateImageCHROMIUMHelper(GLsizei width,

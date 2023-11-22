@@ -24,7 +24,7 @@ import java.util.concurrent.Callable;
 public class AwZoomTest extends AwTestBase {
     private TestAwContentsClient mContentsClient;
     private AwContents mAwContents;
-    private float MAXIMUM_SCALE = 2.0f;
+    private static final float MAXIMUM_SCALE = 2.0f;
 
     @Override
     public void setUp() throws Exception {
@@ -36,7 +36,7 @@ public class AwZoomTest extends AwTestBase {
     }
 
     private String getZoomableHtml(float scale) {
-        final int divWidthPercent = (int)(100.0f / scale);
+        final int divWidthPercent = (int) (100.0f / scale);
         return String.format(Locale.US, "<html><head><meta name=\"viewport\" content=\"" +
                 "width=device-width, minimum-scale=%f, maximum-scale=%f, initial-scale=%f" +
                 "\"/></head><body style='margin:0'>" +

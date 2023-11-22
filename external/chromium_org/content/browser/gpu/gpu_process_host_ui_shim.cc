@@ -11,18 +11,24 @@
 #include "base/id_map.h"
 #include "base/lazy_instance.h"
 #include "base/strings/string_number_conversions.h"
+#include "content/browser/gpu/compositor_util.h"
 #include "content/browser/gpu/gpu_data_manager_impl.h"
 #include "content/browser/gpu/gpu_process_host.h"
 #include "content/browser/gpu/gpu_surface_tracker.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
+#include "content/browser/renderer_host/render_widget_helper.h"
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "content/common/gpu/gpu_messages.h"
 #include "content/public/browser/browser_thread.h"
 
+#if defined(OS_MACOSX)
+#include "content/browser/compositor/browser_compositor_view_mac.h"
+#endif
+
 #if defined(USE_OZONE)
-#include "ui/ozone/ozone_platform.h"
 #include "ui/ozone/public/gpu_platform_support_host.h"
+#include "ui/ozone/public/ozone_platform.h"
 #endif
 
 namespace content {
@@ -213,31 +219,12 @@ bool GpuProcessHostUIShim::OnControlMessageReceived(
                         OnAcceleratedSurfaceRelease)
     IPC_MESSAGE_HANDLER(GpuHostMsg_VideoMemoryUsageStats,
                         OnVideoMemoryUsageStatsReceived);
-    IPC_MESSAGE_HANDLER(GpuHostMsg_UpdateVSyncParameters,
-                        OnUpdateVSyncParameters)
     IPC_MESSAGE_HANDLER(GpuHostMsg_FrameDrawn, OnFrameDrawn)
 
     IPC_MESSAGE_UNHANDLED_ERROR()
   IPC_END_MESSAGE_MAP()
 
   return true;
-}
-
-void GpuProcessHostUIShim::OnUpdateVSyncParameters(int surface_id,
-                                                   base::TimeTicks timebase,
-                                                   base::TimeDelta interval) {
-
-  int render_process_id = 0;
-  int render_widget_id = 0;
-  if (!GpuSurfaceTracker::Get()->GetRenderWidgetIDForSurface(
-      surface_id, &render_process_id, &render_widget_id)) {
-    return;
-  }
-  RenderWidgetHost* rwh =
-      RenderWidgetHost::FromID(render_process_id, render_widget_id);
-  if (!rwh)
-    return;
-  RenderWidgetHostImpl::From(rwh)->UpdateVSyncParameters(timebase, interval);
 }
 
 void GpuProcessHostUIShim::OnLogMessage(
@@ -273,6 +260,22 @@ void GpuProcessHostUIShim::OnAcceleratedSurfaceBuffersSwapped(
   if (!ui::LatencyInfo::Verify(params.latency_info,
                                "GpuHostMsg_AcceleratedSurfaceBuffersSwapped"))
     return;
+
+#if defined(OS_MACOSX)
+  // On Mac with delegated rendering, accelerated surfaces are not necessarily
+  // associated with a RenderWidgetHostViewBase.
+  if (IsDelegatedRendererEnabled()) {
+    gfx::AcceleratedWidget native_widget =
+        content::GpuSurfaceTracker::Get()->AcquireNativeWidget(
+            params.surface_id);
+    BrowserCompositorViewMac::GotAcceleratedFrame(
+        native_widget, params.surface_handle, params.surface_id,
+        params.latency_info, params.size, params.scale_factor,
+        host_id_, params.route_id);
+    return;
+  }
+#endif
+
   AcceleratedSurfaceMsg_BufferPresented_Params ack_params;
   ack_params.mailbox = params.mailbox;
   ack_params.sync_point = 0;

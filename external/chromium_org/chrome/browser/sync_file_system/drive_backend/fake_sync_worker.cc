@@ -13,9 +13,7 @@ namespace sync_file_system {
 namespace drive_backend {
 
 FakeSyncWorker::FakeSyncWorker()
-    : sync_enabled_(true),
-      has_refresh_token_(true),
-      network_available_(true) {
+    : sync_enabled_(true) {
   sequence_checker_.DetachFromSequence();
 }
 
@@ -68,7 +66,7 @@ void FakeSyncWorker::UninstallOrigin(const GURL& origin,
 void FakeSyncWorker::ProcessRemoteChange(
     const SyncFileCallback& callback) {
   DCHECK(sequence_checker_.CalledOnValidSequencedThread());
-  callback.Run(SYNC_STATUS_OK, fileapi::FileSystemURL());
+  callback.Run(SYNC_STATUS_OK, storage::FileSystemURL());
 }
 
 void FakeSyncWorker::SetRemoteChangeProcessor(
@@ -130,72 +128,33 @@ void FakeSyncWorker::SetSyncEnabled(bool enabled) {
     UpdateServiceState(REMOTE_SERVICE_DISABLED, "Disabled FakeSyncWorker.");
 }
 
-void FakeSyncWorker::PromoteDemotedChanges() {
+void FakeSyncWorker::PromoteDemotedChanges(const base::Closure& callback) {
   DCHECK(sequence_checker_.CalledOnValidSequencedThread());
   FOR_EACH_OBSERVER(
       Observer,
       observers_,
       OnPendingFileListUpdated(10));
+  callback.Run();
 }
 
-void FakeSyncWorker::ApplyLocalChange(
-    const FileChange& local_change,
-    const base::FilePath& local_path,
-    const SyncFileMetadata& local_metadata,
-    const fileapi::FileSystemURL& url,
-    const SyncStatusCallback& callback) {
+void FakeSyncWorker::ApplyLocalChange(const FileChange& local_change,
+                                      const base::FilePath& local_path,
+                                      const SyncFileMetadata& local_metadata,
+                                      const storage::FileSystemURL& url,
+                                      const SyncStatusCallback& callback) {
   DCHECK(sequence_checker_.CalledOnValidSequencedThread());
   callback.Run(SYNC_STATUS_OK);
 }
 
-void FakeSyncWorker::OnNotificationReceived() {
+void FakeSyncWorker::ActivateService(RemoteServiceState service_state,
+                                     const std::string& description) {
   DCHECK(sequence_checker_.CalledOnValidSequencedThread());
-  UpdateServiceState(REMOTE_SERVICE_OK, "Got push notification for Drive.");
+  UpdateServiceState(service_state, description);
 }
 
-void FakeSyncWorker::OnReadyToSendRequests() {
+void FakeSyncWorker::DeactivateService(const std::string& description) {
   DCHECK(sequence_checker_.CalledOnValidSequencedThread());
-  has_refresh_token_ = true;
-  UpdateServiceState(REMOTE_SERVICE_OK, "ReadyToSendRequests");
-}
-
-void FakeSyncWorker::OnRefreshTokenInvalid() {
-  DCHECK(sequence_checker_.CalledOnValidSequencedThread());
-  has_refresh_token_ = false;
-  UpdateServiceState(REMOTE_SERVICE_OK, "RefreshTokenInvalid");
-}
-
-void FakeSyncWorker::OnNetworkChanged(
-    net::NetworkChangeNotifier::ConnectionType type) {
-  DCHECK(sequence_checker_.CalledOnValidSequencedThread());
-  bool new_network_availability =
-      type != net::NetworkChangeNotifier::CONNECTION_NONE;
-  if (network_available_ && !new_network_availability) {
-    UpdateServiceState(REMOTE_SERVICE_TEMPORARY_UNAVAILABLE, "Disconnected");
-  } else if (!network_available_ && new_network_availability) {
-    UpdateServiceState(REMOTE_SERVICE_OK, "Connected");
-  }
-  network_available_ = new_network_availability;
-}
-
-drive::DriveServiceInterface* FakeSyncWorker::GetDriveService() {
-  DCHECK(sequence_checker_.CalledOnValidSequencedThread());
-  return NULL;
-}
-
-drive::DriveUploaderInterface* FakeSyncWorker::GetDriveUploader() {
-  DCHECK(sequence_checker_.CalledOnValidSequencedThread());
-  return NULL;
-}
-
-MetadataDatabase* FakeSyncWorker::GetMetadataDatabase() {
-  DCHECK(sequence_checker_.CalledOnValidSequencedThread());
-  return NULL;
-}
-
-SyncTaskManager* FakeSyncWorker::GetSyncTaskManager() {
-  DCHECK(sequence_checker_.CalledOnValidSequencedThread());
-  return NULL;
+  UpdateServiceState(REMOTE_SERVICE_TEMPORARY_UNAVAILABLE, description);
 }
 
 void FakeSyncWorker::DetachFromSequence() {
@@ -205,11 +164,6 @@ void FakeSyncWorker::DetachFromSequence() {
 void FakeSyncWorker::AddObserver(Observer* observer) {
   // This method is called on UI thread.
   observers_.AddObserver(observer);
-}
-
-void FakeSyncWorker::SetHasRefreshToken(bool has_refresh_token) {
-  DCHECK(sequence_checker_.CalledOnValidSequencedThread());
-  has_refresh_token_ = has_refresh_token;
 }
 
 void FakeSyncWorker::UpdateServiceState(RemoteServiceState state,

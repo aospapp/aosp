@@ -32,48 +32,50 @@ public class IPTestListJB {
      * Define enum type for test names
      */
     public enum TestName {
-        LEVELS_VEC3_RELAXED ("Levels Vec3 Relaxed", RELAXED_FP, 55.6f),
-        LEVELS_VEC4_RELAXED ("Levels Vec4 Relaxed", RELAXED_FP, 39.1f),
-        LEVELS_VEC3_FULL ("Levels Vec3 Full", FULL_FP, 57.4f),
-        LEVELS_VEC4_FULL ("Levels Vec4 Full", FULL_FP, 68.1f),
-        BLUR_RADIUS_25 ("Blur radius 25", RELAXED_FP, 1045.f),
-        INTRINSIC_BLUR_RADIUS_25 ("Intrinsic Blur radius 25", INTRINSIC, 643.f),
-        GREYSCALE ("Greyscale", RELAXED_FP, 38.3f),
-        GRAIN ("Grain", RELAXED_FP, 57.8f),
-        FISHEYE_FULL ("Fisheye Full", FULL_FP, 211.2f),
-        FISHEYE_RELAXED ("Fisheye Relaxed", RELAXED_FP, 198.1f),
-        FISHEYE_APPROXIMATE_FULL ("Fisheye Approximate Full", FULL_FP, 211.0f),
-        FISHEYE_APPROXIMATE_RELAXED ("Fisheye Approximate Relaxed", RELAXED_FP, 190.1f),
-        VIGNETTE_FULL ("Vignette Full", FULL_FP, 98.6f),
-        VIGNETTE_RELAXED ("Vignette Relaxed", RELAXED_FP, 110.7f),
-        VIGNETTE_APPROXIMATE_FULL ("Vignette Approximate Full", FULL_FP, 80.6f),
-        VIGNETTE_APPROXIMATE_RELAXED ("Vignette Approximate Relaxed", RELAXED_FP, 87.9f),
-        GROUP_TEST_EMULATED ("Group Test (emulated)", INTRINSIC, 37.81f),
-        GROUP_TEST_NATIVE ("Group Test (native)", INTRINSIC, 37.8f),
-        CONVOLVE_3X3 ("Convolve 3x3", RELAXED_FP, 62.1f),
-        INTRINSICS_CONVOLVE_3X3 ("Intrinsics Convolve 3x3", INTRINSIC, 24.5f),
-        COLOR_MATRIX ("ColorMatrix", RELAXED_FP, 25.5f),
-        INTRINSICS_COLOR_MATRIX ("Intrinsics ColorMatrix", INTRINSIC, 13.3f),
-        INTRINSICS_COLOR_MATRIX_GREY ("Intrinsics ColorMatrix Grey", INTRINSIC, 13.4f),
-        COPY ("Copy", RELAXED_FP, 25.6f),
-        CROSS_PROCESS_USING_LUT ("CrossProcess (using LUT)", INTRINSIC, 18.6f),
-        CONVOLVE_5X5 ("Convolve 5x5", RELAXED_FP, 215.8f),
-        INTRINSICS_CONVOLVE_5X5 ("Intrinsics Convolve 5x5", INTRINSIC, 29.8f),
-        MANDELBROT_FLOAT ("Mandelbrot (fp32)", FULL_FP, 108.1f),
-        MANDELBROT_DOUBLE ("Mandelbrot (fp64)", FULL_FP, 108.1f),
-        INTRINSICS_BLEND ("Intrinsics Blend", INTRINSIC, 94.2f),
-        INTRINSICS_BLUR_25G ("Intrinsics Blur 25 uchar", INTRINSIC, 173.3f),
-        VIBRANCE ("Vibrance", RELAXED_FP, 88.3f),
-        BW_FILTER ("BW Filter", RELAXED_FP, 69.7f),
-        SHADOWS ("Shadows", RELAXED_FP, 155.3f),
-        CONTRAST ("Contrast", RELAXED_FP, 27.0f),
-        EXPOSURE ("Exposure", RELAXED_FP, 64.7f),
-        WHITE_BALANCE ("White Balance", RELAXED_FP, 160.1f),
-        COLOR_CUBE ("Color Cube", RELAXED_FP, 85.3f),
-        COLOR_CUBE_3D_INTRINSIC ("Color Cube (3D LUT intrinsic)", INTRINSIC, 49.5f),
-        ARTISTIC1 ("Artistic 1", RELAXED_FP, 120.f),
-        RESIZE_BI_SCRIPT ("Resize BiCubic Script", RELAXED_FP, 100.f),
-        RESIZE_BI_INTRINSIC ("Resize BiCubic Intrinsic", INTRINSIC, 100.f);
+        LEVELS_VEC3_RELAXED ("Levels Vec3 Relaxed", RELAXED_FP, 61.1f),
+        LEVELS_VEC4_RELAXED ("Levels Vec4 Relaxed", RELAXED_FP, 44.6f),
+        LEVELS_VEC3_FULL ("Levels Vec3 Full", FULL_FP, 61.9f),
+        LEVELS_VEC4_FULL ("Levels Vec4 Full", FULL_FP, 73.f),
+        BLUR_RADIUS_25 ("Blur radius 25", RELAXED_FP, 1103.f),
+        INTRINSIC_BLUR_RADIUS_25 ("Intrinsic Blur radius 25", INTRINSIC, 176.f),
+        GREYSCALE ("Greyscale", RELAXED_FP, 43.7f),
+        GRAIN ("Grain", RELAXED_FP, 147.4f),
+        FISHEYE_FULL ("Fisheye Full", FULL_FP, 192.f),
+        FISHEYE_RELAXED ("Fisheye Relaxed", RELAXED_FP, 181.f),
+        FISHEYE_APPROXIMATE_FULL ("Fisheye Approximate Full", FULL_FP, 193.f),
+        FISHEYE_APPROXIMATE_RELAXED ("Fisheye Approximate Relaxed", RELAXED_FP, 183.f),
+        VIGNETTE_FULL ("Vignette Full", FULL_FP, 101.f),
+        VIGNETTE_RELAXED ("Vignette Relaxed", RELAXED_FP, 116.f),
+        VIGNETTE_APPROXIMATE_FULL ("Vignette Approximate Full", FULL_FP, 85.1f),
+        VIGNETTE_APPROXIMATE_RELAXED ("Vignette Approximate Relaxed", RELAXED_FP, 96.7f),
+        GROUP_TEST_EMULATED ("Group Test (emulated)", INTRINSIC, 51.7f),
+        GROUP_TEST_NATIVE ("Group Test (native)", INTRINSIC, 52.9f),
+        CONVOLVE_3X3 ("Convolve 3x3", RELAXED_FP, 74.2f),
+        INTRINSICS_CONVOLVE_3X3 ("Intrinsics Convolve 3x3", INTRINSIC, 33.3f),
+        COLOR_MATRIX ("ColorMatrix", RELAXED_FP, 33.8f),
+        INTRINSICS_COLOR_MATRIX ("Intrinsics ColorMatrix", INTRINSIC, 21.3f),
+        INTRINSICS_COLOR_MATRIX_GREY ("Intrinsics ColorMatrix Grey", INTRINSIC, 21.4f),
+        COPY ("Copy", RELAXED_FP, 21.4f),
+        CROSS_PROCESS_USING_LUT ("CrossProcess (using LUT)", INTRINSIC, 23.1f),
+        CONVOLVE_5X5 ("Convolve 5x5", RELAXED_FP, 236.f),
+        INTRINSICS_CONVOLVE_5X5 ("Intrinsics Convolve 5x5", INTRINSIC, 39.6f),
+        MANDELBROT_FLOAT ("Mandelbrot (fp32)", FULL_FP, 117.f),
+        MANDELBROT_DOUBLE ("Mandelbrot (fp64)", FULL_FP, 136.f),
+        INTRINSICS_BLEND ("Intrinsics Blend", INTRINSIC, 105.f),
+        INTRINSICS_BLUR_25G ("Intrinsics Blur 25 uchar", INTRINSIC, 37.8f),
+        VIBRANCE ("Vibrance", RELAXED_FP, 103.f),
+        BW_FILTER ("BW Filter", RELAXED_FP, 86.f),
+        SHADOWS ("Shadows", RELAXED_FP, 130.f),
+        CONTRAST ("Contrast", RELAXED_FP, 45.4f),
+        EXPOSURE ("Exposure", RELAXED_FP, 73.4f),
+        WHITE_BALANCE ("White Balance", RELAXED_FP, 138.2f),
+        COLOR_CUBE ("Color Cube", RELAXED_FP, 83.9f),
+        COLOR_CUBE_3D_INTRINSIC ("Color Cube (3D LUT intrinsic)", INTRINSIC, 34.7f),
+        ARTISTIC1 ("Artistic 1", RELAXED_FP, 140.f),
+        RESIZE_BI_SCRIPT ("Resize BiCubic Script", RELAXED_FP, 253.f),
+        RESIZE_BI_INTRINSIC ("Resize BiCubic Intrinsic", INTRINSIC, 255.f),
+        POSTERIZE_INVOKE ("Posterize with invoke", RELAXED_FP, 215.f),
+        POSTERIZE_SET ("Posterize with set", INTRINSIC, 221.f);
 
 
         private final String name;
@@ -183,6 +185,10 @@ public class IPTestListJB {
             return new Resize(false);
         case RESIZE_BI_INTRINSIC:
             return new Resize(true);
+        case POSTERIZE_INVOKE:
+            return new Posterize(true);
+        case POSTERIZE_SET:
+            return new Posterize(false);
         }
         return null;
     }

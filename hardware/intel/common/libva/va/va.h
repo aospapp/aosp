@@ -2500,10 +2500,13 @@ typedef struct _VAParseSliceHeaderGroupBuffer
 	unsigned char luma_log2_weight_denom;
 	unsigned char chroma_log2_weight_denom;
 	unsigned char cabac_init_idc;
-	unsigned char pic_order_cnt_lsb;
+        unsigned char reserved8bit;
 
-	unsigned char pic_parameter_set_id;
-	unsigned short idr_pic_id;
+        unsigned short pic_order_cnt_lsb;
+        unsigned short reserved16bit;
+
+        unsigned short idr_pic_id;
+        unsigned char pic_parameter_set_id;
 	unsigned char colour_plane_id;
 
 	char slice_alpha_c0_offset_div2;

@@ -12,20 +12,21 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_service_test_base.h"
 #include "chrome/browser/extensions/tab_helper.h"
-#include "chrome/browser/notifications/desktop_notification_service.h"
-#include "chrome/browser/notifications/desktop_notification_service_factory.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profile_resetter/brandcode_config_fetcher.h"
 #include "chrome/browser/profile_resetter/profile_resetter_test_base.h"
 #include "chrome/browser/profile_resetter/resettable_settings_snapshot.h"
-#include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "chrome/browser/search_engines/ui_thread_search_terms_data.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/webdata/web_data_service_factory.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "components/google/core/browser/google_pref_names.h"
+#include "components/search_engines/template_url_service.h"
+#include "components/search_engines/template_url_service_client.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/test_browser_thread.h"
 #include "extensions/common/extension.h"
@@ -37,7 +38,7 @@
 #include "url/gurl.h"
 
 #if defined(OS_WIN)
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/path_service.h"
 #include "base/process/process_handle.h"
 #include "base/rand_util.h"
@@ -145,7 +146,13 @@ void ProfileResetterTest::SetUp() {
 // static
 KeyedService* ProfileResetterTest::CreateTemplateURLService(
     content::BrowserContext* context) {
-  return new TemplateURLService(static_cast<Profile*>(context));
+  Profile* profile = static_cast<Profile*>(context);
+  return new TemplateURLService(
+      profile->GetPrefs(),
+      scoped_ptr<SearchTermsData>(new UIThreadSearchTermsData(profile)),
+      WebDataServiceFactory::GetKeywordWebDataForProfile(
+          profile, Profile::EXPLICIT_ACCESS),
+      scoped_ptr<TemplateURLServiceClient>(), NULL, NULL, base::Closure());
 }
 
 
@@ -485,19 +492,14 @@ TEST_F(ProfileResetterTest, ResetHomepagePartially) {
 TEST_F(ProfileResetterTest, ResetContentSettings) {
   HostContentSettingsMap* host_content_settings_map =
       profile()->GetHostContentSettingsMap();
-  DesktopNotificationService* notification_service =
-      DesktopNotificationServiceFactory::GetForProfile(profile());
   ContentSettingsPattern pattern =
       ContentSettingsPattern::FromString("[*.]example.org");
   std::map<ContentSettingsType, ContentSetting> default_settings;
 
   for (int type = 0; type < CONTENT_SETTINGS_NUM_TYPES; ++type) {
-    if (type == CONTENT_SETTINGS_TYPE_NOTIFICATIONS) {
-      notification_service->SetDefaultContentSetting(CONTENT_SETTING_BLOCK);
-      notification_service->GrantPermission(GURL("http://foo.de"));
-    } else if (type == CONTENT_SETTINGS_TYPE_AUTO_SELECT_CERTIFICATE ||
-               type == CONTENT_SETTINGS_TYPE_MIXEDSCRIPT ||
-               type == CONTENT_SETTINGS_TYPE_PROTOCOL_HANDLERS) {
+    if (type == CONTENT_SETTINGS_TYPE_AUTO_SELECT_CERTIFICATE ||
+        type == CONTENT_SETTINGS_TYPE_MIXEDSCRIPT ||
+        type == CONTENT_SETTINGS_TYPE_PROTOCOL_HANDLERS) {
       // These types are excluded because one can't call
       // GetDefaultContentSetting() for them.
     } else {
@@ -542,38 +544,31 @@ TEST_F(ProfileResetterTest, ResetContentSettings) {
   ResetAndWait(ProfileResetter::CONTENT_SETTINGS);
 
   for (int type = 0; type < CONTENT_SETTINGS_NUM_TYPES; ++type) {
-    if (type == CONTENT_SETTINGS_TYPE_NOTIFICATIONS) {
-      EXPECT_EQ(CONTENT_SETTING_ASK,
-                notification_service->GetDefaultContentSetting(NULL));
-      EXPECT_EQ(CONTENT_SETTING_ASK,
-                notification_service->GetContentSetting(GURL("http://foo.de")));
-    } else {
-      ContentSettingsType content_type = static_cast<ContentSettingsType>(type);
-      if (HostContentSettingsMap::ContentTypeHasCompoundValue(content_type) ||
-          type == CONTENT_SETTINGS_TYPE_AUTO_SELECT_CERTIFICATE ||
-          content_type == CONTENT_SETTINGS_TYPE_MIXEDSCRIPT ||
-          content_type == CONTENT_SETTINGS_TYPE_PROTOCOL_HANDLERS)
-        continue;
-      ContentSetting default_setting =
-          host_content_settings_map->GetDefaultContentSetting(content_type,
+    ContentSettingsType content_type = static_cast<ContentSettingsType>(type);
+    if (HostContentSettingsMap::ContentTypeHasCompoundValue(content_type) ||
+        type == CONTENT_SETTINGS_TYPE_AUTO_SELECT_CERTIFICATE ||
+        content_type == CONTENT_SETTINGS_TYPE_MIXEDSCRIPT ||
+        content_type == CONTENT_SETTINGS_TYPE_PROTOCOL_HANDLERS)
+      continue;
+    ContentSetting default_setting =
+        host_content_settings_map->GetDefaultContentSetting(content_type,
                                                               NULL);
-      EXPECT_TRUE(default_settings.count(content_type));
-      EXPECT_EQ(default_settings[content_type], default_setting);
-      if (!HostContentSettingsMap::ContentTypeHasCompoundValue(content_type)) {
-        ContentSetting site_setting =
-            host_content_settings_map->GetContentSetting(
-                GURL("example.org"),
-                GURL(),
-                content_type,
-                std::string());
-        EXPECT_EQ(default_setting, site_setting);
-      }
-
-      ContentSettingsForOneType host_settings;
-      host_content_settings_map->GetSettingsForOneType(
-          content_type, std::string(), &host_settings);
-      EXPECT_EQ(1U, host_settings.size());
+    EXPECT_TRUE(default_settings.count(content_type));
+    EXPECT_EQ(default_settings[content_type], default_setting);
+    if (!HostContentSettingsMap::ContentTypeHasCompoundValue(content_type)) {
+      ContentSetting site_setting =
+          host_content_settings_map->GetContentSetting(
+              GURL("example.org"),
+              GURL(),
+              content_type,
+              std::string());
+      EXPECT_EQ(default_setting, site_setting);
     }
+
+    ContentSettingsForOneType host_settings;
+    host_content_settings_map->GetSettingsForOneType(
+        content_type, std::string(), &host_settings);
+    EXPECT_EQ(1U, host_settings.size());
   }
 }
 
@@ -869,7 +864,7 @@ TEST_F(ProfileResetterTest, CheckSnapshots) {
       Manifest::INVALID_LOCATION,
       extensions::Manifest::TYPE_EXTENSION,
       false);
-  ASSERT_TRUE(ext);
+  ASSERT_TRUE(ext.get());
   service_->AddExtension(ext.get());
 
   std::string master_prefs(kDistributionConfig);
@@ -907,6 +902,7 @@ TEST_F(ProfileResetterTest, CheckSnapshots) {
             empty_snap.startup_type());
   EXPECT_TRUE(empty_snap.homepage().empty());
   EXPECT_TRUE(empty_snap.homepage_is_ntp());
+  EXPECT_FALSE(empty_snap.show_home_button());
   EXPECT_NE(std::string::npos, empty_snap.dse_url().find("{google:baseURL}"));
   EXPECT_EQ(ResettableSettingsSnapshot::ExtensionList(),
             empty_snap.enabled_extensions());
@@ -931,6 +927,7 @@ TEST_F(ProfileResetterTest, CheckSnapshots) {
   EXPECT_EQ(SessionStartupPref::URLS, nonorganic_snap.startup_type());
   EXPECT_EQ("http://www.foo.com", nonorganic_snap.homepage());
   EXPECT_FALSE(nonorganic_snap.homepage_is_ntp());
+  EXPECT_TRUE(nonorganic_snap.show_home_button());
   EXPECT_EQ("http://www.foo.com/s?q={searchTerms}", nonorganic_snap.dse_url());
   EXPECT_EQ(ResettableSettingsSnapshot::ExtensionList(
       1, std::make_pair(ext_id, "example")),
@@ -956,7 +953,7 @@ TEST_F(ProfileResetterTest, FeedbackSerializationTest) {
       Manifest::INVALID_LOCATION,
       extensions::Manifest::TYPE_EXTENSION,
       false);
-  ASSERT_TRUE(ext);
+  ASSERT_TRUE(ext.get());
   service_->AddExtension(ext.get());
 
   ShortcutHandler shortcut;
@@ -987,6 +984,7 @@ TEST_F(ProfileResetterTest, FeedbackSerializationTest) {
     int startup_type = 0;
     std::string homepage;
     bool homepage_is_ntp = true;
+    bool show_home_button = true;
     std::string default_search_engine;
     base::ListValue* extensions = NULL;
     base::ListValue* shortcuts = NULL;
@@ -999,6 +997,8 @@ TEST_F(ProfileResetterTest, FeedbackSerializationTest) {
               dict->GetString("homepage", &homepage));
     EXPECT_EQ(!!(field_mask & ResettableSettingsSnapshot::HOMEPAGE),
               dict->GetBoolean("homepage_is_ntp", &homepage_is_ntp));
+    EXPECT_EQ(!!(field_mask & ResettableSettingsSnapshot::HOMEPAGE),
+              dict->GetBoolean("show_home_button", &show_home_button));
     EXPECT_EQ(!!(field_mask & ResettableSettingsSnapshot::DSE_URL),
               dict->GetString("default_search_engine", &default_search_engine));
     EXPECT_EQ(!!(field_mask & ResettableSettingsSnapshot::EXTENSIONS),
@@ -1032,7 +1032,7 @@ TEST_F(ProfileResetterTest, GetReadableFeedback) {
       Manifest::INVALID_LOCATION,
       extensions::Manifest::TYPE_EXTENSION,
       false);
-  ASSERT_TRUE(ext);
+  ASSERT_TRUE(ext.get());
   service_->AddExtension(ext.get());
 
   PrefService* prefs = profile()->GetPrefs();

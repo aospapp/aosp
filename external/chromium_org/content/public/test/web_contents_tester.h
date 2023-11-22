@@ -5,18 +5,19 @@
 #ifndef CONTENT_PUBLIC_TEST_WEB_CONTENTS_TESTER_H_
 #define CONTENT_PUBLIC_TEST_WEB_CONTENTS_TESTER_H_
 
-#include "content/public/common/page_transition_types.h"
+#include "ui/base/page_transition_types.h"
 
 class GURL;
-struct WebPreferences;
 
 namespace content {
 
 class BrowserContext;
-struct Referrer;
+class RenderFrameHost;
 class RenderViewHost;
 class SiteInstance;
 class WebContents;
+struct Referrer;
+struct WebPreferences;
 
 // This interface allows embedders of content/ to write tests that depend on a
 // test version of WebContents.  This interface can be retrieved from any
@@ -59,7 +60,9 @@ class WebContentsTester {
   // sending a navigate notification for the NavigationController pending entry.
   virtual void CommitPendingNavigation() = 0;
 
-  virtual RenderViewHost* GetPendingRenderViewHost() const = 0;
+  // Gets the pending RenderFrameHost, if any, for the main frame. For the
+  // current RenderFrameHost of the main frame, use WebContents::GetMainFrame().
+  virtual RenderFrameHost* GetPendingMainFrame() const = 0;
 
   // Creates a pending navigation to the given URL with the default parameters
   // and then commits the load with a page ID one larger than any seen. This
@@ -74,20 +77,20 @@ class WebContentsTester {
   // Does nothing if no cross-navigation is pending.
   virtual void ProceedWithCrossSiteNavigation() = 0;
 
-  virtual void TestDidNavigate(RenderViewHost* render_view_host,
+  virtual void TestDidNavigate(RenderFrameHost* render_frame_host,
                                int page_id,
                                const GURL& url,
-                               PageTransition transition) = 0;
+                               ui::PageTransition transition) = 0;
 
   virtual void TestDidNavigateWithReferrer(
-      RenderViewHost* render_view_host,
+      RenderFrameHost* render_frame_host,
       int page_id,
       const GURL& url,
       const Referrer& referrer,
-      PageTransition transition) = 0;
+      ui::PageTransition transition) = 0;
 
-  // Promote GetWebkitPrefs to public.
-  virtual WebPreferences TestGetWebkitPrefs() = 0;
+  // Promote ComputeWebkitPrefs to public.
+  virtual WebPreferences TestComputeWebkitPrefs() = 0;
 };
 
 }  // namespace content

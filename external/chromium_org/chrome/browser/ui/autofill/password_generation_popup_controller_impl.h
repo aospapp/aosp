@@ -12,7 +12,6 @@
 #include "chrome/browser/ui/autofill/password_generation_popup_controller.h"
 #include "chrome/browser/ui/autofill/popup_controller_common.h"
 #include "components/autofill/core/common/password_form.h"
-#include "ui/gfx/font_list.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/range/range.h"
 #include "ui/gfx/rect.h"
@@ -61,7 +60,7 @@ class PasswordGenerationPopupControllerImpl
   // Create a PasswordGenerationPopupView if one doesn't already exist.
   // If |display_password| is true, a generated password is shown that can be
   // selected by the user. Otherwise just the text explaining generated
-  // passwords is shown.
+  // passwords is shown. Idempotent.
   void Show(bool display_password);
 
   // Hides the popup and destroys |this|.
@@ -75,7 +74,7 @@ class PasswordGenerationPopupControllerImpl
     return controller_common_.element_bounds();
   }
 
- private:
+ protected:
   PasswordGenerationPopupControllerImpl(
       const gfx::RectF& bounds,
       const PasswordForm& form,
@@ -85,6 +84,10 @@ class PasswordGenerationPopupControllerImpl
       content::WebContents* web_contents,
       gfx::NativeView container_view);
 
+  // Handle to the popup. May be NULL if popup isn't showing.
+  PasswordGenerationPopupView* view_;
+
+ private:
   // PasswordGenerationPopupController implementation:
   virtual void Hide() OVERRIDE;
   virtual void ViewDestroyed() OVERRIDE;
@@ -92,12 +95,9 @@ class PasswordGenerationPopupControllerImpl
   virtual bool AcceptSelectedLine() OVERRIDE;
   virtual void SelectionCleared() OVERRIDE;
   virtual void OnSavedPasswordsLinkClicked() OVERRIDE;
+  virtual int GetMinimumWidth() OVERRIDE;
   virtual gfx::NativeView container_view() OVERRIDE;
-  virtual const gfx::FontList& font_list() const OVERRIDE;
   virtual const gfx::Rect& popup_bounds() const OVERRIDE;
-  virtual const gfx::Rect& password_bounds() const OVERRIDE;
-  virtual const gfx::Rect& divider_bounds() const OVERRIDE;
-  virtual const gfx::Rect& help_bounds() const OVERRIDE;
   virtual bool display_password() const OVERRIDE;
   virtual bool password_selected() const OVERRIDE;
   virtual base::string16 password() const OVERRIDE;
@@ -121,8 +121,6 @@ class PasswordGenerationPopupControllerImpl
 
   // Get desired size of popup. Height depends on width because we do text
   // wrapping.
-  int GetDesiredWidth();
-  int GetDesiredHeight(int width);
   void CalculateBounds();
 
   PasswordForm form_;
@@ -137,12 +135,6 @@ class PasswordGenerationPopupControllerImpl
   // Contains common popup functionality.
   PopupControllerCommon controller_common_;
 
-  // Handle to the popup. May be NULL if popup isn't showing.
-  PasswordGenerationPopupView* view_;
-
-  // Font list used in the popup.
-  const gfx::FontList& font_list_;
-
   // Help text and the range in the text that corresponds to the saved passwords
   // link.
   base::string16 help_text_;
@@ -156,9 +148,6 @@ class PasswordGenerationPopupControllerImpl
 
   // Bounds for all the elements of the popup.
   gfx::Rect popup_bounds_;
-  gfx::Rect password_bounds_;
-  gfx::Rect divider_bounds_;
-  gfx::Rect help_bounds_;
 
   base::WeakPtrFactory<PasswordGenerationPopupControllerImpl> weak_ptr_factory_;
 

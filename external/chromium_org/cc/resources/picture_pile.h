@@ -28,10 +28,13 @@ class CC_EXPORT PicturePile : public PicturePileBase {
       SkColor background_color,
       bool contents_opaque,
       bool contents_fill_bounds_completely,
+      const gfx::Size& layer_size,
       const gfx::Rect& visible_layer_rect,
       int frame_number,
       Picture::RecordingMode recording_mode,
       RenderingStatsInstrumentation* stats_instrumentation);
+
+  void SetEmptyBounds();
 
   void set_slow_down_raster_scale_factor(int factor) {
     slow_down_raster_scale_factor_for_debug_ = factor;
@@ -48,13 +51,18 @@ class CC_EXPORT PicturePile : public PicturePileBase {
     is_suitable_for_gpu_rasterization_ = false;
   }
 
+  void SetPixelRecordDistanceForTesting(int d) { pixel_record_distance_ = d; }
+
  protected:
   virtual ~PicturePile();
 
  private:
   friend class PicturePileImpl;
 
+  void DetermineIfSolidColor();
+
   bool is_suitable_for_gpu_rasterization_;
+  int pixel_record_distance_;
 
   DISALLOW_COPY_AND_ASSIGN(PicturePile);
 };

@@ -9,9 +9,13 @@
 #include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/compiler_specific.h"
+#include "base/logging.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/pickle.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/threading/thread.h"
+#include "content/browser/appcache/appcache_response.h"
+#include "content/browser/appcache/appcache_url_request_job.h"
 #include "content/browser/appcache/mock_appcache_service.h"
 #include "net/base/io_buffer.h"
 #include "net/base/net_errors.h"
@@ -22,17 +26,8 @@
 #include "net/url_request/url_request_error_job.h"
 #include "net/url_request/url_request_job_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "webkit/browser/appcache/appcache_response.h"
-#include "webkit/browser/appcache/appcache_url_request_job.h"
+#include "url/gurl.h"
 
-using appcache::AppCacheEntry;
-using appcache::AppCacheStorage;
-using appcache::AppCacheResponseInfo;
-using appcache::AppCacheResponseReader;
-using appcache::AppCacheResponseWriter;
-using appcache::AppCacheURLRequestJob;
-using appcache::HttpResponseInfoIOBuffer;
-using appcache::kAppCacheNoCacheId;
 using net::IOBuffer;
 using net::WrappedIOBuffer;
 
@@ -91,8 +86,8 @@ class MockURLRequestJobFactory : public net::URLRequestJobFactory {
     return false;
   }
 
-  private:
-   mutable net::URLRequestJob* job_;
+ private:
+  mutable net::URLRequestJob* job_;
 };
 
 class AppCacheURLRequestJobTest : public testing::Test {
@@ -424,14 +419,13 @@ class AppCacheURLRequestJobTest : public testing::Test {
   // Basic -------------------------------------------------------------------
   void Basic() {
     AppCacheStorage* storage = service_->storage();
-    net::URLRequest request(GURL("http://blah/"), net::DEFAULT_PRIORITY, NULL,
-                            empty_context_.get());
+    scoped_ptr<net::URLRequest> request(empty_context_->CreateRequest(
+        GURL("http://blah/"), net::DEFAULT_PRIORITY, NULL, NULL));
     scoped_refptr<AppCacheURLRequestJob> job;
 
     // Create an instance and see that it looks as expected.
 
-    job = new AppCacheURLRequestJob(
-        &request, NULL, storage, NULL, false);
+    job = new AppCacheURLRequestJob(request.get(), NULL, storage, NULL, false);
     EXPECT_TRUE(job->is_waiting());
     EXPECT_FALSE(job->is_delivering_appcache_response());
     EXPECT_FALSE(job->is_delivering_network_response());
@@ -448,24 +442,24 @@ class AppCacheURLRequestJobTest : public testing::Test {
   // DeliveryOrders -----------------------------------------------------
   void DeliveryOrders() {
     AppCacheStorage* storage = service_->storage();
-    net::URLRequest request(GURL("http://blah/"), net::DEFAULT_PRIORITY, NULL,
-                            empty_context_.get());
+    scoped_ptr<net::URLRequest> request(empty_context_->CreateRequest(
+        GURL("http://blah/"), net::DEFAULT_PRIORITY, NULL, NULL));
     scoped_refptr<AppCacheURLRequestJob> job;
 
     // Create an instance, give it a delivery order and see that
     // it looks as expected.
 
-    job = new AppCacheURLRequestJob(&request, NULL, storage, NULL, false);
+    job = new AppCacheURLRequestJob(request.get(), NULL, storage, NULL, false);
     job->DeliverErrorResponse();
     EXPECT_TRUE(job->is_delivering_error_response());
     EXPECT_FALSE(job->has_been_started());
 
-    job = new AppCacheURLRequestJob(&request, NULL, storage, NULL, false);
+    job = new AppCacheURLRequestJob(request.get(), NULL, storage, NULL, false);
     job->DeliverNetworkResponse();
     EXPECT_TRUE(job->is_delivering_network_response());
     EXPECT_FALSE(job->has_been_started());
 
-    job = new AppCacheURLRequestJob(&request, NULL, storage, NULL, false);
+    job = new AppCacheURLRequestJob(request.get(), NULL, storage, NULL, false);
     const GURL kManifestUrl("http://blah/");
     const int64 kCacheId(1);
     const int64 kGroupId(1);

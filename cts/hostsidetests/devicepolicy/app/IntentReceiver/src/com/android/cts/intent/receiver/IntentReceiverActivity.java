@@ -16,6 +16,8 @@
 package com.android.cts.intent.receiver;
 
 import android.app.Activity;
+import android.content.ClipboardManager;
+import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -35,21 +37,36 @@ public class IntentReceiverActivity extends Activity {
 
     private static final String TAG = "IntentReceiverActivity";
 
-    private static final String ACTION_READ_FROM_URI = "com.android.cts.action.READ_FROM_URI";
+    private static final String ACTION_COPY_TO_CLIPBOARD =
+            "com.android.cts.action.COPY_TO_CLIPBOARD";
 
-    private static final String ACTION_WRITE_TO_URI = "com.android.cts.action.WRITE_TO_URI";
+    private static final String ACTION_READ_FROM_URI =
+            "com.android.cts.action.READ_FROM_URI";
 
     private static final String ACTION_TAKE_PERSISTABLE_URI_PERMISSION =
             "com.android.cts.action.TAKE_PERSISTABLE_URI_PERMISSION";
+
+    private static final String ACTION_WRITE_TO_URI =
+            "com.android.cts.action.WRITE_TO_URI";
+
 
     private static final String EXTRA_CAUGHT_SECURITY_EXCEPTION = "extra_caught_security_exception";
 
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Intent received = getIntent();
-        String action = received.getAction();
-        Uri uri = getIntent().getClipData().getItemAt(0).getUri();
-        if (ACTION_READ_FROM_URI.equals(action)) {
+        final Intent received = getIntent();
+        final String action = received.getAction();
+        final ClipData clipData = getIntent().getClipData();
+        final Uri uri = clipData != null ? clipData.getItemAt(0).getUri() : null;
+        if (ACTION_COPY_TO_CLIPBOARD.equals(action)) {
+            String text = received.getStringExtra("extra_text");
+            Log.i(TAG, "Copying \"" + text + "\" to the clipboard");
+            ClipData clip = ClipData.newPlainText("", text);
+            ClipboardManager clipboard =
+                    (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            clipboard.setPrimaryClip(clip);
+            setResult(Activity.RESULT_OK);
+        } else if (ACTION_READ_FROM_URI.equals(action)) {
             Intent result = new Intent();
             String message = null;
             try {
@@ -63,6 +80,11 @@ public class IntentReceiverActivity extends Activity {
             Log.i(TAG, "Message received in reading test: " + message);
             result.putExtra("extra_response", message);
             setResult(Activity.RESULT_OK, result);
+        } else if (ACTION_TAKE_PERSISTABLE_URI_PERMISSION.equals(action)) {
+            Log.i(TAG, "Taking persistable uri permission to " + uri);
+            getContentResolver().takePersistableUriPermission(uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            setResult(Activity.RESULT_OK);
         } else if (ACTION_WRITE_TO_URI.equals(action)) {
             Intent result = new Intent();
             String message = received.getStringExtra("extra_message");
@@ -76,11 +98,6 @@ public class IntentReceiverActivity extends Activity {
                 Log.i(TAG, "Caught a IOException while trying to write to " + uri, e);
             }
             setResult(Activity.RESULT_OK, result);
-        } else if (ACTION_TAKE_PERSISTABLE_URI_PERMISSION.equals(action)) {
-            Log.i(TAG, "Taking persistable uri permission to " + uri);
-            getContentResolver().takePersistableUriPermission(uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            setResult(Activity.RESULT_OK);
         }
         finish();
     }

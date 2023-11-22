@@ -53,6 +53,9 @@ bool GpuChannelHost::IsValidGpuMemoryBuffer(
 #if defined(OS_ANDROID)
     case gfx::SURFACE_TEXTURE_BUFFER:
 #endif
+#if defined(USE_X11)
+    case gfx::X11_PIXMAP_BUFFER:
+#endif
       return true;
     default:
       return false;
@@ -301,12 +304,20 @@ gfx::GpuMemoryBufferHandle GpuChannelHost::ShareGpuMemoryBufferToGpuProcess(
       handle.handle = ShareToGpuProcess(source_handle.handle);
       return handle;
     }
+#if defined(USE_OZONE)
+    case gfx::OZONE_NATIVE_BUFFER:
+      return source_handle;
+#endif
 #if defined(OS_MACOSX)
     case gfx::IO_SURFACE_BUFFER:
       return source_handle;
 #endif
 #if defined(OS_ANDROID)
     case gfx::SURFACE_TEXTURE_BUFFER:
+      return source_handle;
+#endif
+#if defined(USE_X11)
+    case gfx::X11_PIXMAP_BUFFER:
       return source_handle;
 #endif
     default:

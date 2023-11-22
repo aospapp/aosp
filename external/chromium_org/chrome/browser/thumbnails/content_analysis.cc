@@ -233,22 +233,19 @@ void ApplyGaussianGradientMagnitudeFilter(SkBitmap* input_bitmap,
   SkAutoLockPixels source_lock(*input_bitmap);
   DCHECK(input_bitmap);
   DCHECK(input_bitmap->getPixels());
-  DCHECK_EQ(SkBitmap::kA8_Config, input_bitmap->config());
+  DCHECK_EQ(kAlpha_8_SkColorType, input_bitmap->colorType());
 
   // To perform computations we will need one intermediate buffer. It can
   // very well be just another bitmap.
   const SkISize image_size = SkISize::Make(input_bitmap->width(),
                                            input_bitmap->height());
   SkBitmap intermediate;
-  intermediate.setConfig(
-      input_bitmap->config(), image_size.width(), image_size.height());
-  intermediate.allocPixels();
+  intermediate.allocPixels(input_bitmap->info().makeWH(image_size.width(),
+                                                       image_size.height()));
 
   SkBitmap intermediate2;
-  intermediate2.setConfig(
-      input_bitmap->config(), image_size.width(), image_size.height());
-  intermediate2.allocPixels();
-
+  intermediate2.allocPixels(input_bitmap->info().makeWH(image_size.width(),
+                                                        image_size.height()));
 
   if (kernel_sigma <= kSigmaThresholdForRecursive) {
     // For small kernels classic implementation is faster.
@@ -386,7 +383,7 @@ void ExtractImageProfileInformation(const SkBitmap& input_bitmap,
   DCHECK(rows);
   DCHECK(columns);
   DCHECK(input_bitmap.getPixels());
-  DCHECK_EQ(SkBitmap::kA8_Config, input_bitmap.config());
+  DCHECK_EQ(kAlpha_8_SkColorType, input_bitmap.colorType());
   DCHECK_GE(area.x(), 0);
   DCHECK_GE(area.y(), 0);
   DCHECK_LE(area.right(), input_bitmap.width());
@@ -681,8 +678,8 @@ SkBitmap ComputeDecimatedImage(const SkBitmap& bitmap,
 
   // Allocate the target image.
   SkBitmap target;
-  target.setConfig(bitmap.config(), target_column_count, target_row_count);
-  target.allocPixels();
+  target.allocPixels(bitmap.info().makeWH(target_column_count,
+                                          target_row_count));
 
   int target_row = 0;
   for (int r = 0; r < bitmap.height(); ++r) {
@@ -726,9 +723,8 @@ SkBitmap CreateRetargetedThumbnailImage(
     float kernel_sigma) {
   // First thing we need for this method is to color-reduce the source_bitmap.
   SkBitmap reduced_color;
-  reduced_color.setConfig(
-      SkBitmap::kA8_Config, source_bitmap.width(), source_bitmap.height());
-  reduced_color.allocPixels();
+  reduced_color.allocPixels(SkImageInfo::MakeA8(source_bitmap.width(),
+                                                source_bitmap.height()));
 
   if (!color_utils::ComputePrincipalComponentImage(source_bitmap,
                                                    &reduced_color)) {

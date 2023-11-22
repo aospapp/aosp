@@ -41,8 +41,20 @@ scoped_refptr<TokenWebData> TestSigninClient::GetDatabase() {
 
 bool TestSigninClient::CanRevokeCredentials() { return true; }
 
+std::string TestSigninClient::GetSigninScopedDeviceId() {
+  return std::string();
+}
+
+void TestSigninClient::ClearSigninScopedDeviceId() {
+}
+
 net::URLRequestContextGetter* TestSigninClient::GetURLRequestContext() {
-  return request_context_;
+  return request_context_.get();
+}
+
+void TestSigninClient::SetURLRequestContext(
+    net::URLRequestContextGetter* request_context) {
+  request_context_ = request_context;
 }
 
 std::string TestSigninClient::GetProductVersion() { return ""; }
@@ -67,8 +79,11 @@ bool TestSigninClient::ShouldMergeSigninCredentialsIntoCookieJar() {
   return true;
 }
 
-void TestSigninClient::SetCookieChangedCallback(
-    const CookieChangedCallback& callback) {}
+scoped_ptr<SigninClient::CookieChangedCallbackList::Subscription>
+TestSigninClient::AddCookieChangedCallback(
+    const SigninClient::CookieChangedCallback& callback) {
+  return cookie_callbacks_.Add(callback);
+}
 
 #if defined(OS_IOS)
 ios::ProfileOAuth2TokenServiceIOSProvider* TestSigninClient::GetIOSProvider() {
@@ -102,4 +117,12 @@ bool TestSigninClient::IsSigninProcess(int process_id) const {
 
 bool TestSigninClient::HasSigninProcess() const {
   return signin_host_id_ != kInvalidProcessId;
+}
+
+bool TestSigninClient::IsFirstRun() const {
+  return false;
+}
+
+base::Time TestSigninClient::GetInstallDate() {
+  return base::Time::Now();
 }

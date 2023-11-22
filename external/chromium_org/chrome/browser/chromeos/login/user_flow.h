@@ -6,9 +6,9 @@
 #define CHROME_BROWSER_CHROMEOS_LOGIN_USER_FLOW_H_
 
 #include "base/compiler_specific.h"
-#include "chrome/browser/chromeos/login/auth/login_status_consumer.h"
-#include "chrome/browser/chromeos/login/users/user.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chromeos/login/auth/auth_status_consumer.h"
+#include "components/user_manager/user.h"
 
 namespace chromeos {
 
@@ -26,10 +26,12 @@ class UserFlow {
   virtual bool ShouldShowSettings() = 0;
   virtual bool ShouldLaunchBrowser() = 0;
   virtual bool ShouldSkipPostLoginScreens() = 0;
-  virtual bool HandleLoginFailure(const LoginFailure& failure) = 0;
+  virtual bool SupportsEarlyRestartToApplyFlags() = 0;
+  virtual bool HandleLoginFailure(const AuthFailure& failure) = 0;
   virtual void HandleLoginSuccess(const UserContext& context) = 0;
   virtual bool HandlePasswordChangeDetected() = 0;
-  virtual void HandleOAuthTokenStatusChange(User::OAuthTokenStatus status) = 0;
+  virtual void HandleOAuthTokenStatusChange(
+      user_manager::User::OAuthTokenStatus status) = 0;
   virtual void LaunchExtraSteps(Profile* profile) = 0;
 
   void set_host(LoginDisplayHost* host) {
@@ -53,11 +55,12 @@ class DefaultUserFlow : public UserFlow {
   virtual bool ShouldShowSettings() OVERRIDE;
   virtual bool ShouldLaunchBrowser() OVERRIDE;
   virtual bool ShouldSkipPostLoginScreens() OVERRIDE;
-  virtual bool HandleLoginFailure(const LoginFailure& failure) OVERRIDE;
+  virtual bool SupportsEarlyRestartToApplyFlags() OVERRIDE;
+  virtual bool HandleLoginFailure(const AuthFailure& failure) OVERRIDE;
   virtual void HandleLoginSuccess(const UserContext& context) OVERRIDE;
   virtual bool HandlePasswordChangeDetected() OVERRIDE;
-  virtual void HandleOAuthTokenStatusChange(User::OAuthTokenStatus status)
-      OVERRIDE;
+  virtual void HandleOAuthTokenStatusChange(
+      user_manager::User::OAuthTokenStatus status) OVERRIDE;
   virtual void LaunchExtraSteps(Profile* profile) OVERRIDE;
 };
 

@@ -4,35 +4,44 @@
 
 import("//tools/grit/grit_rule.gni")
 
-# TODO(GYP) uncomment when this is used below.
-#gypi_values = exec_script(
-#    "//build/gypi_to_gn.py",
-#    [ rebase_path("../chrome_common.gypi") ],
-#    "scope",
-#    [ "../chrome_common.gypi" ])
+gypi_values = exec_script(
+    "//build/gypi_to_gn.py",
+    [ rebase_path("../chrome_common.gypi") ],
+    "scope",
+    [ "../chrome_common.gypi" ])
 
 # GYP version: chrome/chrome_resources.gyp:chrome_resources
 #              (generate_common_resources action)
 grit("resources") {
   source = "common_resources.grd"
+  output_dir = "$root_gen_dir/chrome"
+  output_name = "common_resources"
+  outputs = [
+    "grit/common_resources.h",
+    "common_resources.pak",
+  ]
 }
 
 # GYP version: chrome/chrome_resources.gyp:chrome_resources
 #              (generate_extensions_api_resources action)
 grit("extensions_api_resources") {
   source = "extensions_api_resources.grd"
+  output_dir = "$root_gen_dir/chrome"
+  outputs = [
+    "grit/extensions_api_resources.h",
+    "extensions_api_resources.pak",
+  ]
 }
 
 # GYP version: chrome/chrome_common.gyp:common
 static_library("common") {
-  # TODO(GYP) Uncomment when these compile.
-  #sources = rebase_path(gypi_values.chrome_common_sources, ".", "//chrome")
+  sources = rebase_path(gypi_values.chrome_common_sources, ".", "//chrome")
+  defines = []
 
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   deps = [
     ":version",
-    #":installer_util",  TODO(GYP)
     "//base:base",
     "//base:i18n",
     "//base:prefs",
@@ -41,20 +50,19 @@ static_library("common") {
     "//chrome:strings",
     "//chrome/app/theme:theme_resources",
     "//chrome/common:constants",
-    "//chrome/common/metrics/proto",
     "//chrome/common/net",
     "//chrome/common/safe_browsing:proto",
-    #"//components/cloud_devices:common",  TODO(GYP)
-    #"//components/json_schema",  TODO(GYP)
-    "//components/metrics",  
-    #"//components/components.gyp:policy_component_common",  TODO(GYP)
-    "//components/translate:translate_core_common",
-    #"//components/variations",  TODO(GYP)
+    "//chrome/installer/util",
+    "//components/cloud_devices/common",
+    "//components/content_settings/core/common",
+    "//components/json_schema",
+    "//components/metrics",
+    "//components/policy:policy_component_common",
+    "//components/translate/core/common",
+    "//components/variations",
     "//content/public/common",
     "//crypto",
-    "//extensions:extensions_resources",
-    "//extensions/strings",
-    #"//media/cast/cast.gyp:cast_transport",  TODO(GYP)
+    "//media/cast:net",
     "//net",
     "//skia",
     "//third_party/icu",
@@ -65,58 +73,176 @@ static_library("common") {
     "//url",
   ]
 
-  if (!is_ios) {
+  if (is_ios) {
+    sources += [
+      # Use this Mac file that was filtered out.
+      "chrome_version_info_mac.mm",
+    ]
+  } else {
+    # Non-iOS.
     deps += [
-      #'<(DEPTH)/apps/common/api/api.gyp:apps_api',  TODO(GYP)
-      "//chrome/common/extensions/api",
-      #'<(DEPTH)/components/components.gyp:autofill_core_common',  TODO(GYP)
-      #'<(DEPTH)/components/components.gyp:autofill_content_common',  TODO(GYP)
-      #'<(DEPTH)/components/components.gyp:password_manager_core_common',  TODO(GYP)
-      #'<(DEPTH)/components/components.gyp:signin_core_common',  TODO(GYP)
-      #'<(DEPTH)/components/components.gyp:translate_content_common',  TODO(GYP)
-      #'<(DEPTH)/components/nacl.gyp:nacl_common',  TODO(GYP)
       "//components/visitedlink/common",
-      #'<(DEPTH)/extensions/common/api/api.gyp:extensions_api',  TODO(GYP)
-      #'<(DEPTH)/extensions/extensions.gyp:extensions_common',  TODO(GYP)
+      "//components/autofill/content/common",
+      "//components/autofill/core/common",
+      "//components/password_manager/content/common",
+      "//components/password_manager/core/common",
+      "//components/signin/core/common",
+      "//components/translate/content/common",
       "//ipc",
-      "//third_party/adobe/flash:flapper_version_h",
       "//third_party/re2",
       "//third_party/widevine/cdm:version_h",
     ]
   }
+
+  if (enable_extensions) {
+    sources += rebase_path(
+        gypi_values.chrome_common_extensions_sources,
+        ".", "//chrome")
+    deps += [
+      "//device/bluetooth",  # TODO(thestig) Still needed? Not in gyp version.
+      "//device/usb",
+      "//chrome/common/extensions/api",
+      "//extensions/common",
+      "//extensions/common/api",
+      "//extensions/strings",
+      "//extensions:extensions_resources",
+    ]
+  }
+
+  if (is_win || is_mac) {
+    sources += rebase_path(
+        gypi_values.chrome_common_win_mac_sources,
+        ".", "//chrome")
+    if (use_openssl) {
+      sources -= [
+        "extensions/api/networking_private/networking_private_crypto_nss.cc",
+      ]
+      # networking_private_crypto_openssl.cc depends on boringssl.
+      deps += [
+        "//third_party/boringssl",
+      ]
+    } else {
+      sources -= [
+        "extensions/api/networking_private/networking_private_crypto_openssl.cc",
+      ]
+    }
+    deps += [ "//breakpad:client" ]
+  }
+  if (is_mac) {
+    sources += rebase_path(
+        gypi_values.chrome_common_mac_sources,
+        ".", "//chrome")
+  }
+
+  if (enable_nacl) {
+    deps += [
+      #'<(DEPTH)/components/nacl.gyp:nacl_common',  TODO(GYP)
+    ]
+  }
+
+  # Printing.
+  if (printing_mode == 0) {
+    sources -= [
+      "print_messages.cc",
+      "print_messages.h",
+    ]
+  } else {
+    deps += [ "//printing" ]
+    if (printing_mode == 1) {
+      # Full printing support.
+      sources += rebase_path(
+          gypi_values.chrome_common_service_process_sources,
+          ".", "//chrome")
+    }
+  }
+
+  if (enable_service_discovery) {
+    sources += [
+      "local_discovery/service_discovery_client.cc",
+      "local_discovery/service_discovery_client.h",
+    ]
+  }
+  if (enable_mdns) {
+    sources += [
+      "local_discovery/service_discovery_client_impl.cc",
+      "local_discovery/service_discovery_client_impl.h",
+    ]
+  }
+
+  if (is_android) {
+    sources -= [
+      "badge_util.cc",
+      "chrome_version_info_posix.cc",
+      "extensions/manifest_handlers/minimum_chrome_version_checker.cc",
+      "icon_with_badge_image_source.cc",
+      "media_galleries/metadata_types.h",
+      "spellcheck_common.cc",
+    ]
+  } else {
+    # Non-Android.
+    sources += rebase_path(
+        gypi_values.chrome_common_importer_sources,
+        ".", "//chrome")
+  }
+
+  if (is_win) {
+    deps += [ "//third_party/wtl" ]
+  }
+
+  if (enable_mdns) {
+    sources += [ "local_discovery/local_discovery_messages.h" ]
+  }
+
+  if (is_mac) {
+    sources -= [
+      "chrome_version_info_posix.cc",
+    ]
+    deps += [
+      "//third_party/mach_override",
+      "//third_party/google_toolbox_for_mac",
+    ]
+  }
+
+  if (enable_remoting) {
+    deps += [ "//remoting/client/plugin" ]
+  }
+  if (enable_plugins) {
+    sources += [
+      "pepper_flash.cc",
+      "pepper_flash.h",
+      "pepper_permission_util.cc",
+      "pepper_permission_util.h",
+    ]
+    deps += [
+      "//third_party/adobe/flash:flapper_version_h",
+    ]
+  }
+  if (!enable_webrtc) {
+    sources -= [ "media/webrtc_logging_messages.h" ]
+  }
+  if (enable_configuration_policy) {
+    deps += [ "//components/policy" ]
+  }
+
+  if (safe_browsing_mode == 1) {
+    defines += [ "FULL_SAFE_BROWSING" ]
+    sources += rebase_path(
+        gypi_values.chrome_common_full_safe_browsing_sources,
+        ".", "//chrome")
+  }
+  if (safe_browsing_mode == 2) {
+    defines += [ "MOBILE_SAFE_BROWSING" ]
+  }
 }
 
-if (is_linux) {
-  action("version") {
-    visibility = ":common"
-    script = "//build/util/version.py"
-
-    lastchange_path = "//build/util/LASTCHANGE"
-    version_path = "//chrome/VERSION"
-    template_input_path = "chrome_version_info_posix.h.version"
-    if (is_chrome_branded) {
-      branding_path = "//chrome/app/theme/google_chrome/BRANDING"
-    } else {
-      branding_path = "//chrome/app/theme/chromium/BRANDING"
-    }
-
-    source_prereqs = [
-      version_path,
-      template_input_path,
-      lastchange_path,
-      branding_path,
-    ]
-
-    outfile = "$target_gen_dir/chrome_version_info_posix.h"
-    outputs = [ outfile ]
-
-    args = [
-      "-f", rebase_path(version_path, root_build_dir),
-      "-f", rebase_path(branding_path, root_build_dir),
-      "-f", rebase_path(lastchange_path, root_build_dir),
-      rebase_path(template_input_path, root_build_dir),
-      rebase_path(outfile, root_build_dir),
-    ]
+if (is_linux || is_android) {
+  # TODO(brettw) this duplicates "//chrome/common:version" which applies to
+  # Windows.
+  import("//chrome/version.gni")
+  process_version("version") {
+    visibility = [ ":common" ]
+    source = "chrome_version_info_posix.h.version"
+    output = "$target_gen_dir/chrome_version_info_posix.h"
   }
 } else {
   # Other platforms have a different way to do versioning.
@@ -155,9 +281,39 @@ static_library("constants") {
   deps = [
     "//base",
     "//base/third_party/dynamic_annotations",
+    "//components/bookmarks/common",
     "//third_party/widevine/cdm:version_h",
-    # TODO(GYP)
-    #'../components/components.gyp:bookmarks_common',
-    #'../components/nacl.gyp:nacl_switches',
   ]
+
+  if (enable_nacl) {
+    deps += [
+      #'../components/nacl.gyp:nacl_switches',  TODO(GYP)
+    ]
+  }
+}
+
+source_set("test_support") {
+  testonly = true
+  visibility = [ "//chrome/test:test_support" ]
+
+  sources = [
+    "extensions/extension_test_util.cc",
+    "extensions/extension_test_util.h",
+  ]
+
+  deps = [
+    ":common",
+    "//base",
+    "//testing/gtest",
+  ]
+
+  if (is_win || is_mac) {
+    sources += [
+      "media_galleries/picasa_test_util.cc",
+      "media_galleries/picasa_test_util.h",
+      "media_galleries/pmp_test_util.cc",
+      "media_galleries/pmp_test_util.h",
+    ]
+  }
+
 }

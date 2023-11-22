@@ -118,6 +118,9 @@ class FakeSafeBrowsingService : public SafeBrowsingService {
     // Makes sure the auto update is not triggered. The tests will force the
     // update when needed.
     config.disable_auto_update = true;
+#if defined(OS_ANDROID)
+    config.disable_connection_check = true;
+#endif
     config.client_name = "browser_tests";
     return config;
   }
@@ -347,7 +350,8 @@ class SafeBrowsingServerTestHelper
 
   // Callbacks for SafeBrowsingDatabaseManager::Client.
   virtual void OnCheckBrowseUrlResult(const GURL& url,
-                                      SBThreatType threat_type) OVERRIDE {
+                                      SBThreatType threat_type,
+                                      const std::string& metadata) OVERRIDE {
     EXPECT_TRUE(BrowserThread::CurrentlyOn(BrowserThread::IO));
     EXPECT_TRUE(safe_browsing_test_->is_checked_url_in_db());
     safe_browsing_test_->set_is_checked_url_safe(

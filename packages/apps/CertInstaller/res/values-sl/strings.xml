@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="9095072584761066851">"Namestitvena aplikacija za potrdilo"</string>
+    <string name="app_name" msgid="9095072584761066851">"Namestitveni program za potrdilo"</string>
     <string name="pick_file_title" msgid="4481949485108233297">"Izberite potrdilo"</string>
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"Izvozi potrdilo"</string>
     <string name="extracting_pkcs12" msgid="1881267738821799771">"Ekstrahiranje ..."</string>
@@ -39,7 +39,7 @@
     <string name="cert_not_saved" msgid="4037698479662830270">"Potrdilo ni nameščeno."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"Ni potrdila za namestitev."</string>
     <string name="invalid_cert" msgid="7704228670980743590">"Potrdilo ni veljavno."</string>
-    <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> je nameščen."</string>
+    <string name="cert_is_added" msgid="6996557598167000500">"Program <xliff:g id="CREDENTIAL">%s</xliff:g> je nameščen."</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"Namestitev ni uspela, ker je potrdilo preveliko."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"Namestitev ni uspela, ker ni bilo mogoče najti datoteke s potrdilom."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"Namestitev ni uspela, ker ni bilo mogoče prebrati datoteke s potrdilom."</string>

@@ -6,6 +6,7 @@
 #define COMPONENTS_SYNC_DRIVER_GENERIC_CHANGE_PROCESSOR_FACTORY_H_
 
 #include "base/memory/weak_ptr.h"
+#include "sync/internal_api/public/base/model_type.h"
 
 namespace syncer {
 class AttachmentService;
@@ -14,7 +15,7 @@ class SyncMergeResult;
 struct UserShare;
 }
 
-namespace browser_sync {
+namespace sync_driver {
 
 class DataTypeErrorHandler;
 class GenericChangeProcessor;
@@ -34,8 +35,9 @@ class GenericChangeProcessorFactory {
   GenericChangeProcessorFactory();
   virtual ~GenericChangeProcessorFactory();
   virtual scoped_ptr<GenericChangeProcessor> CreateGenericChangeProcessor(
+      syncer::ModelType type,
       syncer::UserShare* user_share,
-      browser_sync::DataTypeErrorHandler* error_handler,
+      DataTypeErrorHandler* error_handler,
       const base::WeakPtr<syncer::SyncableService>& local_service,
       const base::WeakPtr<syncer::SyncMergeResult>& merge_result,
       SyncApiComponentFactory* sync_factory);
@@ -44,6 +46,6 @@ class GenericChangeProcessorFactory {
   DISALLOW_COPY_AND_ASSIGN(GenericChangeProcessorFactory);
 };
 
-}  // namespace browser_sync
+}  // namespace sync_driver
 
 #endif  // COMPONENTS_SYNC_DRIVER_GENERIC_CHANGE_PROCESSOR_FACTORY_H_

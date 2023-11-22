@@ -44,6 +44,10 @@ import java.util.List;
 public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewStubActivity> {
     /** The maximum time to wait for an operation. */
     private static final long TIME_OUT = 15000L;
+    private static final String mDummyTrackId = "dummyTrackId";
+    private static final TvTrackInfo mDummyTrack =
+            new TvTrackInfo.Builder(TvTrackInfo.TYPE_SUBTITLE, mDummyTrackId)
+            .setLanguage("und").build();
 
     private TvView mTvView;
     private Activity mActivity;
@@ -250,7 +254,9 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
     public void verifyCallbackTracksChanged() {
         CountingSession session = CountingTvInputService.sSession;
         assertNotNull(session);
-        session.notifyTracksChanged(new ArrayList<TvTrackInfo>());
+        ArrayList<TvTrackInfo> tracks = new ArrayList<>();
+        tracks.add(mDummyTrack);
+        session.notifyTracksChanged(tracks);
         new PollingCheck(TIME_OUT) {
             @Override
             protected boolean check() {
@@ -262,7 +268,7 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
     public void verifyCallbackTrackSelected() {
         CountingSession session = CountingTvInputService.sSession;
         assertNotNull(session);
-        session.notifyTrackSelected(TvTrackInfo.TYPE_SUBTITLE, null);
+        session.notifyTrackSelected(mDummyTrack.getType(), mDummyTrack.getId());
         new PollingCheck(TIME_OUT) {
             @Override
             protected boolean check() {

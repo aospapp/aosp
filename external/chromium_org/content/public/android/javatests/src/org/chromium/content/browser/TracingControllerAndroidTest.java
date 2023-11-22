@@ -33,7 +33,8 @@ public class TracingControllerAndroidTest extends ContentShellTestBase {
         ThreadUtils.runOnUiThreadBlocking(new Runnable() {
             @Override
             public void run() {
-                assertTrue(tracingController.startTracing(true, "*", false));
+                assertTrue(tracingController.startTracing(
+                    true, "*", "record-until-full"));
             }
         });
 
@@ -61,5 +62,6 @@ public class TracingControllerAndroidTest extends ContentShellTestBase {
         // It says it stopped, so it should have written the output file.
         assertTrue(file.exists());
         assertTrue(file.delete());
+        tracingController.destroy();
     }
 }

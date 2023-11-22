@@ -51,8 +51,8 @@ class MediaCaptureDevicesDispatcher : public content::MediaObserver,
     // Handle an information update related to a media stream request.
     virtual void OnRequestUpdate(
         int render_process_id,
-        int render_view_id,
-        const content::MediaStreamDevice& device,
+        int render_frame_id,
+        content::MediaStreamType stream_type,
         const content::MediaRequestState state) {}
 
     // Handle an information update that a new stream is being created.
@@ -83,6 +83,26 @@ class MediaCaptureDevicesDispatcher : public content::MediaObserver,
       const content::MediaStreamRequest& request,
       const content::MediaResponseCallback& callback,
       const extensions::Extension* extension);
+
+  // Checks if we have media access permission. Note that this only checks the
+  // settings and does not query the user.
+  bool CheckMediaAccessPermission(content::BrowserContext* browser_context,
+                                  const GURL& security_origin,
+                                  content::MediaStreamType type);
+
+  // Method called from WebCapturerDelegate implementations to check media
+  // access permission. Note that this does not query the user.
+  bool CheckMediaAccessPermission(content::WebContents* web_contents,
+                                  const GURL& security_origin,
+                                  content::MediaStreamType type);
+
+  // Same as above but for an |extension|, which may not be NULL.
+#if defined(ENABLE_EXTENSIONS)
+  bool CheckMediaAccessPermission(content::WebContents* web_contents,
+                                  const GURL& security_origin,
+                                  content::MediaStreamType type,
+                                  const extensions::Extension* extension);
+#endif
 
   // Helper to get the default devices which can be used by the media request.
   // Uses the first available devices if the default devices are not available.
@@ -116,22 +136,13 @@ class MediaCaptureDevicesDispatcher : public content::MediaObserver,
   virtual void OnVideoCaptureDevicesChanged() OVERRIDE;
   virtual void OnMediaRequestStateChanged(
       int render_process_id,
-      int render_view_id,
+      int render_frame_id,
       int page_request_id,
       const GURL& security_origin,
-      const content::MediaStreamDevice& device,
+      content::MediaStreamType stream_type,
       content::MediaRequestState state) OVERRIDE;
   virtual void OnCreatingAudioStream(int render_process_id,
                                      int render_frame_id) OVERRIDE;
-  virtual void OnAudioStreamPlaying(
-      int render_process_id,
-      int render_frame_id,
-      int stream_id,
-      const ReadPowerAndClipCallback& power_read_callback) OVERRIDE;
-  virtual void OnAudioStreamStopped(
-      int render_process_id,
-      int render_frame_id,
-      int stream_id) OVERRIDE;
 
   scoped_refptr<MediaStreamCaptureIndicator> GetMediaStreamCaptureIndicator();
 
@@ -203,10 +214,10 @@ class MediaCaptureDevicesDispatcher : public content::MediaObserver,
   void NotifyVideoDevicesChangedOnUIThread();
   void UpdateMediaRequestStateOnUIThread(
       int render_process_id,
-      int render_view_id,
+      int render_frame_id,
       int page_request_id,
       const GURL& security_origin,
-      const content::MediaStreamDevice& device,
+      content::MediaStreamType stream_type,
       content::MediaRequestState state);
   void OnCreatingAudioStreamOnUIThread(int render_process_id,
                                        int render_frame_id);
@@ -236,7 +247,7 @@ class MediaCaptureDevicesDispatcher : public content::MediaObserver,
   // MEDIA_REQUEST_STATE_CLOSING is encountered.
   struct DesktopCaptureSession {
     int render_process_id;
-    int render_view_id;
+    int render_frame_id;
     int page_request_id;
   };
   typedef std::list<DesktopCaptureSession> DesktopCaptureSessions;

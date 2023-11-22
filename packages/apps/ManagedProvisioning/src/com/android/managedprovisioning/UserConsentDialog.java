@@ -19,7 +19,6 @@ package com.android.managedprovisioning;
 import android.app.Activity;
 import android.app.Dialog;
 import android.app.DialogFragment;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
@@ -41,50 +40,63 @@ public class UserConsentDialog extends DialogFragment {
 
     public static final String LEARN_MORE_URL_PROFILE_OWNER =
             "https://support.google.com/android/work/answer/6090512";
+    // TODO: replace by the final device owner learn more link.
+    public static final String LEARN_MORE_URL_DEVICE_OWNER =
+            "https://support.google.com/android/work/answer/6090512";
 
-    private final Context mContext;
-    private final int mAdminMonitorsStringId;
-    private final Uri mLearnMoreUri;
-    private final Runnable mOnUserConsentRunnable;
-    private final Runnable mOnCancelRunnable;
+    // Only urls starting with this base can be visisted in the device owner case.
+    public static final String LEARN_MORE_ALLOWED_BASE_URL =
+            "https://support.google.com/";
 
-    public UserConsentDialog(final Context context, int ownerType,
-            final Runnable onUserConsentRunnable, final Runnable onCancelRunnable) {
-        super();
-        mContext = context;
-        if (ownerType == PROFILE_OWNER) {
-            mAdminMonitorsStringId = R.string.admin_has_ability_to_monitor_profile;
-            mLearnMoreUri = Uri.parse(LEARN_MORE_URL_PROFILE_OWNER);
-        } else if (ownerType == DEVICE_OWNER) {
-            mAdminMonitorsStringId = R.string.admin_has_ability_to_monitor_device;
-            mLearnMoreUri = null;
-        } else {
-            throw new IllegalArgumentException("Illegal value for argument ownerType.");
-        }
-        mOnUserConsentRunnable = onUserConsentRunnable;
-        mOnCancelRunnable = onCancelRunnable;
+    private static final String KEY_OWNER_TYPE = "owner_type";
+
+    public static UserConsentDialog newInstance(int ownerType) {
+        UserConsentDialog dialog = new UserConsentDialog();
+        Bundle args = new Bundle();
+        args.putInt(KEY_OWNER_TYPE, ownerType);
+        dialog.setArguments(args);
+        return dialog;
     }
 
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
-        final Dialog dialog = new Dialog(mContext, R.style.ManagedProvisioningDialogTheme);
+        int ownerType = getArguments().getInt(KEY_OWNER_TYPE);
+        if (ownerType != PROFILE_OWNER && ownerType != DEVICE_OWNER) {
+            throw new IllegalArgumentException("Illegal value for argument ownerType.");
+        }
+
+        final Dialog dialog = new Dialog(getActivity(), R.style.ManagedProvisioningDialogTheme);
         dialog.setContentView(R.layout.learn_more_dialog);
         dialog.setCanceledOnTouchOutside(false);
 
         TextView text1 = (TextView) dialog.findViewById(R.id.learn_more_text1);
-        text1.setText(mAdminMonitorsStringId);
+        if (ownerType == PROFILE_OWNER) {
+            text1.setText(R.string.admin_has_ability_to_monitor_profile);
+        } else if (ownerType == DEVICE_OWNER) {
+            text1.setText(R.string.admin_has_ability_to_monitor_device);
+        }
 
-        final TextView linkText = (TextView) dialog.findViewById(R.id.learn_more_link);
-        if (mLearnMoreUri != null) {
+        TextView linkText = (TextView) dialog.findViewById(R.id.learn_more_link);
+        if (ownerType == PROFILE_OWNER) {
             linkText.setOnClickListener(new OnClickListener() {
                     @Override
                     public void onClick(View v) {
-                        Intent browserIntent = new Intent(Intent.ACTION_VIEW, mLearnMoreUri);
-                        mContext.startActivity(browserIntent);
+                        Intent browserIntent = new Intent(Intent.ACTION_VIEW,
+                                Uri.parse(LEARN_MORE_URL_PROFILE_OWNER));
+                        getActivity().startActivity(browserIntent);
                     }
                 });
-        } else {
-            linkText.setVisibility(View.GONE);
+        } else if (ownerType == DEVICE_OWNER) {
+            linkText.setOnClickListener(new OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        Intent webIntent = new Intent(getActivity(), WebActivity.class);
+                        webIntent.putExtra(WebActivity.EXTRA_URL, LEARN_MORE_URL_DEVICE_OWNER);
+                        webIntent.putExtra(WebActivity.EXTRA_ALLOWED_URL_BASE,
+                                LEARN_MORE_ALLOWED_BASE_URL);
+                        getActivity().startActivity(webIntent);
+                    }
+                });
         }
 
         Button positiveButton = (Button) dialog.findViewById(R.id.positive_button);
@@ -92,9 +104,7 @@ public class UserConsentDialog extends DialogFragment {
                 @Override
                 public void onClick(View v) {
                     dialog.dismiss();
-                    if (mOnUserConsentRunnable != null) {
-                        mOnUserConsentRunnable.run();
-                    }
+                    ((ConsentCallback) getActivity()).onDialogConsent();
                 }
             });
 
@@ -103,9 +113,7 @@ public class UserConsentDialog extends DialogFragment {
                 @Override
                 public void onClick(View v) {
                     dialog.dismiss();
-                    if (mOnCancelRunnable != null) {
-                        mOnCancelRunnable.run();
-                    }
+                    ((ConsentCallback) getActivity()).onDialogCancel();
                 }
             });
 
@@ -114,8 +122,11 @@ public class UserConsentDialog extends DialogFragment {
 
     @Override
     public void onCancel(DialogInterface dialog) {
-        if (mOnCancelRunnable != null) {
-            mOnCancelRunnable.run();
-        }
+        ((ConsentCallback) getActivity()).onDialogCancel();
+    }
+
+    public interface ConsentCallback {
+        public abstract void onDialogConsent();
+        public abstract void onDialogCancel();
     }
 }

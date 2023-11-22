@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"బ్యాకప్ &amp; పునరుద్ధరణ"</string>
     <string name="device_reset" msgid="2827002349560023125">"ఫ్యాక్టరీ డేటా రీసెట్ చేయి"</string>
     <string name="device_calibration" msgid="8632962533376605191">"క్రమాంకనం"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"డౌన్‌లోడ్ చేసిన అనువర్తనాలు"</string>
     <string name="apps_system" msgid="2499191125802829425">"సిస్టమ్ అనువర్తనాలు"</string>
     <string name="apps_running" msgid="6430310491739956228">"అమలవుతున్న అనువర్తనాలు"</string>
@@ -85,17 +89,17 @@
     <string name="bluetooth_confirm_passkey_msg" msgid="7031117992819855434">"&lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;తో జతచేయడానికి, అది ఈ &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt; పాస్‌కీని చూపుతోందని నిర్ధారించుకోండి"</string>
     <string name="bluetooth_incoming_pairing_msg" msgid="8234127565393932499">"దీని నుండి: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;&lt;br&gt;ఈ పరికరానికి జత చేయాలా?"</string>
     <string name="bluetooth_display_passkey_pin_msg" msgid="8951451728250058901">"&lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;&lt;br&gt;తో జత చేయడానికి, దానిపై &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;ని టైప్ చేయండి, ఆపై తిరిగి వెళ్లు లేదా నమోదు చేయి నొక్కండి."</string>
-    <string name="bluetooth_enter_pin_msg" msgid="7443458826667686394">"&lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;తో జత చేయడానికి, &lt;br&gt;పరికరానికి అవసరమైన PINను టైప్ చేయండి:"</string>
+    <string name="bluetooth_enter_pin_msg" msgid="7443458826667686394">"&lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;తో జత చేయడానికి, &lt;br&gt;పరికరానికి అవసరమైన పిన్‌ను టైప్ చేయండి:"</string>
     <string name="bluetooth_enter_passkey_msg" msgid="7980787196089653577">"దీనితో జత చేయడానికి: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;, &lt;br&gt;పరికర ఆవశ్యక పాస్‌కీని టైప్ చేయండి:"</string>
     <string name="bluetooth_pin_values_hint" msgid="2319900367581543300">"సాధారణంగా 0000 లేదా 1234"</string>
     <string name="bluetooth_pair" msgid="7836818609620478122">"జత చేయి"</string>
     <string name="bluetooth_cancel" msgid="4152153558528588479">"రద్దు చేయి"</string>
-    <string name="system_cast" msgid="6421567823845207156">"Google ప్రసారం"</string>
+    <string name="system_cast" msgid="6421567823845207156">"Google Cast"</string>
     <string name="system_date_time" msgid="8898457978560618950">"తేదీ &amp; సమయం"</string>
     <string name="system_language" msgid="2337138146114609247">"భాష"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"కీబోర్డ్"</string>
     <string name="system_search" msgid="2837264654143247611">"శోధించండి"</string>
-    <string name="system_security" msgid="4190058778883258927">"భద్రత &amp; పరిమితులు"</string>
+    <string name="system_security" msgid="8230080273993484407">"భద్రత &amp; పరిమితులు"</string>
     <string name="system_speech" msgid="8128688499687306982">"ప్రసంగం"</string>
     <string name="system_inputs" msgid="2413907183796651102">"ఇన్‌పుట్‌లు"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"ప్రాప్యత సామర్థ్యం"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"సిస్టమ్ నవీకరణ"</string>
     <string name="about_preference" msgid="4131396784531360434">"పరిచయం"</string>
     <string name="device_name" msgid="2670488158531273028">"పరికరం పేరు"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"పునఃప్రారంభించు"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"చట్టబద్ధమైన సమాచారం"</string>
     <string name="about_warranty" msgid="5736003473060436384">"వారంటీ"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"ఓపెన్ సోర్స్ లైసెన్స్‌లు"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"సేవా నిబంధనలను వీక్షించండి"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"గోప్యతా విధానాన్ని వీక్షించండి"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"అదనపు నిబంధనలను వీక్షించండి"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Google చట్టపరం"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"లైసెన్స్ డేటా అందుబాటులో లేదు"</string>
     <string name="about_model" msgid="6625269442206323995">"నమూనా"</string>
     <string name="about_version" msgid="1177287676732287266">"సంస్కరణ"</string>
@@ -251,8 +254,8 @@
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"మళ్లీ ప్రయత్నించండి"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"WPS రూటర్ కోసం శోధిస్తోంది…"</string>
     <string name="wifi_wps_instructions" msgid="3618110962669110034">"మీ రూటర్‌లో Wi-Fi సురక్షిత సెటప్ బటన్‌ను నొక్కండి.\nఇది \"WPS\" అని పిలవబడవచ్చు లేదా ఎడమవైపు గుర్తును కలిగి ఉంటుంది."</string>
-    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"మీ Wi-Fi రూటర్‌లో PIN <xliff:g id="NUMBER">%1$s</xliff:g>ని నమోదు చేయండి"</string>
-    <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"మీరు PINను నమోదు చేసిన తర్వాత, సెటప్‌ పూర్తి కావడానికి గరిష్టంగా 2 నిమిషాలు పట్టవచ్చు"</string>
+    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"మీ Wi-Fi రూటర్‌లో పిన్ <xliff:g id="NUMBER">%1$s</xliff:g>ని నమోదు చేయండి"</string>
+    <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"మీరు పిన్‌ను నమోదు చేసిన తర్వాత, సెటప్‌ పూర్తి కావడానికి గరిష్టంగా 2 నిమిషాలు పట్టవచ్చు"</string>
     <string name="wifi_wps_in_progress" msgid="7082889465182680949">"WPS ఇప్పటికే ప్రోగ్రెస్‌లో ఉంది, ముగియడానికి గరిష్టంగా 2 నిమిషాలు పట్టవచ్చు"</string>
     <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Wi-Fi రూటర్‌ను కనుగొనడం సాధ్యపడలేదు"</string>
     <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Wi-Fi రూటర్ భద్రతా సెట్టింగ్ (WEP)కి మద్దతు లేదు"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"తేదీ"</string>
     <string name="system_time" msgid="6726022312605226285">"సమయం"</string>
     <string name="system_set_date" msgid="2437586307768561116">"తేదీని సెట్ చేయండి"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"తేదీ ఆకృతిని ఎంచుకోండి"</string>
     <string name="system_set_time" msgid="4661804115501057452">"సమయాన్ని సెట్ చేయి"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"సమయ మండలిని సెట్ చేయండి"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"24-గంటల ఆకృతిని ఉపయోగించు"</string>
@@ -478,7 +480,7 @@
     <string name="title_select_wifi_network" msgid="1038871400014761952">"మీ Wi-Fi నెట్‌వర్క్‌ని ఎంచుకోండి"</string>
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"పేరు మార్చు"</string>
     <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"Wi-Fi డిస్‌ప్లే"</string>
-    <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"PIN అవసరం"</string>
+    <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"పిన్ అవసరం"</string>
     <string name="accessories_remote_list_title" msgid="3115459158860792046">"రిమోట్ సమాచారం: <xliff:g id="SERIALNUMBER">%1$s</xliff:g>"</string>
     <string name="system_collecting_bug_report" msgid="5923988155158351543">"బగ్ నివేదికను సేకరిస్తోంది!\nనివేదిక తయారైన తర్వాత మేము మిమ్మల్ని మరింత సమాచారం కోసం అడుగుతాము."</string>
     <string name="system_collecting_bug_report_error" msgid="1396108342854067722">"బగ్ నివేదికను సేకరించడం సాధ్యపడలేదు!\nదయచేసి తర్వాత మళ్లీ ప్రయత్నించండి."</string>
@@ -544,20 +546,20 @@
     <string name="restricted_profile_customize_restrictions" msgid="8418415019078825537">"పరిమితులను అనుకూలీకరించు"</string>
     <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"ఒక క్షణం…"</string>
     <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"పిన్‌ను మార్చండి"</string>
-    <string name="restricted_profile_set_password" msgid="3989154189940037175">"పరిమిత ప్రొఫైల్ నుండి నిష్క్రమించేందుకు ఉపయోగించడానికి కొత్త PIN కోడ్‌ను సెట్ చేయండి"</string>
-    <string name="restricted_profile_confirm_password" msgid="5749967525546068650">"పరిమిత ప్రొఫైల్ నుండి నిష్క్రమించేందుకు ఉపయోగించడానికి PIN కోడ్‌ను నిర్ధారించండి"</string>
-    <string name="restricted_profile_enter_password" msgid="5961473119032585585">"పరిమిత ప్రొఫైల్ నుండి నిష్క్రమించడానికి PIN కోడ్‌ను నమోదు చేయండి"</string>
+    <string name="restricted_profile_set_password" msgid="3989154189940037175">"పరిమిత ప్రొఫైల్ నుండి నిష్క్రమించేందుకు ఉపయోగించడానికి కొత్త పిన్ కోడ్‌ను సెట్ చేయండి"</string>
+    <string name="restricted_profile_confirm_password" msgid="5749967525546068650">"పరిమిత ప్రొఫైల్ నుండి నిష్క్రమించేందుకు ఉపయోగించడానికి పిన్ కోడ్‌ను నిర్ధారించండి"</string>
+    <string name="restricted_profile_enter_password" msgid="5961473119032585585">"పరిమిత ప్రొఫైల్ నుండి నిష్క్రమించడానికి పిన్ కోడ్‌ను నమోదు చేయండి"</string>
     <string name="restricted_profile_delete_dialog_title" msgid="2998929625283492853">"నియంత్రిత వినియోగదారుని తీసివేయాలా?"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
-    <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"ఈ ఛానెల్‌ను చూడటానికి PINని నమోదు చేయండి"</string>
-    <string name="pin_enter_unlock_program" msgid="52453773316071511">"ఈ ప్రోగ్రామ్‌ను చూడటానికి PINని నమోదు చేయండి"</string>
-    <string name="pin_enter_pin" msgid="821552376577935497">"PIN‌ని నమోదు చేయండి"</string>
-    <string name="pin_enter_new_pin" msgid="4788218421265924211">"కొత్త PINని సెట్ చేయండి"</string>
-    <string name="pin_enter_again" msgid="1510456697040826496">"కొత్త PINని మళ్లీ నమోదు చేయండి"</string>
-    <string name="pin_enter_old_pin" msgid="851029058127630869">"పాత PINని నమోదు చేయండి"</string>
-    <string name="pin_enter_wrong" msgid="5653864140710683928">"మీరు 5 సార్లు తప్పు PINని నమోదు చేశారు.\nమళ్లీ ప్రయత్నించండి <xliff:g id="RELATIVE_TIME_SPAN">%1$s</xliff:g>."</string>
+    <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"ఈ ఛానెల్‌ను చూడటానికి పిన్‌ని నమోదు చేయండి"</string>
+    <string name="pin_enter_unlock_program" msgid="52453773316071511">"ఈ ప్రోగ్రామ్‌ను చూడటానికి పిన్‌ని నమోదు చేయండి"</string>
+    <string name="pin_enter_pin" msgid="821552376577935497">"పిన్‌ని నమోదు చేయండి"</string>
+    <string name="pin_enter_new_pin" msgid="4788218421265924211">"కొత్త పిన్‌ని సెట్ చేయండి"</string>
+    <string name="pin_enter_again" msgid="1510456697040826496">"కొత్త పిన్‌ని మళ్లీ నమోదు చేయండి"</string>
+    <string name="pin_enter_old_pin" msgid="851029058127630869">"పాత పిన్‌ని నమోదు చేయండి"</string>
+    <string name="pin_enter_wrong" msgid="5653864140710683928">"మీరు 5 సార్లు తప్పు పిన్‌ని నమోదు చేశారు.\nమళ్లీ ప్రయత్నించండి <xliff:g id="RELATIVE_TIME_SPAN">%1$s</xliff:g>."</string>
     <string name="pin_button_done" msgid="939191809977197451">"సరే"</string>
     <string name="pin_button_cancel" msgid="5541414789309863965">"రద్దు"</string>
-    <string name="pin_toast_wrong" msgid="4628358195224633248">"తప్పు PIN, మళ్లీ ప్రయత్నించండి"</string>
-    <string name="pin_toast_not_match" msgid="5886041789737632996">"మళ్లీ ప్రయత్నించండి, PIN సరిపోలలేదు"</string>
+    <string name="pin_toast_wrong" msgid="4628358195224633248">"తప్పు పిన్, మళ్లీ ప్రయత్నించండి"</string>
+    <string name="pin_toast_not_match" msgid="5886041789737632996">"మళ్లీ ప్రయత్నించండి, పిన్ సరిపోలలేదు"</string>
 </resources>

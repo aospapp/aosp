@@ -9,7 +9,7 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/prefs/pref_service.h"
 #include "base/strings/utf_string_conversions.h"
@@ -21,6 +21,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_dialogs.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/print_messages.h"
@@ -28,6 +29,7 @@
 #include "components/cloud_devices/common/cloud_devices_urls.h"
 #include "components/google/core/browser/google_util.h"
 #include "components/pref_registry/pref_registry_syncable.h"
+#include "components/signin/core/common/profile_management_switches.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
@@ -39,7 +41,7 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/common/frame_navigate_params.h"
-#include "webkit/common/webpreferences.h"
+#include "content/public/common/web_preferences.h"
 
 #if defined(USE_AURA)
 #include "ui/aura/window.h"
@@ -113,6 +115,7 @@ using content::NavigationController;
 using content::NavigationEntry;
 using content::RenderViewHost;
 using content::WebContents;
+using content::WebPreferences;
 using content::WebUIMessageHandler;
 using ui::WebDialogDelegate;
 
@@ -358,6 +361,8 @@ void CloudPrintFlowHandler::Observe(
         // script permissions required for the web UI.
         RenderViewHost* rvh = web_ui()->GetWebContents()->GetRenderViewHost();
         if (rvh) {
+          // TODO(chrishtr): this is wrong. allow_scripts_to_close_windows will
+          // be reset the next time a preference changes.
           WebPreferences webkit_prefs = rvh->GetWebkitPreferences();
           webkit_prefs.allow_scripts_to_close_windows = true;
           rvh->UpdateWebkitPreferences(webkit_prefs);
@@ -383,9 +388,9 @@ void CloudPrintFlowHandler::HandleShowDebugger(const base::ListValue* args) {
 
 void CloudPrintFlowHandler::ShowDebugger() {
   if (web_ui()) {
-    RenderViewHost* rvh = web_ui()->GetWebContents()->GetRenderViewHost();
-    if (rvh)
-      DevToolsWindow::OpenDevToolsWindow(rvh);
+    WebContents* web_contents = web_ui()->GetWebContents();
+    if (web_contents)
+      DevToolsWindow::OpenDevToolsWindow(web_contents);
   }
 }
 
@@ -711,16 +716,26 @@ void CreateCloudPrintSigninTab(Browser* browser,
                                bool add_account,
                                const base::Closure& callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  GURL url = add_account ? cloud_devices::GetCloudPrintAddAccountURL()
-                         : cloud_devices::GetCloudPrintSigninURL();
-  content::WebContents* web_contents = browser->OpenURL(content::OpenURLParams(
-      google_util::AppendGoogleLocaleParam(
-          url, g_browser_process->GetApplicationLocale()),
-      content::Referrer(),
-      NEW_FOREGROUND_TAB,
-      content::PAGE_TRANSITION_AUTO_BOOKMARK,
-      false));
-  new SignInObserver(web_contents, cloud_devices::GetCloudPrintURL(), callback);
+  if (switches::IsEnableAccountConsistency() &&
+      !browser->profile()->IsOffTheRecord()) {
+    browser->window()->ShowAvatarBubbleFromAvatarButton(
+        add_account ? BrowserWindow::AVATAR_BUBBLE_MODE_ADD_ACCOUNT
+                    : BrowserWindow::AVATAR_BUBBLE_MODE_SIGNIN,
+        signin::ManageAccountsParams());
+  } else {
+    GURL url = add_account ? cloud_devices::GetCloudPrintAddAccountURL()
+                           : cloud_devices::GetCloudPrintSigninURL();
+    content::WebContents* web_contents =
+        browser->OpenURL(content::OpenURLParams(
+            google_util::AppendGoogleLocaleParam(
+                url, g_browser_process->GetApplicationLocale()),
+            content::Referrer(),
+            NEW_FOREGROUND_TAB,
+            ui::PAGE_TRANSITION_AUTO_BOOKMARK,
+            false));
+    new SignInObserver(web_contents, cloud_devices::GetCloudPrintURL(),
+                        callback);
+  }
 }
 
 void CreatePrintDialogForBytes(content::BrowserContext* browser_context,

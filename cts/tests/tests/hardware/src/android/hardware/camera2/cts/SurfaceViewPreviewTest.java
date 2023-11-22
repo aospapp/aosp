@@ -74,11 +74,6 @@ public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
                 Log.i(TAG, "Testing preview for Camera " + mCameraIds[i]);
                 openDevice(mCameraIds[i]);
 
-                if (mStaticInfo.isHardwareLevelLegacy()) {
-                    Log.i(TAG, "Skipping test on legacy devices");
-                    continue;
-                }
-
                 previewTestByCamera();
             } finally {
                 closeDevice();

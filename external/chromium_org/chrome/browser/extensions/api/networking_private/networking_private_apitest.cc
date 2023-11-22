@@ -7,17 +7,15 @@
 #include "base/command_line.h"
 #include "base/macros.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/chromeos/login/users/user.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/user_manager/user.h"
+#include "components/user_manager/user_manager.h"
 #include "extensions/common/switches.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/chromeos/login/helper.h"
-#include "chrome/browser/chromeos/net/network_portal_detector.h"
 #include "chrome/browser/chromeos/net/network_portal_detector_test_impl.h"
 #include "chromeos/chromeos_switches.h"
 #include "chromeos/dbus/cryptohome_client.h"
@@ -27,7 +25,9 @@
 #include "chromeos/dbus/shill_manager_client.h"
 #include "chromeos/dbus/shill_profile_client.h"
 #include "chromeos/dbus/shill_service_client.h"
+#include "chromeos/login/user_names.h"
 #include "chromeos/network/onc/onc_utils.h"
+#include "chromeos/network/portal_detector/network_portal_detector.h"
 #include "components/onc/onc_constants.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/policy/core/common/external_data_fetcher.h"
@@ -38,6 +38,7 @@
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
+#include "extensions/browser/notification_types.h"
 #include "policy/policy_constants.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 #else  // !defined(OS_CHROMEOS)
@@ -81,7 +82,7 @@ class TestListener : public content::NotificationObserver {
   TestListener(const std::string& message, const base::Closure& callback)
       : message_(message), callback_(callback) {
     registrar_.Add(this,
-                   chrome::NOTIFICATION_EXTENSION_TEST_MESSAGE,
+                   extensions::NOTIFICATION_EXTENSION_TEST_MESSAGE,
                    content::NotificationService::AllSources());
   }
 
@@ -110,23 +111,24 @@ class TestListener : public content::NotificationObserver {
 // That will eliminate the need for mock implementation.
 class CryptoVerifyStub
     : public extensions::NetworkingPrivateServiceClient::CryptoVerify {
-  virtual void VerifyDestination(scoped_ptr<base::ListValue> args,
+  virtual void VerifyDestination(const Credentials& verification_properties,
                                  bool* verified,
                                  std::string* error) OVERRIDE {
     *verified = true;
   }
 
   virtual void VerifyAndEncryptCredentials(
-      scoped_ptr<base::ListValue> args,
-      const extensions::NetworkingPrivateServiceClient::CryptoVerify::
-      VerifyAndEncryptCredentialsCallback& callback) OVERRIDE {
+      const std::string& network_guid,
+      const Credentials& credentials,
+      const VerifyAndEncryptCredentialsCallback& callback) OVERRIDE {
     callback.Run("encrypted_credentials", "");
   }
 
-  virtual void VerifyAndEncryptData(scoped_ptr<base::ListValue> args,
-                                    std::string* encoded_data,
+  virtual void VerifyAndEncryptData(const Credentials& verification_properties,
+                                    const std::string& data,
+                                    std::string* base64_encoded_ciphertext,
                                     std::string* error) OVERRIDE {
-    *encoded_data = "encrypted_data";
+    *base64_encoded_ciphertext = "encrypted_data";
   }
 };
 #endif  // defined(OS_CHROMEOS)
@@ -186,8 +188,8 @@ class ExtensionNetworkingPrivateApiTest
   }
 
   void InitializeSanitizedUsername() {
-    chromeos::UserManager* user_manager = chromeos::UserManager::Get();
-    chromeos::User* user = user_manager->GetActiveUser();
+    user_manager::UserManager* user_manager = user_manager::UserManager::Get();
+    user_manager::User* user = user_manager->GetActiveUser();
     CHECK(user);
     std::string userhash;
     DBusThreadManager::Get()->GetCryptohomeClient()->GetSanitizedUsername(
@@ -215,6 +217,10 @@ class ExtensionNetworkingPrivateApiTest
     // Note: These properties will show up in a "Cellular" object in ONC.
     service_test_->SetServiceProperty(
         "stub_cellular1",
+        shill::kAutoConnectProperty,
+        base::FundamentalValue(true));
+    service_test_->SetServiceProperty(
+        "stub_cellular1",
         shill::kNetworkTechnologyProperty,
         base::StringValue(shill::kNetworkTechnologyGsm));
     service_test_->SetServiceProperty(
@@ -232,12 +238,9 @@ class ExtensionNetworkingPrivateApiTest
                   const std::string& name,
                   const std::string& type,
                   const std::string& state) {
-    const bool add_to_visible = true;
-    // Tests need a known GUID, so use 'service_path'.
-    service_test_->AddServiceWithIPConfig(
-        service_path, service_path + "_GUID" /* guid */, name,
-        type, state, "" /* ipconfig_path */,
-        add_to_visible);
+    service_test_->AddService(
+        service_path, service_path + "_guid", name,
+        type, state, true /* add_to_visible */);
   }
 
   virtual void SetUpOnMainThread() OVERRIDE {
@@ -264,6 +267,9 @@ class ExtensionNetworkingPrivateApiTest
 
     // Sends a notification about the added profile.
     profile_test->AddProfile(kUser1ProfilePath, userhash_);
+
+    // Enable technologies.
+    manager_test_->AddTechnology("wimax", true);
 
     // Add IPConfigs
     base::DictionaryValue ipconfig;
@@ -323,9 +329,6 @@ class ExtensionNetworkingPrivateApiTest
 
     AddService("stub_wifi2", "wifi2_PSK", shill::kTypeWifi, shill::kStateIdle);
     service_test_->SetServiceProperty("stub_wifi2",
-                                      shill::kGuidProperty,
-                                      base::StringValue("stub_wifi2_GUID"));
-    service_test_->SetServiceProperty("stub_wifi2",
                                       shill::kSecurityProperty,
                                       base::StringValue(shill::kSecurityPsk));
     service_test_->SetServiceProperty("stub_wifi2",
@@ -334,6 +337,18 @@ class ExtensionNetworkingPrivateApiTest
     service_test_->SetServiceProperty("stub_wifi2",
                                       shill::kConnectableProperty,
                                       base::FundamentalValue(true));
+
+    AddService("stub_wimax", "wimax", shill::kTypeWimax, shill::kStateOnline);
+    service_test_->SetServiceProperty("stub_wimax",
+                                      shill::kSignalStrengthProperty,
+                                      base::FundamentalValue(40));
+    service_test_->SetServiceProperty("stub_wimax",
+                                      shill::kProfileProperty,
+                                      base::StringValue(kUser1ProfilePath));
+    service_test_->SetServiceProperty("stub_wimax",
+                                      shill::kConnectableProperty,
+                                      base::FundamentalValue(true));
+    profile_test->AddService(kUser1ProfilePath, "stub_wimax");
 
     base::ListValue frequencies2;
     frequencies2.AppendInteger(2400);
@@ -591,27 +606,27 @@ IN_PROC_BROWSER_TEST_F(ExtensionNetworkingPrivateApiTest,
 
   NetworkPortalDetector::CaptivePortalState state;
   state.status = NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_ONLINE;
-  detector()->SetDetectionResultsForTesting("stub_ethernet", state);
+  detector()->SetDetectionResultsForTesting("stub_ethernet_guid", state);
 
   state.status = NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_OFFLINE;
-  detector()->SetDetectionResultsForTesting("stub_wifi1", state);
+  detector()->SetDetectionResultsForTesting("stub_wifi1_guid", state);
 
   state.status = NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_PORTAL;
-  detector()->SetDetectionResultsForTesting("stub_wifi2", state);
+  detector()->SetDetectionResultsForTesting("stub_wifi2_guid", state);
 
   state.status =
       NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_PROXY_AUTH_REQUIRED;
-  detector()->SetDetectionResultsForTesting("stub_cellular1", state);
+  detector()->SetDetectionResultsForTesting("stub_cellular1_guid", state);
 
   EXPECT_TRUE(RunNetworkingSubtest("getCaptivePortalStatus")) << message_;
 }
 
 IN_PROC_BROWSER_TEST_F(ExtensionNetworkingPrivateApiTest,
                        CaptivePortalNotification) {
-  detector()->SetDefaultNetworkPathForTesting("wifi", "wifi_GUID");
+  detector()->SetDefaultNetworkForTesting("wifi_guid");
   NetworkPortalDetector::CaptivePortalState state;
   state.status = NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_ONLINE;
-  detector()->SetDetectionResultsForTesting("wifi", state);
+  detector()->SetDetectionResultsForTesting("wifi_guid", state);
 
   TestListener listener(
       "notifyPortalDetectorObservers",

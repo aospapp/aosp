@@ -17,8 +17,8 @@
 #include "base/strings/string_util.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/common/pref_names.h"
+#include "components/user_manager/user_manager.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 #include "ui/gfx/display.h"
 #include "ui/gfx/insets.h"
@@ -98,10 +98,10 @@ ash::DisplayManager* GetDisplayManager() {
 // Returns true id the current user can write display preferences to
 // Local State.
 bool UserCanSaveDisplayPreference() {
-  UserManager* user_manager = UserManager::Get();
+  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
   return user_manager->IsUserLoggedIn() &&
       (user_manager->IsLoggedInAsRegularUser() ||
-       user_manager->IsLoggedInAsLocallyManagedUser() ||
+       user_manager->IsLoggedInAsSupervisedUser() ||
        user_manager->IsLoggedInAsKioskApp());
 }
 
@@ -166,6 +166,11 @@ void LoadDisplayProperties() {
     dict_value->GetInteger("height", &height);
     gfx::Size resolution_in_pixels(width, height);
 
+    float device_scale_factor = 1.0;
+    int dsf_value = 0;
+    if (dict_value->GetInteger("device-scale-factor", &dsf_value))
+      device_scale_factor = static_cast<float>(dsf_value) / 1000.0f;
+
     gfx::Insets insets;
     if (ValueToInsets(*dict_value, &insets))
       insets_to_set = &insets;
@@ -179,8 +184,26 @@ void LoadDisplayProperties() {
                                                  ui_scale,
                                                  insets_to_set,
                                                  resolution_in_pixels,
+                                                 device_scale_factor,
                                                  color_profile);
   }
+}
+
+void LoadDisplayRotationState() {
+  PrefService* local_state = g_browser_process->local_state();
+  const base::DictionaryValue* properties =
+      local_state->GetDictionary(prefs::kDisplayRotationLock);
+
+  bool rotation_lock = false;
+  if (!properties->GetBoolean("lock", &rotation_lock))
+    return;
+
+  int rotation = gfx::Display::ROTATE_0;
+  if (!properties->GetInteger("orientation", &rotation))
+    return;
+
+  GetDisplayManager()->RegisterDisplayRotationProperties(rotation_lock,
+      static_cast<gfx::Display::Rotation>(rotation));
 }
 
 void StoreDisplayLayoutPref(const ash::DisplayIdPair& pair,
@@ -238,6 +261,9 @@ void StoreCurrentDisplayProperties() {
         !mode.native) {
       property_value->SetInteger("width", mode.size.width());
       property_value->SetInteger("height", mode.size.height());
+      property_value->SetInteger(
+          "device-scale-factor",
+          static_cast<int>(mode.device_scale_factor * 1000));
     }
     if (!info.overscan_insets_in_dip().empty())
       InsetsToValue(info.overscan_insets_in_dip(), property_value.get());
@@ -282,7 +308,14 @@ void StoreDisplayPowerState(DisplayPowerState power_state) {
 
 void StoreCurrentDisplayPowerState() {
   StoreDisplayPowerState(
-      ash::Shell::GetInstance()->display_configurator()->power_state());
+      ash::Shell::GetInstance()->display_configurator()->
+          requested_power_state());
+}
+
+void StoreCurrentDisplayRotationLockPrefs() {
+  bool rotation_lock = ash::Shell::GetInstance()->display_manager()->
+      registered_internal_display_rotation_lock();
+  StoreDisplayRotationPrefs(rotation_lock);
 }
 
 }  // namespace
@@ -294,6 +327,7 @@ void RegisterDisplayLocalStatePrefs(PrefRegistrySimple* registry) {
   DisplayPowerStateToStringMap::const_iterator iter =
       GetDisplayPowerStateToStringMap()->find(chromeos::DISPLAY_POWER_ALL_ON);
   registry->RegisterStringPref(prefs::kDisplayPowerState, iter->second);
+  registry->RegisterDictionaryPref(prefs::kDisplayRotationLock);
 }
 
 void StoreDisplayPrefs() {
@@ -301,6 +335,7 @@ void StoreDisplayPrefs() {
   // state respects to the current status (close/open) of the lid which can be
   // changed in any situation. See crbug.com/285360
   StoreCurrentDisplayPowerState();
+  StoreCurrentDisplayRotationLockPrefs();
 
   // Do not store prefs when the confirmation dialog is shown.
   if (!UserCanSaveDisplayPreference() ||
@@ -312,6 +347,20 @@ void StoreDisplayPrefs() {
   StoreCurrentDisplayProperties();
 }
 
+void StoreDisplayRotationPrefs(bool rotation_lock) {
+  ash::DisplayManager* display_manager = GetDisplayManager();
+  if (!display_manager->HasInternalDisplay())
+    return;
+
+  PrefService* local_state = g_browser_process->local_state();
+  DictionaryPrefUpdate update(local_state, prefs::kDisplayRotationLock);
+  base::DictionaryValue* pref_data = update.Get();
+  pref_data->SetBoolean("lock", rotation_lock);
+  gfx::Display::Rotation rotation = display_manager->
+      GetDisplayInfo(gfx::Display::InternalDisplayId()).rotation();
+  pref_data->SetInteger("orientation", static_cast<int>(rotation));
+}
+
 void SetCurrentDisplayLayout(const ash::DisplayLayout& layout) {
   GetDisplayManager()->SetLayoutForCurrentDisplays(layout);
 }
@@ -319,6 +368,7 @@ void SetCurrentDisplayLayout(const ash::DisplayLayout& layout) {
 void LoadDisplayPreferences(bool first_run_after_boot) {
   LoadDisplayLayouts();
   LoadDisplayProperties();
+  LoadDisplayRotationState();
   if (!first_run_after_boot) {
     PrefService* local_state = g_browser_process->local_state();
     // Restore DisplayPowerState:

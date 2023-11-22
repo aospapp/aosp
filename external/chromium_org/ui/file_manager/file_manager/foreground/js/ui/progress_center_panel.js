@@ -235,7 +235,7 @@ function ProgressCenterPanel(element) {
   });
 
   /**
-   * Callback to becalled with the ID of the progress item when the cancel
+   * Callback to be called with the ID of the progress item when the cancel
    * button is clicked.
    */
   this.cancelCallback = null;
@@ -279,6 +279,16 @@ ProgressCenterPanel.getToggleAnimation_ = function(document) {
  * @const
  */
 ProgressCenterPanel.RESET_DELAY_TIME_MS_ = 5000;
+
+ProgressCenterPanel.prototype = {
+  /**
+   * Root element of the progress center.
+   * @type {HTMLElement}
+   */
+  get element() {
+    return this.element_;
+  }
+};
 
 /**
  * Updates an item to the progress center panel.
@@ -370,7 +380,7 @@ ProgressCenterPanel.prototype.updateCloseView_ = function() {
   var normalSummarizedItem =
       this.normalItemGroup_.getSummarizedItem(this.quietItemGroup_.numErrors);
   if (normalSummarizedItem) {
-    // If the quiet animation is overrided by normal summarized item, discard
+    // If the quiet animation is overridden by normal summarized item, discard
     // the quiet animation.
     if (this.quietItemGroup_.isSummarizedAnimated()) {
       var oldState = this.quietItemGroup_.state;

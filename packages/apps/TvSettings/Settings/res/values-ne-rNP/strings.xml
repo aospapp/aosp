@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"ब्याकअप र पुनःस्थापना"</string>
     <string name="device_reset" msgid="2827002349560023125">"कारखाना डेटा रिसेट"</string>
     <string name="device_calibration" msgid="8632962533376605191">"क्यालिब्रेसन"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"डाउनलोड भएका अनुप्रयोगहरू"</string>
     <string name="apps_system" msgid="2499191125802829425">"प्रणाली अनुप्रयोगहरू"</string>
     <string name="apps_running" msgid="6430310491739956228">"चालु अनुप्रयोगहरू"</string>
@@ -95,7 +99,7 @@
     <string name="system_language" msgid="2337138146114609247">"भाषा"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"किबोर्ड"</string>
     <string name="system_search" msgid="2837264654143247611">"खोजी गर्नुहोस्"</string>
-    <string name="system_security" msgid="4190058778883258927">"सुरक्षा र प्रतिबन्धहरू"</string>
+    <string name="system_security" msgid="8230080273993484407">"सुरक्षा &amp; प्रतिबन्धहरु"</string>
     <string name="system_speech" msgid="8128688499687306982">"वाणी"</string>
     <string name="system_inputs" msgid="2413907183796651102">"इनपुट"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"पहुँच"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"प्रणाली अद्यावधिक"</string>
     <string name="about_preference" msgid="4131396784531360434">"बारेमा"</string>
     <string name="device_name" msgid="2670488158531273028">"उपकरण नाम"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"पुन: सुरू गर्नुहोस्"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"कानूनी जानकारी"</string>
     <string name="about_warranty" msgid="5736003473060436384">"वारेन्टी"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"खुला स्रोत इजाजतपत्रहरू"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"सेवाका सर्तहरू अवलोकन गर्नुहोस्"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"गोपनीयता नीति अवलोकन गर्नुहोस्"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"अतिरिक्त सर्तहरू अवलोकन गर्नुहोस्"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Google कानुनी"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"लाइसेन्स डेटा उपलब्ध छैन"</string>
     <string name="about_model" msgid="6625269442206323995">"मोडेल"</string>
     <string name="about_version" msgid="1177287676732287266">"संस्करण"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"मिति"</string>
     <string name="system_time" msgid="6726022312605226285">"समय"</string>
     <string name="system_set_date" msgid="2437586307768561116">"मिति सेट गर्नुहोस्"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"मिति ढाँचा छान्नुहोस्"</string>
     <string name="system_set_time" msgid="4661804115501057452">"समय सेट गर्नुहोस्"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"समयक्षेत्र मिलाउनुहोस्"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"२४-घण्टे ढाँचा प्रयोग गर्नुहोस्"</string>

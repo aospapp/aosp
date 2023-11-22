@@ -8,7 +8,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/keycodes/keyboard_codes.h"
-#include "ui/events/x/device_data_manager.h"
+#include "ui/events/x/device_data_manager_x11.h"
 #include "ui/gfx/point.h"
 #include "ui/gfx/x/x11_types.h"
 
@@ -17,10 +17,10 @@ typedef union _XEvent XEvent;
 namespace ui {
 
 struct Valuator {
-  Valuator(DeviceDataManager::DataType type, double v)
+  Valuator(DeviceDataManagerX11::DataType type, double v)
       : data_type(type), value(v) {}
 
-  DeviceDataManager::DataType data_type;
+  DeviceDataManagerX11::DataType data_type;
   double value;
 };
 
@@ -41,6 +41,14 @@ class ScopedXI2Event {
   void InitKeyEvent(EventType type,
                     KeyboardCode key_code,
                     int flags);
+
+  // Initializes an Xinput2 key event.
+  // |deviceid| is the master, and |sourceid| is the slave device.
+  void InitGenericKeyEvent(int deviceid,
+                           int sourceid,
+                           EventType type,
+                           KeyboardCode key_code,
+                           int flags);
 
   void InitGenericButtonEvent(int deviceid,
                               EventType type,

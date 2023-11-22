@@ -11,7 +11,6 @@
 
 namespace mojo {
 namespace system {
-
 namespace internal {
 
 template <size_t alignment>
@@ -29,71 +28,62 @@ bool IsAligned<8>(const void* pointer) {
 #endif
 
 template <size_t size, size_t alignment>
-bool MOJO_SYSTEM_IMPL_EXPORT VerifyUserPointerHelper(const void* pointer) {
-  // TODO(vtl): If running in kernel mode, do a full verification. For now, just
-  // check that it's non-null and aligned. (A faster user mode implementation is
-  // also possible if this check is skipped.)
-  return !!pointer && IsAligned<alignment>(pointer);
+void MOJO_SYSTEM_IMPL_EXPORT CheckUserPointer(const void* pointer) {
+  CHECK(pointer && IsAligned<alignment>(pointer));
 }
 
 // Explicitly instantiate the sizes we need. Add instantiations as needed.
-template bool MOJO_SYSTEM_IMPL_EXPORT VerifyUserPointerHelper<1, 1>(
-    const void*);
-template bool MOJO_SYSTEM_IMPL_EXPORT VerifyUserPointerHelper<4, 4>(
-    const void*);
-template bool MOJO_SYSTEM_IMPL_EXPORT VerifyUserPointerHelper<8, 8>(
-    const void*);
-// Notwithstanding the comments above about MSVS, whenever we expect an
-// alignment of 8 for something of size 4, it's due to an explicit (e.g.,
-// #pragma align) alignment specification, which MSVS *does* respect. We want
-// this in particular to check that various Options structs are aligned.
-#if defined(COMPILER_MSVC) && defined(ARCH_CPU_32_BITS)
-template <>
-bool MOJO_SYSTEM_IMPL_EXPORT VerifyUserPointerHelper<4, 8>(
-    const void* pointer) {
-  return !!pointer && reinterpret_cast<uintptr_t>(pointer) % 8 == 0;
-}
-#else
-template MOJO_SYSTEM_IMPL_EXPORT bool VerifyUserPointerHelper<4, 8>(
-    const void*);
-#endif
+template void MOJO_SYSTEM_IMPL_EXPORT CheckUserPointer<1, 1>(const void*);
+template void MOJO_SYSTEM_IMPL_EXPORT CheckUserPointer<4, 4>(const void*);
+template void MOJO_SYSTEM_IMPL_EXPORT CheckUserPointer<8, 4>(const void*);
+template void MOJO_SYSTEM_IMPL_EXPORT CheckUserPointer<8, 8>(const void*);
 
 template <size_t size, size_t alignment>
-bool VerifyUserPointerWithCountHelper(const void* pointer, size_t count) {
-  if (count > std::numeric_limits<size_t>::max() / size)
-    return false;
-
-  // TODO(vtl): If running in kernel mode, do a full verification. For now, just
-  // check that it's non-null and aligned if |count| is nonzero. (A faster user
-  // mode implementation is also possible if this check is skipped.)
-  return count == 0 || (!!pointer && IsAligned<alignment>(pointer));
+void MOJO_SYSTEM_IMPL_EXPORT
+CheckUserPointerWithCount(const void* pointer, size_t count) {
+  CHECK_LE(count, std::numeric_limits<size_t>::max() / size);
+  CHECK(count == 0 || (pointer && IsAligned<alignment>(pointer)));
 }
 
 // Explicitly instantiate the sizes we need. Add instantiations as needed.
-template bool MOJO_SYSTEM_IMPL_EXPORT VerifyUserPointerWithCountHelper<1, 1>(
-    const void*, size_t);
-template bool MOJO_SYSTEM_IMPL_EXPORT VerifyUserPointerWithCountHelper<4, 4>(
-    const void*, size_t);
-template bool MOJO_SYSTEM_IMPL_EXPORT VerifyUserPointerWithCountHelper<8, 8>(
-    const void*, size_t);
-
-}  // nameespace internal
+template void MOJO_SYSTEM_IMPL_EXPORT
+    CheckUserPointerWithCount<1, 1>(const void*, size_t);
+template void MOJO_SYSTEM_IMPL_EXPORT
+    CheckUserPointerWithCount<4, 4>(const void*, size_t);
+template void MOJO_SYSTEM_IMPL_EXPORT
+    CheckUserPointerWithCount<8, 4>(const void*, size_t);
+template void MOJO_SYSTEM_IMPL_EXPORT
+    CheckUserPointerWithCount<8, 8>(const void*, size_t);
 
 template <size_t alignment>
-bool VerifyUserPointerWithSize(const void* pointer, size_t size) {
+void CheckUserPointerWithSize(const void* pointer, size_t size) {
   // TODO(vtl): If running in kernel mode, do a full verification. For now, just
   // check that it's non-null and aligned. (A faster user mode implementation is
   // also possible if this check is skipped.)
-  return size == 0 || (!!pointer && internal::IsAligned<alignment>(pointer));
+  CHECK(size == 0 || (!!pointer && internal::IsAligned<alignment>(pointer)));
 }
 
-// Explicitly instantiate the alignments we need. Add instantiations as needed.
-template bool MOJO_SYSTEM_IMPL_EXPORT VerifyUserPointerWithSize<1>(const void*,
-                                                                   size_t);
-template bool MOJO_SYSTEM_IMPL_EXPORT VerifyUserPointerWithSize<4>(const void*,
-                                                                   size_t);
-template bool MOJO_SYSTEM_IMPL_EXPORT VerifyUserPointerWithSize<8>(const void*,
-                                                                   size_t);
+// Explicitly instantiate the sizes we need. Add instantiations as needed.
+template void MOJO_SYSTEM_IMPL_EXPORT
+    CheckUserPointerWithSize<1>(const void*, size_t);
+template void MOJO_SYSTEM_IMPL_EXPORT
+    CheckUserPointerWithSize<4>(const void*, size_t);
+// Whereas the other |Check...()| functions are usually used with integral typs
+// or arrays of integral types, this one is used with Options structs for which
+// alignment has been explicitly been specified (using |MOJO_ALIGNAS()|), which
+// MSVS *does* respect.
+#if defined(COMPILER_MSVC) && defined(ARCH_CPU_32_BITS)
+template <>
+void MOJO_SYSTEM_IMPL_EXPORT
+CheckUserPointerWithSize<8>(const void* pointer, size_t size) {
+  CHECK(size == 0 ||
+        (!!pointer && reinterpret_cast<uintptr_t>(pointer) % 8 == 0));
+}
+#else
+template void MOJO_SYSTEM_IMPL_EXPORT
+    CheckUserPointerWithSize<8>(const void*, size_t);
+#endif
 
+}  // namespace internal
 }  // namespace system
 }  // namespace mojo

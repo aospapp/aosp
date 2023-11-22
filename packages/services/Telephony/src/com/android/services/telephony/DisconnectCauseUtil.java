@@ -124,6 +124,7 @@ public class DisconnectCauseUtil {
             case android.telephony.DisconnectCause.DIALED_MMI:
             case android.telephony.DisconnectCause.EXITED_ECM:
             case android.telephony.DisconnectCause.MMI:
+            case android.telephony.DisconnectCause.IMS_MERGED_SUCCESSFULLY:
                 return DisconnectCause.OTHER;
 
             case android.telephony.DisconnectCause.NOT_VALID:
@@ -131,7 +132,10 @@ public class DisconnectCauseUtil {
                 return DisconnectCause.UNKNOWN;
 
             default:
-                throw new IllegalStateException("Unrecognized Telephony DisconnectCause");
+                Log.w("DisconnectCauseUtil.toTelecomDisconnectCauseCode",
+                        "Unrecognized Telephony DisconnectCause "
+                        + telephonyDisconnectCause);
+                return DisconnectCause.UNKNOWN;
         }
     }
 
@@ -334,6 +338,8 @@ public class DisconnectCauseUtil {
             case android.telephony.DisconnectCause.NORMAL:
                 return ToneGenerator.TONE_PROP_PROMPT;
 
+            case android.telephony.DisconnectCause.IMS_MERGED_SUCCESSFULLY:
+                // Do not play any tones if disconnected because of a successful merge.
             default:
                 return ToneGenerator.TONE_UNKNOWN;
         }

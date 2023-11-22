@@ -14,20 +14,12 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 -->
-
-
-
 <sample>
     <name>WatchViewStub</name>
     <group>Wearable</group>
-    <package>com.example.android.watchviewstub</package>
-
-
-
+    <package>com.example.android.google.wearable.watchviewstub</package>
     <!-- change minSdk if needed-->
-    <minSdk>20</minSdk>
-
-
+    <minSdk>18</minSdk>
     <strings>
         <intro>
             <![CDATA[
@@ -35,10 +27,37 @@
             ]]>
         </intro>
     </strings>
-
     <template src="base"/>
     <template src="Wear"/>
-    <common src="logger"/>
-    <common src="activities"/>
+    <metadata>
+        <status>PUBLISHED</status>
+        <categories>Wearable</categories>
+        <technologies>Android</technologies>
+        <languages>Java</languages>
+        <solutions>Mobile</solutions>
+        <level>INTERMEDIATE</level>
+        <icon>Wearable/src/main/res/drawable-xxhdpi/ic_launcher.png</icon>
+        <screenshots>
+            <img>screenshots/watch_view_stub_rectangular.png</img>
+            <img>screenshots/watch_view_stub_round.png</img>
+        </screenshots>
+        <api_refs>
+            <android>android.support.wearable.view.WatchViewStub</android>
+            <android>android.support.wearable.view.WatchViewStub.OnLayoutInflatedListener</android>
+        </api_refs>
+        <description>
+<![CDATA[
+This sample demonstrates how to specify different layouts for round and rectangular screens.
+]]>
+        </description>
+        <intro>
+<![CDATA[
+It is a basic sample that displays a round layout on a round watch and a rectangular one on a
+rectangular watch.
 
+The corresponding layout is being inflated by the system. This sample shows a way to handle
+this programatically by using a `WatchViewStub.OnLayoutInflateListener`.
+]]>
+        </intro>
+    </metadata>
 </sample>

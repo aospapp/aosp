@@ -13,7 +13,7 @@
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "grit/sync_file_system_internals_resources.h"
-#include "ui/ui_resources/grit/ui_resources.h"
+#include "ui/resources/grit/ui_resources.h"
 
 namespace {
 
@@ -21,6 +21,7 @@ content::WebUIDataSource* CreateSyncFileSystemInternalsHTMLSource() {
   content::WebUIDataSource* source =
       content::WebUIDataSource::Create(
           chrome::kChromeUISyncFileSystemInternalsHost);
+  source->SetUseJsonJSFormatV2();
   source->SetJsonPath("strings.js");
   source->AddResourcePath(
       "utils.js",

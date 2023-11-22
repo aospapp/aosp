@@ -97,11 +97,11 @@ public class AccelerometerMeasurementTestActivity extends SensorCtsVerifierTestA
                 Sensor.TYPE_ACCELEROMETER,
                 SensorManager.SENSOR_DELAY_FASTEST);
         TestSensorOperation verifyMeasurements =
-                new TestSensorOperation(environment, 100 /* event count */);
+                TestSensorOperation.createOperation(environment, 100 /* event count */);
         verifyMeasurements.addVerification(new MeanVerification(
                 expectations,
                 new float[]{1.95f, 1.95f, 1.95f} /* m / s^2 */));
-        verifyMeasurements.execute();
+        verifyMeasurements.execute(getCurrentTestNode());
         return null;
     }
 

@@ -77,7 +77,7 @@ public final class ConversationMessage extends Message {
      *
      */
     public int getStateHashCode() {
-        return Objects.hashCode(uri, read, starred, getAttachmentsStateHashCode());
+        return Objects.hashCode(uri, getAttachmentsStateHashCode());
     }
 
     private int getAttachmentsStateHashCode() {
@@ -92,6 +92,21 @@ public final class ConversationMessage extends Message {
     public boolean isConversationStarred() {
         final MessageCursor c = mController.getMessageCursor();
         return c != null && c.isConversationStarred();
+    }
+
+    /**
+     * Sets the starred state of this Message object and also updates the cached instance in
+     * {@link MessageCursor} (if not null)
+     *
+     * @param starred new starred state
+     */
+    public void setStarredInConversation(boolean starred) {
+        this.starred = starred;
+        final MessageCursor c = mController.getMessageCursor();
+        if (c != null) {
+            final ConversationMessage other = c.getMessageForId(id);
+            other.starred = starred;
+        }
     }
 
     public void star(boolean newStarred) {

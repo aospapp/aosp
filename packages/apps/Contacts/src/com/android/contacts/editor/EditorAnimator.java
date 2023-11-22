@@ -25,6 +25,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 
 import com.android.contacts.util.SchedulingUtils;
 import com.google.common.collect.Lists;
@@ -91,7 +92,6 @@ public class EditorAnimator {
         mRunner.endOldAnimation();
         target.setVisibility(View.VISIBLE);
         target.setAlpha(0.0f);
-        target.requestFocus();
         SchedulingUtils.doAfterLayout(target, new Runnable() {
             @Override
             public void run() {
@@ -115,43 +115,7 @@ public class EditorAnimator {
         });
     }
 
-    public void expandOrganization(final View addOrganizationButton,
-            final ViewGroup organizationSectionViewContainer) {
-        mRunner.endOldAnimation();
-        // Make the new controls visible and do one layout pass (so that we can measure)
-        organizationSectionViewContainer.setVisibility(View.VISIBLE);
-        organizationSectionViewContainer.setAlpha(0.0f);
-        organizationSectionViewContainer.requestFocus();
-        SchedulingUtils.doAfterLayout(addOrganizationButton, new Runnable() {
-            @Override
-            public void run() {
-                // How many pixels extra do we need?
-                final int offset = organizationSectionViewContainer.getHeight() -
-                        addOrganizationButton.getHeight();
-                final List<Animator> animators = Lists.newArrayList();
-
-                // Fade out
-                final ObjectAnimator fadeOutAnimator = ObjectAnimator.ofFloat(
-                        addOrganizationButton, View.ALPHA, 1.0f, 0.0f);
-                fadeOutAnimator.setDuration(200);
-                animators.add(fadeOutAnimator);
-
-                // Translations
-                final List<View> viewsToMove = getViewsBelowOf(organizationSectionViewContainer);
-                translateViews(animators, viewsToMove, -offset, 0.0f, 0, 200);
-                // Fade in
-                final ObjectAnimator fadeInAnimator = ObjectAnimator.ofFloat(
-                        organizationSectionViewContainer, View.ALPHA, 0.0f, 1.0f);
-                fadeInAnimator.setDuration(200);
-                fadeInAnimator.setStartDelay(200);
-                animators.add(fadeInAnimator);
-
-                mRunner.run(animators);
-            }
-        });
-    }
-
-    public void showAddFieldFooter(final View view) {
+    public void showFieldFooter(final View view) {
         mRunner.endOldAnimation();
         if (view.getVisibility() == View.VISIBLE) return;
         // Make the new controls visible and do one layout pass (so that we can measure)
@@ -181,38 +145,55 @@ public class EditorAnimator {
         });
     }
 
-    public void hideAddFieldFooter(final View victim) {
-        mRunner.endOldAnimation();
-        if (victim.getVisibility() == View.GONE) return;
-        final int offset = victim.getHeight();
-
-        final List<View> viewsToMove = getViewsBelowOf(victim);
-        final List<Animator> animators = Lists.newArrayList();
-
-        // Fade out
-        final ObjectAnimator fadeOutAnimator =
-                ObjectAnimator.ofFloat(victim, View.ALPHA, 1.0f, 0.0f);
-        fadeOutAnimator.setDuration(200);
-        animators.add(fadeOutAnimator);
-
-        // Translations
-        translateViews(animators, viewsToMove, 0.0f, -offset, 100, 200);
-
-        // Combine
-        mRunner.run(animators, new AnimatorListenerAdapter() {
+    /**
+     * Smoothly scroll {@param targetView}'s parent ScrollView to the top of {@param targetView}.
+     */
+    public void scrollViewToTop(final View targetView) {
+        final ScrollView scrollView = getParentScrollView(targetView);
+        SchedulingUtils.doAfterLayout(scrollView, new Runnable() {
             @Override
-            public void onAnimationEnd(Animator animation) {
-                // Clean up: Remove all the translations
-                for (int i = 0; i < viewsToMove.size(); i++) {
-                    final View view = viewsToMove.get(i);
-                    view.setTranslationY(0.0f);
-                }
-
-                // Restore alpha (for next time), but hide the view for good now
-                victim.setAlpha(1.0f);
-                victim.setVisibility(View.GONE);
+            public void run() {
+                ScrollView scrollView = getParentScrollView(targetView);
+                scrollView.smoothScrollTo(0, offsetFromTopOfViewGroup(targetView, scrollView)
+                        + scrollView.getScrollY());
             }
         });
+        // Clear the focused element so it doesn't interfere with scrolling.
+        View view = scrollView.findFocus();
+        if (view != null) {
+            view.clearFocus();
+        }
+    }
+
+    public static void placeFocusAtTopOfScreenAfterReLayout(final View view) {
+        // In order for the focus to be placed at the top of the Window, we need
+        // to wait for layout. Otherwise we don't know where the top of the screen is.
+        SchedulingUtils.doAfterLayout(view, new Runnable() {
+            @Override
+            public void run() {
+                EditorAnimator.getParentScrollView(view).clearFocus();
+            }
+        });
+    }
+
+    private int offsetFromTopOfViewGroup(View view, ViewGroup viewGroup) {
+        int viewLocation[] = new int[2];
+        int viewGroupLocation[] = new int[2];
+        viewGroup.getLocationOnScreen(viewGroupLocation);
+        view.getLocationOnScreen(viewLocation);
+        return viewLocation[1] - viewGroupLocation[1];
+    }
+
+    private static ScrollView getParentScrollView(View view) {
+        while (true) {
+            ViewParent parent = view.getParent();
+            if (parent instanceof ScrollView)
+                return (ScrollView) parent;
+            if (!(parent instanceof View))
+                throw new IllegalArgumentException(
+                        "The editor should be contained inside a ScrollView.");
+            view = (View) parent;
+        }
     }
 
     /**

@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 from telemetry import decorators
-
+from telemetry.core import platform
 from telemetry.core import web_contents
 from telemetry.core.forwarders import do_nothing_forwarder
 
@@ -15,11 +15,9 @@ class ExtensionsNotSupportedException(Exception):
 class BrowserBackend(object):
   """A base class for browser backends."""
 
-  def __init__(self, is_content_shell, supports_extensions, browser_options,
-               tab_list_backend):
+  def __init__(self, supports_extensions, browser_options, tab_list_backend):
     assert browser_options.browser_type
     self.browser_type = browser_options.browser_type
-    self.is_content_shell = is_content_shell
     self._supports_extensions = supports_extensions
     self.browser_options = browser_options
     self._browser = None
@@ -31,9 +29,10 @@ class BrowserBackend(object):
 
   def SetBrowser(self, browser):
     self._browser = browser
-    if (self.browser_options.netsim and
-        not browser.platform.CanLaunchApplication('ipfw')):
-      browser.platform.InstallApplication('ipfw')
+    if self.browser_options.netsim:
+      host_platform = platform.GetHostPlatform()
+      if not host_platform.CanLaunchApplication('ipfw'):
+        host_platform.InstallApplication('ipfw')
 
   @property
   def browser(self):
@@ -71,7 +70,7 @@ class BrowserBackend(object):
       self._forwarder_factory = do_nothing_forwarder.DoNothingForwarderFactory()
     return self._forwarder_factory
 
-  def StartTracing(self, custom_categories=None,
+  def StartTracing(self, trace_options, custom_categories=None,
                    timeout=web_contents.DEFAULT_WEB_CONTENTS_TIMEOUT):
     raise NotImplementedError()
 

@@ -15,38 +15,41 @@
 -->
 
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:orientation="horizontal"
-              android:divider="?android:attr/dividerVertical"
-              android:dividerPadding="12dip"
-              android:showDividers="middle">
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal">
 
     <!-- id must match corresponding menu item id -->
     <LinearLayout
-            android:id="@+id/action_cancel"
-            style="@style/CustomActionButton">
+        android:id="@+id/action_cancel"
+        style="@style/VacationResponderActionButton">
 
         <ImageView
-                android:src="@drawable/ic_cancel_holo_light"
-                style="@style/CustomActionButtonImage" />
+            android:src="@drawable/ic_close_wht_24dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="4dp" />
+
         <TextView
-                android:text="@string/cancel"
-                style="@style/CustomActionButtonText" />
+            android:text="@string/cancel"
+            style="@style/VacationResponderActionButtonText" />
 
     </LinearLayout>
 
     <!-- id must match corresponding menu item id -->
     <LinearLayout
-            android:id="@+id/action_done"
-            style="@style/CustomActionButton">
+        android:id="@+id/action_done"
+        style="@style/VacationResponderActionButton">
 
         <ImageView
-                android:src="@drawable/ic_menu_done_holo_light"
-                style="@style/CustomActionButtonImage" />
+            android:src="@drawable/ic_check_wht_24dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="4dp" />
+
         <TextView
-                android:text="@string/done"
-                style="@style/CustomActionButtonText" />
+            android:text="@string/done"
+            style="@style/VacationResponderActionButtonText" />
 
     </LinearLayout>
 

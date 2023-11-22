@@ -231,7 +231,7 @@ public class AttachmentUtils {
             }
 
             return cachedFileUri;
-        } catch (IOException e) {
+        } catch (IOException | SecurityException e) {
             // Catch any exception here to allow for unexpected failures during caching se we don't
             // leave app in inconsistent state as we call this method outside of a transaction for
             // performance reasons.

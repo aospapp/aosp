@@ -53,13 +53,31 @@ jstring GetOriginalUrlFromDistillerUrl(JNIEnv* env,
       .Release();
 }
 
-jboolean IsUrlReportable(JNIEnv* env,
-                         jclass clazz,
-                         jstring j_scheme,
-                         jstring j_url) {
-  std::string scheme(base::android::ConvertJavaStringToUTF8(env, j_scheme));
+jboolean IsDistilledPage(JNIEnv* env, jclass clazz, jstring j_url) {
   GURL url(base::android::ConvertJavaStringToUTF8(env, j_url));
-  return dom_distiller::url_utils::IsUrlReportable(scheme, url);
+  return dom_distiller::url_utils::IsDistilledPage(url);
+}
+
+jboolean IsUrlDistillable(JNIEnv* env, jclass clazz, jstring j_url) {
+  GURL url(base::android::ConvertJavaStringToUTF8(env, j_url));
+  return dom_distiller::url_utils::IsUrlDistillable(url);
+}
+
+jstring GetIsDistillableJs(JNIEnv* env, jclass clazz) {
+  return base::android::ConvertUTF8ToJavaString(
+      env, dom_distiller::url_utils::GetIsDistillableJs()).Release();
+}
+
+jstring GetValueForKeyInUrl(JNIEnv* env,
+                            jclass clazz,
+                            jstring j_url,
+                            jstring j_key) {
+  GURL url(base::android::ConvertJavaStringToUTF8(env, j_url));
+  std::string key = base::android::ConvertJavaStringToUTF8(env, j_key);
+  return base::android::
+      ConvertUTF8ToJavaString(
+          env, dom_distiller::url_utils::GetValueForKeyInUrl(url, key))
+      .Release();
 }
 
 bool RegisterUrlUtils(JNIEnv* env) { return RegisterNativesImpl(env); }

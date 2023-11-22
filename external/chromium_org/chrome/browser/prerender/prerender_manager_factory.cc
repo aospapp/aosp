@@ -4,11 +4,8 @@
 
 #include "chrome/browser/prerender/prerender_manager_factory.h"
 
-#if defined(OS_ANDROID)
-#include "base/android/sys_utils.h"
-#endif
-
 #include "base/debug/trace_event.h"
+#include "base/sys_info.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/predictors/predictor_database_factory.h"
@@ -17,16 +14,10 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
+
+#if defined(ENABLE_EXTENSIONS)
 #include "extensions/browser/extension_system_provider.h"
 #include "extensions/browser/extensions_browser_client.h"
-
-#if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/prerender_condition_network.h"
-#include "chromeos/network/network_handler.h"
-#endif
-
-#if defined(OS_ANDROID)
-#include "chrome/browser/android/prerender_condition_platform.h"
 #endif
 
 namespace prerender {
@@ -50,8 +41,10 @@ PrerenderManagerFactory::PrerenderManagerFactory()
     : BrowserContextKeyedServiceFactory(
         "PrerenderManager",
         BrowserContextDependencyManager::GetInstance()) {
+#if defined(ENABLE_EXTENSIONS)
   DependsOn(
       extensions::ExtensionsBrowserClient::Get()->GetExtensionSystemFactory());
+#endif
   // PrerenderLocalPredictor observers the history visit DB.
   DependsOn(HistoryServiceFactory::GetInstance());
   DependsOn(predictors::PredictorDatabaseFactory::GetInstance());
@@ -65,21 +58,11 @@ KeyedService* PrerenderManagerFactory::BuildServiceInstanceFor(
     content::BrowserContext* browser_context) const {
   Profile* profile = Profile::FromBrowserContext(browser_context);
   CHECK(g_browser_process->prerender_tracker());
-#if defined(OS_ANDROID)
-  if (base::android::SysUtils::IsLowEndDevice())
+  if (base::SysInfo::IsLowEndDevice())
     return NULL;
-#endif
 
   PrerenderManager* prerender_manager = new PrerenderManager(
       profile, g_browser_process->prerender_tracker());
-#if defined(OS_CHROMEOS)
-  if (chromeos::NetworkHandler::IsInitialized())
-    prerender_manager->AddCondition(new chromeos::PrerenderConditionNetwork);
-#endif
-#if defined(OS_ANDROID)
-  prerender_manager->AddCondition(new android::PrerenderConditionPlatform(
-      browser_context));
-#endif
   return prerender_manager;
 }
 

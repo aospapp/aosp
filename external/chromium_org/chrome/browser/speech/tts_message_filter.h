@@ -10,15 +10,17 @@
 #include "chrome/common/tts_messages.h"
 #include "content/public/browser/browser_message_filter.h"
 
-class Profile;
+namespace content {
+class BrowserContext;
+}
 
 class TtsMessageFilter
     : public content::BrowserMessageFilter,
       public UtteranceEventDelegate,
-      public VoicesChangedDelegate,
-      public base::SupportsWeakPtr<TtsMessageFilter> {
+      public VoicesChangedDelegate {
  public:
-  TtsMessageFilter(int render_process_id, Profile* profile);
+  explicit TtsMessageFilter(int render_process_id,
+      content::BrowserContext* browser_context);
 
   // content::BrowserMessageFilter implementation.
   virtual void OverrideThreadForMessage(
@@ -52,7 +54,9 @@ class TtsMessageFilter
   void OnChannelClosingInUIThread();
 
   int render_process_id_;
-  Profile* profile_;
+  content::BrowserContext* browser_context_;
+
+  base::WeakPtrFactory<TtsMessageFilter> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(TtsMessageFilter);
 };

@@ -18,7 +18,7 @@
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/search_engines/util.h"
+#include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/ash/ash_init.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
@@ -27,6 +27,7 @@
 #include "chrome/browser/ui/host_desktop.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/env_vars.h"
+#include "components/search_engines/util.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/gpu_data_manager.h"
 #include "content/public/browser/notification_service.h"
@@ -59,7 +60,7 @@ void OpenURL(const GURL& url) {
   chrome::NavigateParams params(
       ProfileManager::GetActiveUserProfile(),
       GURL(url),
-      content::PAGE_TRANSITION_TYPED);
+      ui::PAGE_TRANSITION_TYPED);
   params.disposition = NEW_FOREGROUND_TAB;
   params.host_desktop_type = chrome::HOST_DESKTOP_TYPE_ASH;
   chrome::Navigate(&params);
@@ -151,7 +152,8 @@ void ChromeMetroViewerProcessHost::OnOpenURL(const base::string16& url) {
 void ChromeMetroViewerProcessHost::OnHandleSearchRequest(
     const base::string16& search_string) {
   GURL url(GetDefaultSearchURLForSearchTerms(
-      ProfileManager::GetActiveUserProfile(), search_string));
+      TemplateURLServiceFactory::GetForProfile(
+          ProfileManager::GetActiveUserProfile()), search_string));
   if (url.is_valid())
     OpenURL(url);
 }

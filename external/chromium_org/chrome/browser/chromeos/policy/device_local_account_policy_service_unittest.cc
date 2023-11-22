@@ -4,11 +4,13 @@
 
 #include "chrome/browser/chromeos/policy/device_local_account_policy_service.h"
 
+#include <algorithm>
+
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/callback.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/message_loop/message_loop.h"
 #include "base/message_loop/message_loop_proxy.h"
@@ -41,6 +43,7 @@
 #include "net/url_request/url_request_test_util.h"
 #include "policy/policy_constants.h"
 #include "policy/proto/cloud_policy.pb.h"
+#include "policy/proto/device_management_backend.pb.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using testing::AnyNumber;
@@ -422,9 +425,7 @@ TEST_F(DeviceLocalAccountPolicyServiceTest, FetchPolicy) {
   // The order is not guarateed.
   if (extensions->policy_type() ==
       dm_protocol::kChromePublicAccountPolicyType) {
-    const em::PolicyFetchRequest* tmp = public_account;
-    public_account = extensions;
-    extensions = tmp;
+    std::swap(public_account, extensions);
   }
 
   EXPECT_EQ(dm_protocol::kChromePublicAccountPolicyType,

@@ -29,6 +29,7 @@
     <string name="save_draft" msgid="2669523480789672118">"Išsaugoti juodraštį"</string>
     <string name="discard" msgid="4905982179911608430">"Atmesti"</string>
     <string name="compose" msgid="2602861958391035523">"Sukurti"</string>
+    <string name="compose_title" msgid="5673376086133995913">"Sukurti"</string>
   <string-array name="compose_modes">
     <item msgid="9000553538766397816">"Atsakyti"</item>
     <item msgid="2767793214788399009">"Atsakyt visiems"</item>
@@ -43,9 +44,8 @@
     <string name="too_large_to_attach_multiple" msgid="1620163295709036343">"Mažiausiai vienas failas nepridėtas. Apribojimas <xliff:g id="MAXSIZE">%1$s</xliff:g>."</string>
     <string name="too_large_to_attach_additional" msgid="4964155563465970480">"Failas nepridėtas. Pasiektas <xliff:g id="MAXSIZE">%1$s</xliff:g> apribojimas."</string>
     <string name="generic_attachment_problem" msgid="4683974765387240723">"Nepavyko pridėti failo."</string>
+    <string name="attachment_permission_denied" msgid="2274397783497640486">"Priedo leidimas uždraustas."</string>
     <string name="recipient_needed" msgid="319816879398937214">"Pridėkite bent vieną gavėją."</string>
-    <string name="recipient_error_dialog_title" msgid="760741480291963706">"Gavėjo klaida"</string>
-    <string name="confirm_send_title" msgid="4664971589247101530">"Siųsti pranešimą?"</string>
     <string name="confirm_send_message_with_no_subject" msgid="1442628074022609987">"Pranešimo temoje nėra teksto."</string>
     <string name="confirm_send_message_with_no_body" msgid="3329355318700201516">"Pranešimo turinyje nėra teksto."</string>
     <string name="confirm_send_message" msgid="6211518590166222735">"Siųsti šį pranešimą?"</string>
@@ -55,6 +55,7 @@
     <string name="send" msgid="4269810089682120826">"Siųsti"</string>
     <string name="mark_read" msgid="579388143288052493">"Pažymėti kaip skaitytą"</string>
     <string name="mark_unread" msgid="6245060538061533191">"Pažymėti kaip neskaitytą"</string>
+    <string name="toggle_read_unread" msgid="1006469736520919028">"Perjungti skaitytų / neskaitytų pranešimų rodinį"</string>
     <string name="mute" msgid="9164839998562321569">"Slėpti"</string>
     <string name="add_star" msgid="3275117671153616270">"Pridėti žvaigždutę"</string>
     <string name="remove_star" msgid="9126690774161840733">"Pašalinti žvaigždutę"</string>
@@ -79,6 +80,7 @@
     <string name="menu_show_original" msgid="2330398228979616661">"Grąžinti automatinį dydžio nustatymą"</string>
     <string name="menu_settings" msgid="7993485401501778040">"Nustatymai"</string>
     <string name="menu_search" msgid="1949652467806052768">"Paieška"</string>
+    <string name="menu_toggle_drawer" msgid="8653049392208282481">"Perjungti braižyklę"</string>
     <string name="drawer_title" msgid="3766219846644975778">"Naršymas"</string>
     <string name="mark_important" msgid="8781680450177768820">"Pažymėti kaip svarbų"</string>
     <string name="mark_not_important" msgid="3342258155408116917">"Pažymėti kaip nesvarbų"</string>
@@ -101,10 +103,8 @@
     <string name="attachment_unknown" msgid="3360536730101083926">"<xliff:g id="ATTACHMENTEXTENSION">%s</xliff:g> failas"</string>
     <string name="preview_attachment" msgid="6265457626086113833">"Peržiūrėti"</string>
     <string name="save_attachment" msgid="375685179032130033">"Išsaugoti"</string>
-    <string name="cancel_attachment" msgid="6900093625792891122">"Atšaukti"</string>
-    <string name="open_attachment" msgid="6100396056314739761">"Atidaryti"</string>
-    <string name="install_attachment" msgid="8119470822958087928">"Įdiegti"</string>
     <string name="download_again" msgid="8195787340878328119">"Atsisiųsti dar kartą"</string>
+    <string name="remove_attachment_desc" msgid="1478445871170879140">"Pašalinti priedą „<xliff:g id="ATTACHMENTNAME">%s</xliff:g>“"</string>
     <string name="more_info_attachment" msgid="2899691682394864507">"Informacija"</string>
     <string name="no_application_found" msgid="7309485680354949680">"Nėra programos, kuria būtų galima atidaryti ir peržiūrėti šį priedą."</string>
     <string name="fetching_attachment" msgid="2286628490159574159">"Pateikiamas priedas"</string>
@@ -127,16 +127,10 @@
     <string name="contextmenu_send_mail" msgid="3834654593200105396">"Siųsti el. laišką"</string>
     <string name="contextmenu_map" msgid="5118951927399465521">"Žemėlapis"</string>
     <string name="contextmenu_sharelink" msgid="8670940060477758709">"Bendrinti nuorodą"</string>
-    <string name="contextmenu_help" msgid="4209674157707873384">"Pagalba"</string>
-    <string name="contextmenu_feedback" msgid="8319100902136337085">"Siųsti atsiliepimus"</string>
-    <!-- no translation found for num_selected (7990204488812654380) -->
-    <skip />
-  <plurals name="move_conversation">
-    <item quantity="one" msgid="237882018518207244">"Perkelti pokalbį"</item>
-    <item quantity="other" msgid="6639576653114141743">"Perkelti <xliff:g id="ID_1">%1$d</xliff:g> pokalbius (-ių)"</item>
-  </plurals>
     <string name="content_description" msgid="854320355052962069">"<xliff:g id="TOHEADER">%1$s</xliff:g><xliff:g id="PARTICIPANT">%2$s</xliff:g> apie „<xliff:g id="SUBJECT">%3$s</xliff:g>“, <xliff:g id="SNIPPET">%4$s</xliff:g> (<xliff:g id="DATE">%5$s</xliff:g>), <xliff:g id="READSTATE">%6$s</xliff:g>"</string>
     <string name="content_description_today" msgid="1634422834354116955">"<xliff:g id="TOHEADER">%1$s</xliff:g><xliff:g id="PARTICIPANT">%2$s</xliff:g> apie „<xliff:g id="SUBJECT">%3$s</xliff:g>“, <xliff:g id="SNIPPET">%4$s</xliff:g> (<xliff:g id="TIME">%5$s</xliff:g>), <xliff:g id="READSTATE">%6$s</xliff:g>"</string>
+    <string name="content_description_with_folders" msgid="482368474097191879">"<xliff:g id="TOHEADER">%1$s</xliff:g><xliff:g id="PARTICIPANT">%2$s</xliff:g> apie „<xliff:g id="SUBJECT">%3$s</xliff:g>“, <xliff:g id="SNIPPET">%4$s</xliff:g>, <xliff:g id="DATE">%5$s</xliff:g>, <xliff:g id="READSTATE">%6$s</xliff:g>, etiketės: <xliff:g id="FOLDERS">%7$s</xliff:g>"</string>
+    <string name="content_description_today_with_folders" msgid="860548626146933495">"<xliff:g id="TOHEADER">%1$s</xliff:g><xliff:g id="PARTICIPANT">%2$s</xliff:g> apie „<xliff:g id="SUBJECT">%3$s</xliff:g>“, <xliff:g id="SNIPPET">%4$s</xliff:g>, <xliff:g id="TIME">%5$s</xliff:g>, <xliff:g id="READSTATE">%6$s</xliff:g>, etiketės: <xliff:g id="FOLDERS">%7$s</xliff:g>"</string>
     <string name="read_string" msgid="5495929677508576520">"pokalbis perskaitytas"</string>
     <string name="unread_string" msgid="7342558841698083381">"pokalbis neskaitytas"</string>
     <string name="filtered_tag" msgid="721666921386074505">"[<xliff:g id="TAG">%1$s</xliff:g>]<xliff:g id="SUBJECT">%2$s</xliff:g>"</string>
@@ -173,59 +167,64 @@
     <string name="getting_messages" msgid="8403333791332403244">"Gaunami pranešimai"</string>
     <string name="undo" msgid="8256285267701059609">"Anuliuoti"</string>
   <plurals name="conversation_unstarred">
-    <item quantity="one" msgid="839233699150563831">"Atšaukiamas <xliff:g id="COUNT">%1$d</xliff:g> pokalb. žymėjimas žvaigždute."</item>
-    <item quantity="other" msgid="7677305734833709789">"Atšaukiamas <xliff:g id="COUNT">%1$d</xliff:g> pokalb. žymėjimas žvaigždute."</item>
+    <item quantity="one" msgid="1701235480675303125">"Pokalbių, kurių žymėjimas žvaigždute panaikinamas: <xliff:g id="COUNT">%1$d</xliff:g>"</item>
+    <item quantity="other" msgid="1154441830432477256">"Pokalbių, kurių žymėjimas žvaigždute panaikinamas: <xliff:g id="COUNT">%1$d</xliff:g>"</item>
   </plurals>
   <plurals name="conversation_muted">
-    <item quantity="one" msgid="3339638225564408438">"Nutildyta: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;."</item>
-    <item quantity="other" msgid="4276111931404654219">"Nutildyta: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;."</item>
+    <item quantity="one" msgid="3622533556738049499">"Nutildyta pokalbių: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
+    <item quantity="other" msgid="4559007262578295280">"Nutildyta pokalbių: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
   </plurals>
   <plurals name="conversation_spammed">
-    <item quantity="one" msgid="6986172030710967687">"Pranešta kaip apie šlamštą: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
-    <item quantity="other" msgid="5900913789259199137">"Pranešta kaip apie šlamštą: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;."</item>
+    <item quantity="one" msgid="1749550834135461470">"Pokalbių, apie kuriuos pranešta kaip apie šlamštą: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
+    <item quantity="other" msgid="664292592683692920">"Pokalbių, apie kuriuos pranešta kaip apie šlamštą: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
   </plurals>
   <plurals name="conversation_not_spam">
-    <item quantity="one" msgid="2294904093653094150">"Apie &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; pokalb. pranešta kaip apie šlamštą."</item>
-    <item quantity="other" msgid="4966164423991098144">"Apie &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; pokalb. pranešta kaip apie šlamštą."</item>
+    <item quantity="one" msgid="3680479171846552641">"Pokalbių, apie kuriuos pranešta kaip ne apie šlamštą: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
+    <item quantity="other" msgid="6351739502184556635">"Pokalbių, apie kuriuos pranešta kaip ne apie šlamštą: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
   </plurals>
   <plurals name="conversation_not_important">
-    <item quantity="one" msgid="3824809189993339030">"Pažymėta kaip nesvarbūs: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
-    <item quantity="other" msgid="1215472798075869124">"Pažymėta kaip nesvarbūs: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
+    <item quantity="one" msgid="7432667428974709669">"Pažymėta pokalbių kaip nesvarbių: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
+    <item quantity="other" msgid="4823331037057239763">"Pažymėta pokalbių kaip nesvarbių: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
   </plurals>
   <plurals name="conversation_phished">
-    <item quantity="one" msgid="4330095881258771201">"Apie &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; pokalb. pranešta kaip apie sukčiavimą."</item>
-    <item quantity="other" msgid="9218674052779504277">"Apie &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; pokalb. pranešta kaip apie sukčiavimą."</item>
+    <item quantity="one" msgid="3511804715065046338">"Pokalbių, kuriuose, kaip pranešama, sukčiaujama: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
+    <item quantity="other" msgid="8400382886585779414">"Pokalbių, kuriuose, kaip pranešama, sukčiaujama: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
   </plurals>
   <plurals name="conversation_archived">
-    <item quantity="one" msgid="4127890884907503696">"Suarchyvuota: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;."</item>
-    <item quantity="other" msgid="7789480176789922968">"Suarchyvuota: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;."</item>
+    <item quantity="one" msgid="4859172326053399351">"Suarchyvuota pokalbių: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
+    <item quantity="other" msgid="8520761617935818623">"Suarchyvuota pokalbių: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
   </plurals>
   <plurals name="conversation_deleted">
-    <item quantity="one" msgid="5591889079235938982">"Ištrinta: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;."</item>
-    <item quantity="other" msgid="7060256058737892078">"Ištrinta: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;."</item>
+    <item quantity="one" msgid="4819167474123685161">"Ištrinta pokalbių: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
+    <item quantity="other" msgid="6287534453625638257">"Ištrinta pokalbių: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
   </plurals>
     <string name="deleted" msgid="7378013910782008375">"Ištrinta"</string>
     <string name="archived" msgid="6283673603512713022">"Archyvuota"</string>
     <string name="folder_removed" msgid="5656281444688183676">"Pašalinta iš <xliff:g id="FOLDERNAME">%1$s</xliff:g>"</string>
   <plurals name="conversation_folder_changed">
-    <item quantity="one" msgid="6463727361987396734">"Aplankas pakeistas."</item>
-    <item quantity="other" msgid="8815390494333090939">"Aplankai pakeisti."</item>
+    <item quantity="one" msgid="7787126147584620603">"Pakeistas aplankas"</item>
+    <item quantity="other" msgid="6307772984911017972">"Pakeisti aplankai"</item>
   </plurals>
     <string name="conversation_folder_moved" msgid="6475872337373081683">"Perkelta į <xliff:g id="FOLDERNAME">%1$s</xliff:g>"</string>
     <string name="search_results_header" msgid="1529438451150580188">"Rezultatai"</string>
     <string name="search_unsupported" msgid="2873920566477359177">"Šioje paskyroje paieška nepalaikoma."</string>
+    <string name="search_suggestion_desc" msgid="4165491276003825492">"Pasiūlymas: <xliff:g id="SUGGESTION">%s</xliff:g>"</string>
     <string name="add_label" msgid="3285338046038610902">"Pridėti aplanką"</string>
-    <string name="new_incoming_messages_one" msgid="5933087567495998661">"Rodyti naują pranešimą nuo <xliff:g id="SENDER">%s</xliff:g>."</string>
-  <plurals name="new_incoming_messages_many">
-    <item quantity="other" msgid="4394042684501388790">"Rodyti naujų pranešimų: <xliff:g id="COUNT">%1$d</xliff:g>."</item>
+  <plurals name="new_incoming_messages">
+    <item quantity="one" msgid="1532079301006372605">"Naujų pranešimų: <xliff:g id="COUNT">%1$d</xliff:g>"</item>
+    <item quantity="other" msgid="4085982174357328926">"Naujų pranešimų: <xliff:g id="COUNT">%1$d</xliff:g>"</item>
   </plurals>
     <string name="date_and_view_details" msgid="2952994746916149969">"<xliff:g id="DATE">%1$s</xliff:g> &lt;a href=\'http://www.example.com\'&gt;Peržiūrėti išsamią informaciją&lt;/a&gt;"</string>
     <string name="hide_details" msgid="8018801050702453314">"Slėpti išsamią informaciją"</string>
     <string name="to_message_header" msgid="3954385178027011919">"kam: <xliff:g id="RECIPIENTS">%1$s</xliff:g>"</string>
+    <string name="bcc_header_for_recipient_summary" msgid="1834716758549842454">"bcc: "</string>
     <string name="contact_info_string" msgid="6484930184867405276">"Rodyti <xliff:g id="NAME">%1$s</xliff:g> kontaktinę informaciją"</string>
     <string name="contact_info_string_default" msgid="6204228921864816351">"Rodyti kontaktinę informaciją"</string>
   <plurals name="show_messages_read">
-    <item quantity="other" msgid="5285673397387128129">"Senesnių pranešimų: <xliff:g id="COUNT">%1$d</xliff:g>"</item>
+    <item quantity="other" msgid="8094857552036574099">"Išskleisti senesnius pranešimus (<xliff:g id="COUNT">%1$d</xliff:g>)"</item>
+  </plurals>
+  <plurals name="super_collapsed_block_accessibility_announcement">
+    <item quantity="other" msgid="2016326586162784420">"Išskleisti senesni pranešimai (<xliff:g id="COUNT">%1$d</xliff:g>)"</item>
   </plurals>
     <string name="from_heading" msgid="48290556829713090">"Nuo:"</string>
     <string name="replyto_heading" msgid="8275255318292059079">"Atsakyti:"</string>
@@ -260,10 +259,10 @@
     <string name="previous" msgid="8985379053279804274">"Ankstesnis"</string>
   <string-array name="sync_status">
     <item msgid="4600303222943450797">"Sėkmingai"</item>
-    <item msgid="2972425114100316260">"Nėra ryšio."</item>
-    <item msgid="8594593386776437871">"Nepavyko prisijungti."</item>
-    <item msgid="1375193906551623606">"Saugos klaida."</item>
-    <item msgid="195177374927979967">"Nepavyko sinchronizuoti."</item>
+    <item msgid="2835492307658712596">"Nėra ryšio"</item>
+    <item msgid="5932644761344898987">"Nepavyko prisijungti"</item>
+    <item msgid="7335227237106118306">"Saugos klaida"</item>
+    <item msgid="8148525741623865182">"Nepavyko sinchronizuoti"</item>
     <item msgid="8026148967150231130">"Vidinė klaida"</item>
     <item msgid="5442620760791553027">"Serverio klaida"</item>
   </string-array>
@@ -276,7 +275,6 @@
   <plurals name="actionbar_unread_messages">
     <item quantity="other" msgid="3863201473731766006">"Neskaitytų: <xliff:g id="COUNT">%1$d</xliff:g>"</item>
   </plurals>
-    <string name="actionbar_large_unread_count" msgid="753635978542372792">"Neskaitytų: <xliff:g id="COUNT">%1$d</xliff:g> ir daugiau"</string>
     <string name="view_more_conversations" msgid="8377920000247101901">"Peržiūrėti daugiau pokalbių"</string>
     <string name="loading_conversation" msgid="7931600025861500397">"Įkeliama..."</string>
     <string name="activity_mailbox_selection" msgid="7489813868539767701">"Pasirinkti paskyrą"</string>
@@ -284,9 +282,13 @@
     <string name="folder_shortcut_widget_label" msgid="6466292659577092915">"El. pašto aplankas"</string>
     <string name="change_folders_selection_dialog_title" msgid="9174464298613273814">"Keisti aplankus"</string>
     <string name="move_to_selection_dialog_title" msgid="4052506464467083621">"Perkelti į"</string>
-    <string name="search_hint" msgid="4916671414132334289">"Ieškoti el. pašte"</string>
+    <string name="search_hint" msgid="7060626585689391003">"Paieška"</string>
     <!-- no translation found for search_results_loaded (1784879343458807514) -->
     <skip />
+    <string name="voice_search_not_supported" msgid="8493517060419469738">"Šiame įrenginyje nepalaikoma Paieška balsu."</string>
+    <string name="search_back_desc" msgid="8038224690392783652">"Uždaryti paiešką"</string>
+    <string name="search_voice_desc" msgid="9103854398344077204">"Pradėti paiešką balsu"</string>
+    <string name="search_clear_desc" msgid="3044261775183044862">"Išvalyti paieškos tekstą"</string>
     <string name="network_error" msgid="5931164247644972255">"Nėra ryšio"</string>
     <string name="retry" msgid="916102442074217293">"Bandyti dar kartą"</string>
     <string name="load_more" msgid="8702691358453560575">"Įkelti daugiau"</string>
@@ -307,6 +309,7 @@
     <string name="signin" msgid="4699091478139791244">"Prisijungti"</string>
     <string name="info" msgid="1357564480946178121">"Informacija"</string>
     <string name="report" msgid="4318141326014579036">"Pranešti"</string>
+    <string name="show" msgid="2874876876336599985">"Rodyti"</string>
     <string name="sync_error" msgid="1795794969006241678">"Nepavyko sinchronizuoti."</string>
     <string name="sync_error_message" msgid="4182644657243736635">"Jūsų įrenginyje nėra pakankamai vietos, kad būtų galima sinchronizuoti."</string>
     <string name="storage" msgid="4783683938444150638">"Atmintinė"</string>
@@ -353,22 +356,19 @@
   </plurals>
     <string name="single_new_message_notification_title" msgid="7954710563222504868">"<xliff:g id="SENDER">%1$s</xliff:g>: <xliff:g id="SUBJECT">%2$s</xliff:g>"</string>
     <string name="silent_ringtone" msgid="1570794756474381886">"Tylus"</string>
-    <string name="preference_removal_action_title" msgid="4703834472477137634">"Archyvavimas ir ištrynimas"</string>
+    <string name="preference_removal_action_title" msgid="3128186577060329884">"Numatytasis veiksmas"</string>
   <string-array name="prefEntries_removal_action">
-    <item msgid="954772302016538814">"Rodyti tik archyvą"</item>
-    <item msgid="7212690302706180254">"Rodyti tik ištrintus"</item>
-    <item msgid="2539051197590685708">"Rodyti archyvą ir ištrintus"</item>
+    <item msgid="7381624742404593351">"Archyvuoti"</item>
+    <item msgid="2567465476369142505">"Ištrinti"</item>
   </string-array>
   <string-array name="prefSummaries_removal_action_summary">
-    <item msgid="6877416142040695022">"Rodyti tik archyvą"</item>
-    <item msgid="1510017057984222376">"Rodyti tik ištrintus"</item>
-    <item msgid="3196207224108008441">"Rodyti archyvą ir ištrintus"</item>
+    <item msgid="4080896545573973751">"Archyvuoti"</item>
+    <item msgid="6088164268501960435">"Ištrinti"</item>
   </string-array>
-    <string name="prefDialogTitle_removal_action" msgid="266548424110393246">"Archyvavimas ir ištrynimas"</string>
+    <string name="prefDialogTitle_removal_action" msgid="7914272565548361304">"Numatytasis veiksmas"</string>
     <string name="preferences_default_reply_all_title" msgid="7255858488369635327">"Atsakyti visiems"</string>
     <string name="preferences_default_reply_all_summary_impl" msgid="895581085692979709">"Naudoti kaip numatytąjį atsakant į pranešimus"</string>
-    <string name="preference_swipe_title_archive" msgid="9122333537761282714">"Perbraukite, kad archyvuotumėte"</string>
-    <string name="preference_swipe_title_delete" msgid="4860474024917543711">"Perbraukite, kad ištrintumėte"</string>
+    <string name="preference_swipe_title" msgid="2073613840893904205">"Perbraukimo veiksmai"</string>
     <string name="preference_swipe_description" msgid="3036560323237015010">"Pokalbių sąraše"</string>
     <string name="preference_sender_image_title" msgid="7890813537985591865">"Siuntėjo vaizdas"</string>
     <string name="preference_sender_image_description" msgid="3586817690132199889">"Rodyti šalia vardo pokalbių sąraše"</string>
@@ -387,18 +387,15 @@
     <string name="folder_icon_desc" msgid="6272938864914794739">"Aplanko piktograma"</string>
     <string name="add_account" msgid="5905863370226612377">"Pridėti paskyrą"</string>
     <string name="dismiss_tip_hover_text" msgid="5400049020835024519">"Atsisakyti patarimo"</string>
-    <string name="auto_sync_off" msgid="3664082916022670831">"Automatinis sinchronizavimas išjungtas."</string>
-    <string name="tap_to_enable_sync" msgid="30588010316606899">"Įjungti palietus."</string>
-    <string name="account_sync_off" msgid="1351286883806741348">"Automatinis sinchronizavimas išjungtas."</string>
-    <string name="enable_sync_in_account_settings" msgid="2596841920743507047">"Įjunkite <xliff:g id="ACCOUNT_SETTINGS">%1$s</xliff:g>."</string>
-    <string name="account_settings_param" msgid="3649244241101156660">"Paskyros nustatymai"</string>
+    <string name="auto_sync_off" msgid="3691189864057581214">"Automatinis sinchronizavimas išjungtas. Palieskite, kad įjungtumėte."</string>
+    <string name="account_sync_off" msgid="5720018952998097061">"Paskyros sinchronizavimas išjungtas. Įjunkite jį &lt;a href=\'http://www.example.com\'&gt;„Paskyros nustatymuose“.&lt;/a&gt;"</string>
     <string name="unsent_messages_in_outbox" msgid="146722891559469589">"„<xliff:g id="OUTBOX">%2$s</xliff:g>“ esančių neišsiųstų elementų: <xliff:g id="NUMBER">%1$s</xliff:g>"</string>
     <string name="turn_auto_sync_on_dialog_title" msgid="543412762396502297">"Įjungti automatinį sinchronizavimą?"</string>
     <string name="turn_auto_sync_on_dialog_body" msgid="614939812938149398">"Pakeitimai, atliekami visose programose ir paskyrose, o ne tik „Gmail“, bus sinchronizuojami žiniatinklyje, kituose įrenginiuose ir <xliff:g id="PHONE_OR_TABLET">%1$s</xliff:g>."</string>
     <string name="phone" msgid="4142617042507912053">"telefone"</string>
     <string name="tablet" msgid="4593581125469224791">"planšetiniame kompiuteryje"</string>
     <string name="turn_auto_sync_on_dialog_confirm_btn" msgid="7239160845196929866">"Įjungti"</string>
-    <string name="show_n_more_folders" msgid="5769610839632786654">"Rodyti aplankų: dar <xliff:g id="NUMBER">%1$s</xliff:g>"</string>
+    <string name="show_n_more_folders" msgid="1005879825500056552">"Rodyti <xliff:g id="NUMBER">%1$s</xliff:g> aplank."</string>
     <string name="hide_folders" msgid="7618891933409521283">"Slėpti aplankus"</string>
     <string name="print" msgid="7987949243936577207">"Spausdinti"</string>
     <string name="print_all" msgid="4011022762279519941">"Spausdinti viską"</string>
@@ -480,4 +477,8 @@
     <string name="manage_accounts_menu_item" msgid="4734660452395086786">"Tvarkyti paskyras"</string>
     <string name="general_preferences_title" msgid="4212138728220418162">"Bendrieji nustatymai"</string>
     <string name="activity_preferences" msgid="8966077432517613292">"Nustatymai"</string>
+    <string name="overflow_description" msgid="7886090597023240426">"Daugiau parinkčių"</string>
+    <string name="security_hold_required_text" msgid="6619955920101834286">"<xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g> būtinas saugos naujinys"</string>
+    <string name="update_security_text" msgid="3527335757205741077">"atnaujinti dabar"</string>
+    <string name="forms_are_disabled" msgid="2876312737118986789">"Formos yra išjungtos sistemoje „Gmail“"</string>
 </resources>

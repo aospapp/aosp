@@ -16,9 +16,6 @@
 
 package com.android.services.telephony;
 
-import android.telecom.PhoneCapabilities;
-
-import com.android.internal.telephony.CallStateException;
 import com.android.internal.telephony.Connection;
 
 /**
@@ -27,6 +24,19 @@ import com.android.internal.telephony.Connection;
 final class GsmConnection extends TelephonyConnection {
     GsmConnection(Connection connection) {
         super(connection);
+    }
+
+    /**
+     * Clones the current {@link GsmConnection}.
+     * <p>
+     * Listeners are not copied to the new instance.
+     *
+     * @return The cloned connection.
+     */
+    @Override
+    public TelephonyConnection cloneConnection() {
+        GsmConnection gsmConnection = new GsmConnection(getOriginalConnection());
+        return gsmConnection;
     }
 
     /** {@inheritDoc} */
@@ -46,27 +56,12 @@ final class GsmConnection extends TelephonyConnection {
     }
 
     @Override
-    public void performConference(TelephonyConnection otherConnection) {
-        Log.d(this, "performConference - %s", this);
-        if (getPhone() != null) {
-            try {
-                // We dont use the "other" connection because there is no concept of that in the
-                // implementation of calls inside telephony. Basically, you can "conference" and it
-                // will conference with the background call.  We know that otherConnection is the
-                // background call because it would never have called setConferenceableConnections()
-                // otherwise.
-                getPhone().conference();
-            } catch (CallStateException e) {
-                Log.e(this, e, "Failed to conference call.");
-            }
-        }
-    }
-
-    @Override
-    protected int buildCallCapabilities() {
-        int capabilities = PhoneCapabilities.MUTE | PhoneCapabilities.SUPPORT_HOLD;
+    protected int buildConnectionCapabilities() {
+        int capabilities = super.buildConnectionCapabilities();
+        capabilities |= CAPABILITY_MUTE;
+        capabilities |= CAPABILITY_SUPPORT_HOLD;
         if (getState() == STATE_ACTIVE || getState() == STATE_HOLDING) {
-            capabilities |= PhoneCapabilities.HOLD;
+            capabilities |= CAPABILITY_HOLD;
         }
         return capabilities;
     }

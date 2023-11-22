@@ -2,10 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/memory/scoped_ptr.h"
 #include "chrome/browser/favicon/favicon_handler.h"
+
+#include "base/memory/scoped_ptr.h"
+#include "chrome/browser/favicon/chrome_favicon_client.h"
+#include "chrome/browser/favicon/chrome_favicon_client_factory.h"
 #include "chrome/browser/favicon/favicon_service.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
+#include "chrome/browser/favicon/favicon_tab_helper.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
@@ -22,8 +26,7 @@ namespace {
 
 // Fill the given bmp with valid png data.
 void FillDataToBitmap(int w, int h, SkBitmap* bmp) {
-  bmp->setConfig(SkBitmap::kARGB_8888_Config, w, h);
-  bmp->allocPixels();
+  bmp->allocN32Pixels(w, h);
 
   unsigned char* src_data =
       reinterpret_cast<unsigned char*>(bmp->getAddr32(0, 0));
@@ -1405,7 +1408,9 @@ TEST_F(FaviconHandlerTest, TestKeepDownloadedLargestFavicon) {
 }
 
 static KeyedService* BuildFaviconService(content::BrowserContext* profile) {
-  return new FaviconService(static_cast<Profile*>(profile));
+  FaviconClient* favicon_client =
+      ChromeFaviconClientFactory::GetForProfile(static_cast<Profile*>(profile));
+  return new FaviconService(static_cast<Profile*>(profile), favicon_client);
 }
 
 static KeyedService* BuildHistoryService(content::BrowserContext* profile) {

@@ -29,6 +29,10 @@ extern const char kAppShimSocketShortName[];
 // user data dir with this name.
 extern const char kAppShimSocketSymlinkName[];
 
+// A symlink used to store the version string of the currently running Chrome.
+// The shim will read this to determine which version of the framework to load.
+extern const char kRunningChromeVersionSymlinkName[];
+
 // Special app mode id used for the App Launcher.
 extern const char kAppListModeId[];
 
@@ -61,6 +65,9 @@ extern NSString* const kBundleTypeRoleViewer;
 // The display name of the bundle as shown in Finder and the Dock. For localized
 // bundles, this overrides the bundle's file name.
 extern NSString* const kCFBundleDisplayNameKey;
+
+// The Chrome version string in the app shim bundle.
+extern NSString* const kCFBundleShortVersionStringKey;
 
 // The key specifying whether the display name should be localized. This makes
 // Finder look in localization folders in the app bundle for a display name.
@@ -102,7 +109,7 @@ extern NSString* const kShortcutBrowserBundleIDPlaceholder;
 
 // Current major/minor version numbers of |ChromeAppModeInfo| (defined below).
 const unsigned kCurrentChromeAppModeInfoMajorVersion = 1;
-const unsigned kCurrentChromeAppModeInfoMinorVersion = 2;
+const unsigned kCurrentChromeAppModeInfoMinorVersion = 3;
 
 // The structure used to pass information from the app mode loader to the
 // (browser) framework. This is versioned using major and minor version numbers,

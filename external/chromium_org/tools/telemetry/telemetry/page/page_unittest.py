@@ -115,3 +115,41 @@ class TestPage(unittest.TestCase):
     ps.AddPageWithDefaultRunNavigate('file://../../otherdir/foo')
 
     self.assertEquals(ps[0].display_name, 'foo')
+
+  def testPagesHaveDifferentIds(self):
+    p0 = page.Page("http://example.com")
+    p1 = page.Page("http://example.com")
+    self.assertNotEqual(p0.id, p1.id)
+
+  def testNamelessPageAsDict(self):
+    nameless_dict = page.Page('http://example.com/').AsDict()
+    self.assertIn('id', nameless_dict)
+    del nameless_dict['id']
+    self.assertEquals({
+          'url': 'http://example.com/',
+        }, nameless_dict)
+
+  def testNamedPageAsDict(self):
+    named_dict = page.Page('http://example.com/', name='Example').AsDict()
+    self.assertIn('id', named_dict)
+    del named_dict['id']
+    self.assertEquals({
+          'url': 'http://example.com/',
+          'name': 'Example'
+        }, named_dict)
+
+  def testTransferToPageSet(self):
+    page_set_a = page_set.PageSet()
+    page_set_b = page_set.PageSet()
+    page_foo = page.Page('http://foo.com', page_set_a)
+    page_bar = page.Page('http://bar.com', page_set_a)
+    page_baz = page.Page('http://baz.com', page_set_a)
+
+    page_set_a.AddPage(page_foo)
+    page_set_a.AddPage(page_bar)
+    page_set_a.AddPage(page_baz)
+
+    page_bar.TransferToPageSet(page_set_b)
+    self.assertEqual([page_foo, page_baz], page_set_a.pages)
+    self.assertEqual([page_bar], page_set_b.pages)
+    self.assertIs(page_set_b, page_bar.page_set)

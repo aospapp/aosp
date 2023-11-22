@@ -10,11 +10,14 @@
     # the link of the actual chrome (or chromium) executable on
     # Linux or Mac, and into chrome.dll on Windows.
     # NOTE: Most new includes should go in the OS!="ios" condition below.
+    #
+    # GN version is the group //chrome:browser_dependencies
     'chromium_browser_dependencies': [
       'common',
       'browser',
       '../sync/sync.gyp:sync',
     ],
+    # GN version is the group //chrome:child_dependencies
     'chromium_child_dependencies': [
       'common',
       '../sync/sync.gyp:sync',
@@ -25,16 +28,15 @@
     'conditions': [
       ['OS!="ios"', {
         'chromium_browser_dependencies': [
+          'debugger',
           '../ppapi/ppapi_internal.gyp:ppapi_host',
         ],
         'chromium_child_dependencies': [
-          'debugger',
           'plugin',
           'renderer',
           'utility',
           '../content/content.gyp:content_gpu',
           '../content/content.gyp:content_ppapi_plugin',
-          '../content/content.gyp:content_worker',
           '../third_party/WebKit/public/blink_devtools.gyp:blink_devtools_frontend_resources',
         ],
       }],
@@ -43,15 +45,15 @@
           '../printing/printing.gyp:printing',
         ],
       }],
-      ['OS=="win"', {
-        'platform_locale_settings_grd':
-            'app/resources/locale_settings_win.grd',
-      },],
       ['enable_printing==1', {
         'chromium_browser_dependencies': [
           'service',
         ],
       }],
+      ['OS=="win"', {
+        'platform_locale_settings_grd':
+            'app/resources/locale_settings_win.grd',
+      },],
       ['OS=="linux"', {
         'conditions': [
           ['chromeos==1', {
@@ -101,7 +103,6 @@
     ['OS!="ios"', {
       'includes': [
         '../apps/apps.gypi',
-        'chrome_browser_extensions.gypi',
         'chrome_debugger.gypi',
         'chrome_dll.gypi',
         'chrome_exe.gypi',
@@ -134,7 +135,8 @@
     }],  # OS!="ios"
     ['OS=="mac"', {
       'includes': [
-        '../apps/app_shim/app_shim.gypi',
+        'app_shim/app_shim.gypi',
+        'browser/apps/app_shim/browser_app_shim.gypi',
       ],
       'targets': [
         {
@@ -280,60 +282,6 @@
           ],
         },  # target app_mode_app_support
         {
-          # This produces the template for app mode loader bundles. It's a
-          # template in the sense that parts of it need to be "filled in" by
-          # Chrome before it can be executed.
-          'target_name': 'app_mode_app',
-          'type': 'executable',
-          'mac_bundle' : 1,
-          'variables': {
-            'enable_wexit_time_destructors': 1,
-            'mac_real_dsym': 1,
-          },
-          'product_name': 'app_mode_loader',
-          'dependencies': [
-            'app_mode_app_support',
-            'infoplist_strings_tool',
-          ],
-          'sources': [
-            'app/app_mode_loader_mac.mm',
-            'app/app_mode-Info.plist',
-          ],
-          'include_dirs': [
-            '..',
-          ],
-          'link_settings': {
-            'libraries': [
-              '$(SDKROOT)/System/Library/Frameworks/CoreFoundation.framework',
-              '$(SDKROOT)/System/Library/Frameworks/Foundation.framework',
-            ],
-          },
-          'mac_bundle_resources!': [
-            'app/app_mode-Info.plist',
-          ],
-          'mac_bundle_resources/': [
-            ['exclude', '.*'],
-          ],
-          'xcode_settings': {
-            'INFOPLIST_FILE': 'app/app_mode-Info.plist',
-            'APP_MODE_APP_BUNDLE_ID': '<(mac_bundle_id).app.@APP_MODE_SHORTCUT_ID@',
-          },
-          'postbuilds' : [
-            {
-              # Modify the Info.plist as needed.  The script explains why this
-              # is needed.  This is also done in the chrome and chrome_dll
-              # targets.  In this case, --breakpad=0, --keystone=0, and --scm=0
-              # are used because Breakpad, Keystone, and SCM keys are
-              # never placed into the app mode loader.
-              'postbuild_name': 'Tweak Info.plist',
-              'action': ['<(tweak_info_plist_path)',
-                         '--breakpad=0',
-                         '--keystone=0',
-                         '--scm=0'],
-            },
-          ],
-        },  # target app_mode_app
-        {
           # Convenience target to build a disk image.
           'target_name': 'build_app_dmg',
           # Don't place this in the 'all' list; most won't want it.
@@ -370,88 +318,6 @@
               'action': ['<(build_app_dmg_script_path)', '<@(branding)'],
             },
           ],  # 'actions'
-        },
-        {
-          # Dummy target to allow chrome to require plugin_carbon_interpose to
-          # build without actually linking to the resulting library.
-          'target_name': 'interpose_dependency_shim',
-          'type': 'executable',
-          'variables': { 'enable_wexit_time_destructors': 1, },
-          'dependencies': [
-            'plugin_carbon_interpose',
-          ],
-          # In release, we end up with a strip step that is unhappy if there is
-          # no binary. Rather than check in a new file for this temporary hack,
-          # just generate a source file on the fly.
-          'actions': [
-            {
-              'action_name': 'generate_stub_main',
-              'process_outputs_as_sources': 1,
-              'inputs': [],
-              'outputs': [ '<(INTERMEDIATE_DIR)/dummy_main.c' ],
-              'action': [
-                'bash', '-c',
-                'echo "int main() { return 0; }" > <(INTERMEDIATE_DIR)/dummy_main.c'
-              ],
-            },
-          ],
-        },
-        {
-          # dylib for interposing Carbon calls in the plugin process.
-          'target_name': 'plugin_carbon_interpose',
-          'type': 'shared_library',
-          'variables': { 'enable_wexit_time_destructors': 1, },
-          # This target must not depend on static libraries, else the code in
-          # those libraries would appear twice in plugin processes: Once from
-          # Chromium Framework, and once from this dylib.
-          'dependencies': [
-            'chrome_dll',
-          ],
-          'conditions': [
-            ['component=="shared_library"', {
-              'dependencies': [
-                '../content/content.gyp:content_plugin',
-              ],
-              'xcode_settings': {
-                'LD_RUNPATH_SEARCH_PATHS': [
-                  # Get back from Chromium.app/Contents/Versions/V
-                  '@loader_path/../../../..',
-                ],
-              },
-            }],
-          ],
-          'sources': [
-            '../content/plugin/plugin_carbon_interpose_mac.cc',
-          ],
-          'include_dirs': [
-            '..',
-          ],
-          'link_settings': {
-            'libraries': [
-              '$(SDKROOT)/System/Library/Frameworks/Carbon.framework',
-            ],
-          },
-          'xcode_settings': {
-            'DYLIB_COMPATIBILITY_VERSION': '<(version_mac_dylib)',
-            'DYLIB_CURRENT_VERSION': '<(version_mac_dylib)',
-            'DYLIB_INSTALL_NAME_BASE': '@executable_path/../../..',
-          },
-          'postbuilds': [
-            {
-              # The framework (chrome_dll) defines its load-time path
-              # (DYLIB_INSTALL_NAME_BASE) relative to the main executable
-              # (chrome).  A different relative path needs to be used in
-              # plugin_carbon_interpose, which runs in the helper_app.
-              'postbuild_name': 'Fix Framework Link',
-              'action': [
-                'install_name_tool',
-                '-change',
-                '@executable_path/../Versions/<(version_full)/<(mac_product_name) Framework.framework/<(mac_product_name) Framework',
-                '@executable_path/../../../<(mac_product_name) Framework.framework/<(mac_product_name) Framework',
-                '${BUILT_PRODUCTS_DIR}/${EXECUTABLE_PATH}'
-              ],
-            },
-          ],
         },
         {
           'target_name': 'infoplist_strings_tool',
@@ -505,20 +371,6 @@
                 '../breakpad/breakpad.gyp:dump_syms',
               ],
             }],
-            ['linux_strip_reliability_tests==1', {
-              'actions': [
-                {
-                  'action_name': 'strip_reliability_tests',
-                  'outputs': [
-                    '<(PRODUCT_DIR)/strip_reliability_tests.stamp',
-                  ],
-                  'action': ['strip',
-                             '-g',
-                             '<@(_inputs)'],
-                  'message': 'Stripping reliability tests',
-                },
-              ],
-            }],
           ],
         },
       ],
@@ -538,7 +390,7 @@
             '../content/content_shell_and_tests.gyp:content_shell',
             '../content/content_shell_and_tests.gyp:content_unittests',
             '../net/net.gyp:net_unittests',
-            '../ui/ui_unittests.gyp:ui_unittests',
+            '../ui/base/ui_base_tests.gyp:ui_unittests',
           ],
         },
         {
@@ -575,6 +427,7 @@
           ],
         },
         {
+          # GN version: //chrome:version_header
           'target_name': 'chrome_version_header',
           'type': 'none',
           'hard_dependency': 1,
@@ -735,17 +588,18 @@
             'toolbar_model_security_levels_java',
             'tab_load_status_java',
             '../base/base.gyp:base',
-            '../components/components.gyp:autofill_java',
+            '../components/components.gyp:bookmarks_java',
             '../components/components.gyp:dom_distiller_core_java',
             '../components/components.gyp:gcm_driver_java',
             '../components/components.gyp:navigation_interception_java',
             '../components/components.gyp:sessions',
+            '../components/components.gyp:variations_java',
             '../components/components.gyp:web_contents_delegate_android_java',
             '../content/content.gyp:content_java',
             '../printing/printing.gyp:printing_java',
             '../sync/sync.gyp:sync_java',
             '../third_party/android_tools/android_tools.gyp:android_support_v7_appcompat_javalib',
-            '../third_party/guava/guava.gyp:guava_javalib',
+            '../third_party/android_tools/android_tools.gyp:android_support_v13_javalib',
             '../ui/android/ui_android.gyp:ui_java',
           ],
           'variables': {
@@ -779,9 +633,15 @@
     ['configuration_policy==1 and OS!="android" and OS!="ios"', {
       'includes': [ 'policy.gypi', ],
     }],
+    ['enable_extensions==1', {
+      'includes': [
+        'chrome_browser_extensions.gypi',
+      ],
+    }],
     ['enable_printing==1', {
       'targets': [
         {
+          # GN version: //chrome/service
           'target_name': 'service',
           'type': 'static_library',
           'variables': { 'enable_wexit_time_destructors': 1, },
@@ -799,6 +659,7 @@
             '../third_party/libjingle/libjingle.gyp:libjingle',
           ],
           'sources': [
+            # Note: sources list duplicated in GN build.
             'service/cloud_print/cdd_conversion_win.cc',
             'service/cloud_print/cdd_conversion_win.h',
             'service/cloud_print/cloud_print_auth.cc',
@@ -828,8 +689,8 @@
             'service/cloud_print/printer_job_handler.h',
             'service/cloud_print/printer_job_queue_handler.cc',
             'service/cloud_print/printer_job_queue_handler.h',
-            'service/net/service_url_request_context.cc',
-            'service/net/service_url_request_context.h',
+            'service/net/service_url_request_context_getter.cc',
+            'service/net/service_url_request_context_getter.h',
             'service/service_ipc_server.cc',
             'service/service_ipc_server.h',
             'service/service_main.cc',
@@ -855,6 +716,12 @@
             ['OS!="win" and use_cups!=1', {
               'sources': [
                 'service/cloud_print/print_system_dummy.cc',
+              ],
+            }],
+            ['OS!="win"', {
+              'sources!': [
+                'service/service_utility_process_host.cc',
+                'service/service_utility_process_host.h',
               ],
             }],
           ],

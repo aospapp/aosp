@@ -28,6 +28,7 @@
         android:icon="@mipmap/ic_launcher_quicksettings"
         android:label="@string/quicksettings_label"
         android:requiredForAllUsers="true"
+        android:supportsRtl="true"
         android:theme="@style/Theme.QuickSettings" >
         <activity
             android:name="QuickSettings"

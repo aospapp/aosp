@@ -24,6 +24,7 @@ const char kDeviceName[] = "Test Device Name";
 const char kVendorName[] = "Test Vendor";
 const char kProductName[] = "Test Product";
 const uint64 kDeviceSize = 1024 * 1024 * 1024;
+const bool kOnRemovableDevice = true;
 
 const char kUnknownSDDiskModel[] = "SD Card";
 const char kUnknownUSBDiskModel[] = "USB Drive";
@@ -77,7 +78,8 @@ class RemovableStorageProviderChromeOsUnitTest : public testing::Test {
                                                             kDeviceSize,
                                                             is_parent,
                                                             has_media,
-                                                            on_boot_device);
+                                                            on_boot_device,
+                                                            kOnRemovableDevice);
   }
 
   // Checks if the DeviceList has a specific entry.
@@ -99,7 +101,7 @@ class RemovableStorageProviderChromeOsUnitTest : public testing::Test {
                     const std::string& vendor,
                     const std::string& model,
                     uint64 capacity) {
-    RemovableStorageDevice* device = FindDevice(devices_, device_path);
+    RemovableStorageDevice* device = FindDevice(devices_.get(), device_path);
 
     ASSERT_TRUE(device != NULL);
 
@@ -137,8 +139,9 @@ TEST_F(RemovableStorageProviderChromeOsUnitTest, GetAllDevices) {
   ASSERT_EQ(2U, devices_->data.size());
 
   ExpectDevice(
-      devices_, kDevicePathUSB, kVendorName, kProductName, kDeviceSize);
-  ExpectDevice(devices_, kDevicePathSD, kVendorName, kProductName, kDeviceSize);
+      devices_.get(), kDevicePathUSB, kVendorName, kProductName, kDeviceSize);
+  ExpectDevice(
+      devices_.get(), kDevicePathSD, kVendorName, kProductName, kDeviceSize);
 }
 
 // Tests that a USB drive with an empty vendor and product gets a generic name.
@@ -156,8 +159,10 @@ TEST_F(RemovableStorageProviderChromeOsUnitTest, EmptyProductAndModel) {
 
   ASSERT_EQ(2U, devices_->data.size());
 
-  ExpectDevice(devices_, kDevicePathUSB, "", kUnknownUSBDiskModel, kDeviceSize);
-  ExpectDevice(devices_, kDevicePathSD, "", kUnknownSDDiskModel, kDeviceSize);
+  ExpectDevice(
+      devices_.get(), kDevicePathUSB, "", kUnknownUSBDiskModel, kDeviceSize);
+  ExpectDevice(
+      devices_.get(), kDevicePathSD, "", kUnknownSDDiskModel, kDeviceSize);
 }
 
 }  // namespace extensions

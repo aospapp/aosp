@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"व्यवस्थापक ऐप्स का उपयोग नहीं किया जा सकता. उसमें घटक अनुपलब्ध हैं या वे दूषित हैं. अपने IT विभाग से संपर्क करें."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"व्यवस्थापक ऐप्स इंस्टॉल नहीं किया जा सका"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"व्यवस्थापक ऐप्स आपके डिवाइस पर इंस्टॉल नहीं है"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"सेट करना रोकें?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"क्या आप वाकई सेट किए जाने को रोकना चाहते हैं?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"नहीं"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"हां"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"रोका जा रहा है..."</string>
 </resources>

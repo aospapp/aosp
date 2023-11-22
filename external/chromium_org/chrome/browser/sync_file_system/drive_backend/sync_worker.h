@@ -16,7 +16,6 @@
 #include "chrome/browser/sync_file_system/remote_file_sync_service.h"
 #include "chrome/browser/sync_file_system/sync_callbacks.h"
 #include "chrome/browser/sync_file_system/task_logger.h"
-#include "net/base/network_change_notifier.h"
 
 class ExtensionServiceInterface;
 class GURL;
@@ -30,7 +29,7 @@ class DriveServiceInterface;
 class DriveUploaderInterface;
 }
 
-namespace fileapi {
+namespace storage {
 class FileSystemURL;
 }
 
@@ -89,30 +88,16 @@ class SyncWorker : public SyncWorkerInterface,
   virtual scoped_ptr<base::ListValue> DumpFiles(const GURL& origin) OVERRIDE;
   virtual scoped_ptr<base::ListValue> DumpDatabase() OVERRIDE;
   virtual void SetSyncEnabled(bool enabled) OVERRIDE;
-  virtual void PromoteDemotedChanges() OVERRIDE;
-
-  virtual void ApplyLocalChange(
-      const FileChange& local_change,
-      const base::FilePath& local_path,
-      const SyncFileMetadata& local_metadata,
-      const fileapi::FileSystemURL& url,
-      const SyncStatusCallback& callback) OVERRIDE;
-
-  virtual void OnNotificationReceived() OVERRIDE;
-
-  virtual void OnReadyToSendRequests() OVERRIDE;
-  virtual void OnRefreshTokenInvalid() OVERRIDE;
-
-  virtual void OnNetworkChanged(
-      net::NetworkChangeNotifier::ConnectionType type) OVERRIDE;
-
-  virtual drive::DriveServiceInterface* GetDriveService() OVERRIDE;
-  virtual drive::DriveUploaderInterface* GetDriveUploader() OVERRIDE;
-  virtual MetadataDatabase* GetMetadataDatabase() OVERRIDE;
-  virtual SyncTaskManager* GetSyncTaskManager() OVERRIDE;
-
+  virtual void PromoteDemotedChanges(const base::Closure& callback) OVERRIDE;
+  virtual void ApplyLocalChange(const FileChange& local_change,
+                                const base::FilePath& local_path,
+                                const SyncFileMetadata& local_metadata,
+                                const storage::FileSystemURL& url,
+                                const SyncStatusCallback& callback) OVERRIDE;
+  virtual void ActivateService(RemoteServiceState service_state,
+                               const std::string& description) OVERRIDE;
+  virtual void DeactivateService(const std::string& description) OVERRIDE;
   virtual void DetachFromSequence() OVERRIDE;
-
   virtual void AddObserver(Observer* observer) OVERRIDE;
 
  private:
@@ -126,10 +111,6 @@ class SyncWorker : public SyncWorkerInterface,
   };
 
   typedef base::hash_map<std::string, AppStatus> AppStatusMap;
-
-  // SyncWorkerInterface overrides.
-  // TODO(peria): Remove this interface after making FakeSyncWorker class.
-  virtual void SetHasRefreshToken(bool has_refresh_token) OVERRIDE;
 
   void DoDisableApp(const std::string& app_id,
                     const SyncStatusCallback& callback);
@@ -153,7 +134,8 @@ class SyncWorker : public SyncWorkerInterface,
                            const SyncStatusCallback& callback,
                            SyncStatusCode status);
 
-  void MaybeStartFetchChanges();
+  // Returns true if a FetchChanges task is scheduled.
+  bool MaybeStartFetchChanges();
   void DidResolveConflict(SyncStatusCode status);
   void DidFetchChanges(SyncStatusCode status);
 
@@ -161,6 +143,12 @@ class SyncWorker : public SyncWorkerInterface,
                                             bool used_network);
   void UpdateServiceState(RemoteServiceState state,
                           const std::string& description);
+
+  void CallOnIdleForTesting(const base::Closure& callback);
+
+  drive::DriveServiceInterface* GetDriveService();
+  drive::DriveUploaderInterface* GetDriveUploader();
+  MetadataDatabase* GetMetadataDatabase();
 
   base::FilePath base_dir_;
 
@@ -175,8 +163,7 @@ class SyncWorker : public SyncWorkerInterface,
   base::TimeTicks time_to_check_changes_;
 
   bool sync_enabled_;
-  ConflictResolutionPolicy default_conflict_resolution_policy_;
-  bool network_available_;
+  base::Closure call_on_idle_callback_;
 
   scoped_ptr<SyncTaskManager> task_manager_;
 
@@ -184,8 +171,6 @@ class SyncWorker : public SyncWorkerInterface,
 
   scoped_ptr<SyncEngineContext> context_;
   ObserverList<Observer> observers_;
-
-  bool has_refresh_token_;
 
   base::SequenceChecker sequence_checker_;
 

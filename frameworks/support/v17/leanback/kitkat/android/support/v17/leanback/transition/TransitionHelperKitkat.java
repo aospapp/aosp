@@ -21,6 +21,7 @@ import android.transition.ChangeBounds;
 import android.transition.Fade;
 import android.transition.Scene;
 import android.transition.Transition;
+import android.transition.TransitionInflater;
 import android.transition.TransitionManager;
 import android.transition.TransitionSet;
 import android.transition.TransitionValues;
@@ -58,9 +59,9 @@ final class TransitionHelperKitkat {
         return new AutoTransition();
     }
 
-    static Object createSlide(SlideCallback callback) {
-        Slide slide = new Slide();
-        slide.setCallback(callback);
+    static Object createSlide(int slideEdge) {
+        SlideKitkat slide = new SlideKitkat();
+        slide.setSlideEdge(slideEdge);
         return slide;
     }
 
@@ -222,5 +223,9 @@ final class TransitionHelperKitkat {
 
     static void addTarget(Object transition, View view) {
         ((Transition) transition).addTarget(view);
+    }
+
+    static Object loadTransition(Context context, int resId) {
+        return TransitionInflater.from(context).inflateTransition(resId);
     }
 }

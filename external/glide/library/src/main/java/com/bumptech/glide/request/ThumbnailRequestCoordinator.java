@@ -7,6 +7,15 @@ package com.bumptech.glide.request;
 public class ThumbnailRequestCoordinator implements RequestCoordinator, Request {
     private Request full;
     private Request thumb;
+    private RequestCoordinator coordinator;
+
+    public ThumbnailRequestCoordinator() {
+        this(null);
+    }
+
+    public ThumbnailRequestCoordinator(RequestCoordinator coordinator) {
+        this.coordinator = coordinator;
+    }
 
     public void setRequests(Request full, Request thumb) {
         this.full = full;
@@ -15,17 +24,29 @@ public class ThumbnailRequestCoordinator implements RequestCoordinator, Request 
 
     @Override
     public boolean canSetImage(Request request) {
-        return request == full || !full.isComplete();
+        return parentCanSetImage() && (request == full || !full.isComplete());
+    }
+
+    private boolean parentCanSetImage() {
+        return coordinator == null || coordinator.canSetImage(this);
     }
 
     @Override
     public boolean canSetPlaceholder(Request request) {
-        return request == full && !isAnyRequestComplete();
+        return parentCanSetPlaceholder() && (request == full && !isAnyRequestComplete());
+    }
+
+    private boolean parentCanSetPlaceholder() {
+        return coordinator == null || coordinator.canSetPlaceholder(this);
     }
 
     @Override
     public boolean isAnyRequestComplete() {
-        return full.isComplete() || thumb.isComplete();
+        return parentIsAnyRequestComplete() || full.isComplete() || thumb.isComplete();
+    }
+
+    private boolean parentIsAnyRequestComplete() {
+        return coordinator != null && coordinator.isAnyRequestComplete();
     }
 
     @Override
@@ -51,7 +72,9 @@ public class ThumbnailRequestCoordinator implements RequestCoordinator, Request 
 
     @Override
     public boolean isComplete() {
-        return full.isComplete();
+        // TODO: this is a little strange, but we often want to avoid restarting the request or
+        // setting placeholders even if only the thumb is complete.
+        return full.isComplete() || thumb.isComplete();
     }
 
     @Override

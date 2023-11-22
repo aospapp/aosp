@@ -25,6 +25,7 @@ class ResourceEntry;
 
 namespace drive {
 
+class FileChange;
 class ResourceEntry;
 
 namespace internal {
@@ -33,14 +34,14 @@ class ResourceMetadata;
 
 namespace file_system {
 
-class OperationObserver;
+class OperationDelegate;
 
 // This class encapsulates the drive Move function.  It is responsible for
 // updating the local metadata entry.
 class MoveOperation {
  public:
   MoveOperation(base::SequencedTaskRunner* blocking_task_runner,
-                OperationObserver* observer,
+                OperationDelegate* delegate,
                 internal::ResourceMetadata* metadata);
   ~MoveOperation();
 
@@ -54,14 +55,13 @@ class MoveOperation {
 
  private:
   // Part of Move(). Called after updating the local state.
-  void MoveAfterUpdateLocalState(
-      const FileOperationCallback& callback,
-      const std::set<base::FilePath>* changed_directories,
-      const std::string* local_id,
-      FileError error);
+  void MoveAfterUpdateLocalState(const FileOperationCallback& callback,
+                                 const FileChange* changed_file,
+                                 const std::string* local_id,
+                                 FileError error);
 
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;
-  OperationObserver* observer_;
+  OperationDelegate* delegate_;
   internal::ResourceMetadata* metadata_;
 
   // Note: This should remain the last member so it'll be destroyed and

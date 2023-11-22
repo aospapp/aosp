@@ -114,7 +114,6 @@ public class SearchParser extends Parser {
 
     private boolean parseResult(EmailSyncParser parser,
             ArrayList<ContentProviderOperation> ops) throws IOException {
-        // Get an email sync parser for our incoming message data
         boolean res = false;
         Message msg = new Message();
         while (nextTag(Tags.SEARCH_RESULT) != END) {
@@ -128,7 +127,15 @@ public class SearchParser extends Parser {
                 msg.mAccountKey = mAccount.mId;
                 msg.mMailboxKey = mMailbox.mId;
                 msg.mFlagLoaded = Message.FLAG_LOADED_COMPLETE;
+                // Delegate parsing of the properties to the EmailSyncParser.
+
+                // We push a new <Properties> tag onto the EmailSyncParser. It will parse
+                // until it consumes the </Properties>
                 parser.pushTag(tag);
+                // Since the EmailSyncParser is responsible for consuming the </Properties>
+                // tag, we need to remove it from our stack or it will be double counted.
+                pop();
+
                 parser.addData(msg, tag);
                 if (msg.mHtml != null) {
                     msg.mHtml = TextUtilities.highlightTermsInHtml(msg.mHtml, mQuery);

@@ -41,7 +41,9 @@ import org.mockito.InOrder;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * <p>Basic test for CameraManager class.</p>
@@ -485,7 +487,132 @@ public class CameraManagerTest extends AndroidTestCase {
         mCameraManager.registerAvailabilityCallback(mListener, mHandler);
         mCameraManager.unregisterAvailabilityCallback(mListener);
         mCameraManager.unregisterAvailabilityCallback(mListener);
-
-        // TODO: test the listener callbacks
     }
+
+    /**
+     * Test that the availability callbacks fire when expected
+     */
+    public void testCameraManagerListenerCallbacks() throws Exception {
+        final int AVAILABILITY_TIMEOUT_MS = 10;
+
+        final LinkedBlockingQueue<String> availableEventQueue = new LinkedBlockingQueue<>();
+        final LinkedBlockingQueue<String> unavailableEventQueue = new LinkedBlockingQueue<>();
+
+        CameraManager.AvailabilityCallback ac = new CameraManager.AvailabilityCallback() {
+            @Override
+            public void onCameraAvailable(String cameraId) {
+                availableEventQueue.offer(cameraId);
+            }
+
+            @Override
+            public void onCameraUnavailable(String cameraId) {
+                unavailableEventQueue.offer(cameraId);
+            }
+        };
+
+        mCameraManager.registerAvailabilityCallback(ac, mHandler);
+        String[] cameras = mCameraManager.getCameraIdList();
+
+        if (cameras.length == 0) {
+            Log.i(TAG, "No cameras present, skipping test");
+            return;
+        }
+
+        // Verify we received available for all cameras' initial state in a reasonable amount of time
+        HashSet<String> expectedAvailableCameras = new HashSet<String>(Arrays.asList(cameras));
+        while (expectedAvailableCameras.size() > 0) {
+            String id = availableEventQueue.poll(AVAILABILITY_TIMEOUT_MS,
+                    java.util.concurrent.TimeUnit.MILLISECONDS);
+            assertTrue("Did not receive initial availability notices for some cameras",
+                       id != null);
+            expectedAvailableCameras.remove(id);
+        }
+        // Verify no unavailable cameras were reported
+        assertTrue("Some camera devices are initially unavailable",
+                unavailableEventQueue.size() == 0);
+
+        // Verify transitions for individual cameras
+        for (String id : cameras) {
+            MockStateCallback mockListener = MockStateCallback.mock();
+            mCameraListener = new BlockingStateCallback(mockListener);
+
+            mCameraManager.openCamera(id, mCameraListener, mHandler);
+
+            // Block until opened
+            mCameraListener.waitForState(BlockingStateCallback.STATE_OPENED,
+                    CameraTestUtils.CAMERA_IDLE_TIMEOUT_MS);
+            // Then verify only open happened, and get the camera handle
+            CameraDevice camera = verifyCameraStateOpened(id, mockListener);
+
+            // Verify that we see the expected 'unavailable' event.
+            String candidateId = unavailableEventQueue.poll(AVAILABILITY_TIMEOUT_MS,
+                    java.util.concurrent.TimeUnit.MILLISECONDS);
+            assertTrue(String.format("Received unavailability notice for wrong ID " +
+                            "(expected %s, got %s)", id, candidateId),
+                    id == candidateId);
+            assertTrue("Availability events received unexpectedly",
+                    availableEventQueue.size() == 0);
+
+            // Verify that we see the expected 'available' event after closing the camera
+
+            camera.close();
+
+            mCameraListener.waitForState(BlockingStateCallback.STATE_CLOSED,
+                    CameraTestUtils.CAMERA_CLOSE_TIMEOUT_MS);
+
+            candidateId = availableEventQueue.poll(AVAILABILITY_TIMEOUT_MS,
+                    java.util.concurrent.TimeUnit.MILLISECONDS);
+            assertTrue(String.format("Received availability notice for wrong ID " +
+                            "(expected %s, got %s)", id, candidateId),
+                    id == candidateId);
+            assertTrue("Unavailability events received unexpectedly",
+                    unavailableEventQueue.size() == 0);
+
+        }
+
+        // Verify that we can unregister the listener and see no more events
+        assertTrue("Availability events received unexpectedly",
+                availableEventQueue.size() == 0);
+        assertTrue("Unavailability events received unexpectedly",
+                    unavailableEventQueue.size() == 0);
+
+        mCameraManager.unregisterAvailabilityCallback(ac);
+
+        {
+            // Open an arbitrary camera and make sure we don't hear about it
+
+            MockStateCallback mockListener = MockStateCallback.mock();
+            mCameraListener = new BlockingStateCallback(mockListener);
+
+            mCameraManager.openCamera(cameras[0], mCameraListener, mHandler);
+
+            // Block until opened
+            mCameraListener.waitForState(BlockingStateCallback.STATE_OPENED,
+                    CameraTestUtils.CAMERA_IDLE_TIMEOUT_MS);
+            // Then verify only open happened, and close the camera
+            CameraDevice camera = verifyCameraStateOpened(cameras[0], mockListener);
+
+            camera.close();
+
+            mCameraListener.waitForState(BlockingStateCallback.STATE_CLOSED,
+                    CameraTestUtils.CAMERA_CLOSE_TIMEOUT_MS);
+
+            // No unavailability or availability callback should have occured
+            String candidateId = unavailableEventQueue.poll(AVAILABILITY_TIMEOUT_MS,
+                    java.util.concurrent.TimeUnit.MILLISECONDS);
+            assertTrue(String.format("Received unavailability notice for ID %s unexpectedly ",
+                            candidateId),
+                    candidateId == null);
+
+            candidateId = availableEventQueue.poll(AVAILABILITY_TIMEOUT_MS,
+                    java.util.concurrent.TimeUnit.MILLISECONDS);
+            assertTrue(String.format("Received availability notice for ID %s unexpectedly ",
+                            candidateId),
+                    candidateId == null);
+
+
+        }
+
+    } // testCameraManagerListenerCallbacks
+
 }

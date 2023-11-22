@@ -19,6 +19,7 @@
 #include "base/observer_list.h"
 #include "base/prefs/base_prefs_export.h"
 #include "base/prefs/persistent_pref_store.h"
+#include "base/threading/non_thread_safe.h"
 
 class PrefFilter;
 
@@ -30,13 +31,15 @@ class SequencedWorkerPool;
 class Value;
 }
 
-
 // A writable PrefStore implementation that is used for user preferences.
 class BASE_PREFS_EXPORT JsonPrefStore
     : public PersistentPrefStore,
       public base::ImportantFileWriter::DataSerializer,
-      public base::SupportsWeakPtr<JsonPrefStore> {
+      public base::SupportsWeakPtr<JsonPrefStore>,
+      public base::NonThreadSafe {
  public:
+  struct ReadResult;
+
   // Returns instance of SequencedTaskRunner which guarantees that file
   // operations on the same file will be executed in sequenced order.
   static scoped_refptr<base::SequencedTaskRunner> GetTaskRunnerForFile(
@@ -44,9 +47,10 @@ class BASE_PREFS_EXPORT JsonPrefStore
       base::SequencedWorkerPool* worker_pool);
 
   // Same as the constructor below with no alternate filename.
-  JsonPrefStore(const base::FilePath& pref_filename,
-                base::SequencedTaskRunner* sequenced_task_runner,
-                scoped_ptr<PrefFilter> pref_filter);
+  JsonPrefStore(
+      const base::FilePath& pref_filename,
+      const scoped_refptr<base::SequencedTaskRunner>& sequenced_task_runner,
+      scoped_ptr<PrefFilter> pref_filter);
 
   // |sequenced_task_runner| must be a shutdown-blocking task runner, ideally
   // created by the GetTaskRunnerForFile() method above.
@@ -55,10 +59,11 @@ class BASE_PREFS_EXPORT JsonPrefStore
   // desired prefs may have previously been written to. If |pref_filename|
   // doesn't exist and |pref_alternate_filename| does, |pref_alternate_filename|
   // will be moved to |pref_filename| before the read occurs.
-  JsonPrefStore(const base::FilePath& pref_filename,
-                const base::FilePath& pref_alternate_filename,
-                base::SequencedTaskRunner* sequenced_task_runner,
-                scoped_ptr<PrefFilter> pref_filter);
+  JsonPrefStore(
+      const base::FilePath& pref_filename,
+      const base::FilePath& pref_alternate_filename,
+      const scoped_refptr<base::SequencedTaskRunner>& sequenced_task_runner,
+      scoped_ptr<PrefFilter> pref_filter);
 
   // PrefStore overrides:
   virtual bool GetValue(const std::string& key,
@@ -94,23 +99,16 @@ class BASE_PREFS_EXPORT JsonPrefStore
   void RegisterOnNextSuccessfulWriteCallback(
       const base::Closure& on_next_successful_write);
 
+ private:
+  virtual ~JsonPrefStore();
+
   // This method is called after the JSON file has been read.  It then hands
   // |value| (or an empty dictionary in some read error cases) to the
   // |pref_filter| if one is set. It also gives a callback pointing at
   // FinalizeFileRead() to that |pref_filter_| which is then responsible for
   // invoking it when done. If there is no |pref_filter_|, FinalizeFileRead()
   // is invoked directly.
-  // Note, this method is used with asynchronous file reading, so this class
-  // exposes it only for the internal needs (read: do not call it manually).
-  // TODO(gab): Move this method to the private section and hand a callback to
-  // it to FileThreadDeserializer rather than exposing this public method and
-  // giving a JsonPrefStore* to FileThreadDeserializer.
-  void OnFileRead(scoped_ptr<base::Value> value,
-                  PrefReadError error,
-                  bool no_dir);
-
- private:
-  virtual ~JsonPrefStore();
+  void OnFileRead(scoped_ptr<ReadResult> read_result);
 
   // ImportantFileWriter::DataSerializer overrides:
   virtual bool SerializeData(std::string* output) OVERRIDE;

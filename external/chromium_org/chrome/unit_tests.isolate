@@ -14,6 +14,7 @@
       'variables': {
         'isolate_dependency_tracked': [
           '../third_party/accessibility-audit/axs_testing.js',
+          '../tools/metrics/histograms/histograms.xml',
           '<(PRODUCT_DIR)/resources.pak',
         ],
         'isolate_dependency_untracked': [
@@ -50,10 +51,13 @@
           '<(PRODUCT_DIR)/libffmpegsumo.so',
           '<(PRODUCT_DIR)/libosmesa.so',
           '<(PRODUCT_DIR)/locales/fr.pak',
-          '<(PRODUCT_DIR)/xdisplaycheck<(EXECUTABLE_SUFFIX)',
         ],
-        'isolate_dependency_touched': [
-          '<(PRODUCT_DIR)/libppGoogleNaClPluginChrome.so',
+      },
+    }],
+    ['OS=="linux" and use_ozone==0', {
+      'variables': {
+        'isolate_dependency_tracked': [
+          '<(PRODUCT_DIR)/xdisplaycheck<(EXECUTABLE_SUFFIX)',
         ],
       },
     }],
@@ -62,7 +66,6 @@
         'isolate_dependency_tracked': [
           '../testing/test_env.py',
           '<(PRODUCT_DIR)/unit_tests<(EXECUTABLE_SUFFIX)',
-          'browser/safe_browsing/two_phase_testserver.py',
         ],
         'isolate_dependency_untracked': [
           '../net/tools/testserver/',
@@ -70,7 +73,7 @@
           '../third_party/pywebsocket/',
           '../third_party/tlslite/',
           '<(PRODUCT_DIR)/pyproto/',
-          '<(PRODUCT_DIR)/test_data/chrome/renderer/resources/extensions/',
+          '<(PRODUCT_DIR)/test_data/',
         ],
       },
     }],
@@ -100,26 +103,41 @@
           '--brave-new-test-launcher',
           '--test-launcher-bot-mode',
         ],
-        'isolate_dependency_untracked': [
-          '<(PRODUCT_DIR)/test_data/chrome/browser/resources/google_now/',
-          '<(PRODUCT_DIR)/test_data/chrome/browser/resources/print_preview/',
-          '<(PRODUCT_DIR)/test_data/chrome/test/data/unit/',
-          '<(PRODUCT_DIR)/test_data/ui/',
-        ],
       },
     }],
     ['OS=="win"', {
       'variables': {
         'isolate_dependency_tracked': [
+          '<(PRODUCT_DIR)/blacklist_test_dll_1.dll',
           '<(PRODUCT_DIR)/chrome_elf.dll',
           '<(PRODUCT_DIR)/ffmpegsumo.dll',
           '<(PRODUCT_DIR)/libexif.dll',
           '<(PRODUCT_DIR)/osmesa.dll',
+          '<(PRODUCT_DIR)/verifier_test_dll_1.dll',
+          '<(PRODUCT_DIR)/verifier_test_dll_2.dll',
+          'test/data/safe_browsing/signed_binary.dll',
         ],
         'isolate_dependency_untracked': [
           '../ppapi/lib/gl/include/KHR/',
           '../skia/ext/data/',
           '../ui/base/glib/',
+        ],
+      },
+    }],
+    ['OS=="win" and (fastbuild==0 or fastbuild==1)', {
+      'variables': {
+        'isolate_dependency_untracked': [
+          '<(PRODUCT_DIR)/unit_tests.exe.pdb',
+        ],
+      },
+    }],
+    ['chromeos==1', {
+      'variables': {
+        'isolate_dependency_tracked': [
+          '<(PRODUCT_DIR)/libexif.so',
+        ],
+        'isolate_dependency_untracked': [
+          '../chromeos/test/data/network/',
         ],
       },
     }],

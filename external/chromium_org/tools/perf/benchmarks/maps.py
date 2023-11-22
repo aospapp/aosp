@@ -8,18 +8,16 @@ Rerforms several common navigation actions on the map (pan, zoom, rotate)"""
 import os
 import re
 
-from telemetry import test
+from telemetry import benchmark
 from telemetry.core import util
-from telemetry.page import page_measurement
 from telemetry.page import page as page_module
 from telemetry.page import page_set as page_set_module
-# pylint: disable=W0401,W0614
-from telemetry.page.actions.all_page_actions import *
+from telemetry.page import page_test
 from telemetry.value import scalar
 
 
-class _MapsMeasurement(page_measurement.PageMeasurement):
-  def MeasurePage(self, page, tab, results):
+class _MapsMeasurement(page_test.PageTest):
+  def ValidateAndMeasurePage(self, page, tab, results):
     js_get_results = 'document.getElementsByTagName("pre")[0].innerText'
     test_results = tab.EvaluateJavaScript(js_get_results)
 
@@ -42,8 +40,8 @@ class MapsPage(page_module.Page):
     action_runner.WaitForJavaScriptCondition('window.testDone')
 
 
-@test.Disabled
-class MapsBenchmark(test.Test):
+@benchmark.Disabled
+class MapsBenchmark(benchmark.Benchmark):
   """Basic Google Maps benchmarks."""
   test = _MapsMeasurement
 

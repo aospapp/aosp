@@ -24,7 +24,7 @@ void FillCanvas(SkCanvas* canvas, SkColor color) {
 // Helper for returning the color of a solid |canvas|.
 SkColor GetColorAt(SkCanvas* canvas, int x, int y) {
   SkBitmap bitmap;
-  if (!bitmap.allocN32Pixels(1, 1))
+  if (!bitmap.tryAllocN32Pixels(1, 1))
     return 0;
   if (!canvas->readPixels(&bitmap, x, y))
     return 0;
@@ -52,13 +52,22 @@ class SkCanvasVideoRendererTest : public testing::Test {
 
   // Paints the |video_frame| to the |canvas| using |renderer_|, setting the
   // color of |video_frame| to |color| first.
-  void Paint(VideoFrame* video_frame, SkCanvas* canvas, Color color);
+  void Paint(const scoped_refptr<VideoFrame>& video_frame,
+             SkCanvas* canvas,
+             Color color);
+  void PaintRotated(const scoped_refptr<VideoFrame>& video_frame,
+                    SkCanvas* canvas,
+                    Color color,
+                    SkXfermode::Mode mode,
+                    VideoRotation video_rotation);
+
+  void Copy(const scoped_refptr<VideoFrame>& video_frame, SkCanvas* canvas);
 
   // Getters for various frame sizes.
-  VideoFrame* natural_frame() { return natural_frame_.get(); }
-  VideoFrame* larger_frame() { return larger_frame_.get(); }
-  VideoFrame* smaller_frame() { return smaller_frame_.get(); }
-  VideoFrame* cropped_frame() { return cropped_frame_.get(); }
+  scoped_refptr<VideoFrame> natural_frame() { return natural_frame_; }
+  scoped_refptr<VideoFrame> larger_frame() { return larger_frame_; }
+  scoped_refptr<VideoFrame> smaller_frame() { return smaller_frame_; }
+  scoped_refptr<VideoFrame> cropped_frame() { return cropped_frame_; }
 
   // Standard canvas.
   SkCanvas* target_canvas() { return &target_canvas_; }
@@ -177,34 +186,57 @@ SkCanvasVideoRendererTest::SkCanvasVideoRendererTest()
      21,  21,  21,  21, 107, 107, 107, 107,
   };
 
-  media::CopyYPlane(cropped_y_plane, 16, 16, cropped_frame());
-  media::CopyUPlane(cropped_u_plane, 8, 8, cropped_frame());
-  media::CopyVPlane(cropped_v_plane, 8, 8, cropped_frame());
+  media::CopyYPlane(cropped_y_plane, 16, 16, cropped_frame().get());
+  media::CopyUPlane(cropped_u_plane, 8, 8, cropped_frame().get());
+  media::CopyVPlane(cropped_v_plane, 8, 8, cropped_frame().get());
 }
 
 SkCanvasVideoRendererTest::~SkCanvasVideoRendererTest() {}
 
 void SkCanvasVideoRendererTest::PaintWithoutFrame(SkCanvas* canvas) {
-  renderer_.Paint(NULL, canvas, kNaturalRect, 0xFF);
+  renderer_.Paint(NULL,
+                  canvas,
+                  kNaturalRect,
+                  0xFF,
+                  SkXfermode::kSrcOver_Mode,
+                  VIDEO_ROTATION_0);
 }
 
-void SkCanvasVideoRendererTest::Paint(VideoFrame* video_frame,
-                                      SkCanvas* canvas,
-                                      Color color) {
+void SkCanvasVideoRendererTest::Paint(
+    const scoped_refptr<VideoFrame>& video_frame,
+    SkCanvas* canvas,
+    Color color) {
+  PaintRotated(
+      video_frame, canvas, color, SkXfermode::kSrcOver_Mode, VIDEO_ROTATION_0);
+}
+
+void SkCanvasVideoRendererTest::PaintRotated(
+    const scoped_refptr<VideoFrame>& video_frame,
+    SkCanvas* canvas,
+    Color color,
+    SkXfermode::Mode mode,
+    VideoRotation video_rotation) {
   switch (color) {
     case kNone:
       break;
     case kRed:
-      media::FillYUV(video_frame, 76, 84, 255);
+      media::FillYUV(video_frame.get(), 76, 84, 255);
       break;
     case kGreen:
-      media::FillYUV(video_frame, 149, 43, 21);
+      media::FillYUV(video_frame.get(), 149, 43, 21);
       break;
     case kBlue:
-      media::FillYUV(video_frame, 29, 255, 107);
+      media::FillYUV(video_frame.get(), 29, 255, 107);
       break;
   }
-  renderer_.Paint(video_frame, canvas, kNaturalRect, 0xFF);
+  renderer_.Paint(
+      video_frame, canvas, kNaturalRect, 0xFF, mode, video_rotation);
+}
+
+void SkCanvasVideoRendererTest::Copy(
+    const scoped_refptr<VideoFrame>& video_frame,
+    SkCanvas* canvas) {
+  renderer_.Copy(video_frame, canvas);
 }
 
 TEST_F(SkCanvasVideoRendererTest, NoFrame) {
@@ -212,6 +244,38 @@ TEST_F(SkCanvasVideoRendererTest, NoFrame) {
   FillCanvas(target_canvas(), SK_ColorRED);
   PaintWithoutFrame(target_canvas());
   EXPECT_EQ(SK_ColorBLACK, GetColor(target_canvas()));
+}
+
+TEST_F(SkCanvasVideoRendererTest, TransparentFrame) {
+  FillCanvas(target_canvas(), SK_ColorRED);
+  PaintRotated(
+      VideoFrame::CreateTransparentFrame(gfx::Size(kWidth, kHeight)).get(),
+      target_canvas(),
+      kNone,
+      SkXfermode::kSrcOver_Mode,
+      VIDEO_ROTATION_0);
+  EXPECT_EQ(static_cast<SkColor>(SK_ColorRED), GetColor(target_canvas()));
+}
+
+TEST_F(SkCanvasVideoRendererTest, TransparentFrameSrcMode) {
+  FillCanvas(target_canvas(), SK_ColorRED);
+  // SRC mode completely overwrites the buffer.
+  PaintRotated(
+      VideoFrame::CreateTransparentFrame(gfx::Size(kWidth, kHeight)).get(),
+      target_canvas(),
+      kNone,
+      SkXfermode::kSrc_Mode,
+      VIDEO_ROTATION_0);
+  EXPECT_EQ(static_cast<SkColor>(SK_ColorTRANSPARENT),
+            GetColor(target_canvas()));
+}
+
+TEST_F(SkCanvasVideoRendererTest, CopyTransparentFrame) {
+  FillCanvas(target_canvas(), SK_ColorRED);
+  Copy(VideoFrame::CreateTransparentFrame(gfx::Size(kWidth, kHeight)).get(),
+       target_canvas());
+  EXPECT_EQ(static_cast<SkColor>(SK_ColorTRANSPARENT),
+            GetColor(target_canvas()));
 }
 
 TEST_F(SkCanvasVideoRendererTest, Natural) {
@@ -236,7 +300,7 @@ TEST_F(SkCanvasVideoRendererTest, Smaller) {
 }
 
 TEST_F(SkCanvasVideoRendererTest, NoTimestamp) {
-  VideoFrame* video_frame = natural_frame();
+  VideoFrame* video_frame = natural_frame().get();
   video_frame->set_timestamp(media::kNoTimestamp());
   Paint(video_frame, target_canvas(), kRed);
   EXPECT_EQ(SK_ColorRED, GetColor(target_canvas()));
@@ -299,6 +363,51 @@ TEST_F(SkCanvasVideoRendererTest, CroppedFrame_NoScaling) {
             GetColorAt(&canvas,
                        offset_x + crop_rect.width() - 1,
                        offset_y + crop_rect.height() - 1));
+}
+
+TEST_F(SkCanvasVideoRendererTest, Video_Rotation_90) {
+  SkCanvas canvas(AllocBitmap(kWidth, kHeight));
+  const gfx::Rect crop_rect = cropped_frame()->visible_rect();
+  PaintRotated(cropped_frame(),
+               &canvas,
+               kNone,
+               SkXfermode::kSrcOver_Mode,
+               VIDEO_ROTATION_90);
+  // Check the corners.
+  EXPECT_EQ(SK_ColorGREEN, GetColorAt(&canvas, 0, 0));
+  EXPECT_EQ(SK_ColorBLACK, GetColorAt(&canvas, kWidth - 1, 0));
+  EXPECT_EQ(SK_ColorRED, GetColorAt(&canvas, kWidth - 1, kHeight - 1));
+  EXPECT_EQ(SK_ColorBLUE, GetColorAt(&canvas, 0, kHeight - 1));
+}
+
+TEST_F(SkCanvasVideoRendererTest, Video_Rotation_180) {
+  SkCanvas canvas(AllocBitmap(kWidth, kHeight));
+  const gfx::Rect crop_rect = cropped_frame()->visible_rect();
+  PaintRotated(cropped_frame(),
+               &canvas,
+               kNone,
+               SkXfermode::kSrcOver_Mode,
+               VIDEO_ROTATION_180);
+  // Check the corners.
+  EXPECT_EQ(SK_ColorBLUE, GetColorAt(&canvas, 0, 0));
+  EXPECT_EQ(SK_ColorGREEN, GetColorAt(&canvas, kWidth - 1, 0));
+  EXPECT_EQ(SK_ColorBLACK, GetColorAt(&canvas, kWidth - 1, kHeight - 1));
+  EXPECT_EQ(SK_ColorRED, GetColorAt(&canvas, 0, kHeight - 1));
+}
+
+TEST_F(SkCanvasVideoRendererTest, Video_Rotation_270) {
+  SkCanvas canvas(AllocBitmap(kWidth, kHeight));
+  const gfx::Rect crop_rect = cropped_frame()->visible_rect();
+  PaintRotated(cropped_frame(),
+               &canvas,
+               kNone,
+               SkXfermode::kSrcOver_Mode,
+               VIDEO_ROTATION_270);
+  // Check the corners.
+  EXPECT_EQ(SK_ColorRED, GetColorAt(&canvas, 0, 0));
+  EXPECT_EQ(SK_ColorBLUE, GetColorAt(&canvas, kWidth - 1, 0));
+  EXPECT_EQ(SK_ColorGREEN, GetColorAt(&canvas, kWidth - 1, kHeight - 1));
+  EXPECT_EQ(SK_ColorBLACK, GetColorAt(&canvas, 0, kHeight - 1));
 }
 
 }  // namespace media

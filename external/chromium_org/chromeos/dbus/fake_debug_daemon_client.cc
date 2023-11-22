@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "fake_debug_daemon_client.h"
+#include "chromeos/dbus/fake_debug_daemon_client.h"
 
 #include <map>
 #include <string>
@@ -21,9 +21,12 @@ FakeDebugDaemonClient::~FakeDebugDaemonClient() {}
 
 void FakeDebugDaemonClient::Init(dbus::Bus* bus) {}
 
-void FakeDebugDaemonClient::GetDebugLogs(base::File file,
-                                         const GetDebugLogsCallback& callback) {
-  callback.Run(false);
+void FakeDebugDaemonClient::DumpDebugLogs(
+    bool is_compressed,
+    base::File file,
+    scoped_refptr<base::TaskRunner> task_runner,
+    const GetDebugLogsCallback& callback) {
+  callback.Run(true);
 }
 
 void FakeDebugDaemonClient::SetDebugMode(const std::string& subsystem,
@@ -33,6 +36,7 @@ void FakeDebugDaemonClient::SetDebugMode(const std::string& subsystem,
 void FakeDebugDaemonClient::StartSystemTracing() {}
 
 bool FakeDebugDaemonClient::RequestStopSystemTracing(
+    scoped_refptr<base::TaskRunner> task_runner,
     const StopSystemTracingCallback& callback) {
   std::string no_data;
   callback.Run(base::RefCountedString::TakeString(&no_data));

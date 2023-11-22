@@ -14,7 +14,10 @@
 #include "ui/base/models/simple_menu_model.h"
 
 class ExtensionContextMenuBrowserTest;
-class Profile;
+
+namespace content {
+class BrowserContext;
+}
 
 namespace extensions {
 
@@ -24,19 +27,29 @@ class ContextMenuMatcher {
  public:
   static const size_t kMaxExtensionItemTitleLength;
 
+  // Convert a command ID so that it fits within the range for
+  // extension context menu.
+  static int ConvertToExtensionsCustomCommandId(int id);
+
+  // Returns true if the given id is one generated for extension context menu.
+  static bool IsExtensionsCustomCommandId(int id);
+
   // The |filter| will be called on possibly matching menu items, and its
   // result is used to determine which items to actually append to the menu.
-  ContextMenuMatcher(Profile* profile,
+  ContextMenuMatcher(content::BrowserContext* context,
                      ui::SimpleMenuModel::Delegate* delegate,
                      ui::SimpleMenuModel* menu_model,
                      const base::Callback<bool(const MenuItem*)>& filter);
 
   // This is a helper function to append items for one particular extension.
   // The |index| parameter is used for assigning id's, and is incremented for
-  // each item actually added.
+  // each item actually added. |is_action_menu| is used for browser and page
+  // action context menus, in which menu items are not placed in submenus
+  // and the extension's icon is not shown.
   void AppendExtensionItems(const MenuItem::ExtensionKey& extension_key,
                             const base::string16& selection_text,
-                            int* index);
+                            int* index,
+                            bool is_action_menu);
 
   void Clear();
 
@@ -59,7 +72,7 @@ class ContextMenuMatcher {
       const MenuItem::ExtensionKey& extension_key,
       const Extension** extension,
       bool* can_cross_incognito,
-      MenuItem::List& items);
+      MenuItem::List* items);
 
   MenuItem::List GetRelevantExtensionItems(
       const MenuItem::List& items,
@@ -70,7 +83,8 @@ class ContextMenuMatcher {
                                        bool can_cross_incognito,
                                        const base::string16& selection_text,
                                        ui::SimpleMenuModel* menu_model,
-                                       int* index);
+                                       int* index,
+                                       bool is_action_menu_top_level);
 
   // Attempts to get an MenuItem given the id of a context menu item.
   extensions::MenuItem* GetExtensionMenuItem(int id) const;
@@ -78,7 +92,7 @@ class ContextMenuMatcher {
   // This will set the icon on the most recently-added item in the menu_model_.
   void SetExtensionIcon(const std::string& extension_id);
 
-  Profile* profile_;
+  content::BrowserContext* browser_context_;
   ui::SimpleMenuModel* menu_model_;
   ui::SimpleMenuModel::Delegate* delegate_;
 

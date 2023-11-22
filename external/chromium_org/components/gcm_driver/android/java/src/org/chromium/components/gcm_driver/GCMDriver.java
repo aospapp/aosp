@@ -5,8 +5,10 @@
 package org.chromium.components.gcm_driver;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.util.Log;
 
 import com.google.android.gcm.GCMRegistrar;
@@ -30,6 +32,8 @@ import java.util.List;
 @JNINamespace("gcm")
 public class GCMDriver {
     private static final String TAG = "GCMDriver";
+
+    private static final String LAST_GCM_APP_ID_KEY = "last_gcm_app_id";
 
     // The instance of GCMDriver currently owned by a C++ GCMDriverAndroid, if any.
     private static GCMDriver sInstance = null;
@@ -72,6 +76,7 @@ public class GCMDriver {
 
     @CalledByNative
     private void register(final String appId, final String[] senderIds) {
+        setLastAppId(appId);
         new AsyncTask<Void, Void, String>() {
             @Override
             protected String doInBackground(Void... voids) {
@@ -141,7 +146,7 @@ public class GCMDriver {
         // TODO(johnme): If this gets called, did it definitely succeed?
         // TODO(johnme): Update registrations cache?
         if (sInstance != null) {
-            sInstance.nativeOnRegisterFinished(sInstance.mNativeGCMDriverAndroid, appId,
+            sInstance.nativeOnRegisterFinished(sInstance.mNativeGCMDriverAndroid, getLastAppId(),
                                                registrationId, true);
         }
     }
@@ -151,13 +156,14 @@ public class GCMDriver {
         // TODO(johnme): If this gets called, did it definitely succeed?
         // TODO(johnme): Update registrations cache?
         if (sInstance != null) {
-            sInstance.nativeOnUnregisterFinished(sInstance.mNativeGCMDriverAndroid, appId, true);
+            sInstance.nativeOnUnregisterFinished(sInstance.mNativeGCMDriverAndroid, getLastAppId(),
+                                                 true);
         }
     }
 
     static void onMessageReceived(Context context, final String appId, final Bundle extras) {
-        final String PUSH_API_DATA_KEY = "data";
-        if (!extras.containsKey(PUSH_API_DATA_KEY)) {
+        final String pushApiDataKey = "data";
+        if (!extras.containsKey(pushApiDataKey)) {
             // For now on Android only the Push API uses GCMDriver. To avoid double-handling of
             // messages already handled in Java by other implementations of MultiplexingGcmListener,
             // and unnecessarily waking up the browser processes for all existing GCM messages that
@@ -175,25 +181,25 @@ public class GCMDriver {
         ThreadUtils.assertOnUiThread();
         launchNativeThen(context, new Runnable() {
             @Override public void run() {
-                final String BUNDLE_SENDER_ID = "from";
-                final String BUNDLE_COLLAPSE_KEY = "collapse_key";
-                final String BUNDLE_GCMMPLEX = "com.google.ipc.invalidation.gcmmplex.";
+                final String bundleSenderId = "from";
+                final String bundleCollapseKey = "collapse_key";
+                final String bundleGcmplex = "com.google.ipc.invalidation.gcmmplex.";
 
-                String senderId = extras.getString(BUNDLE_SENDER_ID);
-                String collapseKey = extras.getString(BUNDLE_COLLAPSE_KEY);
+                String senderId = extras.getString(bundleSenderId);
+                String collapseKey = extras.getString(bundleCollapseKey);
 
                 List<String> dataKeysAndValues = new ArrayList<String>();
                 for (String key : extras.keySet()) {
                     // TODO(johnme): Check there aren't other keys that we need to exclude.
-                    if (key == BUNDLE_SENDER_ID || key == BUNDLE_COLLAPSE_KEY ||
-                            key.startsWith(BUNDLE_GCMMPLEX))
+                    if (key == bundleSenderId || key == bundleCollapseKey ||
+                            key.startsWith(bundleGcmplex))
                         continue;
                     dataKeysAndValues.add(key);
                     dataKeysAndValues.add(extras.getString(key));
                 }
 
                 sInstance.nativeOnMessageReceived(sInstance.mNativeGCMDriverAndroid,
-                        appId, senderId, collapseKey,
+                        getLastAppId(), senderId, collapseKey,
                         dataKeysAndValues.toArray(new String[dataKeysAndValues.size()]));
             }
         });
@@ -204,7 +210,8 @@ public class GCMDriver {
         ThreadUtils.assertOnUiThread();
         launchNativeThen(context, new Runnable() {
             @Override public void run() {
-                sInstance.nativeOnMessagesDeleted(sInstance.mNativeGCMDriverAndroid, appId);
+                sInstance.nativeOnMessagesDeleted(sInstance.mNativeGCMDriverAndroid,
+                        getLastAppId());
             }
         });
     }
@@ -217,6 +224,21 @@ public class GCMDriver {
             String senderId, String collapseKey, String[] dataKeysAndValues);
     private native void nativeOnMessagesDeleted(long nativeGCMDriverAndroid, String appId);
 
+    // TODO(johnme): This and setLastAppId are just temporary (crbug.com/350383).
+    private static String getLastAppId() {
+        SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(
+                sInstance.mContext);
+        return settings.getString(LAST_GCM_APP_ID_KEY, "push#unknown_app_id#0");
+    }
+
+    private static void setLastAppId(String appId) {
+        SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(
+                sInstance.mContext);
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putString(LAST_GCM_APP_ID_KEY, appId);
+        editor.commit();
+    }
+
     private static void launchNativeThen(Context context, Runnable task) {
         if (sInstance != null) {
             task.run();
@@ -227,8 +249,7 @@ public class GCMDriver {
         // ChromeShellApplication.initCommandLine() as appropriate.
 
         try {
-            final int MAX_RENDERERS = 1;
-            BrowserStartupController.get(context).startBrowserProcessesSync(MAX_RENDERERS);
+            BrowserStartupController.get(context).startBrowserProcessesSync(false);
             if (sInstance != null) {
                 task.run();
             } else {

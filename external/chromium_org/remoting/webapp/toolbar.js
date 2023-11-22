@@ -43,20 +43,25 @@ remoting.Toolbar = function(toolbar) {
    */
   this.stubRight_ = 0;
 
+  /**
+   * @type {remoting.MenuButton}
+   * @private
+   */
+  this.screenOptionsMenu_ = new remoting.MenuButton(
+      document.getElementById('screen-options-menu'),
+      this.onShowOptionsMenu_.bind(this));
+  /**
+   * @type {remoting.MenuButton}
+   * @private
+   */
+  this.sendKeysMenu_ = new remoting.MenuButton(
+      document.getElementById('send-keys-menu')
+  );
+
+
   window.addEventListener('mousemove', remoting.Toolbar.onMouseMove, false);
   window.addEventListener('resize', this.center.bind(this), false);
 
-  registerEventListener('new-connection', 'click',
-      function() {
-        chrome.app.window.create('main.html', {
-          'width': 800,
-          'height': 600,
-          'frame': "none"
-        });
-      });
-  registerEventListener('send-ctrl-alt-del', 'click', remoting.sendCtrlAltDel);
-  registerEventListener('send-print-screen', 'click', remoting.sendPrintScreen);
-  registerEventListener('sign-out', 'click', remoting.signOut);
   registerEventListener('toolbar-disconnect', 'click', remoting.disconnect);
   registerEventListener('toolbar-stub', 'click',
       function() { remoting.toolbar.toggle(); });
@@ -71,6 +76,21 @@ remoting.Toolbar = function(toolbar) {
     }
   }
   this.toolbar_.addEventListener('mousemove', stopTimer, false);
+};
+
+
+/**
+ * @return {remoting.OptionsMenu}
+ */
+remoting.Toolbar.prototype.createOptionsMenu = function() {
+  return new remoting.OptionsMenu(
+      document.getElementById('send-ctrl-alt-del'),
+      document.getElementById('send-print-screen'),
+      document.getElementById('screen-resize-to-client'),
+      document.getElementById('screen-shrink-to-fit'),
+      document.getElementById('new-connection'),
+      document.getElementById('toggle-full-screen'),
+      null);
 };
 
 /**
@@ -105,6 +125,16 @@ remoting.Toolbar.prototype.center = function() {
  */
 remoting.Toolbar.prototype.toggle = function() {
   this.toolbar_.classList.toggle(remoting.Toolbar.VISIBLE_CLASS_);
+};
+
+/**
+ * @param {remoting.ClientSession} clientSession The active session, or null if
+ *     there is no connection.
+ */
+remoting.Toolbar.prototype.setClientSession = function(clientSession) {
+  var connectedTo = document.getElementById('connected-to');
+  connectedTo.innerText =
+      clientSession ? clientSession.getHostDisplayName() : "";
 };
 
 /**
@@ -144,6 +174,16 @@ remoting.Toolbar.onMouseMove = function(event) {
     document.removeEventListener('mousemove',
                                  remoting.Toolbar.onMouseMove, false);
   }
+};
+
+/**
+ * Updates the options menu to reflect the current scale-to-fit and full-screen
+ * settings.
+ * @return {void} Nothing.
+ * @private
+ */
+remoting.Toolbar.prototype.onShowOptionsMenu_ = function() {
+  remoting.optionsMenu.onShow();
 };
 
 /** @type {remoting.Toolbar} */

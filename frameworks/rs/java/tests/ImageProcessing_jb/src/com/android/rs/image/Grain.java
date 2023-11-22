@@ -45,6 +45,11 @@ public class Grain extends TestBase {
         mScript.set_gNoiseStrength(s);
     }
 
+    public void animateBars(float time) {
+        mScript.set_gNoiseStrength(time % 1.f);
+    }
+
+
     private int findHighBit(int v) {
         int bit = 0;
         while (v > 1) {
@@ -89,6 +94,5 @@ public class Grain extends TestBase {
         mScript.forEach_blend9(mNoise2);
         mScript.forEach_root(mInPixelsAllocation, mOutPixelsAllocation);
     }
-
 }
 

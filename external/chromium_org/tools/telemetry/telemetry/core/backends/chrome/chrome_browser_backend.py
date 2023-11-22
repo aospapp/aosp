@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import contextlib
 import httplib
 import json
 import logging
@@ -33,17 +34,15 @@ class ChromeBrowserBackend(browser_backend.BrowserBackend):
   once a remote-debugger port has been established."""
   # It is OK to have abstract methods. pylint: disable=W0223
 
-  def __init__(self, is_content_shell, supports_extensions, browser_options,
+  def __init__(self, supports_tab_control, supports_extensions, browser_options,
                output_profile_path, extensions_to_load):
     super(ChromeBrowserBackend, self).__init__(
-        is_content_shell=is_content_shell,
         supports_extensions=supports_extensions,
         browser_options=browser_options,
         tab_list_backend=tab_list_backend.TabListBackend)
     self._port = None
 
-    self._inspector_protocol_version = 0
-    self._chrome_branch_number = None
+    self._supports_tab_control = supports_tab_control
     self._tracing_backend = None
     self._system_info_backend = None
 
@@ -84,7 +83,6 @@ class ChromeBrowserBackend(browser_backend.BrowserBackend):
   def GetBrowserStartupArgs(self):
     args = []
     args.extend(self.browser_options.extra_browser_args)
-    args.append('--disable-background-networking')
     args.append('--enable-net-benchmarking')
     args.append('--metrics-recording-only')
     args.append('--no-default-browser-check')
@@ -101,6 +99,9 @@ class ChromeBrowserBackend(browser_backend.BrowserBackend):
     # some other flag indicates a proxy is needed.
     if not '--enable-spdy-proxy-auth' in args:
       args.append('--no-proxy-server')
+
+    if self.browser_options.disable_background_networking:
+      args.append('--disable-background-networking')
 
     if self.browser_options.netsim:
       args.append('--ignore-certificate-errors')
@@ -134,7 +135,7 @@ class ChromeBrowserBackend(browser_backend.BrowserBackend):
 
   def HasBrowserFinishedLaunching(self):
     try:
-      self.Request('')
+      self.Request('', timeout=.1)
     except (exceptions.BrowserGoneException,
             exceptions.BrowserConnectionGoneException):
       return False
@@ -159,9 +160,11 @@ class ChromeBrowserBackend(browser_backend.BrowserBackend):
            document.readyState == 'interactive')
       """
       for e in self._extensions_to_load:
-        if not e.extension_id in self.extension_backend:
+        try:
+          extension_objects = self.extension_backend[e.extension_id]
+        except KeyError:
           return False
-        for extension_object in self.extension_backend[e.extension_id]:
+        for extension_object in extension_objects:
           try:
             res = extension_object.EvaluateJavaScript(
                 extension_ready_js % e.extension_id)
@@ -192,49 +195,18 @@ class ChromeBrowserBackend(browser_backend.BrowserBackend):
             pprint.pformat(self.extension_backend, indent=4))
         raise
 
-  def _PostBrowserStartupInitialization(self):
-    # Detect version information.
-    data = self.Request('version')
-    resp = json.loads(data)
-    if 'Protocol-Version' in resp:
-      self._inspector_protocol_version = resp['Protocol-Version']
-
-      if self._chrome_branch_number:
-        return
-
-      if 'Browser' in resp:
-        branch_number_match = re.search('Chrome/\d+\.\d+\.(\d+)\.\d+',
-                                        resp['Browser'])
-      else:
-        branch_number_match = re.search(
-            'Chrome/\d+\.\d+\.(\d+)\.\d+ (Mobile )?Safari',
-            resp['User-Agent'])
-
-      if branch_number_match:
-        self._chrome_branch_number = int(branch_number_match.group(1))
-
-      if not self._chrome_branch_number:
-        # Content Shell returns '' for Browser, WebViewShell returns '0'.
-        # For now we have to fall-back and assume branch 1025.
-        self._chrome_branch_number = 1025
-      return
-
-    # Detection has failed: assume 18.0.1025.168 ~= Chrome Android.
-    self._inspector_protocol_version = 1.0
-    self._chrome_branch_number = 1025
-
   def ListInspectableContexts(self):
     return json.loads(self.Request(''))
 
-  def Request(self, path, timeout=None, throw_network_exception=False):
+  def Request(self, path, timeout=30, throw_network_exception=False):
     url = 'http://127.0.0.1:%i/json' % self._port
     if path:
       url += '/' + path
     try:
       proxy_handler = urllib2.ProxyHandler({})  # Bypass any system proxy.
       opener = urllib2.build_opener(proxy_handler)
-      req = opener.open(url, timeout=timeout)
-      return req.read()
+      with contextlib.closing(opener.open(url, timeout=timeout)) as req:
+        return req.read()
     except (socket.error, httplib.BadStatusLine, urllib2.URLError) as e:
       if throw_network_exception:
         raise e
@@ -251,29 +223,52 @@ class ChromeBrowserBackend(browser_backend.BrowserBackend):
     raise NotImplementedError()
 
   @property
+  @decorators.Cache
   def chrome_branch_number(self):
-    assert self._chrome_branch_number
-    return self._chrome_branch_number
+    # Detect version information.
+    data = self.Request('version')
+    resp = json.loads(data)
+    if 'Protocol-Version' in resp:
+      if 'Browser' in resp:
+        branch_number_match = re.search('Chrome/\d+\.\d+\.(\d+)\.\d+',
+                                        resp['Browser'])
+      else:
+        branch_number_match = re.search(
+            'Chrome/\d+\.\d+\.(\d+)\.\d+ (Mobile )?Safari',
+            resp['User-Agent'])
+
+      if branch_number_match:
+        branch_number = int(branch_number_match.group(1))
+        if branch_number:
+          return branch_number
+
+    # Branch number can't be determined, so fail any branch number checks.
+    return 0
 
   @property
   def supports_tab_control(self):
-    return self.chrome_branch_number >= 1303
+    return self._supports_tab_control
 
   @property
   def supports_tracing(self):
-    return self.is_content_shell or self.chrome_branch_number >= 1385
+    return True
 
-  def StartTracing(self, custom_categories=None,
+  def StartTracing(self, trace_options, custom_categories=None,
                    timeout=web_contents.DEFAULT_WEB_CONTENTS_TIMEOUT):
-    """ custom_categories is an optional string containing a list of
-    comma separated categories that will be traced instead of the
-    default category set.  Example: use
-    "webkit,cc,disabled-by-default-cc.debug" to trace only those three
-    event categories.
     """
+    Args:
+        trace_options: An tracing_options.TracingOptions instance.
+        custom_categories: An optional string containing a list of
+                         comma separated categories that will be traced
+                         instead of the default category set.  Example: use
+                         "webkit,cc,disabled-by-default-cc.debug" to trace only
+                         those three event categories.
+    """
+    assert trace_options and trace_options.enable_chrome_trace
     if self._tracing_backend is None:
-      self._tracing_backend = tracing_backend.TracingBackend(self._port)
-    return self._tracing_backend.StartTracing(custom_categories, timeout)
+      self._tracing_backend = tracing_backend.TracingBackend(self._port, self)
+    return self._tracing_backend.StartTracing(
+        trace_options, custom_categories, timeout)
 
   @property
   def is_tracing_running(self):
@@ -328,8 +323,3 @@ class ChromeBrowserBackend(browser_backend.BrowserBackend):
       self._system_info_backend = system_info_backend.SystemInfoBackend(
           self._port)
     return self._system_info_backend.GetSystemInfo()
-
-  def _SetBranchNumber(self, version):
-    assert version
-    self._chrome_branch_number = re.search(r'\d+\.\d+\.(\d+)\.\d+',
-                                           version).group(1)

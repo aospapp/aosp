@@ -7,13 +7,14 @@
 
 #include "base/basictypes.h"
 #include "base/observer_list.h"
+#include "base/strings/string16.h"
 #include "components/keyed_service/core/keyed_service.h"
 
 class Browser;
 class Profile;
 
-// The LoginUIService helps track per-profile information for the login UI -
-// for example, whether there is login UI currently on-screen.
+// The LoginUIService helps track per-profile information for the login related
+// UIs - for example, whether there is login UI currently on-screen.
 class LoginUIService : public KeyedService {
  public:
   // Various UI components implement this API to allow LoginUIService to
@@ -35,11 +36,19 @@ class LoginUIService : public KeyedService {
    public:
     // Called when a new login UI is shown.
     // |ui| The login UI that was just shown. Will never be null.
-    virtual void OnLoginUIShown(LoginUI* ui) = 0;
+    virtual void OnLoginUIShown(LoginUI* ui) {}
 
     // Called when a login UI is closed.
     // |ui| The login UI that was just closed; will never be null.
-    virtual void OnLoginUIClosed(LoginUI* ui) = 0;
+    virtual void OnLoginUIClosed(LoginUI* ui) {}
+
+    // Called when the sync confirmation UI is closed. |configure_sync_first|
+    // is true if the user has requested to configure the sync settings before
+    // sync starts.
+    virtual void OnSyncConfirmationUIClosed(bool configure_sync_first) {}
+
+    // Called when a confirmation UI for untrusted signin is shown.
+    virtual void OnUntrustedLoginUIShown() {}
 
    protected:
     virtual ~Observer() {}
@@ -65,10 +74,22 @@ class LoginUIService : public KeyedService {
   // sets current_login_ui() to null.
   void LoginUIClosed(LoginUI* ui);
 
+  // Called when the sync settings confirmation UI is closed.
+  void SyncConfirmationUIClosed(bool configure_sync_first);
+
+  // Called when a confirmation UI for untrusted signin is shown.
+  void UntrustedLoginUIShown();
+
   // Delegate to an existing login dialog if one exists.
   // If not, we make a new popup dialog window, and set it to
   // chrome://signin to ask the user to sign in to chrome.
   void ShowLoginPopup();
+
+  // Displays login results.
+  void DisplayLoginResult(Browser* browser, const base::string16& message);
+
+  // Gets the last login result set through |DisplayLoginResult|.
+  const base::string16& GetLastLoginResult();
 
  private:
   // Weak pointer to the currently active login UI, or null if none.
@@ -77,6 +98,8 @@ class LoginUIService : public KeyedService {
 
   // List of observers.
   ObserverList<Observer> observer_list_;
+
+  base::string16 last_login_result_;
 
   DISALLOW_COPY_AND_ASSIGN(LoginUIService);
 };

@@ -271,6 +271,20 @@ public final class WifiConfigHelper {
         }
     }
 
+    /**
+     * Forget the current wifi connection.
+     */
+    public static void forgetWifiNetwork(Context context) {
+        WifiManager mWifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+        WifiInfo wifiInfo = mWifiManager.getConnectionInfo();
+        if (wifiInfo != null) {
+            int networkId = wifiInfo.getNetworkId();
+            if (networkId != -1) {
+                mWifiManager.forget(networkId, null);
+            }
+        }
+    }
+
     private static String enquoteSsid(String ssid) {
         return "\"".concat(ssid.replace("\"", "\\\"")).concat("\"");
     }

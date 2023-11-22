@@ -32,10 +32,8 @@ class AwResourceDispatcherHostDelegate
   virtual void RequestBeginning(
       net::URLRequest* request,
       content::ResourceContext* resource_context,
-      appcache::AppCacheService* appcache_service,
-      ResourceType::Type resource_type,
-      int child_id,
-      int route_id,
+      content::AppCacheService* appcache_service,
+      content::ResourceType resource_type,
       ScopedVector<content::ResourceThrottle>* throttles) OVERRIDE;
   virtual void DownloadStarting(
       net::URLRequest* request,

@@ -42,16 +42,15 @@ class MockFileSystem(FileSystem):
     from |_updates|, if any.
     '''
     self._read_count += 1
-    future_result = self._file_system.Read(paths, skip_not_found=skip_not_found)
-    def resolve():
+    def next(result):
       self._read_resolve_count += 1
-      result = future_result.Get()
       for path in result.iterkeys():
         update = self._GetMostRecentUpdate(path)
         if update is not None:
           result[path] = update
       return result
-    return Future(callback=resolve)
+    return self._file_system.Read(paths,
+                                  skip_not_found=skip_not_found).Then(next)
 
   def Refresh(self):
     return self._file_system.Refresh()
@@ -85,6 +84,12 @@ class MockFileSystem(FileSystem):
             self._stat_tracker.GetVersion(posixpath.join(path, child_path)))
 
     return stat
+
+  def GetCommitID(self):
+    return Future(value=self._stat_tracker.GetVersion(''))
+
+  def GetPreviousCommitID(self):
+    return Future(value=self._stat_tracker.GetVersion('') - 1)
 
   def GetIdentity(self):
     return self._file_system.GetIdentity()

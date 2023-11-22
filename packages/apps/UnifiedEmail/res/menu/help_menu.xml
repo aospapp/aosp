@@ -21,7 +21,8 @@
           android:showAsAction="never"/>
     <item android:id="@+id/print_dialog"
           android:title="@string/print_dialog"
-          android:showAsAction="never"/>
+          android:showAsAction="never"
+          android:alphabeticShortcut="@string/trigger_print_char" />
     <item android:id="@+id/copyright_information"
           android:title="@string/copyright_information"
           android:showAsAction="never"/>

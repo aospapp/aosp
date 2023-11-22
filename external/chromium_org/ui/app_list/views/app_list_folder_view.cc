@@ -6,7 +6,6 @@
 
 #include <algorithm>
 
-#include "grit/ui_strings.h"
 #include "ui/accessibility/ax_view_state.h"
 #include "ui/app_list/app_list_constants.h"
 #include "ui/app_list/app_list_folder_item.h"
@@ -22,6 +21,7 @@
 #include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/events/event.h"
 #include "ui/gfx/rect_conversions.h"
+#include "ui/strings/grit/ui_strings.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/view_model.h"
 #include "ui/views/view_model_utils.h"
@@ -57,7 +57,6 @@ AppListFolderView::AppListFolderView(AppsContainerView* container_view,
   items_grid_view_ = new AppsGridView(app_list_main_view_);
   items_grid_view_->set_folder_delegate(this);
   items_grid_view_->SetLayout(
-      kPreferredIconDimension,
       container_view->apps_grid_view()->cols(),
       container_view->apps_grid_view()->rows_per_page());
   items_grid_view_->SetModel(model);
@@ -203,7 +202,7 @@ gfx::Rect AppListFolderView::GetItemIconBoundsAt(int index) {
 
   // Get the icon image's bound.
   to_folder.ClampToCenteredSize(
-      gfx::Size(kPreferredIconDimension, kPreferredIconDimension));
+      gfx::Size(kGridIconDimension, kGridIconDimension));
 
   return to_folder;
 }

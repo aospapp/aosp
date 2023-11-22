@@ -12,6 +12,7 @@
 #include "base/rand_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
 #include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/supervised_user/supervised_user_constants.h"
@@ -21,13 +22,15 @@
 #include "chrome/browser/supervised_user/supervised_user_shared_settings_update.h"
 #include "chrome/browser/supervised_user/supervised_user_sync_service.h"
 #include "chrome/browser/supervised_user/supervised_user_sync_service_factory.h"
-#include "chrome/browser/sync/glue/device_info.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "components/signin/core/browser/profile_oauth2_token_service.h"
+#include "components/signin/core/browser/signin_client.h"
 #include "components/signin/core/browser/signin_manager.h"
+#include "content/public/browser/browser_thread.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "google_apis/gaia/google_service_auth_error.h"
+#include "sync/util/get_session_name.h"
 
 using base::DictionaryValue;
 
@@ -153,10 +156,15 @@ SupervisedUserRegistrationUtility::Create(Profile* profile) {
       ProfileOAuth2TokenServiceFactory::GetForProfile(profile);
   SigninManagerBase* signin_manager =
       SigninManagerFactory::GetForProfile(profile);
+  SigninClient* signin_client =
+      ChromeSigninClientFactory::GetForProfile(profile);
+  std::string signin_scoped_device_id =
+      signin_client->GetSigninScopedDeviceId();
   scoped_ptr<SupervisedUserRefreshTokenFetcher> token_fetcher =
       SupervisedUserRefreshTokenFetcher::Create(
           token_service,
           signin_manager->GetAuthenticatedAccountId(),
+          signin_scoped_device_id,
           profile->GetRequestContext());
   SupervisedUserSyncService* supervised_user_sync_service =
       SupervisedUserSyncServiceFactory::GetForProfile(profile);
@@ -297,7 +305,8 @@ void SupervisedUserRegistrationUtilityImpl::Register(
             weak_ptr_factory_.GetWeakPtr())));
   }
 
-  browser_sync::DeviceInfo::GetClientName(
+  syncer::GetSessionName(
+      content::BrowserThread::GetBlockingPool(),
       base::Bind(&SupervisedUserRegistrationUtilityImpl::FetchToken,
                  weak_ptr_factory_.GetWeakPtr()));
 }

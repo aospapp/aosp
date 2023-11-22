@@ -30,6 +30,7 @@ MP4StreamParser::MP4StreamParser(const std::set<int>& audio_object_types,
     : state_(kWaitingForInit),
       moof_head_(0),
       mdat_tail_(0),
+      highest_end_offset_(0),
       has_audio_(false),
       has_video_(false),
       audio_track_id_(0),
@@ -382,8 +383,7 @@ bool MP4StreamParser::PrepareAVCBuffer(
     RCHECK(AVC::InsertParamSetsAnnexB(avc_config, frame_buf, subsamples));
   }
 
-  // TODO(acolwell): Improve IsValidAnnexB() so it can handle encrypted content.
-  DCHECK(runs_->is_encrypted() || AVC::IsValidAnnexB(*frame_buf));
+  DCHECK(AVC::IsValidAnnexB(*frame_buf, *subsamples));
   return true;
 }
 

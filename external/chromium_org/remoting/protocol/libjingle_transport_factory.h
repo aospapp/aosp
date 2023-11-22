@@ -8,7 +8,7 @@
 #include <list>
 
 #include "base/callback_forward.h"
-#include "remoting/jingle_glue/network_settings.h"
+#include "remoting/protocol/network_settings.h"
 #include "remoting/protocol/transport.h"
 
 namespace cricket {
@@ -20,11 +20,11 @@ namespace net {
 class URLRequestContextGetter;
 }  // namespace net
 
-namespace talk_base {
+namespace rtc {
 class NetworkManager;
 class PacketSocketFactory;
 class SocketAddress;
-}  // namespace talk_base
+}  // namespace rtc
 
 namespace remoting {
 
@@ -47,14 +47,13 @@ class LibjingleTransportFactory : public TransportFactory {
 
   // TransportFactory interface.
   virtual void PrepareTokens() OVERRIDE;
-  virtual scoped_ptr<StreamTransport> CreateStreamTransport() OVERRIDE;
-  virtual scoped_ptr<DatagramTransport> CreateDatagramTransport() OVERRIDE;
+  virtual scoped_ptr<Transport> CreateTransport() OVERRIDE;
 
  private:
   void EnsureFreshJingleInfo();
   void OnJingleInfo(const std::string& relay_token,
                     const std::vector<std::string>& relay_hosts,
-                    const std::vector<talk_base::SocketAddress>& stun_hosts);
+                    const std::vector<rtc::SocketAddress>& stun_hosts);
 
   SignalStrategy* signal_strategy_;
   scoped_ptr<cricket::HttpPortAllocatorBase> port_allocator_;

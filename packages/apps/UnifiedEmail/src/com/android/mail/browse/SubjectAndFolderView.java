@@ -19,16 +19,15 @@ package com.android.mail.browse;
 
 import android.content.Context;
 import android.content.res.Resources;
+import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
 import android.support.v4.text.BidiFormatter;
 import android.text.Layout;
-import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.method.LinkMovementMethod;
-import android.text.style.BackgroundColorSpan;
-import android.text.style.DynamicDrawableSpan;
-import android.text.style.ForegroundColorSpan;
+import android.text.style.ReplacementSpan;
 import android.util.AttributeSet;
 import android.widget.TextView;
 
@@ -39,24 +38,21 @@ import com.android.mail.providers.Conversation;
 import com.android.mail.providers.Folder;
 import com.android.mail.providers.Settings;
 import com.android.mail.text.ChangeLabelsSpan;
+import com.android.mail.text.FolderSpan;
 import com.android.mail.ui.FolderDisplayer;
-import com.android.mail.utils.ViewUtils;
 
 /**
  * A TextView that displays the conversation subject and list of folders for the message.
- * The view knows the widest that any of its containing {@link FolderSpan}s can be.
- * They cannot exceed the TextView line width, or else {@link Layout}
- * will split up the spans in strange places.
+ * The view knows the widest that any of its containing {@link com.android.mail.text.FolderSpan}s
+ * can be. They cannot exceed the TextView line width, or else {@link Layout} will split up the
+ * spans in strange places.
  */
-public class SubjectAndFolderView extends TextView
-        implements FolderSpan.FolderSpanDimensions {
-
-    private final int mFolderPadding;
-    private final int mFolderPaddingExtraWidth;
-    private final int mFolderPaddingAfter;
-    private final int mRoundedCornerRadius;
-    private final float mFolderSpanTextSize;
-    private final int mFolderMarginTop;
+public class SubjectAndFolderView extends TextView implements FolderSpan.FolderSpanDimensions {
+    private final String mNoFolderChipName;
+    private final int mNoFolderBgColor;
+    private final int mNoFolderFgColor;
+    private final Drawable mImportanceMarkerDrawable;
+    private final int mChipVerticalOffset;
 
     private int mMaxSpanWidth;
 
@@ -77,19 +73,18 @@ public class SubjectAndFolderView extends TextView
     public SubjectAndFolderView(Context context, AttributeSet attrs) {
         super(context, attrs);
 
-        mVisibleFolders = false;
-        mFolderDisplayer = new ConversationFolderDisplayer(getContext(), this);
+        final Resources res = getResources();
+        mNoFolderChipName = res.getString(R.string.add_label);
+        mNoFolderBgColor = res.getColor(R.color.conv_header_add_label_background);
+        mNoFolderFgColor = res.getColor(R.color.conv_header_add_label_text);
+        mImportanceMarkerDrawable = res.getDrawable(
+                R.drawable.ic_email_caret_none_important_unread);
+        mImportanceMarkerDrawable.setBounds(0, 0, mImportanceMarkerDrawable.getIntrinsicWidth(),
+                mImportanceMarkerDrawable.getIntrinsicHeight());
+        mChipVerticalOffset = res.getDimensionPixelOffset(R.dimen.folder_cv_vertical_offset);
 
-        final Resources r = getResources();
-        mFolderPadding = r.getDimensionPixelOffset(R.dimen.conversation_folder_padding);
-        mFolderPaddingExtraWidth = r.getDimensionPixelOffset(
-                R.dimen.conversation_folder_padding_extra_width);
-        mFolderPaddingAfter = r.getDimensionPixelOffset(
-                R.dimen.conversation_folder_padding_after);
-        mRoundedCornerRadius = r.getDimensionPixelOffset(
-                R.dimen.folder_rounded_corner_radius);
-        mFolderSpanTextSize = r.getDimension(R.dimen.conversation_folder_font_size);
-        mFolderMarginTop = r.getDimensionPixelOffset(R.dimen.conversation_folder_margin_top);
+        mVisibleFolders = false;
+        mFolderDisplayer = new ConversationFolderDisplayer(getContext());
     }
 
     @Override
@@ -100,46 +95,6 @@ public class SubjectAndFolderView extends TextView
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
     }
 
-    @Override
-    public int getPadding() {
-        return mFolderPadding;
-    }
-
-    @Override
-    public int getPaddingExtraWidth() {
-        return mFolderPaddingExtraWidth;
-    }
-
-    @Override
-    public int getPaddingAfter() {
-        return mFolderPaddingAfter;
-    }
-
-    @Override
-    public int getMaxWidth() {
-        return mMaxSpanWidth;
-    }
-
-    @Override
-    public float getRoundedCornerRadius() {
-        return mRoundedCornerRadius;
-    }
-
-    @Override
-    public float getFolderSpanTextSize() {
-        return mFolderSpanTextSize;
-    }
-
-    @Override
-    public int getMarginTop() {
-        return mFolderMarginTop;
-    }
-
-    @Override
-    public boolean isRtl() {
-        return ViewUtils.isViewRtl(this);
-    }
-
     public void setSubject(String subject) {
         mSubject = Conversation.getSubjectForDisplay(getContext(), null /* badgeText */, subject);
 
@@ -148,32 +103,40 @@ public class SubjectAndFolderView extends TextView
         }
     }
 
-    public void setFolders(
-            ConversationViewHeaderCallbacks callbacks, Account account, Conversation conv) {
+    public void setFolders(ConversationViewHeaderCallbacks callbacks, Account account,
+            Conversation conv) {
         mVisibleFolders = true;
         final BidiFormatter bidiFormatter = getBidiFormatter();
-        final SpannableStringBuilder sb =
-                new SpannableStringBuilder(bidiFormatter.unicodeWrap(mSubject));
+        final String wrappedSubject = mSubject == null ? "" : bidiFormatter.unicodeWrap(mSubject);
+        final SpannableStringBuilder sb = new SpannableStringBuilder(wrappedSubject);
         sb.append('\u0020');
         final Settings settings = account.settings;
         final int start = sb.length();
         if (settings.importanceMarkersEnabled && conv.isImportant()) {
             sb.append(".\u0020");
-            sb.setSpan(new DynamicDrawableSpan(DynamicDrawableSpan.ALIGN_BASELINE) {
-                           @Override
-                           public Drawable getDrawable() {
-                               Drawable d = getContext().getResources().getDrawable(
-                                       R.drawable.ic_email_caret_none_important_unread);
-                               d.setBounds(0, 0, d.getIntrinsicWidth(), d.getIntrinsicHeight());
-                               return d;
-                           }
-                       },
-                    start, start + 1, Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
+            sb.setSpan(new ReplacementSpan() {
+                @Override
+                public int getSize(Paint paint, CharSequence text, int start, int end,
+                        Paint.FontMetricsInt fm) {
+                    return mImportanceMarkerDrawable.getIntrinsicWidth();
+                }
+
+                @Override
+                public void draw(Canvas canvas, CharSequence text, int start, int end, float x,
+                        int top, int baseline, int bottom, Paint paint) {
+                    canvas.save();
+                    final int transY = baseline + mChipVerticalOffset -
+                            mImportanceMarkerDrawable.getIntrinsicHeight();
+                    canvas.translate(x, transY);
+                    mImportanceMarkerDrawable.draw(canvas);
+                    canvas.restore();
+                }
+            }, start, start + 1, Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
         }
 
         mFolderDisplayer.loadConversationFolders(conv, null /* ignoreFolder */,
                 -1 /* ignoreFolderType */);
-        mFolderDisplayer.appendFolderSpans(sb, bidiFormatter);
+        mFolderDisplayer.constructFolderChips(sb);
 
         final int end = sb.length();
         sb.setSpan(new ChangeLabelsSpan(callbacks), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -199,43 +162,51 @@ public class SubjectAndFolderView extends TextView
         return mBidiFormatter;
     }
 
-    private static class ConversationFolderDisplayer extends FolderDisplayer {
+    public String getSubject() {
+        return mSubject;
+    }
 
-        private final FolderSpan.FolderSpanDimensions mDims;
+    @Override
+    public int getMaxChipWidth() {
+        return mMaxSpanWidth;
+    }
 
-        public ConversationFolderDisplayer(Context context, FolderSpan.FolderSpanDimensions dims) {
+    private class ConversationFolderDisplayer extends FolderDisplayer {
+
+        public ConversationFolderDisplayer(Context context) {
             super(context);
-            mDims = dims;
         }
 
-        public void appendFolderSpans(SpannableStringBuilder sb, BidiFormatter bidiFormatter) {
+        @Override
+        protected void initializeDrawableResources() {
+            super.initializeDrawableResources();
+            final Resources res = mContext.getResources();
+            mFolderDrawableResources.overflowGradientPadding = 0;   // not applicable
+            mFolderDrawableResources.folderHorizontalPadding =
+                    res.getDimensionPixelOffset(R.dimen.folder_cv_cell_content_padding);
+            mFolderDrawableResources.folderFontSize =
+                    res.getDimensionPixelOffset(R.dimen.folder_cv_font_size);
+            mFolderDrawableResources.folderVerticalOffset = mChipVerticalOffset;
+        }
+
+        private void constructFolderChips(SpannableStringBuilder sb) {
             for (final Folder f : mFoldersSortedSet) {
-                final int bgColor = f.getBackgroundColor(mDefaultBgColor);
-                final int fgColor = f.getForegroundColor(mDefaultFgColor);
-                addSpan(sb, f.name, bgColor, fgColor, bidiFormatter);
+                addSpan(sb, f.name, f.getForegroundColor(mFolderDrawableResources.defaultFgColor),
+                        f.getBackgroundColor(mFolderDrawableResources.defaultBgColor));
             }
 
             if (mFoldersSortedSet.isEmpty()) {
-                final Resources r = mContext.getResources();
-                final String name = r.getString(R.string.add_label);
-                final int bgColor = r.getColor(R.color.conv_header_add_label_background);
-                final int fgColor = r.getColor(R.color.conv_header_add_label_text);
-                addSpan(sb, name, bgColor, fgColor, bidiFormatter);
+                addSpan(sb, mNoFolderChipName, mNoFolderFgColor, mNoFolderBgColor);
             }
         }
 
-        private void addSpan(SpannableStringBuilder sb, String name,
-                int bgColor, int fgColor, BidiFormatter bidiFormatter) {
+        private void addSpan(SpannableStringBuilder sb, String name, int fgColor, int bgColor) {
+            final FolderSpan span = new FolderSpan(name, fgColor, bgColor, mFolderDrawableResources,
+                    getBidiFormatter(), SubjectAndFolderView.this);
             final int start = sb.length();
-            sb.append(bidiFormatter.unicodeWrap(name));
-            final int end = sb.length();
-
-            sb.setSpan(new BackgroundColorSpan(bgColor), start, end,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-            sb.setSpan(new ForegroundColorSpan(fgColor), start, end,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-            sb.setSpan(new FolderSpan(sb, mDims), start, end,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            sb.append(name);
+            sb.setSpan(span, start, start + name.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            sb.append(" ");
         }
     }
 }

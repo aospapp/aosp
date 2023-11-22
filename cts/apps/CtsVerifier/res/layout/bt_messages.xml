@@ -18,6 +18,14 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         >
+
+    <ProgressBar android:id="@+id/bt_progress_bar"
+        android:indeterminate="true"
+        android:layout_height="4dp"
+        android:layout_width="match_parent"
+        style="@android:style/Widget.DeviceDefault.ProgressBar.Horizontal"
+        />
+
     <TextView android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/bt_sent_messages"

@@ -186,10 +186,12 @@ class NET_EXPORT_PRIVATE QuicCryptoClientConfig : public QuicCryptoConfig {
   // true for that server's CachedState. If the rejection message contains
   // state about a future handshake (i.e. an nonce value from the server), then
   // it will be saved in |out_params|. |now| is used to judge whether the
-  // server config in the rejection message has expired.
+  // server config in the rejection message has expired. |is_https| is used to
+  // track reject reason for secure vs insecure QUIC.
   QuicErrorCode ProcessRejection(const CryptoHandshakeMessage& rej,
                                  QuicWallTime now,
                                  CachedState* cached,
+                                 bool is_https,
                                  QuicCryptoNegotiatedParameters* out_params,
                                  std::string* error_details);
 
@@ -207,6 +209,18 @@ class NET_EXPORT_PRIVATE QuicCryptoClientConfig : public QuicCryptoConfig {
                                    CachedState* cached,
                                    QuicCryptoNegotiatedParameters* out_params,
                                    std::string* error_details);
+
+  // Processes the message in |server_update|, updating the cached source
+  // address token, and server config.
+  // If |server_update| is invalid then |error_details| will contain an error
+  // message, and an error code will be returned. If all has gone well
+  // QUIC_NO_ERROR is returned.
+  QuicErrorCode ProcessServerConfigUpdate(
+      const CryptoHandshakeMessage& server_update,
+      QuicWallTime now,
+      CachedState* cached,
+      QuicCryptoNegotiatedParameters* out_params,
+      std::string* error_details);
 
   ProofVerifier* proof_verifier() const;
 
@@ -254,6 +268,17 @@ class NET_EXPORT_PRIVATE QuicCryptoClientConfig : public QuicCryptoConfig {
 
  private:
   typedef std::map<QuicServerId, CachedState*> CachedStateMap;
+
+  // CacheNewServerConfig checks for SCFG, STK, PROF, and CRT tags in |message|,
+  // verifies them, and stores them in the cached state if they validate.
+  // This is used on receipt of a REJ from a server, or when a server sends
+  // updated server config during a connection.
+  QuicErrorCode CacheNewServerConfig(
+      const CryptoHandshakeMessage& message,
+      QuicWallTime now,
+      const std::vector<std::string>& cached_certs,
+      CachedState* cached,
+      std::string* error_details);
 
   // If the suffix of the hostname in |server_id| is in |canoncial_suffixes_|,
   // then populate |cached| with the canonical cached state from

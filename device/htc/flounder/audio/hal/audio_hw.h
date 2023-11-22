@@ -141,12 +141,12 @@ enum {
 #define PLAYBACK_AVAILABLE_MIN 1
 
 
-#define SCO_PERIOD_SIZE 86
+#define SCO_PERIOD_SIZE 168
 #define SCO_PERIOD_COUNT 2
 #define SCO_DEFAULT_CHANNEL_COUNT 2
 #define SCO_DEFAULT_SAMPLING_RATE 8000
-#define SCO_START_THRESHOLD 171
-#define SCO_STOP_THRESHOLD 172
+#define SCO_START_THRESHOLD 335
+#define SCO_STOP_THRESHOLD 336
 #define SCO_AVAILABLE_MIN 1
 
 #define PLAYBACK_HDMI_MULTI_PERIOD_SIZE  1024
@@ -173,7 +173,7 @@ enum {
 #define COMPRESS_OFFLOAD_NUM_FRAGMENTS 4
 /* ToDo: Check and update a proper value in msec */
 #define COMPRESS_OFFLOAD_PLAYBACK_LATENCY 96
-#define COMPRESS_PLAYBACK_VOLUME_MAX 0x2000
+#define COMPRESS_PLAYBACK_VOLUME_MAX 0x10000 //NV suggested value
 
 #define DEEP_BUFFER_OUTPUT_SAMPLING_RATE 48000
 #define DEEP_BUFFER_OUTPUT_PERIOD_SIZE 480
@@ -225,6 +225,7 @@ enum {
     OFFLOAD_STATE_IDLE,
     OFFLOAD_STATE_PLAYING,
     OFFLOAD_STATE_PAUSED,
+    OFFLOAD_STATE_PAUSED_FLUSHED,
 };
 
 typedef enum {
@@ -283,7 +284,6 @@ struct stream_out {
     audio_io_handle_t           handle;
 
     int                         non_blocking;
-    int                         playback_started;
     int                         offload_state;
     pthread_cond_t              offload_cond;
     pthread_t                   offload_thread;

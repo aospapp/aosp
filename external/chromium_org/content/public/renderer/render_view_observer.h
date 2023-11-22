@@ -79,7 +79,6 @@ class CONTENT_EXPORT RenderViewObserver : public IPC::Listener,
                                    blink::WebDataSource* ds) {}
   virtual void PrintPage(blink::WebLocalFrame* frame, bool user_initiated) {}
   virtual void FocusedNodeChanged(const blink::WebNode& node) {}
-  virtual void ZoomLevelChanged() {};
   virtual void DidChangeScrollOffset(blink::WebLocalFrame* frame) {}
   virtual void DraggableRegionsChanged(blink::WebFrame* frame) {}
   virtual void DidCommitCompositorFrame() {}
@@ -88,11 +87,13 @@ class CONTENT_EXPORT RenderViewObserver : public IPC::Listener,
   // These match the RenderView methods.
   virtual void DidHandleMouseEvent(const blink::WebMouseEvent& event) {}
   virtual void DidHandleTouchEvent(const blink::WebTouchEvent& event) {}
+  virtual void DidHandleGestureEvent(const blink::WebGestureEvent& event) {}
 
   // These match incoming IPCs.
   virtual void Navigate(const GURL& url) {}
   virtual void ClosePage() {}
   virtual void OrientationChangeEvent() {}
+  virtual void Resized() {}
 
   virtual void OnStop() {}
 

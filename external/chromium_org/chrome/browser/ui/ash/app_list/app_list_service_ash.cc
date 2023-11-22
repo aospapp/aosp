@@ -35,8 +35,7 @@ void AppListServiceAsh::ShowForProfile(Profile* default_profile) {
   // This may not work correctly if the profile passed in is different from the
   // one the ash Shell is currently using.
   // TODO(ananta): Handle profile changes correctly when !defined(OS_CHROMEOS).
-  if (!ash::Shell::GetInstance()->GetAppListTargetVisibility())
-    ash::Shell::GetInstance()->ToggleAppList(NULL);
+  ash::Shell::GetInstance()->ShowAppList(NULL);
 }
 
 bool AppListServiceAsh::IsAppListVisible() const {
@@ -44,8 +43,7 @@ bool AppListServiceAsh::IsAppListVisible() const {
 }
 
 void AppListServiceAsh::DismissAppList() {
-  if (IsAppListVisible())
-    ash::Shell::GetInstance()->ToggleAppList(NULL);
+  ash::Shell::GetInstance()->DismissAppList();
 }
 
 void AppListServiceAsh::EnableAppList(Profile* initial_profile,
@@ -63,6 +61,12 @@ Profile* AppListServiceAsh::GetCurrentAppListProfile() {
 
 AppListControllerDelegate* AppListServiceAsh::GetControllerDelegate() {
   return controller_delegate_.get();
+}
+
+void AppListServiceAsh::DestroyAppList() {
+  // On Ash, the app list is torn down whenever it is dismissed, so just ensure
+  // that it is dismissed.
+  DismissAppList();
 }
 
 // Windows and Linux Ash additionally supports a native UI. See

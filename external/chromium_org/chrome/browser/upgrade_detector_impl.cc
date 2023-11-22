@@ -9,7 +9,6 @@
 #include "base/bind.h"
 #include "base/build_time.h"
 #include "base/command_line.h"
-#include "base/cpu.h"
 #include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/singleton.h"
@@ -27,7 +26,6 @@
 #include "chrome/common/pref_names.h"
 #include "components/network_time/network_time_tracker.h"
 #include "content/public/browser/browser_thread.h"
-#include "ui/base/resource/resource_bundle.h"
 
 #if defined(OS_WIN)
 #include "base/win/win_util.h"
@@ -136,12 +134,10 @@ void DetectUpdatability(const base::Closure& callback_task,
                         bool* is_auto_update_enabled) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
 
-  base::string16 app_guid = installer::GetAppGuidForUpdates(IsSystemInstall());
-  DCHECK(!app_guid.empty());
   // Don't try to turn on autoupdate when we failed previously.
   if (is_auto_update_enabled) {
     *is_auto_update_enabled =
-        GoogleUpdateSettings::AreAutoupdatesEnabled(app_guid);
+        GoogleUpdateSettings::AreAutoupdatesEnabled();
   }
   *is_unstable_channel = IsUnstableChannel();
   BrowserThread::PostTask(BrowserThread::UI, FROM_HERE, callback_task);
@@ -189,10 +185,10 @@ base::Version GetCurrentlyInstalledVersionImpl(Version* critical_update) {
 }  // namespace
 
 UpgradeDetectorImpl::UpgradeDetectorImpl()
-    : weak_factory_(this),
-      is_unstable_channel_(false),
+    : is_unstable_channel_(false),
       is_auto_update_enabled_(true),
-      build_date_(base::GetBuildTime()) {
+      build_date_(base::GetBuildTime()),
+      weak_factory_(this) {
   CommandLine command_line(*CommandLine::ForCurrentProcess());
   // The different command line switches that affect testing can't be used
   // simultaneously, if they do, here's the precedence order, based on the order
@@ -243,6 +239,14 @@ UpgradeDetectorImpl::UpgradeDetectorImpl()
     }
     return;
   }
+
+  // Register for experiment notifications. Note that since this class is a
+  // singleton, it does not need to unregister for notifications when destroyed,
+  // since it outlives the VariationsService.
+  chrome_variations::VariationsService* variations_service =
+      g_browser_process->variations_service();
+  if (variations_service)
+    variations_service->AddObserver(this);
 
   base::Closure start_upgrade_check_timer_task =
       base::Bind(&UpgradeDetectorImpl::StartTimerForUpgradeCheck,
@@ -346,6 +350,24 @@ void UpgradeDetectorImpl::StartTimerForUpgradeCheck() {
       this, &UpgradeDetectorImpl::CheckForUpgrade);
 }
 
+void UpgradeDetectorImpl::StartUpgradeNotificationTimer() {
+  // The timer may already be running (e.g. due to both a software upgrade and
+  // experiment updates being available).
+  if (upgrade_notification_timer_.IsRunning())
+    return;
+
+  upgrade_detected_time_ = base::TimeTicks::Now();
+
+  // Start the repeating timer for notifying the user after a certain period.
+  // The called function will eventually figure out that enough time has passed
+  // and stop the timer.
+  const int cycle_time_ms = IsTesting() ?
+      kNotifyCycleTimeForTestingMs : kNotifyCycleTimeMs;
+  upgrade_notification_timer_.Start(FROM_HERE,
+      base::TimeDelta::FromMilliseconds(cycle_time_ms),
+      this, &UpgradeDetectorImpl::NotifyOnUpgrade);
+}
+
 void UpgradeDetectorImpl::CheckForUpgrade() {
   // Interrupt any (unlikely) unfinished execution of DetectUpgradeTask, or at
   // least prevent the callback from being executed, because we will potentially
@@ -376,13 +398,8 @@ bool UpgradeDetectorImpl::DetectOutdatedInstall() {
       return false;
 
 #if defined(OS_WIN)
-    // Don't show the update bubbles to entreprise users (i.e., on a domain).
+    // Don't show the update bubbles to enterprise users (i.e., on a domain).
     if (base::win::IsEnrolledToDomain())
-      return false;
-
-    // On Windows, we don't want to warn about outdated installs when the
-    // machine doesn't support SSE2, it's been deprecated starting with M35.
-    if (!base::CPU().has_sse2())
       return false;
 #endif
   }
@@ -414,43 +431,38 @@ bool UpgradeDetectorImpl::DetectOutdatedInstall() {
   return simulate_outdated;
 }
 
+void UpgradeDetectorImpl::OnExperimentChangesDetected(Severity severity) {
+  set_best_effort_experiment_updates_available(severity == BEST_EFFORT);
+  set_critical_experiment_updates_available(severity == CRITICAL);
+  StartUpgradeNotificationTimer();
+}
+
 void UpgradeDetectorImpl::UpgradeDetected(UpgradeAvailable upgrade_available) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  upgrade_available_ = upgrade_available;
+  set_upgrade_available(upgrade_available);
 
   // Stop the recurring timer (that is checking for changes).
   detect_upgrade_timer_.Stop();
+  set_critical_update_acknowledged(false);
 
-  NotifyUpgradeDetected();
-
-  // Start the repeating timer for notifying the user after a certain period.
-  // The called function will eventually figure out that enough time has passed
-  // and stop the timer.
-  int cycle_time = IsTesting() ?
-      kNotifyCycleTimeForTestingMs : kNotifyCycleTimeMs;
-  upgrade_notification_timer_.Start(FROM_HERE,
-      base::TimeDelta::FromMilliseconds(cycle_time),
-      this, &UpgradeDetectorImpl::NotifyOnUpgrade);
+  StartUpgradeNotificationTimer();
 }
 
-void UpgradeDetectorImpl::NotifyOnUpgrade() {
-  base::TimeDelta delta = base::Time::Now() - upgrade_detected_time();
-
-  // We'll make testing more convenient by switching to seconds of waiting
-  // instead of days between flipping severity.
-  bool is_testing = IsTesting();
-  int64 time_passed = is_testing ? delta.InSeconds() : delta.InHours();
-
-  bool is_critical_or_outdated = upgrade_available_ > UPGRADE_AVAILABLE_REGULAR;
+void UpgradeDetectorImpl::NotifyOnUpgradeWithTimePassed(
+    base::TimeDelta time_passed) {
+  const bool is_critical_or_outdated =
+      upgrade_available() > UPGRADE_AVAILABLE_REGULAR ||
+      critical_experiment_updates_available();
   if (is_unstable_channel_) {
     // There's only one threat level for unstable channels like dev and
     // canary, and it hits after one hour. During testing, it hits after one
     // second.
-    const int kUnstableThreshold = 1;
+    const base::TimeDelta unstable_threshold = IsTesting() ?
+        base::TimeDelta::FromSeconds(1) : base::TimeDelta::FromHours(1);
 
     if (is_critical_or_outdated) {
       set_upgrade_notification_stage(UPGRADE_ANNOYANCE_CRITICAL);
-    } else if (time_passed >= kUnstableThreshold) {
+    } else if (time_passed >= unstable_threshold) {
       set_upgrade_notification_stage(UPGRADE_ANNOYANCE_LOW);
 
       // That's as high as it goes.
@@ -459,26 +471,28 @@ void UpgradeDetectorImpl::NotifyOnUpgrade() {
       return;  // Not ready to recommend upgrade.
     }
   } else {
-    const int kMultiplier = is_testing ? 10 : 24;
-    // 14 days when not testing, otherwise 14 seconds.
-    const int kSevereThreshold = 14 * kMultiplier;
-    const int kHighThreshold = 7 * kMultiplier;
-    const int kElevatedThreshold = 4 * kMultiplier;
-    const int kLowThreshold = 2 * kMultiplier;
+    const base::TimeDelta multiplier = IsTesting() ?
+        base::TimeDelta::FromSeconds(10) : base::TimeDelta::FromDays(1);
+
+    // 14 days when not testing, otherwise 140 seconds.
+    const base::TimeDelta severe_threshold = 14 * multiplier;
+    const base::TimeDelta high_threshold = 7 * multiplier;
+    const base::TimeDelta elevated_threshold = 4 * multiplier;
+    const base::TimeDelta low_threshold = 2 * multiplier;
 
     // These if statements must be sorted (highest interval first).
-    if (time_passed >= kSevereThreshold || is_critical_or_outdated) {
+    if (time_passed >= severe_threshold || is_critical_or_outdated) {
       set_upgrade_notification_stage(
           is_critical_or_outdated ? UPGRADE_ANNOYANCE_CRITICAL :
                                     UPGRADE_ANNOYANCE_SEVERE);
 
       // We can't get any higher, baby.
       upgrade_notification_timer_.Stop();
-    } else if (time_passed >= kHighThreshold) {
+    } else if (time_passed >= high_threshold) {
       set_upgrade_notification_stage(UPGRADE_ANNOYANCE_HIGH);
-    } else if (time_passed >= kElevatedThreshold) {
+    } else if (time_passed >= elevated_threshold) {
       set_upgrade_notification_stage(UPGRADE_ANNOYANCE_ELEVATED);
-    } else if (time_passed >= kLowThreshold) {
+    } else if (time_passed >= low_threshold) {
       set_upgrade_notification_stage(UPGRADE_ANNOYANCE_LOW);
     } else {
       return;  // Not ready to recommend upgrade.
@@ -486,6 +500,12 @@ void UpgradeDetectorImpl::NotifyOnUpgrade() {
   }
 
   NotifyUpgradeRecommended();
+}
+
+void UpgradeDetectorImpl::NotifyOnUpgrade() {
+  const base::TimeDelta time_passed =
+      base::TimeTicks::Now() - upgrade_detected_time_;
+  NotifyOnUpgradeWithTimePassed(time_passed);
 }
 
 // static

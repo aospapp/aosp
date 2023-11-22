@@ -693,18 +693,9 @@ void VectorPlatformDeviceEmf::LoadClipRegion() {
   LoadClippingRegionToDC(hdc_, clip_region_, t);
 }
 
-#ifdef SK_SUPPORT_LEGACY_COMPATIBLEDEVICE_CONFIG
-SkBaseDevice* VectorPlatformDeviceEmf::onCreateCompatibleDevice(
-    SkBitmap::Config config, int width, int height, bool isOpaque,
-    Usage /*usage*/) {
-  SkASSERT(config == SkBitmap::kARGB_8888_Config);
-  return VectorPlatformDeviceEmf::CreateDevice(width, height, isOpaque, NULL);
-}
-#endif
-
 SkBaseDevice* VectorPlatformDeviceEmf::onCreateDevice(const SkImageInfo& info,
                                                       Usage /*usage*/) {
-  SkASSERT(info.colorType() == kPMColor_SkColorType);
+  SkASSERT(info.colorType() == kN32_SkColorType);
   return VectorPlatformDeviceEmf::CreateDevice(
       info.width(), info.height(), info.isOpaque(), NULL);
 }
@@ -904,7 +895,7 @@ void VectorPlatformDeviceEmf::InternalDrawBitmap(const SkBitmap& bitmap,
   bitmap_header.bV4AlphaMask = 0xff000000;
 
   SkAutoLockPixels lock(bitmap);
-  SkASSERT(bitmap.config() == SkBitmap::kARGB_8888_Config);
+  SkASSERT(bitmap.colorType() == kN32_SkColorType);
   const uint32_t* pixels = static_cast<const uint32_t*>(bitmap.getPixels());
   if (pixels == NULL) {
     SkASSERT(false);

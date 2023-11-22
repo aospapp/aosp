@@ -54,10 +54,6 @@ class WEBVIEW_EXPORT WebView : public View,
   // widget or restore the normal WebContentsView.
   void SetEmbedFullscreenWidgetMode(bool mode);
 
-  content::WebContents* web_contents() const {
-    return content::WebContentsObserver::web_contents();
-  }
-
   content::BrowserContext* browser_context() { return browser_context_; }
 
   // Loads the initial URL to display in the attached WebContents. Creates the
@@ -97,13 +93,17 @@ class WEBVIEW_EXPORT WebView : public View,
   virtual ui::TextInputClient* GetTextInputClient() OVERRIDE;
 
  protected:
+  // Swaps the owned WebContents |wc_owner_| with |new_web_contents|. Returns
+  // the previously owned WebContents.
+  scoped_ptr<content::WebContents> SwapWebContents(
+      scoped_ptr<content::WebContents> new_web_contents);
+
   // Overridden from View:
   virtual void OnBoundsChanged(const gfx::Rect& previous_bounds) OVERRIDE;
   virtual void ViewHierarchyChanged(
       const ViewHierarchyChangedDetails& details) OVERRIDE;
   virtual bool SkipDefaultKeyEventProcessing(
       const ui::KeyEvent& event) OVERRIDE;
-  virtual bool IsFocusable() const OVERRIDE;
   virtual void OnFocus() OVERRIDE;
   virtual void AboutToRequestFocusFromTabTraversal(bool reverse) OVERRIDE;
   virtual void GetAccessibleState(ui::AXViewState* state) OVERRIDE;
@@ -117,12 +117,15 @@ class WEBVIEW_EXPORT WebView : public View,
   // Overridden from content::WebContentsObserver:
   virtual void RenderViewDeleted(
       content::RenderViewHost* render_view_host) OVERRIDE;
+  virtual void RenderProcessGone(base::TerminationStatus status) OVERRIDE;
   virtual void RenderViewHostChanged(
       content::RenderViewHost* old_host,
       content::RenderViewHost* new_host) OVERRIDE;
   virtual void DidShowFullscreenWidget(int routing_id) OVERRIDE;
   virtual void DidDestroyFullscreenWidget(int routing_id) OVERRIDE;
   virtual void DidToggleFullscreenModeForTab(bool entered_fullscreen) OVERRIDE;
+  virtual void DidAttachInterstitialPage() OVERRIDE;
+  virtual void DidDetachInterstitialPage() OVERRIDE;
   // Workaround for MSVC++ linker bug/feature that requires
   // instantiation of the inline IPC::Listener methods in all translation units.
   virtual void OnChannelConnected(int32 peer_id) OVERRIDE {}

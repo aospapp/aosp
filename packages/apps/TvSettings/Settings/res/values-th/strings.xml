@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"การสำรองและคืนค่าข้อมูล"</string>
     <string name="device_reset" msgid="2827002349560023125">"รีเซ็ตข้อมูลเป็นค่าเริ่มต้น"</string>
     <string name="device_calibration" msgid="8632962533376605191">"การเทียบมาตรฐาน"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"แอปที่ดาวน์โหลดไว้"</string>
     <string name="apps_system" msgid="2499191125802829425">"แอประบบ"</string>
     <string name="apps_running" msgid="6430310491739956228">"แอปที่ใช้งานอยู่"</string>
@@ -95,7 +99,7 @@
     <string name="system_language" msgid="2337138146114609247">"ภาษา"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"แป้นพิมพ์"</string>
     <string name="system_search" msgid="2837264654143247611">"ค้นหา"</string>
-    <string name="system_security" msgid="4190058778883258927">"ความปลอดภัยและข้อจำกัด"</string>
+    <string name="system_security" msgid="8230080273993484407">"ความปลอดภัยและข้อจำกัด"</string>
     <string name="system_speech" msgid="8128688499687306982">"คำพูด"</string>
     <string name="system_inputs" msgid="2413907183796651102">"อินพุต"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"การเข้าถึง"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"การอัปเดตระบบ"</string>
     <string name="about_preference" msgid="4131396784531360434">"เกี่ยวกับ"</string>
     <string name="device_name" msgid="2670488158531273028">"ชื่ออุปกรณ์"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"รีสตาร์ท"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"ข้อมูลทางกฎหมาย"</string>
     <string name="about_warranty" msgid="5736003473060436384">"การรับประกัน"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"สัญญาอนุญาตโอเพนซอร์ส"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"ดูข้อกำหนดในการให้บริการ"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"ดูนโยบายส่วนบุคคล"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"ดูข้อกำหนดเพิ่มเติม"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"ข้อความทางกฎหมายของ Google"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"ข้อมูลสัญญาอนุญาตไม่สามารถใช้ได้"</string>
     <string name="about_model" msgid="6625269442206323995">"รุ่น"</string>
     <string name="about_version" msgid="1177287676732287266">"เวอร์ชัน"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"วันที่"</string>
     <string name="system_time" msgid="6726022312605226285">"เวลา"</string>
     <string name="system_set_date" msgid="2437586307768561116">"ตั้งวันที่"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"เลือกรูปแบบวันที่"</string>
     <string name="system_set_time" msgid="4661804115501057452">"ตั้งเวลา"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"ตั้งค่าเขตเวลา"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"ใช้รูปแบบ 24 ชั่วโมง"</string>

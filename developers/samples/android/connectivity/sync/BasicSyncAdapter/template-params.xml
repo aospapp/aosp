@@ -35,6 +35,52 @@
             ]]>
         </intro>
     </strings>
+    <metadata>
+        <status>PUBLISHED</status>
+        <categories>Background, Connectivity</categories>
+        <technologies>Android</technologies>
+        <languages>Java</languages>
+        <solutions>Mobile</solutions>
+        <level>INTERMEDIATE</level>
+        <icon>screenshots/icon-web.png</icon>
+        <screenshots>
+            <img>screenshots/main.png</img>
+        </screenshots>
+        <api_refs>
+            <android>android.app.Service</android>
+            <android>android.content.AbstractThreadedSyncAdapter</android>
+            <android>android.content.ContentProvider</android>
+            <android>android.content.ContentResolver</android>
+            <android>android.content.SyncResult</android>
+            <android>android.database.sqlite.SQLiteDatabase</android>
+        </api_refs>
+        <description>
+<![CDATA[
+This sample demonstrates using SyncAdapter to fetch background
+data for an app. It covers the creation of the required Service
+that the OS uses to initiate the background data sync as well as
+scheduling syncs with background data.
+]]>
+        </description>
+        <intro>
+<![CDATA[
+This sample demonstrates using SyncAdapter to fetch background data
+for an app. SyncAdapters can be used to execute your data transfer
+code at configurable intervals, while efficiently using battery and
+other system resources.
+
+This sample implements all the required elements of a sync adapter.
+- Creates a sync adapter class.
+- Creates a bound Service which the OS uses to initiate a sync.
+- Defines the sync adapter properties in an XML resource file.
+- Declares the bound Service in the app manifest.
+
+For more on SyncAdapters refer to [Transferring Data Using Sync Adapters][1]
+
+[1]: http://developer.android.com/training/sync-adapters/index.html
+]]>
+        </intro>
+    </metadata>
 
     <template src="base"/>
     <common src="accounts"/>

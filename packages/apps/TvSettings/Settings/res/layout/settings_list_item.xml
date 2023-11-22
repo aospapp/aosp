@@ -28,10 +28,10 @@
         style="@style/Canvas.Image.Dialog.List.Checkmark"
         android:layout_width="@dimen/list_item_checkmark_diameter"
         android:layout_height="@dimen/list_item_checkmark_diameter"
-        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
         android:layout_centerVertical="true"
-        android:layout_marginLeft="@dimen/list_item_left_padding"
-        android:layout_marginRight="@dimen/list_item_delimiter_padding"
+        android:layout_marginStart="@dimen/list_item_start_padding"
+        android:layout_marginEnd="@dimen/list_item_delimiter_padding"
         tools:ignore="ContentDescription" />
 
     <ImageView
@@ -40,8 +40,8 @@
         android:layout_width="@dimen/list_item_icon_width"
         android:layout_height="@dimen/list_item_icon_height"
         android:layout_centerVertical="true"
-        android:layout_marginRight="@dimen/list_item_delimiter_padding"
-        android:layout_toRightOf="@id/action_checkmark"
+        android:layout_marginEnd="@dimen/list_item_delimiter_padding"
+        android:layout_toEndOf="@id/action_checkmark"
         android:scaleType="fitCenter"
         tools:ignore="ContentDescription" />
 
@@ -51,17 +51,17 @@
         android:id="@+id/action_next_chevron_background"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
-        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
         android:layout_centerVertical="true"
-        android:layout_marginLeft="@dimen/list_item_delimiter_padding"
-        android:paddingRight="@dimen/list_item_right_padding" >
+        android:layout_marginStart="@dimen/list_item_delimiter_padding"
+        android:paddingEnd="@dimen/list_item_end_padding" >
 
         <ImageView
             android:id="@+id/action_next_chevron"
             style="@style/Canvas.Image.Dialog.List.Icon"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="left|center_vertical"
+            android:layout_gravity="start|center_vertical"
             android:scaleType="fitCenter"
             android:src="@drawable/ic_list_chevron"
             tools:ignore="ContentDescription" />
@@ -72,25 +72,25 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_centerVertical="true"
-        android:layout_toLeftOf="@id/action_next_chevron_background"
-        android:layout_toRightOf="@id/action_icon"
+        android:layout_toStartOf="@id/action_next_chevron_background"
+        android:layout_toEndOf="@id/action_icon"
         android:orientation="vertical" >
 
-        <TextView
+        <com.android.tv.settings.widget.ResizingTextView
             android:id="@+id/action_title"
             style="@style/Canvas.Text.Dialog.List.Title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:maxLines="@integer/action_title_min_lines"
-            android:ellipsize="marquee" />
+            android:ellipsize="end" />
 
-        <TextView
+        <com.android.tv.settings.widget.ResizingTextView
             android:id="@+id/action_description"
             style="@style/Canvas.Text.Dialog.List.Description"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:maxLines="@integer/action_description_min_lines"
-            android:ellipsize="marquee" />
+            android:ellipsize="end" />
     </LinearLayout>
 
 </RelativeLayout>

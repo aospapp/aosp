@@ -9,78 +9,40 @@
 #include "android_webview/native/aw_contents.h"
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
+#include "base/macros.h"
 #include "base/supports_user_data.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/renderer_preferences.h"
+#include "content/public/common/web_preferences.h"
 #include "jni/AwSettings_jni.h"
-#include "ui/gfx/font_render_params_linux.h"
-#include "webkit/common/webpreferences.h"
+#include "ui/gfx/font_render_params.h"
 
 using base::android::ConvertJavaStringToUTF16;
 using base::android::ConvertUTF8ToJavaString;
 using base::android::ScopedJavaLocalRef;
 using content::RendererPreferences;
+using content::WebPreferences;
 
 namespace android_webview {
 
 namespace {
-
-// TODO(boliu): Deduplicate with chrome/ code.
-content::RendererPreferencesHintingEnum GetRendererPreferencesHintingEnum(
-    gfx::FontRenderParams::Hinting hinting) {
-  switch (hinting) {
-    case gfx::FontRenderParams::HINTING_NONE:
-      return content::RENDERER_PREFERENCES_HINTING_NONE;
-    case gfx::FontRenderParams::HINTING_SLIGHT:
-      return content::RENDERER_PREFERENCES_HINTING_SLIGHT;
-    case gfx::FontRenderParams::HINTING_MEDIUM:
-      return content::RENDERER_PREFERENCES_HINTING_MEDIUM;
-    case gfx::FontRenderParams::HINTING_FULL:
-      return content::RENDERER_PREFERENCES_HINTING_FULL;
-    default:
-      NOTREACHED() << "Unhandled hinting style " << hinting;
-      return content::RENDERER_PREFERENCES_HINTING_SYSTEM_DEFAULT;
-  }
-}
-
-// TODO(boliu): Deduplicate with chrome/ code.
-content::RendererPreferencesSubpixelRenderingEnum
-GetRendererPreferencesSubpixelRenderingEnum(
-    gfx::FontRenderParams::SubpixelRendering subpixel_rendering) {
-  switch (subpixel_rendering) {
-    case gfx::FontRenderParams::SUBPIXEL_RENDERING_NONE:
-      return content::RENDERER_PREFERENCES_SUBPIXEL_RENDERING_NONE;
-    case gfx::FontRenderParams::SUBPIXEL_RENDERING_RGB:
-      return content::RENDERER_PREFERENCES_SUBPIXEL_RENDERING_RGB;
-    case gfx::FontRenderParams::SUBPIXEL_RENDERING_BGR:
-      return content::RENDERER_PREFERENCES_SUBPIXEL_RENDERING_BGR;
-    case gfx::FontRenderParams::SUBPIXEL_RENDERING_VRGB:
-      return content::RENDERER_PREFERENCES_SUBPIXEL_RENDERING_VRGB;
-    case gfx::FontRenderParams::SUBPIXEL_RENDERING_VBGR:
-      return content::RENDERER_PREFERENCES_SUBPIXEL_RENDERING_VBGR;
-    default:
-      NOTREACHED() << "Unhandled subpixel rendering style "
-                   << subpixel_rendering;
-      return content::RENDERER_PREFERENCES_SUBPIXEL_RENDERING_SYSTEM_DEFAULT;
-  }
-}
 
 void PopulateFixedRendererPreferences(RendererPreferences* prefs) {
   prefs->tap_multiple_targets_strategy =
       content::TAP_MULTIPLE_TARGETS_STRATEGY_NONE;
 
   // TODO(boliu): Deduplicate with chrome/ code.
-  const gfx::FontRenderParams& params = gfx::GetDefaultWebKitFontRenderParams();
+  CR_DEFINE_STATIC_LOCAL(const gfx::FontRenderParams, params,
+      (gfx::GetFontRenderParams(gfx::FontRenderParamsQuery(true), NULL)));
   prefs->should_antialias_text = params.antialiasing;
   prefs->use_subpixel_positioning = params.subpixel_positioning;
-  prefs->hinting = GetRendererPreferencesHintingEnum(params.hinting);
+  prefs->hinting = params.hinting;
   prefs->use_autohinter = params.autohinter;
   prefs->use_bitmaps = params.use_bitmaps;
-  prefs->subpixel_rendering =
-      GetRendererPreferencesSubpixelRenderingEnum(params.subpixel_rendering);
+  prefs->subpixel_rendering = params.subpixel_rendering;
 }
 
 void PopulateFixedWebPreferences(WebPreferences* web_prefs) {
@@ -196,8 +158,7 @@ void AwSettings::UpdateWebkitPreferencesLocked(JNIEnv* env, jobject obj) {
   content::RenderViewHost* render_view_host =
       web_contents()->GetRenderViewHost();
   if (!render_view_host) return;
-  render_view_host->UpdateWebkitPreferences(
-      render_view_host->GetWebkitPreferences());
+  render_view_host->OnWebkitPreferencesChanged();
 }
 
 void AwSettings::UpdateInitialPageScaleLocked(JNIEnv* env, jobject obj) {
@@ -257,7 +218,7 @@ void AwSettings::RenderViewCreated(content::RenderViewHost* render_view_host) {
   // we shouldn't have to deal with the multiple RVH per WebContents case. That
   // in turn means that the newly created RVH is always the 'current' RVH
   // (since we only ever go from 0 to 1 RVH instances) and hence the DCHECK.
-  DCHECK(web_contents()->GetRenderViewHost() == render_view_host);
+  DCHECK_EQ(render_view_host, web_contents()->GetRenderViewHost());
 
   UpdateEverything();
 }
@@ -299,27 +260,27 @@ void AwSettings::PopulateWebPreferencesLocked(
     render_view_host_ext->SetTextZoomFactor(text_size_percent / 100.0f);
   }
 
-  web_prefs->standard_font_family_map[webkit_glue::kCommonScript] =
+  web_prefs->standard_font_family_map[content::kCommonScript] =
       ConvertJavaStringToUTF16(
           Java_AwSettings_getStandardFontFamilyLocked(env, obj));
 
-  web_prefs->fixed_font_family_map[webkit_glue::kCommonScript] =
+  web_prefs->fixed_font_family_map[content::kCommonScript] =
       ConvertJavaStringToUTF16(
           Java_AwSettings_getFixedFontFamilyLocked(env, obj));
 
-  web_prefs->sans_serif_font_family_map[webkit_glue::kCommonScript] =
+  web_prefs->sans_serif_font_family_map[content::kCommonScript] =
       ConvertJavaStringToUTF16(
           Java_AwSettings_getSansSerifFontFamilyLocked(env, obj));
 
-  web_prefs->serif_font_family_map[webkit_glue::kCommonScript] =
+  web_prefs->serif_font_family_map[content::kCommonScript] =
       ConvertJavaStringToUTF16(
           Java_AwSettings_getSerifFontFamilyLocked(env, obj));
 
-  web_prefs->cursive_font_family_map[webkit_glue::kCommonScript] =
+  web_prefs->cursive_font_family_map[content::kCommonScript] =
       ConvertJavaStringToUTF16(
           Java_AwSettings_getCursiveFontFamilyLocked(env, obj));
 
-  web_prefs->fantasy_font_family_map[webkit_glue::kCommonScript] =
+  web_prefs->fantasy_font_family_map[content::kCommonScript] =
       ConvertJavaStringToUTF16(
           Java_AwSettings_getFantasyFontFamilyLocked(env, obj));
 

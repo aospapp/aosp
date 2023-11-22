@@ -4,17 +4,18 @@
 
 #include "cc/scheduler/scheduler_state_machine.h"
 
+#include "base/debug/trace_event.h"
 #include "cc/scheduler/scheduler.h"
 #include "cc/test/begin_frame_args_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 #define EXPECT_ACTION_UPDATE_STATE(action)                                   \
-  EXPECT_EQ(action, state.NextAction()) << *state.AsValue();                 \
+  EXPECT_EQ(action, state.NextAction()) << state.AsValue()->ToString();      \
   if (action == SchedulerStateMachine::ACTION_DRAW_AND_SWAP_IF_POSSIBLE ||   \
       action == SchedulerStateMachine::ACTION_DRAW_AND_SWAP_FORCED) {        \
     EXPECT_EQ(SchedulerStateMachine::BEGIN_IMPL_FRAME_STATE_INSIDE_DEADLINE, \
               state.begin_impl_frame_state())                                \
-        << *state.AsValue();                                                 \
+        << state.AsValue()->ToString();                                      \
   }                                                                          \
   state.UpdateState(action);                                                 \
   if (action == SchedulerStateMachine::ACTION_NONE) {                        \
@@ -232,8 +233,7 @@ TEST(SchedulerStateMachineTest, MainFrameBeforeDrawDisabled) {
   state.OnBeginImplFrame(CreateBeginFrameArgsForTesting());
 
   state.NotifyReadyToActivate();
-  EXPECT_ACTION_UPDATE_STATE(
-      SchedulerStateMachine::ACTION_ACTIVATE_PENDING_TREE);
+  EXPECT_ACTION_UPDATE_STATE(SchedulerStateMachine::ACTION_ACTIVATE_SYNC_TREE);
   EXPECT_ACTION_UPDATE_STATE(SchedulerStateMachine::ACTION_ANIMATE);
   EXPECT_ACTION_UPDATE_STATE(SchedulerStateMachine::ACTION_NONE);
   EXPECT_EQ(state.CommitState(),
@@ -308,8 +308,7 @@ TEST(SchedulerStateMachineTest, MainFrameBeforeActivationEnabled) {
   // Verify NotifyReadyToActivate unblocks activation, draw, and
   // commit in that order.
   state.NotifyReadyToActivate();
-  EXPECT_ACTION_UPDATE_STATE(
-      SchedulerStateMachine::ACTION_ACTIVATE_PENDING_TREE);
+  EXPECT_ACTION_UPDATE_STATE(SchedulerStateMachine::ACTION_ACTIVATE_SYNC_TREE);
   EXPECT_ACTION_UPDATE_STATE(SchedulerStateMachine::ACTION_NONE);
 
   EXPECT_TRUE(state.ShouldTriggerBeginImplFrameDeadlineEarly());
@@ -692,7 +691,7 @@ TEST(SchedulerStateMachineTest, TestNextActionDrawsOnBeginImplFrame) {
       state.SetNeedsCommit();
       EXPECT_NE(SchedulerStateMachine::ACTION_DRAW_AND_SWAP_IF_POSSIBLE,
                 state.NextAction())
-          << *state.AsValue();
+          << state.AsValue()->ToString();
     }
   }
 
@@ -718,16 +717,18 @@ TEST(SchedulerStateMachineTest, TestNextActionDrawsOnBeginImplFrame) {
     } else {
       expected_action = SchedulerStateMachine::ACTION_DRAW_AND_SWAP_IF_POSSIBLE;
       EXPECT_EQ(state.NextAction(), SchedulerStateMachine::ACTION_ANIMATE)
-          << *state.AsValue();
+          << state.AsValue()->ToString();
       state.UpdateState(state.NextAction());
     }
 
     // Case 1: needs_commit=false.
-    EXPECT_EQ(state.NextAction(), expected_action) << *state.AsValue();
+    EXPECT_EQ(state.NextAction(), expected_action)
+        << state.AsValue()->ToString();
 
     // Case 2: needs_commit=true.
     state.SetNeedsCommit();
-    EXPECT_EQ(state.NextAction(), expected_action) << *state.AsValue();
+    EXPECT_EQ(state.NextAction(), expected_action)
+        << state.AsValue()->ToString();
   }
 }
 
@@ -759,7 +760,7 @@ TEST(SchedulerStateMachineTest, TestNoCommitStatesRedrawWhenInvisible) {
       state.SetNeedsCommit();
       EXPECT_NE(SchedulerStateMachine::ACTION_DRAW_AND_SWAP_IF_POSSIBLE,
                 state.NextAction())
-          << *state.AsValue();
+          << state.AsValue()->ToString();
     }
   }
 }
@@ -1595,8 +1596,7 @@ TEST(SchedulerStateMachineTest,
   EXPECT_ACTION_UPDATE_STATE(SchedulerStateMachine::ACTION_COMMIT);
 
   EXPECT_TRUE(state.PendingActivationsShouldBeForced());
-  EXPECT_ACTION_UPDATE_STATE(
-      SchedulerStateMachine::ACTION_ACTIVATE_PENDING_TREE);
+  EXPECT_ACTION_UPDATE_STATE(SchedulerStateMachine::ACTION_ACTIVATE_SYNC_TREE);
 
   EXPECT_TRUE(state.PendingDrawsShouldBeAborted());
   EXPECT_ACTION_UPDATE_STATE(SchedulerStateMachine::ACTION_DRAW_AND_SWAP_ABORT);
@@ -1658,7 +1658,7 @@ TEST(SchedulerStateMachineTest, TestInitialActionsWhenContextLost) {
   // main thread will just abort anyway.
   state.SetVisible(false);
   EXPECT_EQ(SchedulerStateMachine::ACTION_NONE, state.NextAction())
-      << *state.AsValue();
+      << state.AsValue()->ToString();
 }
 
 TEST(SchedulerStateMachineTest, ReportIfNotDrawing) {
@@ -1733,8 +1733,7 @@ void FinishPreviousCommitAndDrawWithoutExitingDeadline(
   EXPECT_ACTION_UPDATE_STATE(SchedulerStateMachine::ACTION_COMMIT);
   EXPECT_ACTION_UPDATE_STATE(SchedulerStateMachine::ACTION_NONE);
   state.NotifyReadyToActivate();
-  EXPECT_ACTION_UPDATE_STATE(
-      SchedulerStateMachine::ACTION_ACTIVATE_PENDING_TREE);
+  EXPECT_ACTION_UPDATE_STATE(SchedulerStateMachine::ACTION_ACTIVATE_SYNC_TREE);
   EXPECT_ACTION_UPDATE_STATE(SchedulerStateMachine::ACTION_NONE);
 
   state.OnBeginImplFrame(CreateBeginFrameArgsForTesting());
@@ -1748,7 +1747,7 @@ void FinishPreviousCommitAndDrawWithoutExitingDeadline(
   state.DidSwapBuffers();
 }
 
-TEST(SchedulerStateMachineTest, TestSmoothnessTakesPriority) {
+TEST(SchedulerStateMachineTest, TestImplLatencyTakesPriority) {
   SchedulerSettings settings;
   settings.impl_side_painting = true;
   StateMachine state(settings);
@@ -1759,7 +1758,7 @@ TEST(SchedulerStateMachineTest, TestSmoothnessTakesPriority) {
   state.SetCanDraw(true);
 
   // This test ensures that impl-draws are prioritized over main thread updates
-  // in prefer smoothness mode.
+  // in prefer impl latency mode.
   state.SetNeedsRedraw(true);
   state.SetNeedsCommit();
   state.OnBeginImplFrame(CreateBeginFrameArgsForTesting());
@@ -1769,9 +1768,9 @@ TEST(SchedulerStateMachineTest, TestSmoothnessTakesPriority) {
   EXPECT_ACTION_UPDATE_STATE(SchedulerStateMachine::ACTION_NONE);
 
   // Verify the deadline is not triggered early until we enter
-  // prefer smoothness mode.
+  // prefer impl latency mode.
   EXPECT_FALSE(state.ShouldTriggerBeginImplFrameDeadlineEarly());
-  state.SetSmoothnessTakesPriority(true);
+  state.SetImplLatencyTakesPriority(true);
   EXPECT_TRUE(state.ShouldTriggerBeginImplFrameDeadlineEarly());
 
   // Trigger the deadline.

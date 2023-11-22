@@ -18,6 +18,7 @@ package android.hardware.camera2.cts;
 
 import static com.android.ex.camera2.blocking.BlockingStateCallback.*;
 
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.PointF;
@@ -63,6 +64,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * A package private utility class for wrapping up the camera2 cts test common utility functions
@@ -199,6 +201,7 @@ public class CameraTestUtils extends Assert {
     public static class SimpleCaptureCallback extends CameraCaptureSession.CaptureCallback {
         private final LinkedBlockingQueue<CaptureResult> mQueue =
                 new LinkedBlockingQueue<CaptureResult>();
+        private AtomicLong mNumFramesArrived = new AtomicLong(0);
 
         @Override
         public void onCaptureStarted(CameraCaptureSession session, CaptureRequest request,
@@ -210,6 +213,7 @@ public class CameraTestUtils extends Assert {
         public void onCaptureCompleted(CameraCaptureSession session, CaptureRequest request,
                 TotalCaptureResult result) {
             try {
+                mNumFramesArrived.incrementAndGet();
                 mQueue.put(result);
             } catch (InterruptedException e) {
                 throw new UnsupportedOperationException(
@@ -225,6 +229,10 @@ public class CameraTestUtils extends Assert {
         @Override
         public void onCaptureSequenceCompleted(CameraCaptureSession session, int sequenceId,
                 long frameNumber) {
+        }
+
+        public long getTotalNumFrames() {
+            return mNumFramesArrived.get();
         }
 
         public CaptureResult getCaptureResult(long timeout) {
@@ -439,21 +447,25 @@ public class CameraTestUtils extends Assert {
             assertTrue("rowStride " + rowStride + " should be >= width " + w , rowStride >= w);
             for (int row = 0; row < h; row++) {
                 int bytesPerPixel = ImageFormat.getBitsPerPixel(format) / 8;
+                int length;
                 if (pixelStride == bytesPerPixel) {
                     // Special case: optimized read of the entire row
-                    int length = w * bytesPerPixel;
+                    length = w * bytesPerPixel;
                     buffer.get(data, offset, length);
-                    // Advance buffer the remainder of the row stride
-                    buffer.position(buffer.position() + rowStride - length);
                     offset += length;
                 } else {
                     // Generic case: should work for any pixelStride but slower.
                     // Use intermediate buffer to avoid read byte-by-byte from
                     // DirectByteBuffer, which is very bad for performance
-                    buffer.get(rowData, 0, rowStride);
+                    length = (w - 1) * pixelStride + bytesPerPixel;
+                    buffer.get(rowData, 0, length);
                     for (int col = 0; col < w; col++) {
                         data[offset++] = rowData[col * pixelStride];
                     }
+                }
+                // Advance buffer the remainder of the row stride
+                if (row < h - 1) {
+                    buffer.position(buffer.position() + rowStride - length);
                 }
             }
             if (VERBOSE) Log.v(TAG, "Finished reading data from plane " + i);
@@ -482,6 +494,23 @@ public class CameraTestUtils extends Assert {
                 break;
             default:
                 fail("Unsupported Image Format: " + format);
+        }
+    }
+
+    public static void dumpFile(String fileName, Bitmap data) {
+        FileOutputStream outStream;
+        try {
+            Log.v(TAG, "output will be saved as " + fileName);
+            outStream = new FileOutputStream(fileName);
+        } catch (IOException ioe) {
+            throw new RuntimeException("Unable to create debug output file " + fileName, ioe);
+        }
+
+        try {
+            data.compress(Bitmap.CompressFormat.JPEG, /*quality*/90, outStream);
+            outStream.close();
+        } catch (IOException ioe) {
+            throw new RuntimeException("failed writing data to file " + fileName, ioe);
         }
     }
 
@@ -675,6 +704,21 @@ public class CameraTestUtils extends Assert {
     }
 
     /**
+     * Returns true if the given {@code array} contains the given element.
+     *
+     * @param array {@code array} to check for {@code elem}
+     * @param elem {@code elem} to test for
+     * @return {@code true} if the given element is contained
+     */
+    public static boolean contains(int[] array, int elem) {
+        if (array == null) return false;
+        for (int i = 0; i < array.length; i++) {
+            if (elem == array[i]) return true;
+        }
+        return false;
+    }
+
+    /**
      * Get object array from byte array.
      *
      * @param array Input byte array to be converted
@@ -772,6 +816,7 @@ public class CameraTestUtils extends Assert {
                 validateJpegData(data, width, height, filePath);
                 break;
             case ImageFormat.YUV_420_888:
+            case ImageFormat.YV12:
                 validateYuvData(data, width, height, format, image.getTimestamp(), filePath);
                 break;
             case ImageFormat.RAW_SENSOR:

@@ -16,6 +16,7 @@
 
 package com.android.cts.verifier.sensors.helpers;
 
+import com.android.cts.verifier.os.TimeoutResetActivity;
 import com.android.cts.verifier.sensors.base.BaseSensorTestActivity;
 import com.android.cts.verifier.sensors.base.ISensorTestStateContainer;
 
@@ -27,8 +28,12 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.os.PowerManager;
 import android.text.TextUtils;
+import android.util.Log;
+
+import java.util.concurrent.CountDownLatch;
 
 /**
  * A class that provides functionality to manipulate the state of the device's screen.
@@ -52,8 +57,9 @@ import android.text.TextUtils;
  * - in a single-threaded environment
  */
 public class SensorTestScreenManipulator {
+    private static final String TAG = SensorTestScreenManipulator.class.getSimpleName();
 
-    private final Context mContext;
+    private final Activity mActivity;
     private final DevicePolicyManager mDevicePolicyManager;
     private final ComponentName mComponentName;
     private final PowerManager.WakeLock mWakeUpScreenWakeLock;
@@ -62,16 +68,17 @@ public class SensorTestScreenManipulator {
     private InternalBroadcastReceiver mBroadcastReceiver;
     private boolean mTurnOffScreenOnPowerDisconnected;
 
-    public SensorTestScreenManipulator(Context context) {
-        mContext = context;
-        mComponentName = SensorDeviceAdminReceiver.getComponentName(context);
+
+    public SensorTestScreenManipulator(Activity activity) {
+        mActivity = activity;
+        mComponentName = SensorDeviceAdminReceiver.getComponentName(activity);
         mDevicePolicyManager =
-                (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
+                (DevicePolicyManager) activity.getSystemService(Context.DEVICE_POLICY_SERVICE);
 
         int levelAndFlags = PowerManager.FULL_WAKE_LOCK
                 | PowerManager.ON_AFTER_RELEASE
                 | PowerManager.ACQUIRE_CAUSES_WAKEUP;
-        PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+        PowerManager powerManager = (PowerManager) activity.getSystemService(Context.POWER_SERVICE);
         mWakeUpScreenWakeLock = powerManager.newWakeLock(levelAndFlags, "SensorTestWakeUpScreen");
         mWakeUpScreenWakeLock.setReferenceCounted(false);
         mKeepScreenOnWakeLock = powerManager.newWakeLock(levelAndFlags, "SensorTestKeepScreenOn");
@@ -87,7 +94,7 @@ public class SensorTestScreenManipulator {
      */
     public synchronized void initialize(ISensorTestStateContainer stateContainer)
             throws InterruptedException {
-        if (!isDeviceAdminInitialized()) {
+        if (hasDeviceAdminFeature() && !isDeviceAdminInitialized()) {
             Intent intent = new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN);
             intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, mComponentName);
             int resultCode = stateContainer.executeActivity(intent);
@@ -101,7 +108,7 @@ public class SensorTestScreenManipulator {
             mBroadcastReceiver = new InternalBroadcastReceiver();
             IntentFilter intentFilter = new IntentFilter();
             intentFilter.addAction(Intent.ACTION_POWER_DISCONNECTED);
-            mContext.registerReceiver(mBroadcastReceiver, intentFilter);
+            mActivity.registerReceiver(mBroadcastReceiver, intentFilter);
         }
     }
 
@@ -111,7 +118,7 @@ public class SensorTestScreenManipulator {
      */
     public synchronized  void close() {
         if (mBroadcastReceiver != null) {
-            mContext.unregisterReceiver(mBroadcastReceiver);
+            mActivity.unregisterReceiver(mBroadcastReceiver);
             mBroadcastReceiver = null;
         }
     }
@@ -121,8 +128,30 @@ public class SensorTestScreenManipulator {
      */
     public synchronized void turnScreenOff() {
         ensureDeviceAdminInitialized();
+
+        final CountDownLatch screenOffSignal = new CountDownLatch(1);
+        BroadcastReceiver screenOffBroadcastReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                mActivity.unregisterReceiver(this);
+                screenOffSignal.countDown();
+            }
+        };
+        mActivity.registerReceiver(
+                screenOffBroadcastReceiver, new IntentFilter(Intent.ACTION_SCREEN_OFF));
+
         releaseScreenOn();
-        mDevicePolicyManager.lockNow();
+        if (hasDeviceAdminFeature()) {
+            mDevicePolicyManager.lockNow();
+        } else {
+            TimeoutResetActivity.turnOffScreen(mActivity);
+        }
+
+        try {
+            screenOffSignal.await();
+        } catch (InterruptedException e) {
+            Log.wtf(TAG, "error waiting for screen off signal", e);
+        }
     }
 
     /**
@@ -175,7 +204,7 @@ public class SensorTestScreenManipulator {
     }
 
     private void ensureDeviceAdminInitialized() throws IllegalStateException {
-        if (!isDeviceAdminInitialized()) {
+        if (hasDeviceAdminFeature() && !isDeviceAdminInitialized()) {
             throw new IllegalStateException("Component must be initialized before it can be used.");
         }
     }
@@ -186,6 +215,10 @@ public class SensorTestScreenManipulator {
         }
         return mDevicePolicyManager
                 .hasGrantedPolicy(mComponentName, DeviceAdminInfo.USES_POLICY_FORCE_LOCK);
+    }
+
+    private boolean hasDeviceAdminFeature() {
+        return mActivity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_DEVICE_ADMIN);
     }
 
     private class InternalBroadcastReceiver extends BroadcastReceiver {

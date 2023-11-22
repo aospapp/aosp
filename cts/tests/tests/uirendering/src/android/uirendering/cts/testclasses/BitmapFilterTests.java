@@ -28,7 +28,6 @@ import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.CanvasClient;
 
 public class BitmapFilterTests extends ActivityTestBase {
-    private static final int THRESHOLD = 20;
     private static final int WHITE_WEIGHT = 255 * 3;
     private enum FilterEnum {
         // Creates Paint object that will have bitmap filtering
@@ -40,72 +39,74 @@ public class BitmapFilterTests extends ActivityTestBase {
         ADD_FILTER
     }
 
-    /**
-     * Verifies that a Bitmap only contains white and black, within a certain threshold
-     */
-    private static BitmapVerifier mBlackWhiteVerifier = new PerPixelBitmapVerifier(THRESHOLD) {
+    private static final BitmapVerifier BLACK_WHITE_ONLY_VERIFIER
+            = new PerPixelBitmapVerifier(PerPixelBitmapVerifier.DEFAULT_THRESHOLD, 0.99f) {
         @Override
-        protected boolean verifyPixel(int color, int expectedColor) {
+        protected boolean verifyPixel(int x, int y, int color) {
             int weight = Color.red(color) + Color.blue(color) + Color.green(color);
-            return weight < THRESHOLD // is approx Color.BLACK
-                    || weight > WHITE_WEIGHT - THRESHOLD; // is approx Color.WHITE
+            return weight < DEFAULT_THRESHOLD // is approx Color.BLACK
+                    || weight > WHITE_WEIGHT - DEFAULT_THRESHOLD; // is approx Color.WHITE
         }
     };
+    private static final BitmapVerifier GREY_ONLY_VERIFIER
+            = new ColorVerifier(Color.argb(255, 127, 127, 127),
+            PerPixelBitmapVerifier.DEFAULT_THRESHOLD);
+    private static final BitmapVerifier GREY_PARTIAL_VERIFIER
+            = new ColorVerifier(Color.argb(255, 127, 127, 127),
+            300, 0.8f); // content will be mostly grey, for a wide range of grey
+
 
     private static Bitmap createGridBitmap(int width, int height) {
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         for (int i = 0 ; i < width ; i++) {
             for (int j = 0 ; j < height ; j++) {
-                bitmap.setPixel(i, j, ((i + j * width)) % 2 == 0 ?
-                        Color.WHITE : Color.BLACK);
+                boolean isWhite = (i + j * width) % 2 == 0;
+                bitmap.setPixel(i, j, isWhite ? Color.WHITE : Color.BLACK);
             }
         }
         return bitmap;
     }
 
     private static final int SMALL_GRID_SIZE = 5;
-    private static Bitmap mSmallGridBitmap = createGridBitmap(SMALL_GRID_SIZE, SMALL_GRID_SIZE);
+    private Bitmap mSmallGridBitmap = createGridBitmap(SMALL_GRID_SIZE, SMALL_GRID_SIZE);
     private static final int BIG_GRID_SIZE = 360;
-    private static Bitmap mBigGridBitmap = createGridBitmap(BIG_GRID_SIZE, BIG_GRID_SIZE);
-    private static final int HALFWAY_COLOR = Color.argb(255, 127, 127, 127);
+    private Bitmap mBigGridBitmap = createGridBitmap(BIG_GRID_SIZE, BIG_GRID_SIZE);
 
-    /* All of these tests seem to be broken.
-     * TODO: fix in L MR1
     @SmallTest
     public void testPaintFilterScaleUp() {
-        runScaleTest(FilterEnum.PAINT_FILTER, true, mBlackWhiteVerifier);
+        runScaleTest(FilterEnum.PAINT_FILTER, true);
     }
 
     @SmallTest
     public void testPaintFilterScaleDown() {
-        runScaleTest(FilterEnum.PAINT_FILTER, false, new ColorVerifier(HALFWAY_COLOR, 15));
+        runScaleTest(FilterEnum.PAINT_FILTER, false);
     }
 
     @SmallTest
     public void testDrawFilterRemoveFilterScaleUp() {
-        runScaleTest(FilterEnum.REMOVE_FILTER, true, mBlackWhiteVerifier);
+        runScaleTest(FilterEnum.REMOVE_FILTER, true);
     }
 
     @SmallTest
     public void testDrawFilterRemoveFilterScaleDown() {
-        runScaleTest(FilterEnum.REMOVE_FILTER, false, mBlackWhiteVerifier);
+        runScaleTest(FilterEnum.REMOVE_FILTER, false);
     }
 
     @SmallTest
     public void testDrawFilterScaleUp() {
-        runScaleTest(FilterEnum.ADD_FILTER, true, mBlackWhiteVerifier);
+        runScaleTest(FilterEnum.ADD_FILTER, true);
     }
 
     @SmallTest
     public void testDrawFilterScaleDown() {
-        runScaleTest(FilterEnum.ADD_FILTER, false, new ColorVerifier(HALFWAY_COLOR));
+        runScaleTest(FilterEnum.ADD_FILTER, false);
     }
-*/
-    private void runScaleTest(final FilterEnum filterEnum, final boolean scaleUp,
-            BitmapVerifier bitmapVerifier) {
+
+    private void runScaleTest(final FilterEnum filterEnum, final boolean scaleUp) {
         final int gridWidth = scaleUp ? SMALL_GRID_SIZE : BIG_GRID_SIZE;
         final Paint paint = new Paint(filterEnum.equals(FilterEnum.ADD_FILTER) ?
                 0 : Paint.FILTER_BITMAP_FLAG);
+
         CanvasClient canvasClient = new CanvasClient() {
             @Override
             public void draw(Canvas canvas, int width, int height) {
@@ -120,6 +121,16 @@ public class BitmapFilterTests extends ActivityTestBase {
         };
         createTest()
                 .addCanvasClient(canvasClient)
-                .runWithVerifier(bitmapVerifier);
+                .runWithVerifier(getVerifierForTest(filterEnum, scaleUp));
+    }
+
+    private static BitmapVerifier getVerifierForTest(FilterEnum filterEnum, boolean scaleUp) {
+        if (filterEnum.equals(FilterEnum.REMOVE_FILTER)) {
+            // filtering disabled, so only black and white pixels will come through
+            return BLACK_WHITE_ONLY_VERIFIER;
+        }
+        // if scaling up, output pixels may have single source to sample from,
+        // will only be *mostly* grey.
+        return scaleUp ? GREY_PARTIAL_VERIFIER : GREY_ONLY_VERIFIER;
     }
 }

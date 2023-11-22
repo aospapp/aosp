@@ -61,6 +61,9 @@ public class PrinterDiscoverySessionLifecycleTest extends BasePrintTest {
     private static final String SECOND_PRINTER_LOCAL_ID = "second_printer";
 
     public void testNormalLifecycle() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
         // Create the session callbacks that we will be checking.
         final PrinterDiscoverySessionCallbacks firstSessionCallbacks =
                 createFirstMockPrinterDiscoverySessionCallbacks();
@@ -155,6 +158,9 @@ public class PrinterDiscoverySessionLifecycleTest extends BasePrintTest {
     }
 
     public void testStartPrinterDiscoveryWithHistoricalPrinters() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
         // Create the session callbacks that we will be checking.
         final PrinterDiscoverySessionCallbacks firstSessionCallbacks =
                 createFirstMockPrinterDiscoverySessionCallbacks();

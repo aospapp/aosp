@@ -43,11 +43,9 @@ extern "C" IMAGE_DOS_HEADER __ImageBase;
 #endif
 
 using base::SampleCountIterator;
-using metrics::HistogramEventProto;
-using metrics::ProfilerEventProto;
-using metrics::SystemProfileProto;
-using metrics::UserActionEventProto;
 typedef variations::ActiveGroupId ActiveGroupId;
+
+namespace metrics {
 
 namespace {
 
@@ -330,7 +328,8 @@ void MetricsLog::WriteRealtimeStabilityAttributes(
 
 void MetricsLog::RecordEnvironment(
     const std::vector<metrics::MetricsProvider*>& metrics_providers,
-    const std::vector<variations::ActiveGroupId>& synthetic_trials) {
+    const std::vector<variations::ActiveGroupId>& synthetic_trials,
+    int64 install_date) {
   DCHECK(!HasEnvironment());
 
   SystemProfileProto* system_profile = uma_proto()->mutable_system_profile();
@@ -346,8 +345,6 @@ void MetricsLog::RecordEnvironment(
 
   // Reduce granularity of the enabled_date field to nearest hour.
   system_profile->set_uma_enabled_date(RoundSecondsToHour(enabled_date));
-
-  int64 install_date = client_->GetInstallDate();
 
   // Reduce granularity of the install_date field to nearest hour.
   system_profile->set_install_date(RoundSecondsToHour(install_date));
@@ -436,3 +433,5 @@ void MetricsLog::GetEncodedLog(std::string* encoded_log) {
   DCHECK(closed_);
   uma_proto_.SerializeToString(encoded_log);
 }
+
+}  // namespace metrics

@@ -53,8 +53,6 @@ class BookmarkEventRouter : public BookmarkModelObserver {
                                  int old_index,
                                  const BookmarkNode* new_parent,
                                  int new_index) OVERRIDE;
-  virtual void OnWillAddBookmarkNode(BookmarkModel* model,
-                                     BookmarkNode* node) OVERRIDE;
   virtual void BookmarkNodeAdded(BookmarkModel* model,
                                  const BookmarkNode* parent,
                                  int index) OVERRIDE;
@@ -245,9 +243,6 @@ class BookmarksRemoveFunction : public BookmarksFunction {
   static bool ExtractIds(const base::ListValue* args,
                          std::list<int64>* ids,
                          bool* invalid_id);
-  // BookmarksFunction:
-  virtual void GetQuotaLimitHeuristics(
-      QuotaLimitHeuristics* heuristics) const OVERRIDE;
 
  protected:
   virtual ~BookmarksRemoveFunction() {}
@@ -268,10 +263,6 @@ class BookmarksCreateFunction : public BookmarksFunction {
  public:
   DECLARE_EXTENSION_FUNCTION("bookmarks.create", BOOKMARKS_CREATE)
 
-  // BookmarksFunction:
-  virtual void GetQuotaLimitHeuristics(
-      QuotaLimitHeuristics* heuristics) const OVERRIDE;
-
  protected:
   virtual ~BookmarksCreateFunction() {}
 
@@ -287,10 +278,6 @@ class BookmarksMoveFunction : public BookmarksFunction {
                          std::list<int64>* ids,
                          bool* invalid_id);
 
-  // BookmarksFunction:
-  virtual void GetQuotaLimitHeuristics(
-      QuotaLimitHeuristics* heuristics) const OVERRIDE;
-
  protected:
   virtual ~BookmarksMoveFunction() {}
 
@@ -305,10 +292,6 @@ class BookmarksUpdateFunction : public BookmarksFunction {
   static bool ExtractIds(const base::ListValue* args,
                          std::list<int64>* ids,
                          bool* invalid_id);
-
-  // BookmarksFunction:
-  virtual void GetQuotaLimitHeuristics(
-      QuotaLimitHeuristics* heuristics) const OVERRIDE;
 
  protected:
   virtual ~BookmarksUpdateFunction() {}

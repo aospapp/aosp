@@ -40,7 +40,7 @@ public class AwAutofillClient {
 
     @CalledByNative
     private void showAutofillPopup(float x, float y, float width, float height,
-            AutofillSuggestion[] suggestions) {
+            boolean isRtl, AutofillSuggestion[] suggestions) {
 
         if (mContentViewCore == null) return;
 
@@ -50,7 +50,7 @@ public class AwAutofillClient {
                 mContentViewCore.getViewAndroidDelegate(),
                 new AutofillPopup.AutofillPopupDelegate() {
                     @Override
-                    public void requestHide() { }
+                    public void dismissed() { }
                     @Override
                     public void suggestionSelected(int listIndex) {
                         nativeSuggestionSelected(mNativeAwAutofillClient, listIndex);
@@ -58,7 +58,7 @@ public class AwAutofillClient {
                 });
         }
         mAutofillPopup.setAnchorRect(x, y, width, height);
-        mAutofillPopup.filterAndShow(suggestions);
+        mAutofillPopup.filterAndShow(suggestions, isRtl);
     }
 
     @CalledByNative

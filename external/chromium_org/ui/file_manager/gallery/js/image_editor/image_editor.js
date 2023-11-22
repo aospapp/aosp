@@ -29,21 +29,18 @@ function ImageEditor(
 
   ImageUtil.removeChildren(this.container_);
 
-  var document = this.container_.ownerDocument;
-
   this.viewport_ = viewport;
-  this.viewport_.sizeByFrame(this.container_);
-
-  this.buffer_ = new ImageBuffer();
-  this.viewport_.addRepaintCallback(this.buffer_.draw.bind(this.buffer_));
+  this.viewport_.setScreenSize(
+      this.container_.clientWidth, this.container_.clientHeight);
 
   this.imageView_ = imageView;
   this.imageView_.addContentCallback(this.onContentUpdate_.bind(this));
+
+  this.buffer_ = new ImageBuffer();
   this.buffer_.addOverlay(this.imageView_);
 
   this.panControl_ = new ImageEditor.MouseControl(
       this.rootContainer_, this.container_, this.getBuffer());
-
   this.panControl_.setDoubleTapCallback(this.onDoubleTap_.bind(this));
 
   this.mainToolbar_ = new ImageEditor.Toolbar(
@@ -105,15 +102,14 @@ ImageEditor.prototype.onContentUpdate_ = function() {
 /**
  * Open the editing session for a new image.
  *
- * @param {string} url Image url.
- * @param {Object} metadata Metadata.
+ * @param {Gallery.Item} item Gallery item.
  * @param {Object} effect Transition effect object.
  * @param {function(function)} saveFunction Image save function.
  * @param {function} displayCallback Display callback.
  * @param {function} loadCallback Load callback.
  */
 ImageEditor.prototype.openSession = function(
-    url, metadata, effect, saveFunction, displayCallback, loadCallback) {
+    item, effect, saveFunction, displayCallback, loadCallback) {
   if (this.commandQueue_)
     throw new Error('Session not closed');
 
@@ -121,17 +117,17 @@ ImageEditor.prototype.openSession = function(
 
   var self = this;
   this.imageView_.load(
-      url, metadata, effect, displayCallback, function(loadType, delay, error) {
-    self.lockUI(false);
-    self.commandQueue_ = new CommandQueue(
-        self.container_.ownerDocument,
-        self.imageView_.getCanvas(),
-        saveFunction);
-    self.commandQueue_.attachUI(
-        self.getImageView(), self.getPrompt(), self.lockUI.bind(self));
-    self.updateUndoRedo();
-    loadCallback(loadType, delay, error);
-  });
+      item, effect, displayCallback, function(loadType, delay, error) {
+        self.lockUI(false);
+        self.commandQueue_ = new CommandQueue(
+            self.container_.ownerDocument,
+            self.imageView_.getCanvas(),
+            saveFunction);
+        self.commandQueue_.attachUI(
+            self.getImageView(), self.getPrompt(), self.lockUI.bind(self));
+        self.updateUndoRedo();
+        loadCallback(loadType, delay, error);
+      });
 };
 
 /**
@@ -235,22 +231,22 @@ ImageEditor.prototype.getCanvas = function() {
 /**
  * @return {ImageBuffer} ImageBuffer instance.
  */
-ImageEditor.prototype.getBuffer = function() { return this.buffer_ };
+ImageEditor.prototype.getBuffer = function() { return this.buffer_; };
 
 /**
  * @return {ImageView} ImageView instance.
  */
-ImageEditor.prototype.getImageView = function() { return this.imageView_ };
+ImageEditor.prototype.getImageView = function() { return this.imageView_; };
 
 /**
  * @return {Viewport} Viewport instance.
  */
-ImageEditor.prototype.getViewport = function() { return this.viewport_ };
+ImageEditor.prototype.getViewport = function() { return this.viewport_; };
 
 /**
  * @return {ImageEditor.Prompt} Prompt instance.
  */
-ImageEditor.prototype.getPrompt = function() { return this.prompt_ };
+ImageEditor.prototype.getPrompt = function() { return this.prompt_; };
 
 /**
  * Handle the toolbar controls update.
@@ -285,22 +281,24 @@ ImageEditor.Mode.prototype = {__proto__: ImageBuffer.Overlay.prototype };
 /**
  * @return {Viewport} Viewport instance.
  */
-ImageEditor.Mode.prototype.getViewport = function() { return this.viewport_ };
+ImageEditor.Mode.prototype.getViewport = function() { return this.viewport_; };
 
 /**
  * @return {ImageView} ImageView instance.
  */
-ImageEditor.Mode.prototype.getImageView = function() { return this.imageView_ };
+ImageEditor.Mode.prototype.getImageView = function() {
+  return this.imageView_;
+};
 
 /**
  * @return {string} The mode-specific message to be displayed when entering.
  */
-ImageEditor.Mode.prototype.getMessage = function() { return this.message_ };
+ImageEditor.Mode.prototype.getMessage = function() { return this.message_; };
 
 /**
  * @return {boolean} True if the mode is applicable in the current context.
  */
-ImageEditor.Mode.prototype.isApplicable = function() { return true };
+ImageEditor.Mode.prototype.isApplicable = function() { return true; };
 
 /**
  * Called once after creating the mode button.
@@ -361,7 +359,7 @@ ImageEditor.Mode.prototype.markUpdated = function() {
 /**
  * @return {boolean} True if the mode controls changed.
  */
-ImageEditor.Mode.prototype.isUpdated = function() { return this.updated_ };
+ImageEditor.Mode.prototype.isUpdated = function() { return this.updated_; };
 
 /**
  * Resets the mode to a clean state.
@@ -439,7 +437,7 @@ ImageEditor.prototype.createToolButtons = function() {
 /**
  * @return {ImageEditor.Mode} The current mode.
  */
-ImageEditor.prototype.getMode = function() { return this.currentMode_ };
+ImageEditor.prototype.getMode = function() { return this.currentMode_; };
 
 /**
  * The user clicked on the mode button.
@@ -749,8 +747,10 @@ ImageEditor.MouseControl.prototype.onTouchStart = function(e) {
  * @param {TouchEvent} e Event.
  */
 ImageEditor.MouseControl.prototype.onTouchEnd = function(e) {
-  if (!this.dragHappened_ && Date.now() - this.touchStartInfo_.time <=
-                             ImageEditor.MouseControl.MAX_TAP_DURATION_) {
+  if (!this.dragHappened_ &&
+      this.touchStartInfo_ &&
+      Date.now() - this.touchStartInfo_.time <=
+          ImageEditor.MouseControl.MAX_TAP_DURATION_) {
     this.buffer_.onClick(this.touchStartInfo_.x, this.touchStartInfo_.y);
     if (this.previousTouchStartInfo_ &&
         Date.now() - this.previousTouchStartInfo_.time <
@@ -807,12 +807,13 @@ ImageEditor.MouseControl.prototype.onTouchMove = function(e) {
     return;
 
   if (this.touchStartInfo_ && !this.dragHappened_) {
-    var tapCircle = new Circle(this.touchStartInfo_.x, this.touchStartInfo_.y,
-                    ImageEditor.MouseControl.MAX_MOVEMENT_FOR_TAP_);
+    var tapCircle = new Circle(
+        this.touchStartInfo_.x, this.touchStartInfo_.y,
+        ImageEditor.MouseControl.MAX_MOVEMENT_FOR_TAP_);
     this.dragHappened_ = !tapCircle.inside(position.x, position.y);
   }
   if (this.dragHandler_ && this.dragHappened_) {
-    this.dragHandler_(position.x, position.y);
+    this.dragHandler_(position.x, position.y, e.shiftKey);
     this.lockMouse_(true);
   }
 };
@@ -860,7 +861,7 @@ ImageEditor.MouseControl.prototype.onMouseMove = function(e) {
 
   this.updateCursor_(position);
   if (this.dragHandler_) {
-    this.dragHandler_(position.x, position.y);
+    this.dragHandler_(position.x, position.y, e.shiftKey);
     this.dragHappened_ = true;
     this.lockMouse_(true);
   }
@@ -900,6 +901,13 @@ ImageEditor.Toolbar = function(parent, displayStringFunction, updateCallback) {
   this.wrapper_ = parent;
   this.displayStringFunction_ = displayStringFunction;
   this.updateCallback_ = updateCallback;
+  Object.seal(this);
+};
+
+ImageEditor.Toolbar.prototype = {
+  get element() {
+    return this.wrapper_;
+  }
 };
 
 /**
@@ -952,11 +960,13 @@ ImageEditor.Toolbar.prototype.addLabel = function(name) {
 ImageEditor.Toolbar.prototype.addButton = function(
     name, title, handler, opt_class) {
   var button = this.create_('button');
-  if (opt_class) button.classList.add(opt_class);
+  if (opt_class)
+    button.classList.add(opt_class);
   var label = this.create_('span');
   label.textContent = this.displayStringFunction_(title);
   button.appendChild(label);
   button.label = this.displayStringFunction_(title);
+  button.title = this.displayStringFunction_(title);
   button.addEventListener('click', handler, false);
   return this.add(button);
 };
@@ -1119,23 +1129,40 @@ ImageEditor.Prompt.prototype.setTimer = function(callback, timeout) {
  *
  * @param {string} text The prompt text.
  * @param {number} timeout Timeout in ms.
- * @param {Object} formatArgs varArgs for the formatting function.
+ * @param {...Object} var_args varArgs for the formatting function.
  */
-ImageEditor.Prompt.prototype.show = function(text, timeout, formatArgs) {
-  this.showAt.apply(this,
-      ['center'].concat(Array.prototype.slice.call(arguments)));
+ImageEditor.Prompt.prototype.show = function(text, timeout, var_args) {
+  var args = [text].concat(Array.prototype.slice.call(arguments, 2));
+  var message = this.displayStringFunction_.apply(null, args);
+  this.showStringAt('center', message, timeout);
 };
 
 /**
+ * Show the position at the specific position.
  *
  * @param {string} pos The 'pos' attribute value.
  * @param {string} text The prompt text.
  * @param {number} timeout Timeout in ms.
- * @param {Object} formatArgs varArgs for the formatting function.
+ * @param {...Object} var_args varArgs for the formatting function.
  */
-ImageEditor.Prompt.prototype.showAt = function(pos, text, timeout, formatArgs) {
+ImageEditor.Prompt.prototype.showAt = function(
+    pos, text, timeout, var_args) {
+  var args = [text].concat(Array.prototype.slice.call(arguments, 3));
+  var message = this.displayStringFunction_.apply(null, args);
+  this.showStringAt(pos, message, timeout);
+};
+
+/**
+ * Show the string in the prompt
+ *
+ * @param {string} pos The 'pos' attribute value.
+ * @param {string} text The prompt text.
+ * @param {number} timeout Timeout in ms.
+ */
+ImageEditor.Prompt.prototype.showStringAt = function(pos, text, timeout) {
   this.reset();
-  if (!text) return;
+  if (!text)
+    return;
 
   var document = this.container_.ownerDocument;
   this.wrapper_ = document.createElement('div');
@@ -1152,8 +1179,7 @@ ImageEditor.Prompt.prototype.showAt = function(pos, text, timeout, formatArgs) {
   this.wrapper_.appendChild(tool);
   tool.appendChild(this.prompt_);
 
-  var args = [text].concat(Array.prototype.slice.call(arguments, 3));
-  this.prompt_.textContent = this.displayStringFunction_.apply(null, args);
+  this.prompt_.textContent = text;
 
   var close = document.createElement('div');
   close.className = 'close';

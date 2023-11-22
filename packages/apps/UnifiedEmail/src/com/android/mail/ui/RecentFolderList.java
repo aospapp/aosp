@@ -20,6 +20,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.support.annotation.NonNull;
 
 import com.android.mail.content.ObjectCursor;
 import com.android.mail.providers.Account;
@@ -189,7 +190,7 @@ public final class RecentFolderList {
      * be called with a null folder.
      * @param folder the folder we touched
      */
-    public void touchFolder(Folder folder, Account account) {
+    public void touchFolder(@NonNull Folder folder, Account account) {
         // We haven't got a valid account yet, cannot proceed.
         if (mAccount == null || !mAccount.equals(account)) {
             if (account != null) {
@@ -199,7 +200,6 @@ public final class RecentFolderList {
                 return;
             }
         }
-        assert (folder != null);
 
         if (folder.isProviderFolder() || folder.isType(FolderType.SEARCH)) {
             LogUtils.d(TAG, "Not touching recent folder because it's provider or search folder");

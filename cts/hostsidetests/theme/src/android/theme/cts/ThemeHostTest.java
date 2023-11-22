@@ -322,7 +322,8 @@ public class ThemeHostTest extends DeviceTestCase implements IAbiReceiver, IBuil
         boolean waiting = true;
         while (waiting) {
             // Dump logcat.
-            final String logs = mDevice.executeAdbCommand("logcat", "-d", CLASS + ":I", "*:S");
+            final String logs = mDevice.executeAdbCommand(
+                    "logcat", "-v", "brief", "-d", CLASS + ":I", "*:S");
             // Search for string.
             final Scanner in = new Scanner(logs);
             while (in.hasNextLine()) {

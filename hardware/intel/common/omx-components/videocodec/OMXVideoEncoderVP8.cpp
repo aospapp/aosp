@@ -6,6 +6,7 @@ static const char *VP8_MIME_TYPE = "video/x-vnd.on2.vp8";
 
 OMXVideoEncoderVP8::OMXVideoEncoderVP8() {
     LOGV("OMXVideoEncoderVP8 is constructed.");
+    mLastTimestamp = 0x7FFFFFFFFFFFFFFFLL;
     BuildHandlerList();
     mVideoEncoder = createVideoEncoder(VP8_MIME_TYPE);
     if(!mVideoEncoder) LOGE("OMX_ErrorInsufficientResources");
@@ -82,7 +83,8 @@ OMX_ERRORTYPE OMXVideoEncoderVP8::ProcessorProcess(OMX_BUFFERHEADERTYPE **buffer
     OMX_S64 outtimestamp = 0;
     OMX_U32 outflags = 0;
     OMX_ERRORTYPE oret = OMX_ErrorNone;
-
+    OMX_U32 frameDuration;
+    OMX_U32 this_fps;
     if(buffers[INPORT_INDEX]->nFlags & OMX_BUFFERFLAG_EOS) {
         LOGV("%s(),%d: got OMX_BUFFERFLAG_EOS\n", __func__, __LINE__);
         outflags |= OMX_BUFFERFLAG_EOS;
@@ -98,6 +100,27 @@ OMX_ERRORTYPE OMXVideoEncoderVP8::ProcessorProcess(OMX_BUFFERHEADERTYPE **buffer
     inBuf.type = FTYPE_UNKNOWN;
     inBuf.timeStamp = buffers[INPORT_INDEX]->nTimeStamp;
 
+    if (inBuf.timeStamp > mLastTimestamp) {
+        frameDuration = (OMX_U32)(inBuf.timeStamp - mLastTimestamp);
+    } else {
+        frameDuration = (OMX_U32)(1000000 / mEncoderParams->frameRate.frameRateNum);
+    }
+
+    this_fps = (OMX_U32)((1000000.000 / frameDuration) * 1000 + 1)/1000;
+
+    if(this_fps != mEncoderParams->frameRate.frameRateNum)
+    {// a new FrameRate is coming
+        mConfigFramerate.xEncodeFramerate = this_fps;
+        mEncoderParams->frameRate.frameRateNum = this_fps;
+        VideoConfigFrameRate framerate;
+        mVideoEncoder->getConfig(&framerate);
+        framerate.frameRate.frameRateDenom = 1;
+        framerate.frameRate.frameRateNum = mConfigFramerate.xEncodeFramerate;
+        ret = mVideoEncoder->setConfig(&framerate);
+        if(ret != ENCODE_SUCCESS) {
+               LOGW("Failed to set frame rate config");
+        }
+    }
     outBuf.data =
         buffers[OUTPORT_INDEX]->pBuffer + buffers[OUTPORT_INDEX]->nOffset;
     outBuf.dataSize = 0;
@@ -137,7 +160,7 @@ OMX_ERRORTYPE OMXVideoEncoderVP8::ProcessorProcess(OMX_BUFFERHEADERTYPE **buffer
 
         outfilledlen = outBuf.dataSize;
         outtimestamp = buffers[INPORT_INDEX]->nTimeStamp;
-
+        mLastTimestamp = inBuf.timeStamp;
         if (outBuf.flag & ENCODE_BUFFERFLAG_SYNCFRAME) {
             outflags |= OMX_BUFFERFLAG_SYNCFRAME;
         }

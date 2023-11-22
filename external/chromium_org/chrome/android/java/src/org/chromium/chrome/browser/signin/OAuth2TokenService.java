@@ -10,11 +10,10 @@ import android.content.Context;
 import android.preference.PreferenceManager;
 import android.util.Log;
 
-import com.google.common.annotations.VisibleForTesting;
-
 import org.chromium.base.CalledByNative;
 import org.chromium.base.ObserverList;
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.sync.signin.AccountManagerHelper;
 import org.chromium.sync.signin.ChromeSigninController;
@@ -221,14 +220,6 @@ public final class OAuth2TokenService {
         if (accessToken != null) {
             AccountManagerHelper.get(context).invalidateAuthToken(accessToken);
         }
-    }
-
-    /**
-     * TODO(rogerta): This overload exists until a CL lands in the clank repo to use the
-     * version that takes a boolean second arg.
-     */
-    public void validateAccounts(Context context) {
-      validateAccounts(context, false);
     }
 
     @CalledByNative

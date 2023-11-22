@@ -273,9 +273,24 @@ function main() {
   network attacker. As <a
   href="http://en.wikipedia.org/wiki/Man-in-the-middle_attack">man-in-the-middle
   attacks</a> are both trivial and undetectable over HTTP, those origins will
-  not be accepted. Currently, we allow whitelisting origins with the following
-  schemes: <code>HTTPS</code>, <code>chrome-extension</code>, and
-  <code>chrome-extension-resource</code>.
+  not be accepted.
+</p>
+
+<p>
+  Currently, we allow whitelisting origins with the following schemes:
+  <code>blob</code>, <code>filesystem</code>, <code>https</code>,
+  <code>chrome-extension</code>, and <code>chrome-extension-resource</code>.
+  The host part of the origin must explicitly be specified for the
+  <code>https</code> and <code>chrome-extension</code> schemes.
+  Generic wildcards such as <code>https:</code>, <code>https://*</code> and
+  <code>https://*.com</code> are not allowed; subdomain wildcards such as
+  <code>https://*.example.com</code> are allowed.
+  Domains in the <a href="https://publicsuffix.org/list/">Public Suffix list</a>
+  are also viewed as generic top-level domains. To load a resource from these
+  domains, the subdomain must explicitly be listed. For example,
+  <code>https://*.cloudfront.net</code> is invalid, but
+  <code>https://XXXX.cloudfront.net</code> and
+  <code>https://*.XXXX.cloudfront.net</code> can be whitelisted.
 </p>
 
 <p>
@@ -344,4 +359,94 @@ function main() {
   would be appropriate. The <a href="samples#mappy">Mappy</a> sample
   extension is a good example of an extension that's been locked down above and
   beyond the defaults.
+</p>
+
+
+<h2 id="interactions">Content Scripts</h2>
+
+<p>
+  The policy that we have been discussing applies to the <a
+  href="background_pages">background pages</a> and <a href="event_pages">event
+  pages</a> of the extension. How they apply to the <a href="content_scripts">
+  content scripts</a> of the extension is more complicated.
+</p>
+
+<p>
+  Content scripts are generally not subject to the CSP of the extension. Since
+  content scripts are not HTML, the main impact of this is that they may use
+  <code>eval</code> even if the extension's CSP does not specify
+  <code>unsafe-eval</code>, although this is not recommended.  Additionally, the
+  CSP of the <em>page</em> does not apply to content scripts. More complicated
+  are <code>&lt;script&gt;</code> tags that content scripts create and put into
+  the DOM of the page they are running on. We will refer to these as DOM
+  injected scripts going forward.
+</p>
+
+<p>
+  DOM injected scripts that would be executed immediately upon injection into
+  the page will execute as you might expect. Imagine a content script with the
+  following code as a simple example:
+  <pre data-filename="content_script.js">
+    document.write("&lt;script&gt;alert(1);&lt;/script&gt;");
+  </pre>
+  This content script will cause an <code>alert</code> immediately upon the
+  <code>document.write()</code>. Note that this will execute regardless of the
+  policy a page may specify.
+</p>
+
+<p>
+  However, the behavior becomes more complicated both inside that DOM injected
+  script and for any script that does not immediately execute upon injection.
+  Imagine that our extension is running on a page that provides its own CSP
+  that specifies <code>script-src 'self'</code>. Now imagine the content script
+  executes the following code:
+  <pre data-filename="content_script.js">
+    document.write("&lt;button onclick='alert(1);'&gt;click me&lt;/button&gt;'");
+  </pre>
+  If a user clicks on that button, the <code>onclick</code> script will
+  <em>not</em> execute. This is because the script did not immediately execute
+  and code not interpreted until the click event occurs is not considered part
+  of the content script, so the CSP <em>of the page</em> (not of the extension)
+  restricts its behavior. And since that CSP does not specify
+  <code>unsafe-inline</code>, the inline event handler is blocked.
+</p>
+
+<p>
+  The correct way to implement the desired behavior in this case would be to add
+  the <code>onclick</code> handler as a function from the content script as
+  follows:
+  <pre data-filename="content_script.js">
+    document.write("&lt;button id='mybutton'&gt;click me&lt;/button&gt;'");
+    var button = document.getElementById('mybutton');
+    button.onclick = function() {
+      alert(1);
+    };
+  </pre>
+</p>
+
+<p>
+  Another similar issue arises if the content script executes the following:
+  <pre data-filename="content_script.js">
+    var script = document.createElement('script');
+    script.innerHTML = 'alert(1);'
+    document.getElementById('body').appendChild(script);
+  </pre>
+  In this case, the script <em>will</em> execute and the alert will pop up.
+  However, take this case:
+  <pre data-filename="content_script.js">
+    var script = document.createElement('script');
+    script.innerHTML = 'eval("alert(1);")';
+    document.getElementById('body').appendChild(script);
+  </pre>
+  While the initial script will execute, the call to <code>eval</code> will be
+  blocked. That is, while the initial script execution is allowed, the behavior
+  within the script will be regulated by the page's CSP.
+</p>
+
+<p>
+  Thus, depending on how you write DOM injected scripts in your extension,
+  changes to the page's CSP may affect the behavior of your extension. Since
+  content scripts are <em>not</em> affected by the page's CSP, this a great
+  reason to put as much behavior as possible of your extension into the content
+  script rather than DOM injected scripts.
 </p>

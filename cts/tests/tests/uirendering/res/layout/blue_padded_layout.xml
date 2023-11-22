@@ -14,15 +14,15 @@
        limitations under the License.
   -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        android:layout_width="200px"
-        android:layout_height="200px"
-        android:clipChildren="false">
+    android:layout_width="@dimen/test_width"
+    android:layout_height="@dimen/test_height"
+    android:clipChildren="false">
     <android.uirendering.cts.testclasses.view.UnclippedBlueView
-            android:id="@+id/child"
-            android:layout_width="100px"
-            android:layout_height="100px"
-            android:paddingLeft="15px"
-            android:paddingTop="16px"
-            android:paddingRight="17px"
-            android:paddingBottom="18px"/>
+        android:id="@+id/child"
+        android:layout_width="80px"
+        android:layout_height="80px"
+        android:paddingLeft="15px"
+        android:paddingTop="16px"
+        android:paddingRight="17px"
+        android:paddingBottom="18px"/>
 </FrameLayout>

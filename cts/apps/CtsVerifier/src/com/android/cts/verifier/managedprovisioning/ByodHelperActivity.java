@@ -24,9 +24,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
 import android.widget.Toast;
+
+import static android.provider.Settings.Secure.INSTALL_NON_MARKET_APPS;
 
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.managedprovisioning.ByodFlowTestActivity.TestResult;
@@ -53,17 +57,33 @@ public class ByodHelperActivity extends Activity {
 
     public static final String EXTRA_PROVISIONED = "extra_provisioned";
 
-    private ComponentName mAdminReceiverComponent;
+    // Primary -> managed intent: set unknown sources restriction and install package
+    public static final String ACTION_INSTALL_APK = "com.android.cts.verifier.managedprovisioning.BYOD_INSTALL_APK";
+    public static final String EXTRA_ALLOW_NON_MARKET_APPS = INSTALL_NON_MARKET_APPS;
 
+    private static final int REQUEST_INSTALL_PACKAGE = 1;
+
+    private static final String ORIGINAL_SETTINGS_NAME = "original settings";
+    private Bundle mOriginalSettings;
+
+    private ComponentName mAdminReceiverComponent;
     private DevicePolicyManager mDevicePolicyManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (savedInstanceState != null) {
+            Log.w(TAG, "Restored state");
+            mOriginalSettings = savedInstanceState.getBundle(ORIGINAL_SETTINGS_NAME);
+        } else {
+            mOriginalSettings = new Bundle();
+        }
+
         mAdminReceiverComponent = new ComponentName(this, DeviceAdminTestReceiver.class.getName());
         mDevicePolicyManager = (DevicePolicyManager) getSystemService(
                 Context.DEVICE_POLICY_SERVICE);
-        String action = getIntent().getAction();
+        Intent intent = getIntent();
+        String action = intent.getAction();
         Log.d(TAG, "ByodHelperActivity.onCreate: " + action);
 
         // we are explicitly started by {@link DeviceAdminTestReceiver} after a successful provisioning.
@@ -83,14 +103,68 @@ public class ByodHelperActivity extends Activity {
                 mDevicePolicyManager.wipeData(0);
                 showToast(R.string.provisioning_byod_profile_deleted);
             }
+        } else if (action.equals(ACTION_INSTALL_APK)) {
+            boolean allowNonMarket = intent.getBooleanExtra(EXTRA_ALLOW_NON_MARKET_APPS, false);
+            boolean wasAllowed = getAllowNonMarket();
+
+            // Update permission to install non-market apps
+            setAllowNonMarket(allowNonMarket);
+            mOriginalSettings.putBoolean(INSTALL_NON_MARKET_APPS, wasAllowed);
+
+            // Request to install a non-market application- easiest way is to reinstall ourself
+            final Intent installIntent = new Intent(Intent.ACTION_INSTALL_PACKAGE)
+                    .setData(Uri.parse("package:" + getPackageName()))
+                    .putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
+                    .putExtra(Intent.EXTRA_RETURN_RESULT, true);
+            startActivityForResult(installIntent, REQUEST_INSTALL_PACKAGE);
+
+            // Not yet ready to finish- wait until the result comes back
+            return;
         }
         // This activity has no UI and is only used to respond to CtsVerifier in the primary side.
         finish();
     }
 
+    @Override
+    protected void onSaveInstanceState(final Bundle savedState) {
+        super.onSaveInstanceState(savedState);
+
+        savedState.putBundle(ORIGINAL_SETTINGS_NAME, mOriginalSettings);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        switch (requestCode) {
+            case REQUEST_INSTALL_PACKAGE: {
+                Log.w(TAG, "Received REQUEST_INSTALL_PACKAGE, resultCode = " + resultCode);
+                if (mOriginalSettings.containsKey(INSTALL_NON_MARKET_APPS)) {
+                    // Restore original setting
+                    setAllowNonMarket(mOriginalSettings.getBoolean(INSTALL_NON_MARKET_APPS));
+                    mOriginalSettings.remove(INSTALL_NON_MARKET_APPS);
+                }
+                finish();
+                break;
+            }
+            default: {
+                Log.wtf(TAG, "Unknown requestCode " + requestCode + "; data = " + data);
+                break;
+            }
+        }
+    }
+
     private boolean isProfileOwner() {
         return mDevicePolicyManager.isAdminActive(mAdminReceiverComponent) &&
                 mDevicePolicyManager.isProfileOwnerApp(mAdminReceiverComponent.getPackageName());
+    }
+
+    private boolean getAllowNonMarket() {
+        String value = Settings.Secure.getString(getContentResolver(), INSTALL_NON_MARKET_APPS);
+        return "1".equals(value);
+    }
+
+    private void setAllowNonMarket(boolean allow) {
+        mDevicePolicyManager.setSecureSetting(mAdminReceiverComponent, INSTALL_NON_MARKET_APPS,
+                (allow ? "1" : "0"));
     }
 
     private void startActivityInPrimary(Intent intent) {

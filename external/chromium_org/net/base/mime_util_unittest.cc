@@ -24,6 +24,9 @@ TEST(MimeUtilTest, ExtensionTest) {
     { FILE_PATH_LITERAL("css"), "text/css", true },
     { FILE_PATH_LITERAL("pjp"), "image/jpeg", true },
     { FILE_PATH_LITERAL("pjpeg"), "image/jpeg", true },
+#if defined(OS_ANDROID)
+    { FILE_PATH_LITERAL("m3u8"), "application/x-mpegurl", true },
+#endif
     { FILE_PATH_LITERAL("not an extension / for sure"), "", false },
   };
 
@@ -113,15 +116,13 @@ TEST(MimeUtilTest, StrictMediaMimeType) {
   EXPECT_TRUE(IsStrictMediaMimeType("audio/mp3"));
   EXPECT_TRUE(IsStrictMediaMimeType("audio/x-mp3"));
 
-  // TODO(amogh.bihani): These will be fixed http://crbug.com/53193
-  EXPECT_FALSE(IsStrictMediaMimeType("video/mp4"));
-  EXPECT_FALSE(IsStrictMediaMimeType("video/x-m4v"));
-  EXPECT_FALSE(IsStrictMediaMimeType("audio/mp4"));
-  EXPECT_FALSE(IsStrictMediaMimeType("audio/x-m4a"));
+  EXPECT_TRUE(IsStrictMediaMimeType("video/mp4"));
+  EXPECT_TRUE(IsStrictMediaMimeType("video/x-m4v"));
+  EXPECT_TRUE(IsStrictMediaMimeType("audio/mp4"));
+  EXPECT_TRUE(IsStrictMediaMimeType("audio/x-m4a"));
 
-  EXPECT_FALSE(IsStrictMediaMimeType("application/x-mpegurl"));
-  EXPECT_FALSE(IsStrictMediaMimeType("application/vnd.apple.mpegurl"));
-  // ---------------------------------------------------------------------------
+  EXPECT_TRUE(IsStrictMediaMimeType("application/x-mpegurl"));
+  EXPECT_TRUE(IsStrictMediaMimeType("application/vnd.apple.mpegurl"));
 
   EXPECT_FALSE(IsStrictMediaMimeType("video/unknown"));
   EXPECT_FALSE(IsStrictMediaMimeType("audio/unknown"));
@@ -230,6 +231,12 @@ TEST(MimeUtilTest, CommonMediaMimeType) {
   EXPECT_TRUE(IsSupportedMediaMimeType("audio/mp3"));
   EXPECT_TRUE(IsSupportedMediaMimeType("audio/x-mp3"));
   EXPECT_TRUE(IsSupportedMediaMimeType("audio/mpeg"));
+
+#if defined(ENABLE_MPEG2TS_STREAM_PARSER)
+  EXPECT_TRUE(IsSupportedMediaMimeType("video/mp2t"));
+#else
+  EXPECT_FALSE(IsSupportedMediaMimeType("video/mp2t"));
+#endif
 #else
   EXPECT_FALSE(IsSupportedMediaMimeType("audio/mp4"));
   EXPECT_FALSE(IsSupportedMediaMimeType("audio/x-m4a"));

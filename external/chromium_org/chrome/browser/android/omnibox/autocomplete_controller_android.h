@@ -12,10 +12,10 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/singleton.h"
 #include "chrome/browser/autocomplete/autocomplete_controller_delegate.h"
-#include "chrome/browser/autocomplete/autocomplete_input.h"
 #include "components/keyed_service/content/browser_context_keyed_service_factory.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/metrics/proto/omnibox_event.pb.h"
+#include "components/omnibox/autocomplete_input.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_service.h"
@@ -62,11 +62,12 @@ class AutocompleteControllerAndroid : public AutocompleteControllerDelegate,
                             jlong elapsed_time_since_first_modified,
                             jobject j_web_contents);
   void DeleteSuggestion(JNIEnv* env, jobject obj, int selected_index);
-  base::android::ScopedJavaLocalRef<jstring> UpdateMatchDestinationURL(
-      JNIEnv* env,
-      jobject obj,
-      jint selected_index,
-      jlong elapsed_time_since_input_change);
+  base::android::ScopedJavaLocalRef<jstring>
+      UpdateMatchDestinationURLWithQueryFormulationTime(
+          JNIEnv* env,
+          jobject obj,
+          jint selected_index,
+          jlong elapsed_time_since_input_change);
 
   base::android::ScopedJavaLocalRef<jobject> GetTopSynchronousMatch(
       JNIEnv* env,

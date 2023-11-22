@@ -12,9 +12,9 @@
 #include "base/basictypes.h"
 #include "base/callback.h"
 #include "base/memory/scoped_ptr.h"
-#include "content/shell/renderer/test_runner/WebTask.h"
-#include "third_party/WebKit/public/platform/WebCompositeAndReadbackAsyncCallback.h"
+#include "content/shell/renderer/test_runner/web_task.h"
 #include "third_party/WebKit/public/platform/WebRect.h"
+#include "third_party/WebKit/public/platform/WebScreenInfo.h"
 #include "third_party/WebKit/public/platform/WebURLError.h"
 #include "third_party/WebKit/public/platform/WebURLRequest.h"
 #include "third_party/WebKit/public/web/WebAXEnums.h"
@@ -22,6 +22,7 @@
 #include "third_party/WebKit/public/web/WebDataSource.h"
 #include "third_party/WebKit/public/web/WebDragOperation.h"
 #include "third_party/WebKit/public/web/WebFrame.h"
+#include "third_party/WebKit/public/web/WebFrameClient.h"
 #include "third_party/WebKit/public/web/WebHistoryCommitType.h"
 #include "third_party/WebKit/public/web/WebIconURL.h"
 #include "third_party/WebKit/public/web/WebNavigationPolicy.h"
@@ -30,6 +31,7 @@
 #include "third_party/WebKit/public/web/WebTextAffinity.h"
 #include "third_party/WebKit/public/web/WebTextDirection.h"
 
+class SkBitmap;
 class SkCanvas;
 
 namespace blink {
@@ -75,6 +77,8 @@ typedef unsigned WebColor;
 
 namespace content {
 
+class MockCredentialManagerClient;
+class MockScreenOrientationClient;
 class MockWebPushClient;
 class MockWebSpeechRecognizer;
 class MockWebUserMediaClient;
@@ -89,7 +93,7 @@ class WebTestInterfaces;
 // when it requires a behavior to be different from the usual, it will call
 // WebTestProxyBase that implements the expected behavior.
 // See WebTestProxy class comments for more information.
-class WebTestProxyBase : public blink::WebCompositeAndReadbackAsyncCallback {
+class WebTestProxyBase {
  public:
   void SetInterfaces(WebTestInterfaces* interfaces);
   void SetDelegate(WebTestDelegate* delegate);
@@ -104,16 +108,16 @@ class WebTestProxyBase : public blink::WebCompositeAndReadbackAsyncCallback {
       const blink::WebVector<blink::WebColorSuggestion>& suggestions);
   bool RunFileChooser(const blink::WebFileChooserParams& params,
                       blink::WebFileChooserCompletion* completion);
-  void ShowValidationMessage(const blink::WebRect& anchor_in_root_view,
-                             const blink::WebString& message,
-                             const blink::WebString& sub_message,
-                             blink::WebTextDirection hint);
+  void ShowValidationMessage(const base::string16& message,
+                             const base::string16& sub_message);
   void HideValidationMessage();
   void MoveValidationMessage(const blink::WebRect& anchor_in_root_view);
 
   std::string CaptureTree(bool debug_render_tree);
   void CapturePixelsForPrinting(
       const base::Callback<void(const SkBitmap&)>& callback);
+  void CopyImageAtAndCapturePixels(
+      int x, int y, const base::Callback<void(const SkBitmap&)>& callback);
   void CapturePixelsAsync(
       const base::Callback<void(const SkBitmap&)>& callback);
 
@@ -125,17 +129,17 @@ class WebTestProxyBase : public blink::WebCompositeAndReadbackAsyncCallback {
 
   void DisplayAsyncThen(const base::Closure& callback);
 
+  void GetScreenOrientationForTesting(blink::WebScreenInfo&);
+  MockScreenOrientationClient* GetScreenOrientationClientMock();
   blink::WebMIDIClientMock* GetMIDIClientMock();
   MockWebSpeechRecognizer* GetSpeechRecognizerMock();
+  MockCredentialManagerClient* GetCredentialManagerClientMock();
 
   WebTaskList* mutable_task_list() { return &task_list_; }
 
   blink::WebView* GetWebView() const;
 
   void PostSpellCheckEvent(const blink::WebString& event_name);
-
-  // WebCompositeAndReadbackAsyncCallback implementation.
-  virtual void didCompositeAndReadback(const SkBitmap& bitmap);
 
   void SetAcceptLanguages(const std::string& accept_languages);
 
@@ -224,12 +228,7 @@ class WebTestProxyBase : public blink::WebCompositeAndReadbackAsyncCallback {
                                  int intra_priority_value);
   void DidFinishResourceLoad(blink::WebLocalFrame* frame, unsigned identifier);
   blink::WebNavigationPolicy DecidePolicyForNavigation(
-      blink::WebLocalFrame* frame,
-      blink::WebDataSource::ExtraData* data,
-      const blink::WebURLRequest& request,
-      blink::WebNavigationType navigation_type,
-      blink::WebNavigationPolicy default_policy,
-      bool is_redirect);
+      const blink::WebFrameClient::NavigationPolicyInfo& info);
   bool WillCheckAndDispatchMessageEvent(blink::WebLocalFrame* source_frame,
                                         blink::WebFrame* target_frame,
                                         blink::WebSecurityOrigin target,
@@ -242,9 +241,16 @@ class WebTestProxyBase : public blink::WebCompositeAndReadbackAsyncCallback {
  private:
   template <class, typename, typename>
   friend class WebFrameTestProxy;
-  void LocationChangeDone(blink::WebFrame* frame);
+
+  enum CheckDoneReason {
+    LoadFinished,
+    MainResourceLoadFailed,
+    ResourceLoadCompleted
+  };
+  void CheckDone(blink::WebLocalFrame* frame, CheckDoneReason reason);
   void AnimateNow();
   void DrawSelectionRect(SkCanvas* canvas);
+  void DidCapturePixelsAsync(const base::Callback<void(const SkBitmap&)>& callback, const SkBitmap& bitmap);
   void DidDisplayAsync(const base::Closure& callback, const SkBitmap& bitmap);
 
   blink::WebWidget* web_widget() const { return web_widget_; }
@@ -260,15 +266,15 @@ class WebTestProxyBase : public blink::WebCompositeAndReadbackAsyncCallback {
 
   bool animate_scheduled_;
   std::map<unsigned, std::string> resource_identifier_map_;
-  std::deque<base::Callback<void(const SkBitmap&)> >
-      composite_and_readback_callbacks_;
 
   bool log_console_output_;
   int chooser_count_;
 
+  scoped_ptr<MockCredentialManagerClient> credential_manager_client_;
   scoped_ptr<blink::WebMIDIClientMock> midi_client_;
   scoped_ptr<MockWebSpeechRecognizer> speech_recognizer_;
   scoped_ptr<MockWebPushClient> push_client_;
+  scoped_ptr<MockScreenOrientationClient> screen_orientation_client_;
 
   std::string accept_languages_;
 
@@ -298,6 +304,13 @@ class WebTestProxy : public Base, public WebTestProxyBase {
   explicit WebTestProxy(T t) : Base(t) {}
 
   virtual ~WebTestProxy() {}
+
+  // WebWidgetClient implementation.
+  virtual blink::WebScreenInfo screenInfo() {
+    blink::WebScreenInfo info = Base::screenInfo();
+    WebTestProxyBase::GetScreenOrientationForTesting(info);
+    return info;
+  }
 
   // WebViewClient implementation.
   virtual void scheduleAnimation() { WebTestProxyBase::ScheduleAnimation(); }
@@ -335,9 +348,6 @@ class WebTestProxy : public Base, public WebTestProxyBase {
     WebTestProxyBase::SetStatusText(text);
     Base::setStatusText(text);
   }
-  virtual blink::WebUserMediaClient* userMediaClient() {
-    return WebTestProxyBase::GetUserMediaClient();
-  }
   virtual void printPage(blink::WebLocalFrame* frame) {
     WebTestProxyBase::PrintPage(frame);
   }
@@ -370,11 +380,18 @@ class WebTestProxy : public Base, public WebTestProxyBase {
     return WebTestProxyBase::RunFileChooser(params, completion);
   }
   virtual void showValidationMessage(const blink::WebRect& anchor_in_root_view,
-                                     const blink::WebString& message,
+                                     const blink::WebString& main_message,
+                                     blink::WebTextDirection main_message_hint,
                                      const blink::WebString& sub_message,
-                                     blink::WebTextDirection hint) {
+                                     blink::WebTextDirection sub_message_hint) {
+    base::string16 wrapped_main_text = main_message;
+    base::string16 wrapped_sub_text = sub_message;
+
+    Base::SetValidationMessageDirection(
+        &wrapped_main_text, main_message_hint, &wrapped_sub_text, sub_message_hint);
+
     WebTestProxyBase::ShowValidationMessage(
-        anchor_in_root_view, message, sub_message, hint);
+        wrapped_main_text, wrapped_sub_text);
   }
   virtual void postSpellCheckEvent(const blink::WebString& event_name) {
     WebTestProxyBase::PostSpellCheckEvent(event_name);

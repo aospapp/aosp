@@ -6,8 +6,8 @@
 
 #include <limits>
 
-#include "base/file_util.h"
 #include "base/files/file.h"
+#include "base/files/file_util.h"
 #include "base/memory/scoped_vector.h"
 #include "base/metrics/histogram.h"
 #include "base/threading/thread_restrictions.h"
@@ -99,8 +99,8 @@ bool SessionFileReader::Read(BaseSessionService::SessionType type,
     return false;
 
   ScopedVector<SessionCommand> read_commands;
-  SessionCommand* command;
-  while ((command = ReadCommand()) && !errored_)
+  for (SessionCommand* command = ReadCommand(); command && !errored_;
+       command = ReadCommand())
     read_commands.push_back(command);
   if (!errored_)
     read_commands.swap(*commands);

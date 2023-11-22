@@ -27,8 +27,8 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal|top"
         android:paddingBottom="@dimen/progress_bar_vertical_padding"
-        android:paddingLeft="@dimen/progress_bar_horizontal_padding"
-        android:paddingRight="@dimen/progress_bar_horizontal_padding"
+        android:paddingStart="@dimen/progress_bar_horizontal_padding"
+        android:paddingEnd="@dimen/progress_bar_horizontal_padding"
         android:paddingTop="@dimen/progress_bar_vertical_padding" >
     </FrameLayout>
 

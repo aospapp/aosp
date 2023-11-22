@@ -21,6 +21,7 @@ import com.android.cts.widget.R;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
+import android.cts.util.MediaUtils;
 import android.cts.util.PollingCheck;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
@@ -53,8 +54,6 @@ public class VideoViewTest extends ActivityInstrumentationTestCase2<VideoViewCts
     private static final int    TEST_VIDEO_DURATION = 11047;
     /** The full name of R.raw.testvideo. */
     private static final String VIDEO_NAME   = "testvideo.3gp";
-    /** The MIME type. */
-    private static final String MIME_TYPE = "video/3gpp";
     /** delta for duration in case user uses different decoders on different
         hardware that report a duration that's different by a few milliseconds */
     private static final int DURATION_DELTA = 100;
@@ -101,26 +100,8 @@ public class VideoViewTest extends ActivityInstrumentationTestCase2<VideoViewCts
         }
     }
 
-    // TODO: Make a public method selectCodec() in common libraries (e.g. cts/libs/), to avoid
-    // redundant function definitions in this and other media related test files.
-    private static boolean hasCodec(String mimeType) {
-        int numCodecs = MediaCodecList.getCodecCount();
-
-        for (int i = 0; i < numCodecs; i++) {
-            MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
-
-            if (!codecInfo.isEncoder()) {
-                continue;
-            }
-
-            String[] types = codecInfo.getSupportedTypes();
-            for (int j = 0; j < types.length; j++) {
-                if (types[j].equalsIgnoreCase(mimeType)) {
-                    return true;
-                }
-            }
-        }
-        return false;
+    private boolean hasCodec() {
+        return MediaUtils.hasCodecsForResource(mActivity, R.raw.testvideo);
     }
 
     /**
@@ -204,8 +185,8 @@ public class VideoViewTest extends ActivityInstrumentationTestCase2<VideoViewCts
     public void testPlayVideo1() throws Throwable {
         makeVideoView();
         // Don't run the test if the codec isn't supported.
-        if (!hasCodec(MIME_TYPE)) {
-            Log.w(TAG, "Codec " + MIME_TYPE + " not supported. Return from testPlayVideo1.");
+        if (!hasCodec()) {
+            Log.i(TAG, "SKIPPING testPlayVideo1(): codec is not supported");
             return;
         }
 
@@ -266,8 +247,8 @@ public class VideoViewTest extends ActivityInstrumentationTestCase2<VideoViewCts
     public void testGetBufferPercentage() throws Throwable {
         makeVideoView();
         // Don't run the test if the codec isn't supported.
-        if (!hasCodec(MIME_TYPE)) {
-            Log.w(TAG, MIME_TYPE + " not supported. Return from testGetBufferPercentage.");
+        if (!hasCodec()) {
+            Log.i(TAG, "SKIPPING testGetBufferPercentage(): codec is not supported");
             return;
         }
 
@@ -309,8 +290,8 @@ public class VideoViewTest extends ActivityInstrumentationTestCase2<VideoViewCts
 
     public void testGetDuration() throws Throwable {
         // Don't run the test if the codec isn't supported.
-        if (!hasCodec(MIME_TYPE)) {
-            Log.w(TAG, "Codec " + MIME_TYPE + " not supported. Return from testGetDuration.");
+        if (!hasCodec()) {
+            Log.i(TAG, "SKIPPING testGetDuration(): codec is not supported");
             return;
         }
 

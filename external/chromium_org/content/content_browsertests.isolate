@@ -10,9 +10,24 @@
         ],
       },
     }],
+    ['chromeos==1', {
+      'variables': {
+        'isolate_dependency_tracked': [
+          '<(PRODUCT_DIR)/content_shell.pak',
+        ],
+      },
+    }],
+    ['OS=="linux" or OS=="mac" or OS=="win"', {
+      'variables': {
+        'isolate_dependency_tracked': [
+          '<(PRODUCT_DIR)/content_shell.pak',
+        ],
+      },
+    }],
     ['OS=="android" or OS=="linux" or OS=="mac" or OS=="win"', {
       'variables': {
         'isolate_dependency_untracked': [
+          '../media/test/data/',
           '../net/data/',
           'test/data/',
         ],
@@ -29,24 +44,29 @@
         'isolate_dependency_tracked': [
           '../testing/xvfb.py',
           '<(PRODUCT_DIR)/content_shell.pak',
-          '<(PRODUCT_DIR)/fonts.conf',
-          '<(PRODUCT_DIR)/libclearkeycdm.so',
-          '<(PRODUCT_DIR)/libclearkeycdmadapter.so',
           '<(PRODUCT_DIR)/libffmpegsumo.so',
-          '<(PRODUCT_DIR)/plugins/libtest_netscape_plugin.so',
+          '<(PRODUCT_DIR)/libosmesa.so',
+          '<(PRODUCT_DIR)/libppapi_tests.so',
+        ],
+      },
+    }],
+    ['OS=="linux" and use_ozone==0', {
+      'variables': {
+        'isolate_dependency_tracked': [
+          '<(PRODUCT_DIR)/xdisplaycheck<(EXECUTABLE_SUFFIX)',
         ],
       },
     }],
     ['OS=="linux" or OS=="mac" or OS=="win"', {
       'variables': {
         'isolate_dependency_tracked': [
+          '../ppapi/tests/test_case.html',
+          '../ppapi/tests/test_page.css',
           '../testing/test_env.py',
           '<(PRODUCT_DIR)/content_browsertests<(EXECUTABLE_SUFFIX)',
         ],
         'isolate_dependency_untracked': [
           '../net/tools/testserver/',
-          '../third_party/WebKit/Tools/Scripts/',
-          '../third_party/lighttpd/',
           '../third_party/pyftpdlib/',
           '../third_party/pywebsocket/',
           '../third_party/tlslite/',
@@ -56,14 +76,13 @@
     ['OS=="mac"', {
       'variables': {
         'isolate_dependency_tracked': [
-          '<(PRODUCT_DIR)/clearkeycdmadapter.plugin',
-          '<(PRODUCT_DIR)/content_resources.pak',
           '<(PRODUCT_DIR)/ffmpegsumo.so',
-          '<(PRODUCT_DIR)/plugins/TestNestscapePlugin.plugin',
-          '<(PRODUCT_DIR)/plugins/npapi_test_plugin.plugin',
+          '<(PRODUCT_DIR)/ppapi_tests.plugin/Contents/MacOS/ppapi_tests',
         ],
         'isolate_dependency_untracked': [
           '<(PRODUCT_DIR)/Content Shell.app/',
+          '<(PRODUCT_DIR)/plugins/npapi_test_plugin.plugin/',
+          '<(PRODUCT_DIR)/plugins/test_netscape_plugin.plugin/',
         ],
       },
     }],
@@ -79,15 +98,24 @@
     ['OS=="win"', {
       'variables': {
         'isolate_dependency_tracked': [
-          '<(PRODUCT_DIR)/ffmpegsumo.dll',
-          '<(PRODUCT_DIR)/chrome_100_percent.pak',
-          '<(PRODUCT_DIR)/clearkeycdm.dll',
-          '<(PRODUCT_DIR)/clearkeycdmadapter.dll',
           '<(PRODUCT_DIR)/content_shell.pak',
+          '<(PRODUCT_DIR)/ffmpegsumo.dll',
+          '<(PRODUCT_DIR)/osmesa.dll',
           '<(PRODUCT_DIR)/plugins/np_test_netscape_plugin.dll',
           '<(PRODUCT_DIR)/plugins/npapi_test_plugin.dll',
+          '<(PRODUCT_DIR)/ppapi_tests.dll',
         ],
       },
     }],
+    ['OS=="win" and (fastbuild==0 or fastbuild==1)', {
+      'variables': {
+        'isolate_dependency_untracked': [
+          '<(PRODUCT_DIR)/content_browsertests.exe.pdb',
+        ],
+      },
+    }],
+  ],
+  'includes': [
+    '../base/base.isolate',
   ],
 }

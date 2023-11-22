@@ -9,13 +9,13 @@
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "chrome/browser/chromeos/login/managed/supervised_user_authentication.h"
+#include "chrome/browser/chromeos/login/supervised/supervised_user_authentication.h"
 #include "chrome/browser/chromeos/login/users/supervised_user_manager.h"
 
 namespace chromeos {
 
+class ChromeUserManagerImpl;
 class CrosSettings;
-class UserManagerImpl;
 
 // Implementation of the UserManager.
 class SupervisedUserManagerImpl
@@ -24,15 +24,16 @@ class SupervisedUserManagerImpl
   virtual ~SupervisedUserManagerImpl();
 
   virtual bool HasSupervisedUsers(const std::string& manager_id) const OVERRIDE;
-  virtual const User* CreateUserRecord(
+  virtual const user_manager::User* CreateUserRecord(
       const std::string& manager_id,
       const std::string& local_user_id,
       const std::string& sync_user_id,
       const base::string16& display_name) OVERRIDE;
   virtual std::string GenerateUserId() OVERRIDE;
-  virtual const User* FindByDisplayName(const base::string16& display_name)
-      const OVERRIDE;
-  virtual const User* FindBySyncId(const std::string& sync_id) const OVERRIDE;
+  virtual const user_manager::User* FindByDisplayName(
+      const base::string16& display_name) const OVERRIDE;
+  virtual const user_manager::User* FindBySyncId(
+      const std::string& sync_id) const OVERRIDE;
   virtual std::string GetUserSyncId(const std::string& user_id) const OVERRIDE;
   virtual base::string16 GetManagerDisplayName(const std::string& user_id) const
       OVERRIDE;
@@ -59,10 +60,10 @@ class SupervisedUserManagerImpl
       const std::string& token) OVERRIDE;
 
  private:
+  friend class ChromeUserManagerImpl;
   friend class UserManager;
-  friend class UserManagerImpl;
 
-  explicit SupervisedUserManagerImpl(UserManagerImpl* owner);
+  explicit SupervisedUserManagerImpl(ChromeUserManagerImpl* owner);
 
   // Returns true if there is non-committed user creation transaction.
   bool HasFailedUserCreationTransaction();
@@ -105,7 +106,7 @@ class SupervisedUserManagerImpl
   void CleanPref(const std::string& user_id,
                  const char* key);
 
-  UserManagerImpl* owner_;
+  ChromeUserManagerImpl* owner_;
 
   // Interface to the signed settings store.
   CrosSettings* cros_settings_;

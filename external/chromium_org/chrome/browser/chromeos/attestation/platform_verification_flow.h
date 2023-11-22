@@ -26,6 +26,10 @@ namespace cryptohome {
 class AsyncMethodCaller;
 }
 
+namespace user_manager {
+class User;
+}
+
 namespace user_prefs {
 class PrefRegistrySyncable;
 }
@@ -33,8 +37,6 @@ class PrefRegistrySyncable;
 namespace chromeos {
 
 class CryptohomeClient;
-class UserManager;
-class User;
 
 namespace attestation {
 
@@ -104,7 +106,7 @@ class PlatformVerificationFlow
 
     // Gets the user associated with the given |web_contents|.  NULL may be
     // returned.
-    virtual User* GetUser(content::WebContents* web_contents) = 0;
+    virtual user_manager::User* GetUser(content::WebContents* web_contents) = 0;
 
     // Gets the content settings map associated with the given |web_contents|.
     virtual HostContentSettingsMap* GetContentSettings(

@@ -15,6 +15,8 @@
 #include "chromeos/dbus/power_manager_client.h"
 #include "chromeos/login/login_state.h"
 #include "components/metrics/proto/sampled_profile.pb.h"
+#include "content/public/browser/notification_observer.h"
+#include "content/public/browser/notification_registrar.h"
 
 namespace metrics {
 
@@ -24,7 +26,8 @@ class WindowedIncognitoObserver;
 // performance profiling infrastructure built into the linux kernel. For more
 // information, see: https://perf.wiki.kernel.org/index.php/Main_Page.
 class PerfProvider : public base::NonThreadSafe,
-                     public chromeos::PowerManagerClient::Observer {
+                     public chromeos::PowerManagerClient::Observer,
+                     public content::NotificationObserver {
  public:
   PerfProvider();
   virtual ~PerfProvider();
@@ -59,6 +62,12 @@ class PerfProvider : public base::NonThreadSafe,
   // collections.
   void OnUserLoggedIn();
 
+  // Called when a session restore has finished.
+  // Inherited from content::NotificationObserver.
+  virtual void Observe(int type,
+                       const content::NotificationSource& source,
+                       const content::NotificationDetails& details) OVERRIDE;
+
   // Turns off perf collection. Does not delete any data that was already
   // collected and stored in |cached_perf_data_|.
   void Deactivate();
@@ -66,7 +75,7 @@ class PerfProvider : public base::NonThreadSafe,
   // Selects a random time in the upcoming profiling interval that begins at
   // |next_profiling_interval_start_|. Schedules |timer_| to invoke
   // DoPeriodicCollection() when that time comes.
-  void ScheduleCollection();
+  void ScheduleIntervalCollection();
 
   // Collects perf data for a given |trigger_event|. Calls perf via the ChromeOS
   // debug daemon's dbus interface.
@@ -75,6 +84,17 @@ class PerfProvider : public base::NonThreadSafe,
   // Collects perf data on a repeating basis by calling CollectIfNecessary() and
   // reschedules it to be collected again.
   void DoPeriodicCollection();
+
+  // Collects perf data after a resume. |sleep_duration| is the duration the
+  // system was suspended before resuming. |time_after_resume_ms| is how long
+  // ago the system resumed.
+  void CollectPerfDataAfterResume(const base::TimeDelta& sleep_duration,
+                                  const base::TimeDelta& time_after_resume);
+
+  // Collects perf data after a session restore. |time_after_restore| is how
+  // long ago the session restore started.
+  void CollectPerfDataAfterSessionRestore(
+      const base::TimeDelta& time_after_restore);
 
   // Parses a perf data protobuf from the |data| passed in only if the
   // |incognito_observer| indicates that no incognito window had been opened
@@ -99,6 +119,13 @@ class PerfProvider : public base::NonThreadSafe,
 
   // Record of the start of the upcoming profiling interval.
   base::TimeTicks next_profiling_interval_start_;
+
+  // Used to register objects of this class as observers to be notified of
+  // session restore events.
+  content::NotificationRegistrar session_restore_registrar_;
+
+  // Tracks the last time a session restore was collected.
+  base::TimeTicks last_session_restore_collection_time_;
 
   // To pass around the "this" pointer across threads safely.
   base::WeakPtrFactory<PerfProvider> weak_factory_;

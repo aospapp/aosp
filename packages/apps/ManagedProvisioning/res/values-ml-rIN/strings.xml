@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"അഡ്‌മിൻ അപ്ലിക്കേഷൻ ഉപയോഗിക്കാനാവില്ല. അതിന്റെ ഘടകഭാഗങ്ങൾ നഷ്‌ടപ്പെട്ടതോ കേടായതോ ആണ്. നിങ്ങളുടെ ഐടി വിഭാഗവുമായി ബന്ധപ്പെടുക."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"അഡ്‌മിൻ അപ്ലിക്കേഷൻ ഇൻസ്റ്റാളുചെയ്യാനായില്ല"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"നിങ്ങളുടെ ഉപകരണത്തിൽ അഡ്‌മിൻ അപ്ലിക്കേഷൻ ഇൻസ്‌റ്റാളുചെയ്‌തിട്ടില്ല"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"സജ്ജീകരിക്കൽ നിർത്തണോ?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"സജ്ജീകരിക്കൽ നിർത്തണമെന്ന് തീർച്ചയാണോ?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"അല്ല"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"അതെ"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"റദ്ദാക്കുന്നു..."</string>
 </resources>

@@ -22,6 +22,7 @@ import android.accounts.AccountAuthenticatorResponse;
 import android.accounts.AccountManager;
 import android.accounts.NetworkErrorException;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 
 import java.util.ArrayList;
@@ -31,21 +32,27 @@ import java.util.ArrayList;
  */
 public class MockAccountAuthenticator extends AbstractAccountAuthenticator {
 
-    private AccountAuthenticatorResponse mResponse;
-    private String mAccountType;
-    private String mAuthTokenType;
-    private String[] mRequiredFeatures;
+    public static String KEY_ACCOUNT_INFO = "key_account_info";
+    public static String KEY_ACCOUNT_AUTHENTICATOR_RESPONSE = "key_account_authenticator_response";
+    public static String ACCOUNT_NAME_FOR_NEW_REMOVE_API = "call new removeAccount api";
+
+    private final Context mContext;
+    AccountAuthenticatorResponse mResponse;
+    String mAccountType;
+    String mAuthTokenType;
+    String[] mRequiredFeatures;
     public Bundle mOptionsUpdateCredentials;
     public Bundle mOptionsConfirmCredentials;
     public Bundle mOptionsAddAccount;
     public Bundle mOptionsGetAuthToken;
-    private Account mAccount;
-    private String[] mFeatures;
+    Account mAccount;
+    String[] mFeatures;
 
-    private final ArrayList<String> mockFeatureList = new ArrayList<String>();
+    final ArrayList<String> mockFeatureList = new ArrayList<String>();
 
     public MockAccountAuthenticator(Context context) {
         super(context);
+        mContext = context;
 
         // Create some mock features
         mockFeatureList.add(AccountManagerTest.FEATURE_1);
@@ -210,6 +217,28 @@ public class MockAccountAuthenticator extends AbstractAccountAuthenticator {
                 }
             }
             result.putBoolean(AccountManager.KEY_BOOLEAN_RESULT, booleanResult);
+        }
+        return result;
+    }
+
+    @Override
+    public Bundle getAccountRemovalAllowed(AccountAuthenticatorResponse response,
+            Account account) throws NetworkErrorException {
+        final Bundle result = new Bundle();
+        if (ACCOUNT_NAME_FOR_NEW_REMOVE_API.equals(account.name)) {
+            Intent intent = AccountRemovalDummyActivity.createIntent(mContext);
+            // Pass in the authenticator response, so that account removal can
+            // be
+            // completed
+            intent.putExtra(KEY_ACCOUNT_AUTHENTICATOR_RESPONSE, response);
+            intent.putExtra(KEY_ACCOUNT_INFO, account);
+            result.putParcelable(AccountManager.KEY_INTENT, intent);
+            // Adding this following line to reject account installation
+            // requests
+            // coming from old removeAccount API.
+            result.putBoolean(AccountManager.KEY_BOOLEAN_RESULT, false);
+        } else {
+            result.putBoolean(AccountManager.KEY_BOOLEAN_RESULT, true);
         }
         return result;
     }

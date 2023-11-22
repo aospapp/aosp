@@ -14,19 +14,12 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 -->
-
-
-
 <sample>
     <name>FloatingActionButtonBasic</name>
     <group>UI</group>
     <package>com.example.android.floatingactionbuttonbasic</package>
-
-    <!-- change minSdk if needed-->
     <minSdk>21</minSdk>
     <compileSdkVersion>21</compileSdkVersion>
-
-
     <strings>
         <intro>
             <![CDATA[
@@ -40,5 +33,49 @@
     <template src="FragmentView"/>
     <common src="logger"/>
     <common src="activities"/>
+    <metadata>
+        <status>PUBLISHED</status>
+        <categories>Getting Started, UI</categories>
+        <technologies>Android</technologies>
+        <languages>Java</languages>
+        <solutions>Mobile</solutions>
+        <level>BEGINNER</level>
+        <icon>screenshots/big_icon.png</icon>
+        <screenshots>
+            <img>screenshots/screenshot1.png</img>
+            <img>screenshots/screenshot2.png</img>
+            <img>screenshots/screenshot3.png</img>
+            <img>screenshots/screenshot4.png</img>
+            <img>screenshots/screenshot5.png</img>
+        </screenshots>
+        <api_refs>
+            <android>android.graphics.Outline</android>
+            <android>android.view.ViewOutlineProvider</android>
+            <android>android.widget.Checkable</android>
+        </api_refs>
+        <description>
+<![CDATA[
+This sample shows the two sizes of Floating Action Buttons and
+how to interact with them.
+]]>
+        </description>
 
+        <intro>
+<![CDATA[
+This sample shows how to implement a [Checkable][1] Floating Action Button.
+
+Floating action buttons are used for a special type of promoted action.
+They are distinguished by a circled icon floating above the UI and have
+special motion behaviors related to morphing, launching, and the transferring anchor point.
+
+Floating action buttons come in two sizes:
+the default, which should be used in most cases, and the mini,
+which should only be used to create visual continuity with other elements on the screen.
+
+Both sizes of Floating Action Buttons are displayed on screen.
+
+[1]: https://developer.android.com/reference/android/widget/Checkable.html
+]]>
+        </intro>
+    </metadata>
 </sample>

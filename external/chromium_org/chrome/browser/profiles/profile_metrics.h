@@ -20,13 +20,31 @@ class FilePath;
 
 class ProfileMetrics {
  public:
+  struct ProfileCounts {
+    size_t total;
+    size_t signedin;
+    size_t supervised;
+    size_t unused;
+    size_t gaia_icon;
+
+    ProfileCounts()
+        : total(0), signedin(0), supervised(0), unused(0), gaia_icon(0) {}
+  };
+
   // Enum for counting the ways users were added.
   enum ProfileAdd {
-    ADD_NEW_USER_ICON = 0,    // User adds new user from icon menu
-    ADD_NEW_USER_MENU,        // User adds new user from menu bar
-    ADD_NEW_USER_DIALOG,      // User adds new user from create-profile dialog
-    ADD_NEW_USER_MANAGER,     // User adds new user from User Manager
+    ADD_NEW_USER_ICON = 0,      // User adds new user from icon menu
+    ADD_NEW_USER_MENU,          // User adds new user from menu bar
+    ADD_NEW_USER_DIALOG,        // User adds new user from create-profile dialog
+    ADD_NEW_USER_MANAGER,       // User adds new user from User Manager
+    ADD_NEW_USER_LAST_DELETED,  // Auto-created after deleting last user
     NUM_PROFILE_ADD_METRICS
+  };
+
+  enum ProfileDelete {
+    DELETE_PROFILE_SETTINGS = 0,  // Delete profile from settings page.
+    DELETE_PROFILE_USER_MANAGER,  // Delete profile from User Manager.
+    NUM_DELETE_PROFILE_METRICS
   };
 
   // Enum for counting the ways user profiles and menus were opened.
@@ -74,29 +92,12 @@ class ProfileMetrics {
   };
 
   enum ProfileAuth {
-    AUTH_UNNECESSARY,         // Profile was not locked
-    AUTH_LOCAL,               // Profile was authenticated locally
-    AUTH_ONLINE,              // Profile was authenticated on-line
-    AUTH_FAILED,              // Profile failed authentication
+    AUTH_UNNECESSARY,     // Profile was not locked
+    AUTH_LOCAL,           // Profile was authenticated locally
+    AUTH_ONLINE,          // Profile was authenticated on-line
+    AUTH_FAILED,          // Profile failed authentication
+    AUTH_FAILED_OFFLINE,  // Profile failed authentication and was offline
     NUM_PROFILE_AUTH_METRICS
-  };
-
-  // Enum for tracking if new profile management is enabled and Promo views.
-  // This is used in a histogram; the items should not be removed or re-ordered.
-  enum ProfileUpgradeEnrollment {
-    // User viewed the Upgrade promo card in the user menu.
-    PROFILE_ENROLLMENT_SHOW_PREVIEW_PROMO,
-    // User selected to view the intro tutorial.
-    PROFILE_ENROLLMENT_LAUNCH_LEARN_MORE,
-    // User opted into New Profile Management via Promo card.
-    PROFILE_ENROLLMENT_ACCEPT_NEW_PROFILE_MGMT,
-    // User closed the Upgrade card.
-    PROFILE_ENROLLMENT_CLOSE_WELCOME_CARD,
-    // User disabled New Profile Management.
-    PROFILE_ENROLLMENT_DISABLE_NEW_PROFILE_MGMT,
-    // User elected to send feedback.
-    PROFILE_ENROLLMENT_SEND_FEEDBACK,
-    NUM_PROFILE_ENROLLMENT_METRICS,
   };
 
   // Enum for tracking user interactions with the user menu and user manager.
@@ -115,6 +116,8 @@ class ProfileMetrics {
     PROFILE_DESKTOP_MENU_EDIT_NAME,
     // User opened the user menu, and started selecting a new profile image.
     PROFILE_DESKTOP_MENU_EDIT_IMAGE,
+    // User opened the user menu, and opened the user manager.
+    PROFILE_DESKTOP_MENU_OPEN_USER_MANAGER,
     NUM_PROFILE_DESKTOP_MENU_METRICS,
   };
 
@@ -144,21 +147,68 @@ class ProfileMetrics {
   };
 #endif  // defined(OS_ANDROID)
 
+  // Enum for tracking user interactions with the 'Not You?' bubble that users
+  // can navigate to from the Upgrade bubble after upgrade.
+  enum ProfileNewAvatarMenuNotYou {
+    // User views the 'Not You?' bubble.
+    PROFILE_AVATAR_MENU_NOT_YOU_VIEW = 0,
+    // User selects back from within the 'Not You?' bubble.
+    PROFILE_AVATAR_MENU_NOT_YOU_BACK,
+    // User adds a person from within the 'Not You?' bubble.
+    PROFILE_AVATAR_MENU_NOT_YOU_ADD_PERSON,
+    // User chooses to disconnect (sign out) from within the 'Not You?' bubble.
+    PROFILE_AVATAR_MENU_NOT_YOU_DISCONNECT,
+    NUM_PROFILE_AVATAR_MENU_NOT_YOU_METRICS,
+  };
+
+  // Enum for tracking user interactions with the signin bubble that appears
+  // in the New Avatar Menu after using the Inline Signin flow.
+  enum ProfileNewAvatarMenuSignin {
+    // User viewed the signin bubble after successfully using the inline signin.
+    PROFILE_AVATAR_MENU_SIGNIN_VIEW = 0,
+    // User selected ok to dismiss the signin bubble.
+    PROFILE_AVATAR_MENU_SIGNIN_OK,
+    // User opened the settings from the signin bubble.
+    PROFILE_AVATAR_MENU_SIGNIN_SETTINGS,
+    NUM_PROFILE_AVATAR_MENU_SIGNIN_METRICS,
+  };
+
+  // Enum for tracking user interactions with the bubble that appears for all
+  // users in the new avatar menu after upgrading.
+  enum ProfileNewAvatarMenuUpgrade {
+    // User views the upgrade bubble.
+    PROFILE_AVATAR_MENU_UPGRADE_VIEW = 0,
+    // User dismissed the upgrade bubble.
+    PROFILE_AVATAR_MENU_UPGRADE_DISMISS,
+    // User selects 'What's New' in the upgrade bubble.
+    PROFILE_AVATAR_MENU_UPGRADE_WHATS_NEW,
+    // User selects 'Not You?' in the upgrade bubble.
+    PROFILE_AVATAR_MENU_UPGRADE_NOT_YOU,
+    NUM_PROFILE_AVATAR_MENU_UPGRADE_METRICS,
+  };
+
   static void UpdateReportedProfilesStatistics(ProfileManager* manager);
+  // Count and return summary information about the profiles currently in the
+  // |manager|. This information is returned in the output variable |counts|.
+  static bool CountProfileInformation(ProfileManager* manager,
+                                      ProfileCounts* counts);
 
   static void LogNumberOfProfiles(ProfileManager* manager);
   static void LogProfileAddNewUser(ProfileAdd metric);
   static void LogProfileAvatarSelection(size_t icon_index);
-  static void LogProfileDeleteUser(ProfileNetUserCounts metric);
+  static void LogProfileDeleteUser(ProfileDelete metric);
   static void LogProfileOpenMethod(ProfileOpen metric);
   static void LogProfileSwitchGaia(ProfileGaia metric);
   static void LogProfileSwitchUser(ProfileOpen metric);
   static void LogProfileSyncInfo(ProfileSync metric);
   static void LogProfileAuthResult(ProfileAuth metric);
-  static void LogProfileUpgradeEnrollment(ProfileUpgradeEnrollment metric);
   static void LogProfileDesktopMenu(ProfileDesktopMenu metric,
                                     signin::GAIAServiceType gaia_service);
   static void LogProfileDelete(bool profile_was_signed_in);
+  static void LogProfileNewAvatarMenuNotYou(ProfileNewAvatarMenuNotYou metric);
+  static void LogProfileNewAvatarMenuSignin(ProfileNewAvatarMenuSignin metric);
+  static void LogProfileNewAvatarMenuUpgrade(
+      ProfileNewAvatarMenuUpgrade metric);
 
 #if defined(OS_ANDROID)
   static void LogProfileAndroidAccountManagementMenu(

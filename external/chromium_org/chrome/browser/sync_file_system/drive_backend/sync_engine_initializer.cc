@@ -7,7 +7,6 @@
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/logging.h"
-#include "base/message_loop/message_loop_proxy.h"
 #include "chrome/browser/drive/drive_api_service.h"
 #include "chrome/browser/sync_file_system/drive_backend/drive_backend_constants.h"
 #include "chrome/browser/sync_file_system/drive_backend/drive_backend_util.h"
@@ -86,23 +85,10 @@ void SyncEngineInitializer::RunPreflight(scoped_ptr<SyncTaskToken> token) {
     return;
   }
 
-  MetadataDatabase::Create(
-      sync_context_->GetWorkerTaskRunner(),
-      sync_context_->GetFileTaskRunner(),
-      database_path_,
-      env_override_,
-      base::Bind(&SyncEngineInitializer::DidCreateMetadataDatabase,
-                 weak_ptr_factory_.GetWeakPtr(), base::Passed(&token)));
-}
+  SyncStatusCode status = SYNC_STATUS_FAILED;
+  scoped_ptr<MetadataDatabase> metadata_database =
+      MetadataDatabase::Create(database_path_, env_override_, &status);
 
-scoped_ptr<MetadataDatabase> SyncEngineInitializer::PassMetadataDatabase() {
-  return metadata_database_.Pass();
-}
-
-void SyncEngineInitializer::DidCreateMetadataDatabase(
-    scoped_ptr<SyncTaskToken> token,
-    SyncStatusCode status,
-    scoped_ptr<MetadataDatabase> instance) {
   if (status != SYNC_STATUS_OK) {
     util::Log(logging::LOG_VERBOSE, FROM_HERE,
               "[Initialize] Failed to initialize MetadataDatabase.");
@@ -110,8 +96,8 @@ void SyncEngineInitializer::DidCreateMetadataDatabase(
     return;
   }
 
-  DCHECK(instance);
-  metadata_database_ = instance.Pass();
+  DCHECK(metadata_database);
+  metadata_database_ = metadata_database.Pass();
   if (metadata_database_->HasSyncRoot()) {
     util::Log(logging::LOG_VERBOSE, FROM_HERE,
               "[Initialize] Found local cache of sync-root.");
@@ -120,6 +106,10 @@ void SyncEngineInitializer::DidCreateMetadataDatabase(
   }
 
   GetAboutResource(token.Pass());
+}
+
+scoped_ptr<MetadataDatabase> SyncEngineInitializer::PassMetadataDatabase() {
+  return metadata_database_.Pass();
 }
 
 void SyncEngineInitializer::GetAboutResource(
@@ -349,17 +339,8 @@ void SyncEngineInitializer::DidListAppRootFolders(
 void SyncEngineInitializer::PopulateDatabase(
     scoped_ptr<SyncTaskToken> token) {
   DCHECK(sync_root_folder_);
-  metadata_database_->PopulateInitialData(
-      largest_change_id_,
-      *sync_root_folder_,
-      app_root_folders_,
-      base::Bind(&SyncEngineInitializer::DidPopulateDatabase,
-                 weak_ptr_factory_.GetWeakPtr(), base::Passed(&token)));
-}
-
-void SyncEngineInitializer::DidPopulateDatabase(
-    scoped_ptr<SyncTaskToken> token,
-    SyncStatusCode status) {
+  SyncStatusCode status = metadata_database_->PopulateInitialData(
+      largest_change_id_, *sync_root_folder_, app_root_folders_);
   if (status != SYNC_STATUS_OK) {
     util::Log(logging::LOG_VERBOSE, FROM_HERE,
               "[Initialize] Failed to populate initial data"

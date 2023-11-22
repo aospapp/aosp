@@ -26,9 +26,6 @@
     <add-resource name="ComposeFieldLayout" type="style" />
     <add-resource name="RecipientComposeFieldLayout" type="style" />
     <add-resource name="ComposeSubjectStyle" type="style" />
-    <declare-styleable name="FolderItemViewDrawableState">
-        <attr name="state_drag_mode" format="boolean" />
-    </declare-styleable>
     <declare-styleable name="ButteryProgressBar">
         <attr name="barColor" format="color" />
         <attr name="barHeight" format="dimension" />

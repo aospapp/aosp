@@ -4,6 +4,8 @@
 
 #include "extensions/common/url_pattern_set.h"
 
+#include <sstream>
+
 #include "base/values.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
@@ -58,6 +60,34 @@ TEST(URLPatternSetTest, Two) {
   EXPECT_TRUE(set.MatchesURL(GURL("http://www.google.com/monkey")));
   EXPECT_TRUE(set.MatchesURL(GURL("http://www.yahoo.com/monkey")));
   EXPECT_FALSE(set.MatchesURL(GURL("https://www.apple.com/monkey")));
+}
+
+TEST(URLPatternSetTest, StreamOperatorEmpty) {
+  URLPatternSet set;
+
+  std::ostringstream stream;
+  stream << set;
+  EXPECT_EQ("{ }", stream.str());
+}
+
+TEST(URLPatternSetTest, StreamOperatorOne) {
+  URLPatternSet set;
+  AddPattern(&set, "http://www.google.com/*");
+
+  std::ostringstream stream;
+  stream << set;
+  EXPECT_EQ("{ \"http://www.google.com/*\" }", stream.str());
+}
+
+TEST(URLPatternSetTest, StreamOperatorTwo) {
+  URLPatternSet set;
+  AddPattern(&set, "http://www.google.com/*");
+  AddPattern(&set, "http://www.yahoo.com/*");
+
+  std::ostringstream stream;
+  stream << set;
+  EXPECT_EQ("{ \"http://www.google.com/*\", \"http://www.yahoo.com/*\" }",
+            stream.str());
 }
 
 TEST(URLPatternSetTest, OverlapsWith) {
@@ -389,6 +419,24 @@ TEST(URLPatternSetTest, NwayUnion) {
     AddPattern(&expected, reddit_c);
     EXPECT_EQ(expected, result);
   }
+}
+
+TEST(URLPatternSetTest, AddOrigin) {
+  URLPatternSet set;
+  EXPECT_TRUE(set.AddOrigin(
+      URLPattern::SCHEME_ALL, GURL("https://www.google.com/")));
+  EXPECT_TRUE(set.MatchesURL(GURL("https://www.google.com/foo/bar")));
+  EXPECT_FALSE(set.MatchesURL(GURL("http://www.google.com/foo/bar")));
+  EXPECT_FALSE(set.MatchesURL(GURL("https://en.google.com/foo/bar")));
+  set.ClearPatterns();
+
+  EXPECT_TRUE(set.AddOrigin(
+      URLPattern::SCHEME_ALL, GURL("https://google.com/")));
+  EXPECT_FALSE(set.MatchesURL(GURL("https://www.google.com/foo/bar")));
+  EXPECT_TRUE(set.MatchesURL(GURL("https://google.com/foo/bar")));
+
+  EXPECT_FALSE(set.AddOrigin(
+      URLPattern::SCHEME_HTTP, GURL("https://google.com/")));
 }
 
 }  // namespace extensions

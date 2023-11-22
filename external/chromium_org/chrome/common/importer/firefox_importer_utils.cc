@@ -8,8 +8,7 @@
 #include <map>
 #include <string>
 
-#include "base/file_util.h"
-#include "base/ini_parser.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
@@ -17,7 +16,8 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
-#include "grit/generated_resources.h"
+#include "chrome/common/ini_parser.h"
+#include "chrome/grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
 
@@ -61,7 +61,7 @@ base::FilePath GetFirefoxProfilePath() {
   base::FilePath ini_file = GetProfilesINI();
   std::string content;
   base::ReadFileToString(ini_file, &content);
-  base::DictionaryValueINIParser ini_parser;
+  DictionaryValueINIParser ini_parser;
   ini_parser.Parse(content);
   return GetFirefoxProfilePathFromDictionary(ini_parser.root());
 }
@@ -322,7 +322,7 @@ base::string16 GetFirefoxImporterName(const base::FilePath& app_path) {
     }
   }
 
-  StringToLowerASCII(&branding_name);
+  base::StringToLowerASCII(&branding_name);
   if (branding_name.find("iceweasel") != std::string::npos)
     return l10n_util::GetStringUTF16(IDS_IMPORT_FROM_ICEWEASEL);
   return l10n_util::GetStringUTF16(IDS_IMPORT_FROM_FIREFOX);

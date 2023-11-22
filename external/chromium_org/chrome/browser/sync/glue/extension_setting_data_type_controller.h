@@ -24,14 +24,13 @@ class StorageFrontend;
 namespace browser_sync {
 
 class ExtensionSettingDataTypeController
-    : public NonUIDataTypeController {
+    : public sync_driver::NonUIDataTypeController {
  public:
   ExtensionSettingDataTypeController(
       // Either EXTENSION_SETTINGS or APP_SETTINGS.
       syncer::ModelType type,
       ProfileSyncComponentsFactory* profile_sync_factory,
-      Profile* profile,
-      const DisableTypeCallback& disable_callback);
+      Profile* profile);
 
   // NonFrontendDataTypeController implementation
   virtual syncer::ModelType type() const OVERRIDE;

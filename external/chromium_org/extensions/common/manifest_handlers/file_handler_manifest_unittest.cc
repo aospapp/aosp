@@ -2,17 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/common/extensions/manifest_tests/extension_manifest_test.h"
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/manifest_handlers/file_handler_info.h"
+#include "extensions/common/manifest_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace extensions {
 
 namespace errors = manifest_errors;
 
-class FileHandlersManifestTest : public ExtensionManifestTest {
-};
+typedef ManifestTest FileHandlersManifestTest;
 
 TEST_F(FileHandlersManifestTest, InvalidFileHandlers) {
   Testcase testcases[] = {
@@ -24,8 +23,6 @@ TEST_F(FileHandlersManifestTest, InvalidFileHandlers) {
              errors::kInvalidFileHandlerExtension),
     Testcase("file_handlers_invalid_no_type_or_extension.json",
              errors::kInvalidFileHandlerNoTypeOrExtension),
-    Testcase("file_handlers_invalid_title.json",
-             errors::kInvalidFileHandlerTitle),
     Testcase("file_handlers_invalid_type_element.json",
              errors::kInvalidFileHandlerTypeElement),
     Testcase("file_handlers_invalid_extension_element.json",
@@ -41,13 +38,13 @@ TEST_F(FileHandlersManifestTest, ValidFileHandlers) {
       LoadAndExpectSuccess("file_handlers_valid.json");
 
   ASSERT_TRUE(extension.get());
-  const FileHandlersInfo* handlers = FileHandlers::GetFileHandlers(extension);
+  const FileHandlersInfo* handlers =
+      FileHandlers::GetFileHandlers(extension.get());
   ASSERT_TRUE(handlers != NULL);
   ASSERT_EQ(2U, handlers->size());
 
   FileHandlerInfo handler = handlers->at(0);
   EXPECT_EQ("image", handler.id);
-  EXPECT_EQ("Image editor", handler.title);
   EXPECT_EQ(1U, handler.types.size());
   EXPECT_EQ(1U, handler.types.count("image/*"));
   EXPECT_EQ(2U, handler.extensions.size());
@@ -56,7 +53,6 @@ TEST_F(FileHandlersManifestTest, ValidFileHandlers) {
 
   handler = handlers->at(1);
   EXPECT_EQ("text", handler.id);
-  EXPECT_EQ("Text editor", handler.title);
   EXPECT_EQ(1U, handler.types.size());
   EXPECT_EQ(1U, handler.types.count("text/*"));
   EXPECT_EQ(0U, handler.extensions.size());
@@ -68,7 +64,8 @@ TEST_F(FileHandlersManifestTest, NotPlatformApp) {
       LoadAndExpectSuccess("file_handlers_invalid_not_app.json");
 
   ASSERT_TRUE(extension.get());
-  const FileHandlersInfo* handlers = FileHandlers::GetFileHandlers(extension);
+  const FileHandlersInfo* handlers =
+      FileHandlers::GetFileHandlers(extension.get());
   ASSERT_TRUE(handlers == NULL);
 }
 

@@ -7,9 +7,9 @@
 #include "base/strings/stringprintf.h"
 #include "base/values.h"
 #include "cc/base/math_util.h"
-#include "cc/layers/quad_sink.h"
 #include "cc/quads/texture_draw_quad.h"
 #include "cc/trees/layer_tree_impl.h"
+#include "cc/trees/occlusion_tracker.h"
 #include "ui/gfx/rect_f.h"
 
 namespace cc {
@@ -80,14 +80,17 @@ void NinePatchLayerImpl::CheckGeometryLimitations() {
       << " image_aperture_ " << image_aperture_.ToString();
 }
 
-void NinePatchLayerImpl::AppendQuads(QuadSink* quad_sink,
-                                     AppendQuadsData* append_quads_data) {
+void NinePatchLayerImpl::AppendQuads(
+    RenderPass* render_pass,
+    const OcclusionTracker<LayerImpl>& occlusion_tracker,
+    AppendQuadsData* append_quads_data) {
   CheckGeometryLimitations();
-  SharedQuadState* shared_quad_state = quad_sink->CreateSharedQuadState();
+  SharedQuadState* shared_quad_state =
+      render_pass->CreateAndAppendSharedQuadState();
   PopulateSharedQuadState(shared_quad_state);
 
   AppendDebugBorderQuad(
-      quad_sink, content_bounds(), shared_quad_state, append_quads_data);
+      render_pass, content_bounds(), shared_quad_state, append_quads_data);
 
   if (!ui_resource_id_)
     return;
@@ -209,12 +212,14 @@ void NinePatchLayerImpl::AppendQuads(QuadSink* quad_sink,
   gfx::Rect opaque_rect;
   gfx::Rect visible_rect;
   const float vertex_opacity[] = {1.0f, 1.0f, 1.0f, 1.0f};
-  scoped_ptr<TextureDrawQuad> quad;
 
-  visible_rect =
-      quad_sink->UnoccludedContentRect(layer_top_left, draw_transform());
+  Occlusion occlusion =
+      occlusion_tracker.GetCurrentOcclusionForLayer(draw_transform());
+
+  visible_rect = occlusion.GetUnoccludedContentRect(layer_top_left);
   if (!visible_rect.IsEmpty()) {
-    quad = TextureDrawQuad::Create();
+    TextureDrawQuad* quad =
+        render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
     quad->SetNew(shared_quad_state,
                  layer_top_left,
                  opaque_rect,
@@ -226,13 +231,12 @@ void NinePatchLayerImpl::AppendQuads(QuadSink* quad_sink,
                  SK_ColorTRANSPARENT,
                  vertex_opacity,
                  flipped);
-    quad_sink->Append(quad.PassAs<DrawQuad>());
   }
 
-  visible_rect =
-      quad_sink->UnoccludedContentRect(layer_top_right, draw_transform());
+  visible_rect = occlusion.GetUnoccludedContentRect(layer_top_right);
   if (!visible_rect.IsEmpty()) {
-    quad = TextureDrawQuad::Create();
+    TextureDrawQuad* quad =
+        render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
     quad->SetNew(shared_quad_state,
                  layer_top_right,
                  opaque_rect,
@@ -244,13 +248,12 @@ void NinePatchLayerImpl::AppendQuads(QuadSink* quad_sink,
                  SK_ColorTRANSPARENT,
                  vertex_opacity,
                  flipped);
-    quad_sink->Append(quad.PassAs<DrawQuad>());
   }
 
-  visible_rect =
-      quad_sink->UnoccludedContentRect(layer_bottom_left, draw_transform());
+  visible_rect = occlusion.GetUnoccludedContentRect(layer_bottom_left);
   if (!visible_rect.IsEmpty()) {
-    quad = TextureDrawQuad::Create();
+    TextureDrawQuad* quad =
+        render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
     quad->SetNew(shared_quad_state,
                  layer_bottom_left,
                  opaque_rect,
@@ -262,13 +265,12 @@ void NinePatchLayerImpl::AppendQuads(QuadSink* quad_sink,
                  SK_ColorTRANSPARENT,
                  vertex_opacity,
                  flipped);
-    quad_sink->Append(quad.PassAs<DrawQuad>());
   }
 
-  visible_rect =
-      quad_sink->UnoccludedContentRect(layer_bottom_right, draw_transform());
+  visible_rect = occlusion.GetUnoccludedContentRect(layer_bottom_right);
   if (!visible_rect.IsEmpty()) {
-    quad = TextureDrawQuad::Create();
+    TextureDrawQuad* quad =
+        render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
     quad->SetNew(shared_quad_state,
                  layer_bottom_right,
                  opaque_rect,
@@ -280,12 +282,12 @@ void NinePatchLayerImpl::AppendQuads(QuadSink* quad_sink,
                  SK_ColorTRANSPARENT,
                  vertex_opacity,
                  flipped);
-    quad_sink->Append(quad.PassAs<DrawQuad>());
   }
 
-  visible_rect = quad_sink->UnoccludedContentRect(layer_top, draw_transform());
+  visible_rect = occlusion.GetUnoccludedContentRect(layer_top);
   if (!visible_rect.IsEmpty()) {
-    quad = TextureDrawQuad::Create();
+    TextureDrawQuad* quad =
+        render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
     quad->SetNew(shared_quad_state,
                  layer_top,
                  opaque_rect,
@@ -297,12 +299,12 @@ void NinePatchLayerImpl::AppendQuads(QuadSink* quad_sink,
                  SK_ColorTRANSPARENT,
                  vertex_opacity,
                  flipped);
-    quad_sink->Append(quad.PassAs<DrawQuad>());
   }
 
-  visible_rect = quad_sink->UnoccludedContentRect(layer_left, draw_transform());
+  visible_rect = occlusion.GetUnoccludedContentRect(layer_left);
   if (!visible_rect.IsEmpty()) {
-    quad = TextureDrawQuad::Create();
+    TextureDrawQuad* quad =
+        render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
     quad->SetNew(shared_quad_state,
                  layer_left,
                  opaque_rect,
@@ -314,13 +316,12 @@ void NinePatchLayerImpl::AppendQuads(QuadSink* quad_sink,
                  SK_ColorTRANSPARENT,
                  vertex_opacity,
                  flipped);
-    quad_sink->Append(quad.PassAs<DrawQuad>());
   }
 
-  visible_rect =
-      quad_sink->UnoccludedContentRect(layer_right, draw_transform());
+  visible_rect = occlusion.GetUnoccludedContentRect(layer_right);
   if (!visible_rect.IsEmpty()) {
-    quad = TextureDrawQuad::Create();
+    TextureDrawQuad* quad =
+        render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
     quad->SetNew(shared_quad_state,
                  layer_right,
                  opaque_rect,
@@ -332,13 +333,12 @@ void NinePatchLayerImpl::AppendQuads(QuadSink* quad_sink,
                  SK_ColorTRANSPARENT,
                  vertex_opacity,
                  flipped);
-    quad_sink->Append(quad.PassAs<DrawQuad>());
   }
 
-  visible_rect =
-      quad_sink->UnoccludedContentRect(layer_bottom, draw_transform());
+  visible_rect = occlusion.GetUnoccludedContentRect(layer_bottom);
   if (!visible_rect.IsEmpty()) {
-    quad = TextureDrawQuad::Create();
+    TextureDrawQuad* quad =
+        render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
     quad->SetNew(shared_quad_state,
                  layer_bottom,
                  opaque_rect,
@@ -350,14 +350,13 @@ void NinePatchLayerImpl::AppendQuads(QuadSink* quad_sink,
                  SK_ColorTRANSPARENT,
                  vertex_opacity,
                  flipped);
-    quad_sink->Append(quad.PassAs<DrawQuad>());
   }
 
   if (fill_center_) {
-    visible_rect =
-        quad_sink->UnoccludedContentRect(layer_center, draw_transform());
+    visible_rect = occlusion.GetUnoccludedContentRect(layer_center);
     if (!visible_rect.IsEmpty()) {
-      quad = TextureDrawQuad::Create();
+      TextureDrawQuad* quad =
+          render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
       quad->SetNew(shared_quad_state,
                    layer_center,
                    opaque_rect,
@@ -369,7 +368,6 @@ void NinePatchLayerImpl::AppendQuads(QuadSink* quad_sink,
                    SK_ColorTRANSPARENT,
                    vertex_opacity,
                    flipped);
-      quad_sink->Append(quad.PassAs<DrawQuad>());
     }
   }
 }
@@ -395,9 +393,7 @@ base::DictionaryValue* NinePatchLayerImpl::LayerTreeAsJson() const {
 
   result->Set("Border", MathUtil::AsValue(border_).release());
 
-  base::FundamentalValue* fill_center =
-      base::Value::CreateBooleanValue(fill_center_);
-  result->Set("FillCenter", fill_center);
+  result->SetBoolean("FillCenter", fill_center_);
 
   return result;
 }

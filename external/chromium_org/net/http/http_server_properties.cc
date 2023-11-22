@@ -20,7 +20,7 @@ const char* const kAlternateProtocolStrings[] = {
   "npn-spdy/2",
   "npn-spdy/3",
   "npn-spdy/3.1",
-  "npn-h2-12",  // HTTP/2 draft 12. Called SPDY4 internally.
+  "npn-h2-14",  // HTTP/2 draft 14. Called SPDY4 internally.
   "quic"
 };
 const char kBrokenAlternateProtocol[] = "Broken";
@@ -111,9 +111,10 @@ AlternateProtocol AlternateProtocolFromNextProto(NextProto next_proto) {
   return UNINITIALIZED_ALTERNATE_PROTOCOL;
 }
 
-std::string PortAlternateProtocolPair::ToString() const {
-  return base::StringPrintf("%d:%s", port,
-                            AlternateProtocolToString(protocol));
+std::string AlternateProtocolInfo::ToString() const {
+  return base::StringPrintf("%d:%s p=%f", port,
+                            AlternateProtocolToString(protocol),
+                            probability);
 }
 
 }  // namespace net

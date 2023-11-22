@@ -10,10 +10,11 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/fullscreen/fullscreen_controller.h"
-#include "grit/generated_resources.h"
-#include "grit/ui_strings.h"
+#include "chrome/grit/generated_resources.h"
+#include "extensions/browser/extension_system.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/rect.h"
+#include "ui/strings/grit/ui_strings.h"
 
 // NOTE(koz): Linux doesn't use the thick shadowed border, so we add padding
 // here.
@@ -130,7 +131,9 @@ void FullscreenExitBubble::Cancel() {
 
 base::string16 FullscreenExitBubble::GetCurrentMessageText() const {
   return fullscreen_bubble::GetLabelTextForType(
-      bubble_type_, url_, browser_->profile()->GetExtensionService());
+      bubble_type_, url_,
+      extensions::ExtensionSystem::Get(
+          browser_->profile())->extension_service());
 }
 
 base::string16 FullscreenExitBubble::GetCurrentDenyButtonText() const {

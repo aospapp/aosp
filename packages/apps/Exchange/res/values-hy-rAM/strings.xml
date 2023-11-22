@@ -27,7 +27,6 @@
     <string name="meeting_recurring" msgid="2752008481765880928">"Երբ` <xliff:g id="EVENTDATE">%s</xliff:g> (ընթացիկ)"</string>
     <string name="meeting_allday" msgid="7251209063071628040">"Երբ` <xliff:g id="EVENTDATE">%s</xliff:g> (ամբողջ օրը):"</string>
     <string name="meeting_allday_recurring" msgid="4545762363537362545">"Երբ` <xliff:g id="EVENTDATE">%s</xliff:g> (ամբողջ օրը, ընթացիկ)"</string>
-    <string name="notification_exchange_calendar_added" msgid="8998454267739748113">"Exchange օրացույցն ավելացված է"</string>
     <string name="app_name" msgid="1707639359526090662">"Փոխանակման ծառայություններ"</string>
     <string name="exception_cancel" msgid="8972887597771126871">"Այս միջոցառումը չեղարկվել է <xliff:g id="DATE">%s</xliff:g>-ին"</string>
     <string name="exception_updated" msgid="329192591551400871">"Այս միջոցառման մանրամասները փոխվել են <xliff:g id="DATE">%s</xliff:g>-ին"</string>

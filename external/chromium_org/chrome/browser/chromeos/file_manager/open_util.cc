@@ -12,24 +12,24 @@
 #include "chrome/browser/chromeos/file_manager/app_id.h"
 #include "chrome/browser/chromeos/file_manager/file_tasks.h"
 #include "chrome/browser/chromeos/file_manager/fileapi_util.h"
-#include "chrome/browser/chromeos/file_manager/mime_util.h"
 #include "chrome/browser/chromeos/file_manager/path_util.h"
 #include "chrome/browser/chromeos/file_manager/url_util.h"
+#include "chrome/browser/extensions/api/file_handlers/mime_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/simple_message_box.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/user_metrics.h"
-#include "grit/generated_resources.h"
+#include "storage/browser/fileapi/file_system_backend.h"
+#include "storage/browser/fileapi/file_system_context.h"
+#include "storage/browser/fileapi/file_system_operation_runner.h"
+#include "storage/browser/fileapi/file_system_url.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "webkit/browser/fileapi/file_system_backend.h"
-#include "webkit/browser/fileapi/file_system_context.h"
-#include "webkit/browser/fileapi/file_system_operation_runner.h"
-#include "webkit/browser/fileapi/file_system_url.h"
 
 using content::BrowserThread;
-using fileapi::FileSystemURL;
+using storage::FileSystemURL;
 
 namespace file_manager {
 namespace util {
@@ -54,7 +54,7 @@ void ShowWarningMessageBox(Profile* profile,
 void ExecuteFileTaskForUrl(Profile* profile,
                            const file_tasks::TaskDescriptor& task,
                            const GURL& url) {
-  fileapi::FileSystemContext* file_system_context =
+  storage::FileSystemContext* file_system_context =
       GetFileSystemContextForExtensionId(profile, kFileManagerAppId);
 
   file_tasks::ExecuteFileTask(
@@ -87,13 +87,12 @@ void OpenFileManagerWithInternalActionId(Profile* profile,
   ExecuteFileTaskForUrl(profile, task, url);
 }
 
-// Opens the file specified by |url| by finding and executing a file
-// task for the file. Returns false if failed to open the file (i.e. no file
-// task is found).
-bool OpenFile(Profile* profile, const base::FilePath& path, const GURL& url) {
-  // The file is opened per the file extension, hence extension-less files
-  // cannot be opened properly.
-  std::string mime_type = GetMimeTypeForPath(path);
+// Opens the file with fetched MIME type and calls the callback.
+void OpenFileWithMimeType(Profile* profile,
+                          const base::FilePath& path,
+                          const GURL& url,
+                          const base::Callback<void(bool)>& callback,
+                          const std::string& mime_type) {
   extensions::app_file_handler_util::PathAndMimeTypeSet path_mime_set;
   path_mime_set.insert(std::make_pair(path, mime_type));
 
@@ -107,8 +106,11 @@ bool OpenFile(Profile* profile, const base::FilePath& path, const GURL& url) {
       path_mime_set,
       file_urls,
       &tasks);
-  if (tasks.empty())
-    return false;
+
+  if (tasks.empty()) {
+    callback.Run(false);
+    return;
+  }
 
   const file_tasks::FullTaskDescriptor* chosen_task = &tasks[0];
   for (size_t i = 0; i < tasks.size(); ++i) {
@@ -119,7 +121,37 @@ bool OpenFile(Profile* profile, const base::FilePath& path, const GURL& url) {
   }
 
   ExecuteFileTaskForUrl(profile, chosen_task->task_descriptor(), url);
-  return true;
+  callback.Run(true);
+}
+
+// Opens the file specified by |url| by finding and executing a file task for
+// the file. In case of success, calls |callback| with true. Otherwise the
+// returned value is false.
+void OpenFile(Profile* profile,
+              const base::FilePath& path,
+              const GURL& url,
+              const base::Callback<void(bool)>& callback) {
+  extensions::app_file_handler_util::GetMimeTypeForLocalPath(
+      profile,
+      path,
+      base::Bind(&OpenFileWithMimeType, profile, path, url, callback));
+}
+
+// Called when execution of ContinueOpenItem() is completed.
+void OnContinueOpenItemCompleted(Profile* profile,
+                                 const base::FilePath& file_path,
+                                 bool result) {
+  if (!result) {
+    int message;
+    if (file_path.Extension() == FILE_PATH_LITERAL(".dmg"))
+      message = IDS_FILE_BROWSER_ERROR_VIEWING_FILE_FOR_DMG;
+    else if (file_path.Extension() == FILE_PATH_LITERAL(".exe") ||
+             file_path.Extension() == FILE_PATH_LITERAL(".msi"))
+      message = IDS_FILE_BROWSER_ERROR_VIEWING_FILE_FOR_EXECUTABLE;
+    else
+      message = IDS_FILE_BROWSER_ERROR_VIEWING_FILE;
+    ShowWarningMessageBox(profile, file_path, message);
+  }
 }
 
 // Used to implement OpenItem().
@@ -134,10 +166,10 @@ void ContinueOpenItem(Profile* profile,
     OpenFileManagerWithInternalActionId(profile, url, "open");
   } else {
     // |url| should be a file. Open it.
-    if (!OpenFile(profile, file_path, url)) {
-      ShowWarningMessageBox(profile, file_path,
-                            IDS_FILE_BROWSER_ERROR_VIEWING_FILE);
-    }
+    OpenFile(profile,
+             file_path,
+             url,
+             base::Bind(&OnContinueOpenItemCompleted, profile, file_path));
   }
 }
 

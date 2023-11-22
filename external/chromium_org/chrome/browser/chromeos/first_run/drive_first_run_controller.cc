@@ -14,7 +14,6 @@
 #include "chrome/browser/background/background_contents_service.h"
 #include "chrome/browser/background/background_contents_service_factory.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/extensions/chrome_extension_web_contents_observer.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/tab_contents/background_contents.h"
@@ -22,6 +21,9 @@
 #include "chrome/browser/ui/host_desktop.h"
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
 #include "chrome/browser/ui/singleton_tabs.h"
+#include "chrome/grit/generated_resources.h"
+#include "chrome/grit/theme_resources.h"
+#include "components/user_manager/user_manager.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/notification_details.h"
@@ -29,6 +31,7 @@
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/notification_types.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -36,8 +39,6 @@
 #include "extensions/browser/extension_system.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_set.h"
-#include "grit/generated_resources.h"
-#include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/message_center/message_center.h"
@@ -152,20 +153,15 @@ class DriveWebContentsManager : public content::WebContentsObserver,
 
   // content::WebContentsObserver overrides:
   virtual void DidFailProvisionalLoad(
-      int64 frame_id,
-      const base::string16& frame_unique_name,
-      bool is_main_frame,
+      content::RenderFrameHost* render_frame_host,
       const GURL& validated_url,
       int error_code,
-      const base::string16& error_description,
-      content::RenderViewHost* render_view_host) OVERRIDE;
+      const base::string16& error_description) OVERRIDE;
 
-  virtual void DidFailLoad(int64 frame_id,
+  virtual void DidFailLoad(content::RenderFrameHost* render_frame_host,
                            const GURL& validated_url,
-                           bool is_main_frame,
                            int error_code,
-                           const base::string16& error_description,
-                           content::RenderViewHost* render_view_host) OVERRIDE;
+                           const base::string16& error_description) OVERRIDE;
 
   // content::WebContentsDelegate overrides:
   virtual bool ShouldCreateWebContents(
@@ -225,7 +221,7 @@ void DriveWebContentsManager::StartLoad() {
       web_contents_.get());
 
   content::NavigationController::LoadURLParams load_params(url);
-  load_params.transition_type = content::PAGE_TRANSITION_GENERATED;
+  load_params.transition_type = ui::PAGE_TRANSITION_GENERATED;
   web_contents_->GetController().LoadURLWithParams(load_params);
 
   content::WebContentsObserver::Observe(web_contents_.get());
@@ -258,14 +254,11 @@ void DriveWebContentsManager::RunCompletionCallback(
 }
 
 void DriveWebContentsManager::DidFailProvisionalLoad(
-    int64 frame_id,
-    const base::string16& frame_unique_name,
-    bool is_main_frame,
+    content::RenderFrameHost* render_frame_host,
     const GURL& validated_url,
     int error_code,
-    const base::string16& error_description,
-    content::RenderViewHost* render_view_host) {
-  if (is_main_frame) {
+    const base::string16& error_description) {
+  if (!render_frame_host->GetParent()) {
     LOG(WARNING) << "Failed to load WebContents to enable offline mode.";
     OnOfflineInit(false,
                   DriveFirstRunController::OUTCOME_WEB_CONTENTS_LOAD_FAILED);
@@ -273,13 +266,11 @@ void DriveWebContentsManager::DidFailProvisionalLoad(
 }
 
 void DriveWebContentsManager::DidFailLoad(
-    int64 frame_id,
+    content::RenderFrameHost* render_frame_host,
     const GURL& validated_url,
-    bool is_main_frame,
     int error_code,
-    const base::string16& error_description,
-    content::RenderViewHost* render_view_host) {
-  if (is_main_frame) {
+    const base::string16& error_description) {
+  if (!render_frame_host->GetParent()) {
     LOG(WARNING) << "Failed to load WebContents to enable offline mode.";
     OnOfflineInit(false,
                   DriveFirstRunController::OUTCOME_WEB_CONTENTS_LOAD_FAILED);
@@ -327,7 +318,7 @@ bool DriveWebContentsManager::ShouldCreateWebContents(
   contents->web_contents()->GetController().LoadURL(
       target_url,
       content::Referrer(),
-      content::PAGE_TRANSITION_LINK,
+      ui::PAGE_TRANSITION_LINK,
       std::string());
 
   // Return false as we already created the WebContents here.
@@ -373,7 +364,7 @@ void DriveFirstRunController::EnableOfflineMode() {
     return;
   }
 
-  if (!UserManager::Get()->IsLoggedInAsRegularUser()) {
+  if (!user_manager::UserManager::Get()->IsLoggedInAsRegularUser()) {
     LOG(ERROR) << "Attempting to enable offline access "
                   "but not logged in a regular user.";
     OnOfflineInit(false, OUTCOME_WRONG_USER_TYPE);

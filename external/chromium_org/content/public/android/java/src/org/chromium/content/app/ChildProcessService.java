@@ -16,7 +16,9 @@ import android.os.RemoteException;
 import android.util.Log;
 import android.view.Surface;
 
+import org.chromium.base.BaseSwitches;
 import org.chromium.base.CalledByNative;
+import org.chromium.base.CommandLine;
 import org.chromium.base.JNINamespace;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.library_loader.Linker;
@@ -128,35 +130,61 @@ public class ChildProcessService extends Service {
             @Override
             public void run()  {
                 try {
+                    // CommandLine must be initialized before others, e.g., Linker.isUsed()
+                    // may check the command line options.
+                    synchronized (mMainThread) {
+                        while (mCommandLineParams == null) {
+                            mMainThread.wait();
+                        }
+                    }
+                    CommandLine.init(mCommandLineParams);
                     boolean useLinker = Linker.isUsed();
-
+                    boolean requestedSharedRelro = false;
                     if (useLinker) {
                         synchronized (mMainThread) {
                             while (!mIsBound) {
                                 mMainThread.wait();
                             }
                         }
-                        if (mLinkerParams != null) {
-                            if (mLinkerParams.mWaitForSharedRelro)
-                                Linker.initServiceProcess(mLinkerParams.mBaseLoadAddress);
-                            else
-                                Linker.disableSharedRelros();
-
-                            Linker.setTestRunnerClassName(mLinkerParams.mTestRunnerClassName);
+                        assert mLinkerParams != null;
+                        if (mLinkerParams.mWaitForSharedRelro) {
+                            requestedSharedRelro = true;
+                            Linker.initServiceProcess(mLinkerParams.mBaseLoadAddress);
+                        } else {
+                            Linker.disableSharedRelros();
                         }
+                        Linker.setTestRunnerClassName(mLinkerParams.mTestRunnerClassName);
                     }
+                    boolean isLoaded = false;
+                    if (CommandLine.getInstance().hasSwitch(
+                            BaseSwitches.RENDERER_WAIT_FOR_JAVA_DEBUGGER)) {
+                        android.os.Debug.waitForDebugger();
+                    }
+
                     try {
                         LibraryLoader.loadNow(getApplicationContext(), false);
+                        isLoaded = true;
                     } catch (ProcessInitException e) {
-                        Log.e(TAG, "Failed to load native library, exiting child process", e);
-                        System.exit(-1);
-                    }
-                    synchronized (mMainThread) {
-                        while (mCommandLineParams == null) {
-                            mMainThread.wait();
+                        if (requestedSharedRelro) {
+                            Log.w(TAG, "Failed to load native library with shared RELRO, " +
+                                  "retrying without");
+                        } else {
+                            Log.e(TAG, "Failed to load native library", e);
                         }
                     }
-                    LibraryLoader.initialize(mCommandLineParams);
+                    if (!isLoaded && requestedSharedRelro) {
+                        Linker.disableSharedRelros();
+                        try {
+                            LibraryLoader.loadNow(getApplicationContext(), false);
+                            isLoaded = true;
+                        } catch (ProcessInitException e) {
+                            Log.e(TAG, "Failed to load native library on retry", e);
+                        }
+                    }
+                    if (!isLoaded) {
+                        System.exit(-1);
+                    }
+                    LibraryLoader.initialize();
                     synchronized (mMainThread) {
                         mLibraryInitialized = true;
                         mMainThread.notifyAll();
@@ -222,9 +250,9 @@ public class ChildProcessService extends Service {
         synchronized (mMainThread) {
             mCommandLineParams = intent.getStringArrayExtra(
                     ChildProcessConnection.EXTRA_COMMAND_LINE);
-            mLinkerParams = null;
-            if (Linker.isUsed())
-                mLinkerParams = new ChromiumLinkerParams(intent);
+            // mLinkerParams is never used if Linker.isUsed() returns false.
+            // See onCreate().
+            mLinkerParams = new ChromiumLinkerParams(intent);
             mIsBound = true;
             mMainThread.notifyAll();
         }

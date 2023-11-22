@@ -17,7 +17,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:gravity="left" >
+    android:gravity="start" >
 
     <TextView
         android:id="@+id/title_text"

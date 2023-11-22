@@ -8,19 +8,21 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
+#include "base/memory/ref_counted.h"
 #include "base/strings/string16.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
-#include "chrome/browser/autocomplete/autocomplete_input.h"
-#include "chrome/browser/autocomplete/autocomplete_provider.h"
-#include "chrome/browser/autocomplete/autocomplete_provider_listener.h"
-#include "chrome/browser/autocomplete/autocomplete_result.h"
+#include "components/omnibox/autocomplete_input.h"
+#include "components/omnibox/autocomplete_provider.h"
+#include "components/omnibox/autocomplete_provider_listener.h"
+#include "components/omnibox/autocomplete_result.h"
 
 class AutocompleteControllerDelegate;
 class HistoryURLProvider;
 class KeywordProvider;
 class Profile;
 class SearchProvider;
+class TemplateURLService;
 class ZeroSuggestProvider;
 
 // The AutocompleteController is the center of the autocomplete system.  A
@@ -45,10 +47,14 @@ class ZeroSuggestProvider;
 // matches from a series of providers into one AutocompleteResult.
 class AutocompleteController : public AutocompleteProviderListener {
  public:
+  typedef std::vector<scoped_refptr<AutocompleteProvider> > Providers;
+
   // |provider_types| is a bitmap containing AutocompleteProvider::Type values
   // that will (potentially, depending on platform, flags, etc.) be
-  // instantiated.
+  // instantiated. |template_url_service| is used to create URLs from the
+  // autocomplete results.
   AutocompleteController(Profile* profile,
+                         TemplateURLService* template_url_service,
                          AutocompleteControllerDelegate* delegate,
                          int provider_types);
   ~AutocompleteController();
@@ -108,8 +114,15 @@ class AutocompleteController : public AutocompleteProviderListener {
   // parameters otherwise not available at initial construction time.  This
   // method should be called from OmniboxEditModel::OpenMatch() before the user
   // navigates to the selected match.
-  void UpdateMatchDestinationURL(base::TimeDelta query_formulation_time,
-                                 AutocompleteMatch* match) const;
+  void UpdateMatchDestinationURLWithQueryFormulationTime(
+      base::TimeDelta query_formulation_time,
+      AutocompleteMatch* match) const;
+
+  // Constructs the final destination URL for a given match using additional
+  // parameters otherwise not available at initial construction time.
+  void UpdateMatchDestinationURL(
+      const TemplateURLRef::SearchTermsArgs& search_terms_args,
+      AutocompleteMatch* match) const;
 
   HistoryURLProvider* history_url_provider() const {
     return history_url_provider_;
@@ -126,7 +139,7 @@ class AutocompleteController : public AutocompleteProviderListener {
 
   const AutocompleteResult& result() const { return result_; }
   bool done() const { return done_; }
-  const ACProviders* providers() const { return &providers_; }
+  const Providers& providers() const { return providers_; }
 
   const base::TimeTicks& last_time_default_match_changed() const {
     return last_time_default_match_changed_;
@@ -188,7 +201,7 @@ class AutocompleteController : public AutocompleteProviderListener {
   AutocompleteControllerDelegate* delegate_;
 
   // A list of all providers.
-  ACProviders providers_;
+  Providers providers_;
 
   HistoryURLProvider* history_url_provider_;
 
@@ -237,7 +250,7 @@ class AutocompleteController : public AutocompleteProviderListener {
   // notifications until Start() has been invoked on all providers.
   bool in_start_;
 
-  Profile* profile_;
+  TemplateURLService* template_url_service_;
 
   DISALLOW_COPY_AND_ASSIGN(AutocompleteController);
 };

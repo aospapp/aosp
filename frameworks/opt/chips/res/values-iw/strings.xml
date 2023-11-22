@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="more_string" msgid="8495478259330621990">"+<xliff:g id="COUNT">%1$s</xliff:g>"</string>
-    <string name="copy_email" msgid="7869435992461603532">"העתק כתובת אימייל"</string>
+    <string name="copy_email" msgid="7869435992461603532">"העתק כתובת דוא\"ל"</string>
     <string name="copy_number" msgid="530057841276106843">"העתק מספר טלפון"</string>
     <string name="action_label" msgid="1318401633653605424">"חזור"</string>
 </resources>

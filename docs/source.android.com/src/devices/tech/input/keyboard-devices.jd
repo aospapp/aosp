@@ -6430,7 +6430,7 @@ be used for different languages.</p>
 </ol>
 <h3 id="sources">Sources</h3>
 <ol>
-<li><a href="http://www.usb.org/developers/devclass_docs/Hut1_12v2.pdf">USB HID Usage Tables v1.12</a></li>
+<li><a href="http://www.usb.org/developers/hidpage/Hut1_12v2.pdf">USB HID Usage Tables v1.12</a></li>
 <li>Linux 2.6.39 kernel: include/linux/input.h, drivers/hid/hid-input.c</li>
 <li>Android ICS: qwerty.kl, Generic.kl, KeyEvent.java</li>
 </ol>

@@ -8,10 +8,10 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/extensions/extension_creator.h"
 #include "chrome/browser/ui/chrome_select_file_policy.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
 namespace extensions {
@@ -68,9 +68,8 @@ void PackExtensionHandler::RegisterMessages() {
 void PackExtensionHandler::OnPackSuccess(const base::FilePath& crx_file,
                                          const base::FilePath& pem_file) {
   base::ListValue arguments;
-  arguments.Append(base::Value::CreateStringValue(
-      base::UTF16ToUTF8(PackExtensionJob::StandardSuccessMessage(
-          crx_file, pem_file))));
+  arguments.Append(new base::StringValue(base::UTF16ToUTF8(
+      PackExtensionJob::StandardSuccessMessage(crx_file, pem_file))));
   web_ui()->CallJavascriptFunction(
       "extensions.PackExtensionOverlay.showSuccessMessage", arguments);
 }
@@ -94,7 +93,7 @@ void PackExtensionHandler::OnPackFailure(const std::string& error,
 void PackExtensionHandler::FileSelected(const base::FilePath& path, int index,
                                         void* params) {
   base::ListValue results;
-  results.Append(base::Value::CreateStringValue(path.value()));
+  results.Append(new base::StringValue(path.value()));
   web_ui()->CallJavascriptFunction("window.handleFilePathSelected", results);
 }
 
@@ -200,7 +199,7 @@ void PackExtensionHandler::HandleSelectFilePathMessage(
 
 void PackExtensionHandler::ShowAlert(const std::string& message) {
   base::ListValue arguments;
-  arguments.Append(base::Value::CreateStringValue(message));
+  arguments.Append(new base::StringValue(message));
   web_ui()->CallJavascriptFunction(
       "extensions.PackExtensionOverlay.showError", arguments);
 }

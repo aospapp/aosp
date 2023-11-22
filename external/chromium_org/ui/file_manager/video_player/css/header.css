@@ -21,9 +21,9 @@
   color: white;
   flex-grow: 1;
   font-size: 16px;
-  height: 16px;
+  line-height: 45px;
   overflow: hidden;
-  padding: 15px;
+  padding-left: 15px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

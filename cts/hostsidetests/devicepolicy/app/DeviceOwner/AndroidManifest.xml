@@ -49,6 +49,14 @@
 
         <activity
             android:name="com.android.cts.deviceowner.LockTaskUtilityActivity" />
+
+        <!-- we need to give a different taskAffinity so that when we use
+             FLAG_ACTIVITY_NEW_TASK, the system tries to start it in a different task
+        -->
+        <activity
+            android:name="com.android.cts.deviceowner.LockTaskTest$IntentReceivingActivity"
+            android:taskAffinity="com.android.cts.deviceowner.LockTaskTest.IntentReceivingActivity"
+            />
         <activity
             android:name="com.android.cts.deviceowner.ApplicationRestrictionActivity" />
     </application>

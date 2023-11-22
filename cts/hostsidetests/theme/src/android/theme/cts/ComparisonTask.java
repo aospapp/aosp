@@ -37,9 +37,7 @@ public class ComparisonTask implements Callable<Boolean> {
 
     private static final int IMAGE_THRESHOLD = 2;
 
-    private static final String STORAGE_PATH_DEVICE = "/storage/emulated/legacy/cts-holo-assets/%s.png";
-
-    private static final String STORAGE_PATH_EMULATOR = "/sdcard/cts-holo-assets/%s.png";
+    private static final String STORAGE_PATH_DEVICE = "/sdcard/cts-holo-assets/%s.png";
 
     private final ITestDevice mDevice;
 
@@ -47,18 +45,10 @@ public class ComparisonTask implements Callable<Boolean> {
 
     private final String mName;
 
-    private final String mStoragePath;
-
     public ComparisonTask(ITestDevice device, File reference, String name) {
         mDevice = device;
         mReference = reference;
         mName = name;
-
-        if (mDevice.getSerialNumber().startsWith("emulator-")) {
-            mStoragePath = STORAGE_PATH_EMULATOR;
-        } else {
-            mStoragePath = STORAGE_PATH_DEVICE;
-        }
     }
 
     public Boolean call() {
@@ -67,7 +57,7 @@ public class ComparisonTask implements Callable<Boolean> {
         try {
             generated = File.createTempFile("gen_" + mName, ".png");
 
-            final String remoteGenerated = String.format(mStoragePath, mName);
+            final String remoteGenerated = String.format(STORAGE_PATH_DEVICE, mName);
             if (!mDevice.doesFileExist(remoteGenerated)) {
                 Log.logAndDisplay(LogLevel.ERROR, TAG, "File " + remoteGenerated + " have not been saved on device");
                 return false;
@@ -84,7 +74,7 @@ public class ComparisonTask implements Callable<Boolean> {
                 Log.logAndDisplay(LogLevel.INFO, TAG, "Diff created: " + diff.getPath());
             }
         } catch (Exception e) {
-            Log.logAndDisplay(LogLevel.ERROR, TAG, String.format(mStoragePath, mName));
+            Log.logAndDisplay(LogLevel.ERROR, TAG, String.format(STORAGE_PATH_DEVICE, mName));
             Log.logAndDisplay(LogLevel.ERROR, TAG, e.toString());
             e.printStackTrace();
         } finally {

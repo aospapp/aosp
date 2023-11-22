@@ -16,15 +16,36 @@
 #include "base/mac/scoped_ioplugininterface.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/time/time.h"
-#import "media/video/capture/mac/avfoundation_glue.h"
+#import "media/base/mac/avfoundation_glue.h"
 #import "media/video/capture/mac/platform_video_capturing_mac.h"
 #import "media/video/capture/mac/video_capture_device_avfoundation_mac.h"
 #import "media/video/capture/mac/video_capture_device_qtkit_mac.h"
 
+@implementation DeviceNameAndTransportType
+
+- (id)initWithName:(NSString*)deviceName transportType:(int32_t)transportType {
+  if (self = [super init]) {
+    deviceName_.reset([deviceName copy]);
+    transportType_ = transportType;
+  }
+  return self;
+}
+
+- (NSString*)deviceName {
+  return deviceName_;
+}
+
+- (int32_t)transportType {
+  return transportType_;
+}
+
+@end  // @implementation DeviceNameAndTransportType
+
 namespace media {
 
-const int kMinFrameRate = 1;
-const int kMaxFrameRate = 30;
+// Mac specific limits for minimum and maximum frame rate.
+const float kMinFrameRate = 1.0f;
+const float kMaxFrameRate = 30.0f;
 
 // In device identifiers, the USB VID and PID are stored in 4 bytes each.
 const size_t kVidPidSize = 4;
@@ -307,10 +328,14 @@ static void SetAntiFlickerInUsbDevice(const int vendor_id,
 }
 
 const std::string VideoCaptureDevice::Name::GetModel() const {
-  // Both PID and VID are 4 characters.
-  if (unique_id_.size() < 2 * kVidPidSize) {
+  // Skip the AVFoundation's not USB nor built-in devices.
+  if (capture_api_type() == AVFOUNDATION && transport_type() != USB_OR_BUILT_IN)
     return "";
-  }
+  if (capture_api_type() == DECKLINK)
+    return "";
+  // Both PID and VID are 4 characters.
+  if (unique_id_.size() < 2 * kVidPidSize)
+    return "";
 
   // The last characters of device id is a concatenation of VID and then PID.
   const size_t vid_location = unique_id_.size() - 2 * kVidPidSize;
@@ -328,7 +353,9 @@ VideoCaptureDeviceMac::VideoCaptureDeviceMac(const Name& device_name)
       state_(kNotInitialized),
       capture_device_(nil),
       weak_factory_(this) {
-  final_resolution_selected_ = AVFoundationGlue::IsAVFoundationSupported();
+  // Avoid reconfiguring AVFoundation or blacklisted devices.
+  final_resolution_selected_ = AVFoundationGlue::IsAVFoundationSupported() ||
+      device_name.is_blacklisted();
 }
 
 VideoCaptureDeviceMac::~VideoCaptureDeviceMac() {
@@ -345,7 +372,7 @@ void VideoCaptureDeviceMac::AllocateAndStart(
   }
   int width = params.requested_format.frame_size.width();
   int height = params.requested_format.frame_size.height();
-  int frame_rate = params.requested_format.frame_rate;
+  float frame_rate = params.requested_format.frame_rate;
 
   // QTKit API can scale captured frame to any size requested, which would lead
   // to undesired aspect ratio changes. Try to open the camera with a known
@@ -415,7 +442,6 @@ void VideoCaptureDeviceMac::AllocateAndStart(
 void VideoCaptureDeviceMac::StopAndDeAllocate() {
   DCHECK(task_runner_->BelongsToCurrentThread());
   DCHECK(state_ == kCapturing || state_ == kError) << state_;
-  [capture_device_ stopCapture];
 
   [capture_device_ setCaptureDevice:nil];
   [capture_device_ setFrameReceiver:nil];
@@ -535,7 +561,6 @@ void VideoCaptureDeviceMac::ReceiveError(const std::string& reason) {
 
 void VideoCaptureDeviceMac::SetErrorState(const std::string& reason) {
   DCHECK(task_runner_->BelongsToCurrentThread());
-  DLOG(ERROR) << reason;
   state_ = kError;
   client_->OnError(reason);
 }
@@ -547,13 +572,13 @@ void VideoCaptureDeviceMac::LogMessage(const std::string& message) {
 }
 
 bool VideoCaptureDeviceMac::UpdateCaptureResolution() {
- if (![capture_device_ setCaptureHeight:capture_format_.frame_size.height()
-                                  width:capture_format_.frame_size.width()
-                              frameRate:capture_format_.frame_rate]) {
-   ReceiveError("Could not configure capture device.");
-   return false;
- }
- return true;
+  if (![capture_device_ setCaptureHeight:capture_format_.frame_size.height()
+                                   width:capture_format_.frame_size.width()
+                               frameRate:capture_format_.frame_rate]) {
+    ReceiveError("Could not configure capture device.");
+    return false;
+  }
+  return true;
 }
 
 } // namespace media

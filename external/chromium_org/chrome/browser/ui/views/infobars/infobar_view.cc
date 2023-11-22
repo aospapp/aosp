@@ -9,21 +9,20 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ui/views/infobars/infobar_background.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/infobars/core/infobar_delegate.h"
-#include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/ui_resources.h"
 #include "third_party/skia/include/effects/SkGradientShader.h"
 #include "ui/accessibility/ax_view_state.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image.h"
+#include "ui/resources/grit/ui_resources.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/button/label_button_border.h"
 #include "ui/views/controls/button/menu_button.h"
-#include "ui/views/controls/button/text_button.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/link.h"
@@ -105,37 +104,6 @@ views::Link* InfoBarView::CreateLink(const base::string16& text,
   link->set_listener(listener);
   link->SetBackgroundColor(background()->get_color());
   return link;
-}
-
-// static
-views::MenuButton* InfoBarView::CreateMenuButton(
-    const base::string16& text,
-    views::MenuButtonListener* menu_button_listener) {
-  scoped_ptr<views::TextButtonDefaultBorder> menu_button_border(
-      new views::TextButtonDefaultBorder());
-  const int kNormalImageSet[] = IMAGE_GRID(IDR_INFOBARBUTTON_NORMAL);
-  menu_button_border->set_normal_painter(
-      views::Painter::CreateImageGridPainter(kNormalImageSet));
-  const int kHotImageSet[] = IMAGE_GRID(IDR_INFOBARBUTTON_HOVER);
-  menu_button_border->set_hot_painter(
-      views::Painter::CreateImageGridPainter(kHotImageSet));
-  const int kPushedImageSet[] = IMAGE_GRID(IDR_INFOBARBUTTON_PRESSED);
-  menu_button_border->set_pushed_painter(
-      views::Painter::CreateImageGridPainter(kPushedImageSet));
-
-  views::MenuButton* menu_button = new views::MenuButton(
-      NULL, text, menu_button_listener, true);
-  menu_button->SetBorder(menu_button_border.PassAs<views::Border>());
-  menu_button->set_animate_on_state_change(false);
-  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
-  menu_button->set_menu_marker(
-      rb.GetImageNamed(IDR_INFOBARBUTTON_MENU_DROPARROW).ToImageSkia());
-  menu_button->SetTextColor(views::Button::STATE_NORMAL, SK_ColorBLACK);
-  menu_button->SetTextColor(views::Button::STATE_HOVERED, SK_ColorBLACK);
-  menu_button->SetFontList(rb.GetFontList(ui::ResourceBundle::MediumFont));
-  menu_button->SizeToPreferredSize();
-  menu_button->SetFocusable(true);
-  return menu_button;
 }
 
 // static
@@ -339,11 +307,14 @@ void InfoBarView::RunMenuAt(ui::MenuModel* menu_model,
   DCHECK(owner());  // We'd better not open any menus while we're closing.
   gfx::Point screen_point;
   views::View::ConvertPointToScreen(button, &screen_point);
-  menu_runner_.reset(new views::MenuRunner(menu_model));
+  menu_runner_.reset(
+      new views::MenuRunner(menu_model, views::MenuRunner::HAS_MNEMONICS));
   // Ignore the result since we don't need to handle a deleted menu specially.
-  ignore_result(menu_runner_->RunMenuAt(
-      GetWidget(), button, gfx::Rect(screen_point, button->size()), anchor,
-      ui::MENU_SOURCE_NONE, views::MenuRunner::HAS_MNEMONICS));
+  ignore_result(menu_runner_->RunMenuAt(GetWidget(),
+                                        button,
+                                        gfx::Rect(screen_point, button->size()),
+                                        anchor,
+                                        ui::MENU_SOURCE_NONE));
 }
 
 // static

@@ -30,7 +30,6 @@
       'include_dirs': [
         '<(DEPTH)/third_party/swiftshader/include',
         '<(DEPTH)/third_party/khronos',
-        '<(DEPTH)/third_party/mesa/src/include',
         '<(gl_binding_output_dir)',
       ],
       'direct_dependent_settings': {
@@ -79,15 +78,14 @@
         'gl_gl_api_implementation.h',
         'gl_image.cc',
         'gl_image.h',
-        'gl_image_android.cc',
-        'gl_image_mac.cc',
-        'gl_image_ozone.cc',
-        'gl_image_shm.cc',
-        'gl_image_shm.h',
+        'gl_image_memory.cc',
+        'gl_image_memory.h',
+        'gl_image_ref_counted_memory.cc',
+        'gl_image_ref_counted_memory.h',
+        'gl_image_shared_memory.cc',
+        'gl_image_shared_memory.h',
         'gl_image_stub.cc',
         'gl_image_stub.h',
-        'gl_image_win.cc',
-        'gl_image_x11.cc',
         'gl_implementation.cc',
         'gl_implementation.h',
         'gl_implementation_android.cc',
@@ -304,6 +302,7 @@
         ['use_ozone==1', {
           'dependencies': [
             '../ozone/ozone.gyp:ozone',
+            '../ozone/ozone.gyp:ozone_base',
           ],
         }],
         ['OS=="android" and android_webview_build==0', {

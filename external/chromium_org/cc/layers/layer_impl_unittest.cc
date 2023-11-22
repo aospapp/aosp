@@ -4,6 +4,7 @@
 
 #include "cc/layers/layer_impl.h"
 
+#include "cc/layers/painted_scrollbar_layer_impl.h"
 #include "cc/output/filter_operation.h"
 #include "cc/output/filter_operations.h"
 #include "cc/test/fake_impl_proxy.h"
@@ -16,6 +17,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/effects/SkBlurImageFilter.h"
+#include "ui/gfx/geometry/vector2d_conversions.h"
 
 namespace cc {
 namespace {
@@ -199,6 +201,8 @@ TEST(LayerImplTest, VerifyLayerChangesAreTrackedProperly) {
       root->SetClipParent(clip_parent.get()));
   EXECUTE_AND_VERIFY_NEEDS_PUSH_PROPERTIES_AND_SUBTREE_DID_NOT_CHANGE(
       root->SetClipChildren(clip_children));
+  EXECUTE_AND_VERIFY_NEEDS_PUSH_PROPERTIES_AND_SUBTREE_DID_NOT_CHANGE(
+      root->SetNumDescendantsThatDrawContent(10));
 
   // After setting all these properties already, setting to the exact same
   // values again should not cause any change.
@@ -433,6 +437,10 @@ class LayerImplScrollTest : public testing::Test {
     return host_impl_.active_tree()->root_layer()->children()[0];
   }
 
+  LayerTreeHostImpl& host_impl() { return host_impl_; }
+
+  LayerTreeImpl* tree() { return host_impl_.active_tree(); }
+
  private:
   FakeImplProxy proxy_;
   TestSharedBitmapManager shared_bitmap_manager_;
@@ -657,6 +665,57 @@ TEST_F(LayerImplScrollTest, DISABLED_ScrollUserUnscrollableLayer) {
 
   EXPECT_VECTOR_EQ(gfx::Vector2dF(0, 8.5f), unscrolled);
   EXPECT_VECTOR_EQ(gfx::Vector2dF(30.5f, 5), layer()->TotalScrollOffset());
+}
+
+TEST_F(LayerImplScrollTest, PushPropertiesToMirrorsTotalScrollOffset) {
+  gfx::Vector2d scroll_offset(10, 5);
+  gfx::Vector2dF scroll_delta(12, 18);
+
+  host_impl().CreatePendingTree();
+
+  layer()->SetScrollOffset(scroll_offset);
+  gfx::Vector2dF unscrolled = layer()->ScrollBy(scroll_delta);
+
+  EXPECT_VECTOR_EQ(gfx::Vector2dF(0, 0), unscrolled);
+  EXPECT_VECTOR_EQ(gfx::Vector2dF(22, 23), layer()->TotalScrollOffset());
+
+  layer()->SetSentScrollDelta(gfx::ToFlooredVector2d(scroll_delta));
+
+  scoped_ptr<LayerImpl> pending_layer =
+      LayerImpl::Create(host_impl().sync_tree(), layer()->id());
+  pending_layer->SetScrollOffset(
+      gfx::ToFlooredVector2d(layer()->TotalScrollOffset()));
+
+  pending_layer->PushPropertiesTo(layer());
+
+  EXPECT_VECTOR_EQ(gfx::Vector2dF(22, 23), layer()->TotalScrollOffset());
+  EXPECT_VECTOR_EQ(layer()->TotalScrollOffset(),
+                   pending_layer->TotalScrollOffset());
+}
+
+TEST_F(LayerImplScrollTest, SetNewScrollbarParameters) {
+  gfx::Vector2d scroll_offset(10, 5);
+  layer()->SetScrollOffset(scroll_offset);
+
+  scoped_ptr<PaintedScrollbarLayerImpl> vertical_scrollbar(
+      PaintedScrollbarLayerImpl::Create(tree(), 100, VERTICAL));
+  vertical_scrollbar->SetScrollLayerAndClipLayerByIds(
+      layer()->id(), tree()->root_layer()->id());
+
+  int expected_vertical_maximum =
+      layer()->bounds().height() - tree()->root_layer()->bounds().height();
+  EXPECT_EQ(expected_vertical_maximum, vertical_scrollbar->maximum());
+  EXPECT_EQ(scroll_offset.y(), vertical_scrollbar->current_pos());
+
+  scoped_ptr<PaintedScrollbarLayerImpl> horizontal_scrollbar(
+      PaintedScrollbarLayerImpl::Create(tree(), 101, HORIZONTAL));
+  horizontal_scrollbar->SetScrollLayerAndClipLayerByIds(
+      layer()->id(), tree()->root_layer()->id());
+
+  int expected_horizontal_maximum =
+      layer()->bounds().width() - tree()->root_layer()->bounds().width();
+  EXPECT_EQ(expected_horizontal_maximum, horizontal_scrollbar->maximum());
+  EXPECT_EQ(scroll_offset.x(), horizontal_scrollbar->current_pos());
 }
 
 }  // namespace

@@ -15,15 +15,19 @@
 -->
 buildscript {
     repositories {
-        mavenCentral()
+        jcenter()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:0.12.+'
+        classpath 'com.android.tools.build:gradle:1.0.0'
     }
 }
 
 apply plugin: 'com.android.application'
+
+repositories {
+    jcenter()
+}
 
 <#if sample.repository?has_content>
 repositories {
@@ -37,15 +41,15 @@ dependencies {
 
 <#if !sample.auto_add_support_lib?has_content || sample.auto_add_support_lib == "true">
   <#if sample.minSdk?matches(r'^\d+$') && sample.minSdk?number < 7>
-    compile "com.android.support:support-v4:21.+"
+    compile "com.android.support:support-v4:21.0.2"
   <#elseif sample.minSdk?matches(r'^\d+$') && sample.minSdk?number < 13>
-    compile "com.android.support:support-v4:21.+"
-    compile "com.android.support:gridlayout-v7:21.+"
-    compile "com.android.support:cardview-v7:21.+"
+    compile "com.android.support:support-v4:21.0.2"
+    compile "com.android.support:gridlayout-v7:21.0.2"
+    compile "com.android.support:cardview-v7:21.0.2"
   <#else>
-    compile "com.android.support:support-v4:21.+"
-    compile "com.android.support:support-v13:21.+"
-    compile "com.android.support:cardview-v7:21.+"
+    compile "com.android.support:support-v4:21.0.2"
+    compile "com.android.support:support-v13:21.0.2"
+    compile "com.android.support:cardview-v7:21.0.2"
   </#if>
 </#if>
 

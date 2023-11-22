@@ -128,7 +128,7 @@ page.title=Sensor stack
 <p>The interface is defined by Android and AOSP contributors, and the
   implementation is provided by the manufacturer of the device.</p>
 <p>The sensor HAL interface is located in <code>hardware/libhardware/include/hardware</code>.
-  See <a href="{@docRoot}devices/reference/sensors_8h.html">sensors.h</a> for additional details.</p>
+  See <a href="{@docRoot}devices/halref/sensors_8h.html">sensors.h</a> for additional details.</p>
 <h3 id="release_cycle">Release cycle</h3>
 <p>The HAL implementation specifies what version of the HAL interface it
   implements by setting <code>your_poll_device.common.version</code>. The existing HAL

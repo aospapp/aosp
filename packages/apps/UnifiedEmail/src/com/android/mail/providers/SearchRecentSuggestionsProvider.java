@@ -18,37 +18,37 @@
 package com.android.mail.providers;
 
 import android.app.SearchManager;
-import android.content.ContentProvider;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
-import android.content.UriMatcher;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
-import android.net.Uri;
-import android.text.TextUtils;
+import android.support.annotation.Nullable;
 
 import com.android.mail.R;
 
 import java.util.ArrayList;
 
-public class SearchRecentSuggestionsProvider extends ContentProvider {
+public class SearchRecentSuggestionsProvider {
     /*
      * String used to delimit different parts of a query.
      */
     public static final String QUERY_TOKEN_SEPARATOR = " ";
 
-    // client-provided configuration values
-    private String mAuthority;
-    private int mMode;
-
     // general database configuration and tables
     private SQLiteOpenHelper mOpenHelper;
-    private static final String sDatabaseName = "suggestions.db";
-    private static final String sSuggestions = "suggestions";
-    private static final String ORDER_BY = "date DESC";
-    private static final String NULL_COLUMN = "query";
+    private static final String DATABASE_NAME = "suggestions.db";
+    private static final String SUGGESTIONS_TABLE = "suggestions";
+
+    private static final String QUERY =
+            " SELECT _id" +
+            "   , display1 AS " + SearchManager.SUGGEST_COLUMN_TEXT_1 +
+            "   , ? || query AS " + SearchManager.SUGGEST_COLUMN_QUERY +
+            "   , ? AS " + SearchManager.SUGGEST_COLUMN_ICON_1 +
+            " FROM " + SUGGESTIONS_TABLE +
+            " WHERE display1 LIKE ?" +
+            " ORDER BY date DESC";
 
     // Table of database versions.  Don't forget to update!
     // NOTE:  These version values are shifted left 8 bits (x 256) in order to create space for
@@ -56,23 +56,35 @@ public class SearchRecentSuggestionsProvider extends ContentProvider {
     //
     // 1      original implementation with queries, and 1 or 2 display columns
     // 1->2   added UNIQUE constraint to display1 column
-    private static final int DATABASE_VERSION = 2 * 256;
+    // 2->3   <redacted> being dumb and accidentally upgraded, this should be ignored.
+    private static final int DATABASE_VERSION = 3 * 256;
 
-    /**
-     * This mode bit configures the database to record recent queries.  <i>required</i>
-     *
-     * @see #setupSuggestions(String, int)
-     */
-    public static final int DATABASE_MODE_QUERIES = 1;
+    private static final int DATABASE_VERSION_2 = 2 * 256;
+    private static final int DATABASE_VERSION_3 = 3 * 256;
 
-    // Uri and query support
-    private static final int URI_MATCH_SUGGEST = 1;
+    private String mHistoricalIcon;
 
-    private Uri mSuggestionsUri;
-    private UriMatcher mUriMatcher;
+    protected final Context mContext;
+    private ArrayList<String> mFullQueryTerms;
 
-    private String mSuggestSuggestionClause;
-    private String[] mSuggestionProjection;
+    private final Object mDbLock = new Object();
+    private boolean mClosed;
+
+    public SearchRecentSuggestionsProvider(Context context) {
+        mContext = context;
+        mOpenHelper = new DatabaseHelper(mContext, DATABASE_VERSION);
+
+        // The URI of the icon that we will include on every suggestion here.
+        mHistoricalIcon = ContentResolver.SCHEME_ANDROID_RESOURCE + "://"
+                + mContext.getPackageName() + "/" + R.drawable.ic_history_24dp;
+    }
+
+    public void cleanup() {
+        synchronized (mDbLock) {
+            mOpenHelper.close();
+            mClosed = true;
+        }
+    }
 
     /**
      * Builds the database.  This version has extra support for using the version field
@@ -83,190 +95,32 @@ public class SearchRecentSuggestionsProvider extends ContentProvider {
      */
     private static class DatabaseHelper extends SQLiteOpenHelper {
         public DatabaseHelper(Context context, int newVersion) {
-            super(context, sDatabaseName, null, newVersion);
+            super(context, DATABASE_NAME, null, newVersion);
         }
 
         @Override
         public void onCreate(SQLiteDatabase db) {
-            StringBuilder builder = new StringBuilder();
-            builder.append("CREATE TABLE suggestions (" +
+            final String create = "CREATE TABLE suggestions (" +
                     "_id INTEGER PRIMARY KEY" +
                     ",display1 TEXT UNIQUE ON CONFLICT REPLACE" +
                     ",query TEXT" +
                     ",date LONG" +
-                    ");");
-            db.execSQL(builder.toString());
+                    ");";
+            db.execSQL(create);
         }
 
         @Override
         public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+            // When checking the old version clear the last 8 bits
+            oldVersion = oldVersion & ~0xff;
+            newVersion = newVersion & ~0xff;
+            if (oldVersion == DATABASE_VERSION_2 && newVersion == DATABASE_VERSION_3) {
+                // Oops, didn't mean to upgrade this database. Ignore this upgrade.
+                return;
+            }
             db.execSQL("DROP TABLE IF EXISTS suggestions");
             onCreate(db);
         }
-    }
-
-    /**
-     * In order to use this class, you must extend it, and call this setup function from your
-     * constructor.  In your application or activities, you must provide the same values when
-     * you create the {@link android.provider.SearchRecentSuggestions} helper.
-     *
-     * @param authority This must match the authority that you've declared in your manifest.
-     * @param mode You can use mode flags here to determine certain functional aspects of your
-     * database.  Note, this value should not change from run to run, because when it does change,
-     * your suggestions database may be wiped.
-     *
-     * @see #DATABASE_MODE_QUERIES
-     */
-    protected void setupSuggestions(String authority, int mode) {
-        if (TextUtils.isEmpty(authority) ||
-                ((mode & DATABASE_MODE_QUERIES) == 0)) {
-            throw new IllegalArgumentException();
-        }
-
-        // saved values
-        mAuthority = new String(authority);
-        mMode = mode;
-
-        // derived values
-        mSuggestionsUri = Uri.parse("content://" + mAuthority + "/suggestions");
-        mUriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
-        mUriMatcher.addURI(mAuthority, SearchManager.SUGGEST_URI_PATH_QUERY, URI_MATCH_SUGGEST);
-
-        // The URI of the icon that we will include on every suggestion here.
-        final String historicalIcon = ContentResolver.SCHEME_ANDROID_RESOURCE + "://"
-                + getContext().getPackageName() + "/" + R.drawable.ic_history_holo_light;
-
-        mSuggestSuggestionClause = "display1 LIKE ?";
-        mSuggestionProjection = new String [] {
-                "_id",
-                "display1 AS " + SearchManager.SUGGEST_COLUMN_TEXT_1,
-                "query AS " + SearchManager.SUGGEST_COLUMN_QUERY,
-                "'" + historicalIcon + "' AS " + SearchManager.SUGGEST_COLUMN_ICON_1
-        };
-    }
-
-    /**
-     * This method is provided for use by the ContentResolver.  Do not override, or directly
-     * call from your own code.
-     */
-    @Override
-    public int delete(Uri uri, String selection, String[] selectionArgs) {
-        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
-
-        final int length = uri.getPathSegments().size();
-        if (length != 1) {
-            throw new IllegalArgumentException("Unknown Uri");
-        }
-
-        final String base = uri.getPathSegments().get(0);
-        int count = 0;
-        if (base.equals(sSuggestions)) {
-            count = db.delete(sSuggestions, selection, selectionArgs);
-        } else {
-            throw new IllegalArgumentException("Unknown Uri");
-        }
-        getContext().getContentResolver().notifyChange(uri, null);
-        return count;
-    }
-
-    /**
-     * This method is provided for use by the ContentResolver.  Do not override, or directly
-     * call from your own code.
-     */
-    @Override
-    public String getType(Uri uri) {
-        if (mUriMatcher.match(uri) == URI_MATCH_SUGGEST) {
-            return SearchManager.SUGGEST_MIME_TYPE;
-        }
-        int length = uri.getPathSegments().size();
-        if (length >= 1) {
-            String base = uri.getPathSegments().get(0);
-            if (base.equals(sSuggestions)) {
-                if (length == 1) {
-                    return "vnd.android.cursor.dir/suggestion";
-                } else if (length == 2) {
-                    return "vnd.android.cursor.item/suggestion";
-                }
-            }
-        }
-        throw new IllegalArgumentException("Unknown Uri");
-    }
-
-    /**
-     * This method is provided for use by the ContentResolver.  Do not override, or directly
-     * call from your own code.
-     */
-    @Override
-    public Uri insert(Uri uri, ContentValues values) {
-        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
-
-        int length = uri.getPathSegments().size();
-        if (length < 1) {
-            throw new IllegalArgumentException("Unknown Uri");
-        }
-        // Note:  This table has on-conflict-replace semantics, so insert() may actually replace()
-        long rowID = -1;
-        String base = uri.getPathSegments().get(0);
-        Uri newUri = null;
-        if (base.equals(sSuggestions)) {
-            if (length == 1) {
-                rowID = db.insert(sSuggestions, NULL_COLUMN, values);
-                if (rowID > 0) {
-                    newUri = Uri.withAppendedPath(mSuggestionsUri, String.valueOf(rowID));
-                }
-            }
-        }
-        if (rowID < 0) {
-            throw new IllegalArgumentException("Unknown Uri");
-        }
-        getContext().getContentResolver().notifyChange(newUri, null);
-        return newUri;
-    }
-
-    /**
-     * This method is provided for use by the ContentResolver.  Do not override, or directly
-     * call from your own code.
-     */
-    @Override
-    public boolean onCreate() {
-        if (mAuthority == null || mMode == 0) {
-            throw new IllegalArgumentException("Provider not configured");
-        }
-        int mWorkingDbVersion = DATABASE_VERSION + mMode;
-        mOpenHelper = new DatabaseHelper(getContext(), mWorkingDbVersion);
-
-        return true;
-    }
-
-    private ArrayList<String> mFullQueryTerms;
-
-    /**
-     *  Copy the projection, and change the query field alone.
-     * @param selectionArgs
-     * @return projection
-     */
-    private String[] createProjection(String[] selectionArgs) {
-        String[] newProjection = new String[mSuggestionProjection.length];
-        String queryAs;
-        int fullSize = (mFullQueryTerms != null) ? mFullQueryTerms.size() : 0;
-        if (fullSize > 0) {
-            String realQuery = "'";
-            for (int i = 0; i < fullSize; i++) {
-                realQuery+= mFullQueryTerms.get(i);
-                if (i < fullSize -1) {
-                    realQuery += QUERY_TOKEN_SEPARATOR;
-                }
-            }
-            queryAs = realQuery + " ' || query AS " + SearchManager.SUGGEST_COLUMN_QUERY;
-        } else {
-            queryAs = "query AS " + SearchManager.SUGGEST_COLUMN_QUERY;
-        }
-        for (int i = 0; i < mSuggestionProjection.length; i++) {
-            newProjection[i] = mSuggestionProjection[i];
-        }
-        // Assumes that newProjection[length-2] is the query field.
-        newProjection[mSuggestionProjection.length - 2] = queryAs;
-        return newProjection;
     }
 
     /**
@@ -278,44 +132,63 @@ public class SearchRecentSuggestionsProvider extends ContentProvider {
         mFullQueryTerms = terms;
     }
 
-    /**
-     * This method is provided for use by the ContentResolver. Do not override,
-     * or directly call from your own code.
-     */
-    // TODO: Confirm no injection attacks here, or rewrite.
-    @Override
-    public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs,
-            String sortOrder) {
-        SQLiteDatabase db = mOpenHelper.getReadableDatabase();
-
-        // special case for actual suggestions (from search manager)
-        String suggestSelection;
-        String[] myArgs;
-        if (TextUtils.isEmpty(selectionArgs[0])) {
-            suggestSelection = null;
-            myArgs = null;
-        } else {
-            String like = "%" + selectionArgs[0] + "%";
-            myArgs = new String[] { like };
-            suggestSelection = mSuggestSuggestionClause;
+    private @Nullable SQLiteDatabase getDatabase(boolean readOnly) {
+        synchronized (mDbLock) {
+            if (!mClosed) {
+                return readOnly ? mOpenHelper.getReadableDatabase() :
+                        mOpenHelper.getWritableDatabase();
+            }
         }
-        // Suggestions are always performed with the default sort order
-        // Add this to the query:
-        // "select 'real_query' as SearchManager.SUGGEST_COLUMN_QUERY.
-        // rest of query
-        // real query will then show up in the suggestion
-        Cursor c = db.query(sSuggestions, createProjection(selectionArgs), suggestSelection, myArgs,
-                null, null, ORDER_BY, null);
-        c.setNotificationUri(getContext().getContentResolver(), uri);
-        return c;
+        return null;
+    }
+
+    public Cursor query(String query) {
+        final SQLiteDatabase db = getDatabase(true /* readOnly */);
+        if (db != null) {
+            final StringBuilder builder = new StringBuilder();
+            if (mFullQueryTerms != null) {
+                for (String token : mFullQueryTerms) {
+                    builder.append(token).append(QUERY_TOKEN_SEPARATOR);
+                }
+            }
+
+            final String[] args = new String[] {
+                    builder.toString(), mHistoricalIcon, "%" + query + "%" };
+
+            try {
+                // db could have been closed due to cleanup, simply don't do anything.
+                return db.rawQuery(QUERY, args);
+            } catch (IllegalStateException e) {}
+        }
+        return null;
     }
 
     /**
-     * This method is provided for use by the ContentResolver.  Do not override, or directly
-     * call from your own code.
+     * We are going to keep track of recent suggestions ourselves and not depend on the framework.
+     * Note that this writes to disk. DO NOT CALL FROM MAIN THREAD.
      */
-    @Override
-    public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
-        throw new UnsupportedOperationException("Not implemented");
+    public void saveRecentQuery(String query) {
+        final SQLiteDatabase db = getDatabase(false /* readOnly */);
+        if (db != null) {
+            ContentValues values = new ContentValues(3);
+            values.put("display1", query);
+            values.put("query", query);
+            values.put("date", System.currentTimeMillis());
+            // Note:  This table has on-conflict-replace semantics, so insert may actually replace
+            try {
+                // db could have been closed due to cleanup, simply don't do anything.
+                db.insert(SUGGESTIONS_TABLE, null, values);
+            } catch (IllegalStateException e) {}
+        }
+    }
+
+    public void clearHistory() {
+        final SQLiteDatabase db = getDatabase(false /* readOnly */);
+        if (db != null) {
+            try {
+                // db could have been closed due to cleanup, simply don't do anything.
+                db.delete(SUGGESTIONS_TABLE, null, null);
+            } catch (IllegalStateException e) {}
+        }
     }
 }

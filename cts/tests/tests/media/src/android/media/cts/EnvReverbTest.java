@@ -304,6 +304,9 @@ public class EnvReverbTest extends PostProcTestBase {
 
     //Test case 2.1: test setEnabled() throws exception after release
     public void test2_1SetEnabledAfterRelease() throws Exception {
+        if (!isEnvReverbAvailable()) {
+            return;
+        }
         getReverb(0);
         mReverb.release();
         try {

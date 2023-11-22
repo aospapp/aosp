@@ -224,17 +224,24 @@ public class TvViewTest extends ActivityInstrumentationTestCase2<TvViewStubActiv
 
     private void selectTrackAndVerify(final int type, final TvTrackInfo track,
             List<TvTrackInfo> tracks) {
+        String selectedTrackId = mTvView.getSelectedTrack(type);
         final int previousGeneration = mCallback.getSelectedTrackGeneration(
                 mStubInfo.getId(), type);
         mTvView.selectTrack(type, track == null ? null : track.getId());
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return mCallback.getSelectedTrackGeneration(
-                        mStubInfo.getId(), type) > previousGeneration;
-            }
-        }.run();
-        String selectedTrackId = mTvView.getSelectedTrack(type);
+
+        if ((track == null && selectedTrackId != null)
+                || (track != null && !track.getId().equals(selectedTrackId))) {
+            // Check generation change only if we're actually changing track.
+            new PollingCheck(TIME_OUT) {
+                @Override
+                protected boolean check() {
+                    return mCallback.getSelectedTrackGeneration(
+                            mStubInfo.getId(), type) > previousGeneration;
+                }
+            }.run();
+        }
+
+        selectedTrackId = mTvView.getSelectedTrack(type);
         assertEquals(selectedTrackId, track == null ? null : track.getId());
         if (selectedTrackId != null) {
             TvTrackInfo selectedTrack = null;

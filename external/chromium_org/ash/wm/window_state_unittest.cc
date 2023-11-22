@@ -9,6 +9,7 @@
 #include "ash/test/ash_test_base.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/wm_event.h"
+#include "ui/aura/client/aura_constants.h"
 #include "ui/aura/test/test_window_delegate.h"
 #include "ui/aura/window.h"
 
@@ -124,9 +125,14 @@ TEST_F(WindowStateTest, SnapWindowMinimumSize) {
                                  kWorkAreaBounds.height());
   EXPECT_EQ(expected.ToString(), window->GetBoundsInScreen().ToString());
 
-  // It should not be possible to snap a window with a maximum size.
-  delegate.set_minimum_size(gfx::Size());
-  delegate.set_maximum_size(gfx::Size(kWorkAreaBounds.width() - 1, INT_MAX));
+  // It should not be possible to snap a window with a maximum size, or if it
+  // cannot be maximized.
+  delegate.set_maximum_size(gfx::Size(kWorkAreaBounds.width() - 1, 0));
+  EXPECT_FALSE(window_state->CanSnap());
+  delegate.set_maximum_size(gfx::Size(0, kWorkAreaBounds.height() - 1));
+  EXPECT_FALSE(window_state->CanSnap());
+  delegate.set_maximum_size(gfx::Size());
+  window->SetProperty(aura::client::kCanMaximizeKey, false);
   EXPECT_FALSE(window_state->CanSnap());
 }
 
@@ -310,6 +316,26 @@ TEST_F(WindowStateTest, StateSwapRestore) {
   EXPECT_TRUE(window_state->IsMaximized());
   window_state->SetStateObject(old.Pass());
   EXPECT_FALSE(window_state->IsMaximized());
+}
+
+// Tests that a window that had same bounds as the work area shrinks after the
+// window is maximized and then restored.
+TEST_F(WindowStateTest, RestoredWindowBoundsShrink) {
+  scoped_ptr<aura::Window> window(CreateTestWindowInShellWithId(0));
+  WindowState* window_state = GetWindowState(window.get());
+  EXPECT_FALSE(window_state->IsMaximized());
+  gfx::Rect work_area =
+      ash::Shell::GetScreen()->GetPrimaryDisplay().work_area();
+
+  window->SetBounds(work_area);
+  window_state->Maximize();
+  EXPECT_TRUE(window_state->IsMaximized());
+  EXPECT_EQ(work_area.ToString(), window->bounds().ToString());
+
+  window_state->Restore();
+  EXPECT_FALSE(window_state->IsMaximized());
+  EXPECT_NE(work_area.ToString(), window->bounds().ToString());
+  EXPECT_TRUE(work_area.Contains(window->bounds()));
 }
 
 // TODO(skuhne): Add more unit test to verify the correctness for the restore

@@ -9,6 +9,16 @@
 
 #include "base/files/file_path.h"
 
+#if defined(OS_WIN)
+#if defined(GOOGLE_CHROME_BUILD)
+#define PRODUCT_STRING_PATH L"Google\\Chrome"
+#elif defined(CHROMIUM_BUILD)
+#define PRODUCT_STRING_PATH L"Chromium"
+#else
+#error Unknown branding
+#endif
+#endif  // defined(OS_WIN)
+
 namespace chrome {
 
 extern const char kChromeVersion[];
@@ -57,9 +67,9 @@ extern const base::FilePath::CharType kAndroidCacheFilename[];
 #endif
 extern const base::FilePath::CharType kArchivedHistoryFilename[];
 extern const base::FilePath::CharType kCacheDirname[];
+extern const base::FilePath::CharType kChannelIDFilename[];
 extern const base::FilePath::CharType kCookieFilename[];
 extern const base::FilePath::CharType kCRLSetFilename[];
-extern const base::FilePath::CharType kCLDDataFilename[];
 extern const base::FilePath::CharType kCustomDictionaryFileName[];
 extern const base::FilePath::CharType kExtensionActivityLogFilename[];
 extern const base::FilePath::CharType kExtensionsCookieFilename[];
@@ -71,10 +81,8 @@ extern const base::FilePath::CharType kJumpListIconDirname[];
 extern const base::FilePath::CharType kLocalStateFilename[];
 extern const base::FilePath::CharType kLocalStorePoolName[];
 extern const base::FilePath::CharType kLoginDataFileName[];
-extern const base::FilePath::CharType kSupervisedUserSettingsFilename[];
 extern const base::FilePath::CharType kMediaCacheDirname[];
 extern const base::FilePath::CharType kNewTabThumbnailsFilename[];
-extern const base::FilePath::CharType kOBCertFilename[];
 extern const base::FilePath::CharType kPreferencesFilename[];
 extern const base::FilePath::CharType kProtectedPreferencesFilenameDeprecated[];
 extern const base::FilePath::CharType kReadmeFilename[];
@@ -86,6 +94,7 @@ extern const base::FilePath::CharType kShortcutsDatabaseName[];
 extern const base::FilePath::CharType kSingletonCookieFilename[];
 extern const base::FilePath::CharType kSingletonLockFilename[];
 extern const base::FilePath::CharType kSingletonSocketFilename[];
+extern const base::FilePath::CharType kSupervisedUserSettingsFilename[];
 extern const base::FilePath::CharType kSyncCredentialsFilename[];
 extern const base::FilePath::CharType kThemePackFilename[];
 extern const base::FilePath::CharType kThumbnailsFilename[];
@@ -159,10 +168,8 @@ extern const char kTestUserProfileDir[];
 // Used to identify the application to the system AV function in Windows.
 extern const char kApplicationClientIDStringForAVScanning[];
 
-#if defined(OS_ANDROID)
 // The largest reasonable length we'd assume for a meta tag attribute.
 extern const size_t kMaxMetaTagAttributeLength;
-#endif
 
 }  // namespace chrome
 

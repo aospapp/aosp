@@ -24,7 +24,6 @@ class LevelDBWriteBatch;
 class CONTENT_EXPORT LevelDBTransaction
     : public base::RefCounted<LevelDBTransaction> {
  public:
-
   void Put(const base::StringPiece& key, std::string* value);
   void Remove(const base::StringPiece& key);
   virtual leveldb::Status Get(const base::StringPiece& key,
@@ -107,6 +106,8 @@ class CONTENT_EXPORT LevelDBTransaction
     void DataChanged();
 
    private:
+    enum Direction { FORWARD, REVERSE };
+
     explicit TransactionIterator(scoped_refptr<LevelDBTransaction> transaction);
     void HandleConflictsAndDeletes();
     void SetCurrentIteratorToSmallestKey();
@@ -121,10 +122,6 @@ class CONTENT_EXPORT LevelDBTransaction
     scoped_ptr<LevelDBIterator> db_iterator_;
     LevelDBIterator* current_;
 
-    enum Direction {
-      FORWARD,
-      REVERSE
-    };
     Direction direction_;
     mutable bool data_changed_;
 

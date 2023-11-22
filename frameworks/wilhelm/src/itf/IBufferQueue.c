@@ -96,6 +96,7 @@ SLresult IBufferQueue_Clear(SLBufferQueueItf self)
             thiz->mState.count = 0;
             thiz->mState.playIndex = 0;
             thiz->mSizeConsumed = 0;
+            thiz->mCallbackPending = false;
         }
     }
 #endif
@@ -185,6 +186,7 @@ void IBufferQueue_init(void *self)
     thiz->mRear = NULL;
 #ifdef ANDROID
     thiz->mSizeConsumed = 0;
+    thiz->mCallbackPending = false;
 #endif
     BufferHeader *bufferHeader = thiz->mTypical;
     unsigned i;

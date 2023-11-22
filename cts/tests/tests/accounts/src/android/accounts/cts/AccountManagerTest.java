@@ -26,6 +26,7 @@ import android.accounts.OnAccountsUpdateListener;
 import android.accounts.OperationCanceledException;
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -81,6 +82,8 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
     public static final String USERDATA_VALUE_2 = "user.data.value.2";
 
     public static final Account ACCOUNT = new Account(ACCOUNT_NAME, ACCOUNT_TYPE);
+    public static final Account ACCOUNT_FOR_NEW_REMOVE_ACCOUNT_API = new Account(
+            MockAccountAuthenticator.ACCOUNT_NAME_FOR_NEW_REMOVE_API, ACCOUNT_TYPE);
     public static final Account ACCOUNT_SAME_TYPE = new Account(ACCOUNT_NAME_OTHER, ACCOUNT_TYPE);
 
     private static MockAccountAuthenticator mockAuthenticator;
@@ -122,8 +125,10 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         mockAuthenticator.clearData();
 
         // Need to clean up created account
-        assertTrue(removeAccount(am, ACCOUNT, null /* callback */));
-        assertTrue(removeAccount(am, ACCOUNT_SAME_TYPE, null /* callback */));
+        assertTrue(removeAccount(am, ACCOUNT, mActivity, null /* callback */).getBoolean(
+                AccountManager.KEY_BOOLEAN_RESULT));
+        assertTrue(removeAccount(am, ACCOUNT_SAME_TYPE, mActivity, null /* callback */).getBoolean(
+                AccountManager.KEY_BOOLEAN_RESULT));
 
         // need to clean up the authenticator cached data
         mockAuthenticator.clearData();
@@ -174,7 +179,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         assertTrue(options.containsKey(AccountManager.KEY_CALLER_UID));
         assertTrue(options.containsKey(AccountManager.KEY_CALLER_PID));
     }
-    
+
     private void validateCredentials() {
         assertEquals(ACCOUNT, mockAuthenticator.getAccount());
     }
@@ -227,6 +232,38 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         assertTrue(futureBoolean.isDone());
 
         return resultBoolean;
+    }
+
+    private Bundle removeAccountWithIntentLaunch(AccountManager am, Account account,
+            Activity activity, AccountManagerCallback<Bundle> callback) throws IOException,
+            AuthenticatorException, OperationCanceledException {
+
+        AccountManagerFuture<Bundle> futureBundle = am.removeAccount(account,
+                activity,
+                callback,
+                null /* handler */);
+        Bundle resultBundle = futureBundle.getResult();
+        assertTrue(futureBundle.isDone());
+
+        return resultBundle;
+    }
+
+    private Bundle removeAccount(AccountManager am, Account account, Activity activity,
+            AccountManagerCallback<Bundle> callback) throws IOException, AuthenticatorException,
+                OperationCanceledException {
+
+        AccountManagerFuture<Bundle> futureBundle = am.removeAccount(account,
+                activity,
+                callback,
+                null /* handler */);
+        Bundle resultBundle = futureBundle.getResult();
+        assertTrue(futureBundle.isDone());
+
+        return resultBundle;
+    }
+
+    private boolean removeAccountExplicitly(AccountManager am, Account account) {
+        return am.removeAccountExplicitly(account);
     }
 
     private void addAccountExplicitly(Account account, String password, Bundle userdata) {
@@ -380,7 +417,86 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         assertEquals(1 + expectedAccountsCount, accounts.length);
         assertTrue(isAccountPresent(am.getAccounts(), ACCOUNT));
         // Need to clean up
+        assertTrue(removeAccount(am, ACCOUNT, mActivity, null /* callback */).getBoolean(
+                AccountManager.KEY_BOOLEAN_RESULT));
+
+        // and verify that we go back to the initial state
+        accounts = am.getAccounts();
+        assertNotNull(accounts);
+        assertEquals(expectedAccountsCount, accounts.length);
+    }
+
+    /**
+     * Test addAccountExplicitly(), renameAccount() and removeAccount().
+     */
+    public void testAddAccountExplicitlyAndRemoveAccountWithNewApi() throws IOException,
+            AuthenticatorException, OperationCanceledException {
+
+        final int expectedAccountsCount = getAccountsCount();
+
+        addAccountExplicitly(ACCOUNT_FOR_NEW_REMOVE_ACCOUNT_API, ACCOUNT_PASSWORD, null /* userData */);
+
+        // Assert that we have one more account
+        Account[] accounts = am.getAccounts();
+        assertNotNull(accounts);
+        assertEquals(1 + expectedAccountsCount, accounts.length);
+        assertTrue(isAccountPresent(am.getAccounts(), ACCOUNT_FOR_NEW_REMOVE_ACCOUNT_API));
+        // Deprecated API should not work
+        assertFalse(removeAccount(am, ACCOUNT_FOR_NEW_REMOVE_ACCOUNT_API, null /* callback */));
+        accounts = am.getAccounts();
+        assertNotNull(accounts);
+        assertEquals(1 + expectedAccountsCount, accounts.length);
+        assertTrue(isAccountPresent(am.getAccounts(), ACCOUNT_FOR_NEW_REMOVE_ACCOUNT_API));
+        // Check removal of account
+        assertTrue(removeAccountWithIntentLaunch(am, ACCOUNT_FOR_NEW_REMOVE_ACCOUNT_API, mActivity, null /* callback */)
+                .getBoolean(AccountManager.KEY_BOOLEAN_RESULT));
+        // and verify that we go back to the initial state
+        accounts = am.getAccounts();
+        assertNotNull(accounts);
+        assertEquals(expectedAccountsCount, accounts.length);
+    }
+
+    /**
+     * Test addAccountExplicitly(), renameAccount() and removeAccount().
+     */
+    public void testAddAccountExplicitlyAndRemoveAccountWithDeprecatedApi() throws IOException,
+            AuthenticatorException, OperationCanceledException {
+
+        final int expectedAccountsCount = getAccountsCount();
+
+        addAccountExplicitly(ACCOUNT, ACCOUNT_PASSWORD, null /* userData */);
+
+        // Assert that we have one more account
+        Account[] accounts = am.getAccounts();
+        assertNotNull(accounts);
+        assertEquals(1 + expectedAccountsCount, accounts.length);
+        assertTrue(isAccountPresent(am.getAccounts(), ACCOUNT));
+        // Need to clean up
         assertTrue(removeAccount(am, ACCOUNT, null /* callback */));
+
+        // and verify that we go back to the initial state
+        accounts = am.getAccounts();
+        assertNotNull(accounts);
+        assertEquals(expectedAccountsCount, accounts.length);
+    }
+
+    /**
+     * Test addAccountExplicitly() and removeAccountExplictly().
+     */
+    public void testAddAccountExplicitlyAndRemoveAccountExplicitly() throws IOException,
+            AuthenticatorException, OperationCanceledException {
+
+        final int expectedAccountsCount = getAccountsCount();
+
+        addAccountExplicitly(ACCOUNT, ACCOUNT_PASSWORD, null /* userData */);
+
+        // Assert that we have one more account
+        Account[] accounts = am.getAccounts();
+        assertNotNull(accounts);
+        assertEquals(1 + expectedAccountsCount, accounts.length);
+        assertTrue(isAccountPresent(am.getAccounts(), ACCOUNT));
+        // Need to clean up
+        assertTrue(removeAccountExplicitly(am, ACCOUNT));
 
         // and verify that we go back to the initial state
         accounts = am.getAccounts();
@@ -430,7 +546,8 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         assertEquals(ACCOUNT.name, am.getPreviousName(renamedAccount));
 
        // Need to clean up
-        assertTrue(removeAccount(am, renamedAccount, null /* callback */));
+        assertTrue(removeAccount(am, renamedAccount, mActivity, null /* callback */).getBoolean(
+                AccountManager.KEY_BOOLEAN_RESULT));
     }
 
     /**
@@ -1148,19 +1265,22 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
                 false /* updateImmediately */);
 
         // Need to cleanup intermediate state
-        assertTrue(removeAccount(am, ACCOUNT, null /* callback */));
+        assertTrue(removeAccount(am, ACCOUNT, mActivity, null /* callback */).getBoolean(
+                AccountManager.KEY_BOOLEAN_RESULT));
 
         testAddOnAccountsUpdatedListenerWithHandler(null /* handler */,
                 true /* updateImmediately */);
 
         // Need to cleanup intermediate state
-        assertTrue(removeAccount(am, ACCOUNT, null /* callback */));
+        assertTrue(removeAccount(am, ACCOUNT, mActivity, null /* callback */).getBoolean(
+                AccountManager.KEY_BOOLEAN_RESULT));
 
         testAddOnAccountsUpdatedListenerWithHandler(new Handler(Looper.getMainLooper()),
                 false /* updateImmediately */);
 
         // Need to cleanup intermediate state
-        assertTrue(removeAccount(am, ACCOUNT, null /* callback */));
+        assertTrue(removeAccount(am, ACCOUNT, mActivity, null /* callback */).getBoolean(
+                AccountManager.KEY_BOOLEAN_RESULT));
 
         testAddOnAccountsUpdatedListenerWithHandler(new Handler(Looper.getMainLooper()),
                 true /* updateImmediately */);
@@ -1204,7 +1324,8 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         testRemoveOnAccountsUpdatedListenerWithHandler(null /* handler */);
 
         // Need to cleanup intermediate state
-        assertTrue(removeAccount(am, ACCOUNT, null /* callback */));
+        assertTrue(removeAccount(am, ACCOUNT, mActivity, null /* callback */).getBoolean(
+                AccountManager.KEY_BOOLEAN_RESULT));
 
         testRemoveOnAccountsUpdatedListenerWithHandler(new Handler(Looper.getMainLooper()));
     }

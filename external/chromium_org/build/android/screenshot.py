@@ -21,14 +21,13 @@ def _PrintMessage(heading, eol='\n'):
 
 
 def _CaptureScreenshot(device, host_file):
-  host_file = device.old_interface.TakeScreenshot(host_file)
+  host_file = device.TakeScreenshot(host_file)
   _PrintMessage('Screenshot written to %s' % os.path.abspath(host_file))
 
 
 def _CaptureVideo(device, host_file, options):
   size = tuple(map(int, options.size.split('x'))) if options.size else None
   recorder = screenshot.VideoRecorder(device,
-                                      host_file,
                                       megabits_per_second=options.bitrate,
                                       size=size,
                                       rotate=options.rotate)
@@ -38,7 +37,7 @@ def _CaptureVideo(device, host_file, options):
     raw_input()
   finally:
     recorder.Stop()
-  host_file = recorder.Pull()
+  host_file = recorder.Pull(host_file)
   _PrintMessage('Video written to %s' % os.path.abspath(host_file))
 
 

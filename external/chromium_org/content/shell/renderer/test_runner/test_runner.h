@@ -11,10 +11,11 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "content/shell/renderer/test_runner/WebTask.h"
+#include "content/shell/renderer/test_runner/web_task.h"
 #include "content/shell/renderer/test_runner/web_test_runner.h"
 #include "v8/include/v8.h"
 
+class GURL;
 class SkBitmap;
 
 namespace blink {
@@ -23,6 +24,7 @@ class WebNotificationPresenter;
 class WebPermissionClient;
 class WebString;
 class WebView;
+class WebURLResponse;
 }
 
 namespace gin {
@@ -81,9 +83,9 @@ class TestRunner : public WebTestRunner,
   bool shouldDumpChildFrameScrollPositions() const;
   bool shouldDumpChildFramesAsMarkup() const;
   bool shouldDumpChildFramesAsText() const;
-  void showDevTools(const std::string& settings,
+  void ShowDevTools(const std::string& settings,
                     const std::string& frontend_url);
-  void clearDevToolsLocalStorage();
+  void ClearDevToolsLocalStorage();
   void setShouldDumpAsText(bool);
   void setShouldDumpAsMarkup(bool);
   void setCustomTextOutput(std::string text);
@@ -162,7 +164,7 @@ class TestRunner : public WebTestRunner,
      public:
       WorkQueueTask(WorkQueue* object) : WebMethodTask<WorkQueue>(object) {}
 
-      virtual void runIfValid() OVERRIDE;
+      virtual void RunIfValid() OVERRIDE;
     };
 
     WebTaskList task_list_;
@@ -279,6 +281,8 @@ class TestRunner : public WebTestRunner,
                             int max_height);
   bool DisableAutoResizeMode(int new_width, int new_height);
 
+  void SetMockDeviceLight(double value);
+  void ResetDeviceLight();
   // Device Motion / Device Orientation related functions
   void SetMockDeviceMotion(bool has_acceleration_x, double acceleration_x,
                            bool has_acceleration_y, double acceleration_y,
@@ -449,6 +453,9 @@ class TestRunner : public WebTestRunner,
   // Causes layout to happen as if targetted to printed pages.
   void SetPrinting();
 
+  // Clears the state from SetPrinting().
+  void ClearPrinting();
+
   void SetShouldStayOnPageAfterHandlingBeforeUnload(bool value);
 
   // Causes WillSendRequest to clear certain headers.
@@ -513,8 +520,12 @@ class TestRunner : public WebTestRunner,
   void SetMIDISysexPermission(bool value);
 
   // Grants permission for desktop notifications to an origin
-  void GrantWebNotificationPermission(const std::string& origin,
+  void GrantWebNotificationPermission(const GURL& origin,
                                       bool permission_granted);
+
+  // Clears all previously granted Web Notification permissions.
+  void ClearWebNotificationPermissions();
+
   // Simulates a click on a desktop notification.
   bool SimulateWebNotificationClick(const std::string& value);
 
@@ -525,6 +536,13 @@ class TestRunner : public WebTestRunner,
                                      const std::string& message);
   bool WasMockSpeechRecognitionAborted();
 
+  // Credential Manager mock functions
+  // TODO(mkwst): Support FederatedCredential.
+  void AddMockCredentialManagerResponse(const std::string& id,
+                                        const std::string& name,
+                                        const std::string& avatar,
+                                        const std::string& password);
+
   // WebPageOverlay related functions. Permits the adding and removing of only
   // one opaque overlay.
   void AddWebPageOverlay();
@@ -534,16 +552,28 @@ class TestRunner : public WebTestRunner,
   void DisplayAsyncThen(v8::Handle<v8::Function> callback);
 
   // Similar to DisplayAsyncThen(), but pass parameters of the captured
-  // snapshot (width, height, snapshot) to the callback.
+  // snapshot (width, height, snapshot) to the callback. The snapshot is in
+  // uint8 RGBA format.
   void CapturePixelsAsyncThen(v8::Handle<v8::Function> callback);
+  // Similar to CapturePixelsAsyncThen(). Copies to the clipboard the image
+  // located at a particular point in the WebView (if there is such an image),
+  // reads back its pixels, and provides the snapshot to the callback. If there
+  // is no image at that point, calls the callback with (0, 0, empty_snapshot).
+  void CopyImageAtAndCapturePixelsAsyncThen(
+      int x, int y, const v8::Handle<v8::Function> callback);
 
-  void SetMockPushClientSuccess(const std::string& end_point,
+  void SetMockPushClientSuccess(const std::string& endpoint,
                                 const std::string& registration_id);
   void SetMockPushClientError(const std::string& message);
+
+  void GetManifestThen(v8::Handle<v8::Function> callback);
 
   ///////////////////////////////////////////////////////////////////////////
   // Internal helpers
 
+  void GetManifestCallback(scoped_ptr<InvokeCallbackTask> task,
+                           const blink::WebURLResponse& response,
+                           const std::string& data);
   void CapturePixelsCallback(scoped_ptr<InvokeCallbackTask> task,
                              const SkBitmap& snapshot);
 
@@ -586,9 +616,6 @@ class TestRunner : public WebTestRunner,
   bool policy_delegate_should_notify_done_;
 
   WorkQueue work_queue_;
-
-  // Used by a number of layout tests in http/tests/security/dataURL.
-  bool global_flag_;
 
   // Bound variable to return the name of this platform (chromium).
   std::string platform_name_;

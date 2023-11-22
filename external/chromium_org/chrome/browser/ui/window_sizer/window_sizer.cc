@@ -16,6 +16,7 @@
 #include "chrome/browser/ui/host_desktop.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
+#include "ui/base/ui_base_switches.h"
 #include "ui/gfx/screen.h"
 
 #if defined(USE_ASH)
@@ -51,9 +52,9 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
     if (!browser_ || !browser_->profile()->GetPrefs())
       return false;
 
-    std::string window_name(chrome::GetWindowPlacementKey(browser_));
     const base::DictionaryValue* wp_pref =
-        browser_->profile()->GetPrefs()->GetDictionary(window_name.c_str());
+        chrome::GetWindowPlacementDictionaryReadOnly(
+            chrome::GetWindowName(browser_), browser_->profile()->GetPrefs());
     int top = 0, left = 0, bottom = 0, right = 0;
     bool maximized = false;
     bool has_prefs = wp_pref &&
@@ -146,8 +147,23 @@ class DefaultTargetDisplayProvider : public WindowSizer::TargetDisplayProvider {
       const gfx::Screen* screen,
       const gfx::Rect& bounds) const OVERRIDE {
 #if defined(USE_ASH)
+    bool force_ash = false;
+    // On Windows check if the browser is launched to serve ASH. If yes then
+    // we should get the display for the corresponding root window created for
+    // ASH. This ensures that the display gets the correct workarea, etc.
+    // If the ASH shell does not exist then the current behavior is to open
+    // browser windows if any on the desktop. Preserve that for now.
+    // TODO(ananta).
+    // This effectively means that the running browser process is in a split
+    // personality mode, part of it running in ASH and the other running in
+    // desktop. This may cause apps and other widgets to not work correctly.
+    // Revisit and address.
+#if defined(OS_WIN)
+    force_ash = ash::Shell::HasInstance() &&
+        CommandLine::ForCurrentProcess()->HasSwitch(switches::kViewerConnect);
+#endif
     // Use the target display on ash.
-    if (chrome::ShouldOpenAshOnStartup()) {
+    if (chrome::ShouldOpenAshOnStartup() || force_ash) {
       aura::Window* target = ash::Shell::GetTargetRootWindow();
       return screen->GetDisplayNearestWindow(target);
     }

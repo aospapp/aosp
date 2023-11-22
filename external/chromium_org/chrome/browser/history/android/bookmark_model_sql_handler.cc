@@ -7,10 +7,10 @@
 #include "base/logging.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/history/url_database.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_utils.h"
+#include "components/history/core/browser/url_database.h"
 #include "content/public/browser/browser_thread.h"
 
 using base::Time;
@@ -46,7 +46,8 @@ void BookmarkModelSQLHandler::Task::AddBookmark(const GURL& url,
   BookmarkModel* bookmark_model = GetBookmarkModel();
   if (!bookmark_model)
     return;
-  const BookmarkNode* parent = GetBookmarkNodeByID(bookmark_model, parent_id);
+  const BookmarkNode* parent =
+      bookmarks::GetBookmarkNodeByID(bookmark_model, parent_id);
   if (parent)
     bookmark_model->AddURL(parent, 0, title, url);
 }

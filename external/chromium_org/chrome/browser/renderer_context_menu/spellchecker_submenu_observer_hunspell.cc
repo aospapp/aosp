@@ -15,10 +15,10 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/spellcheck_messages.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "extensions/browser/view_type_utils.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/simple_menu_model.h"
 
@@ -43,10 +43,10 @@ void SpellCheckerSubMenuObserver::InitMenu(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   // Add available spell-checker languages to the sub menu.
-  Profile* profile = proxy_->GetProfile();
-  DCHECK(profile);
+  content::BrowserContext* browser_context = proxy_->GetBrowserContext();
+  DCHECK(browser_context);
   language_selected_ =
-      SpellcheckService::GetSpellCheckLanguages(profile, &languages_);
+      SpellcheckService::GetSpellCheckLanguages(browser_context, &languages_);
   DCHECK(languages_.size() <
          IDC_SPELLCHECK_LANGUAGES_LAST - IDC_SPELLCHECK_LANGUAGES_FIRST);
   const std::string app_locale = g_browser_process->GetApplicationLocale();
@@ -121,7 +121,7 @@ bool SpellCheckerSubMenuObserver::IsCommandIdChecked(int command_id) {
 
   // Check box for 'Check Spelling while typing'.
   if (command_id == IDC_CHECK_SPELLING_WHILE_TYPING) {
-    Profile* profile = proxy_->GetProfile();
+    Profile* profile = Profile::FromBrowserContext(proxy_->GetBrowserContext());
     DCHECK(profile);
     return profile->GetPrefs()->GetBoolean(prefs::kEnableContinuousSpellcheck);
   }
@@ -132,7 +132,7 @@ bool SpellCheckerSubMenuObserver::IsCommandIdChecked(int command_id) {
 bool SpellCheckerSubMenuObserver::IsCommandIdEnabled(int command_id) {
   DCHECK(IsCommandIdSupported(command_id));
 
-  Profile* profile = proxy_->GetProfile();
+  Profile* profile = Profile::FromBrowserContext(proxy_->GetBrowserContext());
   DCHECK(profile);
   const PrefService* pref = profile->GetPrefs();
   if (command_id >= IDC_SPELLCHECK_LANGUAGES_FIRST &&
@@ -154,7 +154,7 @@ void SpellCheckerSubMenuObserver::ExecuteCommand(int command_id) {
   DCHECK(IsCommandIdSupported(command_id));
 
   // Check to see if one of the spell check language ids have been clicked.
-  Profile* profile = proxy_->GetProfile();
+  Profile* profile = Profile::FromBrowserContext(proxy_->GetBrowserContext());
   DCHECK(profile);
   if (command_id >= IDC_SPELLCHECK_LANGUAGES_FIRST &&
       command_id < IDC_SPELLCHECK_LANGUAGES_LAST) {

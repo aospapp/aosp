@@ -2,19 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CONTENT_CHILD_FILEAPI_WEBBLOBREGISTRY_IMPL_H_
-#define CONTENT_CHILD_FILEAPI_WEBBLOBREGISTRY_IMPL_H_
+#ifndef CONTENT_CHILD_WEBBLOBREGISTRY_IMPL_H_
+#define CONTENT_CHILD_WEBBLOBREGISTRY_IMPL_H_
+
+#include <string>
 
 #include "base/memory/ref_counted.h"
 #include "third_party/WebKit/public/platform/WebBlobRegistry.h"
-#include "webkit/common/blob/blob_data.h"
-
-namespace blink {
-class WebBlobData;
-class WebString;
-class WebThreadSafeData;
-class WebURL;
-}
 
 namespace content {
 class ThreadSafeSender;

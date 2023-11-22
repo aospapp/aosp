@@ -25,6 +25,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.pdf.PdfDocument;
@@ -457,5 +458,9 @@ public abstract class BasePrintTest extends UiAutomatorTestCase {
                 }
             }
         }
+    }
+
+    protected boolean supportsPrinting() {
+        return getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_PRINTING);
     }
 }

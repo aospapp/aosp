@@ -14,7 +14,6 @@
 #include "ash/display/display_manager.h"
 #include "ash/display/mirror_window_controller.h"
 #include "ash/display/root_window_transformers.h"
-#include "ash/display/virtual_keyboard_window_controller.h"
 #include "ash/host/ash_window_tree_host.h"
 #include "ash/host/ash_window_tree_host_init_params.h"
 #include "ash/host/root_window_transformer.h"
@@ -25,6 +24,7 @@
 #include "ash/shell_delegate.h"
 #include "ash/wm/coordinate_conversion.h"
 #include "base/command_line.h"
+#include "base/stl_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "ui/aura/client/capture_client.h"
@@ -127,9 +127,9 @@ void SetDisplayPropertiesOnHost(AshWindowTreeHost* ash_host,
       CreateRootWindowTransformerForDisplay(host->window(), display));
   ash_host->SetRootWindowTransformer(transformer.Pass());
 
-  DisplayMode mode;
-  if (GetDisplayManager()->GetSelectedModeForDisplayId(display.id(), &mode) &&
-      mode.refresh_rate > 0.0f) {
+  DisplayMode mode =
+      GetDisplayManager()->GetActiveModeForDisplayId(display.id());
+  if (mode.refresh_rate > 0.0f) {
     host->compositor()->vsync_manager()->SetAuthoritativeVSyncInterval(
         base::TimeDelta::FromMicroseconds(
             base::Time::kMicrosecondsPerSecond / mode.refresh_rate));
@@ -248,10 +248,6 @@ DisplayController::~DisplayController() {
 }
 
 void DisplayController::Start() {
-  // Created here so that Shell has finished being created. Adds itself
-  // as a ShellObserver.
-  virtual_keyboard_window_controller_.reset(
-      new VirtualKeyboardWindowController);
   Shell::GetScreen()->AddObserver(this);
   Shell::GetInstance()->display_manager()->set_delegate(this);
 }
@@ -263,20 +259,29 @@ void DisplayController::Shutdown() {
 
   cursor_window_controller_.reset();
   mirror_window_controller_.reset();
-  virtual_keyboard_window_controller_.reset();
 
   Shell::GetScreen()->RemoveObserver(this);
-  // Delete all root window controllers, which deletes root window
-  // from the last so that the primary root window gets deleted last.
-  for (WindowTreeHostMap::const_reverse_iterator it =
-           window_tree_hosts_.rbegin();
-       it != window_tree_hosts_.rend();
-       ++it) {
-    RootWindowController* controller =
-        GetRootWindowController(GetWindow(it->second));
-    DCHECK(controller);
-    delete controller;
+
+  int64 primary_id = Shell::GetScreen()->GetPrimaryDisplay().id();
+
+  // Delete non primary root window controllers first, then
+  // delete the primary root window controller.
+  aura::Window::Windows root_windows = DisplayController::GetAllRootWindows();
+  std::vector<RootWindowController*> to_delete;
+  RootWindowController* primary_rwc = NULL;
+  for (aura::Window::Windows::iterator iter = root_windows.begin();
+       iter != root_windows.end();
+       ++iter) {
+    RootWindowController* rwc = GetRootWindowController(*iter);
+    if (GetRootWindowSettings(*iter)->display_id == primary_id)
+      primary_rwc = rwc;
+    else
+      to_delete.push_back(rwc);
   }
+  CHECK(primary_rwc);
+
+  STLDeleteElements(&to_delete);
+  delete primary_rwc;
 }
 
 void DisplayController::CreatePrimaryHost(
@@ -325,7 +330,7 @@ aura::Window* DisplayController::GetPrimaryRootWindow() {
 }
 
 aura::Window* DisplayController::GetRootWindowForDisplayId(int64 id) {
-  DCHECK_EQ(1u, window_tree_hosts_.count(id));
+  CHECK_EQ(1u, window_tree_hosts_.count(id));
   AshWindowTreeHost* host = window_tree_hosts_[id];
   CHECK(host);
   return GetWindow(host);
@@ -629,7 +634,6 @@ void DisplayController::OnDisplayMetricsChanged(const gfx::Display& display,
   if (!(metrics & (DISPLAY_METRIC_BOUNDS | DISPLAY_METRIC_ROTATION |
                    DISPLAY_METRIC_DEVICE_SCALE_FACTOR)))
     return;
-
   const DisplayInfo& display_info =
       GetDisplayManager()->GetDisplayInfo(display.id());
   DCHECK(!display_info.bounds_in_native().IsEmpty());
@@ -655,12 +659,6 @@ void DisplayController::CreateOrUpdateNonDesktopDisplay(
     case DisplayManager::MIRRORING:
       mirror_window_controller_->UpdateWindow(info);
       cursor_window_controller_->UpdateContainer();
-      virtual_keyboard_window_controller_->Close();
-      break;
-    case DisplayManager::VIRTUAL_KEYBOARD:
-      mirror_window_controller_->Close();
-      cursor_window_controller_->UpdateContainer();
-      virtual_keyboard_window_controller_->UpdateWindow(info);
       break;
     case DisplayManager::EXTENDED:
       NOTREACHED();
@@ -669,8 +667,12 @@ void DisplayController::CreateOrUpdateNonDesktopDisplay(
 
 void DisplayController::CloseNonDesktopDisplay() {
   mirror_window_controller_->Close();
-  cursor_window_controller_->UpdateContainer();
-  virtual_keyboard_window_controller_->Close();
+  // If cursor_compositing is enabled for large cursor, the cursor window is
+  // always on the desktop display (the visible cursor on the non-desktop
+  // display is drawn through compositor mirroring). Therefore, it's unnecessary
+  // to handle the cursor_window at all. See: http://crbug.com/412910
+  if (!cursor_window_controller_->is_cursor_compositing_enabled())
+    cursor_window_controller_->UpdateContainer();
 }
 
 void DisplayController::PreDisplayConfigurationChange(bool clear_focus) {
@@ -731,7 +733,7 @@ AshWindowTreeHost* DisplayController::AddWindowTreeHostForDisplay(
   aura::WindowTreeHost* host = ash_host->AsWindowTreeHost();
 
   host->window()->SetName(base::StringPrintf("RootWindow-%d", host_count++));
-  host->window()->set_title(base::UTF8ToUTF16(display_info.name()));
+  host->window()->SetTitle(base::UTF8ToUTF16(display_info.name()));
   host->compositor()->SetBackgroundColor(SK_ColorBLACK);
   // No need to remove our observer observer because the DisplayController
   // outlives the host.

@@ -1,8 +1,8 @@
-page.title=Porting Android to Devices
+page.title=Android Interfaces
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2014 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ page.title=Porting Android to Devices
   <p>To ensure that your devices maintain a high level of quality and offers a consistent
   experience for your users, they must must also
   pass the tests in the compatibility test suite (CTS). CTS ensures that anyone
-  building a device meets a quality standard that ensures apps run reliabaly well
+  building a device meets a quality standard that ensures apps run reliably well
   and gives users a good experience. For more information, see the
   <a href="{@docRoot}compatibility/index.html">Compatibility</a> section.</p>
 

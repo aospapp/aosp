@@ -16,6 +16,7 @@ LayerTreeSettings::LayerTreeSettings()
     : impl_side_painting(false),
       allow_antialiasing(true),
       throttle_frame_production(true),
+      single_thread_proxy_scheduler(true),
       begin_frame_scheduling_enabled(false),
       main_frame_before_draw_enabled(true),
       main_frame_before_activation_enabled(false),
@@ -25,11 +26,12 @@ LayerTreeSettings::LayerTreeSettings()
       partial_swap_enabled(false),
       accelerated_animation_enabled(true),
       can_use_lcd_text(true),
+      use_distance_field_text(false),
       should_clear_root_render_pass(true),
       gpu_rasterization_enabled(false),
       gpu_rasterization_forced(false),
       recording_mode(RecordNormally),
-      create_low_res_tiling(true),
+      create_low_res_tiling(false),
       scrollbar_animator(NoAnimator),
       scrollbar_fade_delay_ms(0),
       scrollbar_fade_duration_ms(0),
@@ -62,8 +64,8 @@ LayerTreeSettings::LayerTreeSettings()
       use_zero_copy(false),
       ignore_root_layer_flings(false),
       use_rgba_4444_textures(false),
-      touch_hit_testing(true),
       texture_id_allocation_chunk_size(64),
+      use_occlusion_for_tile_prioritization(false),
       record_full_layer(false) {
 }
 

@@ -94,7 +94,7 @@ public abstract class AttachmentTile extends RelativeLayout implements Attachmen
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         super.onLayout(changed, l, t, r, b);
 
-        ThumbnailLoadTask.setupThumbnailPreview(this, mAttachment, null);
+        ThumbnailLoadTask.setupThumbnailPreview(mAttachmentPreviewCache, this, mAttachment, null);
     }
 
     public Attachment getAttachment() {
@@ -136,7 +136,8 @@ public abstract class AttachmentTile extends RelativeLayout implements Attachmen
             updateSubtitleText();
         }
 
-        ThumbnailLoadTask.setupThumbnailPreview(this, attachment, prevAttachment);
+        ThumbnailLoadTask.setupThumbnailPreview(mAttachmentPreviewCache, this, attachment,
+                prevAttachment);
     }
 
     private void updateSubtitleText() {
@@ -153,7 +154,7 @@ public abstract class AttachmentTile extends RelativeLayout implements Attachmen
 
     @Override
     public void setThumbnailToDefault() {
-        Bitmap cachedPreview = mAttachmentPreviewCache.get(mAttachment);
+        final Bitmap cachedPreview = mAttachmentPreviewCache.get(mAttachment);
         if (cachedPreview != null) {
             setThumbnail(cachedPreview);
             return;

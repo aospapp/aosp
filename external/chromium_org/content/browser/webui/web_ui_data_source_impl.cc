@@ -9,8 +9,8 @@
 #include "base/bind.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/strings/string_util.h"
+#include "content/grit/content_resources.h"
 #include "content/public/common/content_client.h"
-#include "grit/content_resources.h"
 #include "mojo/public/js/bindings/constants.h"
 #include "ui/base/webui/jstemplate_builder.h"
 #include "ui/base/webui/web_ui_util.h"
@@ -31,11 +31,13 @@ WebUIDataSource* WebUIDataSource::AddMojoDataSource(
     const char* path;
     int id;
   } resources[] = {
+    { mojo::kBufferModuleName, IDR_MOJO_BUFFER_JS },
     { mojo::kCodecModuleName, IDR_MOJO_CODEC_JS },
     { mojo::kConnectionModuleName, IDR_MOJO_CONNECTION_JS },
     { mojo::kConnectorModuleName, IDR_MOJO_CONNECTOR_JS },
     { mojo::kRouterModuleName, IDR_MOJO_ROUTER_JS },
     { mojo::kUnicodeModuleName, IDR_MOJO_UNICODE_JS },
+    { mojo::kValidatorModuleName, IDR_MOJO_VALIDATOR_JS },
   };
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(resources); ++i)
     mojo_source->AddResourcePath(resources[i].path, resources[i].id);

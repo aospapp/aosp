@@ -27,19 +27,19 @@ browserTest.Update_PIN.prototype.run = function(data) {
                      'The new PIN and the old PIN cannot be the same');
 
   this.changePIN_(data.new_pin).then(
-    this.connect_.bind(this)
-  ).then(
-    this.enterPIN_.bind(this, data.old_pin, true /* expectError*/)
-  ).then(
+    browserTest.connectMe2Me
+  ).then(function(){
+    return browserTest.enterPIN(data.old_pin, true /* expectError*/);
+  }).then(
     // Sleep for two seconds to allow for the login backoff logic to reset.
     base.Promise.sleep.bind(null, LOGIN_BACKOFF_WAIT)
   ).then(
-    this.connect_.bind(this)
-  ).then(
-    this.enterPIN_.bind(this, data.new_pin, false /* expectError*/)
-  ).then(
+    browserTest.connectMe2Me
+  ).then(function(){
+    return browserTest.enterPIN_(data.new_pin, false /* expectError*/)
+  }).then(
     // Clean up the test by disconnecting and changing the PIN back
-    this.disconnect_.bind(this)
+    browserTest.disconnect
   ).then(
     // The PIN must be restored regardless of success or failure.
     this.changePIN_.bind(this, data.old_pin),
@@ -55,55 +55,6 @@ browserTest.Update_PIN.prototype.run = function(data) {
 browserTest.Update_PIN.prototype.changePIN_ = function(newPin) {
   var AppMode = remoting.AppMode;
   var HOST_RESTART_WAIT = 10000;
-
   browserTest.clickOnControl('change-daemon-pin');
-
-  return browserTest.onUIMode(AppMode.HOST_SETUP_ASK_PIN).then(function() {
-    var onSetupDone = browserTest.onUIMode(AppMode.HOST_SETUP_DONE);
-    document.getElementById('daemon-pin-entry').value = newPin;
-    document.getElementById('daemon-pin-confirm').value = newPin;
-    browserTest.clickOnControl('daemon-pin-ok');
-    return onSetupDone;
-  }).then(function() {
-    browserTest.clickOnControl('host-config-done-dismiss');
-    // On Linux, we restart the host after changing the PIN, need to sleep
-    // for ten seconds before the host is ready for connection.
-    return base.Promise.sleep(HOST_RESTART_WAIT);
-  });
-};
-
-browserTest.Update_PIN.prototype.connect_ = function() {
-  browserTest.clickOnControl('this-host-connect');
-  return browserTest.onUIMode(remoting.AppMode.CLIENT_PIN_PROMPT);
-};
-
-browserTest.Update_PIN.prototype.disconnect_ = function() {
-  var AppMode = remoting.AppMode;
-
-  remoting.disconnect();
-
-  return browserTest.onUIMode(AppMode.CLIENT_SESSION_FINISHED_ME2ME)
-  .then(function() {
-    var onHome = browserTest.onUIMode(AppMode.HOME);
-    browserTest.clickOnControl('client-finished-me2me-button');
-    return onHome;
-  });
-};
-
-browserTest.Update_PIN.prototype.enterPIN_ = function(pin, expectError) {
-  // Wait for 500ms before hitting the PIN button. From experiment, sometimes
-  // the PIN prompt does not dismiss without the timeout.
-  var CONNECT_PIN_WAIT = 500;
-
-  document.getElementById('pin-entry').value = pin;
-
-  return base.Promise.sleep(CONNECT_PIN_WAIT).then(function() {
-    browserTest.clickOnControl('pin-connect-button');
-  }).then(function() {
-    if (expectError) {
-      return browserTest.expectMe2MeError(remoting.Error.INVALID_ACCESS_CODE);
-    } else {
-      return browserTest.expectMe2MeConnected();
-    }
-  });
+  return browserTest.setupPIN(newPin);
 };

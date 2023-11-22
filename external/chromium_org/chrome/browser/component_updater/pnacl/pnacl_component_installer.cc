@@ -4,6 +4,7 @@
 
 #include "chrome/browser/component_updater/pnacl/pnacl_component_installer.h"
 
+#include <stdint.h>
 #include <string>
 #include <vector>
 
@@ -11,11 +12,10 @@
 #include "base/base_paths.h"
 #include "base/bind.h"
 #include "base/callback.h"
-#include "base/command_line.h"
 #include "base/compiler_specific.h"
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/json/json_file_value_serializer.h"
 #include "base/logging.h"
 #include "base/path_service.h"
@@ -25,14 +25,14 @@
 #include "base/win/windows_version.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/component_updater/component_updater_service.h"
-#include "chrome/browser/omaha_query_params/omaha_query_params.h"
 #include "chrome/common/chrome_paths.h"
+#include "components/component_updater/component_updater_service.h"
 #include "components/nacl/common/nacl_switches.h"
+#include "components/omaha_query_params/omaha_query_params.h"
 #include "content/public/browser/browser_thread.h"
 
-using chrome::OmahaQueryParams;
 using content::BrowserThread;
+using omaha_query_params::OmahaQueryParams;
 
 namespace component_updater {
 
@@ -52,7 +52,7 @@ std::string SanitizeForPath(const std::string& input) {
 
 // Set the component's hash to the multi-CRX PNaCl package.
 void SetPnaclHash(CrxComponent* component) {
-  static const uint8 sha256_hash[32] = {
+  static const uint8_t sha256_hash[32] = {
       // This corresponds to AppID: hnimpnehoodheedghdeeijklkeaacbdc
       0x7d, 0x8c, 0xfd, 0x47, 0xee, 0x37, 0x44, 0x36,
       0x73, 0x44, 0x89, 0xab, 0xa4, 0x00, 0x21, 0x32,
@@ -203,8 +203,7 @@ bool CheckPnaclComponentManifest(const base::DictionaryValue& manifest,
 
 }  // namespace
 
-PnaclComponentInstaller::PnaclComponentInstaller()
-    : updates_disabled_(false), cus_(NULL) {
+PnaclComponentInstaller::PnaclComponentInstaller() : cus_(NULL) {
 }
 
 PnaclComponentInstaller::~PnaclComponentInstaller() {
@@ -345,13 +344,6 @@ void StartPnaclUpdateRegistration(PnaclComponentInstaller* pci) {
     }
   }
 
-  // If updates are disabled, only discover the current version
-  // and OverrideDirPnaclComponent. That way, developers can use
-  // a pinned version. Do not actually finish registration with
-  // the component update service.
-  if (pci->updates_disabled())
-    return;
-
   BrowserThread::PostTask(BrowserThread::UI,
                           FROM_HERE,
                           base::Bind(&FinishPnaclUpdateRegistration,
@@ -370,10 +362,7 @@ void StartPnaclUpdateRegistration(PnaclComponentInstaller* pci) {
 }  // namespace
 
 void PnaclComponentInstaller::RegisterPnaclComponent(
-    ComponentUpdateService* cus,
-    const CommandLine& command_line) {
-  // Register PNaCl by default (can be disabled).
-  updates_disabled_ = command_line.HasSwitch(switches::kDisablePnaclInstall);
+    ComponentUpdateService* cus) {
   cus_ = cus;
   BrowserThread::PostTask(BrowserThread::FILE,
                           FROM_HERE,

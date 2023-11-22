@@ -10,10 +10,12 @@
 
 #include "base/base_paths.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
+#include "base/callback.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/location.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
@@ -34,23 +36,24 @@
 #include "chrome/browser/browser_shutdown.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/chromeos/boot_times_loader.h"
-#include "chrome/browser/chromeos/login/auth/parallel_authenticator.h"
-#include "chrome/browser/chromeos/login/auth/user_context.h"
+#include "chrome/browser/chromeos/login/auth/chrome_cryptohome_authenticator.h"
 #include "chrome/browser/chromeos/login/chrome_restart_request.h"
 #include "chrome/browser/chromeos/login/demo_mode/demo_app_launcher.h"
+#include "chrome/browser/chromeos/login/existing_user_controller.h"
 #include "chrome/browser/chromeos/login/lock/screen_locker.h"
 #include "chrome/browser/chromeos/login/profile_auth_data.h"
 #include "chrome/browser/chromeos/login/saml/saml_offline_signin_limiter.h"
 #include "chrome/browser/chromeos/login/saml/saml_offline_signin_limiter_factory.h"
-#include "chrome/browser/chromeos/login/session/session_manager.h"
+#include "chrome/browser/chromeos/login/session/user_session_manager.h"
 #include "chrome/browser/chromeos/login/signin/oauth2_login_manager.h"
 #include "chrome/browser/chromeos/login/signin/oauth2_login_manager_factory.h"
 #include "chrome/browser/chromeos/login/startup_utils.h"
 #include "chrome/browser/chromeos/login/ui/input_events_blocker.h"
 #include "chrome/browser/chromeos/login/ui/login_display_host.h"
+#include "chrome/browser/chromeos/login/user_flow.h"
+#include "chrome/browser/chromeos/login/users/chrome_user_manager.h"
 #include "chrome/browser/chromeos/login/users/supervised_user_manager.h"
-#include "chrome/browser/chromeos/login/users/user.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
+#include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/first_run/first_run.h"
@@ -74,8 +77,12 @@
 #include "chromeos/dbus/dbus_method_call_status.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/session_manager_client.h"
+#include "chromeos/login/auth/user_context.h"
+#include "chromeos/login/user_names.h"
 #include "chromeos/settings/cros_settings_names.h"
 #include "components/signin/core/browser/signin_manager.h"
+#include "components/user_manager/user.h"
+#include "components/user_manager/user_manager.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
 #include "google_apis/gaia/gaia_auth_consumer.h"
@@ -84,16 +91,97 @@
 #include "net/url_request/url_request_context_getter.h"
 #include "url/gurl.h"
 
+#if defined(USE_ATHENA)
+#include "athena/extensions/public/extensions_delegate.h"
+#include "athena/main/public/athena_launcher.h"
+#endif
+
 using content::BrowserThread;
+
+namespace {
+
+void LogCustomSwitches(const std::set<std::string>& switches) {
+  if (!VLOG_IS_ON(1))
+    return;
+  for (std::set<std::string>::const_iterator it = switches.begin();
+       it != switches.end();
+       ++it) {
+    VLOG(1) << "Switch leading to restart: '" << *it << "'";
+  }
+}
+
+}  // anonymous namespace
 
 namespace chromeos {
 
-struct DoBrowserLaunchOnLocaleLoadedData;
+namespace {
 
-class LoginUtilsImpl
-    : public LoginUtils,
-      public base::SupportsWeakPtr<LoginUtilsImpl>,
-      public SessionManager::Delegate {
+// Returns new CommandLine with per-user flags.
+CommandLine CreatePerSessionCommandLine(Profile* profile) {
+  CommandLine user_flags(CommandLine::NO_PROGRAM);
+  about_flags::PrefServiceFlagsStorage flags_storage_(profile->GetPrefs());
+  about_flags::ConvertFlagsToSwitches(
+      &flags_storage_, &user_flags, about_flags::kAddSentinels);
+  return user_flags;
+}
+
+// Returns true if restart is needed to apply per-session flags.
+bool NeedRestartToApplyPerSessionFlags(
+    const CommandLine& user_flags,
+    std::set<CommandLine::StringType>* out_command_line_difference) {
+  // Don't restart browser if it is not first profile in session.
+  if (user_manager::UserManager::Get()->GetLoggedInUsers().size() != 1)
+    return false;
+
+  // Only restart if needed and if not going into managed mode.
+  if (user_manager::UserManager::Get()->IsLoggedInAsSupervisedUser())
+    return false;
+
+  if (about_flags::AreSwitchesIdenticalToCurrentCommandLine(
+          user_flags,
+          *CommandLine::ForCurrentProcess(),
+          out_command_line_difference)) {
+    return false;
+  }
+
+  return true;
+}
+
+bool CanPerformEarlyRestart() {
+  // Desktop build is used for development only. Early restart is not supported.
+  if (!base::SysInfo::IsRunningOnChromeOS())
+    return false;
+
+  if (!ChromeUserManager::Get()->GetCurrentUserFlow()->
+          SupportsEarlyRestartToApplyFlags()) {
+    return false;
+  }
+
+  const ExistingUserController* controller =
+      ExistingUserController::current_controller();
+  if (!controller)
+    return true;
+
+  // Early restart is possible only if OAuth token is up to date.
+
+  if (controller->password_changed())
+    return false;
+
+  if (controller->auth_mode() != LoginPerformer::AUTH_MODE_INTERNAL)
+    return false;
+
+  // No early restart if Easy unlock key needs to be updated.
+  if (UserSessionManager::GetInstance()->NeedsToUpdateEasyUnlockKeys())
+    return false;
+
+  return true;
+}
+
+}  // namespace
+
+class LoginUtilsImpl : public LoginUtils,
+                       public base::SupportsWeakPtr<LoginUtilsImpl>,
+                       public UserSessionManagerDelegate {
  public:
   LoginUtilsImpl()
       : delegate_(NULL) {
@@ -103,33 +191,36 @@ class LoginUtilsImpl
   }
 
   // LoginUtils implementation:
+  virtual void RespectLocalePreference(Profile* profile,
+                                       const base::Closure& callback) OVERRIDE;
   virtual void DoBrowserLaunch(Profile* profile,
                                LoginDisplayHost* login_host) OVERRIDE;
   virtual void PrepareProfile(
       const UserContext& user_context,
-      bool has_cookies,
+      bool has_auth_cookies,
       bool has_active_session,
       LoginUtils::Delegate* delegate) OVERRIDE;
   virtual void DelegateDeleted(LoginUtils::Delegate* delegate) OVERRIDE;
   virtual void CompleteOffTheRecordLogin(const GURL& start_url) OVERRIDE;
   virtual scoped_refptr<Authenticator> CreateAuthenticator(
-      LoginStatusConsumer* consumer) OVERRIDE;
+      AuthStatusConsumer* consumer) OVERRIDE;
+  virtual bool RestartToApplyPerSessionFlagsIfNeed(Profile* profile,
+                                                   bool early_restart) OVERRIDE;
 
-  // SessionManager::Delegate implementation:
+  // UserSessionManager::Delegate implementation:
    virtual void OnProfilePrepared(Profile* profile) OVERRIDE;
  #if defined(ENABLE_RLZ)
    virtual void OnRlzInitialized() OVERRIDE;
  #endif
 
  private:
-  // DoBrowserLaunch is split into two parts.
-  // This one is called after asynchronous locale switch.
-  void DoBrowserLaunchOnLocaleLoadedImpl(Profile* profile,
-                                         LoginDisplayHost* login_host);
+  void DoBrowserLaunchInternal(Profile* profile,
+                               LoginDisplayHost* login_host,
+                               bool locale_pref_checked);
 
-  // Callback for locale_util::SwitchLanguage().
-  static void DoBrowserLaunchOnLocaleLoaded(
-      scoped_ptr<DoBrowserLaunchOnLocaleLoadedData> context,
+  static void RunCallbackOnLocaleLoaded(
+      const base::Closure& callback,
+      InputEventsBlocker* input_events_blocker,
       const std::string& locale,
       const std::string& loaded_locale,
       const bool success);
@@ -175,62 +266,29 @@ class LoginUtilsWrapper {
   DISALLOW_COPY_AND_ASSIGN(LoginUtilsWrapper);
 };
 
-struct DoBrowserLaunchOnLocaleLoadedData {
-  DoBrowserLaunchOnLocaleLoadedData(LoginUtilsImpl* login_utils_impl,
-                                    Profile* profile,
-                                    LoginDisplayHost* display_host)
-      : login_utils_impl(login_utils_impl),
-        profile(profile),
-        display_host(display_host) {}
+void LoginUtilsImpl::DoBrowserLaunchInternal(Profile* profile,
+                                             LoginDisplayHost* login_host,
+                                             bool locale_pref_checked) {
+  if (browser_shutdown::IsTryingToQuit())
+    return;
 
-  LoginUtilsImpl* login_utils_impl;
-  Profile* profile;
-  chromeos::LoginDisplayHost* display_host;
-
-  // Block UI events untill ResourceBundle is reloaded.
-  InputEventsBlocker input_events_blocker;
-};
-
-// static
-void LoginUtilsImpl::DoBrowserLaunchOnLocaleLoaded(
-    scoped_ptr<DoBrowserLaunchOnLocaleLoadedData> context,
-    const std::string& /* locale */,
-    const std::string& /* loaded_locale */,
-    const bool /* success */) {
-  context->login_utils_impl->DoBrowserLaunchOnLocaleLoadedImpl(
-      context->profile, context->display_host);
-}
-
-// Called from DoBrowserLaunch() or from
-// DoBrowserLaunchOnLocaleLoaded() depending on
-// if locale switch was needed.
-void LoginUtilsImpl::DoBrowserLaunchOnLocaleLoadedImpl(
-    Profile* profile,
-    LoginDisplayHost* login_host) {
-  if (!UserManager::Get()->GetCurrentUserFlow()->ShouldLaunchBrowser()) {
-    UserManager::Get()->GetCurrentUserFlow()->LaunchExtraSteps(profile);
+  if (!locale_pref_checked) {
+    RespectLocalePreference(profile,
+                            base::Bind(&LoginUtilsImpl::DoBrowserLaunchInternal,
+                                       base::Unretained(this),
+                                       profile,
+                                       login_host,
+                                       true /* locale_pref_checked */));
     return;
   }
 
-  CommandLine user_flags(CommandLine::NO_PROGRAM);
-  about_flags::PrefServiceFlagsStorage flags_storage_(profile->GetPrefs());
-  about_flags::ConvertFlagsToSwitches(&flags_storage_, &user_flags,
-                                      about_flags::kAddSentinels);
-  // Only restart if needed and if not going into managed mode.
-  // Don't restart browser if it is not first profile in session.
-  if (UserManager::Get()->GetLoggedInUsers().size() == 1 &&
-      !UserManager::Get()->IsLoggedInAsLocallyManagedUser() &&
-      !about_flags::AreSwitchesIdenticalToCurrentCommandLine(
-          user_flags, *CommandLine::ForCurrentProcess())) {
-    CommandLine::StringVector flags;
-    // argv[0] is the program name |CommandLine::NO_PROGRAM|.
-    flags.assign(user_flags.argv().begin() + 1, user_flags.argv().end());
-    VLOG(1) << "Restarting to apply per-session flags...";
-    DBusThreadManager::Get()->GetSessionManagerClient()->SetFlagsForUser(
-        UserManager::Get()->GetActiveUser()->email(), flags);
-    AttemptRestart(profile);
+  if (!ChromeUserManager::Get()->GetCurrentUserFlow()->ShouldLaunchBrowser()) {
+    ChromeUserManager::Get()->GetCurrentUserFlow()->LaunchExtraSteps(profile);
     return;
   }
+
+  if (RestartToApplyPerSessionFlagsIfNeed(profile, false))
+    return;
 
   if (login_host) {
     login_host->SetStatusAreaVisible(true);
@@ -240,6 +298,12 @@ void LoginUtilsImpl::DoBrowserLaunchOnLocaleLoadedImpl(
   BootTimesLoader::Get()->AddLoginTimeMarker("BrowserLaunched", false);
 
   VLOG(1) << "Launching browser...";
+  TRACE_EVENT0("login", "LaunchBrowser");
+
+#if defined(USE_ATHENA)
+  athena::ExtensionsDelegate::CreateExtensionsDelegateForChrome(profile);
+  athena::StartAthenaSessionWithContext(profile);
+#else
   StartupBrowserCreator browser_creator;
   int return_code;
   chrome::startup::IsFirstRun first_run = first_run::IsChromeFirstRun() ?
@@ -254,39 +318,58 @@ void LoginUtilsImpl::DoBrowserLaunchOnLocaleLoadedImpl(
 
   // Triggers app launcher start page service to load start page web contents.
   app_list::StartPageService::Get(profile);
+#endif
 
   // Mark login host for deletion after browser starts.  This
   // guarantees that the message loop will be referenced by the
   // browser before it is dereferenced by the login host.
   if (login_host)
     login_host->Finalize();
-  UserManager::Get()->SessionStarted();
+  user_manager::UserManager::Get()->SessionStarted();
   chromeos::BootTimesLoader::Get()->LoginDone(
-      chromeos::UserManager::Get()->IsCurrentUserNew());
+      user_manager::UserManager::Get()->IsCurrentUserNew());
+}
+
+// static
+void LoginUtilsImpl::RunCallbackOnLocaleLoaded(
+    const base::Closure& callback,
+    InputEventsBlocker* /* input_events_blocker */,
+    const std::string& /* locale */,
+    const std::string& /* loaded_locale */,
+    const bool /* success */) {
+  callback.Run();
+}
+
+void LoginUtilsImpl::RespectLocalePreference(Profile* profile,
+                                             const base::Closure& callback) {
+  if (browser_shutdown::IsTryingToQuit())
+    return;
+
+  user_manager::User* const user =
+      ProfileHelper::Get()->GetUserByProfile(profile);
+  scoped_ptr<locale_util::SwitchLanguageCallback> locale_switched_callback(
+      new locale_util::SwitchLanguageCallback(base::Bind(
+              &LoginUtilsImpl::RunCallbackOnLocaleLoaded,
+              callback,
+              base::Owned(new InputEventsBlocker))));  // Block UI events until
+                                                       // the ResourceBundle is
+                                                       // reloaded.
+  if (!UserSessionManager::GetInstance()->RespectLocalePreference(
+          profile,
+          user,
+          locale_switched_callback.Pass())) {
+    callback.Run();
+  }
 }
 
 void LoginUtilsImpl::DoBrowserLaunch(Profile* profile,
                                      LoginDisplayHost* login_host) {
-  if (browser_shutdown::IsTryingToQuit())
-    return;
-
-  User* const user = UserManager::Get()->GetUserByProfile(profile);
-  scoped_ptr<DoBrowserLaunchOnLocaleLoadedData> data(
-      new DoBrowserLaunchOnLocaleLoadedData(this, profile, login_host));
-
-  scoped_ptr<locale_util::SwitchLanguageCallback> callback(
-      new locale_util::SwitchLanguageCallback(
-          base::Bind(&LoginUtilsImpl::DoBrowserLaunchOnLocaleLoaded,
-                     base::Passed(data.Pass()))));
-  if (!UserManager::Get()->
-      RespectLocalePreference(profile, user, callback.Pass())) {
-    DoBrowserLaunchOnLocaleLoadedImpl(profile, login_host);
-  }
+  DoBrowserLaunchInternal(profile, login_host, false /* locale_pref_checked */);
 }
 
 void LoginUtilsImpl::PrepareProfile(
     const UserContext& user_context,
-    bool has_cookies,
+    bool has_auth_cookies,
     bool has_active_session,
     LoginUtils::Delegate* delegate) {
   // TODO(nkostylev): We have to initialize LoginUtils delegate as long
@@ -297,16 +380,40 @@ void LoginUtilsImpl::PrepareProfile(
   // creation and initialization to SessionManager. Later LoginUtils will be
   // removed and all LoginUtils clients will just work with SessionManager
   // directly.
-  SessionManager::GetInstance()->StartSession(user_context,
-                                              authenticator_,
-                                              has_cookies,
-                                              has_active_session,
-                                              this);
+  UserSessionManager::GetInstance()->StartSession(
+      user_context, authenticator_, has_auth_cookies, has_active_session, this);
 }
 
 void LoginUtilsImpl::DelegateDeleted(LoginUtils::Delegate* delegate) {
   if (delegate_ == delegate)
     delegate_ = NULL;
+}
+
+bool LoginUtilsImpl::RestartToApplyPerSessionFlagsIfNeed(Profile* profile,
+                                                         bool early_restart) {
+  if (ProfileHelper::IsSigninProfile(profile))
+    return false;
+
+  if (early_restart && !CanPerformEarlyRestart())
+    return false;
+
+  const CommandLine user_flags(CreatePerSessionCommandLine(profile));
+  std::set<CommandLine::StringType> command_line_difference;
+  if (!NeedRestartToApplyPerSessionFlags(user_flags, &command_line_difference))
+    return false;
+
+  LogCustomSwitches(command_line_difference);
+
+  about_flags::ReportCustomFlags("Login.CustomFlags", command_line_difference);
+
+  CommandLine::StringVector flags;
+  // argv[0] is the program name |CommandLine::NO_PROGRAM|.
+  flags.assign(user_flags.argv().begin() + 1, user_flags.argv().end());
+  LOG(WARNING) << "Restarting to apply per-session flags...";
+  DBusThreadManager::Get()->GetSessionManagerClient()->SetFlagsForUser(
+      user_manager::UserManager::Get()->GetActiveUser()->email(), flags);
+  AttemptRestart(profile);
+  return true;
 }
 
 void LoginUtilsImpl::CompleteOffTheRecordLogin(const GURL& start_url) {
@@ -322,11 +429,27 @@ void LoginUtilsImpl::CompleteOffTheRecordLogin(const GURL& start_url) {
                                  browser_command_line,
                                  &command_line);
 
+  // This makes sure that Chrome restarts with no per-session flags. The guest
+  // profile will always have empty set of per-session flags. If this is not
+  // done and device owner has some per-session flags, when Chrome is relaunched
+  // the guest profile session flags will not match the current command line and
+  // another restart will be attempted in order to reset the user flags for the
+  // guest user.
+  const CommandLine user_flags(CommandLine::NO_PROGRAM);
+  if (!about_flags::AreSwitchesIdenticalToCurrentCommandLine(
+           user_flags,
+           *CommandLine::ForCurrentProcess(),
+           NULL)) {
+    DBusThreadManager::Get()->GetSessionManagerClient()->SetFlagsForUser(
+        chromeos::login::kGuestUserName,
+        CommandLine::StringVector());
+  }
+
   RestartChrome(cmd_line_str);
 }
 
 scoped_refptr<Authenticator> LoginUtilsImpl::CreateAuthenticator(
-    LoginStatusConsumer* consumer) {
+    AuthStatusConsumer* consumer) {
   // Screen locker needs new Authenticator instance each time.
   if (ScreenLocker::default_screen_locker()) {
     if (authenticator_.get())
@@ -335,7 +458,7 @@ scoped_refptr<Authenticator> LoginUtilsImpl::CreateAuthenticator(
   }
 
   if (authenticator_.get() == NULL) {
-    authenticator_ = new ParallelAuthenticator(consumer);
+    authenticator_ = new ChromeCryptohomeAuthenticator(consumer);
   } else {
     // TODO(nkostylev): Fix this hack by improving Authenticator dependencies.
     authenticator_->SetConsumer(consumer);
@@ -356,7 +479,15 @@ void LoginUtilsImpl::OnRlzInitialized() {
 #endif
 
 void LoginUtilsImpl::AttemptRestart(Profile* profile) {
-  if (SessionManager::GetInstance()->GetSigninSessionRestoreStrategy() !=
+  if (UserSessionManager::GetInstance()
+          ->CheckEasyUnlockKeyOps(
+              base::Bind(&LoginUtilsImpl::AttemptRestart,
+                         base::Unretained(this),
+                         profile))) {
+    return;
+  }
+
+  if (UserSessionManager::GetInstance()->GetSigninSessionRestoreStrategy() !=
       OAuth2LoginManager::RESTORE_FROM_COOKIE_JAR) {
     chrome::AttemptRestart();
     return;
@@ -375,7 +506,7 @@ void LoginUtilsImpl::AttemptRestart(Profile* profile) {
   }
 
   LOG(WARNING) << "Attempting browser restart during session restore.";
-  SessionManager::GetInstance()->set_exit_after_session_restore(true);
+  UserSessionManager::GetInstance()->set_exit_after_session_restore(true);
 }
 
 // static

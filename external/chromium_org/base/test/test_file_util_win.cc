@@ -10,8 +10,8 @@
 
 #include <vector>
 
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/strings/string_split.h"
 #include "base/threading/platform_thread.h"
@@ -47,7 +47,7 @@ bool DenyFilePermission(const FilePath& path, DWORD permission) {
   change.Trustee.MultipleTrusteeOperation = NO_MULTIPLE_TRUSTEE;
   change.Trustee.TrusteeForm = TRUSTEE_IS_NAME;
   change.Trustee.TrusteeType = TRUSTEE_IS_USER;
-  change.Trustee.ptstrName = L"CURRENT_USER";
+  change.Trustee.ptstrName = const_cast<wchar_t*>(L"CURRENT_USER");
 
   PACL new_dacl;
   if (SetEntriesInAcl(1, &change, old_dacl, &new_dacl) != ERROR_SUCCESS) {
@@ -136,12 +136,12 @@ bool EvictFileFromSystemCache(const FilePath& file) {
   base::win::ScopedHandle file_handle(
       CreateFile(file.value().c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL,
                  OPEN_EXISTING, FILE_FLAG_NO_BUFFERING, NULL));
-  if (!file_handle)
+  if (!file_handle.IsValid())
     return false;
 
   // Get some attributes to restore later.
   BY_HANDLE_FILE_INFORMATION bhi = {0};
-  CHECK(::GetFileInformationByHandle(file_handle, &bhi));
+  CHECK(::GetFileInformationByHandle(file_handle.Get(), &bhi));
 
   // Execute in chunks. It could be optimized. We want to do few of these since
   // these operations will be slow without the cache.
@@ -159,7 +159,7 @@ bool EvictFileFromSystemCache(const FilePath& file) {
   DWORD bytes_read, bytes_written;
   for (;;) {
     bytes_read = 0;
-    ::ReadFile(file_handle, buffer, kOneMB, &bytes_read, NULL);
+    ::ReadFile(file_handle.Get(), buffer, kOneMB, &bytes_read, NULL);
     if (bytes_read == 0)
       break;
 
@@ -176,8 +176,8 @@ bool EvictFileFromSystemCache(const FilePath& file) {
     // Note that SetFilePointer will also fail if total_bytes isn't sector
     // aligned, but that shouldn't happen here.
     DCHECK((total_bytes % kOneMB) == 0);
-    SetFilePointer(file_handle, total_bytes, NULL, FILE_BEGIN);
-    if (!::WriteFile(file_handle, buffer, kOneMB, &bytes_written, NULL) ||
+    SetFilePointer(file_handle.Get(), total_bytes, NULL, FILE_BEGIN);
+    if (!::WriteFile(file_handle.Get(), buffer, kOneMB, &bytes_written, NULL) ||
         bytes_written != kOneMB) {
       BOOL freed = VirtualFree(buffer, 0, MEM_RELEASE);
       DCHECK(freed);
@@ -202,14 +202,14 @@ bool EvictFileFromSystemCache(const FilePath& file) {
     file_handle.Set(NULL);
     file_handle.Set(CreateFile(file.value().c_str(), GENERIC_WRITE, 0, NULL,
                                OPEN_EXISTING, 0, NULL));
-    CHECK_NE(SetFilePointer(file_handle, total_bytes, NULL, FILE_BEGIN),
+    CHECK_NE(SetFilePointer(file_handle.Get(), total_bytes, NULL, FILE_BEGIN),
              INVALID_SET_FILE_POINTER);
-    CHECK(::SetEndOfFile(file_handle));
+    CHECK(::SetEndOfFile(file_handle.Get()));
   }
 
   // Restore the file attributes.
-  CHECK(::SetFileTime(file_handle, &bhi.ftCreationTime, &bhi.ftLastAccessTime,
-                      &bhi.ftLastWriteTime));
+  CHECK(::SetFileTime(file_handle.Get(), &bhi.ftCreationTime,
+                      &bhi.ftLastAccessTime, &bhi.ftLastWriteTime));
 
   return true;
 }
@@ -259,39 +259,24 @@ bool HasInternetZoneIdentifier(const FilePath& full_path) {
   }
 }
 
-}  // namespace base
-
-namespace file_util {
-
-using base::DenyFilePermission;
-using base::GetPermissionInfo;
-using base::RestorePermissionInfo;
-
-std::wstring FilePathAsWString(const base::FilePath& path) {
-  return path.value();
-}
-base::FilePath WStringAsFilePath(const std::wstring& path) {
-  return base::FilePath(path);
-}
-
-bool MakeFileUnreadable(const base::FilePath& path) {
+bool MakeFileUnreadable(const FilePath& path) {
   return DenyFilePermission(path, GENERIC_READ);
 }
 
-bool MakeFileUnwritable(const base::FilePath& path) {
+bool MakeFileUnwritable(const FilePath& path) {
   return DenyFilePermission(path, GENERIC_WRITE);
 }
 
-PermissionRestorer::PermissionRestorer(const base::FilePath& path)
+FilePermissionRestorer::FilePermissionRestorer(const FilePath& path)
     : path_(path), info_(NULL), length_(0) {
   info_ = GetPermissionInfo(path_, &length_);
   DCHECK(info_ != NULL);
   DCHECK_NE(0u, length_);
 }
 
-PermissionRestorer::~PermissionRestorer() {
+FilePermissionRestorer::~FilePermissionRestorer() {
   if (!RestorePermissionInfo(path_, info_, length_))
     NOTREACHED();
 }
 
-}  // namespace file_util
+}  // namespace base

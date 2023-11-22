@@ -20,9 +20,16 @@
 #include "mojo/public/c/system/data_pipe.h"
 #include "mojo/public/c/system/message_pipe.h"
 #include "mojo/public/c/system/types.h"
+#include "mojo/system/handle_signals_state.h"
+#include "mojo/system/memory.h"
 #include "mojo/system/system_impl_export.h"
 
 namespace mojo {
+
+namespace embedder {
+class PlatformSharedBufferMapping;
+}
+
 namespace system {
 
 class Channel;
@@ -32,17 +39,16 @@ class DispatcherTransport;
 class HandleTable;
 class LocalMessagePipeEndpoint;
 class ProxyMessagePipeEndpoint;
-class RawSharedBufferMapping;
 class TransportData;
 class Waiter;
 
-typedef std::vector<scoped_refptr<Dispatcher> > DispatcherVector;
+typedef std::vector<scoped_refptr<Dispatcher>> DispatcherVector;
 
 namespace test {
 
 // Test helper. We need to declare it here so we can friend it.
-MOJO_SYSTEM_IMPL_EXPORT DispatcherTransport DispatcherTryStartTransport(
-    Dispatcher* dispatcher);
+MOJO_SYSTEM_IMPL_EXPORT DispatcherTransport
+    DispatcherTryStartTransport(Dispatcher* dispatcher);
 
 }  // namespace test
 
@@ -51,8 +57,8 @@ MOJO_SYSTEM_IMPL_EXPORT DispatcherTransport DispatcherTryStartTransport(
 // object is thread-safe, with its state being protected by a single lock
 // |lock_|, which is also made available to implementation subclasses (via the
 // |lock()| method).
-class MOJO_SYSTEM_IMPL_EXPORT Dispatcher :
-    public base::RefCountedThreadSafe<Dispatcher> {
+class MOJO_SYSTEM_IMPL_EXPORT Dispatcher
+    : public base::RefCountedThreadSafe<Dispatcher> {
  public:
   enum Type {
     kTypeUnknown = 0,
@@ -79,47 +85,57 @@ class MOJO_SYSTEM_IMPL_EXPORT Dispatcher :
   // written; not that |this| must not be in |transports|. On success, all the
   // dispatchers in |transports| must have been moved to a closed state; on
   // failure, they should remain in their original state.
-  MojoResult WriteMessage(const void* bytes,
+  MojoResult WriteMessage(UserPointer<const void> bytes,
                           uint32_t num_bytes,
                           std::vector<DispatcherTransport>* transports,
                           MojoWriteMessageFlags flags);
   // |dispatchers| must be non-null but empty, if |num_dispatchers| is non-null
   // and nonzero. On success, it will be set to the dispatchers to be received
   // (and assigned handles) as part of the message.
-  MojoResult ReadMessage(void* bytes,
-                         uint32_t* num_bytes,
+  MojoResult ReadMessage(UserPointer<void> bytes,
+                         UserPointer<uint32_t> num_bytes,
                          DispatcherVector* dispatchers,
                          uint32_t* num_dispatchers,
                          MojoReadMessageFlags flags);
-  MojoResult WriteData(const void* elements,
-                       uint32_t* elements_num_bytes,
+  MojoResult WriteData(UserPointer<const void> elements,
+                       UserPointer<uint32_t> elements_num_bytes,
                        MojoWriteDataFlags flags);
-  MojoResult BeginWriteData(void** buffer,
-                            uint32_t* buffer_num_bytes,
+  MojoResult BeginWriteData(UserPointer<void*> buffer,
+                            UserPointer<uint32_t> buffer_num_bytes,
                             MojoWriteDataFlags flags);
   MojoResult EndWriteData(uint32_t num_bytes_written);
-  MojoResult ReadData(void* elements,
-                      uint32_t* num_bytes,
+  MojoResult ReadData(UserPointer<void> elements,
+                      UserPointer<uint32_t> num_bytes,
                       MojoReadDataFlags flags);
-  MojoResult BeginReadData(const void** buffer,
-                           uint32_t* buffer_num_bytes,
+  MojoResult BeginReadData(UserPointer<const void*> buffer,
+                           UserPointer<uint32_t> buffer_num_bytes,
                            MojoReadDataFlags flags);
   MojoResult EndReadData(uint32_t num_bytes_read);
   // |options| may be null. |new_dispatcher| must not be null, but
   // |*new_dispatcher| should be null (and will contain the dispatcher for the
   // new handle on success).
   MojoResult DuplicateBufferHandle(
-      const MojoDuplicateBufferHandleOptions* options,
+      UserPointer<const MojoDuplicateBufferHandleOptions> options,
       scoped_refptr<Dispatcher>* new_dispatcher);
-  MojoResult MapBuffer(uint64_t offset,
-                       uint64_t num_bytes,
-                       MojoMapBufferFlags flags,
-                       scoped_ptr<RawSharedBufferMapping>* mapping);
+  MojoResult MapBuffer(
+      uint64_t offset,
+      uint64_t num_bytes,
+      MojoMapBufferFlags flags,
+      scoped_ptr<embedder::PlatformSharedBufferMapping>* mapping);
+
+  // Gets the current handle signals state. (The default implementation simply
+  // returns a default-constructed |HandleSignalsState|, i.e., no signals
+  // satisfied or satisfiable.) Note: The state is subject to change from other
+  // threads.
+  HandleSignalsState GetHandleSignalsState() const;
 
   // Adds a waiter to this dispatcher. The waiter will be woken up when this
   // object changes state to satisfy |signals| with context |context|. It will
   // also be woken up when it becomes impossible for the object to ever satisfy
   // |signals| with a suitable error status.
+  //
+  // If |signals_state| is non-null, on *failure* |*signals_state| will be set
+  // to the current handle signals state (on success, it is left untouched).
   //
   // Returns:
   //  - |MOJO_RESULT_OK| if the waiter was added;
@@ -129,8 +145,13 @@ class MOJO_SYSTEM_IMPL_EXPORT Dispatcher :
   //    that |signals| will ever be satisfied.
   MojoResult AddWaiter(Waiter* waiter,
                        MojoHandleSignals signals,
-                       uint32_t context);
-  void RemoveWaiter(Waiter* waiter);
+                       uint32_t context,
+                       HandleSignalsState* signals_state);
+  // Removes a waiter from this dispatcher. (It is valid to call this multiple
+  // times for the same |waiter| on the same object, so long as |AddWaiter()|
+  // was called at most once.) If |signals_state| is non-null, |*signals_state|
+  // will be set to the current handle signals state.
+  void RemoveWaiter(Waiter* waiter, HandleSignalsState* signals_state);
 
   // A dispatcher must be put into a special state in order to be sent across a
   // message pipe. Outside of tests, only |HandleTableAccess| is allowed to do
@@ -212,41 +233,46 @@ class MOJO_SYSTEM_IMPL_EXPORT Dispatcher :
   // See the descriptions of the methods without the "ImplNoLock" for more
   // information.
   virtual MojoResult WriteMessageImplNoLock(
-      const void* bytes,
+      UserPointer<const void> bytes,
       uint32_t num_bytes,
       std::vector<DispatcherTransport>* transports,
       MojoWriteMessageFlags flags);
-  virtual MojoResult ReadMessageImplNoLock(void* bytes,
-                                           uint32_t* num_bytes,
+  virtual MojoResult ReadMessageImplNoLock(UserPointer<void> bytes,
+                                           UserPointer<uint32_t> num_bytes,
                                            DispatcherVector* dispatchers,
                                            uint32_t* num_dispatchers,
                                            MojoReadMessageFlags flags);
-  virtual MojoResult WriteDataImplNoLock(const void* elements,
-                                         uint32_t* num_bytes,
+  virtual MojoResult WriteDataImplNoLock(UserPointer<const void> elements,
+                                         UserPointer<uint32_t> num_bytes,
                                          MojoWriteDataFlags flags);
-  virtual MojoResult BeginWriteDataImplNoLock(void** buffer,
-                                              uint32_t* buffer_num_bytes,
-                                              MojoWriteDataFlags flags);
+  virtual MojoResult BeginWriteDataImplNoLock(
+      UserPointer<void*> buffer,
+      UserPointer<uint32_t> buffer_num_bytes,
+      MojoWriteDataFlags flags);
   virtual MojoResult EndWriteDataImplNoLock(uint32_t num_bytes_written);
-  virtual MojoResult ReadDataImplNoLock(void* elements,
-                                        uint32_t* num_bytes,
+  virtual MojoResult ReadDataImplNoLock(UserPointer<void> elements,
+                                        UserPointer<uint32_t> num_bytes,
                                         MojoReadDataFlags flags);
-  virtual MojoResult BeginReadDataImplNoLock(const void** buffer,
-                                             uint32_t* buffer_num_bytes,
-                                             MojoReadDataFlags flags);
+  virtual MojoResult BeginReadDataImplNoLock(
+      UserPointer<const void*> buffer,
+      UserPointer<uint32_t> buffer_num_bytes,
+      MojoReadDataFlags flags);
   virtual MojoResult EndReadDataImplNoLock(uint32_t num_bytes_read);
   virtual MojoResult DuplicateBufferHandleImplNoLock(
-      const MojoDuplicateBufferHandleOptions* options,
+      UserPointer<const MojoDuplicateBufferHandleOptions> options,
       scoped_refptr<Dispatcher>* new_dispatcher);
   virtual MojoResult MapBufferImplNoLock(
       uint64_t offset,
       uint64_t num_bytes,
       MojoMapBufferFlags flags,
-      scoped_ptr<RawSharedBufferMapping>* mapping);
+      scoped_ptr<embedder::PlatformSharedBufferMapping>* mapping);
+  virtual HandleSignalsState GetHandleSignalsStateImplNoLock() const;
   virtual MojoResult AddWaiterImplNoLock(Waiter* waiter,
                                          MojoHandleSignals signals,
-                                         uint32_t context);
-  virtual void RemoveWaiterImplNoLock(Waiter* waiter);
+                                         uint32_t context,
+                                         HandleSignalsState* signals_state);
+  virtual void RemoveWaiterImplNoLock(Waiter* waiter,
+                                      HandleSignalsState* signals_state);
 
   // These implement the API used to serialize dispatchers to a |Channel|
   // (described below). They will only be called on a dispatcher that's attached
@@ -346,7 +372,7 @@ class MOJO_SYSTEM_IMPL_EXPORT Dispatcher :
 // |Dispatcher*|.
 class MOJO_SYSTEM_IMPL_EXPORT DispatcherTransport {
  public:
-  DispatcherTransport() : dispatcher_(NULL) {}
+  DispatcherTransport() : dispatcher_(nullptr) {}
 
   void End();
 

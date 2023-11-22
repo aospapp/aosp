@@ -25,12 +25,47 @@ import android.media.CamcorderProfile;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+import java.util.Arrays;
 import java.util.List;
 
 public class CamcorderProfileTest extends AndroidTestCase {
 
     private static final String TAG = "CamcorderProfileTest";
     private static final int MIN_HIGH_SPEED_FPS = 100;
+    private static final Integer[] ALL_SUPPORTED_QUALITIES = {
+        CamcorderProfile.QUALITY_LOW,
+        CamcorderProfile.QUALITY_HIGH,
+        CamcorderProfile.QUALITY_QCIF,
+        CamcorderProfile.QUALITY_CIF,
+        CamcorderProfile.QUALITY_480P,
+        CamcorderProfile.QUALITY_720P,
+        CamcorderProfile.QUALITY_1080P,
+        CamcorderProfile.QUALITY_QVGA,
+        CamcorderProfile.QUALITY_2160P,
+        CamcorderProfile.QUALITY_TIME_LAPSE_LOW,
+        CamcorderProfile.QUALITY_TIME_LAPSE_HIGH,
+        CamcorderProfile.QUALITY_TIME_LAPSE_QCIF,
+        CamcorderProfile.QUALITY_TIME_LAPSE_CIF,
+        CamcorderProfile.QUALITY_TIME_LAPSE_480P,
+        CamcorderProfile.QUALITY_TIME_LAPSE_720P,
+        CamcorderProfile.QUALITY_TIME_LAPSE_1080P,
+        CamcorderProfile.QUALITY_TIME_LAPSE_QVGA,
+        CamcorderProfile.QUALITY_TIME_LAPSE_2160P,
+        CamcorderProfile.QUALITY_HIGH_SPEED_LOW,
+        CamcorderProfile.QUALITY_HIGH_SPEED_HIGH,
+        CamcorderProfile.QUALITY_HIGH_SPEED_480P,
+        CamcorderProfile.QUALITY_HIGH_SPEED_720P,
+        CamcorderProfile.QUALITY_HIGH_SPEED_1080P,
+        CamcorderProfile.QUALITY_HIGH_SPEED_2160P
+    };
+    private static final int LAST_QUALITY = CamcorderProfile.QUALITY_2160P;
+    private static final int LAST_TIMELAPSE_QUALITY = CamcorderProfile.QUALITY_TIME_LAPSE_2160P;
+    private static final int LAST_HIGH_SPEED_QUALITY = CamcorderProfile.QUALITY_HIGH_SPEED_2160P;
+    private static final Integer[] UNKNOWN_QUALITIES = {
+        LAST_QUALITY + 1, // Unknown normal profile quality
+        LAST_TIMELAPSE_QUALITY + 1, // Unknown timelapse profile quality
+        LAST_HIGH_SPEED_QUALITY + 1 // Unknown high speed timelapse profile quality
+    };
 
     // Uses get without id if cameraId == -1 and get with id otherwise.
     private CamcorderProfile getWithOptionalId(int quality, int cameraId) {
@@ -59,27 +94,7 @@ public class CamcorderProfileTest extends AndroidTestCase {
             profile.audioSampleRate,
             profile.audioChannels));
         assertTrue(profile.duration > 0);
-        assertTrue(profile.quality == CamcorderProfile.QUALITY_LOW ||
-                   profile.quality == CamcorderProfile.QUALITY_HIGH ||
-                   profile.quality == CamcorderProfile.QUALITY_QCIF ||
-                   profile.quality == CamcorderProfile.QUALITY_CIF ||
-                   profile.quality == CamcorderProfile.QUALITY_480P ||
-                   profile.quality == CamcorderProfile.QUALITY_720P ||
-                   profile.quality == CamcorderProfile.QUALITY_1080P ||
-                   profile.quality == CamcorderProfile.QUALITY_2160P ||
-                   profile.quality == CamcorderProfile.QUALITY_TIME_LAPSE_LOW ||
-                   profile.quality == CamcorderProfile.QUALITY_TIME_LAPSE_HIGH ||
-                   profile.quality == CamcorderProfile.QUALITY_TIME_LAPSE_QCIF ||
-                   profile.quality == CamcorderProfile.QUALITY_TIME_LAPSE_CIF ||
-                   profile.quality == CamcorderProfile.QUALITY_TIME_LAPSE_480P ||
-                   profile.quality == CamcorderProfile.QUALITY_TIME_LAPSE_720P ||
-                   profile.quality == CamcorderProfile.QUALITY_TIME_LAPSE_1080P ||
-                   profile.quality == CamcorderProfile.QUALITY_TIME_LAPSE_2160P ||
-                   profile.quality == CamcorderProfile.QUALITY_HIGH_SPEED_LOW ||
-                   profile.quality == CamcorderProfile.QUALITY_HIGH_SPEED_HIGH ||
-                   profile.quality == CamcorderProfile.QUALITY_HIGH_SPEED_480P ||
-                   profile.quality == CamcorderProfile.QUALITY_HIGH_SPEED_720P ||
-                   profile.quality == CamcorderProfile.QUALITY_HIGH_SPEED_1080P);
+        assertTrue(Arrays.asList(ALL_SUPPORTED_QUALITIES).contains(profile.quality));
         assertTrue(profile.videoBitRate > 0);
         assertTrue(profile.videoFrameRate > 0);
         assertTrue(profile.videoFrameWidth > 0);
@@ -233,19 +248,30 @@ public class CamcorderProfileTest extends AndroidTestCase {
 
         final List<Size> videoSizes = getSupportedVideoSizes(cameraId);
 
-        CamcorderProfile lowProfile =
-            getWithOptionalId(CamcorderProfile.QUALITY_LOW, cameraId);
-        CamcorderProfile highProfile =
-            getWithOptionalId(CamcorderProfile.QUALITY_HIGH, cameraId);
-        checkProfile(lowProfile, videoSizes);
-        checkProfile(highProfile, videoSizes);
+        /**
+         * Check all possible supported profiles: get profile should work, and the profile
+         * should be sane. Note that, timelapse and high speed video sizes may not be listed
+         * as supported video sizes from camera, skip the size check.
+         */
+        for (Integer quality : ALL_SUPPORTED_QUALITIES) {
+            if (CamcorderProfile.hasProfile(cameraId, quality) || isProfileMandatory(quality)) {
+                List<Size> videoSizesToCheck = null;
+                if (quality >= CamcorderProfile.QUALITY_LOW &&
+                                quality <= CamcorderProfile.QUALITY_2160P) {
+                    videoSizesToCheck = videoSizes;
+                }
+                CamcorderProfile profile = getWithOptionalId(quality, cameraId);
+                checkProfile(profile, videoSizesToCheck);
+            }
+        }
 
-        CamcorderProfile lowTimeLapseProfile =
-            getWithOptionalId(CamcorderProfile.QUALITY_TIME_LAPSE_LOW, cameraId);
-        CamcorderProfile highTimeLapseProfile =
-            getWithOptionalId(CamcorderProfile.QUALITY_TIME_LAPSE_HIGH, cameraId);
-        checkProfile(lowTimeLapseProfile, null);
-        checkProfile(highTimeLapseProfile, null);
+        /**
+         * Check unknown profiles: hasProfile() should return false.
+         */
+        for (Integer quality : UNKNOWN_QUALITIES) {
+            assertFalse("Unknown profile quality " + quality + " shouldn't be supported by camera "
+                    + cameraId, CamcorderProfile.hasProfile(cameraId, quality));
+        }
 
         // High speed low and high profile are optional,
         // but they should be both present or missing.
@@ -288,8 +314,17 @@ public class CamcorderProfileTest extends AndroidTestCase {
 
         int[] specificHighSpeedProfileQualities = {CamcorderProfile.QUALITY_HIGH_SPEED_480P,
                                                    CamcorderProfile.QUALITY_HIGH_SPEED_720P,
-                                                   CamcorderProfile.QUALITY_HIGH_SPEED_1080P};
+                                                   CamcorderProfile.QUALITY_HIGH_SPEED_1080P,
+                                                   CamcorderProfile.QUALITY_HIGH_SPEED_2160P};
 
+        CamcorderProfile lowProfile =
+                getWithOptionalId(CamcorderProfile.QUALITY_LOW, cameraId);
+        CamcorderProfile highProfile =
+                getWithOptionalId(CamcorderProfile.QUALITY_HIGH, cameraId);
+        CamcorderProfile lowTimeLapseProfile =
+                getWithOptionalId(CamcorderProfile.QUALITY_TIME_LAPSE_LOW, cameraId);
+        CamcorderProfile highTimeLapseProfile =
+                getWithOptionalId(CamcorderProfile.QUALITY_TIME_LAPSE_HIGH, cameraId);
         checkSpecificProfiles(cameraId, lowProfile, highProfile,
                 specificProfileQualities, videoSizes);
         checkSpecificProfiles(cameraId, lowTimeLapseProfile, highTimeLapseProfile,
@@ -341,5 +376,12 @@ public class CamcorderProfileTest extends AndroidTestCase {
         }
         Log.e(TAG, "Size (" + width + "x" + height + ") is not supported");
         return false;
+    }
+
+    private boolean isProfileMandatory(int quality) {
+        return (quality == CamcorderProfile.QUALITY_LOW) ||
+                (quality == CamcorderProfile.QUALITY_HIGH) ||
+                (quality == CamcorderProfile.QUALITY_TIME_LAPSE_LOW) ||
+                (quality == CamcorderProfile.QUALITY_TIME_LAPSE_HIGH);
     }
 }

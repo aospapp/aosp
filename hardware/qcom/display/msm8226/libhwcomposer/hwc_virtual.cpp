@@ -29,25 +29,34 @@
 #include "hwc_dump_layers.h"
 #include "hwc_copybit.h"
 #include "hwc_virtual.h"
+#include "sync/sync.h"
 
 #define HWCVIRTUAL_LOG 0
 
 using namespace qhwc;
 using namespace overlay;
 
-HWCVirtualBase* HWCVirtualBase::getObject() {
-    char property[PROPERTY_VALUE_MAX];
+HWCVirtualBase* HWCVirtualBase::getObject(bool isVDSEnabled) {
 
-    if((property_get("persist.hwc.enable_vds", property, NULL) > 0)) {
-        if(atoi(property) != 0) {
-            ALOGD_IF(HWCVIRTUAL_LOG, "%s: VDS is enabled for Virtual display",
-                __FUNCTION__);
-            return new HWCVirtualVDS();
+    if(isVDSEnabled) {
+        ALOGD_IF(HWCVIRTUAL_LOG, "%s: VDS is enabled for Virtual display",
+                 __FUNCTION__);
+        return new HWCVirtualVDS();
+    } else {
+        ALOGD_IF(HWCVIRTUAL_LOG, "%s: V4L2 is enabled for Virtual display",
+                 __FUNCTION__);
+        return new HWCVirtualV4L2();
+    }
+}
+
+HWCVirtualVDS::HWCVirtualVDS() {
+    char value[PROPERTY_VALUE_MAX];
+    mVDSDumpEnabled = false;
+    if((property_get("debug.hwc.enable_vds_dump", value, NULL) > 0)) {
+        if(atoi(value) != 0) {
+            mVDSDumpEnabled = true;
         }
     }
-    ALOGD_IF(HWCVIRTUAL_LOG, "%s: V4L2 is enabled for Virtual display",
-            __FUNCTION__);
-    return new HWCVirtualV4L2();
 }
 
 void HWCVirtualVDS::init(hwc_context_t *ctx) {
@@ -69,6 +78,7 @@ void HWCVirtualVDS::destroy(hwc_context_t *ctx, size_t /*numDisplays*/,
     //Cleanup virtual display objs, since there is no explicit disconnect
     if(ctx->dpyAttr[dpy].connected && (displays[dpy] == NULL)) {
         ctx->dpyAttr[dpy].connected = false;
+        ctx->dpyAttr[dpy].isPause = false;
 
         if(ctx->mFBUpdate[dpy]) {
             delete ctx->mFBUpdate[dpy];
@@ -83,6 +93,9 @@ void HWCVirtualVDS::destroy(hwc_context_t *ctx, size_t /*numDisplays*/,
         if(!Writeback::getInstance()->setSecure(false)) {
             ALOGE("Failure while attempting to reset WB session.");
         }
+        ctx->mWfdSyncLock.lock();
+        ctx->mWfdSyncLock.signal();
+        ctx->mWfdSyncLock.unlock();
     }
 }
 
@@ -94,8 +107,8 @@ int HWCVirtualVDS::prepare(hwc_composer_device_1 *dev,
     const int dpy = HWC_DISPLAY_VIRTUAL;
 
     if (list && list->outbuf && list->numHwLayers > 0) {
-        reset_layer_prop(ctx, dpy, list->numHwLayers - 1);
-        uint32_t last = list->numHwLayers - 1;
+        reset_layer_prop(ctx, dpy, (int)list->numHwLayers - 1);
+        uint32_t last = (uint32_t)list->numHwLayers - 1;
         hwc_layer_1_t *fbLayer = &list->hwLayers[last];
         int fbWidth = 0, fbHeight = 0;
         getLayerResolution(fbLayer, fbWidth, fbHeight);
@@ -104,6 +117,7 @@ int HWCVirtualVDS::prepare(hwc_composer_device_1 *dev,
 
         if(ctx->dpyAttr[dpy].connected == false) {
             ctx->dpyAttr[dpy].connected = true;
+            ctx->dpyAttr[dpy].isPause = false;
             // We set the vsync period to the primary refresh rate, leaving
             // it up to the consumer to decide how fast to consume frames.
             ctx->dpyAttr[dpy].vsync_period
@@ -113,16 +127,32 @@ int HWCVirtualVDS::prepare(hwc_composer_device_1 *dev,
             // allow one padding round to free up resources but this breaks
             // certain use cases.
         }
+        if(!ctx->dpyAttr[dpy].isPause) {
+            ctx->dpyAttr[dpy].isConfiguring = false;
+            ctx->dpyAttr[dpy].fd = Writeback::getInstance()->getFbFd();
+            private_handle_t *ohnd = (private_handle_t *)list->outbuf;
+            Writeback::getInstance()->configureDpyInfo(ohnd->width,
+                                                          ohnd->height);
+            setListStats(ctx, list, dpy);
 
-        ctx->dpyAttr[dpy].isConfiguring = false;
-        ctx->dpyAttr[dpy].fd = Writeback::getInstance()->getFbFd();
-        private_handle_t *ohnd = (private_handle_t *)list->outbuf;
-        Writeback::getInstance()->configureDpyInfo(ohnd->width, ohnd->height);
-        setListStats(ctx, list, dpy);
-
-        if(ctx->mMDPComp[dpy]->prepare(ctx, list) < 0) {
-            const int fbZ = 0;
-            ctx->mFBUpdate[dpy]->prepareAndValidate(ctx, list, fbZ);
+            if(ctx->mMDPComp[dpy]->prepare(ctx, list) < 0) {
+                const int fbZ = 0;
+                if(not ctx->mFBUpdate[dpy]->prepareAndValidate(ctx, list, fbZ))
+                {
+                    ctx->mOverlay->clear(dpy);
+                    ctx->mLayerRotMap[dpy]->clear();
+                }
+            }
+        } else {
+            /* Virtual Display is in Pause state.
+             * Mark all application layers as OVERLAY so that
+             * GPU will not compose.
+             */
+            Writeback::getInstance(); //Ensure that WB is active during pause
+            for(size_t i = 0 ;i < (size_t)(list->numHwLayers - 1); i++) {
+                hwc_layer_1_t *layer = &list->hwLayers[i];
+                layer->compositionType = HWC_OVERLAY;
+            }
         }
     }
     return 0;
@@ -134,10 +164,12 @@ int HWCVirtualVDS::set(hwc_context_t *ctx, hwc_display_contents_1_t *list) {
     const int dpy = HWC_DISPLAY_VIRTUAL;
 
     if (list && list->outbuf && list->numHwLayers > 0) {
-        uint32_t last = list->numHwLayers - 1;
+        uint32_t last = (uint32_t)list->numHwLayers - 1;
         hwc_layer_1_t *fbLayer = &list->hwLayers[last];
 
-        if(ctx->dpyAttr[dpy].connected) {
+        if(ctx->dpyAttr[dpy].connected
+                && (!ctx->dpyAttr[dpy].isPause))
+        {
             private_handle_t *ohnd = (private_handle_t *)list->outbuf;
             int format = ohnd->format;
             if (format == HAL_PIXEL_FORMAT_RGBA_8888)
@@ -157,6 +189,10 @@ int HWCVirtualVDS::set(hwc_context_t *ctx, hwc_display_contents_1_t *list) {
             int fd = -1; //FenceFD from the Copybit
             hwc_sync(ctx, list, dpy, fd);
 
+            // Dump the layers for virtual
+            if(ctx->mHwcDebug[dpy])
+                ctx->mHwcDebug[dpy]->dumpLayers(list);
+
             if (!ctx->mMDPComp[dpy]->draw(ctx, list)) {
                 ALOGE("%s: MDPComp draw failed", __FUNCTION__);
                 ret = -1;
@@ -173,12 +209,26 @@ int HWCVirtualVDS::set(hwc_context_t *ctx, hwc_display_contents_1_t *list) {
                 ret = -1;
             }
 
-            Writeback::getInstance()->queueBuffer(ohnd->fd, ohnd->offset);
+            Writeback::getInstance()->queueBuffer(ohnd->fd,
+                                        (uint32_t)ohnd->offset);
             if(!Overlay::displayCommit(ctx->dpyAttr[dpy].fd)) {
                 ALOGE("%s: display commit fail!", __FUNCTION__);
                 ret = -1;
             }
 
+            if(mVDSDumpEnabled) {
+                char bufferName[128];
+                // Dumping frame buffer
+                sync_wait(fbLayer->acquireFenceFd, 1000);
+                snprintf(bufferName, sizeof(bufferName), "vds.fb");
+                dumpBuffer((private_handle_t *)fbLayer->handle, bufferName);
+                // Dumping WB output for non-secure session
+                if(!isSecureBuffer(ohnd)) {
+                    sync_wait(list->retireFenceFd, 1000);
+                    snprintf(bufferName, sizeof(bufferName), "vds.wb");
+                    dumpBuffer(ohnd, bufferName);
+                }
+            }
         } else if(list->outbufAcquireFenceFd >= 0) {
             //If we dont handle the frame, set retireFenceFd to outbufFenceFd,
             //which will make sure, the framework waits on it and closes it.
@@ -194,6 +244,47 @@ int HWCVirtualVDS::set(hwc_context_t *ctx, hwc_display_contents_1_t *list) {
     return ret;
 }
 
+void HWCVirtualVDS::pause(hwc_context_t* ctx, int dpy) {
+    {
+        Locker::Autolock _l(ctx->mDrawLock);
+        ctx->dpyAttr[dpy].isActive = true;
+        ctx->dpyAttr[dpy].isPause = true;
+        ctx->proc->invalidate(ctx->proc);
+    }
+    usleep(ctx->dpyAttr[HWC_DISPLAY_PRIMARY].vsync_period
+            * 2 / 1000);
+    // At this point all the pipes used by External have been
+    // marked as UNSET.
+    {
+        Locker::Autolock _l(ctx->mDrawLock);
+        // Perform commit to unstage the pipes.
+        if (!Overlay::displayCommit(ctx->dpyAttr[dpy].fd)) {
+            ALOGE("%s: display commit fail! for %d dpy",
+                    __FUNCTION__, dpy);
+        }
+        ctx->proc->invalidate(ctx->proc);
+    }
+    return;
+}
+
+void HWCVirtualVDS::resume(hwc_context_t* ctx, int dpy) {
+    {
+        Locker::Autolock _l(ctx->mDrawLock);
+        ctx->dpyAttr[dpy].isConfiguring = true;
+        ctx->dpyAttr[dpy].isActive = true;
+        ctx->proc->invalidate(ctx->proc);
+    }
+    usleep(ctx->dpyAttr[HWC_DISPLAY_PRIMARY].vsync_period
+            * 2 / 1000);
+    //At this point external has all the pipes it would need.
+    {
+        Locker::Autolock _l(ctx->mDrawLock);
+        ctx->dpyAttr[dpy].isPause = false;
+        ctx->proc->invalidate(ctx->proc);
+    }
+    return;
+}
+
 /* Implementation for HWCVirtualV4L2 class */
 
 int HWCVirtualV4L2::prepare(hwc_composer_device_1 *dev,
@@ -205,15 +296,18 @@ int HWCVirtualV4L2::prepare(hwc_composer_device_1 *dev,
 
     if (LIKELY(list && list->numHwLayers > 1) &&
             ctx->dpyAttr[dpy].isActive &&
-            ctx->dpyAttr[dpy].connected &&
-            canUseMDPforVirtualDisplay(ctx,list)) {
-        reset_layer_prop(ctx, dpy, list->numHwLayers - 1);
+            ctx->dpyAttr[dpy].connected) {
+        reset_layer_prop(ctx, dpy, (int)list->numHwLayers - 1);
         if(!ctx->dpyAttr[dpy].isPause) {
             ctx->dpyAttr[dpy].isConfiguring = false;
             setListStats(ctx, list, dpy);
             if(ctx->mMDPComp[dpy]->prepare(ctx, list) < 0) {
                 const int fbZ = 0;
-                ctx->mFBUpdate[dpy]->prepareAndValidate(ctx, list, fbZ);
+                if(not ctx->mFBUpdate[dpy]->prepareAndValidate(ctx, list, fbZ))
+                {
+                    ctx->mOverlay->clear(dpy);
+                    ctx->mLayerRotMap[dpy]->clear();
+                }
             }
         } else {
             /* Virtual Display is in Pause state.
@@ -237,9 +331,8 @@ int HWCVirtualV4L2::set(hwc_context_t *ctx, hwc_display_contents_1_t *list) {
 
     if (LIKELY(list) && ctx->dpyAttr[dpy].isActive &&
             ctx->dpyAttr[dpy].connected &&
-            (!ctx->dpyAttr[dpy].isPause) &&
-            canUseMDPforVirtualDisplay(ctx,list)) {
-        uint32_t last = list->numHwLayers - 1;
+            !ctx->dpyAttr[dpy].isPause) {
+        uint32_t last = (uint32_t)list->numHwLayers - 1;
         hwc_layer_1_t *fbLayer = &list->hwLayers[last];
         int fd = -1; //FenceFD from the Copybit(valid in async mode)
         bool copybitDone = false;
@@ -293,4 +386,57 @@ int HWCVirtualV4L2::set(hwc_context_t *ctx, hwc_display_contents_1_t *list) {
     }
 
     return ret;
+}
+
+void HWCVirtualV4L2::pause(hwc_context_t* ctx, int dpy) {
+    {
+        Locker::Autolock _l(ctx->mDrawLock);
+        ctx->dpyAttr[dpy].isActive = true;
+        ctx->dpyAttr[dpy].isPause = true;
+        ctx->proc->invalidate(ctx->proc);
+    }
+    usleep(ctx->dpyAttr[HWC_DISPLAY_PRIMARY].vsync_period
+            * 2 / 1000);
+    // At this point all the pipes used by External have been
+    // marked as UNSET.
+    {
+        Locker::Autolock _l(ctx->mDrawLock);
+        // Perform commit to unstage the pipes.
+        if (!Overlay::displayCommit(ctx->dpyAttr[dpy].fd)) {
+            ALOGE("%s: display commit fail! for %d dpy",
+                    __FUNCTION__, dpy);
+        }
+    }
+    return;
+}
+
+void HWCVirtualV4L2::resume(hwc_context_t* ctx, int dpy){
+    //Treat Resume as Online event
+    //Since external didnt have any pipes, force primary to give up
+    //its pipes; we don't allow inter-mixer pipe transfers.
+    {
+        Locker::Autolock _l(ctx->mDrawLock);
+
+        // A dynamic resolution change (DRC) can be made for a WiFi
+        // display. In order to support the resolution change, we
+        // need to reconfigure the corresponding display attributes.
+        // Since DRC is only on WiFi display, we only need to call
+        // configure() on the VirtualDisplay device.
+        //TODO: clean up
+        if(dpy == HWC_DISPLAY_VIRTUAL)
+            ctx->mVirtualDisplay->configure();
+
+        ctx->dpyAttr[dpy].isConfiguring = true;
+        ctx->dpyAttr[dpy].isActive = true;
+        ctx->proc->invalidate(ctx->proc);
+    }
+    usleep(ctx->dpyAttr[HWC_DISPLAY_PRIMARY].vsync_period
+            * 2 / 1000);
+    //At this point external has all the pipes it would need.
+    {
+        Locker::Autolock _l(ctx->mDrawLock);
+        ctx->dpyAttr[dpy].isPause = false;
+        ctx->proc->invalidate(ctx->proc);
+    }
+    return;
 }

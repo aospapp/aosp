@@ -15,14 +15,15 @@
 #include "remoting/codec/video_encoder.h"
 #include "remoting/host/capture_scheduler.h"
 #include "remoting/proto/video.pb.h"
-#include "third_party/webrtc/modules/desktop_capture/screen_capturer.h"
+#include "third_party/webrtc/modules/desktop_capture/desktop_capturer.h"
+#include "third_party/webrtc/modules/desktop_capture/mouse_cursor_monitor.h"
 
 namespace base {
 class SingleThreadTaskRunner;
 }  // namespace base
 
 namespace media {
-class ScreenCapturer;
+class DesktopCapturer;
 }  // namespace media
 
 namespace remoting {
@@ -36,7 +37,7 @@ class VideoStub;
 }  // namespace protocol
 
 // Class responsible for scheduling frame captures from a
-// webrtc::ScreenCapturer, delivering them to a VideoEncoder to encode, and
+// webrtc::DesktopCapturer, delivering them to a VideoEncoder to encode, and
 // finally passing the encoded video packets to the specified VideoStub to send
 // on the network.
 //
@@ -74,8 +75,11 @@ class VideoStub;
 
 class VideoScheduler : public base::RefCountedThreadSafe<VideoScheduler>,
                        public webrtc::DesktopCapturer::Callback,
-                       public webrtc::ScreenCapturer::MouseShapeObserver {
+                       public webrtc::MouseCursorMonitor::Callback {
  public:
+  // Enables timestamps for generated frames. Used for testing.
+  static void EnableTimestampsForTests();
+
   // Creates a VideoScheduler running capture, encode and network tasks on the
   // supplied TaskRunners.  Video and cursor shape updates will be pumped to
   // |video_stub| and |client_stub|, which must remain valid until Stop() is
@@ -84,7 +88,8 @@ class VideoScheduler : public base::RefCountedThreadSafe<VideoScheduler>,
       scoped_refptr<base::SingleThreadTaskRunner> capture_task_runner,
       scoped_refptr<base::SingleThreadTaskRunner> encode_task_runner,
       scoped_refptr<base::SingleThreadTaskRunner> network_task_runner,
-      scoped_ptr<webrtc::ScreenCapturer> capturer,
+      scoped_ptr<webrtc::DesktopCapturer> capturer,
+      scoped_ptr<webrtc::MouseCursorMonitor> mouse_cursor_monitor,
       scoped_ptr<VideoEncoder> encoder,
       protocol::CursorShapeStub* cursor_stub,
       protocol::VideoStub* video_stub);
@@ -93,9 +98,12 @@ class VideoScheduler : public base::RefCountedThreadSafe<VideoScheduler>,
   virtual webrtc::SharedMemory* CreateSharedMemory(size_t size) OVERRIDE;
   virtual void OnCaptureCompleted(webrtc::DesktopFrame* frame) OVERRIDE;
 
-  // webrtc::ScreenCapturer::MouseShapeObserver implementation.
-  virtual void OnCursorShapeChanged(
-      webrtc::MouseCursorShape* cursor_shape) OVERRIDE;
+  // webrtc::MouseCursorMonitor::Callback implementation.
+  virtual void OnMouseCursor(
+      webrtc::MouseCursor* mouse_cursor) OVERRIDE;
+  virtual void OnMouseCursorPosition(
+      webrtc::MouseCursorMonitor::CursorState state,
+      const webrtc::DesktopVector& position) OVERRIDE;
 
   // Starts scheduling frame captures.
   void Start();
@@ -160,7 +168,8 @@ class VideoScheduler : public base::RefCountedThreadSafe<VideoScheduler>,
 
   // Encode a frame, passing generated VideoPackets to SendVideoPacket().
   void EncodeFrame(scoped_ptr<webrtc::DesktopFrame> frame,
-                   int64 sequence_number);
+                   int64 sequence_number,
+                   base::TimeTicks timestamp);
 
   void EncodedDataAvailableCallback(int64 sequence_number,
                                     scoped_ptr<VideoPacket> packet);
@@ -171,7 +180,10 @@ class VideoScheduler : public base::RefCountedThreadSafe<VideoScheduler>,
   scoped_refptr<base::SingleThreadTaskRunner> network_task_runner_;
 
   // Used to capture frames. Always accessed on the capture thread.
-  scoped_ptr<webrtc::ScreenCapturer> capturer_;
+  scoped_ptr<webrtc::DesktopCapturer> capturer_;
+
+  // Used to capture mouse cursor shapes. Always accessed on the capture thread.
+  scoped_ptr<webrtc::MouseCursorMonitor> mouse_cursor_monitor_;
 
   // Used to encode captured frames. Always accessed on the encode thread.
   scoped_ptr<VideoEncoder> encoder_;

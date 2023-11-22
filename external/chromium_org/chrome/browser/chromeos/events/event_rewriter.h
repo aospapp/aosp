@@ -15,13 +15,11 @@
 #include "ui/events/event.h"
 #include "ui/events/event_rewriter.h"
 
-#if defined(USE_X11)
-#include "chrome/browser/chromeos/device_hierarchy_observer.h"
-#include "ui/events/platform/platform_event_observer.h"
-typedef union _XEvent XEvent;
-#endif
-
 class PrefService;
+
+namespace ash {
+class StickyKeysController;
+}
 
 namespace chromeos {
 namespace input_method {
@@ -38,37 +36,33 @@ class ImeKeyboard;
 // - handles various key combinations like Search+Backspace -> Delete
 //   and Search+number to Fnumber;
 // - handles key/pointer combinations like Alt+Button1 -> Button3.
-class EventRewriter
-    :
-#if defined(USE_X11)
-      public DeviceHierarchyObserver,
-      public ui::PlatformEventObserver,
-#endif
-      public ui::EventRewriter {
+class EventRewriter : public ui::EventRewriter {
  public:
   enum DeviceType {
     kDeviceUnknown = 0,
     kDeviceAppleKeyboard,
   };
 
-  EventRewriter();
+  // Does not take ownership of the |sticky_keys_controller|, which may also
+  // be NULL (for testing without ash), in which case sticky key operations
+  // don't happen.
+  explicit EventRewriter(ash::StickyKeysController* sticky_keys_controller);
   virtual ~EventRewriter();
 
-  // Calls DeviceAddedInternal.
-  DeviceType DeviceAddedForTesting(int device_id,
-                                   const std::string& device_name);
+  // Calls KeyboardDeviceAddedInternal.
+  DeviceType KeyboardDeviceAddedForTesting(int device_id,
+                                           const std::string& device_name);
 
-  // Calls RewriteLocatedEvent().
-  void RewriteLocatedEventForTesting(const ui::Event& event, int* flags);
+  // Calls RewriteMouseEvent().
+  void RewriteMouseButtonEventForTesting(
+      const ui::MouseEvent& event,
+      scoped_ptr<ui::Event>* rewritten_event);
 
-#if defined(USE_X11)
   const std::map<int, DeviceType>& device_id_to_type_for_testing() const {
     return device_id_to_type_;
   }
-#endif
-
-  void set_last_device_id_for_testing(int device_id) {
-    last_device_id_ = device_id;
+  void set_last_keyboard_device_id_for_testing(int device_id) {
+    last_keyboard_device_id_ = device_id;
   }
   void set_pref_service_for_testing(const PrefService* pref_service) {
     pref_service_for_testing_ = pref_service;
@@ -86,19 +80,15 @@ class EventRewriter
       const ui::Event& last_event,
       scoped_ptr<ui::Event>* new_event) OVERRIDE;
 
-#if defined(USE_X11)
-  // ui::PlatformEventObserver:
-  virtual void WillProcessEvent(const ui::PlatformEvent& event) OVERRIDE;
-  virtual void DidProcessEvent(const ui::PlatformEvent& event) OVERRIDE;
-
-  // DeviceHierarchyObserver:
-  virtual void DeviceHierarchyChanged() OVERRIDE;
-  virtual void DeviceAdded(int device_id) OVERRIDE;
-  virtual void DeviceRemoved(int device_id) OVERRIDE;
-#endif
+  // Generate a new key event from an original key event and the replacement
+  // key code and flags determined by a key rewriter.
+  static void BuildRewrittenKeyEvent(const ui::KeyEvent& key_event,
+                                     ui::KeyboardCode key_code,
+                                     int flags,
+                                     scoped_ptr<ui::Event>* rewritten_event);
 
  private:
-  // Things that internal rewriter phases can change about an Event.
+  // Things that keyboard-related rewriter phases can change about an Event.
   struct MutableKeyState {
     int flags;
     ui::KeyboardCode key_code;
@@ -112,18 +102,20 @@ class EventRewriter
     int output_flags;
   };
 
-#if defined(USE_X11)
   void DeviceKeyPressedOrReleased(int device_id);
-#endif
 
   // Returns the PrefService that should be used.
   const PrefService* GetPrefService() const;
 
+  // Adds a device to |device_id_to_type_|.
+  void KeyboardDeviceAdded(int device_id);
+
   // Checks the type of the |device_name|, and inserts a new entry to
   // |device_id_to_type_|.
-  DeviceType DeviceAddedInternal(int device_id, const std::string& device_name);
+  DeviceType KeyboardDeviceAddedInternal(int device_id,
+                                         const std::string& device_name);
 
-  // Returns true if |last_device_id_| is Apple's.
+  // Returns true if |last_keyboard_device_id_| is Apple's.
   bool IsAppleKeyboard() const;
 
   // Returns true if the target for |event| would prefer to receive raw function
@@ -151,11 +143,17 @@ class EventRewriter
   ui::EventRewriteStatus RewriteKeyEvent(
       const ui::KeyEvent& key_event,
       scoped_ptr<ui::Event>* rewritten_event);
-  ui::EventRewriteStatus RewriteMouseEvent(
+  ui::EventRewriteStatus RewriteMouseButtonEvent(
       const ui::MouseEvent& mouse_event,
+      scoped_ptr<ui::Event>* rewritten_event);
+  ui::EventRewriteStatus RewriteMouseWheelEvent(
+      const ui::MouseWheelEvent& mouse_event,
       scoped_ptr<ui::Event>* rewritten_event);
   ui::EventRewriteStatus RewriteTouchEvent(
       const ui::TouchEvent& touch_event,
+      scoped_ptr<ui::Event>* rewritten_event);
+  ui::EventRewriteStatus RewriteScrollEvent(
+      const ui::ScrollEvent& scroll_event,
       scoped_ptr<ui::Event>* rewritten_event);
 
   // Rewriter phases. These can inspect the original |event|, but operate using
@@ -165,15 +163,31 @@ class EventRewriter
   void RewriteExtendedKeys(const ui::KeyEvent& event, MutableKeyState* state);
   void RewriteFunctionKeys(const ui::KeyEvent& event, MutableKeyState* state);
   void RewriteLocatedEvent(const ui::Event& event, int* flags);
+  int RewriteModifierClick(const ui::MouseEvent& event, int* flags);
 
   // A set of device IDs whose press event has been rewritten.
+  // This is to ensure that press and release events are rewritten consistently.
   std::set<int> pressed_device_ids_;
 
   std::map<int, DeviceType> device_id_to_type_;
-  int last_device_id_;
+
+  // The |source_device_id()| of the most recent keyboard event,
+  // used to interpret modifiers on pointer events.
+  int last_keyboard_device_id_;
 
   chromeos::input_method::ImeKeyboard* ime_keyboard_for_testing_;
   const PrefService* pref_service_for_testing_;
+
+  // The sticky keys controller is not owned here;
+  // at time of writing it is a singleton in ash::Shell.
+  ash::StickyKeysController* sticky_keys_controller_;
+
+  // The ChromeOS Diamond key arrives as F15. Since F15 is not a modifier,
+  // we need to track its pressed state explicitly, and apply the selected
+  // modifier flag to key and mouse presses that arrive while F15 is down.
+  // While the Diamond key is down, this holds the corresponding modifier
+  // ui::EventFlags; otherwise it is EF_NONE.
+  int current_diamond_key_modifier_flags_;
 
   DISALLOW_COPY_AND_ASSIGN(EventRewriter);
 };

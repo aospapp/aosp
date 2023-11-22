@@ -49,7 +49,7 @@ AwMainDelegate::~AwMainDelegate() {
 
 bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
   content::SetContentClient(&content_client_);
-  
+
   CommandLine* cl = CommandLine::ForCurrentProcess();
   bool zero_copy_disabled_by_switch = cl->HasSwitch(switches::kDisableZeroCopy);
   bool use_zero_copy = !zero_copy_disabled_by_switch &&
@@ -118,7 +118,7 @@ int AwMainDelegate::RunProcess(
 
     browser_runner_.reset(content::BrowserMainRunner::Create());
     int exit_code = browser_runner_->Initialize(main_function_params);
-    DCHECK(exit_code < 0);
+    DCHECK_LT(exit_code, 0);
 
     g_allow_wait_in_ui_thread.Get().reset(
         new ScopedAllowWaitForLegacyWebViewApi);

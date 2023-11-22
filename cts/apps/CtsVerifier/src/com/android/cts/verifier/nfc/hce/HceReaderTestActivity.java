@@ -16,6 +16,8 @@
 
 package com.android.cts.verifier.nfc.hce;
 
+import android.nfc.NfcAdapter;
+import android.nfc.cardemulation.CardEmulation;
 import com.android.cts.verifier.ArrayTestListAdapter;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
@@ -101,21 +103,29 @@ public class HceReaderTestActivity extends PassFailButtons.TestListActivity {
                     SimpleReaderActivity.class.getName(),
                     DynamicAidEmulatorActivity.buildReaderIntent(this), null));
 
-            adapter.add(TestListItem.newTest(this, R.string.nfc_hce_payment_prefix_aids_reader,
+            adapter.add(TestListItem.newTest(this, R.string.nfc_hce_large_num_aids_reader,
                     SimpleReaderActivity.class.getName(),
-                    PrefixPaymentEmulatorActivity.buildReaderIntent(this), null));
+                    LargeNumAidsEmulatorActivity.buildReaderIntent(this), null));
 
-            adapter.add(TestListItem.newTest(this, R.string.nfc_hce_payment_prefix_aids_reader_2,
-                    SimpleReaderActivity.class.getName(),
-                    PrefixPaymentEmulator2Activity.buildReaderIntent(this), null));
+            NfcAdapter nfcAdapter = NfcAdapter.getDefaultAdapter(this);
+            CardEmulation cardEmulation = CardEmulation.getInstance(nfcAdapter);
+            if (cardEmulation.supportsAidPrefixRegistration()) {
+                adapter.add(TestListItem.newTest(this, R.string.nfc_hce_payment_prefix_aids_reader,
+                        SimpleReaderActivity.class.getName(),
+                        PrefixPaymentEmulatorActivity.buildReaderIntent(this), null));
 
-            adapter.add(TestListItem.newTest(this, R.string.nfc_hce_other_prefix_aids_reader,
-                    SimpleReaderActivity.class.getName(),
-                    DualNonPaymentPrefixEmulatorActivity.buildReaderIntent(this), null));
+                adapter.add(TestListItem.newTest(this, R.string.nfc_hce_payment_prefix_aids_reader_2,
+                        SimpleReaderActivity.class.getName(),
+                        PrefixPaymentEmulator2Activity.buildReaderIntent(this), null));
 
-            adapter.add(TestListItem.newTest(this, R.string.nfc_hce_other_conflicting_prefix_aids_reader,
-                    SimpleReaderActivity.class.getName(),
-                    ConflictingNonPaymentPrefixEmulatorActivity.buildReaderIntent(this), null));
+                adapter.add(TestListItem.newTest(this, R.string.nfc_hce_other_prefix_aids_reader,
+                        SimpleReaderActivity.class.getName(),
+                        DualNonPaymentPrefixEmulatorActivity.buildReaderIntent(this), null));
+
+                adapter.add(TestListItem.newTest(this, R.string.nfc_hce_other_conflicting_prefix_aids_reader,
+                        SimpleReaderActivity.class.getName(),
+                        ConflictingNonPaymentPrefixEmulatorActivity.buildReaderIntent(this), null));
+            }
         }
 
         setTestListAdapter(adapter);

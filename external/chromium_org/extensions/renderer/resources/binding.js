@@ -5,6 +5,8 @@
 var Event = require('event_bindings').Event;
 var forEach = require('utils').forEach;
 var GetAvailability = requireNative('v8_context').GetAvailability;
+var exceptionHandler = require('uncaught_exception_handler');
+var lastError = require('lastError');
 var logActivity = requireNative('activityLogger');
 var logging = requireNative('logging');
 var process = requireNative('process');
@@ -62,6 +64,25 @@ APIFunctions.prototype.setHandleRequest =
     });
 };
 
+APIFunctions.prototype.setHandleRequestWithPromise =
+    function(apiName, customizedFunction) {
+  var prefix = this.namespace;
+  return this.setHook_(apiName, 'handleRequest', function() {
+      var name = prefix + '.' + apiName;
+      logActivity.LogAPICall(extensionId, name, $Array.slice(arguments));
+      var stack = exceptionHandler.getExtensionStackTrace();
+      var callback = arguments[arguments.length - 1];
+      var args = $Array.slice(arguments, 0, arguments.length - 1);
+      $Function.apply(customizedFunction, this, args).then(function(result) {
+        sendRequestHandler.safeCallbackApply(
+            name, {'stack': stack}, callback, [result]);
+      }).catch(function(error) {
+        var message = exceptionHandler.safeErrorToString(error, true);
+        lastError.run(name, message, stack, callback);
+      });
+    });
+};
+
 APIFunctions.prototype.setUpdateArgumentsPostValidate =
     function(apiName, customizedFunction) {
   return this.setHook_(
@@ -115,7 +136,7 @@ function getPlatform() {
 
 function isPlatformSupported(schemaNode, platform) {
   return !schemaNode.platforms ||
-      schemaNode.platforms.indexOf(platform) > -1;
+      $Array.indexOf(schemaNode.platforms, platform) > -1;
 }
 
 function isManifestVersionSupported(schemaNode, manifestVersion) {
@@ -419,10 +440,36 @@ Binding.prototype = {
 
     addProperties(mod, schema);
 
-    var availability = GetAvailability(schema.namespace);
-    if (!availability.is_available && $Object.keys(mod).length == 0) {
+    // This generate() call is considered successful if any functions,
+    // properties, or events were created.
+    var success = ($Object.keys(mod).length > 0);
+
+    // Special case: webViewRequest is a vacuous API which just copies its
+    // implementation from declarativeWebRequest.
+    //
+    // TODO(kalman): This would be unnecessary if we did these checks after the
+    // hooks (i.e. this.runHooks_(mod)). The reason we don't is to be very
+    // conservative with running any JS which might actually be for an API
+    // which isn't available, but this is probably overly cautious given the
+    // C++ is only giving us APIs which are available. FIXME.
+    if (schema.namespace == 'webViewRequest') {
+      success = true;
+    }
+
+    // Special case: runtime.lastError is only occasionally set, so
+    // specifically check its availability.
+    if (schema.namespace == 'runtime' &&
+        GetAvailability('runtime.lastError').is_available) {
+      success = true;
+    }
+
+    if (!success) {
+      var availability = GetAvailability(schema.namespace);
+      // If an API was available it should have been successfully generated.
+      logging.DCHECK(!availability.is_available,
+                     schema.namespace + ' was available but not generated');
       console.error('chrome.' + schema.namespace + ' is not available: ' +
-                        availability.message);
+                    availability.message);
       return;
     }
 

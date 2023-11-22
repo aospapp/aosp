@@ -10,8 +10,10 @@
 #include "base/memory/ref_counted.h"
 #include "base/observer_list.h"
 #include "sync/internal_api/public/sync_manager.h"
-#include "sync/internal_api/public/test/null_sync_core_proxy.h"
+#include "sync/internal_api/public/test/null_sync_context_proxy.h"
 #include "sync/internal_api/public/test/test_user_share.h"
+
+class GURL;
 
 namespace base {
 class SequencedTaskRunner;
@@ -63,13 +65,11 @@ class FakeSyncManager : public SyncManager {
 
   // Posts a method to invalidate the given IDs on the sync thread.
   virtual void OnIncomingInvalidation(
-      const ObjectIdInvalidationMap& invalidation_map) OVERRIDE;
+      syncer::ModelType type,
+      scoped_ptr<InvalidationInterface> interface) OVERRIDE;
 
   // Posts a method to update the invalidator state on the sync thread.
-  virtual void OnInvalidatorStateChange(InvalidatorState state) OVERRIDE;
-
-  // Returns this class name for logging purposes.
-  virtual std::string GetOwnerName() const OVERRIDE;
+  virtual void SetInvalidatorEnabled(bool invalidator_enabled) OVERRIDE;
 
   // Block until the sync thread has finished processing any pending messages.
   void WaitForSyncThread();
@@ -77,25 +77,7 @@ class FakeSyncManager : public SyncManager {
   // SyncManager implementation.
   // Note: we treat whatever message loop this is called from as the sync
   // loop for purposes of callbacks.
-  virtual void Init(
-      const base::FilePath& database_location,
-      const WeakHandle<JsEventHandler>& event_handler,
-      const std::string& sync_server_and_path,
-      int sync_server_port,
-      bool use_ssl,
-      scoped_ptr<HttpPostProviderFactory> post_factory,
-      const std::vector<scoped_refptr<ModelSafeWorker> >& workers,
-      ExtensionsActivity* extensions_activity,
-      ChangeDelegate* change_delegate,
-      const SyncCredentials& credentials,
-      const std::string& invalidator_client_id,
-      const std::string& restored_key_for_bootstrapping,
-      const std::string& restored_keystore_key_for_bootstrapping,
-      InternalComponentsFactory* internal_components_factory,
-      Encryptor* encryptor,
-      scoped_ptr<UnrecoverableErrorHandler> unrecoverable_error_handler,
-      ReportUnrecoverableErrorFunction report_unrecoverable_error_function,
-      CancelationSignal* cancelation_signal) OVERRIDE;
+  virtual void Init(InitArgs* args) OVERRIDE;
   virtual ModelTypeSet InitialSyncEndedTypes() OVERRIDE;
   virtual ModelTypeSet GetTypesWithEmptyProgressMarkerToken(
       ModelTypeSet types) OVERRIDE;
@@ -116,9 +98,9 @@ class FakeSyncManager : public SyncManager {
   virtual void RemoveObserver(Observer* observer) OVERRIDE;
   virtual SyncStatus GetDetailedStatus() const OVERRIDE;
   virtual void SaveChanges() OVERRIDE;
-  virtual void ShutdownOnSyncThread() OVERRIDE;
+  virtual void ShutdownOnSyncThread(ShutdownReason reason) OVERRIDE;
   virtual UserShare* GetUserShare() OVERRIDE;
-  virtual syncer::SyncCoreProxy* GetSyncCoreProxy() OVERRIDE;
+  virtual syncer::SyncContextProxy* GetSyncContextProxy() OVERRIDE;
   virtual const std::string cache_guid() OVERRIDE;
   virtual bool ReceivedExperiment(Experiments* experiments) OVERRIDE;
   virtual bool HasUnsyncedItems() OVERRIDE;
@@ -166,7 +148,7 @@ class FakeSyncManager : public SyncManager {
 
   TestUserShare test_user_share_;
 
-  NullSyncCoreProxy null_sync_core_proxy_;
+  NullSyncContextProxy null_sync_context_proxy_;
 
   DISALLOW_COPY_AND_ASSIGN(FakeSyncManager);
 };

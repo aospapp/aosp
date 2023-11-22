@@ -7,22 +7,23 @@
 #include <limits>
 #include <string>
 
-#if defined(OS_ANDROID)
-#include "base/android/sys_utils.h"
-#endif
-
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/synchronization/lock.h"
+#include "base/sys_info.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "cc/base/latency_info_swap_promise.h"
 #include "cc/base/latency_info_swap_promise_monitor.h"
+#include "cc/base/swap_promise.h"
 #include "cc/base/switches.h"
+#include "cc/blink/web_layer_impl.h"
 #include "cc/debug/layer_tree_debug_state.h"
 #include "cc/debug/micro_benchmark.h"
+#include "cc/input/layer_selection_bound.h"
 #include "cc/layers/layer.h"
+#include "cc/output/begin_frame_args.h"
 #include "cc/output/copy_output_request.h"
 #include "cc/output/copy_output_result.h"
 #include "cc/resources/single_release_callback.h"
@@ -31,12 +32,13 @@
 #include "content/common/content_switches_internal.h"
 #include "content/common/gpu/client/context_provider_command_buffer.h"
 #include "content/public/common/content_switches.h"
-#include "content/renderer/compositor_bindings/web_layer_impl.h"
 #include "content/renderer/input/input_handler_manager.h"
 #include "content/renderer/render_thread_impl.h"
 #include "gpu/command_buffer/client/gles2_interface.h"
 #include "third_party/WebKit/public/platform/WebCompositeAndReadbackAsyncCallback.h"
+#include "third_party/WebKit/public/platform/WebSelectionBound.h"
 #include "third_party/WebKit/public/platform/WebSize.h"
+#include "third_party/WebKit/public/web/WebKit.h"
 #include "third_party/WebKit/public/web/WebWidget.h"
 #include "ui/gfx/frame_time.h"
 #include "ui/gl/gl_switches.h"
@@ -44,6 +46,7 @@
 
 #if defined(OS_ANDROID)
 #include "content/renderer/android/synchronous_compositor_factory.h"
+#include "ui/gfx/android/device_display_info.h"
 #endif
 
 namespace base {
@@ -54,9 +57,11 @@ namespace cc {
 class Layer;
 }
 
+using blink::WebBeginFrameArgs;
 using blink::WebFloatPoint;
-using blink::WebSize;
 using blink::WebRect;
+using blink::WebSelectionBound;
+using blink::WebSize;
 
 namespace content {
 namespace {
@@ -78,6 +83,75 @@ bool GetSwitchValueAsInt(
         string_value;
     return false;
   }
+}
+
+cc::LayerSelectionBound ConvertWebSelectionBound(
+    const WebSelectionBound& web_bound) {
+  DCHECK(web_bound.layerId);
+
+  cc::LayerSelectionBound cc_bound;
+  switch (web_bound.type) {
+    case blink::WebSelectionBound::Caret:
+      cc_bound.type = cc::SELECTION_BOUND_CENTER;
+      break;
+    case blink::WebSelectionBound::SelectionLeft:
+      cc_bound.type = cc::SELECTION_BOUND_LEFT;
+      break;
+    case blink::WebSelectionBound::SelectionRight:
+      cc_bound.type = cc::SELECTION_BOUND_RIGHT;
+      break;
+  }
+  cc_bound.layer_id = web_bound.layerId;
+  cc_bound.edge_top = gfx::Point(web_bound.edgeTopInLayer);
+  cc_bound.edge_bottom = gfx::Point(web_bound.edgeBottomInLayer);
+  return cc_bound;
+}
+
+gfx::Size CalculateDefaultTileSize() {
+  int default_tile_size = 256;
+#if defined(OS_ANDROID)
+  // TODO(epenner): unify this for all platforms if it
+  // makes sense (http://crbug.com/159524)
+
+  gfx::DeviceDisplayInfo info;
+  bool real_size_supported = true;
+  int display_width = info.GetPhysicalDisplayWidth();
+  int display_height = info.GetPhysicalDisplayHeight();
+  if (display_width == 0 || display_height == 0) {
+    real_size_supported = false;
+    display_width = info.GetDisplayWidth();
+    display_height = info.GetDisplayHeight();
+  }
+
+  int portrait_width = std::min(display_width, display_height);
+  int landscape_width = std::max(display_width, display_height);
+
+  if (real_size_supported) {
+    // Maximum HD dimensions should be 768x1280
+    // Maximum FHD dimensions should be 1200x1920
+    if (portrait_width > 768 || landscape_width > 1280)
+      default_tile_size = 384;
+    if (portrait_width > 1200 || landscape_width > 1920)
+      default_tile_size = 512;
+
+    // Adjust for some resolutions that barely straddle an extra
+    // tile when in portrait mode. This helps worst case scroll/raster
+    // by not needing a full extra tile for each row.
+    if (default_tile_size == 256 && portrait_width == 768)
+      default_tile_size += 32;
+    if (default_tile_size == 384 && portrait_width == 1200)
+      default_tile_size += 32;
+  } else {
+    // We don't know the exact resolution due to screen controls etc.
+    // So this just estimates the values above using tile counts.
+    int numTiles = (display_width * display_height) / (256 * 256);
+    if (numTiles > 16)
+      default_tile_size = 384;
+    if (numTiles >= 40)
+      default_tile_size = 512;
+  }
+#endif
+  return gfx::Size(default_tile_size, default_tile_size);
 }
 
 }  // namespace
@@ -109,21 +183,26 @@ scoped_ptr<RenderWidgetCompositor> RenderWidgetCompositor::Create(
   settings.report_overscroll_only_for_scrollable_axes = true;
   settings.accelerated_animation_enabled =
       !cmd->HasSwitch(cc::switches::kDisableThreadedAnimation);
-  settings.touch_hit_testing =
-      !cmd->HasSwitch(cc::switches::kDisableCompositorTouchHitTesting);
 
-  int default_tile_width = settings.default_tile_size.width();
+  settings.default_tile_size = CalculateDefaultTileSize();
   if (cmd->HasSwitch(switches::kDefaultTileWidth)) {
-    GetSwitchValueAsInt(*cmd, switches::kDefaultTileWidth, 1,
-                        std::numeric_limits<int>::max(), &default_tile_width);
+    int tile_width = 0;
+    GetSwitchValueAsInt(*cmd,
+                        switches::kDefaultTileWidth,
+                        1,
+                        std::numeric_limits<int>::max(),
+                        &tile_width);
+    settings.default_tile_size.set_width(tile_width);
   }
-  int default_tile_height = settings.default_tile_size.height();
   if (cmd->HasSwitch(switches::kDefaultTileHeight)) {
-    GetSwitchValueAsInt(*cmd, switches::kDefaultTileHeight, 1,
-                        std::numeric_limits<int>::max(), &default_tile_height);
+    int tile_height = 0;
+    GetSwitchValueAsInt(*cmd,
+                        switches::kDefaultTileHeight,
+                        1,
+                        std::numeric_limits<int>::max(),
+                        &tile_height);
+    settings.default_tile_size.set_height(tile_height);
   }
-  settings.default_tile_size = gfx::Size(default_tile_width,
-                                         default_tile_height);
 
   int max_untiled_layer_width = settings.max_untiled_layer_size.width();
   if (cmd->HasSwitch(switches::kMaxUntiledLayerWidth)) {
@@ -150,7 +229,6 @@ scoped_ptr<RenderWidgetCompositor> RenderWidgetCompositor::Create(
         render_thread->is_gpu_rasterization_forced();
     settings.gpu_rasterization_enabled =
         render_thread->is_gpu_rasterization_enabled();
-    settings.create_low_res_tiling = render_thread->is_low_res_tiling_enabled();
     settings.can_use_lcd_text = render_thread->is_lcd_text_enabled();
     settings.use_distance_field_text =
         render_thread->is_distance_field_text_enabled();
@@ -202,6 +280,8 @@ scoped_ptr<RenderWidgetCompositor> RenderWidgetCompositor::Create(
       cmd->HasSwitch(cc::switches::kEnablePinchVirtualViewport);
   settings.allow_antialiasing &=
       !cmd->HasSwitch(cc::switches::kDisableCompositedAntialiasing);
+  settings.single_thread_proxy_scheduler =
+      !cmd->HasSwitch(switches::kDisableSingleThreadProxyScheduler);
 
   // These flags should be mirrored by UI versions in ui/compositor/.
   settings.initial_debug_state.show_debug_borders =
@@ -292,8 +372,7 @@ scoped_ptr<RenderWidgetCompositor> RenderWidgetCompositor::Create(
   // Memory policy on Android WebView does not depend on whether device is
   // low end, so always use default policy.
   bool is_low_end_device =
-      base::android::SysUtils::IsLowEndDevice() &&
-      !synchronous_compositor_factory;
+      base::SysInfo::IsLowEndDevice() && !synchronous_compositor_factory;
   // RGBA_4444 textures are only enabled for low end devices
   // and are disabled for Android WebView as it doesn't support the format.
   settings.use_rgba_4444_textures = is_low_end_device;
@@ -312,6 +391,9 @@ scoped_ptr<RenderWidgetCompositor> RenderWidgetCompositor::Create(
   settings.should_clear_root_render_pass =
       !synchronous_compositor_factory;
 
+  // TODO(danakj): Only do this on low end devices.
+  settings.create_low_res_tiling = true;
+
 #elif !defined(OS_MACOSX)
   if (ui::IsOverlayScrollbarEnabled()) {
     settings.scrollbar_animator = cc::LayerTreeSettings::Thinning;
@@ -327,6 +409,11 @@ scoped_ptr<RenderWidgetCompositor> RenderWidgetCompositor::Create(
   settings.scrollbar_fade_duration_ms = 300;
 #endif
 
+  if (cmd->HasSwitch(switches::kEnableLowResTiling))
+    settings.create_low_res_tiling = true;
+  if (cmd->HasSwitch(switches::kDisableLowResTiling))
+    settings.create_low_res_tiling = false;
+
   compositor->Initialize(settings);
 
   return compositor.Pass();
@@ -335,8 +422,14 @@ scoped_ptr<RenderWidgetCompositor> RenderWidgetCompositor::Create(
 RenderWidgetCompositor::RenderWidgetCompositor(RenderWidget* widget,
                                                bool threaded)
     : threaded_(threaded),
-      suppress_schedule_composite_(false),
-      widget_(widget) {
+      widget_(widget),
+      send_v8_idle_notification_after_commit_(true) {
+  CommandLine* cmd = CommandLine::ForCurrentProcess();
+
+  if (cmd->HasSwitch(switches::kEnableV8IdleNotificationAfterCommit))
+    send_v8_idle_notification_after_commit_ = true;
+  if (cmd->HasSwitch(switches::kDisableV8IdleNotificationAfterCommit))
+    send_v8_idle_notification_after_commit_ = false;
 }
 
 RenderWidgetCompositor::~RenderWidgetCompositor() {}
@@ -346,25 +439,8 @@ RenderWidgetCompositor::GetInputHandler() {
   return layer_tree_host_->GetInputHandler();
 }
 
-void RenderWidgetCompositor::SetSuppressScheduleComposite(bool suppress) {
-  if (suppress_schedule_composite_ == suppress)
-    return;
-
-  if (suppress)
-    TRACE_EVENT_ASYNC_BEGIN0("gpu",
-        "RenderWidgetCompositor::SetSuppressScheduleComposite", this);
-  else
-    TRACE_EVENT_ASYNC_END0("gpu",
-        "RenderWidgetCompositor::SetSuppressScheduleComposite", this);
-  suppress_schedule_composite_ = suppress;
-}
-
 bool RenderWidgetCompositor::BeginMainFrameRequested() const {
   return layer_tree_host_->BeginMainFrameRequested();
-}
-
-void RenderWidgetCompositor::UpdateAnimations(base::TimeTicks time) {
-  layer_tree_host_->UpdateClientAnimations(time);
 }
 
 void RenderWidgetCompositor::SetNeedsDisplayOnAllLayers() {
@@ -386,9 +462,8 @@ void RenderWidgetCompositor::UpdateTopControlsState(
                                            animate);
 }
 
-void RenderWidgetCompositor::SetOverdrawBottomHeight(
-    float overdraw_bottom_height) {
-  layer_tree_host_->SetOverdrawBottomHeight(overdraw_bottom_height);
+void RenderWidgetCompositor::SetTopControlsLayoutHeight(float height) {
+  layer_tree_host_->SetTopControlsLayoutHeight(height);
 }
 
 void RenderWidgetCompositor::SetNeedsRedrawRect(gfx::Rect damage_rect) {
@@ -417,6 +492,14 @@ int RenderWidgetCompositor::GetLayerTreeId() const {
   return layer_tree_host_->id();
 }
 
+int RenderWidgetCompositor::GetSourceFrameNumber() const {
+  return layer_tree_host_->source_frame_number();
+}
+
+void RenderWidgetCompositor::SetNeedsCommit() {
+  layer_tree_host_->SetNeedsCommit();
+}
+
 void RenderWidgetCompositor::NotifyInputThrottledUntilCommit() {
   layer_tree_host_->NotifyInputThrottledUntilCommit();
 }
@@ -440,6 +523,8 @@ bool RenderWidgetCompositor::SendMessageToMicroBenchmark(
 
 void RenderWidgetCompositor::Initialize(cc::LayerTreeSettings settings) {
   scoped_refptr<base::MessageLoopProxy> compositor_message_loop_proxy;
+  scoped_refptr<base::SingleThreadTaskRunner>
+      main_thread_compositor_task_runner(base::MessageLoopProxy::current());
   RenderThreadImpl* render_thread = RenderThreadImpl::current();
   cc::SharedBitmapManager* shared_bitmap_manager = NULL;
   // render_thread may be NULL in tests.
@@ -447,24 +532,37 @@ void RenderWidgetCompositor::Initialize(cc::LayerTreeSettings settings) {
     compositor_message_loop_proxy =
         render_thread->compositor_message_loop_proxy();
     shared_bitmap_manager = render_thread->shared_bitmap_manager();
+    main_thread_compositor_task_runner =
+        render_thread->main_thread_compositor_task_runner();
   }
   if (compositor_message_loop_proxy.get()) {
-    layer_tree_host_ = cc::LayerTreeHost::CreateThreaded(
-        this, shared_bitmap_manager, settings, compositor_message_loop_proxy);
+    layer_tree_host_ =
+        cc::LayerTreeHost::CreateThreaded(this,
+                                          shared_bitmap_manager,
+                                          settings,
+                                          main_thread_compositor_task_runner,
+                                          compositor_message_loop_proxy);
   } else {
     layer_tree_host_ = cc::LayerTreeHost::CreateSingleThreaded(
-        this, this, shared_bitmap_manager, settings);
+        this,
+        this,
+        shared_bitmap_manager,
+        settings,
+        main_thread_compositor_task_runner);
   }
   DCHECK(layer_tree_host_);
 }
 
 void RenderWidgetCompositor::setSurfaceReady() {
-  layer_tree_host_->SetLayerTreeHostClientReady();
+  // In tests without a RenderThreadImpl, don't set ready as this kicks
+  // off creating output surfaces that the test can't create.
+  if (RenderThreadImpl::current())
+    layer_tree_host_->SetLayerTreeHostClientReady();
 }
 
 void RenderWidgetCompositor::setRootLayer(const blink::WebLayer& layer) {
   layer_tree_host_->SetRootLayer(
-      static_cast<const WebLayerImpl*>(&layer)->layer());
+      static_cast<const cc_blink::WebLayerImpl*>(&layer)->layer());
 }
 
 void RenderWidgetCompositor::clearRootLayer() {
@@ -557,7 +655,7 @@ void RenderWidgetCompositor::didStopFlinging() {
 }
 
 void RenderWidgetCompositor::registerForAnimations(blink::WebLayer* layer) {
-  cc::Layer* cc_layer = static_cast<WebLayerImpl*>(layer)->layer();
+  cc::Layer* cc_layer = static_cast<cc_blink::WebLayerImpl*>(layer)->layer();
   cc_layer->layer_animation_controller()->SetAnimationRegistrar(
       layer_tree_host_->animation_registrar());
 }
@@ -567,19 +665,32 @@ void RenderWidgetCompositor::registerViewportLayers(
     const blink::WebLayer* innerViewportScrollLayer,
     const blink::WebLayer* outerViewportScrollLayer) {
   layer_tree_host_->RegisterViewportLayers(
-      static_cast<const WebLayerImpl*>(pageScaleLayer)->layer(),
-      static_cast<const WebLayerImpl*>(innerViewportScrollLayer)->layer(),
+      static_cast<const cc_blink::WebLayerImpl*>(pageScaleLayer)->layer(),
+      static_cast<const cc_blink::WebLayerImpl*>(innerViewportScrollLayer)
+          ->layer(),
       // The outer viewport layer will only exist when using pinch virtual
       // viewports.
-      outerViewportScrollLayer
-          ? static_cast<const WebLayerImpl*>(outerViewportScrollLayer)->layer()
-          : NULL);
+      outerViewportScrollLayer ? static_cast<const cc_blink::WebLayerImpl*>(
+                                     outerViewportScrollLayer)->layer()
+                               : NULL);
 }
 
 void RenderWidgetCompositor::clearViewportLayers() {
   layer_tree_host_->RegisterViewportLayers(scoped_refptr<cc::Layer>(),
                                            scoped_refptr<cc::Layer>(),
                                            scoped_refptr<cc::Layer>());
+}
+
+void RenderWidgetCompositor::registerSelection(
+    const blink::WebSelectionBound& start,
+    const blink::WebSelectionBound& end) {
+  layer_tree_host_->RegisterSelection(ConvertWebSelectionBound(start),
+                                      ConvertWebSelectionBound(end));
+}
+
+void RenderWidgetCompositor::clearSelection() {
+  cc::LayerSelectionBound empty_selection;
+  layer_tree_host_->RegisterSelection(empty_selection, empty_selection);
 }
 
 void CompositeAndReadbackAsyncCallback(
@@ -600,9 +711,9 @@ void RenderWidgetCompositor::compositeAndReadbackAsync(
       cc::CopyOutputRequest::CreateBitmapRequest(
           base::Bind(&CompositeAndReadbackAsyncCallback, callback));
   layer_tree_host_->root_layer()->RequestCopyOfOutput(request.Pass());
-  if (!threaded_) {
-    widget_->webwidget()->animate(0.0);
-    widget_->webwidget()->layout();
+
+  if (!threaded_ &&
+      !layer_tree_host_->settings().single_thread_proxy_scheduler) {
     layer_tree_host_->Composite(gfx::FrameTime::Now());
   }
 }
@@ -647,6 +758,10 @@ void RenderWidgetCompositor::setShowScrollBottleneckRects(bool show) {
   layer_tree_host_->SetDebugState(debug_state);
 }
 
+void RenderWidgetCompositor::setTopControlsContentOffset(float offset) {
+  layer_tree_host_->SetTopControlsContentOffset(offset);
+}
+
 void RenderWidgetCompositor::WillBeginMainFrame(int frame_id) {
   widget_->InstrumentWillBeginFrame(frame_id);
   widget_->willBeginCompositorFrame();
@@ -656,24 +771,33 @@ void RenderWidgetCompositor::DidBeginMainFrame() {
   widget_->InstrumentDidBeginFrame();
 }
 
-void RenderWidgetCompositor::Animate(base::TimeTicks frame_begin_time) {
-  widget_->webwidget()->animate(
-      (frame_begin_time - base::TimeTicks()).InSecondsF());
+void RenderWidgetCompositor::BeginMainFrame(const cc::BeginFrameArgs& args) {
+  begin_main_frame_time_ = args.frame_time;
+  begin_main_frame_interval_ = args.interval;
+  double frame_time_sec = (args.frame_time - base::TimeTicks()).InSecondsF();
+  double deadline_sec = (args.deadline - base::TimeTicks()).InSecondsF();
+  double interval_sec = args.interval.InSecondsF();
+  WebBeginFrameArgs web_begin_frame_args =
+      WebBeginFrameArgs(frame_time_sec, deadline_sec, interval_sec);
+  widget_->webwidget()->beginFrame(web_begin_frame_args);
 }
 
 void RenderWidgetCompositor::Layout() {
   widget_->webwidget()->layout();
 }
 
-void RenderWidgetCompositor::ApplyScrollAndScale(
+void RenderWidgetCompositor::ApplyViewportDeltas(
     const gfx::Vector2d& scroll_delta,
-    float page_scale) {
-  widget_->webwidget()->applyScrollAndScale(scroll_delta, page_scale);
+    float page_scale,
+    float top_controls_delta) {
+  widget_->webwidget()->applyViewportDeltas(
+      scroll_delta,
+      page_scale,
+      top_controls_delta);
 }
 
-scoped_ptr<cc::OutputSurface> RenderWidgetCompositor::CreateOutputSurface(
-    bool fallback) {
-  return widget_->CreateOutputSurface(fallback);
+void RenderWidgetCompositor::RequestNewOutputSurface(bool fallback) {
+  layer_tree_host_->SetOutputSurface(widget_->CreateOutputSurface(fallback));
 }
 
 void RenderWidgetCompositor::DidInitializeOutputSurface() {
@@ -684,8 +808,22 @@ void RenderWidgetCompositor::WillCommit() {
 }
 
 void RenderWidgetCompositor::DidCommit() {
+  if (send_v8_idle_notification_after_commit_) {
+    base::TimeDelta idle_time = begin_main_frame_time_ +
+                                begin_main_frame_interval_ -
+                                gfx::FrameTime::Now();
+    if (idle_time > base::TimeDelta()) {
+      // Convert to 32-bit microseconds first to avoid costly 64-bit division.
+      int32 idle_time_in_us = idle_time.InMicroseconds();
+      int32 idle_time_in_ms = idle_time_in_us / 1000;
+      if (idle_time_in_ms)
+        blink::mainThreadIsolate()->IdleNotification(idle_time_in_ms);
+    }
+  }
+
   widget_->DidCommitCompositorFrame();
   widget_->didBecomeReadyForAdditionalInput();
+  widget_->webwidget()->didCommitFrameToCompositor();
 }
 
 void RenderWidgetCompositor::DidCommitAndDrawFrame() {
@@ -696,11 +834,6 @@ void RenderWidgetCompositor::DidCompleteSwapBuffers() {
   widget_->didCompleteSwapBuffers();
   if (!threaded_)
     widget_->OnSwapBuffersComplete();
-}
-
-void RenderWidgetCompositor::ScheduleComposite() {
-  if (!suppress_schedule_composite_)
-    widget_->scheduleComposite();
 }
 
 void RenderWidgetCompositor::ScheduleAnimation() {

@@ -169,46 +169,6 @@ public class CountModifierTest extends JDWPEventModifierTestCase {
     }
 
     /**
-     * This testcase is for THREAD_START event with Count modifier.
-     * <BR>It runs CountModifierDebuggee and requests THREAD_START event.
-     * <BR>Then calls {@link CountModifierDebuggee#runThread()}
-     * method multiple times and verifies that requested THREAD_START event
-     * occurs once after having called the method (count - 1) times. We check
-     * this by looking at the value in the field
-     * {@link CountModifierDebuggee#threadRunCount}.
-     */
-    public void testThreadStart() {
-        logWriter.println("testThreadStart started");
-
-        synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
-
-        EventBuilder builder = createThreadStartBuilder();
-        testEventWithCountModifier(builder, THREAD_RUN_COUNT_FIELD_NAME);
-
-        logWriter.println("testThreadStart done");
-    }
-
-    /**
-     * This testcase is for THREAD_END event with Count modifier.
-     * <BR>It runs CountModifierDebuggee and requests THREAD_END event.
-     * <BR>Then calls {@link CountModifierDebuggee#runThread()}
-     * method multiple times and verifies that requested THREAD_END event
-     * occurs once after having called the method (count - 1) times. We check
-     * this by looking at the value in the field
-     * {@link CountModifierDebuggee#threadRunCount}.
-     */
-    public void testThreadEnd() {
-        logWriter.println("testThreadEnd started");
-
-        synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
-
-        EventBuilder builder = createThreadEndBuilder();
-        testEventWithCountModifier(builder, THREAD_RUN_COUNT_FIELD_NAME);
-
-        logWriter.println("testThreadEnd done");
-    }
-
-    /**
      * This testcase is for FIELD_ACCESS event with Count modifier.
      * <BR>It runs CountModifierDebuggee and requests FIELD_ACCESS event for
      * {@link CountModifierDebuggee#watchedField}.

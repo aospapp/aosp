@@ -8,11 +8,14 @@
 #include <vector>
 
 #include "base/basictypes.h"
+#include "base/memory/linked_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/single_thread_task_runner.h"
-#include "media/cast/transport/cast_transport_config.h"
+#include "media/cast/net/cast_transport_config.h"
 #include "net/base/ip_endpoint.h"
+#include "third_party/mt19937ar/mt19937ar.h"
 
 namespace net {
 class NetLog;
@@ -30,7 +33,7 @@ class PacketPipe {
  public:
   PacketPipe();
   virtual ~PacketPipe();
-  virtual void Send(scoped_ptr<transport::Packet> packet) = 0;
+  virtual void Send(scoped_ptr<Packet> packet) = 0;
   // Allows injection of fake test runner for testing.
   virtual void InitOnIOThread(
       const scoped_refptr<base::SingleThreadTaskRunner>& task_runner,
@@ -41,6 +44,63 @@ class PacketPipe {
   // Allows injection of fake task runner for testing.
   scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
   base::TickClock* clock_;
+};
+
+// Implements a Interrupted Poisson Process for packet delivery.
+// The process has 2 states: ON and OFF, the rate of switching between
+// these two states are defined.
+// When in ON state packets are sent according to a defined rate.
+// When in OFF state packets are not sent.
+// The rate above is the average rate of a poisson distribution.
+class InterruptedPoissonProcess {
+ public:
+  InterruptedPoissonProcess(
+      const std::vector<double>& average_rates,
+      double coef_burstiness,
+      double coef_variance,
+      uint32 rand_seed);
+  ~InterruptedPoissonProcess();
+
+  scoped_ptr<PacketPipe> NewBuffer(size_t size);
+
+ private:
+  class InternalBuffer;
+
+  // |task_runner| is the executor of the IO thread.
+  // |clock| is the system clock.
+  void InitOnIOThread(
+      const scoped_refptr<base::SingleThreadTaskRunner>& task_runner,
+      base::TickClock* clock);
+
+  base::TimeDelta NextEvent(double rate);
+  double RandDouble();
+  void ComputeRates();
+  void UpdateRates();
+  void SwitchOff();
+  void SwitchOn();
+  void SendPacket();
+
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
+  base::TickClock* clock_;
+  const std::vector<double> average_rates_;
+  const double coef_burstiness_;
+  const double coef_variance_;
+  int rate_index_;
+
+  // The following rates are per milliseconds.
+  double send_rate_;
+  double switch_off_rate_;
+  double switch_on_rate_;
+  bool on_state_;
+
+  std::vector<base::WeakPtr<InternalBuffer> > send_buffers_;
+
+  // Fast pseudo random number generator.
+  MersenneTwister mt_rand_;
+
+  base::WeakPtrFactory<InterruptedPoissonProcess> weak_factory_;
+
+  DISALLOW_COPY_AND_ASSIGN(InterruptedPoissonProcess);
 };
 
 // A UDPProxy will set up a UDP socket and bind to |local_port|.
@@ -80,6 +140,13 @@ scoped_ptr<PacketPipe> NewConstantDelay(double delay_seconds);
 // This PacketPipe can reorder packets.
 scoped_ptr<PacketPipe> NewRandomUnsortedDelay(double delay);
 
+// Duplicates every packet, one is transmitted immediately,
+// one is transmitted after a random delay between |delay_min|
+// and |delay_min + random_delay|.
+// This PacketPipe will reorder packets.
+scoped_ptr<PacketPipe> NewDuplicateAndDelay(double delay_min,
+                                            double random_delay);
+
 // This PacketPipe inserts a random delay between each packet.
 // This PacketPipe cannot re-order packets. The delay between each
 // packet is asically |min_delay| + random( |random_delay| )
@@ -94,6 +161,10 @@ scoped_ptr<PacketPipe> NewRandomSortedDelay(double random_delay,
 // 0-|2*average_outage_time| seconds. Then it starts over again.
 scoped_ptr<PacketPipe> NewNetworkGlitchPipe(double average_work_time,
                                             double average_outage_time);
+
+// This method builds a stack of PacketPipes to emulate a reasonably
+// good network. ~50mbit, ~3ms latency, no packet loss unless saturated.
+scoped_ptr<PacketPipe> GoodNetwork();
 
 // This method builds a stack of PacketPipes to emulate a reasonably
 // good wifi network. ~20mbit, 1% packet loss, ~3ms latency.

@@ -8,10 +8,12 @@
 #include <string>
 
 #include "base/basictypes.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/strings/string16.h"
 #include "base/time/time.h"
 #include "base/version.h"
 #include "chrome/installer/util/util_constants.h"
+#include "components/metrics/client_info.h"
 
 class AppRegistrationData;
 class BrowserDistribution;
@@ -86,12 +88,15 @@ class GoogleUpdateSettings {
                                             bool consented);
 #endif
 
-  // Returns the metrics id set in the registry (that can be used in crash
-  // reports). If none found, returns empty string.
-  static bool GetMetricsId(std::string* metrics_id);
+  // Returns the metrics client info backed up in the registry. NULL
+  // if-and-only-if the client_id couldn't be retrieved (failure to retrieve
+  // other fields only makes them keep their default value). A non-null return
+  // will NEVER contain an empty client_id field.
+  static scoped_ptr<metrics::ClientInfo> LoadMetricsClientInfo();
 
-  // Sets the metrics id to be used in crash reports.
-  static bool SetMetricsId(const std::string& metrics_id);
+  // Stores a backup of the metrics client info in the registry. Storing a
+  // |client_info| with an empty client id will effectively void the backup.
+  static void StoreMetricsClientInfo(const metrics::ClientInfo& client_info);
 
   // Sets the machine-wide EULA consented flag required on OEM installs.
   // Returns false if the setting could not be recorded.
@@ -116,19 +121,19 @@ class GoogleUpdateSettings {
 
   // Returns in |browser| the browser used to download chrome as recorded
   // Google Update. Returns false if the information is not available.
-  static bool GetBrowser(std::wstring* browser);
+  static bool GetBrowser(base::string16* browser);
 
   // Returns in |language| the language selected by the user when downloading
   // chrome. This information is collected by the web server used to download
   // the chrome installer. Returns false if the information is not available.
-  static bool GetLanguage(std::wstring* language);
+  static bool GetLanguage(base::string16* language);
 
   // Returns in |brand| the RLZ brand code or distribution tag that has been
   // assigned to a partner. Returns false if the information is not available.
   //
   // NOTE: This function is Windows only.  If the code you are writing is not
   // specifically for Windows, prefer calling google_brand::GetBrand().
-  static bool GetBrand(std::wstring* brand);
+  static bool GetBrand(base::string16* brand);
 
   // Returns in |brand| the RLZ reactivation brand code or distribution tag
   // that has been assigned to a partner for reactivating a dormant chrome
@@ -137,19 +142,19 @@ class GoogleUpdateSettings {
   // NOTE: This function is Windows only.  If the code you are writing is not
   // specifically for Windows, prefer calling
   // google_brand::GetReactivationBrand().
-  static bool GetReactivationBrand(std::wstring* brand);
+  static bool GetReactivationBrand(base::string16* brand);
 
   // Returns in |client| the google_update client field, which is currently
   // used to track experiments. Returns false if the entry does not exist.
-  static bool GetClient(std::wstring* client);
+  static bool GetClient(base::string16* client);
 
   // Sets the google_update client field. Unlike GetClient() this is set only
   // for the current user. Returns false if the operation failed.
-  static bool SetClient(const std::wstring& client);
+  static bool SetClient(const base::string16& client);
 
   // Returns in 'client' the RLZ referral available for some distribution
   // partners. This value does not exist for most chrome or chromium installs.
-  static bool GetReferral(std::wstring* referral);
+  static bool GetReferral(base::string16* referral);
 
   // Overwrites the current value of the referral with an empty string. Returns
   // true if this operation succeeded.
@@ -192,7 +197,7 @@ class GoogleUpdateSettings {
   static void UpdateInstallStatus(bool system_install,
                                   installer::ArchiveType archive_type,
                                   int install_return_code,
-                                  const std::wstring& product_guid);
+                                  const base::string16& product_guid);
 
   // This method updates the value for Google Update "ap" key for Chrome
   // based on whether we are doing incremental install (or not) and whether
@@ -229,31 +234,33 @@ class GoogleUpdateSettings {
   // Takes a |handle| to a registry key and writes |value| string into the
   // specified |key|. See DuplicateGoogleUpdateSystemClientKey for details.
   static bool WriteGoogleUpdateSystemClientKey(int handle,
-                                               const std::wstring& key,
-                                               const std::wstring& value);
+                                               const base::string16& key,
+                                               const base::string16& value);
 
   // Returns the effective update policy for |app_guid| as dictated by
   // Group Policy settings.  |is_overridden|, if non-NULL, is populated with
   // true if an app-specific policy override is in force, or false otherwise.
-  static UpdatePolicy GetAppUpdatePolicy(const std::wstring& app_guid,
+  static UpdatePolicy GetAppUpdatePolicy(const base::string16& app_guid,
                                          bool* is_overridden);
 
-  // Returns true if the app indicated by |app_guid| should be updated
-  // automatically by Google Update based on current autoupdate settings. This
-  // is distinct from GetApUpdatePolicy which checks only a subset of things
-  // that can cause an app not to update.
-  static bool AreAutoupdatesEnabled(const base::string16& app_guid);
+  // Returns true if Chrome should be updated automatically by Google Update
+  // based on current autoupdate settings. This is distinct from
+  // GetAppUpdatePolicy (which checks only the policy for a given app), as it
+  // checks for general Google Update configuration as well as multi-install
+  // Chrome. Note that for Chromium builds, this returns false since Chromium is
+  // assumed not to autoupdate.
+  static bool AreAutoupdatesEnabled();
 
-  // Attempts to reenable auto-updates for |app_guid| by removing
-  // any group policy settings that would block updates from occurring. This is
-  // a superset of the things checked by GetAppUpdatePolicy() as
-  // GetAppUpdatePolicy() does not check Omaha's AutoUpdateCheckPeriodMinutes
-  // setting which will be reset by this method. Will need to be called from an
-  // elevated process since those settings live in HKLM. Returns true if there
-  // is a reasonable belief that updates are not disabled by policy when this
-  // method returns, false otherwise. Note that for Chromium builds, this
-  // returns true since Chromium is assumed not to autoupdate.
-  static bool ReenableAutoupdatesForApp(const base::string16& app_guid);
+  // Attempts to reenable auto-updates for Chrome by removing any group policy
+  // settings that would block updates from occurring. This is a superset of the
+  // things checked by GetAppUpdatePolicy() as GetAppUpdatePolicy() does not
+  // check Omaha's AutoUpdateCheckPeriodMinutes setting which will be reset by
+  // this method. Will need to be called from an elevated process since those
+  // settings live in HKLM. Returns true if there is a reasonable belief that
+  // updates are not disabled by policy when this method returns, false
+  // otherwise. Note that for Chromium builds, this returns true since Chromium
+  // is assumed not to autoupdate.
+  static bool ReenableAutoupdates();
 
   // Records UMA stats about Chrome's update policy.
   static void RecordChromeUpdatePolicyHistograms();

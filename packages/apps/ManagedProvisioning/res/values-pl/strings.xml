@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Nie można użyć aplikacji administratora. Brak elementów lub są one uszkodzone. Skontaktuj się z działem IT."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Nie udało się zainstalować aplikacji administratora"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Aplikacja administratora nie jest zainstalowana na urządzeniu"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Przerwać konfigurację?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Czy na pewno chcesz przerwać konfigurację?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Nie"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Tak"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Anuluję..."</string>
 </resources>

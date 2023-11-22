@@ -16,6 +16,7 @@
 package android.media.cts;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
@@ -23,6 +24,7 @@ import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaCodecList;
 import android.media.MediaDrm;
 import android.media.MediaDrmException;
+import android.media.MediaFormat;
 import android.media.CamcorderProfile;
 import android.net.Uri;
 import android.os.Environment;
@@ -62,7 +64,7 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
     private static final int VIDEO_WIDTH = 1280;
     private static final int VIDEO_HEIGHT = 720;
     private static final long PLAY_TIME_MS = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MINUTES);
-    private static final String MIME_VIDEO_AVC = "video/avc";
+    private static final String MIME_VIDEO_AVC = MediaFormat.MIMETYPE_VIDEO_AVC;
 
     private static final Uri AUDIO_URL = Uri.parse(
             "http://yt-dash-mse-test.commondatastorage.googleapis.com/media/car_cenc-20120827-8c.mp4");
@@ -302,110 +304,26 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
             }
         }
 
-        CodecCapabilities cap;
-        int highestProfileLevel = 0;
-        MediaCodecInfo codecInfo;
-
-        for (int i = 0; i < MediaCodecList.getCodecCount(); i++) {
-            codecInfo = MediaCodecList.getCodecInfoAt(i);
-            if (codecInfo.isEncoder()) {
-                continue;
-            }
-
-            String[] types = codecInfo.getSupportedTypes();
-            for (int j = 0; j < types.length; ++j) {
-                if (!types[j].equalsIgnoreCase(MIME_VIDEO_AVC)) {
-                    continue;
-                }
-
-                Log.d(TAG, "codec: " + codecInfo.getName() + "types: " + types[j]);
-                cap = codecInfo.getCapabilitiesForType(types[j]);
-                for (CodecProfileLevel profileLevel : cap.profileLevels) {
-                    Log.i(TAG, "codec " + codecInfo.getName() + ", level " + profileLevel.level);
-                    if (profileLevel.level > highestProfileLevel) {
-                        highestProfileLevel = profileLevel.level;
-                    }
-                }
-                Log.i(TAG, "codec " + codecInfo.getName() + ", highest level " + highestProfileLevel);
-            }
+        MediaFormat format = MediaFormat.createVideoFormat(
+                MIME_VIDEO_AVC, videoWidth, videoHeight);
+        // using secure codec even though it is clear key DRM
+        format.setFeatureEnabled(CodecCapabilities.FEATURE_SecurePlayback, true);
+        MediaCodecList mcl = new MediaCodecList(MediaCodecList.ALL_CODECS);
+        if (mcl.findDecoderForFormat(format) == null) {
+            Log.i(TAG, "could not find codec for " + format);
+            return false;
         }
-
-        // AVCLevel and its resolution is taken from http://en.wikipedia.org/wiki/H.264/MPEG-4_AVC
-        switch(highestProfileLevel) {
-        case CodecProfileLevel.AVCLevel1:
-        case CodecProfileLevel.AVCLevel1b:
-            return (videoWidth <= 176 && videoHeight <= 144);
-        case CodecProfileLevel.AVCLevel11:
-        case CodecProfileLevel.AVCLevel12:
-        case CodecProfileLevel.AVCLevel13:
-        case CodecProfileLevel.AVCLevel2:
-            return (videoWidth <= 352 && videoHeight <= 288);
-        case CodecProfileLevel.AVCLevel21:
-            return (videoWidth <= 352 && videoHeight <= 576);
-        case CodecProfileLevel.AVCLevel22:
-        case CodecProfileLevel.AVCLevel3:
-            return (videoWidth <= 720 && videoHeight <= 576);
-        case CodecProfileLevel.AVCLevel31:
-            return (videoWidth <= 1280 && videoHeight <= 720);
-        case CodecProfileLevel.AVCLevel32:
-            return (videoWidth <= 1280 && videoHeight <= 1024);
-        case CodecProfileLevel.AVCLevel4:
-        case CodecProfileLevel.AVCLevel41:
-            // 1280 x 720
-            // 1920 x 1080
-            // 2048 x 1024
-            if (videoWidth <= 1920) {
-                return (videoHeight <= 1080);
-            } else if (videoWidth <= 2048) {
-                return (videoHeight <= 1024);
-            } else {
-                return false;
-            }
-        case CodecProfileLevel.AVCLevel42:
-            return (videoWidth <= 2048 && videoHeight <= 1080);
-        case CodecProfileLevel.AVCLevel5:
-            // 1920 x 1080
-            // 2048 x 1024
-            // 2048 x 1080
-            // 2560 x 1920
-            // 3672 x 1536
-            if (videoWidth <= 1920) {
-                return (videoHeight <= 1080);
-            } else if (videoWidth <= 2048) {
-                return (videoHeight <= 1080);
-            } else if (videoWidth <= 2560) {
-                return (videoHeight <= 1920);
-            } else if (videoWidth <= 3672) {
-                return (videoHeight <= 1536);
-            } else {
-                return false;
-            }
-        case CodecProfileLevel.AVCLevel51:
-        default:  // any future extension will cap at level 5.1
-            // 1920 x 1080
-            // 2560 x 1920
-            // 3840 x 2160
-            // 4096 x 2048
-            // 4096 x 2160
-            // 4096 x 2304
-            if (videoWidth <= 1920) {
-                return (videoHeight <= 1080);
-            } else if (videoWidth <= 2560) {
-                return (videoHeight <= 1920);
-            } else if (videoWidth <= 3840) {
-                return (videoHeight <= 2160);
-            } else if (videoWidth <= 4096) {
-                return (videoHeight <= 2304);
-            } else {
-                return false;
-            }
-        }
+        return true;
     }
 
     /**
      * Tests clear key system playback.
      */
     public void testClearKeyPlayback() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
+
         MediaDrm drm = startDrm();
         if (null == drm) {
             throw new Error("Failed to create drm.");

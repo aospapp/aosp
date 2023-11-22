@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"Säkerhetskopiera och återställ"</string>
     <string name="device_reset" msgid="2827002349560023125">"Återställ standardinställningar"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Kalibrering"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"Hämtade appar"</string>
     <string name="apps_system" msgid="2499191125802829425">"Systemappar"</string>
     <string name="apps_running" msgid="6430310491739956228">"Aktiva appar"</string>
@@ -95,7 +99,7 @@
     <string name="system_language" msgid="2337138146114609247">"Språk"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"Tangentbord"</string>
     <string name="system_search" msgid="2837264654143247611">"Sök"</string>
-    <string name="system_security" msgid="4190058778883258927">"Säkerhet och begränsningar"</string>
+    <string name="system_security" msgid="8230080273993484407">"Säkerhet och begränsningar"</string>
     <string name="system_speech" msgid="8128688499687306982">"Tal"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Ingångar"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"Tillgänglighet"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"Systemuppdatering"</string>
     <string name="about_preference" msgid="4131396784531360434">"Om"</string>
     <string name="device_name" msgid="2670488158531273028">"Enhetens namn"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"Starta om"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"Juridisk information"</string>
     <string name="about_warranty" msgid="5736003473060436384">"Garanti"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"Licenser, öppen källkod"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"Visa användarvillkor"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"Visa sekretesspolicy"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"Visa tilläggsvillkor"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Juridisk information från Google"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"Licensuppgifter saknas"</string>
     <string name="about_model" msgid="6625269442206323995">"Modell"</string>
     <string name="about_version" msgid="1177287676732287266">"Version"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"Datum"</string>
     <string name="system_time" msgid="6726022312605226285">"Tid"</string>
     <string name="system_set_date" msgid="2437586307768561116">"Ange datum"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"Välj datumformat"</string>
     <string name="system_set_time" msgid="4661804115501057452">"Ange tid"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"Ange tidszon"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"Använd 24-timmarsformat"</string>
@@ -288,11 +290,11 @@
     <string name="google_location_services_title" msgid="3382840371861269146">"Googles platstjänster"</string>
     <string name="third_party_location_services_title" msgid="4089136801976399147">"Platstjänster från tredje part"</string>
     <string name="location_reporting" msgid="3054236612250063073">"Platsrapportering"</string>
-    <string name="location_history" msgid="2946680949724247804">"Positionshistorik"</string>
+    <string name="location_history" msgid="2946680949724247804">"Platshistorik"</string>
     <string name="location_reporting_desc" msgid="6256424995139430823">"Google använder den här funktionen i produkter som Google Nu och Google Maps. Om du aktiverar platsrapportering tillåter du att produkterna från Google som använder den här funktionen lagrar och använder enhetens senaste platsdata i anslutning till ditt Google-konto."</string>
-    <string name="location_history_desc" msgid="3861249867748294369">"När positionshistoriken har aktiverats för kontot kan Google lagra enhetens platsdata för användning i dina appar.\n\nTill exempel kan du få vägbeskrivningar från Google Maps, och från Google Nu kan du få information om pendlingstrafiken.\n\nDu kan när som helst inaktivera positionshistoriken, men det innebär inte att den raderas. Om du vill visa och hantera positionshistoriken besöker du maps.google.com/locationhistory."</string>
-    <string name="delete_location_history_title" msgid="5804802702252280549">"Ta bort positionshistorik"</string>
-    <string name="delete_location_history_desc" msgid="4142806827237093397">"All positionshistorik från enheten som sparats i kontot tas bort. Åtgärden går inte att ångra. Vissa appar, som Google Nu, slutar fungera."</string>
+    <string name="location_history_desc" msgid="3861249867748294369">"När platshistoriken har aktiverats för kontot kan Google lagra enhetens platsdata för användning i dina appar.\n\nTill exempel kan du få vägbeskrivningar från Google Maps, och från Google Nu kan du få information om pendlingstrafiken.\n\nDu kan när som helst inaktivera platshistoriken, men det innebär inte att den raderas. Om du vill visa och hantera platshistoriken besöker du maps.google.com/locationhistory."</string>
+    <string name="delete_location_history_title" msgid="5804802702252280549">"Ta bort platshistorik"</string>
+    <string name="delete_location_history_desc" msgid="4142806827237093397">"All platshistorik från enheten som sparats i kontot tas bort. Åtgärden går inte att ångra. Vissa appar, som Google Nu, slutar fungera."</string>
     <string name="system_services" msgid="7230571820151215779">"Tjänster"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Tjänstinställningar"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Textning"</string>

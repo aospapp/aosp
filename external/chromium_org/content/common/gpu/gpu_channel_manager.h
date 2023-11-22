@@ -41,12 +41,15 @@ class ShaderTranslatorCache;
 
 namespace IPC {
 struct ChannelHandle;
+class SyncChannel;
+class MessageFilter;
 }
 
 struct GPUCreateCommandBufferConfig;
 
 namespace content {
 class GpuChannel;
+class GpuMemoryBufferFactory;
 class GpuWatchdog;
 class MessageRouter;
 class SyncPointManager;
@@ -60,7 +63,8 @@ class GpuChannelManager : public IPC::Listener,
   GpuChannelManager(MessageRouter* router,
                     GpuWatchdog* watchdog,
                     base::MessageLoopProxy* io_message_loop,
-                    base::WaitableEvent* shutdown_event);
+                    base::WaitableEvent* shutdown_event,
+                    IPC::SyncChannel* channel);
   virtual ~GpuChannelManager();
 
   // Remove the channel for a particular renderer.
@@ -76,8 +80,6 @@ class GpuChannelManager : public IPC::Listener,
   uint64 MessagesProcessed();
 
   void LoseAllContexts();
-
-  base::WeakPtrFactory<GpuChannelManager> weak_factory_;
 
   int GenerateRouteID();
   void AddRoute(int32 routing_id, IPC::Listener* listener);
@@ -98,19 +100,17 @@ class GpuChannelManager : public IPC::Listener,
 
   gfx::GLSurface* GetDefaultOffscreenSurface();
 
- private:
-  struct ImageOperation {
-    ImageOperation(int32 sync_point, base::Closure callback);
-    ~ImageOperation();
+  GpuMemoryBufferFactory* gpu_memory_buffer_factory() {
+    return gpu_memory_buffer_factory_.get();
+  }
 
-    int32 sync_point;
-    base::Closure callback;
-  };
+ private:
   typedef base::ScopedPtrHashMap<int, GpuChannel> GpuChannelMap;
-  typedef std::deque<ImageOperation*> ImageOperationQueue;
 
   // Message handlers.
-  void OnEstablishChannel(int client_id, bool share_context);
+  void OnEstablishChannel(int client_id,
+                          bool share_context,
+                          bool allow_future_sync_points);
   void OnCloseChannel(const IPC::ChannelHandle& channel_handle);
   void OnVisibilityChanged(
       int32 render_view_id, int32 client_id, bool visible);
@@ -120,18 +120,9 @@ class GpuChannelManager : public IPC::Listener,
       int32 client_id,
       const GPUCreateCommandBufferConfig& init_params,
       int32 route_id);
-  void CreateImage(
-      gfx::PluginWindowHandle window, int32 client_id, int32 image_id);
-  void OnCreateImage(
-      gfx::PluginWindowHandle window, int32 client_id, int32 image_id);
-  void DeleteImage(int32 client_id, int32 image_id);
-  void OnDeleteImage(int32 client_id, int32 image_id, int32 sync_point);
-  void OnDeleteImageSyncPointRetired(ImageOperation*);
   void OnLoadedShader(std::string shader);
-  void OnCreateGpuMemoryBuffer(const gfx::GpuMemoryBufferHandle& handle,
-                               const gfx::Size& size,
-                               unsigned internalformat,
-                               unsigned usage);
+  void DestroyGpuMemoryBuffer(const gfx::GpuMemoryBufferHandle& handle);
+  void DestroyGpuMemoryBufferOnIO(const gfx::GpuMemoryBufferHandle& handle);
   void OnDestroyGpuMemoryBuffer(const gfx::GpuMemoryBufferHandle& handle,
                                 int32 sync_point);
 
@@ -156,7 +147,14 @@ class GpuChannelManager : public IPC::Listener,
   scoped_ptr<gpu::gles2::ProgramCache> program_cache_;
   scoped_refptr<gpu::gles2::ShaderTranslatorCache> shader_translator_cache_;
   scoped_refptr<gfx::GLSurface> default_offscreen_surface_;
-  ImageOperationQueue image_operations_;
+  scoped_ptr<GpuMemoryBufferFactory> gpu_memory_buffer_factory_;
+  IPC::SyncChannel* channel_;
+  scoped_refptr<IPC::MessageFilter> filter_;
+
+  // Member variables should appear before the WeakPtrFactory, to ensure
+  // that any WeakPtrs to Controller are invalidated before its members
+  // variable's destructors are executed, rendering them invalid.
+  base::WeakPtrFactory<GpuChannelManager> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(GpuChannelManager);
 };

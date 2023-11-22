@@ -16,11 +16,13 @@
 
 package com.android.rs.imagejb;
 
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.MenuInflater;
+
 import android.app.Activity;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Message;
-import android.graphics.Canvas;
 import android.graphics.Point;
 import android.view.SurfaceView;
 import android.widget.AdapterView;
@@ -48,7 +50,6 @@ public class IPControlsJB extends Activity {
     private final String TAG = "Img";
     public final String RESULT_FILE = "image_processing_result.csv";
 
-    private ToggleButton mIOButton;
     private Spinner mResSpinner;
     private ListView mTestListView;
     private TextView mResultView;
@@ -56,10 +57,13 @@ public class IPControlsJB extends Activity {
     private ArrayAdapter<String> mTestListAdapter;
     private ArrayList<String> mTestList = new ArrayList<String>();
 
-    private boolean mToggleIO = false;
-    private boolean mToggleDVFS = false;
-    private boolean mToggleLong = false;
-    private boolean mTogglePause = false;
+    private boolean mSettings[] = {true, true, true, false, false, false};
+    private static final int SETTING_USE_IO = 0;
+    private static final int SETTING_ANIMATE = 1;
+    private static final int SETTING_DISPLAY = 2;
+    private static final int SETTING_USE_DVFS = 3;
+    private static final int SETTING_LONG_RUN = 4;
+    private static final int SETTING_PAUSE = 5;
 
     private float mResults[];
 
@@ -86,6 +90,34 @@ public class IPControlsJB extends Activity {
     }
     private Resolutions mRes;
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu items for use in the action bar
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.main_activity_actions, menu);
+
+        MenuItem searchItem = menu.findItem(R.id.action_res);
+        mResSpinner = (Spinner) searchItem.getActionView();
+
+        mResSpinner.setOnItemSelectedListener(mResSpinnerListener);
+        mResSpinner.setAdapter(new ArrayAdapter<Resolutions>(
+            this, R.layout.spinner_layout, Resolutions.values()));
+
+        // Choose one of the image sizes that close to the resolution
+        // of the screen.
+        Point size = new Point();
+        getWindowManager().getDefaultDisplay().getSize(size);
+        int md = (size.x > size.y) ? size.x : size.y;
+        for (int ct=0; ct < Resolutions.values().length; ct++) {
+            if (Resolutions.values()[ct].width <= (int)(md * 1.2)) {
+                mResSpinner.setSelection(ct);
+                break;
+            }
+        }
+
+        return super.onCreateOptionsMenu(menu);
+    }
+
 
     private AdapterView.OnItemSelectedListener mResSpinnerListener =
             new AdapterView.OnItemSelectedListener() {
@@ -97,13 +129,19 @@ public class IPControlsJB extends Activity {
                 }
             };
 
-    void init() {
-        mIOButton = (ToggleButton) findViewById(R.id.io_control);
+    void launchDemo(int id) {
+        IPTestListJB.TestName t[] = IPTestListJB.TestName.values();
 
-        mResSpinner = (Spinner) findViewById(R.id.image_size);
-        mResSpinner.setOnItemSelectedListener(mResSpinnerListener);
-        mResSpinner.setAdapter(new ArrayAdapter<Resolutions>(
-            this, R.layout.spinner_layout, Resolutions.values()));
+        int testList[] = new int[1];
+        testList[0] = id;
+
+        Intent intent = makeBasicLaunchIntent();
+        intent.putExtra("tests", testList);
+        intent.putExtra("demo", true);
+        startActivityForResult(intent, 0);
+    }
+
+    void init() {
 
         for (int i=0; i < IPTestListJB.TestName.values().length; i++) {
             mTestList.add(IPTestListJB.TestName.values()[i].toString());
@@ -118,51 +156,15 @@ public class IPControlsJB extends Activity {
         mTestListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
         mTestListAdapter.notifyDataSetChanged();
 
-        ToggleButton toggle;
-        toggle = (ToggleButton) findViewById(R.id.io_control);
-        toggle.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                mToggleIO = isChecked;
-            }
-        });
-        toggle.setChecked(mToggleIO);
-
-        toggle = (ToggleButton) findViewById(R.id.length_control);
-        toggle.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                mToggleLong = isChecked;
-            }
-        });
-        toggle.setChecked(mToggleLong);
-
-        toggle = (ToggleButton) findViewById(R.id.background_work);
-        toggle.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                mToggleDVFS = isChecked;
-            }
-        });
-        toggle.setChecked(mToggleDVFS);
-
-        toggle = (ToggleButton) findViewById(R.id.pause);
-        toggle.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                mTogglePause = isChecked;
-            }
-        });
-        toggle.setChecked(mTogglePause);
-
         mResultView = (TextView) findViewById(R.id.results);
 
-
-        Point size = new Point();
-        getWindowManager().getDefaultDisplay().getSize(size);
-        int md = (size.x > size.y) ? size.x : size.y;
-        for (int ct=0; ct < Resolutions.values().length; ct++) {
-            if (Resolutions.values()[ct].width <= (int)(md * 1.2)) {
-                mResSpinner.setSelection(ct);
-                break;
-            }
-        }
+        mTestListView.setOnItemLongClickListener(new ListView.OnItemLongClickListener() {
+                public boolean onItemLongClick(AdapterView<?> arg0, View arg1,
+                        int pos, long id) {
+                    launchDemo(pos);
+                    return true;
+                }
+            });
     }
 
     @Override
@@ -194,6 +196,19 @@ public class IPControlsJB extends Activity {
         }
     }
 
+    Intent makeBasicLaunchIntent() {
+        Intent intent = new Intent(this, ImageProcessingActivityJB.class);
+        intent.putExtra("enable io", mSettings[SETTING_USE_IO]);
+        intent.putExtra("enable dvfs", mSettings[SETTING_USE_DVFS]);
+        intent.putExtra("enable long", mSettings[SETTING_LONG_RUN]);
+        intent.putExtra("enable pause", mSettings[SETTING_PAUSE]);
+        intent.putExtra("enable animate", mSettings[SETTING_ANIMATE]);
+        intent.putExtra("enable display", mSettings[SETTING_DISPLAY]);
+        intent.putExtra("resolution X", mRes.width);
+        intent.putExtra("resolution Y", mRes.height);
+        return intent;
+    }
+
     public void btnRun(View v) {
         IPTestListJB.TestName t[] = IPTestListJB.TestName.values();
 
@@ -215,14 +230,8 @@ public class IPControlsJB extends Activity {
             }
         }
 
-        Intent intent = new Intent(this, ImageProcessingActivityJB.class);
+        Intent intent = makeBasicLaunchIntent();
         intent.putExtra("tests", testList);
-        intent.putExtra("enable io", mToggleIO);
-        intent.putExtra("enable dvfs", mToggleDVFS);
-        intent.putExtra("enable long", mToggleLong);
-        intent.putExtra("enable pause", mTogglePause);
-        intent.putExtra("resolution X", mRes.width);
-        intent.putExtra("resolution Y", mRes.height);
         startActivityForResult(intent, 0);
     }
 
@@ -307,6 +316,18 @@ public class IPControlsJB extends Activity {
         }
     }
 
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle presses on the action bar items
+        switch(item.getItemId()) {
+            case R.id.action_settings:
+                IPSettings newFragment = new IPSettings(mSettings);
+                newFragment.show(getFragmentManager(), "settings");
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
     public void btnSelNone(View v) {
         checkGroup(-1);
     }
@@ -317,6 +338,11 @@ public class IPControlsJB extends Activity {
 
     public void btnSelLp(View v) {
         checkGroup(1);
+    }
+
+    public void btnSettings(View v) {
+        IPSettings newFragment = new IPSettings(mSettings);
+        newFragment.show(getFragmentManager(), "settings");
     }
 
     public void btnSelIntrinsic(View v) {

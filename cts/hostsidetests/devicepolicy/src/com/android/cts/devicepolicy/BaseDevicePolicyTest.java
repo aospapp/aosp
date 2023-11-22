@@ -47,6 +47,11 @@ import javax.annotation.Nullable;
  */
 public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiver {
 
+    protected static final String MANAGED_PROFILE_PKG = "com.android.cts.managedprofile";
+    protected static final String MANAGED_PROFILE_APK = "CtsManagedProfileApp.apk";
+    protected static final String ADMIN_RECEIVER_TEST_CLASS =
+            MANAGED_PROFILE_PKG + ".BaseManagedProfileTest$BasicAdminReceiver";
+
     private static final String RUNNER = "android.test.InstrumentationTestRunner";
 
     private static final String[] REQUIRED_DEVICE_FEATURES = new String[] {
@@ -72,6 +77,7 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
 
     protected void installApp(String fileName)
             throws FileNotFoundException, DeviceNotAvailableException {
+        CLog.logAndDisplay(LogLevel.INFO, "Installing app " + fileName);
         String installResult = getDevice().installPackage(mCtsBuild.getTestApp(fileName), true);
         assertNull(String.format("Failed to install %s, Reason: %s", fileName, installResult),
                 installResult);
@@ -93,12 +99,15 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     }
 
     /** Initializes the user with the given id. This is required so that apps can run on it. */
-    protected void startUser(int userId) throws DeviceNotAvailableException {
+    protected void startUser(int userId) throws Exception {
         String command = "am start-user " + userId;
+        CLog.logAndDisplay(LogLevel.INFO, "Starting command " + command);
         String commandOutput = getDevice().executeShellCommand(command);
         CLog.logAndDisplay(LogLevel.INFO, "Output for command " + command + ": " + commandOutput);
         assertTrue(commandOutput + " expected to start with \"Success:\"",
                 commandOutput.startsWith("Success:"));
+        // Wait 60 seconds for intents generated to be handled.
+        Thread.sleep(60 * 1000);
     }
 
     protected int getMaxNumberOfUsersSupported() throws DeviceNotAvailableException {
@@ -137,10 +146,13 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         return users;
     }
 
-    protected void removeUser(int userId) throws DeviceNotAvailableException  {
+    protected void removeUser(int userId) throws Exception  {
         String removeUserCommand = "pm remove-user " + userId;
+        CLog.logAndDisplay(LogLevel.INFO, "starting command " + removeUserCommand);
         CLog.logAndDisplay(LogLevel.INFO, "Output for command " + removeUserCommand + ": "
                 + getDevice().executeShellCommand(removeUserCommand));
+        // Wait 60 seconds for user to finish being removed.
+        Thread.sleep(60 * 1000);
     }
 
     /** Returns true if the specified tests passed. Tests are run as user owner. */
@@ -166,12 +178,19 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         return runDeviceTests(pkgName, testClassName, testMethodName, userId);
     }
 
-    private boolean runDeviceTests(String pkgName, @Nullable String testClassName,
+    protected boolean runDeviceTests(String pkgName, @Nullable String testClassName,
             @Nullable String testMethodName, @Nullable Integer userId)
-                    throws DeviceNotAvailableException {
-        TestRunResult runResult = (userId == null)
+            throws DeviceNotAvailableException {
+        return runDeviceTests(pkgName, testClassName, testMethodName, userId, /*params*/ null);
+    }
+
+    protected boolean runDeviceTests(String pkgName, @Nullable String testClassName,
+            @Nullable String testMethodName, @Nullable Integer userId, @Nullable String params)
+                   throws DeviceNotAvailableException {
+        TestRunResult runResult = (userId == null && params == null)
                 ? doRunTests(pkgName, testClassName, testMethodName)
-                : doRunTestsAsUser(pkgName, testClassName, testMethodName, userId);
+                : doRunTestsAsUser(pkgName, testClassName, testMethodName,
+                        userId != null ? userId : 0, params != null ? params : "");
         printTestResult(runResult);
         return !runResult.hasFailedTests() && runResult.getNumTestsInState(TestStatus.PASSED) > 0;
     }
@@ -194,7 +213,7 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     }
 
     private TestRunResult doRunTestsAsUser(String pkgName, @Nullable String testClassName,
-            @Nullable String testMethodName, int userId)
+            @Nullable String testMethodName, int userId, String params)
             throws DeviceNotAvailableException {
         // TODO: move this to RemoteAndroidTestRunner once it supports users. Should be straight
         // forward to add a RemoteAndroidTestRunner.setUser(userId) method. Then we can merge both
@@ -206,8 +225,8 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
                 testsToRun.append("#" + testMethodName);
             }
         }
-        String command = "am instrument --user " + userId + " -w -r " + testsToRun + " "
-                + pkgName + "/" + RUNNER;
+        String command = "am instrument --user " + userId + " " + params + " -w -r "
+                + testsToRun + " " + pkgName + "/" + RUNNER;
         CLog.i("Running " + command);
 
         CollectingTestListener listener = new CollectingTestListener();
@@ -228,7 +247,7 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         }
     }
 
-    private boolean hasDeviceFeatures(String[] requiredFeatures)
+    protected boolean hasDeviceFeatures(String[] requiredFeatures)
             throws DeviceNotAvailableException {
         // TODO: Move this logic to ITestDevice.
         String command = "pm list features";
@@ -254,5 +273,64 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
             }
         }
         return true;
+    }
+
+    protected int createUser() throws Exception {
+        String command ="pm create-user TestUser_"+ System.currentTimeMillis();
+        CLog.logAndDisplay(LogLevel.INFO, "Starting command " + command);
+        String commandOutput = getDevice().executeShellCommand(command);
+        CLog.logAndDisplay(LogLevel.INFO, "Output for command " + command + ": " + commandOutput);
+
+        // Extract the id of the new user.
+        String[] tokens = commandOutput.split("\\s+");
+        assertTrue(tokens.length > 0);
+        assertEquals("Success:", tokens[0]);
+        // Wait 60 seconds for intents generated to be handled.
+        Thread.sleep(60 * 1000);
+        return Integer.parseInt(tokens[tokens.length-1]);
+    }
+
+    protected int createManagedProfile() throws DeviceNotAvailableException {
+        String command =
+                "pm create-user --profileOf 0 --managed TestProfile_" + System.currentTimeMillis();
+        CLog.logAndDisplay(LogLevel.INFO, "Starting command " + command);
+        String commandOutput = getDevice().executeShellCommand(command);
+        CLog.logAndDisplay(LogLevel.INFO, "Output for command " + command + ": " + commandOutput);
+
+        // Extract the id of the new user.
+        String[] tokens = commandOutput.split("\\s+");
+        assertTrue(commandOutput + " expected to have format \"Success: {USER_ID}\"",
+                tokens.length > 0);
+        assertEquals(commandOutput, "Success:", tokens[0]);
+        return Integer.parseInt(tokens[tokens.length-1]);
+    }
+
+
+    protected int getUserSerialNumber(int userId) throws DeviceNotAvailableException{
+        // dumpsys user return lines like "UserInfo{0:Owner:13} serialNo=0"
+        String commandOutput = getDevice().executeShellCommand("dumpsys user");
+        String[] tokens = commandOutput.split("\\n");
+        for (String token : tokens) {
+            token = token.trim();
+            if (token.contains("UserInfo{" + userId + ":")) {
+                String[] split = token.split("serialNo=");
+                assertTrue(split.length == 2);
+                int serialNumber = Integer.parseInt(split[1]);
+                CLog.logAndDisplay(LogLevel.INFO, "Serial number of user " + userId + ": "
+                        + serialNumber);
+                return serialNumber;
+            }
+        }
+        fail("Couldn't find user " + userId);
+        return -1;
+    }
+
+    protected void setProfileOwner(String componentName, int userId)
+            throws DeviceNotAvailableException {
+        String command = "dpm set-profile-owner '" + componentName + "' " + userId;
+        String commandOutput = getDevice().executeShellCommand(command);
+        CLog.logAndDisplay(LogLevel.INFO, "Output for command " + command + ": " + commandOutput);
+        assertTrue(commandOutput + " expected to start with \"Success:\"",
+                commandOutput.startsWith("Success:"));
     }
 }

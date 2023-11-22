@@ -9,7 +9,6 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "chrome/browser/download/download_shelf.h"
-#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/signin_manager_factory.h"
@@ -37,7 +36,7 @@
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/genius_app/app_id.h"
-#include "chromeos/chromeos_switches.h"
+#include "extensions/browser/extension_registry.h"
 #endif
 
 using base::UserMetricsAction;
@@ -76,15 +75,12 @@ void ShowHelpImpl(Browser* browser,
                   HelpSource source) {
   content::RecordAction(UserMetricsAction("ShowHelpTab"));
 #if defined(OS_CHROMEOS) && defined(OFFICIAL_BUILD)
-  const CommandLine* command_line = CommandLine::ForCurrentProcess();
-  if (!command_line->HasSwitch(chromeos::switches::kDisableGeniusApp)) {
-    const extensions::Extension* extension =
-        profile->GetExtensionService()->GetInstalledExtension(
-            genius_app::kGeniusAppId);
-    OpenApplication(AppLaunchParams(profile, extension, 0, host_desktop_type));
-    return;
-  }
-#endif
+  const extensions::Extension* extension =
+      extensions::ExtensionRegistry::Get(profile)->GetExtensionById(
+          genius_app::kGeniusAppId,
+          extensions::ExtensionRegistry::EVERYTHING);
+  OpenApplication(AppLaunchParams(profile, extension, 0, host_desktop_type));
+#else
   GURL url;
   switch (source) {
     case HELP_SOURCE_KEYBOARD:
@@ -106,6 +102,7 @@ void ShowHelpImpl(Browser* browser,
     browser = displayer->browser();
   }
   ShowSingletonTab(browser, url);
+#endif
 }
 
 }  // namespace
@@ -310,7 +307,7 @@ void ShowBrowserSignin(Browser* browser, signin::Source source) {
       SigninManagerFactory::GetForProfile(original_profile);
   DCHECK(manager->IsSigninAllowed());
   // If we're signed in, just show settings.
-  if (!manager->GetAuthenticatedUsername().empty()) {
+  if (manager->IsAuthenticated()) {
     ShowSettings(browser);
   } else {
     // If the browser's profile is an incognito profile, make sure to use

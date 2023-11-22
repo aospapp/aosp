@@ -8,12 +8,14 @@
 #include <map>
 #include <vector>
 
+#include "base/atomic_ref_count.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/debug/alias.h"
 #include "base/debug/leak_annotations.h"
 #include "base/files/file_path.h"
+#include "base/metrics/field_trial.h"
 #include "base/path_service.h"
 #include "base/prefs/json_pref_store.h"
 #include "base/prefs/pref_registry_simple.h"
@@ -22,21 +24,15 @@
 #include "base/threading/thread.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time/default_tick_clock.h"
-#include "chrome/browser/apps/chrome_apps_client.h"
 #include "chrome/browser/background/background_mode_manager.h"
 #include "chrome/browser/chrome_browser_main.h"
 #include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/component_updater/component_updater_configurator.h"
-#include "chrome/browser/component_updater/component_updater_service.h"
-#include "chrome/browser/component_updater/pnacl/pnacl_component_installer.h"
+#include "chrome/browser/component_updater/chrome_component_updater_configurator.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/devtools/remote_debugging_server.h"
 #include "chrome/browser/download/download_request_limiter.h"
 #include "chrome/browser/download/download_status_updater.h"
-#include "chrome/browser/extensions/chrome_extensions_browser_client.h"
-#include "chrome/browser/extensions/event_router_forwarder.h"
-#include "chrome/browser/extensions/extension_renderer_state.h"
 #include "chrome/browser/first_run/upgrade_util.h"
 #include "chrome/browser/gpu/gl_string_manager.h"
 #include "chrome/browser/gpu/gpu_mode_manager.h"
@@ -50,6 +46,7 @@
 #include "chrome/browser/net/chrome_net_log.h"
 #include "chrome/browser/net/crl_set_fetcher.h"
 #include "chrome/browser/notifications/notification_ui_manager.h"
+#include "chrome/browser/omaha_query_params/chrome_omaha_query_params_delegate.h"
 #include "chrome/browser/plugins/chrome_plugin_service_filter.h"
 #include "chrome/browser/plugins/plugin_finder.h"
 #include "chrome/browser/prefs/browser_prefs.h"
@@ -63,8 +60,10 @@
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/shell_integration.h"
 #include "chrome/browser/status_icons/status_tray.h"
+#include "chrome/browser/ui/apps/chrome_app_window_client.h"
 #include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/user_manager.h"
 #include "chrome/browser/web_resource/promo_resource_service.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
@@ -75,9 +74,11 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/installer/util/google_update_constants.h"
 #include "chrome/installer/util/google_update_settings.h"
+#include "components/component_updater/component_updater_service.h"
 #include "components/gcm_driver/gcm_driver.h"
 #include "components/metrics/metrics_service.h"
 #include "components/network_time/network_time_tracker.h"
+#include "components/omaha_query_params/omaha_query_params.h"
 #include "components/policy/core/common/policy_service.h"
 #include "components/signin/core/common/profile_management_switches.h"
 #include "components/translate/core/browser/translate_download_manager.h"
@@ -106,13 +107,9 @@
 #if defined(OS_ANDROID)
 #include "components/gcm_driver/gcm_driver_android.h"
 #else
+#include "chrome/browser/chrome_device_client.h"
 #include "chrome/browser/services/gcm/gcm_desktop_utils.h"
 #include "components/gcm_driver/gcm_client_factory.h"
-#endif
-
-#if !defined(OS_ANDROID) && !defined(OS_IOS)
-#include "chrome/browser/media_galleries/media_file_system_registry.h"
-#include "components/storage_monitor/storage_monitor.h"
 #endif
 
 #if defined(USE_AURA)
@@ -124,6 +121,18 @@
 #else
 #include "components/policy/core/common/policy_service_stub.h"
 #endif  // defined(ENABLE_CONFIGURATION_POLICY)
+
+#if defined(ENABLE_EXTENSIONS)
+#include "chrome/browser/extensions/chrome_extensions_browser_client.h"
+#include "chrome/browser/extensions/event_router_forwarder.h"
+#include "chrome/browser/extensions/extension_renderer_state.h"
+#include "chrome/browser/media_galleries/media_file_system_registry.h"
+#include "components/storage_monitor/storage_monitor.h"
+#endif
+
+#if !defined(DISABLE_NACL)
+#include "chrome/browser/component_updater/pnacl/pnacl_component_installer.h"
+#endif
 
 #if defined(ENABLE_PLUGIN_INSTALLATION)
 #include "chrome/browser/plugins/plugins_resource_service.h"
@@ -187,9 +196,18 @@ BrowserProcessImpl::BrowserProcessImpl(
   InitIdleMonitor();
 #endif
 
-#if defined(ENABLE_EXTENSIONS)
-  apps::AppsClient::Set(ChromeAppsClient::GetInstance());
+#if !defined(OS_ANDROID)
+  device_client_.reset(new ChromeDeviceClient);
 #endif
+
+#if defined(ENABLE_EXTENSIONS)
+#if !defined(USE_ATHENA)
+  // Athena sets its own instance during Athena's init process.
+  extensions::AppWindowClient::Set(ChromeAppWindowClient::GetInstance());
+#endif
+
+  extension_event_router_forwarder_ = new extensions::EventRouterForwarder;
+  ExtensionRendererState::GetInstance()->Init();
 
   extensions::ExtensionsClient::Set(
       extensions::ChromeExtensionsClient::GetInstance());
@@ -197,11 +215,12 @@ BrowserProcessImpl::BrowserProcessImpl(
   extensions_browser_client_.reset(
       new extensions::ChromeExtensionsBrowserClient);
   extensions::ExtensionsBrowserClient::Set(extensions_browser_client_.get());
-
-  extension_event_router_forwarder_ = new extensions::EventRouterForwarder;
-  ExtensionRendererState::GetInstance()->Init();
+#endif
 
   message_center::MessageCenter::Initialize();
+
+  omaha_query_params::OmahaQueryParams::SetDelegate(
+      ChromeOmahaQueryParamsDelegate::GetInstance());
 }
 
 BrowserProcessImpl::~BrowserProcessImpl() {
@@ -236,8 +255,8 @@ void BrowserProcessImpl::StartTearDown() {
                  "BrowserProcessImpl::StartTearDown:ProfileManager");
     // The desktop User Manager needs to be closed before the guest profile
     // can be destroyed.
-    if (switches::IsNewProfileManagement())
-      chrome::HideUserManager();
+    if (switches::IsNewAvatarMenu())
+      UserManager::Hide();
     profile_manager_.reset();
   }
 
@@ -246,9 +265,9 @@ void BrowserProcessImpl::StartTearDown() {
   remote_debugging_server_.reset();
 #endif
 
+#if defined(ENABLE_EXTENSIONS)
   ExtensionRendererState::GetInstance()->Shutdown();
 
-#if !defined(OS_ANDROID) && !defined(OS_IOS)
   media_file_system_registry_.reset();
   // Remove the global instance of the Storage Monitor now. Otherwise the
   // FILE thread would be gone when we try to release it in the dtor and
@@ -309,12 +328,6 @@ void BrowserProcessImpl::PostDestroyThreads() {
   // IO thread having stopped.
   io_thread_.reset();
 }
-
-#if defined(USE_X11) || defined(OS_WIN)
-static void Signal(base::WaitableEvent* event) {
-  event->Signal();
-}
-#endif
 
 unsigned int BrowserProcessImpl::AddRefModule() {
   DCHECK(CalledOnValidThread());
@@ -379,15 +392,103 @@ unsigned int BrowserProcessImpl::ReleaseModule() {
   return module_ref_count_;
 }
 
+namespace {
+
+// Used at the end of session to block the UI thread for completion of sentinel
+// tasks on the set of threads used to persist profile data and local state.
+// This is done to ensure that the data has been persisted to disk before
+// continuing.
+class RundownTaskCounter :
+    public base::RefCountedThreadSafe<RundownTaskCounter> {
+ public:
+  RundownTaskCounter();
+
+  // Posts a rundown task to |task_runner|, can be invoked an arbitrary number
+  // of times before calling TimedWait.
+  void Post(base::SequencedTaskRunner* task_runner);
+
+  // Waits until the count is zero or |max_time| has passed.
+  // This can only be called once per instance.
+  bool TimedWait(const base::TimeDelta& max_time);
+
+ private:
+  friend class base::RefCountedThreadSafe<RundownTaskCounter>;
+  ~RundownTaskCounter() {}
+
+  // Decrements the counter and releases the waitable event on transition to
+  // zero.
+  void Decrement();
+
+  // The count starts at one to defer the possibility of one->zero transitions
+  // until TimedWait is called.
+  base::AtomicRefCount count_;
+  base::WaitableEvent waitable_event_;
+
+  DISALLOW_COPY_AND_ASSIGN(RundownTaskCounter);
+};
+
+RundownTaskCounter::RundownTaskCounter()
+    : count_(1), waitable_event_(true, false) {
+}
+
+void RundownTaskCounter::Post(base::SequencedTaskRunner* task_runner) {
+  // As the count starts off at one, it should never get to zero unless
+  // TimedWait has been called.
+  DCHECK(!base::AtomicRefCountIsZero(&count_));
+
+  base::AtomicRefCountInc(&count_);
+
+  // The task must be non-nestable to guarantee that it runs after all tasks
+  // currently scheduled on |task_runner| have completed.
+  task_runner->PostNonNestableTask(FROM_HERE,
+      base::Bind(&RundownTaskCounter::Decrement, this));
+}
+
+void RundownTaskCounter::Decrement() {
+  if (!base::AtomicRefCountDec(&count_))
+    waitable_event_.Signal();
+}
+
+bool RundownTaskCounter::TimedWait(const base::TimeDelta& max_time) {
+  // Decrement the excess count from the constructor.
+  Decrement();
+
+  return waitable_event_.TimedWait(max_time);
+}
+
+bool ExperimentUseBrokenSynchronization() {
+  // The logoff behavior used to have a race, whereby it would perform profile
+  // IO writes on the blocking thread pool, but would sycnhronize to the FILE
+  // thread. Windows feels free to terminate any process that's hidden or
+  // destroyed all it's windows, and sometimes Chrome would be terminated
+  // with pending profile IO due to this mis-synchronization.
+  // Under the "WindowsLogoffRace" experiment group, the broken behavior is
+  // emulated, in order to allow measuring what fraction of unclean shutdowns
+  // are due to this bug.
+  const std::string group_name =
+      base::FieldTrialList::FindFullName("WindowsLogoffRace");
+  return group_name == "BrokenSynchronization";
+}
+
+}  // namespace
+
 void BrowserProcessImpl::EndSession() {
+  bool use_broken_synchronization = ExperimentUseBrokenSynchronization();
+
   // Mark all the profiles as clean.
   ProfileManager* pm = profile_manager();
   std::vector<Profile*> profiles(pm->GetLoadedProfiles());
-  for (size_t i = 0; i < profiles.size(); ++i)
-    profiles[i]->SetExitType(Profile::EXIT_SESSION_ENDED);
+  scoped_refptr<RundownTaskCounter> rundown_counter(new RundownTaskCounter());
+  for (size_t i = 0; i < profiles.size(); ++i) {
+    Profile* profile = profiles[i];
+    profile->SetExitType(Profile::EXIT_SESSION_ENDED);
+
+    if (!use_broken_synchronization)
+      rundown_counter->Post(profile->GetIOTaskRunner().get());
+  }
 
   // Tell the metrics service it was cleanly shutdown.
-  MetricsService* metrics = g_browser_process->metrics_service();
+  metrics::MetricsService* metrics = g_browser_process->metrics_service();
   if (metrics && local_state()) {
     metrics->RecordStartOfSessionEnd();
 #if !defined(OS_CHROMEOS)
@@ -395,6 +496,9 @@ void BrowserProcessImpl::EndSession() {
     // On ChromeOS, chrome gets killed when hangs, so no need to
     // commit metrics::prefs::kStabilitySessionEndCompleted change immediately.
     local_state()->CommitPendingWrite();
+
+    if (!use_broken_synchronization)
+      rundown_counter->Post(local_state_task_runner_.get());
 #endif
   }
 
@@ -404,8 +508,18 @@ void BrowserProcessImpl::EndSession() {
   // We must write that the profile and metrics service shutdown cleanly,
   // otherwise on startup we'll think we crashed. So we block until done and
   // then proceed with normal shutdown.
+  //
+  // If you change the condition here, be sure to also change
+  // ProfileBrowserTests to match.
 #if defined(USE_X11) || defined(OS_WIN)
-  // Create a waitable event to block on file writing being complete.
+  if (use_broken_synchronization) {
+    rundown_counter->Post(
+        BrowserThread::GetMessageLoopProxyForThread(BrowserThread::FILE).get());
+  }
+
+  // Do a best-effort wait on the successful countdown of rundown tasks. Note
+  // that if we don't complete "quickly enough", Windows will terminate our
+  // process.
   //
   // On Windows, we previously posted a message to FILE and then ran a nested
   // message loop, waiting for that message to be processed until quitting.
@@ -416,16 +530,8 @@ void BrowserProcessImpl::EndSession() {
   // GPU process synchronously. Because the system may not be allowing
   // processes to launch, this can result in a hang. See
   // http://crbug.com/318527.
-  scoped_ptr<base::WaitableEvent> done_writing(
-      new base::WaitableEvent(false, false));
-  BrowserThread::PostTask(BrowserThread::FILE, FROM_HERE,
-      base::Bind(Signal, done_writing.get()));
-  // If all file writes haven't cleared in the timeout, leak the WaitableEvent
-  // so that there's no race to reference it in Signal().
-  if (!done_writing->TimedWait(
-      base::TimeDelta::FromSeconds(kEndSessionTimeoutSeconds))) {
-    ignore_result(done_writing.release());
-  }
+  rundown_counter->TimedWait(
+      base::TimeDelta::FromSeconds(kEndSessionTimeoutSeconds));
 #else
   NOTIMPLEMENTED();
 #endif
@@ -438,7 +544,7 @@ MetricsServicesManager* BrowserProcessImpl::GetMetricsServicesManager() {
   return metrics_services_manager_.get();
 }
 
-MetricsService* BrowserProcessImpl::metrics_service() {
+metrics::MetricsService* BrowserProcessImpl::metrics_service() {
   DCHECK(CalledOnValidThread());
   return GetMetricsServicesManager()->GetMetricsService();
 }
@@ -492,7 +598,11 @@ BrowserProcessPlatformPart* BrowserProcessImpl::platform_part() {
 
 extensions::EventRouterForwarder*
 BrowserProcessImpl::extension_event_router_forwarder() {
+#if defined(ENABLE_EXTENSIONS)
   return extension_event_router_forwarder_.get();
+#else
+  return NULL;
+#endif
 }
 
 NotificationUIManager* BrowserProcessImpl::notification_ui_manager() {
@@ -619,7 +729,8 @@ void BrowserProcessImpl::SetApplicationLocale(const std::string& locale) {
   locale_ = locale;
   extension_l10n_util::SetProcessLocale(locale);
   chrome::ChromeContentBrowserClient::SetApplicationLocale(locale);
-  TranslateDownloadManager::GetInstance()->set_application_locale(locale);
+  translate::TranslateDownloadManager::GetInstance()->set_application_locale(
+      locale);
 }
 
 DownloadStatusUpdater* BrowserProcessImpl::download_status_updater() {
@@ -627,17 +738,17 @@ DownloadStatusUpdater* BrowserProcessImpl::download_status_updater() {
 }
 
 MediaFileSystemRegistry* BrowserProcessImpl::media_file_system_registry() {
-#if defined(OS_ANDROID) || defined(OS_IOS)
-    return NULL;
-#else
+#if defined(ENABLE_EXTENSIONS)
   if (!media_file_system_registry_)
     media_file_system_registry_.reset(new MediaFileSystemRegistry());
   return media_file_system_registry_.get();
+#else
+  return NULL;
 #endif
 }
 
 bool BrowserProcessImpl::created_local_state() const {
-    return created_local_state_;
+  return created_local_state_;
 }
 
 #if defined(ENABLE_WEBRTC)
@@ -679,7 +790,7 @@ void BrowserProcessImpl::RegisterPrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(prefs::kEulaAccepted, false);
 #endif  // defined(OS_CHROMEOS) || defined(OS_ANDROID) || defined(OS_IOS)
 #if defined(OS_WIN)
-  if (base::win::GetVersion() >= base::win::VERSION_WIN8) {
+  if (base::win::GetVersion() >= base::win::VERSION_WIN7) {
     registry->RegisterStringPref(prefs::kRelaunchMode,
                                  upgrade_util::kRelaunchModeDefault);
   }
@@ -781,7 +892,7 @@ BrowserProcessImpl::component_updater() {
   if (!component_updater_.get()) {
     if (!BrowserThread::CurrentlyOn(BrowserThread::UI))
       return NULL;
-    component_updater::ComponentUpdateService::Configurator* configurator =
+    component_updater::Configurator* configurator =
         component_updater::MakeChromeComponentUpdaterConfigurator(
             CommandLine::ForCurrentProcess(),
             io_thread()->system_url_request_context_getter());
@@ -800,11 +911,15 @@ CRLSetFetcher* BrowserProcessImpl::crl_set_fetcher() {
 
 component_updater::PnaclComponentInstaller*
 BrowserProcessImpl::pnacl_component_installer() {
+#if !defined(DISABLE_NACL)
   if (!pnacl_component_installer_.get()) {
     pnacl_component_installer_.reset(
         new component_updater::PnaclComponentInstaller());
   }
   return pnacl_component_installer_.get();
+#else
+  return NULL;
+#endif
 }
 
 void BrowserProcessImpl::ResourceDispatcherHostCreated() {
@@ -825,7 +940,9 @@ void BrowserProcessImpl::CreateWatchdogThread() {
   created_watchdog_thread_ = true;
 
   scoped_ptr<WatchDogThread> thread(new WatchDogThread());
-  if (!thread->Start())
+  base::Thread::Options options;
+  options.timer_slack = base::TIMER_SLACK_MAXIMUM;
+  if (!thread->StartWithOptions(options))
     return;
   watchdog_thread_.swap(thread);
 }
@@ -883,8 +1000,9 @@ void BrowserProcessImpl::CreateLocalState() {
 }
 
 void BrowserProcessImpl::PreCreateThreads() {
-  io_thread_.reset(new IOThread(local_state(), policy_service(), net_log_.get(),
-                                extension_event_router_forwarder_.get()));
+  io_thread_.reset(
+      new IOThread(local_state(), policy_service(), net_log_.get(),
+                   extension_event_router_forwarder()));
 }
 
 void BrowserProcessImpl::PreMainMessageLoopRun() {
@@ -1018,6 +1136,7 @@ void BrowserProcessImpl::CreateGCMDriver() {
   CHECK(PathService::Get(chrome::DIR_GLOBAL_GCM_STORE, &store_path));
   gcm_driver_ = gcm::CreateGCMDriverDesktop(
       make_scoped_ptr(new gcm::GCMClientFactory),
+      local_state(),
       store_path,
       system_request_context());
   // Sign-in is not required for device-level GCM usage. So we just call

@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"Varmuuskopiointi ja palautus"</string>
     <string name="device_reset" msgid="2827002349560023125">"Tehdasasetuksien palauttaminen"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Kalibrointi"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"Ladatut sovellukset"</string>
     <string name="apps_system" msgid="2499191125802829425">"Järjestelmäsovellukset"</string>
     <string name="apps_running" msgid="6430310491739956228">"Käynnissä olevat sovellukset"</string>
@@ -95,21 +99,20 @@
     <string name="system_language" msgid="2337138146114609247">"Kieli"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"Näppäimistö"</string>
     <string name="system_search" msgid="2837264654143247611">"Haku"</string>
-    <string name="system_security" msgid="4190058778883258927">"Turvallisuus ja rajoitukset"</string>
+    <string name="system_security" msgid="8230080273993484407">"Turvallisuus ja rajoitukset"</string>
     <string name="system_speech" msgid="8128688499687306982">"Puhe"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Tulot"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"Esteettömyys"</string>
-    <string name="system_developer_options" msgid="3237985523474863638">"Kehittäjävaihtoehdot"</string>
+    <string name="system_developer_options" msgid="3237985523474863638">"Kehittäjäasetukset"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Ei mitään"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Järjestelmäpäivitys"</string>
     <string name="about_preference" msgid="4131396784531360434">"Tietoja"</string>
     <string name="device_name" msgid="2670488158531273028">"Laitteen nimi"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"Käynnistä uudelleen"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"Oikeudelliset tiedot"</string>
     <string name="about_warranty" msgid="5736003473060436384">"Takuu"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"Avoimen lähdekoodin käyttöluvat"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"Näytä käyttöehdot"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"Näytä tietosuojakäytäntö"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"Näytä lisäehdot"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Googlen lakiasiat"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"Käyttölupatietoja ei ole saatavilla"</string>
     <string name="about_model" msgid="6625269442206323995">"Malli"</string>
     <string name="about_version" msgid="1177287676732287266">"Versio"</string>
@@ -141,7 +144,7 @@
     <string name="title_mac_address" msgid="3428401680168668544">"MAC-osoite"</string>
     <string name="title_signal_strength" msgid="205478650262078041">"Signaalin vahvuus"</string>
     <string name="title_ip_address" msgid="4533523100923004711">"IP-osoite"</string>
-    <string name="title_ssid" msgid="4858945903642469730">"Syötä nimi tai wifi-verkko"</string>
+    <string name="title_ssid" msgid="4858945903642469730">"Syötä nimi tai Wi-Fi-verkko"</string>
     <string name="title_internet_connection" msgid="8710084774588697646">"Internetyhteys"</string>
     <string name="connected" msgid="7563100162902079938">"Yhdistetty"</string>
     <string name="not_connected" msgid="6858480380326923017">"Ei yhdistetty"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"Päiväys"</string>
     <string name="system_time" msgid="6726022312605226285">"Aika"</string>
     <string name="system_set_date" msgid="2437586307768561116">"Aseta päivämäärä"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"Valitse päivämäärän muoto"</string>
     <string name="system_set_time" msgid="4661804115501057452">"Aseta aika"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"Aseta aikavyöhyke"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"Käytä 24-tuntista kelloa"</string>
@@ -280,7 +282,7 @@
     <string name="location_no_recent_apps" msgid="4218851908476344030">"Mikään sovellus ei ole pyytänyt sijaintia äskettäin"</string>
     <string name="location_high_battery_use" msgid="576143332793626088">"Suuri akun kulutus"</string>
     <string name="location_low_battery_use" msgid="5756040390248358148">"Vähäinen akun kulutus"</string>
-    <string name="location_mode_wifi_description" msgid="2778774510654527264">"Paikanna wifi-verkkojen avulla"</string>
+    <string name="location_mode_wifi_description" msgid="2778774510654527264">"Paikanna Wi-Fi-verkkojen avulla"</string>
     <string name="location_status" msgid="3456414279428237558">"Sijainnin tila"</string>
     <string name="location_services" msgid="5441085185119797200">"Sijaintipalvelut"</string>
     <string name="on" msgid="6683600681314500652">"Käytössä"</string>
@@ -289,10 +291,10 @@
     <string name="third_party_location_services_title" msgid="4089136801976399147">"Kolmansien osapuolten sijaintipalvelut"</string>
     <string name="location_reporting" msgid="3054236612250063073">"Sijainnin ilmoittaminen"</string>
     <string name="location_history" msgid="2946680949724247804">"Sijaintihistoria"</string>
-    <string name="location_reporting_desc" msgid="6256424995139430823">"Google käyttää tätä ominaisuutta esimerkiksi Google Nytissä ja Google Mapsissa. Sijainnin ilmoittamisen käyttöönotto sallii kaikkien tätä ominaisuutta käyttävien Google-tuotteiden tallentaa ja käyttää laitteesi viimeisimpiä sijaintitietoja ja liittää ne Google-tiliisi."</string>
-    <string name="location_history_desc" msgid="3861249867748294369">"Kun sijaintihistoria on käytössä tässä tilissä, Google voi tallentaa laitteen sijaintitietoja omien sovellustesi käyttöön.\n\nGoogle Maps voi esimerkiksi antaa reittiohjeita ja Google Nyt ilmoittaa työmatkaliikenteestä.\n\nVoit poistaa sijaintihistorian käytöstä milloin tahansa, mutta käytöstä poistaminen ei poista ominaisuutta pysyvästi. Voit hallinnoida sijaintihistoriaasi osoitteessa maps.google.com/locationhistory."</string>
+    <string name="location_reporting_desc" msgid="6256424995139430823">"Google käyttää tätä ominaisuutta esimerkiksi Google Now\'ssa ja Google Mapsissa. Sijainnin ilmoittamisen käyttöönotto sallii kaikkien tätä ominaisuutta käyttävien Google-tuotteiden tallentaa ja käyttää laitteesi viimeisimpiä sijaintitietoja ja liittää ne Google-tiliisi."</string>
+    <string name="location_history_desc" msgid="3861249867748294369">"Kun sijaintihistoria on käytössä tässä tilissä, Google voi tallentaa laitteen sijaintitietoja omien sovellustesi käyttöön.\n\nGoogle Maps voi esimerkiksi antaa reittiohjeita ja Google Now ilmoittaa työmatkaliikenteestä.\n\nVoit poistaa sijaintihistorian käytöstä milloin tahansa, mutta käytöstä poistaminen ei poista ominaisuutta pysyvästi. Voit hallinnoida sijaintihistoriaasi osoitteessa maps.google.com/locationhistory."</string>
     <string name="delete_location_history_title" msgid="5804802702252280549">"Poista sijaintihistoria"</string>
-    <string name="delete_location_history_desc" msgid="4142806827237093397">"Poistaa sijaintihistoriasta kaikki laitteen tälle Google-tilille tallentamat tiedot. Toimintoa ei voi perua. Osa sovelluksista, kuten Googlen Nyt-palvelu, ei enää toimi."</string>
+    <string name="delete_location_history_desc" msgid="4142806827237093397">"Poistaa sijaintihistoriasta kaikki laitteen tälle Google-tilille tallentamat tiedot. Toimintoa ei voi perua. Osa sovelluksista, kuten Google Now, ei enää toimi."</string>
     <string name="system_services" msgid="7230571820151215779">"Palvelut"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Palveluasetukset"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"Tekstitykset"</string>
@@ -475,7 +477,7 @@
     <string name="title_configure" msgid="6929522003149212388">"Asetukset"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"Näppäimistöasetukset"</string>
     <string name="computing_size" msgid="2955133568424704042">"Lasketaan…"</string>
-    <string name="title_select_wifi_network" msgid="1038871400014761952">"Valitse wifi-verkko"</string>
+    <string name="title_select_wifi_network" msgid="1038871400014761952">"Valitse Wi-Fi-verkko"</string>
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"Nimeä uudelleen"</string>
     <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"Wi-Fi-näyttö"</string>
     <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"PIN-koodi vaaditaan"</string>

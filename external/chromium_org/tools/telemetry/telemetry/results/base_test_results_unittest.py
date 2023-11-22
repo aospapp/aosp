@@ -1,8 +1,8 @@
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-import unittest
 import sys
+import unittest
 
 from telemetry.core import exceptions
 
@@ -15,6 +15,9 @@ class TestOutputStream(object):
   def write(self, data):
     assert isinstance(data, str)
     self.output_data.append(data)
+
+  def flush(self):
+    pass
 
 
 class BaseTestResultsUnittest(unittest.TestCase):

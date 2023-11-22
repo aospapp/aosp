@@ -17,14 +17,24 @@ static const unsigned int kMinimumInputCount = 1;
 static const size_t kMinimumOutputBufferSize = 123456;
 
 FakeVideoEncodeAccelerator::FakeVideoEncodeAccelerator(
-    const scoped_refptr<base::SingleThreadTaskRunner>& task_runner)
+    const scoped_refptr<base::SingleThreadTaskRunner>& task_runner,
+    std::vector<uint32>* stored_bitrates)
     : task_runner_(task_runner),
+      stored_bitrates_(stored_bitrates),
       client_(NULL),
       first_(true),
-      weak_this_factory_(this) {}
+      will_initialization_succeed_(true),
+      weak_this_factory_(this) {
+  DCHECK(stored_bitrates_);
+}
 
 FakeVideoEncodeAccelerator::~FakeVideoEncodeAccelerator() {
   weak_this_factory_.InvalidateWeakPtrs();
+}
+
+std::vector<VideoEncodeAccelerator::SupportedProfile>
+FakeVideoEncodeAccelerator::GetSupportedProfiles() {
+  return std::vector<VideoEncodeAccelerator::SupportedProfile>();
 }
 
 bool FakeVideoEncodeAccelerator::Initialize(
@@ -33,8 +43,10 @@ bool FakeVideoEncodeAccelerator::Initialize(
     VideoCodecProfile output_profile,
     uint32 initial_bitrate,
     Client* client) {
+  if (!will_initialization_succeed_)
+    return false;
   client_ = client;
-  if (output_profile != media::VP8PROFILE_MAIN &&
+  if (output_profile != media::VP8PROFILE_ANY &&
       output_profile != media::H264PROFILE_MAIN) {
     return false;
   }
@@ -80,7 +92,7 @@ void FakeVideoEncodeAccelerator::UseOutputBitstreamBuffer(
 void FakeVideoEncodeAccelerator::RequestEncodingParametersChange(
     uint32 bitrate,
     uint32 framerate) {
-  // No-op.
+  stored_bitrates_->push_back(bitrate);
 }
 
 void FakeVideoEncodeAccelerator::Destroy() { delete this; }

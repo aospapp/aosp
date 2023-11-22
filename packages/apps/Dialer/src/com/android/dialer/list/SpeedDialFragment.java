@@ -19,6 +19,7 @@ import android.animation.Animator;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.app.Activity;
+import android.app.Fragment;
 import android.app.LoaderManager;
 import android.content.CursorLoader;
 import android.content.Loader;
@@ -48,7 +49,6 @@ import com.android.contacts.common.list.ContactTileView;
 import com.android.contacts.common.list.OnPhoneNumberPickerActionListener;
 import com.android.dialer.R;
 import com.android.dialer.util.DialerUtils;
-import com.android.dialerbind.analytics.AnalyticsFragment;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,7 +56,7 @@ import java.util.HashMap;
 /**
  * This fragment displays the user's favorite/frequent contacts in a grid.
  */
-public class SpeedDialFragment extends AnalyticsFragment implements OnItemClickListener,
+public class SpeedDialFragment extends Fragment implements OnItemClickListener,
         PhoneFavoritesTileAdapter.OnDataSetChangedForAnimationListener {
 
     /**
@@ -150,8 +150,6 @@ public class SpeedDialFragment extends AnalyticsFragment implements OnItemClickL
 
     private View mContactTileFrame;
 
-    private TileInteractionTeaserView mTileInteractionTeaserView;
-
     private final HashMap<Long, Integer> mItemIdTopMap = new HashMap<Long, Integer>();
     private final HashMap<Long, Integer> mItemIdLeftMap = new HashMap<Long, Integer>();
 
@@ -217,9 +215,6 @@ public class SpeedDialFragment extends AnalyticsFragment implements OnItemClickL
 
         mContactTileFrame = mParentView.findViewById(R.id.contact_tile_frame);
 
-        mTileInteractionTeaserView = (TileInteractionTeaserView) inflater.inflate(
-                R.layout.tile_interactions_teaser_view, mListView, false);
-
         final LayoutAnimationController controller = new LayoutAnimationController(
                 AnimationUtils.loadAnimation(getActivity(), android.R.anim.fade_in));
         controller.setDelay(0);
@@ -240,14 +235,16 @@ public class SpeedDialFragment extends AnalyticsFragment implements OnItemClickL
 
     /* package */ void setEmptyViewVisibility(final boolean visible) {
         final int previousVisibility = mEmptyView.getVisibility();
-        final int newVisibility = visible ? View.VISIBLE : View.GONE;
+        final int emptyViewVisibility = visible ? View.VISIBLE : View.GONE;
+        final int listViewVisibility = visible ? View.GONE : View.VISIBLE;
 
-        if (previousVisibility != newVisibility) {
+        if (previousVisibility != emptyViewVisibility) {
             final RelativeLayout.LayoutParams params = (LayoutParams) mContactTileFrame
                     .getLayoutParams();
             params.height = visible ? LayoutParams.WRAP_CONTENT : LayoutParams.MATCH_PARENT;
             mContactTileFrame.setLayoutParams(params);
-            mEmptyView.setVisibility(newVisibility);
+            mEmptyView.setVisibility(emptyViewVisibility);
+            mListView.setVisibility(listViewVisibility);
         }
     }
 
@@ -315,6 +312,12 @@ public class SpeedDialFragment extends AnalyticsFragment implements OnItemClickL
         for (int i = 0; i < mListView.getChildCount(); i++) {
             final View child = mListView.getChildAt(i);
             final int position = firstVisiblePosition + i;
+            // Since we are getting the position from mListView and then querying
+            // mContactTileAdapter, its very possible that things are out of sync
+            // and we might index out of bounds.  Let's make sure that this doesn't happen.
+            if (!mContactTileAdapter.isIndexInBound(position)) {
+                continue;
+            }
             final long itemId = mContactTileAdapter.getItemId(position);
             if (DEBUG) {
                 Log.d(TAG, "Saving itemId: " + itemId + " for listview child " + i + " Top: "
@@ -323,7 +326,6 @@ public class SpeedDialFragment extends AnalyticsFragment implements OnItemClickL
             mItemIdTopMap.put(itemId, child.getTop());
             mItemIdLeftMap.put(itemId, child.getLeft());
         }
-
         mItemIdTopMap.put(KEY_REMOVED_ITEM_HEIGHT, removedItemHeight);
     }
 
@@ -350,6 +352,13 @@ public class SpeedDialFragment extends AnalyticsFragment implements OnItemClickL
                 for (int i = 0; i < mListView.getChildCount(); i++) {
                     final View child = mListView.getChildAt(i);
                     int position = firstVisiblePosition + i;
+
+                    // Since we are getting the position from mListView and then querying
+                    // mContactTileAdapter, its very possible that things are out of sync
+                    // and we might index out of bounds.  Let's make sure that this doesn't happen.
+                    if (!mContactTileAdapter.isIndexInBound(position)) {
+                        continue;
+                    }
 
                     final long itemId = mContactTileAdapter.getItemId(position);
 

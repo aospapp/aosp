@@ -18,17 +18,17 @@
 #include "chrome/common/pref_font_webkit_names.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/pref_names_util.h"
+#include "chrome/grit/locale_settings.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
-#include "grit/locale_settings.h"
+#include "content/public/common/web_preferences.h"
 #include "grit/platform_locale_settings.h"
 #include "third_party/icu/source/common/unicode/uchar.h"
 #include "third_party/icu/source/common/unicode/uscript.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "webkit/common/webpreferences.h"
 
 #if defined(OS_POSIX) && !defined(OS_MACOSX) && defined(ENABLE_THEMES)
 #include "chrome/browser/themes/theme_service.h"
@@ -40,6 +40,7 @@
 #endif
 
 using content::WebContents;
+using content::WebPreferences;
 
 DEFINE_WEB_CONTENTS_USER_DATA_KEY(PrefsTabHelper);
 
@@ -48,23 +49,30 @@ namespace {
 // The list of prefs we want to observe.
 const char* kPrefsToObserve[] = {
   prefs::kDefaultCharset,
+  prefs::kDisable3DAPIs,
+  prefs::kEnableHyperlinkAuditing,
   prefs::kWebKitAllowDisplayingInsecureContent,
   prefs::kWebKitAllowRunningInsecureContent,
   prefs::kWebKitDefaultFixedFontSize,
   prefs::kWebKitDefaultFontSize,
+  prefs::kWebKitDomPasteEnabled,
 #if defined(OS_ANDROID)
   prefs::kWebKitFontScaleFactor,
   prefs::kWebKitForceEnableZoom,
   prefs::kWebKitPasswordEchoEnabled,
 #endif
+  prefs::kWebKitJavascriptCanOpenWindowsAutomatically,
   prefs::kWebKitJavascriptEnabled,
   prefs::kWebKitJavaEnabled,
   prefs::kWebKitLoadsImagesAutomatically,
   prefs::kWebKitMinimumFontSize,
   prefs::kWebKitMinimumLogicalFontSize,
   prefs::kWebKitPluginsEnabled,
+  prefs::kWebKitShrinksStandaloneImagesToFit,
   prefs::kWebkitTabsToLinks,
-  prefs::kWebKitUsesUniversalDetector
+  prefs::kWebKitTextAreasAreResizable,
+  prefs::kWebKitUsesUniversalDetector,
+  prefs::kWebKitWebSecurityEnabled,
 };
 
 const int kPrefsToObserveLength = arraysize(kPrefsToObserve);
@@ -111,6 +119,7 @@ ALL_FONT_SCRIPTS(WEBKIT_WEBPREFS_FONTS_STANDARD)
     }
   }
 }
+#endif  // !defined(OS_ANDROID)
 
 // Registers |obs| to observe per-script font prefs under the path |map_name|.
 // On android, there's no exposed way to change these prefs, so we can save
@@ -127,7 +136,6 @@ void RegisterFontFamilyMapObserver(
     registrar->Add(pref_name.c_str(), obs);
   }
 }
-#endif  // !defined(OS_ANDROID)
 
 #if defined(OS_WIN)
 // On Windows with antialising we want to use an alternate fixed font like
@@ -282,7 +290,7 @@ void OverrideFontFamily(WebPreferences* prefs,
                         const std::string& generic_family,
                         const std::string& script,
                         const std::string& pref_value) {
-  webkit_glue::ScriptFontFamilyMap* map = NULL;
+  content::ScriptFontFamilyMap* map = NULL;
   if (generic_family == "standard")
     map = &prefs->standard_font_family_map;
   else if (generic_family == "fixed")
@@ -325,12 +333,9 @@ PrefsTabHelper::PrefsTabHelper(WebContents* contents)
         &PrefsTabHelper::OnWebPrefChanged, base::Unretained(this));
     for (int i = 0; i < kPrefsToObserveLength; ++i) {
       const char* pref_name = kPrefsToObserve[i];
-      DCHECK(std::string(pref_name) == prefs::kDefaultCharset ||
-             StartsWithASCII(pref_name, "webkit.webprefs.", true));
       pref_change_registrar_.Add(pref_name, webkit_callback);
     }
 
-#if !defined(OS_ANDROID)
     RegisterFontFamilyMapObserver(&pref_change_registrar_,
                                   prefs::kWebKitStandardFontFamilyMap,
                                   webkit_callback);
@@ -352,7 +357,6 @@ PrefsTabHelper::PrefsTabHelper(WebContents* contents)
     RegisterFontFamilyMapObserver(&pref_change_registrar_,
                                   prefs::kWebKitPictographFontFamilyMap,
                                   webkit_callback);
-#endif  // !defined(OS_ANDROID)
   }
 
   renderer_preferences_util::UpdateFromSystemSettings(
@@ -417,9 +421,6 @@ void PrefsTabHelper::RegisterProfilePrefs(
   registry->RegisterBooleanPref(
       prefs::kWebKitShrinksStandaloneImagesToFit,
       pref_defaults.shrinks_standalone_images_to_fit,
-      user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
-  registry->RegisterDictionaryPref(
-      prefs::kWebKitInspectorSettings,
       user_prefs::PrefRegistrySyncable::UNSYNCABLE_PREF);
   registry->RegisterBooleanPref(
       prefs::kWebKitTextAreasAreResizable,
@@ -575,7 +576,7 @@ Profile* PrefsTabHelper::GetProfile() {
   return Profile::FromBrowserContext(web_contents_->GetBrowserContext());
 }
 
-void PrefsTabHelper::OnWebPrefChanged(const std::string& pref_name) {
+void PrefsTabHelper::OnFontFamilyPrefChanged(const std::string& pref_name) {
   // When a font family pref's value goes from non-empty to the empty string, we
   // must add it to the usual WebPreferences struct passed to the renderer.
   //
@@ -603,6 +604,12 @@ void PrefsTabHelper::OnWebPrefChanged(const std::string& pref_name) {
       return;
     }
   }
+}
 
-  UpdateWebPreferences();
+void PrefsTabHelper::OnWebPrefChanged(const std::string& pref_name) {
+#if !defined(OS_ANDROID)
+  OnFontFamilyPrefChanged(pref_name);
+#endif
+
+  web_contents_->GetRenderViewHost()->OnWebkitPreferencesChanged();
 }

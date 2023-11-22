@@ -8,7 +8,8 @@
 #include "components/sync_driver/data_type_controller.h"
 #include "components/sync_driver/data_type_manager.h"
 
-namespace browser_sync {
+namespace sync_driver {
+
 // Fake DataTypeController implementation that simulates the state
 // machine of a typical asynchronous data type.
 //
@@ -24,34 +25,27 @@ class FakeDataTypeController : public DataTypeController {
 
   virtual void LoadModels(
       const ModelLoadCallback& model_load_callback) OVERRIDE;
-
   virtual void OnModelLoaded() OVERRIDE;
-
   virtual void StartAssociating(const StartCallback& start_callback) OVERRIDE;
-
-  void FinishStart(StartResult result);
-
   virtual void Stop() OVERRIDE;
-
   virtual syncer::ModelType type() const OVERRIDE;
-
   virtual std::string name() const OVERRIDE;
-
   virtual syncer::ModelSafeGroup model_safe_group() const OVERRIDE;
-
   virtual ChangeProcessor* GetChangeProcessor() const OVERRIDE;
-
   virtual State state() const OVERRIDE;
+  virtual void OnSingleDataTypeUnrecoverableError(
+      const syncer::SyncError& error) OVERRIDE;
+  virtual bool ReadyForStart() const OVERRIDE;
 
-  virtual void OnSingleDatatypeUnrecoverableError(
-      const tracked_objects::Location& from_here,
-      const std::string& message) OVERRIDE;
+  void FinishStart(ConfigureResult result);
 
-  virtual void SetDelayModelLoad();
+  void SetDelayModelLoad();
 
   void SetModelLoadError(syncer::SyncError error);
 
-  virtual void SimulateModelLoadFinishing();
+  void SimulateModelLoadFinishing();
+
+  void SetReadyForStart(bool ready);
 
  protected:
   virtual ~FakeDataTypeController();
@@ -63,7 +57,9 @@ class FakeDataTypeController : public DataTypeController {
   StartCallback last_start_callback_;
   ModelLoadCallback model_load_callback_;
   syncer::SyncError load_error_;
+  bool ready_for_start_;
 };
 
-}  // namespace browser_sync
+}  // namespace sync_driver
+
 #endif  // COMPONENTS_SYNC_DRIVER_FAKE_DATA_TYPE_CONTROLLER_H__

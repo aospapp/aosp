@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Није могуће користити апликацију за администраторе. Недостају јој компоненте или је оштећена. Контактирајте ИТ сектор."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Инсталирање апликације за администраторе није успело"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Апликација за администраторе није инсталирана на уређају"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Желите ли да зауставите подешавање?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Желите ли стварно да зауставите подешавање?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Не"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Да"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Отказује се..."</string>
 </resources>

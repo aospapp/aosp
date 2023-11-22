@@ -9,13 +9,13 @@
 #include "components/gcm_driver/gcm_driver.h"
 #include "components/invalidation/gcm_invalidation_bridge.h"
 #include "components/invalidation/invalidation_service_util.h"
+#include "components/invalidation/invalidation_util.h"
+#include "components/invalidation/invalidator.h"
+#include "components/invalidation/invalidator_state.h"
 #include "components/invalidation/non_blocking_invalidator.h"
+#include "components/invalidation/object_id_invalidation_map.h"
 #include "google_apis/gaia/gaia_constants.h"
 #include "net/url_request/url_request_context_getter.h"
-#include "sync/internal_api/public/base/invalidator_state.h"
-#include "sync/notifier/invalidation_util.h"
-#include "sync/notifier/invalidator.h"
-#include "sync/notifier/object_id_invalidation_map.h"
 
 static const char* kOAuth2Scopes[] = {
   GaiaConstants::kGoogleTalkOAuth2Scope
@@ -63,7 +63,7 @@ TiclInvalidationService::TiclInvalidationService(
       settings_provider_(settings_provider.Pass()),
       invalidator_registrar_(new syncer::InvalidatorRegistrar()),
       request_access_token_backoff_(&kRequestAccessTokenBackoffPolicy),
-      network_channel_type_(PUSH_CLIENT_CHANNEL),
+      network_channel_type_(GCM_NETWORK_CHANNEL),
       gcm_driver_(gcm_driver),
       request_context_(request_context),
       logger_() {}

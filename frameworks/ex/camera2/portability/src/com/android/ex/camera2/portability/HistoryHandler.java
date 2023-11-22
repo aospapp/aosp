@@ -35,6 +35,10 @@ class HistoryHandler extends Handler {
         mMsgHistory.offerLast(-1);
     }
 
+    Integer getCurrentMessage() {
+        return mMsgHistory.peekLast();
+    }
+
     String generateHistoryString(int cameraId) {
         String info = new String("HIST");
         info += "_ID" + cameraId;

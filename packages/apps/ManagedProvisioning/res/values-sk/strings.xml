@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Aplikácia na správu sa nedá použiť. Buď v nej chýbajú niektoré komponenty, alebo je poškodená. Kontaktujte oddelenie IT."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Aplikáciu na správu sa nepodarilo nainštalovať"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Na vašom zariadení nie je nainštalovaná aplikácia na správu"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Zastaviť nastavovanie?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Naozaj chcete zrušiť nastavovanie?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Nie"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Áno"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Ruší sa..."</string>
 </resources>

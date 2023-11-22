@@ -11,6 +11,7 @@
 #include "base/values.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/speech/extension_api/tts_engine_extension_api.h"
+#include "chrome/browser/speech/extension_api/tts_engine_extension_observer.h"
 #include "chrome/browser/speech/extension_api/tts_extension_api_constants.h"
 #include "chrome/browser/speech/tts_controller.h"
 #include "extensions/browser/event_router.h"
@@ -126,9 +127,9 @@ void TtsExtensionEventHandler::OnTtsEvent(Utterance* utterance,
 
   scoped_ptr<extensions::Event> event(
       new extensions::Event(events::kOnEvent, arguments.Pass()));
-  event->restrict_to_browser_context = utterance->profile();
+  event->restrict_to_browser_context = utterance->browser_context();
   event->event_url = utterance->src_url();
-  extensions::EventRouter::Get(utterance->profile())
+  extensions::EventRouter::Get(utterance->browser_context())
       ->DispatchEventToExtension(utterance->src_extension_id(), event.Pass());
 
   if (utterance->finished())
@@ -301,8 +302,8 @@ bool TtsResumeFunction::RunSync() {
 }
 
 bool TtsIsSpeakingFunction::RunSync() {
-  SetResult(base::Value::CreateBooleanValue(
-      TtsController::GetInstance()->IsSpeaking()));
+  SetResult(
+      new base::FundamentalValue(TtsController::GetInstance()->IsSpeaking()));
   return true;
 }
 
@@ -329,7 +330,7 @@ bool TtsGetVoicesFunction::RunSync() {
     for (std::set<TtsEventType>::iterator iter = voice.events.begin();
          iter != voice.events.end(); ++iter) {
       const char* event_name_constant = TtsEventTypeToString(*iter);
-      event_types->Append(base::Value::CreateStringValue(event_name_constant));
+      event_types->Append(new base::StringValue(event_name_constant));
     }
     result_voice->Set(constants::kEventTypesKey, event_types);
 
@@ -350,6 +351,9 @@ TtsAPI::TtsAPI(content::BrowserContext* context) {
   registry->RegisterFunction<TtsStopSpeakingFunction>();
   registry->RegisterFunction<TtsPauseFunction>();
   registry->RegisterFunction<TtsResumeFunction>();
+
+  // Ensure we're observing newly added engines for the given context.
+  TtsEngineExtensionObserver::GetInstance(Profile::FromBrowserContext(context));
 }
 
 TtsAPI::~TtsAPI() {

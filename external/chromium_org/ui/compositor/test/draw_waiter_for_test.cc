@@ -22,7 +22,8 @@ void DrawWaiterForTest::WaitForCommit(Compositor* compositor) {
   waiter.WaitImpl(compositor);
 }
 
-DrawWaiterForTest::DrawWaiterForTest() {}
+DrawWaiterForTest::DrawWaiterForTest() {
+}
 
 DrawWaiterForTest::~DrawWaiterForTest() {}
 
@@ -39,14 +40,16 @@ void DrawWaiterForTest::OnCompositingDidCommit(Compositor* compositor) {
 }
 
 void DrawWaiterForTest::OnCompositingStarted(Compositor* compositor,
-                                             base::TimeTicks start_time) {}
+                                             base::TimeTicks start_time) {
+}
 
 void DrawWaiterForTest::OnCompositingEnded(Compositor* compositor) {
   if (!wait_for_commit_)
     wait_run_loop_->Quit();
 }
 
-void DrawWaiterForTest::OnCompositingAborted(Compositor* compositor) {}
+void DrawWaiterForTest::OnCompositingAborted(Compositor* compositor) {
+}
 
 void DrawWaiterForTest::OnCompositingLockStateChanged(Compositor* compositor) {}
 

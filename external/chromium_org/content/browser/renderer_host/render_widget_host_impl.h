@@ -24,7 +24,6 @@
 #include "base/timer/timer.h"
 #include "build/build_config.h"
 #include "cc/resources/shared_bitmap.h"
-#include "content/browser/accessibility/browser_accessibility_manager.h"
 #include "content/browser/renderer_host/event_with_latency_info.h"
 #include "content/browser/renderer_host/input/input_ack_handler.h"
 #include "content/browser/renderer_host/input/input_router_client.h"
@@ -43,10 +42,10 @@
 
 struct AcceleratedSurfaceMsg_BufferPresented_Params;
 struct ViewHostMsg_BeginSmoothScroll_Params;
-struct ViewHostMsg_CompositorSurfaceBuffersSwapped_Params;
 struct ViewHostMsg_SelectionBounds_Params;
 struct ViewHostMsg_TextInputState_Params;
 struct ViewHostMsg_UpdateRect_Params;
+struct ViewMsg_Resize_Params;
 
 namespace base {
 class TimeTicks;
@@ -79,6 +78,7 @@ class WebLayer;
 #endif
 
 namespace content {
+class BrowserAccessibilityManager;
 class InputRouter;
 class MockRenderWidgetHost;
 class RenderWidgetHostDelegate;
@@ -96,8 +96,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
       public InputRouterClient,
       public InputAckHandler,
       public TouchEmulatorClient,
-      public IPC::Listener,
-      public BrowserAccessibilityDelegate {
+      public IPC::Listener {
  public:
   // routing_id can be MSG_ROUTING_NONE, in which case the next available
   // routing id is taken from the RenderProcessHost.
@@ -136,23 +135,18 @@ class CONTENT_EXPORT RenderWidgetHostImpl
       const gfx::Rect& src_rect,
       const gfx::Size& accelerated_dst_size,
       const base::Callback<void(bool, const SkBitmap&)>& callback,
-      const SkBitmap::Config& bitmap_config) OVERRIDE;
+      const SkColorType color_type) OVERRIDE;
   virtual bool CanCopyFromBackingStore() OVERRIDE;
 #if defined(OS_ANDROID)
   virtual void LockBackingStore() OVERRIDE;
   virtual void UnlockBackingStore() OVERRIDE;
 #endif
-  virtual void EnableFullAccessibilityMode() OVERRIDE;
-  virtual bool IsFullAccessibilityModeForTesting() OVERRIDE;
-  virtual void EnableTreeOnlyAccessibilityMode() OVERRIDE;
-  virtual bool IsTreeOnlyAccessibilityModeForTesting() OVERRIDE;
   virtual void ForwardMouseEvent(
       const blink::WebMouseEvent& mouse_event) OVERRIDE;
   virtual void ForwardWheelEvent(
       const blink::WebMouseWheelEvent& wheel_event) OVERRIDE;
   virtual void ForwardKeyboardEvent(
       const NativeWebKeyboardEvent& key_event) OVERRIDE;
-  virtual const gfx::Vector2d& GetLastScrollOffset() const OVERRIDE;
   virtual RenderProcessHost* GetProcess() const OVERRIDE;
   virtual int GetRoutingID() const OVERRIDE;
   virtual RenderWidgetHostView* GetView() const OVERRIDE;
@@ -161,7 +155,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   virtual void ResizeRectChanged(const gfx::Rect& new_rect) OVERRIDE;
   virtual void RestartHangMonitorTimeout() OVERRIDE;
   virtual void SetIgnoreInputEvents(bool ignore_input_events) OVERRIDE;
-  virtual void Stop() OVERRIDE;
   virtual void WasResized() OVERRIDE;
   virtual void AddKeyPressEventCallback(
       const KeyPressEventCallback& callback) OVERRIDE;
@@ -173,24 +166,12 @@ class CONTENT_EXPORT RenderWidgetHostImpl
       const MouseEventCallback& callback) OVERRIDE;
   virtual void GetWebScreenInfo(blink::WebScreenInfo* result) OVERRIDE;
 
-  virtual SkBitmap::Config PreferredReadbackFormat() OVERRIDE;
+  virtual SkColorType PreferredReadbackFormat() OVERRIDE;
 
-  // BrowserAccessibilityDelegate
-  virtual void AccessibilitySetFocus(int acc_obj_id) OVERRIDE;
-  virtual void AccessibilityDoDefaultAction(int acc_obj_id) OVERRIDE;
-  virtual void AccessibilityShowMenu(int acc_obj_id) OVERRIDE;
-  virtual void AccessibilityScrollToMakeVisible(
-      int acc_obj_id, gfx::Rect subfocus) OVERRIDE;
-  virtual void AccessibilityScrollToPoint(
-      int acc_obj_id, gfx::Point point) OVERRIDE;
-  virtual void AccessibilitySetTextSelection(
-      int acc_obj_id, int start_offset, int end_offset) OVERRIDE;
-  virtual bool AccessibilityViewHasFocus() const OVERRIDE;
-  virtual gfx::Rect AccessibilityGetViewBounds() const OVERRIDE;
-  virtual gfx::Point AccessibilityOriginInScreen(const gfx::Rect& bounds)
-      const OVERRIDE;
-  virtual void AccessibilityHitTest(const gfx::Point& point) OVERRIDE;
-  virtual void AccessibilityFatalError() OVERRIDE;
+  // Forces redraw in the renderer and when the update reaches the browser
+  // grabs snapshot from the compositor. Returns PNG-encoded snapshot.
+  void GetSnapshotFromBrowser(
+      const base::Callback<void(const unsigned char*,size_t)> callback);
 
   const NativeWebKeyboardEvent* GetLastKeyboardEvent() const;
 
@@ -223,10 +204,13 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // Sends a message to the corresponding object in the renderer.
   virtual bool Send(IPC::Message* msg) OVERRIDE;
 
+  // Indicates if the page has finished loading.
+  virtual void SetIsLoading(bool is_loading);
+
   // Called to notify the RenderWidget that it has been hidden or restored from
   // having been hidden.
-  void WasHidden();
-  void WasShown();
+  virtual void WasHidden();
+  virtual void WasShown(const ui::LatencyInfo& latency_info);
 
   // Returns true if the RenderWidget is hidden.
   bool is_hidden() const { return is_hidden_; }
@@ -245,9 +229,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // Notifies the RenderWidgetHost that the View was destroyed.
   void ViewDestroyed();
 
-  // Indicates if the page has finished loading.
-  void SetIsLoading(bool is_loading);
-
+#if defined(OS_MACOSX)
   // Pause for a moment to wait for pending repaint or resize messages sent to
   // the renderer to arrive. If pending resize messages are for an old window
   // size, then also pump through a new resize message if there is time.
@@ -259,6 +241,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // Wait for a surface matching the size of the widget's view, possibly
   // blocking until the renderer sends a new frame.
   void WaitForSurface();
+#endif
+
+  bool resize_ack_pending_for_testing() { return resize_ack_pending_; }
 
   // GPU accelerated version of GetBackingStore function. This will
   // trigger a re-composite to the view. It may fail if a resize is pending, or
@@ -289,10 +274,13 @@ class CONTENT_EXPORT RenderWidgetHostImpl
       const blink::WebMouseWheelEvent& wheel_event,
       const ui::LatencyInfo& ui_latency);
 
-  // TouchEmulatorClient overrides.
+  // Enables/disables touch emulation using mouse event. See TouchEmulator.
+  void SetTouchEventEmulationEnabled(bool enabled);
+
+  // TouchEmulatorClient implementation.
   virtual void ForwardGestureEvent(
       const blink::WebGestureEvent& gesture_event) OVERRIDE;
-  virtual void ForwardTouchEvent(
+  virtual void ForwardEmulatedTouchEvent(
       const blink::WebTouchEvent& touch_event) OVERRIDE;
   virtual void SetCursor(const WebCursor& cursor) OVERRIDE;
   virtual void ShowContextMenuAtPoint(const gfx::Point& point) OVERRIDE;
@@ -388,30 +376,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   void SetEditCommandsForNextKeyEvent(
       const std::vector<EditCommand>& commands);
 
-  // Gets the accessibility mode.
-  AccessibilityMode accessibility_mode() const {
-    return accessibility_mode_;
-  }
-
-  // Adds the given accessibility mode to the current accessibility mode bitmap.
-  void AddAccessibilityMode(AccessibilityMode mode);
-
-  // Removes the given accessibility mode from the current accessibility mode
-  // bitmap, managing the bits that are shared with other modes such that a
-  // bit will only be turned off when all modes that depend on it have been
-  // removed.
-  void RemoveAccessibilityMode(AccessibilityMode mode);
-
-  // Resets the accessibility mode to the default setting in
-  // BrowserStateAccessibilityImpl.
-  void ResetAccessibilityMode();
-
-#if defined(OS_WIN)
-  void SetParentNativeViewAccessible(
-      gfx::NativeViewAccessible accessible_parent);
-  gfx::NativeViewAccessible GetParentNativeViewAccessible() const;
-#endif
-
   // Executes the edit command on the RenderView.
   void ExecuteEditCommand(const std::string& command,
                           const std::string& value);
@@ -484,7 +448,17 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   // Indicates whether the renderer drives the RenderWidgetHosts's size or the
   // other way around.
-  bool should_auto_resize() { return should_auto_resize_; }
+  bool auto_resize_enabled() { return auto_resize_enabled_; }
+
+  // The minimum size of this renderer when auto-resize is enabled.
+  const gfx::Size& min_size_for_auto_resize() const {
+    return min_size_for_auto_resize_;
+  }
+
+  // The maximum size of this renderer when auto-resize is enabled.
+  const gfx::Size& max_size_for_auto_resize() const {
+    return max_size_for_auto_resize_;
+  }
 
   void ComputeTouchLatency(const ui::LatencyInfo& latency_info);
   void FrameSwapped(const ui::LatencyInfo& latency_info);
@@ -513,6 +487,17 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   InputRouter* input_router() { return input_router_.get(); }
 
+  // Get the BrowserAccessibilityManager for the root of the frame tree,
+  BrowserAccessibilityManager* GetRootBrowserAccessibilityManager();
+
+  // Get the BrowserAccessibilityManager for the root of the frame tree,
+  // or create it if it doesn't already exist.
+  BrowserAccessibilityManager* GetOrCreateRootBrowserAccessibilityManager();
+
+#if defined(OS_WIN)
+  gfx::NativeViewAccessible GetParentNativeViewAccessible();
+#endif
+
  protected:
   virtual RenderWidgetHostImpl* AsRenderWidgetHostImpl() OVERRIDE;
 
@@ -520,7 +505,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // component if it is not already in |original|. And if |original| is
   // not NULL, it is also merged into the resulting LatencyInfo.
   ui::LatencyInfo CreateRWHLatencyInfoIfNotExist(
-      const ui::LatencyInfo* original, blink::WebInputEvent::Type type);
+      const ui::LatencyInfo* original,
+      blink::WebInputEvent::Type type,
+      const ui::LatencyInfo::InputCoordinate* logical_coordinates,
+      size_t logical_coordinates_size);
 
   // Called when we receive a notification indicating that the renderer
   // process has gone. This will reset our state so that our state will be
@@ -572,7 +560,16 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   // Indicates if the render widget host should track the render widget's size
   // as opposed to visa versa.
-  void SetShouldAutoResize(bool enable);
+  void SetAutoResize(bool enable,
+                     const gfx::Size& min_size,
+                     const gfx::Size& max_size);
+
+  // Fills in the |resize_params| struct.
+  void GetResizeParams(ViewMsg_Resize_Params* resize_params);
+
+  // Sets the |resize_params| that were sent to the renderer bundled with the
+  // request to create a new RenderWidget.
+  void SetInitialRenderSizeParams(const ViewMsg_Resize_Params& resize_params);
 
   // Expose increment/decrement of the in-flight event count, so
   // RenderViewHostImpl can account for in-flight beforeunload/unload events.
@@ -585,6 +582,12 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // render_view_host_ lives on to load another URL (creating a new View while
   // doing so).
   RenderWidgetHostViewBase* view_;
+
+  // A weak pointer to the view. The above pointer should be weak, but changing
+  // that to be weak causes crashes on Android.
+  // TODO(ccameron): Fix this.
+  // http://crbug.com/404828
+  base::WeakPtr<RenderWidgetHostViewBase> view_weak_;
 
   // true if a renderer has once been valid. We use this flag to display a sad
   // tab only when we lose our renderer and not if a paint occurs during
@@ -616,10 +619,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   void OnRequestMove(const gfx::Rect& pos);
   void OnSetTooltipText(const base::string16& tooltip_text,
                         blink::WebTextDirection text_direction_hint);
-#if defined(OS_MACOSX)
-  void OnCompositorSurfaceBuffersSwapped(
-      const ViewHostMsg_CompositorSurfaceBuffersSwapped_Params& params);
-#endif
   bool OnSwapCompositorFrame(const IPC::Message& message);
   void OnFlingingStopped();
   void OnUpdateRect(const ViewHostMsg_UpdateRect_Params& params);
@@ -627,9 +626,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   virtual void OnFocus();
   virtual void OnBlur();
   void OnSetCursor(const WebCursor& cursor);
-  void OnSetTouchEventEmulationEnabled(bool enabled, bool allow_pinch);
-  void OnTextInputStateChanged(
-      const ViewHostMsg_TextInputState_Params& params);
+  void OnTextInputTypeChanged(ui::TextInputType type,
+                              ui::TextInputMode input_mode,
+                              bool can_compose_inline);
 
 #if defined(OS_MACOSX) || defined(USE_AURA)
   void OnImeCompositionRangeChanged(
@@ -641,7 +640,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
                    bool last_unlocked_by_target,
                    bool privileged);
   void OnUnlockMouse();
-  void OnShowDisambiguationPopup(const gfx::Rect& rect,
+  void OnShowDisambiguationPopup(const gfx::Rect& rect_pixels,
                                  const gfx::Size& size,
                                  const cc::SharedBitmapId& id);
 #if defined(OS_WIN)
@@ -694,10 +693,17 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // which may get in recursive loops).
   void DelayedAutoResized();
 
+  void WindowOldSnapshotReachedScreen(int snapshot_id);
+
   void WindowSnapshotReachedScreen(int snapshot_id);
 
-  // Send a message to the renderer process to change the accessibility mode.
-  void SetAccessibilityMode(AccessibilityMode AccessibilityMode);
+  void OnSnapshotDataReceived(int snapshot_id,
+                              const unsigned char* png,
+                              size_t size);
+
+  void OnSnapshotDataReceivedAsync(
+      int snapshot_id,
+      scoped_refptr<base::RefCountedBytes> png_data);
 
   // Our delegate, which wants to know mainly about keyboard events.
   // It will remain non-NULL until DetachDelegate() is called.
@@ -721,9 +727,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // most recent call to process_->WidgetRestored() / WidgetHidden().
   bool is_hidden_;
 
-  // Indicates whether a page is fullscreen or not.
-  bool is_fullscreen_;
-
   // Set if we are waiting for a repaint ack for the view.
   bool repaint_ack_pending_;
 
@@ -741,37 +744,25 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // The current size of the RenderWidget.
   gfx::Size current_size_;
 
-  // The size of the view's backing surface in non-DPI-adjusted pixels.
-  gfx::Size physical_backing_size_;
-
-  // The height of the physical backing surface that is overdrawn opaquely in
-  // the browser, for example by an on-screen-keyboard (in DPI-adjusted pixels).
-  float overdraw_bottom_height_;
-
-  // The size of the visible viewport, which may be smaller than the view if the
-  // view is partially occluded (e.g. by a virtual keyboard).  The size is in
-  // DPI-adjusted pixels.
-  gfx::Size visible_viewport_size_;
-
-  // The size we last sent as requested size to the renderer. |current_size_|
-  // is only updated once the resize message has been ack'd. This on the other
-  // hand is updated when the resize message is sent. This is very similar to
-  // |resize_ack_pending_|, but the latter is not set if the new size has width
-  // or height zero, which is why we need this too.
-  gfx::Size last_requested_size_;
+  // Resize information that was previously sent to the renderer.
+  scoped_ptr<ViewMsg_Resize_Params> old_resize_params_;
 
   // The next auto resize to send.
   gfx::Size new_auto_size_;
 
   // True if the render widget host should track the render widget's size as
   // opposed to visa versa.
-  bool should_auto_resize_;
+  bool auto_resize_enabled_;
+
+  // The minimum size for the render widget if auto-resize is enabled.
+  gfx::Size min_size_for_auto_resize_;
+
+  // The maximum size for the render widget if auto-resize is enabled.
+  gfx::Size max_size_for_auto_resize_;
 
   bool waiting_for_screen_rects_ack_;
   gfx::Rect last_view_screen_rect_;
   gfx::Rect last_window_screen_rect_;
-
-  AccessibilityMode accessibility_mode_;
 
   // Keyboard event listeners.
   std::vector<KeyPressEventCallback> key_press_event_callbacks_;
@@ -836,9 +827,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // changed.
   bool suppress_next_char_events_;
 
-  // The last scroll offset of the render widget.
-  gfx::Vector2d last_scroll_offset_;
-
   bool pending_mouse_lock_request_;
   bool allow_privileged_mouse_lock_;
 
@@ -846,8 +834,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // then touch events are sent to the renderer. Otherwise, the touch events are
   // not sent to the renderer.
   bool has_touch_handler_;
-
-  base::WeakPtrFactory<RenderWidgetHostImpl> weak_factory_;
 
   scoped_ptr<SyntheticGestureController> synthetic_gesture_controller_;
 
@@ -863,6 +849,13 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 #endif
 
   int64 last_input_number_;
+
+  int next_browser_snapshot_id_;
+  typedef std::map<int,
+      base::Callback<void(const unsigned char*, size_t)> > PendingSnapshotMap;
+  PendingSnapshotMap pending_browser_snapshots_;
+
+  base::WeakPtrFactory<RenderWidgetHostImpl> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostImpl);
 };

@@ -1,8 +1,6 @@
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-# pylint: disable=W0401,W0614
-from telemetry.page.actions.all_page_actions import *
 from telemetry.page import page as page_module
 from telemetry.page import page_set as page_set_module
 
@@ -13,54 +11,28 @@ class ToughVideoCasesPage(page_module.Page):
     super(ToughVideoCasesPage, self).__init__(url=url, page_set=page_set)
 
   def LoopMixedAudio(self, action_runner):
-    action_runner.RunAction(PlayAction(
-      {
-        'wait_for_playing': True,
-        'wait_for_ended': False,
-        'selector': '#background_audio'
-      }))
-    action_runner.RunAction(LoopAction(
-      {
-        'loop_count': 50,
-        'selector': '#mixed_audio'
-      }))
+    action_runner.PlayMedia(selector='#background_audio',
+                            playing_event_timeout_in_seconds=60)
+    action_runner.LoopMedia(loop_count=50, selector='#mixed_audio')
 
   def LoopSingleAudio(self, action_runner):
-    action_runner.RunAction(LoopAction(
-      {
-        'loop_count': 50,
-        'selector': '#single_audio'
-      }))
+    action_runner.LoopMedia(loop_count=50, selector='#single_audio')
 
   def PlayAction(self, action_runner):
-    action_runner.RunAction(PlayAction(
-      {
-        'wait_for_playing': True,
-        'wait_for_ended': True
-      }))
+    action_runner.PlayMedia(playing_event_timeout_in_seconds=60,
+                            ended_event_timeout_in_seconds=60)
 
   def SeekBeforeAndAfterPlayhead(self, action_runner):
-    action_runner.RunAction(PlayAction(
-      {
-        'wait_for_playing': True,
-        'wait_for_ended': False
-      }))
+    action_runner.PlayMedia(playing_event_timeout_in_seconds=60,
+                            ended_event_timeout_in_seconds=60)
     # Wait for 1 second so that we know the play-head is at ~1s.
     action_runner.Wait(1)
     # Seek to before the play-head location.
-    action_runner.RunAction(SeekAction(
-      {
-        'seek_time': '0.5',
-        'wait_for_seeked': True,
-        'seek_label': 'seek_warm'
-      }))
+    action_runner.SeekMedia(seconds=0.5, timeout_in_seconds=60,
+                            label='seek_warm')
     # Seek to after the play-head location.
-    action_runner.RunAction(SeekAction(
-      {
-        'seek_time': '9',
-        'wait_for_seeked': True,
-        'seek_label': 'seek_cold'
-      }))
+    action_runner.SeekMedia(seconds=9, timeout_in_seconds=60,
+                            label='seek_cold')
 
 
 class Page1(ToughVideoCasesPage):
@@ -454,6 +426,77 @@ class Page29(ToughVideoCasesPage):
   def RunMediaMetrics(self, action_runner):
     self.LoopMixedAudio(action_runner)
 
+class Page30(ToughVideoCasesPage):
+
+  def __init__(self, page_set):
+    super(Page30, self).__init__(
+      url='file://tough_video_cases/video.html?src=tulip2.vp9.webm',
+      page_set=page_set)
+
+    self.add_browser_metrics = True
+
+  def RunMediaMetrics(self, action_runner):
+    self.PlayAction(action_runner)
+
+class Page31(ToughVideoCasesPage):
+
+  def __init__(self, page_set):
+    super(Page31, self).__init__(
+      url='file://tough_video_cases/video.html?src=tulip2.vp9.webm',
+      page_set=page_set)
+
+    self.skip_basic_metrics = True
+
+  def RunMediaMetrics(self, action_runner):
+    self.SeekBeforeAndAfterPlayhead(action_runner)
+
+class Page32(ToughVideoCasesPage):
+
+  def __init__(self, page_set):
+    super(Page32, self).__init__(
+      url='file://tough_video_cases/video.html?src=crowd1080_vp9.webm',
+      page_set=page_set)
+
+    self.add_browser_metrics = True
+
+  def RunMediaMetrics(self, action_runner):
+    self.PlayAction(action_runner)
+
+class Page33(ToughVideoCasesPage):
+
+  def __init__(self, page_set):
+    super(Page33, self).__init__(
+      url='file://tough_video_cases/video.html?src=crowd1080_vp9.webm',
+      page_set=page_set)
+
+    self.skip_basic_metrics = True
+
+  def RunMediaMetrics(self, action_runner):
+    self.SeekBeforeAndAfterPlayhead(action_runner)
+
+class Page34(ToughVideoCasesPage):
+
+  def __init__(self, page_set):
+    super(Page34, self).__init__(
+      url='file://tough_video_cases/video.html?src=crowd720_vp9.webm',
+      page_set=page_set)
+
+    self.add_browser_metrics = True
+
+  def RunMediaMetrics(self, action_runner):
+    self.PlayAction(action_runner)
+
+class Page35(ToughVideoCasesPage):
+
+  def __init__(self, page_set):
+    super(Page35, self).__init__(
+      url='file://tough_video_cases/video.html?src=crowd720_vp9.webm',
+      page_set=page_set)
+
+    self.skip_basic_metrics = True
+
+  def RunMediaMetrics(self, action_runner):
+    self.SeekBeforeAndAfterPlayhead(action_runner)
 
 class ToughVideoCasesPageSet(page_set_module.PageSet):
 
@@ -493,3 +536,9 @@ class ToughVideoCasesPageSet(page_set_module.PageSet):
     self.AddPage(Page27(self))
     self.AddPage(Page28(self))
     self.AddPage(Page29(self))
+    self.AddPage(Page30(self))
+    self.AddPage(Page31(self))
+    self.AddPage(Page32(self))
+    self.AddPage(Page33(self))
+    self.AddPage(Page34(self))
+    self.AddPage(Page35(self))

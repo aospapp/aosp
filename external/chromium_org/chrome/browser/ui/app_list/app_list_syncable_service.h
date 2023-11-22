@@ -84,6 +84,7 @@ class AppListSyncableService : public syncer::SyncableService,
   const std::string& GetOemFolderNameForTest() const {
     return oem_folder_name_;
   }
+  void ResetDriveAppProviderForTest();
 
   // syncer::SyncableService
   virtual syncer::SyncMergeResult MergeDataAndStartSyncing(
@@ -201,6 +202,7 @@ class AppListSyncableService : public syncer::SyncableService,
   scoped_ptr<syncer::SyncErrorFactory> sync_error_handler_;
   SyncItemMap sync_items_;
   syncer::SyncableService::StartSyncFlare flare_;
+  bool initial_sync_data_processed_;
   bool first_app_list_sync_;
   std::string oem_folder_name_;
 

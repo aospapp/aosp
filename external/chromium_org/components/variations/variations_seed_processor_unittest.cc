@@ -4,15 +4,18 @@
 
 #include "components/variations/variations_seed_processor.h"
 
+#include <map>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/strings/string_split.h"
+#include "base/strings/utf_string_conversions.h"
 #include "components/variations/processed_study.h"
 #include "components/variations/variations_associated_data.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-namespace chrome_variations {
+namespace variations {
 
 namespace {
 
@@ -74,6 +77,33 @@ bool IsFieldTrialActive(const std::string& trial_name) {
   return false;
 }
 
+class TestOverrideStringCallback {
+ public:
+  typedef std::map<uint32_t, base::string16> OverrideMap;
+
+  TestOverrideStringCallback()
+      : callback_(base::Bind(&TestOverrideStringCallback::Override,
+                             base::Unretained(this))) {}
+
+  virtual ~TestOverrideStringCallback() {}
+
+  const VariationsSeedProcessor::UIStringOverrideCallback& callback() const {
+    return callback_;
+  }
+
+  const OverrideMap& overrides() const { return overrides_; }
+
+ private:
+  void Override(uint32_t hash, const base::string16& string) {
+    overrides_[hash] = string;
+  }
+
+  VariationsSeedProcessor::UIStringOverrideCallback callback_;
+  OverrideMap overrides_;
+
+  DISALLOW_COPY_AND_ASSIGN(TestOverrideStringCallback);
+};
+
 }  // namespace
 
 class VariationsSeedProcessorTest : public ::testing::Test {
@@ -91,11 +121,15 @@ class VariationsSeedProcessorTest : public ::testing::Test {
   bool CreateTrialFromStudy(const Study* study) {
     ProcessedStudy processed_study;
     if (processed_study.Init(study, false)) {
-      VariationsSeedProcessor().CreateTrialFromStudy(processed_study);
+      VariationsSeedProcessor().CreateTrialFromStudy(
+          processed_study, override_callback_.callback());
       return true;
     }
     return false;
   }
+
+ protected:
+  TestOverrideStringCallback override_callback_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(VariationsSeedProcessorTest);
@@ -194,9 +228,14 @@ TEST_F(VariationsSeedProcessorTest,
   {
     base::FieldTrialList field_trial_list(NULL);
     study1->set_expiry_date(TimeToProtoTime(year_ago));
-    seed_processor.CreateTrialsFromSeed(seed, "en-CA", base::Time::Now(),
-                                        version, Study_Channel_STABLE,
-                                        Study_FormFactor_DESKTOP, "");
+    seed_processor.CreateTrialsFromSeed(seed,
+                                        "en-CA",
+                                        base::Time::Now(),
+                                        version,
+                                        Study_Channel_STABLE,
+                                        Study_FormFactor_DESKTOP,
+                                        "",
+                                        override_callback_.callback());
     EXPECT_EQ(kGroup1Name, base::FieldTrialList::FindFullName(kTrialName));
   }
 
@@ -206,11 +245,75 @@ TEST_F(VariationsSeedProcessorTest,
     base::FieldTrialList field_trial_list(NULL);
     study1->clear_expiry_date();
     study2->set_expiry_date(TimeToProtoTime(year_ago));
-    seed_processor.CreateTrialsFromSeed(seed, "en-CA", base::Time::Now(),
-                                        version, Study_Channel_STABLE,
-                                        Study_FormFactor_DESKTOP, "");
+    seed_processor.CreateTrialsFromSeed(seed,
+                                        "en-CA",
+                                        base::Time::Now(),
+                                        version,
+                                        Study_Channel_STABLE,
+                                        Study_FormFactor_DESKTOP,
+                                        "",
+                                        override_callback_.callback());
     EXPECT_EQ(kGroup1Name, base::FieldTrialList::FindFullName(kTrialName));
   }
+}
+
+TEST_F(VariationsSeedProcessorTest, OverrideUIStrings) {
+  base::FieldTrialList field_trial_list(NULL);
+
+  Study study;
+  study.set_name("Study1");
+  study.set_default_experiment_name("B");
+  study.set_activation_type(Study_ActivationType_ACTIVATION_AUTO);
+
+  Study_Experiment* experiment1 = AddExperiment("A", 0, &study);
+  Study_Experiment_OverrideUIString* override =
+      experiment1->add_override_ui_string();
+
+  override->set_name_hash(1234);
+  override->set_value("test");
+
+  Study_Experiment* experiment2 = AddExperiment("B", 1, &study);
+
+  EXPECT_TRUE(CreateTrialFromStudy(&study));
+
+  const TestOverrideStringCallback::OverrideMap& overrides =
+      override_callback_.overrides();
+
+  EXPECT_TRUE(overrides.empty());
+
+  study.set_name("Study2");
+  experiment1->set_probability_weight(1);
+  experiment2->set_probability_weight(0);
+
+  EXPECT_TRUE(CreateTrialFromStudy(&study));
+
+  EXPECT_EQ(1u, overrides.size());
+  TestOverrideStringCallback::OverrideMap::const_iterator it =
+      overrides.find(1234);
+  EXPECT_EQ(base::ASCIIToUTF16("test"), it->second);
+}
+
+TEST_F(VariationsSeedProcessorTest, OverrideUIStringsWithForcingFlag) {
+  Study study = CreateStudyWithFlagGroups(100, 0, 0);
+  ASSERT_EQ(kForcingFlag1, study.experiment(1).forcing_flag());
+
+  study.set_activation_type(Study_ActivationType_ACTIVATION_AUTO);
+  Study_Experiment_OverrideUIString* override =
+      study.mutable_experiment(1)->add_override_ui_string();
+  override->set_name_hash(1234);
+  override->set_value("test");
+
+  CommandLine::ForCurrentProcess()->AppendSwitch(kForcingFlag1);
+  base::FieldTrialList field_trial_list(NULL);
+  EXPECT_TRUE(CreateTrialFromStudy(&study));
+  EXPECT_EQ(kFlagGroup1Name, base::FieldTrialList::FindFullName(study.name()));
+
+  const TestOverrideStringCallback::OverrideMap& overrides =
+      override_callback_.overrides();
+  EXPECT_EQ(1u, overrides.size());
+  TestOverrideStringCallback::OverrideMap::const_iterator it =
+      overrides.find(1234);
+  EXPECT_EQ(base::ASCIIToUTF16("test"), it->second);
 }
 
 TEST_F(VariationsSeedProcessorTest, ValidateStudy) {
@@ -320,10 +423,14 @@ TEST_F(VariationsSeedProcessorTest, StartsActive) {
   study3->set_activation_type(Study_ActivationType_ACTIVATION_EXPLICIT);
 
   VariationsSeedProcessor seed_processor;
-  seed_processor.CreateTrialsFromSeed(seed, "en-CA", base::Time::Now(),
+  seed_processor.CreateTrialsFromSeed(seed,
+                                      "en-CA",
+                                      base::Time::Now(),
                                       base::Version("20.0.0.0"),
                                       Study_Channel_STABLE,
-                                      Study_FormFactor_DESKTOP, "");
+                                      Study_FormFactor_DESKTOP,
+                                      "",
+                                      override_callback_.callback());
 
   // Non-specified and ACTIVATION_EXPLICIT should not start active, but
   // ACTIVATION_AUTO should.
@@ -356,4 +463,28 @@ TEST_F(VariationsSeedProcessorTest, StartsActiveWithFlag) {
             base::FieldTrialList::FindFullName(kFlagStudyName));
 }
 
-}  // namespace chrome_variations
+TEST_F(VariationsSeedProcessorTest, ForcingFlagAlreadyForced) {
+  Study study = CreateStudyWithFlagGroups(100, 0, 0);
+  ASSERT_EQ(kNonFlagGroupName, study.experiment(0).name());
+  Study_Experiment_Param* param = study.mutable_experiment(0)->add_param();
+  param->set_name("x");
+  param->set_value("y");
+  study.mutable_experiment(0)->set_google_web_experiment_id(kExperimentId);
+
+  base::FieldTrialList field_trial_list(NULL);
+  base::FieldTrialList::CreateFieldTrial(kFlagStudyName, kNonFlagGroupName);
+
+  CommandLine::ForCurrentProcess()->AppendSwitch(kForcingFlag1);
+  EXPECT_TRUE(CreateTrialFromStudy(&study));
+  // The previously forced experiment should still hold.
+  EXPECT_EQ(kNonFlagGroupName,
+            base::FieldTrialList::FindFullName(study.name()));
+
+  // Check that params and experiment ids correspond.
+  EXPECT_EQ("y", GetVariationParamValue(study.name(), "x"));
+  VariationID id = GetGoogleVariationID(GOOGLE_WEB_PROPERTIES, kFlagStudyName,
+                                        kNonFlagGroupName);
+  EXPECT_EQ(kExperimentId, id);
+}
+
+}  // namespace variations

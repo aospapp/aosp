@@ -11,11 +11,10 @@
 #include <algorithm>
 #include <deque>
 
-#include "base/basictypes.h"
 #include "base/bind.h"
-#include "base/compiler_specific.h"
 #include "base/location.h"
 #include "base/logging.h"
+#include "base/macros.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop/message_loop.h"
@@ -57,13 +56,15 @@ class RawChannelPosix : public RawChannel,
                                size_t* bytes_written) OVERRIDE;
   virtual IOResult ScheduleWriteNoLock() OVERRIDE;
   virtual bool OnInit() OVERRIDE;
-  virtual void OnShutdownNoLock(
-      scoped_ptr<ReadBuffer> read_buffer,
-      scoped_ptr<WriteBuffer> write_buffer) OVERRIDE;
+  virtual void OnShutdownNoLock(scoped_ptr<ReadBuffer> read_buffer,
+                                scoped_ptr<WriteBuffer> write_buffer) OVERRIDE;
 
   // |base::MessageLoopForIO::Watcher| implementation:
   virtual void OnFileCanReadWithoutBlocking(int fd) OVERRIDE;
   virtual void OnFileCanWriteWithoutBlocking(int fd) OVERRIDE;
+
+  // Implements most of |Read()| (except for a bit of clean-up):
+  IOResult ReadImpl(size_t* bytes_read);
 
   // Watches for |fd_| to become writable. Must be called on the I/O thread.
   void WaitToWrite();
@@ -133,12 +134,11 @@ void RawChannelPosix::EnqueueMessageNoLock(
       for (; platform_handles->size() - i >
                  embedder::kPlatformChannelMaxNumHandles;
            i += embedder::kPlatformChannelMaxNumHandles) {
-        scoped_ptr<MessageInTransit> fd_message(
-            new MessageInTransit(
-                MessageInTransit::kTypeRawChannel,
-                MessageInTransit::kSubtypeRawChannelPosixExtraPlatformHandles,
-                0,
-                NULL));
+        scoped_ptr<MessageInTransit> fd_message(new MessageInTransit(
+            MessageInTransit::kTypeRawChannel,
+            MessageInTransit::kSubtypeRawChannelPosixExtraPlatformHandles,
+            0,
+            nullptr));
         embedder::ScopedPlatformHandleVectorPtr fds(
             new embedder::PlatformHandleVector(
                 platform_handles->begin() + i,
@@ -163,7 +163,7 @@ bool RawChannelPosix::OnReadMessageForRawChannel(
   DCHECK_EQ(message_view.type(), MessageInTransit::kTypeRawChannel);
 
   if (message_view.subtype() ==
-          MessageInTransit::kSubtypeRawChannelPosixExtraPlatformHandles) {
+      MessageInTransit::kSubtypeRawChannelPosixExtraPlatformHandles) {
     // We don't need to do anything. |RawChannel| won't extract the platform
     // handles, and they'll be accumulated in |Read()|.
     return true;
@@ -176,50 +176,12 @@ RawChannel::IOResult RawChannelPosix::Read(size_t* bytes_read) {
   DCHECK_EQ(base::MessageLoop::current(), message_loop_for_io());
   DCHECK(!pending_read_);
 
-  char* buffer = NULL;
-  size_t bytes_to_read = 0;
-  read_buffer()->GetBuffer(&buffer, &bytes_to_read);
-
-  size_t old_num_platform_handles = read_platform_handles_.size();
-  ssize_t read_result =
-      embedder::PlatformChannelRecvmsg(fd_.get(),
-                                       buffer,
-                                       bytes_to_read,
-                                       &read_platform_handles_);
-  if (read_platform_handles_.size() > old_num_platform_handles) {
-    DCHECK_LE(read_platform_handles_.size() - old_num_platform_handles,
-              embedder::kPlatformChannelMaxNumHandles);
-
-    // We should never accumulate more than |TransportData::kMaxPlatformHandles
-    // + embedder::kPlatformChannelMaxNumHandles| handles. (The latter part is
-    // possible because we could have accumulated all the handles for a message,
-    // then received the message data plus the first set of handles for the next
-    // message in the subsequent |recvmsg()|.)
-    if (read_platform_handles_.size() > (TransportData::kMaxPlatformHandles +
-            embedder::kPlatformChannelMaxNumHandles)) {
-      LOG(WARNING) << "Received too many platform handles";
-      embedder::CloseAllPlatformHandles(&read_platform_handles_);
-      read_platform_handles_.clear();
-      return IO_FAILED;
-    }
-  }
-
-  if (read_result > 0) {
-    *bytes_read = static_cast<size_t>(read_result);
-    return IO_SUCCEEDED;
-  }
-
-  // |read_result == 0| means "end of file".
-  if (read_result == 0 || (errno != EAGAIN && errno != EWOULDBLOCK)) {
-    PLOG_IF(WARNING, read_result != 0) << "recvmsg";
-
+  IOResult rv = ReadImpl(bytes_read);
+  if (rv != IO_SUCCEEDED && rv != IO_PENDING) {
     // Make sure that |OnFileCanReadWithoutBlocking()| won't be called again.
     read_watcher_.reset();
-
-    return IO_FAILED;
   }
-
-  return ScheduleRead();
+  return rv;
 }
 
 RawChannel::IOResult RawChannelPosix::ScheduleRead() {
@@ -264,9 +226,8 @@ RawChannel::IOResult RawChannelPosix::WriteNoLock(
   if (write_buffer_no_lock()->HavePlatformHandlesToSend()) {
     embedder::PlatformHandle* platform_handles;
     void* serialization_data;  // Actually unused.
-    write_buffer_no_lock()->GetPlatformHandlesToSend(&num_platform_handles,
-                                                     &platform_handles,
-                                                     &serialization_data);
+    write_buffer_no_lock()->GetPlatformHandlesToSend(
+        &num_platform_handles, &platform_handles, &serialization_data);
     DCHECK_GT(num_platform_handles, 0u);
     DCHECK_LE(num_platform_handles, embedder::kPlatformChannelMaxNumHandles);
     DCHECK(platform_handles);
@@ -293,8 +254,8 @@ RawChannel::IOResult RawChannelPosix::WriteNoLock(
     DCHECK(!buffers.empty());
 
     if (buffers.size() == 1) {
-      write_result = embedder::PlatformChannelWrite(fd_.get(), buffers[0].addr,
-                                                    buffers[0].size);
+      write_result = embedder::PlatformChannelWrite(
+          fd_.get(), buffers[0].addr, buffers[0].size);
     } else {
       const size_t kMaxBufferCount = 10;
       iovec iov[kMaxBufferCount];
@@ -304,8 +265,8 @@ RawChannel::IOResult RawChannelPosix::WriteNoLock(
         iov[i].iov_len = buffers[i].size;
       }
 
-      write_result = embedder::PlatformChannelWritev(fd_.get(), iov,
-                                                     buffer_count);
+      write_result =
+          embedder::PlatformChannelWritev(fd_.get(), iov, buffer_count);
     }
   }
 
@@ -315,9 +276,12 @@ RawChannel::IOResult RawChannelPosix::WriteNoLock(
     return IO_SUCCEEDED;
   }
 
+  if (errno == EPIPE)
+    return IO_FAILED_SHUTDOWN;
+
   if (errno != EAGAIN && errno != EWOULDBLOCK) {
-    PLOG(ERROR) << "sendmsg/write/writev";
-    return IO_FAILED;
+    PLOG(WARNING) << "sendmsg/write/writev";
+    return IO_FAILED_UNKNOWN;
   }
 
   return ScheduleWriteNoLock();
@@ -331,21 +295,24 @@ RawChannel::IOResult RawChannelPosix::ScheduleWriteNoLock() {
   // Set up to wait for the FD to become writable.
   // If we're not on the I/O thread, we have to post a task to do this.
   if (base::MessageLoop::current() != message_loop_for_io()) {
-    message_loop_for_io()->PostTask(
-        FROM_HERE,
-        base::Bind(&RawChannelPosix::WaitToWrite,
-                   weak_ptr_factory_.GetWeakPtr()));
+    message_loop_for_io()->PostTask(FROM_HERE,
+                                    base::Bind(&RawChannelPosix::WaitToWrite,
+                                               weak_ptr_factory_.GetWeakPtr()));
     pending_write_ = true;
     return IO_PENDING;
   }
 
-  if (message_loop_for_io()->WatchFileDescriptor(fd_.get().fd, false,
-          base::MessageLoopForIO::WATCH_WRITE, write_watcher_.get(), this)) {
+  if (message_loop_for_io()->WatchFileDescriptor(
+          fd_.get().fd,
+          false,
+          base::MessageLoopForIO::WATCH_WRITE,
+          write_watcher_.get(),
+          this)) {
     pending_write_ = true;
     return IO_PENDING;
   }
 
-  return IO_FAILED;
+  return IO_FAILED_UNKNOWN;
 }
 
 bool RawChannelPosix::OnInit() {
@@ -356,8 +323,12 @@ bool RawChannelPosix::OnInit() {
   DCHECK(!write_watcher_);
   write_watcher_.reset(new base::MessageLoopForIO::FileDescriptorWatcher());
 
-  if (!message_loop_for_io()->WatchFileDescriptor(fd_.get().fd, true,
-          base::MessageLoopForIO::WATCH_READ, read_watcher_.get(), this)) {
+  if (!message_loop_for_io()->WatchFileDescriptor(
+          fd_.get().fd,
+          true,
+          base::MessageLoopForIO::WATCH_READ,
+          read_watcher_.get(),
+          this)) {
     // TODO(vtl): I'm not sure |WatchFileDescriptor()| actually fails cleanly
     // (in the sense of returning the message loop's state to what it was before
     // it was called).
@@ -375,7 +346,7 @@ void RawChannelPosix::OnShutdownNoLock(
   DCHECK_EQ(base::MessageLoop::current(), message_loop_for_io());
   write_lock().AssertAcquired();
 
-  read_watcher_.reset();  // This will stop watching (if necessary).
+  read_watcher_.reset();   // This will stop watching (if necessary).
   write_watcher_.reset();  // This will stop watching (if necessary).
 
   pending_read_ = false;
@@ -398,9 +369,9 @@ void RawChannelPosix::OnFileCanReadWithoutBlocking(int fd) {
 
   pending_read_ = false;
   size_t bytes_read = 0;
-  IOResult result = Read(&bytes_read);
-  if (result != IO_PENDING)
-    OnReadCompleted(result == IO_SUCCEEDED, bytes_read);
+  IOResult io_result = Read(&bytes_read);
+  if (io_result != IO_PENDING)
+    OnReadCompleted(io_result, bytes_read);
 
   // On failure, |read_watcher_| must have been reset; on success,
   // we assume that |OnReadCompleted()| always schedules another read.
@@ -417,7 +388,7 @@ void RawChannelPosix::OnFileCanWriteWithoutBlocking(int fd) {
   DCHECK_EQ(fd, fd_.get().fd);
   DCHECK_EQ(base::MessageLoop::current(), message_loop_for_io());
 
-  IOResult result = IO_FAILED;
+  IOResult io_result;
   size_t platform_handles_written = 0;
   size_t bytes_written = 0;
   {
@@ -426,14 +397,57 @@ void RawChannelPosix::OnFileCanWriteWithoutBlocking(int fd) {
     DCHECK(pending_write_);
 
     pending_write_ = false;
-    result = WriteNoLock(&platform_handles_written, &bytes_written);
+    io_result = WriteNoLock(&platform_handles_written, &bytes_written);
   }
 
-  if (result != IO_PENDING) {
-    OnWriteCompleted(result == IO_SUCCEEDED,
-                     platform_handles_written,
-                     bytes_written);
+  if (io_result != IO_PENDING)
+    OnWriteCompleted(io_result, platform_handles_written, bytes_written);
+}
+
+RawChannel::IOResult RawChannelPosix::ReadImpl(size_t* bytes_read) {
+  char* buffer = nullptr;
+  size_t bytes_to_read = 0;
+  read_buffer()->GetBuffer(&buffer, &bytes_to_read);
+
+  size_t old_num_platform_handles = read_platform_handles_.size();
+  ssize_t read_result = embedder::PlatformChannelRecvmsg(
+      fd_.get(), buffer, bytes_to_read, &read_platform_handles_);
+  if (read_platform_handles_.size() > old_num_platform_handles) {
+    DCHECK_LE(read_platform_handles_.size() - old_num_platform_handles,
+              embedder::kPlatformChannelMaxNumHandles);
+
+    // We should never accumulate more than |TransportData::kMaxPlatformHandles
+    // + embedder::kPlatformChannelMaxNumHandles| handles. (The latter part is
+    // possible because we could have accumulated all the handles for a message,
+    // then received the message data plus the first set of handles for the next
+    // message in the subsequent |recvmsg()|.)
+    if (read_platform_handles_.size() >
+        (TransportData::kMaxPlatformHandles +
+         embedder::kPlatformChannelMaxNumHandles)) {
+      LOG(ERROR) << "Received too many platform handles";
+      embedder::CloseAllPlatformHandles(&read_platform_handles_);
+      read_platform_handles_.clear();
+      return IO_FAILED_UNKNOWN;
+    }
   }
+
+  if (read_result > 0) {
+    *bytes_read = static_cast<size_t>(read_result);
+    return IO_SUCCEEDED;
+  }
+
+  // |read_result == 0| means "end of file".
+  if (read_result == 0)
+    return IO_FAILED_SHUTDOWN;
+
+  if (errno == EAGAIN || errno == EWOULDBLOCK)
+    return ScheduleRead();
+
+  if (errno == ECONNRESET)
+    return IO_FAILED_BROKEN;
+
+  PLOG(WARNING) << "recvmsg";
+  return IO_FAILED_UNKNOWN;
 }
 
 void RawChannelPosix::WaitToWrite() {
@@ -442,15 +456,18 @@ void RawChannelPosix::WaitToWrite() {
   DCHECK(write_watcher_);
 
   if (!message_loop_for_io()->WatchFileDescriptor(
-          fd_.get().fd, false, base::MessageLoopForIO::WATCH_WRITE,
-          write_watcher_.get(), this)) {
+          fd_.get().fd,
+          false,
+          base::MessageLoopForIO::WATCH_WRITE,
+          write_watcher_.get(),
+          this)) {
     {
       base::AutoLock locker(write_lock());
 
       DCHECK(pending_write_);
       pending_write_ = false;
     }
-    OnWriteCompleted(false, 0, 0);
+    OnWriteCompleted(IO_FAILED_UNKNOWN, 0, 0);
   }
 }
 

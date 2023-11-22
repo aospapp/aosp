@@ -41,16 +41,11 @@ public class WpsConnectionActivity extends DialogActivity
 
     public static final String EXTRA_WPS_SETUP = "wps_setup";
 
-    public static Intent createIntent(Context context, int wpsSetup) {
-        return new Intent(context, WpsConnectionActivity.class).putExtra(EXTRA_WPS_SETUP, wpsSetup);
-    }
-
     private static final String WPS_FRAGMENT_TAG = "wps_fragment_tag";
     private static final String KEY_CANCEL = "cancel";
     private static final String KEY_RETRY = "retry";
 
     private WifiManager mWifiManager;
-    private int mWpsSetup;
     private boolean mWpsComplete;
     private final WpsCallback mWpsCallback = new WpsCallback() {
         @Override
@@ -101,7 +96,6 @@ public class WpsConnectionActivity extends DialogActivity
         setLayoutProperties(R.layout.setup_auth_activity, R.id.description, R.id.action);
         super.onCreate(savedInstanceState);
         Bundle extras = getIntent().getExtras();
-        mWpsSetup = getIntent().getIntExtra(EXTRA_WPS_SETUP, 0);
         mWifiManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
     }
 
@@ -142,10 +136,8 @@ public class WpsConnectionActivity extends DialogActivity
         }
         mWpsComplete = false;
         WpsInfo wpsConfig = new WpsInfo();
-        wpsConfig.setup = mWpsSetup;
-        if (!mWpsComplete) {
-            mWifiManager.startWps(wpsConfig, mWpsCallback);
-        }
+        wpsConfig.setup = WpsInfo.PBC;
+        mWifiManager.startWps(wpsConfig, mWpsCallback);
     }
 
     private Fragment createWpsScanningFragment() {

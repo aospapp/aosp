@@ -8,7 +8,7 @@
 #include "chrome/browser/chromeos/login/login_manager_test.h"
 #include "chrome/browser/chromeos/login/startup_utils.h"
 #include "chrome/browser/chromeos/login/ui/user_adding_screen.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
+#include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/chromeos/settings/stub_cros_settings_provider.h"
 #include "chrome/browser/ui/browser.h"
@@ -17,6 +17,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chromeos/settings/cros_settings_names.h"
+#include "components/user_manager/user_manager.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_utils.h"
@@ -48,11 +49,11 @@ class AccountsOptionsTest : public LoginManagerTest {
     settings->AddSettingsProvider(&stub_settings_provider_);
   }
 
-  virtual void CleanUpOnMainThread() OVERRIDE {
+  virtual void TearDownOnMainThread() OVERRIDE {
     CrosSettings* settings = CrosSettings::Get();
     settings->RemoveSettingsProvider(&stub_settings_provider_);
     settings->AddSettingsProvider(device_settings_provider_);
-    LoginManagerTest::CleanUpOnMainThread();
+    LoginManagerTest::TearDownOnMainThread();
   }
 
   virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
@@ -60,8 +61,8 @@ class AccountsOptionsTest : public LoginManagerTest {
   }
 
  protected:
-  void CheckAccountsUI(const User* user, bool is_owner) {
-    Profile* profile = UserManager::Get()->GetProfileByUser(user);
+  void CheckAccountsUI(const user_manager::User* user, bool is_owner) {
+    Profile* profile = ProfileHelper::Get()->GetProfileByUserUnsafe(user);
     profile->GetPrefs()->SetString(prefs::kGoogleServicesUsername,
                                    user->email());
 
@@ -135,7 +136,7 @@ IN_PROC_BROWSER_TEST_F(AccountsOptionsTest, MultiProfilesAccountsOptions) {
   content::RunAllPendingInMessageLoop();
   AddUser(kTestUsers[1]);
 
-  UserManager* manager = UserManager::Get();
+  user_manager::UserManager* manager = user_manager::UserManager::Get();
   ASSERT_EQ(2u, manager->GetLoggedInUsers().size());
 
   CheckAccountsUI(manager->FindUser(kTestUsers[0]), true /* is_owner */);

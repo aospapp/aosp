@@ -30,7 +30,8 @@ import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.MediaCodecList;
-import android.media.MediaPlayer;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
 import android.media.MediaRecorder;
 import android.os.Environment;
 import android.os.SystemClock;
@@ -65,25 +66,27 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
     private static final int VIDEO_FRAME_RATE = 30;
     private final String VIDEO_FILE_PATH = Environment.getExternalStorageDirectory().getPath();
     private static final int[] mCamcorderProfileList = {
+            CamcorderProfile.QUALITY_HIGH,
             CamcorderProfile.QUALITY_2160P,
             CamcorderProfile.QUALITY_1080P,
-            CamcorderProfile.QUALITY_480P,
             CamcorderProfile.QUALITY_720P,
+            CamcorderProfile.QUALITY_480P,
             CamcorderProfile.QUALITY_CIF,
-            CamcorderProfile.QUALITY_LOW,
-            CamcorderProfile.QUALITY_HIGH,
             CamcorderProfile.QUALITY_QCIF,
             CamcorderProfile.QUALITY_QVGA,
+            CamcorderProfile.QUALITY_LOW,
     };
     private static final int MAX_VIDEO_SNAPSHOT_IMAGES = 5;
     private static final int BURST_VIDEO_SNAPSHOT_NUM = 3;
     private static final int SLOWMO_SLOW_FACTOR = 4;
+    private static final int MAX_NUM_FRAME_DROP_ALLOWED = 4;
     private List<Size> mSupportedVideoSizes;
     private Surface mRecordingSurface;
     private MediaRecorder mMediaRecorder;
     private String mOutMediaFileName;
     private int mVideoFrameRate;
     private Size mVideoSize;
+    private long mRecordingStartTime;
 
     @Override
     protected void setUp() throws Exception {
@@ -117,7 +120,7 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
 
                 initSupportedVideoSize(mCameraIds[i]);
 
-                basicRecordingTestByCamera();
+                basicRecordingTestByCamera(mCamcorderProfileList);
             } finally {
                 closeDevice();
                 releaseRecorder();
@@ -220,6 +223,53 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
     }
 
     /**
+     * <p>
+     * Test recording framerate accuracy when switching from low FPS to high FPS.
+     * </p>
+     * <p>
+     * This test first record a video with profile of lowest framerate then record a video with
+     * profile of highest framerate. Make sure that the video framerate are still accurate.
+     * </p>
+     */
+    public void testRecordingFramerateLowToHigh() throws Exception {
+        for (int i = 0; i < mCameraIds.length; i++) {
+            try {
+                Log.i(TAG, "Testing basic recording for camera " + mCameraIds[i]);
+                // Re-use the MediaRecorder object for the same camera device.
+                mMediaRecorder = new MediaRecorder();
+                openDevice(mCameraIds[i]);
+
+                initSupportedVideoSize(mCameraIds[i]);
+
+                int minFpsProfileId = -1, minFps = 1000;
+                int maxFpsProfileId = -1, maxFps = 0;
+                int cameraId = Integer.valueOf(mCamera.getId());
+
+                for (int profileId : mCamcorderProfileList) {
+                    if (!CamcorderProfile.hasProfile(cameraId, profileId)) {
+                        continue;
+                    }
+                    CamcorderProfile profile = CamcorderProfile.get(cameraId, profileId);
+                    if (profile.videoFrameRate < minFps) {
+                        minFpsProfileId = profileId;
+                        minFps = profile.videoFrameRate;
+                    }
+                    if (profile.videoFrameRate > maxFps) {
+                        maxFpsProfileId = profileId;
+                        maxFps = profile.videoFrameRate;
+                    }
+                }
+
+                int camcorderProfileList[] = new int[] {minFpsProfileId, maxFpsProfileId};
+                basicRecordingTestByCamera(camcorderProfileList);
+            } finally {
+                closeDevice();
+                releaseRecorder();
+            }
+        }
+    }
+
+    /**
      * Test slow motion recording where capture rate (camera output) is different with
      * video (playback) frame rate for each camera if high speed recording is supported
      * by both camera and encoder.
@@ -286,8 +336,9 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                     updatePreviewSurfaceWithVideoSize(size);
 
                     // Start recording
+                    SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
                     startSlowMotionRecording(/*useMediaRecorder*/true, videoFramerate, captureRate,
-                            fpsRange);
+                            fpsRange, resultListener);
                     long startTime = SystemClock.elapsedRealtime();
 
                     // Record certain duration.
@@ -295,10 +346,12 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
 
                     // Stop recording and preview
                     stopRecording(/*useMediaRecorder*/true);
-                    int duration = (int) (SystemClock.elapsedRealtime() - startTime);
+                    // Convert number of frames camera produced into the duration in unit of ms.
+                    int durationMs = (int) (resultListener.getTotalNumFrames() * 1000.0f /
+                                    videoFramerate);
 
                     // Validation.
-                    validateRecording(size, duration * SLOWMO_SLOW_FACTOR);
+                    validateRecording(size, durationMs);
 
                 }
 
@@ -328,7 +381,8 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
     }
 
     private void startSlowMotionRecording(boolean useMediaRecorder, int videoFrameRate,
-            int captureRate, Range<Integer> fpsRange) throws Exception {
+            int captureRate, Range<Integer> fpsRange,
+            CameraCaptureSession.CaptureCallback listener) throws Exception {
         List<Surface> outputSurfaces = new ArrayList<Surface>(2);
         assertTrue("Both preview and recording surfaces should be valid",
                 mPreviewSurface.isValid() && mRecordingSurface.isValid());
@@ -369,7 +423,7 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
         for (int i = 0; i < slowMotionFactor - 1; i++) {
             slowMoRequests.add(recordingOnlyBuilder.build()); // Recording only.
         }
-        mSession.setRepeatingBurst(slowMoRequests, null, null);
+        mSession.setRepeatingBurst(slowMoRequests, listener, mHandler);
 
         if (useMediaRecorder) {
             mMediaRecorder.start();
@@ -383,8 +437,8 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
      * Test camera recording by using each available CamcorderProfile for a
      * given camera. preview size is set to the video size.
      */
-    private void basicRecordingTestByCamera() throws Exception {
-        for (int profileId : mCamcorderProfileList) {
+    private void basicRecordingTestByCamera(int[] camcorderProfileList) throws Exception {
+        for (int profileId : camcorderProfileList) {
             int cameraId = Integer.valueOf(mCamera.getId());
             if (!CamcorderProfile.hasProfile(cameraId, profileId) ||
                     allowedUnsupported(cameraId, profileId)) {
@@ -414,18 +468,25 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
             updatePreviewSurfaceWithVideoSize(videoSz);
 
             // Start recording
-            startRecording(/* useMediaRecorder */true);
-            long startTime = SystemClock.elapsedRealtime();
+            SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
+            startRecording(/* useMediaRecorder */true, resultListener);
 
             // Record certain duration.
             SystemClock.sleep(RECORDING_DURATION_MS);
 
             // Stop recording and preview
             stopRecording(/* useMediaRecorder */true);
-            int duration = (int) (SystemClock.elapsedRealtime() - startTime);
+            // Convert number of frames camera produced into the duration in unit of ms.
+            int durationMs = (int) (resultListener.getTotalNumFrames() * 1000.0f /
+                            profile.videoFrameRate);
+
+            if (VERBOSE) {
+                Log.v(TAG, "video frame rate: " + profile.videoFrameRate +
+                                ", num of frames produced: " + resultListener.getTotalNumFrames());
+            }
 
             // Validation.
-            validateRecording(videoSz, duration);
+            validateRecording(videoSz, durationMs);
         }
     }
 
@@ -457,18 +518,20 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
             updatePreviewSurfaceWithVideoSize(sz);
 
             // Start recording
-            startRecording(/* useMediaRecorder */true);
-            long startTime = SystemClock.elapsedRealtime();
+            SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
+            startRecording(/* useMediaRecorder */true, resultListener);
 
             // Record certain duration.
             SystemClock.sleep(RECORDING_DURATION_MS);
 
             // Stop recording and preview
             stopRecording(/* useMediaRecorder */true);
-            int duration = (int) (SystemClock.elapsedRealtime() - startTime);
+            // Convert number of frames camera produced into the duration in unit of ms.
+            int durationMs = (int) (resultListener.getTotalNumFrames() * 1000.0f /
+                            VIDEO_FRAME_RATE);
 
             // Validation.
-            validateRecording(sz, duration);
+            validateRecording(sz, durationMs);
         }
     }
 
@@ -495,11 +558,6 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                     mMediaRecorder = new MediaRecorder();
 
                     openDevice(id);
-
-                    if (mStaticInfo.isHardwareLevelLegacy()) {
-                        Log.i(TAG, "Skipping test on legacy devices");
-                        continue;
-                    }
 
                     initSupportedVideoSize(id);
 
@@ -647,11 +705,17 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                 SystemClock.sleep(RECORDING_DURATION_MS / 2);
 
                 // Stop recording and preview
-                stopRecording(/* useMediaRecorder */true);
-                int duration = (int) (SystemClock.elapsedRealtime() - startTime);
+                int durationMs = stopRecording(/* useMediaRecorder */true);
+                // For non-burst test, use number of frames to also double check video frame rate.
+                // Burst video snapshot is allowed to cause frame rate drop, so do not use number
+                // of frames to estimate duration
+                if (!burstTest) {
+                    durationMs = (int) (resultListener.getTotalNumFrames() * 1000.0f /
+                        profile.videoFrameRate);
+                }
 
                 // Validation recorded video
-                validateRecording(videoSz, duration);
+                validateRecording(videoSz, durationMs);
 
                 if (burstTest) {
                     for (int i = 0; i < BURST_VIDEO_SNAPSHOT_NUM; i++) {
@@ -801,6 +865,7 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
         } else {
             // TODO: need implement MediaCodec path.
         }
+        mRecordingStartTime = SystemClock.elapsedRealtime();
     }
 
     private void startRecording(boolean useMediaRecorder)  throws Exception {
@@ -817,7 +882,9 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
         mSessionListener.getStateWaiter().waitForState(SESSION_CLOSED, SESSION_CLOSE_TIMEOUT_MS);
     }
 
-    private void stopRecording(boolean useMediaRecorder) throws Exception {
+    // Stop recording and return the estimated video duration in milliseconds.
+    private int stopRecording(boolean useMediaRecorder) throws Exception {
+        long stopRecordingTime = SystemClock.elapsedRealtime();
         if (useMediaRecorder) {
             stopCameraStreaming();
 
@@ -831,6 +898,7 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
             mRecordingSurface.release();
             mRecordingSurface = null;
         }
+        return (int) (stopRecordingTime - mRecordingStartTime);
     }
 
     private void releaseRecorder() {
@@ -844,14 +912,28 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
         File outFile = new File(mOutMediaFileName);
         assertTrue("No video is recorded", outFile.exists());
 
-        MediaPlayer mediaPlayer = new MediaPlayer();
+        MediaExtractor extractor = new MediaExtractor();
         try {
-            mediaPlayer.setDataSource(mOutMediaFileName);
-            mediaPlayer.prepare();
-            Size videoSz = new Size(mediaPlayer.getVideoWidth(), mediaPlayer.getVideoHeight());
+            extractor.setDataSource(mOutMediaFileName);
+            long durationUs = 0;
+            int width = -1, height = -1;
+            int numTracks = extractor.getTrackCount();
+            final String VIDEO_MIME_TYPE = "video";
+            for (int i = 0; i < numTracks; i++) {
+                MediaFormat format = extractor.getTrackFormat(i);
+                String mime = format.getString(MediaFormat.KEY_MIME);
+                if (mime.contains(VIDEO_MIME_TYPE)) {
+                    Log.i(TAG, "video format is: " + format.toString());
+                    durationUs = format.getLong(MediaFormat.KEY_DURATION);
+                    width = format.getInteger(MediaFormat.KEY_WIDTH);
+                    height = format.getInteger(MediaFormat.KEY_HEIGHT);
+                    break;
+                }
+            }
+            Size videoSz = new Size(width, height);
             assertTrue("Video size doesn't match, expected " + sz.toString() +
                     " got " + videoSz.toString(), videoSz.equals(sz));
-            int duration = mediaPlayer.getDuration();
+            int duration = (int) (durationUs / 1000);
             if (VERBOSE) {
                 Log.v(TAG, String.format("Video duration: recorded %dms, expected %dms",
                                          duration, durationMs));
@@ -860,11 +942,12 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
             // TODO: Don't skip this for video snapshot
             if (!mStaticInfo.isHardwareLevelLegacy()) {
                 assertTrue(String.format(
-                        "Video duration doesn't match: recorded %dms, expected %dms", duration,
-                        durationMs), Math.abs(duration - durationMs) < DURATION_MARGIN_MS);
+                        "Camera %s: Video duration doesn't match: recorded %dms, expected %dms.",
+                        mCamera.getId(), duration, durationMs),
+                        Math.abs(duration - durationMs) < DURATION_MARGIN_MS);
             }
         } finally {
-            mediaPlayer.release();
+            extractor.release();
             if (!DEBUG_DUMP) {
                 outFile.delete();
             }
@@ -909,6 +992,15 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                 // Snapshots in legacy mode pause the preview briefly.  Skip the duration
                 // requirements for legacy mode unless this is fixed.
                 if (!mStaticInfo.isHardwareLevelLegacy()) {
+                    mCollector.expectTrue(
+                            String.format(
+                                    "Video %dx%d Frame drop detected before video snapshot: " +
+                                            "duration %dms (expected %dms)",
+                                    mVideoSize.getWidth(), mVideoSize.getHeight(),
+                                    durationMs, expectedDurationMs
+                            ),
+                            durationMs <= (expectedDurationMs * MAX_NUM_FRAME_DROP_ALLOWED)
+                    );
                     // Log a warning is there is any frame drop detected.
                     if (durationMs >= expectedDurationMs * 2) {
                         Log.w(TAG, String.format(
@@ -920,6 +1012,15 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                     }
 
                     durationMs = (int) (nextTS - currentTS) / 1000000;
+                    mCollector.expectTrue(
+                            String.format(
+                                    "Video %dx%d Frame drop detected after video snapshot: " +
+                                            "duration %dms (expected %dms)",
+                                    mVideoSize.getWidth(), mVideoSize.getHeight(),
+                                    durationMs, expectedDurationMs
+                            ),
+                            durationMs <= (expectedDurationMs * MAX_NUM_FRAME_DROP_ALLOWED)
+                    );
                     // Log a warning is there is any frame drop detected.
                     if (durationMs >= expectedDurationMs * 2) {
                         Log.w(TAG, String.format(
@@ -1031,133 +1132,10 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
      * by AVC specification for certain level.
      */
     private static boolean isSupportedByAVCEncoder(Size sz, int frameRate) {
-        String mimeType = "video/avc";
-        MediaCodecInfo codecInfo = getEncoderInfo(mimeType);
-        if (codecInfo == null) {
-            return false;
-        }
-        CodecCapabilities cap = codecInfo.getCapabilitiesForType(mimeType);
-        if (cap == null) {
-            return false;
-        }
-
-        int highestLevel = 0;
-        for (CodecProfileLevel lvl : cap.profileLevels) {
-            if (lvl.level > highestLevel) {
-                highestLevel = lvl.level;
-            }
-        }
-        // Don't support anything meaningful for level 1 or 2.
-        if (highestLevel <= CodecProfileLevel.AVCLevel2) {
-            return false;
-        }
-
-        if(VERBOSE) {
-            Log.v(TAG, "The highest level supported by encoder is: " + highestLevel);
-        }
-
-        // Put bitRate here for future use.
-        int maxW, maxH, bitRate;
-        // Max encoding speed.
-        int maxMacroblocksPerSecond = 0;
-        switch(highestLevel) {
-            case CodecProfileLevel.AVCLevel21:
-                maxW = 352;
-                maxH = 576;
-                bitRate = 4000000;
-                maxMacroblocksPerSecond = 19800;
-                break;
-            case CodecProfileLevel.AVCLevel22:
-                maxW = 720;
-                maxH = 480;
-                bitRate = 4000000;
-                maxMacroblocksPerSecond = 20250;
-                break;
-            case CodecProfileLevel.AVCLevel3:
-                maxW = 720;
-                maxH = 480;
-                bitRate = 10000000;
-                maxMacroblocksPerSecond = 40500;
-                break;
-            case CodecProfileLevel.AVCLevel31:
-                maxW = 1280;
-                maxH = 720;
-                bitRate = 14000000;
-                maxMacroblocksPerSecond = 108000;
-                break;
-            case CodecProfileLevel.AVCLevel32:
-                maxW = 1280;
-                maxH = 720;
-                bitRate = 20000000;
-                maxMacroblocksPerSecond = 216000;
-                break;
-            case CodecProfileLevel.AVCLevel4:
-                maxW = 1920;
-                maxH = 1088; // It should be 1088 in terms of AVC capability.
-                bitRate = 20000000;
-                maxMacroblocksPerSecond = 245760;
-                break;
-            case CodecProfileLevel.AVCLevel41:
-                maxW = 1920;
-                maxH = 1088; // It should be 1088 in terms of AVC capability.
-                bitRate = 50000000;
-                maxMacroblocksPerSecond = 245760;
-                break;
-            case CodecProfileLevel.AVCLevel42:
-                maxW = 2048;
-                maxH = 1088; // It should be 1088 in terms of AVC capability.
-                bitRate = 50000000;
-                maxMacroblocksPerSecond = 522240;
-                break;
-            case CodecProfileLevel.AVCLevel5:
-                maxW = 3672;
-                maxH = 1536;
-                bitRate = 135000000;
-                maxMacroblocksPerSecond = 589824;
-                break;
-            case CodecProfileLevel.AVCLevel51:
-            default:
-                maxW = 4096;
-                maxH = 2304;
-                bitRate = 240000000;
-                maxMacroblocksPerSecond = 983040;
-                break;
-        }
-
-        // Check size limit.
-        if (sz.getWidth() > maxW || sz.getHeight() > maxH) {
-            Log.i(TAG, "Requested resolution " + sz.toString() + " exceeds (" +
-                    maxW + "," + maxH + ")");
-            return false;
-        }
-
-        // Check frame rate limit.
-        Size sizeInMb = new Size((sz.getWidth() + 15) / 16, (sz.getHeight() + 15) / 16);
-        int maxFps = maxMacroblocksPerSecond / (sizeInMb.getWidth() * sizeInMb.getHeight());
-        if (frameRate > maxFps) {
-            Log.i(TAG, "Requested frame rate " + frameRate + " exceeds " + maxFps);
-            return false;
-        }
-
-        return true;
-    }
-
-    private static MediaCodecInfo getEncoderInfo(String mimeType) {
-        int numCodecs = MediaCodecList.getCodecCount();
-        for (int i = 0; i < numCodecs; i++) {
-            MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
-
-            if (!codecInfo.isEncoder()) {
-                continue;
-            }
-
-            String[] types = codecInfo.getSupportedTypes();
-            for (int j = 0; j < types.length; j++) {
-                if (types[j].equalsIgnoreCase(mimeType)) {
-                    return codecInfo;
-                }
-            }
-        }
-        return null;
+        MediaFormat format = MediaFormat.createVideoFormat(
+                MediaFormat.MIMETYPE_VIDEO_AVC, sz.getWidth(), sz.getHeight());
+        format.setInteger(MediaFormat.KEY_FRAME_RATE, frameRate);
+        MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+        return mcl.findEncoderForFormat(format) != null;
     }
 }

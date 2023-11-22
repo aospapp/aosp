@@ -9,16 +9,17 @@
 #include "base/prefs/pref_service.h"
 #include "base/prefs/scoped_user_pref_update.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/chromeos/policy/policy_cert_service.h"
 #include "chrome/browser/chromeos/policy/policy_cert_verifier.h"
 #include "chrome/browser/chromeos/policy/user_network_configuration_updater_factory.h"
+#include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/profiles/incognito_helpers.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/pref_registry/pref_registry_syncable.h"
+#include "components/user_manager/user_manager.h"
 
 namespace policy {
 
@@ -93,9 +94,9 @@ KeyedService* PolicyCertServiceFactory::BuildServiceInstanceFor(
     content::BrowserContext* context) const {
   Profile* profile = static_cast<Profile*>(context);
 
-  chromeos::UserManager* user_manager = chromeos::UserManager::Get();
-  chromeos::User* user =
-      user_manager->GetUserByProfile(profile->GetOriginalProfile());
+  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
+  user_manager::User* user = chromeos::ProfileHelper::Get()->GetUserByProfile(
+      profile->GetOriginalProfile());
   if (!user)
     return NULL;
 

@@ -26,6 +26,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.support.annotation.Nullable;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -163,6 +164,50 @@ public abstract class AbstractConversationViewFragment extends Fragment implemen
     }
 
     /**
+     * Marks a conversation either 'seen' (force=false), as in when the conversation is made visible
+     * and should be marked read, or 'read' (force=true), as in when the action bar menu item to
+     * mark this conversation read is selected.
+     *
+     * @param force true to force marking it read, false to allow peek mode to prevent it
+     */
+    private final void markRead(boolean force) {
+        final ControllableActivity activity = (ControllableActivity) getActivity();
+        if (activity == null) {
+            return;
+        }
+
+        // mark viewed/read if not previously marked viewed by this conversation view,
+        // or if unread messages still exist in the message list cursor
+        // we don't want to keep marking viewed on rotation or restore
+        // but we do want future re-renders to mark read (e.g. "New message from X" case)
+        final MessageCursor cursor = getMessageCursor();
+        LogUtils.d(LOG_TAG, "onConversationSeen() - mConversation.isViewed() = %b, "
+                + "cursor null = %b, cursor.isConversationRead() = %b",
+                mConversation.isViewed(), cursor == null,
+                cursor != null && cursor.isConversationRead());
+        if (!mConversation.isViewed() || (cursor != null && !cursor.isConversationRead())) {
+            // Mark the conversation read no matter what if force=true.
+            // else only mark it seen if appropriate (2-pane peek=true doesn't mark things seen)
+            final boolean convMarkedRead;
+            if (force) {
+                activity.getConversationUpdater()
+                        .markConversationsRead(Arrays.asList(mConversation), true /* read */,
+                                true /* viewed */);
+                convMarkedRead = true;
+            } else {
+                convMarkedRead = activity.getConversationUpdater()
+                        .markConversationSeen(mConversation);
+            }
+
+            // and update the Message objects in the cursor so the next time a cursor update
+            // happens with these messages marked read, we know to ignore it
+            if (convMarkedRead && cursor != null && !cursor.isClosed()) {
+                cursor.markMessagesRead();
+            }
+        }
+    }
+
+    /**
      * Subclasses must override this, since they may want to display a single or
      * many messages related to this conversation.
      */
@@ -278,7 +323,7 @@ public abstract class AbstractConversationViewFragment extends Fragment implemen
     }
 
     @Override
-    public MessageCursor getMessageCursor() {
+    public @Nullable MessageCursor getMessageCursor() {
         return mCursor;
     }
 
@@ -326,17 +371,23 @@ public abstract class AbstractConversationViewFragment extends Fragment implemen
             return false;
         }
 
-        boolean handled = false;
+        boolean handled = true;
         final int itemId = item.getItemId();
-        if (itemId == R.id.inside_conversation_unread) {
+        if (itemId == R.id.inside_conversation_unread || itemId == R.id.toggle_read_unread) {
             markUnread();
-            handled = true;
+        } else if (itemId == R.id.read) {
+            markRead(true /* force */);
+            mActivity.supportInvalidateOptionsMenu();
         } else if (itemId == R.id.show_original) {
             showUntransformedConversation();
-            handled = true;
         } else if (itemId == R.id.print_all) {
             printConversation();
-            handled = true;
+        } else if (itemId == R.id.reply) {
+            handleReply();
+        } else if (itemId == R.id.reply_all) {
+            handleReplyAll();
+        } else {
+            handled = false;
         }
         return handled;
     }
@@ -344,7 +395,7 @@ public abstract class AbstractConversationViewFragment extends Fragment implemen
     @Override
     public void onPrepareOptionsMenu(Menu menu) {
         // Only show option if we support message transforms and message has been transformed.
-        Utils.setMenuItemVisibility(menu, R.id.show_original, supportsMessageTransforms() &&
+        Utils.setMenuItemPresent(menu, R.id.show_original, supportsMessageTransforms() &&
                 mHasConversationBeenTransformed && !mHasConversationTransformBeenReverted);
 
         final MenuItem printMenuItem = menu.findItem(R.id.print_all);
@@ -550,7 +601,7 @@ public abstract class AbstractConversationViewFragment extends Fragment implemen
               mConversation.isRemote ? "unsynced" : "synced", mConversation.getNumMessages());
     }
 
-    protected void onConversationSeen() {
+    protected final void onConversationSeen() {
         LogUtils.d(LOG_TAG, "AbstractConversationViewFragment#onConversationSeen()");
 
         // Ignore unsafe calls made after a fragment is detached from an activity
@@ -576,26 +627,7 @@ public abstract class AbstractConversationViewFragment extends Fragment implemen
         // do not want a  later mark-read operation to undo this.  So we check this variable which
         // is set in #markUnread() which suppresses automatic mark-read.
         if (!mSuppressMarkingViewed) {
-            // mark viewed/read if not previously marked viewed by this conversation view,
-            // or if unread messages still exist in the message list cursor
-            // we don't want to keep marking viewed on rotation or restore
-            // but we do want future re-renders to mark read (e.g. "New message from X" case)
-            final MessageCursor cursor = getMessageCursor();
-            LogUtils.d(LOG_TAG, "onConversationSeen() - mConversation.isViewed() = %b, "
-                    + "cursor null = %b, cursor.isConversationRead() = %b",
-                    mConversation.isViewed(), cursor == null,
-                    cursor != null && cursor.isConversationRead());
-            if (!mConversation.isViewed() || (cursor != null && !cursor.isConversationRead())) {
-                // Mark the conversation viewed and read.
-                activity.getConversationUpdater()
-                        .markConversationsRead(Arrays.asList(mConversation), true, true);
-
-                // and update the Message objects in the cursor so the next time a cursor update
-                // happens with these messages marked read, we know to ignore it
-                if (cursor != null && !cursor.isClosed()) {
-                    cursor.markMessagesRead();
-                }
-            }
+            markRead(false /* force */);
         }
         activity.getListHandler().onConversationSeen();
 
@@ -705,6 +737,10 @@ public abstract class AbstractConversationViewFragment extends Fragment implemen
      * Prints all messages in the conversation.
      */
     protected abstract void printConversation();
+
+    // These methods should perform default reply/replyall action on the last message.
+    protected abstract void handleReply();
+    protected abstract void handleReplyAll();
 
     public boolean shouldAlwaysShowImages() {
         return (mAccount != null) && (mAccount.settings.showImages == Settings.ShowImages.ALWAYS);

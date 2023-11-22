@@ -74,7 +74,8 @@ class MockAutoConfirmExtensionInstallPrompt : public ExtensionInstallPrompt {
 const Extension* ExtensionSettingsUIBrowserTest::InstallExtension(
     const base::FilePath& path) {
   Profile* profile = this->GetProfile();
-  ExtensionService* service = profile->GetExtensionService();
+  ExtensionService* service =
+      extensions::ExtensionSystem::Get(profile)->extension_service();
   service->set_show_extensions_prompts(false);
   size_t num_before = service->extensions()->size();
   {
@@ -97,7 +98,7 @@ const Extension* ExtensionSettingsUIBrowserTest::InstallExtension(
         extensions::CrxInstaller::OffStoreInstallAllowedInTest);
 
     observer_->Watch(
-        chrome::NOTIFICATION_CRX_INSTALLER_DONE,
+        extensions::NOTIFICATION_CRX_INSTALLER_DONE,
         content::Source<extensions::CrxInstaller>(installer.get()));
 
     installer->InstallCrx(crx_path);

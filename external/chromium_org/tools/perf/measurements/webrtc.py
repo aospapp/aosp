@@ -5,17 +5,20 @@
 from metrics import cpu
 from metrics import memory
 from metrics import power
-from telemetry.page import page_measurement
+from telemetry.page import page_test
 
 
-class WebRTC(page_measurement.PageMeasurement):
+class WebRTC(page_test.PageTest):
   """Gathers WebRTC-related metrics on a page set."""
 
   def __init__(self):
     super(WebRTC, self).__init__('RunWebrtc')
     self._cpu_metric = None
     self._memory_metric = None
-    self._power_metric = power.PowerMetric()
+    self._power_metric = None
+
+  def WillStartBrowser(self, platform):
+    self._power_metric = power.PowerMetric(platform)
 
   def DidStartBrowser(self, browser):
     self._cpu_metric = cpu.CpuMetric(browser)
@@ -32,7 +35,7 @@ class WebRTC(page_measurement.PageMeasurement):
     options.AppendExtraBrowserArgs('--use-fake-ui-for-media-stream')
     power.PowerMetric.CustomizeBrowserOptions(options)
 
-  def MeasurePage(self, page, tab, results):
+  def ValidateAndMeasurePage(self, page, tab, results):
     """Measure the page's performance."""
     self._memory_metric.Stop(page, tab)
     self._memory_metric.AddResults(tab, results)

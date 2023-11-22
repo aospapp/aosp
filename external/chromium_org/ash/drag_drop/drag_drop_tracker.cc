@@ -12,6 +12,7 @@
 #include "ui/aura/window_event_dispatcher.h"
 #include "ui/events/event.h"
 #include "ui/gfx/screen.h"
+#include "ui/wm/core/coordinate_conversion.h"
 #include "ui/wm/public/activation_delegate.h"
 
 namespace ash {
@@ -41,7 +42,9 @@ aura::Window* CreateCaptureWindow(aura::Window* context_root,
   if (!activation_delegate_instance)
     activation_delegate_instance = new CaptureWindowActivationDelegate;
   aura::Window* window = new aura::Window(delegate);
-  window->SetType(ui::wm::WINDOW_TYPE_NORMAL);
+  // Set type of window as popup to prevent different window manager codes
+  // trying to manage this window.
+  window->SetType(ui::wm::WINDOW_TYPE_POPUP);
   window->Init(aura::WINDOW_LAYER_NOT_DRAWN);
   aura::client::ParentWindowWithContext(window, context_root, gfx::Rect());
   aura::client::SetActivationDelegate(window, activation_delegate_instance);
@@ -68,12 +71,11 @@ void DragDropTracker::TakeCapture() {
 aura::Window* DragDropTracker::GetTarget(const ui::LocatedEvent& event) {
   DCHECK(capture_window_.get());
   gfx::Point location_in_screen = event.location();
-  wm::ConvertPointToScreen(capture_window_.get(),
-                           &location_in_screen);
+  ::wm::ConvertPointToScreen(capture_window_.get(), &location_in_screen);
   aura::Window* root_window_at_point =
       wm::GetRootWindowAt(location_in_screen);
   gfx::Point location_in_root = location_in_screen;
-  wm::ConvertPointFromScreen(root_window_at_point, &location_in_root);
+  ::wm::ConvertPointFromScreen(root_window_at_point, &location_in_root);
   return root_window_at_point->GetEventHandlerForPoint(location_in_root);
 }
 
@@ -85,7 +87,7 @@ ui::LocatedEvent* DragDropTracker::ConvertEvent(
   aura::Window::ConvertPointToTarget(capture_window_.get(), target,
                                      &target_location);
   gfx::Point location_in_screen = event.location();
-  ash::wm::ConvertPointToScreen(capture_window_.get(), &location_in_screen);
+  ::wm::ConvertPointToScreen(capture_window_.get(), &location_in_screen);
   gfx::Point target_root_location = event.root_location();
   aura::Window::ConvertPointToTarget(
       capture_window_->GetRootWindow(),

@@ -4,24 +4,29 @@
 
 #include "base/files/file_path.h"
 #include "base/strings/string_util.h"
-#include "chrome/browser/extensions/extension_function_test_utils.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/test/test_browser_thread_bundle.h"
 #include "extensions/browser/api/api_resource.h"
 #include "extensions/browser/api/api_resource_manager.h"
+#include "extensions/browser/extensions_test.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/test_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
-namespace utils = extension_function_test_utils;
-
 using content::BrowserThread;
+using content::NotificationService;
 
 namespace extensions {
 
-class ApiResourceManagerUnitTest : public testing::Test {
+class ApiResourceManagerUnitTest : public ExtensionsTest {
+ public:
+  ApiResourceManagerUnitTest()
+      : notification_service_(NotificationService::Create()) {}
+
  private:
   content::TestBrowserThreadBundle thread_bundle_;
+  scoped_ptr<NotificationService> notification_service_;
 };
 
 class FakeApiResource : public ApiResource {
@@ -35,10 +40,10 @@ class FakeApiResource : public ApiResource {
 TEST_F(ApiResourceManagerUnitTest, TwoAppsCannotShareResources) {
   scoped_ptr<ApiResourceManager<FakeApiResource> > manager(
       new ApiResourceManager<FakeApiResource>(NULL));
-  scoped_refptr<extensions::Extension> extension_one(
-      utils::CreateEmptyExtension("one"));
-  scoped_refptr<extensions::Extension> extension_two(
-      utils::CreateEmptyExtension("two"));
+  scoped_refptr<extensions::Extension> extension_one =
+      test_util::CreateEmptyExtension("one");
+  scoped_refptr<extensions::Extension> extension_two =
+      test_util::CreateEmptyExtension("two");
 
   const std::string extension_one_id(extension_one->id());
   const std::string extension_two_id(extension_two->id());

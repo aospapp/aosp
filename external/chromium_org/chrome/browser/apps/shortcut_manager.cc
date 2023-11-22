@@ -36,7 +36,7 @@ namespace {
 // need to be recreated. This might happen when we change various aspects of app
 // shortcuts like command-line flags or associated icons, binaries, etc.
 #if defined(OS_MACOSX)
-const int kCurrentAppShortcutsVersion = 1;
+const int kCurrentAppShortcutsVersion = 2;
 #else
 const int kCurrentAppShortcutsVersion = 0;
 #endif
@@ -138,7 +138,8 @@ void AppShortcutManager::OnExtensionWillBeInstalled(
 
 void AppShortcutManager::OnExtensionUninstalled(
     content::BrowserContext* browser_context,
-    const Extension* extension) {
+    const Extension* extension,
+    extensions::UninstallReason reason) {
   web_app::DeleteAllShortcuts(profile_, extension);
 }
 

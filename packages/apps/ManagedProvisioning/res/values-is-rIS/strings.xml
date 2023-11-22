@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Ekki er hægt að nota stjórnforritið. Það skortir íhluti eða er skemmt. Hafðu samband við upplýsingatæknisvið."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Ekki tókst að setja stjórnunarforritið upp"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Stjórnunarforritið er ekki uppsett á tækinu þínu"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Hætta uppsetningu?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Ertu viss um að þú viljir hætta uppsetningu?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Nei"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Já"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Hættir við..."</string>
 </resources>

@@ -169,7 +169,7 @@ Open Source Project.</p>
 able to accept. For instance, someone might want to contribute an
 alternative application API, such as a full C++-based environment. We would
 decline that contribution, since Android encourages applications to be run
-in the Dalvik VM. Similarly, we won't accept contributions such as GPL
+in the ART runtime. Similarly, we won't accept contributions such as GPL
 or LGPL libraries that are incompatible with our licensing goals.</p>
 <p>We encourage those interested in contributing source code to contact us
 via the channels listed on the <a href="{@docRoot}source/community/index.html">
@@ -321,5 +321,7 @@ ways to help out Android.</p>
 implement the 'adb' debugging utility. This means that any compatible device
 -- including ones available at retail -- must be able to run the CTS
 tests.</p>
+<h3 id="are-codecs-verified">Are codecs verified by CTS?</h3>
+<p>Yes. All mandatory codecs are verified by CTS.</p>
 
 <a href="#top">Back to top</a>

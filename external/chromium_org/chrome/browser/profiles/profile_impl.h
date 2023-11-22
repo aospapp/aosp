@@ -17,7 +17,6 @@
 #include "base/timer/timer.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_impl_io_data.h"
-#include "components/domain_reliability/clear_mode.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/host_zoom_map.h"
 
@@ -32,13 +31,23 @@ class TrackedPreferenceValidationDelegate;
 namespace chromeos {
 class KioskTest;
 class LocaleChangeGuard;
-class ManagedUserTestBase;
 class Preferences;
+class SupervisedUserTestBase;
 }
 #endif
 
 namespace base {
 class SequencedTaskRunner;
+}
+
+namespace data_reduction_proxy {
+class DataReductionProxyParams;
+}
+
+class DataReductionProxyChromeSettings;
+
+namespace domain_reliability {
+class DomainReliabilityMonitor;
 }
 
 namespace extensions {
@@ -81,8 +90,9 @@ class ProfileImpl : public Profile {
           bool in_memory) OVERRIDE;
   virtual content::ResourceContext* GetResourceContext() OVERRIDE;
   virtual content::BrowserPluginGuestManager* GetGuestManager() OVERRIDE;
-  virtual quota::SpecialStoragePolicy* GetSpecialStoragePolicy() OVERRIDE;
+  virtual storage::SpecialStoragePolicy* GetSpecialStoragePolicy() OVERRIDE;
   virtual content::PushMessagingService* GetPushMessagingService() OVERRIDE;
+  virtual content::SSLHostStateDelegate* GetSSLHostStateDelegate() OVERRIDE;
 
   // Profile implementation:
   virtual scoped_refptr<base::SequencedTaskRunner> GetIOTaskRunner() OVERRIDE;
@@ -98,7 +108,6 @@ class ProfileImpl : public Profile {
   virtual bool IsSupervised() OVERRIDE;
   virtual history::TopSites* GetTopSites() OVERRIDE;
   virtual history::TopSites* GetTopSitesWithoutCreating() OVERRIDE;
-  virtual ExtensionService* GetExtensionService() OVERRIDE;
   virtual ExtensionSpecialStoragePolicy*
       GetExtensionSpecialStoragePolicy() OVERRIDE;
   virtual PrefService* GetPrefs() OVERRIDE;
@@ -124,9 +133,6 @@ class ProfileImpl : public Profile {
   virtual void ClearNetworkingHistorySince(
       base::Time time,
       const base::Closure& completion) OVERRIDE;
-  virtual void ClearDomainReliabilityMonitor(
-      domain_reliability::DomainReliabilityClearMode mode,
-      const base::Closure& completion) OVERRIDE;
   virtual GURL GetHomePage() OVERRIDE;
   virtual bool WasCreatedByVersionOrLater(const std::string& version) OVERRIDE;
   virtual void SetExitType(ExitType exit_type) OVERRIDE;
@@ -144,13 +150,13 @@ class ProfileImpl : public Profile {
  private:
 #if defined(OS_CHROMEOS)
   friend class chromeos::KioskTest;
-  friend class chromeos::ManagedUserTestBase;
+  friend class chromeos::SupervisedUserTestBase;
 #endif
   friend class Profile;
   friend class BetterSessionRestoreCrashTest;
   FRIEND_TEST_ALL_PREFIXES(StartupBrowserCreatorTest,
                            ProfilesLaunchedAfterCrash);
-  FRIEND_TEST_ALL_PREFIXES(ProfileBrowserTest, ProfileReadmeCreated);
+  FRIEND_TEST_ALL_PREFIXES(ProfileBrowserTest, DISABLED_ProfileReadmeCreated);
   FRIEND_TEST_ALL_PREFIXES(ProfileBrowserTest,
                            ProfileDeletedBeforeReadmeCreated);
 
@@ -199,6 +205,9 @@ class ProfileImpl : public Profile {
 
   PrefProxyConfigTracker* CreateProxyConfigTracker();
 
+  scoped_ptr<domain_reliability::DomainReliabilityMonitor>
+      CreateDomainReliabilityMonitor(PrefService* local_state);
+
   scoped_ptr<content::HostZoomMap::Subscription> zoom_subscription_;
   PrefChangeRegistrar pref_change_registrar_;
 
@@ -233,8 +242,10 @@ class ProfileImpl : public Profile {
   scoped_ptr<PrefServiceSyncable> prefs_;
   scoped_ptr<PrefServiceSyncable> otr_prefs_;
   ProfileImplIOData::Handle io_data_;
+#if defined(ENABLE_EXTENSIONS)
   scoped_refptr<ExtensionSpecialStoragePolicy>
       extension_special_storage_policy_;
+#endif
   scoped_ptr<NetPrefObserver> net_pref_observer_;
   scoped_ptr<SSLConfigServiceManager> ssl_config_service_manager_;
   scoped_refptr<HostContentSettingsMap> host_content_settings_map_;

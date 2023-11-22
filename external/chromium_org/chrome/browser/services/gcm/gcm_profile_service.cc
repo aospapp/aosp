@@ -4,6 +4,8 @@
 
 #include "chrome/browser/services/gcm/gcm_profile_service.h"
 
+#include <map>
+
 #include "base/logging.h"
 #include "base/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
@@ -13,7 +15,13 @@
 #if defined(OS_ANDROID)
 #include "components/gcm_driver/gcm_driver_android.h"
 #else
+#include "base/bind.h"
+#if defined(OS_CHROMEOS)
+#include "chrome/browser/services/gcm/chromeos_gcm_connection_observer.h"
+#endif
 #include "base/files/file_path.h"
+#include "base/memory/weak_ptr.h"
+#include "chrome/browser/services/gcm/gcm_account_tracker.h"
 #include "chrome/browser/services/gcm/gcm_desktop_utils.h"
 #include "chrome/browser/signin/profile_identity_provider.h"
 #include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
@@ -21,7 +29,9 @@
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/common/chrome_constants.h"
 #include "components/gcm_driver/gcm_client_factory.h"
+#include "components/gcm_driver/gcm_driver_desktop.h"
 #include "components/signin/core/browser/signin_manager.h"
+#include "google_apis/gaia/account_tracker.h"
 #include "google_apis/gaia/identity_provider.h"
 #include "net/url_request/url_request_context_getter.h"
 #endif
@@ -29,9 +39,11 @@
 namespace gcm {
 
 #if !defined(OS_ANDROID)
+// Identity observer only has actual work to do when the user is actually signed
+// in. It ensures that account tracker is taking
 class GCMProfileService::IdentityObserver : public IdentityProvider::Observer {
  public:
-  IdentityObserver(Profile* profile, GCMDriver* driver);
+  IdentityObserver(Profile* profile, GCMDriverDesktop* driver);
   virtual ~IdentityObserver();
 
   // IdentityProvider::Observer:
@@ -40,20 +52,29 @@ class GCMProfileService::IdentityObserver : public IdentityProvider::Observer {
 
   std::string SignedInUserName() const;
 
+  // Called to inform IdentityObserver that a list of accounts was updated.
+  // |account_tokens| maps email addresses to OAuth2 access tokens.
+  void AccountsUpdated(
+      const std::map<std::string, std::string>& account_tokens);
+
  private:
-  GCMDriver* driver_;
+  Profile* profile_;
+  GCMDriverDesktop* driver_;
   scoped_ptr<IdentityProvider> identity_provider_;
+  scoped_ptr<GCMAccountTracker> gcm_account_tracker_;
 
   // The account ID that this service is responsible for. Empty when the service
   // is not running.
   std::string account_id_;
 
+  base::WeakPtrFactory<GCMProfileService::IdentityObserver> weak_ptr_factory_;
+
   DISALLOW_COPY_AND_ASSIGN(IdentityObserver);
 };
 
 GCMProfileService::IdentityObserver::IdentityObserver(Profile* profile,
-                                                      GCMDriver* driver)
-    : driver_(driver) {
+                                                      GCMDriverDesktop* driver)
+    : profile_(profile), driver_(driver), weak_ptr_factory_(this) {
   identity_provider_.reset(new ProfileIdentityProvider(
       SigninManagerFactory::GetForProfile(profile),
       ProfileOAuth2TokenServiceFactory::GetForProfile(profile),
@@ -64,6 +85,8 @@ GCMProfileService::IdentityObserver::IdentityObserver(Profile* profile,
 }
 
 GCMProfileService::IdentityObserver::~IdentityObserver() {
+  if (gcm_account_tracker_)
+    gcm_account_tracker_->Shutdown();
   identity_provider_->RemoveObserver(this);
 }
 
@@ -75,14 +98,41 @@ void GCMProfileService::IdentityObserver::OnActiveAccountLogin() {
   account_id_ = account_id;
 
   driver_->OnSignedIn();
+
+  if (!gcm_account_tracker_) {
+    scoped_ptr<gaia::AccountTracker> gaia_account_tracker(
+        new gaia::AccountTracker(identity_provider_.get(),
+                                 profile_->GetRequestContext()));
+
+    gcm_account_tracker_.reset(new GCMAccountTracker(
+        gaia_account_tracker.Pass(),
+        base::Bind(&GCMProfileService::IdentityObserver::AccountsUpdated,
+                   weak_ptr_factory_.GetWeakPtr())));
+  }
+
+  gcm_account_tracker_->Start();
 }
 
 void GCMProfileService::IdentityObserver::OnActiveAccountLogout() {
-  driver_->Purge();
+  account_id_.clear();
+
+  // Check is necessary to not crash browser_tests.
+  if (gcm_account_tracker_)
+    gcm_account_tracker_->Stop();
+  // When sign-in enforcement is not dropped, OnSignedOut will also clear all
+  // the GCM data and a new GCM ID will be retrieved after the user signs in
+  // again. Otherwise, the user sign-out will not affect the existing GCM
+  // data.
+  driver_->OnSignedOut();
 }
 
 std::string GCMProfileService::IdentityObserver::SignedInUserName() const {
   return driver_->IsStarted() ? account_id_ : std::string();
+}
+
+void GCMProfileService::IdentityObserver::AccountsUpdated(
+    const std::map<std::string, std::string>& account_tokens) {
+  driver_->SetAccountsForCheckin(account_tokens);
 }
 #endif  // !defined(OS_ANDROID)
 
@@ -119,10 +169,17 @@ GCMProfileService::GCMProfileService(
 
   driver_ = CreateGCMDriverDesktop(
       gcm_client_factory.Pass(),
+      profile_->GetPrefs(),
       profile_->GetPath().Append(chrome::kGCMStoreDirname),
       profile_->GetRequestContext());
 
-  identity_observer_.reset(new IdentityObserver(profile, driver_.get()));
+#if defined(OS_CHROMEOS)
+  chromeos_connection_observer_.reset(new gcm::ChromeOSGCMConnectionObserver);
+  driver_->AddConnectionObserver(chromeos_connection_observer_.get());
+#endif
+
+  identity_observer_.reset(new IdentityObserver(
+      profile, static_cast<gcm::GCMDriverDesktop*>(driver_.get())));
 }
 #endif  // defined(OS_ANDROID)
 
@@ -156,8 +213,11 @@ void GCMProfileService::Shutdown() {
 #if !defined(OS_ANDROID)
   identity_observer_.reset();
 #endif  // !defined(OS_ANDROID)
-
   if (driver_) {
+#if defined(OS_CHROMEOS)
+    driver_->RemoveConnectionObserver(chromeos_connection_observer_.get());
+    chromeos_connection_observer_.reset();
+#endif
     driver_->Shutdown();
     driver_.reset();
   }

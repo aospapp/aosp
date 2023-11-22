@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+
+[JavaPackage="org.chromium.mojo.bindings.test.mojom.mojo"]
 module mojo.test {
 
 struct StructA {
@@ -25,6 +27,10 @@ struct StructE {
   handle<data_pipe_consumer> data_pipe_consumer;
 };
 
+struct StructF {
+  uint8[3] fixed_size_array;
+};
+
 interface ConformanceTestInterface {
   Method0(float param0);
   Method1(StructA param0);
@@ -33,6 +39,9 @@ interface ConformanceTestInterface {
   Method4(StructC param0, uint8[] param1);
   Method5(StructE param0, handle<data_pipe_producer> param1);
   Method6(uint8[][] param0);
+  Method7(StructF param0, uint8[5] param1);
+  Method8(string[]?[] param0);
+  Method9(handle?[][]? param0);
 };
 
 struct BasicStruct {

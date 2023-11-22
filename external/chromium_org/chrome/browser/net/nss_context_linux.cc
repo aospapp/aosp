@@ -8,22 +8,38 @@
 #include "crypto/nss_util_internal.h"
 #include "net/cert/nss_cert_database.h"
 
+namespace {
+net::NSSCertDatabase* g_nss_cert_database = NULL;
+}  // namespace
+
 crypto::ScopedPK11Slot GetPublicNSSKeySlotForResourceContext(
     content::ResourceContext* context) {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::IO));
-  return crypto::ScopedPK11Slot(crypto::GetPublicNSSKeySlot());
+  return crypto::ScopedPK11Slot(crypto::GetPersistentNSSKeySlot());
 }
 
 crypto::ScopedPK11Slot GetPrivateNSSKeySlotForResourceContext(
     content::ResourceContext* context,
     const base::Callback<void(crypto::ScopedPK11Slot)>& callback) {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::IO));
-  return crypto::ScopedPK11Slot(crypto::GetPrivateNSSKeySlot());
+  return crypto::ScopedPK11Slot(crypto::GetPersistentNSSKeySlot());
 }
 
 net::NSSCertDatabase* GetNSSCertDatabaseForResourceContext(
     content::ResourceContext* context,
     const base::Callback<void(net::NSSCertDatabase*)>& callback) {
-  DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::IO));
-  return net::NSSCertDatabase::GetInstance();
+  // This initialization is not thread safe. This CHECK ensures that this code
+  // is only run on a single thread.
+  CHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::IO));
+  if (!g_nss_cert_database) {
+    // Linux has only a single persistent slot compared to ChromeOS's separate
+    // public and private slot.
+    // Redirect any slot usage to this persistent slot on Linux.
+    g_nss_cert_database = new net::NSSCertDatabase(
+        crypto::ScopedPK11Slot(
+            crypto::GetPersistentNSSKeySlot()) /* public slot */,
+        crypto::ScopedPK11Slot(
+            crypto::GetPersistentNSSKeySlot()) /* private slot */);
+  }
+  return g_nss_cert_database;
 }

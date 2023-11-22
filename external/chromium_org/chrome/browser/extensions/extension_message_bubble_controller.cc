@@ -14,9 +14,6 @@
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/user_metrics.h"
 #include "extensions/browser/extension_registry.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
-#include "ui/base/l10n/l10n_util.h"
 
 namespace extensions {
 
@@ -133,7 +130,7 @@ void ExtensionMessageBubbleController::OnLinkClicked() {
         content::OpenURLParams(delegate_->GetLearnMoreUrl(),
                                content::Referrer(),
                                NEW_FOREGROUND_TAB,
-                               content::PAGE_TRANSITION_LINK,
+                               ui::PAGE_TRANSITION_LINK,
                                false));
   }
   AcknowledgeExtensions();

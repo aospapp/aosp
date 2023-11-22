@@ -15,9 +15,7 @@ class InputMethodManager;
 // Initializes the InputMethodManager. Must be called before any calls to
 // GetInstance(). We explicitly initialize and shut down the global instance,
 // rather than making it a Singleton, to ensure clean startup and shutdown.
-void Initialize(
-    const scoped_refptr<base::SequencedTaskRunner>& ui_task_runner,
-    const scoped_refptr<base::SequencedTaskRunner>& file_task_runner);
+void Initialize();
 
 // Similar to Initialize(), but can inject an alternative
 // InputMethodManager such as MockInputMethodManager for testing.
@@ -25,6 +23,9 @@ void Initialize(
 // by Shutdown().
 // TODO(nona): Remove this and use InputMethodManager::Initialize instead.
 void InitializeForTesting(InputMethodManager* mock_manager);
+
+// Disables the IME extension loading (e.g. for browser tests).
+void DisableExtensionLoading();
 
 // Destroys the global InputMethodManager instance.
 void Shutdown();

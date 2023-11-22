@@ -28,6 +28,7 @@ import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
 
 import com.android.internal.telephony.imsphone.ImsPhone;
+import com.android.internal.telephony.RadioCapability;
 import com.android.internal.telephony.test.SimulatedRadioControl;
 import com.android.internal.telephony.uicc.IsimRecords;
 import com.android.internal.telephony.uicc.UiccCard;
@@ -65,7 +66,7 @@ public interface Phone {
     }
 
     enum SuppService {
-      UNKNOWN, SWITCH, SEPARATE, TRANSFER, CONFERENCE, REJECT, HANGUP;
+      UNKNOWN, SWITCH, SEPARATE, TRANSFER, CONFERENCE, REJECT, HANGUP, RESUME;
     }
 
     // "Features" accessible through the connectivity manager
@@ -274,6 +275,13 @@ public interface Phone {
      * TODO: Revisit if we always should return at least one entry.
      */
     String[] getActiveApnTypes();
+
+    /**
+     * Check if TETHER_DUN_APN setting or config_tether_apndata includes APN that matches
+     * current operator.
+     * @return true if there is a matching DUN APN.
+     */
+    boolean hasMatchedTetherApnSetting();
 
     /**
      * Returns string for the active APN host.
@@ -636,6 +644,25 @@ public interface Phone {
     public void unregisterForSimRecordsLoaded(Handler h);
 
     /**
+     * Register for TTY mode change notifications from the network.
+     * Message.obj will contain an AsyncResult.
+     * AsyncResult.result will be an Integer containing new mode.
+     *
+     * @param h Handler that receives the notification message.
+     * @param what User-defined message code.
+     * @param obj User object.
+     */
+    public void registerForTtyModeReceived(Handler h, int what, Object obj);
+
+    /**
+     * Unregisters for TTY mode change notifications.
+     * Extraneous calls are tolerated silently
+     *
+     * @param h Handler to be removed from the registrant list.
+     */
+    public void unregisterForTtyModeReceived(Handler h);
+
+    /**
      * Returns SIM record load state. Use
      * <code>getSimCard().registerForReady()</code> for change notification.
      *
@@ -937,8 +964,11 @@ public interface Phone {
      *        (see getMsisdnAlphaTag)
      * @param number the new MSISDN phone number to be set on the SIM.
      * @param onComplete a callback message when the action is completed.
+     *
+     * @return true if req is sent, false otherwise. If req is not sent there will be no response,
+     * that is, onComplete will never be sent.
      */
-    void setLine1Number(String alphaTag, String number, Message onComplete);
+    boolean setLine1Number(String alphaTag, String number, Message onComplete);
 
     /**
      * Get the voice mail access phone number. Typically dialed when the
@@ -1090,6 +1120,15 @@ public interface Phone {
      */
     void selectNetworkManually(OperatorInfo network,
                             Message response);
+
+    /**
+     * Query the radio for the current network selection mode.
+     *
+     * Return values:
+     *     0 - automatic.
+     *     1 - manual.
+     */
+    void getNetworkSelectionMode(Message response);
 
     /**
      *  Requests to set the preferred network type for searching and registering
@@ -1412,6 +1451,11 @@ public interface Phone {
     String getImei();
 
     /**
+     * Retrieves Nai for phones. Returns null if Nai is not set.
+     */
+    String getNai();
+
+    /**
      * Retrieves the PhoneSubInfo of the Phone
      */
     public PhoneSubInfo getPhoneSubInfo();
@@ -1432,6 +1476,18 @@ public interface Phone {
      * @param onComplete a callback message when the action is completed
      */
     void setTTYMode(int ttyMode, Message onComplete);
+
+   /**
+     * setUiTTYMode
+     * sets a TTY mode option.
+     * @param ttyMode is a one of the following:
+     * - {@link com.android.internal.telephony.Phone#TTY_MODE_OFF}
+     * - {@link com.android.internal.telephony.Phone#TTY_MODE_FULL}
+     * - {@link com.android.internal.telephony.Phone#TTY_MODE_HCO}
+     * - {@link com.android.internal.telephony.Phone#TTY_MODE_VCO}
+     * @param onComplete a callback message when the action is completed
+     */
+    void setUiTTYMode(int uiTtyMode, Message onComplete);
 
     /**
      * queryTTYMode
@@ -1666,6 +1722,22 @@ public interface Phone {
     void unregisterForT53AudioControlInfo(Handler h);
 
     /**
+     * Register for radio off or not available
+     *
+     * @param h Handler that receives the notification message.
+     * @param what User-defined message code.
+     * @param obj User object.
+     */
+    public void registerForRadioOffOrNotAvailable(Handler h, int what, Object obj);
+
+    /**
+     * Unregisters for radio off or not available
+     *
+     * @param h Handler to be removed from the registrant list.
+     */
+    public void unregisterForRadioOffOrNotAvailable(Handler h);
+
+    /**
      * registers for exit emergency call back mode request response
      *
      * @param h Handler that receives the notification message.
@@ -1790,7 +1862,7 @@ public interface Phone {
     /*
      * Returns the subscription id.
      */
-    public long getSubId();
+    public int getSubId();
 
     /*
      * Returns the phone id.
@@ -1839,6 +1911,13 @@ public interface Phone {
     public boolean setOperatorBrandOverride(String brand);
 
     /**
+     * Override the roaming indicator for the current ICCID.
+     */
+    public boolean setRoamingOverride(List<String> gsmRoamingList,
+            List<String> gsmNonRoamingList, List<String> cdmaRoamingList,
+            List<String> cdmaNonRoamingList);
+
+    /**
      * Is Radio Present on the device and is it accessible
      */
     public boolean isRadioAvailable();
@@ -1847,4 +1926,50 @@ public interface Phone {
      * shutdown Radio gracefully
      */
     public void shutdownRadio();
+
+    /**
+     *  Set phone radio capability
+     *
+     *  @param rc the phone radio capability defined in
+     *         RadioCapability. It's a input object used to transfer parameter to logic modem
+     *  @param response Callback message.
+     */
+    public void setRadioCapability(RadioCapability rc, Message response);
+
+    /**
+     *  Get phone radio access family
+     *
+     *  @return a bit mask to identify the radio access family.
+     */
+    public int getRadioAccessFamily();
+
+    /**
+     *  Get supported phone radio access family
+     *
+     *  @return a bit mask to identify the radio access family.
+     */
+    public int getSupportedRadioAccessFamily();
+
+    /**
+     * Registers the handler when phone radio  capability is changed.
+     *
+     * @param h Handler for notification message.
+     * @param what User-defined message code.
+     * @param obj User object.
+     */
+    public void registerForRadioCapabilityChanged(Handler h, int what, Object obj);
+
+    /**
+     * Unregister for notifications when phone radio type and access technology is changed.
+     *
+     * @param h Handler to be removed from the registrant list.
+     */
+    public void unregisterForRadioCapabilityChanged(Handler h);
+
+    /**
+     * Query the IMS Registration Status.
+     *
+     * @return true if IMS is Registered
+     */
+    public boolean isImsRegistered();
 }

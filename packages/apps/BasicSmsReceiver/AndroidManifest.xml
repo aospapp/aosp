@@ -32,7 +32,7 @@
             android:hardwareAccelerated="true">
 
         <activity android:name=".DialogSmsDisplay"
-                  android:theme="@android:style/Theme.Holo.Dialog"
+                  android:theme="@android:style/Theme.Material.Light.Dialog"
                   android:launchMode="singleTop" />
 
         <receiver android:name=".SmsMessageReceiver">

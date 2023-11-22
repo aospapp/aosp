@@ -74,9 +74,9 @@ public class BluetoothMapService extends ProfileService {
      * DEBUG log: "setprop log.tag.BluetoothMapService VERBOSE"
      */
 
-    public static final boolean DEBUG = true; //TODO: set to false
+    public static final boolean DEBUG = true;
 
-    public static final boolean VERBOSE = true; //TODO: set to false
+    public static final boolean VERBOSE = false;
 
     /**
      * Intent indicating timeout for user confirmation, which is sent to
@@ -1082,6 +1082,28 @@ public class BluetoothMapService extends ProfileService {
             BluetoothMapService service = getService();
             if (service == null) return BluetoothProfile.PRIORITY_UNDEFINED;
             return service.getPriority(device);
+        }
+    }
+
+    @Override
+    public void dump(StringBuilder sb) {
+        super.dump(sb);
+        println(sb, "mRemoteDevice: " + mRemoteDevice);
+        println(sb, "sRemoteDeviceName: " + sRemoteDeviceName);
+        println(sb, "mState: " + mState);
+        println(sb, "mAppObserver: " + mAppObserver);
+        println(sb, "mIsWaitingAuthorization: " + mIsWaitingAuthorization);
+        println(sb, "mRemoveTimeoutMsg: " + mRemoveTimeoutMsg);
+        println(sb, "mPermission: " + mPermission);
+        println(sb, "mAccountChanged: " + mAccountChanged);
+        println(sb, "mBluetoothMnsObexClient: " + mBluetoothMnsObexClient);
+        println(sb, "mMasInstanceMap:");
+        for (BluetoothMapEmailSettingsItem key : mMasInstanceMap.keySet()) {
+            println(sb, "  " + key + " : " + mMasInstanceMap.get(key));
+        }
+        println(sb, "mEnabledAccounts:");
+        for (BluetoothMapEmailSettingsItem account : mEnabledAccounts) {
+            println(sb, "  " + account);
         }
     }
 }

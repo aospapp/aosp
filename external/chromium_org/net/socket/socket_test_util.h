@@ -47,8 +47,8 @@ enum {
 };
 
 class AsyncSocket;
+class ChannelIDService;
 class MockClientSocket;
-class ServerBoundCertService;
 class SSLClientSocket;
 class StreamSocket;
 
@@ -326,15 +326,20 @@ struct SSLSocketDataProvider {
   MockConnect connect;
   SSLClientSocket::NextProtoStatus next_proto_status;
   std::string next_proto;
-  std::string server_protos;
   bool was_npn_negotiated;
   NextProto protocol_negotiated;
   bool client_cert_sent;
   SSLCertRequestInfo* cert_request_info;
   scoped_refptr<X509Certificate> cert;
   bool channel_id_sent;
-  ServerBoundCertService* server_bound_cert_service;
+  ChannelIDService* channel_id_service;
   int connection_status;
+  // Indicates that the socket should pause in the Connect method.
+  bool should_pause_on_connect;
+  // Whether or not the Socket should behave like there is a pre-existing
+  // session to resume. Whether or not such a session is reported as
+  // resumed is controlled by |connection_status|.
+  bool is_in_session_cache;
 };
 
 // A DataProvider where the client must write a request before the reads (e.g.
@@ -638,6 +643,12 @@ class MockClientSocketFactory : public ClientSocketFactory {
     return mock_data_;
   }
 
+  // Note: this method is unsafe; the elements of the returned vector
+  // are not necessarily valid.
+  const std::vector<MockSSLClientSocket*>& ssl_client_sockets() const {
+    return ssl_client_sockets_;
+  }
+
   // ClientSocketFactory
   virtual scoped_ptr<DatagramClientSocket> CreateDatagramClientSocket(
       DatagramSocket::BindType bind_type,
@@ -658,6 +669,7 @@ class MockClientSocketFactory : public ClientSocketFactory {
  private:
   SocketDataProviderArray<SocketDataProvider> mock_data_;
   SocketDataProviderArray<SSLSocketDataProvider> mock_ssl_data_;
+  std::vector<MockSSLClientSocket*> ssl_client_sockets_;
 };
 
 class MockClientSocket : public SSLClientSocket {
@@ -691,6 +703,9 @@ class MockClientSocket : public SSLClientSocket {
   virtual void SetOmniboxSpeculation() OVERRIDE {}
 
   // SSLClientSocket implementation.
+  virtual std::string GetSessionCacheKey() const OVERRIDE;
+  virtual bool InSessionCache() const OVERRIDE;
+  virtual void SetHandshakeCompletionCallback(const base::Closure& cb) OVERRIDE;
   virtual void GetSSLCertRequestInfo(SSLCertRequestInfo* cert_request_info)
       OVERRIDE;
   virtual int ExportKeyingMaterial(const base::StringPiece& label,
@@ -699,9 +714,8 @@ class MockClientSocket : public SSLClientSocket {
                                    unsigned char* out,
                                    unsigned int outlen) OVERRIDE;
   virtual int GetTLSUniqueChannelBinding(std::string* out) OVERRIDE;
-  virtual NextProtoStatus GetNextProto(std::string* proto,
-                                       std::string* server_protos) OVERRIDE;
-  virtual ServerBoundCertService* GetServerBoundCertService() const OVERRIDE;
+  virtual NextProtoStatus GetNextProto(std::string* proto) OVERRIDE;
+  virtual ChannelIDService* GetChannelIDService() const OVERRIDE;
 
  protected:
   virtual ~MockClientSocket();
@@ -720,6 +734,7 @@ class MockClientSocket : public SSLClientSocket {
 
   BoundNetLog net_log_;
 
+ private:
   base::WeakPtrFactory<MockClientSocket> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(MockClientSocket);
@@ -950,10 +965,12 @@ class MockSSLClientSocket : public MockClientSocket, public AsyncSocket {
   virtual bool GetSSLInfo(SSLInfo* ssl_info) OVERRIDE;
 
   // SSLClientSocket implementation.
+  virtual std::string GetSessionCacheKey() const OVERRIDE;
+  virtual bool InSessionCache() const OVERRIDE;
+  virtual void SetHandshakeCompletionCallback(const base::Closure& cb) OVERRIDE;
   virtual void GetSSLCertRequestInfo(SSLCertRequestInfo* cert_request_info)
       OVERRIDE;
-  virtual NextProtoStatus GetNextProto(std::string* proto,
-                                       std::string* server_protos) OVERRIDE;
+  virtual NextProtoStatus GetNextProto(std::string* proto) OVERRIDE;
   virtual bool set_was_npn_negotiated(bool negotiated) OVERRIDE;
   virtual void set_protocol_negotiated(NextProto protocol_negotiated) OVERRIDE;
   virtual NextProto GetNegotiatedProtocol() const OVERRIDE;
@@ -964,19 +981,46 @@ class MockSSLClientSocket : public MockClientSocket, public AsyncSocket {
 
   virtual bool WasChannelIDSent() const OVERRIDE;
   virtual void set_channel_id_sent(bool channel_id_sent) OVERRIDE;
-  virtual ServerBoundCertService* GetServerBoundCertService() const OVERRIDE;
+  virtual ChannelIDService* GetChannelIDService() const OVERRIDE;
+
+  bool reached_connect() const { return reached_connect_; }
+
+  // Resumes the connection of a socket that was paused for testing.
+  // |connect_callback_| should be set before invoking this method.
+  void RestartPausedConnect();
 
  private:
-  static void ConnectCallback(MockSSLClientSocket* ssl_client_socket,
-                              const CompletionCallback& callback,
-                              int rv);
+  enum ConnectState {
+    STATE_NONE,
+    STATE_SSL_CONNECT,
+    STATE_SSL_CONNECT_COMPLETE,
+  };
+
+  void OnIOComplete(int result);
+
+  // Runs the state transistion loop.
+  int DoConnectLoop(int result);
+
+  int DoSSLConnect();
+  int DoSSLConnectComplete(int result);
 
   scoped_ptr<ClientSocketHandle> transport_;
+  HostPortPair host_port_pair_;
   SSLSocketDataProvider* data_;
   bool is_npn_state_set_;
   bool new_npn_value_;
   bool is_protocol_negotiated_set_;
   NextProto protocol_negotiated_;
+
+  CompletionCallback connect_callback_;
+  // Indicates what state of Connect the socket should enter.
+  ConnectState next_connect_state_;
+  // True if the Connect method has been called on the socket.
+  bool reached_connect_;
+
+  base::Closure handshake_completion_callback_;
+
+  base::WeakPtrFactory<MockSSLClientSocket> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(MockSSLClientSocket);
 };

@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"Sikkerhedskopiering og gendannelse"</string>
     <string name="device_reset" msgid="2827002349560023125">"Nulstilling af fabriksdata"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Kalibrering"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"Downloadede apps"</string>
     <string name="apps_system" msgid="2499191125802829425">"Systemapps"</string>
     <string name="apps_running" msgid="6430310491739956228">"Kørende apps"</string>
@@ -95,7 +99,7 @@
     <string name="system_language" msgid="2337138146114609247">"Sprog"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"Tastatur"</string>
     <string name="system_search" msgid="2837264654143247611">"Søgning"</string>
-    <string name="system_security" msgid="4190058778883258927">"Sikkerhed og begrænsninger"</string>
+    <string name="system_security" msgid="8230080273993484407">"Sikkerhed og begrænsninger"</string>
     <string name="system_speech" msgid="8128688499687306982">"Tale"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Indgange"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"Hjælpefunktioner"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"Systemopdatering"</string>
     <string name="about_preference" msgid="4131396784531360434">"Om"</string>
     <string name="device_name" msgid="2670488158531273028">"Enhedens navn"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"Genstart"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"Juridiske oplysninger"</string>
     <string name="about_warranty" msgid="5736003473060436384">"Garanti"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"Open source-licenser"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"Se Servicevilkår"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"Se Privatlivspolitik"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"Se Yderligere vilkår"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Juridisk information fra Google"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"Licensdataene er utilgængelige"</string>
     <string name="about_model" msgid="6625269442206323995">"Model"</string>
     <string name="about_version" msgid="1177287676732287266">"Version"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"Dato"</string>
     <string name="system_time" msgid="6726022312605226285">"Tid"</string>
     <string name="system_set_date" msgid="2437586307768561116">"Angiv dato"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"Vælg datoformat"</string>
     <string name="system_set_time" msgid="4661804115501057452">"Angiv tid"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"Angiv tidszone"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"Brug 24-timers format"</string>
@@ -332,7 +334,7 @@
     <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> kan indsamle al den tekst, du skriver, undtagen adgangskoder. Dette omfatter personlige data såsom kreditkortnumre."</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"Vil du stoppe <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"Hvis du vælger OK, stoppes <xliff:g id="SERVICE">%1$s</xliff:g>."</string>
-    <string name="system_accessibility_tts_output" msgid="8905477795536714590">"Tekst til tale"</string>
+    <string name="system_accessibility_tts_output" msgid="8905477795536714590">"Oplæsning"</string>
     <string name="system_speak_passwords" msgid="5264650214879185873">"Oplæs adgangskoder"</string>
     <string name="system_preferred_engine" msgid="8258210139854655567">"Foretrukken maskine"</string>
     <string name="system_speech_rate" msgid="8099856582088545576">"Talehastighed"</string>

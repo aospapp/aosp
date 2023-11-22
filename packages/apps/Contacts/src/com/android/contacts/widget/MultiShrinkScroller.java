@@ -12,7 +12,6 @@ import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.animation.ValueAnimator.AnimatorUpdateListener;
 import android.content.Context;
-import android.content.res.Configuration;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -41,6 +40,7 @@ import android.widget.LinearLayout;
 import android.widget.Scroller;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toolbar;
 
 /**
  * A custom {@link ViewGroup} that operates similarly to a {@link ScrollView}, except with multiple
@@ -59,8 +59,8 @@ import android.widget.TextView;
  * customized will work for you. For example, see the re-usable StickyHeaderListView used by
  * WifiSetupActivity (very nice). Alternatively, check out Google+'s cover photo scrolling or
  * Android L's built in nested scrolling support. I thought I needed a more custom ViewGroup in
- * order to track velocity, modify EdgeEffect color & perform specific animations such as the ones
- * inside snapToBottom(). As a result this ViewGroup has non-standard talkback and keyboard support.
+ * order to track velocity, modify EdgeEffect color & perform the originally specified animations.
+ * As a result this ViewGroup has non-standard talkback and keyboard support.
  */
 public class MultiShrinkScroller extends FrameLayout {
 
@@ -72,27 +72,35 @@ public class MultiShrinkScroller extends FrameLayout {
     /**
      * Length of the acceleration animations. This value was taken from ValueAnimator.java.
      */
-    private static final int EXIT_FLING_ANIMATION_DURATION_MS = 300;
-
-    /**
-     * Length of the entrance animation.
-     */
-    private static final int ENTRANCE_ANIMATION_SLIDE_OPEN_DURATION_MS = 250;
+    private static final int EXIT_FLING_ANIMATION_DURATION_MS = 250;
 
     /**
      * In portrait mode, the height:width ratio of the photo's starting height.
      */
-    private static final float INTERMEDIATE_HEADER_HEIGHT_RATIO = 0.5f;
+    private static final float INTERMEDIATE_HEADER_HEIGHT_RATIO = 0.6f;
 
     /**
-     * Maximum velocity for flings in dips per second. Picked via non-rigorous experimentation.
+     * Color blending will only be performed on the contact photo once the toolbar is compressed
+     * to this ratio of its full height.
      */
-    private static final float MAXIMUM_FLING_VELOCITY = 2000;
+    private static final float COLOR_BLENDING_START_RATIO = 0.5f;
+
+    private static final float SPRING_DAMPENING_FACTOR = 0.01f;
+
+    /**
+     * When displaying a letter tile drawable, this alpha value should be used at the intermediate
+     * toolbar height.
+     */
+    private static final float DESIRED_INTERMEDIATE_LETTER_TILE_ALPHA = 0.8f;
 
     private float[] mLastEventPosition = { 0, 0 };
     private VelocityTracker mVelocityTracker;
     private boolean mIsBeingDragged = false;
     private boolean mReceivedDown = false;
+    /**
+     * Did the current downwards fling/scroll-animation start while we were fullscreen?
+     */
+    private boolean mIsFullscreenDownwardsFling = false;
 
     private ScrollView mScrollView;
     private View mScrollViewChild;
@@ -103,7 +111,7 @@ public class MultiShrinkScroller extends FrameLayout {
     private MultiShrinkScrollerListener mListener;
     private TextView mLargeTextView;
     private View mPhotoTouchInterceptOverlay;
-    /** Contains desired location/size of the title, once the header is fully compressed */
+    /** Contains desired size & vertical offset of the title, once the header is fully compressed */
     private TextView mInvisiblePlaceholderTextView;
     private View mTitleGradientView;
     private View mActionBarGradientView;
@@ -132,16 +140,22 @@ public class MultiShrinkScroller extends FrameLayout {
      * True once the header has touched the top of the screen at least once.
      */
     private boolean mHasEverTouchedTheTop;
+    private boolean mIsTouchDisabledForDismissAnimation;
 
     private final Scroller mScroller;
     private final EdgeEffect mEdgeGlowBottom;
+    private final EdgeEffect mEdgeGlowTop;
     private final int mTouchSlop;
     private final int mMaximumVelocity;
     private final int mMinimumVelocity;
+    private final int mDismissDistanceOnScroll;
+    private final int mDismissDistanceOnRelease;
+    private final int mSnapToTopSlopHeight;
     private final int mTransparentStartHeight;
     private final int mMaximumTitleMargin;
     private final float mToolbarElevation;
     private final boolean mIsTwoPanel;
+    private final float mLandscapePhotoRatio;
     private final int mActionBarSize;
 
     // Objects used to perform color filtering on the header. These are stored as fields for
@@ -164,14 +178,8 @@ public class MultiShrinkScroller extends FrameLayout {
 
     private final PathInterpolator mTextSizePathInterpolator
             = new PathInterpolator(0.16f, 0.4f, 0.2f, 1);
-    /**
-     * Interpolator that starts and ends with nearly straight segments. At x=0 it has a y of
-     * approximately 0.25. We only want the contact photo 25% faded when half collapsed.
-     */
-    private final PathInterpolator mWhiteBlendingPathInterpolator
-            = new PathInterpolator(1.0f, 0.4f, 0.9f, 0.8f);
 
-    private final int[] mGradientColors = new int[] {0,0xAA000000};
+    private final int[] mGradientColors = new int[] {0,0x88000000};
     private GradientDrawable mTitleGradientDrawable = new GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM, mGradientColors);
     private GradientDrawable mActionBarGradientDrawable = new GradientDrawable(
@@ -237,12 +245,11 @@ public class MultiShrinkScroller extends FrameLayout {
         setWillNotDraw(/* willNotDraw = */ false);
 
         mEdgeGlowBottom = new EdgeEffect(context);
+        mEdgeGlowTop = new EdgeEffect(context);
         mScroller = new Scroller(context, sInterpolator);
         mTouchSlop = configuration.getScaledTouchSlop();
         mMinimumVelocity = configuration.getScaledMinimumFlingVelocity();
-        mMaximumVelocity = (int)TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_DIP, MAXIMUM_FLING_VELOCITY,
-                getResources().getDisplayMetrics());
+        mMaximumVelocity = configuration.getScaledMaximumFlingVelocity();
         mTransparentStartHeight = (int) getResources().getDimension(
                 R.dimen.quickcontact_starting_empty_height);
         mToolbarElevation = getResources().getDimension(
@@ -250,6 +257,18 @@ public class MultiShrinkScroller extends FrameLayout {
         mIsTwoPanel = getResources().getBoolean(R.bool.quickcontact_two_panel);
         mMaximumTitleMargin = (int) getResources().getDimension(
                 R.dimen.quickcontact_title_initial_margin);
+
+        mDismissDistanceOnScroll = (int) getResources().getDimension(
+                R.dimen.quickcontact_dismiss_distance_on_scroll);
+        mDismissDistanceOnRelease = (int) getResources().getDimension(
+                R.dimen.quickcontact_dismiss_distance_on_release);
+        mSnapToTopSlopHeight = (int) getResources().getDimension(
+                R.dimen.quickcontact_snap_to_top_slop_height);
+
+        final TypedValue photoRatio = new TypedValue();
+        getResources().getValue(R.dimen.quickcontact_landscape_photo_ratio, photoRatio,
+                            /* resolveRefs = */ true);
+        mLandscapePhotoRatio = photoRatio.getFloat();
 
         final TypedArray attributeArray = context.obtainStyledAttributes(
                 new int[]{android.R.attr.actionBarSize});
@@ -297,6 +316,7 @@ public class MultiShrinkScroller extends FrameLayout {
         mTitleGradientView.setBackground(mTitleGradientDrawable);
         mActionBarGradientView = findViewById(R.id.action_bar_gradient);
         mActionBarGradientView.setBackground(mActionBarGradientDrawable);
+        mCollapsedTitleStartMargin = ((Toolbar) findViewById(R.id.toolbar)).getContentInsetStart();
 
         mPhotoTouchInterceptOverlay = findViewById(R.id.photo_touch_intercept_overlay);
         if (!mIsTwoPanel) {
@@ -317,9 +337,7 @@ public class MultiShrinkScroller extends FrameLayout {
                     mIntermediateHeaderHeight = (int) (mMaximumHeaderHeight
                             * INTERMEDIATE_HEADER_HEIGHT_RATIO);
                 }
-                final boolean isLandscape = getResources().getConfiguration().orientation
-                        == Configuration.ORIENTATION_LANDSCAPE;
-                mMaximumPortraitHeaderHeight = isLandscape ? getHeight()
+                mMaximumPortraitHeaderHeight = mIsTwoPanel ? getHeight()
                         : mPhotoViewContainer.getWidth();
                 setHeaderHeight(getMaximumScrollableHeaderHeight());
                 mMaximumHeaderTextSize = mLargeTextView.getHeight();
@@ -329,13 +347,10 @@ public class MultiShrinkScroller extends FrameLayout {
                     mIntermediateHeaderHeight = mMaximumHeaderHeight;
 
                     // Permanently set photo width and height.
-                    final TypedValue photoRatio = new TypedValue();
-                    getResources().getValue(R.vals.quickcontact_photo_ratio, photoRatio,
-                            /* resolveRefs = */ true);
                     final ViewGroup.LayoutParams photoLayoutParams
                             = mPhotoViewContainer.getLayoutParams();
                     photoLayoutParams.height = mMaximumHeaderHeight;
-                    photoLayoutParams.width = (int) (mMaximumHeaderHeight * photoRatio.getFloat());
+                    photoLayoutParams.width = (int) (mMaximumHeaderHeight * mLandscapePhotoRatio);
                     mPhotoViewContainer.setLayoutParams(photoLayoutParams);
 
                     // Permanently set title width and margin.
@@ -360,18 +375,17 @@ public class MultiShrinkScroller extends FrameLayout {
     }
 
     private void configureGradientViewHeights() {
-        final float GRADIENT_SIZE_COEFFICIENT = 1.25f;
         final FrameLayout.LayoutParams actionBarGradientLayoutParams
                 = (FrameLayout.LayoutParams) mActionBarGradientView.getLayoutParams();
-        actionBarGradientLayoutParams.height
-                = (int) (mActionBarSize * GRADIENT_SIZE_COEFFICIENT);
+        actionBarGradientLayoutParams.height = mActionBarSize;
         mActionBarGradientView.setLayoutParams(actionBarGradientLayoutParams);
         final FrameLayout.LayoutParams titleGradientLayoutParams
                 = (FrameLayout.LayoutParams) mTitleGradientView.getLayoutParams();
+        final float TITLE_GRADIENT_SIZE_COEFFICIENT = 1.25f;
         final FrameLayout.LayoutParams largeTextLayoutParms
                 = (FrameLayout.LayoutParams) mLargeTextView.getLayoutParams();
         titleGradientLayoutParams.height = (int) ((mLargeTextView.getHeight()
-                + largeTextLayoutParms.bottomMargin) * GRADIENT_SIZE_COEFFICIENT);
+                + largeTextLayoutParms.bottomMargin) * TITLE_GRADIENT_SIZE_COEFFICIENT);
         mTitleGradientView.setLayoutParams(titleGradientLayoutParams);
     }
 
@@ -380,20 +394,20 @@ public class MultiShrinkScroller extends FrameLayout {
         mPhotoTouchInterceptOverlay.setContentDescription(title);
     }
 
-    public void setUseGradient(boolean useGradient) {
-        if (mTitleGradientView != null) {
-            mTitleGradientView.setVisibility(useGradient ? View.VISIBLE : View.GONE);
-            mActionBarGradientView.setVisibility(useGradient ? View.VISIBLE : View.GONE);
-        }
-    }
-
     @Override
     public boolean onInterceptTouchEvent(MotionEvent event) {
+        if (mVelocityTracker == null) {
+            mVelocityTracker = VelocityTracker.obtain();
+        }
+        mVelocityTracker.addMovement(event);
+
         // The only time we want to intercept touch events is when we are being dragged.
         return shouldStartDrag(event);
     }
 
     private boolean shouldStartDrag(MotionEvent event) {
+        if (mIsTouchDisabledForDismissAnimation) return false;
+
         if (mIsBeingDragged) {
             mIsBeingDragged = false;
             return false;
@@ -428,6 +442,8 @@ public class MultiShrinkScroller extends FrameLayout {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        if (mIsTouchDisabledForDismissAnimation) return true;
+
         final int action = event.getAction();
 
         if (mVelocityTracker == null) {
@@ -465,6 +481,10 @@ public class MultiShrinkScroller extends FrameLayout {
                         postInvalidateOnAnimation();
                     }
 
+                    if (shouldDismissOnScroll()) {
+                        scrollOffBottom();
+                    }
+
                 }
                 break;
 
@@ -484,6 +504,7 @@ public class MultiShrinkScroller extends FrameLayout {
         // We want to use the same amount of alpha on the new tint color as the previous tint color.
         final int edgeEffectAlpha = Color.alpha(mEdgeGlowBottom.getColor());
         mEdgeGlowBottom.setColor((color & 0xffffff) | Color.argb(edgeEffectAlpha, 0, 0, 0));
+        mEdgeGlowTop.setColor(mEdgeGlowBottom.getColor());
     }
 
     /**
@@ -530,31 +551,43 @@ public class MultiShrinkScroller extends FrameLayout {
     }
 
     private void onDragFinished(int flingDelta) {
-        if (!snapToTop(flingDelta)) {
+        if (getTransparentViewHeight() <= 0) {
+            // Don't perform any snapping if quick contacts is full screen.
+            return;
+        }
+        if (!snapToTopOnDragFinished(flingDelta)) {
             // The drag/fling won't result in the content at the top of the Window. Consider
             // snapping the content to the bottom of the window.
-            snapToBottom(flingDelta);
+            snapToBottomOnDragFinished();
         }
     }
 
     /**
      * If needed, snap the subviews to the top of the Window.
+     *
+     * @return TRUE if QuickContacts will snap/fling to to top after this method call.
      */
-    private boolean snapToTop(int flingDelta) {
-        if (mHasEverTouchedTheTop) {
-            // Only when first interacting with QuickContacts should QuickContacts snap to the top
-            // of the screen. After this, QuickContacts can be placed most anywhere on the screen.
+    private boolean snapToTopOnDragFinished(int flingDelta) {
+        if (!mHasEverTouchedTheTop) {
+            // If the current fling is predicted to scroll past the top, then we don't need to snap
+            // to the top. However, if the fling only flings past the top by a tiny amount,
+            // it will look nicer to snap than to fling.
+            final float predictedScrollPastTop = getTransparentViewHeight() - flingDelta;
+            if (predictedScrollPastTop < -mSnapToTopSlopHeight) {
+                return false;
+            }
+
+            if (getTransparentViewHeight() <= mTransparentStartHeight) {
+                // We are above the starting scroll position so snap to the top.
+                mScroller.forceFinished(true);
+                smoothScrollBy(getTransparentViewHeight());
+                return true;
+            }
             return false;
         }
-        final int requiredScroll = -getScroll_ignoreOversizedHeaderForSnapping()
-                + mTransparentStartHeight;
-        if (-getScroll_ignoreOversizedHeaderForSnapping() - flingDelta < 0
-                && -getScroll_ignoreOversizedHeaderForSnapping() - flingDelta >
-                -mTransparentStartHeight && requiredScroll != 0) {
-            // We finish scrolling above the empty starting height, and aren't projected
-            // to fling past the top of the Window, so elastically snap the empty space shut.
+        if (getTransparentViewHeight() < mDismissDistanceOnRelease) {
             mScroller.forceFinished(true);
-            smoothScrollBy(requiredScroll);
+            smoothScrollBy(getTransparentViewHeight());
             return true;
         }
         return false;
@@ -563,33 +596,24 @@ public class MultiShrinkScroller extends FrameLayout {
     /**
      * If needed, scroll all the subviews off the bottom of the Window.
      */
-    private void snapToBottom(int flingDelta) {
+    private void snapToBottomOnDragFinished() {
         if (mHasEverTouchedTheTop) {
-            // If QuickContacts has touched the top of the screen previously, then we
-            // will less aggressively snap to the bottom of the screen.
-            final float predictedScrollPastTop = -getScroll() + mTransparentStartHeight
-                    - flingDelta;
-            final boolean isLandscape = getResources().getConfiguration().orientation
-                    == Configuration.ORIENTATION_LANDSCAPE;
-            if (isLandscape) {
-                // In landscape orientation, we dismiss the QC once it goes below the starting
-                // starting offset that is used when QC starts in collapsed mode.
-                if (predictedScrollPastTop > mTransparentStartHeight) {
-                    scrollOffBottom();
-                }
-            } else {
-                // In portrait orientation, we dismiss the QC once it goes below
-                // mIntermediateHeaderHeight within the bottom of the screen.
-                final float heightMinusHeader = getHeight() - mIntermediateHeaderHeight;
-                if (predictedScrollPastTop > heightMinusHeader) {
-                    scrollOffBottom();
-                }
+            if (getTransparentViewHeight() > mDismissDistanceOnRelease) {
+                scrollOffBottom();
             }
             return;
         }
-        if (-getScroll() - flingDelta > 0) {
+        if (getTransparentViewHeight() > mTransparentStartHeight) {
             scrollOffBottom();
         }
+    }
+
+    /**
+     * Returns TRUE if we have scrolled far QuickContacts far enough that we should dismiss it
+     * without waiting for the user to finish their drag.
+     */
+    private boolean shouldDismissOnScroll() {
+        return mHasEverTouchedTheTop && getTransparentViewHeight() > mDismissDistanceOnScroll;
     }
 
     /**
@@ -606,6 +630,7 @@ public class MultiShrinkScroller extends FrameLayout {
     }
 
     public void scrollOffBottom() {
+        mIsTouchDisabledForDismissAnimation = true;
         final Interpolator interpolator = new AcceleratingFlingInterpolator(
                 EXIT_FLING_ANIMATION_DURATION_MS, getCurrentVelocity(),
                 getScrollUntilOffBottom());
@@ -769,7 +794,7 @@ public class MultiShrinkScroller extends FrameLayout {
     @Override
     public void computeScroll() {
         if (mScroller.computeScrollOffset()) {
-            // Examine the fling results in order to activate EdgeEffect when we fling to the end.
+            // Examine the fling results in order to activate EdgeEffect and halt flings.
             final int oldScroll = getScroll();
             scrollTo(0, mScroller.getCurrY());
             final int delta = mScroller.getCurrY() - oldScroll;
@@ -777,13 +802,21 @@ public class MultiShrinkScroller extends FrameLayout {
             if (delta > distanceFromMaxScrolling && distanceFromMaxScrolling > 0) {
                 mEdgeGlowBottom.onAbsorb((int) mScroller.getCurrVelocity());
             }
-
+            if (mIsFullscreenDownwardsFling && getTransparentViewHeight() > 0) {
+                // Halt the fling once QuickContact's top is on screen.
+                scrollTo(0, getScroll() + getTransparentViewHeight());
+                mEdgeGlowTop.onAbsorb((int) mScroller.getCurrVelocity());
+                mScroller.abortAnimation();
+                mIsFullscreenDownwardsFling = false;
+            }
             if (!awakenScrollBars()) {
                 // Keep on drawing until the animation has finished.
                 postInvalidateOnAnimation();
             }
             if (mScroller.getCurrY() >= getMaximumScrollUpwards()) {
+                // Halt the fling once QuickContact's bottom is on screen.
                 mScroller.abortAnimation();
+                mIsFullscreenDownwardsFling = false;
             }
         }
     }
@@ -792,10 +825,11 @@ public class MultiShrinkScroller extends FrameLayout {
     public void draw(Canvas canvas) {
         super.draw(canvas);
 
+        final int width = getWidth() - getPaddingLeft() - getPaddingRight();
+        final int height = getHeight();
+
         if (!mEdgeGlowBottom.isFinished()) {
             final int restoreCount = canvas.save();
-            final int width = getWidth() - getPaddingLeft() - getPaddingRight();
-            final int height = getHeight();
 
             // Draw the EdgeEffect on the bottom of the Window (Or a little bit below the bottom
             // of the Window if we start to scroll upwards while EdgeEffect is visible). This
@@ -819,6 +853,22 @@ public class MultiShrinkScroller extends FrameLayout {
             }
             canvas.restoreToCount(restoreCount);
         }
+
+        if (!mEdgeGlowTop.isFinished()) {
+            final int restoreCount = canvas.save();
+            if (mIsTwoPanel) {
+                mEdgeGlowTop.setSize(mScrollView.getWidth(), height);
+                if (!isLayoutRtl()) {
+                    canvas.translate(mPhotoViewContainer.getWidth(), 0);
+                }
+            } else {
+                mEdgeGlowTop.setSize(width, height);
+            }
+            if (mEdgeGlowTop.draw(canvas)) {
+                postInvalidateOnAnimation();
+            }
+            canvas.restoreToCount(restoreCount);
+        }
     }
 
     private float getCurrentVelocity() {
@@ -830,13 +880,13 @@ public class MultiShrinkScroller extends FrameLayout {
     }
 
     private void fling(float velocity) {
-        if (Math.abs(mMaximumVelocity) < Math.abs(velocity)) {
-            velocity = -mMaximumVelocity * Math.signum(velocity);
-        }
         // For reasons I do not understand, scrolling is less janky when maxY=Integer.MAX_VALUE
         // then when maxY is set to an actual value.
         mScroller.fling(0, getScroll(), 0, (int) velocity, 0, 0, -Integer.MAX_VALUE,
                 Integer.MAX_VALUE);
+        if (velocity < 0 && mTransparentView.getHeight() <= 0) {
+            mIsFullscreenDownwardsFling = true;
+        }
         invalidate();
     }
 
@@ -983,17 +1033,9 @@ public class MultiShrinkScroller extends FrameLayout {
      */
     private void calculateCollapsedLargeTitlePadding() {
         final Rect largeTextViewRect = new Rect();
-        final Rect invisiblePlaceholderTextViewRect = new Rect();
         mToolbar.getBoundsOnScreen(largeTextViewRect);
+        final Rect invisiblePlaceholderTextViewRect = new Rect();
         mInvisiblePlaceholderTextView.getBoundsOnScreen(invisiblePlaceholderTextViewRect);
-        if (isLayoutRtl()) {
-            mCollapsedTitleStartMargin = largeTextViewRect.right
-                    - invisiblePlaceholderTextViewRect.right;
-        } else {
-            mCollapsedTitleStartMargin = invisiblePlaceholderTextViewRect.left
-                    - largeTextViewRect.left;
-        }
-
         // Distance between top of toolbar to the center of the target rectangle.
         final int desiredTopToCenter = (
                 invisiblePlaceholderTextViewRect.top + invisiblePlaceholderTextViewRect.bottom)
@@ -1033,9 +1075,7 @@ public class MultiShrinkScroller extends FrameLayout {
     }
 
     private void updatePhotoTintAndDropShadow() {
-        // Let's keep an eye on how long this method takes to complete. Right now, it takes ~0.2ms
-        // on a Nexus 5. If it starts to get much slower, there are a number of easy optimizations
-        // available.
+        // Let's keep an eye on how long this method takes to complete.
         Trace.beginSection("updatePhotoTintAndDropShadow");
 
         if (mIsTwoPanel && !mPhotoView.isBasedOffLetterTile()) {
@@ -1058,66 +1098,73 @@ public class MultiShrinkScroller extends FrameLayout {
 
         // Reuse an existing mColorFilter (to avoid GC pauses) to change the photo's tint.
         mPhotoView.clearColorFilter();
-
-        // Ratio of current size to maximum size of the header.
-        final float ratio;
-        // The value that "ratio" will have when the header is at its starting/intermediate size.
-        final float intermediateRatio = calculateHeightRatio((int)
-                (mMaximumPortraitHeaderHeight * INTERMEDIATE_HEADER_HEIGHT_RATIO));
-        if (!mIsTwoPanel) {
-            ratio = calculateHeightRatio(toolbarHeight);
-        } else {
-            // We want the ratio and intermediateRatio to have the *approximate* values
-            // they would have in portrait mode when at the intermediate position.
-            ratio = intermediateRatio;
-        }
-
-        final float linearBeforeMiddle = Math.max(1 - (1 - ratio) / intermediateRatio, 0);
-
-        // Want a function with a derivative of 0 at x=0. I don't want it to grow too
-        // slowly before x=0.5. x^1.1 satisfies both requirements.
-        final float EXPONENT_ALMOST_ONE = 1.1f;
-        final float semiLinearBeforeMiddle = (float) Math.pow(linearBeforeMiddle,
-                EXPONENT_ALMOST_ONE);
         mColorMatrix.reset();
-        mColorMatrix.setSaturation(semiLinearBeforeMiddle);
-        mColorMatrix.postConcat(alphaMatrix(
-                1 - mWhiteBlendingPathInterpolator.getInterpolation(1 - ratio), Color.WHITE));
 
-        final float colorAlpha;
-        if (mPhotoView.isBasedOffLetterTile()) {
-            // Since the letter tile only has white and grey, tint it more slowly. Otherwise
-            // it will be completely invisible before we reach the intermediate point. The values
-            // for TILE_EXPONENT and slowingFactor are chosen to achieve DESIRED_INTERMEDIATE_ALPHA
-            // at the intermediate/starting position.
-            final float DESIRED_INTERMEDIATE_ALPHA = 0.9f;
-            final float TILE_EXPONENT = 1.5f;
-            final float slowingFactor = (float) ((1 - intermediateRatio) / intermediateRatio
-                    / (1 - Math.pow(1 - DESIRED_INTERMEDIATE_ALPHA, 1/TILE_EXPONENT)));
-            float linearBeforeMiddleish = Math.max(1 - (1 - ratio) / intermediateRatio
-                    / slowingFactor, 0);
-            colorAlpha = 1 - (float) Math.pow(linearBeforeMiddleish, TILE_EXPONENT);
-            mColorMatrix.postConcat(alphaMatrix(colorAlpha, mHeaderTintColor));
+        final int gradientAlpha;
+        if (!mPhotoView.isBasedOffLetterTile()) {
+            // Constants and equations were arbitrarily picked to choose values for saturation,
+            // whiteness, tint and gradient alpha. There were four main objectives:
+            // 1) The transition period between the unmodified image and fully colored image should
+            //    be very short.
+            // 2) The tinting should be fully applied even before the background image is fully
+            //    faded out and desaturated. Why? A half tinted photo looks bad and results in
+            //    unappealing colors.
+            // 3) The function should have a derivative of 0 at ratio = 1 to avoid discontinuities.
+            // 4) The entire process should look awesome.
+            final float ratio = calculateHeightRatioToBlendingStartHeight(toolbarHeight);
+            final float alpha = 1.0f - (float) Math.min(Math.pow(ratio, 1.5f) * 2f, 1f);
+            final float tint = (float) Math.min(Math.pow(ratio, 1.5f) * 3f, 1f);
+            mColorMatrix.setSaturation(alpha);
+            mColorMatrix.postConcat(alphaMatrix(alpha, Color.WHITE));
+            mColorMatrix.postConcat(multiplyBlendMatrix(mHeaderTintColor, tint));
+            gradientAlpha = (int) (255 * alpha);
+        } else if (mIsTwoPanel) {
+            mColorMatrix.reset();
+            mColorMatrix.postConcat(alphaMatrix(DESIRED_INTERMEDIATE_LETTER_TILE_ALPHA,
+                    mHeaderTintColor));
+            gradientAlpha = 0;
         } else {
-            colorAlpha = 1 - semiLinearBeforeMiddle;
-            mColorMatrix.postConcat(multiplyBlendMatrix(mHeaderTintColor, colorAlpha));
+            // We want a function that has DESIRED_INTERMEDIATE_LETTER_TILE_ALPHA value
+            // at the intermediate position and uses TILE_EXPONENT. Finding an equation
+            // that satisfies this condition requires the following arithmetic.
+            final float ratio = calculateHeightRatioToFullyOpen(toolbarHeight);
+            final float intermediateRatio = calculateHeightRatioToFullyOpen((int)
+                    (mMaximumPortraitHeaderHeight * INTERMEDIATE_HEADER_HEIGHT_RATIO));
+            final float TILE_EXPONENT = 3f;
+            final float slowingFactor = (float) ((1 - intermediateRatio) / intermediateRatio
+                    / (1 - Math.pow(1 - DESIRED_INTERMEDIATE_LETTER_TILE_ALPHA, 1/TILE_EXPONENT)));
+            float linearBeforeIntermediate = Math.max(1 - (1 - ratio) / intermediateRatio
+                    / slowingFactor, 0);
+            float colorAlpha = 1 - (float) Math.pow(linearBeforeIntermediate, TILE_EXPONENT);
+            mColorMatrix.postConcat(alphaMatrix(colorAlpha, mHeaderTintColor));
+            gradientAlpha = 0;
         }
 
+        // TODO: remove re-allocation of ColorMatrixColorFilter objects (b/17627000)
         mPhotoView.setColorFilter(new ColorMatrixColorFilter(mColorMatrix));
+
         // Tell the photo view what tint we are trying to achieve. Depending on the type of
         // drawable used, the photo view may or may not use this tint.
         mPhotoView.setTint(mHeaderTintColor);
-
-        final int gradientAlpha = (int) (255 * linearBeforeMiddle);
         mTitleGradientDrawable.setAlpha(gradientAlpha);
         mActionBarGradientDrawable.setAlpha(gradientAlpha);
 
         Trace.endSection();
     }
 
-    private float calculateHeightRatio(int height) {
+    private float calculateHeightRatioToFullyOpen(int height) {
         return (height - mMinimumPortraitHeaderHeight)
                 / (float) (mMaximumPortraitHeaderHeight - mMinimumPortraitHeaderHeight);
+    }
+
+    private float calculateHeightRatioToBlendingStartHeight(int height) {
+        final float intermediateHeight = mMaximumPortraitHeaderHeight
+                * COLOR_BLENDING_START_RATIO;
+        final float interpolatingHeightRange = intermediateHeight - mMinimumPortraitHeaderHeight;
+        if (height > intermediateHeight) {
+            return 0;
+        }
+        return (intermediateHeight - height) / interpolatingHeightRange;
     }
 
     /**
@@ -1157,18 +1204,21 @@ public class MultiShrinkScroller extends FrameLayout {
     }
 
     private boolean motionShouldStartDrag(MotionEvent event) {
-        final float deltaX = event.getX() - mLastEventPosition[0];
         final float deltaY = event.getY() - mLastEventPosition[1];
-        final boolean draggedX = (deltaX > mTouchSlop || deltaX < -mTouchSlop);
-        final boolean draggedY = (deltaY > mTouchSlop || deltaY < -mTouchSlop);
-        return draggedY && !draggedX;
+        return deltaY > mTouchSlop || deltaY < -mTouchSlop;
     }
 
     private float updatePositionAndComputeDelta(MotionEvent event) {
         final int VERTICAL = 1;
         final float position = mLastEventPosition[VERTICAL];
         updateLastEventPosition(event);
-        return position - mLastEventPosition[VERTICAL];
+        float elasticityFactor = 1;
+        if (position < mLastEventPosition[VERTICAL] && mHasEverTouchedTheTop) {
+            // As QuickContacts is dragged from the top of the window, its rate of movement will
+            // slow down in proportion to its distance from the top. This will feel springy.
+            elasticityFactor += mTransparentView.getHeight() * SPRING_DAMPENING_FACTOR;
+        }
+        return (position - mLastEventPosition[VERTICAL]) / elasticityFactor;
     }
 
     private void smoothScrollBy(int delta) {

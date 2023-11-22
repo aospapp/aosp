@@ -34,10 +34,10 @@
     <string name="respond_via_sms_setting_title_2" msgid="6104662227299493906">"クイック返信の編集"</string>
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"クイック返信"</string>
-    <string name="respond_via_sms_menu_reset_default_activity" msgid="1461742052902053466">"デフォルトのアプリをリセット"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"<xliff:g id="PHONE_NUMBER">%s</xliff:g>にメッセージを送信しました。"</string>
-    <string name="outgoing_call_not_allowed" msgid="1434784869685645427">"このユーザーは緊急通報以外の通話は発信できません"</string>
-    <string name="outgoing_call_error_no_phone_number_supplied" msgid="4987143284589568716">"発信できません。有効な番号が入力されていません。"</string>
+    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"端末の所有者に許可されているのは緊急通報のみです。"</string>
+    <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"発信するには、有効な番号を入力してください。"</string>
+    <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"通話は現在追加できません。"</string>
     <string name="no_vm_number" msgid="4164780423805688336">"ボイスメール番号がありません"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIMカードにボイスメールの番号がありません。"</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"番号を追加"</string>

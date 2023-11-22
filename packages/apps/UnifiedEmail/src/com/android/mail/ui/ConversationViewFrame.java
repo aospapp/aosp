@@ -17,8 +17,11 @@
 package com.android.mail.ui;
 
 import android.content.Context;
+import android.os.SystemClock;
+import android.support.annotation.NonNull;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
+import android.view.ViewConfiguration;
 import android.widget.FrameLayout;
 
 /**
@@ -26,18 +29,26 @@ import android.widget.FrameLayout;
  */
 public class ConversationViewFrame extends FrameLayout {
 
+    private final ViewConfiguration mConfiguration;
+    private long mInterceptedTime;
+    private float mInterceptedXDown;
+    private float mInterceptedYDown;
+
     public interface DownEventListener {
-        boolean onInterceptCVDownEvent();
+        boolean shouldBlockTouchEvents();
+        void onConversationViewFrameTapped();
+        void onConversationViewTouchDown();
     }
 
     private DownEventListener mDownEventListener;
 
     public ConversationViewFrame(Context c) {
-        super(c, null);
+        this(c, null);
     }
 
     public ConversationViewFrame(Context c, AttributeSet attrs) {
         super(c, attrs);
+        mConfiguration = ViewConfiguration.get(c);
     }
 
     public void setDownEventListener(DownEventListener l) {
@@ -46,13 +57,39 @@ public class ConversationViewFrame extends FrameLayout {
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
-        boolean steal = false;
-        if (ev.getActionMasked() == MotionEvent.ACTION_DOWN && mDownEventListener != null) {
-            steal = mDownEventListener.onInterceptCVDownEvent();
-            // just drop the event stream that follows when we steal; we closed the drawer and
-            // that's enough.
+        final boolean steal = (mDownEventListener != null
+                && mDownEventListener.shouldBlockTouchEvents());
+        if (!steal && ev.getActionMasked() == MotionEvent.ACTION_DOWN
+                && mDownEventListener != null) {
+            // notify 2-pane that this CV is being interacted (to turn a peek->normal)
+            mDownEventListener.onConversationViewTouchDown();
         }
         return steal;
+    }
+
+    @Override
+    public boolean onTouchEvent(@NonNull MotionEvent ev) {
+        if (mDownEventListener != null) {
+            switch (ev.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    mInterceptedTime = SystemClock.elapsedRealtime();
+                    mInterceptedXDown = ev.getX();
+                    mInterceptedYDown = ev.getY();
+                    break;
+                case MotionEvent.ACTION_UP:
+                    // Check for a tap
+                    final long timeDelta = SystemClock.elapsedRealtime() - mInterceptedTime;
+                    final float xDelta = ev.getX() - mInterceptedXDown;
+                    final float yDelta = ev.getY() - mInterceptedYDown;
+                    if (timeDelta < ViewConfiguration.getTapTimeout()
+                            && xDelta < mConfiguration.getScaledTouchSlop()
+                            && yDelta < mConfiguration.getScaledTouchSlop()) {
+                        mDownEventListener.onConversationViewFrameTapped();
+                    }
+            }
+            return true;
+        }
+        return false;
     }
 
 }

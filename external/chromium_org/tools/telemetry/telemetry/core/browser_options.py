@@ -42,13 +42,11 @@ class BrowserFinderOptions(optparse.Values):
     self.profiler = None
     self.verbosity = 0
 
-    self.report_root_metrics = False
-
     self.browser_options = BrowserOptions()
     self.output_file = None
-    self.skip_navigate_on_repeat = False
 
     self.android_rndis = False
+    self.no_performance_mode = False
 
   def __repr__(self):
     return str(sorted(self.__dict__.items()))
@@ -66,7 +64,7 @@ class BrowserFinderOptions(optparse.Values):
         default=None,
         help='Browser type to run, '
              'in order of priority. Supported values: list,%s' %
-             ','.join(browser_finder.ALL_BROWSER_TYPES))
+             ','.join(browser_finder.FindAllBrowserTypes(self)))
     group.add_option('--browser-executable',
         dest='browser_executable',
         help='The exact browser to run.')
@@ -77,7 +75,12 @@ class BrowserFinderOptions(optparse.Values):
     group.add_option('--device',
         dest='android_device',
         help='The android device ID to use'
-             'If not specified, only 0 or 1 connected devcies are supported.')
+             'If not specified, only 0 or 1 connected devices are supported.')
+    group.add_option('--target-arch',
+        dest='target_arch',
+        help='The target architecture of the browser. Options available are: '
+             'x64, x86_64, arm, arm64 and mips. '
+             'Defaults to the default architecture of the platform if omitted.')
     group.add_option(
         '--remote',
         dest='cros_remote',
@@ -121,9 +124,6 @@ class BrowserFinderOptions(optparse.Values):
         'test is executed at maximum CPU speed in order to minimize noise '
         '(specially important for dashboards / continuous builds). '
         'This option prevents Telemetry from tweaking such platform settings.')
-    group.add_option(
-        '--report-root-metrics', action='store_true',dest='report_root_metrics',
-        help='Enable metrics that require root access to record.')
     group.add_option('--android-rndis', dest='android_rndis', default=False,
         action='store_true', help='Use RNDIS forwarding on Android.')
     group.add_option('--no-android-rndis', dest='android_rndis',
@@ -192,17 +192,16 @@ class BrowserOptions(object):
     self.wpr_mode = wpr_modes.WPR_OFF
     self.netsim = None
 
+    self.disable_background_networking = True
     self.no_proxy_server = False
     self.browser_user_agent_type = None
 
     self.clear_sytem_cache_for_browser_and_profile_on_start = False
-    self.startup_url = None
+    self.startup_url = 'about:blank'
 
     # Background pages of built-in component extensions can interfere with
     # performance measurements.
     self.disable_component_extensions_with_background_pages = True
-
-    self.platform = None
 
     # Whether to use the new code path for choosing an ephemeral port for
     # DevTools. The bots set this to true. When Chrome 37 reaches stable,

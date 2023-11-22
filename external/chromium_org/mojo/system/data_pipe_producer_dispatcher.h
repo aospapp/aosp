@@ -5,8 +5,7 @@
 #ifndef MOJO_SYSTEM_DATA_PIPE_PRODUCER_DISPATCHER_H_
 #define MOJO_SYSTEM_DATA_PIPE_PRODUCER_DISPATCHER_H_
 
-#include "base/basictypes.h"
-#include "base/compiler_specific.h"
+#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "mojo/system/dispatcher.h"
 #include "mojo/system/system_impl_export.h"
@@ -37,19 +36,24 @@ class MOJO_SYSTEM_IMPL_EXPORT DataPipeProducerDispatcher : public Dispatcher {
   virtual void CloseImplNoLock() OVERRIDE;
   virtual scoped_refptr<Dispatcher>
       CreateEquivalentDispatcherAndCloseImplNoLock() OVERRIDE;
-  virtual MojoResult WriteDataImplNoLock(const void* elements,
-                                         uint32_t* num_bytes,
+  virtual MojoResult WriteDataImplNoLock(UserPointer<const void> elements,
+                                         UserPointer<uint32_t> num_bytes,
                                          MojoWriteDataFlags flags) OVERRIDE;
   virtual MojoResult BeginWriteDataImplNoLock(
-      void** buffer,
-      uint32_t* buffer_num_bytes,
+      UserPointer<void*> buffer,
+      UserPointer<uint32_t> buffer_num_bytes,
       MojoWriteDataFlags flags) OVERRIDE;
   virtual MojoResult EndWriteDataImplNoLock(
       uint32_t num_bytes_written) OVERRIDE;
-  virtual MojoResult AddWaiterImplNoLock(Waiter* waiter,
-                                         MojoHandleSignals signals,
-                                         uint32_t context) OVERRIDE;
-  virtual void RemoveWaiterImplNoLock(Waiter* waiter) OVERRIDE;
+  virtual HandleSignalsState GetHandleSignalsStateImplNoLock() const OVERRIDE;
+  virtual MojoResult AddWaiterImplNoLock(
+      Waiter* waiter,
+      MojoHandleSignals signals,
+      uint32_t context,
+      HandleSignalsState* signals_state) OVERRIDE;
+  virtual void RemoveWaiterImplNoLock(
+      Waiter* waiter,
+      HandleSignalsState* signals_state) OVERRIDE;
   virtual bool IsBusyNoLock() const OVERRIDE;
 
   // Protected by |lock()|:

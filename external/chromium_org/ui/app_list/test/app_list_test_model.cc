@@ -6,10 +6,8 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "base/strings/stringprintf.h"
-#include "grit/ui_resources.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/app_list/app_list_constants.h"
-#include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image_skia.h"
 
 namespace app_list {
@@ -17,8 +15,7 @@ namespace test {
 
 gfx::ImageSkia CreateImageSkia(int width, int height) {
   SkBitmap bitmap;
-  bitmap.setConfig(SkBitmap::kARGB_8888_Config, width, height);
-  bitmap.allocPixels();
+  bitmap.allocN32Pixels(width, height);
   bitmap.eraseARGB(255, 0, 255, 0);
   return gfx::ImageSkia::CreateFrom1xBitmap(bitmap);
 }
@@ -33,7 +30,7 @@ AppListTestModel::AppListTestItem::AppListTestItem(
     AppListTestModel* model)
     : AppListItem(id),
       model_(model) {
-  SetIcon(CreateImageSkia(kPreferredIconDimension, kPreferredIconDimension),
+  SetIcon(CreateImageSkia(kGridIconDimension, kGridIconDimension),
           false /* has_shadow */);
 }
 

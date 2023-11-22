@@ -21,6 +21,12 @@ const GURL GetDistillerViewUrlFromEntryId(const std::string& scheme,
 const GURL GetDistillerViewUrlFromUrl(const std::string& scheme,
                                       const GURL& view_url);
 
+// Returns the value of the query parameter for the given |key| for a given URL.
+// If the URL is invalid or if the key is not found, returns an empty string.
+// If there are multiple keys found in the URL, returns the value for the first
+// key.
+std::string GetValueForKeyInUrl(const GURL& url, const std::string& key);
+
 // Returns the value of the query parameter for the given path.
 std::string GetValueForKeyInUrlPathQuery(const std::string& path,
                                          const std::string& key);
@@ -28,8 +34,12 @@ std::string GetValueForKeyInUrlPathQuery(const std::string& path,
 // Returns whether it should be possible to distill the given |url|.
 bool IsUrlDistillable(const GURL& url);
 
-// Returns whether it should be possible to report the given |url|.
-bool IsUrlReportable(const std::string& scheme, const GURL& url);
+// Returns whether the given |url| is for a distilled page.
+bool IsDistilledPage(const GURL& url);
+
+// Returns a JavaScript snippet that returns whether or not a page should be
+// used with DomDistillerService and can be executed in a live page.
+std::string GetIsDistillableJs();
 
 }  // namespace url_utils
 

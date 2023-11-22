@@ -21,6 +21,8 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener2;
 import android.os.SystemClock;
 
+import java.util.Arrays;
+
 /**
  * Class for holding information about individual {@link SensorEvent}s.
  */
@@ -74,5 +76,15 @@ public class TestSensorEvent {
         this.receivedTimestamp = receivedTimestamp;
         this.accuracy = accuracy;
         this.values = values;
+    }
+
+    @Override
+    public String toString() {
+        return String.format(
+                "Timestamp=%sns, ReceivedTimestamp=%sns, Accuracy=%s, Values=%s",
+                this.timestamp,
+                this.receivedTimestamp,
+                this.accuracy,
+                Arrays.toString(this.values));
     }
 }

@@ -16,8 +16,12 @@
 
 package com.android.cts.verifier.sample;
 
+import com.android.compatibility.common.util.ReportLog;
+import com.android.compatibility.common.util.ResultType;
+import com.android.compatibility.common.util.ResultUnit;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
+import com.android.cts.verifier.TestResult;
 
 import android.content.Intent;
 import android.net.Uri;
@@ -61,11 +65,27 @@ public class SampleTestActivity extends PassFailButtons.Activity {
             public void onClick(View v) {
                 try {
                     createFileAndShare();
+                    recordMetricsExample();
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
         });
+    }
+
+    private void recordMetricsExample() {
+        double[] metricValues = new double[] {1, 11, 21, 1211, 111221};
+
+        // Record metric results
+        getReportLog().setSummary(
+                "Sample Summary", 1.0, ResultType.HIGHER_BETTER, ResultUnit.BYTE);
+        getReportLog().addValues("Sample Values", metricValues, ResultType.NEUTRAL, ResultUnit.FPS);
+
+        // Alternatively, activities can invoke TestResult directly to record metrics
+        ReportLog reportLog = new PassFailButtons.CtsVerifierReportLog();
+        reportLog.setSummary("Sample Summary", 1.0, ResultType.HIGHER_BETTER, ResultUnit.BYTE);
+        getReportLog().addValues("Sample Values", metricValues, ResultType.NEUTRAL, ResultUnit.FPS);
+        TestResult.setPassedResult(this, "manualSample", "manualDetails", reportLog);
     }
 
     /**

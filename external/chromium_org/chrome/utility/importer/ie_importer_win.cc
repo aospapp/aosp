@@ -15,9 +15,9 @@
 #include <string>
 #include <vector>
 
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -36,9 +36,9 @@
 #include "chrome/common/importer/importer_data_types.h"
 #include "chrome/common/importer/importer_url_row.h"
 #include "chrome/common/importer/pstore_declarations.h"
+#include "chrome/grit/generated_resources.h"
 #include "chrome/utility/importer/favicon_reencode.h"
 #include "components/autofill/core/common/password_form.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
@@ -72,7 +72,9 @@ base::Time GetFileCreationTime(const base::string16& file) {
                  NULL, OPEN_EXISTING,
                  FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS, NULL));
   FILETIME creation_filetime;
-  if (GetFileTime(file_handle, &creation_filetime, NULL, NULL))
+  if (!file_handle.IsValid())
+    return creation_time;
+  if (GetFileTime(file_handle.Get(), &creation_filetime, NULL, NULL))
     creation_time = base::Time::FromFileTime(creation_filetime);
   return creation_time;
 }

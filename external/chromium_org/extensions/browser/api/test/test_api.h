@@ -58,17 +58,6 @@ class TestLogFunction : public TestExtensionFunction {
   virtual bool RunSafe() OVERRIDE;
 };
 
-class TestResetQuotaFunction : public TestExtensionFunction {
- public:
-  DECLARE_EXTENSION_FUNCTION("test.resetQuota", UNKNOWN)
-
- protected:
-  virtual ~TestResetQuotaFunction();
-
-  // TestExtensionFunction:
-  virtual bool RunSafe() OVERRIDE;
-};
-
 class TestSendMessageFunction : public AsyncExtensionFunction {
  public:
   DECLARE_EXTENSION_FUNCTION("test.sendMessage", UNKNOWN)
@@ -76,6 +65,9 @@ class TestSendMessageFunction : public AsyncExtensionFunction {
   // Sends a reply back to the calling extension. Many extensions don't need
   // a reply and will just ignore it.
   void Reply(const std::string& message);
+
+  // Sends an error back to the calling extension.
+  void ReplyWithError(const std::string& error);
 
  protected:
   virtual ~TestSendMessageFunction();

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "android_webview/browser/aw_download_manager_delegate.h"
+#include "android_webview/browser/aw_ssl_host_state_delegate.h"
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/files/file_path.h"
@@ -23,11 +24,14 @@ class PrefService;
 
 namespace content {
 class ResourceContext;
+class SSLHostStateDelegate;
 class WebContents;
 }
 
 namespace data_reduction_proxy {
+class DataReductionProxyConfigurator;
 class DataReductionProxySettings;
+class DataReductionProxyStatisticsPrefs;
 }
 
 namespace net {
@@ -37,8 +41,6 @@ class CookieStore;
 namespace visitedlink {
 class VisitedLinkMaster;
 }
-
-using data_reduction_proxy::DataReductionProxySettings;
 
 namespace android_webview {
 
@@ -84,7 +86,10 @@ class AwBrowserContext : public content::BrowserContext,
 
   AwFormDatabaseService* GetFormDatabaseService();
 
-  DataReductionProxySettings* GetDataReductionProxySettings();
+  data_reduction_proxy::DataReductionProxySettings*
+      GetDataReductionProxySettings();
+
+  AwURLRequestContextGetter* GetAwURLRequestContext();
 
   void CreateUserPrefServiceIfNecessary();
 
@@ -104,14 +109,16 @@ class AwBrowserContext : public content::BrowserContext,
   virtual content::DownloadManagerDelegate*
       GetDownloadManagerDelegate() OVERRIDE;
   virtual content::BrowserPluginGuestManager* GetGuestManager() OVERRIDE;
-  virtual quota::SpecialStoragePolicy* GetSpecialStoragePolicy() OVERRIDE;
+  virtual storage::SpecialStoragePolicy* GetSpecialStoragePolicy() OVERRIDE;
   virtual content::PushMessagingService* GetPushMessagingService() OVERRIDE;
+  virtual content::SSLHostStateDelegate* GetSSLHostStateDelegate() OVERRIDE;
 
   // visitedlink::VisitedLinkDelegate implementation.
   virtual void RebuildTable(
       const scoped_refptr<URLEnumerator>& enumerator) OVERRIDE;
 
  private:
+  void CreateDataReductionProxyStatisticsIfNecessary();
   static bool data_reduction_proxy_enabled_;
 
   // The file path where data for this context is persisted.
@@ -130,7 +137,13 @@ class AwBrowserContext : public content::BrowserContext,
 
   scoped_ptr<PrefService> user_pref_service_;
 
-  scoped_ptr<DataReductionProxySettings> data_reduction_proxy_settings_;
+  scoped_ptr<data_reduction_proxy::DataReductionProxyConfigurator>
+      data_reduction_proxy_configurator_;
+  scoped_ptr<data_reduction_proxy::DataReductionProxyStatisticsPrefs>
+      data_reduction_proxy_statistics_;
+  scoped_ptr<data_reduction_proxy::DataReductionProxySettings>
+      data_reduction_proxy_settings_;
+  scoped_ptr<AwSSLHostStateDelegate> ssl_host_state_delegate_;
 
   DISALLOW_COPY_AND_ASSIGN(AwBrowserContext);
 };

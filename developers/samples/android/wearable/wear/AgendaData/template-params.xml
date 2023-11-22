@@ -20,12 +20,12 @@
 <sample>
     <name>AgendaData</name>
     <group>Wearable</group>
-    <package>com.example.android.agendadata</package>
+    <package>com.example.android.wearable.agendadata</package>
 
 
 
     <!-- change minSdk if needed-->
-    <minSdk>20</minSdk>
+    <minSdk>18</minSdk>
 
 
     <strings>
@@ -42,7 +42,42 @@
 
     <template src="base"/>
     <template src="Wear"/>
-    <common src="logger"/>
-    <common src="activities"/>
+    <metadata>
+        <status>PUBLISHED</status>
+        <categories>Wearable</categories>
+        <technologies>Android</technologies>
+        <languages>Java</languages>
+        <solutions>Mobile</solutions>
+        <level>INTERMEDIATE</level>
+        <icon>Wearable/src/main/res/drawable-xxhdpi/ic_launcher.png</icon>
+        <screenshots>
+            <img>screenshots/companion_agenda_data.png</img>
+            <img>screenshots/dummy_calendar_event.png</img>
+        </screenshots>
+        <api_refs>
+            <android>android.app.IntentService</android>
+            <ext>com.google.android.gms.wearable.DataApi</ext>
+            <ext>com.google.android.gms.wearable.Node</ext>
+        </api_refs>
+        <description>
+<![CDATA[
+Sample demonstrating sync of calendar events to a wearable by the press of a button.
+]]>
+        </description>
+        <intro>
+<![CDATA[
+Using the Wearable [DataApi][1] allows to transmit data such as event time,
+description, and background image.
 
+The sent [DataItems][2] can be deleted individually via an action on the event notifications,
+or all at once via a button on the companion.
+
+When deleted using the notification action, a ConfirmationActivity is used to indicate
+success or failure. The sample shows implementations for both the success as well failure case.
+
+[1]: https://developer.android.com/reference/com/google/android/gms/wearable/DataApi.html
+[2]: https://developer.android.com/reference/com/google/android/gms/wearable/DataItem.html
+]]>
+        </intro>
+    </metadata>
 </sample>

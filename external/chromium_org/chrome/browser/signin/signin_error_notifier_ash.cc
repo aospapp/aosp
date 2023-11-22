@@ -24,8 +24,8 @@
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/common/url_constants.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "third_party/WebKit/public/web/WebTextDirection.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -35,7 +35,8 @@
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/login/user_flow.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
+#include "chrome/browser/chromeos/login/users/chrome_user_manager.h"
+#include "components/user_manager/user_manager.h"
 #endif
 
 namespace {
@@ -62,6 +63,8 @@ class SigninNotificationDelegate : public NotificationDelegate {
   virtual ~SigninNotificationDelegate();
 
  private:
+  void FixSignIn();
+
   // Unique id of the notification.
   const std::string id_;
 
@@ -94,9 +97,22 @@ bool SigninNotificationDelegate::HasClickedListener() {
 }
 
 void SigninNotificationDelegate::Click() {
+  FixSignIn();
 }
 
 void SigninNotificationDelegate::ButtonClick(int button_index) {
+  FixSignIn();
+}
+
+std::string SigninNotificationDelegate::id() const {
+  return id_;
+}
+
+content::WebContents* SigninNotificationDelegate::GetWebContents() const {
+  return NULL;
+}
+
+void SigninNotificationDelegate::FixSignIn() {
 #if defined(OS_CHROMEOS)
   chrome::AttemptUserExit();
 #else
@@ -114,14 +130,6 @@ void SigninNotificationDelegate::ButtonClick(int button_index) {
   chrome::ShowSettingsSubPage(browser_displayer.browser(),
                               chrome::kSyncSetupSubPage);
 #endif
-}
-
-std::string SigninNotificationDelegate::id() const {
-  return id_;
-}
-
-content::WebContents* SigninNotificationDelegate::GetWebContents() const {
-  return NULL;
 }
 
 }  // namespace
@@ -161,9 +169,9 @@ void SigninErrorNotifier::OnErrorChanged() {
   }
 
 #if defined(OS_CHROMEOS)
-  if (chromeos::UserManager::IsInitialized()) {
+  if (user_manager::UserManager::IsInitialized()) {
     chromeos::UserFlow* user_flow =
-        chromeos::UserManager::Get()->GetCurrentUserFlow();
+        chromeos::ChromeUserManager::Get()->GetCurrentUserFlow();
 
     // Check whether Chrome OS user flow allows launching browser.
     // Example: Supervised user creation flow which handles token invalidation

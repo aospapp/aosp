@@ -23,10 +23,13 @@ namespace gfx {
 class ImageSkia;
 }  // namespace gfx
 
+namespace user_manager {
+class UserInfo;
+}  // namespace user_manager
+
 namespace ash {
 
 class SessionStateObserver;
-class UserInfo;
 
 // The index for the multi-profile item to use. The list is always LRU sorted
 // So that the index #0 is the currently active user.
@@ -44,6 +47,12 @@ class ASH_EXPORT SessionStateDelegate {
   enum CycleUser {
     CYCLE_TO_NEXT_USER = 0,  // Cycle to the next user.
     CYCLE_TO_PREVIOUS_USER,  // Cycle to the previous user.
+  };
+
+  enum AddUserError {
+    ADD_USER_ERROR_NOT_ALLOWED_PRIMARY_USER = 0,
+    ADD_USER_ERROR_OUT_OF_USERS,
+    ADD_USER_ERROR_MAXIMUM_USERS_REACHED,
   };
 
   // Defines session state i.e. whether session is running or not and
@@ -79,6 +88,11 @@ class ASH_EXPORT SessionStateDelegate {
   // no session in progress or no active user.
   virtual int NumberOfLoggedInUsers() const = 0;
 
+  // Returns true if there is possible to add more users to multiprofile
+  // session. Error is stored in |error| if it is not NULL and function
+  // returned false.
+  virtual bool CanAddUserToMultiProfile(AddUserError* error) const;
+
   // Returns |true| if the session has been fully started for the active user.
   // When a user becomes active, the profile and browser UI are not immediately
   // available. Only once this method starts returning |true| is the browser
@@ -113,10 +127,11 @@ class ASH_EXPORT SessionStateDelegate {
 
   // Gets the user info for the user with the given |index|.
   // Note that |index| can at maximum be |NumberOfLoggedInUsers() - 1|.
-  virtual const UserInfo* GetUserInfo(MultiProfileIndex index) const = 0;
+  virtual const user_manager::UserInfo* GetUserInfo(
+      MultiProfileIndex index) const = 0;
 
   // Gets the avatar image for the user associated with the |context|.
-  virtual const UserInfo* GetUserInfo(
+  virtual const user_manager::UserInfo* GetUserInfo(
       content::BrowserContext* context) const = 0;
 
   // Whether or not the window's title should show the avatar.
@@ -130,9 +145,14 @@ class ASH_EXPORT SessionStateDelegate {
   // ordering as GetLoggedInUsers.
   virtual void CycleActiveUser(CycleUser cycle_user) = 0;
 
+  // Returns true if primary user policy does not forbid multiple signin.
+  virtual bool IsMultiProfileAllowedByPrimaryUserPolicy() const = 0;
+
   // Adds or removes sessions state observer.
   virtual void AddSessionStateObserver(SessionStateObserver* observer) = 0;
   virtual void RemoveSessionStateObserver(SessionStateObserver* observer) = 0;
+
+  bool IsInSecondaryLoginScreen() const;
 };
 
 }  // namespace ash

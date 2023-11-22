@@ -11,6 +11,8 @@
 #include "base/logging.h"
 #include "base/message_loop/message_loop.h"
 #include "base/message_loop/message_loop_proxy.h"
+#include "base/metrics/histogram.h"
+#include "base/metrics/sparse_histogram.h"
 #include "base/prefs/pref_registry_simple.h"
 #include "base/strings/string16.h"
 #include "base/strings/utf_string_conversions.h"
@@ -39,12 +41,49 @@ const char kDefaultDeviceManagementServerUrl[] =
 bool g_created_policy_service = false;
 ConfigurationPolicyProvider* g_testing_provider = NULL;
 
+void ReportRegexSuccessMetric(bool success) {
+  UMA_HISTOGRAM_BOOLEAN("Enterprise.DomainWhitelistRegexSuccess", success);
+}
+
+// Regexes that match many of the larger public email providers as we know
+// these users are not from hosted enterprise domains. Keep this list in sync
+// with the EnterpriseDomainRegex enum in histograms.xml (i.e. only add things
+// at the end).
+const wchar_t* const kNonManagedDomainPatterns[] = {
+  L"aol\\.com",
+  L"googlemail\\.com",
+  L"gmail\\.com",
+  L"hotmail(\\.co|\\.com|)\\.[^.]+", // hotmail.com, hotmail.it, hotmail.co.uk
+  L"live\\.com",
+  L"mail\\.ru",
+  L"msn\\.com",
+  L"qq\\.com",
+  L"yahoo(\\.co|\\.com|)\\.[^.]+", // yahoo.com, yahoo.co.uk, yahoo.com.tw
+  L"yandex\\.ru",
+};
+
 // Returns true if |domain| matches the regex |pattern|.
-bool MatchDomain(const base::string16& domain, const base::string16& pattern) {
+bool MatchDomain(const base::string16& domain, const base::string16& pattern,
+                 size_t index) {
   UErrorCode status = U_ZERO_ERROR;
   const icu::UnicodeString icu_pattern(pattern.data(), pattern.length());
   icu::RegexMatcher matcher(icu_pattern, UREGEX_CASE_INSENSITIVE, status);
-  DCHECK(U_SUCCESS(status)) << "Invalid domain pattern: " << pattern;
+  if (!U_SUCCESS(status)) {
+    // http://crbug.com/365351 - if for some reason the matcher creation fails
+    // just return that the pattern doesn't match the domain. This is safe
+    // because the calling method (IsNonEnterpriseUser()) is just used to enable
+    // an optimization for non-enterprise users - better to skip the
+    // optimization than crash.
+    DLOG(ERROR) << "Possible invalid domain pattern: " << pattern
+                << " - Error: " << status;
+    ReportRegexSuccessMetric(false);
+    UMA_HISTOGRAM_ENUMERATION("Enterprise.DomainWhitelistRegexFailure",
+                              index, arraysize(kNonManagedDomainPatterns));
+    UMA_HISTOGRAM_SPARSE_SLOWLY("Enterprise.DomainWhitelistRegexFailureStatus",
+                                status);
+    return false;
+  }
+  ReportRegexSuccessMetric(true);
   icu::UnicodeString icu_input(domain.data(), domain.length());
   matcher.reset(icu_input);
   status = U_ZERO_ERROR;
@@ -183,26 +222,11 @@ bool BrowserPolicyConnector::IsNonEnterpriseUser(const std::string& username) {
     // users.
     return true;
   }
-
-  // Exclude many of the larger public email providers as we know these users
-  // are not from hosted enterprise domains.
-  static const wchar_t* kNonManagedDomainPatterns[] = {
-    L"aol\\.com",
-    L"googlemail\\.com",
-    L"gmail\\.com",
-    L"hotmail(\\.co|\\.com|)\\.[^.]+", // hotmail.com, hotmail.it, hotmail.co.uk
-    L"live\\.com",
-    L"mail\\.ru",
-    L"msn\\.com",
-    L"qq\\.com",
-    L"yahoo(\\.co|\\.com|)\\.[^.]+", // yahoo.com, yahoo.co.uk, yahoo.com.tw
-    L"yandex\\.ru",
-  };
   const base::string16 domain = base::UTF8ToUTF16(
       gaia::ExtractDomainName(gaia::CanonicalizeEmail(username)));
   for (size_t i = 0; i < arraysize(kNonManagedDomainPatterns); i++) {
     base::string16 pattern = base::WideToUTF16(kNonManagedDomainPatterns[i]);
-    if (MatchDomain(domain, pattern))
+    if (MatchDomain(domain, pattern, i))
       return true;
   }
   return false;

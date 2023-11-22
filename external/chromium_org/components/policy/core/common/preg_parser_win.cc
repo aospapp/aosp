@@ -118,7 +118,7 @@ bool DecodePRegValue(uint32 type,
   switch (type) {
     case REG_SZ:
     case REG_EXPAND_SZ:
-      value->reset(base::Value::CreateStringValue(DecodePRegStringValue(data)));
+      value->reset(new base::StringValue(DecodePRegStringValue(data)));
       return true;
     case REG_DWORD_LITTLE_ENDIAN:
     case REG_DWORD_BIG_ENDIAN:
@@ -128,7 +128,7 @@ bool DecodePRegValue(uint32 type,
           val = base::NetToHost32(val);
         else
           val = base::ByteSwapToLE32(val);
-        value->reset(base::Value::CreateIntegerValue(static_cast<int>(val)));
+        value->reset(new base::FundamentalValue(static_cast<int>(val)));
         return true;
       } else {
         LOG(ERROR) << "Bad data size " << data.size();
@@ -183,7 +183,7 @@ void HandleRecord(const base::string16& key_name,
     return;
   }
 
-  std::string action_trigger(StringToLowerASCII(value_name.substr(
+  std::string action_trigger(base::StringToLowerASCII(value_name.substr(
       arraysize(kActionTriggerPrefix) - 1)));
   if (action_trigger == kActionTriggerDeleteValues) {
     std::vector<std::string> values;

@@ -4,6 +4,7 @@
 
 #include "ash/display/display_manager.h"
 
+#include <algorithm>
 #include <cmath>
 #include <set>
 #include <string>
@@ -24,10 +25,9 @@
 #include "base/strings/utf_string_conversions.h"
 #include "grit/ash_strings.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/layout.h"
-#include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/display.h"
 #include "ui/gfx/display_observer.h"
+#include "ui/gfx/font_render_params.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/screen.h"
 #include "ui/gfx/size_conversions.h"
@@ -65,6 +65,7 @@ const int kMinimumOverlapForInvalidOffset = 100;
 // for the full list of resolutions.
 const float kUIScalesFor2x[] =
     {0.5f, 0.625f, 0.8f, 1.0f, 1.125f, 1.25f, 1.5f, 2.0f};
+const float kUIScalesFor1_25x[] = {0.5f, 0.625f, 0.8f, 1.0f, 1.25f };
 const float kUIScalesFor1280[] = {0.5f, 0.625f, 0.8f, 1.0f, 1.125f };
 const float kUIScalesFor1366[] = {0.5f, 0.6f, 0.75f, 1.0f, 1.125f };
 
@@ -81,9 +82,12 @@ struct DisplayInfoSortFunctor {
 };
 
 struct DisplayModeMatcher {
-  DisplayModeMatcher(const gfx::Size& size) : size(size) {}
-  bool operator()(const DisplayMode& mode) { return mode.size == size; }
-  gfx::Size size;
+  DisplayModeMatcher(const DisplayMode& target_mode)
+      : target_mode(target_mode) {}
+  bool operator()(const DisplayMode& mode) {
+    return target_mode.IsEquivalent(mode);
+  }
+  DisplayMode target_mode;
 };
 
 struct ScaleComparator {
@@ -156,14 +160,17 @@ DisplayManager::DisplayManager()
       force_bounds_changed_(false),
       change_display_upon_host_resize_(false),
       second_display_mode_(EXTENDED),
-      mirrored_display_id_(gfx::Display::kInvalidDisplayID) {
+      mirrored_display_id_(gfx::Display::kInvalidDisplayID),
+      registered_internal_display_rotation_lock_(false),
+      registered_internal_display_rotation_(gfx::Display::ROTATE_0) {
+
 #if defined(OS_CHROMEOS)
+  // Enable only on the device so that DisplayManagerFontTest passes.
+  if (base::SysInfo::IsRunningOnChromeOS())
+    DisplayInfo::SetUse125DSFForUIScaling(true);
+
   change_display_upon_host_resize_ = !base::SysInfo::IsRunningOnChromeOS();
 #endif
-  DisplayInfo::SetAllowUpgradeToHighDPI(
-      ui::ResourceBundle::GetSharedInstance().GetMaxScaleFactor() ==
-      ui::SCALE_FACTOR_200P);
-
   gfx::Screen::SetScreenInstance(gfx::SCREEN_TYPE_ALTERNATE,
                                  screen_ash_.get());
   gfx::Screen* current_native =
@@ -178,28 +185,35 @@ DisplayManager::DisplayManager()
 }
 
 DisplayManager::~DisplayManager() {
+#if defined(OS_CHROMEOS)
+  // Reset the font params.
+  gfx::SetFontRenderParamsDeviceScaleFactor(1.0f);
+#endif
 }
 
 // static
 std::vector<float> DisplayManager::GetScalesForDisplay(
     const DisplayInfo& info) {
+
+#define ASSIGN_ARRAY(v, a) v.assign(a, a + arraysize(a))
+
   std::vector<float> ret;
   if (info.device_scale_factor() == 2.0f) {
-    ret.assign(kUIScalesFor2x, kUIScalesFor2x + arraysize(kUIScalesFor2x));
+    ASSIGN_ARRAY(ret, kUIScalesFor2x);
+    return ret;
+  } else if (info.device_scale_factor() == 1.25f) {
+    ASSIGN_ARRAY(ret, kUIScalesFor1_25x);
     return ret;
   }
   switch (info.bounds_in_native().width()) {
     case 1280:
-      ret.assign(kUIScalesFor1280,
-                 kUIScalesFor1280 + arraysize(kUIScalesFor1280));
+      ASSIGN_ARRAY(ret, kUIScalesFor1280);
       break;
     case 1366:
-      ret.assign(kUIScalesFor1366,
-                 kUIScalesFor1366 + arraysize(kUIScalesFor1366));
+      ASSIGN_ARRAY(ret, kUIScalesFor1366);
       break;
     default:
-      ret.assign(kUIScalesFor1280,
-                 kUIScalesFor1280 + arraysize(kUIScalesFor1280));
+      ASSIGN_ARRAY(ret, kUIScalesFor1280);
 #if defined(OS_CHROMEOS)
       if (base::SysInfo::IsRunningOnChromeOS())
         NOTREACHED() << "Unknown resolution:" << info.ToString();
@@ -237,6 +251,7 @@ bool DisplayManager::InitFromCommandLine() {
   for (vector<string>::const_iterator iter = parts.begin();
        iter != parts.end(); ++iter) {
     info_list.push_back(DisplayInfo::CreateFromSpec(*iter));
+    info_list.back().set_native(true);
   }
   MaybeInitInternalDisplay(info_list[0].id());
   if (info_list.size() > 1 &&
@@ -250,8 +265,20 @@ bool DisplayManager::InitFromCommandLine() {
 void DisplayManager::InitDefaultDisplay() {
   DisplayInfoList info_list;
   info_list.push_back(DisplayInfo::CreateFromSpec(std::string()));
+  info_list.back().set_native(true);
   MaybeInitInternalDisplay(info_list[0].id());
   OnNativeDisplaysChanged(info_list);
+}
+
+void DisplayManager::InitFontParams() {
+#if defined(OS_CHROMEOS)
+  if (!HasInternalDisplay())
+    return;
+  const DisplayInfo& display_info =
+      GetDisplayInfo(gfx::Display::InternalDisplayId());
+  gfx::SetFontRenderParamsDeviceScaleFactor(
+      display_info.GetEffectiveDeviceScaleFactor());
+#endif  // OS_CHROMEOS
 }
 
 // static
@@ -409,12 +436,6 @@ void DisplayManager::SetDisplayRotation(int64 display_id,
     display_info_list.push_back(info);
   }
   AddMirrorDisplayInfoIfAny(&display_info_list);
-  if (virtual_keyboard_root_window_enabled() &&
-      display_id == non_desktop_display_.id()) {
-    DisplayInfo info = GetDisplayInfo(display_id);
-    info.set_rotation(rotation);
-    display_info_list.push_back(info);
-  }
   UpdateDisplays(display_info_list);
 }
 
@@ -425,6 +446,7 @@ void DisplayManager::SetDisplayUIScale(int64 display_id,
     return;
   }
 
+  // TODO(mukai): merge this implementation into SetDisplayMode().
   DisplayInfoList display_info_list;
   for (DisplayList::const_iterator iter = displays_.begin();
        iter != displays_.end(); ++iter) {
@@ -454,8 +476,10 @@ void DisplayManager::SetDisplayResolution(int64 display_id,
   const DisplayInfo& display_info = GetDisplayInfo(display_id);
   const std::vector<DisplayMode>& modes = display_info.display_modes();
   DCHECK_NE(0u, modes.size());
+  DisplayMode target_mode;
+  target_mode.size = resolution;
   std::vector<DisplayMode>::const_iterator iter =
-      std::find_if(modes.begin(), modes.end(), DisplayModeMatcher(resolution));
+      std::find_if(modes.begin(), modes.end(), DisplayModeMatcher(target_mode));
   if (iter == modes.end()) {
     LOG(WARNING) << "Unsupported resolution was requested:"
                  << resolution.ToString();
@@ -468,12 +492,58 @@ void DisplayManager::SetDisplayResolution(int64 display_id,
 #endif
 }
 
+bool DisplayManager::SetDisplayMode(int64 display_id,
+                                    const DisplayMode& display_mode) {
+  if (IsInternalDisplayId(display_id)) {
+    SetDisplayUIScale(display_id, display_mode.ui_scale);
+    return false;
+  }
+
+  DisplayInfoList display_info_list;
+  bool display_property_changed = false;
+  bool resolution_changed = false;
+  for (DisplayList::const_iterator iter = displays_.begin();
+       iter != displays_.end(); ++iter) {
+    DisplayInfo info = GetDisplayInfo(iter->id());
+    if (info.id() == display_id) {
+      const std::vector<DisplayMode>& modes = info.display_modes();
+      std::vector<DisplayMode>::const_iterator iter =
+          std::find_if(modes.begin(),
+                       modes.end(),
+                       DisplayModeMatcher(display_mode));
+      if (iter == modes.end()) {
+        LOG(WARNING) << "Unsupported resolution was requested:"
+                     << display_mode.size.ToString();
+        return false;
+      }
+      display_modes_[display_id] = *iter;
+      if (info.bounds_in_native().size() != display_mode.size)
+        resolution_changed = true;
+      if (info.device_scale_factor() != display_mode.device_scale_factor) {
+        info.set_device_scale_factor(display_mode.device_scale_factor);
+        display_property_changed = true;
+      }
+    }
+    display_info_list.push_back(info);
+  }
+  if (display_property_changed) {
+    AddMirrorDisplayInfoIfAny(&display_info_list);
+    UpdateDisplays(display_info_list);
+  }
+#if defined(OS_CHROMEOS)
+  if (resolution_changed && base::SysInfo::IsRunningOnChromeOS())
+    Shell::GetInstance()->display_configurator()->OnConfigurationChanged();
+#endif
+  return resolution_changed;
+}
+
 void DisplayManager::RegisterDisplayProperty(
     int64 display_id,
     gfx::Display::Rotation rotation,
     float ui_scale,
     const gfx::Insets* overscan_insets,
     const gfx::Size& resolution_in_pixels,
+    float device_scale_factor,
     ui::ColorCalibrationProfile color_profile) {
   if (display_info_.find(display_id) == display_info_.end())
     display_info_[display_id] = DisplayInfo(display_id, std::string(), false);
@@ -481,16 +551,57 @@ void DisplayManager::RegisterDisplayProperty(
   display_info_[display_id].set_rotation(rotation);
   display_info_[display_id].SetColorProfile(color_profile);
   // Just in case the preference file was corrupted.
+  // TODO(mukai): register |display_modes_| here as well, so the lookup for the
+  // default mode in GetActiveModeForDisplayId() gets much simpler.
   if (0.5f <= ui_scale && ui_scale <= 2.0f)
     display_info_[display_id].set_configured_ui_scale(ui_scale);
   if (overscan_insets)
     display_info_[display_id].SetOverscanInsets(*overscan_insets);
   if (!resolution_in_pixels.IsEmpty()) {
+    DCHECK(!IsInternalDisplayId(display_id));
     // Default refresh rate, until OnNativeDisplaysChanged() updates us with the
     // actual display info, is 60 Hz.
-    display_modes_[display_id] =
-        DisplayMode(resolution_in_pixels, 60.0f, false, false);
+    DisplayMode mode(resolution_in_pixels, 60.0f, false, false);
+    mode.device_scale_factor = device_scale_factor;
+    display_modes_[display_id] = mode;
   }
+}
+
+DisplayMode DisplayManager::GetActiveModeForDisplayId(int64 display_id) const {
+  DisplayMode selected_mode;
+  if (GetSelectedModeForDisplayId(display_id, &selected_mode))
+    return selected_mode;
+
+  // If 'selected' mode is empty, it should return the default mode. This means
+  // the native mode for the external display. Unfortunately this is not true
+  // for the internal display because restoring UI-scale doesn't register the
+  // restored mode to |display_mode_|, so it needs to look up the mode whose
+  // UI-scale value matches. See the TODO in RegisterDisplayProperty().
+  const DisplayInfo& info = GetDisplayInfo(display_id);
+  const std::vector<DisplayMode>& display_modes = info.display_modes();
+
+  if (IsInternalDisplayId(display_id)) {
+    for (size_t i = 0; i < display_modes.size(); ++i) {
+      if (info.configured_ui_scale() == display_modes[i].ui_scale)
+        return display_modes[i];
+    }
+  } else {
+    for (size_t i = 0; i < display_modes.size(); ++i) {
+      if (display_modes[i].native)
+        return display_modes[i];
+    }
+  }
+  return selected_mode;
+}
+
+void DisplayManager::RegisterDisplayRotationProperties(bool rotation_lock,
+    gfx::Display::Rotation rotation) {
+  if (delegate_)
+    delegate_->PreDisplayConfigurationChange(false);
+  registered_internal_display_rotation_lock_ = rotation_lock;
+  registered_internal_display_rotation_ = rotation;
+  if (delegate_)
+    delegate_->PostDisplayConfigurationChange();
 }
 
 bool DisplayManager::GetSelectedModeForDisplayId(int64 id,
@@ -538,7 +649,7 @@ void DisplayManager::SetColorCalibrationProfile(
 void DisplayManager::OnNativeDisplaysChanged(
     const std::vector<DisplayInfo>& updated_displays) {
   if (updated_displays.empty()) {
-    VLOG(1) << "OnNativeDisplayChanged(0): # of current displays="
+    VLOG(1) << "OnNativeDisplaysChanged(0): # of current displays="
             << displays_.size();
     // If the device is booted without display, or chrome is started
     // without --ash-host-window-bounds on linux desktop, use the
@@ -593,7 +704,10 @@ void DisplayManager::OnNativeDisplaysChanged(
       new_display_info_list.push_back(*iter);
     }
 
-    const gfx::Size& resolution = iter->bounds_in_native().size();
+    DisplayMode new_mode;
+    new_mode.size = iter->bounds_in_native().size();
+    new_mode.device_scale_factor = iter->device_scale_factor();
+    new_mode.ui_scale = iter->configured_ui_scale();
     const std::vector<DisplayMode>& display_modes = iter->display_modes();
     // This is empty the displays are initialized from InitFromCommandLine.
     if (!display_modes.size())
@@ -601,7 +715,7 @@ void DisplayManager::OnNativeDisplaysChanged(
     std::vector<DisplayMode>::const_iterator display_modes_iter =
         std::find_if(display_modes.begin(),
                      display_modes.end(),
-                     DisplayModeMatcher(resolution));
+                     DisplayModeMatcher(new_mode));
     // Update the actual resolution selected as the resolution request may fail.
     if (display_modes_iter == display_modes.end())
       display_modes_.erase(iter->id());
@@ -765,13 +879,6 @@ void DisplayManager::UpdateDisplays(
   scoped_ptr<NonDesktopDisplayUpdater> non_desktop_display_updater(
       new NonDesktopDisplayUpdater(this, delegate_));
 
-  // Do not update |displays_| if there's nothing to be updated. Without this,
-  // it will not update the display layout, which causes the bug
-  // http://crbug.com/155948.
-  if (display_changes.empty() && added_display_indices.empty() &&
-      removed_displays.empty()) {
-    return;
-  }
   // Clear focus if the display has been removed, but don't clear focus if
   // the destkop has been moved from one display to another
   // (mirror -> docked, docked -> single internal).
@@ -780,6 +887,22 @@ void DisplayManager::UpdateDisplays(
       !(removed_displays.size() == 1 && added_display_indices.size() == 1);
   if (delegate_)
     delegate_->PreDisplayConfigurationChange(clear_focus);
+
+  // Do not update |displays_| if there's nothing to be updated. Without this,
+  // it will not update the display layout, which causes the bug
+  // http://crbug.com/155948.
+  if (display_changes.empty() && added_display_indices.empty() &&
+      removed_displays.empty()) {
+    // When changing from software mirroring mode to sinlge display mode, it
+    // is possible there is no need to update |displays_| and we early out
+    // here. But we still want to run the PostDisplayConfigurationChange()
+    // cause there are some clients need to act on this, e.g.
+    // TouchTransformerController needs to adjust the TouchTransformer when
+    // switching from dual displays to single display.
+    if (delegate_)
+      delegate_->PostDisplayConfigurationChange();
+    return;
+  }
 
   size_t updated_index;
   if (UpdateSecondaryDisplayBoundsForLayout(&new_displays, &updated_index) &&
@@ -950,10 +1073,6 @@ void DisplayManager::ToggleDisplayScaleFactor() {
 
 #if defined(OS_CHROMEOS)
 void DisplayManager::SetSoftwareMirroring(bool enabled) {
-  // TODO(oshima|bshe): Support external display on the system
-  // that has virtual keyboard display.
-  if (second_display_mode_ == VIRTUAL_KEYBOARD)
-    return;
   SetSecondDisplayMode(enabled ? MIRRORING : EXTENDED);
 }
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     Copyright (C) 2011 Google Inc.
+     Copyright (C) 2014 Google Inc.
      Licensed to The Android Open Source Project.
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,12 +16,48 @@
      limitations under the License.
 -->
 
-<android.support.v7.widget.SearchView
+<com.android.mail.ui.MaterialSearchActionView
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/search_layout"
-    android:gravity="center_vertical"
-    android:layout_height="match_parent"
+    android:id="@+id/search_actionbar_view"
     android:layout_width="match_parent"
-    android:hint="@string/search_hint"
-    android:imeOptions="actionSearch"
-    android:maxWidth="@dimen/search_view_width" />
+    android:layout_height="match_parent"
+    android:alpha="0"
+    android:background="@android:color/white"
+    android:visibility="gone">
+
+    <ImageView
+        android:id="@+id/search_actionbar_back_button"
+        android:layout_width="@dimen/search_leading_button_width"
+        android:layout_height="match_parent"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/search_back_desc"
+        android:scaleType="center"
+        android:src="@drawable/ic_arrow_back_24dp_with_rtl" />
+
+    <EditText
+        android:id="@+id/search_actionbar_query_text"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:background="@android:color/transparent"
+        android:gravity="center_vertical"
+        android:hint="@string/search_hint"
+        android:imeOptions="actionSearch|flagNoExtractUi"
+        android:inputType="text|textNoSuggestions"
+        android:nextFocusDown="@+id/search_overlay_suggestion_list"
+        android:paddingLeft="@dimen/search_main_text_padding"
+        android:paddingRight="@dimen/search_main_text_padding"
+        android:singleLine="true"
+        android:textAlignment="viewStart"
+        android:textColor="@color/search_query_text"
+        android:textColorHint="@color/search_query_hint_text"
+        android:textSize="16sp" />
+
+    <ImageView
+        android:id="@+id/search_actionbar_ending_button"
+        android:layout_width="@dimen/search_ending_button_width"
+        android:layout_height="match_parent"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:scaleType="center" />
+
+</com.android.mail.ui.MaterialSearchActionView>

@@ -21,8 +21,8 @@ class TestBufferedSpdyVisitor : public BufferedSpdyFramerVisitorInterface {
         syn_reply_frame_count_(0),
         headers_frame_count_(0),
         push_promise_frame_count_(0),
-        header_stream_id_(-1),
-        promised_stream_id_(-1) {
+        header_stream_id_(static_cast<SpdyStreamId>(-1)),
+        promised_stream_id_(static_cast<SpdyStreamId>(-1)) {
   }
 
   virtual void OnError(SpdyFramer::SpdyError error_code) OVERRIDE {
@@ -123,6 +123,10 @@ class TestBufferedSpdyVisitor : public BufferedSpdyFramerVisitorInterface {
     promised_stream_id_ = promised_stream_id;
     EXPECT_NE(promised_stream_id_, SpdyFramer::kInvalidStream);
     headers_ = headers;
+  }
+
+  virtual bool OnUnknownFrame(SpdyStreamId stream_id, int frame_type) OVERRIDE {
+    return true;
   }
 
   void OnCredential(const SpdyFrame& frame) {}
@@ -226,6 +230,10 @@ TEST_P(BufferedSpdyFramerTest, OnSetting) {
 }
 
 TEST_P(BufferedSpdyFramerTest, ReadSynStreamHeaderBlock) {
+  if (spdy_version() > SPDY3) {
+    // SYN_STREAM not supported in SPDY>3.
+    return;
+  }
   SpdyHeaderBlock headers;
   headers["aa"] = "vv";
   headers["bb"] = "ww";
@@ -251,6 +259,10 @@ TEST_P(BufferedSpdyFramerTest, ReadSynStreamHeaderBlock) {
 }
 
 TEST_P(BufferedSpdyFramerTest, ReadSynReplyHeaderBlock) {
+  if (spdy_version() > SPDY3) {
+    // SYN_REPLY not supported in SPDY>3.
+    return;
+  }
   SpdyHeaderBlock headers;
   headers["alpha"] = "beta";
   headers["gamma"] = "delta";
@@ -268,7 +280,7 @@ TEST_P(BufferedSpdyFramerTest, ReadSynReplyHeaderBlock) {
   EXPECT_EQ(0, visitor.error_count_);
   EXPECT_EQ(0, visitor.syn_frame_count_);
   EXPECT_EQ(0, visitor.push_promise_frame_count_);
-  if(spdy_version() < SPDY4) {
+  if (spdy_version() < SPDY4) {
     EXPECT_EQ(1, visitor.syn_reply_frame_count_);
     EXPECT_EQ(0, visitor.headers_frame_count_);
   } else {

@@ -23,7 +23,6 @@
 
     <ImageButton
         android:id="@+id/compose_button"
-        android:contentDescription="@string/compose"
         style="@style/FloatingActionButtonStyle" />
 
     <com.android.mail.ui.ActionableToastBar
@@ -46,12 +45,11 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_vertical"
-                android:layout_marginLeft="@dimen/snack_bar_margin_horizontal"
-                android:layout_marginRight="@dimen/snack_bar_margin_horizontal"
                 android:layout_weight="1"
                 android:paddingTop="@dimen/snack_bar_margin_vertical"
                 android:paddingBottom="@dimen/snack_bar_margin_vertical"
-                android:textColor="@android:color/white" />
+                android:textColor="@android:color/white"
+                style="@style/SnackBarDescriptionTextStyle" />
 
             <TextView
                 android:id="@+id/action_text"
@@ -78,17 +76,14 @@
                 android:layout_marginLeft="@dimen/snack_bar_margin_horizontal"
                 android:layout_marginRight="@dimen/snack_bar_margin_horizontal"
                 android:paddingTop="@dimen/snack_bar_margin_vertical"
-                android:paddingBottom="@dimen/snack_bar_margin_vertical"
                 android:textColor="@android:color/white" />
 
             <TextView
                 android:id="@+id/multiline_action_text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:layout_marginLeft="@dimen/snack_bar_margin_horizontal"
-                android:layout_marginRight="@dimen/snack_bar_margin_horizontal"
-                android:paddingTop="@dimen/snack_bar_margin_vertical"
+                android:background="?attr/selectableItemBackground"
+                android:paddingTop="8dp"
                 android:paddingBottom="@dimen/snack_bar_margin_vertical"
                 android:textAllCaps="true"
                 android:textColor="@color/snack_bar_action_text_color"

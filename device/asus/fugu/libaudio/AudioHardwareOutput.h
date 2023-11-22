@@ -109,10 +109,10 @@ class AudioHardwareOutput {
     // during calls to (obtain|release)Output which can trigger instantiation
     // and destruction of AudioOutputs.  During this operation, the
     // AudioStreamOut instance will be holding its own "routing" lock.  Care
-    // should be taken to never hold the output lock while making a call into an
-    // AudioStreamOut which may obtain the routing lock.  Currently, the set of
-    // publicly accessible calls in AudioStreamOut which may obtain the routing
-    // lock are...
+    // should be taken to never hold the output lock or setting lock while making
+    // a call into an AudioStreamOut which may obtain the routing lock.
+    // Currently, the set of publicly accessible calls in AudioStreamOut which
+    // may obtain the routing lock are...
     // 1) ~AudioStreamOut (calls releaseAllOutputs)
     // 2) standby (calls releaseAllOutputs)
     // 3) setTgtDevices

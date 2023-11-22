@@ -6,7 +6,7 @@ LOCAL_SRC_FILES:=clatd.c dump.c checksum.c translate.c icmp.c ipv4.c ipv6.c conf
 LOCAL_CFLAGS := -Wall -Werror -Wunused-parameter
 LOCAL_C_INCLUDES := external/libnl/include bionic/libc/dns/include
 LOCAL_STATIC_LIBRARIES := libnl
-LOCAL_SHARED_LIBRARIES := libcutils liblog
+LOCAL_SHARED_LIBRARIES := libcutils liblog libnetutils
 
 # The clat daemon.
 LOCAL_MODULE := clatd
@@ -30,7 +30,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := clatd_test
 LOCAL_CFLAGS := -Wall -Werror -Wunused-parameter
-LOCAL_SRC_FILES := clatd_test.cpp dump.c checksum.c translate.c icmp.c ipv4.c ipv6.c logging.c
+LOCAL_SRC_FILES := clatd_test.cpp checksum.c translate.c icmp.c ipv4.c ipv6.c logging.c config.c
 LOCAL_MODULE_TAGS := eng tests
 LOCAL_SHARED_LIBRARIES := liblog
 

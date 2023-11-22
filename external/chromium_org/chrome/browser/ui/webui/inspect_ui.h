@@ -46,17 +46,6 @@ class InspectUI : public content::WebUIController,
 
   static void InspectDevices(Browser* browser);
 
-  // WebUIController implementation.
-  virtual bool OverrideHandleWebUIMessage(const GURL& source_url,
-                                          const std::string& message,
-                                          const base::ListValue& args) OVERRIDE;
-
-  // We forward these to |serviceworker_webui_|.
-  virtual void RenderViewCreated(
-      content::RenderViewHost* render_view_host) OVERRIDE;
-  virtual void RenderViewReused(
-      content::RenderViewHost* render_view_host) OVERRIDE;
-
  private:
   // content::NotificationObserver overrides.
   virtual void Observe(int type,
@@ -85,7 +74,10 @@ class InspectUI : public content::WebUIController,
                                  const std::string& target_id);
 
   void PopulateTargets(const std::string& source_id,
-                       scoped_ptr<base::ListValue> targets);
+                       const base::ListValue& targets);
+
+  void ForceUpdateIfNeeded(const std::string& source_id,
+                           const std::string& target_type);
 
   void PopulatePortStatus(const base::Value& status);
 
@@ -101,8 +93,6 @@ class InspectUI : public content::WebUIController,
   TargetHandlerMap target_handlers_;
 
   scoped_ptr<PortForwardingStatusSerializer> port_status_serializer_;
-
-  scoped_ptr<content::WebUI> serviceworker_webui_;
 
   DISALLOW_COPY_AND_ASSIGN(InspectUI);
 };

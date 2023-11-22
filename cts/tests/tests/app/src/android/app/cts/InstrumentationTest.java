@@ -196,10 +196,12 @@ public class InstrumentationTest extends InstrumentationTestCase {
 
     public void testInvokeMenuActionSync() throws Exception {
         final int resId = R.id.goto_menu_id;
-        mInstrumentation.invokeMenuActionSync(mActivity, resId, 0);
-        mInstrumentation.waitForIdleSync();
-
-        assertEquals(resId, mActivity.getMenuID());
+        if (mActivity.getWindow().hasFeature(Window.FEATURE_OPTIONS_PANEL)) {
+            mInstrumentation.invokeMenuActionSync(mActivity, resId, 0);
+            mInstrumentation.waitForIdleSync();
+    
+            assertEquals(resId, mActivity.getMenuID());
+        }
     }
 
     public void testCallActivityOnPostCreate() throws Throwable {

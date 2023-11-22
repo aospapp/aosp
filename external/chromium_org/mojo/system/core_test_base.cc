@@ -9,6 +9,7 @@
 #include "base/compiler_specific.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
+#include "mojo/embedder/simple_platform_support.h"
 #include "mojo/system/constants.h"
 #include "mojo/system/core.h"
 #include "mojo/system/dispatcher.h"
@@ -24,21 +25,16 @@ namespace {
 
 class MockDispatcher : public Dispatcher {
  public:
-  explicit MockDispatcher(CoreTestBase::MockHandleInfo* info)
-      : info_(info) {
+  explicit MockDispatcher(CoreTestBase::MockHandleInfo* info) : info_(info) {
     CHECK(info_);
     info_->IncrementCtorCallCount();
   }
 
   // |Dispatcher| private methods:
-  virtual Type GetType() const OVERRIDE {
-    return kTypeUnknown;
-  }
+  virtual Type GetType() const OVERRIDE { return kTypeUnknown; }
 
  private:
-  virtual ~MockDispatcher() {
-    info_->IncrementDtorCallCount();
-  }
+  virtual ~MockDispatcher() { info_->IncrementDtorCallCount(); }
 
   // |Dispatcher| protected methods:
   virtual void CloseImplNoLock() OVERRIDE {
@@ -47,15 +43,13 @@ class MockDispatcher : public Dispatcher {
   }
 
   virtual MojoResult WriteMessageImplNoLock(
-      const void* bytes,
+      UserPointer<const void> bytes,
       uint32_t num_bytes,
       std::vector<DispatcherTransport>* transports,
       MojoWriteMessageFlags /*flags*/) OVERRIDE {
     info_->IncrementWriteMessageCallCount();
     lock().AssertAcquired();
 
-    if (!VerifyUserPointerWithSize<1>(bytes, num_bytes))
-      return MOJO_RESULT_INVALID_ARGUMENT;
     if (num_bytes > kMaxMessageNumBytes)
       return MOJO_RESULT_RESOURCE_EXHAUSTED;
 
@@ -66,23 +60,28 @@ class MockDispatcher : public Dispatcher {
   }
 
   virtual MojoResult ReadMessageImplNoLock(
-      void* bytes,
-      uint32_t* num_bytes,
-      DispatcherVector* /*dispatchers*/,
-      uint32_t* /*num_dispatchers*/,
+      UserPointer<void> bytes,
+      UserPointer<uint32_t> num_bytes,
+      DispatcherVector* dispatchers,
+      uint32_t* num_dispatchers,
       MojoReadMessageFlags /*flags*/) OVERRIDE {
     info_->IncrementReadMessageCallCount();
     lock().AssertAcquired();
 
-    if (num_bytes && !VerifyUserPointerWithSize<1>(bytes, *num_bytes))
-      return MOJO_RESULT_INVALID_ARGUMENT;
+    if (num_dispatchers) {
+      *num_dispatchers = 1;
+      if (dispatchers) {
+        // Okay to leave an invalid dispatcher.
+        dispatchers->resize(1);
+      }
+    }
 
     return MOJO_RESULT_OK;
   }
 
   virtual MojoResult WriteDataImplNoLock(
-      const void* /*elements*/,
-      uint32_t* /*num_bytes*/,
+      UserPointer<const void> /*elements*/,
+      UserPointer<uint32_t> /*num_bytes*/,
       MojoWriteDataFlags /*flags*/) OVERRIDE {
     info_->IncrementWriteDataCallCount();
     lock().AssertAcquired();
@@ -90,8 +89,8 @@ class MockDispatcher : public Dispatcher {
   }
 
   virtual MojoResult BeginWriteDataImplNoLock(
-      void** /*buffer*/,
-      uint32_t* /*buffer_num_bytes*/,
+      UserPointer<void*> /*buffer*/,
+      UserPointer<uint32_t> /*buffer_num_bytes*/,
       MojoWriteDataFlags /*flags*/) OVERRIDE {
     info_->IncrementBeginWriteDataCallCount();
     lock().AssertAcquired();
@@ -105,8 +104,8 @@ class MockDispatcher : public Dispatcher {
     return MOJO_RESULT_UNIMPLEMENTED;
   }
 
-  virtual MojoResult ReadDataImplNoLock(void* /*elements*/,
-                                        uint32_t* /*num_bytes*/,
+  virtual MojoResult ReadDataImplNoLock(UserPointer<void> /*elements*/,
+                                        UserPointer<uint32_t> /*num_bytes*/,
                                         MojoReadDataFlags /*flags*/) OVERRIDE {
     info_->IncrementReadDataCallCount();
     lock().AssertAcquired();
@@ -114,8 +113,8 @@ class MockDispatcher : public Dispatcher {
   }
 
   virtual MojoResult BeginReadDataImplNoLock(
-      const void** /*buffer*/,
-      uint32_t* /*buffer_num_bytes*/,
+      UserPointer<const void*> /*buffer*/,
+      UserPointer<uint32_t> /*buffer_num_bytes*/,
       MojoReadDataFlags /*flags*/) OVERRIDE {
     info_->IncrementBeginReadDataCallCount();
     lock().AssertAcquired();
@@ -129,17 +128,25 @@ class MockDispatcher : public Dispatcher {
     return MOJO_RESULT_UNIMPLEMENTED;
   }
 
-  virtual MojoResult AddWaiterImplNoLock(Waiter* /*waiter*/,
-                                         MojoHandleSignals /*signals*/,
-                                         uint32_t /*context*/) OVERRIDE {
+  virtual MojoResult AddWaiterImplNoLock(
+      Waiter* /*waiter*/,
+      MojoHandleSignals /*signals*/,
+      uint32_t /*context*/,
+      HandleSignalsState* signals_state) OVERRIDE {
     info_->IncrementAddWaiterCallCount();
     lock().AssertAcquired();
+    if (signals_state)
+      *signals_state = HandleSignalsState();
     return MOJO_RESULT_FAILED_PRECONDITION;
   }
 
-  virtual void RemoveWaiterImplNoLock(Waiter* /*waiter*/) OVERRIDE {
+  virtual void RemoveWaiterImplNoLock(
+      Waiter* /*waiter*/,
+      HandleSignalsState* signals_state) OVERRIDE {
     info_->IncrementRemoveWaiterCallCount();
     lock().AssertAcquired();
+    if (signals_state)
+      *signals_state = HandleSignalsState();
   }
 
   virtual void CancelAllWaitersNoLock() OVERRIDE {
@@ -148,7 +155,7 @@ class MockDispatcher : public Dispatcher {
   }
 
   virtual scoped_refptr<Dispatcher>
-      CreateEquivalentDispatcherAndCloseImplNoLock() OVERRIDE {
+  CreateEquivalentDispatcherAndCloseImplNoLock() OVERRIDE {
     return scoped_refptr<Dispatcher>(new MockDispatcher(info_));
   }
 
@@ -168,12 +175,13 @@ CoreTestBase::~CoreTestBase() {
 }
 
 void CoreTestBase::SetUp() {
-  core_ = new Core();
+  core_ = new Core(scoped_ptr<embedder::PlatformSupport>(
+      new embedder::SimplePlatformSupport()));
 }
 
 void CoreTestBase::TearDown() {
   delete core_;
-  core_ = NULL;
+  core_ = nullptr;
 }
 
 MojoHandle CoreTestBase::CreateMockHandle(CoreTestBase::MockHandleInfo* info) {

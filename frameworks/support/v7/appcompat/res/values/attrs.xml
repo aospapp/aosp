@@ -70,6 +70,7 @@
         <attr name="windowFixedHeightMajor" format="dimension|fraction" />
 
         <attr name="android:windowIsFloating" />
+        <attr name="android:windowAnimationStyle" />
 
         <!-- =================== -->
         <!-- Action bar styles   -->
@@ -723,14 +724,10 @@
              the specified resource. During XML inflation, any child views under the
              view with a theme override will inherit the themed context. -->
         <attr name="theme" format="reference" />
-
-        <attr name="buttonGravity">
-            <!-- Push object to the top of its container, not changing its size. -->
-            <flag name="top" value="0x30" />
-            <!-- Push object to the bottom of its container, not changing its size. -->
-            <flag name="bottom" value="0x50" />
-        </attr>
+        <!-- Icon drawable to use for the collapse button. -->
         <attr name="collapseIcon" format="reference" />
+        <!-- Text to set as the content description for the collapse button. -->
+        <attr name="collapseContentDescription" format="string" />
         <!-- Reference to a theme that should be used to inflate popups
              shown by widgets in the toolbar. -->
         <attr name="popupTheme" />
@@ -815,6 +812,12 @@
         <attr name="splitTrack" format="boolean" />
         <!-- Whether to draw on/off text. -->
         <attr name="showText" format="boolean" />
+    </declare-styleable>
+
+    <declare-styleable name="SwitchCompatTextAppearance">
+        <attr name="android:textSize" />
+        <attr name="android:textColor" />
+        <attr name="textAllCaps" />
     </declare-styleable>
 
 </resources>

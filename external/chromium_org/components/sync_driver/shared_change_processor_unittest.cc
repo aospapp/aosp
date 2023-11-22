@@ -15,12 +15,12 @@
 #include "components/sync_driver/generic_change_processor.h"
 #include "components/sync_driver/generic_change_processor_factory.h"
 #include "components/sync_driver/sync_api_component_factory.h"
-#include "sync/api/attachments/attachment_service_impl.h"
 #include "sync/api/fake_syncable_service.h"
+#include "sync/internal_api/public/attachments/attachment_service_impl.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-namespace browser_sync {
+namespace sync_driver {
 
 namespace {
 
@@ -29,7 +29,7 @@ using ::testing::StrictMock;
 
 class SyncSharedChangeProcessorTest :
     public testing::Test,
-    public browser_sync::SyncApiComponentFactory {
+    public SyncApiComponentFactory {
  public:
   SyncSharedChangeProcessorTest() : backend_thread_("dbthread"),
                                     did_connect_(false) {}
@@ -44,6 +44,8 @@ class SyncSharedChangeProcessorTest :
   }
 
   virtual scoped_ptr<syncer::AttachmentService> CreateAttachmentService(
+      const scoped_refptr<syncer::AttachmentStore>& attachment_store,
+      const syncer::UserShare& user_share,
       syncer::AttachmentService::Delegate* delegate) OVERRIDE {
     return syncer::AttachmentServiceImpl::CreateForTest();
   }
@@ -141,4 +143,4 @@ TEST_F(SyncSharedChangeProcessorTest, Basic) {
 
 }  // namespace
 
-}  // namespace browser_sync
+}  // namespace sync_driver

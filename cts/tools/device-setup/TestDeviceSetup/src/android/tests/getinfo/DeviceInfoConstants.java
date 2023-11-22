@@ -68,4 +68,5 @@ public interface DeviceInfoConstants {
     public static final String SERIAL_NUMBER = "deviceID";
     public static final String STORAGE_DEVICES = "storage_devices";
     public static final String MULTI_USER = "multi_user";
+    public static final String ENCRYPTED = "encrypted";
 }

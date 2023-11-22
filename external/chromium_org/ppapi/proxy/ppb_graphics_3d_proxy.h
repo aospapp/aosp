@@ -32,7 +32,8 @@ class PPAPI_PROXY_EXPORT Graphics3D : public PPB_Graphics3D_Shared {
   explicit Graphics3D(const HostResource& resource);
   virtual ~Graphics3D();
 
-  bool Init(gpu::gles2::GLES2Implementation* share_gles2);
+  bool Init(gpu::gles2::GLES2Implementation* share_gles2,
+            const SerializedHandle& shared_state);
 
   // Graphics3DTrusted API. These are not implemented in the proxy.
   virtual PP_Bool SetGetBuffer(int32_t shm_id) OVERRIDE;
@@ -46,6 +47,8 @@ class PPAPI_PROXY_EXPORT Graphics3D : public PPB_Graphics3D_Shared {
                                                             int32_t end)
       OVERRIDE;
   virtual uint32_t InsertSyncPoint() OVERRIDE;
+  virtual uint32_t InsertFutureSyncPoint() OVERRIDE;
+  virtual void RetireSyncPoint(uint32_t sync_point) OVERRIDE;
 
  private:
   // PPB_Graphics3D_Shared overrides.
@@ -77,7 +80,8 @@ class PPB_Graphics3D_Proxy : public InterfaceProxy {
   void OnMsgCreate(PP_Instance instance,
                    HostResource share_context,
                    const std::vector<int32_t>& attribs,
-                   HostResource* result);
+                   HostResource* result,
+                   SerializedHandle* handle);
   void OnMsgSetGetBuffer(const HostResource& context,
                          int32 id);
   void OnMsgWaitForTokenInRange(const HostResource& context,
@@ -100,6 +104,9 @@ class PPB_Graphics3D_Proxy : public InterfaceProxy {
                                   int32 id);
   void OnMsgSwapBuffers(const HostResource& context);
   void OnMsgInsertSyncPoint(const HostResource& context, uint32* sync_point);
+  void OnMsgInsertFutureSyncPoint(const HostResource& context,
+                                  uint32* sync_point);
+  void OnMsgRetireSyncPoint(const HostResource& context, uint32 sync_point);
   // Renderer->plugin message handlers.
   void OnMsgSwapBuffersACK(const HostResource& context,
                            int32_t pp_error);

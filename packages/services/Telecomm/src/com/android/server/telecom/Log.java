@@ -34,6 +34,7 @@ public class Log {
     private static final String TAG = "Telecom";
 
     public static final boolean FORCE_LOGGING = false; /* STOP SHIP if true */
+    public static final boolean SYSTRACE_DEBUG = false; /* STOP SHIP if true */
     public static final boolean DEBUG = isLoggable(android.util.Log.DEBUG);
     public static final boolean INFO = isLoggable(android.util.Log.INFO);
     public static final boolean VERBOSE = isLoggable(android.util.Log.VERBOSE);

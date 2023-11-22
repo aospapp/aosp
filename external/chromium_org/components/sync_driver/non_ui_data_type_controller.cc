@@ -14,7 +14,7 @@
 #include "sync/internal_api/public/base/model_type.h"
 #include "sync/util/data_type_histogram.h"
 
-namespace browser_sync {
+namespace sync_driver {
 
 SharedChangeProcessor*
 NonUIDataTypeController::CreateSharedChangeProcessor() {
@@ -24,9 +24,8 @@ NonUIDataTypeController::CreateSharedChangeProcessor() {
 NonUIDataTypeController::NonUIDataTypeController(
     scoped_refptr<base::MessageLoopProxy> ui_thread,
     const base::Closure& error_callback,
-    const DisableTypeCallback& disable_callback,
     SyncApiComponentFactory* sync_factory)
-    : DataTypeController(ui_thread, error_callback, disable_callback),
+    : DataTypeController(ui_thread, error_callback),
       sync_factory_(sync_factory),
       state_(NOT_RUNNING),
       ui_thread_(ui_thread) {
@@ -35,7 +34,7 @@ NonUIDataTypeController::NonUIDataTypeController(
 void NonUIDataTypeController::LoadModels(
     const ModelLoadCallback& model_load_callback) {
   DCHECK(ui_thread_->BelongsToCurrentThread());
-  DCHECK(!model_load_callback.is_null());
+  model_load_callback_ = model_load_callback;
   if (state() != NOT_RUNNING) {
     model_load_callback.Run(type(),
                             syncer::SyncError(FROM_HERE,
@@ -51,7 +50,6 @@ void NonUIDataTypeController::LoadModels(
   DCHECK(!shared_change_processor_.get());
   shared_change_processor_ = CreateSharedChangeProcessor();
   DCHECK(shared_change_processor_.get());
-  model_load_callback_ = model_load_callback;
   if (!StartModels()) {
     // If we are waiting for some external service to load before associating
     // or we failed to start the models, we exit early.
@@ -64,12 +62,8 @@ void NonUIDataTypeController::LoadModels(
 
 void NonUIDataTypeController::OnModelLoaded() {
   DCHECK_EQ(state_, MODEL_STARTING);
-  DCHECK(!model_load_callback_.is_null());
   state_ = MODEL_LOADED;
-
-  ModelLoadCallback model_load_callback = model_load_callback_;
-  model_load_callback_.Reset();
-  model_load_callback.Run(type(), syncer::SyncError());
+  model_load_callback_.Run(type(), syncer::SyncError());
 }
 
 bool NonUIDataTypeController::StartModels() {
@@ -111,11 +105,9 @@ void NonUIDataTypeController::StartAssociating(
 
 void NonUIDataTypeController::Stop() {
   DCHECK(ui_thread_->BelongsToCurrentThread());
-  if (state() == NOT_RUNNING) {
-    // Stop() should never be called for datatypes that are already stopped.
-    NOTREACHED();
+
+  if (state() == NOT_RUNNING)
     return;
-  }
 
   // Disconnect the change processor. At this point, the
   // syncer::SyncableService can no longer interact with the Syncer, even if
@@ -130,10 +122,6 @@ void NonUIDataTypeController::Stop() {
       return;  // The datatype was never activated, we're done.
     case ASSOCIATING:
       state_ = STOPPING;
-      StartDoneImpl(ABORTED,
-                    NOT_RUNNING,
-                    syncer::SyncMergeResult(type()),
-                    syncer::SyncMergeResult(type()));
       // We continue on to deactivate the datatype and stop the local service.
       break;
     case MODEL_LOADED:
@@ -169,31 +157,26 @@ DataTypeController::State NonUIDataTypeController::state() const {
   return state_;
 }
 
-void NonUIDataTypeController::OnSingleDatatypeUnrecoverableError(
-    const tracked_objects::Location& from_here, const std::string& message) {
+void NonUIDataTypeController::OnSingleDataTypeUnrecoverableError(
+    const syncer::SyncError& error) {
   DCHECK(!ui_thread_->BelongsToCurrentThread());
   // TODO(tim): We double-upload some errors.  See bug 383480.
   if (!error_callback_.is_null())
     error_callback_.Run();
-  UMA_HISTOGRAM_ENUMERATION("Sync.DataTypeRunFailures",
-                            ModelTypeToHistogramInt(type()),
-                            syncer::MODEL_TYPE_COUNT);
-  ui_thread_->PostTask(from_here,
+  ui_thread_->PostTask(error.location(),
       base::Bind(&NonUIDataTypeController::DisableImpl,
                  this,
-                 from_here,
-                 message));
+                 error));
 }
 
 NonUIDataTypeController::NonUIDataTypeController()
-    : DataTypeController(base::MessageLoopProxy::current(), base::Closure(),
-                         DisableTypeCallback()),
+    : DataTypeController(base::MessageLoopProxy::current(), base::Closure()),
       sync_factory_(NULL) {}
 
 NonUIDataTypeController::~NonUIDataTypeController() {}
 
 void NonUIDataTypeController::StartDone(
-    DataTypeController::StartResult start_result,
+    DataTypeController::ConfigureResult start_result,
     const syncer::SyncMergeResult& local_merge_result,
     const syncer::SyncMergeResult& syncer_merge_result) {
   DCHECK(!ui_thread_->BelongsToCurrentThread());
@@ -215,7 +198,7 @@ void NonUIDataTypeController::StartDone(
 }
 
 void NonUIDataTypeController::StartDoneImpl(
-    DataTypeController::StartResult start_result,
+    DataTypeController::ConfigureResult start_result,
     DataTypeController::State new_state,
     const syncer::SyncMergeResult& local_merge_result,
     const syncer::SyncMergeResult& syncer_merge_result) {
@@ -232,7 +215,6 @@ void NonUIDataTypeController::StartDoneImpl(
   // (due to Stop being called) and then posted from the non-UI thread. In
   // this case, we drop the second call because we've already been stopped.
   if (state_ == NOT_RUNNING) {
-    DCHECK(start_callback_.is_null());
     return;
   }
 
@@ -243,12 +225,7 @@ void NonUIDataTypeController::StartDoneImpl(
     RecordStartFailure(start_result);
   }
 
-  // We have to release the callback before we call it, since it's possible
-  // invoking the callback will trigger a call to STOP(), which will get
-  // confused by the non-NULL start_callback_.
-  StartCallback callback = start_callback_;
-  start_callback_.Reset();
-  callback.Run(start_result, local_merge_result, syncer_merge_result);
+  start_callback_.Run(start_result, local_merge_result, syncer_merge_result);
 }
 
 void NonUIDataTypeController::RecordAssociationTime(base::TimeDelta time) {
@@ -259,7 +236,7 @@ void NonUIDataTypeController::RecordAssociationTime(base::TimeDelta time) {
 #undef PER_DATA_TYPE_MACRO
 }
 
-void NonUIDataTypeController::RecordStartFailure(StartResult result) {
+void NonUIDataTypeController::RecordStartFailure(ConfigureResult result) {
   DCHECK(ui_thread_->BelongsToCurrentThread());
   UMA_HISTOGRAM_ENUMERATION("Sync.DataTypeStartFailures",
                             ModelTypeToHistogramInt(type()),
@@ -274,21 +251,19 @@ void NonUIDataTypeController::RecordStartFailure(StartResult result) {
 void NonUIDataTypeController::AbortModelLoad() {
   state_ = NOT_RUNNING;
   StopModels();
-  ModelLoadCallback model_load_callback = model_load_callback_;
-  model_load_callback_.Reset();
-  model_load_callback.Run(type(),
-                          syncer::SyncError(FROM_HERE,
-                                            syncer::SyncError::DATATYPE_ERROR,
-                                            "ABORTED",
-                                            type()));
 }
 
 void NonUIDataTypeController::DisableImpl(
-    const tracked_objects::Location& from_here,
-    const std::string& message) {
+    const syncer::SyncError& error) {
   DCHECK(ui_thread_->BelongsToCurrentThread());
-  if (!disable_callback().is_null())
-    disable_callback().Run(from_here, message);
+  UMA_HISTOGRAM_ENUMERATION("Sync.DataTypeRunFailures",
+                            ModelTypeToHistogramInt(type()),
+                            syncer::MODEL_TYPE_COUNT);
+  if (!model_load_callback_.is_null()) {
+    syncer::SyncMergeResult local_merge_result(type());
+    local_merge_result.set_error(error);
+    model_load_callback_.Run(type(), error);
+  }
 }
 
 bool NonUIDataTypeController::StartAssociationAsync() {
@@ -348,6 +323,11 @@ void NonUIDataTypeController::
   }
 
   if (!shared_change_processor->CryptoReadyIfNecessary()) {
+    syncer::SyncError error(FROM_HERE,
+                            syncer::SyncError::CRYPTO_ERROR,
+                            "",
+                            type());
+    local_merge_result.set_error(error);
     StartDone(NEEDS_CRYPTO,
               local_merge_result,
               syncer_merge_result);
@@ -437,4 +417,4 @@ void NonUIDataTypeController::StopLocalService() {
   local_service_.reset();
 }
 
-}  // namespace browser_sync
+}  // namespace sync_driver

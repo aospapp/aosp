@@ -11,13 +11,14 @@
 #include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/sync/glue/sync_backend_host.h"
 #include "chrome/browser/sync/glue/sync_backend_host_core.h"
-#include "chrome/browser/sync/managed_user_signin_manager_wrapper.h"
 #include "chrome/browser/sync/profile_sync_components_factory.h"
 #include "chrome/browser/sync/profile_sync_components_factory_mock.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
+#include "chrome/browser/sync/supervised_user_signin_manager_wrapper.h"
 #include "chrome/browser/sync/test/test_http_bridge_factory.h"
 #include "components/invalidation/profile_invalidation_provider.h"
 #include "components/signin/core/browser/signin_manager.h"
+#include "google_apis/gaia/gaia_constants.h"
 #include "sync/internal_api/public/test/sync_manager_factory_for_profile_sync_test.h"
 #include "sync/internal_api/public/test/test_internal_components_factory.h"
 #include "sync/internal_api/public/user_share.h"
@@ -51,6 +52,7 @@ void SyncBackendHostForProfileSyncTest::InitCore(
       new syncer::SyncManagerFactoryForProfileSyncTest(callback_));
   options->credentials.email = "testuser@gmail.com";
   options->credentials.sync_token = "token";
+  options->credentials.scope_set.insert(GaiaConstants::kChromeSyncOAuth2Scope);
   options->restored_key_for_bootstrapping = "";
 
   // It'd be nice if we avoided creating the InternalComponentsFactory in the
@@ -59,8 +61,9 @@ void SyncBackendHostForProfileSyncTest::InitCore(
   InternalComponentsFactory::Switches factory_switches =
       options->internal_components_factory->GetSwitches();
   options->internal_components_factory.reset(
-      new TestInternalComponentsFactory(factory_switches,
-                                        syncer::STORAGE_IN_MEMORY));
+      new TestInternalComponentsFactory(
+          factory_switches, InternalComponentsFactory::STORAGE_IN_MEMORY,
+          NULL));
 
   SyncBackendHostImpl::InitCore(options.Pass());
 }
@@ -101,15 +104,16 @@ TestProfileSyncService::GetJsEventHandler() {
 }
 
 TestProfileSyncService::TestProfileSyncService(
-    ProfileSyncComponentsFactory* factory,
+    scoped_ptr<ProfileSyncComponentsFactory> factory,
     Profile* profile,
     SigninManagerBase* signin,
     ProfileOAuth2TokenService* oauth2_token_service,
     browser_sync::ProfileSyncServiceStartBehavior behavior)
     : ProfileSyncService(
-          factory,
+          factory.Pass(),
           profile,
-          make_scoped_ptr(new ManagedUserSigninManagerWrapper(profile, signin)),
+          make_scoped_ptr(new SupervisedUserSigninManagerWrapper(profile,
+                                                                 signin)),
           oauth2_token_service,
           behavior) {
   SetSyncSetupCompleted();
@@ -126,13 +130,13 @@ KeyedService* TestProfileSyncService::TestFactoryFunction(
       SigninManagerFactory::GetForProfile(profile);
   ProfileOAuth2TokenService* oauth2_token_service =
       ProfileOAuth2TokenServiceFactory::GetForProfile(profile);
-  ProfileSyncComponentsFactoryMock* factory =
-      new ProfileSyncComponentsFactoryMock();
-  return new TestProfileSyncService(factory,
-                                    profile,
-                                    signin,
-                                    oauth2_token_service,
-                                    browser_sync::AUTO_START);
+  return new TestProfileSyncService(
+      scoped_ptr<ProfileSyncComponentsFactory>(
+          new ProfileSyncComponentsFactoryMock()),
+      profile,
+      signin,
+      oauth2_token_service,
+      browser_sync::AUTO_START);
 }
 
 // static
@@ -164,11 +168,15 @@ TestProfileSyncService::components_factory_mock() {
 }
 
 void TestProfileSyncService::OnConfigureDone(
-    const browser_sync::DataTypeManager::ConfigureResult& result) {
+    const sync_driver::DataTypeManager::ConfigureResult& result) {
   ProfileSyncService::OnConfigureDone(result);
   base::MessageLoop::current()->Quit();
 }
 
 UserShare* TestProfileSyncService::GetUserShare() const {
   return backend_->GetUserShare();
+}
+
+bool TestProfileSyncService::NeedBackup() const {
+  return false;
 }

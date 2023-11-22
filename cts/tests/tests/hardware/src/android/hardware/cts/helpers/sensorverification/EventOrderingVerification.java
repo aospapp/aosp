@@ -75,12 +75,9 @@ public class EventOrderingVerification extends AbstractSensorVerification {
         final int count = mOutOfOrderEvents.size();
         stats.addValue(PASSED_KEY, count == 0);
         stats.addValue(SensorStats.EVENT_OUT_OF_ORDER_COUNT_KEY, count);
-
-        final int[] indices = new int[count];
-        for (int i = 0; i < indices.length; i++) {
-            indices[i] = mOutOfOrderEvents.get(i).index;
-        }
-        stats.addValue(SensorStats.EVENT_OUT_OF_ORDER_POSITIONS_KEY, indices);
+        stats.addValue(
+                SensorStats.EVENT_OUT_OF_ORDER_POSITIONS_KEY,
+                getIndexArray(mOutOfOrderEvents));
 
         if (count > 0) {
             StringBuilder sb = new StringBuilder();

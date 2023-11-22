@@ -100,12 +100,14 @@ enum ShortcutCreationReason {
 typedef base::Callback<void(const ShortcutInfo&,
                             const extensions::FileHandlersInfo&)> InfoCallback;
 
-// Called by UpdateShortcutInfoAndIconForApp after loading the icon.
+// Called by GetShortcutInfoForApp after fetching the ShortcutInfo.
 typedef base::Callback<void(const ShortcutInfo&)> ShortcutInfoCallback;
 
+#if defined(TOOLKIT_VIEWS)
 // Extracts shortcut info of the given WebContents.
 void GetShortcutInfoForTab(content::WebContents* web_contents,
                            ShortcutInfo* info);
+#endif
 
 // Updates web app shortcut of the WebContents. This function checks and
 // updates web app icon and shortcuts if needed. For icon, the check is based
@@ -118,11 +120,19 @@ ShortcutInfo ShortcutInfoForExtensionAndProfile(
     const extensions::Extension* app,
     Profile* profile);
 
-// Fetches the icon for |extension| and calls |callback| with shortcut info
-// filled out as by UpdateShortcutInfoForApp.
-void UpdateShortcutInfoAndIconForApp(const extensions::Extension* extension,
-                                     Profile* profile,
-                                     const ShortcutInfoCallback& callback);
+// Populates a ShortcutInfo and FileHandlersInfo for the given |extension| in
+// |profile| and passes them to |callback| after asynchronously loading all icon
+// representations.
+void GetInfoForApp(const extensions::Extension* extension,
+                   Profile* profile,
+                   const InfoCallback& callback);
+
+// Populates a ShortcutInfo for the given |extension| in |profile| and passes
+// it to |callback| after asynchronously loading all icon representations. This
+// is equivalent to GetInfoForApp, but it throws away the FileHandlersInfo.
+void GetShortcutInfoForApp(const extensions::Extension* extension,
+                           Profile* profile,
+                           const ShortcutInfoCallback& callback);
 
 // Whether to create a shortcut for this type of extension.
 bool ShouldCreateShortcutFor(Profile* profile,
@@ -156,12 +166,17 @@ std::string GetExtensionIdFromApplicationName(const std::string& app_name);
 
 // Create shortcuts for web application based on given shortcut data.
 // |shortcut_info| contains information about the shortcuts to create, and
-// |creation_locations| contains information about where to create them.
-void CreateShortcutsForShortcutInfo(ShortcutCreationReason reason,
-                                    const ShortcutLocations& locations,
-                                    const ShortcutInfo& shortcut_info);
+// |locations| contains information about where to create them, while
+// |file_handlers_info| contains information about the file handlers to create.
+void CreateShortcutsWithInfo(
+    ShortcutCreationReason reason,
+    const ShortcutLocations& locations,
+    const ShortcutInfo& shortcut_info,
+    const extensions::FileHandlersInfo& file_handlers_info);
 
-// Creates shortcuts for an app.
+// Creates shortcuts for an app. This loads the app's icon from disk, and calls
+// CreateShortcutsWithInfo(). If you already have a ShortcutInfo with the app's
+// icon loaded, you should use CreateShortcutsWithInfo() directly.
 void CreateShortcuts(ShortcutCreationReason reason,
                      const ShortcutLocations& locations,
                      Profile* profile,
@@ -202,11 +217,6 @@ std::string GetWMClassFromAppName(std::string app_name);
 
 namespace internals {
 
-// Loads relevant info structs for the app and calls |callback|.
-void GetInfoForApp(const extensions::Extension* extension,
-                   Profile* profile,
-                   const InfoCallback& callback);
-
 #if defined(OS_WIN)
 // Returns the Windows user-level shortcut paths that are specified in
 // |creation_locations|.
@@ -214,16 +224,8 @@ std::vector<base::FilePath> GetShortcutPaths(
     const ShortcutLocations& creation_locations);
 #endif
 
-// Creates a shortcut. Must be called on the file thread. This is used to
-// implement CreateShortcuts() above, and can also be used directly from the
-// file thread. |shortcut_info| contains info about the shortcut to create, and
-// |creation_locations| contains information about where to create them.
-bool CreateShortcutsOnFileThread(ShortcutCreationReason reason,
-                                 const ShortcutLocations& locations,
-                                 const ShortcutInfo& shortcut_info);
-
 // Implemented for each platform, does the platform specific parts of creating
-// shortcuts. Used internally by CreateShortcutsOnFileThread.
+// shortcuts. Used internally by CreateShortcuts methods.
 // |shortcut_data_path| is where to store any resources created for the
 // shortcut, and is also used as the UserDataDir for platform app shortcuts.
 // |shortcut_info| contains info about the shortcut to create, and

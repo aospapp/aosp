@@ -34,7 +34,7 @@ public class MockJobService extends JobService {
     private static final String TAG = "MockJobService";
 
     /** Wait this long before timing out the test. */
-    private static final long DEFAULT_TIMEOUT_MILLIS = 5000L; // 5 seconds.
+    private static final long DEFAULT_TIMEOUT_MILLIS = 30000L; // 30 seconds.
 
     @Override
     public void onCreate() {

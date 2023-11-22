@@ -71,8 +71,8 @@
             "href": "/devtools/docs/javascript-debugging"
           },
           {
-            "title": "Mobile Emulation",
-            "href": "/devtools/docs/mobile-emulation"
+            "title": "Device Mode & Mobile Emulation",
+            "href": "/devtools/docs/device-mode"
           },
           {
             "title": "Remote Debugging on Android",
@@ -384,8 +384,16 @@
                 "href": "/apps/app_storage"
               },
               {
+                "title": "Keep Users Informed",
+                "href": "/apps/inform_users"
+              },
+              {
                 "title": "Cloud Messaging",
                 "href": "/apps/cloudMessaging"
+              },
+              {
+                "title": "Rich Notifications",
+                "href": "/apps/richNotifications"
               },
               {
                 "title": "User Authentication",
@@ -685,7 +693,7 @@
             "href": "/native-client/overview",
             "items": [
               {
-                "title": "What Is Native Client?",
+                "title": "Technical Overview",
                 "href": "/native-client/overview"
               },
               {
@@ -695,11 +703,11 @@
             ]
           },
           {
-            "title": "SDK",
+            "title": "Download the SDK",
             "href": "/native-client/sdk/download",
             "items": [
               {
-                "title": "Download SDK",
+                "title": "Download the Native Client SDK",
                 "href": "/native-client/sdk/download"
               },
               {
@@ -707,7 +715,7 @@
                 "href": "/native-client/sdk/examples"
               },
               {
-                "title": "SDK Release Notes",
+                "title": "Release Notes",
                 "href": "/native-client/sdk/release-notes"
               }
             ]
@@ -804,35 +812,15 @@
           },
           {
             "title": "Pepper API Reference",
-            "href": "/native-client/pepper_stable/index",
+            "href": "/native-client/c-api",
             "items": [
               {
-                "title": "Pepper C Interfaces",
-                "href": "/native-client/pepper_stable/c/group___interfaces"
+                "title": "Pepper C API",
+                "href": "/native-client/c-api"
               },
               {
-                "title": "Pepper C Structures",
-                "href": "/native-client/pepper_stable/c/group___structs"
-              },
-              {
-                "title": "Pepper C Functions",
-                "href": "/native-client/pepper_stable/c/group___functions"
-              },
-              {
-                "title": "Pepper C Enums",
-                "href": "/native-client/pepper_stable/c/group___enums"
-              },
-              {
-                "title": "Pepper C Typedefs",
-                "href": "/native-client/pepper_stable/c/group___typedefs"
-              },
-              {
-                "title": "Pepper C Macros",
-                "href": "/native-client/pepper_stable/c/global_defs"
-              },
-              {
-                "title": "Pepper C++ Classes",
-                "href": "/native-client/pepper_stable/cpp/inherits"
+                "title": "Pepper C++ API",
+                "href": "/native-client/cpp-api"
               }
             ]
           },
@@ -853,6 +841,10 @@
                 "href": "/native-client/reference/pnacl-bitcode-abi"
               },
               {
+                "title": "PNaCl Undefined Behavior",
+                "href": "/native-client/reference/pnacl-undefined-behavior"
+              },
+              {
                 "title": "PNaCl C/C++ Language Support",
                 "href": "/native-client/reference/pnacl-c-cpp-language-support"
               },
@@ -863,8 +855,16 @@
                     {
                       "title": "ARM 32-bit Sandbox",
                       "href": "/native-client/reference/sandbox_internals/arm-32-bit-sandbox"
+                    },
+                    {
+                      "title": "x86-64 Sandbox",
+                      "href": "/native-client/reference/sandbox_internals/x86-64-sandbox"
                     }
                 ]
+              },
+              {
+                "title": "Design Documents",
+                "href": "/native-client/reference/design-docs"
               }
             ]
           },

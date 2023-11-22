@@ -16,6 +16,8 @@
 
 package com.android.cts.verifier;
 
+import com.android.compatibility.common.util.ReportLog;
+
 import android.app.backup.BackupManager;
 import android.content.ContentProvider;
 import android.content.ContentResolver;
@@ -27,6 +29,10 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.net.Uri;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 
 /** {@link ContentProvider} that provides read and write access to the test results. */
 public class TestResultsProvider extends ContentProvider {
@@ -55,6 +61,9 @@ public class TestResultsProvider extends ContentProvider {
 
     /** String containing the test's details. */
     static final String COLUMN_TEST_DETAILS = "testdetails";
+
+    /** ReportLog containing the test result metrics. */
+    static final String COLUMN_TEST_METRICS = "testmetrics";
 
     private static final UriMatcher URI_MATCHER = new UriMatcher(UriMatcher.NO_MATCH);
     private static final int RESULTS_ALL = 1;
@@ -96,7 +105,8 @@ public class TestResultsProvider extends ContentProvider {
                     + COLUMN_TEST_NAME + " TEXT, "
                     + COLUMN_TEST_RESULT + " INTEGER,"
                     + COLUMN_TEST_INFO_SEEN + " INTEGER DEFAULT 0,"
-                    + COLUMN_TEST_DETAILS + " TEXT);");
+                    + COLUMN_TEST_DETAILS + " TEXT,"
+                    + COLUMN_TEST_METRICS + " BLOB);");
         }
 
         @Override
@@ -202,11 +212,12 @@ public class TestResultsProvider extends ContentProvider {
     }
 
     static void setTestResult(Context context, String testName, int testResult,
-            String testDetails) {
+            String testDetails, ReportLog reportLog) {
         ContentValues values = new ContentValues(2);
         values.put(TestResultsProvider.COLUMN_TEST_RESULT, testResult);
         values.put(TestResultsProvider.COLUMN_TEST_NAME, testName);
         values.put(TestResultsProvider.COLUMN_TEST_DETAILS, testDetails);
+        values.put(TestResultsProvider.COLUMN_TEST_METRICS, serialize(reportLog));
 
         ContentResolver resolver = context.getContentResolver();
         int numUpdated = resolver.update(TestResultsProvider.RESULTS_CONTENT_URI, values,
@@ -218,4 +229,24 @@ public class TestResultsProvider extends ContentProvider {
         }
     }
 
+    private static byte[] serialize(Object o) {
+        ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+        ObjectOutputStream objectOutput = null;
+        try {
+            objectOutput = new ObjectOutputStream(byteStream);
+            objectOutput.writeObject(o);
+            return byteStream.toByteArray();
+        } catch (IOException e) {
+            return null;
+        } finally {
+            try {
+                if (objectOutput != null) {
+                    objectOutput.close();
+                }
+                byteStream.close();
+            } catch (IOException e) {
+                // Ignore close exception.
+            }
+        }
+    }
 }

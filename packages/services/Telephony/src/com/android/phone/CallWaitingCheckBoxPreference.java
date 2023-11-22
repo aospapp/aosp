@@ -20,13 +20,11 @@ public class CallWaitingCheckBoxPreference extends CheckBoxPreference {
     private final boolean DBG = (PhoneGlobals.DBG_LEVEL >= 2);
 
     private final MyHandler mHandler = new MyHandler();
-    private final Phone mPhone;
+    private Phone mPhone;
     private TimeConsumingPreferenceListener mTcpListener;
 
     public CallWaitingCheckBoxPreference(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
-
-        mPhone = PhoneGlobals.getPhone();
     }
 
     public CallWaitingCheckBoxPreference(Context context, AttributeSet attrs) {
@@ -37,7 +35,9 @@ public class CallWaitingCheckBoxPreference extends CheckBoxPreference {
         this(context, null);
     }
 
-    /* package */ void init(TimeConsumingPreferenceListener listener, boolean skipReading) {
+    /* package */ void init(
+            TimeConsumingPreferenceListener listener, boolean skipReading, Phone phone) {
+        mPhone = phone;
         mTcpListener = listener;
 
         if (!skipReading) {
@@ -87,15 +87,20 @@ public class CallWaitingCheckBoxPreference extends CheckBoxPreference {
                 }
             }
 
-            if (ar.exception != null) {
+            if (ar.exception instanceof CommandException) {
                 if (DBG) {
-                    Log.d(LOG_TAG, "handleGetCallWaitingResponse: ar.exception=" + ar.exception);
+                    Log.d(LOG_TAG, "handleGetCallWaitingResponse: CommandException=" +
+                            ar.exception);
                 }
                 if (mTcpListener != null) {
                     mTcpListener.onException(CallWaitingCheckBoxPreference.this,
                             (CommandException)ar.exception);
                 }
-            } else if (ar.userObj instanceof Throwable) {
+            } else if (ar.userObj instanceof Throwable || ar.exception != null) {
+                // Still an error case but just not a CommandException.
+                if (DBG) {
+                    Log.d(LOG_TAG, "handleGetCallWaitingResponse: Exception" + ar.exception);
+                }
                 if (mTcpListener != null) {
                     mTcpListener.onError(CallWaitingCheckBoxPreference.this, RESPONSE_ERROR);
                 }

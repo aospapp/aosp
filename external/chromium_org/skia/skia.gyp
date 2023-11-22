@@ -16,6 +16,7 @@
           'includes': [
             'skia_library.gypi',
             'skia_common.gypi',
+            '../build/android/increase_size_for_speed.gypi',
           ],
         },
       ],
@@ -25,7 +26,10 @@
         {
           'target_name': 'skia_library',
           'type': 'none',
-          'includes': ['skia_system.gypi'],
+          'includes': [
+            'skia_system.gypi',
+            '../build/android/increase_size_for_speed.gypi',
+          ],
         },
       ],
     }],
@@ -49,6 +53,7 @@
           'includes': [
             'skia_chrome.gypi',
             'skia_common.gypi',
+            '../build/android/increase_size_for_speed.gypi',
           ],
         },
       ],
@@ -62,6 +67,7 @@
             'skia_library.gypi',
             'skia_chrome.gypi',
             'skia_common.gypi',
+            '../build/android/increase_size_for_speed.gypi',
           ],
           'defines': [
             'SKIA_DLL',
@@ -100,13 +106,13 @@
       'conditions': [
         [ 'os_posix == 1 and OS != "mac" and OS != "android" and \
             target_arch != "arm" and target_arch != "mipsel" and \
-            target_arch != "arm64"', {
+            target_arch != "arm64" and target_arch != "mips64el"', {
           'cflags': [
             '-msse2',
           ],
         }],
         [ 'target_arch != "arm" and target_arch != "mipsel" and \
-           target_arch != "arm64"', {
+           target_arch != "arm64" and target_arch != "mips64el"', {
           'sources': [
             'ext/convolver_SSE2.cc',
           ],
@@ -144,6 +150,9 @@
       ],
       'sources': [
         'tools/filter_fuzz_stub/filter_fuzz_stub.cc',
+      ],
+      'includes': [
+        '../build/android/increase_size_for_speed.gypi',
       ],
     },
   ],

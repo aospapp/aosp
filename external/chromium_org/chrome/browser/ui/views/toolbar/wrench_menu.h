@@ -37,10 +37,12 @@ class WrenchMenu : public views::MenuDelegate,
                    public BaseBookmarkModelObserver,
                    public content::NotificationObserver {
  public:
-  // TODO: remove |use_new_menu| and |supports_new_separators|.
-  WrenchMenu(Browser* browser,
-             bool use_new_menu,
-             bool supports_new_separators);
+  enum RunFlags {
+    // Indicates that the menu was opened for a drag-and-drop operation.
+    FOR_DROP = 1 << 0,
+  };
+
+  WrenchMenu(Browser* browser, int run_flags);
   virtual ~WrenchMenu();
 
   void Init(ui::MenuModel* model);
@@ -48,10 +50,13 @@ class WrenchMenu : public views::MenuDelegate,
   // Shows the menu relative to the specified view.
   void RunMenu(views::MenuButton* host);
 
+  // Closes the menu if it is open, otherwise does nothing.
+  void CloseMenu();
+
   // Whether the menu is currently visible to the user.
   bool IsShowing();
 
-  bool use_new_menu() const { return use_new_menu_; }
+  bool for_drop() const { return (run_flags_ & FOR_DROP) != 0; }
 
   void AddObserver(WrenchMenuObserver* observer);
   void RemoveObserver(WrenchMenuObserver* observer);
@@ -93,6 +98,7 @@ class WrenchMenu : public views::MenuDelegate,
                               ui::Accelerator* accelerator) const OVERRIDE;
   virtual void WillShowMenu(views::MenuItemView* menu) OVERRIDE;
   virtual void WillHideMenu(views::MenuItemView* menu) OVERRIDE;
+  virtual bool ShouldCloseOnDragComplete() OVERRIDE;
 
   // BaseBookmarkModelObserver overrides:
   virtual void BookmarkModelChanged() OVERRIDE;
@@ -120,16 +126,13 @@ class WrenchMenu : public views::MenuDelegate,
   // - |menu_index|: position in |parent| to add the new item.
   // - |model_index|: position in |model| to retrieve information about the
   //   new menu item.
-  // - |height|: For button containing menu items, a |height| override can be
-  //   specified with a number bigger then 0.
   // The returned item's MenuItemView::GetCommand() is the same as that of
   // |model|->GetCommandIdAt(|model_index|).
   views::MenuItemView* AddMenuItem(views::MenuItemView* parent,
                                    int menu_index,
                                    ui::MenuModel* model,
                                    int model_index,
-                                   ui::MenuModel::ItemType menu_type,
-                                   int height);
+                                   ui::MenuModel::ItemType menu_type);
 
   // Invoked from the cut/copy/paste menus. Cancels the current active menu and
   // activates the menu item in |model| at |index|.
@@ -176,9 +179,8 @@ class WrenchMenu : public views::MenuDelegate,
 
   content::NotificationRegistrar registrar_;
 
-  const bool use_new_menu_;
-
-  const bool supports_new_separators_;
+  // The bit mask of RunFlags.
+  const int run_flags_;
 
   ObserverList<WrenchMenuObserver> observer_list_;
 

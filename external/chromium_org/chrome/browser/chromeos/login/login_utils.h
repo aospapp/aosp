@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "base/callback_forward.h"
 #include "base/memory/ref_counted.h"
 
 class GURL;
@@ -21,7 +22,7 @@ namespace chromeos {
 
 class Authenticator;
 class LoginDisplayHost;
-class LoginStatusConsumer;
+class AuthStatusConsumer;
 class UserContext;
 
 class LoginUtils {
@@ -53,6 +54,10 @@ class LoginUtils {
 
   virtual ~LoginUtils() {}
 
+  // Switch to the locale that |profile| wishes to use and invoke |callback|.
+  virtual void RespectLocalePreference(Profile* profile,
+                                       const base::Closure& callback) = 0;
+
   // Thin wrapper around StartupBrowserCreator::LaunchBrowser().  Meant to be
   // used in a Task posted to the UI thread.  Once the browser is launched the
   // login host is deleted.
@@ -66,7 +71,7 @@ class LoginUtils {
   // session after browser crash so no need to start new session.
   virtual void PrepareProfile(
       const UserContext& user_context,
-      bool has_cookies,
+      bool has_auth_cookies,
       bool has_active_session,
       Delegate* delegate) = 0;
 
@@ -88,7 +93,16 @@ class LoginUtils {
   // OAuth tokens.
   // TODO(nkostylev): Cleanup after WebUI login migration is complete.
   virtual scoped_refptr<Authenticator> CreateAuthenticator(
-      LoginStatusConsumer* consumer) = 0;
+      AuthStatusConsumer* consumer) = 0;
+
+  // Initiates process restart if needed.
+  // |early_restart| is true if this restart attempt happens before user profile
+  // is fully initialized.
+  // Might not return if restart is possible right now.
+  // Returns true if restart was scheduled.
+  // Returns false if no restart is needed,
+  virtual bool RestartToApplyPerSessionFlagsIfNeed(Profile* profile,
+                                                   bool early_restart) = 0;
 };
 
 }  // namespace chromeos

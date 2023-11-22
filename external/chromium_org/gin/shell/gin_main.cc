@@ -5,9 +5,10 @@
 #include "base/at_exit.h"
 #include "base/bind.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/i18n/icu_util.h"
 #include "base/message_loop/message_loop.h"
+#include "gin/array_buffer.h"
 #include "gin/modules/console.h"
 #include "gin/modules/module_runner_delegate.h"
 #include "gin/public/isolate_holder.h"
@@ -37,9 +38,9 @@ std::vector<base::FilePath> GetModuleSearchPaths() {
   return module_base;
 }
 
-class ShellRunnerDelegate : public ModuleRunnerDelegate {
+class GinShellRunnerDelegate : public ModuleRunnerDelegate {
  public:
-  ShellRunnerDelegate() : ModuleRunnerDelegate(GetModuleSearchPaths()) {
+  GinShellRunnerDelegate() : ModuleRunnerDelegate(GetModuleSearchPaths()) {
     AddBuiltinModule(Console::kModuleName, Console::GetModule);
   }
 
@@ -50,7 +51,7 @@ class ShellRunnerDelegate : public ModuleRunnerDelegate {
   }
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(ShellRunnerDelegate);
+  DISALLOW_COPY_AND_ASSIGN(GinShellRunnerDelegate);
 };
 
 }  // namespace
@@ -61,11 +62,13 @@ int main(int argc, char** argv) {
   CommandLine::Init(argc, argv);
   base::i18n::InitializeICU();
 
-  gin::IsolateHolder instance(gin::IsolateHolder::kStrictMode);
+  gin::IsolateHolder::Initialize(gin::IsolateHolder::kStrictMode,
+                                 gin::ArrayBufferAllocator::SharedInstance());
+  gin::IsolateHolder instance;
 
   base::MessageLoop message_loop;
 
-  gin::ShellRunnerDelegate delegate;
+  gin::GinShellRunnerDelegate delegate;
   gin::ShellRunner runner(&delegate, instance.isolate());
 
   {

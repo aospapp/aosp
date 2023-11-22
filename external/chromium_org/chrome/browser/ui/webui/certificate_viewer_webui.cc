@@ -18,8 +18,8 @@
 #include "chrome/browser/ui/webui/constrained_web_dialog_ui.h"
 #include "chrome/common/net/x509_certificate_model.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/web_contents.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/size.h"
 
@@ -42,11 +42,10 @@ CertificateViewerModalDialog::CertificateViewerModalDialog(
     net::X509Certificate* cert)
     : cert_(cert), webui_(NULL), window_(NULL) {
   // Construct the dialog title from the certificate.
-  net::X509Certificate::OSCertHandles cert_chain;
-  x509_certificate_model::GetCertChainFromCert(cert_->os_cert_handle(),
-      &cert_chain);
-  title_ = l10n_util::GetStringFUTF16(IDS_CERT_INFO_DIALOG_TITLE,
-      base::UTF8ToUTF16(x509_certificate_model::GetTitle(cert_chain.front())));
+  title_ = l10n_util::GetStringFUTF16(
+      IDS_CERT_INFO_DIALOG_TITLE,
+      base::UTF8ToUTF16(
+          x509_certificate_model::GetTitle(cert_->os_cert_handle())));
 }
 
 CertificateViewerModalDialog::~CertificateViewerModalDialog() {
@@ -103,7 +102,10 @@ std::string CertificateViewerModalDialog::GetDialogArgs() const {
 
   // Get the certificate chain.
   net::X509Certificate::OSCertHandles cert_chain;
-  x509_certificate_model::GetCertChainFromCert(cert_hnd, &cert_chain);
+  cert_chain.push_back(cert_->os_cert_handle());
+  const net::X509Certificate::OSCertHandles& certs =
+      cert_->GetIntermediateCertificates();
+  cert_chain.insert(cert_chain.end(), certs.begin(), certs.end());
 
   // Certificate usage.
   std::vector<std::string> usages;
@@ -226,11 +228,8 @@ void CertificateViewerDialog::Show(WebContents* web_contents,
                                    gfx::NativeWindow parent) {
   // TODO(bshe): UI tweaks needed for Aura HTML Dialog, such as adding padding
   // on the title for Aura ConstrainedWebDialogUI.
-  dialog_ = CreateConstrainedWebDialog(
-      web_contents->GetBrowserContext(),
-      this,
-      NULL,
-      web_contents);
+  dialog_ = CreateConstrainedWebDialog(web_contents->GetBrowserContext(), this,
+                                       web_contents);
 }
 
 NativeWebContentsModalDialog
@@ -251,9 +250,12 @@ ui::ModalType CertificateViewerDialog::GetDialogModalType() const {
 
 CertificateViewerDialogHandler::CertificateViewerDialogHandler(
     CertificateViewerModalDialog* dialog,
-    net::X509Certificate* cert) : cert_(cert), dialog_(dialog) {
-  x509_certificate_model::GetCertChainFromCert(cert_->os_cert_handle(),
-      &cert_chain_);
+    net::X509Certificate* cert)
+    : cert_(cert), dialog_(dialog) {
+  cert_chain_.push_back(cert_->os_cert_handle());
+  const net::X509Certificate::OSCertHandles& certs =
+      cert_->GetIntermediateCertificates();
+  cert_chain_.insert(cert_chain_.end(), certs.begin(), certs.end());
 }
 
 CertificateViewerDialogHandler::~CertificateViewerDialogHandler() {
@@ -278,7 +280,8 @@ void CertificateViewerDialogHandler::ExportCertificate(
       platform_util::GetTopLevel(dialog_->GetNativeWebContentsModalDialog());
   ShowCertExportDialog(web_ui()->GetWebContents(),
                        window,
-                       cert_chain_[cert_index]);
+                       cert_chain_.begin() + cert_index,
+                       cert_chain_.end());
 }
 
 void CertificateViewerDialogHandler::RequestCertificateFields(

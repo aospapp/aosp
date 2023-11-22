@@ -380,6 +380,39 @@ public final class ConnectionPoolTest {
     assertEquals(0, pool.getSpdyConnectionCount());
   }
 
+  // Tests to demonstrate Android bug http://b/18369687 and the solution to it.
+  @Test public void connectionCleanup_draining() throws IOException, InterruptedException {
+    ConnectionPool pool = new ConnectionPool(10, KEEP_ALIVE_DURATION_MS);
+
+    // Add 3 connections to the pool.
+    pool.recycle(httpA);
+    pool.recycle(httpB);
+    pool.share(spdyA);
+    assertEquals(3, pool.getConnectionCount());
+    assertEquals(2, pool.getHttpConnectionCount());
+    assertEquals(1, pool.getSpdyConnectionCount());
+
+    // With no method calls made to the pool it will not clean up any connections.
+    Thread.sleep(KEEP_ALIVE_DURATION_MS * 5);
+    assertEquals(3, pool.getConnectionCount());
+    assertEquals(2, pool.getHttpConnectionCount());
+    assertEquals(1, pool.getSpdyConnectionCount());
+
+    // Change the pool into a mode that will clean up connections.
+    pool.enterDrainMode();
+
+    // Give the drain thread a chance to run.
+    for (int i = 0; i < 5; i++) {
+      Thread.sleep(KEEP_ALIVE_DURATION_MS);
+      if (pool.isDrained()) {
+        break;
+      }
+    }
+
+    // All connections should have drained.
+    assertEquals(0, pool.getConnectionCount());
+  }
+
   @Test public void evictAllConnections() throws Exception {
     resetWithPoolSize(10);
     pool.recycle(httpA);

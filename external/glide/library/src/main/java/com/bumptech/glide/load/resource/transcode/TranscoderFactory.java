@@ -70,8 +70,11 @@ public class TranscoderFactory {
         if (decodedClass.equals(transcodedClass)) {
             return UnitTranscoder.get();
         }
-        GET_KEY.set(decodedClass, transcodedClass);
-        ResourceTranscoder<Z, R> result = factories.get(GET_KEY);
+        ResourceTranscoder<Z, R> result;
+        synchronized (GET_KEY) {
+            GET_KEY.set(decodedClass, transcodedClass);
+            result = factories.get(GET_KEY);
+        }
         if (result == null) {
             throw new IllegalArgumentException("No transcoder registered for " + decodedClass + " and "
                     + transcodedClass);

@@ -38,15 +38,12 @@ class BookmarkIndex;
 class BookmarkLoadDetails;
 class BookmarkStorage;
 class ScopedGroupBookmarkActions;
+class TestBookmarkClient;
 struct BookmarkMatch;
 }
 
 namespace favicon_base {
 struct FaviconImageResult;
-}
-
-namespace test {
-class TestBookmarkClient;
 }
 
 // BookmarkModel --------------------------------------------------------------
@@ -66,9 +63,7 @@ class BookmarkModel : public KeyedService {
     base::string16 title;
   };
 
-  // |index_urls| says whether URLs should be stored in the BookmarkIndex
-  // in addition to bookmark titles.
-  BookmarkModel(BookmarkClient* client, bool index_urls);
+  explicit BookmarkModel(bookmarks::BookmarkClient* client);
   virtual ~BookmarkModel();
 
   // KeyedService:
@@ -285,13 +280,13 @@ class BookmarkModel : public KeyedService {
   void OnFaviconChanged(const std::set<GURL>& urls);
 
   // Returns the client used by this BookmarkModel.
-  BookmarkClient* client() const { return client_; }
+  bookmarks::BookmarkClient* client() const { return client_; }
 
  private:
   friend class bookmarks::BookmarkCodecTest;
   friend class bookmarks::BookmarkStorage;
   friend class bookmarks::ScopedGroupBookmarkActions;
-  friend class test::TestBookmarkClient;
+  friend class bookmarks::TestBookmarkClient;
 
   // Used to order BookmarkNodes by URL.
   class NodeURLComparator {
@@ -380,7 +375,7 @@ class BookmarkModel : public KeyedService {
   scoped_ptr<bookmarks::BookmarkLoadDetails> CreateLoadDetails(
       const std::string& accept_languages);
 
-  BookmarkClient* const client_;
+  bookmarks::BookmarkClient* const client_;
 
   // Whether the initial set of data has been loaded.
   bool loaded_;
@@ -411,13 +406,9 @@ class BookmarkModel : public KeyedService {
   base::CancelableTaskTracker cancelable_task_tracker_;
 
   // Reads/writes bookmarks to disk.
-  scoped_refptr<bookmarks::BookmarkStorage> store_;
+  scoped_ptr<bookmarks::BookmarkStorage> store_;
 
   scoped_ptr<bookmarks::BookmarkIndex> index_;
-
-  // True if URLs are stored in the BookmarkIndex in addition to bookmark
-  // titles.
-  const bool index_urls_;
 
   base::WaitableEvent loaded_signal_;
 

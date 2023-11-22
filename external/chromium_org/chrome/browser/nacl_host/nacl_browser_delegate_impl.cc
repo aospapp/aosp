@@ -6,7 +6,6 @@
 
 #include "base/path_service.h"
 #include "base/strings/string_split.h"
-#include "base/strings/string_util.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/component_updater/pnacl/pnacl_component_installer.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -20,18 +19,14 @@
 #include "chrome/common/logging_chrome.h"
 #include "chrome/common/pepper_permission_util.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/browser/render_frame_host.h"
-#include "content/public/browser/site_instance.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/info_map.h"
 #include "extensions/browser/process_manager.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
-#include "extensions/common/manifest_handlers/shared_module_info.h"
 #include "extensions/common/url_pattern.h"
 #include "ppapi/c/private/ppb_nacl_private.h"
-
-using extensions::SharedModuleInfo;
+#include "url/gurl.h"
 
 namespace {
 
@@ -67,36 +62,12 @@ void OnKeepaliveOnUIThread(
   if (instance_data.size() < 1)
     return;
 
-  content::RenderFrameHost* render_frame_host =
-      content::RenderFrameHost::FromID(
-          instance_data[0].render_process_id, instance_data[0].render_frame_id);
-  if (!render_frame_host)
-    return;
-
-  content::SiteInstance* site_instance = render_frame_host->GetSiteInstance();
-  if (!site_instance)
-    return;
-
-  extensions::ExtensionSystem* extension_system =
-      extensions::ExtensionSystem::Get(site_instance->GetBrowserContext());
-  if (!extension_system)
-    return;
-
-  const ExtensionService* extension_service =
-      extension_system->extension_service();
-  if (!extension_service)
-    return;
-
-  const extensions::Extension* extension = extension_service->GetExtensionById(
-      instance_data[0].document_url.host(), false);
-  if (!extension)
-    return;
-
-  extensions::ProcessManager* pm = extension_system->process_manager();
-  if (!pm)
-    return;
-
-  pm->KeepaliveImpulse(extension);
+#if defined(ENABLE_EXTENSIONS)
+  extensions::ProcessManager::OnKeepaliveFromPlugin(
+      instance_data[0].render_process_id,
+      instance_data[0].render_frame_id,
+      instance_data[0].document_url.host());
+#endif
 }
 
 // Calls OnKeepaliveOnUIThread on UI thread.
@@ -221,62 +192,14 @@ bool NaClBrowserDelegateImpl::MapUrlToLocalFilePath(
     bool use_blocking_api,
     const base::FilePath& profile_directory,
     base::FilePath* file_path) {
+#if defined(ENABLE_EXTENSIONS)
   scoped_refptr<extensions::InfoMap> extension_info_map =
       GetExtensionInfoMap(profile_directory);
-  // Check that the URL is recognized by the extension system.
-  const extensions::Extension* extension =
-      extension_info_map->extensions().GetExtensionOrAppByURL(file_url);
-  if (!extension)
-    return false;
-
-  // This is a short-cut which avoids calling a blocking file operation
-  // (GetFilePath()), so that this can be called on the IO thread. It only
-  // handles a subset of the urls.
-  if (!use_blocking_api) {
-    if (file_url.SchemeIs(extensions::kExtensionScheme)) {
-      std::string path = file_url.path();
-      base::TrimString(path, "/", &path);  // Remove first slash
-      *file_path = extension->path().AppendASCII(path);
-      return true;
-    }
-    return false;
-  }
-
-  std::string path = file_url.path();
-  extensions::ExtensionResource resource;
-
-  if (SharedModuleInfo::IsImportedPath(path)) {
-    // Check if this is a valid path that is imported for this extension.
-    std::string new_extension_id;
-    std::string new_relative_path;
-    SharedModuleInfo::ParseImportedPath(path, &new_extension_id,
-                                        &new_relative_path);
-    const extensions::Extension* new_extension =
-        extension_info_map->extensions().GetByID(new_extension_id);
-    if (!new_extension)
-      return false;
-
-    if (!SharedModuleInfo::ImportsExtensionById(extension, new_extension_id) ||
-        !SharedModuleInfo::IsExportAllowed(new_extension, new_relative_path)) {
-      return false;
-    }
-
-    resource = new_extension->GetResource(new_relative_path);
-  } else {
-    // Check that the URL references a resource in the extension.
-    resource = extension->GetResource(path);
-  }
-
-  if (resource.empty())
-    return false;
-
-  // GetFilePath is a blocking function call.
-  const base::FilePath resource_file_path = resource.GetFilePath();
-  if (resource_file_path.empty())
-    return false;
-
-  *file_path = resource_file_path;
-  return true;
+  return extension_info_map->MapUrlToLocalFilePath(
+      file_url, use_blocking_api, file_path);
+#else
+  return false;
+#endif
 }
 
 content::BrowserPpapiHost::OnKeepaliveCallback
@@ -287,12 +210,17 @@ NaClBrowserDelegateImpl::GetOnKeepaliveCallback() {
 bool NaClBrowserDelegateImpl::IsNonSfiModeAllowed(
     const base::FilePath& profile_directory,
     const GURL& manifest_url) {
+#if defined(ENABLE_EXTENSIONS)
   const extensions::ExtensionSet* extension_set =
       &GetExtensionInfoMap(profile_directory)->extensions();
   return chrome::IsExtensionOrSharedModuleWhitelisted(
       manifest_url, extension_set, allowed_nonsfi_origins_);
+#else
+  return false;
+#endif
 }
 
+#if defined(ENABLE_EXTENSIONS)
 scoped_refptr<extensions::InfoMap> NaClBrowserDelegateImpl::GetExtensionInfoMap(
     const base::FilePath& profile_directory) {
   // Get the profile associated with the renderer.
@@ -300,6 +228,7 @@ scoped_refptr<extensions::InfoMap> NaClBrowserDelegateImpl::GetExtensionInfoMap(
   DCHECK(profile);
   scoped_refptr<extensions::InfoMap> extension_info_map =
       extensions::ExtensionSystem::Get(profile)->info_map();
-  DCHECK(extension_info_map);
+  DCHECK(extension_info_map.get());
   return extension_info_map;
 }
+#endif

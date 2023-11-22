@@ -23,6 +23,7 @@ import android.graphics.ColorFilter;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.support.v7.widget.CardView;
+import android.text.Spannable;
 import android.text.TextUtils;
 import android.transition.ChangeBounds;
 import android.transition.ChangeScroll;
@@ -38,9 +39,7 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
-import android.view.View.OnCreateContextMenuListener;
 import android.view.ViewGroup;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
@@ -75,7 +74,7 @@ public class ExpandingEntryCardView extends CardView {
         private final Drawable mSubHeaderIcon;
         private final String mText;
         private final Drawable mTextIcon;
-        private final String mPrimaryContentDescription;
+        private Spannable mPrimaryContentDescription;
         private final Intent mIntent;
         private final Drawable mAlternateIcon;
         private final Intent mAlternateIntent;
@@ -88,22 +87,9 @@ public class ExpandingEntryCardView extends CardView {
         private final String mThirdContentDescription;
         private final int mIconResourceId;
 
-        public Entry(int id, Drawable icon, String header, String subHeader, String text,
-                String primaryContentDescription, Intent intent, Drawable alternateIcon,
-                Intent alternateIntent, String alternateContentDescription,
-                boolean shouldApplyColor, boolean isEditable,
-                EntryContextMenuInfo entryContextMenuInfo, Drawable thirdIcon, Intent thirdIntent,
-                String thirdContentDescription, int iconResourceId) {
-            this(id, icon, header, subHeader, null, text, null, primaryContentDescription, intent,
-                    alternateIcon,
-                    alternateIntent, alternateContentDescription, shouldApplyColor, isEditable,
-                    entryContextMenuInfo, thirdIcon, thirdIntent, thirdContentDescription,
-                    iconResourceId);
-        }
-
         public Entry(int id, Drawable mainIcon, String header, String subHeader,
                 Drawable subHeaderIcon, String text, Drawable textIcon,
-                String primaryContentDescription, Intent intent,
+                Spannable primaryContentDescription, Intent intent,
                 Drawable alternateIcon, Intent alternateIntent, String alternateContentDescription,
                 boolean shouldApplyColor, boolean isEditable,
                 EntryContextMenuInfo entryContextMenuInfo, Drawable thirdIcon, Intent thirdIntent,
@@ -153,7 +139,7 @@ public class ExpandingEntryCardView extends CardView {
             return mTextIcon;
         }
 
-        String getPrimaryContentDescription() {
+        Spannable getPrimaryContentDescription() {
             return mPrimaryContentDescription;
         }
 
@@ -435,10 +421,10 @@ public class ExpandingEntryCardView extends CardView {
         Resources res = getResources();
 
         separator.setBackgroundColor(res.getColor(
-                R.color.expanding_entry_card_item_separator_color));
+                R.color.divider_line_color_light));
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                res.getDimensionPixelSize(R.dimen.expanding_entry_card_item_separator_height));
+                res.getDimensionPixelSize(R.dimen.divider_line_height));
         // The separator is aligned with the text in the entry. This is offset by a default
         // margin. If there is an icon present, the icon's width and margin are added
         int marginStart = res.getDimensionPixelSize(
@@ -573,15 +559,18 @@ public class ExpandingEntryCardView extends CardView {
                         if (entry.shouldApplyColor()) {
                             Drawable icon = entry.getIcon();
                             if (icon != null) {
+                                icon.mutate();
                                 icon.setColorFilter(mThemeColorFilter);
                             }
                         }
                         Drawable alternateIcon = entry.getAlternateIcon();
                         if (alternateIcon != null) {
+                            alternateIcon.mutate();
                             alternateIcon.setColorFilter(mThemeColorFilter);
                         }
                         Drawable thirdIcon = entry.getThirdIcon();
                         if (thirdIcon != null) {
+                            thirdIcon.mutate();
                             thirdIcon.setColorFilter(mThemeColorFilter);
                         }
                     }

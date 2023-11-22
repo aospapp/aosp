@@ -52,17 +52,17 @@
  *      x6 -- rup
  *      x7 -- rdn
  *      x12 -- switch index
- *      q0-q3 -- coefficient table
+ *      v0-v3 -- coefficient table
  *      x13 = -pitch
  *      x15 = top-row in
  *      x19 = bottom-row in
  * Output:
  *      x1 += 16
- *      q10,q11 -- 16 convolved columns
+ *      v10,v11 -- 16 convolved columns
  * Modifies:
  *      x10 = upper row pointer
  *      x11 = lower row pointer
- *      q12-q15 = temporary sums
+ *      v12-v15 = temporary sums
  */
 .macro fetch, max_r=MAX_R, labelc=1, labelnc=2, reg=x12 /*{{{*/
   .ifc \reg,x12 ; .set cc, 1 ; .else ; .set cc, 0 ; .endif
@@ -146,15 +146,15 @@ nop
  * When the buffer gets too big the buffer at [x9] is used.
  *
  * Input:
- *      q4-q11 -- convoltion window
+ *      v16-v31,v4-v11 -- convoltion window
  *      x9 -- pointer to additional convolution window data
  * Output:
  *      x9 -- updated buffer pointer (if used)
  *      d31 -- result to be stored
  * Modifies:
  *      x12 -- temp buffer pointer
- *      q12-q13 -- temporaries for load and vext operations.
- *      q14-q15 -- intermediate sums
+ *      v12-v13 -- temporaries for load and vext operations.
+ *      v14-v15 -- intermediate sums
  */
 #define TUNED_LIST1 8, 16
 .macro hconv1_8/*{{{*/
@@ -407,7 +407,7 @@ nop
             umlal2      v15.4s, v12.8h, v3.h[1]
             umlal       v14.4s, v13.4h, v3.h[1]
             umlal2      v15.4s, v13.8h, v3.h[1]
-    124:    ext         v12.16b, v3.16b, v4.16b, #7*2
+    124:    ext         v12.16b, v31.16b, v4.16b, #7*2
             ext         v13.16b, v9.16b, v10.16b, #7*2
             umlal       v14.4s, v12.4h, v3.h[0]
             umlal2      v15.4s, v12.8h, v3.h[0]
@@ -1055,64 +1055,47 @@ PRIVATE(fetch_generic_asm)
             ret
 END(fetch_generic_asm)
 
-/* Given values in q10 and q11, and an index in x11, sweep the (x11&15)th value
+/* Given values in v10 and v11, and an index in x11, sweep the (x11&15)th value
  * across to fill the rest of the register pair.  Used for filling the right
  * hand edge of the window when starting too close to the right hand edge of
  * the image.
+ * Also returns a dup-ed copy of the last element in v12 for the tail-fill
+ * case (this happens incidentally in common path, but must be done
+ * deliberately in the fast-out path).
  */
-PRIVATE(prefetch_clamp1)
-            sub         x11, xzr, x11
-            sub         x15, x15, x1
-            sub         x19, x19, x1
-            tbz         x11, #3, 1f
-            mov         v11.16b, v10.16b
-            sub         x1, x1, #16
-1:          mov         v12.16b, v11.16b
-            movi        v13.8b, #0xff
-            tbz         x11, #2, 1f
-            ext         v12.16b, v12.16b, v12.16b, #4*2
-            sub         x1, x1, #8
-            shl         v13.2d, v13.2d, #32
-1:          tbz         x11, #1, 1f
-            ext         v12.16b, v12.16b, v12.16b, #6*2
-            sub         x1, x1, #4
-            shl         v13.2d, v13.2d, #16
-1:          tbz         x11, #0, 1f
-            ext         v12.16b, v12.16b, v12.16b, #7*2
-            sub         x1, x1, #2
-            shl         v13.2d, v13.2d, #8
-1:          dup         v12.8h, v12.h[6]
-            sxtl        v13.8h, v13.8b
-            bif         v11.16b, v12.16b, v13.16b
-1:          tbz         x11, #3, 1f
-            mov         v10.16b, v11.16b
-            mov         v11.16b, v12.16b
-1:          sub         x11, xzr, x11
-            add         x15, x15, x1
-            add         x19, x19, x1
+PRIVATE(prefetch_clampright1)
+            ands        x12, x11, #15
+            beq         1f
+            sub         x12, x12, #1
+            sub         sp, sp, #64
+            st1         {v10.8h,v11.8h}, [sp]
+            add         x12, sp, x12, LSL #1
+            ld1r        {v12.8h}, [x12]
+            st1         {v12.8h}, [x12], #16
+            st1         {v12.8h}, [x12]
+            ld1         {v10.8h,v11.8h}, [sp]
+            add         sp, sp, #64
             ret
-END(prefetch_clamp1)
+1:          dup         v12.8h, v11.h[7]
+            ret
+END(prefetch_clampright1)
 
-PRIVATE(prefetch_clamp4)
-            sub         x11, xzr, x11
-            sub         x15, x15, x1
-            sub         x19, x19, x1
-            tbz         x11, #3, 1f
-            sub         x1, x1, #16     // what's this?
-            mov         v11.16b, v10.16b
-1:          dup         v12.2d, v11.d[1]
-            tbz         x11, #2, 1f
-            dup         v12.2d, v11.d[0]
-            sub         x1, x1, #8
-            dup         v11.2d, v11.d[0]
-1:          tbz         x11, #3, 1f
-            mov         v10.16b, v11.16b
-            mov         v11.16b, v12.16b
-1:          sub         x11, xzr, x11
-            add         x15, x15, x1
-            add         x19, x19, x1
+PRIVATE(prefetch_clampright4)
+            ands        x12, x11, #15
+            beq         1f
+            sub         x12, x12, #4
+            sub         sp, sp, #64
+            st1         {v10.8h,v11.8h}, [sp]
+            add         x12, sp, x12, LSL #1
+            ld1r        {v12.2d}, [x12]
+            st1         {v12.8h}, [x12], #16
+            st1         {v12.8h}, [x12]
+            ld1         {v10.8h,v11.8h}, [sp]
+            add         sp, sp, #64
             ret
-END(prefetch_clamp4)
+1:          dup         v12.2d, v11.d[1]
+            ret
+END(prefetch_clampright4)
 
 
 /* Helpers for prefetch, below.
@@ -1147,10 +1130,10 @@ END(prefetch_clamp4)
             prefetch_out \qa, \qb, \store, v10.16b, v11.16b, v11.d[1]
             bl          fetch_generic_asm
             b           2f
-3:          bl          prefetch_clamp\step
+3:          bl          prefetch_clampright\step
             prefetch_out \qa, \qb, \store, v10.16b, v11.16b, v11.d[1]
 4:          b           4f+4
-           //v12 contains pad word from prefetch_clamp call
+           //v12 contains pad word from prefetch_clampright call
             prefetch_out \qa, \qb, \store, v12.16b, v12.16b, v12.d[1]
   .if \rem > 0
             b           4f+4
@@ -1209,24 +1192,18 @@ END(prefetch_clamp4)
   .else
             dup         v9.2d, v10.d[0]
   .endif
-            tst         x10, #15
+            ands        x12, x10, #15
             beq         2f
-            sub         x12, xzr, x10
-            tbz         x10, #3, 1f
-            mov         v11.16b, v10.16b
-            mov         v10.16b, v9.16b
-1:          tbz         x12, #2, 1f
-            ext         v11.16b, v10.16b, v11.16b, #4*2
-            ext         v10.16b, v9.16b, v10.16b, #4*2
-  .if \step == 1
-  1:        tbz         x12, #1, 1f
-            ext         v11.16b, v10.16b, v11.16b, #2*2
-            ext         v10.16b, v9.16b, v10.16b, #2*2
-  1:        tbz         x12, #0, 1f
-            ext         v11.16b, v10.16b, v11.16b, #1*2
-            ext         v10.16b, v9.16b, v10.16b, #1*2
-  .endif
-1:          sub         x1, x1, x10
+            sub         sp, sp, #32
+            st1         {v10.8h,v11.8h}, [sp]
+            sub         x12, sp, x12, LSL #1
+            sub         sp, sp, #16
+            st1         {v9.8h}, [sp]
+            sub         sp, sp, #16
+            st1         {v9.8h}, [sp]
+            ld1         {v10.8h,v11.8h}, [x12]
+            add         sp, sp, #64
+            sub         x1, x1, x10
             sub         x15, x15, x10
             sub         x19, x19, x10
             bic         x10, x10, #15
@@ -1363,13 +1340,13 @@ END(prefetch_clamp4)
             b           3b
 4:          tbz         x3, #2, 1f
             st1         {v15.s}[0], [x0], #4
-            ext         v15.16b, v15.16b, v15.16b, #4*2
+            ext         v15.8b, v15.8b, v15.8b, #4
 1:          tbz         x3, #1, 1f
             st1         {v15.h}[0], [x0], #2
-            ext         v15.16b, v15.16b, v15.16b, #2*2
+            ext         v15.8b, v15.8b, v15.8b, #2
 1:          tbz         x3, #0, 5f
             st1         {v15.b}[0], [x0], #1
-            ext         v15.16b, v15.16b, v15.16b, #1*2
+            ext         v15.8b, v15.8b, v15.8b, #1
 5:          nop
 .endm
 
@@ -1438,7 +1415,6 @@ ENTRY(rsdIntrinsicBlurU1_K)
 
             ldr         x12, [sp, #88] // tab
 
-            add         x0, x0, x8
             add         x1, x1, x8
 
             cmp         x6, x5
@@ -1448,7 +1424,7 @@ ENTRY(rsdIntrinsicBlurU1_K)
             cmp         x8, x5
             csel        x8, x5, x8, hs
             cmp         x9, x5
-            csel        x9, x5, x8, hs
+            csel        x9, x5, x9, hs
 
             add         x4, x8, x9
             add         x4, x4, x3
@@ -1504,7 +1480,6 @@ ENTRY(rsdIntrinsicBlurU4_K)
 
             ldr         x12, [sp, #88]
 
-            add         x0, x0, x8, LSL #2
             add         x1, x1, x8, LSL #2
 
             cmp         x6, x5

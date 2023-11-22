@@ -11,13 +11,11 @@
 
 #include <string>
 
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
-
-using base::MakeAbsoluteFilePath;
 
 namespace base {
 
@@ -87,39 +85,24 @@ bool EvictFileFromSystemCache(const FilePath& file) {
 }
 #endif
 
-}  // namespace base
-
-namespace file_util {
-
-using base::DenyFilePermission;
-using base::GetPermissionInfo;
-using base::RestorePermissionInfo;
-
-std::wstring FilePathAsWString(const base::FilePath& path) {
-  return base::UTF8ToWide(path.value());
-}
-base::FilePath WStringAsFilePath(const std::wstring& path) {
-  return base::FilePath(base::WideToUTF8(path));
-}
-
-bool MakeFileUnreadable(const base::FilePath& path) {
+bool MakeFileUnreadable(const FilePath& path) {
   return DenyFilePermission(path, S_IRUSR | S_IRGRP | S_IROTH);
 }
 
-bool MakeFileUnwritable(const base::FilePath& path) {
+bool MakeFileUnwritable(const FilePath& path) {
   return DenyFilePermission(path, S_IWUSR | S_IWGRP | S_IWOTH);
 }
 
-PermissionRestorer::PermissionRestorer(const base::FilePath& path)
+FilePermissionRestorer::FilePermissionRestorer(const FilePath& path)
     : path_(path), info_(NULL), length_(0) {
   info_ = GetPermissionInfo(path_, &length_);
   DCHECK(info_ != NULL);
   DCHECK_NE(0u, length_);
 }
 
-PermissionRestorer::~PermissionRestorer() {
+FilePermissionRestorer::~FilePermissionRestorer() {
   if (!RestorePermissionInfo(path_, info_, length_))
     NOTREACHED();
 }
 
-}  // namespace file_util
+}  // namespace base

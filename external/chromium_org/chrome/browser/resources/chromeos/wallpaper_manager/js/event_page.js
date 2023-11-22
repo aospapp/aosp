@@ -150,7 +150,7 @@ SurpriseWallpaper.prototype.setRandomWallpaper_ = function(dateString) {
             Constants.AccessLastSurpriseWallpaperChangedDate,
             dateString,
             true);
-      }
+      };
       WallpaperUtil.setOnlineWallpaper(wallpaperURL, wallpaper.default_layout,
           onSuccess, self.retryLater_.bind(self));
     }
@@ -225,13 +225,14 @@ chrome.app.runtime.onLaunched.addListener(function() {
     width: WALLPAPER_PICKER_WIDTH,
     height: WALLPAPER_PICKER_HEIGHT,
     resizable: false,
-    transparentBackground: true
+    alphaEnabled: true
   }, function(w) {
     wallpaperPickerWindow = w;
     chrome.wallpaperPrivate.minimizeInactiveWindows();
     w.onClosed.addListener(function() {
       chrome.wallpaperPrivate.restoreMinimizedWindows();
     });
+    WallpaperUtil.testSendMessage('wallpaper-window-created');
   });
 });
 
@@ -271,3 +272,6 @@ chrome.storage.onChanged.addListener(function(changes, namespace) {
   }
 });
 
+chrome.alarms.onAlarm.addListener(function() {
+  SurpriseWallpaper.getInstance().next();
+});

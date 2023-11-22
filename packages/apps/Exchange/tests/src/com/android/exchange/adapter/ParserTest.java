@@ -20,6 +20,8 @@ import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.text.TextUtils;
 
+import com.android.exchange.service.EasService;
+
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.IOException;
@@ -34,7 +36,7 @@ public class ParserTest extends AndroidTestCase {
 
         public TestParser(InputStream in, Object[] expectedData) throws IOException{
             super(in);
-            setDebug(true);
+            EasService.setProtocolLogging(true);
             mExpectedData = expectedData == null ? null
                 : new ArrayDeque<Object>(Arrays.asList(expectedData));
         }

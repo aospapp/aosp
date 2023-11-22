@@ -17,9 +17,8 @@
 #include "chrome/browser/ui/host_desktop.h"
 #include "chrome/browser/ui/views/browser_dialogs.h"
 #include "chrome/common/pref_names.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
-#include "grit/theme_resources.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/simple_menu_model.h"
@@ -173,6 +172,7 @@ class TaskManagerView : public views::ButtonListener,
   // views::DialogDelegateView:
   virtual bool CanResize() const OVERRIDE;
   virtual bool CanMaximize() const OVERRIDE;
+  virtual bool CanMinimize() const OVERRIDE;
   virtual bool ExecuteWindowsCommand(int command_id) OVERRIDE;
   virtual base::string16 GetWindowTitle() const OVERRIDE;
   virtual std::string GetWindowName() const OVERRIDE;
@@ -325,13 +325,19 @@ void TaskManagerView::Init() {
                                      ui::TableColumn::RIGHT, -1, 0));
   columns_.back().sortable = true;
   columns_.push_back(ui::TableColumn(
-        IDS_TASK_MANAGER_NACL_DEBUG_STUB_PORT_COLUMN,
-        ui::TableColumn::RIGHT, -1, 0));
+      IDS_TASK_MANAGER_NACL_DEBUG_STUB_PORT_COLUMN,
+      ui::TableColumn::RIGHT, -1, 0));
   columns_.back().sortable = true;
   columns_.push_back(
       ui::TableColumn(IDS_TASK_MANAGER_JAVASCRIPT_MEMORY_ALLOCATED_COLUMN,
                       ui::TableColumn::RIGHT, -1, 0));
   columns_.back().sortable = true;
+  // TODO(port) http://crbug.com/120488 for non-Linux.
+#if defined(OS_LINUX)
+  columns_.push_back(ui::TableColumn(IDS_TASK_MANAGER_IDLE_WAKEUPS_COLUMN,
+                                     ui::TableColumn::RIGHT, -1, 0));
+  columns_.back().sortable = true;
+#endif
 
   tab_table_ = new views::TableView(
       table_model_.get(), columns_, views::ICON_AND_TEXT, false);
@@ -351,12 +357,13 @@ void TaskManagerView::Init() {
                                   false);
   tab_table_->SetColumnVisibility(IDS_TASK_MANAGER_SQLITE_MEMORY_USED_COLUMN,
                                   false);
+  tab_table_->SetColumnVisibility(IDS_TASK_MANAGER_NACL_DEBUG_STUB_PORT_COLUMN,
+                                  false);
   tab_table_->SetColumnVisibility(
       IDS_TASK_MANAGER_JAVASCRIPT_MEMORY_ALLOCATED_COLUMN, false);
-  tab_table_->SetColumnVisibility(IDS_TASK_MANAGER_GOATS_TELEPORTED_COLUMN,
-                                  false);
   tab_table_->SetColumnVisibility(IDS_TASK_MANAGER_GDI_HANDLES_COLUMN, false);
   tab_table_->SetColumnVisibility(IDS_TASK_MANAGER_USER_HANDLES_COLUMN, false);
+  tab_table_->SetColumnVisibility(IDS_TASK_MANAGER_IDLE_WAKEUPS_COLUMN, false);
 
   UpdateStatsCounters();
   tab_table_->SetObserver(this);
@@ -496,9 +503,9 @@ void TaskManagerView::Show(Browser* browser) {
     focus_manager->SetFocusedView(instance_->tab_table_);
 
 #if defined(USE_ASH)
+  gfx::NativeWindow native_window = instance_->GetWidget()->GetNativeWindow();
   ash::SetShelfItemDetailsForDialogWindow(
-      instance_->GetWidget()->GetNativeWindow(),
-      IDR_ASH_SHELF_ICON_TASK_MANAGER);
+      native_window, IDR_ASH_SHELF_ICON_TASK_MANAGER, native_window->title());
 #endif
 }
 
@@ -521,6 +528,10 @@ bool TaskManagerView::CanResize() const {
 }
 
 bool TaskManagerView::CanMaximize() const {
+  return true;
+}
+
+bool TaskManagerView::CanMinimize() const {
   return true;
 }
 
@@ -591,14 +602,13 @@ void TaskManagerView::ShowContextMenuForView(views::View* source,
        i != columns_.end(); ++i) {
     menu_model.AddCheckItem(i->id, l10n_util::GetStringUTF16(i->id));
   }
-  menu_runner_.reset(new views::MenuRunner(&menu_model));
+  menu_runner_.reset(
+      new views::MenuRunner(&menu_model, views::MenuRunner::CONTEXT_MENU));
   if (menu_runner_->RunMenuAt(GetWidget(),
                               NULL,
                               gfx::Rect(point, gfx::Size()),
                               views::MENU_ANCHOR_TOPLEFT,
-                              source_type,
-                              views::MenuRunner::CONTEXT_MENU) ==
-      views::MenuRunner::MENU_DELETED) {
+                              source_type) == views::MenuRunner::MENU_DELETED) {
     return;
   }
 }

@@ -212,6 +212,7 @@ const char kOutputFile[] = "output-file";
 // TODO(gab): Rename setup.exe itself altogether and use the same binary for
 // Active Setup.
 const wchar_t kActiveSetupExe[] = L"chrmstp.exe";
+const wchar_t kAppLauncherGuid[] = L"{FDA71E6F-AC4C-4a00-8B70-9958A68906BF}";
 const wchar_t kChromeAppHostExe[] = L"app_host.exe";
 const wchar_t kChromeDll[] = L"chrome.dll";
 const wchar_t kChromeChildDll[] = L"chrome_child.dll";
@@ -224,8 +225,6 @@ const wchar_t kChromeLauncherExe[] = L"chrome_launcher.exe";
 const wchar_t kChromeMetroDll[] = L"metro_driver.dll";
 const wchar_t kChromeNewExe[] = L"new_chrome.exe";
 const wchar_t kChromeOldExe[] = L"old_chrome.exe";
-const wchar_t kCmdInstallApp[] = L"install-application";
-const wchar_t kCmdInstallExtension[] = L"install-extension";
 const wchar_t kCmdOnOsUpgrade[] = L"on-os-upgrade";
 const wchar_t kCmdQueryEULAAcceptance[] = L"query-eula-acceptance";
 const wchar_t kCmdQuickEnableApplicationHost[] =

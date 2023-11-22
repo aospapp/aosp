@@ -5,8 +5,8 @@
 #include "ui/views/window/dialog_delegate.h"
 
 #include "base/logging.h"
-#include "grit/ui_strings.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/strings/grit/ui_strings.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/button/label_button.h"
@@ -31,11 +31,20 @@ DialogDelegate::~DialogDelegate() {
 
 // static
 Widget* DialogDelegate::CreateDialogWidget(WidgetDelegate* delegate,
-                                           gfx::NativeView context,
+                                           gfx::NativeWindow context,
                                            gfx::NativeView parent) {
+  return CreateDialogWidgetWithBounds(delegate, context, parent, gfx::Rect());
+}
+
+// static
+Widget* DialogDelegate::CreateDialogWidgetWithBounds(WidgetDelegate* delegate,
+                                                     gfx::NativeWindow context,
+                                                     gfx::NativeView parent,
+                                                     const gfx::Rect& bounds) {
   views::Widget* widget = new views::Widget;
   views::Widget::InitParams params;
   params.delegate = delegate;
+  params.bounds = bounds;
   DialogDelegate* dialog = delegate->AsDialogDelegate();
 
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS)

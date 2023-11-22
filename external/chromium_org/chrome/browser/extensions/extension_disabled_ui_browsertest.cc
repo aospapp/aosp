@@ -4,7 +4,6 @@
 
 #include "base/files/file_path.h"
 #include "base/files/scoped_temp_dir.h"
-#include "base/run_loop.h"
 #include "base/threading/sequenced_worker_pool.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
@@ -19,14 +18,16 @@
 #include "chrome/common/chrome_switches.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/test/test_utils.h"
-#include "content/test/net/url_request_prepackaged_interceptor.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/browser/extension_system.h"
 #include "extensions/common/extension.h"
+#include "net/url_request/test_url_request_interceptor.h"
 #include "net/url_request/url_fetcher.h"
 #include "sync/protocol/extension_specifics.pb.h"
 #include "sync/protocol/sync.pb.h"
 
+using content::BrowserThread;
 using extensions::Extension;
 using extensions::ExtensionRegistry;
 using extensions::ExtensionPrefs;
@@ -41,22 +42,24 @@ class ExtensionDisabledGlobalErrorTest : public ExtensionBrowserTest {
 
   virtual void SetUpOnMainThread() OVERRIDE {
     EXPECT_TRUE(scoped_temp_dir_.CreateUniqueTempDir());
-    service_ = browser()->profile()->GetExtensionService();
+    service_ = extensions::ExtensionSystem::Get(
+        browser()->profile())->extension_service();
     registry_ = ExtensionRegistry::Get(browser()->profile());
-    base::FilePath pem_path = test_data_dir_.
-        AppendASCII("permissions_increase").AppendASCII("permissions.pem");
+    const base::FilePath test_dir =
+        test_data_dir_.AppendASCII("permissions_increase");
+    const base::FilePath pem_path = test_dir.AppendASCII("permissions.pem");
     path_v1_ = PackExtensionWithOptions(
-        test_data_dir_.AppendASCII("permissions_increase").AppendASCII("v1"),
+        test_dir.AppendASCII("v1"),
         scoped_temp_dir_.path().AppendASCII("permissions1.crx"),
         pem_path,
         base::FilePath());
     path_v2_ = PackExtensionWithOptions(
-        test_data_dir_.AppendASCII("permissions_increase").AppendASCII("v2"),
+        test_dir.AppendASCII("v2"),
         scoped_temp_dir_.path().AppendASCII("permissions2.crx"),
         pem_path,
         base::FilePath());
     path_v3_ = PackExtensionWithOptions(
-        test_data_dir_.AppendASCII("permissions_increase").AppendASCII("v3"),
+        test_dir.AppendASCII("v3"),
         scoped_temp_dir_.path().AppendASCII("permissions3.crx"),
         pem_path,
         base::FilePath());
@@ -89,8 +92,7 @@ class ExtensionDisabledGlobalErrorTest : public ExtensionBrowserTest {
     size_t size_before = registry_->enabled_extensions().size();
     if (UpdateExtension(extension->id(), crx_path, expected_change))
       return NULL;
-    content::BrowserThread::GetBlockingPool()->FlushForTesting();
-    base::RunLoop().RunUntilIdle();
+    content::RunAllBlockingPoolTasksUntilIdle();
     EXPECT_EQ(size_before + expected_change,
               registry_->enabled_extensions().size());
     if (registry_->disabled_extensions().size() != 1u)
@@ -207,7 +209,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionDisabledGlobalErrorTest,
   InstallIncreasingPermissionExtensionV1();
 
   // Note: This interceptor gets requests on the IO thread.
-  content::URLLocalHostRequestPrepackagedInterceptor interceptor;
+  net::LocalHostTestURLRequestInterceptor interceptor(
+      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO),
+      BrowserThread::GetBlockingPool()->GetTaskRunnerWithShutdownBehavior(
+          base::SequencedWorkerPool::SKIP_ON_SHUTDOWN));
   net::URLFetcher::SetEnableInterceptionForTests(true);
   interceptor.SetResponseIgnoreQuery(
       GURL("http://localhost/autoupdate/updates.xml"),
@@ -224,8 +229,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionDisabledGlobalErrorTest,
   EXPECT_FALSE(sync_service->ProcessExtensionSyncData(sync_data));
 
   WaitForExtensionInstall();
-  content::BrowserThread::GetBlockingPool()->FlushForTesting();
-  base::RunLoop().RunUntilIdle();
+  content::RunAllBlockingPoolTasksUntilIdle();
 
   extension = service_->GetExtensionById(extension_id, true);
   ASSERT_TRUE(extension);
@@ -244,7 +248,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionDisabledGlobalErrorTest, RemoteInstall) {
       ExtensionSyncService::Get(browser()->profile());
 
   // Note: This interceptor gets requests on the IO thread.
-  content::URLLocalHostRequestPrepackagedInterceptor interceptor;
+  net::LocalHostTestURLRequestInterceptor interceptor(
+      BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO),
+      BrowserThread::GetBlockingPool()->GetTaskRunnerWithShutdownBehavior(
+          base::SequencedWorkerPool::SKIP_ON_SHUTDOWN));
   net::URLFetcher::SetEnableInterceptionForTests(true);
   interceptor.SetResponseIgnoreQuery(
       GURL("http://localhost/autoupdate/updates.xml"),
@@ -275,8 +282,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionDisabledGlobalErrorTest, RemoteInstall) {
       extensions::ExtensionSyncData(sync_data)));
 
   WaitForExtensionInstall();
-  content::BrowserThread::GetBlockingPool()->FlushForTesting();
-  base::RunLoop().RunUntilIdle();
+  content::RunAllBlockingPoolTasksUntilIdle();
 
   const Extension* extension = service_->GetExtensionById(extension_id, true);
   ASSERT_TRUE(extension);

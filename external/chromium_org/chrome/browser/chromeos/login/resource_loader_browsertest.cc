@@ -5,8 +5,8 @@
 #include <string>
 
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_switches.h"
@@ -14,7 +14,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/navigation_details.h"
 #include "content/public/test/browser_test_utils.h"
-#include "grit/browser_resources.h"
+#include "grit/login_resources.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "url/gurl.h"
 

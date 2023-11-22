@@ -31,6 +31,10 @@ public abstract class ContentSwitches {
     // SelfBrailleService.
     public static final String ACCESSIBILITY_DEBUG_BRAILLE_SERVICE = "debug-braille-service";
 
+    // Indicates Chrome is running for performance benchmark.
+    public static final String RUNNING_PERFORMANCE_BENCHMARK =
+            "running-performance-benchmark";
+
     // Disables exposing web content using Android's accessibility
     // framework and enables the (older) javascript injection accessibility.
     // TODO(dmazzoni): remove this after native accessibility is in stable.
@@ -65,10 +69,6 @@ public abstract class ContentSwitches {
 
     // Native switch - chrome_switches::kDisablePopupBlocking
     public static final String DISABLE_POPUP_BLOCKING = "disable-popup-blocking";
-
-    // Native switch - content_switches::kDisableOverlayFullscreenVideoSubtitle
-    public static final String DISABLE_OVERLAY_FULLSCREEN_VIDEO_SUBTITLE =
-            "disable-overlay-fullscreen-video-subtitle";
 
     // Native switch - gfx_switches::kForceDeviceScaleFactor
     public static final String FORCE_DEVICE_SCALE_FACTOR =

@@ -7,10 +7,11 @@
 #include <algorithm>
 
 #include "base/bind.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/message_loop/message_loop.h"
 #include "base/threading/thread_restrictions.h"
+#include "chrome/browser/chromeos/login/screen_manager.h"
 #include "chrome/browser/chromeos/login/screens/error_screen.h"
 #include "chrome/browser/chromeos/login/screens/screen_observer.h"
 #include "chrome/browser/chromeos/login/screens/update_screen_actor.h"
@@ -82,6 +83,12 @@ bool UpdateScreen::HasInstance(UpdateScreen* inst) {
   InstanceSet& instance_set = GetInstanceSet();
   InstanceSet::iterator found = instance_set.find(inst);
   return (found != instance_set.end());
+}
+
+// static
+UpdateScreen* UpdateScreen::Get(ScreenManager* manager) {
+  return static_cast<UpdateScreen*>(
+      manager->GetScreen(WizardController::kUpdateScreenName));
 }
 
 UpdateScreen::UpdateScreen(
@@ -454,8 +461,7 @@ void UpdateScreen::OnActorDestroyed(UpdateScreenActor* actor) {
     actor_ = NULL;
 }
 
-void UpdateScreen::OnConnectToNetworkRequested(
-    const std::string& service_path) {
+void UpdateScreen::OnConnectToNetworkRequested() {
   if (state_ == STATE_ERROR) {
     LOG(WARNING) << "Hiding error message since AP was reselected";
     StartUpdateCheck();

@@ -62,16 +62,18 @@ public class ExtractDecodeEditEncodeMuxTest extends AndroidTestCase {
     private static final File OUTPUT_FILENAME_DIR = Environment.getExternalStorageDirectory();
 
     // parameters for the video encoder
-    private static final String OUTPUT_VIDEO_MIME_TYPE = "video/avc"; // H.264 Advanced Video Coding
-    private static final int OUTPUT_VIDEO_BIT_RATE = 2000000; // 2Mbps
-    private static final int OUTPUT_VIDEO_FRAME_RATE = 15; // 15fps
+                                                                // H.264 Advanced Video Coding
+    private static final String OUTPUT_VIDEO_MIME_TYPE = MediaFormat.MIMETYPE_VIDEO_AVC;
+    private static final int OUTPUT_VIDEO_BIT_RATE = 2000000;   // 2Mbps
+    private static final int OUTPUT_VIDEO_FRAME_RATE = 15;      // 15fps
     private static final int OUTPUT_VIDEO_IFRAME_INTERVAL = 10; // 10 seconds between I-frames
     private static final int OUTPUT_VIDEO_COLOR_FORMAT =
             MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface;
 
     // parameters for the audio encoder
-    private static final String OUTPUT_AUDIO_MIME_TYPE = "audio/mp4a-latm"; // Advanced Audio Coding
-    private static final int OUTPUT_AUDIO_CHANNEL_COUNT = 2; // Must match the input stream.
+                                                                // Advanced Audio Coding
+    private static final String OUTPUT_AUDIO_MIME_TYPE = MediaFormat.MIMETYPE_AUDIO_AAC;
+    private static final int OUTPUT_AUDIO_CHANNEL_COUNT = 2;    // Must match the input stream.
     private static final int OUTPUT_AUDIO_BIT_RATE = 128 * 1024;
     private static final int OUTPUT_AUDIO_AAC_PROFILE =
             MediaCodecInfo.CodecProfileLevel.AACObjectHE;
@@ -259,21 +261,45 @@ public class ExtractDecodeEditEncodeMuxTest extends AndroidTestCase {
         // Exception that may be thrown during release.
         Exception exception = null;
 
-        MediaCodecInfo videoCodecInfo = selectCodec(OUTPUT_VIDEO_MIME_TYPE);
-        if (videoCodecInfo == null) {
-            // Don't fail CTS if they don't have an AVC codec (not here, anyway).
-            Log.e(TAG, "Unable to find an appropriate codec for " + OUTPUT_VIDEO_MIME_TYPE);
-            return;
-        }
-        if (VERBOSE) Log.d(TAG, "video found codec: " + videoCodecInfo.getName());
+        MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
 
-        MediaCodecInfo audioCodecInfo = selectCodec(OUTPUT_AUDIO_MIME_TYPE);
-        if (audioCodecInfo == null) {
-            // Don't fail CTS if they don't have an AAC codec (not here, anyway).
-            Log.e(TAG, "Unable to find an appropriate codec for " + OUTPUT_AUDIO_MIME_TYPE);
+        // We avoid the device-specific limitations on width and height by using values
+        // that are multiples of 16, which all tested devices seem to be able to handle.
+        MediaFormat outputVideoFormat =
+                MediaFormat.createVideoFormat(OUTPUT_VIDEO_MIME_TYPE, mWidth, mHeight);
+
+        // Set some properties. Failing to specify some of these can cause the MediaCodec
+        // configure() call to throw an unhelpful exception.
+        outputVideoFormat.setInteger(
+                MediaFormat.KEY_COLOR_FORMAT, OUTPUT_VIDEO_COLOR_FORMAT);
+        outputVideoFormat.setInteger(MediaFormat.KEY_BIT_RATE, OUTPUT_VIDEO_BIT_RATE);
+        outputVideoFormat.setInteger(MediaFormat.KEY_FRAME_RATE, OUTPUT_VIDEO_FRAME_RATE);
+        outputVideoFormat.setInteger(
+                MediaFormat.KEY_I_FRAME_INTERVAL, OUTPUT_VIDEO_IFRAME_INTERVAL);
+        if (VERBOSE) Log.d(TAG, "video format: " + outputVideoFormat);
+
+        String videoEncoderName = mcl.findEncoderForFormat(outputVideoFormat);
+        if (videoEncoderName == null) {
+            // Don't fail CTS if they don't have an AVC codec (not here, anyway).
+            Log.e(TAG, "Unable to find an appropriate codec for " + outputVideoFormat);
             return;
         }
-        if (VERBOSE) Log.d(TAG, "audio found codec: " + audioCodecInfo.getName());
+        if (VERBOSE) Log.d(TAG, "video found codec: " + videoEncoderName);
+
+        MediaFormat outputAudioFormat =
+                MediaFormat.createAudioFormat(
+                        OUTPUT_AUDIO_MIME_TYPE, OUTPUT_AUDIO_SAMPLE_RATE_HZ,
+                        OUTPUT_AUDIO_CHANNEL_COUNT);
+        outputAudioFormat.setInteger(MediaFormat.KEY_BIT_RATE, OUTPUT_AUDIO_BIT_RATE);
+        outputAudioFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, OUTPUT_AUDIO_AAC_PROFILE);
+
+        String audioEncoderName = mcl.findEncoderForFormat(outputAudioFormat);
+        if (audioEncoderName == null) {
+            // Don't fail CTS if they don't have an AAC codec (not here, anyway).
+            Log.e(TAG, "Unable to find an appropriate codec for " + outputAudioFormat);
+            return;
+        }
+        if (VERBOSE) Log.d(TAG, "audio found codec: " + audioEncoderName);
 
         MediaExtractor videoExtractor = null;
         MediaExtractor audioExtractor = null;
@@ -293,32 +319,17 @@ public class ExtractDecodeEditEncodeMuxTest extends AndroidTestCase {
                 assertTrue("missing video track in test video", videoInputTrack != -1);
                 MediaFormat inputFormat = videoExtractor.getTrackFormat(videoInputTrack);
 
-                // We avoid the device-specific limitations on width and height by using values
-                // that are multiples of 16, which all tested devices seem to be able to handle.
-                MediaFormat outputVideoFormat =
-                        MediaFormat.createVideoFormat(OUTPUT_VIDEO_MIME_TYPE, mWidth, mHeight);
-
-                // Set some properties. Failing to specify some of these can cause the MediaCodec
-                // configure() call to throw an unhelpful exception.
-                outputVideoFormat.setInteger(
-                        MediaFormat.KEY_COLOR_FORMAT, OUTPUT_VIDEO_COLOR_FORMAT);
-                outputVideoFormat.setInteger(MediaFormat.KEY_BIT_RATE, OUTPUT_VIDEO_BIT_RATE);
-                outputVideoFormat.setInteger(MediaFormat.KEY_FRAME_RATE, OUTPUT_VIDEO_FRAME_RATE);
-                outputVideoFormat.setInteger(
-                        MediaFormat.KEY_I_FRAME_INTERVAL, OUTPUT_VIDEO_IFRAME_INTERVAL);
-                if (VERBOSE) Log.d(TAG, "video format: " + outputVideoFormat);
-
                 // Create a MediaCodec for the desired codec, then configure it as an encoder with
                 // our desired properties. Request a Surface to use for input.
                 AtomicReference<Surface> inputSurfaceReference = new AtomicReference<Surface>();
                 videoEncoder = createVideoEncoder(
-                        videoCodecInfo, outputVideoFormat, inputSurfaceReference);
+                        videoEncoderName, outputVideoFormat, inputSurfaceReference);
                 inputSurface = new InputSurface(inputSurfaceReference.get());
                 inputSurface.makeCurrent();
                 // Create a MediaCodec for the decoder, based on the extractor's format.
                 outputSurface = new OutputSurface();
                 outputSurface.changeFragmentShader(FRAGMENT_SHADER);
-                videoDecoder = createVideoDecoder(inputFormat, outputSurface.getSurface());
+                videoDecoder = createVideoDecoder(mcl, inputFormat, outputSurface.getSurface());
             }
 
             if (mCopyAudio) {
@@ -327,18 +338,11 @@ public class ExtractDecodeEditEncodeMuxTest extends AndroidTestCase {
                 assertTrue("missing audio track in test video", audioInputTrack != -1);
                 MediaFormat inputFormat = audioExtractor.getTrackFormat(audioInputTrack);
 
-                MediaFormat outputAudioFormat =
-                        MediaFormat.createAudioFormat(
-                                OUTPUT_AUDIO_MIME_TYPE, OUTPUT_AUDIO_SAMPLE_RATE_HZ,
-                                OUTPUT_AUDIO_CHANNEL_COUNT);
-                outputAudioFormat.setInteger(MediaFormat.KEY_BIT_RATE, OUTPUT_AUDIO_BIT_RATE);
-                outputAudioFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, OUTPUT_AUDIO_AAC_PROFILE);
-
                 // Create a MediaCodec for the desired codec, then configure it as an encoder with
                 // our desired properties. Request a Surface to use for input.
-                audioEncoder = createAudioEncoder(audioCodecInfo, outputAudioFormat);
+                audioEncoder = createAudioEncoder(audioEncoderName, outputAudioFormat);
                 // Create a MediaCodec for the decoder, based on the extractor's format.
-                audioDecoder = createAudioDecoder(inputFormat);
+                audioDecoder = createAudioDecoder(mcl, inputFormat);
             }
 
             // Creates a muxer but do not start or add tracks just yet.
@@ -517,9 +521,9 @@ public class ExtractDecodeEditEncodeMuxTest extends AndroidTestCase {
      * @param inputFormat the format of the stream to decode
      * @param surface into which to decode the frames
      */
-    private MediaCodec createVideoDecoder(MediaFormat inputFormat, Surface surface)
-            throws IOException {
-        MediaCodec decoder = MediaCodec.createDecoderByType(getMimeTypeFor(inputFormat));
+    private MediaCodec createVideoDecoder(
+            MediaCodecList mcl, MediaFormat inputFormat, Surface surface) throws IOException {
+        MediaCodec decoder = MediaCodec.createByCodecName(mcl.findDecoderForFormat(inputFormat));
         decoder.configure(inputFormat, surface, null, 0);
         decoder.start();
         return decoder;
@@ -536,11 +540,11 @@ public class ExtractDecodeEditEncodeMuxTest extends AndroidTestCase {
      * @param surfaceReference to store the surface to use as input
      */
     private MediaCodec createVideoEncoder(
-            MediaCodecInfo codecInfo,
+            String codecName,
             MediaFormat format,
             AtomicReference<Surface> surfaceReference)
             throws IOException {
-        MediaCodec encoder = MediaCodec.createByCodecName(codecInfo.getName());
+        MediaCodec encoder = MediaCodec.createByCodecName(codecName);
         encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         // Must be called before start() is.
         surfaceReference.set(encoder.createInputSurface());
@@ -553,9 +557,9 @@ public class ExtractDecodeEditEncodeMuxTest extends AndroidTestCase {
      *
      * @param inputFormat the format of the stream to decode
      */
-    private MediaCodec createAudioDecoder(MediaFormat inputFormat)
-            throws IOException {
-        MediaCodec decoder = MediaCodec.createDecoderByType(getMimeTypeFor(inputFormat));
+    private MediaCodec createAudioDecoder(
+            MediaCodecList mcl, MediaFormat inputFormat) throws IOException {
+        MediaCodec decoder = MediaCodec.createByCodecName(mcl.findDecoderForFormat(inputFormat));
         decoder.configure(inputFormat, null, null, 0);
         decoder.start();
         return decoder;
@@ -567,9 +571,9 @@ public class ExtractDecodeEditEncodeMuxTest extends AndroidTestCase {
      * @param codecInfo of the codec to use
      * @param format of the stream to be produced
      */
-    private MediaCodec createAudioEncoder(MediaCodecInfo codecInfo, MediaFormat format) 
+    private MediaCodec createAudioEncoder(String codecName, MediaFormat format)
             throws IOException {
-        MediaCodec encoder = MediaCodec.createByCodecName(codecInfo.getName());
+        MediaCodec encoder = MediaCodec.createByCodecName(codecName);
         encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         encoder.start();
         return encoder;
@@ -1126,28 +1130,4 @@ public class ExtractDecodeEditEncodeMuxTest extends AndroidTestCase {
     private static String getMimeTypeFor(MediaFormat format) {
         return format.getString(MediaFormat.KEY_MIME);
     }
-
-    /**
-     * Returns the first codec capable of encoding the specified MIME type, or null if no match was
-     * found.
-     */
-    private static MediaCodecInfo selectCodec(String mimeType) {
-        int numCodecs = MediaCodecList.getCodecCount();
-        for (int i = 0; i < numCodecs; i++) {
-            MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
-
-            if (!codecInfo.isEncoder()) {
-                continue;
-            }
-
-            String[] types = codecInfo.getSupportedTypes();
-            for (int j = 0; j < types.length; j++) {
-                if (types[j].equalsIgnoreCase(mimeType)) {
-                    return codecInfo;
-                }
-            }
-        }
-        return null;
-    }
-
 }

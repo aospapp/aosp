@@ -181,7 +181,7 @@ class ChildHelper {
         for (int i = 0; i < count; i++) {
             final View view = mHiddenViews.get(i);
             RecyclerView.ViewHolder holder = mCallback.getChildViewHolder(view);
-            if (holder.getPosition() == position && !holder.isInvalid() &&
+            if (holder.getLayoutPosition() == position && !holder.isInvalid() &&
                     (type == RecyclerView.INVALID_TYPE || holder.getItemViewType() == type)) {
                 return view;
             }
@@ -207,6 +207,9 @@ class ChildHelper {
         }
         mCallback.attachViewToParent(child, offset, layoutParams);
         mBucket.insert(offset, hidden);
+        if (hidden) {
+            mHiddenViews.add(child);
+        }
         if (DEBUG) {
             Log.d(TAG, "attach view to parent index:" + index + ",off:" + offset + "," +
                     "h:" + hidden + ", " + this);
@@ -311,7 +314,7 @@ class ChildHelper {
 
     @Override
     public String toString() {
-        return mBucket.toString();
+        return mBucket.toString() + ", hidden list:" + mHiddenViews.size();
     }
 
     /**

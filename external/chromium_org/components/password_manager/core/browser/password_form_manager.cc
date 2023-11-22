@@ -5,10 +5,13 @@
 #include "components/password_manager/core/browser/password_form_manager.h"
 
 #include <algorithm>
+#include <set>
 
 #include "base/metrics/histogram.h"
+#include "base/metrics/user_metrics.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "components/autofill/core/browser/autofill_manager.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/validation.h"
@@ -53,6 +56,13 @@ void LogPasswordGenerationSubmissionEvent(
                             event, SUBMISSION_EVENT_ENUM_COUNT);
 }
 
+PasswordForm CopyAndModifySSLValidity(const PasswordForm& orig,
+                                      bool ssl_valid) {
+  PasswordForm result(orig);
+  result.ssl_valid = ssl_valid;
+  return result;
+}
+
 }  // namespace
 
 PasswordFormManager::PasswordFormManager(PasswordManager* password_manager,
@@ -61,7 +71,7 @@ PasswordFormManager::PasswordFormManager(PasswordManager* password_manager,
                                          const PasswordForm& observed_form,
                                          bool ssl_valid)
     : best_matches_deleter_(&best_matches_),
-      observed_form_(observed_form),
+      observed_form_(CopyAndModifySSLValidity(observed_form, ssl_valid)),
       is_new_login_(true),
       has_generated_password_(false),
       password_manager_(password_manager),
@@ -74,7 +84,6 @@ PasswordFormManager::PasswordFormManager(PasswordManager* password_manager,
       submit_result_(kSubmitResultNotSubmitted) {
   if (observed_form_.origin.is_valid())
     base::SplitString(observed_form_.origin.path(), '/', &form_path_tokens_);
-  observed_form_.ssl_valid = ssl_valid;
 }
 
 PasswordFormManager::~PasswordFormManager() {
@@ -87,55 +96,56 @@ PasswordFormManager::~PasswordFormManager() {
 int PasswordFormManager::GetActionsTaken() {
   return user_action_ + kUserActionMax * (manager_action_ +
          kManagerActionMax * submit_result_);
-};
+}
 
 // TODO(timsteele): use a hash of some sort in the future?
-bool PasswordFormManager::DoesManage(const PasswordForm& form,
-                                     ActionMatch action_match) const {
-  if (form.scheme != PasswordForm::SCHEME_HTML)
-      return observed_form_.signon_realm == form.signon_realm;
+PasswordFormManager::MatchResultMask PasswordFormManager::DoesManage(
+    const PasswordForm& form) const {
+  // Non-HTML form case.
+  if (observed_form_.scheme != PasswordForm::SCHEME_HTML ||
+      form.scheme != PasswordForm::SCHEME_HTML) {
+    const bool forms_match = observed_form_.signon_realm == form.signon_realm &&
+                             observed_form_.scheme == form.scheme;
+    return forms_match ? RESULT_COMPLETE_MATCH : RESULT_NO_MATCH;
+  }
 
   // HTML form case.
-  // At a minimum, username and password element must match.
-  if (!((form.username_element == observed_form_.username_element) &&
-        (form.password_element == observed_form_.password_element))) {
-    return false;
-  }
+  MatchResultMask result = RESULT_NO_MATCH;
 
-  // When action match is required, the action URL must match, but
-  // the form is allowed to have an empty action URL (See bug 1107719).
-  // Otherwise ignore action URL, this is to allow saving password form with
-  // dynamically changed action URL (See bug 27246).
-  if (form.action.is_valid() && (form.action != observed_form_.action)) {
-    if (action_match == ACTION_MATCH_REQUIRED)
-      return false;
-  }
-
+  // Easiest case of matching origins.
+  bool origins_match = form.origin == observed_form_.origin;
   // If this is a replay of the same form in the case a user entered an invalid
   // password, the origin of the new form may equal the action of the "first"
-  // form.
-  if (!((form.origin == observed_form_.origin) ||
-        (form.origin == observed_form_.action))) {
-    if (form.origin.SchemeIsSecure() &&
-        !observed_form_.origin.SchemeIsSecure()) {
-      // Compare origins, ignoring scheme. There is no easy way to do this
-      // with GURL because clearing the scheme would result in an invalid url.
-      // This is for some sites (such as Hotmail) that begin on an http page and
-      // head to https for the retry when password was invalid.
-      std::string::const_iterator after_scheme1 = form.origin.spec().begin() +
-                                                  form.origin.scheme().length();
-      std::string::const_iterator after_scheme2 =
-          observed_form_.origin.spec().begin() +
-          observed_form_.origin.scheme().length();
-      return std::search(after_scheme1,
-                         form.origin.spec().end(),
-                         after_scheme2,
-                         observed_form_.origin.spec().end())
-                         != form.origin.spec().end();
-    }
-    return false;
+  // form instead.
+  origins_match = origins_match || (form.origin == observed_form_.action);
+  // Otherwise, if action hosts are the same, the old URL scheme is HTTP while
+  // the new one is HTTPS, and the new path equals to or extends the old path,
+  // we also consider the actions a match. This is to accommodate cases where
+  // the original login form is on an HTTP page, but a failed login attempt
+  // redirects to HTTPS (as in http://example.org -> https://example.org/auth).
+  if (!origins_match && !observed_form_.origin.SchemeIsSecure() &&
+      form.origin.SchemeIsSecure()) {
+    const std::string& old_path = observed_form_.origin.path();
+    const std::string& new_path = form.origin.path();
+    origins_match =
+        observed_form_.origin.host() == form.origin.host() &&
+        observed_form_.origin.port() == form.origin.port() &&
+        StartsWithASCII(new_path, old_path, /*case_sensitive=*/true);
   }
-  return true;
+
+  if (form.username_element == observed_form_.username_element &&
+      form.password_element == observed_form_.password_element &&
+      origins_match) {
+    result |= RESULT_MANDATORY_ATTRIBUTES_MATCH;
+  }
+
+  // Note: although saved password forms might actually have an empty action
+  // URL if they were imported (see bug 1107719), the |form| we see here comes
+  // never from the password store, and should have an exactly matching action.
+  if (form.action == observed_form_.action)
+    result |= RESULT_ACTION_MATCH;
+
+  return result;
 }
 
 bool PasswordFormManager::IsBlacklisted() {
@@ -217,15 +227,23 @@ bool PasswordFormManager::HasValidPasswordForm() {
   // do not contain username_element and password_element values.
   if (observed_form_.scheme != PasswordForm::SCHEME_HTML)
     return true;
-  return !observed_form_.username_element.empty() &&
-      !observed_form_.password_element.empty();
+  return !observed_form_.password_element.empty() ||
+         !observed_form_.new_password_element.empty();
 }
 
 void PasswordFormManager::ProvisionallySave(
     const PasswordForm& credentials,
     OtherPossibleUsernamesAction action) {
   DCHECK_EQ(state_, POST_MATCHING_PHASE);
-  DCHECK(DoesManage(credentials, ACTION_MATCH_NOT_REQUIRED));
+  DCHECK_NE(RESULT_NO_MATCH, DoesManage(credentials));
+
+  // If this was a sign-up or change password form, we want to persist the new
+  // password; if this was a login form, then the current password (which might
+  // still be "new" in the sense that we see these credentials for the first
+  // time, or that the user manually entered his actual password to overwrite an
+  // obsolete password we had in the store).
+  base::string16 password_to_save(credentials.new_password_element.empty() ?
+      credentials.password_value : credentials.new_password_value);
 
   // Make sure the important fields stay the same as the initially observed or
   // autofilled ones, as they may have changed if the user experienced a login
@@ -236,16 +254,44 @@ void PasswordFormManager::ProvisionallySave(
   if (it != best_matches_.end()) {
     // The user signed in with a login we autofilled.
     pending_credentials_ = *it->second;
-
-    // Public suffix matches should always be new logins, since we want to store
-    // them so they can automatically be filled in later.
-    is_new_login_ = IsPendingCredentialsPublicSuffixMatch();
-    if (is_new_login_)
-      user_action_ = kUserActionChoosePslMatch;
-
-    // Check to see if we're using a known username but a new password.
-    if (pending_credentials_.password_value != credentials.password_value)
-      user_action_ = kUserActionOverridePassword;
+    bool password_changed =
+        pending_credentials_.password_value != password_to_save;
+    if (IsPendingCredentialsPublicSuffixMatch()) {
+      // If the autofilled credentials were only a PSL match, store a copy with
+      // the current origin and signon realm. This ensures that on the next
+      // visit, a precise match is found.
+      is_new_login_ = true;
+      user_action_ = password_changed ? kUserActionChoosePslMatch
+                                      : kUserActionOverridePassword;
+      // Normally, the copy of the PSL matched credentials, adapted for the
+      // current domain, is saved automatically without asking the user, because
+      // the copy likely represents the same account, i.e., the one for which
+      // the user already agreed to store a password.
+      //
+      // However, if the user changes the suggested password, it might indicate
+      // that the autofilled credentials and |credentials| actually correspond
+      // to two different accounts (see http://crbug.com/385619). In that case
+      // the user should be asked again before saving the password. This is
+      // ensured by clearing |original_signon_realm| on |pending_credentials_|,
+      // which unmarks it as a PSL match.
+      //
+      // There is still the edge case when the autofilled credentials represent
+      // the same account as |credentials| but the stored password was out of
+      // date. In that case, the user just had to manually enter the new
+      // password, which is now in |credentials|. The best thing would be to
+      // save automatically, and also update the original credentials. However,
+      // we have no way to tell if this is the case. This will likely happen
+      // infrequently, and the inconvenience put on the user by asking them is
+      // not significant, so we are fine with asking here again.
+      if (password_changed) {
+        pending_credentials_.original_signon_realm.clear();
+        DCHECK(!IsPendingCredentialsPublicSuffixMatch());
+      }
+    } else {  // Not a PSL match.
+      is_new_login_ = false;
+      if (password_changed)
+        user_action_ = kUserActionOverridePassword;
+    }
   } else if (action == ALLOW_OTHER_POSSIBLE_USERNAMES &&
              UpdatePendingCredentialsIfOtherPossibleUsername(
                  credentials.username_value)) {
@@ -262,6 +308,19 @@ void PasswordFormManager::ProvisionallySave(
     pending_credentials_.username_value = credentials.username_value;
     pending_credentials_.other_possible_usernames =
         credentials.other_possible_usernames;
+
+    // The password value will be filled in later, remove any garbage for now.
+    pending_credentials_.password_value.clear();
+    pending_credentials_.new_password_value.clear();
+
+    // If this was a sign-up or change password form, the names of the elements
+    // are likely different than those on a login form, so do not bother saving
+    // them. We will fill them with meaningful values in UpdateLogin() when the
+    // user goes onto a real login form for the first time.
+    if (!credentials.new_password_element.empty()) {
+      pending_credentials_.password_element.clear();
+      pending_credentials_.new_password_element.clear();
+    }
   }
 
   pending_credentials_.action = credentials.action;
@@ -271,7 +330,7 @@ void PasswordFormManager::ProvisionallySave(
   if (pending_credentials_.action.is_empty())
     pending_credentials_.action = observed_form_.action;
 
-  pending_credentials_.password_value = credentials.password_value;
+  pending_credentials_.password_value = password_to_save;
   pending_credentials_.preferred = credentials.preferred;
 
   if (user_action_ == kUserActionOverridePassword &&
@@ -320,7 +379,7 @@ void PasswordFormManager::OnRequestDone(
   // These credentials will be in the final result regardless of score.
   std::vector<PasswordForm> credentials_to_keep;
   for (size_t i = 0; i < logins_result.size(); i++) {
-    if (IgnoreResult(*logins_result[i])) {
+    if (ShouldIgnoreResult(*logins_result[i])) {
       delete logins_result[i];
       continue;
     }
@@ -359,13 +418,18 @@ void PasswordFormManager::OnRequestDone(
       continue;
     }
     if (current_score == best_score) {
+      PasswordForm* old_form = best_matches_[logins_result[i]->username_value];
+      if (old_form) {
+        if (preferred_match_ == old_form)
+          preferred_match_ = NULL;
+        delete old_form;
+      }
       best_matches_[logins_result[i]->username_value] = logins_result[i];
     } else if (current_score > best_score) {
       best_score = current_score;
       // This new login has a better score than all those up to this point
       // Note 'this' owns all the PasswordForms in best_matches_.
       STLDeleteValues(&best_matches_);
-      best_matches_.clear();
       preferred_match_ = NULL;  // Don't delete, its owned by best_matches_.
       best_matches_[logins_result[i]->username_value] = logins_result[i];
     }
@@ -375,7 +439,15 @@ void PasswordFormManager::OnRequestDone(
   // We're done matching now.
   state_ = POST_MATCHING_PHASE;
 
+  client_->AutofillResultsComputed();
+
+  // TODO(gcasto): Change this to check that best_matches_ is empty. This should
+  // be equivalent for the moment, but it's less clear and may not be
+  // equivalent in the future.
   if (best_score <= 0) {
+    // If no saved forms can be used, then it isn't blacklisted and generation
+    // should be allowed.
+    driver_->AllowPasswordGenerationForForm(observed_form_);
     return;
   }
 
@@ -409,7 +481,7 @@ void PasswordFormManager::OnRequestDone(
 
   // If not blacklisted, inform the driver that password generation is allowed
   // for |observed_form_|.
-  driver_->AllowPasswordGenerationForForm(&observed_form_);
+  driver_->AllowPasswordGenerationForForm(observed_form_);
 
   // Proceed to autofill.
   // Note that we provide the choices but don't actually prefill a value if:
@@ -437,23 +509,24 @@ void PasswordFormManager::OnGetPasswordStoreResults(
     // No result means that we visit this site the first time so we don't need
     // to check whether this site is blacklisted or not. Just send a message
     // to allow password generation.
-    driver_->AllowPasswordGenerationForForm(&observed_form_);
+    driver_->AllowPasswordGenerationForForm(observed_form_);
     return;
   }
   OnRequestDone(results);
 }
 
-bool PasswordFormManager::IgnoreResult(const PasswordForm& form) const {
-  // Ignore change password forms until we have some change password
-  // functionality
-  if (observed_form_.old_password_element.length() != 0) {
+bool PasswordFormManager::ShouldIgnoreResult(const PasswordForm& form) const {
+  // Do not autofill on sign-up or change password forms (until we have some
+  // working change password functionality).
+  if (!observed_form_.new_password_element.empty())
     return true;
-  }
-  // Don't match an invalid SSL form with one saved under secure
-  // circumstances.
-  if (form.ssl_valid && !observed_form_.ssl_valid) {
+  // Don't match an invalid SSL form with one saved under secure circumstances.
+  if (form.ssl_valid && !observed_form_.ssl_valid)
     return true;
-  }
+
+  if (client_->ShouldFilterAutofillResult(form))
+    return true;
+
   return false;
 }
 
@@ -472,6 +545,13 @@ void PasswordFormManager::SaveAsNewLogin(bool reset_preferred_login) {
     NOTREACHED();
     return;
   }
+
+  // Upload credentials the first time they are saved. This data is used
+  // by password generation to help determine account creation sites.
+  // Blacklisted credentials will never be used, so don't upload a vote for
+  // them.
+  if (!pending_credentials_.blacklisted_by_user)
+    UploadPasswordForm(pending_credentials_.form_data, autofill::PASSWORD);
 
   pending_credentials_.date_created = Time::Now();
   SanitizePossibleUsernames(&pending_credentials_);
@@ -533,6 +613,13 @@ void PasswordFormManager::UpdateLogin() {
   // Update metadata.
   ++pending_credentials_.times_used;
 
+  if (client_->IsSyncAccountCredential(
+          base::UTF16ToUTF8(pending_credentials_.username_value),
+          pending_credentials_.signon_realm)) {
+    base::RecordAction(
+        base::UserMetricsAction("PasswordManager_SyncCredentialUsed"));
+  }
+
   // Check to see if this form is a candidate for password generation.
   CheckForAccountCreationForm(pending_credentials_, observed_form_);
 
@@ -574,12 +661,16 @@ void PasswordFormManager::UpdateLogin() {
     copy.origin = observed_form_.origin;
     copy.action = observed_form_.action;
     password_store->AddLogin(copy);
-  } else if (pending_credentials_.password_element.empty() ||
-             pending_credentials_.username_element.empty() ||
-             pending_credentials_.submit_element.empty()) {
-    // password_element and username_element can't be updated because they are
-    // part of Sync and PasswordStore primary key. Thus, we must delete the old
-    // one and add again.
+  } else if (observed_form_.new_password_element.empty() &&
+             (pending_credentials_.password_element.empty() ||
+              pending_credentials_.username_element.empty() ||
+              pending_credentials_.submit_element.empty())) {
+    // If |observed_form_| was a sign-up or change password form, there is no
+    // point in trying to update element names: they are likely going to be
+    // different than those on a login form.
+    // Otherwise, given that |password_element| and |username_element| can't be
+    // updated because they are part of Sync and PasswordStore primary key, we
+    // must delete the old credentials altogether and then add the new ones.
     password_store->RemoveLogin(pending_credentials_);
     pending_credentials_.password_element = observed_form_.password_element;
     pending_credentials_.username_element = observed_form_.username_element;
@@ -622,16 +713,25 @@ void PasswordFormManager::CheckForAccountCreationForm(
     if (!pending.form_data.fields.empty() &&
         pending_structure.FormSignature() !=
             observed_structure.FormSignature()) {
-      autofill::AutofillManager* autofill_manager;
-      if ((autofill_manager = driver_->GetAutofillManager())) {
-        // Note that this doesn't guarantee that the upload succeeded, only that
-        // |pending.form_data| is considered uploadable.
-        bool success =
-            autofill_manager->UploadPasswordGenerationForm(pending.form_data);
-        UMA_HISTOGRAM_BOOLEAN("PasswordGeneration.UploadStarted", success);
-      }
+      UploadPasswordForm(pending.form_data,
+                         autofill::ACCOUNT_CREATION_PASSWORD);
     }
   }
+}
+
+void PasswordFormManager::UploadPasswordForm(
+    const autofill::FormData& form_data,
+    const autofill::ServerFieldType& password_type) {
+  autofill::AutofillManager* autofill_manager =
+      driver_->GetAutofillManager();
+  if (!autofill_manager)
+    return;
+
+  // Note that this doesn't guarantee that the upload succeeded, only that
+  // |form_data| is considered uploadable.
+  bool success =
+      autofill_manager->UploadPasswordForm(form_data, password_type);
+  UMA_HISTOGRAM_BOOLEAN("PasswordGeneration.UploadStarted", success);
 }
 
 int PasswordFormManager::ScoreResult(const PasswordForm& candidate) const {

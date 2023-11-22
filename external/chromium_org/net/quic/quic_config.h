@@ -263,11 +263,15 @@ class NET_EXPORT_PRIVATE QuicConfig {
 
   QuicTag congestion_feedback() const;
 
-  void SetCongestionOptionsToSend(const QuicTagVector& congestion_options);
+  void SetConnectionOptionsToSend(const QuicTagVector& connection_options);
 
-  bool HasReceivedCongestionOptions() const;
+  bool HasReceivedConnectionOptions() const;
 
-  QuicTagVector ReceivedCongestionOptions() const;
+  QuicTagVector ReceivedConnectionOptions() const;
+
+  bool HasSendConnectionOptions() const;
+
+  QuicTagVector SendConnectionOptions() const;
 
   void SetLossDetectionToSend(QuicTag loss_detection);
 
@@ -307,6 +311,10 @@ class NET_EXPORT_PRIVATE QuicConfig {
 
   uint32 ReceivedInitialRoundTripTimeUs() const;
 
+  bool HasInitialRoundTripTimeUsToSend() const;
+
+  uint32 GetInitialRoundTripTimeUsToSend() const;
+
   // TODO(rjshade): Remove all InitialFlowControlWindow methods when removing
   // QUIC_VERSION_19.
   // Sets an initial stream flow control window size to transmit to the peer.
@@ -336,13 +344,19 @@ class NET_EXPORT_PRIVATE QuicConfig {
 
   uint32 ReceivedInitialSessionFlowControlWindowBytes() const;
 
+  // Sets socket receive buffer to transmit to the peer.
+  void SetSocketReceiveBufferToSend(uint32 window_bytes);
+
+  uint32 GetSocketReceiveBufferToSend() const;
+
+  bool HasReceivedSocketReceiveBuffer() const;
+
+  uint32 ReceivedSocketReceiveBuffer() const;
+
   bool negotiated();
 
   // SetDefaults sets the members to sensible, default values.
   void SetDefaults();
-
-  // Enabled pacing.
-  void EnablePacing(bool enable_pacing);
 
   // ToHandshakeMessage serialises the settings in this object as a series of
   // tags /value pairs and adds them to |out|.
@@ -359,8 +373,8 @@ class NET_EXPORT_PRIVATE QuicConfig {
 
   // Congestion control feedback type.
   QuicNegotiableTag congestion_feedback_;
-  // Congestion control option.
-  QuicFixedTagVector congestion_options_;
+  // Connection options.
+  QuicFixedTagVector connection_options_;
   // Loss detection feedback type.
   QuicFixedTag loss_detection_;
   // Idle connection state lifetime
@@ -385,6 +399,9 @@ class NET_EXPORT_PRIVATE QuicConfig {
   QuicFixedUint32 initial_stream_flow_control_window_bytes_;
   // Initial session flow control receive window in bytes.
   QuicFixedUint32 initial_session_flow_control_window_bytes_;
+
+  // Socket receive buffer in bytes.
+  QuicFixedUint32 socket_receive_buffer_;
 };
 
 }  // namespace net

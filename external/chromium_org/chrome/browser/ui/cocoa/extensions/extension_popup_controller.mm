@@ -12,13 +12,14 @@
 #include "chrome/browser/extensions/extension_view_host.h"
 #include "chrome/browser/extensions/extension_view_host_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/common/url_constants.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
 #import "chrome/browser/ui/cocoa/browser_window_cocoa.h"
 #import "chrome/browser/ui/cocoa/extensions/extension_view_mac.h"
 #import "chrome/browser/ui/cocoa/info_bubble_window.h"
-#include "components/web_modal/web_contents_modal_dialog_manager.h"
+#include "components/web_modal/popup_manager.h"
 #include "content/public/browser/devtools_agent_host.h"
-#include "content/public/browser/devtools_manager.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_source.h"
@@ -26,6 +27,7 @@
 
 using content::BrowserContext;
 using content::RenderViewHost;
+using content::WebContents;
 
 namespace {
 // The duration for any animations that might be invoked by this controller.
@@ -59,6 +61,10 @@ CGFloat Clamp(CGFloat value, CGFloat min, CGFloat max) {
 
 // Called when the extension view is shown.
 - (void)onViewDidShow;
+
+// Called when the window moves or resizes. Notifies the extension.
+- (void)onWindowChanged;
+
 @end
 
 class ExtensionPopupContainer : public ExtensionViewMac::Container {
@@ -86,22 +92,20 @@ class DevtoolsNotificationBridge : public content::NotificationObserver {
  public:
   explicit DevtoolsNotificationBridge(ExtensionPopupController* controller)
     : controller_(controller),
-      render_view_host_([controller_ extensionViewHost]->render_view_host()),
+      web_contents_([controller_ extensionViewHost]->host_contents()),
       devtools_callback_(base::Bind(
           &DevtoolsNotificationBridge::OnDevToolsStateChanged,
           base::Unretained(this))) {
-    content::DevToolsManager::GetInstance()->AddAgentStateCallback(
-        devtools_callback_);
+    content::DevToolsAgentHost::AddAgentStateCallback(devtools_callback_);
   }
 
   virtual ~DevtoolsNotificationBridge() {
-    content::DevToolsManager::GetInstance()->RemoveAgentStateCallback(
-        devtools_callback_);
+    content::DevToolsAgentHost::RemoveAgentStateCallback(devtools_callback_);
   }
 
   void OnDevToolsStateChanged(content::DevToolsAgentHost* agent_host,
                               bool attached) {
-    if (agent_host->GetRenderViewHost() != render_view_host_)
+    if (agent_host->GetWebContents() != web_contents_)
       return;
 
     if (attached) {
@@ -121,7 +125,7 @@ class DevtoolsNotificationBridge : public content::NotificationObserver {
       const content::NotificationSource& source,
       const content::NotificationDetails& details) OVERRIDE {
     switch (type) {
-      case chrome::NOTIFICATION_EXTENSION_HOST_DID_STOP_LOADING: {
+      case extensions::NOTIFICATION_EXTENSION_HOST_DID_STOP_LOADING: {
         if (content::Details<extensions::ExtensionViewHost>(
                 [controller_ extensionViewHost]) == details) {
           [controller_ showDevTools];
@@ -137,10 +141,10 @@ class DevtoolsNotificationBridge : public content::NotificationObserver {
 
  private:
   ExtensionPopupController* controller_;
-  // RenderViewHost for controller. Hold onto this separately because we need to
+  // WebContents for controller. Hold onto this separately because we need to
   // know what it is for notifications, but our ExtensionViewHost may not be
   // valid.
-  RenderViewHost* render_view_host_;
+  WebContents* web_contents_;
   base::Callback<void(content::DevToolsAgentHost*, bool)> devtools_callback_;
 };
 
@@ -170,9 +174,10 @@ class DevtoolsNotificationBridge : public content::NotificationObserver {
     InfoBubbleView* view = self.bubble;
     [view setArrowLocation:arrowLocation];
 
-    extensionView_ = host->view()->native_view();
+    extensionView_ = host->view()->GetNativeView();
     container_.reset(new ExtensionPopupContainer(self));
-    host->view()->set_container(container_.get());
+    static_cast<ExtensionViewMac*>(host->view())
+        ->set_container(container_.get());
 
     NSNotificationCenter* center = [NSNotificationCenter defaultCenter];
     [center addObserver:self
@@ -188,7 +193,7 @@ class DevtoolsNotificationBridge : public content::NotificationObserver {
       // Listen for the extension to finish loading so the dev tools can be
       // opened.
       registrar_->Add(notificationBridge_.get(),
-                      chrome::NOTIFICATION_EXTENSION_HOST_DID_STOP_LOADING,
+                      extensions::NOTIFICATION_EXTENSION_HOST_DID_STOP_LOADING,
                       content::Source<BrowserContext>(host->browser_context()));
     }
   }
@@ -201,17 +206,18 @@ class DevtoolsNotificationBridge : public content::NotificationObserver {
 }
 
 - (void)showDevTools {
-  DevToolsWindow::OpenDevToolsWindow(host_->render_view_host());
+  DevToolsWindow::OpenDevToolsWindow(host_->host_contents());
 }
 
 - (void)close {
   // |windowWillClose:| could have already been called. http://crbug.com/279505
   if (host_) {
-    web_modal::WebContentsModalDialogManager* modalDialogManager =
-        web_modal::WebContentsModalDialogManager::FromWebContents(
-            host_->host_contents());
-    if (modalDialogManager &&
-        modalDialogManager->IsDialogActive()) {
+    // TODO(gbillock): Change this API to say directly if the current popup
+    // should block tab close? This is a bit over-reaching.
+    web_modal::PopupManager* popup_manager =
+        web_modal::PopupManager::FromWebContents(host_->host_contents());
+    if (popup_manager && popup_manager->IsWebModalDialogActive(
+            host_->host_contents())) {
       return;
     }
   }
@@ -223,7 +229,7 @@ class DevtoolsNotificationBridge : public content::NotificationObserver {
   if (gPopup == self)
     gPopup = nil;
   if (host_->view())
-    host_->view()->set_container(NULL);
+    static_cast<ExtensionViewMac*>(host_->view())->set_container(NULL);
   host_.reset();
 }
 
@@ -234,11 +240,11 @@ class DevtoolsNotificationBridge : public content::NotificationObserver {
     // it steals key-ness from the popup. Don't close the popup when this
     // happens. There's an extra windowDidResignKey: notification after the
     // modal dialog closes that should also be ignored.
-    web_modal::WebContentsModalDialogManager* modalDialogManager =
-        web_modal::WebContentsModalDialogManager::FromWebContents(
+    web_modal::PopupManager* popupManager =
+        web_modal::PopupManager::FromWebContents(
             host_->host_contents());
-    if (modalDialogManager &&
-        modalDialogManager->IsDialogActive()) {
+    if (popupManager &&
+        popupManager->IsWebModalDialogActive(host_->host_contents())) {
       ignoreWindowDidResignKey_ = YES;
       return;
     }
@@ -273,6 +279,20 @@ class DevtoolsNotificationBridge : public content::NotificationObserver {
   DCHECK(browser);
   if (!browser)
     return nil;
+
+  // If we click the browser/page action again, we should close the popup.
+  // Make Mac behavior the same with Windows and others.
+  if (gPopup) {
+    std::string extension_id = url.host();
+    if (url.SchemeIs(content::kChromeUIScheme) &&
+        url.host() == chrome::kChromeUIExtensionInfoHost)
+      extension_id = url.path().substr(1);
+    extensions::ExtensionViewHost* host = [gPopup extensionViewHost];
+    if (extension_id == host->extension_id()) {
+      [gPopup close];
+      return nil;
+    }
+  }
 
   extensions::ExtensionViewHost* host =
       extensions::ExtensionViewHostFactory::CreatePopupHost(url, browser);
@@ -382,16 +402,25 @@ class DevtoolsNotificationBridge : public content::NotificationObserver {
   [self onSizeChanged:pendingSize_];
 }
 
-- (void)windowDidResize:(NSNotification*)notification {
+- (void)onWindowChanged {
+  // The window is positioned before creating the host, to ensure the host is
+  // created with the correct screen information.
+  if (!host_)
+    return;
+
+  ExtensionViewMac* extensionView =
+      static_cast<ExtensionViewMac*>(host_->view());
   // Let the extension view know, so that it can tell plugins.
-  if (host_->view())
-    host_->view()->WindowFrameChanged();
+  if (extensionView)
+    extensionView->WindowFrameChanged();
+}
+
+- (void)windowDidResize:(NSNotification*)notification {
+  [self onWindowChanged];
 }
 
 - (void)windowDidMove:(NSNotification*)notification {
-  // Let the extension view know, so that it can tell plugins.
-  if (host_->view())
-    host_->view()->WindowFrameChanged();
+  [self onWindowChanged];
 }
 
 // Private (TestingAPI)

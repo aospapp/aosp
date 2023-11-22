@@ -51,6 +51,7 @@ public:
 
 private:
     void signalVideoRotation(BufferMapper& mapper);
+    bool isSettingRotBitAllowed();
 protected:
     virtual bool setDataBuffer(BufferMapper& mapper);
     virtual bool flush(uint32_t flags);
@@ -70,12 +71,6 @@ protected:
     // hardware context
     struct intel_dc_plane_ctx mContext;
 
-private:
-    // scaling buffer vector max size
-    enum {
-        MAX_SCALING_BUF_COUNT = 3,
-    };
-    KeyedVector<uint32_t, uint32_t> mScalingBufferMap;
 };
 
 } // namespace intel

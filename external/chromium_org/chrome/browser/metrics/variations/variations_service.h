@@ -12,11 +12,13 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/field_trial.h"
+#include "base/observer_list.h"
 #include "base/time/time.h"
 #include "chrome/browser/metrics/variations/variations_request_scheduler.h"
 #include "chrome/browser/metrics/variations/variations_seed_store.h"
 #include "chrome/browser/web_resource/resource_request_allowed_notifier.h"
 #include "chrome/common/chrome_version_info.h"
+#include "components/variations/variations_seed_simulator.h"
 #include "net/url_request/url_fetcher_delegate.h"
 #include "url/gurl.h"
 
@@ -39,9 +41,11 @@ namespace user_prefs {
 class PrefRegistrySyncable;
 }
 
-namespace chrome_variations {
-
+namespace variations {
 class VariationsSeed;
+}
+
+namespace chrome_variations {
 
 // Used to setup field trials based on stored variations seed data, and fetch
 // new seed data from the variations server.
@@ -49,6 +53,25 @@ class VariationsService
     : public net::URLFetcherDelegate,
       public ResourceRequestAllowedNotifier::Observer {
  public:
+  class Observer {
+   public:
+    // How critical a detected experiment change is. Whether it should be
+    // handled on a "best-effort" basis or, for a more critical change, if it
+    // should be given higher priority.
+    enum Severity {
+      BEST_EFFORT,
+      CRITICAL,
+    };
+
+    // Called when the VariationsService detects that there will be significant
+    // experiment changes on a restart. This notification can then be used to
+    // update UI (i.e. badging an icon).
+    virtual void OnExperimentChangesDetected(Severity severity) = 0;
+
+   protected:
+    virtual ~Observer() {}
+  };
+
   virtual ~VariationsService();
 
   // Creates field trials based on Variations Seed loaded from local prefs. If
@@ -61,10 +84,11 @@ class VariationsService
   // |CreateTrialsFromSeed|.
   void StartRepeatedVariationsSeedFetch();
 
-  // Returns the variations server URL, which can vary if a command-line flag is
-  // set and/or the variations restrict pref is set in |local_prefs|. Declared
-  // static for test purposes.
-  static GURL GetVariationsServerURL(PrefService* local_prefs);
+  // Adds an observer to listen for detected experiment changes.
+  void AddObserver(Observer* observer);
+
+  // Removes a previously-added observer.
+  void RemoveObserver(Observer* observer);
 
   // Called when the application enters foreground. This may trigger a
   // FetchVariationsSeed call.
@@ -80,6 +104,11 @@ class VariationsService
 
   // Exposed for testing.
   void SetCreateTrialsFromSeedCalledForTesting(bool called);
+
+  // Returns the variations server URL, which can vary if a command-line flag is
+  // set and/or the variations restrict pref is set in |local_prefs|. Declared
+  // static for test purposes.
+  static GURL GetVariationsServerURL(PrefService* local_prefs);
 
   // Exposed for testing.
   static std::string GetDefaultVariationsServerURLForTesting();
@@ -115,34 +144,28 @@ class VariationsService
                          const std::string& seed_signature,
                          const base::Time& date_fetched);
 
-  // This constructor exists for injecting a mock notifier. It is meant for
-  // testing only. This instance will take ownership of |notifier|. Does not
-  // take ownership of |state_manager|. Caller should ensure that
-  // |state_manager| is valid for the lifetime of this class.
+  // Creates the VariationsService with the given |local_state| prefs service
+  // and |state_manager|. This instance will take ownership of |notifier|.
+  // Does not take ownership of |state_manager|. Caller should ensure that
+  // |state_manager| is valid for the lifetime of this class. Use the |Create|
+  // factory method to create a VariationsService.
   VariationsService(ResourceRequestAllowedNotifier* notifier,
                     PrefService* local_state,
                     metrics::MetricsStateManager* state_manager);
 
  private:
-  FRIEND_TEST_ALL_PREFIXES(VariationsServiceTest, DoNotFetchIfOffline);
-  FRIEND_TEST_ALL_PREFIXES(VariationsServiceTest, DoNotFetchIfOnlineToOnline);
-  FRIEND_TEST_ALL_PREFIXES(VariationsServiceTest, FetchOnReconnect);
-  FRIEND_TEST_ALL_PREFIXES(VariationsServiceTest, LoadSeed);
-  FRIEND_TEST_ALL_PREFIXES(VariationsServiceTest, StoreSeed);
+  FRIEND_TEST_ALL_PREFIXES(VariationsServiceTest, Observer);
   FRIEND_TEST_ALL_PREFIXES(VariationsServiceTest, SeedStoredWhenOKStatus);
   FRIEND_TEST_ALL_PREFIXES(VariationsServiceTest, SeedNotStoredWhenNonOKStatus);
   FRIEND_TEST_ALL_PREFIXES(VariationsServiceTest, SeedDateUpdatedOn304Status);
 
-  // Creates the VariationsService with the given |local_state| prefs service
-  // and |state_manager|. Does not take ownership of |state_manager|. Caller
-  // should ensure that |state_manager| is valid for the lifetime of this class.
-  // Use the |Create| factory method to create a VariationsService.
-  VariationsService(PrefService* local_state,
-                    metrics::MetricsStateManager* state_manager);
-
   // Checks if prerequisites for fetching the Variations seed are met, and if
   // so, performs the actual fetch using |DoActualFetch|.
   void FetchVariationsSeed();
+
+  // Notify any observers of this service based on the simulation |result|.
+  void NotifyObservers(
+      const variations::VariationsSeedSimulator::Result& result);
 
   // net::URLFetcherDelegate implementation:
   virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
@@ -152,7 +175,7 @@ class VariationsService
 
   // Performs a variations seed simulation with the given |seed| and |version|
   // and logs the simulation results as histograms.
-  void PerformSimulationWithVersion(scoped_ptr<VariationsSeed> seed,
+  void PerformSimulationWithVersion(scoped_ptr<variations::VariationsSeed> seed,
                                     const base::Version& version);
 
   // Record the time of the most recent successful fetch.
@@ -197,6 +220,9 @@ class VariationsService
   // The start time of the last seed request. This is used to measure the
   // latency of seed requests. Initially zero.
   base::TimeTicks last_request_started_time_;
+
+  // List of observers of the VariationsService.
+  ObserverList<Observer> observer_list_;
 
 #if defined(OS_WIN)
   // Helper that handles synchronizing Variations with the Registry.

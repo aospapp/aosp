@@ -261,8 +261,6 @@ public class Conversation implements Parcelable {
 
     };
 
-    public static final Uri MOVE_CONVERSATIONS_URI = Uri.parse("content://moveconversations");
-
     /**
      * The column that needs to be updated to change the folders for a conversation.
      */
@@ -756,6 +754,19 @@ public class Conversation implements Parcelable {
 
     public String getBaseUri(String defaultValue) {
         return conversationBaseUri != null ? conversationBaseUri.toString() : defaultValue;
+    }
+
+    /**
+     * Returns {@code true} if the conversation is in the trash folder.
+     */
+    public boolean isInTrash() {
+        for (Folder folder : getRawFolders()) {
+            if (folder.isTrash()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

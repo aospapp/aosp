@@ -28,7 +28,7 @@
 #include "remoting/protocol/client_stub.h"
 #include "remoting/protocol/clipboard_thread_proxy.h"
 #include "remoting/protocol/pairing_registry.h"
-#include "third_party/webrtc/modules/desktop_capture/screen_capturer.h"
+#include "third_party/webrtc/modules/desktop_capture/desktop_capturer.h"
 
 // Default DPI to assume for old clients that use notifyClientDimensions.
 const int kDefaultDPI = 96;
@@ -46,11 +46,11 @@ ClientSession::ClientSession(
     scoped_ptr<protocol::ConnectionToClient> connection,
     DesktopEnvironmentFactory* desktop_environment_factory,
     const base::TimeDelta& max_duration,
-    scoped_refptr<protocol::PairingRegistry> pairing_registry)
+    scoped_refptr<protocol::PairingRegistry> pairing_registry,
+    const std::vector<HostExtension*>& extensions)
     : event_handler_(event_handler),
       connection_(connection.Pass()),
       client_jid_(connection_->session()->jid()),
-      control_factory_(this),
       desktop_environment_factory_(desktop_environment_factory),
       input_tracker_(&host_input_filter_),
       remote_input_filter_(&input_tracker_),
@@ -67,7 +67,11 @@ ClientSession::ClientSession(
       video_encode_task_runner_(video_encode_task_runner),
       network_task_runner_(network_task_runner),
       ui_task_runner_(ui_task_runner),
-      pairing_registry_(pairing_registry) {
+      pairing_registry_(pairing_registry),
+      pause_video_(false),
+      lossless_video_encode_(false),
+      lossless_video_color_(false),
+      weak_factory_(this) {
   connection_->SetEventHandler(this);
 
   // TODO(sergeyu): Currently ConnectionToClient expects stubs to be
@@ -80,6 +84,9 @@ ClientSession::ClientSession(
   // |auth_*_filter_|'s states reflect whether the session is authenticated.
   auth_input_filter_.set_enabled(false);
   auth_clipboard_filter_.set_enabled(false);
+
+  // Create a manager for the configured extensions, if any.
+  extension_manager_.reset(new HostExtensionSessionManager(extensions, this));
 
 #if defined(OS_WIN)
   // LocalInputMonitorWin filters out an echo of the injected input before it
@@ -97,25 +104,6 @@ ClientSession::~ClientSession() {
   DCHECK(!video_scheduler_.get());
 
   connection_.reset();
-}
-
-void ClientSession::AddExtensionSession(
-    scoped_ptr<HostExtensionSession> extension_session) {
-  DCHECK(CalledOnValidThread());
-
-  extension_sessions_.push_back(extension_session.release());
-}
-
-void ClientSession::AddHostCapabilities(const std::string& capabilities) {
-  DCHECK(CalledOnValidThread());
-
-  if (capabilities.empty())
-    return;
-
-  if (!host_capabilities_.empty())
-    host_capabilities_.append(" ");
-
-  host_capabilities_.append(capabilities);
 }
 
 void ClientSession::NotifyClientResolution(
@@ -148,20 +136,28 @@ void ClientSession::NotifyClientResolution(
 void ClientSession::ControlVideo(const protocol::VideoControl& video_control) {
   DCHECK(CalledOnValidThread());
 
+  // Note that |video_scheduler_| may be NULL, depending upon whether extensions
+  // choose to wrap or "steal" the video capturer or encoder.
   if (video_control.has_enable()) {
     VLOG(1) << "Received VideoControl (enable="
             << video_control.enable() << ")";
-    video_scheduler_->Pause(!video_control.enable());
+    pause_video_ = !video_control.enable();
+    if (video_scheduler_.get())
+      video_scheduler_->Pause(pause_video_);
   }
   if (video_control.has_lossless_encode()) {
     VLOG(1) << "Received VideoControl (lossless_encode="
             << video_control.lossless_encode() << ")";
-    video_scheduler_->SetLosslessEncode(video_control.lossless_encode());
+    lossless_video_encode_ = video_control.lossless_encode();
+    if (video_scheduler_.get())
+      video_scheduler_->SetLosslessEncode(lossless_video_encode_);
   }
   if (video_control.has_lossless_color()) {
     VLOG(1) << "Received VideoControl (lossless_color="
             << video_control.lossless_color() << ")";
-    video_scheduler_->SetLosslessColor(video_control.lossless_color());
+    lossless_video_color_ = video_control.lossless_color();
+    if (video_scheduler_.get())
+      video_scheduler_->SetLosslessColor(lossless_video_color_);
   }
 }
 
@@ -180,35 +176,31 @@ void ClientSession::SetCapabilities(
     const protocol::Capabilities& capabilities) {
   DCHECK(CalledOnValidThread());
 
-  // The client should not send protocol::Capabilities if it is not supported by
-  // the config channel.
-  if (!connection_->session()->config().SupportsCapabilities()) {
-    LOG(ERROR) << "Unexpected protocol::Capabilities has been received.";
-    return;
-  }
-
   // Ignore all the messages but the 1st one.
   if (client_capabilities_) {
     LOG(WARNING) << "protocol::Capabilities has been received already.";
     return;
   }
 
+  // Compute the set of capabilities supported by both client and host.
   client_capabilities_ = make_scoped_ptr(new std::string());
   if (capabilities.has_capabilities())
     *client_capabilities_ = capabilities.capabilities();
+  capabilities_ = IntersectCapabilities(*client_capabilities_,
+                                        host_capabilities_);
+  extension_manager_->OnNegotiatedCapabilities(
+      connection_->client_stub(), capabilities_);
 
   VLOG(1) << "Client capabilities: " << *client_capabilities_;
-  event_handler_->OnSessionClientCapabilities(this);
 
   // Calculate the set of capabilities enabled by both client and host and
   // pass it to the desktop environment if it is available.
-  desktop_environment_->SetCapabilities(
-      IntersectCapabilities(*client_capabilities_, host_capabilities_));
+  desktop_environment_->SetCapabilities(capabilities_);
 }
 
 void ClientSession::RequestPairing(
     const protocol::PairingRequest& pairing_request) {
-  if (pairing_registry_ && pairing_request.has_client_name()) {
+  if (pairing_registry_.get() && pairing_request.has_client_name()) {
     protocol::PairingRegistry::Pairing pairing =
         pairing_registry_->CreatePairing(pairing_request.client_name());
     protocol::PairingResponse pairing_response;
@@ -236,16 +228,13 @@ void ClientSession::DeliverClientMessage(
       }
       return;
     } else {
-      for(HostExtensionSessionList::iterator it = extension_sessions_.begin();
-          it != extension_sessions_.end(); ++it) {
-        // Extension returns |true| to indicate that the message was handled.
-        if ((*it)->OnExtensionMessage(this, message))
-          return;
-      }
+      if (!extension_manager_->OnExtensionMessage(message))
+        return;
+
+      DLOG(INFO) << "Unexpected message received: "
+                 << message.type() << ": " << message.data();
     }
   }
-  HOST_LOG << "Unexpected message received: "
-            << message.type() << ": " << message.data();
 }
 
 void ClientSession::OnConnectionAuthenticating(
@@ -285,24 +274,17 @@ void ClientSession::OnConnectionAuthenticated(
   // Create the desktop environment. Drop the connection if it could not be
   // created for any reason (for instance the curtain could not initialize).
   desktop_environment_ =
-      desktop_environment_factory_->Create(control_factory_.GetWeakPtr());
+      desktop_environment_factory_->Create(weak_factory_.GetWeakPtr());
   if (!desktop_environment_) {
     DisconnectSession();
     return;
   }
 
-  AddHostCapabilities(desktop_environment_->GetCapabilities());
-
-  // Ignore protocol::Capabilities messages from the client if it does not
-  // support any capabilities.
-  if (!connection_->session()->config().SupportsCapabilities()) {
-    VLOG(1) << "The client does not support any capabilities.";
-
-    client_capabilities_ = make_scoped_ptr(new std::string());
-    event_handler_->OnSessionClientCapabilities(this);
-
-    desktop_environment_->SetCapabilities(*client_capabilities_);
-  }
+  // Collate the set of capabilities to offer the client, if it supports them.
+  host_capabilities_ = desktop_environment_->GetCapabilities();
+  if (!host_capabilities_.empty())
+    host_capabilities_.append(" ");
+  host_capabilities_.append(extension_manager_->GetCapabilities());
 
   // Create the object that controls the screen resolution.
   screen_controls_ = desktop_environment_->CreateScreenControls();
@@ -313,20 +295,6 @@ void ClientSession::OnConnectionAuthenticated(
   // Connect the host clipboard and input stubs.
   host_input_filter_.set_input_stub(input_injector_.get());
   clipboard_echo_filter_.set_host_stub(input_injector_.get());
-
-  // Create a VideoEncoder based on the session's video channel configuration.
-  scoped_ptr<VideoEncoder> video_encoder =
-      CreateVideoEncoder(connection_->session()->config());
-
-  // Create a VideoScheduler to pump frames from the capturer to the client.
-  video_scheduler_ = new VideoScheduler(
-      video_capture_task_runner_,
-      video_encode_task_runner_,
-      network_task_runner_,
-      desktop_environment_->CreateVideoCapturer(),
-      video_encoder.Pass(),
-      connection_->client_stub(),
-      &mouse_clamping_filter_);
 
   // Create an AudioScheduler if audio is enabled, to pump audio samples.
   if (connection_->session()->config().is_audio_enabled()) {
@@ -351,20 +319,18 @@ void ClientSession::OnConnectionChannelsConnected(
   DCHECK_EQ(connection_.get(), connection);
 
   // Negotiate capabilities with the client.
-  if (connection_->session()->config().SupportsCapabilities()) {
-    VLOG(1) << "Host capabilities: " << host_capabilities_;
+  VLOG(1) << "Host capabilities: " << host_capabilities_;
 
-    protocol::Capabilities capabilities;
-    capabilities.set_capabilities(host_capabilities_);
-    connection_->client_stub()->SetCapabilities(capabilities);
-  }
+  protocol::Capabilities capabilities;
+  capabilities.set_capabilities(host_capabilities_);
+  connection_->client_stub()->SetCapabilities(capabilities);
 
   // Start the event executor.
   input_injector_->Start(CreateClipboardProxy());
   SetDisableInputs(false);
 
-  // Start capturing the screen.
-  video_scheduler_->Start();
+  // Start recording video.
+  ResetVideoPipeline();
 
   // Start recording audio.
   if (connection_->session()->config().is_audio_enabled())
@@ -381,7 +347,7 @@ void ClientSession::OnConnectionClosed(
   DCHECK_EQ(connection_.get(), connection);
 
   // Ignore any further callbacks.
-  control_factory_.InvalidateWeakPtrs();
+  weak_factory_.InvalidateWeakPtrs();
 
   // If the client never authenticated then the session failed.
   if (!auth_input_filter_.enabled())
@@ -424,8 +390,6 @@ void ClientSession::OnSequenceNumberUpdated(
 
   if (video_scheduler_.get())
     video_scheduler_->UpdateSequenceNumber(sequence_number);
-
-  event_handler_->OnSessionSequenceNumber(this, sequence_number);
 }
 
 void ClientSession::OnRouteChange(
@@ -467,8 +431,50 @@ void ClientSession::SetDisableInputs(bool disable_inputs) {
   disable_clipboard_filter_.set_enabled(!disable_inputs);
 }
 
+void ClientSession::ResetVideoPipeline() {
+  DCHECK(CalledOnValidThread());
+
+  if (video_scheduler_.get()) {
+    video_scheduler_->Stop();
+    video_scheduler_ = NULL;
+  }
+
+  // Create VideoEncoder and DesktopCapturer to match the session's video
+  // channel configuration.
+  scoped_ptr<webrtc::DesktopCapturer> video_capturer =
+      desktop_environment_->CreateVideoCapturer();
+  extension_manager_->OnCreateVideoCapturer(&video_capturer);
+  scoped_ptr<VideoEncoder> video_encoder =
+      CreateVideoEncoder(connection_->session()->config());
+  extension_manager_->OnCreateVideoEncoder(&video_encoder);
+
+  // Don't start the VideoScheduler if either capturer or encoder are missing.
+  if (!video_capturer || !video_encoder)
+    return;
+
+  // Create a VideoScheduler to pump frames from the capturer to the client.
+  video_scheduler_ = new VideoScheduler(
+      video_capture_task_runner_,
+      video_encode_task_runner_,
+      network_task_runner_,
+      video_capturer.Pass(),
+      desktop_environment_->CreateMouseCursorMonitor(),
+      video_encoder.Pass(),
+      connection_->client_stub(),
+      &mouse_clamping_filter_);
+
+  // Apply video-control parameters to the new scheduler.
+  video_scheduler_->Pause(pause_video_);
+  video_scheduler_->SetLosslessEncode(lossless_video_encode_);
+  video_scheduler_->SetLosslessColor(lossless_video_color_);
+
+  // Start capturing the screen.
+  video_scheduler_->Start();
+}
+
 void ClientSession::SetGnubbyAuthHandlerForTesting(
     GnubbyAuthHandler* gnubby_auth_handler) {
+  DCHECK(CalledOnValidThread());
   gnubby_auth_handler_.reset(gnubby_auth_handler);
 }
 
@@ -491,6 +497,8 @@ scoped_ptr<VideoEncoder> ClientSession::CreateVideoEncoder(
     return remoting::VideoEncoderVpx::CreateForVP8().PassAs<VideoEncoder>();
   } else if (video_config.codec == protocol::ChannelConfig::CODEC_VP9) {
     return remoting::VideoEncoderVpx::CreateForVP9().PassAs<VideoEncoder>();
+  } else if (video_config.codec == protocol::ChannelConfig::CODEC_VERBATIM) {
+    return scoped_ptr<VideoEncoder>(new remoting::VideoEncoderVerbatim());
   }
 
   NOTREACHED();

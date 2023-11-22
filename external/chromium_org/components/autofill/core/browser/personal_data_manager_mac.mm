@@ -31,6 +31,10 @@
 namespace autofill {
 namespace {
 
+// The maximum number of instances when the access Address Book prompt should
+// be shown.
+int kMaxTimesToShowMacAddressBook = 5;
+
 // There is an uncommon sequence of events that causes the Address Book
 // permissions dialog to appear more than once for a given install of Chrome.
 //  1. Chrome has previously presented the Address Book permissions dialog.
@@ -54,9 +58,8 @@ static bool g_binary_changed = false;
 
 const char kAddressBookOrigin[] = "OS X Address Book";
 
-// Whether Chrome has prompted the user for permission to access the user's
-// address book.
-bool HasPromptedForAccessToAddressBook(PrefService* pref_service) {
+// Whether Chrome has attempted to access the Mac Address Book.
+bool HasQueriedMacAddressBook(PrefService* pref_service) {
   return pref_service->GetBoolean(prefs::kAutofillMacAddressBookQueried);
 }
 
@@ -74,7 +77,7 @@ void RecordAccessSkipped(bool skipped) {
 }
 
 ABAddressBook* GetAddressBook(PrefService* pref_service) {
-  bool first_access = !HasPromptedForAccessToAddressBook(pref_service);
+  bool first_access = !HasQueriedMacAddressBook(pref_service);
 
   // +[ABAddressBook sharedAddressBook] throws an exception internally in
   // circumstances that aren't clear. The exceptions are only observed in crash
@@ -114,7 +117,8 @@ class AuxiliaryProfilesImpl {
 
   // Import the "me" card from the Mac Address Book and fill in |profiles_|.
   void GetAddressBookMeCard(const std::string& app_locale,
-                            PrefService* pref_service);
+                            PrefService* pref_service,
+                            bool record_metrics);
 
  private:
   void GetAddressBookNames(ABPerson* me,
@@ -142,7 +146,8 @@ class AuxiliaryProfilesImpl {
 // information and translates it to the internal list of |AutofillProfile| data
 // structures.
 void AuxiliaryProfilesImpl::GetAddressBookMeCard(const std::string& app_locale,
-                                                 PrefService* pref_service) {
+                                                 PrefService* pref_service,
+                                                 bool record_metrics) {
   profiles_.clear();
 
   // The user does not want Chrome to use the AddressBook to populate Autofill
@@ -153,10 +158,13 @@ void AuxiliaryProfilesImpl::GetAddressBookMeCard(const std::string& app_locale,
   // See the comment at the definition of g_accessed_address_book for an
   // explanation of this logic.
   if (g_binary_changed && !g_accessed_address_book) {
-    RecordAccessSkipped(true);
+    if (record_metrics)
+      RecordAccessSkipped(true);
     return;
   }
-  RecordAccessSkipped(false);
+
+  if (record_metrics)
+    RecordAccessSkipped(false);
 
   ABAddressBook* addressBook = GetAddressBook(pref_service);
 
@@ -340,9 +348,9 @@ void AuxiliaryProfilesImpl::GetAddressBookPhoneNumbers(
 }  // namespace
 
 // Populate |auxiliary_profiles_| with the Address Book data.
-void PersonalDataManager::LoadAuxiliaryProfiles() const {
+void PersonalDataManager::LoadAuxiliaryProfiles(bool record_metrics) const {
   AuxiliaryProfilesImpl impl(&auxiliary_profiles_);
-  impl.GetAddressBookMeCard(app_locale_, pref_service_);
+  impl.GetAddressBookMeCard(app_locale_, pref_service_, record_metrics);
 }
 
 bool PersonalDataManager::AccessAddressBook() {
@@ -358,7 +366,18 @@ bool PersonalDataManager::AccessAddressBook() {
 
 bool PersonalDataManager::ShouldShowAccessAddressBookSuggestion(
     AutofillType type) {
-  if (HasPromptedForAccessToAddressBook(pref_service_))
+  // Don't show the access Address Book prompt if the user has built up any
+  // Autofill state.
+  if (!web_profiles_.empty())
+    return false;
+
+  if (!enabled_pref_->GetValue())
+    return false;
+
+  if (HasQueriedMacAddressBook(pref_service_))
+    return false;
+
+  if (AccessAddressBookPromptCount() >= kMaxTimesToShowMacAddressBook)
     return false;
 
   switch (type.group()) {
@@ -374,10 +393,20 @@ bool PersonalDataManager::ShouldShowAccessAddressBookSuggestion(
     case COMPANY:
     case CREDIT_CARD:
     case PASSWORD_FIELD:
+    case TRANSACTION:
       return false;
   }
 
   return false;
+}
+
+void PersonalDataManager::ShowedAccessAddressBookPrompt() {
+  pref_service_->SetInteger(prefs::kAutofillMacAddressBookShowedCount,
+                            AccessAddressBookPromptCount() + 1);
+}
+
+int PersonalDataManager::AccessAddressBookPromptCount() {
+  return pref_service_->GetInteger(prefs::kAutofillMacAddressBookShowedCount);
 }
 
 void PersonalDataManager::BinaryChanging() {

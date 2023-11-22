@@ -25,6 +25,7 @@
 #include "base/threading/sequenced_worker_pool.h"
 #include "base/time/time.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/prefs/browser_ui_prefs_migrator.h"
 #include "chrome/browser/prefs/command_line_pref_store.h"
 #include "chrome/browser/prefs/pref_hash_filter.h"
 #include "chrome/browser/prefs/pref_model_associator.h"
@@ -33,20 +34,21 @@
 #include "chrome/browser/prefs/profile_pref_store_manager.h"
 #include "chrome/browser/profiles/file_path_verifier_win.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/search_engines/default_search_manager.h"
 #include "chrome/browser/search_engines/default_search_pref_migration.h"
 #include "chrome/browser/sync/glue/sync_start_util.h"
 #include "chrome/browser/ui/profile_error_dialog.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
+#include "components/component_updater/pref_names.h"
 #include "components/pref_registry/pref_registry_syncable.h"
+#include "components/search_engines/default_search_manager.h"
+#include "components/search_engines/search_engines_pref_names.h"
 #include "components/sync_driver/pref_names.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
-#include "extensions/browser/pref_names.h"
 #include "grit/browser_resources.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
 #include "sync/internal_api/public/base/model_type.h"
 #include "ui/base/resource/resource_bundle.h"
 
@@ -54,6 +56,10 @@
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/policy/core/browser/configuration_policy_pref_store.h"
 #include "components/policy/core/common/policy_types.h"
+#endif
+
+#if defined(ENABLE_EXTENSIONS)
+#include "extensions/browser/pref_names.h"
 #endif
 
 #if defined(ENABLE_MANAGED_USERS)
@@ -82,6 +88,8 @@ bool g_disable_delays_and_domain_check_for_testing = false;
 // tools/metrics/histograms/histograms.xml. To add a new preference, append it
 // to the array and add a corresponding value to the histogram enum. Each
 // tracked preference must be given a unique reporting ID.
+// See CleanupDeprecatedTrackedPreferences() in pref_hash_filter.cc to remove a
+// deprecated tracked preference.
 const PrefHashFilter::TrackedPreferenceMetadata kTrackedPrefs[] = {
   {
     0, prefs::kShowHomeButton,
@@ -108,11 +116,13 @@ const PrefHashFilter::TrackedPreferenceMetadata kTrackedPrefs[] = {
     PrefHashFilter::ENFORCE_ON_LOAD,
     PrefHashFilter::TRACKING_STRATEGY_ATOMIC
   },
+#if defined(ENABLE_EXTENSIONS)
   {
     5, extensions::pref_names::kExtensions,
     PrefHashFilter::NO_ENFORCEMENT,
     PrefHashFilter::TRACKING_STRATEGY_SPLIT
   },
+#endif
   {
     6, prefs::kGoogleServicesLastUsername,
     PrefHashFilter::ENFORCE_ON_LOAD,
@@ -144,17 +154,12 @@ const PrefHashFilter::TrackedPreferenceMetadata kTrackedPrefs[] = {
     PrefHashFilter::ENFORCE_ON_LOAD,
     PrefHashFilter::TRACKING_STRATEGY_ATOMIC
   },
-#endif
   {
-    12, extensions::pref_names::kKnownDisabled,
-    PrefHashFilter::NO_ENFORCEMENT,
-    PrefHashFilter::TRACKING_STRATEGY_ATOMIC
-  },
-  {
-    13, prefs::kProfileResetPromptMemento,
+    13, prefs::kProfileResetPromptMementoInProfilePrefs,
     PrefHashFilter::ENFORCE_ON_LOAD,
     PrefHashFilter::TRACKING_STRATEGY_ATOMIC
   },
+#endif
   {
     14, DefaultSearchManager::kDefaultSearchProviderDataPrefName,
     PrefHashFilter::NO_ENFORCEMENT,
@@ -185,12 +190,28 @@ const PrefHashFilter::TrackedPreferenceMetadata kTrackedPrefs[] = {
     PrefHashFilter::ENFORCE_ON_LOAD,
     PrefHashFilter::TRACKING_STRATEGY_ATOMIC
   },
+  {
+    18, prefs::kSafeBrowsingIncidentsSent,
+    PrefHashFilter::ENFORCE_ON_LOAD,
+    PrefHashFilter::TRACKING_STRATEGY_ATOMIC
+  },
+#if defined(OS_WIN)
+  {
+    19, prefs::kSwReporterPromptVersion,
+    PrefHashFilter::ENFORCE_ON_LOAD,
+    PrefHashFilter::TRACKING_STRATEGY_ATOMIC
+  },
+  {
+    20, prefs::kSwReporterPromptReason,
+    PrefHashFilter::ENFORCE_ON_LOAD,
+    PrefHashFilter::TRACKING_STRATEGY_ATOMIC
+  },
+#endif
 };
 
-// The count of tracked preferences IDs across all platforms.
-const size_t kTrackedPrefsReportingIDsCount = 18;
-COMPILE_ASSERT(kTrackedPrefsReportingIDsCount >= arraysize(kTrackedPrefs),
-               need_to_increment_ids_count);
+// One more than the last tracked preferences ID above.
+const size_t kTrackedPrefsReportingIDsCount =
+    kTrackedPrefs[arraysize(kTrackedPrefs) - 1].reporting_id + 1;
 
 // Each group enforces a superset of the protection provided by the previous
 // one.
@@ -239,7 +260,8 @@ SettingsEnforcementGroup GetSettingsEnforcementGroup() {
 
   // Use the strongest enforcement setting in the absence of a field trial
   // config on Windows. Remember to update the OFFICIAL_BUILD section of
-  // extension_startup_browsertest.cc when updating the default value below.
+  // extension_startup_browsertest.cc and pref_hash_browsertest.cc when updating
+  // the default value below.
   // TODO(gab): Enforce this on all platforms.
   SettingsEnforcementGroup enforcement_group =
 #if defined(OS_WIN)
@@ -291,20 +313,18 @@ GetTrackingConfiguration() {
       data.enforcement_level = PrefHashFilter::ENFORCE_ON_LOAD;
     }
 
+#if defined(ENABLE_EXTENSIONS)
     if (enforcement_group >= GROUP_ENFORCE_ALWAYS_WITH_EXTENSIONS_AND_DSE &&
-        (data.name == extensions::pref_names::kExtensions ||
-         data.name == extensions::pref_names::kKnownDisabled)) {
-      // Specifically enable extension settings enforcement and ensure
-      // kKnownDisabled follows it in the Protected Preferences.
-      // TODO(gab): Get rid of kKnownDisabled altogether.
+        data.name == extensions::pref_names::kExtensions) {
+      // Specifically enable extension settings enforcement.
       data.enforcement_level = PrefHashFilter::ENFORCE_ON_LOAD;
     }
+#endif
 
     result.push_back(data);
   }
   return result;
 }
-
 
 // Shows notifications which correspond to PersistentPrefStore's reading errors.
 void HandleReadError(PersistentPrefStore::PrefReadError error) {
@@ -335,6 +355,13 @@ void HandleReadError(PersistentPrefStore::PrefReadError error) {
 #else
     // On ChromeOS error screen with message about broken local state
     // will be displayed.
+
+    // A supplementary error message about broken local state - is included
+    // in logs and user feedbacks.
+    if (error != PersistentPrefStore::PREF_READ_ERROR_NONE &&
+        error != PersistentPrefStore::PREF_READ_ERROR_NO_FILE) {
+      LOG(ERROR) << "An error happened during prefs loading: " << error;
+    }
 #endif
   }
 }
@@ -351,13 +378,16 @@ scoped_ptr<ProfilePrefStoreManager> CreateProfilePrefStoreManager(
   // ways to defer preference loading until the device ID can be used.
   rlz_lib::GetMachineId(&device_id);
 #endif
+  std::string seed;
+#if defined(GOOGLE_CHROME_BUILD)
+  seed = ResourceBundle::GetSharedInstance().GetRawDataResource(
+      IDR_PREF_HASH_SEED_BIN).as_string();
+#endif
   return make_scoped_ptr(new ProfilePrefStoreManager(
       profile_path,
       GetTrackingConfiguration(),
       kTrackedPrefsReportingIDsCount,
-      ResourceBundle::GetSharedInstance()
-          .GetRawDataResource(IDR_PREF_HASH_SEED_BIN)
-          .as_string(),
+      seed,
       device_id,
       g_browser_process->local_state()));
 }
@@ -406,6 +436,8 @@ namespace chrome_prefs {
 
 namespace internals {
 
+// Group modifications should be reflected in first_run_browsertest.cc and
+// pref_hash_browsertest.cc.
 const char kSettingsEnforcementTrialName[] = "SettingsEnforcement";
 const char kSettingsEnforcementGroupNoEnforcement[] = "no_enforcement";
 const char kSettingsEnforcementGroupEnforceAlways[] = "enforce_always";
@@ -456,14 +488,18 @@ scoped_ptr<PrefServiceSyncable> CreateProfilePrefs(
                  syncer::PREFERENCES);
 
   PrefServiceSyncableFactory factory;
+  scoped_refptr<PersistentPrefStore> user_pref_store(
+      CreateProfilePrefStoreManager(profile_path)
+          ->CreateProfilePrefStore(pref_io_task_runner,
+                                   start_sync_flare_for_prefs,
+                                   validation_delegate));
+  // BrowserUIPrefsMigrator unregisters and deletes itself after it is done.
+  user_pref_store->AddObserver(
+      new BrowserUIPrefsMigrator(user_pref_store.get()));
   PrepareFactory(&factory,
                  policy_service,
                  supervised_user_settings,
-                 scoped_refptr<PersistentPrefStore>(
-                     CreateProfilePrefStoreManager(profile_path)
-                         ->CreateProfilePrefStore(pref_io_task_runner,
-                                                  start_sync_flare_for_prefs,
-                                                  validation_delegate)),
+                 user_pref_store,
                  extension_prefs,
                  async);
   scoped_ptr<PrefServiceSyncable> pref_service =

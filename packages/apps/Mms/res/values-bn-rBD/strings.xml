@@ -72,7 +72,7 @@
     <string name="remove_music" msgid="858889733416015223">"সঙ্গীত সরান"</string>
     <string name="add_video" msgid="7816866867806595144">"ভিডিও যোগ করুন"</string>
     <string name="remove_video" msgid="5258603891528497799">"ভিডিও সরান"</string>
-    <string name="to_hint" msgid="224029549150332986">"প্রতি:"</string>
+    <string name="to_hint" msgid="224029549150332986">"প্রাপক:"</string>
     <string name="subject_hint" msgid="4296714962311604126">"বিষয়"</string>
     <string name="add_attachment" msgid="7103751293360532684">"সংযুক্ত করুন"</string>
     <string name="add_subject" msgid="7616134948428265870">"বিষয় যোগ করুন"</string>
@@ -210,7 +210,7 @@
     <string name="multimedia_message" msgid="1512644521083533071">"মাল্টিমিডিয়া বার্তা"</string>
     <string name="multimedia_notification" msgid="4124031788554972308">"মাল্টিমিডিয়া বার্তার বিজ্ঞপ্তি"</string>
     <string name="from_label" msgid="2055117571548171397">"প্রেরক: "</string>
-    <string name="to_address_label" msgid="5837363600471845801">"প্রতি: "</string>
+    <string name="to_address_label" msgid="5837363600471845801">"প্রাপক: "</string>
     <string name="bcc_label" msgid="530867161453958774">"Bcc: "</string>
     <string name="sent_label" msgid="2722190650145251584">"পাঠানো হয়েছে: "</string>
     <string name="received_label" msgid="8618029024731693906">"গ্রহণ করা হয়েছে: "</string>

@@ -49,39 +49,27 @@ LIBS=
 # possible to the values used later. (You also must example the
 # results gathered from Makefrag.inc to see they are the same
 # across all Android platforms, or add appropriate ifdefs.)
-# Since we no longer use the NDK, the AOSP has to have been
-# built before using this script (targetting generic/emulator).
+# Since we no longer use the NDK, AOSP has to have been
+# built before using this script.
 
-CC=$aospdir/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.7/bin/arm-linux-androideabi-gcc
+CC=$ANDROID_TOOLCHAIN/*-gcc
+
+target_arch=$(cd $ANDROID_BUILD_TOP; CALLED_FROM_SETUP=true BUILD_SYSTEM=build/core make --no-print-directory -f build/core/config.mk dumpvar-TARGET_ARCH)
+
 addvar CPPFLAGS \
-    -I$aospdir/libnativehelper/include/nativehelper \
-    -isystem $aospdir/system/core/include \
-    -isystem $aospdir/hardware/libhardware/include \
-    -isystem $aospdir/hardware/libhardware_legacy/include \
-    -isystem $aospdir/hardware/ril/include \
-    -isystem $aospdir/libnativehelper/include \
-    -isystem $aospdir/frameworks/native/include \
-    -isystem $aospdir/frameworks/native/opengl/include \
-    -isystem $aospdir/frameworks/av/include \
-    -isystem $aospdir/frameworks/base/include \
-    -isystem $aospdir/external/skia/include \
-    -isystem $aospdir/out/target/product/generic/obj/include \
-    -isystem $aospdir/bionic/libc/arch-arm/include \
+    -isystem $aospdir/bionic/libc/arch-$target_arch/include \
     -isystem $aospdir/bionic/libc/include \
-    -isystem $aospdir/bionic/libstdc++/include \
     -isystem $aospdir/bionic/libc/kernel/uapi \
-    -isystem $aospdir/bionic/libc/kernel/uapi/asm-arm \
+    -isystem $aospdir/bionic/libc/kernel/uapi/asm-$target_arch \
     -isystem $aospdir/bionic/libm/include \
-    -isystem $aospdir/bionic/libm/include/arm \
-    -isystem $aospdir/bionic/libthread_db/include \
+    -isystem $aospdir/bionic/libm/include/$target_arch \
     -D_FORTIFY_SOURCE=2 \
-    -include $aospdir/build/core/combo/include/arch/linux-arm/AndroidConfig.h \
-    -I$aospdir/build/core/combo/include/arch/linux-arm/ \
+    -include $aospdir/build/core/combo/include/arch/linux-$target_arch/AndroidConfig.h \
+    -I$aospdir/build/core/combo/include/arch/linux-$target_arch/ \
     -DANDROID -DNDEBUG -UDEBUG
 addvar CFLAGS \
     -fno-exceptions \
     -Wno-multichar \
-    -msoft-float \
     -fpic \
     -fPIE \
     -ffunction-sections \
@@ -91,14 +79,10 @@ addvar CFLAGS \
     -Wa,--noexecstack \
     -Werror=format-security \
     -fno-short-enums \
-    -march=armv7-a \
-    -mfloat-abi=softfp \
-    -mfpu=vfpv3-d16 \
     -Wno-unused-but-set-variable \
     -fno-builtin-sin \
     -fno-strict-volatile-bitfields \
     -Wno-psabi \
-    -mthumb-interwork \
     -fmessage-length=0 \
     -W \
     -Wall \
@@ -114,7 +98,6 @@ addvar CFLAGS \
     -fgcse-after-reload \
     -frerun-cse-after-loop \
     -frename-registers \
-    -mthumb \
     -Os \
     -fomit-frame-pointer \
     -fno-strict-aliasing
@@ -131,18 +114,15 @@ addvar LDFLAGS \
     -Wl,-z,now \
     -Wl,--warn-shared-textrel \
     -Wl,--fatal-warnings \
-    -Wl,--icf=safe \
-    -Wl,--fix-cortex-a8 \
     -Wl,--no-undefined \
-    $aospdir/out/target/product/generic/obj/lib/crtbegin_dynamic.o
+    $ANDROID_PRODUCT_OUT/obj/lib/crtbegin_dynamic.o
 addvar LIBS \
-    -L$aospdir/out/target/product/generic/obj/lib \
-    -Wl,-rpath-link=$aospdir/out/target/product/generic/obj/lib \
+    -L$ANDROID_PRODUCT_OUT/obj/lib \
+    -Wl,-rpath-link=$ANDROID_PRODUCT_OUT/obj/lib \
     -Wl,--no-whole-archive \
-    $aospdir/out/target/product/generic/obj/STATIC_LIBRARIES/libcompiler_rt-extras_intermediates/libcompiler_rt-extras.a \
+    $ANDROID_PRODUCT_OUT/obj/STATIC_LIBRARIES/libcompiler_rt-extras_intermediates/libcompiler_rt-extras.a \
     -lc \
-    $aospdir/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.7/bin/../lib/gcc/arm-linux-androideabi/4.7/armv7-a/libgcc.a \
-    $aospdir/out/target/product/generic/obj/lib/crtend_android.o
+    $ANDROID_PRODUCT_OUT/obj/lib/crtend_android.o
 
 
 ### Flags used by test builds

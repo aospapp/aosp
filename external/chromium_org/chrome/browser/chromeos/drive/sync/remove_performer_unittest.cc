@@ -10,6 +10,7 @@
 #include "chrome/browser/chromeos/drive/job_scheduler.h"
 #include "chrome/browser/chromeos/drive/resource_metadata.h"
 #include "chrome/browser/drive/fake_drive_service.h"
+#include "content/public/test/test_utils.h"
 #include "google_apis/drive/drive_api_parser.h"
 #include "google_apis/drive/test_util.h"
 
@@ -19,7 +20,7 @@ namespace internal {
 typedef file_system::OperationTestBase RemovePerformerTest;
 
 TEST_F(RemovePerformerTest, RemoveFile) {
-  RemovePerformer performer(blocking_task_runner(), observer(), scheduler(),
+  RemovePerformer performer(blocking_task_runner(), delegate(), scheduler(),
                             metadata());
 
   base::FilePath file_in_root(FILE_PATH_LITERAL("drive/root/File 1.txt"));
@@ -33,7 +34,7 @@ TEST_F(RemovePerformerTest, RemoveFile) {
   performer.Remove(entry.local_id(),
                    ClientContext(USER_INITIATED),
                    google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_OK, error);
 
   // Remove a file in subdirectory.
@@ -44,7 +45,7 @@ TEST_F(RemovePerformerTest, RemoveFile) {
   performer.Remove(entry.local_id(),
                    ClientContext(USER_INITIATED),
                    google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_OK, error);
 
   // Verify the file is indeed removed in the server.
@@ -54,7 +55,7 @@ TEST_F(RemovePerformerTest, RemoveFile) {
       resource_id,
       google_apis::test_util::CreateCopyResultCallback(&gdata_error,
                                                        &gdata_entry));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   ASSERT_EQ(google_apis::HTTP_SUCCESS, gdata_error);
   EXPECT_TRUE(gdata_entry->labels().is_trashed());
 
@@ -63,12 +64,12 @@ TEST_F(RemovePerformerTest, RemoveFile) {
   performer.Remove("non-existing-id",
                    ClientContext(USER_INITIATED),
                    google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_NOT_FOUND, error);
 }
 
 TEST_F(RemovePerformerTest, RemoveShared) {
-  RemovePerformer performer(blocking_task_runner(), observer(), scheduler(),
+  RemovePerformer performer(blocking_task_runner(), delegate(), scheduler(),
                             metadata());
 
   const base::FilePath kPathInMyDrive(FILE_PATH_LITERAL(
@@ -87,7 +88,7 @@ TEST_F(RemovePerformerTest, RemoveShared) {
       true,  // shared_with_me,
       google_apis::test_util::CreateCopyResultCallback(&gdata_error,
                                                        &gdata_entry));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   ASSERT_EQ(google_apis::HTTP_CREATED, gdata_error);
   CheckForUpdates();
 
@@ -98,7 +99,7 @@ TEST_F(RemovePerformerTest, RemoveShared) {
   performer.Remove(entry.local_id(),
                    ClientContext(USER_INITIATED),
                    google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_OK, error);
   EXPECT_EQ(FILE_ERROR_NOT_FOUND,
             GetLocalResourceEntry(kPathInMyDrive, &entry));
@@ -111,14 +112,14 @@ TEST_F(RemovePerformerTest, RemoveShared) {
       resource_id,
       google_apis::test_util::CreateCopyResultCallback(&gdata_error,
                                                        &gdata_entry));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   ASSERT_EQ(google_apis::HTTP_SUCCESS, gdata_error);
   EXPECT_FALSE(gdata_entry->labels().is_trashed());  // It's not deleted.
   EXPECT_TRUE(gdata_entry->parents().empty());
 }
 
 TEST_F(RemovePerformerTest, RemoveLocallyCreatedFile) {
-  RemovePerformer performer(blocking_task_runner(), observer(), scheduler(),
+  RemovePerformer performer(blocking_task_runner(), delegate(), scheduler(),
                             metadata());
 
   // Add an entry without resource ID.
@@ -136,15 +137,62 @@ TEST_F(RemovePerformerTest, RemoveLocallyCreatedFile) {
                  entry,
                  &local_id),
       google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_OK, error);
 
   // Remove the entry.
   performer.Remove(local_id, ClientContext(USER_INITIATED),
                    google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_OK, error);
   EXPECT_EQ(FILE_ERROR_NOT_FOUND, GetLocalResourceEntryById(local_id, &entry));
+}
+
+TEST_F(RemovePerformerTest, Remove_InsufficientPermission) {
+  RemovePerformer performer(blocking_task_runner(), delegate(), scheduler(),
+                            metadata());
+
+  base::FilePath file_in_root(FILE_PATH_LITERAL("drive/root/File 1.txt"));
+
+  ResourceEntry src_entry;
+  ASSERT_EQ(FILE_ERROR_OK, GetLocalResourceEntry(file_in_root, &src_entry));
+
+  // Remove locally.
+  ResourceEntry updated_entry(src_entry);
+  updated_entry.set_parent_local_id(util::kDriveTrashDirLocalId);
+
+  FileError error = FILE_ERROR_FAILED;
+  base::PostTaskAndReplyWithResult(
+      blocking_task_runner(),
+      FROM_HERE,
+      base::Bind(&ResourceMetadata::RefreshEntry,
+                 base::Unretained(metadata()),
+                 updated_entry),
+      google_apis::test_util::CreateCopyResultCallback(&error));
+  content::RunAllBlockingPoolTasksUntilIdle();
+  EXPECT_EQ(FILE_ERROR_OK, error);
+
+  // Set user permission to forbid server side update.
+  EXPECT_EQ(google_apis::HTTP_SUCCESS, fake_service()->SetUserPermission(
+      src_entry.resource_id(), google_apis::drive::PERMISSION_ROLE_READER));
+
+  // Try to perform remove.
+  error = FILE_ERROR_FAILED;
+  performer.Remove(src_entry.local_id(),
+                   ClientContext(USER_INITIATED),
+                   google_apis::test_util::CreateCopyResultCallback(&error));
+  content::RunAllBlockingPoolTasksUntilIdle();
+  EXPECT_EQ(FILE_ERROR_OK, error);
+
+  // This should result in reverting the local change.
+  ResourceEntry result_entry;
+  EXPECT_EQ(FILE_ERROR_OK,
+            GetLocalResourceEntryById(src_entry.local_id(), &result_entry));
+  EXPECT_EQ(src_entry.parent_local_id(), result_entry.parent_local_id());
+
+  ASSERT_EQ(1U, delegate()->drive_sync_errors().size());
+  EXPECT_EQ(file_system::DRIVE_SYNC_ERROR_DELETE_WITHOUT_PERMISSION,
+            delegate()->drive_sync_errors()[0]);
 }
 
 }  // namespace internal

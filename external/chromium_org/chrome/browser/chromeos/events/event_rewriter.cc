@@ -6,24 +6,26 @@
 
 #include <vector>
 
+#include "ash/sticky_keys/sticky_keys_controller.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_util.h"
 #include "base/command_line.h"
 #include "base/logging.h"
+#include "base/macros.h"
 #include "base/prefs/pref_service.h"
 #include "base/strings/string_util.h"
 #include "base/sys_info.h"
 #include "chrome/browser/chromeos/login/ui/login_display_host_impl.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
+#include "chrome/browser/extensions/extension_commands_global_registry.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/common/pref_names.h"
 #include "chromeos/chromeos_switches.h"
 #include "chromeos/ime/ime_keyboard.h"
 #include "chromeos/ime/input_method_manager.h"
+#include "components/user_manager/user_manager.h"
 #include "ui/events/event.h"
 #include "ui/events/event_utils.h"
 #include "ui/events/keycodes/keyboard_code_conversion.h"
-#include "ui/events/platform/platform_event_source.h"
 #include "ui/wm/core/window_util.h"
 
 #if defined(USE_X11)
@@ -33,7 +35,6 @@
 #undef RootWindow
 #undef Status
 
-#include "chrome/browser/chromeos/events/xinput_hierarchy_changed_event_listener.h"
 #include "ui/base/x/x11_util.h"
 #include "ui/events/keycodes/keyboard_code_conversion_x.h"
 #endif
@@ -41,8 +42,6 @@
 namespace chromeos {
 
 namespace {
-
-const int kBadDeviceId = -1;
 
 // Table of key properties of remappable keys and/or remapping targets.
 // This is searched in two distinct ways:
@@ -106,6 +105,28 @@ bool IsISOLevel5ShiftUsedByCurrentInputMethod() {
   return manager->IsISOLevel5ShiftUsedByCurrentInputMethod();
 }
 
+bool IsExtensionCommandRegistered(const ui::KeyEvent& key_event) {
+  // Some keyboard events for ChromeOS get rewritten, such as:
+  // Search+Shift+Left gets converted to Shift+Home (BeginDocument).
+  // This doesn't make sense if the user has assigned that shortcut
+  // to an extension. Because:
+  // 1) The extension would, upon seeing a request for Ctrl+Shift+Home have
+  //    to register for Shift+Home, instead.
+  // 2) The conversion is unnecessary, because Shift+Home (BeginDocument) isn't
+  //    going to be executed.
+  // Therefore, we skip converting the accelerator if an extension has
+  // registered for this shortcut.
+  Profile* profile = ProfileManager::GetActiveUserProfile();
+  if (!profile || !extensions::ExtensionCommandsGlobalRegistry::Get(profile))
+    return false;
+
+  int modifiers = key_event.flags() & (ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN |
+                                       ui::EF_ALT_DOWN | ui::EF_COMMAND_DOWN);
+  ui::Accelerator accelerator(key_event.key_code(), modifiers);
+  return extensions::ExtensionCommandsGlobalRegistry::Get(profile)
+      ->IsRegistered(accelerator);
+}
+
 EventRewriter::DeviceType GetDeviceType(const std::string& device_name) {
   std::vector<std::string> tokens;
   Tokenize(device_name, " .", &tokens);
@@ -126,113 +147,143 @@ EventRewriter::DeviceType GetDeviceType(const std::string& device_name) {
   return EventRewriter::kDeviceUnknown;
 }
 
-#if defined(USE_X11)
-void UpdateX11EventMask(int ui_flags, unsigned int* x_flags) {
-  static struct {
-    int ui;
-    int x;
-  } flags[] = {
-    {ui::EF_CONTROL_DOWN, ControlMask},
-    {ui::EF_SHIFT_DOWN, ShiftMask},
-    {ui::EF_ALT_DOWN, Mod1Mask},
-    {ui::EF_CAPS_LOCK_DOWN, LockMask},
-    {ui::EF_ALTGR_DOWN, Mod5Mask},
-    {ui::EF_COMMAND_DOWN, Mod4Mask},
-    {ui::EF_MOD3_DOWN, Mod3Mask},
-    {ui::EF_NUMPAD_KEY, Mod2Mask},
-    {ui::EF_LEFT_MOUSE_BUTTON, Button1Mask},
-    {ui::EF_MIDDLE_MOUSE_BUTTON, Button2Mask},
-    {ui::EF_RIGHT_MOUSE_BUTTON, Button3Mask},
-  };
-  for (size_t i = 0; i < ARRAYSIZE_UNSAFE(flags); ++i) {
-    if (ui_flags & flags[i].ui)
-      *x_flags |= flags[i].x;
-    else
-      *x_flags &= ~flags[i].x;
-  }
-}
-#endif
-
 }  // namespace
 
-EventRewriter::EventRewriter()
-    : last_device_id_(kBadDeviceId),
+EventRewriter::EventRewriter(ash::StickyKeysController* sticky_keys_controller)
+    : last_keyboard_device_id_(ui::ED_UNKNOWN_DEVICE),
       ime_keyboard_for_testing_(NULL),
-      pref_service_for_testing_(NULL) {
-#if defined(USE_X11)
-  ui::PlatformEventSource::GetInstance()->AddPlatformEventObserver(this);
-  if (base::SysInfo::IsRunningOnChromeOS()) {
-    XInputHierarchyChangedEventListener::GetInstance()->AddObserver(this);
-  }
-#endif
+      pref_service_for_testing_(NULL),
+      sticky_keys_controller_(sticky_keys_controller),
+      current_diamond_key_modifier_flags_(ui::EF_NONE) {
 }
 
 EventRewriter::~EventRewriter() {
-#if defined(USE_X11)
-  ui::PlatformEventSource::GetInstance()->RemovePlatformEventObserver(this);
-  if (base::SysInfo::IsRunningOnChromeOS()) {
-    XInputHierarchyChangedEventListener::GetInstance()->RemoveObserver(this);
-  }
-#endif
 }
 
-EventRewriter::DeviceType EventRewriter::DeviceAddedForTesting(
+EventRewriter::DeviceType EventRewriter::KeyboardDeviceAddedForTesting(
     int device_id,
     const std::string& device_name) {
-  return DeviceAddedInternal(device_id, device_name);
+  // Tests must avoid XI2 reserved device IDs.
+  DCHECK((device_id < 0) || (device_id > 1));
+  return KeyboardDeviceAddedInternal(device_id, device_name);
 }
 
-void EventRewriter::RewriteLocatedEventForTesting(const ui::Event& event,
-                                                  int* flags) {
-  RewriteLocatedEvent(event, flags);
+void EventRewriter::RewriteMouseButtonEventForTesting(
+    const ui::MouseEvent& event,
+    scoped_ptr<ui::Event>* rewritten_event) {
+  RewriteMouseButtonEvent(event, rewritten_event);
 }
 
 ui::EventRewriteStatus EventRewriter::RewriteEvent(
     const ui::Event& event,
     scoped_ptr<ui::Event>* rewritten_event) {
-#if defined(USE_X11)
-  // Do not rewrite an event sent by ui_controls::SendKeyPress(). See
-  // crbug.com/136465.
-  XEvent* xev = event.native_event();
-  if (xev && xev->xany.send_event)
-    return ui::EVENT_REWRITE_CONTINUE;
-#endif
-  switch (event.type()) {
-    case ui::ET_KEY_PRESSED:
-    case ui::ET_KEY_RELEASED:
-      return RewriteKeyEvent(static_cast<const ui::KeyEvent&>(event),
-                             rewritten_event);
-    case ui::ET_MOUSE_PRESSED:
-    case ui::ET_MOUSE_RELEASED:
-      return RewriteMouseEvent(static_cast<const ui::MouseEvent&>(event),
-                               rewritten_event);
-    case ui::ET_TOUCH_PRESSED:
-    case ui::ET_TOUCH_RELEASED:
-      return RewriteTouchEvent(static_cast<const ui::TouchEvent&>(event),
-                               rewritten_event);
-    default:
-      return ui::EVENT_REWRITE_CONTINUE;
+  if ((event.type() == ui::ET_KEY_PRESSED) ||
+      (event.type() == ui::ET_KEY_RELEASED)) {
+    return RewriteKeyEvent(static_cast<const ui::KeyEvent&>(event),
+                           rewritten_event);
   }
-  NOTREACHED();
+  if ((event.type() == ui::ET_MOUSE_PRESSED) ||
+      (event.type() == ui::ET_MOUSE_RELEASED)) {
+    return RewriteMouseButtonEvent(static_cast<const ui::MouseEvent&>(event),
+                                   rewritten_event);
+  }
+  if (event.type() == ui::ET_MOUSEWHEEL) {
+    return RewriteMouseWheelEvent(
+        static_cast<const ui::MouseWheelEvent&>(event), rewritten_event);
+  }
+  if ((event.type() == ui::ET_TOUCH_PRESSED) ||
+      (event.type() == ui::ET_TOUCH_RELEASED)) {
+    return RewriteTouchEvent(static_cast<const ui::TouchEvent&>(event),
+                             rewritten_event);
+  }
+  if (event.IsScrollEvent()) {
+    return RewriteScrollEvent(static_cast<const ui::ScrollEvent&>(event),
+                              rewritten_event);
+  }
+  return ui::EVENT_REWRITE_CONTINUE;
 }
 
 ui::EventRewriteStatus EventRewriter::NextDispatchEvent(
     const ui::Event& last_event,
     scoped_ptr<ui::Event>* new_event) {
+  if (sticky_keys_controller_) {
+    // In the case of sticky keys, we know what the events obtained here are:
+    // modifier key releases that match the ones previously discarded. So, we
+    // know that they don't have to be passed through the post-sticky key
+    // rewriting phases, |RewriteExtendedKeys()| and |RewriteFunctionKeys()|,
+    // because those phases do nothing with modifier key releases.
+    return sticky_keys_controller_->NextDispatchEvent(new_event);
+  }
   NOTREACHED();
   return ui::EVENT_REWRITE_CONTINUE;
 }
 
+void EventRewriter::BuildRewrittenKeyEvent(
+    const ui::KeyEvent& key_event,
+    ui::KeyboardCode key_code,
+    int flags,
+    scoped_ptr<ui::Event>* rewritten_event) {
+  ui::KeyEvent* rewritten_key_event = NULL;
 #if defined(USE_X11)
-void EventRewriter::DeviceKeyPressedOrReleased(int device_id) {
-  if (!device_id_to_type_.count(device_id)) {
-    // |device_id| is unknown. This means the device was connected before
-    // booting the OS. Query the name of the device and add it to the map.
-    DeviceAdded(device_id);
+  XEvent* xev = key_event.native_event();
+  if (xev) {
+    XEvent xkeyevent;
+    // Convert all XI2-based key events into X11 core-based key events,
+    // until consumers no longer depend on receiving X11 core events.
+    if (xev->type == GenericEvent)
+      ui::InitXKeyEventFromXIDeviceEvent(*xev, &xkeyevent);
+    else
+      xkeyevent.xkey = xev->xkey;
+
+    unsigned int original_x11_keycode = xkeyevent.xkey.keycode;
+    // Update native event to match rewritten |ui::Event|.
+    // The X11 keycode represents a physical key position, so it shouldn't
+    // change unless we have actually changed keys, not just modifiers.
+    // This is one guard against problems like crbug.com/390263.
+    if (key_event.key_code() != key_code) {
+      xkeyevent.xkey.keycode =
+          XKeyCodeForWindowsKeyCode(key_code, flags, gfx::GetXDisplay());
+    }
+    ui::KeyEvent x11_key_event(&xkeyevent);
+    rewritten_key_event = new ui::KeyEvent(x11_key_event);
+
+    // For numpad keys, the key char should always NOT be changed because
+    // XKeyCodeForWindowsKeyCode method cannot handle non-US keyboard layout.
+    // The correct key char can be got from original X11 keycode but not for the
+    // rewritten X11 keycode.
+    // For Shift+NumpadKey cases, use the rewritten X11 keycode (US layout).
+    // Please see crbug.com/335644.
+    if (key_code >= ui::VKEY_NUMPAD0 && key_code <= ui::VKEY_DIVIDE) {
+      XEvent numpad_xevent;
+      numpad_xevent.xkey = xkeyevent.xkey;
+      // Remove the shift state before getting key char.
+      // Because X11/XKB sometimes returns unexpected key char for
+      // Shift+NumpadKey. e.g. Shift+Numpad_4 returns 'D', etc.
+      numpad_xevent.xkey.state &= ~ShiftMask;
+      numpad_xevent.xkey.state |= Mod2Mask;  // Always set NumLock mask.
+      if (!(flags & ui::EF_SHIFT_DOWN))
+        numpad_xevent.xkey.keycode = original_x11_keycode;
+      rewritten_key_event->set_character(
+          ui::GetCharacterFromXEvent(&numpad_xevent));
+    }
   }
-  last_device_id_ = device_id;
-}
 #endif
+  if (!rewritten_key_event)
+    rewritten_key_event = new ui::KeyEvent(key_event);
+  rewritten_key_event->set_flags(flags);
+  rewritten_key_event->set_key_code(key_code);
+#if defined(USE_X11)
+  ui::UpdateX11EventForFlags(rewritten_key_event);
+  rewritten_key_event->NormalizeFlags();
+#endif
+  rewritten_event->reset(rewritten_key_event);
+}
+
+void EventRewriter::DeviceKeyPressedOrReleased(int device_id) {
+  if (!device_id_to_type_.count(device_id))
+    KeyboardDeviceAdded(device_id);
+  last_keyboard_device_id_ = device_id;
+}
 
 const PrefService* EventRewriter::GetPrefService() const {
   if (pref_service_for_testing_)
@@ -242,14 +293,14 @@ const PrefService* EventRewriter::GetPrefService() const {
 }
 
 bool EventRewriter::IsAppleKeyboard() const {
-  if (last_device_id_ == kBadDeviceId)
+  if (last_keyboard_device_id_ == ui::ED_UNKNOWN_DEVICE)
     return false;
 
   // Check which device generated |event|.
   std::map<int, DeviceType>::const_iterator iter =
-      device_id_to_type_.find(last_device_id_);
+      device_id_to_type_.find(last_keyboard_device_id_);
   if (iter == device_id_to_type_.end()) {
-    LOG(ERROR) << "Device ID " << last_device_id_ << " is unknown.";
+    LOG(ERROR) << "Device ID " << last_keyboard_device_id_ << " is unknown.";
     return false;
   }
 
@@ -271,10 +322,10 @@ int EventRewriter::GetRemappedModifierMasks(const PrefService& pref_service,
                                             const ui::Event& event,
                                             int original_flags) const {
   int unmodified_flags = original_flags;
-  int rewritten_flags = 0;
+  int rewritten_flags = current_diamond_key_modifier_flags_;
   for (size_t i = 0; unmodified_flags && (i < arraysize(kModifierRemappings));
        ++i) {
-    const ModifierRemapping* remapped_key = 0;
+    const ModifierRemapping* remapped_key = NULL;
     if (!(unmodified_flags & kModifierRemappings[i].flag))
       continue;
     switch (kModifierRemappings[i].flag) {
@@ -332,72 +383,109 @@ bool EventRewriter::RewriteWithKeyboardRemappingsByKeyCode(
 ui::EventRewriteStatus EventRewriter::RewriteKeyEvent(
     const ui::KeyEvent& key_event,
     scoped_ptr<ui::Event>* rewritten_event) {
+  if (IsExtensionCommandRegistered(key_event))
+    return ui::EVENT_REWRITE_CONTINUE;
+  if (key_event.source_device_id() != ui::ED_UNKNOWN_DEVICE)
+    DeviceKeyPressedOrReleased(key_event.source_device_id());
   MutableKeyState state = {key_event.flags(), key_event.key_code()};
-  RewriteModifierKeys(key_event, &state);
-  RewriteNumPadKeys(key_event, &state);
-  RewriteExtendedKeys(key_event, &state);
-  RewriteFunctionKeys(key_event, &state);
+  // Do not rewrite an event sent by ui_controls::SendKeyPress(). See
+  // crbug.com/136465.
+  if (!(key_event.flags() & ui::EF_FINAL)) {
+    RewriteModifierKeys(key_event, &state);
+    RewriteNumPadKeys(key_event, &state);
+  }
+  ui::EventRewriteStatus status = ui::EVENT_REWRITE_CONTINUE;
+  if (sticky_keys_controller_) {
+    status = sticky_keys_controller_->RewriteKeyEvent(
+        key_event, state.key_code, &state.flags);
+    if (status == ui::EVENT_REWRITE_DISCARD)
+      return ui::EVENT_REWRITE_DISCARD;
+  }
+  if (!(key_event.flags() & ui::EF_FINAL)) {
+    RewriteExtendedKeys(key_event, &state);
+    RewriteFunctionKeys(key_event, &state);
+  }
   if ((key_event.flags() == state.flags) &&
-      (key_event.key_code() == state.key_code)) {
+      (key_event.key_code() == state.key_code) &&
+#if defined(USE_X11)
+      // TODO(kpschoedel): This test is present because several consumers of
+      // key events depend on having a native core X11 event, so we rewrite
+      // all XI2 key events (GenericEvent) into corresponding core X11 key
+      // events. Remove this when event consumers no longer care about
+      // native X11 event details (crbug.com/380349).
+      (!key_event.HasNativeEvent() ||
+       (key_event.native_event()->type != GenericEvent)) &&
+#endif
+      (status == ui::EVENT_REWRITE_CONTINUE)) {
     return ui::EVENT_REWRITE_CONTINUE;
   }
-  ui::KeyEvent* rewritten_key_event = new ui::KeyEvent(key_event);
-  rewritten_event->reset(rewritten_key_event);
-  rewritten_key_event->set_flags(state.flags);
-  rewritten_key_event->set_key_code(state.key_code);
-  rewritten_key_event->set_character(
-      ui::GetCharacterFromKeyCode(state.key_code, state.flags));
-  rewritten_key_event->NormalizeFlags();
-#if defined(USE_X11)
-  XEvent* xev = rewritten_key_event->native_event();
-  if (xev) {
-    CHECK(xev->type == KeyPress || xev->type == KeyRelease);
-    XKeyEvent* xkey = &(xev->xkey);
-    UpdateX11EventMask(rewritten_key_event->flags(), &xkey->state);
-    xkey->keycode =
-        XKeysymToKeycode(gfx::GetXDisplay(),
-                         ui::XKeysymForWindowsKeyCode(
-                             state.key_code, state.flags & ui::EF_SHIFT_DOWN));
-  }
-#endif
-  return ui::EVENT_REWRITE_REWRITTEN;
+  // Sticky keys may have returned a result other than |EVENT_REWRITE_CONTINUE|,
+  // in which case we need to preserve that return status. Alternatively, we
+  // might be here because key_event changed, in which case we need to
+  // return |EVENT_REWRITE_REWRITTEN|.
+  if (status == ui::EVENT_REWRITE_CONTINUE)
+    status = ui::EVENT_REWRITE_REWRITTEN;
+  BuildRewrittenKeyEvent(
+      key_event, state.key_code, state.flags, rewritten_event);
+  return status;
 }
 
-ui::EventRewriteStatus EventRewriter::RewriteMouseEvent(
+ui::EventRewriteStatus EventRewriter::RewriteMouseButtonEvent(
     const ui::MouseEvent& mouse_event,
     scoped_ptr<ui::Event>* rewritten_event) {
   int flags = mouse_event.flags();
   RewriteLocatedEvent(mouse_event, &flags);
-  if (mouse_event.flags() == flags)
+  ui::EventRewriteStatus status = ui::EVENT_REWRITE_CONTINUE;
+  if (sticky_keys_controller_)
+    status = sticky_keys_controller_->RewriteMouseEvent(mouse_event, &flags);
+  int changed_button = ui::EF_NONE;
+  if ((mouse_event.type() == ui::ET_MOUSE_PRESSED) ||
+      (mouse_event.type() == ui::ET_MOUSE_RELEASED)) {
+    changed_button = RewriteModifierClick(mouse_event, &flags);
+  }
+  if ((mouse_event.flags() == flags) &&
+      (status == ui::EVENT_REWRITE_CONTINUE)) {
     return ui::EVENT_REWRITE_CONTINUE;
+  }
+  if (status == ui::EVENT_REWRITE_CONTINUE)
+    status = ui::EVENT_REWRITE_REWRITTEN;
   ui::MouseEvent* rewritten_mouse_event = new ui::MouseEvent(mouse_event);
   rewritten_event->reset(rewritten_mouse_event);
   rewritten_mouse_event->set_flags(flags);
 #if defined(USE_X11)
-  XEvent* xev = rewritten_mouse_event->native_event();
-  if (xev) {
-    switch (xev->type) {
-      case ButtonPress:
-      case ButtonRelease: {
-        XButtonEvent* xbutton = &(xev->xbutton);
-        UpdateX11EventMask(rewritten_mouse_event->flags(), &xbutton->state);
-        break;
-      }
-      case GenericEvent: {
-        XIDeviceEvent* xievent = static_cast<XIDeviceEvent*>(xev->xcookie.data);
-        CHECK(xievent->evtype == XI_ButtonPress ||
-              xievent->evtype == XI_ButtonRelease);
-        UpdateX11EventMask(
-            rewritten_mouse_event->flags(),
-            reinterpret_cast<unsigned int*>(&xievent->mods.effective));
-        break;
-      }
-      default:
-        NOTREACHED();
-    }
-  }
+  ui::UpdateX11EventForFlags(rewritten_mouse_event);
 #endif
-  return ui::EVENT_REWRITE_REWRITTEN;
+  if (changed_button != ui::EF_NONE) {
+    rewritten_mouse_event->set_changed_button_flags(changed_button);
+#if defined(USE_X11)
+    ui::UpdateX11EventForChangedButtonFlags(rewritten_mouse_event);
+#endif
+  }
+  return status;
+}
+
+ui::EventRewriteStatus EventRewriter::RewriteMouseWheelEvent(
+    const ui::MouseWheelEvent& wheel_event,
+    scoped_ptr<ui::Event>* rewritten_event) {
+  if (!sticky_keys_controller_)
+    return ui::EVENT_REWRITE_CONTINUE;
+  int flags = wheel_event.flags();
+  ui::EventRewriteStatus status =
+      sticky_keys_controller_->RewriteMouseEvent(wheel_event, &flags);
+  if ((wheel_event.flags() == flags) &&
+      (status == ui::EVENT_REWRITE_CONTINUE)) {
+    return ui::EVENT_REWRITE_CONTINUE;
+  }
+  if (status == ui::EVENT_REWRITE_CONTINUE)
+    status = ui::EVENT_REWRITE_REWRITTEN;
+  ui::MouseWheelEvent* rewritten_wheel_event =
+      new ui::MouseWheelEvent(wheel_event);
+  rewritten_event->reset(rewritten_wheel_event);
+  rewritten_wheel_event->set_flags(flags);
+#if defined(USE_X11)
+  ui::UpdateX11EventForFlags(rewritten_wheel_event);
+#endif
+  return status;
 }
 
 ui::EventRewriteStatus EventRewriter::RewriteTouchEvent(
@@ -411,17 +499,27 @@ ui::EventRewriteStatus EventRewriter::RewriteTouchEvent(
   rewritten_event->reset(rewritten_touch_event);
   rewritten_touch_event->set_flags(flags);
 #if defined(USE_X11)
-  XEvent* xev = rewritten_touch_event->native_event();
-  if (xev) {
-    XIDeviceEvent* xievent = static_cast<XIDeviceEvent*>(xev->xcookie.data);
-    if (xievent) {
-      UpdateX11EventMask(
-          rewritten_touch_event->flags(),
-          reinterpret_cast<unsigned int*>(&xievent->mods.effective));
-    }
-  }
+  ui::UpdateX11EventForFlags(rewritten_touch_event);
 #endif
   return ui::EVENT_REWRITE_REWRITTEN;
+}
+
+ui::EventRewriteStatus EventRewriter::RewriteScrollEvent(
+    const ui::ScrollEvent& scroll_event,
+    scoped_ptr<ui::Event>* rewritten_event) {
+  int flags = scroll_event.flags();
+  ui::EventRewriteStatus status = ui::EVENT_REWRITE_CONTINUE;
+  if (sticky_keys_controller_)
+    status = sticky_keys_controller_->RewriteScrollEvent(scroll_event, &flags);
+  if (status == ui::EVENT_REWRITE_CONTINUE)
+    return status;
+  ui::ScrollEvent* rewritten_scroll_event = new ui::ScrollEvent(scroll_event);
+  rewritten_event->reset(rewritten_scroll_event);
+  rewritten_scroll_event->set_flags(flags);
+#if defined(USE_X11)
+  ui::UpdateX11EventForFlags(rewritten_scroll_event);
+#endif
+  return status;
 }
 
 void EventRewriter::RewriteModifierKeys(const ui::KeyEvent& key_event,
@@ -437,7 +535,7 @@ void EventRewriter::RewriteModifierKeys(const ui::KeyEvent& key_event,
   // TODO(glotov): remove the following condition when we do not restart chrome
   // when user logs in as guest.
   // TODO(kpschoedel): check whether this is still necessary.
-  if (UserManager::Get()->IsLoggedInAsGuest() &&
+  if (user_manager::UserManager::Get()->IsLoggedInAsGuest() &&
       LoginDisplayHostImpl::default_host())
     return;
 
@@ -461,11 +559,20 @@ void EventRewriter::RewriteModifierKeys(const ui::KeyEvent& key_event,
       if (HasDiamondKey())
         remapped_key =
             GetRemappedKey(prefs::kLanguageRemapDiamondKeyTo, *pref_service);
-      // Default behavior is Ctrl key.
+      // Default behavior of F15 is Control, even if --has-chromeos-diamond-key
+      // is absent, according to unit test comments.
       if (!remapped_key) {
         DCHECK_EQ(ui::VKEY_CONTROL, kModifierRemappingCtrl->key_code);
         remapped_key = kModifierRemappingCtrl;
-        characteristic_flag = ui::EF_CONTROL_DOWN;
+      }
+      // F15 is not a modifier key, so we need to track its state directly.
+      if (key_event.type() == ui::ET_KEY_PRESSED) {
+        int remapped_flag = remapped_key->flag;
+        if (remapped_key->remap_to == input_method::kCapsLockKey)
+          remapped_flag |= ui::EF_CAPS_LOCK_DOWN;
+        current_diamond_key_modifier_flags_ = remapped_flag;
+      } else {
+        current_diamond_key_modifier_flags_ = ui::EF_NONE;
       }
       break;
     // On Chrome OS, XF86XK_Launch7 (F16) with Mod3Mask is sent when Caps Lock
@@ -717,44 +824,28 @@ void EventRewriter::RewriteLocatedEvent(const ui::Event& event,
   const PrefService* pref_service = GetPrefService();
   if (!pref_service)
     return;
-
-  // First, remap modifier masks.
   *flags = GetRemappedModifierMasks(*pref_service, event, *flags);
-
-#if defined(USE_X11)
-  // TODO(kpschoedel): de-X11 with unified device ids from crbug.com/360377
-  XEvent* xevent = event.native_event();
-  if (!xevent || xevent->type != GenericEvent)
-    return;
-  XIDeviceEvent* xievent = static_cast<XIDeviceEvent*>(xevent->xcookie.data);
-  if (xievent->evtype != XI_ButtonPress && xievent->evtype != XI_ButtonRelease)
-    return;
-  UpdateX11EventMask(*flags,
-                     reinterpret_cast<unsigned int*>(&xievent->mods.effective));
-
-  // Then, remap Alt+Button1 to Button3.
-  if ((xievent->evtype == XI_ButtonPress ||
-       pressed_device_ids_.count(xievent->sourceid)) &&
-      (xievent->mods.effective & Mod1Mask) && xievent->detail == Button1) {
-    *flags &= ~(ui::EF_ALT_DOWN | ui::EF_LEFT_MOUSE_BUTTON);
-    *flags |= ui::EF_RIGHT_MOUSE_BUTTON;
-    xievent->mods.effective &= ~Mod1Mask;
-    xievent->detail = Button3;
-    if (xievent->evtype == XI_ButtonRelease) {
-      // On the release clear the left button from the existing state and the
-      // mods, and set the right button.
-      XISetMask(xievent->buttons.mask, Button3);
-      XIClearMask(xievent->buttons.mask, Button1);
-      xievent->mods.effective &= ~Button1Mask;
-      pressed_device_ids_.erase(xievent->sourceid);
-    } else {
-      pressed_device_ids_.insert(xievent->sourceid);
-    }
-  }
-#endif  // defined(USE_X11)
 }
 
-EventRewriter::DeviceType EventRewriter::DeviceAddedInternal(
+int EventRewriter::RewriteModifierClick(const ui::MouseEvent& mouse_event,
+                                        int* flags) {
+  // Remap Alt+Button1 to Button3.
+  const int kAltLeftButton = (ui::EF_ALT_DOWN | ui::EF_LEFT_MOUSE_BUTTON);
+  if (((*flags & kAltLeftButton) == kAltLeftButton) &&
+      ((mouse_event.type() == ui::ET_MOUSE_PRESSED) ||
+       pressed_device_ids_.count(mouse_event.source_device_id()))) {
+    *flags &= ~kAltLeftButton;
+    *flags |= ui::EF_RIGHT_MOUSE_BUTTON;
+    if (mouse_event.type() == ui::ET_MOUSE_PRESSED)
+      pressed_device_ids_.insert(mouse_event.source_device_id());
+    else
+      pressed_device_ids_.erase(mouse_event.source_device_id());
+    return ui::EF_RIGHT_MOUSE_BUTTON;
+  }
+  return ui::EF_NONE;
+}
+
+EventRewriter::DeviceType EventRewriter::KeyboardDeviceAddedInternal(
     int device_id,
     const std::string& device_name) {
   const DeviceType type = GetDeviceType(device_name);
@@ -768,25 +859,8 @@ EventRewriter::DeviceType EventRewriter::DeviceAddedInternal(
   return type;
 }
 
+void EventRewriter::KeyboardDeviceAdded(int device_id) {
 #if defined(USE_X11)
-void EventRewriter::WillProcessEvent(const ui::PlatformEvent& event) {
-  XEvent* xevent = event;
-  if (xevent->type == GenericEvent) {
-    XIDeviceEvent* xievent = static_cast<XIDeviceEvent*>(xevent->xcookie.data);
-    if (xievent->evtype == XI_KeyPress || xievent->evtype == XI_KeyRelease) {
-      if (xievent->deviceid == xievent->sourceid)
-        DeviceKeyPressedOrReleased(xievent->deviceid);
-    }
-  }
-}
-
-void EventRewriter::DidProcessEvent(const ui::PlatformEvent& event) {
-}
-
-void EventRewriter::DeviceHierarchyChanged() {
-}
-
-void EventRewriter::DeviceAdded(int device_id) {
   DCHECK_NE(XIAllDevices, device_id);
   DCHECK_NE(XIAllMasterDevices, device_id);
   if (device_id == XIAllDevices || device_id == XIAllMasterDevices) {
@@ -809,15 +883,13 @@ void EventRewriter::DeviceAdded(int device_id) {
   for (int i = 0; i < ndevices_return; ++i) {
     DCHECK_EQ(device_id, device_info[i].deviceid);  // see the comment above.
     DCHECK(device_info[i].name);
-    DeviceAddedInternal(device_info[i].deviceid, device_info[i].name);
+    KeyboardDeviceAddedInternal(device_info[i].deviceid, device_info[i].name);
   }
 
   XIFreeDeviceInfo(device_info);
-}
-
-void EventRewriter::DeviceRemoved(int device_id) {
-  device_id_to_type_.erase(device_id);
-}
+#else
+  KeyboardDeviceAddedInternal(device_id, "keyboard");
 #endif
+}
 
 }  // namespace chromeos

@@ -15,13 +15,14 @@
 #include "mojo/public/c/system/message_pipe.h"
 #include "mojo/public/c/system/types.h"
 #include "mojo/system/dispatcher.h"
+#include "mojo/system/memory.h"
 #include "mojo/system/message_in_transit.h"
 #include "mojo/system/system_impl_export.h"
 
 namespace mojo {
 namespace system {
 
-class Channel;
+class ChannelEndpoint;
 class Waiter;
 
 // This is an interface to one of the ends of a message pipe, and is used by
@@ -36,10 +37,7 @@ class MOJO_SYSTEM_IMPL_EXPORT MessagePipeEndpoint {
  public:
   virtual ~MessagePipeEndpoint() {}
 
-  enum Type {
-    kTypeLocal,
-    kTypeProxy
-  };
+  enum Type { kTypeLocal, kTypeProxy };
   virtual Type GetType() const = 0;
 
   // All implementations must implement these.
@@ -61,24 +59,22 @@ class MOJO_SYSTEM_IMPL_EXPORT MessagePipeEndpoint {
   // operation involves both endpoints.
   virtual void Close();
   virtual void CancelAllWaiters();
-  virtual MojoResult ReadMessage(void* bytes,
-                                 uint32_t* num_bytes,
+  virtual MojoResult ReadMessage(UserPointer<void> bytes,
+                                 UserPointer<uint32_t> num_bytes,
                                  DispatcherVector* dispatchers,
                                  uint32_t* num_dispatchers,
                                  MojoReadMessageFlags flags);
+  virtual HandleSignalsState GetHandleSignalsState() const;
   virtual MojoResult AddWaiter(Waiter* waiter,
                                MojoHandleSignals signals,
-                               uint32_t context);
-  virtual void RemoveWaiter(Waiter* waiter);
+                               uint32_t context,
+                               HandleSignalsState* signals_state);
+  virtual void RemoveWaiter(Waiter* waiter, HandleSignalsState* signals_state);
 
   // Implementations must override these if they represent a proxy endpoint. An
   // implementation for a local endpoint needs not override these methods, since
   // they should never be called.
-  virtual void Attach(scoped_refptr<Channel> channel,
-                      MessageInTransit::EndpointId local_id);
-  // Returns false if the endpoint should be closed and destroyed, else true.
-  virtual bool Run(MessageInTransit::EndpointId remote_id);
-  virtual void OnRemove();
+  virtual void Attach(ChannelEndpoint* channel_endpoint);
 
  protected:
   MessagePipeEndpoint() {}

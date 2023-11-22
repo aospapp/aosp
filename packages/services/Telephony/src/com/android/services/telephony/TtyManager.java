@@ -34,6 +34,7 @@ final class TtyManager {
     private final TtyBroadcastReceiver mReceiver = new TtyBroadcastReceiver();
     private final Phone mPhone;
     private int mTtyMode;
+    private int mUiTtyMode = -1;
 
     private final Handler mHandler = new Handler() {
         @Override
@@ -73,6 +74,7 @@ final class TtyManager {
 
         IntentFilter intentFilter = new IntentFilter(
                 TelecomManager.ACTION_CURRENT_TTY_MODE_CHANGED);
+        intentFilter.addAction(TelecomManager.ACTION_TTY_PREFERRED_MODE_CHANGED);
         context.registerReceiver(mReceiver, intentFilter);
 
         int ttyMode = TelecomManager.TTY_MODE_OFF;
@@ -81,6 +83,7 @@ final class TtyManager {
             ttyMode = telecomManager.getCurrentTtyMode();
         }
         updateTtyMode(ttyMode);
+        updateUiTtyMode(ttyMode);
     }
 
     private void updateTtyMode(int ttyMode) {
@@ -88,6 +91,16 @@ final class TtyManager {
         mTtyMode = ttyMode;
         mPhone.setTTYMode(telecomModeToPhoneMode(ttyMode),
                 mHandler.obtainMessage(MSG_SET_TTY_MODE_RESPONSE));
+    }
+
+    private void updateUiTtyMode(int ttyMode) {
+        Log.i(this, "updateUiTtyMode %d -> %d", mUiTtyMode, ttyMode);
+        if(mUiTtyMode != ttyMode) {
+            mUiTtyMode = ttyMode;
+            mPhone.setUiTTYMode(telecomModeToPhoneMode(ttyMode), null);
+        } else {
+           Log.i(this, "ui tty mode didnt change");
+        }
     }
 
     private final class TtyBroadcastReceiver extends BroadcastReceiver {
@@ -99,19 +112,22 @@ final class TtyManager {
                 int ttyMode = intent.getIntExtra(
                         TelecomManager.EXTRA_CURRENT_TTY_MODE, TelecomManager.TTY_MODE_OFF);
                 updateTtyMode(ttyMode);
+            } else if (action.equals(TelecomManager.ACTION_TTY_PREFERRED_MODE_CHANGED)) {
+                int newPreferredTtyMode = intent.getIntExtra(
+                        TelecomManager.EXTRA_TTY_PREFERRED_MODE, TelecomManager.TTY_MODE_OFF);
+                updateUiTtyMode(newPreferredTtyMode);
             }
         }
     }
 
     private static int telecomModeToPhoneMode(int telecomMode) {
         switch (telecomMode) {
+            // AT command only has 0 and 1, so mapping VCO
+            // and HCO to FULL
             case TelecomManager.TTY_MODE_FULL:
-                return Phone.TTY_MODE_FULL;
             case TelecomManager.TTY_MODE_VCO:
-                return Phone.TTY_MODE_VCO;
             case TelecomManager.TTY_MODE_HCO:
-                return Phone.TTY_MODE_HCO;
-            case TelecomManager.TTY_MODE_OFF:
+                return Phone.TTY_MODE_FULL;
             default:
                 return Phone.TTY_MODE_OFF;
         }

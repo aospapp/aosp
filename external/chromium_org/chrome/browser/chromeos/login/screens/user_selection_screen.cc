@@ -5,15 +5,22 @@
 #include "chrome/browser/chromeos/login/screens/user_selection_screen.h"
 
 #include "ash/shell.h"
+#include "base/location.h"
 #include "base/logging.h"
 #include "base/prefs/pref_service.h"
+#include "base/values.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/chromeos/login/ui/login_display_host_impl.h"
+#include "chrome/browser/chromeos/login/users/chrome_user_manager.h"
 #include "chrome/browser/chromeos/login/users/multi_profile_user_controller.h"
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
 #include "chrome/browser/signin/screenlock_bridge.h"
+#include "chrome/browser/ui/webui/chromeos/login/l10n_util.h"
 #include "chrome/browser/ui/webui/chromeos/login/signin_screen_handler.h"
 #include "chrome/common/pref_names.h"
+#include "components/user_manager/user_manager.h"
+#include "components/user_manager/user_type.h"
 #include "ui/wm/core/user_activity_detector.h"
 
 namespace chromeos {
@@ -26,18 +33,73 @@ const char kKeyDisplayName[] = "displayName";
 const char kKeyEmailAddress[] = "emailAddress";
 const char kKeyEnterpriseDomain[] = "enterpriseDomain";
 const char kKeyPublicAccount[] = "publicAccount";
-const char kKeyLocallyManagedUser[] = "locallyManagedUser";
+const char kKeySupervisedUser[] = "supervisedUser";
 const char kKeySignedIn[] = "signedIn";
 const char kKeyCanRemove[] = "canRemove";
 const char kKeyIsOwner[] = "isOwner";
 const char kKeyInitialAuthType[] = "initialAuthType";
 const char kKeyMultiProfilesAllowed[] = "isMultiProfilesAllowed";
 const char kKeyMultiProfilesPolicy[] = "multiProfilesPolicy";
+const char kKeyInitialLocales[] = "initialLocales";
+const char kKeyInitialLocale[] = "initialLocale";
+const char kKeyInitialMultipleRecommendedLocales[] =
+    "initialMultipleRecommendedLocales";
+const char kKeyInitialKeyboardLayout[] = "initialKeyboardLayout";
 
 // Max number of users to show.
+// Please keep synced with one in signin_userlist_unittest.cc.
 const size_t kMaxUsers = 18;
 
 const int kPasswordClearTimeoutSec = 60;
+
+void AddPublicSessionDetailsToUserDictionaryEntry(
+    base::DictionaryValue* user_dict,
+    const std::vector<std::string>* public_session_recommended_locales) {
+  policy::BrowserPolicyConnectorChromeOS* policy_connector =
+      g_browser_process->platform_part()->browser_policy_connector_chromeos();
+
+  if (policy_connector->IsEnterpriseManaged()) {
+    user_dict->SetString(kKeyEnterpriseDomain,
+                         policy_connector->GetEnterpriseDomain());
+  }
+
+  std::vector<std::string> kEmptyRecommendedLocales;
+  const std::vector<std::string>& recommended_locales =
+      public_session_recommended_locales ?
+          *public_session_recommended_locales : kEmptyRecommendedLocales;
+
+  // Construct the list of available locales. This list consists of the
+  // recommended locales, followed by all others.
+  scoped_ptr<base::ListValue> available_locales =
+      GetUILanguageList(&recommended_locales, std::string());
+
+  // Select the the first recommended locale that is actually available or the
+  // current UI locale if none of them are available.
+  const std::string selected_locale = FindMostRelevantLocale(
+      recommended_locales,
+      *available_locales.get(),
+      g_browser_process->GetApplicationLocale());
+
+  // Set |kKeyInitialLocales| to the list of available locales.
+  user_dict->Set(kKeyInitialLocales, available_locales.release());
+
+  // Set |kKeyInitialLocale| to the initially selected locale.
+  user_dict->SetString(kKeyInitialLocale, selected_locale);
+
+  // Set |kKeyInitialMultipleRecommendedLocales| to indicate whether the list
+  // of recommended locales contains at least two entries. This is used to
+  // decide whether the public session pod expands to its basic form (for zero
+  // or one recommended locales) or the advanced form (two or more recommended
+  // locales).
+  user_dict->SetBoolean(kKeyInitialMultipleRecommendedLocales,
+                        recommended_locales.size() >= 2);
+
+  // Set |kKeyInitialKeyboardLayout| to the current keyboard layout. This
+  // value will be used temporarily only because the UI immediately requests a
+  // list of keyboard layouts suitable for the currently selected locale.
+  user_dict->Set(kKeyInitialKeyboardLayout,
+                 GetCurrentKeyboardLayout().release());
+}
 
 }  // namespace
 
@@ -45,30 +107,34 @@ UserSelectionScreen::UserSelectionScreen() : handler_(NULL) {
 }
 
 UserSelectionScreen::~UserSelectionScreen() {
+#if !defined(USE_ATHENA)
+  // TODO(dpolukhin): crbug.com/408752
   wm::UserActivityDetector* activity_detector =
       ash::Shell::GetInstance()->user_activity_detector();
   if (activity_detector->HasObserver(this))
     activity_detector->RemoveObserver(this);
+#endif
 }
 
 // static
 void UserSelectionScreen::FillUserDictionary(
-    User* user,
+    user_manager::User* user,
     bool is_owner,
     bool is_signin_to_add,
     ScreenlockBridge::LockHandler::AuthType auth_type,
+    const std::vector<std::string>* public_session_recommended_locales,
     base::DictionaryValue* user_dict) {
   const std::string& user_id = user->email();
-  const bool is_public_account =
-      user->GetType() == User::USER_TYPE_PUBLIC_ACCOUNT;
-  const bool is_locally_managed_user =
-      user->GetType() == User::USER_TYPE_LOCALLY_MANAGED;
+  const bool is_public_session =
+      user->GetType() == user_manager::USER_TYPE_PUBLIC_ACCOUNT;
+  const bool is_supervised_user =
+      user->GetType() == user_manager::USER_TYPE_SUPERVISED;
 
   user_dict->SetString(kKeyUsername, user_id);
   user_dict->SetString(kKeyEmailAddress, user->display_email());
   user_dict->SetString(kKeyDisplayName, user->GetDisplayName());
-  user_dict->SetBoolean(kKeyPublicAccount, is_public_account);
-  user_dict->SetBoolean(kKeyLocallyManagedUser, is_locally_managed_user);
+  user_dict->SetBoolean(kKeyPublicAccount, is_public_session);
+  user_dict->SetBoolean(kKeySupervisedUser, is_supervised_user);
   user_dict->SetInteger(kKeyInitialAuthType, auth_type);
   user_dict->SetBoolean(kKeySignedIn, user->is_logged_in());
   user_dict->SetBoolean(kKeyIsOwner, is_owner);
@@ -76,30 +142,35 @@ void UserSelectionScreen::FillUserDictionary(
   // Fill in multi-profiles related fields.
   if (is_signin_to_add) {
     MultiProfileUserController* multi_profile_user_controller =
-        UserManager::Get()->GetMultiProfileUserController();
-    std::string behavior =
-        multi_profile_user_controller->GetCachedValue(user_id);
-    user_dict->SetBoolean(kKeyMultiProfilesAllowed,
-                          multi_profile_user_controller->IsUserAllowedInSession(
-                              user_id) == MultiProfileUserController::ALLOWED);
+        ChromeUserManager::Get()->GetMultiProfileUserController();
+    MultiProfileUserController::UserAllowedInSessionReason isUserAllowedReason;
+    bool isUserAllowed = multi_profile_user_controller->IsUserAllowedInSession(
+        user_id, &isUserAllowedReason);
+    user_dict->SetBoolean(kKeyMultiProfilesAllowed, isUserAllowed);
+
+    std::string behavior;
+    switch (isUserAllowedReason) {
+      case MultiProfileUserController::NOT_ALLOWED_OWNER_AS_SECONDARY:
+        behavior = MultiProfileUserController::kBehaviorOwnerPrimaryOnly;
+        break;
+      default:
+        behavior = multi_profile_user_controller->GetCachedValue(user_id);
+    }
     user_dict->SetString(kKeyMultiProfilesPolicy, behavior);
   } else {
     user_dict->SetBoolean(kKeyMultiProfilesAllowed, true);
   }
 
-  if (is_public_account) {
-    policy::BrowserPolicyConnectorChromeOS* policy_connector =
-        g_browser_process->platform_part()->browser_policy_connector_chromeos();
-
-    if (policy_connector->IsEnterpriseManaged()) {
-      user_dict->SetString(kKeyEnterpriseDomain,
-                           policy_connector->GetEnterpriseDomain());
-    }
+  if (is_public_session) {
+    AddPublicSessionDetailsToUserDictionaryEntry(
+        user_dict,
+        public_session_recommended_locales);
   }
 }
 
 // static
-bool UserSelectionScreen::ShouldForceOnlineSignIn(const User* user) {
+bool UserSelectionScreen::ShouldForceOnlineSignIn(
+    const user_manager::User* user) {
   // Public sessions are always allowed to log in offline.
   // Supervised user are allowed to log in offline if their OAuth token status
   // is unknown or valid.
@@ -111,14 +182,15 @@ bool UserSelectionScreen::ShouldForceOnlineSignIn(const User* user) {
   if (user->is_logged_in())
     return false;
 
-  const User::OAuthTokenStatus token_status = user->oauth_token_status();
-  const bool is_locally_managed_user =
-      user->GetType() == User::USER_TYPE_LOCALLY_MANAGED;
+  const user_manager::User::OAuthTokenStatus token_status =
+      user->oauth_token_status();
+  const bool is_supervised_user =
+      user->GetType() == user_manager::USER_TYPE_SUPERVISED;
   const bool is_public_session =
-      user->GetType() == User::USER_TYPE_PUBLIC_ACCOUNT;
+      user->GetType() == user_manager::USER_TYPE_PUBLIC_ACCOUNT;
 
-  if (is_locally_managed_user &&
-      token_status == User::OAUTH_TOKEN_STATUS_UNKNOWN) {
+  if (is_supervised_user &&
+      token_status == user_manager::User::OAUTH_TOKEN_STATUS_UNKNOWN) {
     return false;
   }
 
@@ -126,26 +198,31 @@ bool UserSelectionScreen::ShouldForceOnlineSignIn(const User* user) {
     return false;
 
   return user->force_online_signin() ||
-         (token_status == User::OAUTH2_TOKEN_STATUS_INVALID) ||
-         (token_status == User::OAUTH_TOKEN_STATUS_UNKNOWN);
+         (token_status == user_manager::User::OAUTH2_TOKEN_STATUS_INVALID) ||
+         (token_status == user_manager::User::OAUTH_TOKEN_STATUS_UNKNOWN);
 }
 
 void UserSelectionScreen::SetHandler(LoginDisplayWebUIHandler* handler) {
   handler_ = handler;
 }
 
-void UserSelectionScreen::Init(const UserList& users, bool show_guest) {
+void UserSelectionScreen::Init(const user_manager::UserList& users,
+                               bool show_guest) {
   users_ = users;
   show_guest_ = show_guest;
 
+#if !defined(USE_ATHENA)
+  // TODO(dpolukhin): crbug.com/408752
   wm::UserActivityDetector* activity_detector =
       ash::Shell::GetInstance()->user_activity_detector();
   if (!activity_detector->HasObserver(this))
     activity_detector->AddObserver(this);
+#endif
 }
 
 void UserSelectionScreen::OnBeforeUserRemoved(const std::string& username) {
-  for (UserList::iterator it = users_.begin(); it != users_.end(); ++it) {
+  for (user_manager::UserList::iterator it = users_.begin(); it != users_.end();
+       ++it) {
     if ((*it)->email() == username) {
       users_.erase(it);
       break;
@@ -160,14 +237,14 @@ void UserSelectionScreen::OnUserRemoved(const std::string& username) {
   handler_->OnUserRemoved(username);
 }
 
-void UserSelectionScreen::OnUserImageChanged(const User& user) {
+void UserSelectionScreen::OnUserImageChanged(const user_manager::User& user) {
   if (!handler_)
     return;
   handler_->OnUserImageChanged(user);
   // TODO(antrim) : updateUserImage(user.email())
 }
 
-const UserList& UserSelectionScreen::GetUsers() const {
+const user_manager::UserList& UserSelectionScreen::GetUsers() const {
   return users_;
 }
 
@@ -188,21 +265,22 @@ void UserSelectionScreen::OnUserActivity(const ui::Event* event) {
 }
 
 // static
-const UserList UserSelectionScreen::PrepareUserListForSending(
-    const UserList& users,
+const user_manager::UserList UserSelectionScreen::PrepareUserListForSending(
+    const user_manager::UserList& users,
     std::string owner,
     bool is_signin_to_add) {
-
-  UserList users_to_send;
+  user_manager::UserList users_to_send;
   bool has_owner = owner.size() > 0;
   size_t max_non_owner_users = has_owner ? kMaxUsers - 1 : kMaxUsers;
   size_t non_owner_count = 0;
 
-  for (UserList::const_iterator it = users.begin(); it != users.end(); ++it) {
+  for (user_manager::UserList::const_iterator it = users.begin();
+       it != users.end();
+       ++it) {
     const std::string& user_id = (*it)->email();
     bool is_owner = (user_id == owner);
     bool is_public_account =
-        ((*it)->GetType() == User::USER_TYPE_PUBLIC_ACCOUNT);
+        ((*it)->GetType() == user_manager::USER_TYPE_PUBLIC_ACCOUNT);
 
     if ((is_public_account && !is_signin_to_add) || is_owner ||
         (!is_public_account && non_owner_count < max_non_owner_users)) {
@@ -222,15 +300,15 @@ const UserList UserSelectionScreen::PrepareUserListForSending(
   return users_to_send;
 }
 
-void UserSelectionScreen::SendUserList(bool animated) {
+void UserSelectionScreen::SendUserList() {
   base::ListValue users_list;
-  const UserList& users = GetUsers();
+  const user_manager::UserList& users = GetUsers();
 
   // TODO(nkostylev): Move to a separate method in UserManager.
   // http://crbug.com/230852
   bool single_user = users.size() == 1;
   bool is_signin_to_add = LoginDisplayHostImpl::default_host() &&
-                          UserManager::Get()->IsUserLoggedIn();
+                          user_manager::UserManager::Get()->IsUserLoggedIn();
   std::string owner;
   chromeos::CrosSettings::Get()->GetString(chromeos::kDeviceOwner, &owner);
 
@@ -238,28 +316,39 @@ void UserSelectionScreen::SendUserList(bool animated) {
       g_browser_process->platform_part()->browser_policy_connector_chromeos();
   bool is_enterprise_managed = connector->IsEnterpriseManaged();
 
-  const UserList users_to_send = PrepareUserListForSending(users,
-                                                           owner,
-                                                           is_signin_to_add);
+  const user_manager::UserList users_to_send =
+      PrepareUserListForSending(users, owner, is_signin_to_add);
 
   user_auth_type_map_.clear();
 
-  for (UserList::const_iterator it = users_to_send.begin();
+  const std::vector<std::string> kEmptyRecommendedLocales;
+  for (user_manager::UserList::const_iterator it = users_to_send.begin();
        it != users_to_send.end();
        ++it) {
     const std::string& user_id = (*it)->email();
     bool is_owner = (user_id == owner);
-    bool is_public_account =
-        ((*it)->GetType() == User::USER_TYPE_PUBLIC_ACCOUNT);
-    ScreenlockBridge::LockHandler::AuthType initial_auth_type =
-      ShouldForceOnlineSignIn(*it)
-          ? ScreenlockBridge::LockHandler::ONLINE_SIGN_IN
-          : ScreenlockBridge::LockHandler::OFFLINE_PASSWORD;
+    const bool is_public_account =
+        ((*it)->GetType() == user_manager::USER_TYPE_PUBLIC_ACCOUNT);
+    const ScreenlockBridge::LockHandler::AuthType initial_auth_type =
+        is_public_account
+            ? ScreenlockBridge::LockHandler::EXPAND_THEN_USER_CLICK
+            : (ShouldForceOnlineSignIn(*it)
+                   ? ScreenlockBridge::LockHandler::ONLINE_SIGN_IN
+                   : ScreenlockBridge::LockHandler::OFFLINE_PASSWORD);
     user_auth_type_map_[user_id] = initial_auth_type;
 
     base::DictionaryValue* user_dict = new base::DictionaryValue();
-    FillUserDictionary(
-        *it, is_owner, is_signin_to_add, initial_auth_type, user_dict);
+    const std::vector<std::string>* public_session_recommended_locales =
+        public_session_recommended_locales_.find(user_id) ==
+            public_session_recommended_locales_.end() ?
+                &kEmptyRecommendedLocales :
+                &public_session_recommended_locales_[user_id];
+    FillUserDictionary(*it,
+                       is_owner,
+                       is_signin_to_add,
+                       initial_auth_type,
+                       public_session_recommended_locales,
+                       user_dict);
     bool signed_in = (*it)->is_logged_in();
     // Single user check here is necessary because owner info might not be
     // available when running into login screen on first boot.
@@ -271,16 +360,19 @@ void UserSelectionScreen::SendUserList(bool animated) {
     users_list.Append(user_dict);
   }
 
-  handler_->LoadUsers(users_list, animated, show_guest_);
+  handler_->LoadUsers(users_list, show_guest_);
 }
 
 void UserSelectionScreen::HandleGetUsers() {
-  SendUserList(false);
+  SendUserList();
 }
 
 void UserSelectionScreen::SetAuthType(
     const std::string& username,
     ScreenlockBridge::LockHandler::AuthType auth_type) {
+  DCHECK(GetAuthType(username) !=
+             ScreenlockBridge::LockHandler::FORCE_OFFLINE_PASSWORD ||
+         auth_type == ScreenlockBridge::LockHandler::FORCE_OFFLINE_PASSWORD);
   user_auth_type_map_[username] = auth_type;
 }
 

@@ -19,7 +19,7 @@ chips_dir := ../../../frameworks/opt/chips/res
 
 #Include res dir from libraries
 appcompat_dir := ../../../prebuilts/sdk/current/support/v7/appcompat/res
-photo_dir := ../../../frameworks/opt/photoviewer/res ../../../frameworks/opt/photoviewer/activity/res
+photo_dir := ../../../frameworks/opt/photoviewer/res ../../../frameworks/opt/photoviewer/appcompat/res
 gridlayout_dir := ../../../prebuilts/sdk/current/support/v7/gridlayout/res
 bitmap_dir := ../../../frameworks/opt/bitmap/res
 datetimepicker_dir := ../../../frameworks/opt/datetimepicker/res
@@ -33,7 +33,7 @@ src_dirs := src unified_src
 LOCAL_PACKAGE_NAME := UnifiedEmail
 
 LOCAL_STATIC_JAVA_LIBRARIES := libchips
-LOCAL_STATIC_JAVA_LIBRARIES += libphotoviewer
+LOCAL_STATIC_JAVA_LIBRARIES += libphotoviewer_appcompat
 LOCAL_STATIC_JAVA_LIBRARIES += guava
 LOCAL_STATIC_JAVA_LIBRARIES += android-common
 LOCAL_STATIC_JAVA_LIBRARIES += android-support-v4
@@ -53,6 +53,9 @@ LOCAL_AAPT_FLAGS := --auto-add-overlay
 LOCAL_AAPT_FLAGS += --extra-packages com.android.ex.chips:com.android.ex.photo:android.support.v7.appcompat:android.support.v7.gridlayout:com.android.bitmap:com.android.datetimepicker
 
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags
+ifeq (eng,$(TARGET_BUILD_VARIANT))
+  LOCAL_PROGUARD_FLAG_FILES += proguard-test.flags
+endif
 
 LOCAL_EMMA_COVERAGE_FILTER := +com.android.mail.*, +com.android.emailcommon.*, +com.google.android.mail.*
 

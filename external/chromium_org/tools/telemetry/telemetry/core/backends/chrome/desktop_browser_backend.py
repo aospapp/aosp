@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import distutils
 import glob
 import heapq
 import logging
@@ -18,6 +17,7 @@ from telemetry.core import exceptions
 from telemetry.core import util
 from telemetry.core.backends import browser_backend
 from telemetry.core.backends.chrome import chrome_browser_backend
+from telemetry.util import path
 from telemetry.util import support_binaries
 
 
@@ -28,7 +28,7 @@ class DesktopBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
   def __init__(self, browser_options, executable, flash_path, is_content_shell,
                browser_directory, output_profile_path, extensions_to_load):
     super(DesktopBrowserBackend, self).__init__(
-        is_content_shell=is_content_shell,
+        supports_tab_control=not is_content_shell,
         supports_extensions=not is_content_shell,
         browser_options=browser_options,
         output_profile_path=output_profile_path,
@@ -46,13 +46,14 @@ class DesktopBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
     assert not flash_path or os.path.exists(flash_path)
     self._flash_path = flash_path
 
+    self._is_content_shell = is_content_shell
+
     if len(extensions_to_load) > 0 and is_content_shell:
       raise browser_backend.ExtensionsNotSupportedException(
           'Content shell does not support extensions.')
 
     self._browser_directory = browser_directory
     self._port = None
-    self._profile_dir = None
     self._tmp_minidump_dir = tempfile.mkdtemp()
     self._crash_service = None
 
@@ -67,9 +68,9 @@ class DesktopBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
         self._tmp_profile_dir = self._output_profile_path
       else:
         self._tmp_profile_dir = tempfile.mkdtemp()
-      profile_dir = self._profile_dir or self.browser_options.profile_dir
+      profile_dir = self.browser_options.profile_dir
       if profile_dir:
-        if self.is_content_shell:
+        if self._is_content_shell:
           logging.critical('Profiles cannot be used with content shell')
           sys.exit(1)
         logging.info("Using profile directory:'%s'." % profile_dir)
@@ -105,11 +106,7 @@ class DesktopBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
         '--pipe-name=%s' % self._GetCrashServicePipeName()])
 
   def _GetCdbPath(self):
-    search_paths = [os.getenv('PROGRAMFILES(X86)', ''),
-                    os.getenv('PROGRAMFILES', ''),
-                    os.getenv('LOCALAPPDATA', ''),
-                    os.getenv('PATH', '')]
-    possible_paths = [
+    possible_paths = (
         'Debugging Tools For Windows',
         'Debugging Tools For Windows (x86)',
         'Debugging Tools For Windows (x64)',
@@ -119,13 +116,12 @@ class DesktopBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
                      'x86'),
         os.path.join('win_toolchain', 'vs2013_files', 'win8sdk', 'Debuggers',
                      'x64'),
-        ]
+    )
     for possible_path in possible_paths:
-      path = distutils.spawn.find_executable(
-          os.path.join(possible_path, 'cdb'),
-          path=os.pathsep.join(search_paths))
-      if path:
-        return path
+      app_path = os.path.join(possible_path, 'cdb.exe')
+      app_path = path.FindInstalledWindowsApplication(app_path)
+      if app_path:
+        return app_path
     return None
 
   def HasBrowserFinishedLaunching(self):
@@ -169,23 +165,13 @@ class DesktopBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
     args.append('--remote-debugging-port=%i' % self._port)
     args.append('--enable-crash-reporter-for-testing')
     args.append('--use-mock-keychain')
-    if not self.is_content_shell:
+    if not self._is_content_shell:
       args.append('--window-size=1280,1024')
       if self._flash_path:
         args.append('--ppapi-flash-path=%s' % self._flash_path)
       if not self.browser_options.dont_override_profile:
         args.append('--user-data-dir=%s' % self._tmp_profile_dir)
     return args
-
-  def SetProfileDirectory(self, profile_dir):
-    # Make sure _profile_dir hasn't already been set.
-    assert self._profile_dir is None
-
-    if self.is_content_shell:
-      logging.critical('Profile creation cannot be used with content shell')
-      sys.exit(1)
-
-    self._profile_dir = profile_dir
 
   def Start(self):
     assert not self._proc, 'Must call Close() before Start()'
@@ -209,7 +195,6 @@ class DesktopBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
 
     try:
       self._WaitForBrowserToComeUp()
-      self._PostBrowserStartupInitialization()
     except:
       self.Close()
       raise
@@ -273,31 +258,47 @@ class DesktopBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
       logging.warning('minidump_stackwalk binary not found.')
       return None
 
-    symbols = glob.glob(os.path.join(self._browser_directory, '*.breakpad*'))
-    if not symbols:
-      logging.warning('No breakpad symbols found.')
-      return None
-
     with open(minidump, 'rb') as infile:
       minidump += '.stripped'
       with open(minidump, 'wb') as outfile:
         outfile.write(''.join(infile.read().partition('MDMP')[1:]))
 
     symbols_path = os.path.join(self._tmp_minidump_dir, 'symbols')
-    for symbol in sorted(symbols, key=os.path.getmtime, reverse=True):
-      if not os.path.isfile(symbol):
-        continue
-      with open(symbol, 'r') as f:
-        fields = f.readline().split()
-        if not fields:
+
+    symbols = glob.glob(os.path.join(self._browser_directory, '*.breakpad*'))
+    if symbols:
+      for symbol in sorted(symbols, key=os.path.getmtime, reverse=True):
+        if not os.path.isfile(symbol):
           continue
-        sha = fields[3]
-        binary = ' '.join(fields[4:])
-      symbol_path = os.path.join(symbols_path, binary, sha)
-      if os.path.exists(symbol_path):
-        continue
-      os.makedirs(symbol_path)
-      shutil.copyfile(symbol, os.path.join(symbol_path, binary + '.sym'))
+        with open(symbol, 'r') as f:
+          fields = f.readline().split()
+          if not fields:
+            continue
+          sha = fields[3]
+          binary = ' '.join(fields[4:])
+        symbol_path = os.path.join(symbols_path, binary, sha)
+        if os.path.exists(symbol_path):
+          continue
+        os.makedirs(symbol_path)
+        shutil.copyfile(symbol, os.path.join(symbol_path, binary + '.sym'))
+    else:
+      logging.info('Dumping breakpad symbols')
+      generate_breakpad_symbols_path = os.path.join(
+          util.GetChromiumSrcDir(), "components", "breakpad",
+          "tools", "generate_breakpad_symbols.py")
+      cmd = [
+          sys.executable,
+          generate_breakpad_symbols_path,
+          '--binary=%s' % self._executable,
+          '--symbols-dir=%s' % symbols_path,
+          '--build-dir=%s' % self._browser_directory,
+          ]
+
+      try:
+        subprocess.check_output(cmd, stderr=open(os.devnull, 'w'))
+      except subprocess.CalledProcessError:
+        logging.warning('Failed to execute "%s"' % ' '.join(cmd))
+        return None
 
     return subprocess.check_output([stackwalk, minidump, symbols_path],
                                    stderr=open(os.devnull, 'w'))
@@ -321,8 +322,8 @@ class DesktopBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
   def Close(self):
     super(DesktopBrowserBackend, self).Close()
 
-    # First, try to politely shutdown.
-    if self.IsBrowserRunning():
+    # Shutdown politely if the profile may be used again.
+    if self._output_profile_path and self.IsBrowserRunning():
       self._proc.terminate()
       try:
         util.WaitFor(lambda: not self.IsBrowserRunning(), timeout=5)
@@ -330,16 +331,10 @@ class DesktopBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
       except util.TimeoutException:
         logging.warning('Failed to gracefully shutdown. Proceeding to kill.')
 
-    # If it didn't comply, get more aggressive.
+    # Shutdown aggressively if the above failed or if the profile is temporary.
     if self.IsBrowserRunning():
       self._proc.kill()
-
-    try:
-      util.WaitFor(lambda: not self.IsBrowserRunning(), timeout=10)
-    except util.TimeoutException:
-      raise Exception('Could not shutdown the browser.')
-    finally:
-      self._proc = None
+    self._proc = None
 
     if self._crash_service:
       self._crash_service.kill()

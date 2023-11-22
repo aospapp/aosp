@@ -34,18 +34,21 @@
 #include "chrome/plugin/chrome_content_plugin_client.h"
 #include "chrome/renderer/chrome_content_renderer_client.h"
 #include "chrome/utility/chrome_content_utility_client.h"
-#include "components/nacl/common/nacl_switches.h"
+#include "components/component_updater/component_updater_paths.h"
+#include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/startup_metric_utils/startup_metric_utils.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_paths.h"
+#include "extensions/common/constants.h"
 #include "ui/base/ui_base_switches.h"
 
 #if defined(OS_WIN)
 #include <atlbase.h>
 #include <malloc.h>
 #include <algorithm>
-#include "base/strings/string_util.h"
+#include "chrome/app/close_handle_hook_win.h"
 #include "chrome/common/child_process_logging.h"
+#include "chrome/common/terminate_on_heap_corruption_experiment_win.h"
 #include "sandbox/win/src/sandbox.h"
 #include "ui/base/resource/resource_bundle_win.h"
 #endif
@@ -55,19 +58,17 @@
 #include "base/mac/os_crash_dumps.h"
 #include "chrome/app/chrome_main_mac.h"
 #include "chrome/browser/mac/relauncher.h"
-#include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/mac/cfbundle_blocker.h"
 #include "chrome/common/mac/objc_zombie.h"
-#include "components/breakpad/app/breakpad_mac.h"
-#include "grit/chromium_strings.h"
+#include "components/crash/app/breakpad_mac.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 #endif
 
 #if defined(OS_POSIX)
 #include <locale.h>
 #include <signal.h>
-#include "chrome/app/chrome_breakpad_client.h"
-#include "components/breakpad/app/breakpad_client.h"
+#include "chrome/app/chrome_crash_reporter_client.h"
+#include "components/crash/app/crash_reporter_client.h"
 #endif
 
 #if !defined(DISABLE_NACL) && defined(OS_LINUX)
@@ -97,7 +98,7 @@
 #endif
 
 #if defined(OS_POSIX) && !defined(OS_MACOSX)
-#include "components/breakpad/app/breakpad_linux.h"
+#include "components/crash/app/breakpad_linux.h"
 #endif
 
 #if defined(OS_LINUX)
@@ -106,6 +107,10 @@
 
 #if defined(OS_MACOSX) || defined(OS_WIN)
 #include "chrome/browser/policy/policy_path_parser.h"
+#endif
+
+#if !defined(DISABLE_NACL)
+#include "components/nacl/common/nacl_switches.h"
 #endif
 
 #if !defined(CHROME_MULTIPLE_DLL_CHILD)
@@ -123,8 +128,8 @@ base::LazyInstance<chrome::ChromeContentPluginClient>
 #endif
 
 #if defined(OS_POSIX)
-base::LazyInstance<chrome::ChromeBreakpadClient>::Leaky
-    g_chrome_breakpad_client = LAZY_INSTANCE_INITIALIZER;
+base::LazyInstance<chrome::ChromeCrashReporterClient>::Leaky
+    g_chrome_crash_client = LAZY_INSTANCE_INITIALIZER;
 #endif
 
 extern int NaClMain(const content::MainFunctionParams&);
@@ -140,7 +145,7 @@ bool HasDeprecatedArguments(const std::wstring& command_line) {
   const wchar_t kChromeHtml[] = L"chromehtml:";
   std::wstring command_line_lower = command_line;
   // We are only searching for ASCII characters so this is OK.
-  StringToLowerASCII(&command_line_lower);
+  base::StringToLowerASCII(&command_line_lower);
   std::wstring::size_type pos = command_line_lower.find(kChromeHtml);
   return (pos != std::wstring::npos);
 }
@@ -186,7 +191,6 @@ static void AdjustLinuxOOMScore(const std::string& process_type) {
     // The broker should be killed before the PPAPI plugin.
     score = kPluginScore + kScoreBump;
   } else if (process_type == switches::kUtilityProcess ||
-             process_type == switches::kWorkerProcess ||
              process_type == switches::kGpuProcess ||
              process_type == switches::kServiceProcess) {
     score = kMiscScore;
@@ -223,8 +227,6 @@ bool SubprocessNeedsResourceBundle(const std::string& process_type) {
       // Windows needs resources for the default/null plugin.
       // Mac needs them for the plugin process name.
       process_type == switches::kPluginProcess ||
-      // Needed for scrollbar related images.
-      process_type == switches::kWorkerProcess ||
 #endif
 #if defined(OS_POSIX) && !defined(OS_MACOSX)
       // The zygote process opens the resources for the renderers.
@@ -233,7 +235,9 @@ bool SubprocessNeedsResourceBundle(const std::string& process_type) {
 #if defined(OS_MACOSX)
       // Mac needs them too for scrollbar related images and for sandbox
       // profiles.
+#if !defined(DISABLE_NACL)
       process_type == switches::kNaClLoaderProcess ||
+#endif
       process_type == switches::kPpapiPluginProcess ||
       process_type == switches::kPpapiBrokerProcess ||
       process_type == switches::kGpuProcess ||
@@ -415,6 +419,8 @@ bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
     *exit_code = 1;
     return true;
   }
+
+  InstallCloseHandleHooks();
 #endif
 
   chrome::RegisterPathProvider();
@@ -424,6 +430,9 @@ bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
 #if !defined(DISABLE_NACL) && defined(OS_LINUX)
   nacl::RegisterPathProvider();
 #endif
+
+  ContentSettingsPattern::SetNonWildcardDomainNonPortScheme(
+      extensions::kExtensionScheme);
 
 // No support for ANDROID yet as DiagnosticsController needs wchar support.
 // TODO(gspencer): That's not true anymore, or at least there are no w-string
@@ -559,10 +568,12 @@ void ChromeMainDelegate::InitMacCrashReporter(
   //    itself.
   // * If Breakpad is disabled, we only turn on Crash Reporter for the
   //    Browser process in release mode.
-  if (base::mac::IsBackgroundOnlyProcess() ||
-      breakpad::IsCrashReporterEnabled() ||
-      is_debug_build) {
-    base::mac::DisableOSCrashDumps();
+  if (!command_line.HasSwitch(switches::kDisableBreakpad)) {
+    bool disable_apple_crash_reporter = is_debug_build ||
+        base::mac::IsBackgroundOnlyProcess();
+    if (!breakpad::IsCrashReporterEnabled() && disable_apple_crash_reporter) {
+      base::mac::DisableOSCrashDumps();
+    }
   }
 
   // Mac Chrome is packaged with a main app bundle and a helper app bundle.
@@ -594,15 +605,23 @@ void ChromeMainDelegate::InitMacCrashReporter(
             << switches::kPluginProcess << " or "
             << switches::kUtilityProcess << ", saw " << process_type;
       } else if (last_three == " NP") {
+#if !defined(DISABLE_NACL)
         CHECK_EQ(switches::kNaClLoaderProcess, process_type)
             << "Non-PIE process requires --type="
             << switches::kNaClLoaderProcess << ", saw " << process_type;
+#endif
       } else {
+#if defined(DISABLE_NACL)
+        CHECK(process_type != switches::kPluginProcess)
+            << "Non-executable-heap PIE process is intolerant of --type="
+            << switches::kPluginProcess;
+#else
         CHECK(process_type != switches::kPluginProcess &&
               process_type != switches::kNaClLoaderProcess)
             << "Non-executable-heap PIE process is intolerant of --type="
             << switches::kPluginProcess << " and "
             << switches::kNaClLoaderProcess << ", saw " << process_type;
+#endif
       }
     }
   } else {
@@ -622,7 +641,7 @@ void ChromeMainDelegate::PreSandboxStartup() {
       command_line.GetSwitchValueASCII(switches::kProcessType);
 
 #if defined(OS_POSIX)
-  breakpad::SetBreakpadClient(g_chrome_breakpad_client.Pointer());
+  crash_reporter::SetCrashReporterClient(g_chrome_crash_client.Pointer());
 #endif
 
 #if defined(OS_MACOSX)
@@ -647,6 +666,10 @@ void ChromeMainDelegate::PreSandboxStartup() {
   // Initialize the user data dir for any process type that needs it.
   if (chrome::ProcessNeedsProfileDir(process_type))
     InitializeUserDataDir();
+
+  // Register component_updater PathProvider after DIR_USER_DATA overidden by
+  // command line flags. Maybe move the chrome PathProvider down here also?
+  component_updater::RegisterPathProvider(chrome::DIR_USER_DATA);
 
   stats_counter_timer_.reset(new base::StatsCounterTimer("Chrome.Init"));
   startup_timer_.reset(new base::StatsScope<base::StatsCounterTimer>
@@ -707,9 +730,7 @@ void ChromeMainDelegate::PreSandboxStartup() {
         kAndroidLocalePakDescriptor);
     CHECK(locale_pak_fd != -1);
     ResourceBundle::InitSharedInstanceWithPakFileRegion(
-        base::File(locale_pak_fd),
-        base::MemoryMappedFile::Region::kWholeFile,
-        false);
+        base::File(locale_pak_fd), base::MemoryMappedFile::Region::kWholeFile);
 
     int extra_pak_keys[] = {
       kAndroidChrome100PercentPakDescriptor,
@@ -727,7 +748,8 @@ void ChromeMainDelegate::PreSandboxStartup() {
     const std::string loaded_locale = locale;
 #else
     const std::string loaded_locale =
-        ResourceBundle::InitSharedInstanceWithLocale(locale, NULL);
+        ui::ResourceBundle::InitSharedInstanceWithLocale(
+            locale, NULL, ui::ResourceBundle::LOAD_COMMON_RESOURCES);
 
     base::FilePath resources_pack_path;
     PathService::Get(chrome::FILE_RESOURCES_PACK, &resources_pack_path);
@@ -822,12 +844,20 @@ void ChromeMainDelegate::ProcessExiting(const std::string& process_type) {
   // Android doesn't use InitChromeLogging, so we close the log file manually.
   logging::CloseLogFile();
 #endif  // !defined(OS_ANDROID)
+
+#if defined(OS_WIN)
+  RemoveCloseHandleHooks();
+#endif
 }
 
 #if defined(OS_MACOSX)
 bool ChromeMainDelegate::ProcessRegistersWithSystemProcess(
     const std::string& process_type) {
+#if defined(DISABLE_NACL)
+  return false;
+#else
   return process_type == switches::kNaClLoaderProcess;
+#endif
 }
 
 bool ChromeMainDelegate::ShouldSendMachPort(const std::string& process_type) {
@@ -837,10 +867,13 @@ bool ChromeMainDelegate::ShouldSendMachPort(const std::string& process_type) {
 
 bool ChromeMainDelegate::DelaySandboxInitialization(
     const std::string& process_type) {
+#if !defined(DISABLE_NACL)
   // NaClLoader does this in NaClMainPlatformDelegate::EnableSandbox().
   // No sandbox needed for relauncher.
-  return process_type == switches::kNaClLoaderProcess ||
-      process_type == switches::kRelauncherProcess;
+  if (process_type == switches::kNaClLoaderProcess)
+    return true;
+#endif
+  return process_type == switches::kRelauncherProcess;
 }
 #elif defined(OS_POSIX) && !defined(OS_ANDROID)
 void ChromeMainDelegate::ZygoteStarting(
@@ -869,6 +902,12 @@ void ChromeMainDelegate::ZygoteForked() {
 }
 
 #endif  // OS_MACOSX
+
+#if defined(OS_WIN)
+bool ChromeMainDelegate::ShouldEnableTerminationOnHeapCorruption() {
+  return !ShouldExperimentallyDisableTerminateOnHeapCorruption();
+}
+#endif  // OS_WIN
 
 content::ContentBrowserClient*
 ChromeMainDelegate::CreateContentBrowserClient() {

@@ -5,113 +5,30 @@
 #ifndef CHROME_BROWSER_COMPONENT_UPDATER_TEST_COMPONENT_UPDATER_SERVICE_UNITTEST_H_
 #define CHROME_BROWSER_COMPONENT_UPDATER_TEST_COMPONENT_UPDATER_SERVICE_UNITTEST_H_
 
-#include <list>
-#include <map>
 #include <string>
-#include <utility>
-#include <vector>
 
-#include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/files/file_path.h"
-#include "base/memory/ref_counted.h"
+#include "base/macros.h"
 #include "base/memory/scoped_ptr.h"
-#include "chrome/browser/component_updater/component_updater_service.h"
-#include "chrome/browser/component_updater/test/url_request_post_interceptor.h"
+#include "components/component_updater/component_updater_service.h"
 #include "content/public/test/test_browser_thread_bundle.h"
-#include "content/test/net/url_request_prepackaged_interceptor.h"
-#include "net/url_request/url_request_test_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+namespace net {
+class LocalHostTestURLRequestInterceptor;
+}
+
 namespace component_updater {
 
+class InterceptorFactory;
+class TestConfigurator;
 class TestInstaller;
+class URLRequestPostInterceptor;
 
 // Intercepts HTTP GET requests sent to "localhost".
-typedef content::URLLocalHostRequestPrepackagedInterceptor GetInterceptor;
-
-// Intercepts HTTP POST requests sent to "localhost2".
-class InterceptorFactory : public URLRequestPostInterceptorFactory {
- public:
-  InterceptorFactory();
-  ~InterceptorFactory();
-
-  URLRequestPostInterceptor* CreateInterceptor();
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(InterceptorFactory);
-};
-
-class PartialMatch : public URLRequestPostInterceptor::RequestMatcher {
- public:
-  explicit PartialMatch(const std::string& expected) : expected_(expected) {}
-  virtual bool Match(const std::string& actual) const OVERRIDE;
-
- private:
-  const std::string expected_;
-
-  DISALLOW_COPY_AND_ASSIGN(PartialMatch);
-};
-
-// component 1 has extension id "jebgalgnebhfojomionfpkfelancnnkf", and
-// the RSA public key the following hash:
-const uint8 jebg_hash[] = {0x94, 0x16, 0x0b, 0x6d, 0x41, 0x75, 0xe9, 0xec,
-                           0x8e, 0xd5, 0xfa, 0x54, 0xb0, 0xd2, 0xdd, 0xa5,
-                           0x6e, 0x05, 0x6b, 0xe8, 0x73, 0x47, 0xf6, 0xc4,
-                           0x11, 0x9f, 0xbc, 0xb3, 0x09, 0xb3, 0x5b, 0x40};
-// component 2 has extension id "abagagagagagagagagagagagagagagag", and
-// the RSA public key the following hash:
-const uint8 abag_hash[] = {0x01, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06,
-                           0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06,
-                           0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06,
-                           0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x01};
-// component 3 has extension id "ihfokbkgjpifnbbojhneepfflplebdkc", and
-// the RSA public key the following hash:
-const uint8 ihfo_hash[] = {0x87, 0x5e, 0xa1, 0xa6, 0x9f, 0x85, 0xd1, 0x1e,
-                           0x97, 0xd4, 0x4f, 0x55, 0xbf, 0xb4, 0x13, 0xa2,
-                           0xe7, 0xc5, 0xc8, 0xf5, 0x60, 0x19, 0x78, 0x1b,
-                           0x6d, 0xe9, 0x4c, 0xeb, 0x96, 0x05, 0x42, 0x17};
-
-class TestConfigurator : public ComponentUpdateService::Configurator {
- public:
-  TestConfigurator();
-  virtual ~TestConfigurator();
-
-  // Overrrides for ComponentUpdateService::Configurator.
-  virtual int InitialDelay() OVERRIDE;
-  virtual int NextCheckDelay() OVERRIDE;
-  virtual int StepDelay() OVERRIDE;
-  virtual int StepDelayMedium() OVERRIDE;
-  virtual int MinimumReCheckWait() OVERRIDE;
-  virtual int OnDemandDelay() OVERRIDE;
-  virtual GURL UpdateUrl() OVERRIDE;
-  virtual GURL PingUrl() OVERRIDE;
-  virtual std::string ExtraRequestParams() OVERRIDE;
-  virtual size_t UrlSizeLimit() OVERRIDE;
-  virtual net::URLRequestContextGetter* RequestContext() OVERRIDE;
-  virtual bool InProcess() OVERRIDE;
-  virtual bool DeltasEnabled() const OVERRIDE;
-  virtual bool UseBackgroundDownloader() const OVERRIDE;
-
-  typedef std::pair<CrxComponent*, int> CheckAtLoopCount;
-  void SetLoopCount(int times);
-  void SetRecheckTime(int seconds);
-  void SetOnDemandTime(int seconds);
-  void SetComponentUpdateService(ComponentUpdateService* cus);
-  void SetQuitClosure(const base::Closure& quit_closure);
-  void SetInitialDelay(int seconds);
-
- private:
-  int initial_time_;
-  int times_;
-  int recheck_time_;
-  int ondemand_time_;
-
-  ComponentUpdateService* cus_;
-  scoped_refptr<net::TestURLRequestContextGetter> context_;
-  base::Closure quit_closure_;
-};
+typedef net::LocalHostTestURLRequestInterceptor GetInterceptor;
 
 class ComponentUpdaterTest : public testing::Test {
  public:
@@ -152,7 +69,6 @@ class ComponentUpdaterTest : public testing::Test {
 
  private:
   TestConfigurator* test_config_;
-  base::FilePath test_data_dir_;
   content::TestBrowserThreadBundle thread_bundle_;
   scoped_ptr<ComponentUpdateService> component_updater_;
 };

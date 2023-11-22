@@ -18,7 +18,6 @@
 #import "chrome/browser/ui/cocoa/browser_window_utils.h"
 #import "chrome/browser/ui/cocoa/constrained_window/constrained_window_button.h"
 #import "chrome/browser/ui/cocoa/hover_close_button.h"
-#import "chrome/browser/ui/cocoa/hyperlink_text_view.h"
 #import "chrome/browser/ui/cocoa/info_bubble_view.h"
 #import "chrome/browser/ui/cocoa/info_bubble_window.h"
 #include "chrome/browser/ui/cocoa/website_settings/permission_bubble_cocoa.h"
@@ -28,13 +27,13 @@
 #include "chrome/browser/ui/website_settings/permission_bubble_request.h"
 #include "chrome/browser/ui/website_settings/permission_bubble_view.h"
 #include "chrome/browser/ui/website_settings/permission_menu_model.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/native_web_keyboard_event.h"
 #include "content/public/browser/user_metrics.h"
-#include "grit/generated_resources.h"
 #include "skia/ext/skia_utils_mac.h"
+#import "ui/base/cocoa/controls/hyperlink_text_view.h"
 #import "ui/base/cocoa/menu_controller.h"
 #include "ui/base/cocoa/window_size_constants.h"
-#import "ui/base/cocoa/menu_controller.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "ui/base/models/simple_menu_model.h"
 
@@ -150,12 +149,22 @@ class MenuDelegate : public ui::SimpleMenuModel::Delegate {
 
 @implementation PermissionBubbleWindow
 - (BOOL)performKeyEquivalent:(NSEvent*)event {
-  content::NativeWebKeyboardEvent wrappedEvent(event);
-  if ([BrowserWindowUtils shouldHandleKeyboardEvent:wrappedEvent]) {
-    return [BrowserWindowUtils handleKeyboardEvent:event
-                                          inWindow:[self parentWindow]];
+  // Only handle events if they should be forwarded to the parent window.
+  if ([self allowShareParentKeyState]) {
+    content::NativeWebKeyboardEvent wrappedEvent(event);
+    if ([BrowserWindowUtils shouldHandleKeyboardEvent:wrappedEvent]) {
+      // Turn off sharing of key window state while the keyboard event is
+      // processed.  This avoids recursion - with the key window state shared,
+      // the parent window would just forward the event back to this class.
+      [self setAllowShareParentKeyState:NO];
+      BOOL eventHandled =
+          [BrowserWindowUtils handleKeyboardEvent:event
+                                         inWindow:[self parentWindow]];
+      [self setAllowShareParentKeyState:YES];
+      return eventHandled;
+    }
   }
-  return [super performKeyEquivalent:event];
+  return NO;
 }
 @end
 
@@ -226,6 +235,7 @@ class MenuDelegate : public ui::SimpleMenuModel::Delegate {
                       backing:NSBackingStoreBuffered
                         defer:NO]);
   [window setAllowedAnimations:info_bubble::kAnimateNone];
+  [window setReleasedWhenClosed:NO];
   if ((self = [super initWithWindow:window
                        parentWindow:parentWindow
                          anchoredAt:NSZeroPoint])) {
@@ -233,6 +243,11 @@ class MenuDelegate : public ui::SimpleMenuModel::Delegate {
     [self setShouldOpenAsKeyWindow:NO];
     [[self bubble] setArrowLocation:info_bubble::kTopLeft];
     bridge_ = bridge;
+    NSNotificationCenter* center = [NSNotificationCenter defaultCenter];
+    [center addObserver:self
+               selector:@selector(parentWindowDidMove:)
+                   name:NSWindowDidMoveNotification
+                 object:parentWindow];
   }
   return self;
 }
@@ -240,6 +255,20 @@ class MenuDelegate : public ui::SimpleMenuModel::Delegate {
 - (void)windowWillClose:(NSNotification*)notification {
   bridge_->OnBubbleClosing();
   [super windowWillClose:notification];
+}
+
+- (void)parentWindowWillBecomeFullScreen:(NSNotification*)notification {
+  // Override the base class implementation, which would have closed the bubble.
+}
+
+- (void)parentWindowDidResize:(NSNotification*)notification {
+  DCHECK(bridge_);
+  [self setAnchorPoint:bridge_->GetAnchorPoint()];
+}
+
+- (void)parentWindowDidMove:(NSNotification*)notification {
+  DCHECK(bridge_);
+  [self setAnchorPoint:bridge_->GetAnchorPoint()];
 }
 
 - (void)showAtAnchor:(NSPoint)anchorPoint
@@ -321,14 +350,12 @@ class MenuDelegate : public ui::SimpleMenuModel::Delegate {
                             info_bubble::kBubbleArrowHeight;
 
   if (customizationMode) {
-    // Add the maximum menu width to the bubble width.  Note that the right edge
-    // of the menus align with the left edge of the 'ok' button, so the width of
-    // the 'ok' button needs to be added as well.
+    // Add the maximum menu width to the bubble width.
     CGFloat maxMenuWidth = 0;
     for (AllowBlockMenuButton* button in permissionMenus.get()) {
       maxMenuWidth = std::max(maxMenuWidth, [button maximumTitleWidth]);
     }
-    maxPermissionLineWidth += maxMenuWidth + NSWidth([allowOrOkButton frame]);
+    maxPermissionLineWidth += maxMenuWidth;
   }
 
   // The title and 'x' button row must fit within the bubble.
@@ -362,8 +389,8 @@ class MenuDelegate : public ui::SimpleMenuModel::Delegate {
 
   if (customizationMode) {
     // Adjust the horizontal origin for each menu so that its right edge
-    // lines up with the left edge of the ok button.
-    CGFloat rightEdge = NSMinX([allowOrOkButton frame]);
+    // lines up with the right edge of the ok button.
+    CGFloat rightEdge = NSMaxX([allowOrOkButton frame]);
     for (NSView* view in permissionMenus.get()) {
       [view setFrameOrigin:NSMakePoint(rightEdge - NSWidth([view frame]),
                                        NSMinY([view frame]))];

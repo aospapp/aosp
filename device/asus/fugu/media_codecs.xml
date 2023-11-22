@@ -83,44 +83,92 @@ Only the three quirks included above are recognized at this point:
 
     <Decoders>
         <MediaCodec name="OMX.Intel.VideoDecoder.MPEG4" type="video/mp4v-es">
-            <Feature name="adaptive-playback" />
+            <Limit name="size" min="96x32" max="1920x1088" />
+            <Limit name="alignment" value="2x2" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="blocks-per-second" range="12-244800" />
+            <Limit name="bitrate" range="1-20000000" />
+            <Feature name="adaptive-playback" optional="yes" />
         </MediaCodec>
         <MediaCodec name="OMX.Intel.VideoDecoder.H263" type="video/3gpp">
-            <Feature name="adaptive-playback" />
+            <Limit name="size" min="96x32" max="720x576" />
+            <Limit name="alignment" value="2x2" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="blocks-per-second" range="12-48600" />
+            <Limit name="bitrate" range="1-16000000" />
+            <Feature name="adaptive-playback" optional="yes" />
         </MediaCodec>
         <MediaCodec name="OMX.Intel.VideoDecoder.AVC" type="video/avc">
+            <Limit name="size" min="96x32" max="2560x1440" />
+            <Limit name="alignment" value="2x2" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="blocks-per-second" range="12-864000" />
+            <Limit name="bitrate" range="1-50000000" />
             <Feature name="adaptive-playback" />
         </MediaCodec>
         <MediaCodec name="OMX.Intel.VideoDecoder.AVC.secure" type="video/avc">
+            <Limit name="size" min="96x32" max="1920x1088" />
+            <Limit name="alignment" value="2x2" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="blocks-per-second" range="12-522240" />
+            <Limit name="bitrate" range="1-50000000" />
             <Feature name="adaptive-playback" />
             <Feature name="secure-playback" required="true" />
         </MediaCodec>
-        <MediaCodec name="OMX.Intel.VideoDecoder.WMV" type="video/x-ms-wmv" />
         <MediaCodec name="OMX.Intel.VideoDecoder.VP8" type="video/x-vnd.on2.vp8">
+            <Limit name="size" min="96x32" max="1920x1088" />
+            <Limit name="alignment" value="2x2" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="blocks-per-second" range="12-489600" />
+            <Limit name="bitrate" range="1-50000000" />
             <Feature name="adaptive-playback" />
         </MediaCodec>
+        <MediaCodec name="OMX.Intel.VideoDecoder.VP9.hybrid" type="video/x-vnd.on2.vp9">
+            <Limit name="size" min="16x16" max="1920x1088" />
+            <Limit name="alignment" value="2x2" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="blocks-per-second" range="1-244800" />
+            <Limit name="bitrate" range="1-8000000" />
+            <Feature name="adaptive-playback" />
+        </MediaCodec>
+        <!--
         <MediaCodec name="OMX.Intel.VideoDecoder.VP9.hwr" type="video/x-vnd.on2.vp9">
+            <Limit name="size" min="16x16" max="1920x1088" />
+            <Limit name="alignment" value="2x2" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="blocks-per-second" range="1-244800" />
+            <Limit name="bitrate" range="1-8000000" />
             <Feature name="adaptive-playback" />
         </MediaCodec>
+        -->
         <MediaCodec name="OMX.Intel.sw_vd.h265" type="video/hevc">
+            <Limit name="size" min="16x16" max="1920x1088" />
+            <Limit name="alignment" value="2x2" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="blocks-per-second" range="1-244800" />
+            <Limit name="bitrate" range="1-8000000" />
             <Feature name="adaptive-playback" />
         </MediaCodec>
 
-        <MediaCodec name="OMX.Intel.alac.decoder" type="audio/alac" />
+       <MediaCodec name="OMX.Intel.alac.decoder" type="audio/alac" />
     </Decoders>
 
     <Encoders>
-        <MediaCodec name="OMX.Intel.VideoEncoder.MPEG4" type="video/mp4v-es" >
-            <Quirk name="requires-allocate-on-input-ports" />
-        </MediaCodec>
-        <MediaCodec name="OMX.Intel.VideoEncoder.H263" type="video/3gpp" >
-            <Quirk name="requires-allocate-on-input-ports" />
-        </MediaCodec>
         <MediaCodec name="OMX.Intel.VideoEncoder.AVC" type="video/avc" >
             <Quirk name="requires-allocate-on-input-ports" />
+            <Limit name="size" min="176x144" max="1920x1088" />
+            <Limit name="alignment" value="8x8" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="frame-rate" range="1-60" />
+            <Limit name="bitrate" range="1-50000000" />
         </MediaCodec>
         <MediaCodec name="OMX.Intel.VideoEncoder.VP8" type="video/x-vnd.on2.vp8" >
             <Quirk name="requires-allocate-on-input-ports" />
+            <Limit name="size" min="176x144" max="1920x1088" />
+            <Limit name="alignment" value="8x8" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="frame-rate" range="1-30" />
+            <Limit name="bitrate" range="1-10000000" />
         </MediaCodec>
     </Encoders>
 

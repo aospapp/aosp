@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.SyncResult;
 
 import com.android.emailcommon.Logging;
+import com.android.emailcommon.provider.Account;
 import com.android.emailcommon.provider.Mailbox;
 import com.android.emailcommon.service.SearchParams;
 import com.android.exchange.CommandStatusException;
@@ -39,10 +40,11 @@ public class EasSearch extends EasOperation {
     final SearchParams mSearchParams;
     final long mDestMailboxId;
     int mTotalResults;
+    Mailbox mSearchMailbox;
 
-    public EasSearch(final Context context, final long accountId, final SearchParams searchParams,
+    public EasSearch(final Context context, final Account account, final SearchParams searchParams,
         final long destMailboxId) {
-        super(context, accountId);
+        super(context, account);
         mSearchParams = searchParams;
         mDestMailboxId = destMailboxId;
     }
@@ -72,17 +74,17 @@ public class EasSearch extends EasOperation {
         }
 
         int res = 0;
-        final Mailbox searchMailbox = Mailbox.restoreMailboxWithId(mContext, mDestMailboxId);
+        mSearchMailbox = Mailbox.restoreMailboxWithId(mContext, mDestMailboxId);
         // Sanity check; account might have been deleted?
-        if (searchMailbox == null) {
+        if (mSearchMailbox == null) {
             LogUtils.i(LOG_TAG, "search mailbox ceased to exist");
             return null;
         }
-        final ContentValues statusValues = new ContentValues(2);
         try {
             // Set the status of this mailbox to indicate query
+            final ContentValues statusValues = new ContentValues(1);
             statusValues.put(Mailbox.UI_SYNC_STATUS, UIProvider.SyncStatus.LIVE_QUERY);
-            searchMailbox.update(mContext, statusValues);
+            mSearchMailbox.update(mContext, statusValues);
 
             final Serializer s = new Serializer();
             s.start(Tags.SEARCH_SEARCH).start(Tags.SEARCH_STORE);
@@ -133,12 +135,6 @@ public class EasSearch extends EasOperation {
             return makeEntity(s);
         } catch (IOException e) {
             LogUtils.d(LOG_TAG, e, "Search exception");
-        } finally {
-            // TODO: Handle error states
-            // Set the status of this mailbox to indicate query over
-            statusValues.put(Mailbox.SYNC_TIME, System.currentTimeMillis());
-            statusValues.put(Mailbox.UI_SYNC_STATUS, UIProvider.SyncStatus.NO_SYNC);
-            searchMailbox.update(mContext, statusValues);
         }
         LogUtils.i(LOG_TAG, "end returning null");
         return null;
@@ -161,5 +157,15 @@ public class EasSearch extends EasOperation {
             is.close();
         }
         return RESULT_OK;
+    }
+
+    protected void onRequestComplete() {
+        if (mSearchMailbox != null) {
+            // TODO: Handle error states
+            final ContentValues statusValues = new ContentValues(2);
+            statusValues.put(Mailbox.UI_SYNC_STATUS, UIProvider.SyncStatus.NO_SYNC);
+            statusValues.put(Mailbox.SYNC_TIME, System.currentTimeMillis());
+            mSearchMailbox.update(mContext, statusValues);
+        }
     }
 }

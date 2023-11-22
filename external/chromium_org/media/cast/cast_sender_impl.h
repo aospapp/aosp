@@ -6,12 +6,12 @@
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
-#include "media/cast/audio_sender/audio_sender.h"
 #include "media/cast/cast_config.h"
 #include "media/cast/cast_defines.h"
 #include "media/cast/cast_environment.h"
 #include "media/cast/cast_sender.h"
-#include "media/cast/video_sender/video_sender.h"
+#include "media/cast/sender/audio_sender.h"
+#include "media/cast/sender/video_sender.h"
 
 namespace media {
 class VideoFrame;
@@ -25,7 +25,7 @@ class VideoSender;
 class CastSenderImpl : public CastSender {
  public:
   CastSenderImpl(scoped_refptr<CastEnvironment> cast_environment,
-                 transport::CastTransportSender* const transport_sender);
+                 CastTransportSender* const transport_sender);
 
   virtual void InitializeAudio(
       const AudioSenderConfig& audio_config,
@@ -37,15 +37,19 @@ class CastSenderImpl : public CastSender {
       const CreateVideoEncodeMemoryCallback& create_video_encode_mem_cb)
       OVERRIDE;
 
+  virtual void SetTargetPlayoutDelay(
+      base::TimeDelta new_target_playout_delay) OVERRIDE;
+
   virtual ~CastSenderImpl();
 
   virtual scoped_refptr<AudioFrameInput> audio_frame_input() OVERRIDE;
   virtual scoped_refptr<VideoFrameInput> video_frame_input() OVERRIDE;
 
-  virtual transport::PacketReceiverCallback packet_receiver() OVERRIDE;
-
  private:
   void ReceivedPacket(scoped_ptr<Packet> packet);
+  void OnVideoInitialized(
+      const CastInitializationCallback& initialization_cb,
+      media::cast::CastInitializationStatus result);
 
   CastInitializationCallback initialization_callback_;
   scoped_ptr<AudioSender> audio_sender_;
@@ -55,9 +59,7 @@ class CastSenderImpl : public CastSender {
   scoped_refptr<CastEnvironment> cast_environment_;
   // The transport sender is owned by the owner of the CastSender, and should be
   // valid throughout the lifetime of the CastSender.
-  transport::CastTransportSender* const transport_sender_;
-  uint32 ssrc_of_audio_sender_;
-  uint32 ssrc_of_video_sender_;
+  CastTransportSender* const transport_sender_;
 
   // NOTE: Weak pointers must be invalidated before all other member variables.
   base::WeakPtrFactory<CastSenderImpl> weak_factory_;

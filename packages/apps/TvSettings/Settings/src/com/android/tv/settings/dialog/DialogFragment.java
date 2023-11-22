@@ -42,6 +42,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.support.v17.leanback.R;
 import android.support.v17.leanback.widget.VerticalGridView;
+import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -310,37 +311,37 @@ public class DialogFragment extends Fragment {
 
         switch (nextAnim) {
             case ANIMATION_FRAGMENT_ENTER:
-                animators.add(createSlideLeftInAnimator(titleView));
-                animators.add(createSlideLeftInAnimator(breadcrumbView));
-                animators.add(createSlideLeftInAnimator(descriptionView));
-                animators.add(createSlideLeftInAnimator(iconView));
-                animators.add(createSlideLeftInAnimator(listView));
-                animators.add(createSlideLeftInAnimator(selectorView));
+                animators.add(createSlideInFromEndAnimator(titleView));
+                animators.add(createSlideInFromEndAnimator(breadcrumbView));
+                animators.add(createSlideInFromEndAnimator(descriptionView));
+                animators.add(createSlideInFromEndAnimator(iconView));
+                animators.add(createSlideInFromEndAnimator(listView));
+                animators.add(createSlideInFromEndAnimator(selectorView));
                 break;
             case ANIMATION_FRAGMENT_EXIT:
-                animators.add(createSlideLeftOutAnimator(titleView));
-                animators.add(createSlideLeftOutAnimator(breadcrumbView));
-                animators.add(createSlideLeftOutAnimator(descriptionView));
-                animators.add(createSlideLeftOutAnimator(iconView));
-                animators.add(createSlideLeftOutAnimator(listView));
-                animators.add(createSlideLeftOutAnimator(selectorView));
+                animators.add(createSlideOutToStartAnimator(titleView));
+                animators.add(createSlideOutToStartAnimator(breadcrumbView));
+                animators.add(createSlideOutToStartAnimator(descriptionView));
+                animators.add(createSlideOutToStartAnimator(iconView));
+                animators.add(createSlideOutToStartAnimator(listView));
+                animators.add(createSlideOutToStartAnimator(selectorView));
                 animators.add(createFadeOutAnimator(actionContainerView));
                 break;
             case ANIMATION_FRAGMENT_ENTER_POP:
-                animators.add(createSlideRightInAnimator(titleView));
-                animators.add(createSlideRightInAnimator(breadcrumbView));
-                animators.add(createSlideRightInAnimator(descriptionView));
-                animators.add(createSlideRightInAnimator(iconView));
-                animators.add(createSlideRightInAnimator(listView));
-                animators.add(createSlideRightInAnimator(selectorView));
+                animators.add(createSlideInFromStartAnimator(titleView));
+                animators.add(createSlideInFromStartAnimator(breadcrumbView));
+                animators.add(createSlideInFromStartAnimator(descriptionView));
+                animators.add(createSlideInFromStartAnimator(iconView));
+                animators.add(createSlideInFromStartAnimator(listView));
+                animators.add(createSlideInFromStartAnimator(selectorView));
                 break;
             case ANIMATION_FRAGMENT_EXIT_POP:
-                animators.add(createSlideRightOutAnimator(titleView));
-                animators.add(createSlideRightOutAnimator(breadcrumbView));
-                animators.add(createSlideRightOutAnimator(descriptionView));
-                animators.add(createSlideRightOutAnimator(iconView));
-                animators.add(createSlideRightOutAnimator(listView));
-                animators.add(createSlideRightOutAnimator(selectorView));
+                animators.add(createSlideOutToEndAnimator(titleView));
+                animators.add(createSlideOutToEndAnimator(breadcrumbView));
+                animators.add(createSlideOutToEndAnimator(descriptionView));
+                animators.add(createSlideOutToEndAnimator(iconView));
+                animators.add(createSlideOutToEndAnimator(listView));
+                animators.add(createSlideOutToEndAnimator(selectorView));
                 animators.add(createFadeOutAnimator(actionContainerView));
                 break;
             default:
@@ -641,21 +642,27 @@ public class DialogFragment extends Fragment {
                 oa.setInterpolator(new DecelerateInterpolator(1.0f));
                 oa.start();
 
+                boolean isRtl = ViewCompat.getLayoutDirection(contentView) ==
+                        View.LAYOUT_DIRECTION_RTL;
+                int startDist = isRtl ? SLIDE_IN_DISTANCE : -SLIDE_IN_DISTANCE;
+                int endDist = isRtl ? -actionContainerView.getMeasuredWidth() :
+                        actionContainerView.getMeasuredWidth();
+
                 // Fade in and slide in the ContentFragment
-                // TextViews from the left.
+                // TextViews from the start.
                 prepareAndAnimateView((View) contentView.getTag(R.id.title),
-                        -SLIDE_IN_DISTANCE, false);
+                        startDist, false);
                 prepareAndAnimateView((View) contentView.getTag(R.id.breadcrumb),
-                        -SLIDE_IN_DISTANCE, false);
+                        startDist, false);
                 prepareAndAnimateView((View) contentView.getTag(R.id.description),
-                        -SLIDE_IN_DISTANCE, false);
+                        startDist, false);
 
                 // Fade in and slide in the ActionFragment from the
-                // right.
+                // end.
                 prepareAndAnimateView(actionContainerView,
-                        actionContainerView.getMeasuredWidth(), false);
+                        endDist, false);
                 prepareAndAnimateView((View) contentView.getTag(R.id.icon),
-                        -SLIDE_IN_DISTANCE, true);
+                        startDist, true);
 
                 // Fade in the selector.
                 if (mSelectorAnimator != null) {
@@ -698,20 +705,24 @@ public class DialogFragment extends Fragment {
         return animator;
     }
 
-    private Animator createSlideLeftOutAnimator(View v) {
-        return createTranslateAlphaAnimator(v, 0, -200f, 1f, 0);
+    private Animator createSlideOutToStartAnimator(View v) {
+        boolean isRtl = ViewCompat.getLayoutDirection(v) == View.LAYOUT_DIRECTION_RTL;
+        return createTranslateAlphaAnimator(v, 0, isRtl ? 200f : -200f, 1f, 0);
     }
 
-    private Animator createSlideLeftInAnimator(View v) {
-        return createTranslateAlphaAnimator(v, 200f, 0, 0, 1f);
+    private Animator createSlideInFromEndAnimator(View v) {
+        boolean isRtl = ViewCompat.getLayoutDirection(v) == View.LAYOUT_DIRECTION_RTL;
+        return createTranslateAlphaAnimator(v, isRtl ? -200f : 200f, 0, 0, 1f);
     }
 
-    private Animator createSlideRightInAnimator(View v) {
-        return createTranslateAlphaAnimator(v, -200f, 0, 0, 1f);
+    private Animator createSlideInFromStartAnimator(View v) {
+        boolean isRtl = ViewCompat.getLayoutDirection(v) == View.LAYOUT_DIRECTION_RTL;
+        return createTranslateAlphaAnimator(v, isRtl ? 200f : -200f, 0, 0, 1f);
     }
 
-    private Animator createSlideRightOutAnimator(View v) {
-        return createTranslateAlphaAnimator(v, 0, 200f, 1f, 0);
+    private Animator createSlideOutToEndAnimator(View v) {
+        boolean isRtl = ViewCompat.getLayoutDirection(v) == View.LAYOUT_DIRECTION_RTL;
+        return createTranslateAlphaAnimator(v, 0, isRtl ? -200f : 200f, 1f, 0);
     }
 
     private Animator createFadeOutAnimator(View v) {

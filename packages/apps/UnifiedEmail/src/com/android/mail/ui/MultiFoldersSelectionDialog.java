@@ -104,6 +104,7 @@ public class MultiFoldersSelectionDialog extends FolderSelectionDialog {
                         // The number of view types changes here, so we have to reset the listview's
                         // adapter.
                         dialog.getListView().setAdapter(null);
+                        dialog.getListView().setDivider(null);
 
                         final HashSet<String> checked = new HashSet<String>();
                         for (final Conversation conversation : mTarget) {

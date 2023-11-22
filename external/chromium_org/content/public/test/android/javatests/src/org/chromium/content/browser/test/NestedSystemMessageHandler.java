@@ -28,7 +28,7 @@ class NestedSystemMessageHandler {
     // See org.chromium.base.SystemMessageHandler for more message ids.
     // The id here should not conflict with the ones in SystemMessageHandler.
     private static final int QUIT_MESSAGE = 10;
-    private static final Handler mHandler = new Handler();
+    private static final Handler sHandler = new Handler();
 
     private NestedSystemMessageHandler() {
     }
@@ -45,7 +45,7 @@ class NestedSystemMessageHandler {
         queue.addIdleHandler(new MessageQueue.IdleHandler() {
             @Override
             public boolean queueIdle() {
-                mHandler.sendMessage(mHandler.obtainMessage(QUIT_MESSAGE));
+                sHandler.sendMessage(sHandler.obtainMessage(QUIT_MESSAGE));
                 return false;
             }
         });
@@ -112,6 +112,34 @@ class NestedSystemMessageHandler {
                 } else {
                     target.dispatchMessage(msg);
                 }
+
+                // Unset in-use flag.
+                Field flagsField = null;
+                try {
+                    flagsField = messageClazz.getDeclaredField("flags");
+                } catch (IllegalArgumentException e) {
+                    e.printStackTrace();
+                    return false;
+                } catch (SecurityException e) {
+                    e.printStackTrace();
+                    return false;
+                } catch (NoSuchFieldException e) {
+                    e.printStackTrace();
+                    return false;
+                }
+                flagsField.setAccessible(true);
+
+                try {
+                    Integer oldFlags = (Integer) flagsField.get(msg);
+                    flagsField.set(msg, oldFlags & ~(1 << 0 /* FLAG_IN_USE */));
+                } catch (IllegalArgumentException e) {
+                    e.printStackTrace();
+                    return false;
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                    return false;
+                }
+
                 msg.recycle();
             } else {
                 quitLoop = true;

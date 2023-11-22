@@ -55,11 +55,11 @@ using testing::InvokeWithoutArgs;
 using testing::Mock;
 using testing::StrictMock;
 
-#if defined(OS_ANDROID)
+#if defined(OS_ANDROID) || defined(OS_IOS)
 static const bool kExpectMobileBookmarks = true;
 #else
 static const bool kExpectMobileBookmarks = false;
-#endif  // defined(OS_ANDROID)
+#endif  // defined(OS_ANDROID) || defined(OS_IOS)
 
 namespace {
 
@@ -229,7 +229,7 @@ class FakeServerChange {
   }
 
   // Pass the fake change list to |service|.
-  void ApplyPendingChanges(ChangeProcessor* processor) {
+  void ApplyPendingChanges(sync_driver::ChangeProcessor* processor) {
     processor->ApplyChangesFromSyncModel(
         trans_, 0, syncer::ImmutableChangeRecordList(&changes_));
   }
@@ -336,6 +336,10 @@ class ProfileSyncServiceBookmarkTest : public testing::Test {
     test_user_share_.TearDown();
   }
 
+  bool CanSyncNode(const BookmarkNode* node) {
+    return model_->client()->CanSyncNode(node);
+  }
+
   // Inserts a folder directly to the share.
   // Do not use this after model association is complete.
   //
@@ -434,7 +438,14 @@ class ProfileSyncServiceBookmarkTest : public testing::Test {
 
     const int kNumPermanentNodes = 3;
     const std::string permanent_tags[kNumPermanentNodes] = {
-      "bookmark_bar", "other_bookmarks", "synced_bookmarks"
+#if defined(OS_IOS)
+      "synced_bookmarks",
+#endif
+      "bookmark_bar",
+      "other_bookmarks",
+#if !defined(OS_IOS)
+      "synced_bookmarks",
+#endif
     };
     syncer::WriteTransaction trans(FROM_HERE, test_user_share_.user_share());
     syncer::ReadNode root(&trans);
@@ -606,13 +617,14 @@ class ProfileSyncServiceBookmarkTest : public testing::Test {
       EXPECT_EQ(gnode.GetPredecessorId(), gprev.GetId());
       EXPECT_EQ(gnode.GetParentId(), gprev.GetParentId());
     }
-    // Note: the managed node comes next to the mobile node but isn't synced.
-    if (browser_index == bnode->parent()->child_count() - 1 ||
-        bnode == model_->mobile_node()) {
+    // Note: the managed node is the last child of the root_node but isn't
+    // synced; if CanSyncNode() is false then there is no next node to sync.
+    const BookmarkNode* bnext = NULL;
+    if (browser_index + 1 < bnode->parent()->child_count())
+        bnext = bnode->parent()->GetChild(browser_index + 1);
+    if (!bnext || !CanSyncNode(bnext)) {
       EXPECT_EQ(gnode.GetSuccessorId(), 0);
     } else {
-      const BookmarkNode* bnext =
-          bnode->parent()->GetChild(browser_index + 1);
       syncer::ReadNode gnext(trans);
       ASSERT_TRUE(InitSyncNodeFromChromeNode(bnext, &gnext));
       EXPECT_EQ(gnode.GetSuccessorId(), gnext.GetId());
@@ -633,11 +645,7 @@ class ProfileSyncServiceBookmarkTest : public testing::Test {
     const BookmarkNode* bnode =
         model_associator_->GetChromeNodeFromSyncId(sync_id);
     ASSERT_TRUE(bnode);
-
-    ChromeBookmarkClient* client =
-        ChromeBookmarkClientFactory::GetForProfile(&profile_);
-    ASSERT_TRUE(client);
-    ASSERT_FALSE(client->IsDescendantOfManagedNode(bnode));
+    ASSERT_TRUE(CanSyncNode(bnode));
 
     int64 id = model_associator_->GetSyncIdFromChromeId(bnode->id());
     EXPECT_EQ(id, sync_id);
@@ -688,9 +696,15 @@ class ProfileSyncServiceBookmarkTest : public testing::Test {
 
   void ExpectModelMatch(syncer::BaseTransaction* trans) {
     const BookmarkNode* root = model_->root_node();
+#if defined(OS_IOS)
+    EXPECT_EQ(root->GetIndexOf(model_->mobile_node()), 0);
+    EXPECT_EQ(root->GetIndexOf(model_->bookmark_bar_node()), 1);
+    EXPECT_EQ(root->GetIndexOf(model_->other_node()), 2);
+#else
     EXPECT_EQ(root->GetIndexOf(model_->bookmark_bar_node()), 0);
     EXPECT_EQ(root->GetIndexOf(model_->other_node()), 1);
     EXPECT_EQ(root->GetIndexOf(model_->mobile_node()), 2);
+#endif
 
     std::stack<int64> stack;
     stack.push(bookmark_bar_id());
@@ -734,7 +748,7 @@ class ProfileSyncServiceBookmarkTest : public testing::Test {
   BookmarkModel* model_;
   syncer::TestUserShare test_user_share_;
   scoped_ptr<BookmarkChangeProcessor> change_processor_;
-  StrictMock<DataTypeErrorHandlerMock> mock_error_handler_;
+  StrictMock<sync_driver::DataTypeErrorHandlerMock> mock_error_handler_;
   scoped_ptr<BookmarkModelAssociator> model_associator_;
 
  private:
@@ -1149,7 +1163,7 @@ TEST_F(ProfileSyncServiceBookmarkTest, RepeatedMiddleInsertion) {
 // puts itself into a lame, error state.
 TEST_F(ProfileSyncServiceBookmarkTest, UnrecoverableErrorSuspendsService) {
   EXPECT_CALL(mock_error_handler_,
-              OnSingleDatatypeUnrecoverableError(_, _));
+              OnSingleDataTypeUnrecoverableError(_));
 
   LoadBookmarkModel(DELETE_EXISTING_STORAGE, DONT_SAVE_TO_STORAGE);
   StartSync();
@@ -2010,10 +2024,6 @@ TEST_F(ProfileSyncServiceBookmarkTestWithData, UpdateMetaInfoFromModel) {
 void ProfileSyncServiceBookmarkTestWithData::GetTransactionVersions(
     const BookmarkNode* root,
     BookmarkNodeVersionMap* node_versions) {
-  ChromeBookmarkClient* client =
-      ChromeBookmarkClientFactory::GetForProfile(&profile_);
-  ASSERT_TRUE(client);
-
   node_versions->clear();
   std::queue<const BookmarkNode*> nodes;
   nodes.push(root);
@@ -2026,7 +2036,7 @@ void ProfileSyncServiceBookmarkTestWithData::GetTransactionVersions(
 
     (*node_versions)[n->id()] = version;
     for (int i = 0; i < n->child_count(); ++i) {
-      if (client->IsDescendantOfManagedNode(n->GetChild(i)))
+      if (!CanSyncNode(n->GetChild(i)))
         continue;
       nodes.push(n->GetChild(i));
     }

@@ -11,8 +11,8 @@
 #include "chrome/browser/chromeos/login/screens/user_image_screen_actor.h"
 #include "chrome/browser/chromeos/login/screens/wizard_screen.h"
 #include "chrome/browser/chromeos/login/users/avatar/user_image_sync_observer.h"
-#include "chrome/browser/chromeos/login/users/user.h"
 #include "chrome/browser/image_decoder.h"
+#include "components/user_manager/user.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 
@@ -27,6 +27,9 @@ class PolicyChangeRegistrar;
 
 namespace chromeos {
 
+class UserImageManager;
+class ScreenManager;
+
 class UserImageScreen: public WizardScreen,
                        public UserImageScreenActor::Delegate,
                        public ImageDecoder::Delegate,
@@ -38,10 +41,7 @@ class UserImageScreen: public WizardScreen,
                   UserImageScreenActor* actor);
   virtual ~UserImageScreen();
 
-  // Indicates whether profile picture is enabled for given user.
-  void SetProfilePictureEnabled(bool support_profile_picture);
-  // Sets |user_id| of user that would have picture updated.
-  void SetUserID(const std::string& user_id);
+  static UserImageScreen* Get(ScreenManager* manager);
 
   // WizardScreen implementation:
   virtual void PrepareToShow() OVERRIDE;
@@ -93,7 +93,7 @@ class UserImageScreen: public WizardScreen,
                                 const base::Value* current);
 
   // Returns current user.
-  const User* GetUser();
+  const user_manager::User* GetUser();
 
   // Returns UserImageManager for the current user.
   UserImageManager* GetUserImageManager();
@@ -128,15 +128,11 @@ class UserImageScreen: public WizardScreen,
   // Index of the selected user image.
   int selected_image_;
 
-  bool profile_picture_enabled_;
-
   // Encoded profile picture.
   std::string profile_picture_data_url_;
 
   // True if user has no custom profile picture.
   bool profile_picture_absent_;
-
-  std::string user_id_;
 
   // Timer used for waiting for user image sync.
   scoped_ptr<base::Timer> sync_timer_;

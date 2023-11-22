@@ -35,6 +35,7 @@ GLClientState::GLClientState(int nLocations)
     for (int i = 0; i < m_nLocations; i++) {
         m_states[i].enabled = 0;
         m_states[i].enableDirty = false;
+        m_states[i].data = 0;
     }
     m_currentArrayVbo = 0;
     m_currentIndexVbo = 0;

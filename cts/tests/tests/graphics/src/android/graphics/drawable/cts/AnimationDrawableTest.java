@@ -76,7 +76,7 @@ public class AnimationDrawableTest extends ActivityInstrumentationTestCase2<Imag
         // Check the values set in the constructor
         assertNotNull(mAnimationDrawable.getConstantState());
         assertFalse(mAnimationDrawable.isRunning());
-        assertTrue(mAnimationDrawable.isOneShot());
+        assertFalse(mAnimationDrawable.isOneShot());
     }
 
     public void testSetVisible() throws Throwable {
@@ -277,68 +277,62 @@ public class AnimationDrawableTest extends ActivityInstrumentationTestCase2<Imag
         assertStoppedAnimation(THIRD_FRAME_INDEX, THIRD_FRAME_DURATION);
     }
 
-    public void testInflate() throws XmlPullParserException, IOException {
-        mAnimationDrawable = new AnimationDrawable();
-        DrawableContainerState drawableContainerState =
-            (DrawableContainerState) mAnimationDrawable.getConstantState();
-
+    public void testInflateCorrect() throws XmlPullParserException, IOException {
         XmlResourceParser parser = getResourceParser(R.xml.anim_list_correct);
-        mAnimationDrawable.inflate(mResources, parser, Xml.asAttributeSet(parser));
+        AnimationDrawable dr = new AnimationDrawable();
+        dr.inflate(mResources, parser, Xml.asAttributeSet(parser));
         // android:visible="false"
-        assertFalse(mAnimationDrawable.isVisible());
+        assertFalse(dr.isVisible());
         // android:oneShot="true"
-        assertTrue(mAnimationDrawable.isOneShot());
+        assertTrue(dr.isOneShot());
         // android:variablePadding="true"
-        assertNull(drawableContainerState.getConstantPadding());
-        assertEquals(2, mAnimationDrawable.getNumberOfFrames());
-        assertEquals(2000, mAnimationDrawable.getDuration(0));
-        assertEquals(1000, mAnimationDrawable.getDuration(1));
-        assertSame(mAnimationDrawable.getFrame(0), mAnimationDrawable.getCurrent());
+        DrawableContainerState state =
+                (DrawableContainerState) dr.getConstantState();
+        assertNull(state.getConstantPadding());
+        assertEquals(2, dr.getNumberOfFrames());
+        assertEquals(2000, dr.getDuration(0));
+        assertEquals(1000, dr.getDuration(1));
+        assertSame(dr.getFrame(0), dr.getCurrent());
+    }
 
-        parser = getResourceParser(R.xml.anim_list_missing_list_attrs);
-        mAnimationDrawable.inflate(mResources, parser, Xml.asAttributeSet(parser));
-        // use current the visibility
-        assertFalse(mAnimationDrawable.isVisible());
-        // default value of android:oneShot is false
-        assertFalse(mAnimationDrawable.isOneShot());
-        // default value of android:variablePadding is false
-        // TODO: its not clear what the value of constant padding should be when variablePadding
-        // is false
-        //assertNotNull(drawableContainerState.getConstantPadding());
-        // add a new frame from xml
-        assertEquals(3, mAnimationDrawable.getNumberOfFrames());
-        assertEquals(2000, mAnimationDrawable.getDuration(0));
-        assertEquals(1000, mAnimationDrawable.getDuration(1));
-        assertEquals(2000, mAnimationDrawable.getDuration(2));
-        assertSame(mAnimationDrawable.getFrame(0), mAnimationDrawable.getCurrent());
-
-        parser = getResourceParser(R.xml.anim_list_missing_item_drawable);
+    public void testInflateMissingDrawable() throws XmlPullParserException, IOException {
+        XmlResourceParser parser = getResourceParser(R.xml.anim_list_missing_item_drawable);
+        AnimationDrawable dr = new AnimationDrawable();
         try {
-            mAnimationDrawable.inflate(mResources, parser, Xml.asAttributeSet(parser));
+            dr.inflate(mResources, parser, Xml.asAttributeSet(parser));
             fail("Should throw XmlPullParserException if drawable of item is missing");
         } catch (XmlPullParserException e) {
             // expected
         }
     }
 
-    public void testInflateWithNullParameters() throws XmlPullParserException, IOException {
+    public void testInflateNullResources() throws XmlPullParserException, IOException {
         XmlResourceParser parser = getResourceParser(R.drawable.animationdrawable);
+        AnimationDrawable dr = new AnimationDrawable();
         try {
-            mAnimationDrawable.inflate(null, parser, Xml.asAttributeSet(parser));
+            dr.inflate(null, parser, Xml.asAttributeSet(parser));
             fail("Should throw NullPointerException if resource is null");
         } catch (NullPointerException e) {
             // expected
         }
+    }
 
+    public void testInflateNullXmlPullParser() throws XmlPullParserException, IOException {
+        XmlResourceParser parser = getResourceParser(R.drawable.animationdrawable);
+        AnimationDrawable dr = new AnimationDrawable();
         try {
-            mAnimationDrawable.inflate(mResources, null, Xml.asAttributeSet(parser));
+            dr.inflate(mResources, null, Xml.asAttributeSet(parser));
             fail("Should throw NullPointerException if parser is null");
         } catch (NullPointerException e) {
             // expected
         }
+    }
 
+    public void testInflateNullAttributeSet() throws XmlPullParserException, IOException {
+        XmlResourceParser parser = getResourceParser(R.drawable.animationdrawable);
+        AnimationDrawable dr = new AnimationDrawable();
         try {
-            mAnimationDrawable.inflate(mResources, parser, null);
+            dr.inflate(mResources, parser, null);
             fail("Should throw NullPointerException if AttributeSet is null");
         } catch (NullPointerException e) {
             // expected

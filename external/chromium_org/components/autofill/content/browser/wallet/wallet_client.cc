@@ -80,6 +80,8 @@ WalletClient::ErrorType StringToErrorType(const std::string& error_type) {
     return WalletClient::UNSUPPORTED_API_VERSION;
   if (LowerCaseEqualsASCII(trimmed, "unsupported_user_agent"))
     return WalletClient::UNSUPPORTED_USER_AGENT_OR_API_KEY;
+  if (LowerCaseEqualsASCII(trimmed, "spending_limit_exceeded"))
+    return WalletClient::SPENDING_LIMIT_EXCEEDED;
 
   DVLOG(1) << "Unknown wallet error string: \"" << error_type << '"';
   return WalletClient::UNKNOWN_ERROR;
@@ -160,6 +162,8 @@ AutofillMetrics::WalletErrorMetric ErrorTypeToUmaMetric(
       return AutofillMetrics::WALLET_UNSUPPORTED_API_VERSION;
     case WalletClient::UNSUPPORTED_MERCHANT:
       return AutofillMetrics::WALLET_UNSUPPORTED_MERCHANT;
+    case WalletClient::SPENDING_LIMIT_EXCEEDED:
+      return AutofillMetrics::WALLET_SPENDING_LIMIT_EXCEEDED;
     case WalletClient::MALFORMED_RESPONSE:
       return AutofillMetrics::WALLET_MALFORMED_RESPONSE;
     case WalletClient::NETWORK_ERROR:
@@ -231,6 +235,8 @@ const char kSelectedInstrumentIdKey[] = "selected_instrument_id";
 const char kShippingAddressIdKey[] = "shipping_address_id";
 const char kShippingAddressKey[] = "shipping_address";
 const char kShippingAddressRequired[] = "shipping_address_required";
+const char kTransactionAmountKey[] = "estimated_total_price";
+const char kTransactionCurrencyKey[] = "currency_code";
 const char kUpgradedBillingAddressKey[] = "upgraded_billing_address";
 const char kUpgradedInstrumentIdKey[] = "upgraded_instrument_id";
 const char kUseMinimalAddresses[] = "use_minimal_addresses";
@@ -453,7 +459,8 @@ void WalletClient::SaveToWallet(
   }
 }
 
-void WalletClient::GetWalletItems() {
+void WalletClient::GetWalletItems(const base::string16& amount,
+                                  const base::string16& currency) {
   base::DictionaryValue request_dict;
   request_dict.SetString(kApiKeyKey, google_apis::GetAPIKey());
   request_dict.SetString(kMerchantDomainKey,
@@ -462,6 +469,11 @@ void WalletClient::GetWalletItems() {
                           delegate_->IsShippingAddressRequired());
   request_dict.SetBoolean(kUseMinimalAddresses, false);
   request_dict.SetBoolean(kPhoneNumberRequired, true);
+
+  if (!amount.empty())
+    request_dict.SetString(kTransactionAmountKey, amount);
+  if (!currency.empty())
+    request_dict.SetString(kTransactionCurrencyKey, currency);
 
   std::string post_body;
   base::JSONWriter::Write(&request_dict, &post_body);
@@ -566,9 +578,20 @@ void WalletClient::OnURLFetchComplete(
       HandleWalletError(BAD_REQUEST);
       return;
     }
-    // HTTP_OK holds a valid response and HTTP_INTERNAL_SERVER_ERROR holds an
-    // error code and message for the user.
-    case net::HTTP_OK:
+
+    // Valid response.
+    case net::HTTP_OK: {
+      scoped_ptr<base::Value> message_value(base::JSONReader::Read(data));
+      if (message_value.get() &&
+          message_value->IsType(base::Value::TYPE_DICTIONARY)) {
+        response_dict.reset(
+            static_cast<base::DictionaryValue*>(message_value.release()));
+      }
+      break;
+    }
+
+    // Response contains an error to show the user.
+    case net::HTTP_FORBIDDEN:
     case net::HTTP_INTERNAL_SERVER_ERROR: {
       scoped_ptr<base::Value> message_value(base::JSONReader::Read(data));
       if (message_value.get() &&
@@ -576,35 +599,32 @@ void WalletClient::OnURLFetchComplete(
         response_dict.reset(
             static_cast<base::DictionaryValue*>(message_value.release()));
       }
-      if (response_code == net::HTTP_INTERNAL_SERVER_ERROR) {
-        request_type_ = NO_REQUEST;
 
-        std::string error_type_string;
-        if (!response_dict->GetString(kErrorTypeKey, &error_type_string)) {
-          HandleWalletError(UNKNOWN_ERROR);
-          return;
-        }
-        WalletClient::ErrorType error_type =
-            StringToErrorType(error_type_string);
-        if (error_type == BUYER_ACCOUNT_ERROR) {
-          // If the error_type is |BUYER_ACCOUNT_ERROR|, then
-          // message_type_for_buyer field contains more specific information
-          // about the error.
-          std::string message_type_for_buyer_string;
-          if (response_dict->GetString(kMessageTypeForBuyerKey,
-                                       &message_type_for_buyer_string)) {
-            error_type = BuyerErrorStringToErrorType(
-                message_type_for_buyer_string);
-          }
-        }
+      request_type_ = NO_REQUEST;
 
-        HandleWalletError(error_type);
+      std::string error_type_string;
+      if (!response_dict->GetString(kErrorTypeKey, &error_type_string)) {
+        HandleWalletError(UNKNOWN_ERROR);
         return;
       }
-      break;
+      WalletClient::ErrorType error_type = StringToErrorType(error_type_string);
+      if (error_type == BUYER_ACCOUNT_ERROR) {
+        // If the error_type is |BUYER_ACCOUNT_ERROR|, then
+        // message_type_for_buyer field contains more specific information
+        // about the error.
+        std::string message_type_for_buyer_string;
+        if (response_dict->GetString(kMessageTypeForBuyerKey,
+                                     &message_type_for_buyer_string)) {
+          error_type =
+              BuyerErrorStringToErrorType(message_type_for_buyer_string);
+        }
+      }
+
+      HandleWalletError(error_type);
+      return;
     }
 
-    // Anything else is an error.
+    // Handle anything else as a generic error.
     default:
       request_type_ = NO_REQUEST;
       HandleWalletError(NETWORK_ERROR);
@@ -720,6 +740,9 @@ void WalletClient::HandleWalletError(WalletClient::ErrorType error_type) {
       break;
     case WalletClient::UNVERIFIED_KNOW_YOUR_CUSTOMER_STATUS:
       error_message = "WALLET_UNVERIFIED_KNOW_YOUR_CUSTOMER_STATUS";
+      break;
+    case WalletClient::SPENDING_LIMIT_EXCEEDED:
+      error_message = "SPENDING_LIMIT_EXCEEDED";
       break;
     case WalletClient::SERVICE_UNAVAILABLE:
       error_message = "WALLET_SERVICE_UNAVAILABLE";

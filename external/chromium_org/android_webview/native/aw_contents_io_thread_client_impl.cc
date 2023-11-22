@@ -36,6 +36,7 @@ using base::android::ToJavaArrayOfStrings;
 using base::LazyInstance;
 using content::BrowserThread;
 using content::RenderFrameHost;
+using content::ResourceType;
 using content::WebContents;
 using std::map;
 using std::pair;
@@ -242,7 +243,7 @@ AwContentsIoThreadClientImpl::ShouldInterceptRequest(
   const content::ResourceRequestInfo* info =
       content::ResourceRequestInfo::ForRequest(request);
   bool is_main_frame = info &&
-      info->GetResourceType() == ResourceType::MAIN_FRAME;
+      info->GetResourceType() == content::RESOURCE_TYPE_MAIN_FRAME;
   bool has_user_gesture = info && info->HasUserGesture();
 
   vector<string> headers_names;

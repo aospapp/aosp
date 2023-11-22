@@ -5,10 +5,11 @@
 #include "android_webview/native/aw_contents_statics.h"
 
 #include "android_webview/browser/aw_browser_context.h"
+#include "android_webview/browser/net/aw_url_request_context_getter.h"
 #include "base/android/jni_string.h"
 #include "base/android/scoped_java_ref.h"
 #include "base/callback.h"
-#include "components/data_reduction_proxy/browser/data_reduction_proxy_settings.h"
+#include "components/data_reduction_proxy/browser/data_reduction_proxy_auth_request_handler.h"
 #include "content/public/browser/android/synchronous_compositor.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/url_constants.h"
@@ -19,7 +20,7 @@ using base::android::AttachCurrentThread;
 using base::android::ConvertJavaStringToUTF8;
 using base::android::ScopedJavaGlobalRef;
 using content::BrowserThread;
-using data_reduction_proxy::DataReductionProxySettings;
+using data_reduction_proxy::DataReductionProxyAuthRequestHandler;
 
 namespace android_webview {
 
@@ -54,10 +55,22 @@ void ClearClientCertPreferences(JNIEnv* env, jclass, jobject callback) {
 void SetDataReductionProxyKey(JNIEnv* env, jclass, jstring key) {
   AwBrowserContext* browser_context = AwBrowserContext::GetDefault();
   DCHECK(browser_context);
-  DataReductionProxySettings* drp_settings =
-      browser_context->GetDataReductionProxySettings();
-  if (drp_settings)
-    drp_settings->params()->set_key(ConvertJavaStringToUTF8(env, key));
+  DCHECK(browser_context->GetRequestContext());
+  // The following call to GetRequestContext() could possibly be the first such
+  // call, which means AwURLRequestContextGetter::InitializeURLRequestContext
+  // will be called on IO thread as a result. InitializeURLRequestContext()
+  // will initialize DataReductionProxyAuthRequestHandler.
+  AwURLRequestContextGetter* aw_url_request_context_getter =
+      static_cast<AwURLRequestContextGetter*>(
+          browser_context->GetRequestContext());
+
+  // This PostTask has to be called after GetRequestContext, because SetKeyOnIO
+  // needs a valid DataReductionProxyAuthRequestHandler object.
+  BrowserThread::PostTask(BrowserThread::IO,
+                          FROM_HERE,
+                          base::Bind(&AwURLRequestContextGetter::SetKeyOnIO,
+                                     aw_url_request_context_getter,
+                                     ConvertJavaStringToUTF8(env, key)));
 }
 
 // static

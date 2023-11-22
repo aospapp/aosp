@@ -34,10 +34,10 @@
     <string name="respond_via_sms_setting_title_2" msgid="6104662227299493906">"編輯快速回應"</string>
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"快速回應"</string>
-    <string name="respond_via_sms_menu_reset_default_activity" msgid="1461742052902053466">"重設預設應用程式"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"訊息已傳送至 <xliff:g id="PHONE_NUMBER">%s</xliff:g>。"</string>
-    <string name="outgoing_call_not_allowed" msgid="1434784869685645427">"這位使用者只能撥打緊急電話"</string>
-    <string name="outgoing_call_error_no_phone_number_supplied" msgid="4987143284589568716">"輸入的號碼無效，無法撥出。"</string>
+    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"裝置擁有者限定只能撥打緊急電話"</string>
+    <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"如要撥打電話，請輸入有效的號碼。"</string>
+    <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"目前無法新增通話。"</string>
     <string name="no_vm_number" msgid="4164780423805688336">"遺失語音信箱號碼"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM 卡中未儲存語音信箱號碼。"</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"新增號碼"</string>

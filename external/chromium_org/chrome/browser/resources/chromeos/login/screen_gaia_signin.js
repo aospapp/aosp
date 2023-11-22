@@ -6,7 +6,7 @@
  * @fileoverview Oobe signin screen implementation.
  */
 
-<include src="../../gaia_auth_host/gaia_auth_host.js"></include>
+<include src="../../gaia_auth_host/gaia_auth_host.js">
 
 login.createScreen('GaiaSigninScreen', 'gaia-signin', function() {
   // Gaia loading time after which error message must be displayed and
@@ -54,6 +54,13 @@ login.createScreen('GaiaSigninScreen', 'gaia-signin', function() {
      * @type {string}
      */
     email: '',
+
+    /**
+     * Whether consumer management enrollment is in progress.
+     * @type {boolean}
+     * @private
+     */
+    isEnrollingConsumerManagement_: false,
 
     /**
      * Timer id of pending load.
@@ -211,10 +218,13 @@ login.createScreen('GaiaSigninScreen', 'gaia-signin', function() {
      */
     onBeforeShow: function(data) {
       chrome.send('loginUIStateChanged', ['gaia-signin', true]);
-      $('login-header-bar').signinUIState = SIGNIN_UI_STATE.GAIA_SIGNIN;
+      $('login-header-bar').signinUIState =
+          this.isEnrollingConsumerManagement_ ?
+              SIGNIN_UI_STATE.CONSUMER_MANAGEMENT_ENROLLMENT :
+              SIGNIN_UI_STATE.GAIA_SIGNIN;
 
       // Ensure that GAIA signin (or loading UI) is actually visible.
-      window.webkitRequestAnimationFrame(function() {
+      window.requestAnimationFrame(function() {
         chrome.send('loginVisible', ['gaia-loading']);
       });
 
@@ -299,22 +309,29 @@ login.createScreen('GaiaSigninScreen', 'gaia-signin', function() {
 
       $('createAccount').hidden = !data.createAccount;
       $('guestSignin').hidden = !data.guestSignin;
-      $('createManagedUserPane').hidden = !data.managedUsersEnabled;
+      $('createSupervisedUserPane').hidden = !data.supervisedUsersEnabled;
 
-      $('createManagedUserLinkPlaceholder').hidden =
-          !data.managedUsersCanCreate;
-      $('createManagedUserNoManagerText').hidden = data.managedUsersCanCreate;
-      $('createManagedUserNoManagerText').textContent =
-          data.managedUsersRestrictionReason;
+      $('createSupervisedUserLinkPlaceholder').hidden =
+          !data.supervisedUsersCanCreate;
+      $('createSupervisedUserNoManagerText').hidden =
+          data.supervisedUsersCanCreate;
+      $('createSupervisedUserNoManagerText').textContent =
+          data.supervisedUsersRestrictionReason;
+
+      var isEnrollingConsumerManagement = data.isEnrollingConsumerManagement;
+      $('consumerManagementEnrollment').hidden = !isEnrollingConsumerManagement;
 
       this.isShowUsers_ = data.isShowUsers;
       this.updateCancelButtonState();
+
+      this.isEnrollingConsumerManagement_ = isEnrollingConsumerManagement;
 
       // Sign-in right panel is hidden if all of its items are hidden.
       var noRightPanel = $('gaia-signin-reason').hidden &&
                          $('createAccount').hidden &&
                          $('guestSignin').hidden &&
-                         $('createManagedUserPane').hidden;
+                         $('createSupervisedUserPane').hidden &&
+                         $('consumerManagementEnrollment').hidden;
       this.classList.toggle('no-right-panel', noRightPanel);
       if (Oobe.getInstance().currentScreen === this)
         Oobe.getInstance().updateScreenSize(this);
@@ -557,10 +574,13 @@ login.createScreen('GaiaSigninScreen', 'gaia-signin', function() {
           'guestSignin',
           '<a id="guestSigninLink" class="signin-link" href="#">',
           '</a>');
-      $('createManagedUserLinkPlaceholder').innerHTML = loadTimeData.getStringF(
-            'createLocallyManagedUser',
-            '<a id="createManagedUserLink" class="signin-link" href="#">',
-            '</a>');
+      $('createSupervisedUserLinkPlaceholder').innerHTML =
+          loadTimeData.getStringF(
+              'createSupervisedUser',
+              '<a id="createSupervisedUserLink" class="signin-link" href="#">',
+              '</a>');
+      $('consumerManagementEnrollment').innerHTML = loadTimeData.getString(
+          'consumerManagementEnrollmentSigninMessage');
       $('createAccountLink').addEventListener('click', function(e) {
         chrome.send('createAccount');
         e.preventDefault();
@@ -569,8 +589,8 @@ login.createScreen('GaiaSigninScreen', 'gaia-signin', function() {
         chrome.send('launchIncognito');
         e.preventDefault();
       });
-      $('createManagedUserLink').addEventListener('click', function(e) {
-        chrome.send('showLocallyManagedUserCreationScreen');
+      $('createSupervisedUserLink').addEventListener('click', function(e) {
+        chrome.send('showSupervisedUserCreationScreen');
         e.preventDefault();
       });
     },

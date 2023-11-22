@@ -775,7 +775,7 @@ Decode_Status VideoDecoderBase::setupVA(uint32_t numSurface, VAProfile profile, 
 
     mRotationDegrees = 0;
     if (mConfigBuffer.flag & USE_NATIVE_GRAPHIC_BUFFER){
-#ifdef TARGET_HAS_VPP
+#ifdef TARGET_HAS_ISV
         if (mVideoFormatInfo.actualBufferNeeded > mConfigBuffer.surfaceNumber - mConfigBuffer.vppBufferNum)
 #else
         if (mVideoFormatInfo.actualBufferNeeded > mConfigBuffer.surfaceNumber)

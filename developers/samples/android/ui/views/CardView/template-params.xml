@@ -28,7 +28,7 @@
     <minSdk>21</minSdk>
     <compileSdkVersion>21</compileSdkVersion>
 
-    <dependency>com.android.support:cardview-v7:21.+</dependency>
+    <dependency>com.android.support:cardview-v7:21.0.2</dependency>
 
     <strings>
         <intro>

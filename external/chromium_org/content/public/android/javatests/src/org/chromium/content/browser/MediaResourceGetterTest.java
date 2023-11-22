@@ -36,11 +36,11 @@ public class MediaResourceGetterTest extends InstrumentationTestCase {
     private static final MediaMetadata sEmptyMetadata = new MediaMetadata(0, 0, 0, false);
     private static final String sExternalStorageDirectory = "/test_external_storage";
 
-    private static final Map<String,String> sHeadersCookieOnly;
-    private static final Map<String,String> sHeadersCookieAndUA;
-    private static final Map<String,String> sHeadersUAOnly;
+    private static final Map<String, String> sHeadersCookieOnly;
+    private static final Map<String, String> sHeadersCookieAndUA;
+    private static final Map<String, String> sHeadersUAOnly;
     static {
-        Map<String,String> headers = new HashMap<String, String>();
+        Map<String, String> headers = new HashMap<String, String>();
         headers.put("Cookie", TEST_COOKIES);
         sHeadersCookieOnly = Collections.unmodifiableMap(headers);
 
@@ -99,7 +99,7 @@ public class MediaResourceGetterTest extends InstrumentationTestCase {
     private static class FakeMediaResourceGetter extends MediaResourceGetter {
         // Read these back in tests to ensure proper values passed through
         String mUri = null;
-        Map<String,String> mHeaders = null;
+        Map<String, String> mHeaders = null;
         String mPath = null;
         int mFd;
         long mOffset;
@@ -195,13 +195,18 @@ public class MediaResourceGetterTest extends InstrumentationTestCase {
      * Helper class to control the result of permission checks.
      */
     private static class InternalMockContext extends MockContext {
-        boolean allowPermission = false;
+        boolean mAllowPermission = false;
         @Override
         public int checkCallingOrSelfPermission(String permission) {
             assertEquals(android.Manifest.permission.ACCESS_NETWORK_STATE,
                     permission);
-            return allowPermission ? PackageManager.PERMISSION_GRANTED :
+            return mAllowPermission ? PackageManager.PERMISSION_GRANTED :
                 PackageManager.PERMISSION_DENIED;
+        }
+
+        @Override
+        public String getPackageName() {
+            return "org.some.app.package";
         }
     }
 
@@ -256,14 +261,14 @@ public class MediaResourceGetterTest extends InstrumentationTestCase {
 
     @SmallTest
     public void testConfigure_Net_NoPermissions() {
-        mMockContext.allowPermission = false;
+        mMockContext.mAllowPermission = false;
         assertFalse(mFakeMRG.configure(mMockContext, TEST_HTTP_URL,
                                        TEST_COOKIES, TEST_USER_AGENT));
     }
 
     @SmallTest
     public void testConfigure_Net_NoActiveNetwork() {
-        mMockContext.allowPermission = true;
+        mMockContext.mAllowPermission = true;
         mFakeMRG.mNetworkType = null;
         assertFalse(mFakeMRG.configure(mMockContext, TEST_HTTP_URL,
                                        TEST_COOKIES, TEST_USER_AGENT));
@@ -271,7 +276,7 @@ public class MediaResourceGetterTest extends InstrumentationTestCase {
 
     @SmallTest
     public void testConfigure_Net_Disallowed_Mobile() {
-        mMockContext.allowPermission = true;
+        mMockContext.mAllowPermission = true;
         mFakeMRG.mNetworkType = ConnectivityManager.TYPE_MOBILE;
         assertFalse(mFakeMRG.configure(mMockContext, TEST_HTTP_URL,
                                        TEST_COOKIES, TEST_USER_AGENT));
@@ -279,7 +284,7 @@ public class MediaResourceGetterTest extends InstrumentationTestCase {
 
     @SmallTest
     public void testConfigure_Net_Disallowed_Wimax() {
-        mMockContext.allowPermission = true;
+        mMockContext.mAllowPermission = true;
         mFakeMRG.mNetworkType = ConnectivityManager.TYPE_WIMAX;
         assertFalse(mFakeMRG.configure(mMockContext, TEST_HTTP_URL,
                                        TEST_COOKIES, TEST_USER_AGENT));
@@ -287,7 +292,7 @@ public class MediaResourceGetterTest extends InstrumentationTestCase {
 
     @SmallTest
     public void testConfigure_Net_Allowed_Ethernet_Cookies_NoUA() {
-        mMockContext.allowPermission = true;
+        mMockContext.mAllowPermission = true;
         mFakeMRG.mNetworkType = ConnectivityManager.TYPE_ETHERNET;
         assertTrue(mFakeMRG.configure(mMockContext, TEST_HTTP_URL,
                                       TEST_COOKIES, null));
@@ -298,7 +303,7 @@ public class MediaResourceGetterTest extends InstrumentationTestCase {
 
     @SmallTest
     public void testConfigure_Net_Allowed_Wifi_Cookies_NoUA() {
-        mMockContext.allowPermission = true;
+        mMockContext.mAllowPermission = true;
         mFakeMRG.mNetworkType = ConnectivityManager.TYPE_WIFI;
         assertTrue(mFakeMRG.configure(mMockContext, TEST_HTTP_URL,
                                       TEST_COOKIES, null));
@@ -309,7 +314,7 @@ public class MediaResourceGetterTest extends InstrumentationTestCase {
 
     @SmallTest
     public void testConfigure_Net_Allowed_Ethernet_NoCookies_NoUA() {
-        mMockContext.allowPermission = true;
+        mMockContext.mAllowPermission = true;
         mFakeMRG.mNetworkType = ConnectivityManager.TYPE_ETHERNET;
         assertTrue(mFakeMRG.configure(mMockContext, TEST_HTTP_URL,
                                       "", null));
@@ -320,7 +325,7 @@ public class MediaResourceGetterTest extends InstrumentationTestCase {
 
     @SmallTest
     public void testConfigure_Net_Allowed_Ethernet_Cookies_WithUA() {
-        mMockContext.allowPermission = true;
+        mMockContext.mAllowPermission = true;
         mFakeMRG.mNetworkType = ConnectivityManager.TYPE_ETHERNET;
         assertTrue(mFakeMRG.configure(mMockContext, TEST_HTTP_URL,
                                       TEST_COOKIES, TEST_USER_AGENT));
@@ -331,7 +336,7 @@ public class MediaResourceGetterTest extends InstrumentationTestCase {
 
     @SmallTest
     public void testConfigure_Net_Allowed_Ethernet_NoCookies_WithUA() {
-        mMockContext.allowPermission = true;
+        mMockContext.mAllowPermission = true;
         mFakeMRG.mNetworkType = ConnectivityManager.TYPE_ETHERNET;
         assertTrue(mFakeMRG.configure(mMockContext, TEST_HTTP_URL,
                                       "", TEST_USER_AGENT));
@@ -342,7 +347,7 @@ public class MediaResourceGetterTest extends InstrumentationTestCase {
 
     @SmallTest
     public void testConfigure_Net_Allowed_Ethernet_Exception() {
-        mMockContext.allowPermission = true;
+        mMockContext.mAllowPermission = true;
         mFakeMRG.mThrowExceptionInConfigure = true;
         mFakeMRG.mNetworkType = ConnectivityManager.TYPE_ETHERNET;
         assertFalse(mFakeMRG.configure(mMockContext, TEST_HTTP_URL,
@@ -358,7 +363,7 @@ public class MediaResourceGetterTest extends InstrumentationTestCase {
             "https://127.0.0.1/",
             "http://[::1]:8888/",
         };
-        mMockContext.allowPermission = true;
+        mMockContext.mAllowPermission = true;
         mFakeMRG.mNetworkType = null;
         for (String localHostUrl : localHostUrls) {
             assertTrue(mFakeMRG.configure(mMockContext, localHostUrl,
@@ -433,6 +438,46 @@ public class MediaResourceGetterTest extends InstrumentationTestCase {
     public void testConfigure_File_Allowed_Exception() {
         final String path = "/mnt/sdcard/test";
         final String url = "file://" + path;
+        mFakeMRG.mFileExists = true;
+        mFakeMRG.mThrowExceptionInConfigure = true;
+        assertFalse(mFakeMRG.configure(mMockContext, url, "", null));
+        assertNull(mFakeMRG.mPath);
+    }
+
+    @SmallTest
+    public void testConfigure_Blob_Disallow_Null_Cache() {
+        final String path = "/data/data/" + null + "/cache/";
+        final String url = path;
+        mFakeMRG.mFileExists = true;
+        mFakeMRG.mThrowExceptionInConfigure = true;
+        assertFalse(mFakeMRG.configure(mMockContext, url, "", null));
+        assertNull(mFakeMRG.mPath);
+    }
+
+    @SmallTest
+    public void testConfigure_Blob_Disallowed_Incomplete_Path() {
+        final String path = "/data/data/";
+        final String url = path;
+        mFakeMRG.mFileExists = true;
+        mFakeMRG.mThrowExceptionInConfigure = true;
+        assertFalse(mFakeMRG.configure(mMockContext, url, "", null));
+        assertNull(mFakeMRG.mPath);
+    }
+
+    @SmallTest
+    public void testConfigure_Blob_Disallowed_Unknown_Path() {
+        final String path = "/unknown/path/";
+        final String url = path;
+        mFakeMRG.mFileExists = true;
+        mFakeMRG.mThrowExceptionInConfigure = true;
+        assertFalse(mFakeMRG.configure(mMockContext, url, "", null));
+        assertNull(mFakeMRG.mPath);
+    }
+
+    @SmallTest
+    public void testConfigure_Blob_Disallowed_Other_Application() {
+        final String path = "/data/data/org.some.other.app/cache/";
+        final String url = path;
         mFakeMRG.mFileExists = true;
         mFakeMRG.mThrowExceptionInConfigure = true;
         assertFalse(mFakeMRG.configure(mMockContext, url, "", null));

@@ -7,18 +7,24 @@ package org.chromium.chrome.browser.infobar;
 import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
-
-import com.google.common.annotations.VisibleForTesting;
+import android.widget.ScrollView;
 
 import org.chromium.base.CalledByNative;
+import org.chromium.base.VisibleForTesting;
+import org.chromium.chrome.R;
+import org.chromium.chrome.browser.EmptyTabObserver;
+import org.chromium.chrome.browser.Tab;
+import org.chromium.chrome.browser.TabObserver;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.UiUtils;
+import org.chromium.ui.base.DeviceFormFactor;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -32,9 +38,11 @@ import java.util.LinkedList;
  * When initiated from native code, special code is needed to keep the Java and native infobar in
  * sync, see NativeInfoBar.
  */
-public class InfoBarContainer extends LinearLayout {
+public class InfoBarContainer extends ScrollView {
     private static final String TAG = "InfoBarContainer";
     private static final long REATTACH_FADE_IN_MS = 250;
+    private static final int TAB_STRIP_AND_TOOLBAR_HEIGHT_PHONE_DP = 56;
+    private static final int TAB_STRIP_AND_TOOLBAR_HEIGHT_TABLET_DP = 96;
 
     /**
      * A listener for the InfoBar animation.
@@ -94,10 +102,41 @@ public class InfoBarContainer extends LinearLayout {
     // Parent view that contains us.
     private ViewGroup mParentView;
 
+    // The LinearLayout that holds the infobars. This is the only child of the InfoBarContainer.
+    private LinearLayout mLinearLayout;
+
+    // These values are used in onLayout() to keep the infobars fixed to the bottom of the screen
+    // when infobars are added or removed.
+    private int mHeight;
+    private int mInnerHeight;
+    private int mDistanceFromBottom;
+
+    private Paint mTopBorderPaint;
+
+    // Keeps the infobars from becoming visible when they normally would.
+    private boolean mDoStayInvisible;
+    private TabObserver mTabObserver;
+
     public InfoBarContainer(Activity activity, AutoLoginProcessor autoLoginProcessor,
             int tabId, ViewGroup parentView, WebContents webContents) {
         super(activity);
-        setOrientation(LinearLayout.VERTICAL);
+
+        // Workaround for http://crbug.com/407149. See explanation in onMeasure() below.
+        setVerticalScrollBarEnabled(false);
+
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
+        int topMarginDp = DeviceFormFactor.isTablet(activity)
+                ? TAB_STRIP_AND_TOOLBAR_HEIGHT_TABLET_DP
+                : TAB_STRIP_AND_TOOLBAR_HEIGHT_PHONE_DP;
+        lp.topMargin = Math.round(topMarginDp * getResources().getDisplayMetrics().density);
+        setLayoutParams(lp);
+
+        mLinearLayout = new LinearLayout(activity);
+        mLinearLayout.setOrientation(LinearLayout.VERTICAL);
+        addView(mLinearLayout,
+                new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+
         mAnimationListener = null;
         mInfoBarTransitions = new ArrayDeque<InfoBarTransitionInfo>();
 
@@ -109,13 +148,32 @@ public class InfoBarContainer extends LinearLayout {
         mAnimationSizer = new FrameLayout(activity);
         mAnimationSizer.setVisibility(INVISIBLE);
 
-        setGravity(Gravity.BOTTOM);
-
         // Chromium's InfoBarContainer may add an InfoBar immediately during this initialization
         // call, so make sure everything in the InfoBarContainer is completely ready beforehand.
         mNativeInfoBarContainer = nativeInit(webContents, mAutoLoginDelegate);
     }
 
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+
+        // Only enable scrollbars when the view is actually scrollable.
+        // This prevents 10-15 frames of jank that would otherwise occur 1.2 seconds after the
+        // InfoBarContainer is attached to the window. See: http://crbug.com/407149
+        boolean canScroll = mLinearLayout.getMeasuredHeight() > getMeasuredHeight();
+        if (canScroll != isVerticalScrollBarEnabled()) {
+            setVerticalScrollBarEnabled(canScroll);
+        }
+    }
+
+    /**
+     * @return The LinearLayout that holds the infobars (i.e. the ContentWrapperViews).
+     */
+    LinearLayout getLinearLayout() {
+        return mLinearLayout;
+    }
+
+    @VisibleForTesting
     public void setAnimationListener(InfoBarAnimationListener listener) {
         mAnimationListener = listener;
     }
@@ -125,31 +183,16 @@ public class InfoBarContainer extends LinearLayout {
         return mAnimationListener;
     }
 
-    public boolean areInfoBarsOnTop() {
-        return false;
-    }
-
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
-        // Trap any attempts to fiddle with the Views while we're animating.
-        return mAnimation != null;
-    }
-
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        // Consume all motion events so they do not reach the ContentView.
-        return true;
+        // Trap any attempts to fiddle with the infobars while we're animating.
+        return super.onInterceptTouchEvent(ev) || mAnimation != null;
     }
 
     private void addToParentView() {
         if (mParentView != null && mParentView.indexOfChild(this) == -1) {
-            mParentView.addView(this, createLayoutParams());
+            mParentView.addView(this);
         }
-    }
-
-    private FrameLayout.LayoutParams createLayoutParams() {
-        return new FrameLayout.LayoutParams(
-                LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
     }
 
     public void removeFromParentView() {
@@ -170,29 +213,47 @@ public class InfoBarContainer extends LinearLayout {
         addToParentView();
     }
 
-    @Override
-    protected boolean drawChild(Canvas canvas, View child, long drawingTime) {
-        if (mAnimation == null || child != mAnimation.getTarget()) {
-            return super.drawChild(canvas, child, drawingTime);
+    /**
+     * Call with {@code true} when a higher priority bottom element is visible to keep the infobars
+     * from ever becoming visible.  Call with {@code false} to restore normal visibility behavior.
+     * @param doStayInvisible Whether the infobars should stay invisible even when they would
+     *        normally become visible.
+     * @param tab The current Tab.
+     */
+    public void setDoStayInvisible(boolean doStayInvisible, Tab tab) {
+        mDoStayInvisible = doStayInvisible;
+        if (mTabObserver == null) mTabObserver = createTabObserver();
+        if (doStayInvisible) {
+            tab.addObserver(mTabObserver);
+        } else {
+            tab.removeObserver(mTabObserver);
         }
-        // When infobars are on top, the new infobar Z-order is greater than the previous infobar,
-        // which means it shows on top during the animation. We cannot change the Z-order in the
-        // linear layout, it is driven by the insertion index.
-        // So we simply clip the children to their bounds to make sure the new infobar does not
-        // paint over.
-        boolean retVal;
-        canvas.save();
-        canvas.clipRect(mAnimation.getTarget().getClippingRect());
-        retVal = super.drawChild(canvas, child, drawingTime);
-        canvas.restore();
-        return retVal;
+    }
+
+    /**
+     * Creates a TabObserver for monitoring a Tab, used to reset internal settings when a
+     * navigation is done.
+     * @return TabObserver that can be used to monitor a Tab.
+     */
+    private TabObserver createTabObserver() {
+        return new EmptyTabObserver() {
+            @Override
+            public void onDidNavigateMainFrame(Tab tab, String url, String baseUrl,
+                    boolean isNavigationToDifferentPage, boolean isFragmentNavigation,
+                    int statusCode) {
+                setDoStayInvisible(false, tab);
+            }
+        };
     }
 
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        ObjectAnimator.ofFloat(this, "alpha", 0.f, 1.f).setDuration(REATTACH_FADE_IN_MS).start();
-        setVisibility(VISIBLE);
+        if (!mDoStayInvisible) {
+            ObjectAnimator.ofFloat(this, "alpha", 0.f, 1.f).setDuration(REATTACH_FADE_IN_MS)
+                    .start();
+            setVisibility(VISIBLE);
+        }
     }
 
     @Override
@@ -316,11 +377,47 @@ public class InfoBarContainer extends LinearLayout {
                 setVisibility(View.INVISIBLE);
             }
         } else {
-            if (!isShowing) {
+            if (!isShowing && !mDoStayInvisible) {
                 setVisibility(View.VISIBLE);
             }
         }
         super.onLayout(changed, l, t, r, b);
+
+        // Keep the infobars fixed to the bottom of the screen when infobars are added or removed.
+        // Otherwise, infobars jump around when appearing or disappearing on small devices.
+        int newHeight = getHeight();
+        int newInnerHeight = mLinearLayout.getHeight();
+        if (mInnerHeight != newInnerHeight) {
+            int newScrollY = newInnerHeight - newHeight - mDistanceFromBottom;
+            scrollTo(0, newScrollY);
+        }
+        mHeight = newHeight;
+        mInnerHeight = newInnerHeight;
+        mDistanceFromBottom = mInnerHeight - mHeight - getScrollY();
+    }
+
+    @Override
+    protected void onScrollChanged(int l, int t, int oldl, int oldt) {
+        super.onScrollChanged(l, t, oldl, oldt);
+        mDistanceFromBottom = mInnerHeight - mHeight - getScrollY();
+    }
+
+    @Override
+    protected void dispatchDraw(Canvas canvas) {
+        super.dispatchDraw(canvas);
+
+        // If the infobars overflow the ScrollView, draw a border at the top of the ScrollView.
+        // This prevents the topmost infobar from blending into the page when fullscreen mode
+        // is active.
+        if (getScrollY() != 0) {
+            if (mTopBorderPaint == null) {
+                mTopBorderPaint = new Paint();
+                mTopBorderPaint.setColor(
+                        getResources().getColor(R.color.infobar_background_separator));
+            }
+            int height = ContentWrapperView.getBoundaryHeight(getContext());
+            canvas.drawRect(0, getScrollY(), getWidth(), getScrollY() + height, mTopBorderPaint);
+        }
     }
 
     /**
@@ -345,7 +442,7 @@ public class InfoBarContainer extends LinearLayout {
             targetView = info.target.getContentWrapper(true);
             assert mInfoBars.contains(info.target);
             toShow = targetView.detachCurrentView();
-            addView(targetView, 0,
+            mLinearLayout.addView(targetView, 0,
                     new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
         } else {
             targetView = info.target.getContentWrapper(false);
@@ -380,7 +477,7 @@ public class InfoBarContainer extends LinearLayout {
 
     public void destroy() {
         mDestroyed = true;
-        removeAllViews();
+        mLinearLayout.removeAllViews();
         if (mNativeInfoBarContainer != 0) {
             nativeDestroy(mNativeInfoBarContainer);
         }
@@ -426,7 +523,8 @@ public class InfoBarContainer extends LinearLayout {
             if (parent != null) parent.removeView(toShow);
 
             assert mAnimationSizer.getParent() == null;
-            mParentView.addView(mAnimationSizer, createLayoutParams());
+            mParentView.addView(mAnimationSizer, new FrameLayout.LayoutParams(
+                    LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
             mAnimationSizer.addView(toShow, 0,
                     new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
             mAnimationSizer.requestLayout();
@@ -441,19 +539,19 @@ public class InfoBarContainer extends LinearLayout {
 
         // If the InfoBar was hidden, get rid of its View entirely.
         if (mAnimation.getAnimationType() == AnimationHelper.ANIMATION_TYPE_HIDE) {
-            removeView(mAnimation.getTarget());
+            mLinearLayout.removeView(mAnimation.getTarget());
         }
 
         // Reset all translations and put everything where they need to be.
-        for (int i = 0; i < getChildCount(); ++i) {
-            View view = getChildAt(i);
+        for (int i = 0; i < mLinearLayout.getChildCount(); ++i) {
+            View view = mLinearLayout.getChildAt(i);
             view.setTranslationY(0);
         }
         requestLayout();
 
         // If there are no infobars shown, there is no need to keep the infobar container in the
         // view hierarchy.
-        if (getChildCount() == 0) {
+        if (mLinearLayout.getChildCount() == 0) {
             removeFromParentView();
         }
 
@@ -490,6 +588,5 @@ public class InfoBarContainer extends LinearLayout {
     }
 
     private native long nativeInit(WebContents webContents, AutoLoginDelegate autoLoginDelegate);
-
     private native void nativeDestroy(long nativeInfoBarContainerAndroid);
 }

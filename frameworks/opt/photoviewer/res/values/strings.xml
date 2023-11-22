@@ -21,4 +21,6 @@
     <string name="retry">Retry</string>
     <!-- Photo view error message shown below thumbnail if full image could not be shown [CHAR LIMIT=30] -->
     <string name="failed">Couldn\'t load image</string>
+    <!-- Title and subtitle combined into a single string -->
+    <string name="titles"><xliff:g id="title">%s</xliff:g>, <xliff:g id="subtitle">%s</xliff:g></string>
 </resources>

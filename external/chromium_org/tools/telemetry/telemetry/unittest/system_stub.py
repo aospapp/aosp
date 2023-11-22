@@ -24,6 +24,7 @@ class Override(object):
              'subprocess': SubprocessModuleStub,
              'sys': SysModuleStub,
              'thermal_throttle': ThermalThrottleModuleStub,
+             'logging': LoggingStub
     }
     self.adb_commands = None
     self.os = None
@@ -50,18 +51,53 @@ class Override(object):
     self._overrides = {}
 
 
+class AndroidCommands(object):
+
+  def __init__(self):
+    self.can_access_protected_file_contents = False
+
+  def CanAccessProtectedFileContents(self):
+    return self.can_access_protected_file_contents
+
+
+class AdbDevice(object):
+
+  def __init__(self):
+    self.shell_command_handlers = {}
+    self.mock_content = []
+    self.system_properties = {}
+    if self.system_properties.get('ro.product.cpu.abi') == None:
+      self.system_properties['ro.product.cpu.abi'] = 'armeabi-v7a'
+    self.old_interface = AndroidCommands()
+
+  def RunShellCommand(self, args):
+    if isinstance(args, basestring):
+      args = shlex.split(args)
+    handler = self.shell_command_handlers[args[0]]
+    return handler(args)
+
+  def FileExists(self, _):
+    return False
+
+  def ReadFile(self, device_path, as_root=False):  # pylint: disable=W0613
+    return self.mock_content
+
+  def GetProp(self, property_name):
+    return self.system_properties[property_name]
+
+  def SetProp(self, property_name, property_value):
+    self.system_properties[property_name] = property_value
+
+
 class AdbCommandsModuleStub(object):
+
   class AdbCommandsStub(object):
+
     def __init__(self, module, device):
       self._module = module
       self._device = device
       self.is_root_enabled = True
-
-    def RunShellCommand(self, args):
-      if isinstance(args, basestring):
-        args = shlex.split(args)
-      handler = self._module.shell_command_handlers[args[0]]
-      return handler(args)
+      self._adb_device = module.adb_device
 
     def IsRootEnabled(self):
       return self.is_root_enabled
@@ -75,9 +111,12 @@ class AdbCommandsModuleStub(object):
     def WaitForDevicePm(self):
       pass
 
+    def device(self):
+      return self._adb_device
+
   def __init__(self):
     self.attached_devices = []
-    self.shell_command_handlers = {}
+    self.adb_device = AdbDevice()
 
     def AdbCommandsStubConstructor(device=None):
       return AdbCommandsModuleStub.AdbCommandsStub(self, device)
@@ -98,8 +137,14 @@ class AdbCommandsModuleStub(object):
 
 
 class CloudStorageModuleStub(object):
-  INTERNAL_BUCKET = None
-  PUBLIC_BUCKET = None
+  PUBLIC_BUCKET = 'chromium-telemetry'
+  PARTNER_BUCKET = 'chrome-partner-telemetry'
+  INTERNAL_BUCKET = 'chrome-telemetry'
+  BUCKET_ALIASES = {
+    'public': PUBLIC_BUCKET,
+    'partner': PARTNER_BUCKET,
+    'internal': INTERNAL_BUCKET,
+  }
 
   class CloudStorageError(Exception):
     pass
@@ -122,6 +167,17 @@ class CloudStorageModuleStub(object):
     return self.local_hash_files[hash_path]
 
 
+class LoggingStub(object):
+  def __init__(self):
+    self.warnings = []
+
+  def info(self, msg, *args):
+    pass
+
+  def warn(self, msg, *args):
+    self.warnings.append(msg % args)
+
+
 class OpenFunctionStub(object):
   class FileStub(object):
     def __init__(self, data):
@@ -138,6 +194,12 @@ class OpenFunctionStub(object):
         return self._data[:size]
       else:
         return self._data
+
+    def write(self, data):
+      self._data.write(data)
+
+    def close(self):
+      pass
 
   def __init__(self):
     self.files = {}
@@ -197,11 +259,14 @@ class OsModuleStub(object):
 
   X_OK = os.X_OK
 
+  pathsep = os.pathsep
+
   def __init__(self, sys_module=sys):
     self.path = OsModuleStub.OsPathModuleStub(sys_module)
     self.environ = OsModuleStub.OsEnvironModuleStub()
     self.display = ':0'
     self.local_app_data = None
+    self.sys_path = None
     self.program_files = None
     self.program_files_x86 = None
     self.devnull = os.devnull
@@ -209,16 +274,23 @@ class OsModuleStub(object):
   def access(self, path, _):
     return path in self.path.files
 
-  def getenv(self, name):
+  def getenv(self, name, value=None):
     if name == 'DISPLAY':
-      return self.display
+      env = self.display
     elif name == 'LOCALAPPDATA':
-      return self.local_app_data
+      env = self.local_app_data
+    elif name == 'PATH':
+      env = self.sys_path
     elif name == 'PROGRAMFILES':
-      return self.program_files
+      env = self.program_files
     elif name == 'PROGRAMFILES(X86)':
-      return self.program_files_x86
-    raise Exception('Unsupported getenv')
+      env = self.program_files_x86
+    else:
+      raise NotImplementedError('Unsupported getenv')
+    return env if env else value
+
+  def chdir(self, path):
+    pass
 
 
 class PerfControlModuleStub(object):

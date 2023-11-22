@@ -7085,12 +7085,6 @@ diff -Naur bcprov-jdk15on-150.orig/org/bouncycastle/jce/provider/CertBlacklist.j
 +import org.bouncycastle.util.encoders.Hex;
 +
 +public class CertBlacklist {
-+
-+    private static final String ANDROID_DATA = System.getenv("ANDROID_DATA");
-+    private static final String BLACKLIST_ROOT = ANDROID_DATA + "/misc/keychain/";
-+    public static final String DEFAULT_PUBKEY_BLACKLIST_PATH = BLACKLIST_ROOT + "pubkey_blacklist.txt";
-+    public static final String DEFAULT_SERIAL_BLACKLIST_PATH = BLACKLIST_ROOT + "serial_blacklist.txt";
-+
 +    private static final Logger logger = Logger.getLogger(CertBlacklist.class.getName());
 +
 +    // public for testing
@@ -7098,13 +7092,19 @@ diff -Naur bcprov-jdk15on-150.orig/org/bouncycastle/jce/provider/CertBlacklist.j
 +    public final Set<byte[]> pubkeyBlacklist;
 +
 +    public CertBlacklist() {
-+        this(DEFAULT_PUBKEY_BLACKLIST_PATH, DEFAULT_SERIAL_BLACKLIST_PATH);
++        String androidData = System.getenv("ANDROID_DATA");
++        String blacklistRoot = androidData + "/misc/keychain/";
++        String defaultPubkeyBlacklistPath = blacklistRoot + "pubkey_blacklist.txt";
++        String defaultSerialBlacklistPath = blacklistRoot + "serial_blacklist.txt";
++
++        pubkeyBlacklist = readPublicKeyBlackList(defaultPubkeyBlacklistPath);
++        serialBlacklist = readSerialBlackList(defaultSerialBlacklistPath);
 +    }
 +
 +    /** Test only interface, not for public use */
 +    public CertBlacklist(String pubkeyBlacklistPath, String serialBlacklistPath) {
-+        serialBlacklist = readSerialBlackList(serialBlacklistPath);
 +        pubkeyBlacklist = readPublicKeyBlackList(pubkeyBlacklistPath);
++        serialBlacklist = readSerialBlackList(serialBlacklistPath);
 +    }
 +
 +    private static boolean isHex(String value) {
@@ -8179,17 +8179,19 @@ diff -Naur bcprov-jdk15on-150.orig/org/bouncycastle/jce/provider/PKIXCertPathVal
  import java.security.InvalidAlgorithmParameterException;
  import java.security.PublicKey;
  import java.security.cert.CertPath;
-@@ -33,6 +36,9 @@
+@@ -33,6 +36,11 @@
  public class PKIXCertPathValidatorSpi
          extends CertPathValidatorSpi
  {
 +    // BEGIN android-added
-+    private final static CertBlacklist blacklist = new CertBlacklist();
++    private static class NoPreloadHolder {
++        private final static CertBlacklist blacklist = new CertBlacklist();
++    }
 +    // END android-added
  
      public CertPathValidatorResult engineValidate(
              CertPath certPath,
-@@ -75,6 +81,22 @@
+@@ -75,6 +83,22 @@
          {
              throw new CertPathValidatorException("Certification path is empty.", null, certPath, 0);
          }
@@ -8199,7 +8201,7 @@ diff -Naur bcprov-jdk15on-150.orig/org/bouncycastle/jce/provider/PKIXCertPathVal
 +
 +            if (cert != null) {
 +                BigInteger serial = cert.getSerialNumber();
-+                if (blacklist.isSerialNumberBlackListed(serial)) {
++                if (NoPreloadHolder.blacklist.isSerialNumberBlackListed(serial)) {
 +                    // emulate CRL exception message in RFC3280CertPathUtilities.checkCRLs
 +                    String message = "Certificate revocation of serial 0x" + serial.toString(16);
 +                    System.out.println(message);
@@ -8212,12 +8214,12 @@ diff -Naur bcprov-jdk15on-150.orig/org/bouncycastle/jce/provider/PKIXCertPathVal
  
          //
          // (b)
-@@ -251,6 +273,15 @@
+@@ -251,6 +275,15 @@
  
          for (index = certs.size() - 1; index >= 0; index--)
          {
 +            // BEGIN android-added
-+            if (blacklist.isPublicKeyBlackListed(workingPublicKey)) {
++            if (NoPreloadHolder.blacklist.isPublicKeyBlackListed(workingPublicKey)) {
 +                // emulate CRL exception message in RFC3280CertPathUtilities.checkCRLs
 +                String message = "Certificate revocation of public key " + workingPublicKey;
 +                System.out.println(message);

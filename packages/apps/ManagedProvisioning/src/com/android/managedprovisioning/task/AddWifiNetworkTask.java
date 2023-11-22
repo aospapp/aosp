@@ -21,6 +21,9 @@ import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
 import android.text.TextUtils;
 
 import java.lang.Thread;
@@ -36,6 +39,7 @@ public class AddWifiNetworkTask implements NetworkMonitor.Callback {
     private static final int RETRY_SLEEP_DURATION_BASE_MS = 500;
     private static final int RETRY_SLEEP_MULTIPLIER = 2;
     private static final int MAX_RETRIES = 6;
+    private static final int RECONNECT_TIMEOUT_MS = 30000;
 
     private final Context mContext;
     private final String mSsid;
@@ -52,14 +56,23 @@ public class AddWifiNetworkTask implements NetworkMonitor.Callback {
     private NetworkMonitor mNetworkMonitor;
     private WifiConfig mWifiConfig;
 
+    private Handler mHandler;
+    private boolean mTaskDone = false;
+
     private int mDurationNextSleep = RETRY_SLEEP_DURATION_BASE_MS;
     private int mRetriesLeft = MAX_RETRIES;
 
+    /**
+     * @throws IllegalArgumentException if the {@code ssid} parameter is empty.
+     */
     public AddWifiNetworkTask(Context context, String ssid, boolean hidden, String securityType,
             String password, String proxyHost, int proxyPort, String proxyBypassHosts,
             String pacUrl, Callback callback) {
         mCallback = callback;
         mContext = context;
+        if (TextUtils.isEmpty(ssid)) {
+            throw new IllegalArgumentException("The ssid must be non-empty.");
+        }
         mSsid = ssid;
         mHidden = hidden;
         mSecurityType = securityType;
@@ -70,6 +83,12 @@ public class AddWifiNetworkTask implements NetworkMonitor.Callback {
         mPacUrl = pacUrl;
         mWifiManager  = (WifiManager) mContext.getSystemService(Context.WIFI_SERVICE);
         mWifiConfig = new WifiConfig(mWifiManager);
+
+        HandlerThread thread = new HandlerThread("Timeout thread",
+                android.os.Process.THREAD_PRIORITY_BACKGROUND);
+        thread.start();
+        Looper looper = thread.getLooper();
+        mHandler = new Handler(looper);
     }
 
     public void run() {
@@ -79,20 +98,13 @@ public class AddWifiNetworkTask implements NetworkMonitor.Callback {
             return;
         }
 
-        mNetworkMonitor = new NetworkMonitor(mContext, this);
-
-        if (!isConnectedToWifi(mContext)) {
-            if (TextUtils.isEmpty(mSsid)) {
-                ProvisionLogger.loge("Wifi is supposed to be setup in activity," +
-                        " or a valid wifi ssid has to be specified.");
-                mCallback.onError();
-                return;
-            }
-
-            connectToProvidedNetwork();
-        } else {
+        if (isConnectedToSpecifiedWifi()) {
             mCallback.onSuccess();
+            return;
         }
+
+        mNetworkMonitor = new NetworkMonitor(mContext, this);
+        connectToProvidedNetwork();
     }
 
     private void connectToProvidedNetwork() {
@@ -118,43 +130,51 @@ public class AddWifiNetworkTask implements NetworkMonitor.Callback {
                 mCallback.onError();
                 return;
             }
-        } else {
-            if (!mWifiManager.reconnect()) {
-                ProvisionLogger.loge("Unable to connect to wifi");
-                mCallback.onError();
-                return;
-            }
+        }
+
+        // Network was successfully saved, now connect to it.
+        if (!mWifiManager.reconnect()) {
+            ProvisionLogger.loge("Unable to connect to wifi");
+            mCallback.onError();
+            return;
         }
 
         // NetworkMonitor will call onNetworkConnected when in Wifi mode.
+        // Post time out event in case the NetworkMonitor doesn't call back.
+        mHandler.postDelayed(new Runnable() {
+                public void run(){
+                    synchronized(this) {
+                        if (mTaskDone) return;
+                        mTaskDone = true;
+                    }
+                    ProvisionLogger.loge("Setting up wifi connection timed out.");
+                    mCallback.onError();
+                    return;
+                }
+            }, RECONNECT_TIMEOUT_MS);
     }
 
     private boolean enableWifi() {
-        if (mWifiManager != null) {
-            int wifiState = mWifiManager.getWifiState();
-            boolean wifiOn = wifiState == WifiManager.WIFI_STATE_ENABLED;
-            if (!wifiOn) {
-                if (!mWifiManager.setWifiEnabled(true)) {
-                    return false;
-                } else {
-                    return true;
-                }
-            } else {
-                return true;
-            }
-        } else {
-            return false;
-        }
+        return mWifiManager != null
+                && (mWifiManager.isWifiEnabled() || mWifiManager.setWifiEnabled(true));
     }
 
     @Override
     public void onNetworkConnected() {
-        if (NetworkMonitor.isConnectedToWifi(mContext) &&
-                mWifiManager.getConnectionInfo().getSSID().equals(mSsid)) {
+        if (isConnectedToSpecifiedWifi()) {
+            synchronized(this) {
+                if (mTaskDone) return;
+                mTaskDone = true;
+            }
+
             ProvisionLogger.logd("Connected to the correct network");
-            mNetworkMonitor.close();
-            mNetworkMonitor = null;
+
+            // Remove time out callback.
+            mHandler.removeCallbacksAndMessages(null);
+
+            cleanUp();
             mCallback.onSuccess();
+            return;
         }
     }
 
@@ -168,6 +188,12 @@ public class AddWifiNetworkTask implements NetworkMonitor.Callback {
             mNetworkMonitor.close();
             mNetworkMonitor = null;
         }
+    }
+
+    private boolean isConnectedToSpecifiedWifi() {
+        return NetworkMonitor.isConnectedToWifi(mContext)
+                && mWifiManager.getConnectionInfo() != null
+                && mSsid.equals(mWifiManager.getConnectionInfo().getSSID());
     }
 
     public static boolean isConnectedToWifi(Context context) {

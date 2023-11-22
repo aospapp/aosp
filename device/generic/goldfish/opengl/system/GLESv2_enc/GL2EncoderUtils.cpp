@@ -18,6 +18,8 @@
 #include "GL2Encoder.h"
 #include <assert.h>
 
+namespace glesv2_enc {
+
 size_t pixelDataSize(void *self, GLsizei width, GLsizei height, GLenum format, GLenum type, int pack)
 {
     GL2Encoder *ctx = (GL2Encoder *)self;
@@ -37,3 +39,5 @@ GLenum uniformType(void * self, GLuint program, GLint location)
     assert (ctx->shared() != NULL);
     return ctx->shared()->getProgramUniformType(program, location);
 }
+
+}  // namespace glesv2_enc

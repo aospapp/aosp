@@ -8,7 +8,6 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/metrics/field_trial.h"
 #include "base/strings/string16.h"
-#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/test_reg_util_win.h"
 #include "chrome/common/chrome_version_info.h"
@@ -30,8 +29,7 @@ class ChromeBlacklistTrialTest : public testing::Test {
   virtual void SetUp() OVERRIDE {
     testing::Test::SetUp();
 
-    override_manager_.OverrideRegistry(HKEY_CURRENT_USER,
-                                       L"browser_blacklist_test");
+    override_manager_.OverrideRegistry(HKEY_CURRENT_USER);
 
     blacklist_registry_key_.reset(
         new base::win::RegKey(HKEY_CURRENT_USER,
@@ -170,7 +168,7 @@ TEST_F(ChromeBlacklistTrialTest, AddFinchBlacklistToRegistry) {
   desired_params["TestDllName1"] = "TestDll1.dll";
   desired_params["TestDllName2"] = "TestDll2.dll";
 
-  chrome_variations::AssociateVariationParams(
+  variations::AssociateVariationParams(
       kBrowserBlacklistTrialName,
       kBrowserBlacklistTrialEnabledGroupName,
       desired_params);

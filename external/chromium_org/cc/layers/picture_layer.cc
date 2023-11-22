@@ -4,6 +4,7 @@
 
 #include "cc/layers/picture_layer.h"
 
+#include "base/auto_reset.h"
 #include "cc/layers/content_layer_client.h"
 #include "cc/layers/picture_layer_impl.h"
 #include "cc/trees/layer_tree_impl.h"
@@ -20,16 +21,11 @@ PictureLayer::PictureLayer(ContentLayerClient* client)
     : client_(client),
       pile_(make_scoped_refptr(new PicturePile())),
       instrumentation_object_tracker_(id()),
-      is_mask_(false),
       update_source_frame_number_(-1),
       can_use_lcd_text_last_frame_(can_use_lcd_text()) {
 }
 
 PictureLayer::~PictureLayer() {
-}
-
-bool PictureLayer::DrawsContent() const {
-  return Layer::DrawsContent() && client_;
 }
 
 scoped_ptr<LayerImpl> PictureLayer::CreateLayerImpl(LayerTreeImpl* tree_impl) {
@@ -44,23 +40,20 @@ void PictureLayer::PushPropertiesTo(LayerImpl* base_layer) {
     // Update may not get called for an empty layer, so resize here instead.
     // Using layer_impl because either bounds() or paint_properties().bounds
     // may disagree and either one could have been pushed to layer_impl.
-    pile_->SetTilingRect(gfx::Rect());
+    pile_->SetEmptyBounds();
   } else if (update_source_frame_number_ ==
              layer_tree_host()->source_frame_number()) {
     // TODO(ernstm): This DCHECK is only valid as long as the pile's tiling_rect
     // is identical to the layer_rect.
     // If update called, then pile size must match bounds pushed to impl layer.
-    DCHECK_EQ(layer_impl->bounds().ToString(),
-              pile_->tiling_rect().size().ToString());
+    DCHECK_EQ(layer_impl->bounds().ToString(), pile_->tiling_size().ToString());
   }
-
-  layer_impl->SetIsMask(is_mask_);
 
   // Unlike other properties, invalidation must always be set on layer_impl.
   // See PictureLayerImpl::PushPropertiesTo for more details.
   layer_impl->invalidation_.Clear();
   layer_impl->invalidation_.Swap(&pile_invalidation_);
-  layer_impl->pile_ = PicturePileImpl::CreateFromOther(pile_.get());
+  layer_impl->UpdatePile(PicturePileImpl::CreateFromOther(pile_.get()));
 }
 
 void PictureLayer::SetLayerTreeHost(LayerTreeHost* host) {
@@ -90,15 +83,18 @@ bool PictureLayer::Update(ResourceUpdateQueue* queue,
   update_source_frame_number_ = layer_tree_host()->source_frame_number();
   bool updated = Layer::Update(queue, occlusion);
 
-  UpdateCanUseLCDText();
+  {
+    base::AutoReset<bool> ignore_set_needs_commit(&ignore_set_needs_commit_,
+                                                  true);
+    UpdateCanUseLCDText();
+  }
 
   gfx::Rect visible_layer_rect = gfx::ScaleToEnclosingRect(
       visible_content_rect(), 1.f / contents_scale_x());
-
-  gfx::Rect layer_rect = gfx::Rect(paint_properties().bounds);
+  gfx::Size layer_size = paint_properties().bounds;
 
   if (last_updated_visible_content_rect_ == visible_content_rect() &&
-      pile_->tiling_rect() == layer_rect && pending_invalidation_.IsEmpty()) {
+      pile_->tiling_size() == layer_size && pending_invalidation_.IsEmpty()) {
     // Only early out if the visible content rect of this layer hasn't changed.
     return updated;
   }
@@ -109,8 +105,6 @@ bool PictureLayer::Update(ResourceUpdateQueue* queue,
   devtools_instrumentation::ScopedLayerTreeTask update_layer(
       devtools_instrumentation::kUpdateLayer, id(), layer_tree_host()->id());
 
-  pile_->SetTilingRect(layer_rect);
-
   // Calling paint in WebKit can sometimes cause invalidations, so save
   // off the invalidation prior to calling update.
   pending_invalidation_.Swap(&pile_invalidation_);
@@ -119,7 +113,7 @@ bool PictureLayer::Update(ResourceUpdateQueue* queue,
   if (layer_tree_host()->settings().record_full_layer) {
     // Workaround for http://crbug.com/235910 - to retain backwards compat
     // the full page content must always be provided in the picture layer.
-    visible_layer_rect = gfx::Rect(bounds());
+    visible_layer_rect = gfx::Rect(layer_size);
   }
 
   // UpdateAndExpandInvalidation will give us an invalidation that covers
@@ -133,6 +127,7 @@ bool PictureLayer::Update(ResourceUpdateQueue* queue,
                                          SafeOpaqueBackgroundColor(),
                                          contents_opaque(),
                                          client_->FillsBoundsCompletely(),
+                                         layer_size,
                                          visible_layer_rect,
                                          update_source_frame_number_,
                                          RecordingMode(),
@@ -151,7 +146,7 @@ bool PictureLayer::Update(ResourceUpdateQueue* queue,
 }
 
 void PictureLayer::SetIsMask(bool is_mask) {
-  is_mask_ = is_mask;
+  pile_->set_is_mask(is_mask);
 }
 
 Picture::RecordingMode PictureLayer::RecordingMode() const {
@@ -187,13 +182,11 @@ skia::RefPtr<SkPicture> PictureLayer::GetPicture() const {
 
   int width = bounds().width();
   int height = bounds().height();
-  gfx::RectF opaque;
 
   SkPictureRecorder recorder;
   SkCanvas* canvas = recorder.beginRecording(width, height, NULL, 0);
   client_->PaintContents(canvas,
                          gfx::Rect(width, height),
-                         &opaque,
                          ContentLayerClient::GRAPHICS_CONTEXT_ENABLED);
   skia::RefPtr<SkPicture> picture = skia::AdoptRef(recorder.endRecording());
   return picture;
@@ -201,6 +194,15 @@ skia::RefPtr<SkPicture> PictureLayer::GetPicture() const {
 
 bool PictureLayer::IsSuitableForGpuRasterization() const {
   return pile_->is_suitable_for_gpu_rasterization();
+}
+
+void PictureLayer::ClearClient() {
+  client_ = NULL;
+  UpdateDrawsContent(HasDrawableContent());
+}
+
+bool PictureLayer::HasDrawableContent() const {
+  return client_ && Layer::HasDrawableContent();
 }
 
 void PictureLayer::RunMicroBenchmark(MicroBenchmark* benchmark) {

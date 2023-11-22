@@ -82,8 +82,8 @@ class ProcessSingleton : public base::NonThreadSafe {
   // false is returned, we are not the singleton instance and the caller must
   // exit.
   // NOTE: Most callers should generally prefer NotifyOtherProcessOrCreate() to
-  // this method, only callers for whom failure is prefered to notifying another
-  // process should call this directly.
+  // this method, only callers for whom failure is preferred to notifying
+  // another process should call this directly.
   bool Create();
 
   // Clear any lock state during shutdown.
@@ -105,21 +105,19 @@ class ProcessSingleton : public base::NonThreadSafe {
   // this timeout to be short.
   NotifyResult NotifyOtherProcessWithTimeout(
       const base::CommandLine& command_line,
-      int timeout_seconds,
+      int retry_attempts,
+      const base::TimeDelta& timeout,
       bool kill_unresponsive);
   NotifyResult NotifyOtherProcessWithTimeoutOrCreate(
       const base::CommandLine& command_line,
-      int timeout_seconds);
+      int retry_attempts,
+      const base::TimeDelta& timeout);
   void OverrideCurrentPidForTesting(base::ProcessId pid);
   void OverrideKillCallbackForTesting(
       const base::Callback<void(int)>& callback);
 #endif
 
  private:
-  // Timeout for the current browser process to respond. 20 seconds should be
-  // enough.
-  static const int kTimeoutInSeconds = 20;
-
   NotificationCallback notification_callback_;  // Handler for notifications.
 
 #if defined(OS_WIN)

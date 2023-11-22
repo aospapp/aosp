@@ -41,6 +41,9 @@ KioskAppUpdateService::KioskAppUpdateService(
 
   if (automatic_reboot_manager_)
     automatic_reboot_manager_->AddObserver(this);
+
+  if (KioskAppManager::Get())
+    KioskAppManager::Get()->AddObserver(this);
 }
 
 KioskAppUpdateService::~KioskAppUpdateService() {
@@ -63,9 +66,12 @@ void KioskAppUpdateService::ForceAppUpdateRestart() {
 }
 
 void KioskAppUpdateService::Shutdown() {
-  ExtensionService* service = profile_->GetExtensionService();
+  ExtensionService* service =
+      extensions::ExtensionSystem::Get(profile_)->extension_service();
   if (service)
     service->RemoveUpdateObserver(this);
+  if (KioskAppManager::Get())
+    KioskAppManager::Get()->RemoveObserver(this);
 }
 
 void KioskAppUpdateService::OnAppUpdateAvailable(
@@ -111,6 +117,18 @@ void KioskAppUpdateService::OnRebootScheduled(Reason reason) {
 void KioskAppUpdateService::WillDestroyAutomaticRebootManager() {
   automatic_reboot_manager_->RemoveObserver(this);
   automatic_reboot_manager_ = NULL;
+}
+
+void KioskAppUpdateService::OnKioskAppCacheUpdated(const std::string& app_id) {
+  if (app_id != app_id_)
+    return;
+
+  extensions::RuntimeEventRouter::DispatchOnRestartRequiredEvent(
+      profile_,
+      app_id_,
+      extensions::core_api::runtime::OnRestartRequired::REASON_APP_UPDATE);
+
+  StartAppUpdateRestartTimer();
 }
 
 KioskAppUpdateServiceFactory::KioskAppUpdateServiceFactory()

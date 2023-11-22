@@ -33,10 +33,15 @@ import android.bluetooth.BluetoothGattServerCallback;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.le.AdvertiseCallback;
+import android.bluetooth.le.AdvertiseData;
+import android.bluetooth.le.AdvertiseSettings;
+import android.bluetooth.le.BluetoothLeAdvertiser;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.ParcelUuid;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -76,6 +81,8 @@ public class BleServerService extends Service {
             UUID.fromString("00009997-0000-1000-8000-00805f9b34fb");
     private static final UUID DESCRIPTOR_UUID =
             UUID.fromString("00009996-0000-1000-8000-00805f9b34fb");
+    public static final UUID ADV_SERVICE_UUID=
+            UUID.fromString("00003333-0000-1000-8000-00805f9b34fb");
 
     private BluetoothManager mBluetoothManager;
     private BluetoothGattServer mGattServer;
@@ -84,12 +91,14 @@ public class BleServerService extends Service {
     private Timer mNotificationTimer;
     private Handler mHandler;
     private String mReliableWriteValue;
+    private BluetoothLeAdvertiser mAdvertiser;
 
     @Override
     public void onCreate() {
         super.onCreate();
 
         mBluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        mAdvertiser = mBluetoothManager.getAdapter().getBluetoothLeAdvertiser();
         mGattServer = mBluetoothManager.openGattServer(this, mCallbacks);
         mService = createService();
         if (mGattServer != null) {
@@ -106,6 +115,7 @@ public class BleServerService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        startAdvertise();
         return START_NOT_STICKY;
     }
 
@@ -117,6 +127,7 @@ public class BleServerService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        stopAdvertise();
         if (mGattServer == null) {
            return;
         }
@@ -366,5 +377,26 @@ public class BleServerService extends Service {
             }
         }
     };
+
+    private void startAdvertise() {
+        if (DEBUG) Log.d(TAG, "startAdvertise");
+        AdvertiseData data = new AdvertiseData.Builder()
+            .addServiceData(new ParcelUuid(ADV_SERVICE_UUID), new byte[]{1,2,3})
+            .addServiceUuid(new ParcelUuid(ADV_SERVICE_UUID))
+            .build();
+        AdvertiseSettings setting = new AdvertiseSettings.Builder()
+            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
+            .setConnectable(true)
+            .build();
+        mAdvertiser.startAdvertising(setting, data, mAdvertiseCallback);
+    }
+
+    private void stopAdvertise() {
+        if (DEBUG) Log.d(TAG, "stopAdvertise");
+        mAdvertiser.stopAdvertising(mAdvertiseCallback);
+    }
+
+    private final AdvertiseCallback mAdvertiseCallback = new AdvertiseCallback(){};
 }
 

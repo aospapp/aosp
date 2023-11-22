@@ -11,9 +11,9 @@ import android.preference.PreferenceManager;
 import android.util.Base64;
 import android.util.Log;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.ipc.invalidation.external.client.types.ObjectId;
+
+import org.chromium.base.VisibleForTesting;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -40,10 +40,10 @@ public class InvalidationPreferences {
      * Used to avoid exposing raw preference objects to users of this class.
      */
     public class EditContext {
-        private final SharedPreferences.Editor editor;
+        private final SharedPreferences.Editor mEditor;
 
         EditContext() {
-            this.editor = PreferenceManager.getDefaultSharedPreferences(mContext).edit();
+            mEditor = PreferenceManager.getDefaultSharedPreferences(mContext).edit();
         }
     }
 
@@ -79,7 +79,9 @@ public class InvalidationPreferences {
     private final Context mContext;
 
     public InvalidationPreferences(Context context) {
-        this.mContext = Preconditions.checkNotNull(context.getApplicationContext());
+        Context appContext = context.getApplicationContext();
+        if (appContext == null) throw new NullPointerException("Unable to get application context");
+        mContext = appContext;
     }
 
     /** Returns a new {@link EditContext} to modify the preferences managed by this class. */
@@ -94,7 +96,7 @@ public class InvalidationPreferences {
      * NOTE: this method performs blocking I/O and must not be called from the UI thread.
      */
     public boolean commit(EditContext editContext) {
-        if (!editContext.editor.commit()) {
+        if (!editContext.mEditor.commit()) {
             Log.w(TAG, "Failed to commit invalidation preferences");
             return false;
         }
@@ -109,9 +111,9 @@ public class InvalidationPreferences {
 
     /** Sets the saved sync types to {@code syncTypes} in {@code editContext}. */
     public void setSyncTypes(EditContext editContext, Collection<String> syncTypes) {
-        Preconditions.checkNotNull(syncTypes);
+        if (syncTypes == null) throw new NullPointerException("syncTypes is null.");
         Set<String> selectedTypesSet = new HashSet<String>(syncTypes);
-        editContext.editor.putStringSet(PrefKeys.SYNC_TANGO_TYPES, selectedTypesSet);
+        editContext.mEditor.putStringSet(PrefKeys.SYNC_TANGO_TYPES, selectedTypesSet);
     }
 
     /** Returns the saved non-sync object ids, or {@code null} if none exist. */
@@ -134,12 +136,12 @@ public class InvalidationPreferences {
 
     /** Sets the saved non-sync object ids */
     public void setObjectIds(EditContext editContext, Collection<ObjectId> objectIds) {
-        Preconditions.checkNotNull(objectIds);
+        if (objectIds == null) throw new NullPointerException("objectIds is null.");
         Set<String> objectIdStrings = new HashSet<String>(objectIds.size());
         for (ObjectId objectId : objectIds) {
             objectIdStrings.add(getObjectIdString(objectId));
         }
-        editContext.editor.putStringSet(PrefKeys.TANGO_OBJECT_IDS, objectIdStrings);
+        editContext.mEditor.putStringSet(PrefKeys.TANGO_OBJECT_IDS, objectIdStrings);
     }
 
     /** Returns the saved account, or {@code null} if none exists. */
@@ -155,8 +157,8 @@ public class InvalidationPreferences {
 
     /** Sets the saved account to {@code account} in {@code editContext}. */
     public void setAccount(EditContext editContext, Account account) {
-        editContext.editor.putString(PrefKeys.SYNC_ACCT_NAME, account.name);
-        editContext.editor.putString(PrefKeys.SYNC_ACCT_TYPE, account.type);
+        editContext.mEditor.putString(PrefKeys.SYNC_ACCT_NAME, account.name);
+        editContext.mEditor.putString(PrefKeys.SYNC_ACCT_TYPE, account.type);
     }
 
     /** Returns the notification client internal state. */
@@ -171,7 +173,7 @@ public class InvalidationPreferences {
 
     /** Sets the notification client internal state to {@code state}. */
     public void setInternalNotificationClientState(EditContext editContext, byte[] state) {
-        editContext.editor.putString(PrefKeys.SYNC_TANGO_INTERNAL_STATE,
+        editContext.mEditor.putString(PrefKeys.SYNC_TANGO_INTERNAL_STATE,
                 Base64.encodeToString(state, Base64.DEFAULT));
     }
 

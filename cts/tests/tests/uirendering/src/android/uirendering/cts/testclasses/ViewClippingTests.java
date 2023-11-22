@@ -20,11 +20,11 @@ import com.android.cts.uirendering.R;
  * Since the layout is blue on a white background, this is always done with a RectVerifier.
  */
 public class ViewClippingTests extends ActivityTestBase {
-    final Rect FULL_RECT = new Rect(0, 0, 200, 200);
-    final Rect BOUNDS_RECT = new Rect(0, 0, 100, 100);
-    final Rect PADDED_RECT = new Rect(15, 16, 83, 82);
-    final Rect OUTLINE_RECT = new Rect(1, 2, 98, 99);
-    final Rect CLIP_BOUNDS_RECT = new Rect(10, 20, 70, 80);
+    final Rect FULL_RECT = new Rect(0, 0, 90, 90);
+    final Rect BOUNDS_RECT = new Rect(0, 0, 80, 80);
+    final Rect PADDED_RECT = new Rect(15, 16, 63, 62);
+    final Rect OUTLINE_RECT = new Rect(1, 2, 78, 79);
+    final Rect CLIP_BOUNDS_RECT = new Rect(10, 20, 50, 60);
 
     final ViewInitializer BOUNDS_CLIP_INIT = new ViewInitializer() {
         @Override
@@ -61,10 +61,9 @@ public class ViewClippingTests extends ActivityTestBase {
         }
     };
 
-    // TODO: attempt to reduce
-    static final int TOLERANCE = 10;
     static BitmapVerifier makeClipVerifier(Rect blueBoundsRect) {
-        return new RectVerifier(Color.WHITE, Color.BLUE, blueBoundsRect, TOLERANCE);
+        // very high error tolerance, since all these tests care about is clip alignment
+        return new RectVerifier(Color.WHITE, Color.BLUE, blueBoundsRect, 75);
     }
 
     public void testSimpleUnclipped() {

@@ -14,14 +14,18 @@
 #include "base/strings/string_util.h"
 #include "base/values.h"
 #include "chrome/browser/browsing_data/cookies_tree_model.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/indexed_db_context.h"
-#include "extensions/common/extension_set.h"
-#include "grit/generated_resources.h"
+#include "content/public/browser/service_worker_context.h"
 #include "net/cookies/canonical_cookie.h"
 #include "net/ssl/ssl_client_cert_type.h"
+#include "storage/common/fileapi/file_system_types.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/text/bytes_formatting.h"
-#include "webkit/common/fileapi/file_system_types.h"
+
+#if defined(ENABLE_EXTENSIONS)
+#include "extensions/common/extension_set.h"
+#endif
 
 namespace {
 
@@ -31,7 +35,9 @@ const char kKeyIcon[] = "icon";
 const char kKeyType[] = "type";
 const char kKeyHasChildren[] = "hasChildren";
 
+#if defined(ENABLE_EXTENSIONS)
 const char kKeyAppsProtectingThis[] = "appsProtectingThis";
+#endif
 const char kKeyName[] = "name";
 const char kKeyContent[] = "content";
 const char kKeyDomain[] = "domain";
@@ -57,6 +63,8 @@ const char kKeyTemporaryUsage[] = "temporaryUsage";
 const char kKeyPersistentUsage[] = "persistentUsage";
 
 const char kKeyCertType[] = "certType";
+
+const char kKeyScopes[] = "scopes";
 
 const int64 kNegligibleUsage = 1024;  // 1KiB
 
@@ -168,7 +176,7 @@ bool CookiesTreeModelUtil::GetCookieTreeNodeDictionary(
       dict->SetString(kKeyType, "app_cache");
       dict->SetString(kKeyIcon, "chrome://theme/IDR_COOKIE_STORAGE_ICON");
 
-      const appcache::AppCacheInfo& appcache_info =
+      const content::AppCacheInfo& appcache_info =
           *node.GetDetailedInfo().appcache_info;
 
       dict->SetString(kKeyManifest, appcache_info.manifest_url.spec());
@@ -200,8 +208,8 @@ bool CookiesTreeModelUtil::GetCookieTreeNodeDictionary(
 
       const BrowsingDataFileSystemHelper::FileSystemInfo& file_system_info =
           *node.GetDetailedInfo().file_system_info;
-      const fileapi::FileSystemType kPerm = fileapi::kFileSystemTypePersistent;
-      const fileapi::FileSystemType kTemp = fileapi::kFileSystemTypeTemporary;
+      const storage::FileSystemType kPerm = storage::kFileSystemTypePersistent;
+      const storage::FileSystemType kTemp = storage::kFileSystemTypeTemporary;
 
       dict->SetString(kKeyOrigin, file_system_info.origin.spec());
       dict->SetString(kKeyPersistent,
@@ -241,19 +249,37 @@ bool CookiesTreeModelUtil::GetCookieTreeNodeDictionary(
                           quota_info.persistent_usage)));
       break;
     }
-    case CookieTreeNode::DetailedInfo::TYPE_SERVER_BOUND_CERT: {
-      dict->SetString(kKeyType, "server_bound_cert");
+    case CookieTreeNode::DetailedInfo::TYPE_CHANNEL_ID: {
+      dict->SetString(kKeyType, "channel_id");
       dict->SetString(kKeyIcon, "chrome://theme/IDR_COOKIE_ICON");
 
-      const net::ServerBoundCertStore::ServerBoundCert& server_bound_cert =
-          *node.GetDetailedInfo().server_bound_cert;
+      const net::ChannelIDStore::ChannelID& channel_id =
+          *node.GetDetailedInfo().channel_id;
 
-      dict->SetString(kKeyServerId, server_bound_cert.server_identifier());
+      dict->SetString(kKeyServerId, channel_id.server_identifier());
       dict->SetString(kKeyCertType,
                       ClientCertTypeToString(net::CLIENT_CERT_ECDSA_SIGN));
       dict->SetString(kKeyCreated, base::UTF16ToUTF8(
           base::TimeFormatFriendlyDateAndTime(
-              server_bound_cert.creation_time())));
+              channel_id.creation_time())));
+      break;
+    }
+    case CookieTreeNode::DetailedInfo::TYPE_SERVICE_WORKER: {
+      dict->SetString(kKeyType, "service_worker");
+      dict->SetString(kKeyIcon, "chrome://theme/IDR_COOKIE_STORAGE_ICON");
+
+      const content::ServiceWorkerUsageInfo& service_worker_info =
+          *node.GetDetailedInfo().service_worker_info;
+
+      dict->SetString(kKeyOrigin, service_worker_info.origin.spec());
+      base::ListValue* scopes = new base::ListValue;
+      for (std::vector<GURL>::const_iterator it =
+               service_worker_info.scopes.begin();
+           it != service_worker_info.scopes.end();
+           ++it) {
+        scopes->AppendString(it->spec());
+      }
+      dict->Set(kKeyScopes, scopes);
       break;
     }
     case CookieTreeNode::DetailedInfo::TYPE_FLASH_LSO: {
@@ -269,6 +295,7 @@ bool CookiesTreeModelUtil::GetCookieTreeNodeDictionary(
       break;
   }
 
+#if defined(ENABLE_EXTENSIONS)
   const extensions::ExtensionSet* protecting_apps =
       node.GetModel()->ExtensionsProtectingNode(node);
   if (protecting_apps && !protecting_apps->is_empty()) {
@@ -282,6 +309,7 @@ bool CookiesTreeModelUtil::GetCookieTreeNodeDictionary(
     }
     dict->Set(kKeyAppsProtectingThis, app_infos);
   }
+#endif
 
   return true;
 }

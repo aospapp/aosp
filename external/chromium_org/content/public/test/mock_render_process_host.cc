@@ -80,13 +80,6 @@ void MockRenderProcessHost::RemoveObserver(
   observers_.RemoveObserver(observer);
 }
 
-bool MockRenderProcessHost::WaitForBackingStoreMsg(
-    int render_widget_id,
-    const base::TimeDelta& max_delay,
-    IPC::Message* msg) {
-  return false;
-}
-
 void MockRenderProcessHost::ReceivedBadMessage() {
   ++bad_msg_count_;
 }
@@ -129,6 +122,8 @@ void MockRenderProcessHost::DumpHandles() {
 base::ProcessHandle MockRenderProcessHost::GetHandle() const {
   // Return the current-process handle for the IPC::GetFileHandleForProcess
   // function.
+  if (process_handle)
+    return *process_handle;
   return base::Process::Current().handle();
 }
 
@@ -221,6 +216,10 @@ void MockRenderProcessHost::ResumeRequestsForView(int route_id) {
 }
 
 void MockRenderProcessHost::NotifyTimezoneChange() {
+}
+
+ServiceRegistry* MockRenderProcessHost::GetServiceRegistry() {
+  return NULL;
 }
 
 void MockRenderProcessHost::FilterURL(bool empty_allowed, GURL* url) {

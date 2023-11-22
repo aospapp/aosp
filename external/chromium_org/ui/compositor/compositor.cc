@@ -18,6 +18,7 @@
 #include "cc/base/switches.h"
 #include "cc/input/input_handler.h"
 #include "cc/layers/layer.h"
+#include "cc/output/begin_frame_args.h"
 #include "cc/output/context_provider.h"
 #include "cc/trees/layer_tree_host.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -44,7 +45,7 @@ namespace ui {
 
 CompositorLock::CompositorLock(Compositor* compositor)
     : compositor_(compositor) {
-  base::MessageLoop::current()->PostDelayedTask(
+  compositor_->task_runner_->PostDelayedTask(
       FROM_HERE,
       base::Bind(&CompositorLock::CancelLock, AsWeakPtr()),
       base::TimeDelta::FromMilliseconds(kCompositorLockTimeoutMs));
@@ -63,18 +64,18 @@ void CompositorLock::CancelLock() {
 
 }  // namespace ui
 
-namespace {
-
-}  // namespace
+namespace {}  // namespace
 
 namespace ui {
 
 Compositor::Compositor(gfx::AcceleratedWidget widget,
-                       ui::ContextFactory* context_factory)
+                       ui::ContextFactory* context_factory,
+                       scoped_refptr<base::SingleThreadTaskRunner> task_runner)
     : context_factory_(context_factory),
       root_layer_(NULL),
       widget_(widget),
       compositor_thread_loop_(context_factory->GetCompositorMessageLoop()),
+      task_runner_(task_runner),
       vsync_manager_(new CompositorVSyncManager()),
       device_scale_factor_(0.0f),
       last_started_frame_(0),
@@ -135,17 +136,23 @@ Compositor::Compositor(gfx::AcceleratedWidget widget,
 
   settings.impl_side_painting = IsUIImplSidePaintingEnabled();
   settings.use_zero_copy = IsUIZeroCopyEnabled();
+  settings.single_thread_proxy_scheduler = false;
 
   base::TimeTicks before_create = base::TimeTicks::Now();
-  if (compositor_thread_loop_) {
+  if (compositor_thread_loop_.get()) {
     host_ = cc::LayerTreeHost::CreateThreaded(
         this,
         context_factory_->GetSharedBitmapManager(),
         settings,
+        task_runner_,
         compositor_thread_loop_);
   } else {
     host_ = cc::LayerTreeHost::CreateSingleThreaded(
-        this, this, context_factory_->GetSharedBitmapManager(), settings);
+        this,
+        this,
+        context_factory_->GetSharedBitmapManager(),
+        settings,
+        task_runner_);
   }
   UMA_HISTOGRAM_TIMES("GPU.CreateBrowserCompositor",
                       base::TimeTicks::Now() - before_create);
@@ -170,11 +177,11 @@ Compositor::~Compositor() {
 }
 
 void Compositor::ScheduleDraw() {
-  if (compositor_thread_loop_) {
+  if (compositor_thread_loop_.get()) {
     host_->SetNeedsCommit();
   } else if (!defer_draw_scheduling_) {
     defer_draw_scheduling_ = true;
-    base::MessageLoop::current()->PostTask(
+    task_runner_->PostTask(
         FROM_HERE,
         base::Bind(&Compositor::Draw, schedule_draw_factory_.GetWeakPtr()));
   }
@@ -199,31 +206,32 @@ void Compositor::SetHostHasTransparentBackground(
 }
 
 void Compositor::Draw() {
-  DCHECK(!compositor_thread_loop_);
+  DCHECK(!compositor_thread_loop_.get());
 
   defer_draw_scheduling_ = false;
   if (waiting_on_compositing_end_) {
     draw_on_compositing_end_ = true;
     return;
   }
-  waiting_on_compositing_end_ = true;
-
-  TRACE_EVENT_ASYNC_BEGIN0("ui", "Compositor::Draw", last_started_frame_ + 1);
-
   if (!root_layer_)
     return;
+
+  TRACE_EVENT_ASYNC_BEGIN0("ui", "Compositor::Draw", last_started_frame_ + 1);
 
   DCHECK_NE(swap_state_, SWAP_POSTED);
   swap_state_ = SWAP_NONE;
 
+  waiting_on_compositing_end_ = true;
   last_started_frame_++;
   if (!IsLocked()) {
     // TODO(nduca): Temporary while compositor calls
     // compositeImmediately() directly.
-    base::TimeTicks now = gfx::FrameTime::Now();
-    Animate(now);
-    Layout();
-    host_->Composite(now);
+    cc::BeginFrameArgs args =
+        cc::BeginFrameArgs::Create(gfx::FrameTime::Now(),
+                                   base::TimeTicks(),
+                                   cc::BeginFrameArgs::DefaultInterval());
+    BeginMainFrame(args);
+    host_->Composite(args.frame_time);
   }
   if (swap_state_ == SWAP_NONE)
     NotifyEnd();
@@ -267,15 +275,34 @@ void Compositor::SetBackgroundColor(SkColor color) {
   ScheduleDraw();
 }
 
+void Compositor::SetVisible(bool visible) {
+  host_->SetVisible(visible);
+}
+
 scoped_refptr<CompositorVSyncManager> Compositor::vsync_manager() const {
   return vsync_manager_;
 }
 
 void Compositor::AddObserver(CompositorObserver* observer) {
+#if defined(OS_MACOSX)
+  // Debugging instrumentation for crbug.com/401630.
+  // TODO(ccameron): remove this.
+  CHECK(observer);
+  if (!observer_list_.HasObserver(observer))
+    observer->observing_count_ += 1;
+#endif
+
   observer_list_.AddObserver(observer);
 }
 
 void Compositor::RemoveObserver(CompositorObserver* observer) {
+#if defined(OS_MACOSX)
+  // Debugging instrumentation for crbug.com/401630.
+  // TODO(ccameron): remove this.
+  if (observer_list_.HasObserver(observer))
+    observer->observing_count_ -= 1;
+#endif
+
   observer_list_.RemoveObserver(observer);
 }
 
@@ -283,9 +310,25 @@ bool Compositor::HasObserver(CompositorObserver* observer) {
   return observer_list_.HasObserver(observer);
 }
 
-void Compositor::Animate(base::TimeTicks frame_begin_time) {
-  layer_animator_collection_.Progress(frame_begin_time);
-  if (layer_animator_collection_.HasActiveAnimators())
+void Compositor::AddAnimationObserver(CompositorAnimationObserver* observer) {
+  animation_observer_list_.AddObserver(observer);
+  host_->SetNeedsAnimate();
+}
+
+void Compositor::RemoveAnimationObserver(
+    CompositorAnimationObserver* observer) {
+  animation_observer_list_.RemoveObserver(observer);
+}
+
+bool Compositor::HasAnimationObserver(CompositorAnimationObserver* observer) {
+  return animation_observer_list_.HasObserver(observer);
+}
+
+void Compositor::BeginMainFrame(const cc::BeginFrameArgs& args) {
+  FOR_EACH_OBSERVER(CompositorAnimationObserver,
+                    animation_observer_list_,
+                    OnAnimationStep(args.frame_time));
+  if (animation_observer_list_.might_have_observers())
     host_->SetNeedsAnimate();
 }
 
@@ -298,8 +341,9 @@ void Compositor::Layout() {
   disable_schedule_composite_ = false;
 }
 
-scoped_ptr<cc::OutputSurface> Compositor::CreateOutputSurface(bool fallback) {
-  return context_factory_->CreateOutputSurface(this, fallback);
+void Compositor::RequestNewOutputSurface(bool fallback) {
+  host_->SetOutputSurface(
+      context_factory_->CreateOutputSurface(this, fallback));
 }
 
 void Compositor::DidCommit() {
@@ -317,7 +361,7 @@ void Compositor::DidCommitAndDrawFrame() {
 }
 
 void Compositor::DidCompleteSwapBuffers() {
-  if (compositor_thread_loop_) {
+  if (compositor_thread_loop_.get()) {
     NotifyEnd();
   } else {
     DCHECK_EQ(swap_state_, SWAP_POSTED);
@@ -336,13 +380,13 @@ void Compositor::ScheduleAnimation() {
 }
 
 void Compositor::DidPostSwapBuffers() {
-  DCHECK(!compositor_thread_loop_);
+  DCHECK(!compositor_thread_loop_.get());
   DCHECK_EQ(swap_state_, SWAP_NONE);
   swap_state_ = SWAP_POSTED;
 }
 
 void Compositor::DidAbortSwapBuffers() {
-  if (!compositor_thread_loop_) {
+  if (!compositor_thread_loop_.get()) {
     if (swap_state_ == SWAP_POSTED) {
       NotifyEnd();
       swap_state_ = SWAP_COMPLETED;
@@ -352,10 +396,6 @@ void Compositor::DidAbortSwapBuffers() {
   FOR_EACH_OBSERVER(CompositorObserver,
                     observer_list_,
                     OnCompositingAborted(this));
-}
-
-void Compositor::ScheduleAnimationForLayerCollection() {
-  host_->SetNeedsAnimate();
 }
 
 const cc::LayerTreeDebugState& Compositor::GetLayerTreeDebugState() const {
@@ -370,7 +410,7 @@ void Compositor::SetLayerTreeDebugState(
 scoped_refptr<CompositorLock> Compositor::GetCompositorLock() {
   if (!compositor_lock_) {
     compositor_lock_ = new CompositorLock(this);
-    if (compositor_thread_loop_)
+    if (compositor_thread_loop_.get())
       host_->SetDeferCommits(true);
     FOR_EACH_OBSERVER(CompositorObserver,
                       observer_list_,
@@ -382,7 +422,7 @@ scoped_refptr<CompositorLock> Compositor::GetCompositorLock() {
 void Compositor::UnlockCompositor() {
   DCHECK(compositor_lock_);
   compositor_lock_ = NULL;
-  if (compositor_thread_loop_)
+  if (compositor_thread_loop_.get())
     host_->SetDeferCommits(false);
   FOR_EACH_OBSERVER(CompositorObserver,
                     observer_list_,
@@ -406,9 +446,8 @@ void Compositor::NotifyEnd() {
     // draw cycle.
     ScheduleDraw();
   }
-  FOR_EACH_OBSERVER(CompositorObserver,
-                    observer_list_,
-                    OnCompositingEnded(this));
+  FOR_EACH_OBSERVER(
+      CompositorObserver, observer_list_, OnCompositingEnded(this));
 }
 
 }  // namespace ui

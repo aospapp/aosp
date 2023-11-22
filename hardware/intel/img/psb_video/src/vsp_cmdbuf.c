@@ -8,11 +8,11 @@
  * distribute, sub license, and/or sell copies of the Software, and to
  * permit persons to whom the Software is furnished to do so, subject to
  * the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice (including the
  * next paragraph) shall be included in all copies or substantial portions
  * of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
@@ -33,6 +33,13 @@
 #define CMD_SIZE              (0x3000)
 #define LLDMA_SIZE            (0x2000)
 #define RELOC_SIZE            (0x3000)
+
+static int
+vspDRMCmdBuf(int fd, int ioctl_offset, psb_buffer_p *buffer_list, int buffer_count, unsigned cmdBufHandle,
+	     unsigned cmdBufOffset, unsigned cmdBufSize,
+	     unsigned relocBufHandle, unsigned relocBufOffset,
+	     unsigned numRelocs, int damage,
+	     unsigned engine, unsigned fence_flags, struct psb_ttm_fence_rep *fence_rep);
 
 /*
  * Create command buffer
@@ -156,35 +163,34 @@ int vsp_cmdbuf_unmap(vsp_cmdbuf_p cmdbuf)
  */
 int vsp_cmdbuf_buffer_ref(vsp_cmdbuf_p cmdbuf, psb_buffer_p buf)
 {
-    int item_loc = 0;
+	int item_loc = 0;
 
-//    while ((item_loc < cmdbuf->buffer_refs_count) && (cmdbuf->buffer_refs[item_loc] != buf)) {
-    /*Reserve the same TTM BO twice will cause kernel lock up*/
-    while ((item_loc < cmdbuf->buffer_refs_count)
-           && (wsbmKBufHandle(wsbmKBuf(cmdbuf->buffer_refs[item_loc]->drm_buf))
-               != wsbmKBufHandle(wsbmKBuf(buf->drm_buf)))) {
-        item_loc++;
-    }
-    if (item_loc == cmdbuf->buffer_refs_count) {
-        /* Add new entry */
-        if (item_loc >= cmdbuf->buffer_refs_allocated) {
-            /* Allocate more entries */
-            int new_size = cmdbuf->buffer_refs_allocated + 10;
-            psb_buffer_p *new_array;
-            new_array = (psb_buffer_p *) calloc(1, sizeof(psb_buffer_p) * new_size);
-            if (NULL == new_array) {
-                return -1; /* Allocation failure */
-            }
-            memcpy(new_array, cmdbuf->buffer_refs, sizeof(psb_buffer_p) * cmdbuf->buffer_refs_allocated);
-            free(cmdbuf->buffer_refs);
-            cmdbuf->buffer_refs_allocated = new_size;
-            cmdbuf->buffer_refs = new_array;
-        }
-        cmdbuf->buffer_refs[item_loc] = buf;
-        cmdbuf->buffer_refs_count++;
-        buf->status = psb_bs_queued;
-    }
-    return item_loc;
+	/*Reserve the same TTM BO twice will cause kernel lock up*/
+	while ((item_loc < cmdbuf->buffer_refs_count)
+	       && (wsbmKBufHandle(wsbmKBuf(cmdbuf->buffer_refs[item_loc]->drm_buf))
+		   != wsbmKBufHandle(wsbmKBuf(buf->drm_buf)))) {
+		item_loc++;
+	}
+	if (item_loc == cmdbuf->buffer_refs_count) {
+		/* Add new entry */
+		if (item_loc >= cmdbuf->buffer_refs_allocated) {
+			/* Allocate more entries */
+			int new_size = cmdbuf->buffer_refs_allocated + 10;
+			psb_buffer_p *new_array;
+			new_array = (psb_buffer_p *) calloc(1, sizeof(psb_buffer_p) * new_size);
+			if (NULL == new_array) {
+				return -1; /* Allocation failure */
+			}
+			memcpy(new_array, cmdbuf->buffer_refs, sizeof(psb_buffer_p) * cmdbuf->buffer_refs_allocated);
+			free(cmdbuf->buffer_refs);
+			cmdbuf->buffer_refs_allocated = new_size;
+			cmdbuf->buffer_refs = new_array;
+		}
+		cmdbuf->buffer_refs[item_loc] = buf;
+		cmdbuf->buffer_refs_count++;
+		buf->status = psb_bs_queued;
+	}
+	return item_loc;
 }
 
 /* Creates a relocation record for a DWORD in the mapped "cmdbuf" at address
@@ -196,14 +202,14 @@ int vsp_cmdbuf_buffer_ref(vsp_cmdbuf_p cmdbuf, psb_buffer_p buf)
  * constructed address. The remaining bits will be filled with bits from "background".
  */
 void vsp_cmdbuf_add_relocation(vsp_cmdbuf_p cmdbuf,
-                               uint32_t *addr_in_dst_buffer,/*addr of dst_buffer for the DWORD*/
-                               psb_buffer_p ref_buffer,
-                               uint32_t buf_offset,
-                               uint32_t mask,
-                               uint32_t background,
-                               uint32_t align_shift,
-                               uint32_t dst_buffer,
-                               uint32_t *start_of_dst_buffer) /*Index of the list refered by cmdbuf->buffer_refs */
+			       uint32_t *addr_in_dst_buffer,/*addr of dst_buffer for the DWORD*/
+			       psb_buffer_p ref_buffer,
+			       uint32_t buf_offset,
+			       uint32_t mask,
+			       uint32_t background,
+			       uint32_t align_shift,
+			       uint32_t dst_buffer,
+			       uint32_t *start_of_dst_buffer) /*Index of the list refered by cmdbuf->buffer_refs */
 {
     struct drm_psb_reloc *reloc = cmdbuf->reloc_idx;
     uint64_t presumed_offset = wsbmBOOffsetHint(ref_buffer->drm_buf);
@@ -216,13 +222,13 @@ void vsp_cmdbuf_add_relocation(vsp_cmdbuf_p cmdbuf,
     reloc->reloc_op = PSB_RELOC_OP_OFFSET;
 #ifndef VA_EMULATOR
     if (presumed_offset) {
-        uint32_t new_val =  presumed_offset + buf_offset;
+	uint32_t new_val =  presumed_offset + buf_offset;
 
-        new_val = ((new_val >> align_shift) << (align_shift << PSB_RELOC_ALSHIFT_SHIFT));
-        new_val = (background & ~mask) | (new_val & mask);
-        *addr_in_dst_buffer = new_val;
+	new_val = ((new_val >> align_shift) << (align_shift << PSB_RELOC_ALSHIFT_SHIFT));
+	new_val = (background & ~mask) | (new_val & mask);
+	*addr_in_dst_buffer = new_val;
     } else {
-        *addr_in_dst_buffer = PSB_RELOC_MAGIC;
+	*addr_in_dst_buffer = PSB_RELOC_MAGIC;
     }
 #else
     /* indicate subscript of relocation buffer */
@@ -282,10 +288,10 @@ int vsp_context_get_next_cmdbuf(object_context_p obj_context)
  */
 static int
 vspDRMCmdBuf(int fd, int ioctl_offset, psb_buffer_p *buffer_list, int buffer_count, unsigned cmdBufHandle,
-             unsigned cmdBufOffset, unsigned cmdBufSize,
-             unsigned relocBufHandle, unsigned relocBufOffset,
-             unsigned __maybe_unused numRelocs, int __maybe_unused damage,
-             unsigned engine, unsigned fence_flags, struct psb_ttm_fence_rep *fence_rep)
+	     unsigned cmdBufOffset, unsigned cmdBufSize,
+	     unsigned relocBufHandle, unsigned relocBufOffset,
+	     unsigned numRelocs, int __maybe_unused damage,
+	     unsigned engine, unsigned fence_flags, struct psb_ttm_fence_rep *fence_rep)
 {
 	drm_psb_cmdbuf_arg_t ca;
 	struct psb_validate_arg *arg_list;

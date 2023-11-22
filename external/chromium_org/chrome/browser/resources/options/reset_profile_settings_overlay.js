@@ -3,7 +3,9 @@
 // found in the LICENSE file.
 
 cr.define('options', function() {
-  var OptionsPage = options.OptionsPage;
+  var Page = cr.ui.pageManager.Page;
+
+  var AutomaticSettingsResetBanner = options.AutomaticSettingsResetBanner;
   var ResetProfileSettingsBanner = options.ResetProfileSettingsBanner;
 
   /**
@@ -12,35 +14,33 @@ cr.define('options', function() {
    * @class
    */
   function ResetProfileSettingsOverlay() {
-    OptionsPage.call(
-        this, 'resetProfileSettings',
-        loadTimeData.getString('resetProfileSettingsOverlayTabTitle'),
-        'reset-profile-settings-overlay');
+    Page.call(this, 'resetProfileSettings',
+              loadTimeData.getString('resetProfileSettingsOverlayTabTitle'),
+              'reset-profile-settings-overlay');
   }
 
   cr.addSingletonGetter(ResetProfileSettingsOverlay);
 
   ResetProfileSettingsOverlay.prototype = {
-    // Inherit ResetProfileSettingsOverlay from OptionsPage.
-    __proto__: OptionsPage.prototype,
+    // Inherit ResetProfileSettingsOverlay from Page.
+    __proto__: Page.prototype,
 
-    /**
-     * Initialize the page.
-     */
+    /** @override */
     initializePage: function() {
-      OptionsPage.prototype.initializePage.call(this);
+      Page.prototype.initializePage.call(this);
 
-      $('reset-profile-settings-dismiss').onclick = function(event) {
+      $('reset-profile-settings-dismiss').onclick = function(e) {
         ResetProfileSettingsOverlay.dismiss();
       };
-      $('reset-profile-settings-commit').onclick = function(event) {
+      $('reset-profile-settings-commit').onclick = function(e) {
         ResetProfileSettingsOverlay.setResettingState(true);
         chrome.send('performResetProfileSettings',
                     [$('send-settings').checked]);
       };
-      $('expand-feedback').onclick = function(event) {
+      $('expand-feedback').onclick = function(e) {
         var feedbackTemplate = $('feedback-template');
         feedbackTemplate.hidden = !feedbackTemplate.hidden;
+        e.preventDefault();
       };
     },
 
@@ -72,6 +72,7 @@ cr.define('options', function() {
    * operation has terminated.
    */
   ResetProfileSettingsOverlay.doneResetting = function() {
+    AutomaticSettingsResetBanner.dismiss();
     ResetProfileSettingsOverlay.dismiss();
   };
 
@@ -79,7 +80,7 @@ cr.define('options', function() {
    * Dismisses the overlay.
    */
   ResetProfileSettingsOverlay.dismiss = function() {
-    OptionsPage.closeOverlay();
+    PageManager.closeOverlay();
     ResetProfileSettingsOverlay.setResettingState(false);
   };
 

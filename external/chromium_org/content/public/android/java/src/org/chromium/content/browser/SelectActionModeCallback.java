@@ -150,11 +150,13 @@ public class SelectActionModeCallback implements ActionMode.Callback {
             mActionHandler.selectAll();
         } else if (id == R.id.select_action_menu_cut) {
             mActionHandler.cut();
+            mode.finish();
         } else if (id == R.id.select_action_menu_copy) {
             mActionHandler.copy();
             mode.finish();
         } else if (id == R.id.select_action_menu_paste) {
             mActionHandler.paste();
+            mode.finish();
         } else if (id == R.id.select_action_menu_share) {
             mActionHandler.share();
             mode.finish();

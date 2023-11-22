@@ -6,18 +6,21 @@
 #include <string>
 
 #include "mojo/examples/sample_app/gles2_client_impl.h"
-#include "mojo/public/cpp/application/application.h"
-#include "mojo/public/cpp/gles2/gles2.h"
+#include "mojo/public/c/system/main.h"
+#include "mojo/public/cpp/application/application_connection.h"
+#include "mojo/public/cpp/application/application_delegate.h"
+#include "mojo/public/cpp/application/application_impl.h"
+#include "mojo/public/cpp/application/application_runner.h"
 #include "mojo/public/cpp/system/core.h"
 #include "mojo/public/cpp/system/macros.h"
 #include "mojo/public/cpp/utility/run_loop.h"
-#include "mojo/public/interfaces/service_provider/service_provider.mojom.h"
+#include "mojo/services/public/interfaces/gpu/gpu.mojom.h"
 #include "mojo/services/public/interfaces/native_viewport/native_viewport.mojom.h"
 
-namespace mojo {
 namespace examples {
 
-class SampleApp : public Application, public NativeViewportClient {
+class SampleApp : public mojo::ApplicationDelegate,
+                  public mojo::NativeViewportClient {
  public:
   SampleApp() {}
 
@@ -26,59 +29,58 @@ class SampleApp : public Application, public NativeViewportClient {
     MOJO_ALLOW_UNUSED GLES2ClientImpl* leaked = gles2_client_.release();
   }
 
-  virtual void Initialize() MOJO_OVERRIDE {
-    ConnectTo("mojo:mojo_native_viewport_service", &viewport_);
+  virtual void Initialize(mojo::ApplicationImpl* app) MOJO_OVERRIDE {
+    app->ConnectToService("mojo:mojo_native_viewport_service", &viewport_);
     viewport_.set_client(this);
 
-    RectPtr rect(Rect::New());
-    rect->x = 10;
-    rect->y = 10;
-    rect->width = 800;
-    rect->height = 600;
-    viewport_->Create(rect.Pass());
-    viewport_->Show();
+    // TODO(jamesr): Should be mojo:mojo_gpu_service
+    app->ConnectToService("mojo:mojo_native_viewport_service", &gpu_service_);
 
-    CommandBufferPtr command_buffer;
-    viewport_->CreateGLES2Context(Get(&command_buffer));
+    mojo::SizePtr size(mojo::Size::New());
+    size->width = 800;
+    size->height = 600;
+    viewport_->Create(size.Pass());
+    viewport_->Show();
+  }
+
+  virtual void OnCreated(uint64_t native_viewport_id) MOJO_OVERRIDE {
+    mojo::SizePtr size = mojo::Size::New();
+    size->width = 800;
+    size->height = 600;
+    mojo::CommandBufferPtr command_buffer;
+    // TODO(jamesr): Output to a surface instead.
+    gpu_service_->CreateOnscreenGLES2Context(
+        native_viewport_id, size.Pass(), Get(&command_buffer));
     gles2_client_.reset(new GLES2ClientImpl(command_buffer.Pass()));
   }
 
-  virtual void OnCreated() MOJO_OVERRIDE {
-  }
+  virtual void OnDestroyed() MOJO_OVERRIDE { mojo::RunLoop::current()->Quit(); }
 
-  virtual void OnDestroyed() MOJO_OVERRIDE {
-    RunLoop::current()->Quit();
-  }
-
-  virtual void OnBoundsChanged(RectPtr bounds) MOJO_OVERRIDE {
+  virtual void OnBoundsChanged(mojo::SizePtr bounds) MOJO_OVERRIDE {
     assert(bounds);
-    SizePtr size(Size::New());
-    size->width = bounds->width;
-    size->height = bounds->height;
-    gles2_client_->SetSize(*size);
+    if (gles2_client_)
+      gles2_client_->SetSize(*bounds);
   }
 
-  virtual void OnEvent(EventPtr event,
-                       const Callback<void()>& callback) MOJO_OVERRIDE {
+  virtual void OnEvent(mojo::EventPtr event,
+                       const mojo::Callback<void()>& callback) MOJO_OVERRIDE {
     assert(event);
-    if (event->location)
+    if (event->location_data && event->location_data->in_view_location)
       gles2_client_->HandleInputEvent(*event);
     callback.Run();
   }
 
  private:
-  mojo::GLES2Initializer gles2;
   scoped_ptr<GLES2ClientImpl> gles2_client_;
-  NativeViewportPtr viewport_;
+  mojo::NativeViewportPtr viewport_;
+  mojo::GpuPtr gpu_service_;
 
   DISALLOW_COPY_AND_ASSIGN(SampleApp);
 };
 
 }  // namespace examples
 
-// static
-Application* Application::Create() {
-  return new examples::SampleApp();
+MojoResult MojoMain(MojoHandle shell_handle) {
+  mojo::ApplicationRunner runner(new examples::SampleApp);
+  return runner.Run(shell_handle);
 }
-
-}  // namespace mojo

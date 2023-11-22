@@ -14,14 +14,15 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/chromeos/ui_account_tweaks.h"
+#include "chrome/grit/generated_resources.h"
 #include "chromeos/settings/cros_settings_names.h"
+#include "components/user_manager/user_manager.h"
 #include "content/public/browser/web_ui.h"
 #include "google_apis/gaia/gaia_auth_util.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
 namespace chromeos {
@@ -115,7 +116,7 @@ void AccountsOptionsHandler::HandleUnwhitelistUser(
 
   base::StringValue canonical_email(gaia::CanonicalizeEmail(email));
   CrosSettings::Get()->RemoveFromList(kAccountsPrefUsers, &canonical_email);
-  UserManager::Get()->RemoveUser(email, NULL);
+  user_manager::UserManager::Get()->RemoveUser(email, NULL);
 }
 
 void AccountsOptionsHandler::HandleWhitelistExistingUsers(
@@ -134,8 +135,11 @@ void AccountsOptionsHandler::HandleWhitelistExistingUsers(
   else
     new_list.reset(new base::ListValue);
 
-  const UserList& users = UserManager::Get()->GetUsers();
-  for (UserList::const_iterator it = users.begin(); it < users.end(); ++it)
+  const user_manager::UserList& users =
+      user_manager::UserManager::Get()->GetUsers();
+  for (user_manager::UserList::const_iterator it = users.begin();
+       it < users.end();
+       ++it)
     new_list->AppendIfNotPresent(new base::StringValue((*it)->email()));
 
   cros_settings->Set(kAccountsPrefUsers, *new_list.get());

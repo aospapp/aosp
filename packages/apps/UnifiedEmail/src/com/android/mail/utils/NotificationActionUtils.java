@@ -635,6 +635,7 @@ public class NotificationActionUtils {
 
         builder.setSmallIcon(R.drawable.ic_notification_mail_24dp);
         builder.setWhen(notificationAction.getWhen());
+        builder.setCategory(NotificationCompat.CATEGORY_EMAIL);
 
         final RemoteViews undoView =
                 new RemoteViews(context.getPackageName(), R.layout.undo_notification);
@@ -865,13 +866,17 @@ public class NotificationActionUtils {
     public static void resendNotifications(final Context context, final Account account,
             final Folder folder) {
         LogUtils.i(LOG_TAG, "resendNotifications account: %s, folder: %s",
-                LogUtils.sanitizeName(LOG_TAG, account.getEmailAddress()),
-                LogUtils.sanitizeName(LOG_TAG, folder.name));
+                account == null ? null : LogUtils.sanitizeName(LOG_TAG, account.getEmailAddress()),
+                folder == null ? null : LogUtils.sanitizeName(LOG_TAG, folder.name));
 
         final Intent intent = new Intent(MailIntentService.ACTION_RESEND_NOTIFICATIONS);
-        intent.setPackage(context.getPackageName()); // Make sure we only deliver this to ourself
-        intent.putExtra(Utils.EXTRA_ACCOUNT_URI, account.uri);
-        intent.putExtra(Utils.EXTRA_FOLDER_URI, folder.folderUri.fullUri);
+        intent.setPackage(context.getPackageName()); // Make sure we only deliver this to ourselves
+        if (account != null) {
+            intent.putExtra(Utils.EXTRA_ACCOUNT_URI, account.uri);
+        }
+        if (folder != null) {
+            intent.putExtra(Utils.EXTRA_FOLDER_URI, folder.folderUri.fullUri);
+        }
         context.startService(intent);
     }
 

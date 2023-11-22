@@ -25,6 +25,10 @@
         <item name="android:windowContentOverlay">@null</item>
         <item name="android:windowBackground">@color/solid_black</item>
     </style>
+    <style name="PhotoViewTheme.Translucent">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
     <style name="AppCompat.ActionBar" parent="Widget.AppCompat.ActionBar">
         <item name="background">@drawable/actionbar_translucent</item>
     </style>

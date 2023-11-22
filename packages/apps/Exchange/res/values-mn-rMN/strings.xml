@@ -27,7 +27,6 @@
     <string name="meeting_recurring" msgid="2752008481765880928">"Хэзээ: <xliff:g id="EVENTDATE">%s</xliff:g> (давтагддаг)"</string>
     <string name="meeting_allday" msgid="7251209063071628040">"Хэзээ: <xliff:g id="EVENTDATE">%s</xliff:g> (бүтэн өдөр)"</string>
     <string name="meeting_allday_recurring" msgid="4545762363537362545">"Хэзээ: <xliff:g id="EVENTDATE">%s</xliff:g> (өдрийн турш, давтагддаг)"</string>
-    <string name="notification_exchange_calendar_added" msgid="8998454267739748113">"Солигч календарь нэмэгдсэн"</string>
     <string name="app_name" msgid="1707639359526090662">"Солигч Үйлчилгээ"</string>
     <string name="exception_cancel" msgid="8972887597771126871">"Энэ үйл явдлыг дараах өдөрт цуцалсан: <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="exception_updated" msgid="329192591551400871">"Энэ үйл явдлын мэдээллийг дараах өдөрт өөрчилсөн: <xliff:g id="DATE">%s</xliff:g>"</string>

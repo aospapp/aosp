@@ -16,17 +16,11 @@
 
 package android.hardware.cts;
 
-import com.android.cts.util.ReportLog;
-import com.android.cts.util.ResultType;
-import com.android.cts.util.ResultUnit;
-
-import android.app.Instrumentation;
-import android.cts.util.DeviceReportLog;
 import android.hardware.Sensor;
-import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.SensorTestStateNotSupportedException;
 import android.hardware.cts.helpers.TestSensorEnvironment;
-import android.hardware.cts.helpers.sensoroperations.ISensorOperation;
+import android.hardware.cts.helpers.reporting.ISensorTestNode;
+import android.hardware.cts.helpers.sensoroperations.SensorOperation;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
@@ -35,25 +29,30 @@ import android.util.Log;
  */
 public abstract class SensorTestCase extends AndroidTestCase {
     // TODO: consolidate all log tags
-    protected final String LOG_TAG = "TestRunner";
+    protected static final String LOG_TAG = "TestRunner";
 
     /**
      * By default tests need to run in a {@link TestSensorEnvironment} that assumes each sensor is
      * running with a load of several listeners, requesting data at different rates.
      *
-     * In a better world the component acting as builder of {@link ISensorOperation} would compute
+     * In a better world the component acting as builder of {@link SensorOperation} would compute
      * this value based on the tests composed.
      *
      * Ideally, each {@link Sensor} object would expose this information to clients.
      */
     private volatile boolean mEmulateSensorUnderLoad = true;
 
+    /**
+     * By default the test class is the root of the test hierarchy.
+     */
+    private volatile ISensorTestNode mCurrentTestNode = new TestClassNode(getClass());
+
     protected SensorTestCase() {}
 
     @Override
-    public void runTest() throws Throwable {
+    public void runBare() throws Throwable {
         try {
-            super.runTest();
+            super.runBare();
         } catch (SensorTestStateNotSupportedException e) {
             // the sensor state is not supported in the device, log a warning and skip the test
             Log.w(LOG_TAG, e.getMessage());
@@ -68,33 +67,24 @@ public abstract class SensorTestCase extends AndroidTestCase {
         return mEmulateSensorUnderLoad;
     }
 
-    /**
-     * Utility method to log selected stats to a {@link ReportLog} object.  The stats must be
-     * a number or an array of numbers.
-     */
-    public static void logSelectedStatsToReportLog(Instrumentation instrumentation, int depth,
-            String[] keys, SensorStats stats) {
-        DeviceReportLog reportLog = new DeviceReportLog(depth);
+    public void setCurrentTestNode(ISensorTestNode value) {
+        mCurrentTestNode = value;
+    }
 
-        for (String key : keys) {
-            Object value = stats.getValue(key);
-            if (value instanceof Integer) {
-                reportLog.printValue(key, (Integer) value, ResultType.NEUTRAL, ResultUnit.NONE);
-            } else if (value instanceof Double) {
-                reportLog.printValue(key, (Double) value, ResultType.NEUTRAL, ResultUnit.NONE);
-            } else if (value instanceof Float) {
-                reportLog.printValue(key, (Float) value, ResultType.NEUTRAL, ResultUnit.NONE);
-            } else if (value instanceof double[]) {
-                reportLog.printArray(key, (double[]) value, ResultType.NEUTRAL, ResultUnit.NONE);
-            } else if (value instanceof float[]) {
-                float[] tmpFloat = (float[]) value;
-                double[] tmpDouble = new double[tmpFloat.length];
-                for (int i = 0; i < tmpDouble.length; i++) tmpDouble[i] = tmpFloat[i];
-                reportLog.printArray(key, tmpDouble, ResultType.NEUTRAL, ResultUnit.NONE);
-            }
+    protected ISensorTestNode getCurrentTestNode() {
+        return mCurrentTestNode;
+    }
+
+    private class TestClassNode implements ISensorTestNode {
+        private final Class<?> mTestClass;
+
+        public TestClassNode(Class<?> testClass) {
+            mTestClass = testClass;
         }
 
-        reportLog.printSummary("summary", 0, ResultType.NEUTRAL, ResultUnit.NONE);
-        reportLog.deliverReportToHost(instrumentation);
+        @Override
+        public String getName() {
+            return mTestClass.getSimpleName();
+        }
     }
 }

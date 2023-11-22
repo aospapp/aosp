@@ -35,7 +35,7 @@
     <string name="name_empty_error" msgid="3808800768660110354">"नाम लिखें."</string>
     <string name="name_char_error" msgid="3176618568784938968">"वह नाम लिखें जिसमें केवल अक्षर और संख्‍याएं हों."</string>
     <string name="storage_error" msgid="8306802455802770779">"प्रमाणपत्र सहेजा नहीं जा सका. पुन: प्रयास करने के लिए ठीक स्‍पर्श करें."</string>
-    <string name="unable_to_save_cert" msgid="9178604087335389686">"प्रमाणपत्र सहेजा नहीं जा सका. प्रमाणिकता मेमोरी सक्षम नहीं है या ठीक से प्रारंभ नहीं हुआ है."</string>
+    <string name="unable_to_save_cert" msgid="9178604087335389686">"प्रमाणपत्र सहेजा नहीं जा सका. क्रेडेंशियल संग्रहण सक्षम नहीं है या ठीक से प्रारंभ नहीं हुआ है."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"प्रमाणपत्र इंस्‍टॉल नहीं हुआ."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"इंस्‍टॉल करने के लिए कोई प्रमाणपत्र नहीं है."</string>
     <string name="invalid_cert" msgid="7704228670980743590">"प्रमाणपत्र अमान्य है."</string>
@@ -43,12 +43,12 @@
     <string name="cert_too_large_error" msgid="8715414972725646285">"प्रमाणपत्र का आकार बहुत बड़ा होने के कारण इंस्‍टॉल नहीं कर सका."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"प्रमाणपत्र फ़ाइल नहीं मिल सकने के ‍कारण इंस्टॉल नहीं कर सका."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"प्रमाणपत्र फ़ाइल नहीं पढ़ी जा सकने के कारण इंस्‍टॉल नहीं कर सका."</string>
-    <string name="no_cert_file_found" product="nosdcard" msgid="3555332946357131929">"USB मेमोरी में कोई प्रमाणपत्र फ़ाइल नहीं मिली."</string>
+    <string name="no_cert_file_found" product="nosdcard" msgid="3555332946357131929">"USB संग्रहण में कोई प्रमाणपत्र फ़ाइल नहीं मिली."</string>
     <string name="no_cert_file_found" product="default" msgid="1942077544887243999">"SD कार्ड में कोई प्रमाणपत्र फ़ाइल नहीं मिली."</string>
-    <string name="sdcard_not_present" product="nosdcard" msgid="9197143240492611196">"USB मेमोरी उपलब्‍ध नहीं है."</string>
+    <string name="sdcard_not_present" product="nosdcard" msgid="9197143240492611196">"USB संग्रहण उपलब्‍ध नहीं है."</string>
     <string name="sdcard_not_present" product="default" msgid="3866952732541932947">"SD कार्ड मौजूद नहीं है."</string>
-    <string name="only_primary_user_allowed" msgid="4005084935023047716">"केवल इस डिवाइस का स्वामी ही प्रमाणपत्रों को इंस्टॉल कर सकता है."</string>
-    <string name="credential_usage_label" msgid="1513892208033156805">"प्रमाणिकता उपयोग:"</string>
+    <string name="only_primary_user_allowed" msgid="4005084935023047716">"केवल इस उपकरण का स्वामी ही प्रमाणपत्रों को इंस्टॉल कर सकता है."</string>
+    <string name="credential_usage_label" msgid="1513892208033156805">"क्रेडेंशियल उपयोग:"</string>
   <string-array name="credential_usage">
     <item msgid="375085478373011304">"VPN और ऐप्स"</item>
     <item msgid="692322974985472861">"वाई-फ़ाई"</item>

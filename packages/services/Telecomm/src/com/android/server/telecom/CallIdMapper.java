@@ -16,11 +16,65 @@
 
 package com.android.server.telecom;
 
-import com.google.common.collect.HashBiMap;
+import android.util.ArrayMap;
+
+import java.util.Map;
 
 /** Utility to map {@link Call} objects to unique IDs. IDs are generated when a call is added. */
 class CallIdMapper {
-    private final HashBiMap<String, Call> mCalls = HashBiMap.create();
+    /**
+     * A very basic bidirectional map.
+     */
+    static class BiMap<K, V> {
+        private Map<K, V> mPrimaryMap = new ArrayMap<>();
+        private Map<V, K> mSecondaryMap = new ArrayMap<>();
+
+        public boolean put(K key, V value) {
+            if (key == null || value == null || mPrimaryMap.containsKey(key) ||
+                    mSecondaryMap.containsKey(value)) {
+                return false;
+            }
+
+            mPrimaryMap.put(key, value);
+            mSecondaryMap.put(value, key);
+            return true;
+        }
+
+        public boolean remove(K key) {
+            if (key == null) {
+                return false;
+            }
+            if (mPrimaryMap.containsKey(key)) {
+                V value = getValue(key);
+                mPrimaryMap.remove(key);
+                mSecondaryMap.remove(value);
+                return true;
+            }
+            return false;
+        }
+
+        public boolean removeValue(V value) {
+            if (value == null) {
+                return false;
+            }
+            return remove(getKey(value));
+        }
+
+        public V getValue(K key) {
+            return mPrimaryMap.get(key);
+        }
+
+        public K getKey(V value) {
+            return mSecondaryMap.get(value);
+        }
+
+        public void clear() {
+            mPrimaryMap.clear();
+            mSecondaryMap.clear();
+        }
+    }
+
+    private final BiMap<String, Call> mCalls = new BiMap<>();
     private final String mCallIdPrefix;
     private static int sIdCount;
 
@@ -55,7 +109,7 @@ class CallIdMapper {
             return;
         }
         ThreadUtil.checkOnMainThread();
-        mCalls.inverse().remove(call);
+        mCalls.removeValue(call);
     }
 
     void removeCall(String callId) {
@@ -68,7 +122,7 @@ class CallIdMapper {
             return null;
         }
         ThreadUtil.checkOnMainThread();
-        return mCalls.inverse().get(call);
+        return mCalls.getKey(call);
     }
 
     Call getCall(Object objId) {
@@ -82,7 +136,7 @@ class CallIdMapper {
             return null;
         }
 
-        return mCalls.get(callId);
+        return mCalls.getValue(callId);
     }
 
     void clear() {

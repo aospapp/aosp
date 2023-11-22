@@ -22,11 +22,11 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/signin/core/browser/signin_manager.h"
 #include "components/signin/core/common/profile_management_switches.h"
 #include "content/public/browser/page_navigator.h"
 #include "content/public/browser/web_contents.h"
-#include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -195,21 +195,6 @@ void EditProfileLink::OnBlur() {
 }
 
 
-// ProfileImageView -----------------------------------------------------------
-
-// A custom image view that ignores mouse events so that the parent can receive
-// them instead.
-class ProfileImageView : public views::ImageView {
- public:
-  // views::View:
-  virtual bool CanProcessEventsWithinSubtree() const OVERRIDE;
-};
-
-bool ProfileImageView::CanProcessEventsWithinSubtree() const {
-  // Send events to the parent view for handling.
-  return false;
-}
-
 }  // namespace
 
 // ProfileItemView ------------------------------------------------------------
@@ -260,7 +245,11 @@ ProfileItemView::ProfileItemView(const AvatarMenu::Item& item,
       menu_(menu) {
   set_notify_enter_exit_on_child(true);
 
-  image_view_ = new ProfileImageView();
+  // Create an image-view for the profile. Make sure it ignores events so that
+  // the parent can receive the events instead.
+  image_view_ = new views::ImageView();
+  image_view_->set_interactive(false);
+
   // GetSizedAvatarIcon will resize the icon in case it's too large.
   const gfx::ImageSkia profile_icon = *profiles::GetSizedAvatarIcon(item_.icon,
       false, profiles::kAvatarIconWidth, kItemHeight).ToImageSkia();
@@ -528,6 +517,7 @@ AvatarMenuBubbleView::AvatarMenuBubbleView(
       buttons_view_(NULL),
       supervised_user_info_(NULL),
       separator_switch_users_(NULL),
+      switch_profile_link_(nullptr),
       expanded_(false) {
   avatar_menu_.reset(new AvatarMenu(
       &g_browser_process->profile_manager()->GetProfileInfoCache(),
@@ -600,7 +590,7 @@ void AvatarMenuBubbleView::Layout() {
     y += item_height + kItemMarginY;
   }
 
-  int separator_height;
+  int separator_height = 0;
   if (buttons_view_ || supervised_user_info_) {
     separator_height = separator_->GetPreferredSize().height();
     y += kSeparatorPaddingY;
@@ -768,6 +758,7 @@ void AvatarMenuBubbleView::InitSupervisedUserContents(
                        ui::ResourceBundle::GetSharedInstance().GetFontList(
                            ui::ResourceBundle::SmallFont));
   supervised_user_info_->SetMultiLine(true);
+  supervised_user_info_->SetAllowCharacterBreak(true);
   supervised_user_info_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   supervised_user_info_->SetBackgroundColor(color());
   AddChildView(supervised_user_info_);

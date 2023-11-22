@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"Haiwezi kutumia programu ya msimamizi. Inakosa vipengele au ina hitilafu. Wasiliana na idara yako ya Teknolojia ya Habari."</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Haikuweza kusakinisha programu ya msimamizi"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"Programu ya msimamizi haijasakinishwa kwenye kifaa chako"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"Ungependa kuacha kusanidi?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"Je, una uhakika unataka kuacha kusanidi?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Hapana"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Ndiyo"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"Inaghairi..."</string>
 </resources>

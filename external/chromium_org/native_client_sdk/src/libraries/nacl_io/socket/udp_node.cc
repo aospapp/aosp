@@ -9,6 +9,7 @@
 
 #include <algorithm>
 
+#include "nacl_io/log.h"
 #include "nacl_io/pepper_interface.h"
 #include "nacl_io/socket/packet.h"
 #include "nacl_io/socket/udp_event_emitter.h"
@@ -95,10 +96,7 @@ class UdpRecvWork : public UdpWork {
  public:
   explicit UdpRecvWork(const ScopedUdpEventEmitter& emitter)
       : UdpWork(emitter) {
-    data_ = new char[kMaxPacketSize];
   }
-
-  ~UdpRecvWork() { delete[] data_; }
 
   virtual bool Start(int32_t val) {
     AUTO_LOCK(emitter_->GetLock());
@@ -136,6 +134,7 @@ class UdpRecvWork : public UdpWork {
     if (length_error > 0) {
       Packet* packet = new Packet(filesystem()->ppapi());
       packet->Copy(data_, length_error, addr_);
+      filesystem()->ppapi()->ReleaseResource(addr_);
       emitter_->WriteRXPacket_Locked(packet);
       stream->ClearStreamFlags(SSF_RECVING);
       stream->QueueInput();
@@ -145,7 +144,7 @@ class UdpRecvWork : public UdpWork {
   }
 
  private:
-  char* data_;
+  char data_[kMaxPacketSize];
   PP_Resource addr_;
 };
 
@@ -169,13 +168,17 @@ Error UdpNode::Init(int open_flags) {
   if (err != 0)
     return err;
 
-  if (UDPInterface() == NULL)
+  if (UDPInterface() == NULL) {
+    LOG_ERROR("Got NULL interface: UDP");
     return EACCES;
+  }
 
   socket_resource_ =
       UDPInterface()->Create(filesystem_->ppapi()->GetInstance());
-  if (0 == socket_resource_)
+  if (0 == socket_resource_) {
+    LOG_ERROR("Unable to create UDP resource.");
     return EACCES;
+  }
 
   return 0;
 }

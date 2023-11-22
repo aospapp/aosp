@@ -16,6 +16,7 @@
 
 #include "nacl_io/filesystem.h"
 #include "nacl_io/kernel_handle.h"
+#include "nacl_io/log.h"
 #include "nacl_io/node.h"
 
 #include "sdk_util/auto_lock.h"
@@ -35,8 +36,10 @@ Error KernelObject::AttachFsAtPath(const ScopedFilesystem& fs,
   std::string abs_path = GetAbsParts(path).Join();
 
   AUTO_LOCK(fs_lock_);
-  if (filesystems_.find(abs_path) != filesystems_.end())
+  if (filesystems_.find(abs_path) != filesystems_.end()) {
+    LOG_ERROR("Can't mount at %s, it is already mounted.", path.c_str());
     return EBUSY;
+  }
 
   filesystems_[abs_path] = fs;
   return 0;
@@ -48,12 +51,16 @@ Error KernelObject::DetachFsAtPath(const std::string& path,
 
   AUTO_LOCK(fs_lock_);
   FsMap_t::iterator it = filesystems_.find(abs_path);
-  if (filesystems_.end() == it)
+  if (filesystems_.end() == it) {
+    LOG_TRACE("Can't unmount at %s, nothing is mounted.", path.c_str());
     return EINVAL;
+  }
 
   // It is only legal to unmount if there are no open references
-  if (it->second->RefCount() != 1)
+  if (it->second->RefCount() != 1) {
+    LOG_TRACE("Can't unmount at %s, refcount is != 1.", path.c_str());
     return EBUSY;
+  }
 
   *out_fs = it->second;
 
@@ -92,7 +99,7 @@ Error KernelObject::AcquireFsAndRelPath(const std::string& path,
 // Given a path, acquire the associated filesystem and node, creating the
 // node if needed based on the provided flags.
 Error KernelObject::AcquireFsAndNode(const std::string& path,
-                                     int oflags,
+                                     int oflags, mode_t mflags,
                                      ScopedFilesystem* out_fs,
                                      ScopedNode* out_node) {
   Path rel_parts;
@@ -102,7 +109,7 @@ Error KernelObject::AcquireFsAndNode(const std::string& path,
   if (error)
     return error;
 
-  error = (*out_fs)->Open(rel_parts, oflags, out_node);
+  error = (*out_fs)->OpenWithMode(rel_parts, oflags, mflags, out_node);
   if (error)
     return error;
 
@@ -112,7 +119,7 @@ Error KernelObject::AcquireFsAndNode(const std::string& path,
 Path KernelObject::GetAbsParts(const std::string& path) {
   AUTO_LOCK(cwd_lock_);
 
-  Path abs_parts(cwd_);
+  Path abs_parts;
   if (path[0] == '/') {
     abs_parts = path;
   } else {
@@ -136,7 +143,7 @@ Error KernelObject::SetCWD(const std::string& path) {
   ScopedFilesystem fs;
   ScopedNode node;
 
-  Error error = AcquireFsAndNode(abs_path, O_RDONLY, &fs, &node);
+  Error error = AcquireFsAndNode(abs_path, O_RDONLY, 0, &fs, &node);
   if (error)
     return error;
 

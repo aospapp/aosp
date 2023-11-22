@@ -7,6 +7,9 @@
 See chrome/browser/PRESUBMIT.py
 """
 
+import regex_check
+
+
 class JSChecker(object):
   def __init__(self, input_api, output_api, file_filter=None):
     self.input_api = input_api
@@ -14,27 +17,8 @@ class JSChecker(object):
     self.file_filter = file_filter
 
   def RegexCheck(self, line_number, line, regex, message):
-    """Searches for |regex| in |line| to check for a particular style
-       violation, returning a message like the one below if the regex matches.
-       The |regex| must have exactly one capturing group so that the relevant
-       part of |line| can be highlighted. If more groups are needed, use
-       "(?:...)" to make a non-capturing group. Sample message:
-
-       line 6: Use var instead of const.
-           const foo = bar();
-           ^^^^^
-    """
-    match = self.input_api.re.search(regex, line)
-    if match:
-      assert len(match.groups()) == 1
-      start = match.start(1)
-      length = match.end(1) - start
-      return '  line %d: %s\n%s\n%s' % (
-          line_number,
-          message,
-          line,
-          self.error_highlight(start, length))
-    return ''
+    return regex_check.RegexCheck(
+        self.input_api.re, line_number, line, regex, message)
 
   def ChromeSendCheck(self, i, line):
     """Checks for a particular misuse of 'chrome.send'."""
@@ -80,13 +64,13 @@ class JSChecker(object):
         r"var (?!g_\w+)([a-z]*[_$][\w_$]*)(?<! \$)",
         "Please use var namesLikeThis <http://goo.gl/uKir6>")
 
-  def error_highlight(self, start, length):
+  def _GetErrorHighlight(self, start, length):
     """Takes a start position and a length, and produces a row of '^'s to
        highlight the corresponding part of a string.
     """
     return start * ' ' + length * '^'
 
-  def _makeErrorOrWarning(self, error_text, filename):
+  def _MakeErrorOrWarning(self, error_text, filename):
     """Takes a few lines of text indicating a style violation and turns it into
        a PresubmitError (if |filename| is in a directory where we've already
        taken out all the style guide violations) or a PresubmitPromptWarning
@@ -120,10 +104,8 @@ class JSChecker(object):
     else:
       return self.output_api.PresubmitPromptWarning(error_text)
 
-  def RunChecks(self):
-    """Check for violations of the Chromium JavaScript style guide. See
-       http://chromium.org/developers/web-development-style-guide#TOC-JavaScript
-    """
+  def ClosureLint(self, file_to_lint, source=None):
+    """Lints |file_to_lint| and returns the errors."""
 
     import sys
     import warnings
@@ -145,7 +127,7 @@ class JSChecker(object):
 
       warnings.filterwarnings('ignore', category=DeprecationWarning)
 
-      from closure_linter import checker, errors
+      from closure_linter import errors, runner
       from closure_linter.common import errorhandler
 
     finally:
@@ -187,14 +169,26 @@ class JSChecker(object):
            'catch(' in error.token.line):
           return False
 
+        # Ignore "}.bind(" errors. http://crbug.com/397697
+        if (error.code == errors.MISSING_SEMICOLON_AFTER_FUNCTION and
+            '}.bind(' in error.token.line):
+          return False
+
         return not is_grit_statement and error.code not in [
             errors.COMMA_AT_END_OF_LITERAL,
             errors.JSDOC_ILLEGAL_QUESTION_WITH_PIPE,
-            errors.JSDOC_TAG_DESCRIPTION_ENDS_WITH_INVALID_CHARACTER,
             errors.LINE_TOO_LONG,
             errors.MISSING_JSDOC_TAG_THIS,
         ]
 
+    error_handler = ErrorHandlerImpl(self.input_api.re)
+    runner.Run(file_to_lint, error_handler, source=source)
+    return error_handler.GetErrors()
+
+  def RunChecks(self):
+    """Check for violations of the Chromium JavaScript style guide. See
+       http://chromium.org/developers/web-development-style-guide#TOC-JavaScript
+    """
     results = []
 
     affected_files = self.input_api.change.AffectedFiles(
@@ -219,15 +213,12 @@ class JSChecker(object):
             self.VarNameCheck(i, line),
         ])
 
-      # Use closure_linter to check for several different errors
-      error_handler = ErrorHandlerImpl(self.input_api.re)
-      js_checker = checker.JavaScriptStyleChecker(error_handler)
-      js_checker.Check(self.input_api.os_path.join(
-          self.input_api.change.RepositoryRoot(),
-          f.LocalPath()))
+      # Use closure linter to check for several different errors.
+      lint_errors = self.ClosureLint(self.input_api.os_path.join(
+          self.input_api.change.RepositoryRoot(), f.LocalPath()))
 
-      for error in error_handler.GetErrors():
-        highlight = self.error_highlight(
+      for error in lint_errors:
+        highlight = self._GetErrorHighlight(
             error.token.start_index, error.token.length)
         error_msg = '  line %d: E%04d: %s\n%s\n%s' % (
             error.token.line_number,
@@ -241,7 +232,7 @@ class JSChecker(object):
         error_lines = [
             'Found JavaScript style violations in %s:' %
             f.LocalPath()] + error_lines
-        results.append(self._makeErrorOrWarning(
+        results.append(self._MakeErrorOrWarning(
             '\n'.join(error_lines), f.AbsoluteLocalPath()))
 
     if results:

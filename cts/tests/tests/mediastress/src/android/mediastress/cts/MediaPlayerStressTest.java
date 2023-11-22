@@ -121,6 +121,7 @@ abstract class MediaPlayerStressTest extends InstrumentationTestCase {
      */
     protected void doTestVideoPlayback(int mediaNumber, int repeatCounter) throws Exception {
         if (!mSupported) {
+            Log.i(TAG, "Not supported!");
             return;
         }
 

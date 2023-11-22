@@ -13,15 +13,15 @@ class ChromeExtensionsDispatcherDelegate
   ChromeExtensionsDispatcherDelegate();
   virtual ~ChromeExtensionsDispatcherDelegate();
 
-  bool WasWebRequestUsedBySomeExtensions() const { return webrequest_used_; }
-
  private:
   // extensions::DispatcherDelegate implementation.
   virtual scoped_ptr<extensions::ScriptContext> CreateScriptContext(
       const v8::Handle<v8::Context>& v8_context,
       blink::WebFrame* frame,
       const extensions::Extension* extension,
-      extensions::Feature::Context context_type) OVERRIDE;
+      extensions::Feature::Context context_type,
+      const extensions::Extension* effective_extension,
+      extensions::Feature::Context effective_context_type) OVERRIDE;
   virtual void InitOriginPermissions(const extensions::Extension* extension,
                                      bool is_extension_active) OVERRIDE;
   virtual void RegisterNativeHandlers(
@@ -30,11 +30,8 @@ class ChromeExtensionsDispatcherDelegate
       extensions::ScriptContext* context) OVERRIDE;
   virtual void PopulateSourceMap(
       extensions::ResourceBundleSourceMap* source_map) OVERRIDE;
-  virtual void RequireAdditionalModules(
-      extensions::ModuleSystem* module_system,
-      const extensions::Extension* extension,
-      extensions::Feature::Context context_type,
-      bool is_within_platform_app) OVERRIDE;
+  virtual void RequireAdditionalModules(extensions::ScriptContext* context,
+                                        bool is_within_platform_app) OVERRIDE;
   virtual void OnActiveExtensionsUpdated(
       const std::set<std::string>& extensions_ids) OVERRIDE;
   virtual void SetChannel(int channel) OVERRIDE;
@@ -44,14 +41,10 @@ class ChromeExtensionsDispatcherDelegate
       const std::vector<std::string>& extension_ids) OVERRIDE;
   virtual void UpdateTabSpecificPermissions(
       const extensions::Dispatcher* dispatcher,
-      int page_id,
+      const GURL& url,
       int tab_id,
       const std::string& extension_id,
       const extensions::URLPatternSet& origin_set) OVERRIDE;
-  virtual void HandleWebRequestAPIUsage(bool webrequest_used) OVERRIDE;
-
-  // Status of webrequest usage.
-  bool webrequest_used_;
 
   DISALLOW_COPY_AND_ASSIGN(ChromeExtensionsDispatcherDelegate);
 };

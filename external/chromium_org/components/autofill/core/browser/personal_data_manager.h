@@ -211,6 +211,12 @@ class PersonalDataManager : public KeyedService,
   // grant Chrome access to the user's address book.
   bool ShouldShowAccessAddressBookSuggestion(AutofillType type);
 
+  // The access Address Book prompt was shown for a form.
+  void ShowedAccessAddressBookPrompt();
+
+  // The number of times that the access address book prompt was shown.
+  int AccessAddressBookPromptCount();
+
   // The Chrome binary is in the process of being changed, or has been changed.
   // Future attempts to access the Address Book might incorrectly present a
   // blocking dialog.
@@ -257,7 +263,7 @@ class PersonalDataManager : public KeyedService,
   virtual void LoadProfiles();
 
   // Loads the auxiliary profiles.  Currently Mac and Android only.
-  virtual void LoadAuxiliaryProfiles() const;
+  virtual void LoadAuxiliaryProfiles(bool record_metrics) const;
 
   // Loads the saved credit cards from the web database.
   virtual void LoadCreditCards();
@@ -340,6 +346,12 @@ class PersonalDataManager : public KeyedService,
 
   // Called when the value of prefs::kAutofillEnabled changes.
   void EnabledPrefChanged();
+
+  // Functionally equivalent to GetProfiles(), but also records metrics if
+  // |record_metrics| is true. Metrics should be recorded when the returned
+  // profiles will be used to populate the fields shown in an Autofill popup.
+  const std::vector<AutofillProfile*>& GetProfiles(
+      bool record_metrics) const;
 
   const std::string app_locale_;
 

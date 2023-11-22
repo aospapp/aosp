@@ -14,11 +14,11 @@
 #include "base/value_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/extensions/state_store.h"
 #include "chrome/common/extensions/api/alarms.h"
 #include "extensions/browser/event_router.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/state_store.h"
 
 namespace extensions {
 
@@ -419,7 +419,8 @@ void AlarmManager::OnExtensionLoaded(content::BrowserContext* browser_context,
 
 void AlarmManager::OnExtensionUninstalled(
     content::BrowserContext* browser_context,
-    const Extension* extension) {
+    const Extension* extension,
+    extensions::UninstallReason reason) {
   RemoveAllAlarms(extension->id(), base::Bind(RemoveAllOnUninstallCallback));
 }
 

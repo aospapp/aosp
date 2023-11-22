@@ -23,7 +23,7 @@
 
 #define MAXMTU 1500
 #define PACKETLEN (MAXMTU+sizeof(struct tun_pi))
-#define CLATD_VERSION "1.3"
+#define CLATD_VERSION "1.4"
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 

@@ -33,16 +33,20 @@ class SynchronousCompositorFactoryImpl : public SynchronousCompositorFactory {
   virtual scoped_refptr<base::MessageLoopProxy> GetCompositorMessageLoop()
       OVERRIDE;
   virtual bool RecordFullLayer() OVERRIDE;
-  virtual scoped_ptr<cc::OutputSurface> CreateOutputSurface(int routing_id)
+  virtual scoped_ptr<cc::OutputSurface> CreateOutputSurface(
+      int routing_id,
+      scoped_refptr<content::FrameSwapMessageQueue> frame_swap_message_queue)
       OVERRIDE;
   virtual InputHandlerManagerClient* GetInputHandlerManagerClient() OVERRIDE;
   virtual scoped_refptr<webkit::gpu::ContextProviderWebContext>
-      GetSharedOffscreenContextProviderForMainThread() OVERRIDE;
+      CreateOffscreenContextProvider(
+          const blink::WebGraphicsContext3D::Attributes& attributes,
+          const std::string& debug_name) OVERRIDE;
   virtual scoped_refptr<StreamTextureFactory> CreateStreamTextureFactory(
       int view_id) OVERRIDE;
-  virtual blink::WebGraphicsContext3D* CreateOffscreenGraphicsContext3D(
-      const blink::WebGraphicsContext3D::Attributes& attributes) OVERRIDE;
-
+  virtual webkit::gpu::WebGraphicsContext3DImpl*
+      CreateOffscreenGraphicsContext3D(
+          const blink::WebGraphicsContext3D::Attributes& attributes) OVERRIDE;
 
   SynchronousInputEventFilter* synchronous_input_event_filter() {
     return &synchronous_input_event_filter_;
@@ -56,7 +60,6 @@ class SynchronousCompositorFactoryImpl : public SynchronousCompositorFactory {
 
   scoped_refptr<cc::ContextProvider>
       CreateOnscreenContextProviderForCompositorThread();
-  gpu::GLInProcessContext* GetShareContext();
 
  private:
   bool CanCreateMainThreadContext();
@@ -66,11 +69,7 @@ class SynchronousCompositorFactoryImpl : public SynchronousCompositorFactory {
 
   SynchronousInputEventFilter synchronous_input_event_filter_;
 
-  scoped_refptr<webkit::gpu::ContextProviderWebContext>
-      offscreen_context_for_main_thread_;
-
   scoped_refptr<gpu::InProcessCommandBuffer::Service> service_;
-  scoped_ptr<gpu::GLInProcessContext> share_context_;
 
   class VideoContextProvider;
   scoped_refptr<VideoContextProvider> video_context_provider_;

@@ -13,7 +13,6 @@
 #include "third_party/skia/include/effects/SkBlurImageFilter.h"
 #include "ui/accessibility/ax_view_state.h"
 #include "ui/aura/window.h"
-#include "ui/base/l10n/l10n_util.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_delegate.h"
 #include "ui/events/event.h"
@@ -59,7 +58,6 @@ class MouseMoveDetectorHost : public MouseWatcherHost {
   virtual bool Contains(const gfx::Point& screen_point,
                         MouseEventType type) OVERRIDE;
  private:
-
   DISALLOW_COPY_AND_ASSIGN(MouseMoveDetectorHost);
 };
 
@@ -185,12 +183,14 @@ class TrayBubbleContentMask : public ui::LayerDelegate {
 
   // Overridden from LayerDelegate.
   virtual void OnPaintLayer(gfx::Canvas* canvas) OVERRIDE;
+  virtual void OnDelegatedFrameDamage(
+      const gfx::Rect& damage_rect_in_dip) OVERRIDE {}
   virtual void OnDeviceScaleFactorChanged(float device_scale_factor) OVERRIDE;
   virtual base::Closure PrepareForLayerBoundsChange() OVERRIDE;
 
  private:
   ui::Layer layer_;
-  SkScalar corner_radius_;
+  int corner_radius_;
 
   DISALLOW_COPY_AND_ASSIGN(TrayBubbleContentMask);
 };
@@ -206,13 +206,11 @@ TrayBubbleContentMask::~TrayBubbleContentMask() {
 }
 
 void TrayBubbleContentMask::OnPaintLayer(gfx::Canvas* canvas) {
-  SkPath path;
-  path.addRoundRect(gfx::RectToSkRect(gfx::Rect(layer()->bounds().size())),
-                    corner_radius_, corner_radius_);
   SkPaint paint;
   paint.setAlpha(255);
   paint.setStyle(SkPaint::kFill_Style);
-  canvas->DrawPath(path, paint);
+  gfx::Rect rect(layer()->bounds().size());
+  canvas->DrawRoundRect(rect, corner_radius_, paint);
 }
 
 void TrayBubbleContentMask::OnDeviceScaleFactorChanged(
@@ -381,6 +379,7 @@ void TrayBubbleView::SetWidth(int width) {
 void TrayBubbleView::SetArrowPaintType(
     views::BubbleBorder::ArrowPaintType paint_type) {
   bubble_border_->set_paint_arrow(paint_type);
+  UpdateBubble();
 }
 
 gfx::Insets TrayBubbleView::GetBorderInsets() const {
@@ -389,7 +388,7 @@ gfx::Insets TrayBubbleView::GetBorderInsets() const {
 
 void TrayBubbleView::Init() {
   BoxLayout* layout = new BottomAlignedBoxLayout(this);
-  layout->set_main_axis_alignment(views::BoxLayout::MAIN_AXIS_ALIGNMENT_FILL);
+  layout->SetDefaultFlex(1);
   SetLayoutManager(layout);
 }
 

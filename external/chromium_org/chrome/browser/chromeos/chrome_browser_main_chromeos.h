@@ -15,6 +15,10 @@ namespace content {
 class PowerSaveBlocker;
 }
 
+namespace session_manager {
+class SessionManager;
+}
+
 namespace chromeos {
 
 class DataPromoNotification;
@@ -22,10 +26,12 @@ class EventRewriter;
 class EventRewriterController;
 class ExtensionSystemEventObserver;
 class IdleActionWarningObserver;
+class LightBar;
 class MagnificationManager;
 class PeripheralBatteryObserver;
 class PowerButtonObserver;
 class PowerPrefs;
+class RendererFreezer;
 class SessionManagerObserver;
 class SwapMetrics;
 
@@ -67,8 +73,12 @@ class ChromeBrowserMainPartsChromeos : public ChromeBrowserMainPartsLinux {
   scoped_ptr<content::PowerSaveBlocker> retail_mode_power_save_blocker_;
   scoped_ptr<IdleActionWarningObserver> idle_action_warning_observer_;
   scoped_ptr<DataPromoNotification> data_promo_notification_;
+  scoped_ptr<RendererFreezer> renderer_freezer_;
+  scoped_ptr<LightBar> light_bar_;
 
   scoped_ptr<internal::DBusServices> dbus_services_;
+
+  scoped_ptr<session_manager::SessionManager> session_manager_;
 
   scoped_ptr<EventRewriterController> keyboard_event_rewriters_;
 

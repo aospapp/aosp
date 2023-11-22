@@ -5,252 +5,126 @@
 #include "content/browser/compositor/browser_compositor_view_mac.h"
 
 #include "base/debug/trace_event.h"
-#include "base/mac/scoped_cftyperef.h"
-#include "content/browser/compositor/gpu_process_transport_factory.h"
-#include "content/browser/renderer_host/compositing_iosurface_context_mac.h"
-#include "content/browser/renderer_host/compositing_iosurface_mac.h"
-#include "content/browser/renderer_host/software_layer_mac.h"
-#include "content/public/browser/context_factory.h"
-#include "ui/base/cocoa/animation_utils.h"
-#include "ui/gl/scoped_cgl.h"
+#include "base/lazy_instance.h"
+#include "content/browser/gpu/gpu_process_host_ui_shim.h"
+#include "content/browser/compositor/browser_compositor_view_private_mac.h"
+#include "content/common/gpu/gpu_messages.h"
 
-@interface BrowserCompositorViewMac (Private)
-- (void)layerDidDrawFrame;
-- (void)gotAcceleratedLayerError;
-@end  // BrowserCompositorViewMac (Private)
+////////////////////////////////////////////////////////////////////////////////
+// BrowserCompositorViewMac
 
 namespace content {
+namespace {
 
-// The CompositingIOSurfaceLayerClient interface needs to be implemented as a
-// C++ class to operate on, rather than Objective C class. This helper class
-// provides a bridge between the two.
-class BrowserCompositorViewMacHelper : public CompositingIOSurfaceLayerClient {
- public:
-  BrowserCompositorViewMacHelper(BrowserCompositorViewMac* view)
-      : view_(view) {}
-  virtual ~BrowserCompositorViewMacHelper() {}
+// The number of placeholder objects allocated. If this reaches zero, then
+// the BrowserCompositorViewMacInternal being held on to for recycling,
+// |g_recyclable_internal_view|, will be freed.
+uint32 g_placeholder_count = 0;
 
- private:
-  // CompositingIOSurfaceLayerClient implementation:
-  virtual void AcceleratedLayerDidDrawFrame(bool succeeded) OVERRIDE {
-    [view_ layerDidDrawFrame];
-    if (!succeeded)
-      [view_ gotAcceleratedLayerError];
+// A spare BrowserCompositorViewMacInternal kept around for recycling.
+base::LazyInstance<scoped_ptr<BrowserCompositorViewMacInternal>>
+  g_recyclable_internal_view;
+
+}  // namespace
+
+BrowserCompositorViewMac::BrowserCompositorViewMac(
+    BrowserCompositorViewMacClient* client) : client_(client) {
+  // Try to use the recyclable BrowserCompositorViewMacInternal if there is one,
+  // otherwise allocate a new one.
+  // TODO(ccameron): If there exists a frame in flight (swap has been called
+  // by the compositor, but the frame has not arrived from the GPU process
+  // yet), then that frame may inappropriately flash in the new view.
+  internal_view_ = g_recyclable_internal_view.Get().Pass();
+  if (!internal_view_)
+    internal_view_.reset(new BrowserCompositorViewMacInternal);
+  internal_view_->SetClient(client_);
+}
+
+BrowserCompositorViewMac::~BrowserCompositorViewMac() {
+  // Make this BrowserCompositorViewMacInternal recyclable for future instances.
+  internal_view_->ResetClient();
+  g_recyclable_internal_view.Get() = internal_view_.Pass();
+
+  // If there are no placeholders allocated, destroy the recyclable
+  // BrowserCompositorViewMacInternal that we just populated.
+  if (!g_placeholder_count)
+    g_recyclable_internal_view.Get().reset();
+}
+
+ui::Compositor* BrowserCompositorViewMac::GetCompositor() const {
+  DCHECK(internal_view_);
+  return internal_view_->compositor();
+}
+
+bool BrowserCompositorViewMac::HasFrameOfSize(
+    const gfx::Size& dip_size) const {
+  if (internal_view_)
+    return internal_view_->HasFrameOfSize(dip_size);
+  return false;
+}
+
+void BrowserCompositorViewMac::BeginPumpingFrames() {
+  if (internal_view_)
+    internal_view_->BeginPumpingFrames();
+}
+
+void BrowserCompositorViewMac::EndPumpingFrames() {
+  if (internal_view_)
+    internal_view_->EndPumpingFrames();
+}
+
+// static
+void BrowserCompositorViewMac::GotAcceleratedFrame(
+    gfx::AcceleratedWidget widget,
+    uint64 surface_handle, int surface_id,
+    const std::vector<ui::LatencyInfo>& latency_info,
+    gfx::Size pixel_size, float scale_factor,
+    int gpu_host_id, int gpu_route_id) {
+  BrowserCompositorViewMacInternal* internal_view =
+      BrowserCompositorViewMacInternal::FromAcceleratedWidget(widget);
+  int renderer_id = 0;
+  if (internal_view) {
+    internal_view->GotAcceleratedFrame(
+        surface_handle, surface_id, latency_info, pixel_size, scale_factor);
+    renderer_id = internal_view->GetRendererID();
   }
 
-  BrowserCompositorViewMac* view_;
-};
+  // Acknowledge the swap, now that it has been processed.
+  AcceleratedSurfaceMsg_BufferPresented_Params ack_params;
+  ack_params.sync_point = 0;
+  ack_params.renderer_id = renderer_id;
+  GpuProcessHostUIShim* ui_shim = GpuProcessHostUIShim::FromID(gpu_host_id);
+  if (ui_shim) {
+    ui_shim->Send(new AcceleratedSurfaceMsg_BufferPresented(
+        gpu_route_id, ack_params));
+  }
+}
+
+// static
+void BrowserCompositorViewMac::GotSoftwareFrame(
+    gfx::AcceleratedWidget widget,
+    cc::SoftwareFrameData* frame_data, float scale_factor, SkCanvas* canvas) {
+  BrowserCompositorViewMacInternal* internal_view =
+      BrowserCompositorViewMacInternal::FromAcceleratedWidget(widget);
+  if (internal_view)
+    internal_view->GotSoftwareFrame(frame_data, scale_factor, canvas);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// BrowserCompositorViewPlaceholderMac
+
+BrowserCompositorViewPlaceholderMac::BrowserCompositorViewPlaceholderMac() {
+  g_placeholder_count += 1;
+}
+
+BrowserCompositorViewPlaceholderMac::~BrowserCompositorViewPlaceholderMac() {
+  DCHECK_GT(g_placeholder_count, 0u);
+  g_placeholder_count -= 1;
+
+  // If there are no placeholders allocated, destroy the recyclable
+  // BrowserCompositorViewMacInternal.
+  if (!g_placeholder_count)
+    g_recyclable_internal_view.Get().reset();
+}
 
 }  // namespace content
-
-
-// The default implementation of additions to the NSView interface for browser
-// compositing should never be called. Log an error if they are.
-@implementation NSView (BrowserCompositorView)
-
-- (void)gotAcceleratedIOSurfaceFrame:(IOSurfaceID)surface_handle
-                 withOutputSurfaceID:(int)surface_id
-                       withPixelSize:(gfx::Size)pixel_size
-                     withScaleFactor:(float)scale_factor {
-  DLOG(ERROR) << "-[NSView gotAcceleratedIOSurfaceFrame] called on "
-              << "non-overriden class.";
-}
-
-- (void)gotSoftwareFrame:(cc::SoftwareFrameData*)frame_data
-         withScaleFactor:(float)scale_factor
-              withCanvas:(SkCanvas*)canvas {
-  DLOG(ERROR) << "-[NSView gotSoftwareFrame] called on non-overridden class.";
-}
-
-@end  // NSView (BrowserCompositorView)
-
-@implementation BrowserCompositorViewMac : NSView
-
-- (id)initWithSuperview:(NSView*)view {
-  if (self = [super init]) {
-    accelerated_layer_output_surface_id_ = 0;
-    helper_.reset(new content::BrowserCompositorViewMacHelper(self));
-
-    // Disable the fade-in animation as the layer and view are added.
-    ScopedCAActionDisabler disabler;
-
-    // Make this view host a transparent layer.
-    background_layer_.reset([[CALayer alloc] init]);
-    [background_layer_ setContentsGravity:kCAGravityTopLeft];
-    [self setLayer:background_layer_];
-    [self setWantsLayer:YES];
-
-    compositor_.reset(new ui::Compositor(self, content::GetContextFactory()));
-    [view addSubview:self];
-  }
-  return self;
-}
-
-- (void)gotAcceleratedLayerError {
-  if (!accelerated_layer_)
-    return;
-
-  [accelerated_layer_ context]->PoisonContextAndSharegroup();
-  compositor_->ScheduleFullRedraw();
-}
-
-// This function closely mirrors RenderWidgetHostViewMac::LayoutLayers. When
-// only delegated rendering is supported, only one copy of this code will
-// need to exist.
-- (void)layoutLayers {
-  // Disable animation of the layers' resizing or repositioning.
-  ScopedCAActionDisabler disabler;
-
-  NSSize superview_frame_size = [[self superview] frame].size;
-  [self setFrame:NSMakeRect(
-      0, 0, superview_frame_size.width, superview_frame_size.height)];
-
-  CGRect new_background_frame = CGRectMake(
-      0,
-      0,
-      superview_frame_size.width,
-      superview_frame_size.height);
-  [background_layer_ setFrame:new_background_frame];
-
-  // The bounds of the accelerated layer determine the size of the GL surface
-  // that will be drawn to. Make sure that this is big enough to draw the
-  // IOSurface.
-  if (accelerated_layer_) {
-    CGRect layer_bounds = CGRectMake(
-      0,
-      0,
-      [accelerated_layer_ iosurface]->dip_io_surface_size().width(),
-      [accelerated_layer_ iosurface]->dip_io_surface_size().height());
-    CGPoint layer_position = CGPointMake(
-      0,
-      CGRectGetHeight(new_background_frame) - CGRectGetHeight(layer_bounds));
-    bool bounds_changed = !CGRectEqualToRect(
-        layer_bounds, [accelerated_layer_ bounds]);
-    [accelerated_layer_ setBounds:layer_bounds];
-    [accelerated_layer_ setPosition:layer_position];
-    if (bounds_changed) {
-      [accelerated_layer_ setNeedsDisplay];
-      [accelerated_layer_ displayIfNeeded];
-    }
-  }
-
-  // The content area of the software layer is the size of the image provided.
-  // Make the bounds of the layer match the superview's bounds, to ensure that
-  // the visible contents are drawn.
-  [software_layer_ setBounds:new_background_frame];
-}
-
-- (void)resetClient {
-  [accelerated_layer_ resetClient];
-}
-
-- (ui::Compositor*)compositor {
-  return compositor_.get();
-}
-
-- (void)gotAcceleratedIOSurfaceFrame:(IOSurfaceID)surface_handle
-                 withOutputSurfaceID:(int)surface_id
-                       withPixelSize:(gfx::Size)pixel_size
-                     withScaleFactor:(float)scale_factor {
-  DCHECK(!accelerated_layer_output_surface_id_);
-  accelerated_layer_output_surface_id_ = surface_id;
-
-  ScopedCAActionDisabler disabler;
-
-  // If there is already an accelerated layer, but it has the wrong scale
-  // factor or it was poisoned, remove the old layer and replace it.
-  base::scoped_nsobject<CompositingIOSurfaceLayer> old_accelerated_layer;
-  if (accelerated_layer_ && (
-          [accelerated_layer_ context]->HasBeenPoisoned() ||
-          [accelerated_layer_ iosurface]->scale_factor() != scale_factor)) {
-    old_accelerated_layer = accelerated_layer_;
-    accelerated_layer_.reset();
-  }
-
-  // If there is not a layer for accelerated frames, create one.
-  if (!accelerated_layer_) {
-    // Disable the fade-in animation as the layer is added.
-    ScopedCAActionDisabler disabler;
-    scoped_refptr<content::CompositingIOSurfaceMac> iosurface =
-        content::CompositingIOSurfaceMac::Create();
-    accelerated_layer_.reset([[CompositingIOSurfaceLayer alloc]
-        initWithIOSurface:iosurface
-          withScaleFactor:scale_factor
-               withClient:helper_.get()]);
-    [[self layer] addSublayer:accelerated_layer_];
-  }
-
-  {
-    bool result = true;
-    gfx::ScopedCGLSetCurrentContext scoped_set_current_context(
-        [accelerated_layer_ context]->cgl_context());
-    result = [accelerated_layer_ iosurface]->SetIOSurfaceWithContextCurrent(
-        [accelerated_layer_ context], surface_handle, pixel_size, scale_factor);
-    if (!result)
-      LOG(ERROR) << "Failed SetIOSurface on CompositingIOSurfaceMac";
-  }
-  [accelerated_layer_ gotNewFrame];
-  [self layoutLayers];
-
-  // If there was a software layer or an old accelerated layer, remove it.
-  // Disable the fade-out animation as the layer is removed.
-  {
-    ScopedCAActionDisabler disabler;
-    [software_layer_ removeFromSuperlayer];
-    software_layer_.reset();
-    [old_accelerated_layer resetClient];
-    [old_accelerated_layer removeFromSuperlayer];
-    old_accelerated_layer.reset();
-  }
-}
-
-- (void)gotSoftwareFrame:(cc::SoftwareFrameData*)frame_data
-         withScaleFactor:(float)scale_factor
-              withCanvas:(SkCanvas*)canvas {
-  if (!frame_data || !canvas)
-    return;
-
-  // If there is not a layer for software frames, create one.
-  if (!software_layer_) {
-    // Disable the fade-in animation as the layer is added.
-    ScopedCAActionDisabler disabler;
-    software_layer_.reset([[SoftwareLayer alloc] init]);
-    [[self layer] addSublayer:software_layer_];
-  }
-
-  SkImageInfo info;
-  size_t row_bytes;
-  const void* pixels = canvas->peekPixels(&info, &row_bytes);
-  [software_layer_ setContentsToData:pixels
-                        withRowBytes:row_bytes
-                       withPixelSize:gfx::Size(info.fWidth, info.fHeight)
-                     withScaleFactor:scale_factor];
-  [self layoutLayers];
-
-  // If there was an accelerated layer, remove it.
-  // Disable the fade-out animation as the layer is removed.
-  {
-    ScopedCAActionDisabler disabler;
-    [accelerated_layer_ resetClient];
-    [accelerated_layer_ removeFromSuperlayer];
-    accelerated_layer_.reset();
-  }
-
-  // This call can be nested insider ui::Compositor commit calls, and can also
-  // make additional ui::Compositor commit calls. Avoid the potential recursion
-  // by acknowledging the frame asynchronously.
-  [self performSelector:@selector(layerDidDrawFrame)
-             withObject:nil
-             afterDelay:0];
-}
-
-- (void)layerDidDrawFrame {
-  if (!accelerated_layer_output_surface_id_)
-    return;
-
-  content::ImageTransportFactory::GetInstance()->OnSurfaceDisplayed(
-      accelerated_layer_output_surface_id_);
-  accelerated_layer_output_surface_id_ = 0;
-}
-
-@end  // BrowserCompositorViewMac

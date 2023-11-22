@@ -12,23 +12,22 @@
  * {
  *   filesystem: size, modificationTime
  *   internal: presence
- *   drive: pinned, present, hosted, availableOffline
- *   streaming: (no property)
+ *   external: pinned, present, hosted, availableOffline
  *
- *   Following are not fetched for non-present drive files.
+ *   Following are not fetched for non-present external files.
  *   media: artist, album, title, width, height, imageTransform, etc.
  *   thumbnail: url, transform
  *
  *   Following are always fetched from content, and so force the downloading
- *   of remote drive files. One should use this for required content metadata,
+ *   of external files. One should use this for required content metadata,
  *   i.e. image orientation.
  *   fetchedMedia: width, height, etc.
  * }
  *
  * Typical usages:
  * {
- *   cache.get([entry1, entry2], 'drive|filesystem', function(metadata) {
- *     if (metadata[0].drive.pinned && metadata[1].filesystem.size === 0)
+ *   cache.get([entry1, entry2], 'external|filesystem', function(metadata) {
+ *     if (metadata[0].external.pinned && metadata[1].filesystem.size === 0)
  *       alert("Pinned and empty!");
  *   });
  *
@@ -119,10 +118,10 @@ MetadataCache.EVICTION_THRESHOLD_MARGIN = 500;
  * @return {MetadataCache!} The cache with all providers.
  */
 MetadataCache.createFull = function(volumeManager) {
-  // DriveProvider should be prior to FileSystemProvider, because it covers
-  // FileSystemProvider for files in Drive.
+  // ExternalProvider should be prior to FileSystemProvider, because it covers
+  // FileSystemProvider for files on the external backend, eg. Drive.
   return new MetadataCache([
-    new DriveProvider(volumeManager),
+    new ExternalProvider(volumeManager),
     new FilesystemProvider(),
     new ContentProvider()
   ]);
@@ -199,9 +198,10 @@ MetadataCache.prototype.currentEvictionThreshold_ = function() {
  * @param {Array.<Entry>} entries The list of entries.
  * @param {string} type The metadata type.
  * @param {function(Object)} callback The metadata is passed to callback.
+ *     The callback is called asynchronously.
  */
 MetadataCache.prototype.get = function(entries, type, callback) {
-  return this.getInternal_(entries, type, false, callback);
+  this.getInternal_(entries, type, false, callback);
 };
 
 /**
@@ -211,9 +211,10 @@ MetadataCache.prototype.get = function(entries, type, callback) {
  * @param {Array.<Entry>} entries The list of entries.
  * @param {string} type The metadata type.
  * @param {function(Object)} callback The metadata is passed to callback.
+ *     The callback is called asynchronously.
  */
-MetadataCache.prototype.getLatest = function(entries, type, callback, refresh) {
-  return this.getInternal_(entries, type, true, callback);
+MetadataCache.prototype.getLatest = function(entries, type, callback) {
+  this.getInternal_(entries, type, true, callback);
 };
 
 /**
@@ -224,11 +225,13 @@ MetadataCache.prototype.getLatest = function(entries, type, callback, refresh) {
  * @param {boolean} refresh True to get the latest value and refresh the cache,
  *     false to get the value from the cache.
  * @param {function(Object)} callback The metadata is passed to callback.
+ *     The callback is called asynchronously.
+ * @private
  */
 MetadataCache.prototype.getInternal_ =
     function(entries, type, refresh, callback) {
   if (entries.length === 0) {
-    if (callback) callback([]);
+    if (callback) setTimeout(callback.bind(null, []), 0);
     return;
   }
 
@@ -241,7 +244,7 @@ MetadataCache.prototype.getInternal_ =
     remaining--;
     if (remaining === 0) {
       this.endBatchUpdates();
-      if (callback) setTimeout(callback, 0, result);
+      if (callback) callback(result);
     }
   };
 
@@ -256,12 +259,15 @@ MetadataCache.prototype.getInternal_ =
 
 /**
  * Fetches the metadata for one Entry. See comments to |get|.
+ * If required metadata is already in the cache, does not fetch it again.
+ *
  * @param {Entry} entry The entry.
  * @param {string} type Metadata type.
- * @param {function(Object)} callback The callback.
+ * @param {function(Object)} callback The metadata is passed to callback.
+ *     The callback is called asynchronously.
  */
-MetadataCache.prototype.getOne = function(entry, type, callback, refresh) {
-  return this.getOneInternal_(entry, type, false, callback);
+MetadataCache.prototype.getOne = function(entry, type, callback) {
+  this.getOneInternal_(entry, type, false, callback);
 };
 
 /**
@@ -271,7 +277,8 @@ MetadataCache.prototype.getOne = function(entry, type, callback, refresh) {
  * @param {string} type Metadata type.
  * @param {boolean} refresh True to get the latest value and refresh the cache,
  *     false to get the value from the cache.
- * @param {function(Object)} callback The callback.
+ * @param {function(Object)} callback The metadata is passed to callback.
+ *     The callback is called asynchronously.
  * @private
  */
 MetadataCache.prototype.getOneInternal_ =
@@ -306,7 +313,7 @@ MetadataCache.prototype.getOneInternal_ =
 
   if (!refresh && type in item.properties) {
     // Uses cache, if available and not on the 'refresh' mode.
-    callback(item.properties[type]);
+    setTimeout(callback.bind(null, item.properties[type]), 0);
     return;
   }
 
@@ -354,7 +361,7 @@ MetadataCache.prototype.getOneInternal_ =
   var tryNextProvider = function() {
     if (providers.length === 0) {
       self.endBatchUpdates();
-      callback(item.properties[type] || null);
+      setTimeout(callback.bind(null, item.properties[type] || null), 0);
       return;
     }
 
@@ -420,11 +427,23 @@ MetadataCache.prototype.clear = function(entries, type) {
   if (!(entries instanceof Array))
     entries = [entries];
 
+  this.clearByUrl(
+      entries.map(function(entry) { return entry.toURL(); }),
+      type);
+};
+
+/**
+ * Clears the cached metadata values. This method takes an URL since some items
+ * may be already removed and can't be fetches their entry.
+ *
+ * @param {Array.<string>} urls The list of URLs.
+ * @param {string} type The metadata types or * for any type.
+ */
+MetadataCache.prototype.clearByUrl = function(urls, type) {
   var types = type.split('|');
 
-  for (var index = 0; index < entries.length; index++) {
-    var entry = entries[index];
-    var entryURL = entry.toURL();
+  for (var index = 0; index < urls.length; index++) {
+    var entryURL = urls[index];
     if (entryURL in this.cache_) {
       if (type === '*') {
         this.cache_[entryURL].properties = {};
@@ -672,7 +691,7 @@ MetadataProvider.prototype.isInitialized = function() { return true; };
  * @param {Entry} entry File entry.
  * @param {string} type Requested metadata type.
  * @param {function(Object)} callback Callback expects a map from metadata type
- *     to metadata value.
+ *     to metadata value. This callback must be called asynchronously.
  */
 MetadataProvider.prototype.fetch = function(entry, type, callback) {
   throw new Error('Default metadata provider cannot fetch.');
@@ -719,7 +738,7 @@ FilesystemProvider.prototype.getId = function() { return 'filesystem'; };
  * @param {Entry} entry File entry.
  * @param {string} type Requested metadata type.
  * @param {function(Object)} callback Callback expects a map from metadata type
- *     to metadata value.
+ *     to metadata value. This callback is called asynchronously.
  */
 FilesystemProvider.prototype.fetch = function(
     entry, type, callback) {
@@ -740,15 +759,14 @@ FilesystemProvider.prototype.fetch = function(
 };
 
 /**
- * Provider of drive metadata.
+ * Provider of metadata for entries on the external file system backend.
  * This provider returns the following objects:
- *     drive: { pinned, hosted, present, customIconUrl, etc. }
+ *     external: { pinned, hosted, present, customIconUrl, etc. }
  *     thumbnail: { url, transform }
- *     streaming: { }
  * @param {VolumeManagerWrapper} volumeManager Volume manager instance.
  * @constructor
  */
-function DriveProvider(volumeManager) {
+function ExternalProvider(volumeManager) {
   MetadataProvider.call(this);
 
   /**
@@ -765,7 +783,7 @@ function DriveProvider(volumeManager) {
   this.callApiBound_ = this.callApi_.bind(this);
 }
 
-DriveProvider.prototype = {
+ExternalProvider.prototype = {
   __proto__: MetadataProvider.prototype
 };
 
@@ -773,8 +791,9 @@ DriveProvider.prototype = {
  * @param {Entry} entry The entry.
  * @return {boolean} Whether this provider supports the entry.
  */
-DriveProvider.prototype.supportsEntry = function(entry) {
+ExternalProvider.prototype.supportsEntry = function(entry) {
   var locationInfo = this.volumeManager_.getLocationInfo(entry);
+  // TODO(mtomasz): Add support for provided file systems.
   return locationInfo && locationInfo.isDriveBased;
 };
 
@@ -782,24 +801,24 @@ DriveProvider.prototype.supportsEntry = function(entry) {
  * @param {string} type The metadata type.
  * @return {boolean} Whether this provider provides this metadata.
  */
-DriveProvider.prototype.providesType = function(type) {
-  return type === 'drive' || type === 'thumbnail' ||
-      type === 'streaming' || type === 'media' || type === 'filesystem';
+ExternalProvider.prototype.providesType = function(type) {
+  return type === 'external' || type === 'thumbnail' ||
+      type === 'media' || type === 'filesystem';
 };
 
 /**
  * @return {string} Unique provider id.
  */
-DriveProvider.prototype.getId = function() { return 'drive'; };
+ExternalProvider.prototype.getId = function() { return 'external'; };
 
 /**
  * Fetches the metadata.
  * @param {Entry} entry File entry.
  * @param {string} type Requested metadata type.
  * @param {function(Object)} callback Callback expects a map from metadata type
- *     to metadata value.
+ *     to metadata value. This callback is called asynchronously.
  */
-DriveProvider.prototype.fetch = function(entry, type, callback) {
+ExternalProvider.prototype.fetch = function(entry, type, callback) {
   this.entries_.push(entry);
   this.callbacks_.push(callback);
   if (!this.scheduled_) {
@@ -812,7 +831,7 @@ DriveProvider.prototype.fetch = function(entry, type, callback) {
  * Schedules the API call.
  * @private
  */
-DriveProvider.prototype.callApi_ = function() {
+ExternalProvider.prototype.callApi_ = function() {
   this.scheduled_ = false;
 
   var entries = this.entries_;
@@ -821,9 +840,10 @@ DriveProvider.prototype.callApi_ = function() {
   this.callbacks_ = [];
   var self = this;
 
-  // TODO(mtomasz): Make getDriveEntryProperties accept Entry instead of URL.
+  // TODO(mtomasz): Move conversion from entry to url to custom bindings.
+  // crbug.com/345527.
   var entryURLs = util.entriesToURLs(entries);
-  chrome.fileBrowserPrivate.getDriveEntryProperties(
+  chrome.fileManagerPrivate.getEntryProperties(
       entryURLs,
       function(propertiesList) {
         console.assert(propertiesList.length === callbacks.length);
@@ -834,57 +854,28 @@ DriveProvider.prototype.callApi_ = function() {
 };
 
 /**
- * @param {DriveEntryProperties} data Drive entry properties.
- * @param {Entry} entry File entry.
- * @return {boolean} True if the file is available offline.
- */
-DriveProvider.isAvailableOffline = function(data, entry) {
-  if (data.isPresent)
-    return true;
-
-  if (!data.isHosted)
-    return false;
-
-  // What's available offline? See the 'Web' column at:
-  // http://support.google.com/drive/answer/1628467
-  var subtype = FileType.getType(entry).subtype;
-  return (subtype === 'doc' ||
-          subtype === 'draw' ||
-          subtype === 'sheet' ||
-          subtype === 'slides');
-};
-
-/**
- * @param {DriveEntryProperties} data Drive entry properties.
- * @return {boolean} True if opening the file does not require downloading it
- *    via a metered connection.
- */
-DriveProvider.isAvailableWhenMetered = function(data) {
-  return data.isPresent || data.isHosted;
-};
-
-/**
  * Converts API metadata to internal format.
  * @param {Object} data Metadata from API call.
  * @param {Entry} entry File entry.
  * @return {Object} Metadata in internal format.
  * @private
  */
-DriveProvider.prototype.convert_ = function(data, entry) {
+ExternalProvider.prototype.convert_ = function(data, entry) {
   var result = {};
-  result.drive = {
+  result.external = {
     present: data.isPresent,
     pinned: data.isPinned,
     hosted: data.isHosted,
     imageWidth: data.imageWidth,
     imageHeight: data.imageHeight,
     imageRotation: data.imageRotation,
-    availableOffline: DriveProvider.isAvailableOffline(data, entry),
-    availableWhenMetered: DriveProvider.isAvailableWhenMetered(data),
+    availableOffline: data.isAvailableOffline,
+    availableWhenMetered: data.isAvailableWhenMetered,
     customIconUrl: data.customIconUrl || '',
     contentMimeType: data.contentMimeType || '',
     sharedWithMe: data.sharedWithMe,
-    shared: data.shared
+    shared: data.shared,
+    thumbnailUrl: data.thumbnailUrl  // Thumbnail passed from external server.
   };
 
   result.filesystem = {
@@ -892,23 +883,22 @@ DriveProvider.prototype.convert_ = function(data, entry) {
     modificationTime: new Date(data.lastModifiedTime)
   };
 
-  if ('thumbnailUrl' in data) {
+  if (data.isPresent) {
+    // If the file is present, don't fill the thumbnail here and allow to
+    // generate it by next providers.
+    result.thumbnail = null;
+  } else if ('thumbnailUrl' in data) {
     result.thumbnail = {
       url: data.thumbnailUrl,
       transform: null
     };
-  } else if (data.isPresent) {
-    result.thumbnail = null;
   } else {
-    // Block the local fetch for drive files, which require downloading.
+    // Not present in cache, so do not allow to generate it by next providers.
     result.thumbnail = {url: '', transform: null};
   }
 
+  // If present in cache, then allow to fetch media by next providers.
   result.media = data.isPresent ? null : {};
-  // Indicate that the data is not available in local cache.
-  // It used to have a field 'url' for streaming play, but it is
-  // derprecated. See crbug.com/174560.
-  result.streaming = data.isPresent ? null : {};
 
   return result;
 };
@@ -982,11 +972,11 @@ ContentProvider.prototype.getId = function() { return 'content'; };
  * @param {Entry} entry File entry.
  * @param {string} type Requested metadata type.
  * @param {function(Object)} callback Callback expects a map from metadata type
- *     to metadata value.
+ *     to metadata value. This callback is called asynchronously.
  */
 ContentProvider.prototype.fetch = function(entry, type, callback) {
   if (entry.isDirectory) {
-    callback({});
+    setTimeout(callback.bind(null, {}), 0);
     return;
   }
   var entryURL = entry.toURL();

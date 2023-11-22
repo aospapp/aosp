@@ -3,19 +3,19 @@
 # found in the LICENSE file.
 
 import BaseHTTPServer
-from collections import namedtuple
+import errno
 import gzip
 import mimetypes
 import os
 import SimpleHTTPServer
+import socket
 import SocketServer
 import StringIO
 import sys
 import urlparse
-
+from collections import namedtuple
 
 from telemetry.core import local_server
-
 
 ByteRange = namedtuple('ByteRange', ['from_byte', 'to_byte'])
 ResourceAndRange = namedtuple('ResourceAndRange', ['resource', 'byte_range'])
@@ -25,6 +25,16 @@ class MemoryCacheHTTPRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
   protocol_version = 'HTTP/1.1'  # override BaseHTTPServer setting
   wbufsize = -1  # override StreamRequestHandler (a base class) setting
+
+  def handle(self):
+    try:
+      BaseHTTPServer.BaseHTTPRequestHandler.handle(self)
+    except socket.error, e:
+      # Connection reset errors happen all the time due to the browser closing
+      # without terminating the connection properly.  They can be safely
+      # ignored.
+      if e[0] != errno.ECONNRESET:
+        raise
 
   def do_GET(self):
     """Serve a GET request."""

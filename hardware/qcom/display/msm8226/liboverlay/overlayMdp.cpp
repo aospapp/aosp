@@ -22,11 +22,6 @@
 #include "mdp_version.h"
 #include <overlay.h>
 
-#ifdef USES_QSEED_SCALAR
-#include <scale/scale.h>
-using namespace scale;
-#endif
-
 #define HSIC_SETTINGS_DEBUG 0
 
 using namespace qdutils;
@@ -59,7 +54,6 @@ void MdpCtrl::reset() {
     utils::memset0(mOVInfo);
     mOVInfo.id = MSMFB_NEW_REQUEST;
     mOrientation = utils::OVERLAY_TRANSFORM_0;
-    mDownscale = 0;
     mDpy = 0;
 #ifdef USES_POST_PROCESSING
     memset(&mParams, 0, sizeof(struct compute_params));
@@ -125,6 +119,23 @@ void MdpCtrl::setTransform(const utils::eTransform& orient) {
     mOrientation = static_cast<utils::eTransform>(rot);
 }
 
+void MdpCtrl::setPipeType(const utils::eMdpPipeType& pType){
+    switch((int) pType){
+        case utils::OV_MDP_PIPE_RGB:
+            mOVInfo.pipe_type = PIPE_TYPE_RGB;
+            break;
+        case utils::OV_MDP_PIPE_VG:
+            mOVInfo.pipe_type = PIPE_TYPE_VIG;
+            break;
+        case utils::OV_MDP_PIPE_DMA:
+            mOVInfo.pipe_type = PIPE_TYPE_DMA;
+            break;
+        default:
+            mOVInfo.pipe_type = PIPE_TYPE_AUTO;
+            break;
+    }
+}
+
 void MdpCtrl::doTransform() {
     setRotationFlags();
     utils::Whf whf = getSrcWhf();
@@ -135,39 +146,10 @@ void MdpCtrl::doTransform() {
 }
 
 void MdpCtrl::doDownscale() {
-    int mdpVersion = MDPVersion::getInstance().getMDPVersion();
-    if(mdpVersion < MDSS_V5) {
-        mOVInfo.src_rect.x >>= mDownscale;
-        mOVInfo.src_rect.y >>= mDownscale;
-        mOVInfo.src_rect.w >>= mDownscale;
-        mOVInfo.src_rect.h >>= mDownscale;
-    } else if(MDPVersion::getInstance().supportsDecimation()) {
-        //Decimation + MDP Downscale
-        mOVInfo.horz_deci = 0;
-        mOVInfo.vert_deci = 0;
-        int minHorDeci = 0;
-        if(mOVInfo.src_rect.w > 2048) {
-            //If the client sends us something > what a layer mixer supports
-            //then it means it doesn't want to use split-pipe but wants us to
-            //decimate. A minimum decimation of 2 will ensure that the width is
-            //always within layer mixer limits.
-            minHorDeci = 2;
-        }
-
-        float horDscale = 0.0f;
-        float verDscale = 0.0f;
-
+    if(MDPVersion::getInstance().supportsDecimation()) {
         utils::getDecimationFactor(mOVInfo.src_rect.w, mOVInfo.src_rect.h,
-                mOVInfo.dst_rect.w, mOVInfo.dst_rect.h, horDscale, verDscale);
-
-        if(horDscale < minHorDeci)
-            horDscale = minHorDeci;
-
-        if((int)horDscale)
-            mOVInfo.horz_deci = (int)log2f(horDscale);
-
-        if((int)verDscale)
-            mOVInfo.vert_deci = (int)log2f(verDscale);
+                mOVInfo.dst_rect.w, mOVInfo.dst_rect.h, mOVInfo.horz_deci,
+                mOVInfo.vert_deci);
     }
 }
 
@@ -187,6 +169,10 @@ bool MdpCtrl::set() {
             if (!(mOVInfo.flags & MDP_SOURCE_ROTATED_90) &&
                 (mOVInfo.src_rect.h % 4))
                 mOVInfo.src_rect.h = utils::aligndown(mOVInfo.src_rect.h, 4);
+            // For interlaced, width must be multiple of 4 when rotated 90deg.
+            else if ((mOVInfo.flags & MDP_SOURCE_ROTATED_90) &&
+                (mOVInfo.src_rect.w % 4))
+                mOVInfo.src_rect.w = utils::aligndown(mOVInfo.src_rect.w, 4);
         }
     } else {
         if (mdpVersion >= MDSS_V5) {
@@ -229,12 +215,6 @@ void MdpData::dump() const {
 
 void MdpData::getDump(char *buf, size_t len) {
     ovutils::getDump(buf, len, "Data", mOvData);
-}
-
-void MdpCtrl3D::dump() const {
-    ALOGE("== Dump MdpCtrl start ==");
-    mFd.dump();
-    ALOGE("== Dump MdpCtrl end ==");
 }
 
 bool MdpCtrl::setVisualParams(const MetaData_t& data) {
@@ -367,15 +347,15 @@ bool MdpCtrl::validateAndSet(MdpCtrl* mdpCtrlArray[], const int& count,
     list.num_overlays = count;
     list.overlay_list = ovArray;
 
-#ifdef USES_QSEED_SCALAR
-    Scale *scalar = Overlay::getScalar();
-    if(scalar) {
-        scalar->applyScale(&list);
+   int (*fnProgramScale)(struct mdp_overlay_list *) =
+        Overlay::getFnProgramScale();
+    if(fnProgramScale) {
+        fnProgramScale(&list);
     }
-#endif
 
     if(!mdp_wrapper::validateAndSet(fbFd, list)) {
-        if(list.processed_overlays < list.num_overlays) {
+        /* No dump for failure due to insufficient resource */
+        if(errno != E2BIG) {
             mdp_wrapper::dump("Bad ov dump: ",
                 *list.overlay_list[list.processed_overlays]);
         }

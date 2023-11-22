@@ -22,41 +22,7 @@
     android:orientation="horizontal"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@android:color/white">
-
-    <LinearLayout android:id="@+id/network_error"
-        android:layout_width="match_parent"
-        android:layout_height="?android:attr/listPreferredItemHeight"
-        android:padding="5dip"
-        android:visibility="gone"
-        android:gravity="center_vertical">
-
-        <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@drawable/ic_alert_grey" />
-
-        <TextView android:id="@+id/error_text"
-            android:layout_width="0dip"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:textAppearance="?android:attr/textAppearanceLargeInverse"
-            android:layout_marginBottom="1dip"
-            android:paddingLeft="5dip"
-            android:textColor="@android:color/black"
-            android:text="@string/network_error"/>
-
-        <Button android:id="@+id/error_action_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            style="?android:attr/buttonStyleSmall"
-            android:textColor="@android:color/black"
-            android:paddingTop="15dip"
-            android:paddingBottom="15dip"
-            android:paddingLeft="20dip"
-            android:paddingRight="20dip"/>
-
-    </LinearLayout>
+    android:background="@drawable/conversation_item_background">
 
     <LinearLayout android:id="@+id/loading"
         android:layout_width="match_parent"
@@ -65,28 +31,29 @@
         android:visibility="gone">
 
         <ProgressBar
-            style="?android:attr/progressBarStyle"
             android:indeterminate="true"
             android:layout_width="32dp"
-            android:layout_height="32dp" />
+            android:layout_height="32dp"
+            style="?android:attr/progressBarStyle" />
 
     </LinearLayout>
-    <LinearLayout android:id="@+id/load_more"
+    <LinearLayout
+        android:id="@+id/load_more"
         android:layout_width="match_parent"
         android:layout_height="?android:attr/listPreferredItemHeight"
-        android:gravity="center"
-        android:visibility="gone"
+        android:background="?android:attr/selectableItemBackground"
         android:clickable="true"
-        android:background="?android:attr/selectableItemBackground">
+        android:visibility="gone">
 
         <TextView
+            style="@style/ConversationListFooterLoadMoreStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textAppearance="?android:attr/textAppearanceLargeInverse"
-            android:layout_marginBottom="1dip"
-            android:paddingLeft="5dip"
-            android:textColor="@android:color/black"
-            android:text="@string/load_more"/>
+            android:layout_gravity="center_vertical"
+            android:text="@string/load_more"
+            android:textAllCaps="true"
+            android:textColor="@color/conversation_view_footer_load_more_text_color"
+            android:textSize="16sp" />
 
     </LinearLayout>
 </com.android.mail.browse.ConversationListFooterView>

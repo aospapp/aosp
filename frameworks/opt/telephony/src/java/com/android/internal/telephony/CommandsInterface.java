@@ -19,10 +19,12 @@ package com.android.internal.telephony;
 import com.android.internal.telephony.cdma.CdmaSmsBroadcastConfigInfo;
 import com.android.internal.telephony.dataconnection.DataProfile;
 import com.android.internal.telephony.gsm.SmsBroadcastConfigInfo;
+import com.android.internal.telephony.RadioCapability;
 import com.android.internal.telephony.uicc.IccCardStatus;
 
 import android.os.Message;
 import android.os.Handler;
+
 
 /**
  * {@hide}
@@ -92,8 +94,12 @@ public interface CommandsInterface {
 
     // Numeric representation of string values returned
     // by messages sent to setOnUSSD handler
-    static final int USSD_MODE_NOTIFY       = 0;
-    static final int USSD_MODE_REQUEST      = 1;
+    static final int USSD_MODE_NOTIFY        = 0;
+    static final int USSD_MODE_REQUEST       = 1;
+    static final int USSD_MODE_NW_RELEASE    = 2;
+    static final int USSD_MODE_LOCAL_CLIENT  = 3;
+    static final int USSD_MODE_NOT_SUPPORTED = 4;
+    static final int USSD_MODE_NW_TIMEOUT    = 5;
 
     // GSM SMS fail cause for acknowledgeLastIncomingSMS. From TS 23.040, 9.2.3.22.
     static final int GSM_SMS_FAIL_CAUSE_MEMORY_CAPACITY_EXCEEDED    = 0xD3;
@@ -415,6 +421,29 @@ public interface CommandsInterface {
      */
     void setSuppServiceNotifications(boolean enable, Message result);
     //void unSetSuppServiceNotifications(Handler h);
+
+    /**
+     * Sets the handler for Alpha Notification during STK Call Control.
+     * Unlike the register* methods, there's only one notification handler
+     *
+     * @param h Handler for notification message.
+     * @param what User-defined message code.
+     * @param obj User object.
+     */
+    void setOnCatCcAlphaNotify(Handler h, int what, Object obj);
+    void unSetOnCatCcAlphaNotify(Handler h);
+
+    /**
+     * Sets the handler for notifying Suplementary Services (SS)
+     * Data during STK Call Control.
+     * Unlike the register* methods, there's only one notification handler
+     *
+     * @param h Handler for notification message.
+     * @param what User-defined message code.
+     * @param obj User object.
+     */
+    void setOnSs(Handler h, int what, Object obj);
+    void unSetOnSs(Handler h);
 
     /**
      * Sets the handler for Event Notifications for CDMA Display Info.
@@ -1869,6 +1898,11 @@ public interface CommandsInterface {
      */
     int getRilVersion();
 
+    /**
+     * @return Radio access families supported by the hardware.
+     */
+    int getSupportedRadioAccessFamily();
+
    /**
      * Sets user selected subscription at Modem.
      *
@@ -1904,4 +1938,37 @@ public interface CommandsInterface {
      * @param result Callback message contains the information of SUCCESS/FAILURE
      */
     public void requestShutdown(Message result);
+
+    /**
+     *  Set phone radio type and access technology.
+     *
+     *  @param rc the phone radio capability defined in
+     *         RadioCapability. It's a input object used to transfer parameter to logic modem
+     *
+     *  @param result Callback message.
+     */
+    public void setRadioCapability(RadioCapability rc, Message result);
+
+    /**
+     *  Get phone radio capability
+     *
+     *  @param result Callback message.
+     */
+    public void getRadioCapability(Message result);
+
+    /**
+     * Registers the handler when phone radio capability is changed.
+     *
+     * @param h Handler for notification message.
+     * @param what User-defined message code.
+     * @param obj User object.
+     */
+    public void registerForRadioCapabilityChanged(Handler h, int what, Object obj);
+
+    /**
+     * Unregister for notifications when phone radio capability is changed.
+     *
+     * @param h Handler to be removed from the registrant list.
+     */
+    public void unregisterForRadioCapabilityChanged(Handler h);
 }

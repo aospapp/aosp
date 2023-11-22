@@ -16,7 +16,6 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/search/instant_service.h"
 #include "chrome/browser/search/instant_service_factory.h"
-#include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/search_engines/ui_thread_search_terms_data.h"
 #include "chrome/browser/ui/browser.h"
@@ -29,12 +28,12 @@
 #include "chrome/common/url_constants.h"
 #include "components/google/core/browser/google_util.h"
 #include "components/pref_registry/pref_registry_syncable.h"
+#include "components/search/search.h"
+#include "components/search_engines/template_url_service.h"
 #include "components/sessions/serialized_navigation_entry.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
-#include "grit/generated_resources.h"
-#include "ui/base/l10n/l10n_util.h"
 
 #if defined(ENABLE_MANAGED_USERS)
 #include "chrome/browser/supervised_user/supervised_user_service.h"
@@ -46,38 +45,23 @@ namespace chrome {
 
 namespace {
 
-// Configuration options for Embedded Search.
-// EmbeddedSearch field trials are named in such a way that we can parse out
-// the experiment configuration from the trial's group name in order to give
-// us maximum flexability in running experiments.
-// Field trial groups should be named things like "Group7 espv:2 instant:1".
-// The first token is always GroupN for some integer N, followed by a
-// space-delimited list of key:value pairs which correspond to these flags:
-const char kEmbeddedPageVersionFlagName[] = "espv";
-#if defined(OS_IOS)
-const uint64 kEmbeddedPageVersionDefault = 1;
-#elif defined(OS_ANDROID)
-const uint64 kEmbeddedPageVersionDefault = 1;
-// Use this variant to enable EmbeddedSearch SearchBox API in the results page.
-const uint64 kEmbeddedSearchEnabledVersion = 2;
-#else
-const uint64 kEmbeddedPageVersionDefault = 2;
-#endif
-
-const char kHideVerbatimFlagName[] = "hide_verbatim";
-const char kPrefetchSearchResultsFlagName[] = "prefetch_results";
 const char kPrefetchSearchResultsOnSRP[] = "prefetch_results_srp";
 const char kAllowPrefetchNonDefaultMatch[] = "allow_prefetch_non_default_match";
 const char kPrerenderInstantUrlOnOmniboxFocus[] =
     "prerender_instant_url_on_omnibox_focus";
 
+#if defined(OS_ANDROID)
+const char kPrefetchSearchResultsFlagName[] = "prefetch_results";
+
 // Controls whether to reuse prerendered Instant Search base page to commit any
 // search query.
 const char kReuseInstantSearchBasePage[] = "reuse_instant_search_base_page";
+#endif
 
 // Controls whether to use the alternate Instant search base URL. This allows
 // experimentation of Instant search.
 const char kUseAltInstantURL[] = "use_alternate_instant_url";
+const char kUseSearchPathForInstant[] = "use_search_path_for_instant";
 const char kAltInstantURLPath[] = "search";
 const char kAltInstantURLQueryParams[] = "&qbp=1";
 
@@ -87,20 +71,6 @@ const char kOriginChipFlagName[] = "origin_chip";
 const char kEnableQueryExtractionFlagName[] = "query_extraction";
 #endif
 const char kShouldShowGoogleLocalNTPFlagName[] = "google_local_ntp";
-
-// Constants for the field trial name and group prefix.
-// Note in M30 and below this field trial was named "InstantExtended" and in
-// M31 was renamed to EmbeddedSearch for clarity and cleanliness.  Since we
-// can't easilly sync up Finch configs with the pushing of this change to
-// Dev & Canary, for now the code accepts both names.
-// TODO(dcblack): Remove the InstantExtended name once M31 hits the Beta
-// channel.
-const char kInstantExtendedFieldTrialName[] = "InstantExtended";
-const char kEmbeddedSearchFieldTrialName[] = "EmbeddedSearch";
-
-// If the field trial's group name ends with this string its configuration will
-// be ignored and Instant Extended will not be enabled by default.
-const char kDisablingSuffix[] = "DISABLED";
 
 // Status of the New Tab URL for the default Search provider. NOTE: Used in a
 // UMA histogram so values should only be added at the end and not reordered.
@@ -170,12 +140,10 @@ TemplateURL* GetDefaultSearchProviderTemplateURL(Profile* profile) {
 
 GURL TemplateURLRefToGURL(const TemplateURLRef& ref,
                           const SearchTermsData& search_terms_data,
-                          int start_margin,
                           bool append_extra_query_params,
                           bool force_instant_results) {
   TemplateURLRef::SearchTermsArgs search_terms_args =
       TemplateURLRef::SearchTermsArgs(base::string16());
-  search_terms_args.omnibox_start_margin = start_margin;
   search_terms_args.append_extra_query_params = append_extra_query_params;
   search_terms_args.force_instant_results = force_instant_results;
   return GURL(ref.ReplaceSearchTerms(search_terms_args, search_terms_data));
@@ -184,9 +152,8 @@ GURL TemplateURLRefToGURL(const TemplateURLRef& ref,
 bool MatchesAnySearchURL(const GURL& url,
                          TemplateURL* template_url,
                          const SearchTermsData& search_terms_data) {
-  GURL search_url =
-      TemplateURLRefToGURL(template_url->url_ref(), search_terms_data,
-                           kDisableStartMargin, false, false);
+  GURL search_url = TemplateURLRefToGURL(template_url->url_ref(),
+                                         search_terms_data, false, false);
   if (search_url.is_valid() &&
       search::MatchesOriginAndPath(url, search_url))
     return true;
@@ -194,8 +161,7 @@ bool MatchesAnySearchURL(const GURL& url,
   // "URLCount() - 1" because we already tested url_ref above.
   for (size_t i = 0; i < template_url->URLCount() - 1; ++i) {
     TemplateURLRef ref(template_url, i);
-    search_url = TemplateURLRefToGURL(ref, search_terms_data,
-                                      kDisableStartMargin, false, false);
+    search_url = TemplateURLRefToGURL(ref, search_terms_data, false, false);
     if (search_url.is_valid() &&
         search::MatchesOriginAndPath(url, search_url))
       return true;
@@ -238,7 +204,7 @@ bool IsInstantURL(const GURL& url, Profile* profile) {
   const TemplateURLRef& instant_url_ref = template_url->instant_url_ref();
   UIThreadSearchTermsData search_terms_data(profile);
   const GURL instant_url = TemplateURLRefToGURL(
-      instant_url_ref, search_terms_data, kDisableStartMargin, false, false);
+      instant_url_ref, search_terms_data, false, false);
   if (!instant_url.is_valid())
     return false;
 
@@ -321,7 +287,7 @@ struct NewTabURLDetails {
 
     GURL search_provider_url = TemplateURLRefToGURL(
         template_url->new_tab_url_ref(), UIThreadSearchTermsData(profile),
-        kDisableStartMargin, false, false);
+        false, false);
     NewTabURLState state = IsValidNewTabURL(profile, search_provider_url);
     switch (state) {
       case NEW_TAB_URL_VALID:
@@ -344,35 +310,6 @@ struct NewTabURLDetails {
 
 // Negative start-margin values prevent the "es_sm" parameter from being used.
 const int kDisableStartMargin = -1;
-
-bool IsInstantExtendedAPIEnabled() {
-#if defined(OS_IOS)
-  return false;
-#elif defined(OS_ANDROID)
-  return EmbeddedSearchPageVersion() == kEmbeddedSearchEnabledVersion;
-#else
-  return true;
-#endif  // defined(OS_IOS)
-}
-
-// Determine what embedded search page version to request from the user's
-// default search provider. If 0, the embedded search UI should not be enabled.
-uint64 EmbeddedSearchPageVersion() {
-#if defined(OS_ANDROID)
-  if (CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kEnableEmbeddedSearchAPI)) {
-    return kEmbeddedSearchEnabledVersion;
-  }
-#endif
-
-  FieldTrialFlags flags;
-  if (GetFieldTrialInfo(&flags)) {
-    return GetUInt64ValueForFlagWithDefault(kEmbeddedPageVersionFlagName,
-                                            kEmbeddedPageVersionDefault,
-                                            flags);
-  }
-  return kEmbeddedPageVersionDefault;
-}
 
 std::string InstantExtendedEnabledParam(bool for_search) {
   if (for_search && !chrome::IsQueryExtractionEnabled())
@@ -527,8 +464,7 @@ bool IsSuggestPrefEnabled(Profile* profile) {
          profile->GetPrefs()->GetBoolean(prefs::kSearchSuggestEnabled);
 }
 
-GURL GetInstantURL(Profile* profile, int start_margin,
-                   bool force_instant_results) {
+GURL GetInstantURL(Profile* profile, bool force_instant_results) {
   if (!IsInstantExtendedAPIEnabled() || !IsSuggestPrefEnabled(profile))
     return GURL();
 
@@ -538,7 +474,7 @@ GURL GetInstantURL(Profile* profile, int start_margin,
 
   GURL instant_url = TemplateURLRefToGURL(
       template_url->instant_url_ref(), UIThreadSearchTermsData(profile),
-      start_margin, true, force_instant_results);
+      true, force_instant_results);
   if (!instant_url.is_valid() ||
       !template_url->HasSearchTermsReplacementKey(instant_url))
     return GURL();
@@ -559,8 +495,10 @@ GURL GetInstantURL(Profile* profile, int start_margin,
 
   if (ShouldUseAltInstantURL()) {
     GURL::Replacements replacements;
-    const std::string path(kAltInstantURLPath);
-    replacements.SetPathStr(path);
+      const std::string path(
+          ShouldUseSearchPathForInstant() ? kAltInstantURLPath : std::string());
+    if (!path.empty())
+      replacements.SetPathStr(path);
     const std::string query(
         instant_url.query() + std::string(kAltInstantURLQueryParams));
     replacements.SetQueryStr(query);
@@ -578,7 +516,7 @@ std::vector<GURL> GetSearchURLs(Profile* profile) {
   for (size_t i = 0; i < template_url->URLCount(); ++i) {
     TemplateURLRef ref(template_url, i);
     result.push_back(TemplateURLRefToGURL(ref, UIThreadSearchTermsData(profile),
-                                          kDisableStartMargin, false, false));
+                                          false, false));
   }
   return result;
 }
@@ -588,14 +526,14 @@ GURL GetNewTabPageURL(Profile* profile) {
 }
 
 GURL GetSearchResultPrefetchBaseURL(Profile* profile) {
-  return ShouldPrefetchSearchResults() ?
-      GetInstantURL(profile, kDisableStartMargin, true) : GURL();
+  return ShouldPrefetchSearchResults() ? GetInstantURL(profile, true) : GURL();
 }
 
 bool ShouldPrefetchSearchResults() {
   if (!IsInstantExtendedAPIEnabled())
     return false;
 
+#if defined(OS_ANDROID)
   if (CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kPrefetchSearchResults)) {
     return true;
@@ -604,6 +542,9 @@ bool ShouldPrefetchSearchResults() {
   FieldTrialFlags flags;
   return GetFieldTrialInfo(&flags) && GetBoolValueForFlagWithDefault(
       kPrefetchSearchResultsFlagName, false, flags);
+#else
+  return true;
+#endif
 }
 
 bool ShouldAllowPrefetchNonDefaultMatch() {
@@ -628,19 +569,17 @@ bool ShouldReuseInstantSearchBasePage() {
   if (!ShouldPrefetchSearchResults())
     return false;
 
+#if defined(OS_ANDROID)
   FieldTrialFlags flags;
   return GetFieldTrialInfo(&flags) && GetBoolValueForFlagWithDefault(
       kReuseInstantSearchBasePage, false, flags);
+#else
+  return true;
+#endif
 }
 
 GURL GetLocalInstantURL(Profile* profile) {
   return GURL(chrome::kChromeSearchLocalNtpUrl);
-}
-
-bool ShouldHideTopVerbatimMatch() {
-  FieldTrialFlags flags;
-  return GetFieldTrialInfo(&flags) && GetBoolValueForFlagWithDefault(
-      kHideVerbatimFlagName, false, flags);
 }
 
 DisplaySearchButtonConditions GetDisplaySearchButtonConditions() {
@@ -796,73 +735,16 @@ void EnableQueryExtractionForTesting() {
   cl->AppendSwitch(switches::kEnableQueryExtraction);
 }
 
-bool GetFieldTrialInfo(FieldTrialFlags* flags) {
-  // Get the group name.  If the EmbeddedSearch trial doesn't exist, look for
-  // the older InstantExtended name.
-  std::string group_name = base::FieldTrialList::FindFullName(
-      kEmbeddedSearchFieldTrialName);
-  if (group_name.empty()) {
-    group_name = base::FieldTrialList::FindFullName(
-        kInstantExtendedFieldTrialName);
-  }
-
-  if (EndsWith(group_name, kDisablingSuffix, true))
-    return false;
-
-  // We have a valid trial that isn't disabled. Extract the flags.
-  std::string group_prefix(group_name);
-  size_t first_space = group_name.find(" ");
-  if (first_space != std::string::npos) {
-    // There is a flags section of the group name. Split that out and parse it.
-    group_prefix = group_name.substr(0, first_space);
-    if (!base::SplitStringIntoKeyValuePairs(group_name.substr(first_space),
-                                            ':', ' ', flags)) {
-      // Failed to parse the flags section. Assume the whole group name is
-      // invalid.
-      return false;
-    }
-  }
-  return true;
-}
-
-// Given a FieldTrialFlags object, returns the string value of the provided
-// flag.
-std::string GetStringValueForFlagWithDefault(const std::string& flag,
-                                             const std::string& default_value,
-                                             const FieldTrialFlags& flags) {
-  FieldTrialFlags::const_iterator i;
-  for (i = flags.begin(); i != flags.end(); i++) {
-    if (i->first == flag)
-      return i->second;
-  }
-  return default_value;
-}
-
-// Given a FieldTrialFlags object, returns the uint64 value of the provided
-// flag.
-uint64 GetUInt64ValueForFlagWithDefault(const std::string& flag,
-                                        uint64 default_value,
-                                        const FieldTrialFlags& flags) {
-  uint64 value;
-  std::string str_value =
-      GetStringValueForFlagWithDefault(flag, std::string(), flags);
-  if (base::StringToUint64(str_value, &value))
-    return value;
-  return default_value;
-}
-
-// Given a FieldTrialFlags object, returns the boolean value of the provided
-// flag.
-bool GetBoolValueForFlagWithDefault(const std::string& flag,
-                                    bool default_value,
-                                    const FieldTrialFlags& flags) {
-  return !!GetUInt64ValueForFlagWithDefault(flag, default_value ? 1 : 0, flags);
-}
-
 bool ShouldUseAltInstantURL() {
   FieldTrialFlags flags;
   return GetFieldTrialInfo(&flags) && GetBoolValueForFlagWithDefault(
       kUseAltInstantURL, false, flags);
+}
+
+bool ShouldUseSearchPathForInstant() {
+  FieldTrialFlags flags;
+  return GetFieldTrialInfo(&flags) && GetBoolValueForFlagWithDefault(
+      kUseSearchPathForInstant, false, flags);
 }
 
 }  // namespace chrome

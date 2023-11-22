@@ -12,13 +12,16 @@
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/focus/focus_search.h"
 #include "ui/views/view.h"
+#include "ui/views/view_targeter_delegate.h"
 
 namespace views {
 
 namespace test {
+class ViewTargeterTest;
 class WidgetTest;
 }
 
+class RootViewTargeter;
 class Widget;
 
 // This is a views-internal API and should not be used externally.
@@ -44,6 +47,7 @@ class PreEventDispatchHandler;
 //  TODO(sky): We don't really want to export this class.
 //
 class VIEWS_EXPORT RootView : public View,
+                              public ViewTargeterDelegate,
                               public FocusTraversable,
                               public ui::EventProcessor {
  public:
@@ -90,6 +94,7 @@ class VIEWS_EXPORT RootView : public View,
   // Overridden from ui::EventProcessor:
   virtual ui::EventTarget* GetRootTarget() OVERRIDE;
   virtual ui::EventDispatchDetails OnEventFromSource(ui::Event* event) OVERRIDE;
+  virtual void OnEventProcessingFinished(ui::Event* event) OVERRIDE;
 
   // Overridden from View:
   virtual const Widget* GetWidget() const OVERRIDE;
@@ -110,11 +115,6 @@ class VIEWS_EXPORT RootView : public View,
   virtual void UpdateParentLayer() OVERRIDE;
 
  protected:
-  // TODO(tdanderson): Remove RootView::DispatchGestureEvent() once
-  //                   its targeting and dispatch logic has been moved
-  //                   elsewhere. See crbug.com/348083.
-  virtual void DispatchGestureEvent(ui::GestureEvent* event);
-
   // Overridden from View:
   virtual void ViewHierarchyChanged(
       const ViewHierarchyChangedDetails& details) OVERRIDE;
@@ -125,8 +125,10 @@ class VIEWS_EXPORT RootView : public View,
   virtual View::DragInfo* GetDragInfo() OVERRIDE;
 
  private:
+  friend class ::views::RootViewTargeter;
   friend class ::views::View;
   friend class ::views::Widget;
+  friend class ::views::test::ViewTargeterTest;
   friend class ::views::test::WidgetTest;
 
   // Input ---------------------------------------------------------------------
@@ -166,6 +168,9 @@ class VIEWS_EXPORT RootView : public View,
 
   // Input ---------------------------------------------------------------------
 
+  // TODO(tdanderson): Consider moving the input-related members into
+  //                   ViewTargeter / RootViewTargeter.
+
   // The view currently handing down - drag - up
   View* mouse_pressed_handler_;
 
@@ -185,13 +190,16 @@ class VIEWS_EXPORT RootView : public View,
   int last_mouse_event_x_;
   int last_mouse_event_y_;
 
-  // The view currently handling gesture events. When set, this handler receives
-  // all gesture events, except when there is an event handler for the specific
-  // gesture (e.g. scroll).
+  // The View currently handling gesture events.
   View* gesture_handler_;
 
-  // The view currently handling scroll gesture events.
-  View* scroll_gesture_handler_;
+  // Used to indicate if the |gesture_handler_| member was set prior to the
+  // processing of the current event (i.e., if |gesture_handler_| was set
+  // by the dispatch of a previous gesture event).
+  // TODO(tdanderson): It may be possible to eliminate the need for this
+  //                   member if |event_dispatch_target_| can be used in
+  //                   its place.
+  bool gesture_handler_set_before_processing_;
 
   scoped_ptr<internal::PreEventDispatchHandler> pre_dispatch_handler_;
   scoped_ptr<internal::PostEventDispatchHandler> post_dispatch_handler_;

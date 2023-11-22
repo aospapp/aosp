@@ -13,6 +13,7 @@
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/printing/print_view_manager_observer.h"
 #include "content/public/browser/web_ui_message_handler.h"
+#include "google_apis/gaia/merge_session_helper.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
 
 #if defined(ENABLE_SERVICE_DISCOVERY)
@@ -20,6 +21,7 @@
 #include "chrome/browser/local_discovery/service_discovery_shared_client.h"
 #endif  // ENABLE_SERVICE_DISCOVERY
 
+class AccountReconcilor;
 class PrintSystemTaskProxy;
 
 namespace base {
@@ -43,7 +45,8 @@ class PrintPreviewHandler
       public local_discovery::PrivetLocalPrintOperation::Delegate,
 #endif
       public ui::SelectFileDialog::Listener,
-      public printing::PrintViewManagerObserver {
+      public printing::PrintViewManagerObserver,
+      public MergeSessionHelper::Observer {
  public:
   PrintPreviewHandler();
   virtual ~PrintPreviewHandler();
@@ -60,6 +63,11 @@ class PrintPreviewHandler
   // PrintViewManagerObserver implementation.
   virtual void OnPrintDialogShown() OVERRIDE;
 
+  // MergeSessionHelper::Observer implementation.
+  virtual void MergeSessionCompleted(
+      const std::string& account_id,
+      const GoogleServiceAuthError& error) OVERRIDE;
+
   // Displays a modal dialog, prompting the user to select a file.
   void SelectFile(const base::FilePath& default_path);
 
@@ -71,9 +79,11 @@ class PrintPreviewHandler
   // Called when print preview failed.
   void OnPrintPreviewFailed();
 
+#if !defined(DISABLE_BASIC_PRINTING)
   // Called when the user press ctrl+shift+p to display the native system
   // dialog.
   void ShowSystemDialog();
+#endif  // !DISABLE_BASIC_PRINTING
 
 #if defined(ENABLE_SERVICE_DISCOVERY)
   // PrivetLocalPrinterLister::Delegate implementation.
@@ -97,7 +107,13 @@ class PrintPreviewHandler
     return regenerate_preview_request_count_;
   }
 
+  // Sets |pdf_file_saved_closure_| to |closure|.
+  void SetPdfSavedClosureForTesting(const base::Closure& closure);
+
  private:
+  friend class PrintPreviewPdfGeneratedBrowserTest;
+  FRIEND_TEST_ALL_PREFIXES(PrintPreviewPdfGeneratedBrowserTest,
+                           MANUAL_DummyTest);
   class AccessTokenService;
 
   static bool PrivetPrintingEnabled();
@@ -135,9 +151,11 @@ class PrintPreviewHandler
   // Gets the printer capabilities. First element of |args| is the printer name.
   void HandleGetPrinterCapabilities(const base::ListValue* args);
 
+#if !defined(DISABLE_BASIC_PRINTING)
   // Asks the initiator renderer to show the native print system dialog. |args|
   // is unused.
   void HandleShowSystemDialog(const base::ListValue* args);
+#endif  // !DISABLE_BASIC_PRINTING
 
   // Callback for the signin dialog to call once signin is complete.
   void OnSigninComplete();
@@ -242,6 +260,8 @@ class PrintPreviewHandler
 #endif
 
 #if defined(ENABLE_SERVICE_DISCOVERY)
+  void StartPrivetLister(const scoped_refptr<
+      local_discovery::ServiceDiscoverySharedClient>& client);
   void OnPrivetCapabilities(const base::DictionaryValue* capabilities);
   void PrivetCapabilitiesUpdateClient(
       scoped_ptr<local_discovery::PrivetHTTPClient> http_client);
@@ -271,6 +291,11 @@ class PrintPreviewHandler
       base::DictionaryValue* printer_value);
 #endif
 
+  // Register/unregister from notifications of changes done to the GAIA
+  // cookie.
+  void RegisterForMergeSession();
+  void UnregisterForMergeSession();
+
   // The underlying dialog object.
   scoped_refptr<ui::SelectFileDialog> select_file_dialog_;
 
@@ -295,6 +320,10 @@ class PrintPreviewHandler
   // Holds token service to get OAuth2 access tokens.
   scoped_ptr<AccessTokenService> token_service_;
 
+  // Pointer to reconcilor so that print preview can listen for GAIA cookie
+  // changes.
+  AccountReconcilor* reconcilor_;
+
 #if defined(ENABLE_SERVICE_DISCOVERY)
   scoped_refptr<local_discovery::ServiceDiscoverySharedClient>
       service_discovery_client_;
@@ -309,6 +338,10 @@ class PrintPreviewHandler
   scoped_ptr<local_discovery::PrivetLocalPrintOperation>
       privet_local_print_operation_;
 #endif
+
+  // Notifies tests that want to know if the PDF has been saved. This doesn't
+  // notify the test if it was a successful save, only that it was attempted.
+  base::Closure pdf_file_saved_closure_;
 
   base::WeakPtrFactory<PrintPreviewHandler> weak_factory_;
 

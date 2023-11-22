@@ -102,8 +102,8 @@ void WebUIBidiCheckerBrowserTest::RunBidiCheckerOnPage(
     const std::string& page_url, bool is_rtl) {
   ui_test_utils::NavigateToURL(browser(), GURL(page_url));
   ASSERT_TRUE(RunJavascriptTest("runBidiChecker",
-                                base::Value::CreateStringValue(page_url),
-                                base::Value::CreateBooleanValue(is_rtl)));
+                                new base::StringValue(page_url),
+                                new base::FundamentalValue(is_rtl)));
 }
 
 void WebUIBidiCheckerBrowserTestLTR::RunBidiCheckerOnPage(
@@ -130,8 +130,8 @@ void WebUIBidiCheckerBrowserTestRTL::SetUpOnMainThread() {
   base::i18n::SetICUDefaultLocale("he");
 }
 
-void WebUIBidiCheckerBrowserTestRTL::CleanUpOnMainThread() {
-  WebUIBidiCheckerBrowserTest::CleanUpOnMainThread();
+void WebUIBidiCheckerBrowserTestRTL::TearDownOnMainThread() {
+  WebUIBidiCheckerBrowserTest::TearDownOnMainThread();
 
   base::i18n::SetICUDefaultLocale(app_locale_);
   ResourceBundle::GetSharedInstance().OverrideLocalePakForTest(

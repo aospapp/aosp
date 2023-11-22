@@ -26,8 +26,45 @@ GEN('#define MAYBE_testOpenBrowserOptions testOpenBrowserOptions');
 GEN('#endif  // defined(OS_MACOSX)');
 TEST_F('BrowserOptionsWebUITest', 'MAYBE_testOpenBrowserOptions', function() {
   assertEquals(this.browsePreload, document.location.href);
+  expectFalse($('navigation').classList.contains('background'));
 });
 
+/**
+ * TestFixture for the uber page when the browser options page has an overlay.
+ * @extends {testing.Test}
+ * @constructor
+ */
+function BrowserOptionsOverlayWebUITest() {}
+
+BrowserOptionsOverlayWebUITest.prototype = {
+  __proto__: testing.Test.prototype,
+
+  /** @override */
+  browsePreload: 'chrome://chrome/settings/autofill',
+
+  /** @override */
+  isAsync: true,
+};
+
+TEST_F('BrowserOptionsOverlayWebUITest', 'testNavigationInBackground',
+    function() {
+  assertEquals(this.browsePreload, document.location.href);
+
+  if ($('navigation').classList.contains('background')) {
+    testDone();
+    return;
+  }
+
+  // Wait for the message to be posted to the Uber page.
+  window.addEventListener('message', function(e) {
+    if (e.data.method == 'beginInterceptingEvents') {
+      window.setTimeout(function() {
+        assertTrue($('navigation').classList.contains('background'));
+        testDone();
+      });
+    }
+  });
+});
 
 /**
  * @extends {testing.Test}
@@ -47,7 +84,6 @@ TEST_F('BrowserOptionsFrameWebUITest', 'testAdvancedSettingsHiddenByDefault',
   assertEquals(this.browsePreload, document.location.href);
   expectTrue($('advanced-settings').hidden);
 });
-
 
 /**
  * @extends {testing.Test}

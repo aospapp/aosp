@@ -8,7 +8,6 @@
 
 #include "base/stl_util.h"
 #include "base/strings/sys_string_conversions.h"
-#include "chrome/browser/autocomplete/autocomplete_match.h"
 #include "chrome/browser/search/search.h"
 #include "chrome/browser/ui/cocoa/browser_window_controller.h"
 #import "chrome/browser/ui/cocoa/omnibox/omnibox_popup_cell.h"
@@ -16,14 +15,14 @@
 #include "chrome/browser/ui/cocoa/omnibox/omnibox_view_mac.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_model.h"
-#include "chrome/common/autocomplete_match_type.h"
+#include "components/omnibox/autocomplete_match.h"
+#include "components/omnibox/autocomplete_match_type.h"
 #include "grit/theme_resources.h"
 #include "skia/ext/skia_utils_mac.h"
 #import "third_party/google_toolbox_for_mac/src/AppKit/GTMNSAnimation+Duration.h"
 #import "ui/base/cocoa/cocoa_base_utils.h"
 #import "ui/base/cocoa/flipped_view.h"
 #include "ui/base/cocoa/window_size_constants.h"
-#include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/scoped_ns_graphics_context_save_gstate_mac.h"
 #include "ui/gfx/text_elider.h"
@@ -324,7 +323,7 @@ NSImage* OmniboxPopupViewMac::ImageForMatch(const AutocompleteMatch& match) {
   if (!image.IsEmpty())
     return image.AsNSImage();
 
-  const int resource_id = match.starred ?
+  const int resource_id = model_->IsStarredMatch(match) ?
       IDR_OMNIBOX_STAR : AutocompleteMatch::TypeToIcon(match.type);
   return OmniboxViewMac::ImageForResource(resource_id);
 }

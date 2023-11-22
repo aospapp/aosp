@@ -17,6 +17,7 @@
 #include "base/timer/elapsed_timer.h"
 #include "base/version.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/metrics/variations/generated_resources_map.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "components/metrics/metrics_state_manager.h"
@@ -36,6 +37,7 @@
 #include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_request_status.h"
 #include "ui/base/device_form_factor.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "url/gurl.h"
 
 #if !defined(OS_ANDROID) && !defined(OS_IOS) && !defined(OS_CHROMEOS)
@@ -64,16 +66,16 @@ const int64 kServerTimeResolutionMs = 1000;
 // that channel value. Otherwise, if the fake channel flag is provided, this
 // will return the fake channel. Failing that, this will return the UNKNOWN
 // channel.
-Study_Channel GetChannelForVariations() {
+variations::Study_Channel GetChannelForVariations() {
   switch (chrome::VersionInfo::GetChannel()) {
     case chrome::VersionInfo::CHANNEL_CANARY:
-      return Study_Channel_CANARY;
+      return variations::Study_Channel_CANARY;
     case chrome::VersionInfo::CHANNEL_DEV:
-      return Study_Channel_DEV;
+      return variations::Study_Channel_DEV;
     case chrome::VersionInfo::CHANNEL_BETA:
-      return Study_Channel_BETA;
+      return variations::Study_Channel_BETA;
     case chrome::VersionInfo::CHANNEL_STABLE:
-      return Study_Channel_STABLE;
+      return variations::Study_Channel_STABLE;
     case chrome::VersionInfo::CHANNEL_UNKNOWN:
       break;
   }
@@ -81,15 +83,15 @@ Study_Channel GetChannelForVariations() {
       CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
           switches::kFakeVariationsChannel);
   if (forced_channel == "stable")
-    return Study_Channel_STABLE;
+    return variations::Study_Channel_STABLE;
   if (forced_channel == "beta")
-    return Study_Channel_BETA;
+    return variations::Study_Channel_BETA;
   if (forced_channel == "dev")
-    return Study_Channel_DEV;
+    return variations::Study_Channel_DEV;
   if (forced_channel == "canary")
-    return Study_Channel_CANARY;
+    return variations::Study_Channel_CANARY;
   DVLOG(1) << "Invalid channel provided: " << forced_channel;
-  return Study_Channel_UNKNOWN;
+  return variations::Study_Channel_UNKNOWN;
 }
 
 // Returns a string that will be used for the value of the 'osname' URL param
@@ -182,17 +184,17 @@ ResourceRequestsAllowedState ResourceRequestStateToHistogramValue(
 
 // Gets current form factor and converts it from enum DeviceFormFactor to enum
 // Study_FormFactor.
-Study_FormFactor GetCurrentFormFactor() {
+variations::Study_FormFactor GetCurrentFormFactor() {
   switch (ui::GetDeviceFormFactor()) {
     case ui::DEVICE_FORM_FACTOR_PHONE:
-      return Study_FormFactor_PHONE;
+      return variations::Study_FormFactor_PHONE;
     case ui::DEVICE_FORM_FACTOR_TABLET:
-      return Study_FormFactor_TABLET;
+      return variations::Study_FormFactor_TABLET;
     case ui::DEVICE_FORM_FACTOR_DESKTOP:
-      return Study_FormFactor_DESKTOP;
+      return variations::Study_FormFactor_DESKTOP;
   }
   NOTREACHED();
-  return Study_FormFactor_DESKTOP;
+  return variations::Study_FormFactor_DESKTOP;
 }
 
 // Gets the hardware class and returns it as a string. This returns an empty
@@ -218,21 +220,18 @@ base::Time GetReferenceDateForExpiryChecks(PrefService* local_state) {
   return reference_date;
 }
 
-}  // namespace
+// Overrides the string resource sepecified by |hash| with |string| in the
+// resource bundle. Used as a callback passed to the variations seed processor.
+void OverrideUIString(uint32_t hash, const base::string16& string) {
+  int resource_id = GetResourceIndex(hash);
+  if (resource_id == -1)
+    return;
 
-VariationsService::VariationsService(
-    PrefService* local_state,
-    metrics::MetricsStateManager* state_manager)
-    : local_state_(local_state),
-      state_manager_(state_manager),
-      policy_pref_service_(local_state),
-      seed_store_(local_state),
-      create_trials_from_seed_called_(false),
-      initial_request_completed_(false),
-      resource_request_allowed_notifier_(new ResourceRequestAllowedNotifier),
-      weak_ptr_factory_(this) {
-  resource_request_allowed_notifier_->Init(this);
+  ui::ResourceBundle::GetSharedInstance().OverrideLocaleStringResource(
+      resource_id, string);
 }
+
+}  // namespace
 
 VariationsService::VariationsService(
     ResourceRequestAllowedNotifier* notifier,
@@ -255,7 +254,7 @@ VariationsService::~VariationsService() {
 bool VariationsService::CreateTrialsFromSeed() {
   create_trials_from_seed_called_ = true;
 
-  VariationsSeed seed;
+  variations::VariationsSeed seed;
   if (!seed_store_.LoadSeed(&seed))
     return false;
 
@@ -267,22 +266,56 @@ bool VariationsService::CreateTrialsFromSeed() {
   if (!current_version.IsValid())
     return false;
 
-  VariationsSeedProcessor().CreateTrialsFromSeed(
-      seed, g_browser_process->GetApplicationLocale(),
-      GetReferenceDateForExpiryChecks(local_state_), current_version,
-      GetChannelForVariations(), GetCurrentFormFactor(), GetHardwareClass());
+  variations::VariationsSeedProcessor().CreateTrialsFromSeed(
+      seed,
+      g_browser_process->GetApplicationLocale(),
+      GetReferenceDateForExpiryChecks(local_state_),
+      current_version,
+      GetChannelForVariations(),
+      GetCurrentFormFactor(),
+      GetHardwareClass(),
+      base::Bind(&OverrideUIString));
+
+  const base::Time now = base::Time::Now();
 
   // Log the "freshness" of the seed that was just used. The freshness is the
   // time between the last successful seed download and now.
   const int64 last_fetch_time_internal =
       local_state_->GetInt64(prefs::kVariationsLastFetchTime);
   if (last_fetch_time_internal) {
-    const base::Time now = base::Time::Now();
     const base::TimeDelta delta =
         now - base::Time::FromInternalValue(last_fetch_time_internal);
     // Log the value in number of minutes.
     UMA_HISTOGRAM_CUSTOM_COUNTS("Variations.SeedFreshness", delta.InMinutes(),
         1, base::TimeDelta::FromDays(30).InMinutes(), 50);
+  }
+
+  // Log the skew between the seed date and the system clock/build time to
+  // analyze whether either could be used to make old variations seeds expire
+  // after some time.
+  const int64 seed_date_internal =
+      local_state_->GetInt64(prefs::kVariationsSeedDate);
+  if (seed_date_internal) {
+    const base::Time seed_date =
+        base::Time::FromInternalValue(seed_date_internal);
+    const int system_clock_delta_days = (now - seed_date).InDays();
+    if (system_clock_delta_days < 0) {
+      UMA_HISTOGRAM_COUNTS_100("Variations.SeedDateSkew.SystemClockBehindBy",
+                               -system_clock_delta_days);
+    } else {
+      UMA_HISTOGRAM_COUNTS_100("Variations.SeedDateSkew.SystemClockAheadBy",
+                               system_clock_delta_days);
+    }
+
+    const int build_time_delta_days =
+        (base::GetBuildTime() - seed_date).InDays();
+    if (build_time_delta_days < 0) {
+      UMA_HISTOGRAM_COUNTS_100("Variations.SeedDateSkew.BuildTimeBehindBy",
+                               -build_time_delta_days);
+    } else {
+      UMA_HISTOGRAM_COUNTS_100("Variations.SeedDateSkew.BuildTimeAheadBy",
+                               build_time_delta_days);
+    }
   }
 
   return true;
@@ -309,6 +342,14 @@ void VariationsService::StartRepeatedVariationsSeedFetch() {
   request_scheduler_->Start();
 }
 
+void VariationsService::AddObserver(Observer* observer) {
+  observer_list_.AddObserver(observer);
+}
+
+void VariationsService::RemoveObserver(Observer* observer) {
+  observer_list_.RemoveObserver(observer);
+}
+
 // TODO(rkaplow): Handle this and the similar event in metrics_service by
 // observing an 'OnAppEnterForeground' event in RequestScheduler instead of
 // requiring the frontend code to notify each service individually. Since the
@@ -316,6 +357,16 @@ void VariationsService::StartRepeatedVariationsSeedFetch() {
 // know details of this anymore.
 void VariationsService::OnAppEnterForeground() {
   request_scheduler_->OnAppEnterForeground();
+}
+
+#if defined(OS_WIN)
+void VariationsService::StartGoogleUpdateRegistrySync() {
+  registry_syncer_.RequestRegistrySync();
+}
+#endif
+
+void VariationsService::SetCreateTrialsFromSeedCalledForTesting(bool called) {
+  create_trials_from_seed_called_ = called;
 }
 
 // static
@@ -340,16 +391,6 @@ GURL VariationsService::GetVariationsServerURL(
 
   DCHECK(server_url.is_valid());
   return server_url;
-}
-
-#if defined(OS_WIN)
-void VariationsService::StartGoogleUpdateRegistrySync() {
-  registry_syncer_.RequestRegistrySync();
-}
-#endif
-
-void VariationsService::SetCreateTrialsFromSeedCalledForTesting(bool called) {
-  create_trials_from_seed_called_ = called;
 }
 
 // static
@@ -393,7 +434,8 @@ scoped_ptr<VariationsService> VariationsService::Create(
     return result.Pass();
   }
 #endif
-  result.reset(new VariationsService(local_state, state_manager));
+  result.reset(new VariationsService(
+      new ResourceRequestAllowedNotifier, local_state, state_manager));
   return result.Pass();
 }
 
@@ -425,7 +467,7 @@ void VariationsService::DoActualFetch() {
 void VariationsService::StoreSeed(const std::string& seed_data,
                                   const std::string& seed_signature,
                                   const base::Time& date_fetched) {
-  scoped_ptr<VariationsSeed> seed(new VariationsSeed);
+  scoped_ptr<variations::VariationsSeed> seed(new variations::VariationsSeed);
   if (!seed_store_.StoreSeedData(seed_data, seed_signature, date_fetched,
                                  seed.get())) {
     return;
@@ -457,6 +499,17 @@ void VariationsService::FetchVariationsSeed() {
   }
 
   DoActualFetch();
+}
+
+void VariationsService::NotifyObservers(
+    const variations::VariationsSeedSimulator::Result& result) {
+  if (result.kill_critical_group_change_count > 0) {
+    FOR_EACH_OBSERVER(Observer, observer_list_,
+                      OnExperimentChangesDetected(Observer::CRITICAL));
+  } else if (result.kill_best_effort_group_change_count > 0) {
+    FOR_EACH_OBSERVER(Observer, observer_list_,
+                      OnExperimentChangesDetected(Observer::BEST_EFFORT));
+  }
 }
 
 void VariationsService::OnURLFetchComplete(const net::URLFetcher* source) {
@@ -545,21 +598,23 @@ void VariationsService::OnResourceRequestsAllowed() {
 }
 
 void VariationsService::PerformSimulationWithVersion(
-    scoped_ptr<VariationsSeed> seed,
+    scoped_ptr<variations::VariationsSeed> seed,
     const base::Version& version) {
-  if (version.IsValid())
+  if (!version.IsValid())
     return;
 
   const base::ElapsedTimer timer;
 
   scoped_ptr<const base::FieldTrial::EntropyProvider> entropy_provider =
       state_manager_->CreateEntropyProvider();
-  VariationsSeedSimulator seed_simulator(*entropy_provider);
+  variations::VariationsSeedSimulator seed_simulator(*entropy_provider);
 
-  VariationsSeedSimulator::Result result = seed_simulator.SimulateSeedStudies(
-      *seed, g_browser_process->GetApplicationLocale(),
-      GetReferenceDateForExpiryChecks(local_state_), version,
-      GetChannelForVariations(), GetCurrentFormFactor(), GetHardwareClass());
+  const variations::VariationsSeedSimulator::Result result =
+      seed_simulator.SimulateSeedStudies(
+          *seed, g_browser_process->GetApplicationLocale(),
+          GetReferenceDateForExpiryChecks(local_state_), version,
+          GetChannelForVariations(), GetCurrentFormFactor(),
+          GetHardwareClass());
 
   UMA_HISTOGRAM_COUNTS_100("Variations.SimulateSeed.NormalChanges",
                            result.normal_group_change_count);
@@ -569,6 +624,8 @@ void VariationsService::PerformSimulationWithVersion(
                            result.kill_critical_group_change_count);
 
   UMA_HISTOGRAM_TIMES("Variations.SimulateSeed.Duration", timer.Elapsed());
+
+  NotifyObservers(result);
 }
 
 void VariationsService::RecordLastFetchTime() {

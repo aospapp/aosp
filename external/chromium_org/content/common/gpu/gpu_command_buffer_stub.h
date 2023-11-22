@@ -32,10 +32,8 @@
 #include "url/gurl.h"
 
 namespace gpu {
-class GpuControlService;
 struct Mailbox;
 namespace gles2 {
-class ImageManager;
 class MailboxManager;
 }
 }
@@ -71,7 +69,6 @@ class GpuCommandBufferStub
       GpuCommandBufferStub* share_group,
       const gfx::GLSurfaceHandle& handle,
       gpu::gles2::MailboxManager* mailbox_manager,
-      gpu::gles2::ImageManager* image_manager,
       const gfx::Size& size,
       const gpu::gles2::DisallowedFeatures& disallowed_features,
       const std::vector<int32>& attribs,
@@ -167,7 +164,8 @@ class GpuCommandBufferStub
   void OnWaitForGetOffsetInRange(int32 start,
                                  int32 end,
                                  IPC::Message* reply_message);
-  void OnAsyncFlush(int32 put_offset, uint32 flush_count);
+  void OnAsyncFlush(int32 put_offset, uint32 flush_count,
+                    const std::vector<ui::LatencyInfo>& latency_info);
   void OnEcho(const IPC::Message& message);
   void OnRescheduled();
   void OnRegisterTransferBuffer(int32 id,
@@ -200,15 +198,14 @@ class GpuCommandBufferStub
   void OnSetClientHasMemoryAllocationChangedCallback(bool has_callback);
 
   void OnRegisterGpuMemoryBuffer(int32 id,
-                                 gfx::GpuMemoryBufferHandle gpu_memory_buffer,
+                                 gfx::GpuMemoryBufferHandle handle,
                                  uint32 width,
                                  uint32 height,
                                  uint32 internalformat);
-  void OnDestroyGpuMemoryBuffer(int32 id);
+  void OnUnregisterGpuMemoryBuffer(int32 id);
 
   void OnCommandProcessed();
   void OnParseError();
-  void OnSetLatencyInfo(const std::vector<ui::LatencyInfo>& latency_info);
   void OnCreateStreamTexture(
       uint32 texture_id, int32 stream_id, bool* succeeded);
 
@@ -251,7 +248,6 @@ class GpuCommandBufferStub
   scoped_ptr<gpu::gles2::GLES2Decoder> decoder_;
   scoped_ptr<gpu::GpuScheduler> scheduler_;
   scoped_refptr<gfx::GLSurface> surface_;
-  scoped_ptr<gpu::GpuControlService> gpu_control_service_;
 
   scoped_ptr<GpuMemoryManagerClientState> memory_manager_client_state_;
   // The last memory allocation received from the GpuMemoryManager (used to

@@ -37,7 +37,7 @@
         android:id="@+id/main_slider"
         android:layout_width="@dimen/slider_width"
         android:layout_height="wrap_content"
-        android:layout_gravity="left|center_vertical"
+        android:layout_gravity="start|center_vertical"
         android:clipToPadding="false"
         android:focusable="false"
         android:focusableInTouchMode="false"
@@ -51,7 +51,7 @@
         android:layout_height="match_parent"
         android:layout_weight="1"
         android:fontFamily="sans-serif-condensed"
-        android:gravity="left|center_vertical"
+        android:gravity="start|center_vertical"
         android:textAllCaps="true"
         android:textColor="@color/setting_text_title_unfocused_color"
         android:textSize="@dimen/setting_text_title_size" />

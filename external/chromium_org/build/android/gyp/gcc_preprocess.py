@@ -29,21 +29,30 @@ def DoGcc(options):
   build_utils.CheckOutput(gcc_cmd)
 
 
-def main():
+def main(args):
+  args = build_utils.ExpandFileArgs(args)
+
   parser = optparse.OptionParser()
+  build_utils.AddDepfileOption(parser)
+
   parser.add_option('--include-path', help='Include path for gcc.')
   parser.add_option('--template', help='Path to template.')
   parser.add_option('--output', help='Path for generated file.')
   parser.add_option('--stamp', help='Path to touch on success.')
   parser.add_option('--defines', help='Pre-defines macros', action='append')
 
-  options, _ = parser.parse_args()
+  options, _ = parser.parse_args(args)
 
   DoGcc(options)
+
+  if options.depfile:
+    build_utils.WriteDepfile(
+        options.depfile,
+        build_utils.GetPythonDependencies())
 
   if options.stamp:
     build_utils.Touch(options.stamp)
 
 
 if __name__ == '__main__':
-  sys.exit(main())
+  sys.exit(main(sys.argv[1:]))

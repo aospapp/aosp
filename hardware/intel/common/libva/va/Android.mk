@@ -28,16 +28,7 @@ LOCAL_PATH:= $(call my-dir)
 ifeq ($(ENABLE_IMG_GRAPHICS),true)
 
 LIBVA_DRIVERS_PATH = /system/lib
-
-# Version set to Android Jelly Bean
-ALOG_VERSION_REQ := 4.1
-ALOG_VERSION := $(filter $(ALOG_VERSION_REQ),$(firstword $(sort $(PLATFORM_VERSION) \
-                                   $(ALOG_VERSION_REQ))))
-
 include $(CLEAR_VARS)
-
-#LIBVA_MINOR_VERSION := 31
-#LIBVA_MAJOR_VERSION := 0 
 
 LOCAL_SRC_FILES := \
 	va.c \
@@ -47,14 +38,8 @@ LOCAL_SRC_FILES := \
 LOCAL_CFLAGS := \
 	-DANDROID \
 	-DVA_DRIVERS_PATH="\"$(LIBVA_DRIVERS_PATH)\"" \
-	-DLOG_TAG=\"libva\"
-
-# Android Jelly Bean defined ALOGx, older versions use LOGx
-ifeq ($(ALOG_VERSION), $(ALOG_VERSION_REQ))
-LOCAL_CFLAGS += -DANDROID_ALOG
-else
-LOCAL_CFLAGS += -DANDROID_LOG
-endif
+	-DLOG_TAG=\"libva\" \
+	-DANDROID_ALOG
 
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/..
 

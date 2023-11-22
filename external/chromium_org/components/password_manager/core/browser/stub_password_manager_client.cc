@@ -4,14 +4,31 @@
 
 #include "components/password_manager/core/browser/stub_password_manager_client.h"
 
+#include "components/password_manager/core/browser/password_form_manager.h"
+
 namespace password_manager {
 
 StubPasswordManagerClient::StubPasswordManagerClient() {}
 
 StubPasswordManagerClient::~StubPasswordManagerClient() {}
 
-void StubPasswordManagerClient::PromptUserToSavePassword(
-    PasswordFormManager* form_to_save) {}
+bool StubPasswordManagerClient::IsSyncAccountCredential(
+    const std::string& username, const std::string& origin) const {
+  return false;
+}
+
+bool StubPasswordManagerClient::ShouldFilterAutofillResult(
+    const autofill::PasswordForm& form) {
+  return false;
+}
+
+bool StubPasswordManagerClient::PromptUserToSavePassword(
+    scoped_ptr<PasswordFormManager> form_to_save) {
+  return false;
+}
+
+void StubPasswordManagerClient::AutomaticPasswordSave(
+    scoped_ptr<PasswordFormManager> saved_manager) {}
 
 void StubPasswordManagerClient::AuthenticateAutofillAndFillForm(
     scoped_ptr<autofill::PasswordFormFillData> fill_data) {}

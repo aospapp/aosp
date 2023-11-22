@@ -17,15 +17,14 @@
 #include "chrome/browser/ui/views/website_settings/permission_selector_view.h"
 #include "chrome/browser/ui/website_settings/website_settings.h"
 #include "chrome/browser/ui/website_settings/website_settings_utils.h"
-#include "chrome/common/content_settings_types.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
+#include "components/content_settings/core/common/content_settings_types.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/cert_store.h"
 #include "content/public/browser/user_metrics.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/ui_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -33,6 +32,7 @@
 #include "ui/gfx/font_list.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/insets.h"
+#include "ui/resources/grit/ui_resources.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/menu_button.h"
 #include "ui/views/controls/button/menu_button_listener.h"
@@ -68,7 +68,7 @@ const int kConnectionSectionPaddingRight = 18;
 
 // The text color that is used for the site identity status text, if the site's
 // identity was sucessfully verified.
-const int kIdentityVerifiedTextColor = 0xFF298a27;
+const SkColor kIdentityVerifiedTextColor = 0xFF298a27;
 
 // Left icon margin.
 const int kIconMarginLeft = 6;
@@ -310,6 +310,7 @@ WebsiteSettingsPopupView::WebsiteSettingsPopupView(
       identity_info_content_(NULL),
       certificate_dialog_link_(NULL),
       signed_certificate_timestamps_link_(NULL),
+      reset_decisions_button_(NULL),
       cert_id_(0),
       help_center_link_(NULL),
       connection_info_content_(NULL),
@@ -378,21 +379,35 @@ void WebsiteSettingsPopupView::OnWidgetDestroying(views::Widget* widget) {
   presenter_->OnUIClosing();
 }
 
-void WebsiteSettingsPopupView::ButtonPressed(
-    views::Button* button,
-    const ui::Event& event) {
+void WebsiteSettingsPopupView::ButtonPressed(views::Button* button,
+                                             const ui::Event& event) {
+  if (button == reset_decisions_button_)
+    presenter_->OnRevokeSSLErrorBypassButtonPressed();
   GetWidget()->Close();
 }
 
 void WebsiteSettingsPopupView::LinkClicked(views::Link* source,
                                            int event_flags) {
-  // The popup closes automatically when the collected cookies dialog or the
-  // certificate viewer opens. So delay handling of the link clicked to avoid
-  // a crash in the base class which needs to complete the mouse event handling.
-  content::BrowserThread::PostTask(
-      content::BrowserThread::UI, FROM_HERE,
-      base::Bind(&WebsiteSettingsPopupView::HandleLinkClickedAsync,
-                 weak_factory_.GetWeakPtr(), source));
+  if (source == cookie_dialog_link_) {
+    // Count how often the Collected Cookies dialog is opened.
+    content::RecordAction(
+        base::UserMetricsAction("WebsiteSettings_CookiesDialogOpened"));
+    new CollectedCookiesViews(web_contents_);
+  } else if (source == certificate_dialog_link_) {
+    gfx::NativeWindow parent = GetAnchorView() ?
+        GetAnchorView()->GetWidget()->GetNativeWindow() : NULL;
+    ShowCertificateViewerByID(web_contents_, parent, cert_id_);
+  } else if (source == signed_certificate_timestamps_link_) {
+    chrome::ShowSignedCertificateTimestampsViewer(
+        web_contents_, signed_certificate_timestamp_ids_);
+  } else if (source == help_center_link_) {
+    browser_->OpenURL(
+        content::OpenURLParams(GURL(chrome::kPageInfoHelpCenterURL),
+                               content::Referrer(),
+                               NEW_FOREGROUND_TAB,
+                               ui::PAGE_TRANSITION_LINK,
+                               false));
+  }
 }
 
 void WebsiteSettingsPopupView::TabSelectedAt(int index) {
@@ -556,6 +571,14 @@ void WebsiteSettingsPopupView::SetIdentityInfo(
       signed_certificate_timestamps_link_->set_listener(this);
     }
 
+    if (identity_info.show_ssl_decision_revoke_button) {
+      reset_decisions_button_ = new views::LabelButton(
+          this,
+          l10n_util::GetStringUTF16(
+              IDS_PAGEINFO_RESET_INVALID_CERTIFICATE_DECISIONS_BUTTON));
+      reset_decisions_button_->SetStyle(views::Button::STYLE_BUTTON);
+    }
+
     headline = base::UTF8ToUTF16(identity_info.site_identity);
   }
   ResetConnectionSection(
@@ -564,13 +587,15 @@ void WebsiteSettingsPopupView::SetIdentityInfo(
       base::string16(),  // The identity section has no headline.
       base::UTF8ToUTF16(identity_info.identity_status_description),
       certificate_dialog_link_,
-      signed_certificate_timestamps_link_);
+      signed_certificate_timestamps_link_,
+      reset_decisions_button_);
 
   ResetConnectionSection(
       connection_info_content_,
       WebsiteSettingsUI::GetConnectionIcon(identity_info.connection_status),
       base::string16(),  // The connection section has no headline.
       base::UTF8ToUTF16(identity_info.connection_status_description),
+      NULL,
       NULL,
       NULL);
 
@@ -586,6 +611,7 @@ void WebsiteSettingsPopupView::SetFirstVisit(
       WebsiteSettingsUI::GetFirstVisitIcon(first_visit),
       l10n_util::GetStringUTF16(IDS_PAGE_INFO_SITE_INFO_TITLE),
       first_visit,
+      NULL,
       NULL,
       NULL);
   connection_tab_->InvalidateLayout();
@@ -705,7 +731,8 @@ void WebsiteSettingsPopupView::ResetConnectionSection(
     const base::string16& headline,
     const base::string16& text,
     views::Link* link,
-    views::Link* secondary_link) {
+    views::Link* secondary_link,
+    views::LabelButton* reset_decisions_button) {
   section_container->RemoveAllChildViews(true);
 
   views::GridLayout* layout = new views::GridLayout(section_container);
@@ -778,34 +805,12 @@ void WebsiteSettingsPopupView::ResetConnectionSection(
     content_layout->AddView(secondary_link);
   }
 
+  if (reset_decisions_button) {
+    content_layout->StartRow(1, 0);
+    content_layout->AddView(reset_decisions_button);
+  }
+
   layout->AddView(content_pane, 1, 1, views::GridLayout::LEADING,
                   views::GridLayout::LEADING);
   layout->AddPaddingRow(0, kConnectionSectionPaddingBottom);
-}
-
-// Used to asynchronously handle clicks since these calls may cause the
-// destruction of the settings view and the base class window still
-// needs to be alive to finish handling the mouse click.
-void WebsiteSettingsPopupView::HandleLinkClickedAsync(views::Link* source) {
-  if (source == cookie_dialog_link_) {
-    // Count how often the Collected Cookies dialog is opened.
-    content::RecordAction(
-        base::UserMetricsAction("WebsiteSettings_CookiesDialogOpened"));
-    new CollectedCookiesViews(web_contents_);
-  } else if (source == certificate_dialog_link_) {
-    gfx::NativeWindow parent =
-        GetAnchorView() ? GetAnchorView()->GetWidget()->GetNativeWindow() :
-            NULL;
-    ShowCertificateViewerByID(web_contents_, parent, cert_id_);
-  } else if (source == signed_certificate_timestamps_link_) {
-    chrome::ShowSignedCertificateTimestampsViewer(
-        web_contents_, signed_certificate_timestamp_ids_);
-  } else if (source == help_center_link_) {
-    browser_->OpenURL(content::OpenURLParams(
-        GURL(chrome::kPageInfoHelpCenterURL),
-        content::Referrer(),
-        NEW_FOREGROUND_TAB,
-        content::PAGE_TRANSITION_LINK,
-        false));
-  }
 }

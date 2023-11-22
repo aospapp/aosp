@@ -7,7 +7,8 @@
 #include <string>
 #include <vector>
 
-#include "base/file_util.h"
+#include "base/base64.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/codec/png_codec.h"
@@ -26,6 +27,17 @@ bool WritePNGFile(const SkBitmap& bitmap, const base::FilePath& file_path,
     return base::WriteFile(file_path, data, size) == size;
   }
   return false;
+}
+
+std::string GetPNGDataUrl(const SkBitmap& bitmap) {
+  std::vector<unsigned char> png_data;
+  gfx::PNGCodec::EncodeBGRASkBitmap(bitmap, false, &png_data);
+  std::string data_url;
+  data_url.insert(data_url.end(), png_data.begin(), png_data.end());
+  base::Base64Encode(data_url, &data_url);
+  data_url.insert(0, "data:image/png;base64,");
+
+  return data_url;
 }
 
 bool ReadPNGFile(const base::FilePath& file_path, SkBitmap* bitmap) {
@@ -60,7 +72,15 @@ bool MatchesPNGFile(const SkBitmap& gen_bmp, base::FilePath ref_img_path,
   if (gen_bmp.width() == 0 || gen_bmp.height() == 0)
     return true;
 
-  return comparator.Compare(gen_bmp, ref_bmp);
+  bool compare = comparator.Compare(gen_bmp, ref_bmp);
+  if (!compare) {
+    std::string gen_bmp_data_url = GetPNGDataUrl(gen_bmp);
+    std::string ref_bmp_data_url = GetPNGDataUrl(ref_bmp);
+    LOG(ERROR) << "Pixels do not match!";
+    LOG(ERROR) << "Actual: " << gen_bmp_data_url;
+    LOG(ERROR) << "Expected: " << ref_bmp_data_url;
+  }
+  return compare;
 }
 
 }  // namespace cc

@@ -7,22 +7,23 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/callback.h"
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/strings/string_util.h"
 #include "base/values.h"
 #include "base/version.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/extensions/external_provider_impl.h"
+#include "chrome/browser/extensions/updater/chrome_extension_downloader_factory.h"
 #include "chrome/browser/extensions/updater/extension_downloader.h"
-#include "chrome/common/extensions/extension_constants.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
+#include "extensions/browser/notification_types.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/extension_urls.h"
 #include "net/url_request/url_request_context_getter.h"
 
 namespace chromeos {
@@ -44,7 +45,7 @@ ExternalCache::ExternalCache(const base::FilePath& cache_dir,
       weak_ptr_factory_(this) {
   notification_registrar_.Add(
       this,
-      chrome::NOTIFICATION_EXTENSION_INSTALL_ERROR,
+      extensions::NOTIFICATION_EXTENSION_INSTALL_ERROR,
       content::NotificationService::AllBrowserContextsAndSources());
 }
 
@@ -126,11 +127,25 @@ bool ExternalCache::GetExtension(const std::string& id,
   return local_cache_.GetExtension(id, file_path, version);
 }
 
+void ExternalCache::PutExternalExtension(
+    const std::string& id,
+    const base::FilePath& crx_file_path,
+    const std::string& version,
+    const PutExternalExtensionCallback& callback) {
+  local_cache_.PutExtension(id,
+                            crx_file_path,
+                            version,
+                            base::Bind(&ExternalCache::OnPutExternalExtension,
+                                       weak_ptr_factory_.GetWeakPtr(),
+                                       id,
+                                       callback));
+}
+
 void ExternalCache::Observe(int type,
                             const content::NotificationSource& source,
                             const content::NotificationDetails& details) {
   switch (type) {
-    case chrome::NOTIFICATION_EXTENSION_INSTALL_ERROR: {
+    case extensions::NOTIFICATION_EXTENSION_INSTALL_ERROR: {
       extensions::CrxInstaller* installer =
           content::Source<extensions::CrxInstaller>(source).ptr();
       OnDamagedFileDetected(installer->source_file());
@@ -153,6 +168,7 @@ void ExternalCache::OnExtensionDownloadFailed(
                  << " not found on update server";
       delegate_->OnExtensionDownloadFailed(id, error);
     } else {
+      // No version update for an already cached extension.
       delegate_->OnExtensionLoadedInCache(id);
     }
   } else {
@@ -207,9 +223,9 @@ void ExternalCache::CheckCache() {
     return;
 
   // If request_context_ is missing we can't download anything.
-  if (!downloader_ && request_context_) {
-    downloader_.reset(
-        new extensions::ExtensionDownloader(this, request_context_));
+  if (!downloader_ && request_context_.get()) {
+    downloader_ = ChromeExtensionDownloaderFactory::CreateForRequestContext(
+        request_context_.get(), this);
   }
 
   cached_extensions_->Clear();
@@ -318,6 +334,16 @@ void ExternalCache::OnPutExtension(const std::string& id,
   if (delegate_)
     delegate_->OnExtensionLoadedInCache(id);
   UpdateExtensionLoader();
+}
+
+void ExternalCache::OnPutExternalExtension(
+    const std::string& id,
+    const PutExternalExtensionCallback& callback,
+    const base::FilePath& file_path,
+    bool file_ownership_passed) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  OnPutExtension(id, file_path, file_ownership_passed);
+  callback.Run(id, !file_ownership_passed);
 }
 
 std::string ExternalCache::Delegate::GetInstalledExtensionVersion(

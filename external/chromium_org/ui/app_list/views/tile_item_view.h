@@ -5,6 +5,8 @@
 #ifndef UI_APP_LIST_VIEWS_TILE_ITEM_VIEW_H_
 #define UI_APP_LIST_VIEWS_TILE_ITEM_VIEW_H_
 
+#include "ui/app_list/app_list_export.h"
+#include "ui/app_list/search_result_observer.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/custom_button.h"
 
@@ -15,19 +17,19 @@ class Label;
 
 namespace app_list {
 
-class AppListItem;
+class SearchResult;
 
 // The view for a tile in the app list on the start/search page.
-class TileItemView : public views::CustomButton, public views::ButtonListener {
+class APP_LIST_EXPORT TileItemView : public views::CustomButton,
+                                     public views::ButtonListener,
+                                     public SearchResultObserver {
  public:
   TileItemView();
   virtual ~TileItemView();
 
-  void SetAppListItem(AppListItem* item);
+  void SetSearchResult(SearchResult* item);
 
  private:
-  class TileItemBackground;
-
   // Overridden from views::View:
   virtual gfx::Size GetPreferredSize() const OVERRIDE;
 
@@ -35,13 +37,15 @@ class TileItemView : public views::CustomButton, public views::ButtonListener {
   virtual void ButtonPressed(views::Button* sender,
                              const ui::Event& event) OVERRIDE;
 
+  // Overridden from SearchResultObserver:
+  virtual void OnIconChanged() OVERRIDE;
+  virtual void OnResultDestroying() OVERRIDE;
+
   // Owned by the model provided by the AppListViewDelegate.
-  AppListItem* item_;
+  SearchResult* item_;
 
   views::ImageView* icon_;  // Owned by views hierarchy.
   views::Label* title_;     // Owned by views hierarchy.
-
-  TileItemBackground* background_;
 
   DISALLOW_COPY_AND_ASSIGN(TileItemView);
 };

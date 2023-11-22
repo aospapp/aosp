@@ -4,6 +4,7 @@
 
 #import "chrome/browser/ui/cocoa/download/download_item_cell.h"
 
+#include "base/bind.h"
 #include "base/strings/sys_string_conversions.h"
 #include "chrome/browser/download/download_item_model.h"
 #include "chrome/browser/download/download_shelf.h"
@@ -15,7 +16,6 @@
 #include "grit/theme_resources.h"
 #import "third_party/google_toolbox_for_mac/src/AppKit/GTMNSAnimation+Duration.h"
 #import "third_party/google_toolbox_for_mac/src/AppKit/GTMNSColor+Luminance.h"
-#include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/text_elider.h"
 #include "ui/gfx/canvas_skia_paint.h"
 #include "ui/gfx/font_list.h"
@@ -75,6 +75,16 @@ const CGFloat kCompleteAnimationDuration = 2.5;
 const CGFloat kInterruptedAnimationDuration = 2.5;
 
 using content::DownloadItem;
+
+namespace {
+
+// Passed as a callback to DownloadShelf paint functions. On toolkit-views
+// platforms it will mirror the position of the download progress, but that's
+// not done on Mac.
+void DummyRTLMirror(gfx::Rect* bounds) {
+}
+
+}  // namespace
 
 // This is a helper class to animate the fading out of the status text.
 @interface DownloadItemCellAnimation : NSAnimation {
@@ -557,6 +567,7 @@ using content::DownloadItem;
         if (percentDone_ == -1) {
           DownloadShelf::PaintDownloadComplete(
               &canvas,
+              base::Bind(&DummyRTLMirror),
               x,
               y,
               [completionAnimation_ currentValue],
@@ -564,6 +575,7 @@ using content::DownloadItem;
         } else {
           DownloadShelf::PaintDownloadInterrupted(
               &canvas,
+              base::Bind(&DummyRTLMirror),
               x,
               y,
               [completionAnimation_ currentValue],
@@ -572,6 +584,7 @@ using content::DownloadItem;
       }
     } else if (percentDone_ >= 0 || indeterminateProgressTimer_) {
       DownloadShelf::PaintDownloadProgress(&canvas,
+                                           base::Bind(&DummyRTLMirror),
                                            x,
                                            y,
                                            indeterminateProgressAngle_,

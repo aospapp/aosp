@@ -31,9 +31,6 @@
 #include "url/gurl.h"
 
 struct GPUCreateCommandBufferConfig;
-struct GpuHostMsg_AcceleratedSurfaceBuffersSwapped_Params;
-struct GpuHostMsg_AcceleratedSurfacePostSubBuffer_Params;
-struct GpuHostMsg_AcceleratedSurfaceRelease_Params;
 
 namespace gfx {
 struct GpuMemoryBufferHandle;
@@ -67,12 +64,11 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
   typedef base::Callback<void(CreateCommandBufferResult)>
       CreateCommandBufferCallback;
 
-  typedef base::Callback<void(const gfx::Size)> CreateImageCallback;
-
   typedef base::Callback<void(const gfx::GpuMemoryBufferHandle& handle)>
       CreateGpuMemoryBufferCallback;
 
   static bool gpu_enabled() { return gpu_enabled_; }
+  static int gpu_crash_count() { return gpu_crash_count_; }
 
   // Creates a new GpuProcessHost or gets an existing one, resulting in the
   // launching of a GPU process if required.  Returns null on failure. It
@@ -112,6 +108,7 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
   // and GPUInfo, we call the callback.
   void EstablishGpuChannel(int client_id,
                            bool share_context,
+                           bool allow_future_sync_points,
                            const EstablishChannelCallback& callback);
 
   // Tells the GPU process to create a new command buffer that draws into the
@@ -124,21 +121,15 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
       int route_id,
       const CreateCommandBufferCallback& callback);
 
-  // Tells the GPU process to create a new image using the given window.
-  void CreateImage(
-      gfx::PluginWindowHandle window,
-      int client_id,
-      int image_id,
-      const CreateImageCallback& callback);
-
-    // Tells the GPU process to delete image.
-  void DeleteImage(int client_id, int image_id, int sync_point);
-
+  // Tells the GPU process to create a new GPU memory buffer using the given
+  // handle.
   void CreateGpuMemoryBuffer(const gfx::GpuMemoryBufferHandle& handle,
                              const gfx::Size& size,
                              unsigned internalformat,
                              unsigned usage,
                              const CreateGpuMemoryBufferCallback& callback);
+
+  // Tells the GPU process to destroy GPU memory buffer.
   void DestroyGpuMemoryBuffer(const gfx::GpuMemoryBufferHandle& handle,
                               int sync_point);
 
@@ -175,7 +166,6 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
   void OnChannelEstablished(const IPC::ChannelHandle& channel_handle);
   void OnCommandBufferCreated(CreateCommandBufferResult result);
   void OnDestroyCommandBuffer(int32 surface_id);
-  void OnImageCreated(const gfx::Size size);
   void OnGpuMemoryBufferCreated(const gfx::GpuMemoryBufferHandle& handle);
   void OnDidCreateOffscreenContext(const GURL& url);
   void OnDidLoseContext(bool offscreen,
@@ -184,8 +174,7 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
   void OnDidDestroyOffscreenContext(const GURL& url);
   void OnGpuMemoryUmaStatsReceived(const GPUMemoryUmaStats& stats);
 #if defined(OS_MACOSX)
-  void OnAcceleratedSurfaceBuffersSwapped(
-      const GpuHostMsg_AcceleratedSurfaceBuffersSwapped_Params& params);
+  void OnAcceleratedSurfaceBuffersSwapped(const IPC::Message& message);
 #endif
 
   void CreateChannelCache(int32 client_id);
@@ -199,6 +188,9 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
 
   void BlockLiveOffscreenContexts();
 
+  // Update GPU crash counters.  Disable GPU if crash limit is reached.
+  void RecordProcessCrash();
+
   std::string GetShaderPrefixKey();
 
   // The serial number of the GpuProcessHost / GpuProcessHostUIShim pair.
@@ -210,9 +202,6 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
 
   // The pending create command buffer requests we need to reply to.
   std::queue<CreateCommandBufferCallback> create_command_buffer_requests_;
-
-  // The pending create image requests we need to reply to.
-  std::queue<CreateImageCallback> create_image_requests_;
 
   // The pending create gpu memory buffer requests we need to reply to.
   std::queue<CreateGpuMemoryBufferCallback> create_gpu_memory_buffer_requests_;
@@ -241,12 +230,20 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
   // Time Init started.  Used to log total GPU process startup time to UMA.
   base::TimeTicks init_start_time_;
 
+  // Whether this host recorded a GPU crash or not.
+  bool gpu_crash_recorded_;
+
   // Master switch for enabling/disabling GPU acceleration for the current
   // browser session. It does not change the acceleration settings for
   // existing tabs, just the future ones.
   static bool gpu_enabled_;
 
   static bool hardware_gpu_enabled_;
+
+  static int gpu_crash_count_;
+  static int gpu_recent_crash_count_;
+  static bool crashed_before_;
+  static int swiftshader_crash_count_;
 
   scoped_ptr<BrowserChildProcessHostImpl> process_;
 

@@ -24,7 +24,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Picture;
-import android.net.http.ErrorStrings;
 import android.net.http.SslError;
 import android.net.Uri;
 import android.os.Build;
@@ -51,6 +50,8 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+
+import com.android.webview.chromium.WebViewDelegateFactory.WebViewDelegate;
 
 import org.chromium.android_webview.AwContentsClient;
 import org.chromium.android_webview.AwContentsClientBridge;
@@ -95,7 +96,7 @@ public class WebViewContentsClientAdapter extends AwContentsClient {
     // TAG is chosen for consistency with classic webview tracing.
     private static final String TAG = "WebViewCallback";
     // Enables API callback tracing
-    private static final boolean TRACE = android.webkit.DebugFlags.TRACE_CALLBACK;
+    private static final boolean TRACE = false;
     // The WebView instance that this adapter is serving.
     private final WebView mWebView;
     // The WebViewClient instance that was passed to WebView.setWebViewClient().
@@ -106,6 +107,8 @@ public class WebViewContentsClientAdapter extends AwContentsClient {
     private WebView.FindListener mFindListener;
     // The listener receiving notifications of screen updates.
     private WebView.PictureListener mPictureListener;
+
+    private WebViewDelegate mWebViewDelegate;
 
     private DownloadListener mDownloadListener;
 
@@ -120,12 +123,13 @@ public class WebViewContentsClientAdapter extends AwContentsClient {
      *
      * @param webView the {@link WebView} instance that this adapter is serving.
      */
-    WebViewContentsClientAdapter(WebView webView) {
-        if (webView == null) {
-            throw new IllegalArgumentException("webView can't be null");
+    WebViewContentsClientAdapter(WebView webView, WebViewDelegate webViewDelegate) {
+        if (webView == null || webViewDelegate == null) {
+            throw new IllegalArgumentException("webView or delegate can't be null");
         }
 
         mWebView = webView;
+        mWebViewDelegate = webViewDelegate;
         setWebViewClient(null);
 
         mUiThreadHandler = new Handler() {
@@ -531,7 +535,7 @@ public class WebViewContentsClientAdapter extends AwContentsClient {
             // ErrorStrings is @hidden, so we can't do this in AwContents.
             // Normally the net/ layer will set a valid description, but for synthesized callbacks
             // (like in the case for intercepted requests) AwContents will pass in null.
-            description = ErrorStrings.getString(errorCode, mWebView.getContext());
+            description = mWebViewDelegate.getErrorString(mWebView.getContext(), errorCode);
         }
         TraceEvent.begin();
         if (TRACE) Log.d(TAG, "onReceivedError=" + failingUrl);
@@ -907,14 +911,23 @@ public class WebViewContentsClientAdapter extends AwContentsClient {
                 uploadFileCallback.onReceiveValue(s);
             }
         };
+
+        // Invoke the new callback introduced in Lollipop. If the app handles
+        // it, we're done here.
         if (mWebChromeClient.onShowFileChooser(mWebView, callbackAdapter, adapter)) {
             return;
         }
-        if (mWebView.getContext().getApplicationInfo().targetSdkVersion >
-                Build.VERSION_CODES.KITKAT) {
+
+        // If the app did not handle it and we are running on Lollipop or newer, then
+        // abort.
+        if (mWebView.getContext().getApplicationInfo().targetSdkVersion >=
+                Build.VERSION_CODES.LOLLIPOP) {
             uploadFileCallback.onReceiveValue(null);
             return;
         }
+
+        // Otherwise, for older apps, attempt to invoke the legacy (hidden) API for
+        // backwards compatibility.
         ValueCallback<Uri> innerCallback = new ValueCallback<Uri>() {
             private boolean mCompleted;
             @Override

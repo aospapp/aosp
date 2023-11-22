@@ -69,7 +69,6 @@
     'res_v14_verify_only%': 0,
     'resource_input_paths': ['>@(res_extra_files)'],
     'intermediate_dir': '<(SHARED_INTERMEDIATE_DIR)/<(_target_name)',
-    'classes_dir': '<(intermediate_dir)/classes',
     'compile_stamp': '<(intermediate_dir)/compile.stamp',
     'lint_stamp': '<(intermediate_dir)/lint.stamp',
     'lint_result': '<(intermediate_dir)/lint_result.xml',
@@ -230,53 +229,18 @@
       ],
       'outputs': [
         '<(compile_stamp)',
+        '<(javac_jar_path)',
       ],
       'action': [
         'python', '<(DEPTH)/build/android/gyp/javac.py',
-        '--output-dir=<(classes_dir)',
         '--classpath=>(input_jars_paths)',
         '--src-gendirs=>(generated_src_dirs)',
         '--javac-includes=<(javac_includes)',
         '--chromium-code=<(chromium_code)',
+        '--jar-path=<(javac_jar_path)',
+        '--jar-excluded-classes=<(jar_excluded_classes)',
         '--stamp=<(compile_stamp)',
         '>@(java_sources)',
-      ]
-    },
-    {
-      'variables': {
-        'src_dirs': [
-          '<(java_in_dir)/src',
-          '>@(additional_src_dirs)',
-        ],
-        'stamp_path': '<(lint_stamp)',
-        'result_path': '<(lint_result)',
-        'config_path': '<(lint_config)',
-      },
-      'inputs': [
-        '<(compile_stamp)',
-      ],
-      'outputs': [
-        '<(lint_stamp)',
-      ],
-      'includes': [ 'android/lint_action.gypi' ],
-    },
-    {
-      'action_name': 'jar_<(_target_name)',
-      'message': 'Creating <(_target_name) jar',
-      'inputs': [
-        '<(DEPTH)/build/android/gyp/util/build_utils.py',
-        '<(DEPTH)/build/android/gyp/util/md5_check.py',
-        '<(DEPTH)/build/android/gyp/jar.py',
-        '<(compile_stamp)',
-      ],
-      'outputs': [
-        '<(javac_jar_path)',
-      ],
-      'action': [
-        'python', '<(DEPTH)/build/android/gyp/jar.py',
-        '--classes-dir=<(classes_dir)',
-        '--jar-path=<(javac_jar_path)',
-        '--excluded-classes=<(jar_excluded_classes)',
       ]
     },
     {
@@ -295,6 +259,26 @@
         '<(jar_path)',
       ],
       'includes': [ 'android/instr_action.gypi' ],
+    },
+    {
+      'variables': {
+        'src_dirs': [
+          '<(java_in_dir)/src',
+          '>@(additional_src_dirs)',
+        ],
+        'stamp_path': '<(lint_stamp)',
+        'result_path': '<(lint_result)',
+        'config_path': '<(lint_config)',
+        'lint_jar_path': '<(jar_final_path)',
+      },
+      'inputs': [
+        '<(jar_final_path)',
+        '<(compile_stamp)',
+      ],
+      'outputs': [
+        '<(lint_stamp)',
+      ],
+      'includes': [ 'android/lint_action.gypi' ],
     },
     {
       'action_name': 'jar_toc_<(_target_name)',

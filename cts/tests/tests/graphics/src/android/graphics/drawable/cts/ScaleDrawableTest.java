@@ -413,8 +413,8 @@ public class ScaleDrawableTest extends AndroidTestCase {
         attrs = DrawableTestUtils.getAttributeSet(parser, "scale_nodrawable");
         try {
             scaleDrawable.inflate(res, parser, attrs);
-            fail("Should throw IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
+            fail("Should throw XmlPullParserException");
+        } catch (XmlPullParserException e) {
         }
 
         try {

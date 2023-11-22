@@ -23,6 +23,7 @@ import android.os.Message;
 import android.os.Registrant;
 import android.os.RegistrantList;
 
+import android.telephony.TelephonyManager;
 import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppState;
 
@@ -42,6 +43,7 @@ public abstract class IccRecords extends Handler implements IccConstants {
     protected CommandsInterface mCi;
     protected IccFileHandler mFh;
     protected UiccCardApplication mParentApp;
+    protected TelephonyManager mTelephonyManager;
 
     protected RegistrantList mRecordsLoadedRegistrants = new RegistrantList();
     protected RegistrantList mImsiReadyRegistrants = new RegistrantList();
@@ -60,12 +62,13 @@ public abstract class IccRecords extends Handler implements IccConstants {
     protected String mIccId;
     protected String mMsisdn = null;  // My mobile number
     protected String mMsisdnTag = null;
+    protected String mNewMsisdn = null;
+    protected String mNewMsisdnTag = null;
     protected String mVoiceMailNum = null;
     protected String mVoiceMailTag = null;
     protected String mNewVoiceMailNum = null;
     protected String mNewVoiceMailTag = null;
     protected boolean mIsVoiceMailFixed = false;
-    protected int mCountVoiceMessages = 0;
     protected String mImsi;
     private IccIoResult auth_rsp;
 
@@ -115,14 +118,12 @@ public abstract class IccRecords extends Handler implements IccConstants {
                 + " adnCache=" + mAdnCache
                 + " recordsRequested=" + mRecordsRequested
                 + " iccid=" + mIccId
-                + " msisdn=" + mMsisdn
                 + " msisdnTag=" + mMsisdnTag
                 + " voiceMailNum=" + mVoiceMailNum
                 + " voiceMailTag=" + mVoiceMailTag
                 + " newVoiceMailNum=" + mNewVoiceMailNum
                 + " newVoiceMailTag=" + mNewVoiceMailTag
                 + " isVoiceMailFixed=" + mIsVoiceMailFixed
-                + " countVoiceMessages=" + mCountVoiceMessages
                 + " mImsi=" + mImsi
                 + " mncLength=" + mMncLength
                 + " mailboxIndex=" + mMailboxIndex
@@ -152,6 +153,8 @@ public abstract class IccRecords extends Handler implements IccConstants {
         mCi = ci;
         mFh = app.getIccFileHandler();
         mParentApp = app;
+        mTelephonyManager = (TelephonyManager) mContext.getSystemService(
+                Context.TELEPHONY_SERVICE);
     }
 
     /**
@@ -256,6 +259,16 @@ public abstract class IccRecords extends Handler implements IccConstants {
     public void setImsi(String imsi) {
         mImsi = imsi;
         mImsiReadyRegistrants.notifyRegistrants();
+    }
+
+    /**
+     * Get the Network Access ID (NAI) on a CSIM for CDMA like networks. Default is null if IMSI is
+     * not supported or unavailable.
+     *
+     * @return null if NAI is not yet ready or unavailable
+     */
+    public String getNAI() {
+        return null;
     }
 
     public String getMsisdnNumber() {
@@ -383,19 +396,10 @@ public abstract class IccRecords extends Handler implements IccConstants {
      */
     public abstract void setVoiceMessageWaiting(int line, int countWaiting);
 
-    /** @return  true if there are messages waiting, false otherwise. */
-    public boolean getVoiceMessageWaiting() {
-        return mCountVoiceMessages != 0;
-    }
-
     /**
-     * Returns number of voice messages waiting, if available
-     * If not available (eg, on an older CPHS SIM) -1 is returned if
-     * getVoiceMessageWaiting() is true
+     * Called by GsmPhone to update VoiceMail count
      */
-    public int getVoiceMessageCount() {
-        return mCountVoiceMessages;
-    }
+    public abstract int getVoiceMessageCount();
 
     /**
      * Called by STK Service when REFRESH is received.
@@ -565,6 +569,12 @@ public abstract class IccRecords extends Handler implements IccConstants {
         return null;
     }
 
+    protected void setSystemProperty(String key, String val) {
+        TelephonyManager.getDefault().setTelephonyProperty(mParentApp.getPhoneId(), key, val);
+
+        log("[key, value]=" + key + ", " +  val);
+    }
+
     /**
      * Returns the response of the SIM application on the UICC to authentication
      * challenge/response algorithm. The data string and challenge response are
@@ -610,11 +620,6 @@ public abstract class IccRecords extends Handler implements IccConstants {
         return android.util.Base64.encodeToString(auth_rsp.payload, android.util.Base64.NO_WRAP);
     }
 
-    protected boolean requirePowerOffOnSimRefreshReset() {
-        return mContext.getResources().getBoolean(
-            com.android.internal.R.bool.config_requireRadioPowerOffOnSimRefreshReset);
-    }
-
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         pw.println("IccRecords: " + this);
         pw.println(" mDestroyed=" + mDestroyed);
@@ -658,7 +663,6 @@ public abstract class IccRecords extends Handler implements IccConstants {
         pw.println(" mNewVoiceMailNum=" + mNewVoiceMailNum);
         pw.println(" mNewVoiceMailTag=" + mNewVoiceMailTag);
         pw.println(" mIsVoiceMailFixed=" + mIsVoiceMailFixed);
-        pw.println(" mCountVoiceMessages=" + mCountVoiceMessages);
         pw.println(" mImsi=" + mImsi);
         pw.println(" mMncLength=" + mMncLength);
         pw.println(" mMailboxIndex=" + mMailboxIndex);

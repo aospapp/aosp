@@ -136,6 +136,7 @@ task emitGradle(type:Copy) {
         exclude "**/build"
         exclude "**/proguard-project.txt"
         exclude "${samplegen.targetSampleModule()}/**/README*.txt"
+        exclude "**/README-*.txt"
 
         // src directory needs to be consolidated, will be done in next section
         exclude "${samplegen.targetSampleModule()}/src/"

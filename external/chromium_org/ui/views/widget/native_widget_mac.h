@@ -9,6 +9,9 @@
 #include "ui/views/widget/native_widget_private.h"
 
 namespace views {
+namespace test {
+class MockNativeWidgetMac;
+}
 
 class BridgedNativeWidget;
 
@@ -17,7 +20,10 @@ class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate {
   NativeWidgetMac(internal::NativeWidgetDelegate* delegate);
   virtual ~NativeWidgetMac();
 
- protected:
+  // Deletes |bridge_| and informs |delegate_| that the native widget is
+  // destroyed.
+  void OnWindowWillClose();
+
   // internal::NativeWidgetPrivate:
   virtual void InitNativeWidget(const Widget::InitParams& params) OVERRIDE;
   virtual NonClientFrameView* CreateNonClientFrameView() OVERRIDE;
@@ -101,13 +107,21 @@ class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate {
   virtual void EndMoveLoop() OVERRIDE;
   virtual void SetVisibilityChangedAnimationsEnabled(bool value) OVERRIDE;
   virtual ui::NativeTheme* GetNativeTheme() const OVERRIDE;
-  virtual void OnRootViewLayout() const OVERRIDE;
+  virtual void OnRootViewLayout() OVERRIDE;
   virtual bool IsTranslucentWindowOpacitySupported() const OVERRIDE;
+  virtual void OnSizeConstraintsChanged() OVERRIDE;
   virtual void RepostNativeEvent(gfx::NativeEvent native_event) OVERRIDE;
 
+ protected:
+  internal::NativeWidgetDelegate* delegate() { return delegate_; }
+
  private:
+  friend class test::MockNativeWidgetMac;
+
   internal::NativeWidgetDelegate* delegate_;
   scoped_ptr<BridgedNativeWidget> bridge_;
+
+  Widget::InitParams::Ownership ownership_;
 
   DISALLOW_COPY_AND_ASSIGN(NativeWidgetMac);
 };

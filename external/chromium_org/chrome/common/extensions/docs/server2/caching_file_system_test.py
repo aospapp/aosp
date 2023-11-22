@@ -9,7 +9,7 @@ import unittest
 
 from caching_file_system import CachingFileSystem
 from extensions_paths import SERVER2
-from file_system import  StatInfo
+from file_system import FileNotFoundError, StatInfo
 from local_file_system import LocalFileSystem
 from mock_file_system import MockFileSystem
 from object_store_creator import ObjectStoreCreator
@@ -58,13 +58,13 @@ class CachingFileSystemTest(unittest.TestCase):
     file_system = self._CreateCachingFileSystem(
         _CreateLocalFs(), start_empty=False)
     expected = ['dir/'] + ['file%d.html' % i for i in range(7)]
-    file_system._read_object_store.Set(
+    file_system._read_cache.Set(
         'list/',
         (expected, file_system.Stat('list/').version))
     self.assertEqual(expected, sorted(file_system.ReadSingle('list/').Get()))
 
     expected.remove('file0.html')
-    file_system._read_object_store.Set(
+    file_system._read_cache.Set(
         'list/',
         (expected, file_system.Stat('list/').version))
     self.assertEqual(expected, sorted(file_system.ReadSingle('list/').Get()))
@@ -112,9 +112,9 @@ class CachingFileSystemTest(unittest.TestCase):
 
     # Test directory and subdirectory stats are cached.
     file_system = create_empty_caching_fs()
-    file_system._stat_object_store.Del('bob/bob0')
-    file_system._read_object_store.Del('bob/bob0')
-    file_system._stat_object_store.Del('bob/bob1')
+    file_system._stat_cache.Del('bob/bob0')
+    file_system._read_cache.Del('bob/bob0')
+    file_system._stat_cache.Del('bob/bob1')
     test_fs.IncrementStat();
     futures = (file_system.ReadSingle('bob/bob1'),
                file_system.ReadSingle('bob/bob0'))
@@ -128,8 +128,8 @@ class CachingFileSystemTest(unittest.TestCase):
 
     # Test a more recent parent directory doesn't force a refetch of children.
     file_system = create_empty_caching_fs()
-    file_system._read_object_store.Del('bob/bob0')
-    file_system._read_object_store.Del('bob/bob1')
+    file_system._read_cache.Del('bob/bob0')
+    file_system._read_cache.Del('bob/bob1')
     futures = (file_system.ReadSingle('bob/bob1'),
                file_system.ReadSingle('bob/bob2'),
                file_system.ReadSingle('bob/bob3'))
@@ -150,7 +150,7 @@ class CachingFileSystemTest(unittest.TestCase):
     self.assertTrue(*mock_fs.CheckAndReset(stat_count=1))
 
     file_system = create_empty_caching_fs()
-    file_system._stat_object_store.Del('bob/bob0')
+    file_system._stat_cache.Del('bob/bob0')
     future = file_system.ReadSingle('bob/bob0')
     self.assertTrue(*mock_fs.CheckAndReset(read_count=1))
     self.assertEqual('bob/bob0 contents', future.Get())
@@ -158,6 +158,23 @@ class CachingFileSystemTest(unittest.TestCase):
     self.assertEqual('bob/bob0 contents',
                      file_system.ReadSingle('bob/bob0').Get())
     self.assertTrue(*mock_fs.CheckAndReset())
+
+    # Test skip_not_found caching behavior.
+    file_system = create_empty_caching_fs()
+    future = file_system.ReadSingle('bob/no_file', skip_not_found=True)
+    self.assertTrue(*mock_fs.CheckAndReset(read_count=1))
+    self.assertEqual(None, future.Get())
+    self.assertTrue(*mock_fs.CheckAndReset(read_resolve_count=1, stat_count=1))
+    future = file_system.ReadSingle('bob/no_file', skip_not_found=True)
+    # There shouldn't be another read/stat from the file system;
+    # we know the file is not there.
+    self.assertTrue(*mock_fs.CheckAndReset())
+    future = file_system.ReadSingle('bob/no_file')
+    self.assertTrue(*mock_fs.CheckAndReset(read_count=1))
+    # Even though we cached information about non-existent files,
+    # trying to read one without specifiying skip_not_found should
+    # still raise an error.
+    self.assertRaises(FileNotFoundError, future.Get)
 
   def testCachedStat(self):
     test_fs = TestFileSystem({
@@ -219,21 +236,61 @@ class CachingFileSystemTest(unittest.TestCase):
     test_fs.IncrementStat()
     run_expecting_stat('1')
 
-    def testSkipNotFound(self):
-      caching_fs = self._CreateCachingFileSystem(TestFileSystem({
-        'bob': {
-          'bob0': 'bob/bob0 contents',
-          'bob1': 'bob/bob1 contents'
-        }
-      }))
-      def read_skip_not_found(paths):
-        return caching_fs.Read(paths, skip_not_found=True).Get()
-      self.assertEqual({}, read_skip_not_found(('grub',)))
-      self.assertEqual({}, read_skip_not_found(('bob/bob2',)))
-      self.assertEqual({
-        'bob/bob0': 'bob/bob0 contents',
-      }, read_skip_not_found(('bob/bob0', 'bob/bob2')))
+  def testSkipNotFound(self):
+    caching_fs = self._CreateCachingFileSystem(TestFileSystem({
+      'bob': {
+        'bob0': 'bob/bob0 contents',
+        'bob1': 'bob/bob1 contents'
+      }
+    }))
+    def read_skip_not_found(paths):
+      return caching_fs.Read(paths, skip_not_found=True).Get()
+    self.assertEqual({}, read_skip_not_found(('grub',)))
+    self.assertEqual({}, read_skip_not_found(('bob/bob2',)))
+    self.assertEqual({
+      'bob/bob0': 'bob/bob0 contents',
+    }, read_skip_not_found(('bob/bob0', 'bob/bob2')))
 
+  def testWalkCaching(self):
+    test_fs = TestFileSystem({
+      'root': {
+        'file1': 'file1',
+        'file2': 'file2',
+        'dir1': {
+          'dir1_file1': 'dir1_file1',
+          'dir2': {},
+          'dir3': {
+            'dir3_file1': 'dir3_file1',
+            'dir3_file2': 'dir3_file2'
+          }
+        }
+      }
+    })
+    mock_fs = MockFileSystem(test_fs)
+    file_system = self._CreateCachingFileSystem(mock_fs, start_empty=True)
+    for walkinfo in file_system.Walk(''):
+      pass
+    self.assertTrue(*mock_fs.CheckAndReset(
+        read_resolve_count=5, read_count=5, stat_count=5))
+
+    all_dirs, all_files = [], []
+    for root, dirs, files in file_system.Walk(''):
+      all_dirs.extend(dirs)
+      all_files.extend(files)
+    self.assertEqual(sorted(['root/', 'dir1/', 'dir2/', 'dir3/']),
+                     sorted(all_dirs))
+    self.assertEqual(
+        sorted(['file1', 'file2', 'dir1_file1', 'dir3_file1', 'dir3_file2']),
+        sorted(all_files))
+    # All data should be cached.
+    self.assertTrue(*mock_fs.CheckAndReset())
+
+    # Starting from a different root should still pull cached data.
+    for walkinfo in file_system.Walk('root/dir1/'):
+      pass
+    self.assertTrue(*mock_fs.CheckAndReset())
+    # TODO(ahernandez): Test with a new instance CachingFileSystem so a
+    # different object store is utilized.
 
 if __name__ == '__main__':
   unittest.main()

@@ -4,6 +4,8 @@
 
 #include "net/quic/crypto/quic_crypto_client_config.h"
 
+#include "base/metrics/histogram.h"
+#include "base/metrics/sparse_histogram.h"
 #include "base/stl_util.h"
 #include "base/strings/string_util.h"
 #include "net/quic/crypto/cert_compressor.h"
@@ -28,6 +30,31 @@ using std::vector;
 
 namespace net {
 
+namespace {
+
+enum ServerConfigState {
+  // WARNING: Do not change the numerical values of any of server config state.
+  // Do not remove deprecated server config states - just comment them as
+  // deprecated.
+  SERVER_CONFIG_EMPTY = 0,
+  SERVER_CONFIG_INVALID = 1,
+  SERVER_CONFIG_CORRUPTED = 2,
+  SERVER_CONFIG_EXPIRED = 3,
+  SERVER_CONFIG_INVALID_EXPIRY = 4,
+
+  // NOTE: Add new server config states only immediately above this line. Make
+  // sure to update the QuicServerConfigState enum in
+  // tools/metrics/histograms/histograms.xml accordingly.
+  SERVER_CONFIG_COUNT
+};
+
+void RecordServerConfigState(ServerConfigState server_config_state) {
+  UMA_HISTOGRAM_ENUMERATION("Net.QuicClientHelloServerConfigState",
+                            server_config_state, SERVER_CONFIG_COUNT);
+}
+
+}  // namespace
+
 QuicCryptoClientConfig::QuicCryptoClientConfig()
     : disable_ecdsa_(false) {}
 
@@ -42,7 +69,13 @@ QuicCryptoClientConfig::CachedState::CachedState()
 QuicCryptoClientConfig::CachedState::~CachedState() {}
 
 bool QuicCryptoClientConfig::CachedState::IsComplete(QuicWallTime now) const {
-  if (server_config_.empty() || !server_config_valid_) {
+  if (server_config_.empty()) {
+    RecordServerConfigState(SERVER_CONFIG_EMPTY);
+    return false;
+  }
+
+  if (!server_config_valid_) {
+    RecordServerConfigState(SERVER_CONFIG_INVALID);
     return false;
   }
 
@@ -50,12 +83,21 @@ bool QuicCryptoClientConfig::CachedState::IsComplete(QuicWallTime now) const {
   if (!scfg) {
     // Should be impossible short of cache corruption.
     DCHECK(false);
+    RecordServerConfigState(SERVER_CONFIG_CORRUPTED);
     return false;
   }
 
   uint64 expiry_seconds;
-  if (scfg->GetUint64(kEXPY, &expiry_seconds) != QUIC_NO_ERROR ||
-      now.ToUNIXSeconds() >= expiry_seconds) {
+  if (scfg->GetUint64(kEXPY, &expiry_seconds) != QUIC_NO_ERROR) {
+    RecordServerConfigState(SERVER_CONFIG_INVALID_EXPIRY);
+    return false;
+  }
+  if (now.ToUNIXSeconds() >= expiry_seconds) {
+    UMA_HISTOGRAM_CUSTOM_TIMES(
+        "Net.QuicClientHelloServerConfig.InvalidDuration",
+        base::TimeDelta::FromSeconds(now.ToUNIXSeconds() - expiry_seconds),
+        base::TimeDelta::FromMinutes(1), base::TimeDelta::FromDays(20), 50);
+    RecordServerConfigState(SERVER_CONFIG_EXPIRED);
     return false;
   }
 
@@ -250,6 +292,9 @@ void QuicCryptoClientConfig::CachedState::InitializeFrom(
   certs_ = other.certs_;
   server_config_sig_ = other.server_config_sig_;
   server_config_valid_ = other.server_config_valid_;
+  if (other.proof_verify_details_.get() != NULL) {
+    proof_verify_details_.reset(other.proof_verify_details_->Clone());
+  }
   ++generation_counter_;
 }
 
@@ -478,7 +523,8 @@ QuicErrorCode QuicCryptoClientConfig::FillClientHello(
     if (!CryptoUtils::DeriveKeys(out_params->initial_premaster_secret,
                                  out_params->aead, out_params->client_nonce,
                                  out_params->server_nonce, hkdf_input,
-                                 CryptoUtils::CLIENT, &crypters)) {
+                                 CryptoUtils::CLIENT, &crypters,
+                                 NULL /* subkey secret */)) {
       *error_details = "Symmetric key setup failed";
       return QUIC_CRYPTO_SYMMETRIC_KEY_SETUP_FAILED;
     }
@@ -520,7 +566,8 @@ QuicErrorCode QuicCryptoClientConfig::FillClientHello(
   if (!CryptoUtils::DeriveKeys(
            out_params->initial_premaster_secret, out_params->aead,
            out_params->client_nonce, out_params->server_nonce, hkdf_input,
-           CryptoUtils::CLIENT, &out_params->initial_crypters)) {
+           CryptoUtils::CLIENT, &out_params->initial_crypters,
+           NULL /* subkey secret */)) {
     *error_details = "Symmetric key setup failed";
     return QUIC_CRYPTO_SYMMETRIC_KEY_SETUP_FAILED;
   }
@@ -528,21 +575,16 @@ QuicErrorCode QuicCryptoClientConfig::FillClientHello(
   return QUIC_NO_ERROR;
 }
 
-QuicErrorCode QuicCryptoClientConfig::ProcessRejection(
-    const CryptoHandshakeMessage& rej,
+QuicErrorCode QuicCryptoClientConfig::CacheNewServerConfig(
+    const CryptoHandshakeMessage& message,
     QuicWallTime now,
+    const vector<string>& cached_certs,
     CachedState* cached,
-    QuicCryptoNegotiatedParameters* out_params,
     string* error_details) {
   DCHECK(error_details != NULL);
 
-  if (rej.tag() != kREJ) {
-    *error_details = "Message is not REJ";
-    return QUIC_CRYPTO_INTERNAL_ERROR;
-  }
-
   StringPiece scfg;
-  if (!rej.GetStringPiece(kSCFG, &scfg)) {
+  if (!message.GetStringPiece(kSCFG, &scfg)) {
     *error_details = "Missing SCFG";
     return QUIC_CRYPTO_MESSAGE_PARAMETER_NOT_FOUND;
   }
@@ -553,21 +595,16 @@ QuicErrorCode QuicCryptoClientConfig::ProcessRejection(
   }
 
   StringPiece token;
-  if (rej.GetStringPiece(kSourceAddressTokenTag, &token)) {
+  if (message.GetStringPiece(kSourceAddressTokenTag, &token)) {
     cached->set_source_address_token(token);
   }
 
-  StringPiece nonce;
-  if (rej.GetStringPiece(kServerNonceTag, &nonce)) {
-    out_params->server_nonce = nonce.as_string();
-  }
-
   StringPiece proof, cert_bytes;
-  bool has_proof = rej.GetStringPiece(kPROF, &proof);
-  bool has_cert = rej.GetStringPiece(kCertificateTag, &cert_bytes);
+  bool has_proof = message.GetStringPiece(kPROF, &proof);
+  bool has_cert = message.GetStringPiece(kCertificateTag, &cert_bytes);
   if (has_proof && has_cert) {
     vector<string> certs;
-    if (!CertCompressor::DecompressChain(cert_bytes, out_params->cached_certs,
+    if (!CertCompressor::DecompressChain(cert_bytes, cached_certs,
                                          common_cert_sets, &certs)) {
       *error_details = "Certificate data invalid";
       return QUIC_INVALID_CRYPTO_MESSAGE_PARAMETER;
@@ -575,7 +612,12 @@ QuicErrorCode QuicCryptoClientConfig::ProcessRejection(
 
     cached->SetProof(certs, proof);
   } else {
-    cached->ClearProof();
+    if (proof_verifier() != NULL) {
+      // Secure QUIC: clear existing proof as we have been sent a new SCFG
+      // without matching proof/certs.
+      cached->ClearProof();
+    }
+
     if (has_proof && !has_cert) {
       *error_details = "Certificate missing";
       return QUIC_INVALID_CRYPTO_MESSAGE_PARAMETER;
@@ -587,15 +629,57 @@ QuicErrorCode QuicCryptoClientConfig::ProcessRejection(
     }
   }
 
-  const QuicTag* reject_reasons;
+  return QUIC_NO_ERROR;
+}
+
+QuicErrorCode QuicCryptoClientConfig::ProcessRejection(
+    const CryptoHandshakeMessage& rej,
+    QuicWallTime now,
+    CachedState* cached,
+    bool is_https,
+    QuicCryptoNegotiatedParameters* out_params,
+    string* error_details) {
+  DCHECK(error_details != NULL);
+
+  if (rej.tag() != kREJ) {
+    *error_details = "Message is not REJ";
+    return QUIC_CRYPTO_INTERNAL_ERROR;
+  }
+
+  QuicErrorCode error = CacheNewServerConfig(rej, now, out_params->cached_certs,
+                                             cached, error_details);
+  if (error != QUIC_NO_ERROR) {
+    return error;
+  }
+
+  StringPiece nonce;
+  if (rej.GetStringPiece(kServerNonceTag, &nonce)) {
+    out_params->server_nonce = nonce.as_string();
+  }
+
+  const uint32* reject_reasons;
   size_t num_reject_reasons;
+  COMPILE_ASSERT(sizeof(QuicTag) == sizeof(uint32), header_out_of_sync);
   if (rej.GetTaglist(kRREJ, &reject_reasons,
                      &num_reject_reasons) == QUIC_NO_ERROR) {
-#if defined(DEBUG)
+    uint32 packed_error = 0;
     for (size_t i = 0; i < num_reject_reasons; ++i) {
-      DVLOG(1) << "Reasons for rejection: " << reject_reasons[i];
+      // HANDSHAKE_OK is 0 and don't report that as error.
+      if (reject_reasons[i] == HANDSHAKE_OK || reject_reasons[i] >= 32) {
+        continue;
+      }
+      HandshakeFailureReason reason =
+          static_cast<HandshakeFailureReason>(reject_reasons[i]);
+      packed_error |= 1 << (reason - 1);
     }
-#endif
+    DVLOG(1) << "Reasons for rejection: " << packed_error;
+    if (is_https) {
+      UMA_HISTOGRAM_SPARSE_SLOWLY("Net.QuicClientHelloRejectReasons.Secure",
+                                  packed_error);
+    } else {
+      UMA_HISTOGRAM_SPARSE_SLOWLY("Net.QuicClientHelloRejectReasons.Insecure",
+                                  packed_error);
+    }
   }
 
   return QUIC_NO_ERROR;
@@ -668,12 +752,30 @@ QuicErrorCode QuicCryptoClientConfig::ProcessServerHello(
   if (!CryptoUtils::DeriveKeys(
            out_params->forward_secure_premaster_secret, out_params->aead,
            out_params->client_nonce, out_params->server_nonce, hkdf_input,
-           CryptoUtils::CLIENT, &out_params->forward_secure_crypters)) {
+           CryptoUtils::CLIENT, &out_params->forward_secure_crypters,
+           &out_params->subkey_secret)) {
     *error_details = "Symmetric key setup failed";
     return QUIC_CRYPTO_SYMMETRIC_KEY_SETUP_FAILED;
   }
 
   return QUIC_NO_ERROR;
+}
+
+QuicErrorCode QuicCryptoClientConfig::ProcessServerConfigUpdate(
+    const CryptoHandshakeMessage& server_config_update,
+    QuicWallTime now,
+    CachedState* cached,
+    QuicCryptoNegotiatedParameters* out_params,
+    string* error_details) {
+  DCHECK(error_details != NULL);
+
+  if (server_config_update.tag() != kSCUP) {
+    *error_details = "ServerConfigUpdate must have kSCUP tag.";
+    return QUIC_INVALID_CRYPTO_MESSAGE_TYPE;
+  }
+
+  return CacheNewServerConfig(server_config_update, now,
+                              out_params->cached_certs, cached, error_details);
 }
 
 ProofVerifier* QuicCryptoClientConfig::proof_verifier() const {

@@ -17,6 +17,7 @@
 #include "content/public/browser/page_navigator.h"
 #include "content/public/browser/user_metrics.h"
 #include "grit/chromium_strings.h"
+#include "grit/components_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -243,7 +244,7 @@ void ProfileResetBubbleView::SetupLayoutManager(bool report_checked) {
   // For the Resetting... text to fit.
   gfx::Size reset_button_size = controls_.reset_button->GetPreferredSize();
   reset_button_size.set_width(100);
-  controls_.reset_button->set_min_size(reset_button_size);
+  controls_.reset_button->SetMinSize(reset_button_size);
 
   // No thanks button.
   controls_.no_thanks_button = new views::LabelButton(
@@ -422,7 +423,7 @@ void ProfileResetBubbleView::LinkClicked(views::Link* source, int flags) {
       base::UserMetricsAction("SettingsResetBubble.LearnMore"));
   navigator_->OpenURL(content::OpenURLParams(
       GURL(chrome::kResetProfileSettingsLearnMoreURL), content::Referrer(),
-      NEW_FOREGROUND_TAB, content::PAGE_TRANSITION_LINK, false));
+      NEW_FOREGROUND_TAB, ui::PAGE_TRANSITION_LINK, false));
 }
 
 void ProfileResetBubbleView::CloseBubbleView() {

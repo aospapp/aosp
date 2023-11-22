@@ -5,6 +5,8 @@
 #ifndef CONTENT_BROWSER_ANDROID_IN_PROCESS_SYNCHRONOUS_COMPOSITOR_IMPL_H_
 #define CONTENT_BROWSER_ANDROID_IN_PROCESS_SYNCHRONOUS_COMPOSITOR_IMPL_H_
 
+#include <vector>
+
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
@@ -13,6 +15,7 @@
 #include "content/common/input/input_event_ack_state.h"
 #include "content/public/browser/android/synchronous_compositor.h"
 #include "content/public/browser/web_contents_user_data.h"
+#include "ipc/ipc_message.h"
 
 namespace cc {
 class InputHandler;
@@ -50,7 +53,6 @@ class SynchronousCompositorImpl
       OVERRIDE;
   virtual bool InitializeHwDraw() OVERRIDE;
   virtual void ReleaseHwDraw() OVERRIDE;
-  virtual gpu::GLInProcessContext* GetShareContext() OVERRIDE;
   virtual scoped_ptr<cc::CompositorFrame> DemandDrawHw(
       gfx::Size surface_size,
       const gfx::Transform& transform,
@@ -93,6 +95,7 @@ class SynchronousCompositorImpl
   friend class WebContentsUserData<SynchronousCompositorImpl>;
 
   void UpdateFrameMetaData(const cc::CompositorFrameMetadata& frame_info);
+  void DeliverMessages();
   bool CalledOnValidThread() const;
 
   SynchronousCompositorClient* compositor_client_;

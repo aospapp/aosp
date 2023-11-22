@@ -67,6 +67,7 @@ PRODUCT_PACKAGES += \
     FusedLocation \
     InputDevices \
     KeyChain \
+    Launcher2 \
     PicoTts \
     PacProcessor \
     PrintSpooler \
@@ -82,6 +83,8 @@ PRODUCT_PACKAGES += \
     librs_jni \
     audio.primary.default \
     audio_policy.default \
+    clatd \
+    clatd.conf \
     local_time.default \
     screenrecord
 
@@ -98,6 +101,8 @@ $(call inherit-product-if-exists, frameworks/base/data/fonts/fonts.mk)
 $(call inherit-product-if-exists, external/google-fonts/dancing-script/fonts.mk)
 $(call inherit-product-if-exists, external/google-fonts/carrois-gothic-sc/fonts.mk)
 $(call inherit-product-if-exists, external/google-fonts/coming-soon/fonts.mk)
+$(call inherit-product-if-exists, external/google-fonts/cutive-mono/fonts.mk)    
+$(call inherit-product-if-exists, external/lohit-fonts/fonts.mk)
 $(call inherit-product-if-exists, external/noto-fonts/fonts.mk)
 $(call inherit-product-if-exists, external/naver-fonts/fonts.mk)
 $(call inherit-product-if-exists, frameworks/base/data/keyboards/keyboards.mk)

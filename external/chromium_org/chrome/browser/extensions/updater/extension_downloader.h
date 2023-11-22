@@ -19,12 +19,15 @@
 #include "base/memory/weak_ptr.h"
 #include "base/version.h"
 #include "chrome/browser/extensions/updater/extension_downloader_delegate.h"
-#include "chrome/browser/extensions/updater/manifest_fetch_data.h"
 #include "chrome/browser/extensions/updater/request_queue.h"
-#include "chrome/common/extensions/update_manifest.h"
+#include "extensions/browser/updater/manifest_fetch_data.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/update_manifest.h"
+#include "google_apis/gaia/oauth2_token_service.h"
 #include "net/url_request/url_fetcher_delegate.h"
 #include "url/gurl.h"
+
+class IdentityProvider;
 
 namespace net {
 class URLFetcher;
@@ -49,8 +52,16 @@ class ExtensionUpdaterTest;
 // the crx file when updates are found. It uses a |ExtensionDownloaderDelegate|
 // that takes ownership of the downloaded crx files, and handles events during
 // the update check.
-class ExtensionDownloader : public net::URLFetcherDelegate {
+class ExtensionDownloader
+    : public net::URLFetcherDelegate,
+      public OAuth2TokenService::Consumer {
  public:
+  // A closure which constructs a new ExtensionDownloader to be owned by the
+  // caller.
+  typedef base::Callback<
+      scoped_ptr<ExtensionDownloader>(ExtensionDownloaderDelegate* delegate)>
+      Factory;
+
   // |delegate| is stored as a raw pointer and must outlive the
   // ExtensionDownloader.
   ExtensionDownloader(ExtensionDownloaderDelegate* delegate,
@@ -83,6 +94,27 @@ class ExtensionDownloader : public net::URLFetcherDelegate {
   void StartBlacklistUpdate(const std::string& version,
                             const ManifestFetchData::PingData& ping_data,
                             int request_id);
+
+  // Sets an IdentityProvider to be used for OAuth2 authentication on protected
+  // Webstore downloads.
+  void SetWebstoreIdentityProvider(
+      scoped_ptr<IdentityProvider> identity_provider);
+
+  void set_brand_code(const std::string& brand_code) {
+    brand_code_ = brand_code;
+  }
+
+  void set_manifest_query_params(const std::string& params) {
+    manifest_query_params_ = params;
+  }
+
+  void set_ping_enabled_domain(const std::string& domain) {
+    ping_enabled_domain_ = domain;
+  }
+
+  void set_enable_extra_update_metrics(bool enable) {
+    enable_extra_update_metrics_ = enable;
+  }
 
   // These are needed for unit testing, to help identify the correct mock
   // URLFetcher objects.
@@ -130,8 +162,18 @@ class ExtensionDownloader : public net::URLFetcherDelegate {
     std::string version;
     std::set<int> request_ids;
 
-    // Indicates whether or not the fetch is known to require credentials.
-    bool is_protected;
+    enum CredentialsMode {
+      CREDENTIALS_NONE = 0,
+      CREDENTIALS_OAUTH2_TOKEN,
+      CREDENTIALS_COOKIES,
+    };
+
+    // Indicates the type of credentials to include with this fetch.
+    CredentialsMode credentials;
+
+    // Counts the number of times OAuth2 authentication has been attempted for
+    // this fetch.
+    int oauth2_attempt_count;
   };
 
   // Helper for AddExtension() and AddPendingExtension().
@@ -140,7 +182,9 @@ class ExtensionDownloader : public net::URLFetcherDelegate {
                         Manifest::Type extension_type,
                         const GURL& extension_update_url,
                         const std::string& update_url_data,
-                        int request_id);
+                        int request_id,
+                        bool force_update,
+                        const std::string& install_source_override);
 
   // Adds all recorded stats taken so far to histogram counts.
   void ReportStats() const;
@@ -204,15 +248,29 @@ class ExtensionDownloader : public net::URLFetcherDelegate {
                                       const base::FilePath& crx_path,
                                       bool file_ownership_passed);
 
+  // Potentially updates an ExtensionFetch's authentication state and returns
+  // |true| if the fetch should be retried. Returns |false| if the failure was
+  // not related to authentication, leaving the ExtensionFetch data unmodified.
+  bool IterateFetchCredentialsAfterFailure(ExtensionFetch* fetch,
+                                           const net::URLRequestStatus& status,
+                                           int response_code);
+
+  // OAuth2TokenService::Consumer implementation.
+  virtual void OnGetTokenSuccess(const OAuth2TokenService::Request* request,
+                                 const std::string& access_token,
+                                 const base::Time& expiration_time) OVERRIDE;
+  virtual void OnGetTokenFailure(const OAuth2TokenService::Request* request,
+                                 const GoogleServiceAuthError& error) OVERRIDE;
+
+  ManifestFetchData* CreateManifestFetchData(const GURL& update_url,
+                                             int request_id);
+
   // The delegate that receives the crx files downloaded by the
   // ExtensionDownloader, and that fills in optional ping and update url data.
   ExtensionDownloaderDelegate* delegate_;
 
   // The request context to use for the URLFetchers.
   scoped_refptr<net::URLRequestContextGetter> request_context_;
-
-  // Used to create WeakPtrs to |this|.
-  base::WeakPtrFactory<ExtensionDownloader> weak_ptr_factory_;
 
   // Collects UMA samples that are reported when ReportStats() is called.
   URLStats url_stats_;
@@ -239,6 +297,34 @@ class ExtensionDownloader : public net::URLFetcherDelegate {
 
   // Cache for .crx files.
   ExtensionCache* extension_cache_;
+
+  // An IdentityProvider which may be used for authentication on protected
+  // download requests. May be NULL.
+  scoped_ptr<IdentityProvider> identity_provider_;
+
+  // A Webstore download-scoped access token for the |identity_provider_|'s
+  // active account, if any.
+  std::string access_token_;
+
+  // A pending token fetch request.
+  scoped_ptr<OAuth2TokenService::Request> access_token_request_;
+
+  // Brand code to include with manifest fetch queries if sending ping data.
+  std::string brand_code_;
+
+  // Baseline parameters to include with manifest fetch queries.
+  std::string manifest_query_params_;
+
+  // Domain to enable ping data. Ping data will be sent with manifest fetches
+  // to update URLs which match this domain. Defaults to empty (no domain).
+  std::string ping_enabled_domain_;
+
+  // Indicates whether or not extra metrics should be included with ping data.
+  // Defaults to |false|.
+  bool enable_extra_update_metrics_;
+
+  // Used to create WeakPtrs to |this|.
+  base::WeakPtrFactory<ExtensionDownloader> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionDownloader);
 };

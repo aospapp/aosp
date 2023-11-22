@@ -11,7 +11,7 @@
 #include "base/android/scoped_java_ref.h"
 #include "base/logging.h"
 #include "base/strings/string16.h"
-#include "grit/generated_resources.h"
+#include "chrome/grit/generated_resources.h"
 #include "jni/ChromeHttpAuthHandler_jni.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -39,8 +39,12 @@ void ChromeHttpAuthHandler::SetObserver(LoginHandler* observer) {
   observer_ = observer;
 }
 
-jobject ChromeHttpAuthHandler::GetJavaObject() {
-  return java_chrome_http_auth_handler_.obj();
+void ChromeHttpAuthHandler::ShowDialog(jobject window_android) {
+  JNIEnv* env = AttachCurrentThread();
+  Java_ChromeHttpAuthHandler_showDialog(
+      env,
+      java_chrome_http_auth_handler_.obj(),
+      window_android);
 }
 
 void ChromeHttpAuthHandler::OnAutofillDataAvailable(

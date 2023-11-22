@@ -20,7 +20,6 @@
     <package>com.example.android.storageclient</package>
     <!-- change minSdk if needed-->
     <minSdk>4</minSdk>
-    <compileSdkVersion>19</compileSdkVersion>
 
     <strings>
         <intro>

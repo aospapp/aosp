@@ -38,19 +38,20 @@ void AutofillPopupViewAndroid::Show() {
 }
 
 void AutofillPopupViewAndroid::Hide() {
+  controller_ = NULL;
   JNIEnv* env = base::android::AttachCurrentThread();
   Java_AutofillPopupBridge_hide(env, java_object_.obj());
-  delete this;
 }
 
 void AutofillPopupViewAndroid::UpdateBoundsAndRedrawPopup() {
   JNIEnv* env = base::android::AttachCurrentThread();
-  Java_AutofillPopupBridge_setAnchorRect(env,
-                                       java_object_.obj(),
-                                       controller_->element_bounds().x(),
-                                       controller_->element_bounds().y(),
-                                       controller_->element_bounds().width(),
-                                       controller_->element_bounds().height());
+  Java_AutofillPopupBridge_setAnchorRect(
+      env,
+      java_object_.obj(),
+      controller_->element_bounds().x(),
+      controller_->element_bounds().y(),
+      controller_->element_bounds().width(),
+      controller_->element_bounds().height());
 
   // We need an array of AutofillSuggestion.
   size_t count = controller_->names().size();
@@ -73,7 +74,8 @@ void AutofillPopupViewAndroid::UpdateBoundsAndRedrawPopup() {
         controller_->identifiers()[i]);
   }
 
-  Java_AutofillPopupBridge_show(env, java_object_.obj(), data_array.obj());
+  Java_AutofillPopupBridge_show(
+      env, java_object_.obj(), data_array.obj(), controller_->IsRTL());
 }
 
 void AutofillPopupViewAndroid::SuggestionSelected(JNIEnv* env,
@@ -82,8 +84,11 @@ void AutofillPopupViewAndroid::SuggestionSelected(JNIEnv* env,
   controller_->AcceptSuggestion(list_index);
 }
 
-void AutofillPopupViewAndroid::RequestHide(JNIEnv* env, jobject obj) {
-  controller_->Hide();
+void AutofillPopupViewAndroid::PopupDismissed(JNIEnv* env, jobject obj) {
+  if (controller_)
+    controller_->ViewDestroyed();
+
+  delete this;
 }
 
 void AutofillPopupViewAndroid::InvalidateRow(size_t) {}

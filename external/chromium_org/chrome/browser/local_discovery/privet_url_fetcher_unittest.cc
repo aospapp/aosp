@@ -39,9 +39,9 @@ class MockPrivetURLFetcherDelegate : public PrivetURLFetcher::Delegate {
   MOCK_METHOD1(OnErrorInternal, void(PrivetURLFetcher::ErrorType error));
 
   virtual void OnParsedJson(PrivetURLFetcher* fetcher,
-                            const base::DictionaryValue* value,
+                            const base::DictionaryValue& value,
                             bool has_error) OVERRIDE {
-    saved_value_.reset(value->DeepCopy());
+    saved_value_.reset(value.DeepCopy());
     OnParsedJsonInternal(has_error);
   }
 
@@ -77,6 +77,8 @@ class MockPrivetURLFetcherDelegate : public PrivetURLFetcher::Delegate {
   void SetRawMode(bool raw_mode) {
     raw_mode_ = raw_mode;
   }
+
+  std::string GetAuthToken() { return "MyAuthToken"; }
 
  private:
   scoped_ptr<base::DictionaryValue> saved_value_;
@@ -294,6 +296,23 @@ TEST_F(PrivetURLFetcherTest, FetcherToFile) {
 
   EXPECT_CALL(delegate_, OnFileInternal());
   fetcher->delegate()->OnURLFetchComplete(fetcher);
+}
+
+TEST_F(PrivetURLFetcherTest, V3Mode) {
+  delegate_.SetRawMode(true);
+  privet_urlfetcher_->V3Mode();
+  privet_urlfetcher_->Start();
+  net::TestURLFetcher* fetcher = fetcher_factory_.GetFetcherByID(0);
+  ASSERT_TRUE(fetcher != NULL);
+  fetcher->SetResponseFilePath(
+      base::FilePath(FILE_PATH_LITERAL("sample/file")));
+  net::HttpRequestHeaders headers;
+  fetcher->GetExtraRequestHeaders(&headers);
+
+  std::string header_token;
+  ASSERT_FALSE(headers.GetHeader("X-Privet-Token", &header_token));
+  ASSERT_TRUE(headers.GetHeader("X-Privet-Auth", &header_token));
+  ASSERT_EQ("MyAuthToken", header_token);
 }
 
 }  // namespace

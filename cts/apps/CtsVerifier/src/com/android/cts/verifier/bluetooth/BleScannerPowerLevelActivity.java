@@ -59,6 +59,7 @@ public class BleScannerPowerLevelActivity extends PassFailButtons.Activity {
         setPassFailButtonClickListeners();
         setInfoResources(R.string.ble_power_level_name,
                          R.string.ble_power_level_info, -1);
+        getPassButton().setEnabled(false);
 
         mTimerText = (TextView)findViewById(R.id.ble_timer);
         mTimer = new CountDownTimer(REFRESH_MAC_TIME, 1000) {

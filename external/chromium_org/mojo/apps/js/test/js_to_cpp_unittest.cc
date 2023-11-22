@@ -3,11 +3,12 @@
 // found in the LICENSE file.
 
 #include "base/at_exit.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
+#include "gin/array_buffer.h"
 #include "gin/public/isolate_holder.h"
 #include "mojo/apps/js/mojo_runner_delegate.h"
 #include "mojo/apps/js/test/js_to_cpp.mojom.h"
@@ -394,11 +395,13 @@ class JsToCppTest : public testing::Test {
         MakeProxy<js_to_cpp::JsSide>(pipe.handle0.Pass());
     js_side.set_client(cpp_side);
 
-    js_side.internal_state()->router()->EnableTestingMode();
+    js_side.internal_state()->router_for_testing()->EnableTestingMode();
 
     cpp_side->set_js_side(js_side.get());
 
-    gin::IsolateHolder instance(gin::IsolateHolder::kStrictMode);
+    gin::IsolateHolder::Initialize(gin::IsolateHolder::kStrictMode,
+                                   gin::ArrayBufferAllocator::SharedInstance());
+    gin::IsolateHolder instance;
     apps::MojoRunnerDelegate delegate;
     gin::ShellRunner runner(&delegate, instance.isolate());
     delegate.Start(&runner, pipe.handle1.release().value(), test);

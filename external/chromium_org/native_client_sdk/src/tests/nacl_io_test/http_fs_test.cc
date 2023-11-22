@@ -78,15 +78,6 @@ class HttpFsLargeFileTest : public HttpFsTest {
 
 }  // namespace
 
-TEST_P(HttpFsTest, Access) {
-  ASSERT_TRUE(ppapi_.server_template()->AddEntity("foo", "", NULL));
-
-  ASSERT_EQ(0, fs_.Access(Path("/foo"), R_OK));
-  ASSERT_EQ(EACCES, fs_.Access(Path("/foo"), W_OK));
-  ASSERT_EQ(EACCES, fs_.Access(Path("/foo"), X_OK));
-  ASSERT_EQ(ENOENT, fs_.Access(Path("/bar"), F_OK));
-}
-
 TEST_P(HttpFsTest, OpenAndCloseServerError) {
   EXPECT_TRUE(ppapi_.server_template()->AddError("file", 500));
 
@@ -178,8 +169,7 @@ TEST_P(HttpFsTest, GetStat) {
 
   struct stat statbuf;
   EXPECT_EQ(0, node->GetStat(&statbuf));
-  EXPECT_EQ(S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH,
-            statbuf.st_mode);
+  EXPECT_EQ(S_IFREG | S_IRUSR | S_IRGRP | S_IROTH, statbuf.st_mode);
   EXPECT_EQ(strlen(contents), statbuf.st_size);
   // These are not currently set.
   EXPECT_EQ(0, statbuf.st_atime);
@@ -253,8 +243,7 @@ TEST_P(HttpFsLargeFileTest, GetStat) {
 
   struct stat statbuf;
   EXPECT_EQ(0, node->GetStat(&statbuf));
-  EXPECT_EQ(S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH,
-            statbuf.st_mode);
+  EXPECT_EQ(S_IFREG | S_IRUSR | S_IRGRP | S_IROTH, statbuf.st_mode);
   EXPECT_EQ(size, statbuf.st_size);
   // These are not currently set.
   EXPECT_EQ(0, statbuf.st_atime);
@@ -269,6 +258,21 @@ INSTANTIATE_TEST_CASE_P(Default,
                         HttpFsLargeFileTest,
                         ::testing::Values((uint32_t)kStringMapParamCacheNone,
                                           (uint32_t)kStringMapParamCacheStat));
+
+TEST(HttpFsDirTest, Root) {
+  StringMap_t args;
+  HttpFsForTesting fs(args, NULL);
+
+  // Check root node is directory
+  ScopedNode node;
+  ASSERT_EQ(0, fs.Open(Path("/"), O_RDONLY, &node));
+  ASSERT_TRUE(node->IsaDir());
+
+  // We have to r+w access to the root node
+  struct stat buf;
+  ASSERT_EQ(0, node->GetStat(&buf));
+  ASSERT_EQ(S_IXUSR | S_IRUSR, buf.st_mode & S_IRWXU);
+}
 
 TEST(HttpFsDirTest, Mkdir) {
   StringMap_t args;
@@ -366,4 +370,30 @@ TEST(HttpFsDirTest, ParseManifest) {
 
   EXPECT_EQ(234, sbar.st_size);
   EXPECT_EQ(S_IFREG | S_IRALL | S_IWALL, sbar.st_mode);
+}
+
+TEST(HttpFsBlobUrlTest, Basic) {
+  const char* kUrl = "blob:http%3A//example.com/6b87a5a6-713e";
+  const char* kContent = "hello";
+  FakePepperInterfaceURLLoader ppapi;
+  ASSERT_TRUE(ppapi.server_template()->SetBlobEntity(kUrl, kContent, NULL));
+
+  StringMap_t args;
+  args["SOURCE"] = kUrl;
+
+  HttpFsForTesting fs(args, &ppapi);
+
+  // Any other path than / should fail.
+  ScopedNode node;
+  ASSERT_EQ(ENOENT, fs.Open(Path("/blah"), R_OK, &node));
+
+  // Check access to blob file
+  ASSERT_EQ(0, fs.Open(Path("/"), O_RDONLY, &node));
+  ASSERT_EQ(true, node->IsaFile());
+
+  // Verify file size and permissions
+  struct stat buf;
+  ASSERT_EQ(0, node->GetStat(&buf));
+  ASSERT_EQ(S_IRUSR, buf.st_mode & S_IRWXU);
+  ASSERT_EQ(strlen(kContent), buf.st_size);
 }

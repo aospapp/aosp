@@ -21,8 +21,8 @@
     android:focusable="true"
     android:minHeight="@dimen/lb_dialog_list_item_min_height"
     android:paddingBottom="@dimen/lb_dialog_list_item_vertical_padding"
-    android:paddingLeft="@dimen/lb_dialog_list_item_left_padding"
-    android:paddingRight="@dimen/lb_dialog_list_item_right_padding"
+    android:paddingStart="@dimen/lb_dialog_list_item_start_padding"
+    android:paddingEnd="@dimen/lb_dialog_list_item_end_padding"
     android:paddingTop="@dimen/lb_dialog_list_item_vertical_padding" >
 
     <ImageView
@@ -30,7 +30,7 @@
         android:layout_width="@dimen/lb_dialog_list_item_checkmark_diameter"
         android:layout_height="@dimen/lb_dialog_list_item_checkmark_diameter"
         android:layout_gravity="center"
-        android:layout_marginRight="@dimen/lb_dialog_list_item_delimiter_padding"
+        android:layout_marginEnd="@dimen/lb_dialog_list_item_delimiter_padding"
         android:scaleType="center"
         android:src="@drawable/lb_dialog_list_item_checkmark"
         android:visibility="invisible"
@@ -41,7 +41,7 @@
         android:layout_width="@dimen/lb_dialog_list_item_icon_width"
         android:layout_height="@dimen/lb_dialog_list_item_icon_height"
         android:layout_gravity="center"
-        android:layout_marginRight="@dimen/lb_dialog_list_item_delimiter_padding"
+        android:layout_marginEnd="@dimen/lb_dialog_list_item_delimiter_padding"
         android:scaleType="fitCenter"
         android:visibility="gone"
         tools:ignore="ContentDescription" />
@@ -50,7 +50,7 @@
         android:id="@+id/action_content"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_gravity="left|center_vertical"
+        android:layout_gravity="start|center_vertical"
         android:layout_weight="1"
         android:orientation="vertical" >
 
@@ -79,7 +79,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:layout_marginLeft="@dimen/lb_dialog_list_item_delimiter_padding"
+        android:layout_marginStart="@dimen/lb_dialog_list_item_delimiter_padding"
         android:scaleType="fitCenter"
         android:src="@drawable/lb_ic_list_chevron"
         android:visibility="gone"

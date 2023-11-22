@@ -20,47 +20,6 @@
             android:layout_height="fill_parent"
             android:id="@+id/toplevel">
 
-    <Spinner
-        android:id="@+id/image_size"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"/>
-
-    <LinearLayout
-        android:orientation="horizontal"
-        android:layout_width="fill_parent" android:layout_height="wrap_content">
-        <ToggleButton android:id="@+id/io_control"
-             android:layout_width="wrap_content"
-             android:layout_height="wrap_content"
-             android:textColorLink="@android:color/holo_blue_light"
-             android:textOff="@string/io_control_on"
-             android:textOn="@string/io_control_off"
-             android:textSize="12dp"/>
-        <ToggleButton
-             android:id="@+id/length_control"
-             android:layout_width="wrap_content"
-             android:layout_height="wrap_content"
-             android:textColorLink="@android:color/holo_blue_light"
-             android:textOff="@string/length_long"
-             android:textOn="@string/length_short"
-             android:textSize="12dp"/>
-        <ToggleButton
-             android:id="@+id/background_work"
-             android:layout_width="wrap_content"
-             android:layout_height="wrap_content"
-             android:textColorLink="@android:color/holo_blue_light"
-             android:textOff="@string/dvfs_on"
-             android:textOn="@string/dvfs_off"
-             android:textSize="12dp"/>
-        <ToggleButton
-             android:id="@+id/pause"
-             android:layout_width="wrap_content"
-             android:layout_height="wrap_content"
-             android:textColorLink="@android:color/holo_blue_light"
-             android:textOff="@string/pause_on"
-             android:textOn="@string/pause_off"
-             android:textSize="12dp"/>
-    </LinearLayout>
-
     <ListView
         android:id="@+id/test_list"
         android:layout_weight="0.2"
@@ -71,48 +30,24 @@
         android:orientation="horizontal"
         android:layout_width="fill_parent" android:layout_height="wrap_content">
         <Button
-         android:id="@+id/select_all"
-         android:layout_width="wrap_content"
-         android:layout_height="wrap_content"
-         android:text="@string/select_all"
-         android:textSize="12dp"
-         android:onClick="btnSelAll"/>
+             android:id="@+id/run"
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:text="@string/benchmark"
+             android:onClick="btnRun"/>
         <Button
-         android:id="@+id/select_none"
-         android:layout_width="wrap_content"
-         android:layout_height="wrap_content"
-         android:text="@string/select_none"
-         android:textSize="12dp"
-         android:onClick="btnSelNone"/>
+             android:id="@+id/select_all"
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:text="@string/select_all"
+             android:onClick="btnSelAll"/>
         <Button
-         android:id="@+id/select_hp"
-         android:layout_width="wrap_content"
-         android:layout_height="wrap_content"
-         android:text="@string/select_hp"
-         android:textSize="12dp"
-         android:onClick="btnSelHp"/>
-        <Button
-         android:id="@+id/select_lp"
-         android:layout_width="wrap_content"
-         android:layout_height="wrap_content"
-         android:text="@string/select_lp"
-         android:textSize="12dp"
-         android:onClick="btnSelLp"/>
-        <Button
-         android:id="@+id/select_intrinsics"
-         android:layout_width="wrap_content"
-         android:layout_height="wrap_content"
-         android:text="@string/select_intrinsics"
-         android:textSize="12dp"
-         android:onClick="btnSelIntrinsic"/>
+             android:id="@+id/select_none"
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:text="@string/select_none"
+             android:onClick="btnSelNone"/>
     </LinearLayout>
-
-    <Button
-         android:id="@+id/run"
-         android:layout_width="wrap_content"
-         android:layout_height="wrap_content"
-         android:text="@string/benchmark"
-         android:onClick="btnRun"/>
 
     <TextView
         android:id="@+id/results"

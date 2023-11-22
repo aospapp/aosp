@@ -17,6 +17,8 @@
 #include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/extensions/install_tracker.h"
+#include "chrome/browser/ui/app_list/app_list_syncable_service.h"
+#include "chrome/browser/ui/app_list/app_list_syncable_service_factory.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
 #include "chrome/common/web_application_info.h"
@@ -75,14 +77,19 @@ class DriveAppProviderTest : public ExtensionBrowserTest,
     provider_->SetDriveServiceBridgeForTest(
         make_scoped_ptr(new TestDriveServiceBridge(apps_registry_.get()))
             .PassAs<DriveServiceBridge>());
+
+    // The DriveAppProvider in AppListSyncalbeService interferes with the
+    // test. So resets it.
+    app_list::AppListSyncableServiceFactory::GetForProfile(profile())
+        ->ResetDriveAppProviderForTest();
   }
 
-  virtual void CleanUpOnMainThread() OVERRIDE {
+  virtual void TearDownOnMainThread() OVERRIDE {
     provider_.reset();
     apps_registry_.reset();
     fake_drive_service_.reset();
 
-    ExtensionBrowserTest::CleanUpOnMainThread();
+    ExtensionBrowserTest::TearDownOnMainThread();
   }
 
   const Extension* InstallChromeApp(int expected_change) {
@@ -104,7 +111,7 @@ class DriveAppProviderTest : public ExtensionBrowserTest,
   }
 
   void WaitForPendingDriveAppConverters() {
-    DCHECK(!runner_);
+    DCHECK(!runner_.get());
 
     if (provider_->pending_converters_.empty())
       return;
@@ -124,7 +131,7 @@ class DriveAppProviderTest : public ExtensionBrowserTest,
   }
 
   void InstallUserUrlApp(const std::string& url) {
-    DCHECK(!runner_);
+    DCHECK(!runner_.get());
     runner_ = new content::MessageLoopRunner;
 
     WebApplicationInfo web_app;

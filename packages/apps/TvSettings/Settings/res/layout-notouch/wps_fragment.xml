@@ -29,7 +29,7 @@
         style="@android:style/Widget.Holo.ProgressBar.Horizontal"
         android:layout_width="600dp"
         android:layout_height="wrap_content"
-        android:layout_alignLeft="@id/title"
+        android:layout_alignStart="@id/title"
         android:layout_below="@id/title"
         android:layout_marginBottom="5dp"
         android:layout_marginTop="5dp"
@@ -41,8 +41,8 @@
         style="@style/HintText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignLeft="@id/title"
+        android:layout_alignStart="@id/title"
         android:layout_below="@id/progress_bar"
-        android:drawableLeft="@drawable/ic_wps" />
+        android:drawableStart="@drawable/ic_wps" />
 
 </RelativeLayout>

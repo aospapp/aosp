@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"由于缺少组件或软件包已损坏，无法使用此管理应用。请与您公司的IT部门联系。"</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"无法安装管理应用"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"在您的设备上安装管理应用失败"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"要停止设置吗？"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"确定要停止设置吗？"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"否"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"是"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"正在取消…"</string>
 </resources>

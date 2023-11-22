@@ -4,14 +4,14 @@
 
 from measurements import media
 import page_sets
-from telemetry import test
-from telemetry.page import page_measurement
+from telemetry import benchmark
+from telemetry.page import page_test
 from telemetry.value import list_of_scalar_values
 from telemetry.value import scalar
 
 
-class _MSEMeasurement(page_measurement.PageMeasurement):
-  def MeasurePage(self, page, tab, results):
+class _MSEMeasurement(page_test.PageTest):
+  def ValidateAndMeasurePage(self, page, tab, results):
     media_metric = tab.EvaluateJavaScript('window.__testMetrics')
     trace = media_metric['id'] if 'id' in media_metric else None
     metrics = media_metric['metrics'] if 'metrics' in media_metric else []
@@ -29,19 +29,23 @@ class _MSEMeasurement(page_measurement.PageMeasurement):
                 value=float(metrics[m]), important=True))
 
 
-class Media(test.Test):
+@benchmark.Disabled('android')
+class Media(benchmark.Benchmark):
   """Obtains media metrics for key user scenarios."""
   test = media.Media
   page_set = page_sets.ToughVideoCasesPageSet
 
 
-class MediaNetworkSimulation(test.Test):
+@benchmark.Disabled
+class MediaNetworkSimulation(benchmark.Benchmark):
   """Obtains media metrics under different network simulations."""
   test = media.Media
   page_set = page_sets.MediaCnsCasesPageSet
 
 
-class MediaAndroid(test.Test):
+@benchmark.Enabled('android')
+@benchmark.Disabled('l')
+class MediaAndroid(benchmark.Benchmark):
   """Obtains media metrics for key user scenarios on Android."""
   test = media.Media
   tag = 'android'
@@ -50,7 +54,8 @@ class MediaAndroid(test.Test):
   options = {'page_label_filter_exclude': 'is_4k,is_50fps'}
 
 
-class MediaChromeOS4kOnly(test.Test):
+@benchmark.Enabled('chromeos')
+class MediaChromeOS4kOnly(benchmark.Benchmark):
   """Benchmark for media performance on ChromeOS using only is_4k test content.
   """
   test = media.Media
@@ -63,7 +68,8 @@ class MediaChromeOS4kOnly(test.Test):
   }
 
 
-class MediaChromeOS(test.Test):
+@benchmark.Enabled('chromeos')
+class MediaChromeOS(benchmark.Benchmark):
   """Benchmark for media performance on all ChromeOS platforms.
 
   This benchmark does not run is_4k content, there's a separate benchmark for
@@ -76,7 +82,7 @@ class MediaChromeOS(test.Test):
   options = {'page_label_filter_exclude': 'is_4k,is_50fps'}
 
 
-class MediaSourceExtensions(test.Test):
+class MediaSourceExtensions(benchmark.Benchmark):
   """Obtains media metrics for key media source extensions functions."""
   test = _MSEMeasurement
   page_set = page_sets.MseCasesPageSet

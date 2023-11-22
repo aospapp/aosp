@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"មិន​អាច​ប្រើ​កម្មវិធី​របស់​អ្នក​គ្រប់គ្រង។ វា​បាត់​សមាសធាតុ ឬ​ក៏​ខូច។ ទាក់ទង​ផ្នែក​បច្ចេកវិទ្យា​ព័ត៌មាន​របស់​អ្នក។"</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"មិន​អាច​ដំឡើង​កម្មវិធី​គ្រប់គ្រង"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"កម្មវិធី​គ្រប់គ្រង​មិន​ត្រូវ​បាន​ដំឡើង​នៅ​លើ​ឧបករណ៍​របស់​អ្នក"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"បញ្ឈប់​ការ​រៀបចំ?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"តើ​អ្នក​ប្រាកដ​ជា​ចង់​បញ្ឈប់​ការ​រៀបចំ​?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"ទេ"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"បាទ/ចាស"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"កំពុង​​បោះបង់..."</string>
 </resources>

@@ -57,6 +57,10 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"Sikkerhetskopiering og gjenoppretting"</string>
     <string name="device_reset" msgid="2827002349560023125">"Tilbakestilling til fabrikkstandard"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Kalibrering"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"Nedlastede apper"</string>
     <string name="apps_system" msgid="2499191125802829425">"System-apper"</string>
     <string name="apps_running" msgid="6430310491739956228">"Kjørende apper"</string>
@@ -95,7 +99,7 @@
     <string name="system_language" msgid="2337138146114609247">"Språk"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"Tastatur"</string>
     <string name="system_search" msgid="2837264654143247611">"Søk"</string>
-    <string name="system_security" msgid="4190058778883258927">"Sikkerhet og begrensninger"</string>
+    <string name="system_security" msgid="8230080273993484407">"Sikkerhet og begrensninger"</string>
     <string name="system_speech" msgid="8128688499687306982">"Tale"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Innganger"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"Tilgjengelighet"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"Systemoppdatering"</string>
     <string name="about_preference" msgid="4131396784531360434">"Info"</string>
     <string name="device_name" msgid="2670488158531273028">"Enhetsnavn"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"Start på nytt"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"Juridisk informasjon"</string>
     <string name="about_warranty" msgid="5736003473060436384">"Garanti"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"Lisenser for åpen kildekode"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"Se vilkårene for bruk"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"Se personvernreglene"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"Se tilleggsvilkårene"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Informasjon fra Google"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"Lisensdata er utilgjengelige"</string>
     <string name="about_model" msgid="6625269442206323995">"Modell"</string>
     <string name="about_version" msgid="1177287676732287266">"Versjon"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"Dato"</string>
     <string name="system_time" msgid="6726022312605226285">"Tid"</string>
     <string name="system_set_date" msgid="2437586307768561116">"Angi dato"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"Velg datoformat"</string>
     <string name="system_set_time" msgid="4661804115501057452">"Angi klokkeslett"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"Angi tidssone"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"Bruk 24-timers format"</string>

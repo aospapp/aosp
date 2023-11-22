@@ -49,7 +49,7 @@ public class DownloadManagerTest extends AndroidTestCase {
     private static final int MINIMUM_DOWNLOAD_BYTES = 100 * 1024 * 1024;
 
     private static final long SHORT_TIMEOUT = 5 * DateUtils.SECOND_IN_MILLIS;
-    private static final long LONG_TIMEOUT = 2 * DateUtils.MINUTE_IN_MILLIS;
+    private static final long LONG_TIMEOUT = 3 * DateUtils.MINUTE_IN_MILLIS;
 
     private DownloadManager mDownloadManager;
 

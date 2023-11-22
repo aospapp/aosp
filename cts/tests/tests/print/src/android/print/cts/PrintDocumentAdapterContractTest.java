@@ -59,6 +59,9 @@ import java.util.List;
 public class PrintDocumentAdapterContractTest extends BasePrintTest {
 
     public void testNoPrintOptionsOrPrinterChange() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
         // Configure the print services.
         FirstPrintService.setCallbacks(createFirstMockPrintServiceCallbacks());
         SecondPrintService.setCallbacks(createSecondMockPrintServiceCallbacks());
@@ -175,6 +178,9 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
     }
 
     public void testNoPrintOptionsOrPrinterChangeCanceled() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
         // Configure the print services.
         FirstPrintService.setCallbacks(createFirstMockPrintServiceCallbacks());
         SecondPrintService.setCallbacks(createSecondMockPrintServiceCallbacks());
@@ -265,6 +271,9 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
     }
 
     public void testPrintOptionsChangeAndNoPrinterChange() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
         // Configure the print services.
         FirstPrintService.setCallbacks(createFirstMockPrintServiceCallbacks());
         SecondPrintService.setCallbacks(createSecondMockPrintServiceCallbacks());
@@ -439,6 +448,9 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
     }
 
     public void testPrintOptionsChangeAndPrinterChange() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
         // Configure the print services.
         FirstPrintService.setCallbacks(createFirstMockPrintServiceCallbacks());
         SecondPrintService.setCallbacks(createSecondMockPrintServiceCallbacks());
@@ -594,6 +606,9 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
 
     public void testPrintOptionsChangeAndNoPrinterChangeAndContentChange()
             throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
         // Configure the print services.
         FirstPrintService.setCallbacks(createFirstMockPrintServiceCallbacks());
         SecondPrintService.setCallbacks(createSecondMockPrintServiceCallbacks());
@@ -718,6 +733,9 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
     }
 
     public void testNewPrinterSupportsSelectedPrintOptions() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
         // Configure the print services.
         FirstPrintService.setCallbacks(createFirstMockPrintServiceCallbacks());
         SecondPrintService.setCallbacks(createSecondMockPrintServiceCallbacks());
@@ -820,6 +838,9 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
     }
 
     public void testNothingChangesAllPagesWrittenFirstTime() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
         // Configure the print services.
         FirstPrintService.setCallbacks(createFirstMockPrintServiceCallbacks());
         SecondPrintService.setCallbacks(createSecondMockPrintServiceCallbacks());
@@ -941,6 +962,9 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
     }
 
     public void testCancelLongRunningLayout() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
         // Configure the print services.
         FirstPrintService.setCallbacks(createFirstMockPrintServiceCallbacks());
         SecondPrintService.setCallbacks(createSecondMockPrintServiceCallbacks());
@@ -1015,6 +1039,9 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
     }
 
     public void testCancelLongRunningWrite() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
         // Configure the print services.
         FirstPrintService.setCallbacks(createFirstMockPrintServiceCallbacks());
         SecondPrintService.setCallbacks(createSecondMockPrintServiceCallbacks());
@@ -1111,6 +1138,9 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
     }
 
     public void testFailedLayout() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
         // Configure the print services.
         FirstPrintService.setCallbacks(createFirstMockPrintServiceCallbacks());
         SecondPrintService.setCallbacks(createSecondMockPrintServiceCallbacks());
@@ -1177,6 +1207,9 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
     }
 
     public void testFailedWrite() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
         // Configure the print services.
         FirstPrintService.setCallbacks(createFirstMockPrintServiceCallbacks());
         SecondPrintService.setCallbacks(createSecondMockPrintServiceCallbacks());
@@ -1259,6 +1292,9 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
     }
 
     public void testRequestedPagesNotWritten() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
         // Configure the print services.
         FirstPrintService.setCallbacks(createFirstMockPrintServiceCallbacks());
         SecondPrintService.setCallbacks(createSecondMockPrintServiceCallbacks());
@@ -1348,6 +1384,9 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
     }
 
     public void testLayoutCallbackNotCalled() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
         // Configure the print services.
         FirstPrintService.setCallbacks(createFirstMockPrintServiceCallbacks());
         SecondPrintService.setCallbacks(createSecondMockPrintServiceCallbacks());
@@ -1411,6 +1450,9 @@ public class PrintDocumentAdapterContractTest extends BasePrintTest {
     }
 
     public void testWriteCallbackNotCalled() throws Exception {
+        if (!supportsPrinting()) {
+            return;
+        }
         // Configure the print services.
         FirstPrintService.setCallbacks(createFirstMockPrintServiceCallbacks());
         SecondPrintService.setCallbacks(createSecondMockPrintServiceCallbacks());

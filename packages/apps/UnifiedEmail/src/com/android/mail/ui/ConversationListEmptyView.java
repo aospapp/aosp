@@ -26,6 +26,7 @@ import android.widget.TextView;
 
 import com.android.mail.R;
 import com.android.mail.providers.Folder;
+import com.android.mail.utils.EmptyStateUtils;
 
 /**
  * Empty view for {@link ConversationListFragment}.
@@ -55,36 +56,16 @@ public class ConversationListEmptyView extends LinearLayout {
      * Initializes the empty view to use the proper icon and text
      * based on the type of folder that will be visible.
      */
-    public void setupEmptyView(final Folder folder, final String searchQuery,
-            final BidiFormatter bidiFormatter) {
-        if (folder == null) {
-            setupIconAndText(R.drawable.empty_folders, R.string.empty_folder);
-            return;
-        }
-
-        if (folder.isInbox()) {
-            setupIconAndText(R.drawable.empty_inbox, R.string.empty_inbox);
-        } else if (folder.isSearch()) {
-            setupIconAndText(R.drawable.empty_search, R.string.empty_search,
-                    bidiFormatter.unicodeWrap(searchQuery));
-        } else if (folder.isSpam()) {
-            setupIconAndText(R.drawable.empty_spam, R.string.empty_spam_folder);
-        } else if (folder.isTrash()) {
-            setupIconAndText(R.drawable.empty_trash, R.string.empty_trash_folder);
+    public void setupEmptyText(final Folder folder, final String searchQuery,
+            final BidiFormatter bidiFormatter, boolean shouldShowIcon) {
+        if (shouldShowIcon) {
+            EmptyStateUtils.bindEmptyFolderIcon(mIcon, folder);
+            mIcon.setVisibility(VISIBLE);
         } else {
-            setupIconAndText(R.drawable.empty_folders, R.string.empty_folder);
+            mIcon.setVisibility(GONE);
         }
-    }
 
-    private void setupIconAndText(int iconId, int stringId) {
-        mIcon.setImageResource(iconId);
-        mText.setText(stringId);
-    }
-
-    private void setupIconAndText(int iconId, int stringId, String extra) {
-        mIcon.setImageResource(iconId);
-
-        final String text = getResources().getString(R.string.empty_search, extra);
-        mText.setText(text);
+        EmptyStateUtils.bindEmptyFolderText(mText, folder, getResources(), searchQuery,
+                bidiFormatter);
     }
 }

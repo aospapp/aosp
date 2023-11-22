@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 
+#include <algorithm>
+
 #include "base/command_line.h"
 #include "base/debug/trace_event.h"
 #include "base/i18n/number_formatting.h"
@@ -12,8 +14,8 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/command_updater.h"
-#include "chrome/browser/extensions/extension_action.h"
-#include "chrome/browser/extensions/extension_action_manager.h"
+#include "chrome/browser/extensions/extension_commands_global_registry.h"
+#include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/ui/browser.h"
@@ -44,16 +46,15 @@
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/wrench_menu.h"
 #include "chrome/browser/ui/views/toolbar/wrench_toolbar_button.h"
-#include "chrome/browser/upgrade_detector.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/browser_accessibility_state.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/accessibility/ax_view_state.h"
 #include "ui/aura/window.h"
@@ -67,13 +68,12 @@
 #include "ui/native_theme/native_theme_aura.h"
 #include "ui/views/controls/menu/menu_listener.h"
 #include "ui/views/focus/view_storage.h"
+#include "ui/views/view_targeter.h"
 #include "ui/views/widget/tooltip_manager.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/non_client_view.h"
 
 #if defined(OS_WIN)
-#include "base/win/windows_version.h"
-#include "chrome/browser/enumerate_modules_model_win.h"
 #include "chrome/browser/ui/views/conflicting_module_view_win.h"
 #include "chrome/browser/ui/views/critical_notification_bubble_view.h"
 #endif
@@ -103,11 +103,6 @@ const int kContentShadowHeightAsh = 2;
 // Non-ash uses a rounded content area with no shadow in the assets.
 const int kContentShadowHeight = 0;
 
-bool IsStreamlinedHostedAppsEnabled() {
-  return CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kEnableStreamlinedHostedApps);
-}
-
 #if !defined(OS_CHROMEOS)
 bool HasAshShell() {
 #if defined(USE_ASH)
@@ -135,10 +130,14 @@ ToolbarView::ToolbarView(Browser* browser)
       browser_actions_(NULL),
       app_menu_(NULL),
       browser_(browser),
+      badge_controller_(browser->profile(), this),
       extension_message_bubble_factory_(
           new extensions::ExtensionMessageBubbleFactory(browser->profile(),
                                                         this)) {
   set_id(VIEW_ID_TOOLBAR);
+
+  SetEventTargeter(
+      scoped_ptr<views::ViewTargeter>(new views::ViewTargeter(this)));
 
   chrome::AddCommandObserver(browser_, IDC_BACK, this);
   chrome::AddCommandObserver(browser_, IDC_FORWARD, this);
@@ -148,11 +147,9 @@ ToolbarView::ToolbarView(Browser* browser)
 
   display_mode_ = DISPLAYMODE_LOCATION;
   if (browser->SupportsWindowFeature(Browser::FEATURE_TABSTRIP) ||
-      (browser->is_app() && IsStreamlinedHostedAppsEnabled()))
+      (browser->is_app() && extensions::util::IsStreamlinedHostedAppsEnabled()))
     display_mode_ = DISPLAYMODE_NORMAL;
 
-  registrar_.Add(this, chrome::NOTIFICATION_UPGRADE_RECOMMENDED,
-                 content::NotificationService::AllSources());
   if (OutdatedUpgradeBubbleView::IsAvailable()) {
     registrar_.Add(this, chrome::NOTIFICATION_OUTDATED_INSTALL,
                    content::NotificationService::AllSources());
@@ -162,16 +159,7 @@ ToolbarView::ToolbarView(Browser* browser)
 #if defined(OS_WIN)
   registrar_.Add(this, chrome::NOTIFICATION_CRITICAL_UPGRADE_INSTALLED,
                  content::NotificationService::AllSources());
-  if (base::win::GetVersion() == base::win::VERSION_XP) {
-    registrar_.Add(this, chrome::NOTIFICATION_MODULE_LIST_ENUMERATED,
-                   content::NotificationService::AllSources());
-  }
 #endif
-  registrar_.Add(this,
-                 chrome::NOTIFICATION_MODULE_INCOMPATIBILITY_BADGE_CHANGE,
-                 content::NotificationService::AllSources());
-  registrar_.Add(this, chrome::NOTIFICATION_GLOBAL_ERRORS_CHANGED,
-                 content::Source<Profile>(browser_->profile()));
 }
 
 ToolbarView::~ToolbarView() {
@@ -225,10 +213,12 @@ void ToolbarView::Init() {
   home_->set_id(VIEW_ID_HOME_BUTTON);
   home_->Init();
 
-  browser_actions_ = new BrowserActionsContainer(browser_, this);
+  browser_actions_ = new BrowserActionsContainer(
+      browser_,
+      this,   // Owner.
+      NULL);  // No master container for this one (it is master).
 
   app_menu_ = new WrenchToolbarButton(this);
-  app_menu_->SetBorder(views::Border::NullBorder());
   app_menu_->EnableCanvasFlippingForRTLUI(true);
   app_menu_->SetAccessibleName(l10n_util::GetStringUTF16(IDS_ACCNAME_APP));
   app_menu_->SetTooltipText(l10n_util::GetStringUTF16(IDS_APPMENU_TOOLTIP));
@@ -258,7 +248,7 @@ void ToolbarView::Init() {
   // Add any necessary badges to the menu item based on the system state.
   // Do this after |app_menu_| has been added as a bubble may be shown that
   // needs the widget (widget found by way of app_menu_->GetWidget()).
-  UpdateAppMenuState();
+  badge_controller_.UpdateDelegate();
 
   location_bar_->Init();
 
@@ -281,9 +271,25 @@ void ToolbarView::Init() {
 
 void ToolbarView::OnWidgetVisibilityChanged(views::Widget* widget,
                                             bool visible) {
-  // Safe to call multiple times; the bubble will only appear once.
-  if (visible)
+  if (visible) {
+    // Safe to call multiple times; the bubble will only appear once.
     extension_message_bubble_factory_->MaybeShow(app_menu_);
+  }
+}
+
+void ToolbarView::OnWidgetActivationChanged(views::Widget* widget,
+                                            bool active) {
+  extensions::ExtensionCommandsGlobalRegistry* registry =
+      extensions::ExtensionCommandsGlobalRegistry::Get(browser_->profile());
+  if (registry) {
+    if (active) {
+      registry->set_registry_for_active_window(
+          browser_actions_->extension_keybinding_registry());
+    } else if (registry->registry_for_active_window() ==
+               browser_actions_->extension_keybinding_registry()) {
+      registry->set_registry_for_active_window(NULL);
+    }
+  }
 }
 
 void ToolbarView::Update(WebContents* tab) {
@@ -328,20 +334,24 @@ void ToolbarView::ExecuteExtensionCommand(
   browser_actions_->ExecuteExtensionCommand(extension, command);
 }
 
-void ToolbarView::ShowPageActionPopup(const extensions::Extension* extension) {
-  extensions::ExtensionActionManager* extension_manager =
-      extensions::ExtensionActionManager::Get(browser_->profile());
-  ExtensionAction* extension_action =
-      extension_manager->GetPageAction(*extension);
-  if (extension_action) {
-    location_bar_->GetPageActionView(extension_action)->image_view()->
-        ExecuteAction(ExtensionPopup::SHOW);
-  }
-}
+void ToolbarView::ShowAppMenu(bool for_drop) {
+  if (wrench_menu_.get() && wrench_menu_->IsShowing())
+    return;
 
-void ToolbarView::ShowBrowserActionPopup(
-    const extensions::Extension* extension) {
-  browser_actions_->ShowPopup(extension, true);
+  if (keyboard::KeyboardController::GetInstance() &&
+      keyboard::KeyboardController::GetInstance()->keyboard_visible()) {
+    keyboard::KeyboardController::GetInstance()->HideKeyboard(
+        keyboard::KeyboardController::HIDE_REASON_AUTOMATIC);
+  }
+
+  wrench_menu_.reset(
+      new WrenchMenu(browser_, for_drop ? WrenchMenu::FOR_DROP : 0));
+  wrench_menu_model_.reset(new WrenchMenuModel(this, browser_));
+  wrench_menu_->Init(wrench_menu_model_.get());
+
+  FOR_EACH_OBSERVER(views::MenuListener, menu_listeners_, OnMenuOpened());
+
+  wrench_menu_->RunMenu(app_menu_);
 }
 
 views::MenuButton* ToolbarView::app_menu() const {
@@ -378,30 +388,7 @@ void ToolbarView::OnMenuButtonClicked(views::View* source,
                                       const gfx::Point& point) {
   TRACE_EVENT0("views", "ToolbarView::OnMenuButtonClicked");
   DCHECK_EQ(VIEW_ID_APP_MENU, source->id());
-
-  bool use_new_menu = false;
-  bool supports_new_separators = false;
-  // TODO: remove this.
-#if !defined(OS_LINUX) || defined(OS_CHROMEOS)
-  supports_new_separators =
-      GetNativeTheme() == ui::NativeThemeAura::instance();
-  use_new_menu = supports_new_separators;
-#endif
-
-  if (keyboard::KeyboardController::GetInstance() &&
-      keyboard::KeyboardController::GetInstance()->keyboard_visible()) {
-    keyboard::KeyboardController::GetInstance()->HideKeyboard(
-        keyboard::KeyboardController::HIDE_REASON_AUTOMATIC);
-  }
-
-  wrench_menu_.reset(new WrenchMenu(browser_, use_new_menu,
-                                    supports_new_separators));
-  wrench_menu_model_.reset(new WrenchMenuModel(this, browser_, use_new_menu));
-  wrench_menu_->Init(wrench_menu_model_.get());
-
-  FOR_EACH_OBSERVER(views::MenuListener, menu_listeners_, OnMenuOpened());
-
-  wrench_menu_->RunMenu(app_menu_);
+  ShowAppMenu(false);  // Not for drop.
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -484,12 +471,6 @@ void ToolbarView::Observe(int type,
                           const content::NotificationSource& source,
                           const content::NotificationDetails& details) {
   switch (type) {
-    case chrome::NOTIFICATION_UPGRADE_RECOMMENDED:
-    case chrome::NOTIFICATION_MODULE_INCOMPATIBILITY_BADGE_CHANGE:
-    case chrome::NOTIFICATION_GLOBAL_ERRORS_CHANGED:
-    case chrome::NOTIFICATION_MODULE_LIST_ENUMERATED:
-      UpdateAppMenuState();
-      break;
     case chrome::NOTIFICATION_OUTDATED_INSTALL:
       ShowOutdatedInstallNotification(true);
       break;
@@ -589,7 +570,8 @@ void ToolbarView::Layout() {
   next_element_x = reload_->bounds().right();
 
   if (show_home_button_.GetValue() ||
-      (browser_->is_app() && IsStreamlinedHostedAppsEnabled())) {
+      (browser_->is_app() &&
+       extensions::util::IsStreamlinedHostedAppsEnabled())) {
     home_->SetVisible(true);
     home_->SetBounds(next_element_x, child_y,
                      home_->GetPreferredSize().width(), child_height);
@@ -628,16 +610,6 @@ void ToolbarView::Layout() {
   if (maximized)
     app_menu_width += kRightEdgeSpacing;
   app_menu_->SetBounds(next_element_x, child_y, app_menu_width, child_height);
-}
-
-bool ToolbarView::HitTestRect(const gfx::Rect& rect) const {
-  // Fall through to the tab strip above us if none of |rect| intersects
-  // with this view (intersection with the top shadow edge does not
-  // count as intersection with this view).
-  if (rect.bottom() < content_shadow_height())
-    return false;
-  // Otherwise let our superclass take care of it.
-  return AccessiblePaneView::HitTestRect(rect);
 }
 
 void ToolbarView::OnPaint(gfx::Canvas* canvas) {
@@ -704,24 +676,52 @@ void ToolbarView::RemovePaneFocus() {
 ////////////////////////////////////////////////////////////////////////////////
 // ToolbarView, private:
 
-bool ToolbarView::ShouldShowUpgradeRecommended() {
-#if defined(OS_CHROMEOS)
-  // In chromeos, the update recommendation is shown in the system tray. So it
-  // should not be displayed in the wrench menu.
-  return false;
-#else
-  return (UpgradeDetector::GetInstance()->notify_upgrade());
-#endif
+// views::ViewTargeterDelegate:
+bool ToolbarView::DoesIntersectRect(const views::View* target,
+                                    const gfx::Rect& rect) const {
+  CHECK_EQ(target, this);
+
+  // Fall through to the tab strip above us if none of |rect| intersects
+  // with this view (intersection with the top shadow edge does not
+  // count as intersection with this view).
+  if (rect.bottom() < content_shadow_height())
+    return false;
+  // Otherwise let our superclass take care of it.
+  return ViewTargeterDelegate::DoesIntersectRect(this, rect);
 }
 
-bool ToolbarView::ShouldShowIncompatibilityWarning() {
+void ToolbarView::UpdateBadgeSeverity(WrenchMenuBadgeController::BadgeType type,
+                                      WrenchIconPainter::Severity severity,
+                                      bool animate)  {
+  // Showing the bubble requires |app_menu_| to be in a widget. See comment
+  // in ConflictingModuleView for details.
+  DCHECK(app_menu_->GetWidget());
+
+  base::string16 accname_app = l10n_util::GetStringUTF16(IDS_ACCNAME_APP);
+  if (type == WrenchMenuBadgeController::BADGE_TYPE_UPGRADE_NOTIFICATION) {
+    accname_app = l10n_util::GetStringFUTF16(
+        IDS_ACCNAME_APP_UPGRADE_RECOMMENDED, accname_app);
+  }
+  app_menu_->SetAccessibleName(accname_app);
+  app_menu_->SetSeverity(severity, animate);
+
+  // Keep track of whether we were showing the badge before, so we don't send
+  // multiple UMA events for example when multiple Chrome windows are open.
+  static bool incompatibility_badge_showing = false;
+  // Save the old value before resetting it.
+  bool was_showing = incompatibility_badge_showing;
+  incompatibility_badge_showing = false;
+
+  if (type == WrenchMenuBadgeController::BADGE_TYPE_INCOMPATIBILITY_WARNING) {
+    if (!was_showing) {
+      content::RecordAction(UserMetricsAction("ConflictBadge"));
 #if defined(OS_WIN)
-  EnumerateModulesModel* loaded_modules = EnumerateModulesModel::GetInstance();
-  loaded_modules->MaybePostScanningTask();
-  return loaded_modules->ShouldShowConflictWarning();
-#else
-  return false;
+      ConflictingModuleView::MaybeShow(browser_, app_menu_);
 #endif
+    }
+    incompatibility_badge_showing = true;
+    return;
+  }
 }
 
 int ToolbarView::PopupTopSpacing() const {
@@ -779,62 +779,6 @@ void ToolbarView::ShowOutdatedInstallNotification(bool auto_update_enabled) {
     OutdatedUpgradeBubbleView::ShowBubble(
         app_menu_, browser_, auto_update_enabled);
   }
-}
-
-void ToolbarView::UpdateAppMenuState() {
-  base::string16 accname_app = l10n_util::GetStringUTF16(IDS_ACCNAME_APP);
-  if (ShouldShowUpgradeRecommended()) {
-    accname_app = l10n_util::GetStringFUTF16(
-        IDS_ACCNAME_APP_UPGRADE_RECOMMENDED, accname_app);
-  }
-  app_menu_->SetAccessibleName(accname_app);
-
-  UpdateWrenchButtonSeverity();
-  SchedulePaint();
-}
-
-void ToolbarView::UpdateWrenchButtonSeverity() {
-  // Showing the bubble requires |app_menu_| to be in a widget. See comment
-  // in ConflictingModuleView for details.
-  DCHECK(app_menu_->GetWidget());
-
-  // Keep track of whether we were showing the badge before, so we don't send
-  // multiple UMA events for example when multiple Chrome windows are open.
-  static bool incompatibility_badge_showing = false;
-  // Save the old value before resetting it.
-  bool was_showing = incompatibility_badge_showing;
-  incompatibility_badge_showing = false;
-
-  if (ShouldShowUpgradeRecommended()) {
-    UpgradeDetector::UpgradeNotificationAnnoyanceLevel level =
-        UpgradeDetector::GetInstance()->upgrade_notification_stage();
-    app_menu_->SetSeverity(WrenchIconPainter::SeverityFromUpgradeLevel(level),
-                           WrenchIconPainter::ShouldAnimateUpgradeLevel(level));
-    return;
-  }
-
-  if (ShouldShowIncompatibilityWarning()) {
-    if (!was_showing) {
-      content::RecordAction(UserMetricsAction("ConflictBadge"));
-#if defined(OS_WIN)
-      ConflictingModuleView::MaybeShow(browser_, app_menu_);
-#endif
-    }
-    app_menu_->SetSeverity(WrenchIconPainter::SEVERITY_MEDIUM, true);
-    incompatibility_badge_showing = true;
-    return;
-  }
-
-  GlobalErrorService* service =
-      GlobalErrorServiceFactory::GetForProfile(browser_->profile());
-  GlobalError* error =
-      service->GetHighestSeverityGlobalErrorWithWrenchMenuItem();
-  if (error) {
-    app_menu_->SetSeverity(WrenchIconPainter::GlobalErrorSeverity(), true);
-    return;
-  }
-
-  app_menu_->SetSeverity(WrenchIconPainter::SEVERITY_NONE, true);
 }
 
 void ToolbarView::OnShowHomeButtonChanged() {

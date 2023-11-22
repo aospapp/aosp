@@ -19,154 +19,139 @@
         android:orientation="vertical"
         android:padding="10dip"
         >
-    <TextView android:text="@string/ble_scanner_power_level_instruction"
+    <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id="@+id/ble_scanner_power_level_instruction"
-    />
-    <LinearLayout android:orientation="vertical"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_below="@+id/ble_scanner_power_level_instruction"
-            android:layout_centerInParent="true"
-            android:padding="10dp"
-            >
-        <LinearLayout android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_centerInParent="true"
-                >
-            <TextView android:text="@string/ble_ultra_low"
-                  android:layout_width="100dp"
-                  android:layout_height="wrap_content"
-            />
-            <TextView android:id="@+id/ble_ultra_low_mac"
-                  android:layout_width="200dp"
-                  android:layout_height="wrap_content"
-            />
-            <TextView android:id="@+id/ble_ultra_low_rssi"
-                  android:layout_width="100dp"
-                  android:layout_height="wrap_content"
-            />
-        </LinearLayout>
-        <LinearLayout android:orientation="horizontal"
+            android:layout_height="wrap_content">
+        <LinearLayout android:orientation="vertical"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
-            <TextView android:layout_width="100dp"
-                  android:layout_height="wrap_content"/>
-            <TextView android:id="@+id/ble_ultra_low_count"
-                    android:layout_width="100dp"
+            <TextView android:text="@string/ble_scanner_power_level_instruction"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:id="@+id/ble_scanner_power_level_instruction"
             />
-            <TextView android:id="@+id/ble_ultra_low_set_power"
-                    android:layout_width="100dp"
+            <HorizontalScrollView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content">
+                <LinearLayout android:orientation="vertical"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@+id/ble_scanner_power_level_instruction"
+                        android:layout_centerInParent="true"
+                        android:padding="10dp">
+                    <LinearLayout android:orientation="horizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_centerInParent="true">
+                        <TextView android:text="@string/ble_ultra_low"
+                                android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                        <TextView android:id="@+id/ble_ultra_low_mac"
+                                android:layout_width="200dp"
+                                android:layout_height="wrap_content"/>
+                        <TextView android:id="@+id/ble_ultra_low_rssi"
+                                android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                    </LinearLayout>
+                    <LinearLayout android:orientation="horizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content">
+                        <TextView android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                        <TextView android:id="@+id/ble_ultra_low_count"
+                                android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                        <TextView android:id="@+id/ble_ultra_low_set_power"
+                                android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                    </LinearLayout>
+                    <LinearLayout android:orientation="horizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_centerInParent="true">
+                        <TextView android:text="@string/ble_low"
+                                android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                        <TextView android:id="@+id/ble_low_mac"
+                                android:layout_width="200dp"
+                                android:layout_height="wrap_content"/>
+                        <TextView android:id="@+id/ble_low_rssi"
+                                android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                    </LinearLayout>
+                    <LinearLayout android:orientation="horizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content">
+                        <TextView android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                        <TextView android:id="@+id/ble_low_count"
+                                android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                        <TextView android:id="@+id/ble_low_set_power"
+                                android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                    </LinearLayout>
+                    <LinearLayout android:orientation="horizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_centerInParent="true">
+                        <TextView android:text="@string/ble_medium"
+                                android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                        <TextView android:id="@+id/ble_medium_mac"
+                                android:layout_width="200dp"
+                                android:layout_height="wrap_content"/>
+                        <TextView android:id="@+id/ble_medium_rssi"
+                                android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                    </LinearLayout>
+                    <LinearLayout android:orientation="horizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content">
+                        <TextView android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                        <TextView android:id="@+id/ble_medium_count"
+                                android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                        <TextView android:id="@+id/ble_medium_set_power"
+                                android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                    </LinearLayout>
+                    <LinearLayout android:orientation="horizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_centerInParent="true">
+                        <TextView android:text="@string/ble_high"
+                                android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                        <TextView android:id="@+id/ble_high_mac"
+                                android:layout_width="200dp"
+                                android:layout_height="wrap_content"/>
+                        <TextView android:id="@+id/ble_high_rssi"
+                                android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                    </LinearLayout>
+                    <LinearLayout android:orientation="horizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content">
+                        <TextView android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                        <TextView android:id="@+id/ble_high_count"
+                                android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                        <TextView android:id="@+id/ble_high_set_power"
+                                android:layout_width="100dp"
+                                android:layout_height="wrap_content"/>
+                    </LinearLayout>
+                </LinearLayout>
+            </HorizontalScrollView>
+            <TextView android:id="@+id/ble_timer"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content" />
+            <include android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-            />
+                    android:layout_alignParentBottom="true"
+                    layout="@layout/pass_fail_buttons"/>
         </LinearLayout>
-        <LinearLayout android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_centerInParent="true"
-                >
-            <TextView android:text="@string/ble_low"
-                  android:layout_width="100dp"
-                  android:layout_height="wrap_content"
-            />
-            <TextView android:id="@+id/ble_low_mac"
-                  android:layout_width="200dp"
-                  android:layout_height="wrap_content"
-            />
-            <TextView android:id="@+id/ble_low_rssi"
-                  android:layout_width="100dp"
-                  android:layout_height="wrap_content"
-            />
-        </LinearLayout>
-        <LinearLayout android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-            <TextView android:layout_width="100dp"
-                  android:layout_height="wrap_content"/>
-            <TextView android:id="@+id/ble_low_count"
-                    android:layout_width="100dp"
-                    android:layout_height="wrap_content"
-            />
-            <TextView android:id="@+id/ble_low_set_power"
-                    android:layout_width="100dp"
-                    android:layout_height="wrap_content"
-            />
-        </LinearLayout>
-        <LinearLayout android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_centerInParent="true"
-                >
-            <TextView android:text="@string/ble_medium"
-                  android:layout_width="100dp"
-                  android:layout_height="wrap_content"
-            />
-            <TextView android:id="@+id/ble_medium_mac"
-                  android:layout_width="200dp"
-                  android:layout_height="wrap_content"
-            />
-            <TextView android:id="@+id/ble_medium_rssi"
-                  android:layout_width="100dp"
-                  android:layout_height="wrap_content"
-            />
-        </LinearLayout>
-        <LinearLayout android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-            <TextView android:layout_width="100dp"
-                  android:layout_height="wrap_content"/>
-            <TextView android:id="@+id/ble_medium_count"
-                    android:layout_width="100dp"
-                    android:layout_height="wrap_content"
-            />
-            <TextView android:id="@+id/ble_medium_set_power"
-                    android:layout_width="100dp"
-                    android:layout_height="wrap_content"
-            />
-        </LinearLayout>
-        <LinearLayout android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_centerInParent="true"
-                >
-            <TextView android:text="@string/ble_high"
-                  android:layout_width="100dp"
-                  android:layout_height="wrap_content"
-            />
-            <TextView android:id="@+id/ble_high_mac"
-                  android:layout_width="200dp"
-                  android:layout_height="wrap_content"
-            />
-            <TextView android:id="@+id/ble_high_rssi"
-                  android:layout_width="100dp"
-                  android:layout_height="wrap_content"
-            />
-        </LinearLayout>
-        <LinearLayout android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-            <TextView android:layout_width="100dp"
-                  android:layout_height="wrap_content"/>
-            <TextView android:id="@+id/ble_high_count"
-                    android:layout_width="100dp"
-                    android:layout_height="wrap_content"
-            />
-            <TextView android:id="@+id/ble_high_set_power"
-                    android:layout_width="100dp"
-                    android:layout_height="wrap_content"
-            />
-        </LinearLayout>
-        <TextView android:id="@+id/ble_timer"
-                android:layout_width="fill_parent"
-                android:layout_height="wrap_content" />
-    </LinearLayout>
-
-    <include android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_alignParentBottom="true"
-            layout="@layout/pass_fail_buttons"
-            />
+    </ScrollView>
 </RelativeLayout>

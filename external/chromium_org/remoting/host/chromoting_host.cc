@@ -18,6 +18,7 @@
 #include "remoting/host/desktop_environment.h"
 #include "remoting/host/host_config.h"
 #include "remoting/host/input_injector.h"
+#include "remoting/host/video_frame_recorder.h"
 #include "remoting/protocol/connection_to_client.h"
 #include "remoting/protocol/client_stub.h"
 #include "remoting/protocol/host_stub.h"
@@ -112,13 +113,14 @@ ChromotingHost::~ChromotingHost() {
     FOR_EACH_OBSERVER(HostStatusObserver, status_observers_, OnShutdown());
 }
 
-void ChromotingHost::Start(const std::string& host_owner) {
+void ChromotingHost::Start(const std::string& host_owner_email) {
   DCHECK(CalledOnValidThread());
   DCHECK(!started_);
 
   HOST_LOG << "Starting host";
   started_ = true;
-  FOR_EACH_OBSERVER(HostStatusObserver, status_observers_, OnStart(host_owner));
+  FOR_EACH_OBSERVER(HostStatusObserver, status_observers_,
+                    OnStart(host_owner_email));
 
   // Start the SessionManager, supplying this ChromotingHost as the listener.
   session_manager_->Init(signal_strategy_, this);
@@ -227,19 +229,6 @@ void ChromotingHost::OnSessionChannelsConnected(ClientSession* client) {
                     OnClientConnected(client->client_jid()));
 }
 
-void ChromotingHost::OnSessionClientCapabilities(ClientSession* client) {
-  DCHECK(CalledOnValidThread());
-
-  // Create extension sessions from each registered extension for this client.
-  for (HostExtensionList::iterator extension = extensions_.begin();
-       extension != extensions_.end(); ++extension) {
-    scoped_ptr<HostExtensionSession> extension_session =
-        (*extension)->CreateExtensionSession(client);
-    if (extension_session)
-      client->AddExtensionSession(extension_session.Pass());
-  }
-}
-
 void ChromotingHost::OnSessionAuthenticationFailed(ClientSession* client) {
   DCHECK(CalledOnValidThread());
 
@@ -261,11 +250,6 @@ void ChromotingHost::OnSessionClosed(ClientSession* client) {
 
   clients_.erase(it);
   delete client;
-}
-
-void ChromotingHost::OnSessionSequenceNumber(ClientSession* session,
-                                             int64 sequence_number) {
-  DCHECK(CalledOnValidThread());
 }
 
 void ChromotingHost::OnSessionRouteChange(
@@ -329,13 +313,8 @@ void ChromotingHost::OnIncomingSession(
       connection.Pass(),
       desktop_environment_factory_,
       max_session_duration_,
-      pairing_registry_);
-
-  // Registers capabilities provided by host extensions.
-  for (HostExtensionList::iterator extension = extensions_.begin();
-       extension != extensions_.end(); ++extension) {
-    client->AddHostCapabilities((*extension)->GetCapabilities());
-  }
+      pairing_registry_,
+      extensions_.get());
 
   clients_.push_back(client);
 }

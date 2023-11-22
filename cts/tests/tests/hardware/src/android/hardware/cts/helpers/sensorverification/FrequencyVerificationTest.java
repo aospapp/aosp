@@ -22,6 +22,9 @@ import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.TestSensorEvent;
 
+import java.util.ArrayList;
+import java.util.Collection;
+
 /**
  * Tests for {@link EventOrderingVerification}.
  */
@@ -73,15 +76,17 @@ public class FrequencyVerificationTest extends SensorTestCase {
         return new TestSensorEnvironment(getContext(), Sensor.TYPE_ALL, rateUs);
     }
 
-    private ISensorVerification getVerification(
+    private static FrequencyVerification getVerification(
             double lowerThreshold,
             double upperThreshold,
             long ... timestamps) {
-        ISensorVerification verification =
-                new FrequencyVerification(lowerThreshold, upperThreshold);
+        Collection<TestSensorEvent> events = new ArrayList<>(timestamps.length);
         for (long timestamp : timestamps) {
-            verification.addSensorEvent(new TestSensorEvent(null, timestamp, 0, null));
+            events.add(new TestSensorEvent(null, timestamp, 0, null));
         }
+        FrequencyVerification verification =
+                new FrequencyVerification(lowerThreshold, upperThreshold);
+        verification.addSensorEvents(events);
         return verification;
     }
 

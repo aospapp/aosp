@@ -10,9 +10,9 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/nacl/common/nacl_process_type.h"
 #include "content/public/browser/browser_child_process_host_iterator.h"
 #include "content/public/browser/browser_thread.h"
@@ -24,16 +24,19 @@
 #include "content/public/browser/render_widget_host_iterator.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/bindings_policy.h"
-#include "extensions/browser/process_manager.h"
-#include "extensions/browser/process_map.h"
-#include "extensions/browser/view_type_utils.h"
-#include "extensions/common/extension.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
 #if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_ANDROID)
 #include "content/public/browser/zygote_host_linux.h"
+#endif
+
+#if defined(ENABLE_EXTENSIONS)
+#include "chrome/browser/extensions/extension_service.h"
+#include "extensions/browser/extension_system.h"
+#include "extensions/browser/process_manager.h"
+#include "extensions/browser/process_map.h"
+#include "extensions/browser/view_type_utils.h"
+#include "extensions/common/extension.h"
 #endif
 
 using base::StringPrintf;
@@ -43,7 +46,9 @@ using content::NavigationEntry;
 using content::RenderViewHost;
 using content::RenderWidgetHost;
 using content::WebContents;
+#if defined(ENABLE_EXTENSIONS)
 using extensions::Extension;
+#endif
 
 // static
 std::string ProcessMemoryInformation::GetRendererTypeNameInEnglish(
@@ -109,6 +114,41 @@ ProcessData& ProcessData::operator=(const ProcessData& rhs) {
   return *this;
 }
 
+MemoryGrowthTracker::MemoryGrowthTracker() {}
+
+MemoryGrowthTracker::~MemoryGrowthTracker() {}
+
+bool MemoryGrowthTracker::UpdateSample(
+    base::ProcessId pid,
+    int sample,
+    int* diff) {
+  // |sample| is memory usage in kB.
+  const base::TimeTicks current_time = base::TimeTicks::Now();
+  std::map<base::ProcessId, int>::iterator found_size = memory_sizes_.find(pid);
+  if (found_size != memory_sizes_.end()) {
+    const int last_size = found_size->second;
+    std::map<base::ProcessId, base::TimeTicks>::iterator found_time =
+        times_.find(pid);
+    const base::TimeTicks last_time = found_time->second;
+    if (last_time < (current_time - base::TimeDelta::FromMinutes(30))) {
+      // Note that it is undefined how division of a negative integer gets
+      // rounded. |*diff| may have a difference of 1 from the correct number
+      // if |sample| < |last_size|. We ignore it as 1 is small enough.
+      *diff = ((sample - last_size) * 30 /
+               (current_time - last_time).InMinutes());
+      found_size->second = sample;
+      found_time->second = current_time;
+      return true;
+    }
+    // Skip if a last record is found less than 30 minutes ago.
+  } else {
+    // Not reporting if it's the first record for |pid|.
+    times_[pid] = current_time;
+    memory_sizes_[pid] = sample;
+  }
+  return false;
+}
+
 // About threading:
 //
 // This operation will hit no fewer than 3 threads.
@@ -172,6 +212,11 @@ std::string MemoryDetails::ToLogString() {
   return log;
 }
 
+void MemoryDetails::SetMemoryGrowthTracker(
+    MemoryGrowthTracker* memory_growth_tracker) {
+  memory_growth_tracker_ = memory_growth_tracker;
+}
+
 void MemoryDetails::CollectChildInfoOnIOThread() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
 
@@ -227,15 +272,6 @@ void MemoryDetails::CollectChildInfoOnUIThread() {
           process.pid != base::GetProcId(render_process_host->GetHandle())) {
         continue;
       }
-      process.process_type = content::PROCESS_TYPE_RENDERER;
-      Profile* profile =
-          Profile::FromBrowserContext(
-              render_process_host->GetBrowserContext());
-      ExtensionService* extension_service = profile->GetExtensionService();
-      extensions::ProcessMap* extension_process_map = NULL;
-      // No extensions on Android. So extension_service can be NULL.
-      if (extension_service)
-          extension_process_map = extensions::ProcessMap::Get(profile);
 
       // The RenderProcessHost may host multiple WebContentses.  Any
       // of them which contain diagnostics information make the whole
@@ -243,7 +279,20 @@ void MemoryDetails::CollectChildInfoOnUIThread() {
       if (!widget->IsRenderView())
         continue;
 
+      process.process_type = content::PROCESS_TYPE_RENDERER;
+      bool is_extension = false;
       RenderViewHost* host = RenderViewHost::From(widget);
+#if defined(ENABLE_EXTENSIONS)
+      content::BrowserContext* context =
+          render_process_host->GetBrowserContext();
+      ExtensionService* extension_service =
+          extensions::ExtensionSystem::Get(context)->extension_service();
+      extensions::ProcessMap* extension_process_map =
+          extensions::ProcessMap::Get(context);
+      is_extension = extension_process_map->Contains(
+          host->GetProcess()->GetID());
+#endif
+
       WebContents* contents = WebContents::FromRenderViewHost(host);
       GURL url;
       if (contents) {
@@ -252,11 +301,13 @@ void MemoryDetails::CollectChildInfoOnUIThread() {
             &chrome_browser->site_data[contents->GetBrowserContext()];
         SiteDetails::CollectSiteInfo(contents, site_data);
       }
+#if defined(ENABLE_EXTENSIONS)
       extensions::ViewType type = extensions::GetViewType(contents);
+#endif
       if (host->GetEnabledBindings() & content::BINDINGS_POLICY_WEB_UI) {
         process.renderer_type = ProcessMemoryInformation::RENDERER_CHROME;
-      } else if (extension_process_map &&
-                 extension_process_map->Contains(host->GetProcess()->GetID())) {
+      } else if (is_extension) {
+#if defined(ENABLE_EXTENSIONS)
         // For our purposes, don't count processes containing only hosted apps
         // as extension processes. See also: crbug.com/102533.
         std::set<std::string> extension_ids =
@@ -272,9 +323,10 @@ void MemoryDetails::CollectChildInfoOnUIThread() {
             break;
           }
         }
+#endif
       }
-      if (extension_process_map &&
-          extension_process_map->Contains(host->GetProcess()->GetID())) {
+#if defined(ENABLE_EXTENSIONS)
+      if (is_extension) {
         const Extension* extension =
             extension_service->extensions()->GetByID(url.host());
         if (extension) {
@@ -285,6 +337,7 @@ void MemoryDetails::CollectChildInfoOnUIThread() {
           continue;
         }
       }
+#endif
 
       if (!contents) {
         process.renderer_type =
@@ -292,12 +345,14 @@ void MemoryDetails::CollectChildInfoOnUIThread() {
         continue;
       }
 
+#if defined(ENABLE_EXTENSIONS)
       if (type == extensions::VIEW_TYPE_BACKGROUND_CONTENTS) {
         process.titles.push_back(base::UTF8ToUTF16(url.spec()));
         process.renderer_type =
             ProcessMemoryInformation::RENDERER_BACKGROUND_APP;
         continue;
       }
+#endif
 
       // Since we have a WebContents and and the renderer type hasn't been
       // set yet, it must be a normal tabbed renderer.
@@ -399,6 +454,15 @@ void MemoryDetails::UpdateHistograms() {
           default:
             // TODO(erikkay): Should we bother splitting out the other subtypes?
             UMA_HISTOGRAM_MEMORY_KB("Memory.Renderer", sample);
+            int diff;
+            if (memory_growth_tracker_ &&
+                memory_growth_tracker_->UpdateSample(
+                    browser.processes[index].pid, sample, &diff)) {
+              if (diff < 0)
+                UMA_HISTOGRAM_MEMORY_KB("Memory.RendererShrinkIn30Min", -diff);
+              else
+                UMA_HISTOGRAM_MEMORY_KB("Memory.RendererGrowthIn30Min", diff);
+            }
             renderer_count++;
             continue;
         }
@@ -406,10 +470,6 @@ void MemoryDetails::UpdateHistograms() {
       case content::PROCESS_TYPE_PLUGIN:
         UMA_HISTOGRAM_MEMORY_KB("Memory.Plugin", sample);
         plugin_count++;
-        continue;
-      case content::PROCESS_TYPE_WORKER:
-        UMA_HISTOGRAM_MEMORY_KB("Memory.Worker", sample);
-        worker_count++;
         continue;
       case content::PROCESS_TYPE_UTILITY:
         UMA_HISTOGRAM_MEMORY_KB("Memory.Utility", sample);
@@ -478,7 +538,6 @@ void MemoryDetails::UpdateHistograms() {
 #if defined(OS_CHROMEOS)
   UpdateSwapHistograms();
 #endif
-
 }
 
 #if defined(OS_CHROMEOS)
@@ -519,9 +578,6 @@ void MemoryDetails::UpdateSwapHistograms() {
       }
       case content::PROCESS_TYPE_PLUGIN:
         UMA_HISTOGRAM_MEMORY_KB("Memory.Swap.Plugin", sample);
-        continue;
-      case content::PROCESS_TYPE_WORKER:
-        UMA_HISTOGRAM_MEMORY_KB("Memory.Swap.Worker", sample);
         continue;
       case content::PROCESS_TYPE_UTILITY:
         UMA_HISTOGRAM_MEMORY_KB("Memory.Swap.Utility", sample);

@@ -11,7 +11,7 @@ from docs_server_utils import FormatKey
 from extensions_paths import (
     ARTICLES_TEMPLATES, INTROS_TEMPLATES, PRIVATE_TEMPLATES)
 from file_system import FileNotFoundError
-from future import Collect
+from future import All
 from path_util import AssertIsDirectory
 
 
@@ -23,8 +23,8 @@ class TemplateDataSource(DataSource):
     AssertIsDirectory(self._dir)
     self._request = request
     self._template_cache = server_instance.compiled_fs_factory.ForTemplates(
-        server_instance.host_file_system_provider.GetTrunk())
-    self._file_system = server_instance.host_file_system_provider.GetTrunk()
+        server_instance.host_file_system_provider.GetMaster())
+    self._file_system = server_instance.host_file_system_provider.GetMaster()
 
   def get(self, path):
     try:
@@ -34,14 +34,14 @@ class TemplateDataSource(DataSource):
       logging.warning(traceback.format_exc())
       return None
 
-  def Cron(self):
+  def Refresh(self, path):
     futures = []
     for root, _, files in self._file_system.Walk(self._dir):
       futures += [self._template_cache.GetFromFile(
                       posixpath.join(self._dir, root, FormatKey(f)))
                   for f in files
                   if posixpath.splitext(f)[1] == '.html']
-    return Collect(futures)
+    return All(futures)
 
 
 class ArticleDataSource(TemplateDataSource):

@@ -16,7 +16,6 @@
 #include "base/threading/thread.h"
 #include "base/values.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/history/page_usage_data.h"
 #include "chrome/browser/history/top_sites.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
@@ -25,6 +24,7 @@
 #include "chrome/browser/ui/webui/ntp/suggestions_source_top_sites.h"
 #include "chrome/browser/ui/webui/ntp/thumbnail_source.h"
 #include "chrome/common/url_constants.h"
+#include "components/history/core/browser/page_usage_data.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
@@ -33,7 +33,7 @@
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
-#include "content/public/common/page_transition_types.h"
+#include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
 
 using base::UserMetricsAction;
@@ -52,7 +52,7 @@ SuggestionsHandler::~SuggestionsHandler() {
         web_ui()->GetWebContents()->GetController().GetLastCommittedEntry();
     if (entry && (entry->GetURL() != ntp_url)) {
       action_id =
-          content::PageTransitionStripQualifier(entry->GetTransitionType());
+          ui::PageTransitionStripQualifier(entry->GetTransitionType());
     }
 
     UMA_HISTOGRAM_ENUMERATION("NewTabPage.SuggestedSitesAction", action_id,

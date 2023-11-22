@@ -15,24 +15,27 @@
 #include "base/values.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier.h"
 #include "chrome/browser/autocomplete/autocomplete_controller.h"
-#include "chrome/browser/autocomplete/autocomplete_match.h"
-#include "chrome/browser/autocomplete/autocomplete_provider.h"
+#include "chrome/browser/autocomplete/chrome_autocomplete_scheme_classifier.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/history/history_service.h"
 #include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/history/url_database.h"
 #include "chrome/browser/search/search.h"
-#include "chrome/browser/search_engines/template_url.h"
+#include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "components/bookmarks/browser/bookmark_model.h"
+#include "components/history/core/browser/url_database.h"
 #include "components/metrics/proto/omnibox_event.pb.h"
+#include "components/omnibox/autocomplete_match.h"
+#include "components/omnibox/autocomplete_provider.h"
+#include "components/search_engines/template_url.h"
 #include "content/public/browser/web_ui.h"
 #include "mojo/common/common_type_converters.h"
 
 namespace mojo {
 
 template <>
-class TypeConverter<mojo::Array<AutocompleteAdditionalInfoPtr>,
-                    AutocompleteMatch::AdditionalInfo> {
- public:
-  static mojo::Array<AutocompleteAdditionalInfoPtr> ConvertFrom(
+struct TypeConverter<mojo::Array<AutocompleteAdditionalInfoPtr>,
+                     AutocompleteMatch::AdditionalInfo> {
+  static mojo::Array<AutocompleteAdditionalInfoPtr> Convert(
       const AutocompleteMatch::AdditionalInfo& input) {
     mojo::Array<AutocompleteAdditionalInfoPtr> array(input.size());
     size_t index = 0;
@@ -48,9 +51,8 @@ class TypeConverter<mojo::Array<AutocompleteAdditionalInfoPtr>,
 };
 
 template <>
-class TypeConverter<AutocompleteMatchMojoPtr, AutocompleteMatch> {
- public:
-  static AutocompleteMatchMojoPtr ConvertFrom(const AutocompleteMatch& input) {
+struct TypeConverter<AutocompleteMatchMojoPtr, AutocompleteMatch> {
+  static AutocompleteMatchMojoPtr Convert(const AutocompleteMatch& input) {
     AutocompleteMatchMojoPtr result(AutocompleteMatchMojo::New());
     if (input.provider != NULL) {
       result->provider_name = input.provider->GetName();
@@ -80,7 +82,6 @@ class TypeConverter<AutocompleteMatchMojoPtr, AutocompleteMatch> {
           mojo::String::From(input.associated_keyword->keyword);
     }
     result->keyword = mojo::String::From(input.keyword);
-    result->starred = input.starred;
     result->duplicates = static_cast<int32>(input.duplicate_matches.size());
     result->from_previous = input.from_previous;
 
@@ -91,11 +92,10 @@ class TypeConverter<AutocompleteMatchMojoPtr, AutocompleteMatch> {
 };
 
 template <>
-class TypeConverter<AutocompleteResultsForProviderMojoPtr,
-                    AutocompleteProvider*> {
- public:
-  static AutocompleteResultsForProviderMojoPtr ConvertFrom(
-      const AutocompleteProvider* input) {
+struct TypeConverter<AutocompleteResultsForProviderMojoPtr,
+                     scoped_refptr<AutocompleteProvider> > {
+  static AutocompleteResultsForProviderMojoPtr Convert(
+      const scoped_refptr<AutocompleteProvider>& input) {
     AutocompleteResultsForProviderMojoPtr result(
         AutocompleteResultsForProviderMojo::New());
     result->provider_name = input->GetName();
@@ -138,7 +138,25 @@ void OmniboxUIHandler::OnResultChanged(bool default_match_changed) {
   }
   result->results_by_provider =
       mojo::Array<AutocompleteResultsForProviderMojoPtr>::From(
-          *controller_->providers());
+          controller_->providers());
+
+  // Fill AutocompleteMatchMojo::starred.
+  BookmarkModel* bookmark_model = BookmarkModelFactory::GetForProfile(profile_);
+  if (bookmark_model) {
+    for (size_t i =  0; i < result->combined_results.size(); ++i) {
+      result->combined_results[i]->starred = bookmark_model->IsBookmarked(
+          GURL(result->combined_results[i]->destination_url));
+    }
+    for (size_t i = 0; i < result->results_by_provider.size(); ++i) {
+      const AutocompleteResultsForProviderMojo& result_by_provider =
+          *result->results_by_provider[i];
+      for (size_t j = 0; j < result_by_provider.results.size(); ++j) {
+        result_by_provider.results[j]->starred = bookmark_model->IsBookmarked(
+            GURL(result_by_provider.results[j]->destination_url));
+      }
+    }
+  }
+
   client()->HandleNewAutocompleteResult(result.Pass());
 }
 
@@ -169,20 +187,18 @@ void OmniboxUIHandler::StartOmniboxQuery(const mojo::String& input_string,
   ResetController();
   time_omnibox_started_ = base::Time::Now();
   input_ = AutocompleteInput(
-      input_string.To<base::string16>(),
-      cursor_position,
-      base::string16(),  // user's desired tld (top-level domain)
+      input_string.To<base::string16>(), cursor_position, base::string16(),
       GURL(),
       static_cast<metrics::OmniboxEventProto::PageClassification>(
           page_classification),
-      prevent_inline_autocomplete,
-      prefer_keyword,
-      true,  // allow exact keyword matches
-      true);
-  controller_->Start(input_);  // want all matches
+      prevent_inline_autocomplete, prefer_keyword, true, true,
+      ChromeAutocompleteSchemeClassifier(profile_));
+  controller_->Start(input_);
 }
 
 void OmniboxUIHandler::ResetController() {
-  controller_.reset(new AutocompleteController(profile_, this,
+  controller_.reset(new AutocompleteController(profile_,
+          TemplateURLServiceFactory::GetForProfile(profile_),
+          this,
           AutocompleteClassifier::kDefaultOmniboxProviders));
 }

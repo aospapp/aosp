@@ -7,6 +7,7 @@
 #include <limits>
 #include <string>
 
+#include "base/debug/trace_event.h"
 #include "chrome/common/extensions/api/file_system_provider.h"
 #include "chrome/common/extensions/api/file_system_provider_internal.h"
 
@@ -62,29 +63,46 @@ ReadFile::~ReadFile() {
 }
 
 bool ReadFile::Execute(int request_id) {
-  scoped_ptr<base::DictionaryValue> values(new base::DictionaryValue);
-  values->SetInteger("openRequestId", file_handle_);
-  values->SetDouble("offset", offset_);
-  values->SetInteger("length", length_);
+  using extensions::api::file_system_provider::ReadFileRequestedOptions;
+  TRACE_EVENT0("file_system_provider", "ReadFile::Execute");
+
+  ReadFileRequestedOptions options;
+  options.file_system_id = file_system_info_.file_system_id();
+  options.request_id = request_id;
+  options.open_request_id = file_handle_;
+  options.offset = offset_;
+  options.length = length_;
+
   return SendEvent(
       request_id,
       extensions::api::file_system_provider::OnReadFileRequested::kEventName,
-      values.Pass());
+      extensions::api::file_system_provider::OnReadFileRequested::Create(
+          options));
 }
 
 void ReadFile::OnSuccess(int /* request_id */,
                          scoped_ptr<RequestValue> result,
                          bool has_more) {
+  TRACE_EVENT0("file_system_provider", "ReadFile::OnSuccess");
   const int copy_result = CopyRequestValueToBuffer(
       result.Pass(), buffer_, current_offset_, length_);
-  DCHECK_LE(0, copy_result);
-  DCHECK(!has_more || copy_result > 0);
+
+  if (copy_result < 0) {
+    LOG(ERROR) << "Failed to parse a response for the read file operation.";
+    callback_.Run(
+        0 /* chunk_length */, false /* has_more */, base::File::FILE_ERROR_IO);
+    return;
+  }
+
   if (copy_result > 0)
     current_offset_ += copy_result;
   callback_.Run(copy_result, has_more, base::File::FILE_OK);
 }
 
-void ReadFile::OnError(int /* request_id */, base::File::Error error) {
+void ReadFile::OnError(int /* request_id */,
+                       scoped_ptr<RequestValue> /* result */,
+                       base::File::Error error) {
+  TRACE_EVENT0("file_system_provider", "ReadFile::OnError");
   callback_.Run(0 /* chunk_length */, false /* has_more */, error);
 }
 

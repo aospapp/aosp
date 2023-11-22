@@ -8,11 +8,10 @@
 #include <map>
 
 #include "base/containers/hash_tables.h"
-#include "base/lazy_instance.h"
 #include "base/memory/linked_ptr.h"
 #include "base/memory/ref_counted.h"
+#include "base/scoped_observer.h"
 #include "base/threading/non_thread_safe.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_observer.h"
@@ -20,24 +19,61 @@
 #include "content/public/browser/notification_service.h"
 #include "extensions/browser/browser_context_keyed_api_factory.h"
 #include "extensions/browser/extension_host.h"
+#include "extensions/browser/extension_registry.h"
+#include "extensions/browser/extension_registry_observer.h"
+#include "extensions/browser/notification_types.h"
 #include "extensions/common/extension.h"
 
 namespace extensions {
 
-namespace api {
+namespace core_api {
 class BluetoothSocketApiFunction;
 class BluetoothSocketEventDispatcher;
 class SerialEventDispatcher;
-}
-
-namespace core_api {
 class TCPServerSocketEventDispatcher;
 class TCPSocketEventDispatcher;
 class UDPSocketEventDispatcher;
 }
 
+template <typename T>
+struct NamedThreadTraits {
+  static bool IsCalledOnValidThread() {
+    return content::BrowserThread::CurrentlyOn(T::kThreadId);
+  }
+
+  static bool IsMessageLoopValid() {
+    return content::BrowserThread::IsMessageLoopValid(T::kThreadId);
+  }
+
+  static scoped_refptr<base::SequencedTaskRunner> GetSequencedTaskRunner() {
+    return content::BrowserThread::GetMessageLoopProxyForThread(T::kThreadId);
+  }
+};
+
+template <typename T>
+struct TestThreadTraits {
+  static bool IsCalledOnValidThread() {
+    return content::BrowserThread::CurrentlyOn(thread_id_);
+  }
+
+  static bool IsMessageLoopValid() {
+    return content::BrowserThread::IsMessageLoopValid(thread_id_);
+  }
+
+  static scoped_refptr<base::SequencedTaskRunner> GetSequencedTaskRunner() {
+    return content::BrowserThread::GetMessageLoopProxyForThread(thread_id_);
+  }
+
+  static content::BrowserThread::ID thread_id_;
+};
+
+template <typename T>
+content::BrowserThread::ID TestThreadTraits<T>::thread_id_ =
+    content::BrowserThread::IO;
+
 // An ApiResourceManager manages the lifetime of a set of resources that
-// ApiFunctions use. Examples are sockets or USB connections.
+// that live on named threads (i.e. BrowserThread::IO) which ApiFunctions use.
+// Examples of such resources are sockets or USB connections.
 //
 // Users of this class should define kThreadId to be the thread that
 // ApiResourceManager to works on. The default is defined in ApiResource.
@@ -72,48 +108,37 @@ class UDPSocketEventDispatcher;
 // ApiResourceManager<Resource>::GetFactoryInstance() {
 //   return g_factory.Pointer();
 // }
-template <class T>
+template <class T, typename ThreadingTraits = NamedThreadTraits<T> >
 class ApiResourceManager : public BrowserContextKeyedAPI,
                            public base::NonThreadSafe,
-                           public content::NotificationObserver {
+                           public content::NotificationObserver,
+                           public ExtensionRegistryObserver {
  public:
   explicit ApiResourceManager(content::BrowserContext* context)
-      : thread_id_(T::kThreadId), data_(new ApiResourceData(thread_id_)) {
+      : data_(new ApiResourceData()), extension_registry_observer_(this) {
+    extension_registry_observer_.Add(ExtensionRegistry::Get(context));
     registrar_.Add(this,
-                   chrome::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED,
-                   content::NotificationService::AllSources());
-    registrar_.Add(this,
-                   chrome::NOTIFICATION_EXTENSION_HOST_DESTROYED,
+                   extensions::NOTIFICATION_EXTENSION_HOST_DESTROYED,
                    content::NotificationService::AllSources());
   }
-
   // For Testing.
-  static ApiResourceManager<T>* CreateApiResourceManagerForTest(
-      content::BrowserContext* context,
-      content::BrowserThread::ID thread_id) {
-    ApiResourceManager* manager = new ApiResourceManager<T>(context);
-    manager->thread_id_ = thread_id;
-    manager->data_ = new ApiResourceData(thread_id);
+  static ApiResourceManager<T, TestThreadTraits<T> >*
+  CreateApiResourceManagerForTest(content::BrowserContext* context,
+                                  content::BrowserThread::ID thread_id) {
+    TestThreadTraits<T>::thread_id_ = thread_id;
+    ApiResourceManager<T, TestThreadTraits<T> >* manager =
+        new ApiResourceManager<T, TestThreadTraits<T> >(context);
     return manager;
   }
 
   virtual ~ApiResourceManager() {
     DCHECK(CalledOnValidThread());
-    DCHECK(content::BrowserThread::IsMessageLoopValid(thread_id_))
+    DCHECK(ThreadingTraits::IsMessageLoopValid())
         << "A unit test is using an ApiResourceManager but didn't provide "
            "the thread message loop needed for that kind of resource. "
            "Please ensure that the appropriate message loop is operational.";
 
     data_->InititateCleanup();
-  }
-
-  // BrowserContextKeyedAPI implementation.
-  static BrowserContextKeyedAPIFactory<ApiResourceManager<T> >*
-      GetFactoryInstance();
-
-  // Convenience method to get the ApiResourceManager for a profile.
-  static ApiResourceManager<T>* Get(content::BrowserContext* context) {
-    return BrowserContextKeyedAPIFactory<ApiResourceManager<T> >::Get(context);
   }
 
   // Takes ownership.
@@ -131,40 +156,57 @@ class ApiResourceManager : public BrowserContextKeyedAPI,
     return data_->GetResourceIds(extension_id);
   }
 
+  // BrowserContextKeyedAPI implementation.
+  static BrowserContextKeyedAPIFactory<ApiResourceManager<T> >*
+      GetFactoryInstance();
+
+  // Convenience method to get the ApiResourceManager for a profile.
+  static ApiResourceManager<T>* Get(content::BrowserContext* context) {
+    return BrowserContextKeyedAPIFactory<ApiResourceManager<T> >::Get(context);
+  }
+
+  // BrowserContextKeyedAPI implementation.
+  static const char* service_name() { return T::service_name(); }
+
+  // Change the resource mapped to this |extension_id| at this
+  // |api_resource_id| to |resource|. Returns true and succeeds unless
+  // |api_resource_id| does not already identify a resource held by
+  // |extension_id|.
+  bool Replace(const std::string& extension_id,
+               int api_resource_id,
+               T* resource) {
+    return data_->Replace(extension_id, api_resource_id, resource);
+  }
+
  protected:
   // content::NotificationObserver:
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE {
-    switch (type) {
-      case chrome::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED: {
-        std::string id = content::Details<extensions::UnloadedExtensionInfo>(
-                             details)->extension->id();
-        data_->InitiateExtensionUnloadedCleanup(id);
-        break;
-      }
-      case chrome::NOTIFICATION_EXTENSION_HOST_DESTROYED: {
-        ExtensionHost* host = content::Details<ExtensionHost>(details).ptr();
-        data_->InitiateExtensionSuspendedCleanup(host->extension_id());
-        break;
-      }
-    }
+    DCHECK_EQ(extensions::NOTIFICATION_EXTENSION_HOST_DESTROYED, type);
+    ExtensionHost* host = content::Details<ExtensionHost>(details).ptr();
+    data_->InitiateExtensionSuspendedCleanup(host->extension_id());
+  }
+
+  // ExtensionRegistryObserver:
+  virtual void OnExtensionUnloaded(
+      content::BrowserContext* browser_context,
+      const Extension* extension,
+      UnloadedExtensionInfo::Reason reason) OVERRIDE {
+    data_->InitiateExtensionUnloadedCleanup(extension->id());
   }
 
  private:
   // TODO(rockot): ApiResourceData could be moved out of ApiResourceManager and
   // we could avoid maintaining a friends list here.
   friend class BluetoothAPI;
-  friend class api::BluetoothSocketApiFunction;
-  friend class api::BluetoothSocketEventDispatcher;
-  friend class api::SerialEventDispatcher;
+  friend class core_api::BluetoothSocketApiFunction;
+  friend class core_api::BluetoothSocketEventDispatcher;
+  friend class core_api::SerialEventDispatcher;
   friend class core_api::TCPServerSocketEventDispatcher;
   friend class core_api::TCPSocketEventDispatcher;
   friend class core_api::UDPSocketEventDispatcher;
   friend class BrowserContextKeyedAPIFactory<ApiResourceManager<T> >;
-
-  // BrowserContextKeyedAPI implementation.
-  static const char* service_name() { return T::service_name(); }
 
   static const bool kServiceHasOwnInstanceInIncognito = true;
   static const bool kServiceIsNULLWhileTesting = true;
@@ -177,54 +219,69 @@ class ApiResourceManager : public BrowserContextKeyedAPI,
     // Lookup map from extension id's to allocated resource id's.
     typedef std::map<std::string, base::hash_set<int> > ExtensionToResourceMap;
 
-    explicit ApiResourceData(const content::BrowserThread::ID thread_id)
-        : next_id_(1), thread_id_(thread_id) {}
+    ApiResourceData() : next_id_(1) {}
 
     int Add(T* api_resource) {
-      DCHECK_CURRENTLY_ON(thread_id_);
+      DCHECK(ThreadingTraits::IsCalledOnValidThread());
       int id = GenerateId();
       if (id > 0) {
         linked_ptr<T> resource_ptr(api_resource);
         api_resource_map_[id] = resource_ptr;
 
         const std::string& extension_id = api_resource->owner_extension_id();
-        if (extension_resource_map_.find(extension_id) ==
-            extension_resource_map_.end()) {
-          extension_resource_map_[extension_id] = base::hash_set<int>();
+        ExtensionToResourceMap::iterator it =
+            extension_resource_map_.find(extension_id);
+        if (it == extension_resource_map_.end()) {
+          it = extension_resource_map_.insert(
+              std::make_pair(extension_id, base::hash_set<int>())).first;
         }
-        extension_resource_map_[extension_id].insert(id);
-
+        it->second.insert(id);
         return id;
       }
       return 0;
     }
 
     void Remove(const std::string& extension_id, int api_resource_id) {
-      DCHECK_CURRENTLY_ON(thread_id_);
-      if (GetOwnedResource(extension_id, api_resource_id) != NULL) {
-        DCHECK(extension_resource_map_.find(extension_id) !=
-               extension_resource_map_.end());
-        extension_resource_map_[extension_id].erase(api_resource_id);
+      DCHECK(ThreadingTraits::IsCalledOnValidThread());
+      if (GetOwnedResource(extension_id, api_resource_id)) {
+        ExtensionToResourceMap::iterator it =
+            extension_resource_map_.find(extension_id);
+        it->second.erase(api_resource_id);
         api_resource_map_.erase(api_resource_id);
       }
     }
 
     T* Get(const std::string& extension_id, int api_resource_id) {
-      DCHECK_CURRENTLY_ON(thread_id_);
+      DCHECK(ThreadingTraits::IsCalledOnValidThread());
       return GetOwnedResource(extension_id, api_resource_id);
     }
 
+    // Change the resource mapped to this |extension_id| at this
+    // |api_resource_id| to |resource|. Returns true and succeeds unless
+    // |api_resource_id| does not already identify a resource held by
+    // |extension_id|.
+    bool Replace(const std::string& extension_id,
+                 int api_resource_id,
+                 T* api_resource) {
+      DCHECK(ThreadingTraits::IsCalledOnValidThread());
+      T* old_resource = api_resource_map_[api_resource_id].get();
+      if (old_resource && extension_id == old_resource->owner_extension_id()) {
+        api_resource_map_[api_resource_id] = linked_ptr<T>(api_resource);
+        return true;
+      }
+      return false;
+    }
+
     base::hash_set<int>* GetResourceIds(const std::string& extension_id) {
-      DCHECK_CURRENTLY_ON(thread_id_);
+      DCHECK(ThreadingTraits::IsCalledOnValidThread());
       return GetOwnedResourceIds(extension_id);
     }
 
     void InitiateExtensionUnloadedCleanup(const std::string& extension_id) {
-      if (content::BrowserThread::CurrentlyOn(thread_id_)) {
+      if (ThreadingTraits::IsCalledOnValidThread()) {
         CleanupResourcesFromUnloadedExtension(extension_id);
       } else {
-        content::BrowserThread::PostTask(
-            thread_id_,
+        ThreadingTraits::GetSequencedTaskRunner()->PostTask(
             FROM_HERE,
             base::Bind(&ApiResourceData::CleanupResourcesFromUnloadedExtension,
                        this,
@@ -233,11 +290,10 @@ class ApiResourceManager : public BrowserContextKeyedAPI,
     }
 
     void InitiateExtensionSuspendedCleanup(const std::string& extension_id) {
-      if (content::BrowserThread::CurrentlyOn(thread_id_)) {
+      if (ThreadingTraits::IsCalledOnValidThread()) {
         CleanupResourcesFromSuspendedExtension(extension_id);
       } else {
-        content::BrowserThread::PostTask(
-            thread_id_,
+        ThreadingTraits::GetSequencedTaskRunner()->PostTask(
             FROM_HERE,
             base::Bind(&ApiResourceData::CleanupResourcesFromSuspendedExtension,
                        this,
@@ -246,11 +302,11 @@ class ApiResourceManager : public BrowserContextKeyedAPI,
     }
 
     void InititateCleanup() {
-      if (content::BrowserThread::CurrentlyOn(thread_id_)) {
+      if (ThreadingTraits::IsCalledOnValidThread()) {
         Cleanup();
       } else {
-        content::BrowserThread::PostTask(
-            thread_id_, FROM_HERE, base::Bind(&ApiResourceData::Cleanup, this));
+        ThreadingTraits::GetSequencedTaskRunner()->PostTask(
+            FROM_HERE, base::Bind(&ApiResourceData::Cleanup, this));
       }
     }
 
@@ -268,12 +324,12 @@ class ApiResourceManager : public BrowserContextKeyedAPI,
     }
 
     base::hash_set<int>* GetOwnedResourceIds(const std::string& extension_id) {
-      DCHECK_CURRENTLY_ON(thread_id_);
-      if (extension_resource_map_.find(extension_id) ==
-          extension_resource_map_.end())
+      DCHECK(ThreadingTraits::IsCalledOnValidThread());
+      ExtensionToResourceMap::iterator it =
+          extension_resource_map_.find(extension_id);
+      if (it == extension_resource_map_.end())
         return NULL;
-
-      return &extension_resource_map_[extension_id];
+      return &(it->second);
     }
 
     void CleanupResourcesFromUnloadedExtension(
@@ -288,16 +344,16 @@ class ApiResourceManager : public BrowserContextKeyedAPI,
 
     void CleanupResourcesFromExtension(const std::string& extension_id,
                                        bool remove_all) {
-      DCHECK_CURRENTLY_ON(thread_id_);
+      DCHECK(ThreadingTraits::IsCalledOnValidThread());
 
-      if (extension_resource_map_.find(extension_id) ==
-          extension_resource_map_.end()) {
+      ExtensionToResourceMap::iterator it =
+          extension_resource_map_.find(extension_id);
+      if (it == extension_resource_map_.end())
         return;
-      }
 
       // Remove all resources, or the non persistent ones only if |remove_all|
       // is false.
-      base::hash_set<int>& resource_ids = extension_resource_map_[extension_id];
+      base::hash_set<int>& resource_ids = it->second;
       for (base::hash_set<int>::iterator it = resource_ids.begin();
            it != resource_ids.end();) {
         bool erase = false;
@@ -324,7 +380,7 @@ class ApiResourceManager : public BrowserContextKeyedAPI,
     }
 
     void Cleanup() {
-      DCHECK_CURRENTLY_ON(thread_id_);
+      DCHECK(ThreadingTraits::IsCalledOnValidThread());
 
       api_resource_map_.clear();
       extension_resource_map_.clear();
@@ -333,14 +389,81 @@ class ApiResourceManager : public BrowserContextKeyedAPI,
     int GenerateId() { return next_id_++; }
 
     int next_id_;
-    const content::BrowserThread::ID thread_id_;
     ApiResourceMap api_resource_map_;
     ExtensionToResourceMap extension_resource_map_;
   };
 
-  content::BrowserThread::ID thread_id_;
   content::NotificationRegistrar registrar_;
   scoped_refptr<ApiResourceData> data_;
+
+  ScopedObserver<ExtensionRegistry, ExtensionRegistryObserver>
+      extension_registry_observer_;
+};
+
+// With WorkerPoolThreadTraits, ApiResourceManager can be used to manage the
+// lifetime of a set of resources that live on sequenced task runner threads
+// which ApiFunctions use. Examples of such resources are temporary file
+// resources produced by certain API calls.
+//
+// Instead of kThreadId. classes used for tracking such resources should define
+// kSequenceToken and kShutdownBehavior to identify sequence task runner for
+// ApiResourceManager to work on and how pending tasks should behave on
+// shutdown.
+// The user must also define a static const char* service_name() that returns
+// the name of the service, and in order for ApiWorkerPoolResourceManager to use
+// service_name() friend this class.
+//
+// In the cc file the user must define a GetFactoryInstance() and manage their
+// own instances (typically using LazyInstance or Singleton).
+//
+// E.g.:
+//
+// class PoolResource {
+//  public:
+//   static const char kSequenceToken[] = "temp_files";
+//   static const base::SequencedWorkerPool::WorkerShutdown kShutdownBehavior =
+//       base::SequencedWorkerPool::BLOCK_SHUTDOWN;
+//  private:
+//   friend class ApiResourceManager<WorkerPoolResource,
+//                                   WorkerPoolThreadTraits>;
+//   static const char* service_name() {
+//     return "TempFilesResourceManager";
+//    }
+// };
+//
+// In the cc file:
+//
+// static base::LazyInstance<BrowserContextKeyedAPIFactory<
+//     ApiResourceManager<Resource, WorkerPoolThreadTraits> > >
+//         g_factory = LAZY_INSTANCE_INITIALIZER;
+//
+//
+// template <>
+// BrowserContextKeyedAPIFactory<ApiResourceManager<WorkerPoolResource> >*
+// ApiResourceManager<WorkerPoolPoolResource,
+//                    WorkerPoolThreadTraits>::GetFactoryInstance() {
+//   return g_factory.Pointer();
+// }
+template <typename T>
+struct WorkerPoolThreadTraits {
+  static bool IsCalledOnValidThread() {
+    return content::BrowserThread::GetBlockingPool()
+        ->IsRunningSequenceOnCurrentThread(
+            content::BrowserThread::GetBlockingPool()->GetNamedSequenceToken(
+                T::kSequenceToken));
+  }
+
+  static bool IsMessageLoopValid() {
+    return content::BrowserThread::GetBlockingPool() != NULL;
+  }
+
+  static scoped_refptr<base::SequencedTaskRunner> GetSequencedTaskRunner() {
+    return content::BrowserThread::GetBlockingPool()
+        ->GetSequencedTaskRunnerWithShutdownBehavior(
+            content::BrowserThread::GetBlockingPool()->GetNamedSequenceToken(
+                T::kSequenceToken),
+            T::kShutdownBehavior);
+  }
 };
 
 }  // namespace extensions

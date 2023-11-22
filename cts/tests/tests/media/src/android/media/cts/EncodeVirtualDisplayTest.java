@@ -67,24 +67,24 @@ public class EncodeVirtualDisplayTest extends AndroidTestCase {
 
     // Encoder parameters table, sort by encoder level from high to low.
     private static final int[][] ENCODER_PARAM_TABLE = {
-        // encoder level,                             width,   height,  bitrate,    framerate
-        {MediaCodecInfo.CodecProfileLevel.AVCLevel31, 1280,     720,    14000000,   30},
-        {MediaCodecInfo.CodecProfileLevel.AVCLevel3,   720,     480,    10000000,   30},
-        {MediaCodecInfo.CodecProfileLevel.AVCLevel22,  720,     480,    4000000,    15},
-        {MediaCodecInfo.CodecProfileLevel.AVCLevel21,  352,     576,    4000000,    25},
+        // width,  height,  bitrate,    framerate  /* level */
+        { 1280,     720,    14000000,   30 },  /* AVCLevel31 */
+        {  720,     480,    10000000,   30 },  /* AVCLevel3  */
+        {  720,     480,    4000000,    15 },  /* AVCLevel22 */
+        {  352,     576,    4000000,    25 },  /* AVCLevel21 */
     };
 
     // Virtual display characteristics.  Scaled down from full display size because not all
     // devices can encode at the resolution of their own display.
     private static final String NAME = TAG;
-    private static int sWidth = ENCODER_PARAM_TABLE[ENCODER_PARAM_TABLE.length-1][1];
-    private static int sHeight = ENCODER_PARAM_TABLE[ENCODER_PARAM_TABLE.length-1][2];
+    private static int sWidth = ENCODER_PARAM_TABLE[ENCODER_PARAM_TABLE.length-1][0];
+    private static int sHeight = ENCODER_PARAM_TABLE[ENCODER_PARAM_TABLE.length-1][1];
     private static final int DENSITY = DisplayMetrics.DENSITY_HIGH;
     private static final int UI_TIMEOUT_MS = 2000;
     private static final int UI_RENDER_PAUSE_MS = 400;
 
     // Encoder parameters.  We use the same width/height as the virtual display.
-    private static final String MIME_TYPE = "video/avc";
+    private static final String MIME_TYPE = MediaFormat.MIMETYPE_VIDEO_AVC;
     private static int sFrameRate = 15;               // 15fps
     private static final int IFRAME_INTERVAL = 10;    // 10 seconds between I-frames
     private static int sBitRate = 6000000;            // 6Mbps
@@ -161,56 +161,16 @@ public class EncodeVirtualDisplayTest extends AndroidTestCase {
         }
     }
 
-    private static boolean hasCodec(String mimeType) {
-        int numCodecs = MediaCodecList.getCodecCount();
-        for (int i = 0; i < numCodecs; i++) {
-            MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
-
-            if (!codecInfo.isEncoder()) {
-                continue;
-            }
-
-            String[] types = codecInfo.getSupportedTypes();
-            for (int j = 0; j < types.length; j++) {
-                if (types[j].equalsIgnoreCase(mimeType)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
     /**
      * Returns true if the encoder level, specified in the ENCODER_PARAM_TABLE, can be supported.
      */
-    private static boolean verifySupportForEncoderLevel(int index) {
-        int numCodecs = MediaCodecList.getCodecCount();
-        for (int i = 0; i < numCodecs; i++) {
-            MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
-
-            if (!codecInfo.isEncoder()) {
-                continue;
-            }
-
-            String[] types = codecInfo.getSupportedTypes();
-            for (int j = 0; j < types.length; j++) {
-
-                if (false == types[j].equalsIgnoreCase(MIME_TYPE)) {
-                    continue;
-                }
-
-                MediaCodecInfo.CodecCapabilities caps = codecInfo.getCapabilitiesForType(types[j]);
-                for (int k = 0; k < caps.profileLevels.length; k++) {
-                    int profile = caps.profileLevels[k].profile;
-                    int level = caps.profileLevels[k].level;
-                    //Log.d(TAG, "[" + k + "] supported profile = " + profile + ", level = " + level);
-                    if (caps.profileLevels[k].level >= ENCODER_PARAM_TABLE[index][0]) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
+    private static boolean verifySupportForEncoderLevel(int i) {
+        MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+        MediaFormat format = MediaFormat.createVideoFormat(
+                MIME_TYPE, ENCODER_PARAM_TABLE[i][0], ENCODER_PARAM_TABLE[i][1]);
+        format.setInteger(MediaFormat.KEY_BIT_RATE, ENCODER_PARAM_TABLE[i][2]);
+        format.setInteger(MediaFormat.KEY_FRAME_RATE, ENCODER_PARAM_TABLE[i][3]);
+        return mcl.findEncoderForFormat(format) != null;
     }
 
     /**
@@ -224,10 +184,10 @@ public class EncodeVirtualDisplayTest extends AndroidTestCase {
             // Check if we can support it?
             if (verifySupportForEncoderLevel(i)) {
 
-                sWidth = ENCODER_PARAM_TABLE[i][1];
-                sHeight = ENCODER_PARAM_TABLE[i][2];
-                sBitRate = ENCODER_PARAM_TABLE[i][3];
-                sFrameRate = ENCODER_PARAM_TABLE[i][4];
+                sWidth = ENCODER_PARAM_TABLE[i][0];
+                sHeight = ENCODER_PARAM_TABLE[i][1];
+                sBitRate = ENCODER_PARAM_TABLE[i][2];
+                sFrameRate = ENCODER_PARAM_TABLE[i][3];
 
                 Log.d(TAG, "encoder parameters changed: width = " + sWidth + ", height = " + sHeight
                     + ", bitrate = " + sBitRate + ", framerate = " + sFrameRate);
@@ -245,11 +205,6 @@ public class EncodeVirtualDisplayTest extends AndroidTestCase {
         OutputSurface outputSurface = null;
         VirtualDisplay virtualDisplay = null;
 
-        // Don't run the test of the codec isn't present.
-        if (!hasCodec(MIME_TYPE)) {
-            return;
-        }
-
         try {
             // Encoded video resolution matches virtual display.
             MediaFormat encoderFormat = MediaFormat.createVideoFormat(MIME_TYPE, sWidth, sHeight);
@@ -259,7 +214,15 @@ public class EncodeVirtualDisplayTest extends AndroidTestCase {
             encoderFormat.setInteger(MediaFormat.KEY_FRAME_RATE, sFrameRate);
             encoderFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
 
-            encoder = MediaCodec.createEncoderByType(MIME_TYPE);
+            MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+            String codec = mcl.findEncoderForFormat(encoderFormat);
+            if (codec == null) {
+                // Don't run the test if the codec isn't present.
+                Log.i(TAG, "SKIPPING test: no support for " + encoderFormat);
+                return;
+            }
+
+            encoder = MediaCodec.createByCodecName(codec);
             encoder.configure(encoderFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
             Surface inputSurface = encoder.createInputSurface();
             encoder.start();

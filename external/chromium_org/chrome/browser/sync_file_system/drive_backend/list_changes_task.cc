@@ -4,6 +4,8 @@
 
 #include "chrome/browser/sync_file_system/drive_backend/list_changes_task.h"
 
+#include <vector>
+
 #include "base/bind.h"
 #include "base/format_macros.h"
 #include "base/location.h"
@@ -40,9 +42,9 @@ void ListChangesTask::RunPreflight(scoped_ptr<SyncTaskToken> token) {
     return;
   }
 
-  SyncTaskManager::UpdateBlockingFactor(
+  SyncTaskManager::UpdateTaskBlocker(
       token.Pass(),
-      scoped_ptr<BlockingFactor>(new BlockingFactor),
+      scoped_ptr<TaskBlocker>(new TaskBlocker),
       base::Bind(&ListChangesTask::StartListing,
                  weak_ptr_factory_.GetWeakPtr()));
 }
@@ -97,11 +99,11 @@ void ListChangesTask::DidListChanges(
     return;
   }
 
-  scoped_ptr<BlockingFactor> blocking_factor(new BlockingFactor);
-  blocking_factor->exclusive = true;
-  SyncTaskManager::UpdateBlockingFactor(
+  scoped_ptr<TaskBlocker> task_blocker(new TaskBlocker);
+  task_blocker->exclusive = true;
+  SyncTaskManager::UpdateTaskBlocker(
       token.Pass(),
-      blocking_factor.Pass(),
+      task_blocker.Pass(),
       base::Bind(&ListChangesTask::CheckInChangeList,
                  weak_ptr_factory_.GetWeakPtr(),
                  change_list->largest_change_id()));
@@ -113,10 +115,21 @@ void ListChangesTask::CheckInChangeList(int64 largest_change_id,
       "Got %" PRIuS " changes, updating MetadataDatabase.",
       change_list_.size()));
 
-  metadata_database()->UpdateByChangeList(
-      largest_change_id,
-      change_list_.Pass(),
-      base::Bind(&SyncTaskManager::NotifyTaskDone, base::Passed(&token)));
+  DCHECK(file_ids_.empty());
+  file_ids_.reserve(change_list_.size());
+  for (size_t i = 0; i < change_list_.size(); ++i)
+    file_ids_.push_back(change_list_[i]->file_id());
+
+  SyncStatusCode status =
+      metadata_database()->UpdateByChangeList(
+          largest_change_id, change_list_.Pass());
+  if (status != SYNC_STATUS_OK) {
+    SyncTaskManager::NotifyTaskDone(token.Pass(), status);
+    return;
+  }
+
+  status = metadata_database()->SweepDirtyTrackers(file_ids_);
+  SyncTaskManager::NotifyTaskDone(token.Pass(), status);
 }
 
 bool ListChangesTask::IsContextReady() {

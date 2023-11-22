@@ -25,6 +25,8 @@ import android.os.UserHandle;
 import android.provider.Settings;
 import android.telecom.TelecomManager;
 
+import com.android.internal.util.IndentingPrintWriter;
+
 // TODO: Needed for move to system service: import com.android.internal.R;
 
 final class TtyManager implements WiredHeadsetManager.Listener {
@@ -121,5 +123,14 @@ final class TtyManager implements WiredHeadsetManager.Listener {
                 }
             }
         }
+    }
+
+    /**
+     * Dumps the state of the {@link TtyManager}.
+     *
+     * @param pw The {@code IndentingPrintWriter} to write the state to.
+     */
+    public void dump(IndentingPrintWriter pw) {
+        pw.println("mCurrentTtyMode: " + mCurrentTtyMode);
     }
 }

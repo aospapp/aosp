@@ -19,6 +19,7 @@
 #include "chrome/browser/extensions/api/preference/preference_helpers.h"
 #include "chrome/browser/extensions/api/proxy/proxy_api.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/net/prediction_options.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
 #include "components/translate/core/common/translate_pref_names.h"
@@ -68,16 +69,19 @@ const char kConversionErrorMessage[] =
     "properly.";
 
 PrefMappingEntry kPrefMapping[] = {
-    {"protectedContentEnabled", prefs::kEnableDRM, APIPermission::kPrivacy,
-     APIPermission::kPrivacy},
     {"alternateErrorPagesEnabled", prefs::kAlternateErrorPagesEnabled,
      APIPermission::kPrivacy, APIPermission::kPrivacy},
     {"autofillEnabled", autofill::prefs::kAutofillEnabled,
      APIPermission::kPrivacy, APIPermission::kPrivacy},
     {"hyperlinkAuditingEnabled", prefs::kEnableHyperlinkAuditing,
      APIPermission::kPrivacy, APIPermission::kPrivacy},
-    {"networkPredictionEnabled", prefs::kNetworkPredictionEnabled,
+    {"networkPredictionEnabled", prefs::kNetworkPredictionOptions,
      APIPermission::kPrivacy, APIPermission::kPrivacy},
+    {"passwordSavingEnabled",
+     password_manager::prefs::kPasswordManagerSavingEnabled,
+     APIPermission::kPrivacy, APIPermission::kPrivacy},
+    {"protectedContentEnabled", prefs::kEnableDRM, APIPermission::kPrivacy,
+     APIPermission::kPrivacy},
     {"proxy", prefs::kProxy, APIPermission::kProxy, APIPermission::kProxy},
     {"referrersEnabled", prefs::kEnableReferrers, APIPermission::kPrivacy,
      APIPermission::kPrivacy},
@@ -152,6 +156,33 @@ class InvertBooleanTransformer : public PrefTransformerInterface {
   }
 };
 
+class NetworkPredictionTransformer : public PrefTransformerInterface {
+ public:
+  virtual base::Value* ExtensionToBrowserPref(const base::Value* extension_pref,
+                                              std::string* error,
+                                              bool* bad_message) override {
+    bool bool_value = false;
+    const bool pref_found = extension_pref->GetAsBoolean(&bool_value);
+    DCHECK(pref_found) << "Preference not found.";
+    if (bool_value) {
+      return new base::FundamentalValue(
+          chrome_browser_net::NETWORK_PREDICTION_DEFAULT);
+    } else {
+      return new base::FundamentalValue(
+          chrome_browser_net::NETWORK_PREDICTION_NEVER);
+    }
+  }
+
+  virtual base::Value* BrowserToExtensionPref(
+      const base::Value* browser_pref) override {
+    int int_value = chrome_browser_net::NETWORK_PREDICTION_DEFAULT;
+    const bool pref_found = browser_pref->GetAsInteger(&int_value);
+    DCHECK(pref_found) << "Preference not found.";
+    return new base::FundamentalValue(
+        int_value != chrome_browser_net::NETWORK_PREDICTION_NEVER);
+  }
+};
+
 class PrefMapping {
  public:
   static PrefMapping* GetInstance() {
@@ -217,6 +248,8 @@ class PrefMapping {
     RegisterPrefTransformer(prefs::kProxy, new ProxyPrefTransformer());
     RegisterPrefTransformer(prefs::kBlockThirdPartyCookies,
                             new InvertBooleanTransformer());
+    RegisterPrefTransformer(prefs::kNetworkPredictionOptions,
+                            new NetworkPredictionTransformer());
   }
 
   ~PrefMapping() {
@@ -513,7 +546,7 @@ bool PreferenceFunction::ValidateBrowserPref(
   APIPermission::ID permission = permission_type == PERMISSION_TYPE_READ
                                      ? read_permission
                                      : write_permission;
-  if (!GetExtension()->permissions_data()->HasAPIPermission(permission)) {
+  if (!extension()->permissions_data()->HasAPIPermission(permission)) {
     error_ = ErrorUtils::FormatErrorMessage(
         keys::kPermissionErrorMessage, extension_pref_key);
     return false;
@@ -640,7 +673,6 @@ bool SetPreferenceFunction::RunSync() {
   CHECK(pref);
 
   // Validate new value.
-  EXTENSION_FUNCTION_VALIDATE(value->GetType() == pref->GetType());
   PrefTransformerInterface* transformer =
       PrefMapping::GetInstance()->FindTransformerForBrowserPref(browser_pref);
   std::string error;
@@ -652,6 +684,7 @@ bool SetPreferenceFunction::RunSync() {
     bad_message_ = bad_message;
     return false;
   }
+  EXTENSION_FUNCTION_VALIDATE(browser_pref_value->GetType() == pref->GetType());
 
   // Validate also that the stored value can be converted back by the
   // transformer.

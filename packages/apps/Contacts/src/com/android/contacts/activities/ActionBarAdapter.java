@@ -30,7 +30,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.SearchView;
 import android.widget.SearchView.OnCloseListener;
 import android.view.View.OnClickListener;
 import android.widget.EditText;
@@ -143,7 +142,7 @@ public class ActionBarAdapter implements OnCloseListener {
                 new OnClickListener() {
             @Override
             public void onClick(View v) {
-                mSearchView.setText(null);
+                setQueryString(null);
             }
         });
         mSearchContainer.findViewById(R.id.search_back_button).setOnClickListener(
@@ -253,10 +252,13 @@ public class ActionBarAdapter implements OnCloseListener {
                 return;
             }
             if (mSearchMode) {
+                mSearchView.setEnabled(true);
                 setFocusOnSearchView();
             } else {
-                mSearchView.setText(null);
+                // Disable search view, so that it doesn't keep the IME visible.
+                mSearchView.setEnabled(false);
             }
+            setQueryString(null);
         } else if (flag) {
             // Everything is already set up. Still make sure the keyboard is up
             if (mSearchView != null) setFocusOnSearchView();
@@ -271,6 +273,10 @@ public class ActionBarAdapter implements OnCloseListener {
         mQueryString = query;
         if (mSearchView != null) {
             mSearchView.setText(query);
+            // When programmatically entering text into the search view, the most reasonable
+            // place for the cursor is after all the text.
+            mSearchView.setSelection(mSearchView.getText() == null ?
+                    0 : mSearchView.getText().length());
         }
     }
 
@@ -394,18 +400,6 @@ public class ActionBarAdapter implements OnCloseListener {
         outState.putBoolean(EXTRA_KEY_SEARCH_MODE, mSearchMode);
         outState.putString(EXTRA_KEY_QUERY, mQueryString);
         outState.putInt(EXTRA_KEY_SELECTED_TAB, mCurrentTab);
-    }
-
-    /**
-     * Clears the focus from the {@link SearchView} if we are in search mode.
-     * This will suppress the IME if it is visible.
-     */
-    public void clearFocusOnSearchView() {
-        if (isSearchMode()) {
-            if (mSearchView != null) {
-                mSearchView.clearFocus();
-            }
-        }
     }
 
     public void setFocusOnSearchView() {

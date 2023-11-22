@@ -188,6 +188,21 @@
             # defines the macro FOO as 1.)
             'LIBXML_STATIC=',
           ],
+          'variables': {
+            'clang_warning_flags': [
+              # libxml passes `const unsigned char*` through `const char*`.
+              '-Wno-pointer-sign',
+              # pattern.c and uri.c both have an intentional
+              # `for (...);` / `while(...);` loop. I submitted a patch to
+              # move the `'` to its own line, but until that's landed
+              # suppress the warning:
+              '-Wno-empty-body',
+              # debugXML.c compares array 'arg' to NULL.
+              '-Wno-tautological-pointer-compare',
+              # See http://crbug.com/138571#c8
+              '-Wno-ignored-attributes',
+            ],
+          },
           'include_dirs': [
             '<(os_include)',
             '<(os_include)/include',
@@ -232,37 +247,6 @@
               'msvs_disabled_warnings': [ 4018, 4101, 4267 ],
             }, {  # else: OS!="win"
               'product_name': 'xml2',
-            }],
-            ['clang==1', {
-              'xcode_settings': {
-                'WARNING_CFLAGS': [
-                  # libxml passes `const unsigned char*` through `const char*`.
-                  '-Wno-pointer-sign',
-                  # pattern.c and uri.c both have an intentional
-                  # `for (...);` / `while(...);` loop. I submitted a patch to
-                  # move the `'` to its own line, but until that's landed
-                  # suppress the warning:
-                  '-Wno-empty-body',
-                  # debugXML.c compares array 'arg' to NULL.
-                  '-Wno-tautological-pointer-compare',
-                ],
-              },
-              'cflags': [
-                '-Wno-pointer-sign',
-                '-Wno-empty-body',
-                '-Wno-tautological-pointer-compare',
-
-                # See http://crbug.com/138571#c8
-                '-Wno-ignored-attributes',
-              ],
-              'msvs_settings': {
-                'VCCLCompilerTool': {
-                  'AdditionalOptions': [
-                    # VS2012's standard lib doesn't provide nan().
-                    '/U__STDC_VERSION__',
-                  ],
-                },
-              },
             }],
           ],
         }],

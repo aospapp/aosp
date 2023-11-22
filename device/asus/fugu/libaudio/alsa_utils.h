@@ -105,7 +105,7 @@ class HDMIAudioCaps {
     void reset();
     void getRatesForAF(String8& rates);
     void getFmtsForAF(String8& fmts);
-    void getChannelMasksForAF(String8& masks, bool skipStereo);
+    void getChannelMasksForAF(String8& masks);
     bool supportsFormat(audio_format_t format,
                                       uint32_t sampleRate,
                                       uint32_t channelCount);

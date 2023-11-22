@@ -4,12 +4,14 @@
 
 #include "chrome/common/mac/app_mode_common.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 
 namespace app_mode {
 
 const char kAppShimSocketShortName[] = "Socket";
 const char kAppShimSocketSymlinkName[] = "App Shim Socket";
+
+const char kRunningChromeVersionSymlinkName[] = "RunningChromeVersion";
 
 const char kAppListModeId[] = "app_list";
 
@@ -28,6 +30,7 @@ NSString* const kCFBundleTypeRoleKey = @"CFBundleTypeRole";
 NSString* const kBundleTypeRoleViewer = @"Viewer";
 
 NSString* const kCFBundleDisplayNameKey = @"CFBundleDisplayName";
+NSString* const kCFBundleShortVersionStringKey = @"CFBundleShortVersionString";
 NSString* const kLSHasLocalizedDisplayNameKey = @"LSHasLocalizedDisplayName";
 NSString* const kBrowserBundleIDKey = @"CrBundleIdentifier";
 NSString* const kCrAppModeShortcutIDKey = @"CrAppModeShortcutID";

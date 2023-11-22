@@ -15,6 +15,7 @@
 #include "cc/output/copy_output_request.h"
 #include "content/browser/browser_thread_impl.h"
 #include "content/browser/compositor/resize_lock.h"
+#include "content/browser/compositor/test/no_transport_image_transport_factory.h"
 #include "content/browser/renderer_host/overscroll_controller.h"
 #include "content/browser/renderer_host/overscroll_controller_delegate.h"
 #include "content/browser/renderer_host/render_widget_host_delegate.h"
@@ -38,7 +39,6 @@
 #include "ui/aura/env.h"
 #include "ui/aura/layout_manager.h"
 #include "ui/aura/test/aura_test_helper.h"
-#include "ui/aura/test/event_generator.h"
 #include "ui/aura/test/test_cursor_client.h"
 #include "ui/aura/test/test_screen.h"
 #include "ui/aura/test/test_window_delegate.h"
@@ -48,10 +48,10 @@
 #include "ui/base/ui_base_types.h"
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/test/draw_waiter_for_test.h"
-#include "ui/compositor/test/in_process_context_factory.h"
 #include "ui/events/event.h"
 #include "ui/events/event_utils.h"
 #include "ui/events/gestures/gesture_configuration.h"
+#include "ui/events/test/event_generator.h"
 #include "ui/wm/core/default_activation_client.h"
 
 using testing::_;
@@ -123,9 +123,10 @@ class TestOverscrollDelegate : public OverscrollControllerDelegate {
     return view_->IsShowing() ? view_->GetViewBounds() : gfx::Rect();
   }
 
-  virtual void OnOverscrollUpdate(float delta_x, float delta_y) OVERRIDE {
+  virtual bool OnOverscrollUpdate(float delta_x, float delta_y) OVERRIDE {
     delta_x_ = delta_x;
     delta_y_ = delta_y;
+    return true;
   }
 
   virtual void OnOverscrollComplete(OverscrollMode overscroll_mode) OVERRIDE {
@@ -192,7 +193,8 @@ class FakeFrameSubscriber : public RenderWidgetHostViewFrameSubscriber {
   FakeFrameSubscriber(gfx::Size size, base::Callback<void(bool)> callback)
       : size_(size), callback_(callback) {}
 
-  virtual bool ShouldCaptureFrame(base::TimeTicks present_time,
+  virtual bool ShouldCaptureFrame(const gfx::Rect& damage_rect,
+                                  base::TimeTicks present_time,
                                   scoped_refptr<media::VideoFrame>* storage,
                                   DeliverFrameCallback* callback) OVERRIDE {
     *storage = media::VideoFrame::CreateFrame(media::VideoFrame::YV12,
@@ -256,6 +258,10 @@ class FakeRenderWidgetHostViewAura : public RenderWidgetHostViewAura {
     return GetDelegatedFrameHost()->FrameProviderForTesting();
   }
 
+  bool released_front_lock_active() const {
+    return GetDelegatedFrameHost()->ReleasedFrontLockActiveForTesting();
+  }
+
   // A lock that doesn't actually do anything to the compositor, and does not
   // time out.
   class FakeResizeLock : public ResizeLock {
@@ -301,7 +307,7 @@ class FullscreenLayoutManager : public aura::LayoutManager {
 
 class MockWindowObserver : public aura::WindowObserver {
  public:
-  MOCK_METHOD2(OnWindowPaintScheduled, void(aura::Window*, const gfx::Rect&));
+  MOCK_METHOD2(OnDelegatedFrameDamage, void(aura::Window*, const gfx::Rect&));
 };
 
 }  // namespace
@@ -312,11 +318,12 @@ class RenderWidgetHostViewAuraTest : public testing::Test {
       : browser_thread_for_ui_(BrowserThread::UI, &message_loop_) {}
 
   void SetUpEnvironment() {
-    ui::ContextFactory* context_factory = new ui::InProcessContextFactory;
     ImageTransportFactory::InitializeForUnitTests(
-        scoped_ptr<ui::ContextFactory>(context_factory));
+        scoped_ptr<ImageTransportFactory>(
+            new NoTransportImageTransportFactory));
     aura_test_helper_.reset(new aura::test::AuraTestHelper(&message_loop_));
-    aura_test_helper_->SetUp(context_factory);
+    aura_test_helper_->SetUp(
+        ImageTransportFactory::GetInstance()->GetContextFactory());
     new wm::DefaultActivationClient(aura_test_helper_->root_window());
 
     browser_context_.reset(new TestBrowserContext);
@@ -714,7 +721,7 @@ TEST_F(RenderWidgetHostViewAuraTest, DestroyPopupClickOutsidePopup) {
   EXPECT_FALSE(parent_window->GetBoundsInRootWindow().Contains(click_point));
 
   TestWindowObserver observer(window);
-  aura::test::EventGenerator generator(window->GetRootWindow(), click_point);
+  ui::test::EventGenerator generator(window->GetRootWindow(), click_point);
   generator.ClickLeftButton();
   ASSERT_TRUE(parent_view_->HasFocus());
   ASSERT_TRUE(observer.destroyed());
@@ -741,7 +748,7 @@ TEST_F(RenderWidgetHostViewAuraTest, DestroyPopupTapOutsidePopup) {
   EXPECT_FALSE(parent_window->GetBoundsInRootWindow().Contains(tap_point));
 
   TestWindowObserver observer(window);
-  aura::test::EventGenerator generator(window->GetRootWindow(), tap_point);
+  ui::test::EventGenerator generator(window->GetRootWindow(), tap_point);
   generator.GestureTapAt(tap_point);
   ASSERT_TRUE(parent_view_->HasFocus());
   ASSERT_TRUE(observer.destroyed());
@@ -776,11 +783,11 @@ TEST_F(RenderWidgetHostViewAuraTest, SetCompositionText) {
   EXPECT_TRUE(view_->has_composition_text_);
   {
     const IPC::Message* msg =
-      sink_->GetFirstMessageMatching(ViewMsg_ImeSetComposition::ID);
+      sink_->GetFirstMessageMatching(InputMsg_ImeSetComposition::ID);
     ASSERT_TRUE(msg != NULL);
 
-    ViewMsg_ImeSetComposition::Param params;
-    ViewMsg_ImeSetComposition::Read(msg, &params);
+    InputMsg_ImeSetComposition::Param params;
+    InputMsg_ImeSetComposition::Read(msg, &params);
     // composition text
     EXPECT_EQ(composition_text.text, params.a);
     // underlines
@@ -882,6 +889,13 @@ TEST_F(RenderWidgetHostViewAuraTest, TouchEventState) {
             view_->touch_event_.touches[0].state);
 
   widget_host_->OnMessageReceived(ViewHostMsg_HasTouchEventHandlers(0, false));
+  EXPECT_TRUE(widget_host_->ShouldForwardTouchEvent());
+
+  // Ack'ing the outstanding event should flush the pending touch queue.
+  InputHostMsg_HandleInputEvent_ACK_Params ack;
+  ack.type = blink::WebInputEvent::TouchStart;
+  ack.state = INPUT_EVENT_ACK_STATE_NO_CONSUMER_EXISTS;
+  widget_host_->OnMessageReceived(InputHostMsg_HandleInputEvent_ACK(0, ack));
   EXPECT_FALSE(widget_host_->ShouldForwardTouchEvent());
 
   ui::TouchEvent move2(ui::ET_TOUCH_MOVED, gfx::Point(20, 20), 0,
@@ -1147,13 +1161,14 @@ scoped_ptr<cc::CompositorFrame> MakeDelegatedFrame(float scale_factor,
 
   scoped_ptr<cc::RenderPass> pass = cc::RenderPass::Create();
   pass->SetNew(
-      cc::RenderPass::Id(1, 1), gfx::Rect(size), damage, gfx::Transform());
+      cc::RenderPassId(1, 1), gfx::Rect(size), damage, gfx::Transform());
   frame->delegated_frame_data->render_pass_list.push_back(pass.Pass());
   return frame.Pass();
 }
 
 // Resizing in fullscreen mode should send the up-to-date screen info.
-TEST_F(RenderWidgetHostViewAuraTest, FullscreenResize) {
+// http://crbug.com/324350
+TEST_F(RenderWidgetHostViewAuraTest, DISABLED_FullscreenResize) {
   aura::Window* root_window = aura_test_helper_->root_window();
   root_window->SetLayoutManager(new FullscreenLayoutManager(root_window));
   view_->InitAsFullscreen(parent_view_);
@@ -1223,12 +1238,12 @@ TEST_F(RenderWidgetHostViewAuraTest, SwapNotifiesWindow) {
   view_->window_->AddObserver(&observer);
 
   // Delegated renderer path
-  EXPECT_CALL(observer, OnWindowPaintScheduled(view_->window_, view_rect));
+  EXPECT_CALL(observer, OnDelegatedFrameDamage(view_->window_, view_rect));
   view_->OnSwapCompositorFrame(
       0, MakeDelegatedFrame(1.f, view_size, view_rect));
   testing::Mock::VerifyAndClearExpectations(&observer);
 
-  EXPECT_CALL(observer, OnWindowPaintScheduled(view_->window_,
+  EXPECT_CALL(observer, OnDelegatedFrameDamage(view_->window_,
                                                gfx::Rect(5, 5, 5, 5)));
   view_->OnSwapCompositorFrame(
       0, MakeDelegatedFrame(1.f, view_size, gfx::Rect(5, 5, 5, 5)));
@@ -1254,7 +1269,6 @@ TEST_F(RenderWidgetHostViewAuraTest, Resize) {
       root_window->GetHost()->compositor());
   ViewHostMsg_UpdateRect_Params update_params;
   update_params.view_size = size1;
-  update_params.scale_factor = 1.f;
   update_params.flags = ViewHostMsg_UpdateRect_Flags::IS_RESIZE_ACK;
   widget_host_->OnMessageReceived(
       ViewHostMsg_UpdateRect(widget_host_->GetRoutingID(), update_params));
@@ -1339,7 +1353,7 @@ TEST_F(RenderWidgetHostViewAuraTest, SkippedDelegatedFrames) {
   view_->window_->AddObserver(&observer);
 
   // A full frame of damage.
-  EXPECT_CALL(observer, OnWindowPaintScheduled(view_->window_, view_rect));
+  EXPECT_CALL(observer, OnDelegatedFrameDamage(view_->window_, view_rect));
   view_->OnSwapCompositorFrame(
       0, MakeDelegatedFrame(1.f, frame_size, view_rect));
   testing::Mock::VerifyAndClearExpectations(&observer);
@@ -1348,7 +1362,7 @@ TEST_F(RenderWidgetHostViewAuraTest, SkippedDelegatedFrames) {
   // A partial damage frame.
   gfx::Rect partial_view_rect(30, 30, 20, 20);
   EXPECT_CALL(observer,
-              OnWindowPaintScheduled(view_->window_, partial_view_rect));
+              OnDelegatedFrameDamage(view_->window_, partial_view_rect));
   view_->OnSwapCompositorFrame(
       0, MakeDelegatedFrame(1.f, frame_size, partial_view_rect));
   testing::Mock::VerifyAndClearExpectations(&observer);
@@ -1360,14 +1374,14 @@ TEST_F(RenderWidgetHostViewAuraTest, SkippedDelegatedFrames) {
 
   // This frame is dropped.
   gfx::Rect dropped_damage_rect_1(10, 20, 30, 40);
-  EXPECT_CALL(observer, OnWindowPaintScheduled(_, _)).Times(0);
+  EXPECT_CALL(observer, OnDelegatedFrameDamage(_, _)).Times(0);
   view_->OnSwapCompositorFrame(
       0, MakeDelegatedFrame(1.f, frame_size, dropped_damage_rect_1));
   testing::Mock::VerifyAndClearExpectations(&observer);
   view_->RunOnCompositingDidCommit();
 
   gfx::Rect dropped_damage_rect_2(40, 50, 10, 20);
-  EXPECT_CALL(observer, OnWindowPaintScheduled(_, _)).Times(0);
+  EXPECT_CALL(observer, OnDelegatedFrameDamage(_, _)).Times(0);
   view_->OnSwapCompositorFrame(
       0, MakeDelegatedFrame(1.f, frame_size, dropped_damage_rect_2));
   testing::Mock::VerifyAndClearExpectations(&observer);
@@ -1378,7 +1392,7 @@ TEST_F(RenderWidgetHostViewAuraTest, SkippedDelegatedFrames) {
 
   gfx::Rect new_damage_rect(5, 6, 10, 10);
   EXPECT_CALL(observer,
-              OnWindowPaintScheduled(view_->window_, view_rect));
+              OnDelegatedFrameDamage(view_->window_, view_rect));
   view_->OnSwapCompositorFrame(
       0, MakeDelegatedFrame(1.f, frame_size, new_damage_rect));
   testing::Mock::VerifyAndClearExpectations(&observer);
@@ -1386,7 +1400,7 @@ TEST_F(RenderWidgetHostViewAuraTest, SkippedDelegatedFrames) {
 
   // A partial damage frame, this should not be dropped.
   EXPECT_CALL(observer,
-              OnWindowPaintScheduled(view_->window_, partial_view_rect));
+              OnDelegatedFrameDamage(view_->window_, partial_view_rect));
   view_->OnSwapCompositorFrame(
       0, MakeDelegatedFrame(1.f, frame_size, partial_view_rect));
   testing::Mock::VerifyAndClearExpectations(&observer);
@@ -1402,7 +1416,7 @@ TEST_F(RenderWidgetHostViewAuraTest, SkippedDelegatedFrames) {
   view_->SetSize(view_rect.size());
 
   // This frame should not be dropped.
-  EXPECT_CALL(observer, OnWindowPaintScheduled(view_->window_, view_rect));
+  EXPECT_CALL(observer, OnDelegatedFrameDamage(view_->window_, view_rect));
   view_->OnSwapCompositorFrame(
       0, MakeDelegatedFrame(1.f, view_rect.size(), view_rect));
   testing::Mock::VerifyAndClearExpectations(&observer);
@@ -1426,14 +1440,14 @@ TEST_F(RenderWidgetHostViewAuraTest, OutputSurfaceIdChange) {
   view_->window_->AddObserver(&observer);
 
   // Swap a frame.
-  EXPECT_CALL(observer, OnWindowPaintScheduled(view_->window_, view_rect));
+  EXPECT_CALL(observer, OnDelegatedFrameDamage(view_->window_, view_rect));
   view_->OnSwapCompositorFrame(
       0, MakeDelegatedFrame(1.f, frame_size, view_rect));
   testing::Mock::VerifyAndClearExpectations(&observer);
   view_->RunOnCompositingDidCommit();
 
   // Swap a frame with a different surface id.
-  EXPECT_CALL(observer, OnWindowPaintScheduled(view_->window_, view_rect));
+  EXPECT_CALL(observer, OnDelegatedFrameDamage(view_->window_, view_rect));
   view_->OnSwapCompositorFrame(
       1, MakeDelegatedFrame(1.f, frame_size, view_rect));
   testing::Mock::VerifyAndClearExpectations(&observer);
@@ -1446,7 +1460,7 @@ TEST_F(RenderWidgetHostViewAuraTest, OutputSurfaceIdChange) {
   view_->RunOnCompositingDidCommit();
 
   // Swap another frame, with a different surface id.
-  EXPECT_CALL(observer, OnWindowPaintScheduled(view_->window_, view_rect));
+  EXPECT_CALL(observer, OnDelegatedFrameDamage(view_->window_, view_rect));
   view_->OnSwapCompositorFrame(3,
                                MakeDelegatedFrame(1.f, frame_size, view_rect));
   testing::Mock::VerifyAndClearExpectations(&observer);
@@ -1502,12 +1516,17 @@ TEST_F(RenderWidgetHostViewAuraTest, DiscardDelegatedFrames) {
   views[0]->WasShown();
   EXPECT_FALSE(views[0]->frame_provider());
   EXPECT_TRUE(views[1]->frame_provider());
+  // Since [0] doesn't have a frame, it should be waiting for the renderer to
+  // give it one.
+  EXPECT_TRUE(views[0]->released_front_lock_active());
 
   // Swap a frame on it, it should evict the next LRU [1].
   views[0]->OnSwapCompositorFrame(
       1, MakeDelegatedFrame(1.f, frame_size, view_rect));
   EXPECT_TRUE(views[0]->frame_provider());
   EXPECT_FALSE(views[1]->frame_provider());
+  // Now that [0] got a frame, it shouldn't be waiting any more.
+  EXPECT_FALSE(views[0]->released_front_lock_active());
   views[0]->WasHidden();
 
   // LRU renderer is [1], still hidden. Swap a frame on it, it should evict
@@ -1524,8 +1543,15 @@ TEST_F(RenderWidgetHostViewAuraTest, DiscardDelegatedFrames) {
   // hidden, it becomes the LRU.
   for (size_t i = 1; i < renderer_count; ++i) {
     views[i]->WasShown();
+    // The renderers who don't have a frame should be waiting. The ones that
+    // have a frame should not.
+    // In practice, [1] has a frame, but anything after has its frame evicted.
+    EXPECT_EQ(!views[i]->frame_provider(),
+              views[i]->released_front_lock_active());
     views[i]->OnSwapCompositorFrame(
         1, MakeDelegatedFrame(1.f, frame_size, view_rect));
+    // Now everyone has a frame.
+    EXPECT_FALSE(views[i]->released_front_lock_active());
     EXPECT_TRUE(views[i]->frame_provider());
   }
   EXPECT_FALSE(views[0]->frame_provider());
@@ -1538,14 +1564,37 @@ TEST_F(RenderWidgetHostViewAuraTest, DiscardDelegatedFrames) {
   // Make [0] visible, and swap a frame on it. Nothing should be evicted
   // although we're above the limit.
   views[0]->WasShown();
+  // We don't have a frame, wait.
+  EXPECT_TRUE(views[0]->released_front_lock_active());
   views[0]->OnSwapCompositorFrame(
       1, MakeDelegatedFrame(1.f, frame_size, view_rect));
+  EXPECT_FALSE(views[0]->released_front_lock_active());
   for (size_t i = 0; i < renderer_count; ++i)
     EXPECT_TRUE(views[i]->frame_provider());
 
   // Make [0] hidden, it should evict its frame.
   views[0]->WasHidden();
   EXPECT_FALSE(views[0]->frame_provider());
+
+  // Make [0] visible, don't give it a frame, it should be waiting.
+  views[0]->WasShown();
+  EXPECT_TRUE(views[0]->released_front_lock_active());
+  // Make [0] hidden, it should stop waiting.
+  views[0]->WasHidden();
+  EXPECT_FALSE(views[0]->released_front_lock_active());
+
+  // Make [1] hidden, resize it. It should drop its frame.
+  views[1]->WasHidden();
+  EXPECT_TRUE(views[1]->frame_provider());
+  gfx::Size size2(200, 200);
+  views[1]->SetSize(size2);
+  EXPECT_FALSE(views[1]->frame_provider());
+  // Show it, it should block until we give it a frame.
+  views[1]->WasShown();
+  EXPECT_TRUE(views[1]->released_front_lock_active());
+  views[1]->OnSwapCompositorFrame(
+      1, MakeDelegatedFrame(1.f, size2, gfx::Rect(size2)));
+  EXPECT_FALSE(views[1]->released_front_lock_active());
 
   for (size_t i = 0; i < renderer_count - 1; ++i)
     views[i]->WasHidden();
@@ -2492,14 +2541,42 @@ TEST_F(RenderWidgetHostViewAuraOverscrollTest, OverscrollDirectionChange) {
   EXPECT_EQ(0U, sink_->message_count());
 
   // Send another update event, but in the reverse direction. The overscroll
-  // controller will consume the event, and reset the overscroll mode.
+  // controller will not consume the event, because it is not triggering
+  // gesture-nav.
   SimulateGestureScrollUpdateEvent(-260, 0, 0);
-  EXPECT_EQ(0U, sink_->message_count());
+  EXPECT_EQ(1U, sink_->message_count());
   EXPECT_EQ(OVERSCROLL_NONE, overscroll_mode());
 
   // Since the overscroll mode has been reset, the next scroll update events
   // should reach the renderer.
   SimulateGestureScrollUpdateEvent(-20, 0, 0);
+  EXPECT_EQ(1U, sink_->message_count());
+  EXPECT_EQ(OVERSCROLL_NONE, overscroll_mode());
+}
+
+TEST_F(RenderWidgetHostViewAuraOverscrollTest,
+       OverscrollDirectionChangeMouseWheel) {
+  SetUpOverscrollEnvironment();
+
+  // Send wheel event and receive ack as not consumed.
+  SimulateWheelEvent(125, -5, 0, true);
+  EXPECT_EQ(1U, GetSentMessageCountAndResetSink());
+  SendInputEventACK(WebInputEvent::MouseWheel,
+                    INPUT_EVENT_ACK_STATE_NOT_CONSUMED);
+  EXPECT_EQ(OVERSCROLL_EAST, overscroll_mode());
+  EXPECT_EQ(OVERSCROLL_EAST, overscroll_delegate()->current_mode());
+  EXPECT_EQ(0U, sink_->message_count());
+
+  // Send another wheel event, but in the reverse direction. The overscroll
+  // controller will not consume the event, because it is not triggering
+  // gesture-nav.
+  SimulateWheelEvent(-260, 0, 0, true);
+  EXPECT_EQ(1U, sink_->message_count());
+  EXPECT_EQ(OVERSCROLL_NONE, overscroll_mode());
+
+  // Since the overscroll mode has been reset, the next wheel event should reach
+  // the renderer.
+  SimulateWheelEvent(-20, 0, 0, true);
   EXPECT_EQ(1U, sink_->message_count());
   EXPECT_EQ(OVERSCROLL_NONE, overscroll_mode());
 }

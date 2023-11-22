@@ -8,14 +8,19 @@
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/metrics/field_trial.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
-#include "components/data_reduction_proxy/browser/data_reduction_proxy_params.h"
+#include "components/data_reduction_proxy/browser/data_reduction_proxy_params_test_utils.h"
+#include "components/data_reduction_proxy/common/data_reduction_proxy_headers.h"
+#include "components/data_reduction_proxy/common/data_reduction_proxy_headers_test_utils.h"
 #include "net/base/completion_callback.h"
 #include "net/base/host_port_pair.h"
+#include "net/base/load_flags.h"
 #include "net/base/network_delegate.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_transaction_test_util.h"
+#include "net/proxy/proxy_service.h"
 #include "net/socket/socket_test_util.h"
 #include "net/url_request/static_http_user_agent_settings.h"
 #include "net/url_request/url_request.h"
@@ -35,63 +40,18 @@ using net::URLRequest;
 using net::TestURLRequestContext;
 
 
-namespace {
-// Transform "normal"-looking headers (\n-separated) to the appropriate
-// input format for ParseRawHeaders (\0-separated).
-void HeadersToRaw(std::string* headers) {
-  std::replace(headers->begin(), headers->end(), '\n', '\0');
-  if (!headers->empty())
-    *headers += '\0';
-}
-
-std::string GetDataReductionProxy() {
-  return "https://proxy1.com:443/";
-}
-
-std::string GetDataReductionProxyFallback() {
-  return "http://proxy2.com:80/";
-}
-} // namespace
-
-
 namespace data_reduction_proxy {
-namespace {
-class TestDataReductionProxyParams : public DataReductionProxyParams {
- public:
-  TestDataReductionProxyParams() : DataReductionProxyParams(0, false) {}
-
-  virtual bool WasDataReductionProxyUsed(
-      const net::URLRequest* request,
-      std::pair<GURL, GURL>* proxy_servers) const OVERRIDE;
-};
-
-bool TestDataReductionProxyParams::WasDataReductionProxyUsed(
-    const net::URLRequest* request,
-    std::pair<GURL, GURL>* proxy_servers) const {
-  if (net::HostPortPair::FromURL(GURL(GetDataReductionProxy())).Equals(
-          request->proxy_server())) {
-    proxy_servers->first = GURL(GetDataReductionProxy());
-    proxy_servers->second = GURL(GetDataReductionProxyFallback());
-    return true;
-  }
-  if (net::HostPortPair::FromURL(
-          GURL(GetDataReductionProxyFallback())).Equals(
-          request->proxy_server())) {
-    proxy_servers->first = GURL(GetDataReductionProxyFallback());
-    proxy_servers->second = GURL();
-    return true;
-  }
-  return false;
-}
-}  // namespace
 
 // A test network delegate that exercises the bypass logic of the data
 // reduction proxy.
 class TestDataReductionProxyNetworkDelegate : public net::NetworkDelegate {
  public:
   TestDataReductionProxyNetworkDelegate(
-      TestDataReductionProxyParams* test_params)
-      : net::NetworkDelegate(), test_data_reduction_proxy_params_(test_params) {
+      TestDataReductionProxyParams* test_params,
+      DataReductionProxyBypassType* bypass_type)
+      : net::NetworkDelegate(),
+        test_data_reduction_proxy_params_(test_params),
+        bypass_type_(bypass_type) {
   }
 
   virtual int OnHeadersReceived(
@@ -104,28 +64,40 @@ class TestDataReductionProxyNetworkDelegate : public net::NetworkDelegate {
         test_data_reduction_proxy_params_,
         request,
         original_response_headers,
-        override_response_headers);
+        override_response_headers,
+        bypass_type_);
     return net::OK;
   }
 
   TestDataReductionProxyParams* test_data_reduction_proxy_params_;
+  DataReductionProxyBypassType* bypass_type_;
 };
 
 // Constructs a |TestURLRequestContext| that uses a |MockSocketFactory| to
 // simulate requests and responses.
 class DataReductionProxyProtocolTest : public testing::Test {
  public:
-  DataReductionProxyProtocolTest() : http_user_agent_settings_("", "") {}
+  DataReductionProxyProtocolTest() : http_user_agent_settings_("", "") {
+    proxy_params_.reset(
+        new TestDataReductionProxyParams(
+            DataReductionProxyParams::kAllowed |
+            DataReductionProxyParams::kFallbackAllowed |
+            DataReductionProxyParams::kPromoAllowed,
+            TestDataReductionProxyParams::HAS_EVERYTHING &
+            ~TestDataReductionProxyParams::HAS_DEV_ORIGIN &
+            ~TestDataReductionProxyParams::HAS_DEV_FALLBACK_ORIGIN));
+  }
 
-  // Sets up the |TestURLRequestContext| with the provided |ProxyService|.
-  void ConfigureTestDependencies(ProxyService* proxy_service) {
+  // Sets up the |TestURLRequestContext| with the provided |ProxyService| and
+  // |bypass_type| to store bypass reasons.
+  void ConfigureTestDependencies(ProxyService* proxy_service,
+                                 DataReductionProxyBypassType* bypass_type) {
     // Create a context with delayed initialization.
     context_.reset(new TestURLRequestContext(true));
 
     proxy_service_.reset(proxy_service);
-    proxy_params_.reset(new TestDataReductionProxyParams());
     network_delegate_.reset(new TestDataReductionProxyNetworkDelegate(
-        proxy_params_.get()));
+        proxy_params_.get(), bypass_type));
 
     context_->set_client_socket_factory(&mock_socket_factory_);
     context_->set_proxy_service(proxy_service_.get());
@@ -164,7 +136,7 @@ class DataReductionProxyProtocolTest : public testing::Test {
                            "Host: www.google.com\r\n"
                            "Proxy-Connection: keep-alive\r\n%s"
                            "User-Agent:\r\n"
-                           "Accept-Encoding: gzip,deflate\r\n\r\n",
+                           "Accept-Encoding: gzip, deflate\r\n\r\n",
                            method, trailer.c_str());
     MockWrite data_writes[] = {
       MockWrite(request1.c_str()),
@@ -184,7 +156,7 @@ class DataReductionProxyProtocolTest : public testing::Test {
                              "Host: www.google.com\r\n"
                              "Connection: keep-alive\r\n%s"
                              "User-Agent:\r\n"
-                             "Accept-Encoding: gzip,deflate\r\n\r\n",
+                             "Accept-Encoding: gzip, deflate\r\n\r\n",
                              method, trailer.c_str());
       MockWrite data_writes2[] = {
           MockWrite(request2.c_str()),
@@ -215,26 +187,27 @@ class DataReductionProxyProtocolTest : public testing::Test {
                                                const std::string& value,
                                                bool expected_retry) {
     TestDelegate d;
-    URLRequest r(GURL("http://www.google.com/"),
-                 net::DEFAULT_PRIORITY,
-                 &d,
-                 context_.get());
-    r.set_method(method);
-    r.SetLoadFlags(net::LOAD_NORMAL);
+    scoped_ptr<URLRequest> r(context_->CreateRequest(
+        GURL("http://www.google.com/"),
+        net::DEFAULT_PRIORITY,
+        &d,
+        NULL));
+    r->set_method(method);
+    r->SetLoadFlags(net::LOAD_NORMAL);
 
-    r.Start();
+    r->Start();
     base::RunLoop().Run();
 
-    EXPECT_EQ(net::URLRequestStatus::SUCCESS, r.status().status());
-    EXPECT_EQ(net::OK, r.status().error());
+    EXPECT_EQ(net::URLRequestStatus::SUCCESS, r->status().status());
+    EXPECT_EQ(net::OK, r->status().error());
     if (expected_retry)
-      EXPECT_EQ(2U, r.url_chain().size());
+      EXPECT_EQ(2U, r->url_chain().size());
     else
-      EXPECT_EQ(1U, r.url_chain().size());
+      EXPECT_EQ(1U, r->url_chain().size());
 
     if (!header.empty()) {
       // We also have a server header here that isn't set by the proxy.
-      EXPECT_TRUE(r.response_headers()->HasHeaderValue(header, value));
+      EXPECT_TRUE(r->response_headers()->HasHeaderValue(header, value));
     }
 
     EXPECT_EQ(content, d.data_received());
@@ -265,8 +238,7 @@ class DataReductionProxyProtocolTest : public testing::Test {
     if (duration_seconds == 0) {
       expected_min_duration = base::TimeDelta::FromMinutes(1);
       expected_max_duration = base::TimeDelta::FromMinutes(5);
-    }
-    else {
+    } else {
       expected_min_duration = base::TimeDelta::FromSeconds(duration_seconds);
       expected_max_duration = base::TimeDelta::FromSeconds(duration_seconds);
     }
@@ -316,12 +288,13 @@ TEST_F(DataReductionProxyProtocolTest, TestIdempotency) {
       { "CONNECT", false },
   };
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(tests); ++i) {
-    net::TestURLRequest request(GURL("http://www.google.com/"),
-                                net::DEFAULT_PRIORITY,
-                                NULL,
-                                &context);
-    request.set_method(tests[i].method);
-    EXPECT_EQ(tests[i].expected_result, IsRequestIdempotent(&request));
+    scoped_ptr<net::URLRequest> request(
+        context.CreateRequest(GURL("http://www.google.com/"),
+                              net::DEFAULT_PRIORITY,
+                              NULL,
+                              NULL));
+    request->set_method(tests[i].method);
+    EXPECT_EQ(tests[i].expected_result, IsRequestIdempotent(request.get()));
   }
 }
 
@@ -341,6 +314,15 @@ TEST_F(DataReductionProxyProtocolTest, OverrideResponseAsRedirect) {
         "Via: 1.1 Chrome-Compression-Proxy\n"
         "Location: http://www.google.com/\n"
       },
+      { "HTTP/1.1 200 0K\n"
+        "Chrome-Proxy: block-once\n"
+        "Via: 1.1 Chrome-Compression-Proxy\n",
+
+        "HTTP/1.1 302 Found\n"
+        "Chrome-Proxy: block-once\n"
+        "Via: 1.1 Chrome-Compression-Proxy\n"
+        "Location: http://www.google.com/\n"
+      },
       { "HTTP/1.1 302 Found\n"
         "Location: http://foo.com/\n",
 
@@ -356,15 +338,59 @@ TEST_F(DataReductionProxyProtocolTest, OverrideResponseAsRedirect) {
         new HttpResponseHeaders(headers));
     scoped_refptr<HttpResponseHeaders> override_response_headers;
     TestDelegate test_delegate;
-    net::TestURLRequest request(GURL("http://www.google.com/"),
-                           net::DEFAULT_PRIORITY,
-                           NULL,
-                           &context);
-    OverrideResponseAsRedirect(&request,
-                               original_response_headers,
+    scoped_ptr<net::URLRequest> request(
+        context.CreateRequest(GURL("http://www.google.com/"),
+                              net::DEFAULT_PRIORITY,
+                              NULL,
+                              NULL));
+    OverrideResponseAsRedirect(request.get(), original_response_headers.get(),
                                &override_response_headers);
     int expected_flags = net::LOAD_DISABLE_CACHE | net::LOAD_BYPASS_PROXY;
-    EXPECT_EQ(expected_flags, request.load_flags());
+    EXPECT_EQ(expected_flags, request->load_flags());
+    std::string override_headers;
+    override_response_headers->GetNormalizedHeaders(&override_headers);
+    EXPECT_EQ(std::string(tests[i].expected_headers), override_headers);
+  }
+}
+
+// Tests that the response is correctly overwritten as a redirect with CORS
+// headers when an Origin header is provided in the initial request.
+TEST_F(DataReductionProxyProtocolTest, OverrideResponseAsRedirectCORS) {
+  net::TestURLRequestContext context;
+  const struct {
+    const char* headers;
+    const char* expected_headers;
+  } tests[] = {
+      { "HTTP/1.1 200 0K\n"
+        "Chrome-Proxy: block=1\n"
+        "Via: 1.1 Chrome-Compression-Proxy\n",
+
+        "HTTP/1.1 302 Found\n"
+        "Chrome-Proxy: block=1\n"
+        "Via: 1.1 Chrome-Compression-Proxy\n"
+        "Location: http://www.google.com/\n"
+        "Access-Control-Allow-Origin: http://www.else.com\n"
+        "Access-Control-Allow-Credentials: true\n"
+      },
+  };
+
+  for (size_t i = 0; i < ARRAYSIZE_UNSAFE(tests); ++i) {
+    std::string headers(tests[i].headers);
+    HeadersToRaw(&headers);
+    scoped_refptr<HttpResponseHeaders> original_response_headers(
+        new HttpResponseHeaders(headers));
+    scoped_refptr<HttpResponseHeaders> override_response_headers;
+    TestDelegate test_delegate;
+    scoped_ptr<net::URLRequest> request(
+        context.CreateRequest(GURL("http://www.google.com/"),
+                              net::DEFAULT_PRIORITY,
+                              NULL,
+                              NULL));
+    request->SetExtraRequestHeaderByName("Origin", "http://www.else.com", true);
+    OverrideResponseAsRedirect(request.get(), original_response_headers.get(),
+                               &override_response_headers);
+    int expected_flags = net::LOAD_DISABLE_CACHE | net::LOAD_BYPASS_PROXY;
+    EXPECT_EQ(expected_flags, request->load_flags());
     std::string override_headers;
     override_response_headers->GetNormalizedHeaders(&override_headers);
     EXPECT_EQ(std::string(tests[i].expected_headers), override_headers);
@@ -378,8 +404,6 @@ TEST_F(DataReductionProxyProtocolTest, OverrideResponseAsRedirect) {
 // was indicated. In both the single and double bypass cases, if the request
 // was idempotent, it will be retried over a direct connection.
 TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
-  std::string primary = GetDataReductionProxy();
-  std::string fallback = GetDataReductionProxyFallback();
   const struct {
     const char* method;
     const char* first_response;
@@ -387,6 +411,7 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
     size_t expected_bad_proxy_count;
     bool expect_response_body;
     int expected_duration;
+    DataReductionProxyBypassType expected_bypass_type;
   } tests[] = {
     // Valid data reduction proxy response with no bypass message.
     { "GET",
@@ -396,7 +421,8 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
       false,
       0u,
       true,
-      -1
+      -1,
+      BYPASS_EVENT_TYPE_MAX,
     },
     // Valid data reduction proxy response with older, but still valid via
     // header.
@@ -407,7 +433,8 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
       false,
       0u,
       true,
-      -1
+      -1,
+      BYPASS_EVENT_TYPE_MAX
     },
     // Valid data reduction proxy response with chained via header,
     // no bypass message.
@@ -418,7 +445,8 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
       false,
       0u,
       true,
-      -1
+      -1,
+      BYPASS_EVENT_TYPE_MAX
     },
     // Valid data reduction proxy response with a bypass message.
     { "GET",
@@ -429,7 +457,8 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
       true,
       1u,
       true,
-      0
+      0,
+      BYPASS_EVENT_TYPE_MEDIUM
     },
     // Valid data reduction proxy response with a bypass message.
     { "GET",
@@ -440,7 +469,8 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
       true,
       1u,
       true,
-      1
+      1,
+      BYPASS_EVENT_TYPE_SHORT
     },
     // Same as above with the OPTIONS method, which is idempotent.
     { "OPTIONS",
@@ -451,7 +481,8 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
       true,
       1u,
       true,
-      0
+      0,
+      BYPASS_EVENT_TYPE_MEDIUM
     },
     // Same as above with the HEAD method, which is idempotent.
     { "HEAD",
@@ -462,7 +493,8 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
       true,
       1u,
       false,
-      0
+      0,
+      BYPASS_EVENT_TYPE_MEDIUM
     },
     // Same as above with the PUT method, which is idempotent.
     { "PUT",
@@ -473,7 +505,8 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
       true,
       1u,
       true,
-      0
+      0,
+      BYPASS_EVENT_TYPE_MEDIUM
     },
     // Same as above with the DELETE method, which is idempotent.
     { "DELETE",
@@ -484,7 +517,8 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
       true,
       1u,
       true,
-      0
+      0,
+      BYPASS_EVENT_TYPE_MEDIUM
     },
     // Same as above with the TRACE method, which is idempotent.
     { "TRACE",
@@ -495,7 +529,8 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
       true,
       1u,
       true,
-      0
+      0,
+      BYPASS_EVENT_TYPE_MEDIUM
     },
     // 500 responses should be bypassed.
     { "GET",
@@ -505,7 +540,8 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
       true,
       1u,
       true,
-      0
+      0,
+      BYPASS_EVENT_TYPE_STATUS_500_HTTP_INTERNAL_SERVER_ERROR
     },
     // 502 responses should be bypassed.
     { "GET",
@@ -515,7 +551,8 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
       true,
       1u,
       true,
-      0
+      0,
+      BYPASS_EVENT_TYPE_STATUS_502_HTTP_BAD_GATEWAY
     },
     // 503 responses should be bypassed.
     { "GET",
@@ -525,7 +562,8 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
       true,
       1u,
       true,
-      0
+      0,
+      BYPASS_EVENT_TYPE_STATUS_503_HTTP_SERVICE_UNAVAILABLE
     },
     // Invalid data reduction proxy response. Missing Via header.
     { "GET",
@@ -534,7 +572,8 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
       true,
       1u,
       true,
-      0
+      0,
+      BYPASS_EVENT_TYPE_MISSING_VIA_HEADER_OTHER
     },
     // Invalid data reduction proxy response. Wrong Via header.
     { "GET",
@@ -544,7 +583,8 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
       true,
       1u,
       true,
-      0
+      0,
+      BYPASS_EVENT_TYPE_MISSING_VIA_HEADER_OTHER
     },
     // Valid data reduction proxy response. 304 missing Via header.
     { "GET",
@@ -553,7 +593,8 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
       false,
       0u,
       false,
-      0
+      0,
+      BYPASS_EVENT_TYPE_MAX
     },
     // Valid data reduction proxy response with a bypass message. It will
     // not be retried because the request is non-idempotent.
@@ -565,7 +606,8 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
       false,
       1u,
       true,
-      0
+      0,
+      BYPASS_EVENT_TYPE_MEDIUM
     },
     // Valid data reduction proxy response with block message. Both proxies
     // should be on the retry list when it completes.
@@ -577,18 +619,142 @@ TEST_F(DataReductionProxyProtocolTest, BypassLogic) {
       true,
       2u,
       true,
-      1
-    }
+      1,
+      BYPASS_EVENT_TYPE_SHORT
+    },
+    // Valid data reduction proxy response with a block-once message. It will be
+    // retried, and there will be no proxies on the retry list since block-once
+    // only affects the current request.
+    { "GET",
+      "HTTP/1.1 200 OK\r\n"
+      "Server: proxy\r\n"
+      "Chrome-Proxy: block-once\r\n"
+      "Via: 1.1 Chrome-Compression-Proxy\r\n\r\n",
+      true,
+      0u,
+      true,
+      0,
+      BYPASS_EVENT_TYPE_CURRENT
+    },
+    // Same as above with the OPTIONS method, which is idempotent.
+    { "OPTIONS",
+      "HTTP/1.1 200 OK\r\n"
+      "Server: proxy\r\n"
+      "Chrome-Proxy: block-once\r\n"
+      "Via: 1.1 Chrome-Compression-Proxy\r\n\r\n",
+      true,
+      0u,
+      true,
+      0,
+      BYPASS_EVENT_TYPE_CURRENT
+    },
+    // Same as above with the HEAD method, which is idempotent.
+    { "HEAD",
+      "HTTP/1.1 200 OK\r\n"
+      "Server: proxy\r\n"
+      "Chrome-Proxy: block-once\r\n"
+      "Via: 1.1 Chrome-Compression-Proxy\r\n\r\n",
+      true,
+      0u,
+      false,
+      0,
+      BYPASS_EVENT_TYPE_CURRENT
+    },
+    // Same as above with the PUT method, which is idempotent.
+    { "PUT",
+      "HTTP/1.1 200 OK\r\n"
+      "Server: proxy\r\n"
+      "Chrome-Proxy: block-once\r\n"
+      "Via: 1.1 Chrome-Compression-Proxy\r\n\r\n",
+      true,
+      0u,
+      true,
+      0,
+      BYPASS_EVENT_TYPE_CURRENT
+    },
+    // Same as above with the DELETE method, which is idempotent.
+    { "DELETE",
+      "HTTP/1.1 200 OK\r\n"
+      "Server: proxy\r\n"
+      "Chrome-Proxy: block-once\r\n"
+      "Via: 1.1 Chrome-Compression-Proxy\r\n\r\n",
+      true,
+      0u,
+      true,
+      0,
+      BYPASS_EVENT_TYPE_CURRENT
+    },
+    // Same as above with the TRACE method, which is idempotent.
+    { "TRACE",
+      "HTTP/1.1 200 OK\r\n"
+      "Server: proxy\r\n"
+      "Chrome-Proxy: block-once\r\n"
+      "Via: 1.1 Chrome-Compression-Proxy\r\n\r\n",
+      true,
+      0u,
+      true,
+      0,
+      BYPASS_EVENT_TYPE_CURRENT
+    },
+    // Valid data reduction proxy response with a block-once message. It will
+    // not be retried because the request is non-idempotent, and there will be
+    // no proxies on the retry list since block-once only affects the current
+    // request.
+    { "POST",
+      "HTTP/1.1 200 OK\r\n"
+      "Server: proxy\r\n"
+      "Chrome-Proxy: block-once\r\n"
+      "Via: 1.1 Chrome-Compression-Proxy\r\n\r\n",
+      false,
+      0u,
+      true,
+      0,
+      BYPASS_EVENT_TYPE_CURRENT
+    },
+    // Valid data reduction proxy response with block and block-once messages.
+    // The block message will override the block-once message, so both proxies
+    // should be on the retry list when it completes.
+    { "GET",
+      "HTTP/1.1 200 OK\r\n"
+      "Server: proxy\r\n"
+      "Chrome-Proxy: block=1, block-once\r\n"
+      "Via: 1.1 Chrome-Compression-Proxy\r\n\r\n",
+      true,
+      2u,
+      true,
+      1,
+      BYPASS_EVENT_TYPE_SHORT
+    },
+    // Valid data reduction proxy response with bypass and block-once messages.
+    // The bypass message will override the block-once message, so one proxy
+    // should be on the retry list when it completes.
+    { "GET",
+      "HTTP/1.1 200 OK\r\n"
+      "Server: proxy\r\n"
+      "Chrome-Proxy: bypass=1, block-once\r\n"
+      "Via: 1.1 Chrome-Compression-Proxy\r\n\r\n",
+      true,
+      1u,
+      true,
+      1,
+      BYPASS_EVENT_TYPE_SHORT
+    },
   };
+  std::string primary = proxy_params_->DefaultOrigin();
+  std::string fallback = proxy_params_->DefaultFallbackOrigin();
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(tests); ++i) {
-    ConfigureTestDependencies(
-        ProxyService::CreateFixedFromPacResult("PROXY " +
-            HostPortPair::FromURL(GURL(primary)).ToString() + "; PROXY " +
-            HostPortPair::FromURL(GURL(fallback)).ToString() + "; DIRECT"));
+    DataReductionProxyBypassType bypass_type;
+    ConfigureTestDependencies(ProxyService::CreateFixedFromPacResult(
+        "PROXY " +
+        HostPortPair::FromURL(GURL(primary)).ToString() + "; PROXY " +
+        HostPortPair::FromURL(GURL(fallback)).ToString() + "; DIRECT"),
+        &bypass_type);
     TestProxyFallback(tests[i].method,
                       tests[i].first_response,
                       tests[i].expected_retry,
                       tests[i].expect_response_body);
+
+    EXPECT_EQ(tests[i].expected_bypass_type, bypass_type);
 
     // We should also observe the bad proxy in the retry list.
     TestBadProxies(tests[i].expected_bad_proxy_count,
@@ -601,7 +767,8 @@ TEST_F(DataReductionProxyProtocolTest,
        ProxyBypassIgnoredOnDirectConnection) {
   // Verify that a Chrome-Proxy header is ignored when returned from a directly
   // connected origin server.
-  ConfigureTestDependencies(ProxyService::CreateFixedFromPacResult("DIRECT"));
+  ConfigureTestDependencies(ProxyService::CreateFixedFromPacResult("DIRECT"),
+                            NULL);
 
   MockRead data_reads[] = {
     MockRead("HTTP/1.1 200 OK\r\n"
@@ -614,30 +781,181 @@ TEST_F(DataReductionProxyProtocolTest,
               "Host: www.google.com\r\n"
               "Connection: keep-alive\r\n"
               "User-Agent:\r\n"
-              "Accept-Encoding: gzip,deflate\r\n\r\n"),
+              "Accept-Encoding: gzip, deflate\r\n\r\n"),
   };
   StaticSocketDataProvider data1(data_reads, arraysize(data_reads),
                                  data_writes, arraysize(data_writes));
   mock_socket_factory_.AddSocketDataProvider(&data1);
 
   TestDelegate d;
-  URLRequest r(GURL("http://www.google.com/"),
-               net::DEFAULT_PRIORITY,
-               &d,
-               context_.get());
-   r.set_method("GET");
-   r.SetLoadFlags(net::LOAD_NORMAL);
+  scoped_ptr<URLRequest> r(context_->CreateRequest(
+      GURL("http://www.google.com/"),
+      net::DEFAULT_PRIORITY,
+      &d,
+      NULL));
+  r->set_method("GET");
+  r->SetLoadFlags(net::LOAD_NORMAL);
 
-   r.Start();
-   base::RunLoop().Run();
+  r->Start();
+  base::RunLoop().Run();
 
-   EXPECT_EQ(net::URLRequestStatus::SUCCESS, r.status().status());
-   EXPECT_EQ(net::OK, r.status().error());
+  EXPECT_EQ(net::URLRequestStatus::SUCCESS, r->status().status());
+  EXPECT_EQ(net::OK, r->status().error());
 
   EXPECT_EQ("Bypass message", d.data_received());
 
   // We should have no entries in our bad proxy list.
   TestBadProxies(0, -1, "", "");
+}
+
+class BadEntropyProvider : public base::FieldTrial::EntropyProvider {
+ public:
+  virtual ~BadEntropyProvider() {}
+
+  virtual double GetEntropyForTrial(const std::string& trial_name,
+                                    uint32 randomization_seed) const OVERRIDE {
+    return 0.5;
+  }
+};
+
+TEST_F(DataReductionProxyProtocolTest, OnResolveProxyHandler) {
+  int load_flags = net::LOAD_NORMAL;
+  GURL url("http://www.google.com/");
+
+  TestDataReductionProxyParams test_params(
+            DataReductionProxyParams::kAllowed |
+            DataReductionProxyParams::kFallbackAllowed |
+            DataReductionProxyParams::kPromoAllowed,
+            TestDataReductionProxyParams::HAS_EVERYTHING &
+            ~TestDataReductionProxyParams::HAS_DEV_ORIGIN &
+            ~TestDataReductionProxyParams::HAS_DEV_FALLBACK_ORIGIN);
+
+  // Data reduction proxy info
+  net::ProxyInfo data_reduction_proxy_info;
+  std::string data_reduction_proxy;
+  base::TrimString(test_params.DefaultOrigin(), "/", &data_reduction_proxy);
+  data_reduction_proxy_info.UseNamedProxy(data_reduction_proxy);
+  EXPECT_FALSE(data_reduction_proxy_info.is_empty());
+
+  // Data reduction proxy config
+  net::ProxyConfig data_reduction_proxy_config;
+  data_reduction_proxy_config.proxy_rules().ParseFromString(
+      "http=" + data_reduction_proxy + ",direct://;");
+  data_reduction_proxy_config.set_id(1);
+
+  // Other proxy info
+  net::ProxyInfo other_proxy_info;
+  other_proxy_info.UseNamedProxy("proxy.com");
+  EXPECT_FALSE(other_proxy_info.is_empty());
+
+  // Direct
+   net::ProxyInfo direct_proxy_info;
+   direct_proxy_info.UseDirect();
+   EXPECT_TRUE(direct_proxy_info.is_direct());
+
+   // Empty retry info map
+   net::ProxyRetryInfoMap empty_proxy_retry_info;
+
+   // Retry info map with the data reduction proxy;
+   net::ProxyRetryInfoMap data_reduction_proxy_retry_info;
+   net::ProxyRetryInfo retry_info;
+   retry_info.current_delay = base::TimeDelta::FromSeconds(1000);
+   retry_info.bad_until = base::TimeTicks().Now() + retry_info.current_delay;
+   retry_info.try_while_bad = false;
+   data_reduction_proxy_retry_info[
+       data_reduction_proxy_info.proxy_server().ToURI()] = retry_info;
+
+   net::ProxyInfo result;
+
+   // The data reduction proxy is used. It should be used afterwards.
+   result.Use(data_reduction_proxy_info);
+   OnResolveProxyHandler(url, load_flags, data_reduction_proxy_config,
+                         empty_proxy_retry_info, &test_params, &result);
+   EXPECT_EQ(data_reduction_proxy_info.proxy_server(), result.proxy_server());
+
+   // Another proxy is used. It should be used afterwards.
+   result.Use(other_proxy_info);
+   OnResolveProxyHandler(url, load_flags, data_reduction_proxy_config,
+                         empty_proxy_retry_info, &test_params, &result);
+   EXPECT_EQ(other_proxy_info.proxy_server(), result.proxy_server());
+
+   // A direct connection is used. The data reduction proxy should be used
+   // afterwards.
+   // Another proxy is used. It should be used afterwards.
+   result.Use(direct_proxy_info);
+   net::ProxyConfig::ID prev_id = result.config_id();
+   OnResolveProxyHandler(url, load_flags, data_reduction_proxy_config,
+                         empty_proxy_retry_info, &test_params, &result);
+   EXPECT_EQ(data_reduction_proxy_info.proxy_server(), result.proxy_server());
+   // Only the proxy list should be updated, not he proxy info.
+   EXPECT_EQ(result.config_id(), prev_id);
+
+   // A direct connection is used, but the data reduction proxy is on the retry
+   // list. A direct connection should be used afterwards.
+   result.Use(direct_proxy_info);
+   prev_id = result.config_id();
+   OnResolveProxyHandler(url, load_flags, data_reduction_proxy_config,
+                         data_reduction_proxy_retry_info, &test_params,
+                         &result);
+   EXPECT_TRUE(result.proxy_server().is_direct());
+   EXPECT_EQ(result.config_id(), prev_id);
+
+
+  // Without DataCompressionProxyCriticalBypass Finch trial set, should never
+  // bypass.
+  OnResolveProxyHandler(url, load_flags, data_reduction_proxy_config,
+                        empty_proxy_retry_info, &test_params,
+                        &data_reduction_proxy_info);
+  EXPECT_FALSE(data_reduction_proxy_info.is_direct());
+
+  OnResolveProxyHandler(url, load_flags, data_reduction_proxy_config,
+                        empty_proxy_retry_info, &test_params,
+                        &other_proxy_info);
+  EXPECT_FALSE(other_proxy_info.is_direct());
+
+  load_flags |= net::LOAD_BYPASS_DATA_REDUCTION_PROXY;
+
+  OnResolveProxyHandler(url, load_flags, data_reduction_proxy_config,
+                        empty_proxy_retry_info, &test_params,
+                        &data_reduction_proxy_info);
+  EXPECT_FALSE(data_reduction_proxy_info.is_direct());
+
+  OnResolveProxyHandler(url, load_flags, data_reduction_proxy_config,
+                        empty_proxy_retry_info, &test_params,
+                        &other_proxy_info);
+  EXPECT_FALSE(other_proxy_info.is_direct());
+
+  // With Finch trial set, should only bypass if LOAD flag is set and the
+  // effective proxy is the data compression proxy.
+  base::FieldTrialList field_trial_list(new BadEntropyProvider());
+  base::FieldTrialList::CreateFieldTrial("DataCompressionProxyCriticalBypass",
+                                         "Enabled");
+  EXPECT_TRUE(
+      DataReductionProxyParams::IsIncludedInCriticalPathBypassFieldTrial());
+
+  load_flags = net::LOAD_NORMAL;
+
+  OnResolveProxyHandler(url, load_flags, data_reduction_proxy_config,
+                        empty_proxy_retry_info, &test_params,
+                        &data_reduction_proxy_info);
+  EXPECT_FALSE(data_reduction_proxy_info.is_direct());
+
+  OnResolveProxyHandler(url, load_flags, data_reduction_proxy_config,
+                        empty_proxy_retry_info, &test_params,
+                        &other_proxy_info);
+  EXPECT_FALSE(other_proxy_info.is_direct());
+
+  load_flags |= net::LOAD_BYPASS_DATA_REDUCTION_PROXY;
+
+  OnResolveProxyHandler(url, load_flags, data_reduction_proxy_config,
+                        empty_proxy_retry_info, &test_params,
+                        &other_proxy_info);
+  EXPECT_FALSE(other_proxy_info.is_direct());
+
+  OnResolveProxyHandler(url, load_flags, data_reduction_proxy_config,
+                        empty_proxy_retry_info, &test_params,
+                        &data_reduction_proxy_info);
+  EXPECT_TRUE(data_reduction_proxy_info.is_direct());
 }
 
 }  // namespace data_reduction_proxy

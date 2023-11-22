@@ -9,12 +9,11 @@
 #include "ui/aura/client/screen_position_client.h"
 #include "ui/aura/env.h"
 #include "ui/aura/test/aura_test_base.h"
-#include "ui/aura/test/event_generator.h"
 #include "ui/aura/test/test_screen.h"
 #include "ui/aura/test/test_window_delegate.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_event_dispatcher.h"
-#include "ui/base/resource/resource_bundle.h"
+#include "ui/events/test/event_generator.h"
 #include "ui/gfx/font.h"
 #include "ui/gfx/point.h"
 #include "ui/gfx/screen.h"
@@ -101,7 +100,7 @@ class TooltipControllerTest : public aura::test::AuraTestBase {
     view_->SetBoundsRect(widget_->GetContentsView()->GetLocalBounds());
     helper_.reset(new TooltipControllerTestHelper(
                       GetController(widget_.get())));
-    generator_.reset(new aura::test::EventGenerator(GetRootWindow()));
+    generator_.reset(new ui::test::EventGenerator(GetRootWindow()));
   }
 
   virtual void TearDown() OVERRIDE {
@@ -137,7 +136,7 @@ class TooltipControllerTest : public aura::test::AuraTestBase {
   scoped_ptr<views::Widget> widget_;
   TooltipTestView* view_;
   scoped_ptr<TooltipControllerTestHelper> helper_;
-  scoped_ptr<aura::test::EventGenerator> generator_;
+  scoped_ptr<ui::test::EventGenerator> generator_;
 
  private:
   scoped_ptr<TooltipController> controller_;
@@ -473,7 +472,8 @@ class TooltipControllerCaptureTest : public TooltipControllerTest {
 };
 
 // Verifies when capture is released the TooltipController resets state.
-TEST_F(TooltipControllerCaptureTest, CloseOnCaptureLost) {
+// Flaky on all builders.  http://crbug.com/388268
+TEST_F(TooltipControllerCaptureTest, DISABLED_CloseOnCaptureLost) {
   view_->GetWidget()->SetCapture(view_);
   RunAllPendingInMessageLoop();
   view_->set_tooltip_text(ASCIIToUTF16("Tooltip Text"));
@@ -599,7 +599,7 @@ class TooltipControllerTest2 : public aura::test::AuraTestBase {
     root_window()->AddPreTargetHandler(controller_.get());
     SetTooltipClient(root_window(), controller_.get());
     helper_.reset(new TooltipControllerTestHelper(controller_.get()));
-    generator_.reset(new aura::test::EventGenerator(root_window()));
+    generator_.reset(new ui::test::EventGenerator(root_window()));
   }
 
   virtual void TearDown() OVERRIDE {
@@ -616,7 +616,7 @@ class TooltipControllerTest2 : public aura::test::AuraTestBase {
   // Owned by |controller_|.
   TestTooltip* test_tooltip_;
   scoped_ptr<TooltipControllerTestHelper> helper_;
-  scoped_ptr<aura::test::EventGenerator> generator_;
+  scoped_ptr<ui::test::EventGenerator> generator_;
 
  private:
   scoped_ptr<TooltipController> controller_;
@@ -676,7 +676,7 @@ class TooltipControllerTest3 : public aura::test::AuraTestBase {
     widget_->GetContentsView()->AddChildView(view_);
     view_->SetBoundsRect(widget_->GetContentsView()->GetLocalBounds());
 
-    generator_.reset(new aura::test::EventGenerator(GetRootWindow()));
+    generator_.reset(new ui::test::EventGenerator(GetRootWindow()));
     controller_.reset(new TooltipController(
         scoped_ptr<views::corewm::Tooltip>(test_tooltip_)));
     GetRootWindow()->RemovePreTargetHandler(
@@ -705,7 +705,7 @@ class TooltipControllerTest3 : public aura::test::AuraTestBase {
   // Owned by |controller_|.
   TestTooltip* test_tooltip_;
   scoped_ptr<TooltipControllerTestHelper> helper_;
-  scoped_ptr<aura::test::EventGenerator> generator_;
+  scoped_ptr<ui::test::EventGenerator> generator_;
   scoped_ptr<views::Widget> widget_;
   TooltipTestView* view_;
 

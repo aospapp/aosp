@@ -27,7 +27,6 @@ import android.database.DataSetObservable;
 import android.database.DataSetObserver;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
-import android.view.DragEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
@@ -52,7 +51,7 @@ import java.util.ArrayList;
  * This activity displays the list of available folders for the current account.
  */
 public class FolderSelectionActivity extends ActionBarActivity implements OnClickListener,
-        DialogInterface.OnClickListener, FolderChangeListener, ControllableActivity,
+        DialogInterface.OnClickListener, ControllableActivity,
         FolderSelector {
     public static final String EXTRA_ACCOUNT_SHORTCUT = "account-shortcut";
 
@@ -257,8 +256,7 @@ public class FolderSelectionActivity extends ActionBarActivity implements OnClic
         }
     }
 
-    @Override
-    public void onFolderChanged(Folder folder, final boolean force) {
+    private void onFolderChanged(Folder folder, final boolean force) {
         if (!folder.equals(mSelectedFolder)) {
             mSelectedFolder = folder;
             Intent resultIntent = new Intent();
@@ -322,12 +320,7 @@ public class FolderSelectionActivity extends ActionBarActivity implements OnClic
     }
 
     @Override
-    public FolderChangeListener getFolderChangeListener() {
-        return this;
-    }
-
-    @Override
-    public ConversationSelectionSet getSelectedSet() {
+    public ConversationCheckedSet getCheckedSet() {
         return null;
     }
 
@@ -348,16 +341,6 @@ public class FolderSelectionActivity extends ActionBarActivity implements OnClic
     @Override
     public FolderSelector getFolderSelector() {
         return this;
-    }
-
-    @Override
-    public boolean supportsDrag(DragEvent event, Folder folder) {
-        return false;
-    }
-
-    @Override
-    public void handleDrop(DragEvent event, Folder folder) {
-        // Do nothing.
     }
 
     @Override
@@ -405,22 +388,7 @@ public class FolderSelectionActivity extends ActionBarActivity implements OnClic
     }
 
     @Override
-    public void onFooterViewErrorActionClick(Folder folder, int errorStatus) {
-        // Unsupported
-    }
-
-    @Override
     public void onFooterViewLoadMoreClick(Folder folder) {
-        // Unsupported
-    }
-
-    @Override
-    public void startDragMode() {
-        // Unsupported
-    }
-
-    @Override
-    public void stopDragMode() {
         // Unsupported
     }
 
@@ -485,6 +453,6 @@ public class FolderSelectionActivity extends ActionBarActivity implements OnClic
 
     @Override
     public void showHelp(Account account, int viewMode) {
-        //Unsupported
+        // Unsupported
     }
 }

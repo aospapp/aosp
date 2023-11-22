@@ -25,10 +25,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.text.Editable;
 import android.text.TextUtils;
-import android.text.TextUtils.TruncateAt;
 import android.text.TextWatcher;
 import android.util.AttributeSet;
-import android.view.Gravity;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -160,6 +159,9 @@ public abstract class LabeledEditorView extends LinearLayout implements Editor, 
                 });
             }
         });
+
+        setPadding(getPaddingLeft(), getPaddingTop(), getPaddingRight(),
+                (int) getResources().getDimension(R.dimen.editor_padding_between_editor_views));
     }
 
     @Override
@@ -237,6 +239,10 @@ public abstract class LabeledEditorView extends LinearLayout implements Editor, 
         mListener = listener;
     }
 
+    protected EditorListener getEditorListener(){
+        return mListener;
+    }
+
     @Override
     public void setDeletable(boolean deletable) {
         mIsDeletable = deletable;
@@ -274,7 +280,7 @@ public abstract class LabeledEditorView extends LinearLayout implements Editor, 
      * Build the current label state based on selected {@link EditType} and
      * possible custom label string.
      */
-    private void rebuildLabel() {
+    public void rebuildLabel() {
         mEditTypeAdapter = new EditTypeAdapter(mContext);
         mLabel.setAdapter(mEditTypeAdapter);
         if (mEditTypeAdapter.hasCustomSelection()) {
@@ -295,10 +301,20 @@ public abstract class LabeledEditorView extends LinearLayout implements Editor, 
 
         // Notify listener if applicable
         notifyEditorListener();
+
+        rebuildLabel();
     }
 
     protected void saveValue(String column, String value) {
         mEntry.put(column, value);
+    }
+
+    /**
+     * Sub classes should call this at the end of {@link #setValues} once they finish changing
+     * isEmpty(). This is needed to fix b/18194655.
+     */
+    protected final void updateEmptiness() {
+        mWasEmpty = isEmpty();
     }
 
     protected void notifyEditorListener() {
@@ -337,8 +353,9 @@ public abstract class LabeledEditorView extends LinearLayout implements Editor, 
     }
 
     /**
-     * Prepare this editor using the given {@link DataKind} for defining
-     * structure and {@link ValuesDelta} describing the content to edit.
+     * Prepare this editor using the given {@link DataKind} for defining structure and
+     * {@link ValuesDelta} describing the content to edit. When overriding this, be careful
+     * to call {@link #updateEmptiness} at the end.
      */
     @Override
     public void setValues(DataKind kind, ValuesDelta entry, RawContactDelta state, boolean readOnly,
@@ -516,12 +533,18 @@ public abstract class LabeledEditorView extends LinearLayout implements Editor, 
     private class EditTypeAdapter extends ArrayAdapter<EditType> {
         private final LayoutInflater mInflater;
         private boolean mHasCustomSelection;
-        private int mTextColor;
+        private int mTextColorHintUnfocused;
+        private int mTextColorDark;
+        private int mTextColorSecondary;
 
         public EditTypeAdapter(Context context) {
             super(context, 0);
             mInflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-            mTextColor = context.getResources().getColor(R.color.secondary_text_color);
+            mTextColorHintUnfocused = context.getResources().getColor(
+                    R.color.editor_disabled_text_color);
+            mTextColorSecondary = context.getResources().getColor(R.color.secondary_text_color);
+            mTextColorDark = context.getResources().getColor(R.color.primary_text_color);
+
 
             if (mType != null && mType.customColumn != null) {
 
@@ -542,8 +565,22 @@ public abstract class LabeledEditorView extends LinearLayout implements Editor, 
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
-            return createViewFromResource(
-                    position, convertView, parent, android.R.layout.simple_spinner_item);
+            final TextView view = createViewFromResource(
+                    position, convertView, parent, R.layout.edit_simple_spinner_item);
+            // We don't want any background on this view. The background would obscure
+            // the spinner's background.
+            view.setBackground(null);
+            // The text color should be a very light hint color when unfocused and empty. When
+            // focused and empty, use a less light hint color. When non-empty, use a dark non-hint
+            // color.
+            if (!LabeledEditorView.this.isEmpty()) {
+                view.setTextColor(mTextColorDark);
+            } else if (LabeledEditorView.this.hasFocus()) {
+                view.setTextColor(mTextColorSecondary);
+            } else {
+                view.setTextColor(mTextColorHintUnfocused);
+            }
+            return view;
         }
 
         @Override
@@ -552,17 +589,15 @@ public abstract class LabeledEditorView extends LinearLayout implements Editor, 
                     position, convertView, parent, android.R.layout.simple_spinner_dropdown_item);
         }
 
-        private View createViewFromResource(int position, View convertView, ViewGroup parent,
+        private TextView createViewFromResource(int position, View convertView, ViewGroup parent,
                 int resource) {
             TextView textView;
 
             if (convertView == null) {
                 textView = (TextView) mInflater.inflate(resource, parent, false);
-                textView.setAllCaps(true);
-                textView.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
-                textView.setTextAppearance(mContext, android.R.style.TextAppearance_Small);
-                textView.setTextColor(mTextColor);
-                textView.setEllipsize(TruncateAt.MIDDLE);
+                textView.setTextSize(TypedValue.COMPLEX_UNIT_PX, getResources().getDimension(
+                        R.dimen.editor_form_text_size));
+                textView.setTextColor(mTextColorDark);
             } else {
                 textView = (TextView) convertView;
             }

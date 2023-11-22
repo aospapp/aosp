@@ -16,26 +16,26 @@
 
 package com.android.services.telephony;
 
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telephony.PhoneStateListener;
 import android.telephony.ServiceState;
-import android.telephony.SubInfoRecord;
+import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
+import android.telephony.SubscriptionManager.OnSubscriptionsChangedListener;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.PhoneProxy;
-import com.android.internal.telephony.TelephonyIntents;
+import com.android.phone.PhoneUtils;
 import com.android.phone.R;
 
 import java.util.Arrays;
@@ -48,16 +48,6 @@ import java.util.List;
  */
 final class TelecomAccountRegistry {
     private static final boolean DBG = false; /* STOP SHIP if true */
-
-    // Slot IDs are zero based indices but the numbered icons represent the first, second,
-    // etc... SIM in the device. So that means that index 0 is SIM 1, index 1 is SIM 2 and so on.
-
-    private final static int[] phoneAccountIcons = {
-            R.drawable.ic_multi_sim1,
-            R.drawable.ic_multi_sim2,
-            R.drawable.ic_multi_sim3,
-            R.drawable.ic_multi_sim4
-    };
 
     // This icon is the one that is used when the Slot ID that we have for a particular SIM
     // is not supported, i.e. SubscriptionManager.INVALID_SLOT_ID or the 5th SIM in a phone.
@@ -88,11 +78,13 @@ final class TelecomAccountRegistry {
 
             // Build the Phone account handle.
             PhoneAccountHandle phoneAccountHandle =
-                    makePstnPhoneAccountHandleWithPrefix(mPhone, dummyPrefix, isEmergency);
+                    PhoneUtils.makePstnPhoneAccountHandleWithPrefix(
+                            mPhone, dummyPrefix, isEmergency);
 
             // Populate the phone account data.
-            long subId = mPhone.getSubId();
-            int slotId = SubscriptionManager.INVALID_SLOT_ID;
+            int subId = mPhone.getSubId();
+            int color = PhoneAccount.NO_HIGHLIGHT_COLOR;
+            int slotId = SubscriptionManager.INVALID_SIM_SLOT_INDEX;
             String line1Number = mTelephonyManager.getLine1NumberForSubscriber(subId);
             if (line1Number == null) {
                 line1Number = "";
@@ -104,6 +96,7 @@ final class TelecomAccountRegistry {
 
             String label;
             String description;
+            Bitmap iconBitmap = null;
 
             if (isEmergency) {
                 label = mContext.getResources().getString(R.string.sim_label_emergency_calls);
@@ -114,13 +107,16 @@ final class TelecomAccountRegistry {
                 // the network is.
                 description = label = mTelephonyManager.getNetworkOperatorName();
             } else {
-                String subDisplayName = null;
+                CharSequence subDisplayName = null;
                 // We can only get the real slotId from the SubInfoRecord, we can't calculate the
                 // slotId from the subId or the phoneId in all instances.
-                SubInfoRecord record = SubscriptionManager.getSubInfoForSubscriber(subId);
+                SubscriptionInfo record =
+                        mSubscriptionManager.getActiveSubscriptionInfo(subId);
                 if (record != null) {
-                    subDisplayName = record.displayName;
-                    slotId = record.slotId;
+                    subDisplayName = record.getDisplayName();
+                    slotId = record.getSimSlotIndex();
+                    color = record.getIconTint();
+                    iconBitmap = record.createIconBitmap(mContext);
                 }
 
                 String slotIdString;
@@ -147,14 +143,22 @@ final class TelecomAccountRegistry {
             // By default all SIM phone accounts can place emergency calls.
             int capabilities = PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION |
                     PhoneAccount.CAPABILITY_CALL_PROVIDER |
-                    PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS;
+                    PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS |
+                    PhoneAccount.CAPABILITY_MULTI_USER;
+
+            if (iconBitmap == null) {
+                iconBitmap = BitmapFactory.decodeResource(
+                        mContext.getResources(),
+                        defaultPhoneAccountIcon);
+            }
 
             PhoneAccount account = PhoneAccount.builder(phoneAccountHandle, label)
                     .setAddress(Uri.fromParts(PhoneAccount.SCHEME_TEL, line1Number, null))
                     .setSubscriptionAddress(
                             Uri.fromParts(PhoneAccount.SCHEME_TEL, subNumber, null))
                     .setCapabilities(capabilities)
-                    .setIconResId(getPhoneAccountIcon(slotId))
+                    .setIcon(iconBitmap)
+                    .setHighlightColor(color)
                     .setShortDescription(description)
                     .setSupportedUriSchemes(Arrays.asList(
                             PhoneAccount.SCHEME_TEL, PhoneAccount.SCHEME_VOICEMAIL))
@@ -170,31 +174,13 @@ final class TelecomAccountRegistry {
         }
     }
 
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+    private OnSubscriptionsChangedListener mOnSubscriptionsChangedListener =
+            new OnSubscriptionsChangedListener() {
         @Override
-        public void onReceive(Context context, Intent intent) {
-            boolean rebuildAccounts = false;
-            String action = intent.getAction();
-            if (TelephonyIntents.ACTION_SUBINFO_RECORD_UPDATED.equals(action)) {
-                int status = intent.getIntExtra(
-                        SubscriptionManager.INTENT_KEY_DETECT_STATUS,
-                        SubscriptionManager.EXTRA_VALUE_NOCHANGE);
-                Log.i(this, "SUBINFO_RECORD_UPDATED : %d.", status);
-                // Anytime the SIM state changes...rerun the setup
-                // We rely on this notification even when the status is EXTRA_VALUE_NOCHANGE,
-                // so we explicitly do not check for that here.
-                rebuildAccounts = true;
-            } else if (TelephonyIntents.ACTION_SUBINFO_CONTENT_CHANGE.equals(action)) {
-                String columnName = intent.getStringExtra(TelephonyIntents.EXTRA_COLUMN_NAME);
-                String stringContent = intent.getStringExtra(TelephonyIntents.EXTRA_STRING_CONTENT);
-                Log.v(this, "SUBINFO_CONTENT_CHANGE: Column: %s Content: %s",
-                        columnName, stringContent);
-                rebuildAccounts = true;
-            }
-            if (rebuildAccounts) {
-                tearDownAccounts();
-                setupAccounts();
-            }
+        public void onSubscriptionsChanged() {
+            // Any time the SubscriptionInfo changes...rerun the setup
+            tearDownAccounts();
+            setupAccounts();
         }
     };
 
@@ -214,52 +200,54 @@ final class TelecomAccountRegistry {
     private final Context mContext;
     private final TelecomManager mTelecomManager;
     private final TelephonyManager mTelephonyManager;
+    private final SubscriptionManager mSubscriptionManager;
     private List<AccountEntry> mAccounts = new LinkedList<AccountEntry>();
     private int mServiceState = ServiceState.STATE_POWER_OFF;
+
+    // TODO: Remove back-pointer from app singleton to Service, since this is not a preferred
+    // pattern; redesign. This was added to fix a late release bug.
+    private TelephonyConnectionService mTelephonyConnectionService;
 
     TelecomAccountRegistry(Context context) {
         mContext = context;
         mTelecomManager = TelecomManager.from(context);
         mTelephonyManager = TelephonyManager.from(context);
+        mSubscriptionManager = SubscriptionManager.from(context);
     }
 
     static synchronized final TelecomAccountRegistry getInstance(Context context) {
-        if (sInstance == null) {
+        if (sInstance == null && context != null) {
             sInstance = new TelecomAccountRegistry(context);
         }
         return sInstance;
+    }
+
+    void setTelephonyConnectionService(TelephonyConnectionService telephonyConnectionService) {
+        this.mTelephonyConnectionService = telephonyConnectionService;
+    }
+
+    TelephonyConnectionService getTelephonyConnectionService() {
+        return mTelephonyConnectionService;
     }
 
     /**
      * Sets up all the phone accounts for SIMs on first boot.
      */
     void setupOnBoot() {
-        // We need to register for both types of intents if we want to see added/removed Subs
-        // along with changes to a given Sub.
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(TelephonyIntents.ACTION_SUBINFO_RECORD_UPDATED);
-        intentFilter.addAction(TelephonyIntents.ACTION_SUBINFO_CONTENT_CHANGE);
-        mContext.registerReceiver(mReceiver, intentFilter);
+        // TODO: When this object "finishes" we should unregister by invoking
+        // SubscriptionManager.getInstance(mContext).unregister(mOnSubscriptionsChangedListener);
+        // This is not strictly necessary because it will be unregistered if the
+        // notification fails but it is good form.
+
+        // Register for SubscriptionInfo list changes which is guaranteed
+        // to invoke onSubscriptionsChanged the first time.
+        SubscriptionManager.from(mContext).addOnSubscriptionsChangedListener(
+                mOnSubscriptionsChangedListener);
 
         // We also need to listen for changes to the service state (e.g. emergency -> in service)
         // because this could signal a removal or addition of a SIM in a single SIM phone.
         mTelephonyManager.listen(mPhoneStateListener, PhoneStateListener.LISTEN_SERVICE_STATE);
     }
-
-    static PhoneAccountHandle makePstnPhoneAccountHandle(Phone phone) {
-        return makePstnPhoneAccountHandleWithPrefix(phone, "", false);
-    }
-
-    private static PhoneAccountHandle makePstnPhoneAccountHandleWithPrefix(
-            Phone phone, String prefix, boolean isEmergency) {
-        ComponentName pstnConnectionServiceName =
-                new ComponentName(phone.getContext(), TelephonyConnectionService.class);
-        // TODO: Should use some sort of special hidden flag to decorate this account as
-        // an emergency-only account
-        String id = isEmergency ? "E" : prefix + String.valueOf(phone.getSubId());
-        return new PhoneAccountHandle(pstnConnectionServiceName, id);
-    }
-
     /**
      * Determines if the list of {@link AccountEntry}(s) contains an {@link AccountEntry} with a
      * specified {@link PhoneAccountHandle}.
@@ -321,16 +309,6 @@ final class TelecomAccountRegistry {
 
         // Clean up any PhoneAccounts that are no longer relevant
         cleanupPhoneAccounts();
-    }
-
-    private int getPhoneAccountIcon(int index) {
-        // A valid slot id doesn't necessarily mean that we have an icon for it.
-        if (SubscriptionManager.isValidSlotId(index) &&
-                index < TelecomAccountRegistry.phoneAccountIcons.length) {
-            return TelecomAccountRegistry.phoneAccountIcons[index];
-        }
-        // Invalid indices get the default icon that has no number associated with it.
-        return defaultPhoneAccountIcon;
     }
 
     private void tearDownAccounts() {

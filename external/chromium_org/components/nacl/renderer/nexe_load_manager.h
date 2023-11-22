@@ -11,6 +11,7 @@
 #include "base/files/file.h"
 #include "base/macros.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/memory/shared_memory.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "ppapi/c/private/ppb_nacl_private.h"
@@ -29,8 +30,12 @@ class TrustedPluginChannel;
 // nexe.
 class NexeLoadManager {
  public:
-  explicit NexeLoadManager(PP_Instance instance);
   ~NexeLoadManager();
+
+  static void Create(PP_Instance instance);
+  // Non-owning pointer.
+  static NexeLoadManager* Get(PP_Instance instance);
+  static void Delete(PP_Instance instance);
 
   void NexeFileDidOpen(int32_t pp_error,
                        const base::File& file,
@@ -53,7 +58,7 @@ class NexeLoadManager {
                        const std::string& error_message,
                        const std::string& console_message);
   void ReportLoadAbort();
-  void NexeDidCrash(const char* crash_log);
+  void NexeDidCrash();
 
   // TODO(dmichael): Everything below this comment should eventually be made
   // private, when ppb_nacl_private_impl.cc is no longer using them directly.
@@ -104,8 +109,22 @@ class NexeLoadManager {
   // Returns true if dev interfaces are enabled for this plugin.
   bool DevInterfacesEnabled() const;
 
+  // Returns the time that the work for PNaCl translation began.
+  base::Time pnacl_start_time() const { return pnacl_start_time_; }
+  void set_pnacl_start_time(base::Time time) {
+    pnacl_start_time_ = time;
+  }
+
+  const std::string& program_url() const { return program_url_; }
+
+  void set_crash_info_shmem_handle(base::SharedMemoryHandle h) {
+    crash_info_shmem_handle_ = h;
+  }
+
  private:
   DISALLOW_COPY_AND_ASSIGN(NexeLoadManager);
+
+  explicit NexeLoadManager(PP_Instance instance);
 
   void ReportDeadNexe();
 
@@ -115,6 +134,8 @@ class NexeLoadManager {
   PP_Instance pp_instance_;
   PP_NaClReadyState nacl_ready_state_;
   bool nexe_error_reported_;
+
+  std::string program_url_;
 
   // A flag indicating if the NaCl executable is being loaded from an installed
   // application.  This flag is used to bucket UMA statistics more precisely to
@@ -158,6 +179,10 @@ class NexeLoadManager {
   // We store mime_type_ outside of args_ explicitly because we change it to be
   // lowercase.
   std::string mime_type_;
+
+  base::Time pnacl_start_time_;
+
+  base::SharedMemoryHandle crash_info_shmem_handle_;
 
   scoped_ptr<TrustedPluginChannel> trusted_plugin_channel_;
   scoped_ptr<ManifestServiceChannel> manifest_service_channel_;

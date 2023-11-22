@@ -44,7 +44,7 @@ class GrallocConsumer : public ConsumerBase
   public:
     typedef ConsumerBase::FrameAvailableListener FrameAvailableListener;
 
-    GrallocConsumer(Allocation *, const sp<IGraphicBufferConsumer>& bq);
+    GrallocConsumer(Allocation *, const sp<IGraphicBufferConsumer>& bq, int flags);
 
     virtual ~GrallocConsumer();
     status_t lockNextBuffer();

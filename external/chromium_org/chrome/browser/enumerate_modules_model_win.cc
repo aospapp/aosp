@@ -27,10 +27,9 @@
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/net/service_providers_win.h"
 #include "chrome/common/chrome_constants.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/notification_service.h"
 #include "crypto/sha2.h"
-#include "grit/generated_resources.h"
-#include "grit/google_chrome_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 
 using content::BrowserThread;
@@ -320,7 +319,7 @@ static void GenerateHash(const std::string& input, std::string* output) {
 
   uint8 hash[4];
   crypto::SHA256HashString(input, hash, sizeof(hash));
-  *output = StringToLowerASCII(base::HexEncode(hash, sizeof(hash)));
+  *output = base::StringToLowerASCII(base::HexEncode(hash, sizeof(hash)));
 }
 
 // -----------------------------------------------------------------------------
@@ -780,15 +779,10 @@ base::string16 ModuleEnumerator::GetSubjectNameFromDigitalSignature(
     return base::string16();
 
   // Determine the size of the Subject name.
-  DWORD subject_name_size = 0;
-  if (!(subject_name_size = CertGetNameString(cert_context,
-                                              CERT_NAME_SIMPLE_DISPLAY_TYPE,
-                                              0,
-                                              NULL,
-                                              NULL,
-                                              0))) {
+  DWORD subject_name_size = CertGetNameString(
+      cert_context, CERT_NAME_SIMPLE_DISPLAY_TYPE, 0, NULL, NULL, 0);
+  if (!subject_name_size)
     return base::string16();
-  }
 
   base::string16 subject_name;
   subject_name.resize(subject_name_size);

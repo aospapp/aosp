@@ -4,7 +4,7 @@
 
 #include "chrome/common/chrome_paths.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/mac/bundle_locations.h"
@@ -20,6 +20,7 @@
 
 #if defined(OS_ANDROID)
 #include "base/android/path_utils.h"
+#include "base/base_paths_android.h"
 #endif
 
 #if defined(OS_MACOSX)
@@ -59,16 +60,8 @@ const base::FilePath::CharType kInternalPDFPluginFileName[] =
     FILE_PATH_LITERAL("libpdf.so");
 #endif
 
-// File name of the internal NaCl plugin on different platforms.
 const base::FilePath::CharType kInternalNaClPluginFileName[] =
-#if defined(OS_WIN)
-    FILE_PATH_LITERAL("ppGoogleNaClPluginChrome.dll");
-#elif defined(OS_MACOSX)
-    // TODO(noelallen) Please verify this extention name is correct.
-    FILE_PATH_LITERAL("ppGoogleNaClPluginChrome.plugin");
-#else  // Linux and Chrome OS
-    FILE_PATH_LITERAL("libppGoogleNaClPluginChrome.so");
-#endif
+    FILE_PATH_LITERAL("internal-nacl-plugin");
 
 const base::FilePath::CharType kEffectsPluginFileName[] =
 #if defined(OS_WIN)
@@ -311,6 +304,9 @@ bool PathProvider(int key, base::FilePath* result) {
         return false;
       cur = cur.Append(kEffectsPluginFileName);
       break;
+    // TODO(teravest): Remove this case once the internal NaCl plugin is gone.
+    // We currently need a path here to look up whether the plugin is disabled
+    // and what its permissions are.
     case chrome::FILE_NACL_PLUGIN:
       if (!GetInternalPluginsDirectory(&cur))
         return false;
@@ -352,12 +348,6 @@ bool PathProvider(int key, base::FilePath* result) {
 #endif
       cur = cur.Append(FILE_PATH_LITERAL("pnacl"));
       break;
-    case chrome::DIR_RECOVERY_BASE:
-      if (!PathService::Get(chrome::DIR_USER_DATA, &cur))
-        return false;
-      cur = cur.Append(FILE_PATH_LITERAL("recovery"));
-      create_dir = true;
-      break;
 #if defined(OS_POSIX) && !defined(OS_MACOSX)
     case chrome::FILE_O1D_PLUGIN:
       if (!PathService::Get(base::DIR_MODULE, &cur))
@@ -370,11 +360,6 @@ bool PathProvider(int key, base::FilePath* result) {
       cur = cur.Append(kGTalkPluginFileName);
       break;
 #endif
-    case chrome::DIR_COMPONENT_CLD2:
-      if (!PathService::Get(chrome::DIR_USER_DATA, &cur))
-        return false;
-      cur = cur.Append(FILE_PATH_LITERAL("CLD"));
-      break;
 #if defined(WIDEVINE_CDM_AVAILABLE) && defined(ENABLE_PEPPER_CDMS)
 #if defined(WIDEVINE_CDM_IS_COMPONENT)
     case chrome::DIR_COMPONENT_WIDEVINE_CDM:
@@ -445,8 +430,15 @@ bool PathProvider(int key, base::FilePath* result) {
     // will fail if executed from an installed executable (because the
     // generated path won't exist).
     case chrome::DIR_GEN_TEST_DATA:
+#if defined(OS_ANDROID)
+      // On Android, our tests don't have permission to write to DIR_MODULE.
+      // gtest/test_runner.py pushes data to external storage.
+      if (!PathService::Get(base::DIR_ANDROID_EXTERNAL_STORAGE, &cur))
+        return false;
+#else
       if (!PathService::Get(base::DIR_MODULE, &cur))
         return false;
+#endif
       cur = cur.Append(FILE_PATH_LITERAL("test_data"));
       if (!base::PathExists(cur))  // We don't want to create this.
         return false;

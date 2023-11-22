@@ -76,6 +76,7 @@ protected:
     bool mAuthenticated;
     int mActionDelay;  // in milliseconds
     uint32_t mAuthRetryCount;
+    bool mEnableAuthenticationLog;
 
 private:
     DECLARE_THREAD(HdcpControlThread, HdcpControl);

@@ -10,21 +10,18 @@
 #include "content/renderer/render_frame_impl.h"
 #include "third_party/WebKit/public/platform/WebURL.h"
 #include "third_party/WebKit/public/web/WebDocument.h"
-#include "third_party/WebKit/public/web/WebFrame.h"
-#include "third_party/WebKit/public/web/WebNotificationPermissionCallback.h"
+#include "third_party/WebKit/public/web/WebLocalFrame.h"
 #include "third_party/WebKit/public/web/WebUserGestureIndicator.h"
 
 using blink::WebDocument;
 using blink::WebNotification;
 using blink::WebNotificationPresenter;
-using blink::WebNotificationPermissionCallback;
 using blink::WebSecurityOrigin;
 using blink::WebString;
 using blink::WebURL;
 using blink::WebUserGestureIndicator;
 
 namespace content {
-
 
 NotificationProvider::NotificationProvider(RenderFrame* render_frame)
     : RenderFrameObserver(render_frame) {
@@ -67,21 +64,12 @@ void NotificationProvider::objectDestroyed(
 
 WebNotificationPresenter::Permission NotificationProvider::checkPermission(
     const WebSecurityOrigin& origin) {
-  int permission;
+  int permission = WebNotificationPresenter::PermissionNotAllowed;
   Send(new DesktopNotificationHostMsg_CheckPermission(
           routing_id(),
           GURL(origin.toString()),
           &permission));
   return static_cast<WebNotificationPresenter::Permission>(permission);
-}
-
-void NotificationProvider::requestPermission(
-    const WebSecurityOrigin& origin,
-    WebNotificationPermissionCallback* callback) {
-  int id = manager_.RegisterPermissionRequest(callback);
-
-  Send(new DesktopNotificationHostMsg_RequestPermission(
-      routing_id(), GURL(origin.toString()), id));
 }
 
 bool NotificationProvider::OnMessageReceived(const IPC::Message& message) {
@@ -91,8 +79,6 @@ bool NotificationProvider::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(DesktopNotificationMsg_PostError, OnError);
     IPC_MESSAGE_HANDLER(DesktopNotificationMsg_PostClose, OnClose);
     IPC_MESSAGE_HANDLER(DesktopNotificationMsg_PostClick, OnClick);
-    IPC_MESSAGE_HANDLER(DesktopNotificationMsg_PermissionRequestDone,
-                        OnPermissionRequestComplete);
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
 
@@ -138,13 +124,6 @@ void NotificationProvider::OnClick(int id) {
   // the page before the associated toast was clicked on.
   if (found)
     notification.dispatchClickEvent();
-}
-
-void NotificationProvider::OnPermissionRequestComplete(int id) {
-  WebNotificationPermissionCallback* callback = manager_.GetCallback(id);
-  DCHECK(callback);
-  callback->permissionRequestComplete();
-  manager_.OnPermissionRequestComplete(id);
 }
 
 void NotificationProvider::OnNavigate() {

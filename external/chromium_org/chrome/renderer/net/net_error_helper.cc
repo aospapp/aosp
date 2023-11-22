@@ -16,6 +16,7 @@
 #include "chrome/common/localized_error.h"
 #include "chrome/common/net/net_error_info.h"
 #include "chrome/common/render_messages.h"
+#include "chrome/grit/renderer_resources.h"
 #include "chrome/renderer/net/net_error_page_controller.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/url_constants.h"
@@ -25,7 +26,6 @@
 #include "content/public/renderer/render_thread.h"
 #include "content/public/renderer/render_view.h"
 #include "content/public/renderer/resource_fetcher.h"
-#include "grit/renderer_resources.h"
 #include "ipc/ipc_message.h"
 #include "ipc/ipc_message_macros.h"
 #include "third_party/WebKit/public/platform/WebURL.h"
@@ -34,7 +34,7 @@
 #include "third_party/WebKit/public/platform/WebURLResponse.h"
 #include "third_party/WebKit/public/web/WebDataSource.h"
 #include "third_party/WebKit/public/web/WebDocument.h"
-#include "third_party/WebKit/public/web/WebFrame.h"
+#include "third_party/WebKit/public/web/WebLocalFrame.h"
 #include "third_party/WebKit/public/web/WebView.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/webui/jstemplate_builder.h"
@@ -259,10 +259,14 @@ void NetErrorHelper::FetchNavigationCorrections(
   correction_fetcher_->SetMethod("POST");
   correction_fetcher_->SetBody(navigation_correction_request_body);
   correction_fetcher_->SetHeader("Content-Type", "application/json");
+
   correction_fetcher_->Start(
-      frame, blink::WebURLRequest::TargetIsMainFrame,
+      frame,
+      blink::WebURLRequest::RequestContextInternal,
+      blink::WebURLRequest::FrameTypeTopLevel,
+      content::ResourceFetcher::PLATFORM_LOADER,
       base::Bind(&NetErrorHelper::OnNavigationCorrectionsFetched,
-                     base::Unretained(this)));
+                 base::Unretained(this)));
 
   correction_fetcher_->SetTimeout(
       base::TimeDelta::FromSeconds(kNavigationCorrectionFetchTimeoutSec));
@@ -285,8 +289,12 @@ void NetErrorHelper::SendTrackingRequest(
   tracking_fetcher_->SetMethod("POST");
   tracking_fetcher_->SetBody(tracking_request_body);
   tracking_fetcher_->SetHeader("Content-Type", "application/json");
+
   tracking_fetcher_->Start(
-      frame, blink::WebURLRequest::TargetIsMainFrame,
+      frame,
+      blink::WebURLRequest::RequestContextInternal,
+      blink::WebURLRequest::FrameTypeTopLevel,
+      content::ResourceFetcher::PLATFORM_LOADER,
       base::Bind(&NetErrorHelper::OnTrackingRequestComplete,
                  base::Unretained(this)));
 }

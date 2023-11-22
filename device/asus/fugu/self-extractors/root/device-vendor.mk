@@ -14,6 +14,7 @@
 
 
 PRODUCT_PACKAGES += \
+    AtvRemoteService \
     LeanbackLauncher \
     TV
 

@@ -22,6 +22,9 @@ import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.TestSensorEvent;
 
+import java.util.ArrayList;
+import java.util.Collection;
+
 /**
  * Tests for {@link StandardDeviationVerification}.
  */
@@ -79,11 +82,15 @@ public class StandardDeviationVerificationTest extends TestCase {
         }
     }
 
-    private StandardDeviationVerification getVerification(float[] threshold, float[] ... values) {
-        StandardDeviationVerification verification = new StandardDeviationVerification(threshold);
+    private static StandardDeviationVerification getVerification(
+            float[] threshold,
+            float[] ... values) {
+        Collection<TestSensorEvent> events = new ArrayList<>(values.length);
         for (float[] value : values) {
-            verification.addSensorEvent(new TestSensorEvent(null, 0, 0, value));
+            events.add(new TestSensorEvent(null, 0, 0, value));
         }
+        StandardDeviationVerification verification = new StandardDeviationVerification(threshold);
+        verification.addSensorEvents(events);
         return verification;
     }
 }

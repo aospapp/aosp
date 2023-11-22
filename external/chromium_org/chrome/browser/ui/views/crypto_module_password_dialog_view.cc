@@ -5,10 +5,9 @@
 #include "chrome/browser/ui/views/crypto_module_password_dialog_view.h"
 
 #include "base/strings/utf_string_conversions.h"
-#include "grit/generated_resources.h"
+#include "chrome/grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/events/event.h"
-#include "ui/views/controls/button/text_button.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/layout/grid_layout.h"

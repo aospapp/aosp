@@ -19,17 +19,24 @@ package com.android.internal.telephony;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Registrant;
 import android.os.RegistrantList;
 import android.os.SystemClock;
+import android.os.SystemProperties;
+import android.preference.PreferenceManager;
 import android.telephony.CellInfo;
+import android.telephony.Rlog;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
+import android.telephony.SubscriptionManager;
+import android.telephony.SubscriptionManager.OnSubscriptionsChangedListener;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
+import android.util.Log;
 import android.util.Pair;
 import android.util.TimeUtils;
 
@@ -37,9 +44,11 @@ import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.android.internal.telephony.dataconnection.DcTrackerBase;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppState;
+import com.android.internal.telephony.uicc.IccCardProxy;
 import com.android.internal.telephony.uicc.IccRecords;
 import com.android.internal.telephony.uicc.UiccCardApplication;
 import com.android.internal.telephony.uicc.UiccController;
@@ -48,6 +57,7 @@ import com.android.internal.telephony.uicc.UiccController;
  * {@hide}
  */
 public abstract class ServiceStateTracker extends Handler {
+    private static final String LOG_TAG = "SST";
     protected  static final boolean DBG = true;
     protected static final boolean VDBG = false;
 
@@ -99,8 +109,10 @@ public abstract class ServiceStateTracker extends Handler {
      */
     protected boolean mDontPollSignalStrength = false;
 
-    protected RegistrantList mRoamingOnRegistrants = new RegistrantList();
-    protected RegistrantList mRoamingOffRegistrants = new RegistrantList();
+    protected RegistrantList mVoiceRoamingOnRegistrants = new RegistrantList();
+    protected RegistrantList mVoiceRoamingOffRegistrants = new RegistrantList();
+    protected RegistrantList mDataRoamingOnRegistrants = new RegistrantList();
+    protected RegistrantList mDataRoamingOffRegistrants = new RegistrantList();
     protected RegistrantList mAttachedRegistrants = new RegistrantList();
     protected RegistrantList mDetachedRegistrants = new RegistrantList();
     protected RegistrantList mDataRegStateOrRatChangedRegistrants = new RegistrantList();
@@ -163,6 +175,8 @@ public abstract class ServiceStateTracker extends Handler {
     protected static final int EVENT_GET_CELL_INFO_LIST                = 43;
     protected static final int EVENT_UNSOL_CELL_INFO_LIST              = 44;
     protected static final int EVENT_CHANGE_IMS_STATE                  = 45;
+    protected static final int EVENT_IMS_STATE_CHANGED                 = 46;
+    protected static final int EVENT_IMS_STATE_DONE                    = 47;
 
     protected static final String TIMEZONE_PROPERTY = "persist.sys.timezone";
 
@@ -211,7 +225,80 @@ public abstract class ServiceStateTracker extends Handler {
     protected static final String ACTION_RADIO_OFF = "android.intent.action.ACTION_RADIO_OFF";
     protected boolean mPowerOffDelayNeed = true;
     protected boolean mDeviceShuttingDown = false;
+    /** Keep track of SPN display rules, so we only broadcast intent if something changes. */
+    protected boolean mSpnUpdatePending = false;
+    protected String mCurSpn = null;
+    protected String mCurPlmn = null;
+    protected boolean mCurShowPlmn = false;
+    protected boolean mCurShowSpn = false;
 
+
+    private boolean mImsRegistered = false;
+
+    protected SubscriptionManager mSubscriptionManager;
+    protected SubscriptionController mSubscriptionController;
+    protected final SstSubscriptionsChangedListener mOnSubscriptionsChangedListener =
+        new SstSubscriptionsChangedListener();
+
+    protected class SstSubscriptionsChangedListener extends OnSubscriptionsChangedListener {
+        public final AtomicInteger mPreviousSubId = new AtomicInteger(-1); // < 0 is invalid subId
+        /**
+         * Callback invoked when there is any change to any SubscriptionInfo. Typically
+         * this method would invoke {@link SubscriptionManager#getActiveSubscriptionInfoList}
+         */
+        @Override
+        public void onSubscriptionsChanged() {
+            if (DBG) log("SubscriptionListener.onSubscriptionInfoChanged");
+            // Set the network type, in case the radio does not restore it.
+            int subId = mPhoneBase.getSubId();
+            if (mPreviousSubId.getAndSet(subId) != subId) {
+                if (SubscriptionManager.isValidSubscriptionId(subId)) {
+                    Context context = mPhoneBase.getContext();
+                    int networkType = PhoneFactory.calculatePreferredNetworkType(context, subId);
+                    mCi.setPreferredNetworkType(networkType, null);
+
+                    mPhoneBase.notifyCallForwardingIndicator();
+
+                    boolean skipRestoringSelection = context.getResources().getBoolean(
+                            com.android.internal.R.bool.skip_restoring_network_selection);
+                    if (!skipRestoringSelection) {
+                        // restore the previous network selection.
+                        mPhoneBase.restoreSavedNetworkSelection(null);
+                    }
+
+                    mPhoneBase.setSystemProperty(TelephonyProperties.PROPERTY_DATA_NETWORK_TYPE,
+                        ServiceState.rilRadioTechnologyToString(mSS.getRilDataRadioTechnology()));
+
+                    if (mSpnUpdatePending) {
+                        mSubscriptionController.setPlmnSpn(mPhoneBase.getPhoneId(), mCurShowPlmn,
+                                mCurPlmn, mCurShowSpn, mCurSpn);
+                        mSpnUpdatePending = false;
+                    }
+
+                    // Remove old network selection sharedPreferences since SP key names are now
+                    // changed to include subId. This will be done only once when upgrading from an
+                    // older build that did not include subId in the names.
+                    SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(
+                            context);
+                    String oldNetworkSelectionName = sp.getString(PhoneBase.
+                            NETWORK_SELECTION_NAME_KEY, "");
+                    String oldNetworkSelection = sp.getString(PhoneBase.NETWORK_SELECTION_KEY,
+                            "");
+                    if (!TextUtils.isEmpty(oldNetworkSelectionName) ||
+                            !TextUtils.isEmpty(oldNetworkSelection)) {
+                        SharedPreferences.Editor editor = sp.edit();
+                        editor.putString(PhoneBase.NETWORK_SELECTION_NAME_KEY + subId,
+                                oldNetworkSelectionName);
+                        editor.putString(PhoneBase.NETWORK_SELECTION_KEY + subId,
+                                oldNetworkSelection);
+                        editor.remove(PhoneBase.NETWORK_SELECTION_NAME_KEY);
+                        editor.remove(PhoneBase.NETWORK_SELECTION_KEY);
+                        editor.commit();
+                    }
+                }
+            }
+        }
+    };
 
     protected ServiceStateTracker(PhoneBase phoneBase, CommandsInterface ci, CellInfo cellInfo) {
         mPhoneBase = phoneBase;
@@ -224,8 +311,14 @@ public abstract class ServiceStateTracker extends Handler {
         mCi.setOnSignalStrengthUpdate(this, EVENT_SIGNAL_STRENGTH_UPDATE, null);
         mCi.registerForCellInfoList(this, EVENT_UNSOL_CELL_INFO_LIST, null);
 
+        mSubscriptionController = SubscriptionController.getInstance();
+        mSubscriptionManager = SubscriptionManager.from(phoneBase.getContext());
+        mSubscriptionManager
+            .addOnSubscriptionsChangedListener(mOnSubscriptionsChangedListener);
+
         mPhoneBase.setSystemProperty(TelephonyProperties.PROPERTY_DATA_NETWORK_TYPE,
             ServiceState.rilRadioTechnologyToString(ServiceState.RIL_RADIO_TECHNOLOGY_UNKNOWN));
+        mCi.registerForImsNetworkStateChanged(this, EVENT_IMS_STATE_CHANGED, null);
     }
 
     void requestShutdown() {
@@ -239,6 +332,8 @@ public abstract class ServiceStateTracker extends Handler {
         mCi.unSetOnSignalStrengthUpdate(this);
         mUiccController.unregisterForIccChanged(this);
         mCi.unregisterForCellInfoList(this);
+        mSubscriptionManager
+            .removeOnSubscriptionsChangedListener(mOnSubscriptionsChangedListener);
     }
 
     public boolean getDesiredPowerState() {
@@ -294,50 +389,99 @@ public abstract class ServiceStateTracker extends Handler {
     protected void updatePhoneObject() {
         if (mPhoneBase.getContext().getResources().
                 getBoolean(com.android.internal.R.bool.config_switch_phone_on_voice_reg_state_change)) {
+            // If the phone is not registered on a network, no need to update.
+            boolean isRegistered = mSS.getVoiceRegState() == ServiceState.STATE_IN_SERVICE ||
+                    mSS.getVoiceRegState() == ServiceState.STATE_EMERGENCY_ONLY;
+            if (!isRegistered) {
+                Rlog.d(LOG_TAG, "updatePhoneObject: Ignore update");
+                return;
+            }
             mPhoneBase.updatePhoneObject(mSS.getRilVoiceRadioTechnology());
         }
     }
 
     /**
-     * Registration point for combined roaming on
+     * Registration point for combined roaming on of mobile voice
      * combined roaming is true when roaming is true and ONS differs SPN
      *
      * @param h handler to notify
      * @param what what code of message when delivered
      * @param obj placed in Message.obj
      */
-    public  void registerForRoamingOn(Handler h, int what, Object obj) {
+    public void registerForVoiceRoamingOn(Handler h, int what, Object obj) {
         Registrant r = new Registrant(h, what, obj);
-        mRoamingOnRegistrants.add(r);
+        mVoiceRoamingOnRegistrants.add(r);
 
-        if (mSS.getRoaming()) {
+        if (mSS.getVoiceRoaming()) {
             r.notifyRegistrant();
         }
     }
 
-    public  void unregisterForRoamingOn(Handler h) {
-        mRoamingOnRegistrants.remove(h);
+    public void unregisterForVoiceRoamingOn(Handler h) {
+        mVoiceRoamingOnRegistrants.remove(h);
     }
 
     /**
-     * Registration point for combined roaming off
+     * Registration point for roaming off of mobile voice
      * combined roaming is true when roaming is true and ONS differs SPN
      *
      * @param h handler to notify
      * @param what what code of message when delivered
      * @param obj placed in Message.obj
      */
-    public  void registerForRoamingOff(Handler h, int what, Object obj) {
+    public void registerForVoiceRoamingOff(Handler h, int what, Object obj) {
         Registrant r = new Registrant(h, what, obj);
-        mRoamingOffRegistrants.add(r);
+        mVoiceRoamingOffRegistrants.add(r);
 
-        if (!mSS.getRoaming()) {
+        if (!mSS.getVoiceRoaming()) {
             r.notifyRegistrant();
         }
     }
 
-    public  void unregisterForRoamingOff(Handler h) {
-        mRoamingOffRegistrants.remove(h);
+    public void unregisterForVoiceRoamingOff(Handler h) {
+        mVoiceRoamingOffRegistrants.remove(h);
+    }
+
+    /**
+     * Registration point for combined roaming on of mobile data
+     * combined roaming is true when roaming is true and ONS differs SPN
+     *
+     * @param h handler to notify
+     * @param what what code of message when delivered
+     * @param obj placed in Message.obj
+     */
+    public void registerForDataRoamingOn(Handler h, int what, Object obj) {
+        Registrant r = new Registrant(h, what, obj);
+        mDataRoamingOnRegistrants.add(r);
+
+        if (mSS.getDataRoaming()) {
+            r.notifyRegistrant();
+        }
+    }
+
+    public void unregisterForDataRoamingOn(Handler h) {
+        mDataRoamingOnRegistrants.remove(h);
+    }
+
+    /**
+     * Registration point for roaming off of mobile data
+     * combined roaming is true when roaming is true and ONS differs SPN
+     *
+     * @param h handler to notify
+     * @param what what code of message when delivered
+     * @param obj placed in Message.obj
+     */
+    public void registerForDataRoamingOff(Handler h, int what, Object obj) {
+        Registrant r = new Registrant(h, what, obj);
+        mDataRoamingOffRegistrants.add(r);
+
+        if (!mSS.getDataRoaming()) {
+            r.notifyRegistrant();
+        }
+    }
+
+    public void unregisterForDataRoamingOff(Handler h) {
+        mDataRoamingOffRegistrants.remove(h);
     }
 
     /**
@@ -460,6 +604,18 @@ public abstract class ServiceStateTracker extends Handler {
                 }
                 break;
             }
+
+            case  EVENT_IMS_STATE_CHANGED: // received unsol
+                mCi.getImsRegistrationState(this.obtainMessage(EVENT_IMS_STATE_DONE));
+                break;
+
+            case EVENT_IMS_STATE_DONE:
+                AsyncResult ar = (AsyncResult) msg.obj;
+                if (ar.exception == null) {
+                    int[] responseArray = (int[])ar.result;
+                    mImsRegistered = (responseArray[0] == 1) ? true : false;
+                }
+                break;
 
             default:
                 log("Unhandled message with number: " + msg.what);
@@ -752,7 +908,7 @@ public abstract class ServiceStateTracker extends Handler {
     }
 
     public String getSystemProperty(String property, String defValue) {
-        return TelephonyManager.getTelephonyProperty(property, mPhoneBase.getSubId(), defValue);
+        return TelephonyManager.getTelephonyProperty(mPhoneBase.getPhoneId(), property, defValue);
     }
 
     /**
@@ -820,8 +976,12 @@ public abstract class ServiceStateTracker extends Handler {
         pw.println(" mDontPollSignalStrength=" + mDontPollSignalStrength);
         pw.println(" mPendingRadioPowerOffAfterDataOff=" + mPendingRadioPowerOffAfterDataOff);
         pw.println(" mPendingRadioPowerOffAfterDataOffTag=" + mPendingRadioPowerOffAfterDataOffTag);
+        pw.flush();
     }
 
+    public boolean isImsRegistered() {
+        return mImsRegistered;
+    }
     /**
      * Verifies the current thread is the same as the thread originally
      * used in the initialization of this instance. Throws RuntimeException
@@ -850,5 +1010,52 @@ public abstract class ServiceStateTracker extends Handler {
             log("update mccmnc=" + newOp + " fromServiceState=true");
             MccTable.updateMccMncConfiguration(context, newOp, true);
         }
+    }
+
+    /**
+     * Check ISO country by MCC to see if phone is roaming in same registered country
+     */
+    protected boolean inSameCountry(String operatorNumeric) {
+        if (TextUtils.isEmpty(operatorNumeric) || (operatorNumeric.length() < 5)) {
+            // Not a valid network
+            return false;
+        }
+        final String homeNumeric = getHomeOperatorNumeric();
+        if (TextUtils.isEmpty(homeNumeric) || (homeNumeric.length() < 5)) {
+            // Not a valid SIM MCC
+            return false;
+        }
+        boolean inSameCountry = true;
+        final String networkMCC = operatorNumeric.substring(0, 3);
+        final String homeMCC = homeNumeric.substring(0, 3);
+        final String networkCountry = MccTable.countryCodeForMcc(Integer.parseInt(networkMCC));
+        final String homeCountry = MccTable.countryCodeForMcc(Integer.parseInt(homeMCC));
+        if (networkCountry.isEmpty() || homeCountry.isEmpty()) {
+            // Not a valid country
+            return false;
+        }
+        inSameCountry = homeCountry.equals(networkCountry);
+        if (inSameCountry) {
+            return inSameCountry;
+        }
+        // special same country cases
+        if ("us".equals(homeCountry) && "vi".equals(networkCountry)) {
+            inSameCountry = true;
+        } else if ("vi".equals(homeCountry) && "us".equals(networkCountry)) {
+            inSameCountry = true;
+        }
+        return inSameCountry;
+    }
+
+    protected abstract void setRoamingType(ServiceState currentServiceState);
+
+    protected String getHomeOperatorNumeric() {
+        return ((TelephonyManager) mPhoneBase.getContext().
+                getSystemService(Context.TELEPHONY_SERVICE)).
+                getSimOperatorNumericForPhone(mPhoneBase.getPhoneId());
+    }
+
+    protected int getPhoneId() {
+        return mPhoneBase.getPhoneId();
     }
 }

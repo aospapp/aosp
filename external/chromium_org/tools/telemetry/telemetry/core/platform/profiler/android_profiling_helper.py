@@ -11,13 +11,17 @@ import re
 import shutil
 import subprocess
 
+from telemetry import decorators
+from telemetry.core import platform as telemetry_platform
+from telemetry.core import util
+from telemetry.core.platform.profiler import android_prebuilt_profiler_helper
+from telemetry.util import support_binaries
+
 try:
   import sqlite3
 except ImportError:
   sqlite3 = None
 
-from telemetry.core import util
-from telemetry.core.platform.profiler import android_prebuilt_profiler_helper
 
 
 _TEXT_SECTION = '.text'
@@ -41,7 +45,7 @@ def _ElfSectionMd5Sum(elf_file, section):
 def _FindMatchingUnstrippedLibraryOnHost(device, lib):
   lib_base = os.path.basename(lib)
 
-  device_md5 = device.RunShellCommand('md5 "%s"' % lib, root=True)[0]
+  device_md5 = device.RunShellCommand('md5 "%s"' % lib, as_root=True)[0]
   device_md5 = device_md5.split(' ', 1)[0]
 
   def FindMatchingStrippedLibrary(out_path):
@@ -79,6 +83,11 @@ def _FindMatchingUnstrippedLibraryOnHost(device, lib):
   return unstripped_host_lib
 
 
+@decorators.Cache
+def GetPerfhostName():
+  return 'perfhost_' + telemetry_platform.GetHostPlatform().GetOSVersionName()
+
+
 # Ignored directories for libraries that aren't useful for symbolization.
 _IGNORED_LIB_PATHS = [
   '/data/dalvik-cache',
@@ -96,7 +105,8 @@ def GetRequiredLibrariesForPerfProfile(profile_file):
     A set of required library file names.
   """
   with open(os.devnull, 'w') as dev_null:
-    perf = subprocess.Popen(['perf', 'script', '-i', profile_file],
+    perfhost_path = support_binaries.FindPath(GetPerfhostName(), 'linux')
+    perf = subprocess.Popen([perfhost_path, 'script', '-i', profile_file],
                              stdout=dev_null, stderr=subprocess.PIPE)
     _, output = perf.communicate()
   missing_lib_re = re.compile(
@@ -162,7 +172,7 @@ def CreateSymFs(device, symfs_dir, libraries, use_symlinks=True):
       os.makedirs(output_dir)
     output_lib = os.path.join(output_dir, os.path.basename(lib))
 
-    if lib.startswith('/data/app-lib/'):
+    if lib.startswith('/data/app/'):
       # If this is our own library instead of a system one, look for a matching
       # unstripped library under the out directory.
       unstripped_host_lib = _FindMatchingUnstrippedLibraryOnHost(device, lib)
@@ -197,12 +207,12 @@ def CreateSymFs(device, symfs_dir, libraries, use_symlinks=True):
 
       if not os.path.exists(output_lib) or lib in mismatching_files[device_dir]:
         logging.info('Pulling %s to %s' % (lib, output_lib))
-        device.old_interface.PullFileFromDevice(lib, output_lib)
+        device.PullFile(lib, output_lib)
 
   # Also pull a copy of the kernel symbols.
   output_kallsyms = os.path.join(symfs_dir, 'kallsyms')
   if not os.path.exists(output_kallsyms):
-    device.old_interface.PullFileFromDevice('/proc/kallsyms', output_kallsyms)
+    device.PullFile('/proc/kallsyms', output_kallsyms)
   return output_kallsyms
 
 
@@ -217,8 +227,7 @@ def PrepareDeviceForPerf(device):
   """
   android_prebuilt_profiler_helper.InstallOnDevice(device, 'perf')
   # Make sure kernel pointers are not hidden.
-  device.old_interface.SetProtectedFileContents(
-      '/proc/sys/kernel/kptr_restrict', '0')
+  device.WriteFile('/proc/sys/kernel/kptr_restrict', '0', as_root=True)
   return android_prebuilt_profiler_helper.GetDevicePath('perf')
 
 

@@ -8,10 +8,11 @@
 #include "base/basictypes.h"
 #include "base/memory/weak_ptr.h"
 #include "base/supports_user_data.h"
+#include "base/time/time.h"
 #include "content/common/content_export.h"
 #include "content/common/service_worker/service_worker_status_code.h"
+#include "content/public/common/resource_type.h"
 #include "net/url_request/url_request_job_factory.h"
-#include "webkit/common/resource_type.h"
 
 namespace net {
 class NetworkDelegate;
@@ -19,12 +20,13 @@ class URLRequest;
 class URLRequestInterceptor;
 }
 
-namespace webkit_blob {
+namespace storage {
 class BlobStorageContext;
 }
 
 namespace content {
 
+class ResourceRequestBody;
 class ServiceWorkerContextCore;
 class ServiceWorkerContextWrapper;
 class ServiceWorkerProviderHost;
@@ -43,10 +45,12 @@ class CONTENT_EXPORT ServiceWorkerRequestHandler
   static void InitializeHandler(
       net::URLRequest* request,
       ServiceWorkerContextWrapper* context_wrapper,
-      webkit_blob::BlobStorageContext* blob_storage_context,
+      storage::BlobStorageContext* blob_storage_context,
       int process_id,
       int provider_id,
-      ResourceType::Type resource_type);
+      bool skip_service_worker,
+      ResourceType resource_type,
+      scoped_refptr<ResourceRequestBody> body);
 
   // Returns the handler attached to |request|. This may return NULL
   // if no handler is attached.
@@ -63,18 +67,26 @@ class CONTENT_EXPORT ServiceWorkerRequestHandler
       net::URLRequest* request,
       net::NetworkDelegate* network_delegate) = 0;
 
+  virtual void GetExtraResponseInfo(
+      bool* was_fetched_via_service_worker,
+      GURL* original_url_via_service_worker,
+      base::TimeTicks* fetch_start_time,
+      base::TimeTicks* fetch_ready_time,
+      base::TimeTicks* fetch_end_time) const = 0;
+
  protected:
   ServiceWorkerRequestHandler(
       base::WeakPtr<ServiceWorkerContextCore> context,
       base::WeakPtr<ServiceWorkerProviderHost> provider_host,
-      base::WeakPtr<webkit_blob::BlobStorageContext> blob_storage_context,
-      ResourceType::Type resource_type);
+      base::WeakPtr<storage::BlobStorageContext> blob_storage_context,
+      ResourceType resource_type);
 
   base::WeakPtr<ServiceWorkerContextCore> context_;
   base::WeakPtr<ServiceWorkerProviderHost> provider_host_;
-  base::WeakPtr<webkit_blob::BlobStorageContext> blob_storage_context_;
-  ResourceType::Type resource_type_;
+  base::WeakPtr<storage::BlobStorageContext> blob_storage_context_;
+  ResourceType resource_type_;
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(ServiceWorkerRequestHandler);
 };
 

@@ -7,10 +7,11 @@
 
 #include "base/compiler_specific.h"
 #include "base/files/scoped_temp_dir.h"
+#include "cc/blink/web_compositor_support_impl.h"
 #include "content/child/blink_platform_impl.h"
 #include "content/child/simple_webmimeregistry_impl.h"
 #include "content/child/webfileutilities_impl.h"
-#include "content/renderer/compositor_bindings/web_compositor_support_impl.h"
+#include "content/test/mock_webblob_registry_impl.h"
 #include "content/test/mock_webclipboard_impl.h"
 #include "content/test/weburl_loader_mock_factory.h"
 #include "third_party/WebKit/public/platform/WebUnitTestSupport.h"
@@ -33,10 +34,11 @@ class TestWebKitPlatformSupport
   TestWebKitPlatformSupport();
   virtual ~TestWebKitPlatformSupport();
 
-  virtual blink::WebMimeRegistry* mimeRegistry();
+  virtual blink::WebBlobRegistry* blobRegistry();
   virtual blink::WebClipboard* clipboard();
   virtual blink::WebFileUtilities* fileUtilities();
   virtual blink::WebIDBFactory* idbFactory();
+  virtual blink::WebMimeRegistry* mimeRegistry();
 
   virtual blink::WebURLLoader* createURLLoader();
   virtual blink::WebString userAgent() OVERRIDE;
@@ -89,12 +91,13 @@ class TestWebKitPlatformSupport
   virtual blink::WebData readFromFile(const blink::WebString& path);
 
  private:
+  MockWebBlobRegistryImpl blob_registry_;
   SimpleWebMimeRegistryImpl mime_registry_;
   scoped_ptr<MockWebClipboardImpl> mock_clipboard_;
   WebFileUtilitiesImpl file_utilities_;
   base::ScopedTempDir file_system_root_;
   scoped_ptr<WebURLLoaderMockFactory> url_loader_factory_;
-  WebCompositorSupportImpl compositor_support_;
+  cc_blink::WebCompositorSupportImpl compositor_support_;
   scoped_ptr<base::StatsTable> stats_table_;
 
 #if defined(OS_WIN) || defined(OS_MACOSX)

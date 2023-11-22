@@ -54,6 +54,8 @@ import java.util.Locale;
  * </p>
  */
 public class DeviceOwnerProvisioningService extends Service {
+    private static final boolean DEBUG = false; // To control logging.
+
     /**
      * Intent action to activate the CDMA phone connection by OTASP.
      * This is not necessary for a GSM phone connection, which is activated automatically.
@@ -110,11 +112,11 @@ public class DeviceOwnerProvisioningService extends Service {
 
     @Override
     public int onStartCommand(final Intent intent, int flags, int startId) {
-        ProvisionLogger.logd("Device owner provisioning service ONSTARTCOMMAND.");
+        if (DEBUG) ProvisionLogger.logd("Device owner provisioning service ONSTARTCOMMAND.");
 
         synchronized (this) { // Make operations on mProvisioningInFlight atomic.
             if (mProvisioningInFlight) {
-                ProvisionLogger.logd("Provisioning already in flight.");
+                if (DEBUG) ProvisionLogger.logd("Provisioning already in flight.");
 
                 sendProgressUpdateToActivity();
 
@@ -129,7 +131,7 @@ public class DeviceOwnerProvisioningService extends Service {
                 }
             } else {
                 mProvisioningInFlight = true;
-                ProvisionLogger.logd("First start of the service.");
+                if (DEBUG) ProvisionLogger.logd("First start of the service.");
                 progressUpdate(R.string.progress_data_process);
 
                 // Load the ProvisioningParams (from message in Intent).
@@ -192,32 +194,36 @@ public class DeviceOwnerProvisioningService extends Service {
      * This is the core method of this class. It goes through every provisioning step.
      */
     private void startDeviceOwnerProvisioning(final ProvisioningParams params) {
-        ProvisionLogger.logd("Starting device owner provisioning");
+        if (DEBUG) ProvisionLogger.logd("Starting device owner provisioning");
 
         // Construct Tasks. Do not start them yet.
-        mAddWifiNetworkTask = new AddWifiNetworkTask(this, params.mWifiSsid,
-                params.mWifiHidden, params.mWifiSecurityType, params.mWifiPassword,
-                params.mWifiProxyHost, params.mWifiProxyPort, params.mWifiProxyBypassHosts,
-                params.mWifiPacUrl, new AddWifiNetworkTask.Callback() {
-                        @Override
-                        public void onSuccess() {
-                            if (!TextUtils.isEmpty(params.mDeviceAdminPackageDownloadLocation)) {
-                                // Download, install, set as device owner, delete apps.
-                                progressUpdate(R.string.progress_download);
-                                mDownloadPackageTask.run();
-                            } else {
-                                // Device Admin will not be downloaded (but is already present):
-                                // Just set as device owner, delete apps.
-                                progressUpdate(R.string.progress_set_owner);
-                                mSetDevicePolicyTask.run();
+        if (TextUtils.isEmpty(params.mWifiSsid)) {
+            mAddWifiNetworkTask = null;
+        } else {
+            mAddWifiNetworkTask = new AddWifiNetworkTask(this, params.mWifiSsid,
+                    params.mWifiHidden, params.mWifiSecurityType, params.mWifiPassword,
+                    params.mWifiProxyHost, params.mWifiProxyPort, params.mWifiProxyBypassHosts,
+                    params.mWifiPacUrl, new AddWifiNetworkTask.Callback() {
+                            @Override
+                            public void onSuccess() {
+                                if (!TextUtils.isEmpty(params.mDeviceAdminPackageDownloadLocation)) {
+                                    // Download, install, set as device owner, delete apps.
+                                    progressUpdate(R.string.progress_download);
+                                    mDownloadPackageTask.run();
+                                } else {
+                                    // Device Admin will not be downloaded (but is already present):
+                                    // Just set as device owner, delete apps.
+                                    progressUpdate(R.string.progress_set_owner);
+                                    mSetDevicePolicyTask.run();
+                                }
                             }
-                        }
 
-                        @Override
-                        public void onError(){
-                            error(R.string.device_owner_error_wifi);
-                        }
-                });
+                            @Override
+                            public void onError(){
+                                error(R.string.device_owner_error_wifi);
+                            }
+                        });
+        }
 
         mDownloadPackageTask = new DownloadPackageTask(this,
                 params.mDeviceAdminPackageDownloadLocation, params.mDeviceAdminPackageChecksum,
@@ -277,7 +283,11 @@ public class DeviceOwnerProvisioningService extends Service {
                 new SetDevicePolicyTask.Callback() {
                     @Override
                     public void onSuccess() {
-                        mDeleteNonRequiredAppsTask.run();
+                        if (params.mLeaveAllSystemAppsEnabled) {
+                            onProvisioningSuccess(params.mDeviceAdminPackageName);
+                        } else {
+                            mDeleteNonRequiredAppsTask.run();
+                        }
                     }
 
                     @Override
@@ -318,7 +328,7 @@ public class DeviceOwnerProvisioningService extends Service {
     }
 
     private void startFirstTask(final ProvisioningParams params) {
-        if (!TextUtils.isEmpty(params.mWifiSsid)) {
+        if (mAddWifiNetworkTask != null) {
 
             // Connect to wifi.
             progressUpdate(R.string.progress_connect_to_wifi);
@@ -344,7 +354,10 @@ public class DeviceOwnerProvisioningService extends Service {
     }
 
     private void sendError() {
-        ProvisionLogger.logd("Reporting Error: " + getResources().getString(mLastErrorMessage));
+        if (DEBUG) {
+            ProvisionLogger.logd("Reporting Error: " + getResources()
+                .getString(mLastErrorMessage));
+        }
         Intent intent = new Intent(ACTION_PROVISIONING_ERROR);
         intent.setClass(this, DeviceOwnerProvisioningActivity.ServiceMessageReceiver.class);
         intent.putExtra(EXTRA_USER_VISIBLE_ERROR_ID_KEY, mLastErrorMessage);
@@ -352,8 +365,10 @@ public class DeviceOwnerProvisioningService extends Service {
     }
 
     private void progressUpdate(int progressMessage) {
-        ProvisionLogger.logd("Reporting progress update: "
-                + getResources().getString(progressMessage));
+        if (DEBUG) {
+            ProvisionLogger.logd("Reporting progress update: " + getResources()
+                .getString(progressMessage));
+        }
         mLastProgressMessage = progressMessage;
         sendProgressUpdateToActivity();
     }
@@ -366,7 +381,7 @@ public class DeviceOwnerProvisioningService extends Service {
     }
 
     private void onProvisioningSuccess(String deviceAdminPackage) {
-        ProvisionLogger.logv("Reporting success.");
+        if (DEBUG) ProvisionLogger.logd("Reporting success.");
         mDone = true;
 
         // Enable the HomeReceiverActivity, since the DeviceOwnerProvisioningActivity will shutdown
@@ -390,7 +405,7 @@ public class DeviceOwnerProvisioningService extends Service {
         // Start CDMA activation to enable phone calls.
         final Intent intent = new Intent(ACTION_PERFORM_CDMA_PROVISIONING);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        ProvisionLogger.logv("Starting cdma activation activity");
+        if (DEBUG) ProvisionLogger.logd("Starting cdma activation activity");
         startActivity(intent); // Activity will be a Nop if not a CDMA device.
     }
 
@@ -398,11 +413,11 @@ public class DeviceOwnerProvisioningService extends Service {
         try {
             final AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
             if (timeZone != null) {
-                ProvisionLogger.logd("Setting time zone to " + timeZone);
+                if (DEBUG) ProvisionLogger.logd("Setting time zone to " + timeZone);
                 am.setTimeZone(timeZone);
             }
             if (localTime > 0) {
-                ProvisionLogger.logd("Setting time to " + localTime);
+                if (DEBUG) ProvisionLogger.logd("Setting time to " + localTime);
                 am.setTime(localTime);
             }
         } catch (Exception e) {
@@ -416,7 +431,7 @@ public class DeviceOwnerProvisioningService extends Service {
             return;
         }
         try {
-            ProvisionLogger.logd("Setting locale to " + locale);
+            if (DEBUG) ProvisionLogger.logd("Setting locale to " + locale);
             // If locale is different from current locale this results in a configuration change,
             // which will trigger the restarting of the activity.
             LocalePicker.updateLocale(locale);
@@ -428,12 +443,12 @@ public class DeviceOwnerProvisioningService extends Service {
 
     @Override
     public void onCreate () {
-        ProvisionLogger.logd("Device owner provisioning service ONCREATE.");
+        if (DEBUG) ProvisionLogger.logd("Device owner provisioning service ONCREATE.");
     }
 
     @Override
     public void onDestroy () {
-        ProvisionLogger.logd("Device owner provisioning service ONDESTROY");
+        if (DEBUG) ProvisionLogger.logd("Device owner provisioning service ONDESTROY");
         if (mAddWifiNetworkTask != null) {
             mAddWifiNetworkTask.cleanUp();
         }

@@ -18,45 +18,26 @@
 
 <!-- Item in the drawer that launches the Help or Feedback activities. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical" >
+    android:layout_width="match_parent"
+    android:minHeight="@dimen/drawer_footer_item_minimum_height"
+    android:gravity="center_vertical">
 
-    <View
-        android:id="@+id/top_border"
-        android:layout_width="match_parent"
-        android:layout_height="@dimen/divider_height"
-        android:background="@color/divider_color"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp" />
-
-    <LinearLayout
+    <ImageView
+        android:id="@+id/drawer_footer_image"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_width="match_parent"
+        android:paddingLeft="@dimen/drawer_footer_item_padding"
+        android:paddingRight="@dimen/drawer_footer_item_padding" />
+
+    <TextView
+        android:id="@+id/drawer_footer_text"
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
+        android:ellipsize="end"
         android:paddingLeft="@dimen/drawer_footer_item_padding"
         android:paddingRight="@dimen/drawer_footer_item_padding"
-        android:minHeight="@dimen/drawer_footer_item_minimum_height"
-        android:gravity="center_vertical"
-        android:background="@drawable/nonfolder_item">
-
-        <ImageView
-            android:id="@+id/drawer_footer_image"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
-
-        <TextView
-            android:id="@+id/drawer_footer_text"
-            android:layout_height="wrap_content"
-            android:layout_width="wrap_content"
-            android:ellipsize="end"
-            android:textColor="@color/folder_item_text_color_normal"
-            android:textSize="@dimen/drawer_item_font_size"
-            style="@style/DrawerFooterListItemStyle"/>
-    </LinearLayout>
-
-    <Space
-        android:id="@+id/bottom_margin"
-        android:layout_width="match_parent"
-        android:layout_height="8dp" />
-
+        android:textColor="@color/text_color_black"
+        android:textSize="@dimen/drawer_item_font_size"
+        style="@style/DrawerFontStyle" />
 </LinearLayout>

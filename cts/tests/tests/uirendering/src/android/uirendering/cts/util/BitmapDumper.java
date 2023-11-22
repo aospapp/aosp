@@ -99,9 +99,25 @@ public final class BitmapDumper {
         saveFile(className, testName, SINGULAR_FILE_NAME, bitmap);
     }
 
+    private static void logIfBitmapSolidColor(String bitmapName, Bitmap bitmap) {
+        int firstColor = bitmap.getPixel(0, 0);
+        for (int x = 0; x < bitmap.getWidth(); x++) {
+            for (int y = 0; y < bitmap.getHeight(); y++) {
+                if (bitmap.getPixel(x, y) != firstColor) {
+                    return;
+                }
+            }
+        }
+
+        Log.w(TAG, String.format("%s entire bitmap color is %x", bitmapName, firstColor));
+    }
+
     private static void saveFile(String className, String testName, String fileName, Bitmap bitmap) {
-        Log.d(TAG, "Saving file : " + testName + "_" + fileName + " in directory : " + className);
-        File file = new File(CAPTURE_SUB_DIRECTORY + className, testName + "_" + fileName);
+        String bitmapName = testName + "_" + fileName;
+        Log.d(TAG, "Saving file : " + bitmapName + " in directory : " + className);
+        logIfBitmapSolidColor(bitmapName, bitmap);
+
+        File file = new File(CAPTURE_SUB_DIRECTORY + className, bitmapName);
         FileOutputStream fileStream = null;
         try {
             fileStream = new FileOutputStream(file);

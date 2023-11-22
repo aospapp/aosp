@@ -6,6 +6,7 @@ import json
 
 from telemetry.timeline.timeline_data import TimelineData
 
+
 class InspectorTimelineData(TimelineData):
   def __init__(self, event_data):
     super(InspectorTimelineData, self).__init__()
@@ -14,7 +15,7 @@ class InspectorTimelineData(TimelineData):
   def Serialize(self, f):
     """Serializes the trace result to a file-like object"""
     f.write('{"traceEvents":')
-    json.dump(self._event_data, f)
+    json.dump(self._event_data, f, indent=4)
     f.write('}')
 
   def EventData(self):

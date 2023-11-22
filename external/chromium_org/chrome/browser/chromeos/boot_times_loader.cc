@@ -8,8 +8,8 @@
 
 #include "base/bind.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/lazy_instance.h"
@@ -26,13 +26,12 @@
 #include "base/time/time.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/chromeos/login/auth/authentication_notification_details.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_iterator.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
+#include "components/user_manager/user_manager.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/notification_service.h"
@@ -146,7 +145,7 @@ BootTimesLoader::Stats BootTimesLoader::Stats::GetCurrentStats() {
 }
 
 std::string BootTimesLoader::Stats::SerializeToString() const {
-  if (uptime_.empty() || disk_.empty())
+  if (uptime_.empty() && disk_.empty())
     return std::string();
   base::DictionaryValue dictionary;
   dictionary.SetString(kUptime, uptime_);
@@ -428,8 +427,6 @@ void BootTimesLoader::RecordLoginAttempted() {
   AddLoginTimeMarker("LoginStarted", false);
   if (!have_registered_) {
     have_registered_ = true;
-    registrar_.Add(this, chrome::NOTIFICATION_LOGIN_AUTHENTICATION,
-                   content::NotificationService::AllSources());
     registrar_.Add(this, content::NOTIFICATION_LOAD_START,
                    content::NotificationService::AllSources());
     registrar_.Add(this, content::NOTIFICATION_LOAD_STOP,
@@ -475,21 +472,20 @@ void BootTimesLoader::AddMarker(std::vector<TimeMarker>* vector,
   }
 }
 
+void BootTimesLoader::RecordAuthenticationSuccess() {
+  AddLoginTimeMarker("Authenticate", true);
+  RecordCurrentStats(kLoginSuccess);
+}
+
+void BootTimesLoader::RecordAuthenticationFailure() {
+  // Do nothing for now.
+}
+
 void BootTimesLoader::Observe(
     int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
   switch (type) {
-    case chrome::NOTIFICATION_LOGIN_AUTHENTICATION: {
-      content::Details<AuthenticationNotificationDetails> auth_details(details);
-      if (auth_details->success()) {
-        AddLoginTimeMarker("Authenticate", true);
-        RecordCurrentStats(kLoginSuccess);
-        registrar_.Remove(this, chrome::NOTIFICATION_LOGIN_AUTHENTICATION,
-                          content::NotificationService::AllSources());
-      }
-      break;
-    }
     case content::NOTIFICATION_LOAD_START: {
       NavigationController* tab =
           content::Source<NavigationController>(source).ptr();
@@ -514,7 +510,7 @@ void BootTimesLoader::Observe(
       if (render_widget_hosts_loading_.find(rwh) !=
           render_widget_hosts_loading_.end()) {
         AddLoginTimeMarker("TabPaint: " + GetTabUrl(rwh), false);
-        LoginDone(UserManager::Get()->IsCurrentUserNew());
+        LoginDone(user_manager::UserManager::Get()->IsCurrentUserNew());
       }
       break;
     }

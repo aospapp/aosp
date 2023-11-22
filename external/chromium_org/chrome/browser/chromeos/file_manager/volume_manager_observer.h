@@ -31,13 +31,11 @@ class VolumeManagerObserver {
   virtual void OnDeviceAdded(const std::string& device_path) = 0;
 
   // Fired when a device is removed.
-  virtual void OnDeviceRemoved(const std::string& device_path,
-                               bool hard_unplugged) = 0;
+  virtual void OnDeviceRemoved(const std::string& device_path) = 0;
 
   // Fired when a volume is mounted.
   virtual void OnVolumeMounted(chromeos::MountError error_code,
-                               const VolumeInfo& volume_info,
-                               bool is_remounting) = 0;
+                               const VolumeInfo& volume_info) = 0;
 
   // Fired when a volume is unmounted.
   virtual void OnVolumeUnmounted(chromeos::MountError error_code,

@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "chrome/test/remoting/remote_desktop_browsertest.h"
 #include "chrome/test/remoting/waiter.h"
 
@@ -20,13 +20,7 @@ class Me2MeBrowserTest : public RemoteDesktopBrowserTest {
 
 IN_PROC_BROWSER_TEST_F(Me2MeBrowserTest,
                        MANUAL_Me2Me_Connect_Local_Host) {
-  VerifyInternetAccess();
-  Install();
-  LaunchChromotingApp();
-
-  // Authorize, Authenticate, and Approve.
-  Auth();
-  ExpandMe2Me();
+  SetUpTestForMe2Me();
 
   ConnectToLocalHost(false);
 
@@ -60,13 +54,7 @@ IN_PROC_BROWSER_TEST_F(Me2MeBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(Me2MeBrowserTest,
                        MANUAL_Me2Me_Connect_Pinless) {
-  VerifyInternetAccess();
-  Install();
-  LaunchChromotingApp();
-
-  // Authorize, Authenticate, and Approve.
-  Auth();
-  ExpandMe2Me();
+  SetUpTestForMe2Me();
 
   ASSERT_FALSE(HtmlElementVisible("paired-client-manager-message"))
       << "The host must have no pairings before running the pinless test.";

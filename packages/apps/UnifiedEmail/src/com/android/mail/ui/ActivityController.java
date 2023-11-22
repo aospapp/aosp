@@ -22,17 +22,14 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.support.annotation.LayoutRes;
-import android.view.DragEvent;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 
-import com.android.mail.ConversationListContext;
 import com.android.mail.browse.ConversationCursor.ConversationListener;
 import com.android.mail.browse.ConversationListFooterView;
-import com.android.mail.providers.Account;
 import com.android.mail.providers.Folder;
 import com.android.mail.ui.ViewMode.ModeChangeListener;
 
@@ -60,7 +57,7 @@ import com.android.mail.ui.ViewMode.ModeChangeListener;
  */
 public interface ActivityController extends LayoutListener,
         ModeChangeListener, ConversationListCallbacks,
-        FolderChangeListener, ConversationSetObserver, ConversationListener, FolderSelector,
+        ConversationSetObserver, ConversationListener, FolderSelector,
         UndoListener, ConversationUpdater, ErrorListener, FolderController, AccountController,
         ConversationPositionTracker.Callbacks, ConversationListFooterView.FooterViewClickListener,
         RecentFolderController, FragmentLauncher, KeyboardNavigationController {
@@ -68,15 +65,6 @@ public interface ActivityController extends LayoutListener,
     // As far as possible, the methods here that correspond to Activity lifecycle have the same name
     // as their counterpart in the Activity lifecycle.
 
-    /**
-     * Returns the current account.
-     */
-    Account getCurrentAccount();
-
-    /**
-     * Returns the current conversation list context.
-     */
-    ConversationListContext getCurrentListContext();
 
     /**
      * @see android.app.Activity#onActivityResult
@@ -97,12 +85,6 @@ public interface ActivityController extends LayoutListener,
     boolean onBackPressed();
 
     /**
-     * Called by the Mail activity when the up button is pressed.
-     * @return
-     */
-    boolean onUpPressed();
-
-    /**
      * Called when the root activity calls onCreate. Any initialization needs to
      * be done here. Subclasses need to call their parents' onCreate method, since it performs
      * valuable initialization common to all subclasses.
@@ -111,9 +93,8 @@ public interface ActivityController extends LayoutListener,
      *
      * @see android.app.Activity#onCreate
      * @param savedState
-     * @return true if the controller was able to initialize successfully, false otherwise.
      */
-    boolean onCreate(Bundle savedState);
+    void onCreate(Bundle savedState);
 
     /**
      * @see android.app.Activity#onPostCreate
@@ -192,7 +173,7 @@ public interface ActivityController extends LayoutListener,
      * @param menu
      * @return
      */
-    boolean onPrepareOptionsMenu(Menu menu);
+    void onPrepareOptionsMenu(Menu menu);
 
     /**
      * Called by the Mail activity on Activity resume.
@@ -230,19 +211,6 @@ public interface ActivityController extends LayoutListener,
     void onWindowFocusChanged(boolean hasFocus);
 
     /**
-     * Show the conversation List with the list context provided here. On certain layouts, this
-     * might show more than just the conversation list. For instance, on tablets this might show
-     * the conversations along with the conversation list.
-     * @param listContext context providing information on what conversation list to display.
-     */
-    void showConversationList(ConversationListContext listContext);
-
-    /**
-     * Show the wait for account initialization mode.
-     */
-    public void showWaitForInitialization();
-
-    /**
      * Handle a touch event.
      */
     void onTouchEvent(MotionEvent event);
@@ -258,7 +226,7 @@ public interface ActivityController extends LayoutListener,
      * an empty set if no conversation is currently selected.
      * @return
      */
-    public ConversationSelectionSet getSelectedSet();
+    public ConversationCheckedSet getCheckedSet();
 
     /**
      * Start search mode if the account being view supports the search capability.
@@ -266,49 +234,14 @@ public interface ActivityController extends LayoutListener,
     void startSearch();
 
     /**
-     * Exit the search mode, popping off one activity so that the back stack is fine.
-     */
-    void exitSearchMode();
-
-    /**
-     * Supports dragging conversations to a folder.
-     */
-    boolean supportsDrag(DragEvent event, Folder folder);
-
-    /**
-     * Handles dropping conversations to a folder.
-     */
-    void handleDrop(DragEvent event, Folder folder);
-
-    /**
-     * Load the default inbox associated with the current account.
-     */
-    public void loadAccountInbox();
-
-    /**
      * Return the folder currently being viewed by the activity.
      */
     public Folder getHierarchyFolder();
 
     /**
-     * Set the folder currently selected in the folder selection hierarchy fragments.
-     */
-    void setHierarchyFolder(Folder folder);
-
-    /**
      * Handles the animation end of the animated adapter.
      */
     void onAnimationEnd(AnimatedAdapter animatedAdapter);
-
-    /**
-     * Called when the user has started a drag/ drop gesture.
-     */
-    void startDragMode();
-
-    /**
-     * Called when the user has ended drag/drop.
-     */
-    void stopDragMode();
 
     /**
      * Called when Accessibility is enabled or disabled.
@@ -337,4 +270,21 @@ public interface ActivityController extends LayoutListener,
     @LayoutRes int getContentViewResource();
 
     View.OnClickListener getNavigationViewClickListener();
+
+    /**
+     * If the search bar should always be visible on top of the screen (e.g. search result list).
+     * @param viewMode the new view mode. This is passed as a parameter because we don't know
+     *   which onViewModeChanged callback gets called first, so the view modes might differ.
+     */
+    boolean shouldShowSearchBarByDefault(int viewMode);
+
+    /**
+     * If we should show the search menu item.
+     */
+    boolean shouldShowSearchMenuItem();
+
+    /**
+     * Attach layout listener so our custom toolbar can listen to thread list layout events.
+     */
+    void addConversationListLayoutListener(TwoPaneLayout.ConversationListLayoutListener listener);
 }

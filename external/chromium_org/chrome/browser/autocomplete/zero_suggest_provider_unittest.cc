@@ -9,13 +9,15 @@
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
-#include "chrome/browser/autocomplete/autocomplete_provider_listener.h"
-#include "chrome/browser/search_engines/template_url.h"
-#include "chrome/browser/search_engines/template_url_service.h"
+#include "chrome/browser/autocomplete/chrome_autocomplete_scheme_classifier.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/metrics/proto/omnibox_event.pb.h"
+#include "components/omnibox/autocomplete_provider_listener.h"
+#include "components/omnibox/omnibox_field_trial.h"
+#include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_service.h"
 #include "components/variations/entropy_provider.h"
 #include "components/variations/variations_associated_data.h"
 #include "content/public/test/test_browser_thread_bundle.h"
@@ -35,6 +37,8 @@ class ZeroSuggestProviderTest : public testing::Test,
   virtual void OnProviderUpdate(bool updated_matches) OVERRIDE;
 
   void ResetFieldTrialList();
+
+  void CreatePersonalizedFieldTrial();
 
   // Set up threads for testing; this needs to be instantiated before
   // |profile_|.
@@ -82,7 +86,7 @@ void ZeroSuggestProviderTest::SetUp() {
   turl_model->Add(default_t_url_);
   turl_model->SetUserSelectedDefaultSearchProvider(default_t_url_);
 
-  provider_ = ZeroSuggestProvider::Create(this, &profile_);
+  provider_ = ZeroSuggestProvider::Create(this, turl_model, &profile_);
 }
 
 void ZeroSuggestProviderTest::TearDown() {
@@ -99,22 +103,33 @@ void ZeroSuggestProviderTest::ResetFieldTrialList() {
   field_trial_list_.reset();
   field_trial_list_.reset(new base::FieldTrialList(
       new metrics::SHA1EntropyProvider("foo")));
-  chrome_variations::testing::ClearAllVariationParams();
+  variations::testing::ClearAllVariationParams();
+}
+
+void ZeroSuggestProviderTest::CreatePersonalizedFieldTrial() {
+  std::map<std::string, std::string> params;
+  params[std::string(OmniboxFieldTrial::kZeroSuggestRule)] = "true";
+  params[std::string(OmniboxFieldTrial::kZeroSuggestVariantRule)] =
+      "Personalized";
+  variations::AssociateVariationParams(
+      OmniboxFieldTrial::kBundledExperimentFieldTrialName, "A", params);
+  base::FieldTrialList::CreateFieldTrial(
+      OmniboxFieldTrial::kBundledExperimentFieldTrialName, "A");
 }
 
 TEST_F(ZeroSuggestProviderTest, TestPsuggestZeroSuggestCachingFirstRun) {
-  base::FieldTrialList::CreateFieldTrial(
-      "AutocompleteDynamicTrial_2", "EnableZeroSuggestPersonalizedExperiment");
+  CreatePersonalizedFieldTrial();
 
   // Ensure the cache is empty.
   PrefService* prefs = profile_.GetPrefs();
   prefs->SetString(prefs::kZeroSuggestCachedResults, std::string());
 
   std::string url("http://www.cnn.com");
-  AutocompleteInput input(
-      base::ASCIIToUTF16(url), base::string16::npos, base::string16(),
-      GURL(url), metrics::OmniboxEventProto::INVALID_SPEC, true, false, true,
-      true);
+  AutocompleteInput input(base::ASCIIToUTF16(url), base::string16::npos,
+                          base::string16(), GURL(url),
+                          metrics::OmniboxEventProto::INVALID_SPEC, true, false,
+                          true, true,
+                          ChromeAutocompleteSchemeClassifier(&profile_));
 
   provider_->Start(input, false);
 
@@ -137,14 +152,14 @@ TEST_F(ZeroSuggestProviderTest, TestPsuggestZeroSuggestCachingFirstRun) {
 }
 
 TEST_F(ZeroSuggestProviderTest, TestPsuggestZeroSuggestHasCachedResults) {
-  base::FieldTrialList::CreateFieldTrial(
-      "AutocompleteDynamicTrial_2", "EnableZeroSuggestPersonalizedExperiment");
+  CreatePersonalizedFieldTrial();
 
   std::string url("http://www.cnn.com");
-  AutocompleteInput input(
-      base::ASCIIToUTF16(url), base::string16::npos, base::string16(),
-      GURL(url), metrics::OmniboxEventProto::INVALID_SPEC, true, false, true,
-      true);
+  AutocompleteInput input(base::ASCIIToUTF16(url), base::string16::npos,
+                          base::string16(), GURL(url),
+                          metrics::OmniboxEventProto::INVALID_SPEC, true, false,
+                          true, true,
+                          ChromeAutocompleteSchemeClassifier(&profile_));
 
   // Set up the pref to cache the response from the previous run.
   std::string json_response("[\"\",[\"search1\", \"search2\", \"search3\"],"
@@ -184,14 +199,14 @@ TEST_F(ZeroSuggestProviderTest, TestPsuggestZeroSuggestHasCachedResults) {
 }
 
 TEST_F(ZeroSuggestProviderTest, TestPsuggestZeroSuggestReceivedEmptyResults) {
-  base::FieldTrialList::CreateFieldTrial(
-      "AutocompleteDynamicTrial_2", "EnableZeroSuggestPersonalizedExperiment");
+  CreatePersonalizedFieldTrial();
 
   std::string url("http://www.cnn.com");
-  AutocompleteInput input(
-      base::ASCIIToUTF16(url), base::string16::npos, base::string16(),
-      GURL(url), metrics::OmniboxEventProto::INVALID_SPEC, true, false, true,
-      true);
+  AutocompleteInput input(base::ASCIIToUTF16(url), base::string16::npos,
+                          base::string16(), GURL(url),
+                          metrics::OmniboxEventProto::INVALID_SPEC, true, false,
+                          true, true,
+                          ChromeAutocompleteSchemeClassifier(&profile_));
 
   // Set up the pref to cache the response from the previous run.
   std::string json_response("[\"\",[\"search1\", \"search2\", \"search3\"],"

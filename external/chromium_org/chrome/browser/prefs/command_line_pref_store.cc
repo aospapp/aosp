@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "base/files/file_path.h"
 #include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
@@ -30,9 +31,14 @@ const CommandLinePrefStore::StringSwitchToPreferenceMapEntry
       { switches::kGSSAPILibraryName, prefs::kGSSAPILibraryName },
       { data_reduction_proxy::switches::kDataReductionProxy,
           data_reduction_proxy::prefs::kDataReductionProxy },
-      { switches::kDiskCacheDir, prefs::kDiskCacheDir },
       { switches::kSSLVersionMin, prefs::kSSLVersionMin },
       { switches::kSSLVersionMax, prefs::kSSLVersionMax },
+      { switches::kSSLVersionFallbackMin, prefs::kSSLVersionFallbackMin },
+};
+
+const CommandLinePrefStore::PathSwitchToPreferenceMapEntry
+    CommandLinePrefStore::path_switch_map_[] = {
+      { switches::kDiskCacheDir, prefs::kDiskCacheDir },
 };
 
 const CommandLinePrefStore::BooleanSwitchToPreferenceMapEntry
@@ -55,8 +61,6 @@ const CommandLinePrefStore::BooleanSwitchToPreferenceMapEntry
         prefs::kWebKitAllowDisplayingInsecureContent, false },
       { switches::kAllowCrossOriginAuthPrompt,
         prefs::kAllowCrossOriginAuthPrompt, true },
-      { switches::kDisableSSLFalseStart, prefs::kDisableSSLRecordSplitting,
-          true },
       { switches::kDisablePrintPreview, prefs::kPrintPreviewDisabled, true },
 #if defined(OS_CHROMEOS)
       { chromeos::switches::kEnableTouchpadThreeFingerClick,
@@ -100,9 +104,17 @@ void CommandLinePrefStore::ApplySimpleSwitches() {
   // Look for each switch we know about and set its preference accordingly.
   for (size_t i = 0; i < arraysize(string_switch_map_); ++i) {
     if (command_line_->HasSwitch(string_switch_map_[i].switch_name)) {
-      base::Value* value = base::Value::CreateStringValue(command_line_->
-          GetSwitchValueASCII(string_switch_map_[i].switch_name));
-      SetValue(string_switch_map_[i].preference_path, value);
+      SetValue(string_switch_map_[i].preference_path,
+               new base::StringValue(command_line_->GetSwitchValueASCII(
+                   string_switch_map_[i].switch_name)));
+    }
+  }
+
+  for (size_t i = 0; i < arraysize(path_switch_map_); ++i) {
+    if (command_line_->HasSwitch(path_switch_map_[i].switch_name)) {
+      SetValue(path_switch_map_[i].preference_path,
+               new base::StringValue(command_line_->GetSwitchValuePath(
+                   path_switch_map_[i].switch_name).value()));
     }
   }
 
@@ -117,16 +129,15 @@ void CommandLinePrefStore::ApplySimpleSwitches() {
                    << " can not be converted to integer, ignoring!";
         continue;
       }
-      base::Value* value = base::Value::CreateIntegerValue(int_value);
-      SetValue(integer_switch_map_[i].preference_path, value);
+      SetValue(integer_switch_map_[i].preference_path,
+               new base::FundamentalValue(int_value));
     }
   }
 
   for (size_t i = 0; i < arraysize(boolean_switch_map_); ++i) {
     if (command_line_->HasSwitch(boolean_switch_map_[i].switch_name)) {
-      base::Value* value = base::Value::CreateBooleanValue(
-          boolean_switch_map_[i].set_value);
-      SetValue(boolean_switch_map_[i].preference_path, value);
+      SetValue(boolean_switch_map_[i].preference_path,
+               new base::FundamentalValue(boolean_switch_map_[i].set_value));
     }
   }
 }
@@ -163,15 +174,13 @@ void CommandLinePrefStore::ApplySSLSwitches() {
     base::ListValue* list_value = new base::ListValue();
     for (std::vector<std::string>::const_iterator it = cipher_strings.begin();
          it != cipher_strings.end(); ++it) {
-      list_value->Append(base::Value::CreateStringValue(*it));
+      list_value->Append(new base::StringValue(*it));
     }
     SetValue(prefs::kCipherSuiteBlacklist, list_value);
   }
 }
 
 void CommandLinePrefStore::ApplyBackgroundModeSwitches() {
-  if (command_line_->HasSwitch(switches::kDisableExtensions)) {
-    base::Value* value = base::Value::CreateBooleanValue(false);
-    SetValue(prefs::kBackgroundModeEnabled, value);
-  }
+  if (command_line_->HasSwitch(switches::kDisableExtensions))
+    SetValue(prefs::kBackgroundModeEnabled, new base::FundamentalValue(false));
 }

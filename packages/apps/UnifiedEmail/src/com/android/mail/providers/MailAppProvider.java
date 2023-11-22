@@ -38,7 +38,10 @@ import com.android.mail.providers.UIProvider.AccountCursorExtraKeys;
 import com.android.mail.utils.LogTag;
 import com.android.mail.utils.LogUtils;
 import com.android.mail.utils.MatrixCursorWithExtra;
+import com.android.mail.utils.RankedComparator;
+import com.google.android.mail.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
@@ -46,6 +49,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -89,6 +94,13 @@ public abstract class MailAppProvider extends ContentProvider
     private final Map<CursorLoader, Boolean> mAccountsLoaded = Maps.newHashMap();
 
     private ContentResolver mResolver;
+
+    /**
+     * Compares {@link AccountCacheEntry} based on the position of the
+     * {@link AccountCacheEntry#mAccountsQueryUri} in {@code R.array.account_providers}.
+     */
+    private Comparator<AccountCacheEntry> mAccountComparator;
+
     private static String sAuthority;
     private static MailAppProvider sInstance;
 
@@ -99,13 +111,6 @@ public abstract class MailAppProvider extends ContentProvider
      * must specify different authorities.
      */
     protected abstract String getAuthority();
-
-    /**
-     * Authority for the suggestions provider. Email and Gmail must specify different authorities,
-     * much like the implementation of {@link #getAuthority()}.
-     * @return the suggestion authority associated with this provider.
-     */
-    public abstract String getSuggestionAuthority();
 
     /**
      * Allows the implementing provider to specify an intent that should be used in a call to
@@ -153,6 +158,19 @@ public abstract class MailAppProvider extends ContentProvider
         // Load the uris for the account list
         final String[] accountQueryUris = res.getStringArray(R.array.account_providers);
 
+        final Function<AccountCacheEntry, String> accountQueryUriExtractor =
+                new Function<AccountCacheEntry, String>() {
+                    @Override
+                    public String apply(AccountCacheEntry accountCacheEntry) {
+                        if (accountCacheEntry == null) {
+                            return null;
+                        }
+                        return accountCacheEntry.mAccountsQueryUri.toString();
+                    }
+                };
+        mAccountComparator = new RankedComparator<AccountCacheEntry, String>(
+                accountQueryUris, accountQueryUriExtractor);
+
         for (String accountQueryUri : accountQueryUris) {
             final Uri uri = Uri.parse(accountQueryUri);
             addAccountsForUriAsync(uri);
@@ -183,11 +201,15 @@ public abstract class MailAppProvider extends ContentProvider
         final Bundle extras = new Bundle();
         extras.putInt(AccountCursorExtraKeys.ACCOUNTS_LOADED, allAccountsLoaded() ? 1 : 0);
 
-        // Make a copy of the account cache
         final List<AccountCacheEntry> accountList;
         synchronized (mAccountCache) {
-            accountList = ImmutableList.copyOf(mAccountCache.values());
+            accountList = Lists.newArrayList(mAccountCache.values());
         }
+
+        // The order in which providers respond will affect the order of accounts. Because
+        // mAccountComparator only compares mAccountsQueryUri it will ensure that they are always
+        // sorted first based on that and later based on order returned by each provider.
+        Collections.sort(accountList, mAccountComparator);
 
         final MatrixCursor cursor =
                 new MatrixCursorWithExtra(resultProjection, accountList.size(), extras);
@@ -543,6 +565,5 @@ public abstract class MailAppProvider extends ContentProvider
                 throw new IllegalArgumentException(e);
             }
         }
-
     }
 }

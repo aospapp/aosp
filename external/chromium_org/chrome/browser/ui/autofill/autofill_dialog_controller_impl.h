@@ -35,8 +35,7 @@
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/ssl_status.h"
-#include "third_party/libaddressinput/chromium/cpp/include/libaddressinput/address_validator.h"
-#include "third_party/libaddressinput/chromium/cpp/include/libaddressinput/load_rules_delegate.h"
+#include "third_party/libaddressinput/chromium/chrome_address_validator.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/base/ui_base_types.h"
@@ -48,6 +47,12 @@ class Profile;
 
 namespace content {
 class WebContents;
+}
+
+namespace i18n {
+namespace addressinput {
+struct AddressData;
+}
 }
 
 namespace autofill {
@@ -79,7 +84,7 @@ class AutofillDialogControllerImpl
       public PersonalDataManagerObserver,
       public AccountChooserModelDelegate,
       public gfx::AnimationDelegate,
-      public ::i18n::addressinput::LoadRulesDelegate {
+      public LoadRulesListener {
  public:
   virtual ~AutofillDialogControllerImpl();
 
@@ -218,7 +223,7 @@ class AutofillDialogControllerImpl
   virtual void AnimationEnded(const gfx::Animation* animation) OVERRIDE;
   virtual void AnimationProgressed(const gfx::Animation* animation) OVERRIDE;
 
-  // ::i18n::addressinput::LoadRulesDelegate implementation.
+  // LoadRulesListener implementation.
   virtual void OnAddressValidationRulesLoaded(const std::string& country_code,
                                               bool success) OVERRIDE;
 
@@ -249,7 +254,7 @@ class AutofillDialogControllerImpl
   virtual PersonalDataManager* GetManager() const;
 
   // Returns an address validation helper. May be NULL during tests.
-  virtual ::i18n::addressinput::AddressValidator* GetValidator();
+  virtual AddressValidator* GetValidator();
 
   // Returns the WalletClient* this class uses to talk to Online Wallet. Exposed
   // for testing.
@@ -325,6 +330,8 @@ class AutofillDialogControllerImpl
  private:
   FRIEND_TEST_ALL_PREFIXES(AutofillDialogControllerI18nTest,
                            CorrectCountryFromInputs);
+  FRIEND_TEST_ALL_PREFIXES(AutofillDialogControllerTest,
+                           TransactionAmount);
 
   // Initializes or updates |suggested_cc_| et al.
   void SuggestionsUpdated();
@@ -653,7 +660,7 @@ class AutofillDialogControllerImpl
   wallet::WalletClient wallet_client_;
 
   // A helper to validate international address input.
-  scoped_ptr< ::i18n::addressinput::AddressValidator> validator_;
+  scoped_ptr<AddressValidator> validator_;
 
   // True if |this| has ever called GetWalletItems().
   bool wallet_items_requested_;
@@ -736,6 +743,11 @@ class AutofillDialogControllerImpl
   // we should show a shipping section.
   bool cares_about_shipping_;
 
+  // Site-provided transaction amount and currency. No attempt to validate this
+  // input; it's passed directly to Wallet.
+  base::string16 transaction_amount_;
+  base::string16 transaction_currency_;
+
   // The GUIDs for the currently showing unverified profiles popup.
   std::vector<PersonalDataManager::GUIDPair> popup_guids_;
 
@@ -749,10 +761,17 @@ class AutofillDialogControllerImpl
   // The type of the visible Autofill popup input (or UNKNOWN_TYPE if none).
   ServerFieldType popup_input_type_;
 
+  // The section of the dialog that's showing a popup, undefined if no popup
+  // is showing.
+  DialogSection popup_section_;
+
   scoped_ptr<AutofillDialogView> view_;
 
   // A NotificationRegistrar for tracking the completion of sign-in.
   content::NotificationRegistrar signin_registrar_;
+
+  // The countries the form structure can accept for shipping.
+  std::set<base::string16> acceptable_shipping_countries_;
 
   // Set to true when the user presses the sign in link, until we're ready to
   // show the normal dialog again. This is used to hide the buttons while

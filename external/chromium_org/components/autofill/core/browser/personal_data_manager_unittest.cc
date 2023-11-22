@@ -2,7 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <algorithm>
 #include <string>
+#include <vector>
 
 #include "base/basictypes.h"
 #include "base/files/scoped_temp_dir.h"
@@ -34,6 +36,8 @@ namespace {
 
 enum UserMode { USER_MODE_NORMAL, USER_MODE_INCOGNITO };
 
+bool ReturnTrue(const AutofillProfile&) { return true; }
+
 ACTION(QuitMainMessageLoop) { base::MessageLoop::current()->Quit(); }
 
 class PersonalDataLoadedObserverMock : public PersonalDataManagerObserver {
@@ -53,6 +57,38 @@ class TestAutofillMetrics : public AutofillMetrics {
   virtual ~TestAutofillMetrics() {}
 };
 
+template <typename T>
+bool CompareElements(T* a, T* b) {
+  return a->Compare(*b) < 0;
+}
+
+template <typename T>
+bool ElementsEqual(T* a, T* b) {
+  return a->Compare(*b) == 0;
+}
+
+// Verifies that two vectors have the same elements (according to T::Compare)
+// while ignoring order. This is useful because multiple profiles or credit
+// cards that are added to the SQLite DB within the same second will be returned
+// in GUID (aka random) order.
+template <typename T>
+void ExpectSameElements(const std::vector<T*>& expectations,
+                        const std::vector<T*>& results) {
+  ASSERT_EQ(expectations.size(), results.size());
+
+  std::vector<T*> expectations_copy = expectations;
+  std::sort(
+      expectations_copy.begin(), expectations_copy.end(), CompareElements<T>);
+  std::vector<T*> results_copy = results;
+  std::sort(results_copy.begin(), results_copy.end(), CompareElements<T>);
+
+  EXPECT_EQ(std::mismatch(results_copy.begin(),
+                          results_copy.end(),
+                          expectations_copy.begin(),
+                          ElementsEqual<T>).first,
+            results_copy.end());
+}
+
 }  // anonymous namespace
 
 class PersonalDataManagerTest : public testing::Test {
@@ -60,7 +96,6 @@ class PersonalDataManagerTest : public testing::Test {
   PersonalDataManagerTest() {}
 
   virtual void SetUp() {
-
     prefs_ = test::PrefServiceForTesting();
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
     base::FilePath path = temp_dir_.path().AppendASCII("TestWebDB");
@@ -81,16 +116,6 @@ class PersonalDataManagerTest : public testing::Test {
     ResetPersonalDataManager(USER_MODE_NORMAL);
   }
 
-  virtual void TearDown() {
-    // Destruction order is imposed explicitly here.
-    personal_data_.reset(NULL);
-
-    autofill_database_service_->ShutdownOnUIThread();
-    web_database_->ShutdownDatabase();
-    autofill_database_service_ = NULL;
-    web_database_ = NULL;
-  }
-
   void ResetPersonalDataManager(UserMode user_mode) {
     bool is_incognito = (user_mode == USER_MODE_INCOGNITO);
     personal_data_.reset(new PersonalDataManager("en-US"));
@@ -106,13 +131,15 @@ class PersonalDataManagerTest : public testing::Test {
     base::MessageLoop::current()->Run();
   }
 
+  // The temporary directory should be deleted at the end to ensure that
+  // files are not used anymore and deletion succeeds.
+  base::ScopedTempDir temp_dir_;
   base::MessageLoopForUI message_loop_;
   scoped_ptr<PrefService> prefs_;
   scoped_refptr<AutofillWebDataService> autofill_database_service_;
   scoped_refptr<WebDatabaseService> web_database_;
-  base::ScopedTempDir temp_dir_;
-  scoped_ptr<PersonalDataManager> personal_data_;
   PersonalDataLoadedObserverMock personal_data_observer_;
+  scoped_ptr<PersonalDataManager> personal_data_;
 };
 
 TEST_F(PersonalDataManagerTest, AddProfile) {
@@ -156,10 +183,10 @@ TEST_F(PersonalDataManagerTest, AddProfile) {
   ResetPersonalDataManager(USER_MODE_NORMAL);
 
   // Verify the addition.
-  const std::vector<AutofillProfile*>& results3 = personal_data_->GetProfiles();
-  ASSERT_EQ(2U, results3.size());
-  EXPECT_EQ(0, profile0.Compare(*results3[0]));
-  EXPECT_EQ(0, profile1.Compare(*results3[1]));
+  std::vector<AutofillProfile*> profiles;
+  profiles.push_back(&profile0);
+  profiles.push_back(&profile1);
+  ExpectSameElements(profiles, personal_data_->GetProfiles());
 }
 
 TEST_F(PersonalDataManagerTest, AddUpdateRemoveProfiles) {
@@ -190,10 +217,10 @@ TEST_F(PersonalDataManagerTest, AddUpdateRemoveProfiles) {
       .WillOnce(QuitMainMessageLoop());
   base::MessageLoop::current()->Run();
 
-  const std::vector<AutofillProfile*>& results1 = personal_data_->GetProfiles();
-  ASSERT_EQ(2U, results1.size());
-  EXPECT_EQ(0, profile0.Compare(*results1[0]));
-  EXPECT_EQ(0, profile1.Compare(*results1[1]));
+  std::vector<AutofillProfile*> profiles;
+  profiles.push_back(&profile0);
+  profiles.push_back(&profile1);
+  ExpectSameElements(profiles, personal_data_->GetProfiles());
 
   // Update, remove, and add.
   profile0.SetRawInfo(NAME_FIRST, ASCIIToUTF16("John"));
@@ -206,10 +233,10 @@ TEST_F(PersonalDataManagerTest, AddUpdateRemoveProfiles) {
       .WillOnce(QuitMainMessageLoop());
   base::MessageLoop::current()->Run();
 
-  const std::vector<AutofillProfile*>& results2 = personal_data_->GetProfiles();
-  ASSERT_EQ(2U, results2.size());
-  EXPECT_EQ(0, profile0.Compare(*results2[0]));
-  EXPECT_EQ(0, profile2.Compare(*results2[1]));
+  profiles.clear();
+  profiles.push_back(&profile0);
+  profiles.push_back(&profile2);
+  ExpectSameElements(profiles, personal_data_->GetProfiles());
 
   // Reset the PersonalDataManager.  This tests that the personal data was saved
   // to the web database, and that we can load the profiles from the web
@@ -217,10 +244,7 @@ TEST_F(PersonalDataManagerTest, AddUpdateRemoveProfiles) {
   ResetPersonalDataManager(USER_MODE_NORMAL);
 
   // Verify that we've loaded the profiles from the web database.
-  const std::vector<AutofillProfile*>& results3 = personal_data_->GetProfiles();
-  ASSERT_EQ(2U, results3.size());
-  EXPECT_EQ(0, profile0.Compare(*results3[0]));
-  EXPECT_EQ(0, profile2.Compare(*results3[1]));
+  ExpectSameElements(profiles, personal_data_->GetProfiles());
 }
 
 TEST_F(PersonalDataManagerTest, AddUpdateRemoveCreditCards) {
@@ -245,10 +269,10 @@ TEST_F(PersonalDataManagerTest, AddUpdateRemoveCreditCards) {
       .WillOnce(QuitMainMessageLoop());
   base::MessageLoop::current()->Run();
 
-  const std::vector<CreditCard*>& results1 = personal_data_->GetCreditCards();
-  ASSERT_EQ(2U, results1.size());
-  EXPECT_EQ(0, credit_card0.Compare(*results1[0]));
-  EXPECT_EQ(0, credit_card1.Compare(*results1[1]));
+  std::vector<CreditCard*> cards;
+  cards.push_back(&credit_card0);
+  cards.push_back(&credit_card1);
+  ExpectSameElements(cards, personal_data_->GetCreditCards());
 
   // Update, remove, and add.
   credit_card0.SetRawInfo(CREDIT_CARD_NAME, ASCIIToUTF16("Joe"));
@@ -261,10 +285,10 @@ TEST_F(PersonalDataManagerTest, AddUpdateRemoveCreditCards) {
       .WillOnce(QuitMainMessageLoop());
   base::MessageLoop::current()->Run();
 
-  const std::vector<CreditCard*>& results2 = personal_data_->GetCreditCards();
-  ASSERT_EQ(2U, results2.size());
-  EXPECT_EQ(credit_card0, *results2[0]);
-  EXPECT_EQ(credit_card2, *results2[1]);
+  cards.clear();
+  cards.push_back(&credit_card0);
+  cards.push_back(&credit_card2);
+  ExpectSameElements(cards, personal_data_->GetCreditCards());
 
   // Reset the PersonalDataManager.  This tests that the personal data was saved
   // to the web database, and that we can load the credit cards from the web
@@ -272,10 +296,10 @@ TEST_F(PersonalDataManagerTest, AddUpdateRemoveCreditCards) {
   ResetPersonalDataManager(USER_MODE_NORMAL);
 
   // Verify that we've loaded the credit cards from the web database.
-  const std::vector<CreditCard*>& results3 = personal_data_->GetCreditCards();
-  ASSERT_EQ(2U, results3.size());
-  EXPECT_EQ(credit_card0, *results3[0]);
-  EXPECT_EQ(credit_card2, *results3[1]);
+  cards.clear();
+  cards.push_back(&credit_card0);
+  cards.push_back(&credit_card2);
+  ExpectSameElements(cards, personal_data_->GetCreditCards());
 }
 
 TEST_F(PersonalDataManagerTest, UpdateUnverifiedProfilesAndCreditCards) {
@@ -386,10 +410,10 @@ TEST_F(PersonalDataManagerTest, AddProfilesAndCreditCards) {
       .WillOnce(QuitMainMessageLoop());
   base::MessageLoop::current()->Run();
 
-  const std::vector<AutofillProfile*>& results1 = personal_data_->GetProfiles();
-  ASSERT_EQ(2U, results1.size());
-  EXPECT_EQ(0, profile0.Compare(*results1[0]));
-  EXPECT_EQ(0, profile1.Compare(*results1[1]));
+  std::vector<AutofillProfile*> profiles;
+  profiles.push_back(&profile0);
+  profiles.push_back(&profile1);
+  ExpectSameElements(profiles, personal_data_->GetProfiles());
 
   // Add two test credit cards to the database.
   personal_data_->AddCreditCard(credit_card0);
@@ -400,10 +424,10 @@ TEST_F(PersonalDataManagerTest, AddProfilesAndCreditCards) {
       .WillOnce(QuitMainMessageLoop());
   base::MessageLoop::current()->Run();
 
-  const std::vector<CreditCard*>& results2 = personal_data_->GetCreditCards();
-  ASSERT_EQ(2U, results2.size());
-  EXPECT_EQ(credit_card0, *results2[0]);
-  EXPECT_EQ(credit_card1, *results2[1]);
+  std::vector<CreditCard*> cards;
+  cards.push_back(&credit_card0);
+  cards.push_back(&credit_card1);
+  ExpectSameElements(cards, personal_data_->GetCreditCards());
 
   // Determine uniqueness by inserting all of the GUIDs into a set and verifying
   // the size of the set matches the number of GUIDs.
@@ -515,10 +539,10 @@ TEST_F(PersonalDataManagerTest, Refresh) {
       .WillOnce(QuitMainMessageLoop());
   base::MessageLoop::current()->Run();
 
-  const std::vector<AutofillProfile*>& results1 = personal_data_->GetProfiles();
-  ASSERT_EQ(2U, results1.size());
-  EXPECT_EQ(profile0, *results1[0]);
-  EXPECT_EQ(profile1, *results1[1]);
+  std::vector<AutofillProfile*> profiles;
+  profiles.push_back(&profile0);
+  profiles.push_back(&profile1);
+  ExpectSameElements(profiles, personal_data_->GetProfiles());
 
   AutofillProfile profile2(base::GenerateGUID(), "https://www.example.com");
   test::SetProfileInfo(&profile2,
@@ -535,11 +559,11 @@ TEST_F(PersonalDataManagerTest, Refresh) {
       .WillOnce(QuitMainMessageLoop());
   base::MessageLoop::current()->Run();
 
-  const std::vector<AutofillProfile*>& results2 = personal_data_->GetProfiles();
-  ASSERT_EQ(3U, results2.size());
-  EXPECT_EQ(profile0, *results2[0]);
-  EXPECT_EQ(profile1, *results2[1]);
-  EXPECT_EQ(profile2, *results2[2]);
+  profiles.clear();
+  profiles.push_back(&profile0);
+  profiles.push_back(&profile1);
+  profiles.push_back(&profile2);
+  ExpectSameElements(profiles, personal_data_->GetProfiles());
 
   autofill_database_service_->RemoveAutofillProfile(profile1.guid());
   autofill_database_service_->RemoveAutofillProfile(profile2.guid());
@@ -560,9 +584,9 @@ TEST_F(PersonalDataManagerTest, Refresh) {
       .WillOnce(QuitMainMessageLoop());
   base::MessageLoop::current()->Run();
 
-  const std::vector<AutofillProfile*>& results3 = personal_data_->GetProfiles();
-  ASSERT_EQ(1U, results3.size());
-  EXPECT_EQ(profile0, *results2[0]);
+  const std::vector<AutofillProfile*>& results = personal_data_->GetProfiles();
+  ASSERT_EQ(1U, results.size());
+  EXPECT_EQ(profile0, *results[0]);
 }
 
 TEST_F(PersonalDataManagerTest, ImportFormData) {
@@ -926,14 +950,14 @@ TEST_F(PersonalDataManagerTest, SetUniqueCreditCardLabels) {
   // database.
   ResetPersonalDataManager(USER_MODE_NORMAL);
 
-  const std::vector<CreditCard*>& results = personal_data_->GetCreditCards();
-  ASSERT_EQ(6U, results.size());
-  EXPECT_EQ(credit_card0.guid(), results[0]->guid());
-  EXPECT_EQ(credit_card1.guid(), results[1]->guid());
-  EXPECT_EQ(credit_card2.guid(), results[2]->guid());
-  EXPECT_EQ(credit_card3.guid(), results[3]->guid());
-  EXPECT_EQ(credit_card4.guid(), results[4]->guid());
-  EXPECT_EQ(credit_card5.guid(), results[5]->guid());
+  std::vector<CreditCard*> cards;
+  cards.push_back(&credit_card0);
+  cards.push_back(&credit_card1);
+  cards.push_back(&credit_card2);
+  cards.push_back(&credit_card3);
+  cards.push_back(&credit_card4);
+  cards.push_back(&credit_card5);
+  ExpectSameElements(cards, personal_data_->GetCreditCards());
 }
 
 TEST_F(PersonalDataManagerTest, AggregateTwoDifferentProfiles) {
@@ -1010,15 +1034,14 @@ TEST_F(PersonalDataManagerTest, AggregateTwoDifferentProfiles) {
       .WillOnce(QuitMainMessageLoop());
   base::MessageLoop::current()->Run();
 
-  const std::vector<AutofillProfile*>& results2 = personal_data_->GetProfiles();
-
   AutofillProfile expected2(base::GenerateGUID(), "https://www.example.com");
   test::SetProfileInfo(&expected2, "John", NULL,
       "Adams", "second@gmail.com", NULL, "22 Laussat St", NULL,
       "San Francisco", "California", "94102", NULL, NULL);
-  ASSERT_EQ(2U, results2.size());
-  EXPECT_EQ(0, expected.Compare(*results2[0]));
-  EXPECT_EQ(0, expected2.Compare(*results2[1]));
+  std::vector<AutofillProfile*> profiles;
+  profiles.push_back(&expected);
+  profiles.push_back(&expected2);
+  ExpectSameElements(profiles, personal_data_->GetProfiles());
 }
 
 TEST_F(PersonalDataManagerTest, AggregateTwoProfilesWithMultiValue) {
@@ -1097,13 +1120,17 @@ TEST_F(PersonalDataManagerTest, AggregateTwoProfilesWithMultiValue) {
   const std::vector<AutofillProfile*>& results2 = personal_data_->GetProfiles();
 
   // Modify expected to include multi-valued fields.
-  std::vector<base::string16> values;
-  expected.GetRawMultiInfo(NAME_FULL, &values);
-  values.push_back(ASCIIToUTF16("John Adams"));
-  expected.SetRawMultiInfo(NAME_FULL, values);
-  expected.GetRawMultiInfo(EMAIL_ADDRESS, &values);
-  values.push_back(ASCIIToUTF16("second@gmail.com"));
-  expected.SetRawMultiInfo(EMAIL_ADDRESS, values);
+  std::vector<base::string16> first_names, last_names, emails;
+  expected.GetRawMultiInfo(NAME_FIRST, &first_names);
+  first_names.push_back(ASCIIToUTF16("John"));
+  expected.GetRawMultiInfo(NAME_LAST, &last_names);
+  last_names.push_back(ASCIIToUTF16("Adams"));
+  expected.SetRawMultiInfo(NAME_FIRST, first_names);
+  expected.SetRawMultiInfo(NAME_LAST, last_names);
+
+  expected.GetRawMultiInfo(EMAIL_ADDRESS, &emails);
+  emails.push_back(ASCIIToUTF16("second@gmail.com"));
+  expected.SetRawMultiInfo(EMAIL_ADDRESS, emails);
 
   ASSERT_EQ(1U, results2.size());
   EXPECT_EQ(0, expected.Compare(*results2[0]));
@@ -1531,10 +1558,10 @@ TEST_F(PersonalDataManagerTest, AggregateTwoDifferentCreditCards) {
 
   CreditCard expected2(base::GenerateGUID(), "https://www.example.com");
   test::SetCreditCardInfo(&expected2,"", "5500000000000004", "02", "2012");
-  const std::vector<CreditCard*>& results2 = personal_data_->GetCreditCards();
-  ASSERT_EQ(2U, results2.size());
-  EXPECT_EQ(0, expected.Compare(*results2[0]));
-  EXPECT_EQ(0, expected2.Compare(*results2[1]));
+  std::vector<CreditCard*> cards;
+  cards.push_back(&expected);
+  cards.push_back(&expected2);
+  ExpectSameElements(cards, personal_data_->GetCreditCards());
 }
 
 TEST_F(PersonalDataManagerTest, AggregateInvalidCreditCard) {
@@ -2119,10 +2146,16 @@ TEST_F(PersonalDataManagerTest, SaveImportedProfileWithExistingVerifiedData) {
   // The new profile should be merged into the existing one.
   AutofillProfile expected_profile = new_verified_profile;
   expected_profile.set_guid(profile.guid());
-  std::vector<base::string16> names;
-  expected_profile.GetRawMultiInfo(NAME_FULL, &names);
-  names.insert(names.begin(), ASCIIToUTF16("Marion Mitchell Morrison"));
-  expected_profile.SetRawMultiInfo(NAME_FULL, names);
+  std::vector<base::string16> first_names, middle_names, last_names;
+  expected_profile.GetRawMultiInfo(NAME_FIRST, &first_names);
+  expected_profile.GetRawMultiInfo(NAME_MIDDLE, &middle_names);
+  expected_profile.GetRawMultiInfo(NAME_LAST, &last_names);
+  first_names.insert(first_names.begin(), ASCIIToUTF16("Marion"));
+  middle_names.insert(middle_names.begin(), ASCIIToUTF16("Mitchell"));
+  last_names.insert(last_names.begin(), ASCIIToUTF16("Morrison"));
+  expected_profile.SetRawMultiInfo(NAME_FIRST, first_names);
+  expected_profile.SetRawMultiInfo(NAME_MIDDLE, middle_names);
+  expected_profile.SetRawMultiInfo(NAME_LAST, last_names);
 
   const std::vector<AutofillProfile*>& results = personal_data_->GetProfiles();
   ASSERT_EQ(1U, results.size());
@@ -2327,9 +2360,19 @@ TEST_F(PersonalDataManagerTest, CaseInsensitiveMultiValueAggregation) {
   base::MessageLoop::current()->Run();
 
   AutofillProfile expected(base::GenerateGUID(), "https://www.example.com");
-  test::SetProfileInfo(&expected, "George", NULL,
-      "Washington", "theprez@gmail.com", NULL, "21 Laussat St", NULL,
-      "San Francisco", "California", "94102", NULL, "(817) 555-6789");
+  test::SetProfileInfo(&expected,
+                       "George",
+                       NULL,
+                       "Washington",
+                       "theprez@gmail.com",
+                       NULL,
+                       "21 Laussat St",
+                       NULL,
+                       "San Francisco",
+                       "California",
+                       "94102",
+                       NULL,
+                       "817-555-6789");
   const std::vector<AutofillProfile*>& results1 = personal_data_->GetProfiles();
   ASSERT_EQ(1U, results1.size());
   EXPECT_EQ(0, expected.Compare(*results1[0]));
@@ -2374,7 +2417,7 @@ TEST_F(PersonalDataManagerTest, CaseInsensitiveMultiValueAggregation) {
   // Modify expected to include multi-valued fields.
   std::vector<base::string16> values;
   expected.GetRawMultiInfo(PHONE_HOME_WHOLE_NUMBER, &values);
-  values.push_back(ASCIIToUTF16("(214) 555-1234"));
+  values.push_back(ASCIIToUTF16("214-555-1234"));
   expected.SetRawMultiInfo(PHONE_HOME_WHOLE_NUMBER, values);
 
   ASSERT_EQ(1U, results2.size());
@@ -2563,5 +2606,144 @@ TEST_F(PersonalDataManagerTest, UpdateLanguageCodeInProfile) {
   EXPECT_EQ(0, profile.Compare(*results[0]));
   EXPECT_EQ("en", results[0]->language_code());
 }
+
+TEST_F(PersonalDataManagerTest, GetProfileSuggestions) {
+  AutofillProfile profile(base::GenerateGUID(), "https://www.example.com");
+  test::SetProfileInfo(&profile,
+      "Marion", "Mitchell", "Morrison",
+      "johnwayne@me.xyz", "Fox",
+      "123 Zoo St.\nSecond Line\nThird line", "unit 5", "Hollywood", "CA",
+      "91601", "US", "12345678910");
+  personal_data_->AddProfile(profile);
+  ResetPersonalDataManager(USER_MODE_NORMAL);
+
+  std::vector<base::string16> values;
+  std::vector<base::string16> labels;
+  std::vector<base::string16> icons;
+  std::vector<PersonalDataManager::GUIDPair> guid_pairs;
+  personal_data_->GetProfileSuggestions(
+      AutofillType(ADDRESS_HOME_STREET_ADDRESS),
+      base::UTF8ToUTF16("123"),
+      false,
+      std::vector<ServerFieldType>(),
+      base::Bind(ReturnTrue),
+      &values,
+      &labels,
+      &icons,
+      &guid_pairs);
+  ASSERT_FALSE(values.empty());
+  EXPECT_EQ(values[0],
+      base::UTF8ToUTF16("123 Zoo St., Second Line, Third line, unit 5"));
+}
+
+TEST_F(PersonalDataManagerTest, GetCreditCardSuggestions) {
+  // These GUIDs are alphabetical to make validating expectations easier.
+  CreditCard credit_card0("087151C8-6AB1-487C-9095-28E80BE5DA15",
+                          "https://www.example.com");
+  test::SetCreditCardInfo(&credit_card0,
+      "Clyde Barrow", "347666888555" /* American Express */, "04", "2015");
+  personal_data_->AddCreditCard(credit_card0);
+
+  CreditCard credit_card1("6141084B-72D7-4B73-90CF-3D6AC154673B",
+                          "https://www.example.com");
+  test::SetCreditCardInfo(&credit_card1, "John Dillinger", "", "01", "2010");
+  personal_data_->AddCreditCard(credit_card1);
+
+  CreditCard credit_card2("702149C1-EE28-4213-A3B9-DA243FFF021B",
+                          "https://www.example.com");
+  test::SetCreditCardInfo(&credit_card2,
+      "Bonnie Parker", "518765432109" /* Mastercard */, "", "");
+  personal_data_->AddCreditCard(credit_card2);
+
+  EXPECT_CALL(personal_data_observer_, OnPersonalDataChanged())
+      .WillOnce(QuitMainMessageLoop());
+  base::MessageLoop::current()->Run();
+
+  // Sublabel is card number when filling name.
+  std::vector<base::string16> values;
+  std::vector<base::string16> labels;
+  std::vector<base::string16> icons;
+  std::vector<PersonalDataManager::GUIDPair> guid_pairs;
+  personal_data_->GetCreditCardSuggestions(
+      AutofillType(CREDIT_CARD_NAME),
+      base::string16(),
+      &values,
+      &labels,
+      &icons,
+      &guid_pairs);
+  ASSERT_EQ(3U, values.size());
+  ASSERT_EQ(values.size(), labels.size());
+  EXPECT_EQ(ASCIIToUTF16("Clyde Barrow"), values[0]);
+  EXPECT_EQ(ASCIIToUTF16("*8555"), labels[0]);
+  EXPECT_EQ(ASCIIToUTF16("John Dillinger"), values[1]);
+  EXPECT_EQ(base::string16(), labels[1]);
+  EXPECT_EQ(ASCIIToUTF16("Bonnie Parker"), values[2]);
+  EXPECT_EQ(ASCIIToUTF16("*2109"), labels[2]);
+
+  // Sublabel is expiration date when filling card number.
+  values.clear();
+  labels.clear();
+  icons.clear();
+  guid_pairs.clear();
+  personal_data_->GetCreditCardSuggestions(
+      AutofillType(CREDIT_CARD_NUMBER),
+      base::string16(),
+      &values,
+      &labels,
+      &icons,
+      &guid_pairs);
+  ASSERT_EQ(2U, values.size());
+  ASSERT_EQ(values.size(), labels.size());
+  EXPECT_EQ(ASCIIToUTF16("********8555"), values[0]);
+  EXPECT_EQ(ASCIIToUTF16("04/15"), labels[0]);
+  EXPECT_EQ(ASCIIToUTF16("********2109"), values[1]);
+  EXPECT_EQ(base::string16(), labels[1]);
+}
+
+#if defined(OS_MACOSX) && !defined(OS_IOS)
+TEST_F(PersonalDataManagerTest, ShowAddressBookPrompt) {
+  EXPECT_CALL(personal_data_observer_, OnPersonalDataChanged()).Times(2);
+
+  AutofillType type(ADDRESS_HOME_STREET_ADDRESS);
+
+  prefs_->SetBoolean(prefs::kAutofillEnabled, false);
+  EXPECT_FALSE(personal_data_->ShouldShowAccessAddressBookSuggestion(type));
+
+  prefs_->SetBoolean(prefs::kAutofillEnabled, true);
+  EXPECT_TRUE(personal_data_->ShouldShowAccessAddressBookSuggestion(type));
+
+  // Adding an Autofill Profile should prevent the prompt from appearing.
+  AutofillProfile profile(base::GenerateGUID(), "https://www.example.com/");
+  test::SetProfileInfo(&profile,
+      "Marion", "Mitchell", "Morrison",
+      "johnwayne@me.xyz", "Fox", "123 Zoo St.", "unit 5", "Hollywood", "CA",
+      "91601", "US", "12345678910");
+  personal_data_->AddProfile(profile);
+
+  EXPECT_CALL(personal_data_observer_, OnPersonalDataChanged())
+      .WillOnce(QuitMainMessageLoop());
+  base::MessageLoop::current()->Run();
+
+  EXPECT_FALSE(personal_data_->ShouldShowAccessAddressBookSuggestion(type));
+}
+
+// Tests that the logic to show the access Address Book prompt respects the
+// preference that indicates the total number of times the prompt has already
+// been shown.
+TEST_F(PersonalDataManagerTest, MaxTimesToShowAddressBookPrompt) {
+  EXPECT_CALL(personal_data_observer_, OnPersonalDataChanged()).Times(1);
+
+  AutofillType type(ADDRESS_HOME_STREET_ADDRESS);
+
+  prefs_->SetBoolean(prefs::kAutofillEnabled, true);
+  EXPECT_TRUE(personal_data_->ShouldShowAccessAddressBookSuggestion(type));
+
+  prefs_->SetInteger(prefs::kAutofillMacAddressBookShowedCount, 4);
+  EXPECT_TRUE(personal_data_->ShouldShowAccessAddressBookSuggestion(type));
+
+  prefs_->SetInteger(prefs::kAutofillMacAddressBookShowedCount, 6);
+  EXPECT_FALSE(personal_data_->ShouldShowAccessAddressBookSuggestion(type));
+}
+#endif  // defined(OS_MACOSX) && !defined(OS_IOS)
 
 }  // namespace autofill

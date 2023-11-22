@@ -5,7 +5,6 @@
 #include "mojo/system/message_pipe_endpoint.h"
 
 #include "base/logging.h"
-#include "mojo/system/channel.h"
 
 namespace mojo {
 namespace system {
@@ -18,8 +17,8 @@ void MessagePipeEndpoint::CancelAllWaiters() {
   NOTREACHED();
 }
 
-MojoResult MessagePipeEndpoint::ReadMessage(void* /*bytes*/,
-                                            uint32_t* /*num_bytes*/,
+MojoResult MessagePipeEndpoint::ReadMessage(UserPointer<void> /*bytes*/,
+                                            UserPointer<uint32_t> /*num_bytes*/,
                                             DispatcherVector* /*dispatchers*/,
                                             uint32_t* /*num_dispatchers*/,
                                             MojoReadMessageFlags /*flags*/) {
@@ -27,28 +26,29 @@ MojoResult MessagePipeEndpoint::ReadMessage(void* /*bytes*/,
   return MOJO_RESULT_INTERNAL;
 }
 
+HandleSignalsState MessagePipeEndpoint::GetHandleSignalsState() const {
+  NOTREACHED();
+  return HandleSignalsState();
+}
+
 MojoResult MessagePipeEndpoint::AddWaiter(Waiter* /*waiter*/,
                                           MojoHandleSignals /*signals*/,
-                                          uint32_t /*context*/) {
+                                          uint32_t /*context*/,
+                                          HandleSignalsState* signals_state) {
   NOTREACHED();
+  if (signals_state)
+    *signals_state = HandleSignalsState();
   return MOJO_RESULT_INTERNAL;
 }
 
-void MessagePipeEndpoint::RemoveWaiter(Waiter* /*waiter*/) {
+void MessagePipeEndpoint::RemoveWaiter(Waiter* /*waiter*/,
+                                       HandleSignalsState* signals_state) {
   NOTREACHED();
+  if (signals_state)
+    *signals_state = HandleSignalsState();
 }
 
-void MessagePipeEndpoint::Attach(scoped_refptr<Channel> /*channel*/,
-                                 MessageInTransit::EndpointId /*local_id*/) {
-  NOTREACHED();
-}
-
-bool MessagePipeEndpoint::Run(MessageInTransit::EndpointId /*remote_id*/) {
-  NOTREACHED();
-  return true;
-}
-
-void MessagePipeEndpoint::OnRemove() {
+void MessagePipeEndpoint::Attach(ChannelEndpoint* /*channel_endpoint*/) {
   NOTREACHED();
 }
 

@@ -32,11 +32,13 @@ void FakeProxy::SetMaxPartialTextureUpdates(size_t max) {
   max_partial_texture_updates_ = max;
 }
 
-bool FakeProxy::CommitPendingForTesting() { return false; }
+bool FakeProxy::SupportsImplScrolling() const { return false; }
 
-scoped_ptr<base::Value> FakeProxy::AsValue() const {
-  scoped_ptr<base::DictionaryValue> state(new base::DictionaryValue());
-  return state.PassAs<base::Value>();
+bool FakeProxy::MainFrameWillHappenForTesting() {
+  return false;
+}
+
+void FakeProxy::AsValueInto(base::debug::TracedValue*) const {
 }
 
 }  // namespace cc

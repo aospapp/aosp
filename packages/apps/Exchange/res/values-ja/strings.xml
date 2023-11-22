@@ -27,7 +27,6 @@
     <string name="meeting_recurring" msgid="2752008481765880928">"日時: <xliff:g id="EVENTDATE">%s</xliff:g>（定期的）"</string>
     <string name="meeting_allday" msgid="7251209063071628040">"日付: <xliff:g id="EVENTDATE">%s</xliff:g>（終日）"</string>
     <string name="meeting_allday_recurring" msgid="4545762363537362545">"日付: <xliff:g id="EVENTDATE">%s</xliff:g>（終日、定期的）"</string>
-    <string name="notification_exchange_calendar_added" msgid="8998454267739748113">"Exchangeカレンダーを追加しました"</string>
     <string name="app_name" msgid="1707639359526090662">"Exchangeサービス"</string>
     <string name="exception_cancel" msgid="8972887597771126871">"この予定はキャンセルされました: <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="exception_updated" msgid="329192591551400871">"この予定の詳細が変更されました: <xliff:g id="DATE">%s</xliff:g>"</string>

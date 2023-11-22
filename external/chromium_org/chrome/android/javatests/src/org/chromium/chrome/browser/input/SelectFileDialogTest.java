@@ -4,8 +4,10 @@
 
 package org.chromium.chrome.browser.input;
 
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Intent;
+import android.os.Build;
 import android.provider.MediaStore;
 import android.test.suitebuilder.annotation.MediumTest;
 
@@ -30,6 +32,7 @@ public class SelectFileDialogTest extends ChromeShellTestBase {
             "content=\"width=device-width, initial-scale=2.0, maximum-scale=2.0\" /></head>" +
             "<body><form action=\"about:blank\">" +
             "<input id=\"input_file\" type=\"file\" /><br/>" +
+            "<input id=\"input_file_multiple\" type=\"file\" multiple /><br />" +
             "<input id=\"input_image\" type=\"file\" accept=\"image/*\" capture /><br/>" +
             "<input id=\"input_audio\" type=\"file\" accept=\"audio/*\" capture />" +
             "</form>" +
@@ -87,6 +90,7 @@ public class SelectFileDialogTest extends ChromeShellTestBase {
     /**
      * Tests that clicks on <input type="file" /> trigger intent calls to ActivityWindowAndroid.
      */
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
     @MediumTest
     @Feature({"TextInput", "Main"})
     public void testSelectFileAndCancelRequest() throws Throwable {
@@ -94,6 +98,18 @@ public class SelectFileDialogTest extends ChromeShellTestBase {
         assertTrue("SelectFileDialog never sent an intent.",
                 CriteriaHelper.pollForCriteria(new IntentSentCriteria()));
         assertEquals(Intent.ACTION_CHOOSER, mActivityWindowAndroidForTest.lastIntent.getAction());
+        resetActivityWindowAndroidForTest();
+
+        DOMUtils.clickNode(this, mContentViewCore, "input_file_multiple");
+        assertTrue("SelectFileDialog never sent an intent.",
+                CriteriaHelper.pollForCriteria(new IntentSentCriteria()));
+        assertEquals(Intent.ACTION_CHOOSER, mActivityWindowAndroidForTest.lastIntent.getAction());
+        Intent contentIntent = (Intent)
+                mActivityWindowAndroidForTest.lastIntent.getParcelableExtra(Intent.EXTRA_INTENT);
+        assertNotNull(contentIntent);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            assertTrue(contentIntent.hasExtra(Intent.EXTRA_ALLOW_MULTIPLE));
+        }
         resetActivityWindowAndroidForTest();
 
         DOMUtils.clickNode(this, mContentViewCore, "input_image");

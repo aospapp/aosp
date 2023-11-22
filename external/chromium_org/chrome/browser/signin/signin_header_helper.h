@@ -38,6 +38,7 @@ enum GAIAServiceType {
   GAIA_SERVICE_TYPE_INCOGNITO,                // Open an incognito tab.
   GAIA_SERVICE_TYPE_ADDSESSION,               // Add a secondary account.
   GAIA_SERVICE_TYPE_REAUTH,                   // Re-authenticate an account.
+  GAIA_SERVICE_TYPE_SIGNUP,                   // Create a new account.
   GAIA_SERVICE_TYPE_DEFAULT,                  // All other cases.
 };
 
@@ -69,9 +70,7 @@ struct ManageAccountsParams {
 bool AppendMirrorRequestHeaderIfPossible(
     net::URLRequest* request,
     const GURL& redirect_url,
-    ProfileIOData* io_data,
-    int child_id,
-    int route_id);
+    ProfileIOData* io_data);
 
 // Looks for the X-Chrome-Manage-Accounts response header, and if found,
 // tries to show the avatar bubble in the browser identified by the

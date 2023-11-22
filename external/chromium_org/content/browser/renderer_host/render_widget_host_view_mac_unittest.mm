@@ -9,6 +9,8 @@
 #include "base/mac/sdk_forward_declarations.h"
 #include "base/strings/utf_string_conversions.h"
 #include "content/browser/browser_thread_impl.h"
+#include "content/browser/compositor/test/no_transport_image_transport_factory.h"
+#include "content/browser/gpu/compositor_util.h"
 #include "content/browser/renderer_host/render_widget_host_delegate.h"
 #include "content/common/gpu/gpu_messages.h"
 #include "content/common/input_messages.h"
@@ -165,6 +167,11 @@ class RenderWidgetHostViewMacTest : public RenderViewHostImplTestHarness {
 
   virtual void SetUp() {
     RenderViewHostImplTestHarness::SetUp();
+    if (IsDelegatedRendererEnabled()) {
+      ImageTransportFactory::InitializeForUnitTests(
+          scoped_ptr<ImageTransportFactory>(
+              new NoTransportImageTransportFactory));
+    }
 
     // TestRenderViewHost's destruction assumes that its view is a
     // TestRenderWidgetHostView, so store its view and reset it back to the
@@ -185,6 +192,8 @@ class RenderWidgetHostViewMacTest : public RenderViewHostImplTestHarness {
     // See comment in SetUp().
     test_rvh()->SetView(static_cast<RenderWidgetHostViewBase*>(old_rwhv_));
 
+    if (IsDelegatedRendererEnabled())
+      ImageTransportFactory::Terminate();
     RenderViewHostImplTestHarness::TearDown();
   }
  protected:

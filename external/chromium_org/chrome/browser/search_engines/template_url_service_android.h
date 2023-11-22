@@ -8,7 +8,7 @@
 #include "base/android/jni_weak_ref.h"
 #include "base/android/scoped_java_ref.h"
 #include "base/memory/scoped_ptr.h"
-#include "chrome/browser/search_engines/template_url_service.h"
+#include "components/search_engines/template_url_service.h"
 
 class TemplateURL;
 
@@ -48,7 +48,9 @@ class TemplateUrlServiceAndroid {
   base::android::ScopedJavaLocalRef<jstring> GetUrlForContextualSearchQuery(
       JNIEnv* env,
       jobject obj,
-      jstring jquery);
+      jstring jquery,
+      jstring jalternate_term,
+      jboolean jshould_prefetch);
 
   static bool Register(JNIEnv* env);
 

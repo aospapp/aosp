@@ -23,7 +23,10 @@
 #include <netlink/handlers.h>
 #include <netlink/msg.h>
 
+#include "logging.h"
 #include "netlink_msg.h"
+
+#define DEBUG_OPTNAME(a) case (a): { optname = #a; break; }
 
 /* function: add_address
  * adds an IP address to/from an interface, returns 0 on success and <0 on failure
@@ -126,4 +129,52 @@ cleanup:
     nlmsg_free(msg);
 
   return retval;
+}
+
+static int do_anycast_setsockopt(int sock, int what, struct in6_addr *addr, int ifindex) {
+  struct ipv6_mreq mreq = { *addr, ifindex };
+  char *optname;
+  int ret;
+
+  switch (what) {
+    DEBUG_OPTNAME(IPV6_JOIN_ANYCAST)
+    DEBUG_OPTNAME(IPV6_LEAVE_ANYCAST)
+    default:
+      optname = "???";
+      break;
+  }
+
+  ret = setsockopt(sock, SOL_IPV6, what, &mreq, sizeof(mreq));
+  if (ret) {
+    logmsg(ANDROID_LOG_ERROR, "%s: setsockopt(%s): %s", __func__, optname, strerror(errno));
+  }
+
+  return ret;
+}
+
+/* function: add_anycast_address
+ * adds an anycast IPv6 address to an interface, returns 0 on success and <0 on failure
+ * sock      - the socket to add the address to
+ * addr      - the IP address to add
+ * ifname    - name of interface to add the address to
+ */
+int add_anycast_address(int sock, struct in6_addr *addr, const char *ifname) {
+  int ifindex, s, ret;
+
+  ifindex = if_nametoindex(ifname);
+  if (!ifindex) {
+    logmsg(ANDROID_LOG_ERROR, "%s: unknown ifindex for interface %s", __func__, ifname);
+    return -ENODEV;
+  }
+
+  return do_anycast_setsockopt(sock, IPV6_JOIN_ANYCAST, addr, ifindex);
+}
+
+/* function: del_anycast_address
+ * removes an anycast IPv6 address from the system, returns 0 on success and <0 on failure
+ * sock      - the socket to remove from, must have had the address added via add_anycast_address
+ * addr      - the IP address to remove
+ */
+int del_anycast_address(int sock, struct in6_addr *addr) {
+  return do_anycast_setsockopt(sock, IPV6_LEAVE_ANYCAST, addr, 0);
 }

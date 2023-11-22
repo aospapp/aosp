@@ -20,6 +20,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.telecom.TelecomManager;
 
 import java.lang.String;
 
@@ -61,9 +62,9 @@ public class PhoneAccountBroadcastReceiver extends BroadcastReceiver {
      * @param packageName The name of the removed package.
      */
     private void handlePackageRemoved(Context context, String packageName) {
-        final CallsManager callsManager = CallsManager.getInstance();
-        if (callsManager != null) {
-            callsManager.getPhoneAccountRegistrar().clearAccounts(packageName);
+        final TelecomManager telecomManager = TelecomManager.from(context);
+        if (telecomManager != null) {
+            telecomManager.clearAccountsForPackage(packageName);
         }
     }
 }

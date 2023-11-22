@@ -12,6 +12,7 @@
   'targets': [
     {
       # Library emulates GLES2 using command_buffers.
+      # GN version: //gpu/command_buffer/client:gles2_implementation
       'target_name': 'gles2_implementation',
       'type': '<(component)',
       'dependencies': [
@@ -32,9 +33,11 @@
       'msvs_disabled_warnings': [4267, ],
     },
     {
+      # GN version: //gpu/command_buffer/client:gl_in_process_context
       'target_name': 'gl_in_process_context',
       'type': '<(component)',
       'dependencies': [
+        'command_buffer/command_buffer.gyp:gles2_utils',
         'gles2_implementation',
         'gpu',
         '../base/base.gyp:base',
@@ -53,6 +56,7 @@
     },
     {
       # Library emulates GLES2 using command_buffers.
+      # GN version: //gpu/command_buffer/client:gles2_implementation_client_side_arrays
       'target_name': 'gles2_implementation_client_side_arrays',
       'type': '<(component)',
       'defines': [
@@ -100,6 +104,7 @@
     {
       # Stub to expose gles2_implemenation in C instead of C++.
       # so GLES2 C programs can work with no changes.
+      # GN version: //gpu/command_buffer/client:gles2_c_lib
       'target_name': 'gles2_c_lib',
       'type': '<(component)',
       'dependencies': [
@@ -107,7 +112,6 @@
         '../base/third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
         'command_buffer/command_buffer.gyp:gles2_utils',
         'command_buffer_client',
-        'gles2_implementation',
       ],
       'defines': [
         'GLES2_C_LIB_IMPLEMENTATION',
@@ -139,6 +143,7 @@
       ],
     },
     {
+      # GN version: //gpu:angle_unittests
       'target_name': 'angle_unittests',
       'type': '<(gtest_target_type)',
       'dependencies': [
@@ -167,6 +172,7 @@
       ],
     },
     {
+      # GN version: //gpu:gpu_unittests
       'target_name': 'gpu_unittests',
       'type': '<(gtest_target_type)',
       'dependencies': [
@@ -179,6 +185,7 @@
         '../ui/gl/gl.gyp:gl',
         '../ui/gfx/gfx.gyp:gfx',
         '../ui/gfx/gfx.gyp:gfx_geometry',
+        '../ui/gfx/gfx.gyp:gfx_test_support',
         'command_buffer/command_buffer.gyp:gles2_utils',
         'command_buffer_client',
         'command_buffer_common',
@@ -187,12 +194,10 @@
         'gpu_unittest_utils',
         'gles2_implementation_client_side_arrays',
         'gles2_cmd_helper',
-      ],
-      'defines': [
-        'GLES2_C_LIB_IMPLEMENTATION',
+        'gles2_c_lib',
       ],
       'sources': [
-        '<@(gles2_c_lib_source_files)',
+        # Note: sources list duplicated in GN build.
         'command_buffer/client/buffer_tracker_unittest.cc',
         'command_buffer/client/client_test_helper.cc',
         'command_buffer/client/client_test_helper.h',
@@ -241,6 +246,8 @@
         'command_buffer/service/gles2_cmd_decoder_unittest_base.h',
         'command_buffer/service/gles2_cmd_decoder_unittest_context_state.cc',
         'command_buffer/service/gles2_cmd_decoder_unittest_drawing.cc',
+        'command_buffer/service/gles2_cmd_decoder_unittest_extensions.cc',
+        'command_buffer/service/gles2_cmd_decoder_unittest_extensions_autogen.h',
         'command_buffer/service/gles2_cmd_decoder_unittest_framebuffers.cc',
         'command_buffer/service/gles2_cmd_decoder_unittest_programs.cc',
         'command_buffer/service/gles2_cmd_decoder_unittest_textures.cc',
@@ -272,7 +279,6 @@
         'config/gpu_control_list_entry_unittest.cc',
         'config/gpu_control_list_number_info_unittest.cc',
         'config/gpu_control_list_os_info_unittest.cc',
-        'config/gpu_control_list_string_info_unittest.cc',
         'config/gpu_control_list_unittest.cc',
         'config/gpu_control_list_version_info_unittest.cc',
         'config/gpu_driver_bug_list_unittest.cc',
@@ -299,6 +305,7 @@
       'msvs_disabled_warnings': [ 4267, ],
     },
     {
+      # GN version: //gpu:gl_tests
       'target_name': 'gl_tests',
       'type': '<(gtest_target_type)',
       'dependencies': [
@@ -308,6 +315,7 @@
         '../testing/gtest.gyp:gtest',
         '<(angle_path)/src/build_angle.gyp:translator',
         '../ui/gfx/gfx.gyp:gfx',
+        '../ui/gfx/gfx.gyp:gfx_test_support',
         '../ui/gfx/gfx.gyp:gfx_geometry',
         '../ui/gl/gl.gyp:gl',
         'command_buffer/command_buffer.gyp:gles2_utils',
@@ -318,17 +326,18 @@
         'gpu_unittest_utils',
         'gles2_implementation_client_side_arrays',
         'gles2_cmd_helper',
+        'gles2_c_lib',
         #'gl_unittests',
       ],
       'defines': [
-        'GLES2_C_LIB_IMPLEMENTATION',
         'GL_GLEXT_PROTOTYPES',
       ],
       'sources': [
-        '<@(gles2_c_lib_source_files)',
+        # Note: sources list duplicated in GN build.
         'command_buffer/tests/compressed_texture_test.cc',
         'command_buffer/tests/gl_bind_uniform_location_unittest.cc',
         'command_buffer/tests/gl_chromium_framebuffer_multisample_unittest.cc',
+        'command_buffer/tests/gl_chromium_path_rendering_unittest.cc',
         'command_buffer/tests/gl_copy_texture_CHROMIUM_unittest.cc',
         'command_buffer/tests/gl_depth_texture_unittest.cc',
         'command_buffer/tests/gl_gpu_memory_buffer_unittest.cc',
@@ -368,6 +377,7 @@
       'msvs_disabled_warnings': [ 4267, ],
     },
     {
+      # GN version: //gpu:test_support
       'target_name': 'gpu_unittest_utils',
       'type': 'static_library',
       'dependencies': [
@@ -392,6 +402,7 @@
     ['component=="static_library"', {
       'targets': [
          {
+          # GN version: //gpu/command_buffer/service:disk_cache_proto
           'target_name': 'disk_cache_proto',
           'type': 'static_library',
           'sources': [ 'command_buffer/service/disk_cache_proto.proto' ],
@@ -402,6 +413,7 @@
           'includes': [ '../build/protoc.gypi' ],
         },
         {
+          # GN version: //gpu
           'target_name': 'gpu',
           'type': 'none',
           'dependencies': [
@@ -419,6 +431,7 @@
           'msvs_disabled_warnings': [4267, ],
         },
         {
+          # GN version: //gpu/command_buffer/common
           'target_name': 'command_buffer_common',
           'type': 'static_library',
           'includes': [
@@ -434,6 +447,7 @@
         },
         {
           # Library helps make GLES2 command buffers.
+          # GN version: //gpu/command_buffer/client:gles2_cmd_helper
           'target_name': 'gles2_cmd_helper',
           'type': 'static_library',
           'includes': [
@@ -446,6 +460,7 @@
           'msvs_disabled_warnings': [4267, ],
         },
         {
+          # GN version: //gpu/command_buffer/client
           'target_name': 'command_buffer_client',
           'type': 'static_library',
           'includes': [
@@ -458,10 +473,12 @@
           'msvs_disabled_warnings': [4267, ],
         },
         {
+          # GN version: //gpu/command_buffer/service
           'target_name': 'command_buffer_service',
           'type': 'static_library',
           'includes': [
             'command_buffer_service.gypi',
+            '../build/android/increase_size_for_speed.gypi',
           ],
           'dependencies': [
             'command_buffer_common',
@@ -471,6 +488,7 @@
           'msvs_disabled_warnings': [4267, ],
         },
         {
+          # GN version: //gpu/ipc
           'target_name': 'gpu_ipc',
           'type': 'static_library',
           'includes': [
@@ -492,6 +510,7 @@
     { # component != static_library
       'targets': [
          {
+          # GN version: //gpu/command_buffer/service:disk_cache_proto
           'target_name': 'disk_cache_proto',
           'type': 'static_library',
           'sources': [ 'command_buffer/service/disk_cache_proto.proto' ],
@@ -502,6 +521,7 @@
           'includes': [ '../build/protoc.gypi' ],
         },
         {
+          # GN version: //gpu
           'target_name': 'gpu',
           'type': 'shared_library',
           'includes': [
@@ -511,6 +531,7 @@
             'gles2_cmd_helper.gypi',
             'gpu_config.gypi',
             'gpu_ipc.gypi',
+            '../build/android/increase_size_for_speed.gypi',
           ],
           'defines': [
             'GPU_IMPLEMENTATION',
@@ -527,6 +548,7 @@
           'msvs_disabled_warnings': [4267, ],
         },
         {
+          # GN version: //gpu/command_buffer/common
           'target_name': 'command_buffer_common',
           'type': 'none',
           'dependencies': [
@@ -535,6 +557,7 @@
         },
         {
           # Library helps make GLES2 command buffers.
+          # GN version: //gpu/command_buffer/client:gles2_cmd_helper
           'target_name': 'gles2_cmd_helper',
           'type': 'none',
           'dependencies': [
@@ -544,6 +567,7 @@
           'msvs_disabled_warnings': [4267, ],
         },
         {
+          # GN version: //gpu/command_buffer/client
           'target_name': 'command_buffer_client',
           'type': 'none',
           'dependencies': [
@@ -551,6 +575,7 @@
           ],
         },
         {
+          # GN version: //gpu/command_buffer/service
           'target_name': 'command_buffer_service',
           'type': 'none',
           'dependencies': [
@@ -558,6 +583,7 @@
           ],
         },
         {
+          # GN version: //gpu/ipc
           'target_name': 'gpu_ipc',
           'type': 'none',
           'dependencies': [

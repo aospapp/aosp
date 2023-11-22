@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/ui/views/extensions/extension_install_dialog_view.h"
+
 #include <vector>
 
 #include "base/basictypes.h"
@@ -11,27 +13,24 @@
 #include "base/metrics/histogram.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/extensions/api/experience_sampling_private/experience_sampling.h"
 #include "chrome/browser/extensions/bundle_installer.h"
-#include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/extension_install_prompt_experiment.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/views/constrained_window_views.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_constants.h"
+#include "chrome/grit/generated_resources.h"
 #include "chrome/installer/util/browser_distribution.h"
 #include "content/public/browser/page_navigator.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/common/extension.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
-#include "grit/google_chrome_strings.h"
+#include "extensions/common/extension_urls.h"
 #include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
-#include "ui/gfx/animation/animation_delegate.h"
-#include "ui/gfx/animation/slide_animation.h"
 #include "ui/gfx/text_utils.h"
-#include "ui/gfx/transform.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/button/checkbox.h"
@@ -40,22 +39,23 @@
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/link.h"
-#include "ui/views/controls/link_listener.h"
 #include "ui/views/controls/scroll_view.h"
 #include "ui/views/controls/separator.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/grid_layout.h"
 #include "ui/views/layout/layout_constants.h"
-#include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/dialog_client_view.h"
-#include "ui/views/window/dialog_delegate.h"
 
 using content::OpenURLParams;
 using content::Referrer;
 using extensions::BundleInstaller;
+using extensions::ExperienceSamplingEvent;
 
 namespace {
+
+// Width of the bullet column in BulletedView.
+const int kBulletWidth = 20;
 
 // Size of extension icon in top left of dialog.
 const int kIconSize = 64;
@@ -98,9 +98,6 @@ enum ExperimentLinkAction {
   NUM_LINK_ACTIONS
 };
 
-typedef std::vector<base::string16> PermissionDetails;
-class ExpandableContainerView;
-
 void AddResourceIcon(const gfx::ImageSkia* skia_image, void* data) {
   views::View* parent = static_cast<views::View*>(data);
   views::ImageView* image_view = new views::ImageView();
@@ -117,159 +114,28 @@ base::string16 PrepareForDisplay(const base::string16& message,
       message) : message;
 }
 
-// A custom scrollable view implementation for the dialog.
-class CustomScrollableView : public views::View {
- public:
-  CustomScrollableView();
-  virtual ~CustomScrollableView();
-
- private:
-  virtual void Layout() OVERRIDE;
-
-  DISALLOW_COPY_AND_ASSIGN(CustomScrollableView);
-};
-
-// Implements the extension installation dialog for TOOLKIT_VIEWS.
-class ExtensionInstallDialogView : public views::DialogDelegateView,
-                                   public views::LinkListener,
-                                   public views::ButtonListener {
- public:
-  ExtensionInstallDialogView(
-      content::PageNavigator* navigator,
-      ExtensionInstallPrompt::Delegate* delegate,
-      scoped_refptr<ExtensionInstallPrompt::Prompt> prompt);
-  virtual ~ExtensionInstallDialogView();
-
-  // Called when one of the child elements has expanded/collapsed.
-  void ContentsChanged();
-
- private:
-  // views::DialogDelegateView:
-  virtual int GetDialogButtons() const OVERRIDE;
-  virtual base::string16 GetDialogButtonLabel(
-      ui::DialogButton button) const OVERRIDE;
-  virtual int GetDefaultDialogButton() const OVERRIDE;
-  virtual bool Cancel() OVERRIDE;
-  virtual bool Accept() OVERRIDE;
-  virtual ui::ModalType GetModalType() const OVERRIDE;
-  virtual base::string16 GetWindowTitle() const OVERRIDE;
-  virtual void Layout() OVERRIDE;
-  virtual gfx::Size GetPreferredSize() const OVERRIDE;
-  virtual void ViewHierarchyChanged(
-      const ViewHierarchyChangedDetails& details) OVERRIDE;
-
-  // views::LinkListener:
-  virtual void LinkClicked(views::Link* source, int event_flags) OVERRIDE;
-
-  // views::ButtonListener:
-  virtual void ButtonPressed(views::Button* sender,
-                             const ui::Event& event) OVERRIDE;
-
-  // Experimental: Toggles inline permission explanations with an animation.
-  void ToggleInlineExplanations();
-
-  // Creates a layout consisting of dialog header, extension name and icon.
-  views::GridLayout* CreateLayout(
-      views::View* parent,
-      int left_column_width,
-      int column_set_id,
-      bool single_detail_row) const;
-
-  bool is_inline_install() const {
-    return prompt_->type() == ExtensionInstallPrompt::INLINE_INSTALL_PROMPT;
-  }
-
-  bool is_bundle_install() const {
-    return prompt_->type() == ExtensionInstallPrompt::BUNDLE_INSTALL_PROMPT;
-  }
-
-  bool is_external_install() const {
-    return prompt_->type() == ExtensionInstallPrompt::EXTERNAL_INSTALL_PROMPT;
-  }
-
-  // Updates the histogram that holds installation accepted/aborted data.
-  void UpdateInstallResultHistogram(bool accepted) const;
-
-  // Updates the histogram that holds data about whether "Show details" or
-  // "Show permissions" links were shown and/or clicked.
-  void UpdateLinkActionHistogram(int action_type) const;
-
-  content::PageNavigator* navigator_;
-  ExtensionInstallPrompt::Delegate* delegate_;
-  scoped_refptr<ExtensionInstallPrompt::Prompt> prompt_;
-
-  // The scroll view containing all the details for the dialog (including all
-  // collapsible/expandable sections).
-  views::ScrollView* scroll_view_;
-
-  // The container view for the scroll view.
-  CustomScrollableView* scrollable_;
-
-  // The container for the simpler view with only the dialog header and the
-  // extension icon. Used for the experiment where the permissions are
-  // initially hidden when the dialog shows.
-  CustomScrollableView* scrollable_header_only_;
-
-  // The preferred size of the dialog.
-  gfx::Size dialog_size_;
-
-  // Experimental: "Show details" link to expand inline explanations and reveal
-  // permision dialog.
-  views::Link* show_details_link_;
-
-  // Experimental: Label for showing information about the checkboxes.
-  views::Label* checkbox_info_label_;
-
-  // Experimental: Contains pointers to inline explanation views.
-  typedef std::vector<ExpandableContainerView*> InlineExplanations;
-  InlineExplanations inline_explanations_;
-
-  // Experimental: Number of unchecked checkboxes in the permission list.
-  // If this becomes zero, the accept button is enabled, otherwise disabled.
-  int unchecked_boxes_;
-
-  DISALLOW_COPY_AND_ASSIGN(ExtensionInstallDialogView);
-};
-
-// A simple view that prepends a view with a bullet with the help of a grid
-// layout.
-class BulletedView : public views::View {
- public:
-  explicit BulletedView(views::View* view);
- private:
-  DISALLOW_COPY_AND_ASSIGN(BulletedView);
-};
+}  // namespace
 
 BulletedView::BulletedView(views::View* view) {
   views::GridLayout* layout = new views::GridLayout(this);
   SetLayoutManager(layout);
   views::ColumnSet* column_set = layout->AddColumnSet(0);
+  column_set->AddColumn(views::GridLayout::CENTER,
+                        views::GridLayout::LEADING,
+                        0,
+                        views::GridLayout::FIXED,
+                        kBulletWidth,
+                        0);
   column_set->AddColumn(views::GridLayout::LEADING,
                         views::GridLayout::LEADING,
                         0,
                         views::GridLayout::USE_PREF,
-                        0, // no fixed width
+                        0,  // No fixed width.
                         0);
-   column_set->AddColumn(views::GridLayout::LEADING,
-                         views::GridLayout::LEADING,
-                         0,
-                         views::GridLayout::USE_PREF,
-                         0,  // no fixed width
-                         0);
   layout->StartRow(0, 0);
   layout->AddView(new views::Label(PrepareForDisplay(base::string16(), true)));
   layout->AddView(view);
 }
-
-// A simple view that prepends a view with a checkbox with the help of a grid
-// layout. Used for the permission experiment.
-// TODO(meacer): Remove once the experiment is completed.
-class CheckboxedView : public views::View {
- public:
-  CheckboxedView(views::View* view, views::ButtonListener* listener);
- private:
-  DISALLOW_COPY_AND_ASSIGN(CheckboxedView);
-};
 
 CheckboxedView::CheckboxedView(views::View* view,
                                views::ButtonListener* listener) {
@@ -280,14 +146,14 @@ CheckboxedView::CheckboxedView(views::View* view,
                         views::GridLayout::LEADING,
                         0,
                         views::GridLayout::USE_PREF,
-                        0, // no fixed width
+                        0,  // No fixed width.
                         0);
-   column_set->AddColumn(views::GridLayout::LEADING,
-                         views::GridLayout::LEADING,
-                         0,
-                         views::GridLayout::USE_PREF,
-                         0,  // no fixed width
-                         0);
+  column_set->AddColumn(views::GridLayout::LEADING,
+                        views::GridLayout::LEADING,
+                        0,
+                        views::GridLayout::USE_PREF,
+                        0,  // No fixed width.
+                        0);
   layout->StartRow(0, 0);
   views::Checkbox* checkbox = new views::Checkbox(base::string16());
   checkbox->set_listener(listener);
@@ -299,90 +165,6 @@ CheckboxedView::CheckboxedView(views::View* view,
                   views::GridLayout::LEADING, views::GridLayout::CENTER);
 }
 
-// A view to display text with an expandable details section.
-class ExpandableContainerView : public views::View,
-                                public views::ButtonListener,
-                                public views::LinkListener,
-                                public gfx::AnimationDelegate {
- public:
-  ExpandableContainerView(ExtensionInstallDialogView* owner,
-                          const base::string16& description,
-                          const PermissionDetails& details,
-                          int horizontal_space,
-                          bool parent_bulleted,
-                          bool show_expand_link,
-                          bool lighter_color_details);
-  virtual ~ExpandableContainerView();
-
-  // views::View:
-  virtual void ChildPreferredSizeChanged(views::View* child) OVERRIDE;
-
-  // views::ButtonListener:
-  virtual void ButtonPressed(views::Button* sender,
-                             const ui::Event& event) OVERRIDE;
-
-  // views::LinkListener:
-  virtual void LinkClicked(views::Link* source, int event_flags) OVERRIDE;
-
-  // gfx::AnimationDelegate:
-  virtual void AnimationProgressed(const gfx::Animation* animation) OVERRIDE;
-  virtual void AnimationEnded(const gfx::Animation* animation) OVERRIDE;
-
-  // Expand/Collapse the detail section for this ExpandableContainerView.
-  void ToggleDetailLevel();
-
-  // Expand the detail section without any animation.
-  // TODO(meacer): Remove once the experiment is completed.
-  void ExpandWithoutAnimation();
-
- private:
-  // A view which displays all the details of an IssueAdviceInfoEntry.
-  class DetailsView : public views::View {
-   public:
-    explicit DetailsView(int horizontal_space, bool parent_bulleted,
-                         bool lighter_color);
-    virtual ~DetailsView() {}
-
-    // views::View:
-    virtual gfx::Size GetPreferredSize() const OVERRIDE;
-
-    void AddDetail(const base::string16& detail);
-
-    // Animates this to be a height proportional to |state|.
-    void AnimateToState(double state);
-
-   private:
-    views::GridLayout* layout_;
-    double state_;
-
-    // Whether the detail text should be shown with a lighter color.
-    bool lighter_color_;
-
-    DISALLOW_COPY_AND_ASSIGN(DetailsView);
-  };
-
-  // The dialog that owns |this|. It's also an ancestor in the View hierarchy.
-  ExtensionInstallDialogView* owner_;
-
-  // A view for showing |issue_advice.details|.
-  DetailsView* details_view_;
-
-  // The 'more details' link shown under the heading (changes to 'hide details'
-  // when the details section is expanded).
-  views::Link* more_details_;
-
-  gfx::SlideAnimation slide_animation_;
-
-  // The up/down arrow next to the 'more detail' link (points up/down depending
-  // on whether the details section is expanded).
-  views::ImageButton* arrow_toggle_;
-
-  // Whether the details section is expanded.
-  bool expanded_;
-
-  DISALLOW_COPY_AND_ASSIGN(ExpandableContainerView);
-};
-
 void ShowExtensionInstallDialogImpl(
     const ExtensionInstallPrompt::ShowParams& show_params,
     ExtensionInstallPrompt::Delegate* delegate,
@@ -392,8 +174,6 @@ void ShowExtensionInstallDialogImpl(
       new ExtensionInstallDialogView(show_params.navigator, delegate, prompt),
       show_params.parent_window)->Show();
 }
-
-}  // namespace
 
 CustomScrollableView::CustomScrollableView() {}
 CustomScrollableView::~CustomScrollableView() {}
@@ -415,7 +195,17 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
       scrollable_header_only_(NULL),
       show_details_link_(NULL),
       checkbox_info_label_(NULL),
-      unchecked_boxes_(0) {
+      unchecked_boxes_(0),
+      handled_result_(false) {
+  InitView();
+}
+
+ExtensionInstallDialogView::~ExtensionInstallDialogView() {
+  if (!handled_result_)
+    delegate_->InstallUIAbort(true);
+}
+
+void ExtensionInstallDialogView::InitView() {
   // Possible grid layouts without ExtensionPermissionDialog experiment:
   // Inline install
   //      w/ permissions                 no permissions
@@ -497,7 +287,7 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
   // the dialog depending on the experiment group.
 
   int left_column_width =
-      (prompt->ShouldShowPermissions() + prompt->GetRetainedFileCount()) > 0
+      (prompt_->ShouldShowPermissions() + prompt_->GetRetainedFileCount()) > 0
           ? kPermissionsLeftColumnWidth
           : kNoPermissionsLeftColumnWidth;
   if (is_bundle_install())
@@ -517,8 +307,8 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
       scrollable_, left_column_width, column_set_id, false);
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
 
-  if (prompt->ShouldShowPermissions() &&
-      prompt->experiment()->should_show_expandable_permission_list()) {
+  if (prompt_->ShouldShowPermissions() &&
+      prompt_->experiment()->should_show_expandable_permission_list()) {
     // If the experiment should hide the permission list initially, create a
     // simple layout that contains only the header, extension name and icon.
     scrollable_header_only_ = new CustomScrollableView();
@@ -535,28 +325,28 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
 
   // Widen the dialog for experiment with checkboxes so that the information
   // label fits the area to the left of the buttons.
-  if (prompt->experiment()->show_checkboxes())
+  if (prompt_->experiment()->show_checkboxes())
     dialog_width += 4 * views::kPanelHorizMargin;
 
-  if (prompt->has_webstore_data()) {
+  if (prompt_->has_webstore_data()) {
     layout->StartRow(0, column_set_id);
     views::View* rating = new views::View();
     rating->SetLayoutManager(new views::BoxLayout(
         views::BoxLayout::kHorizontal, 0, 0, 0));
     layout->AddView(rating);
-    prompt->AppendRatingStars(AddResourceIcon, rating);
+    prompt_->AppendRatingStars(AddResourceIcon, rating);
 
     const gfx::FontList& small_font_list =
         rb.GetFontList(ui::ResourceBundle::SmallFont);
     views::Label* rating_count =
-        new views::Label(prompt->GetRatingCount(), small_font_list);
+        new views::Label(prompt_->GetRatingCount(), small_font_list);
     // Add some space between the stars and the rating count.
     rating_count->SetBorder(views::Border::CreateEmptyBorder(0, 2, 0, 0));
     rating->AddChildView(rating_count);
 
     layout->StartRow(0, column_set_id);
     views::Label* user_count =
-        new views::Label(prompt->GetUserCount(), small_font_list);
+        new views::Label(prompt_->GetUserCount(), small_font_list);
     user_count->SetAutoColorReadabilityEnabled(false);
     user_count->SetEnabledColor(SK_ColorGRAY);
     layout->AddView(user_count);
@@ -570,7 +360,7 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
   }
 
   if (is_bundle_install()) {
-    BundleInstaller::ItemList items = prompt->bundle()->GetItemsWithState(
+    BundleInstaller::ItemList items = prompt_->bundle()->GetItemsWithState(
         BundleInstaller::Item::STATE_PENDING);
     for (size_t i = 0; i < items.size(); ++i) {
       base::string16 extension_name =
@@ -587,98 +377,23 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
     }
   }
 
-  if (prompt->ShouldShowPermissions()) {
-    layout->AddPaddingRow(0, views::kRelatedControlVerticalSpacing);
-
-    if (prompt->GetPermissionCount() > 0) {
-      if (is_inline_install()) {
-        layout->StartRow(0, column_set_id);
-        layout->AddView(new views::Separator(views::Separator::HORIZONTAL),
-                        3, 1, views::GridLayout::FILL, views::GridLayout::FILL);
-        layout->AddPaddingRow(0, views::kRelatedControlVerticalSpacing);
-      }
-
-      layout->StartRow(0, column_set_id);
-      views::Label* permissions_header = NULL;
-      if (is_bundle_install()) {
-        // We need to pass the FontList in the constructor, rather than calling
-        // SetFontList later, because otherwise SizeToFit mis-judges the width
-        // of the line.
-        permissions_header =
-            new views::Label(prompt->GetPermissionsHeading(),
-                             rb.GetFontList(ui::ResourceBundle::MediumFont));
-      } else {
-        permissions_header = new views::Label(prompt->GetPermissionsHeading());
-      }
-      permissions_header->SetMultiLine(true);
-      permissions_header->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-      permissions_header->SizeToFit(left_column_width);
-      layout->AddView(permissions_header);
-
-      for (size_t i = 0; i < prompt->GetPermissionCount(); ++i) {
-        layout->AddPaddingRow(0, views::kRelatedControlVerticalSpacing);
-        layout->StartRow(0, column_set_id);
-        views::Label* permission_label =
-            new views::Label(prompt->GetPermission(i));
-
-        const SkColor kTextHighlight = SK_ColorRED;
-        const SkColor kBackgroundHighlight = SkColorSetRGB(0xFB, 0xF7, 0xA3);
-        if (prompt->experiment()->ShouldHighlightText(
-                prompt->GetPermission(i))) {
-          permission_label->SetAutoColorReadabilityEnabled(false);
-          permission_label->SetEnabledColor(kTextHighlight);
-        } else if (prompt->experiment()->ShouldHighlightBackground(
-                       prompt->GetPermission(i))) {
-          permission_label->SetLineHeight(18);
-          permission_label->set_background(
-              views::Background::CreateSolidBackground(kBackgroundHighlight));
-        }
-
-        permission_label->SetMultiLine(true);
-        permission_label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-        permission_label->SizeToFit(left_column_width);
-
-        if (prompt->experiment()->show_checkboxes()) {
-          layout->AddView(new CheckboxedView(permission_label, this));
-          ++unchecked_boxes_;
-        } else {
-          layout->AddView(new BulletedView(permission_label));
-        }
-        // If we have more details to provide, show them in collapsed form.
-        if (!prompt->GetPermissionsDetails(i).empty()) {
-          layout->StartRow(0, column_set_id);
-          PermissionDetails details;
-          details.push_back(
-              PrepareForDisplay(prompt->GetPermissionsDetails(i), false));
-          ExpandableContainerView* details_container =
-              new ExpandableContainerView(
-                  this, base::string16(), details, left_column_width,
-                  true, true, false);
-          layout->AddView(details_container);
-        }
-
-        if (prompt->experiment()->should_show_inline_explanations()) {
-          base::string16 explanation =
-              prompt->experiment()->GetInlineExplanation(
-                  prompt->GetPermission(i));
-          if (!explanation.empty()) {
-            PermissionDetails details;
-            details.push_back(explanation);
-            ExpandableContainerView* container =
-                new ExpandableContainerView(this, base::string16(), details,
-                                            left_column_width,
-                                            false, false, true);
-            // Inline explanations are expanded by default if there is
-            // no "Show details" link.
-            if (!prompt->experiment()->show_details_link())
-              container->ExpandWithoutAnimation();
-            layout->StartRow(0, column_set_id);
-            layout->AddView(container);
-            inline_explanations_.push_back(container);
-          }
-        }
-      }
-    } else {
+  bool has_permissions =
+      prompt_->GetPermissionCount(
+          ExtensionInstallPrompt::PermissionsType::ALL_PERMISSIONS) > 0;
+  if (prompt_->ShouldShowPermissions()) {
+    AddPermissions(
+        layout,
+        rb,
+        column_set_id,
+        left_column_width,
+        ExtensionInstallPrompt::PermissionsType::REGULAR_PERMISSIONS);
+    AddPermissions(
+        layout,
+        rb,
+        column_set_id,
+        left_column_width,
+        ExtensionInstallPrompt::PermissionsType::WITHHELD_PERMISSIONS);
+    if (!has_permissions) {
       layout->AddPaddingRow(0, views::kRelatedControlVerticalSpacing);
       layout->StartRow(0, column_set_id);
       views::Label* permission_label = new views::Label(
@@ -690,13 +405,13 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
     }
   }
 
-  if (prompt->GetRetainedFileCount()) {
+  if (prompt_->GetRetainedFileCount()) {
     // Slide in under the permissions, if there are any. If there are
     // either, the retained files prompt stretches all the way to the
     // right of the dialog. If there are no permissions, the retained
     // files prompt just takes up the left column.
     int space_for_files = left_column_width;
-    if (prompt->GetPermissionCount()) {
+    if (has_permissions) {
       space_for_files += kIconSize;
       views::ColumnSet* column_set = layout->AddColumnSet(++column_set_id);
       column_set->AddColumn(views::GridLayout::FILL,
@@ -711,7 +426,8 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
 
     layout->StartRow(0, column_set_id);
     views::Label* retained_files_header = NULL;
-    retained_files_header = new views::Label(prompt->GetRetainedFilesHeading());
+    retained_files_header =
+        new views::Label(prompt_->GetRetainedFilesHeading());
     retained_files_header->SetMultiLine(true);
     retained_files_header->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     retained_files_header->SizeToFit(space_for_files);
@@ -719,8 +435,8 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
 
     layout->StartRow(0, column_set_id);
     PermissionDetails details;
-    for (size_t i = 0; i < prompt->GetRetainedFileCount(); ++i)
-      details.push_back(prompt->GetRetainedFile(i));
+    for (size_t i = 0; i < prompt_->GetRetainedFileCount(); ++i)
+      details.push_back(prompt_->GetRetainedFile(i));
     ExpandableContainerView* issue_advice_view =
         new ExpandableContainerView(
             this, base::string16(), details, space_for_files,
@@ -728,13 +444,13 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
     layout->AddView(issue_advice_view);
   }
 
-  DCHECK(prompt->type() >= 0);
+  DCHECK(prompt_->type() >= 0);
   UMA_HISTOGRAM_ENUMERATION("Extensions.InstallPrompt.Type",
-                            prompt->type(),
+                            prompt_->type(),
                             ExtensionInstallPrompt::NUM_PROMPT_TYPES);
 
-  if (prompt->ShouldShowPermissions()) {
-    if (prompt->ShouldShowExplanationText()) {
+  if (prompt_->ShouldShowPermissions()) {
+    if (prompt_->ShouldShowExplanationText()) {
       views::ColumnSet* column_set = layout->AddColumnSet(++column_set_id);
       column_set->AddColumn(views::GridLayout::LEADING,
                             views::GridLayout::FILL,
@@ -747,23 +463,23 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
 
       layout->StartRow(0, column_set_id);
       views::Label* explanation =
-          new views::Label(prompt->experiment()->GetExplanationText());
+          new views::Label(prompt_->experiment()->GetExplanationText());
       explanation->SetMultiLine(true);
       explanation->SetHorizontalAlignment(gfx::ALIGN_LEFT);
       explanation->SizeToFit(left_column_width + kIconSize);
       layout->AddView(explanation);
     }
 
-    if (prompt->experiment()->should_show_expandable_permission_list() ||
-        (prompt->experiment()->show_details_link() &&
-         prompt->experiment()->should_show_inline_explanations() &&
+    if (prompt_->experiment()->should_show_expandable_permission_list() ||
+        (prompt_->experiment()->show_details_link() &&
+         prompt_->experiment()->should_show_inline_explanations() &&
          !inline_explanations_.empty())) {
       // Don't show the "Show details" link if there are retained
       // files.  These have their own "Show details" links and having
       // multiple levels of links is confusing.
-      if (prompt->GetRetainedFileCount() == 0) {
+      if (prompt_->GetRetainedFileCount() == 0) {
         int text_id =
-            prompt->experiment()->should_show_expandable_permission_list()
+            prompt_->experiment()->should_show_expandable_permission_list()
                 ? IDS_EXTENSION_PROMPT_EXPERIMENT_SHOW_PERMISSIONS
                 : IDS_EXTENSION_PROMPT_EXPERIMENT_SHOW_DETAILS;
         show_details_link_ = new views::Link(
@@ -776,7 +492,7 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
       }
     }
 
-    if (prompt->experiment()->show_checkboxes()) {
+    if (prompt_->experiment()->show_checkboxes()) {
       checkbox_info_label_ = new views::Label(
           l10n_util::GetStringUTF16(
               IDS_EXTENSION_PROMPT_EXPERIMENT_CHECKBOX_INFO));
@@ -799,9 +515,125 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
     dialog_size_ = gfx::Size(
         dialog_width, std::min(header_only_size.height(), kDialogMaxHeight));
   }
+
+  std::string event_name = ExperienceSamplingEvent::kExtensionInstallDialog;
+  event_name.append(
+      ExtensionInstallPrompt::PromptTypeToString(prompt_->type()));
+  sampling_event_ = ExperienceSamplingEvent::Create(event_name);
 }
 
-ExtensionInstallDialogView::~ExtensionInstallDialogView() {}
+bool ExtensionInstallDialogView::AddPermissions(
+    views::GridLayout* layout,
+    ui::ResourceBundle& rb,
+    int column_set_id,
+    int left_column_width,
+    ExtensionInstallPrompt::PermissionsType perm_type) {
+  if (prompt_->GetPermissionCount(perm_type) == 0)
+    return false;
+
+  layout->AddPaddingRow(0, views::kRelatedControlVerticalSpacing);
+  if (is_inline_install()) {
+    layout->StartRow(0, column_set_id);
+    layout->AddView(new views::Separator(views::Separator::HORIZONTAL),
+                    3,
+                    1,
+                    views::GridLayout::FILL,
+                    views::GridLayout::FILL);
+    layout->AddPaddingRow(0, views::kRelatedControlVerticalSpacing);
+  }
+
+  layout->StartRow(0, column_set_id);
+  views::Label* permissions_header = NULL;
+  if (is_bundle_install()) {
+    // We need to pass the FontList in the constructor, rather than calling
+    // SetFontList later, because otherwise SizeToFit mis-judges the width
+    // of the line.
+    permissions_header =
+        new views::Label(prompt_->GetPermissionsHeading(perm_type),
+                         rb.GetFontList(ui::ResourceBundle::MediumFont));
+  } else {
+    permissions_header =
+        new views::Label(prompt_->GetPermissionsHeading(perm_type));
+  }
+  permissions_header->SetMultiLine(true);
+  permissions_header->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+  permissions_header->SizeToFit(left_column_width);
+  layout->AddView(permissions_header);
+
+  for (size_t i = 0; i < prompt_->GetPermissionCount(perm_type); ++i) {
+    layout->AddPaddingRow(0, views::kRelatedControlVerticalSpacing);
+    layout->StartRow(0, column_set_id);
+    views::Label* permission_label =
+        new views::Label(prompt_->GetPermission(i, perm_type));
+
+    const SkColor kTextHighlight = SK_ColorRED;
+    const SkColor kBackgroundHighlight = SkColorSetRGB(0xFB, 0xF7, 0xA3);
+    if (prompt_->experiment()->ShouldHighlightText(
+            prompt_->GetPermission(i, perm_type))) {
+      permission_label->SetAutoColorReadabilityEnabled(false);
+      permission_label->SetEnabledColor(kTextHighlight);
+    } else if (prompt_->experiment()->ShouldHighlightBackground(
+                   prompt_->GetPermission(i, perm_type))) {
+      permission_label->SetLineHeight(18);
+      permission_label->set_background(
+          views::Background::CreateSolidBackground(kBackgroundHighlight));
+    }
+
+    permission_label->SetMultiLine(true);
+    permission_label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+
+    if (prompt_->experiment()->show_checkboxes()) {
+      permission_label->SizeToFit(left_column_width);
+      layout->AddView(new CheckboxedView(permission_label, this));
+      ++unchecked_boxes_;
+    } else {
+      permission_label->SizeToFit(left_column_width - kBulletWidth);
+      layout->AddView(new BulletedView(permission_label));
+    }
+
+    // If we have more details to provide, show them in collapsed form.
+    if (!prompt_->GetPermissionsDetails(i, perm_type).empty()) {
+      layout->StartRow(0, column_set_id);
+      PermissionDetails details;
+      details.push_back(PrepareForDisplay(
+          prompt_->GetPermissionsDetails(i, perm_type), false));
+      ExpandableContainerView* details_container =
+          new ExpandableContainerView(this,
+                                      base::string16(),
+                                      details,
+                                      left_column_width,
+                                      true,
+                                      true,
+                                      false);
+      layout->AddView(details_container);
+    }
+
+    if (prompt_->experiment()->should_show_inline_explanations()) {
+      base::string16 explanation = prompt_->experiment()->GetInlineExplanation(
+          prompt_->GetPermission(i, perm_type));
+      if (!explanation.empty()) {
+        PermissionDetails details;
+        details.push_back(explanation);
+        ExpandableContainerView* container =
+            new ExpandableContainerView(this,
+                                        base::string16(),
+                                        details,
+                                        left_column_width,
+                                        false,
+                                        false,
+                                        true);
+        // Inline explanations are expanded by default if there is
+        // no "Show details" link.
+        if (!prompt_->experiment()->show_details_link())
+          container->ExpandWithoutAnimation();
+        layout->StartRow(0, column_set_id);
+        layout->AddView(container);
+        inline_explanations_.push_back(container);
+      }
+    }
+  }
+  return true;
+}
 
 views::GridLayout* ExtensionInstallDialogView::CreateLayout(
     views::View* parent,
@@ -858,7 +690,8 @@ views::GridLayout* ExtensionInstallDialogView::CreateLayout(
         // Also span the rating, user_count and store_link rows.
         icon_row_span = 4;
       } else if (prompt_->ShouldShowPermissions()) {
-        size_t permission_count = prompt_->GetPermissionCount();
+        size_t permission_count = prompt_->GetPermissionCount(
+            ExtensionInstallPrompt::PermissionsType::ALL_PERMISSIONS);
         // Also span the permission header and each of the permission rows (all
         // have a padding row above it). This also works for the 'no special
         // permissions' case.
@@ -927,13 +760,24 @@ int ExtensionInstallDialogView::GetDefaultDialogButton() const {
 }
 
 bool ExtensionInstallDialogView::Cancel() {
+  if (handled_result_)
+    return true;
+
+  handled_result_ = true;
   UpdateInstallResultHistogram(false);
+  if (sampling_event_)
+    sampling_event_->CreateUserDecisionEvent(ExperienceSamplingEvent::kDeny);
   delegate_->InstallUIAbort(true);
   return true;
 }
 
 bool ExtensionInstallDialogView::Accept() {
+  DCHECK(!handled_result_);
+
+  handled_result_ = true;
   UpdateInstallResultHistogram(true);
+  if (sampling_event_)
+    sampling_event_->CreateUserDecisionEvent(ExperienceSamplingEvent::kProceed);
   delegate_->InstallUIProceed();
   return true;
 }
@@ -971,7 +815,7 @@ void ExtensionInstallDialogView::LinkClicked(views::Link* source,
                    prompt_->extension()->id());
     OpenURLParams params(
         store_url, Referrer(), NEW_FOREGROUND_TAB,
-        content::PAGE_TRANSITION_LINK,
+        ui::PAGE_TRANSITION_LINK,
         false);
     navigator_->OpenURL(params);
     GetWidget()->Close();
@@ -1062,12 +906,6 @@ void ExtensionInstallDialogView::UpdateLinkActionHistogram(int action_type)
         action_type,
         NUM_LINK_ACTIONS);
   }
-}
-
-// static
-ExtensionInstallPrompt::ShowDialogCallback
-ExtensionInstallPrompt::GetDefaultShowDialogCallback() {
-  return base::Bind(&ShowExtensionInstallDialogImpl);
 }
 
 // ExpandableContainerView::DetailsView ----------------------------------------
@@ -1282,4 +1120,10 @@ void ExpandableContainerView::ToggleDetailLevel() {
 void ExpandableContainerView::ExpandWithoutAnimation() {
   expanded_ = true;
   details_view_->AnimateToState(1.0);
+}
+
+// static
+ExtensionInstallPrompt::ShowDialogCallback
+ExtensionInstallPrompt::GetDefaultShowDialogCallback() {
+  return base::Bind(&ShowExtensionInstallDialogImpl);
 }

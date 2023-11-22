@@ -1,13 +1,16 @@
-#!/bin/bash
+#!/system/bin/sh
 
 TRACE=/sys/kernel/debug/tracing/
 dev=$(((8<<20) + 17)) # sdb1 (8,17)
 
-echo 1 > tracing_on
+echo 1 > $TRACE/tracing_on
+
+# mmc tracepoints
+echo 0 > $TRACE/events/mmc/enable
 
 # block tracepoints
-echo "dev == $dev" > $TRACE/events/block/block_rq_complete/filter
-echo 1 > $TRACE/events/block/block_rq_complete/enable
+#echo "dev == $dev" > $TRACE/events/block/block_rq_complete/filter
+echo 0 > $TRACE/events/block/block_rq_complete/enable
 echo 0 > $TRACE/events/block/block_bio_complete/enable
 
 # GC
@@ -41,9 +44,18 @@ echo $S > $TRACE/events/f2fs/f2fs_get_data_block/enable
 # IOs
 R=0
 W=0
-echo $W > $TRACE/events/f2fs/f2fs_submit_write_page/enable
-echo $W > $TRACE/events/f2fs/f2fs_do_submit_bio/enable
 echo $R > $TRACE/events/f2fs/f2fs_readpage/enable
+echo $W > $TRACE/events/f2fs/f2fs_writepage/enable
+echo $W > $TRACE/events/f2fs/f2fs_write_begin/enable
+echo $W > $TRACE/events/f2fs/f2fs_write_end/enable
+
+echo 0 > $TRACE/events/f2fs/f2fs_submit_page_bio/enable
+echo 0 > $TRACE/events/f2fs/f2fs_submit_page_mbio/enable
+echo $R > $TRACE/events/f2fs/f2fs_submit_read_bio/enable
+echo $W > $TRACE/events/f2fs/f2fs_submit_write_bio/enable
+
+echo 0 > $TRACE/events/f2fs/f2fs_issue_discard/enable
+echo 0 > $TRACE/events/f2fs/f2fs_issue_flush/enable
 
 # VFS interfaces
 V=0

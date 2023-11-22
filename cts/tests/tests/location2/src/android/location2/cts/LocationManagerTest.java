@@ -26,6 +26,7 @@ import android.content.pm.PackageManager;
 import android.location.Criteria;
 import android.location.GpsStatus;
 import android.location.GpsStatus.Listener;
+import android.location.GpsStatus.NmeaListener;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -227,18 +228,32 @@ public class LocationManagerTest extends InstrumentationTestCase {
     @UiThreadTest
     public void testGpsStatusListener() {
         try {
-            // .addGpsStatusListener returns true if the listener added successfully
-            if (mManager.addGpsStatusListener(new MockGpsStatusListener())) {
-                fail("Should have failed to add a gps status listener");
-            }
+            mManager.addGpsStatusListener(new MockGpsStatusListener());
+            fail("Should have failed to add a gps status listener");
         } catch (SecurityException e) {
             // expected
         }
 
         try {
-            if (mManager.addGpsStatusListener(null)) {
-                fail("Should have failed to add null as a gps status listener");
-            }
+            mManager.addGpsStatusListener(null);
+            fail("Should have failed to add null as a gps status listener");
+        } catch (SecurityException e) {
+            // expected
+        }
+    }
+
+    @UiThreadTest
+    public void testGpsStatusNmeaListener() {
+        try {
+            mManager.addNmeaListener(new MockGpsStatusNmeaListener());
+            fail("Should have failed to add a gps status nmea listener");
+        } catch (SecurityException e) {
+            // expected
+        }
+
+        try {
+            mManager.addNmeaListener(null);
+            fail("Should have failed to add null as a gps status nmea listener");
         } catch (SecurityException e) {
             // expected
         }
@@ -476,6 +491,22 @@ public class LocationManagerTest extends InstrumentationTestCase {
 
         public void onGpsStatusChanged(int event) {
             mHasCallOnGpsStatusChanged = true;
+        }
+    }
+
+    private static class MockGpsStatusNmeaListener implements NmeaListener {
+        private boolean mHasCallOnNmeaReceived;
+
+        public boolean hasCallOnNmeaReceived() {
+            return mHasCallOnNmeaReceived;
+        }
+
+        public void reset(){
+            mHasCallOnNmeaReceived = false;
+        }
+
+        public void onNmeaReceived(long timestamp, String nmea) {
+            mHasCallOnNmeaReceived = true;
         }
     }
 }

@@ -23,11 +23,9 @@
 #include "ash/shell_delegate.h"
 #include "ash/shell_window_ids.h"
 #include "ash/wm/window_properties.h"
-#include "grit/ash_resources.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_event_dispatcher.h"
 #include "ui/aura/window_observer.h"
-#include "ui/base/resource/resource_bundle.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image.h"
@@ -105,8 +103,7 @@ void Shelf::ActivateShelfItem(int index) {
   // next item if the current one is already active.
   ui::KeyEvent event(ui::ET_KEY_RELEASED,
                      ui::VKEY_UNKNOWN,  // The actual key gets ignored.
-                     ui::EF_NONE,
-                     false);
+                     ui::EF_NONE);
 
   const ShelfItem& item = shelf_view_->model()->items()[index];
   ShelfItemDelegate* item_delegate =

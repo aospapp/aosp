@@ -22,12 +22,12 @@
 #include "chrome/browser/undo/bookmark_undo_service_factory.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/bookmarks/browser/bookmark_client.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_utils.h"
 #include "content/public/browser/page_navigator.h"
 #include "content/public/browser/user_metrics.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
 using base::UserMetricsAction;
@@ -210,7 +210,7 @@ void BookmarkContextMenuController::ExecuteCommand(int id, int event_flags) {
 
       int index;
       const BookmarkNode* parent =
-          bookmark_utils::GetParentForNewNodes(parent_, selection_, &index);
+          bookmarks::GetParentForNewNodes(parent_, selection_, &index);
       GURL url;
       base::string16 title;
       chrome::GetURLAndTitleToBookmark(
@@ -230,7 +230,7 @@ void BookmarkContextMenuController::ExecuteCommand(int id, int event_flags) {
 
       int index;
       const BookmarkNode* parent =
-          bookmark_utils::GetParentForNewNodes(parent_, selection_, &index);
+          bookmarks::GetParentForNewNodes(parent_, selection_, &index);
       BookmarkEditor::Show(
           parent_window_,
           profile_,
@@ -246,16 +246,17 @@ void BookmarkContextMenuController::ExecuteCommand(int id, int event_flags) {
     case IDC_BOOKMARK_BAR_SHOW_APPS_SHORTCUT: {
       PrefService* prefs = profile_->GetPrefs();
       prefs->SetBoolean(
-          prefs::kShowAppsShortcutInBookmarkBar,
-          !prefs->GetBoolean(prefs::kShowAppsShortcutInBookmarkBar));
+          bookmarks::prefs::kShowAppsShortcutInBookmarkBar,
+          !prefs->GetBoolean(bookmarks::prefs::kShowAppsShortcutInBookmarkBar));
       break;
     }
 
     case IDC_BOOKMARK_BAR_SHOW_MANAGED_BOOKMARKS: {
       PrefService* prefs = profile_->GetPrefs();
       prefs->SetBoolean(
-          prefs::kShowManagedBookmarksInBookmarkBar,
-          !prefs->GetBoolean(prefs::kShowManagedBookmarksInBookmarkBar));
+          bookmarks::prefs::kShowManagedBookmarksInBookmarkBar,
+          !prefs->GetBoolean(
+              bookmarks::prefs::kShowManagedBookmarksInBookmarkBar));
       break;
     }
 
@@ -273,21 +274,21 @@ void BookmarkContextMenuController::ExecuteCommand(int id, int event_flags) {
     }
 
     case IDC_CUT:
-      bookmark_utils::CopyToClipboard(model_, selection_, true);
+      bookmarks::CopyToClipboard(model_, selection_, true);
       break;
 
     case IDC_COPY:
-      bookmark_utils::CopyToClipboard(model_, selection_, false);
+      bookmarks::CopyToClipboard(model_, selection_, false);
       break;
 
     case IDC_PASTE: {
       int index;
       const BookmarkNode* paste_target =
-          bookmark_utils::GetParentForNewNodes(parent_, selection_, &index);
+          bookmarks::GetParentForNewNodes(parent_, selection_, &index);
       if (!paste_target)
         return;
 
-      bookmark_utils::PasteFromClipboard(model_, paste_target, index);
+      bookmarks::PasteFromClipboard(model_, paste_target, index);
       break;
     }
 
@@ -330,12 +331,13 @@ base::string16 BookmarkContextMenuController::GetLabelForCommandId(
 bool BookmarkContextMenuController::IsCommandIdChecked(int command_id) const {
   PrefService* prefs = profile_->GetPrefs();
   if (command_id == IDC_BOOKMARK_BAR_ALWAYS_SHOW)
-    return prefs->GetBoolean(prefs::kShowBookmarkBar);
+    return prefs->GetBoolean(bookmarks::prefs::kShowBookmarkBar);
   if (command_id == IDC_BOOKMARK_BAR_SHOW_MANAGED_BOOKMARKS)
-    return prefs->GetBoolean(prefs::kShowManagedBookmarksInBookmarkBar);
+    return prefs->GetBoolean(
+        bookmarks::prefs::kShowManagedBookmarksInBookmarkBar);
 
   DCHECK_EQ(IDC_BOOKMARK_BAR_SHOW_APPS_SHORTCUT, command_id);
-  return prefs->GetBoolean(prefs::kShowAppsShortcutInBookmarkBar);
+  return prefs->GetBoolean(bookmarks::prefs::kShowAppsShortcutInBookmarkBar);
 }
 
 bool BookmarkContextMenuController::IsCommandIdEnabled(int command_id) const {
@@ -343,9 +345,8 @@ bool BookmarkContextMenuController::IsCommandIdEnabled(int command_id) const {
 
   bool is_root_node = selection_.size() == 1 &&
                       selection_[0]->parent() == model_->root_node();
-  bool can_edit =
-      prefs->GetBoolean(prefs::kEditBookmarksEnabled) &&
-      bookmark_utils::CanAllBeEditedByUser(model_->client(), selection_);
+  bool can_edit = prefs->GetBoolean(bookmarks::prefs::kEditBookmarksEnabled) &&
+                  bookmarks::CanAllBeEditedByUser(model_->client(), selection_);
   IncognitoModePrefs::Availability incognito_avail =
       IncognitoModePrefs::GetAvailability(prefs);
 
@@ -386,14 +387,14 @@ bool BookmarkContextMenuController::IsCommandIdEnabled(int command_id) const {
     case IDC_BOOKMARK_BAR_NEW_FOLDER:
     case IDC_BOOKMARK_BAR_ADD_NEW_BOOKMARK:
       return can_edit && model_->client()->CanBeEditedByUser(parent_) &&
-             bookmark_utils::GetParentForNewNodes(parent_, selection_, NULL) !=
-                 NULL;
+             bookmarks::GetParentForNewNodes(parent_, selection_, NULL) != NULL;
 
     case IDC_BOOKMARK_BAR_ALWAYS_SHOW:
-      return !prefs->IsManagedPreference(prefs::kShowBookmarkBar);
+      return !prefs->IsManagedPreference(bookmarks::prefs::kShowBookmarkBar);
 
     case IDC_BOOKMARK_BAR_SHOW_APPS_SHORTCUT:
-      return !prefs->IsManagedPreference(prefs::kShowAppsShortcutInBookmarkBar);
+      return !prefs->IsManagedPreference(
+          bookmarks::prefs::kShowAppsShortcutInBookmarkBar);
 
     case IDC_COPY:
     case IDC_CUT:
@@ -404,8 +405,8 @@ bool BookmarkContextMenuController::IsCommandIdEnabled(int command_id) const {
       // Paste to selection from the Bookmark Bar, to parent_ everywhere else
       return can_edit &&
              ((!selection_.empty() &&
-               bookmark_utils::CanPasteFromClipboard(model_, selection_[0])) ||
-              bookmark_utils::CanPasteFromClipboard(model_, parent_));
+               bookmarks::CanPasteFromClipboard(model_, selection_[0])) ||
+              bookmarks::CanPasteFromClipboard(model_, parent_));
   }
   return true;
 }

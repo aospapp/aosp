@@ -5,25 +5,30 @@
 #include <limits>
 
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
 #include "base/strings/string_util.h"
 #include "content/browser/webui/web_ui_controller_factory_registry.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui_controller.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "content/public/common/content_paths.h"
 #include "content/public/common/content_switches.h"
+#include "content/public/common/service_registry.h"
 #include "content/public/common/url_utils.h"
 #include "content/public/test/content_browser_test.h"
 #include "content/public/test/content_browser_test_utils.h"
+#include "content/shell/browser/shell.h"
 #include "content/test/data/web_ui_test_mojo_bindings.mojom.h"
-#include "grit/content_resources.h"
 #include "mojo/common/test/test_utils.h"
+#include "mojo/public/cpp/bindings/interface_impl.h"
+#include "mojo/public/cpp/bindings/interface_request.h"
 #include "mojo/public/js/bindings/constants.h"
 
 namespace content {
@@ -36,11 +41,13 @@ bool got_message = false;
 bool GetResource(const std::string& id,
                  const WebUIDataSource::GotDataCallback& callback) {
   // These are handled by the WebUIDataSource that AddMojoDataSource() creates.
-  if (id == mojo::kCodecModuleName ||
+  if (id == mojo::kBufferModuleName ||
+      id == mojo::kCodecModuleName ||
       id == mojo::kConnectionModuleName ||
       id == mojo::kConnectorModuleName ||
       id == mojo::kUnicodeModuleName ||
-      id == mojo::kRouterModuleName)
+      id == mojo::kRouterModuleName ||
+      id == mojo::kValidatorModuleName)
     return false;
 
   std::string contents;
@@ -53,24 +60,18 @@ bool GetResource(const std::string& id,
   return true;
 }
 
-class BrowserTargetImpl : public BrowserTarget {
+class BrowserTargetImpl : public mojo::InterfaceImpl<BrowserTarget> {
  public:
-  BrowserTargetImpl(mojo::ScopedMessagePipeHandle handle,
-                    base::RunLoop* run_loop)
-      : run_loop_(run_loop) {
-    renderer_.Bind(handle.Pass());
-    renderer_.set_client(this);
-  }
+  explicit BrowserTargetImpl(base::RunLoop* run_loop) : run_loop_(run_loop) {}
 
   virtual ~BrowserTargetImpl() {}
 
-  // BrowserTarget overrides:
+  // mojo::InterfaceImpl<BrowserTarget> overrides:
   virtual void PingResponse() OVERRIDE {
     NOTREACHED();
   }
 
  protected:
-  RendererTargetPtr renderer_;
   base::RunLoop* run_loop_;
 
  private:
@@ -79,15 +80,16 @@ class BrowserTargetImpl : public BrowserTarget {
 
 class PingBrowserTargetImpl : public BrowserTargetImpl {
  public:
-  PingBrowserTargetImpl(mojo::ScopedMessagePipeHandle handle,
-                        base::RunLoop* run_loop)
-      : BrowserTargetImpl(handle.Pass(), run_loop) {
-    renderer_->Ping();
-  }
+  explicit PingBrowserTargetImpl(base::RunLoop* run_loop)
+      : BrowserTargetImpl(run_loop) {}
 
   virtual ~PingBrowserTargetImpl() {}
 
-  // BrowserTarget overrides:
+  // mojo::InterfaceImpl<BrowserTarget> overrides:
+  virtual void OnConnectionEstablished() OVERRIDE {
+    client()->Ping();
+  }
+
   // Quit the RunLoop when called.
   virtual void PingResponse() OVERRIDE {
     got_message = true;
@@ -125,13 +127,18 @@ class PingTestWebUIController : public TestWebUIController {
    PingTestWebUIController(WebUI* web_ui, base::RunLoop* run_loop)
        : TestWebUIController(web_ui, run_loop) {
    }
+   virtual ~PingTestWebUIController() {}
 
   // WebUIController overrides:
   virtual void RenderViewCreated(RenderViewHost* render_view_host) OVERRIDE {
-    mojo::MessagePipe pipe;
-    browser_target_.reset(
-        new PingBrowserTargetImpl(pipe.handle0.Pass(), run_loop_));
-    render_view_host->SetWebUIHandle(pipe.handle1.Pass());
+    render_view_host->GetMainFrame()->GetServiceRegistry()->
+        AddService<BrowserTarget>(base::Bind(
+            &PingTestWebUIController::CreateHandler, base::Unretained(this)));
+  }
+
+  void CreateHandler(mojo::InterfaceRequest<BrowserTarget> request) {
+    browser_target_.reset(mojo::WeakBindToRequest(
+        new PingBrowserTargetImpl(run_loop_), &request));
   }
 
  private:
@@ -190,7 +197,13 @@ class WebUIMojoTest : public ContentBrowserTest {
 
 // Loads a webui page that contains mojo bindings and verifies a message makes
 // it from the browser to the page and back.
-IN_PROC_BROWSER_TEST_F(WebUIMojoTest, EndToEndPing) {
+// Fails on Win and Linux.  http://crbug.com/418019
+#if defined(OS_WIN) || defined(OS_LINUX)
+#define MAYBE_EndToEndPing DISABLED_EndToEndPing
+#else
+#define MAYBE_EndToEndPing EndToEndPing
+#endif
+IN_PROC_BROWSER_TEST_F(WebUIMojoTest, MAYBE_EndToEndPing) {
   // Currently there is no way to have a generated file included in the isolate
   // files. If the bindings file doesn't exist assume we're on such a bot and
   // pass.
@@ -212,6 +225,19 @@ IN_PROC_BROWSER_TEST_F(WebUIMojoTest, EndToEndPing) {
   // RunLoop is quit when message received from page.
   run_loop.Run();
   EXPECT_TRUE(got_message);
+
+  // Check that a second render frame in the same renderer process works
+  // correctly.
+  Shell* other_shell = CreateBrowser();
+  got_message = false;
+  base::RunLoop other_run_loop;
+  factory()->set_run_loop(&other_run_loop);
+  NavigateToURL(other_shell, test_url);
+  // RunLoop is quit when message received from page.
+  other_run_loop.Run();
+  EXPECT_TRUE(got_message);
+  EXPECT_EQ(shell()->web_contents()->GetRenderProcessHost(),
+            other_shell->web_contents()->GetRenderProcessHost());
 }
 
 }  // namespace

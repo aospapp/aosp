@@ -47,7 +47,6 @@
 #include "virtual.h"
 #include "overlayUtils.h"
 #include "overlay.h"
-#include "mdp_version.h"
 #include "qd_utils.h"
 
 using namespace android;
@@ -177,14 +176,14 @@ void VirtualDisplay::setAttributes() {
         uint32_t priW = mHwcContext->dpyAttr[HWC_DISPLAY_PRIMARY].xres;
         uint32_t priH = mHwcContext->dpyAttr[HWC_DISPLAY_PRIMARY].yres;
 
-        initResolution(extW, extH);
-
         // Dynamic Resolution Change depends on MDP downscaling.
         // MDP downscale property will be ignored to exercise DRC use case.
         // If DRC is in progress, ext WxH will have non-zero values.
-        bool isDRC = (extW > 0) && (extH > 0);
+        bool isDRC = (extW > mVInfo.xres) && (extH > mVInfo.yres);
 
-        if(!qdutils::MDPVersion::getInstance().is8x26()
+        initResolution(extW, extH);
+
+        if(mHwcContext->mOverlay->isUIScalingOnExternalSupported()
                 && (mHwcContext->mMDPDownscaleEnabled || isDRC)) {
 
             // maxArea represents the maximum resolution between
@@ -195,6 +194,13 @@ void VirtualDisplay::setAttributes() {
 
             setDownScaleMode(maxArea);
         }
+        //Initialize the display viewFrame info
+        mHwcContext->mViewFrame[HWC_DISPLAY_VIRTUAL].left = 0;
+        mHwcContext->mViewFrame[HWC_DISPLAY_VIRTUAL].top = 0;
+        mHwcContext->mViewFrame[HWC_DISPLAY_VIRTUAL].right =
+            (int)mHwcContext->dpyAttr[HWC_DISPLAY_VIRTUAL].xres;
+        mHwcContext->mViewFrame[HWC_DISPLAY_VIRTUAL].bottom =
+            (int)mHwcContext->dpyAttr[HWC_DISPLAY_VIRTUAL].yres;
         mHwcContext->dpyAttr[HWC_DISPLAY_VIRTUAL].vsync_period =
                 1000000000l /60;
         ALOGD_IF(DEBUG,"%s: Setting Virtual Attr: res(%d x %d)",__FUNCTION__,

@@ -20,10 +20,11 @@ import com.android.contacts.common.R;
 
 import android.content.res.Resources;
 import android.content.res.TypedArray;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.os.Trace;
 
 public class MaterialColorMapUtils {
-
     private final TypedArray sPrimaryColors;
     private final TypedArray sSecondaryColors;
 
@@ -34,13 +35,71 @@ public class MaterialColorMapUtils {
                 com.android.contacts.common.R.array.letter_tile_colors_dark);
     }
 
-    public static class MaterialPalette {
+    public static class MaterialPalette implements Parcelable {
         public MaterialPalette(int primaryColor, int secondaryColor) {
             mPrimaryColor = primaryColor;
             mSecondaryColor = secondaryColor;
         }
         public final int mPrimaryColor;
         public final int mSecondaryColor;
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null) {
+                return false;
+            }
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+            MaterialPalette other = (MaterialPalette) obj;
+            if (mPrimaryColor != other.mPrimaryColor) {
+                return false;
+            }
+            if (mSecondaryColor != other.mSecondaryColor) {
+                return false;
+            }
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + mPrimaryColor;
+            result = prime * result + mSecondaryColor;
+            return result;
+        }
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
+
+        @Override
+        public void writeToParcel(Parcel dest, int flags) {
+            dest.writeInt(mPrimaryColor);
+            dest.writeInt(mSecondaryColor);
+        }
+
+        private MaterialPalette(Parcel in) {
+            mPrimaryColor = in.readInt();
+            mSecondaryColor = in.readInt();
+        }
+
+        public static final Creator<MaterialPalette> CREATOR = new Creator<MaterialPalette>() {
+                @Override
+                public MaterialPalette createFromParcel(Parcel in) {
+                    return new MaterialPalette(in);
+                }
+
+                @Override
+                public MaterialPalette[] newArray(int size) {
+                    return new MaterialPalette[size];
+                }
+        };
     }
 
     /**

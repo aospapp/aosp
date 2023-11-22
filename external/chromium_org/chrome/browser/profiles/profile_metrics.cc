@@ -22,17 +22,6 @@ namespace {
 const int kMaximumReportedProfileCount = 5;
 const int kMaximumDaysOfDisuse = 4 * 7;  // Should be integral number of weeks.
 
-struct ProfileCounts {
-  size_t total;
-  size_t signedin;
-  size_t supervised;
-  size_t unused;
-  size_t gaia_icon;
-
-  ProfileCounts()
-      : total(0), signedin(0), supervised(0), unused(0), gaia_icon(0) {}
-};
-
 ProfileMetrics::ProfileType GetProfileType(
     const base::FilePath& profile_path) {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
@@ -53,35 +42,6 @@ void UpdateReportedOSProfileStatistics(int active, int signedin) {
 #if defined(OS_WIN)
   GoogleUpdateSettings::UpdateProfileCounts(active, signedin);
 #endif
-}
-
-bool CountProfileInformation(ProfileManager* manager, ProfileCounts* counts) {
-  const ProfileInfoCache& info_cache = manager->GetProfileInfoCache();
-  size_t number_of_profiles = info_cache.GetNumberOfProfiles();
-  counts->total = number_of_profiles;
-
-  // Ignore other metrics if we have no profiles, e.g. in Chrome Frame tests.
-  if (!number_of_profiles)
-    return false;
-
-  // Maximum age for "active" profile is 4 weeks.
-  base::Time oldest = base::Time::Now() -
-      base::TimeDelta::FromDays(kMaximumDaysOfDisuse);
-
-  for (size_t i = 0; i < number_of_profiles; ++i) {
-    if (info_cache.GetProfileActiveTimeAtIndex(i) < oldest) {
-      counts->unused++;
-    } else {
-      if (info_cache.ProfileIsSupervisedAtIndex(i))
-        counts->supervised++;
-      if (!info_cache.GetUserNameOfProfileAtIndex(i).empty()) {
-        counts->signedin++;
-        if (info_cache.IsUsingGAIAPictureOfProfileAtIndex(i))
-          counts->gaia_icon++;
-      }
-    }
-  }
-  return true;
 }
 
 void LogLockedProfileInformation(ProfileManager* manager) {
@@ -106,6 +66,18 @@ void LogLockedProfileInformation(ProfileManager* manager) {
                                   100);
     }
   }
+}
+
+bool HasProfileAtIndexBeenActiveSince(const ProfileInfoCache& info_cache,
+                                      int index,
+                                      const base::Time& active_limit) {
+#if !defined(OS_ANDROID) && !defined(OS_IOS)
+  // TODO(mlerman): iOS and Android should set an ActiveTime in the
+  // ProfileInfoCache. (see ProfileManager::OnBrowserSetLastActive)
+  if (info_cache.GetProfileActiveTimeAtIndex(index) < active_limit)
+    return false;
+#endif
+  return true;
 }
 
 }  // namespace
@@ -142,6 +114,37 @@ enum ProfileAvatar {
   AVATAR_GAIA,              // 28
   NUM_PROFILE_AVATAR_METRICS
 };
+
+bool ProfileMetrics::CountProfileInformation(ProfileManager* manager,
+                                             ProfileCounts* counts) {
+  const ProfileInfoCache& info_cache = manager->GetProfileInfoCache();
+  size_t number_of_profiles = info_cache.GetNumberOfProfiles();
+  counts->total = number_of_profiles;
+
+  // Ignore other metrics if we have no profiles, e.g. in Chrome Frame tests.
+  if (!number_of_profiles)
+    return false;
+
+  // Maximum age for "active" profile is 4 weeks.
+  base::Time oldest = base::Time::Now() -
+      base::TimeDelta::FromDays(kMaximumDaysOfDisuse);
+
+  for (size_t i = 0; i < number_of_profiles; ++i) {
+    if (!HasProfileAtIndexBeenActiveSince(info_cache, i, oldest)) {
+      counts->unused++;
+    } else {
+      if (info_cache.ProfileIsSupervisedAtIndex(i))
+        counts->supervised++;
+      if (!info_cache.GetUserNameOfProfileAtIndex(i).empty()) {
+        counts->signedin++;
+        if (info_cache.IsUsingGAIAPictureOfProfileAtIndex(i))
+          counts->gaia_icon++;
+      }
+    }
+  }
+  return true;
+}
+
 
 void ProfileMetrics::UpdateReportedProfilesStatistics(ProfileManager* manager) {
   ProfileCounts counts;
@@ -285,9 +288,11 @@ void ProfileMetrics::LogProfileAvatarSelection(size_t icon_index) {
                             NUM_PROFILE_AVATAR_METRICS);
 }
 
-void ProfileMetrics::LogProfileDeleteUser(ProfileNetUserCounts metric) {
-  DCHECK(metric < NUM_PROFILE_NET_METRICS);
-  UMA_HISTOGRAM_ENUMERATION("Profile.NetUserCount", metric,
+void ProfileMetrics::LogProfileDeleteUser(ProfileDelete metric) {
+  DCHECK(metric < NUM_DELETE_PROFILE_METRICS);
+  UMA_HISTOGRAM_ENUMERATION("Profile.DeleteProfileAction", metric,
+                            NUM_DELETE_PROFILE_METRICS);
+  UMA_HISTOGRAM_ENUMERATION("Profile.NetUserCount", PROFILE_DELETED,
                             NUM_PROFILE_NET_METRICS);
 }
 
@@ -322,12 +327,6 @@ void ProfileMetrics::LogProfileAuthResult(ProfileAuth metric) {
                             NUM_PROFILE_AUTH_METRICS);
 }
 
-void ProfileMetrics::LogProfileUpgradeEnrollment(
-    ProfileUpgradeEnrollment metric) {
-  UMA_HISTOGRAM_ENUMERATION("Profile.UpgradeEnrollment", metric,
-                            NUM_PROFILE_ENROLLMENT_METRICS);
-}
-
 void ProfileMetrics::LogProfileDesktopMenu(
     ProfileDesktopMenu metric,
     signin::GAIAServiceType gaia_service) {
@@ -355,6 +354,10 @@ void ProfileMetrics::LogProfileDesktopMenu(
       UMA_HISTOGRAM_ENUMERATION("Profile.DesktopMenu.GAIAReAuth", metric,
                                 NUM_PROFILE_DESKTOP_MENU_METRICS);
       break;
+    case signin::GAIA_SERVICE_TYPE_SIGNUP:
+      UMA_HISTOGRAM_ENUMERATION("Profile.DesktopMenu.GAIASignup", metric,
+                                NUM_PROFILE_DESKTOP_MENU_METRICS);
+      break;
     case signin::GAIA_SERVICE_TYPE_DEFAULT:
       UMA_HISTOGRAM_ENUMERATION("Profile.DesktopMenu.GAIADefault", metric,
                                 NUM_PROFILE_DESKTOP_MENU_METRICS);
@@ -364,6 +367,27 @@ void ProfileMetrics::LogProfileDesktopMenu(
 
 void ProfileMetrics::LogProfileDelete(bool profile_was_signed_in) {
   UMA_HISTOGRAM_BOOLEAN("Profile.Delete", profile_was_signed_in);
+}
+
+void ProfileMetrics::LogProfileNewAvatarMenuNotYou(
+    ProfileNewAvatarMenuNotYou metric) {
+  DCHECK_LT(metric, NUM_PROFILE_AVATAR_MENU_NOT_YOU_METRICS);
+  UMA_HISTOGRAM_ENUMERATION("Profile.NewAvatarMenu.NotYou", metric,
+                            NUM_PROFILE_AVATAR_MENU_NOT_YOU_METRICS);
+}
+
+void ProfileMetrics::LogProfileNewAvatarMenuSignin(
+    ProfileNewAvatarMenuSignin metric) {
+  DCHECK_LT(metric, NUM_PROFILE_AVATAR_MENU_SIGNIN_METRICS);
+  UMA_HISTOGRAM_ENUMERATION("Profile.NewAvatarMenu.Signin", metric,
+                            NUM_PROFILE_AVATAR_MENU_SIGNIN_METRICS);
+}
+
+void ProfileMetrics::LogProfileNewAvatarMenuUpgrade(
+    ProfileNewAvatarMenuUpgrade metric) {
+  DCHECK_LT(metric, NUM_PROFILE_AVATAR_MENU_UPGRADE_METRICS);
+  UMA_HISTOGRAM_ENUMERATION("Profile.NewAvatarMenu.Upgrade", metric,
+                            NUM_PROFILE_AVATAR_MENU_UPGRADE_METRICS);
 }
 
 #if defined(OS_ANDROID)
@@ -401,6 +425,12 @@ void ProfileMetrics::LogProfileAndroidAccountManagementMenu(
     case signin::GAIA_SERVICE_TYPE_REAUTH:
       UMA_HISTOGRAM_ENUMERATION(
           "Profile.AndroidAccountManagementMenu.GAIAReAuth",
+          metric,
+          NUM_PROFILE_ANDROID_ACCOUNT_MANAGEMENT_MENU_METRICS);
+      break;
+    case signin::GAIA_SERVICE_TYPE_SIGNUP:
+      UMA_HISTOGRAM_ENUMERATION(
+          "Profile.AndroidAccountManagementMenu.GAIASignup",
           metric,
           NUM_PROFILE_ANDROID_ACCOUNT_MANAGEMENT_MENU_METRICS);
       break;

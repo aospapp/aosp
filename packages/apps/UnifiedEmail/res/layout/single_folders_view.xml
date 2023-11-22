@@ -19,19 +19,25 @@
 
 <!-- Describes an individual toggleable folder entry to be displayed in a list of folders in
      a folder selection UI. -->
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/folders"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="@dimen/single_folder_list_item_height"
+    android:layout_gravity="center_vertical"
     android:minHeight="?android:attr/listPreferredItemHeight">
 
     <!-- Note: the checkbox is not focusable because the parent list item itself handles
          the toggling -->
+    <ImageView
+        android:id="@+id/folder_icon"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_gravity="center_vertical"
+        style="@style/SingleFolderListIconStyle" />
+
     <TextView android:id="@+id/folder_name"
-        style="@style/FolderSelectionItemStyle" />
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        style="@style/SingleFolderSelectionItemStyle" />
 
-    <View
-        android:id="@+id/color_block"
-        style="@style/FolderColorBoxStyle" />
-
-</FrameLayout>
+</LinearLayout>

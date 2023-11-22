@@ -29,11 +29,29 @@ TngGrallocBufferMapper::TngGrallocBufferMapper(IMG_gralloc_module_public_t& modu
       mBufferObject(0)
 {
     CTRACE();
+
+    const native_handle_t *h = (native_handle_t *)mHandle;
+
+    mClonedHandle = native_handle_create(h->numFds, h->numInts);
+    if (mClonedHandle == 0) {
+        ALOGE("%s:Failed to create handle, out of memory!");
+        return;
+    }
+    for (int i = 0; i < h->numFds; i++)
+    {
+        mClonedHandle->data[i] = (h->data[i] >= 0) ? dup(h->data[i]) : -1;
+    }
+    memcpy(mClonedHandle->data + h->numFds, h->data + h->numFds, h->numInts*sizeof(int));
 }
 
 TngGrallocBufferMapper::~TngGrallocBufferMapper()
 {
     CTRACE();
+
+    if (mClonedHandle == 0)
+       return;
+    native_handle_close(mClonedHandle);
+    native_handle_delete(mClonedHandle);
 }
 
 bool TngGrallocBufferMapper::gttMap(void *vaddr,
@@ -105,7 +123,7 @@ bool TngGrallocBufferMapper::map()
     CTRACE();
     // get virtual address
     err = mIMGGrallocModule.getCpuAddress(&mIMGGrallocModule,
-                                          (buffer_handle_t)getHandle(),
+                                          (buffer_handle_t)mClonedHandle,
                                           vaddr,
                                           size);
     if (err) {
@@ -144,7 +162,7 @@ bool TngGrallocBufferMapper::map()
     }
 
     err = mIMGGrallocModule.putCpuAddress(&mIMGGrallocModule,
-                                    (buffer_handle_t)getHandle());
+                                    (buffer_handle_t)mClonedHandle);
     return false;
 }
 
@@ -165,7 +183,7 @@ bool TngGrallocBufferMapper::unmap()
     }
 
     err = mIMGGrallocModule.putCpuAddress(&mIMGGrallocModule,
-                                    (buffer_handle_t)getHandle());
+                                    (buffer_handle_t)mClonedHandle);
     if (err) {
         ELOGTRACE("failed to unmap. err = %d", err);
     }
@@ -219,7 +237,7 @@ uint32_t TngGrallocBufferMapper::getFbHandle(int subIndex)
 
     // get virtual address
     err = mIMGGrallocModule.getCpuAddress(&mIMGGrallocModule,
-                                          (buffer_handle_t)getHandle(),
+                                          (buffer_handle_t)mClonedHandle,
                                           vaddr,
                                           size);
     if (err) {
@@ -233,7 +251,7 @@ uint32_t TngGrallocBufferMapper::getFbHandle(int subIndex)
 void TngGrallocBufferMapper::putFbHandle()
 {
     int err = mIMGGrallocModule.putCpuAddress(&mIMGGrallocModule,
-                                    (buffer_handle_t)getHandle());
+                                    (buffer_handle_t)mClonedHandle);
     if (err) {
         ELOGTRACE("failed to unmap. err = %d", err);
     }

@@ -22,6 +22,9 @@ import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.TestSensorEvent;
 
+import java.util.ArrayList;
+import java.util.Collection;
+
 /**
  * Tests for {@link MagnitudeVerification}.
  */
@@ -63,12 +66,14 @@ public class MagnitudeVerificationTest extends TestCase {
         assertEquals(magnitude, (Float) stats.getValue(SensorStats.MAGNITUDE_KEY), 0.01);
     }
 
-    private MagnitudeVerification getVerification(float expected, float threshold,
+    private static MagnitudeVerification getVerification(float expected, float threshold,
             float[] ... values) {
-        MagnitudeVerification verification = new MagnitudeVerification(expected, threshold);
+        Collection<TestSensorEvent> events = new ArrayList<>(values.length);
         for (float[] value : values) {
-            verification.addSensorEvent(new TestSensorEvent(null, 0, 0, value));
+            events.add(new TestSensorEvent(null, 0, 0, value));
         }
+        MagnitudeVerification verification = new MagnitudeVerification(expected, threshold);
+        verification.addSensorEvents(events);
         return verification;
     }
 }

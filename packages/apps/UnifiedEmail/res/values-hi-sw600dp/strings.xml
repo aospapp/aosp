@@ -21,5 +21,5 @@
     <string name="add_cc_label" msgid="5504248178750252553">"Cc/Bcc जोड़ें"</string>
     <string name="add_bcc_label" msgid="2464329024392383408">"Bcc जोड़ें"</string>
     <string name="menu_manage_folders" msgid="2575462565700103317">"फ़ोल्‍डर प्रबंधित करें"</string>
-    <string name="preferences_default_reply_all_summary" msgid="6407854387225415499">"संदेश नोटिफिकेशन के जवाबों के लिए डिफ़ॉल्ट के रूप में उपयोग करें"</string>
+    <string name="preferences_default_reply_all_summary" msgid="6407854387225415499">"संदेश सूचनाओं के जवाबों के लिए डिफ़ॉल्ट के रूप में उपयोग करें"</string>
 </resources>

@@ -86,6 +86,7 @@ class CONTENT_EXPORT VideoCaptureHost
   virtual void OnBufferReady(const VideoCaptureControllerID& id,
                              int buffer_id,
                              const media::VideoCaptureFormat& format,
+                             const gfx::Rect& visible_rect,
                              base::TimeTicks timestamp) OVERRIDE;
   virtual void OnMailboxBufferReady(const VideoCaptureControllerID& id,
                                     int buffer_id,
@@ -122,11 +123,13 @@ class CONTENT_EXPORT VideoCaptureHost
   // IPC message: Pause capture on device referenced by |device_id|.
   void OnPauseCapture(int device_id);
 
+  void OnResumeCapture(int device_id,
+                       media::VideoCaptureSessionId session_id,
+                       const media::VideoCaptureParams& params);
+
   // IPC message: Receive an empty buffer from renderer. Send it to device
   // referenced by |device_id|.
-  void OnReceiveEmptyBuffer(int device_id,
-                            int buffer_id,
-                            const std::vector<uint32>& sync_points);
+  void OnReceiveEmptyBuffer(int device_id, int buffer_id, uint32 sync_point);
 
   // IPC message: Get supported formats referenced by |capture_session_id|.
   // |device_id| is needed for message back-routing purposes.
@@ -157,6 +160,7 @@ class CONTENT_EXPORT VideoCaptureHost
       const VideoCaptureControllerID& controller_id,
       int buffer_id,
       const media::VideoCaptureFormat& format,
+      const gfx::Rect& visible_rect,
       base::TimeTicks timestamp);
 
   // Sends a filled texture mailbox buffer to the VideoCaptureMessageFilter.

@@ -82,6 +82,62 @@ public class ConnectionPool {
   private final ExecutorService executorService = new ThreadPoolExecutor(0, 1,
       60L, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(),
       Util.threadFactory("OkHttp ConnectionPool", true));
+
+  private enum CleanMode {
+    /**
+     * Connection clean up is driven by usage of the pool. Each usage of the pool can schedule a
+     * clean up. A pool left in this state and unused may contain idle connections indefinitely.
+     */
+    NORMAL,
+    /**
+     * Entered when a pool has been orphaned and is not expected to receive more usage, except for
+     * references held by existing connections. See {@link #enterDrainMode()}.
+     * A thread runs periodically to close idle connections in the pool until the pool is empty and
+     * then the state moves to {@link #DRAINED}.
+     */
+    DRAINING,
+    /**
+     * The pool is empty and no clean-up is taking place. Connections may still be added to the
+     * pool due to latent references to the pool, in which case the pool re-enters
+     * {@link #DRAINING}. If the pool is DRAINED and no longer referenced it is safe to be garbage
+     * collected.
+     */
+    DRAINED
+  }
+  /** The current mode for cleaning connections in the pool */
+  private CleanMode cleanMode = CleanMode.NORMAL;
+
+  // A scheduled drainModeRunnable keeps a reference to the enclosing ConnectionPool,
+  // preventing the ConnectionPool from being garbage collected before all held connections have
+  // been explicitly closed. If this was not the case any open connections in the pool would trigger
+  // StrictMode violations in Android when they were garbage collected. http://b/18369687
+  private final Runnable drainModeRunnable = new Runnable() {
+    @Override public void run() {
+      // Close any connections we can.
+      connectionsCleanupRunnable.run();
+
+      synchronized (ConnectionPool.this) {
+        // See whether we should continue checking the connection pool.
+        if (connections.size() > 0) {
+          // Pause to avoid checking too regularly, which would drain the battery on mobile
+          // devices. The wait() surrenders the pool monitor and will not block other calls.
+          try {
+            // Use the keep alive duration as a rough indicator of a good check interval.
+            long keepAliveDurationMillis = keepAliveDurationNs / (1000 * 1000);
+            ConnectionPool.this.wait(keepAliveDurationMillis);
+          } catch (InterruptedException e) {
+            // Ignored.
+          }
+
+          // Reschedule "this" to perform another clean-up.
+          executorService.execute(this);
+        } else {
+          cleanMode = CleanMode.DRAINED;
+        }
+      }
+    }
+  };
+
   private final Runnable connectionsCleanupRunnable = new Runnable() {
     @Override public void run() {
       List<Connection> expiredConnections = new ArrayList<Connection>(MAX_CONNECTIONS_TO_CLEANUP);
@@ -123,6 +179,7 @@ public class ConnectionPool {
   /**
    * Returns a snapshot of the connections in this pool, ordered from newest to
    * oldest. Waits for the cleanup callable to run if it is currently scheduled.
+   * Only use in tests.
    */
   List<Connection> getConnections() {
     waitForCleanupCallableToRun();
@@ -203,7 +260,7 @@ public class ConnectionPool {
       connections.addFirst(foundConnection); // Add it back after iteration.
     }
 
-    executorService.execute(connectionsCleanupRunnable);
+    scheduleCleanupAsRequired();
     return foundConnection;
   }
 
@@ -240,9 +297,9 @@ public class ConnectionPool {
       connections.addFirst(connection);
       connection.incrementRecycleCount();
       connection.resetIdleStartTime();
+      scheduleCleanupAsRequired();
     }
 
-    executorService.execute(connectionsCleanupRunnable);
   }
 
   /**
@@ -251,10 +308,10 @@ public class ConnectionPool {
    */
   public void share(Connection connection) {
     if (!connection.isSpdy()) throw new IllegalArgumentException();
-    executorService.execute(connectionsCleanupRunnable);
     if (connection.isAlive()) {
       synchronized (this) {
         connections.addFirst(connection);
+        scheduleCleanupAsRequired();
       }
     }
   }
@@ -269,6 +326,41 @@ public class ConnectionPool {
 
     for (int i = 0, size = connections.size(); i < size; i++) {
       Util.closeQuietly(connections.get(i));
+    }
+  }
+
+  /**
+   * A less abrupt way of draining the pool than {@link #evictAll()}. For use when the pool
+   * may still be referenced by active shared connections which cannot safely be closed.
+   */
+  public void enterDrainMode() {
+    synchronized(this) {
+      cleanMode = CleanMode.DRAINING;
+      executorService.execute(drainModeRunnable);
+    }
+  }
+
+  public boolean isDrained() {
+    synchronized(this) {
+      return cleanMode == CleanMode.DRAINED;
+    }
+  }
+
+  // Callers must synchronize on "this".
+  private void scheduleCleanupAsRequired() {
+    switch (cleanMode) {
+      case NORMAL:
+        executorService.execute(connectionsCleanupRunnable);
+        break;
+      case DRAINING:
+        // Do nothing -drainModeRunnable is already scheduled, and will reschedules itself as
+        // needed.
+        break;
+      case DRAINED:
+        // A new connection has potentially been offered up to a drained pool. Restart the drain.
+        cleanMode = CleanMode.DRAINING;
+        executorService.execute(drainModeRunnable);
+        break;
     }
   }
 }

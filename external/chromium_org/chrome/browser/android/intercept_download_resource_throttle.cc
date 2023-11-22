@@ -27,10 +27,6 @@ InterceptDownloadResourceThrottle::InterceptDownloadResourceThrottle(
 InterceptDownloadResourceThrottle::~InterceptDownloadResourceThrottle() {
 }
 
-void InterceptDownloadResourceThrottle::WillStartRequest(bool* defer) {
-  ProcessDownloadRequest();
-}
-
 void InterceptDownloadResourceThrottle::WillProcessResponse(bool* defer) {
   ProcessDownloadRequest();
 }
@@ -40,7 +36,18 @@ const char* InterceptDownloadResourceThrottle::GetNameForLogging() const {
 }
 
 void InterceptDownloadResourceThrottle::ProcessDownloadRequest() {
+  if (request_->url_chain().empty())
+    return;
+
+  GURL url = request_->url_chain().back();
+  if (!url.SchemeIsHTTPOrHTTPS())
+    return;
+
   if (request_->method() != net::HttpRequestHeaders::kGetMethod)
+    return;
+
+  net::HttpRequestHeaders headers;
+  if (!request_->GetFullRequestHeaders(&headers))
     return;
 
   // In general, if the request uses HTTP authorization, either with the origin
@@ -48,26 +55,13 @@ void InterceptDownloadResourceThrottle::ProcessDownloadRequest() {
   // exception is a request that is fetched via the Chrome Proxy and does not
   // authenticate with the origin.
   if (request_->response_info().did_use_http_auth) {
-#if defined(SPDY_PROXY_AUTH_ORIGIN)
-    net::HttpRequestHeaders headers;
-    request_->GetFullRequestHeaders(&headers);
     if (headers.HasHeader(net::HttpRequestHeaders::kAuthorization) ||
         !(request_->response_info().headers &&
             data_reduction_proxy::HasDataReductionProxyViaHeader(
-                request_->response_info().headers))) {
+                request_->response_info().headers, NULL))) {
       return;
     }
-#else
-    return;
-#endif
   }
-
-  if (request_->url_chain().empty())
-    return;
-
-  GURL url = request_->url_chain().back();
-  if (!url.SchemeIsHTTPOrHTTPS())
-    return;
 
   content::DownloadControllerAndroid::Get()->CreateGETDownload(
       render_process_id_, render_view_id_, request_id_);

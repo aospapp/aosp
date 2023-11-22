@@ -35,7 +35,7 @@ import java.util.List;
 public class AccessibilityNodeInfoTest extends AndroidTestCase {
 
     /** The number of properties of the {@link AccessibilityNodeInfo} class. */
-    private static final int NON_STATIC_FIELD_COUNT = 28;
+    private static final int NON_STATIC_FIELD_COUNT = 30;
 
     @SmallTest
     public void testMarshaling() throws Exception {
@@ -54,7 +54,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         AccessibilityNodeInfo receivedInfo = AccessibilityNodeInfo.CREATOR.createFromParcel(parcel);
 
         // make sure all fields properly marshaled
-        assertEqualsAccessiblityNodeInfo(sentInfo, receivedInfo);
+        assertEqualsAccessibilityNodeInfo(sentInfo, receivedInfo);
     }
 
     /**
@@ -204,7 +204,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
      * <code>receviedInfo</code> to verify that the received node info is
      * the one that is expected.
      */
-    public static void assertEqualsAccessiblityNodeInfo(AccessibilityNodeInfo expectedInfo,
+    public static void assertEqualsAccessibilityNodeInfo(AccessibilityNodeInfo expectedInfo,
             AccessibilityNodeInfo receivedInfo) {
         Rect expectedBounds = new Rect();
         Rect receivedBounds = new Rect();

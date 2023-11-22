@@ -75,8 +75,7 @@ class BitmapFetcherServiceTest : public testing::Test,
 
     // Create a non-empty bitmap.
     SkBitmap image;
-    image.setConfig(SkBitmap::kARGB_8888_Config, 2, 2);
-    image.allocPixels();
+    image.allocN32Pixels(2, 2);
     image.eraseColor(SK_ColorGREEN);
 
     const_cast<chrome::BitmapFetcher*>(fetcher)->OnImageDecoded(NULL, image);
@@ -101,6 +100,17 @@ class BitmapFetcherServiceTest : public testing::Test,
  private:
   TestingProfile profile_;
 };
+
+TEST_F(BitmapFetcherServiceTest, RequestInvalidUrl) {
+  const BitmapFetcherService::RequestId invalid_request_id =
+      BitmapFetcherService::REQUEST_ID_INVALID;
+  GURL invalid_url;
+  ASSERT_FALSE(invalid_url.is_valid());
+
+  BitmapFetcherService::RequestId request_id =
+      service_->RequestImage(invalid_url, new TestObserver(this));
+  EXPECT_EQ(invalid_request_id, request_id);
+}
 
 TEST_F(BitmapFetcherServiceTest, CancelInvalidRequest) {
   service_->CancelRequest(BitmapFetcherService::REQUEST_ID_INVALID);

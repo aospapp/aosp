@@ -24,10 +24,18 @@ struct ASH_EXPORT DisplayMode {
               bool interlaced,
               bool native);
 
+  // Returns the size in DIP which isvisible to the user.
+  gfx::Size GetSizeInDIP() const;
+
+  // Returns true if |other| has same size and scale factors.
+  bool IsEquivalent(const DisplayMode& other) const;
+
   gfx::Size size;      // Physical pixel size of the display.
   float refresh_rate;  // Refresh rate of the display, in Hz.
   bool interlaced;     // True if mode is interlaced.
   bool native;         // True if mode is native mode of the display.
+  float ui_scale;      // The UI scale factor of the mode.
+  float device_scale_factor;  // The device scale factor of the mode.
 };
 
 // DisplayInfo contains metadata for each display. This is used to
@@ -81,10 +89,10 @@ class ASH_EXPORT DisplayInfo {
   DisplayInfo(int64 id, const std::string& name, bool has_overscan);
   ~DisplayInfo();
 
-  // When this is set to true, Chrome switches High DPI when lower UI scale
-  // (<1.0f) is specified on 1x device to make UI sharp, e.g, upgrade 0.6
-  // scale on 1x DSF to 1.2 scale on 2x DSF.
-  static void SetAllowUpgradeToHighDPI(bool enable);
+  // When this is set to true on the device whose internal display has
+  // 1.25 dsf, Chrome uses 1.0f as a default scale factor, and uses
+  // dsf 1.25 when UI scaling is set to 0.8f.
+  static void SetUse125DSFForUIScaling(bool enable);
 
   int64 id() const { return id_; }
 
@@ -135,10 +143,12 @@ class ASH_EXPORT DisplayInfo {
   // display that chrome sees. This can be different from one obtained
   // from dispaly or one specified by a user in following situation.
   // 1) DSF is 2.0f and UI scale is 2.0f. (Returns 1.0f and 1.0f respectiely)
-  // 2) Lower UI scale (< 1.0) is specified on 1.0f DSF device
-  // when 2x resources is available. (Returns 2.0f DSF + 1.2f UI scale
-  // for 1.0DSF + 0.6 UI scale).
+  // 2) A user specified 0.8x on the device that has 1.25 DSF. 1.25 DSF device
+  //    uses 1.0f DFS unless 0.8x UI scaling is specified.
   float GetEffectiveDeviceScaleFactor() const;
+
+  // Returns the ui scale used for the device scale factor. This
+  // return 1.0f if the ui scale and dsf are both set to 2.0.
   float GetEffectiveUIScale() const;
 
   // Copy the display info except for fields that can be modified by a
@@ -168,6 +178,10 @@ class ASH_EXPORT DisplayInfo {
     display_modes_.swap(display_modes);
   }
 
+  // Returns the native mode size. If a native mode is not present, return an
+  // empty size.
+  gfx::Size GetNativeModeSize() const;
+
   ui::ColorCalibrationProfile color_profile() const {
     return color_profile_;
   }
@@ -187,6 +201,14 @@ class ASH_EXPORT DisplayInfo {
   void set_available_color_profiles(
       const std::vector<ui::ColorCalibrationProfile>& profiles) {
     available_color_profiles_ = profiles;
+  }
+
+  bool is_aspect_preserving_scaling() const {
+    return is_aspect_preserving_scaling_;
+  }
+
+  void set_is_aspect_preserving_scaling(bool value) {
+    is_aspect_preserving_scaling_ = value;
   }
 
   // Returns a string representation of the DisplayInfo, excluding display
@@ -231,6 +253,11 @@ class ASH_EXPORT DisplayInfo {
 
   // True if this comes from native platform (DisplayChangeObserver).
   bool native_;
+
+  // True if the display is configured to preserve the aspect ratio. When the
+  // display is configured in a non-native mode, only parts of the display will
+  // be used such that the aspect ratio is preserved.
+  bool is_aspect_preserving_scaling_;
 
   // The list of modes supported by this display.
   std::vector<DisplayMode> display_modes_;

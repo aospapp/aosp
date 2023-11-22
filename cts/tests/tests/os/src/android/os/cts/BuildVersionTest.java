@@ -29,7 +29,7 @@ public class BuildVersionTest extends TestCase {
 
     private static final String LOG_TAG = "BuildVersionTest";
     private static final Set<String> EXPECTED_RELEASES =
-            new HashSet<String>(Arrays.asList("5.0", "5.0.1", "5.0.2"));
+            new HashSet<String>(Arrays.asList("5.0.1", "5.0.2"));
     private static final int EXPECTED_SDK = 21;
     private static final String EXPECTED_BUILD_VARIANT = "user";
     private static final String EXPECTED_TAG = "release-keys";

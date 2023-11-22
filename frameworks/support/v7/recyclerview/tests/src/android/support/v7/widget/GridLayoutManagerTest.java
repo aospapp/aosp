@@ -82,6 +82,51 @@ public class GridLayoutManagerTest extends BaseRecyclerViewInstrumentationTest {
         mGlm.waitForLayout(2);
     }
 
+    public void testCustomWidthInHorizontal() throws Throwable {
+        customSizeInScrollDirectionTest(new Config(3, HORIZONTAL, false));
+    }
+
+    public void testCustomHeightInVertical() throws Throwable {
+        customSizeInScrollDirectionTest(new Config(3, VERTICAL, false));
+    }
+
+    public void customSizeInScrollDirectionTest(final Config config) throws Throwable {
+        final int[] sizePerPosition = new int[]{3, 5, 9, 21, 3, 5, 9, 6, 9, 1};
+        final int[] expectedSizePerPosition = new int[]{9, 9, 9, 21, 3, 5, 9, 9, 9, 1};
+        final GridTestAdapter testAdapter = new GridTestAdapter(10) {
+            @Override
+            public void onBindViewHolder(TestViewHolder holder,
+                    int position) {
+                super.onBindViewHolder(holder, position);
+                ViewGroup.LayoutParams layoutParams = holder.itemView.getLayoutParams();
+                if (layoutParams == null) {
+                    layoutParams = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT);
+                    holder.itemView.setLayoutParams(layoutParams);
+                }
+                final int size = sizePerPosition[position];
+                if (config.mOrientation == HORIZONTAL) {
+                    layoutParams.width = size;
+                } else {
+                    layoutParams.height = size;
+                }
+            }
+        };
+        testAdapter.setFullSpan(3, 5);
+        final RecyclerView rv = setupBasic(config, testAdapter);
+        waitForFirstLayout(rv);
+
+        assertTrue("[test sanity] some views should be laid out", mRecyclerView.getChildCount() > 0);
+        for (int i = 0; i < mRecyclerView.getChildCount(); i++) {
+            View child = mRecyclerView.getChildAt(i);
+            final int size = config.mOrientation == HORIZONTAL ? child.getWidth()
+                    : child.getHeight();
+            assertEquals("child " + i + " should have the size specified in its layout params",
+                    expectedSizePerPosition[i], size);
+        }
+        checkForMainThreadException();
+    }
+
     public void testLayoutParams() throws Throwable {
         layoutParamsTest(GridLayoutManager.HORIZONTAL);
         removeRecyclerView();
@@ -103,7 +148,7 @@ public class GridLayoutManagerTest extends BaseRecyclerViewInstrumentationTest {
                 .getCompatAccessibilityDelegate().getItemDelegate();
         final AccessibilityNodeInfoCompat info = AccessibilityNodeInfoCompat.obtain();
         final View chosen = recyclerView.getChildAt(recyclerView.getChildCount() - 2);
-        final int position = recyclerView.getChildPosition(chosen);
+        final int position = recyclerView.getChildLayoutPosition(chosen);
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -178,17 +223,23 @@ public class GridLayoutManagerTest extends BaseRecyclerViewInstrumentationTest {
         waitForFirstLayout(rv);
         final OrientationHelper helper = mGlm.mOrientationHelper;
         final int firstRowSize = Math.max(30, getSize(mGlm.findViewByPosition(2)));
-        assertEquals(firstRowSize, helper.getDecoratedMeasurement(mGlm.findViewByPosition(0)));
-        assertEquals(firstRowSize, helper.getDecoratedMeasurement(mGlm.findViewByPosition(1)));
-        assertEquals(firstRowSize, helper.getDecoratedMeasurement(mGlm.findViewByPosition(2)));
+        assertEquals(firstRowSize,
+                helper.getDecoratedMeasurement(mGlm.findViewByPosition(0)));
+        assertEquals(firstRowSize,
+                helper.getDecoratedMeasurement(mGlm.findViewByPosition(1)));
+        assertEquals(firstRowSize,
+                helper.getDecoratedMeasurement(mGlm.findViewByPosition(2)));
         assertEquals(firstRowSize, getSize(mGlm.findViewByPosition(0)));
         assertEquals(firstRowSize, getSize(mGlm.findViewByPosition(1)));
         assertEquals(firstRowSize, getSize(mGlm.findViewByPosition(2)));
 
         final int secondRowSize = Math.max(200, getSize(mGlm.findViewByPosition(3)));
-        assertEquals(secondRowSize, helper.getDecoratedMeasurement(mGlm.findViewByPosition(3)));
-        assertEquals(secondRowSize, helper.getDecoratedMeasurement(mGlm.findViewByPosition(4)));
-        assertEquals(secondRowSize, helper.getDecoratedMeasurement(mGlm.findViewByPosition(5)));
+        assertEquals(secondRowSize,
+                helper.getDecoratedMeasurement(mGlm.findViewByPosition(3)));
+        assertEquals(secondRowSize,
+                helper.getDecoratedMeasurement(mGlm.findViewByPosition(4)));
+        assertEquals(secondRowSize,
+                helper.getDecoratedMeasurement(mGlm.findViewByPosition(5)));
         assertEquals(secondRowSize, getSize(mGlm.findViewByPosition(3)));
         assertEquals(secondRowSize, getSize(mGlm.findViewByPosition(4)));
         assertEquals(secondRowSize, getSize(mGlm.findViewByPosition(5)));
@@ -456,7 +507,7 @@ public class GridLayoutManagerTest extends BaseRecyclerViewInstrumentationTest {
                 while (visited < mAdapter.getItemCount()) {
                     for (int i = 0; i < mRecyclerView.getChildCount(); i++) {
                         View child = mRecyclerView.getChildAt(i);
-                        final int pos = mRecyclerView.getChildPosition(child);
+                        final int pos = mRecyclerView.getChildLayoutPosition(child);
                         if (globalPositions[pos] != Integer.MIN_VALUE) {
                             continue;
                         }
@@ -503,7 +554,7 @@ public class GridLayoutManagerTest extends BaseRecyclerViewInstrumentationTest {
                 while (!shouldTest.isEmpty() && scrollAmount != 0) {
                     for (int i = 0; i < mRecyclerView.getChildCount(); i++) {
                         View child = mRecyclerView.getChildAt(i);
-                        int pos = mRecyclerView.getChildPosition(child);
+                        int pos = mRecyclerView.getChildLayoutPosition(child);
                         if (!shouldTest.get(pos)) {
                             continue;
                         }

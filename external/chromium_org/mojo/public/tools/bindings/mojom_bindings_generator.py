@@ -56,6 +56,9 @@ def LoadGenerators(generators_string):
     elif generator_name.lower() == "java":
       generator_name = os.path.join(script_dir, "generators",
                                     "mojom_java_generator.py")
+    elif generator_name.lower() == "python":
+      generator_name = os.path.join(script_dir, "generators",
+                                    "mojom_python_generator.py")
     # Specified generator python module:
     elif generator_name.endswith(".py"):
       pass
@@ -74,6 +77,14 @@ def MakeImportStackMessage(imported_filename_stack):
   return ''.join(
       reversed(["\n  %s was imported by %s" % (a, b) for (a, b) in \
                     zip(imported_filename_stack[1:], imported_filename_stack)]))
+
+
+def FindImportFile(dir_name, file_name, search_dirs):
+  for search_dir in [dir_name] + search_dirs:
+    path = os.path.join(search_dir, file_name)
+    if os.path.isfile(path):
+      return path
+  return os.path.join(dir_name, file_name)
 
 
 # Disable check for dangerous default arguments (they're "private" keyword
@@ -117,7 +128,9 @@ def ProcessFile(args, remaining_args, generator_modules, filename,
   # Process all our imports first and collect the module object for each.
   # We use these to generate proper type info.
   for import_data in mojom['imports']:
-    import_filename = os.path.join(dirname, import_data['filename'])
+    import_filename = FindImportFile(dirname,
+                                     import_data['filename'],
+                                     args.import_directories)
     import_data['module'] = ProcessFile(
         args, remaining_args, generator_modules, import_filename,
         _processed_files=_processed_files,
@@ -156,10 +169,14 @@ def main():
   parser.add_argument("-o", "--output_dir", dest="output_dir", default=".",
                       help="output directory for generated files")
   parser.add_argument("-g", "--generators", dest="generators_string",
-                      metavar="GENERATORS", default="c++,javascript,java",
+                      metavar="GENERATORS",
+                      default="c++,javascript,java,python",
                       help="comma-separated list of generators")
   parser.add_argument("--debug_print_intermediate", action="store_true",
                       help="print the intermediate representation")
+  parser.add_argument("-I", dest="import_directories", action="append",
+                      metavar="directory", default=[],
+                      help="add a directory to be searched for import files")
   parser.add_argument("--use_chromium_bundled_pylibs", action="store_true",
                       help="use Python modules bundled in the Chromium source")
   (args, remaining_args) = parser.parse_known_args()

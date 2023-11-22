@@ -212,7 +212,8 @@ void GpuVideoDecodeAccelerator::PictureReady(
   if (!Send(new AcceleratedVideoDecoderHostMsg_PictureReady(
           host_route_id_,
           picture.picture_buffer_id(),
-          picture.bitstream_buffer_id()))) {
+          picture.bitstream_buffer_id(),
+          picture.visible_rect()))) {
     DLOG(ERROR) << "Send(AcceleratedVideoDecoderHostMsg_PictureReady) failed";
   }
 }
@@ -370,11 +371,12 @@ void GpuVideoDecodeAccelerator::OnAssignPictureBuffers(
       NotifyError(media::VideoDecodeAccelerator::INVALID_ARGUMENT);
       return;
     }
-    if (texture_target_ == GL_TEXTURE_EXTERNAL_OES) {
-      // GL_TEXTURE_EXTERNAL_OES textures have their dimensions defined by the
-      // underlying EGLImage.  Use |texture_dimensions_| for this size.
+    if (texture_target_ == GL_TEXTURE_EXTERNAL_OES ||
+        texture_target_ == GL_TEXTURE_RECTANGLE) {
+      // These textures have their dimensions defined by the underlying storage.
+      // Use |texture_dimensions_| for this size.
       texture_manager->SetLevelInfo(texture_ref,
-                                    GL_TEXTURE_EXTERNAL_OES,
+                                    texture_target_,
                                     0,
                                     0,
                                     texture_dimensions_.width(),
@@ -494,7 +496,7 @@ void GpuVideoDecodeAccelerator::SetTextureCleared(
   gpu::gles2::TextureManager* texture_manager =
       stub_->decoder()->GetContextGroup()->texture_manager();
   DCHECK(!texture_ref->texture()->IsLevelCleared(target, 0));
-  texture_manager->SetLevelCleared(texture_ref, target, 0, true);
+  texture_manager->SetLevelCleared(texture_ref.get(), target, 0, true);
   uncleared_textures_.erase(it);
 }
 

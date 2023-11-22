@@ -22,8 +22,9 @@
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/credit_card.h"
 #include "components/autofill/core/browser/form_structure.h"
-#include "third_party/libaddressinput/chromium/cpp/include/libaddressinput/address_data.h"
-#include "third_party/libaddressinput/chromium/cpp/include/libaddressinput/address_ui.h"
+#include "third_party/libaddressinput/src/cpp/include/libaddressinput/address_data.h"
+#include "third_party/libaddressinput/src/cpp/include/libaddressinput/address_field.h"
+#include "third_party/libaddressinput/src/cpp/include/libaddressinput/address_formatter.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image.h"
 
@@ -60,8 +61,14 @@ bool DataModelWrapper::GetDisplayText(
       i18n::CreateAddressData(
           base::Bind(&DataModelWrapper::GetInfo, base::Unretained(this)));
   address_data->language_code = GetLanguageCode();
+  // Interactive autofill dialog does not display organization field.
+  address_data->organization.clear();
   std::vector<std::string> lines;
-  address_data->FormatForDisplay(&lines);
+  ::i18n::addressinput::GetFormattedNationalAddress(*address_data, &lines);
+
+  std::string single_line;
+  ::i18n::addressinput::GetFormattedNationalAddressLine(
+       *address_data, &single_line);
 
   // Email and phone number aren't part of address formatting.
   base::string16 non_address_info;
@@ -71,12 +78,7 @@ bool DataModelWrapper::GetDisplayText(
 
   non_address_info += base::ASCIIToUTF16("\n") + phone;
 
-  // The separator is locale-specific.
-  std::string compact_separator =
-      ::i18n::addressinput::GetCompactAddressLinesSeparator(GetLanguageCode());
-  *vertically_compact =
-      base::UTF8ToUTF16(JoinString(lines, compact_separator)) +
-          non_address_info;
+  *vertically_compact = base::UTF8ToUTF16(single_line) + non_address_info;
   *horizontally_compact = base::UTF8ToUTF16(JoinString(lines, "\n")) +
       non_address_info;
 
@@ -91,6 +93,7 @@ bool DataModelWrapper::FillFormStructure(
       types,
       compare,
       base::Bind(&DataModelWrapper::GetInfo, base::Unretained(this)),
+      GetLanguageCode(),
       g_browser_process->GetApplicationLocale());
 }
 
@@ -137,7 +140,7 @@ base::string16 AutofillProfileWrapper::GetInfoForDisplay(
     // If there is no user-defined formatting at all, add some standard
     // formatting.
     if (base::ContainsOnlyChars(phone_number,
-                                base::ASCIIToUTF16("0123456789"))) {
+                                base::ASCIIToUTF16("+0123456789"))) {
       std::string region = base::UTF16ToASCII(
           GetInfo(AutofillType(HTML_TYPE_COUNTRY_CODE, HTML_MODE_NONE)));
       i18n::PhoneObject phone(phone_number, region);
@@ -381,14 +384,14 @@ I18nAddressDataWrapper::~I18nAddressDataWrapper() {}
 
 base::string16 I18nAddressDataWrapper::GetInfo(const AutofillType& type) const {
   ::i18n::addressinput::AddressField field;
-  if (!i18ninput::FieldForType(type.GetStorableType(), &field))
+  if (!i18n::FieldForType(type.GetStorableType(), &field))
     return base::string16();
 
   if (field == ::i18n::addressinput::STREET_ADDRESS)
     return base::string16();
 
   if (field == ::i18n::addressinput::COUNTRY) {
-    return AutofillCountry(address_->country_code,
+    return AutofillCountry(address_->region_code,
                            g_browser_process->GetApplicationLocale()).name();
   }
 

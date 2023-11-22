@@ -9,7 +9,6 @@
 #include "base/command_line.h"
 #include "base/memory/ref_counted.h"
 #include "base/strings/stringprintf.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/chromeos/extensions/input_method_event_router.h"
 #include "chrome/browser/chromeos/input_method/input_method_util.h"
 #include "chromeos/ime/extension_ime_util.h"
@@ -19,6 +18,7 @@
 #include "content/public/browser/notification_service.h"
 #include "extensions/common/switches.h"
 #include "extensions/browser/api/test/test_api.h"
+#include "extensions/browser/notification_types.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace {
@@ -30,8 +30,9 @@ const char kBackgroundReady[] = "ready";
 // Class that listens for the JS message.
 class TestListener : public content::NotificationObserver {
  public:
-  explicit TestListener() {
-    registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_TEST_MESSAGE,
+  TestListener() {
+    registrar_.Add(this,
+                   extensions::NOTIFICATION_EXTENSION_TEST_MESSAGE,
                    content::NotificationService::AllSources());
   }
 
@@ -53,7 +54,8 @@ class TestListener : public content::NotificationObserver {
       keyboard_layouts.push_back(
           chromeos::extension_ime_util::GetInputMethodIDByEngineID(
               kInitialInputMethodOnLoginScreen));
-      manager->EnableLoginLayouts(kLoginScreenUILanguage, keyboard_layouts);
+      manager->GetActiveIMEState()->EnableLoginLayouts(kLoginScreenUILanguage,
+                                                       keyboard_layouts);
     }
   }
 

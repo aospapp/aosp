@@ -15,6 +15,7 @@
  */
 package android.media.cts;
 
+import android.media.AudioManager;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
@@ -40,7 +41,7 @@ import java.util.UUID;
  * {@link MediaDrm} can be used to obtain keys for decrypting protected media streams,
  * in conjunction with MediaCrypto.
  */
-public class MediaCodecCencPlayer {
+public class MediaCodecCencPlayer implements MediaTimeProvider {
     private static final String TAG = MediaCodecCencPlayer.class.getSimpleName();
 
     private static final int STATE_IDLE = 1;
@@ -300,10 +301,14 @@ public class MediaCodecCencPlayer {
 
         CodecState state;
         if (isVideo) {
-            state = new CodecState(this, mVideoExtractor, trackIndex, format, codec, true);
+            state = new CodecState((MediaTimeProvider)this, mVideoExtractor,
+                            trackIndex, format, codec, true, false, 
+                            AudioManager.AUDIO_SESSION_ID_GENERATE);
             mVideoCodecStates.put(Integer.valueOf(trackIndex), state);
         } else {
-            state = new CodecState(this, mAudioExtractor, trackIndex, format, codec, true);
+            state = new CodecState((MediaTimeProvider)this, mAudioExtractor,
+                            trackIndex, format, codec, true, false,
+                            AudioManager.AUDIO_SESSION_ID_GENERATE);
             mAudioCodecStates.put(Integer.valueOf(trackIndex), state);
         }
 

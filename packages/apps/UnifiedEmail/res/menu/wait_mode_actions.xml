@@ -23,4 +23,21 @@
         android:visible="false"
         android:alphabeticShortcut="@string/trigger_refresh_char" />
 
+    <item
+        android:id="@+id/toggle_drawer"
+        android:title="@string/menu_toggle_drawer"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_toggle_drawer_char" />
+
+    <item
+        android:id="@+id/settings"
+        android:title="@string/menu_settings"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_settings_char" />
+
+    <item
+        android:id="@+id/help_info_menu_item"
+        android:title="@string/help_and_feedback"
+        android:visible="false"
+        android:alphabeticShortcut="@string/trigger_help_char" />
 </menu>

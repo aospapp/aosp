@@ -9,8 +9,8 @@
 #include "base/auto_reset.h"
 #include "base/bind.h"
 #include "base/callback.h"
-#include "base/command_line.h"
 #include "chrome/browser/extensions/extension_ui_util.h"
+#include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/install_tracker.h"
 #include "chrome/browser/extensions/install_tracker_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -18,15 +18,17 @@
 #include "chrome/browser/ui/app_list/app_list_syncable_service.h"
 #include "chrome/browser/ui/app_list/app_list_syncable_service_factory.h"
 #include "chrome/browser/ui/app_list/extension_app_item.h"
-#include "chrome/common/chrome_switches.h"
+#include "chrome/common/pref_names.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/extensions_browser_client.h"
 #include "extensions/browser/pref_names.h"
+#include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_set.h"
 #include "ui/gfx/image/image_skia.h"
+#include "ui/gfx/image/image_skia_operations.h"
 
 using extensions::Extension;
 
@@ -54,7 +56,7 @@ void ExtensionAppModelBuilder::InitializeWithService(
   model_ = service->model();
   service_ = service;
   profile_ = service->profile();
-  InitializePrefChangeRegistrar();
+  InitializePrefChangeRegistrars();
 
   BuildModel();
 }
@@ -66,14 +68,19 @@ void ExtensionAppModelBuilder::InitializeWithProfile(
   model_ = model;
   model_->top_level_item_list()->AddObserver(this);
   profile_ = profile;
-  InitializePrefChangeRegistrar();
+  InitializePrefChangeRegistrars();
 
   BuildModel();
 }
 
-void ExtensionAppModelBuilder::InitializePrefChangeRegistrar() {
-  if (!CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableStreamlinedHostedApps))
+void ExtensionAppModelBuilder::InitializePrefChangeRegistrars() {
+  profile_pref_change_registrar_.Init(profile_->GetPrefs());
+  profile_pref_change_registrar_.Add(
+      prefs::kHideWebStoreIcon,
+      base::Bind(&ExtensionAppModelBuilder::OnProfilePreferenceChanged,
+                 base::Unretained(this)));
+
+  if (!extensions::util::IsStreamlinedHostedAppsEnabled())
     return;
 
   // TODO(calamity): analyze the performance impact of doing this every
@@ -86,6 +93,33 @@ void ExtensionAppModelBuilder::InitializePrefChangeRegistrar() {
     extensions::pref_names::kExtensions,
     base::Bind(&ExtensionAppModelBuilder::OnExtensionPreferenceChanged,
                base::Unretained(this)));
+}
+
+void ExtensionAppModelBuilder::OnProfilePreferenceChanged() {
+  extensions::ExtensionSet extensions;
+  controller_->GetApps(profile_, &extensions);
+
+  for (extensions::ExtensionSet::const_iterator app = extensions.begin();
+       app != extensions.end(); ++app) {
+    bool should_display =
+        extensions::ui_util::ShouldDisplayInAppLauncher(app->get(), profile_);
+    bool does_display = GetExtensionAppItem((*app)->id()) != NULL;
+
+    if (should_display == does_display)
+      continue;
+
+    if (should_display) {
+      InsertApp(CreateAppItem((*app)->id(),
+                              "",
+                              gfx::ImageSkia(),
+                              (*app)->is_platform_app()));
+    } else {
+      if (service_)
+        service_->RemoveItem((*app)->id());
+      else
+        model_->DeleteItem((*app)->id());
+    }
+  }
 }
 
 void ExtensionAppModelBuilder::OnExtensionPreferenceChanged() {
@@ -104,9 +138,18 @@ void ExtensionAppModelBuilder::OnBeginExtensionInstall(
     existing_item->SetIsInstalling(true);
     return;
   }
+
+  // Icons from the webstore can be unusual sizes. Once installed,
+  // ExtensionAppItem uses extension_misc::EXTENSION_ICON_MEDIUM (48) to load
+  // it, so be consistent with that.
+  gfx::Size icon_size(extension_misc::EXTENSION_ICON_MEDIUM,
+                      extension_misc::EXTENSION_ICON_MEDIUM);
+  gfx::ImageSkia resized(gfx::ImageSkiaOperations::CreateResizedImage(
+      params.installing_icon, skia::ImageOperations::RESIZE_BEST, icon_size));
+
   InsertApp(CreateAppItem(params.extension_id,
                           params.extension_name,
-                          params.installing_icon,
+                          resized,
                           params.is_platform_app));
   SetHighlightedApp(params.extension_id);
 }
@@ -160,7 +203,8 @@ void ExtensionAppModelBuilder::OnExtensionUnloaded(
 
 void ExtensionAppModelBuilder::OnExtensionUninstalled(
     content::BrowserContext* browser_context,
-    const extensions::Extension* extension) {
+    const extensions::Extension* extension,
+    extensions::UninstallReason reason) {
   if (service_) {
     DVLOG(2) << service_ << ": OnExtensionUninstalled: "
              << extension->id().substr(0, 8);
@@ -239,7 +283,7 @@ void ExtensionAppModelBuilder::PopulateApps() {
 
   for (extensions::ExtensionSet::const_iterator app = extensions.begin();
        app != extensions.end(); ++app) {
-    if (!extensions::ui_util::ShouldDisplayInAppLauncher(*app, profile_))
+    if (!extensions::ui_util::ShouldDisplayInAppLauncher(app->get(), profile_))
       continue;
     InsertApp(CreateAppItem((*app)->id(),
                             "",

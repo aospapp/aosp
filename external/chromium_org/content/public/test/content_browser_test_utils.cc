@@ -44,6 +44,16 @@ void NavigateToURLBlockUntilNavigationsComplete(Shell* window,
   same_tab_observer.Wait();
 }
 
+void ReloadBlockUntilNavigationsComplete(Shell* window,
+                                         int number_of_navigations) {
+  WaitForLoadStop(window->web_contents());
+  TestNavigationObserver same_tab_observer(window->web_contents(),
+                                           number_of_navigations);
+
+  window->Reload();
+  same_tab_observer.Wait();
+}
+
 void LoadDataWithBaseURL(Shell* window, const GURL& url,
     const std::string data, const GURL& base_url) {
   WaitForLoadStop(window->web_contents());
@@ -94,7 +104,7 @@ void ShellAddedObserver::ShellCreated(Shell* shell) {
 
 class RenderViewCreatedObserver : public WebContentsObserver {
  public:
-  RenderViewCreatedObserver(WebContents* web_contents)
+  explicit RenderViewCreatedObserver(WebContents* web_contents)
       : WebContentsObserver(web_contents),
         render_view_created_called_(false) {
   }

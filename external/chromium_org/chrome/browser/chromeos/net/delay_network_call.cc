@@ -6,10 +6,10 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
-#include "chrome/browser/chromeos/net/network_portal_detector.h"
 #include "chromeos/network/network_handler.h"
 #include "chromeos/network/network_state.h"
 #include "chromeos/network/network_state_handler.h"
+#include "chromeos/network/portal_detector/network_portal_detector.h"
 #include "content/public/browser/browser_thread.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 
@@ -35,7 +35,7 @@ void chromeos::DelayNetworkCall(const base::Closure& callback,
   if (!delay_network_call && NetworkPortalDetector::IsInitialized()) {
     NetworkPortalDetector* detector = NetworkPortalDetector::Get();
     NetworkPortalDetector::CaptivePortalStatus status =
-        detector->GetCaptivePortalState(default_network->path()).status;
+        detector->GetCaptivePortalState(default_network->guid()).status;
     if (status != NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_ONLINE) {
       delay_network_call = true;
       DVLOG(1) << "DelayNetworkCall: Captive portal status for "

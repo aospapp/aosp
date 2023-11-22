@@ -34,8 +34,10 @@ import java.util.Map;
 public class WifiNetworkScoreCache extends INetworkScoreCache.Stub
  {
 
-    // A Network scorer returns a score in the range [-127, +127]
-    public static int INVALID_NETWORK_SCORE = 100000;
+    // A Network scorer returns a score in the range [-128, +127]
+    // We treat the lowest possible score as though there were no score, effectively allowing the
+    // scorer to provide an RSSI threshold below which a network should not be used.
+    public static int INVALID_NETWORK_SCORE = Byte.MIN_VALUE;
 
     private static String TAG = "WifiNetworkScoreCache";
     private boolean DBG = true;
@@ -71,63 +73,69 @@ public class WifiNetworkScoreCache extends INetworkScoreCache.Stub
          }
      }
 
+    /**
+     * Returns whether there is any score info for the given ScanResult.
+     *
+     * This includes null-score info, so it should only be used when determining whether to request
+     * scores from the network scorer.
+     */
     public boolean isScoredNetwork(ScanResult result) {
-        String key = buildNetworkKey(result);
-        if (key == null) return false;
+        return getScoredNetwork(result) != null;
+    }
 
-        //find it
-        synchronized(mNetworkCache) {
-            ScoredNetwork network = mNetworkCache.get(key);
-            if (network != null) {
-                return true;
-            }
-        }
-        return false;
+    /**
+     * Returns whether there is a non-null score curve for the given ScanResult.
+     *
+     * A null score curve has special meaning - we should never connect to an ephemeral network if
+     * the score curve is null.
+     */
+    public boolean hasScoreCurve(ScanResult result) {
+        ScoredNetwork network = getScoredNetwork(result);
+        return network != null && network.rssiCurve != null;
     }
 
     public int getNetworkScore(ScanResult result) {
 
         int score = INVALID_NETWORK_SCORE;
 
-        String key = buildNetworkKey(result);
-        if (key == null) return score;
-
-        //find it
-        synchronized(mNetworkCache) {
-            ScoredNetwork network = mNetworkCache.get(key);
-            if (network != null && network.rssiCurve != null) {
-                score = network.rssiCurve.lookupScore(result.level);
-                if (DBG) {
-                    Log.e(TAG, "getNetworkScore found scored network " + key
-                            + " score " + Integer.toString(score)
-                            + " RSSI " + result.level);
-                }
+        ScoredNetwork network = getScoredNetwork(result);
+        if (network != null && network.rssiCurve != null) {
+            score = network.rssiCurve.lookupScore(result.level);
+            if (DBG) {
+                Log.e(TAG, "getNetworkScore found scored network " + network.networkKey
+                        + " score " + Integer.toString(score)
+                        + " RSSI " + result.level);
             }
         }
         return score;
     }
 
-    public int getNetworkScore(ScanResult result, int rssiBoost) {
+    public int getNetworkScore(ScanResult result, boolean isActiveNetwork) {
 
         int score = INVALID_NETWORK_SCORE;
 
+        ScoredNetwork network = getScoredNetwork(result);
+        if (network != null && network.rssiCurve != null) {
+            score = network.rssiCurve.lookupScore(result.level, isActiveNetwork);
+            if (DBG) {
+                Log.e(TAG, "getNetworkScore found scored network " + network.networkKey
+                        + " score " + Integer.toString(score)
+                        + " RSSI " + result.level
+                        + " isActiveNetwork " + isActiveNetwork);
+            }
+        }
+        return score;
+    }
+
+    private ScoredNetwork getScoredNetwork(ScanResult result) {
         String key = buildNetworkKey(result);
-        if (key == null) return score;
+        if (key == null) return null;
 
         //find it
         synchronized(mNetworkCache) {
             ScoredNetwork network = mNetworkCache.get(key);
-            if (network != null && network.rssiCurve != null) {
-                score = network.rssiCurve.lookupScore(result.level + rssiBoost);
-                if (DBG) {
-                    Log.e(TAG, "getNetworkScore found scored network " + key
-                            + " score " + Integer.toString(score)
-                            + " RSSI " + result.level
-                            + " boost " + rssiBoost);
-                }
-            }
+            return network;
         }
-        return score;
     }
 
      private String buildNetworkKey(ScoredNetwork network) {

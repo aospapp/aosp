@@ -6,22 +6,23 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/futex.h>
 #include <linux/net.h>
+#include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/ptrace.h>
-#include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
+#include <sys/time.h>
 
 #include "base/basictypes.h"
 #include "base/logging.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "content/public/common/sandbox_init.h"
+#include "sandbox/linux/bpf_dsl/bpf_dsl.h"
 #include "sandbox/linux/seccomp-bpf-helpers/sigsys_handlers.h"
-#include "sandbox/linux/seccomp-bpf/sandbox_bpf.h"
-#include "sandbox/linux/seccomp-bpf/sandbox_bpf_policy.h"
-#include "sandbox/linux/seccomp-bpf/trap.h"
+#include "sandbox/linux/seccomp-bpf-helpers/syscall_parameters_restrictions.h"
 #include "sandbox/linux/services/linux_syscalls.h"
 
 #if defined(__arm__) && !defined(MAP_STACK)
@@ -29,22 +30,27 @@
 #define MAP_STACK 0x20000
 #endif
 
-using sandbox::ErrorCode;
-using sandbox::SandboxBPF;
+#define CASES SANDBOX_BPF_DSL_CASES
+
+using sandbox::CrashSIGSYS;
+using sandbox::CrashSIGSYSClone;
+using sandbox::CrashSIGSYSFutex;
+using sandbox::CrashSIGSYSPrctl;
+using sandbox::bpf_dsl::Allow;
+using sandbox::bpf_dsl::Arg;
+using sandbox::bpf_dsl::BoolExpr;
+using sandbox::bpf_dsl::Error;
+using sandbox::bpf_dsl::If;
+using sandbox::bpf_dsl::ResultExpr;
 
 namespace nacl {
 namespace nonsfi {
 namespace {
 
-ErrorCode RestrictFcntlCommands(SandboxBPF* sb) {
-  ErrorCode::ArgType mask_long_type;
-  if (sizeof(long) == 8) {
-    mask_long_type = ErrorCode::TP_64BIT;
-  } else if (sizeof(long) == 4) {
-    mask_long_type = ErrorCode::TP_32BIT;
-  } else {
-    NOTREACHED();
-  }
+ResultExpr RestrictFcntlCommands() {
+  const Arg<int> cmd(1);
+  const Arg<long> long_arg(2);
+
   // We allow following cases:
   // 1. F_SETFD + FD_CLOEXEC: libevent's epoll_init uses this.
   // 2. F_GETFL: Used by SetNonBlocking in
@@ -55,128 +61,80 @@ ErrorCode RestrictFcntlCommands(SandboxBPF* sb) {
   // libevent and SetNonBlocking. As the latter mix O_NONBLOCK to
   // the return value of F_GETFL, so we need to allow O_ACCMODE in
   // addition to O_NONBLOCK.
-  const unsigned long denied_mask = ~(O_ACCMODE | O_NONBLOCK);
-  return sb->Cond(1, ErrorCode::TP_32BIT,
-                  ErrorCode::OP_EQUAL, F_SETFD,
-                  sb->Cond(2, mask_long_type,
-                           ErrorCode::OP_EQUAL, FD_CLOEXEC,
-                           ErrorCode(ErrorCode::ERR_ALLOWED),
-                  sb->Trap(sandbox::CrashSIGSYS_Handler, NULL)),
-         sb->Cond(1, ErrorCode::TP_32BIT,
-                  ErrorCode::OP_EQUAL, F_GETFL,
-                  ErrorCode(ErrorCode::ERR_ALLOWED),
-         sb->Cond(1, ErrorCode::TP_32BIT,
-                  ErrorCode::OP_EQUAL, F_SETFL,
-                  sb->Cond(2, mask_long_type,
-                           ErrorCode::OP_HAS_ANY_BITS, denied_mask,
-                           sb->Trap(sandbox::CrashSIGSYS_Handler, NULL),
-                           ErrorCode(ErrorCode::ERR_ALLOWED)),
-         sb->Trap(sandbox::CrashSIGSYS_Handler, NULL))));
+  const uint64_t kAllowedMask = O_ACCMODE | O_NONBLOCK;
+  return If((cmd == F_SETFD && long_arg == FD_CLOEXEC) || cmd == F_GETFL ||
+                (cmd == F_SETFL && (long_arg & ~kAllowedMask) == 0),
+            Allow()).Else(CrashSIGSYS());
 }
 
-ErrorCode RestrictClockID(SandboxBPF* sb) {
-  // We allow accessing only CLOCK_MONOTONIC, CLOCK_PROCESS_CPUTIME_ID,
-  // CLOCK_REALTIME, and CLOCK_THREAD_CPUTIME_ID.  In particular, this disallows
-  // access to arbitrary per-{process,thread} CPU-time clock IDs (such as those
-  // returned by {clock,pthread}_getcpuclockid), which can leak information
-  // about the state of the host OS.
-  COMPILE_ASSERT(4 == sizeof(clockid_t), clockid_is_not_32bit);
-  ErrorCode result = sb->Cond(0, ErrorCode::TP_32BIT,
-                              ErrorCode::OP_EQUAL, CLOCK_MONOTONIC,
-                              ErrorCode(ErrorCode::ERR_ALLOWED),
-                     sb->Cond(0, ErrorCode::TP_32BIT,
-                              ErrorCode::OP_EQUAL, CLOCK_PROCESS_CPUTIME_ID,
-                              ErrorCode(ErrorCode::ERR_ALLOWED),
-                     sb->Cond(0, ErrorCode::TP_32BIT,
-                              ErrorCode::OP_EQUAL, CLOCK_REALTIME,
-                              ErrorCode(ErrorCode::ERR_ALLOWED),
-                     sb->Cond(0, ErrorCode::TP_32BIT,
-                              ErrorCode::OP_EQUAL, CLOCK_THREAD_CPUTIME_ID,
-                              ErrorCode(ErrorCode::ERR_ALLOWED),
-                     sb->Trap(sandbox::CrashSIGSYS_Handler, NULL)))));
-#if defined(OS_CHROMEOS)
-  // Allow the special clock for Chrome OS used by Chrome tracing.
-  result = sb->Cond(0, ErrorCode::TP_32BIT,
-                    ErrorCode::OP_EQUAL, base::TimeTicks::kClockSystemTrace,
-                    ErrorCode(ErrorCode::ERR_ALLOWED), result);
-#endif
-  return result;
-}
-
-ErrorCode RestrictClone(SandboxBPF* sb) {
+ResultExpr RestrictClone() {
   // We allow clone only for new thread creation.
-  return sb->Cond(0, ErrorCode::TP_32BIT, ErrorCode::OP_EQUAL,
-                  CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND |
-                  CLONE_THREAD | CLONE_SYSVSEM | CLONE_SETTLS |
-                  CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID,
-                  ErrorCode(ErrorCode::ERR_ALLOWED),
-         sb->Trap(sandbox::SIGSYSCloneFailure, NULL));
+  const Arg<int> flags(0);
+  return If(flags == (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND |
+                      CLONE_THREAD | CLONE_SYSVSEM | CLONE_SETTLS |
+                      CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID),
+            Allow()).Else(CrashSIGSYSClone());
 }
 
-ErrorCode RestrictPrctl(SandboxBPF* sb) {
+ResultExpr RestrictFutexOperation() {
+  // TODO(hamaji): Allow only FUTEX_PRIVATE_FLAG futexes.
+  const uint64_t kAllowedFutexFlags = FUTEX_PRIVATE_FLAG | FUTEX_CLOCK_REALTIME;
+  const Arg<int> op(1);
+  return Switch(op & ~kAllowedFutexFlags)
+      .CASES((FUTEX_WAIT,
+              FUTEX_WAKE,
+              FUTEX_REQUEUE,
+              FUTEX_CMP_REQUEUE,
+              FUTEX_WAKE_OP,
+              FUTEX_WAIT_BITSET,
+              FUTEX_WAKE_BITSET),
+             Allow())
+      .Default(CrashSIGSYSFutex());
+}
+
+ResultExpr RestrictPrctl() {
   // base::PlatformThread::SetName() uses PR_SET_NAME so we return
   // EPERM for it. Otherwise, we will raise SIGSYS.
-  return sb->Cond(0, ErrorCode::TP_32BIT, ErrorCode::OP_EQUAL,
-                  PR_SET_NAME, ErrorCode(EPERM),
-         sb->Trap(sandbox::SIGSYSPrctlFailure, NULL));
+  const Arg<int> option(0);
+  return If(option == PR_SET_NAME, Error(EPERM)).Else(CrashSIGSYSPrctl());
 }
 
 #if defined(__i386__)
-ErrorCode RestrictSocketcall(SandboxBPF* sb) {
+ResultExpr RestrictSocketcall() {
   // We only allow socketpair, sendmsg, and recvmsg.
-  return sb->Cond(0, ErrorCode::TP_32BIT, ErrorCode::OP_EQUAL,
-                  SYS_SOCKETPAIR,
-                  ErrorCode(ErrorCode::ERR_ALLOWED),
-         sb->Cond(0, ErrorCode::TP_32BIT, ErrorCode::OP_EQUAL,
-                  SYS_SENDMSG,
-                  ErrorCode(ErrorCode::ERR_ALLOWED),
-         sb->Cond(0, ErrorCode::TP_32BIT, ErrorCode::OP_EQUAL,
-                  SYS_RECVMSG,
-                  ErrorCode(ErrorCode::ERR_ALLOWED),
-         sb->Cond(0, ErrorCode::TP_32BIT, ErrorCode::OP_EQUAL,
-                  SYS_SHUTDOWN,
-                  ErrorCode(ErrorCode::ERR_ALLOWED),
-                  sb->Trap(sandbox::CrashSIGSYS_Handler, NULL)))));
+  const Arg<int> call(0);
+  return If(call == SYS_SOCKETPAIR || call == SYS_SHUTDOWN ||
+                call == SYS_SENDMSG || call == SYS_RECVMSG,
+            Allow()).Else(CrashSIGSYS());
 }
 #endif
 
-ErrorCode RestrictMprotect(SandboxBPF* sb) {
+ResultExpr RestrictMprotect() {
   // TODO(jln, keescook, drewry): Limit the use of mprotect by adding
   // some features to linux kernel.
-  const uint32_t denied_mask = ~(PROT_READ | PROT_WRITE | PROT_EXEC);
-  return sb->Cond(2, ErrorCode::TP_32BIT,
-                  ErrorCode::OP_HAS_ANY_BITS,
-                  denied_mask,
-         sb->Trap(sandbox::CrashSIGSYS_Handler, NULL),
-                  ErrorCode(ErrorCode::ERR_ALLOWED));
+  const uint64_t kAllowedMask = PROT_READ | PROT_WRITE | PROT_EXEC;
+  const Arg<int> prot(2);
+  return If((prot & ~kAllowedMask) == 0, Allow()).Else(CrashSIGSYS());
 }
 
-ErrorCode RestrictMmap(SandboxBPF* sb) {
-  const uint32_t denied_flag_mask = ~(MAP_SHARED | MAP_PRIVATE |
-                                      MAP_ANONYMOUS | MAP_STACK | MAP_FIXED);
+ResultExpr RestrictMmap() {
+  const uint64_t kAllowedFlagMask =
+      MAP_SHARED | MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK | MAP_FIXED;
   // When PROT_EXEC is specified, IRT mmap of Non-SFI NaCl helper
   // calls mmap without PROT_EXEC and then adds PROT_EXEC by mprotect,
   // so we do not need to allow PROT_EXEC in mmap.
-  const uint32_t denied_prot_mask = ~(PROT_READ | PROT_WRITE);
-  return sb->Cond(3, ErrorCode::TP_32BIT,
-                  ErrorCode::OP_HAS_ANY_BITS,
-                  denied_flag_mask,
-                  sb->Trap(sandbox::CrashSIGSYS_Handler, NULL),
-         sb->Cond(2, ErrorCode::TP_32BIT,
-                  ErrorCode::OP_HAS_ANY_BITS,
-                  denied_prot_mask,
-                  sb->Trap(sandbox::CrashSIGSYS_Handler, NULL),
-                  ErrorCode(ErrorCode::ERR_ALLOWED)));
+  const uint64_t kAllowedProtMask = PROT_READ | PROT_WRITE;
+  const Arg<int> prot(2), flags(3);
+  return If((prot & ~kAllowedProtMask) == 0 && (flags & ~kAllowedFlagMask) == 0,
+            Allow()).Else(CrashSIGSYS());
 }
 
 #if defined(__x86_64__) || defined(__arm__)
-ErrorCode RestrictSocketpair(SandboxBPF* sb) {
+ResultExpr RestrictSocketpair() {
   // Only allow AF_UNIX, PF_UNIX. Crash if anything else is seen.
   COMPILE_ASSERT(AF_UNIX == PF_UNIX, af_unix_pf_unix_different);
-  return sb->Cond(0, ErrorCode::TP_32BIT,
-                  ErrorCode::OP_EQUAL, AF_UNIX,
-                  ErrorCode(ErrorCode::ERR_ALLOWED),
-         sb->Trap(sandbox::CrashSIGSYS_Handler, NULL));
+  const Arg<int> domain(0);
+  return If(domain == AF_UNIX, Allow()).Else(CrashSIGSYS());
 }
 #endif
 
@@ -201,8 +159,10 @@ bool IsGracefullyDenied(int sysno) {
     // tcmalloc calls madvise in TCMalloc_SystemRelease.
     case __NR_madvise:
     // EPERM instead of SIGSYS as glibc tries to open files in /proc.
+    // openat via opendir via get_nprocs_conf and open via get_nprocs.
     // TODO(hamaji): Remove this when we switch to newlib.
     case __NR_open:
+    case __NR_openat:
     // For RunSandboxSanityChecks().
     case __NR_ptrace:
     // glibc uses this for its pthread implementation. If we return
@@ -233,8 +193,7 @@ void RunSandboxSanityChecks() {
 
 }  // namespace
 
-ErrorCode NaClNonSfiBPFSandboxPolicy::EvaluateSyscall(SandboxBPF* sb,
-                                                      int sysno) const {
+ResultExpr NaClNonSfiBPFSandboxPolicy::EvaluateSyscall(int sysno) const {
   switch (sysno) {
     // Allowed syscalls.
 #if defined(__i386__) || defined(__arm__)
@@ -252,8 +211,6 @@ ErrorCode NaClNonSfiBPFSandboxPolicy::EvaluateSyscall(SandboxBPF* sb,
 #elif defined(__x86_64__)
     case __NR_fstat:
 #endif
-    // TODO(hamaji): Allow only FUTEX_PRIVATE_FLAG.
-    case __NR_futex:
     // TODO(hamaji): Remove the need of gettid. Currently, this is
     // called from PlatformThread::CurrentId().
     case __NR_gettid:
@@ -277,14 +234,14 @@ ErrorCode NaClNonSfiBPFSandboxPolicy::EvaluateSyscall(SandboxBPF* sb,
 #if defined(__arm__)
     case __ARM_NR_cacheflush:
 #endif
-      return ErrorCode(ErrorCode::ERR_ALLOWED);
+      return Allow();
 
     case __NR_clock_getres:
     case __NR_clock_gettime:
-      return RestrictClockID(sb);
+      return sandbox::RestrictClockID();
 
     case __NR_clone:
-      return RestrictClone(sb);
+      return RestrictClone();
 
 #if defined(__x86_64__)
     case __NR_fcntl:
@@ -292,7 +249,10 @@ ErrorCode NaClNonSfiBPFSandboxPolicy::EvaluateSyscall(SandboxBPF* sb,
 #if defined(__i386__) || defined(__arm__)
     case __NR_fcntl64:
 #endif
-      return RestrictFcntlCommands(sb);
+      return RestrictFcntlCommands();
+
+    case __NR_futex:
+      return RestrictFutexOperation();
 
 #if defined(__x86_64__)
     case __NR_mmap:
@@ -300,24 +260,24 @@ ErrorCode NaClNonSfiBPFSandboxPolicy::EvaluateSyscall(SandboxBPF* sb,
 #if defined(__i386__) || defined(__arm__)
     case __NR_mmap2:
 #endif
-      return RestrictMmap(sb);
+      return RestrictMmap();
     case __NR_mprotect:
-      return RestrictMprotect(sb);
+      return RestrictMprotect();
 
     case __NR_prctl:
-      return RestrictPrctl(sb);
+      return RestrictPrctl();
 
 #if defined(__i386__)
     case __NR_socketcall:
-      return RestrictSocketcall(sb);
+      return RestrictSocketcall();
 #endif
 #if defined(__x86_64__) || defined(__arm__)
     case __NR_recvmsg:
     case __NR_sendmsg:
     case __NR_shutdown:
-      return ErrorCode(ErrorCode::ERR_ALLOWED);
+      return Allow();
     case __NR_socketpair:
-      return RestrictSocketpair(sb);
+      return RestrictSocketpair();
 #endif
 
     case __NR_brk:
@@ -327,18 +287,22 @@ ErrorCode NaClNonSfiBPFSandboxPolicy::EvaluateSyscall(SandboxBPF* sb,
       // is less than the requested address (i.e., brk(addr) < addr).
       // So, glibc thinks brk succeeded if we return -EPERM and we
       // need to return zero instead.
-      return ErrorCode(0);
+      return Error(0);
 
     default:
       if (IsGracefullyDenied(sysno))
-        return ErrorCode(EPERM);
-      return sb->Trap(sandbox::CrashSIGSYS_Handler, NULL);
+        return Error(EPERM);
+      return CrashSIGSYS();
   }
+}
+
+ResultExpr NaClNonSfiBPFSandboxPolicy::InvalidSyscall() const {
+  return CrashSIGSYS();
 }
 
 bool InitializeBPFSandbox() {
   bool sandbox_is_initialized = content::InitializeSandbox(
-      scoped_ptr<sandbox::SandboxBPFPolicy>(
+      scoped_ptr<sandbox::bpf_dsl::SandboxBPFDSLPolicy>(
           new nacl::nonsfi::NaClNonSfiBPFSandboxPolicy()));
   if (!sandbox_is_initialized)
     return false;

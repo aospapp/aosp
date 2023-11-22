@@ -7,24 +7,24 @@
 #include "base/message_loop/message_loop.h"
 #include "base/metrics/histogram.h"
 #include "base/time/time.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/extensions/extension_warning_service.h"
-#include "chrome/browser/extensions/extension_warning_set.h"
 #include "chrome/browser/extensions/updater/extension_updater.h"
-#include "chrome/browser/omaha_query_params/omaha_query_params.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "components/omaha_query_params/omaha_query_params.h"
 #include "content/public/browser/notification_service.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/notification_types.h"
+#include "extensions/browser/warning_service.h"
+#include "extensions/browser/warning_set.h"
 #include "extensions/common/api/runtime.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/power_manager_client.h"
+#include "components/user_manager/user_manager.h"
 #endif
 
 using extensions::Extension;
@@ -53,7 +53,7 @@ ChromeRuntimeAPIDelegate::ChromeRuntimeAPIDelegate(
     content::BrowserContext* context)
     : browser_context_(context), registered_for_updates_(false) {
   registrar_.Add(this,
-                 chrome::NOTIFICATION_EXTENSION_UPDATE_FOUND,
+                 extensions::NOTIFICATION_EXTENSION_UPDATE_FOUND,
                  content::NotificationService::AllSources());
 }
 
@@ -120,13 +120,13 @@ void ChromeRuntimeAPIDelegate::ReloadExtension(
         base::Bind(&ExtensionService::TerminateExtension,
                    service->AsWeakPtr(),
                    extension_id));
-    extensions::ExtensionWarningSet warnings;
+    extensions::WarningSet warnings;
     warnings.insert(
-        extensions::ExtensionWarning::CreateReloadTooFrequentWarning(
+        extensions::Warning::CreateReloadTooFrequentWarning(
             extension_id));
     base::MessageLoop::current()->PostTask(
         FROM_HERE,
-        base::Bind(&extensions::ExtensionWarningService::NotifyWarningsOnUI,
+        base::Bind(&extensions::WarningService::NotifyWarningsOnUI,
                    browser_context_,
                    warnings));
   } else {
@@ -166,7 +166,6 @@ bool ChromeRuntimeAPIDelegate::CheckForUpdates(
 }
 
 void ChromeRuntimeAPIDelegate::OpenURL(const GURL& uninstall_url) {
-#if defined(ENABLE_EXTENSIONS)
   Profile* profile = Profile::FromBrowserContext(browser_context_);
   Browser* browser =
       chrome::FindLastActiveWithProfile(profile, chrome::GetActiveDesktop());
@@ -175,21 +174,18 @@ void ChromeRuntimeAPIDelegate::OpenURL(const GURL& uninstall_url) {
         new Browser(Browser::CreateParams(profile, chrome::GetActiveDesktop()));
 
   chrome::NavigateParams params(
-      browser, uninstall_url, content::PAGE_TRANSITION_CLIENT_REDIRECT);
+      browser, uninstall_url, ui::PAGE_TRANSITION_CLIENT_REDIRECT);
   params.disposition = NEW_FOREGROUND_TAB;
   params.user_gesture = false;
   chrome::Navigate(&params);
-#endif
 }
 
 bool ChromeRuntimeAPIDelegate::GetPlatformInfo(PlatformInfo* info) {
-  const char* os = chrome::OmahaQueryParams::GetOS();
+  const char* os = omaha_query_params::OmahaQueryParams::GetOS();
   if (strcmp(os, "mac") == 0) {
     info->os = PlatformInfo::OS_MAC_;
   } else if (strcmp(os, "win") == 0) {
     info->os = PlatformInfo::OS_WIN_;
-  } else if (strcmp(os, "android") == 0) {
-    info->os = PlatformInfo::OS_ANDROID_;
   } else if (strcmp(os, "cros") == 0) {
     info->os = PlatformInfo::OS_CROS_;
   } else if (strcmp(os, "linux") == 0) {
@@ -201,7 +197,7 @@ bool ChromeRuntimeAPIDelegate::GetPlatformInfo(PlatformInfo* info) {
     return false;
   }
 
-  const char* arch = chrome::OmahaQueryParams::GetArch();
+  const char* arch = omaha_query_params::OmahaQueryParams::GetArch();
   if (strcmp(arch, "arm") == 0) {
     info->arch = PlatformInfo::ARCH_ARM;
   } else if (strcmp(arch, "x86") == 0) {
@@ -213,7 +209,7 @@ bool ChromeRuntimeAPIDelegate::GetPlatformInfo(PlatformInfo* info) {
     return false;
   }
 
-  const char* nacl_arch = chrome::OmahaQueryParams::GetNaclArch();
+  const char* nacl_arch = omaha_query_params::OmahaQueryParams::GetNaclArch();
   if (strcmp(nacl_arch, "arm") == 0) {
     info->nacl_arch = PlatformInfo::NACL_ARCH_ARM;
   } else if (strcmp(nacl_arch, "x86-32") == 0) {
@@ -230,7 +226,7 @@ bool ChromeRuntimeAPIDelegate::GetPlatformInfo(PlatformInfo* info) {
 
 bool ChromeRuntimeAPIDelegate::RestartDevice(std::string* error_message) {
 #if defined(OS_CHROMEOS)
-  if (chromeos::UserManager::Get()->IsLoggedInAsKioskApp()) {
+  if (user_manager::UserManager::Get()->IsLoggedInAsKioskApp()) {
     chromeos::DBusThreadManager::Get()
         ->GetPowerManagerClient()
         ->RequestRestart();
@@ -245,7 +241,7 @@ void ChromeRuntimeAPIDelegate::Observe(
     int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
-  DCHECK(type == chrome::NOTIFICATION_EXTENSION_UPDATE_FOUND);
+  DCHECK(type == extensions::NOTIFICATION_EXTENSION_UPDATE_FOUND);
   typedef const std::pair<std::string, Version> UpdateDetails;
   const std::string& id = content::Details<UpdateDetails>(details)->first;
   const Version& version = content::Details<UpdateDetails>(details)->second;

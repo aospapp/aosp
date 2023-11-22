@@ -5,7 +5,6 @@
 #include "chrome/browser/chromeos/sim_dialog_delegate.h"
 
 #include "base/strings/stringprintf.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/common/url_constants.h"
@@ -23,14 +22,6 @@ const int kDefaultHeight = 225;
 // Width/height for the change PIN dialog mode.
 const int kChangePinWidth = 350;
 const int kChangePinHeight = 245;
-
-// URL that includes additional mode (other than Unlock flow) that we're using
-// dialog for. Possible values:
-// change-pin   - use dialog to change PIN, ask for old & new PIN.
-// set-lock-on  - enable RequirePin restriction.
-// set-lock-off - disable RequirePin restriction.
-// In general SIM unlock case sim-unlock URL is loaded w/o parameters.
-const char kSimDialogSpecialModeURL[] = "chrome://sim-unlock/?mode=%s";
 
 // Dialog mode constants.
 const char kSimDialogChangePinMode[]  = "change-pin";
@@ -76,8 +67,15 @@ GURL SimDialogDelegate::GetDialogContentURL() const {
       mode_value = kSimDialogSetLockOnMode;
     else
       mode_value = kSimDialogSetLockOffMode;
-    return GURL(
-        base::StringPrintf(kSimDialogSpecialModeURL, mode_value.c_str()));
+
+    // Create a URL that includes an additional mode (other than Unlock flow).
+    // Possible values for mode are:
+    // change-pin   - use dialog to change PIN, ask for old & new PIN.
+    // set-lock-on  - enable RequirePin restriction.
+    // set-lock-off - disable RequirePin restriction.
+    std::string url_string =
+        std::string(chrome::kChromeUISimUnlockURL) + "?mode=" + mode_value;
+    return GURL(url_string);
   }
 }
 

@@ -22,7 +22,7 @@
     <group>UI</group>
     <package>com.example.android.actionbarcompat.listviewmodalselect</package>
 
-    <dependency>com.android.support:appcompat-v7:18.0.+</dependency>
+    <dependency>com.android.support:appcompat-v7:21.0.2</dependency>
 
     <!-- change minSdk if needed-->
     <minSdk>7</minSdk>

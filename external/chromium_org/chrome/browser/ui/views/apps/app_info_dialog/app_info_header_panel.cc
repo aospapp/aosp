@@ -12,6 +12,7 @@
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/manifest_url_handler.h"
+#include "chrome/grit/generated_resources.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/image_loader.h"
 #include "extensions/common/constants.h"
@@ -20,10 +21,8 @@
 #include "extensions/common/extension_resource.h"
 #include "extensions/common/manifest_handlers/icons_handler.h"
 #include "extensions/common/manifest_handlers/shared_module_info.h"
-#include "grit/generated_resources.h"
 #include "net/base/url_util.h"
 #include "third_party/skia/include/core/SkBitmap.h"
-#include "ui/app_list/app_list_constants.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/geometry/size.h"
@@ -46,9 +45,8 @@ namespace {
 // Size of extension icon in top left of dialog.
 const int kIconSize = 64;
 
-// The number of pixels spacing between the app's title and version in the
-// dialog, when both are available.
-const int kSpacingBetweenAppTitleAndVersion = 4;
+// The horizontal spacing between the app's links in the header section.
+const int kSpacingBetweenAppLinks = 3;
 
 }  // namespace
 
@@ -57,7 +55,6 @@ AppInfoHeaderPanel::AppInfoHeaderPanel(Profile* profile,
     : AppInfoPanel(profile, app),
       app_icon_(NULL),
       app_name_label_(NULL),
-      app_version_label_(NULL),
       view_in_store_link_(NULL),
       licenses_link_(NULL),
       weak_ptr_factory_(this) {
@@ -82,16 +79,6 @@ void AppInfoHeaderPanel::CreateControls() {
                            ui::ResourceBundle::MediumFont));
   app_name_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
 
-  // The version number doesn't make sense for bookmarked apps.
-  if (!app_->from_bookmark()) {
-    app_version_label_ =
-        new views::Label(base::UTF8ToUTF16(app_->VersionString()),
-                         ui::ResourceBundle::GetSharedInstance().GetFontList(
-                             ui::ResourceBundle::MediumFont));
-    app_version_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-    app_version_label_->SetEnabledColor(app_list::kDialogSubtitleColor);
-  }
-
   app_icon_ = new views::ImageView();
   app_icon_->SetImageSize(gfx::Size(kIconSize, kIconSize));
   LoadAppImageAsync();
@@ -111,76 +98,32 @@ void AppInfoHeaderPanel::CreateControls() {
   }
 }
 
-void AppInfoHeaderPanel::LayoutAppNameAndVersionInto(views::View* parent_view) {
-  views::View* view = new views::View();
-  // We need a horizontal BoxLayout here to ensure that the GridLayout does
-  // not stretch beyond the size of its content.
-  view->SetLayoutManager(
-      new views::BoxLayout(views::BoxLayout::kHorizontal, 0, 0, 0));
-
-  views::View* container_view = new views::View();
-  view->AddChildView(container_view);
-  views::GridLayout* layout = new views::GridLayout(container_view);
-  container_view->SetLayoutManager(layout);
-
-  static const int kColumnId = 1;
-  views::ColumnSet* column_set = layout->AddColumnSet(kColumnId);
-  column_set->AddColumn(views::GridLayout::LEADING,
-                        views::GridLayout::TRAILING,
-                        1,  // Stretch the title to as wide as needed
-                        views::GridLayout::USE_PREF,
-                        0,
-                        0);
-  column_set->AddPaddingColumn(0, kSpacingBetweenAppTitleAndVersion);
-  column_set->AddColumn(views::GridLayout::LEADING,
-                        views::GridLayout::TRAILING,
-                        0,  // Do not stretch the version
-                        views::GridLayout::USE_PREF,
-                        0,
-                        0);
-
-  layout->StartRow(1, kColumnId);
-  layout->AddView(app_name_label_);
-  if (app_version_label_)
-    layout->AddView(app_version_label_);
-
-  parent_view->AddChildView(view);
-}
-
 void AppInfoHeaderPanel::LayoutControls() {
   AddChildView(app_icon_);
-  if (!app_version_label_ && !view_in_store_link_ && !licenses_link_) {
-    // If there's no version _and_ no links, allow the app's name to take up
-    // multiple lines.
+
+  // Create a vertical container to store the app's name and links.
+  views::View* vertical_info_container = new views::View();
+  views::BoxLayout* vertical_container_layout =
+      new views::BoxLayout(views::BoxLayout::kVertical, 0, 0, 0);
+  vertical_container_layout->set_main_axis_alignment(
+      views::BoxLayout::MAIN_AXIS_ALIGNMENT_CENTER);
+  vertical_info_container->SetLayoutManager(vertical_container_layout);
+  AddChildView(vertical_info_container);
+
+  vertical_info_container->AddChildView(app_name_label_);
+  if (!view_in_store_link_ && !licenses_link_) {
+    // If there's no links, allow the app's name to take up multiple lines.
     // TODO(sashab): Limit the number of lines to 2.
     app_name_label_->SetMultiLine(true);
-    AddChildView(app_name_label_);
   } else {
-    // Create a vertical container to store the app's name and info.
-    views::View* vertical_info_container = new views::View();
-    views::BoxLayout* vertical_container_layout =
-        new views::BoxLayout(views::BoxLayout::kVertical, 0, 0, 0);
-    vertical_container_layout->set_main_axis_alignment(
-        views::BoxLayout::MAIN_AXIS_ALIGNMENT_CENTER);
-    vertical_info_container->SetLayoutManager(vertical_container_layout);
-
-    if (!view_in_store_link_ && !licenses_link_) {
-      // If there are no links, display the version on the second line.
-      vertical_info_container->AddChildView(app_name_label_);
-      vertical_info_container->AddChildView(app_version_label_);
-    } else {
-      LayoutAppNameAndVersionInto(vertical_info_container);
-      // Create a horizontal container to store the app's links.
-      views::View* horizontal_links_container = new views::View();
-      horizontal_links_container->SetLayoutManager(
-          new views::BoxLayout(views::BoxLayout::kHorizontal, 0, 0, 3));
-      if (view_in_store_link_)
-        horizontal_links_container->AddChildView(view_in_store_link_);
-      if (licenses_link_)
-        horizontal_links_container->AddChildView(licenses_link_);
-      vertical_info_container->AddChildView(horizontal_links_container);
-    }
-    AddChildView(vertical_info_container);
+    // Create a horizontal container to store the app's links.
+    views::View* horizontal_links_container =
+        CreateHorizontalStack(kSpacingBetweenAppLinks);
+    if (view_in_store_link_)
+      horizontal_links_container->AddChildView(view_in_store_link_);
+    if (licenses_link_)
+      horizontal_links_container->AddChildView(licenses_link_);
+    vertical_info_container->AddChildView(horizontal_links_container);
   }
 }
 void AppInfoHeaderPanel::LinkClicked(views::Link* source, int event_flags) {
@@ -229,7 +172,7 @@ void AppInfoHeaderPanel::ShowAppInWebStore() const {
       net::AppendQueryParameter(url,
                                 extension_urls::kWebstoreSourceField,
                                 extension_urls::kLaunchSourceAppListInfoDialog),
-      content::PAGE_TRANSITION_LINK);
+      ui::PAGE_TRANSITION_LINK);
   chrome::Navigate(&params);
 }
 
@@ -254,7 +197,7 @@ void AppInfoHeaderPanel::DisplayLicenses() {
   GURL about_page = extensions::ManifestURL::GetAboutPage(imported_module);
   DCHECK(about_page != GURL::EmptyGURL());
   chrome::NavigateParams params(
-      profile_, about_page, content::PAGE_TRANSITION_LINK);
+      profile_, about_page, ui::PAGE_TRANSITION_LINK);
   chrome::Navigate(&params);
 }
 

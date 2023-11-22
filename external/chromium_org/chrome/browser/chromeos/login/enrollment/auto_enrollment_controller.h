@@ -75,7 +75,7 @@ class AutoEnrollmentController {
       DeviceSettingsService::OwnershipStatus status);
 
   // Starts the auto-enrollment client.
-  void StartClient(const std::vector<std::string>& state_keys);
+  void StartClient(const std::vector<std::string>& state_keys, bool first_boot);
 
   // Sets |state_| and notifies |progress_callbacks_|.
   void UpdateState(policy::AutoEnrollmentState state);
@@ -83,9 +83,9 @@ class AutoEnrollmentController {
   policy::AutoEnrollmentState state_;
   ProgressCallbackList progress_callbacks_;
 
-  base::WeakPtrFactory<AutoEnrollmentController> client_start_weak_factory_;
-
   scoped_ptr<policy::AutoEnrollmentClient> client_;
+
+  base::WeakPtrFactory<AutoEnrollmentController> client_start_weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(AutoEnrollmentController);
 };

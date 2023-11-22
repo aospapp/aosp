@@ -177,7 +177,8 @@ bool DataReductionProxyWasUsed(WebFrame* frame) {
   std::replace(headers.begin(), headers.end(), '\n', '\0');
   scoped_refptr<net::HttpResponseHeaders> response_headers(
       new net::HttpResponseHeaders(headers));
-  return data_reduction_proxy::HasDataReductionProxyViaHeader(response_headers);
+  return data_reduction_proxy::HasDataReductionProxyViaHeader(
+      response_headers.get(), NULL);
 }
 
 // Returns true if the provided URL is a referrer string that came from
@@ -221,12 +222,17 @@ int GetQueryStringBasedExperiment(const GURL& referrer) {
   return kNoExperiment;
 }
 
-void DumpPerformanceTiming(const WebPerformance& performance,
-                           DocumentState* document_state,
-                           bool data_reduction_proxy_was_used,
-                           bool came_from_websearch,
-                           int websearch_chrome_joint_experiment_id,
-                           bool is_preview) {
+void DumpHistograms(const WebPerformance& performance,
+                    DocumentState* document_state,
+                    bool data_reduction_proxy_was_used,
+                    bool came_from_websearch,
+                    int websearch_chrome_joint_experiment_id,
+                    bool is_preview) {
+  // This function records new histograms based on the Navigation Timing
+  // records. As such, the histograms should not depend on the deprecated timing
+  // information collected in DocumentState. However, here for some reason we
+  // check if document_state->request_time() is null. TODO(ppi): find out why
+  // and remove DocumentState from the parameter list.
   Time request = document_state->request_time();
 
   Time navigation_start = Time::FromDoubleT(performance.navigationStart());
@@ -443,91 +449,28 @@ void DumpPerformanceTiming(const WebPerformance& performance,
   }
 }
 
-enum MissingStartType {
-  START_MISSING = 0x1,
-  COMMIT_MISSING = 0x2,
-  NAV_START_MISSING = 0x4,
-  MISSING_START_TYPE_MAX = 0x8
-};
-
-enum AbandonType {
-  FINISH_DOC_MISSING = 0x1,
-  FINISH_ALL_LOADS_MISSING = 0x2,
-  LOAD_EVENT_START_MISSING = 0x4,
-  LOAD_EVENT_END_MISSING = 0x8,
-  ABANDON_TYPE_MAX = 0x10
-};
-
-}  // namespace
-
-PageLoadHistograms::PageLoadHistograms(content::RenderView* render_view)
-    : content::RenderViewObserver(render_view) {
-}
-
-void PageLoadHistograms::Dump(WebFrame* frame) {
-  // We only dump histograms for main frames.
-  // In the future, it may be interesting to tag subframes and dump them too.
-  if (!frame || frame->parent())
-    return;
-
-  // Only dump for supported schemes.
-  URLPattern::SchemeMasks scheme_type =
-      GetSupportedSchemeType(frame->document().url());
-  if (scheme_type == 0)
-    return;
-
-  // Ignore multipart requests.
-  if (frame->dataSource()->response().isMultipartPayload())
-    return;
-
-  DocumentState* document_state =
-      DocumentState::FromDataSource(frame->dataSource());
-
-  bool data_reduction_proxy_was_used = DataReductionProxyWasUsed(frame);
-  bool came_from_websearch =
-      IsFromGoogleSearchResult(frame->document().url(),
-                               GURL(frame->document().referrer()));
-  int websearch_chrome_joint_experiment_id = kNoExperiment;
-  bool is_preview = false;
-  if (came_from_websearch) {
-    websearch_chrome_joint_experiment_id =
-        GetQueryStringBasedExperiment(GURL(frame->document().referrer()));
-    is_preview = ViaHeaderContains(frame, "1.1 Google Instant Proxy Preview");
-  }
-
-  // Times based on the Web Timing metrics.
-  // http://www.w3.org/TR/navigation-timing/
-  // TODO(tonyg, jar): We are in the process of vetting these metrics against
-  // the existing ones. Once we understand any differences, we will standardize
-  // on a single set of metrics.
-  DumpPerformanceTiming(frame->performance(), document_state,
-                        data_reduction_proxy_was_used,
-                        came_from_websearch,
-                        websearch_chrome_joint_experiment_id,
-                        is_preview);
-
+// These histograms are based on the timing information collected in
+// DocumentState. They should be transitioned to equivalents based on the
+// Navigation Timing records (see DumpPerformanceTiming()) or dropped if not
+// needed. Please do not add new metrics based on DocumentState.
+void DumpDeprecatedHistograms(const WebPerformance& performance,
+                              DocumentState* document_state,
+                              bool data_reduction_proxy_was_used,
+                              bool came_from_websearch,
+                              int websearch_chrome_joint_experiment_id,
+                              bool is_preview,
+                              URLPattern::SchemeMasks scheme_type) {
   // If we've already dumped, do nothing.
   // This simple bool works because we only dump for the main frame.
   if (document_state->load_histograms_recorded())
     return;
 
-  // Collect measurement times.
+  // Abort if any of these is missing.
   Time start = document_state->start_load_time();
   Time commit = document_state->commit_load_time();
-
-  // TODO(tonyg, jar): Start can be missing after an in-document navigation and
-  // possibly other cases like a very premature abandonment of the page.
-  // The PLT.MissingStart histogram should help us troubleshoot and then we can
-  // remove this.
   Time navigation_start =
-      Time::FromDoubleT(frame->performance().navigationStart());
-  int missing_start_type = 0;
-  missing_start_type |= start.is_null() ? START_MISSING : 0;
-  missing_start_type |= commit.is_null() ? COMMIT_MISSING : 0;
-  missing_start_type |= navigation_start.is_null() ? NAV_START_MISSING : 0;
-  UMA_HISTOGRAM_ENUMERATION("PLT.MissingStart", missing_start_type,
-                            MISSING_START_TYPE_MAX);
-  if (missing_start_type)
+      Time::FromDoubleT(performance.navigationStart());
+  if (start.is_null() || commit.is_null() || navigation_start.is_null())
     return;
 
   // We properly handle null values for the next 3 variables.
@@ -537,37 +480,17 @@ void PageLoadHistograms::Dump(WebFrame* frame) {
   Time finish_doc = document_state->finish_document_load_time();
   Time finish_all_loads = document_state->finish_load_time();
 
-  // TODO(tonyg, jar): We suspect a bug in abandonment counting, this temporary
-  // histogram should help us to troubleshoot.
-  Time load_event_start =
-      Time::FromDoubleT(frame->performance().loadEventStart());
-  Time load_event_end = Time::FromDoubleT(frame->performance().loadEventEnd());
-  int abandon_type = 0;
-  abandon_type |= finish_doc.is_null() ? FINISH_DOC_MISSING : 0;
-  abandon_type |= finish_all_loads.is_null() ? FINISH_ALL_LOADS_MISSING : 0;
-  abandon_type |= load_event_start.is_null() ? LOAD_EVENT_START_MISSING : 0;
-  abandon_type |= load_event_end.is_null() ? LOAD_EVENT_END_MISSING : 0;
-  UMA_HISTOGRAM_ENUMERATION("PLT.AbandonType", abandon_type, ABANDON_TYPE_MAX);
-
   // Handle case where user hits "stop" or "back" before loading completely.
-  bool abandoned_page = finish_doc.is_null();
-  if (abandoned_page) {
+  // Note that this makes abandoned page loads be recorded as if they were
+  // completed, polluting the metrics with artifically short completion times.
+  // We are not fixing this as these metrics are being dropped as deprecated.
+  if (finish_doc.is_null()) {
     finish_doc = Time::Now();
     document_state->set_finish_document_load_time(finish_doc);
   }
-
-  // TODO(jar): We should really discriminate the definition of "abandon" more
-  // finely.  We should have:
-  // abandon_before_document_loaded
-  // abandon_before_onload_fired
-
   if (finish_all_loads.is_null()) {
     finish_all_loads = Time::Now();
     document_state->set_finish_load_time(finish_all_loads);
-  } else {
-    DCHECK(!abandoned_page);  // How can the doc have finished but not the page?
-    if (abandoned_page)
-      return;  // Don't try to record a stat which is broken.
   }
 
   document_state->set_load_histograms_recorded(true);
@@ -586,7 +509,6 @@ void PageLoadHistograms::Dump(WebFrame* frame) {
   // time for the document_state, since all data is intact.
 
   // Aggregate PLT data across all link types.
-  UMA_HISTOGRAM_ENUMERATION("PLT.Abandoned", abandoned_page ? 1 : 0, 2);
   UMA_HISTOGRAM_ENUMERATION("PLT.LoadType", load_type,
       DocumentState::kLoadTypeMax);
   PLT_HISTOGRAM("PLT.StartToCommit", start_to_commit);
@@ -613,13 +535,17 @@ void PageLoadHistograms::Dump(WebFrame* frame) {
                                      websearch_chrome_joint_experiment_id,
                                      is_preview);
     }
-    DCHECK(commit <= first_paint);
-    commit_to_first_paint.reset(new TimeDelta(first_paint - commit));
-    PLT_HISTOGRAM_WITH_GWS_VARIANT("PLT.CommitToFirstPaint",
-                                   *commit_to_first_paint,
-                                   came_from_websearch,
-                                   websearch_chrome_joint_experiment_id,
-                                   is_preview);
+
+    // Conditional was previously a DCHECK. Changed due to multiple bot
+    // failures, listed in crbug.com/383963
+    if (commit <= first_paint) {
+      commit_to_first_paint.reset(new TimeDelta(first_paint - commit));
+      PLT_HISTOGRAM_WITH_GWS_VARIANT("PLT.CommitToFirstPaint",
+                                     *commit_to_first_paint,
+                                     came_from_websearch,
+                                     websearch_chrome_joint_experiment_id,
+                                     is_preview);
+    }
   }
   if (!first_paint_after_load.is_null()) {
     // 'first_paint_after_load' can be before 'begin' for an unknown reason.
@@ -628,12 +554,16 @@ void PageLoadHistograms::Dump(WebFrame* frame) {
       PLT_HISTOGRAM("PLT.BeginToFirstPaintAfterLoad",
           first_paint_after_load - begin);
     }
-    DCHECK(commit <= first_paint_after_load);
-    PLT_HISTOGRAM("PLT.CommitToFirstPaintAfterLoad",
-        first_paint_after_load - commit);
-    DCHECK(finish_all_loads <= first_paint_after_load);
-    PLT_HISTOGRAM("PLT.FinishToFirstPaintAfterLoad",
-        first_paint_after_load - finish_all_loads);
+    // Both following conditionals were previously DCHECKs. Changed due to
+    // multiple bot failures, listed in crbug.com/383963
+    if (commit <= first_paint_after_load) {
+      PLT_HISTOGRAM("PLT.CommitToFirstPaintAfterLoad",
+          first_paint_after_load - commit);
+    }
+    if (finish_all_loads <= first_paint_after_load) {
+      PLT_HISTOGRAM("PLT.FinishToFirstPaintAfterLoad",
+          first_paint_after_load - finish_all_loads);
+    }
   }
   PLT_HISTOGRAM_WITH_GWS_VARIANT("PLT.BeginToFinishDoc", begin_to_finish_doc,
                                  came_from_websearch,
@@ -691,8 +621,6 @@ void PageLoadHistograms::Dump(WebFrame* frame) {
   }
 
   if (data_reduction_proxy_was_used) {
-    UMA_HISTOGRAM_ENUMERATION(
-        "PLT.Abandoned_SpdyProxy", abandoned_page ? 1 : 0, 2);
     PLT_HISTOGRAM("PLT.BeginToFinishDoc_SpdyProxy", begin_to_finish_doc);
     PLT_HISTOGRAM("PLT.BeginToFinish_SpdyProxy", begin_to_finish_all_loads);
   }
@@ -709,19 +637,10 @@ void PageLoadHistograms::Dump(WebFrame* frame) {
     PLT_HISTOGRAM("PLT.BeginToFinish_ContentPrefetcherReferrer",
                   begin_to_finish_all_loads);
   }
-  if (document_state->was_after_preconnect_request()) {
-    PLT_HISTOGRAM("PLT.BeginToFinishDoc_AfterPreconnectRequest",
-                  begin_to_finish_doc);
-    PLT_HISTOGRAM("PLT.BeginToFinish_AfterPreconnectRequest",
-                  begin_to_finish_all_loads);
-  }
 
   const bool use_webrequest_histogram =
       ChromeContentRendererClient::WasWebRequestUsedBySomeExtensions();
   if (use_webrequest_histogram) {
-    UMA_HISTOGRAM_ENUMERATION(
-        "PLT.Abandoned_ExtensionWebRequest",
-        abandoned_page ? 1 : 0, 2);
     switch (load_type) {
       case DocumentState::NORMAL_LOAD:
         PLT_HISTOGRAM(
@@ -747,57 +666,61 @@ void PageLoadHistograms::Dump(WebFrame* frame) {
         break;
     }
   }
+}
 
-  // Record SpdyCwnd results.
-  if (document_state->was_fetched_via_spdy()) {
-    switch (load_type) {
-      case DocumentState::LINK_LOAD_NORMAL:
-        PLT_HISTOGRAM("PLT.BeginToFinish_LinkLoadNormal_cwndDynamic",
-                      begin_to_finish_all_loads);
-        PLT_HISTOGRAM("PLT.StartToFinish_LinkLoadNormal_cwndDynamic",
-                      start_to_finish_all_loads);
-        PLT_HISTOGRAM("PLT.StartToCommit_LinkLoadNormal_cwndDynamic",
-                      start_to_commit);
-        break;
-      case DocumentState::NORMAL_LOAD:
-        PLT_HISTOGRAM("PLT.BeginToFinish_NormalLoad_cwndDynamic",
-                      begin_to_finish_all_loads);
-        PLT_HISTOGRAM("PLT.StartToFinish_NormalLoad_cwndDynamic",
-                      start_to_finish_all_loads);
-        PLT_HISTOGRAM("PLT.StartToCommit_NormalLoad_cwndDynamic",
-                      start_to_commit);
-        break;
-      default:
-        break;
-    }
+}  // namespace
+
+PageLoadHistograms::PageLoadHistograms(content::RenderView* render_view)
+    : content::RenderViewObserver(render_view) {
+}
+
+void PageLoadHistograms::Dump(WebFrame* frame) {
+  // We only dump histograms for main frames.
+  // In the future, it may be interesting to tag subframes and dump them too.
+  if (!frame || frame->parent())
+    return;
+
+  // Only dump for supported schemes.
+  URLPattern::SchemeMasks scheme_type =
+      GetSupportedSchemeType(frame->document().url());
+  if (scheme_type == 0)
+    return;
+
+  // Ignore multipart requests.
+  if (frame->dataSource()->response().isMultipartPayload())
+    return;
+
+  DocumentState* document_state =
+      DocumentState::FromDataSource(frame->dataSource());
+
+  bool data_reduction_proxy_was_used = DataReductionProxyWasUsed(frame);
+  bool came_from_websearch =
+      IsFromGoogleSearchResult(frame->document().url(),
+                               GURL(frame->document().referrer()));
+  int websearch_chrome_joint_experiment_id = kNoExperiment;
+  bool is_preview = false;
+  if (came_from_websearch) {
+    websearch_chrome_joint_experiment_id =
+        GetQueryStringBasedExperiment(GURL(frame->document().referrer()));
+    is_preview = ViaHeaderContains(frame, "1.1 Google Instant Proxy Preview");
   }
 
-  // Record page load time and abandonment rates for proxy cases.
-  if (document_state->was_fetched_via_proxy()) {
-    if (scheme_type == URLPattern::SCHEME_HTTPS) {
-      PLT_HISTOGRAM("PLT.StartToFinish.Proxy.https", start_to_finish_all_loads);
-      UMA_HISTOGRAM_ENUMERATION("PLT.Abandoned.Proxy.https",
-                                abandoned_page ? 1 : 0, 2);
-    } else {
-      DCHECK(scheme_type == URLPattern::SCHEME_HTTP);
-      PLT_HISTOGRAM("PLT.StartToFinish.Proxy.http", start_to_finish_all_loads);
-      UMA_HISTOGRAM_ENUMERATION("PLT.Abandoned.Proxy.http",
-                                abandoned_page ? 1 : 0, 2);
-    }
-  } else {
-    if (scheme_type == URLPattern::SCHEME_HTTPS) {
-      PLT_HISTOGRAM("PLT.StartToFinish.NoProxy.https",
-                    start_to_finish_all_loads);
-      UMA_HISTOGRAM_ENUMERATION("PLT.Abandoned.NoProxy.https",
-                                abandoned_page ? 1 : 0, 2);
-    } else {
-      DCHECK(scheme_type == URLPattern::SCHEME_HTTP);
-      PLT_HISTOGRAM("PLT.StartToFinish.NoProxy.http",
-                    start_to_finish_all_loads);
-      UMA_HISTOGRAM_ENUMERATION("PLT.Abandoned.NoProxy.http",
-                                abandoned_page ? 1 : 0, 2);
-    }
-  }
+  // Metrics based on the timing information recorded for the Navigation Timing
+  // API - http://www.w3.org/TR/navigation-timing/.
+  DumpHistograms(frame->performance(), document_state,
+                 data_reduction_proxy_was_used,
+                 came_from_websearch,
+                 websearch_chrome_joint_experiment_id,
+                 is_preview);
+
+  // Old metrics based on the timing information stored in DocumentState. These
+  // are deprecated and should go away.
+  DumpDeprecatedHistograms(frame->performance(), document_state,
+                           data_reduction_proxy_was_used,
+                           came_from_websearch,
+                           websearch_chrome_joint_experiment_id,
+                           is_preview,
+                           scheme_type);
 
   // Log the PLT to the info log.
   LogPageLoadTime(document_state, frame->dataSource());

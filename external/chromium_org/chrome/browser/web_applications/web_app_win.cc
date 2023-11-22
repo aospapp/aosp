@@ -7,8 +7,8 @@
 #include <shlobj.h>
 
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/md5.h"
 #include "base/path_service.h"
@@ -407,7 +407,7 @@ base::FilePath CreateShortcutInWebAppDir(const base::FilePath& web_app_dir,
 void UpdateRelaunchDetailsForApp(Profile* profile,
                                  const extensions::Extension* extension,
                                  HWND hwnd) {
-  web_app::UpdateShortcutInfoAndIconForApp(
+  web_app::GetShortcutInfoForApp(
       extension,
       profile,
       base::Bind(&OnShortcutInfoLoadedForSetRelaunchDetails, hwnd));

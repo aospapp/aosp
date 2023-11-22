@@ -9,7 +9,7 @@
 #include "base/threading/non_thread_safe.h"
 #include "google_apis/gaia/oauth2_token_service_request.h"
 #include "net/url_request/url_request_context_getter.h"
-#include "sync/api/attachments/attachment_uploader.h"
+#include "sync/internal_api/public/attachments/attachment_uploader.h"
 
 class GURL;
 
@@ -23,8 +23,7 @@ namespace syncer {
 class SYNC_EXPORT AttachmentUploaderImpl : public AttachmentUploader,
                                            public base::NonThreadSafe {
  public:
-  // |url_prefix| is the URL prefix (including trailing slash) to be used when
-  // uploading attachments.
+  // |sync_service_url| is the URL of the sync service.
   //
   // |url_request_context_getter| provides a URLRequestContext.
   //
@@ -34,12 +33,12 @@ class SYNC_EXPORT AttachmentUploaderImpl : public AttachmentUploader,
   //
   // |token_service_provider| provides an OAuth2 token service.
   AttachmentUploaderImpl(
-      const std::string& url_prefix,
+      const GURL& sync_service_url,
       const scoped_refptr<net::URLRequestContextGetter>&
           url_request_context_getter,
       const std::string& account_id,
       const OAuth2TokenService::ScopeSet& scopes,
-      scoped_ptr<OAuth2TokenServiceRequest::TokenServiceProvider>
+      const scoped_refptr<OAuth2TokenServiceRequest::TokenServiceProvider>&
           token_service_provider);
   virtual ~AttachmentUploaderImpl();
 
@@ -47,21 +46,28 @@ class SYNC_EXPORT AttachmentUploaderImpl : public AttachmentUploader,
   virtual void UploadAttachment(const Attachment& attachment,
                                 const UploadCallback& callback) OVERRIDE;
 
+  // Return the URL for the given |sync_service_url| and |attachment_id|.
+  static GURL GetURLForAttachmentId(const GURL& sync_service_url,
+                                    const AttachmentId& attachment_id);
+
  private:
   class UploadState;
   typedef std::string UniqueId;
   typedef base::ScopedPtrHashMap<UniqueId, UploadState> StateMap;
 
-  GURL GetUploadURLForAttachmentId(const AttachmentId& attachment_id) const;
-  void DeleteUploadStateFor(const UniqueId& unique_id);
+  void OnUploadStateStopped(const UniqueId& unique_id);
 
-  std::string url_prefix_;
+  GURL sync_service_url_;
   scoped_refptr<net::URLRequestContextGetter> url_request_context_getter_;
   std::string account_id_;
   OAuth2TokenService::ScopeSet scopes_;
-  scoped_ptr<OAuth2TokenServiceRequest::TokenServiceProvider>
+  scoped_refptr<OAuth2TokenServiceRequest::TokenServiceProvider>
       token_service_provider_;
   StateMap state_map_;
+
+  // Must be last data member.
+  base::WeakPtrFactory<AttachmentUploaderImpl> weak_ptr_factory_;
+
   DISALLOW_COPY_AND_ASSIGN(AttachmentUploaderImpl);
 };
 

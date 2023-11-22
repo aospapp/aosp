@@ -5,13 +5,13 @@
 #include "ui/views/touchui/touch_editing_menu.h"
 
 #include "base/strings/utf_string_conversions.h"
-#include "grit/ui_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/font_list.h"
 #include "ui/gfx/insets.h"
 #include "ui/gfx/text_utils.h"
+#include "ui/strings/grit/ui_strings.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/button/custom_button.h"
@@ -47,7 +47,7 @@ TouchEditingMenuView::TouchEditingMenuView(
   set_shadow(views::BubbleBorder::SMALL_SHADOW);
   set_parent_window(context);
   set_margins(gfx::Insets(kMenuMargin, kMenuMargin, kMenuMargin, kMenuMargin));
-  set_use_focusless(true);
+  set_can_activate(false);
   set_adjust_if_offscreen(true);
 
   SetLayoutManager(new BoxLayout(BoxLayout::kHorizontal, 0, 0,

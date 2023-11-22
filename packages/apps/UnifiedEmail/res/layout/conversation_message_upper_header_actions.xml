@@ -20,7 +20,7 @@
     <ImageView
         android:id="@+id/edit_draft"
         android:contentDescription="@string/resume_draft"
-        android:src="@drawable/ic_edit_24dp"
+        android:src="@drawable/ic_pencil_24dp"
         android:visibility="gone"
         style="@style/MessageHeaderActionButtonStyle" />
 
@@ -38,8 +38,8 @@
 
     <ImageView
         android:id="@+id/overflow"
-        android:layout_width="@dimen/message_header_action_button_width"
-        android:layout_height="@dimen/message_header_action_button_height"
-        style="@style/OverflowButtonStyle" />
+        android:contentDescription="@string/overflow_description"
+        android:src="@drawable/ic_overflow_24dp"
+        style="@style/MessageHeaderOverflowButtonStyle" />
 
 </merge>

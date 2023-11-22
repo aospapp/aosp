@@ -28,6 +28,12 @@ namespace drive {
 // 3) Update the in-memory resource list by requests like DeleteResource().
 class FakeDriveService : public DriveServiceInterface {
  public:
+  class ChangeObserver {
+   public:
+    virtual ~ChangeObserver() {}
+    virtual void OnNewChangeAvailable() = 0;
+  };
+
   FakeDriveService();
   virtual ~FakeDriveService();
 
@@ -113,12 +119,18 @@ class FakeDriveService : public DriveServiceInterface {
   // Returns the (fake) URL for the link.
   static GURL GetFakeLinkUrl(const std::string& resource_id);
 
+  // Sets the printf format for constructing the response of AuthorizeApp().
+  // The format string must include two %s that are to be filled with
+  // resource_id and app_id.
+  void set_open_url_format(const std::string& url_format) {
+    open_url_format_ = url_format;
+  }
+
   // DriveServiceInterface Overrides
   virtual void Initialize(const std::string& account_id) OVERRIDE;
   virtual void AddObserver(DriveServiceObserver* observer) OVERRIDE;
   virtual void RemoveObserver(DriveServiceObserver* observer) OVERRIDE;
   virtual bool CanSendRequest() const OVERRIDE;
-  virtual ResourceIdCanonicalizer GetResourceIdCanonicalizer() const OVERRIDE;
   virtual std::string GetRootResourceId() const OVERRIDE;
   virtual bool HasAccessToken() const OVERRIDE;
   virtual void RequestAccessToken(
@@ -186,10 +198,6 @@ class FakeDriveService : public DriveServiceInterface {
       const base::Time& last_modified,
       const base::Time& last_viewed_by_me,
       const google_apis::FileResourceCallback& callback) OVERRIDE;
-  virtual google_apis::CancelCallback RenameResource(
-      const std::string& resource_id,
-      const std::string& new_title,
-      const google_apis::EntryActionCallback& callback) OVERRIDE;
   virtual google_apis::CancelCallback AddResourceToDirectory(
       const std::string& parent_resource_id,
       const std::string& resource_id,
@@ -282,6 +290,14 @@ class FakeDriveService : public DriveServiceInterface {
       const base::Time& last_modified_time,
       const google_apis::FileResourceCallback& callback);
 
+  // Sets the user's permission for an entry specified by |resource_id|.
+  google_apis::GDataErrorCode SetUserPermission(
+      const std::string& resource_id,
+      google_apis::drive::PermissionRole user_permission);
+
+  void AddChangeObserver(ChangeObserver* observer);
+  void RemoveChangeObserver(ChangeObserver* observer);
+
  private:
   struct EntryInfo;
   struct UploadSession;
@@ -328,6 +344,8 @@ class FakeDriveService : public DriveServiceInterface {
   // Returns new upload session URL.
   GURL GetNewUploadSessionUrl();
 
+  void NotifyObservers();
+
   typedef std::map<std::string, EntryInfo*> EntryInfoMap;
   EntryInfoMap entries_;
   scoped_ptr<google_apis::AboutResource> about_resource_;
@@ -348,6 +366,11 @@ class FakeDriveService : public DriveServiceInterface {
   base::FilePath last_cancelled_file_;
   GURL share_url_base_;
   std::string app_json_template_;
+  std::string open_url_format_;
+
+  ObserverList<ChangeObserver> change_observers_;
+
+  base::WeakPtrFactory<FakeDriveService> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(FakeDriveService);
 };

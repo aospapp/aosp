@@ -427,7 +427,7 @@ public class KeyChainService extends IntentService {
 
     private void broadcastStorageChange() {
         Intent intent = new Intent(KeyChain.ACTION_STORAGE_CHANGED);
-        sendBroadcast(intent);
+        sendBroadcastAsUser(intent, new UserHandle(UserHandle.myUserId()));
     }
 
 }

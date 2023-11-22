@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "base/observer_list.h"
 #include "base/strings/string16.h"
 
 namespace base {
@@ -15,7 +16,9 @@ class MessageLoop;
 class FilePath;
 }
 
-class Profile;
+namespace content {
+class BrowserContext;
+}
 
 // Exposes an easy way for the various components of the extension system to
 // report errors. This is a singleton that lives on the UI thread, with the
@@ -27,6 +30,16 @@ class Profile;
 // report errors that are specific to a particular extension.
 class ExtensionErrorReporter {
  public:
+  class Observer {
+   public:
+    virtual ~Observer() {}
+
+    // Called when an unpacked extension fails to load.
+    virtual void OnLoadFailure(content::BrowserContext* browser_context,
+                               const base::FilePath& extension_path,
+                               const std::string& error) = 0;
+  };
+
   // Initializes the error reporter. Must be called before any other methods
   // and on the UI thread.
   static void Init(bool enable_noisy_errors);
@@ -41,7 +54,7 @@ class ExtensionErrorReporter {
   // the notification and this method.
   void ReportLoadError(const base::FilePath& extension_path,
                        const std::string& error,
-                       Profile* profile,
+                       content::BrowserContext* browser_context,
                        bool be_noisy);
 
   // Report an error. Errors always go to VLOG(1). Optionally, they can also
@@ -54,6 +67,10 @@ class ExtensionErrorReporter {
   // Clear the list of errors reported so far.
   void ClearErrors();
 
+  void AddObserver(Observer* observer);
+
+  void RemoveObserver(Observer* observer);
+
  private:
   static ExtensionErrorReporter* instance_;
 
@@ -63,6 +80,8 @@ class ExtensionErrorReporter {
   base::MessageLoop* ui_loop_;
   std::vector<base::string16> errors_;
   bool enable_noisy_errors_;
+
+  ObserverList<Observer> observers_;
 };
 
 #endif  // CHROME_BROWSER_EXTENSIONS_EXTENSION_ERROR_REPORTER_H_

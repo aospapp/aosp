@@ -91,6 +91,12 @@ class AppInfo {
         }
     }
 
+    boolean isEnabled() {
+        synchronized (mLock) {
+            return mEntry.info.enabled;
+        }
+    }
+
     boolean isSystemApp() {
         synchronized (mLock) {
             return (mEntry.info.flags & ApplicationInfo.FLAG_SYSTEM) != 0;

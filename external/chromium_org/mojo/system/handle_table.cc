@@ -4,29 +4,26 @@
 
 #include "mojo/system/handle_table.h"
 
-#include "base/basictypes.h"
 #include "base/logging.h"
+#include "base/macros.h"
 #include "mojo/system/constants.h"
 #include "mojo/system/dispatcher.h"
 
 namespace mojo {
 namespace system {
 
-HandleTable::Entry::Entry()
-    : busy(false) {
+HandleTable::Entry::Entry() : busy(false) {
 }
 
 HandleTable::Entry::Entry(const scoped_refptr<Dispatcher>& dispatcher)
-    : dispatcher(dispatcher),
-      busy(false) {
+    : dispatcher(dispatcher), busy(false) {
 }
 
 HandleTable::Entry::~Entry() {
   DCHECK(!busy);
 }
 
-HandleTable::HandleTable()
-    : next_handle_(MOJO_HANDLE_INVALID + 1) {
+HandleTable::HandleTable() : next_handle_(MOJO_HANDLE_INVALID + 1) {
 }
 
 HandleTable::~HandleTable() {
@@ -39,8 +36,8 @@ Dispatcher* HandleTable::GetDispatcher(MojoHandle handle) {
 
   HandleToEntryMap::iterator it = handle_to_entry_map_.find(handle);
   if (it == handle_to_entry_map_.end())
-    return NULL;
-  return it->second.dispatcher;
+    return nullptr;
+  return it->second.dispatcher.get();
 }
 
 MojoResult HandleTable::GetAndRemoveDispatcher(
@@ -82,17 +79,17 @@ bool HandleTable::AddDispatcherVector(const DispatcherVector& dispatchers,
   DCHECK(handles);
   // TODO(vtl): |std::numeric_limits<size_t>::max()| isn't a compile-time
   // expression in C++03.
-  COMPILE_ASSERT(
+  static_assert(
       static_cast<uint64_t>(kMaxHandleTableSize) + kMaxMessageNumHandles <
-          (sizeof(size_t) == 8 ? kuint64max :
-                                 static_cast<uint64_t>(kuint32max)),
-      addition_may_overflow);
+          (sizeof(size_t) == 8 ? kuint64max
+                               : static_cast<uint64_t>(kuint32max)),
+      "Addition may overflow");
 
   if (handle_to_entry_map_.size() + dispatchers.size() > kMaxHandleTableSize)
     return false;
 
   for (size_t i = 0; i < dispatchers.size(); i++) {
-    if (dispatchers[i]) {
+    if (dispatchers[i].get()) {
       handles[i] = AddDispatcherNoSizeCheck(dispatchers[i]);
     } else {
       LOG(WARNING) << "Invalid dispatcher at index " << i;
@@ -146,6 +143,12 @@ MojoResult HandleTable::MarkBusyAndStartTransport(
         Dispatcher::HandleTableAccess::TryStartTransport(
             entries[i]->dispatcher.get());
     if (!transport.is_valid()) {
+      // Only log for Debug builds, since this is not a problem with the system
+      // code, but with user code.
+      DLOG(WARNING) << "Likely race condition in user code detected: attempt "
+                       "to transfer handle " << handles[i]
+                    << " while it is in use on a different thread";
+
       // Unset the busy flag (since it won't be unset below).
       entries[i]->busy = false;
       error_result = MOJO_RESULT_BUSY;
@@ -183,14 +186,14 @@ MojoResult HandleTable::MarkBusyAndStartTransport(
 
 MojoHandle HandleTable::AddDispatcherNoSizeCheck(
     const scoped_refptr<Dispatcher>& dispatcher) {
-  DCHECK(dispatcher);
+  DCHECK(dispatcher.get());
   DCHECK_LT(handle_to_entry_map_.size(), kMaxHandleTableSize);
   DCHECK_NE(next_handle_, MOJO_HANDLE_INVALID);
 
   // TODO(vtl): Maybe we want to do something different/smarter. (Or maybe try
   // assigning randomly?)
   while (handle_to_entry_map_.find(next_handle_) !=
-             handle_to_entry_map_.end()) {
+         handle_to_entry_map_.end()) {
     next_handle_++;
     if (next_handle_ == MOJO_HANDLE_INVALID)
       next_handle_++;

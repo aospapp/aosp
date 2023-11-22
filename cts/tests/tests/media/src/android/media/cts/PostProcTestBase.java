@@ -16,7 +16,9 @@
 
 package android.media.cts;
 
+import android.content.Context;
 import android.content.pm.PackageManager;
+import android.media.AudioManager;
 import android.media.audiofx.AudioEffect;
 import android.os.Looper;
 import android.test.AndroidTestCase;
@@ -29,6 +31,8 @@ public class PostProcTestBase extends AndroidTestCase {
     protected Looper mLooper = null;
     protected final Object mLock = new Object();
     protected int mChangedParameter = -1;
+    protected final static String BUNDLE_VOLUME_EFFECT_UUID =
+            "119341a0-8469-11df-81f9-0002a5d5c51b";
 
     protected boolean hasAudioOutput() {
         return getContext().getPackageManager().hasSystemFeature(
@@ -62,4 +66,13 @@ public class PostProcTestBase extends AndroidTestCase {
         }
         return AudioEffect.isEffectTypeAvailable(AudioEffect.EFFECT_TYPE_ENV_REVERB);
     }
+
+    protected int getSessionId() {
+        AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+        assertNotNull("could not get AudioManager", am);
+        int sessionId = am.generateAudioSessionId();
+        assertTrue("Could not generate session id", sessionId>0);
+        return sessionId;
+    }
+
 }

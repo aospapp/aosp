@@ -42,8 +42,8 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.support.v17.leanback.R;
 import android.support.v17.leanback.widget.VerticalGridView;
+import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -67,7 +67,7 @@ import com.android.tv.settings.util.AccessibilityHelper;
  */
 public class SettingsLayoutFragment extends Fragment implements Layout.LayoutNodeRefreshListener {
 
-    private static final String TAG_LEAN_BACK_DIALOG_FRAGMENT = "leanBackSettingsLayoutFragment";
+    public static final String TAG_LEAN_BACK_DIALOG_FRAGMENT = "leanBackSettingsLayoutFragment";
     private static final String EXTRA_CONTENT_TITLE = "title";
     private static final String EXTRA_CONTENT_BREADCRUMB = "breadcrumb";
     private static final String EXTRA_CONTENT_DESCRIPTION = "description";
@@ -76,7 +76,6 @@ public class SettingsLayoutFragment extends Fragment implements Layout.LayoutNod
     private static final String EXTRA_CONTENT_ICON_BITMAP = "iconBitmap";
     private static final String EXTRA_CONTENT_ICON_BACKGROUND = "iconBackground";
     private static final String EXTRA_ACTION_NAME = "name";
-    private static final String EXTRA_ACTION_LAYOUT = "layout";
     private static final String EXTRA_ACTION_SELECTED_INDEX = "selectedIndex";
     private static final String EXTRA_ENTRY_TRANSITION_PERFORMED = "entryTransitionPerformed";
     private static final int ANIMATION_FRAGMENT_ENTER = 1;
@@ -107,7 +106,6 @@ public class SettingsLayoutFragment extends Fragment implements Layout.LayoutNod
         private Uri mIconUri;
         private Bitmap mIconBitmap;
         private int mIconBackgroundColor = Color.TRANSPARENT;
-        private Layout mLayout;
         private String mName;
 
         public SettingsLayoutFragment build() {
@@ -121,8 +119,6 @@ public class SettingsLayoutFragment extends Fragment implements Layout.LayoutNod
             args.putParcelable(EXTRA_CONTENT_ICON_URI, mIconUri);
             args.putParcelable(EXTRA_CONTENT_ICON_BITMAP, mIconBitmap);
             args.putInt(EXTRA_CONTENT_ICON_BACKGROUND, mIconBackgroundColor);
-            args.putParcelable(EXTRA_ACTION_LAYOUT, mLayout);
-            mLayout.setRefreshViewListener(fragment);
             args.putString(EXTRA_ACTION_NAME, mName);
             fragment.setArguments(args);
             return fragment;
@@ -160,11 +156,6 @@ public class SettingsLayoutFragment extends Fragment implements Layout.LayoutNod
 
         public Builder iconBackgroundColor(int iconBackgroundColor) {
             mIconBackgroundColor = iconBackgroundColor;
-            return this;
-        }
-
-        public Builder layout(Layout layout) {
-            mLayout = layout;
             return this;
         }
 
@@ -211,12 +202,14 @@ public class SettingsLayoutFragment extends Fragment implements Layout.LayoutNod
     private final Runnable mRefreshViewRunnable = new Runnable() {
         @Override
         public void run() {
-            mLayout.setSelectedIndex(mListView.getSelectedPosition());
-            mLayout.reloadLayoutRows();
-            mAdapter.setLayoutRows(mLayout.getLayoutRows());
-            mAdapter.setNoAnimateMode();
-            mAdapter.notifyDataSetChanged();
-            mListView.setSelectedPositionSmooth(mLayout.getSelectedIndex());
+            if (isResumed()) {
+                mLayout.setSelectedIndex(mListView.getSelectedPosition());
+                mLayout.reloadLayoutRows();
+                mAdapter.setLayoutRows(mLayout.getLayoutRows());
+                mAdapter.setNoAnimateMode();
+                mAdapter.notifyDataSetChanged();
+                mListView.setSelectedPositionSmooth(mLayout.getSelectedIndex());
+            }
         }
     };
 
@@ -242,7 +235,6 @@ public class SettingsLayoutFragment extends Fragment implements Layout.LayoutNod
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        android.util.Log.v("SettingsLayoutFragment", "onCreate");
         super.onCreate(savedInstanceState);
         Bundle state = (savedInstanceState != null) ? savedInstanceState : getArguments();
         mTitle = state.getString(EXTRA_CONTENT_TITLE);
@@ -252,7 +244,6 @@ public class SettingsLayoutFragment extends Fragment implements Layout.LayoutNod
         mIconUri = state.getParcelable(EXTRA_CONTENT_ICON_URI);
         mIconBitmap = state.getParcelable(EXTRA_CONTENT_ICON_BITMAP);
         mIconBackgroundColor = state.getInt(EXTRA_CONTENT_ICON_BACKGROUND, Color.TRANSPARENT);
-        mLayout = state.getParcelable(EXTRA_ACTION_LAYOUT);
         mName = state.getString(EXTRA_ACTION_NAME);
         mSelectedIndex = state.getInt(EXTRA_ACTION_SELECTED_INDEX, -1);
         mEntryTransitionPerformed = state.getBoolean(EXTRA_ENTRY_TRANSITION_PERFORMED, false);
@@ -296,7 +287,6 @@ public class SettingsLayoutFragment extends Fragment implements Layout.LayoutNod
         outState.putParcelable(EXTRA_CONTENT_ICON_URI, mIconUri);
         outState.putParcelable(EXTRA_CONTENT_ICON_BITMAP, mIconBitmap);
         outState.putInt(EXTRA_CONTENT_ICON_BACKGROUND, mIconBackgroundColor);
-        outState.putParcelable(EXTRA_ACTION_LAYOUT, mLayout);
         outState.putInt(EXTRA_ACTION_SELECTED_INDEX,
                 (mListView != null) ? mListView.getSelectedPosition() : -1);
         outState.putString(EXTRA_ACTION_NAME, mName);
@@ -310,6 +300,11 @@ public class SettingsLayoutFragment extends Fragment implements Layout.LayoutNod
             mEntryTransitionPerformed = true;
             performEntryTransition();
         }
+    }
+
+    public void setLayout(Layout layout) {
+        mLayout = layout;
+        mLayout.setRefreshViewListener(this);
     }
 
     // TODO refactor to get this call as the result of a callback from the Layout.
@@ -428,37 +423,37 @@ public class SettingsLayoutFragment extends Fragment implements Layout.LayoutNod
 
         switch (nextAnim) {
             case ANIMATION_FRAGMENT_ENTER:
-                animators.add(createSlideLeftInAnimator(titleView));
-                animators.add(createSlideLeftInAnimator(breadcrumbView));
-                animators.add(createSlideLeftInAnimator(descriptionView));
-                animators.add(createSlideLeftInAnimator(iconView));
-                animators.add(createSlideLeftInAnimator(listView));
-                animators.add(createSlideLeftInAnimator(selectorView));
+                animators.add(createSlideInFromEndAnimator(titleView));
+                animators.add(createSlideInFromEndAnimator(breadcrumbView));
+                animators.add(createSlideInFromEndAnimator(descriptionView));
+                animators.add(createSlideInFromEndAnimator(iconView));
+                animators.add(createSlideInFromEndAnimator(listView));
+                animators.add(createSlideInFromEndAnimator(selectorView));
                 break;
             case ANIMATION_FRAGMENT_EXIT:
-                animators.add(createSlideLeftOutAnimator(titleView));
-                animators.add(createSlideLeftOutAnimator(breadcrumbView));
-                animators.add(createSlideLeftOutAnimator(descriptionView));
-                animators.add(createSlideLeftOutAnimator(iconView));
-                animators.add(createSlideLeftOutAnimator(listView));
-                animators.add(createSlideLeftOutAnimator(selectorView));
+                animators.add(createSlideOutToStartAnimator(titleView));
+                animators.add(createSlideOutToStartAnimator(breadcrumbView));
+                animators.add(createSlideOutToStartAnimator(descriptionView));
+                animators.add(createSlideOutToStartAnimator(iconView));
+                animators.add(createSlideOutToStartAnimator(listView));
+                animators.add(createSlideOutToStartAnimator(selectorView));
                 animators.add(createFadeOutAnimator(actionContainerView));
                 break;
             case ANIMATION_FRAGMENT_ENTER_POP:
-                animators.add(createSlideRightInAnimator(titleView));
-                animators.add(createSlideRightInAnimator(breadcrumbView));
-                animators.add(createSlideRightInAnimator(descriptionView));
-                animators.add(createSlideRightInAnimator(iconView));
-                animators.add(createSlideRightInAnimator(listView));
-                animators.add(createSlideRightInAnimator(selectorView));
+                animators.add(createSlideInFromStartAnimator(titleView));
+                animators.add(createSlideInFromStartAnimator(breadcrumbView));
+                animators.add(createSlideInFromStartAnimator(descriptionView));
+                animators.add(createSlideInFromStartAnimator(iconView));
+                animators.add(createSlideInFromStartAnimator(listView));
+                animators.add(createSlideInFromStartAnimator(selectorView));
                 break;
             case ANIMATION_FRAGMENT_EXIT_POP:
-                animators.add(createSlideRightOutAnimator(titleView));
-                animators.add(createSlideRightOutAnimator(breadcrumbView));
-                animators.add(createSlideRightOutAnimator(descriptionView));
-                animators.add(createSlideRightOutAnimator(iconView));
-                animators.add(createSlideRightOutAnimator(listView));
-                animators.add(createSlideRightOutAnimator(selectorView));
+                animators.add(createSlideOutToEndAnimator(titleView));
+                animators.add(createSlideOutToEndAnimator(breadcrumbView));
+                animators.add(createSlideOutToEndAnimator(descriptionView));
+                animators.add(createSlideOutToEndAnimator(iconView));
+                animators.add(createSlideOutToEndAnimator(listView));
+                animators.add(createSlideOutToEndAnimator(selectorView));
                 animators.add(createFadeOutAnimator(actionContainerView));
                 break;
             default:
@@ -663,19 +658,25 @@ public class SettingsLayoutFragment extends Fragment implements Layout.LayoutNod
                             oa.setInterpolator(new DecelerateInterpolator(1.0f));
                             oa.start();
 
-                            // Fade in and slide in the ContentFragment TextViews from the left.
-                            prepareAndAnimateView((View) contentView.getTag(R.id.title),
-                                    -mSlideInDistance, false);
-                            prepareAndAnimateView((View) contentView.getTag(R.id.breadcrumb),
-                                    -mSlideInDistance, false);
-                            prepareAndAnimateView((View) contentView.getTag(R.id.description),
-                                    -mSlideInDistance, false);
+                            boolean isRtl = ViewCompat.getLayoutDirection(contentView) ==
+                                    View.LAYOUT_DIRECTION_RTL;
+                            int startDist = isRtl ? mSlideInDistance : -mSlideInDistance;
+                            int endDist = isRtl ? -actionContainerView.getMeasuredWidth() :
+                                    actionContainerView.getMeasuredWidth();
 
-                            // Fade in and slide in the ActionFragment from the right.
+                            // Fade in and slide in the ContentFragment TextViews from the start.
+                            prepareAndAnimateView((View) contentView.getTag(R.id.title),
+                                    startDist, false);
+                            prepareAndAnimateView((View) contentView.getTag(R.id.breadcrumb),
+                                    startDist, false);
+                            prepareAndAnimateView((View) contentView.getTag(R.id.description),
+                                    startDist, false);
+
+                            // Fade in and slide in the ActionFragment from the end.
                             prepareAndAnimateView(actionContainerView,
-                                    actionContainerView.getMeasuredWidth(), false);
+                                    endDist, false);
                             prepareAndAnimateView((View) contentView.getTag(R.id.icon),
-                                    -mSlideInDistance, true);
+                                    startDist, true);
                         }
                     };
                 });
@@ -714,23 +715,31 @@ public class SettingsLayoutFragment extends Fragment implements Layout.LayoutNod
         return animator;
     }
 
-    private Animator createSlideLeftOutAnimator(View v) {
-        return createTranslateAlphaAnimator(v, SLIDE_OUT_ANIMATOR_LEFT, -SLIDE_OUT_ANIMATOR_RIGHT,
-               SLIDE_OUT_ANIMATOR_END_ALPHA, SLIDE_OUT_ANIMATOR_START_ALPHA);
+    private Animator createSlideOutToStartAnimator(View v) {
+        boolean isRtl = ViewCompat.getLayoutDirection(v) == View.LAYOUT_DIRECTION_RTL;
+        float toX = isRtl ? SLIDE_OUT_ANIMATOR_RIGHT : -SLIDE_OUT_ANIMATOR_RIGHT;
+        return createTranslateAlphaAnimator(v, SLIDE_OUT_ANIMATOR_LEFT, toX,
+                SLIDE_OUT_ANIMATOR_END_ALPHA, SLIDE_OUT_ANIMATOR_START_ALPHA);
     }
 
-    private Animator createSlideLeftInAnimator(View v) {
-        return createTranslateAlphaAnimator(v, SLIDE_OUT_ANIMATOR_RIGHT, SLIDE_OUT_ANIMATOR_LEFT,
+    private Animator createSlideInFromEndAnimator(View v) {
+        boolean isRtl = ViewCompat.getLayoutDirection(v) == View.LAYOUT_DIRECTION_RTL;
+        float fromX = isRtl ? -SLIDE_OUT_ANIMATOR_RIGHT : SLIDE_OUT_ANIMATOR_RIGHT;
+        return createTranslateAlphaAnimator(v, fromX, SLIDE_OUT_ANIMATOR_LEFT,
                 SLIDE_OUT_ANIMATOR_START_ALPHA, SLIDE_OUT_ANIMATOR_END_ALPHA);
     }
 
-    private Animator createSlideRightInAnimator(View v) {
-        return createTranslateAlphaAnimator(v, -SLIDE_OUT_ANIMATOR_RIGHT, SLIDE_OUT_ANIMATOR_LEFT,
+    private Animator createSlideInFromStartAnimator(View v) {
+        boolean isRtl = ViewCompat.getLayoutDirection(v) == View.LAYOUT_DIRECTION_RTL;
+        float fromX = isRtl ? SLIDE_OUT_ANIMATOR_RIGHT : -SLIDE_OUT_ANIMATOR_RIGHT;
+        return createTranslateAlphaAnimator(v, fromX, SLIDE_OUT_ANIMATOR_LEFT,
                 SLIDE_OUT_ANIMATOR_START_ALPHA, SLIDE_OUT_ANIMATOR_END_ALPHA);
     }
 
-    private Animator createSlideRightOutAnimator(View v) {
-        return createTranslateAlphaAnimator(v, SLIDE_OUT_ANIMATOR_LEFT, SLIDE_OUT_ANIMATOR_RIGHT,
+    private Animator createSlideOutToEndAnimator(View v) {
+        boolean isRtl = ViewCompat.getLayoutDirection(v) == View.LAYOUT_DIRECTION_RTL;
+        float toX = isRtl ? -SLIDE_OUT_ANIMATOR_RIGHT : SLIDE_OUT_ANIMATOR_RIGHT;
+        return createTranslateAlphaAnimator(v, SLIDE_OUT_ANIMATOR_LEFT, toX,
                 SLIDE_OUT_ANIMATOR_END_ALPHA, SLIDE_OUT_ANIMATOR_START_ALPHA);
     }
 

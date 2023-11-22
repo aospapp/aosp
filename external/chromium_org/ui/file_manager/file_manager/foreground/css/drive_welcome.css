@@ -18,8 +18,8 @@
 }
 
 .drive-welcome-links {
-  -webkit-box-orient: horizontal;
-  display: -webkit-box;
+  display: flex;
+  flex-direction: row;
 }
 
 .drive-welcome-button {
@@ -70,7 +70,7 @@
 
 /* Header welcome banner. */
 .drive-welcome.header {
-  -webkit-box-flex: 0;
+  flex: none;
   height: 100px;
   overflow: hidden;
   position: relative;
@@ -83,10 +83,10 @@
 }
 
 .drive-welcome.header .drive-welcome-wrapper {
-  -webkit-box-orient: horizontal;
   background-size: 308px 100px;
   bottom: 0;
-  display: -webkit-box;
+  display: flex;
+  flex-direction: row;
   left: 0;
   position: absolute;
   right: 0;
@@ -96,23 +96,30 @@
 .drive-welcome.header .drive-welcome-icon {
   background-position: center 18px;
   background-size: 51px 44px;
+  flex: none;
   width: 120px;
 }
 
 .drive-welcome.header .drive-welcome-message {
-  -webkit-box-flex: 1;
-  -webkit-box-orient: vertical;
-  display: -webkit-box;
+  display: flex;
+  flex: auto;
+  flex-direction: column;
 }
 
 .drive-welcome.header .drive-welcome-title {
   font-size: 140%;
   margin-bottom: 4px;
   margin-top: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .drive-welcome.header .drive-welcome-text {
   margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .drive-welcome.header .drive-welcome-dismiss {
@@ -122,6 +129,7 @@
 /* Full page welcome banner. */
 .drive-welcome.page {
   bottom: 0;
+  flex: none;
   left: 0;
   position: absolute;
   right: 0;
@@ -137,11 +145,11 @@
 }
 
 .drive-welcome.page .drive-welcome-wrapper {
-  -webkit-box-align: center;
-  -webkit-box-orient: vertical;
+  align-items: center;
   background-size: 520px 173px;
   bottom: 0;
-  display: -webkit-box;
+  display: flex;
+  flex-direction: column;
   font-size: 120%;
   left: 0;
   overflow: hidden;

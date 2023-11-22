@@ -8,6 +8,7 @@
 
 #include "ash/metrics/user_metrics_recorder.h"
 #include "ash/root_window_controller.h"
+#include "ash/session/session_state_delegate.h"
 #include "ash/shelf/shelf_widget.h"
 #include "ash/shell.h"
 #include "ash/system/tray/hover_highlight_view.h"
@@ -25,7 +26,6 @@
 #include "grit/ash_strings.h"
 #include "ui/accessibility/ax_enums.h"
 #include "ui/accessibility/ax_view_state.h"
-#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/font.h"
 #include "ui/gfx/image/image.h"
@@ -114,7 +114,12 @@ class IMEDetailedView : public TrayDetailsView,
     AppendIMEList(list);
     if (!property_list.empty())
       AppendIMEProperties(property_list);
-    if (login_ != user::LOGGED_IN_NONE && login_ != user::LOGGED_IN_LOCKED)
+    bool userAddingRunning = ash::Shell::GetInstance()
+                                 ->session_state_delegate()
+                                 ->IsInSecondaryLoginScreen();
+
+    if (login_ != user::LOGGED_IN_NONE && login_ != user::LOGGED_IN_LOCKED &&
+        !userAddingRunning)
       AppendSettings();
     AppendHeaderEntry();
 

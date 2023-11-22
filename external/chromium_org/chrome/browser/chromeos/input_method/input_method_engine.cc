@@ -120,8 +120,7 @@ std::string GetKeyFromEvent(const ui::KeyEvent& event) {
   if (event.flags() & ui::EF_CONTROL_DOWN) {
     ui::KeyEvent event_no_ctrl(event.type(),
                                event.key_code(),
-                               event.flags() ^ ui::EF_CONTROL_DOWN,
-                               false);
+                               event.flags() ^ ui::EF_CONTROL_DOWN);
     ch = event_no_ctrl.GetCharacter();
   } else {
     ch = event.GetCharacter();
@@ -138,8 +137,7 @@ void GetExtensionKeyboardEventFromKeyEvent(
   ext_event->type = (event.type() == ui::ET_KEY_RELEASED) ? "keyup" : "keydown";
 
   std::string dom_code = event.code();
-  if (dom_code ==
-      ui::KeycodeConverter::GetInstance()->InvalidKeyboardEventCode())
+  if (dom_code == ui::KeycodeConverter::InvalidKeyboardEventCode())
     dom_code = ui::KeyboardCodeToDomKeycode(event.key_code());
   ext_event->code = dom_code;
   ext_event->key_code = static_cast<int>(event.key_code());
@@ -154,91 +152,30 @@ void GetExtensionKeyboardEventFromKeyEvent(
 
 InputMethodEngine::InputMethodEngine()
     : current_input_type_(ui::TEXT_INPUT_TYPE_NONE),
-      active_(false),
       context_id_(0),
       next_context_id_(1),
       composition_text_(new CompositionText()),
       composition_cursor_(0),
       candidate_window_(new ui::CandidateWindow()),
       window_visible_(false),
-      sent_key_event_(NULL),
-      profile_(NULL) {
+      sent_key_event_(NULL) {
 }
 
 InputMethodEngine::~InputMethodEngine() {
-  if (start_time_.ToInternalValue())
-    RecordHistogram("WorkingTime", (end_time_ - start_time_).InSeconds());
-  input_method::InputMethodManager::Get()->RemoveInputMethodExtension(profile_,
-                                                                      imm_id_);
 }
 
 void InputMethodEngine::Initialize(
-    Profile* profile,
     scoped_ptr<InputMethodEngineInterface::Observer> observer,
-    const char* engine_name,
-    const char* extension_id,
-    const char* engine_id,
-    const std::vector<std::string>& languages,
-    const std::vector<std::string>& layouts,
-    const GURL& options_page,
-    const GURL& input_view) {
+    const char* extension_id) {
   DCHECK(observer) << "Observer must not be null.";
-
-  profile_ = profile;
 
   // TODO(komatsu): It is probably better to set observer out of Initialize.
   observer_ = observer.Pass();
-  engine_id_ = engine_id;
   extension_id_ = extension_id;
-
-  input_method::InputMethodManager* manager =
-      input_method::InputMethodManager::Get();
-  ComponentExtensionIMEManager* comp_ext_ime_manager =
-      manager->GetComponentExtensionIMEManager();
-
-  if (comp_ext_ime_manager && comp_ext_ime_manager->IsInitialized() &&
-      comp_ext_ime_manager->IsWhitelistedExtension(extension_id)) {
-    imm_id_ = comp_ext_ime_manager->GetId(extension_id, engine_id);
-  } else {
-    imm_id_ = extension_ime_util::GetInputMethodID(extension_id, engine_id);
-  }
-
-  input_view_url_ = input_view;
-  descriptor_ = input_method::InputMethodDescriptor(
-      imm_id_,
-      engine_name,
-      std::string(), // TODO(uekawa): Set short name.
-      layouts,
-      languages,
-      extension_ime_util::IsKeyboardLayoutExtension(
-          imm_id_), // is_login_keyboard
-      options_page,
-      input_view);
-
-  // TODO(komatsu): It is probably better to call AddInputMethodExtension
-  // out of Initialize.
-  manager->AddInputMethodExtension(profile, imm_id_, this);
 }
 
-const input_method::InputMethodDescriptor& InputMethodEngine::GetDescriptor()
-    const {
-  return descriptor_;
-}
-
-void InputMethodEngine::RecordHistogram(const char* name, int count) {
-  std::string histo_name =
-      base::StringPrintf("InputMethod.%s.%s", name, engine_id_.c_str());
-  base::HistogramBase* counter = base::Histogram::FactoryGet(
-      histo_name, 0, 1000000, 50, base::HistogramBase::kNoFlags);
-  if (counter)
-    counter->Add(count);
-}
-
-void InputMethodEngine::NotifyImeReady() {
-  input_method::InputMethodManager* manager =
-      input_method::InputMethodManager::Get();
-  if (manager && imm_id_ == manager->GetCurrentInputMethod().id())
-    Enable();
+const std::string& InputMethodEngine::GetActiveComponentId() const {
+  return active_component_id_;
 }
 
 bool InputMethodEngine::SetComposition(
@@ -249,7 +186,7 @@ bool InputMethodEngine::SetComposition(
     int cursor,
     const std::vector<SegmentInfo>& segments,
     std::string* error) {
-  if (!active_) {
+  if (!IsActive()) {
     *error = kErrorNotActive;
     return false;
   }
@@ -293,7 +230,7 @@ bool InputMethodEngine::SetComposition(
 
 bool InputMethodEngine::ClearComposition(int context_id,
                                          std::string* error)  {
-  if (!active_) {
+  if (!IsActive()) {
     *error = kErrorNotActive;
     return false;
   }
@@ -310,7 +247,7 @@ bool InputMethodEngine::ClearComposition(int context_id,
 
 bool InputMethodEngine::CommitText(int context_id, const char* text,
                                    std::string* error) {
-  if (!active_) {
+  if (!IsActive()) {
     // TODO: Commit the text anyways.
     *error = kErrorNotActive;
     return false;
@@ -322,20 +259,19 @@ bool InputMethodEngine::CommitText(int context_id, const char* text,
 
   IMEBridge::Get()->GetInputContextHandler()->CommitText(text);
 
-  // Records times for using input method.
-  if (!start_time_.ToInternalValue())
-    start_time_ = base::Time::Now();
-  end_time_ = base::Time::Now();
-  // Records histograms for counts of commits and committed characters.
-  RecordHistogram("Commit", 1);
-  RecordHistogram("CommitCharacter", GetUtf8StringLength(text));
+  // Records histograms for committed characters.
+  if (!composition_text_->text().empty()) {
+    size_t len = GetUtf8StringLength(text);
+    UMA_HISTOGRAM_CUSTOM_COUNTS("InputMethod.CommitLength",
+                                len, 1, 25, 25);
+  }
   return true;
 }
 
 bool InputMethodEngine::SendKeyEvents(
     int context_id,
     const std::vector<KeyboardEvent>& events) {
-  if (!active_) {
+  if (!IsActive()) {
     return false;
   }
   // context_id  ==  0, means sending key events to non-input field.
@@ -364,8 +300,7 @@ bool InputMethodEngine::SendKeyEvents(
     ui::KeyEvent ui_event(type,
                           key_code,
                           event.code,
-                          flags,
-                          false /* is_char */);
+                          flags);
     // 4-bytes UTF-8 string is at least 2-characters UTF-16 string.
     // And Key char can only be single UTF-16 character.
     if (!event.key.empty() && event.key.size() < 4) {
@@ -379,6 +314,7 @@ bool InputMethodEngine::SendKeyEvents(
     if (details.dispatcher_destroyed)
       break;
   }
+
   return true;
 }
 
@@ -405,7 +341,7 @@ void InputMethodEngine::SetCandidateWindowProperty(
   candidate_window_->SetProperty(dest_property);
   candidate_window_property_ = property;
 
-  if (active_) {
+  if (IsActive()) {
     IMECandidateWindowHandlerInterface* cw_handler =
         IMEBridge::Get()->GetCandidateWindowHandler();
     if (cw_handler)
@@ -415,7 +351,7 @@ void InputMethodEngine::SetCandidateWindowProperty(
 
 bool InputMethodEngine::SetCandidateWindowVisible(bool visible,
                                                   std::string* error) {
-  if (!active_) {
+  if (!IsActive()) {
     *error = kErrorNotActive;
     return false;
   }
@@ -432,7 +368,7 @@ bool InputMethodEngine::SetCandidates(
     int context_id,
     const std::vector<Candidate>& candidates,
     std::string* error) {
-  if (!active_) {
+  if (!IsActive()) {
     *error = kErrorNotActive;
     return false;
   }
@@ -460,7 +396,7 @@ bool InputMethodEngine::SetCandidates(
 
     candidate_window_->mutable_candidates()->push_back(entry);
   }
-  if (active_) {
+  if (IsActive()) {
     IMECandidateWindowHandlerInterface* cw_handler =
         IMEBridge::Get()->GetCandidateWindowHandler();
     if (cw_handler)
@@ -471,7 +407,7 @@ bool InputMethodEngine::SetCandidates(
 
 bool InputMethodEngine::SetCursorPosition(int context_id, int candidate_id,
                                           std::string* error) {
-  if (!active_) {
+  if (!IsActive()) {
     *error = kErrorNotActive;
     return false;
   }
@@ -501,7 +437,7 @@ bool InputMethodEngine::SetMenuItems(const std::vector<MenuItem>& items) {
 
 bool InputMethodEngine::UpdateMenuItems(
     const std::vector<MenuItem>& items) {
-  if (!active_)
+  if (!IsActive())
     return false;
 
   ash::ime::InputMethodMenuItemList menu_item_list;
@@ -519,14 +455,14 @@ bool InputMethodEngine::UpdateMenuItems(
 }
 
 bool InputMethodEngine::IsActive() const {
-  return active_;
+  return !active_component_id_.empty();
 }
 
 bool InputMethodEngine::DeleteSurroundingText(int context_id,
                                               int offset,
                                               size_t number_of_chars,
                                               std::string* error) {
-  if (!active_) {
+  if (!IsActive()) {
     *error = kErrorNotActive;
     return false;
   }
@@ -557,9 +493,11 @@ void InputMethodEngine::HideInputView() {
   }
 }
 
-void InputMethodEngine::EnableInputView(bool enabled) {
-  const GURL& url = enabled ? input_view_url_ : GURL();
-  keyboard::SetOverrideContentUrl(url);
+void InputMethodEngine::EnableInputView() {
+  keyboard::SetOverrideContentUrl(input_method::InputMethodManager::Get()
+                                      ->GetActiveIMEState()
+                                      ->GetCurrentInputMethod()
+                                      .input_view_url());
   keyboard::KeyboardController* keyboard_controller =
       keyboard::KeyboardController::GetInstance();
   if (keyboard_controller)
@@ -570,7 +508,7 @@ void InputMethodEngine::FocusIn(
     const IMEEngineHandlerInterface::InputContext& input_context) {
   current_input_type_ = input_context.type;
 
-  if (!active_ || current_input_type_ == ui::TEXT_INPUT_TYPE_NONE)
+  if (!IsActive() || current_input_type_ == ui::TEXT_INPUT_TYPE_NONE)
     return;
 
   context_id_ = next_context_id_;
@@ -606,7 +544,7 @@ void InputMethodEngine::FocusIn(
 }
 
 void InputMethodEngine::FocusOut() {
-  if (!active_ || current_input_type_ == ui::TEXT_INPUT_TYPE_NONE)
+  if (!IsActive() || current_input_type_ == ui::TEXT_INPUT_TYPE_NONE)
     return;
 
   current_input_type_ = ui::TEXT_INPUT_TYPE_NONE;
@@ -616,33 +554,27 @@ void InputMethodEngine::FocusOut() {
   observer_->OnBlur(context_id);
 }
 
-void InputMethodEngine::Enable() {
-  active_ = true;
-  observer_->OnActivate(engine_id_);
+void InputMethodEngine::Enable(const std::string& component_id) {
+  DCHECK(!component_id.empty());
+  active_component_id_ = component_id;
+  observer_->OnActivate(component_id);
   current_input_type_ = IMEBridge::Get()->GetCurrentTextInputType();
   FocusIn(IMEEngineHandlerInterface::InputContext(
       current_input_type_, ui::TEXT_INPUT_MODE_DEFAULT));
-  EnableInputView(true);
-
-  start_time_ = base::Time();
-  end_time_ = base::Time();
-  RecordHistogram("Enable", 1);
+  EnableInputView();
 }
 
 void InputMethodEngine::Disable() {
-  active_ = false;
-  observer_->OnDeactivated(engine_id_);
-
-  if (start_time_.ToInternalValue())
-    RecordHistogram("WorkingTime", (end_time_ - start_time_).InSeconds());
+  active_component_id_.clear();
+  observer_->OnDeactivated(active_component_id_);
 }
 
 void InputMethodEngine::PropertyActivate(const std::string& property_name) {
-  observer_->OnMenuItemActivated(engine_id_, property_name);
+  observer_->OnMenuItemActivated(active_component_id_, property_name);
 }
 
 void InputMethodEngine::Reset() {
-  observer_->OnReset(engine_id_);
+  observer_->OnReset(active_component_id_);
 }
 
 void InputMethodEngine::ProcessKeyEvent(
@@ -663,7 +595,7 @@ void InputMethodEngine::ProcessKeyEvent(
     ext_event.extension_id = extension_id_;
 
   observer_->OnKeyEvent(
-      engine_id_,
+      active_component_id_,
       ext_event,
       reinterpret_cast<input_method::KeyEventHandle*>(handler));
 }
@@ -675,13 +607,13 @@ void InputMethodEngine::CandidateClicked(uint32 index) {
 
   // Only left button click is supported at this moment.
   observer_->OnCandidateClicked(
-      engine_id_, candidate_ids_.at(index), MOUSE_BUTTON_LEFT);
+      active_component_id_, candidate_ids_.at(index), MOUSE_BUTTON_LEFT);
 }
 
 void InputMethodEngine::SetSurroundingText(const std::string& text,
                                            uint32 cursor_pos,
                                            uint32 anchor_pos) {
-  observer_->OnSurroundingTextChanged(engine_id_,
+  observer_->OnSurroundingTextChanged(active_component_id_,
                                       text,
                                       static_cast<int>(cursor_pos),
                                       static_cast<int>(anchor_pos));

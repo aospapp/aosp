@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "content/public/renderer/render_frame.h"
+#include "content/public/test/frame_load_waiter.h"
 #include "content/public/test/render_view_test.h"
 #include "extensions/renderer/script_context.h"
 #include "third_party/WebKit/public/web/WebDocument.h"
@@ -43,9 +45,7 @@ TEST_F(ScriptContextTest, GetEffectiveDocumentURL) {
   ASSERT_TRUE(frame);
 
   frame->loadHTMLString(frame_html, top_url);
-  do {
-    ProcessPendingMessages();
-  } while (frame->isLoading());
+  content::FrameLoadWaiter(content::RenderFrame::FromWebFrame(frame)).Wait();
 
   WebFrame* frame1 = frame->findChildByName("frame1");
   ASSERT_TRUE(frame1);
@@ -62,9 +62,7 @@ TEST_F(ScriptContextTest, GetEffectiveDocumentURL) {
 
   // Load a blank document in a frame from a different origin.
   frame3->loadHTMLString(frame3_html, different_url);
-  do {
-    ProcessPendingMessages();
-  } while (frame3->isLoading());
+  content::FrameLoadWaiter(content::RenderFrame::FromWebFrame(frame3)).Wait();
 
   WebFrame* frame3_1 = frame->findChildByName("frame3");
   ASSERT_TRUE(frame3_1);

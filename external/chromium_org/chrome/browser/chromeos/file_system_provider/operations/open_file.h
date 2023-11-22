@@ -11,7 +11,7 @@
 #include "chrome/browser/chromeos/file_system_provider/provided_file_system_info.h"
 #include "chrome/browser/chromeos/file_system_provider/provided_file_system_interface.h"
 #include "chrome/browser/chromeos/file_system_provider/request_value.h"
-#include "webkit/browser/fileapi/async_file_util.h"
+#include "storage/browser/fileapi/async_file_util.h"
 
 namespace base {
 class FilePath;
@@ -25,16 +25,14 @@ namespace chromeos {
 namespace file_system_provider {
 namespace operations {
 
-// Opens a file for either read or write, with optionally creating the file
-// first. Note, that this is part of fileapi::CreateOrOpen file, but it does
-// not download the file locally. Created per request.
+// Opens a file for either read or write. The file must exist, otherwise the
+// operation will fail. Created per request.
 class OpenFile : public Operation {
  public:
   OpenFile(extensions::EventRouter* event_router,
            const ProvidedFileSystemInfo& file_system_info,
            const base::FilePath& file_path,
            ProvidedFileSystemInterface::OpenFileMode mode,
-           bool create,
            const ProvidedFileSystemInterface::OpenFileCallback& callback);
   virtual ~OpenFile();
 
@@ -43,12 +41,13 @@ class OpenFile : public Operation {
   virtual void OnSuccess(int request_id,
                          scoped_ptr<RequestValue> result,
                          bool has_more) OVERRIDE;
-  virtual void OnError(int request_id, base::File::Error error) OVERRIDE;
+  virtual void OnError(int request_id,
+                       scoped_ptr<RequestValue> result,
+                       base::File::Error error) OVERRIDE;
 
  private:
   base::FilePath file_path_;
   ProvidedFileSystemInterface::OpenFileMode mode_;
-  bool create_;
   const ProvidedFileSystemInterface::OpenFileCallback callback_;
 
   DISALLOW_COPY_AND_ASSIGN(OpenFile);

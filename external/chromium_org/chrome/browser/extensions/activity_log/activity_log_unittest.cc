@@ -18,15 +18,17 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_profile.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/test/test_browser_thread_bundle.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/browser/uninstall_reason.h"
 #include "extensions/common/dom_action_types.h"
 #include "extensions/common/extension_builder.h"
 #include "sql/statement.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/login/users/user_manager.h"
+#include "chrome/browser/chromeos/login/users/scoped_test_user_manager.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/chromeos/settings/device_settings_service.h"
 #endif
@@ -260,11 +262,11 @@ TEST_F(ActivityLogTest, LogPrerender) {
   content::WebContents *contents = contentses[0];
   ASSERT_TRUE(prerender_manager->IsWebContentsPrerendering(contents, NULL));
 
-  TabHelper::ScriptExecutionObserver::ExecutingScriptsMap executing_scripts;
+  ScriptExecutionObserver::ExecutingScriptsMap executing_scripts;
   executing_scripts[extension->id()].insert("script");
 
-  static_cast<TabHelper::ScriptExecutionObserver*>(activity_log)->
-      OnScriptsExecuted(contents, executing_scripts, 0, url);
+  static_cast<ScriptExecutionObserver*>(activity_log)
+      ->OnScriptsExecuted(contents, executing_scripts, url);
 
   activity_log->GetFilteredActions(
       extension->id(),
@@ -368,7 +370,8 @@ TEST_F(ActivityLogTest, UninstalledExtension) {
                       "document.write");
   action->set_page_url(GURL("http://www.google.com"));
 
-  activity_log->OnExtensionUninstalled(NULL, extension);
+  activity_log->OnExtensionUninstalled(
+      NULL, extension.get(), extensions::UNINSTALL_REASON_FOR_TESTING);
   activity_log->GetFilteredActions(
       extension->id(),
       Action::ACTION_ANY,

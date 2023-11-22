@@ -19,6 +19,8 @@ package com.android.cts.verifier.sensors.base;
 
 import com.android.cts.verifier.sensors.reporting.SensorTestDetails;
 
+import android.hardware.cts.helpers.reporting.ISensorTestNode;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -35,6 +37,7 @@ public abstract class SensorCtsVerifierTestActivity extends BaseSensorTestActivi
     private volatile int mTestPassedCounter;
     private volatile int mTestSkippedCounter;
     private volatile int mTestFailedCounter;
+    private volatile ISensorTestNode mCurrentTestNode;
 
     /**
      * {@inheritDoc}
@@ -63,8 +66,12 @@ public abstract class SensorCtsVerifierTestActivity extends BaseSensorTestActivi
                 mTestFailedCounter);
     }
 
+    protected ISensorTestNode getCurrentTestNode() {
+        return mCurrentTestNode;
+    }
+
     private List<Method> findTestMethods() {
-        ArrayList<Method> testMethods = new ArrayList<Method>();
+        ArrayList<Method> testMethods = new ArrayList<>();
         for (Method method : mTestClass.getDeclaredMethods()) {
             if (Modifier.isPublic(method.getModifiers())
                     && method.getParameterTypes().length == 0
@@ -79,6 +86,7 @@ public abstract class SensorCtsVerifierTestActivity extends BaseSensorTestActivi
     private SensorTestDetails executeTest(Method testMethod) throws InterruptedException {
         String testMethodName = testMethod.getName();
         String testName = String.format("%s#%s", getTestClassName(), testMethodName);
+        mCurrentTestNode = new TestNode(testMethod);
 
         SensorTestDetails testDetails;
         try {
@@ -111,5 +119,18 @@ public abstract class SensorCtsVerifierTestActivity extends BaseSensorTestActivi
         }
 
         return testDetails;
+    }
+
+    private class TestNode implements ISensorTestNode {
+        private final Method mTestMethod;
+
+        public TestNode(Method testMethod) {
+            mTestMethod = testMethod;
+        }
+
+        @Override
+        public String getName() {
+            return mTestClass.getSimpleName() + "_" + mTestMethod.getName();
+        }
     }
 }

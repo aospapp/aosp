@@ -7,6 +7,7 @@
 #include "base/prefs/scoped_user_pref_update.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/chrome_notification_types.h"
+#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_service_test_base.h"
 #include "chrome/browser/extensions/unpacked_installer.h"
 #include "chrome/browser/profiles/profile.h"
@@ -200,14 +201,17 @@ class SupervisedUserServiceExtensionTestBase
     return extension;
   }
 
-  scoped_refptr<extensions::Extension> MakeExtension() {
+  scoped_refptr<extensions::Extension> MakeExtension(bool by_custodian) {
     scoped_ptr<base::DictionaryValue> manifest = extensions::DictionaryBuilder()
       .Set(extensions::manifest_keys::kName, "Extension")
       .Set(extensions::manifest_keys::kVersion, "1.0")
       .Build();
+    int creation_flags = extensions::Extension::NO_FLAGS;
+    if (by_custodian)
+      creation_flags |= extensions::Extension::WAS_INSTALLED_BY_CUSTODIAN;
     extensions::ExtensionBuilder builder;
     scoped_refptr<extensions::Extension> extension =
-        builder.SetManifest(manifest.Pass()).Build();
+        builder.SetManifest(manifest.Pass()).AddFlags(creation_flags).Build();
     return extension;
   }
 
@@ -235,7 +239,7 @@ TEST_F(SupervisedUserServiceExtensionTestUnsupervised,
       SupervisedUserServiceFactory::GetForProfile(profile_.get());
   EXPECT_FALSE(profile_->IsSupervised());
 
-  scoped_refptr<extensions::Extension> extension = MakeExtension();
+  scoped_refptr<extensions::Extension> extension = MakeExtension(false);
   base::string16 error_1;
   EXPECT_TRUE(supervised_user_service->UserMayLoad(extension.get(), &error_1));
   EXPECT_EQ(base::string16(), error_1);
@@ -266,15 +270,28 @@ TEST_F(SupervisedUserServiceExtensionTest, ExtensionManagementPolicyProvider) {
   EXPECT_TRUE(error_1.empty());
 
   // Now check a different kind of extension.
-  scoped_refptr<extensions::Extension> extension = MakeExtension();
+  scoped_refptr<extensions::Extension> extension = MakeExtension(false);
   EXPECT_FALSE(supervised_user_service->UserMayLoad(extension.get(), &error_1));
   EXPECT_FALSE(error_1.empty());
 
   base::string16 error_2;
-  EXPECT_FALSE(
-      supervised_user_service->UserMayModifySettings(extension.get(),
-                                                     &error_2));
+  EXPECT_FALSE(supervised_user_service->UserMayModifySettings(extension.get(),
+                                                              &error_2));
   EXPECT_FALSE(error_2.empty());
+
+  // Check that an extension that was installed by the custodian may be loaded.
+  base::string16 error_3;
+  scoped_refptr<extensions::Extension> extension_2 = MakeExtension(true);
+  EXPECT_TRUE(supervised_user_service->UserMayLoad(extension_2.get(),
+                                                   &error_3));
+  EXPECT_TRUE(error_3.empty());
+
+  // The supervised user should still not be able to uninstall or disable the
+  // extension.
+  base::string16 error_4;
+  EXPECT_FALSE(supervised_user_service->UserMayModifySettings(extension_2.get(),
+                                                              &error_4));
+  EXPECT_FALSE(error_4.empty());
 
 #ifndef NDEBUG
   EXPECT_FALSE(supervised_user_service->GetDebugPolicyProviderName().empty());
@@ -329,9 +346,9 @@ TEST_F(SupervisedUserServiceExtensionTest, InstallContentPacks) {
   base::FilePath test_data_dir;
   ASSERT_TRUE(PathService::Get(chrome::DIR_TEST_DATA, &test_data_dir));
   base::FilePath extension_path =
-      test_data_dir.AppendASCII("extensions/managed_mode/content_pack");
+      test_data_dir.AppendASCII("extensions/supervised_user/content_pack");
   content::WindowedNotificationObserver extension_load_observer(
-      chrome::NOTIFICATION_EXTENSION_LOADED_DEPRECATED,
+      extensions::NOTIFICATION_EXTENSION_LOADED_DEPRECATED,
       content::Source<Profile>(profile_.get()));
   installer->Load(extension_path);
   extension_load_observer.Wait();
@@ -360,7 +377,7 @@ TEST_F(SupervisedUserServiceExtensionTest, InstallContentPacks) {
   // Load a second content pack.
   installer = extensions::UnpackedInstaller::Create(service_);
   extension_path =
-      test_data_dir.AppendASCII("extensions/managed_mode/content_pack_2");
+      test_data_dir.AppendASCII("extensions/supervised_user/content_pack_2");
   installer->Load(extension_path);
   observer.Wait();
 

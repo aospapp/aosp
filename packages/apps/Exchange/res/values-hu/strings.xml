@@ -27,7 +27,6 @@
     <string name="meeting_recurring" msgid="2752008481765880928">"Időpont: <xliff:g id="EVENTDATE">%s</xliff:g> (ismétlődő)"</string>
     <string name="meeting_allday" msgid="7251209063071628040">"Időpont: <xliff:g id="EVENTDATE">%s</xliff:g> (egész nap)"</string>
     <string name="meeting_allday_recurring" msgid="4545762363537362545">"Időpont: <xliff:g id="EVENTDATE">%s</xliff:g> (egész nap, ismétlődő)"</string>
-    <string name="notification_exchange_calendar_added" msgid="8998454267739748113">"Exchange-naptár hozzáadva"</string>
     <string name="app_name" msgid="1707639359526090662">"Exchange szolgáltatások"</string>
     <string name="exception_cancel" msgid="8972887597771126871">"Ezt az eseményt törölték: <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="exception_updated" msgid="329192591551400871">"Az esemény részletei a következőre módosultak: <xliff:g id="DATE">%s</xliff:g>"</string>

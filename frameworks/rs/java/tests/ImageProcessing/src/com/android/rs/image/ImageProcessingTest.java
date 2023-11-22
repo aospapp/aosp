@@ -404,4 +404,10 @@ public class ImageProcessingTest extends ActivityInstrumentationTestCase2<ImageP
         TestAction ta = new TestAction(TestName.MANDELBROT_DOUBLE);
         runTest(ta, TestName.MANDELBROT_DOUBLE.name());
     }
+    // Test case 42: Mirror
+    @LargeTest
+    public void testMirror() {
+        TestAction ta = new TestAction(TestName.MIRROR);
+        runTest(ta, TestName.MIRROR.name());
+    }
 }

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/path_service.h"
 #include "gin/test/file_runner.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -19,6 +19,12 @@ base::FilePath BasePath() {
 void RunTest(const base::FilePath& path) {
   FileRunnerDelegate delegate;
   RunTestFromFile(path, &delegate);
+}
+
+TEST(JSTest, File) {
+  RunTest(BasePath()
+          .AppendASCII("test")
+          .AppendASCII("file_unittests.js"));
 }
 
 TEST(JSTest, GTest) {

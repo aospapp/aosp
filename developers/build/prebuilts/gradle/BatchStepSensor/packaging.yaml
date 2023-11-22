@@ -11,5 +11,5 @@ languages:    [Java]
 solutions:    [Mobile]
 github:       googlesamples/android-BatchStepSensor
 level:        BEGINNER
-icon:         BatchStepSensorSample/src/main/res/drawable-xxhdpi/ic_launcher.png
+icon:         BatchStepSensorSample/screenshots/big_icon.png
 license:      apache2-android

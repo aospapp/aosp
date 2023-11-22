@@ -58,7 +58,8 @@ blink::WebElement GetImgChild(const blink::WebElement& element) {
   // This implementation is incomplete (for example if is an area tag) but
   // matches the original WebViewClassic implementation.
 
-  blink::WebElementCollection collection = element.getElementsByTagName("img");
+  blink::WebElementCollection collection =
+      element.getElementsByHTMLTagName("img");
   DCHECK(!collection.isNull());
   return collection.firstItem();
 }
@@ -133,7 +134,7 @@ void PopulateHitTestData(const GURL& absolute_link_url,
     data->extra_data_for_type = data->img_src.possibly_invalid_spec();
   } else if (is_editable) {
     data->type = AwHitTestData::EDIT_TEXT_TYPE;
-    DCHECK(data->extra_data_for_type.length() == 0);
+    DCHECK_EQ(0u, data->extra_data_for_type.length());
   }
 }
 

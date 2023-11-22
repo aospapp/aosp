@@ -18,6 +18,7 @@ import optparse
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -161,25 +162,32 @@ def AddSymbolIntoFileNode(node, symbol_type, symbol_name, symbol_size):
   return 2  # Depth of the added subtree.
 
 
-def MakeCompactTree(symbols):
+def MakeCompactTree(symbols, symbol_path_origin_dir):
   result = {NODE_NAME_KEY: '/',
             NODE_CHILDREN_KEY: {},
             NODE_TYPE_KEY: 'p',
             NODE_MAX_DEPTH_KEY: 0}
   seen_symbol_with_path = False
+  cwd = os.path.abspath(os.getcwd())
   for symbol_name, symbol_type, symbol_size, file_path in symbols:
 
     if 'vtable for ' in symbol_name:
       symbol_type = '@'  # hack to categorize these separately
     # Take path like '/foo/bar/baz', convert to ['foo', 'bar', 'baz']
-    if file_path:
-      file_path = os.path.normpath(file_path)
+    if file_path and file_path != "??":
+      file_path = os.path.abspath(os.path.join(symbol_path_origin_dir,
+                                               file_path))
+      # Let the output structure be relative to $CWD if inside $CWD,
+      # otherwise relative to the disk root. This is to avoid
+      # unnecessary click-through levels in the output.
+      if file_path.startswith(cwd + os.sep):
+        file_path = file_path[len(cwd):]
+      if file_path.startswith('/'):
+        file_path = file_path[1:]
       seen_symbol_with_path = True
     else:
       file_path = NAME_NO_PATH_BUCKET
 
-    if file_path.startswith('/'):
-      file_path = file_path[1:]
     path_parts = file_path.split('/')
 
     # Find pre-existing node in tree, or update if it already exists
@@ -346,11 +354,12 @@ def JsonifyTree(tree, name):
           'data': { '$area': tree['size'] },
           'children': children }
 
-def DumpCompactTree(symbols, outfile):
-  tree_root = MakeCompactTree(symbols)
+def DumpCompactTree(symbols, symbol_path_origin_dir, outfile):
+  tree_root = MakeCompactTree(symbols, symbol_path_origin_dir)
   with open(outfile, 'w') as out:
-    out.write('var tree_data = ')
-    json.dump(tree_root, out)
+    out.write('var tree_data=')
+    # Use separators without whitespace to get a smaller file.
+    json.dump(tree_root, out, separators=(',', ':'))
   print('Writing %d bytes json' % os.path.getsize(outfile))
 
 
@@ -482,9 +491,12 @@ class Progress():
     self.collisions = 0
     self.time_last_output = time.time()
     self.count_last_output = 0
+    self.disambiguations = 0
+    self.was_ambiguous = 0
 
 
-def RunElfSymbolizer(outfile, library, addr2line_binary, nm_binary, jobs):
+def RunElfSymbolizer(outfile, library, addr2line_binary, nm_binary, jobs,
+                     disambiguate, src_path):
   nm_output = RunNm(library, nm_binary)
   nm_output_lines = nm_output.splitlines()
   nm_output_lines_len = len(nm_output_lines)
@@ -497,8 +509,16 @@ def RunElfSymbolizer(outfile, library, addr2line_binary, nm_binary, jobs):
       #                                   str(address_symbol[addr].name))
       progress.collisions += 1
     else:
+      if symbol.disambiguated:
+        progress.disambiguations += 1
+      if symbol.was_ambiguous:
+        progress.was_ambiguous += 1
+
       address_symbol[addr] = symbol
 
+    progress_output()
+
+  def progress_output():
     progress_chunk = 100
     if progress.count % progress_chunk == 0:
       time_now = time.time()
@@ -514,12 +534,25 @@ def RunElfSymbolizer(outfile, library, addr2line_binary, nm_binary, jobs):
           speed = 0
         progress_percent = (100.0 * (progress.count + progress.skip_count) /
                             nm_output_lines_len)
-        print('%.1f%%: Looked up %d symbols (%d collisions) - %.1f lookups/s.' %
-              (progress_percent, progress.count, progress.collisions, speed))
+        disambiguation_percent = 0
+        if progress.disambiguations != 0:
+          disambiguation_percent = (100.0 * progress.disambiguations /
+                                    progress.was_ambiguous)
 
+        sys.stdout.write('\r%.1f%%: Looked up %d symbols (%d collisions, '
+              '%d disambiguations where %.1f%% succeeded)'
+              ' - %.1f lookups/s.' %
+              (progress_percent, progress.count, progress.collisions,
+               progress.disambiguations, disambiguation_percent, speed))
+
+  # In case disambiguation was disabled, we remove the source path (which upon
+  # being set signals the symbolizer to enable disambiguation)
+  if not disambiguate:
+    src_path = None
   symbolizer = elf_symbolizer.ELFSymbolizer(library, addr2line_binary,
                                             map_address_symbol,
-                                            max_concurrent_jobs=jobs)
+                                            max_concurrent_jobs=jobs,
+                                            source_root_path=src_path)
   user_interrupted = False
   try:
     for line in nm_output_lines:
@@ -552,9 +585,13 @@ def RunElfSymbolizer(outfile, library, addr2line_binary, nm_binary, jobs):
     user_interrupted = True
     print('Patience you must have my young padawan.')
 
+  print ''
+
   if user_interrupted:
     print('Skipping the rest of the file mapping. '
           'Output will not be fully classified.')
+
+  symbol_path_origin_dir = os.path.dirname(os.path.abspath(library))
 
   with open(outfile, 'w') as out:
     for line in nm_output_lines:
@@ -567,7 +604,8 @@ def RunElfSymbolizer(outfile, library, addr2line_binary, nm_binary, jobs):
           if symbol is not None:
             path = '??'
             if symbol.source_path is not None:
-              path = symbol.source_path
+              path = os.path.abspath(os.path.join(symbol_path_origin_dir,
+                                                  symbol.source_path))
             line_number = 0
             if symbol.source_line is not None:
               line_number = symbol.source_line
@@ -580,7 +618,6 @@ def RunElfSymbolizer(outfile, library, addr2line_binary, nm_binary, jobs):
 
 
 def RunNm(binary, nm_binary):
-  print('Starting nm')
   cmd = [nm_binary, '-C', '--print-size', '--size-sort', '--reverse-sort',
          binary]
   nm_process = subprocess.Popen(cmd,
@@ -594,19 +631,19 @@ def RunNm(binary, nm_binary):
     else:
       raise Exception, process_output
 
-  print('Finished nm')
   return process_output
 
 
 def GetNmSymbols(nm_infile, outfile, library, jobs, verbose,
-                 addr2line_binary, nm_binary):
+                 addr2line_binary, nm_binary, disambiguate, src_path):
   if nm_infile is None:
     if outfile is None:
       outfile = tempfile.NamedTemporaryFile(delete=False).name
 
     if verbose:
       print 'Running parallel addr2line, dumping symbols to ' + outfile
-    RunElfSymbolizer(outfile, library, addr2line_binary, nm_binary, jobs)
+    RunElfSymbolizer(outfile, library, addr2line_binary, nm_binary, jobs,
+                     disambiguate, src_path)
 
     nm_infile = outfile
 
@@ -615,6 +652,72 @@ def GetNmSymbols(nm_infile, outfile, library, jobs, verbose,
   with file(nm_infile, 'r') as infile:
     return list(binary_size_utils.ParseNm(infile))
 
+
+PAK_RESOURCE_ID_TO_STRING = { "inited": False }
+
+def LoadPakIdsFromResourceFile(filename):
+  """Given a file name, it loads everything that looks like a resource id
+  into PAK_RESOURCE_ID_TO_STRING."""
+  with open(filename) as resource_header:
+    for line in resource_header:
+      if line.startswith("#define "):
+        line_data = line.split()
+        if len(line_data) == 3:
+          try:
+            resource_number = int(line_data[2])
+            resource_name = line_data[1]
+            PAK_RESOURCE_ID_TO_STRING[resource_number] = resource_name
+          except ValueError:
+            pass
+
+def GetReadablePakResourceName(pak_file, resource_id):
+  """Pak resources have a numeric identifier. It is not helpful when
+  trying to locate where footprint is generated. This does its best to
+  map the number to a usable string."""
+  if not PAK_RESOURCE_ID_TO_STRING['inited']:
+    # Try to find resource header files generated by grit when
+    # building the pak file. We'll look for files named *resources.h"
+    # and lines of the type:
+    #    #define MY_RESOURCE_JS 1234
+    PAK_RESOURCE_ID_TO_STRING['inited'] = True
+    gen_dir = os.path.join(os.path.dirname(pak_file), 'gen')
+    if os.path.isdir(gen_dir):
+      for dirname, _dirs, files in os.walk(gen_dir):
+        for filename in files:
+          if filename.endswith('resources.h'):
+            LoadPakIdsFromResourceFile(os.path.join(dirname, filename))
+  return PAK_RESOURCE_ID_TO_STRING.get(resource_id,
+                                       'Pak Resource %d' % resource_id)
+
+def AddPakData(symbols, pak_file):
+  """Adds pseudo-symbols from a pak file."""
+  pak_file = os.path.abspath(pak_file)
+  with open(pak_file, 'rb') as pak:
+    data = pak.read()
+
+  PAK_FILE_VERSION = 4
+  HEADER_LENGTH = 2 * 4 + 1  # Two uint32s. (file version, number of entries)
+                             # and one uint8 (encoding of text resources)
+  INDEX_ENTRY_SIZE = 2 + 4  # Each entry is a uint16 and a uint32.
+  version, num_entries, _encoding = struct.unpack('<IIB', data[:HEADER_LENGTH])
+  assert version == PAK_FILE_VERSION, ('Unsupported pak file '
+                                       'version (%d) in %s. Only '
+                                       'support version %d' %
+                                       (version, pak_file, PAK_FILE_VERSION))
+  if num_entries > 0:
+    # Read the index and data.
+    data = data[HEADER_LENGTH:]
+    for _ in range(num_entries):
+      resource_id, offset = struct.unpack('<HI', data[:INDEX_ENTRY_SIZE])
+      data = data[INDEX_ENTRY_SIZE:]
+      _next_id, next_offset = struct.unpack('<HI', data[:INDEX_ENTRY_SIZE])
+      resource_size = next_offset - offset
+
+      symbol_name = GetReadablePakResourceName(pak_file, resource_id)
+      symbol_path = pak_file
+      symbol_type = 'd' # Data. Approximation.
+      symbol_size = resource_size
+      symbols.append((symbol_name, symbol_type, symbol_size, symbol_path))
 
 def _find_in_system_path(binary):
   """Locate the full path to binary in the system path or return None
@@ -688,6 +791,9 @@ def main():
   parser.add_option('--library', metavar='PATH',
                     help='if specified, process symbols in the library at '
                     'the specified path. Mutually exclusive with --nm-in.')
+  parser.add_option('--pak', metavar='PATH',
+                    help='if specified, includes the contents of the '
+                    'specified *.pak file in the output.')
   parser.add_option('--nm-binary',
                     help='use the specified nm binary to analyze library. '
                     'This is to be used when the nm in the path is not for '
@@ -716,6 +822,15 @@ def main():
                     'This argument is only valid when using --library.')
   parser.add_option('--legacy', action='store_true',
                     help='emit legacy binary size report instead of modern')
+  parser.add_option('--disable-disambiguation', action='store_true',
+                    help='disables the disambiguation process altogether,'
+                    ' NOTE: this may, depending on your toolchain, produce'
+                    ' output with some symbols at the top layer if addr2line'
+                    ' could not get the entire source path.')
+  parser.add_option('--source-path', default='./',
+                    help='the path to the source code of the output binary, '
+                    'default set to current directory. Used in the'
+                    ' disambiguation process.')
   opts, _args = parser.parse_args()
 
   if ((not opts.library) and (not opts.nm_in)) or (opts.library and opts.nm_in):
@@ -749,14 +864,24 @@ def main():
     assert nm_binary, 'Unable to find nm in the path. Use --nm-binary '\
         'to specify location.'
 
+  if opts.pak:
+    assert os.path.isfile(opts.pak), 'Could not find ' % opts.pak
+
   print('addr2line: %s' % addr2line_binary)
   print('nm: %s' % nm_binary)
 
-  CheckDebugFormatSupport(opts.library, addr2line_binary)
+  if opts.library:
+    CheckDebugFormatSupport(opts.library, addr2line_binary)
 
   symbols = GetNmSymbols(opts.nm_in, opts.nm_out, opts.library,
                          opts.jobs, opts.verbose is True,
-                         addr2line_binary, nm_binary)
+                         addr2line_binary, nm_binary,
+                         opts.disable_disambiguation is None,
+                         opts.source_path)
+
+  if opts.pak:
+    AddPakData(symbols, opts.pak)
+
   if not os.path.exists(opts.destdir):
     os.makedirs(opts.destdir, 0755)
 
@@ -779,7 +904,13 @@ def main():
     shutil.copy(os.path.join('tools', 'binary_size', 'legacy_template',
                              'index.html'), opts.destdir)
   else: # modern report
-    DumpCompactTree(symbols, os.path.join(opts.destdir, 'data.js'))
+    if opts.library:
+      symbol_path_origin_dir = os.path.dirname(os.path.abspath(opts.library))
+    else:
+      # Just a guess. Hopefully all paths in the input file are absolute.
+      symbol_path_origin_dir = os.path.abspath(os.getcwd())
+    data_js_file_name = os.path.join(opts.destdir, 'data.js')
+    DumpCompactTree(symbols, symbol_path_origin_dir, data_js_file_name)
     d3_out = os.path.join(opts.destdir, 'd3')
     if not os.path.exists(d3_out):
       os.makedirs(d3_out, 0755)

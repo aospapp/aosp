@@ -17,10 +17,13 @@
 
 class Utterance;
 class TtsPlatformImpl;
-class Profile;
 
 namespace base {
 class Value;
+}
+
+namespace content {
+class BrowserContext;
 }
 
 // Events sent back from the TTS engine indicating the progress.
@@ -77,6 +80,33 @@ struct VoiceData {
   std::string native_voice_identifier;
 };
 
+// Interface that delegates TTS requests to user-installed extensions.
+class TtsEngineDelegate {
+ public:
+  virtual ~TtsEngineDelegate() {}
+
+  // Return a list of all available voices registered.
+  virtual void GetVoices(content::BrowserContext* browser_context,
+                         std::vector<VoiceData>* out_voices) = 0;
+
+  // Speak the given utterance by sending an event to the given TTS engine.
+  virtual void Speak(Utterance* utterance, const VoiceData& voice) = 0;
+
+  // Stop speaking the given utterance by sending an event to the target
+  // associated with this utterance.
+  virtual void Stop(Utterance* utterance) = 0;
+
+  // Pause in the middle of speaking this utterance.
+  virtual void Pause(Utterance* utterance) = 0;
+
+  // Resume speaking this utterance.
+  virtual void Resume(Utterance* utterance) = 0;
+
+  // Load the built-in component extension for ChromeOS.
+  virtual bool LoadBuiltInTtsExtension(
+      content::BrowserContext* browser_context) = 0;
+};
+
 // Class that wants to receive events on utterances.
 class UtteranceEventDelegate {
  public:
@@ -101,7 +131,7 @@ class Utterance {
   // Construct an utterance given a profile and a completion task to call
   // when the utterance is done speaking. Before speaking this utterance,
   // its other parameters like text, rate, pitch, etc. should all be set.
-  explicit Utterance(Profile* profile);
+  explicit Utterance(content::BrowserContext* browser_context);
   ~Utterance();
 
   // Sends an event to the delegate. If the event type is TTS_EVENT_END
@@ -185,13 +215,13 @@ class Utterance {
   }
 
   // Getters and setters for internal state.
-  Profile* profile() const { return profile_; }
+  content::BrowserContext* browser_context() const { return browser_context_; }
   int id() const { return id_; }
   bool finished() const { return finished_; }
 
  private:
-  // The profile that initiated this utterance.
-  Profile* profile_;
+  // The BrowserContext that initiated this utterance.
+  content::BrowserContext* browser_context_;
 
   // The extension ID of the extension providing TTS for this utterance, or
   // empty if native TTS is being used.
@@ -251,102 +281,63 @@ class TtsController {
   static TtsController* GetInstance();
 
   // Returns true if we're currently speaking an utterance.
-  bool IsSpeaking();
+  virtual bool IsSpeaking() = 0;
 
   // Speak the given utterance. If the utterance's can_enqueue flag is true
   // and another utterance is in progress, adds it to the end of the queue.
   // Otherwise, interrupts any current utterance and speaks this one
   // immediately.
-  void SpeakOrEnqueue(Utterance* utterance);
+  virtual void SpeakOrEnqueue(Utterance* utterance) = 0;
 
   // Stop all utterances and flush the queue. Implies leaving pause mode
   // as well.
-  void Stop();
+  virtual void Stop() = 0;
 
   // Pause the speech queue. Some engines may support pausing in the middle
   // of an utterance.
-  void Pause();
+  virtual void Pause() = 0;
 
   // Resume speaking.
-  void Resume();
+  virtual void Resume() = 0;
 
   // Handle events received from the speech engine. Events are forwarded to
   // the callback function, and in addition, completion and error events
   // trigger finishing the current utterance and starting the next one, if
   // any.
-  void OnTtsEvent(int utterance_id,
-                  TtsEventType event_type,
-                  int char_index,
-                  const std::string& error_message);
+  virtual void OnTtsEvent(int utterance_id,
+                          TtsEventType event_type,
+                          int char_index,
+                          const std::string& error_message) = 0;
 
   // Return a list of all available voices, including the native voice,
   // if supported, and all voices registered by extensions.
-  void GetVoices(Profile* profile, std::vector<VoiceData>* out_voices);
-
-  // Called by TtsExtensionLoaderChromeOs::LoadTtsExtension when it
-  // finishes loading the built-in TTS component extension.
-  void RetrySpeakingQueuedUtterances();
+  virtual void GetVoices(content::BrowserContext* browser_context,
+                         std::vector<VoiceData>* out_voices) = 0;
 
   // Called by the extension system or platform implementation when the
   // list of voices may have changed and should be re-queried.
-  void VoicesChanged();
+  virtual void VoicesChanged() = 0;
 
   // Add a delegate that wants to be notified when the set of voices changes.
-  void AddVoicesChangedDelegate(VoicesChangedDelegate* delegate);
+  virtual void AddVoicesChangedDelegate(VoicesChangedDelegate* delegate) = 0;
 
   // Remove delegate that wants to be notified when the set of voices changes.
-  void RemoveVoicesChangedDelegate(VoicesChangedDelegate* delegate);
+  virtual void RemoveVoicesChangedDelegate(VoicesChangedDelegate* delegate) = 0;
+
+  // Set the delegate that processes TTS requests with user-installed
+  // extensions.
+  virtual void SetTtsEngineDelegate(TtsEngineDelegate* delegate) = 0;
+
+  // Get the delegate that processes TTS requests with user-installed
+  // extensions.
+  virtual TtsEngineDelegate* GetTtsEngineDelegate() = 0;
 
   // For unit testing.
-  void SetPlatformImpl(TtsPlatformImpl* platform_impl);
-  int QueueSize();
+  virtual void SetPlatformImpl(TtsPlatformImpl* platform_impl) = 0;
+  virtual int QueueSize() = 0;
 
  protected:
-  TtsController();
-  virtual ~TtsController();
-
- private:
-  // Get the platform TTS implementation (or injected mock).
-  TtsPlatformImpl* GetPlatformImpl();
-
-  // Start speaking the given utterance. Will either take ownership of
-  // |utterance| or delete it if there's an error. Returns true on success.
-  void SpeakNow(Utterance* utterance);
-
-  // Clear the utterance queue. If send_events is true, will send
-  // TTS_EVENT_CANCELLED events on each one.
-  void ClearUtteranceQueue(bool send_events);
-
-  // Finalize and delete the current utterance.
-  void FinishCurrentUtterance();
-
-  // Start speaking the next utterance in the queue.
-  void SpeakNextUtterance();
-
-  // Given an utterance and a vector of voices, return the
-  // index of the voice that best matches the utterance.
-  int GetMatchingVoice(const Utterance* utterance,
-                       std::vector<VoiceData>& voices);
-
-  friend struct DefaultSingletonTraits<TtsController>;
-
-  // The current utterance being spoken.
-  Utterance* current_utterance_;
-
-  // Whether the queue is paused or not.
-  bool paused_;
-
-  // A queue of utterances to speak after the current one finishes.
-  std::queue<Utterance*> utterance_queue_;
-
-  // A set of delegates that want to be notified when the voices change.
-  std::set<VoicesChangedDelegate*> voices_changed_delegates_;
-
-  // A pointer to the platform implementation of text-to-speech, for
-  // dependency injection.
-  TtsPlatformImpl* platform_impl_;
-
-  DISALLOW_COPY_AND_ASSIGN(TtsController);
+  virtual ~TtsController() {}
 };
 
 #endif  // CHROME_BROWSER_SPEECH_TTS_CONTROLLER_H_

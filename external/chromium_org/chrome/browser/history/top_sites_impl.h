@@ -19,12 +19,11 @@
 #include "base/task/cancelable_task_tracker.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
-#include "chrome/browser/common/cancelable_request.h"
 #include "chrome/browser/history/history_service.h"
-#include "chrome/browser/history/history_types.h"
-#include "chrome/browser/history/page_usage_data.h"
 #include "chrome/browser/history/top_sites.h"
 #include "chrome/browser/history/top_sites_backend.h"
+#include "components/history/core/browser/history_types.h"
+#include "components/history/core/browser/page_usage_data.h"
 #include "components/history/core/common/thumbnail_score.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/image/image.h"
@@ -79,7 +78,8 @@ class TopSitesImpl : public TopSites {
   virtual bool IsBlacklisted(const GURL& url) OVERRIDE;
   virtual void ClearBlacklistedURLs() OVERRIDE;
   virtual void Shutdown() OVERRIDE;
-  virtual CancelableRequestProvider::Handle StartQueryForMostVisited() OVERRIDE;
+  virtual base::CancelableTaskTracker::TaskId StartQueryForMostVisited()
+      OVERRIDE;
   virtual bool IsKnownURL(const GURL& url) OVERRIDE;
   virtual const std::string& GetCanonicalURLString(
       const GURL& url) const OVERRIDE;
@@ -205,8 +205,6 @@ class TopSitesImpl : public TopSites {
 
   void ResetThreadSafeImageCache();
 
-  void NotifyTopSitesChanged();
-
   // Stops and starts timer with a delay of |delta|.
   void RestartQueryForTopSitesTimer(base::TimeDelta delta);
 
@@ -216,8 +214,7 @@ class TopSitesImpl : public TopSites {
       const scoped_refptr<MostVisitedThumbnails>& thumbnails);
 
   // Called when history service returns a list of top URLs.
-  void OnTopSitesAvailableFromHistory(CancelableRequestProvider::Handle handle,
-                                      MostVisitedURLList data);
+  void OnTopSitesAvailableFromHistory(const MostVisitedURLList* data);
 
   scoped_refptr<TopSitesBackend> backend_;
 
@@ -234,9 +231,7 @@ class TopSitesImpl : public TopSites {
   // Lock used to access |thread_safe_cache_|.
   mutable base::Lock lock_;
 
-  // Need a separate consumer for each CancelableRequestProvider we interact
-  // with (HistoryService and TopSitesBackend).
-  CancelableRequestConsumer history_consumer_;
+  // Task tracker for history and backend requests.
   base::CancelableTaskTracker cancelable_task_tracker_;
 
   // Timer that asks history for the top sites. This is used to make sure our

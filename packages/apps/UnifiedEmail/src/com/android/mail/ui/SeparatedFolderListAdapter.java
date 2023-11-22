@@ -44,7 +44,7 @@ public class SeparatedFolderListAdapter extends BaseAdapter {
             int size = adapter.getCount();
 
             // check if position inside this section
-            if (position == 0 || position < size)
+            if (position < size)
                 return adapter.getItem(position);
 
             // otherwise jump into next section
@@ -78,7 +78,7 @@ public class SeparatedFolderListAdapter extends BaseAdapter {
         for (FolderSelectorAdapter adapter : mSections) {
             int size = adapter.getCount();
             // check if position inside this section
-            if (position == 0 || position < size) {
+            if (position < size) {
                 return type + adapter.getItemViewType(position);
             }
 
@@ -94,7 +94,7 @@ public class SeparatedFolderListAdapter extends BaseAdapter {
     public View getView(int position, View convertView, ViewGroup parent) {
         for (FolderSelectorAdapter adapter : mSections) {
             int size = adapter.getCount();
-            if (position == 0 || position < size) {
+            if (position < size) {
                 return adapter.getView(position, convertView, parent);
             }
             // otherwise jump into next section

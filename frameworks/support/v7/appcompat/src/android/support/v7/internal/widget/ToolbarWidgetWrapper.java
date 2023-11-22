@@ -95,6 +95,7 @@ public class ToolbarWidgetWrapper implements DecorToolbar {
         mTitle = toolbar.getTitle();
         mSubtitle = toolbar.getSubtitle();
         mTitleSet = mTitle != null;
+        mNavIcon = mToolbar.getNavigationIcon();
 
         if (style) {
             final TintTypedArray a = TintTypedArray.obtainStyledAttributes(toolbar.getContext(),
@@ -674,6 +675,43 @@ public class ToolbarWidgetWrapper implements DecorToolbar {
     @Override
     public void restoreHierarchyState(SparseArray<Parcelable> toolbarStates) {
         mToolbar.restoreHierarchyState(toolbarStates);
+    }
+
+    @Override
+    public void setBackgroundDrawable(Drawable d) {
+        //noinspection deprecation
+        mToolbar.setBackgroundDrawable(d);
+    }
+
+    @Override
+    public int getHeight() {
+        return mToolbar.getHeight();
+    }
+
+    @Override
+    public void setVisibility(int visible) {
+        mToolbar.setVisibility(visible);
+    }
+
+    @Override
+    public int getVisibility() {
+        return mToolbar.getVisibility();
+    }
+
+    @Override
+    public void setMenuCallbacks(MenuPresenter.Callback actionMenuPresenterCallback,
+            MenuBuilder.Callback menuBuilderCallback) {
+        mToolbar.setMenuCallbacks(actionMenuPresenterCallback, menuBuilderCallback);
+    }
+
+    @Override
+    public Menu getMenu() {
+        return mToolbar.getMenu();
+    }
+
+    @Override
+    public int getPopupTheme() {
+        return mToolbar.getPopupTheme();
     }
 
 }

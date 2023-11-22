@@ -20,9 +20,9 @@
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_version_info.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/chromium_strings.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/process_type.h"
-#include "grit/chromium_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 
 using content::BrowserThread;
@@ -49,7 +49,8 @@ enum BrowserType {
 
 
 MemoryDetails::MemoryDetails()
-    : user_metrics_mode_(UPDATE_USER_METRICS) {
+    : user_metrics_mode_(UPDATE_USER_METRICS),
+      memory_growth_tracker_(NULL) {
   const std::string google_browser_name =
       l10n_util::GetStringUTF8(IDS_PRODUCT_NAME);
   // (Human and process) names of browsers; should match the ordering for

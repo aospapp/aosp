@@ -2,12 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "cpp/src/util/json.h"
+#include "third_party/libaddressinput/src/cpp/src/util/json.h"
+
+#include <map>
+#include <utility>
 
 #include "base/basictypes.h"
 #include "base/json/json_reader.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/stl_util.h"
 #include "base/values.h"
 
 namespace i18n {
@@ -15,108 +19,92 @@ namespace addressinput {
 
 namespace {
 
-// A base class for Chrome Json objects. JSON gets parsed into a
-// base::DictionaryValue and data is accessed via the Json interface.
-class ChromeJson : public Json {
- public:
-  virtual bool GetStringValueForKey(const std::string& key, std::string* value)
-      const OVERRIDE;
-  virtual bool GetJsonValueForKey(const std::string& key,
-                                  scoped_ptr<Json>* value) const OVERRIDE;
- protected:
-  ChromeJson() {}
-  virtual ~ChromeJson() {}
+// Returns |json| parsed into a JSON dictionary. Sets |parser_error| to true if
+// parsing failed.
+::scoped_ptr<const base::DictionaryValue> Parse(const std::string& json,
+                                                bool* parser_error) {
+  DCHECK(parser_error);
+  ::scoped_ptr<const base::DictionaryValue> result;
 
-  virtual const base::DictionaryValue* GetDict() const = 0;
+  // |json| is converted to a |c_str()| here because rapidjson and other parts
+  // of the standalone library use char* rather than std::string.
+  ::scoped_ptr<const base::Value> parsed(base::JSONReader::Read(json.c_str()));
+  *parser_error = !parsed || !parsed->IsType(base::Value::TYPE_DICTIONARY);
 
-  DISALLOW_COPY_AND_ASSIGN(ChromeJson);
-};
+  if (*parser_error)
+    result.reset(new base::DictionaryValue);
+  else
+    result.reset(static_cast<const base::DictionaryValue*>(parsed.release()));
 
-// A Json object that will parse a string and own the parsed data.
-class JsonDataOwner : public ChromeJson {
- public:
-  JsonDataOwner() {}
-  virtual ~JsonDataOwner() {}
-
-  virtual bool ParseObject(const std::string& json) OVERRIDE {
-    dict_.reset();
-
-    // |json| is converted to a |c_str()| here because rapidjson and other parts
-    // of the standalone library use char* rather than std::string.
-    scoped_ptr<base::Value> parsed(base::JSONReader::Read(json.c_str()));
-    if (parsed && parsed->IsType(base::Value::TYPE_DICTIONARY))
-      dict_.reset(static_cast<base::DictionaryValue*>(parsed.release()));
-
-    return !!dict_;
-  }
-
- protected:
-  virtual const base::DictionaryValue* GetDict() const OVERRIDE {
-    return dict_.get();
-  }
-
- private:
-  scoped_ptr<base::DictionaryValue> dict_;
-
-  DISALLOW_COPY_AND_ASSIGN(JsonDataOwner);
-};
-
-// A Json object which will point to data that's been parsed by a different
-// ChromeJson. It does not own its data and is only valid as long as its parent
-// ChromeJson is valid.
-class JsonDataCopy : public ChromeJson {
- public:
-  explicit JsonDataCopy(const base::DictionaryValue* dict) :
-      dict_(dict) {}
-  virtual ~JsonDataCopy() {}
-
-  virtual bool ParseObject(const std::string& json) OVERRIDE {
-    NOTREACHED();
-    return false;
-  }
-
- protected:
-  virtual const base::DictionaryValue* GetDict() const OVERRIDE {
-    return dict_;
-  }
-
- private:
-  const base::DictionaryValue* dict_;  // weak reference.
-
-  DISALLOW_COPY_AND_ASSIGN(JsonDataCopy);
-};
-
-// ChromeJson ------------------------------------------------------------------
-
-bool ChromeJson::GetStringValueForKey(const std::string& key,
-                                      std::string* value) const {
-  return GetDict()->GetStringWithoutPathExpansion(key, value);
-}
-
-bool ChromeJson::GetJsonValueForKey(const std::string& key,
-                                    scoped_ptr<Json>* value) const {
-  const base::DictionaryValue* sub_dict = NULL;
-  if (!GetDict()->GetDictionaryWithoutPathExpansion(key, &sub_dict) ||
-      !sub_dict) {
-    return false;
-  }
-
-  if (value)
-    value->reset(new JsonDataCopy(sub_dict));
-
-  return true;
+  return result.Pass();
 }
 
 }  // namespace
 
-Json::~Json() {}
+// Implementation of JSON parser for libaddressinput using JSON parser in
+// Chrome.
+class Json::JsonImpl {
+ public:
+  explicit JsonImpl(const std::string& json)
+      : owned_(Parse(json, &parser_error_)),
+        dict_(*owned_) {}
 
-// static
-scoped_ptr<Json> Json::Build() {
-  return scoped_ptr<Json>(new JsonDataOwner);
-}
+  ~JsonImpl() { STLDeleteElements(&sub_dicts_); }
+
+  bool parser_error() const { return parser_error_; }
+
+  const std::vector<const Json*>& GetSubDictionaries() {
+    if (sub_dicts_.empty()) {
+      for (base::DictionaryValue::Iterator it(dict_); !it.IsAtEnd();
+           it.Advance()) {
+        if (it.value().IsType(base::Value::TYPE_DICTIONARY)) {
+          const base::DictionaryValue* sub_dict = NULL;
+          it.value().GetAsDictionary(&sub_dict);
+          sub_dicts_.push_back(new Json(new JsonImpl(*sub_dict)));
+        }
+      }
+    }
+    return sub_dicts_;
+  }
+
+  bool GetStringValueForKey(const std::string& key, std::string* value) const {
+    return dict_.GetStringWithoutPathExpansion(key, value);
+  }
+
+ private:
+  explicit JsonImpl(const base::DictionaryValue& dict)
+      : parser_error_(false), dict_(dict) {}
+
+  const ::scoped_ptr<const base::DictionaryValue> owned_;
+  bool parser_error_;
+  const base::DictionaryValue& dict_;
+  std::vector<const Json*> sub_dicts_;
+
+  DISALLOW_COPY_AND_ASSIGN(JsonImpl);
+};
 
 Json::Json() {}
+
+Json::~Json() {}
+
+bool Json::ParseObject(const std::string& json) {
+  DCHECK(!impl_);
+  impl_.reset(new JsonImpl(json));
+  if (impl_->parser_error())
+    impl_.reset();
+  return !!impl_;
+}
+
+const std::vector<const Json*>& Json::GetSubDictionaries() const {
+  return impl_->GetSubDictionaries();
+}
+
+bool Json::GetStringValueForKey(const std::string& key,
+                                std::string* value) const {
+  return impl_->GetStringValueForKey(key, value);
+}
+
+Json::Json(JsonImpl* impl) : impl_(impl) {}
 
 }  // namespace addressinput
 }  // namespace i18n

@@ -4,7 +4,7 @@
 
 #include "chrome/browser/spellchecker/spellcheck_hunspell_dictionary.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/memory_mapped_file.h"
 #include "base/logging.h"
 #include "base/message_loop/message_loop.h"
@@ -220,7 +220,7 @@ GURL SpellcheckHunspellDictionary::GetDictionaryURL() {
   DCHECK(!bdict_file.empty());
 
   return GURL(std::string(kDownloadServerUrl) +
-              StringToLowerASCII(bdict_file));
+              base::StringToLowerASCII(bdict_file));
 }
 
 void SpellcheckHunspellDictionary::DownloadDictionary(GURL url) {

@@ -61,6 +61,17 @@ class ManagementGetFunction : public ManagementFunction {
   virtual bool RunSync() OVERRIDE;
 };
 
+class ManagementGetSelfFunction : public ManagementFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("management.getSelf", MANAGEMENT_GETSELF)
+
+ protected:
+  virtual ~ManagementGetSelfFunction() {}
+
+  // ExtensionFunction:
+  virtual bool RunSync() OVERRIDE;
+};
+
 class ManagementGetPermissionWarningsByIdFunction : public ManagementFunction {
  public:
   DECLARE_EXTENSION_FUNCTION("management.getPermissionWarningsById",
@@ -245,9 +256,12 @@ class ManagementEventRouter : public ExtensionRegistryObserver {
       const Extension* extension,
       UnloadedExtensionInfo::Reason reason) OVERRIDE;
   virtual void OnExtensionInstalled(content::BrowserContext* browser_context,
-                                    const Extension* extension) OVERRIDE;
-  virtual void OnExtensionUninstalled(content::BrowserContext* browser_context,
-                                      const Extension* extension) OVERRIDE;
+                                    const Extension* extension,
+                                    bool is_update) OVERRIDE;
+  virtual void OnExtensionUninstalled(
+      content::BrowserContext* browser_context,
+      const Extension* extension,
+      extensions::UninstallReason reason) OVERRIDE;
 
   // Dispatches management api events to listening extensions.
   void BroadcastEvent(const Extension* extension, const char* event_name);

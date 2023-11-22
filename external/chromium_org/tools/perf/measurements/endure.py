@@ -6,7 +6,7 @@ import optparse
 import time
 
 from metrics import v8_object_stats
-from telemetry.page import page_measurement
+from telemetry.page import page_test
 from telemetry.value import scalar
 
 # V8 statistics counter names. These can be retrieved using
@@ -36,8 +36,10 @@ _V8_MEMORY_ALLOCATED = [
 ]
 
 
-class Endure(page_measurement.PageMeasurement):
-  options = {'skip_navigate_on_repeat': True}
+# NOTE(chrishenry): This measurement does NOT work anymore. The
+# feature it depends on has been removed from telemetry. The benchmark
+# has been disabled on bot.
+class Endure(page_test.PageTest):
 
   def __init__(self):
     super(Endure, self).__init__('RunEndure')
@@ -72,7 +74,7 @@ class Endure(page_measurement.PageMeasurement):
     """Adds extra command-line options to the browser."""
     v8_object_stats.V8ObjectStatsMetric.CustomizeBrowserOptions(options)
 
-  def MeasurePage(self, page, tab, results):
+  def ValidateAndMeasurePage(self, page, tab, results):
     """Takes a sample and adds a result if enough time has passed."""
     self._iterations_elapsed += 1
     if self._iterations_elapsed % int(self.options.perf_stats_interval) == 0:

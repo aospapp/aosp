@@ -25,13 +25,24 @@ class ServiceMetadata;
 
 namespace test_util {
 
-void ExpectEquivalentServiceMetadata(const ServiceMetadata& left,
-                                     const ServiceMetadata& right);
 void ExpectEquivalentDetails(const FileDetails& left, const FileDetails& right);
 void ExpectEquivalentMetadata(const FileMetadata& left,
                               const FileMetadata& right);
 void ExpectEquivalentTrackers(const FileTracker& left,
                               const FileTracker& right);
+
+scoped_ptr<FileMetadata> CreateFolderMetadata(const std::string& file_id,
+                                              const std::string& title);
+scoped_ptr<FileMetadata> CreateFileMetadata(const std::string& file_id,
+                                            const std::string& title,
+                                            const std::string& md5);
+scoped_ptr<FileTracker> CreateTracker(const FileMetadata& metadata,
+                                      int64 tracker_id,
+                                      const FileTracker* parent_tracker);
+scoped_ptr<FileTracker> CreatePlaceholderTracker(
+    const std::string& file_id,
+    int64 tracker_id,
+    const FileTracker* parent_tracker);
 
 }  // namespace test_util
 }  // namespace drive_backend

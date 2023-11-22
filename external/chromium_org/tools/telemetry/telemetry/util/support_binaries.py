@@ -3,15 +3,16 @@
 # found in the LICENSE file.
 
 import os
+import stat
 
 from telemetry import decorators
-from telemetry.core import util
-from telemetry.page import cloud_storage
+from telemetry.util import cloud_storage
+from telemetry.util import path
 
 
 def _GetBinPath(binary_name, platform_name):
   # TODO(tonyg): Add another nesting level for architecture_name.
-  return os.path.join(util.GetTelemetryDir(), 'bin', platform_name, binary_name)
+  return os.path.join(path.GetTelemetryDir(), 'bin', platform_name, binary_name)
 
 
 def _IsInCloudStorage(binary_name, platform_name):
@@ -23,11 +24,11 @@ def FindLocallyBuiltPath(binary_name):
   """Finds the most recently built |binary_name|."""
   command = None
   command_mtime = 0
-  chrome_root = util.GetChromiumSrcDir()
+  chrome_root = path.GetChromiumSrcDir()
   required_mode = os.X_OK
   if binary_name.endswith('.apk'):
     required_mode = os.R_OK
-  for build_dir, build_type in util.GetBuildDirectories():
+  for build_dir, build_type in path.GetBuildDirectories():
     candidate = os.path.join(chrome_root, build_dir, build_type, binary_name)
     if os.path.isfile(candidate) and os.access(candidate, required_mode):
       candidate_mtime = os.stat(candidate).st_mtime
@@ -47,4 +48,13 @@ def FindPath(binary_name, platform_name):
   if not command and _IsInCloudStorage(binary_name, platform_name):
     cloud_storage.GetIfChanged(_GetBinPath(binary_name, platform_name))
     command = _GetBinPath(binary_name, platform_name)
+
+    # Ensure the downloaded file is actually executable.
+    if command and os.path.exists(command):
+      os.chmod(command,
+               stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP)
+
+  # Return an absolute path consistently.
+  if command:
+    command = os.path.abspath(command)
   return command

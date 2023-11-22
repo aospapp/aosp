@@ -26,6 +26,7 @@ from pylib.gtest import gtest_config
 CHROME_SRC_DIR = bb_utils.CHROME_SRC
 DIR_BUILD_ROOT = os.path.dirname(CHROME_SRC_DIR)
 CHROME_OUT_DIR = bb_utils.CHROME_OUT_DIR
+BLINK_SCRIPTS_DIR = 'third_party/WebKit/Tools/Scripts'
 
 SLAVE_SCRIPTS_DIR = os.path.join(bb_utils.BB_BUILD_DIR, 'scripts', 'slave')
 LOGCAT_DIR = os.path.join(bb_utils.CHROME_OUT_DIR, 'logcat')
@@ -74,9 +75,9 @@ INSTRUMENTATION_TESTS = dict((suite.name, suite) for suite in [
       'webview:android_webview/test/data/device_files'),
     ])
 
-VALID_TESTS = set(['chromedriver', 'gpu', 'mojo', 'telemetry_perf_unittests',
-                   'ui', 'unit', 'webkit', 'webkit_layout', 'webrtc_chromium',
-                   'webrtc_native'])
+VALID_TESTS = set(['chromedriver', 'chrome_proxy', 'gpu', 'mojo', 'sync',
+                   'telemetry_perf_unittests', 'ui', 'unit', 'webkit',
+                   'webkit_layout'])
 
 RunCmd = bb_utils.RunCmd
 
@@ -94,6 +95,32 @@ def _GetRevision(options):
   if not revision:
     revision = options.build_properties.get('revision', 'testing')
   return revision
+
+
+def _RunTest(options, cmd, suite):
+  """Run test command with runtest.py.
+
+  Args:
+    options: options object.
+    cmd: the command to run.
+    suite: test name.
+  """
+  property_args = bb_utils.EncodeProperties(options)
+  args = [os.path.join(SLAVE_SCRIPTS_DIR, 'runtest.py')] + property_args
+  args += ['--test-platform', 'android']
+  if options.factory_properties.get('generate_gtest_json'):
+    args.append('--generate-json-file')
+    args += ['-o', 'gtest-results/%s' % suite,
+             '--annotate', 'gtest',
+             '--build-number', str(options.build_properties.get('buildnumber',
+                                                                '')),
+             '--builder-name', options.build_properties.get('buildername', '')]
+  if options.target == 'Release':
+    args += ['--target', 'Release']
+  else:
+    args += ['--target', 'Debug']
+  args += cmd
+  RunCmd(args, cwd=DIR_BUILD_ROOT)
 
 
 def RunTestSuites(options, suites, suites_options=None):
@@ -121,11 +148,11 @@ def RunTestSuites(options, suites, suites_options=None):
 
   for suite in suites:
     bb_annotations.PrintNamedStep(suite)
-    cmd = ['build/android/test_runner.py', 'gtest', '-s', suite] + args
+    cmd = [suite] + args
     cmd += suites_options.get(suite, [])
     if suite == 'content_browsertests':
       cmd.append('--num_retries=1')
-    RunCmd(cmd)
+    _RunTest(options, cmd, suite)
 
 
 def RunChromeDriverTests(options):
@@ -140,6 +167,28 @@ def RunChromeDriverTests(options):
           '--revision=%s' % _GetRevision(options),
           '--update-log'])
 
+def RunChromeProxyTests(options):
+  """Run the chrome_proxy tests.
+
+  Args:
+    options: options object.
+  """
+  InstallApk(options, INSTRUMENTATION_TESTS['ChromeShell'], False)
+  args = ['--browser', 'android-chrome-shell']
+  devices = android_commands.GetAttachedDevices()
+  if devices:
+    args = args + ['--device', devices[0]]
+  bb_annotations.PrintNamedStep('chrome_proxy')
+  RunCmd(['tools/chrome_proxy/run_tests'] + args)
+
+def RunChromeSyncShellTests(options):
+  """Run the chrome sync shell tests"""
+  test = I('ChromeSyncShell',
+           'ChromeSyncShell.apk',
+           'org.chromium.chrome.browser.sync',
+           'ChromeSyncShellTest.apk',
+           'chrome:chrome/test/data/android/device_files')
+  RunInstrumentationSuite(options, test)
 
 def RunTelemetryPerfUnitTests(options):
   """Runs the telemetry perf unit tests.
@@ -166,7 +215,7 @@ def RunMojoTests(options):
            None,
            'org.chromium.mojo.tests',
            'MojoTest',
-           None)
+           'bindings:mojo/public/interfaces/bindings/tests/data')
   RunInstrumentationSuite(options, test)
 
 
@@ -235,13 +284,10 @@ def RunInstrumentationSuite(options, test, flunk_on_failure=True,
          flunk_on_failure=flunk_on_failure)
 
 
-def RunWebkitLint(target):
+def RunWebkitLint():
   """Lint WebKit's TestExpectation files."""
   bb_annotations.PrintNamedStep('webkit_lint')
-  RunCmd([SrcPath('webkit/tools/layout_tests/run_webkit_tests.py'),
-          '--lint-test-files',
-          '--chromium',
-          '--target', target])
+  RunCmd([SrcPath(os.path.join(BLINK_SCRIPTS_DIR, 'lint-test-expectations'))])
 
 
 def RunWebkitLayoutTests(options):
@@ -278,8 +324,8 @@ def RunWebkitLayoutTests(options):
     cmd_args.extend(
         ['--additional-expectations=%s' % os.path.join(CHROME_SRC_DIR, *f)])
 
-  exit_code = RunCmd([SrcPath('webkit/tools/layout_tests/run_webkit_tests.py')]
-                     + cmd_args)
+  exit_code = RunCmd(
+      [SrcPath(os.path.join(BLINK_SCRIPTS_DIR, 'run-webkit-tests'))] + cmd_args)
   if exit_code == 255: # test_run_results.UNEXPECTED_ERROR_EXIT_STATUS
     bb_annotations.PrintMsg('?? (crashed or hung)')
   elif exit_code == 254: # test_run_results.NO_DEVICES_EXIT_STATUS
@@ -414,7 +460,7 @@ def ProvisionDevices(options):
     provision_cmd.append('--auto-reconnect')
   if options.skip_wipe:
     provision_cmd.append('--skip-wipe')
-  RunCmd(provision_cmd)
+  RunCmd(provision_cmd, halt_on_failure=True)
 
 
 def DeviceStatusCheck(options):
@@ -447,15 +493,7 @@ def RunInstrumentationTests(options):
 
 def RunWebkitTests(options):
   RunTestSuites(options, ['webkit_unit_tests', 'blink_heap_unittests'])
-  RunWebkitLint(options.target)
-
-
-def RunWebRTCChromiumTests(options):
-  RunTestSuites(options, gtest_config.WEBRTC_CHROMIUM_TEST_SUITES)
-
-
-def RunWebRTCNativeTests(options):
-  RunTestSuites(options, gtest_config.WEBRTC_NATIVE_TEST_SUITES)
+  RunWebkitLint()
 
 
 def RunGPUTests(options):
@@ -496,15 +534,15 @@ def RunGPUTests(options):
 def GetTestStepCmds():
   return [
       ('chromedriver', RunChromeDriverTests),
+      ('chrome_proxy', RunChromeProxyTests),
       ('gpu', RunGPUTests),
       ('mojo', RunMojoTests),
+      ('sync', RunChromeSyncShellTests),
       ('telemetry_perf_unittests', RunTelemetryPerfUnitTests),
-      ('unit', RunUnitTests),
       ('ui', RunInstrumentationTests),
+      ('unit', RunUnitTests),
       ('webkit', RunWebkitTests),
       ('webkit_layout', RunWebkitLayoutTests),
-      ('webrtc_chromium', RunWebRTCChromiumTests),
-      ('webrtc_native', RunWebRTCNativeTests),
   ]
 
 
@@ -620,6 +658,9 @@ def MainTestWrapper(options):
     # KillHostHeartbeat() has logic to check if heartbeat process is running,
     # and kills only if it finds the process is running on the host.
     provision_devices.KillHostHeartbeat()
+    if options.cleanup:
+      shutil.rmtree(os.path.join(CHROME_OUT_DIR, options.target),
+          ignore_errors=True)
 
 
 def GetDeviceStepsOptParser():
@@ -665,6 +706,8 @@ def GetDeviceStepsOptParser():
       help='Do not run stack tool.')
   parser.add_option('--asan-symbolize',  action='store_true',
       help='Run stack tool for ASAN')
+  parser.add_option('--cleanup', action='store_true',
+      help='Delete out/<target> directory at the end of the run.')
   return parser
 
 

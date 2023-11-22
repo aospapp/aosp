@@ -17,20 +17,18 @@ void FakeSyncScheduler::Stop() {
 }
 
 void FakeSyncScheduler::ScheduleLocalNudge(
-    const base::TimeDelta& desired_delay,
     ModelTypeSet types,
     const tracked_objects::Location& nudge_location) {
 }
 
 void FakeSyncScheduler::ScheduleLocalRefreshRequest(
-    const base::TimeDelta& desired_delay,
     ModelTypeSet types,
     const tracked_objects::Location& nudge_location) {
 }
 
 void FakeSyncScheduler::ScheduleInvalidationNudge(
-    const base::TimeDelta& desired_delay,
-    const ObjectIdInvalidationMap& invalidation_map,
+    syncer::ModelType type,
+    scoped_ptr<InvalidationInterface> interface,
     const tracked_objects::Location& nudge_location) {
 }
 
@@ -39,11 +37,10 @@ void FakeSyncScheduler::ScheduleConfiguration(
   params.ready_task.Run();
 }
 
-void FakeSyncScheduler::SetNotificationsEnabled(bool notifications_enabled) {
+void FakeSyncScheduler::ScheduleInitialSyncNudge(syncer::ModelType model_type) {
 }
 
-base::TimeDelta FakeSyncScheduler::GetSessionsCommitDelay() const {
-  return base::TimeDelta();
+void FakeSyncScheduler::SetNotificationsEnabled(bool notifications_enabled) {
 }
 
 void FakeSyncScheduler::OnCredentialsUpdated() {
@@ -68,15 +65,15 @@ bool FakeSyncScheduler::IsCurrentlyThrottled() {
 }
 
 void FakeSyncScheduler::OnReceivedShortPollIntervalUpdate(
-     const base::TimeDelta& new_interval) {
+    const base::TimeDelta& new_interval) {
 }
 
 void FakeSyncScheduler::OnReceivedLongPollIntervalUpdate(
-     const base::TimeDelta& new_interval) {
+    const base::TimeDelta& new_interval) {
 }
 
-void FakeSyncScheduler::OnReceivedSessionsCommitDelay(
-     const base::TimeDelta& new_delay) {
+void FakeSyncScheduler::OnReceivedCustomNudgeDelays(
+    const std::map<ModelType, base::TimeDelta>& nudge_delays) {
 }
 
 void FakeSyncScheduler::OnReceivedClientInvalidationHintBufferSize(int size) {

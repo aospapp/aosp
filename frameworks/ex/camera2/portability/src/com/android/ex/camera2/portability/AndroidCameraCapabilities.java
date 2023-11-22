@@ -47,7 +47,6 @@ class AndroidCameraCapabilities extends CameraCapabilities {
         mPreferredPreviewSizeForVideo = new Size(p.getPreferredPreviewSizeForVideo());
         mSupportedPreviewFormats.addAll(p.getSupportedPreviewFormats());
         mSupportedPhotoFormats.addAll(p.getSupportedPictureFormats());
-        mMaxZoomRatio = p.getZoomRatios().get(p.getMaxZoom()) / ZOOM_MULTIPLIER;
         mHorizontalViewAngle = p.getHorizontalViewAngle();
         mVerticalViewAngle = p.getVerticalViewAngle();
         buildPreviewFpsRange(p);
@@ -60,6 +59,7 @@ class AndroidCameraCapabilities extends CameraCapabilities {
         buildWhiteBalances(p);
 
         if (p.isZoomSupported()) {
+            mMaxZoomRatio = p.getZoomRatios().get(p.getMaxZoom()) / ZOOM_MULTIPLIER;
             mSupportedFeatures.add(Feature.ZOOM);
         }
         if (p.isVideoSnapshotSupported()) {

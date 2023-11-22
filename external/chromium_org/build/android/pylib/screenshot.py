@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import os
+import signal
 import tempfile
 
 from pylib import cmd_helper
@@ -24,7 +25,7 @@ class VideoRecorder(object):
           default.
     rotate: If True, the video will be rotated 90 degrees.
   """
-  def __init__(self, device, host_file, megabits_per_second=4, size=None,
+  def __init__(self, device, megabits_per_second=4, size=None,
                rotate=False):
     # TODO(jbudorick) Remove once telemetry gets switched over.
     if isinstance(device, pylib.android_commands.AndroidCommands):
@@ -32,17 +33,13 @@ class VideoRecorder(object):
     self._device = device
     self._device_file = (
         '%s/screen-recording.mp4' % device.GetExternalStoragePath())
-    self._host_file = host_file or ('screen-recording-%s.mp4' %
-                                    device.old_interface.GetTimestamp())
-    self._host_file = os.path.abspath(self._host_file)
     self._recorder = None
-    self._recorder_pids = None
     self._recorder_stdout = None
     self._is_started = False
 
     self._args = ['adb']
-    if self._device.old_interface.GetDevice():
-      self._args += ['-s', self._device.old_interface.GetDevice()]
+    if str(self._device):
+      self._args += ['-s', str(self._device)]
     self._args += ['shell', 'screenrecord', '--verbose']
     self._args += ['--bit-rate', str(megabits_per_second * 1000 * 1000)]
     if size:
@@ -53,12 +50,10 @@ class VideoRecorder(object):
 
   def Start(self):
     """Start recording video."""
-    self._device.old_interface.EnsureHostDirectory(self._host_file)
     self._recorder_stdout = tempfile.mkstemp()[1]
     self._recorder = cmd_helper.Popen(
         self._args, stdout=open(self._recorder_stdout, 'w'))
-    self._recorder_pids = self._device.old_interface.ExtractPid('screenrecord')
-    if not self._recorder_pids:
+    if not self._device.GetPids('screenrecord'):
       raise RuntimeError('Recording failed. Is your device running Android '
                          'KitKat or later?')
 
@@ -74,19 +69,23 @@ class VideoRecorder(object):
     """Stop recording video."""
     os.remove(self._recorder_stdout)
     self._is_started = False
-    if not self._recorder or not self._recorder_pids:
+    if not self._recorder:
       return
-    self._device.RunShellCommand(
-        'kill -SIGINT ' + ' '.join(self._recorder_pids))
+    self._device.KillAll('screenrecord', signum=signal.SIGINT)
     self._recorder.wait()
 
-  def Pull(self):
+  def Pull(self, host_file=None):
     """Pull resulting video file from the device.
 
+    Args:
+      host_file: Path to the video file to store on the host.
     Returns:
       Output video file name on the host.
     """
-    self._device.old_interface.PullFileFromDevice(
-        self._device_file, self._host_file)
+    host_file_name = host_file or ('screen-recording-%s.mp4' %
+                                   self._device.old_interface.GetTimestamp())
+    host_file_name = os.path.abspath(host_file_name)
+    self._device.old_interface.EnsureHostDirectory(host_file_name)
+    self._device.PullFile(self._device_file, host_file_name)
     self._device.RunShellCommand('rm -f "%s"' % self._device_file)
-    return self._host_file
+    return host_file_name

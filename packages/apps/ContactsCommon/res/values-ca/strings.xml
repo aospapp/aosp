@@ -82,7 +82,7 @@
     <string name="description_quick_contact_for" msgid="6355240770807101947">"Contacte ràpid per a <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="missing_name" msgid="2633118852693000081">"(Sense nom)"</string>
     <string name="favoritesFrequentCalled" msgid="6600127125011757687">"Usuaris a qui es truca sovint"</string>
-    <string name="favoritesFrequentContacted" msgid="2849493314447751970">"Usuaris amb qui es contacta sovint"</string>
+    <string name="favoritesFrequentContacted" msgid="2849493314447751970">"Contactes freqüents"</string>
     <string name="description_view_contact_detail" msgid="2756753096193839285">"Mostra el contacte"</string>
     <string name="list_filter_phones" msgid="3692815632088465422">"Tots els contactes que tenen números de telèfon"</string>
     <string name="view_updates_from_group" msgid="3310864388165884352">"Mostra les actualitzacions"</string>
@@ -161,7 +161,8 @@
     <string name="listSingleContact" msgid="8525131203887307088">"Un sol contacte"</string>
     <string name="dialog_new_contact_account" msgid="4107520273478326011">"Crea el contacte al compte"</string>
     <string name="import_from_sim" msgid="4749894687871835873">"Importa des de la targeta SIM"</string>
-    <string name="import_from_sim_number" msgid="1232500923375370101">"Importa de la targeta SIM núm. <xliff:g id="SIM_NUMBER">%d</xliff:g>"</string>
+    <string name="import_from_sim_summary" msgid="2306434118233541675">"Importa des de la targeta SIM <xliff:g id="SIM_NAME">^1</xliff:g> (<xliff:g id="SIM_NUMBER">^2</xliff:g>)"</string>
+    <string name="import_from_sim_summary_no_number" msgid="8498561004799710237">"Importa des de la targeta SIM <xliff:g id="SIM_NAME">%1$s</xliff:g>"</string>
     <string name="import_from_sdcard" product="default" msgid="6423964533801496764">"Importa de l\'emmagatzematge"</string>
     <string name="cancel_import_confirmation_message" msgid="7764915400478970495">"Vols cancel·lar la importació de <xliff:g id="FILENAME">%s</xliff:g>?"</string>
     <string name="cancel_export_confirmation_message" msgid="4063783315931861656">"Vols cancel·lar l\'exportació de <xliff:g id="FILENAME">%s</xliff:g>?"</string>
@@ -205,7 +206,6 @@
     <string name="vcard_export_request_rejected_message" msgid="8044599716727705282">"S\'ha rebutjat la sol·licitud per exportar la vCard. Torna-ho a provar més tard."</string>
     <string name="vcard_unknown_filename" msgid="4832657686149881554">"contacte"</string>
     <string name="caching_vcard_message" msgid="6635485116655518520">"S\'estan desant les vCard a l\'emmagatzematge temporal local. La importació real començarà aviat."</string>
-    <string name="percentage" msgid="6699653515463625488">"<xliff:g id="PERCENTAGE">%s</xliff:g><xliff:g id="PERCENTSIGN">%%</xliff:g>"</string>
     <string name="vcard_import_failed" msgid="4105296876768072508">"No s\'ha pogut importar la vCard."</string>
     <string name="import_failure_no_vcard_file" product="nosdcard" msgid="2066107150525521097">"No s\'ha trobat cap fitxer vCard a l\'emmagatzematge."</string>
     <string name="import_failure_no_vcard_file" product="default" msgid="1748300468382501403">"No s\'ha trobat cap fitxer vCard a la targeta SD."</string>
@@ -251,4 +251,7 @@
     <string name="action_menu_back_from_search" msgid="1138551123844019647">"Atura la cerca."</string>
     <string name="description_clear_search" msgid="3893511425518852086">"Esborra la cerca."</string>
     <string name="settings_contact_display_options_title" msgid="1020420603072835628">"Opcions de visualització de contactes"</string>
+    <string name="select_account_dialog_title" msgid="5509088895267310568">"Compte"</string>
+    <string name="set_default_account" msgid="3865970860434642695">"Utilitza sempre per a les trucades"</string>
+    <string name="select_phone_account_for_calls" msgid="933905607702811164">"Truca mitjançant"</string>
 </resources>

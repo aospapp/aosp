@@ -14,6 +14,7 @@
 #include "base/prefs/pref_service.h"
 #include "base/prefs/scoped_user_pref_update.h"
 #include "base/prefs/testing_pref_store.h"
+#include "base/test/simple_test_clock.h"
 #include "base/threading/platform_thread.h"
 #include "base/values.h"
 #include "chrome/browser/content_settings/content_settings_mock_observer.h"
@@ -122,7 +123,7 @@ TEST_F(PrefProviderTest, Observer) {
       ContentSettingsPattern::Wildcard(),
       CONTENT_SETTINGS_TYPE_IMAGES,
       std::string(),
-      base::Value::CreateIntegerValue(CONTENT_SETTING_ALLOW));
+      new base::FundamentalValue(CONTENT_SETTING_ALLOW));
 
   pref_content_settings_provider.ShutdownOnUIThread();
 }
@@ -157,10 +158,8 @@ TEST_F(PrefProviderTest, Incognito) {
   scoped_ptr<TestingProfile> profile = profile_builder.Build();
 
   TestingProfile::Builder otr_profile_builder;
-  otr_profile_builder.SetIncognito();
   otr_profile_builder.SetPrefService(make_scoped_ptr(otr_prefs));
-  scoped_ptr<TestingProfile> otr_profile(otr_profile_builder.Build());
-  profile->SetOffTheRecordProfile(otr_profile.PassAs<Profile>());
+  otr_profile_builder.BuildIncognito(profile.get());
 
   PrefProvider pref_content_settings_provider(regular_prefs, false);
   PrefProvider pref_content_settings_provider_incognito(otr_prefs, true);
@@ -171,7 +170,7 @@ TEST_F(PrefProviderTest, Incognito) {
       pattern,
       CONTENT_SETTINGS_TYPE_IMAGES,
       std::string(),
-      base::Value::CreateIntegerValue(CONTENT_SETTING_ALLOW));
+      new base::FundamentalValue(CONTENT_SETTING_ALLOW));
 
   GURL host("http://example.com/");
   // The value should of course be visible in the regular PrefProvider.
@@ -226,8 +225,7 @@ TEST_F(PrefProviderTest, GetContentSettingsValue) {
                              primary_pattern,
                              CONTENT_SETTINGS_TYPE_IMAGES,
                              std::string(),
-                             base::Value::CreateIntegerValue(
-                                 CONTENT_SETTING_BLOCK));
+                             new base::FundamentalValue(CONTENT_SETTING_BLOCK));
   EXPECT_EQ(CONTENT_SETTING_BLOCK,
             GetContentSetting(&provider,
                               primary_url,
@@ -289,7 +287,7 @@ TEST_F(PrefProviderTest, Patterns) {
       pattern1,
       CONTENT_SETTINGS_TYPE_IMAGES,
       std::string(),
-      base::Value::CreateIntegerValue(CONTENT_SETTING_BLOCK));
+      new base::FundamentalValue(CONTENT_SETTING_BLOCK));
   EXPECT_EQ(CONTENT_SETTING_BLOCK,
             GetContentSetting(&pref_content_settings_provider,
                               host1,
@@ -317,7 +315,7 @@ TEST_F(PrefProviderTest, Patterns) {
       pattern2,
       CONTENT_SETTINGS_TYPE_IMAGES,
       std::string(),
-      base::Value::CreateIntegerValue(CONTENT_SETTING_BLOCK));
+      new base::FundamentalValue(CONTENT_SETTING_BLOCK));
   EXPECT_EQ(CONTENT_SETTING_BLOCK,
             GetContentSetting(&pref_content_settings_provider,
                               host3,
@@ -338,7 +336,7 @@ TEST_F(PrefProviderTest, Patterns) {
       pattern3,
       CONTENT_SETTINGS_TYPE_IMAGES,
       std::string(),
-      base::Value::CreateIntegerValue(CONTENT_SETTING_BLOCK));
+      new base::FundamentalValue(CONTENT_SETTING_BLOCK));
   EXPECT_EQ(CONTENT_SETTING_BLOCK,
             GetContentSetting(&pref_content_settings_provider,
                               host4,
@@ -371,7 +369,7 @@ TEST_F(PrefProviderTest, ResourceIdentifier) {
       pattern,
       CONTENT_SETTINGS_TYPE_PLUGINS,
       resource1,
-      base::Value::CreateIntegerValue(CONTENT_SETTING_BLOCK));
+      new base::FundamentalValue(CONTENT_SETTING_BLOCK));
   EXPECT_EQ(CONTENT_SETTING_BLOCK,
             GetContentSetting(
                 &pref_content_settings_provider,
@@ -403,12 +401,11 @@ TEST_F(PrefProviderTest, AutoSubmitCertificateContentSetting) {
                 std::string(),
                 false));
 
-  provider.SetWebsiteSetting(
-      ContentSettingsPattern::FromURL(primary_url),
-      ContentSettingsPattern::Wildcard(),
-      CONTENT_SETTINGS_TYPE_AUTO_SELECT_CERTIFICATE,
-      std::string(),
-      base::Value::CreateIntegerValue(CONTENT_SETTING_ALLOW));
+  provider.SetWebsiteSetting(ContentSettingsPattern::FromURL(primary_url),
+                             ContentSettingsPattern::Wildcard(),
+                             CONTENT_SETTINGS_TYPE_AUTO_SELECT_CERTIFICATE,
+                             std::string(),
+                             new base::FundamentalValue(CONTENT_SETTING_ALLOW));
   EXPECT_EQ(CONTENT_SETTING_ALLOW,
             GetContentSetting(
                 &provider,
@@ -442,6 +439,41 @@ TEST_F(PrefProviderTest, Deadlock) {
   EXPECT_TRUE(observer.notification_received());
 
   provider.ShutdownOnUIThread();
+}
+
+TEST_F(PrefProviderTest, LastUsage) {
+  TestingProfile testing_profile;
+  PrefProvider pref_content_settings_provider(testing_profile.GetPrefs(),
+                                              false);
+  base::SimpleTestClock* test_clock = new base::SimpleTestClock;
+  test_clock->SetNow(base::Time::Now());
+
+  pref_content_settings_provider.SetClockForTesting(
+      scoped_ptr<base::Clock>(test_clock));
+  GURL host("http://example.com/");
+  ContentSettingsPattern pattern =
+      ContentSettingsPattern::FromString("[*.]example.com");
+
+  base::Time no_usage = pref_content_settings_provider.GetLastUsage(
+      pattern, pattern, CONTENT_SETTINGS_TYPE_GEOLOCATION);
+  EXPECT_EQ(no_usage.ToDoubleT(), 0);
+
+  pref_content_settings_provider.UpdateLastUsage(
+      pattern, pattern, CONTENT_SETTINGS_TYPE_GEOLOCATION);
+  base::Time first = pref_content_settings_provider.GetLastUsage(
+      pattern, pattern, CONTENT_SETTINGS_TYPE_GEOLOCATION);
+
+  test_clock->Advance(base::TimeDelta::FromSeconds(10));
+
+  pref_content_settings_provider.UpdateLastUsage(
+      pattern, pattern, CONTENT_SETTINGS_TYPE_GEOLOCATION);
+  base::Time second = pref_content_settings_provider.GetLastUsage(
+      pattern, pattern, CONTENT_SETTINGS_TYPE_GEOLOCATION);
+
+  base::TimeDelta delta = second - first;
+  EXPECT_EQ(delta.InSeconds(), 10);
+
+  pref_content_settings_provider.ShutdownOnUIThread();
 }
 
 }  // namespace content_settings

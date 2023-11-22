@@ -27,13 +27,12 @@ class CC_EXPORT TiledLayer : public ContentsScalingLayer {
   // Layer implementation.
   virtual void SetIsMask(bool is_mask) OVERRIDE;
   virtual void PushPropertiesTo(LayerImpl* layer) OVERRIDE;
-  virtual bool DrawsContent() const OVERRIDE;
   virtual void ReduceMemoryUsage() OVERRIDE;
   virtual void SetNeedsDisplayRect(const gfx::RectF& dirty_rect) OVERRIDE;
   virtual void SetLayerTreeHost(LayerTreeHost* layer_tree_host) OVERRIDE;
   virtual void SetTexturePriorities(const PriorityCalculator& priority_calc)
       OVERRIDE;
-  virtual Region VisibleContentOpaqueRegion() const OVERRIDE;
+  virtual SimpleEnclosedRegion VisibleContentOpaqueRegion() const OVERRIDE;
   virtual bool Update(ResourceUpdateQueue* queue,
                       const OcclusionTracker<Layer>* occlusion) OVERRIDE;
   virtual void OnOutputSurfaceCreated() OVERRIDE;
@@ -67,6 +66,8 @@ class CC_EXPORT TiledLayer : public ContentsScalingLayer {
   gfx::Rect IdlePaintRect();
 
   bool SkipsDraw() const { return skips_draw_; }
+
+  virtual bool HasDrawableContent() const OVERRIDE;
 
   // Virtual for testing
   virtual PrioritizedResourceManager* ResourceManager();

@@ -52,6 +52,7 @@ WebstoreInstallerTest::WebstoreInstallerTest(
 WebstoreInstallerTest::~WebstoreInstallerTest() {}
 
 void WebstoreInstallerTest::SetUpCommandLine(CommandLine* command_line) {
+  ExtensionBrowserTest::SetUpCommandLine(command_line);
   // We start the test server now instead of in
   // SetUpInProcessBrowserTestFixture so that we can get its port number.
   ASSERT_TRUE(test_server()->Start());
@@ -79,7 +80,7 @@ void WebstoreInstallerTest::SetUpInProcessBrowserTestFixture() {
 }
 
 void WebstoreInstallerTest::SetUpOnMainThread() {
-  InProcessBrowserTest::SetUpOnMainThread();
+  ExtensionBrowserTest::SetUpOnMainThread();
   ASSERT_TRUE(download_directory_.CreateUniqueTempDir());
   DownloadPrefs* download_prefs = DownloadPrefs::FromBrowserContext(
       browser()->profile());
@@ -130,5 +131,15 @@ void WebstoreInstallerTest::RunTestAsync(
   std::string script = base::StringPrintf(
       "%s('%s')", test_function_name.c_str(), test_gallery_url_.c_str());
   browser()->tab_strip_model()->GetActiveWebContents()->GetMainFrame()->
-      ExecuteJavaScript(base::UTF8ToUTF16(script));
+      ExecuteJavaScriptForTests(base::UTF8ToUTF16(script));
+}
+
+void WebstoreInstallerTest::AutoAcceptInstall() {
+  ExtensionInstallPrompt::g_auto_confirm_for_tests =
+      ExtensionInstallPrompt::ACCEPT;
+}
+
+void WebstoreInstallerTest::AutoCancelInstall() {
+  ExtensionInstallPrompt::g_auto_confirm_for_tests =
+      ExtensionInstallPrompt::CANCEL;
 }

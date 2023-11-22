@@ -22,6 +22,7 @@ import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Trace;
 import android.provider.ContactsContract.Contacts;
 import android.telecom.CallState;
 import android.telecom.DisconnectCause;
@@ -30,7 +31,6 @@ import android.telecom.GatewayInfo;
 import android.telecom.ParcelableConnection;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
-import android.telecom.PhoneCapabilities;
 import android.telecom.Response;
 import android.telecom.StatusHints;
 import android.telecom.TelecomManager;
@@ -44,7 +44,6 @@ import com.android.internal.telephony.CallerInfoAsyncQuery;
 import com.android.internal.telephony.CallerInfoAsyncQuery.OnQueryCompleteListener;
 import com.android.internal.telephony.SmsApplication;
 import com.android.server.telecom.ContactsAsyncHelper.OnImageLoadCompleteListener;
-
 import com.android.internal.util.Preconditions;
 
 import java.util.ArrayList;
@@ -74,7 +73,8 @@ final class Call implements CreateConnectionResponse {
         void onFailedUnknownCall(Call call);
         void onRingbackRequested(Call call, boolean ringbackRequested);
         void onPostDialWait(Call call, String remaining);
-        void onCallCapabilitiesChanged(Call call);
+        void onPostDialChar(Call call, char nextChar);
+        void onConnectionCapabilitiesChanged(Call call);
         void onParentChanged(Call call);
         void onChildrenChanged(Call call);
         void onCannedSmsResponsesLoaded(Call call);
@@ -89,6 +89,7 @@ final class Call implements CreateConnectionResponse {
         void onConnectionManagerPhoneAccountChanged(Call call);
         void onPhoneAccountChanged(Call call);
         void onConferenceableCallsChanged(Call call);
+        boolean onCanceledViaNewOutgoingCallBroadcast(Call call);
     }
 
     abstract static class ListenerBase implements Listener {
@@ -109,7 +110,9 @@ final class Call implements CreateConnectionResponse {
         @Override
         public void onPostDialWait(Call call, String remaining) {}
         @Override
-        public void onCallCapabilitiesChanged(Call call) {}
+        public void onPostDialChar(Call call, char nextChar) {}
+        @Override
+        public void onConnectionCapabilitiesChanged(Call call) {}
         @Override
         public void onParentChanged(Call call) {}
         @Override
@@ -138,6 +141,10 @@ final class Call implements CreateConnectionResponse {
         public void onPhoneAccountChanged(Call call) {}
         @Override
         public void onConferenceableCallsChanged(Call call) {}
+        @Override
+        public boolean onCanceledViaNewOutgoingCallBroadcast(Call call) {
+            return false;
+        }
     }
 
     private static final OnQueryCompleteListener sCallerInfoQueryListener =
@@ -182,7 +189,13 @@ final class Call implements CreateConnectionResponse {
      * The time this call was created. Beyond logging and such, may also be used for bookkeeping
      * and specifically for marking certain call attempts as failed attempts.
      */
-    private final long mCreationTimeMillis = System.currentTimeMillis();
+    private long mCreationTimeMillis = System.currentTimeMillis();
+
+    /** The time this call was made active. */
+    private long mConnectTimeMillis = 0;
+
+    /** The time this call was disconnected. */
+    private long mDisconnectTimeMillis = 0;
 
     /** The gateway information associated with this call. This stores the original call handle
      * that the user is attempting to connect to via the gateway, the actual handle to dial in
@@ -197,8 +210,6 @@ final class Call implements CreateConnectionResponse {
     private final Handler mHandler = new Handler();
 
     private final List<Call> mConferenceableCalls = new ArrayList<>();
-
-    private long mConnectTimeMillis = 0;
 
     /** The state of the call. */
     private int mState;
@@ -268,7 +279,7 @@ final class Call implements CreateConnectionResponse {
     /** Whether direct-to-voicemail query is pending. */
     private boolean mDirectToVoicemailQueryPending;
 
-    private int mCallCapabilities;
+    private int mConnectionCapabilities;
 
     private boolean mIsConference = false;
 
@@ -335,6 +346,37 @@ final class Call implements CreateConnectionResponse {
         maybeLoadCannedSmsResponses();
     }
 
+    /**
+     * Persists the specified parameters and initializes the new instance.
+     *
+     * @param context The context.
+     * @param repository The connection service repository.
+     * @param handle The handle to dial.
+     * @param gatewayInfo Gateway information to use for the call.
+     * @param connectionManagerPhoneAccountHandle Account to use for the service managing the call.
+     *         This account must be one that was registered with the
+     *         {@link PhoneAccount#CAPABILITY_CONNECTION_MANAGER} flag.
+     * @param targetPhoneAccountHandle Account information to use for the call. This account must be
+     *         one that was registered with the {@link PhoneAccount#CAPABILITY_CALL_PROVIDER} flag.
+     * @param isIncoming True if this is an incoming call.
+     * @param connectTimeMillis The connection time of the call.
+     */
+    Call(
+            Context context,
+            ConnectionServiceRepository repository,
+            Uri handle,
+            GatewayInfo gatewayInfo,
+            PhoneAccountHandle connectionManagerPhoneAccountHandle,
+            PhoneAccountHandle targetPhoneAccountHandle,
+            boolean isIncoming,
+            boolean isConference,
+            long connectTimeMillis) {
+        this(context, repository, handle, gatewayInfo, connectionManagerPhoneAccountHandle,
+                targetPhoneAccountHandle, isIncoming, isConference);
+
+        mConnectTimeMillis = connectTimeMillis;
+    }
+
     void addListener(Listener listener) {
         mListeners.add(listener);
     }
@@ -361,11 +403,33 @@ final class Call implements CreateConnectionResponse {
                 getVideoState(),
                 getChildCalls().size(),
                 getParentCall() != null,
-                PhoneCapabilities.toString(getCallCapabilities()));
+                Connection.capabilitiesToString(getConnectionCapabilities()));
     }
 
     int getState() {
         return mState;
+    }
+
+    private boolean shouldContinueProcessingAfterDisconnect() {
+        // Stop processing once the call is active.
+        if (!CreateConnectionTimeout.isCallBeingPlaced(this)) {
+            return false;
+        }
+
+        // Make sure that there are additional connection services to process.
+        if (mCreateConnectionProcessor == null
+            || !mCreateConnectionProcessor.isProcessingComplete()
+            || !mCreateConnectionProcessor.hasMorePhoneAccounts()) {
+            return false;
+        }
+
+        if (mDisconnectCause == null) {
+            return false;
+        }
+
+        // Continue processing if the current attempt failed or timed out.
+        return mDisconnectCause.getCode() == DisconnectCause.ERROR ||
+            mCreateConnectionProcessor.isCallTimedOut();
     }
 
     /**
@@ -377,10 +441,28 @@ final class Call implements CreateConnectionResponse {
     void setState(int newState) {
         if (mState != newState) {
             Log.v(this, "setState %s -> %s", mState, newState);
+
+            if (newState == CallState.DISCONNECTED && shouldContinueProcessingAfterDisconnect()) {
+                Log.w(this, "continuing processing disconnected call with another service");
+                mCreateConnectionProcessor.continueProcessingIfPossible(this, mDisconnectCause);
+                return;
+            }
+
             mState = newState;
             maybeLoadCannedSmsResponses();
 
-            if (mState == CallState.DISCONNECTED) {
+            if (mState == CallState.ACTIVE || mState == CallState.ON_HOLD) {
+                if (mConnectTimeMillis == 0) {
+                    // We check to see if mConnectTime is already set to prevent the
+                    // call from resetting active time when it goes in and out of
+                    // ACTIVE/ON_HOLD
+                    mConnectTimeMillis = System.currentTimeMillis();
+                }
+
+                // We're clearly not disconnected, so reset the disconnected time.
+                mDisconnectTimeMillis = 0;
+            } else if (mState == CallState.DISCONNECTED) {
+                mDisconnectTimeMillis = System.currentTimeMillis();
                 setLocallyDisconnecting(false);
                 fixParentAfterDisconnect();
             }
@@ -417,8 +499,20 @@ final class Call implements CreateConnectionResponse {
 
     void setHandle(Uri handle, int presentation) {
         if (!Objects.equals(handle, mHandle) || presentation != mHandlePresentation) {
-            mHandle = handle;
             mHandlePresentation = presentation;
+            if (mHandlePresentation == TelecomManager.PRESENTATION_RESTRICTED ||
+                    mHandlePresentation == TelecomManager.PRESENTATION_UNKNOWN) {
+                mHandle = null;
+            } else {
+                mHandle = handle;
+                if (mHandle != null && !PhoneAccount.SCHEME_VOICEMAIL.equals(mHandle.getScheme())
+                        && TextUtils.isEmpty(mHandle.getSchemeSpecificPart())) {
+                    // If the number is actually empty, set it to null, unless this is a
+                    // SCHEME_VOICEMAIL uri which always has an empty number.
+                    mHandle = null;
+                }
+            }
+
             mIsEmergencyCall = mHandle != null && PhoneNumberUtils.isLocalEmergencyNumber(mContext,
                     mHandle.getSchemeSpecificPart());
             startCallerInfoLookup();
@@ -533,7 +627,21 @@ final class Call implements CreateConnectionResponse {
      *     mCreationTimeMillis.
      */
     long getAgeMillis() {
-        return System.currentTimeMillis() - mCreationTimeMillis;
+        if (mState == CallState.DISCONNECTED &&
+                (mDisconnectCause.getCode() == DisconnectCause.REJECTED ||
+                 mDisconnectCause.getCode() == DisconnectCause.MISSED)) {
+            // Rejected and missed calls have no age. They're immortal!!
+            return 0;
+        } else if (mConnectTimeMillis == 0) {
+            // Age is measured in the amount of time the call was active. A zero connect time
+            // indicates that we never went active, so return 0 for the age.
+            return 0;
+        } else if (mDisconnectTimeMillis == 0) {
+            // We connected, but have not yet disconnected
+            return System.currentTimeMillis() - mConnectTimeMillis;
+        }
+
+        return mDisconnectTimeMillis - mConnectTimeMillis;
     }
 
     /**
@@ -544,28 +652,29 @@ final class Call implements CreateConnectionResponse {
         return mCreationTimeMillis;
     }
 
+    void setCreationTimeMillis(long time) {
+        mCreationTimeMillis = time;
+    }
+
     long getConnectTimeMillis() {
         return mConnectTimeMillis;
     }
 
-    void setConnectTimeMillis(long connectTimeMillis) {
-        mConnectTimeMillis = connectTimeMillis;
+    int getConnectionCapabilities() {
+        return mConnectionCapabilities;
     }
 
-    int getCallCapabilities() {
-        return mCallCapabilities;
+    void setConnectionCapabilities(int connectionCapabilities) {
+        setConnectionCapabilities(connectionCapabilities, false /* forceUpdate */);
     }
 
-    void setCallCapabilities(int callCapabilities) {
-        setCallCapabilities(callCapabilities, false /* forceUpdate */);
-    }
-
-    void setCallCapabilities(int callCapabilities, boolean forceUpdate) {
-        Log.v(this, "setCallCapabilities: %s", PhoneCapabilities.toString(callCapabilities));
-        if (forceUpdate || mCallCapabilities != callCapabilities) {
-           mCallCapabilities = callCapabilities;
+    void setConnectionCapabilities(int connectionCapabilities, boolean forceUpdate) {
+        Log.v(this, "setConnectionCapabilities: %s", Connection.capabilitiesToString(
+                connectionCapabilities));
+        if (forceUpdate || mConnectionCapabilities != connectionCapabilities) {
+           mConnectionCapabilities = connectionCapabilities;
             for (Listener l : mListeners) {
-                l.onCallCapabilitiesChanged(this);
+                l.onConnectionCapabilitiesChanged(this);
             }
         }
     }
@@ -668,12 +777,11 @@ final class Call implements CreateConnectionResponse {
             CallIdMapper idMapper,
             ParcelableConnection connection) {
         Log.v(this, "handleCreateConnectionSuccessful %s", connection);
-        mCreateConnectionProcessor = null;
         setTargetPhoneAccount(connection.getPhoneAccount());
         setHandle(connection.getHandle(), connection.getHandlePresentation());
         setCallerDisplayName(
                 connection.getCallerDisplayName(), connection.getCallerDisplayNamePresentation());
-        setCallCapabilities(connection.getCapabilities());
+        setConnectionCapabilities(connection.getConnectionCapabilities());
         setVideoProvider(connection.getVideoProvider());
         setVideoState(connection.getVideoState());
         setRingbackRequested(connection.isRingbackRequested());
@@ -710,7 +818,6 @@ final class Call implements CreateConnectionResponse {
 
     @Override
     public void handleCreateConnectionFailure(DisconnectCause disconnectCause) {
-        mCreateConnectionProcessor = null;
         clearConnectionService();
         setDisconnectCause(disconnectCause);
         CallsManager.getInstance().markCallAsDisconnected(this, disconnectCause);
@@ -754,17 +861,21 @@ final class Call implements CreateConnectionResponse {
         }
     }
 
+    void disconnect() {
+        disconnect(false);
+    }
+
     /**
      * Attempts to disconnect the call through the connection service.
      */
-    void disconnect() {
+    void disconnect(boolean wasViaNewOutgoingCallBroadcaster) {
         // Track that the call is now locally disconnecting.
         setLocallyDisconnecting(true);
 
         if (mState == CallState.NEW || mState == CallState.PRE_DIAL_WAIT ||
                 mState == CallState.CONNECTING) {
             Log.v(this, "Aborting call %s", this);
-            abort();
+            abort(wasViaNewOutgoingCallBroadcaster);
         } else if (mState != CallState.ABORTED && mState != CallState.DISCONNECTED) {
             if (mConnectionService == null) {
                 Log.e(this, new Exception(), "disconnect() request on a call without a"
@@ -780,11 +891,31 @@ final class Call implements CreateConnectionResponse {
         }
     }
 
-    void abort() {
-        if (mCreateConnectionProcessor != null) {
+    void abort(boolean wasViaNewOutgoingCallBroadcaster) {
+        if (mCreateConnectionProcessor != null &&
+                !mCreateConnectionProcessor.isProcessingComplete()) {
             mCreateConnectionProcessor.abort();
         } else if (mState == CallState.NEW || mState == CallState.PRE_DIAL_WAIT
                 || mState == CallState.CONNECTING) {
+            if (wasViaNewOutgoingCallBroadcaster) {
+                // If the cancelation was from NEW_OUTGOING_CALL, then we do not automatically
+                // destroy the call.  Instead, we announce the cancelation and CallsManager handles
+                // it through a timer. Since apps often cancel calls through NEW_OUTGOING_CALL and
+                // then re-dial them quickly using a gateway, allowing the first call to end
+                // causes jank. This timeout allows CallsManager to transition the first call into
+                // the second call so that in-call only ever sees a single call...eliminating the
+                // jank altogether.
+                for (Listener listener : mListeners) {
+                    if (listener.onCanceledViaNewOutgoingCallBroadcast(this)) {
+                        // The first listener to handle this wins. A return value of true means that
+                        // the listener will handle the disconnection process later and so we
+                        // should not continue it here.
+                        setLocallyDisconnecting(false);
+                        return;
+                    }
+                }
+            }
+
             handleCreateConnectionFailure(new DisconnectCause(DisconnectCause.CANCELED));
         } else {
             Log.v(this, "Cannot abort a call which isn't either PRE_DIAL_WAIT or CONNECTING");
@@ -893,6 +1024,12 @@ final class Call implements CreateConnectionResponse {
         }
     }
 
+    void onPostDialChar(char nextChar) {
+        for (Listener l : mListeners) {
+            l.onPostDialChar(this, nextChar);
+        }
+    }
+
     void postDialContinue(boolean proceed) {
         mConnectionService.onPostDialContinue(this, proceed);
     }
@@ -916,7 +1053,7 @@ final class Call implements CreateConnectionResponse {
     void mergeConference() {
         if (mConnectionService == null) {
             Log.w(this, "merging conference calls without a connection service.");
-        } else if (can(PhoneCapabilities.MERGE_CONFERENCE)) {
+        } else if (can(Connection.CAPABILITY_MERGE_CONFERENCE)) {
             mConnectionService.mergeConference(this);
             mWasConferencePreviouslyMerged = true;
         }
@@ -925,7 +1062,7 @@ final class Call implements CreateConnectionResponse {
     void swapConference() {
         if (mConnectionService == null) {
             Log.w(this, "swapping conference calls without a connection service.");
-        } else if (can(PhoneCapabilities.SWAP_CONFERENCE)) {
+        } else if (can(Connection.CAPABILITY_SWAP_CONFERENCE)) {
             mConnectionService.swapConference(this);
             switch (mChildCalls.size()) {
                 case 1:
@@ -983,7 +1120,7 @@ final class Call implements CreateConnectionResponse {
     }
 
     boolean can(int capability) {
-        return (mCallCapabilities & capability) == capability;
+        return (mConnectionCapabilities & capability) == capability;
     }
 
     private void addChildCall(Call call) {
@@ -1123,6 +1260,7 @@ final class Call implements CreateConnectionResponse {
      * @param token The token used with this query.
      */
     private void setCallerInfo(CallerInfo callerInfo, int token) {
+        Trace.beginSection("setCallerInfo");
         Preconditions.checkNotNull(callerInfo);
 
         if (mQueryToken == token) {
@@ -1147,6 +1285,7 @@ final class Call implements CreateConnectionResponse {
 
             processDirectToVoicemail();
         }
+        Trace.endSection();
     }
 
     CallerInfo getCallerInfo() {

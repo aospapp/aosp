@@ -79,8 +79,10 @@ enum {
     // libraries
     GRALLOC_MODULE_PERFORM_GET_STRIDE,
     GRALLOC_MODULE_PERFORM_GET_CUSTOM_STRIDE_FROM_HANDLE,
+    GRALLOC_MODULE_PERFORM_GET_CUSTOM_STRIDE_AND_HEIGHT_FROM_HANDLE,
     GRALLOC_MODULE_PERFORM_GET_ATTRIBUTES,
     GRALLOC_MODULE_PERFORM_GET_COLOR_SPACE_FROM_HANDLE,
+    GRALLOC_MODULE_PERFORM_GET_YUV_PLANE_INFO,
 };
 
 #define GRALLOC_HEAP_MASK   (GRALLOC_USAGE_PRIVATE_UI_CONTIG_HEAP |\
@@ -200,7 +202,9 @@ struct private_handle_t : public native_handle {
             PRIV_FLAGS_ITU_R_709          = 0x00800000,
             PRIV_FLAGS_SECURE_DISPLAY     = 0x01000000,
             // Buffer is rendered in Tile Format
-            PRIV_FLAGS_TILE_RENDERED      = 0x02000000
+            PRIV_FLAGS_TILE_RENDERED      = 0x02000000,
+            // Buffer rendered using CPU/SW renderer
+            PRIV_FLAGS_CPU_RENDERED       = 0x04000000
         };
 
         // file-descriptors
@@ -209,34 +213,37 @@ struct private_handle_t : public native_handle {
         // ints
         int     magic;
         int     flags;
-        int     size;
-        int     offset;
+        unsigned int  size;
+        unsigned int  offset;
         int     bufferType;
-        int     base;
-        int     offset_metadata;
+        uint64_t base __attribute__((aligned(8)));
+        unsigned int  offset_metadata;
         // The gpu address mapped into the mmu.
-        int     gpuaddr;
+        uint64_t gpuaddr __attribute__((aligned(8)));
         int     format;
         int     width;
         int     height;
-        int     base_metadata;
+        uint64_t base_metadata __attribute__((aligned(8)));
 
 #ifdef __cplusplus
-        static const int sNumInts = 12;
         static const int sNumFds = 2;
+        static inline int sNumInts() {
+            return ((sizeof(private_handle_t) - sizeof(native_handle_t)) /
+                    sizeof(int)) - sNumFds;
+        }
         static const int sMagic = 'gmsm';
 
-        private_handle_t(int fd, int size, int flags, int bufferType,
-                         int format,int width, int height, int eFd = -1,
-                         int eOffset = 0, int eBase = 0) :
+        private_handle_t(int fd, unsigned int size, int flags, int bufferType,
+                         int format, int width, int height, int eFd = -1,
+                         unsigned int eOffset = 0, uint64_t eBase = 0) :
             fd(fd), fd_metadata(eFd), magic(sMagic),
             flags(flags), size(size), offset(0), bufferType(bufferType),
             base(0), offset_metadata(eOffset), gpuaddr(0),
             format(format), width(width), height(height),
             base_metadata(eBase)
         {
-            version = sizeof(native_handle);
-            numInts = sNumInts;
+            version = (int) sizeof(native_handle);
+            numInts = sNumInts();
             numFds = sNumFds;
         }
         ~private_handle_t() {
@@ -250,14 +257,15 @@ struct private_handle_t : public native_handle {
         static int validate(const native_handle* h) {
             const private_handle_t* hnd = (const private_handle_t*)h;
             if (!h || h->version != sizeof(native_handle) ||
-                h->numInts != sNumInts || h->numFds != sNumFds ||
+                h->numInts != sNumInts() || h->numFds != sNumFds ||
                 hnd->magic != sMagic)
             {
                 ALOGD("Invalid gralloc handle (at %p): "
-                      "ver(%d/%d) ints(%d/%d) fds(%d/%d) magic(%c%c%c%c/%c%c%c%c)",
+                      "ver(%d/%zu) ints(%d/%d) fds(%d/%d)"
+                      "magic(%c%c%c%c/%c%c%c%c)",
                       h,
                       h ? h->version : -1, sizeof(native_handle),
-                      h ? h->numInts : -1, sNumInts,
+                      h ? h->numInts : -1, sNumInts(),
                       h ? h->numFds : -1, sNumFds,
                       hnd ? (((hnd->magic >> 24) & 0xFF)?
                              ((hnd->magic >> 24) & 0xFF) : '-') : '?',

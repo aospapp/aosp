@@ -237,6 +237,7 @@ typedef struct BufferQueue_interface {
     BufferHeader *mFront, *mRear;
 #ifdef ANDROID
     SLuint32 mSizeConsumed;
+    bool mCallbackPending;
 #endif
     // saves a malloc in the typical case
 #define BUFFER_HEADER_TYPICAL 4

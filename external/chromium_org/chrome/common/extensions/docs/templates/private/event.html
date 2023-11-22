@@ -1,8 +1,12 @@
 {{#event}}
 <div>
   <h3 id="{{id}}">{{name}}</h3>
-  {{+partials.warning_deprecated item:event/}}
   <div class="description">
+    {{?availability}}
+    <p class="availability">
+      {{+availability.partial content:availability item:event/}}
+    </p>
+    {{/availability}}
     {{?description}}<p>
       {{{description}}}
     </p>{{/description}}

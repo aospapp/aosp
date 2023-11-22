@@ -11,8 +11,9 @@
 #include "ash/shell.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/display/chromeos/display_configurator.h"
-#include "ui/display/types/chromeos/display_snapshot.h"
-#include "ui/events/x/device_data_manager.h"
+#include "ui/display/types/display_snapshot.h"
+#include "ui/events/device_data_manager.h"
+#include "ui/events/x/device_data_manager_x11.h"
 
 namespace ash {
 
@@ -23,6 +24,51 @@ DisplayManager* GetDisplayManager() {
 }
 
 }  // namespace
+
+// This is to compute the scale ratio for the TouchEvent's radius. The
+// configured resolution of the display is not always the same as the touch
+// screen's reporting resolution, e.g. the display could be set as
+// 1920x1080 while the touchscreen is reporting touch position range at
+// 32767x32767. Touch radius is reported in the units the same as touch position
+// so we need to scale the touch radius to be compatible with the display's
+// resolution. We compute the scale as
+// sqrt of (display_area / touchscreen_area)
+double TouchTransformerController::GetTouchResolutionScale(
+    const DisplayInfo& touch_display) const {
+  if (touch_display.touch_device_id() == 0)
+    return 1.0;
+
+  double min_x, max_x;
+  double min_y, max_y;
+  if (!ui::DeviceDataManagerX11::GetInstance()->GetDataRange(
+          touch_display.touch_device_id(),
+          ui::DeviceDataManagerX11::DT_TOUCH_POSITION_X,
+          &min_x, &max_x) ||
+      !ui::DeviceDataManagerX11::GetInstance()->GetDataRange(
+          touch_display.touch_device_id(),
+          ui::DeviceDataManagerX11::DT_TOUCH_POSITION_Y,
+          &min_y, &max_y)) {
+    return 1.0;
+  }
+
+  double width = touch_display.bounds_in_native().width();
+  double height = touch_display.bounds_in_native().height();
+
+  if (max_x == 0.0 || max_y == 0.0 || width == 0.0 || height == 0.0)
+    return 1.0;
+
+  // [0, max_x] -> touchscreen width = max_x + 1
+  // [0, max_y] -> touchscreen height = max_y + 1
+  max_x += 1.0;
+  max_y += 1.0;
+
+  double ratio = std::sqrt((width * height) / (max_x * max_y));
+
+  VLOG(2) << "Screen width/height: " << width << "/" << height
+          << ", Touchscreen width/height: " << max_x << "/" << max_y
+          << ", Touch radius scale ratio: " << ratio;
+  return ratio;
+}
 
 // This function computes the extended mode TouchTransformer for
 // |touch_display|. The TouchTransformer maps the touch event position
@@ -49,18 +95,20 @@ bool TouchTransformerController::ShouldComputeMirrorModeTouchTransformer(
   if (touch_display.touch_device_id() == 0)
     return false;
 
-  const ui::DisplayConfigurator::DisplayState* state = NULL;
-  const std::vector<ui::DisplayConfigurator::DisplayState>& cached_displays =
-      Shell::GetInstance()->display_configurator()->cached_displays();
-  for (size_t i = 0; i < cached_displays.size(); i++) {
-    if (cached_displays[i].touch_device_id == touch_display.touch_device_id()) {
-      state = &cached_displays[i];
+  DisplayManager* display_manager = Shell::GetInstance()->display_manager();
+  const std::vector<gfx::Display>& displays = display_manager->displays();
+  const DisplayInfo* info = NULL;
+  for (size_t i = 0; i < displays.size(); i++) {
+    const DisplayInfo& current_info =
+        display_manager->GetDisplayInfo(displays[i].id());
+    if (current_info.touch_device_id() == touch_display.touch_device_id()) {
+      info = &current_info;
       break;
     }
   }
 
-  if (!state || state->mirror_mode == state->display->native_mode() ||
-      !state->display->is_aspect_preserving_scaling()) {
+  if (!info || info->size_in_pixel() == info->GetNativeModeSize() ||
+      !info->is_aspect_preserving_scaling()) {
     return false;
   }
   return true;
@@ -150,7 +198,6 @@ void TouchTransformerController::UpdateTouchTransformer() const {
     return;
   } else if (display_state == ui::MULTIPLE_DISPLAY_STATE_DUAL_MIRROR ||
              display_state == ui::MULTIPLE_DISPLAY_STATE_DUAL_EXTENDED) {
-    // TODO(miletus) : Handle DUAL_EXTENDED with software mirroring.
     DisplayIdPair id_pair = GetDisplayManager()->GetCurrentDisplayIdPair();
     display1_id = id_pair.first;
     display2_id = id_pair.second;
@@ -158,10 +205,17 @@ void TouchTransformerController::UpdateTouchTransformer() const {
            display2_id != gfx::Display::kInvalidDisplayID);
     display1 = GetDisplayManager()->GetDisplayInfo(display1_id);
     display2 = GetDisplayManager()->GetDisplayInfo(display2_id);
+    device_manager->UpdateTouchRadiusScale(display1.touch_device_id(),
+                                           GetTouchResolutionScale(display1));
+    device_manager->UpdateTouchRadiusScale(display2.touch_device_id(),
+                                           GetTouchResolutionScale(display2));
   } else {
     single_display_id = GetDisplayManager()->first_display_id();
     DCHECK(single_display_id != gfx::Display::kInvalidDisplayID);
     single_display = GetDisplayManager()->GetDisplayInfo(single_display_id);
+    device_manager->UpdateTouchRadiusScale(
+        single_display.touch_device_id(),
+        GetTouchResolutionScale(single_display));
   }
 
   if (display_state == ui::MULTIPLE_DISPLAY_STATE_DUAL_MIRROR) {
@@ -182,29 +236,48 @@ void TouchTransformerController::UpdateTouchTransformer() const {
   }
 
   if (display_state == ui::MULTIPLE_DISPLAY_STATE_DUAL_EXTENDED) {
-    // TODO(miletus) : Handle the case the state is DUAL_EXTENDED but it
-    // is actually doing software mirroring.
-    if (GetDisplayManager()->software_mirroring_enabled())
-      return;
-    // In extended mode, each display is associated with one root window.
-    aura::Window* root1 =
-        display_controller->GetRootWindowForDisplayId(display1_id);
-    aura::Window* root2 =
-        display_controller->GetRootWindowForDisplayId(display2_id);
-    RootWindowController::ForWindow(root1)->ash_host()->UpdateDisplayID(
-        display1_id, gfx::Display::kInvalidDisplayID);
-    RootWindowController::ForWindow(root2)->ash_host()->UpdateDisplayID(
-        display2_id, gfx::Display::kInvalidDisplayID);
     gfx::Size fb_size =
         Shell::GetInstance()->display_configurator()->framebuffer_size();
-    device_manager->UpdateTouchInfoForDisplay(
-        display1_id,
-        display1.touch_device_id(),
-        GetExtendedModeTouchTransformer(display1, fb_size));
-    device_manager->UpdateTouchInfoForDisplay(
-        display2_id,
-        display2.touch_device_id(),
-        GetExtendedModeTouchTransformer(display2, fb_size));
+    // In extended but software mirroring mode, ther is only one X root window
+    // that associates with both displays.
+    if (GetDisplayManager()->software_mirroring_enabled())  {
+      aura::Window* root = display_controller->GetPrimaryRootWindow();
+      RootWindowController::ForWindow(root)->ash_host()->UpdateDisplayID(
+          display1_id, display2_id);
+      DisplayInfo source_display =
+          gfx::Display::InternalDisplayId() == display1_id ?
+          display1 : display2;
+      // Mapping from framebuffer size to the source display's native
+      // resolution.
+      device_manager->UpdateTouchInfoForDisplay(
+          display1_id,
+          display1.touch_device_id(),
+          GetExtendedModeTouchTransformer(source_display, fb_size));
+      device_manager->UpdateTouchInfoForDisplay(
+          display2_id,
+          display2.touch_device_id(),
+          GetExtendedModeTouchTransformer(source_display, fb_size));
+    } else {
+      // In actual extended mode, each display is associated with one root
+      // window.
+      aura::Window* root1 =
+          display_controller->GetRootWindowForDisplayId(display1_id);
+      aura::Window* root2 =
+          display_controller->GetRootWindowForDisplayId(display2_id);
+      RootWindowController::ForWindow(root1)->ash_host()->UpdateDisplayID(
+          display1_id, gfx::Display::kInvalidDisplayID);
+      RootWindowController::ForWindow(root2)->ash_host()->UpdateDisplayID(
+          display2_id, gfx::Display::kInvalidDisplayID);
+      // Mapping from framebuffer size to each display's native resolution.
+      device_manager->UpdateTouchInfoForDisplay(
+          display1_id,
+          display1.touch_device_id(),
+          GetExtendedModeTouchTransformer(display1, fb_size));
+      device_manager->UpdateTouchInfoForDisplay(
+          display2_id,
+          display2.touch_device_id(),
+          GetExtendedModeTouchTransformer(display2, fb_size));
+    }
     return;
   }
 

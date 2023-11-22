@@ -4,6 +4,7 @@
 
 #import "chrome/browser/ui/cocoa/profiles/avatar_base_controller.h"
 
+#include "base/mac/foundation_util.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile_info_cache_observer.h"
@@ -12,6 +13,7 @@
 #include "chrome/browser/profiles/profile_metrics.h"
 #include "chrome/browser/signin/signin_header_helper.h"
 #include "chrome/browser/profiles/profiles_state.h"
+#include "chrome/browser/profiles/profile_window.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -21,10 +23,12 @@
 #import "chrome/browser/ui/cocoa/profiles/profile_chooser_controller.h"
 #include "components/signin/core/browser/signin_error_controller.h"
 #include "components/signin/core/common/profile_management_switches.h"
-#include "ui/base/resource/resource_bundle.h"
 
 // Space between the avatar icon and the avatar menu bubble.
 const CGFloat kMenuYOffsetAdjust = 1.0;
+// Offset needed to align the edge of the avatar bubble with the edge of the
+// avatar button.
+const CGFloat kMenuXOffsetAdjust = 2.0;
 
 @interface AvatarBaseController (Private)
 // Shows the avatar bubble.
@@ -135,11 +139,25 @@ class ProfileInfoUpdateObserver : public ProfileInfoCacheObserver,
   return button_.get();
 }
 
-- (void)showAvatarBubble:(NSView*)anchor
-                withMode:(BrowserWindow::AvatarBubbleMode)mode
-         withServiceType:(signin::GAIAServiceType)serviceType {
-  if (menuController_)
+- (void)showAvatarBubbleAnchoredAt:(NSView*)anchor
+                          withMode:(BrowserWindow::AvatarBubbleMode)mode
+                   withServiceType:(signin::GAIAServiceType)serviceType {
+  if (menuController_) {
+    if (switches::IsNewAvatarMenu()) {
+      profiles::BubbleViewMode viewMode;
+      profiles::TutorialMode tutorialMode;
+      profiles::BubbleViewModeFromAvatarBubbleMode(
+          mode, &viewMode, &tutorialMode);
+      if (tutorialMode != profiles::TUTORIAL_MODE_NONE) {
+        ProfileChooserController* profileChooserController =
+            base::mac::ObjCCastStrict<ProfileChooserController>(
+                menuController_);
+        [profileChooserController setTutorialMode:tutorialMode];
+        [profileChooserController initMenuContentsWithView:viewMode];
+      }
+    }
     return;
+  }
 
   DCHECK(chrome::IsCommandEnabled(browser_, IDC_SHOW_AVATAR_MENU));
 
@@ -152,8 +170,9 @@ class ProfileInfoUpdateObserver : public ProfileInfoCacheObserver,
 
   // The new avatar bubble does not have an arrow, and it should be anchored
   // to the edge of the avatar button.
-  int anchorX = switches::IsNewAvatarMenu() ? NSMaxX([anchor bounds]) :
-                                              NSMidX([anchor bounds]);
+  int anchorX = switches::IsNewAvatarMenu() ?
+      NSMaxX([anchor bounds]) - kMenuXOffsetAdjust :
+      NSMidX([anchor bounds]);
   NSPoint point = NSMakePoint(anchorX,
                               NSMaxY([anchor bounds]) - kMenuYOffsetAdjust);
   point = [anchor convertPoint:point toView:nil];
@@ -162,25 +181,15 @@ class ProfileInfoUpdateObserver : public ProfileInfoCacheObserver,
   // |menuController_| will automatically release itself on close.
   if (switches::IsNewAvatarMenu()) {
     profiles::BubbleViewMode viewMode;
-    switch (mode) {
-      case BrowserWindow::AVATAR_BUBBLE_MODE_ACCOUNT_MANAGEMENT:
-        viewMode = profiles::BUBBLE_VIEW_MODE_ACCOUNT_MANAGEMENT;
-        break;
-      case BrowserWindow::AVATAR_BUBBLE_MODE_SIGNIN:
-        viewMode = profiles::BUBBLE_VIEW_MODE_GAIA_SIGNIN;
-        break;
-      case BrowserWindow::AVATAR_BUBBLE_MODE_REAUTH:
-        viewMode = profiles::BUBBLE_VIEW_MODE_GAIA_REAUTH;
-        break;
-      case BrowserWindow::AVATAR_BUBBLE_MODE_DEFAULT:
-        viewMode = profiles::BUBBLE_VIEW_MODE_PROFILE_CHOOSER;
-        break;
-    }
+    profiles::TutorialMode tutorialMode;
+    profiles::BubbleViewModeFromAvatarBubbleMode(
+        mode, &viewMode, &tutorialMode);
     menuController_ =
         [[ProfileChooserController alloc] initWithBrowser:browser_
                                                anchoredAt:point
-                                                 withMode:viewMode
-                                          withServiceType:serviceType];
+                                                 viewMode:viewMode
+                                             tutorialMode:tutorialMode
+                                              serviceType:serviceType];
   } else {
     menuController_ =
       [[AvatarMenuBubbleController alloc] initWithBrowser:browser_
@@ -198,10 +207,9 @@ class ProfileInfoUpdateObserver : public ProfileInfoCacheObserver,
 }
 
 - (IBAction)buttonClicked:(id)sender {
-  DCHECK_EQ(sender, button_.get());
-  [self showAvatarBubble:button_
-                withMode:BrowserWindow::AVATAR_BUBBLE_MODE_DEFAULT
-         withServiceType:signin::GAIA_SERVICE_TYPE_NONE];
+  [self showAvatarBubbleAnchoredAt:button_
+                          withMode:BrowserWindow::AVATAR_BUBBLE_MODE_DEFAULT
+                   withServiceType:signin::GAIA_SERVICE_TYPE_NONE];
 }
 
 - (void)bubbleWillClose:(NSNotification*)notif {

@@ -53,6 +53,7 @@ class ProfileChooserView : public views::BubbleDelegateView,
   // the existing bubble will auto-close due to focus loss.
   static void ShowBubble(
       profiles::BubbleViewMode view_mode,
+      profiles::TutorialMode tutorial_mode,
       const signin::ManageAccountsParams& manage_accounts_params,
       views::View* anchor_view,
       views::BubbleBorder::Arrow arrow,
@@ -80,12 +81,14 @@ class ProfileChooserView : public views::BubbleDelegateView,
                      views::BubbleBorder::Arrow arrow,
                      Browser* browser,
                      profiles::BubbleViewMode view_mode,
+                     profiles::TutorialMode tutorial_mode,
                      signin::GAIAServiceType service_type);
   virtual ~ProfileChooserView();
 
   // views::BubbleDelegateView:
   virtual void Init() OVERRIDE;
   virtual void WindowClosing() OVERRIDE;
+  virtual bool AcceleratorPressed(const ui::Accelerator& accelerator) OVERRIDE;
 
   // views::ButtonListener:
   virtual void ButtonPressed(views::Button* sender,
@@ -94,7 +97,7 @@ class ProfileChooserView : public views::BubbleDelegateView,
   // views::LinkListener:
   virtual void LinkClicked(views::Link* sender, int event_flags) OVERRIDE;
 
-  // views::StyledLabelListener implementation.
+  // views::StyledLabelListener:
   virtual void StyledLabelLinkClicked(
       const gfx::Range& range, int event_flags) OVERRIDE;
 
@@ -118,10 +121,8 @@ class ProfileChooserView : public views::BubbleDelegateView,
   void ShowView(profiles::BubbleViewMode view_to_display,
                 AvatarMenu* avatar_menu);
 
-  // Creates the profile chooser view. |tutorial_shown| indicates if the "mirror
-  // enabled" tutorial was shown or not in the last active view.
-  views::View* CreateProfileChooserView(AvatarMenu* avatar_menu,
-      profiles::TutorialMode last_tutorial_mode);
+  // Creates the profile chooser view.
+  views::View* CreateProfileChooserView(AvatarMenu* avatar_menu);
 
   // Creates the main profile card for the profile |avatar_item|. |is_guest|
   // is used to determine whether to show any Sign in/Sign out/Manage accounts
@@ -131,14 +132,14 @@ class ProfileChooserView : public views::BubbleDelegateView,
       bool is_guest);
   views::View* CreateGuestProfileView();
   views::View* CreateOtherProfilesView(const Indexes& avatars_to_show);
-  views::View* CreateOptionsView(bool enable_lock);
+  views::View* CreateOptionsView(bool display_lock);
   views::View* CreateSupervisedUserDisclaimerView();
 
   // Account Management view for the profile |avatar_item|.
   views::View* CreateCurrentProfileAccountsView(
       const AvatarMenu::Item& avatar_item);
   void CreateAccountButton(views::GridLayout* layout,
-                           const std::string& account,
+                           const std::string& account_id,
                            bool is_primary_account,
                            bool reauth_required,
                            int width);
@@ -152,36 +153,45 @@ class ProfileChooserView : public views::BubbleDelegateView,
   // Removes the currently selected account and attempts to restart Chrome.
   void RemoveAccount();
 
-  // Creates a a tutorial card at the top prompting the user to try out the new
-  // profile management UI.
-  views::View* CreateNewProfileManagementPreviewView();
+  // Close the tutorial card.
+  void DismissTutorial();
 
-  // Creates a tutorial card shown when new profile management preview is
-  // enabled. |current_avatar_item| indicates the current profile.
-  // |tutorial_shown| indicates if the tutorial card is already shown in the
-  // last active view.
-  views::View* CreatePreviewEnabledTutorialView(
-      const AvatarMenu::Item& current_avatar_item, bool tutorial_shown);
+  // Creates a tutorial card to introduce an upgrade user to the new avatar
+  // menu if needed. |tutorial_shown| indicates if the tutorial has already been
+  // shown in the previous active view. |avatar_item| refers to the current
+  // profile.
+  views::View* CreateWelcomeUpgradeTutorialViewIfNeeded(
+      bool tutorial_shown, const AvatarMenu::Item& avatar_item);
 
-  // Creates a a tutorial card at the top prompting the user to send feedback
-  // about the new profile management preview and/or to end preview.
-  views::View* CreateSendPreviewFeedbackView();
+  // Creates a tutorial card to have the user confirm the last Chrome signin,
+  // Chrome sync will be delayed until the user either dismisses the tutorial,
+  // or configures sync through the "Settings" link.
+  views::View* CreateSigninConfirmationView();
 
-  // Creates a tutorial card with the specified |title_text|, |context_text|,
-  // and a bottom row with a right-aligned link using the specified |link_text|,
-  // and a left aligned button using the specified |button_text|. The method
-  // sets |link| to point to the newly created link, |button| to the newly
-  // created button, and |tutorial_mode_| to the given |tutorial_mode|.
-  views::View* CreateTutorialView(
+  // Creates a a tutorial card to show the errors in the last Chrome signin.
+  views::View* CreateSigninErrorView();
+
+  // Creates a tutorial card. If |stack_button| is true, places the button above
+  // the link otherwise places both on the same row with the link left aligned
+  // and button right aligned. The method sets |link| to point to the newly
+  // create link, |button| to the newly created button, and |tutorial_mode_| to
+  // the given |tutorial_mode|.
+  views::View*  CreateTutorialView(
       profiles::TutorialMode tutorial_mode,
       const base::string16& title_text,
       const base::string16& content_text,
       const base::string16& link_text,
       const base::string16& button_text,
+      bool stack_button,
       views::Link** link,
-      views::LabelButton** button);
+      views::LabelButton** button,
+      views::ImageButton** close_button);
 
-  views::View* CreateEndPreviewView();
+  // Create a view that shows various options for an upgrade user who is not
+  // the same person as the currently signed in user.
+  views::View* CreateSwitchUserView();
+
+  bool ShouldShowGoIncognito() const;
 
   // Clean-up done after an action was performed in the ProfileChooser.
   void PostActionPerformed(ProfileMetrics::ProfileDesktopMenu action_performed);
@@ -197,16 +207,17 @@ class ProfileChooserView : public views::BubbleDelegateView,
   AccountButtonIndexes reauth_account_button_map_;
 
   // Links and buttons displayed in the tutorial card.
+  views::LabelButton* tutorial_sync_settings_ok_button_;
+  views::Link* tutorial_sync_settings_link_;
+  views::LabelButton* tutorial_see_whats_new_button_;
+  views::Link* tutorial_not_you_link_;
   views::Link* tutorial_learn_more_link_;
-  views::LabelButton* tutorial_ok_button_;
-  views::LabelButton* tutorial_enable_new_profile_management_button_;
-  views::Link* tutorial_end_preview_link_;
-  views::LabelButton* tutorial_send_feedback_button_;
+  views::ImageButton* tutorial_close_button_;
 
   // Links and buttons displayed in the active profile card.
   views::Link* manage_accounts_link_;
   views::LabelButton* signin_current_profile_link_;
-  views::ImageButton* question_mark_button_;
+  views::LabelButton* auth_error_email_button_;
 
   // The profile name and photo in the active profile card. Owned by the
   // views hierarchy.
@@ -215,6 +226,7 @@ class ProfileChooserView : public views::BubbleDelegateView,
 
   // Action buttons.
   views::LabelButton* users_button_;
+  views::LabelButton* go_incognito_button_;
   views::LabelButton* lock_button_;
   views::Link* add_account_link_;
 
@@ -225,9 +237,10 @@ class ProfileChooserView : public views::BubbleDelegateView,
   views::LabelButton* remove_account_button_;
   views::ImageButton* account_removal_cancel_button_;
 
-  // Links and buttons displayed in the end-preview view.
-  views::LabelButton* end_preview_and_relaunch_button_;
-  views::ImageButton* end_preview_cancel_button_;
+  // Buttons in the switch user view.
+  views::LabelButton* add_person_button_;
+  views::LabelButton* disconnect_button_;
+  views::ImageButton* switch_user_cancel_button_;
 
   // Records the account id to remove.
   std::string account_id_to_remove_;

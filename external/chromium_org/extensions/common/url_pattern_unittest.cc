@@ -31,6 +31,7 @@ TEST(ExtensionURLPatternTest, ParseInvalid) {
     { "about://", URLPattern::PARSE_ERROR_WRONG_SCHEME_SEPARATOR },
     { "http://", URLPattern::PARSE_ERROR_EMPTY_HOST },
     { "http:///", URLPattern::PARSE_ERROR_EMPTY_HOST },
+    { "http:// /", URLPattern::PARSE_ERROR_EMPTY_HOST },
     { "http://*foo/bar", URLPattern::PARSE_ERROR_INVALID_HOST_WILDCARD },
     { "http://foo.*.bar/baz", URLPattern::PARSE_ERROR_INVALID_HOST_WILDCARD },
     { "http://fo.*.ba:123/baz", URLPattern::PARSE_ERROR_INVALID_HOST_WILDCARD },
@@ -53,7 +54,7 @@ TEST(ExtensionURLPatternTest, ParseInvalid) {
               pattern.Parse(null_host))
         << null_host;
   }
-};
+}
 
 TEST(ExtensionURLPatternTest, Ports) {
   const struct {
@@ -90,7 +91,7 @@ TEST(ExtensionURLPatternTest, Ports) {
     EXPECT_EQ(kTestPatterns[i].expected_port, pattern.port())
         << "Got unexpected port for URL pattern: " << kTestPatterns[i].pattern;
   }
-};
+}
 
 // all pages for a given scheme
 TEST(ExtensionURLPatternTest, Match1) {
@@ -183,7 +184,7 @@ TEST(ExtensionURLPatternTest, Match7) {
   EXPECT_EQ("/*", pattern.path());
   // Subdomain matching is never done if the argument has an IP address host.
   EXPECT_FALSE(pattern.MatchesURL(GURL("http://127.0.0.1")));
-};
+}
 
 // unicode
 TEST(ExtensionURLPatternTest, Match8) {
@@ -201,7 +202,7 @@ TEST(ExtensionURLPatternTest, Match8) {
       GURL("http://abc.\xe1\x80\xbf/a\xc2\x81\xe1xyz")));
   EXPECT_TRUE(pattern.MatchesURL(
       GURL("http://\xe1\x80\xbf/a\xc2\x81\xe1\xe1")));
-};
+}
 
 // chrome://
 TEST(ExtensionURLPatternTest, Match9) {
@@ -215,7 +216,7 @@ TEST(ExtensionURLPatternTest, Match9) {
   EXPECT_TRUE(pattern.MatchesURL(GURL("chrome://favicon/http://google.com")));
   EXPECT_TRUE(pattern.MatchesURL(GURL("chrome://favicon/https://google.com")));
   EXPECT_FALSE(pattern.MatchesURL(GURL("chrome://history")));
-};
+}
 
 // *://
 TEST(ExtensionURLPatternTest, Match10) {
@@ -233,7 +234,7 @@ TEST(ExtensionURLPatternTest, Match10) {
   EXPECT_FALSE(pattern.MatchesURL(GURL("chrome://favicon/http://google.com")));
   EXPECT_FALSE(pattern.MatchesURL(GURL("file:///foo/bar")));
   EXPECT_FALSE(pattern.MatchesURL(GURL("file://localhost/foo/bar")));
-};
+}
 
 // <all_urls>
 TEST(ExtensionURLPatternTest, Match11) {
@@ -265,7 +266,7 @@ TEST(ExtensionURLPatternTest, Match11) {
   EXPECT_EQ(pattern.scheme(), pattern2.scheme());
   EXPECT_EQ(pattern.port(), pattern2.port());
   EXPECT_EQ(pattern.GetAsString(), pattern2.GetAsString());
-};
+}
 
 // SCHEME_ALL matches all schemes.
 TEST(ExtensionURLPatternTest, Match12) {
@@ -292,7 +293,7 @@ TEST(ExtensionURLPatternTest, Match12) {
   EXPECT_TRUE(pattern.MatchesURL(GURL("about:version")));
   EXPECT_TRUE(pattern.MatchesURL(
       GURL("data:text/html;charset=utf-8,<html>asdf</html>")));
-};
+}
 
 static const struct MatchPatterns {
   const char* pattern;
@@ -322,7 +323,7 @@ TEST(ExtensionURLPatternTest, Match13) {
   URLPattern pattern(URLPattern::SCHEME_ALL);
   EXPECT_EQ(URLPattern::PARSE_SUCCESS, pattern.Parse("data:*"));
   EXPECT_FALSE(pattern.MatchesURL(GURL("about:blank")));
-};
+}
 
 // file scheme with empty hostname
 TEST(ExtensionURLPatternTest, Match14) {
@@ -429,7 +430,7 @@ TEST(ExtensionURLPatternTest, Match19) {
   EXPECT_FALSE(pattern.MatchesURL(GURL("chrome-extension://foobar")));
   EXPECT_TRUE(pattern.MatchesURL(
       GURL("filesystem:chrome-extension://ftw/t/file.txt")));
-};
+}
 
 static const struct GetAsStringPatterns {
   const char* pattern;
@@ -807,6 +808,37 @@ TEST(ExtensionURLPatternTest, Subset) {
   EXPECT_TRUE(StrictlyContains(pattern12, pattern11));
   EXPECT_TRUE(NeitherContains(pattern11, pattern13));
   EXPECT_TRUE(StrictlyContains(pattern12, pattern13));
+}
+
+TEST(ExtensionURLPatternTest, MatchesSingleOrigin) {
+  EXPECT_FALSE(
+      URLPattern(URLPattern::SCHEME_ALL, "http://*/").MatchesSingleOrigin());
+  EXPECT_FALSE(URLPattern(URLPattern::SCHEME_ALL, "https://*.google.com/*")
+                   .MatchesSingleOrigin());
+  EXPECT_TRUE(URLPattern(URLPattern::SCHEME_ALL, "http://google.com/")
+                  .MatchesSingleOrigin());
+  EXPECT_TRUE(URLPattern(URLPattern::SCHEME_ALL, "http://google.com/*")
+                  .MatchesSingleOrigin());
+  EXPECT_TRUE(URLPattern(URLPattern::SCHEME_ALL, "http://www.google.com/")
+                  .MatchesSingleOrigin());
+  EXPECT_FALSE(URLPattern(URLPattern::SCHEME_ALL, "*://www.google.com/")
+                   .MatchesSingleOrigin());
+  EXPECT_FALSE(URLPattern(URLPattern::SCHEME_ALL, "http://*.com/")
+                   .MatchesSingleOrigin());
+  EXPECT_FALSE(URLPattern(URLPattern::SCHEME_ALL, "http://*.google.com/foo/bar")
+                   .MatchesSingleOrigin());
+  EXPECT_TRUE(
+      URLPattern(URLPattern::SCHEME_ALL, "http://www.google.com/foo/bar")
+          .MatchesSingleOrigin());
+  EXPECT_FALSE(URLPattern(URLPattern::SCHEME_HTTPS, "*://*.google.com/foo/bar")
+                   .MatchesSingleOrigin());
+  EXPECT_TRUE(URLPattern(URLPattern::SCHEME_HTTPS, "https://www.google.com/")
+                  .MatchesSingleOrigin());
+  EXPECT_FALSE(URLPattern(URLPattern::SCHEME_HTTP,
+                          "http://*.google.com/foo/bar").MatchesSingleOrigin());
+  EXPECT_TRUE(
+      URLPattern(URLPattern::SCHEME_HTTP, "http://www.google.com/foo/bar")
+          .MatchesSingleOrigin());
 }
 
 }  // namespace

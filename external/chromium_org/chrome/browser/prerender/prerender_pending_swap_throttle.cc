@@ -12,6 +12,8 @@
 #include "content/public/browser/resource_request_info.h"
 #include "net/url_request/url_request.h"
 
+using content::ResourceType;
+
 namespace prerender {
 
 PrerenderPendingSwapThrottle::PrerenderPendingSwapThrottle(
@@ -28,7 +30,7 @@ void PrerenderPendingSwapThrottle::WillStartRequest(bool* defer) {
       content::ResourceRequestInfo::ForRequest(request_);
 
   // We only care about main frame loads.
-  if (info->GetResourceType() != ResourceType::MAIN_FRAME)
+  if (info->GetResourceType() != content::RESOURCE_TYPE_MAIN_FRAME)
     return;
 
   int render_process_id = info->GetChildID();

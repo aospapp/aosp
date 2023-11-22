@@ -27,7 +27,6 @@
     <string name="meeting_recurring" msgid="2752008481765880928">"Când: <xliff:g id="EVENTDATE">%s</xliff:g> (recurent)"</string>
     <string name="meeting_allday" msgid="7251209063071628040">"Când: <xliff:g id="EVENTDATE">%s</xliff:g> (toată ziua)"</string>
     <string name="meeting_allday_recurring" msgid="4545762363537362545">"Când: <xliff:g id="EVENTDATE">%s</xliff:g> (toată ziua, repetat)"</string>
-    <string name="notification_exchange_calendar_added" msgid="8998454267739748113">"S-a adăugat calendarul Exchange"</string>
     <string name="app_name" msgid="1707639359526090662">"Servicii Exchange"</string>
     <string name="exception_cancel" msgid="8972887597771126871">"Acest eveniment a fost anulat pentru: <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="exception_updated" msgid="329192591551400871">"Detaliile acestui eveniment au fost modificate pentru: <xliff:g id="DATE">%s</xliff:g>"</string>

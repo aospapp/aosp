@@ -4,13 +4,18 @@
 
 #include "non_virtual_trace.h"
 
-namespace WebCore {
+namespace blink {
 
 void A::trace(Visitor* visitor)
 {
 }
 
 void C::trace(Visitor* visitor)
+{
+    B::trace(visitor);
+}
+
+void D::trace(Visitor* visitor)
 {
     B::trace(visitor);
 }

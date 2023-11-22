@@ -2,39 +2,41 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/command_line.h"
 #include "base/files/file_path.h"
+#include "base/scoped_observer.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/extensions/browser_action_test_util.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/extensions/extension_test_message_listener.h"
 #include "chrome/browser/extensions/lazy_background_page_test_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/app_modal_dialogs/app_modal_dialog.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/omnibox/location_bar.h"
+#include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_utils.h"
 #include "components/bookmarks/test/bookmark_test_helpers.h"
-#include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test_utils.h"
 #include "extensions/browser/extension_host.h"
+#include "extensions/browser/extension_registry.h"
+#include "extensions/browser/extension_registry_observer.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/process_manager.h"
 #include "extensions/common/extension.h"
-#include "extensions/common/switches.h"
+#include "extensions/test/extension_test_message_listener.h"
+#include "extensions/test/result_catcher.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "url/gurl.h"
 
 using extensions::Extension;
+using extensions::ResultCatcher;
 
 namespace {
 
@@ -44,11 +46,12 @@ namespace {
 // incognito involves reloading the extension - and the background pages may
 // have already loaded once before then. So we wait until the extension is
 // unloaded before listening to the background page notifications.
-class LoadedIncognitoObserver : public content::NotificationObserver {
+class LoadedIncognitoObserver : public extensions::ExtensionRegistryObserver {
  public:
-  explicit LoadedIncognitoObserver(Profile* profile) : profile_(profile) {
-    registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED,
-                   content::Source<Profile>(profile));
+  explicit LoadedIncognitoObserver(Profile* profile)
+      : profile_(profile), extension_registry_observer_(this) {
+    extension_registry_observer_.Add(
+        extensions::ExtensionRegistry::Get(profile_));
   }
 
   void Wait() {
@@ -58,18 +61,19 @@ class LoadedIncognitoObserver : public content::NotificationObserver {
   }
 
  private:
-
-  virtual void Observe(
-      int type,
-      const content::NotificationSource& source,
-      const content::NotificationDetails& details) OVERRIDE {
+  virtual void OnExtensionUnloaded(
+      content::BrowserContext* browser_context,
+      const Extension* extension,
+      extensions::UnloadedExtensionInfo::Reason reason) OVERRIDE {
     original_complete_.reset(new LazyBackgroundObserver(profile_));
     incognito_complete_.reset(
         new LazyBackgroundObserver(profile_->GetOffTheRecordProfile()));
   }
 
   Profile* profile_;
-  content::NotificationRegistrar registrar_;
+  ScopedObserver<extensions::ExtensionRegistry,
+                 extensions::ExtensionRegistryObserver>
+      extension_registry_observer_;
   scoped_ptr<LazyBackgroundObserver> original_complete_;
   scoped_ptr<LazyBackgroundObserver> incognito_complete_;
 };
@@ -81,13 +85,11 @@ class LazyBackgroundPageApiTest : public ExtensionApiTest {
   LazyBackgroundPageApiTest() {}
   virtual ~LazyBackgroundPageApiTest() {}
 
-  virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
-    ExtensionApiTest::SetUpCommandLine(command_line);
+  virtual void SetUpOnMainThread() OVERRIDE {
+    ExtensionApiTest::SetUpOnMainThread();
     // Set shorter delays to prevent test timeouts.
-    command_line->AppendSwitchASCII(
-        extensions::switches::kEventPageIdleTime, "1000");
-    command_line->AppendSwitchASCII(
-        extensions::switches::kEventPageSuspendingTime, "1000");
+    extensions::ProcessManager::SetEventPageIdleTimeForTesting(1);
+    extensions::ProcessManager::SetEventPageSuspendingTimeForTesting(1);
   }
 
   // Loads the extension, which temporarily starts the lazy background page
@@ -167,9 +169,6 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, BroadcastEvent) {
 
   // Open a tab to a URL that will trigger the page action to show.
   LazyBackgroundObserver page_complete;
-  content::WindowedNotificationObserver page_action_changed(
-        chrome::NOTIFICATION_EXTENSION_PAGE_ACTION_VISIBILITY_CHANGED,
-        content::NotificationService::AllSources());
   ui_test_utils::NavigateToURL(
       browser(), embedded_test_server()->GetURL("/extensions/test_file.html"));
   page_complete.Wait();
@@ -177,7 +176,7 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, BroadcastEvent) {
   EXPECT_FALSE(IsBackgroundPageAlive(last_loaded_extension_id()));
 
   // Page action is shown.
-  page_action_changed.Wait();
+  WaitForPageActionVisibilityChangeTo(num_page_actions + 1);
   EXPECT_EQ(num_page_actions + 1,
             browser()->window()->GetLocationBar()->
                 GetLocationBarForTesting()->PageActionVisibleCount());
@@ -332,16 +331,10 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, MAYBE_WaitForNTP) {
   EXPECT_FALSE(IsBackgroundPageAlive(last_loaded_extension_id()));
 }
 
-// See crbug.com/248437
-#if defined(OS_WIN)
-#define MAYBE_IncognitoSplitMode DISABLED_IncognitoSplitMode
-#else
-#define MAYBE_IncognitoSplitMode IncognitoSplitMode
-#endif
-
 // Tests that an incognito split mode extension gets 2 lazy background pages,
 // and they each load and unload at the proper times.
-IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, MAYBE_IncognitoSplitMode) {
+// See crbug.com/248437
+IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, DISABLED_IncognitoSplitMode) {
   // Open incognito window.
   Browser* incognito_browser = ui_test_utils::OpenURLOffTheRecord(
       browser()->profile(), GURL("about:blank"));
@@ -491,7 +484,7 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, OnUnload) {
 // the event page is not loaded.
 IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, EventDispatchToTab) {
   ResultCatcher catcher;
-  catcher.RestrictToProfile(browser()->profile());
+  catcher.RestrictToBrowserContext(browser()->profile());
 
   const extensions::Extension* extension =
       LoadExtensionAndWait("event_dispatch_to_tab");
@@ -511,9 +504,9 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, EventDispatchToTab) {
   BookmarkModel* bookmark_model =
       BookmarkModelFactory::GetForProfile(browser()->profile());
   test::WaitForBookmarkModelToLoad(bookmark_model);
-  bookmark_utils::AddIfNotBookmarked(bookmark_model,
-                                     GURL("http://www.google.com"),
-                                     base::UTF8ToUTF16("Google"));
+  bookmarks::AddIfNotBookmarked(bookmark_model,
+                                GURL("http://www.google.com"),
+                                base::UTF8ToUTF16("Google"));
 
   EXPECT_TRUE(event_page_ready.WaitUntilSatisfied());
 

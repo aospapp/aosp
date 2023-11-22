@@ -2,11 +2,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import ast
 import contextlib
 import fnmatch
 import json
 import os
 import pipes
+import re
 import shlex
 import shutil
 import subprocess
@@ -14,8 +16,10 @@ import sys
 import tempfile
 import zipfile
 
-CHROMIUM_SRC = os.path.join(os.path.dirname(__file__),
-                            os.pardir, os.pardir, os.pardir, os.pardir)
+
+CHROMIUM_SRC = os.path.normpath(
+    os.path.join(os.path.dirname(__file__),
+                 os.pardir, os.pardir, os.pardir, os.pardir))
 COLORAMA_ROOT = os.path.join(CHROMIUM_SRC,
                              'third_party', 'colorama', 'src')
 
@@ -41,7 +45,10 @@ def DeleteDirectory(dir_path):
     shutil.rmtree(dir_path)
 
 
-def Touch(path):
+def Touch(path, fail_if_missing=False):
+  if fail_if_missing and not os.path.exists(path):
+    raise Exception(path + ' doesn\'t exist.')
+
   MakeDirectory(os.path.dirname(path))
   with open(path, 'a'):
     os.utime(path, None)
@@ -62,6 +69,10 @@ def FindInDirectories(directories, filename_filter):
   return all_files
 
 
+def ParseGnList(gn_string):
+  return ast.literal_eval(gn_string)
+
+
 def ParseGypList(gyp_string):
   # The ninja generator doesn't support $ in strings, so use ## to
   # represent $.
@@ -69,6 +80,9 @@ def ParseGypList(gyp_string):
   # https://code.google.com/p/gyp/issues/detail?id=327
   # is addressed.
   gyp_string = gyp_string.replace('##', '$')
+
+  if gyp_string.startswith('['):
+    return ParseGnList(gyp_string)
   return shlex.split(gyp_string)
 
 
@@ -78,6 +92,7 @@ def CheckOptions(options, parser, required=None):
   for option_name in required:
     if getattr(options, option_name) is None:
       parser.error('--%s is required' % option_name.replace('_', '-'))
+
 
 def WriteJson(obj, path, only_if_changed=False):
   old_dump = None
@@ -90,6 +105,7 @@ def WriteJson(obj, path, only_if_changed=False):
   if not only_if_changed or old_dump != new_dump:
     with open(path, 'w') as outfile:
       outfile.write(new_dump)
+
 
 def ReadJson(path):
   with open(path, 'r') as jsonfile:
@@ -175,7 +191,7 @@ def CheckZipPath(name):
     raise Exception('Absolute zip path: %s' % name)
 
 
-def ExtractAll(zip_path, path=None, no_clobber=True):
+def ExtractAll(zip_path, path=None, no_clobber=True, pattern=None):
   if path is None:
     path = os.getcwd()
   elif not os.path.exists(path):
@@ -183,6 +199,11 @@ def ExtractAll(zip_path, path=None, no_clobber=True):
 
   with zipfile.ZipFile(zip_path) as z:
     for name in z.namelist():
+      if name.endswith('/'):
+        continue
+      if pattern is not None:
+        if not fnmatch.fnmatch(name, pattern):
+          continue
       CheckZipPath(name)
       if no_clobber:
         output_path = os.path.join(path, name)
@@ -201,6 +222,32 @@ def DoZip(inputs, output, base_dir):
       outfile.write(f, os.path.relpath(f, base_dir))
 
 
+def ZipDir(output, base_dir):
+  with zipfile.ZipFile(output, 'w') as outfile:
+    for root, _, files in os.walk(base_dir):
+      for f in files:
+        path = os.path.join(root, f)
+        archive_path = os.path.relpath(path, base_dir)
+        CheckZipPath(archive_path)
+        outfile.write(path, archive_path)
+
+
+def MergeZips(output, inputs, exclude_patterns=None):
+  def Allow(name):
+    if exclude_patterns is not None:
+      for p in exclude_patterns:
+        if fnmatch.fnmatch(name, p):
+          return False
+    return True
+
+  with zipfile.ZipFile(output, 'w') as out_zip:
+    for in_file in inputs:
+      with zipfile.ZipFile(in_file, 'r') as in_zip:
+        for name in in_zip.namelist():
+          if Allow(name):
+            out_zip.writestr(name, in_zip.read(name))
+
+
 def PrintWarning(message):
   print 'WARNING: ' + message
 
@@ -209,3 +256,116 @@ def PrintBigWarning(message):
   print '*****     ' * 8
   PrintWarning(message)
   print '*****     ' * 8
+
+
+def GetSortedTransitiveDependencies(top, deps_func):
+  """Gets the list of all transitive dependencies in sorted order.
+
+  There should be no cycles in the dependency graph.
+
+  Args:
+    top: a list of the top level nodes
+    deps_func: A function that takes a node and returns its direct dependencies.
+  Returns:
+    A list of all transitive dependencies of nodes in top, in order (a node will
+    appear in the list at a higher index than all of its dependencies).
+  """
+  def Node(dep):
+    return (dep, deps_func(dep))
+
+  # First: find all deps
+  unchecked_deps = list(top)
+  all_deps = set(top)
+  while unchecked_deps:
+    dep = unchecked_deps.pop()
+    new_deps = deps_func(dep).difference(all_deps)
+    unchecked_deps.extend(new_deps)
+    all_deps = all_deps.union(new_deps)
+
+  # Then: simple, slow topological sort.
+  sorted_deps = []
+  unsorted_deps = dict(map(Node, all_deps))
+  while unsorted_deps:
+    for library, dependencies in unsorted_deps.items():
+      if not dependencies.intersection(unsorted_deps.keys()):
+        sorted_deps.append(library)
+        del unsorted_deps[library]
+
+  return sorted_deps
+
+
+def GetPythonDependencies():
+  """Gets the paths of imported non-system python modules.
+
+  A path is assumed to be a "system" import if it is outside of chromium's
+  src/. The paths will be relative to the current directory.
+  """
+  module_paths = (m.__file__ for m in sys.modules.itervalues()
+                  if m is not None and hasattr(m, '__file__'))
+
+  abs_module_paths = map(os.path.abspath, module_paths)
+
+  non_system_module_paths = [
+      p for p in abs_module_paths if p.startswith(CHROMIUM_SRC)]
+  def ConvertPycToPy(s):
+    if s.endswith('.pyc'):
+      return s[:-1]
+    return s
+
+  non_system_module_paths = map(ConvertPycToPy, non_system_module_paths)
+  non_system_module_paths = map(os.path.relpath, non_system_module_paths)
+  return sorted(set(non_system_module_paths))
+
+
+def AddDepfileOption(parser):
+  parser.add_option('--depfile',
+                    help='Path to depfile. This must be specified as the '
+                    'action\'s first output.')
+
+
+def WriteDepfile(path, dependencies):
+  with open(path, 'w') as depfile:
+    depfile.write(path)
+    depfile.write(': ')
+    depfile.write(' '.join(dependencies))
+    depfile.write('\n')
+
+
+def ExpandFileArgs(args):
+  """Replaces file-arg placeholders in args.
+
+  These placeholders have the form:
+    @FileArg(filename:key1:key2:...:keyn)
+
+  The value of such a placeholder is calculated by reading 'filename' as json.
+  And then extracting the value at [key1][key2]...[keyn].
+
+  Note: This intentionally does not return the list of files that appear in such
+  placeholders. An action that uses file-args *must* know the paths of those
+  files prior to the parsing of the arguments (typically by explicitly listing
+  them in the action's inputs in build files).
+  """
+  new_args = list(args)
+  file_jsons = dict()
+  r = re.compile('@FileArg\((.*?)\)')
+  for i, arg in enumerate(args):
+    match = r.search(arg)
+    if not match:
+      continue
+
+    if match.end() != len(arg):
+      raise Exception('Unexpected characters after FileArg: ' + arg)
+
+    lookup_path = match.group(1).split(':')
+    file_path = lookup_path[0]
+    if not file_path in file_jsons:
+      file_jsons[file_path] = ReadJson(file_path)
+
+    expansion = file_jsons[file_path]
+    for k in lookup_path[1:]:
+      expansion = expansion[k]
+
+    new_args[i] = arg[:match.start()] + str(expansion)
+
+  return new_args
+

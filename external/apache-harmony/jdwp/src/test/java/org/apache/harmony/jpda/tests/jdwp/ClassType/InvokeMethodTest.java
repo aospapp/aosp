@@ -362,7 +362,6 @@ public class InvokeMethodTest extends JDWPSyncTestCase {
         checkReplyPacket(reply, "ClassType::InvokeMethod command", JDWPConstants.Error.INVALID_METHODID);
 
         logWriter.println("==> PASSED: Expected error (INVALID_METHODID) is returned");
-        logWriter.println("\n==> resumeDebuggee...");
         resumeDebuggee();
 
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
@@ -490,7 +489,6 @@ public class InvokeMethodTest extends JDWPSyncTestCase {
         checkReplyPacket(reply, "ClassType::InvokeMethod command", JDWPConstants.Error.INVALID_METHODID);
 
         logWriter.println("==> PASSED: Expected error (INVALID_METHODID) is returned");
-        logWriter.println("\n==> resumeDebuggee...");
         resumeDebuggee();
 
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);

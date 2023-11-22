@@ -10,8 +10,9 @@
 #include "components/autofill/core/browser/autofill_country.h"
 #include "components/autofill/core/browser/test_personal_data_manager.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/libaddressinput/chromium/cpp/include/libaddressinput/address_ui.h"
-#include "third_party/libaddressinput/chromium/cpp/include/libaddressinput/address_ui_component.h"
+#include "third_party/libaddressinput/src/cpp/include/libaddressinput/address_ui.h"
+#include "third_party/libaddressinput/src/cpp/include/libaddressinput/address_ui_component.h"
+#include "third_party/libaddressinput/src/cpp/include/libaddressinput/localization.h"
 
 namespace autofill {
 
@@ -20,8 +21,8 @@ class CountryComboboxModelTest : public testing::Test {
   CountryComboboxModelTest() {
     manager_.Init(NULL, profile_.GetPrefs(), false);
     manager_.set_timezone_country_code("KR");
-    model_.reset(new CountryComboboxModel(
-        manager_, base::Callback<bool(const std::string&)>()));
+    model_.reset(new CountryComboboxModel());
+    model_->SetCountries(manager_, base::Callback<bool(const std::string&)>());
   }
 
   TestPersonalDataManager* manager() { return &manager_; }
@@ -44,6 +45,8 @@ TEST_F(CountryComboboxModelTest, DefaultCountryCode) {
 }
 
 TEST_F(CountryComboboxModelTest, AllCountriesHaveComponents) {
+  ::i18n::addressinput::Localization localization;
+  std::string unused;
   for (int i = 0; i < model()->GetItemCount(); ++i) {
     if (model()->IsItemSeparatorAt(i))
       continue;
@@ -51,7 +54,7 @@ TEST_F(CountryComboboxModelTest, AllCountriesHaveComponents) {
     std::string country_code = model()->countries()[i]->country_code();
     std::vector< ::i18n::addressinput::AddressUiComponent> components =
         ::i18n::addressinput::BuildComponents(
-            country_code, std::string(), NULL);
+            country_code, localization, std::string(), &unused);
     EXPECT_FALSE(components.empty());
   }
 }

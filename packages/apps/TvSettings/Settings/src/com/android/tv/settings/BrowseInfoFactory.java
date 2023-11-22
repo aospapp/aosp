@@ -20,5 +20,4 @@ import android.support.v17.leanback.widget.ObjectAdapter;
 
 public interface BrowseInfoFactory {
     ObjectAdapter getRows();
-    void refreshContent();
 }

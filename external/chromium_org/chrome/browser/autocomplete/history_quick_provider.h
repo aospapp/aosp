@@ -9,11 +9,11 @@
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "chrome/browser/autocomplete/autocomplete_input.h"
-#include "chrome/browser/autocomplete/autocomplete_match.h"
 #include "chrome/browser/autocomplete/history_provider.h"
-#include "chrome/browser/history/history_types.h"
 #include "chrome/browser/history/in_memory_url_index.h"
+#include "components/history/core/browser/history_types.h"
+#include "components/omnibox/autocomplete_input.h"
+#include "components/omnibox/autocomplete_match.h"
 
 class Profile;
 
@@ -27,8 +27,7 @@ class ScoredHistoryMatch;
 // history.
 class HistoryQuickProvider : public HistoryProvider {
  public:
-  HistoryQuickProvider(AutocompleteProviderListener* listener,
-                       Profile* profile);
+  explicit HistoryQuickProvider(Profile* profile);
 
   // AutocompleteProvider. |minimal_changes| is ignored since there is no asynch
   // completion performed.

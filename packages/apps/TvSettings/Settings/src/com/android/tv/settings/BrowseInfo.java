@@ -18,15 +18,23 @@ package com.android.tv.settings;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
+import android.accounts.AuthenticatorDescription;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.ComponentName;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.Intent.ShortcutIconResource;
+import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.res.Resources;
+import android.content.res.Resources.NotFoundException;
 import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.preference.PreferenceActivity;
@@ -34,17 +42,19 @@ import android.support.v17.leanback.widget.ArrayObjectAdapter;
 import android.support.v17.leanback.widget.HeaderItem;
 import android.support.v17.leanback.widget.ObjectAdapter;
 import android.support.v17.leanback.widget.ListRow;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.TypedValue;
 import android.util.Xml;
 
 import com.android.internal.util.XmlUtils;
-
 import com.android.tv.settings.accessories.AccessoryUtils;
 import com.android.tv.settings.accessories.BluetoothAccessoryActivity;
+import com.android.tv.settings.accessories.BluetoothConnectionsManager;
 import com.android.tv.settings.accounts.AccountImageUriGetter;
 import com.android.tv.settings.accounts.AccountSettingsActivity;
+import com.android.tv.settings.accounts.AddAccountWithTypeActivity;
 import com.android.tv.settings.accounts.AuthenticatorHelper;
 import com.android.tv.settings.connectivity.ConnectivityStatusIconUriGetter;
 import com.android.tv.settings.connectivity.ConnectivityStatusTextGetter;
@@ -52,12 +62,13 @@ import com.android.tv.settings.connectivity.WifiNetworksActivity;
 import com.android.tv.settings.device.sound.SoundActivity;
 import com.android.tv.settings.users.RestrictedProfileActivity;
 import com.android.tv.settings.util.UriUtils;
+import com.android.tv.settings.util.AccountImageHelper;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
-import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.Set;
 
 /**
@@ -161,7 +172,7 @@ public class BrowseInfo extends BrowseInfoBase {
 
     private static final String PREF_KEY_ADD_ACCOUNT = "add_account";
     private static final String PREF_KEY_ADD_ACCESSORY = "add_accessory";
-    private static final String PREF_KEY_WIFI = "wifi";
+    private static final String PREF_KEY_WIFI = "network";
     private static final String PREF_KEY_DEVELOPER = "developer";
     private static final String PREF_KEY_INPUTS = "inputs";
 
@@ -170,9 +181,7 @@ public class BrowseInfo extends BrowseInfoBase {
     private int mNextItemId;
     private int mAccountHeaderId;
     private final BluetoothAdapter mBtAdapter;
-    private final Set<BluetoothDevice> mConnectedDevices;
     private final Object mGuard = new Object();
-    private final boolean mAllowMultipleAccounts;
     private MenuItem mWifiItem = null;
     private ArrayObjectAdapter mWifiRow = null;
     private final Handler mHandler = new Handler();
@@ -181,30 +190,16 @@ public class BrowseInfo extends BrowseInfoBase {
     private boolean mDeveloperEnabled;
     private boolean mInputSettingNeeded;
 
-    private final Runnable refreshWifiCardRunnable = new Runnable() {
-        public void run() {
-            refreshWifiCard();
-        }
-    };
-
     BrowseInfo(Context context) {
         mContext = context;
         mAuthenticatorHelper = new AuthenticatorHelper();
         mAuthenticatorHelper.updateAuthDescriptions(context);
         mAuthenticatorHelper.onAccountsUpdated(context, null);
         mBtAdapter = BluetoothAdapter.getDefaultAdapter();
-        mConnectedDevices = new HashSet<BluetoothDevice>();
         mNextItemId = 0;
-        mAllowMultipleAccounts =
-                context.getResources().getBoolean(R.bool.multiple_accounts_enabled);
         mPreferenceUtils = new PreferenceUtils(context);
         mDeveloperEnabled = mPreferenceUtils.isDeveloperEnabled();
         mInputSettingNeeded = isInputSettingNeeded();
-    }
-
-    @Override
-    public void refreshContent() {
-        init();
     }
 
     void init() {
@@ -242,7 +237,7 @@ public class BrowseInfo extends BrowseInfoBase {
             sa = context.getResources().obtainAttributes(attrs, R.styleable.CanvasSettings);
             int preferenceRes = sa.getResourceId(R.styleable.CanvasSettings_preference, 0);
             sa.recycle();
-            mHeaderItems.add(new HeaderItem(headerId, title, null));
+            mHeaderItems.add(new HeaderItem(headerId, title));
             final ArrayObjectAdapter currentRow = new ArrayObjectAdapter();
             mRows.put(headerId, currentRow);
             if (headerId != R.id.accessories) {
@@ -250,10 +245,6 @@ public class BrowseInfo extends BrowseInfoBase {
                         new PreferenceXmlReaderListener(headerId, currentRow)).read();
             }
         }
-    }
-
-    private boolean canAddAccount() {
-        return !isRestricted();
     }
 
     private boolean isRestricted() {
@@ -310,15 +301,6 @@ public class BrowseInfo extends BrowseInfoBase {
         }
     }
 
-    private void refreshWifiCard() {
-        if (mWifiItem != null) {
-            int index = mWifiRow.indexOf(mWifiItem);
-            if (index >= 0) {
-                mWifiRow.notifyArrayItemRangeChanged(index, 1);
-            }
-        }
-    }
-
     void rebuildInfo() {
         init();
     }
@@ -362,25 +344,16 @@ public class BrowseInfo extends BrowseInfoBase {
         }
     }
 
-    public void updateWifi() {
-        mHandler.post(refreshWifiCardRunnable);
-    }
-
-    void bluetoothDeviceConnected(BluetoothDevice device) {
-        synchronized (mConnectedDevices) {
-            mConnectedDevices.add(device);
-        }
-    }
-
-    void bluetoothDeviceDisconnected(BluetoothDevice device) {
-        synchronized (mConnectedDevices) {
-            mConnectedDevices.remove(device);
-        }
-    }
-
-    boolean isDeviceConnected(BluetoothDevice device) {
-        synchronized (mConnectedDevices) {
-            return mConnectedDevices.contains(device);
+    public void updateWifi(final boolean isEthernetAvailable) {
+        if (mWifiItem != null) {
+            int index = mWifiRow.indexOf(mWifiItem);
+            if (index >= 0) {
+                mWifiItem = new MenuItem.Builder().from(mWifiItem)
+                        .title(mContext.getString(isEthernetAvailable
+                                    ? R.string.connectivity_network : R.string.connectivity_wifi))
+                        .build();
+                mWifiRow.replace(index, mWifiItem);
+            }
         }
     }
 
@@ -478,48 +451,85 @@ public class BrowseInfo extends BrowseInfoBase {
     }
 
     private void addAccounts(ArrayObjectAdapter row) {
-        String[] accountTypes = mAuthenticatorHelper.getEnabledAccountTypes();
-        if (accountTypes.length == 0) {
-            // That's weird, let's try updating.
-            mAuthenticatorHelper.onAccountsUpdated(mContext, null);
-            accountTypes = mAuthenticatorHelper.getEnabledAccountTypes();
-        }
+        AccountManager am = AccountManager.get(mContext);
+        AuthenticatorDescription[] authTypes = am.getAuthenticatorTypes();
+        ArrayList<String> allowableAccountTypes = new ArrayList<>(authTypes.length);
+        PackageManager pm = mContext.getPackageManager();
 
         int googleAccountCount = 0;
 
-        for (String accountType : accountTypes) {
-            CharSequence label = mAuthenticatorHelper.getLabelForType(mContext, accountType);
-            if (label == null) {
+        for (AuthenticatorDescription authDesc : authTypes) {
+            Resources resources = null;
+            try {
+                resources = pm.getResourcesForApplication(authDesc.packageName);
+            } catch (NameNotFoundException e) {
+                Log.e(TAG, "Authenticator description with bad package name", e);
                 continue;
             }
 
-            Account[] accounts = AccountManager.get(mContext).getAccountsByType(accountType);
-            if (ACCOUNT_TYPE_GOOGLE.equals(accountType)) {
-                googleAccountCount = accounts.length;
+            allowableAccountTypes.add(authDesc.type);
+
+            // Main title text comes from the authenticator description (e.g. "Google").
+            String authTitle = null;
+            try {
+                authTitle = resources.getString(authDesc.labelId);
+                if (TextUtils.isEmpty(authTitle)) {
+                    authTitle = null;  // Handled later when we add the row.
+                }
+            } catch (NotFoundException e) {
+                Log.e(TAG, "Authenticator description with bad label id", e);
             }
+
+            Account[] accounts = am.getAccountsByType(authDesc.type);
+
+            // Icon URI to be displayed for each account is based on the type of authenticator.
+            String imageUri = null;
+            if (ACCOUNT_TYPE_GOOGLE.equals(authDesc.type)) {
+                googleAccountCount = accounts.length;
+                imageUri = googleAccountIconUri(mContext);
+            } else {
+                imageUri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" +
+                        authDesc.packageName + '/' +
+                        resources.getResourceTypeName(authDesc.iconId) + '/' +
+                        resources.getResourceEntryName(authDesc.iconId))
+                        .toString();
+            }
+
+            // Display an entry for each installed account we have.
             for (final Account account : accounts) {
                 Intent i = new Intent(mContext, AccountSettingsActivity.class)
                         .putExtra(AccountSettingsActivity.EXTRA_ACCOUNT, account.name);
                 i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET);
-                row.add(new MenuItem.Builder().id(mNextItemId++).title(account.name)
-                        .imageUriGetter(new AccountImageUriGetter(mContext, account))
+                row.add(new MenuItem.Builder().id(mNextItemId++)
+                        .title(authTitle != null ? authTitle : account.name)
+                        .imageUri(imageUri)
+                        .description(authTitle != null ? account.name : null)
                         .intent(i)
                         .build());
             }
         }
 
-        if (canAddAccount() && (mAllowMultipleAccounts || googleAccountCount == 0)) {
-            ComponentName componentName = new ComponentName("com.android.tv.settings",
-                    "com.android.tv.settings.accounts.AddAccountWithTypeActivity");
-            Intent i = new Intent().setComponent(componentName);
-            i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET);
-            if (accountTypes.length == 1) {
-                i.putExtra(AccountManager.KEY_ACCOUNT_TYPE, accountTypes[0]);
+        // Never allow restricted profile to add accounts.
+        if (!isRestricted()) {
+
+            // If there's already a Google account installed, disallow installing a second one.
+            if (googleAccountCount > 0) {
+                allowableAccountTypes.remove(ACCOUNT_TYPE_GOOGLE);
             }
-            row.add(new MenuItem.Builder().id(mNextItemId++)
-                    .title(mContext.getString(R.string.add_account))
-                    .imageResourceId(mContext, R.drawable.ic_settings_add)
-                    .intent(i).build());
+
+            // If there are available account types, add the "add account" button.
+            if (!allowableAccountTypes.isEmpty()) {
+                Intent i = new Intent().setComponent(new ComponentName("com.android.tv.settings",
+                        "com.android.tv.settings.accounts.AddAccountWithTypeActivity"));
+                i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET);
+                i.putExtra(AddAccountWithTypeActivity.EXTRA_ALLOWABLE_ACCOUNT_TYPES_STRING_ARRAY,
+                        allowableAccountTypes.toArray(new String[allowableAccountTypes.size()]));
+
+                row.add(new MenuItem.Builder().id(mNextItemId++)
+                        .title(mContext.getString(R.string.add_account))
+                        .imageResourceId(mContext, R.drawable.ic_settings_add)
+                        .intent(i).build());
+            }
         }
     }
 
@@ -529,6 +539,9 @@ public class BrowseInfo extends BrowseInfoBase {
             if (DEBUG) {
                 Log.d(TAG, "List of Bonded BT Devices:");
             }
+
+            Set<String> connectedBluetoothAddresses =
+                    BluetoothConnectionsManager.getConnectedSet(mContext);
 
             for (BluetoothDevice device : bondedDevices) {
                 if (DEBUG) {
@@ -541,8 +554,8 @@ public class BrowseInfo extends BrowseInfoBase {
                         device.getName(), resourceId);
                 i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET);
 
-                String desc = isDeviceConnected(device) ? mContext.getString(
-                        R.string.accessory_connected)
+                String desc = connectedBluetoothAddresses.contains(device.getAddress())
+                        ? mContext.getString(R.string.accessory_connected)
                         : null;
 
                 row.add(new MenuItem.Builder().id(mNextItemId++).title(device.getName())
@@ -550,5 +563,13 @@ public class BrowseInfo extends BrowseInfoBase {
                         .intent(i).build());
             }
         }
+    }
+
+    private static String googleAccountIconUri(Context context) {
+        ShortcutIconResource iconResource = new ShortcutIconResource();
+        iconResource.packageName = context.getPackageName();
+        iconResource.resourceName = context.getResources().getResourceName(
+                R.drawable.ic_settings_google_account);
+        return UriUtils.getShortcutIconResourceUri(iconResource).toString();
     }
 }

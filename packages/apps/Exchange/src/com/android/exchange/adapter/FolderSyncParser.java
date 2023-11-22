@@ -42,6 +42,7 @@ import com.android.exchange.CommandStatusException.CommandStatus;
 import com.android.exchange.Eas;
 import com.android.exchange.eas.EasSyncContacts;
 import com.android.exchange.eas.EasSyncCalendar;
+import com.android.mail.providers.UIProvider;
 import com.android.mail.utils.LogUtils;
 import com.google.common.annotations.VisibleForTesting;
 
@@ -202,8 +203,8 @@ public class FolderSyncParser extends AbstractSyncParser {
         mInitialSync = (mAccount.mSyncKey == null) || "0".equals(mAccount.mSyncKey);
         if (mInitialSync) {
             // We're resyncing all folders for this account, so nuke any existing ones.
-            mContentResolver.delete(Mailbox.CONTENT_URI, WHERE_ACCOUNT_KEY,
-                    new String[] {mAccountIdAsString});
+            // wipe() will also backup and then restore non default sync settings.
+            wipe();
         }
         if (nextTag(START_DOCUMENT) != Tags.FOLDER_FOLDER_SYNC)
             throw new EasParserException();
@@ -316,10 +317,12 @@ public class FolderSyncParser extends AbstractSyncParser {
     private static class SyncOptions {
         private final int mInterval;
         private final int mLookback;
+        private final int mSyncState;
 
-        private SyncOptions(int interval, int lookback) {
+        private SyncOptions(int interval, int lookback, int syncState) {
             mInterval = interval;
             mLookback = lookback;
+            mSyncState = syncState;
         }
     }
 
@@ -329,10 +332,12 @@ public class FolderSyncParser extends AbstractSyncParser {
             SyncWindow.SYNC_WINDOW_ACCOUNT + ")";
 
     private static final String[] MAILBOX_STATE_PROJECTION = new String[] {
-        MailboxColumns.SERVER_ID, MailboxColumns.SYNC_INTERVAL, MailboxColumns.SYNC_LOOKBACK};
+        MailboxColumns.SERVER_ID, MailboxColumns.SYNC_INTERVAL, MailboxColumns.SYNC_LOOKBACK,
+            MailboxColumns.UI_SYNC_STATUS};
     private static final int MAILBOX_STATE_SERVER_ID = 0;
     private static final int MAILBOX_STATE_INTERVAL = 1;
     private static final int MAILBOX_STATE_LOOKBACK = 2;
+    private static final int MAILBOX_STATE_SYNC_STATUS = 3;
     @VisibleForTesting
     final HashMap<String, SyncOptions> mSyncOptionsMap = new HashMap<String, SyncOptions>();
 
@@ -349,9 +354,17 @@ public class FolderSyncParser extends AbstractSyncParser {
         if (c != null) {
             try {
                 while (c.moveToNext()) {
+                    int syncStatus = c.getInt(MAILBOX_STATE_SYNC_STATUS);
+                    // The only sync status I would ever want to propagate is INITIAL_SYNC_NEEDED.
+                    // This is so that after a migration from the old Email to Unified Gmail
+                    // won't appear to be empty, but not syncing.
+                    if (syncStatus != UIProvider.SyncStatus.INITIAL_SYNC_NEEDED) {
+                        syncStatus = UIProvider.SyncStatus.NO_SYNC;
+                    }
                     mSyncOptionsMap.put(c.getString(MAILBOX_STATE_SERVER_ID),
                             new SyncOptions(c.getInt(MAILBOX_STATE_INTERVAL),
-                                    c.getInt(MAILBOX_STATE_LOOKBACK)));
+                                    c.getInt(MAILBOX_STATE_LOOKBACK),
+                                    syncStatus));
                 }
             } finally {
                 c.close();
@@ -417,6 +430,11 @@ public class FolderSyncParser extends AbstractSyncParser {
 
         final boolean shouldSync = fromServer && Mailbox.getDefaultSyncStateForType(mailboxType);
         cv.put(MailboxColumns.SYNC_INTERVAL, shouldSync ? 1 : 0);
+        if (shouldSync) {
+            cv.put(MailboxColumns.UI_SYNC_STATUS, UIProvider.SyncStatus.INITIAL_SYNC_NEEDED);
+        } else {
+            cv.put(MailboxColumns.UI_SYNC_STATUS, UIProvider.SyncStatus.NO_SYNC);
+        }
 
         // Set basic flags
         int flags = 0;
@@ -764,6 +782,12 @@ public class FolderSyncParser extends AbstractSyncParser {
 
     @Override
     protected void wipe() {
+        if (mAccountId == EmailContent.NOT_SAVED) {
+            // This is a dummy account so we don't need to do anything yet.
+            return;
+        }
+
+        // For real accounts, let's go ahead and wipe some data.
         EasSyncCalendar.wipeAccountFromContentProvider(mContext,
                 mAccount.mEmailAddress);
         EasSyncContacts.wipeAccountFromContentProvider(mContext,

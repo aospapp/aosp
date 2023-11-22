@@ -13,13 +13,13 @@
 #import "chrome/browser/ui/cocoa/cocoa_test_helper.h"
 #include "chrome/browser/ui/content_settings/content_setting_bubble_model.h"
 #include "chrome/common/chrome_content_client.h"
-#include "chrome/common/content_settings_types.h"
+#include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/chrome_unit_test_suite.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
+#include "components/content_settings/core/common/content_settings_types.h"
 #include "content/public/common/media_stream_request.h"
-#include "grit/generated_resources.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/gtest_mac.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -111,7 +111,9 @@ TEST_F(ContentSettingBubbleControllerTest, Init) {
         i == CONTENT_SETTINGS_TYPE_MEDIASTREAM_MIC ||
         i == CONTENT_SETTINGS_TYPE_MEDIASTREAM_CAMERA ||
         i == CONTENT_SETTINGS_TYPE_PPAPI_BROKER ||
-        i == CONTENT_SETTINGS_TYPE_MIDI_SYSEX) {
+        i == CONTENT_SETTINGS_TYPE_MIDI_SYSEX ||
+        i == CONTENT_SETTINGS_TYPE_PUSH_MESSAGING ||
+        i == CONTENT_SETTINGS_TYPE_SSL_CERT_DECISIONS) {
       // These types have no bubble.
       continue;
     }

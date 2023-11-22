@@ -8,15 +8,14 @@
  * Scrollable thumbnail ribbon at the bottom of the Gallery in the Slide mode.
  *
  * @param {Document} document Document.
- * @param {MetadataCache} metadataCache MetadataCache instance.
  * @param {cr.ui.ArrayDataModel} dataModel Data model.
  * @param {cr.ui.ListSelectionModel} selectionModel Selection model.
  * @return {Element} Ribbon element.
  * @constructor
  */
-function Ribbon(document, metadataCache, dataModel, selectionModel) {
+function Ribbon(document, dataModel, selectionModel) {
   var self = document.createElement('div');
-  Ribbon.decorate(self, metadataCache, dataModel, selectionModel);
+  Ribbon.decorate(self, dataModel, selectionModel);
   return self;
 }
 
@@ -29,13 +28,11 @@ Ribbon.prototype.__proto__ = HTMLDivElement.prototype;
  * Decorate a Ribbon instance.
  *
  * @param {Ribbon} self Self pointer.
- * @param {MetadataCache} metadataCache MetadataCache instance.
  * @param {cr.ui.ArrayDataModel} dataModel Data model.
  * @param {cr.ui.ListSelectionModel} selectionModel Selection model.
  */
-Ribbon.decorate = function(self, metadataCache, dataModel, selectionModel) {
+Ribbon.decorate = function(self, dataModel, selectionModel) {
   self.__proto__ = Ribbon.prototype;
-  self.metadataCache_ = metadataCache;
   self.dataModel_ = dataModel;
   self.selectionModel_ = selectionModel;
 
@@ -99,11 +96,27 @@ Ribbon.prototype.disable = function() {
  * @private
  */
 Ribbon.prototype.onSplice_ = function(event) {
-  if (event.removed.length == 0)
-    return;
-
   if (event.removed.length > 1) {
-    console.error('Cannot remove multiple items');
+    console.error('Cannot remove multiple items.');
+    return;
+  }
+
+  if (event.removed.length > 0 && event.added.length > 0) {
+    console.error('Replacing is not implemented.');
+    return;
+  }
+
+  if (event.added.length > 0) {
+    for (var i = 0; i < event.added.length; i++) {
+      var index = this.dataModel_.indexOf(event.added[i]);
+      if (index === -1)
+        continue;
+      var element = this.renderThumbnail_(index);
+      var nextItem = this.dataModel_.item(index + 1);
+      var nextElement =
+          nextItem && this.renderCache_[nextItem.getEntry().toURL()];
+      this.insertBefore(element, nextElement);
+    }
     return;
   }
 
@@ -163,8 +176,7 @@ Ribbon.prototype.onSelection_ = function() {
 
   // TODO(dgozman): use margin instead of 2 here.
   var itemWidth = this.clientHeight - 2;
-  var fullItems = Ribbon.ITEMS_COUNT;
-  fullItems = Math.min(fullItems, length);
+  var fullItems = Math.min(Ribbon.ITEMS_COUNT, length);
   var right = Math.floor((fullItems - 1) / 2);
 
   var fullWidth = fullItems * itemWidth;
@@ -245,11 +257,13 @@ Ribbon.prototype.onSelection_ = function() {
   }
 
   var oldSelected = this.querySelector('[selected]');
-  if (oldSelected) oldSelected.removeAttribute('selected');
+  if (oldSelected)
+    oldSelected.removeAttribute('selected');
 
   var newSelected =
       this.renderCache_[this.dataModel_.item(selectedIndex).getEntry().toURL()];
-  if (newSelected) newSelected.setAttribute('selected', true);
+  if (newSelected)
+    newSelected.setAttribute('selected', true);
 };
 
 /**
@@ -311,8 +325,7 @@ Ribbon.prototype.renderThumbnail_ = function(index) {
 
   util.createChild(thumbnail, 'image-wrapper');
 
-  this.metadataCache_.getOne(item.getEntry(), Gallery.METADATA_TYPE,
-      this.setThumbnailImage_.bind(this, thumbnail, item.getEntry()));
+  this.setThumbnailImage_(thumbnail, item);
 
   // TODO: Implement LRU eviction.
   // Never evict the thumbnails that are currently in the DOM because we rely
@@ -325,12 +338,15 @@ Ribbon.prototype.renderThumbnail_ = function(index) {
  * Set the thumbnail image.
  *
  * @param {Element} thumbnail Thumbnail element.
- * @param {FileEntry} entry Image Entry.
- * @param {Object} metadata Metadata.
+ * @param {Gallery.Item} item Gallery item.
  * @private
  */
-Ribbon.prototype.setThumbnailImage_ = function(thumbnail, entry, metadata) {
-  new ThumbnailLoader(entry, ThumbnailLoader.LoaderType.IMAGE, metadata).load(
+Ribbon.prototype.setThumbnailImage_ = function(thumbnail, item) {
+  var loader = new ThumbnailLoader(
+      item.getEntry(),
+      ThumbnailLoader.LoaderType.IMAGE,
+      item.getMetadata());
+  loader.load(
       thumbnail.querySelector('.image-wrapper'),
       ThumbnailLoader.FillMode.FILL /* fill */,
       ThumbnailLoader.OptimizationMode.NEVER_DISCARD);
@@ -348,8 +364,8 @@ Ribbon.prototype.onContentChange_ = function(event) {
     this.remapCache_(event.oldEntry.toURL(), url);
 
   var thumbnail = this.renderCache_[url];
-  if (thumbnail && event.metadata)
-    this.setThumbnailImage_(thumbnail, event.item.getEntry(), event.metadata);
+  if (thumbnail && event.item)
+    this.setThumbnailImage_(thumbnail, event.item);
 };
 
 /**

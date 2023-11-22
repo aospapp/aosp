@@ -21,6 +21,7 @@ class CC_EXPORT LayerTreeSettings {
   bool impl_side_painting;
   bool allow_antialiasing;
   bool throttle_frame_production;
+  bool single_thread_proxy_scheduler;
   bool begin_frame_scheduling_enabled;
   bool main_frame_before_draw_enabled;
   bool main_frame_before_activation_enabled;
@@ -77,8 +78,8 @@ class CC_EXPORT LayerTreeSettings {
   bool use_zero_copy;
   bool ignore_root_layer_flings;
   bool use_rgba_4444_textures;
-  bool touch_hit_testing;
   size_t texture_id_allocation_chunk_size;
+  bool use_occlusion_for_tile_prioritization;
   bool record_full_layer;
 
   LayerTreeDebugState initial_debug_state;

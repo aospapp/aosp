@@ -73,6 +73,7 @@ public class StructuredNameEditorView extends TextFieldsEditorView {
         } else {
             mChanged = false;
         }
+        updateEmptiness();
     }
 
     @Override
@@ -273,5 +274,13 @@ public class StructuredNameEditorView extends TextFieldsEditorView {
         public int describeContents() {
             return 0;
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected void onFinishInflate() {
+        super.onFinishInflate();
+        // Remove padding below this view.
+        setPadding(getPaddingLeft(), getPaddingTop(), getPaddingRight(), 0);
     }
 }

@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/message_loop/message_loop_proxy.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/threading/thread.h"
 #include "net/test/spawned_test_server/spawned_test_server.h"
@@ -500,10 +499,10 @@ TEST_F(SyncHttpBridgeTest, EarlyAbortFactory) {
 
   // UI Thread: Initialize the HttpBridgeFactory.  The next step would be to
   // post a task to SBH::Core to have it initialized.
-  scoped_ptr<syncer::HttpBridgeFactory> factory(new HttpBridgeFactory(
-      baseline_context_getter,
-      NetworkTimeUpdateCallback(),
-      &release_request_context_signal));
+  scoped_ptr<syncer::HttpBridgeFactory> factory(
+      new HttpBridgeFactory(baseline_context_getter.get(),
+                            NetworkTimeUpdateCallback(),
+                            &release_request_context_signal));
 
   // UI Thread: A very early shutdown request arrives and executes on the UI
   // thread before the posted sync thread task is run.

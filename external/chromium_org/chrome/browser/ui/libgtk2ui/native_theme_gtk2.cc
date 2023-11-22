@@ -7,6 +7,7 @@
 #include <gtk/gtk.h>
 
 #include "chrome/browser/ui/libgtk2ui/chrome_gtk_menu_subclasses.h"
+#include "chrome/browser/ui/libgtk2ui/gtk2_ui.h"
 #include "chrome/browser/ui/libgtk2ui/gtk2_util.h"
 #include "chrome/browser/ui/libgtk2ui/skia_utils_gtk2.h"
 #include "ui/gfx/color_utils.h"
@@ -150,6 +151,9 @@ void NativeThemeGtk2::Paint(SkCanvas* canvas,
 }
 
 SkColor NativeThemeGtk2::GetSystemColor(ColorId color_id) const {
+  if (color_id == kColorId_BlueButtonShadowColor)
+    return SK_ColorTRANSPARENT;
+
   return GdkColorToSkColor(GetSystemGdkColor(color_id));
 }
 
@@ -255,25 +259,24 @@ GdkColor NativeThemeGtk2::GetSystemGdkColor(ColorId color_id) const {
     case kColorId_ButtonBackgroundColor:
       return GetButtonStyle()->bg[GTK_STATE_NORMAL];
     case kColorId_ButtonEnabledColor:
+    case kColorId_BlueButtonEnabledColor:
       return GetButtonStyle()->text[GTK_STATE_NORMAL];
     case kColorId_ButtonDisabledColor:
+    case kColorId_BlueButtonDisabledColor:
       return GetButtonStyle()->text[GTK_STATE_INSENSITIVE];
     case kColorId_ButtonHighlightColor:
       return GetButtonStyle()->base[GTK_STATE_SELECTED];
     case kColorId_ButtonHoverColor:
+    case kColorId_BlueButtonHoverColor:
       return GetButtonStyle()->text[GTK_STATE_PRELIGHT];
     case kColorId_ButtonHoverBackgroundColor:
       return GetButtonStyle()->bg[GTK_STATE_PRELIGHT];
-    // TODO(estade): determine a more distinct color for the Blue
-    // buttons.
-    case kColorId_BlueButtonEnabledColor:
+    case kColorId_BlueButtonPressedColor:
+      return GetButtonStyle()->text[GTK_STATE_ACTIVE];
+    case kColorId_BlueButtonShadowColor:
+      // Should be handled in GetSystemColor().
+      NOTREACHED();
       return GetButtonStyle()->text[GTK_STATE_NORMAL];
-    case kColorId_BlueButtonDisabledColor:
-      return GetButtonStyle()->text[GTK_STATE_INSENSITIVE];
-    case kColorId_BlueButtonHighlightColor:
-      return GetButtonStyle()->base[GTK_STATE_SELECTED];
-    case kColorId_BlueButtonHoverColor:
-      return GetButtonStyle()->text[GTK_STATE_PRELIGHT];
 
     // Textfield
     case kColorId_TextfieldDefaultColor:
@@ -370,6 +373,9 @@ GdkColor NativeThemeGtk2::GetSystemGdkColor(ColorId color_id) const {
       return GdkAlphaBlend(win_style->text[GTK_STATE_SELECTED],
                            win_style->bg[GTK_STATE_SELECTED], 0x34);
     }
+    case kColorId_NumColors:
+      NOTREACHED();
+      break;
   }
 
   return SkColorToGdkColor(kInvalidColorIdColor);
@@ -432,7 +438,7 @@ GtkStyle* NativeThemeGtk2::GetTooltipStyle() const {
 
 GtkStyle* NativeThemeGtk2::GetMenuStyle() const {
   if (!fake_menu_.get())
-    fake_menu_.Own(gtk_menu_new());
+    fake_menu_.Own(gtk_custom_menu_new());
   return gtk_rc_get_style(fake_menu_.get());
 }
 

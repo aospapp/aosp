@@ -8,10 +8,8 @@
 #include <queue>
 
 #include "base/files/file.h"
-#include "base/memory/ref_counted.h"
 #include "base/message_loop/message_pump_libevent.h"
 #include "device/hid/hid_connection.h"
-#include "device/hid/hid_device_info.h"
 
 namespace device {
 
@@ -20,36 +18,38 @@ class HidConnectionLinux : public HidConnection,
  public:
   HidConnectionLinux(HidDeviceInfo device_info, std::string dev_node);
 
-  virtual void Read(scoped_refptr<net::IOBufferWithSize> buffer,
-                    const IOCallback& callback) OVERRIDE;
-  virtual void Write(uint8_t report_id,
-                     scoped_refptr<net::IOBufferWithSize> buffer,
-                     const IOCallback& callback) OVERRIDE;
-  virtual void GetFeatureReport(uint8_t report_id,
-                                scoped_refptr<net::IOBufferWithSize> buffer,
-                                const IOCallback& callback) OVERRIDE;
-  virtual void SendFeatureReport(uint8_t report_id,
-                                 scoped_refptr<net::IOBufferWithSize> buffer,
-                                 const IOCallback& callback) OVERRIDE;
-
-  // Implements base::MessagePumpLibevent::Watcher
-  virtual void OnFileCanReadWithoutBlocking(int fd) OVERRIDE;
-  virtual void OnFileCanWriteWithoutBlocking(int fd) OVERRIDE;
-
  private:
   friend class base::RefCountedThreadSafe<HidConnectionLinux>;
   virtual ~HidConnectionLinux();
 
-  void ProcessReadQueue();
+  // HidConnection implementation.
+  virtual void PlatformClose() OVERRIDE;
+  virtual void PlatformRead(const ReadCallback& callback) OVERRIDE;
+  virtual void PlatformWrite(scoped_refptr<net::IOBuffer> buffer,
+                             size_t size,
+                             const WriteCallback& callback) OVERRIDE;
+  virtual void PlatformGetFeatureReport(uint8_t report_id,
+                                        const ReadCallback& callback) OVERRIDE;
+  virtual void PlatformSendFeatureReport(
+      scoped_refptr<net::IOBuffer> buffer,
+      size_t size,
+      const WriteCallback& callback) OVERRIDE;
+
+  // base::MessagePumpLibevent::Watcher implementation.
+  virtual void OnFileCanReadWithoutBlocking(int fd) OVERRIDE;
+  virtual void OnFileCanWriteWithoutBlocking(int fd) OVERRIDE;
+
   void Disconnect();
+
+  void Flush();
+  void ProcessInputReport(scoped_refptr<net::IOBuffer> buffer, size_t size);
+  void ProcessReadQueue();
 
   base::File device_file_;
   base::MessagePumpLibevent::FileDescriptorWatcher device_file_watcher_;
 
   std::queue<PendingHidReport> pending_reports_;
   std::queue<PendingHidRead> pending_reads_;
-
-  base::ThreadChecker thread_checker_;
 
   DISALLOW_COPY_AND_ASSIGN(HidConnectionLinux);
 };

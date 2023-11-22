@@ -22,7 +22,6 @@
 #include "components/bookmarks/test/bookmark_test_helpers.h"
 #include "content/public/browser/page_navigator.h"
 #include "content/public/test/test_browser_thread.h"
-#include "grit/generated_resources.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/clipboard/clipboard.h"
 
@@ -241,14 +240,8 @@ TEST_F(BookmarkContextMenuControllerTest, MultipleFoldersWithURLs) {
 
 // Tests the enabled state of open incognito.
 TEST_F(BookmarkContextMenuControllerTest, DisableIncognito) {
-  // Create an incognito Profile. It must be associated with the original
-  // Profile, so that GetOriginalProfile() works as expected.
-  TestingProfile::Builder builder;
-  builder.SetIncognito();
-  scoped_ptr<TestingProfile> testing_incognito = builder.Build();
-  testing_incognito->SetOriginalProfile(profile_.get());
-  TestingProfile* incognito = testing_incognito.get();
-  profile_->SetOffTheRecordProfile(testing_incognito.PassAs<Profile>());
+  TestingProfile* incognito =
+      TestingProfile::Builder().BuildIncognito(profile_.get());
 
   incognito->CreateBookmarkModel(true);
   BookmarkModel* model = BookmarkModelFactory::GetForProfile(incognito);
@@ -350,19 +343,19 @@ TEST_F(BookmarkContextMenuControllerTest,
 
   // By default, the pref is not managed and the command is enabled.
   TestingPrefServiceSyncable* prefs = profile_->GetTestingPrefService();
-  EXPECT_FALSE(
-      prefs->IsManagedPreference(prefs::kShowAppsShortcutInBookmarkBar));
+  EXPECT_FALSE(prefs->IsManagedPreference(
+      bookmarks::prefs::kShowAppsShortcutInBookmarkBar));
   EXPECT_TRUE(
       controller.IsCommandIdEnabled(IDC_BOOKMARK_BAR_SHOW_APPS_SHORTCUT));
 
   // Disabling the shorcut by policy disables the command.
-  prefs->SetManagedPref(prefs::kShowAppsShortcutInBookmarkBar,
+  prefs->SetManagedPref(bookmarks::prefs::kShowAppsShortcutInBookmarkBar,
                         new base::FundamentalValue(false));
   EXPECT_FALSE(
       controller.IsCommandIdEnabled(IDC_BOOKMARK_BAR_SHOW_APPS_SHORTCUT));
 
   // And enabling the shortcut by policy disables the command too.
-  prefs->SetManagedPref(prefs::kShowAppsShortcutInBookmarkBar,
+  prefs->SetManagedPref(bookmarks::prefs::kShowAppsShortcutInBookmarkBar,
                         new base::FundamentalValue(true));
   EXPECT_FALSE(
       controller.IsCommandIdEnabled(IDC_BOOKMARK_BAR_SHOW_APPS_SHORTCUT));

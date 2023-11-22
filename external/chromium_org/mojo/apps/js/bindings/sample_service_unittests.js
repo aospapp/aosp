@@ -21,13 +21,13 @@ define([
     bar.alpha = 20;
     bar.beta = 40;
     bar.gamma = 60;
-    bar.type = sample.Bar.Type.TYPE_VERTICAL;
+    bar.type = sample.Bar.Type.VERTICAL;
 
     var extra_bars = new Array(3);
     for (var i = 0; i < extra_bars.length; ++i) {
       var base = i * 100;
       var type = i % 2 ?
-          sample.Bar.Type.TYPE_VERTICAL : sample.Bar.Type.TYPE_HORIZONTAL;
+          sample.Bar.Type.VERTICAL : sample.Bar.Type.HORIZONTAL;
       extra_bars[i] = new sample.Bar();
       extra_bars[i].alpha = base;
       extra_bars[i].beta = base + 20;
@@ -67,13 +67,13 @@ define([
     expect(foo.bar.alpha).toBe(20);
     expect(foo.bar.beta).toBe(40);
     expect(foo.bar.gamma).toBe(60);
-    expect(foo.bar.type).toBe(sample.Bar.Type.TYPE_VERTICAL);
+    expect(foo.bar.type).toBe(sample.Bar.Type.VERTICAL);
 
     expect(foo.extra_bars.length).toBe(3);
     for (var i = 0; i < foo.extra_bars.length; ++i) {
       var base = i * 100;
       var type = i % 2 ?
-          sample.Bar.Type.TYPE_VERTICAL : sample.Bar.Type.TYPE_HORIZONTAL;
+          sample.Bar.Type.VERTICAL : sample.Bar.Type.HORIZONTAL;
       expect(foo.extra_bars[i].alpha).toBe(base);
       expect(foo.extra_bars[i].beta).toBe(base + 20);
       expect(foo.extra_bars[i].gamma).toBe(base + 40);
@@ -91,13 +91,12 @@ define([
   function checkDefaultValues() {
     var bar = new sample.Bar();
     expect(bar.alpha).toBe(255);
-    expect(bar.type).toBe(sample.Bar.Type.TYPE_VERTICAL);
+    expect(bar.type).toBe(sample.Bar.Type.VERTICAL);
 
     var foo = new sample.Foo();
     expect(foo.name).toBe("Fooby");
     expect(foo.a).toBeTruthy();
-    // TODO(vtl): crbug.com/375845
-    // expect(foo.data).toBeNull();
+    expect(foo.data).toBeNull();
 
     var defaults = new sample.DefaultsTest();
     expect(defaults.a0).toBe(-12);
@@ -105,12 +104,11 @@ define([
     expect(defaults.a2).toBe(1234);
     expect(defaults.a3).toBe(34567);
     expect(defaults.a4).toBe(123456);
-    // TODO(vtl): crbug.com/375522
-    // expect(defaults.a5).toBe(3456789012);
-    expect(defaults.a6).toBe(111111111111);
-    // TODO(vtl): crbug.com/375522 (Also, can we get exact values for large
-    // int64/uint64's in JS?)
-    // expect(defaults.a7).toBe(9999999999999999999);
+    expect(defaults.a5).toBe(3456789012);
+    expect(defaults.a6).toBe(-111111111111);
+    // JS doesn't have a 64 bit integer type so this is just checking that the
+    // expected and actual values have the same closest double value.
+    expect(defaults.a7).toBe(9999999999999999999);
     expect(defaults.a8).toBe(0x12345);
     expect(defaults.a9).toBe(-0x12345);
     expect(defaults.a10).toBe(1234);
@@ -121,14 +119,15 @@ define([
     expect(defaults.a15).toBe(1E10);
     expect(defaults.a16).toBe(-1.2E+20);
     expect(defaults.a17).toBe(1.23E-20);
-    expect(defaults.a20).toBe(sample.Bar.Type.TYPE_BOTH);
+    expect(defaults.a20).toBe(sample.Bar.Type.BOTH);
     expect(defaults.a21).toBeNull();
     expect(defaults.a22).toBeTruthy();
-    expect(defaults.a22.shape).toBe(imported.Shape.SHAPE_RECTANGLE);
-    expect(defaults.a22.color).toBe(imported2.Color.COLOR_BLACK);
-    // TODO(vtl): crbug.com/375845
-    // expect(defaults.a21).toBeNull();
-    // expect(defaults.a22).toBeNull();
+    expect(defaults.a22.shape).toBe(imported.Shape.RECTANGLE);
+    expect(defaults.a22.color).toBe(imported2.Color.BLACK);
+    expect(defaults.a21).toBeNull();
+    expect(defaults.a23).toBe(0xFFFFFFFFFFFFFFFF);
+    expect(defaults.a24).toBe(0x123456789);
+    expect(defaults.a25).toBe(-0x123456789);
   }
 
   function ServiceImpl() {
@@ -138,7 +137,7 @@ define([
 
   ServiceImpl.prototype.frobinate = function(foo, baz, port) {
     checkFoo(foo);
-    expect(baz).toBe(sample.ServiceStub.BazOptions.BAZ_EXTRA);
+    expect(baz).toBe(sample.ServiceStub.BazOptions.EXTRA);
     expect(port).toBe(10);
     global.result = "PASS";
   };
@@ -165,5 +164,5 @@ define([
   checkFoo(foo);
 
   var port = 10;
-  serviceProxy.frobinate(foo, sample.ServiceProxy.BazOptions.BAZ_EXTRA, port);
+  serviceProxy.frobinate(foo, sample.ServiceProxy.BazOptions.EXTRA, port);
 });

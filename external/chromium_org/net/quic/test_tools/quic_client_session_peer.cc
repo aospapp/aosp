@@ -17,5 +17,11 @@ void QuicClientSessionPeer::SetMaxOpenStreams(QuicClientSession* session,
                                                     default_streams);
 }
 
+// static
+void QuicClientSessionPeer::SetChannelIDSent(QuicClientSession* session,
+                                             bool channel_id_sent) {
+  session->crypto_stream_->channel_id_sent_ = channel_id_sent;
+}
+
 }  // namespace test
 }  // namespace net

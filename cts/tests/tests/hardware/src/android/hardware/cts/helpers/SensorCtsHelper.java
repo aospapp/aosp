@@ -192,7 +192,7 @@ public class SensorCtsHelper {
             TestSensorEnvironment environment,
             String extras) {
         return String.format(
-                "%s | sensor='%s', samplingPeriodUs=%d, maxReportLatencyUs=%d | %s",
+                "%s | sensor='%s', samplingPeriod=%dus, maxReportLatency=%dus | %s",
                 label,
                 environment.getSensor().getName(),
                 environment.getRequestedSamplingPeriodUs(),
@@ -216,6 +216,25 @@ public class SensorCtsHelper {
     public static File getSensorTestDataDirectory(String subdirectory) throws IOException {
         File subdirectoryFile = new File(getSensorTestDataDirectory(), subdirectory);
         return createDirectoryStructure(subdirectoryFile);
+    }
+
+    /**
+     * Sanitizes a string so it can be used in file names.
+     *
+     * @param value The string to sanitize.
+     * @return The sanitized string.
+     *
+     * @throws SensorTestPlatformException If the string cannot be sanitized.
+     */
+    public static String sanitizeStringForFileName(String value)
+            throws SensorTestPlatformException {
+        String sanitizedValue = value.replaceAll("[^a-zA-Z0-9_\\-]", "_");
+        if (sanitizedValue.matches("_*")) {
+            throw new SensorTestPlatformException(
+                    "Unable to sanitize string '%s' for file name.",
+                    value);
+        }
+        return sanitizedValue;
     }
 
     /**

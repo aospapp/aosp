@@ -91,7 +91,7 @@ page.title=Codelines, Branches, and Releases
 	<p>
 	  An <em>upstream</em> project is an open-source project from which the Android stack is
 	  pulling code. These include obvious projects such as the Linux kernel and WebKit.
-	  Over time we are migrating some of the semi-autonomous Android projects (such as Dalvik,
+	  Over time we are migrating some of the semi-autonomous Android projects (such as ART,
 	  the Android SDK tools, Bionic, and so on) to work as "upstream" projects. Generally,
 	  these projects are developed entirely in the public tree. For some upstream projects,
 	  development is done by contributing directly to the upstream project itself. See <a href=

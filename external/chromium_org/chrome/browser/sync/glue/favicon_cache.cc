@@ -10,7 +10,7 @@
 #include "chrome/browser/favicon/favicon_service.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/history/history_notifications.h"
-#include "chrome/browser/history/history_types.h"
+#include "components/history/core/browser/history_types.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
 #include "sync/api/time.h"
@@ -443,8 +443,9 @@ void FaviconCache::OnPageFaviconUpdated(const GURL& page_url) {
   // See crbug.com/181068.
   base::CancelableTaskTracker::TaskId id =
       favicon_service->GetFaviconForPageURL(
-          FaviconService::FaviconForPageURLParams(
-              page_url, SupportedFaviconTypes(), kMaxFaviconResolution),
+          page_url,
+          SupportedFaviconTypes(),
+          kMaxFaviconResolution,
           base::Bind(&FaviconCache::OnFaviconDataAvailable,
                      weak_ptr_factory_.GetWeakPtr(),
                      page_url),

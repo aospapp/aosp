@@ -8,7 +8,6 @@
 #include "chrome/test/chromedriver/chrome/devtools_event_listener.h"
 #include "chrome/test/chromedriver/chrome/devtools_http_client.h"
 #include "chrome/test/chromedriver/chrome/status.h"
-#include "chrome/test/chromedriver/chrome/version.h"
 #include "chrome/test/chromedriver/chrome/web_view_impl.h"
 #include "chrome/test/chromedriver/net/port_server.h"
 
@@ -140,11 +139,13 @@ Status ChromeImpl::Quit() {
 }
 
 ChromeImpl::ChromeImpl(
-    scoped_ptr<DevToolsHttpClient> client,
+    scoped_ptr<DevToolsHttpClient> http_client,
+    scoped_ptr<DevToolsClient> websocket_client,
     ScopedVector<DevToolsEventListener>& devtools_event_listeners,
     scoped_ptr<PortReservation> port_reservation)
     : quit_(false),
-      devtools_http_client_(client.Pass()),
+      devtools_http_client_(http_client.Pass()),
+      devtools_websocket_client_(websocket_client.Pass()),
       port_reservation_(port_reservation.Pass()) {
   devtools_event_listeners_.swap(devtools_event_listeners);
 }

@@ -14,11 +14,11 @@
 #include "base/strings/string16.h"
 #include "components/query_parser/query_parser.h"
 
-class BookmarkClient;
 class BookmarkNode;
 
 namespace bookmarks {
 
+class BookmarkClient;
 struct BookmarkMatch;
 
 // BookmarkIndex maintains an index of the titles and URLs of bookmarks for
@@ -30,11 +30,8 @@ struct BookmarkMatch;
 // BookmarkNodes that contain that string in their title or URL.
 class BookmarkIndex {
  public:
-  // |index_urls| says whether URLs should be stored in the index in addition
-  // to bookmark titles.  |languages| used to help parse IDNs in URLs for the
-  // bookmark index.
+  // |languages| is used to help parse IDNs in URLs for the bookmark index.
   BookmarkIndex(BookmarkClient* client,
-                bool index_urls,
                 const std::string& languages);
   ~BookmarkIndex();
 
@@ -113,9 +110,6 @@ class BookmarkIndex {
 
   // Languages used to help parse IDNs in URLs for the bookmark index.
   const std::string languages_;
-
-  // True if URLs are stored in the index as well as bookmark titles.
-  const bool index_urls_;
 
   DISALLOW_COPY_AND_ASSIGN(BookmarkIndex);
 };

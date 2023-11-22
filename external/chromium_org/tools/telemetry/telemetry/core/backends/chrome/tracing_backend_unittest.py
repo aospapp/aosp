@@ -7,95 +7,13 @@ import json
 import logging
 import unittest
 
+from telemetry import benchmark
 from telemetry.core import util
-from telemetry.core.backends.chrome import tracing_backend
+from telemetry.core.platform import tracing_category_filter
+from telemetry.core.platform import tracing_options
+from telemetry.timeline import model
 from telemetry.timeline import tracing_timeline_data
-from telemetry.timeline.model import TimelineModel
 from telemetry.unittest import tab_test_case
-
-class CategoryFilterTest(unittest.TestCase):
-  def testIsSubset(self):
-    b = tracing_backend.CategoryFilter(None)
-    a = tracing_backend.CategoryFilter(None)
-    self.assertEquals(a.IsSubset(b), True)
-
-    b = tracing_backend.CategoryFilter(None)
-    a = tracing_backend.CategoryFilter("test1,test2")
-    self.assertEquals(a.IsSubset(b), True)
-
-    b = tracing_backend.CategoryFilter(None)
-    a = tracing_backend.CategoryFilter("-test1,-test2")
-    self.assertEquals(a.IsSubset(b), True)
-
-    b = tracing_backend.CategoryFilter("test1,test2")
-    a = tracing_backend.CategoryFilter(None)
-    self.assertEquals(a.IsSubset(b), None)
-
-    b = tracing_backend.CategoryFilter(None)
-    a = tracing_backend.CategoryFilter("test*")
-    self.assertEquals(a.IsSubset(b), None)
-
-    b = tracing_backend.CategoryFilter("test?")
-    a = tracing_backend.CategoryFilter(None)
-    self.assertEquals(a.IsSubset(b), None)
-
-    b = tracing_backend.CategoryFilter("test1")
-    a = tracing_backend.CategoryFilter("test1,test2")
-    self.assertEquals(a.IsSubset(b), False)
-
-    b = tracing_backend.CategoryFilter("-test1")
-    a = tracing_backend.CategoryFilter("test1")
-    self.assertEquals(a.IsSubset(b), False)
-
-    b = tracing_backend.CategoryFilter("test1,test2")
-    a = tracing_backend.CategoryFilter("test2,test1")
-    self.assertEquals(a.IsSubset(b), True)
-
-    b = tracing_backend.CategoryFilter("-test1,-test2")
-    a = tracing_backend.CategoryFilter("-test2")
-    self.assertEquals(a.IsSubset(b), False)
-
-    b = tracing_backend.CategoryFilter("disabled-by-default-test1")
-    a = tracing_backend.CategoryFilter(
-        "disabled-by-default-test1,disabled-by-default-test2")
-    self.assertEquals(a.IsSubset(b), False)
-
-    b = tracing_backend.CategoryFilter("disabled-by-default-test1")
-    a = tracing_backend.CategoryFilter("disabled-by-default-test2")
-    self.assertEquals(a.IsSubset(b), False)
-
-  def testIsSubsetWithSyntheticDelays(self):
-    b = tracing_backend.CategoryFilter("DELAY(foo;0.016)")
-    a = tracing_backend.CategoryFilter("DELAY(foo;0.016)")
-    self.assertEquals(a.IsSubset(b), True)
-
-    b = tracing_backend.CategoryFilter("DELAY(foo;0.016)")
-    a = tracing_backend.CategoryFilter(None)
-    self.assertEquals(a.IsSubset(b), True)
-
-    b = tracing_backend.CategoryFilter(None)
-    a = tracing_backend.CategoryFilter("DELAY(foo;0.016)")
-    self.assertEquals(a.IsSubset(b), False)
-
-    b = tracing_backend.CategoryFilter("DELAY(foo;0.016)")
-    a = tracing_backend.CategoryFilter("DELAY(foo;0.032)")
-    self.assertEquals(a.IsSubset(b), False)
-
-    b = tracing_backend.CategoryFilter("DELAY(foo;0.016;static)")
-    a = tracing_backend.CategoryFilter("DELAY(foo;0.016;oneshot)")
-    self.assertEquals(a.IsSubset(b), False)
-
-    b = tracing_backend.CategoryFilter("DELAY(foo;0.016),DELAY(bar;0.1)")
-    a = tracing_backend.CategoryFilter("DELAY(bar;0.1),DELAY(foo;0.016)")
-    self.assertEquals(a.IsSubset(b), True)
-
-    b = tracing_backend.CategoryFilter("DELAY(foo;0.016),DELAY(bar;0.1)")
-    a = tracing_backend.CategoryFilter("DELAY(bar;0.1)")
-    self.assertEquals(a.IsSubset(b), True)
-
-    b = tracing_backend.CategoryFilter("DELAY(foo;0.016),DELAY(bar;0.1)")
-    a = tracing_backend.CategoryFilter("DELAY(foo;0.032),DELAY(bar;0.1)")
-    self.assertEquals(a.IsSubset(b), False)
 
 
 class TracingBackendTest(tab_test_case.TabTestCase):
@@ -108,16 +26,20 @@ class TracingBackendTest(tab_test_case.TabTestCase):
       return bool(self._tab.EvaluateJavaScript(js_is_done))
     util.WaitFor(_IsDone, 5)
 
+  @benchmark.Disabled('chromeos') # crbug.com/412713.
   def testGotTrace(self):
-    if not self._browser.supports_tracing:
+    tracing_controller = self._browser.platform.tracing_controller
+    if not tracing_controller.IsChromeTracingSupported(self._browser):
       logging.warning('Browser does not support tracing, skipping test.')
       return
     self._StartServer()
-    self._browser.StartTracing()
-    self._browser.StopTracing()
-
-    # TODO(tengs): check model for correctness after trace_event_importer
-    # is implemented (crbug.com/173327).
+    options = tracing_options.TracingOptions()
+    options.enable_chrome_trace = True
+    tracing_controller.Start(
+      options, tracing_category_filter.TracingCategoryFilter())
+    trace_data = tracing_controller.Stop()
+    # Test that trace data is parsable
+    model.TimelineModel(trace_data)
 
 
 class ChromeTraceResultTest(unittest.TestCase):
@@ -168,5 +90,5 @@ class ChromeTraceResultTest(unittest.TestCase):
         '{"name": "thread_name",'
         '"args": {"name": "CrBrowserMain"},'
         '"pid": 5, "tid": 32578, "ph": "M"}']))
-    model = TimelineModel(ri)
-    self.assertEquals(model.browser_process.pid, 5)
+    timeline_model = model.TimelineModel(ri)
+    self.assertEquals(timeline_model.browser_process.pid, 5)

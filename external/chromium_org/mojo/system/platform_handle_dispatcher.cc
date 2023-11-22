@@ -79,7 +79,7 @@ void PlatformHandleDispatcher::CloseImplNoLock() {
 }
 
 scoped_refptr<Dispatcher>
-    PlatformHandleDispatcher::CreateEquivalentDispatcherAndCloseImplNoLock() {
+PlatformHandleDispatcher::CreateEquivalentDispatcherAndCloseImplNoLock() {
   lock().AssertAcquired();
   return scoped_refptr<Dispatcher>(
       new PlatformHandleDispatcher(platform_handle_.Pass()));
@@ -112,11 +112,6 @@ bool PlatformHandleDispatcher::EndSerializeAndCloseImplNoLock(
 
   *actual_size = sizeof(SerializedPlatformHandleDispatcher);
   return true;
-}
-
-HandleSignalsState
-    PlatformHandleDispatcher::GetHandleSignalsStateNoLock() const {
-  return HandleSignalsState();
 }
 
 }  // namespace system

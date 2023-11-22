@@ -43,6 +43,7 @@ import android.media.ImageReader;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Message;
 import android.util.Log;
 import android.util.Size;
 import android.util.SparseIntArray;
@@ -266,8 +267,10 @@ public class Camera2BasicFragment extends Fragment implements View.OnClickListen
                     int afState = result.get(CaptureResult.CONTROL_AF_STATE);
                     if (CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED == afState ||
                             CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED == afState) {
-                        int aeState = result.get(CaptureResult.CONTROL_AE_STATE);
-                        if (aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED) {
+                        // CONTROL_AE_STATE can be null on some devices
+                        Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
+                        if (aeState == null ||
+                                aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED) {
                             mState = STATE_WAITING_NON_PRECAPTURE;
                             captureStillPicture();
                         } else {
@@ -277,17 +280,19 @@ public class Camera2BasicFragment extends Fragment implements View.OnClickListen
                     break;
                 }
                 case STATE_WAITING_PRECAPTURE: {
-                    int aeState = result.get(CaptureResult.CONTROL_AE_STATE);
-                    if (CaptureResult.CONTROL_AE_STATE_PRECAPTURE == aeState) {
-                        mState = STATE_WAITING_NON_PRECAPTURE;
-                    } else if (CaptureRequest.CONTROL_AE_STATE_FLASH_REQUIRED == aeState) {
+                    // CONTROL_AE_STATE can be null on some devices
+                    Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
+                    if (aeState == null ||
+                            aeState == CaptureResult.CONTROL_AE_STATE_PRECAPTURE ||
+                            aeState == CaptureRequest.CONTROL_AE_STATE_FLASH_REQUIRED) {
                         mState = STATE_WAITING_NON_PRECAPTURE;
                     }
                     break;
                 }
                 case STATE_WAITING_NON_PRECAPTURE: {
-                    int aeState = result.get(CaptureResult.CONTROL_AE_STATE);
-                    if (CaptureResult.CONTROL_AE_STATE_PRECAPTURE != aeState) {
+                    // CONTROL_AE_STATE can be null on some devices
+                    Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
+                    if (aeState == null || aeState != CaptureResult.CONTROL_AE_STATE_PRECAPTURE) {
                         mState = STATE_PICTURE_TAKEN;
                         captureStillPicture();
                     }
@@ -309,6 +314,32 @@ public class Camera2BasicFragment extends Fragment implements View.OnClickListen
         }
 
     };
+
+    /**
+     * A {@link Handler} for showing {@link Toast}s.
+     */
+    private Handler mMessageHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            Activity activity = getActivity();
+            if (activity != null) {
+                Toast.makeText(activity, (String) msg.obj, Toast.LENGTH_SHORT).show();
+            }
+        }
+    };
+
+    /**
+     * Shows a {@link Toast} on the UI thread.
+     *
+     * @param text The message to show
+     */
+    private void showToast(String text) {
+        // We show a Toast by sending request message to mMessageHandler. This makes sure that the
+        // Toast is shown on the UI thread.
+        Message message = Message.obtain();
+        message.obj = text;
+        mMessageHandler.sendMessage(message);
+    }
 
     /**
      * Given {@code choices} of {@code Size}s supported by a camera, chooses the smallest one whose
@@ -569,10 +600,7 @@ public class Camera2BasicFragment extends Fragment implements View.OnClickListen
 
                         @Override
                         public void onConfigureFailed(CameraCaptureSession cameraCaptureSession) {
-                            Activity activity = getActivity();
-                            if (null != activity) {
-                                Toast.makeText(activity, "Failed", Toast.LENGTH_SHORT).show();
-                            }
+                            showToast("Failed");
                         }
                     }, null
             );
@@ -685,7 +713,7 @@ public class Camera2BasicFragment extends Fragment implements View.OnClickListen
                 @Override
                 public void onCaptureCompleted(CameraCaptureSession session, CaptureRequest request,
                                                TotalCaptureResult result) {
-                    Toast.makeText(getActivity(), "Saved: " + mFile, Toast.LENGTH_SHORT).show();
+                    showToast("Saved: " + mFile);
                     unlockFocus();
                 }
             };

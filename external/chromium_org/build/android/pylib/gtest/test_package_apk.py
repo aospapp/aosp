@@ -16,6 +16,7 @@ from pylib import android_commands
 from pylib import constants
 from pylib import pexpect
 from pylib.device import device_errors
+from pylib.device import intent
 from pylib.gtest.test_package import TestPackage
 
 
@@ -43,7 +44,7 @@ class TestPackageApk(TestPackage):
     # GTest expects argv[0] to be the executable path.
     command_line_file.write(self.suite_name + ' ' + options)
     command_line_file.flush()
-    device.old_interface.PushIfNeeded(
+    device.PushChangedFiles(
         command_line_file.name,
         self._package_info.cmdline_file)
 
@@ -59,7 +60,7 @@ class TestPackageApk(TestPackage):
 
   def _WatchFifo(self, device, timeout, logfile=None):
     for i in range(10):
-      if device.old_interface.FileExistsOnDevice(self._GetFifo()):
+      if device.FileExists(self._GetFifo()):
         logging.info('Fifo created.')
         break
       time.sleep(i)
@@ -71,17 +72,17 @@ class TestPackageApk(TestPackage):
     return pexpect.spawn('adb', args, timeout=timeout, logfile=logfile)
 
   def _StartActivity(self, device):
-    device.old_interface.StartActivity(
-        self._package_info.package,
-        self._package_info.activity,
+    device.StartActivity(
+        intent.Intent(package=self._package_info.package,
+                      activity=self._package_info.activity,
+                      action='android.intent.action.MAIN'),
         # No wait since the runner waits for FIFO creation anyway.
-        wait_for_completion=False,
-        action='android.intent.action.MAIN',
+        blocking=False,
         force_stop=True)
 
   #override
   def ClearApplicationState(self, device):
-    device.old_interface.ClearApplicationState(self._package_info.package)
+    device.ClearApplicationState(self._package_info.package)
     # Content shell creates a profile on the sdscard which accumulates cache
     # files over time.
     if self.suite_name == 'content_browsertests':

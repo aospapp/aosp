@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "apps/app_window_registry.h"
 #include "base/basictypes.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
@@ -11,7 +10,6 @@
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/chromeos/login/demo_mode/demo_app_launcher.h"
 #include "chrome/browser/chromeos/login/test/app_window_waiter.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -19,9 +17,11 @@
 #include "chromeos/chromeos_switches.h"
 #include "chromeos/network/network_state.h"
 #include "chromeos/network/network_state_handler.h"
+#include "components/user_manager/user_manager.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/test/test_utils.h"
+#include "extensions/browser/app_window/app_window_registry.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace chromeos {
@@ -35,7 +35,7 @@ base::FilePath GetTestDemoAppPath() {
 }
 
 Profile* WaitForProfile() {
-  chromeos::UserManager* user_manager = chromeos::UserManager::Get();
+  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
   if (!user_manager || !user_manager->IsUserLoggedIn()) {
     content::WindowedNotificationObserver(
         chrome::NOTIFICATION_SESSION_STARTED,
@@ -47,7 +47,7 @@ Profile* WaitForProfile() {
 
 bool VerifyDemoAppLaunch() {
   Profile* profile = WaitForProfile();
-  return AppWindowWaiter(apps::AppWindowRegistry::Get(profile),
+  return AppWindowWaiter(extensions::AppWindowRegistry::Get(profile),
                          DemoAppLauncher::kDemoAppId).Wait() != NULL;
 }
 

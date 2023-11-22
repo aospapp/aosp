@@ -19,22 +19,21 @@
 #include "content/public/test/test_browser_thread.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/common/extension.h"
-#include "extensions/common/extension_messages.h"
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/permissions/api_permission_set.h"
 #include "extensions/common/permissions/permission_set.h"
 #include "sync/api/attachments/attachment_id.h"
-#include "sync/api/attachments/attachment_service_proxy_for_test.h"
 #include "sync/api/fake_sync_change_processor.h"
 #include "sync/api/sync_change_processor_wrapper_for_test.h"
 #include "sync/api/sync_error.h"
 #include "sync/api/sync_error_factory_mock.h"
+#include "sync/internal_api/public/attachments/attachment_service_proxy_for_test.h"
 #include "sync/protocol/sync.pb.h"
 #include "sync/protocol/theme_specifics.pb.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/login/users/user_manager.h"
+#include "chrome/browser/chromeos/login/users/scoped_test_user_manager.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/chromeos/settings/device_settings_service.h"
 #endif
@@ -535,9 +534,7 @@ TEST_F(ThemeSyncableServiceTest, StopSync) {
   error = theme_sync_service_->ProcessSyncChanges(FROM_HERE, changes);
   EXPECT_TRUE(error.IsSet());
   EXPECT_EQ(syncer::THEMES, error.model_type());
-  EXPECT_EQ("datatype error was encountered: Theme syncable service is not "
-                "started.",
-            error.message());
+  EXPECT_EQ("Theme syncable service is not started.", error.message());
 }
 
 TEST_F(ThemeSyncableServiceTest, RestoreSystemThemeBitWhenChangeToCustomTheme) {

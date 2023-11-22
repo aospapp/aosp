@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "ash/multi_profile_uma.h"
-#include "ash/session/user_info.h"
 #include "ash/shell.h"
 #include "ash/system/tray/fixed_sized_scroll_view.h"
 #include "ash/system/tray/hover_highlight_view.h"
@@ -18,8 +17,10 @@
 #include "ash/system/user/config.h"
 #include "ash/system/user/tray_user.h"
 #include "base/strings/utf_string_conversions.h"
+#include "components/user_manager/user_info.h"
 #include "grit/ash_resources.h"
-#include "grit/ui_resources.h"
+#include "grit/ash_strings.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/views/border.h"
 #include "ui/views/layout/box_layout.h"
@@ -120,7 +121,8 @@ void AccountsDetailedView::AddAddAccountButton() {
   SessionStateDelegate* session_state_delegate =
       Shell::GetInstance()->session_state_delegate();
   HoverHighlightView* add_account_button = new HoverHighlightView(this);
-  const UserInfo* user_info = session_state_delegate->GetUserInfo(0);
+  const user_manager::UserInfo* user_info =
+      session_state_delegate->GetUserInfo(0);
   base::string16 user_name = user_info->GetGivenName();
   if (user_name.empty())
     user_name = user_info->GetDisplayName();

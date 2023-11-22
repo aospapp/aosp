@@ -25,49 +25,49 @@ enum ImageFormat {
   ARGB_8888,
 };
 
-bool FormatToConfig(ImageFormat format, SkBitmap::Config* out) {
+bool FormatToColorType(ImageFormat format, SkColorType* out) {
   switch (format) {
     case NONE:
-      *out = SkBitmap::kNo_Config;
+      *out = kUnknown_SkColorType;
       break;
     case A8:
-      *out = SkBitmap::kA8_Config;
+      *out = kAlpha_8_SkColorType;
       break;
     case INDEX_8:
-      *out = SkBitmap::kIndex8_Config;
+      *out = kIndex_8_SkColorType;
       break;
     case RGB_565:
-      *out = SkBitmap::kRGB_565_Config;
+      *out = kRGB_565_SkColorType;
       break;
     case ARGB_4444:
-      *out = SkBitmap::kARGB_4444_Config;
+      *out = kARGB_4444_SkColorType;
       break;
     case ARGB_8888:
-      *out = SkBitmap::kARGB_8888_Config;
+      *out = kN32_SkColorType;
       break;
     default: return false;
   }
   return true;
 }
 
-bool ConfigToFormat(SkBitmap::Config config, ImageFormat* out) {
-  switch (config) {
-    case SkBitmap::kNo_Config:
+bool ColorTypeToFormat(SkColorType colorType, ImageFormat* out) {
+  switch (colorType) {
+    case kUnknown_SkColorType:
       *out = NONE;
       break;
-    case SkBitmap::kA8_Config:
+    case kAlpha_8_SkColorType:
       *out = A8;
       break;
-    case SkBitmap::kIndex8_Config:
+    case kIndex_8_SkColorType:
       *out = INDEX_8;
       break;
-    case SkBitmap::kRGB_565_Config:
+    case kRGB_565_SkColorType:
       *out = RGB_565;
       break;
-    case SkBitmap::kARGB_4444_Config:
+    case kARGB_4444_SkColorType:
       *out = ARGB_4444;
       break;
-    case SkBitmap::kARGB_8888_Config:
+    case kN32_SkColorType:
       *out = ARGB_8888;
       break;
     default: return false;
@@ -84,7 +84,7 @@ bool PickleImage(Pickle* pickle, const gfx::ImageSkia& image) {
     pickle->WriteInt(it->pixel_width());
     pickle->WriteInt(it->pixel_height());
     ImageFormat format = NONE;
-    if (!ConfigToFormat(it->sk_bitmap().config(), &format))
+    if (!ColorTypeToFormat(it->sk_bitmap().colorType(), &format))
       return false;
     pickle->WriteInt(static_cast<int>(format));
     int size = static_cast<int>(it->sk_bitmap().getSafeSize());
@@ -119,8 +119,8 @@ bool UnpickleImage(PickleIterator* it, gfx::ImageSkia* out) {
     if (!it->ReadInt(&format_int))
       return false;
     ImageFormat format = static_cast<ImageFormat>(format_int);
-    SkBitmap::Config config = SkBitmap::kNo_Config;
-    if (!FormatToConfig(format, &config))
+    SkColorType color_type = kUnknown_SkColorType;
+    if (!FormatToColorType(format, &color_type))
       return false;
 
     int size = 0;
@@ -132,13 +132,11 @@ bool UnpickleImage(PickleIterator* it, gfx::ImageSkia* out) {
       return false;
 
     SkBitmap bitmap;
-    bitmap.setConfig(static_cast<SkBitmap::Config>(config), width, height);
-    if (!bitmap.allocPixels())
+    if (!bitmap.tryAllocPixels(SkImageInfo::Make(
+        width, height, color_type, kPremul_SkAlphaType)))
       return false;
-    {
-      SkAutoLockPixels lock(bitmap);
-      memcpy(bitmap.getPixels(), pixels, bitmap.getSize());
-    }
+
+    memcpy(bitmap.getPixels(), pixels, bitmap.getSize());
     result.AddRepresentation(gfx::ImageSkiaRep(bitmap, scale));
   }
 

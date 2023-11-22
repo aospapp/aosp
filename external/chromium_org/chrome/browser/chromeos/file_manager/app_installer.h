@@ -9,7 +9,6 @@
 
 #include "base/memory/ref_counted.h"
 #include "chrome/browser/extensions/webstore_standalone_installer.h"
-#include "content/public/browser/web_contents_observer.h"
 
 namespace content {
 class WebContents;
@@ -19,14 +18,12 @@ namespace file_manager {
 
 // This class is used for installing apps and extensions suggested from the
 // Chrome Web Store for unsupported file types, inside Files.app.
-class AppInstaller
-    : public extensions::WebstoreStandaloneInstaller {
+class AppInstaller : public extensions::WebstoreStandaloneInstaller {
  public:
-  typedef extensions::WebstoreStandaloneInstaller::Callback Callback;
-
   AppInstaller(content::WebContents* web_contents,
-               const std::string& webstore_item_id,
+               const std::string& item_id,
                Profile* profile,
+               bool silent_installation,
                const Callback& callback);
 
  protected:
@@ -54,6 +51,7 @@ class AppInstaller
  private:
   class WebContentsObserver;
 
+  bool silent_installation_;
   Callback callback_;
   content::WebContents* web_contents_;
   scoped_ptr<WebContentsObserver> web_contents_observer_;

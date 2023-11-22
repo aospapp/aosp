@@ -4,7 +4,9 @@
 
 #include "chrome/browser/chromeos/drive/file_system/move_operation.h"
 
+#include "chrome/browser/chromeos/drive/file_change.h"
 #include "chrome/browser/chromeos/drive/file_system/operation_test_base.h"
+#include "content/public/test/test_utils.h"
 #include "google_apis/drive/test_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -16,7 +18,7 @@ class MoveOperationTest : public OperationTestBase {
   virtual void SetUp() OVERRIDE {
    OperationTestBase::SetUp();
    operation_.reset(new MoveOperation(blocking_task_runner(),
-                                      observer(),
+                                      delegate(),
                                       metadata()));
   }
 
@@ -38,7 +40,7 @@ TEST_F(MoveOperationTest, MoveFileInSameDirectory) {
   operation_->Move(src_path,
                    dest_path,
                    google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_OK, error);
 
   EXPECT_EQ(FILE_ERROR_OK, GetLocalResourceEntry(dest_path, &dest_entry));
@@ -46,11 +48,12 @@ TEST_F(MoveOperationTest, MoveFileInSameDirectory) {
   EXPECT_EQ(ResourceEntry::DIRTY, dest_entry.metadata_edit_state());
   EXPECT_EQ(FILE_ERROR_NOT_FOUND, GetLocalResourceEntry(src_path, &src_entry));
 
-  EXPECT_EQ(1U, observer()->get_changed_paths().size());
-  EXPECT_TRUE(observer()->get_changed_paths().count(src_path.DirName()));
+  EXPECT_EQ(2U, delegate()->get_changed_files().size());
+  EXPECT_TRUE(delegate()->get_changed_files().count(src_path));
+  EXPECT_TRUE(delegate()->get_changed_files().count(dest_path));
 
-  EXPECT_EQ(1U, observer()->updated_local_ids().size());
-  EXPECT_TRUE(observer()->updated_local_ids().count(src_entry.local_id()));
+  EXPECT_EQ(1U, delegate()->updated_local_ids().size());
+  EXPECT_TRUE(delegate()->updated_local_ids().count(src_entry.local_id()));
 }
 
 TEST_F(MoveOperationTest, MoveFileFromRootToSubDirectory) {
@@ -67,7 +70,7 @@ TEST_F(MoveOperationTest, MoveFileFromRootToSubDirectory) {
   operation_->Move(src_path,
                    dest_path,
                    google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_OK, error);
 
   EXPECT_EQ(FILE_ERROR_OK, GetLocalResourceEntry(dest_path, &dest_entry));
@@ -75,12 +78,12 @@ TEST_F(MoveOperationTest, MoveFileFromRootToSubDirectory) {
   EXPECT_EQ(ResourceEntry::DIRTY, dest_entry.metadata_edit_state());
   EXPECT_EQ(FILE_ERROR_NOT_FOUND, GetLocalResourceEntry(src_path, &src_entry));
 
-  EXPECT_EQ(2U, observer()->get_changed_paths().size());
-  EXPECT_TRUE(observer()->get_changed_paths().count(src_path.DirName()));
-  EXPECT_TRUE(observer()->get_changed_paths().count(dest_path.DirName()));
+  EXPECT_EQ(2U, delegate()->get_changed_files().size());
+  EXPECT_TRUE(delegate()->get_changed_files().count(src_path));
+  EXPECT_TRUE(delegate()->get_changed_files().count(dest_path));
 
-  EXPECT_EQ(1U, observer()->updated_local_ids().size());
-  EXPECT_TRUE(observer()->updated_local_ids().count(src_entry.local_id()));
+  EXPECT_EQ(1U, delegate()->updated_local_ids().size());
+  EXPECT_TRUE(delegate()->updated_local_ids().count(src_entry.local_id()));
 }
 
 TEST_F(MoveOperationTest, MoveNotExistingFile) {
@@ -91,7 +94,7 @@ TEST_F(MoveOperationTest, MoveNotExistingFile) {
   operation_->Move(src_path,
                    dest_path,
                    google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_NOT_FOUND, error);
 
   ResourceEntry entry;
@@ -107,7 +110,7 @@ TEST_F(MoveOperationTest, MoveFileToNonExistingDirectory) {
   operation_->Move(src_path,
                    dest_path,
                    google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_NOT_FOUND, error);
 
   ResourceEntry entry;
@@ -126,7 +129,7 @@ TEST_F(MoveOperationTest, MoveFileToInvalidPath) {
   operation_->Move(src_path,
                    dest_path,
                    google_apis::test_util::CreateCopyResultCallback(&error));
-  test_util::RunBlockingPoolTask();
+  content::RunAllBlockingPoolTasksUntilIdle();
   EXPECT_EQ(FILE_ERROR_NOT_A_DIRECTORY, error);
 
   ResourceEntry entry;

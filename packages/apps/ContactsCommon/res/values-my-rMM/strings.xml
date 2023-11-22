@@ -161,7 +161,8 @@
     <string name="listSingleContact" msgid="8525131203887307088">"အဆက်အသွယ်တစ်ခုတည်း"</string>
     <string name="dialog_new_contact_account" msgid="4107520273478326011">"အကောင့်အောက်မှာ အဆက်အသွယ်များပြုလုပ်ပါ"</string>
     <string name="import_from_sim" msgid="4749894687871835873">"ဆင်းမ်ကဒ်ထဲမှ အထဲသို့သွင်းရန်"</string>
-    <string name="import_from_sim_number" msgid="1232500923375370101">"ဆင်းမ် ကဒ် #<xliff:g id="SIM_NUMBER">%d</xliff:g>ထံမှ တင်သွင်းရန်"</string>
+    <string name="import_from_sim_summary" msgid="2306434118233541675">"ဆင်းမ်ကဒ်မှ သွင်းယူရန် <xliff:g id="SIM_NAME">^1</xliff:g> - <xliff:g id="SIM_NUMBER">^2</xliff:g>"</string>
+    <string name="import_from_sim_summary_no_number" msgid="8498561004799710237">"ဆင်းမ်ကဒ်မှ သွင်းယူရန် <xliff:g id="SIM_NAME">%1$s</xliff:g>"</string>
     <string name="import_from_sdcard" product="default" msgid="6423964533801496764">"သိုလှောင်ရာနေရာမှ အထဲသို့သွင့်ရန်"</string>
     <string name="cancel_import_confirmation_message" msgid="7764915400478970495">"<xliff:g id="FILENAME">%s</xliff:g> ကို အထဲသို့သွင်းခြင်းအား ရပ်တန့်မလား?"</string>
     <string name="cancel_export_confirmation_message" msgid="4063783315931861656">"<xliff:g id="FILENAME">%s</xliff:g> ကိုအပြင်သို့ထုတ်ခြင်းအား ရပ်တန့်မလား?"</string>
@@ -205,7 +206,6 @@
     <string name="vcard_export_request_rejected_message" msgid="8044599716727705282">"လိပ်စာကဒ်အား အပြင်ထုတ်ရန် တောင်းဆိုမှု ငြင်းဆန်ခံရပါသည်။ နောင်မှ ပြန်လည်ကြိုးစားပါ"</string>
     <string name="vcard_unknown_filename" msgid="4832657686149881554">"အဆက်အသွယ်"</string>
     <string name="caching_vcard_message" msgid="6635485116655518520">"လိပ်စာကဒ်(များ)ကို စက်တွင်း ခဏသိမ်းဆည်းရာနေရာသို့ ပို့နေပါသည်။ အမှန်တကယ် တင်သွင်းခြင်း မကြာခင် စပါမည်။"</string>
-    <string name="percentage" msgid="6699653515463625488">"<xliff:g id="PERCENTAGE">%s</xliff:g><xliff:g id="PERCENTSIGN">%%</xliff:g>"</string>
     <string name="vcard_import_failed" msgid="4105296876768072508">"လိပ်စာကဒ်အား အထဲသွင်းလို့မရပါ"</string>
     <string name="import_failure_no_vcard_file" product="nosdcard" msgid="2066107150525521097">"သိုလှောင်ရာနေရာထဲတွင် လိပ်စာကဒ်ဖိုင်မှမရှိပါ"</string>
     <string name="import_failure_no_vcard_file" product="default" msgid="1748300468382501403">"SD ကဒ်ထဲတွင် လိပ်စာကဒ်ဖိုင်မှမရှိပါ"</string>
@@ -251,4 +251,7 @@
     <string name="action_menu_back_from_search" msgid="1138551123844019647">"ရှာဖွေမှုကို ရပ်ရန်"</string>
     <string name="description_clear_search" msgid="3893511425518852086">"ရှာဖွေမှုကို ရှင်းပါ"</string>
     <string name="settings_contact_display_options_title" msgid="1020420603072835628">"အဆက်အသွယ် ပြသမှု ရွေးစရာများ"</string>
+    <string name="select_account_dialog_title" msgid="5509088895267310568">"အကောင့်"</string>
+    <string name="set_default_account" msgid="3865970860434642695">"ခေါ်ဆိုမှုများ အတွက် အမြဲတမ်း ဒါကို သုံးရန်"</string>
+    <string name="select_phone_account_for_calls" msgid="933905607702811164">"ဖြင့် ခေါ်ဆိုရန်"</string>
 </resources>

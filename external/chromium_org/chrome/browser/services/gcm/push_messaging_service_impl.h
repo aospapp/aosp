@@ -10,6 +10,7 @@
 #include "components/gcm_driver/gcm_app_handler.h"
 #include "components/gcm_driver/gcm_client.h"
 #include "content/public/browser/push_messaging_service.h"
+#include "content/public/common/push_messaging_status.h"
 
 class Profile;
 
@@ -20,6 +21,7 @@ class PrefRegistrySyncable;
 namespace gcm {
 
 class GCMProfileService;
+struct PushMessagingApplicationId;
 
 class PushMessagingServiceImpl : public content::PushMessagingService,
                                  public GCMAppHandler {
@@ -42,20 +44,40 @@ class PushMessagingServiceImpl : public content::PushMessagingService,
   virtual void OnSendError(
       const std::string& app_id,
       const GCMClient::SendErrorDetails& send_error_details) OVERRIDE;
+  virtual void OnSendAcknowledged(const std::string& app_id,
+                                  const std::string& message_id) OVERRIDE;
   virtual bool CanHandle(const std::string& app_id) const OVERRIDE;
 
   // content::PushMessagingService implementation:
   virtual void Register(
-      const std::string& app_id,
+      const GURL& origin,
+      int64 service_worker_registration_id,
       const std::string& sender_id,
+      int renderer_id,
+      int render_frame_id,
+      bool user_gesture,
       const content::PushMessagingService::RegisterCallback& callback) OVERRIDE;
 
  private:
+  void DeliverMessageCallback(const PushMessagingApplicationId& application_id,
+                              const GCMClient::IncomingMessage& message,
+                              content::PushMessagingStatus status);
+
+  void RegisterEnd(
+      const content::PushMessagingService::RegisterCallback& callback,
+      const std::string& registration_id,
+      content::PushMessagingStatus status);
+
   void DidRegister(
-      const std::string& app_id,
       const content::PushMessagingService::RegisterCallback& callback,
       const std::string& registration_id,
       GCMClient::Result result);
+
+  void DidRequestPermission(
+      const PushMessagingApplicationId& application_id,
+      const std::string& sender_id,
+      const content::PushMessagingService::RegisterCallback& callback,
+      bool allow);
 
   GCMProfileService* gcm_profile_service_;  // It owns us.
 

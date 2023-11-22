@@ -11,15 +11,15 @@
 #include "chrome/browser/prefs/pref_model_associator.h"
 #include "chrome/browser/prefs/pref_service_syncable.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/locale_settings.h"
 #include "chrome/test/base/testing_pref_service_syncable.h"
 #include "components/pref_registry/pref_registry_syncable.h"
-#include "grit/locale_settings.h"
 #include "sync/api/attachments/attachment_id.h"
-#include "sync/api/attachments/attachment_service_proxy_for_test.h"
 #include "sync/api/sync_change.h"
 #include "sync/api/sync_data.h"
 #include "sync/api/sync_error_factory_mock.h"
 #include "sync/api/syncable_service.h"
+#include "sync/internal_api/public/attachments/attachment_service_proxy_for_test.h"
 #include "sync/protocol/preference_specifics.pb.h"
 #include "sync/protocol/sync.pb.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -693,7 +693,7 @@ TEST_F(PrefsSyncableServiceTest, DynamicManagedDefaultPreferences) {
   // Switch kHomePage to managed and set a different value.
   base::StringValue managed_value("http://example.com/managed");
   GetTestingPrefService()->SetManagedPref(prefs::kHomePage,
-                                                    managed_value.DeepCopy());
+                                          managed_value.DeepCopy());
   // The pref value should be the one dictated by policy.
   EXPECT_TRUE(managed_value.Equals(&GetPreferenceValue(prefs::kHomePage)));
   EXPECT_FALSE(pref->IsDefaultValue());
@@ -705,4 +705,20 @@ TEST_F(PrefsSyncableServiceTest, DynamicManagedDefaultPreferences) {
   EXPECT_TRUE(pref->IsDefaultValue());
   // There should still be no synced value.
   EXPECT_FALSE(FindValue(prefs::kHomePage, out).get());
+}
+
+TEST_F(PrefsSyncableServiceTest, DeletePreference) {
+  prefs_.SetString(prefs::kHomePage, kExampleUrl0);
+  const PrefService::Preference* pref =
+      prefs_.FindPreference(prefs::kHomePage);
+  EXPECT_FALSE(pref->IsDefaultValue());
+
+  InitWithNoSyncData();
+
+  scoped_ptr<base::Value> null_value(base::Value::CreateNullValue());
+  syncer::SyncChangeList list;
+  list.push_back(MakeRemoteChange(
+      1, prefs::kHomePage, *null_value, SyncChange::ACTION_DELETE));
+  pref_sync_service_->ProcessSyncChanges(FROM_HERE, list);
+  EXPECT_TRUE(pref->IsDefaultValue());
 }

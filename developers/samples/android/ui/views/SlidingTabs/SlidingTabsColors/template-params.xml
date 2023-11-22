@@ -42,4 +42,45 @@
     <common src="activities"/>
     <common src="view"/>
 
+    <metadata>
+        <status>PUBLISHED</status>
+        <categories>UI, Views</categories>
+        <technologies>Android</technologies>
+        <languages>Java</languages>
+        <solutions>Mobile</solutions>
+        <level>ADVANCED</level>
+        <icon>Application/src/main/res/drawable-xxhdpi/ic_launcher.png</icon>
+        <screenshots>
+            <img>screenshots/1-pre.png</img>
+            <img>screenshots/2-morph.png</img>
+            <img>screenshots/3-post.png</img>
+        </screenshots>
+        <api_refs>
+            <android>android.widget.HorizontalScrollView</android>
+            <android>android.support.v4.view.ViewPager</android>
+        </api_refs>
+        <description>
+<![CDATA[
+A more advanced sample which shows how to use SlidingTabLayout to display a custom
+ViewPager title strip, with custom coloring for each tab.
+]]>
+        </description>
+        <intro>
+<![CDATA[
+This sample consists of a custom [HorizontalScrollView][1] called `SlidingTabLayout` that is used
+with a [ViewPager][2] to provide a tab indicator component which gives constant feedback as to
+the user's scroll progress.
+
+The colors can be customized in two ways. The first and simplest is to provide an
+array of colors and the alternative is via the `TabColorizer` interface which gives
+complete control over which color is used for any individual position.
+
+The views used as tabs can be customized by calling `setCustomTabView(int, int)` providing the
+layout ID of the custom layout.
+
+[1]: http://developer.android.com/reference/android/widget/HorizontalScrollView.html
+[2]: http://developer.android.com/reference/android/support/v4/view/ViewPager.html
+]]>
+        </intro>
+    </metadata>
 </sample>

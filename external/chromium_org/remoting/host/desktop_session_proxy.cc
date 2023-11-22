@@ -18,6 +18,7 @@
 #include "remoting/host/desktop_session_connector.h"
 #include "remoting/host/ipc_audio_capturer.h"
 #include "remoting/host/ipc_input_injector.h"
+#include "remoting/host/ipc_mouse_cursor_monitor.h"
 #include "remoting/host/ipc_screen_controls.h"
 #include "remoting/host/ipc_video_frame_capturer.h"
 #include "remoting/proto/audio.pb.h"
@@ -25,6 +26,7 @@
 #include "remoting/proto/event.pb.h"
 #include "third_party/webrtc/modules/desktop_capture/desktop_frame.h"
 #include "third_party/webrtc/modules/desktop_capture/desktop_geometry.h"
+#include "third_party/webrtc/modules/desktop_capture/mouse_cursor.h"
 #include "third_party/webrtc/modules/desktop_capture/shared_memory.h"
 
 #if defined(OS_WIN)
@@ -137,10 +139,16 @@ scoped_ptr<ScreenControls> DesktopSessionProxy::CreateScreenControls() {
   return scoped_ptr<ScreenControls>(new IpcScreenControls(this));
 }
 
-scoped_ptr<webrtc::ScreenCapturer> DesktopSessionProxy::CreateVideoCapturer() {
+scoped_ptr<webrtc::DesktopCapturer> DesktopSessionProxy::CreateVideoCapturer() {
   DCHECK(caller_task_runner_->BelongsToCurrentThread());
 
-  return scoped_ptr<webrtc::ScreenCapturer>(new IpcVideoFrameCapturer(this));
+  return scoped_ptr<webrtc::DesktopCapturer>(new IpcVideoFrameCapturer(this));
+}
+
+scoped_ptr<webrtc::MouseCursorMonitor>
+    DesktopSessionProxy::CreateMouseCursorMonitor() {
+  return scoped_ptr<webrtc::MouseCursorMonitor>(
+      new IpcMouseCursorMonitor(this));
 }
 
 std::string DesktopSessionProxy::GetCapabilities() const {
@@ -182,8 +190,8 @@ bool DesktopSessionProxy::OnMessageReceived(const IPC::Message& message) {
                         OnAudioPacket)
     IPC_MESSAGE_HANDLER(ChromotingDesktopNetworkMsg_CaptureCompleted,
                         OnCaptureCompleted)
-    IPC_MESSAGE_HANDLER(ChromotingDesktopNetworkMsg_CursorShapeChanged,
-                        OnCursorShapeChanged)
+    IPC_MESSAGE_HANDLER(ChromotingDesktopNetworkMsg_MouseCursor,
+                        OnMouseCursor)
     IPC_MESSAGE_HANDLER(ChromotingDesktopNetworkMsg_CreateSharedBuffer,
                         OnCreateSharedBuffer)
     IPC_MESSAGE_HANDLER(ChromotingDesktopNetworkMsg_ReleaseSharedBuffer,
@@ -240,7 +248,7 @@ bool DesktopSessionProxy::AttachToDesktop(
   }
   base::win::ScopedHandle pipe(temp_handle);
 
-  IPC::ChannelHandle desktop_channel_handle(pipe);
+  IPC::ChannelHandle desktop_channel_handle(pipe.Get());
 
 #elif defined(OS_POSIX)
   // On posix: |desktop_pipe| is a valid file descriptor.
@@ -314,6 +322,13 @@ void DesktopSessionProxy::SetVideoCapturer(
   DCHECK(video_capture_task_runner_->BelongsToCurrentThread());
 
   video_capturer_ = video_capturer;
+}
+
+void DesktopSessionProxy::SetMouseCursorMonitor(
+    const base::WeakPtr<IpcMouseCursorMonitor>& mouse_cursor_monitor) {
+  DCHECK(video_capture_task_runner_->BelongsToCurrentThread());
+
+  mouse_cursor_monitor_ = mouse_cursor_monitor;
 }
 
 void DesktopSessionProxy::DisconnectSession() {
@@ -502,11 +517,12 @@ void DesktopSessionProxy::OnCaptureCompleted(
   PostCaptureCompleted(frame.Pass());
 }
 
-void DesktopSessionProxy::OnCursorShapeChanged(
-    const webrtc::MouseCursorShape& cursor_shape) {
+void DesktopSessionProxy::OnMouseCursor(
+    const webrtc::MouseCursor& mouse_cursor) {
   DCHECK(caller_task_runner_->BelongsToCurrentThread());
-  PostCursorShape(scoped_ptr<webrtc::MouseCursorShape>(
-      new webrtc::MouseCursorShape(cursor_shape)));
+  scoped_ptr<webrtc::MouseCursor> cursor(
+      webrtc::MouseCursor::CopyOf(mouse_cursor));
+  PostMouseCursor(cursor.Pass());
 }
 
 void DesktopSessionProxy::OnInjectClipboardEvent(
@@ -534,14 +550,14 @@ void DesktopSessionProxy::PostCaptureCompleted(
                  base::Passed(&frame)));
 }
 
-void DesktopSessionProxy::PostCursorShape(
-    scoped_ptr<webrtc::MouseCursorShape> cursor_shape) {
+void DesktopSessionProxy::PostMouseCursor(
+    scoped_ptr<webrtc::MouseCursor> mouse_cursor) {
   DCHECK(caller_task_runner_->BelongsToCurrentThread());
 
   video_capture_task_runner_->PostTask(
       FROM_HERE,
-      base::Bind(&IpcVideoFrameCapturer::OnCursorShapeChanged, video_capturer_,
-                 base::Passed(&cursor_shape)));
+      base::Bind(&IpcMouseCursorMonitor::OnMouseCursor, mouse_cursor_monitor_,
+                 base::Passed(&mouse_cursor)));
 }
 
 void DesktopSessionProxy::SendToDesktop(IPC::Message* message) {

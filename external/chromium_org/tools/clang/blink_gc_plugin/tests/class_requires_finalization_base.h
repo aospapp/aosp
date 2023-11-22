@@ -7,7 +7,7 @@
 
 #include "heap/stubs.h"
 
-namespace WebCore {
+namespace blink {
 
 class A : public GarbageCollected<A> {
 public:
@@ -27,6 +27,20 @@ public:
 
 // Base does not need finalization.
 class DoesNotNeedFinalizer : public A {
+public:
+    void trace(Visitor*);
+};
+
+class GCedClassWithAScriptWrappableBase
+    : public A, public ScriptWrappable {
+public:
+    void trace(Visitor*);
+};
+
+class GCedClassWithAScriptWrappableAndAFinalizableBase
+    : public GCedClassWithAScriptWrappableBase
+    , public B
+    , public ScriptWrappable {
 public:
     void trace(Visitor*);
 };

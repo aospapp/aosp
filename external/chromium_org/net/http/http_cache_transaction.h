@@ -103,6 +103,11 @@ class HttpCache::Transaction : public HttpTransaction {
 
   const BoundNetLog& net_log() const;
 
+  // Bypasses the cache lock whenever there is lock contention.
+  void BypassLockForTest() {
+    bypass_lock_for_test_ = true;
+  }
+
   // HttpTransaction methods:
   virtual int Start(const HttpRequestInfo* request_info,
                     const CompletionCallback& callback,
@@ -134,6 +139,8 @@ class HttpCache::Transaction : public HttpTransaction {
       net::WebSocketHandshakeStreamBase::CreateHelper* create_helper) OVERRIDE;
   virtual void SetBeforeNetworkStartCallback(
       const BeforeNetworkStartCallback& callback) OVERRIDE;
+  virtual void SetBeforeProxyHeadersSentCallback(
+      const BeforeProxyHeadersSentCallback& callback) OVERRIDE;
   virtual int ResumeNetworkStart() OVERRIDE;
 
  private:
@@ -260,6 +267,11 @@ class HttpCache::Transaction : public HttpTransaction {
   int DoCacheWriteData(int num_bytes);
   int DoCacheWriteDataComplete(int result);
 
+  // These functions are involved in a field trial testing storing certificates
+  // in seperate entries from the HttpResponseInfo.
+  void ReadCertChain();
+  void WriteCertChain();
+
   // Sets request_ and fields derived from it.
   void SetRequest(const BoundNetLog& net_log, const HttpRequestInfo* request);
 
@@ -314,6 +326,9 @@ class HttpCache::Transaction : public HttpTransaction {
   // Handles a response validation error by bypassing the cache.
   void IgnoreRangeRequest();
 
+  // Removes content-length and byte range related info if needed.
+  void FixHeadersForHead();
+
   // Changes the response code of a range request to be 416 (Requested range not
   // satisfiable).
   void FailRangeRequest();
@@ -349,6 +364,9 @@ class HttpCache::Transaction : public HttpTransaction {
   // current operation |result| is also logged. If |restart| is true, the
   // transaction should be restarted.
   int OnCacheReadError(int result, bool restart);
+
+  // Called when the cache lock timeout fires.
+  void OnAddToEntryTimeout(base::TimeTicks start_time);
 
   // Deletes the current partial cache entry (sparse), and optionally removes
   // the control object (partial_).
@@ -412,6 +430,7 @@ class HttpCache::Transaction : public HttpTransaction {
   bool done_reading_;  // All available data was read.
   bool vary_mismatch_;  // The request doesn't match the stored vary data.
   bool couldnt_conditionalize_request_;
+  bool bypass_lock_for_test_;  // A test is exercising the cache lock.
   scoped_refptr<IOBuffer> read_buf_;
   int io_buf_len_;
   int read_offset_;
@@ -419,7 +438,6 @@ class HttpCache::Transaction : public HttpTransaction {
   int write_len_;
   scoped_ptr<PartialData> partial_;  // We are dealing with range requests.
   UploadProgress final_upload_progress_;
-  base::WeakPtrFactory<Transaction> weak_factory_;
   CompletionCallback io_callback_;
 
   // Members used to track data for histograms.
@@ -443,6 +461,9 @@ class HttpCache::Transaction : public HttpTransaction {
       websocket_handshake_stream_base_create_helper_;
 
   BeforeNetworkStartCallback before_network_start_callback_;
+  BeforeProxyHeadersSentCallback before_proxy_headers_sent_callback_;
+
+  base::WeakPtrFactory<Transaction> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(Transaction);
 };

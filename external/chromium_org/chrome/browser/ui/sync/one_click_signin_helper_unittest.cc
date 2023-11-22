@@ -23,12 +23,15 @@
 #include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/signin/signin_names_io_thread.h"
 #include "chrome/browser/signin/signin_promo.h"
+#include "chrome/browser/sync/profile_sync_components_factory_mock.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/sync/test_profile_sync_service.h"
 #include "chrome/browser/ui/sync/one_click_signin_helper.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_pref_service_syncable.h"
@@ -46,8 +49,6 @@
 #include "content/public/common/frame_navigate_params.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/mock_render_process_host.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -62,9 +63,9 @@ namespace {
 // a pending navigation.
 class MockWebContentsDelegate : public content::WebContentsDelegate {
  public:
-   MOCK_METHOD2(OpenURLFromTab,
-                content::WebContents*(content::WebContents* source,
-                                      const content::OpenURLParams& params));
+  MOCK_METHOD2(OpenURLFromTab,
+               content::WebContents*(content::WebContents* source,
+                                     const content::OpenURLParams& params));
 };
 
 class SigninManagerMock : public FakeSigninManager {
@@ -121,8 +122,8 @@ class TestProfileIOData : public ProfileIOData {
       ProfileParams* profile_params) const OVERRIDE {
     NOTREACHED();
   }
-  virtual ChromeURLRequestContext* InitializeAppRequestContext(
-      ChromeURLRequestContext* main_context,
+  virtual net::URLRequestContext* InitializeAppRequestContext(
+      net::URLRequestContext* main_context,
       const StoragePartitionDescriptor& details,
       scoped_ptr<ProtocolHandlerRegistry::JobInterceptorFactory>
           protocol_handler_interceptor,
@@ -132,19 +133,19 @@ class TestProfileIOData : public ProfileIOData {
     NOTREACHED();
     return NULL;
   }
-  virtual ChromeURLRequestContext* InitializeMediaRequestContext(
-      ChromeURLRequestContext* original_context,
+  virtual net::URLRequestContext* InitializeMediaRequestContext(
+      net::URLRequestContext* original_context,
       const StoragePartitionDescriptor& details) const OVERRIDE {
     NOTREACHED();
     return NULL;
   }
-  virtual ChromeURLRequestContext*
+  virtual net::URLRequestContext*
       AcquireMediaRequestContext() const OVERRIDE {
     NOTREACHED();
     return NULL;
   }
-  virtual ChromeURLRequestContext* AcquireIsolatedAppRequestContext(
-      ChromeURLRequestContext* main_context,
+  virtual net::URLRequestContext* AcquireIsolatedAppRequestContext(
+      net::URLRequestContext* main_context,
       const StoragePartitionDescriptor& partition_descriptor,
       scoped_ptr<ProtocolHandlerRegistry::JobInterceptorFactory>
           protocol_handler_interceptor,
@@ -154,9 +155,9 @@ class TestProfileIOData : public ProfileIOData {
     NOTREACHED();
     return NULL;
   }
-  virtual ChromeURLRequestContext*
+  virtual net::URLRequestContext*
       AcquireIsolatedMediaRequestContext(
-          ChromeURLRequestContext* app_context,
+          net::URLRequestContext* app_context,
           const StoragePartitionDescriptor& partition_descriptor)
           const OVERRIDE {
     NOTREACHED();
@@ -165,7 +166,7 @@ class TestProfileIOData : public ProfileIOData {
 };
 
 class TestURLRequest : public base::SupportsUserData {
-public:
+ public:
   TestURLRequest() {}
   virtual ~TestURLRequest() {}
 };
@@ -202,7 +203,8 @@ class OneClickTestProfileSyncService : public TestProfileSyncService {
  private:
   explicit OneClickTestProfileSyncService(Profile* profile)
       : TestProfileSyncService(
-          NULL,
+          scoped_ptr<ProfileSyncComponentsFactory>(
+              new ProfileSyncComponentsFactoryMock()),
           profile,
           SigninManagerFactory::GetForProfile(profile),
           ProfileOAuth2TokenServiceFactory::GetForProfile(profile),
@@ -390,10 +392,12 @@ class OneClickSigninHelperIncognitoTest : public OneClickSigninHelperTest {
 
 content::BrowserContext*
 OneClickSigninHelperIncognitoTest::CreateBrowserContext() {
-  // Builds an incognito profile to run this test.
-  TestingProfile::Builder builder;
-  builder.SetIncognito();
-  return builder.Build().release();
+  // Simulate an incognito profile to run this test. RenderViewHostTestHarness
+  // takes ownership of the return value, so it can't be a "proper" incognito
+  // profile, since they are owned by their parent, non-incognito profile.
+  scoped_ptr<TestingProfile> profile = TestingProfile::Builder().Build();
+  profile->ForceIncognito(true);
+  return profile.release();
 }
 
 TEST_F(OneClickSigninHelperTest, CanOfferNoContents) {
@@ -633,7 +637,7 @@ TEST_F(OneClickSigninHelperTest, CanOfferDisabledByPolicy) {
 
   // Simulate a policy disabling signin by writing kSigninAllowed directly.
   profile()->GetTestingPrefService()->SetManagedPref(
-      prefs::kSigninAllowed, base::Value::CreateBooleanValue(false));
+      prefs::kSigninAllowed, new base::FundamentalValue(false));
 
   EXPECT_FALSE(OneClickSigninHelper::CanOffer(
       web_contents(), OneClickSigninHelper::CAN_OFFER_FOR_ALL,
@@ -641,11 +645,11 @@ TEST_F(OneClickSigninHelperTest, CanOfferDisabledByPolicy) {
 
   // Reset the preference value to true.
   profile()->GetTestingPrefService()->SetManagedPref(
-      prefs::kSigninAllowed, base::Value::CreateBooleanValue(true));
+      prefs::kSigninAllowed, new base::FundamentalValue(true));
 
   // Simulate a policy disabling sync by writing kSyncManaged directly.
   profile()->GetTestingPrefService()->SetManagedPref(
-      sync_driver::prefs::kSyncManaged, base::Value::CreateBooleanValue(true));
+      sync_driver::prefs::kSyncManaged, new base::FundamentalValue(true));
 
   // Should still offer even if sync is disabled by policy.
   EXPECT_TRUE(OneClickSigninHelper::CanOffer(
@@ -667,43 +671,6 @@ TEST_F(OneClickSigninHelperIncognitoTest, ShowInfoBarUIThreadIncognito) {
       rvh()->GetRoutingID());
 }
 
-// If Chrome signin is triggered from a webstore install, and user chooses to
-// config sync, then Chrome should redirect immediately to sync settings page,
-// and upon successful setup, redirect back to webstore.
-TEST_F(OneClickSigninHelperTest, SigninFromWebstoreWithConfigSyncfirst) {
-  SetUpSigninManager(std::string());
-  EXPECT_CALL(*signin_manager_, IsAllowedUsername(_))
-      .WillRepeatedly(Return(true));
-
-  OneClickTestProfileSyncService* sync_service =
-      static_cast<OneClickTestProfileSyncService*>(
-          ProfileSyncServiceFactory::GetInstance()->SetTestingFactoryAndUse(
-              profile(), OneClickTestProfileSyncService::Build));
-  sync_service->set_sync_initialized(true);
-
-  content::WebContents* contents = web_contents();
-
-  OneClickSigninHelper::CreateForWebContentsWithPasswordManager(contents, NULL);
-  OneClickSigninHelper* helper =
-      OneClickSigninHelper::FromWebContents(contents);
-  helper->SetDoNotClearPendingEmailForTesting();
-  helper->set_do_not_start_sync_for_testing();
-
-  GURL continueUrl("https://chrome.google.com/webstore?source=5");
-  OneClickSigninHelper::ShowInfoBarUIThread(
-      "session_index", "user@gmail.com",
-      OneClickSigninHelper::AUTO_ACCEPT_EXPLICIT,
-      signin::SOURCE_WEBSTORE_INSTALL,
-      continueUrl, process()->GetID(), rvh()->GetRoutingID());
-
-  SubmitGAIAPassword(helper);
-
-  NavigateAndCommit(GURL("https://chrome.google.com/webstore?source=3"));
-  helper->DidStopLoading(rvh());
-  sync_service->NotifyObservers();
-  EXPECT_EQ(GURL(continueUrl), contents->GetVisibleURL());
-}
-
 // Checks that the state of OneClickSigninHelper is cleaned when there is a
 // navigation away from the sign in flow that is not triggered by the
 // web contents.
@@ -719,7 +686,7 @@ TEST_F(OneClickSigninHelperTest, CleanTransientStateOnNavigate) {
   content::LoadCommittedDetails details;
   content::FrameNavigateParams params;
   params.url = GURL("http://crbug.com");
-  params.transition = content::PAGE_TRANSITION_TYPED;
+  params.transition = ui::PAGE_TRANSITION_TYPED;
   helper->DidNavigateMainFrame(details, params);
 
   EXPECT_EQ(OneClickSigninHelper::AUTO_ACCEPT_NONE, helper->auto_accept_);
@@ -731,7 +698,7 @@ TEST_F(OneClickSigninHelperTest, NoRedirectToNTPWithPendingEntry) {
 
   const GURL fooWebUIURL("chrome://foo");
   controller.LoadURL(fooWebUIURL, content::Referrer(),
-                     content::PAGE_TRANSITION_TYPED, std::string());
+                     ui::PAGE_TRANSITION_TYPED, std::string());
   EXPECT_EQ(fooWebUIURL, controller.GetPendingEntry()->GetURL());
 
   MockWebContentsDelegate delegate;
@@ -853,19 +820,19 @@ TEST_F(OneClickSigninHelperIOTest, CanOfferOnIOThreadDisabledByPolicy) {
   // Simulate a policy disabling signin by writing kSigninAllowed directly.
   // We should not offer to sign in the browser.
   profile()->GetTestingPrefService()->SetManagedPref(
-      prefs::kSigninAllowed, base::Value::CreateBooleanValue(false));
+      prefs::kSigninAllowed, new base::FundamentalValue(false));
   EXPECT_EQ(OneClickSigninHelper::DONT_OFFER,
             OneClickSigninHelper::CanOfferOnIOThreadImpl(
                 valid_gaia_url_, &request_, io_data.get()));
 
   // Reset the preference.
   profile()->GetTestingPrefService()->SetManagedPref(
-      prefs::kSigninAllowed, base::Value::CreateBooleanValue(true));
+      prefs::kSigninAllowed, new base::FundamentalValue(true));
 
   // Simulate a policy disabling sync by writing kSyncManaged directly.
   // We should still offer to sign in the browser.
   profile()->GetTestingPrefService()->SetManagedPref(
-      sync_driver::prefs::kSyncManaged, base::Value::CreateBooleanValue(true));
+      sync_driver::prefs::kSyncManaged, new base::FundamentalValue(true));
   EXPECT_EQ(OneClickSigninHelper::CAN_OFFER,
             OneClickSigninHelper::CanOfferOnIOThreadImpl(
                 valid_gaia_url_, &request_, io_data.get()));

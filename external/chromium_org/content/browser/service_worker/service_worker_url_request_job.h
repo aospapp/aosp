@@ -5,7 +5,11 @@
 #ifndef CONTENT_BROWSER_SERVICE_WORKER_SERVICE_WORKER_URL_REQUEST_JOB_H_
 #define CONTENT_BROWSER_SERVICE_WORKER_SERVICE_WORKER_URL_REQUEST_JOB_H_
 
+#include <map>
+#include <string>
+
 #include "base/memory/weak_ptr.h"
+#include "base/time/time.h"
 #include "content/common/content_export.h"
 #include "content/common/service_worker/service_worker_status_code.h"
 #include "content/common/service_worker/service_worker_types.h"
@@ -13,12 +17,14 @@
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_job.h"
 
-namespace webkit_blob {
+namespace storage {
+class BlobDataHandle;
 class BlobStorageContext;
 }
 
 namespace content {
 
+class ResourceRequestBody;
 class ServiceWorkerContextCore;
 class ServiceWorkerFetchDispatcher;
 class ServiceWorkerProviderHost;
@@ -31,7 +37,8 @@ class CONTENT_EXPORT ServiceWorkerURLRequestJob
       net::URLRequest* request,
       net::NetworkDelegate* network_delegate,
       base::WeakPtr<ServiceWorkerProviderHost> provider_host,
-      base::WeakPtr<webkit_blob::BlobStorageContext> blob_storage_context);
+      base::WeakPtr<storage::BlobStorageContext> blob_storage_context,
+      scoped_refptr<ResourceRequestBody> body);
 
   // Sets the response type.
   void FallbackToNetwork();
@@ -51,6 +58,8 @@ class CONTENT_EXPORT ServiceWorkerURLRequestJob
   virtual bool GetCharset(std::string* charset) OVERRIDE;
   virtual bool GetMimeType(std::string* mime_type) const OVERRIDE;
   virtual void GetResponseInfo(net::HttpResponseInfo* info) OVERRIDE;
+  virtual void GetLoadTimingInfo(
+      net::LoadTimingInfo* load_timing_info) const OVERRIDE;
   virtual int GetResponseCode() const OVERRIDE;
   virtual void SetExtraRequestHeaders(
       const net::HttpRequestHeaders& headers) OVERRIDE;
@@ -61,7 +70,7 @@ class CONTENT_EXPORT ServiceWorkerURLRequestJob
   // net::URLRequest::Delegate overrides that read the blob from the
   // ServiceWorkerFetchResponse.
   virtual void OnReceivedRedirect(net::URLRequest* request,
-                                  const GURL& new_url,
+                                  const net::RedirectInfo& redirect_info,
                                   bool* defer_redirect) OVERRIDE;
   virtual void OnAuthRequired(net::URLRequest* request,
                               net::AuthChallengeInfo* auth_info) OVERRIDE;
@@ -79,6 +88,12 @@ class CONTENT_EXPORT ServiceWorkerURLRequestJob
 
   const net::HttpResponseInfo* http_info() const;
 
+  void GetExtraResponseInfo(bool* was_fetched_via_service_worker,
+                            GURL* original_url_via_service_worker,
+                            base::TimeTicks* fetch_start_time,
+                            base::TimeTicks* fetch_ready_time,
+                            base::TimeTicks* fetch_end_time) const;
+
  protected:
   virtual ~ServiceWorkerURLRequestJob();
 
@@ -94,7 +109,16 @@ class CONTENT_EXPORT ServiceWorkerURLRequestJob
   void MaybeStartRequest();
   void StartRequest();
 
+  // Creates ServiceWorkerFetchRequest from |request_| and |body_|.
+  scoped_ptr<ServiceWorkerFetchRequest> CreateFetchRequest();
+
+  // Creates BlobDataHandle of the request body from |body_|. This handle
+  // |request_body_blob_data_handle_| will be deleted when
+  // ServiceWorkerURLRequestJob is deleted.
+  bool CreateRequestBodyBlob(std::string* blob_uuid, uint64* blob_size);
+
   // For FORWARD_TO_SERVICE_WORKER case.
+  void DidPrepareFetchEvent();
   void DidDispatchFetchEvent(ServiceWorkerStatusCode status,
                              ServiceWorkerFetchEventResult fetch_result,
                              const ServiceWorkerResponse& response);
@@ -102,7 +126,7 @@ class CONTENT_EXPORT ServiceWorkerURLRequestJob
   // Populates |http_response_headers_|.
   void CreateResponseHeader(int status_code,
                             const std::string& status_text,
-                            const std::map<std::string, std::string>& headers);
+                            const ServiceWorkerHeaderMap& headers);
 
   // Creates |http_response_info_| using |http_response_headers_| and calls
   // NotifyHeadersComplete.
@@ -113,6 +137,13 @@ class CONTENT_EXPORT ServiceWorkerURLRequestJob
 
   base::WeakPtr<ServiceWorkerProviderHost> provider_host_;
 
+  // Timing info to show on the popup in Devtools' Network tab.
+  net::LoadTimingInfo load_timing_info_;
+  base::TimeTicks fetch_start_time_;
+  base::TimeTicks fetch_ready_time_;
+  base::TimeTicks fetch_end_time_;
+  base::Time response_time_;
+
   ResponseType response_type_;
   bool is_started_;
 
@@ -121,11 +152,16 @@ class CONTENT_EXPORT ServiceWorkerURLRequestJob
   scoped_ptr<net::HttpResponseInfo> http_response_info_;
   // Headers that have not yet been committed to |http_response_info_|.
   scoped_refptr<net::HttpResponseHeaders> http_response_headers_;
+  GURL response_url_;
 
   // Used when response type is FORWARD_TO_SERVICE_WORKER.
   scoped_ptr<ServiceWorkerFetchDispatcher> fetch_dispatcher_;
-  base::WeakPtr<webkit_blob::BlobStorageContext> blob_storage_context_;
+  base::WeakPtr<storage::BlobStorageContext> blob_storage_context_;
   scoped_ptr<net::URLRequest> blob_request_;
+  // ResourceRequestBody has a collection of BlobDataHandles attached to it
+  // using the userdata mechanism. So we have to keep it not to free the blobs.
+  scoped_refptr<ResourceRequestBody> body_;
+  scoped_ptr<storage::BlobDataHandle> request_body_blob_data_handle_;
 
   base::WeakPtrFactory<ServiceWorkerURLRequestJob> weak_factory_;
 

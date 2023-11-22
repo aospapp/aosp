@@ -5,6 +5,7 @@
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "extensions/test/result_catcher.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "url/gurl.h"
 
@@ -26,7 +27,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, MAYBE_Stubs) {
   GURL url(embedded_test_server()->GetURL("/extensions/test_file.html"));
   ui_test_utils::NavigateToURL(browser(), url);
 
-  ResultCatcher catcher;
+  extensions::ResultCatcher catcher;
   ASSERT_TRUE(catcher.GetNextResult());
 }
 
@@ -34,5 +35,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, MAYBE_Stubs) {
 // can be used in an app. For example, this test will fail if a developer adds
 // an API feature without providing a schema. http://crbug.com/369318
 IN_PROC_BROWSER_TEST_F(ExtensionApiTest, StubsApp) {
-  ASSERT_TRUE(RunPlatformAppTest("stubs_app")) << message_;
+  ASSERT_TRUE(RunPlatformAppTestWithFlags(
+      "stubs_app", static_cast<int>(kFlagIgnoreManifestWarnings)))
+      << message_;
 }

@@ -731,7 +731,7 @@ public class JDiffClassDescription {
                     Type type = f.getGenericType();
                     if (type != null) {
                         genericTypeName = type instanceof Class ? ((Class) type).getName() :
-                            type.toString();
+                            type.toString().replace('$', '.');
                     }
                     if (genericTypeName == null || !genericTypeName.equals(field.mFieldType)) {
                         mResultObserver.notifyFailure(

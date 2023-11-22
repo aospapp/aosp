@@ -13,8 +13,9 @@
 #include "chrome/browser/chromeos/first_run/steps/app_list_step.h"
 #include "chrome/browser/chromeos/first_run/steps/help_step.h"
 #include "chrome/browser/chromeos/first_run/steps/tray_step.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
+#include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/ui/chrome_pages.h"
+#include "components/user_manager/user_manager.h"
 #include "ui/views/widget/widget.h"
 
 namespace {
@@ -39,16 +40,20 @@ FirstRunController::~FirstRunController() {}
 
 // static
 void FirstRunController::Start() {
+#if !defined(USE_ATHENA)
+  // crbug.com/413914
   if (g_instance) {
     LOG(WARNING) << "First-run tutorial is running already.";
     return;
   }
   g_instance = new FirstRunController();
   g_instance->Init();
+#endif
 }
 
 // static
 void FirstRunController::Stop() {
+#if !defined(USE_ATHENA)
   if (!g_instance) {
     LOG(WARNING) << "First-run tutorial is not running.";
     return;
@@ -56,6 +61,7 @@ void FirstRunController::Stop() {
   g_instance->Finalize();
   base::MessageLoop::current()->DeleteSoon(FROM_HERE, g_instance);
   g_instance = NULL;
+#endif
 }
 
 FirstRunController* FirstRunController::GetInstanceForTest() {
@@ -70,8 +76,9 @@ FirstRunController::FirstRunController()
 
 void FirstRunController::Init() {
   start_time_ = base::Time::Now();
-  UserManager* user_manager = UserManager::Get();
-  user_profile_ = user_manager->GetProfileByUser(user_manager->GetActiveUser());
+  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
+  user_profile_ = ProfileHelper::Get()->GetProfileByUserUnsafe(
+      user_manager->GetActiveUser());
 
   shell_helper_.reset(ash::Shell::GetInstance()->CreateFirstRunHelper());
   shell_helper_->AddObserver(this);

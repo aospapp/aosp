@@ -34,9 +34,8 @@ void QuotaInternalsHandler::RegisterMessages() {
 }
 
 void QuotaInternalsHandler::ReportAvailableSpace(int64 available_space) {
-  scoped_ptr<base::Value> avail(
-      base::Value::CreateDoubleValue(static_cast<double>(available_space)));
-  SendMessage("AvailableSpaceUpdated", *avail);
+  SendMessage("AvailableSpaceUpdated",
+              base::FundamentalValue(static_cast<double>(available_space)));
 }
 
 void QuotaInternalsHandler::ReportGlobalInfo(const GlobalStorageInfo& data) {
@@ -78,10 +77,8 @@ void QuotaInternalsHandler::ReportStatistics(const Statistics& stats) {
 
 void QuotaInternalsHandler::SendMessage(const std::string& message,
                                         const base::Value& value) {
-  scoped_ptr<base::Value> message_data(base::Value::CreateStringValue(message));
-  web_ui()->CallJavascriptFunction("cr.quota.messageHandler",
-                                   *message_data,
-                                   value);
+  web_ui()->CallJavascriptFunction(
+      "cr.quota.messageHandler", base::StringValue(message), value);
 }
 
 void QuotaInternalsHandler::OnRequestInfo(const base::ListValue*) {

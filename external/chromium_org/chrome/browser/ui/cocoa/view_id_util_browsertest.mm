@@ -7,7 +7,7 @@
 #include "base/prefs/pref_service.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
-#include "chrome/browser/devtools/devtools_window.h"
+#include "chrome/browser/devtools/devtools_window_testing.h"
 #include "chrome/browser/download/download_shelf.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -47,7 +47,8 @@ class ViewIDTest : public InProcessBrowserTest {
     chrome::ShowFindBar(browser());
 
     // Make sure docked devtools is created to test VIEW_ID_DEV_TOOLS_DOCKED
-    DevToolsWindow::OpenDevToolsWindowForTest(browser(), true);
+    DevToolsWindow* devtools_window =
+        DevToolsWindowTesting::OpenDevToolsWindowSync(browser(), true);
 
     // Make sure download shelf is created to test VIEW_ID_DOWNLOAD_SHELF
     browser()->window()->GetDownloadShelf()->Show();
@@ -59,9 +60,9 @@ class ViewIDTest : public InProcessBrowserTest {
       if (!bookmark_model->loaded())
         test::WaitForBookmarkModelToLoad(bookmark_model);
 
-      bookmark_utils::AddIfNotBookmarked(bookmark_model,
-                                         GURL(url::kAboutBlankURL),
-                                         base::ASCIIToUTF16("about"));
+      bookmarks::AddIfNotBookmarked(bookmark_model,
+                                    GURL(url::kAboutBlankURL),
+                                    base::ASCIIToUTF16("about"));
     }
 
     for (int i = VIEW_ID_TOOLBAR; i < VIEW_ID_PREDEFINED_COUNT; ++i) {
@@ -82,6 +83,8 @@ class ViewIDTest : public InProcessBrowserTest {
     CheckViewID(VIEW_ID_TAB, true);
     CheckViewID(VIEW_ID_TAB_STRIP, true);
     CheckViewID(VIEW_ID_PREDEFINED_COUNT, false);
+
+    DevToolsWindowTesting::CloseDevToolsWindowSync(devtools_window);
   }
 
  private:
@@ -109,7 +112,7 @@ IN_PROC_BROWSER_TEST_F(ViewIDTest, Tab) {
     browser()->OpenURL(OpenURLParams(GURL(url::kAboutBlankURL),
                                      Referrer(),
                                      NEW_BACKGROUND_TAB,
-                                     content::PAGE_TRANSITION_TYPED,
+                                     ui::PAGE_TRANSITION_TYPED,
                                      false));
     CheckViewID(static_cast<ViewID>(VIEW_ID_TAB_0 + i), true);
     // VIEW_ID_TAB_LAST should always be available.
@@ -120,7 +123,7 @@ IN_PROC_BROWSER_TEST_F(ViewIDTest, Tab) {
   browser()->OpenURL(OpenURLParams(GURL(url::kAboutBlankURL),
                                    Referrer(),
                                    NEW_BACKGROUND_TAB,
-                                   content::PAGE_TRANSITION_TYPED,
+                                   ui::PAGE_TRANSITION_TYPED,
                                    false));
   CheckViewID(VIEW_ID_TAB_LAST, true);
 }

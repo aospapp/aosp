@@ -114,9 +114,7 @@ class MockDiskCache : public disk_cache::Backend {
   virtual int DoomEntriesSince(
       base::Time initial_time,
       const net::CompletionCallback& callback) OVERRIDE;
-  virtual int OpenNextEntry(void** iter, disk_cache::Entry** next_entry,
-                            const net::CompletionCallback& callback) OVERRIDE;
-  virtual void EndEnumeration(void** iter) OVERRIDE;
+  virtual scoped_ptr<Iterator> CreateIterator() OVERRIDE;
   virtual void GetStats(
       std::vector<std::pair<std::string, std::string> >* stats) OVERRIDE;
   virtual void OnExternalCacheHit(const std::string& key) OVERRIDE;
@@ -143,6 +141,7 @@ class MockDiskCache : public disk_cache::Backend {
 
  private:
   typedef base::hash_map<std::string, MockDiskEntry*> EntryMap;
+  class NotImplementedIterator;
 
   void CallbackLater(const net::CompletionCallback& callback, int result);
 
@@ -176,6 +175,9 @@ class MockHttpCache {
 
   // Wrapper around http_cache()->CreateTransaction(net::DEFAULT_PRIORITY...)
   int CreateTransaction(scoped_ptr<net::HttpTransaction>* trans);
+
+  // Wrapper to bypass the cache lock for new transactions.
+  void BypassCacheLock();
 
   // Helper function for reading response info from the disk cache.
   static bool ReadResponseInfo(disk_cache::Entry* disk_entry,

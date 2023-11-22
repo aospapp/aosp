@@ -68,4 +68,9 @@
     <string name="device_owner_error_package_invalid" msgid="3816725179069202140">"प्रशासन अनुप्रयोग प्रयोग गर्न सकिएन। यो अवयवहरू हराइरहेका वा भ्रष्ट हुन्। तपाईँको आईटी विभागमा सम्पर्क गर्नुहोस्।"</string>
     <string name="device_owner_error_installation_failed" msgid="684566845601079360">"प्रशासक अनुप्रयोग स्थापना गर्न सकिएन"</string>
     <string name="device_owner_error_package_not_installed" msgid="6095079346537408556">"प्रशासन अनुप्रयोग तपाईँको उपकरणमा स्थापना गरिएको छैन"</string>
+    <string name="profile_owner_cancel_title" msgid="1087667875324931402">"सेट अप गर्न रोक्नुहुन्छ?"</string>
+    <string name="profile_owner_cancel_message" msgid="3397782777804924267">"तपाईँ सेटअप गर्न रोक्न निश्चित हुनुहुन्छ?"</string>
+    <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"होइन"</string>
+    <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"हो"</string>
+    <string name="profile_owner_cancelling" msgid="2007485854183176973">"रद्द गरिँदै..."</string>
 </resources>

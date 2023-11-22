@@ -18,6 +18,10 @@ package com.android.server.telecom;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.os.UserHandle;
+import android.util.Pair;
+
+import com.android.internal.util.IndentingPrintWriter;
 
 import java.util.HashMap;
 
@@ -26,8 +30,8 @@ import java.util.HashMap;
  */
 final class ConnectionServiceRepository
         implements ServiceBinder.Listener<ConnectionServiceWrapper> {
-    private final HashMap<ComponentName, ConnectionServiceWrapper> mServiceCache =
-            new HashMap<ComponentName, ConnectionServiceWrapper>();
+    private final HashMap<Pair<ComponentName, UserHandle>, ConnectionServiceWrapper> mServiceCache =
+            new HashMap<>();
     private final PhoneAccountRegistrar mPhoneAccountRegistrar;
     private final Context mContext;
 
@@ -36,16 +40,18 @@ final class ConnectionServiceRepository
         mContext = context;
     }
 
-    ConnectionServiceWrapper getService(ComponentName componentName) {
-        ConnectionServiceWrapper service = mServiceCache.get(componentName);
+    ConnectionServiceWrapper getService(ComponentName componentName, UserHandle userHandle) {
+        Pair<ComponentName, UserHandle> cacheKey = Pair.create(componentName, userHandle);
+        ConnectionServiceWrapper service = mServiceCache.get(cacheKey);
         if (service == null) {
             service = new ConnectionServiceWrapper(
                     componentName,
                     this,
                     mPhoneAccountRegistrar,
-                    mContext);
+                    mContext,
+                    userHandle);
             service.addListener(this);
-            mServiceCache.put(componentName, service);
+            mServiceCache.put(cacheKey, service);
         }
         return service;
     }
@@ -58,5 +64,20 @@ final class ConnectionServiceRepository
     @Override
     public void onUnbind(ConnectionServiceWrapper service) {
         mServiceCache.remove(service.getComponentName());
+    }
+
+    /**
+     * Dumps the state of the {@link ConnectionServiceRepository}.
+     *
+     * @param pw The {@code IndentingPrintWriter} to write the state to.
+     */
+    public void dump(IndentingPrintWriter pw) {
+        pw.println("mServiceCache:");
+        pw.increaseIndent();
+        for (Pair<ComponentName, UserHandle> cacheKey : mServiceCache.keySet()) {
+            ComponentName componentName = cacheKey.first;
+            pw.println(componentName);
+        }
+        pw.decreaseIndent();
     }
 }

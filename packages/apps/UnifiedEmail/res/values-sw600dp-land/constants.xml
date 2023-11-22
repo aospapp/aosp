@@ -15,10 +15,8 @@
      limitations under the License.
 -->
 <resources>
-    <!-- Whether the list is collapsible in conversation view mode -->
-    <bool name="list_collapsible">false</bool>
-    <!-- Whether to show single or 2 pane search results -->
-    <bool name="show_two_pane_search_results">true</bool>
+    <!-- Whether we are in landscape mode on a tablet or not -->
+    <bool name="is_tablet_landscape">true</bool>
 
     <!-- Used to force 70% of max width in compose for landscape tablet -->
     <integer name="compose_padding_weight">15</integer>

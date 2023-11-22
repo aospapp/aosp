@@ -15,6 +15,8 @@
 #include "base/values.h"
 #include "chromeos/ime/component_extension_ime_manager.h"
 
+class Profile;
+
 namespace chromeos {
 
 // The implementation class of ComponentExtensionIMEManagerDelegate.
@@ -26,40 +28,26 @@ class ComponentExtensionIMEManagerImpl
 
   // ComponentExtensionIMEManagerDelegate overrides:
   virtual std::vector<ComponentExtensionIME> ListIME() OVERRIDE;
-  virtual bool Load(const std::string& extension_id,
+  virtual void Load(Profile* profile,
+                    const std::string& extension_id,
                     const std::string& manifest,
                     const base::FilePath& file_path) OVERRIDE;
-  virtual void Unload(const std::string& extension_id,
+  virtual void Unload(Profile* profile,
+                      const std::string& extension_id,
                       const base::FilePath& file_path) OVERRIDE;
-
-  // Loads extension list and reads their manifest file. After finished
-  // initialization, |callback| will be called on original thread.
-  void InitializeAsync(const base::Closure& callback);
-
-  // Returns true if this class is initialized and ready to use, otherwise
-  // returns false.
-  bool IsInitialized();
 
  private:
   // Reads component extensions and extract their localized information: name,
-  // description and ime id. This function fills them into |out_imes|. This
-  // function must be called on file thread.
+  // description and ime id. This function fills them into |out_imes|.
   static void ReadComponentExtensionsInfo(
       std::vector<ComponentExtensionIME>* out_imes);
 
-  // This function is called on UI thread after ReadComponentExtensionsInfo
-  // function is finished. No need to release |result|.
-  void OnReadComponentExtensionsInfo(std::vector<ComponentExtensionIME>* result,
-                                     const base::Closure& callback);
-
-  // Reads manifest.json file in |file_path|. This function must be called on
-  // file thread.
+  // Parses manifest string to manifest json dictionary value.
   static scoped_ptr<base::DictionaryValue> GetManifest(
-      const base::FilePath& file_path);
+      const std::string& manifest_string);
 
   // Reads extension information: description, option page. This function
-  // returns true on success, otherwise returns false. This function must be
-  // called on file thread.
+  // returns true on success, otherwise returns false.
   static bool ReadExtensionInfo(const base::DictionaryValue& manifest,
                                 const std::string& extension_id,
                                 ComponentExtensionIME* out);
@@ -72,15 +60,8 @@ class ComponentExtensionIMEManagerImpl
       const base::DictionaryValue& dict,
       ComponentExtensionEngine* out);
 
-  // True if initialized.
-  bool is_initialized_;
-
   // The list of component extension IME.
   std::vector<ComponentExtensionIME> component_extension_list_;
-
-  // For checking the function should be called on UI thread.
-  base::ThreadChecker thread_checker_;
-  base::WeakPtrFactory<ComponentExtensionIMEManagerImpl> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(ComponentExtensionIMEManagerImpl);
 };

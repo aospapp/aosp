@@ -18,4 +18,5 @@
     <string name="app_name">WebView Telemetry</string>
     <string name="title_activity_telemetry">WebView Telemetry</string>
     <string name="title_activity_jank">WebView Jank Tester</string>
+    <string name="title_activity_startup_time">WebView Startup Time Tester</string>
 </resources>

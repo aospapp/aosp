@@ -21,4 +21,5 @@
     <string name="photo_view_count" msgid="3466690572899800275">"<xliff:g id="CURRENT_POS">%d</xliff:g> daripada <xliff:g id="COUNT">%d</xliff:g>"</string>
     <string name="retry" msgid="3319517143224679074">"Cuba semula"</string>
     <string name="failed" msgid="1458877219699376279">"Tidak dapat memuatkan imej"</string>
+    <string name="titles" msgid="8072357561981153438">"<xliff:g id="TITLE_0">%s</xliff:g>, <xliff:g id="SUBTITLE">%s</xliff:g>"</string>
 </resources>

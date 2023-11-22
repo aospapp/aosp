@@ -16,5 +16,6 @@
     limitations under the License.
 -->
 <resources>
-    <drawable name="ic_attach">@drawable/ic_attach_image_holo_light</drawable>
+    <drawable name="ic_arrow_back_24dp_with_rtl">@drawable/ic_arrow_back_24dp</drawable>
+    <drawable name="ic_arrow_back_wht_24dp_with_rtl">@drawable/ic_arrow_back_wht_24dp</drawable>
 </resources>

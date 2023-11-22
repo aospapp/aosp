@@ -38,18 +38,18 @@
     <string name="callFailed_server_unreachable" msgid="4766146133909799091">"Non se pode acceder ao servidor"</string>
     <string name="callFailed_number_unreachable" msgid="1243366438388873914">"Número non accesible"</string>
     <string name="callFailed_invalid_credentials" msgid="6115412108261660271">"Nome de usuario ou contrasinal incorrecto"</string>
-    <string name="callFailed_out_of_network" msgid="3631228874861305456">"Chamada desde fóra da rede"</string>
+    <string name="callFailed_out_of_network" msgid="6970725831030399542">"Chamada fóra de rede"</string>
     <string name="callFailed_server_error" msgid="1391421251190688379">"Erro no servidor. Téntao de novo máis tarde."</string>
     <string name="callFailed_noSignal" msgid="1758972490451048086">"Sen cobertura"</string>
     <string name="callFailed_limitExceeded" msgid="8796663077702587664">"Límite de ACM superado"</string>
     <string name="callFailed_powerOff" msgid="9179061328562234362">"Radio desactivada"</string>
     <string name="callFailed_simError" msgid="3307159523385380486">"Non hai SIM ou hai un erro na SIM"</string>
-    <string name="callFailed_outOfService" msgid="6816891010755565002">"A rede móbil non está dispoñible"</string>
+    <string name="callFailed_outOfService" msgid="4535901975891969115">"Rede móbil non dispoñible"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"As chamadas saíntes están restrinxidas por FDN."</string>
-    <string name="callFailed_cb_enabled" msgid="7567782725805609592">"Non podes facer chamadas saíntes coa restrición de chamadas activada."</string>
-    <string name="callFailed_dsac_restricted" msgid="524961119652214693">"Todas as chamadas están restrinxidas polo control de acceso."</string>
-    <string name="callFailed_dsac_restricted_emergency" msgid="8465345184224474912">"As chamadas de emerxencia están restrinxidas polo control de acceso."</string>
-    <string name="callFailed_dsac_restricted_normal" msgid="6950825656495704410">"As chamadas normais están restrinxidas polo control de acceso."</string>
+    <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Non se poden facer chamadas mentres está activada a restrición de chamadas."</string>
+    <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"As chamadas están restrinxidas polo control de acceso."</string>
+    <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"As chamadas de emerxencia están restrinxidas polo control de acceso."</string>
+    <string name="callFailed_dsac_restricted_normal" msgid="266947632344387216">"As chamadas normais están restrinxidas polo control de acceso."</string>
     <string name="callFailed_unobtainable_number" msgid="124621797631734731">"Número non válido"</string>
     <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"Número de correo de voz descoñecido."</string>
 </resources>

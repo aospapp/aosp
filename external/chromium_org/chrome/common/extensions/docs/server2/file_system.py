@@ -11,6 +11,10 @@ from path_util import (
     ToDirectory)
 
 
+def IsFileSystemThrottledError(error):
+  return type(error).__name__ == 'FileSystemThrottledError'
+
+
 class _BaseFileSystemException(Exception):
   def __init__(self, message):
     Exception.__init__(self, message)
@@ -24,6 +28,14 @@ class _BaseFileSystemException(Exception):
 
 class FileNotFoundError(_BaseFileSystemException):
   '''Raised when a file isn't found for read or stat.
+  '''
+  def __init__(self, filename):
+    _BaseFileSystemException.__init__(self, filename)
+
+
+class FileSystemThrottledError(_BaseFileSystemException):
+  '''Raised when access to a file system resource is temporarily unavailable
+  due to service throttling.
   '''
   def __init__(self, filename):
     _BaseFileSystemException.__init__(self, filename)
@@ -84,13 +96,14 @@ class FileSystem(object):
     '''
     raise NotImplementedError(self.__class__)
 
-  def ReadSingle(self, path):
+  def ReadSingle(self, path, skip_not_found=False):
     '''Reads a single file from the FileSystem. Returns a Future with the same
-    rules as Read(). If |path| is not found raise a FileNotFoundError on Get().
+    rules as Read(). If |path| is not found raise a FileNotFoundError on Get(),
+    or if |skip_not_found| is True then return None.
     '''
     AssertIsValid(path)
-    read_single = self.Read([path])
-    return Future(callback=lambda: read_single.Get()[path])
+    read_single = self.Read([path], skip_not_found=skip_not_found)
+    return Future(callback=lambda: read_single.Get().get(path, None))
 
   def Exists(self, path):
     '''Returns a Future to the existence of |path|; True if |path| exists,
@@ -106,13 +119,12 @@ class FileSystem(object):
       return Future(value=True)
 
     parent, base = SplitParent(path)
-    list_future = self.ReadSingle(ToDirectory(parent))
-    def resolve():
-      try:
-        return base in list_future.Get()
-      except FileNotFoundError:
+    def handle(error):
+      if isinstance(error, FileNotFoundError):
         return False
-    return Future(callback=resolve)
+      raise error
+    return self.ReadSingle(ToDirectory(parent)).Then(lambda l: base in l,
+                                                     handle)
 
   def Refresh(self):
     '''Asynchronously refreshes the content of the FileSystem, returning a
@@ -122,18 +134,27 @@ class FileSystem(object):
 
   # TODO(cduvall): Allow Stat to take a list of paths like Read.
   def Stat(self, path):
-    '''Returns a |StatInfo| object containing the version of |path|. If |path|
+    '''DEPRECATED: Please try to use StatAsync instead.
+
+    Returns a |StatInfo| object containing the version of |path|. If |path|
     is a directory, |StatInfo| will have the versions of all the children of
     the directory in |StatInfo.child_versions|.
 
     If the path cannot be found, raises a FileNotFoundError.
     For any other failure, raises a FileSystemError.
     '''
+    # Delegate to this implementation's StatAsync if it has been implemented.
+    if type(self).StatAsync != FileSystem.StatAsync:
+      return self.StatAsync(path).Get()
     raise NotImplementedError(self.__class__)
 
   def StatAsync(self, path):
-    '''Bandaid for a lack of an async Stat function. Stat() should be async
-    by default but for now just let implementations override this if they like.
+    '''An async version of Stat. Returns a Future to a StatInfo rather than a
+    raw StatInfo.
+
+    This is a bandaid for a lack of an async Stat function. Stat() should be
+    async by default but for now just let implementations override this if they
+    like.
     '''
     return Future(callback=lambda: self.Stat(path))
 
@@ -146,13 +167,23 @@ class FileSystem(object):
     '''
     raise NotImplementedError(self.__class__)
 
-  def Walk(self, root):
+  def Walk(self, root, depth=-1, file_lister=None):
     '''Recursively walk the directories in a file system, starting with root.
 
     Behaviour is very similar to os.walk from the standard os module, yielding
     (base, dirs, files) recursively, where |base| is the base path of |files|,
     |dirs| relative to |root|, and |files| and |dirs| the list of files/dirs in
-    |base| respectively.
+    |base| respectively. If |depth| is specified and greater than 0, Walk will
+    only recurse |depth| times.
+
+    |file_lister|, if specified, should be a callback of signature
+
+      def my_file_lister(root):,
+
+    which returns a tuple (dirs, files), where |dirs| is a list of directory
+    names under |root|, and |files| is a list of file names under |root|. Note
+    that the listing of files and directories should be for a *single* level
+    only, i.e. it should not recursively list anything.
 
     Note that directories will always end with a '/', files never will.
 
@@ -162,23 +193,28 @@ class FileSystem(object):
     AssertIsDirectory(root)
     basepath = root
 
-    def walk(root):
+    def walk(root, depth):
+      if depth == 0:
+        return
       AssertIsDirectory(root)
-      dirs, files = [], []
 
-      for f in self.ReadSingle(root).Get():
-        if IsDirectory(f):
-          dirs.append(f)
-        else:
-          files.append(f)
+      if file_lister:
+        dirs, files = file_lister(root)
+      else:
+        dirs, files = [], []
+        for f in self.ReadSingle(root).Get():
+          if IsDirectory(f):
+            dirs.append(f)
+          else:
+            files.append(f)
 
       yield root[len(basepath):].rstrip('/'), dirs, files
 
       for d in dirs:
-        for walkinfo in walk(root + d):
+        for walkinfo in walk(root + d, depth - 1):
           yield walkinfo
 
-    for walkinfo in walk(root):
+    for walkinfo in walk(root, depth):
       yield walkinfo
 
   def __eq__(self, other):

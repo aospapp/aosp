@@ -17,13 +17,14 @@
 #include "base/location.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop/message_loop.h"
-#include "base/message_loop/message_loop_proxy.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/values_test_util.h"
 #include "base/values.h"
+#include "google_apis/gaia/gaia_constants.h"
 #include "sync/engine/sync_scheduler.h"
+#include "sync/internal_api/public/base/attachment_id_proto.h"
 #include "sync/internal_api/public/base/cancelation_signal.h"
 #include "sync/internal_api/public/base/model_type_test_util.h"
 #include "sync/internal_api/public/change_record.h"
@@ -45,8 +46,6 @@
 #include "sync/js/js_backend.h"
 #include "sync/js/js_event_handler.h"
 #include "sync/js/js_test_util.h"
-#include "sync/notifier/invalidation_handler.h"
-#include "sync/notifier/invalidator.h"
 #include "sync/protocol/bookmark_specifics.pb.h"
 #include "sync/protocol/encryption.pb.h"
 #include "sync/protocol/extension_specifics.pb.h"
@@ -74,6 +73,7 @@
 #include "sync/util/time.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "url/gurl.h"
 
 using base::ExpectDictStringValue;
 using testing::_;
@@ -794,6 +794,9 @@ class SyncManagerTest : public testing::Test,
     SyncCredentials credentials;
     credentials.email = "foo@bar.com";
     credentials.sync_token = "sometoken";
+    OAuth2TokenService::ScopeSet scope_set;
+    scope_set.insert(GaiaConstants::kChromeSyncOAuth2Scope);
+    credentials.scope_set = scope_set;
 
     sync_manager_.AddObserver(&manager_observer_);
     EXPECT_CALL(manager_observer_, OnInitializationComplete(_, _, _, _)).
@@ -812,31 +815,27 @@ class SyncManagerTest : public testing::Test,
     scoped_refptr<ModelSafeWorker> worker = new FakeModelWorker(GROUP_PASSIVE);
     workers.push_back(worker);
 
-    // Takes ownership of |fake_invalidator_|.
-    sync_manager_.Init(
-        temp_dir_.path(),
-        WeakHandle<JsEventHandler>(),
-        "bogus",
-        0,
-        false,
-        scoped_ptr<HttpPostProviderFactory>(new TestHttpPostProviderFactory()),
-        workers,
-        extensions_activity_.get(),
-        this,
-        credentials,
-        "fake_invalidator_client_id",
-        std::string(),
-        std::string(),  // bootstrap tokens
-        scoped_ptr<InternalComponentsFactory>(GetFactory()).get(),
-        &encryptor_,
-        scoped_ptr<UnrecoverableErrorHandler>(
-            new TestUnrecoverableErrorHandler).Pass(),
-        NULL,
-        &cancelation_signal_);
+    SyncManager::InitArgs args;
+    args.database_location = temp_dir_.path();
+    args.service_url = GURL("https://example.com/");
+    args.post_factory =
+        scoped_ptr<HttpPostProviderFactory>(new TestHttpPostProviderFactory());
+    args.workers = workers;
+    args.extensions_activity = extensions_activity_.get(),
+    args.change_delegate = this;
+    args.credentials = credentials;
+    args.invalidator_client_id = "fake_invalidator_client_id";
+    args.internal_components_factory.reset(GetFactory());
+    args.encryptor = &encryptor_;
+    args.unrecoverable_error_handler.reset(new TestUnrecoverableErrorHandler);
+    args.cancelation_signal = &cancelation_signal_;
+    sync_manager_.Init(&args);
 
     sync_manager_.GetEncryptionHandler()->AddObserver(&encryption_observer_);
 
     EXPECT_TRUE(js_backend_.IsInitialized());
+    EXPECT_EQ(InternalComponentsFactory::STORAGE_ON_DISK,
+              storage_used_);
 
     if (initialization_succeeded_) {
       for (ModelSafeRoutingInfo::iterator i = routing_info.begin();
@@ -851,7 +850,7 @@ class SyncManagerTest : public testing::Test,
 
   void TearDown() {
     sync_manager_.RemoveObserver(&manager_observer_);
-    sync_manager_.ShutdownOnSyncThread();
+    sync_manager_.ShutdownOnSyncThread(STOP_SYNC);
     PumpLoop();
   }
 
@@ -865,6 +864,7 @@ class SyncManagerTest : public testing::Test,
     (*out)[PASSWORDS] = GROUP_PASSIVE;
     (*out)[PREFERENCES] = GROUP_PASSIVE;
     (*out)[PRIORITY_PREFERENCES] = GROUP_PASSIVE;
+    (*out)[ARTICLES] = GROUP_PASSIVE;
   }
 
   ModelTypeSet GetEnabledTypes() {
@@ -953,7 +953,9 @@ class SyncManagerTest : public testing::Test,
   }
 
   virtual InternalComponentsFactory* GetFactory() {
-    return new TestInternalComponentsFactory(GetSwitches(), STORAGE_IN_MEMORY);
+    return new TestInternalComponentsFactory(
+        GetSwitches(), InternalComponentsFactory::STORAGE_IN_MEMORY,
+        &storage_used_);
   }
 
   // Returns true if we are currently encrypting all sync data.  May
@@ -974,17 +976,9 @@ class SyncManagerTest : public testing::Test,
         GetEncryptedTypes(trans->GetWrappedTrans());
   }
 
-  void SimulateInvalidatorStateChangeForTest(InvalidatorState state) {
+  void SimulateInvalidatorEnabledForTest(bool is_enabled) {
     DCHECK(sync_manager_.thread_checker_.CalledOnValidThread());
-    sync_manager_.OnInvalidatorStateChange(state);
-  }
-
-  void TriggerOnIncomingNotificationForTest(ModelTypeSet model_types) {
-    DCHECK(sync_manager_.thread_checker_.CalledOnValidThread());
-    ObjectIdSet id_set = ModelTypeSetToObjectIdSet(model_types);
-    ObjectIdInvalidationMap invalidation_map =
-        ObjectIdInvalidationMap::InvalidateAll(id_set);
-    sync_manager_.OnIncomingInvalidation(invalidation_map);
+    sync_manager_.SetInvalidatorEnabled(is_enabled);
   }
 
   void SetProgressMarkerForType(ModelType type, bool set) {
@@ -1021,6 +1015,7 @@ class SyncManagerTest : public testing::Test,
   StrictMock<SyncManagerObserverMock> manager_observer_;
   StrictMock<SyncEncryptionHandlerObserverMock> encryption_observer_;
   InternalComponentsFactory::Switches switches_;
+  InternalComponentsFactory::StorageOption storage_used_;
 };
 
 TEST_F(SyncManagerTest, GetAllNodesForTypeTest) {
@@ -1612,20 +1607,6 @@ TEST_F(SyncManagerTest, SetPassphraseWithEmptyPasswordNode) {
     EXPECT_EQ(BaseNode::INIT_FAILED_DECRYPT_IF_NECESSARY,
               password_node.InitByIdLookup(node_id));
   }
-}
-
-TEST_F(SyncManagerTest, NudgeDelayTest) {
-  EXPECT_EQ(sync_manager_.GetNudgeDelayTimeDelta(BOOKMARKS),
-      base::TimeDelta::FromMilliseconds(
-          SyncManagerImpl::GetDefaultNudgeDelay()));
-
-  EXPECT_EQ(sync_manager_.GetNudgeDelayTimeDelta(AUTOFILL),
-      base::TimeDelta::FromSeconds(
-          kDefaultShortPollIntervalSeconds));
-
-  EXPECT_EQ(sync_manager_.GetNudgeDelayTimeDelta(PREFERENCES),
-      base::TimeDelta::FromMilliseconds(
-          SyncManagerImpl::GetPreferencesNudgeDelay()));
 }
 
 // Friended by WriteNode, so can't be in an anonymouse namespace.
@@ -2419,8 +2400,10 @@ class ComponentsFactory : public TestInternalComponentsFactory {
  public:
   ComponentsFactory(const Switches& switches,
                     SyncScheduler* scheduler_to_use,
-                    sessions::SyncSessionContext** session_context)
-      : TestInternalComponentsFactory(switches, syncer::STORAGE_IN_MEMORY),
+                    sessions::SyncSessionContext** session_context,
+                    InternalComponentsFactory::StorageOption* storage_used)
+      : TestInternalComponentsFactory(
+          switches, InternalComponentsFactory::STORAGE_IN_MEMORY, storage_used),
         scheduler_to_use_(scheduler_to_use),
         session_context_(session_context) {}
   virtual ~ComponentsFactory() {}
@@ -2443,7 +2426,8 @@ class SyncManagerTestWithMockScheduler : public SyncManagerTest {
   SyncManagerTestWithMockScheduler() : scheduler_(NULL) {}
   virtual InternalComponentsFactory* GetFactory() OVERRIDE {
     scheduler_ = new MockSyncScheduler();
-    return new ComponentsFactory(GetSwitches(), scheduler_, &session_context_);
+    return new ComponentsFactory(GetSwitches(), scheduler_, &session_context_,
+                                 &storage_used_);
   }
 
   MockSyncScheduler* scheduler() { return scheduler_; }
@@ -2867,7 +2851,7 @@ class SyncManagerChangeProcessingTest : public SyncManagerTest {
       }
     }
     ADD_FAILURE() << "Failed to find specified change";
-    return -1;
+    return static_cast<size_t>(-1);
   }
 
   // Returns the current size of the change list.
@@ -2878,6 +2862,8 @@ class SyncManagerChangeProcessingTest : public SyncManagerTest {
   size_t GetChangeListSize() {
     return last_changes_.Get().size();
   }
+
+  void ClearChangeList() { last_changes_ = ImmutableChangeRecordList(); }
 
  protected:
   ImmutableChangeRecordList last_changes_;
@@ -3114,6 +3100,66 @@ TEST_F(SyncManagerChangeProcessingTest, DeletionsAndChanges) {
   EXPECT_LT(folder_b_pos, folder_a_pos);
 }
 
+// See that attachment metadata changes are not filtered out by
+// SyncManagerImpl::VisiblePropertiesDiffer.
+TEST_F(SyncManagerChangeProcessingTest, AttachmentMetadataOnlyChanges) {
+  // Create an article with no attachments.  See that a change is generated.
+  int64 article_id = kInvalidId;
+  {
+    syncable::WriteTransaction trans(
+        FROM_HERE, syncable::SYNCER, share()->directory.get());
+    int64 type_root = GetIdForDataType(ARTICLES);
+    syncable::Entry root(&trans, syncable::GET_BY_HANDLE, type_root);
+    ASSERT_TRUE(root.good());
+    syncable::MutableEntry article(
+        &trans, syncable::CREATE, ARTICLES, root.GetId(), "article");
+    ASSERT_TRUE(article.good());
+    SetNodeProperties(&article);
+    article_id = article.GetMetahandle();
+  }
+  ASSERT_EQ(1UL, GetChangeListSize());
+  FindChangeInList(article_id, ChangeRecord::ACTION_ADD);
+  ClearChangeList();
+
+  // Modify the article by adding one attachment.  Don't touch anything else.
+  // See that a change is generated.
+  {
+    syncable::WriteTransaction trans(
+        FROM_HERE, syncable::SYNCER, share()->directory.get());
+    syncable::MutableEntry article(&trans, syncable::GET_BY_HANDLE, article_id);
+    sync_pb::AttachmentMetadata metadata;
+    *metadata.add_record()->mutable_id() = CreateAttachmentIdProto();
+    article.PutAttachmentMetadata(metadata);
+  }
+  ASSERT_EQ(1UL, GetChangeListSize());
+  FindChangeInList(article_id, ChangeRecord::ACTION_UPDATE);
+  ClearChangeList();
+
+  // Modify the article by replacing its attachment with a different one.  See
+  // that a change is generated.
+  {
+    syncable::WriteTransaction trans(
+        FROM_HERE, syncable::SYNCER, share()->directory.get());
+    syncable::MutableEntry article(&trans, syncable::GET_BY_HANDLE, article_id);
+    sync_pb::AttachmentMetadata metadata = article.GetAttachmentMetadata();
+    *metadata.add_record()->mutable_id() = CreateAttachmentIdProto();
+    article.PutAttachmentMetadata(metadata);
+  }
+  ASSERT_EQ(1UL, GetChangeListSize());
+  FindChangeInList(article_id, ChangeRecord::ACTION_UPDATE);
+  ClearChangeList();
+
+  // Modify the article by replacing its attachment metadata with the same
+  // attachment metadata.  No change should be generated.
+  {
+    syncable::WriteTransaction trans(
+        FROM_HERE, syncable::SYNCER, share()->directory.get());
+    syncable::MutableEntry article(&trans, syncable::GET_BY_HANDLE, article_id);
+    article.PutAttachmentMetadata(article.GetAttachmentMetadata());
+  }
+  ASSERT_EQ(0UL, GetChangeListSize());
+}
+
 // During initialization SyncManagerImpl loads sqlite database. If it fails to
 // do so it should fail initialization. This test verifies this behavior.
 // Test reuses SyncManagerImpl initialization from SyncManagerTest but overrides
@@ -3125,7 +3171,9 @@ class SyncManagerInitInvalidStorageTest : public SyncManagerTest {
   }
 
   virtual InternalComponentsFactory* GetFactory() OVERRIDE {
-    return new TestInternalComponentsFactory(GetSwitches(), STORAGE_INVALID);
+    return new TestInternalComponentsFactory(
+        GetSwitches(), InternalComponentsFactory::STORAGE_INVALID,
+        &storage_used_);
   }
 };
 

@@ -16,7 +16,8 @@
 #include "sync/internal_api/public/base/model_type.h"
 #include "sync/internal_api/public/configure_reason.h"
 #include "sync/internal_api/public/sessions/sync_session_snapshot.h"
-#include "sync/internal_api/public/sync_core_proxy.h"
+#include "sync/internal_api/public/shutdown_reason.h"
+#include "sync/internal_api/public/sync_context_proxy.h"
 #include "sync/internal_api/public/sync_manager.h"
 #include "sync/internal_api/public/sync_manager_factory.h"
 #include "sync/internal_api/public/util/report_unrecoverable_error_function.h"
@@ -34,17 +35,18 @@ class NetworkResources;
 class SyncManagerFactory;
 }
 
-namespace browser_sync {
-
+namespace sync_driver {
 class ChangeProcessor;
 class SyncFrontend;
-class SyncedDeviceTracker;
+}
+
+namespace browser_sync {
 
 // An API to "host" the top level SyncAPI element.
 //
 // This class handles dispatch of potentially blocking calls to appropriate
 // threads and ensures that the SyncFrontend is only accessed on the UI loop.
-class SyncBackendHost : public BackendDataTypeConfigurer {
+class SyncBackendHost : public sync_driver::BackendDataTypeConfigurer {
  public:
   typedef syncer::SyncStatus Status;
 
@@ -59,7 +61,7 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
   // |report_unrecoverable_error_function| can be NULL.  Note:
   // |unrecoverable_error_handler| may be invoked from any thread.
   virtual void Initialize(
-      SyncFrontend* frontend,
+      sync_driver::SyncFrontend* frontend,
       scoped_ptr<base::Thread> sync_thread,
       const syncer::WeakHandle<syncer::JsEventHandler>& event_handler,
       const GURL& service_url,
@@ -112,18 +114,16 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
 
   // Called on |frontend_loop_| to kick off shutdown.
   // See the implementation and Core::DoShutdown for details.
-  // Must be called *after* StopSyncingForShutdown. Caller should claim sync
-  // thread using STOP_AND_CLAIM_THREAD or DISABLE_AND_CLAIM_THREAD if sync
-  // backend might be recreated later because otherwise:
-  // * sync loop may be stopped on main loop and cause it to be blocked.
-  // * new/old backend may interfere with each other if new backend is created
-  //   before old one finishes cleanup.
-  enum ShutdownOption {
-    STOP,                      // Stop syncing and let backend stop sync thread.
-    STOP_AND_CLAIM_THREAD,     // Stop syncing and return sync thread.
-    DISABLE_AND_CLAIM_THREAD,  // Disable sync and return sync thread.
-  };
-  virtual scoped_ptr<base::Thread> Shutdown(ShutdownOption option) = 0;
+  // Must be called *after* StopSyncingForShutdown.
+  // For any reason other than BROWSER_SHUTDOWN, caller should claim sync
+  // thread because:
+  // * during browser shutdown sync thread is not claimed to avoid blocking
+  //   browser shutdown on sync shutdown.
+  // * otherwise sync thread is claimed so that if sync backend is recreated
+  //   later, initialization of new backend is serialized on previous sync
+  //   thread after cleanup of previous backend to avoid old/new backends
+  //   interfere with each other.
+  virtual scoped_ptr<base::Thread> Shutdown(syncer::ShutdownReason reason) = 0;
 
   // Removes all current registrations from the backend on the
   // InvalidationService.
@@ -148,11 +148,11 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
   // initialization is complete with OnBackendInitialized().
   virtual syncer::UserShare* GetUserShare() const = 0;
 
-  // Called on |frontend_loop_| to obtain a handle to the SyncCore needed by
+  // Called on |frontend_loop_| to obtain a handle to the SyncContext needed by
   // the non-blocking sync types to communicate with the server.
   //
   // Should be called only when the backend is initialized.
-  virtual scoped_ptr<syncer::SyncCoreProxy> GetSyncCoreProxy() = 0;
+  virtual scoped_ptr<syncer::SyncContextProxy> GetSyncContextProxy() = 0;
 
   // Called from any thread to obtain current status information in detailed or
   // summarized form.
@@ -184,9 +184,6 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
 
   virtual void GetModelSafeRoutingInfo(
       syncer::ModelSafeRoutingInfo* out) const = 0;
-
-  // Fetches the DeviceInfo tracker.
-  virtual SyncedDeviceTracker* GetSyncedDeviceTracker() const = 0;
 
   // Requests that the backend forward to the fronent any protocol events in
   // its buffer and begin forwarding automatically from now on.  Repeated calls

@@ -1116,8 +1116,8 @@ define <4 x i8> @_Z17rsPackColorTo8888Dv4_f(<4 x float> %color) nounwind readnon
 }
 
 ; uchar4 __attribute__((overloadable)) rsPackColorTo8888(float3 color)
-define <4 x i8> @_Z17rsPackColorTo8888Dv3_f(<3 x float> %color) nounwind readnone {
-    %1 = shufflevector <3 x float> %color, <3 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+define <4 x i8> @_Z17rsPackColorTo8888Dv3_f(<4 x i32> %color) nounwind readnone {
+    %1 = bitcast <4 x i32> %color to <4 x float>
     %2 = insertelement <4 x float> %1, float 1.0, i32 3
     %3 = tail call <4 x i8> @_Z17rsPackColorTo8888Dv4_f(<4 x float> %2) nounwind readnone
     ret <4 x i8> %3

@@ -3,8 +3,8 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/policy/javascript_policy_handler.h"
-#include "chrome/common/content_settings.h"
 #include "chrome/common/pref_names.h"
+#include "components/content_settings/core/common/content_settings.h"
 #include "components/policy/core/browser/configuration_policy_pref_store.h"
 #include "components/policy/core/browser/configuration_policy_pref_store_test.h"
 #include "components/policy/core/browser/policy_error_map.h"
@@ -27,14 +27,14 @@ TEST_F(JavascriptPolicyHandlerTest, JavascriptEnabled) {
   policy.Set(key::kJavascriptEnabled,
              POLICY_LEVEL_MANDATORY,
              POLICY_SCOPE_USER,
-             base::Value::CreateBooleanValue(true),
+             new base::FundamentalValue(true),
              NULL);
   UpdateProviderPolicy(policy);
   EXPECT_FALSE(store_->GetValue(prefs::kManagedDefaultJavaScriptSetting, NULL));
   policy.Set(key::kJavascriptEnabled,
              POLICY_LEVEL_MANDATORY,
              POLICY_SCOPE_USER,
-             base::Value::CreateBooleanValue(false),
+             new base::FundamentalValue(false),
              NULL);
   UpdateProviderPolicy(policy);
   const base::Value* value = NULL;
@@ -49,7 +49,7 @@ TEST_F(JavascriptPolicyHandlerTest, JavascriptEnabledOverridden) {
   policy.Set(key::kJavascriptEnabled,
              POLICY_LEVEL_MANDATORY,
              POLICY_SCOPE_USER,
-             base::Value::CreateBooleanValue(false),
+             new base::FundamentalValue(false),
              NULL);
   UpdateProviderPolicy(policy);
   const base::Value* value = NULL;
@@ -60,7 +60,7 @@ TEST_F(JavascriptPolicyHandlerTest, JavascriptEnabledOverridden) {
   policy.Set(key::kDefaultJavaScriptSetting,
              POLICY_LEVEL_MANDATORY,
              POLICY_SCOPE_USER,
-             base::Value::CreateIntegerValue(CONTENT_SETTING_ALLOW),
+             new base::FundamentalValue(CONTENT_SETTING_ALLOW),
              NULL);
   UpdateProviderPolicy(policy);
   EXPECT_TRUE(store_->GetValue(prefs::kManagedDefaultJavaScriptSetting,

@@ -8,9 +8,11 @@
   },
   'targets': [
     {
+      # GN version: //ui/views/controls/webview
       'target_name': 'webview',
       'type': '<(component)',
       'dependencies': [
+        '../../../aura/aura.gyp:aura',
         '../../../../base/base.gyp:base',
         '../../../../base/base.gyp:base_i18n',
         '../../../../base/third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
@@ -28,6 +30,7 @@
         'WEBVIEW_IMPLEMENTATION',
       ],
       'sources': [
+        # Note: file list duplicated in GN build.
         'unhandled_keyboard_event_handler.cc',
         'unhandled_keyboard_event_handler.h',
         'unhandled_keyboard_event_handler_linux.cc',

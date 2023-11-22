@@ -7,8 +7,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "chrome/browser/profiles/profile_info_cache.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/signin/core/common/profile_management_switches.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
 ProfileListDesktop::ProfileListDesktop(ProfileInfoInterface* profile_cache)
@@ -55,7 +55,7 @@ void ProfileListDesktop::RebuildMenu() {
     item->signed_in = !item->sync_state.empty();
     if (!item->signed_in) {
       item->sync_state = l10n_util::GetStringUTF16(
-          item->supervised ? IDS_MANAGED_USER_AVATAR_LABEL :
+          item->supervised ? IDS_SUPERVISED_USER_AVATAR_LABEL :
                              IDS_PROFILES_LOCAL_PROFILE_STATE);
     }
     item->active = profile_info_->GetPathOfProfileAtIndex(i) ==

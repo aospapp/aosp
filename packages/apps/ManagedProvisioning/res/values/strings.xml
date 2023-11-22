@@ -133,4 +133,14 @@
   <string name="device_owner_error_installation_failed">Couldn\'t install the admin app</string>
   <!-- Message of the error dialog when device admin package is not installed. [CHAR LIMIT=NONE] -->
   <string name="device_owner_error_package_not_installed">The admin app isn\'t installed on your device</string>
+  <!-- Title of the cancel profile owner provisioning dialog. [CHAR LIMIT=45] -->
+  <string name="profile_owner_cancel_title">Stop setting up?</string>
+  <!-- Message of the cancel dialog. [CHAR LIMIT=NONE] -->
+  <string name="profile_owner_cancel_message">Are you sure you want to stop setting up?</string>
+  <!-- Cancel button text of the cancel dialog. [CHAR LIMIT=45] -->
+  <string name="profile_owner_cancel_cancel">No</string>
+  <!-- OK button text of the error dialog. [CHAR LIMIT=45] -->
+  <string name="profile_owner_cancel_ok">Yes</string>
+  <!-- Message of the cancel progress dialog. [CHAR LIMIT=45] -->
+  <string name="profile_owner_cancelling">Cancelling...</string>
 </resources>

@@ -1,6 +1,4 @@
-<?xml version="1.0" ?>
-<!DOCTYPE translationbundle>
-<translationbundle lang="ar">
+<?xml version="1.0" ?><!DOCTYPE translationbundle><translationbundle lang="ar">
 <translation id="4820616160060340806">‏المفتاح Command+<ph name="KEY_COMBO_NAME"/></translation>
 <translation id="8806053966018712535">مجلد <ph name="FOLDER_NAME"/></translation>
 <translation id="1871244248791675517">‏مفتاح Ins</translation>
@@ -81,7 +79,7 @@
 <translation id="6659594942844771486">علامة تبويب</translation>
 <translation id="3049748772180311791"><ph name="QUANTITY"/> ميغابايت</translation>
 <translation id="4988273303304146523">قبل <ph name="NUMBER_DEFAULT"/> يوم</translation>
-<translation id="8428213095426709021">الإعدادات</translation>
+<translation id="8428213095426709021">إعدادات</translation>
 <translation id="2497284189126895209">الملفّات كلّها</translation>
 <translation id="7487278341251176613">عدد الدقائق المتبقية: <ph name="NUMBER_TWO"/></translation>
 <translation id="5110450810124758964">قبل <ph name="NUMBER_ONE"/> يوم</translation>

@@ -15,7 +15,7 @@
 #include "chrome/browser/sync_file_system/conflict_resolution_policy.h"
 #include "chrome/browser/sync_file_system/sync_callbacks.h"
 #include "chrome/browser/sync_file_system/sync_file_metadata.h"
-#include "webkit/browser/fileapi/file_system_url.h"
+#include "storage/browser/fileapi/file_system_url.h"
 
 class BrowserContextKeyedServiceFactory;
 class GURL;
@@ -28,7 +28,7 @@ namespace content {
 class BrowserContext;
 }
 
-namespace webkit_blob {
+namespace storage {
 class ScopedFile;
 }
 
@@ -60,6 +60,13 @@ enum RemoteServiceState {
   // they may fail (with recoverable error code).
   REMOTE_SERVICE_AUTHENTICATION_REQUIRED,
 
+  // Remote service is temporarily unavailable due to lack of API permissions.
+  // This state may be automatically resolved when the API gets right
+  // permissions to access with.
+  // The consumer of this service can still make new requests but
+  // they may fail (with recoverable error code).
+  REMOTE_SERVICE_ACCESS_FORBIDDEN,
+
   // Remote service is disabled by configuration change or due to some
   // unrecoverable errors, e.g. local database corruption.
   // Any new requests will immediately fail when the service is in
@@ -75,11 +82,6 @@ enum RemoteServiceState {
 // Owned by SyncFileSystemService.
 class RemoteFileSyncService {
  public:
-  enum BackendVersion {
-    V1,
-    V2,
-  };
-
   class Observer {
    public:
     Observer() {}
@@ -120,8 +122,8 @@ class RemoteFileSyncService {
   typedef base::Callback<void(SyncStatusCode status,
                               const std::vector<Version>& versions)>
       RemoteVersionsCallback;
-  typedef base::Callback<void(SyncStatusCode status,
-                              webkit_blob::ScopedFile downloaded)>
+  typedef base::Callback<
+      void(SyncStatusCode status, storage::ScopedFile downloaded)>
       DownloadVersionCallback;
 
   // For DumpFile.
@@ -130,14 +132,12 @@ class RemoteFileSyncService {
   // Creates an initialized RemoteFileSyncService for backend |version|
   // for |context|.
   static scoped_ptr<RemoteFileSyncService> CreateForBrowserContext(
-      BackendVersion version,
       content::BrowserContext* context,
       TaskLogger* task_logger);
 
   // Returns BrowserContextKeyedServiceFactory's an instance of
   // RemoteFileSyncService for backend |version| depends on.
   static void AppendDependsOnFactories(
-      BackendVersion version,
       std::set<BrowserContextKeyedServiceFactory*>* factories);
 
   RemoteFileSyncService() {}
@@ -211,7 +211,7 @@ class RemoteFileSyncService {
   // REMOTE_SERVICE_TEMPORARY_UNAVAILABLE).
   virtual void SetSyncEnabled(bool enabled) = 0;
 
-  virtual void PromoteDemotedChanges() = 0;
+  virtual void PromoteDemotedChanges(const base::Closure& callback) = 0;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(RemoteFileSyncService);

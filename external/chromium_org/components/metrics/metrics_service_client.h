@@ -10,6 +10,7 @@
 #include "base/basictypes.h"
 #include "base/callback_forward.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/strings/string16.h"
 #include "components/metrics/proto/system_profile.pb.h"
 
 namespace metrics {
@@ -22,9 +23,9 @@ class MetricsServiceClient {
  public:
   virtual ~MetricsServiceClient() {}
 
-  // Register the client id with other services (e.g. crash reporting), called
+  // Registers the client id with other services (e.g. crash reporting), called
   // when metrics recording gets enabled.
-  virtual void SetClientID(const std::string& client_id) = 0;
+  virtual void SetMetricsClientId(const std::string& client_id) = 0;
 
   // Whether there's an "off the record" (aka "Incognito") session active.
   virtual bool IsOffTheRecordSessionActive() = 0;
@@ -41,9 +42,6 @@ class MetricsServiceClient {
 
   // Returns the version of the application as a string.
   virtual std::string GetVersionString() = 0;
-
-  // Returns the install date of the application, in seconds since the epoch.
-  virtual int64 GetInstallDate() = 0;
 
   // Called by the metrics service when a log has been uploaded.
   virtual void OnLogUploadComplete() = 0;
@@ -63,6 +61,10 @@ class MetricsServiceClient {
       const std::string& server_url,
       const std::string& mime_type,
       const base::Callback<void(int)>& on_upload_complete) = 0;
+
+  // Returns the name of a key under HKEY_CURRENT_USER that can be used to store
+  // backups of metrics data. Unused except on Windows.
+  virtual base::string16 GetRegistryBackupKey();
 };
 
 }  // namespace metrics

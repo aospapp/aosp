@@ -7,13 +7,12 @@
 #include "base/command_line.h"
 #include "base/prefs/pref_service.h"
 #include "chrome/browser/extensions/blacklist.h"
+#include "chrome/browser/extensions/declarative_user_script_master.h"
 #include "chrome/browser/extensions/error_console/error_console.h"
+#include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/install_verifier.h"
 #include "chrome/browser/extensions/shared_module_service.h"
-#include "chrome/browser/extensions/standard_management_policy_provider.h"
-#include "chrome/browser/extensions/state_store.h"
-#include "chrome/browser/extensions/user_script_master.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_switches.h"
 #include "content/public/browser/browser_thread.h"
@@ -30,6 +29,7 @@
 #include "extensions/browser/process_manager.h"
 #include "extensions/browser/quota_service.h"
 #include "extensions/browser/runtime_data.h"
+#include "extensions/browser/state_store.h"
 #include "extensions/browser/value_store/testing_value_store.h"
 
 using content::BrowserThread;
@@ -47,6 +47,8 @@ TestExtensionSystem::~TestExtensionSystem() {
 }
 
 void TestExtensionSystem::Shutdown() {
+  if (extension_service_)
+    extension_service_->Shutdown();
   process_manager_.reset();
 }
 
@@ -97,11 +99,10 @@ ExtensionService* TestExtensionSystem::CreateExtensionService(
   state_store_.reset(
       new StateStore(profile_, value_store.PassAs<ValueStore>()));
   blacklist_.reset(new Blacklist(ExtensionPrefs::Get(profile_)));
-  standard_management_policy_provider_.reset(
-      new StandardManagementPolicyProvider(ExtensionPrefs::Get(profile_)));
   management_policy_.reset(new ManagementPolicy());
   management_policy_->RegisterProvider(
-      standard_management_policy_provider_.get());
+      ExtensionManagementFactory::GetForBrowserContext(profile_)
+          ->GetProvider());
   runtime_data_.reset(new RuntimeData(ExtensionRegistry::Get(profile_)));
   extension_service_.reset(new ExtensionService(profile_,
                                                 command_line,
@@ -131,7 +132,7 @@ void TestExtensionSystem::SetExtensionService(ExtensionService* service) {
   extension_service_.reset(service);
 }
 
-UserScriptMaster* TestExtensionSystem::user_script_master() {
+SharedUserScriptMaster* TestExtensionSystem::shared_user_script_master() {
   return NULL;
 }
 
@@ -160,7 +161,7 @@ void TestExtensionSystem::SetEventRouter(scoped_ptr<EventRouter> event_router) {
 
 EventRouter* TestExtensionSystem::event_router() { return event_router_.get(); }
 
-ExtensionWarningService* TestExtensionSystem::warning_service() {
+WarningService* TestExtensionSystem::warning_service() {
   return NULL;
 }
 
@@ -192,6 +193,27 @@ scoped_ptr<ExtensionSet> TestExtensionSystem::GetDependentExtensions(
     const Extension* extension) {
   return extension_service()->shared_module_service()->GetDependentExtensions(
       extension);
+}
+
+DeclarativeUserScriptMaster*
+TestExtensionSystem::GetDeclarativeUserScriptMasterByExtension(
+    const ExtensionId& extension_id) {
+  DCHECK(ready().is_signaled());
+  DeclarativeUserScriptMaster* master = NULL;
+  for (ScopedVector<DeclarativeUserScriptMaster>::iterator it =
+           declarative_user_script_masters_.begin();
+       it != declarative_user_script_masters_.end();
+       ++it) {
+    if ((*it)->extension_id() == extension_id) {
+      master = *it;
+      break;
+    }
+  }
+  if (!master) {
+    master = new DeclarativeUserScriptMaster(profile_, extension_id);
+    declarative_user_script_masters_.push_back(master);
+  }
+  return master;
 }
 
 // static

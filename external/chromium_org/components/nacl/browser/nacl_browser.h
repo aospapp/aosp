@@ -28,9 +28,10 @@ namespace nacl {
 static const int kGdbDebugStubPortUnknown = -1;
 static const int kGdbDebugStubPortUnused = 0;
 
-// Open an immutable executable file that can be mmapped.
+// Open an immutable executable file that can be mmapped (or a read-only file).
 // This function should only be called on a thread that can perform file IO.
-base::File OpenNaClExecutableImpl(const base::FilePath& file_path);
+base::File OpenNaClReadExecImpl(const base::FilePath& file_path,
+                                bool is_executable);
 
 // Represents shared state for all NaClProcessHost objects in the browser.
 class NaClBrowser {
@@ -169,8 +170,6 @@ class NaClBrowser {
   void MarkValidationCacheAsModified();
   void PersistValidationCache();
 
-  // Singletons get destroyed at shutdown.
-  base::WeakPtrFactory<NaClBrowser> weak_factory_;
 
   base::File irt_file_;
   base::FilePath irt_filepath_;
@@ -198,6 +197,9 @@ class NaClBrowser {
   scoped_ptr<NaClBrowserDelegate> browser_delegate_;
 
   std::deque<base::Time> crash_times_;
+
+  // Singletons get destroyed at shutdown.
+  base::WeakPtrFactory<NaClBrowser> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(NaClBrowser);
 };

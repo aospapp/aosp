@@ -27,6 +27,12 @@ class SearchResultObserver;
 // default style.
 class APP_LIST_EXPORT SearchResult {
  public:
+  // How the result should be displayed.
+  enum DisplayType {
+    DISPLAY_LIST,
+    DISPLAY_TILE,
+  };
+
   // A tagged range in search result text.
   struct APP_LIST_EXPORT Tag {
     // Similar to ACMatchClassification::Style, the style values are not
@@ -89,7 +95,8 @@ class APP_LIST_EXPORT SearchResult {
   void set_details_tags(const Tags& tags) { details_tags_ = tags; }
 
   const std::string& id() const { return id_; }
-  double relevance() { return relevance_; }
+  double relevance() const { return relevance_; }
+  DisplayType display_type() const { return display_type_; }
 
   const Actions& actions() const {
     return actions_;
@@ -101,6 +108,9 @@ class APP_LIST_EXPORT SearchResult {
 
   int percent_downloaded() const { return percent_downloaded_; }
   void SetPercentDownloaded(int percent_downloaded);
+
+  // Returns the dimension at which this result's icon should be displayed.
+  int GetPreferredIconDimension() const;
 
   void NotifyItemInstalled();
   void NotifyItemUninstalled();
@@ -122,6 +132,9 @@ class APP_LIST_EXPORT SearchResult {
  protected:
   void set_id(const std::string& id) { id_ = id; }
   void set_relevance(double relevance) { relevance_ = relevance; }
+  void set_display_type(DisplayType display_type) {
+    display_type_ = display_type;
+  }
 
  private:
   gfx::ImageSkia icon_;
@@ -134,6 +147,7 @@ class APP_LIST_EXPORT SearchResult {
 
   std::string id_;
   double relevance_;
+  DisplayType display_type_;
 
   Actions actions_;
 

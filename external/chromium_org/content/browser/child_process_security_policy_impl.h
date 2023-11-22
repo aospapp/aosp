@@ -15,8 +15,8 @@
 #include "base/memory/singleton.h"
 #include "base/synchronization/lock.h"
 #include "content/public/browser/child_process_security_policy.h"
-#include "webkit/common/fileapi/file_system_types.h"
-#include "webkit/common/resource_type.h"
+#include "content/public/common/resource_type.h"
+#include "storage/common/fileapi/file_system_types.h"
 
 class GURL;
 
@@ -24,7 +24,7 @@ namespace base {
 class FilePath;
 }
 
-namespace fileapi {
+namespace storage {
 class FileSystemURL;
 }
 
@@ -80,6 +80,7 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   virtual bool CanDeleteFromFileSystem(
       int child_id,
       const std::string& filesystem_id) OVERRIDE;
+  virtual bool HasWebUIBindings(int child_id) OVERRIDE;
 
   // Pseudo schemes are treated differently than other schemes because they
   // cannot be requested like normal URLs.  There is no mechanism for revoking
@@ -139,23 +140,17 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   // Only might return false if --site-per-process flag is used.
   bool CanLoadPage(int child_id,
                    const GURL& url,
-                   ResourceType::Type resource_type);
+                   ResourceType resource_type);
 
   // Explicit permissions checks for FileSystemURL specified files.
-  bool CanReadFileSystemFile(int child_id, const fileapi::FileSystemURL& url);
-  bool CanWriteFileSystemFile(int child_id, const fileapi::FileSystemURL& url);
-  bool CanCreateFileSystemFile(int child_id, const fileapi::FileSystemURL& url);
+  bool CanReadFileSystemFile(int child_id, const storage::FileSystemURL& url);
+  bool CanWriteFileSystemFile(int child_id, const storage::FileSystemURL& url);
+  bool CanCreateFileSystemFile(int child_id, const storage::FileSystemURL& url);
   bool CanCreateReadWriteFileSystemFile(int child_id,
-                                        const fileapi::FileSystemURL& url);
+                                        const storage::FileSystemURL& url);
   bool CanCopyIntoFileSystemFile(int child_id,
-                                 const fileapi::FileSystemURL& url);
-  bool CanDeleteFileSystemFile(int child_id,
-                               const fileapi::FileSystemURL& url);
-
-  // Returns true if the specified child_id has been granted WebUIBindings.
-  // The browser should check this property before assuming the child process is
-  // allowed to use WebUIBindings.
-  bool HasWebUIBindings(int child_id);
+                                 const storage::FileSystemURL& url);
+  bool CanDeleteFileSystemFile(int child_id, const storage::FileSystemURL& url);
 
   // Returns true if the specified child_id has been granted ReadRawCookies.
   bool CanReadRawCookies(int child_id);
@@ -181,10 +176,9 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
 
   // Register FileSystem type and permission policy which should be used
   // for the type.  The |policy| must be a bitwise-or'd value of
-  // fileapi::FilePermissionPolicy.
-  void RegisterFileSystemPermissionPolicy(
-      fileapi::FileSystemType type,
-      int policy);
+  // storage::FilePermissionPolicy.
+  void RegisterFileSystemPermissionPolicy(storage::FileSystemType type,
+                                          int policy);
 
   // Returns true if sending system exclusive messages is allowed.
   bool CanSendMidiSysExMessage(int child_id);
@@ -201,7 +195,7 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   typedef std::set<std::string> SchemeSet;
   typedef std::map<int, SecurityState*> SecurityStateMap;
   typedef std::map<int, int> WorkerToMainProcessMap;
-  typedef std::map<fileapi::FileSystemType, int> FileSystemPermissionPolicyMap;
+  typedef std::map<storage::FileSystemType, int> FileSystemPermissionPolicyMap;
 
   // Obtain an instance of ChildProcessSecurityPolicyImpl via GetInstance().
   ChildProcessSecurityPolicyImpl();
@@ -241,7 +235,7 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   // Determines if certain permissions were granted for a file in FileSystem
   // API. |permissions| is an internally defined bit-set.
   bool HasPermissionsForFileSystemFile(int child_id,
-                                       const fileapi::FileSystemURL& url,
+                                       const storage::FileSystemURL& url,
                                        int permissions);
 
   // Determines if certain permissions were granted for a file system.

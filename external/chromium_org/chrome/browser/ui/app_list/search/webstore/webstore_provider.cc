@@ -8,7 +8,7 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
-#include "base/metrics/field_trial.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
@@ -17,7 +17,7 @@
 #include "chrome/browser/ui/app_list/search/common/json_response_fetcher.h"
 #include "chrome/browser/ui/app_list/search/search_webstore_result.h"
 #include "chrome/browser/ui/app_list/search/webstore/webstore_result.h"
-#include "chrome/common/extensions/extension_constants.h"
+#include "extensions/common/extension_urls.h"
 #include "url/gurl.h"
 
 namespace app_list {
@@ -28,12 +28,26 @@ const char kKeyResults[] = "results";
 const char kKeyId[] = "id";
 const char kKeyLocalizedName[] = "localized_name";
 const char kKeyIconUrl[] = "icon_url";
+const char kKeyIsPaid[] = "is_paid";
+const char kKeyItemType[] = "item_type";
 
-// Returns true if the launcher should send queries to the web store server.
-bool UseWebstoreSearch() {
-  const char kFieldTrialName[] = "LauncherUseWebstoreSearch";
-  const char kEnable[] = "Enable";
-  return base::FieldTrialList::FindFullName(kFieldTrialName) == kEnable;
+const char kPlatformAppType[] = "platform_app";
+const char kHostedAppType[] = "hosted_app";
+const char kLegacyPackagedAppType[] = "legacy_packaged_app";
+
+// Converts the item type string from the web store to an
+// extensions::Manifest::Type.
+extensions::Manifest::Type ParseItemType(const std::string& item_type_str) {
+  if (LowerCaseEqualsASCII(item_type_str, kPlatformAppType))
+    return extensions::Manifest::TYPE_PLATFORM_APP;
+
+  if (LowerCaseEqualsASCII(item_type_str, kLegacyPackagedAppType))
+    return extensions::Manifest::TYPE_LEGACY_PACKAGED_APP;
+
+  if (LowerCaseEqualsASCII(item_type_str, kHostedAppType))
+    return extensions::Manifest::TYPE_HOSTED_APP;
+
+  return extensions::Manifest::TYPE_UNKNOWN;
 }
 
 }  // namespace
@@ -62,17 +76,15 @@ void WebstoreProvider::Start(const base::string16& query) {
       return;
   }
 
-  if (UseWebstoreSearch()) {
-    if (!webstore_search_) {
-      webstore_search_.reset(new JSONResponseFetcher(
-          base::Bind(&WebstoreProvider::OnWebstoreSearchFetched,
-                     base::Unretained(this)),
-          profile_->GetRequestContext()));
-    }
-
-    StartThrottledQuery(base::Bind(&WebstoreProvider::StartQuery,
-                                   base::Unretained(this)));
+  if (!webstore_search_) {
+    webstore_search_.reset(new JSONResponseFetcher(
+        base::Bind(&WebstoreProvider::OnWebstoreSearchFetched,
+                   base::Unretained(this)),
+        profile_->GetRequestContext()));
   }
+
+  StartThrottledQuery(base::Bind(&WebstoreProvider::StartQuery,
+                                 base::Unretained(this)));
 
   // Add a placeholder result which when clicked will run the user's query in a
   // browser. This placeholder is removed when the search results arrive.
@@ -141,9 +153,11 @@ scoped_ptr<ChromeSearchResult> WebstoreProvider::CreateResult(
   std::string app_id;
   std::string localized_name;
   std::string icon_url_string;
+  bool is_paid = false;
   if (!dict.GetString(kKeyId, &app_id) ||
       !dict.GetString(kKeyLocalizedName, &localized_name) ||
-      !dict.GetString(kKeyIconUrl, &icon_url_string)) {
+      !dict.GetString(kKeyIconUrl, &icon_url_string) ||
+      !dict.GetBoolean(kKeyIsPaid, &is_paid)) {
     return result.Pass();
   }
 
@@ -151,8 +165,17 @@ scoped_ptr<ChromeSearchResult> WebstoreProvider::CreateResult(
   if (!icon_url.is_valid())
     return result.Pass();
 
-  result.reset(new WebstoreResult(
-      profile_, app_id, localized_name, icon_url, controller_));
+  std::string item_type_string;
+  dict.GetString(kKeyItemType, &item_type_string);
+  extensions::Manifest::Type item_type = ParseItemType(item_type_string);
+
+  result.reset(new WebstoreResult(profile_,
+                                  app_id,
+                                  localized_name,
+                                  icon_url,
+                                  is_paid,
+                                  item_type,
+                                  controller_));
   return result.Pass();
 }
 

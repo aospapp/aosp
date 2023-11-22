@@ -7,8 +7,6 @@
 
 #include <vector>
 
-#include "content/public/common/page_transition_types.h"
-
 class Browser;
 class GURL;
 
@@ -85,10 +83,6 @@ class TabStripModelDelegate {
   // Duplicates the contents at the provided index and places it into its own
   // window.
   virtual void DuplicateContentsAt(int index) = 0;
-
-  // Called when a drag session has completed and the frame that initiated the
-  // the session should be closed.
-  virtual void CloseFrameAfterDragSession() = 0;
 
   // Creates an entry in the historical tab database for the specified
   // WebContents.

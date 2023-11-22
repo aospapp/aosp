@@ -14,10 +14,11 @@
 #include "chrome/browser/custom_handlers/protocol_handler_registry.h"
 #include "chrome/browser/extensions/context_menu_matcher.h"
 #include "chrome/browser/extensions/menu_manager.h"
-#include "chrome/browser/renderer_context_menu/context_menu_content_type.h"
-#include "chrome/browser/renderer_context_menu/render_view_context_menu_observer.h"
+#include "components/renderer_context_menu/context_menu_content_type.h"
+#include "components/renderer_context_menu/render_view_context_menu_base.h"
+#include "components/renderer_context_menu/render_view_context_menu_observer.h"
+#include "components/renderer_context_menu/render_view_context_menu_proxy.h"
 #include "content/public/common/context_menu_params.h"
-#include "content/public/common/page_transition_types.h"
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/base/window_open_disposition.h"
 
@@ -28,7 +29,6 @@ class SpellCheckerSubMenuObserver;
 
 namespace content {
 class RenderFrameHost;
-class RenderViewHost;
 class WebContents;
 }
 
@@ -46,147 +46,20 @@ struct WebMediaPlayerAction;
 struct WebPluginAction;
 }
 
-// An interface that controls a RenderViewContextMenu instance from observers.
-// This interface is designed mainly for controlling the instance while showing
-// so we can add a context-menu item that takes long time to create its text,
-// such as retrieving the item text from a server. The simplest usage is:
-// 1. Adding an item with temporary text;
-// 2. Posting a background task that creates the item text, and;
-// 3. Calling UpdateMenuItem() in the callback function.
-// The following snippet describes the simple usage that updates a context-menu
-// item with this interface.
-//
-//   class MyTask : public net::URLFetcherDelegate {
-//    public:
-//     MyTask(RenderViewContextMenuProxy* proxy, int id)
-//         : proxy_(proxy),
-//           id_(id) {
-//     }
-//     virtual ~MyTask() {
-//     }
-//     virtual void OnURLFetchComplete(const net::URLFetcher* source,
-//                                     const GURL& url,
-//                                     const net::URLRequestStatus& status,
-//                                     int response,
-//                                     const net::ResponseCookies& cookies,
-//                                     const std::string& data) {
-//       bool enabled = response == 200;
-//       const char* text = enabled ? "OK" : "ERROR";
-//       proxy_->UpdateMenuItem(id_, enabled, base::ASCIIToUTF16(text));
-//     }
-//     void Start(const GURL* url, net::URLRequestContextGetter* context) {
-//       fetcher_.reset(new URLFetcher(url, URLFetcher::GET, this));
-//       fetcher_->SetRequestContext(context);
-//       content::AssociateURLFetcherWithRenderView(
-//           fetcher_.get(),
-//           proxy_->GetRenderViewHost()->GetSiteInstance()->GetSite(),
-//           proxy_->GetRenderViewHost()->GetProcess()->GetID(),
-//           proxy_->GetRenderViewHost()->GetRoutingID());
-//       fetcher_->Start();
-//     }
-//
-//    private:
-//     URLFetcher fetcher_;
-//     RenderViewContextMenuProxy* proxy_;
-//     int id_;
-//   };
-//
-//   void RenderViewContextMenu::AppendEditableItems() {
-//     // Add a menu item with temporary text shown while we create the final
-//     // text.
-//     menu_model_.AddItemWithStringId(IDC_MY_ITEM, IDC_MY_TEXT);
-//
-//     // Start a task that creates the final text.
-//     my_task_ = new MyTask(this, IDC_MY_ITEM);
-//     my_task_->Start(...);
-//   }
-//
-class RenderViewContextMenuProxy {
+class RenderViewContextMenu : public RenderViewContextMenuBase {
  public:
-  // Add a menu item to a context menu.
-  virtual void AddMenuItem(int command_id, const base::string16& title) = 0;
-  virtual void AddCheckItem(int command_id, const base::string16& title) = 0;
-  virtual void AddSeparator() = 0;
-
-  // Add a submenu item to a context menu.
-  virtual void AddSubMenu(int command_id,
-                          const base::string16& label,
-                          ui::MenuModel* model) = 0;
-
-  // Update the status and text of the specified context-menu item.
-  virtual void UpdateMenuItem(int command_id,
-                              bool enabled,
-                              bool hidden,
-                              const base::string16& title) = 0;
-
-  // Retrieve the given associated objects with a context menu.
-  virtual content::RenderViewHost* GetRenderViewHost() const = 0;
-  virtual content::WebContents* GetWebContents() const = 0;
-  virtual Profile* GetProfile() const = 0;
-};
-
-class RenderViewContextMenu : public ui::SimpleMenuModel::Delegate,
-                              public RenderViewContextMenuProxy {
- public:
-  static const size_t kMaxSelectionTextLength;
-
   RenderViewContextMenu(content::RenderFrameHost* render_frame_host,
                         const content::ContextMenuParams& params);
 
   virtual ~RenderViewContextMenu();
 
-  // Initializes the context menu.
-  void Init();
-
-  // Programmatically closes the context menu.
-  void Cancel();
-
-  const ui::SimpleMenuModel& menu_model() const { return menu_model_; }
-  const content::ContextMenuParams& params() const { return params_; }
-
-  // SimpleMenuModel::Delegate implementation.
+  // SimpleMenuModel::Delegate:
   virtual bool IsCommandIdChecked(int command_id) const OVERRIDE;
   virtual bool IsCommandIdEnabled(int command_id) const OVERRIDE;
   virtual void ExecuteCommand(int command_id, int event_flags) OVERRIDE;
-  virtual void MenuWillShow(ui::SimpleMenuModel* source) OVERRIDE;
-  virtual void MenuClosed(ui::SimpleMenuModel* source) OVERRIDE;
-
-  // RenderViewContextMenuProxy implementation.
-  virtual void AddMenuItem(int command_id,
-                           const base::string16& title) OVERRIDE;
-  virtual void AddCheckItem(int command_id,
-                            const base::string16& title) OVERRIDE;
-  virtual void AddSeparator() OVERRIDE;
-  virtual void AddSubMenu(int command_id,
-                          const base::string16& label,
-                          ui::MenuModel* model) OVERRIDE;
-  virtual void UpdateMenuItem(int command_id,
-                              bool enabled,
-                              bool hidden,
-                              const base::string16& title) OVERRIDE;
-  virtual content::RenderViewHost* GetRenderViewHost() const OVERRIDE;
-  virtual content::WebContents* GetWebContents() const OVERRIDE;
-  virtual Profile* GetProfile() const OVERRIDE;
 
  protected:
-  void InitMenu();
-
-  // Platform specific functions.
-  virtual void PlatformInit() = 0;
-  virtual void PlatformCancel() = 0;
-  virtual bool GetAcceleratorForCommandId(
-      int command_id,
-      ui::Accelerator* accelerator) = 0;
-  virtual void AppendPlatformEditableItems();
-
-  content::ContextMenuParams params_;
-  content::WebContents* source_web_contents_;
-  // The RenderFrameHost's IDs.
-  int render_process_id_;
-  int render_frame_id_;
-  Profile* profile_;
-
-  ui::SimpleMenuModel menu_model_;
+  Profile* GetProfile();
   extensions::ContextMenuMatcher extension_items_;
 
  private:
@@ -197,14 +70,24 @@ class RenderViewContextMenu : public ui::SimpleMenuModel::Delegate,
   static bool IsInternalResourcesURL(const GURL& url);
   static bool ExtensionContextAndPatternMatch(
       const content::ContextMenuParams& params,
-      extensions::MenuItem::ContextList contexts,
+      const extensions::MenuItem::ContextList& contexts,
       const extensions::URLPatternSet& target_url_patterns);
   static bool MenuItemMatchesParams(const content::ContextMenuParams& params,
                                     const extensions::MenuItem* item);
 
+  // RenderViewContextMenuBase:
+  virtual void InitMenu() OVERRIDE;
+  virtual void RecordShownItem(int id) OVERRIDE;
+  virtual void RecordUsedItem(int id) OVERRIDE;
+#if defined(ENABLE_PLUGINS)
+  virtual void HandleAuthorizeAllPlugins() OVERRIDE;
+#endif
+  virtual void NotifyMenuShown() OVERRIDE;
+  virtual void NotifyURLOpened(const GURL& url,
+                               content::WebContents* new_contents) OVERRIDE;
+
   // Gets the extension (if any) associated with the WebContents that we're in.
   const extensions::Extension* GetExtension() const;
-  bool AppendCustomItems();
 
   void AppendDeveloperItems();
   void AppendDevtoolsForUnpackedExtensions();
@@ -228,11 +111,6 @@ class RenderViewContextMenu : public ui::SimpleMenuModel::Delegate,
   void AppendSpellingSuggestionsSubMenu();
   void AppendSpellcheckOptionsSubMenu();
   void AppendProtocolHandlerSubMenu();
-
-  // Opens the specified URL string in a new tab.
-  void OpenURL(const GURL& url, const GURL& referrer,
-               WindowOpenDisposition disposition,
-               content::PageTransition transition);
 
   // Copy to the clipboard an image located at a point in the RenderView
   void CopyImageAt(int x, int y);
@@ -278,15 +156,6 @@ class RenderViewContextMenu : public ui::SimpleMenuModel::Delegate,
   // An observer that disables menu items when print preview is active.
   scoped_ptr<PrintPreviewContextMenuObserver> print_preview_menu_observer_;
 #endif
-
-  // Our observers.
-  mutable ObserverList<RenderViewContextMenuObserver> observers_;
-
-  // Whether a command has been executed. Used to track whether menu observers
-  // should be notified of menu closing without execution.
-  bool command_executed_;
-
-  scoped_ptr<ContextMenuContentType> content_type_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderViewContextMenu);
 };

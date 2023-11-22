@@ -18,6 +18,8 @@ package android.media.cts;
 
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
+import android.media.MediaCodecList;
+import android.media.MediaFormat;
 import android.util.Log;
 import com.android.cts.media.R;
 
@@ -52,13 +54,13 @@ public class Vp8EncoderTest extends Vp8CodecTestBase {
     private static final int[] TEST_BITRATES_SET = { 300000, 500000, 700000, 900000 };
     // Maximum allowed bitrate variation from the target value.
     private static final double MAX_BITRATE_VARIATION = 0.2;
-    // Average PSNR values for reference SW VP8 codec for the above bitrates.
+    // Average PSNR values for reference Google VP8 codec for the above bitrates.
     private static final double[] REFERENCE_AVERAGE_PSNR = { 33.1, 35.2, 36.6, 37.8 };
-    // Minimum PSNR values for reference SW VP8 codec for the above bitrates.
+    // Minimum PSNR values for reference Google VP8 codec for the above bitrates.
     private static final double[] REFERENCE_MINIMUM_PSNR = { 25.9, 27.5, 28.4, 30.3 };
-    // Maximum allowed average PSNR difference of HW encoder comparing to reference SW encoder.
+    // Maximum allowed average PSNR difference of encoder comparing to reference Google encoder.
     private static final double MAX_AVERAGE_PSNR_DIFFERENCE = 2;
-    // Maximum allowed minimum PSNR difference of HW encoder comparing to reference SW encoder.
+    // Maximum allowed minimum PSNR difference of encoder comparing to reference Google encoder.
     private static final double MAX_MINIMUM_PSNR_DIFFERENCE = 4;
     // Maximum allowed average PSNR difference of the encoder running in a looper thread with 0 ms
     // buffer dequeue timeout comparing to the encoder running in a callee's thread with 100 ms
@@ -80,13 +82,8 @@ public class Vp8EncoderTest extends Vp8CodecTestBase {
      * Also checks the average bitrate is within MAX_BITRATE_VARIATION of the target value.
      */
     public void testBasic() throws Exception {
-        MediaCodecInfo codecInfo = selectCodec(VP8_MIME);
-        if (codecInfo == null) {
-            Log.w(TAG, "Codec " + VP8_MIME + " not supported. Return from testBasic.");
-            return;
-        }
-
         int encodeSeconds = 9;
+        boolean skipped = true;
 
         for (int targetBitrate : TEST_BITRATES_SET) {
             EncoderOutputStreamParameters params = getDefaultEncodingParameters(
@@ -100,6 +97,11 @@ public class Vp8EncoderTest extends Vp8CodecTestBase {
                     targetBitrate,
                     true);
             ArrayList<MediaCodec.BufferInfo> bufInfo = encode(params);
+            if (bufInfo == null) {
+                continue;
+            }
+            skipped = false;
+
             Vp8EncodingStatistics statistics = computeEncodingStatistics(bufInfo);
 
             assertEquals("Stream bitrate " + statistics.mAverageBitrate +
@@ -107,7 +109,11 @@ public class Vp8EncoderTest extends Vp8CodecTestBase {
                     targetBitrate, statistics.mAverageBitrate,
                     MAX_BITRATE_VARIATION * targetBitrate);
 
-            decode(params.outputIvfFilename, null, FPS, params.forceSwEncoder);
+            decode(params.outputIvfFilename, null, FPS, params.forceGoogleEncoder);
+        }
+
+        if (skipped) {
+            Log.i(TAG, "SKIPPING testBasic(): codec is not supported");
         }
     }
 
@@ -119,12 +125,6 @@ public class Vp8EncoderTest extends Vp8CodecTestBase {
      * does not change much for two different ways of the encoder call.
      */
     public void testAsyncEncoding() throws Exception {
-        MediaCodecInfo codecInfo = selectCodec(VP8_MIME);
-        if (codecInfo == null) {
-            Log.w(TAG, "Codec " + VP8_MIME + " not supported. Return from testAsyncEncoding.");
-            return;
-        }
-
         int encodeSeconds = 9;
 
         // First test the encoder running in a looper thread with buffer callbacks enabled.
@@ -140,8 +140,12 @@ public class Vp8EncoderTest extends Vp8CodecTestBase {
                 BITRATE,
                 syncEncoding);
         ArrayList<MediaCodec.BufferInfo> bufInfos = encodeAsync(params);
+        if (bufInfos == null) {
+            Log.i(TAG, "SKIPPING testAsyncEncoding(): no suitable encoder found");
+            return;
+        }
         computeEncodingStatistics(bufInfos);
-        decode(params.outputIvfFilename, OUTPUT_YUV, FPS, params.forceSwEncoder);
+        decode(params.outputIvfFilename, OUTPUT_YUV, FPS, params.forceGoogleEncoder);
         Vp8DecodingStatistics statisticsAsync = computeDecodingStatistics(
                 params.inputYuvFilename, R.raw.football_qvga, OUTPUT_YUV,
                 params.frameWidth, params.frameHeight);
@@ -160,8 +164,12 @@ public class Vp8EncoderTest extends Vp8CodecTestBase {
                 BITRATE,
                 syncEncoding);
         bufInfos = encode(params);
+        if (bufInfos == null) {
+            Log.i(TAG, "SKIPPING testAsyncEncoding(): no suitable encoder found");
+            return;
+        }
         computeEncodingStatistics(bufInfos);
-        decode(params.outputIvfFilename, OUTPUT_YUV, FPS, params.forceSwEncoder);
+        decode(params.outputIvfFilename, OUTPUT_YUV, FPS, params.forceGoogleEncoder);
         Vp8DecodingStatistics statisticsSync = computeDecodingStatistics(
                 params.inputYuvFilename, R.raw.football_qvga, OUTPUT_YUV,
                 params.frameWidth, params.frameHeight);
@@ -186,12 +194,6 @@ public class Vp8EncoderTest extends Vp8CodecTestBase {
      * The test does not verify the output stream.
      */
     public void testSyncFrame() throws Exception {
-        MediaCodecInfo codecInfo = selectCodec(VP8_MIME);
-        if (codecInfo == null) {
-            Log.w(TAG, "Codec " + VP8_MIME + " not supported. Return from testSyncFrame.");
-            return;
-        }
-
         int encodeSeconds = 9;
 
         EncoderOutputStreamParameters params = getDefaultEncodingParameters(
@@ -207,6 +209,11 @@ public class Vp8EncoderTest extends Vp8CodecTestBase {
         params.syncFrameInterval = encodeSeconds * FPS;
         params.syncForceFrameInterval = FPS;
         ArrayList<MediaCodec.BufferInfo> bufInfo = encode(params);
+        if (bufInfo == null) {
+            Log.i(TAG, "SKIPPING testSyncFrame(): no suitable encoder found");
+            return;
+        }
+
         Vp8EncodingStatistics statistics = computeEncodingStatistics(bufInfo);
 
         // First check if we got expected number of key frames.
@@ -236,12 +243,6 @@ public class Vp8EncoderTest extends Vp8CodecTestBase {
      * bitrate after 6 seconds and ensure the encoder responds.
      */
     public void testDynamicBitrateChange() throws Exception {
-        MediaCodecInfo codecInfo = selectCodec(VP8_MIME);
-        if (codecInfo == null) {
-            Log.w(TAG, "Codec " + VP8_MIME + " not supported. Return from testDynamicBitrateChange.");
-            return;
-        }
-
         int encodeSeconds = 12;    // Encoding sequence duration in seconds.
         int[] bitrateTargetValues = { 400000, 800000 };  // List of bitrates to test.
 
@@ -268,6 +269,11 @@ public class Vp8EncoderTest extends Vp8CodecTestBase {
         }
 
         ArrayList<MediaCodec.BufferInfo> bufInfo = encode(params);
+        if (bufInfo == null) {
+            Log.i(TAG, "SKIPPING testDynamicBitrateChange(): no suitable encoder found");
+            return;
+        }
+
         Vp8EncodingStatistics statistics = computeEncodingStatistics(bufInfo);
 
         // Calculate actual average bitrates  for every [stepSeconds] second.
@@ -304,10 +310,12 @@ public class Vp8EncoderTest extends Vp8CodecTestBase {
       * Compares average bitrate and PSNR for sequential and parallel runs.
       */
      public void testParallelEncodingAndDecoding() throws Exception {
-         MediaCodecInfo codecInfo = selectCodec(VP8_MIME);
-         if (codecInfo == null) {
-             Log.w(TAG, "Codec " + VP8_MIME + " not supported. "
-                     + "Return from testParallelEncodingAndDecoding.");
+         // check for encoder up front, as by the time we detect lack of
+         // encoder support, we may have already started decoding.
+         MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+         MediaFormat format = MediaFormat.createVideoFormat(VP8_MIME, WIDTH, HEIGHT);
+         if (mcl.findEncoderForFormat(format) == null) {
+             Log.i(TAG, "SKIPPING testParallelEncodingAndDecoding(): no suitable encoder found");
              return;
          }
 
@@ -343,7 +351,7 @@ public class Vp8EncoderTest extends Vp8CodecTestBase {
          Runnable runDecoder = new Runnable() {
              public void run() {
                  try {
-                     decode(inputIvfFilename, OUTPUT_YUV, FPS, params.forceSwEncoder);
+                     decode(inputIvfFilename, OUTPUT_YUV, FPS, params.forceGoogleEncoder);
                      Vp8DecodingStatistics statistics = computeDecodingStatistics(
                             params.inputYuvFilename, R.raw.football_qvga, OUTPUT_YUV,
                             params.frameWidth, params.frameHeight);
@@ -400,21 +408,17 @@ public class Vp8EncoderTest extends Vp8CodecTestBase {
      * Run the the encoder for 9 seconds for each bitrate and calculate PSNR
      * for each encoded stream.
      * Video streams with higher bitrates should have higher PSNRs.
-     * Also compares average and minimum PSNR of HW codec with PSNR values of reference SW codec.
+     * Also compares average and minimum PSNR of codec with PSNR values of reference Google codec.
      */
     public void testEncoderQuality() throws Exception {
-        MediaCodecInfo codecInfo = selectCodec(VP8_MIME);
-        if (codecInfo == null) {
-            Log.w(TAG, "Codec " + VP8_MIME + " not supported. Return from testEncoderQuality.");
-            return;
-        }
-
         int encodeSeconds = 9;      // Encoding sequence duration in seconds for each bitrate.
         double[] psnrPlatformCodecAverage = new double[TEST_BITRATES_SET.length];
         double[] psnrPlatformCodecMin = new double[TEST_BITRATES_SET.length];
+        boolean[] completed = new boolean[TEST_BITRATES_SET.length];
+        boolean skipped = true;
 
         // Run platform specific encoder for different bitrates
-        // and compare PSNR of hw codec with PSNR of reference sw codec.
+        // and compare PSNR of codec with PSNR of reference Google codec.
         for (int i = 0; i < TEST_BITRATES_SET.length; i++) {
             EncoderOutputStreamParameters params = getDefaultEncodingParameters(
                     INPUT_YUV,
@@ -426,9 +430,15 @@ public class Vp8EncoderTest extends Vp8CodecTestBase {
                     BITRATE_MODE,
                     TEST_BITRATES_SET[i],
                     true);
-            encode(params);
+            if (encode(params) == null) {
+                // parameters not supported, try other bitrates
+                completed[i] = false;
+                continue;
+            }
+            completed[i] = true;
+            skipped = false;
 
-            decode(params.outputIvfFilename, OUTPUT_YUV, FPS, params.forceSwEncoder);
+            decode(params.outputIvfFilename, OUTPUT_YUV, FPS, params.forceGoogleEncoder);
             Vp8DecodingStatistics statistics = computeDecodingStatistics(
                     params.inputYuvFilename, R.raw.football_qvga, OUTPUT_YUV,
                     params.frameWidth, params.frameHeight);
@@ -436,9 +446,20 @@ public class Vp8EncoderTest extends Vp8CodecTestBase {
             psnrPlatformCodecMin[i] = statistics.mMinimumPSNR;
         }
 
+        if (skipped) {
+            Log.i(TAG, "SKIPPING testEncoderQuality(): no bitrates supported");
+            return;
+        }
+
         // First do a sanity check - higher bitrates should results in higher PSNR.
         for (int i = 1; i < TEST_BITRATES_SET.length ; i++) {
+            if (!completed[i]) {
+                continue;
+            }
             for (int j = 0; j < i; j++) {
+                if (!completed[j]) {
+                    continue;
+                }
                 double differenceBitrate = TEST_BITRATES_SET[i] - TEST_BITRATES_SET[j];
                 double differencePSNR = psnrPlatformCodecAverage[i] - psnrPlatformCodecAverage[j];
                 if (differenceBitrate * differencePSNR < 0) {
@@ -450,12 +471,16 @@ public class Vp8EncoderTest extends Vp8CodecTestBase {
             }
         }
 
-        // Then compare average and minimum PSNR of platform codec with reference sw codec -
+        // Then compare average and minimum PSNR of platform codec with reference Google codec -
         // average PSNR for platform codec should be no more than 2 dB less than reference PSNR
         // and minumum PSNR - no more than 4 dB less than reference minimum PSNR.
         // These PSNR difference numbers are arbitrary for now, will need further estimation
-        // when more devices with hw VP8 codec will appear.
+        // when more devices with HW VP8 codec will appear.
         for (int i = 0; i < TEST_BITRATES_SET.length ; i++) {
+            if (!completed[i]) {
+                continue;
+            }
+
             Log.d(TAG, "Bitrate " + TEST_BITRATES_SET[i]);
             Log.d(TAG, "Reference: Average: " + REFERENCE_AVERAGE_PSNR[i] + ". Minimum: " +
                     REFERENCE_MINIMUM_PSNR[i]);
@@ -470,7 +495,7 @@ public class Vp8EncoderTest extends Vp8CodecTestBase {
             if (psnrPlatformCodecMin[i] < REFERENCE_MINIMUM_PSNR[i] -
                     MAX_MINIMUM_PSNR_DIFFERENCE) {
                 throw new RuntimeException("Low minimum PSNR " + psnrPlatformCodecMin[i] +
-                        " comparing to sw PSNR " + REFERENCE_MINIMUM_PSNR[i] +
+                        " comparing to reference PSNR " + REFERENCE_MINIMUM_PSNR[i] +
                         " for bitrate " + TEST_BITRATES_SET[i]);
             }
         }

@@ -24,6 +24,11 @@ class ManagePasswordsIconView : public ManagePasswordsIcon,
   // BubbleIconView:
   virtual bool IsBubbleShowing() const OVERRIDE;
   virtual void OnExecuting(BubbleIconView::ExecuteSource source) OVERRIDE;
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
+  virtual bool OnKeyPressed(const ui::KeyEvent& event) OVERRIDE;
+
+  // views::View:
+  virtual void AboutToRequestFocusFromTabTraversal(bool reverse) OVERRIDE;
 
 #if defined(UNIT_TEST)
   int icon_id() const { return icon_id_; }
@@ -35,9 +40,6 @@ class ManagePasswordsIconView : public ManagePasswordsIcon,
   virtual void UpdateVisibleUI() OVERRIDE;
 
  private:
-  // The ID of the icon and text resources that are currently displayed.
-  int icon_id_;
-  int tooltip_text_id_;
 
   DISALLOW_COPY_AND_ASSIGN(ManagePasswordsIconView);
 };

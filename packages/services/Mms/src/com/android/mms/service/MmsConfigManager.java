@@ -21,9 +21,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Configuration;
-import android.telephony.SubInfoRecord;
+import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
-import android.text.TextUtils;
+import android.telephony.SubscriptionManager.OnSubscriptionsChangedListener;
 import android.util.ArrayMap;
 import android.util.Log;
 
@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 
 import com.android.internal.telephony.IccCardConstants;
-import com.android.internal.telephony.TelephonyIntents;
 
 /**
  * This class manages cached copies of all the MMS configuration for each subscription ID.
@@ -49,8 +48,9 @@ public class MmsConfigManager {
     }
 
     // Map the various subIds to their corresponding MmsConfigs.
-    private final Map<Long, MmsConfig> mSubIdConfigMap = new ArrayMap<Long, MmsConfig>();
+    private final Map<Integer, MmsConfig> mSubIdConfigMap = new ArrayMap<Integer, MmsConfig>();
     private Context mContext;
+    private SubscriptionManager mSubscriptionManager;
 
     /**
      * This receiver listens for changes made to SubInfoRecords and for a broadcast telling us
@@ -63,27 +63,39 @@ public class MmsConfigManager {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             Log.i(TAG, "mReceiver action: " + action);
-            if (action.equals(TelephonyIntents.ACTION_SUBINFO_RECORD_UPDATED) ||
-                    action.equals(TelephonyIntents.ACTION_SUBINFO_CONTENT_CHANGE) ||
-                    action.equals(IccCardConstants.INTENT_VALUE_ICC_LOADED)) {
+            if (action.equals(IccCardConstants.INTENT_VALUE_ICC_LOADED)) {
                 loadInBackground();
             }
         }
     };
 
+    private final OnSubscriptionsChangedListener mOnSubscriptionsChangedListener =
+            new OnSubscriptionsChangedListener() {
+        @Override
+        public void onSubscriptionsChanged() {
+            loadInBackground();
+        }
+    };
+
+
     public void init(final Context context) {
-        IntentFilter intentFilter =
-                new IntentFilter(TelephonyIntents.ACTION_SUBINFO_RECORD_UPDATED);
-        context.registerReceiver(mReceiver, intentFilter);
-        IntentFilter intentFilterChange =
-                new IntentFilter(TelephonyIntents.ACTION_SUBINFO_CONTENT_CHANGE);
-        context.registerReceiver(mReceiver, intentFilterChange);
+        mContext = context;
+        mSubscriptionManager = SubscriptionManager.from(context);
+
+        // TODO: When this object "finishes" we should unregister.
         IntentFilter intentFilterLoaded =
                 new IntentFilter(IccCardConstants.INTENT_VALUE_ICC_LOADED);
         context.registerReceiver(mReceiver, intentFilterLoaded);
 
-        mContext = context;
-        loadInBackground();
+        // TODO: When this object "finishes" we should unregister by invoking
+        // SubscriptionManager.getInstance(mContext).unregister(mOnSubscriptionsChangedListener);
+        // This is not strictly necessary because it will be unregistered if the
+        // notification fails but it is good form.
+
+        // Register for SubscriptionInfo list changes which is guaranteed
+        // to invoke onSubscriptionsChanged the first time.
+        SubscriptionManager.from(mContext).addOnSubscriptionsChangedListener(
+                mOnSubscriptionsChangedListener);
     }
 
     private void loadInBackground() {
@@ -108,9 +120,9 @@ public class MmsConfigManager {
      * @return MmsConfig for the particular subscription id. This function can return null if
      *         the MmsConfig cannot be found or if this function is called before the
      *         TelephonyManager has setup the SIMs or if loadInBackground is still spawning a
-     *         thread after a recent ACTION_SUBINFO_RECORD_UPDATED event.
+     *         thread after a recent LISTEN_SUBSCRIPTION_INFO_LIST_CHANGED event.
      */
-    public MmsConfig getMmsConfigBySubId(long subId) {
+    public MmsConfig getMmsConfigBySubId(int subId) {
         MmsConfig mmsConfig;
         synchronized(mSubIdConfigMap) {
             mmsConfig = mSubIdConfigMap.get(subId);
@@ -126,17 +138,17 @@ public class MmsConfigManager {
      *
      */
     private void load(Context context) {
-        List<SubInfoRecord> subs = SubscriptionManager.getActiveSubInfoList();
+        List<SubscriptionInfo> subs = mSubscriptionManager.getActiveSubscriptionInfoList();
         if (subs == null || subs.size() < 1) {
             Log.e(TAG, "MmsConfigManager.load -- empty getActiveSubInfoList");
             return;
         }
         // Load all the mms_config.xml files in a separate map and then swap with the
         // real map at the end so we don't block anyone sync'd on the real map.
-        final Map<Long, MmsConfig> newConfigMap = new ArrayMap<Long, MmsConfig>();
-        for (SubInfoRecord sub : subs) {
+        final Map<Integer, MmsConfig> newConfigMap = new ArrayMap<Integer, MmsConfig>();
+        for (SubscriptionInfo sub : subs) {
             Configuration configuration = new Configuration();
-            if (sub.mcc == 0 && sub.mnc == 0) {
+            if (sub.getMcc() == 0 && sub.getMnc() == 0) {
                 Configuration config = mContext.getResources().getConfiguration();
                 configuration.mcc = config.mcc;
                 configuration.mnc = config.mnc;
@@ -146,12 +158,13 @@ public class MmsConfigManager {
             } else {
                 Log.i(TAG, "MmsConfigManager.load -- mcc/mnc for sub: " + sub);
 
-                configuration.mcc = sub.mcc;
-                configuration.mnc = sub.mnc;
+                configuration.mcc = sub.getMcc();
+                configuration.mnc = sub.getMnc();
             }
             Context subContext = context.createConfigurationContext(configuration);
 
-            newConfigMap.put(sub.subId, new MmsConfig(subContext, sub.subId));
+            int subId = sub.getSubscriptionId();
+            newConfigMap.put(subId, new MmsConfig(subContext, subId));
         }
         synchronized(mSubIdConfigMap) {
             mSubIdConfigMap.clear();

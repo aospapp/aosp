@@ -17,10 +17,10 @@
 #include "base/observer_list.h"
 #include "base/threading/sequenced_worker_pool.h"
 #include "base/time/time.h"
-#include "chrome/browser/chromeos/login/users/avatar/user_image.h"
 #include "chrome/browser/chromeos/login/users/avatar/user_image_loader.h"
-#include "chrome/browser/chromeos/login/users/user.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
+#include "components/user_manager/user.h"
+#include "components/user_manager/user_image/user_image.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "third_party/icu/source/i18n/unicode/timezone.h"
@@ -33,16 +33,22 @@ class CommandLine;
 class SequencedTaskRunner;
 }
 
+namespace user_manager {
+class User;
+class UserImage;
+}
+
 namespace chromeos {
 
 struct WallpaperInfo {
-  // Online wallpaper URL or file name of migrated wallpaper.
-  std::string file;
+  // Either file name of migrated wallpaper including first directory level
+  // (corresponding to user id hash) or online wallpaper URL.
+  std::string location;
   ash::WallpaperLayout layout;
-  User::WallpaperType type;
+  user_manager::User::WallpaperType type;
   base::Time date;
   bool operator==(const WallpaperInfo& other) {
-    return (file == other.file) && (layout == other.layout) &&
+    return (location == other.location) && (layout == other.layout) &&
         (type == other.type);
   }
 };
@@ -51,7 +57,6 @@ class MovableOnDestroyCallback;
 typedef scoped_ptr<MovableOnDestroyCallback> MovableOnDestroyCallbackHolder;
 
 class WallpaperManagerBrowserTest;
-class UserImage;
 
 // Name of wallpaper sequence token.
 extern const char kWallpaperSequenceTokenName[];
@@ -258,6 +263,13 @@ class WallpaperManager: public content::NotificationObserver {
   // Removes all |user_id| related wallpaper info and saved wallpapers.
   void RemoveUserWallpaperInfo(const std::string& user_id);
 
+  // Calls SetCustomWallpaper() with |user_id_hash| received from cryptohome.
+  void SetCustomWallpaperOnSanitizedUsername(const std::string& user_id,
+                                             const gfx::ImageSkia& image,
+                                             bool update_wallpaper,
+                                             bool cryptohome_success,
+                                             const std::string& user_id_hash);
+
   // Saves custom wallpaper to file, post task to generate thumbnail and updates
   // local state preferences. If |update_wallpaper| is false, don't change
   // wallpaper but only update cache.
@@ -265,7 +277,7 @@ class WallpaperManager: public content::NotificationObserver {
                           const std::string& user_id_hash,
                           const std::string& file,
                           ash::WallpaperLayout layout,
-                          User::WallpaperType type,
+                          user_manager::User::WallpaperType type,
                           const gfx::ImageSkia& image,
                           bool update_wallpaper);
 
@@ -351,9 +363,6 @@ class WallpaperManager: public content::NotificationObserver {
   typedef std::map<std::string, gfx::ImageSkia> CustomWallpaperMap;
 
 
-  // Record data for User Metrics Analysis.
-  static void RecordUma(User::WallpaperType type, int index);
-
   // Saves original custom wallpaper to |path| (absolute path) on filesystem
   // and starts resizing operation of the custom wallpaper if necessary.
   static void SaveCustomWallpaper(const std::string& user_id_hash,
@@ -382,7 +391,7 @@ class WallpaperManager: public content::NotificationObserver {
   // Resize and save customized default wallpaper.
   static void ResizeCustomizedDefaultWallpaper(
       scoped_ptr<gfx::ImageSkia> image,
-      const UserImage::RawImage& raw_image,
+      const user_manager::UserImage::RawImage& raw_image,
       const CustomizedWallpaperRescaledFiles* rescaled_files,
       bool* success,
       gfx::ImageSkia* small_wallpaper_image,
@@ -395,7 +404,7 @@ class WallpaperManager: public content::NotificationObserver {
   // Set wallpaper to |user_image| controlled by policy.  (Takes a UserImage
   // because that's the callback interface provided by UserImageLoader.)
   void SetPolicyControlledWallpaper(const std::string& user_id,
-                                    const UserImage& user_image);
+                                    const user_manager::UserImage& user_image);
 
   // Gets encoded wallpaper from cache. Returns true if success.
   bool GetWallpaperFromCache(const std::string& user_id, gfx::ImageSkia* image);
@@ -466,7 +475,7 @@ class WallpaperManager: public content::NotificationObserver {
                           ash::WallpaperLayout layout,
                           bool update_wallpaper,
                           MovableOnDestroyCallbackHolder on_finish,
-                          const UserImage& user_image);
+                          const user_manager::UserImage& user_image);
 
   // Creates new PendingWallpaper request (or updates currently pending).
   void ScheduleSetUserWallpaper(const std::string& user_id, bool delayed);
@@ -515,7 +524,7 @@ class WallpaperManager: public content::NotificationObserver {
   void OnCustomizedDefaultWallpaperDecoded(
       const GURL& wallpaper_url,
       scoped_ptr<CustomizedWallpaperRescaledFiles> rescaled_files,
-      const UserImage& user_image);
+      const user_manager::UserImage& user_image);
 
   // Check the result of ResizeCustomizedDefaultWallpaper and finally
   // apply Customized Default Wallpaper.
@@ -533,15 +542,16 @@ class WallpaperManager: public content::NotificationObserver {
   // Sets wallpaper to decoded default.
   void OnDefaultWallpaperDecoded(const base::FilePath& path,
                                  const ash::WallpaperLayout layout,
-                                 scoped_ptr<UserImage>* result,
+                                 scoped_ptr<user_manager::UserImage>* result,
                                  MovableOnDestroyCallbackHolder on_finish,
-                                 const UserImage& user_image);
+                                 const user_manager::UserImage& user_image);
 
   // Start decoding given default wallpaper.
-  void StartLoadAndSetDefaultWallpaper(const base::FilePath& path,
-                                       const ash::WallpaperLayout layout,
-                                       MovableOnDestroyCallbackHolder on_finish,
-                                       scoped_ptr<UserImage>* result_out);
+  void StartLoadAndSetDefaultWallpaper(
+      const base::FilePath& path,
+      const ash::WallpaperLayout layout,
+      MovableOnDestroyCallbackHolder on_finish,
+      scoped_ptr<user_manager::UserImage>* result_out);
 
   // Returns wallpaper subdirectory name for current resolution.
   const char* GetCustomWallpaperSubdirForCurrentResolution();
@@ -581,8 +591,6 @@ class WallpaperManager: public content::NotificationObserver {
   scoped_ptr<CrosSettings::ObserverSubscription>
       show_user_name_on_signin_subscription_;
 
-  base::WeakPtrFactory<WallpaperManager> weak_factory_;
-
   content::NotificationRegistrar registrar_;
 
   ObserverList<Observer> observers_;
@@ -612,7 +620,9 @@ class WallpaperManager: public content::NotificationObserver {
   base::FilePath guest_large_wallpaper_file_;
 
   // Current decoded default image is stored in cache.
-  scoped_ptr<UserImage> default_wallpaper_image_;
+  scoped_ptr<user_manager::UserImage> default_wallpaper_image_;
+
+  base::WeakPtrFactory<WallpaperManager> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(WallpaperManager);
 };

@@ -7,12 +7,13 @@
 #include "base/command_line.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/tab_specific_content_settings.h"
-#include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/favicon/favicon_tab_helper.h"
 #include "chrome/browser/history/history_tab_helper.h"
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/net/net_error_tab_helper.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
+#include "chrome/browser/predictors/resource_prefetch_predictor_factory.h"
+#include "chrome/browser/predictors/resource_prefetch_predictor_tab_helper.h"
 #include "chrome/browser/prerender/prerender_tab_helper.h"
 #include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/tab_contents/navigation_metrics_recorder.h"
@@ -22,6 +23,7 @@
 #include "chrome/browser/ui/bookmarks/bookmark_tab_helper.h"
 #include "chrome/browser/ui/find_bar/find_tab_helper.h"
 #include "chrome/browser/ui/navigation_correction_tab_observer.h"
+#include "chrome/browser/ui/pdf/chrome_pdf_web_contents_helper_client.h"
 #include "chrome/browser/ui/prefs/prefs_tab_helper.h"
 #include "chrome/browser/ui/search/search_tab_helper.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
@@ -31,15 +33,12 @@
 #include "components/dom_distiller/content/web_contents_main_frame_observer.h"
 #include "components/password_manager/core/browser/password_manager.h"
 #include "content/public/browser/web_contents.h"
-#include "extensions/browser/view_type_utils.h"
 
 #if defined(OS_ANDROID)
 #include "chrome/browser/android/webapps/single_tab_mode_tab_helper.h"
 #include "chrome/browser/ui/android/context_menu_helper.h"
 #include "chrome/browser/ui/android/window_android_helper.h"
 #else
-#include "chrome/browser/extensions/api/web_navigation/web_navigation_api.h"
-#include "chrome/browser/extensions/chrome_extension_web_contents_observer.h"
 #include "chrome/browser/external_protocol/external_protocol_observer.h"
 #include "chrome/browser/net/predictor_tab_helper.h"
 #include "chrome/browser/plugins/plugin_observer.h"
@@ -47,12 +46,12 @@
 #include "chrome/browser/thumbnails/thumbnail_tab_helper.h"
 #include "chrome/browser/ui/hung_plugin_tab_helper.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
-#include "chrome/browser/ui/pdf/pdf_tab_helper.h"
 #include "chrome/browser/ui/sad_tab_helper.h"
 #include "chrome/browser/ui/search_engines/search_engine_tab_helper.h"
 #include "chrome/browser/ui/sync/tab_contents_synced_tab_delegate.h"
 #include "chrome/browser/ui/website_settings/permission_bubble_manager.h"
 #include "chrome/browser/ui/zoom/zoom_controller.h"
+#include "components/pdf/browser/pdf_web_contents_helper.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #endif  // defined(OS_ANDROID)
 
@@ -62,6 +61,13 @@
 
 #if defined(ENABLE_CAPTIVE_PORTAL_DETECTION)
 #include "chrome/browser/captive_portal/captive_portal_tab_helper.h"
+#endif
+
+#if defined(ENABLE_EXTENSIONS)
+#include "chrome/browser/extensions/api/web_navigation/web_navigation_api.h"
+#include "chrome/browser/extensions/chrome_extension_web_contents_observer.h"
+#include "chrome/browser/extensions/tab_helper.h"
+#include "extensions/browser/view_type_utils.h"
 #endif
 
 #if defined(ENABLE_MANAGED_USERS)
@@ -102,14 +108,21 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   web_contents->SetUserData(&kTabContentsAttachedTabHelpersUserDataKey,
                             new base::SupportsUserData::Data());
 
+#if defined(ENABLE_EXTENSIONS)
   // Set the view type.
   extensions::SetViewType(web_contents, extensions::VIEW_TYPE_TAB_CONTENTS);
+#endif
 
   // Create all the tab helpers.
 
   // SessionTabHelper comes first because it sets up the tab ID, and other
   // helpers may rely on that.
   SessionTabHelper::CreateForWebContents(web_contents);
+#if !defined(OS_ANDROID)
+  // ZoomController comes before common tab helpers since ChromeAutofillClient
+  // may want to register as a ZoomObserver with it.
+  ZoomController::CreateForWebContents(web_contents);
+#endif
 
   // --- Common tab helpers ---
 
@@ -125,7 +138,6 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
       web_contents,
       autofill::ChromeAutofillClient::FromWebContents(web_contents));
   CoreTabHelper::CreateForWebContents(web_contents);
-  extensions::TabHelper::CreateForWebContents(web_contents);
   FaviconTabHelper::CreateForWebContents(web_contents);
   FindTabHelper::CreateForWebContents(web_contents);
   HistoryTabHelper::CreateForWebContents(web_contents);
@@ -155,7 +167,10 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   ExternalProtocolObserver::CreateForWebContents(web_contents);
   HungPluginTabHelper::CreateForWebContents(web_contents);
   ManagePasswordsUIController::CreateForWebContents(web_contents);
-  PDFTabHelper::CreateForWebContents(web_contents);
+  pdf::PDFWebContentsHelper::CreateForWebContentsWithClient(
+      web_contents,
+      scoped_ptr<pdf::PDFWebContentsHelperClient>(
+          new ChromePDFWebContentsHelperClient()));
   PermissionBubbleManager::CreateForWebContents(web_contents);
   PluginObserver::CreateForWebContents(web_contents);
   SadTabHelper::CreateForWebContents(web_contents);
@@ -164,7 +179,6 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   TabContentsSyncedTabDelegate::CreateForWebContents(web_contents);
   ThumbnailTabHelper::CreateForWebContents(web_contents);
   web_modal::WebContentsModalDialogManager::CreateForWebContents(web_contents);
-  ZoomController::CreateForWebContents(web_contents);
 #endif
 
 #if defined(OS_WIN)
@@ -175,6 +189,10 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
 
 #if defined(ENABLE_CAPTIVE_PORTAL_DETECTION)
   CaptivePortalTabHelper::CreateForWebContents(web_contents);
+#endif
+
+#if defined(ENABLE_EXTENSIONS)
+  extensions::TabHelper::CreateForWebContents(web_contents);
 #endif
 
 #if defined(ENABLE_MANAGED_USERS)
@@ -211,4 +229,10 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
         ChromePasswordManagerClient::GetManagerFromWebContents(web_contents));
   }
 #endif
+
+  if (predictors::ResourcePrefetchPredictorFactory::GetForProfile(
+      web_contents->GetBrowserContext())) {
+    predictors::ResourcePrefetchPredictorTabHelper::CreateForWebContents(
+        web_contents);
+  }
 }

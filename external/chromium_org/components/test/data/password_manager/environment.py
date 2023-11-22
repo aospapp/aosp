@@ -6,17 +6,40 @@
 
 import logging
 import shutil
+import sys
 import time
+import traceback
+from xml.etree import ElementTree
+from xml.sax.saxutils import escape
+
+sys.path.insert(0, '../../../../third_party/webdriver/pylib/')
 
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.chrome.options import Options
-from xml.etree import ElementTree
+
 
 # Message strings to look for in chrome://password-manager-internals
 MESSAGE_ASK = "Message: Decision: ASK the user"
 MESSAGE_SAVE = "Message: Decision: SAVE the password"
+
+
+class TestResult:
+  """Stores the information related to a test result. """
+  def __init__(self, name, test_type, successful, message):
+    """Creates a new TestResult.
+
+    Args:
+      name: The tested website name.
+      test_type: The test type.
+      successful: Whether or not the test was successful.
+      message: The error message of the test.
+    """
+    self.name = name
+    self.test_type = test_type
+    self.successful = successful
+    self.message = message
 
 
 class Environment:
@@ -37,7 +60,7 @@ class Environment:
       numeric_level: The log verbosity.
       log_to_console: If True, the debug logs will be shown on the console.
       log_file: The file where to store the log. If it's empty, the log will
-            not be stored.
+          not be stored.
 
     Raises:
       Exception: An exception is raised if |profile_path| folder could not be
@@ -68,29 +91,40 @@ class Environment:
       logging.error("Error: Could not wipe the chrome profile directory (%s). \
           This affects the stability of the tests. Continuing to run tests."
           % e)
-    options = Options()
-    if enable_automatic_password_saving:
-      options.add_argument("enable-automatic-password-saving")
-    # Chrome path.
-    options.binary_location = chrome_path
-    # Chrome testing profile path.
-    options.add_argument("user-data-dir=%s" % profile_path)
+    # If |chrome_path| is not defined, this means that we are in the dashboard
+    # website, and we just need to get the list of all websites. In this case,
+    # we don't need to initilize the webdriver.
+    if chrome_path:
+      options = Options()
+      self.enable_automatic_password_saving = enable_automatic_password_saving
+      if enable_automatic_password_saving:
+        options.add_argument("enable-automatic-password-saving")
+      # Chrome path.
+      options.binary_location = chrome_path
+      # Chrome testing profile path.
+      options.add_argument("user-data-dir=%s" % profile_path)
 
-    # The webdriver. It's possible to choose the port the service is going to
-    # run on. If it's left to 0, a free port will be found.
-    self.driver = webdriver.Chrome(chromedriver_path, 0, options)
-    # The password internals window.
-    self.internals_window = self.driver.current_window_handle
+      # The webdriver. It's possible to choose the port the service is going to
+      # run on. If it's left to 0, a free port will be found.
+      self.driver = webdriver.Chrome(chromedriver_path, 0, options)
+      # The password internals window.
+      self.internals_window = self.driver.current_window_handle
+      if passwords_path:
+        # An xml tree filled with logins and passwords.
+        self.passwords_tree = ElementTree.parse(passwords_path).getroot()
+      else:
+        raise Exception("Error: |passwords_path| needs to be provided if"
+            "|chrome_path| is provided, otherwise the tests could not be run")
     # Password internals page.
     self.internals_page = "chrome://password-manager-internals/"
     # The Website window.
     self.website_window = None
     # The WebsiteTests list.
     self.websitetests = []
-    # An xml tree filled with logins and passwords.
-    self.passwords_tree = ElementTree.parse(passwords_path).getroot()
     # The enabled WebsiteTests list.
     self.working_tests = []
+    # The disabled WebsiteTests list.
+    self.disabled_tests = []
     # Map messages to the number of their appearance in the log.
     self.message_count = dict()
     self.message_count[MESSAGE_ASK] = 0
@@ -99,6 +133,8 @@ class Environment:
     # GoTo. This is why we store here whether or not it's the first time to
     # execute GoTo.
     self.first_go_to = True
+    # List of all tests results.
+    self.tests_results = []
 
   def AddWebsiteTest(self, websitetest, disabled=False):
     """Adds a WebsiteTest to the testing Environment.
@@ -108,8 +144,9 @@ class Environment:
       disabled: Whether test is disabled.
     """
     websitetest.environment = self
-    websitetest.driver = self.driver
-    if self.passwords_tree is not None:
+    if hasattr(self, "driver"):
+      websitetest.driver = self.driver
+    if hasattr(self, "passwords_tree") and self.passwords_tree is not None:
       if not websitetest.username:
         username_tag = (
             self.passwords_tree.find(
@@ -123,23 +160,35 @@ class Environment:
         if password_tag.text:
           websitetest.password = password_tag.text
     self.websitetests.append(websitetest)
-    if not disabled:
+    if disabled:
+      self.disabled_tests.append(websitetest.name)
+    else:
       self.working_tests.append(websitetest.name)
 
-  def RemoveAllPasswords(self):
-    """Removes all the stored passwords."""
-    logging.info("\nRemoveAllPasswords\n")
-    self.driver.get("chrome://settings/passwords")
+  def ClearCache(self, clear_passwords):
+    """Clear the browser cookies. If |clear_passwords| is true, clear all the
+    saved passwords too.
+
+    Args:
+      clear_passwords : Clear all the passwords if the bool value is true.
+    """
+    logging.info("\nClearCache\n")
+    self.driver.get("chrome://settings/clearBrowserData")
     self.driver.switch_to_frame("settings")
-    while True:
-      try:
-        self.driver.execute_script("document.querySelector('"
-          "#saved-passwords-list .row-delete-button').click()")
-        time.sleep(1)
-      except NoSuchElementException:
-        break
-      except WebDriverException:
-        break
+    script = (
+        "if (!document.querySelector('#delete-cookies-checkbox').checked)"
+        "  document.querySelector('#delete-cookies-checkbox').click();"
+        )
+    negation = ""
+    if clear_passwords:
+      negation = "!"
+    script += (
+        "if (%sdocument.querySelector('#delete-passwords-checkbox').checked)"
+        "  document.querySelector('#delete-passwords-checkbox').click();"
+        % negation)
+    script += "document.querySelector('#clear-browser-data-commit').click();"
+    self.driver.execute_script(script)
+    time.sleep(2)
 
   def OpenTabAndGoToInternals(self, url):
     """If there is no |self.website_window|, opens a new tab and navigates to
@@ -252,6 +301,19 @@ class Environment:
     else:
       self.TestList(self.websitetests)
 
+  def DisabledTests(self, prompt_test):
+    """Runs the tests on all the disabled WebsiteTests.
+
+    Args:
+      prompt_test: If True, tests caring about showing the save-password
+          prompt are going to be run, otherwise tests which don't care about
+          the prompt are going to be executed.
+
+    Raises:
+      Exception: An exception is raised if the tests fail.
+    """
+    self.Test(self.disabled_tests, prompt_test)
+
   def WorkingTests(self, prompt_test):
     """Runs the tests on all the enabled WebsiteTests.
 
@@ -297,16 +359,26 @@ class Environment:
     Raises:
       Exception: An exception is raised if the tests fail.
     """
-    self.RemoveAllPasswords()
+    self.ClearCache(True)
 
     for websitetest in websitetests:
-      websitetest.WrongLoginTest()
-      websitetest.SuccessfulLoginTest()
-      websitetest.SuccessfulLoginWithAutofilledPasswordTest()
+      successful = True
+      error = ""
+      try:
+        websitetest.was_run = True
+        websitetest.WrongLoginTest()
+        websitetest.SuccessfulLoginTest()
+        self.ClearCache(False)
+        websitetest.SuccessfulLoginWithAutofilledPasswordTest()
+        self.ClearCache(True)
+        websitetest.SuccessfulLoginTest()
+        self.ClearCache(True)
+      except Exception:
+        successful = False
+        error = traceback.format_exc()
+      self.tests_results.append(TestResult(websitetest.name, "normal",
+          successful, escape(error)))
 
-    self.RemoveAllPasswords()
-    for websitetest in websitetests:
-      websitetest.SuccessfulLoginTest()
 
   def PromptTestList(self, websitetests):
     """Runs the prompt tests on the websites in |websitetests|.
@@ -317,10 +389,19 @@ class Environment:
     Raises:
       Exception: An exception is raised if the tests fail.
     """
-    self.RemoveAllPasswords()
+    self.ClearCache(True)
 
     for websitetest in websitetests:
-      websitetest.PromptTest()
+      successful = True
+      error = ""
+      try:
+        websitetest.was_run = True
+        websitetest.PromptTest()
+      except Exception:
+        successful = False
+        error = traceback.format_exc()
+      self.tests_results.append(TestResult(websitetest.name, "prompt",
+          successful, escape(error)))
 
   def Quit(self):
     """Closes the tests."""

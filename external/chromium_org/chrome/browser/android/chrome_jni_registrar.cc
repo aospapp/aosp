@@ -7,16 +7,19 @@
 #include "base/android/jni_android.h"
 #include "base/android/jni_registrar.h"
 #include "base/debug/trace_event.h"
+#include "chrome/browser/android/accessibility/font_size_prefs_android.h"
 #include "chrome/browser/android/accessibility_util.h"
 #include "chrome/browser/android/banners/app_banner_manager.h"
 #include "chrome/browser/android/bookmarks/bookmarks_bridge.h"
+#include "chrome/browser/android/browser_version.h"
 #include "chrome/browser/android/chrome_web_contents_delegate_android.h"
 #include "chrome/browser/android/chromium_application.h"
 #include "chrome/browser/android/content_view_util.h"
 #include "chrome/browser/android/dev_tools_server.h"
 #include "chrome/browser/android/dom_distiller/feedback_reporter_android.h"
+#include "chrome/browser/android/enhanced_bookmarks/enhanced_bookmarks_bridge.h"
 #include "chrome/browser/android/favicon_helper.h"
-#include "chrome/browser/android/field_trial_helper.h"
+#include "chrome/browser/android/feature_utilities.h"
 #include "chrome/browser/android/foreign_session_helper.h"
 #include "chrome/browser/android/intent_helper.h"
 #include "chrome/browser/android/logo_bridge.h"
@@ -39,6 +42,7 @@
 #include "chrome/browser/android/url_utilities.h"
 #include "chrome/browser/android/voice_search_tab_helper.h"
 #include "chrome/browser/autofill/android/personal_data_manager_android.h"
+#include "chrome/browser/dom_distiller/dom_distiller_service_factory_android.h"
 #include "chrome/browser/dom_distiller/tab_utils_android.h"
 #include "chrome/browser/history/android/sqlite_cursor.h"
 #include "chrome/browser/invalidation/invalidation_controller_android.h"
@@ -58,6 +62,7 @@
 #include "chrome/browser/ui/android/context_menu_helper.h"
 #include "chrome/browser/ui/android/infobars/auto_login_infobar_delegate_android.h"
 #include "chrome/browser/ui/android/infobars/confirm_infobar.h"
+#include "chrome/browser/ui/android/infobars/data_reduction_proxy_infobar.h"
 #include "chrome/browser/ui/android/infobars/infobar_android.h"
 #include "chrome/browser/ui/android/infobars/infobar_container_android.h"
 #include "chrome/browser/ui/android/infobars/save_password_infobar.h"
@@ -69,10 +74,11 @@
 #include "chrome/browser/ui/android/tab_model/tab_model_base.h"
 #include "chrome/browser/ui/android/toolbar/toolbar_model_android.h"
 #include "chrome/browser/ui/android/website_settings_popup_android.h"
-#include "components/autofill/core/browser/android/component_jni_registrar.h"
+#include "components/bookmarks/common/android/component_jni_registrar.h"
 #include "components/dom_distiller/android/component_jni_registrar.h"
 #include "components/gcm_driver/android/component_jni_registrar.h"
 #include "components/navigation_interception/component_jni_registrar.h"
+#include "components/variations/android/component_jni_registrar.h"
 #include "components/web_contents_delegate_android/component_jni_registrar.h"
 
 #if defined(ENABLE_PRINTING) && !defined(ENABLE_FULL_PRINTING)
@@ -86,13 +92,13 @@ namespace android {
 
 static base::android::RegistrationMethod kChromeRegisteredMethods[] = {
   // Register JNI for components we depend on.
+  { "Bookmarks", bookmarks::android::RegisterBookmarks },
   { "DomDistiller", dom_distiller::android::RegisterDomDistiller },
   { "GCMDriver", gcm::android::RegisterGCMDriverJni },
   { "NavigationInterception",
     navigation_interception::RegisterNavigationInterceptionJni },
   { "WebContentsDelegateAndroid",
     web_contents_delegate_android::RegisterWebContentsDelegateAndroidJni },
-  { "RegisterAuxiliaryProfileLoader", autofill::RegisterAutofillAndroidJni },
   // Register JNI for chrome classes.
   { "AccessibilityUtils", AccessibilityUtil::Register },
   { "AccountManagementScreenHelper", AccountManagementScreenHelper::Register },
@@ -113,6 +119,7 @@ static base::android::RegistrationMethod kChromeRegisteredMethods[] = {
     autofill::AutofillPopupViewAndroid::RegisterAutofillPopupViewAndroid },
   { "AutoLoginDelegate", AutoLoginInfoBarDelegateAndroid::Register },
   { "BookmarksBridge", BookmarksBridge::RegisterBookmarksBridge },
+  { "BrowserVersion", RegisterBrowserVersion },
   { "CertificateViewer", RegisterCertificateViewer },
   { "ChromeBrowserProvider",
     ChromeBrowserProvider::RegisterChromeBrowserProvider },
@@ -125,15 +132,21 @@ static base::android::RegistrationMethod kChromeRegisteredMethods[] = {
   { "ConfirmInfoBarDelegate", RegisterConfirmInfoBarDelegate },
   { "ContentViewUtil", RegisterContentViewUtil },
   { "ContextMenuHelper", RegisterContextMenuHelper },
+  { "DataReductionProxyInfoBarDelegate", DataReductionProxyInfoBar::Register },
   { "DataReductionProxySettings", DataReductionProxySettingsAndroid::Register },
   { "DevToolsServer", RegisterDevToolsServer },
+  { "DomDistillerServiceFactory",
+    dom_distiller::android::DomDistillerServiceFactoryAndroid::Register },
   { "DomDistillerTabUtils", RegisterDomDistillerTabUtils },
+  { "EnhancedBookmarksBridge",
+    enhanced_bookmarks::android::RegisterEnhancedBookmarksBridge},
   { "ExternalPrerenderRequestHandler",
       prerender::ExternalPrerenderHandlerAndroid::
       RegisterExternalPrerenderHandlerAndroid },
   { "FaviconHelper", FaviconHelper::RegisterFaviconHelper },
+  { "FeatureUtilities", RegisterFeatureUtilities },
   { "FeedbackReporter", dom_distiller::android::RegisterFeedbackReporter },
-  { "FieldTrialHelper", RegisterFieldTrialHelper },
+  { "FontSizePrefsAndroid", FontSizePrefsAndroid::Register },
   { "ForeignSessionHelper",
     ForeignSessionHelper::RegisterForeignSessionHelper },
   { "InfoBarContainer", RegisterInfoBarContainer },
@@ -173,6 +186,7 @@ static base::android::RegistrationMethod kChromeRegisteredMethods[] = {
   { "TtsPlatformImpl", TtsPlatformImplAndroid::Register },
   { "UmaBridge", RegisterUmaBridge },
   { "UrlUtilities", RegisterUrlUtilities },
+  { "Variations", variations::android::RegisterVariations },
   { "VoiceSearchTabHelper", RegisterVoiceSearchTabHelper },
   { "WebsiteSettingsPopupAndroid",
     WebsiteSettingsPopupAndroid::RegisterWebsiteSettingsPopupAndroid },

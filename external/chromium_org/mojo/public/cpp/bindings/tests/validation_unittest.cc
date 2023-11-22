@@ -185,7 +185,16 @@ class DummyMessageReceiver : public MessageReceiver {
   }
 };
 
-class ValidationIntegrationTest : public testing::Test {
+class ValidationTest : public testing::Test {
+ public:
+  virtual ~ValidationTest() {
+  }
+
+ private:
+  Environment env_;
+};
+
+class ValidationIntegrationTest : public ValidationTest {
  public:
   ValidationIntegrationTest() : test_message_receiver_(NULL) {
   }
@@ -244,7 +253,6 @@ class ValidationIntegrationTest : public testing::Test {
     loop_.RunUntilIdle();
   }
 
-  Environment env_;
   RunLoop loop_;
   TestMessageReceiver* test_message_receiver_;
   ScopedMessagePipeHandle testee_endpoint_;
@@ -267,13 +275,9 @@ class IntegrationTestInterface1Impl
 
   virtual void Method0(BasicStructPtr param0) MOJO_OVERRIDE {
   }
-
-  virtual void OnConnectionError() MOJO_OVERRIDE {
-    delete this;
-  }
 };
 
-TEST(ValidationTest, InputParser) {
+TEST_F(ValidationTest, InputParser) {
   {
     // The parser, as well as Append() defined above, assumes that this code is
     // running on a little-endian platform. Test whether that is true.
@@ -378,13 +382,22 @@ TEST(ValidationTest, InputParser) {
   }
 }
 
-TEST(ValidationTest, Conformance) {
+TEST_F(ValidationTest, Conformance) {
   DummyMessageReceiver dummy_receiver;
   mojo::internal::FilterChain validators(&dummy_receiver);
   validators.Append<mojo::internal::MessageHeaderValidator>();
   validators.Append<ConformanceTestInterface::RequestValidator_>();
 
   RunValidationTests("conformance_", validators.GetHead());
+}
+
+TEST_F(ValidationTest, NotImplemented) {
+  DummyMessageReceiver dummy_receiver;
+  mojo::internal::FilterChain validators(&dummy_receiver);
+  validators.Append<mojo::internal::MessageHeaderValidator>();
+  validators.Append<ConformanceTestInterface::RequestValidator_>();
+
+  RunValidationTests("not_implemented_", validators.GetHead());
 }
 
 TEST_F(ValidationIntegrationTest, InterfacePtr) {
@@ -398,7 +411,7 @@ TEST_F(ValidationIntegrationTest, InterfacePtr) {
   IntegrationTestInterface2Ptr interface2_ptr =
       MakeProxy<IntegrationTestInterface2>(testee_endpoint().Pass());
   interface2_ptr.set_client(&interface1_client);
-  interface2_ptr.internal_state()->router()->EnableTestingMode();
+  interface2_ptr.internal_state()->router_for_testing()->EnableTestingMode();
 
   RunValidationTests("integration_", test_message_receiver());
 }

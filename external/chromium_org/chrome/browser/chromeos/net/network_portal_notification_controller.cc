@@ -15,14 +15,15 @@
 #include "base/metrics/histogram.h"
 #include "base/strings/string16.h"
 #include "base/strings/utf_string_conversions.h"
+#include "chrome/browser/chromeos/mobile/mobile_activator.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
 #include "chrome/browser/ui/singleton_tabs.h"
+#include "chrome/grit/generated_resources.h"
+#include "chrome/grit/theme_resources.h"
 #include "chromeos/chromeos_switches.h"
 #include "chromeos/network/network_state.h"
 #include "components/captive_portal/captive_portal_detector.h"
-#include "grit/generated_resources.h"
-#include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/message_center/message_center.h"
@@ -141,6 +142,10 @@ void NetworkPortalNotificationController::OnPortalDetectionCompleted(
     CloseNotification();
     return;
   }
+
+  // Don't do anything if we're currently activating the device.
+  if (MobileActivator::GetInstance()->RunningActivation())
+    return;
 
   // Don't do anything if notification for |network| already was
   // displayed.

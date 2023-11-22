@@ -5,6 +5,7 @@
 #ifndef COMPONENTS_PASSWORD_MANAGER_CORE_BROWSER_PASSWORD_MANAGER_H_
 #define COMPONENTS_PASSWORD_MANAGER_CORE_BROWSER_PASSWORD_MANAGER_H_
 
+#include <string>
 #include <vector>
 
 #include "base/callback.h"
@@ -95,7 +96,8 @@ class PasswordManager : public LoginModel {
 
   // Handles password forms being rendered.
   void OnPasswordFormsRendered(
-      const std::vector<autofill::PasswordForm>& visible_forms);
+      const std::vector<autofill::PasswordForm>& visible_forms,
+      bool did_stop_loading);
 
   // Handles a password form being submitted.
   virtual void OnPasswordFormSubmitted(
@@ -112,8 +114,14 @@ class PasswordManager : public LoginModel {
     FORM_BLACKLISTED,
     INVALID_FORM,
     AUTOCOMPLETE_OFF,
+    SYNC_CREDENTIAL,
     MAX_FAILURE_VALUE
   };
+
+  // Returns if the password manager is enabled for this page. There are certain
+  // situations (e.g. bad SSL cert) where we disable the password manager
+  // temporarily.
+  bool IsEnabledForCurrentPage() const;
 
   // Log failure for UMA. Logs additional metrics if the |form_origin|
   // corresponds to one of the top, explicitly monitored websites. For some
@@ -177,9 +185,9 @@ class PasswordManager : public LoginModel {
   // The platform-level driver. Must outlive this class.
   PasswordManagerDriver* const driver_;
 
-  // Set to false to disable the password manager (will no longer ask if you
+  // Set to false to disable password saving (will no longer ask if you
   // want to save passwords but will continue to fill passwords).
-  BooleanPrefMember password_manager_enabled_;
+  BooleanPrefMember saving_passwords_enabled_;
 
   // Observers to be notified of LoginModel events.  This is mutable to allow
   // notification in const member functions.
@@ -187,6 +195,12 @@ class PasswordManager : public LoginModel {
 
   // Callbacks to be notified when a password form has been submitted.
   std::vector<PasswordSubmittedCallback> submission_callbacks_;
+
+  // Records all visible forms seen during a page load, in all frames of the
+  // page. When the page stops loading, the password manager checks if one of
+  // the recorded forms matches the login form from the previous page
+  // (to see if the login was a failure), and clears the vector.
+  std::vector<autofill::PasswordForm> all_visible_forms_;
 
   DISALLOW_COPY_AND_ASSIGN(PasswordManager);
 };

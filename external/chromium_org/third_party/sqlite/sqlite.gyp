@@ -119,6 +119,14 @@
           'msvs_disabled_warnings': [
             4018, 4244, 4267,
           ],
+          'variables': {
+            'clang_warning_flags': [
+              # sqlite does `if (*a++ && *b++);` in a non-buggy way.
+              '-Wno-empty-body',
+              # sqlite has some `unsigned < 0` checks.
+              '-Wno-tautological-compare',
+            ],
+          },
           'conditions': [
             ['OS=="linux"', {
               'link_settings': {
@@ -143,7 +151,6 @@
                 'SQLITE_ENABLE_FTS3_BACKWARDS',
                 'DSQLITE_DEFAULT_FILE_FORMAT=4',
               ],
-              'android_enable_fdo': 1,
             }],
             ['os_posix == 1 and OS != "mac" and OS != "android"', {
               'cflags': [
@@ -154,19 +161,11 @@
                 '-Wno-pointer-to-int-cast',
               ],
             }],
-            ['clang==1', {
-              'xcode_settings': {
-                'WARNING_CFLAGS': [
-                  # sqlite does `if (*a++ && *b++);` in a non-buggy way.
-                  '-Wno-empty-body',
-                  # sqlite has some `unsigned < 0` checks.
-                  '-Wno-tautological-compare',
-                ],
+            # Enable feedback-directed optimisation for sqlite when building in android.
+            ['android_webview_build == 1', {
+              'aosp_build_settings': {
+                'LOCAL_FDO_SUPPORT': 'true',
               },
-              'cflags': [
-                '-Wno-empty-body',
-                '-Wno-tautological-compare',
-              ],
             }],
           ],
         }],

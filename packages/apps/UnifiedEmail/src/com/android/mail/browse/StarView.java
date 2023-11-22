@@ -34,6 +34,8 @@ public class StarView extends ImageView {
      */
     public void setStarred(boolean isStarred) {
         mIsStarred = isStarred;
+        setContentDescription(
+                getResources().getString(mIsStarred ? R.string.remove_star : R.string.add_star));
         refreshDrawableState();
     }
 

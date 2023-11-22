@@ -27,7 +27,6 @@
     <string name="meeting_recurring" msgid="2752008481765880928">"መቼ፡ <xliff:g id="EVENTDATE">%s</xliff:g>(ድግግሞሽ)"</string>
     <string name="meeting_allday" msgid="7251209063071628040">"የሚከተለው ሲሆን፤ <xliff:g id="EVENTDATE">%s</xliff:g> (ሁሉም ቀን)"</string>
     <string name="meeting_allday_recurring" msgid="4545762363537362545">"የሚከተለው ሲሆን፤ <xliff:g id="EVENTDATE">%s</xliff:g> (ሁሉም ቀን፣ ተደጋጋሚ)"</string>
-    <string name="notification_exchange_calendar_added" msgid="8998454267739748113">"የቀን መቁጠሪያ ልውውጥ ታክሏል"</string>
     <string name="app_name" msgid="1707639359526090662">"Exchange አገልግሎቶች"</string>
     <string name="exception_cancel" msgid="8972887597771126871">"ይህ ከስተት ለ<xliff:g id="DATE">%s</xliff:g> ተሰርዟል።"</string>
     <string name="exception_updated" msgid="329192591551400871">"የዚህ ክስተት ዝርዝሮች ለ፡<xliff:g id="DATE">%s</xliff:g> ተለውጠዋል"</string>

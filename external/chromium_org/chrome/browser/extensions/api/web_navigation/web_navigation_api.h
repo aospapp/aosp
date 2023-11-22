@@ -52,48 +52,34 @@ class WebNavigationTabObserver
                        const content::NotificationDetails& details) OVERRIDE;
 
   // content::WebContentsObserver implementation.
+  virtual void RenderFrameDeleted(
+      content::RenderFrameHost* render_frame_host) OVERRIDE;
   virtual void RenderViewDeleted(
       content::RenderViewHost* render_view_host) OVERRIDE;
   virtual void AboutToNavigateRenderView(
       content::RenderViewHost* render_view_host) OVERRIDE;
   virtual void DidStartProvisionalLoadForFrame(
-      int64 frame_num,
-      int64 parent_frame_num,
-      bool is_main_frame,
+      content::RenderFrameHost* render_frame_host,
       const GURL& validated_url,
       bool is_error_page,
-      bool is_iframe_srcdoc,
-      content::RenderViewHost* render_view_host) OVERRIDE;
+      bool is_iframe_srcdoc) OVERRIDE;
   virtual void DidCommitProvisionalLoadForFrame(
-      int64 frame_num,
-      const base::string16& frame_unique_name,
-      bool is_main_frame,
+      content::RenderFrameHost* render_frame_host,
       const GURL& url,
-      content::PageTransition transition_type,
-      content::RenderViewHost* render_view_host) OVERRIDE;
+      ui::PageTransition transition_type) OVERRIDE;
   virtual void DidFailProvisionalLoad(
-      int64 frame_num,
-      const base::string16& frame_unique_name,
-      bool is_main_frame,
+      content::RenderFrameHost* render_frame_host,
       const GURL& validated_url,
       int error_code,
-      const base::string16& error_description,
-      content::RenderViewHost* render_view_host) OVERRIDE;
+      const base::string16& error_description) OVERRIDE;
   virtual void DocumentLoadedInFrame(
-      int64 frame_num,
-      content::RenderViewHost* render_view_host) OVERRIDE;
-  virtual void DidFinishLoad(
-      int64 frame_num,
-      const GURL& validated_url,
-      bool is_main_frame,
-      content::RenderViewHost* render_view_host) OVERRIDE;
-  virtual void DidFailLoad(
-      int64 frame_num,
-      const GURL& validated_url,
-      bool is_main_frame,
-      int error_code,
-      const base::string16& error_description,
-      content::RenderViewHost* render_view_host) OVERRIDE;
+      content::RenderFrameHost* render_frame_host) OVERRIDE;
+  virtual void DidFinishLoad(content::RenderFrameHost* render_frame_host,
+                             const GURL& validated_url) OVERRIDE;
+  virtual void DidFailLoad(content::RenderFrameHost* render_frame_host,
+                           const GURL& validated_url,
+                           int error_code,
+                           const base::string16& error_description) OVERRIDE;
   virtual void DidGetRedirectForResourceRequest(
       content::RenderViewHost* render_view_host,
       const content::ResourceRedirectDetails& details) OVERRIDE;
@@ -101,10 +87,8 @@ class WebNavigationTabObserver
                                    const GURL& url,
                                    const content::Referrer& referrer,
                                    WindowOpenDisposition disposition,
-                                   content::PageTransition transition,
+                                   ui::PageTransition transition,
                                    int64 source_frame_num) OVERRIDE;
-  virtual void FrameDetached(content::RenderViewHost* render_view_host,
-                             int64 frame_num) OVERRIDE;
   virtual void WebContentsDestroyed() OVERRIDE;
 
  private:
@@ -113,16 +97,17 @@ class WebNavigationTabObserver
 
   // True if the transition and target url correspond to a reference fragment
   // navigation.
-  bool IsReferenceFragmentNavigation(FrameNavigationState::FrameID frame_id,
+  bool IsReferenceFragmentNavigation(content::RenderFrameHost* frame_host,
                                      const GURL& url);
 
   // Creates and sends onErrorOccurred events for all on-going navigations. If
   // |render_view_host| is non-NULL, only generates events for frames in this
-  // render view host. If |id_to_skip| is given, no events are sent for that
+  // render view host. If |frame_host_to_skip| is given, no events are sent for
+  // that
   // frame.
   void SendErrorEvents(content::WebContents* web_contents,
                        content::RenderViewHost* render_view_host,
-                       FrameNavigationState::FrameID id_to_skip);
+                       content::RenderFrameHost* frame_host_to_skip);
 
   // Tracks the state of the frames we are sending events for.
   FrameNavigationState navigation_state_;
@@ -154,15 +139,13 @@ class WebNavigationEventRouter : public TabStripModelObserver,
   struct PendingWebContents{
     PendingWebContents();
     PendingWebContents(content::WebContents* source_web_contents,
-                       int64 source_frame_id,
-                       bool source_frame_is_main_frame,
+                       content::RenderFrameHost* source_frame_host,
                        content::WebContents* target_web_contents,
                        const GURL& target_url);
     ~PendingWebContents();
 
     content::WebContents* source_web_contents;
-    int64 source_frame_id;
-    bool source_frame_is_main_frame;
+    content::RenderFrameHost* source_frame_host;
     content::WebContents* target_web_contents;
     GURL target_url;
   };

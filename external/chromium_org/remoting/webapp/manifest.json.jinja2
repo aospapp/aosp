@@ -13,10 +13,16 @@
     }
 {% else %}
     "background": {
-      "scripts": ["background.js"]
+      "page": "background.html"
      }
 {% endif %}
   },
+{% if webapp_type == 'v1' %}
+  "background": {
+    "page": "background.html",
+    "persistent": false
+  },
+{% endif %}
   "icons": {
     "128": "chromoting128.webp",
     "48": "chromoting48.webp",
@@ -37,7 +43,7 @@
       "js": [ "cs_third_party_auth_trampoline.js" ]
     }
   ],
-  "content_security_policy": "default-src 'self'; script-src 'self' {{ TALK_GADGET_HOST }}; style-src 'self' https://fonts.googleapis.com; img-src 'self' {{ TALK_GADGET_HOST }} data:; font-src *; connect-src 'self' {{ OAUTH2_ACCOUNTS_HOST }} {{ GOOGLE_API_HOSTS }} {{ TALK_GADGET_HOST }} https://relay.google.com",
+  "content_security_policy": "default-src 'self'; script-src 'self' {{ TALK_GADGET_HOST }} https://www.gstatic.com; style-src 'self' https://fonts.googleapis.com; img-src 'self' {{ TALK_GADGET_HOST }} data:; font-src *; connect-src 'self' {{ OAUTH2_ACCOUNTS_HOST }} {{ GOOGLE_API_HOSTS }} {{ TALK_GADGET_HOST }} https://relay.google.com",
 {% endif %}
   "optional_permissions": [
     "<all_urls>"
@@ -54,7 +60,11 @@
     "pages": [ "wcs_sandbox.html" ]
   },
 {% endif %}
-
+  "externally_connectable": {
+    "matches": [
+        "https://*.talkgadget.google.com/*"
+    ]
+  },
   "permissions": [
     "{{ OAUTH2_ACCOUNTS_HOST }}/*",
     "{{ OAUTH2_API_BASE_URL }}/*",
@@ -67,6 +77,7 @@
     "nativeMessaging"
 {% if webapp_type != 'v1' %}
     ,
+    {"fileSystem": ["write"]},
     "fullscreen",
     "identity",
     "contextMenus",

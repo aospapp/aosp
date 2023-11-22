@@ -60,6 +60,7 @@ class PriorityCalculator;
 class RenderingStatsInstrumentation;
 class ResourceUpdateQueue;
 class ScrollbarLayerInterface;
+class SimpleEnclosedRegion;
 struct AnimationEvent;
 template <typename LayerType>
 class OcclusionTracker;
@@ -331,7 +332,7 @@ class CC_EXPORT Layer : public base::RefCounted<Layer>,
 
   virtual void SetLayerTreeHost(LayerTreeHost* host);
 
-  bool HasDelegatedContent() const { return false; }
+  virtual bool HasDelegatedContent() const;
   bool HasContributingDelegatedRenderPasses() const { return false; }
 
   void SetIsDrawable(bool is_drawable);
@@ -350,8 +351,13 @@ class CC_EXPORT Layer : public base::RefCounted<Layer>,
            (mask_layer_.get() || replica_layer_->mask_layer_.get());
   }
 
-  // These methods typically need to be overwritten by derived classes.
+  int NumDescendantsThatDrawContent() const;
+
+  // This is only virtual for tests.
+  // TODO(awoloszyn): Remove this once we no longer need it for tests
   virtual bool DrawsContent() const;
+
+  // This methods typically need to be overwritten by derived classes.
   virtual void SavePaintProperties();
   // Returns true iff any resources were updated that need to be committed.
   virtual bool Update(ResourceUpdateQueue* queue,
@@ -381,10 +387,6 @@ class CC_EXPORT Layer : public base::RefCounted<Layer>,
   gfx::Size content_bounds() const { return draw_properties_.content_bounds; }
 
   virtual void CalculateContentsScale(float ideal_contents_scale,
-                                      float device_scale_factor,
-                                      float page_scale_factor,
-                                      float maximum_animation_contents_scale,
-                                      bool animating_transform_to_screen,
                                       float* contents_scale_x,
                                       float* contents_scale_y,
                                       gfx::Size* content_bounds);
@@ -416,7 +418,7 @@ class CC_EXPORT Layer : public base::RefCounted<Layer>,
   void RemoveLayerAnimationEventObserver(
       LayerAnimationEventObserver* animation_observer);
 
-  virtual Region VisibleContentOpaqueRegion() const;
+  virtual SimpleEnclosedRegion VisibleContentOpaqueRegion() const;
 
   virtual ScrollbarLayerInterface* ToScrollbarLayer();
 
@@ -485,6 +487,14 @@ class CC_EXPORT Layer : public base::RefCounted<Layer>,
   // before finishing the commit and unblocking the main thread. Used to ensure
   // unused resources on the impl thread are returned before commit completes.
   void SetNextCommitWaitsForActivation();
+
+  // Will recalculate whether the layer draws content and set draws_content_
+  // appropriately.
+  void UpdateDrawsContent(bool has_drawable_content);
+  virtual bool HasDrawableContent() const;
+
+  // Called when the layer's number of drawable descendants changes.
+  void AddDrawableDescendants(int num);
 
   void AddDependentNeedsPushProperties();
   void RemoveDependentNeedsPushProperties();
@@ -579,6 +589,7 @@ class CC_EXPORT Layer : public base::RefCounted<Layer>,
   // transformed relative to this layer, defines the maximum scroll offset for
   // this layer.
   int scroll_clip_layer_id_;
+  int num_descendants_that_draw_content_;
   bool should_scroll_on_main_thread_ : 1;
   bool have_wheel_event_handlers_ : 1;
   bool have_scroll_event_handlers_ : 1;
@@ -587,6 +598,7 @@ class CC_EXPORT Layer : public base::RefCounted<Layer>,
   bool is_root_for_isolated_group_ : 1;
   bool is_container_for_fixed_position_layers_ : 1;
   bool is_drawable_ : 1;
+  bool draws_content_ : 1;
   bool hide_layer_and_subtree_ : 1;
   bool masks_to_bounds_ : 1;
   bool contents_opaque_ : 1;

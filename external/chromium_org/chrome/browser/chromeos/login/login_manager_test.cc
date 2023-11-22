@@ -7,14 +7,14 @@
 #include "base/prefs/scoped_user_pref_update.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/chromeos/login/auth/key.h"
-#include "chrome/browser/chromeos/login/auth/user_context.h"
 #include "chrome/browser/chromeos/login/existing_user_controller.h"
 #include "chrome/browser/chromeos/login/ui/login_display_host_impl.h"
 #include "chrome/browser/chromeos/login/ui/webui_login_view.h"
-#include "chrome/browser/chromeos/login/users/user.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chromeos/chromeos_switches.h"
+#include "chromeos/login/auth/key.h"
+#include "chromeos/login/auth/user_context.h"
+#include "components/user_manager/user.h"
+#include "components/user_manager/user_manager.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test_utils.h"
@@ -29,7 +29,8 @@ LoginManagerTest::LoginManagerTest(bool should_launch_browser)
   set_exit_when_last_browser_closes(false);
 }
 
-void LoginManagerTest::CleanUpOnMainThread() {
+void LoginManagerTest::TearDownOnMainThread() {
+  MixinBasedBrowserTest::TearDownOnMainThread();
   if (LoginDisplayHostImpl::default_host())
     LoginDisplayHostImpl::default_host()->Finalize();
   base::MessageLoop::current()->RunUntilIdle();
@@ -38,6 +39,7 @@ void LoginManagerTest::CleanUpOnMainThread() {
 void LoginManagerTest::SetUpCommandLine(CommandLine* command_line) {
   command_line->AppendSwitch(chromeos::switches::kLoginManager);
   command_line->AppendSwitch(chromeos::switches::kForceLoginManagerInTests);
+  MixinBasedBrowserTest::SetUpCommandLine(command_line);
 }
 
 void LoginManagerTest::SetUpInProcessBrowserTestFixture() {
@@ -46,6 +48,7 @@ void LoginManagerTest::SetUpInProcessBrowserTestFixture() {
   mock_login_utils_->GetFakeLoginUtils()->set_should_launch_browser(
       should_launch_browser_);
   LoginUtils::Set(mock_login_utils_);
+  MixinBasedBrowserTest::SetUpInProcessBrowserTestFixture();
 }
 
 void LoginManagerTest::SetUpOnMainThread() {
@@ -53,6 +56,7 @@ void LoginManagerTest::SetUpOnMainThread() {
       chrome::NOTIFICATION_LOGIN_OR_LOCK_WEBUI_VISIBLE,
       content::NotificationService::AllSources()).Wait();
   InitializeWebContents();
+  MixinBasedBrowserTest::SetUpOnMainThread();
 }
 
 void LoginManagerTest::RegisterUser(const std::string& user_id) {
@@ -67,7 +71,8 @@ void LoginManagerTest::SetExpectedCredentials(const UserContext& user_context) {
 bool LoginManagerTest::TryToLogin(const UserContext& user_context) {
   if (!AddUserToSession(user_context))
     return false;
-  if (const User* active_user = UserManager::Get()->GetActiveUser())
+  if (const user_manager::User* active_user =
+          user_manager::UserManager::Get()->GetActiveUser())
     return active_user->email() == user_context.GetUserID();
   return false;
 }
@@ -79,13 +84,15 @@ bool LoginManagerTest::AddUserToSession(const UserContext& user_context) {
     ADD_FAILURE();
     return false;
   }
-  controller->Login(user_context);
+  controller->Login(user_context, SigninSpecifics());
   content::WindowedNotificationObserver(
       chrome::NOTIFICATION_SESSION_STARTED,
       content::NotificationService::AllSources()).Wait();
-  const UserList& logged_users = UserManager::Get()->GetLoggedInUsers();
-  for (UserList::const_iterator it = logged_users.begin();
-       it != logged_users.end(); ++it) {
+  const user_manager::UserList& logged_users =
+      user_manager::UserManager::Get()->GetLoggedInUsers();
+  for (user_manager::UserList::const_iterator it = logged_users.begin();
+       it != logged_users.end();
+       ++it) {
     if ((*it)->email() == user_context.GetUserID())
       return true;
   }

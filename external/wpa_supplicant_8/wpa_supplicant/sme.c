@@ -487,7 +487,8 @@ static void sme_auth_start_cb(struct wpa_radio_work *work, int deinit)
 
 	wpa_s->connect_work = work;
 
-	if (!wpas_valid_bss_ssid(wpa_s, cwork->bss, cwork->ssid)) {
+	if (cwork->bss_removed ||
+	    !wpas_valid_bss_ssid(wpa_s, cwork->bss, cwork->ssid)) {
 		wpa_dbg(wpa_s, MSG_DEBUG, "SME: BSS/SSID entry for authentication not valid anymore - drop connection attempt");
 		wpas_connect_work_done(wpa_s);
 		return;
@@ -742,7 +743,7 @@ void sme_associate(struct wpa_supplicant *wpa_s, enum wpas_mode mode,
 	params.bssid = bssid;
 	params.ssid = wpa_s->sme.ssid;
 	params.ssid_len = wpa_s->sme.ssid_len;
-	params.freq = wpa_s->sme.freq;
+	params.freq.freq = wpa_s->sme.freq;
 	params.bg_scan_period = wpa_s->current_ssid ?
 		wpa_s->current_ssid->bg_scan_period : -1;
 	params.wpa_ie = wpa_s->sme.assoc_req_ie_len ?
@@ -780,7 +781,7 @@ void sme_associate(struct wpa_supplicant *wpa_s, enum wpas_mode mode,
 	wpa_msg(wpa_s, MSG_INFO, "Trying to associate with " MACSTR
 		" (SSID='%s' freq=%d MHz)", MAC2STR(params.bssid),
 		params.ssid ? wpa_ssid_txt(params.ssid, params.ssid_len) : "",
-		params.freq);
+		params.freq.freq);
 
 	wpa_supplicant_set_state(wpa_s, WPA_ASSOCIATING);
 
@@ -1318,7 +1319,10 @@ static void sme_sa_query_timer(void *eloop_ctx, void *timeout_ctx)
 	wpa_s->sme.sa_query_trans_id = nbuf;
 	wpa_s->sme.sa_query_count++;
 
-	os_get_random(trans_id, WLAN_SA_QUERY_TR_ID_LEN);
+	if (os_get_random(trans_id, WLAN_SA_QUERY_TR_ID_LEN) < 0) {
+		wpa_printf(MSG_DEBUG, "Could not generate SA Query ID");
+		return;
+	}
 
 	timeout = sa_query_retry_timeout;
 	sec = ((timeout / 1000) * 1024) / 1000;

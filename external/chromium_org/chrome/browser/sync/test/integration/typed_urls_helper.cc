@@ -7,17 +7,17 @@
 #include "base/compiler_specific.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/task/cancelable_task_tracker.h"
 #include "base/time/time.h"
-#include "chrome/browser/common/cancelable_request.h"
 #include "chrome/browser/history/history_backend.h"
 #include "chrome/browser/history/history_db_task.h"
 #include "chrome/browser/history/history_service.h"
 #include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/history/history_types.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/test/integration/multi_client_status_change_checker.h"
 #include "chrome/browser/sync/test/integration/sync_datatype_helper.h"
 #include "chrome/browser/sync/test/integration/sync_test.h"
+#include "components/history/core/browser/history_types.h"
 
 using sync_datatype_helper::test;
 
@@ -141,12 +141,14 @@ class RemoveVisitsTask : public history::HistoryDBTask {
 // Waits for the history DB thread to finish executing its current set of
 // tasks.
 void WaitForHistoryDBThread(int index) {
-  CancelableRequestConsumer cancelable_consumer;
+  base::CancelableTaskTracker tracker;
   HistoryService* service = HistoryServiceFactory::GetForProfileWithoutCreating(
       test()->GetProfile(index));
   base::WaitableEvent wait_event(true, false);
-  service->ScheduleDBTask(new FlushHistoryDBQueueTask(&wait_event),
-                          &cancelable_consumer);
+  service->ScheduleDBTask(
+      scoped_ptr<history::HistoryDBTask>(
+          new FlushHistoryDBQueueTask(&wait_event)),
+      &tracker);
   wait_event.Wait();
 }
 
@@ -154,7 +156,7 @@ void WaitForHistoryDBThread(int index) {
 // type.
 void AddToHistory(HistoryService* service,
                   const GURL& url,
-                  content::PageTransition transition,
+                  ui::PageTransition transition,
                   history::VisitSource source,
                   const base::Time& timestamp) {
   service->AddPage(url,
@@ -170,43 +172,51 @@ void AddToHistory(HistoryService* service,
 }
 
 history::URLRows GetTypedUrlsFromHistoryService(HistoryService* service) {
-  CancelableRequestConsumer cancelable_consumer;
+  base::CancelableTaskTracker tracker;
   history::URLRows rows;
   base::WaitableEvent wait_event(true, false);
-  service->ScheduleDBTask(new GetTypedUrlsTask(&rows, &wait_event),
-                          &cancelable_consumer);
+  service->ScheduleDBTask(
+      scoped_ptr<history::HistoryDBTask>(
+          new GetTypedUrlsTask(&rows, &wait_event)),
+      &tracker);
   wait_event.Wait();
   return rows;
 }
 
 bool GetUrlFromHistoryService(HistoryService* service,
                               const GURL& url, history::URLRow* row) {
-  CancelableRequestConsumer cancelable_consumer;
+  base::CancelableTaskTracker tracker;
   base::WaitableEvent wait_event(true, false);
-  bool found;
-  service->ScheduleDBTask(new GetUrlTask(url, row, &found, &wait_event),
-                          &cancelable_consumer);
+  bool found = false;
+  service->ScheduleDBTask(
+      scoped_ptr<history::HistoryDBTask>(
+          new GetUrlTask(url, row, &found, &wait_event)),
+      &tracker);
   wait_event.Wait();
   return found;
 }
 
 history::VisitVector GetVisitsFromHistoryService(HistoryService* service,
                                                  history::URLID id) {
-  CancelableRequestConsumer cancelable_consumer;
+  base::CancelableTaskTracker tracker;
   base::WaitableEvent wait_event(true, false);
   history::VisitVector visits;
-  service->ScheduleDBTask(new GetVisitsTask(id, &visits, &wait_event),
-                          &cancelable_consumer);
+  service->ScheduleDBTask(
+      scoped_ptr<history::HistoryDBTask>(
+          new GetVisitsTask(id, &visits, &wait_event)),
+      &tracker);
   wait_event.Wait();
   return visits;
 }
 
 void RemoveVisitsFromHistoryService(HistoryService* service,
                                     const history::VisitVector& visits) {
-  CancelableRequestConsumer cancelable_consumer;
+  base::CancelableTaskTracker tracker;
   base::WaitableEvent wait_event(true, false);
-  service->ScheduleDBTask(new RemoveVisitsTask(visits, &wait_event),
-                          &cancelable_consumer);
+  service->ScheduleDBTask(
+      scoped_ptr<history::HistoryDBTask>(
+          new RemoveVisitsTask(visits, &wait_event)),
+      &tracker);
   wait_event.Wait();
 }
 
@@ -253,19 +263,19 @@ base::Time GetTimestamp() {
 }
 
 void AddUrlToHistory(int index, const GURL& url) {
-  AddUrlToHistoryWithTransition(index, url, content::PAGE_TRANSITION_TYPED,
+  AddUrlToHistoryWithTransition(index, url, ui::PAGE_TRANSITION_TYPED,
                                 history::SOURCE_BROWSED);
 }
 void AddUrlToHistoryWithTransition(int index,
                                    const GURL& url,
-                                   content::PageTransition transition,
+                                   ui::PageTransition transition,
                                    history::VisitSource source) {
   base::Time timestamp = GetTimestamp();
   AddUrlToHistoryWithTimestamp(index, url, transition, source, timestamp);
 }
 void AddUrlToHistoryWithTimestamp(int index,
                                   const GURL& url,
-                                  content::PageTransition transition,
+                                  ui::PageTransition transition,
                                   history::VisitSource source,
                                   const base::Time& timestamp) {
   AddToHistory(HistoryServiceFactory::GetForProfileWithoutCreating(

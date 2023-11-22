@@ -8,9 +8,7 @@
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
 #include "ash/wm/overview/scoped_transform_overview_window.h"
-#include "grit/ash_resources.h"
 #include "ui/aura/window.h"
-#include "ui/base/resource/resource_bundle.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/transform.h"
@@ -21,9 +19,12 @@ namespace ash {
 
 WindowSelectorWindow::WindowSelectorWindow(aura::Window* window)
     : transform_window_(window) {
+  window->AddObserver(this);
 }
 
 WindowSelectorWindow::~WindowSelectorWindow() {
+  if (transform_window_.window())
+    transform_window_.window()->RemoveObserver(this);
 }
 
 aura::Window* WindowSelectorWindow::GetRootWindow() {
@@ -48,6 +49,7 @@ aura::Window* WindowSelectorWindow::SelectionWindow() {
 
 void WindowSelectorWindow::RemoveWindow(const aura::Window* window) {
   DCHECK_EQ(transform_window_.window(), window);
+  transform_window_.window()->RemoveObserver(this);
   transform_window_.OnWindowDestroyed();
   WindowSelectorItem::RemoveWindow(window);
 }
@@ -69,6 +71,11 @@ void WindowSelectorWindow::SetItemBounds(aura::Window* root_window,
   transform_window_.SetTransform(root_window,
       ScopedTransformOverviewWindow::GetTransformForRect(src_rect, bounds()),
       animate);
+}
+
+void WindowSelectorWindow::SetOpacity(float opacity) {
+  transform_window_.window()->layer()->SetOpacity(opacity);
+  WindowSelectorItem::SetOpacity(opacity);
 }
 
 }  // namespace ash

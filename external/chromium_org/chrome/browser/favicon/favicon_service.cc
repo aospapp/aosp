@@ -77,10 +77,12 @@ std::vector<int> GetPixelSizesForFaviconScales(int size_in_dip) {
 
 }  // namespace
 
-FaviconService::FaviconService(Profile* profile)
-    : history_service_(HistoryServiceFactory::GetForProfile(
-          profile, Profile::EXPLICIT_ACCESS)),
-      profile_(profile) {
+FaviconService::FaviconService(Profile* profile, FaviconClient* favicon_client)
+    : history_service_(
+          HistoryServiceFactory::GetForProfile(profile,
+                                               Profile::EXPLICIT_ACCESS)),
+      profile_(profile),
+      favicon_client_(favicon_client) {
 }
 
 // static
@@ -92,20 +94,18 @@ void FaviconService::FaviconResultsCallbackRunner(
 
 base::CancelableTaskTracker::TaskId FaviconService::GetFaviconImage(
     const GURL& icon_url,
-    favicon_base::IconType icon_type,
-    int desired_size_in_dip,
     const favicon_base::FaviconImageCallback& callback,
     base::CancelableTaskTracker* tracker) {
   favicon_base::FaviconResultsCallback callback_runner =
       Bind(&FaviconService::RunFaviconImageCallbackWithBitmapResults,
-           base::Unretained(this), callback, desired_size_in_dip);
+           base::Unretained(this), callback, gfx::kFaviconSize);
   if (history_service_) {
     std::vector<GURL> icon_urls;
     icon_urls.push_back(icon_url);
     return history_service_->GetFavicons(
         icon_urls,
-        icon_type,
-        GetPixelSizesForFaviconScales(desired_size_in_dip),
+        favicon_base::FAVICON,
+        GetPixelSizesForFaviconScales(gfx::kFaviconSize),
         callback_runner,
         tracker);
   }
@@ -115,12 +115,9 @@ base::CancelableTaskTracker::TaskId FaviconService::GetFaviconImage(
 base::CancelableTaskTracker::TaskId FaviconService::GetRawFavicon(
     const GURL& icon_url,
     favicon_base::IconType icon_type,
-    int desired_size_in_dip,
-    float desired_favicon_scale,
+    int desired_size_in_pixel,
     const favicon_base::FaviconRawBitmapCallback& callback,
     base::CancelableTaskTracker* tracker) {
-  int desired_size_in_pixel =
-      std::ceil(desired_size_in_dip * desired_favicon_scale);
   favicon_base::FaviconResultsCallback callback_runner =
       Bind(&FaviconService::RunFaviconRawBitmapCallbackWithBitmapResults,
            base::Unretained(this),
@@ -158,6 +155,83 @@ base::CancelableTaskTracker::TaskId FaviconService::GetFavicon(
   return RunWithEmptyResultAsync(callback, tracker);
 }
 
+base::CancelableTaskTracker::TaskId FaviconService::GetFaviconImageForPageURL(
+    const GURL& page_url,
+    const favicon_base::FaviconImageCallback& callback,
+    base::CancelableTaskTracker* tracker) {
+  return GetFaviconForPageURLImpl(
+      page_url,
+      favicon_base::FAVICON,
+      GetPixelSizesForFaviconScales(gfx::kFaviconSize),
+      Bind(&FaviconService::RunFaviconImageCallbackWithBitmapResults,
+           base::Unretained(this),
+           callback,
+           gfx::kFaviconSize),
+      tracker);
+}
+
+base::CancelableTaskTracker::TaskId FaviconService::GetRawFaviconForPageURL(
+    const GURL& page_url,
+    int icon_types,
+    int desired_size_in_pixel,
+    const favicon_base::FaviconRawBitmapCallback& callback,
+    base::CancelableTaskTracker* tracker) {
+  std::vector<int> desired_sizes_in_pixel;
+  desired_sizes_in_pixel.push_back(desired_size_in_pixel);
+  return GetFaviconForPageURLImpl(
+      page_url,
+      icon_types,
+      desired_sizes_in_pixel,
+      Bind(&FaviconService::RunFaviconRawBitmapCallbackWithBitmapResults,
+           base::Unretained(this),
+           callback,
+           desired_size_in_pixel),
+      tracker);
+}
+
+base::CancelableTaskTracker::TaskId
+FaviconService::GetLargestRawFaviconForPageURL(
+    const GURL& page_url,
+    const std::vector<int>& icon_types,
+    int minimum_size_in_pixels,
+    const favicon_base::FaviconRawBitmapCallback& callback,
+    base::CancelableTaskTracker* tracker) {
+  favicon_base::FaviconResultsCallback favicon_results_callback =
+      Bind(&FaviconService::RunFaviconRawBitmapCallbackWithBitmapResults,
+           base::Unretained(this),
+           callback,
+           0);
+  if (page_url.SchemeIs(content::kChromeUIScheme) ||
+      page_url.SchemeIs(extensions::kExtensionScheme)) {
+    std::vector<int> desired_sizes_in_pixel;
+    desired_sizes_in_pixel.push_back(0);
+    return GetFaviconForChromeURL(profile_,
+                                  page_url,
+                                  desired_sizes_in_pixel,
+                                  favicon_results_callback,
+                                  tracker);
+  }
+  if (history_service_) {
+    return history_service_->GetLargestFaviconForURL(page_url, icon_types,
+        minimum_size_in_pixels, callback, tracker);
+  }
+  return RunWithEmptyResultAsync(favicon_results_callback, tracker);
+}
+
+base::CancelableTaskTracker::TaskId FaviconService::GetFaviconForPageURL(
+    const GURL& page_url,
+    int icon_types,
+    int desired_size_in_dip,
+    const favicon_base::FaviconResultsCallback& callback,
+    base::CancelableTaskTracker* tracker) {
+  return GetFaviconForPageURLImpl(
+      page_url,
+      icon_types,
+      GetPixelSizesForFaviconScales(desired_size_in_dip),
+      callback,
+      tracker);
+}
+
 base::CancelableTaskTracker::TaskId
 FaviconService::UpdateFaviconMappingsAndFetch(
     const GURL& page_url,
@@ -176,80 +250,6 @@ FaviconService::UpdateFaviconMappingsAndFetch(
         tracker);
   }
   return RunWithEmptyResultAsync(callback, tracker);
-}
-
-base::CancelableTaskTracker::TaskId FaviconService::GetFaviconImageForPageURL(
-    const FaviconForPageURLParams& params,
-    const favicon_base::FaviconImageCallback& callback,
-    base::CancelableTaskTracker* tracker) {
-  return GetFaviconForPageURLImpl(
-      params,
-      GetPixelSizesForFaviconScales(params.desired_size_in_dip),
-      Bind(&FaviconService::RunFaviconImageCallbackWithBitmapResults,
-           base::Unretained(this),
-           callback,
-           params.desired_size_in_dip),
-      tracker);
-}
-
-base::CancelableTaskTracker::TaskId FaviconService::GetRawFaviconForPageURL(
-    const FaviconForPageURLParams& params,
-    float desired_favicon_scale,
-    const favicon_base::FaviconRawBitmapCallback& callback,
-    base::CancelableTaskTracker* tracker) {
-  int desired_size_in_pixel =
-      std::ceil(params.desired_size_in_dip * desired_favicon_scale);
-  std::vector<int> desired_sizes_in_pixel;
-  desired_sizes_in_pixel.push_back(desired_size_in_pixel);
-  return GetFaviconForPageURLImpl(
-      params,
-      desired_sizes_in_pixel,
-      Bind(&FaviconService::RunFaviconRawBitmapCallbackWithBitmapResults,
-           base::Unretained(this),
-           callback,
-           desired_size_in_pixel),
-      tracker);
-}
-
-base::CancelableTaskTracker::TaskId
-FaviconService::GetLargestRawFaviconForPageURL(
-    Profile* profile,
-    const GURL& page_url,
-    const std::vector<int>& icon_types,
-    int minimum_size_in_pixels,
-    const favicon_base::FaviconRawBitmapCallback& callback,
-    base::CancelableTaskTracker* tracker) {
-  favicon_base::FaviconResultsCallback favicon_results_callback =
-      Bind(&FaviconService::RunFaviconRawBitmapCallbackWithBitmapResults,
-           base::Unretained(this),
-           callback,
-           0);
-  if (page_url.SchemeIs(content::kChromeUIScheme) ||
-      page_url.SchemeIs(extensions::kExtensionScheme)) {
-    std::vector<int> desired_sizes_in_pixel;
-    desired_sizes_in_pixel.push_back(0);
-    return GetFaviconForChromeURL(profile,
-                                  page_url,
-                                  desired_sizes_in_pixel,
-                                  favicon_results_callback,
-                                  tracker);
-  }
-  if (history_service_) {
-    return history_service_->GetLargestFaviconForURL(page_url, icon_types,
-        minimum_size_in_pixels, callback, tracker);
-  }
-  return RunWithEmptyResultAsync(favicon_results_callback, tracker);
-}
-
-base::CancelableTaskTracker::TaskId FaviconService::GetFaviconForPageURL(
-    const FaviconForPageURLParams& params,
-    const favicon_base::FaviconResultsCallback& callback,
-    base::CancelableTaskTracker* tracker) {
-  return GetFaviconForPageURLImpl(
-      params,
-      GetPixelSizesForFaviconScales(params.desired_size_in_dip),
-      callback,
-      tracker);
 }
 
 base::CancelableTaskTracker::TaskId FaviconService::GetLargestRawFaviconForID(
@@ -311,32 +311,18 @@ void FaviconService::SetFavicons(const GURL& page_url,
   gfx::ImageSkia image_skia = image.AsImageSkia();
   image_skia.EnsureRepsForSupportedScales();
   const std::vector<gfx::ImageSkiaRep>& image_reps = image_skia.image_reps();
-  std::vector<favicon_base::FaviconRawBitmapData> favicon_bitmap_data;
+  std::vector<SkBitmap> bitmaps;
   const std::vector<float> favicon_scales = favicon_base::GetFaviconScales();
   for (size_t i = 0; i < image_reps.size(); ++i) {
-    // Don't save if the scale isn't one of supported favicon scale.
+    // Don't save if the scale isn't one of supported favicon scales.
     if (std::find(favicon_scales.begin(),
                   favicon_scales.end(),
                   image_reps[i].scale()) == favicon_scales.end()) {
       continue;
     }
-
-    scoped_refptr<base::RefCountedBytes> bitmap_data(
-        new base::RefCountedBytes());
-    if (gfx::PNGCodec::EncodeBGRASkBitmap(image_reps[i].sk_bitmap(),
-                                          false,
-                                          &bitmap_data->data())) {
-      gfx::Size pixel_size(image_reps[i].pixel_width(),
-                           image_reps[i].pixel_height());
-      favicon_base::FaviconRawBitmapData bitmap_data_element;
-      bitmap_data_element.bitmap_data = bitmap_data;
-      bitmap_data_element.pixel_size = pixel_size;
-      bitmap_data_element.icon_url = icon_url;
-
-      favicon_bitmap_data.push_back(bitmap_data_element);
-    }
+    bitmaps.push_back(image_reps[i].sk_bitmap());
   }
-  history_service_->SetFavicons(page_url, icon_type, favicon_bitmap_data);
+  history_service_->SetFavicons(page_url, icon_type, icon_url, bitmaps);
 }
 
 void FaviconService::UnableToDownloadFavicon(const GURL& icon_url) {
@@ -356,18 +342,19 @@ void FaviconService::ClearUnableToDownloadFavicons() {
 FaviconService::~FaviconService() {}
 
 base::CancelableTaskTracker::TaskId FaviconService::GetFaviconForPageURLImpl(
-    const FaviconForPageURLParams& params,
+    const GURL& page_url,
+    int icon_types,
     const std::vector<int>& desired_sizes_in_pixel,
     const favicon_base::FaviconResultsCallback& callback,
     base::CancelableTaskTracker* tracker) {
-  if (params.page_url.SchemeIs(content::kChromeUIScheme) ||
-      params.page_url.SchemeIs(extensions::kExtensionScheme)) {
+  if (page_url.SchemeIs(content::kChromeUIScheme) ||
+      page_url.SchemeIs(extensions::kExtensionScheme)) {
     return GetFaviconForChromeURL(
-        profile_, params.page_url, desired_sizes_in_pixel, callback, tracker);
+        profile_, page_url, desired_sizes_in_pixel, callback, tracker);
   }
   if (history_service_) {
-    return history_service_->GetFaviconsForURL(params.page_url,
-                                               params.icon_types,
+    return history_service_->GetFaviconsForURL(page_url,
+                                               icon_types,
                                                desired_sizes_in_pixel,
                                                callback,
                                                tracker);
@@ -402,7 +389,6 @@ void FaviconService::RunFaviconRawBitmapCallbackWithBitmapResults(
     return;
   }
 
-  DCHECK_EQ(1u, favicon_bitmap_results.size());
   favicon_base::FaviconRawBitmapResult bitmap_result =
       favicon_bitmap_results[0];
 

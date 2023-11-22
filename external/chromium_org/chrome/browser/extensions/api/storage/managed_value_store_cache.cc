@@ -7,7 +7,7 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/callback.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observer.h"
@@ -78,8 +78,10 @@ class ManagedValueStoreCache::ExtensionTracker
       bool is_update,
       bool from_ephemeral,
       const std::string& old_name) OVERRIDE;
-  virtual void OnExtensionUninstalled(content::BrowserContext* browser_context,
-                                      const Extension* extension) OVERRIDE;
+  virtual void OnExtensionUninstalled(
+      content::BrowserContext* browser_context,
+      const Extension* extension,
+      extensions::UninstallReason reason) OVERRIDE;
 
   // Handler for the signal from ExtensionSystem::ready().
   void OnExtensionsReady();
@@ -137,7 +139,8 @@ void ManagedValueStoreCache::ExtensionTracker::OnExtensionWillBeInstalled(
 
 void ManagedValueStoreCache::ExtensionTracker::OnExtensionUninstalled(
     content::BrowserContext* browser_context,
-    const Extension* extension) {
+    const Extension* extension,
+    extensions::UninstallReason reason) {
   if (!ExtensionSystem::Get(profile_)->ready().is_signaled())
     return;
   if (extension && UsesManagedStorage(extension)) {
@@ -158,7 +161,7 @@ void ManagedValueStoreCache::ExtensionTracker::LoadSchemas(
   ExtensionSet::const_iterator it = added->begin();
   while (it != added->end()) {
     std::string to_remove;
-    if (!UsesManagedStorage(*it))
+    if (!UsesManagedStorage(it->get()))
       to_remove = (*it)->id();
     ++it;
     if (!to_remove.empty())
@@ -203,7 +206,10 @@ void ManagedValueStoreCache::ExtensionTracker::LoadSchemasOnBlockingPool(
     std::string error;
     policy::Schema schema =
         StorageSchemaManifestHandler::GetSchema(it->get(), &error);
-    CHECK(schema.valid()) << error;
+    // If the schema is invalid then proceed with an empty schema. The extension
+    // will be listed in chrome://policy but won't be able to load any policies.
+    if (!schema.valid())
+      schema = policy::Schema();
     (*components)[(*it)->id()] = schema;
   }
 

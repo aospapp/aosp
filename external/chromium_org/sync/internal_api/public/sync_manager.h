@@ -12,23 +12,30 @@
 #include "base/callback_forward.h"
 #include "base/files/file_path.h"
 #include "base/memory/ref_counted.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/memory/scoped_vector.h"
 #include "base/task_runner.h"
 #include "base/threading/thread_checker.h"
+#include "google_apis/gaia/oauth2_token_service.h"
 #include "sync/base/sync_export.h"
+#include "sync/internal_api/public/base/invalidation_interface.h"
 #include "sync/internal_api/public/base/model_type.h"
 #include "sync/internal_api/public/change_record.h"
 #include "sync/internal_api/public/configure_reason.h"
 #include "sync/internal_api/public/engine/model_safe_worker.h"
 #include "sync/internal_api/public/engine/sync_status.h"
 #include "sync/internal_api/public/events/protocol_event.h"
-#include "sync/internal_api/public/sync_core_proxy.h"
+#include "sync/internal_api/public/http_post_provider_factory.h"
+#include "sync/internal_api/public/internal_components_factory.h"
+#include "sync/internal_api/public/shutdown_reason.h"
+#include "sync/internal_api/public/sync_context_proxy.h"
 #include "sync/internal_api/public/sync_encryption_handler.h"
 #include "sync/internal_api/public/util/report_unrecoverable_error_function.h"
 #include "sync/internal_api/public/util/unrecoverable_error_handler.h"
 #include "sync/internal_api/public/util/weak_handle.h"
-#include "sync/notifier/invalidation_handler.h"
 #include "sync/protocol/sync_protocol_error.h"
+
+class GURL;
 
 namespace sync_pb {
 class EncryptedData;
@@ -41,12 +48,11 @@ class CancelationSignal;
 class DataTypeDebugInfoListener;
 class Encryptor;
 class ExtensionsActivity;
-class HttpPostProviderFactory;
 class InternalComponentsFactory;
 class JsBackend;
 class JsEventHandler;
 class ProtocolEvent;
-class SyncCoreProxy;
+class SyncContextProxy;
 class SyncEncryptionHandler;
 class SyncScheduler;
 class TypeDebugInfoObserver;
@@ -66,11 +72,18 @@ enum ConnectionStatus {
 };
 
 // Contains everything needed to talk to and identify a user account.
-struct SyncCredentials {
+struct SYNC_EXPORT SyncCredentials {
+  SyncCredentials();
+  ~SyncCredentials();
+
   // The email associated with this account.
   std::string email;
+
   // The raw authentication token's bytes.
   std::string sync_token;
+
+  // The set of scopes to use when talking to sync server.
+  OAuth2TokenService::ScopeSet scope_set;
 };
 
 // SyncManager encapsulates syncable::Directory and serves as the parent of all
@@ -81,7 +94,7 @@ struct SyncCredentials {
 //
 // Unless stated otherwise, all methods of SyncManager should be called on the
 // same thread.
-class SYNC_EXPORT SyncManager : public syncer::InvalidationHandler {
+class SYNC_EXPORT SyncManager {
  public:
   // An interface the embedding application implements to be notified
   // on change events.  Note that these methods may be called on *any*
@@ -208,56 +221,65 @@ class SYNC_EXPORT SyncManager : public syncer::InvalidationHandler {
     virtual ~Observer();
   };
 
+  // Arguments for initializing SyncManager.
+  struct SYNC_EXPORT InitArgs {
+    InitArgs();
+    ~InitArgs();
+
+    // Path in which to create or open sync's sqlite database (aka the
+    // directory).
+    base::FilePath database_location;
+
+    // Used to propagate events to chrome://sync-internals.  Optional.
+    WeakHandle<JsEventHandler> event_handler;
+
+    // URL of the sync server.
+    GURL service_url;
+
+    // Used to communicate with the sync server.
+    scoped_ptr<HttpPostProviderFactory> post_factory;
+
+    std::vector<scoped_refptr<ModelSafeWorker> > workers;
+
+    // Must outlive SyncManager.
+    ExtensionsActivity* extensions_activity;
+
+    // Must outlive SyncManager.
+    ChangeDelegate* change_delegate;
+
+    // Credentials to be used when talking to the sync server.
+    SyncCredentials credentials;
+
+    // Unqiuely identifies this client to the invalidation notification server.
+    std::string invalidator_client_id;
+
+    // Used to boostrap the cryptographer.
+    std::string restored_key_for_bootstrapping;
+    std::string restored_keystore_key_for_bootstrapping;
+
+    scoped_ptr<InternalComponentsFactory> internal_components_factory;
+
+    // Must outlive SyncManager.
+    Encryptor* encryptor;
+
+    scoped_ptr<UnrecoverableErrorHandler> unrecoverable_error_handler;
+    ReportUnrecoverableErrorFunction report_unrecoverable_error_function;
+
+    // Carries shutdown requests across threads and will be used to cut short
+    // any network I/O and tell the syncer to exit early.
+    //
+    // Must outlive SyncManager.
+    CancelationSignal* cancelation_signal;
+  };
+
   SyncManager();
   virtual ~SyncManager();
 
-  // Initialize the sync manager.  |database_location| specifies the path of
-  // the directory in which to locate a sqlite repository storing the syncer
-  // backend state. Initialization will open the database, or create it if it
-  // does not already exist. Returns false on failure.
-  // |event_handler| is the JsEventHandler used to propagate events to
-  // chrome://sync-internals.  |event_handler| may be uninitialized.
-  // |sync_server_and_path| and |sync_server_port| represent the Chrome sync
-  // server to use, and |use_ssl| specifies whether to communicate securely;
-  // the default is false.
-  // |post_factory| will be owned internally and used to create
-  // instances of an HttpPostProvider.
-  // |model_safe_worker| ownership is given to the SyncManager.
-  // |user_agent| is a 7-bit ASCII string suitable for use as the User-Agent
-  // HTTP header. Used internally when collecting stats to classify clients.
-  // |invalidator| is owned and used to listen for invalidations.
-  // |invalidator_client_id| is used to unqiuely identify this client to the
-  // invalidation notification server.
-  // |restored_key_for_bootstrapping| is the key used to boostrap the
-  // cryptographer
-  // |keystore_encryption_enabled| determines whether we enable the keystore
-  // encryption functionality in the cryptographer/nigori.
-  // |report_unrecoverable_error_function| may be NULL.
-  // |cancelation_signal| carries shutdown requests across threads.  This one
-  // will be used to cut short any network I/O and tell the syncer to exit
-  // early.
+  // Initialize the sync manager using arguments from |args|.
   //
-  // TODO(akalin): Replace the |post_factory| parameter with a
-  // URLFetcher parameter.
-  virtual void Init(
-      const base::FilePath& database_location,
-      const WeakHandle<JsEventHandler>& event_handler,
-      const std::string& sync_server_and_path,
-      int sync_server_port,
-      bool use_ssl,
-      scoped_ptr<HttpPostProviderFactory> post_factory,
-      const std::vector<scoped_refptr<ModelSafeWorker> >& workers,
-      ExtensionsActivity* extensions_activity,
-      ChangeDelegate* change_delegate,
-      const SyncCredentials& credentials,
-      const std::string& invalidator_client_id,
-      const std::string& restored_key_for_bootstrapping,
-      const std::string& restored_keystore_key_for_bootstrapping,
-      InternalComponentsFactory* internal_components_factory,
-      Encryptor* encryptor,
-      scoped_ptr<UnrecoverableErrorHandler> unrecoverable_error_handler,
-      ReportUnrecoverableErrorFunction report_unrecoverable_error_function,
-      CancelationSignal* cancelation_signal) = 0;
+  // Note, args is passed by non-const pointer because it contains objects like
+  // scoped_ptr.
+  virtual void Init(InitArgs* args) = 0;
 
   virtual ModelTypeSet InitialSyncEndedTypes() = 0;
 
@@ -302,11 +324,12 @@ class SYNC_EXPORT SyncManager : public syncer::InvalidationHandler {
       const base::Closure& retry_task) = 0;
 
   // Inform the syncer of a change in the invalidator's state.
-  virtual void OnInvalidatorStateChange(InvalidatorState state) = 0;
+  virtual void SetInvalidatorEnabled(bool invalidator_enabled) = 0;
 
   // Inform the syncer that its cached information about a type is obsolete.
   virtual void OnIncomingInvalidation(
-      const ObjectIdInvalidationMap& invalidation_map) = 0;
+      syncer::ModelType type,
+      scoped_ptr<syncer::InvalidationInterface> invalidation) = 0;
 
   // Adds a listener to be notified of sync events.
   // NOTE: It is OK (in fact, it's probably a good idea) to call this before
@@ -326,13 +349,13 @@ class SYNC_EXPORT SyncManager : public syncer::InvalidationHandler {
   virtual void SaveChanges() = 0;
 
   // Issue a final SaveChanges, and close sqlite handles.
-  virtual void ShutdownOnSyncThread() = 0;
+  virtual void ShutdownOnSyncThread(ShutdownReason reason) = 0;
 
   // May be called from any thread.
   virtual UserShare* GetUserShare() = 0;
 
   // Returns an instance of the main interface for non-blocking sync types.
-  virtual syncer::SyncCoreProxy* GetSyncCoreProxy() = 0;
+  virtual syncer::SyncContextProxy* GetSyncContextProxy() = 0;
 
   // Returns the cache_guid of the currently open database.
   // Requires that the SyncManager be initialized.

@@ -33,7 +33,6 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/page_navigator.h"
 #include "content/public/test/test_browser_thread.h"
-#include "grit/generated_resources.h"
 #include "ui/aura/env.h"
 #include "ui/aura/env_observer.h"
 #include "ui/aura/window.h"
@@ -41,7 +40,6 @@
 #include "ui/base/test/ui_controls.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/views/controls/button/menu_button.h"
-#include "ui/views/controls/button/text_button.h"
 #include "ui/views/controls/menu/menu_controller.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/controls/menu/submenu_view.h"
@@ -208,7 +206,7 @@ class TestingPageNavigator : public PageNavigator {
   GURL url_;
 };
 
-// TODO(erg): Fix bookmark DBD tests on linux_aura. crbug.com/163931
+// TODO(erg): Fix bookmark DND tests on linux_aura. crbug.com/163931
 #if defined(OS_LINUX) && defined(USE_AURA)
 #define MAYBE(x) DISABLED_##x
 #else
@@ -267,7 +265,7 @@ class BookmarkBarViewEventTestBase : public ViewEventTestBase {
     profile_->CreateBookmarkModel(true);
     model_ = BookmarkModelFactory::GetForProfile(profile_.get());
     test::WaitForBookmarkModelToLoad(model_);
-    profile_->GetPrefs()->SetBoolean(prefs::kShowBookmarkBar, true);
+    profile_->GetPrefs()->SetBoolean(bookmarks::prefs::kShowBookmarkBar, true);
 
     Browser::CreateParams native_params(profile_.get(),
                                         chrome::GetActiveDesktop());
@@ -735,7 +733,9 @@ class BookmarkBarViewTest5 : public BookmarkBarViewEventTestBase {
   GURL url_dragging_;
 };
 
+#if !defined(OS_WIN)  // flaky http://crbug.com/400578
 VIEW_TEST(BookmarkBarViewTest5, MAYBE(DND))
+#endif
 
 // Tests holding mouse down on overflow button, dragging such that menu pops up
 // then selecting an item.
@@ -1158,7 +1158,14 @@ class BookmarkBarViewTest10 : public BookmarkBarViewEventTestBase {
   }
 };
 
-VIEW_TEST(BookmarkBarViewTest10, KeyEvents)
+#if defined(USE_OZONE)
+// ozone bringup - http://crbug.com/401304
+#define MAYBE_KeyEvents DISABLED_KeyEvents
+#else
+#define MAYBE_KeyEvents KeyEvents
+#endif
+
+VIEW_TEST(BookmarkBarViewTest10, MAYBE_KeyEvents)
 
 // Make sure the menu closes with the following sequence: show menu, show
 // context menu, close context menu (via escape), then click else where. This
@@ -1236,6 +1243,10 @@ class BookmarkBarViewTest11 : public BookmarkBarViewEventTestBase {
 
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS) && defined(USE_AURA)
 // TODO(erg): linux_aura bringup: http://crbug.com/163931
+#define MAYBE_CloseMenuAfterClosingContextMenu \
+  DISABLED_CloseMenuAfterClosingContextMenu
+#elif defined(USE_OZONE)
+// ozone bringup - http://crbug.com/401304
 #define MAYBE_CloseMenuAfterClosingContextMenu \
   DISABLED_CloseMenuAfterClosingContextMenu
 #else
@@ -1462,7 +1473,14 @@ class BookmarkBarViewTest14 : public BookmarkBarViewEventTestBase {
   BookmarkContextMenuNotificationObserver observer_;
 };
 
-VIEW_TEST(BookmarkBarViewTest14, ContextMenus2)
+#if defined(USE_OZONE)
+// ozone bringup - http://crbug.com/401304
+#define MAYBE_ContextMenus2 DISABLED_ContextMenus2
+#else
+#define MAYBE_ContextMenus2 ContextMenus2
+#endif
+
+VIEW_TEST(BookmarkBarViewTest14, MAYBE_ContextMenus2)
 
 // Makes sure deleting from the context menu keeps the bookmark menu showing.
 class BookmarkBarViewTest15 : public BookmarkBarViewEventTestBase {
@@ -1663,6 +1681,11 @@ class BookmarkBarViewTest17 : public BookmarkBarViewEventTestBase {
 
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS) && defined(USE_AURA)
 // TODO(erg): linux_aura bringup: http://crbug.com/163931
+#define MAYBE_ContextMenus3 DISABLED_ContextMenus3
+#elif defined(USE_OZONE)
+// ozone bringup - http://crbug.com/401304
+#define MAYBE_ContextMenus3 DISABLED_ContextMenus3
+#elif defined(OS_WIN)  // http://crbug.com/128961
 #define MAYBE_ContextMenus3 DISABLED_ContextMenus3
 #else
 #define MAYBE_ContextMenus3 ContextMenus3

@@ -86,7 +86,7 @@ uchar4 __attribute__((kernel)) bicubic(uint32_t x, uint32_t y) {
     float4 p3  = cubicInterpolate(p30, p31, p32, p33, xf);
 
     float4 p  = cubicInterpolate(p0, p1, p2, p3, yf);
-    p = clamp(p, 0.f, 255.f);
+    p = clamp(p + 0.5f, 0.f, 255.f);
     return convert_uchar4(p);
 }
 

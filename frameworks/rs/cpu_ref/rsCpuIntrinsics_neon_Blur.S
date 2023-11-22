@@ -15,6 +15,7 @@
  */
 
 #define ENTRY(f) .text; .align 4; .globl f; .type f,#function; f: .fnstart
+#define PRIVATE(f) .text; .align 4; .type f,#function; f: .fnstart
 #define END(f) .fnend; .size f, .-f;
 
 .eabi_attribute 25,1 @Tag_ABI_align8_preserved
@@ -1049,7 +1050,7 @@
 /* Dedicated function wrapper for the fetch macro, for the cases where
  * performance isn't that important, to keep code size down.
  */
-ENTRY(fetch_generic_asm)
+PRIVATE(fetch_generic_asm)
             push        {r10,r11}
             fetch
             pop         {r10,r11}
@@ -1060,61 +1061,46 @@ END(fetch_generic_asm)
  * across to fill the rest of the register pair.  Used for filling the right
  * hand edge of the window when starting too close to the right hand edge of
  * the image.
+ * Also returns a dup-ed copy of the last element in q12 for the tail-fill
+ * case (this happens incidentally in common path, but must be done
+ * deliberately in the fast-out path).
  */
-ENTRY(prefetch_clamp1)
-            rsb         r11, r11, #0
-            tst         r11, #8
+PRIVATE(prefetch_clampright1)
+            ands        r12, r11, #15
             beq         1f
-            vmov.u16    q11, q10
-            sub         r1, r1, #16
-1:          vmov.u16    q12, q11
-            vmov.i8     d26, #0xff
-            tst         r11, #4
-            beq         1f
-            vext.u16    q12, q12, q12, #4
-            sub         r1, r1, #8
-            vshl.u64    d26, d26, #32
-1:          tst         r11, #2
-            beq         1f
-            vext.u16    q12, q12, q12, #6
-            sub         r1, r1, #4
-            vshl.u64    d26, d26, #16
-1:          tst         r11, #1
-            beq         1f
-            vext.u16    q12, q12, q12, #7
-            sub         r1, r1, #2
-            vshl.u64    d26, d26, #8
-1:          vdup.u16    q12, d25[2]
-            vmovl.s8    q13, d26
-            vbif        q11, q12, q13
-1:          tst         r11, #8
-            beq         1f
-            vmov        q10, q11
-            vmov        q11, q12
-1:          rsb         r11, r11, #0
+            sub         r12, r12, #1
+            sub         sp, sp, #64
+            vst1.u16    {q10,q11}, [sp]
+            add         r12, sp, r12, LSL #1
+            vld1.u16    {d24[]}, [r12]
+            vld1.u16    {d25[]}, [r12]
+            vst1.u16    {q12}, [r12]!
+            vst1.u16    {q12}, [r12]
+            vld1.u16    {q10,q11}, [sp]
+            add         sp, sp, #64
             bx          lr
-END(prefetch_clamp1)
+1:          vdup.u16    q12, d23[3]
+            bx          lr
+END(prefetch_clampright1)
 
-ENTRY(prefetch_clamp4)
-            rsb         r11, r11, #0
-            tst         r11, #8
+PRIVATE(prefetch_clampright4)
+            ands        r12, r11, #15
             beq         1f
-            sub         r1, r1, #16
-            vmov.u16    q11, q10
-1:          vmov        d24, d23
-            tst         r11, #4
-            beq         1f
-            vmov        d24, d22
-            sub         r1, r1, #8
-            vmov        d23, d22
-1:          vmov        d25, d24
-            tst         r11, #8
-            beq         1f
-            vmov        q10, q11
-            vmov        q11, q12
-1:          rsb         r11, r11, #0
+            sub         r12, r12, #4
+            sub         sp, sp, #64
+            vst1.u16    {q10,q11}, [sp]
+            add         r12, sp, r12, LSL #1
+            vld1.u64    {d24}, [r12]
+            vld1.u64    {d25}, [r12]
+            vst1.u16    {q12}, [r12]!
+            vst1.u16    {q12}, [r12]
+            vld1.u16    {q10,q11}, [sp]
+            add         sp, sp, #64
             bx          lr
-END(prefetch_clamp4)
+1:          vmov.u16    d24, d23
+            vmov.u16    d25, d23
+            bx          lr
+END(prefetch_clampright4)
 
 
 /* Helpers for prefetch, below.
@@ -1147,10 +1133,10 @@ END(prefetch_clamp4)
             prefetch_out \qa, \qb, \store, q10, q11, d23
             bl          fetch_generic_asm
             b           2f
-3:          bl          prefetch_clamp\step
+3:          bl          prefetch_clampright\step
             prefetch_out \qa, \qb, \store, q10, q11, d23
 4:          b           4f+4
-            @q12 contains pad word from prefetch_clam call
+            @q12 contains pad word from prefetch_clampright call
             prefetch_out \qa, \qb, \store, q12, q12, d25
   .if \rem > 0
             b           4f+4
@@ -1205,28 +1191,18 @@ END(prefetch_clamp4)
             vmov.u16    d18, d20
             vmov.u16    d19, d20
   .endif
-            tst         r10, #15
+            ands        r12, r10, #15
             beq         2f
-            rsb         r12, r10, #0
-            tst         r10, #8
-            beq         1f
-            vmov.u16    q11, q10
-            vmov.u16    q10, q9
-1:          tst         r12, #4
-            beq         1f
-            vext.u16    q11, q10, q11, #4
-            vext.u16    q10, q9, q10, #4
-  .if \step == 1
-  1:        tst         r12, #2
-            beq         1f
-            vext.u16    q11, q10, q11, #2
-            vext.u16    q10, q9, q10, #2
-  1:        tst         r12, #1
-            beq         1f
-            vext.u16    q11, q10, q11, #1
-            vext.u16    q10, q9, q10, #1
-  .endif
-1:          sub         r1, r1, r10
+            sub         sp, sp, #32
+            vst1.u16    {q10,q11}, [sp]
+            sub         r12, sp, r12, LSL #1
+            sub         sp, sp, #16
+            vst1.u16    {q9}, [sp]
+            sub         sp, sp, #16
+            vst1.u16    {q9}, [sp]
+            vld1.u16    {q10,q11}, [r12]
+            add         sp, sp, #64
+            sub         r1, r1, r10
             bic         r10, r10, #15
             add         r1, r1, r10
 2:
@@ -1383,7 +1359,7 @@ END(prefetch_clamp4)
 .endm
 
 .irep r, TUNED_LIST1, 25
-ENTRY(convolve1_\r)
+PRIVATE(convolve1_\r)
             push        {r12,lr}
 
             sub         r1, r1, r8
@@ -1397,7 +1373,7 @@ END(convolve1_\r)
 .endr
 
 .irep r, TUNED_LIST4, 25
-ENTRY(convolve4_\r)
+PRIVATE(convolve4_\r)
             sub         r12, sp, #0x200
             bic         r9, r12, #0x3fc
             mov         sp, r9
@@ -1447,8 +1423,7 @@ ENTRY(rsdIntrinsicBlurU1_K)
 
             ldr         r12, [sp,#124]
 
-            add         r0, r0, r8 @, LSL #2 /* for blur4 option */
-            add         r1, r1, r8 @, LSL #2 /* for blur4 option */
+            add         r1, r1, r8
 
             cmp         r6, r5
             movhi       r6, r5
@@ -1503,7 +1478,6 @@ ENTRY(rsdIntrinsicBlurU4_K)
 
             ldr         r12, [sp,#124]
 
-            add         r0, r0, r8, LSL #2
             add         r1, r1, r8, LSL #2
 
             cmp         r6, r5

@@ -170,7 +170,12 @@ public abstract class CompositeCursorAdapter extends BaseAdapter {
         mCount = 0;
         for (Partition partition : mPartitions) {
             Cursor cursor = partition.cursor;
-            int count = cursor != null ? cursor.getCount() : 0;
+            int count;
+            if (cursor == null || cursor.isClosed()) {
+                count = 0;
+            } else {
+                count = cursor.getCount();
+            }
             if (partition.hasHeader) {
                 if (count != 0 || partition.showIfEmpty) {
                     count++;
@@ -428,7 +433,9 @@ public abstract class CompositeCursorAdapter extends BaseAdapter {
                     return null;
                 }
                 Cursor cursor = mPartition.cursor;
-                cursor.moveToPosition(offset);
+                if (cursor == null || cursor.isClosed() || !cursor.moveToPosition(offset)) {
+                    return null;
+                }
                 return cursor;
             }
             start = end;

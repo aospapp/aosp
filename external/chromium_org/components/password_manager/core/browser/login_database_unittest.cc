@@ -5,7 +5,7 @@
 #include "components/password_manager/core/browser/login_database.h"
 
 #include "base/basictypes.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_vector.h"
 #include "base/path_service.h"
@@ -134,8 +134,11 @@ TEST_F(LoginDatabaseTest, Logins) {
   form.scheme = PasswordForm::SCHEME_HTML;
   form.times_used = 1;
   form.form_data.name = ASCIIToUTF16("form_name");
-  form.form_data.method = ASCIIToUTF16("POST");
   form.date_synced = base::Time::Now();
+  form.display_name = ASCIIToUTF16("Mr. Smith");
+  form.avatar_url = GURL("https://accounts.google.com/Avatar");
+  form.federation_url = GURL("https://accounts.google.com/federation");
+  form.is_zero_click = true;
 
   // Add it and make sure it is there and that all the fields were retrieved
   // correctly.
@@ -254,7 +257,6 @@ TEST_F(LoginDatabaseTest, Logins) {
 }
 
 TEST_F(LoginDatabaseTest, TestPublicSuffixDomainMatching) {
-  PSLMatchingHelper::EnablePublicSuffixDomainMatchingForTesting();
   std::vector<PasswordForm*> result;
 
   // Verify the database is empty.
@@ -304,15 +306,12 @@ TEST_F(LoginDatabaseTest, TestPublicSuffixDomainMatching) {
 }
 
 TEST_F(LoginDatabaseTest, TestPublicSuffixDisabledForNonHTMLForms) {
-  PSLMatchingHelper::EnablePublicSuffixDomainMatchingForTesting();
-
   TestNonHTMLFormPSLMatching(PasswordForm::SCHEME_BASIC);
   TestNonHTMLFormPSLMatching(PasswordForm::SCHEME_DIGEST);
   TestNonHTMLFormPSLMatching(PasswordForm::SCHEME_OTHER);
 }
 
 TEST_F(LoginDatabaseTest, TestPublicSuffixDomainMatchingShouldMatchingApply) {
-  PSLMatchingHelper::EnablePublicSuffixDomainMatchingForTesting();
   std::vector<PasswordForm*> result;
 
   // Verify the database is empty.
@@ -362,7 +361,6 @@ TEST_F(LoginDatabaseTest, TestPublicSuffixDomainMatchingShouldMatchingApply) {
 // instead of GetUniqueStatement, since REGEXP is in use. See
 // http://crbug.com/248608.
 TEST_F(LoginDatabaseTest, TestPublicSuffixDomainMatchingDifferentSites) {
-  PSLMatchingHelper::EnablePublicSuffixDomainMatchingForTesting();
   std::vector<PasswordForm*> result;
 
   // Verify the database is empty.
@@ -456,7 +454,6 @@ PasswordForm GetFormWithNewSignonRealm(PasswordForm form,
 }
 
 TEST_F(LoginDatabaseTest, TestPublicSuffixDomainMatchingRegexp) {
-  PSLMatchingHelper::EnablePublicSuffixDomainMatchingForTesting();
   std::vector<PasswordForm*> result;
 
   // Verify the database is empty.
@@ -590,6 +587,11 @@ static bool AddTimestampedLogin(LoginDatabase* db,
   form.password_element = ASCIIToUTF16(unique_string);
   form.submit_element = ASCIIToUTF16("signIn");
   form.signon_realm = url;
+  form.display_name = ASCIIToUTF16(unique_string);
+  form.avatar_url = GURL("https://accounts.google.com/Avatar");
+  form.federation_url = GURL("https://accounts.google.com/federation");
+  form.is_zero_click = true;
+
   if (date_is_creation)
     form.date_created = time;
   else
@@ -710,6 +712,10 @@ TEST_F(LoginDatabaseTest, BlacklistedLogins) {
   form.blacklisted_by_user = true;
   form.scheme = PasswordForm::SCHEME_HTML;
   form.date_synced = base::Time::Now();
+  form.display_name = ASCIIToUTF16("Mr. Smith");
+  form.avatar_url = GURL("https://accounts.google.com/Avatar");
+  form.federation_url = GURL("https://accounts.google.com/federation");
+  form.is_zero_click = true;
   EXPECT_EQ(AddChangeForForm(form), db_.AddLogin(form));
 
   // Get all non-blacklisted logins (should be none).
@@ -899,6 +905,49 @@ TEST_F(LoginDatabaseTest, DoubleAdd) {
   list.push_back(PasswordStoreChange(PasswordStoreChange::REMOVE, form));
   list.push_back(PasswordStoreChange(PasswordStoreChange::ADD, form));
   EXPECT_EQ(list, db_.AddLogin(form));
+}
+
+TEST_F(LoginDatabaseTest, UpdateLogin) {
+  PasswordForm form;
+  form.origin = GURL("http://accounts.google.com/LoginAuth");
+  form.signon_realm = "http://accounts.google.com/";
+  form.username_value = ASCIIToUTF16("my_username");
+  form.password_value = ASCIIToUTF16("my_password");
+  form.ssl_valid = false;
+  form.preferred = true;
+  form.blacklisted_by_user = false;
+  form.scheme = PasswordForm::SCHEME_HTML;
+  EXPECT_EQ(AddChangeForForm(form), db_.AddLogin(form));
+
+  form.action = GURL("http://accounts.google.com/login");
+  form.password_value = ASCIIToUTF16("my_new_password");
+  form.ssl_valid = true;
+  form.preferred = false;
+  form.other_possible_usernames.push_back(ASCIIToUTF16("my_new_username"));
+  form.times_used = 20;
+  form.submit_element = ASCIIToUTF16("submit_element");
+  form.date_synced = base::Time::Now();
+  form.date_created = base::Time::Now() - base::TimeDelta::FromDays(1);
+  // Remove this line after crbug/374132 is fixed.
+  form.date_created = base::Time::FromTimeT(form.date_created.ToTimeT());
+  form.blacklisted_by_user = true;
+  form.scheme = PasswordForm::SCHEME_BASIC;
+  form.type = PasswordForm::TYPE_GENERATED;
+  form.display_name = ASCIIToUTF16("Mr. Smith");
+  form.avatar_url = GURL("https://accounts.google.com/Avatar");
+  form.federation_url = GURL("https://accounts.google.com/federation");
+  form.is_zero_click = true;
+  EXPECT_EQ(UpdateChangeForForm(form), db_.UpdateLogin(form));
+
+  ScopedVector<autofill::PasswordForm> result;
+  EXPECT_TRUE(db_.GetLogins(form, &result.get()));
+  ASSERT_EQ(1U, result.size());
+#if defined(OS_MACOSX) && !defined(OS_IOS)
+  // On Mac, passwords are not stored in login database, instead they're in
+  // the keychain.
+  form.password_value.clear();
+#endif  // OS_MACOSX && !OS_IOS
+  EXPECT_EQ(form, *result[0]);
 }
 
 #if defined(OS_POSIX)

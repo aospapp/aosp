@@ -1842,7 +1842,9 @@ void GLES2Implementation::GenQueriesEXT(GLsizei n, GLuint* queries) {
     return;
   }
   GPU_CLIENT_SINGLE_THREAD_CHECK();
-  GetIdHandler(id_namespaces::kQueries)->MakeIds(this, 0, n, queries);
+  IdAllocatorInterface* id_allocator = GetIdAllocator(id_namespaces::kQueries);
+  for (GLsizei ii = 0; ii < n; ++ii)
+    queries[ii] = id_allocator->AllocateID();
   GenQueriesEXTHelper(n, queries);
   helper_->GenQueriesEXTImmediate(n, queries);
   if (share_group_->bind_generates_resource())
@@ -2133,6 +2135,30 @@ void GLES2Implementation::ScheduleOverlayPlaneCHROMIUM(
                                         uv_y,
                                         uv_width,
                                         uv_height);
+  CheckGLError();
+}
+
+void GLES2Implementation::MatrixLoadfCHROMIUM(GLenum matrixMode,
+                                              const GLfloat* m) {
+  GPU_CLIENT_SINGLE_THREAD_CHECK();
+  GPU_CLIENT_LOG("[" << GetLogPrefix() << "] glMatrixLoadfCHROMIUM("
+                     << GLES2Util::GetStringMatrixMode(matrixMode) << ", "
+                     << static_cast<const void*>(m) << ")");
+  GPU_CLIENT_LOG("values: " << m[0] << ", " << m[1] << ", " << m[2] << ", "
+                            << m[3] << ", " << m[4] << ", " << m[5] << ", "
+                            << m[6] << ", " << m[7] << ", " << m[8] << ", "
+                            << m[9] << ", " << m[10] << ", " << m[11] << ", "
+                            << m[12] << ", " << m[13] << ", " << m[14] << ", "
+                            << m[15]);
+  helper_->MatrixLoadfCHROMIUMImmediate(matrixMode, m);
+  CheckGLError();
+}
+
+void GLES2Implementation::MatrixLoadIdentityCHROMIUM(GLenum matrixMode) {
+  GPU_CLIENT_SINGLE_THREAD_CHECK();
+  GPU_CLIENT_LOG("[" << GetLogPrefix() << "] glMatrixLoadIdentityCHROMIUM("
+                     << GLES2Util::GetStringMatrixMode(matrixMode) << ")");
+  helper_->MatrixLoadIdentityCHROMIUM(matrixMode);
   CheckGLError();
 }
 

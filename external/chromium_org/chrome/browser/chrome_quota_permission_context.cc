@@ -15,18 +15,18 @@
 #include "chrome/browser/ui/website_settings/permission_bubble_manager.h"
 #include "chrome/browser/ui/website_settings/permission_bubble_request.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/generated_resources.h"
+#include "chrome/grit/locale_settings.h"
 #include "components/infobars/core/confirm_infobar_delegate.h"
 #include "components/infobars/core/infobar.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/web_contents.h"
-#include "grit/generated_resources.h"
-#include "grit/locale_settings.h"
 #include "grit/theme_resources.h"
 #include "net/base/net_util.h"
+#include "storage/common/quota/quota_types.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
-#include "webkit/common/quota/quota_types.h"
 
 namespace {
 
@@ -96,7 +96,11 @@ base::string16 QuotaPermissionRequest::GetMessageText() const {
       (requested_quota_ > kRequestLargeQuotaThreshold ?
           IDS_REQUEST_LARGE_QUOTA_INFOBAR_QUESTION :
           IDS_REQUEST_QUOTA_INFOBAR_QUESTION),
-      net::FormatUrl(origin_url_, display_languages_));
+      net::FormatUrl(origin_url_, display_languages_,
+                     net::kFormatUrlOmitUsernamePassword |
+                     net::kFormatUrlOmitTrailingSlashOnBareHostname,
+                     net::UnescapeRule::SPACES, NULL, NULL, NULL)
+  );
 }
 
 base::string16 QuotaPermissionRequest::GetMessageTextFragment() const {
@@ -218,7 +222,11 @@ base::string16 RequestQuotaInfoBarDelegate::GetMessageText() const {
       (requested_quota_ > kRequestLargeQuotaThreshold ?
           IDS_REQUEST_LARGE_QUOTA_INFOBAR_QUESTION :
           IDS_REQUEST_QUOTA_INFOBAR_QUESTION),
-      net::FormatUrl(origin_url_, display_languages_));
+      net::FormatUrl(origin_url_, display_languages_,
+                     net::kFormatUrlOmitUsernamePassword |
+                     net::kFormatUrlOmitTrailingSlashOnBareHostname,
+                     net::UnescapeRule::SPACES, NULL, NULL, NULL)
+      );
 }
 
 bool RequestQuotaInfoBarDelegate::Accept() {
@@ -247,7 +255,7 @@ void ChromeQuotaPermissionContext::RequestQuotaPermission(
     const content::StorageQuotaParams& params,
     int render_process_id,
     const PermissionCallback& callback) {
-  if (params.storage_type != quota::kStorageTypePersistent) {
+  if (params.storage_type != storage::kStorageTypePersistent) {
     // For now we only support requesting quota with this interface
     // for Persistent storage type.
     callback.Run(QUOTA_PERMISSION_RESPONSE_DISALLOW);

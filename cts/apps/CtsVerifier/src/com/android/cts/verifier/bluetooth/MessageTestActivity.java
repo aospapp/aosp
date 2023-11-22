@@ -33,10 +33,10 @@ import android.os.Handler;
 import android.os.Message;
 import android.view.View;
 import android.view.View.OnClickListener;
-import android.view.Window;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -71,6 +71,8 @@ class MessageTestActivity extends PassFailButtons.Activity {
 
     private AlertDialog mInstructionsDialog;
 
+    private ProgressBar mProgressBar;
+
     private String mDeviceAddress;
 
     private final boolean mSecure;
@@ -89,9 +91,10 @@ class MessageTestActivity extends PassFailButtons.Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
         setContentView(R.layout.bt_messages);
         setPassFailButtonClickListeners();
+
+        mProgressBar = (ProgressBar) findViewById(R.id.bt_progress_bar);
 
         if (mServer) {
             setTitle(mSecure ? R.string.bt_secure_server : R.string.bt_insecure_server);
@@ -217,18 +220,18 @@ class MessageTestActivity extends PassFailButtons.Activity {
         switch (state) {
             case BluetoothChatService.STATE_LISTEN:
                 setEmptyViewText(R.string.bt_waiting);
-                setProgressBarIndeterminateVisibility(true);
+                mProgressBar.setVisibility(View.VISIBLE);
                 showInstructionsDialog();
                 break;
 
             case BluetoothChatService.STATE_CONNECTING:
                 setEmptyViewText(R.string.bt_connecting);
-                setProgressBarIndeterminateVisibility(true);
+                mProgressBar.setVisibility(View.VISIBLE);
                 break;
 
             case BluetoothChatService.STATE_CONNECTED:
                 setEmptyViewText(R.string.bt_no_messages);
-                setProgressBarIndeterminateVisibility(false);
+                mProgressBar.setVisibility(View.INVISIBLE);
 
                 hideInstructionsDialog();
                 sendInitialMessageFromClient();
@@ -236,7 +239,7 @@ class MessageTestActivity extends PassFailButtons.Activity {
 
             case BluetoothChatService.STATE_NONE:
                 setEmptyViewText(R.string.bt_no_messages);
-                setProgressBarIndeterminateVisibility(false);
+                mProgressBar.setVisibility(View.INVISIBLE);
                 break;
         }
     }

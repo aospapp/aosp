@@ -274,15 +274,17 @@ href="http://developer.android.com/reference/android/hardware/SensorManager.html
     <td><p>Continuous</p></td>
   </tr>
   <tr>
-    <td><img src="images/battery_icon.png" width="20" height="20" alt="Low power sensor" />
-      <p>i<a href="#geomagnetic_rotation_vector"Geomagnetic rotation vector</a></p></td>
+    <td><p><a href="#geomagnetic_rotation_vector">Geomagnetic rotation
+     vector</a> <img src="images/battery_icon.png" width="20" height="20" alt="Low
+     power sensor" /></p></td>
     <td><p>Attitude</p></td>
     <td><p>Accelerometer, Magnetometer, MUST NOT USE Gyroscope</p></td>
     <td><p>Continuous</p></td>
   </tr>
   <tr>
-    <td><img src="images/battery_icon.png" width="20" height="20" alt="Low power sensor" />
-      <p><a href="#glance_gesture">Glance gesture</a></p></td>
+    <td><a href="#glance_gesture">Glance gesture</a> <img
+     src="images/battery_icon.png" width="20" height="20" alt="Low power sensor"
+     /></p></td>
     <td><p>Interaction</p></td>
     <td><p>Undefined</p></td>
     <td><p>One-shot</p></td>
@@ -318,8 +320,9 @@ href="http://developer.android.com/reference/android/hardware/SensorManager.html
     <td><p>Continuous</p></td>
   </tr>
   <tr>
-    <td><img src="images/battery_icon.png" width="20" height="20" alt="Low power sensor" />
-      <p><a href="#pick_up_gesture">Pick up gesture</a></p></td>
+    <td><p><a href="#pick_up_gesture">Pick up gesture</a> <img
+     src="images/battery_icon.png" width="20" height="20" alt="Low power sensor"
+     /></p></td>
     <td><p>Interaction</p></td>
     <td><p>Undefined</p></td>
     <td><p>One-shot</p></td>
@@ -331,43 +334,46 @@ href="http://developer.android.com/reference/android/hardware/SensorManager.html
     <td><p>Continuous</p></td>
   </tr>
   <tr>
-    <td><img src="images/battery_icon.png" width="20" height="20" alt="Low power sensor" />
-      <p><a href="#significant_motion">Significant motion</a></p></td>
+    <td><p><a href="#significant_motion">Significant motion</a> <img
+     src="images/battery_icon.png" width="20" height="20" alt="Low power sensor"
+     /></p></td>
     <td><p>Activity</p></td>
     <td><p>Accelerometer (or another as long as very low power)</p></td>
     <td><p>One-shot</p></td>
   </tr>
   <tr>
-    <td><img src="images/battery_icon.png" width="20" height="20" alt="Low power sensor" />
-      <p><a href="#step_counter">Step counter</a></p></td>
+    <td><p><a href="#step_counter">Step counter</a> <img
+     src="images/battery_icon.png" width="20" height="20" alt="Low power sensor"
+     /></p></td>
     <td><p>Activity</p></td>
     <td><p>Accelerometer</p></td>
     <td><p>On-change</p></td>
   </tr>
   <tr>
-    <td><img src="images/battery_icon.png" width="20" height="20" alt="Low power sensor" />
-      <p><a href="#step_detector">Step detector</a></p></td>
+    <td><p><a href="#step_detector">Step detector</a> <img
+     src="images/battery_icon.png" width="20" height="20" alt="Low power sensor"
+     /></p></td> <td><p>Activity</p></td>
+    <td><p>Accelerometer</p></td>
+    <td><p>Special</p></td>
+  </tr>
+  <tr>
+    <td><p><a href="#tilt_detector">Tilt detector</a> <img
+     src="images/battery_icon.png" width="20" height="20" alt="Low power sensor"
+     /></p></td>
     <td><p>Activity</p></td>
     <td><p>Accelerometer</p></td>
     <td><p>Special</p></td>
   </tr>
   <tr>
-    <td><img src="images/battery_icon.png" width="20" height="20" alt="Low power sensor" />
-      <p><a href="#tilt_detector">Tilt detector</a></p></td>
-    <td><p>Activity</p></td>
-    <td><p>Accelerometer</p></td>
-    <td><p>Special</p></td>
-  </tr>
-  <tr>
-    <td><img src="images/battery_icon.png" width="20" height="20" alt="Low power sensor" />
-      <p><a href="#wake_up_gesture">Wake up gesture</a></p></td>
+    <td><p><a href="#wake_up_gesture">Wake up gesture</a> <img
+     src="images/battery_icon.png" width="20" height="20" alt="Low power sensor"
+     /></p></td>
     <td><p>Interaction</p></td>
     <td><p>Undefined</p></td>
     <td><p>One-shot</p></td>
   </tr>
 </table>
-<img src="images/battery_icon.png" width="20" height="20" alt="Low power sensor" />
-<p> = Low power sensor</p>
+<p><img src="images/battery_icon.png" width="20" height="20" alt="Low power sensor" /> = Low power sensor</p>
 <h2 id="activity_composite_sensors">Activity composite sensors</h2>
 <h3 id="linear_acceleration">Linear acceleration</h3>
 <p>Underlying physical sensors:  Accelerometer and (if present) Gyroscope (or
@@ -622,7 +628,7 @@ href="http://developer.android.com/reference/android/hardware/SensorManager.html
   direction. (Mathematically speaking, it should be positive in the
   counter-clockwise direction):</p>
 <div class="figure" style="width:264px">
-  <imgsrc="images/axis_positive_roll.png" alt="Depiction of orientation
+  <img src="images/axis_positive_roll.png" alt="Depiction of orientation
    relative to a device" height="253" />
   <p class="img-caption">
     <strong>Figure 2.</strong> Orientation relative to a device.

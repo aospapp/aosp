@@ -80,11 +80,6 @@ public class WifiNetworksBrowseInfo extends BrowseInfoBase {
         mRows.put(SECOND_HEADER_ID, new ArrayObjectAdapter());
     }
 
-    @Override
-    public void refreshContent() {
-        init();
-    }
-
     public void onShutdown() {
         stopScanning();
         mIdToSsidMap.clear();
@@ -111,7 +106,7 @@ public class WifiNetworksBrowseInfo extends BrowseInfoBase {
     }
 
     private void addBrowseHeader(int id, String name) {
-        mHeaderItems.add(new HeaderItem(id, name, null));
+        mHeaderItems.add(new HeaderItem(id, name));
     }
 
     private void initAvailableNetworksBrowseItems(ArrayObjectAdapter row) {

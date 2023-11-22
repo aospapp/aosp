@@ -123,7 +123,7 @@ public class SampleHostTest extends DeviceTestCase implements IAbiReceiver, IBui
         // Start the APK and wait for it to complete.
         mDevice.executeShellCommand(START_COMMAND);
         // Dump logcat.
-        String logs = mDevice.executeAdbCommand("logcat", "-d", CLASS + ":I", "*:S");
+        String logs = mDevice.executeAdbCommand("logcat", "-v", "brief", "-d", CLASS + ":I", "*:S");
         // Search for string.
         String testString = "";
         Scanner in = new Scanner(logs);

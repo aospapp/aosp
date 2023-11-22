@@ -248,9 +248,35 @@ static jstring readSysfs(JNIEnv* env, jobject obj, jstring jPath)
     }
 }
 
+static jint readSysfsTemp(JNIEnv* env, jobject obj, jstring jPath)
+{
+    const char *path = NULL;
+    const int SIZE = 64;
+    char buf[SIZE];
+    // Convention: To allow returning of normal negative temperatures
+    // (say -10C), let us return errno as a negative offset from
+    // absolute zero millidegree C.
+    const int ABS_ZERO = -273000;
+    int ret;
+
+    path = jPath ? env->GetStringUTFChars(jPath, NULL) : NULL;
+    if (!path) {
+        jniThrowNullPointerException(env, "path");
+        return (ABS_ZERO - ENOENT);
+    }
+
+    ret = readFromFile(path, buf, SIZE, true);
+    env->ReleaseStringUTFChars(jPath, path);
+    if (ret > 0) {
+        return atoi(buf);
+    }
+    return (ret + ABS_ZERO);
+}
+
 static JNINativeMethod sMethods[] = {
      /* name, signature, funcPtr */
         {"native_readSysfs", "(Ljava/lang/String;)Ljava/lang/String;", (void*)readSysfs},
+        {"native_readSysfsTemp", "(Ljava/lang/String;)I", (void*)readSysfsTemp},
         {"native_writeSysfs", "(Ljava/lang/String;I)I", (void*)writeSysfs},
         {"native_getThermalZoneIndex", "(Ljava/lang/String;)I", (void*)getThermalZoneIndex},
         {"native_getThermalZoneIndexContains", "(Ljava/lang/String;)I",

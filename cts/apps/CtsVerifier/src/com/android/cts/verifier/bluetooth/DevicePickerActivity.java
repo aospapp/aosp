@@ -29,12 +29,12 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.view.View;
-import android.view.Window;
 import android.view.View.OnClickListener;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.AdapterView.OnItemClickListener;
 
@@ -61,11 +61,14 @@ public class DevicePickerActivity extends Activity {
 
     private TextView mEmptyNewView;
 
+    private ProgressBar mProgressBar;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
         setContentView(R.layout.bt_device_picker);
+
+        mProgressBar = (ProgressBar) findViewById(R.id.bt_progress_bar);
 
         mPairedDevicesAdapter = new ArrayAdapter<Device>(this, R.layout.bt_device_name);
         ListView pairedDevicesListView = (ListView) findViewById(R.id.bt_paired_devices);
@@ -182,10 +185,10 @@ public class DevicePickerActivity extends Activity {
         public void onReceive(Context context, Intent intent) {
             if (BluetoothAdapter.ACTION_DISCOVERY_STARTED.equals(intent.getAction())) {
                 mEmptyNewView.setText(R.string.bt_scanning);
-                setProgressBarIndeterminateVisibility(true);
+                mProgressBar.setVisibility(View.VISIBLE);
             } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(intent.getAction())) {
                 mEmptyNewView.setText(R.string.bt_no_devices);
-                setProgressBarIndeterminateVisibility(false);
+                mProgressBar.setVisibility(View.INVISIBLE);
             } else if (BluetoothDevice.ACTION_FOUND.equals(intent.getAction())) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 if (device.getBondState() != BluetoothDevice.BOND_BONDED) {

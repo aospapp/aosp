@@ -26,6 +26,10 @@
     <string name="device_apps_app_management_force_stop_desc" msgid="221435219644064243">"如果您強制停止應用程式，應用程式可能無法正常運作。"</string>
     <string name="device_apps_app_management_uninstall" msgid="6054050725055974790">"解除安裝"</string>
     <string name="device_apps_app_management_uninstall_desc" msgid="3542570994262234511">"您要解除安裝這個應用程式嗎？"</string>
+    <string name="device_apps_app_management_disable" msgid="1461984395121717076">"停用"</string>
+    <string name="device_apps_app_management_disable_desc" msgid="1362228583828208991">"您要停用這個應用程式嗎？"</string>
+    <string name="device_apps_app_management_enable" msgid="8794752872502256633">"啟用"</string>
+    <string name="device_apps_app_management_enable_desc" msgid="6449017972628203288">"您要啟用這個應用程式嗎？"</string>
     <string name="device_apps_app_management_clear_data" msgid="8288695583331012586">"清除資料"</string>
     <string name="device_apps_app_management_clear_data_desc" msgid="2197842469669426232">"這個應用程式的資料將會全部遭到永久刪除。"</string>
     <string name="device_apps_app_management_clear_data_what" msgid="376666756087041021">"包括所有檔案、設定、帳戶、資料庫等。"</string>

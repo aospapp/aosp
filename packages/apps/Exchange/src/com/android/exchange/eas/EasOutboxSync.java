@@ -83,10 +83,9 @@ public class EasOutboxSync extends EasOperation {
      * need to reset any derived values (eg, mIsEas14).
      */
     @Override
-    public boolean init(final boolean allowReload) {
-        final boolean haveValidAccount = super.init(allowReload);
+    public boolean init() {
         initEas14();
-        return haveValidAccount;
+        return true;
     }
 
     private void initEas14() {
@@ -192,30 +191,30 @@ public class EasOutboxSync extends EasOperation {
                 // The parser holds the status
                 final int status = p.getStatus();
                 if (CommandStatus.isNeedsProvisioning(status)) {
-                    LogUtils.w(LOG_TAG, "Needs provisioning sending mail");
+                    LogUtils.w(LOG_TAG, "Needs provisioning before sending message: %d",
+                            mMessage.mId);
                     return RESULT_PROVISIONING_ERROR;
-                } else if (status == CommandStatus.ITEM_NOT_FOUND &&
-                        mSmartSendInfo != null) {
+                } else if (status == CommandStatus.ITEM_NOT_FOUND && mSmartSendInfo != null) {
                     // Let's retry without "smart" commands.
-                    LogUtils.w(LOG_TAG, "Needs provisioning sending mail");
+                    LogUtils.w(LOG_TAG, "ITEM_NOT_FOUND smart sending message: %d", mMessage.mId);
                     return RESULT_ITEM_NOT_FOUND;
                 }
-
                 // TODO: Set syncServerId = SEND_FAILED in DB?
-                LogUtils.d(LOG_TAG, "General failure sending mail");
+                LogUtils.w(LOG_TAG, "General failure sending message: %d", mMessage.mId);
                 return RESULT_SEND_FAILED;
             } catch (final EmptyStreamException e) {
                 // This is actually fine; an empty stream means SendMail succeeded
-                LogUtils.d(LOG_TAG, "empty response sending mail");
+                LogUtils.d(LOG_TAG, "Empty response sending message: %d", mMessage.mId);
                 // Don't return here, fall through so that we'll delete the sent message.
             } catch (final IOException e) {
                 // Parsing failed in some other way.
-                LogUtils.w(LOG_TAG, "IOException sending mail");
+                LogUtils.e(LOG_TAG, e, "IOException sending message: %d", mMessage.mId);
                 return RESULT_IO_ERROR;
             }
         } else {
             // FLAG: Do we need to parse results for earlier versions?
         }
+        LogUtils.d(LOG_TAG, "Returning RESULT_OK after sending: %d", mMessage.mId);
         mContext.getContentResolver().delete(
             ContentUris.withAppendedId(Message.CONTENT_URI, mMessage.mId), null, null);
         return RESULT_OK;
@@ -349,8 +348,10 @@ public class EasOutboxSync extends EasOperation {
             if (reply && forward) {
                 return null;
             }
-            // If we don't support SmartForward and it's a forward, then don't proceed.
-            if (forward && (account.mFlags & Account.FLAGS_SUPPORTS_SMART_FORWARD) == 0) {
+            // If we don't support SmartForward, then don't proceed.
+            // TODO: For now, we assume that if we do not support Smart Forward, we also don't
+            // support Smart Reply. At some point, perhaps these should be separate flags.
+            if ((account.mFlags & Account.FLAGS_SUPPORTS_SMART_FORWARD) == 0) {
                 return null;
             }
 
@@ -362,6 +363,7 @@ public class EasOutboxSync extends EasOperation {
             // First, we need to get the id of the reply/forward message, 0 is the default value
             // so we are looking for something greater than 0.
             final long refId = Body.restoreBodySourceKey(context, message.mId);
+            LogUtils.d(LOG_TAG, "getSmartSendInfo - found refId: %d for %d", refId, message.mId);
             if (refId > 0) {
                 // Then, we need the serverId and mailboxKey of the message
                 final String[] colsMailboxKey = Utility.getRowColumns(context, Message.CONTENT_URI,
@@ -405,6 +407,10 @@ public class EasOutboxSync extends EasOperation {
                     requiredAtts = null;
                 }
                 return new SmartSendInfo(itemId, collectionId, reply, requiredAtts);
+            } else {
+                LogUtils.w(LOG_TAG,
+                        "getSmartSendInfo - Skipping SmartSend, could not find IDs for: %d",
+                        message.mId);
             }
             return null;
         }

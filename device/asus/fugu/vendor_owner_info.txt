@@ -40,7 +40,6 @@ system/lib/arm/libcamera_client.so:intel
 system/lib/arm/libcamera_metadata.so:intel
 system/lib/arm/libcommon_time_client.so:intel
 system/lib/arm/libcompiler_rt.so:intel
-system/lib/arm/libc_orig.so:intel
 system/lib/arm/libcrypto.so:intel
 system/lib/arm/libc.so:intel
 system/lib/arm/libc++.so:intel
@@ -78,7 +77,6 @@ system/lib/arm/libmediandk.so:intel
 system/lib/arm/libmedia.so:intel
 system/lib/arm/libmemtrack.so:intel
 system/lib/arm/libminikin.so:intel
-system/lib/arm/libm_orig.so:intel
 system/lib/arm/libm.so:intel
 system/lib/arm/libnativebridge.so:intel
 system/lib/arm/libnativehelper.so:intel
@@ -125,7 +123,6 @@ system/lib/arm/libutils.so:intel
 system/lib/arm/libvorbisidec.so:intel
 system/lib/arm/libwebrtc_audio_coding.so:intel
 system/lib/arm/libwilhelm.so:intel
-system/lib/arm/libz_orig.so:intel
 system/lib/arm/libz.so:intel
 system/lib/arm/linker:intel
 system/lib/hw/hdmi_cec.fugu.so:asus
@@ -148,6 +145,7 @@ system/lib/libmixvbp_vp8.so:intel
 system/lib/libOMXVideoDecoderAVCSecure.so:intel
 system/lib/libsepdrm_cc54.so:intel
 system/lib/libstlport-mfx.so:intel
+system/priv-app/AtvRemoteService/AtvRemoteService.apk:google
 system/priv-app/LeanbackLauncher/LeanbackLauncher.apk:google
 system/priv-app/TV/TV.apk:google
 system/usr/share/librscruntime.bc:intel

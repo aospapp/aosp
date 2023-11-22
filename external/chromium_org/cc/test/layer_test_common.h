@@ -7,8 +7,9 @@
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
+#include "cc/quads/render_pass.h"
 #include "cc/test/fake_layer_tree_host.h"
-#include "cc/test/mock_quad_culler.h"
+#include "cc/test/mock_occlusion_tracker.h"
 #include "cc/trees/layer_tree_host_impl.h"
 
 #define EXPECT_SET_NEEDS_COMMIT(expect, code_to_test)                 \
@@ -41,11 +42,9 @@ class LayerTestCommon {
   static void VerifyQuadsExactlyCoverRect(const QuadList& quads,
                                           const gfx::Rect& rect);
 
-  static void VerifyQuadsCoverRectWithOcclusion(
-      const QuadList& quads,
-      const gfx::Rect& rect,
-      const gfx::Rect& occluded,
-      size_t* partially_occluded_count);
+  static void VerifyQuadsAreOccluded(const QuadList& quads,
+                                     const gfx::Rect& occluded,
+                                     size_t* partially_occluded_count);
 
   class LayerImplTest {
    public:
@@ -63,6 +62,15 @@ class LayerTestCommon {
     template <typename T, typename A>
     T* AddChildToRoot(const A& a) {
       scoped_ptr<T> layer = T::Create(host_->host_impl()->active_tree(), 2, a);
+      T* ptr = layer.get();
+      root_layer_impl_->AddChild(layer.template PassAs<LayerImpl>());
+      return ptr;
+    }
+
+    template <typename T, typename A, typename B>
+    T* AddChildToRoot(const A& a, const B& b) {
+      scoped_ptr<T> layer =
+          T::Create(host_->host_impl()->active_tree(), 2, a, b);
       T* ptr = layer.get();
       root_layer_impl_->AddChild(layer.template PassAs<LayerImpl>());
       return ptr;
@@ -99,7 +107,7 @@ class LayerTestCommon {
     void AppendQuadsWithOcclusion(LayerImpl* layer_impl,
                                   const gfx::Rect& occluded);
     void AppendQuadsForPassWithOcclusion(LayerImpl* layer_impl,
-                                         const RenderPass::Id& id,
+                                         const RenderPassId& id,
                                          const gfx::Rect& occluded);
     void AppendSurfaceQuadsWithOcclusion(RenderSurfaceImpl* surface_impl,
                                          const gfx::Rect& occluded);
@@ -113,14 +121,14 @@ class LayerTestCommon {
     LayerImpl* root_layer() const { return root_layer_impl_.get(); }
     FakeLayerTreeHostImpl* host_impl() const { return host_->host_impl(); }
     Proxy* proxy() const { return host_->host_impl()->proxy(); }
-    const QuadList& quad_list() const { return quad_culler_->quad_list(); }
+    const QuadList& quad_list() const { return render_pass_->quad_list; }
 
    private:
+    FakeLayerTreeHostClient client_;
     scoped_ptr<FakeLayerTreeHost> host_;
     scoped_ptr<LayerImpl> root_layer_impl_;
     scoped_ptr<RenderPass> render_pass_;
     MockOcclusionTracker<LayerImpl> occlusion_tracker_;
-    scoped_ptr<MockQuadCuller> quad_culler_;
   };
 };
 

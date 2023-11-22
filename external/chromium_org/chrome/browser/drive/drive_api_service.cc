@@ -8,10 +8,7 @@
 #include <vector>
 
 #include "base/bind.h"
-#include "base/sequenced_task_runner.h"
 #include "base/strings/stringprintf.h"
-#include "base/task_runner_util.h"
-#include "base/values.h"
 #include "chrome/browser/drive/drive_api_util.h"
 #include "content/public/browser/browser_thread.h"
 #include "google_apis/drive/auth_service.h"
@@ -81,6 +78,8 @@ namespace {
 const char kDriveScope[] = "https://www.googleapis.com/auth/drive";
 const char kDriveAppsReadonlyScope[] =
     "https://www.googleapis.com/auth/drive.apps.readonly";
+const char kDriveAppsScope[] = "https://www.googleapis.com/auth/drive.apps";
+const char kDocsListScope[] = "https://docs.google.com/feeds/";
 
 // Mime type to create a directory.
 const char kFolderMimeType[] = "application/vnd.google-apps.folder";
@@ -147,6 +146,16 @@ void ExtractOpenUrlAndRun(const std::string& app_id,
   callback.Run(GDATA_OTHER_ERROR, GURL());
 }
 
+void ExtractShareUrlAndRun(const google_apis::GetShareUrlCallback& callback,
+                           google_apis::GDataErrorCode error,
+                           scoped_ptr<google_apis::ResourceEntry> entry) {
+  DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
+
+  const google_apis::Link* share_link =
+      entry ? entry->GetLinkByType(google_apis::Link::LINK_SHARE) : NULL;
+  callback.Run(error, share_link ? share_link->href() : GURL());
+}
+
 // Ignores the |entry|, and runs the |callback|.
 void EntryActionCallbackAdapter(
     const EntryActionCallback& callback,
@@ -189,10 +198,12 @@ void DriveAPIService::Initialize(const std::string& account_id) {
   std::vector<std::string> scopes;
   scopes.push_back(kDriveScope);
   scopes.push_back(kDriveAppsReadonlyScope);
-  scopes.push_back(util::kDriveAppsScope);
+  scopes.push_back(kDriveAppsScope);
 
-  // GData WAPI token for GetShareUrl().
-  scopes.push_back(util::kDocsListScope);
+  // Note: The following scope is used to support GetShareUrl on Drive API v2.
+  // Unfortunately, there is no support on Drive API v2, so we need to fall back
+  // to GData WAPI for the GetShareUrl.
+  scopes.push_back(kDocsListScope);
 
   sender_.reset(new RequestSender(
       new google_apis::AuthService(oauth2_token_service_,
@@ -217,10 +228,6 @@ bool DriveAPIService::CanSendRequest() const {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   return HasRefreshToken();
-}
-
-ResourceIdCanonicalizer DriveAPIService::GetResourceIdCanonicalizer() const {
-  return base::Bind(&drive::util::CanonicalizeResourceId);
 }
 
 std::string DriveAPIService::GetRootResourceId() const {
@@ -259,7 +266,7 @@ CancelCallback DriveAPIService::GetFileListInDirectory(
   request->set_max_results(kMaxNumFilesResourcePerRequest);
   request->set_q(base::StringPrintf(
       "'%s' in parents and trashed = false",
-      drive::util::EscapeQueryStringValue(directory_resource_id).c_str()));
+      util::EscapeQueryStringValue(directory_resource_id).c_str()));
   request->set_fields(kFileListFields);
   return sender_->StartRequestWithRetry(request);
 }
@@ -274,7 +281,7 @@ CancelCallback DriveAPIService::Search(
   FilesListRequest* request = new FilesListRequest(
       sender_.get(), url_generator_, callback);
   request->set_max_results(kMaxNumFilesResourcePerRequestForSearch);
-  request->set_q(drive::util::TranslateQuery(search_query));
+  request->set_q(util::TranslateQuery(search_query));
   request->set_fields(kFileListFields);
   return sender_->StartRequestWithRetry(request);
 }
@@ -289,11 +296,11 @@ CancelCallback DriveAPIService::SearchByTitle(
 
   std::string query;
   base::StringAppendF(&query, "title = '%s'",
-                      drive::util::EscapeQueryStringValue(title).c_str());
+                      util::EscapeQueryStringValue(title).c_str());
   if (!directory_resource_id.empty()) {
     base::StringAppendF(
         &query, " and '%s' in parents",
-        drive::util::EscapeQueryStringValue(directory_resource_id).c_str());
+        util::EscapeQueryStringValue(directory_resource_id).c_str());
   }
   query += " and trashed = false";
 
@@ -376,7 +383,7 @@ CancelCallback DriveAPIService::GetShareUrl(
                                   wapi_url_generator_,
                                   resource_id,
                                   embed_origin,
-                                  base::Bind(&util::ParseShareUrlAndRun,
+                                  base::Bind(&ExtractShareUrlAndRun,
                                              callback)));
 }
 
@@ -514,22 +521,6 @@ CancelCallback DriveAPIService::UpdateResource(
     request->set_update_viewed_date(false);
     request->set_last_viewed_by_me_date(last_viewed_by_me);
   }
-  request->set_fields(kFileResourceFields);
-  return sender_->StartRequestWithRetry(request);
-}
-
-CancelCallback DriveAPIService::RenameResource(
-    const std::string& resource_id,
-    const std::string& new_title,
-    const EntryActionCallback& callback) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(!callback.is_null());
-
-  FilesPatchRequest* request = new FilesPatchRequest(
-      sender_.get(), url_generator_,
-      base::Bind(&EntryActionCallbackAdapter, callback));
-  request->set_file_id(resource_id);
-  request->set_title(new_title);
   request->set_fields(kFileResourceFields);
   return sender_->StartRequestWithRetry(request);
 }

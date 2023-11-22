@@ -8,14 +8,16 @@
 
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/autocomplete/autocomplete_match.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/extensions/api/omnibox/omnibox_api.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/search_engines/template_url.h"
-#include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_model_observer.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
+#include "components/bookmarks/browser/bookmark_model.h"
+#include "components/omnibox/autocomplete_match.h"
+#include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_service.h"
 #include "third_party/icu/source/common/unicode/ubidi.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/rect.h"
@@ -23,7 +25,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // OmniboxPopupModel
 
-const size_t OmniboxPopupModel::kNoMatch = -1;
+const size_t OmniboxPopupModel::kNoMatch = static_cast<size_t>(-1);
 
 OmniboxPopupModel::OmniboxPopupModel(
     OmniboxPopupView* popup_view,
@@ -159,7 +161,9 @@ void OmniboxPopupModel::SetSelectedLine(size_t line,
   // eliminated and just become a call to the observer on the edit.
   base::string16 keyword;
   bool is_keyword_hint;
-  match.GetKeywordUIState(edit_model_->profile(), &keyword, &is_keyword_hint);
+  TemplateURLService* service =
+      TemplateURLServiceFactory::GetForProfile(edit_model_->profile());
+  match.GetKeywordUIState(service, &keyword, &is_keyword_hint);
 
   if (reset_to_default) {
     edit_model_->OnPopupDataChanged(match.inline_autocompletion, NULL,
@@ -242,13 +246,21 @@ void OmniboxPopupModel::TryDeletingCurrentItem() {
 gfx::Image OmniboxPopupModel::GetIconIfExtensionMatch(
     const AutocompleteMatch& match) const {
   Profile* profile = edit_model_->profile();
-  const TemplateURL* template_url = match.GetTemplateURL(profile, false);
+  TemplateURLService* service =
+      TemplateURLServiceFactory::GetForProfile(profile);
+  const TemplateURL* template_url = match.GetTemplateURL(service, false);
   if (template_url &&
       (template_url->GetType() == TemplateURL::OMNIBOX_API_EXTENSION)) {
     return extensions::OmniboxAPI::Get(profile)->GetOmniboxPopupIcon(
         template_url->GetExtensionId());
   }
   return gfx::Image();
+}
+
+bool OmniboxPopupModel::IsStarredMatch(const AutocompleteMatch& match) const {
+  Profile* profile = edit_model_->profile();
+  BookmarkModel* bookmark_model = BookmarkModelFactory::GetForProfile(profile);
+  return bookmark_model && bookmark_model->IsBookmarked(match.destination_url);
 }
 
 void OmniboxPopupModel::OnResultChanged() {

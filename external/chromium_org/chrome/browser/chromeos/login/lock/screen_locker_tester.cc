@@ -10,11 +10,12 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
-#include "chrome/browser/chromeos/login/auth/login_status_consumer.h"
-#include "chrome/browser/chromeos/login/auth/mock_authenticator.h"
 #include "chrome/browser/chromeos/login/lock/screen_locker.h"
 #include "chrome/browser/chromeos/login/lock/webui_screen_locker.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "chromeos/login/auth/auth_status_consumer.h"
+#include "chromeos/login/auth/fake_extended_authenticator.h"
+#include "chromeos/login/auth/mock_authenticator.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
@@ -32,19 +33,19 @@ namespace {
 // This class is used to observe state of the global ScreenLocker instance,
 // which can go away as a result of a successful authentication. As such,
 // it needs to directly reference the global ScreenLocker.
-class LoginAttemptObserver : public chromeos::LoginStatusConsumer {
+class LoginAttemptObserver : public chromeos::AuthStatusConsumer {
  public:
   LoginAttemptObserver();
   virtual ~LoginAttemptObserver();
 
   void WaitForAttempt();
 
-  // Overridden from LoginStatusConsumer:
-  virtual void OnLoginFailure(const chromeos::LoginFailure& error) OVERRIDE {
+  // Overridden from AuthStatusConsumer:
+  virtual void OnAuthFailure(const chromeos::AuthFailure& error) OVERRIDE {
     LoginAttempted();
   }
 
-  virtual void OnLoginSuccess(
+  virtual void OnAuthSuccess(
       const chromeos::UserContext& credentials) OVERRIDE {
     LoginAttempted();
   }
@@ -59,9 +60,7 @@ class LoginAttemptObserver : public chromeos::LoginStatusConsumer {
 };
 
 LoginAttemptObserver::LoginAttemptObserver()
-    : chromeos::LoginStatusConsumer(),
-      login_attempted_(false),
-      waiting_(false) {
+    : chromeos::AuthStatusConsumer(), login_attempted_(false), waiting_(false) {
   chromeos::ScreenLocker::default_screen_locker()->SetLoginStatusConsumer(this);
 }
 
@@ -145,7 +144,9 @@ void WebUIScreenLockerTester::EnterPassword(const std::string& password) {
   // Verify that "signin" button is hidden.
   scoped_ptr<base::Value> v = content::ExecuteScriptAndGetValue(
       RenderViewHost()->GetMainFrame(),
-      "$('pod-row').pods[0].signinButtonElement.hidden;");
+      "window.getComputedStyle("
+      "    $('pod-row').pods[0].querySelector('.signin-button-container'))"
+      "        .display == 'none'");
   ASSERT_TRUE(v->GetAsBoolean(&result));
   ASSERT_TRUE(result);
 
@@ -205,6 +206,8 @@ void ScreenLockerTester::InjectMockAuthenticator(
   DCHECK(ScreenLocker::screen_locker_);
   ScreenLocker::screen_locker_->SetAuthenticator(
       new MockAuthenticator(ScreenLocker::screen_locker_, user_context));
+  ScreenLocker::screen_locker_->extended_authenticator_ =
+      new FakeExtendedAuthenticator(ScreenLocker::screen_locker_, user_context);
 }
 
 }  // namespace test

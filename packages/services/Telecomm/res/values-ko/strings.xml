@@ -34,10 +34,10 @@
     <string name="respond_via_sms_setting_title_2" msgid="6104662227299493906">"빠른 응답 수정"</string>
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"빠른 응답"</string>
-    <string name="respond_via_sms_menu_reset_default_activity" msgid="1461742052902053466">"기본 앱 재설정"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"<xliff:g id="PHONE_NUMBER">%s</xliff:g>(으)로 메시지를 보냈습니다."</string>
-    <string name="outgoing_call_not_allowed" msgid="1434784869685645427">"일반 전화를 걸 수 없는 사용자입니다."</string>
-    <string name="outgoing_call_error_no_phone_number_supplied" msgid="4987143284589568716">"잘못된 번호를 입력했으므로 전화를 걸지 못했습니다."</string>
+    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"기기 소유자만 긴급 전화를 사용할 수 있습니다."</string>
+    <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"전화를 걸려면 올바른 번호를 입력하세요."</string>
+    <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"현재 통화를 추가할 수 없습니다."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"음성사서함 번호 없음"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM 카드에 저장된 음성사서함 번호가 없습니다."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"번호 추가"</string>

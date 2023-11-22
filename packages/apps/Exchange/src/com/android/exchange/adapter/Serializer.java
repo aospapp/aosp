@@ -27,6 +27,7 @@ import android.content.ContentValues;
 import android.text.TextUtils;
 
 import com.android.exchange.Eas;
+import com.android.exchange.service.EasService;
 import com.android.exchange.utility.FileLogger;
 import com.android.mail.utils.LogUtils;
 import com.google.common.annotations.VisibleForTesting;
@@ -48,7 +49,6 @@ public class Serializer {
     private int mPendingTag = NOT_PENDING;
     private final Deque<String> mNameStack = new ArrayDeque<String>();
     private int mTagPage = 0;
-    private final boolean mLogging = LogUtils.isLoggable(TAG, LogUtils.VERBOSE);
 
     public Serializer() throws IOException {
         this(new ByteArrayOutputStream(), true);
@@ -67,7 +67,6 @@ public class Serializer {
      * Base constructor
      * @param outputStream the stream we're serializing to
      * @param startDocument whether or not to start a document
-     * @param _logging whether or not to log our output
      * @throws IOException
      */
     public Serializer(final OutputStream outputStream, final boolean startDocument)
@@ -82,7 +81,7 @@ public class Serializer {
     }
 
     void log(final String str) {
-        if (!mLogging) {
+        if (!EasService.getProtocolLogging()) {
             return;
         }
         final String logStr;
@@ -95,8 +94,8 @@ public class Serializer {
         final char [] charArray = new char[mNameStack.size() * 2];
         Arrays.fill(charArray, ' ');
         final String indent = new String(charArray);
-        LogUtils.v(TAG, "%s%s", indent, logStr);
-        if (Eas.FILE_LOG) {
+        LogUtils.d(TAG, "%s%s", indent, logStr);
+        if (EasService.getFileLogging()) {
             FileLogger.log(TAG, logStr);
         }
     }

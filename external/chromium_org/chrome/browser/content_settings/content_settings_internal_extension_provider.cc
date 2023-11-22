@@ -4,17 +4,17 @@
 
 #include "chrome/browser/content_settings/content_settings_internal_extension_provider.h"
 
-#include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/content_settings/content_settings_rule.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/common/chrome_content_client.h"
-#include "chrome/common/content_settings.h"
-#include "chrome/common/content_settings_pattern.h"
 #include "chrome/common/extensions/api/plugins/plugins_handler.h"
+#include "components/content_settings/core/browser/content_settings_rule.h"
+#include "components/content_settings/core/common/content_settings.h"
+#include "components/content_settings/core/common/content_settings_pattern.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
 #include "extensions/browser/extension_host.h"
+#include "extensions/browser/notification_types.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_set.h"
@@ -35,12 +35,14 @@ InternalExtensionProvider::InternalExtensionProvider(
       SetContentSettingForExtension(it->get(), CONTENT_SETTING_ALLOW);
   }
   Profile* profile = extension_service->profile();
-  registrar_->Add(this, chrome::NOTIFICATION_EXTENSION_HOST_CREATED,
+  registrar_->Add(this,
+                  extensions::NOTIFICATION_EXTENSION_HOST_CREATED,
                   content::Source<Profile>(profile));
   registrar_->Add(this,
-                  chrome::NOTIFICATION_EXTENSION_LOADED_DEPRECATED,
+                  extensions::NOTIFICATION_EXTENSION_LOADED_DEPRECATED,
                   content::Source<Profile>(profile));
-  registrar_->Add(this, chrome::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED,
+  registrar_->Add(this,
+                  extensions::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED,
                   content::Source<Profile>(profile));
 }
 
@@ -71,7 +73,7 @@ void InternalExtensionProvider::Observe(int type,
                                   const content::NotificationSource& source,
                                   const content::NotificationDetails& details) {
   switch (type) {
-    case chrome::NOTIFICATION_EXTENSION_HOST_CREATED: {
+    case extensions::NOTIFICATION_EXTENSION_HOST_CREATED: {
       const extensions::ExtensionHost* host =
           content::Details<extensions::ExtensionHost>(details).ptr();
       if (host->extension()->is_platform_app()) {
@@ -133,14 +135,14 @@ void InternalExtensionProvider::Observe(int type,
 
       break;
     }
-    case chrome::NOTIFICATION_EXTENSION_LOADED_DEPRECATED: {
+    case extensions::NOTIFICATION_EXTENSION_LOADED_DEPRECATED: {
       const extensions::Extension* extension =
           content::Details<extensions::Extension>(details).ptr();
       if (extensions::PluginInfo::HasPlugins(extension))
         SetContentSettingForExtension(extension, CONTENT_SETTING_ALLOW);
       break;
     }
-    case chrome::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED: {
+    case extensions::NOTIFICATION_EXTENSION_UNLOADED_DEPRECATED: {
       const UnloadedExtensionInfo& info =
           *(content::Details<UnloadedExtensionInfo>(details).ptr());
       if (extensions::PluginInfo::HasPlugins(info.extension))
@@ -189,7 +191,7 @@ void InternalExtensionProvider::SetContentSettingForExtensionAndResource(
                           secondary_pattern,
                           CONTENT_SETTINGS_TYPE_PLUGINS,
                           resource,
-                          base::Value::CreateIntegerValue(setting));
+                          new base::FundamentalValue(setting));
     }
   }
   NotifyObservers(primary_pattern,

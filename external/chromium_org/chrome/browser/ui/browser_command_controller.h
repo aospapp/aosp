@@ -56,6 +56,7 @@ class BrowserCommandController : public CommandUpdaterDelegate,
   // Notifies the controller that state has changed in one of the following
   // areas and it should update command states.
   void TabStateChanged();
+  void ZoomStateChanged();
   void ContentRestrictionsChanged();
   void FullscreenStateChanged();
   void PrintingStateChanged();
@@ -97,6 +98,7 @@ class BrowserCommandController : public CommandUpdaterDelegate,
   // Overridden from TabRestoreServiceObserver:
   virtual void TabRestoreServiceChanged(TabRestoreService* service) OVERRIDE;
   virtual void TabRestoreServiceDestroyed(TabRestoreService* service) OVERRIDE;
+  virtual void TabRestoreServiceLoaded(TabRestoreService* service) OVERRIDE;
 
   // Returns true if the regular Chrome UI (not the fullscreen one and
   // not the single-tab one) is shown. Used for updating window command states
@@ -112,6 +114,9 @@ class BrowserCommandController : public CommandUpdaterDelegate,
 
   // Update commands whose state depends on the tab's state.
   void UpdateCommandsForTabState();
+
+  // Update Zoom commands based on zoom state.
+  void UpdateCommandsForZoomState();
 
   // Updates commands when the content's restrictions change.
   void UpdateCommandsForContentRestrictionState();
@@ -152,6 +157,8 @@ class BrowserCommandController : public CommandUpdaterDelegate,
 
   // Updates commands for find.
   void UpdateCommandsForFind();
+
+  void UpdateTabRestoreCommandState();
 
   // Add/remove observers for interstitial attachment/detachment from
   // |contents|.

@@ -36,10 +36,11 @@ void AssertInterceptedIO(
     net::URLRequestJobFactory* interceptor) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   net::URLRequestContext context;
-  net::URLRequest request(url, net::DEFAULT_PRIORITY, NULL, &context);
+  scoped_ptr<net::URLRequest> request(context.CreateRequest(
+      url, net::DEFAULT_PRIORITY, NULL, NULL));
   scoped_refptr<net::URLRequestJob> job =
       interceptor->MaybeCreateJobWithProtocolHandler(
-          url.scheme(), &request, context.network_delegate());
+          url.scheme(), request.get(), context.network_delegate());
   ASSERT_TRUE(job.get() != NULL);
 }
 
@@ -244,12 +245,12 @@ ShellIntegration::DefaultProtocolClientWorker* FakeDelegate::CreateShellWorker(
 
 class NotificationCounter : public content::NotificationObserver {
  public:
-  explicit NotificationCounter(Profile* profile)
+  explicit NotificationCounter(content::BrowserContext* context)
       : events_(0),
         notification_registrar_() {
     notification_registrar_.Add(this,
         chrome::NOTIFICATION_PROTOCOL_HANDLER_REGISTRY_CHANGED,
-        content::Source<Profile>(profile));
+            content::Source<content::BrowserContext>(context));
   }
 
   int events() { return events_; }
@@ -268,14 +269,14 @@ class NotificationCounter : public content::NotificationObserver {
 class QueryProtocolHandlerOnChange
     : public content::NotificationObserver {
  public:
-  QueryProtocolHandlerOnChange(Profile* profile,
+  QueryProtocolHandlerOnChange(content::BrowserContext* context,
                                ProtocolHandlerRegistry* registry)
     : local_registry_(registry),
       called_(false),
       notification_registrar_() {
     notification_registrar_.Add(this,
         chrome::NOTIFICATION_PROTOCOL_HANDLER_REGISTRY_CHANGED,
-        content::Source<Profile>(profile));
+            content::Source<content::BrowserContext>(context));
   }
 
   virtual void Observe(int type,

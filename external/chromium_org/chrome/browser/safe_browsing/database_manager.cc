@@ -72,10 +72,14 @@ bool IsExpectedThreat(
 // |hash|, or INVALID if none match.
 safe_browsing_util::ListType GetHashThreatListType(
     const SBFullHash& hash,
-    const std::vector<SBFullHashResult>& full_hashes) {
+    const std::vector<SBFullHashResult>& full_hashes,
+    size_t* index) {
   for (size_t i = 0; i < full_hashes.size(); ++i) {
-    if (SBFullHashEqual(hash, full_hashes[i].hash))
+    if (SBFullHashEqual(hash, full_hashes[i].hash)) {
+      if (index)
+        *index = i;
       return static_cast<safe_browsing_util::ListType>(full_hashes[i].list_id);
+    }
   }
   return safe_browsing_util::INVALID;
 }
@@ -85,7 +89,8 @@ safe_browsing_util::ListType GetHashThreatListType(
 // |full_hashes|, or INVALID if none match.
 safe_browsing_util::ListType GetUrlThreatListType(
     const GURL& url,
-    const std::vector<SBFullHashResult>& full_hashes) {
+    const std::vector<SBFullHashResult>& full_hashes,
+    size_t* index) {
   if (full_hashes.empty())
     return safe_browsing_util::INVALID;
 
@@ -93,8 +98,8 @@ safe_browsing_util::ListType GetUrlThreatListType(
   safe_browsing_util::GeneratePatternsToCheck(url, &patterns);
 
   for (size_t i = 0; i < patterns.size(); ++i) {
-    safe_browsing_util::ListType threat =
-        GetHashThreatListType(SBFullHashForString(patterns[i]), full_hashes);
+    safe_browsing_util::ListType threat = GetHashThreatListType(
+        SBFullHashForString(patterns[i]), full_hashes, index);
     if (threat != safe_browsing_util::INVALID)
       return threat;
   }
@@ -123,14 +128,17 @@ SBThreatType GetThreatTypeFromListType(safe_browsing_util::ListType list_type) {
 SBThreatType SafeBrowsingDatabaseManager::GetHashThreatType(
     const SBFullHash& hash,
     const std::vector<SBFullHashResult>& full_hashes) {
-  return GetThreatTypeFromListType(GetHashThreatListType(hash, full_hashes));
+  return GetThreatTypeFromListType(
+      GetHashThreatListType(hash, full_hashes, NULL));
 }
 
 // static
 SBThreatType SafeBrowsingDatabaseManager::GetUrlThreatType(
     const GURL& url,
-    const std::vector<SBFullHashResult>& full_hashes) {
-  return GetThreatTypeFromListType(GetUrlThreatListType(url, full_hashes));
+    const std::vector<SBFullHashResult>& full_hashes,
+    size_t* index) {
+  return GetThreatTypeFromListType(
+      GetUrlThreatListType(url, full_hashes, index));
 }
 
 SafeBrowsingDatabaseManager::SafeBrowsingCheck::SafeBrowsingCheck(
@@ -141,6 +149,7 @@ SafeBrowsingDatabaseManager::SafeBrowsingCheck::SafeBrowsingCheck(
     const std::vector<SBThreatType>& expected_threats)
     : urls(urls),
       url_results(urls.size(), SB_THREAT_TYPE_SAFE),
+      url_metadata(urls.size()),
       full_hashes(full_hashes),
       full_hash_results(full_hashes.size(), SB_THREAT_TYPE_SAFE),
       client(client),
@@ -163,7 +172,8 @@ void SafeBrowsingDatabaseManager::Client::OnSafeBrowsingResult(
       case safe_browsing_util::MALWARE:
       case safe_browsing_util::PHISH:
         DCHECK_EQ(1u, check.urls.size());
-        OnCheckBrowseUrlResult(check.urls[0], check.url_results[0]);
+        OnCheckBrowseUrlResult(
+            check.urls[0], check.url_results[0], check.url_metadata[0]);
         break;
       case safe_browsing_util::BINURL:
         DCHECK_EQ(check.urls.size(), check.url_results.size());
@@ -213,6 +223,9 @@ SafeBrowsingDatabaseManager::SafeBrowsingDatabaseManager(
       check_timeout_(base::TimeDelta::FromMilliseconds(kCheckTimeoutMs)) {
   DCHECK(sb_service_.get() != NULL);
 
+  // Android only supports a subset of FULL_SAFE_BROWSING.
+  // TODO(shess): This shouldn't be OS-driven <http://crbug.com/394379>
+#if !defined(OS_ANDROID)
   CommandLine* cmdline = CommandLine::ForCurrentProcess();
   enable_download_protection_ =
       !cmdline->HasSwitch(switches::kSbDisableDownloadProtection);
@@ -253,6 +266,7 @@ SafeBrowsingDatabaseManager::SafeBrowsingDatabaseManager(
   UMA_HISTOGRAM_ENUMERATION("SB2.SideEffectFreeWhitelistStatus",
                             side_effect_free_whitelist_status,
                             SIDE_EFFECT_FREE_WHITELIST_STATUS_MAX);
+#endif
 }
 
 SafeBrowsingDatabaseManager::~SafeBrowsingDatabaseManager() {
@@ -757,7 +771,10 @@ void SafeBrowsingDatabaseManager::OnCheckDone(SafeBrowsingCheck* check) {
   } else {
     // We may have cached results for previous GetHash queries.  Since
     // this data comes from cache, don't histogram hits.
-    HandleOneCheck(check, check->cache_hits);
+    bool is_threat = HandleOneCheck(check, check->cache_hits);
+    // cache_hits should only contain hits for a fullhash we searched for, so if
+    // we got to this point it should always result in a threat match.
+    DCHECK(is_threat);
   }
 }
 
@@ -803,7 +820,7 @@ void SafeBrowsingDatabaseManager::DatabaseLoadComplete() {
   if (!enabled_)
     return;
 
-  HISTOGRAM_COUNTS("SB.QueueDepth", queued_checks_.size());
+  LOCAL_HISTOGRAM_COUNTS("SB.QueueDepth", queued_checks_.size());
   if (queued_checks_.empty())
     return;
 
@@ -813,7 +830,8 @@ void SafeBrowsingDatabaseManager::DatabaseLoadComplete() {
   while (!queued_checks_.empty()) {
     QueuedCheck check = queued_checks_.front();
     DCHECK(!check.start.is_null());
-    HISTOGRAM_TIMES("SB.QueueDelay", base::TimeTicks::Now() - check.start);
+    LOCAL_HISTOGRAM_TIMES("SB.QueueDelay",
+                          base::TimeTicks::Now() - check.start);
     // If CheckUrl() determines the URL is safe immediately, it doesn't call the
     // client's handler function (because normally it's being directly called by
     // the client).  Since we're not the client, we have to convey this result.
@@ -934,10 +952,13 @@ bool SafeBrowsingDatabaseManager::HandleOneCheck(
   // interact well with batching the checks here.
 
   for (size_t i = 0; i < check->urls.size(); ++i) {
-    SBThreatType threat = GetUrlThreatType(check->urls[i], full_hashes);
+    size_t threat_index;
+    SBThreatType threat =
+        GetUrlThreatType(check->urls[i], full_hashes, &threat_index);
     if (threat != SB_THREAT_TYPE_SAFE &&
         IsExpectedThreat(threat, check->expected_threats)) {
       check->url_results[i] = threat;
+      check->url_metadata[i] = full_hashes[threat_index].metadata;
       is_threat = true;
     }
   }

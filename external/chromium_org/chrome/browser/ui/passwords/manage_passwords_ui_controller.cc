@@ -9,10 +9,11 @@
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/password_manager/password_store_factory.h"
 #include "chrome/browser/ui/browser_command_controller.h"
+#include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
-#include "chrome/browser/ui/omnibox/location_bar.h"
+#include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/passwords/manage_passwords_icon.h"
 #include "chrome/common/url_constants.h"
 #include "components/password_manager/core/browser/password_store.h"
@@ -30,7 +31,28 @@ password_manager::PasswordStore* GetPasswordStore(
              Profile::EXPLICIT_ACCESS).get();
 }
 
-} // namespace
+autofill::ConstPasswordFormMap ConstifyMap(
+    const autofill::PasswordFormMap& map) {
+  autofill::ConstPasswordFormMap ret;
+  ret.insert(map.begin(), map.end());
+  return ret;
+}
+
+// Performs a deep copy of the PasswordForm pointers in |map|. The resulting map
+// is returned via |ret|. |deleter| is populated with these new objects.
+void DeepCopyMap(const autofill::PasswordFormMap& map,
+                 autofill::ConstPasswordFormMap* ret,
+                 ScopedVector<autofill::PasswordForm>* deleter) {
+  ConstifyMap(map).swap(*ret);
+  deleter->clear();
+  for (autofill::ConstPasswordFormMap::iterator i = ret->begin();
+       i != ret->end(); ++i) {
+    deleter->push_back(new autofill::PasswordForm(*i->second));
+    i->second = deleter->back();
+  }
+}
+
+}  // namespace
 
 DEFINE_WEB_CONTENTS_USER_DATA_KEY(ManagePasswordsUIController);
 
@@ -65,17 +87,28 @@ void ManagePasswordsUIController::UpdateBubbleAndIconVisibility() {
 }
 
 void ManagePasswordsUIController::OnPasswordSubmitted(
-    PasswordFormManager* form_manager) {
-  form_manager_.reset(form_manager);
-  password_form_map_ = form_manager_->best_matches();
+    scoped_ptr<PasswordFormManager> form_manager) {
+  form_manager_ = form_manager.Pass();
+  password_form_map_ = ConstifyMap(form_manager_->best_matches());
   origin_ = PendingCredentials().origin;
   state_ = password_manager::ui::PENDING_PASSWORD_AND_BUBBLE_STATE;
   UpdateBubbleAndIconVisibility();
 }
 
+void ManagePasswordsUIController::OnAutomaticPasswordSave(
+    scoped_ptr<PasswordFormManager> form_manager) {
+  form_manager_ = form_manager.Pass();
+  password_form_map_ = ConstifyMap(form_manager_->best_matches());
+  password_form_map_[form_manager_->associated_username()] =
+      &form_manager_->pending_credentials();
+  origin_ = form_manager_->pending_credentials().origin;
+  state_ = password_manager::ui::CONFIRMATION_STATE;
+  UpdateBubbleAndIconVisibility();
+}
+
 void ManagePasswordsUIController::OnPasswordAutofilled(
     const PasswordFormMap& password_form_map) {
-  password_form_map_ = password_form_map;
+  DeepCopyMap(password_form_map, &password_form_map_, &new_password_forms_);
   origin_ = password_form_map_.begin()->second->origin;
   state_ = password_manager::ui::MANAGE_STATE;
   UpdateBubbleAndIconVisibility();
@@ -83,7 +116,7 @@ void ManagePasswordsUIController::OnPasswordAutofilled(
 
 void ManagePasswordsUIController::OnBlacklistBlockedAutofill(
     const PasswordFormMap& password_form_map) {
-  password_form_map_ = password_form_map;
+  DeepCopyMap(password_form_map, &password_form_map_, &new_password_forms_);
   origin_ = password_form_map_.begin()->second->origin;
   state_ = password_manager::ui::BLACKLIST_STATE;
   UpdateBubbleAndIconVisibility();
@@ -136,17 +169,26 @@ void ManagePasswordsUIController::
 
 void ManagePasswordsUIController::SavePassword() {
   DCHECK(PasswordPendingUserDecision());
+  SavePasswordInternal();
+  state_ = password_manager::ui::MANAGE_STATE;
+  UpdateBubbleAndIconVisibility();
+}
+
+void ManagePasswordsUIController::SavePasswordInternal() {
   DCHECK(form_manager_.get());
   form_manager_->Save();
-  state_ = password_manager::ui::MANAGE_STATE;
 }
 
 void ManagePasswordsUIController::NeverSavePassword() {
   DCHECK(PasswordPendingUserDecision());
-  DCHECK(form_manager_.get());
-  form_manager_->PermanentlyBlacklist();
+  NeverSavePasswordInternal();
   state_ = password_manager::ui::BLACKLIST_STATE;
   UpdateBubbleAndIconVisibility();
+}
+
+void ManagePasswordsUIController::NeverSavePasswordInternal() {
+  DCHECK(form_manager_.get());
+  form_manager_->PermanentlyBlacklist();
 }
 
 void ManagePasswordsUIController::UnblacklistSite() {
@@ -186,6 +228,12 @@ void ManagePasswordsUIController::DidNavigateMainFrame(
   timer_.reset(new base::ElapsedTimer());
 }
 
+void ManagePasswordsUIController::WasHidden() {
+#if !defined(OS_ANDROID)
+  chrome::CloseManagePasswordsBubble(web_contents());
+#endif
+}
+
 const autofill::PasswordForm& ManagePasswordsUIController::
     PendingCredentials() const {
   DCHECK(form_manager_);
@@ -194,23 +242,24 @@ const autofill::PasswordForm& ManagePasswordsUIController::
 
 void ManagePasswordsUIController::UpdateIconAndBubbleState(
     ManagePasswordsIcon* icon) {
-  if (state_ == password_manager::ui::PENDING_PASSWORD_AND_BUBBLE_STATE) {
+  if (password_manager::ui::IsAutomaticDisplayState(state_)) {
     // We must display the icon before showing the bubble, as the bubble would
     // be otherwise unanchored. However, we can't change the controller's state
-    // until _after_ the bubble is shown, as our metrics depend on the
-    // distinction between PENDING_PASSWORD_AND_BUBBLE_STATE and
-    // PENDING_PASSWORD_STATE to determine if the bubble opened automagically
-    // or via user action.
-    icon->SetState(password_manager::ui::PENDING_PASSWORD_STATE);
+    // until _after_ the bubble is shown, as our metrics depend on the seeing
+    // the original state to determine if the bubble opened automagically or via
+    // user action.
+    password_manager::ui::State end_state =
+        GetEndStateForAutomaticState(state_);
+    icon->SetState(end_state);
     ShowBubbleWithoutUserInteraction();
-    state_ = password_manager::ui::PENDING_PASSWORD_STATE;
-  } else  {
+    state_ = end_state;
+  } else {
     icon->SetState(state_);
   }
 }
 
 void ManagePasswordsUIController::ShowBubbleWithoutUserInteraction() {
-  DCHECK_EQ(state_, password_manager::ui::PENDING_PASSWORD_AND_BUBBLE_STATE);
+  DCHECK(password_manager::ui::IsAutomaticDisplayState(state_));
 #if !defined(OS_ANDROID)
   Browser* browser = chrome::FindBrowserWithWebContents(web_contents());
   if (!browser || browser->toolbar_model()->input_in_progress())

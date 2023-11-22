@@ -48,11 +48,9 @@ const char kWidthKey[] = "width";
 const char kWindowIdKey[] = "windowId";
 const char kWindowTypeKey[] = "type";
 const char kWindowTypeLongKey[] = "windowType";
+const char kZoomSettingsMode[] = "mode";
+const char kZoomSettingsScope[] = "scope";
 
-const char kFormatValueJpeg[] = "jpeg";
-const char kFormatValuePng[] = "png";
-const char kMimeTypeJpeg[] = "image/jpeg";
-const char kMimeTypePng[] = "image/png";
 const char kShowStateValueNormal[] = "normal";
 const char kShowStateValueMinimized[] = "minimized";
 const char kShowStateValueMaximized[] = "maximized";
@@ -68,6 +66,8 @@ const char kWindowTypeValuePanel[] = "panel";
 const char kWindowTypeValueDetachedPanel[] = "detached_panel";
 const char kWindowTypeValueApp[] = "app";
 
+const char kCannotZoomDisabledTabError[] = "Cannot zoom a tab in disabled "
+    "mode.";
 const char kCanOnlyMoveTabsWithinNormalWindowsError[] = "Tabs can only be "
     "moved to and from normal windows.";
 const char kCanOnlyMoveTabsWithinSameProfileError[] = "Tabs can only be moved "
@@ -76,6 +76,8 @@ const char kNoCrashBrowserError[] =
     "I'm sorry. I'm afraid I can't do that.";
 const char kNoCurrentWindowError[] = "No current window";
 const char kNoLastFocusedWindowError[] = "No last-focused window";
+const char kPerOriginOnlyInAutomaticError[] = "Can only set scope to "
+    "\"per-origin\" in \"automatic\" mode.";
 const char kWindowNotFoundError[] = "No window with id: *.";
 const char kTabIndexNotFoundError[] = "No tab at index: *.";
 const char kTabNotFoundError[] = "No tab with id: *.";
@@ -97,10 +99,6 @@ const char kInvalidWindowTypeError[] = "Invalid value for type";
 const char kInvalidWindowStateError[] = "Invalid value for state";
 const char kScreenshotsDisabled[] = "Taking screenshots has been disabled";
 
-const char kNoCodeOrFileToExecuteError[] = "No source code or file specified.";
-const char kMoreThanOneValuesError[] = "Code and file should not be specified "
-    "at the same time in the second argument.";
-const char kLoadFileError[] = "Failed to load file: \"*\". ";
 const char kCannotDetermineLanguageOfUnloadedTab[] =
     "Cannot determine language: tab not loaded";
 

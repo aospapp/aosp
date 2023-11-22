@@ -22,10 +22,8 @@ import android.os.SystemClock;
 import android.support.test.jank.JankTest;
 import android.support.test.jank.JankTestBase;
 import android.support.test.jank.JankType;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObject2;
+import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.UiScrollable;
 import android.support.test.uiautomator.UiSelector;
 
@@ -49,14 +47,17 @@ import java.io.IOException;
 public class WebViewFlingTest extends JankTestBase {
 
     private static final long TEST_DELAY_TIME_MS = 2 * 1000; // 2 seconds
+    private static final long PAGE_LOAD_DELAY_TIMEOUT_MS = 10 * 1000; // 10 seconds
     private static final long PAGE_LOAD_DELAY_TIME_MS = 20 * 1000; // 20 seconds
     private static final int MIN_DATA_SIZE = 50;
     private static final long DEFAULT_ANIMATION_TIME = 2 * 1000;
     private static final String CHROMIUM_SHELL_APP = "com.android.webview.chromium.shell";
     private static final String CHROMIUM_SHELL_ACTIVITY = CHROMIUM_SHELL_APP + ".JankActivity";
-    private static final String RES_PACKAGE = "com.android.webview.chromium.shell";
+    private static final String AW_CONTAINER = "com.android.webview.chromium.shell:id/container";
 
     private UiDevice mDevice;
+    private UiScrollable mWebPageDisplay = null;
+
 
     /**
     * {@inheritDoc}
@@ -83,19 +84,14 @@ public class WebViewFlingTest extends JankTestBase {
     }
 
     @Override
-    public void beforeLoop() {
-        UiObject2 container = mDevice.findObject(By.res(RES_PACKAGE, "container"));
-
-        // Fling to the top
-        while (container.fling(Direction.UP)) {
-        }
-
+    public void beforeLoop() throws UiObjectNotFoundException {
+        getContainer().flingToBeginning(20);
         SystemClock.sleep(TEST_DELAY_TIME_MS);
     }
 
     @JankTest(type=JankType.CONTENT_FRAMES, expectedFrames=MIN_DATA_SIZE)
-    public void testBrowserPageFling() throws IOException {
-        mDevice.findObject(By.res(RES_PACKAGE, "container")).fling(Direction.DOWN);
+    public void testBrowserPageFling() throws UiObjectNotFoundException, IOException {
+        getContainer().flingForward();
         SystemClock.sleep(DEFAULT_ANIMATION_TIME);
     }
 
@@ -105,7 +101,16 @@ public class WebViewFlingTest extends JankTestBase {
     @Override
     protected void tearDown() throws Exception {
         mDevice.unfreezeRotation();
-
         super.tearDown();
+    }
+
+    private UiScrollable getContainer() {
+        if (mWebPageDisplay == null) {
+            mWebPageDisplay =
+                    new UiScrollable(new UiSelector().resourceId(AW_CONTAINER).instance(0));
+            assertTrue("Failed to get web container",
+                mWebPageDisplay.waitForExists(PAGE_LOAD_DELAY_TIMEOUT_MS));
+        }
+        return mWebPageDisplay;
     }
 }

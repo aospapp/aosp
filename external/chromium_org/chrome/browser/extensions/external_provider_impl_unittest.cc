@@ -5,8 +5,8 @@
 #include "chrome/browser/extensions/external_provider_impl.h"
 
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
 #include "base/prefs/testing_pref_service.h"
@@ -19,6 +19,7 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_constants.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/notification_service.h"
@@ -31,6 +32,7 @@
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/customization_document.h"
 #include "chrome/browser/chromeos/login/users/fake_user_manager.h"
+#include "chrome/browser/chromeos/login/users/scoped_user_manager_enabler.h"
 #include "chromeos/system/mock_statistics_provider.h"
 #include "chromeos/system/statistics_provider.h"
 #endif
@@ -59,6 +61,11 @@ class ExternalProviderImplTest : public ExtensionServiceTestBase {
         new chromeos::FakeUserManager);
 #endif
     InitializeExtensionServiceWithUpdater();
+
+    // Don't install default apps. Some of the default apps are downloaded from
+    // the webstore, ignoring the url we pass to kAppsGalleryUpdateURL, which
+    // would cause the external updates to never finish install.
+    profile_->GetPrefs()->SetString(prefs::kDefaultApps, "");
 
     ProviderCollection providers;
     extensions::ExternalProviderImpl::CreateExternalProviders(
@@ -154,8 +161,7 @@ class ExternalProviderImplTest : public ExtensionServiceTestBase {
 
 }  // namespace
 
-// flaky, disabling on branch only
-TEST_F(ExternalProviderImplTest, DISABLED_InAppPayments) {
+TEST_F(ExternalProviderImplTest, InAppPayments) {
   InitServiceWithExternalProviders();
 
   scoped_refptr<content::MessageLoopRunner> runner =

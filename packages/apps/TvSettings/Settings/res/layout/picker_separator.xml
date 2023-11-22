@@ -20,6 +20,6 @@
     android:layout_height="wrap_content"
     android:alpha="@dimen/picker_item_separator_alpha"
     android:focusable="false"
-    android:paddingLeft="@dimen/picker_separator_horizontal_padding"
-    android:paddingRight="@dimen/picker_separator_horizontal_padding"
+    android:paddingStart="@dimen/picker_separator_horizontal_padding"
+    android:paddingEnd="@dimen/picker_separator_horizontal_padding"
     android:textColor="@color/list_item_unselected_text_color" />

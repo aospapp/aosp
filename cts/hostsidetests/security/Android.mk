@@ -23,11 +23,26 @@ LOCAL_MODULE_TAGS := optional
 # Must match the package name in CtsTestCaseList.mk
 LOCAL_MODULE := CtsSecurityHostTestCases
 
+LOCAL_MODULE_CLASS := JAVA_LIBRARIES
+
 LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed-prebuilt
 
 LOCAL_CTS_TEST_PACKAGE := android.host.security
 
 LOCAL_JAVA_RESOURCE_FILES := $(HOST_OUT_EXECUTABLES)/sepolicy-analyze
+
+selinux_general_policy := $(call intermediates-dir-for,ETC,general_sepolicy.conf)/general_sepolicy.conf
+
+selinux_neverallow_gen := cts/tools/selinux/SELinuxNeverallowTestGen.py
+
+selinux_neverallow_gen_data := cts/tools/selinux/SELinuxNeverallowTestFrame.py
+
+LOCAL_GENERATED_SOURCES := $(call local-generated-sources-dir)/android/cts/security/SELinuxNeverallowRulesTest.java
+
+$(LOCAL_GENERATED_SOURCES) : PRIVATE_SELINUX_GENERAL_POLICY := $(selinux_general_policy)
+$(LOCAL_GENERATED_SOURCES) : $(selinux_neverallow_gen) $(selinux_general_policy) $(selinux_neverallow_gen_data)
+	mkdir -p $(dir $@)
+	$< $(PRIVATE_SELINUX_GENERAL_POLICY) $@
 
 include $(BUILD_CTS_HOST_JAVA_LIBRARY)
 

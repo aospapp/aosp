@@ -14,7 +14,7 @@
 #include "chrome/browser/ui/fullscreen/fullscreen_exit_bubble_type.h"
 #include "chrome/browser/ui/host_desktop.h"
 #include "chrome/browser/ui/sync/one_click_signin_sync_starter.h"
-#include "chrome/common/content_settings_types.h"
+#include "components/content_settings/core/common/content_settings_types.h"
 #include "components/translate/core/common/translate_errors.h"
 #include "ui/base/base_window.h"
 #include "ui/base/window_open_disposition.h"
@@ -29,16 +29,9 @@ class LocationBar;
 class Profile;
 class StatusBubble;
 class TemplateURL;
-#if !defined(OS_MACOSX)
-class ToolbarView;
-#endif
 
 struct WebApplicationInfo;
 
-namespace autofill {
-class PasswordGenerator;
-struct PasswordForm;
-}
 namespace content {
 class WebContents;
 struct NativeWebKeyboardEvent;
@@ -228,9 +221,14 @@ class BrowserWindow : public ui::BaseWindow {
                                      const std::string& extension_id) = 0;
 
   // Shows the translate bubble.
-  virtual void ShowTranslateBubble(content::WebContents* contents,
-                                   translate::TranslateStep step,
-                                   TranslateErrors::Type error_type) = 0;
+  //
+  // |is_user_gesture| is true when the bubble is shown on the user's deliberate
+  // action.
+  virtual void ShowTranslateBubble(
+      content::WebContents* contents,
+      translate::TranslateStep step,
+      translate::TranslateErrors::Type error_type,
+      bool is_user_gesture) = 0;
 
 #if defined(ENABLE_ONE_CLICK_SIGNIN)
   enum OneClickSigninBubbleType {
@@ -315,12 +313,13 @@ class BrowserWindow : public ui::BaseWindow {
   virtual void Paste() = 0;
 
 #if defined(OS_MACOSX)
-  // Enters Mac specific fullscreen mode with chrome displayed (e.g. omnibox)
-  // on OSX 10.7+, a.k.a. Lion Fullscreen mode.
-  // Invalid to call on OSX earlier than 10.7.
-  // Enters either from non fullscreen, or from fullscreen without chrome.
-  // Exit to normal fullscreen with EnterFullscreen().
+  // The following two methods cause the browser window to enter AppKit
+  // Fullscreen. The methods are idempotent. The methods are invalid to call on
+  // OSX 10.6. One method displays chrome (e.g. omnibox, tabstrip), whereas the
+  // other method hides it.
   virtual void EnterFullscreenWithChrome() = 0;
+  virtual void EnterFullscreenWithoutChrome() = 0;
+
   virtual bool IsFullscreenWithChrome() = 0;
   virtual bool IsFullscreenWithoutChrome() = 0;
 #endif
@@ -370,19 +369,13 @@ class BrowserWindow : public ui::BaseWindow {
     AVATAR_BUBBLE_MODE_DEFAULT,
     AVATAR_BUBBLE_MODE_ACCOUNT_MANAGEMENT,
     AVATAR_BUBBLE_MODE_SIGNIN,
+    AVATAR_BUBBLE_MODE_ADD_ACCOUNT,
     AVATAR_BUBBLE_MODE_REAUTH,
+    AVATAR_BUBBLE_MODE_CONFIRM_SIGNIN,
+    AVATAR_BUBBLE_MODE_SHOW_ERROR,
   };
   virtual void ShowAvatarBubbleFromAvatarButton(AvatarBubbleMode mode,
       const signin::ManageAccountsParams& manage_accounts_params) = 0;
-
-  // Show bubble for password generation positioned relative to |rect|. The
-  // subclasses implementing this interface do not own the |password_generator|
-  // object which is passed to generate the password. |form| is the form that
-  // contains the password field that the bubble will be associated with.
-  virtual void ShowPasswordGenerationBubble(
-      const gfx::Rect& rect,
-      const autofill::PasswordForm& form,
-      autofill::PasswordGenerator* password_generator) = 0;
 
   // Invoked when the amount of vertical overscroll changes. |delta_y| is the
   // amount of overscroll that has occured in the y-direction.
@@ -397,50 +390,10 @@ class BrowserWindow : public ui::BaseWindow {
   virtual void ExecuteExtensionCommand(const extensions::Extension* extension,
                                        const extensions::Command& command) = 0;
 
-  // Shows the page action for the extension.
-  virtual void ShowPageActionPopup(const extensions::Extension* extension) = 0;
-
-  // Shows the browser action for the extension. NOTE(wittman): This function
-  // grants tab permissions to the browser action popup, so it should only be
-  // invoked due to user action, not due to invocation from an extensions API.
-  virtual void ShowBrowserActionPopup(
-      const extensions::Extension* extension) = 0;
-
  protected:
   friend class BrowserCloseManager;
   friend class BrowserView;
   virtual void DestroyBrowser() = 0;
-};
-
-#if defined(OS_WIN) || defined(TOOLKIT_VIEWS)
-class BookmarkBarView;
-class LocationBarView;
-
-namespace views {
-class View;
-}
-#endif  // defined(OS_WIN)
-
-// A BrowserWindow utility interface used for accessing elements of the browser
-// UI used only by UI test automation.
-class BrowserWindowTesting {
- public:
-#if defined(OS_WIN) || defined(TOOLKIT_VIEWS)
-  // Returns the BookmarkBarView.
-  virtual BookmarkBarView* GetBookmarkBarView() const = 0;
-
-  // Returns the LocationBarView.
-  virtual LocationBarView* GetLocationBarView() const = 0;
-
-  // Returns the TabContentsContainer.
-  virtual views::View* GetTabContentsContainerView() const = 0;
-
-  // Returns the ToolbarView.
-  virtual ToolbarView* GetToolbarView() const = 0;
-#endif
-
- protected:
-  virtual ~BrowserWindowTesting() {}
 };
 
 #endif  // CHROME_BROWSER_UI_BROWSER_WINDOW_H_

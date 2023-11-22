@@ -68,22 +68,30 @@ public class EasAutoDiscover extends EasOperation {
     private HostAuth mHostAuth;
     private String mRedirectUri;
 
+
+    private static Account makeAccount(final String username, final String password) {
+        final HostAuth hostAuth = new HostAuth();
+        hostAuth.mLogin = username;
+        hostAuth.mPassword = password;
+        hostAuth.mPort = 443;
+        hostAuth.mProtocol = Eas.PROTOCOL;
+        hostAuth.mFlags = HostAuth.FLAG_SSL | HostAuth.FLAG_AUTHENTICATE;
+        final Account account = new Account();
+        account.mEmailAddress = username;
+        account.mHostAuthRecv = hostAuth;
+        return account;
+    }
+
     public EasAutoDiscover(final Context context, final String uri, final int attemptNumber,
                            final String username, final String password) {
         // We don't actually need an account or a hostAuth, but the EasServerConnection requires
         // one. Just create dummy values.
-        super(context, -1);
+        super(context, makeAccount(username, password));
         mAttemptNumber = attemptNumber;
         mUri = uri;
         mUsername = username;
         mPassword = password;
-        mHostAuth = new HostAuth();
-        mHostAuth.mLogin = mUsername;
-        mHostAuth.mPassword = mPassword;
-        mHostAuth.mPort = 443;
-        mHostAuth.mProtocol = Eas.PROTOCOL;
-        mHostAuth.mFlags = HostAuth.FLAG_SSL | HostAuth.FLAG_AUTHENTICATE;
-        setAccount(new Account(), mHostAuth);
+        mHostAuth = mAccount.mHostAuthRecv;
     }
 
     public static String genUri(final String domain, final int attemptNumber) {

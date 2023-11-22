@@ -51,12 +51,16 @@
     <string name="device_daydream" msgid="4933581408059561077">"Заставка"</string>
     <string name="device_display" msgid="101455384386372747">"Дисплей"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"Системні звуки"</string>
-    <string name="device_apps" msgid="9180435229638772838">"Програми"</string>
+    <string name="device_apps" msgid="9180435229638772838">"Додатки"</string>
     <string name="device_storage_reset" msgid="1425978936501134425">"Пам’ять і скидання"</string>
     <string name="device_storage" msgid="5536683600091277826">"Пам’ять"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"Резервне копіювання та відновлення"</string>
     <string name="device_reset" msgid="2827002349560023125">"Заводські налаштування"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Калібрування"</string>
+    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
+    <skip />
+    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
+    <skip />
     <string name="apps_downloaded" msgid="4222190849854323480">"Завантажені додатки"</string>
     <string name="apps_system" msgid="2499191125802829425">"Системні додатки"</string>
     <string name="apps_running" msgid="6430310491739956228">"Запущені додатки"</string>
@@ -95,7 +99,7 @@
     <string name="system_language" msgid="2337138146114609247">"Мова"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"Клавіатура"</string>
     <string name="system_search" msgid="2837264654143247611">"Пошук"</string>
-    <string name="system_security" msgid="4190058778883258927">"Безпека та обмеження"</string>
+    <string name="system_security" msgid="8230080273993484407">"Безпека й обмеження"</string>
     <string name="system_speech" msgid="8128688499687306982">"Мовлення"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Джерела вхідного сигналу"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"Доступність"</string>
@@ -104,12 +108,11 @@
     <string name="about_system_update" msgid="7282772247661356586">"Оновлення системи"</string>
     <string name="about_preference" msgid="4131396784531360434">"Інфо"</string>
     <string name="device_name" msgid="2670488158531273028">"Назва пристрою"</string>
+    <string name="restart_button_label" msgid="8153112858638352970">"Перезапустити"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"Правова інформація"</string>
     <string name="about_warranty" msgid="5736003473060436384">"Гарантія"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"Ліцензії з відкритим кодом"</string>
-    <string name="about_terms_of_service" msgid="3025043473995690659">"Умови використання"</string>
-    <string name="about_privacy_policy" msgid="7104996228479152643">"Політика конфіденційності"</string>
-    <string name="about_additional_terms" msgid="1769540499832401944">"Додаткові умови"</string>
+    <string name="about_terms_of_service" msgid="7743088207977334874">"Юридичні умови Google"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"Дані ліцензії недоступні"</string>
     <string name="about_model" msgid="6625269442206323995">"Модель"</string>
     <string name="about_version" msgid="1177287676732287266">"Версія"</string>
@@ -241,7 +244,7 @@
     <string name="storage_available" msgid="1241005580092138871">"Доступно"</string>
     <string name="storage_size" msgid="8958530823208352781">"Загальний обсяг: <xliff:g id="TOTAL_SPACE">%1$s</xliff:g>"</string>
     <string name="storage_calculating_size" msgid="2644732407412520565">"Обчислення…"</string>
-    <string name="storage_apps_usage" msgid="4366049071039081219">"Програми"</string>
+    <string name="storage_apps_usage" msgid="4366049071039081219">"Додатки"</string>
     <string name="storage_downloads_usage" msgid="6172975879962599380">"Завантаження"</string>
     <string name="storage_dcim_usage" msgid="2977564696540645452">"Фотографії та відео"</string>
     <string name="storage_music_usage" msgid="3509327591741514083">"Аудіо"</string>
@@ -261,7 +264,6 @@
     <string name="system_date" msgid="2767108116769558081">"Дата"</string>
     <string name="system_time" msgid="6726022312605226285">"Час"</string>
     <string name="system_set_date" msgid="2437586307768561116">"Установити дату"</string>
-    <string name="system_choose_date_format" msgid="7690908744371594279">"Вибрати формат дати"</string>
     <string name="system_set_time" msgid="4661804115501057452">"Установити час"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"Установити часовий пояс"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"Використовувати 24-годинний формат"</string>
@@ -343,7 +345,7 @@
     <string name="system_input" msgid="6164987320529039626">"Введення даних"</string>
     <string name="system_drawing" msgid="6573389872154957039">"Рисування"</string>
     <string name="system_monitoring" msgid="8424072546138094053">"Контроль"</string>
-    <string name="system_apps" msgid="6293850468968494924">"Програми"</string>
+    <string name="system_apps" msgid="6293850468968494924">"Додатки"</string>
     <string name="system_take_bug_report" msgid="3550575498907672342">"Зробити звіт про помилки"</string>
     <string name="system_backup_password" msgid="6622796686823406402">"Пароль резервної копії"</string>
     <string name="system_stay_awake" msgid="1212296404230848490">"Залишатись активним"</string>

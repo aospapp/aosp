@@ -12,7 +12,7 @@
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
-#include "content/public/browser/devtools_manager.h"
+#include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/dom_storage_context.h"
 #include "content/public/browser/gpu_data_manager.h"
 #include "content/public/browser/navigation_controller.h"
@@ -202,9 +202,18 @@ WebKitTestController::WebKitTestController()
     : main_window_(NULL),
       test_phase_(BETWEEN_TESTS),
       is_leak_detection_enabled_(CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableLeakDetection)) {
+          switches::kEnableLeakDetection)),
+      crash_when_leak_found_(false) {
   CHECK(!instance_);
   instance_ = this;
+
+  if (is_leak_detection_enabled_) {
+    std::string switchValue =
+        CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+            switches::kEnableLeakDetection);
+    crash_when_leak_found_ = switchValue == switches::kCrashOnFailure;
+  }
+
   printer_.reset(new WebKitTestResultPrinter(&std::cout, &std::cerr));
   if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEncodeBinary))
     printer_->set_encode_binary_data(true);
@@ -272,8 +281,8 @@ bool WebKitTestController::PrepareForLayoutTest(
     SendTestConfiguration();
 
     NavigationController::LoadURLParams params(test_url);
-    params.transition_type = PageTransitionFromInt(
-        PAGE_TRANSITION_TYPED | PAGE_TRANSITION_FROM_ADDRESS_BAR);
+    params.transition_type = ui::PageTransitionFromInt(
+        ui::PAGE_TRANSITION_TYPED | ui::PAGE_TRANSITION_FROM_ADDRESS_BAR);
     params.should_clear_history_list = true;
     main_window_->web_contents()->GetController().LoadURLWithParams(params);
     main_window_->web_contents()->Focus();
@@ -329,7 +338,6 @@ void WebKitTestController::OverrideWebkitPrefs(WebPreferences* prefs) {
       CommandLine& command_line = *CommandLine::ForCurrentProcess();
       if (!command_line.HasSwitch(switches::kDisableGpu))
         prefs->accelerated_2d_canvas_enabled = true;
-      prefs->accelerated_compositing_for_video_enabled = true;
       prefs->mock_scrollbars_enabled = true;
     }
   }
@@ -645,7 +653,7 @@ void WebKitTestController::OnCaptureSessionHistory() {
 }
 
 void WebKitTestController::OnCloseRemainingWindows() {
-  DevToolsManager::GetInstance()->CloseAllClientHosts();
+  DevToolsAgentHost::DetachAllClients();
   std::vector<Shell*> open_windows(Shell::windows());
   for (size_t i = 0; i < open_windows.size(); ++i) {
     if (open_windows[i] != main_window_)
@@ -680,6 +688,8 @@ void WebKitTestController::OnLeakDetectionDone(
   printer_->AddErrorMessage(
       base::StringPrintf("#LEAK - renderer pid %d (%s)", current_pid_,
                          result.detail.c_str()));
+  CHECK(!crash_when_leak_found_);
+
   DiscardMainWindow();
 }
 

@@ -17,41 +17,42 @@
 package android.hardware.cts.helpers.sensoroperations;
 
 import android.content.Context;
-import android.hardware.cts.helpers.SensorStats;
+import android.hardware.cts.helpers.reporting.ISensorTestNode;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 
 /**
- * An {@link ISensorOperation} which holds a wakelock while performing another
- * {@link ISensorOperation}.
+ * An {@link SensorOperation} which holds a wake-lock while performing another
+ * {@link SensorOperation}.
  */
-public class WakeLockOperation extends AbstractSensorOperation {
+public class WakeLockOperation extends SensorOperation {
     private static final String TAG = "WakeLockOperation";
 
-    private final ISensorOperation mOperation;
+    private final SensorOperation mOperation;
     private final Context mContext;
-    private final int mWakelockFlags;
+    private final int mWakeLockFlags;
 
     /**
      * Constructor for {@link WakeLockOperation}.
      *
-     * @param operation the child {@link ISensorOperation} to perform after the delay
+     * @param operation the child {@link SensorOperation} to perform after the delay
      * @param context the context used to access the power manager
-     * @param wakelockFlags the flags used when acquiring the wakelock
+     * @param wakeLockFlags the flags used when acquiring the wake-lock
      */
-    public WakeLockOperation(ISensorOperation operation, Context context, int wakelockFlags) {
+    public WakeLockOperation(SensorOperation operation, Context context, int wakeLockFlags) {
+        super(operation.getStats());
         mOperation = operation;
         mContext = context;
-        mWakelockFlags = wakelockFlags;
+        mWakeLockFlags = wakeLockFlags;
     }
 
     /**
      * Constructor for {@link WakeLockOperation}.
      *
-     * @param operation the child {@link ISensorOperation} to perform after the delay
+     * @param operation the child {@link SensorOperation} to perform after the delay
      * @param context the context used to access the power manager
      */
-    public WakeLockOperation(ISensorOperation operation, Context context) {
+    public WakeLockOperation(SensorOperation operation, Context context) {
         this(operation, context, PowerManager.PARTIAL_WAKE_LOCK);
     }
 
@@ -59,13 +60,12 @@ public class WakeLockOperation extends AbstractSensorOperation {
      * {@inheritDoc}
      */
     @Override
-    public void execute() throws InterruptedException {
+    public void execute(ISensorTestNode parent) throws InterruptedException {
         PowerManager pm = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
-        WakeLock wakeLock = pm.newWakeLock(mWakelockFlags, TAG);
-
+        WakeLock wakeLock = pm.newWakeLock(mWakeLockFlags, TAG);
         wakeLock.acquire();
         try {
-            mOperation.execute();
+            mOperation.execute(asTestNode(parent));
         } finally {
             wakeLock.release();
         }
@@ -75,15 +75,7 @@ public class WakeLockOperation extends AbstractSensorOperation {
      * {@inheritDoc}
      */
     @Override
-    public SensorStats getStats() {
-        return mOperation.getStats();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public ISensorOperation clone() {
-        return new WakeLockOperation(mOperation, mContext, mWakelockFlags);
+    public SensorOperation clone() {
+        return new WakeLockOperation(mOperation.clone(), mContext, mWakeLockFlags);
     }
 }

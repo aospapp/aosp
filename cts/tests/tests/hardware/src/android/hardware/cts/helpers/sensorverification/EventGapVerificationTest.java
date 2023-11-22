@@ -22,6 +22,9 @@ import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.TestSensorEvent;
 
+import java.util.ArrayList;
+import java.util.Collection;
+
 /**
  * Tests for {@link EventGapVerification}.
  */
@@ -90,11 +93,13 @@ public class EventGapVerificationTest extends TestCase {
         }
     }
 
-    private ISensorVerification getVerification(int expected, long ... timestamps) {
-        ISensorVerification verification = new EventGapVerification(expected);
+    private static EventGapVerification getVerification(int expected, long ... timestamps) {
+        Collection<TestSensorEvent> events = new ArrayList<>(timestamps.length);
         for (long timestamp : timestamps) {
-            verification.addSensorEvent(new TestSensorEvent(null, timestamp, 0, null));
+            events.add(new TestSensorEvent(null, timestamp, 0, null));
         }
+        EventGapVerification verification = new EventGapVerification(expected);
+        verification.addSensorEvents(events);
         return verification;
     }
 }

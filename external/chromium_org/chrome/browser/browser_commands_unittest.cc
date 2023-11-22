@@ -4,10 +4,12 @@
 
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
+#include "chrome/browser/chrome_page_zoom.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/zoom/zoom_controller.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/testing_profile.h"
@@ -69,7 +71,7 @@ TEST_F(BrowserCommandsTest, DuplicateTab) {
   content::NavigationController& orig_controller =
       browser()->tab_strip_model()->GetWebContentsAt(0)->GetController();
   orig_controller.LoadURL(
-      url4, content::Referrer(), content::PAGE_TRANSITION_LINK, std::string());
+      url4, content::Referrer(), ui::PAGE_TRANSITION_LINK, std::string());
   EXPECT_EQ(3, orig_controller.GetEntryCount());
   EXPECT_TRUE(orig_controller.GetPendingEntry());
 
@@ -106,7 +108,7 @@ TEST_F(BrowserCommandsTest, ViewSource) {
   content::NavigationController& orig_controller =
       browser()->tab_strip_model()->GetWebContentsAt(0)->GetController();
   orig_controller.LoadURL(
-      url2, content::Referrer(), content::PAGE_TRANSITION_LINK, std::string());
+      url2, content::Referrer(), ui::PAGE_TRANSITION_LINK, std::string());
   EXPECT_EQ(1, orig_controller.GetEntryCount());
   EXPECT_TRUE(orig_controller.GetPendingEntry());
 
@@ -144,7 +146,7 @@ TEST_F(BrowserCommandsTest, BookmarkCurrentPage) {
   GURL url1("http://foo/1");
   AddTab(browser(), url1);
   browser()->OpenURL(OpenURLParams(
-      url1, Referrer(), CURRENT_TAB, content::PAGE_TRANSITION_TYPED, false));
+      url1, Referrer(), CURRENT_TAB, ui::PAGE_TRANSITION_TYPED, false));
 
   chrome::BookmarkCurrentPage(browser());
 
@@ -226,4 +228,114 @@ TEST_F(BrowserCommandsTest, BackForwardInNewTab) {
   ASSERT_EQ(url2,
             browser()->tab_strip_model()->GetActiveWebContents()->
                 GetVisibleURL());
+}
+
+TEST_F(BrowserCommandsTest, OnMaxZoomIn) {
+  TabStripModel* tab_strip_model = browser()->tab_strip_model();
+
+  GURL url("http://www.google.com");
+  AddTab(browser(), url);
+  content::WebContents* contents1 = tab_strip_model->GetWebContentsAt(0);
+
+  // Continue to zoom in until zoom percent reaches 500.
+  for (int i = 0; i < 9; ++i) {
+    chrome_page_zoom::Zoom(contents1, content::PAGE_ZOOM_IN);
+  }
+
+  // TODO(a.sarkar.arun@gmail.com): Figure out why Zoom-In menu item is not
+  // disabled after Max-zoom is reached. Force disable Zoom-In menu item
+  // from the context menu since it breaks try jobs on bots.
+  if (chrome::IsCommandEnabled(browser(), IDC_ZOOM_PLUS))
+    chrome::UpdateCommandEnabled(browser(), IDC_ZOOM_PLUS, false);
+
+  ZoomController* zoom_controller = ZoomController::FromWebContents(contents1);
+  EXPECT_EQ(zoom_controller->GetZoomPercent(), 500.0f);
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_PLUS));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_NORMAL));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_MINUS));
+}
+
+TEST_F(BrowserCommandsTest, OnMaxZoomOut) {
+  TabStripModel* tab_strip_model = browser()->tab_strip_model();
+
+  GURL url("http://www.google.com");
+  AddTab(browser(), url);
+  content::WebContents* contents1 = tab_strip_model->GetWebContentsAt(0);
+
+  // Continue to zoom out until zoom percent reaches 25.
+  for (int i = 0; i < 7; ++i) {
+    chrome_page_zoom::Zoom(contents1, content::PAGE_ZOOM_OUT);
+  }
+
+  ZoomController* zoom_controller = ZoomController::FromWebContents(contents1);
+  EXPECT_EQ(zoom_controller->GetZoomPercent(), 25.0f);
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_PLUS));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_NORMAL));
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_MINUS));
+}
+
+TEST_F(BrowserCommandsTest, OnZoomReset) {
+  TabStripModel* tab_strip_model = browser()->tab_strip_model();
+
+  GURL url("http://www.google.com");
+  AddTab(browser(), url);
+  content::WebContents* contents1 = tab_strip_model->GetWebContentsAt(0);
+
+  // Change the zoom percentage to 100.
+  chrome_page_zoom::Zoom(contents1, content::PAGE_ZOOM_RESET);
+
+  ZoomController* zoom_controller = ZoomController::FromWebContents(contents1);
+  EXPECT_EQ(zoom_controller->GetZoomPercent(), 100.0f);
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_PLUS));
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_NORMAL));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_MINUS));
+}
+
+TEST_F(BrowserCommandsTest, OnZoomLevelChanged) {
+  TabStripModel* tab_strip_model = browser()->tab_strip_model();
+
+  GURL url("http://www.google.com");
+  AddTab(browser(), url);
+  content::WebContents* contents1 = tab_strip_model->GetWebContentsAt(0);
+
+  // Changing zoom percentage from default should enable all the zoom
+  // NSMenuItems.
+  chrome_page_zoom::Zoom(contents1, content::PAGE_ZOOM_IN);
+
+  ZoomController* zoom_controller = ZoomController::FromWebContents(contents1);
+  EXPECT_EQ(zoom_controller->GetZoomPercent(), 110.0f);
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_PLUS));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_NORMAL));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_MINUS));
+}
+
+TEST_F(BrowserCommandsTest, OnZoomChangedForActiveTab) {
+  TabStripModel* tab_strip_model = browser()->tab_strip_model();
+
+  GURL url("http://www.google.com");
+  GURL url1("http://code.google.com");
+
+  // Add First tab.
+  AddTab(browser(), url);
+  AddTab(browser(), url1);
+  content::WebContents* contents1 = tab_strip_model->GetWebContentsAt(0);
+
+  ZoomController* zoom_controller = ZoomController::FromWebContents(contents1);
+  EXPECT_EQ(zoom_controller->GetZoomPercent(), 100.0f);
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_PLUS));
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_NORMAL));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_MINUS));
+
+  // Add Second tab.
+  content::WebContents* contents2 = tab_strip_model->GetWebContentsAt(1);
+
+  tab_strip_model->ActivateTabAt(1, true);
+  EXPECT_TRUE(tab_strip_model->IsTabSelected(1));
+  chrome_page_zoom::Zoom(contents2, content::PAGE_ZOOM_OUT);
+
+  zoom_controller = ZoomController::FromWebContents(contents2);
+  EXPECT_EQ(zoom_controller->GetZoomPercent(), 90.0f);
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_PLUS));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_NORMAL));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_ZOOM_MINUS));
 }

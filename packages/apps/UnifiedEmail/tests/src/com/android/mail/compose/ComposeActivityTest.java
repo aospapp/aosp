@@ -137,21 +137,22 @@ public class ComposeActivityTest extends ActivityInstrumentationTestCase2<Compos
                 + "someotheraccount2@mockuiprovider.com, someotheraccount3@mockuiprovider.com, "
                 + customFrom);
         refMessage.setReplyTo(customFrom);
-        activity.mFromSpinner = new FromAddressSpinner(activity);
+
         ReplyFromAccount a = new ReplyFromAccount(mAccount, mAccount.uri, customFrom,
                 customFrom, customFrom, true, true);
         JSONArray array = new JSONArray();
         array.put(a.serialize());
         mAccount.accountFromAddresses = array.toString();
-        ReplyFromAccount currentAccount = new ReplyFromAccount(mAccount, mAccount.uri,
+        final ReplyFromAccount currentAccount = new ReplyFromAccount(mAccount, mAccount.uri,
                 mAccount.getEmailAddress(), mAccount.getEmailAddress(), customFrom, true, false);
-        activity.mFromSpinner.setCurrentAccount(currentAccount);
-
-        activity.mFromSpinner.initialize(ComposeActivity.REPLY_ALL,
-                currentAccount.account, EMPTY_ACCOUNT_LIST, null);
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
+                activity.mFromSpinner = new FromAddressSpinner(activity);
+                activity.mFromSpinner.setCurrentAccount(currentAccount);
+                activity.mFromSpinner.initialize(ComposeActivity.REPLY_ALL,
+                        currentAccount.account, EMPTY_ACCOUNT_LIST, null);
+
                 activity.initReplyRecipients(refMessage, ComposeActivity.REPLY_ALL);
                 String[] to = activity.getToAddresses();
                 String[] cc = activity.getCcAddresses();
@@ -176,17 +177,19 @@ public class ComposeActivityTest extends ActivityInstrumentationTestCase2<Compos
         refMessage.setFrom("account3@mockuiprovider.com");
         refMessage.setTo("account3@mockuiprovider.com");
         final Account account = mAccount;
-        activity.mFromSpinner = new FromAddressSpinner(activity);
-        ReplyFromAccount currentAccount = new ReplyFromAccount(mAccount, mAccount.uri,
+
+        final ReplyFromAccount currentAccount = new ReplyFromAccount(mAccount, mAccount.uri,
                 mAccount.getEmailAddress(), mAccount.getEmailAddress(), mAccount.getEmailAddress(),
                 true, false);
-        activity.mFromSpinner.setCurrentAccount(currentAccount);
 
-        activity.mFromSpinner.initialize(ComposeActivity.REPLY_ALL,
-                currentAccount.account, EMPTY_ACCOUNT_LIST, null);
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
+                activity.mFromSpinner = new FromAddressSpinner(activity);
+                activity.mFromSpinner.setCurrentAccount(currentAccount);
+                activity.mFromSpinner.initialize(ComposeActivity.REPLY_ALL,
+                        currentAccount.account, EMPTY_ACCOUNT_LIST, null);
+
                 activity.initReplyRecipients(refMessage, ComposeActivity.REPLY_ALL);
                 String[] to = activity.getToAddresses();
                 String[] cc = activity.getCcAddresses();
@@ -211,21 +214,23 @@ public class ComposeActivityTest extends ActivityInstrumentationTestCase2<Compos
         final String customFrom = "CUSTOMaccount3@mockuiprovider.com";
         refMessage.setFrom("account3@mockuiprovider.com");
         refMessage.setTo(customFrom);
-        activity.mFromSpinner = new FromAddressSpinner(activity);
+
         ReplyFromAccount a = new ReplyFromAccount(mAccount, mAccount.uri, customFrom,
                 customFrom, customFrom, true, true);
         JSONArray array = new JSONArray();
         array.put(a.serialize());
         mAccount.accountFromAddresses = array.toString();
-        ReplyFromAccount currentAccount = new ReplyFromAccount(mAccount, mAccount.uri,
+        final ReplyFromAccount currentAccount = new ReplyFromAccount(mAccount, mAccount.uri,
                 mAccount.getEmailAddress(), mAccount.getEmailAddress(), customFrom, true, false);
-        activity.mFromSpinner.setCurrentAccount(currentAccount);
 
-        activity.mFromSpinner.initialize(ComposeActivity.REPLY_ALL,
-                currentAccount.account, EMPTY_ACCOUNT_LIST, null);
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
+                activity.mFromSpinner = new FromAddressSpinner(activity);
+                activity.mFromSpinner.setCurrentAccount(currentAccount);
+                activity.mFromSpinner.initialize(ComposeActivity.REPLY_ALL,
+                        currentAccount.account, EMPTY_ACCOUNT_LIST, null);
+
                 activity.initReplyRecipients(refMessage, ComposeActivity.REPLY_ALL);
                 String[] to = activity.getToAddresses();
                 String[] cc = activity.getCcAddresses();
@@ -540,22 +545,24 @@ public class ComposeActivityTest extends ActivityInstrumentationTestCase2<Compos
         final Message refMessage = getRefMessage(activity.getContentResolver());
         refMessage.setFrom("CUSTOMaccount1@mockuiprovider.com");
         refMessage.setTo("someotheraccount@mockuiprovider.com");
-        activity.mFromSpinner = new FromAddressSpinner(activity);
+
         ReplyFromAccount a = new ReplyFromAccount(mAccount, mAccount.uri, refMessage.getFrom(),
                 refMessage.getFrom(), refMessage.getFrom(), true, true);
         JSONArray array = new JSONArray();
         array.put(a.serialize());
         mAccount.accountFromAddresses = array.toString();
-        ReplyFromAccount currentAccount = new ReplyFromAccount(mAccount, mAccount.uri,
+        final ReplyFromAccount currentAccount = new ReplyFromAccount(mAccount, mAccount.uri,
                 mAccount.getEmailAddress(), mAccount.getEmailAddress(), mAccount.getEmailAddress(),
                 true, false);
-        activity.mFromSpinner.setCurrentAccount(currentAccount);
-        activity.mFromSpinner.initialize(ComposeActivity.REPLY, currentAccount.account,
-                EMPTY_ACCOUNT_LIST, null);
 
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
+                activity.mFromSpinner = new FromAddressSpinner(activity);
+                activity.mFromSpinner.setCurrentAccount(currentAccount);
+                activity.mFromSpinner.initialize(ComposeActivity.REPLY, currentAccount.account,
+                        EMPTY_ACCOUNT_LIST, null);
+
                 activity.initReplyRecipients(refMessage, ComposeActivity.REPLY);
                 String[] to = activity.getToAddresses();
                 String[] cc = activity.getCcAddresses();
@@ -581,21 +588,24 @@ public class ComposeActivityTest extends ActivityInstrumentationTestCase2<Compos
         refMessage.setTo("someotheraccount@mockuiprovider.com, "
                 + "someotheraccount2@mockuiprovider.com, someotheraccount4@mockuiprovider.com, "
                 + customFrom);
-        activity.mFromSpinner = new FromAddressSpinner(activity);
+
         ReplyFromAccount a = new ReplyFromAccount(mAccount, mAccount.uri, customFrom,
                 customFrom, customFrom, true, true);
         JSONArray array = new JSONArray();
         array.put(a.serialize());
         mAccount.accountFromAddresses = array.toString();
-        ReplyFromAccount currentAccount = new ReplyFromAccount(mAccount, mAccount.uri,
+        final ReplyFromAccount currentAccount = new ReplyFromAccount(mAccount, mAccount.uri,
                 mAccount.getEmailAddress(), mAccount.getEmailAddress(), mAccount.getEmailAddress(),
                 true, false);
-        activity.mFromSpinner.setCurrentAccount(currentAccount);
-        activity.mFromSpinner.initialize(ComposeActivity.REPLY_ALL,
-                currentAccount.account, EMPTY_ACCOUNT_LIST, null);
+
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
+                activity.mFromSpinner = new FromAddressSpinner(activity);
+                activity.mFromSpinner.setCurrentAccount(currentAccount);
+                activity.mFromSpinner.initialize(ComposeActivity.REPLY_ALL,
+                        currentAccount.account, EMPTY_ACCOUNT_LIST, null);
+
                 activity.initReplyRecipients(refMessage, ComposeActivity.REPLY_ALL);
                 String[] to = activity.getToAddresses();
                 String[] cc = activity.getCcAddresses();
@@ -624,21 +634,24 @@ public class ComposeActivityTest extends ActivityInstrumentationTestCase2<Compos
         refMessage.setTo("someotheraccount@mockuiprovider.com, "
                 + "someotheraccount2@mockuiprovider.com, someotheraccount4@mockuiprovider.com, "
                 + customFrom);
-        activity.mFromSpinner = new FromAddressSpinner(activity);
+
         ReplyFromAccount a = new ReplyFromAccount(mAccount, mAccount.uri, customFrom,
                 customFrom, customFrom, true, true);
         JSONArray array = new JSONArray();
         array.put(a.serialize());
         mAccount.accountFromAddresses = array.toString();
-        ReplyFromAccount currentAccount = new ReplyFromAccount(mAccount, mAccount.uri,
+        final ReplyFromAccount currentAccount = new ReplyFromAccount(mAccount, mAccount.uri,
                 mAccount.getEmailAddress(), mAccount.getEmailAddress(), mAccount.getEmailAddress(),
                 true, false);
-        activity.mFromSpinner.setCurrentAccount(currentAccount);
-        activity.mFromSpinner.initialize(ComposeActivity.REPLY_ALL,
-                currentAccount.account, EMPTY_ACCOUNT_LIST, null);
+
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
+                activity.mFromSpinner = new FromAddressSpinner(activity);
+                activity.mFromSpinner.setCurrentAccount(currentAccount);
+                activity.mFromSpinner.initialize(ComposeActivity.REPLY_ALL,
+                        currentAccount.account, EMPTY_ACCOUNT_LIST, null);
+
                 activity.initReplyRecipients(refMessage, ComposeActivity.REPLY_ALL);
                 String[] to = activity.getToAddresses();
                 String[] cc = activity.getCcAddresses();

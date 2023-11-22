@@ -38,8 +38,11 @@ class JniInvocation {
   // persist.sys.dalvik.vm.lib.
   bool Init(const char* library);
 
-  // Exposes which library is actually loaded from the given name.
-  static const char* GetLibrary(const char* library);
+  // Exposes which library is actually loaded from the given name. The
+  // buffer of size PROPERTY_VALUE_MAX will be used to load the system
+  // property for the default library, if necessary. If no buffer is
+  // provided, the fallback value will be used.
+  static const char* GetLibrary(const char* library, char* buffer);
 
  private:
 

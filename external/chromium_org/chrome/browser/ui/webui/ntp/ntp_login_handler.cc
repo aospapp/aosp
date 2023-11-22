@@ -31,6 +31,8 @@
 #include "chrome/browser/web_resource/promo_resource_service.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/signin/core/browser/signin_manager.h"
 #include "content/public/browser/host_zoom_map.h"
 #include "content/public/browser/notification_details.h"
@@ -38,8 +40,6 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/common/page_zoom.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
 #include "net/base/escape.h"
 #include "skia/ext/image_operations.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -158,7 +158,7 @@ void NTPLoginHandler::HandleShowSyncLoginUI(const base::ListValue* args) {
     DCHECK(success);
 
     double zoom = content::ZoomLevelToZoomFactor(
-        content::HostZoomMap::GetZoomLevel(web_contents));
+        ZoomController::FromWebContents(web_contents)->GetZoomLevel());
     gfx::Rect rect(x * zoom, y * zoom, width * zoom, height * zoom);
 
     browser->window()->ShowAvatarBubble(web_ui()->GetWebContents(), rect);

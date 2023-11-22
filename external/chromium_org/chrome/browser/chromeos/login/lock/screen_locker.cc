@@ -25,34 +25,37 @@
 #include "base/strings/string_util.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/chromeos/login/auth/authenticator.h"
-#include "chrome/browser/chromeos/login/auth/extended_authenticator.h"
 #include "chrome/browser/chromeos/login/auth/login_performer.h"
 #include "chrome/browser/chromeos/login/lock/webui_screen_locker.h"
 #include "chrome/browser/chromeos/login/login_utils.h"
-#include "chrome/browser/chromeos/login/managed/supervised_user_authentication.h"
+#include "chrome/browser/chromeos/login/session/user_session_manager.h"
+#include "chrome/browser/chromeos/login/supervised/supervised_user_authentication.h"
 #include "chrome/browser/chromeos/login/ui/user_adding_screen.h"
+#include "chrome/browser/chromeos/login/users/chrome_user_manager.h"
 #include "chrome/browser/chromeos/login/users/supervised_user_manager.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
+#include "chrome/browser/signin/easy_unlock_service.h"
 #include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/ui/webui/chromeos/login/screenlock_icon_provider.h"
 #include "chrome/browser/ui/webui/chromeos/login/screenlock_icon_source.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/grit/browser_resources.h"
+#include "chrome/grit/generated_resources.h"
 #include "chromeos/audio/chromeos_sounds.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/session_manager_client.h"
+#include "chromeos/login/auth/authenticator.h"
+#include "chromeos/login/auth/extended_authenticator.h"
 #include "components/signin/core/browser/signin_manager.h"
+#include "components/user_manager/user_manager.h"
+#include "components/user_manager/user_type.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
-#include "grit/browser_resources.h"
-#include "grit/generated_resources.h"
 #include "media/audio/sounds/sounds_manager.h"
-#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image.h"
 #include "url/gurl.h"
@@ -128,11 +131,11 @@ ScreenLocker* ScreenLocker::screen_locker_ = NULL;
 //////////////////////////////////////////////////////////////////////////////
 // ScreenLocker, public:
 
-ScreenLocker::ScreenLocker(const UserList& users)
+ScreenLocker::ScreenLocker(const user_manager::UserList& users)
     : users_(users),
       locked_(false),
       start_time_(base::Time::Now()),
-      login_status_consumer_(NULL),
+      auth_status_consumer_(NULL),
       incorrect_passwords_count_(0),
       weak_factory_(this) {
   DCHECK(!screen_locker_);
@@ -145,16 +148,24 @@ ScreenLocker::ScreenLocker(const UserList& users)
   manager->Initialize(SOUND_UNLOCK,
                       bundle.GetRawDataResource(IDR_SOUND_UNLOCK_WAV));
 
+#if !defined(USE_ATHENA)
+  // crbug.com/408733
   ash::Shell::GetInstance()->
       lock_state_controller()->SetLockScreenDisplayedCallback(
           base::Bind(base::IgnoreResult(&ash::PlaySystemSoundIfSpokenFeedback),
                      static_cast<media::SoundsManager::SoundKey>(
                          chromeos::SOUND_LOCK)));
+#endif
 }
 
 void ScreenLocker::Init() {
+  input_method::InputMethodManager* imm =
+      input_method::InputMethodManager::Get();
+  saved_ime_state_ = imm->GetActiveIMEState();
+  imm->SetState(saved_ime_state_->Clone());
+
   authenticator_ = LoginUtils::Get()->CreateAuthenticator(this);
-  extended_authenticator_ = new ExtendedAuthenticator(this);
+  extended_authenticator_ = ExtendedAuthenticator::Create(this);
   delegate_.reset(new WebUIScreenLocker(this));
   delegate_->LockScreen();
 
@@ -167,7 +178,7 @@ void ScreenLocker::Init() {
       screenlock_icon_source);
 }
 
-void ScreenLocker::OnLoginFailure(const LoginFailure& error) {
+void ScreenLocker::OnAuthFailure(const AuthFailure& error) {
   content::RecordAction(UserMetricsAction("ScreenLocker_OnLoginFailure"));
   if (authentication_start_time_.is_null()) {
     LOG(ERROR) << "Start time is not set at authentication failure";
@@ -186,11 +197,11 @@ void ScreenLocker::OnLoginFailure(const LoginFailure& error) {
                                   IDS_LOGIN_ERROR_AUTHENTICATING,
                               HelpAppLauncher::HELP_CANT_ACCESS_ACCOUNT);
 
-  if (login_status_consumer_)
-    login_status_consumer_->OnLoginFailure(error);
+  if (auth_status_consumer_)
+    auth_status_consumer_->OnAuthFailure(error);
 }
 
-void ScreenLocker::OnLoginSuccess(const UserContext& user_context) {
+void ScreenLocker::OnAuthSuccess(const UserContext& user_context) {
   incorrect_passwords_count_ = 0;
   if (authentication_start_time_.is_null()) {
     if (!user_context.GetUserID().empty())
@@ -201,10 +212,15 @@ void ScreenLocker::OnLoginSuccess(const UserContext& user_context) {
     UMA_HISTOGRAM_TIMES("ScreenLocker.AuthenticationSuccessTime", delta);
   }
 
-  const User* user = UserManager::Get()->FindUser(user_context.GetUserID());
+  const user_manager::User* user =
+      user_manager::UserManager::Get()->FindUser(user_context.GetUserID());
   if (user) {
-    if (!user->is_active())
-      UserManager::Get()->SwitchActiveUser(user_context.GetUserID());
+    if (!user->is_active()) {
+      saved_ime_state_ = NULL;
+      user_manager::UserManager::Get()->SwitchActiveUser(
+          user_context.GetUserID());
+    }
+    UserSessionManager::GetInstance()->UpdateEasyUnlockKeys(user_context);
   } else {
     NOTREACHED() << "Logged in user not found.";
   }
@@ -230,9 +246,8 @@ void ScreenLocker::UnlockOnLoginSuccess() {
     return;
   }
 
-  if (login_status_consumer_) {
-    login_status_consumer_->OnLoginSuccess(
-        authentication_capture_->user_context);
+  if (auth_status_consumer_) {
+    auth_status_consumer_->OnAuthSuccess(authentication_capture_->user_context);
   }
   authentication_capture_.reset();
   weak_factory_.InvalidateWeakPtrs();
@@ -250,9 +265,10 @@ void ScreenLocker::Authenticate(const UserContext& user_context) {
   delegate_->OnAuthenticate();
 
   // Special case: supervised users. Use special authenticator.
-  if (const User* user = FindUnlockUser(user_context.GetUserID())) {
-    if (user->GetType() == User::USER_TYPE_LOCALLY_MANAGED) {
-      UserContext updated_context = UserManager::Get()
+  if (const user_manager::User* user =
+          FindUnlockUser(user_context.GetUserID())) {
+    if (user->GetType() == user_manager::USER_TYPE_SUPERVISED) {
+      UserContext updated_context = ChromeUserManager::Get()
                                         ->GetSupervisedUserManager()
                                         ->GetAuthentication()
                                         ->TransformKey(user_context);
@@ -269,18 +285,20 @@ void ScreenLocker::Authenticate(const UserContext& user_context) {
     }
   }
 
-  // TODO(antrim) : migrate to new authenticator for all types of users.
-  // http://crbug.com/351268
   BrowserThread::PostTask(
       BrowserThread::UI, FROM_HERE,
-      base::Bind(&Authenticator::AuthenticateToUnlock,
-                 authenticator_.get(),
-                 user_context));
+      base::Bind(&ExtendedAuthenticator::AuthenticateToCheck,
+                 extended_authenticator_.get(),
+                 user_context,
+                 base::Closure()));
 }
 
-const User* ScreenLocker::FindUnlockUser(const std::string& user_id) {
-  const User* unlock_user = NULL;
-  for (UserList::const_iterator it = users_.begin(); it != users_.end(); ++it) {
+const user_manager::User* ScreenLocker::FindUnlockUser(
+    const std::string& user_id) {
+  const user_manager::User* unlock_user = NULL;
+  for (user_manager::UserList::const_iterator it = users_.begin();
+       it != users_.end();
+       ++it) {
     if ((*it)->email() == user_id) {
       unlock_user = *it;
       break;
@@ -316,8 +334,8 @@ void ScreenLocker::ShowErrorMessage(int error_msg_id,
 }
 
 void ScreenLocker::SetLoginStatusConsumer(
-    chromeos::LoginStatusConsumer* consumer) {
-  login_status_consumer_ = consumer;
+    chromeos::AuthStatusConsumer* consumer) {
+  auth_status_consumer_ = consumer;
 }
 
 // static
@@ -344,7 +362,7 @@ void ScreenLocker::HandleLockScreenRequest() {
     return;
   }
   if (g_screen_lock_observer->session_started() &&
-      UserManager::Get()->CanCurrentUserLock()) {
+      user_manager::UserManager::Get()->CanCurrentUserLock()) {
     ScreenLocker::Show();
     ash::Shell::GetInstance()->lock_state_controller()->OnStartingLock();
   } else {
@@ -360,14 +378,19 @@ void ScreenLocker::HandleLockScreenRequest() {
 
 // static
 void ScreenLocker::Show() {
+#if defined(USE_ATHENA)
+  // crbug.com/413926
+  return;
+#endif
+
   content::RecordAction(UserMetricsAction("ScreenLocker_Show"));
   DCHECK(base::MessageLoopForUI::IsCurrent());
 
   // Check whether the currently logged in user is a guest account and if so,
   // refuse to lock the screen (crosbug.com/23764).
   // For a demo user, we should never show the lock screen (crosbug.com/27647).
-  if (UserManager::Get()->IsLoggedInAsGuest() ||
-      UserManager::Get()->IsLoggedInAsDemoUser()) {
+  if (user_manager::UserManager::Get()->IsLoggedInAsGuest() ||
+      user_manager::UserManager::Get()->IsLoggedInAsDemoUser()) {
     VLOG(1) << "Refusing to lock screen for guest/demo account";
     return;
   }
@@ -386,7 +409,7 @@ void ScreenLocker::Show() {
 
   if (!screen_locker_) {
     ScreenLocker* locker =
-        new ScreenLocker(UserManager::Get()->GetUnlockUsers());
+        new ScreenLocker(user_manager::UserManager::Get()->GetUnlockUsers());
     VLOG(1) << "Created ScreenLocker " << locker;
     locker->Init();
   } else {
@@ -399,10 +422,15 @@ void ScreenLocker::Show() {
 
 // static
 void ScreenLocker::Hide() {
+#if defined(USE_ATHENA)
+  // crbug.com/413926
+  return;
+#endif
+
   DCHECK(base::MessageLoopForUI::IsCurrent());
   // For a guest/demo user, screen_locker_ would have never been initialized.
-  if (UserManager::Get()->IsLoggedInAsGuest() ||
-      UserManager::Get()->IsLoggedInAsDemoUser()) {
+  if (user_manager::UserManager::Get()->IsLoggedInAsGuest() ||
+      user_manager::UserManager::Get()->IsLoggedInAsDemoUser()) {
     VLOG(1) << "Refusing to hide lock screen for guest/demo account";
     return;
   }
@@ -452,6 +480,10 @@ ScreenLocker::~ScreenLocker() {
   VLOG(1) << "Calling session manager's HandleLockScreenDismissed D-Bus method";
   DBusThreadManager::Get()->GetSessionManagerClient()->
       NotifyLockScreenDismissed();
+
+  if (saved_ime_state_.get()) {
+    input_method::InputMethodManager::Get()->SetState(saved_ime_state_);
+  }
 }
 
 void ScreenLocker::SetAuthenticator(Authenticator* authenticator) {
@@ -469,6 +501,10 @@ void ScreenLocker::ScreenLockReady() {
   ash::Shell::GetInstance()->
       desktop_background_controller()->MoveDesktopToLockedContainer();
 
+  input_method::InputMethodManager::Get()
+      ->GetActiveIMEState()
+      ->EnableLockScreenLayouts();
+
   bool state = true;
   VLOG(1) << "Emitting SCREEN_LOCK_STATE_CHANGED with state=" << state;
   content::NotificationService::current()->Notify(
@@ -484,7 +520,9 @@ content::WebUI* ScreenLocker::GetAssociatedWebUI() {
 }
 
 bool ScreenLocker::IsUserLoggedIn(const std::string& username) {
-  for (UserList::const_iterator it = users_.begin(); it != users_.end(); ++it) {
+  for (user_manager::UserList::const_iterator it = users_.begin();
+       it != users_.end();
+       ++it) {
     if ((*it)->email() == username)
       return true;
   }

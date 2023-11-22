@@ -53,11 +53,12 @@ class ThreadProxyForTest : public ThreadProxy {
   static scoped_ptr<Proxy> Create(
       TestHooks* test_hooks,
       LayerTreeHost* host,
+      scoped_refptr<base::SingleThreadTaskRunner> main_task_runner,
       scoped_refptr<base::SingleThreadTaskRunner> impl_task_runner) {
     return make_scoped_ptr(
-        new ThreadProxyForTest(test_hooks,
-                               host,
-                               impl_task_runner)).PassAs<Proxy>();
+               new ThreadProxyForTest(
+                   test_hooks, host, main_task_runner, impl_task_runner))
+        .PassAs<Proxy>();
   }
 
   virtual ~ThreadProxyForTest() {}
@@ -99,10 +100,10 @@ class ThreadProxyForTest : public ThreadProxy {
   ThreadProxyForTest(
       TestHooks* test_hooks,
       LayerTreeHost* host,
+      scoped_refptr<base::SingleThreadTaskRunner> main_task_runner,
       scoped_refptr<base::SingleThreadTaskRunner> impl_task_runner)
-      : ThreadProxy(host, impl_task_runner),
-        test_hooks_(test_hooks) {
-  }
+      : ThreadProxy(host, main_task_runner, impl_task_runner),
+        test_hooks_(test_hooks) {}
 };
 
 // Adapts LayerTreeHostImpl for test. Runs real code, then invokes test hooks.
@@ -160,11 +161,6 @@ class LayerTreeHostImplForTesting : public LayerTreeHostImpl {
   virtual void CommitComplete() OVERRIDE {
     LayerTreeHostImpl::CommitComplete();
     test_hooks_->CommitCompleteOnThread(this);
-
-    if (!settings().impl_side_painting) {
-      test_hooks_->WillActivateTreeOnThread(this);
-      test_hooks_->DidActivateTreeOnThread(this);
-    }
   }
 
   virtual DrawResult PrepareToDraw(FrameData* frame) OVERRIDE {
@@ -213,9 +209,9 @@ class LayerTreeHostImplForTesting : public LayerTreeHostImpl {
     }
   }
 
-  virtual void ActivatePendingTree() OVERRIDE {
+  virtual void ActivateSyncTree() OVERRIDE {
     test_hooks_->WillActivateTreeOnThread(this);
-    LayerTreeHostImpl::ActivatePendingTree();
+    LayerTreeHostImpl::ActivateSyncTree();
     DCHECK(!pending_tree());
     test_hooks_->DidActivateTreeOnThread(this);
   }
@@ -280,20 +276,22 @@ class LayerTreeHostClientForTesting : public LayerTreeHostClient,
     test_hooks_->DidBeginMainFrame();
   }
 
-  virtual void Animate(base::TimeTicks monotonic_time) OVERRIDE {
-    test_hooks_->Animate(monotonic_time);
+  virtual void BeginMainFrame(const BeginFrameArgs& args) OVERRIDE {
+    test_hooks_->BeginMainFrame(args);
   }
 
   virtual void Layout() OVERRIDE { test_hooks_->Layout(); }
 
-  virtual void ApplyScrollAndScale(const gfx::Vector2d& scroll_delta,
-                                   float scale) OVERRIDE {
-    test_hooks_->ApplyScrollAndScale(scroll_delta, scale);
+  virtual void ApplyViewportDeltas(const gfx::Vector2d& scroll_delta,
+                                   float scale,
+                                   float top_controls_delta) OVERRIDE {
+    test_hooks_->ApplyViewportDeltas(scroll_delta,
+                                     scale,
+                                     top_controls_delta);
   }
 
-  virtual scoped_ptr<OutputSurface> CreateOutputSurface(bool fallback)
-      OVERRIDE {
-    return test_hooks_->CreateOutputSurface(fallback);
+  virtual void RequestNewOutputSurface(bool fallback) OVERRIDE {
+    test_hooks_->RequestNewOutputSurface(fallback);
   }
 
   virtual void DidInitializeOutputSurface() OVERRIDE {
@@ -316,14 +314,6 @@ class LayerTreeHostClientForTesting : public LayerTreeHostClient,
     test_hooks_->DidCompleteSwapBuffers();
   }
 
-  virtual void ScheduleComposite() OVERRIDE {
-    test_hooks_->ScheduleComposite();
-  }
-
-  virtual void ScheduleAnimation() OVERRIDE {
-    test_hooks_->ScheduleAnimation();
-  }
-
   virtual void DidPostSwapBuffers() OVERRIDE {}
   virtual void DidAbortSwapBuffers() OVERRIDE {}
 
@@ -341,6 +331,7 @@ class LayerTreeHostForTesting : public LayerTreeHost {
       TestHooks* test_hooks,
       LayerTreeHostClientForTesting* client,
       const LayerTreeSettings& settings,
+      scoped_refptr<base::SingleThreadTaskRunner> main_task_runner,
       scoped_refptr<base::SingleThreadTaskRunner> impl_task_runner) {
     scoped_ptr<LayerTreeHostForTesting> layer_tree_host(
         new LayerTreeHostForTesting(test_hooks, client, settings));
@@ -348,10 +339,11 @@ class LayerTreeHostForTesting : public LayerTreeHost {
       layer_tree_host->InitializeForTesting(
           ThreadProxyForTest::Create(test_hooks,
                                      layer_tree_host.get(),
+                                     main_task_runner,
                                      impl_task_runner));
     } else {
-      layer_tree_host->InitializeForTesting(
-          SingleThreadProxy::Create(layer_tree_host.get(), client));
+      layer_tree_host->InitializeForTesting(SingleThreadProxy::Create(
+          layer_tree_host.get(), client, main_task_runner));
     }
     return layer_tree_host.Pass();
   }
@@ -396,7 +388,6 @@ LayerTreeTest::LayerTreeTest()
       end_when_begin_returns_(false),
       timed_out_(false),
       scheduled_(false),
-      schedule_when_set_visible_true_(false),
       started_(false),
       ended_(false),
       delegating_renderer_(false),
@@ -520,6 +511,7 @@ void LayerTreeTest::DoBeginTest() {
       this,
       client_.get(),
       settings_,
+      base::MessageLoopProxy::current(),
       impl_thread_ ? impl_thread_->message_loop_proxy() : NULL);
   ASSERT_TRUE(layer_tree_host_);
 
@@ -559,17 +551,9 @@ void LayerTreeTest::Timeout() {
   EndTest();
 }
 
-void LayerTreeTest::ScheduleComposite() {
-  if (!started_ || scheduled_)
-    return;
-  scheduled_ = true;
-  main_task_runner_->PostTask(
-      FROM_HERE,
-      base::Bind(&LayerTreeTest::DispatchComposite, main_thread_weak_ptr_));
-}
-
 void LayerTreeTest::RealEndTest() {
-  if (layer_tree_host_ && proxy()->CommitPendingForTesting()) {
+  if (layer_tree_host_ && !timed_out_ &&
+      proxy()->MainFrameWillHappenForTesting()) {
     main_task_runner_->PostTask(
         FROM_HERE,
         base::Bind(&LayerTreeTest::RealEndTest, main_thread_weak_ptr_));
@@ -619,16 +603,8 @@ void LayerTreeTest::DispatchSetNeedsRedrawRect(const gfx::Rect& damage_rect) {
 
 void LayerTreeTest::DispatchSetVisible(bool visible) {
   DCHECK(!proxy() || proxy()->IsMainThread());
-
-  if (!layer_tree_host_)
-    return;
-
-  layer_tree_host_->SetVisible(visible);
-
-  // If the LTH is being made visible and a previous ScheduleComposite() was
-  // deferred because the LTH was not visible, re-schedule the composite now.
-  if (layer_tree_host_->visible() && schedule_when_set_visible_true_)
-    ScheduleComposite();
+  if (layer_tree_host_)
+    layer_tree_host_->SetVisible(visible);
 }
 
 void LayerTreeTest::DispatchSetNextCommitForcesRedraw() {
@@ -636,24 +612,6 @@ void LayerTreeTest::DispatchSetNextCommitForcesRedraw() {
 
   if (layer_tree_host_)
     layer_tree_host_->SetNextCommitForcesRedraw();
-}
-
-void LayerTreeTest::DispatchComposite() {
-  scheduled_ = false;
-
-  if (!layer_tree_host_)
-    return;
-
-  // If the LTH is not visible, defer the composite until the LTH is made
-  // visible.
-  if (!layer_tree_host_->visible()) {
-    schedule_when_set_visible_true_ = true;
-    return;
-  }
-
-  schedule_when_set_visible_true_ = false;
-  base::TimeTicks now = gfx::FrameTime::Now();
-  layer_tree_host_->Composite(now);
 }
 
 void LayerTreeTest::RunTest(bool threaded,
@@ -708,6 +666,10 @@ void LayerTreeTest::RunTestWithImplSidePainting() {
   RunTest(true, false, true);
 }
 
+void LayerTreeTest::RequestNewOutputSurface(bool fallback) {
+  layer_tree_host_->SetOutputSurface(CreateOutputSurface(fallback));
+}
+
 scoped_ptr<OutputSurface> LayerTreeTest::CreateOutputSurface(bool fallback) {
   scoped_ptr<FakeOutputSurface> output_surface =
       CreateFakeOutputSurface(fallback);
@@ -728,8 +690,8 @@ scoped_ptr<FakeOutputSurface> LayerTreeTest::CreateFakeOutputSurface(
 }
 
 TestWebGraphicsContext3D* LayerTreeTest::TestContext() {
-  return static_cast<TestContextProvider*>(
-      output_surface_->context_provider().get())->TestContext3d();
+  return static_cast<TestContextProvider*>(output_surface_->context_provider())
+      ->TestContext3d();
 }
 
 int LayerTreeTest::LastCommittedSourceFrameNumber(LayerTreeHostImpl* impl)

@@ -69,8 +69,11 @@ public class DataLoadProviderFactory {
 
     @SuppressWarnings("unchecked")
     public <T, Z> DataLoadProvider<T, Z> get(Class<T> dataClass, Class<Z> resourceClass) {
-        GET_KEY.set(dataClass, resourceClass);
-        DataLoadProvider<T, Z> result = providers.get(GET_KEY);
+        DataLoadProvider<T, Z> result;
+        synchronized (GET_KEY) {
+            GET_KEY.set(dataClass, resourceClass);
+            result = providers.get(GET_KEY);
+        }
         if (result == null) {
             result = EmptyDataLoadProvider.get();
         }

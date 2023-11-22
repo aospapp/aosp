@@ -14,10 +14,10 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.protos.ipc.invalidation.Types;
 
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.VisibleForTesting;
 import org.chromium.base.library_loader.ProcessInitException;
 import org.chromium.content.browser.BrowserStartupController;
 
@@ -90,8 +90,7 @@ public abstract class ChromiumSyncAdapter extends AbstractThreadedSyncAdapter {
                         try {
                             BrowserStartupController.get(mApplication)
                                     .startBrowserProcessesAsync(callback);
-                        }
-                        catch (ProcessInitException e) {
+                        } catch (ProcessInitException e) {
                             Log.e(TAG, "Unable to load native library.", e);
                             System.exit(-1);
                         }
@@ -112,8 +111,7 @@ public abstract class ChromiumSyncAdapter extends AbstractThreadedSyncAdapter {
     private void startBrowserProcessesSync(
             final BrowserStartupController.StartupCallback callback) {
         try {
-            BrowserStartupController.get(mApplication).startBrowserProcessesSync(
-                    BrowserStartupController.MAX_RENDERERS_LIMIT);
+            BrowserStartupController.get(mApplication).startBrowserProcessesSync(false);
         } catch (ProcessInitException e) {
             Log.e(TAG, "Unable to load native library.", e);
             System.exit(-1);
@@ -148,7 +146,7 @@ public abstract class ChromiumSyncAdapter extends AbstractThreadedSyncAdapter {
                     // invalidations can be expected to have the objectSource.
                     int resolvedSource = objectSource;
                     if (resolvedSource == 0) {
-                        resolvedSource = Types.ObjectSource.Type.CHROME_SYNC.getNumber();
+                        resolvedSource = Types.ObjectSource.CHROME_SYNC;
                     }
                     Log.v(TAG, "Received sync tickle for " + resolvedSource + " " + objectId + ".");
                     requestSync(resolvedSource, objectId, version, payload);

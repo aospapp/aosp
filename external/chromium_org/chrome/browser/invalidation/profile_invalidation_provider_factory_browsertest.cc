@@ -5,15 +5,16 @@
 #include "base/basictypes.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
-#include "chrome/browser/chromeos/login/users/user_manager.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/invalidation/profile_invalidation_provider_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chromeos/chromeos_switches.h"
+#include "chromeos/login/user_names.h"
 #include "components/invalidation/invalidation_service.h"
 #include "components/invalidation/profile_invalidation_provider.h"
+#include "components/user_manager/user_manager.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace invalidation {
@@ -107,17 +108,19 @@ void ProfileInvalidationProviderFactoryGuestBrowserTest::SetUpCommandLine(
   command_line->AppendSwitch(::switches::kIncognito);
   command_line->AppendSwitchASCII(chromeos::switches::kLoginProfile, "user");
   command_line->AppendSwitchASCII(chromeos::switches::kLoginUser,
-                                  chromeos::UserManager::kGuestUserName);
+                                  chromeos::login::kGuestUserName);
 }
 
 // Verify that no InvalidationService is instantiated for the login profile or
 // the guest profile while a guest session is in progress.
 IN_PROC_BROWSER_TEST_F(ProfileInvalidationProviderFactoryGuestBrowserTest,
                        NoInvalidationService) {
-  chromeos::UserManager* user_manager = chromeos::UserManager::Get();
+  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
   EXPECT_TRUE(user_manager->IsLoggedInAsGuest());
-  Profile* guest_profile = user_manager->GetProfileByUser(
-      user_manager->GetActiveUser())->GetOriginalProfile();
+  Profile* guest_profile =
+      chromeos::ProfileHelper::Get()
+          ->GetProfileByUserUnsafe(user_manager->GetActiveUser())
+          ->GetOriginalProfile();
   Profile* login_profile =
       chromeos::ProfileHelper::GetSigninProfile()->GetOriginalProfile();
   EXPECT_FALSE(CanConstructProfileInvalidationProvider(guest_profile));

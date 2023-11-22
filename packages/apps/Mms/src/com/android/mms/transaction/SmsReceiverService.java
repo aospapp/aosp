@@ -126,6 +126,13 @@ public class SmsReceiverService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (!MmsConfig.isSmsEnabled(this)) {
+            Log.d(TAG, "SmsReceiverService: is not the default sms app");
+            // NOTE: We MUST not call stopSelf() directly, since we need to
+            // make sure the wake lock acquired by AlertReceiver is released.
+            SmsReceiver.finishStartingService(SmsReceiverService.this, startId);
+            return Service.START_NOT_STICKY;
+        }
         // Temporarily removed for this duplicate message track down.
 
         mResultCode = intent != null ? intent.getIntExtra("result", 0) : 0;

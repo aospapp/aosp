@@ -88,14 +88,6 @@ Value& Value::operator=(const Value& other) {
   return *this;
 }
 
-void Value::RecursivelySetOrigin(const ParseNode* origin) {
-  set_origin(origin);
-  if (type_ == Value::LIST) {
-    for (size_t i = 0; i < list_value_.size(); i++)
-      list_value_[i].RecursivelySetOrigin(origin);
-  }
-}
-
 // static
 const char* Value::DescribeType(Type t) {
   switch (t) {
@@ -177,7 +169,10 @@ bool Value::VerifyTypeIs(Type t, Err* err) const {
   if (type_ == t)
     return true;
 
-  *err = Err(origin(), std::string("This is not a ") + DescribeType(t) + ".");
+  *err = Err(origin(),
+             std::string("This is not a ") + DescribeType(t) + ".",
+             std::string("Instead I see a ") + DescribeType(type_) + " = " +
+             ToString(true));
   return false;
 }
 

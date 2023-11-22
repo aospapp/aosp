@@ -404,8 +404,8 @@ public class TableLayoutTest extends ActivityInstrumentationTestCase2<TableCtsAc
         // exceptional
         try {
             tableLayout.addView(null);
-            fail("Should throw NullPointerException");
-        } catch (NullPointerException e) {
+            fail("Should throw IllegalArgumentException");
+        } catch (IllegalArgumentException e) {
         }
     }
 
@@ -445,8 +445,8 @@ public class TableLayoutTest extends ActivityInstrumentationTestCase2<TableCtsAc
 
         try {
             tableLayout.addView(null, -1);
-            fail("Should throw NullPointerException");
-        } catch (NullPointerException e) {
+            fail("Should throw IllegalArgumentException");
+        } catch (IllegalArgumentException e) {
         }
     }
 
@@ -477,8 +477,8 @@ public class TableLayoutTest extends ActivityInstrumentationTestCase2<TableCtsAc
 
         try {
             tableLayout.addView(null, new TableLayout.LayoutParams(200, 300));
-            fail("Should throw NullPointerException");
-        } catch (NullPointerException e) {
+            fail("Should throw IllegalArgumentException");
+        } catch (IllegalArgumentException e) {
         }
 
         try {
@@ -540,8 +540,8 @@ public class TableLayoutTest extends ActivityInstrumentationTestCase2<TableCtsAc
 
         try {
             tableLayout.addView(null, -1, new TableLayout.LayoutParams(200, 300));
-            fail("Should throw NullPointerException");
-        } catch (NullPointerException e) {
+            fail("Should throw IllegalArgumentException");
+        } catch (IllegalArgumentException e) {
         }
 
         try {

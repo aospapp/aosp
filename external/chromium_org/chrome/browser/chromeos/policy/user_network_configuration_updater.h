@@ -24,8 +24,11 @@ namespace base {
 class ListValue;
 }
 
-namespace chromeos {
+namespace user_manager {
 class User;
+}
+
+namespace chromeos {
 
 namespace onc {
 class CertificateImporter;
@@ -67,7 +70,7 @@ class UserNetworkConfigurationUpdater : public NetworkConfigurationUpdater,
   static scoped_ptr<UserNetworkConfigurationUpdater> CreateForUserPolicy(
       Profile* profile,
       bool allow_trusted_certs_from_policy,
-      const chromeos::User& user,
+      const user_manager::User& user,
       PolicyService* policy_service,
       chromeos::ManagedNetworkConfigurationHandler* network_config_handler);
 
@@ -82,21 +85,20 @@ class UserNetworkConfigurationUpdater : public NetworkConfigurationUpdater,
   void SetCertificateImporterForTest(
       scoped_ptr<chromeos::onc::CertificateImporter> certificate_importer);
 
-  // Used in test to delay CertificateImporter creation until the NSSDatabase is
-  // ready. This is needed in some tests as the user's certificate database may
-  // not get initialized in time.
-  // TODO(tbarzic): Remove this when it's not needed.
-  static void SetSkipCertificateImporterCreationForTest(bool skip);
-
  private:
   class CrosTrustAnchorProvider;
 
   UserNetworkConfigurationUpdater(
       Profile* profile,
       bool allow_trusted_certs_from_policy,
-      const chromeos::User& user,
+      const user_manager::User& user,
       PolicyService* policy_service,
       chromeos::ManagedNetworkConfigurationHandler* network_config_handler);
+
+  // Called by the CertificateImporter when an import finished.
+  void OnCertificatesImported(
+      bool success,
+      const net::CertificateList& onc_trusted_certificates);
 
   // NetworkConfigurationUpdater:
   virtual void ImportCertificates(
@@ -126,7 +128,7 @@ class UserNetworkConfigurationUpdater : public NetworkConfigurationUpdater,
   bool allow_trusted_certificates_from_policy_;
 
   // The user for whom the user policy will be applied.
-  const chromeos::User* user_;
+  const user_manager::User* user_;
 
   ObserverList<WebTrustedCertsObserver, true> observer_list_;
 

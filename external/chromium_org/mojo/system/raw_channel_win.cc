@@ -39,8 +39,8 @@ class VistaOrHigherFunctions {
   }
 
  private:
-  typedef BOOL (WINAPI *SetFileCompletionNotificationModesFunc)(HANDLE, UCHAR);
-  typedef BOOL (WINAPI *CancelIoExFunc)(HANDLE, LPOVERLAPPED);
+  typedef BOOL(WINAPI* SetFileCompletionNotificationModesFunc)(HANDLE, UCHAR);
+  typedef BOOL(WINAPI* CancelIoExFunc)(HANDLE, LPOVERLAPPED);
 
   bool is_vista_or_higher_;
   SetFileCompletionNotificationModesFunc
@@ -50,8 +50,8 @@ class VistaOrHigherFunctions {
 
 VistaOrHigherFunctions::VistaOrHigherFunctions()
     : is_vista_or_higher_(base::win::GetVersion() >= base::win::VERSION_VISTA),
-      set_file_completion_notification_modes_(NULL),
-      cancel_io_ex_(NULL) {
+      set_file_completion_notification_modes_(nullptr),
+      cancel_io_ex_(nullptr) {
   if (!is_vista_or_higher_)
     return;
 
@@ -61,8 +61,8 @@ VistaOrHigherFunctions::VistaOrHigherFunctions()
           GetProcAddress(module, "SetFileCompletionNotificationModes"));
   DCHECK(set_file_completion_notification_modes_);
 
-  cancel_io_ex_ = reinterpret_cast<CancelIoExFunc>(
-      GetProcAddress(module, "CancelIoEx"));
+  cancel_io_ex_ =
+      reinterpret_cast<CancelIoExFunc>(GetProcAddress(module, "CancelIoEx"));
   DCHECK(cancel_io_ex_);
 }
 
@@ -169,9 +169,8 @@ class RawChannelWin : public RawChannel {
                                size_t* bytes_written) OVERRIDE;
   virtual IOResult ScheduleWriteNoLock() OVERRIDE;
   virtual bool OnInit() OVERRIDE;
-  virtual void OnShutdownNoLock(
-      scoped_ptr<ReadBuffer> read_buffer,
-      scoped_ptr<WriteBuffer> write_buffer) OVERRIDE;
+  virtual void OnShutdownNoLock(scoped_ptr<ReadBuffer> read_buffer,
+                                scoped_ptr<WriteBuffer> write_buffer) OVERRIDE;
 
   // Passed to |io_handler_| during initialization.
   embedder::ScopedPlatformHandle handle_;
@@ -185,11 +184,12 @@ class RawChannelWin : public RawChannel {
 
 RawChannelWin::RawChannelIOHandler::RawChannelIOHandler(
     RawChannelWin* owner,
-    embedder::ScopedPlatformHandle handle) : handle_(handle.Pass()),
-                                             owner_(owner),
-                                             suppress_self_destruct_(false),
-                                             pending_read_(false),
-                                             pending_write_(false) {
+    embedder::ScopedPlatformHandle handle)
+    : handle_(handle.Pass()),
+      owner_(owner),
+      suppress_self_destruct_(false),
+      pending_read_(false),
+      pending_write_(false) {
   memset(&read_context_.overlapped, 0, sizeof(read_context_.overlapped));
   read_context_.handler = this;
   memset(&write_context_.overlapped, 0, sizeof(write_context_.overlapped));
@@ -209,7 +209,7 @@ bool RawChannelWin::RawChannelIOHandler::pending_read() const {
 }
 
 base::MessageLoopForIO::IOContext*
-    RawChannelWin::RawChannelIOHandler::read_context() {
+RawChannelWin::RawChannelIOHandler::read_context() {
   DCHECK(owner_);
   DCHECK_EQ(base::MessageLoop::current(), owner_->message_loop_for_io());
   return &read_context_;
@@ -229,7 +229,7 @@ bool RawChannelWin::RawChannelIOHandler::pending_write_no_lock() const {
 }
 
 base::MessageLoopForIO::IOContext*
-    RawChannelWin::RawChannelIOHandler::write_context_no_lock() {
+RawChannelWin::RawChannelIOHandler::write_context_no_lock() {
   DCHECK(owner_);
   owner_->write_lock().AssertAcquired();
   return &write_context_;
@@ -279,7 +279,7 @@ void RawChannelWin::RawChannelIOHandler::DetachFromOwnerNoLock(
   if (pending_write_)
     preserved_write_buffer_after_detach_ = write_buffer.Pass();
 
-  owner_ = NULL;
+  owner_ = nullptr;
   if (ShouldSelfDestruct())
     delete this;
 }
@@ -303,14 +303,16 @@ void RawChannelWin::RawChannelIOHandler::OnReadCompleted(DWORD bytes_read,
   if (!owner_)
     return;
 
-  if (error != ERROR_SUCCESS) {
-    DCHECK_EQ(bytes_read, 0u);
-    LOG_IF(ERROR, error != ERROR_BROKEN_PIPE)
-        << "ReadFile: " << logging::SystemErrorCodeToString(error);
-    owner_->OnReadCompleted(false, 0);
-  } else {
+  if (error == ERROR_SUCCESS) {
     DCHECK_GT(bytes_read, 0u);
-    owner_->OnReadCompleted(true, bytes_read);
+    owner_->OnReadCompleted(IO_SUCCEEDED, bytes_read);
+  } else if (error == ERROR_BROKEN_PIPE) {
+    DCHECK_EQ(bytes_read, 0u);
+    owner_->OnReadCompleted(IO_FAILED_SHUTDOWN, 0);
+  } else {
+    DCHECK_EQ(bytes_read, 0u);
+    LOG(WARNING) << "ReadFile: " << logging::SystemErrorCodeToString(error);
+    owner_->OnReadCompleted(IO_FAILED_UNKNOWN, 0);
   }
 }
 
@@ -333,17 +335,19 @@ void RawChannelWin::RawChannelIOHandler::OnWriteCompleted(DWORD bytes_written,
     pending_write_ = false;
   }
 
-  if (error != ERROR_SUCCESS) {
-    LOG(ERROR) << "WriteFile: " << logging::SystemErrorCodeToString(error);
-    owner_->OnWriteCompleted(false, 0, 0);
+  if (error == ERROR_SUCCESS) {
+    owner_->OnWriteCompleted(IO_SUCCEEDED, 0, bytes_written);
+  } else if (error == ERROR_BROKEN_PIPE) {
+    owner_->OnWriteCompleted(IO_FAILED_SHUTDOWN, 0, 0);
   } else {
-    owner_->OnWriteCompleted(true, 0, bytes_written);
+    LOG(WARNING) << "WriteFile: " << logging::SystemErrorCodeToString(error);
+    owner_->OnWriteCompleted(IO_FAILED_UNKNOWN, 0, 0);
   }
 }
 
 RawChannelWin::RawChannelWin(embedder::ScopedPlatformHandle handle)
     : handle_(handle.Pass()),
-      io_handler_(NULL),
+      io_handler_(nullptr),
       skip_completion_port_on_success_(
           g_vista_or_higher_functions.Get().is_vista_or_higher()) {
   DCHECK(handle_.is_valid());
@@ -363,7 +367,7 @@ RawChannel::IOResult RawChannelWin::Read(size_t* bytes_read) {
   DCHECK(io_handler_);
   DCHECK(!io_handler_->pending_read());
 
-  char* buffer = NULL;
+  char* buffer = nullptr;
   size_t bytes_to_read = 0;
   read_buffer()->GetBuffer(&buffer, &bytes_to_read);
 
@@ -376,10 +380,11 @@ RawChannel::IOResult RawChannelWin::Read(size_t* bytes_read) {
   if (!result) {
     DCHECK_EQ(bytes_read_dword, 0u);
     DWORD error = GetLastError();
+    if (error == ERROR_BROKEN_PIPE)
+      return IO_FAILED_SHUTDOWN;
     if (error != ERROR_IO_PENDING) {
-      LOG_IF(ERROR, error != ERROR_BROKEN_PIPE)
-          << "ReadFile: " << logging::SystemErrorCodeToString(error);
-      return IO_FAILED;
+      LOG(WARNING) << "ReadFile: " << logging::SystemErrorCodeToString(error);
+      return IO_FAILED_UNKNOWN;
     }
   }
 
@@ -460,9 +465,14 @@ RawChannel::IOResult RawChannelWin::WriteNoLock(
                           static_cast<DWORD>(buffers[0].size),
                           &bytes_written_dword,
                           &io_handler_->write_context_no_lock()->overlapped);
-  if (!result && GetLastError() != ERROR_IO_PENDING) {
-    PLOG(ERROR) << "WriteFile";
-    return IO_FAILED;
+  if (!result) {
+    DWORD error = GetLastError();
+    if (error == ERROR_BROKEN_PIPE)
+      return IO_FAILED_SHUTDOWN;
+    if (error != ERROR_IO_PENDING) {
+      LOG(WARNING) << "WriteFile: " << logging::SystemErrorCodeToString(error);
+      return IO_FAILED_UNKNOWN;
+    }
   }
 
   if (result && skip_completion_port_on_success_) {
@@ -543,14 +553,16 @@ void RawChannelWin::OnShutdownNoLock(scoped_ptr<ReadBuffer> read_buffer,
     // soon as possible.
     // Note: |CancelIo()| only cancels read/write requests started from this
     // thread.
-    if (g_vista_or_higher_functions.Get().is_vista_or_higher())
-      g_vista_or_higher_functions.Get().CancelIoEx(io_handler_->handle(), NULL);
-    else
+    if (g_vista_or_higher_functions.Get().is_vista_or_higher()) {
+      g_vista_or_higher_functions.Get().CancelIoEx(io_handler_->handle(),
+                                                   nullptr);
+    } else {
       CancelIo(io_handler_->handle());
+    }
   }
 
   io_handler_->DetachFromOwnerNoLock(read_buffer.Pass(), write_buffer.Pass());
-  io_handler_ = NULL;
+  io_handler_ = nullptr;
 }
 
 }  // namespace

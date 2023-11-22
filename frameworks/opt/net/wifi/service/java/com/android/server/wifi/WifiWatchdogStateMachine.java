@@ -435,15 +435,8 @@ public class WifiWatchdogStateMachine extends StateMachine {
     private void updateSettings() {
         if (DBG) logd("Updating secure settings");
 
-        // disable poor network avoidance
-        if (sWifiOnly) {
-            logd("Disabling poor network avoidance for wi-fi only device");
-            mPoorNetworkDetectionEnabled = false;
-        } else {
-            mPoorNetworkDetectionEnabled = getSettingsGlobalBoolean(mContentResolver,
-                    Settings.Global.WIFI_WATCHDOG_POOR_NETWORK_TEST_ENABLED,
-                    WifiManager.DEFAULT_POOR_NETWORK_AVOIDANCE_ENABLED);
-        }
+        // Unconditionally disable poor network avoidance, since this mechanism is obsolete
+        mPoorNetworkDetectionEnabled = false;
     }
 
     /**

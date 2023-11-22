@@ -52,4 +52,41 @@ public final class Timeouts {
     public static long getDirectToVoicemailMillis(ContentResolver contentResolver) {
         return get(contentResolver, "direct_to_voicemail_ms", 500L);
     }
+
+    /**
+     * Returns the amount of time to wait before disconnecting a call that was canceled via
+     * NEW_OUTGOING_CALL broadcast. This timeout allows apps which repost the call using a gateway
+     * to reuse the existing call, preventing the call from causing a start->end->start jank in the
+     * in-call UI.
+     */
+    public static long getNewOutgoingCallCancelMillis(ContentResolver contentResolver) {
+        return get(contentResolver, "new_outgoing_call_cancel_ms", 300L);
+    }
+
+    /**
+     * Returns the amount of time to play each DTMF tone after post dial continue.
+     * This timeout allows the current tone to play for a certain amount of time before either being
+     * interrupted by the next tone or terminated.
+     */
+    public static long getDelayBetweenDtmfTonesMillis(ContentResolver contentResolver) {
+        return get(contentResolver, "delay_between_dtmf_tones_ms", 300L);
+    }
+
+    /**
+     * Returns the amount of time to wait for an emergency call to be placed before routing to
+     * a different call service. A value of 0 or less means no timeout should be used.
+     */
+    public static long getEmergencyCallTimeoutMillis(ContentResolver contentResolver) {
+        return get(contentResolver, "emergency_call_timeout_millis", 25000L /* 25 seconds */);
+    }
+
+    /**
+     * Returns the amount of time to wait for an emergency call to be placed before routing to
+     * a different call service. This timeout is used only when the radio is powered off (for
+     * example in airplane mode). A value of 0 or less means no timeout should be used.
+     */
+    public static long getEmergencyCallTimeoutRadioOffMillis(ContentResolver contentResolver) {
+        return get(contentResolver, "emergency_call_timeout_radio_off_millis",
+                60000L /* 1 minute */);
+    }
 }

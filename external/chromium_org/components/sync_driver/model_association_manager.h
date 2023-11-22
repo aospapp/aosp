@@ -14,15 +14,15 @@
 #include "sync/internal_api/public/data_type_association_stats.h"
 #include "sync/internal_api/public/util/weak_handle.h"
 
+namespace sync_driver {
+
+class DataTypeController;
+
 // |ModelAssociationManager| does the heavy lifting for doing the actual model
 // association. It instructs DataTypeControllers to load models, start
 // associating and stopping. Since the operations are async it uses an
 // interface to inform DataTypeManager the results of the operations.
 // This class is owned by DataTypeManager.
-namespace browser_sync {
-
-class DataTypeController;
-
 // |ModelAssociationManager| association functions are async. The results of
 // those operations are passed back via this interface.
 class ModelAssociationManagerDelegate {
@@ -36,7 +36,8 @@ class ModelAssociationManagerDelegate {
   // Called when the ModelAssociationManager has decided it must stop |type|,
   // likely because it is no longer a desired data type or sync is shutting
   // down.
-  virtual void OnSingleDataTypeWillStop(syncer::ModelType type) = 0;
+  virtual void OnSingleDataTypeWillStop(syncer::ModelType type,
+                                        const syncer::SyncError& error) = 0;
 
   // Called when the ModelAssociationManager has tried to perform model
   // association for all desired types and has nothing left to do.
@@ -98,7 +99,7 @@ class ModelAssociationManager {
   // callback will be invoked when the model association is done.
   void TypeStartCallback(syncer::ModelType type,
                          base::TimeTicks type_start_time,
-                         DataTypeController::StartResult start_result,
+                         DataTypeController::ConfigureResult start_result,
                          const syncer::SyncMergeResult& local_merge_result,
                          const syncer::SyncMergeResult& syncer_merge_result);
 
@@ -106,16 +107,12 @@ class ModelAssociationManager {
   // will be passed to |LoadModels| function.
   void ModelLoadCallback(syncer::ModelType type, syncer::SyncError error);
 
-  // When a type fails to load or fails associating this method is invoked to
-  // do the book keeping and do the UMA reporting.
-  void AppendToFailedDatatypesAndLogError(const syncer::SyncError& error);
-
   // Called when all requested types are associated or association times out.
   // Notify |delegate_| of configuration results.
   void ModelAssociationDone();
 
   // A helper to stop an individual datatype.
-  void StopDatatype(DataTypeController* dtc);
+  void StopDatatype(const syncer::SyncError& error, DataTypeController* dtc);
 
   State state_;
 
@@ -136,18 +133,6 @@ class ModelAssociationManager {
   // reconfiguration if not disabled.
   syncer::ModelTypeSet associated_types_;
 
-  // Data types that are still loading/associating when configuration times
-  // out.
-  syncer::ModelTypeSet slow_types_;
-
-  // Collects the list of errors resulting from failing to start a type. This
-  // would eventually be sent to the listeners after all the types have
-  // been given a chance to start.
-  std::map<syncer::ModelType, syncer::SyncError> failed_data_types_info_;
-
-  // The set of types that can't configure due to cryptographer errors.
-  syncer::ModelTypeSet needs_crypto_types_;
-
   // Time when StartAssociationAsync() is called to associate for a set of data
   // types.
   base::TimeTicks association_start_time_;
@@ -161,11 +146,13 @@ class ModelAssociationManager {
   // Timer to track and limit how long a datatype takes to model associate.
   base::OneShotTimer<ModelAssociationManager> timer_;
 
-  base::WeakPtrFactory<ModelAssociationManager> weak_ptr_factory_;
-
   DataTypeManager::ConfigureStatus configure_status_;
+
+  base::WeakPtrFactory<ModelAssociationManager> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(ModelAssociationManager);
 };
-}  // namespace browser_sync
+
+}  // namespace sync_driver
+
 #endif  // COMPONENTS_SYNC_DRIVER_MODEL_ASSOCIATION_MANAGER_H__

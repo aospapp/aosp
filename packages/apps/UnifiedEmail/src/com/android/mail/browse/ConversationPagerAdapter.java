@@ -19,7 +19,8 @@ package com.android.mail.browse;
 
 import android.app.Fragment;
 import android.app.FragmentManager;
-import android.content.res.Resources;
+import android.app.FragmentTransaction;
+import android.content.Context;
 import android.database.Cursor;
 import android.database.DataSetObserver;
 import android.os.Bundle;
@@ -27,6 +28,7 @@ import android.os.Parcelable;
 import android.support.v4.view.ViewPager;
 import android.view.ViewGroup;
 
+import com.android.mail.preferences.MailPrefs;
 import com.android.mail.providers.Account;
 import com.android.mail.providers.Conversation;
 import com.android.mail.providers.Folder;
@@ -36,7 +38,9 @@ import com.android.mail.ui.AbstractConversationViewFragment;
 import com.android.mail.ui.ActivityController;
 import com.android.mail.ui.ConversationViewFragment;
 import com.android.mail.ui.SecureConversationViewFragment;
+import com.android.mail.ui.TwoPaneController;
 import com.android.mail.utils.FragmentStatePagerAdapter2;
+import com.android.mail.utils.HtmlSanitizer;
 import com.android.mail.utils.LogUtils;
 
 public class ConversationPagerAdapter extends FragmentStatePagerAdapter2
@@ -67,10 +71,8 @@ public class ConversationPagerAdapter extends FragmentStatePagerAdapter2
      * True iff we are in the process of handling a dataset change.
      */
     private boolean mInDataSetChange = false;
-    /**
-     * Need to keep this around to look up pager title strings.
-     */
-    private Resources mResources;
+
+    private Context mContext;
     /**
      * This isn't great to create a circular dependency, but our usage of {@link #getPageTitle(int)}
      * requires knowing which page is the currently visible to dynamically name offscreen pages
@@ -81,7 +83,16 @@ public class ConversationPagerAdapter extends FragmentStatePagerAdapter2
      * minimize dangling references.
      */
     private ViewPager mPager;
-    private boolean mSanitizedHtml;
+
+    /**
+     * <tt>true</tt> indicates the server has already sanitized all HTML email from this account.
+     */
+    private boolean mServerSanitizedHtml;
+
+    /**
+     * <tt>true</tt> indicates the client is permitted to sanitize all HTML email for this account.
+     */
+    private boolean mClientSanitizedHtml;
 
     private boolean mStopListeningMode = false;
 
@@ -99,21 +110,41 @@ public class ConversationPagerAdapter extends FragmentStatePagerAdapter2
      */
     private int mLastKnownCount;
 
+    /**
+     * Once this adapter is connected to a ViewPager's saved state (from a previous
+     * {@link #saveState()}), this field keeps the state around in case it later needs to be used
+     * to find and kill page fragments.
+     */
+    private Bundle mRestoredState;
+
+    private final FragmentManager mFragmentManager;
+
+    private boolean mPageChangeListenerEnabled;
+
     private static final String LOG_TAG = ConversationPagerController.LOG_TAG;
 
     private static final String BUNDLE_DETACHED_MODE =
             ConversationPagerAdapter.class.getName() + "-detachedmode";
+    /**
+     * This is the bundle key prefix for the saved pager fragments as stashed by the parent class.
+     * See the implementation of {@link FragmentStatePagerAdapter2#saveState()}. This assumes that
+     * value!!!
+     */
+    private static final String BUNDLE_FRAGMENT_PREFIX = "f";
 
-    public ConversationPagerAdapter(Resources res, FragmentManager fm, Account account,
+    public ConversationPagerAdapter(Context context, FragmentManager fm, Account account,
             Folder folder, Conversation initialConversation) {
         super(fm, false /* enableSavedStates */);
-        mResources = res;
+        mContext = context;
+        mFragmentManager = fm;
         mCommonFragmentArgs = AbstractConversationViewFragment.makeBasicArgs(account);
         mInitialConversation = initialConversation;
         mAccount = account;
         mFolder = folder;
-        mSanitizedHtml = mAccount.supportsCapability
-                (UIProvider.AccountCapabilities.SANITIZED_HTML);
+        mServerSanitizedHtml =
+                mAccount.supportsCapability(UIProvider.AccountCapabilities.SERVER_SANITIZED_HTML);
+        mClientSanitizedHtml =
+                mAccount.supportsCapability(UIProvider.AccountCapabilities.CLIENT_SANITIZED_HTML);
     }
 
     public boolean matches(Account account, Folder folder) {
@@ -194,11 +225,23 @@ public class ConversationPagerAdapter extends FragmentStatePagerAdapter2
     }
 
     private AbstractConversationViewFragment getConversationViewFragment(Conversation c) {
-        if (mSanitizedHtml) {
+        // if Html email bodies are already sanitized by the mail server, scripting can be enabled
+        if (mServerSanitizedHtml) {
             return ConversationViewFragment.newInstance(mCommonFragmentArgs, c);
-        } else {
-            return SecureConversationViewFragment.newInstance(mCommonFragmentArgs, c);
         }
+
+        // if this client is permitted to sanitize emails for this account, attempt to do so
+        if (mClientSanitizedHtml) {
+            // if the version of the Html Sanitizer meets or exceeds the required version, the
+            // results of the sanitizer can be trusted and scripting can be enabled
+            final MailPrefs mailPrefs = MailPrefs.get(mContext);
+            if (HtmlSanitizer.VERSION >= mailPrefs.getRequiredSanitizerVersionNumber()) {
+                return ConversationViewFragment.newInstance(mCommonFragmentArgs, c);
+            }
+        }
+
+        // otherwise we do not enable scripting
+        return SecureConversationViewFragment.newInstance(mCommonFragmentArgs, c);
     }
 
     @Override
@@ -259,8 +302,44 @@ public class ConversationPagerAdapter extends FragmentStatePagerAdapter2
             b.setClassLoader(loader);
             final boolean detached = b.getBoolean(BUNDLE_DETACHED_MODE);
             setDetachedMode(detached);
+
+            // save off the bundle in case it later needs to be consulted for fragments-to-kill
+            mRestoredState = b;
         }
         LogUtils.d(LOG_TAG, "OUT PagerAdapter.restoreState. this=%s", this);
+    }
+
+    /**
+     * Part of an inelegant dance to clean up restored fragments after realizing
+     * we don't want the ViewPager around after all in 2-pane. See docs for
+     * {@link ConversationPagerController#killRestoredFragments()} and
+     * {@link TwoPaneController#restoreConversation}.
+     */
+    public void killRestoredFragments() {
+        if (mRestoredState == null) {
+            return;
+        }
+
+        FragmentTransaction ft = null;
+        for (String key : mRestoredState.keySet()) {
+            // WARNING: this code assumes implementation details in
+            // FragmentStatePagerAdapter2#restoreState
+            if (!key.startsWith(BUNDLE_FRAGMENT_PREFIX)) {
+                continue;
+            }
+            final Fragment f = mFragmentManager.getFragment(mRestoredState, key);
+            if (f != null) {
+                if (ft == null) {
+                    ft = mFragmentManager.beginTransaction();
+                }
+                ft.remove(f);
+            }
+        }
+        if (ft != null) {
+            ft.commitAllowingStateLoss();
+            mFragmentManager.executePendingTransactions();
+        }
+        mRestoredState = null;
     }
 
     private void setDetachedMode(boolean detached) {
@@ -458,6 +537,10 @@ public class ConversationPagerAdapter extends FragmentStatePagerAdapter2
         LogUtils.d(LOG_TAG, "CPA.stopListening, this=%s", this);
     }
 
+    public void enablePageChangeListener(boolean enable) {
+        mPageChangeListenerEnabled = enable;
+    }
+
     @Override
     public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
         // no-op
@@ -465,7 +548,7 @@ public class ConversationPagerAdapter extends FragmentStatePagerAdapter2
 
     @Override
     public void onPageSelected(int position) {
-        if (mController == null) {
+        if (mController == null || !mPageChangeListenerEnabled) {
             return;
         }
         final ConversationCursor cursor = getCursor();
@@ -476,7 +559,7 @@ public class ConversationPagerAdapter extends FragmentStatePagerAdapter2
         final Conversation c = cursor.getConversation();
         c.position = position;
         LogUtils.d(LOG_TAG, "pager adapter setting current conv: %s", c);
-        mController.setCurrentConversation(c);
+        mController.onConversationViewSwitched(c);
     }
 
     @Override

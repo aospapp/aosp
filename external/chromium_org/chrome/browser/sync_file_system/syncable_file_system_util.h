@@ -9,9 +9,9 @@
 
 #include "base/callback_forward.h"
 #include "base/files/file_path.h"
-#include "webkit/browser/fileapi/file_system_url.h"
+#include "storage/browser/fileapi/file_system_url.h"
 
-namespace fileapi {
+namespace storage {
 class FileSystemContext;
 class FileSystemURL;
 }
@@ -38,13 +38,13 @@ GURL GetSyncableFileSystemRootURI(const GURL& origin);
 //   origin: 'http://www.example.com/',
 //   path: '/foo/bar',
 // returns 'filesystem:http://www.example.com/external/syncfs/foo/bar'
-fileapi::FileSystemURL
-CreateSyncableFileSystemURL(const GURL& origin, const base::FilePath& path);
+storage::FileSystemURL CreateSyncableFileSystemURL(const GURL& origin,
+                                                   const base::FilePath& path);
 
 // Creates a special filesystem URL for synchronizing |syncable_url|.
-fileapi::FileSystemURL CreateSyncableFileSystemURLForSync(
-    fileapi::FileSystemContext* file_system_context,
-    const fileapi::FileSystemURL& syncable_url);
+storage::FileSystemURL CreateSyncableFileSystemURLForSync(
+    storage::FileSystemContext* file_system_context,
+    const storage::FileSystemURL& syncable_url);
 
 // Serializes a given FileSystemURL |url| and sets the serialized string to
 // |serialized_url|. If the URL does not represent a syncable filesystem,
@@ -61,8 +61,8 @@ fileapi::FileSystemURL CreateSyncableFileSystemURLForSync(
 //   'filesystem:http://www.example.com/external/syncfs/foo\\bar'
 // (on others)
 //   'filesystem:http://www.example.com/external/syncfs/foo/bar'
-bool SerializeSyncableFileSystemURL(
-    const fileapi::FileSystemURL& url, std::string* serialized_url);
+bool SerializeSyncableFileSystemURL(const storage::FileSystemURL& url,
+                                    std::string* serialized_url);
 
 // Deserializes a serialized FileSystem URL string |serialized_url| and sets the
 // deserialized value to |url|. If the reconstructed object is invalid or does
@@ -74,62 +74,17 @@ bool SerializeSyncableFileSystemURL(
 // behavior).
 //
 // See the comment of SerializeSyncableFileSystemURL() for more details.
-bool DeserializeSyncableFileSystemURL(
-    const std::string& serialized_url, fileapi::FileSystemURL* url);
-
-// Enables or disables directory operations in Sync FileSystem API.
-// TODO(nhiroki): This method should be used only for testing and should go
-// away when we fully support directory operations. (http://crbug.com/161442)
-void SetEnableSyncFSDirectoryOperation(bool flag);
-
-// Returns true if we allow directory operations in Sync FileSystem API.
-// It is disabled by default but can be overridden by a command-line switch
-// (--enable-syncfs-directory-operations) or by calling
-// SetEnableSyncFSDirectoryOperation().
-// TODO(nhiroki): This method should be used only for testing and should go
-// away when we fully support directory operations. (http://crbug.com/161442)
-bool IsSyncFSDirectoryOperationEnabled();
-
-// Checks the same as above, but takes |origin| and sees if directory operation
-// is enabled specifically for this |origin|.
-bool IsSyncFSDirectoryOperationEnabled(const GURL& origin);
-
-// Returns true if V2 is enabled.
-bool IsV2Enabled();
-
-// Returns true if the given |origin| is supposed to run in V2 mode.
-bool IsV2EnabledForOrigin(const GURL& origin);
+bool DeserializeSyncableFileSystemURL(const std::string& serialized_url,
+                                      storage::FileSystemURL* url);
 
 // Returns SyncFileSystem sub-directory path.
 base::FilePath GetSyncFileSystemDir(const base::FilePath& profile_base_dir);
 
-// Enables directory operation for syncable filesystems temporarily for testing.
-class ScopedEnableSyncFSDirectoryOperation {
- public:
-  ScopedEnableSyncFSDirectoryOperation();
-  ~ScopedEnableSyncFSDirectoryOperation();
-
- private:
-  bool was_enabled_;
-
-  DISALLOW_COPY_AND_ASSIGN(ScopedEnableSyncFSDirectoryOperation);
-};
-
-// Disables V2 backend for syncable filesystems temporarily for testing.
-class ScopedDisableSyncFSV2 {
- public:
-  ScopedDisableSyncFSV2();
-  ~ScopedDisableSyncFSV2();
-
- private:
-  bool was_enabled_;
-
-  DISALLOW_COPY_AND_ASSIGN(ScopedDisableSyncFSV2);
-};
-
 // Posts |callback| to the current thread.
 void RunSoon(const tracked_objects::Location& from_here,
              const base::Closure& callback);
+
+base::Closure NoopClosure();
 
 }  // namespace sync_file_system
 

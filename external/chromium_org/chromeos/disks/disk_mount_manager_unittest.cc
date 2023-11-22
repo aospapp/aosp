@@ -4,8 +4,8 @@
 
 #include "base/bind.h"
 #include "base/message_loop/message_loop.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/fake_cros_disks_client.h"
-#include "chromeos/dbus/fake_dbus_thread_manager.h"
 #include "chromeos/disks/disk_mount_manager.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -14,7 +14,6 @@ using chromeos::disks::DiskMountManager;
 using chromeos::CrosDisksClient;
 using chromeos::DBusThreadManager;
 using chromeos::FakeCrosDisksClient;
-using chromeos::FakeDBusThreadManager;
 using testing::_;
 using testing::Field;
 using testing::InSequence;
@@ -41,6 +40,7 @@ struct TestDiskInfo {
   bool is_read_only;
   bool has_media;
   bool on_boot_device;
+  bool on_removable_device;
   bool is_hidden;
 };
 
@@ -73,6 +73,7 @@ const TestDiskInfo kTestDisks[] = {
     false,  // is read only
     true,  // has media
     false,  // is on boot device
+    true,  // is on removable device
     false  // is hidden
   },
 };
@@ -121,12 +122,9 @@ class DiskMountManagerTest : public testing::Test {
   // Initializes disk mount manager disks and mount points.
   // Adds a test observer to the disk mount manager.
   virtual void SetUp() {
-    FakeDBusThreadManager* fake_thread_manager = new FakeDBusThreadManager();
     fake_cros_disks_client_ = new FakeCrosDisksClient;
-    fake_thread_manager->SetCrosDisksClient(
+    DBusThreadManager::GetSetterForTesting()->SetCrosDisksClient(
         scoped_ptr<CrosDisksClient>(fake_cros_disks_client_));
-
-    DBusThreadManager::InitializeForTesting(fake_thread_manager);
 
     DiskMountManager::Initialize();
 
@@ -173,6 +171,7 @@ class DiskMountManagerTest : public testing::Test {
                                    disk.is_read_only,
                                    disk.has_media,
                                    disk.on_boot_device,
+                                   disk.on_removable_device,
                                    disk.is_hidden)));
   }
 

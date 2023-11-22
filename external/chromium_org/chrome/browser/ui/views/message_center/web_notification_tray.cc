@@ -13,11 +13,10 @@
 #include "chrome/browser/status_icons/status_icon_menu_model.h"
 #include "chrome/browser/status_icons/status_tray.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/notification_service.h"
-#include "grit/chromium_strings.h"
-#include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/ui_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
@@ -27,7 +26,9 @@
 #include "ui/gfx/size.h"
 #include "ui/message_center/message_center_tray.h"
 #include "ui/message_center/message_center_tray_delegate.h"
+#include "ui/message_center/views/desktop_popup_alignment_delegate.h"
 #include "ui/message_center/views/message_popup_collection.h"
+#include "ui/strings/grit/ui_strings.h"
 #include "ui/views/widget/widget.h"
 
 namespace {
@@ -135,8 +136,10 @@ WebNotificationTray::WebNotificationTray(PrefService* local_state)
   message_center_tray_.reset(
       new MessageCenterTray(this, g_browser_process->message_center()));
   last_quiet_mode_state_ = message_center()->IsQuietMode();
+  alignment_delegate_.reset(new message_center::DesktopPopupAlignmentDelegate);
   popup_collection_.reset(new message_center::MessagePopupCollection(
-      NULL, message_center(), message_center_tray_.get(), false));
+      NULL, message_center(), message_center_tray_.get(),
+      alignment_delegate_.get()));
 
 #if defined(OS_WIN)
   // |local_state| can be NULL in tests.
@@ -164,6 +167,7 @@ message_center::MessageCenter* WebNotificationTray::message_center() {
 }
 
 bool WebNotificationTray::ShowPopups() {
+  alignment_delegate_->StartObserving(gfx::Screen::GetNativeScreen());
   popup_collection_->DoUpdateIfPossible();
   return true;
 }
@@ -270,6 +274,11 @@ void WebNotificationTray::UpdateStatusIcon() {
                                           str_unread_count);
   } else {
     tool_tip = l10n_util::GetStringUTF16(IDS_MESSAGE_CENTER_TOOLTIP);
+  }
+
+  if (message_center()->GetVisibleNotifications().empty()) {
+    DestroyStatusIcon();
+    return;
   }
 
   gfx::ImageSkia* icon_image = GetIcon(

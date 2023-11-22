@@ -16,6 +16,7 @@
 
 package com.android.dialer;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.KeyguardManager;
 import android.app.ProgressDialog;
@@ -28,6 +29,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Looper;
 import android.provider.Settings;
+import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.TelephonyManager;
@@ -38,6 +40,13 @@ import android.widget.Toast;
 
 import com.android.common.io.MoreCloseables;
 import com.android.contacts.common.database.NoNullCursorAsyncQueryHandler;
+import com.android.contacts.common.widget.SelectPhoneAccountDialogFragment;
+import com.android.contacts.common.widget.SelectPhoneAccountDialogFragment.SelectPhoneAccountListener;
+import com.android.dialer.calllog.PhoneAccountUtils;
+
+import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Helper class to listen for some magic character sequences
@@ -80,20 +89,10 @@ public class SpecialCharSequenceMgr {
     }
 
     public static boolean handleChars(Context context, String input, EditText textField) {
-        return handleChars(context, input, false, textField);
-    }
-
-    static boolean handleChars(Context context, String input) {
-        return handleChars(context, input, false, null);
-    }
-
-    static boolean handleChars(Context context, String input, boolean useSystemWindow,
-            EditText textField) {
-
         //get rid of the separators so that the string gets parsed correctly
         String dialString = PhoneNumberUtils.stripSeparators(input);
 
-        if (handleIMEIDisplay(context, dialString, useSystemWindow)
+        if (handleDeviceIdDisplay(context, dialString)
                 || handleRegulatoryInfoDisplay(context, dialString)
                 || handlePinEntry(context, dialString)
                 || handleAdnEntry(context, dialString, textField)
@@ -150,7 +149,7 @@ public class SpecialCharSequenceMgr {
      * This code works alongside the Asynchronous query handler {@link QueryHandler}
      * and query cancel handler implemented in {@link SimContactQueryCookie}.
      */
-    static boolean handleAdnEntry(Context context, String input, EditText textField) {
+    static boolean handleAdnEntry(final Context context, String input, EditText textField) {
         /* ADN entries are of the form "N(N)(N)#" */
 
         TelephonyManager telephonyManager =
@@ -174,7 +173,7 @@ public class SpecialCharSequenceMgr {
         if ((len > 1) && (len < 5) && (input.endsWith("#"))) {
             try {
                 // get the ordinal number of the sim contact
-                int index = Integer.parseInt(input.substring(0, len-1));
+                final int index = Integer.parseInt(input.substring(0, len-1));
 
                 // The original code that navigated to a SIM Contacts list view did not
                 // highlight the requested contact correctly, a requirement for PTCRB
@@ -184,10 +183,10 @@ public class SpecialCharSequenceMgr {
                 // the dialer text field.
 
                 // create the async query handler
-                QueryHandler handler = new QueryHandler (context.getContentResolver());
+                final QueryHandler handler = new QueryHandler (context.getContentResolver());
 
                 // create the cookie object
-                SimContactQueryCookie sc = new SimContactQueryCookie(index - 1, handler,
+                final SimContactQueryCookie sc = new SimContactQueryCookie(index - 1, handler,
                         ADN_QUERY_TOKEN);
 
                 // setup the cookie fields
@@ -204,18 +203,38 @@ public class SpecialCharSequenceMgr {
                 sc.progressDialog.getWindow().addFlags(
                         WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
 
-                // display the progress dialog
-                sc.progressDialog.show();
+                final TelecomManager telecomManager =
+                        (TelecomManager) context.getSystemService(Context.TELECOM_SERVICE);
+                List<PhoneAccountHandle> subscriptionAccountHandles =
+                        PhoneAccountUtils.getSubscriptionPhoneAccounts(context);
 
-                // run the query.
-                handler.startQuery(ADN_QUERY_TOKEN, sc, Uri.parse("content://icc/adn"),
-                        new String[]{ADN_PHONE_NUMBER_COLUMN_NAME}, null, null, null);
+                boolean hasUserSelectedDefault = subscriptionAccountHandles.contains(
+                        telecomManager.getUserSelectedOutgoingPhoneAccount());
 
-                if (sPreviousAdnQueryHandler != null) {
-                    // It is harmless to call cancel() even after the handler's gone.
-                    sPreviousAdnQueryHandler.cancel();
+                if (subscriptionAccountHandles.size() == 1 || hasUserSelectedDefault) {
+                    Uri uri = telecomManager.getAdnUriForPhoneAccount(null);
+                    handleAdnQuery(handler, sc, uri);
+                } else if (subscriptionAccountHandles.size() > 1){
+                    SelectPhoneAccountListener listener = new SelectPhoneAccountListener() {
+                        @Override
+                        public void onPhoneAccountSelected(PhoneAccountHandle selectedAccountHandle,
+                                boolean setDefault) {
+                            Uri uri =
+                                    telecomManager.getAdnUriForPhoneAccount(selectedAccountHandle);
+                            handleAdnQuery(handler, sc, uri);
+                            //TODO: show error dialog if result isn't valid
+                        }
+                        @Override
+                        public void onDialogDismissed() {}
+                    };
+
+                    SelectPhoneAccountDialogFragment.showAccountDialog(
+                            ((Activity) context).getFragmentManager(), subscriptionAccountHandles,
+                            listener);
+                } else {
+                    return false;
                 }
-                sPreviousAdnQueryHandler = handler;
+
                 return true;
             } catch (NumberFormatException ex) {
                 // Ignore
@@ -224,29 +243,84 @@ public class SpecialCharSequenceMgr {
         return false;
     }
 
-    static boolean handlePinEntry(Context context, String input) {
+    private static void handleAdnQuery(QueryHandler handler, SimContactQueryCookie cookie,
+            Uri uri) {
+        if (handler == null || cookie == null || uri == null) {
+            Log.w(TAG, "queryAdn parameters incorrect");
+            return;
+        }
+
+        // display the progress dialog
+        cookie.progressDialog.show();
+
+        // run the query.
+        handler.startQuery(ADN_QUERY_TOKEN, cookie, uri, new String[]{ADN_PHONE_NUMBER_COLUMN_NAME},
+                null, null, null);
+
+        if (sPreviousAdnQueryHandler != null) {
+            // It is harmless to call cancel() even after the handler's gone.
+            sPreviousAdnQueryHandler.cancel();
+        }
+        sPreviousAdnQueryHandler = handler;
+    }
+
+    static boolean handlePinEntry(Context context, final String input) {
         if ((input.startsWith("**04") || input.startsWith("**05")) && input.endsWith("#")) {
-            TelecomManager telecomManager =
+            final TelecomManager telecomManager =
                     (TelecomManager) context.getSystemService(Context.TELECOM_SERVICE);
-            return telecomManager.handleMmi(input);
+            List<PhoneAccountHandle> subscriptionAccountHandles =
+                    PhoneAccountUtils.getSubscriptionPhoneAccounts(context);
+            boolean hasUserSelectedDefault = subscriptionAccountHandles.contains(
+                    telecomManager.getUserSelectedOutgoingPhoneAccount());
+
+            if (subscriptionAccountHandles.size() == 1 || hasUserSelectedDefault) {
+                // Don't bring up the dialog for single-SIM or if the default outgoing account is
+                // a subscription account.
+                return telecomManager.handleMmi(input);
+            } else if (subscriptionAccountHandles.size() > 1){
+                SelectPhoneAccountListener listener = new SelectPhoneAccountListener() {
+                    @Override
+                    public void onPhoneAccountSelected(PhoneAccountHandle selectedAccountHandle,
+                            boolean setDefault) {
+                        telecomManager.handleMmi(selectedAccountHandle, input);
+                        //TODO: show error dialog if result isn't valid
+                    }
+                    @Override
+                    public void onDialogDismissed() {}
+                };
+
+                SelectPhoneAccountDialogFragment.showAccountDialog(
+                        ((Activity) context).getFragmentManager(), subscriptionAccountHandles,
+                        listener);
+            }
+            return true;
         }
         return false;
     }
 
-    static boolean handleIMEIDisplay(Context context, String input, boolean useSystemWindow) {
+    // TODO: Use TelephonyCapabilities.getDeviceIdLabel() to get the device id label instead of a
+    // hard-coded string.
+    static boolean handleDeviceIdDisplay(Context context, String input) {
         TelephonyManager telephonyManager =
                 (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
-        if (telephonyManager != null && input.equals(MMI_IMEI_DISPLAY)) {
-            int phoneType = telephonyManager.getPhoneType();
-            if (phoneType == TelephonyManager.PHONE_TYPE_GSM) {
-                showIMEIPanel(context, useSystemWindow, telephonyManager);
-                return true;
-            } else if (phoneType == TelephonyManager.PHONE_TYPE_CDMA) {
-                showMEIDPanel(context, useSystemWindow, telephonyManager);
-                return true;
-            }
-        }
 
+        if (telephonyManager != null && input.equals(MMI_IMEI_DISPLAY)) {
+            int labelResId = (telephonyManager.getPhoneType() == TelephonyManager.PHONE_TYPE_GSM) ?
+                    R.string.imei : R.string.meid;
+
+            List<String> deviceIds = new ArrayList<String>();
+            for (int slot = 0; slot < telephonyManager.getPhoneCount(); slot++) {
+                deviceIds.add(telephonyManager.getDeviceId(slot));
+            }
+
+            AlertDialog alert = new AlertDialog.Builder(context)
+                    .setTitle(labelResId)
+                    .setItems(deviceIds.toArray(new String[deviceIds.size()]), null)
+                    .setPositiveButton(R.string.ok, null)
+                    .setCancelable(false)
+                    .show();
+            return true;
+        }
         return false;
     }
 
@@ -262,36 +336,6 @@ public class SpecialCharSequenceMgr {
             return true;
         }
         return false;
-    }
-
-    // TODO: Combine showIMEIPanel() and showMEIDPanel() into a single
-    // generic "showDeviceIdPanel()" method, like in the apps/Phone
-    // version of SpecialCharSequenceMgr.java.  (This will require moving
-    // the phone app's TelephonyCapabilities.getDeviceIdLabel() method
-    // into the telephony framework, though.)
-
-    private static void showIMEIPanel(Context context, boolean useSystemWindow,
-            TelephonyManager telephonyManager) {
-        String imeiStr = telephonyManager.getDeviceId();
-
-        AlertDialog alert = new AlertDialog.Builder(context)
-                .setTitle(R.string.imei)
-                .setMessage(imeiStr)
-                .setPositiveButton(android.R.string.ok, null)
-                .setCancelable(false)
-                .show();
-    }
-
-    private static void showMEIDPanel(Context context, boolean useSystemWindow,
-            TelephonyManager telephonyManager) {
-        String meidStr = telephonyManager.getDeviceId();
-
-        AlertDialog alert = new AlertDialog.Builder(context)
-                .setTitle(R.string.meid)
-                .setMessage(meidStr)
-                .setPositiveButton(android.R.string.ok, null)
-                .setCancelable(false)
-                .show();
     }
 
     /*******
@@ -392,12 +436,13 @@ public class SpecialCharSequenceMgr {
                 // get the EditText to update or see if the request was cancelled.
                 EditText text = sc.getTextField();
 
-                // if the textview is valid, and the cursor is valid and postionable
-                // on the Nth number, then we update the text field and display a
-                // toast indicating the caller name.
+                // if the TextView is valid, and the cursor is valid and positionable on the
+                // Nth number, then we update the text field and display a toast indicating the
+                // caller name.
                 if ((c != null) && (text != null) && (c.moveToPosition(sc.contactNum))) {
                     String name = c.getString(c.getColumnIndexOrThrow(ADN_NAME_COLUMN_NAME));
-                    String number = c.getString(c.getColumnIndexOrThrow(ADN_PHONE_NUMBER_COLUMN_NAME));
+                    String number =
+                            c.getString(c.getColumnIndexOrThrow(ADN_PHONE_NUMBER_COLUMN_NAME));
 
                     // fill the text in.
                     text.getText().replace(0, 0, number);
@@ -415,8 +460,8 @@ public class SpecialCharSequenceMgr {
 
         public void cancel() {
             mCanceled = true;
-            // Ask AsyncQueryHandler to cancel the whole request. This will fails when the
-            // query already started.
+            // Ask AsyncQueryHandler to cancel the whole request. This will fail when the query is
+            // already started.
             cancelOperation(ADN_QUERY_TOKEN);
         }
     }

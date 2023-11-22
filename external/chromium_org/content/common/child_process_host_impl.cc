@@ -93,7 +93,7 @@ ChildProcessHost* ChildProcessHost::Create(ChildProcessHostDelegate* delegate) {
 base::FilePath ChildProcessHost::GetChildPath(int flags) {
   base::FilePath child_path;
 
-  child_path = CommandLine::ForCurrentProcess()->GetSwitchValuePath(
+  child_path = base::CommandLine::ForCurrentProcess()->GetSwitchValuePath(
       switches::kBrowserSubprocessPath);
 
 #if defined(OS_LINUX)
@@ -271,9 +271,9 @@ bool ChildProcessHostImpl::OnMessageReceived(const IPC::Message& msg) {
 
 void ChildProcessHostImpl::OnChannelConnected(int32 peer_pid) {
   if (!peer_handle_ &&
-      !base::OpenPrivilegedProcessHandle(peer_pid, &peer_handle_) &&
-      !(peer_handle_ = delegate_->GetHandle())) {
-    NOTREACHED();
+      !base::OpenPrivilegedProcessHandle(peer_pid, &peer_handle_)) {
+    peer_handle_ = delegate_->GetHandle();
+    DCHECK(peer_handle_);
   }
   opening_channel_ = false;
   delegate_->OnChannelConnected(peer_pid);

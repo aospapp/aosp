@@ -20,24 +20,25 @@ import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.TestSensorEvent;
 
+import java.util.Collection;
+
 /**
- * Interface describing the sensor verification. This class was designed for to handle streaming
- * events. The methods {@link #addSensorEvent(TestSensorEvent)} and
- * {@link #addSensorEvents(TestSensorEvent...)} should be called in the order that the events are
- * received. The method {@link #verify(TestSensorEnvironment, SensorStats)} should be called after
- * all events are added.
+ * Interface describing the sensor verification.
+ * This class was designed to handle streaming of events.
+ *
+ * The method {@link #addSensorEvents(Collection)} should be called in the order that the events are
+ * received.
+ *
+ * The method {@link #verify(TestSensorEnvironment, SensorStats)} should be called after all events
+ * are added.
  */
 public interface ISensorVerification {
 
     /**
-     * Add a single {@link TestSensorEvent} to be evaluated.
+     * Add a list of {@link TestSensorEvent}s to be evaluated.
      */
-    public void addSensorEvent(TestSensorEvent event);
-
-    /**
-     * Add multiple {@link TestSensorEvent}s to be evaluated.
-     */
-    public void addSensorEvents(TestSensorEvent ... events);
+    // TODO: refactor verifications to be stateless, and pass the list of events in verify()
+    void addSensorEvents(Collection<TestSensorEvent> events);
 
     /**
      * Evaluate all added {@link TestSensorEvent}s and update stats.
@@ -45,10 +46,10 @@ public interface ISensorVerification {
      * @param stats a {@link SensorStats} object used to keep track of the stats.
      * @throws AssertionError if the verification fails.
      */
-    public void verify(TestSensorEnvironment environment, SensorStats stats);
+    void verify(TestSensorEnvironment environment, SensorStats stats);
 
     /**
      * Clones the {@link ISensorVerification}
      */
-    public ISensorVerification clone();
+    ISensorVerification clone();
 }

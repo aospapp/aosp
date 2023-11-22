@@ -11,7 +11,7 @@
 #include "chrome/browser/download/test_download_shelf.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/omnibox/location_bar.h"
+#include "chrome/browser/ui/location_bar/location_bar.h"
 
 class LocationBarTesting;
 class OmniboxView;
@@ -105,9 +105,11 @@ class TestBrowserWindow : public BrowserWindow {
   virtual void ShowBookmarkAppBubble(
       const WebApplicationInfo& web_app_info,
       const std::string& extension_id) OVERRIDE {}
-  virtual void ShowTranslateBubble(content::WebContents* contents,
-                                   translate::TranslateStep step,
-                                   TranslateErrors::Type error_type) OVERRIDE {}
+  virtual void ShowTranslateBubble(
+      content::WebContents* contents,
+      translate::TranslateStep step,
+      translate::TranslateErrors::Type error_type,
+      bool is_user_gesture) OVERRIDE {}
 #if defined(ENABLE_ONE_CLICK_SIGNIN)
   virtual void ShowOneClickSigninBubble(
       OneClickSigninBubbleType type,
@@ -134,6 +136,7 @@ class TestBrowserWindow : public BrowserWindow {
   virtual void Paste() OVERRIDE {}
 #if defined(OS_MACOSX)
   virtual void EnterFullscreenWithChrome() OVERRIDE {}
+  virtual void EnterFullscreenWithoutChrome() OVERRIDE {}
   virtual bool IsFullscreenWithChrome() OVERRIDE;
   virtual bool IsFullscreenWithoutChrome() OVERRIDE;
 #endif
@@ -147,18 +150,10 @@ class TestBrowserWindow : public BrowserWindow {
                                 const gfx::Rect& rect) OVERRIDE {}
   virtual void ShowAvatarBubbleFromAvatarButton(AvatarBubbleMode mode,
       const signin::ManageAccountsParams& manage_accounts_params) OVERRIDE {}
-  virtual void ShowPasswordGenerationBubble(
-      const gfx::Rect& rect,
-      const autofill::PasswordForm& form,
-      autofill::PasswordGenerator* generator) OVERRIDE {}
   virtual int GetRenderViewHeightInsetWithDetachedBookmarkBar() OVERRIDE;
   virtual void ExecuteExtensionCommand(
       const extensions::Extension* extension,
       const extensions::Command& command) OVERRIDE;
-  virtual void ShowPageActionPopup(
-      const extensions::Extension* extension) OVERRIDE;
-  virtual void ShowBrowserActionPopup(
-      const extensions::Extension* extension) OVERRIDE;
 
  protected:
   virtual void DestroyBrowser() OVERRIDE {}
@@ -173,7 +168,7 @@ class TestBrowserWindow : public BrowserWindow {
     virtual void ShowFirstRunBubble() OVERRIDE {}
     virtual GURL GetDestinationURL() const OVERRIDE;
     virtual WindowOpenDisposition GetWindowOpenDisposition() const OVERRIDE;
-    virtual content::PageTransition GetPageTransition() const OVERRIDE;
+    virtual ui::PageTransition GetPageTransition() const OVERRIDE;
     virtual void AcceptInput() OVERRIDE {}
     virtual void FocusLocation(bool select_all) OVERRIDE {}
     virtual void FocusSearch() OVERRIDE {}
@@ -181,6 +176,9 @@ class TestBrowserWindow : public BrowserWindow {
     virtual void UpdateManagePasswordsIconAndBubble() OVERRIDE {}
     virtual void UpdatePageActions() OVERRIDE {}
     virtual void InvalidatePageActions() OVERRIDE {}
+    virtual void UpdateBookmarkStarVisibility() OVERRIDE {}
+    virtual bool ShowPageActionPopup(const extensions::Extension* extension,
+                                     bool grant_active_tab) OVERRIDE;
     virtual void UpdateOpenPDFInReaderPrompt() OVERRIDE {}
     virtual void UpdateGeneratedCreditCardView() OVERRIDE {}
     virtual void SaveStateToContents(content::WebContents* contents) OVERRIDE {}

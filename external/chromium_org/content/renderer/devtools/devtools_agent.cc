@@ -44,6 +44,7 @@ using blink::WebVector;
 using blink::WebView;
 
 using base::debug::TraceLog;
+using base::debug::TraceOptions;
 
 namespace content {
 
@@ -82,8 +83,6 @@ DevToolsAgent::DevToolsAgent(RenderViewImpl* render_view)
   g_agent_for_routing_id.Get()[routing_id()] = this;
 
   render_view->webview()->setDevToolsAgentClient(this);
-  render_view->webview()->devToolsAgent()->setProcessId(
-      base::Process::Current().pid());
 }
 
 DevToolsAgent::~DevToolsAgent() {
@@ -119,6 +118,10 @@ void DevToolsAgent::sendMessageToInspectorFrontend(
     const blink::WebString& message) {
   Send(new DevToolsClientMsg_DispatchOnInspectorFrontend(routing_id(),
                                                          message.utf8()));
+}
+
+long DevToolsAgent::processId() {
+  return base::Process::Current().pid();
 }
 
 int DevToolsAgent::debuggerId() {
@@ -171,7 +174,7 @@ void DevToolsAgent::enableTracing(const WebString& category_filter) {
   TraceLog* trace_log = TraceLog::GetInstance();
   trace_log->SetEnabled(base::debug::CategoryFilter(category_filter.utf8()),
                         TraceLog::RECORDING_MODE,
-                        TraceLog::RECORD_UNTIL_FULL);
+                        TraceOptions());
 }
 
 void DevToolsAgent::disableTracing() {
@@ -249,27 +252,6 @@ void DevToolsAgent::enableDeviceEmulation(
 void DevToolsAgent::disableDeviceEmulation() {
   RenderViewImpl* impl = static_cast<RenderViewImpl*>(render_view());
   impl->DisableScreenMetricsEmulation();
-}
-
-void DevToolsAgent::setTouchEventEmulationEnabled(
-    bool enabled, bool allow_pinch) {
-  RenderViewImpl* impl = static_cast<RenderViewImpl*>(render_view());
-  impl->Send(new ViewHostMsg_SetTouchEventEmulationEnabled(
-      impl->routing_id(), enabled, allow_pinch));
-}
-
-#if defined(USE_TCMALLOC) && !defined(OS_WIN)
-static void AllocationVisitor(void* data, const void* ptr) {
-    typedef blink::WebDevToolsAgentClient::AllocatedObjectVisitor Visitor;
-    Visitor* visitor = reinterpret_cast<Visitor*>(data);
-    visitor->visitObject(ptr);
-}
-#endif
-
-void DevToolsAgent::visitAllocatedObjects(AllocatedObjectVisitor* visitor) {
-#if defined(USE_TCMALLOC) && !defined(OS_WIN)
-  IterateAllocatedObjects(&AllocationVisitor, visitor);
-#endif
 }
 
 // static
@@ -355,10 +337,8 @@ void DevToolsAgent::OnAddMessageToConsole(ConsoleMessageLevel level,
 
 void DevToolsAgent::ContinueProgram() {
   WebDevToolsAgent* web_agent = GetWebAgent();
-  // TODO(pfeldman): rename didNavigate to continueProgram upstream.
-  // That is in fact the purpose of the signal.
   if (web_agent)
-    web_agent->didNavigate();
+    web_agent->continueProgram();
 }
 
 void DevToolsAgent::OnSetupDevToolsClient() {

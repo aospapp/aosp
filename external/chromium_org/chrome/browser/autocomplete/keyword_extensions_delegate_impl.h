@@ -11,11 +11,11 @@
 #include <vector>
 
 #include "base/compiler_specific.h"
-#include "chrome/browser/autocomplete/autocomplete_input.h"
-#include "chrome/browser/autocomplete/autocomplete_match.h"
-#include "chrome/browser/autocomplete/autocomplete_provider_listener.h"
-#include "chrome/browser/autocomplete/keyword_extensions_delegate.h"
-#include "chrome/browser/autocomplete/keyword_provider.h"
+#include "components/omnibox/autocomplete_input.h"
+#include "components/omnibox/autocomplete_match.h"
+#include "components/omnibox/autocomplete_provider_listener.h"
+#include "components/omnibox/keyword_extensions_delegate.h"
+#include "components/omnibox/keyword_provider.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 
@@ -23,17 +23,18 @@
 #error "Should not be included when extensions are disabled"
 #endif
 
+class Profile;
+
 class KeywordExtensionsDelegateImpl : public KeywordExtensionsDelegate,
                                       public content::NotificationObserver {
  public:
-  explicit KeywordExtensionsDelegateImpl(KeywordProvider* provider);
+  KeywordExtensionsDelegateImpl(Profile* profile, KeywordProvider* provider);
   virtual ~KeywordExtensionsDelegateImpl();
 
  private:
   // KeywordExtensionsDelegate:
   virtual void IncrementInputId() OVERRIDE;
-  virtual bool IsEnabledExtension(Profile* profile,
-                                  const std::string& extension_id) OVERRIDE;
+  virtual bool IsEnabledExtension(const std::string& extension_id) OVERRIDE;
   virtual bool Start(const AutocompleteInput& input,
                      bool minimal_changes,
                      const TemplateURL* template_url,
@@ -47,7 +48,6 @@ class KeywordExtensionsDelegateImpl : public KeywordExtensionsDelegate,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
-  Profile* profile() { return provider_->profile_; }
   ACMatches* matches() { return &provider_->matches_; }
   void set_done(bool done) {
     provider_->done_ = done;
@@ -72,6 +72,8 @@ class KeywordExtensionsDelegateImpl : public KeywordExtensionsDelegate,
   // If non-empty, holds the ID of the extension whose keyword is currently in
   // the URL bar while the autocomplete popup is open.
   std::string current_keyword_extension_id_;
+
+  Profile* profile_;
 
   // The owner of this class.
   KeywordProvider* provider_;

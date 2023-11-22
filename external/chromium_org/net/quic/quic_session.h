@@ -12,7 +12,6 @@
 #include "base/compiler_specific.h"
 #include "base/containers/hash_tables.h"
 #include "net/base/ip_endpoint.h"
-#include "net/base/linked_hash_map.h"
 #include "net/quic/quic_connection.h"
 #include "net/quic/quic_crypto_stream.h"
 #include "net/quic/quic_data_stream.h"
@@ -54,6 +53,7 @@ class NET_EXPORT_PRIVATE QuicSession : public QuicConnectionVisitorInterface {
   };
 
   QuicSession(QuicConnection* connection, const QuicConfig& config);
+  void InitializeSession();
 
   virtual ~QuicSession();
 
@@ -71,6 +71,7 @@ class NET_EXPORT_PRIVATE QuicSession : public QuicConnectionVisitorInterface {
   virtual void OnSuccessfulVersionNegotiation(
       const QuicVersion& version) OVERRIDE;
   virtual void OnCanWrite() OVERRIDE;
+  virtual void OnCongestionWindowChange(QuicTime now) OVERRIDE {}
   virtual bool WillingAndAbleToWrite() const OVERRIDE;
   virtual bool HasPendingHandshake() const OVERRIDE;
   virtual bool HasOpenDataStreams() const OVERRIDE;
@@ -205,6 +206,8 @@ class NET_EXPORT_PRIVATE QuicSession : public QuicConnectionVisitorInterface {
 
   QuicFlowController* flow_controller() { return flow_controller_.get(); }
 
+  size_t get_max_open_streams() const { return max_open_streams_; }
+
  protected:
   typedef base::hash_map<QuicStreamId, QuicDataStream*> DataStreamMap;
 
@@ -248,9 +251,9 @@ class NET_EXPORT_PRIVATE QuicSession : public QuicConnectionVisitorInterface {
 
   std::vector<QuicDataStream*>* closed_streams() { return &closed_streams_; }
 
-  size_t get_max_open_streams() const {
-    return max_open_streams_;
-  }
+  void set_max_open_streams(size_t max_open_streams);
+
+  scoped_ptr<QuicHeadersStream> headers_stream_;
 
  private:
   friend class test::QuicSessionPeer;
@@ -281,8 +284,6 @@ class NET_EXPORT_PRIVATE QuicSession : public QuicConnectionVisitorInterface {
       locally_closed_streams_highest_offset_;
 
   scoped_ptr<QuicConnection> connection_;
-
-  scoped_ptr<QuicHeadersStream> headers_stream_;
 
   // A shim to stand between the connection and the session, to handle stream
   // deletions.

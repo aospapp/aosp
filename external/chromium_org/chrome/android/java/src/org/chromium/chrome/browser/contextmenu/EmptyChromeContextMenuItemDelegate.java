@@ -4,7 +4,7 @@
 
 package org.chromium.chrome.browser.contextmenu;
 
-import org.chromium.content_public.Referrer;
+import org.chromium.content_public.common.Referrer;
 
 /**
  * An empty implementation of {@link ChromeContextMenuItemDelegate} to make overriding subsets of
@@ -27,7 +27,7 @@ public class EmptyChromeContextMenuItemDelegate implements ChromeContextMenuItem
     }
 
     @Override
-    public boolean startDownload(boolean isLink) {
+    public boolean startDownload(String url, boolean isLink) {
         return false;
     }
 
@@ -57,5 +57,10 @@ public class EmptyChromeContextMenuItemDelegate implements ChromeContextMenuItem
 
     @Override
     public void onSearchByImageInNewTab() {
+    }
+
+    @Override
+    public String getPageUrl() {
+        return "";
     }
 }

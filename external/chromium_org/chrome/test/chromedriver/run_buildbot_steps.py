@@ -31,6 +31,11 @@ GS_SERVER_LOGS_URL = GS_CHROMEDRIVER_DATA_BUCKET + '/server_logs'
 SERVER_LOGS_LINK = (
     'http://chromedriver-data.storage.googleapis.com/server_logs')
 TEST_LOG_FORMAT = '%s_log.json'
+GS_GIT_LOG_URL = (
+    'https://chromium.googlesource.com/chromium/src/+/%s?format=json')
+GS_SEARCH_PATTERN = (
+    r'Cr-Commit-Position: refs/heads/master@{#(\d+)}')
+CR_REV_URL = 'https://cr-rev.appspot.com/_ah/api/crrev/v1/redirect/%s'
 
 SCRIPT_DIR = os.path.join(_THIS_DIR, os.pardir, os.pardir, os.pardir, os.pardir,
                           os.pardir, os.pardir, os.pardir, 'scripts')
@@ -380,14 +385,62 @@ def _CleanTmpDir():
       os.remove(file_path)
 
 
+def _GetCommitPositionFromGitHash(snapshot_hashcode):
+  json_url = GS_GIT_LOG_URL % snapshot_hashcode
+  try:
+    response = urllib2.urlopen(json_url)
+  except urllib2.HTTPError as error:
+    util.PrintAndFlush('HTTP Error %d' % error.getcode())
+    return None
+  except urllib2.URLError as error:
+    util.PrintAndFlush('URL Error %s' % error.message)
+    return None
+  data = json.loads(response.read()[4:])
+  if 'message' in data:
+    message = data['message'].split('\n')
+    message = [line for line in message if line.strip()]
+    search_pattern = re.compile(GS_SEARCH_PATTERN)
+    result = search_pattern.search(message[len(message)-1])
+    if result:
+      return result.group(1)
+  util.PrintAndFlush('Failed to get svn revision number for %s' %
+                     snapshot_hashcode)
+  return None
+
+
+def _GetGitHashFromCommitPosition(commit_position):
+  json_url = CR_REV_URL % commit_position
+  try:
+    response = urllib2.urlopen(json_url)
+  except urllib2.HTTPError as error:
+    util.PrintAndFlush('HTTP Error %d' % error.getcode())
+    return None
+  except urllib2.URLError as error:
+    util.PrintAndFlush('URL Error %s' % error.message)
+    return None
+  data = json.loads(response.read())
+  if 'git_sha' in data:
+    return data['git_sha']
+  util.PrintAndFlush('Failed to get git hash for %s' % commit_position)
+  return None
+
+
 def _WaitForLatestSnapshot(revision):
   util.MarkBuildStepStart('wait_for_snapshot')
+  def _IsRevisionNumber(revision):
+    if isinstance(revision, int):
+      return True
+    else:
+      return revision.isdigit()
   while True:
     snapshot_revision = archive.GetLatestSnapshotVersion()
-    if int(snapshot_revision) >= int(revision):
-      break
-    util.PrintAndFlush('Waiting for snapshot >= %s, found %s' %
-                       (revision, snapshot_revision))
+    if not _IsRevisionNumber(snapshot_revision):
+      snapshot_revision = _GetCommitPositionFromGitHash(snapshot_revision)
+    if revision is not None and snapshot_revision is not None:
+      if int(snapshot_revision) >= int(revision):
+        break
+      util.PrintAndFlush('Waiting for snapshot >= %s, found %s' %
+                         (revision, snapshot_revision))
     time.sleep(60)
   util.PrintAndFlush('Got snapshot revision %s' % snapshot_revision)
 
@@ -428,7 +481,7 @@ def main():
       help=('Comma separated list of application package names, '
             'if running tests on Android.'))
   parser.add_option(
-      '-r', '--revision', type='int', help='Chromium revision')
+      '-r', '--revision', help='Chromium revision')
   parser.add_option(
       '', '--update-log', action='store_true',
       help='Update the test results log (only applicable to Android)')
@@ -443,6 +496,13 @@ def main():
 
   _CleanTmpDir()
 
+  if not options.revision:
+    commit_position = None
+  elif options.revision.isdigit():
+    commit_position = options.revision
+  else:
+    commit_position = _GetCommitPositionFromGitHash(options.revision)
+
   if platform == 'android':
     if not options.revision and options.update_log:
       parser.error('Must supply a --revision with --update-log')
@@ -451,8 +511,8 @@ def main():
     if not options.revision:
       parser.error('Must supply a --revision')
     if platform == 'linux64':
-      _ArchivePrebuilts(options.revision)
-    _WaitForLatestSnapshot(options.revision)
+      _ArchivePrebuilts(commit_position)
+    _WaitForLatestSnapshot(commit_position)
 
   _AddToolsToPath(platform)
 
@@ -470,9 +530,9 @@ def main():
   if platform == 'android':
     if options.update_log:
       util.MarkBuildStepStart('update test result log')
-      _UpdateTestResultsLog(platform, options.revision, passed)
+      _UpdateTestResultsLog(platform, commit_position, passed)
   elif passed:
-    _ArchiveGoodBuild(platform, options.revision)
+    _ArchiveGoodBuild(platform, commit_position)
     _MaybeRelease(platform)
 
   if not passed:

@@ -18,5 +18,5 @@
 
 <resources>
     <item name="message_header_overflow_menu" type="menu">
-        @menu/message_header_overflow_menu_land_or_tablet_v19</item>
+        @menu/message_header_overflow_menu_land_or_tablet</item>
 </resources>

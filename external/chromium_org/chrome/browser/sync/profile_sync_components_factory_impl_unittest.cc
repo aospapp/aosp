@@ -9,10 +9,10 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop/message_loop.h"
 #include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
-#include "chrome/browser/sync/managed_user_signin_manager_wrapper.h"
 #include "chrome/browser/sync/profile_sync_components_factory_impl.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
+#include "chrome/browser/sync/supervised_user_signin_manager_wrapper.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/chrome_version_info.h"
 #include "chrome/test/base/testing_profile.h"
@@ -24,9 +24,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/app_list/app_list_switches.h"
 
-using browser_sync::DataTypeController;
-
-const char kAccountId[] = "testuser@test.com";
+using sync_driver::DataTypeController;
 
 class ProfileSyncComponentsFactoryImplTest : public testing::Test {
  protected:
@@ -52,6 +50,7 @@ class ProfileSyncComponentsFactoryImplTest : public testing::Test {
     datatypes.push_back(syncer::AUTOFILL);
     datatypes.push_back(syncer::AUTOFILL_PROFILE);
     datatypes.push_back(syncer::BOOKMARKS);
+    datatypes.push_back(syncer::DEVICE_INFO);
 #if defined(OS_LINUX) || defined(OS_WIN) || defined(OS_CHROMEOS)
     datatypes.push_back(syncer::DICTIONARY);
 #endif
@@ -69,6 +68,7 @@ class ProfileSyncComponentsFactoryImplTest : public testing::Test {
     datatypes.push_back(syncer::FAVICON_TRACKING);
     datatypes.push_back(syncer::FAVICON_IMAGES);
     datatypes.push_back(syncer::SUPERVISED_USERS);
+    datatypes.push_back(syncer::SUPERVISED_USER_SETTINGS);
     datatypes.push_back(syncer::SUPERVISED_USER_SHARED_SETTINGS);
 
     return datatypes;
@@ -107,16 +107,15 @@ class ProfileSyncComponentsFactoryImplTest : public testing::Test {
     ProfileOAuth2TokenService* token_service =
         ProfileOAuth2TokenServiceFactory::GetForProfile(profile_.get());
     scoped_ptr<ProfileSyncService> pss(new ProfileSyncService(
-        new ProfileSyncComponentsFactoryImpl(
-            profile_.get(),
-            command_line_.get(),
-            ProfileSyncService::GetSyncServiceURL(*command_line_),
-            kAccountId,
-            scope_set_,
-            token_service,
-            profile_->GetRequestContext()),
+        scoped_ptr<ProfileSyncComponentsFactory>(
+            new ProfileSyncComponentsFactoryImpl(
+                profile_.get(),
+                command_line_.get(),
+                ProfileSyncService::GetSyncServiceURL(*command_line_),
+                token_service,
+                profile_->GetRequestContext())),
         profile_.get(),
-        make_scoped_ptr<ManagedUserSigninManagerWrapper>(NULL),
+        make_scoped_ptr<SupervisedUserSigninManagerWrapper>(NULL),
         token_service,
         browser_sync::MANUAL_START));
     pss->factory()->RegisterDataTypes(pss.get());
@@ -136,16 +135,15 @@ TEST_F(ProfileSyncComponentsFactoryImplTest, CreatePSSDefault) {
   ProfileOAuth2TokenService* token_service =
       ProfileOAuth2TokenServiceFactory::GetForProfile(profile_.get());
   scoped_ptr<ProfileSyncService> pss(new ProfileSyncService(
-      new ProfileSyncComponentsFactoryImpl(
-          profile_.get(),
-          command_line_.get(),
-          ProfileSyncService::GetSyncServiceURL(*command_line_),
-          kAccountId,
-          scope_set_,
-          token_service,
-          profile_->GetRequestContext()),
+      scoped_ptr<ProfileSyncComponentsFactory>(
+          new ProfileSyncComponentsFactoryImpl(
+              profile_.get(),
+              command_line_.get(),
+              ProfileSyncService::GetSyncServiceURL(*command_line_),
+              token_service,
+              profile_->GetRequestContext())),
       profile_.get(),
-      make_scoped_ptr<ManagedUserSigninManagerWrapper>(NULL),
+      make_scoped_ptr<SupervisedUserSigninManagerWrapper>(NULL),
       token_service,
       browser_sync::MANUAL_START));
   pss->factory()->RegisterDataTypes(pss.get());

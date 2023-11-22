@@ -4,7 +4,7 @@
 #define __renderControl_client_ftable_t_h
 
 
-static struct _renderControl_funcs_by_name {
+static const struct _renderControl_funcs_by_name {
 	const char *name;
 	void *proc;
 } renderControl_funcs_by_name[] = {
@@ -35,7 +35,7 @@ static struct _renderControl_funcs_by_name {
 	{"rcUpdateColorBuffer", (void*)rcUpdateColorBuffer},
 	{"rcOpenColorBuffer2", (void*)rcOpenColorBuffer2},
 };
-static int renderControl_num_funcs = sizeof(renderControl_funcs_by_name) / sizeof(struct _renderControl_funcs_by_name);
+static const int renderControl_num_funcs = sizeof(renderControl_funcs_by_name) / sizeof(struct _renderControl_funcs_by_name);
 
 
 #endif

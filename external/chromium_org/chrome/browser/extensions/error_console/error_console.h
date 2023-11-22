@@ -133,9 +133,12 @@ class ErrorConsole : public content::NotificationObserver,
   virtual void OnExtensionLoaded(content::BrowserContext* browser_context,
                                  const Extension* extension) OVERRIDE;
   virtual void OnExtensionInstalled(content::BrowserContext* browser_context,
-                                    const Extension* extension) OVERRIDE;
-  virtual void OnExtensionUninstalled(content::BrowserContext* browser_context,
-                                      const Extension* extension) OVERRIDE;
+                                    const Extension* extension,
+                                    bool is_update) OVERRIDE;
+  virtual void OnExtensionUninstalled(
+      content::BrowserContext* browser_context,
+      const Extension* extension,
+      extensions::UninstallReason reason) OVERRIDE;
 
   // Add manifest errors from an extension's install warnings.
   void AddManifestErrorsForExtension(const Extension* extension);

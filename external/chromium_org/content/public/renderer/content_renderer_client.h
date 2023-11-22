@@ -11,11 +11,11 @@
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string16.h"
 #include "content/public/common/content_client.h"
-#include "content/public/common/page_transition_types.h"
 #include "ipc/ipc_message.h"
 #include "third_party/WebKit/public/web/WebNavigationPolicy.h"
 #include "third_party/WebKit/public/web/WebNavigationType.h"
 #include "third_party/WebKit/public/web/WebPageVisibilityState.h"
+#include "ui/base/page_transition_types.h"
 #include "v8/include/v8.h"
 
 class GURL;
@@ -50,6 +50,7 @@ struct WebURLError;
 }
 
 namespace content {
+class BrowserPluginDelegate;
 class DocumentState;
 class RenderFrame;
 class RenderView;
@@ -83,9 +84,6 @@ class CONTENT_EXPORT ContentRendererClient {
   // none.
   virtual SkBitmap* GetSadWebViewBitmap();
 
-  // Returns the default text encoding.
-  virtual std::string GetDefaultEncoding();
-
   // Allows the embedder to override creating a plugin. If it returns true, then
   // |plugin| will contain the created plugin, although it could be NULL. If it
   // returns false, the content layer will create the plugin.
@@ -100,6 +98,11 @@ class CONTENT_EXPORT ContentRendererClient {
   virtual blink::WebPlugin* CreatePluginReplacement(
       RenderFrame* render_frame,
       const base::FilePath& plugin_path);
+
+  // Creates a delegate for browser plugin.
+  virtual BrowserPluginDelegate* CreateBrowserPluginDelegate(
+      RenderFrame* render_frame,
+      const std::string& mime_type);
 
   // Returns true if the embedder has an error page to show for the given http
   // status code. If so |error_domain| should be set to according to WebURLError
@@ -207,7 +210,7 @@ class CONTENT_EXPORT ContentRendererClient {
   // Notifies the embedder that the given frame is requesting the resource at
   // |url|.  If the function returns true, the url is changed to |new_url|.
   virtual bool WillSendRequest(blink::WebFrame* frame,
-                               PageTransition transition_type,
+                               ui::PageTransition transition_type,
                                const GURL& url,
                                const GURL& first_party_for_cookies,
                                GURL* new_url);
@@ -258,6 +261,15 @@ class CONTENT_EXPORT ContentRendererClient {
   virtual blink::WebWorkerPermissionClientProxy*
       CreateWorkerPermissionClientProxy(RenderFrame* render_frame,
                                         blink::WebFrame* frame);
+
+  // Returns true if the page at |url| can use Pepper Compositor APIs.
+  virtual bool IsPluginAllowedToUseCompositorAPI(const GURL& url);
+
+  // Returns true if the page at |url| can use Pepper VideoDecoder APIs.
+  virtual bool IsPluginAllowedToUseVideoDecodeAPI(const GURL& url);
+
+  // Returns true if dev channel APIs are available for plugins.
+  virtual bool IsPluginAllowedToUseDevChannelAPIs();
 };
 
 }  // namespace content

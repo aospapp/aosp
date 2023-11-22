@@ -10,7 +10,6 @@
 #include "base/strings/string_util.h"
 #include "chrome/browser/history/history_service.h"
 #include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/history/history_types.h"
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/supervised_user/supervised_user_interstitial.h"
@@ -19,14 +18,15 @@
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
 #include "chrome/browser/supervised_user/supervised_user_url_filter.h"
 #include "chrome/browser/tab_contents/tab_util.h"
+#include "chrome/grit/generated_resources.h"
+#include "components/history/core/browser/history_types.h"
 #include "components/infobars/core/confirm_infobar_delegate.h"
 #include "components/infobars/core/infobar.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
-#include "content/public/browser/render_view_host.h"
 #include "content/public/browser/user_metrics.h"
-#include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
 #if !defined(OS_ANDROID)
@@ -127,7 +127,7 @@ void SupervisedUserWarningInfoBarDelegate::InfoBarDismissed() {
 }
 
 base::string16 SupervisedUserWarningInfoBarDelegate::GetMessageText() const {
-  return l10n_util::GetStringUTF16(IDS_MANAGED_USER_WARN_INFOBAR_MESSAGE);
+  return l10n_util::GetStringUTF16(IDS_SUPERVISED_USER_WARN_INFOBAR_MESSAGE);
 }
 
 int SupervisedUserWarningInfoBarDelegate::GetButtons() const {
@@ -137,7 +137,7 @@ int SupervisedUserWarningInfoBarDelegate::GetButtons() const {
 base::string16 SupervisedUserWarningInfoBarDelegate::GetButtonLabel(
     InfoBarButton button) const {
   DCHECK_EQ(BUTTON_OK, button);
-  return l10n_util::GetStringUTF16(IDS_MANAGED_USER_WARN_INFOBAR_GO_BACK);
+  return l10n_util::GetStringUTF16(IDS_SUPERVISED_USER_WARN_INFOBAR_GO_BACK);
 }
 
 bool SupervisedUserWarningInfoBarDelegate::Accept() {
@@ -178,28 +178,11 @@ void SupervisedUserNavigationObserver::WarnInfoBarDismissed() {
   warn_infobar_ = NULL;
 }
 
-void SupervisedUserNavigationObserver::ProvisionalChangeToMainFrameUrl(
-    const GURL& url,
-    content::RenderFrameHost* render_frame_host) {
-  SupervisedUserURLFilter::FilteringBehavior behavior =
-      url_filter_->GetFilteringBehaviorForURL(url);
-
-  if (behavior == SupervisedUserURLFilter::WARN || !warn_infobar_)
-    return;
-
-  // If we shouldn't have a warn infobar remove it here.
-  InfoBarService::FromWebContents(web_contents())->RemoveInfoBar(warn_infobar_);
-  warn_infobar_ = NULL;
-}
-
 void SupervisedUserNavigationObserver::DidCommitProvisionalLoadForFrame(
-    int64 frame_id,
-    const base::string16& frame_unique_name,
-    bool is_main_frame,
+    content::RenderFrameHost* render_frame_host,
     const GURL& url,
-    content::PageTransition transition_type,
-    content::RenderViewHost* render_view_host) {
-  if (!is_main_frame)
+    ui::PageTransition transition_type) {
+  if (render_frame_host->GetParent())
     return;
 
   DVLOG(1) << "DidCommitProvisionalLoadForFrame " << url.spec();
@@ -209,6 +192,10 @@ void SupervisedUserNavigationObserver::DidCommitProvisionalLoadForFrame(
   if (behavior == SupervisedUserURLFilter::WARN && !warn_infobar_) {
     warn_infobar_ = SupervisedUserWarningInfoBarDelegate::Create(
         InfoBarService::FromWebContents(web_contents()));
+  } else if (behavior != SupervisedUserURLFilter::WARN && warn_infobar_) {
+    InfoBarService::FromWebContents(web_contents())->
+        RemoveInfoBar(warn_infobar_);
+    warn_infobar_ = NULL;
   }
 }
 
@@ -242,7 +229,7 @@ void SupervisedUserNavigationObserver::OnRequestBlockedInternal(
   history::HistoryAddPageArgs add_page_args(
         url, timestamp, web_contents(), 0,
         url, history::RedirectList(),
-        content::PAGE_TRANSITION_BLOCKED, history::SOURCE_BROWSED,
+        ui::PAGE_TRANSITION_BLOCKED, history::SOURCE_BROWSED,
         false);
 
   // Add the entry to the history database.

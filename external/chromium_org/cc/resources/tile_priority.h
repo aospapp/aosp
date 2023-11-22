@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <string>
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
@@ -29,16 +30,14 @@ enum WhichTree {
   NUM_TREES = 2
   // Be sure to update WhichTreeAsValue when adding new fields.
 };
-scoped_ptr<base::Value> WhichTreeAsValue(
-    WhichTree tree);
+scoped_ptr<base::Value> WhichTreeAsValue(WhichTree tree);
 
 enum TileResolution {
   LOW_RESOLUTION = 0 ,
   HIGH_RESOLUTION = 1,
   NON_IDEAL_RESOLUTION = 2,
 };
-scoped_ptr<base::Value> TileResolutionAsValue(
-    TileResolution resolution);
+std::string TileResolutionToString(TileResolution resolution);
 
 struct CC_EXPORT TilePriority {
   enum PriorityBin { NOW, SOON, EVENTUALLY };
@@ -83,7 +82,7 @@ struct CC_EXPORT TilePriority {
     }
   }
 
-  scoped_ptr<base::Value> AsValue() const;
+  void AsValueInto(base::debug::TracedValue* dict) const;
 
   bool operator ==(const TilePriority& other) const {
     return resolution == other.resolution &&
@@ -108,10 +107,10 @@ struct CC_EXPORT TilePriority {
   float distance_to_visible;
 };
 
-scoped_ptr<base::Value> TilePriorityBinAsValue(TilePriority::PriorityBin bin);
+std::string TilePriorityBinToString(TilePriority::PriorityBin bin);
 
 enum TileMemoryLimitPolicy {
-  // Nothing.
+  // Nothing. This mode is used when visible is set to false.
   ALLOW_NOTHING = 0,
 
   // You might be made visible, but you're not being interacted with.
@@ -122,23 +121,21 @@ enum TileMemoryLimitPolicy {
 
   // You're the only thing in town. Go crazy.
   ALLOW_ANYTHING = 3,  // Venti.
-
   NUM_TILE_MEMORY_LIMIT_POLICIES = 4,
 
   // NOTE: Be sure to update TreePriorityAsValue and kBinPolicyMap when adding
   // or reordering fields.
 };
-scoped_ptr<base::Value> TileMemoryLimitPolicyAsValue(
-    TileMemoryLimitPolicy policy);
+std::string TileMemoryLimitPolicyToString(TileMemoryLimitPolicy policy);
 
 enum TreePriority {
   SAME_PRIORITY_FOR_BOTH_TREES,
   SMOOTHNESS_TAKES_PRIORITY,
-  NEW_CONTENT_TAKES_PRIORITY
-
+  NEW_CONTENT_TAKES_PRIORITY,
+  NUM_TREE_PRIORITIES
   // Be sure to update TreePriorityAsValue when adding new fields.
 };
-scoped_ptr<base::Value> TreePriorityAsValue(TreePriority prio);
+std::string TreePriorityToString(TreePriority prio);
 
 class GlobalStateThatImpactsTilePriority {
  public:
@@ -168,7 +165,7 @@ class GlobalStateThatImpactsTilePriority {
     return !(*this == other);
   }
 
-  scoped_ptr<base::Value> AsValue() const;
+  void AsValueInto(base::debug::TracedValue* dict) const;
 };
 
 }  // namespace cc

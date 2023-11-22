@@ -352,6 +352,11 @@ public class InputPairer {
         BluetoothScanner.startListening(mContext, mBtListener, new InputDeviceCriteria());
     }
 
+    public void clearDeviceList() {
+        doCancel();
+        mVisibleDevices.clear();
+    }
+
     /**
      * Stop any pairing request that is in progress.
      */

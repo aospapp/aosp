@@ -8,6 +8,7 @@
   },
   'targets': [
     {
+      # GN version: //ui/aura
       'target_name': 'aura',
       'type': '<(component)',
       'dependencies': [
@@ -123,6 +124,7 @@
         ['OS=="win"', {
           'dependencies': [
             '../metro_viewer/metro_viewer.gyp:metro_viewer_messages',
+            '../platform_window/win/win_window.gyp:win_window',
             '../../ipc/ipc.gyp:ipc',
           ],
           'sources!': [
@@ -133,11 +135,13 @@
           'dependencies': [
             '../events/ozone/events_ozone.gyp:events_ozone',
             '../ozone/ozone.gyp:ozone',
+            '../ozone/ozone.gyp:ozone_base',
           ],
         }],
       ],
     },
     {
+      # GN version: //ui/aura:test_support
       'target_name': 'aura_test_support',
       'type': 'static_library',
       'dependencies': [
@@ -164,8 +168,8 @@
         'test/aura_test_utils.cc',
         'test/aura_test_utils.h',
         'test/env_test_helper.h',
-        'test/event_generator.cc',
-        'test/event_generator.h',
+        'test/event_generator_delegate_aura.cc',
+        'test/event_generator_delegate_aura.h',
         'test/test_cursor_client.cc',
         'test/test_cursor_client.h',
         'test/test_focus_client.cc',
@@ -181,6 +185,9 @@
         'test/ui_controls_factory_aura.h',
         'test/ui_controls_factory_aurawin.cc',
         'test/ui_controls_factory_aurax11.cc',
+        'test/ui_controls_factory_ozone.cc',
+        'test/window_event_dispatcher_test_api.cc',
+        'test/window_event_dispatcher_test_api.h',
         'test/window_test_api.cc',
         'test/window_test_api.h',
       ],

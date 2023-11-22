@@ -6,10 +6,10 @@ import json
 import math
 import os
 
-from telemetry import test
+from telemetry import benchmark
 from telemetry.core import util
-from telemetry.page import page_measurement
 from telemetry.page import page_set
+from telemetry.page import page_test
 from telemetry.value import merge_values
 from telemetry.value import scalar
 
@@ -37,12 +37,8 @@ SCORE_UNIT = 'score (bigger is better)'
 SCORE_TRACE_NAME = 'score'
 
 
-class _DomPerfMeasurement(page_measurement.PageMeasurement):
-  @property
-  def results_are_the_same_on_every_page(self):
-    return False
-
-  def MeasurePage(self, page, tab, results):
+class _DomPerfMeasurement(page_test.PageTest):
+  def ValidateAndMeasurePage(self, page, tab, results):
     try:
       def _IsDone():
         return tab.GetCookieByName('__domperf_finished') == '1'
@@ -52,8 +48,9 @@ class _DomPerfMeasurement(page_measurement.PageMeasurement):
       for suite in data['BenchmarkSuites']:
         # Skip benchmarks that we didn't actually run this time around.
         if len(suite['Benchmarks']) or suite['score']:
-          results.Add(SCORE_TRACE_NAME, SCORE_UNIT,
-                      suite['score'], suite['name'], 'unimportant')
+          results.AddValue(scalar.ScalarValue(
+              results.current_page, '%s.%s' % (suite['name'], SCORE_TRACE_NAME),
+              SCORE_UNIT, suite['score'], important=False))
     finally:
       tab.EvaluateJavaScript('document.cookie = "__domperf_finished=0"')
 
@@ -69,8 +66,8 @@ class _DomPerfMeasurement(page_measurement.PageMeasurement):
                            total))
 
 
-@test.Disabled('android', 'linux')
-class DomPerf(test.Test):
+@benchmark.Disabled('android', 'linux')
+class DomPerf(benchmark.Benchmark):
   """A suite of JavaScript benchmarks for exercising the browser's DOM.
 
   The final score is computed as the geometric mean of the individual results.

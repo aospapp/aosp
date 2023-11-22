@@ -65,7 +65,8 @@ void DomDistillerHandler::HandleAddArticle(const base::ListValue* args) {
   if (gurl.is_valid()) {
     service_->AddToList(
         gurl,
-        service_->CreateDefaultDistillerPage(),
+        service_->CreateDefaultDistillerPage(
+            web_ui()->GetWebContents()->GetContainerBounds().size()),
         base::Bind(base::Bind(&DomDistillerHandler::OnArticleAdded,
                               base::Unretained(this))));
   } else {
@@ -79,7 +80,7 @@ void DomDistillerHandler::HandleViewUrl(const base::ListValue* args) {
     web_ui()->GetWebContents()->GetController().LoadURL(
         view_url,
         content::Referrer(),
-        content::PAGE_TRANSITION_GENERATED,
+        ui::PAGE_TRANSITION_GENERATED,
         std::string());
   } else {
     web_ui()->CallJavascriptFunction("domDistiller.onViewUrlFailed");
@@ -95,7 +96,7 @@ void DomDistillerHandler::HandleSelectArticle(const base::ListValue* args) {
   web_ui()->GetWebContents()->GetController().LoadURL(
       url,
       content::Referrer(),
-      content::PAGE_TRANSITION_GENERATED,
+      ui::PAGE_TRANSITION_GENERATED,
       std::string());
 }
 

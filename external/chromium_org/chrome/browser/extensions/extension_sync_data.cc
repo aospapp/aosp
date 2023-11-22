@@ -8,6 +8,7 @@
 #include "chrome/browser/extensions/app_sync_data.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/common/extensions/manifest_url_handler.h"
+#include "components/crx_file/id_util.h"
 #include "extensions/common/extension.h"
 #include "sync/api/sync_data.h"
 #include "sync/protocol/extension_specifics.pb.h"
@@ -19,14 +20,16 @@ ExtensionSyncData::ExtensionSyncData()
     : uninstalled_(false),
       enabled_(false),
       incognito_enabled_(false),
-      remote_install_(false) {
+      remote_install_(false),
+      installed_by_custodian_(false) {
 }
 
 ExtensionSyncData::ExtensionSyncData(const syncer::SyncData& sync_data)
     : uninstalled_(false),
       enabled_(false),
       incognito_enabled_(false),
-      remote_install_(false) {
+      remote_install_(false),
+      installed_by_custodian_(false) {
   PopulateFromSyncData(sync_data);
 }
 
@@ -35,7 +38,8 @@ ExtensionSyncData::ExtensionSyncData(const syncer::SyncChange& sync_change)
                    syncer::SyncChange::ACTION_DELETE),
       enabled_(false),
       incognito_enabled_(false),
-      remote_install_(false) {
+      remote_install_(false),
+      installed_by_custodian_(false) {
   PopulateFromSyncData(sync_change.sync_data());
 }
 
@@ -48,6 +52,7 @@ ExtensionSyncData::ExtensionSyncData(const Extension& extension,
       enabled_(enabled),
       incognito_enabled_(incognito_enabled),
       remote_install_(remote_install),
+      installed_by_custodian_(extension.was_installed_by_custodian()),
       version_(extension.from_bookmark() ? base::Version("0")
                                          : *extension.version()),
       update_url_(ManifestURL::GetUpdateURL(&extension)),
@@ -70,19 +75,20 @@ syncer::SyncChange ExtensionSyncData::GetSyncChange(
 
 void ExtensionSyncData::PopulateExtensionSpecifics(
     sync_pb::ExtensionSpecifics* specifics) const {
-  DCHECK(Extension::IdIsValid(id_));
+  DCHECK(crx_file::id_util::IdIsValid(id_));
   specifics->set_id(id_);
   specifics->set_update_url(update_url_.spec());
   specifics->set_version(version_.GetString());
   specifics->set_enabled(enabled_);
   specifics->set_incognito_enabled(incognito_enabled_);
   specifics->set_remote_install(remote_install_);
+  specifics->set_installed_by_custodian(installed_by_custodian_);
   specifics->set_name(name_);
 }
 
 void ExtensionSyncData::PopulateFromExtensionSpecifics(
     const sync_pb::ExtensionSpecifics& specifics) {
-  if (!Extension::IdIsValid(specifics.id())) {
+  if (!crx_file::id_util::IdIsValid(specifics.id())) {
     LOG(FATAL) << "Attempt to sync bad ExtensionSpecifics.";
   }
 
@@ -102,6 +108,7 @@ void ExtensionSyncData::PopulateFromExtensionSpecifics(
   enabled_ = specifics.enabled();
   incognito_enabled_ = specifics.incognito_enabled();
   remote_install_ = specifics.remote_install();
+  installed_by_custodian_ = specifics.installed_by_custodian();
   name_ = specifics.name();
 }
 

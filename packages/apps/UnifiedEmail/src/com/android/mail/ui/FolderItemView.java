@@ -21,14 +21,14 @@ import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.shapes.RoundRectShape;
 import android.graphics.drawable.shapes.Shape;
 import android.util.AttributeSet;
-import android.view.DragEvent;
 import android.view.View;
 import android.widget.ImageView;
-import android.widget.RelativeLayout;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.android.mail.R;
 import com.android.mail.providers.Folder;
+import com.android.mail.utils.FolderUri;
 import com.android.mail.utils.LogTag;
 import com.android.mail.utils.LogUtils;
 import com.android.mail.utils.Utils;
@@ -36,10 +36,8 @@ import com.android.mail.utils.Utils;
 /**
  * The view for each folder in the folder list.
  */
-public class FolderItemView extends RelativeLayout {
+public class FolderItemView extends LinearLayout {
     private final String LOG_TAG = LogTag.getLogTag();
-
-    private static final int[] STATE_DRAG_MODE = {R.attr.state_drag_mode};
 
     private static float[] sUnseenCornerRadii;
 
@@ -47,27 +45,6 @@ public class FolderItemView extends RelativeLayout {
     private TextView mFolderTextView;
     private TextView mUnreadCountTextView;
     private TextView mUnseenCountTextView;
-    private DropHandler mDropHandler;
-    private ImageView mFolderParentIcon;
-
-    private boolean mIsDragMode;
-
-    /**
-     * A delegate for a handler to handle a drop of an item.
-     */
-    public interface DropHandler {
-        /**
-         * Return whether or not the drag event is supported by the drop handler. The
-         *     {@code FolderItemView} will present appropriate visual affordances if the drag is
-         *     supported.
-         */
-        boolean supportsDrag(DragEvent event, Folder folder);
-
-        /**
-         * Handles a drop event, applying the appropriate logic.
-         */
-        void handleDrop(DragEvent event, Folder folder);
-    }
 
     public FolderItemView(Context context) {
         super(context);
@@ -85,7 +62,6 @@ public class FolderItemView extends RelativeLayout {
         super(context, attrs, defStyle);
 
         loadResources(context);
-        mIsDragMode = false;
     }
 
     private void loadResources(Context context) {
@@ -108,7 +84,6 @@ public class FolderItemView extends RelativeLayout {
         mFolderTextView = (TextView)findViewById(R.id.name);
         mUnreadCountTextView = (TextView)findViewById(R.id.unread);
         mUnseenCountTextView = (TextView)findViewById(R.id.unseen);
-        mFolderParentIcon = (ImageView) findViewById(R.id.folder_parent_icon);
     }
 
     /**
@@ -132,13 +107,19 @@ public class FolderItemView extends RelativeLayout {
                 && a.unreadCount == b.unreadCount));
     }
 
-    public void bind(final Folder folder, final DropHandler dropHandler) {
+    public void bind(final Folder folder, final FolderUri parentUri) {
         mFolder = folder;
-        mDropHandler = dropHandler;
 
         mFolderTextView.setText(folder.name);
 
-        mFolderParentIcon.setVisibility(mFolder.hasChildren ? View.VISIBLE : View.GONE);
+        if (parentUri != null) {
+            final boolean isParent = folder.folderUri.equals(parentUri);
+
+            // If child folder, make spacer view visible, otherwise hide it away
+            findViewById(R.id.nested_folder_space).setVisibility(
+                    isParent ? View.GONE : View.VISIBLE);
+        }
+
         if (mFolder.isInbox() && mFolder.unseenCount > 0) {
             mUnreadCountTextView.setVisibility(View.GONE);
             setUnseenCount(mFolder.getBackgroundColor(Color.BLACK), mFolder.unseenCount);
@@ -190,60 +171,4 @@ public class FolderItemView extends RelativeLayout {
         setUnreadCount(count);
     }
 
-    private boolean isDroppableTarget(DragEvent event) {
-        return (mDropHandler != null && mDropHandler.supportsDrag(event, mFolder));
-    }
-
-    /**
-     * Handles the drag event.
-     *
-     * @param event the drag event to be handled
-     */
-    @Override
-    public boolean onDragEvent(DragEvent event) {
-        switch (event.getAction()) {
-            case DragEvent.ACTION_DRAG_STARTED:
-                // Set drag mode state to true now that we have entered drag mode.
-                // This change updates the states of icons and text colors.
-                // Additional drawable states are updated by the framework
-                // based on the DragEvent.
-                setDragMode(true);
-            case DragEvent.ACTION_DRAG_ENTERED:
-            case DragEvent.ACTION_DRAG_EXITED:
-                // All of these states return based on isDroppableTarget's return value.
-                // If modifying, watch the switch's drop-through effects.
-                return isDroppableTarget(event);
-            case DragEvent.ACTION_DRAG_ENDED:
-                // Set drag mode to false since we're leaving drag mode.
-                // Updates all the states of icons and text colors back to non-drag values.
-                setDragMode(false);
-                return true;
-
-            case DragEvent.ACTION_DRAG_LOCATION:
-                return true;
-
-            case DragEvent.ACTION_DROP:
-                if (mDropHandler == null) {
-                    return false;
-                }
-
-                mDropHandler.handleDrop(event, mFolder);
-                return true;
-        }
-        return false;
-    }
-
-    @Override
-    protected int[] onCreateDrawableState(int extraSpace) {
-        final int[] drawableState = super.onCreateDrawableState(extraSpace + 1);
-        if (mIsDragMode) {
-            mergeDrawableStates(drawableState, STATE_DRAG_MODE);
-        }
-        return drawableState;
-    }
-
-    private void setDragMode(boolean isDragMode) {
-        mIsDragMode = isDragMode;
-        refreshDrawableState();
-    }
 }

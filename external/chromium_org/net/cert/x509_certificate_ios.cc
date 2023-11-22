@@ -103,6 +103,8 @@ void X509Certificate::GetSubjectAltName(
 // static
 bool X509Certificate::GetDEREncoded(OSCertHandle cert_handle,
                                     std::string* encoded) {
+  if (!cert_handle)
+    return false;
   ScopedCFTypeRef<CFDataRef> der_data(SecCertificateCopyData(cert_handle));
   if (!der_data)
     return false;
@@ -163,7 +165,8 @@ X509Certificate::OSCertHandle X509Certificate::DupOSCertHandle(
 
 // static
 void X509Certificate::FreeOSCertHandle(OSCertHandle cert_handle) {
-  CFRelease(cert_handle);
+  if (cert_handle)
+    CFRelease(cert_handle);
 }
 
 // static

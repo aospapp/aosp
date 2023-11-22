@@ -21,9 +21,7 @@ class CC_EXPORT ContentLayerPainter : public LayerPainter {
  public:
   static scoped_ptr<ContentLayerPainter> Create(ContentLayerClient* client);
 
-  virtual void Paint(SkCanvas* canvas,
-                     const gfx::Rect& content_rect,
-                     gfx::RectF* opaque) OVERRIDE;
+  virtual void Paint(SkCanvas* canvas, const gfx::Rect& content_rect) OVERRIDE;
 
  private:
   explicit ContentLayerPainter(ContentLayerClient* client);
@@ -38,9 +36,8 @@ class CC_EXPORT ContentLayer : public TiledLayer {
  public:
   static scoped_refptr<ContentLayer> Create(ContentLayerClient* client);
 
-  void ClearClient() { client_ = NULL; }
+  void ClearClient();
 
-  virtual bool DrawsContent() const OVERRIDE;
   virtual void SetLayerTreeHost(LayerTreeHost* layer_tree_host) OVERRIDE;
   virtual void SetTexturePriorities(const PriorityCalculator& priority_calc)
       OVERRIDE;
@@ -59,6 +56,8 @@ class CC_EXPORT ContentLayer : public TiledLayer {
  protected:
   explicit ContentLayer(ContentLayerClient* client);
   virtual ~ContentLayer();
+
+  virtual bool HasDrawableContent() const OVERRIDE;
 
   // TiledLayer implementation.
   virtual LayerUpdater* Updater() const OVERRIDE;

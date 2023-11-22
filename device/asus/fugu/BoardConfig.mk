@@ -131,10 +131,16 @@ USE_INTEL_SECURE_AVC := true
 USE_MEDIASDK := true
 MFX_IPP := p8
 
+# Video Post Processing
+TARGET_HAS_ISV := true
+ADDITIONAL_DEFAULT_PROPERTIES += \
+    persist.intel.isv.vpp = 1 \
+    persist.intel.isv.frc = 1
+
 COMMON_GLOBAL_CFLAGS += -DGFX_BUF_EXT
 
 # Disable IMG RS GPU driver
-# OVERRIDE_RS_DRIVER := libPVRRS.so
+OVERRIDE_RS_DRIVER := libPVRRS.so
 
 # enable ARM codegen for x86 with Houdini
 BUILD_ARM_FOR_X86 := true

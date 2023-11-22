@@ -32,7 +32,7 @@ extern "C" {
 // When modifying the blacklist in the test process, use the exported test dll
 // functions on the test blacklist dll, not the ones linked into the test
 // executable itself.
-__declspec(dllimport) bool TestDll_AddDllsFromRegistryToBlacklist();
+__declspec(dllimport) void TestDll_AddDllsFromRegistryToBlacklist();
 __declspec(dllimport) bool TestDll_AddDllToBlacklist(const wchar_t* dll_name);
 __declspec(dllimport) bool TestDll_IsBlacklistInitialized();
 __declspec(dllimport) bool TestDll_RemoveDllFromBlacklist(
@@ -47,7 +47,7 @@ namespace {
 class BlacklistTest : public testing::Test {
  protected:
   BlacklistTest() : override_manager_() {
-    override_manager_.OverrideRegistry(HKEY_CURRENT_USER, L"beacon_test");
+    override_manager_.OverrideRegistry(HKEY_CURRENT_USER);
   }
 
   scoped_ptr<base::win::RegKey> blacklist_registry_key_;
@@ -73,7 +73,17 @@ class BlacklistTest : public testing::Test {
 struct TestData {
   const wchar_t* dll_name;
   const wchar_t* dll_beacon;
-} test_data[] = {{kTestDllName2, kDll2Beacon}, {kTestDllName3, kDll3Beacon}};
+} test_data[] = {
+    {kTestDllName2, kDll2Beacon},
+#if !defined(_WIN64)
+    // The third test dll is special in that it does not contain an export
+    // table. This prevents SafeGetImageInfo from extracting the name from there
+    // AND for some reason NtQueryVirtualMemory with MemorySectionName returns
+    // STATUS_ACCESS_VIOLATION in 64 bit builds for reasons still unknown.
+    // http://crbug.com/397137
+    {kTestDllName3, kDll3Beacon}
+#endif
+};
 
 TEST_F(BlacklistTest, Beacon) {
   // Ensure that the beacon state starts off 'running' for this version.
@@ -240,7 +250,7 @@ TEST_F(BlacklistTest, AddDllsFromRegistryToBlacklist) {
                                             test_data[i].dll_name);
   }
 
-  EXPECT_TRUE(TestDll_AddDllsFromRegistryToBlacklist());
+  TestDll_AddDllsFromRegistryToBlacklist();
   CheckBlacklistedDllsNotLoaded();
 }
 

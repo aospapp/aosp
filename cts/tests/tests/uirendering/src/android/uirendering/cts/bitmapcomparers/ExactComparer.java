@@ -41,9 +41,11 @@ public class ExactComparer extends BaseRenderScriptComparer {
             for (int x = 0 ; x < width ; x++) {
                 int index = indexFromXAndY(x, y, stride, offset);
                 if (ideal[index] != given[index]) {
-                    Log.d(TAG, "Failure on position x = " + x + " y = " + y);
-                    Log.d(TAG, "Expected color : " + Integer.toHexString(ideal[index]) +
-                            " given color : " + Integer.toHexString(given[index]));
+                    if (count < 50) {
+                        Log.d(TAG, "Failure on position x = " + x + " y = " + y);
+                        Log.d(TAG, "Expected color : " + Integer.toHexString(ideal[index]) +
+                                " given color : " + Integer.toHexString(given[index]));
+                    }
                     count++;
                 }
             }
